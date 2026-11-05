@@ -1,3 +1,4 @@
 # 编号	用例文件（相对 impl/Tests/）	状态（未实现/部分/PASS/N/A）
 PROJ-05	internal/cli/cli_test.go	部分
 LEX-01	internal/xfront/lexer_test.go	PASS
+STMT-01	internal/xfront/lexer_test.go + internal/xfront/stmt_test.go	PASS

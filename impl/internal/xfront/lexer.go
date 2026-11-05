@@ -610,9 +610,11 @@ func (l *lexer) lexString(start Pos, raw, multiline, interp bool) Token {
 	}
 
 	var val strings.Builder
+	var segs []string
 	var interps []string
 	depth := 0
 	var expr strings.Builder
+	pushSeg := func() { segs = append(segs, val.String()); val.Reset() }
 
 	fail := func(code, msg, hint string) Token {
 		l.err(start, code, msg, hint)
@@ -645,11 +647,13 @@ func (l *lexer) lexString(start Pos, raw, multiline, interp bool) Token {
 					if depth > 0 {
 						l.err(start, lexBadInterp, "插值表达式未闭合", "插值以 } 结束")
 					}
-					return Token{Kind: StrLit, Str: strKindOf(raw, multiline, interp), Value: val.String(), Interps: interps, Pos: start}
+					pushSeg()
+					return Token{Kind: StrLit, Str: strKindOf(raw, multiline, interp), Value: concatSegs(segs, val.String()), Segs: segs, Interps: interps, Pos: start}
 				}
 			} else if depth == 0 {
 				l.advance()
-				return Token{Kind: StrLit, Str: strKindOf(raw, multiline, interp), Value: val.String(), Interps: interps, Pos: start}
+				pushSeg()
+				return Token{Kind: StrLit, Str: strKindOf(raw, multiline, interp), Value: concatSegs(segs, val.String()), Segs: segs, Interps: interps, Pos: start}
 			}
 		}
 
@@ -685,6 +689,7 @@ func (l *lexer) lexString(start Pos, raw, multiline, interp bool) Token {
 				val.WriteRune('{')
 				continue
 			}
+			pushSeg()
 			l.advance()
 			depth = 1
 			expr.Reset()
@@ -716,4 +721,10 @@ func strKindOf(raw, multiline, interp bool) StrKind {
 		return StrMultiline
 	}
 	return StrNormal
+}
+
+// concatSegs 拼接静态段（插值串 Value 保持旧行为：全部静态文本连写）。
+func concatSegs(segs []string, last string) string {
+	all := append(append([]string{}, segs...), last)
+	return strings.Join(all, "")
 }

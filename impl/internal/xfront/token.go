@@ -93,6 +93,7 @@ type Token struct {
 	// 字符串
 	Str     StrKind
 	Value   string   // 解码后内容（普通/原始/多行）；插值串为拼接后的静态文本
+	Segs    []string // 插值串的静态段，与 Interps 交错：len(Segs) == len(Interps)+1
 	Interps []string // 插值表达式原文（StrInterp 时按源码顺序）
 
 	// 字符
