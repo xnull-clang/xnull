@@ -1,0 +1,16 @@
+# 本地编辑产物
+*.docx
+
+# 系统文件
+.DS_Store
+
+# Go
+impl/xnull
+impl/xnull.test
+*.test
+*.out
+coverage.*
+
+# Python
+__pycache__/
+*.pyc
