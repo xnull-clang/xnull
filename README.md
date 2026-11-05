@@ -92,6 +92,7 @@ XNull started as a one-person design project. The next phases need a team — an
 **We're looking for**
 
 - **Compiler engineers** — the C backend is the next milestone: one file compiles to C, the C compiles to a binary, the binary runs. You'd build it.
+- **Standard library (XDK) contributors** — the XDK (S6) decides what "batteries included" means for a language with no exceptions and no reflection: collections, text, IO, concurrency primitives. API design, docs, and reference implementations are all open — the spec (v1.1.0) is the starting point, and your input shapes it.
 - **Runtime engineers** — the adjudicated memory runtime (ARC/GC/stack, decided per DET-01), task scheduling, FFI.
 - **Design critics** — read the specs and attack the decisions. Every rejection is documented with its rationale; a good counterargument becomes a spec revision.
 - **Writers & translators** — tutorials, benchmarks, and translations of the specifications into more languages.
@@ -204,6 +205,7 @@ XNull 从个人设计项目起步，下一阶段需要团队——而最有意�
 **正在招募**
 
 - **编译器工程师**——下一里程碑是 C 后端：一个文件编译成 C，C 编译成二进制，二进制跑出结果。来把它造出来。
+- **标准库（XDK）贡献者**——XDK（S6）决定一门无异常、无反射的语言里「开箱即用」意味着什么：集合、文本、IO、并发原语。API 设计、文档、参考实现全面开放——规范（v1.1.0）只是起点，你的输入直接塑造它。
 - **运行时工程师**——判定式内存运行时（ARC/GC/栈，按 DET-01 判定）、任务调度、FFI。
 - **设计批评者**——读规范、攻击决策。每条拒绝都写明理由；一个好的反驳会变成一次规范修订。
 - **写作者与译者**——教程、基准测试、规范的多语言翻译。
