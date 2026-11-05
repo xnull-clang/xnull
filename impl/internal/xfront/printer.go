@@ -346,6 +346,114 @@ func writeStmts(b *strings.Builder, stmts []Stmt) {
 	}
 }
 
+// PrintUnit 把编译单元打印为 S 表达式（--emit ast 用）。
+func PrintUnit(u *CompilationUnit) string {
+	var b strings.Builder
+	b.WriteString("(unit")
+	if u.Package != nil {
+		fmt.Fprintf(&b, " (package %s)", strings.Join(u.Package.Name, "."))
+	}
+	for _, im := range u.Imports {
+		fmt.Fprintf(&b, " (import %s", strings.Join(im.Path, "."))
+		if im.Alias != "" {
+			fmt.Fprintf(&b, " as %s", im.Alias)
+		}
+		b.WriteString(")")
+	}
+	for _, d := range u.Decls {
+		b.WriteByte(' ')
+		writeTopDecl(&b, d)
+	}
+	b.WriteString(")")
+	return b.String()
+}
+
+func writeTopDecl(b *strings.Builder, d TopDecl) {
+	switch n := d.(type) {
+	case *PackageDecl:
+		fmt.Fprintf(b, "(package %s)", strings.Join(n.Name, "."))
+	case *ImportDecl:
+		fmt.Fprintf(b, "(import %s", strings.Join(n.Path, "."))
+		if n.Alias != "" {
+			fmt.Fprintf(b, " as %s", n.Alias)
+		}
+		b.WriteString(")")
+	case *TopFunc:
+		b.WriteString("(func")
+		writeMods(b, n.Public, n.Protected, n.Private, n.Static)
+		writeAnnos(b, n.Annos)
+		if n.Void {
+			b.WriteString(" void")
+		} else {
+			b.WriteString(" ")
+			writeType(b, n.Ret)
+		}
+		fmt.Fprintf(b, " %s", n.Name)
+		for _, tp := range n.TypePars {
+			fmt.Fprintf(b, " <%s>", tp)
+		}
+		b.WriteString(" (params")
+		for _, pr := range n.Params {
+			b.WriteString(" (param")
+			writeAnnos(b, pr.Annos)
+			if pr.Final {
+				b.WriteString(" final")
+			}
+			b.WriteString(" ")
+			writeType(b, pr.Type)
+			fmt.Fprintf(b, " %s)", pr.Name)
+		}
+		b.WriteString(")")
+		b.WriteByte(' ')
+		writeBlock(b, n.Body)
+		b.WriteString(")")
+	case *TopField:
+		b.WriteString("(field")
+		writeMods(b, n.Public, n.Protected, n.Private, n.Static)
+		writeAnnos(b, n.Annos)
+		if n.Final {
+			b.WriteString(" final")
+		}
+		if n.Const {
+			b.WriteString(" const")
+		}
+		b.WriteString(" ")
+		writeType(b, n.Type)
+		fmt.Fprintf(b, " %s", n.Name)
+		if n.Init != nil {
+			b.WriteByte(' ')
+			writeExpr(b, n.Init)
+		}
+		b.WriteString(")")
+	}
+}
+
+func writeMods(b *strings.Builder, pub, prot, priv, static bool) {
+	if pub {
+		b.WriteString(" public")
+	}
+	if prot {
+		b.WriteString(" protected")
+	}
+	if priv {
+		b.WriteString(" private")
+	}
+	if static {
+		b.WriteString(" static")
+	}
+}
+
+func writeAnnos(b *strings.Builder, annos []*AnnotationNode) {
+	for _, a := range annos {
+		fmt.Fprintf(b, " (@%s", a.Name)
+		for _, arg := range a.Args {
+			b.WriteByte(' ')
+			writeExpr(b, arg)
+		}
+		b.WriteString(")")
+	}
+}
+
 // PrintType 把类型引用打印为 S1 附录 A 的书写形式。
 func PrintType(t TypeRef) string {
 	var b strings.Builder

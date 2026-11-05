@@ -156,6 +156,8 @@ func insertable(t *Token) bool {
 	switch t.Kind {
 	case Ident, IntLit, FloatLit, CharLit, StrLit, RParen, RBrack, RBrace:
 		return true
+	case Annotation: // `@注解` 总是附着到其后的声明，注解行换行不终止（§1.6）
+		return false
 	case Op:
 		return t.Text == "++" || t.Text == "--"
 	case Keyword:

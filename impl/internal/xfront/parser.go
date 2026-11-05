@@ -19,6 +19,8 @@ const (
 	synRangeContext = "SYN-107" // 范围只允许出现在 for-in 源位置（此约束语义层执行，解析不报）
 	synStmtTerm     = "SYN-108" // 同一行缺分号（S1 §1.6、STMT-01）
 	synAssignTarget = "SYN-109" // 赋值/自增目标不在 Assignable 集（附录 A）
+	synTypeDecl     = "SYN-110" // 类型声明属第 2 部分（S2 切片实现）
+	synXdkPackage   = "SYN-111" // 用户包名使用保留命名空间 xdk（§3.1）
 )
 
 // ParseExpr 解析一个完整表达式（S1 附录 A：Expression）。

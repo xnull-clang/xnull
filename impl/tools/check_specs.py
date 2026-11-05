@@ -20,11 +20,20 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+INDEX = "XNull规范索引-v1.0.0.md"
+
+# 布局自适应：工作空间根布局（规范在根目录，EN 在 xnull/spec/en）
+# 与公开仓库布局（规范与 EN 均在 spec/ 下）二选一。
+SPEC_DIR = next(
+    d
+    for d in (ROOT, os.path.join(ROOT, "spec"))
+    if os.path.isfile(os.path.join(d, INDEX))
+)
+
 PARTS = sorted(
-    f for f in os.listdir(ROOT)
+    f for f in os.listdir(SPEC_DIR)
     if re.match(r"XNull解决方案-第[1-8]部分-.+-v\d+\.\d+\.\d+\.md$", f)
 )
-INDEX = "XNull规范索引-v1.0.0.md"
 
 PENDING_WORDS = re.compile(r"待定|待确认|待议|待落实|暂定")
 
@@ -40,7 +49,7 @@ def fail_list(title, fails):
 
 
 def read(name):
-    with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+    with open(os.path.join(SPEC_DIR, name), encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -107,7 +116,9 @@ def check_binaries():
 
 def check_en_sync():
     """EN 快照：覆盖、版本一致、不滞后于中文母本。"""
-    en_dir = os.path.join(ROOT, "xnull", "spec", "en")
+    en_dir = os.path.join(SPEC_DIR, "en")
+    if not os.path.isdir(en_dir):
+        en_dir = os.path.join(ROOT, "xnull", "spec", "en")
     if not os.path.isdir(en_dir):
         return fail_list("EN 快照同步（公开内容线）", ["xnull/spec/en/ 目录不存在"])
     en_files = os.listdir(en_dir)
@@ -132,7 +143,7 @@ def check_en_sync():
         if not m_en or m_en.group(1) != v_cn:
             fails.append(f"{en}: 版本 {m_en.group(1) if m_en else '?'} ≠ 母本 {v_cn}")
             continue
-        t_cn = os.path.getmtime(os.path.join(ROOT, cn))
+        t_cn = os.path.getmtime(os.path.join(SPEC_DIR, cn))
         t_en = os.path.getmtime(os.path.join(en_dir, en))
         if t_cn > t_en:
             fails.append(f"{en}: 晚于母本改动——母本 {cn} 变更后英译未同步重译")

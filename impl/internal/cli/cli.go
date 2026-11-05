@@ -5,9 +5,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
+	"xnull.dev/xnull/internal/interp"
+	"xnull.dev/xnull/internal/xfront"
 )
 
 // Version 工具链版本；与清单 properties.xdk-version 的校验在 M3 接入。
@@ -63,6 +66,12 @@ func Run(env Env) int {
 
 	if err := parseFlags(rest); err != nil {
 		return fail(env, *err)
+	}
+
+	// T1 最小可运行闭环：`xnull run path/to/file.xn` 直接执行单文件
+	// （不依赖工程清单；清单模式在 M3 接入，任务单 CEO 2026-11-06）。
+	if name == "run" && len(rest) > 0 && strings.HasSuffix(rest[0], ".xn") {
+		return runFile(env, rest[0])
 	}
 
 	switch name {
@@ -138,6 +147,28 @@ func notImplemented(env Env, name string) int {
 	msg := fmt.Sprintf("命令 %q 尚未实现（M0 骨架）", name)
 	fmt.Fprintf(env.Stderr, "xnull: %s\n", msg)
 	return exitcode.Usage
+}
+
+// runFile 执行单个 .xn 文件：解析 → 解释执行。
+// 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读。
+func runFile(env Env, path string) int {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "xnull: 无法读取文件 %s：%v\n", path, err)
+		return exitcode.Usage
+	}
+	u, diags := xfront.ParseUnit(path, string(src))
+	if len(diags) > 0 {
+		for _, d := range diags {
+			fmt.Fprintln(env.Stderr, d.String())
+		}
+		return exitcode.BuildFail
+	}
+	if err := interp.Run(u, env.Stdout); err != nil {
+		fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+		return exitcode.BuildFail
+	}
+	return exitcode.Success
 }
 
 func fail(env Env, d diag.Diagnostic) int {

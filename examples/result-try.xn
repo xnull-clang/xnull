@@ -1,0 +1,29 @@
+// result-try.xn —— 错误即值：Result<T,E> + try 传播（T2 示例 2，S1 §10.1—10.2）
+// 预期输出：
+//   got 42
+//   true
+//   true
+//   negative: -3
+//   fallback 0
+
+static Result<Int, String> double(Int n) {
+    if n < 0 {
+        return Err("negative: " + str(n))
+    }
+    return Ok(n * 2)
+}
+
+static Result<Int, String> run(Int n) {
+    Int v = try double(n)   // 失败时从本函数以 Err 返回（§10.2）
+    print("got " + str(v))
+    return Ok(v)
+}
+
+static Int main() {
+    Result<Int, String> ok = run(21)
+    print(ok.isOk())
+    Result<Int, String> bad = run(-3)
+    print(bad.isErr())
+    print("fallback " + str(bad.unwrapOr(0)))
+    return 0
+}

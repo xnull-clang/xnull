@@ -2,6 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -54,5 +57,32 @@ func TestUnknownCommandIsUsageError(t *testing.T) {
 	}
 	if !strings.Contains(errOut, "xnull:1:1") {
 		t.Fatalf("诊断缺少位置前缀：%s", errOut)
+	}
+}
+
+// T1 验收命令锁定：xnull run examples/hello.xn 一条命令出结果（CEO 任务单 2026-11-06）。
+func TestRunSingleFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hello.xn")
+	os.WriteFile(path, []byte("static Int main() {\n    print(\"hello, XNull\")\n    return 0\n}"), 0o644)
+	var out, errBuf bytes.Buffer
+	code := Run(Env{Stdout: &out, Stderr: &errBuf, Args: []string{"run", path}})
+	if code != exitcode.Success {
+		t.Fatalf("退出码 %d，stderr=%s", code, errBuf.String())
+	}
+	if out.String() != "hello, XNull\n" {
+		t.Fatalf("输出不符：%q", out.String())
+	}
+}
+
+func TestRunSingleFileDeterministic(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "d.xn")
+	os.WriteFile(path, []byte("static Int main() {\n    for i in 0..<3 { print(i) }\n    return 0\n}"), 0o644)
+	var out1, out2 bytes.Buffer
+	Run(Env{Stdout: &out1, Stderr: io.Discard, Args: []string{"run", path}})
+	Run(Env{Stdout: &out2, Stderr: io.Discard, Args: []string{"run", path}})
+	if out1.String() != out2.String() {
+		t.Fatalf("两次运行输出不一致：%q vs %q", out1.String(), out2.String())
 	}
 }
