@@ -4,9 +4,9 @@
 
 ## 构建与运行
 
-- 工具链：**Go ≥ 1.27**（`go.mod` 的 `go 1.27` 指令锁定最低版本）。
+- 工具链：**Go ≥ 1.27**（`go.mod` 的 `go 1.27` 指令锁定最低版本；风险点 4 落实）。
 - 构建：`cd impl && go build -o xnull ./cmd/xnull`
-- 运行单文件（T1 最小可运行闭环）：
+- 运行单文件（最小可运行闭环）：
 
 ```
 xnull run examples/hello.xn
@@ -14,9 +14,9 @@ xnull run examples/hello.xn
 
 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读或用法错误；130 中断。
 
-## T1 解释器范围（internal/interp）
+## 解释器范围（internal/interp）
 
-tree-walking 解释器，支持：顶层函数/字段、局部声明、赋值与复合赋值、自增/自减、
+tree-walking 解释器（最小可运行闭环），支持：顶层函数/字段、局部声明、赋值与复合赋值、自增/自减、
 if/while/do-while/for-in 区间、switch（无隐式贯穿）、break/continue（含标签）、
 `Result`/`Ok`/`Err`/`try` 传播（S1 §10.1—10.2）、`defer`/`errdefer` LIFO（§10.3）、
 `throw` fatal（§10.4，不执行 defer）、字符串插值、三元、`??`、逻辑短路。
@@ -30,7 +30,7 @@ if/while/do-while/for-in 区间、switch（无隐式贯穿）、break/continue�
 
 ### 1. map 遍历随机 vs DET-01 确定性
 
-- T1 解释器**没有 map 运行值**，输出路径无随机源；`internal/interp/interp_test.go`
+- 解释器**没有 map 运行值**，输出路径无随机源；`internal/interp/interp_test.go`
   的 `TestDeterminismByteIdentical` 固化"多次运行逐字节一致"。
 - **长期规则**：后续引入 map 值后，凡 map 参与输出或影响执行顺序的边界（遍历顺序、
   键枚举、诊断排序），必须按键排序；违反即缺陷。此规则同时约束编译器诊断的输出顺序。
@@ -49,7 +49,7 @@ if/while/do-while/for-in 区间、switch（无隐式贯穿）、break/continue�
 - **运行时（ARC/GC、`deinit` 时序、内存判定表执行）必须用 C 实现**：S3/S5 已把
   运行时语义锁死（清扫时序、release→`deinit`→回收、不复活等强制语义），
   Go 的 GC 与 goroutine 栈语义无法承载这些合同；Go 不承载运行时。
-- T1 解释器是过渡交付物，不是运行时；正式运行时在 M3 按 S3/S5 用 C 落地。
+- 解释器是过渡交付物，不是运行时；正式运行时按 S3/S5 用 C 落地。
 
 ### 4. 工具链版本锁定
 
@@ -63,7 +63,7 @@ if/while/do-while/for-in 区间、switch（无隐式贯穿）、break/continue�
 cmd/xnull/        命令行入口
 internal/cli/     命令分派与退出码
 internal/xfront/  词法分析器、解析器、AST、打印器（M1 语法层，四级齐备）
-internal/interp/  T1 tree-walking 解释器
+internal/interp/  tree-walking 解释器（最小可运行闭环）
 internal/xpd/     XPD 解析器（设计提案格式）
 internal/diag/    诊断结构
 internal/exitcode/ 退出码常量（S9 §5.1）

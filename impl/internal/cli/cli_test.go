@@ -60,7 +60,7 @@ func TestUnknownCommandIsUsageError(t *testing.T) {
 	}
 }
 
-// T1 验收命令锁定：xnull run examples/hello.xn 一条命令出结果（CEO 任务单 2026-11-06）。
+// 验收命令锁定：xnull run examples/hello.xn 一条命令出结果。
 func TestRunSingleFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hello.xn")

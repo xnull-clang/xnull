@@ -13,7 +13,7 @@ import (
 	"xnull.dev/xnull/internal/xfront"
 )
 
-// Version 工具链版本；与清单 properties.xdk-version 的校验在 M3 接入。
+// Version 工具链版本；与清单 properties.xdk-version 的校验后续接入。
 const Version = "0.1.0-dev"
 
 const (
@@ -68,8 +68,7 @@ func Run(env Env) int {
 		return fail(env, *err)
 	}
 
-	// T1 最小可运行闭环：`xnull run path/to/file.xn` 直接执行单文件
-	// （不依赖工程清单；清单模式在 M3 接入，任务单 CEO 2026-11-06）。
+	// 最小可运行闭环：`xnull run path/to/file.xn` 直接执行单文件（不依赖工程清单；清单模式后续接入）。
 	if name == "run" && len(rest) > 0 && strings.HasSuffix(rest[0], ".xn") {
 		return runFile(env, rest[0])
 	}
@@ -115,7 +114,7 @@ func writeUsage(w io.Writer) {
 	fmt.Fprintf(w, "\n退出码：0 成功 / 1 构建失败 / 2 清单或用法错误 / 130 中断\n")
 }
 
-// parseFlags 只校验形态：M0 阶段命令参数集尚未冻结，未知长参数即用法错误。
+// parseFlags 只校验形态：当前阶段命令参数集尚未冻结，未知长参数即用法错误。
 func parseFlags(args []string) *diag.Diagnostic {
 	for _, a := range args {
 		if len(a) > 1 && a[0] == '-' && a[1] == '-' {
@@ -144,7 +143,7 @@ func manifestExists(args []string) bool {
 }
 
 func notImplemented(env Env, name string) int {
-	msg := fmt.Sprintf("命令 %q 尚未实现（M0 骨架）", name)
+	msg := fmt.Sprintf("命令 %q 尚未实现", name)
 	fmt.Fprintf(env.Stderr, "xnull: %s\n", msg)
 	return exitcode.Usage
 }

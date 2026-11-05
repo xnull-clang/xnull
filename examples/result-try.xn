@@ -1,4 +1,4 @@
-// result-try.xn —— 错误即值：Result<T,E> + try 传播（T2 示例 2，S1 §10.1—10.2）
+// result-try.xn —— 错误即值：Result<T,E> + try 传播（S1 §10.1—10.2）
 // 预期输出：
 //   got 42
 //   true

@@ -1,6 +1,6 @@
 // Package interp 是最小可运行闭环的 tree-walking 解释器。
 //
-// 范围（2026-11-06）：单个 XNull 文件 → 解析 → 执行 → 输出。
+// 范围：单个 XNull 文件 → 解析 → 执行 → 输出。
 // 支持：顶层函数/字段、局部声明、赋值与复合赋值、自增/自减、if/while/do-while/
 // for-in 区间、switch（无隐式贯穿）、break/continue、Result/Ok/Err/try 传播
 // （S1 §10.1—10.2）、defer/errdefer LIFO（S1 §10.3）、throw fatal（§10.4）、
@@ -47,7 +47,7 @@ type Value struct {
 	R *resv
 }
 
-// resv 是 Result 运行值（T1 阶段 E 限定为可打印值；泛型检查在语义层）。
+// resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
 type resv struct {
 	ok bool
 	v  *Value
@@ -183,9 +183,9 @@ func Run(u *xfront.CompilationUnit, out io.Writer) error {
 	if !ok {
 		return fmt.Errorf("找不到入口 main（ENTRY-01：缺失入口）")
 	}
-	// T1 只支持 `main()` 形态；`main(args: String[])` 形态在 ENTRY-01 语义切片接入。
+	// 当前只支持 `main()` 形态；`main(args: String[])` 形态在 ENTRY-01 语义切片接入。
 	if len(main[0].Params) != 0 {
-		return fmt.Errorf("T1 解释器仅支持无参 main()")
+		return fmt.Errorf("解释器当前仅支持无参 main()")
 	}
 	_, err := in.call(main[0], nil)
 	return err
@@ -193,7 +193,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer) error {
 
 func zeroValue(t xfront.TypeRef) *Value {
 	// §4.2 零值：数值 0、Bool false、Char '\0'、引用 null。
-	// T1 按声明类型名近似判定；完整类型检查在语义层。
+	// 当前按声明类型名近似判定；完整类型检查在语义层。
 	if nt, ok := t.(*xfront.NamedType); ok && len(nt.Qual) == 1 {
 		switch nt.Qual[0] {
 		case "Int", "Long", "Byte", "Short":
@@ -280,7 +280,7 @@ func (in *Interp) execBlock(b *xfront.Block, sc *scope) {
 	}
 }
 
-// runDeferBody 执行 defer 体（§10.3：体不得包含控制转移——T1 解释器层面
+// runDeferBody 执行 defer 体（§10.3：体不得包含控制转移——解释器层面
 // 出现即报错；控制体限制的静态检查在语义层）。
 func (in *Interp) runDeferBody(d *xfront.DeferStmt, sc *scope) {
 	defer func() {
@@ -359,7 +359,7 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		// 区间 for-in（§6.7）：a..<b 半开、a...b 闭；下界大于上界执行零次。
 		rg, ok := n.Src.(*xfront.Binary)
 		if !ok || (rg.Op != "..<" && rg.Op != "...") {
-			panic(runtimeErr{"T1 解释器的 for-in 仅支持区间源（容器遍历在语义切片接入）"})
+			panic(runtimeErr{"解释器当前仅支持区间源（容器遍历在语义切片接入）"})
 		}
 		lo := in.eval(rg.L, sc)
 		hi := in.eval(rg.R, sc)
@@ -409,11 +409,11 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		defer func() { in.label = prev }()
 		in.exec(n.Stmt, sc, defers)
 	case *xfront.GotoStmt:
-		panic(runtimeErr{"goto 在 T1 解释器中不支持（结构化控制流覆盖常规路径；goto 语义在后续切片）"})
+		panic(runtimeErr{"goto 在解释器中不支持（结构化控制流覆盖常规路径；goto 语义在后续切片）"})
 	case *xfront.Block:
 		in.execBlock(n, newScope(sc))
 	default:
-		panic(runtimeErr{"T1 解释器不支持的语句：" + xfront.PrintStmt(st)})
+		panic(runtimeErr{"解释器不支持的语句：" + xfront.PrintStmt(st)})
 	}
 }
 
@@ -519,21 +519,21 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		}
 		return in.eval(n.Else, sc)
 	case *xfront.Tuple:
-		panic(runtimeErr{"T1 解释器暂不支持元组值"})
+		panic(runtimeErr{"解释器暂不支持元组值"})
 	case *xfront.ArrayLit, *xfront.MapLit:
-		panic(runtimeErr{"T1 解释器暂不支持容器字面量（容器遍历在语义切片接入）"})
+		panic(runtimeErr{"解释器暂不支持容器字面量（容器遍历在语义切片接入）"})
 	case *xfront.Call:
 		return in.evalCall(n, sc)
 	case *xfront.Member:
 		return in.evalMember(n, sc)
 	case *xfront.Index, *xfront.TupleMember:
-		panic(runtimeErr{"T1 解释器暂不支持下标/元组元素访问"})
+		panic(runtimeErr{"解释器暂不支持下标/元组元素访问"})
 	case *xfront.New, *xfront.NewArray:
-		panic(runtimeErr{"T1 解释器暂不支持对象/数组构造"})
+		panic(runtimeErr{"解释器暂不支持对象/数组构造"})
 	case *xfront.Lambda:
-		panic(runtimeErr{"T1 解释器暂不支持闭包值"})
+		panic(runtimeErr{"解释器暂不支持闭包值"})
 	}
-	panic(runtimeErr{"T1 解释器不支持的表达式：" + xfront.PrintExpr(e)})
+	panic(runtimeErr{"解释器不支持的表达式：" + xfront.PrintExpr(e)})
 }
 
 func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
@@ -570,7 +570,7 @@ func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
 			return &Value{K: vStr, S: format(l) + format(r)}
 		}
 	case "is", "as", "as?":
-		panic(runtimeErr{"T1 解释器暂不支持类型运算 " + n.Op})
+		panic(runtimeErr{"解释器暂不支持类型运算 " + n.Op})
 	}
 	return arith(n.P, n.Op, l, r)
 }
@@ -732,7 +732,7 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			return &Value{K: vNull}
 		}
 		if !recv.isResult() {
-			panic(runtimeErr{"T1 解释器只支持 Result 成员方法：" + mem.Name})
+			panic(runtimeErr{"解释器只支持 Result 成员方法：" + mem.Name})
 		}
 		args := make([]*Value, len(n.Args))
 		for i, a := range n.Args {
@@ -793,7 +793,7 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		}
 		panic(runtimeErr{"未定义的函数：" + id.Name})
 	}
-	panic(runtimeErr{"T1 解释器暂不支持非常量可调用表达式"})
+	panic(runtimeErr{"解释器暂不支持非常量可调用表达式"})
 }
 
 func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
@@ -801,7 +801,7 @@ func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
 	if n.NullSafe && x.K == vNull {
 		return &Value{K: vNull} // ?. 空传播（§7.5）
 	}
-	panic(runtimeErr{"T1 解释器不支持的裸成员访问（Result 成员是方法，须以 r.isOk() 形式调用）"})
+	panic(runtimeErr{"解释器不支持的裸成员访问（Result 成员是方法，须以 r.isOk() 形式调用）"})
 }
 
 // assignTo 把值写入可赋值位置（§6.4）。
@@ -813,7 +813,7 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 		}
 		return
 	}
-	panic(runtimeErr{"T1 解释器只支持对局部/顶层变量赋值（成员与下标赋值在语义切片接入）"})
+	panic(runtimeErr{"解释器只支持对局部/顶层变量赋值（成员与下标赋值在语义切片接入）"})
 }
 
 func truthy(v *Value, p xfront.Pos) bool {
