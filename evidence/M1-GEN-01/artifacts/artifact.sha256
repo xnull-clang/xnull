@@ -1,12 +1,13 @@
-db5029bc644c3d8472cb43d005aa1423a5492e2b4be5904a62e9f58c9ca3a67d  impl/internal/codegen/gen01_red_test.go
+6b4d0affef154f07641ceea2587938fe6ebf8f8162a471f81032aabf226a2604  impl/internal/codegen/gen01_red_test.go
 eda73965c44fa7ea6c0f0ba3a53d8860d9464baac61fdb4f811a66c593827f31  impl/internal/codegen/gen01_mono_test.go
 9d0bfbc69567cc75790fa2640bcc02078ae3619cf24ff164d9373381905d4446  impl/internal/codegen/generics.go
 0371f75256b782922534b8d5be2f0f874bf195941ca1fb925c5dbdaa68a4c2ba  evidence/M1-GEN-01/before/after-merge-main-2c00cf5.log
 337ae623396a5cabf04c2b3f24385049dd796f8c9c7f09f16704361bb80ee613  evidence/M1-GEN-01/before/baseline-existing-suite.log
 89a48acd063e28c1406931cad6bc872201a0d45dd7c23499ee39433fb495e303  evidence/M1-GEN-01/before/cli-probes.log
 046edf56300c8bb4eca2cbc20241d2ad63f2caa1d22d07f1b61cb9972e517347  evidence/M1-GEN-01/before/go-test-gen01-before.log
-26950f0d7c4580983eeb23803a2d38e896b3e9588c044f1852f3bf069551cb2f  evidence/M1-GEN-01/after-codegen-half.log
-b439fd262a1eddaad10ab9ae15346496b1ba70496d3a9b54a559f1b7affa3adc  evidence/M1-GEN-01/after-merge-regression.log
+06984274911f12fea2bdce164c44737668bdc18f5bcf014cd94ad8bafa2d1ad4  evidence/M1-GEN-01/before/rerun-2026-11-07-T1h.log
+673c7e459cfb36cd203386a2cab6ae1f81ecb6904e1843d3a39b7934809652be  evidence/M1-GEN-01/after-codegen-half.log
+d817352fc8feba670314d3098b78a93a59fffc10f4c04d50adcc9c9aecd032c9  evidence/M1-GEN-01/after-merge-regression.log
 6384d50ba0ed0e26972632d764703ec08c301128f9628584fc91f89b6243fc09  evidence/M1-GEN-01/interp-dualpath-examples.log
 8bde391af7abd49032fb05d5687b0f3e9014f893e89b426e4142b3ef833de79d  evidence/M1-GEN-01/interp-full.log
 a80588a7a2d0464ce40296453c51de0662a3105ff1735d7b83a586c7e63fa7a6  evidence/M1-GEN-01/interp-green.log
