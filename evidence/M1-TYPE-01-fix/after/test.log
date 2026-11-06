@@ -1,0 +1,16 @@
+=== RUN   TestTYPE01OptionalPromotionLiterals
+--- PASS: TestTYPE01OptionalPromotionLiterals (0.00s)
+=== RUN   TestTYPE01OptionalPromotionNegative
+=== RUN   TestTYPE01OptionalPromotionNegative/String?_收_Int_字面量
+=== RUN   TestTYPE01OptionalPromotionNegative/Int?_收字符串字面量
+=== RUN   TestTYPE01OptionalPromotionNegative/Bool?_收整数字面量
+=== RUN   TestTYPE01OptionalPromotionNegative/非可空_Int_收_null
+=== RUN   TestTYPE01OptionalPromotionNegative/Double?_收_Int_字面量
+--- PASS: TestTYPE01OptionalPromotionNegative (0.00s)
+    --- PASS: TestTYPE01OptionalPromotionNegative/String?_收_Int_字面量 (0.00s)
+    --- PASS: TestTYPE01OptionalPromotionNegative/Int?_收字符串字面量 (0.00s)
+    --- PASS: TestTYPE01OptionalPromotionNegative/Bool?_收整数字面量 (0.00s)
+    --- PASS: TestTYPE01OptionalPromotionNegative/非可空_Int_收_null (0.00s)
+    --- PASS: TestTYPE01OptionalPromotionNegative/Double?_收_Int_字面量 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	8.742s

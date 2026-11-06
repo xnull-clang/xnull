@@ -714,6 +714,10 @@ func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
 		return &Value{K: vBool, B: valuesEqual(l, r)}
 	case "!=":
 		return &Value{K: vBool, B: !valuesEqual(l, r)}
+	case "===":
+		return &Value{K: vBool, B: identical(l, r)}
+	case "!==":
+		return &Value{K: vBool, B: !identical(l, r)}
 	case "+":
 		if l.K == vStr || r.K == vStr { // String + String（§5.4 也允许常量域）
 			return &Value{K: vStr, S: format(l) + format(r)}
@@ -856,8 +860,69 @@ func valuesEqual(l, r *Value) bool {
 		return l.C == r.C
 	case vStr:
 		return l.S == r.S
+	case vTuple: // §2.11：逐元素使用元素类型的相等语义
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !valuesEqual(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
+}
+
+// identical 严格同一性（§2.8、§2.11）：元组逐元素比较同一性；
+// 引用类型比较引用身份，值类型比较值；null === null 为 true。
+func identical(l, r *Value) bool {
+	if l.K == vNull || r.K == vNull {
+		return l.K == vNull && r.K == vNull
+	}
+	if l.K != r.K {
+		return false
+	}
+	switch l.K {
+	case vTuple:
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !identical(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
+	case vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份
+		return l == r
+	}
+	return valuesEqual(l, r)
+}
+
+// selectFunc 选择重载/泛型候选（§8.2）：显式类型实参只匹配类型参数个数相同的泛型候选；
+// 无显式实参时优先非泛型（更具体），否则取首个参数个数相同的候选。
+// 解释器是动态路径，不做静态类型合一；参数个数是可判定过滤条件（§4.4 既有口径）。
+func (in *Interp) selectFunc(name string, fns []*xfront.TopFunc, typeArgs []xfront.TypeRef, argc int) *xfront.TopFunc {
+	if len(typeArgs) > 0 {
+		for _, f := range fns {
+			if len(f.Params) == argc && len(f.TypePars) == len(typeArgs) {
+				return f
+			}
+		}
+		panic(runtimeErr{fmt.Sprintf("函数 %s 没有匹配 %d 个类型实参的重载（§8.2）", name, len(typeArgs))})
+	}
+	for _, f := range fns {
+		if len(f.Params) == argc && len(f.TypePars) == 0 {
+			return f
+		}
+	}
+	for _, f := range fns {
+		if len(f.Params) == argc {
+			return f
+		}
+	}
+	panic(runtimeErr{fmt.Sprintf("函数 %s 无 %d 参数的重载", name, argc)})
 }
 
 func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
@@ -942,20 +1007,16 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 		}
 		if fns, found := in.funcs[id.Name]; found {
-			for _, f := range fns { // 重载按参数数量过滤（§4.4）
-				if len(f.Params) == len(n.Args) {
-					args := make([]*Value, len(n.Args))
-					for i, a := range n.Args {
-						args[i] = in.eval(a, sc)
-					}
-					v, err := in.call(f, args)
-					if err != nil {
-						panic(runtimeErr{err.Error()})
-					}
-					return v
-				}
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
 			}
-			panic(runtimeErr{fmt.Sprintf("函数 %s 无 %d 参数的重载", id.Name, len(n.Args))})
+			f := in.selectFunc(id.Name, fns, n.TypeArgs, len(args))
+			v, err := in.call(f, args)
+			if err != nil {
+				panic(runtimeErr{err.Error()})
+			}
+			return v
 		}
 		if id.Name == "print" || id.Name == "str" { // 内置函数（2/≤3）
 			if len(n.Args) != 1 {

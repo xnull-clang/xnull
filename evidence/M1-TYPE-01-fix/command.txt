@@ -1,0 +1,6 @@
+# 工作目录：wt/c1-rd2/impl（pod/c1-rd2）
+# 红：可选提升缺失（String 字面量/容器字面量 → T? 误报 TY-101）
+go test ./internal/sema -run 'TestTYPE01Optional' -count=1 -v
+# 绿：assignable 先做可选提升再走字面量规则
+go test ./internal/sema -run 'TestTYPE01Optional' -count=1 -v
+go test ./internal/sema -count=1
