@@ -1,0 +1,11 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4233440663/prog.c:267:19: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  267 |         if (((idx == 0))) {
+      |               ~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4233440663/prog.c:267:19: note: remove extraneous parentheses around the comparison to silence this warning
+  267 |         if (((idx == 0))) {
+      |             ~     ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4233440663/prog.c:267:19: note: use '=' to turn this equality comparison into an assignment
+  267 |         if (((idx == 0))) {
+      |                   ^~
+      |                   =
+1 warning generated.

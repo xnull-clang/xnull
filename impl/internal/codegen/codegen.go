@@ -35,12 +35,20 @@ const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
 static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
 static void xn_print_str(rt_string *s) { printf("%.*s\n", (int)s->len, s->bytes); }
+static void xn_print_null(void) { fputs("null\n", stdout); }
+
+/* 可空值（S1 §2.10）：has=0 表示 null。 */
+typedef struct { int has; int64_t v; } xn_opt_i;
+typedef struct { int has; int v; } xn_opt_b;
+typedef struct { int has; rt_string *v; } xn_opt_s;
 
 static rt_string *xn_str_int(int64_t v) {
     char buf[32];
     int n = snprintf(buf, sizeof(buf), "%lld", (long long)v);
     return rt_string_new(buf, (size_t)n);
 }
+
+static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? "true" : "false"); }
 
 /* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */
 static rt_string *xn_alloc_str(size_t n);
@@ -308,7 +316,15 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	if len(g.globalList) > 0 {
 		b.WriteString("\n")
 	}
+	g.cs.ensureMapArrays()
 	g.cs.emit(&b)
+	// String.split 返回 String[]（依赖数组实例化）；replace 为纯字符串助手。
+	if g.cs.arr["rt_string *"] {
+		b.WriteString(strSplitHelper)
+	}
+	if g.needStrReplace {
+		b.WriteString(strReplaceHelper)
+	}
 	// 顶层函数原型（类方法体可能引用后定义的顶层函数；与顺序无关）
 	for _, d := range u.Decls {
 		fn, ok := d.(*xfront.TopFunc)
@@ -540,15 +556,16 @@ func (g *gen) genGlobalInit() (string, error) {
 }
 
 type gen struct {
-	results    map[string]string     // Result 实例化名 → v 成员类型
-	cs         *containers           // 容器实例化注册表（M4.4a）
-	fnRet      map[string]string     // 顶层函数名 → 返回 C 类型（类型推断用）
-	classes    map[string]*classInfo // 类名 → 生成信息（M4.4b）
-	globals    map[string]string     // 顶层字段名 → C 类型（ENTRY-01）
-	globalList []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
-	ffi        *ffi.Registry         // .xfb 绑定注册表（P-09）
-	ffiEntries map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
-	tmp        int
+	results        map[string]string     // Result 实例化名 → v 成员类型
+	cs             *containers           // 容器实例化注册表（M4.4a）
+	fnRet          map[string]string     // 顶层函数名 → 返回 C 类型（类型推断用）
+	classes        map[string]*classInfo // 类名 → 生成信息（M4.4b）
+	globals        map[string]string     // 顶层字段名 → C 类型（ENTRY-01）
+	globalList     []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
+	ffi            *ffi.Registry         // .xfb 绑定注册表（P-09）
+	ffiEntries     map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
+	needStrReplace bool                  // 使用过 String.replace（按需发助手）
+	tmp            int
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
@@ -660,6 +677,13 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 				return "", err
 			}
 			return arrName(ec), nil
+		}
+		if len(n.Suffixes) == 1 && n.Suffixes[0] == "?" {
+			bc, err := g.cType(n.Base)
+			if err != nil {
+				return "", err
+			}
+			return optName(bc)
 		}
 		return "", fmt.Errorf("codegen：类型后缀 %v 未支持（M4.4a 范围）", n.Suffixes)
 	case *xfront.NamedType:
@@ -1070,11 +1094,28 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 // emitPrint 按静态类型分派 print：String（自有临时）/Bool/Int。
 // 借用形态（容器元素 get/下标读）不释放——所有权在容器。
 func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
+	if _, ok := e.(*xfront.NullLit); ok {
+		return []string{"xn_print_null();"}, nil
+	}
 	t, err := s.exprType(e)
 	if err != nil {
 		return nil, err
 	}
 	switch t {
+	case "xn_opt_i", "xn_opt_b", "xn_opt_s":
+		lines, v, err := s.optExpr(e, t)
+		if err != nil {
+			return nil, err
+		}
+		printFn := "xn_print_int"
+		if t == "xn_opt_b" {
+			printFn = "xn_print_bool"
+		} else if t == "xn_opt_s" {
+			printFn = "xn_print_str"
+		}
+		out := append([]string{}, lines...)
+		out = append(out, "if ("+v+".has) { "+printFn+"("+v+".v); } else { xn_print_null(); }")
+		return out, nil
 	case "rt_string *":
 		if s.isBorrowExpr(e) {
 			v, err := s.borrowStr(e)
@@ -1175,6 +1216,18 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 	tc, err := s.g.cType(n.Type)
 	if err != nil {
 		return nil, err
+	}
+	if strings.HasPrefix(tc, "xn_opt_") {
+		lines, v := []string{}, "("+tc+"){0, 0}"
+		if n.Init != nil {
+			ls, expr, err := s.optExpr(n.Init, tc)
+			if err != nil {
+				return nil, err
+			}
+			lines, v = ls, expr
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
@@ -1299,6 +1352,31 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 }
 
 func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
+	if n.Op == "+=" || n.Op == "-=" {
+		id, ok := n.Target.(*xfront.IdentExpr)
+		if !ok {
+			return nil, fmt.Errorf("codegen：复合赋值目标 %T 未支持（M6-B0-05 范围）", n.Target)
+		}
+		tgt := s.cRef(id.Name)
+		// 可空/String 目标的复合赋值不在覆盖面内；标量按 Int 展开。
+		if tc, ok := s.localCType(id.Name); ok && (tc == "rt_string *" || strings.HasPrefix(tc, "xn_opt_")) {
+			return nil, fmt.Errorf("codegen：%s 上的复合赋值 %s 未支持（M6-B0-05 范围）", tc, n.Op)
+		}
+		if tc, ok := s.g.globals[id.Name]; ok && (tc == "rt_string *" || strings.HasPrefix(tc, "xn_opt_")) {
+			return nil, fmt.Errorf("codegen：%s 上的复合赋值 %s 未支持（M6-B0-05 范围）", tc, n.Op)
+		}
+		v, err := s.intExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		op := "+"
+		if n.Op == "-=" {
+			op = "-"
+		}
+		return append(out, tgt+" = "+tgt+" "+op+" ("+v+");"), nil
+	}
 	if n.Op != "=" {
 		return nil, fmt.Errorf("codegen：复合赋值 %s 未支持（M4.1 范围）", n.Op)
 	}
@@ -1632,6 +1710,31 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			}
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				switch mem.Name {
+				case "join":
+					sep, err := s.strExpr(n.Args[0])
+					if err != nil {
+						return nil, err
+					}
+					t := s.tmp()
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					out = append(out, sep...)
+					return append(out, "rt_string *"+t+" = "+rc+"_join("+rn+", "+lastVar(sep)+");"), nil
+				case "get", "at":
+					if elem, ok2 := containerElem(rc); ok2 && elem == "rt_string *" {
+						i, err := s.intExpr(n.Args[0])
+						if err != nil {
+							return nil, err
+						}
+						t := s.tmp()
+						out := append([]string{}, s.pending...)
+						s.pending = nil
+						return append(out, "rt_string *"+t+" = rt_retain("+rc+"_"+mem.Name+"(&"+rn+", "+i+"));"), nil
+					}
+				}
+			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				call, hit, err := s.strMemberValue(mem, n.Args, true)
 				if err != nil {
@@ -1667,6 +1770,13 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				return []string{"rt_string *" + t + " = xn_result_error_copy_rt(" + recv.Name + ".err);"}, nil
 			}
 		}
+	case *xfront.Index:
+		v, err := s.borrowStr(n)
+		if err != nil {
+			return nil, err
+		}
+		t := s.tmp()
+		return []string{"rt_string *" + t + " = rt_retain(" + v + ");"}, nil
 	case *xfront.IdentExpr:
 		name := s.cRef(n.Name)
 		// 借用 → 为消费方取得一份引用（concat 接管两侧所有权）
@@ -1868,6 +1978,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return "xn_" + id.Name + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				if v, hit, err := s.containerMemberValue(rc, rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				if v, hit, err := s.strMemberValue(mem, n.Args, false); err != nil {
 					return "", err

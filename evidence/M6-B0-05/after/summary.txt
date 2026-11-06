@@ -1,0 +1,5 @@
+phase=after
+ops=39
+cells_total=78
+cells_pass=76
+ops_both_pass=37

@@ -5,6 +5,7 @@ package codegen
 
 import (
 	"fmt"
+	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
 )
@@ -119,7 +120,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 				return "", fmt.Errorf("codegen：类 %s 没有成员 %s", ci.decl.Name, mem.Name)
 			}
 			switch mem.Name {
-			case "isOk", "isErr", "has", "add", "remove", "contains":
+			case "isOk", "isErr", "has", "add", "contains":
 				return "int", nil
 			case "length":
 				return "int64_t", nil
@@ -129,14 +130,33 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					switch mem.Name {
 					case "getOr":
 						return v, nil
-					case "get", "keys", "values":
-						return "", fmt.Errorf("codegen：Map.%s 未支持（M4.4a 范围）", mem.Name)
+					case "get":
+						return optName(v)
+					case "keys":
+						if err := s.g.cs.needArr(k); err != nil {
+							return "", err
+						}
+						return arrName(k), nil
+					case "values":
+						if err := s.g.cs.needArr(v); err != nil {
+							return "", err
+						}
+						return arrName(v), nil
+					case "remove":
+						return "int", nil
 					}
 				}
 				if elem, ok2 := containerElem(recvC); ok2 {
 					switch mem.Name {
-					case "get":
+					case "get", "at":
 						return elem, nil
+					case "remove":
+						if strings.HasPrefix(recvC, "xn_set_") {
+							return "int", nil // Set.remove 返回 Bool（与解释器一致）
+						}
+						return elem, nil // List.remove 返回被删元素
+					case "join":
+						return "rt_string *", nil
 					}
 				}
 			}
