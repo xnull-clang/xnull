@@ -10,7 +10,7 @@
 Thumbs.db
 
 # 公开仓库为独立嵌套仓库，不在内部库跟踪
-xnull/
+/xnull/
 
 # 图像生成临时目录
 generated-images/
