@@ -17,7 +17,7 @@
 ### 1.1 管线
 
 ```
-.xn 源文件
+.x 源文件
   → xfront（解析，已有）
   → sema（名称解析/确定赋值/类型检查/策略判定，已有）
   → codegen（新增包 internal/codegen）→ 每编译单元一个 <unit>.c
@@ -161,7 +161,7 @@ int64_t v = xn_tmp1.ok;
 - 函数出口 `xn_ret`：展开函数级 defer 帧（最外层块）→ `return xn_ret_slot;`；
 - defer 体内声明的临时变量提升到块首（C 的声明位置约束）。
 
-示例（defer-cleanup.xn 的 work()）：
+示例（defer-cleanup.x 的 work()）：
 
 ```c
 static int32_t xn_work(void) {
@@ -197,14 +197,14 @@ static int32_t xn_work(void) {
 ### 5.1 命令面
 
 ```
-xnull build [file.xn | 工程目录]     # 默认 .；产出 target/<name>
-xnull run   [file.xn | 工程目录]     # build + 执行（M4.3 起为编译路径）
+xnull build [file.x | 工程目录]     # 默认 .；产出 target/<name>
+xnull run   [file.x | 工程目录]     # build + 执行（M4.3 起为编译路径）
 xnull build --emit c                # 只产出 C 源到 target/gen/，不编译（调试/审计用）
-xnull run --interp [file.xn]        # 强制解释器（M4.3 起为调试模式）
+xnull run --interp [file.x]        # 强制解释器（M4.3 起为调试模式）
 ```
 
 - 现有 `test` / `lock` / `fmt` 子命令不变；`--emit ast` 等既有调试旗标不变；
-- 单文件模式（examples 场景）：一个 .xn 直接编译；工程模式按 S8 目录纪律（src/main/...）。
+- 单文件模式（examples 场景）：一个 .x 直接编译；工程模式按 S8 目录纪律（src/main/...）。
 
 ### 5.2 构建缓存与工具链
 
@@ -236,7 +236,7 @@ rt.h 现有合同（retain/release/rt_string/fatal/weak/policy）**不动**；M4
 
 ## 7. 三示例的预期 C 输出形态
 
-### 7.1 hello.xn → hello.c（骨架）
+### 7.1 hello.x → hello.c（骨架）
 
 ```c
 #include "xrt.h"   /* rt.h + codegen 便利层的单元一 umbrella（提案名） */
@@ -252,14 +252,14 @@ static int32_t xn_main(void) {
 int main(void) { return xn_main(); }   /* 入口垫片：Int main() 退出码直通 */
 ```
 
-### 7.2 result-try.xn → 关键形态
+### 7.2 result-try.x → 关键形态
 
 - `double`/`run` 返回 `xn_result_Int_String`（tag + union：`int64_t ok` / `rt_string *err`）；
 - `try double(n)` → §4.2 五行展开；err 字符串所有权随 slot 移交；
 - `ok.isOk()` → `xn_result_tag(...) == 0`；`unwrapOr(0)` → `tag ? xn_tmp.err : 0` 形态的条件表达式（err 串在 `bad` 作用域结束时 release）；
 - `"negative: " + str(n)` → concat 链 + `rt_str_from_int`。
 
-### 7.3 defer-cleanup.xn → 关键形态
+### 7.3 defer-cleanup.x → 关键形态
 
 - §4.3 静态 LIFO 展开：work() 四个清理体按 `inner cleanup → cleanup 2 → cleanup 1` 排布；
 - run() 的 errdefer：
@@ -284,7 +284,7 @@ static xn_result_Int_String xn_run(int64_t n) {
 
 | 切片 | 内容 | 验收 |
 | --- | --- | --- |
-| M4.1a | codegen 骨架 + 标量/String/print + hello.xn 编译路径 | hello 输出与解释器逐字节一致 |
+| M4.1a | codegen 骨架 + 标量/String/print + hello.x 编译路径 | hello 输出与解释器逐字节一致 |
 | M4.1b | ARC 插入 + struct 值 + Result/try/defer/errdefer | result-try、defer-cleanup 逐字节一致；-O2 -Werror 零缺陷 |
 | M4.1c | escape 分类回填 rt_policy_input.escape + 容器面 | policy CLI 输出含 escape 字段且两次一致 |
 | M4.2 | build CLI + 缓存 + libxrt + 入口垫片 | 端到端可执行；退出码合同；C 产物确定性断言 |

@@ -300,7 +300,7 @@ static Int main() { return 0 }`, TyStructVal)
 	expectCode(t, "struct S {\n    S value;\n}\n\nstatic Int main() { return 0 }", TyStructVal)
 	expectCode(t, "struct S {\n    S? value;\n}\n\nstatic Int main() { return 0 }", TyStructVal)
 	// 结构体继承被解析拒绝
-	_, pdiags := xfront.ParseUnit("t.xn", "struct S : T {\n}\n\nstatic Int main() { return 0 }")
+	_, pdiags := xfront.ParseUnit("t.x", "struct S : T {\n}\n\nstatic Int main() { return 0 }")
 	if len(pdiags) == 0 {
 		t.Fatalf("struct 继承应被拒绝")
 	}
@@ -322,17 +322,17 @@ static Int main() { return 0 }`)
 // PROTO-01：协议形式（§4）
 func TestProtocolRules(t *testing.T) {
 	// 字段被拒绝（解析层）
-	_, pdiags := xfront.ParseUnit("t.xn", "protocol P {\n    Int count;\n}\n\nstatic Int main() { return 0 }")
+	_, pdiags := xfront.ParseUnit("t.x", "protocol P {\n    Int count;\n}\n\nstatic Int main() { return 0 }")
 	if len(pdiags) == 0 {
 		t.Fatalf("协议字段应被拒绝")
 	}
 	// 方法体被拒绝（解析层）
-	_, pdiags = xfront.ParseUnit("t.xn", "protocol P {\n    void go() {\n    }\n}\n\nstatic Int main() { return 0 }")
+	_, pdiags = xfront.ParseUnit("t.x", "protocol P {\n    void go() {\n    }\n}\n\nstatic Int main() { return 0 }")
 	if len(pdiags) == 0 {
 		t.Fatalf("协议方法体应被拒绝")
 	}
 	// 泛型协议被拒绝（解析层：协议没有类型参数表）
-	_, pdiags = xfront.ParseUnit("t.xn", "protocol P<T> {\n    void go();\n}\n\nstatic Int main() { return 0 }")
+	_, pdiags = xfront.ParseUnit("t.x", "protocol P<T> {\n    void go();\n}\n\nstatic Int main() { return 0 }")
 	if len(pdiags) == 0 {
 		t.Fatalf("泛型协议应被拒绝")
 	}

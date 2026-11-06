@@ -77,20 +77,20 @@ func Run(env Env) int {
 	if name == "dev" {
 		return runDev(env, rest)
 	}
-	// 最小可运行闭环：`xnull run path/to/file.xn` 直接执行单文件（不依赖工程清单；清单模式后续接入）。
+	// 最小可运行闭环：`xnull run path/to/file.x` 直接执行单文件（不依赖工程清单；清单模式后续接入）。
 	if name == "run" {
 		for i, a := range rest {
-			if strings.HasSuffix(a, ".xn") {
+			if strings.HasSuffix(a, ".x") {
 				return runFile(env, a, append(append([]string{}, rest[:i]...), rest[i+1:]...))
 			}
 		}
 	}
-	// 编译路径（M4.2）：`xnull build file.xn [-o bin]` → C → cc → 可执行。
-	if name == "build" && len(rest) > 0 && strings.HasSuffix(rest[0], ".xn") {
+	// 编译路径（M4.2）：`xnull build file.x [-o bin]` → C → cc → 可执行。
+	if name == "build" && len(rest) > 0 && strings.HasSuffix(rest[0], ".x") {
 		return buildFile(env, rest, rest[0])
 	}
-	// 内存策略判定（S2 §15.1）：`xnull policy file.xn` 输出 JSON（M3.2 判定表执行器消费）。
-	if name == "policy" && len(rest) > 0 && strings.HasSuffix(rest[0], ".xn") {
+	// 内存策略判定（S2 §15.1）：`xnull policy file.x` 输出 JSON（M3.2 判定表执行器消费）。
+	if name == "policy" && len(rest) > 0 && strings.HasSuffix(rest[0], ".x") {
 		return policyFile(env, rest[0])
 	}
 
@@ -172,7 +172,7 @@ func notImplemented(env Env, name string) int {
 	return exitcode.Usage
 }
 
-// runFile 执行单个 .xn 文件：解析 → 解释执行。
+// runFile 执行单个 .x 文件：解析 → 解释执行。
 // 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读。
 func runFile(env Env, path string, extraArgs []string) int {
 	// --interp：解释器调试模式（M4.3）；默认走编译路径（正式路径）。

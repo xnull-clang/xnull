@@ -16,11 +16,11 @@ import (
 // compileAndRun 生成 C → cc 编译 → 运行，返回 stdout 与退出码。
 func compileAndRun(t *testing.T, src string) (string, int) {
 	t.Helper()
-	u, diags := xfront.ParseUnit("t.xn", src)
+	u, diags := xfront.ParseUnit("t.x", src)
 	if len(diags) != 0 {
 		t.Fatalf("解析诊断：%v", diags)
 	}
-	if sd := sema.Analyze("t.xn", u); len(sd) != 0 {
+	if sd := sema.Analyze("t.x", u); len(sd) != 0 {
 		t.Fatalf("语义诊断：%v", sd)
 	}
 	csrc, err := EmitC(u)
@@ -58,7 +58,7 @@ func compileAndRun(t *testing.T, src string) (string, int) {
 // interpRun 解释执行，返回 stdout 与退出码。
 func interpRun(t *testing.T, src string) (string, int) {
 	t.Helper()
-	u, diags := xfront.ParseUnit("t.xn", src)
+	u, diags := xfront.ParseUnit("t.x", src)
 	if len(diags) != 0 {
 		t.Fatalf("解析诊断：%v", diags)
 	}
@@ -72,7 +72,7 @@ func interpRun(t *testing.T, src string) (string, int) {
 
 // TestExamplesCompileMatchesInterp M4 完成定义：编译路径输出与解释器逐字节一致。
 func TestExamplesCompileMatchesInterp(t *testing.T) {
-	examples, err := filepath.Glob("../../../examples/*.xn")
+	examples, err := filepath.Glob("../../../examples/*.x")
 	if err != nil || len(examples) == 0 {
 		t.Fatalf("找不到示例：%v", err)
 	}

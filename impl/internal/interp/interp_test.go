@@ -16,7 +16,7 @@ func runSrc(t *testing.T, src string) (string, error) {
 // runSrcCode 解析并执行，返回 stdout、退出码与错误。
 func runSrcCode(t *testing.T, src string) (string, int, error) {
 	t.Helper()
-	u, diags := xfront.ParseUnit("t.xn", src)
+	u, diags := xfront.ParseUnit("t.x", src)
 	if len(diags) != 0 {
 		t.Fatalf("不应有解析诊断：%v", diags)
 	}
@@ -324,15 +324,15 @@ static Int main() {
 // TUPLE-01（语法可判定部分）：单元素/零元元组被拒绝；`(e)` 是括号表达式。
 func TestTupleSyntaxRejections(t *testing.T) {
 	// 零元元组拒绝
-	if _, diags := xfront.ParseUnit("t.xn", "static Int main() { Tuple t = ()\n    return 0 }"); len(diags) == 0 {
+	if _, diags := xfront.ParseUnit("t.x", "static Int main() { Tuple t = ()\n    return 0 }"); len(diags) == 0 {
 		t.Fatalf("() 应被拒绝")
 	}
 	// 单元素元组形态拒绝（带尾逗号）
-	if _, diags := xfront.ParseUnit("t.xn", "static Int main() { Int x = (1,)\n    return 0 }"); len(diags) == 0 {
+	if _, diags := xfront.ParseUnit("t.x", "static Int main() { Int x = (1,)\n    return 0 }"); len(diags) == 0 {
 		t.Fatalf("(1,) 应被拒绝")
 	}
 	// (e) 是括号表达式不是元组
-	u, diags := xfront.ParseUnit("t.xn", "static Int main() { print((5))\n    return 0 }")
+	u, diags := xfront.ParseUnit("t.x", "static Int main() { print((5))\n    return 0 }")
 	if len(diags) != 0 {
 		t.Fatalf("(5) 应为括号表达式：%v", diags)
 	}

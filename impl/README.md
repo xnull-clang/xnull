@@ -9,7 +9,7 @@
 - 运行单文件（最小可运行闭环）：
 
 ```
-xnull run examples/hello.xn
+xnull run examples/hello.x
 ```
 
 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读或用法错误；130 中断。

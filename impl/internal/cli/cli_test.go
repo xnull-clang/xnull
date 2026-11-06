@@ -60,10 +60,10 @@ func TestUnknownCommandIsUsageError(t *testing.T) {
 	}
 }
 
-// 验收命令锁定：xnull run examples/hello.xn 一条命令出结果。
+// 验收命令锁定：xnull run examples/hello.x 一条命令出结果。
 func TestRunSingleFile(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "hello.xn")
+	path := filepath.Join(dir, "hello.x")
 	os.WriteFile(path, []byte("static Int main() {\n    print(\"hello, XNull\")\n    return 0\n}"), 0o644)
 	var out, errBuf bytes.Buffer
 	code := Run(Env{Stdout: &out, Stderr: &errBuf, Args: []string{"run", path}})
@@ -77,7 +77,7 @@ func TestRunSingleFile(t *testing.T) {
 
 func TestRunSingleFileDeterministic(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "d.xn")
+	path := filepath.Join(dir, "d.x")
 	os.WriteFile(path, []byte("static Int main() {\n    for i in 0..<3 { print(i) }\n    return 0\n}"), 0o644)
 	var out1, out2 bytes.Buffer
 	Run(Env{Stdout: &out1, Stderr: io.Discard, Args: []string{"run", path}})

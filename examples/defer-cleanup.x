@@ -1,4 +1,4 @@
-// defer-cleanup.xn —— defer/errdefer 清理语义（S1 §10.3）
+// defer-cleanup.x —— defer/errdefer 清理语义（S1 §10.3）
 // 预期输出：
 //   A
 //   B

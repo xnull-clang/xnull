@@ -24,7 +24,7 @@ Deliberately excluded: overriding, abstract methods, reflection. Every design de
 ## Run It Today
 
 ```x
-// examples/hello.xn
+// examples/hello.x
 static Int main() {
     print("hello, XNull")
     print("1 + 2 = " + str(1 + 2))
@@ -33,7 +33,7 @@ static Int main() {
 ```
 
 ```
-$ go run ./cmd/xnull run examples/hello.xn
+$ go run ./cmd/xnull run examples/hello.x
 hello, XNull
 1 + 2 = 3
 ```
@@ -137,7 +137,7 @@ XNull 是一门新编程语言，建立在一个公理上：**凡是源码文本
 ## 今天就能跑
 
 ```x
-// examples/hello.xn
+// examples/hello.x
 static Int main() {
     print("hello, XNull")
     print("1 + 2 = " + str(1 + 2))
@@ -146,7 +146,7 @@ static Int main() {
 ```
 
 ```
-$ go run ./cmd/xnull run examples/hello.xn
+$ go run ./cmd/xnull run examples/hello.x
 hello, XNull
 1 + 2 = 3
 ```
