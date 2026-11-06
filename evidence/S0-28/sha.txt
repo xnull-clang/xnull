@@ -1,0 +1,7 @@
+基线 main = dfcf033d74b6e95947d30d43c5f4dbdff10fb63e
+本卡前 HEAD（pod/e6-toolchain）= 65e7dd4
+新增分支 = 9（pod/c1-rd1…pod/c3-rd3）
+新 worktree HEAD = dfcf033d74b6e95947d30d43c5f4dbdff10fb63e
+worktree list 行数 = 17
+脏工作区 = 0
+go 版本 = go1.27.3 darwin/amd64
