@@ -31,3 +31,5 @@
 ## 声明
 
 执行侧自检；E5 会签与 B0 门禁另判。
+
+一键复现：`./evidence/M6-B0-01/verify.sh`（生成 C → 手工 cc 清单 → 运行 → 与解释 oracle diff；exit 0，输出 `5/5`）。
