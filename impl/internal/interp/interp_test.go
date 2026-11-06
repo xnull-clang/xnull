@@ -520,3 +520,46 @@ static Int main() { print(identity<Int, Int>(7)); return 0 }`)
 		}
 	})
 }
+
+// M6-B0-05：容器成员规范边界（§9.4 List / §9.5 Map）。
+func TestContainerMemberSpecEdges(t *testing.T) {
+	t.Run("MapGetMissingReturnsNull", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    Map<String, Int> m = ["a": 1]
+    Int? v = m.get("z")
+    print(v)
+    return 0
+}`)
+		if err != nil || out != "null\n" {
+			t.Fatalf("Map.get 缺键应返回 null：out=%q err=%v", out, err)
+		}
+	})
+	t.Run("ListRemoveReturnsElement", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    List<Int> l = [1, 2]
+    Int x = l.remove(0)
+    print(x)
+    print(l.length())
+    print(l.get(0))
+    return 0
+}`)
+		want := "1\n1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("List.remove 应返回被删元素：out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ListInsertOutOfRangePanics", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static Int main() {
+    List<Int> l = [1]
+    l.insert(5, 9)
+    print(l.length())
+    return 0
+}`)
+		if err == nil || code != 134 {
+			t.Fatalf("List.insert 越界应 panic（134）：code=%d err=%v", code, err)
+		}
+	})
+}
