@@ -1,0 +1,31 @@
+== before ==
+=== RUN   TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagStableAcrossRuns (0.03s)
+=== RUN   TestDET01DiagIndependentOfMapOrder
+    det01_test.go:78: 第 1 轮歧义诊断顺序与首轮不一致（诊断顺序依赖 map 迭代序，DET-01 违约）
+        --- 首轮 ---
+        t.x:1:1: error[RES-104]: 简单名 `SharedTwo` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+          为其中一个导入加 as 别名
+        t.x:1:1: error[RES-104]: 简单名 `SharedOne` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+          为其中一个导入加 as 别名
+        
+        --- 本轮 ---
+        t.x:1:1: error[RES-104]: 简单名 `SharedOne` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+          为其中一个导入加 as 别名
+        t.x:1:1: error[RES-104]: 简单名 `SharedTwo` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+          为其中一个导入加 as 别名
+--- FAIL: TestDET01DiagIndependentOfMapOrder (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	2.350s
+FAIL
+
+== after ==
+=== RUN   TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagStableAcrossRuns (0.04s)
+=== RUN   TestDET01DiagIndependentOfMapOrder
+--- PASS: TestDET01DiagIndependentOfMapOrder (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	18.845s
+
+== sema full ==
+ok  	xnull.dev/xnull/internal/sema	7.735s
