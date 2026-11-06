@@ -1,0 +1,23 @@
+# 工作目录：wt/c1-rd2/impl（pod/c1-rd2 @ 81ec33d）
+# 红（实现前，输出见 before/test.log）
+cd impl && go test ./internal/sema -run 'TestERR01' -count=1 -v
+
+# 绿（实现后）
+go test ./internal/sema -run 'TestERR01' -count=1 -v
+go test ./internal/sema -count=1
+go test ./internal/interp -count=1
+go test ./internal/codegen -run 'TestExamplesCompileMatchesInterp|TestCompileDeferSemantics|TestMultiFileExampleCompileMatchesInterp' -count=1 -v
+go test ./... -count=1 -timeout 300s
+go vet ./...
+gofmt -l .
+
+# 运行期非法成员访问（解释器路径；sema 只查成员签名，Err 上 value()/Ok 上 error() 按 §10.1 运行期 panic）
+go build -o /tmp/xnull-err01 ./cmd/xnull
+/tmp/xnull-err01 run --interp evidence/M1-ERR-01/probes/illegal-value.x; echo "exit=$?"
+/tmp/xnull-err01 run --interp evidence/M1-ERR-01/probes/illegal-error.x; echo "exit=$?"
+
+# 确定性：同一测试两次运行，去掉耗时字段后 diff
+go test ./internal/sema -run 'TestERR01' -count=1 -v   # run2
+sed -E 's/[0-9]+(\.[0-9]+)?s//g' after/sema-err01.log > /tmp/e1.norm
+sed -E 's/[0-9]+(\.[0-9]+)?s//g' after/sema-err01-run2.log > /tmp/e2.norm
+diff -u /tmp/e1.norm /tmp/e2.norm
