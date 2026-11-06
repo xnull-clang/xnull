@@ -1,0 +1,1 @@
+impl/internal/devtool/resources.go:99:	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")

@@ -1,0 +1,15 @@
+# S0-21d/after-merge 退出码
+
+| 项 | 产物 | 退出码 |
+|---|---|---|
+| `go vet ./...` | `go-vet.exit` | 0 |
+| `go test ./... -count=1 -timeout 300s` | `go-test.exit` | 0（全绿，codegen 20.957s） |
+| `sh impl/runtime/build_rt.sh` | `m2-build_rt.exit` | 0 |
+| 主树 cwd `dev check` | `check-main.exit` | 0 |
+| `xnull/` cwd `dev check` | `check-public.exit` | 0 |
+| `dev ledger` | `m5-ledger.exit` | 0 |
+| 台账 vs golden `diff` | `m5-ledger.diff.exit` | 1（仅第 3 行生成器名，白名单差异） |
+| `dev res` | `m6-res.exit` | 0（两侧 sha256 相同） |
+| `find impl -name '*.py'` | `m7-find-python.exit` | 0，输出 0 行 |
+| `git grep` 产品代码口径 | `m7-git-grep-code.exit` | 0，1 行（`resources.go:99` 冻结头，令 §1.1 例外） |
+| 9 示例双路径 | `dualpath/result.txt` | 9/9 stdout 相同、退出码 0；7/9 stderr 也相同 |
