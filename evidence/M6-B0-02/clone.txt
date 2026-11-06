@@ -23,3 +23,5 @@ sh impl/runtime/build_rt.sh
   hello, XNull
   1 + 2 = 3
   exit = 0
+
+注：clone 验证的代码提交为 e6f4ba1；其后提交（55fece4 及本次）只追加/补充本证据目录，代码零差异。
