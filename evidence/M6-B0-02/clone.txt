@@ -1,0 +1,25 @@
+# 干净 clone 复现（pod/e6-toolchain，未推送，直接从本地仓库 clone）
+
+clone 源 = /Users/vjs/Desktop/XNull-Lang
+clone 命令 = git clone --branch pod/e6-toolchain --single-branch <源> /tmp/m6-clone
+clone HEAD = e6f4ba11cdc197a31440de11866347efbddb7869
+build_test.go 存在 = 是（impl/internal/codegen/build_test.go）
+
+(cd impl && go test ./internal/codegen ./internal/cli -count=1 -timeout 300s)
+  ok  xnull.dev/xnull/internal/codegen  21.152s
+  ok  xnull.dev/xnull/internal/cli       3.949s
+  exit = 0
+
+sh impl/runtime/build_rt.sh
+  exit = 0（尾部：std 测试通过 / 资源表测试通过）
+
+(cd impl && go build -o /tmp/m6-clone-xnull ./cmd/xnull)
+  exit = 0
+
+/tmp/m6-clone-xnull build examples/hello.x -o /tmp/m6-clone-hello -l m
+  exit = 0
+
+/tmp/m6-clone-hello
+  hello, XNull
+  1 + 2 = 3
+  exit = 0
