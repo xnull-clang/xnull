@@ -1,0 +1,16 @@
+# S0-27 EN 滞后判据：mtime → 版本 + 母本内容哈希
+cd impl && go vet ./...
+cd impl && go test ./internal/devtool ./internal/cli -count=1 -timeout 180s
+cd impl && go test ./... -count=1 -timeout 180s
+cd impl && go build -o ../evidence/S0-27/bin/xnull ./cmd/xnull
+# 干净 clone（工作区布局 / 公开布局）
+(cd /tmp/s027-a && xnull dev check)
+(cd /tmp/s027-b && xnull dev check)
+# 打乱 mtime 3 次
+for i in 1 2 3; do find /tmp/s027-a -name '*.md' -exec touch -t 20260101010$i {} \; ; (cd /tmp/s027-a && xnull dev check); done
+# 真实内容变更
+printf '\n<!-- 变更探测 -->\n' >> /tmp/s027-a/XNull解决方案-第3部分-内存管理-v3.0.0.md
+(cd /tmp/s027-a && xnull dev check)
+# 真实两布局
+(cd /Users/vjs/Desktop/XNull-Lang && xnull dev check)
+(cd /Users/vjs/Desktop/XNull-Lang/xnull && xnull dev check)

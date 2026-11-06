@@ -1,0 +1,41 @@
+=== 干净 clone 工作区布局 ===
+仓库：/tmp/s027-a
+母本目录（自适应）：.　EN 快照：en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[ok]   EN 快照同步（9 份对照）
+
+全部通过：零待定、引用零悬空、头部一致、根目录纯 Markdown、EN 快照同步
+=== mtime 打乱 3 次 sha256 ===
+3eb66d8d981d162b4ca268279d62c94509dd5f09bf03193aa31f7495b4e574b8  evidence/S0-27/clone-mtime-run1.out
+3eb66d8d981d162b4ca268279d62c94509dd5f09bf03193aa31f7495b4e574b8  evidence/S0-27/clone-mtime-run2.out
+3eb66d8d981d162b4ca268279d62c94509dd5f09bf03193aa31f7495b4e574b8  evidence/S0-27/clone-mtime-run3.out
+=== 内容变更 ===
+  - S3-Memory-Management-v3.0.0.md: 内容哈希不符——母本 XNull解决方案-第3部分-内存管理-v3.0.0.md 变更后英译未同步重译（清单 a6dbb815ad22497dcbb1b10c7f691c618d83ed8c841a1d450b17ff70bf3e5bed，当前 8f4579e286b336dc3a4d53bbf2943459eb6d093e2e62da43131d85383ac85a5e）
+
+共 1 处缺陷
+exit=1
+=== 主树 ===
+全部通过：零待定、引用零悬空、头部一致、根目录纯 Markdown、EN 快照同步
+exit=0
+=== 公开副本 ===
+全部通过：零待定、引用零悬空、头部一致、根目录纯 Markdown、EN 快照同步
+exit=0
+=== go test ===
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	9.239s
+FAIL	xnull.dev/xnull/internal/codegen	181.876s
+ok  	xnull.dev/xnull/internal/codegen/ffi	13.168s
+ok  	xnull.dev/xnull/internal/devtool	5.834s
+ok  	xnull.dev/xnull/internal/diag	6.513s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	7.326s
+ok  	xnull.dev/xnull/internal/sema	4.961s
+ok  	xnull.dev/xnull/internal/xfront	2.665s
+ok  	xnull.dev/xnull/internal/xpd	3.383s
+FAIL

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testIndex = "# 索引\n\n无待定项。\n"
@@ -34,6 +35,13 @@ func newSpecFixture(t *testing.T, withEn bool) string {
 		touch(t, filepath.Join(en, "Conformance-Ledger-v1.0.0.md"))
 	}
 	return root
+}
+
+func setMtime(t *testing.T, path string, ts time.Time) {
+	t.Helper()
+	if err := os.Chtimes(path, ts, ts); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func touch(t *testing.T, path string) {
@@ -103,5 +111,77 @@ func TestCheckSpecsHeaderMismatch(t *testing.T) {
 	code, out := runCheck(t, root)
 	if code != 1 || !strings.Contains(out, "文件名版本 1.0.0 ≠ 头部 1.0.1") {
 		t.Fatalf("头部不一致未被发现（code=%d）：\n%s", code, out)
+	}
+}
+
+// S0-27：EN 滞后判定不得依赖 mtime。
+func TestCheckSpecsMtimeShuffleDeterministic(t *testing.T) {
+	root := newSpecFixture(t, true)
+	cn := filepath.Join(root, "XNull解决方案-第1部分-测试-v1.0.0.md")
+	en := filepath.Join(root, "en", "S1-test-v1.0.0.md")
+	ledCn := filepath.Join(root, ledgerName)
+	ledEn := filepath.Join(root, "en", "Conformance-Ledger-v1.0.0.md")
+
+	base := time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC)
+	var outs []string
+	for i := 0; i < 3; i++ {
+		// 每次打乱中英两侧时间戳，且方向不同（母本更旧/更新/相同）。
+		offset := time.Duration((i-1)*3600) * time.Second
+		setMtime(t, cn, base.Add(offset))
+		setMtime(t, ledCn, base.Add(offset))
+		setMtime(t, en, base.Add(-offset))
+		setMtime(t, ledEn, base.Add(-offset))
+		code, out := runCheck(t, root)
+		if code != 0 {
+			t.Fatalf("第 %d 次打乱 mtime 后应通过，实际 %d：\n%s", i+1, code, out)
+		}
+		outs = append(outs, out)
+	}
+	for i := 1; i < len(outs); i++ {
+		if outs[i] != outs[0] {
+			t.Fatalf("第 %d 次输出与首次不一致：\n--- first ---\n%s\n--- now ---\n%s", i+1, outs[0], outs[i])
+		}
+	}
+}
+
+func writeEnSource(t *testing.T, root, cnName, hash string) {
+	t.Helper()
+	writeFile(t, filepath.Join(root, "impl", "docs", "conformance", "en-source.sha256"),
+		[]byte("# 母本文件\t母本内容 SHA-256\n"+cnName+"\t"+hash+"\n"))
+}
+
+func TestCheckSpecsDigestStaleDetected(t *testing.T) {
+	root := newSpecFixture(t, true)
+	cn := filepath.Join(root, "XNull解决方案-第1部分-测试-v1.0.0.md")
+	src, err := os.ReadFile(cn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeEnSource(t, root, "XNull解决方案-第1部分-测试-v1.0.0.md", contentSHA256(src))
+
+	if code, out := runCheck(t, root); code != 0 {
+		t.Fatalf("哈希一致时应通过，实际 %d：\n%s", code, out)
+	}
+
+	// 真实内容变更（母本文本改变）→ 清单哈希不再匹配，必须报滞后。
+	writePart(t, root, "XNull解决方案-第1部分-测试-v1.0.0.md",
+		"# 第1部分\n\n| 文档版本 | 1.0.0 |\n| 规范状态 | 正式 |\n\n## 1 概述\n\n新增一段正文。\n")
+	code, out := runCheck(t, root)
+	if code != 1 || !strings.Contains(out, "内容哈希不符——母本 XNull解决方案-第1部分-测试-v1.0.0.md 变更后英译未同步重译") {
+		t.Fatalf("内容变更未被判滞后（code=%d）：\n%s", code, out)
+	}
+}
+
+func TestCheckSpecsDigestMismatchFailsRegardlessOfMtime(t *testing.T) {
+	root := newSpecFixture(t, true)
+	writeEnSource(t, root, "XNull解决方案-第1部分-测试-v1.0.0.md", strings.Repeat("0", 64))
+	// 让英译 mtime 远新于母本：旧实现会放过，新实现必须红。
+	setMtime(t, filepath.Join(root, "XNull解决方案-第1部分-测试-v1.0.0.md"),
+		time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC))
+	setMtime(t, filepath.Join(root, "en", "S1-test-v1.0.0.md"),
+		time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC))
+	code, out := runCheck(t, root)
+	if code != 1 || !strings.Contains(out, "内容哈希不符") {
+		t.Fatalf("哈希不符应报滞后（code=%d）：\n%s", code, out)
 	}
 }

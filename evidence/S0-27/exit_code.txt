@@ -1,0 +1,9 @@
+go vet = 0
+go test ./internal/devtool ./internal/cli -timeout 180s = 0
+go test ./... -timeout 180s = 1（仅 codegen 181.876s，P0-1）
+clone 工作区布局 = 0
+clone 公开布局 = 0
+mtime 打乱 1/2/3 = 0/0/0（输出 sha256 相同）
+内容变更 = 1（内容哈希不符）
+主树 check = 0
+公开副本 check = 0

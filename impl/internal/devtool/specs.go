@@ -1,6 +1,8 @@
 package devtool
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -16,8 +18,9 @@ var (
 	docVerRe   = regexp.MustCompile(`(?m)^\| 文档版本 \| (\d+\.\d+\.\d+) \|`)
 	docStatRe  = regexp.MustCompile(`(?m)^\| 规范状态 \| (.+?) \|`)
 	headingRe  = regexp.MustCompile(`(?m)^#{2,4} (\d+(?:\.\d+)*)`)
-	sectionRe  = regexp.MustCompile(`§(\d+(?:\.\d+)*)`)
-	partNumRe  = regexp.MustCompile(`第(\d)部分`)
+
+	sectionRe = regexp.MustCompile(`§(\d+(?:\.\d+)*)`)
+	partNumRe = regexp.MustCompile(`第(\d)部分`)
 )
 
 var pendingWords = []string{"待定", "待确认", "待议", "待落实", "暂定"}
@@ -36,7 +39,7 @@ type checkResult struct {
 //  2. 正式版零待定措辞；
 //  3. § 引用不悬空；
 //  4. 仓库根禁止二进制文档；
-//  5. EN 快照覆盖、版本一致、不超前于母本 mtime。
+//  5. EN 快照覆盖、版本一致、内容未滞后（版本号 + 母本内容哈希，不依赖 mtime）。
 func CheckSpecs(start string, out io.Writer) (int, error) {
 	l, err := findLayout(start)
 	if err != nil {
@@ -236,6 +239,10 @@ func checkEnSync(l layout, parts []string) checkResult {
 	}
 	sort.Strings(enFiles)
 
+	// S0-27：母本内容指纹清单（impl/docs/conformance/en-source.sha256）。
+	// 有登记就比对内容哈希；未登记不回退到 mtime —— 时间戳在 clone/checkout 后会刷新，判据不可靠。
+	enSource := loadEnSource(filepath.Join(l.Root, "impl", "docs", "conformance", "en-source.sha256"))
+
 	type pair struct{ cn, en string }
 	var pairs []pair
 	var fails []string
@@ -274,18 +281,28 @@ func checkEnSync(l layout, parts []string) checkResult {
 			fails = append(fails, fmt.Sprintf("%s: 版本 %s ≠ 母本 %s", p.en, got, vcn[1]))
 			continue
 		}
-		cnInfo, err := os.Stat(filepath.Join(l.SpecDir, p.cn))
+		// S0-27：不再以 mtime 判滞后（clone/checkout 会刷新时间戳，导致假红）。
+		// 判据：版本号一致（上面已查）+ 英译声明的母本内容哈希与当前母本一致。
+		cnPath := filepath.Join(l.SpecDir, p.cn)
+		enPath := filepath.Join(enDir, p.en)
+		cnText, err := readText(cnPath)
 		if err != nil {
 			fails = append(fails, fmt.Sprintf("%s: 读取失败：%v", p.cn, err))
 			continue
 		}
-		enInfo, err := os.Stat(filepath.Join(enDir, p.en))
+		enText, err := readText(enPath)
 		if err != nil {
 			fails = append(fails, fmt.Sprintf("%s: 读取失败：%v", p.en, err))
 			continue
 		}
-		if cnInfo.ModTime().After(enInfo.ModTime()) {
-			fails = append(fails, fmt.Sprintf("%s: 晚于母本改动——母本 %s 变更后英译未同步重译", p.en, p.cn))
+		_ = enText
+		if recorded, ok := enSource[p.cn]; ok {
+			current := contentSHA256([]byte(cnText))
+			if recorded != current {
+				fails = append(fails, fmt.Sprintf(
+					"%s: 内容哈希不符——母本 %s 变更后英译未同步重译（清单 %s，当前 %s）",
+					p.en, p.cn, recorded, current))
+			}
 		}
 	}
 
@@ -293,6 +310,37 @@ func checkEnSync(l layout, parts []string) checkResult {
 		title: fmt.Sprintf("EN 快照同步（%d 份对照）", len(pairs)),
 		fails: fails,
 	}
+}
+
+// loadEnSource 读取「母本文件名 → 翻译时母本内容 SHA-256」清单。
+// 文件缺失或行不合法时返回已解析部分（缺失即表示未登记，不做滞后判定）。
+func loadEnSource(path string) map[string]string {
+	table := make(map[string]string)
+	s, err := readText(path)
+	if err != nil {
+		return table
+	}
+	for _, line := range splitLines(s) {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		cells := strings.Split(line, "\t")
+		if len(cells) < 2 {
+			continue
+		}
+		name := strings.TrimSpace(cells[0])
+		hash := strings.ToLower(strings.TrimSpace(cells[1]))
+		if name != "" && len(hash) == 64 {
+			table[name] = hash
+		}
+	}
+	return table
+}
+
+// contentSHA256 返回内容的 SHA-256 十六进制摘要（与 mtime 无关）。
+func contentSHA256(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func firstWithPrefix(files []string, prefix string) string {
