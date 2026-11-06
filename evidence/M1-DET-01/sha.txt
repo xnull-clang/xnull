@@ -1,0 +1,5 @@
+branch=pod/c3-rd2
+base_commit=81ec33d574347bf6f36ffeb8963c57e5145a3cf5
+base_tree=aea870e1c037e7521edbd26f2db14972de9e7c16
+date=2026-11-07 03:30:29 CST
+go=go version go1.27.3 darwin/amd64

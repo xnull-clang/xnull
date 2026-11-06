@@ -1,0 +1,17 @@
+9f15aeb20348077ce5b85dc2d9a2e8c59265426e1ffb8807e5fa6ed335bd1af2  impl/internal/sema/det01_test.go
+dbc0a1d541885515978d54ee275f217d8c809267940199bd2dd5aceb611278d9  impl/internal/interp/det01_test.go
+755d32554cddadc5793ef1d6e82b4060d40964a808ba3756f76be2c3616af45a  impl/internal/codegen/det01_test.go
+0aea7429d2b3a52929d0591a0a02ee5d41e014af0b3bfd2a34f51b9456a0757a  evidence/M1-DET-01/checklist.md
+bb3fd62bcd4c779f51729e965309566acbd3e8ac90a3ffaf7dca68855ae7f21d  evidence/M1-DET-01/command.txt
+13ce52f2ea815ff443d0be2822c8a6e523c7eb38a581bd5a8e5115a3a96440ed  evidence/M1-DET-01/stdout.txt
+602489e08faa2aaf234b2032123fe0f4acfed36ab0db7af77a51e710165f1985  evidence/M1-DET-01/stderr.txt
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  evidence/M1-DET-01/exit_code.txt
+59fd6414503ba8bb5434f8d5196719879e7046d1b9b8a9a64d0f6b83de6deaa1  evidence/M1-DET-01/sha.txt
+a4a5fd67643acc24df3af8a74c927dec11e219f0e51d1a2974ca353c2b55f677  evidence/M1-DET-01/acceptance.md
+072ea6836adca38fec6c8037396b2ce0c417dfa3b1b662e79b54b16a6b071282  evidence/M1-DET-01/fix-proposal.diff
+e57f41e8ab0b1b7c502cdb41665f23ba2895a2a372c3a599df9f65e7513ed087  evidence/M1-DET-01/before/full-test.txt
+4ab42b4cec5209b7a0434d65d8a7fb956afd52b696c52253d64d7e55de8becc4  evidence/M1-DET-01/before/probe-init-order.txt
+b24f6c60041c3fb6eceff6f042e3d2c163fda3e5f40c46d76c0fc6537749dad9  evidence/M1-DET-01/after/fix-proof.txt
+e9481458622a36126261ad84d37f752db52c25782d1a556627e46f3b87b817b4  evidence/M1-DET-01/after/examples-double-path.txt
+585bad6c34e0a99c58ffd91720ba6617af9d04fe6250dd435ab78e02879fb188  evidence/M1-DET-01/after/hash-and-runs.txt
+0c3a90880fe39aa6762af9905dbbeded139fde2926bc626315a6e1b78adc1157  evidence/M1-DET-01/after/on-pkg01-base.txt

@@ -1,0 +1,9 @@
+== 两次构建 hash（§1 确定性判据）==
+245a4f882abc3a9a7aa88e29a5c95813a042069255752fe9fef177993e51dd5c  /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.38APrfeH0Y/b1
+a6445b334b331a93231e3d9110dbd9a8584aeba60e5bbee4296f17331173fa57  /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.38APrfeH0Y/b2
+
+== 10 次编译路径运行 ==
+  10 a6ed6096dbb3bc0c84249cec672037536c7d8f047c44b6807561c57b5448c055
+
+== 10 次解释路径运行 ==
+  10 a6ed6096dbb3bc0c84249cec672037536c7d8f047c44b6807561c57b5448c055
