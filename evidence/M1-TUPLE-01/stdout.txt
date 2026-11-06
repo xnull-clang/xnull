@@ -1,0 +1,79 @@
+# M1-TUPLE-01 stdout（最终绿态）
+
+## 目标测试 sema
+=== RUN   TestTupleIdentity
+--- PASS: TestTupleIdentity (0.00s)
+=== RUN   TestTupleLiteralAdaptation
+--- PASS: TestTupleLiteralAdaptation (0.00s)
+=== RUN   TestTupleElementAccess
+--- PASS: TestTupleElementAccess (0.00s)
+=== RUN   TestTupleInference
+--- PASS: TestTupleInference (0.00s)
+=== RUN   TestTupleAssignability
+--- PASS: TestTupleAssignability (0.00s)
+=== RUN   TestTupleEqualityAndInterpolation
+--- PASS: TestTupleEqualityAndInterpolation (0.00s)
+=== RUN   TestTupleOutOfRangeSelector
+--- PASS: TestTupleOutOfRangeSelector (0.00s)
+=== RUN   TestTupleArityRejected
+--- PASS: TestTupleArityRejected (0.00s)
+=== RUN   TestTupleDestructuringRejected
+--- PASS: TestTupleDestructuringRejected (0.00s)
+=== RUN   TestTupleSwitchRejected
+--- PASS: TestTupleSwitchRejected (0.00s)
+=== RUN   TestTupleConstRejected
+--- PASS: TestTupleConstRejected (0.00s)
+=== RUN   TestTupleElementAssignment
+--- PASS: TestTupleElementAssignment (0.00s)
+=== RUN   TestTupleTypeAs
+--- PASS: TestTupleTypeAs (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	5.868s
+
+## 目标测试 interp
+=== RUN   TestTupleSyntaxRejections
+--- PASS: TestTupleSyntaxRejections (0.00s)
+=== RUN   TestTupleElementAssignmentAndEquality
+--- PASS: TestTupleElementAssignmentAndEquality (0.00s)
+=== RUN   TestTupleInferenceAndNested
+--- PASS: TestTupleInferenceAndNested (0.00s)
+=== RUN   TestTupleNullSafeElement
+--- PASS: TestTupleNullSafeElement (0.00s)
+=== RUN   TestTuple
+--- PASS: TestTuple (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	6.423s
+
+## 全仓 go test
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	16.056s
+ok  	xnull.dev/xnull/internal/codegen	113.045s
+ok  	xnull.dev/xnull/internal/codegen/ffi	29.872s
+ok  	xnull.dev/xnull/internal/devtool	8.426s
+ok  	xnull.dev/xnull/internal/diag	9.720s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	11.426s
+ok  	xnull.dev/xnull/internal/sema	14.629s
+ok  	xnull.dev/xnull/internal/xfront	12.463s
+ok  	xnull.dev/xnull/internal/xpd	13.749s
+EXIT=0
+
+## go vet
+
+## 双路径回归
+ast-seed interp=0 compiled=0 stdout_same=YES
+classes interp=0 compiled=0 stdout_same=YES
+containers interp=0 compiled=0 stdout_same=YES
+defer-cleanup interp=0 compiled=0 stdout_same=YES
+hello interp=0 compiled=0 stdout_same=YES
+lexer-seed interp=0 compiled=0 stdout_same=YES
+objlist interp=0 compiled=0 stdout_same=YES
+parser-seed interp=0 compiled=0 stdout_same=YES
+result-try interp=0 compiled=0 stdout_same=YES
+
+## CLI tuple-ok
+pair=(1, one)
+copy=(2, one)
+true
+false

@@ -165,13 +165,13 @@ func (s *scope) lookup(name string) (*Value, bool) {
 	return nil, false
 }
 
-func (s *scope) define(name string, v *Value) { s.vars[name] = v }
+func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
 
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
 func (s *scope) assign(name string, v *Value) bool {
 	for c := s; c != nil; c = c.parent {
 		if _, ok := c.vars[name]; ok {
-			c.vars[name] = v
+			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
 	}
@@ -689,6 +689,10 @@ func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
 		return &Value{K: vBool, B: valuesEqual(l, r)}
 	case "!=":
 		return &Value{K: vBool, B: !valuesEqual(l, r)}
+	case "===":
+		return &Value{K: vBool, B: valuesIdentical(l, r)}
+	case "!==":
+		return &Value{K: vBool, B: !valuesIdentical(l, r)}
 	case "+":
 		if l.K == vStr || r.K == vStr { // String + String（§5.4 也允许常量域）
 			return &Value{K: vStr, S: format(l) + format(r)}
@@ -831,8 +835,43 @@ func valuesEqual(l, r *Value) bool {
 		return l.C == r.C
 	case vStr:
 		return l.S == r.S
+	case vTuple:
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !valuesEqual(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
+}
+
+// valuesIdentical 同一性比较（§2.11：===/!== 逐元素；引用元素比较对象身份）。
+func valuesIdentical(l, r *Value) bool {
+	if l.K == vNull || r.K == vNull {
+		return l.K == vNull && r.K == vNull
+	}
+	if l.K != r.K {
+		return false
+	}
+	switch l.K {
+	case vBool, vInt, vFloat, vChar, vStr:
+		return valuesEqual(l, r)
+	case vTuple:
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !valuesIdentical(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return l == r // 引用类型：对象句柄身份
 }
 
 func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
@@ -986,6 +1025,16 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.TupleMember:
+		recv := in.eval(t.X, sc)
+		if recv.K != vTuple {
+			panic(runtimeErr{"`.N` 元素赋值只用于元组：" + recv.typeName()})
+		}
+		if t.Index < 0 || t.Index >= len(recv.A) {
+			panic(fatal{fmt.Sprintf("元组下标越界：len=%d, idx=%d（§2.11）", len(recv.A), t.Index)})
+		}
+		recv.A[t.Index] = cloneTupleValue(v)
+		return
 	case *xfront.Member:
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {
