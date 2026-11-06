@@ -102,37 +102,6 @@ func mapName(k, v string) string {
 	return "xn_map_" + km + "_" + vm
 }
 
-// emitForwardDecls 生成容器元素引用的类前向声明（typedef struct X X;）。
-// 容器定义必须出现在类完整定义之前（输出顺序：容器在类之前），指针前向声明足够。
-func (cs *containers) emitForwardDecls(b *strings.Builder) {
-	seen := map[string]bool{}
-	for elem := range cs.arr {
-		seen[elem] = true
-	}
-	for elem := range cs.set {
-		seen[elem] = true
-	}
-	for _, kv := range cs.mp {
-		seen[kv[0]] = true
-		seen[kv[1]] = true
-	}
-	var names []string
-	for elem := range seen {
-		m, err := mangle(elem)
-		if err != nil || !strings.HasPrefix(m, "o_") {
-			continue
-		}
-		names = append(names, strings.TrimPrefix(m, "o_"))
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		fmt.Fprintf(b, "typedef struct xn_Cls_%s xn_Cls_%s;\n", n, n)
-	}
-	if len(names) > 0 {
-		b.WriteString("\n")
-	}
-}
-
 // emit 生成全部实例化的结构定义与静态助手（排序保证确定性输出）。
 func (cs *containers) emit(b *strings.Builder) {
 	var kinds []string

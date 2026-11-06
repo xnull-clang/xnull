@@ -225,7 +225,9 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 	b.WriteString("    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n")
 	b.WriteString("    exit(134);\n")
 	b.WriteString("}\n\n")
-	g.cs.emitForwardDecls(&b)
+	// 类前向声明：容器结构、顶层函数原型与类结构都只按指针使用类类型，
+	// 必须先于它们出现（多文件下使用方声明可能先于定义方，S1-06）。
+	g.emitClassForwardDecls(&b)
 	g.cs.emit(&b)
 	// 顶层函数原型（类方法体可能引用后定义的顶层函数；与顺序无关）
 	for _, d := range u.Decls {

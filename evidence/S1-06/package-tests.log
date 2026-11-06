@@ -1,0 +1,107 @@
+panic: test timed out after 10m0s
+	running tests:
+		TestExamplesCompileMatchesInterp (10m0s)
+		TestExamplesCompileMatchesInterp/parser-seed.xn (8m31s)
+
+goroutine 81 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2961 +0x34a
+created by time.goFunc
+	/usr/local/Cellar/go/1.27.3/libexec/src/time/sleep.go:182 +0x2d
+
+goroutine 1 [chan receive, 8 minutes]:
+testing.(*T).Run(0x14b2febd2008, {0xfaf8d09?, 0x14b2feaa4aa0?}, 0xfcdb270)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+testing.runTests.func1(0x14b2febd2008)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2744 +0x37
+testing.tRunner(0x14b2febd2008, 0x14b2feaa4bc8)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+testing.runTests({0xfaf27af, 0xf}, {0xfaf8d29, 0x20}, 0x14b2feba0078, {0xfcfa560, 0x9, 0x9}, {0xc2b39e74fa933d40, 0x8bb2dc6b03, ...})
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2742 +0x510
+testing.(*M).Run(0x14b2feb8c1e0)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2602 +0x6af
+main.main()
+	_testmain.go:62 +0x9b
+
+goroutine 19 [chan receive, 8 minutes]:
+testing.(*T).Run(0x14b2febd2248, {0x14b2febdc0d2?, 0x0?}, 0x14b2feb4a090)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+xnull.dev/xnull/internal/codegen.TestExamplesCompileMatchesInterp(0x14b2febd2248)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/codegen/codegen_test.go:81 +0xc5
+testing.tRunner(0x14b2febd2248, 0xfcdb270)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+
+goroutine 53 [runnable]:
+xnull.dev/xnull/internal/interp.arith({0x57?, 0x11?}, {0xfb05df0, 0x1}, 0x14b2fef03420?, 0x14b2fef03490?)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:691 +0xf96
+xnull.dev/xnull/internal/interp.(*Interp).evalBinary(0x14b2fec790c0, 0x14b2fea28d00, 0x14b2fedf34f0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:687 +0x585
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda260, 0x14b2fea28d00}, 0x14b2fedf34f0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:618 +0x369
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda1c0, 0x14b2fed1b600}, 0x14b2fedf34f0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:576 +0x7bd
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x14b2fec790c0, {0xfcda3f0, 0x14b2fea28e40}, 0x14b2fedf34f0, 0x14b2fea3e058)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:417 +0x6c9
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x14b2fec790c0, 0x14b2feaf43c0?, 0x14b2fedf34f0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x14b2fec790c0, 0x14b2fed159b0, {0x14b2feb3a6e8, 0x3}, {0x14b2fea3e280, 0x1, 0xfd21a20?}, {0x14b2fea3e3d8?, 0xfaa92b4?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x14b2fec790c0, 0x14b2fed10aa0, 0x14b2feb99bc0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda2b0, 0x14b2fed10aa0}, 0x14b2feb99bc0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x14b2fec790c0, {0xfcda378, 0x14b2fed10a50}, 0x14b2feb99bc0, 0x14b2fea3e6b0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:390 +0x8b3
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x14b2fec790c0, 0x14b2fed14960?, 0x14b2feb99bc0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).loopBody(0x14b2fec790c0?, 0xfcda1c0?, 0x14b2fed1b400?, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:539 +0x49
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x14b2fec790c0, {0xfcda468, 0x14b2fed149f0}, 0x14b2feb99bc0, 0x14b2fedb2990)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:430 +0x1119
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x14b2fec790c0, 0x14b2fed15a70?, 0x14b2feb99bc0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x14b2fec790c0, 0x14b2fed159b0, {0x14b2feb3a8f0, 0x9}, {0x14b2fedb2bb8, 0x0, 0x0?}, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x14b2fec790c0, 0x14b2fed10dc0, 0x14b2feb99bb0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda2b0, 0x14b2fed10dc0}, 0x14b2feb99bb0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x14b2fec790c0, {0xfcda350, 0x14b2fed1b7e0}, 0x14b2feb99bb0, 0x14b2fedb2fe8)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:386 +0x96
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x14b2fec790c0, 0x14b2fed15a40?, 0x14b2feb99bb0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x14b2fec790c0, 0x14b2fed159b0, {0x14b2feb3ba70, 0x7}, {0x14b2fedb3210, 0x0, 0x0?}, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x14b2fec790c0, 0x14b2febc6fa0, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda2b0, 0x14b2febc6fa0}, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x14b2fec790c0, 0x14b2febc6ff0, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:931 +0xd45
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda2b0, 0x14b2febc6ff0}, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x14b2fec790c0, 0x14b2febc7040, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:928 +0xcc5
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x14b2fec790c0, {0xfcda2b0, 0x14b2febc7040}, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x14b2fec790c0, {0xfcda350, 0x14b2fed8fa00}, 0x14b2feb99b70, 0x14b2fedb3bf0)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:386 +0x96
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x14b2fec790c0, 0xfcc1a08?, 0x14b2feb99b70)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).call(0x14b2fec790c0, 0x14b2feb2c630, {0x0, 0x0, 0xfc9a210?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:319 +0x24d
+xnull.dev/xnull/internal/interp.Run(0x14b2fed10190, {0xfcd9978, 0x14b2fed8fa40}, {0x0, 0x0, 0x14b2fecf8e50?})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/interp/interp.go:259 +0x5df
+xnull.dev/xnull/internal/codegen.interpRun(0x14b2febd2488, {0x14b2fecfe000, 0x1c33})
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/codegen/codegen_test.go:66 +0xcf
+xnull.dev/xnull/internal/codegen.TestExamplesCompileMatchesInterp.func1(0x14b2febd2488)
+	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/impl/internal/codegen/codegen_test.go:86 +0xca
+testing.tRunner(0x14b2febd2488, 0x14b2feb4a090)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 19
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+FAIL	xnull.dev/xnull/internal/codegen	611.235s
+ok  	xnull.dev/xnull/internal/codegen/ffi	59.463s
+FAIL

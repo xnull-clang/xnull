@@ -1,0 +1,20 @@
+=== RUN   TestExamplesCompileMatchesInterp
+=== RUN   TestExamplesCompileMatchesInterp/ast-seed.xn
+=== RUN   TestExamplesCompileMatchesInterp/classes.xn
+=== RUN   TestExamplesCompileMatchesInterp/containers.xn
+=== RUN   TestExamplesCompileMatchesInterp/defer-cleanup.xn
+=== RUN   TestExamplesCompileMatchesInterp/hello.xn
+=== RUN   TestExamplesCompileMatchesInterp/lexer-seed.xn
+=== RUN   TestExamplesCompileMatchesInterp/objlist.xn
+=== RUN   TestExamplesCompileMatchesInterp/result-try.xn
+--- PASS: TestExamplesCompileMatchesInterp (60.30s)
+    --- PASS: TestExamplesCompileMatchesInterp/ast-seed.xn (11.28s)
+    --- PASS: TestExamplesCompileMatchesInterp/classes.xn (12.88s)
+    --- PASS: TestExamplesCompileMatchesInterp/containers.xn (9.63s)
+    --- PASS: TestExamplesCompileMatchesInterp/defer-cleanup.xn (7.08s)
+    --- PASS: TestExamplesCompileMatchesInterp/hello.xn (4.47s)
+    --- PASS: TestExamplesCompileMatchesInterp/lexer-seed.xn (4.57s)
+    --- PASS: TestExamplesCompileMatchesInterp/objlist.xn (5.76s)
+    --- PASS: TestExamplesCompileMatchesInterp/result-try.xn (4.64s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	70.699s
