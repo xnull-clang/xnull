@@ -20,6 +20,10 @@
 
 `evidence/B0-02/run.sh`：红→绿→样例→回归一条命令，exit 0。
 
+## 本轮追加：B0-06 阻塞 #3（`fileOpenWrite`）
+
+B0-06 验收指出「`fileOpenWrite` 在所有绑定/C 层零命中，无它则写文件不可完成」。已按 red-first 补齐：`sys.xfb` 入口（`xdkc_file_open_write`）+ `rt_std_sys.c` 实现（`fopen(path,"wb")`）+ 阻塞分类清单一行 + `ffi/xdk_write_test.go`（生成包装、写→关→读回逐字节比对）。红：`red-fileopenwrite.txt`；绿：`green-fileopenwrite.txt`。
+
 ## 未覆盖
 
 1. `rt_std_*.c` 未按 import 闭包裁剪（条件 1；依赖 B0-03 的跨包 import）。

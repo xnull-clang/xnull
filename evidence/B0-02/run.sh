@@ -44,7 +44,7 @@ echo "产物内 xrt_/xdkc_ 符号数：$n"
 echo
 echo "== 4 回归 =="
 ( cd "$ROOT/impl" && go vet ./... ) || fail=1
-( cd "$ROOT/impl" && go test ./internal/codegen ./internal/cli -count=1 -timeout 300s ) || fail=1
+( cd "$ROOT/impl" && go test ./internal/codegen ./internal/codegen/ffi ./internal/cli -count=1 -timeout 300s ) || fail=1
 sh "$ROOT/impl/runtime/build_rt.sh" >/dev/null 2>&1 && echo "build_rt.sh：PASS" || { echo "build_rt.sh：FAIL"; fail=1; }
 
 echo

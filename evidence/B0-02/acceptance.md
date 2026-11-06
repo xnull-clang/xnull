@@ -28,6 +28,21 @@
 
 `run.sh` §3：`xnull build examples/hello.x -o … -l m -L /usr/lib -l m` → exit 0；产物运行输出与 `--interp` 一致；`nm` 统计产物内 `xrt_`/`xdkc_` 符号 **48 个**，证明 `xrt_abi.c` 与 `rt_std_*.c` 确实进入每个 `xnull build` 产物的链接清单（不是只改单测）。
 
+## B0-06 阻塞 #3：`fileOpenWrite` 增补（本轮补齐）
+
+B0-06 验收（`验收-M6-B0-06.md` §二 #3）判定「`fileOpenWrite` 在 sys.xfb/rt_std_sys.c/xrt.h 零命中 → B0-02 + API 缺口，无它则写文件不可完成」。本轮按 red-first 补齐：
+
+| 层 | 变更 |
+|---|---|
+| 绑定 | `bindings/xdk/sys.xfb` 新增 `File fileOpenWrite(String path)`，`cName = xdkc_file_open_write`，`@lease(path=.borrow)`、`@blocking(.unaware)` |
+| C 实现 | `impl/runtime/rt_std_sys.c` 新增 `xdkc_file_open_write`（`fopen(path,"wb")`；空路径/NUL/打开失败返回 NULL，不 panic） |
+| 文档 | `impl/docs/blocking-classification.md` 增 `fileOpenWrite` 行（`TestBlockingClassificationDocInSync` 自动校验） |
+| 测试 | 新增 `impl/internal/codegen/ffi/xdk_write_test.go`：入口/cName 断言 + 生成包装 + 写→关→读回内容比对 |
+
+红→绿：实现前 `TestXDKSysFileOpenWrite` FAIL「绑定缺少 fileOpenWrite」（`red-fileopenwrite.txt`）；实现后 PASS（`green-fileopenwrite.txt`），并覆盖生成代码的写路径（`write rc=0`、`close=0`、`readback n=7 text=write0k`）。
+
+注：`xrt.h` 不声明 `xdkc_*`（`fileOpenRead` 同样不在其中），绑定 `cName` 就是声明点；若 QA 期望 xrt.h 出现该符号，需先定 ABI 头是否收纳 XDK 原语，属合同变更，不在本卡擅自添加。
+
 ## P-10 四条条件
 
 | # | 条件 | 处置 |

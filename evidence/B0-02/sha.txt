@@ -4,3 +4,4 @@
 示例产物 hello = c600baa674057a8f0a3266f9c81537cfd9ff989a8bc81b260daae47172c3737e
 示例产物内 xrt_/xdkc_ 符号数 = 48
 go 版本 = go1.27.3 darwin/amd64
+B0-06 阻塞 #3 = fileOpenWrite 已补齐（xdkc_file_open_write；ffi/xdk_write_test.go 绿）

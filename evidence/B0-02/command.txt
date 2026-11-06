@@ -32,6 +32,10 @@ nm /tmp/b002-hello | grep -c '_xrt_\|_xdkc_'     # 期望 > 0
 # 6 CLI 链接参数确定性
 cd impl && go test ./internal/cli -count=1 -run TestLinkArgsDeterministic -v
 
+# 6b B0-06 阻塞 #3：fileOpenWrite（先红后绿）
+cd impl && go test ./internal/codegen/ffi -count=1 -run TestXDKSysFileOpenWrite -v
+#   实现前：FAIL「绑定缺少 fileOpenWrite」；实现后：PASS（写→关→读回比对）
+
 # 7 回归
 cd impl && go vet ./...
 cd impl && go test ./... -count=1 -timeout 300s
