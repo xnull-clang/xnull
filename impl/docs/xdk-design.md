@@ -147,7 +147,7 @@ impl/lib/xdk/net.xn           Socket / listener（M4.6d）
 | 绑定声明 `bindings/xdk/runtime.xfb`、`sys.xfb` | 完成 | 合同校验 + 包装生成 + 与 C 层联合编译运行（`internal/codegen/ffi/xdk_test.go`） |
 | XNull 源码层（`impl/lib/xdk/`） | 种子 | `text.xn`（repeatText/repeatJoined/isPositive 纯函数）：可解析、可语义检查、可生成 C（`internal/codegen/xdk_seed_test.go`）；完整 API 面待 extern 钩子与类/枚举面稳定 |
 | C 层目录/存在性/子进程（M4.6b-2） | 完成 | `rt_std_sys.c`：dirOpen/dirRead（内部缓冲、下次调用前有效）/dirClose 幂等/pathExists/procStatus（退出码，信号/失败 -1）；`test_std.c` 覆盖 |
-| 资源表（S8 §5.6） | 完成（生成器+样例验证） | `impl/tools/gen_resources.py`（升序、重名报错、空表零成本）+ `test_res.c`；接入 build 清单按 P-10 条件 1（import 闭包）执行 |
+| 资源表（S8 §5.6） | 完成（生成器+样例验证） | `xnull dev res`（升序、重名报错、空表零成本）+ `test_res.c`；接入 build 清单按 P-10 条件 1（import 闭包）执行 |
 | Regex（POSIX ERE 子集）+ Format 追加族 | 完成（C 层） | `rt_std_text.c`：`xdkc_regex_match`（0/1/2 显式区分语法错误）、`fmt_append_raw/int`（调用方游标，失败不推进）；XNull API 面随 P-09 后的包装层 |
 | `rt_std_sync.c` / `rt_std_net.c` | 未开工 | 依赖调度器切片（S6 §5 / S8 §5） |
 

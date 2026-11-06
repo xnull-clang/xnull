@@ -1,0 +1,10 @@
+# 母本文件（仓库根/spec）	母本内容 SHA-256（翻译所依据的版本）
+# EN 滞后判据 = 文件名版本 + 本清单内容指纹，不依赖 mtime。
+XNull解决方案-第1部分-基础语法-v3.3.0.md	4e9cfbdca3737cd014e540c206e0d1033783c9f89c2e0b676aff9fd86fcd4259
+XNull解决方案-第2部分-对象编程-v3.3.0.md	8ae0a001b95cb8d4dcb6451ca70f0f626185e85deb4701c0038ecefac741180e
+XNull解决方案-第3部分-内存管理-v3.0.0.md	a6dbb815ad22497dcbb1b10c7f691c618d83ed8c841a1d450b17ff70bf3e5bed
+XNull解决方案-第4部分-错误处理-v1.0.0.md	4710d221ab04d11a4922552bf33275d915ccdf8c69ebecb17a1f659baa3eacda
+XNull解决方案-第5部分-运行时任务与并发-v1.0.0.md	292487c797accd6385015f2bdafec7fd4c0e98305ea2e86be69378e4099beef7
+XNull解决方案-第6部分-标准库XDK-v1.1.0.md	a333ff1b82ccbd4f73f842b8b42c4a41930a5f15e6fc18f4437836efa10e4794
+XNull解决方案-第7部分-FFI-v1.0.0.md	0317d9acdbfc293a9b4e67359b8ad207dd3378544e88b6cb4ab26ec1838a544e
+XNull解决方案-第8部分-工程配置-v5.2.0.md	0620cb2d0978ad817c8175647824cd3f85b29a5c9eccc924f9b2ab4bddcd0c8d

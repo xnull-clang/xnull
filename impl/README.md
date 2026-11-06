@@ -14,6 +14,20 @@ xnull run examples/hello.xn
 
 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读或用法错误；130 中断。
 
+## 内部维护工具（xnull dev）
+
+仓库维护工具全部由 Go 提供，不再依赖 Python：
+
+```
+xnull dev check  [仓库根]    # 规范守门：头部一致/零待定/§ 引用/二进制拦截/EN 快照
+xnull dev ledger [仓库根]    # 从 S1—S8 母本重生成《一致性用例台账》
+xnull dev res <目录> <out.c> # 生成资源表 C 源（S8 §5.6）
+```
+
+`dev` 只服务仓库维护，不属于语言用户的稳定 CLI 面。EN 快照滞后判据为**文件名版本 + 母本内容 SHA-256**
+（清单 `impl/docs/conformance/en-source.sha256`），与文件 mtime 无关（mtime 在 clone/checkout 后会刷新，不可作为判据）。`impl/runtime/build_rt.sh` 以
+`go run ./cmd/xnull dev res` 调用资源表生成器（构建期工具，不进入运行时产物、不携带 Go 运行时）。
+
 ## 解释器范围（internal/interp）
 
 tree-walking 解释器（最小可运行闭环），支持：顶层函数/字段、局部声明、赋值与复合赋值、自增/自减、
@@ -68,8 +82,8 @@ internal/sema/    语义分析（名称解析先行；诊断码 RES-1xx）
 internal/xpd/     XPD 解析器（设计提案格式）
 internal/diag/    诊断结构
 internal/exitcode/ 退出码常量（S9 §5.1）
-docs/conformance/ 一致性状态（status.tsv → gen_ledger.py 生成台账）
-tools/            check_specs.py 守门脚本、gen_ledger.py
+docs/conformance/ 一致性状态（status.tsv → xnull dev ledger 生成台账）
+internal/devtool/ 维护工具：check（规范守门）/ ledger（台账生成）/ res（资源表生成）
 ```
 
 ## 测试

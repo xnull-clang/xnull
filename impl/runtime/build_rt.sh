@@ -17,7 +17,7 @@ XNULL_RES_DIR=$(mktemp -d)
 printf 'hello' > "$XNULL_RES_DIR/a.txt"
 printf '\x01\x02\xff' > "$XNULL_RES_DIR/b.bin"
 XNULL_RES_C=$(mktemp -d)/res_table.c
-python3 ../tools/gen_resources.py "$XNULL_RES_DIR" "$XNULL_RES_C" || exit 1
+(cd .. && go run ./cmd/xnull dev res "$XNULL_RES_DIR" "$XNULL_RES_C") || exit 1
 rm -rf "$XNULL_RES_DIR"
 cc -std=c11 -Wall -Wextra -Werror -O2 -I. -o /tmp/xnull_test_res test_res.c "$XNULL_RES_C"
 /tmp/xnull_test_res
