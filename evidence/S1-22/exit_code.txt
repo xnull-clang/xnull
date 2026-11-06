@@ -1,0 +1,14 @@
+# S1-22 退出码
+
+| 项 | 产物 | 退出码 |
+|---|---|---|
+| 活引用 `git grep '\.xn\b'`（排除历史目录） | `stdout.txt` | 无命中（0 行） |
+| 主仓 `find -name '*.xn'` | `stdout.txt` | 无命中（0 行） |
+| `go vet ./...` | `go-vet.exit` | 0 |
+| `go test ./... -count=1 -timeout 300s` | `go-test.out` | 0 |
+| `go test ./internal/devtool ./internal/cli` | `go-test-devcli.exit` | 0 |
+| `sh impl/runtime/build_rt.sh` | `build_rt.out` | 0 |
+| 9 示例双路径（解释/编译） | `dualpath/result.txt` | 9 × (0, 0) |
+| `parser-seed` 解释器耗时 | `parser-seed-timing.txt` | real 0.02s（<10s） |
+| 主树 cwd `dev check` | `stdout.txt` | 0 |
+| 公开仓 cwd `dev check` | `stdout.txt` | 0 |

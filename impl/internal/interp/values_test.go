@@ -232,7 +232,7 @@ static Int main() {
 
 // §11.2：main(args: String[]) 入口第二形态。
 func TestMainWithArgs(t *testing.T) {
-	u, diags := xfront.ParseUnit("t.xn", "static Int main(String[] args) {\n    print(args.length())\n    print(args[0])\n    return 0\n}")
+	u, diags := xfront.ParseUnit("t.x", "static Int main(String[] args) {\n    print(args.length())\n    print(args[0])\n    return 0\n}")
 	if len(diags) != 0 {
 		t.Fatalf("解析诊断：%v", diags)
 	}

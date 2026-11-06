@@ -46,7 +46,7 @@
 
 | 事项 | 归属 | 说明 |
 | --- | --- | --- |
-| 语言文法（`.xn`） | 编译器侧（xfront） | **零改动**：不加 `extern`/`unsafe`/`layout` 关键字（S7 附录 B 已定案） |
+| 语言文法（`.x`） | 编译器侧（xfront） | **零改动**：不加 `extern`/`unsafe`/`layout` 关键字（S7 附录 B 已定案） |
 | `.xfb` 绑定声明文件解析 | 运行时侧（`internal/codegen/ffi/decl.go` + lexer/parser） | 独立小方言；复用 xfront 词法包的 token 定义（仅引用，不改其代码） |
 | 合同校验（租约/编组/布局/分类/`@unsafe`） | 运行时侧（`internal/codegen/ffi/check.go`） | 诊断码段位 `FFI-101`—`FFI-110`（实现侧段位；S7 不规定码值） |
 | 绑定注册表（入口→签名/租约/错误码/分类） | 运行时侧（`internal/codegen/ffi/registry.go`） | codegen 核心经接口消费（ffi-contract.md 定义） |
@@ -213,7 +213,7 @@ S7 §6.1 + 附录 B 冻结 `xrt_*` 前缀为 ABI 承诺；现有运行时内部�
 ### 7.2 无 FFI 时（空路径）
 
 - 无 `.xfb`、无 `link` 块 → 链接命令与 M4.2 完全一致（`libxrt.a` 单一依赖）；
-- 空路径必须零成本：不解析 `.xfb`、不生成包装、不引入 `xrt_abi.o` 之外的新符号；回归断言：hello.xn 的构建命令与产物摘要与 M4.2 基线一致。
+- 空路径必须零成本：不解析 `.xfb`、不生成包装、不引入 `xrt_abi.o` 之外的新符号；回归断言：hello.x 的构建命令与产物摘要与 M4.2 基线一致。
 
 ## 8. 风险与开放点
 

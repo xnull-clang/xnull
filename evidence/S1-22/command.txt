@@ -1,0 +1,37 @@
+# S1-22 采集命令
+
+```bash
+# 0 基线
+git status --short          # 无未提交生产代码（仅未跟踪 evidence/ci）
+
+# 1 改名（13 个，逐个 git mv）
+for f in examples/ast-seed examples/classes examples/containers examples/defer-cleanup \
+         examples/hello examples/lexer-seed examples/multi/lib/shapes examples/multi/lib/text \
+         examples/multi/main examples/objlist examples/parser-seed examples/result-try \
+         impl/lib/xdk/text; do git mv "$f.xn" "$f.x"; done
+
+# 2 活引用（严格 \.xn\b）
+git grep -l -z '\.xn\b' -- ':!日志/**' ':!收件箱/**' ':!evidence/**' \
+  | xargs -0 perl -pi -e 's/\.xn\b/.x/g'
+
+# 3 自检
+git grep -n '\.xn\b' -- ':!日志/**' ':!收件箱/**' ':!evidence/**'   # 期望 0
+find . -path ./wt -prune -o -path ./xnull -prune -o -name '*.xn' -print   # 期望 0
+gofmt -w <改过的 13 个 Go 文件>
+cd impl && go vet ./...
+cd impl && go test ./... -count=1 -timeout 300s
+sh impl/runtime/build_rt.sh
+
+# 6 双路径（9 个 .x 示例）
+cd impl && go build -o /tmp/xnull-s122 ./cmd/xnull
+for f in examples/*.x; do
+  /tmp/xnull-s122 run --interp "$f" > i.out 2> i.err; i=$?
+  /tmp/xnull-s122 run           "$f" > c.out 2> c.err; c=$?
+  cmp i.out c.out && echo "$f $i/$c"
+done
+/usr/bin/time -p /tmp/xnull-s122 run --interp examples/parser-seed.x
+
+# 7 布局（信息性）
+(cd /Users/vjs/Desktop/XNull-Lang && /tmp/xnull-s122 dev check)
+(cd /Users/vjs/Desktop/XNull-Lang/xnull && /tmp/xnull-s122 dev check)
+```

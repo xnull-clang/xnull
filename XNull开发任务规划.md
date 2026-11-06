@@ -49,7 +49,7 @@
 
 ### ✅ 阶段 M4：端到端编译（2026-11-06 完成，完成定义实测达成）
 - M4.1 代码生成：XNull → C ✓（internal/codegen：单一所有权字符串模型、Result 实例化结构体、defer/errdefer 退出点内联清理序列（单一 LIFO、errdefer 按 xn_ret.ok 运行时判定）、throw/fatal exit(134)、运行时 ABI 消费 rt.h/rt_gc.h；超范围构造显式报错不静默降级；黄金对照测试：三示例 + defer 硬语义）
-- M4.2 `xnull build` 端到端 ✓（file.xn → C → cc -O2 → 可执行；--runtime/XNULL_RUNTIME/cwd 探测三级运行时目录解析）
+- M4.2 `xnull build` 端到端 ✓（file.x → C → cc -O2 → 可执行；--runtime/XNULL_RUNTIME/cwd 探测三级运行时目录解析）
 - M4.3 解释器降级 ✓（`xnull run` 默认编译路径（临时构建+运行+退出码透传）；`--interp` 调试模式；双路径输出与退出码逐字节一致）
 - **完成定义达成**：三示例经编译路径运行，输出与解释器逐字节一致（codegen 黄金测试 + CLI 实跑 cmp 双重验证）
 
@@ -73,12 +73,12 @@
 - 4.4a 容器 ✓（Array/List/Map/Set：字面量、下标读写、length/push/get/set/add/has/getOr/put/remove/clear、for-in、跨函数传参；codegen 私有表示不进运行时 ABI，遵 P-03 评审无运行期注册表）
 - 4.4b 类 ✓（单类无继承无协议：ARC 对象结构体 + rt_type 描述符 + 构造器 + 字段初值 + 实例方法；解释器侧补类运行时（new/字段/方法绑定）——CEO 裁决 A 案，对象由 Go GC 托管、不做 ARC 时序模拟，一致性只断言 stdout/退出码）
 - 4.4c 边界：闭包/元组**标注理由**并入 M5.1——自举子集以"类 + 容器 + 既有四示例面"为界，闭包/元组在自举代码中不出现即不阻塞；出现时按需补（codegen 对两者显式报错，不静默降级）
-- **完成定义达成**：`examples/classes.xn`（类 + 数组 + List + Map + 方法返回 String + for-in）编译路径与解释路径**逐字节一致**；既有四示例不回退；未支持面（继承/协议多态/带参构造/容器字段/类引用字段）继续显式报错
+- **完成定义达成**：`examples/classes.x`（类 + 数组 + List + Map + 方法返回 String + for-in）编译路径与解释路径**逐字节一致**；既有四示例不回退；未支持面（继承/协议多态/带参构造/容器字段/类引用字段）继续显式报错
 - 依赖：M4 门已过（2026-11-06）；容器/对象表示走 runtime-contract 评审（P-03/P-04/P-05 结论），未私改冻结契约
 - **收口验收记录（CEO，2026-11-06）**：8 包全绿（-count=1）、classes/containers/lexer-seed 三示例双路径逐字节一致亲测、未支持面显式报错非隐瞒、4.4c 理由成立——**通过**
 
 ### ▶ 阶段 M5：自举
-- M5.1 编译器以 XNull 重写（子集起步，逐步扩大）——**进行中**：语言面补口完成（String 成员/相等/一元/while 语义）、自举素材 #1 词法器 `examples/lexer-seed.xn` 双路径一致；M5.1-a 容器元素放开类引用（objlist.xn）、M5.1-b AST 节点表示（类字段放开容器/类引用 + 接收者链 + 类引用所有权纪律，ast-seed.xn 双路径一致）均完成 → 下一步 Pratt 表达式解析器（与 Go 实现同输入对照）
+- M5.1 编译器以 XNull 重写（子集起步，逐步扩大）——**进行中**：语言面补口完成（String 成员/相等/一元/while 语义）、自举素材 #1 词法器 `examples/lexer-seed.x` 双路径一致；M5.1-a 容器元素放开类引用（objlist.x）、M5.1-b AST 节点表示（类字段放开容器/类引用 + 接收者链 + 类引用所有权纪律，ast-seed.x 双路径一致）均完成 → 下一步 Pratt 表达式解析器（与 Go 实现同输入对照）
 - **M5.2 前置完成（2026-11-06，待办-08）**：多文件编译单元——import 闭包加载器（环 RES-108/缺失 RES-106/包一致性 RES-109）、依赖优先后序确定性合并、跨文件可见性与重定义检测（跨文件类重名 RES-102 生效；同名函数重载在 C 侧冲突改显式报错）、示例 examples/multi 双路径逐字节一致 + C 产物确定性；`xnull run`/`build` 双路径共用同一加载器
 - M5.2 自举编译器能编译自身
 - **完成定义**：`xnull` 由 XNull 源码编译产出，能编译自己的源码并产生行为一致的编译器

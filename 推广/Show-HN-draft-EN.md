@@ -21,7 +21,7 @@ XNull is a programming language designed around one rule: **a program's behavior
 And unlike most spec-first projects, you can run it today:
 
 ```
-$ go run ./cmd/xnull run examples/hello.xn
+$ go run ./cmd/xnull run examples/hello.x
 hello, XNull
 1 + 2 = 3
 ```
@@ -39,7 +39,7 @@ Three decisions that shape everything:
    One real run of the cleanup semantics (block exit, LIFO, ok vs error path):
 
    ```
-   $ go run ./cmd/xnull run examples/defer-cleanup.xn
+   $ go run ./cmd/xnull run examples/defer-cleanup.x
    A
    B
    C
@@ -60,7 +60,7 @@ Three decisions that shape everything:
 
 Also deliberately absent: method overriding (polymorphism is protocols-only), abstract methods, reflection, operator overloading, named arguments. Every rejection is documented with its rationale in the spec — we think the *rejected* ideas are the interesting part, and we're happy to defend any of them.
 
-**Status honesty**: a tree-walking interpreter just landed: `go run ./cmd/xnull run examples/hello.xn` runs today, with three examples in `examples/` (hello, Result/try, defer/errdefer). The C runtime — executing the ARC/GC decision table, deinit ordering — is the next milestone. The conformance ledger publishes every task, Unimplemented included. The specs are the primary artifact. Criticism of the design is exactly what we want; we tried to preempt criticism of premature claims by publishing the status up front.
+**Status honesty**: a tree-walking interpreter just landed: `go run ./cmd/xnull run examples/hello.x` runs today, with three examples in `examples/` (hello, Result/try, defer/errdefer). The C runtime — executing the ARC/GC decision table, deinit ordering — is the next milestone. The conformance ledger publishes every task, Unimplemented included. The specs are the primary artifact. Criticism of the design is exactly what we want; we tried to preempt criticism of premature claims by publishing the status up front.
 
 Ask me anything — especially about the decisions you think are wrong.
 
@@ -72,5 +72,5 @@ Ask me anything — especially about the decisions you think are wrong.
 | "ARC/GC hybrid is undecidable / will leak" | "S2 §15.6 invariants: every strong reference is either counted or traced — never neither. Cycles are detected statically and reclassified as GC. It's conservative, not clever." |
 | "No overriding = verbose" | "In practice protocol polymorphism covers the dynamic cases; static reuse covers the rest. The spec shows the same example dispatched both ways (S2 §5.6). Genuinely curious where you'd get stuck." |
 | "Chinese-first specs = niche" | "All 10 documents ship with English translations; English is the primary public version. Bilingual from day one." |
-| "Where's the compiler?" | "A tree-walking interpreter ships today — `go run ./cmd/xnull run examples/hello.xn`. The C backend is the next milestone. The conformance ledger (101 items, Unimplemented included) lets you watch the roadmap move instead of trusting a README." |
+| "Where's the compiler?" | "A tree-walking interpreter ships today — `go run ./cmd/xnull run examples/hello.x`. The C backend is the next milestone. The conformance ledger (101 items, Unimplemented included) lets you watch the roadmap move instead of trusting a README." |
 | "700 lines is a toy" | "It's a deliberately scoped interpreter: the semantics this design is argued on — `try` propagation, `defer`/`errdefer` LIFO, byte-identical deterministic output across runs (tested). Objects and generics come next; the ledger says exactly what's in and out." |

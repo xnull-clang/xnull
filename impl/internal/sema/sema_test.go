@@ -10,11 +10,11 @@ import (
 // run 用例辅助：解析 + 分析，返回语义诊断码集合。
 func codes(t *testing.T, src string) []string {
 	t.Helper()
-	u, diags := xfront.ParseUnit("t.xn", src)
+	u, diags := xfront.ParseUnit("t.x", src)
 	if len(diags) != 0 {
 		t.Fatalf("解析不应有诊断：%v", diags)
 	}
-	sd := Analyze("t.xn", u)
+	sd := Analyze("t.x", u)
 	out := make([]string, 0, len(sd))
 	for _, d := range sd {
 		out = append(out, d.Code+"@"+strings.TrimSpace(d.Message))
@@ -102,8 +102,8 @@ func TestUndefinedName(t *testing.T) {
 }
 
 func TestUndefinedDiagPosition(t *testing.T) {
-	u, _ := xfront.ParseUnit("t.xn", "static Int main() {\n    print(nope)\n    return 0\n}")
-	sd := Analyze("t.xn", u)
+	u, _ := xfront.ParseUnit("t.x", "static Int main() {\n    print(nope)\n    return 0\n}")
+	sd := Analyze("t.x", u)
 	if len(sd) != 1 {
 		t.Fatalf("应恰好一条诊断：%v", sd)
 	}

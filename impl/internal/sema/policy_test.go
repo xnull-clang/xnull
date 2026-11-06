@@ -12,11 +12,11 @@ import (
 // strategiesOf 解析+分析后返回判定结果。
 func strategiesOf(t *testing.T, src string) []Strategy {
 	t.Helper()
-	u, pdiags := xfront.ParseUnit("t.xn", src)
+	u, pdiags := xfront.ParseUnit("t.x", src)
 	if len(pdiags) != 0 {
 		t.Fatalf("解析不应有诊断：%v", pdiags)
 	}
-	res, sd := AnalyzeWith("t.xn", u)
+	res, sd := AnalyzeWith("t.x", u)
 	if len(sd) != 0 {
 		t.Fatalf("不应有语义诊断：%v", sd)
 	}
@@ -152,7 +152,7 @@ static Int main() { return 0 }`)
 
 // TestPolicyStructSelfCapture 结构体闭包捕获 self 被拒绝（§3.1）。
 func TestPolicyStructSelfCapture(t *testing.T) {
-	u, pdiags := xfront.ParseUnit("t.xn", `
+	u, pdiags := xfront.ParseUnit("t.x", `
 struct S {
     Int v = 0;
 
@@ -166,7 +166,7 @@ static Int main() { return 0 }`)
 	if len(pdiags) != 0 {
 		t.Fatalf("解析不应有诊断：%v", pdiags)
 	}
-	sd := Analyze("t.xn", u)
+	sd := Analyze("t.x", u)
 	found := false
 	for _, d := range sd {
 		if d.Code == TyStructVal {

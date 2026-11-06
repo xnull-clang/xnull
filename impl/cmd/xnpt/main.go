@@ -1,6 +1,6 @@
 // xnpt：解析对照工具（M5.1-c）。
 // 对给定的表达式串，用 xfront 解析器解析后按 PrintExpr 输出 S 表达式，
-// 与 examples/parser-seed.xn（XNull 版 Pratt 解析器）同输入对照。
+// 与 examples/parser-seed.x（XNull 版 Pratt 解析器）同输入对照。
 // 用法：xnpt "1 + 2 * 3" "(1 + 2) * 3" ...
 package main
 
@@ -17,7 +17,7 @@ func main() {
 		src += "    dump(" + e + ");\n"
 	}
 	src += "    return 0;\n}\nstatic void dump(Int _) {}\n"
-	u, diags := xfront.ParseUnit("xnpt.xn", src)
+	u, diags := xfront.ParseUnit("xnpt.x", src)
 	if len(diags) > 0 {
 		for _, d := range diags {
 			fmt.Fprintln(os.Stderr, d.String())

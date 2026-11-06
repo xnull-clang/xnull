@@ -36,7 +36,7 @@ XNull 的设计公理只有一条：**程序的行为必须由源码文本加规
 **现在就能跑**（tree-walking 解释器已随仓库上线）：
 
 ```
-$ go run ./cmd/xnull run examples/hello.xn
+$ go run ./cmd/xnull run examples/hello.x
 hello, XNull
 1 + 2 = 3
 ```
@@ -44,7 +44,7 @@ hello, XNull
 defer/errdefer 的真实输出（`cleanup 2` 先于 `cleanup 1`——LIFO；正常路径不执行 errdefer；错误路径先 errdefer 后 defer，try 传播后错误可读）：
 
 ```
-$ go run ./cmd/xnull run examples/defer-cleanup.xn
+$ go run ./cmd/xnull run examples/defer-cleanup.x
 A
 B
 C

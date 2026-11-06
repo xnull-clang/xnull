@@ -1,0 +1,47 @@
+===== 活引用检查（应为 0） =====
+$ git grep -n '\.xn' -- ':!日志/**' ':!收件箱/**' ':!evidence/**'
+(无输出，命中 0)
+
+===== 主仓 .xn 文件（应为 0） =====
+$ find . -path ./wt -prune -o -path ./xnull -prune -o -name '*.xn' -print
+(无输出，命中 0)
+
+===== 模块路径完好 =====
+module xnull.dev/xnull
+引用 xnull.dev/xnull 的 Go 文件数：39
+
+===== go test ./... =====
+ok  	xnull.dev/xnull/internal/cli	16.872s
+ok  	xnull.dev/xnull/internal/codegen	49.130s
+ok  	xnull.dev/xnull/internal/codegen/ffi	23.514s
+ok  	xnull.dev/xnull/internal/devtool	7.970s
+ok  	xnull.dev/xnull/internal/diag	9.202s
+ok  	xnull.dev/xnull/internal/interp	14.169s
+ok  	xnull.dev/xnull/internal/sema	4.722s
+ok  	xnull.dev/xnull/internal/xfront	11.061s
+ok  	xnull.dev/xnull/internal/xpd	6.044s
+
+===== 9 示例双路径 =====
+ast-seed         interp=0 compiled=0 stdout=OK
+classes          interp=0 compiled=0 stdout=OK
+containers       interp=0 compiled=0 stdout=OK
+defer-cleanup    interp=0 compiled=0 stdout=OK
+hello            interp=0 compiled=0 stdout=OK
+lexer-seed       interp=0 compiled=0 stdout=OK
+objlist          interp=0 compiled=0 stdout=OK
+parser-seed      interp=0 compiled=0 stdout=OK
+result-try       interp=0 compiled=0 stdout=OK
+
+===== parser-seed 解释器耗时 =====
+real 0.03s（见 sha.txt）
+
+===== 两布局 dev check（新二进制） =====
+
+全部通过：零待定、引用零悬空、头部一致、根目录纯 Markdown、EN 快照同步
+
+全部通过：零待定、引用零悬空、头部一致、根目录纯 Markdown、EN 快照同步
+
+===== build_rt =====
+abi 测试通过
+std 测试通过
+资源表测试通过

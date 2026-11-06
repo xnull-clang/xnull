@@ -12,7 +12,7 @@ import (
 // 多文件编译单元（S1 §3.2/§3.4；M5.2 前置）。
 //
 // 加载规则（起步形态，细化路径解析归后续工程清单批次）：
-//   - `import p1.p2.…pn` 映射为 entry 所在目录下的相对文件 p1/p2/…/pn.xn；
+//   - `import p1.p2.…pn` 映射为 entry 所在目录下的相对文件 p1/p2/…/pn.x；
 //   - `xdk.*` 导入由 sema 处理，加载器不解析为文件；
 //   - 包导入图必须无环（§3.4），检测到环即编译错误；
 //   - 同一文件只加载一次（重复导入允许，§3.2）；
@@ -58,7 +58,7 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				File: from, Line: 1, Col: 1, Code: codeImportFileMiss,
-				Message: "找不到包文件 " + relName(dir, abs) + "（import 点分路径映射为同目录相对路径 .xn）",
+				Message: "找不到包文件 " + relName(dir, abs) + "（import 点分路径映射为同目录相对路径 .x）",
 				Hint:    "确认文件名与 import 路径一致，或改用已存在的包",
 			})
 			state[abs] = 2
@@ -76,7 +76,7 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 			if len(imp.Path) == 0 || imp.Path[0] == "xdk" {
 				continue
 			}
-			dep := filepath.Join(dir, filepath.Join(imp.Path...)+".xn")
+			dep := filepath.Join(dir, filepath.Join(imp.Path...)+".x")
 			if !visit(dep, path) {
 				okAll = false
 			}

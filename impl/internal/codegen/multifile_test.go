@@ -32,12 +32,12 @@ func writeTree(t *testing.T, files map[string]string) string {
 // TestLoadUnitsOrderDeterministic 依赖在前、入口最后，且重复 import 只加载一次。
 func TestLoadUnitsOrderDeterministic(t *testing.T) {
 	dir := writeTree(t, map[string]string{
-		"main.xn": "import a\nimport b\nstatic Int main() { return 0 }\n",
-		"a.xn":    "import c\nstatic Int fa() { return 1 }\n",
-		"b.xn":    "import c\nstatic Int fb() { return 2 }\n",
-		"c.xn":    "static Int fc() { return 3 }\n",
+		"main.x": "import a\nimport b\nstatic Int main() { return 0 }\n",
+		"a.x":    "import c\nstatic Int fa() { return 1 }\n",
+		"b.x":    "import c\nstatic Int fb() { return 2 }\n",
+		"c.x":    "static Int fc() { return 3 }\n",
 	})
-	u, diags := LoadUnits(filepath.Join(dir, "main.xn"))
+	u, diags := LoadUnits(filepath.Join(dir, "main.x"))
 	if len(diags) != 0 {
 		t.Fatalf("诊断：%v", diags)
 	}
@@ -56,10 +56,10 @@ func TestLoadUnitsOrderDeterministic(t *testing.T) {
 // TestLoadUnitsCycle 导入环报 RES-108（§3.4）。
 func TestLoadUnitsCycle(t *testing.T) {
 	dir := writeTree(t, map[string]string{
-		"a.xn": "import b\nstatic Int main() { return 0 }\n",
-		"b.xn": "import a\nstatic Int f() { return 0 }\n",
+		"a.x": "import b\nstatic Int main() { return 0 }\n",
+		"b.x": "import a\nstatic Int f() { return 0 }\n",
 	})
-	_, diags := LoadUnits(filepath.Join(dir, "a.xn"))
+	_, diags := LoadUnits(filepath.Join(dir, "a.x"))
 	if len(diags) == 0 {
 		t.Fatal("期望导入环诊断")
 	}
@@ -71,9 +71,9 @@ func TestLoadUnitsCycle(t *testing.T) {
 // TestLoadUnitsMissing 缺失包文件报 RES-106（§3.5）。
 func TestLoadUnitsMissing(t *testing.T) {
 	dir := writeTree(t, map[string]string{
-		"a.xn": "import no_such\nstatic Int main() { return 0 }\n",
+		"a.x": "import no_such\nstatic Int main() { return 0 }\n",
 	})
-	_, diags := LoadUnits(filepath.Join(dir, "a.xn"))
+	_, diags := LoadUnits(filepath.Join(dir, "a.x"))
 	if len(diags) == 0 {
 		t.Fatal("期望缺失诊断")
 	}
@@ -85,14 +85,14 @@ func TestLoadUnitsMissing(t *testing.T) {
 // TestMultiFileCrossFileTypeClash 跨文件类型重名由语义层报 RES-102（同包内唯一）。
 func TestMultiFileCrossFileTypeClash(t *testing.T) {
 	dir := writeTree(t, map[string]string{
-		"main.xn": "import x\nclass Point {\n    Int y = 0;\n}\nstatic Int main() { return 0 }\n",
-		"x.xn":    "class Point {\n    Int x = 0;\n}\n",
+		"main.x": "import x\nclass Point {\n    Int y = 0;\n}\nstatic Int main() { return 0 }\n",
+		"x.x":    "class Point {\n    Int x = 0;\n}\n",
 	})
-	u, diags := LoadUnits(filepath.Join(dir, "main.xn"))
+	u, diags := LoadUnits(filepath.Join(dir, "main.x"))
 	if len(diags) != 0 {
 		t.Fatalf("加载诊断：%v", diags)
 	}
-	sd := sema.Analyze(filepath.Join(dir, "main.xn"), u)
+	sd := sema.Analyze(filepath.Join(dir, "main.x"), u)
 	if len(sd) == 0 {
 		t.Fatal("期望跨文件类型重名诊断")
 	}
@@ -104,10 +104,10 @@ func TestMultiFileCrossFileTypeClash(t *testing.T) {
 // TestMultiFileFnOverloadExplicit 跨文件同名顶层函数在 C 侧冲突 → 显式报错（不落到 cc）。
 func TestMultiFileFnOverloadExplicit(t *testing.T) {
 	dir := writeTree(t, map[string]string{
-		"main.xn": "import y\nstatic Int f(Int a) { return a + 1 }\nstatic Int main() { return 0 }\n",
-		"y.xn":    "static Int f(Int a) { return a }\n",
+		"main.x": "import y\nstatic Int f(Int a) { return a + 1 }\nstatic Int main() { return 0 }\n",
+		"y.x":    "static Int f(Int a) { return a }\n",
 	})
-	u, diags := LoadUnits(filepath.Join(dir, "main.xn"))
+	u, diags := LoadUnits(filepath.Join(dir, "main.x"))
 	if len(diags) != 0 {
 		t.Fatalf("加载诊断：%v", diags)
 	}
@@ -121,7 +121,7 @@ func TestMultiFileFnOverloadExplicit(t *testing.T) {
 // TestMultiFileExampleCompileMatchesInterp 多文件示例双路径逐字节一致
 // （主文件调子文件函数 + 子文件类被主文件使用 + 二级依赖）。
 func TestMultiFileExampleCompileMatchesInterp(t *testing.T) {
-	entry := filepath.Join("..", "..", "..", "examples", "multi", "main.xn")
+	entry := filepath.Join("..", "..", "..", "examples", "multi", "main.x")
 	u, diags := LoadUnits(entry)
 	if len(diags) != 0 {
 		t.Fatalf("加载诊断：%v", diags)

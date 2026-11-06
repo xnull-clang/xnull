@@ -1,7 +1,7 @@
 // Package ffi 解析 .xfb 绑定声明文件并执行 S7 合同校验，产出绑定注册表。
 //
 // 边界：
-//   - 只消费声明文本（.xfb 方言），不触及语言文法（.xn 零改动）；
+//   - 只消费声明文本（.xfb 方言），不触及语言文法（.x 零改动）；
 //   - 对外只暴露 Registry 与四个入口（Load / EmitCall / EmitSupport /
 //     DeclareDiagnostics），其余类型与流程内部化；
 //   - 输出确定性：注册表按名称排序、诊断按位置排序（DET-01）。

@@ -17,7 +17,7 @@ I've spent the last months designing XNull, a language built on one axiom: **if 
 It's not just specs: a tree-walking interpreter ships with the repo.
 
 ```
-$ go run ./cmd/xnull run examples/hello.xn
+$ go run ./cmd/xnull run examples/hello.x
 hello, XNull
 1 + 2 = 3
 ```
@@ -42,4 +42,4 @@ Also in the spec: generics via monomorphization (no constraints — deliberately
 
 Repo: https://github.com/xnull-clang/xnull
 
-Status honesty: a tree-walking interpreter is merged — `go run ./cmd/xnull run examples/hello.xn` works today, three examples included. The C runtime (ARC/GC adjudication execution, deinit ordering) is next; the conformance ledger publishes every task including the Unimplemented ones. Roast away — the design survives on being wrong in interesting ways or right in defensible ones, and right now I only have my own arguments to test against.
+Status honesty: a tree-walking interpreter is merged — `go run ./cmd/xnull run examples/hello.x` works today, three examples included. The C runtime (ARC/GC adjudication execution, deinit ordering) is next; the conformance ledger publishes every task including the Unimplemented ones. Roast away — the design survives on being wrong in interesting ways or right in defensible ones, and right now I only have my own arguments to test against.

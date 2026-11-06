@@ -1,0 +1,14 @@
+# S1-22 改名清单（git mv）
+examples/ast-seed.xn -> examples/ast-seed.x
+examples/classes.xn -> examples/classes.x
+examples/containers.xn -> examples/containers.x
+RM examples/defer-cleanup.xn -> examples/defer-cleanup.x
+RM examples/hello.xn -> examples/hello.x
+examples/lexer-seed.xn -> examples/lexer-seed.x
+examples/multi/lib/shapes.xn -> examples/multi/lib/shapes.x
+examples/multi/lib/text.xn -> examples/multi/lib/text.x
+examples/multi/main.xn -> examples/multi/main.x
+examples/objlist.xn -> examples/objlist.x
+examples/parser-seed.xn -> examples/parser-seed.x
+RM examples/result-try.xn -> examples/result-try.x
+impl/lib/xdk/text.xn -> impl/lib/xdk/text.x

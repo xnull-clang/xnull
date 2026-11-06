@@ -1,0 +1,8 @@
+基线 HEAD（改名执行前）= f826d1f0f34d86970dae60fe9efe0c0b5939b8a0
+分支 = pod/e6-toolchain
+改名 = 13 个文件（git mv，无 rm+新建）
+活引用修改 = 27 个跟踪文件（Go 13 个 57 处 + impl/README.md + impl/docs/** 3 份 + 推广/** 4 份 + XNull开发任务规划.md + 内部启动提示词 2 份）
+模块路径 = module xnull.dev/xnull（未变；39 个 Go 文件引用未受影响）
+验证二进制 = 94729bd0617b9f8f4b6b4b8f658b22798f7c7093dd5b54418f129424a690195e
+parser-seed 解释器耗时 = real 0.03s（要求 <10s）
+go 版本 = go1.27.3 darwin/amd64
