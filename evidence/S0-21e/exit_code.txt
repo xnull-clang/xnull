@@ -1,0 +1,15 @@
+# S0-21e 退出码汇总
+
+| # | 项 | 产物 | 退出码 | 判定 |
+|---|---|---|---|---|
+| m1a | `go vet ./...` | `m1-go-vet.exit` | 0 | 绿 |
+| m1b | `go test ./... -count=1 -timeout 180s` | `m1-go-test.exit` | 1（codegen 187.869s 触 180s 超时） | **红（P0-1）** |
+| m2 | `sh impl/runtime/build_rt.sh` | `m2-build_rt.exit` | 0 | 绿 |
+| m3 | 工作区布局 `dev check` | `m3-main.exit` | 0 | 绿 |
+| m4 | 公开布局 `dev check` | `m4-public.exit` | 0 | 绿 |
+| m5 | `dev ledger` 生成 | `m5-ledger.exit` | 0 | 绿 |
+| m5d | 与 S0-21a golden `diff -u` | `m5-ledger.diff.exit` | 1（仅第 3 行生成器名，白名单差异） | 绿（白名单内） |
+| m6 | `dev res` + sha256 比对 | `m6-res.exit` | 0（两侧同为 `2f88b931…`） | 绿 |
+| m7a | `find impl -name '*.py'` | `m7-find-python.exit` | 0 且输出为空 | 绿（0 个） |
+| m7b | `git grep 'impl/tools/.*\.py' -- ':!*.md'` | `m7-git-grep.out` | 0（16 条全部位于 `evidence/` 历史记录） | 见说明 |
+| m7c | 同上 + `':!evidence/**'`（产品代码口径） | `m7-git-grep-code.out` | 0（1 条：`resources.go:99` 冻结 golden 头） | 董事会令 §1.1 已登记例外 |

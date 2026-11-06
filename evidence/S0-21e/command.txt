@@ -1,0 +1,37 @@
+# S0-21e 证据采集命令（E6 自检，不构成门禁结论）
+
+工作树：`/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain`
+二进制：`evidence/S0-21d/bin/xnull`
+HEAD 基线：`dd751a6`（本卡执行前）；执行时间：2026-11-07 01:32 起
+
+```bash
+# m1 Go 静态检查 + 全量测试（董事会令 S0-27 §3 硬界 180s）
+cd impl && go vet ./...
+cd impl && go test ./... -count=1 -timeout 180s
+
+# m2 C 运行时构建
+sh impl/runtime/build_rt.sh
+
+# m3 工作区布局守门（主树 cwd，运行 worktree 内已构建二进制）
+cd /Users/vjs/Desktop/XNull-Lang && <wt>/evidence/S0-21d/bin/xnull dev check
+
+# m4 公开布局守门（公开仓库 cwd，同一二进制）
+cd /Users/vjs/Desktop/XNull-Lang/xnull && <wt>/evidence/S0-21d/bin/xnull dev check
+
+# m5 台账再生成 + 与 S0-21a golden 基线比对
+cp "XNull一致性用例台账-v1.0.0.md" /tmp/e6-ledger-backup.md
+<wt>/evidence/S0-21d/bin/xnull dev ledger
+diff -u <wt>/evidence/S0-21a/golden-ledger/run1.md <生成物>
+git checkout -- "XNull一致性用例台账-v1.0.0.md"   # 还原，工作树不留改动
+
+# m6 资源生成器 Go vs S0-21a Python golden
+evidence/S0-21d/bin/xnull dev res evidence/S0-21a/fixture/res evidence/S0-21e/m6-res.c
+shasum -a 256 evidence/S0-21e/m6-res.c evidence/S0-21a/golden-res/run1.c
+
+# m7 无 Python 残留
+find impl -name '*.py'
+git grep -n 'impl/tools/.*\.py' -- ':!*.md'                 # 原始口径（含 evidence/ 历史记录）
+git grep -n 'impl/tools/.*\.py' -- ':!*.md' ':!evidence/**' # 产品代码口径
+```
+
+原始输出见同目录 `m1-*.out|err|exit` … `m7-*.out`，聚合见 `stdout.txt`、`stderr.txt`、`exit_code.txt`。

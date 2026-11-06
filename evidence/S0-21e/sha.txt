@@ -1,0 +1,6 @@
+# S0-21e 关键 sha
+HEAD（执行前）= dd751a69b22491ee4ed5daddf0265b5506cc6348
+分支 = pod/e6-toolchain
+二进制 evidence/S0-21d/bin/xnull = 5668af912a9ed1742a030f98d8e24ecaa642a30d9196f6e6abc883e9f105a453
+res 产物（Go = Python golden）= 2f88b9314adf77fc9a731202627d042242f7ebfe71e76c244afa9326b3c95949
+go 版本 = go1.27.3 darwin/amd64
