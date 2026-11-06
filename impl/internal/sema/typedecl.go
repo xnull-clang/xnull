@@ -645,17 +645,34 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 			ctx.canonPriv[f.Canonical] = true
 		}
 	}
-	// 实例方法与构造器
-	for _, m := range methods {
-		if m.IsDeinit {
+	// 字段类型与初始化式（§6.1/§10.1：Result 可以出现在字段）。
+	e.fnKind, e.ret = "fieldinit", ""
+	for _, f := range fields {
+		e.checkResultType(f.Type, f.P)
+		if f.Init == nil {
 			continue
 		}
+		k := typeKey(f.Type)
+		it := e.inferExpected(f.Init, k)
+		if k != "" && !assignable(it, k) {
+			e.errf(f.Init.Pos(), assignDiag(it, k),
+				fmt.Sprintf("字段 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", f.Name, describeKey(it), k),
+				hintFor(it, k))
+		}
+	}
+	// 实例方法、deinit 与构造器
+	for _, m := range methods {
 		ctx.instance = !m.Mod.Static
 		e.cls = ctx
 		retKey := "void"
 		if !m.Void && m.Ret != nil {
 			retKey = typeKey(m.Ret)
 		}
+		e.fnKind, e.ret = "method", retKey
+		if m.IsDeinit {
+			e.fnKind, e.ret = "deinit", "void"
+		}
+		e.checkResultType(m.Ret, m.P)
 		e.vars = map[string]string{}
 		if ctx.instance {
 			e.vars["self"] = className
@@ -664,6 +681,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 			e.vars[name] = tk
 		}
 		for _, p := range m.Params {
+			e.checkResultType(p.Type, p.P)
 			if ctx.canonPriv[p.Name] {
 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
 			}
@@ -674,11 +692,13 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 	for _, ct := range ctors {
 		ctx.instance = true
 		e.cls = ctx
+		e.fnKind, e.ret = "ctor", "void"
 		e.vars = map[string]string{"self": className}
 		for name, tk := range fieldType {
 			e.vars[name] = tk
 		}
 		for _, p := range ct.Params {
+			e.checkResultType(p.Type, p.P)
 			if ctx.canonPriv[p.Name] {
 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4）", "")
 			}
