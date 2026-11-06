@@ -4,12 +4,11 @@
     tuple_test.go:26: out="" want="1\n9\ntrue\nfalse\ntrue\nfalse\nv=(1, x)\n" err=解释器只支持对局部/顶层变量/数组元素/实例字段赋值
 --- FAIL: TestTupleElementAssignmentAndEquality (0.00s)
 === RUN   TestTupleInferenceAndNested
-    interp_test.go:12: 不应有解析诊断：[t.x:8:18: error[SYN-101]: `.` 后必须是成员名或元组下标 t.x:8:18: error[SYN-101]: 期望`)`，遇到 浮点字面量 t.x:8:18: error[SYN-108]: 语句未终止（同一行的下一条语句前缺少 `;`） t.x:9:18: error[SYN-101]: `.` 后必须是成员名或元组下标 t.x:9:18: error[SYN-101]: 期望`)`，遇到 浮点字面量 t.x:9:18: error[SYN-108]: 语句未终止（同一行的下一条语句前缺少 `;`）]
---- FAIL: TestTupleInferenceAndNested (0.00s)
+--- PASS: TestTupleInferenceAndNested (0.00s)
 === RUN   TestTupleNullSafeElement
 --- PASS: TestTupleNullSafeElement (0.00s)
 === RUN   TestTuple
 --- PASS: TestTuple (0.00s)
 FAIL
-FAIL	xnull.dev/xnull/internal/interp	1.149s
+FAIL	xnull.dev/xnull/internal/interp	6.455s
 FAIL
