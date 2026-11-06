@@ -1,0 +1,4 @@
+=== RUN   TestXdkSeedUnitCompiles
+--- PASS: TestXdkSeedUnitCompiles (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.573s
