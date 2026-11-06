@@ -176,6 +176,11 @@ type tyenv struct {
 	funcs  map[string][]*xfront.TopFunc
 	fields map[string]string // 顶层字段 → 类型串
 	cls    *classCtx         // 类方法体上下文（nil = 顶层函数）
+
+	// ERR-01：当前所在的函数/闭包上下文（§10.2/§10.3）。
+	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
+	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
+	inCleanup bool   // 正在检查 defer/errdefer 清理体
 }
 
 func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
@@ -190,20 +195,26 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 		case *xfront.TopFunc:
 			e.funcs[n.Name] = append(e.funcs[n.Name], n)
 			// void 参数/返回之外的参数类型 void 检查
+			e.checkResultType(n.Ret, n.P)
 			for _, p := range n.Params {
+				e.checkResultType(p.Type, p.P)
 				if typeKey(p.Type) == "void" {
 					a.errf(p.P, TyAssignability, "void 不能作为参数类型（§2）", "参数类型必须是具体类型")
 				}
 			}
 		case *xfront.TopField:
 			k := typeKey(n.Type)
+			e.checkResultType(n.Type, n.P)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
 			}
 			e.fields[n.Name] = k
 			if n.Init != nil {
-				it := e.infer(n.Init)
+				oldKind, oldRet := e.fnKind, e.ret
+				e.fnKind, e.ret = "fieldinit", ""
+				it := e.inferExpected(n.Init, k)
+				e.fnKind, e.ret = oldKind, oldRet
 				if !assignable(it, k) {
 					e.a.errf(n.Init.Pos(), assignDiag(it, k),
 						fmt.Sprintf("顶层字段 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
@@ -217,6 +228,10 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			retKey := "void"
 			if !fn.Void && fn.Ret != nil {
 				retKey = typeKey(fn.Ret)
+			}
+			e.fnKind, e.ret = "func", retKey
+			if fn.Name == "main" {
+				e.fnKind = "main"
 			}
 			for _, p := range fn.Params {
 				e.vars[p.Name] = typeKey(p.Type)
@@ -260,6 +275,7 @@ func hintFor(from texpr, to string) string {
 
 // walkFunc 遍历函数体做类型检查。
 func (e *tyenv) walkFunc(b *xfront.Block, retKey string) {
+	e.ret = retKey
 	if b == nil {
 		return
 	}
@@ -274,8 +290,11 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if e.cls != nil && e.cls.canonPriv[n.Name] {
 			e.errf(n.P, TyPrivField, "局部变量 `"+n.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
 		}
+		if n.Type != nil {
+			e.checkResultType(n.Type, n.P)
+		}
 		if n.Init != nil {
-			it := e.infer(n.Init)
+			it := e.inferExpected(n.Init, typeKey(n.Type))
 			if n.Type != nil {
 				k := typeKey(n.Type)
 				if k == "void" {
@@ -312,9 +331,10 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.vars[n.Name] = ""
 		}
 	case *xfront.AssignStmt:
-		vt := e.infer(n.Value)
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
-			if tt, known := e.vars[id.Name]; known && tt != "" {
+			tt, known := e.vars[id.Name]
+			vt := e.inferExpected(n.Value, tt)
+			if known && tt != "" {
 				if n.Op != "=" {
 					e.checkOperand(id.Name, tt, n.Op) // 复合赋值要求操作数合法
 				}
@@ -325,8 +345,8 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 				}
 			}
 		} else if mem, ok := n.Target.(*xfront.Member); ok {
-			vt := e.infer(n.Value)
 			ft := e.inferMember(mem) // 完成私有字段访问校验
+			vt := e.inferExpected(n.Value, ft.key)
 			if ft.key != "" && !assignable(vt, ft.key) {
 				e.errf(n.P, assignDiag(vt, ft.key),
 					fmt.Sprintf("字段赋值类型不符：%s 不能赋给字段类型 %s（§2.6）", describeKey(vt), ft.key), "")
@@ -334,10 +354,13 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		} else if ix, ok := n.Target.(*xfront.Index); ok {
 			xt := e.infer(ix.X)
 			elem := elemTypeOf(xt.key)
+			vt := e.inferExpected(n.Value, elem)
 			if elem != "" && !assignable(vt, elem) {
 				e.errf(n.P, assignDiag(vt, elem),
 					fmt.Sprintf("下标赋值类型不符：%s 不能赋给元素类型 %s（§2.6）", describeKey(vt), elem), "")
 			}
+		} else {
+			e.infer(n.Value)
 		}
 		e.infer(n.Target) // 目标子表达式的读取检查（越界等留给运行时）
 	case *xfront.IncDecStmt:
@@ -345,7 +368,12 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.checkOperand(id.Name, e.vars[id.Name], n.Op)
 		}
 	case *xfront.ExprStmt:
-		e.infer(n.X)
+		t := e.infer(n.X)
+		if isResultKey(t.key) {
+			e.errf(n.X.Pos(), ErResultMustUse,
+				"Result 是 @mustUse：不得作为裸表达式语句丢弃（§10.1）",
+				"返回、赋给变量/字段/容器、用 try 传播，或调用其成员")
+		}
 	case *xfront.ReturnStmt:
 		if retKey == "void" {
 			if n.Value != nil {
@@ -357,7 +385,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.errf(n.P, TyAssignability, "非 void 函数必须返回值（§6.1）", "补充返回值")
 			return
 		}
-		vt := e.infer(n.Value)
+		vt := e.inferExpected(n.Value, retKey)
 		if !assignable(vt, retKey) {
 			e.errf(n.Value.Pos(), assignDiag(vt, retKey),
 				fmt.Sprintf("返回类型不符：%s 不能赋给声明的返回类型 %s（§2.6）", describeKey(vt), retKey),
@@ -394,11 +422,19 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.walkFunc(&xfront.Block{P: n.P, Stmts: n.Default.Stmts}, retKey)
 		}
 	case *xfront.DeferStmt:
+		if n.Errdefer && !isResultKey(e.ret) {
+			e.errf(n.P, ErErrdeferContext,
+				"errdefer 只能出现在返回 Result 的函数或闭包中（§10.3）", "改用 defer，或把函数返回类型改为 Result")
+		}
+		e.checkCleanup(n)
+		oldCleanup := e.inCleanup
+		e.inCleanup = true
 		if n.Block != nil {
 			e.walkFunc(n.Block, retKey)
 		} else if n.Stmt != nil {
 			e.walkStmt(n.Stmt, retKey)
 		}
+		e.inCleanup = oldCleanup
 	case *xfront.LabeledStmt:
 		if n.Stmt != nil {
 			e.walkStmt(n.Stmt, retKey)
@@ -503,13 +539,33 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		t := e.infer(n.X)
 		switch n.Op {
 		case "try": // try 传播：Result<T,E> → T（§10.2）
-			if strings.HasPrefix(t.key, "Result<") && strings.HasSuffix(t.key, ">") {
-				inner := t.key[len("Result<") : len(t.key)-1]
-				if i := strings.Index(inner, ","); i >= 0 {
-					return texpr{key: strings.TrimSpace(inner[:i])}
-				}
+			if e.inCleanup {
+				e.errf(n.P, ErTryContext, "try 不能用于 defer/errdefer 清理体（§10.3）", "清理必须非抛出")
 			}
-			return texpr{}
+			if e.fnKind == "ctor" || e.fnKind == "deinit" || e.fnKind == "main" {
+				e.errf(n.P, ErTryContext, "try 不能用于构造器、deinit 或 main（§10.2）", "把错误处理移到返回 Result 的函数中")
+			}
+			if t.key != "" && !isResultKey(t.key) {
+				e.errf(n.P, ErTryContext, "try 只能作用于 Result（§10.2），得到 "+describeKey(t), "")
+				return texpr{}
+			}
+			if !isResultKey(t.key) {
+				return texpr{}
+			}
+			tk, ek, ok := resultArgs(t.key)
+			if !ok || tk == "" || ek == "" {
+				e.errf(n.P, ErResultCtor, "Result 类型实参不完整：try 需要 Result<T,E>（§10.1）", "")
+				return texpr{}
+			}
+			if !isResultKey(e.ret) {
+				e.errf(n.P, ErTryContext, "使用 try 的函数或闭包必须返回 Result<_,E2>（§10.2）", "把外层返回类型改为 Result")
+			} else if _, e2, ok2 := resultArgs(e.ret); ok2 && e2 != "" && !assignableError(ek, e2) {
+				e.errf(n.P, ErTryContext, "try 的错误类型 "+ek+" 不能赋给外层错误类型 "+e2+"（§10.2）", "禁止隐式字符串化；改用可赋值的错误类型")
+			}
+			if tk == "void" {
+				return texpr{key: "void"}
+			}
+			return texpr{key: tk}
 		case "!":
 			if t.key != "Bool" && t.key != "" {
 				e.errf(n.P, TyBadOperand, "`!` 操作数必须是 Bool（§7.2），得到 "+describeKey(t), "")
@@ -610,6 +666,10 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 	}
 	// 其他接收者：类类型变量的成员访问（外部私有访问检查，§7.4）
 	rt := e.infer(n.X)
+	if isResultKey(rt.key) {
+		e.errf(n.P, ErResultMember, "Result 成员必须调用：写 `"+n.Name+"()`（§10.1）", "成员全部是方法")
+		return texpr{}
+	}
 	if c := e.a.tc; c != nil {
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {
 			if info.canonPriv == nil {
@@ -661,15 +721,16 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			}
 			return texpr{key: "String"}
 		case "Ok", "Err":
-			for _, a := range n.Args {
-				e.infer(a)
-			}
-			return texpr{key: "Result<,>"} // 泛型实参由目标类型适配（§2.6 错误值规则骨架）
+			// 无目标类型：按 §10.1 报错（有目标类型时由 inferExpected 先行拦截）。
+			return e.inferResultCtor(n, id.Name, "")
 		}
 	}
 	// 方法调用：recv.method(args)
 	if mem, ok := n.Callee.(*xfront.Member); ok {
 		rt := e.infer(mem.X)
+		if isResultKey(rt.key) {
+			return e.resultMember(rt, mem, n.Args, n.P)
+		}
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
@@ -684,8 +745,8 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 					continue
 				}
 				for i, p := range f.Params {
-					at := e.infer(n.Args[i])
 					pk := typeKey(p.Type)
+					at := e.inferExpected(n.Args[i], pk)
 					if !assignable(at, pk) {
 						e.errf(n.Args[i].Pos(), TyAssignability,
 							fmt.Sprintf("实参 %d 类型 %s 不能赋给形参 %s（§2.6）", i+1, describeKey(at), pk),
