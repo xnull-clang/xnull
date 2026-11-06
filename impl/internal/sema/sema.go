@@ -34,6 +34,9 @@ type analyzer struct {
 	ambiguous map[string]bool // 未消歧的简单名（使用时报 RES-104）
 	tc        *typeCheckCtx   // 类型声明上下文（类字段访问检查用）
 	seenTop   map[string]bool // 顶层重复声明检测
+
+	// GEN-01：本编译单元内作为类型参数出现过的名字（用于 §8.1 作用域诊断）。
+	typeParamNames map[string]bool
 }
 
 // Analyze 对编译单元做名称解析分析，返回语义诊断（不修改 AST）。
@@ -55,7 +58,8 @@ func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.C
 // AnalyzeWith 执行语义分析并返回结果句柄。
 func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
 	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
-		imported: map[string]bool{}, ambiguous: map[string]bool{}}
+		imported: map[string]bool{}, ambiguous: map[string]bool{}, typeParamNames: map[string]bool{}}
+	a.collectTypeParamNames(u)
 	a.analyzeImports(u)
 	a.checkTypeDecls(u)
 	for _, d := range u.Decls {
@@ -72,6 +76,12 @@ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagno
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			sc := &nscope{parent: nil}
+			for _, tp := range fn.TypePars { // 类型参数进入第 1 级名字空间（§8.1）
+				if sc.declaredHere(tp) {
+					a.errf(fn.P, ResRedecl, "类型参数 `"+tp+"` 重复声明（§8.1）", "同一泛型声明内类型参数名必须唯一")
+				}
+				sc.define(tp)
+			}
 			for _, p := range fn.Params {
 				sc.define(p.Name)
 			}
@@ -87,6 +97,27 @@ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagno
 	// M2-C：类型检查（§2.6/§2.10/§6.1）——最后（依赖前两遍的环境）。
 	a.analyzeTypes(file, u)
 	return &Result{a: a}, a.diags
+}
+
+// collectTypeParamNames 登记本单元所有类型参数名（含类/结构体），
+// 供 §8.1「类型参数只在声明它的函数/类型内可见」诊断使用。
+func (a *analyzer) collectTypeParamNames(u *xfront.CompilationUnit) {
+	for _, d := range u.Decls {
+		switch n := d.(type) {
+		case *xfront.TopFunc:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		case *xfront.ClassDecl:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		case *xfront.StructDecl:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		}
+	}
 }
 
 func (a *analyzer) collectTop(name string, p xfront.Pos) {

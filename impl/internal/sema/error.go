@@ -236,9 +236,11 @@ func (e *tyenv) inferResultCtor(n *xfront.Call, kind, want string) texpr {
 		for _, a := range n.Args {
 			e.infer(a)
 		}
-		e.errf(n.P, ErResultCtor,
-			"无法推断 Result 的另一侧类型：Ok/Err 需要目标类型或显式类型（§10.1）",
-			"写成 Result<T,E> 目标类型，或使用类型注解")
+		if !e.quietCtor {
+			e.errf(n.P, ErResultCtor,
+				"无法推断 Result 的另一侧类型：Ok/Err 需要目标类型或显式类型（§10.1）",
+				"写成 Result<T,E> 目标类型，或使用类型注解")
+		}
 		return texpr{key: "Result<,>"}
 	}
 	if kind == "Ok" {
