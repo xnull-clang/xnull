@@ -143,18 +143,13 @@ func TestFullUnit(t *testing.T) {
 	}
 }
 
-// ---------- 类型声明：S2 范围，语法层明确拒绝 ----------
-
-func TestTypeDeclDeferred(t *testing.T) {
-	unitFail(t, "class Point { }", synTypeDecl)
-	unitFail(t, "struct Pair { }", synTypeDecl)
-	unitFail(t, "enum Color { }", synTypeDecl)
-}
+// ---------- 类型声明：M2.5.1 起 class/struct/protocol/enum 正式解析；
+// singleton/factory/extension/@annotation 仍拒绝（后续批次）。 ----------
 
 // ---------- 诊断不中断：多错误可报（对照 §1.7 风格） ----------
 
 func TestUnitMultiDiags(t *testing.T) {
-	_, diags := ParseUnit("t.x", "package xdk.bad\nimport a.b\nclass X { }\nstatic Int f() { return 0 }")
+	_, diags := ParseUnit("t.x", "package xdk.bad\nimport a.b\nsingleton X { }\nstatic Int f() { return 0 }")
 	if len(diags) < 2 {
 		t.Fatalf("xdk 前缀与 class 至少两个诊断：%v", render(diags))
 	}

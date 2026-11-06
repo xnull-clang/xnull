@@ -220,9 +220,53 @@ func (p *parser) parseTopDecl() TopDecl {
 		annos = append(annos, p.parseAnnotation())
 	}
 	vis, static := p.parseTopModifiers()
-	// 类型声明（class/struct/…）是 Keyword，属第 2 部分——明确报 SYN-110 并跳过整个声明。
+	// 类型声明（M2.5.1）：class/struct/protocol/enum 走正式解析；
+	// abstract/final 前缀先并入修饰符再判断；singleton/factory/extension/@annotation
+	// 声明仍属后续批次，报 SYN-110 并跳过整个声明。
+	if p.atKw("abstract") || p.atKw("final") {
+		if kw, off := p.typeKeywordAhead(); kw != "" {
+			mod := TypeModifiers{}
+			switch {
+			case vis[0]:
+				mod.Vis = "public"
+			case vis[1]:
+				mod.Vis = "protected"
+			case vis[2]:
+				mod.Vis = "private"
+			}
+			mod.Static = static
+			for k := 0; k < off; k++ {
+				mod2 := p.parseTypeModifiers()
+				if mod2.Vis != "" {
+					mod.Vis = mod2.Vis
+				}
+				mod.Abstract = mod.Abstract || mod2.Abstract
+				mod.Final = mod.Final || mod2.Final
+				mod.Static = mod.Static || mod2.Static
+				mod.Const = mod.Const || mod2.Const
+			}
+			if typeDeclKeywords[kw] && kw != "singleton" && kw != "extension" && kw != "annotation" {
+				kwt := p.next().Text
+				return p.parseTypeDecl(annos, kwt, mod)
+			}
+		}
+	}
 	if p.at(Keyword) && typeDeclKeywords[p.cur().Text] {
 		kw := p.next().Text
+		if kw == "class" || kw == "struct" || kw == "protocol" || kw == "enum" {
+			mod := TypeModifiers{}
+			switch {
+			case vis[0]:
+				mod.Vis = "public"
+			case vis[1]:
+				mod.Vis = "protected"
+			case vis[2]:
+				mod.Vis = "private"
+			}
+			mod.Static = static
+			return p.parseTypeDecl(annos, kw, mod)
+		}
+		// singleton/factory/extension/@annotation：待后续批次
 		p.err(t.Pos, synTypeDecl, "类型声明（"+kw+"）属第 2 部分，语法层待 S2 切片实现", "")
 		depth := 0
 		for !p.at(EOF) {
@@ -261,8 +305,11 @@ func (p *parser) parseTopDecl() TopDecl {
 		}
 		return f
 	}
-	// void 返回类型 → 必为函数。
-	if p.atKw("void") {
+	// `void` 是空类型（§2，不是关键字，词法按 Ident 返回），只能作为返回类型：
+	// 顶层声明以 void 开头必为函数声明（§4.1）。此前用 atKw("void") 判断永不命中，
+	// 导致 Void 标志丢失（DA-103 误报 void 函数缺 return）。
+	if p.at(Ident) && p.cur().Text == "void" {
+		p.i++
 		return p.parseTopFuncRest(t.Pos, annos, vis, static, true, nil)
 	}
 	// 其余以类型开头：Type Identifier 后按 `(` 分函数/字段。

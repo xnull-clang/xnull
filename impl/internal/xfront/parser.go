@@ -773,6 +773,11 @@ func (p *parser) parseStmt() Stmt {
 		target := p.parseExpr()
 		p.checkAssignable(target, t.Text)
 		return &IncDecStmt{P: t.Pos, Target: target, Op: t.Text, Prefix: true}
+	case t.Kind == LParen:
+		// `(T1, T2) name = ...` 元组类型声明尝试（§2.11；失败按表达式处理）。
+		if s, ok := p.tryTupleTypeDecl(); ok {
+			return s
+		}
 	case t.Kind == Ident:
 		// `name:` → 标签语句（标签与变量不同命名空间，S1 §6.10）。
 		if p.toks[min(p.i+1, len(p.toks)-1)].Kind == Op && p.toks[min(p.i+1, len(p.toks)-1)].Text == ":" {
@@ -821,12 +826,76 @@ func (p *parser) checkAssignable(x Expr, op string) {
 // tryLocalDecl 回溯尝试 `Type Identifier` 声明头；失败回退 token 与误报。
 func (p *parser) tryLocalDecl() (Stmt, bool) {
 	save, errLen := p.i, len(p.errs)
+	if s, ok := p.tryTupleTypeDecl(); ok {
+		return s, true
+	}
+	p.rollback(save, errLen)
 	s := p.parseLocalDeclHead()
 	if s != nil {
 		return s, true
 	}
 	p.rollback(save, errLen)
 	return nil, false
+}
+
+// tryTupleTypeDecl 静默尝试元组类型声明形态（§2.11）：`(T1, T2) name = ...`。
+// 与表达式 `(a, b)` 的区分：类型位置后必须紧跟声明名与 `=`。
+func (p *parser) tryTupleTypeDecl() (Stmt, bool) {
+	if !p.at(LParen) {
+		return nil, false
+	}
+	save, errLen := p.i, len(p.errs)
+	p.i++ // (
+	var elems []TypeRef
+	for {
+		ty := p.tryTypeRefQuietNoName()
+		if ty == nil {
+			p.rollback(save, errLen)
+			return nil, false
+		}
+		elems = append(elems, ty)
+		if p.at(Comma) {
+			p.i++
+			continue
+		}
+		break
+	}
+	if len(elems) < 2 || !p.at(RParen) {
+		p.rollback(save, errLen)
+		return nil, false
+	}
+	p.i++ // )
+	if !p.at(Ident) {
+		p.rollback(save, errLen)
+		return nil, false
+	}
+	name := p.next().Text
+	if !p.atOp("=") {
+		p.rollback(save, errLen)
+		return nil, false
+	}
+	p.i++
+	s := &LocalDeclStmt{P: save2pos(p, save), Type: &TupleTypeRef{P: p.cur().Pos, Elems: elems}, Name: name}
+	s.Init = p.parseExpr()
+	return s, true
+}
+
+// tryTypeRefQuietNoName 静默解析一个类型（不要求后跟声明名）。
+func (p *parser) tryTypeRefQuietNoName() TypeRef {
+	save, errLen := p.i, len(p.errs)
+	ty := p.parseTypeRef()
+	if len(p.errs) > errLen {
+		p.rollback(save, errLen)
+		return nil
+	}
+	return ty
+}
+
+func save2pos(p *parser, save int) Pos {
+	if save < len(p.toks) {
+		return p.toks[save].Pos
+	}
+	return Pos{}
 }
 
 // parseLocalDeclHead 解析声明头与可选初始化；形态不符返回 nil。
