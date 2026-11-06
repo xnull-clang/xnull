@@ -148,3 +148,23 @@ M1 的「双路径逐字节一致」要求解释器也能跑泛型，否则 G1a/
 
 **接线成本**：sema 一旦按 §2 契约把推断结果写回 `Call.TypeArgs`，本域**零改动**即可覆盖
 G1a/G2a/G6a/G6b/G8/G11/G18 的发射与运行（已用绕过 sema 的用例预先验证）。
+
+---
+
+## 7. main=2c00cf5 合入后复跑（T+?，merge `dab4d5c`）
+
+| 指标 | 合入前 | 合入后 |
+|---|---:|---:|
+| PASS | 1 | **2**（+G5a：重载唯一候选，借 interp 重载选择 + sema 普通函数路径） |
+| FAIL | 24 | **22** |
+| SKIP / 不可测 | 1 | **2**（+G7） |
+
+**剩余红项根因归口**：xfront B1 → G4/G10（2 项）；sema B2 → 其余 20 项；G7 → 本域嵌套容器限制（`List<List<Int>>` 不支持）。
+
+**B3（interp）已解除**：主线新增 `selectFunc`，解释器泛型重载 11 子用例全过。
+但 `cli.go` 的 `interpFile()` 先跑 `sema.Analyze`（`cli.go:243-250`），所以 `--interp` 仍被 TY-101 挡住——
+**interp 泛型能力目前只在 Go 测试里可达**，等 sema 解锁即可，无需再派单。
+
+**G7 追加阻断**：即便 xfront 修好 `>>`，`grow<List<T>>(v)` 仍会在 codegen 报
+「容器元素类型暂支持 Int/Bool/String/类引用」——嵌套容器/嵌套 Result 不在当前类型面。
+上限代码（`maxInstDepth=64`）保留为防御，端到端用例待嵌套容器切片。

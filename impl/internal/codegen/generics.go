@@ -130,6 +130,7 @@ func (g *gen) isGenericName(name string) bool {
 // callName 计算调用点的 C 函数名：带类型实参 → 实例名；否则普通名。
 // 泛型函数缺少类型实参时显式报错（推断结果由 sema 写回 Call.TypeArgs）。
 func (g *gen) callName(name string, typeArgs []xfront.TypeRef) (string, error) {
+	typeArgs = g.substTypeArgs(typeArgs)
 	if len(typeArgs) == 0 {
 		// 同名普通函数优先（§8.2 重载：无类型实参的非泛型调用）。
 		if _, ok := g.fnRet[name]; ok {
@@ -158,6 +159,7 @@ func (g *gen) callErr(name string, typeArgs []xfront.TypeRef) error {
 
 // callRetC 计算调用点的返回 C 类型（实例按具体类型，普通函数查签名表）。
 func (g *gen) callRetC(name string, typeArgs []xfront.TypeRef) (string, bool) {
+	typeArgs = g.substTypeArgs(typeArgs)
 	if len(typeArgs) == 0 {
 		rc, ok := g.fnRet[name]
 		return rc, ok
@@ -167,6 +169,20 @@ func (g *gen) callRetC(name string, typeArgs []xfront.TypeRef) (string, bool) {
 		return "", false
 	}
 	return inst.retC, true
+}
+
+// substTypeArgs 把调用点的类型实参在当前实例替换表下求值。
+// 关键：泛型函数内再调用泛型时，实参里可能含外层类型参数（如 grow<List<T>>），
+// 必须先替换再编码，否则实例名会固化成 Lo_T 而无法展开/区分。
+func (g *gen) substTypeArgs(typeArgs []xfront.TypeRef) []xfront.TypeRef {
+	if len(typeArgs) == 0 || len(g.subst) == 0 {
+		return typeArgs
+	}
+	out := make([]xfront.TypeRef, len(typeArgs))
+	for i, a := range typeArgs {
+		out[i] = g.substitute(a)
+	}
+	return out
 }
 
 // needInstance 登记（或复用）一个实例；不做生成，生成由 EmitC 的展开轮驱动。

@@ -156,9 +156,12 @@ static Int main() {
 }
 
 // TestGEN01MonoTypeArgEncoding 实例名编码：确定性、可嵌套、拒绝未解析的类型参数。
-// 说明：「无限展开诊断」的端到端用例当前**不可写**——嵌套实参 `grow<List<T>>(v)`
-// 的 `>>` 被词法当成移位/比较运算符（xfront SYN-102），属 RD1 域，已登记为 B1b。
-// 这里改为直接验证编码/替换层（本域）的行为。
+//
+// 说明：「无限展开诊断」(G7) 当前**不可测**：触发无限展开要求类型阶增长（
+// grow<List<T>>），但 (a) 源码写法被 xfront 的 `>>` 词法阻断（B1b），
+// (b) codegen 的容器元素类型只支持 Int/Bool/String/类引用，`List<List<Int>>`
+// 直接报「容器元素类型暂支持…」。上限代码（maxInstDepth）保留为防御，等
+// 嵌套容器切片落地后再补端到端用例。
 func TestGEN01MonoTypeArgEncoding(t *testing.T) {
 	i := &xfront.NamedType{P: xfront.Pos{Line: 1, Col: 1}, Qual: []string{"Int"}}
 	s := &xfront.NamedType{P: xfront.Pos{Line: 1, Col: 1}, Qual: []string{"String"}}

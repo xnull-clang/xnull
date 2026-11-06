@@ -150,7 +150,8 @@ static Int main() {
 }`, nil, true, ""},
 		{"G7", "§8.3 递归单态化必须终止，超限必须有诊断", `
 static T loop<T>(T v) { return loop<T>(v) }
-static Int main() { print(loop<Int>(1)); return 0 }`, []string{"展开"}, false, ""},
+static Int main() { print(loop<Int>(1)); return 0 }`, []string{"展开"}, false,
+			"源码级无限展开需嵌套实参 grow<List<T>>(v)，被 xfront `>>` 词法阻断（B1b）；上限机制由 TestGEN01MonoExpansionLimit 在 codegen 单元级验证"},
 		{"G8", "台账：Result 类型实参可实例化", `
 static T unwrapOr<T>(Result<T, String> r, T d) { return r.unwrapOr(d) }
 static Int main() {
