@@ -40,6 +40,21 @@ void *xdkc_file_open_read(const char *bytes, size_t len) {
     return f;
 }
 
+/* fileOpenWrite（B0-06 阻塞 #3 增补）：写模式打开，语义同 fileOpenRead。
+ * 失败（路径非法/打开失败）返回 NULL；不 panic（S6 §3 第 1 条）。 */
+void *xdkc_file_open_write(const char *bytes, size_t len) {
+    if (bytes == NULL) {
+        xrt_fatal("fileOpenWrite：路径为空（S6 §4.7）");
+    }
+    if (len == 0 || memchr(bytes, 0, len) != NULL) {
+        return NULL;
+    }
+    char *p = path_dup(bytes, len);
+    FILE *f = fopen(p, "wb");
+    free(p);
+    return f;
+}
+
 /* 返回值 = 读取字节数；code 为错误码出参（0 成功、1 句柄无效、2 IO 失败）。
  * 该形态与 .xfb 的 @errorCode(codeParam = .code) 合同一一对应（S7 §7.1）。 */
 int64_t xdkc_file_read(void *fp, void *buf, size_t cap, int32_t *code) {

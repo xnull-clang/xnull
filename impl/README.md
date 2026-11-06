@@ -14,6 +14,14 @@ xnull run examples/hello.x
 
 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读或用法错误；130 中断。
 
+构建可执行文件：
+
+```
+xnull build examples/hello.x -o hello [-l <库>]... [-L <目录>]...
+```
+
+P-10 起，C 编译清单固定为 `rt.c`/`rt_gc.c`/`rt_policy.c`/`rt_weak.c`/`xrt_abi.c`/`rt_std_runtime.c`/`rt_std_text.c`/`rt_std_sys.c`（顺序固定，见 `internal/codegen/build.go` 的 `runtimeCSources`）；`-l`/`-L` 转成 `LinkArgs`，去重 + 升序后排在全部目标文件之后（`ffi.LinkArgs`，P-10 条件 3）。工程清单 `link.libraries` 接入时复用同一 `codegen.Options.LinkArgs`。
+
 ## 内部维护工具（xnull dev）
 
 B-full 起，仓库维护工具全部由 Go 提供，不再依赖 Python：

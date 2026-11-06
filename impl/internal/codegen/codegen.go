@@ -171,7 +171,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		}
 	}
-	// 类收集（字段/方法签名；M4.4b 单类无继承无协议）
+	// 类名预登记（前向引用）+ 字段/方法签名收集
+	g.registerClassNames(u)
 	for _, d := range u.Decls {
 		if c, ok := d.(*xfront.ClassDecl); ok {
 			if err := g.collectClass(c); err != nil {

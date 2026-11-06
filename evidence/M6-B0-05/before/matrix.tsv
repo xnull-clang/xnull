@@ -17,7 +17,7 @@ List.push	List	push	PASS	PASS
 List.insert	List	insert	PASS	FAIL		xnull: 代码生成失败：codegen：List.insert 未支持（M4.4a 范围；示例与自举不使用）
 List.set	List	set	PASS	PASS		
 List.get	List	get	PASS	PASS		
-List.remove	List	remove	FAIL	FAIL	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/evidence/M6-B0-05/before/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 v	/Users/vjs/Desktop/XNull-Lang/wt/e4-codegen/evidence/M6-B0-05/before/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 v
+List.remove	List	remove	FAIL	FAIL	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/M6-B0-05/before/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 vo	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/M6-B0-05/before/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 vo
 List.clear	List	clear	PASS	PASS		
 List.indexRead	List	indexRead	PASS	PASS		
 List.indexWrite	List	indexWrite	PASS	PASS		
