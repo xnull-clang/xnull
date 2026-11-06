@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/social-preview.png" alt="XNull — Explicit. Predictable. No implicit behavior." width="640">
+</p>
+
 # XNull
 
 **English** | [简体中文](#xnull中文说明)
