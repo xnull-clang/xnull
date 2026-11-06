@@ -1,0 +1,77 @@
+# BLD-01 红证据（期望取自规范；实际为本轮运行）
+# 列：id	判定	期望退出	实际退出	耗时ms	说明
+GREEN c01_string_members         exit=0       80ms  
+GREEN c02_string_bounds          exit=0       86ms  
+RED  c03_string_ascii_case      exit=0       88ms  ; stdout 与期望不一致
+---- c03_string_ascii_case stdout diff (expected vs actual) ----
+--- /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c03_string_ascii_case.expected	2026-11-07 03:27:11
++++ /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c03_string_ascii_case.out	2026-11-07 03:27:11
+@@ -1,4 +1,4 @@
++É
+ é
+-é
+-AZé9
++AZÉ9
+ azé9
+
+GREEN c04_array_members          exit=0       87ms  
+GREEN c05_array_bounds_read      exit=134     85ms  
+GREEN c06_array_bounds_write     exit=134    108ms  
+GREEN c07_new_array_zero         exit=0       92ms  
+RED  c08_new_array_negative     exit=1       86ms  期望 exit=134，实际 1
+GREEN c09_list_members           exit=0       88ms  
+RED  c10_list_insert_low        exit=0       87ms  期望 exit=134，实际 0
+RED  c11_list_insert_high       exit=0       81ms  期望 exit=134，实际 0
+RED  c12_list_remove_return     exit=0       82ms  ; stdout 与期望不一致
+---- c12_list_remove_return stdout diff (expected vs actual) ----
+--- /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c12_list_remove_return.expected	2026-11-07 03:27:12
++++ /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c12_list_remove_return.out	2026-11-07 03:27:12
+@@ -1 +1 @@
+-10
++null
+
+GREEN c13_list_get_bounds        exit=134     94ms  
+GREEN c14_list_set_bounds        exit=134     89ms  
+GREEN c15_list_remove_bounds     exit=134     84ms  
+GREEN c16_map_members            exit=0       79ms  
+RED  c17_map_get_missing        exit=1       82ms  期望 exit=0，实际 1; stdout 与期望不一致
+---- c17_map_get_missing stdout diff (expected vs actual) ----
+--- /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c17_map_get_missing.expected	2026-11-07 03:27:13
++++ /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c17_map_get_missing.out	2026-11-07 03:27:13
+@@ -1,3 +0,0 @@
+-null
+-true
+-null
+
+GREEN c18_map_getor              exit=0       93ms  
+RED  c19_map_bool_key           exit=0       87ms  期望非零退出（编译错误），实际 0; stderr 未含诊断码 error[
+GREEN c20_map_dup_key            exit=0       88ms  
+GREEN c21_map_int_key            exit=0       86ms  
+GREEN c22_set_members            exit=0       86ms  
+GREEN c23_set_at_low             exit=134     84ms  
+GREEN c24_set_at_high            exit=134     88ms  
+RED  c25_assign_list            exit=1       83ms  期望 exit=0，实际 1; stdout 与期望不一致
+---- c25_assign_list stdout diff (expected vs actual) ----
+--- /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c25_assign_list.expected	2026-11-07 03:27:15
++++ /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c25_assign_list.out	2026-11-07 03:27:15
+@@ -1 +0,0 @@
+-3
+
+RED  c26_assign_set             exit=1      101ms  期望 exit=0，实际 1; stdout 与期望不一致
+---- c26_assign_set stdout diff (expected vs actual) ----
+--- /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c26_assign_set.expected	2026-11-07 03:27:15
++++ /Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/c26_assign_set.out	2026-11-07 03:27:15
+@@ -1 +0,0 @@
+-3
+
+RED  c27_set_complexity         exit=0     2685ms  ; 耗时 2685ms > 上限 800ms
+---- c27_set_complexity stdout diff (expected vs actual) ----
+
+RED  c28_map_put_complexity     exit=0    27034ms  ; 耗时 27034ms > 上限 3000ms
+---- c28_map_put_complexity stdout diff (expected vs actual) ----
+
+
+TOTAL=28 RED=11 GREEN=17
+证据目录：/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red
+用例表：/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/cases.tsv
+原始输出：/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/results/<id>.{out,err,exit,time}
