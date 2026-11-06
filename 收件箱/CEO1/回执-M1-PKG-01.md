@@ -25,3 +25,11 @@
 | ⑦ | 导入环（RES-108；无环链合法） | ☑ 通过 | `TestImportCycle` + 既有 `codegen.TestLoadUnitsCycle` |
 
 补充随附：`RES-106` 包/符号不存在、`RES-111` 默认包跨包导入（`TestImportTargetRules`）。
+
+---
+
+## 集成更新（main@2c00cf5，2026-11-07）
+
+- 合并提交 `39552bc`（非快进）；唯一冲突 `impl/internal/sema/xdk.go`，已保留 PKG-01 新实现与 main 的 DET-01 排序。
+- 集成后复跑：PKG-01 锚点 **8/8 PASS**；`go test ./...` **10/10 包 ok**；`examples/multi` 双路径 stdout 逐字节一致、退出码 0。
+- 证据：`evidence/XFRONT-FIX-NEG-GEN/post-merge.md`、`after/full-suite-post-merge.out`。

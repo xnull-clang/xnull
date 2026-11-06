@@ -39,3 +39,12 @@
 ## GEN 剩余（跨域）
 
 B2 sema（类型参数作用域/推断/`Call.TypeArgs`/重载/单态化，约 6h）、B3 interp（泛型执行，约 3h）、`TestGEN01CrossFile`（同 B2）。
+
+---
+
+## 集成更新（main@2c00cf5）
+
+- `git merge --no-ff main` → 合并提交 `39552bc`（父 `646b289` + `2c00cf5`）。仅 `impl/internal/sema/xdk.go` 冲突：保留 PKG-01 新 `analyzeImports`，并保留 main 的 `xdkExporters` 排序（DET-01）。
+- 集成后复跑：PKG-01 锚点 8/8 PASS；`go test ./...` 10/10 包 ok；`examples/multi` 双路径 stdout 一致、退出码 0。
+- NEG `TestDiagMatrixS1` **51/60**（main 的 defer 修复多清 3 项）；剩余 9 项全部为 sema 域（类型别名、保留名×6、`Array`、`true` 声明名），xfront 侧无新增红项。
+- 证据：`evidence/XFRONT-FIX-NEG-GEN/post-merge.md`、`after/neg-integrated-TestDiagMatrixS1.out`、`after/full-suite-post-merge.out`。
