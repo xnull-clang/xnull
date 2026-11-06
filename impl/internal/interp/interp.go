@@ -427,13 +427,17 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		lbl := in.label // 标签只属于紧随其后的这一层循环（§6.10）
 		in.label = ""
 		for truthy(in.eval(n.Cond, sc), n.P) {
-			in.loopBody(n.Body, sc, lbl)
+			if in.loopBody(n.Body, sc, lbl) {
+				break
+			}
 		}
 	case *xfront.DoWhileStmt:
 		lbl := in.label
 		in.label = ""
 		for {
-			in.loopBody(n.Body, sc, lbl)
+			if in.loopBody(n.Body, sc, lbl) {
+				break
+			}
 			if !truthy(in.eval(n.Cond, sc), n.P) {
 				break
 			}
@@ -449,7 +453,9 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 			for i := lo.I; i < hi.I || (rg.Op == "..." && i == hi.I); i++ {
 				body := newScope(sc)
 				body.define(n.Var, &Value{K: vInt, I: i})
-				in.loopBody(n.Body, body, lbl)
+				if in.loopBody(n.Body, body, lbl) {
+					break
+				}
 			}
 			break
 		}
@@ -459,7 +465,9 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 			for _, item := range src.A {
 				body := newScope(sc)
 				body.define(n.Var, item)
-				in.loopBody(n.Body, body, lbl)
+				if in.loopBody(n.Body, body, lbl) {
+					break
+				}
 			}
 		case vMap:
 			panic(runtimeErr{"Map 不能直接遍历（§9：先取 keys() 或 values()）"})
@@ -517,12 +525,15 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 
 // loopBody 执行循环体一轮：捕获 break/continue（§6.9），defer 由块级处理。
 // label 是本层循环的标签（可空）；带标签信号仅匹配同名层，无标签信号匹配最近层。
-func (in *Interp) loopBody(b *xfront.Block, sc *scope, label string) {
+// 返回 true 表示收到匹配本层的 break，调用点必须立即退出循环；
+// continue 仍在本函数内消化（返回 false，进入下一轮）；不匹配的信号继续向上传播。
+func (in *Interp) loopBody(b *xfront.Block, sc *scope, label string) (broke bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {
 			case ctrlBreak:
 				if sig.label == "" || sig.label == label {
+					broke = true
 					return
 				}
 				panic(r)
@@ -537,6 +548,7 @@ func (in *Interp) loopBody(b *xfront.Block, sc *scope, label string) {
 		}
 	}()
 	in.execBlock(b, sc)
+	return
 }
 
 // ---------- 表达式求值 ----------
