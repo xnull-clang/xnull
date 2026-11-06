@@ -33,3 +33,11 @@
 - 结论（QA 填写）：________
 
 > 本文件不代替验收签署；未签名前不得据此把台账 DET-01 改为 PASS。
+
+## 二次复跑（2026-11-07，main `2c00cf5` = 含 `c737099`）
+
+- `git merge main` → Already up to date（`c737099`/`2c00cf5` 已在祖先链）。
+- `go test ./internal/{sema,interp,codegen}/ -run TestDET01 -count=1` → 5 个用例全 PASS（`after/rerun-2c00cf5.txt`）。
+- `go test ./... -count=1` → 9/9 包 ok，rc=0（`after/rerun-full-test.txt`）。
+- 示例双路径 → 9/9 一致（`after/rerun-examples.txt`）。
+- 结论不变：DONE 3/3。
