@@ -1,7 +1,0 @@
-基线 HEAD = 81ec33d574347bf6f36ffeb8963c57e5145a3cf5
-分支 = pod/e6-toolchain
-验证二进制 /tmp/xnull-m6 = d735a3f578cca1132b8e82916715b929065a118d960e709e9e0c639e8746a9d4
-样例二进制 /tmp/m6-hello = f9ac7b2f65f0cf0a5db4bce455b485ba654430447a10e1241fb7867cf3aa3452
-go 版本 = go1.27.3 darwin/amd64
-干净 clone HEAD = e6f4ba11cdc197a31440de11866347efbddb7869
-干净 clone 结果 = codegen+cli 测试 0 / build_rt 0 / 样例构建 0 / 样例运行 0

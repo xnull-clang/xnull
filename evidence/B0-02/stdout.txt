@@ -1,4 +1,4 @@
-===== 红（先写测试，未改实现） =====
+===== 红（单元级） =====
 === RUN   TestBuildCCArgsIncludesRuntimeABIAndStd
     build_test.go:38: cc 参数不符（P-10 要求 xrt_abi.c + rt_std_*.c）
          got: [-std=c11 -O2 -I /RT -o prog prog.c /RT/rt.c /RT/rt_gc.c /RT/rt_policy.c /RT/rt_weak.c]
@@ -12,7 +12,7 @@ FAIL
 FAIL	xnull.dev/xnull/internal/codegen	11.443s
 FAIL
 
-===== 绿（实现后） =====
+===== 绿（单元级） =====
 === RUN   TestBuildCCArgsIncludesRuntimeABIAndStd
 --- PASS: TestBuildCCArgsIncludesRuntimeABIAndStd (0.00s)
 === RUN   TestBuildCCArgsAppendsLinkArgsLast
@@ -23,18 +23,39 @@ PASS
 ok  	xnull.dev/xnull/internal/codegen	5.755s
 green_exit=0
 
-===== 样例：xnull build hello.x -l m -L /usr/lib -l m =====
-build_exit=0
+===== 红（链接级，旧 4 源） =====
+Undefined symbols for architecture x86_64:
+  "_xdkc_now_mono_ms", referenced from:
+      _main in probe-13baa7.o
+  "_xrt_runtime_init", referenced from:
+      _main in probe-13baa7.o
+  "_xrt_safepoint", referenced from:
+      _main in probe-13baa7.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+red_link_exit=1
+
+===== 自动驱动 run.sh =====
+== 1 红：旧 4 源清单（rt.c rt_gc.c rt_policy.c rt_weak.c） ==
+PASS：旧清单链接失败（预期红）
+  "_xdkc_now_mono_ms", referenced from:
+  "_xrt_runtime_init", referenced from:
+  "_xrt_safepoint", referenced from:
+
+== 2 绿：新 8 源清单 ==
+xrt_abi + rt_std 链接并运行通过
+
+== 3 样例：xnull build 产物包含 ABI/STD 符号 ==
 hello, XNull
 1 + 2 = 3
-run_exit=0
+产物内 xrt_/xdkc_ 符号数：48
 
-===== build_rt.sh（尾部） =====
-ok  weak slots (invariant 4, cleared before deinit, reusable)
-hard-semantics tests passed
-abi 测试通过
-std 测试通过
-资源表测试通过
+== 4 回归 ==
+ok  	xnull.dev/xnull/internal/codegen	22.045s
+ok  	xnull.dev/xnull/internal/cli	4.258s
+build_rt.sh：PASS
+
+B0-02 驱动：全部通过
 
 ===== go test ./... =====
 ?   	xnull.dev/xnull/cmd/xnpt	[no test files]
@@ -49,3 +70,9 @@ ok  	xnull.dev/xnull/internal/interp	2.251s
 ok  	xnull.dev/xnull/internal/sema	8.524s
 ok  	xnull.dev/xnull/internal/xfront	9.633s
 ok  	xnull.dev/xnull/internal/xpd	10.620s
+
+===== build_rt.sh（尾部） =====
+hard-semantics tests passed
+abi 测试通过
+std 测试通过
+资源表测试通过

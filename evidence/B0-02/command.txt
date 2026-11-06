@@ -1,0 +1,43 @@
+# B0-02（P-10）采集命令
+
+一条命令复现全部：`sh evidence/B0-02/run.sh`（见 `run.out`）。
+
+## 手工步骤
+
+```bash
+# 1 红（单元级）：先写测试、实现未改
+cd impl && go test ./internal/codegen -count=1 -run 'TestBuildCCArgs|TestBuildSampleHello' -v
+#   → 只有 rt.c/rt_gc.c/rt_policy.c/rt_weak.c，缺 xrt_abi.c 与 rt_std_*.c
+
+# 2 绿（单元级）：runtimeCSources 纳入 ABI/STD；Build 增加 Options.LinkArgs
+cd impl && go test ./internal/codegen -count=1 -run 'TestBuildCCArgs|TestBuildSampleHello' -v
+
+# 3 红（链接级）：ABI/STD 样例 + 旧 4 源清单
+RT=impl/runtime
+cc -std=c11 -O2 -I $RT -o /tmp/b002-old evidence/B0-02/probe/probe.c \
+   $RT/rt.c $RT/rt_gc.c $RT/rt_policy.c $RT/rt_weak.c        # 期望失败
+
+# 4 绿（链接级）：同一样例 + 新 8 源清单
+cc -std=c11 -O2 -I $RT -o /tmp/b002-new evidence/B0-02/probe/probe.c \
+   $RT/rt.c $RT/rt_gc.c $RT/rt_policy.c $RT/rt_weak.c \
+   $RT/xrt_abi.c $RT/rt_std_runtime.c $RT/rt_std_text.c $RT/rt_std_sys.c
+/tmp/b002-new
+
+# 5 含 ABI/STD 的样例：xnull build 产物内符号
+cd impl && go build -o /tmp/xnull-b002 ./cmd/xnull
+/tmp/xnull-b002 build examples/hello.x -o /tmp/b002-hello -l m -L /usr/lib -l m
+/tmp/b002-hello
+nm /tmp/b002-hello | grep -c '_xrt_\|_xdkc_'     # 期望 > 0
+
+# 6 CLI 链接参数确定性
+cd impl && go test ./internal/cli -count=1 -run TestLinkArgsDeterministic -v
+
+# 7 回归
+cd impl && go vet ./...
+cd impl && go test ./... -count=1 -timeout 300s
+sh impl/runtime/build_rt.sh
+
+# 8 干净 clone（提交后）
+git clone --branch pod/e6-toolchain --single-branch <主仓> /tmp/b002-clone
+cd /tmp/b002-clone && sh evidence/B0-02/run.sh
+```
