@@ -58,7 +58,6 @@ func fieldCName(f *xfront.FieldDecl) string {
 }
 
 // collectClass 登记类（字段类型先解析，触发容器/Result 实例化注册）。
-// 前置：EmitC 已预登记全部类名（`registerClassNames`），字段/方法可以引用后声明的类。
 func (g *gen) collectClass(d *xfront.ClassDecl) error {
 	if d.Base != nil {
 		return fmt.Errorf("codegen：继承暂未支持（M4.4b 范围：单类；基类 %v）", d.Base)
@@ -66,14 +65,9 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 	if len(d.Protocols) > 0 {
 		return fmt.Errorf("codegen：协议实现暂未支持（M4.4b 范围：单类无协议）")
 	}
-	ci := g.classes[d.Name]
-	if ci == nil {
-		ci = &classInfo{decl: d, cname: classCName(d.Name), typeVar: classTypeVar(d.Name), methods: map[string]*classInfo_m{}}
-		g.classes[d.Name] = ci
-	}
-	ci.decl = d
-	ci.fields = nil
-	ci.methods = map[string]*classInfo_m{}
+	ci := &classInfo{decl: d, cname: classCName(d.Name), typeVar: classTypeVar(d.Name), methods: map[string]*classInfo_m{}}
+	// 先注册再填字段：自引用字段（List<Node> kids，AST 子节点）需要类名已可见
+	g.classes[d.Name] = ci
 	for _, f := range d.Fields {
 		ct, err := g.cType(f.Type)
 		if err != nil {
@@ -100,23 +94,9 @@ func (g *gen) classOf(name string) (*classInfo, bool) {
 	return ci, ok
 }
 
-// registerClassNames 预登记全部类名（顺序无关）：字段类型、字段初值 new、
-// 方法签名都可能引用后声明的类（B0-04 前向引用）。
-func (g *gen) registerClassNames(u *xfront.CompilationUnit) {
-	for _, d := range u.Decls {
-		if c, ok := d.(*xfront.ClassDecl); ok {
-			if _, exists := g.classes[c.Name]; !exists {
-				g.classes[c.Name] = &classInfo{decl: c, cname: classCName(c.Name),
-					typeVar: classTypeVar(c.Name), methods: map[string]*classInfo_m{}}
-			}
-		}
-	}
-}
-
-// emitClassForwardDecls 为全部类发前向声明（typedef struct X X; + 构造器原型），排序保证确定性。
+// emitClassForwardDecls 为全部类发前向声明（typedef struct X X;），排序保证确定性。
 // 输出顺序不变量：前向声明（此处）→ 容器结构 → 顶层函数原型 → 类完整定义。
-// 多文件合并后使用方可先于定义方出现，指针形态只需该不完整类型即合法（S1-06）；
-// 字段初值 `new B()` 也要求 B 的构造器原型先于 A 的构造器（B0-04）。
+// 多文件合并后使用方可先于定义方出现，指针形态只需该不完整类型即合法（S1-06）。
 func (g *gen) emitClassForwardDecls(b *strings.Builder) {
 	names := make([]string, 0, len(g.classes))
 	for name := range g.classes {
@@ -126,13 +106,6 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) {
 	for _, name := range names {
 		cn := classCName(name)
 		fmt.Fprintf(b, "typedef struct %s %s;\n", cn, cn)
-	}
-	if len(names) > 0 {
-		b.WriteString("\n")
-	}
-	for _, name := range names {
-		cn := classCName(name)
-		fmt.Fprintf(b, "static %s *%s_new(void);\n", cn, cn)
 	}
 	if len(names) > 0 {
 		b.WriteString("\n")
@@ -256,152 +229,46 @@ func cZeroValue(ct string) string {
 	}
 }
 
-// classCtorInit 生成构造器里的字段初值语句（S2 §6.3 L678-679）：
-// 按声明顺序执行；初值可引用常量/静态成员/顶层函数，不得引用 self、其他实例字段或构造器参数。
-// 生成形态覆盖：标量表达式、String 表达式（拼接/str/顶层调用）、容器字面量（含非空与空）、
-// 类引用 new。借用形态（字段/局部引用）显式拒绝，避免双重释放。
+// emitClassCtorBody 生成构造器里的字段初值语句（初值为编译期可求值的简单形态；
+// 复杂初值在 M4.4b 只支持字面量/标量表达式，超出显式报错）。
 func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 	var out []string
-	sc := &scope{g: g, locals: map[string]string{}}
-	for i := range ci.fields {
-		f := ci.fields[i]
+	for i, f := range ci.fields {
 		fd := ci.decl.Fields[i]
 		if fd.Init == nil {
 			continue
 		}
-		if err := g.validateFieldInit(fd.Init, ci.decl.Name, f.name); err != nil {
-			return nil, err
-		}
-		// 上一字段求值可能留下临时语句（顶层调用/拼接）
-		out = append(out, sc.pending...)
-		sc.pending = nil
-		lines, expr, err := g.fieldInitValue(sc, f, fd.Init, ci.decl.Name)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, lines...)
-		out = append(out, sc.pending...)
-		sc.pending = nil
 		switch {
 		case f.isStr:
-			// 旧值为 memset 的 NULL，release 幂等（rt_release 对 NULL 直接返回）
-			out = append(out, fmt.Sprintf("rt_release(o->%s);", f.cname))
+			if lit, ok := fd.Init.(*xfront.StrLitExpr); ok {
+				t := g.tmpName()
+				out = append(out, fmt.Sprintf("rt_string *%s = rt_string_from_c(%s);", t, cQuote(plainText(lit))))
+				out = append(out, fmt.Sprintf("rt_release(o->%s);", f.cname))
+				out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, t))
+				continue
+			}
+			return nil, fmt.Errorf("codegen：类字段 %s.%s 的 String 初值暂只支持字面量（M4.4b 范围）", ci.decl.Name, f.name)
+		case f.ctype == "int64_t" || f.ctype == "int":
+			sc := &scope{g: g, locals: map[string]string{}}
+			v, err := sc.intExpr(fd.Init)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, v))
+			continue
+		case f.isArr:
+			al, ok := fd.Init.(*xfront.ArrayLit)
+			if !ok || len(al.Elems) != 0 {
+				return nil, fmt.Errorf("codegen：类字段 %s.%s 的容器初值暂只支持空字面量 []（M5.1-b 范围）", ci.decl.Name, f.name)
+			}
+			out = append(out, fmt.Sprintf("o->%s = %s_new(0);", f.cname, f.ctype))
+			continue
 		case f.isCls:
-			out = append(out, fmt.Sprintf("rt_release(o->%s);", f.cname))
+			return nil, fmt.Errorf("codegen：类字段 %s.%s 不支持初值（引用字段只能后赋，M5.1-b 范围）", ci.decl.Name, f.name)
 		}
-		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, expr))
+		return nil, fmt.Errorf("codegen：类字段 %s.%s 的初值类型 %s 暂未支持（M4.4b 范围）", ci.decl.Name, f.name, f.ctype)
 	}
 	return out, nil
 }
 
-// fieldInitValue 为单个字段初值生成 (语句, 右值表达式)。
-func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls string) ([]string, string, error) {
-	switch {
-	case f.isStr:
-		lines, err := sc.strExpr(init)
-		if err != nil {
-			return nil, "", err
-		}
-		return lines, lastVar(lines), nil
-	case f.isArr:
-		// `Map<K,V> m = []`：空数组字面量是空 Map 的常用写法，按 map_new(0) 发射。
-		if al, ok := init.(*xfront.ArrayLit); ok && len(al.Elems) == 0 && strings.HasPrefix(f.ctype, "xn_map_") {
-			return nil, fmt.Sprintf("%s_new(0)", f.ctype), nil
-		}
-		lines, v, err := sc.valExpr(init, f.ctype)
-		if err != nil {
-			return nil, "", err
-		}
-		if _, isIdent := init.(*xfront.IdentExpr); isIdent {
-			return nil, "", fmt.Errorf("codegen：类字段 %s.%s 的容器初值不能是借用（变量/字段），需字面量或构造（B0-04）", cls, f.name)
-		}
-		return lines, v, nil
-	case f.isCls:
-		nw, ok := init.(*xfront.New)
-		if !ok {
-			return nil, "", fmt.Errorf("codegen：类字段 %s.%s 的引用初值只支持 `new 类()`（B0-04；不得引用 self/其他字段）", cls, f.name)
-		}
-		ctor, err := sc.emitNewClass(nw)
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, ctor, nil
-	case f.ctype == "int64_t" || f.ctype == "int" || f.ctype == "bool":
-		v, err := sc.intExpr(init)
-		if err != nil {
-			return nil, "", err
-		}
-		return nil, v, nil
-	}
-	return nil, "", fmt.Errorf("codegen：类字段 %s.%s 的初值类型 %s 暂未支持（B0-04）", cls, f.name, f.ctype)
-}
-
-// validateFieldInit 静态校验字段初值（S2 §6.3 L679）：
-// 允许 字面量 / 运算符 / 容器与 Map 字面量 / new / 以顶层函数或内建为被调用的 Call；
-// 拒绝 裸标识符（字段/局部/参数引用）、成员访问（self.x、obj.x）、下标、元组成员、闭包。
-func (g *gen) validateFieldInit(e xfront.Expr, cls, field string) error {
-	bad := func(what string) error {
-		return fmt.Errorf("codegen：类字段 %s.%s 的初始化式%s（S2 §6.3：字段初值不能引用 self、其他实例字段或构造器参数）", cls, field, what)
-	}
-	switch n := e.(type) {
-	case *xfront.IntLitExpr, *xfront.FloatLitExpr, *xfront.CharLitExpr,
-		*xfront.BoolLit, *xfront.NullLit, *xfront.StrLitExpr:
-		return nil
-	case *xfront.Paren:
-		return g.validateFieldInit(n.X, cls, field)
-	case *xfront.Unary:
-		return g.validateFieldInit(n.X, cls, field)
-	case *xfront.Binary:
-		if err := g.validateFieldInit(n.L, cls, field); err != nil {
-			return err
-		}
-		return g.validateFieldInit(n.R, cls, field)
-	case *xfront.Ternary:
-		if err := g.validateFieldInit(n.Cond, cls, field); err != nil {
-			return err
-		}
-		if err := g.validateFieldInit(n.Then, cls, field); err != nil {
-			return err
-		}
-		return g.validateFieldInit(n.Else, cls, field)
-	case *xfront.ArrayLit:
-		for _, el := range n.Elems {
-			if err := g.validateFieldInit(el, cls, field); err != nil {
-				return err
-			}
-		}
-		return nil
-	case *xfront.MapLit:
-		for i := range n.Keys {
-			if err := g.validateFieldInit(n.Keys[i], cls, field); err != nil {
-				return err
-			}
-			if err := g.validateFieldInit(n.Vals[i], cls, field); err != nil {
-				return err
-			}
-		}
-		return nil
-	case *xfront.New:
-		for _, a := range n.Args {
-			if err := g.validateFieldInit(a, cls, field); err != nil {
-				return err
-			}
-		}
-		return nil
-	case *xfront.Call:
-		if _, ok := n.Callee.(*xfront.IdentExpr); !ok {
-			return bad("调用了成员方法（只允许顶层函数/内建）")
-		}
-		for _, a := range n.Args {
-			if err := g.validateFieldInit(a, cls, field); err != nil {
-				return err
-			}
-		}
-		return nil
-	case *xfront.IdentExpr:
-		return bad("引用了标识符 `" + n.Name + "`（不能引用 self、字段、参数或局部）")
-	case *xfront.Member:
-		return bad("访问了成员 `" + n.Name + "`（不能引用 self 或其他实例字段）")
-	}
-	return bad(fmt.Sprintf("形态 %T 不受支持", e))
-}
+func (g *gen) tmpName() string { g.tmp++; return fmt.Sprintf("xn_c%d", g.tmp) }

@@ -155,13 +155,8 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		case "str":
 			return "rt_string *", nil
 		}
-		if ret, ok := s.g.callRetC(id.Name, n.TypeArgs); ok {
+		if ret, ok := s.g.fnRet[id.Name]; ok {
 			return ret, nil
-		}
-		// 泛型调用的失败原因要给准（缺实参 / 数量不符 / 非泛型带实参），
-		// 不要笼统报「未知函数」。
-		if s.g.isGenericName(id.Name) || len(n.TypeArgs) > 0 {
-			return "", fmt.Errorf("codegen：%s", s.g.callErr(id.Name, n.TypeArgs))
 		}
 		return "", fmt.Errorf("codegen：未知函数 %s（M4.4a 范围）", id.Name)
 	}
