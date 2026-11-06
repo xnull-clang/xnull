@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// 资源名整体校验：只允许 [A-Za-z0-9_.-]，且**不含路径分隔符**。
-// 注意：这与 S8 §5.6 的「允许资源子目录」不一致，是迁移期为满足
-// 「同输入逐字节一致」而保留的既有行为；修正另行排期。
-var resourceNameRe = regexp.MustCompile(`^[A-Za-z0-9_.\-]+$`)
+// 资源名按段校验：每段只允许 [A-Za-z0-9_.-]，段间用单个 / 分隔。
+// S8 §5.6：目录内全部常规文件按「相对资源根的路径」收录，因此子目录合法；
+// 绝对路径、空段、. 与 .. 段一律拒绝（运行时同样禁止绝对路径与 .. 段）。
+var resourceSegmentRe = regexp.MustCompile(`^[A-Za-z0-9_.\-]+$`)
 
 type resourceEntry struct {
 	name string
@@ -21,10 +21,11 @@ type resourceEntry struct {
 
 // GenerateResources 把资源目录生成为自包含 C 源文件（S8 §5.6）。
 //
-// 合同（与迁移前 gen_resources.py 一致）：
-//   - 按资源名升序输出，保证确定性；
-//   - 资源名非法或重复时显式报错；
-//   - 空目录生成零成本空表；
+// 合同：
+//   - 递归收录资源根下全部常规文件，资源名为相对资源根的 / 分隔路径（§5.6「收录」）；
+//   - 按资源名升序输出，保证确定性；空目录不产生条目；
+//   - 资源名按段非法（含空白、反斜杠）、绝对路径、. / .. 段、重复名、符号链接断链或越界时显式报错；
+//   - 符号链接按目标内容读取（§5.6「符号链接」）；指向目录的链接拒绝（避免环）；
 //   - 只依赖 libc，供构建期链接。
 func GenerateResources(srcDir, outPath string) error {
 	info, err := os.Stat(srcDir)
@@ -38,11 +39,18 @@ func GenerateResources(srcDir, outPath string) error {
 	return os.WriteFile(outPath, []byte(renderResources(entries)), 0o644)
 }
 
-// collectResources 按 Python os.walk 的顺序遍历：先本层文件（名字升序），再逐个子目录。
+// collectResources 递归遍历资源根：先本层文件（名字升序），再逐个子目录。
 // 这样首个错误的报告顺序与旧实现一致。
 func collectResources(root string) ([]resourceEntry, error) {
 	var entries []resourceEntry
 	seen := make(map[string]bool)
+
+	// 资源根本身可能位于符号链接路径下（如 macOS /tmp → /private/tmp），
+	// 用真实路径做符号链接越界判断。
+	rootReal, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return nil, fmt.Errorf("解析资源根失败：%v", err)
+	}
 
 	var walk func(dir string) error
 	walk = func(dir string) error {
@@ -53,17 +61,34 @@ func collectResources(root string) ([]resourceEntry, error) {
 		var subdirs []string
 		for _, it := range items {
 			path := filepath.Join(dir, it.Name())
-			if it.IsDir() {
-				subdirs = append(subdirs, path)
-				continue
-			}
 			rel, err := filepath.Rel(root, path)
 			if err != nil {
 				return err
 			}
 			name := filepath.ToSlash(rel)
-			if !resourceNameRe.MatchString(name) {
-				return fmt.Errorf("资源名非法（限 [A-Za-z0-9_.-]）：%s", name)
+
+			if it.Type()&os.ModeSymlink != 0 {
+				target, err := os.Stat(path) // 跟随链接，断链即失败
+				if err != nil {
+					return fmt.Errorf("符号链接断链：%s（%v）", name, err)
+				}
+				if target.IsDir() {
+					return fmt.Errorf("符号链接指向目录（拒绝递归，避免环）：%s", name)
+				}
+				real, err := filepath.EvalSymlinks(path)
+				if err != nil {
+					return fmt.Errorf("符号链接断链：%s（%v）", name, err)
+				}
+				if !within(rootReal, real) {
+					return fmt.Errorf("符号链接指向资源根之外：%s → %s", name, real)
+				}
+			} else if it.IsDir() {
+				subdirs = append(subdirs, path)
+				continue
+			}
+
+			if err := validateResourceName(name); err != nil {
+				return err
 			}
 			if seen[name] {
 				return fmt.Errorf("资源名重复：%s", name)
@@ -90,10 +115,44 @@ func collectResources(root string) ([]resourceEntry, error) {
 	return entries, nil
 }
 
+// validateResourceName 校验「相对资源根的 / 分隔路径」。
+func validateResourceName(name string) error {
+	if name == "" {
+		return fmt.Errorf("资源名为空")
+	}
+	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") {
+		return fmt.Errorf("资源名不得以 / 开头或结尾：%s", name)
+	}
+	if strings.Contains(name, `\`) {
+		return fmt.Errorf("资源名不得含反斜杠：%s", name)
+	}
+	for _, seg := range strings.Split(name, "/") {
+		if seg == "" {
+			return fmt.Errorf("资源名含空路径段：%s", name)
+		}
+		if seg == "." || seg == ".." {
+			return fmt.Errorf("资源名含非法路径段 %q：%s", seg, name)
+		}
+		if !resourceSegmentRe.MatchString(seg) {
+			return fmt.Errorf("资源名非法（每段限 [A-Za-z0-9_.-]）：%s", name)
+		}
+	}
+	return nil
+}
+
+// within 判断 target 是否位于 root 之内（两者均应为解析过符号链接的绝对路径）。
+func within(root, target string) bool {
+	rel, err := filepath.Rel(root, target)
+	if err != nil || filepath.IsAbs(rel) {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
+}
+
 // renderResources 生成 C 源文本。
 //
-// 首行保留迁移前的生成器署名文本，是为了与 Python golden 逐字节一致。
-// 待资源子目录行为修正时一并更新。
+// 首行保留迁移前的生成器署名文本，是为了与 Python golden 逐字节一致；
+// 是否改为 `xnull dev res` 另行判定，不阻塞当前门。
 func renderResources(entries []resourceEntry) string {
 	var b strings.Builder
 	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")

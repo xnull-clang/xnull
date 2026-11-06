@@ -27,6 +27,8 @@ xnull dev res <目录> <out.c> # 生成资源表 C 源（S8 §5.6）
 `dev` 只服务仓库维护，不属于语言用户的稳定 CLI 面。EN 快照滞后判据为**文件名版本 + 母本内容 SHA-256**
 （清单 `impl/docs/conformance/en-source.sha256`），与文件 mtime 无关（mtime 在 clone/checkout 后会刷新，不可作为判据）。`impl/runtime/build_rt.sh` 以
 `go run ./cmd/xnull dev res` 调用资源表生成器（构建期工具，不进入运行时产物、不携带 Go 运行时）。
+`dev res` 按 S8 §5.6 递归收录资源根下全部常规文件，资源名为**相对资源根的 `/` 分隔路径**（如
+`templates/mail/a.html`），按名升序输出；空目录不产生条目；符号链接按目标内容读取，断链、指向目录或越出资源根一律失败。
 
 ## 解释器范围（internal/interp）
 
