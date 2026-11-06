@@ -3,12 +3,13 @@
 > 由 `impl/tools/gen_ledger.py` 自动生成，**不要手改编号列**。人工只维护两列：`用例文件`（相对 `impl/Tests/`）与`状态`。
 > 状态取值：`未实现` / `部分` / `PASS` / `N/A（非承诺或被否决，见对应文档）`。
 > 台账是实现的单一事实源：任何里程碑宣告完成，必须先把对应行的状态改为 `PASS`。
+> 旁表口径：`status.tsv` 只登记有实现证据的锚点（未登记行在台账中显示 `未实现`）；101 锚点与旁表行的逐条映射、理由与重登条件见 `impl/docs/conformance/ledger-restructure.md`。
 
 ## 0. 统计
 
 | 维度 | 分布 |
 | --- | --- |
-| 总计 | 101 条（PASS 8） |
+| 总计 | 101 条（PASS 10） |
 | 按文档 | S1 14 · S2 29 · S3 11 · S4 10 · S5 9 · S6 10 · S7 7 · S8 11 |
 | 按里程碑 | M0/M3 11 · M1 20 · M2 50 · M3 20 |
 
@@ -22,9 +23,9 @@
 | TYPE-02 | S1 | 可空；`T?` 对引用类型归一；`?.` / `??` / `as` / `as?` 语义正确；非可空值类型拒绝 `null` | M1 | internal/sema/ty_test.go | PASS |
 | EXPR-01 | S1 | 求值顺序；`&&` / `；` 短路；`??` 仅左侧为 `null` 时求值右侧；`try` 传播顺序正确 | M1 | internal/interp/interp_test.go | PASS |
 | CTRL-01 | S1 | 控制流；`if` / `while` / `do` / `for` / `switch` 条件无括号、体为花括号；`goto` 语法正确；`break` / `continue` 及标签作用域正确；非 `void` 返回路径完整 | M1 | internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal/sema/assign_test.go | PASS |
-| ERR-01 | S1 | 错误处理；`Result` 构造/成员/`@mustUse`；`try` 传播与错误类型检查；`defer` / `errdefer` 的 LIFO、触发条件和清理体限制；`isOk` / `isErr` / `value` / `error` 的正确使用 | M2 | — | 未实现 |
+| ERR-01 | S1 | 错误处理；`Result` 构造/成员/`@mustUse`；`try` 传播与错误类型检查；`defer` / `errdefer` 的 LIFO、触发条件和清理体限制；`isOk` / `isErr` / `value` / `error` 的正确使用 | M2 | internal/interp/hard_test.go | 部分 |
 | GEN-01 | S1 | 泛型函数；显式实参、推断、冲突、未绑定、重载、单态化、无限展开诊断均符合第 8 节；`Result` 类型实参可实例化 | M1 | — | 未实现 |
-| BLD-01 | S1 | 内置类型；`String` / `T[]` / `List` / `Map` / `Set` 的成员签名、边界、`Map.get` / `getOr` 缺失键行为、`new T[count]` 分配、复杂度符合第 9 节 | M3 | — | 未实现 |
+| BLD-01 | S1 | 内置类型；`String` / `T[]` / `List` / `Map` / `Set` 的成员签名、边界、`Map.get` / `getOr` 缺失键行为、`new T[count]` 分配、复杂度符合第 9 节 | M3 | internal/interp/values_test.go | 部分 |
 | TUPLE-01 | S1 | 元组；类型身份、字面量、元素访问、推断、可赋值性、相等与插值按 2.11；越界选择器、单元素/零元元组、解构、元组 `switch`、元组 `const` 均被拒绝 | M1 | internal/interp/interp_test.go | 部分 |
 | PKG-01 | S1 | 包与导入；包导入、符号导入、同名消歧别名、非冲突别名被拒绝、简单名歧义、XDK 未导入、导入环均正确诊断 | M1 | internal/xfront/unit_test.go + internal/sema/xdk_test.go | 部分 |
 | ENTRY-01 | S1 | 入口与启动；两种 `main` 签名均可运行；退出码正确；初始化顺序正确；缺失/重复入口被拒绝 | M1 | internal/interp/interp_test.go + internal/cli/cli_test.go | 部分 |
@@ -56,7 +57,7 @@
 | EXT-01 | S2 | 扩展；同包非泛型目标；只加方法；重复/同签名/协议实现违规被拒绝；扩展不进入 vtable | M3 | — | 未实现 |
 | ANN-01 | S2 | 注解；编译期字段和参数；目标限制；无运行期对象；`@Override` 只对应协议；源码使用 `@arc` / `@gc` 被拒绝 | M1 | — | 未实现 |
 | MEM-01 | S2 | 内存；class 策略判定顺序正确；源码使用 `@arc` / `@gc` 被拒绝；struct 不进入 ARC/GC；stack/ARC/GC 行为符合 15；`deinit` 顺序正确 | M2 | internal/sema/policy_test.go | 部分 |
-| MEM-02 | S2 | 混合图；ARC↔GC 引用不悬挂、不泄漏；弱引用清除；环由 GC 回收；全 ARC 环被避免 | M2 | — | 未实现 |
+| MEM-02 | S2 | 混合图；ARC↔GC 引用不悬挂、不泄漏；弱引用清除；环由 GC 回收；全 ARC 环被避免 | M2 | impl/runtime/test_gc.c + impl/runtime/test_hard.c | 部分 |
 | FIELD-01 | S2 | 字段访问；`private name` 和 `_name` 字段都按私有处理，`private _name` 被拒绝；规范名 `_name`，类内只能裸写 `_name`，`self._name` 和裸 `name` 都拒绝；外部 `name` / `_name` 都拒绝；同类局部/参数使用 `_name` 被拒绝；字段隐藏被拒绝 | M1 | internal/sema/typedecl_test.go | PASS |
 | GATE-01 | S2 | 发布门槛；第 16 节全部门槛通过；负例断言诊断；无静默降级 | M2 | — | 未实现 |
 | MEM-03 | S3 | 混合图；15.6 六条不变量在压力用例下成立；ARC↔GC 混合无悬挂、无泄漏、无重复释放 | M2 | — | 未实现 |
@@ -94,18 +95,18 @@
 | XDK-03 | S6 | errors；`ErrorKind` 14 项齐备；`wrap` 丢弃换新、`mapErr` 转换、`report` 返回原 `Result`；原因链走 `cause` 约定字段且协议不增成员 | M3 | — | 未实现 |
 | XDK-04 | S6 | tasks；组外 spawn 不可达（唯一 spawn 入口是组）；组关闭是唯一终结路径；取消与超时错误面与 S5 一致；`Context` 首参数为惯例（编译器不强制） | M3 | — | 未实现 |
 | XDK-05 | S6 | sync；`Mutex.withLock` 作用域化（锁不可泄漏出作用域）；`Channel` 有界且挂起点可取消；`AtomicRef<T>` 的 `T` 限引用类型，值类型原子被拒绝 | M3 | — | 未实现 |
-| XDK-06 | S6 | runtime；`diagnose` 单行输出；`exit` 不执行 `defer`；`nowMono` 单调、`nowWall` 为 UTC 毫秒可回拨；`env` 为不可变快照 | M3 | — | 未实现 |
+| XDK-06 | S6 | runtime；`diagnose` 单行输出；`exit` 不执行 `defer`；`nowMono` 单调、`nowWall` 为 UTC 毫秒可回拨；`env` 为不可变快照 | M3 | runtime/test_std.c | 部分 |
 | XDK-07 | S6 | collections；内建容器语义不变；算法函数与首版 4 个特化容器（`RingBuffer`/`OrderedMap`/`BTreeMap`/`PriorityQueue`）可用 | M3 | — | 未实现 |
 | XDK-08 | S6 | text；builder 式格式化；编码转换与整数/浮点解析；`Regex` 动态编译形态可用且编译失败为可恢复错误 | M3 | — | 未实现 |
-| XDK-09 | S6 | sys/net；文件/目录/子进程遵守 S3 §18 句柄合同（`close()` 必达）；双形态 I/O：异步默认（携 `Context`）+ plain 同步显式；网络独立成包 | M3 | — | 未实现 |
+| XDK-09 | S6 | sys/net；文件/目录/子进程遵守 S3 §18 句柄合同（`close()` 必达）；双形态 I/O：异步默认（携 `Context`）+ plain 同步显式；网络独立成包 | M3 | runtime/test_std.c | 部分 |
 | XDK-10 | S6 | 资源读取；§4.8 五 API 与七条强制约束逐条有对应用例：路径非法（绝对路径/`..`/空段/反斜杠）→ `InvalidArgument`；缺失 → `NotFound` 可恢复；`listResources` 字典序；返回值非句柄无需 `close()`；挂起点可取消；不回退文件系统；文件 API 读不到内嵌资源 | M3 | — | 未实现 |
-| FFI-01 | S7 | 合同面；三形态外的类型（`Result`/闭包/容器/`String` 移交等）被拒绝；无租约声明被拒绝；未知错误码映射 `Internal` 而非 `Ok` | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
-| FFI-02 | S7 | 布局；`layout(c)` 结构体逐字段布局与 C 基准一致；未标注结构体只能封送/句柄；标量映射表逐项正确 | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
-| FFI-03 | S7 | 租约；`.borrow` 返回后指针失效可见；`.transfer` 后 XNull 不释放；`.reclaim` 归还路径正确；缓冲区边界期间 pin、越界写有报告 | M3 | — | 未实现 |
+| FFI-01 | S7 | 合同面；三形态外的类型（`Result`/闭包/容器/`String` 移交等）被拒绝；无租约声明被拒绝；未知错误码映射 `Internal` 而非 `Ok` | M3 | internal/codegen/ffi/emit_test.go | PASS |
+| FFI-02 | S7 | 布局；`layout(c)` 结构体逐字段布局与 C 基准一致；未标注结构体只能封送/句柄；标量映射表逐项正确 | M3 | internal/codegen/ffi/emit_test.go | 部分 |
+| FFI-03 | S7 | 租约；`.borrow` 返回后指针失效可见；`.transfer` 后 XNull 不释放；`.reclaim` 归还路径正确；缓冲区边界期间 pin、越界写有报告 | M3 | internal/codegen/ffi/emit_test.go | PASS |
 | FFI-04 | S7 | `@unsafe`；受控入口仅存在于绑定层；合同文本完整；应用代码不可创建 | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
-| FFI-05 | S7 | trampoline；回调创建登记根、销毁注销；注销后调用被检测；回调内 panic 终止进程；错误码出参映射正确（取消/超时不降级） | M3 | — | 未实现 |
-| FFI-06 | S7 | ABI；稳定命名符号可被原生代码链接；签名与 §6.1 一致；原生侧只经 ABI 管理内存 | M3 | — | 未实现 |
-| FFI-07 | S7 | 阻塞分类；全部入口有分类声明；长阻塞入口有专用执行器伴生形态；分类与实际行为一致（SCHED-01 联动） | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
+| FFI-05 | S7 | trampoline；回调创建登记根、销毁注销；注销后调用被检测；回调内 panic 终止进程；错误码出参映射正确（取消/超时不降级） | M3 | internal/codegen/ffi/emit_test.go | 部分 |
+| FFI-06 | S7 | ABI；稳定命名符号可被原生代码链接；签名与 §6.1 一致；原生侧只经 ABI 管理内存 | M3 | internal/codegen/ffi/emit_test.go | 部分 |
+| FFI-07 | S7 | 阻塞分类；全部入口有分类声明；长阻塞入口有专用执行器伴生形态；分类与实际行为一致（SCHED-01 联动） | M3 | internal/codegen/ffi/xdk_test.go | 部分 |
 | PROJ-01 | S8 | 骨架与坐标；段落顺序无关；未知段落/字段失败；单次段落重复失败；容器段落只含规定条目；四字段缺任一失败；坐标重复失败；子模块 `groupId` 可与父不同 | M0/M3 | — | 未实现 |
 | PROJ-02 | S8 | 继承；单父展开正确；深度 > 8 失败；环/缺失/非 pom parent 失败；**坐标不从父继承**；`properties`/`dependencyManagement`/`repositories`/`configuration` 合并规则正确 | M0/M3 | — | 未实现 |
 | PROJ-03 | S8 | 依赖仲裁；管理表就近提供版本；缺失版本失败；同深度冲突失败并列出路径；显式版本覆盖产生警告；管理表出现 `scope`/`optional` 失败 | M0/M3 | — | 未实现 |

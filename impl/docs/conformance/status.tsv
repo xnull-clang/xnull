@@ -4,7 +4,9 @@ LEX-01	internal/xfront/lexer_test.go	PASS
 STMT-01	internal/xfront/lexer_test.go + internal/xfront/stmt_test.go	PASS
 EXPR-01	internal/interp/interp_test.go	PASS
 CTRL-01	internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal/sema/assign_test.go	PASS
+BLD-01	internal/interp/values_test.go	部分
 ENTRY-01	internal/interp/interp_test.go + internal/cli/cli_test.go	部分
+ERR-01	internal/interp/hard_test.go	部分
 TUPLE-01	internal/interp/interp_test.go	部分
 PKG-01	internal/xfront/unit_test.go + internal/sema/xdk_test.go	部分
 TYPE-01	internal/sema/ty_test.go	PASS
@@ -22,7 +24,13 @@ KIND-01	—	未实现
 BLOCK-01	—	未实现
 DET-01	internal/sema/policy_test.go	部分
 MEM-01	internal/sema/policy_test.go	部分
-FFI-01	internal/codegen/ffi/ffi_test.go	部分
-FFI-02	internal/codegen/ffi/ffi_test.go	部分
+MEM-02	impl/runtime/test_gc.c + impl/runtime/test_hard.c	部分
+FFI-01	internal/codegen/ffi/emit_test.go	PASS
+FFI-02	internal/codegen/ffi/emit_test.go	部分
 FFI-04	internal/codegen/ffi/ffi_test.go	部分
-FFI-07	internal/codegen/ffi/ffi_test.go	部分
+FFI-07	internal/codegen/ffi/xdk_test.go	部分
+FFI-03	internal/codegen/ffi/emit_test.go	PASS
+FFI-05	internal/codegen/ffi/emit_test.go	部分
+FFI-06	internal/codegen/ffi/emit_test.go	部分
+XDK-06	runtime/test_std.c	部分
+XDK-09	runtime/test_std.c	部分
