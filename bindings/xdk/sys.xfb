@@ -1,0 +1,61 @@
+// bindings/xdk/sys.xfb —— xdk.sys 的 C 层绑定（S6 §4.7 文件/目录子集）
+//
+// 句柄合同（S3 §18 / S7 §4.3）：File/Dir 由 xrt_handle 包装，close 显式且幂等；
+// deinit 不自动关闭（只把泄漏打到诊断通道）。
+// 错误码：0 成功、1 句柄无效、2 IO 失败（errorMap 归入本地分类）。
+// 目录迭代顺序依文件系统（不排序）；确定性顺序由调用方排序。
+// dirRead 迭代结束返回 NULL 字符串（可空语义的 XNull 侧映射随 P-09 评审面确认）。
+// 子进程面（proc）暂不入绑定：阻塞/信号语义随调度器切片定案（C 层原语已就位）。
+ffi xdkc_sys {
+  handle File { close = fileClose }
+  handle Dir { close = dirClose }
+
+  errorMap {
+    1 = Invalid
+    2 = Internal
+  }
+
+  @ffiEntry(cName = "xdkc_file_open_read")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  File fileOpenRead(String path);
+
+  @ffiEntry(cName = "xdkc_file_read")
+  @lease(f = .borrow, buf = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 fileRead(File f, Bytes buf, Int32 code);
+
+  @ffiEntry(cName = "xdkc_file_write")
+  @lease(f = .borrow, buf = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.unaware)
+  Int32 fileWrite(File f, Bytes buf);
+
+  @ffiEntry(cName = "xdkc_file_close")
+  @lease(f = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 fileClose(File f);
+
+  @ffiEntry(cName = "xdkc_dir_open")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Dir dirOpen(String path);
+
+  @ffiEntry(cName = "xdkc_dir_read")
+  @lease(d = .borrow)
+  @blocking(.aware)
+  String dirRead(Dir d);
+
+  @ffiEntry(cName = "xdkc_dir_close")
+  @lease(d = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 dirClose(Dir d);
+
+  @ffiEntry(cName = "xdkc_path_exists")
+  @lease(path = .borrow)
+  @blocking(.aware)
+  Bool pathExists(String path);
+}
