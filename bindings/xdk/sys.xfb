@@ -20,6 +20,13 @@ ffi xdkc_sys {
   @blocking(.unaware)
   File fileOpenRead(String path);
 
+  // B0-06 阻塞 #3（董事会/CEO3 批准增补）：写模式打开。
+  // 句柄合同同 File；失败（路径非法/打开失败）返回 null，不 panic。
+  @ffiEntry(cName = "xdkc_file_open_write")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  File fileOpenWrite(String path);
+
   @ffiEntry(cName = "xdkc_file_read")
   @lease(f = .borrow, buf = .borrow, code = .borrow)
   @errorCode(codeParam = .code)

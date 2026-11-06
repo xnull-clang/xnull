@@ -24,6 +24,7 @@
 | dirRead | xdkc_dir_read | xdkc_sys | .aware | 否 | — |
 | fileClose | xdkc_file_close | xdkc_sys | .aware | 否 | — |
 | fileOpenRead | xdkc_file_open_read | xdkc_sys | .unaware | 否 | — |
+| fileOpenWrite | xdkc_file_open_write | xdkc_sys | .unaware | 否 | — |
 | fileRead | xdkc_file_read | xdkc_sys | .unaware | 否 | — |
 | fileWrite | xdkc_file_write | xdkc_sys | .unaware | 否 | — |
 | nowMono | xdkc_now_mono_ms | xdkc_runtime | .aware | 否 | — |
