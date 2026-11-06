@@ -1,0 +1,5 @@
+base_commit: 81ec33d574347bf6f36ffeb8963c57e5145a3cf5
+branch: pod/c1-rd3
+date: 2026-11-07T03:21:04+0800
+go: go version go1.27.3 darwin/amd64
+note: 本卡未产生生产代码提交；sha 为基线提交，证据提交见回执
