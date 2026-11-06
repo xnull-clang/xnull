@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 
+	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -137,12 +138,26 @@ static void xn_throw(rt_string *msg) {
 }
 `
 
-// EmitC 生成完整 C 翻译单元文本。
+// EmitC 生成完整 C 翻译单元文本（无 FFI 路径）。
 func EmitC(u *xfront.CompilationUnit) (string, error) {
+	return EmitCWithFFI(u, nil)
+}
+
+// EmitCWithFFI 生成完整 C 翻译单元文本，并把 `.xfb` 注册表的入口包装
+// （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
+func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
-		globals: map[string]string{}}
+		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}}
+	if reg != nil {
+		for _, e := range reg.Entries {
+			g.ffiEntries[e.Name] = e
+		}
+	}
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
+			if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
+				continue
+			}
 			if err := g.collectResult(fn); err != nil {
 				return "", err
 			}
@@ -179,6 +194,18 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 	seenFn := map[string]bool{}
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
+			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
+				rc := "void"
+				switch e.Ret.Kind {
+				case ffi.KindScalar:
+					rc = "int64_t"
+				case ffi.KindString:
+					rc = "rt_string *"
+				}
+				g.fnRet[fn.Name] = rc
+				seenFn[fn.Name] = true
+				continue
+			}
 			if seenFn[fn.Name] {
 				if fn.Name == "main" {
 					return "", fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
@@ -205,6 +232,9 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.TopFunc:
+			if _, isFFI := g.ffiEntries[n.Name]; isFFI {
+				continue
+			}
 			if _, err := g.genFunc(n); err != nil {
 				return "", err
 			}
@@ -229,6 +259,9 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 		if !ok {
 			continue
 		}
+		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
+			continue
+		}
 		c, err := g.genFunc(fn)
 		if err != nil {
 			return "", err
@@ -237,6 +270,16 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 	}
 	var b strings.Builder
 	b.WriteString(prelude)
+	// FFI 支撑代码（P-09）：包装函数 xn_ffi_<entry> 必须定义在调用点之前；
+	// 生成失败即构建失败，绝不静默降级（ffi-contract §5.1）。
+	if g.ffi != nil && !g.ffi.Empty() {
+		sup := g.ffi.EmitSupport()
+		if len(sup.Problems) > 0 {
+			return "", fmt.Errorf("codegen：FFI 支撑代码生成失败：%v", sup.Problems)
+		}
+		b.WriteString(sup.Text)
+		b.WriteString("\n")
+	}
 	names := make([]string, 0, len(g.results))
 	for name := range g.results {
 		names = append(names, name)
@@ -271,6 +314,9 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 		fn, ok := d.(*xfront.TopFunc)
 		if !ok {
 			continue
+		}
+		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
+			continue // 包装由 EmitSupport 提供
 		}
 		retC := "void"
 		if !fn.Void {
@@ -500,6 +546,8 @@ type gen struct {
 	classes    map[string]*classInfo // 类名 → 生成信息（M4.4b）
 	globals    map[string]string     // 顶层字段名 → C 类型（ENTRY-01）
 	globalList []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
+	ffi        *ffi.Registry         // .xfb 绑定注册表（P-09）
+	ffiEntries map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
 	tmp        int
 }
 
@@ -964,6 +1012,16 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	}
 	if id.Name == "str" {
 		return nil, fmt.Errorf("codegen：str(...) 结果被丢弃（sema 应拒绝）")
+	}
+	if e, isFFI := s.ffiEntry(id.Name); isFFI {
+		lines, out, err := s.ffiCallLines(call, e)
+		if err != nil {
+			return nil, err
+		}
+		if e.Ret.Kind == ffi.KindString && out != "" {
+			lines = append(lines, "rt_release("+out+");")
+		}
+		return lines, nil
 	}
 	args, err := s.callArgs(call.Args)
 	if err != nil {
@@ -1551,6 +1609,17 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			return []string{"rt_string *" + t + " = xn_str_int(" + v + ");"}, nil
 		}
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			if e, isFFI := s.ffiEntry(id.Name); isFFI {
+				if e.Ret.Kind != ffi.KindString {
+					return nil, fmt.Errorf("codegen：FFI 入口 %s 返回类型不是 String（P-09）", e.Name)
+				}
+				lines, out, err := s.ffiCallLines(n, e)
+				if err != nil {
+					return nil, err
+				}
+				t := s.tmp()
+				return append(lines, "rt_string *"+t+" = "+out+";"), nil
+			}
 			if ret, ok2 := s.g.fnRet[id.Name]; ok2 && ret == "rt_string *" {
 				args, err := s.callArgs(n.Args)
 				if err != nil {
@@ -1776,6 +1845,17 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		return s.emitNewClass(n)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			if e, isFFI := s.ffiEntry(id.Name); isFFI {
+				if e.Ret.Kind != ffi.KindScalar {
+					return "", fmt.Errorf("codegen：FFI 入口 %s 返回类型不是 Int（P-09）", e.Name)
+				}
+				lines, out, err := s.ffiCallLines(n, e)
+				if err != nil {
+					return "", err
+				}
+				s.pending = append(s.pending, lines...)
+				return out, nil
+			}
 			switch id.Name {
 			case "Ok", "Err", "print", "str":
 				return "", fmt.Errorf("codegen：%s(...) 不能作为 Int 值（M4.4a 范围）", id.Name)

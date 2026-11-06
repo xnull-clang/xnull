@@ -25,6 +25,25 @@ func Build(srcPath, outPath, runtimeDir string, stderr io.Writer) int {
 		}
 		return 1
 	}
+	// FFI 绑定（P-09）：工程根（入口文件所在目录）的 .xfb 入口注入为包级声明。
+	reg, fdiags, ferr := LoadFFI(filepath.Dir(srcPath))
+	if ferr != nil {
+		fmt.Fprintf(stderr, "xnull: 读取 .xfb 绑定失败：%v\n", ferr)
+		return 1
+	}
+	if len(fdiags) > 0 {
+		for _, d := range fdiags {
+			fmt.Fprintln(stderr, d)
+		}
+		return 1
+	}
+	if err := InjectFFI(u, reg); err != nil {
+		fmt.Fprintf(stderr, "xnull: %v\n", err)
+		return 1
+	}
+	for _, note := range UnsupportedFFIEntries(reg) {
+		fmt.Fprintf(stderr, "xnull: 提示：%s（调用将报未定义标识符）\n", note)
+	}
 	if sd := sema.Analyze(srcPath, u); len(sd) > 0 {
 		for _, d := range sd {
 			fmt.Fprintln(stderr, d)
@@ -36,7 +55,7 @@ func Build(srcPath, outPath, runtimeDir string, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
-	csrc, err := EmitC(u)
+	csrc, err := EmitCWithFFI(u, reg)
 	if err != nil {
 		fmt.Fprintf(stderr, "xnull: 代码生成失败：%v\n", err)
 		return 1
