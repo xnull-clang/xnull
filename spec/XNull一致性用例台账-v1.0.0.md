@@ -8,7 +8,7 @@
 
 | 维度 | 分布 |
 | --- | --- |
-| 总计 | 101 条（PASS 2） |
+| 总计 | 101 条（PASS 8） |
 | 按文档 | S1 14 · S2 29 · S3 11 · S4 10 · S5 9 · S6 10 · S7 7 · S8 11 |
 | 按里程碑 | M0/M3 11 · M1 20 · M2 50 · M3 20 |
 
@@ -18,17 +18,17 @@
 | --- | --- | --- | --- | --- | --- |
 | LEX-01 | S1 | 字面量矩阵；所有整数进制、后缀、下划线、浮点、字符、五种字符串形式均可解析；非法转义、未闭合字符串、非法标量被拒绝 | M1 | internal/xfront/lexer_test.go | PASS |
 | STMT-01 | S1 | 语句终止；Go 式自动分号插入在换行、`;`、`}`、EOF、`else`、`do` 的 `while` 边界正确；行首运算符不续行；同一行缺分号被拒绝 | M1 | internal/xfront/lexer_test.go + internal/xfront/stmt_test.go | PASS |
-| TYPE-01 | S1 | 可赋值性；同一类型、`null`、可选提升、字面量、容器字面量、闭包、`Any` 装箱、`Object` 根均按 2.6 检查；隐式数值转换被拒绝 | M1 | — | 未实现 |
-| TYPE-02 | S1 | 可空；`T?` 对引用类型归一；`?.` / `??` / `as` / `as?` 语义正确；非可空值类型拒绝 `null` | M1 | — | 未实现 |
-| EXPR-01 | S1 | 求值顺序；`&&` / `；` 短路；`??` 仅左侧为 `null` 时求值右侧；`try` 传播顺序正确 | M1 | — | 未实现 |
-| CTRL-01 | S1 | 控制流；`if` / `while` / `do` / `for` / `switch` 条件无括号、体为花括号；`goto` 语法正确；`break` / `continue` 及标签作用域正确；非 `void` 返回路径完整 | M1 | — | 未实现 |
+| TYPE-01 | S1 | 可赋值性；同一类型、`null`、可选提升、字面量、容器字面量、闭包、`Any` 装箱、`Object` 根均按 2.6 检查；隐式数值转换被拒绝 | M1 | internal/sema/ty_test.go | PASS |
+| TYPE-02 | S1 | 可空；`T?` 对引用类型归一；`?.` / `??` / `as` / `as?` 语义正确；非可空值类型拒绝 `null` | M1 | internal/sema/ty_test.go | PASS |
+| EXPR-01 | S1 | 求值顺序；`&&` / `；` 短路；`??` 仅左侧为 `null` 时求值右侧；`try` 传播顺序正确 | M1 | internal/interp/interp_test.go | PASS |
+| CTRL-01 | S1 | 控制流；`if` / `while` / `do` / `for` / `switch` 条件无括号、体为花括号；`goto` 语法正确；`break` / `continue` 及标签作用域正确；非 `void` 返回路径完整 | M1 | internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal/sema/assign_test.go | PASS |
 | ERR-01 | S1 | 错误处理；`Result` 构造/成员/`@mustUse`；`try` 传播与错误类型检查；`defer` / `errdefer` 的 LIFO、触发条件和清理体限制；`isOk` / `isErr` / `value` / `error` 的正确使用 | M2 | — | 未实现 |
 | GEN-01 | S1 | 泛型函数；显式实参、推断、冲突、未绑定、重载、单态化、无限展开诊断均符合第 8 节；`Result` 类型实参可实例化 | M1 | — | 未实现 |
 | BLD-01 | S1 | 内置类型；`String` / `T[]` / `List` / `Map` / `Set` 的成员签名、边界、`Map.get` / `getOr` 缺失键行为、`new T[count]` 分配、复杂度符合第 9 节 | M3 | — | 未实现 |
-| TUPLE-01 | S1 | 元组；类型身份、字面量、元素访问、推断、可赋值性、相等与插值按 2.11；越界选择器、单元素/零元元组、解构、元组 `switch`、元组 `const` 均被拒绝 | M1 | — | 未实现 |
-| PKG-01 | S1 | 包与导入；包导入、符号导入、同名消歧别名、非冲突别名被拒绝、简单名歧义、XDK 未导入、导入环均正确诊断 | M1 | — | 未实现 |
-| ENTRY-01 | S1 | 入口与启动；两种 `main` 签名均可运行；退出码正确；初始化顺序正确；缺失/重复入口被拒绝 | M1 | — | 未实现 |
-| DET-01 | S1 | 确定性；同一源程序、同一实现版本、同一选项产生相同诊断和运行结果；初始化顺序不依赖文件系统枚举顺序 | M2 | — | 未实现 |
+| TUPLE-01 | S1 | 元组；类型身份、字面量、元素访问、推断、可赋值性、相等与插值按 2.11；越界选择器、单元素/零元元组、解构、元组 `switch`、元组 `const` 均被拒绝 | M1 | internal/interp/interp_test.go | 部分 |
+| PKG-01 | S1 | 包与导入；包导入、符号导入、同名消歧别名、非冲突别名被拒绝、简单名歧义、XDK 未导入、导入环均正确诊断 | M1 | internal/xfront/unit_test.go + internal/sema/xdk_test.go | 部分 |
+| ENTRY-01 | S1 | 入口与启动；两种 `main` 签名均可运行；退出码正确；初始化顺序正确；缺失/重复入口被拒绝 | M1 | internal/interp/interp_test.go + internal/cli/cli_test.go | 部分 |
+| DET-01 | S1 | 确定性；同一源程序、同一实现版本、同一选项产生相同诊断和运行结果；初始化顺序不依赖文件系统枚举顺序 | M2 | internal/sema/policy_test.go | 部分 |
 | NEG-01 | S1 | 负例；每类禁止构造都有对应诊断；不支持项按 0.6 拒绝；编译器不崩溃、不静默接受 | M2 | — | 未实现 |
 | BND-01 | S2 | 成员级 `public` / `protected` / `private` 可见性全部强制；跨包按顶层与成员规则执行；编译错误，禁止只报未实现 | M2 | — | 未实现 |
 | BND-02 | S2 | 类继承只复用字段/方法；子类同签名方法、字段隐藏、`abstract` 实例化、继承 `final` 类全部拒绝；编译错误 | M2 | — | 未实现 |
@@ -45,19 +45,19 @@
 | BND-13 | S2 | 扩展只支持同包非泛型目标；只加方法；不进入 vtable；不得作为协议实现或覆写已有方法；编译错误 | M2 | — | 未实现 |
 | BND-14 | S2 | 所有禁止构造必须给出带源位置的诊断；编译器不得崩溃、静默接受或只在运行期失败；该负例失败 | M2 | — | 未实现 |
 | BND-15 | S2 | 第 1 部分 v3.0.0 的 `Result` / `try`、`defer` / `errdefer`、`new T[count]`、标签控制、枚举穷尽性集成通过验收；集成验收失败 | M2 | — | 未实现 |
-| INH-01 | S2 | 继承与接口；单父类、多协议；非法 `:` / `implements` 被拒绝；继承环和协议环被拒绝；子类同签名方法被拒绝 | M1 | — | 未实现 |
+| INH-01 | S2 | 继承与接口；单父类、多协议；非法 `:` / `implements` 被拒绝；继承环和协议环被拒绝；子类同签名方法被拒绝 | M1 | internal/sema/typedecl_test.go | PASS |
 | DISP-01 | S2 | 派发；类继承示例静态得到 `1`；协议类型示例动态得到 `2`；内存策略不影响 vtable；`super` 静态派发 | M1 | — | 未实现 |
-| STRUCT-01 | S2 | 结构体；只接受值字段；引用字段、可空引用字段、`deinit`、捕获 `self`、非值字段类型泛型实参被拒绝；复制独立；递归值包含被拒绝 | M1 | — | 未实现 |
+| STRUCT-01 | S2 | 结构体；只接受值字段；引用字段、可空引用字段、`deinit`、捕获 `self`、非值字段类型泛型实参被拒绝；复制独立；递归值包含被拒绝 | M1 | internal/sema/typedecl_test.go | 部分 |
 | PCTOR-01 | S2 | 主构造器；类头部参数绑定同名字段且在 `super(...)` 后按声明顺序执行；`final` 字段恰好赋值一次；与非主构造器混用、非 `final` 参数、非 `class` 使用均被拒绝 | M2 | — | 未实现 |
-| PROTO-01 | S2 | 协议；只有方法签名；字段/方法体/默认实现/泛型协议/关联类型/协议泛型方法被拒绝；实现检查覆盖父协议；协议变量强持有、只调用协议方法 | M1 | — | 未实现 |
-| ENUM-01 | S2 | 枚举；简单枚举值唯一、内联、无分配；数据枚举项单例、GC、不可变；枚举不实现协议；无 `default` 的 `switch` 穷尽全部项；重复/未知项被拒绝 | M1 | — | 未实现 |
+| PROTO-01 | S2 | 协议；只有方法签名；字段/方法体/默认实现/泛型协议/关联类型/协议泛型方法被拒绝；实现检查覆盖父协议；协议变量强持有、只调用协议方法 | M1 | internal/sema/typedecl_test.go | 部分 |
+| ENUM-01 | S2 | 枚举；简单枚举值唯一、内联、无分配；数据枚举项单例、GC、不可变；枚举不实现协议；无 `default` 的 `switch` 穷尽全部项；重复/未知项被拒绝 | M1 | internal/sema/typedecl_test.go | 部分 |
 | INT-01 | S2 | v3.0.0 集成；`Result` / `try` / `defer` 与对象类型、factory 组合时语义正确；枚举 `switch` 穷尽性规则正确 | M1 | — | 未实现 |
 | SINGLE-01 | S2 | 单例；`instance` 自动提供且只读；无 `new`；不实现协议；启动前完成初始化；前向引用被拒绝 | M3 | — | 未实现 |
 | EXT-01 | S2 | 扩展；同包非泛型目标；只加方法；重复/同签名/协议实现违规被拒绝；扩展不进入 vtable | M3 | — | 未实现 |
 | ANN-01 | S2 | 注解；编译期字段和参数；目标限制；无运行期对象；`@Override` 只对应协议；源码使用 `@arc` / `@gc` 被拒绝 | M1 | — | 未实现 |
-| MEM-01 | S2 | 内存；class 策略判定顺序正确；源码使用 `@arc` / `@gc` 被拒绝；struct 不进入 ARC/GC；stack/ARC/GC 行为符合 15；`deinit` 顺序正确 | M2 | — | 未实现 |
+| MEM-01 | S2 | 内存；class 策略判定顺序正确；源码使用 `@arc` / `@gc` 被拒绝；struct 不进入 ARC/GC；stack/ARC/GC 行为符合 15；`deinit` 顺序正确 | M2 | internal/sema/policy_test.go | 部分 |
 | MEM-02 | S2 | 混合图；ARC↔GC 引用不悬挂、不泄漏；弱引用清除；环由 GC 回收；全 ARC 环被避免 | M2 | — | 未实现 |
-| FIELD-01 | S2 | 字段访问；`private name` 和 `_name` 字段都按私有处理，`private _name` 被拒绝；规范名 `_name`，类内只能裸写 `_name`，`self._name` 和裸 `name` 都拒绝；外部 `name` / `_name` 都拒绝；同类局部/参数使用 `_name` 被拒绝；字段隐藏被拒绝 | M1 | — | 未实现 |
+| FIELD-01 | S2 | 字段访问；`private name` 和 `_name` 字段都按私有处理，`private _name` 被拒绝；规范名 `_name`，类内只能裸写 `_name`，`self._name` 和裸 `name` 都拒绝；外部 `name` / `_name` 都拒绝；同类局部/参数使用 `_name` 被拒绝；字段隐藏被拒绝 | M1 | internal/sema/typedecl_test.go | PASS |
 | GATE-01 | S2 | 发布门槛；第 16 节全部门槛通过；负例断言诊断；无静默降级 | M2 | — | 未实现 |
 | MEM-03 | S3 | 混合图；15.6 六条不变量在压力用例下成立；ARC↔GC 混合无悬挂、无泄漏、无重复释放 | M2 | — | 未实现 |
 | MEM-04 | S3 | 弱引用；目标终结前清除；读不到已终结目标；并发清除安全 | M2 | — | 未实现 |
@@ -99,13 +99,13 @@
 | XDK-08 | S6 | text；builder 式格式化；编码转换与整数/浮点解析；`Regex` 动态编译形态可用且编译失败为可恢复错误 | M3 | — | 未实现 |
 | XDK-09 | S6 | sys/net；文件/目录/子进程遵守 S3 §18 句柄合同（`close()` 必达）；双形态 I/O：异步默认（携 `Context`）+ plain 同步显式；网络独立成包 | M3 | — | 未实现 |
 | XDK-10 | S6 | 资源读取；§4.8 五 API 与七条强制约束逐条有对应用例：路径非法（绝对路径/`..`/空段/反斜杠）→ `InvalidArgument`；缺失 → `NotFound` 可恢复；`listResources` 字典序；返回值非句柄无需 `close()`；挂起点可取消；不回退文件系统；文件 API 读不到内嵌资源 | M3 | — | 未实现 |
-| FFI-01 | S7 | 合同面；三形态外的类型（`Result`/闭包/容器/`String` 移交等）被拒绝；无租约声明被拒绝；未知错误码映射 `Internal` 而非 `Ok` | M3 | — | 未实现 |
-| FFI-02 | S7 | 布局；`layout(c)` 结构体逐字段布局与 C 基准一致；未标注结构体只能封送/句柄；标量映射表逐项正确 | M3 | — | 未实现 |
+| FFI-01 | S7 | 合同面；三形态外的类型（`Result`/闭包/容器/`String` 移交等）被拒绝；无租约声明被拒绝；未知错误码映射 `Internal` 而非 `Ok` | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
+| FFI-02 | S7 | 布局；`layout(c)` 结构体逐字段布局与 C 基准一致；未标注结构体只能封送/句柄；标量映射表逐项正确 | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
 | FFI-03 | S7 | 租约；`.borrow` 返回后指针失效可见；`.transfer` 后 XNull 不释放；`.reclaim` 归还路径正确；缓冲区边界期间 pin、越界写有报告 | M3 | — | 未实现 |
-| FFI-04 | S7 | `@unsafe`；受控入口仅存在于绑定层；合同文本完整；应用代码不可创建 | M3 | — | 未实现 |
+| FFI-04 | S7 | `@unsafe`；受控入口仅存在于绑定层；合同文本完整；应用代码不可创建 | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
 | FFI-05 | S7 | trampoline；回调创建登记根、销毁注销；注销后调用被检测；回调内 panic 终止进程；错误码出参映射正确（取消/超时不降级） | M3 | — | 未实现 |
 | FFI-06 | S7 | ABI；稳定命名符号可被原生代码链接；签名与 §6.1 一致；原生侧只经 ABI 管理内存 | M3 | — | 未实现 |
-| FFI-07 | S7 | 阻塞分类；全部入口有分类声明；长阻塞入口有专用执行器伴生形态；分类与实际行为一致（SCHED-01 联动） | M3 | — | 未实现 |
+| FFI-07 | S7 | 阻塞分类；全部入口有分类声明；长阻塞入口有专用执行器伴生形态；分类与实际行为一致（SCHED-01 联动） | M3 | internal/codegen/ffi/ffi_test.go | 部分 |
 | PROJ-01 | S8 | 骨架与坐标；段落顺序无关；未知段落/字段失败；单次段落重复失败；容器段落只含规定条目；四字段缺任一失败；坐标重复失败；子模块 `groupId` 可与父不同 | M0/M3 | — | 未实现 |
 | PROJ-02 | S8 | 继承；单父展开正确；深度 > 8 失败；环/缺失/非 pom parent 失败；**坐标不从父继承**；`properties`/`dependencyManagement`/`repositories`/`configuration` 合并规则正确 | M0/M3 | — | 未实现 |
 | PROJ-03 | S8 | 依赖仲裁；管理表就近提供版本；缺失版本失败；同深度冲突失败并列出路径；显式版本覆盖产生警告；管理表出现 `scope`/`optional` 失败 | M0/M3 | — | 未实现 |

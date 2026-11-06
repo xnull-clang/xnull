@@ -64,6 +64,7 @@ cmd/xnull/        命令行入口
 internal/cli/     命令分派与退出码
 internal/xfront/  词法分析器、解析器、AST、打印器（M1 语法层，四级齐备）
 internal/interp/  tree-walking 解释器（最小可运行闭环）
+internal/sema/    语义分析（名称解析先行；诊断码 RES-1xx）
 internal/xpd/     XPD 解析器（设计提案格式）
 internal/diag/    诊断结构
 internal/exitcode/ 退出码常量（S9 §5.1）

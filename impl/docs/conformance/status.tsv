@@ -2,3 +2,27 @@
 PROJ-05	internal/cli/cli_test.go	部分
 LEX-01	internal/xfront/lexer_test.go	PASS
 STMT-01	internal/xfront/lexer_test.go + internal/xfront/stmt_test.go	PASS
+EXPR-01	internal/interp/interp_test.go	PASS
+CTRL-01	internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal/sema/assign_test.go	PASS
+ENTRY-01	internal/interp/interp_test.go + internal/cli/cli_test.go	部分
+TUPLE-01	internal/interp/interp_test.go	部分
+PKG-01	internal/xfront/unit_test.go + internal/sema/xdk_test.go	部分
+TYPE-01	internal/sema/ty_test.go	PASS
+TYPE-02	internal/sema/ty_test.go	PASS
+GEN-01	—	未实现
+INH-01	internal/sema/typedecl_test.go	PASS
+DISP-01	—	未实现
+STRUCT-01	internal/sema/typedecl_test.go	部分
+PROTO-01	internal/sema/typedecl_test.go	部分
+ENUM-01	internal/sema/typedecl_test.go	部分
+INT-01	—	未实现
+ANN-01	—	未实现
+FIELD-01	internal/sema/typedecl_test.go	PASS
+KIND-01	—	未实现
+BLOCK-01	—	未实现
+DET-01	internal/sema/policy_test.go	部分
+MEM-01	internal/sema/policy_test.go	部分
+FFI-01	internal/codegen/ffi/ffi_test.go	部分
+FFI-02	internal/codegen/ffi/ffi_test.go	部分
+FFI-04	internal/codegen/ffi/ffi_test.go	部分
+FFI-07	internal/codegen/ffi/ffi_test.go	部分

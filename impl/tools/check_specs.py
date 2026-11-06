@@ -11,7 +11,7 @@
   5. EN 快照同步：xnull/spec/en/ 的英译必须覆盖八部分 + 台账，
      版本与中文母本一致，且母本 mtime 不得晚于英译（母本改动必须先重译再提交）。
 
-用法：python3 impl/tools/check_specs.py   （在仓库根执行）
+用法：python3 impl/tools/check_specs.py   （双布局自适应：在仓库根或 spec/ 子目录布局下均可运行）
 退出码：0 全部通过；1 存在缺陷。
 """
 import os
@@ -19,12 +19,32 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+INDEX = "XNull规范索引-v1.0.0.md"
+
+# SPEC_DIR 双布局自适应（2026-11-06 回归修复）：
+#   工作区布局——规范母本在仓库根（ROOT）；公开仓库布局——母本在 ROOT/spec/。
+#   两处探测索引，rsync 双向同步不再回退。
+def _detect_spec_dir():
+    for cand in (ROOT, os.path.join(ROOT, "spec")):
+        if os.path.isfile(os.path.join(cand, INDEX)):
+            return cand
+    return ROOT
+
+SPEC_DIR = _detect_spec_dir()
+
+# EN 快照目录自适应：优先 SPEC_DIR/en（公开仓库布局），回退 ROOT/xnull/spec/en（工作区布局）。
+def _detect_en_dir():
+    for cand in (os.path.join(SPEC_DIR, "en"), os.path.join(ROOT, "xnull", "spec", "en")):
+        if os.path.isdir(cand):
+            return cand
+    return os.path.join(SPEC_DIR, "en")
+
+EN_DIR = _detect_en_dir()
 
 PARTS = sorted(
-    f for f in os.listdir(ROOT)
+    f for f in os.listdir(SPEC_DIR)
     if re.match(r"XNull解决方案-第[1-8]部分-.+-v\d+\.\d+\.\d+\.md$", f)
 )
-INDEX = "XNull规范索引-v1.0.0.md"
 
 PENDING_WORDS = re.compile(r"待定|待确认|待议|待落实|暂定")
 
@@ -40,7 +60,7 @@ def fail_list(title, fails):
 
 
 def read(name):
-    with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+    with open(os.path.join(SPEC_DIR, name), encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -107,9 +127,9 @@ def check_binaries():
 
 def check_en_sync():
     """EN 快照：覆盖、版本一致、不滞后于中文母本。"""
-    en_dir = os.path.join(ROOT, "xnull", "spec", "en")
+    en_dir = EN_DIR
     if not os.path.isdir(en_dir):
-        return fail_list("EN 快照同步（公开内容线）", ["xnull/spec/en/ 目录不存在"])
+        return fail_list("EN 快照同步（公开内容线）", [f"{os.path.relpath(en_dir, ROOT)} 目录不存在"])
     en_files = os.listdir(en_dir)
     fails = []
     # 按部件号配对：第N部分 ↔ S{N}-*；台账 ↔ Conformance-Ledger-*
@@ -132,7 +152,7 @@ def check_en_sync():
         if not m_en or m_en.group(1) != v_cn:
             fails.append(f"{en}: 版本 {m_en.group(1) if m_en else '?'} ≠ 母本 {v_cn}")
             continue
-        t_cn = os.path.getmtime(os.path.join(ROOT, cn))
+        t_cn = os.path.getmtime(os.path.join(SPEC_DIR, cn))
         t_en = os.path.getmtime(os.path.join(en_dir, en))
         if t_cn > t_en:
             fails.append(f"{en}: 晚于母本改动——母本 {cn} 变更后英译未同步重译")
@@ -141,6 +161,7 @@ def check_en_sync():
 
 def main():
     print(f"仓库：{ROOT}")
+    print(f"母本目录（自适应）：{os.path.relpath(SPEC_DIR, ROOT) or '.'}　EN 快照：{os.path.relpath(EN_DIR, ROOT)}")
     print(f"扫描 {len(PARTS)} 份正式文档 + 索引\n")
     fails = []
     fails += check_headers()

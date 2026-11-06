@@ -3,6 +3,7 @@
 
 用法：python3 impl/tools/gen_ledger.py [仓库根]
 规范增删验收行后重跑即可；人工只在台账里填「用例文件 / 状态」两列。
+输出自适应双布局：工作区布局母本在仓库根 → 台账落仓库根；公开仓库布局母本在 ROOT/spec/ → 台账落 spec/。
 """
 import os
 import re
@@ -11,7 +12,18 @@ from collections import Counter, OrderedDict
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", ".."))
-OUT = os.path.join(ROOT, "XNull一致性用例台账-v1.0.0.md")
+
+# SPEC_DIR 双布局自适应（2026-11-06，双输出回归修复）：
+#   探测母本（第1部分文档）所在目录，台账输出到母本目录，杜绝误落仓库根。
+def _detect_spec_dir():
+    probe = "XNull解决方案-第1部分"
+    for cand in (ROOT, os.path.join(ROOT, "spec")):
+        if os.path.isdir(cand) and any(f.startswith(probe) for f in os.listdir(cand)):
+            return cand
+    return ROOT
+
+SPEC_DIR = _detect_spec_dir()
+OUT = os.path.join(SPEC_DIR, "XNull一致性用例台账-v1.0.0.md")
 STATUS = os.path.join(ROOT, "impl", "docs", "conformance", "status.tsv")
 
 DOCS = OrderedDict([
@@ -37,7 +49,7 @@ ROW = re.compile(r"^\|\s*([A-Z]{2,6})-(\d{2,3})\s*\|(.*)$")
 
 def doc_files():
     for sid, stem in DOCS.items():
-        for name in sorted(os.listdir(ROOT)):
+        for name in sorted(os.listdir(SPEC_DIR)):
             if stem in name and name.endswith(".md"):
                 yield sid, name
                 break
@@ -45,7 +57,7 @@ def doc_files():
 
 def rows():
     for sid, name in doc_files():
-        with open(os.path.join(ROOT, name), encoding="utf-8") as fh:
+        with open(os.path.join(SPEC_DIR, name), encoding="utf-8") as fh:
             for line in fh:
                 m = ROW.match(line.strip())
                 if not m:
