@@ -47,11 +47,7 @@ func containerElem(c string) (string, bool) {
 func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 	switch n := e.(type) {
 	case *xfront.IdentExpr:
-		name := n.Name
-		if s.params != nil && s.params[name] {
-			name = "xn_p_" + name
-		}
-		return nil, name, nil
+		return nil, s.cRef(n.Name), nil
 	case *xfront.Paren:
 		return s.valExpr(n.X, wantC)
 	case *xfront.ArrayLit:

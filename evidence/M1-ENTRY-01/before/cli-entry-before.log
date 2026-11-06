@@ -1,0 +1,55 @@
+=== RUN   TestRunEntryTwoSignatures
+=== RUN   TestRunEntryTwoSignatures/void_无参
+=== RUN   TestRunEntryTwoSignatures/Int_无参
+=== RUN   TestRunEntryTwoSignatures/void_args
+    cli_test.go:119: 退出码 1，期望 0（stderr=/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2908948723/prog.c:187:26: error: too few arguments to function call, single argument 'xn_p_args' was not specified
+          187 | int main(void) { xn_main(); rt_quarantine_flush(); return 0; }
+              |                  ~~~~~~~ ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2908948723/prog.c:181:6: note: 'xn_main' declared here
+          181 | void xn_main(xn_arr_s xn_p_args) {
+              |      ^       ~~~~~~~~~~~~~~~~~~
+        1 error generated.
+        xnull: C 编译失败：exit status 1
+        ）
+=== RUN   TestRunEntryTwoSignatures/Int_args
+    cli_test.go:119: 退出码 1，期望 5（stderr=/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-74650669/prog.c:188:41: error: too few arguments to function call, single argument 'xn_p_args' was not specified
+          188 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+              |                                 ~~~~~~~ ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-74650669/prog.c:181:9: note: 'xn_main' declared here
+          181 | int64_t xn_main(xn_arr_s xn_p_args) {
+              |         ^       ~~~~~~~~~~~~~~~~~~
+        1 error generated.
+        xnull: C 编译失败：exit status 1
+        ）
+--- FAIL: TestRunEntryTwoSignatures (6.05s)
+    --- PASS: TestRunEntryTwoSignatures/void_无参 (2.93s)
+    --- PASS: TestRunEntryTwoSignatures/Int_无参 (2.19s)
+    --- FAIL: TestRunEntryTwoSignatures/void_args (0.45s)
+    --- FAIL: TestRunEntryTwoSignatures/Int_args (0.48s)
+=== RUN   TestRunEntryArgsArray
+    cli_test.go:133: 退出码 1（stderr=/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3275755393/prog.c:188:41: error: too few arguments to function call, single argument 'xn_p_args' was not specified
+          188 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+              |                                 ~~~~~~~ ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3275755393/prog.c:181:9: note: 'xn_main' declared here
+          181 | int64_t xn_main(xn_arr_s xn_p_args) {
+              |         ^       ~~~~~~~~~~~~~~~~~~
+        1 error generated.
+        xnull: C 编译失败：exit status 1
+        ）
+--- FAIL: TestRunEntryArgsArray (0.51s)
+=== RUN   TestRunEntryInitOrder
+    cli_test.go:156: 编译路径 code=1 out="" err=xnull: 代码生成失败：codegen：顶层声明 *xfront.TopField 未支持（M4.1 范围：顶层函数/类）
+--- FAIL: TestRunEntryInitOrder (0.00s)
+=== RUN   TestRunEntryMissingRejected
+    cli_test.go:171: 诊断应点名入口：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4025195806/prog.c:130:33: error: call to undeclared function 'xn_main'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          130 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+              |                                 ^
+        1 error generated.
+        xnull: C 编译失败：exit status 1
+--- FAIL: TestRunEntryMissingRejected (0.45s)
+=== RUN   TestRunEntryDuplicateRejected
+    cli_test.go:183: 诊断应点名重复入口：xnull: 代码生成失败：codegen：顶层函数 `main` 重载未支持（§4.4 重载属 M4.5+；当前同名函数在 C 侧冲突）
+--- FAIL: TestRunEntryDuplicateRejected (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	9.833s
+FAIL

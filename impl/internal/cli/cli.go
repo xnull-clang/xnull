@@ -175,17 +175,25 @@ func notImplemented(env Env, name string) int {
 // runFile 执行单个 .x 文件：解析 → 解释执行。
 // 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读。
 func runFile(env Env, path string, extraArgs []string) int {
+	// 非标志参数透传为程序参数（入口 String[] args，§11.2）。
+	var progArgs []string
+	for _, a := range extraArgs {
+		if len(a) > 0 && a[0] == '-' {
+			continue
+		}
+		progArgs = append(progArgs, a)
+	}
 	// --interp：解释器调试模式（M4.3）；默认走编译路径（正式路径）。
 	for _, a := range extraArgs {
 		if a == "--interp" {
-			return interpFile(env, path, extraArgs)
+			return interpFile(env, path, progArgs)
 		}
 	}
-	return runCompiled(env, path)
+	return runCompiled(env, path, progArgs)
 }
 
 // runCompiled 编译路径：临时目录构建可执行并运行，透传退出码（M4.2/4.3）。
-func runCompiled(env Env, path string) int {
+func runCompiled(env Env, path string, progArgs []string) int {
 	runtimeDir := ""
 	for _, cand := range []string{"impl/runtime", "../impl/runtime", "../../impl/runtime", "../../runtime", "runtime"} {
 		if st, err := os.Stat(filepath.Join(cand, "rt.h")); err == nil && !st.IsDir() {
@@ -209,7 +217,7 @@ func runCompiled(env Env, path string) int {
 	if code := codegen.Build(path, bin, runtimeDir, env.Stderr); code != 0 {
 		return code
 	}
-	cmd := exec.Command(bin)
+	cmd := exec.Command(bin, progArgs...)
 	cmd.Stdout = env.Stdout
 	cmd.Stderr = env.Stderr
 	if err := cmd.Run(); err != nil {

@@ -14,10 +14,7 @@ import (
 func (s *scope) strMemberValue(mem *xfront.Member, args []xfront.Expr, wantStr bool) (string, bool, error) {
 	recv := ""
 	if id, ok := mem.X.(*xfront.IdentExpr); ok {
-		recv = id.Name
-		if s.params != nil && s.params[recv] {
-			recv = "xn_p_" + recv
-		}
+		recv = s.cRef(id.Name)
 	} else {
 		// 字面量/表达式接收者：先求值得到 owned 串
 		lines, err := s.strExpr(mem.X)

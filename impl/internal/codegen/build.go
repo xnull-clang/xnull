@@ -31,6 +31,11 @@ func Build(srcPath, outPath, runtimeDir string, stderr io.Writer) int {
 		}
 		return 1
 	}
+	// 入口校验（§11.2/§11.4）：缺失/重复/签名非法都是编译错误，不落到 cc。
+	if err := RequireEntry(u); err != nil {
+		fmt.Fprintf(stderr, "xnull: %v\n", err)
+		return 1
+	}
 	csrc, err := EmitC(u)
 	if err != nil {
 		fmt.Fprintf(stderr, "xnull: 代码生成失败：%v\n", err)

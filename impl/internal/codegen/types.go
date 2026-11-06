@@ -32,6 +32,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		if c, ok := s.localCType(n.Name); ok {
 			return c, nil
 		}
+		if c, ok := s.g.globals[n.Name]; ok {
+			return c, nil
+		}
 		return "", fmt.Errorf("codegen：未登记标识符 %s（M4.4a 范围：局部/参数）", n.Name)
 	case *xfront.New:
 		nt, ok := n.Type.(*xfront.NamedType)
