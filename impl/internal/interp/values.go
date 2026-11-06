@@ -23,20 +23,15 @@ func newMapv() *mapv {
 	return &mapv{vals: map[string]*Value{}, disp: map[string]*Value{}}
 }
 
-// canonKey 规范化键：带类别标记避免 `1` 与 `"1"` 与 `'1'` 撞键。
+// canonKey 规范化键：带类别标记避免 `1` 与 `"1"` 撞键。
+// S1 §9.5：v3.0.0 的 Map 键类型只允许 String、整数类型和简单枚举；
+// Bool/Char 等标量不得作为键（简单枚举运行时尚未落地，暂以 Int 编码承接）。
 func canonKey(v *Value) (string, bool) {
 	switch v.K {
 	case vInt:
 		return "i:" + strconv.FormatInt(v.I, 10), true
 	case vStr:
 		return "s:" + v.S, true
-	case vBool:
-		if v.B {
-			return "b:true", true
-		}
-		return "b:false", true
-	case vChar:
-		return "c:" + strconv.FormatInt(int64(v.C), 10), true
 	}
 	return "", false
 }
@@ -44,7 +39,7 @@ func canonKey(v *Value) (string, bool) {
 func (m *mapv) set(k, val *Value) {
 	ck, ok := canonKey(k)
 	if !ok {
-		panic(runtimeErr{"Map 键只能是 Int / String / Bool / Char"})
+		panic(runtimeErr{"Map 键只能是 Int / String（S1 §9.5）"})
 	}
 	if _, exists := m.vals[ck]; !exists {
 		idx := sort.SearchStrings(m.keys, ck)
@@ -59,7 +54,7 @@ func (m *mapv) set(k, val *Value) {
 func (m *mapv) get(k *Value) (*Value, bool) {
 	ck, ok := canonKey(k)
 	if !ok {
-		panic(runtimeErr{"Map 键只能是 Int / String / Bool / Char"})
+		panic(runtimeErr{"Map 键只能是 Int / String（S1 §9.5）"})
 	}
 	v, exists := m.vals[ck]
 	return v, exists
@@ -68,7 +63,7 @@ func (m *mapv) get(k *Value) (*Value, bool) {
 func (m *mapv) remove(k *Value) bool {
 	ck, ok := canonKey(k)
 	if !ok {
-		panic(runtimeErr{"Map 键只能是 Int / String / Bool / Char"})
+		panic(runtimeErr{"Map 键只能是 Int / String（S1 §9.5）"})
 	}
 	if _, exists := m.vals[ck]; !exists {
 		return false
@@ -257,6 +252,15 @@ func typeMatches(t xfront.TypeRef, v *Value) bool {
 	return false
 }
 
+// isListOnlyMethod 判断方法是否为 List 专有（T[] 只暴露 length/join，S1 §9.3）。
+func isListOnlyMethod(name string) bool {
+	switch name {
+	case "push", "insert", "set", "get", "remove", "clear":
+		return true
+	}
+	return false
+}
+
 // callValueMethod 对非 Result 接收者做方法分派：String（§9.2）、T[]（§9.3）、
 // List/Map/Set（§9.1，xdk.collections）。返回 (值, 是否命中)。
 func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfront.Pos) (*Value, bool) {
@@ -264,6 +268,12 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 		if len(args) != k {
 			panic(runtimeErr{fmt.Sprintf("%s.%s 恰好接受 %d 个参数", recv.typeName(), name, k)})
 		}
+	}
+	// 解释器没有静态类型：List 变量被重新赋值数组字面量后，运行值为 T[]（K=vArr）。
+	// 一旦按 List 专有成员使用，就地提升为 List（M1-BLD-01 白名单内的最小修复；
+	// T[] 只暴露 length/join，S1 §9.3）。
+	if recv.K == vArr && isListOnlyMethod(name) {
+		recv.K = vList
 	}
 	switch recv.K {
 	case vStr:
@@ -346,12 +356,9 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
-			i := int(clampIdx(args[0], int64(len(recv.A))))
-			if i < 0 {
-				i = 0
-			}
-			if i > len(recv.A) {
-				i = len(recv.A)
+			i := int(args[0].I)
+			if args[0].K != vInt || i < 0 || i > len(recv.A) {
+				panic(fatal{fmt.Sprintf("List.insert 下标越界：len=%d, idx=%s（§9.4 合法位置 0..length）", len(recv.A), format(args[0]))})
 			}
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
@@ -375,11 +382,12 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 		case "remove":
 			need(1)
 			i := int(args[0].I)
-			if i < 0 || i >= len(recv.A) {
+			if args[0].K != vInt || i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.remove 下标越界"})
 			}
+			removed := recv.A[i]
 			recv.A = append(recv.A[:i], recv.A[i+1:]...)
-			return &Value{K: vNull}, true
+			return removed, true
 		case "clear":
 			need(0)
 			recv.A = nil
@@ -398,7 +406,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			need(1)
 			v, ok := recv.M.get(args[0])
 			if !ok {
-				panic(fatal{"Map.get 键不存在：" + format(args[0]) + "（用 getOr 提供缺省）"})
+				return &Value{K: vNull}, true // §9.5：V?，缺失键返回 null，不 panic
 			}
 			return v, true
 		case "getOr":
