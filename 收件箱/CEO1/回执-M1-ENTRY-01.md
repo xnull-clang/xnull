@@ -4,7 +4,7 @@
 - 修复：interp 增加入口唯一性/签名校验（缺失、重复、非 static、返回非 void/Int、参数非 String[] 均报编译错误）；codegen 增加 `RequireEntry`（Build 在生成 C 前拒绝缺失入口）、C 入口垫片支持 `String[] args`（argv[1:] 构造新数组）与顶层字段按声明顺序初始化（Int/Bool/String，`xn_init_globals` 先于 `xn_main`）；cli 将非标志参数透传为程序参数，编译/解释一致。
 - 验证：`go test ./internal/interp/...`、`./internal/cli/...` exit 0；8 个示例编译/解释双路径逐字节一致；`entry.x` 双路径输出 `init 1/init 2/main t2 args=2`、退出码 7；`gofmt -l`、`go vet` 无输出。
 - 证据：`evidence/M1-ENTRY-01/` 七件套（command/stdout/stderr/exit_code/sha/artifact.sha256/acceptance.md）+ `before/` 红输出 + `entry.x`/`entry-bin`/`entry-bin.c`。
-- 提交：`pod/e4-codegen` 分支提交（不 push、不合并）；改动仅 `impl/internal/{interp/interp.go,interp/interp_test.go,cli/cli.go,cli/cli_test.go,codegen/codegen.go,codegen/build.go}` 与 `evidence/M1-ENTRY-01/`、本回执；未改既有测试期望、未删测试、未碰 ffi/示例。
+- 提交：`pod/e4-codegen` 分支提交 `592e7f7`（不 push、不合并）；改动仅 `impl/internal/{interp/interp.go,interp/interp_test.go,cli/cli.go,cli/cli_test.go,codegen/codegen.go,codegen/build.go,codegen/classes_expr.go,codegen/containers_expr.go,codegen/strmethods.go,codegen/types.go}` 与 `evidence/M1-ENTRY-01/`、本回执；未改既有测试期望、未删测试、未碰 ffi/示例。
 
 ## 验收要点逐项
 
