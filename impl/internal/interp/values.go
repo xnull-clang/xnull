@@ -346,12 +346,12 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
-			i := int(clampIdx(args[0], int64(len(recv.A))))
-			if i < 0 {
-				i = 0
+			if args[0].K != vInt {
+				panic(runtimeErr{"下标参数必须是 Int"})
 			}
-			if i > len(recv.A) {
-				i = len(recv.A)
+			i := int(args[0].I)
+			if i < 0 || i > len(recv.A) { // §9.4：合法位置 0..length，越界 panic
+				panic(fatal{"List.insert 下标越界"})
 			}
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
@@ -378,8 +378,9 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			if i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.remove 下标越界"})
 			}
+			removed := recv.A[i] // §9.4：删除并返回被删元素
 			recv.A = append(recv.A[:i], recv.A[i+1:]...)
-			return &Value{K: vNull}, true
+			return removed, true
 		case "clear":
 			need(0)
 			recv.A = nil
@@ -398,7 +399,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			need(1)
 			v, ok := recv.M.get(args[0])
 			if !ok {
-				panic(fatal{"Map.get 键不存在：" + format(args[0]) + "（用 getOr 提供缺省）"})
+				return &Value{K: vNull}, true // §9.5：返回 V?，缺键为 null（不 panic）
 			}
 			return v, true
 		case "getOr":
