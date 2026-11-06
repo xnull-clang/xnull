@@ -1,0 +1,16 @@
+# 规范与工程文档一律 Markdown（单一事实源）；Office 二进制不入库
+*.docx
+*.doc
+*.pptx
+*.xlsx
+*.pdf
+
+# 系统杂物
+.DS_Store
+Thumbs.db
+
+# 公开仓库为独立嵌套仓库，不在内部库跟踪
+xnull/
+
+# 图像生成临时目录
+generated-images/
