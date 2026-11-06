@@ -1,0 +1,8 @@
+go vet = 0
+go test ./... -count=1 = 1（仅 codegen：panic: test timed out after 10m0s，P0-1）
+build_rt.sh = 0（见 evidence/S0-21c）
+dualpath 9 例全部两路径 stdout 相同、退出码 0
+check 主树 = 0
+check 公开布局 = 0
+find impl -name *.py = 0 条
+git grep impl/tools/*.py = 1 条（resources.go 冻结 golden 头）

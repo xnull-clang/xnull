@@ -1,0 +1,91 @@
+$ LC_ALL=C python3 impl/tools/check_specs.py            # 工作树，3 次
+--- wt.run1 ---
+仓库：/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+母本目录（自适应）：.　EN 快照：en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（公开内容线）
+  - en 目录不存在
+
+共 1 处缺陷
+--- wt.run2 ---
+仓库：/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+母本目录（自适应）：.　EN 快照：en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（公开内容线）
+  - en 目录不存在
+
+共 1 处缺陷
+--- wt.run3 ---
+仓库：/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+母本目录（自适应）：.　EN 快照：en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（公开内容线）
+  - en 目录不存在
+
+共 1 处缺陷
+$ (cd /Users/vjs/Desktop/XNull-Lang && LC_ALL=C python3 impl/tools/check_specs.py)   # 主树只读，3 次
+--- main.run1 ---
+仓库：/Users/vjs/Desktop/XNull-Lang
+母本目录（自适应）：.　EN 快照：xnull/spec/en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（9 份对照）
+  - Conformance-Ledger-v1.0.0.md: 晚于母本改动——母本 XNull一致性用例台账-v1.0.0.md 变更后英译未同步重译
+
+共 1 处缺陷
+--- main.run2 ---
+仓库：/Users/vjs/Desktop/XNull-Lang
+母本目录（自适应）：.　EN 快照：xnull/spec/en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（9 份对照）
+  - Conformance-Ledger-v1.0.0.md: 晚于母本改动——母本 XNull一致性用例台账-v1.0.0.md 变更后英译未同步重译
+
+共 1 处缺陷
+--- main.run3 ---
+仓库：/Users/vjs/Desktop/XNull-Lang
+母本目录（自适应）：.　EN 快照：xnull/spec/en
+扫描 8 份正式文档 + 索引
+
+[ok]   头部三方一致（文件名版本 = 头部版本 = 正式）
+[ok]   待定内容扫描（正式版零待确认）
+[ok]   § 引用悬空（全集校验）
+[ok]   二进制文档拦截（根目录仅 Markdown）
+[FAIL] EN 快照同步（9 份对照）
+  - Conformance-Ledger-v1.0.0.md: 晚于母本改动——母本 XNull一致性用例台账-v1.0.0.md 变更后英译未同步重译
+
+共 1 处缺陷
+$ LC_ALL=C python3 impl/tools/gen_ledger.py <worktree>   # 3 次
+--- ledger.run1 ---
+已生成 /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/XNull一致性用例台账-v1.0.0.md：101 条；按文档 {'S1': 14, 'S2': 29, 'S3': 11, 'S4': 10, 'S5': 9, 'S6': 10, 'S7': 7, 'S8': 11}；按里程碑 {'M0/M3': 11, 'M1': 20, 'M2': 50, 'M3': 20}
+--- ledger.run2 ---
+已生成 /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/XNull一致性用例台账-v1.0.0.md：101 条；按文档 {'S1': 14, 'S2': 29, 'S3': 11, 'S4': 10, 'S5': 9, 'S6': 10, 'S7': 7, 'S8': 11}；按里程碑 {'M0/M3': 11, 'M1': 20, 'M2': 50, 'M3': 20}
+--- ledger.run3 ---
+已生成 /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/XNull一致性用例台账-v1.0.0.md：101 条；按文档 {'S1': 14, 'S2': 29, 'S3': 11, 'S4': 10, 'S5': 9, 'S6': 10, 'S7': 7, 'S8': 11}；按里程碑 {'M0/M3': 11, 'M1': 20, 'M2': 50, 'M3': 20}
+$ LC_ALL=C python3 impl/tools/gen_resources.py <fixture> <out.c>   # 3 次
+--- res.run1 (stdout) ---
+--- res.run2 (stdout) ---
+--- res.run3 (stdout) ---

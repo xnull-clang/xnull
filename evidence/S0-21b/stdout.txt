@@ -1,0 +1,3 @@
+ok  	xnull.dev/xnull/internal/devtool	1.092s
+ok  	xnull.dev/xnull/internal/cli	3.639s
+go_test_rc=0

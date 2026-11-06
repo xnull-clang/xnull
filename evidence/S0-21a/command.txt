@@ -1,0 +1,13 @@
+# S0-21a golden 采集（LC_ALL=C，cwd=wt/e6-toolchain，HEAD=ad70f19）
+python3 --version
+cp "XNull一致性用例台账-v1.0.0.md" evidence/S0-21a/before/
+LC_ALL=C python3 impl/tools/check_specs.py                      # ×3（工作树，ROOT=工作树）
+(cd /Users/vjs/Desktop/XNull-Lang && LC_ALL=C python3 impl/tools/check_specs.py)   # ×3（主树只读）
+LC_ALL=C python3 impl/tools/gen_ledger.py "$PWD"                # ×3，每次 cop y台账
+git checkout -- "XNull一致性用例台账-v1.0.0.md"                  # 还原
+LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res <out>.c      # ×3
+LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_sub ...      # 负向：子目录
+LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_bad ...      # 负向：含空格
+LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/nope ...         # 负向：缺目录
+LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_empty ...    # 空目录
+shasum -a 256 <每个产物>
