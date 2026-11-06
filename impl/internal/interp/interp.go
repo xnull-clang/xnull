@@ -34,17 +34,26 @@ const (
 	vChar
 	vStr
 	vResult
+	vArr     // T[]（固定长度，§9.3）
+	vList    // List<T>（§9.1）
+	vMap     // Map<K,V>（§9.1，键序确定性见 mapv）
+	vSet     // Set<T>（§9.1）
+	vTuple   // (T1, T2, ...)（§2.11）
+	vClosure // 闭包值（§7.7）
 )
 
 // Value 是解释期运行值。
 type Value struct {
-	K valKind
-	B bool
-	I int64
-	F float64
-	C rune
-	S string
-	R *resv
+	K   valKind
+	B   bool
+	I   int64
+	F   float64
+	C   rune
+	S   string
+	R   *resv
+	A   []*Value // 数组/List/Set/元组元素
+	M   *mapv    // Map
+	Clo *clov    // 闭包
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -72,6 +81,18 @@ func (v *Value) typeName() string {
 		return "String"
 	case vResult:
 		return "Result"
+	case vArr:
+		return "Array"
+	case vList:
+		return "List"
+	case vMap:
+		return "Map"
+	case vSet:
+		return "Set"
+	case vTuple:
+		return "Tuple"
+	case vClosure:
+		return "Closure"
 	}
 	return "?"
 }
@@ -99,6 +120,8 @@ func format(v *Value) string {
 			return "Ok(" + format(v.R.v) + ")"
 		}
 		return "Err(" + format(v.R.e) + ")"
+	case vArr, vList, vMap, vSet, vTuple, vClosure:
+		return formatContainer(v)
 	}
 	return "?"
 }
@@ -161,8 +184,38 @@ type Interp struct {
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
-// 返回错误仅用于 CLI 打印；确定性由"输出只经过 out、无随机源"保证。
-func Run(u *xfront.CompilationUnit, out io.Writer) error {
+// 返回进程退出码与错误（S4 §7.2 退出码映射）：
+// void main 正常返回 → 0；Int main 返回值原样作为退出码；
+// 初始化或运行期 fatal（panic/throw）→ 134；解释器不支持构造 → 1。
+// 确定性由"输出只经过 out、无随机源"保证。
+// isStringArray 判断参数类型是否 String[]（入口第二形态，S1 §11.2）。
+func isStringArray(t xfront.TypeRef) bool {
+	st, ok := t.(*xfront.SuffixedType)
+	if !ok {
+		return false
+	}
+	for _, sfx := range st.Suffixes {
+		if sfx != "[]" {
+			return false
+		}
+	}
+	nt, ok := st.Base.(*xfront.NamedType)
+	return ok && lastQual(nt) == "String"
+}
+
+func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			switch sig := r.(type) {
+			case fatal:
+				code, err = 134, fmt.Errorf("fatal: %s", sig.msg)
+			case runtimeErr:
+				code, err = 1, fmt.Errorf("%s", sig.msg)
+			default:
+				panic(r)
+			}
+		}
+	}()
 	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, globals: newScope(nil)}
 	for _, d := range u.Decls {
 		switch n := d.(type) {
@@ -181,22 +234,45 @@ func Run(u *xfront.CompilationUnit, out io.Writer) error {
 	}
 	main, ok := in.funcs["main"]
 	if !ok {
-		return fmt.Errorf("找不到入口 main（ENTRY-01：缺失入口）")
+		return 1, fmt.Errorf("找不到入口 main（缺失入口）")
 	}
-	// 当前只支持 `main()` 形态；`main(args: String[])` 形态在 ENTRY-01 语义切片接入。
-	if len(main[0].Params) != 0 {
-		return fmt.Errorf("解释器当前仅支持无参 main()")
+	// 两种入口形态（S1 §11.2）：main() 与 main(args: String[])。
+	var callArgs []*Value
+	switch {
+	case len(main[0].Params) == 0:
+	case len(main[0].Params) == 1 && isStringArray(main[0].Params[0].Type):
+		elems := make([]*Value, len(progArgs))
+		for i, a := range progArgs {
+			elems[i] = &Value{K: vStr, S: a}
+		}
+		callArgs = []*Value{{K: vArr, A: elems}}
+	default:
+		return 1, fmt.Errorf("main 的签名必须是 main() 或 main(args: String[])")
 	}
-	_, err := in.call(main[0], nil)
-	return err
+	v, err := in.call(main[0], callArgs)
+	if err != nil {
+		return 1, err
+	}
+	if v.K == vInt { // Int main 的返回值原样作为退出码（S4 §7.2）
+		return int(v.I), nil
+	}
+	return 0, nil
 }
 
 func zeroValue(t xfront.TypeRef) *Value {
 	// §4.2 零值：数值 0、Bool false、Char '\0'、引用 null。
 	// 当前按声明类型名近似判定；完整类型检查在语义层。
+	if st, ok := t.(*xfront.SuffixedType); ok {
+		for _, sfx := range st.Suffixes {
+			if sfx == "?" {
+				return &Value{K: vNull}
+			}
+		}
+		return zeroValue(st.Base)
+	}
 	if nt, ok := t.(*xfront.NamedType); ok && len(nt.Qual) == 1 {
 		switch nt.Qual[0] {
-		case "Int", "Long", "Byte", "Short":
+		case "Int", "Long", "Byte", "Short", "UByte", "UShort", "UInt", "ULong", "Int128", "UInt128":
 			return &Value{K: vInt}
 		case "Float", "Double":
 			return &Value{K: vFloat}
@@ -220,10 +296,6 @@ func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) 
 				v, err = &Value{K: vResult, R: sig.r}, nil
 			case ctrlBreak, ctrlContinue:
 				err = fmt.Errorf("break/continue 出现在循环或 switch 之外")
-			case fatal:
-				err = fmt.Errorf("fatal: %s", sig.msg)
-			case runtimeErr:
-				err = fmt.Errorf("%s", sig.msg)
 			default:
 				panic(r)
 			}
@@ -308,7 +380,7 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 	case *xfront.LocalDeclStmt:
 		v := zeroValue(n.Type)
 		if n.Init != nil {
-			v = in.eval(n.Init, sc)
+			v = coerceByDecl(n.Type, in.eval(n.Init, sc))
 		}
 		sc.define(n.Name, v)
 	case *xfront.AssignStmt:
@@ -345,28 +417,47 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 			}
 		}
 	case *xfront.WhileStmt:
+		lbl := in.label // 标签只属于紧随其后的这一层循环（§6.10）
+		in.label = ""
 		for truthy(in.eval(n.Cond, sc), n.P) {
-			in.loopBody(n.Body, sc)
+			in.loopBody(n.Body, sc, lbl)
 		}
 	case *xfront.DoWhileStmt:
+		lbl := in.label
+		in.label = ""
 		for {
-			in.loopBody(n.Body, sc)
+			in.loopBody(n.Body, sc, lbl)
 			if !truthy(in.eval(n.Cond, sc), n.P) {
 				break
 			}
 		}
 	case *xfront.ForStmt:
-		// 区间 for-in（§6.7）：a..<b 半开、a...b 闭；下界大于上界执行零次。
-		rg, ok := n.Src.(*xfront.Binary)
-		if !ok || (rg.Op != "..<" && rg.Op != "...") {
-			panic(runtimeErr{"解释器当前仅支持区间源（容器遍历在语义切片接入）"})
+		// for-in（§6.7）：区间（a..<b 半开、a...b 闭）或容器源（T[]、List<T>、Set<T>；
+		// Map 不能直接遍历，§9 必须先取 keys()/values()）。
+		lbl := in.label
+		in.label = ""
+		if rg, ok := n.Src.(*xfront.Binary); ok && (rg.Op == "..<" || rg.Op == "...") {
+			lo := in.eval(rg.L, sc)
+			hi := in.eval(rg.R, sc)
+			for i := lo.I; i < hi.I || (rg.Op == "..." && i == hi.I); i++ {
+				body := newScope(sc)
+				body.define(n.Var, &Value{K: vInt, I: i})
+				in.loopBody(n.Body, body, lbl)
+			}
+			break
 		}
-		lo := in.eval(rg.L, sc)
-		hi := in.eval(rg.R, sc)
-		for i := lo.I; i < hi.I || (rg.Op == "..." && i == hi.I); i++ {
-			body := newScope(sc)
-			body.define(n.Var, &Value{K: vInt, I: i})
-			in.loopBody(n.Body, body)
+		src := in.eval(n.Src, sc)
+		switch src.K {
+		case vArr, vList, vSet:
+			for _, item := range src.A {
+				body := newScope(sc)
+				body.define(n.Var, item)
+				in.loopBody(n.Body, body, lbl)
+			}
+		case vMap:
+			panic(runtimeErr{"Map 不能直接遍历（§9：先取 keys() 或 values()）"})
+		default:
+			panic(runtimeErr{"for-in 源必须是区间、T[]、List<T> 或 Set<T>：" + src.typeName()})
 		}
 	case *xfront.SwitchStmt:
 		val := in.eval(n.Value, sc)
@@ -418,17 +509,18 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 }
 
 // loopBody 执行循环体一轮：捕获 break/continue（§6.9），defer 由块级处理。
-func (in *Interp) loopBody(b *xfront.Block, sc *scope) {
+// label 是本层循环的标签（可空）；带标签信号仅匹配同名层，无标签信号匹配最近层。
+func (in *Interp) loopBody(b *xfront.Block, sc *scope, label string) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {
 			case ctrlBreak:
-				if sig.label == "" || sig.label == in.label {
+				if sig.label == "" || sig.label == label {
 					return
 				}
 				panic(r)
 			case ctrlContinue:
-				if sig.label == "" || sig.label == in.label {
+				if sig.label == "" || sig.label == label {
 					return // 消化信号，进入下一轮
 				}
 				panic(r)
@@ -485,6 +577,10 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		if v, ok := sc.lookup(n.Name); ok {
 			return v
 		}
+		if _, isFn := in.funcs[n.Name]; isFn {
+			// 具名函数作为值（§7.7：apply(add, 1)）——包装为闭包值
+			return &Value{K: vClosure, Clo: &clov{top: n.Name}}
+		}
 		panic(runtimeErr{"未定义的名称：" + n.Name})
 	case *xfront.Unary:
 		switch n.Op {
@@ -519,24 +615,33 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		}
 		return in.eval(n.Else, sc)
 	case *xfront.Tuple:
-		panic(runtimeErr{"解释器暂不支持元组值"})
-	case *xfront.ArrayLit, *xfront.MapLit:
-		panic(runtimeErr{"解释器暂不支持容器字面量（容器遍历在语义切片接入）"})
+		return in.evalTuple(n, sc)
+	case *xfront.ArrayLit:
+		return in.evalArrayLit(n, sc)
+	case *xfront.MapLit:
+		return in.evalMapLit(n, sc)
 	case *xfront.Call:
 		return in.evalCall(n, sc)
 	case *xfront.Member:
 		return in.evalMember(n, sc)
-	case *xfront.Index, *xfront.TupleMember:
-		panic(runtimeErr{"解释器暂不支持下标/元组元素访问"})
-	case *xfront.New, *xfront.NewArray:
-		panic(runtimeErr{"解释器暂不支持对象/数组构造"})
+	case *xfront.Index:
+		return in.evalIndex(n, sc)
+	case *xfront.TupleMember:
+		return in.evalTupleMember(n, sc)
+	case *xfront.NewArray:
+		return in.evalNewArray(n, sc)
+	case *xfront.New:
+		panic(runtimeErr{"解释器暂不支持对象构造（S2 切片接入）"})
 	case *xfront.Lambda:
-		panic(runtimeErr{"解释器暂不支持闭包值"})
+		return in.evalLambda(n, sc)
 	}
 	panic(runtimeErr{"解释器不支持的表达式：" + xfront.PrintExpr(e)})
 }
 
 func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
+	if _, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
+		return in.evalTypeAs(n, sc) // is / as / as?（§7.7）
+	}
 	switch n.Op {
 	case "&&": // 短路（EXPR-01）
 		if !truthy(in.eval(n.L, sc), n.P) {
@@ -732,7 +837,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			return &Value{K: vNull}
 		}
 		if !recv.isResult() {
-			panic(runtimeErr{"解释器只支持 Result 成员方法：" + mem.Name})
+			args0 := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args0[i] = in.eval(a, sc)
+			}
+			if v, hit := in.callValueMethod(recv, mem.Name, args0, n.P); hit {
+				return v
+			}
+			panic(runtimeErr{"该类型没有成员方法 " + mem.Name + "：" + recv.typeName()})
 		}
 		args := make([]*Value, len(n.Args))
 		for i, a := range n.Args {
@@ -765,6 +877,15 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		panic(runtimeErr{"未知的 Result 成员：" + mem.Name})
 	}
 	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+		if _, isFn := in.funcs[id.Name]; !isFn {
+			if cv, found2 := sc.lookup(id.Name); found2 && cv.K == vClosure {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				return in.callClosure(cv.Clo, args)
+			}
+		}
 		if fns, found := in.funcs[id.Name]; found {
 			for _, f := range fns { // 重载按参数数量过滤（§4.4）
 				if len(f.Params) == len(n.Args) {
@@ -774,7 +895,7 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 					}
 					v, err := in.call(f, args)
 					if err != nil {
-						panic(fatal{err.Error()})
+						panic(runtimeErr{err.Error()})
 					}
 					return v
 				}
@@ -812,8 +933,28 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
 		}
 		return
+	case *xfront.Index:
+		x := in.eval(t.X, sc)
+		idx := in.eval(t.Idx, sc)
+		switch x.K {
+		case vArr:
+			i := int(idx.I)
+			if idx.K != vInt || i < 0 || i >= len(x.A) {
+				panic(fatal{fmt.Sprintf("数组下标越界：len=%d, idx=%s", len(x.A), format(idx))})
+			}
+			x.A[i] = v
+			return
+		case vList:
+			i := int(idx.I)
+			if idx.K != vInt || i < 0 || i >= len(x.A) {
+				panic(fatal{fmt.Sprintf("List 下标越界：len=%d, idx=%s", len(x.A), format(idx))})
+			}
+			x.A[i] = v
+			return
+		}
+		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
 	}
-	panic(runtimeErr{"解释器只支持对局部/顶层变量赋值（成员与下标赋值在语义切片接入）"})
+	panic(runtimeErr{"解释器只支持对局部/顶层变量/数组元素赋值（成员赋值在语义切片接入）"})
 }
 
 func truthy(v *Value, p xfront.Pos) bool {
