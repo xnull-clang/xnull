@@ -219,12 +219,12 @@ func runCompiled(env Env, path string) int {
 
 // interpFile 解释执行（调试模式；M4.3 降级）。
 func interpFile(env Env, path string, extraArgs []string) int {
-	src, err := os.ReadFile(path)
-	if err != nil {
-		fmt.Fprintf(env.Stderr, "xnull: 无法读取文件 %s：%v\n", path, err)
+	// 多文件编译单元：解释路径与编译路径共用同一加载器（保证双路径看到同一组声明）。
+	u, diags := codegen.LoadUnits(path)
+	if u == nil && len(diags) == 0 {
+		fmt.Fprintf(env.Stderr, "xnull: 无法读取文件 %s\n", path)
 		return exitcode.Usage
 	}
-	u, diags := xfront.ParseUnit(path, string(src))
 	if len(diags) > 0 {
 		for _, d := range diags {
 			fmt.Fprintln(env.Stderr, d.String())

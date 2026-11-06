@@ -614,6 +614,8 @@ func formatContainer(v *Value) string {
 		return "(" + strings.Join(parts, ", ") + ")"
 	case vClosure:
 		return "<closure>"
+	case vObj:
+		return "<" + v.O.cls.Name + ">"
 	}
 	return "?"
 }

@@ -40,6 +40,7 @@ const (
 	vSet     // Set<T>（§9.1）
 	vTuple   // (T1, T2, ...)（§2.11）
 	vClosure // 闭包值（§7.7）
+	vObj     // 类实例（M4.4b）
 )
 
 // Value 是解释期运行值。
@@ -54,6 +55,7 @@ type Value struct {
 	A   []*Value // 数组/List/Set/元组元素
 	M   *mapv    // Map
 	Clo *clov    // 闭包
+	O   *objv    // 类实例（M4.4b）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -93,6 +95,8 @@ func (v *Value) typeName() string {
 		return "Tuple"
 	case vClosure:
 		return "Closure"
+	case vObj:
+		return v.O.cls.Name
 	}
 	return "?"
 }
@@ -179,6 +183,7 @@ func (s *scope) assign(name string, v *Value) bool {
 type Interp struct {
 	out     io.Writer
 	funcs   map[string][]*xfront.TopFunc
+	classes map[string]*xfront.ClassDecl
 	globals *scope
 	label   string // 当前执行的带标签循环的标签（break/continue label 匹配）
 }
@@ -216,7 +221,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			}
 		}
 	}()
-	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, globals: newScope(nil)}
+	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil)}
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.TopFunc:
@@ -224,6 +229,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 				continue
 			}
 			in.funcs[n.Name] = append(in.funcs[n.Name], n)
+		case *xfront.ClassDecl:
+			in.classes[n.Name] = n
 		case *xfront.TopField:
 			v := zeroValue(n.Type)
 			if n.Init != nil {
@@ -631,7 +638,7 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 	case *xfront.NewArray:
 		return in.evalNewArray(n, sc)
 	case *xfront.New:
-		panic(runtimeErr{"解释器暂不支持对象构造（S2 切片接入）"})
+		return in.evalNew(n, sc)
 	case *xfront.Lambda:
 		return in.evalLambda(n, sc)
 	}
@@ -836,6 +843,17 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
 		}
+		if recv.K == vObj {
+			args0 := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args0[i] = in.eval(a, sc)
+			}
+			v, err := in.callMethod(recv.O, mem.Name, args0, n.P)
+			if err != nil {
+				panic(runtimeErr{err.Error()})
+			}
+			return v
+		}
 		if !recv.isResult() {
 			args0 := make([]*Value, len(n.Args))
 			for i, a := range n.Args {
@@ -922,6 +940,9 @@ func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
 	if n.NullSafe && x.K == vNull {
 		return &Value{K: vNull} // ?. 空传播（§7.5）
 	}
+	if x.K == vObj {
+		return in.readMember(x.O, n.Name, n.P) // 实例字段（§7.4）
+	}
 	panic(runtimeErr{"解释器不支持的裸成员访问（Result 成员是方法，须以 r.isOk() 形式调用）"})
 }
 
@@ -953,8 +974,18 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.Member:
+		recv := in.eval(t.X, sc)
+		if recv.K == vObj {
+			in.writeMember(recv.O, t.Name, v)
+			return
+		}
+		if recv.K == vNull {
+			panic(fatal{"对 null 赋值成员（§10.1 运行时 panic）"})
+		}
+		panic(runtimeErr{"该类型不支持成员赋值：" + recv.typeName()})
 	}
-	panic(runtimeErr{"解释器只支持对局部/顶层变量/数组元素赋值（成员赋值在语义切片接入）"})
+	panic(runtimeErr{"解释器只支持对局部/顶层变量/数组元素/实例字段赋值"})
 }
 
 func truthy(v *Value, p xfront.Pos) bool {
