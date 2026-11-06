@@ -1,0 +1,10 @@
+01 gofmt+vet
+02 go test -timeout 120s ./...
+03 C 运行时构建
+04 示例双路径
+05 check_specs 六检
+06 台账再生成 diff
+07 泄漏扫描
+08 产物与 sha
+09 汇总 JSON
+10 文件名扫描（禁旧扩展名）

@@ -1,0 +1,10 @@
+基线 HEAD = dfcf033（S1-22 改名提交）
+分支 = pod/e6-toolchain
+ci/lib.sh = 283e2613c4fa7a257b853ebe6e1103283939600023e8743a0cfc9063f2df023f
+ci/run.sh = 7a80a2d2e0703f97da7d27e129ba2b5dc02c76bf3d3adb92ac7412f044a1e36b
+ci/README.md = 133bc5874ed320e20b3927396b7dff71392437b62db2ba1aff9029526cbd6c3f
+ci/.out/.gitignore = cdbcae15105d6b781e620813c79c7e868740d4e9cc53ce6f5fcbbc12387adf4b
+步骤数 = 10
+活引用命中（排除 日志/收件箱/evidence，含 ci/）= 0
+主仓旧扩展名文件 = 0
+go 版本 = go1.27.3 darwin/amd64
