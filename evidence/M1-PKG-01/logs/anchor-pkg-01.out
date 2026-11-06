@@ -1,0 +1,19 @@
+=== RUN   TestPkgImport
+--- PASS: TestPkgImport (0.00s)
+=== RUN   TestSymbolImport
+--- PASS: TestSymbolImport (0.00s)
+=== RUN   TestAliasDisambiguation
+--- PASS: TestAliasDisambiguation (0.00s)
+=== RUN   TestNeedlessAliasRejected
+--- PASS: TestNeedlessAliasRejected (0.00s)
+=== RUN   TestAmbiguousSimpleName
+--- PASS: TestAmbiguousSimpleName (0.00s)
+=== RUN   TestXdkNotImportedStrict
+--- PASS: TestXdkNotImportedStrict (0.00s)
+=== RUN   TestImportCycle
+--- PASS: TestImportCycle (0.00s)
+=== RUN   TestImportTargetRules
+--- PASS: TestImportTargetRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	3.023s
+test_exit=0

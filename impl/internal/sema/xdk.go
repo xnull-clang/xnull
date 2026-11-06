@@ -1,6 +1,7 @@
 package sema
 
 import (
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
@@ -80,16 +81,24 @@ func xdkExporters(name string) []string {
 
 // importInfo 记录一个导入的展开结果。
 type importInfo struct {
-	p     xfront.Pos
-	path  []string
-	alias string
-	syms  []string // 包导入时为该包全部导出符号；符号导入时为单符号
+	p            xfront.Pos
+	path         []string
+	alias        string
+	syms         []string // 包导入时为该包全部导出符号；符号导入时为单符号
+	src          string   // 来源标识（包路径）；别名/歧义判定用
+	pkgImport    bool     // 包导入（全部符号）
+	symbolImport bool     // 符号导入（单符号）
 }
 
 // analyzeImports 处理导入：存在性、别名规则、简单名歧义、XDK 未导入检查基础。
+//
+// 分两段（§3.2/§3.5）：
+//  1. 逐个导入展开为 importInfo：XDK 走注册表；用户包走依赖包符号表（deps）。
+//  2. 别名与简单名规则：别名只用于消歧、别名唯一、简单名歧义必须报错。
 func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
-	var imports []importInfo
-	aliasOwners := map[string]string{} // 别名 → 来源描述（别名冲突检测）
+	topNames := topLevelNames(u)
+	var binds []importInfo
+
 	for _, imp := range u.Imports {
 		p := imp.Path
 		if len(p) == 0 {
@@ -98,6 +107,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 		info := importInfo{p: imp.P, path: p, alias: imp.Alias}
 		if p[0] == "xdk" {
 			if len(p) < 2 {
+				a.errf(imp.P, ResNotFound, "XDK 导入缺包名（§3.2）", "写成 import xdk.<包> 或 import xdk.<包>.<符号>")
 				continue
 			}
 			pkg := p[1]
@@ -107,7 +117,9 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 					"可用包：errors/tasks/sync/runtime/collections/text/sys/net")
 				continue
 			}
-			if len(p) == 3 { // 符号导入
+			info.src = "xdk." + pkg
+			switch {
+			case len(p) == 3: // 符号导入
 				sym := p[2]
 				if !syms[sym] {
 					a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+sym+"`（§3.5）",
@@ -115,70 +127,154 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 					continue
 				}
 				info.syms = []string{sym}
-			} else { // 包导入：全部导出符号可见（§3.2）
-				for s := range syms {
-					info.syms = append(info.syms, s)
-				}
+				info.symbolImport = true
+			default: // 包导入（含 xdk.net.http 这类子包：包存在即可）
+				info.syms = sortedKeys(syms)
+				info.pkgImport = true
 			}
-		} else {
-			// 用户包：多包符号表属多包切片；此处只登记（存在性检查待工程清单）
+			binds = append(binds, info)
+			continue
+		}
+
+		// 用户包：需要依赖包符号表（AnalyzeWithDeps）。
+		if a.deps == nil {
+			// 旧行为：无法解析用户包，延后未定义检查，避免误报。
 			a.hasImp = true
-			imports = append(imports, info)
 			continue
 		}
-		a.hasImp = true
-		imports = append(imports, info)
-	}
-	// 别名与简单名规则（§3.5）。
-	visible := map[string][]string{} // 简单名 → 来源列表
-	srcPos := map[string]xfront.Pos{}
-	for _, imp := range imports {
-		if len(imp.path) < 2 {
+		dep, sym, ok := a.resolveUserImport(p)
+		if !ok {
+			a.errf(imp.P, ResNotFound, "包 `"+strings.Join(p, ".")+"` 未在本次编译中找到（§3.5）",
+				"检查 import 路径，或把依赖包加入本次编译")
 			continue
 		}
-		src := strings.Join(imp.path, ".")
-		if imp.alias != "" {
-			if prev, dup := aliasOwners[imp.alias]; dup {
-				a.errf(imp.p, ResAliasConflict, "导入别名 `"+imp.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
+		if len(dep.Name) == 0 && u.Package != nil {
+			a.errf(imp.P, ResDefaultPkg, "默认包 `"+strings.Join(dep.Path, ".")+"` 不能被其他包导入（§3.1）",
+				"在被导入文件顶部写 package 声明")
+			continue
+		}
+		if samePackage(u, dep) {
+			// 同包分片：符号已随编译单元合并，不建立导入绑定。
+			if imp.Alias != "" {
+				a.errf(imp.P, ResNeedlessAlias, "包导入不能使用 as 别名（§3.2）", "去掉 as 子句")
 				continue
 			}
-			aliasOwners[imp.alias] = src
-			// 非冲突场景使用 as：被导符号来源唯一且无同名符号时，别名即非消歧
-			if len(imp.syms) == 1 {
-				sym := imp.syms[0]
-				other := 0
-				for _, o := range imports {
-					for _, s := range o.syms {
-						if s == sym {
-							other++
-						}
-					}
-				}
-				if other <= 1 {
-					a.errf(imp.p, ResNeedlessAlias,
-						"`"+sym+"` 无同名歧义，as 别名只用于消歧（§3.5）", "去掉 as 子句")
-				}
+			for s := range dep.Symbols {
+				a.imported[s] = true
 			}
-			a.imported[imp.alias] = true
 			continue
 		}
-		for _, s := range imp.syms {
-			visible[s] = append(visible[s], src)
-			if _, ok := srcPos[s]; !ok {
-				srcPos[s] = imp.p
+		info.src = strings.Join(dep.Path, ".")
+		if sym != "" { // 符号导入
+			if !dep.Symbols[sym] {
+				a.errf(imp.P, ResNotFound, "包 `"+info.src+"` 没有公开符号 `"+sym+"`（§3.5）",
+					"检查符号名（private/protected 不可导入），或改用包导入")
+				continue
+			}
+			info.syms = []string{sym}
+			info.symbolImport = true
+		} else { // 包导入
+			info.syms = sortedKeys(dep.Symbols)
+			info.pkgImport = true
+		}
+		binds = append(binds, info)
+	}
+
+	// 环检测先于绑定（§3.4）：有环即报错，仍继续产出别名/歧义诊断以便一次看全。
+	a.checkImportCycle(u)
+
+	// 别名的"是否需要"判定：统计同一简单名被哪些来源占用（含别名导入，§3.2）。
+	importedSym := map[string]map[string]bool{}
+	// 实际暴露到文件作用域的简单名：来源集合（未别名导入）。
+	exposed := map[string]map[string]bool{}
+	addSrc := func(m map[string]map[string]bool, name, src string) {
+		if m[name] == nil {
+			m[name] = map[string]bool{}
+		}
+		m[name][src] = true
+	}
+	for _, b := range binds {
+		for _, s := range b.syms {
+			addSrc(importedSym, s, b.src)
+			if b.alias == "" {
+				addSrc(exposed, s, b.src)
 			}
 		}
 	}
-	// 未消歧的简单名：同名符号来自多个包且未用别名（§3.5）。
-	for name, srcs := range visible {
-		if len(srcs) > 1 {
-			a.ambiguous[name] = true
-			a.errf(srcPos[name], ResAmbiguousName,
-				"简单名 `"+name+"` 在多个来源间歧义（"+strings.Join(srcs, "、")+"），必须用 as 消歧（§3.5）",
-				"为其中一个导入加 as 别名")
-		} else {
-			a.imported[name] = true
+
+	aliasOwners := map[string]string{} // 已绑定名（简单名+别名）→ 来源
+	bound := map[string]string{}
+	for _, b := range binds {
+		if b.alias != "" {
+			if b.pkgImport {
+				a.errf(b.p, ResNeedlessAlias, "包导入不能使用 as 别名（§3.2）：`"+b.src+"` 不绑定包命名空间",
+					"改用符号导入 `import P.S as A` 仅引入所需符号")
+				continue
+			}
+			if prev, dup := aliasOwners[b.alias]; dup {
+				if prev != b.src {
+					a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
+				}
+				continue
+			}
+			if topNames[b.alias] {
+				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与当前文件顶层声明冲突（§3.3）", "换一个别名")
+				continue
+			}
+			if builtinTypeNames[b.alias] {
+				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与预定义类型名冲突（§3.3）", "换一个别名")
+				continue
+			}
+			aliasOwners[b.alias] = b.src
+			// 非冲突场景使用 as → RES-107（§3.2）。
+			if len(importedSym[b.syms[0]]) <= 1 {
+				a.errf(b.p, ResNeedlessAlias, "`"+b.syms[0]+"` 无同名歧义，as 别名只用于消歧（§3.2）", "去掉 as 子句")
+				continue
+			}
+			a.imported[b.alias] = true
+			continue
 		}
+		for _, s := range b.syms {
+			if srcs := exposed[s]; len(srcs) > 1 {
+				// 当前包顶层声明遮蔽同名导入（§3.3），不算歧义。
+				if topNames[s] {
+					continue
+				}
+				if prev, dup := aliasOwners[s]; dup && prev != b.src {
+					if !a.ambiguous[s] {
+						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 已由别名 `"+prev+"` 占用（§3.2/§3.3）", "改用 as 别名或完全限定名")
+						a.ambiguous[s] = true
+					}
+					continue
+				}
+				if !a.ambiguous[s] {
+					var srcList []string
+					for src := range srcs {
+						srcList = append(srcList, src)
+					}
+					sort.Strings(srcList)
+					a.errf(b.p, ResAmbiguousName,
+						"简单名 `"+s+"` 在多个来源间歧义（"+strings.Join(srcList, "、")+"），必须用 as 消歧（§3.2/§3.5）",
+						"为其中一个导入加 as 别名")
+					a.ambiguous[s] = true
+				}
+				continue
+			}
+			if prev, dup := aliasOwners[s]; dup && prev != b.src {
+				if !a.ambiguous[s] {
+					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					a.ambiguous[s] = true
+				}
+				continue
+			}
+			if _, ok := bound[s]; !ok {
+				bound[s] = b.src
+				aliasOwners[s] = b.src
+			}
+		}
+	}
+	for s := range bound {
+		a.imported[s] = true
 	}
 }
 

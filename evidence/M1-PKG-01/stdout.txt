@@ -1,0 +1,316 @@
+# M1-PKG-01 聚合 stdout（工作树 wt/c1-rd1 / pod/c1-rd1；采集 2026-11-07 03:22–03:35 CST）
+# 原始分项见 logs/；red/ 为实现前原始输出。
+
+## [red] 实现前 PKG-01 用例（red/red-sema.out）
+=== RUN   TestPkgImport
+    pkg_test.go:74: 不应有语义诊断，实际：[RES-101 RES-101]（源：package app
+        
+        import lib.text
+        
+        static Int main() {
+            String b = banner("x")
+            String c = shout(b)
+            return 0
+        }）
+--- FAIL: TestPkgImport (0.00s)
+=== RUN   TestSymbolImport
+    pkg_test.go:127: 不应有语义诊断，实际：[RES-101]（源：package app
+        
+        import lib.text.banner
+        
+        static Int main() {
+            String b = banner("x")
+            return 0
+        }）
+--- FAIL: TestSymbolImport (0.00s)
+=== RUN   TestAliasDisambiguation
+    pkg_test.go:190: 不应有语义诊断，实际：[RES-101]（源：package app
+        
+        import lib.a.Thing as AThing
+        import lib.b.Thing
+        
+        static Int main() {
+            return AThing(1) + Thing(2)
+        }）
+--- FAIL: TestAliasDisambiguation (0.00s)
+=== RUN   TestNeedlessAliasRejected
+    pkg_test.go:206: 期望诊断 RES-107，实际：[]（源：package app
+        
+        import lib.text.banner as B
+        
+        static Int main() { return 0 }
+        ）
+--- FAIL: TestNeedlessAliasRejected (0.00s)
+=== RUN   TestAmbiguousSimpleName
+    pkg_test.go:264: 期望诊断 RES-104，实际：[RES-101]（源：package app
+        
+        import lib.a.Thing
+        import lib.b.Thing
+        
+        static Int main() { return Thing(1) }
+        ）
+--- FAIL: TestAmbiguousSimpleName (0.00s)
+=== RUN   TestXdkNotImportedStrict
+--- PASS: TestXdkNotImportedStrict (0.00s)
+=== RUN   TestImportCycle
+    pkg_test.go:323: 期望诊断 RES-108，实际：[RES-101]（源：package app
+        
+        import lib.a
+        
+        static Int main() { return fa() }
+        ）
+--- FAIL: TestImportCycle (0.00s)
+=== RUN   TestImportTargetRules
+    pkg_test.go:345: 期望诊断 RES-106，实际：[]（源：package app
+        
+        import lib.none
+        
+        static Int main() { return 0 }
+        ）
+--- FAIL: TestImportTargetRules (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	4.159s
+FAIL
+exit=1
+
+## [green] go vet ./internal/sema ./internal/xfront（logs/vet.out）
+vet_exit=0
+
+## [green] go test ./internal/sema -v（logs/full-sema.out）
+=== RUN   TestDABasic
+--- PASS: TestDABasic (0.00s)
+=== RUN   TestDABranchMerge
+--- PASS: TestDABranchMerge (0.00s)
+=== RUN   TestDAFinalConst
+--- PASS: TestDAFinalConst (0.00s)
+=== RUN   TestDAReturnPath
+--- PASS: TestDAReturnPath (0.00s)
+=== RUN   TestPkgImport
+--- PASS: TestPkgImport (0.00s)
+=== RUN   TestSymbolImport
+--- PASS: TestSymbolImport (0.00s)
+=== RUN   TestAliasDisambiguation
+--- PASS: TestAliasDisambiguation (0.00s)
+=== RUN   TestNeedlessAliasRejected
+--- PASS: TestNeedlessAliasRejected (0.00s)
+=== RUN   TestAmbiguousSimpleName
+--- PASS: TestAmbiguousSimpleName (0.00s)
+=== RUN   TestXdkNotImportedStrict
+--- PASS: TestXdkNotImportedStrict (0.00s)
+=== RUN   TestImportCycle
+--- PASS: TestImportCycle (0.00s)
+=== RUN   TestImportTargetRules
+--- PASS: TestImportTargetRules (0.00s)
+=== RUN   TestPolicyTable
+--- PASS: TestPolicyTable (0.00s)
+=== RUN   TestPolicyDeterministic
+--- PASS: TestPolicyDeterministic (0.00s)
+=== RUN   TestPolicySelfCaptureScan
+--- PASS: TestPolicySelfCaptureScan (0.00s)
+=== RUN   TestPolicyStructSelfCapture
+--- PASS: TestPolicyStructSelfCapture (0.00s)
+=== RUN   TestPolicyInternalAnnos
+--- PASS: TestPolicyInternalAnnos (0.00s)
+=== RUN   TestLocalShadowsTop
+--- PASS: TestLocalShadowsTop (0.00s)
+=== RUN   TestTopForwardReference
+--- PASS: TestTopForwardReference (0.00s)
+=== RUN   TestParamsInScope
+--- PASS: TestParamsInScope (0.00s)
+=== RUN   TestBlockShadowing
+--- PASS: TestBlockShadowing (0.00s)
+=== RUN   TestUndefinedName
+--- PASS: TestUndefinedName (0.00s)
+=== RUN   TestUndefinedDiagPosition
+--- PASS: TestUndefinedDiagPosition (0.00s)
+=== RUN   TestRedeclaration
+--- PASS: TestRedeclaration (0.00s)
+=== RUN   TestLoopAndCaseScopes
+--- PASS: TestLoopAndCaseScopes (0.00s)
+=== RUN   TestDeferScope
+--- PASS: TestDeferScope (0.00s)
+=== RUN   TestImportFileDefers
+--- PASS: TestImportFileDefers (0.00s)
+=== RUN   TestTyAssignableOK
+--- PASS: TestTyAssignableOK (0.00s)
+=== RUN   TestTyAssignableFail
+--- PASS: TestTyAssignableFail (0.00s)
+=== RUN   TestTyNullRules
+--- PASS: TestTyNullRules (0.00s)
+=== RUN   TestTyConditionsAndOperands
+--- PASS: TestTyConditionsAndOperands (0.00s)
+=== RUN   TestTyAnyBoxing
+--- PASS: TestTyAnyBoxing (0.00s)
+=== RUN   TestTypeDeclOK
+--- PASS: TestTypeDeclOK (0.00s)
+=== RUN   TestPrivateFieldRules
+--- PASS: TestPrivateFieldRules (0.00s)
+=== RUN   TestInheritanceRules
+--- PASS: TestInheritanceRules (0.00s)
+=== RUN   TestStructValueRules
+--- PASS: TestStructValueRules (0.00s)
+=== RUN   TestProtocolRules
+--- PASS: TestProtocolRules (0.00s)
+=== RUN   TestEnumRules
+--- PASS: TestEnumRules (0.00s)
+=== RUN   TestTypeNameRules
+--- PASS: TestTypeNameRules (0.00s)
+=== RUN   TestImportNotFound
+--- PASS: TestImportNotFound (0.00s)
+=== RUN   TestXdkNotImported
+--- PASS: TestXdkNotImported (0.00s)
+=== RUN   TestAliasRules
+--- PASS: TestAliasRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	6.107s
+test_exit=0
+
+## [green] go test ./internal/xfront -v（logs/full-xfront.out）
+=== RUN   TestIntegerLiterals
+--- PASS: TestIntegerLiterals (0.00s)
+=== RUN   TestIntegerLiteralErrors
+--- PASS: TestIntegerLiteralErrors (0.00s)
+=== RUN   TestFloatLiterals
+--- PASS: TestFloatLiterals (0.00s)
+=== RUN   TestFloatLiteralErrors
+--- PASS: TestFloatLiteralErrors (0.00s)
+=== RUN   TestCharLiterals
+--- PASS: TestCharLiterals (0.00s)
+=== RUN   TestCharLiteralErrors
+--- PASS: TestCharLiteralErrors (0.00s)
+=== RUN   TestStringForms
+--- PASS: TestStringForms (0.00s)
+=== RUN   TestStringErrors
+--- PASS: TestStringErrors (0.00s)
+=== RUN   TestComments
+--- PASS: TestComments (0.00s)
+=== RUN   TestIdentifiersAndKeywords
+--- PASS: TestIdentifiersAndKeywords (0.00s)
+=== RUN   TestOperatorsLongestMatch
+--- PASS: TestOperatorsLongestMatch (0.00s)
+=== RUN   TestAutomaticSemis
+--- PASS: TestAutomaticSemis (0.00s)
+=== RUN   TestNoSemiBeforeElseAndDoWhile
+--- PASS: TestNoSemiBeforeElseAndDoWhile (0.00s)
+=== RUN   TestSemiAfterLiteralsAndCalls
+--- PASS: TestSemiAfterLiteralsAndCalls (0.00s)
+=== RUN   TestSourceFileRules
+--- PASS: TestSourceFileRules (0.00s)
+=== RUN   TestMultipleErrorsWithPosition
+--- PASS: TestMultipleErrorsWithPosition (0.00s)
+=== RUN   TestReservedListed
+--- PASS: TestReservedListed (0.00s)
+=== RUN   TestAdjacentStringsNoConcat
+--- PASS: TestAdjacentStringsNoConcat (0.00s)
+=== RUN   TestPrecedenceTable
+--- PASS: TestPrecedenceTable (0.00s)
+=== RUN   TestAssociativity
+--- PASS: TestAssociativity (0.00s)
+=== RUN   TestNonChainable
+--- PASS: TestNonChainable (0.00s)
+=== RUN   TestEqualityChaining
+--- PASS: TestEqualityChaining (0.00s)
+=== RUN   TestTypeOps
+--- PASS: TestTypeOps (0.00s)
+=== RUN   TestPostfix
+--- PASS: TestPostfix (0.00s)
+=== RUN   TestLiteralsAndCollections
+--- PASS: TestLiteralsAndCollections (0.00s)
+=== RUN   TestLambda
+--- PASS: TestLambda (0.00s)
+=== RUN   TestInterpolatedString
+--- PASS: TestInterpolatedString (0.00s)
+=== RUN   TestTypeRefs
+--- PASS: TestTypeRefs (0.00s)
+=== RUN   TestErrors
+--- PASS: TestErrors (0.00s)
+=== RUN   TestSpecExamplesExpr
+--- PASS: TestSpecExamplesExpr (0.00s)
+=== RUN   TestLocalDecls
+--- PASS: TestLocalDecls (0.00s)
+=== RUN   TestAssignments
+--- PASS: TestAssignments (0.00s)
+=== RUN   TestControlFlow
+--- PASS: TestControlFlow (0.00s)
+=== RUN   TestSwitch
+--- PASS: TestSwitch (0.00s)
+=== RUN   TestJumps
+--- PASS: TestJumps (0.00s)
+=== RUN   TestDefer
+--- PASS: TestDefer (0.00s)
+=== RUN   TestStatementTermination
+--- PASS: TestStatementTermination (0.00s)
+=== RUN   TestClosureStatements
+--- PASS: TestClosureStatements (0.00s)
+=== RUN   TestPackageDecl
+--- PASS: TestPackageDecl (0.00s)
+=== RUN   TestImportDecl
+--- PASS: TestImportDecl (0.00s)
+=== RUN   TestTopFuncs
+--- PASS: TestTopFuncs (0.00s)
+=== RUN   TestTopFields
+--- PASS: TestTopFields (0.00s)
+=== RUN   TestFullUnit
+--- PASS: TestFullUnit (0.00s)
+=== RUN   TestUnitMultiDiags
+--- PASS: TestUnitMultiDiags (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/xfront	4.523s
+test_exit=0
+
+## [green] PKG-01 锚点用例 -v（logs/anchor-pkg-01.out）
+=== RUN   TestPkgImport
+--- PASS: TestPkgImport (0.00s)
+=== RUN   TestSymbolImport
+--- PASS: TestSymbolImport (0.00s)
+=== RUN   TestAliasDisambiguation
+--- PASS: TestAliasDisambiguation (0.00s)
+=== RUN   TestNeedlessAliasRejected
+--- PASS: TestNeedlessAliasRejected (0.00s)
+=== RUN   TestAmbiguousSimpleName
+--- PASS: TestAmbiguousSimpleName (0.00s)
+=== RUN   TestXdkNotImportedStrict
+--- PASS: TestXdkNotImportedStrict (0.00s)
+=== RUN   TestImportCycle
+--- PASS: TestImportCycle (0.00s)
+=== RUN   TestImportTargetRules
+--- PASS: TestImportTargetRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	3.023s
+test_exit=0
+
+## [green] go test ./internal/codegen（logs/full-codegen.out）
+ok  	xnull.dev/xnull/internal/codegen	52.920s
+test_exit=0
+
+## [green] go test ./...（logs/full-all.out）
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	14.893s
+ok  	xnull.dev/xnull/internal/codegen	38.855s
+ok  	xnull.dev/xnull/internal/codegen/ffi	20.478s
+ok  	xnull.dev/xnull/internal/devtool	9.881s
+ok  	xnull.dev/xnull/internal/diag	7.428s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	8.636s
+ok  	xnull.dev/xnull/internal/sema	4.327s
+ok  	xnull.dev/xnull/internal/xfront	6.308s
+ok  	xnull.dev/xnull/internal/xpd	5.358s
+test_exit=0
+
+## [double-path] build examples/multi（logs/build-multi.out）
+build_exit=0
+
+## [double-path] 编译产物运行（logs/run-multi.out）
+[xnull]
+25
+[norm=25]
+run_exit=0
+
+## [double-path] 解释路径（logs/interp-multi.out）
+[xnull]
+25
+[norm=25]
+interp_exit=0
+
+## [double-path] stdout diff（diff/multi-stdout.diff；空=逐字节一致）
