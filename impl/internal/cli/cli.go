@@ -73,6 +73,10 @@ func Run(env Env) int {
 		return fail(env, *err)
 	}
 
+	// 内部维护工具：规范守门、台账生成、资源表生成（不进入语言用户 CLI 面）。
+	if name == "dev" {
+		return runDev(env, rest)
+	}
 	// 最小可运行闭环：`xnull run path/to/file.xn` 直接执行单文件（不依赖工程清单；清单模式后续接入）。
 	if name == "run" {
 		for i, a := range rest {
@@ -111,11 +115,12 @@ var commands = map[string]string{
 	"test":   "运行测试入口（src/test/x）",
 	"fmt":    "格式化 xnull.project / .xmeta / .xplugin / xnull.lock",
 	"lock":   "校验或重生成锁文件（--update-lock 为唯一重生成入口）",
+	"dev":    "内部维护工具（check / ledger / res）",
 }
 
 func commandList() string {
 	out := ""
-	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy"} {
+	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy", "dev"} {
 		if out != "" {
 			out += "、"
 		}
@@ -126,7 +131,7 @@ func commandList() string {
 
 func writeUsage(w io.Writer) {
 	fmt.Fprintf(w, "xnull %s —— XNull 工具链\n\n用法：xnull <command> [flags]\n\n命令：\n", Version)
-	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy"} {
+	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy", "dev"} {
 		fmt.Fprintf(w, "  %-6s %s\n", name, commands[name])
 	}
 	fmt.Fprintf(w, "\n退出码：0 成功 / 1 构建失败 / 2 清单或用法错误 / 130 中断\n")
