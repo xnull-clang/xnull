@@ -56,7 +56,7 @@ ld: symbol(s) not found for architecture x86_64
 clang: error: linker command failed with exit code 1 (use -v to see invocation)
 red_link_exit=1
 
-===== 自动驱动 run.sh（上一轮输出） =====
+===== 自动驱动 run.sh =====
 == 1 红：旧 4 源清单（rt.c rt_gc.c rt_policy.c rt_weak.c） ==
 PASS：旧清单链接失败（预期红）
   "_xdkc_now_mono_ms", referenced from:

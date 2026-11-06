@@ -10,11 +10,12 @@ xrt_abi + rt_std 链接并运行通过
 == 3 样例：xnull build 产物包含 ABI/STD 符号 ==
 hello, XNull
 1 + 2 = 3
-产物内 xrt_/xdkc_ 符号数：48
+产物内 xrt_/xdkc_ 符号数：49
 
 == 4 回归 ==
-ok  	xnull.dev/xnull/internal/codegen	22.045s
-ok  	xnull.dev/xnull/internal/cli	4.258s
+ok  	xnull.dev/xnull/internal/codegen	17.556s
+ok  	xnull.dev/xnull/internal/codegen/ffi	7.356s
+ok  	xnull.dev/xnull/internal/cli	4.249s
 build_rt.sh：PASS
 
 B0-02 驱动：全部通过
