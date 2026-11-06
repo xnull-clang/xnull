@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/fixtures/c17_map_get_missing.x:4:28: error[TY-105]: null 只与引用类型或 T? 比较（§2.6），对方类型是 Int
-/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/fixtures/c17_map_get_missing.x:5:26: error[TY-105]: null 只与引用类型或 T? 比较（§2.6），对方类型是 Int

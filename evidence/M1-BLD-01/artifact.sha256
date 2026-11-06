@@ -1,0 +1,12 @@
+cbd8d4c89babb64cc1ff1e008e095ee9b405c95590cae035bf7d5f73add6c69a  impl/internal/interp/values.go
+7f3da9eed580f297d25164b01e31f21f9f90ea7ddcc04e897e9d05101f573b43  impl/internal/interp/interp.go
+4cb5da1ebc667f8caf2a033e234e1a95a832ecedd09a2e0e514d2870cec7cc21  impl/internal/sema/ty.go
+cf76a649ea8e1cd03079d15dfb8386f27849ef1d7ad25c8c536cc2dd87b9b933  evidence/M1-BLD-01/red/run-red.sh
+d7e766073bcafab854d4602c714165bee7f19314d16cb65cc1c52950806a18bd  evidence/M1-BLD-01/red/cases.tsv
+4065024924f389b1fbf0f95a08bd38260fab0d0216a23af4594361a7480779a1  /tmp/xnull-bld01-bld01
+# 附加：证据产物哈希
+7084af39387cd4a76f516bfe055ef82dd1b42bfb55b14b2d2568f2b93e0923e1  green/run-red-28.txt
+4747a2cfbcbfb3a25c5b4f4d458430cf12b993671a6fd82e55cf97cdf721dea0  green/go-test-all.txt
+d5d2e76460191ed886fd7fef58d3dd40fdcc00af67a05c704fc4e155b19fec06  green/dualpath-9.txt
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  green/go-vet.txt
+b33d555669102a3d8c6b695f547cb672a978b3366aa19002eeaa39a1654da77a  red/results/summary.txt

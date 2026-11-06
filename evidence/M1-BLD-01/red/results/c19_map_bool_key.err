@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red/fixtures/c19_map_bool_key.x:2:5: error[TY-106]: Map 键类型 Bool 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String
