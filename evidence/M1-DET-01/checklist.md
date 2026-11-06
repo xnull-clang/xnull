@@ -5,11 +5,11 @@
 
 | # | 验收要点（原文） | 判定方式 | 用例 | 初始状态 |
 |---|---|---|---|---|
-| a | 同一源程序、同一实现版本、同一选项产生**相同诊断** | 同一源连续分析 200 轮，诊断序列逐字节一致；含 map 迭代序敏感路径（多包同名符号） | `impl/internal/sema/det01_test.go` | 红（本分支 `81ec33d`）→ **绿于 PKG-01 基线 `bc01a32`**（`after/on-pkg01-base.txt`） |
+| a | 同一源程序、同一实现版本、同一选项产生**相同诊断** | 同一源连续分析 200 轮，诊断序列逐字节一致；含 map 迭代序敏感路径（多包同名符号） | `impl/internal/sema/det01_test.go` | 绿（main `2c00cf5` 合入后复跑） |
 | b | 同一源程序、同一实现版本、同一选项产生**相同运行结果** | 解释路径 10 轮 stdout+退出码逐字节一致；编译路径 10 轮一致；两路径互相比对 | `impl/internal/interp/det01_test.go` + 证据脚本 | 绿 |
 | c | **初始化顺序不依赖文件系统枚举顺序** | 同一逻辑源码树按不同创建顺序写 20 遍，合并声明序（= 初始化序）与运行输出逐字节一致 | `impl/internal/codegen/det01_test.go` | 绿 |
 
-**状态：BLOCKED（合并顺序）。** 三项行为已在 PKG-01 分支基线上全绿；本分支待 PKG-01 `9bb6bef`/`bc01a32` 合入 main 后 rebase 复跑即 3/3，本卡不再需要改任何生产代码。
+**状态：DONE 3/3（2026-11-07，main `2c00cf5` 合入后复跑）。** `after/postmerge-full-test.txt`：全包 9/9 绿；`after/postmerge-examples.txt`：示例 9/9 双路径一致；`after/postmerge-hash-and-runs.txt`：同命令两次构建 hash 一致、10+10 次运行同一 sha256。
 
 ## 不在本锚点、但本轮实测发现的两个缺陷（转交，不自行修）
 

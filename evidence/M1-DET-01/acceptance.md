@@ -7,16 +7,15 @@
 
 | # | 验收要点 | 用例 | 结果 | 说明 |
 |---|---|---|---|---|
-| a | 相同诊断 | `internal/sema/det01_test.go` `TestDET01DiagStableAcrossRuns` + `TestDET01DiagIndependentOfMapOrder` | **绿（PKG-01 基线）/ 红（本分支）** | 本分支 `81ec33d` 上歧义诊断顺序取自 map 迭代（`sema/xdk.go:173`）；PKG-01 重写导入诊断后已消除，`after/on-pkg01-base.txt` 实测两用例 PASS |
-| b | 相同运行结果 | `internal/interp/det01_test.go` `TestDET01RuntimeStable`、`internal/codegen/det01_test.go` `TestDET01EmitCDeterministic` | PASS | 解释路径 10 轮 stdout+rc 一致；EmitC 5 次逐字节一致；示例 9/9 双路径一致（`after/examples-double-path.txt`） |
+| a | 相同诊断 | `internal/sema/det01_test.go` `TestDET01DiagStableAcrossRuns` + `TestDET01DiagIndependentOfMapOrder` | **PASS（main `2c00cf5`）** | 多错误源 200 轮稳定；歧义诊断顺序稳定（map 序发射点已随 PKG-01 重写消除），`after/postmerge-full-test.txt` |
+| b | 相同运行结果 | `internal/interp/det01_test.go` `TestDET01RuntimeStable`、`internal/codegen/det01_test.go` `TestDET01EmitCDeterministic` | PASS | 解释路径 10 轮 stdout+rc 一致；EmitC 5 次逐字节一致；示例 9/9 双路径一致（`after/postmerge-examples.txt`） |
 | c | 初始化顺序不依赖文件系统枚举顺序 | `internal/codegen/det01_test.go` `TestDET01InitOrderIndependentOfCreationOrder` | PASS | 同一逻辑树按 20 种文件创建顺序落盘，合并声明序与运行输出逐字节一致 |
 
-## 红点根因与修复归属（已变更）
+## 结论（2026-11-07 集成后复跑）
 
-- 根因：`impl/internal/sema/xdk.go:173`（`81ec33d` 版）`for name, srcs := range visible` 直接按 map 迭代序发射 `RES-104`。
-- **修复已由上游客完成**：PKG-01（CEO1-RD1）`9bb6bef` 重写导入/歧义诊断后，map 序发射点消失；在 `pod/c1-rd1 @ bc01a32` 基线上拷入本卡用例，DET-01 三项全 PASS，sema 包与全包均绿（`after/on-pkg01-base.txt`）。
-- 原 `fix-proposal.diff`（针对旧 `xdk.go` 的 3 处 `sort.Strings`）**已作废**，不再需要落地；保留仅为过程证据。
-- **剩余唯一依赖：合并顺序**——PKG-01 未合入 main（main 仍 `81ec33d`），故本分支的 sema 用例仍红。合入后 rebase 复跑即 3/3，本卡无需再改生产代码。
+- 合入 main `2c00cf5`（`git merge --no-ff`，无冲突），DET-01 三项用例全 PASS，全包 9/9 绿。
+- 确定性判据：同命令同 `-o` 两次构建 hash 一致（`4e3ec1d7…`）；编译路径 10 次与解释路径 10 次运行同一 sha256（`a6ed6096…`），两路径逐字节一致。
+- 红点根因（旧 `sema/xdk.go:173` 按 map 迭代序发射 `RES-104`）已随 PKG-01 导入诊断重写消除；原 `fix-proposal.diff` 作废，仅留过程证据。
 
 ## 未测项 / 风险
 
