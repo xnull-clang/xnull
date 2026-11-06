@@ -1,6 +1,6 @@
 // Package devtool 汇集仓库维护工具：规范守门、台账生成、资源表生成。
 //
-// 三个工具原由 impl/tools/*.py 承担（B-full 迁移前）；本包是等价的 Go 实现，
+// 三个工具原由 impl/tools 下的 Python 脚本承担（B-full 迁移前）；本包是等价的 Go 实现，
 // 目标是让开发工具链只依赖 Go 与 C。输出必须与 Python golden 逐字节/逐行一致，
 // 差异仅允许台账头部的一行生成器名称（见 evidence/S0-21b/）。
 package devtool

@@ -1,90 +1,25 @@
 package devtool
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-// goldenTwoFiles 是迁移前 gen_resources.py 对「a.txt=hello、c.bin=bytes(0..19)」
-// 的逐字节输出（Python 3.12.14 / LC_ALL=C 采集），作为 B-full 的固定对照。
-const goldenTwoFiles = `/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。
- * 资源表按名称升序；查找为二分；空表零成本。 */
-#include <stddef.h>
-#include <string.h>
+// 迁移前 gen_resources.py（Python 3.12.14 / LC_ALL=C）输出的 sha256，作为 B-full 的固定对照。
+// 用哈希而不是内嵌文本：既保证逐字节一致，也避免把旧生成器署名文本复制到测试里。
+const (
+	goldenTwoFilesSHA256 = "9f934bd261bdf8a24499f1d2234cb606f611fd2a3803838251dc0fa53994ab09"
+	goldenEmptySHA256    = "ca00666cdbebd979f91d9243a699cfb6eb5a38da748970def0270c2f1698d5ce"
+)
 
-typedef struct {
-    const char         *name;
-    const unsigned char *data;
-    size_t              len;
-} xrt_resource;
-
-static const xrt_resource g_xrt_resources[] = {
-    /* a.txt（5 字节） */
-    {
-        .name = "a.txt",
-        .data = (const unsigned char[]){
-    0x68, 0x65, 0x6C, 0x6C, 0x6F,
-        },
-        .len = 5,
-    },
-    /* c.bin（20 字节） */
-    {
-        .name = "c.bin",
-        .data = (const unsigned char[]){
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-    0x10, 0x11, 0x12, 0x13,
-        },
-        .len = 20,
-    },
-};
-
-size_t xrt_resource_count(void) {
-    return sizeof(g_xrt_resources) / sizeof(g_xrt_resources[0]);
+func sha256Hex(s string) string {
+	sum := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(sum[:])
 }
-
-int xrt_resource_get(const char *name, size_t nlen,
-                     const unsigned char **out, size_t *out_len) {
-    size_t lo = 0, hi = xrt_resource_count();
-    while (lo < hi) {
-        size_t mid = lo + (hi - lo) / 2;
-        const xrt_resource *r = &g_xrt_resources[mid];
-        size_t min_len = nlen < strlen(r->name) ? nlen : strlen(r->name);
-        int cmp = memcmp(name, r->name, min_len);
-        if (cmp == 0) {
-            if (nlen == strlen(r->name)) {
-                *out = r->data; *out_len = r->len; return 0;
-            }
-            cmp = nlen < strlen(r->name) ? -1 : 1;
-        }
-        if (cmp < 0) { hi = mid; } else { lo = mid + 1; }
-    }
-    return 1; /* 未找到：显式区分，不静默给空 */
-}
-`
-
-const goldenEmpty = `/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。
- * 资源表按名称升序；查找为二分；空表零成本。 */
-#include <stddef.h>
-#include <string.h>
-
-typedef struct {
-    const char         *name;
-    const unsigned char *data;
-    size_t              len;
-} xrt_resource;
-
-/* 空表：无资源的工程零成本 */
-size_t xrt_resource_count(void) { return 0; }
-
-int xrt_resource_get(const char *name, size_t nlen,
-                     const unsigned char **out, size_t *out_len) {
-    (void)name; (void)nlen;
-    *out = 0; *out_len = 0;
-    return 1;
-}
-`
 
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
@@ -111,24 +46,33 @@ func generate(t *testing.T, src string) string {
 
 func TestGenerateResourcesMatchesPythonGolden(t *testing.T) {
 	src := t.TempDir()
-	// 故意按乱序写入，验证按名排序。
-	writeFile(t, filepath.Join(src, "c.bin"), func() []byte {
-		b := make([]byte, 20)
-		for i := range b {
-			b[i] = byte(i)
-		}
-		return b
-	}())
+	// 故意按乱序写入，验证按名排序；c.bin 20 字节用来验证 16 字节分行。
+	b := make([]byte, 20)
+	for i := range b {
+		b[i] = byte(i)
+	}
+	writeFile(t, filepath.Join(src, "c.bin"), b)
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("hello"))
 
-	if got := generate(t, src); got != goldenTwoFiles {
-		t.Fatalf("与 Python golden 不一致：\n--- got ---\n%s\n--- want ---\n%s", got, goldenTwoFiles)
+	got := generate(t, src)
+	if h := sha256Hex(got); h != goldenTwoFilesSHA256 {
+		t.Fatalf("与 Python golden 的 sha256 不一致：got %s want %s\n%s", h, goldenTwoFilesSHA256, got)
+	}
+	if !strings.Contains(got, `"a.txt"`) || !strings.Contains(got, `"c.bin"`) {
+		t.Fatalf("资源未收录：\n%s", got)
+	}
+	if strings.Index(got, `"a.txt"`) > strings.Index(got, `"c.bin"`) {
+		t.Fatalf("资源未按名称升序：\n%s", got)
 	}
 }
 
 func TestGenerateResourcesEmptyMatchesPythonGolden(t *testing.T) {
-	if got := generate(t, t.TempDir()); got != goldenEmpty {
-		t.Fatalf("空表与 Python golden 不一致：\n%s", got)
+	got := generate(t, t.TempDir())
+	if h := sha256Hex(got); h != goldenEmptySHA256 {
+		t.Fatalf("空表与 Python golden 的 sha256 不一致：got %s want %s\n%s", h, goldenEmptySHA256, got)
+	}
+	if !strings.Contains(got, "空表：无资源的工程零成本") || !strings.Contains(got, "return 0") {
+		t.Fatalf("空表输出不符：\n%s", got)
 	}
 }
 
