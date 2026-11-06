@@ -76,6 +76,7 @@ func xdkExporters(name string) []string {
 			pkgs = append(pkgs, pkg)
 		}
 	}
+	sort.Strings(pkgs) // DET-01：包名列表顺序不得取自 map 迭代序
 	return pkgs
 }
 
