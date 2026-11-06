@@ -689,6 +689,10 @@ func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
 		return &Value{K: vBool, B: valuesEqual(l, r)}
 	case "!=":
 		return &Value{K: vBool, B: !valuesEqual(l, r)}
+	case "===":
+		return &Value{K: vBool, B: identical(l, r)}
+	case "!==":
+		return &Value{K: vBool, B: !identical(l, r)}
 	case "+":
 		if l.K == vStr || r.K == vStr { // String + String（§5.4 也允许常量域）
 			return &Value{K: vStr, S: format(l) + format(r)}
@@ -831,8 +835,44 @@ func valuesEqual(l, r *Value) bool {
 		return l.C == r.C
 	case vStr:
 		return l.S == r.S
+	case vTuple: // §2.11：逐元素使用元素类型的相等语义
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !valuesEqual(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
 	}
 	return false
+}
+
+// identical 严格同一性（§2.8、§2.11）：元组逐元素比较同一性；
+// 引用类型比较引用身份，值类型比较值；null === null 为 true。
+func identical(l, r *Value) bool {
+	if l.K == vNull || r.K == vNull {
+		return l.K == vNull && r.K == vNull
+	}
+	if l.K != r.K {
+		return false
+	}
+	switch l.K {
+	case vTuple:
+		if len(l.A) != len(r.A) {
+			return false
+		}
+		for i := range l.A {
+			if !identical(l.A[i], r.A[i]) {
+				return false
+			}
+		}
+		return true
+	case vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份
+		return l == r
+	}
+	return valuesEqual(l, r)
 }
 
 func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {

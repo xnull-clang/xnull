@@ -341,3 +341,74 @@ func TestTupleSyntaxRejections(t *testing.T) {
 		t.Fatalf("out=%q err=%v", out.String(), err)
 	}
 }
+
+// TUPLE-01：元组 == / != 逐元素（§2.11、§2.8）。
+func TestTupleEquality(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) a = (1, "one")
+    (Int, String) b = (1, "one")
+    (Int, String) c = (1, "two")
+    if a == b { print("eq") }
+    if a != c { print("ne") }
+    if !(a == c) { print("not") }
+    (Int, (Int, Bool)) n1 = (1, (2, true))
+    (Int, (Int, Bool)) n2 = (1, (2, true))
+    (Int, (Int, Bool)) n3 = (1, (2, false))
+    if n1 == n2 { print("nested-eq") }
+    if n1 != n3 { print("nested-ne") }
+    return 0
+}`)
+	want := "eq\nne\nnot\nnested-eq\nnested-ne\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：元组 === / !== 逐元素同一性（§2.11、§2.8）。
+func TestTupleIdentity(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) a = (1, "one")
+    (Int, String) b = (1, "one")
+    if a === b { print("id") }
+    if a !== (1, "two") { print("nid") }
+    (Int, (Int, Bool)) n1 = (1, (2, true))
+    (Int, (Int, Bool)) n2 = (1, (2, true))
+    if n1 === n2 { print("nested-id") }
+    return 0
+}`)
+	want := "id\nnid\nnested-id\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：元组插值格式 `(a, b)`，元素递归格式化（§1.4.4、§2.11）。
+func TestTupleInterpolation(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) p = (1, "one")
+    print($"p={p}")
+    ((Int, Int), Bool) n = ((1, 2), true)
+    print($"n={n}")
+    return 0
+}`)
+	want := "p=(1, one)\nn=((1, 2), true)\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：越界选择器是 fatal（§2.11：越界是编译错误，解释器兜底）。
+func TestTupleMemberOutOfRange(t *testing.T) {
+	_, code, err := runSrcCode(t, `
+static Int main() {
+    (Int, String) p = (1, "one")
+    print(p.2)
+    return 0
+}`)
+	if err == nil || code != 134 {
+		t.Fatalf("越界选择器应为 fatal（134）：code=%d err=%v", code, err)
+	}
+}
