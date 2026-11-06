@@ -1,5 +1,7 @@
 # 回执 M1-ENTRY-01（ENTRY-01 入口与启动）
 
+状态：**DONE 6/6**（执行侧自检完成，证据与提交见下；待 QA L1 / CEO1 L2 签署）
+
 - 先红：新增 `interp_test.go`/`cli_test.go` 入口用例后首次运行 exit 1——interp 4 项失败（重复入口、非法签名），cli 5 项失败（String[] 入口 cc 报 `xn_p_args` 缺参、TopField 未支持、缺失入口落到 cc、重复入口报“重载”）；原始输出 `evidence/M1-ENTRY-01/before/`。
 - 修复：interp 增加入口唯一性/签名校验（缺失、重复、非 static、返回非 void/Int、参数非 String[] 均报编译错误）；codegen 增加 `RequireEntry`（Build 在生成 C 前拒绝缺失入口）、C 入口垫片支持 `String[] args`（argv[1:] 构造新数组）与顶层字段按声明顺序初始化（Int/Bool/String，`xn_init_globals` 先于 `xn_main`）；cli 将非标志参数透传为程序参数，编译/解释一致。
 - 验证：`go test ./internal/interp/...`、`./internal/cli/...` exit 0；8 个示例编译/解释双路径逐字节一致；`entry.x` 双路径输出 `init 1/init 2/main t2 args=2`、退出码 7；`gofmt -l`、`go vet` 无输出。
