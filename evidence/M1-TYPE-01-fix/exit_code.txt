@@ -1,0 +1,2 @@
+before: 1 (TestTYPE01OptionalPromotionLiterals FAIL: String? s = "x" / List<Int>? xs = [1] 报 TY-101)
+after:  0 (正负用例全绿；sema 全量 rc=0)
