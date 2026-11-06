@@ -412,3 +412,111 @@ static Int main() {
 		t.Fatalf("越界选择器应为 fatal（134）：code=%d err=%v", code, err)
 	}
 }
+
+// GEN-01（解释器半边）：泛型 accept 用例必须在 interp 路径产出台账期望输出。
+// 用例源与 c1-rd3 的 gen01_red_test.go 保持一致（不依赖 sema；sema 缺口另域负责）。
+func TestGEN01InterpAccept(t *testing.T) {
+	cases := []struct {
+		id   string
+		src  string
+		want string
+	}{
+		{"G1a", `
+static T identity<T>(T value) { return value }
+static Int main() { print(identity<Int>(7)); return 0 }`, "7\n"},
+		{"G2a", `
+static T identity<T>(T value) { return value }
+static Int main() { print(identity(7)); return 0 }`, "7\n"},
+		{"G2b", `
+static T head<T>(List<T> xs) { return xs.get(0) }
+static Int main() {
+    List<Int> xs = [4, 5]
+    print(head(xs))
+    return 0
+}`, "4\n"},
+		{"G2c", `
+static T pick<T>(T a, T b) { return b }
+static Int main() { print(pick(1, 2)); return 0 }`, "2\n"},
+		{"G5a", `
+static Int pick(Int v) { return v + 1 }
+static T pick<T>(T v) { return v }
+static Int main() { print(pick(3)); return 0 }`, "4\n"},
+		{"G6a", `
+static T identity<T>(T value) { return value }
+static Int main() {
+    print(identity<Int>(1))
+    print(identity<String>("s"))
+    return 0
+}`, "1\ns\n"},
+		{"G6b", `
+static Int count<T>(List<T> xs) { return xs.length() }
+static Int main() {
+    List<Int> a = [1, 2, 3]
+    List<String> b = ["x"]
+    print(count(a))
+    print(count(b))
+    return 0
+}`, "3\n1\n"},
+		{"G8", `
+static T unwrapOr<T>(Result<T, String> r, T d) { return r.unwrapOr(d) }
+static Int main() {
+    Result<Int, String> r = Ok(5)
+    print(unwrapOr(r, 0))
+    return 0
+}`, "5\n"},
+		{"G11", `
+static T keep<T>(T v) {
+    T local = v
+    List<T> box = [v]
+    return local
+}
+static Int main() { print(keep(9)); return 0 }`, "9\n"},
+		{"G14", `
+static Bool isInt<T>(T v) { return v is Int }
+static Int main() { print(isInt<Int>(1)); return 0 }`, "true\n"},
+		{"G18", `
+static Int plain(Int v) { return v }
+static T gen<T>(T v) { return v }
+static Int main() { print(plain(2)); print(gen(3)); return 0 }`, "2\n3\n"},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.id, func(t *testing.T) {
+			out, err := runSrc(t, c.src)
+			if err != nil || out != c.want {
+				t.Fatalf("out=%q want=%q err=%v", out, c.want, err)
+			}
+		})
+	}
+}
+
+// GEN-01（解释器半边）：重载选择必须尊重显式类型实参与非泛型优先级（§8.2）。
+// 红证据：当前 interp 只按参数个数取首个候选，泛型/普通同名会选错。
+func TestGEN01InterpOverloadSelection(t *testing.T) {
+	t.Run("ExplicitTypeArgPicksGeneric", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int pick(Int v) { return v + 1 }
+static T pick<T>(T v) { return v }
+static Int main() { print(pick<Int>(10)); return 0 }`)
+		if err != nil || out != "10\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "10\n", err)
+		}
+	})
+	t.Run("NonGenericPreferred", func(t *testing.T) {
+		out, err := runSrc(t, `
+static T pick<T>(T v) { return v }
+static Int pick(Int v) { return v + 1 }
+static Int main() { print(pick(3)); return 0 }`)
+		if err != nil || out != "4\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "4\n", err)
+		}
+	})
+	t.Run("TypeArgCountMismatchRejected", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static T identity<T>(T v) { return v }
+static Int main() { print(identity<Int, Int>(7)); return 0 }`)
+		if err == nil || code != 1 {
+			t.Fatalf("类型实参数量不符应显式失败：code=%d err=%v", code, err)
+		}
+	})
+}
