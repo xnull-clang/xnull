@@ -1,0 +1,5 @@
+# 命令: go test ./internal/codegen/ -count=1 -skip 'TestGEN01|TestGEN01CrossFile' -v -timeout 600s
+# 说明: 排除本卡新增的 RED 用例，证明既有套件在基线上是绿的（GEN-01 缺口未被现有测试覆盖）
+
+ok  	xnull.dev/xnull/internal/codegen	26.224s
+# 退出码: 0
