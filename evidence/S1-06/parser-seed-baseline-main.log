@@ -1,0 +1,124 @@
+panic: test timed out after 1m30s
+	running tests:
+		TestExamplesCompileMatchesInterp (1m30s)
+		TestExamplesCompileMatchesInterp/parser-seed.xn (1m30s)
+
+goroutine 33 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2961 +0x34a
+created by time.goFunc
+	/usr/local/Cellar/go/1.27.3/libexec/src/time/sleep.go:182 +0x2d
+
+goroutine 1 [chan receive, 1 minutes]:
+testing.(*T).Run(0x2268925e0008, {0x799af53?, 0x2268925d7aa0?}, 0x7b7e270)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+testing.runTests.func1(0x2268925e0008)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2744 +0x37
+testing.tRunner(0x2268925e0008, 0x2268925d7bc8)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+testing.runTests({0x7994a0f, 0xf}, {0x799af73, 0x20}, 0x2268925a0078, {0x7b9d560, 0x9, 0x9}, {0xc2b3a129e8902f90, 0x14f47705e7, ...})
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2742 +0x510
+testing.(*M).Run(0x22689258c1e0)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2602 +0x6af
+main.main()
+	_testmain.go:62 +0x9b
+
+goroutine 19 [chan receive, 1 minutes]:
+testing.(*T).Run(0x2268925e0248, {0x2268925d01f2?, 0x0?}, 0x2268925a0198)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+xnull.dev/xnull/internal/codegen.TestExamplesCompileMatchesInterp(0x2268925e0248)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/codegen/codegen_test.go:81 +0xc5
+testing.tRunner(0x2268925e0248, 0x7b7e270)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+
+goroutine 20 [runnable]:
+xnull.dev/xnull/internal/interp.(*Interp).execBlock.func2()
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:350 +0x85
+panic({0x7b5c530?, 0x7bc4a20?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/runtime/panic.go:859 +0x125
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d418, 0x2268925a5c40}, 0x226892605120, 0x2268929bd4a0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:492 +0x11f4
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x7b64a08?, 0x226892605120)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d3f0, 0x2268926ff0c0}, 0x226892832650, 0x2268929bd730)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:418 +0x865
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0xca61bf0?, 0x226892832650)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).loopBody(0x22689282fcc0?, 0x7b7d1c0?, 0x2268925a5ba0?, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:539 +0x49
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d468, 0x2268925978c0}, 0x226892832650, 0x22689289da10)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:430 +0x1119
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x226892818ea0?, 0x226892832650)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x22689282fcc0, 0x226892818d80, {0x226892588e20, 0x9}, {0x22689289dc38, 0x0, 0x0?}, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x22689282fcc0, 0x2268925af3b0, 0x226892832640)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d2b0, 0x2268925af3b0}, 0x226892832640)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d350, 0x226892814080}, 0x226892832640, 0x22689289e068)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:386 +0x96
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x226892818e70?, 0x226892832640)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x22689282fcc0, 0x226892818d80, {0x2268925894c0, 0x7}, {0x22689289e290, 0x0, 0x2?}, {0x226892589cd0?, 0x4?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x22689282fcc0, 0x22689282a140, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d2b0, 0x22689282a140}, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).evalBinary(0x22689282fcc0, 0x226892817e80, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:670 +0x225
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d260, 0x226892817e80}, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:618 +0x369
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d1c0, 0x226892814dc0}, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:576 +0x7bd
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d3f0, 0x22689282c280}, 0x226892832630, 0x2268929be920)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:417 +0x6c9
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x226892818e40?, 0x226892832630)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x22689282fcc0, 0x226892818d80, {0x226892589300, 0xa}, {0x22689289eb48, 0x0, 0x0?}, {0x0?, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x22689282fcc0, 0x2268925afbd0, 0x226892832620)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d2b0, 0x2268925afbd0}, 0x226892832620)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d378, 0x2268925afb80}, 0x226892832620, 0x22689289ef78)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:390 +0x8b3
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x226892818e10?, 0x226892832620)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).callMethod(0x22689282fcc0, 0x226892818d80, {0x226892589c20, 0xb}, {0x22689289f1a0, 0x1, 0x22689289f120?}, {0x37?, 0x70?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/objects.go:169 +0x32c
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x22689282fcc0, 0x22689282af50, 0x2268928325f0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:851 +0xaad
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d2b0, 0x22689282af50}, 0x2268928325f0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d378, 0x22689282af00}, 0x2268928325f0, 0x22689289f5d0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:390 +0x8b3
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x226892818d50?, 0x2268928325f0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).call(0x22689282fcc0, 0x2268926fc480, {0x22689289f838, 0x1, 0x0?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:319 +0x24d
+xnull.dev/xnull/internal/interp.(*Interp).evalCall(0x22689282fcc0, 0x22689282b270, 0x2268928325e0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:914 +0xf4e
+xnull.dev/xnull/internal/interp.(*Interp).eval(0x22689282fcc0, {0x7b7d2b0, 0x22689282b270}, 0x2268928325e0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:631 +0x745
+xnull.dev/xnull/internal/interp.(*Interp).exec(0x22689282fcc0, {0x7b7d350, 0x226892830120}, 0x2268928325e0, 0x22689289fbf0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:386 +0x96
+xnull.dev/xnull/internal/interp.(*Interp).execBlock(0x22689282fcc0, 0x7b64a08?, 0x2268928325e0)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:358 +0xa5
+xnull.dev/xnull/internal/interp.(*Interp).call(0x22689282fcc0, 0x2268926fc510, {0x0, 0x0, 0x7b3d210?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:319 +0x24d
+xnull.dev/xnull/internal/interp.Run(0x2268925ae780, {0x7b7c978, 0x226892830900}, {0x0, 0x0, 0x2268924c6e50?})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/interp/interp.go:259 +0x5df
+xnull.dev/xnull/internal/codegen.interpRun(0x2268925e0488, {0x2268925f6000, 0x1ddd})
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/codegen/codegen_test.go:66 +0xcf
+xnull.dev/xnull/internal/codegen.TestExamplesCompileMatchesInterp.func1(0x2268925e0488)
+	/Users/vjs/Desktop/XNull-Lang/impl/internal/codegen/codegen_test.go:86 +0xca
+testing.tRunner(0x2268925e0488, 0x2268925a0198)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 19
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+FAIL	xnull.dev/xnull/internal/codegen	90.999s
+FAIL

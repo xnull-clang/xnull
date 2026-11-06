@@ -1,0 +1,6 @@
+=== RUN   TestExamplesCompileMatchesInterp
+=== RUN   TestExamplesCompileMatchesInterp/parser-seed.xn
+signal: killed
+FAIL	xnull.dev/xnull/internal/codegen	670.972s
+FAIL
+exit=1
