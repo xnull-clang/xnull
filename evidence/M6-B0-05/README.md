@@ -25,11 +25,27 @@ after 的 13 个失败单元：编译侧 12 项、解释侧 1 项（`List.remove
 - 绿：`after/interp-gap-green.log`（3/3 PASS）、`after/interp-full.log`（`go test ./internal/interp/...` ok）
 - 代码：`impl/internal/interp/values.go`；测试：`impl/internal/interp/interp_test.go`
 
-## 剩余项（不在本域）
+## 显式替代写法（死命令 1.4.5 的“或”分支）
+
+`alternatives.sh` 对 codegen 未直接支持的 12 项逐一给出只用现有双路径能力的等价写法，
+解释/编译两条路径均 PASS：**12/12**（`after/alternatives/alternatives.tsv`、`summary.txt`）。
+
+因此口径分两层：
+
+| 口径 | 结果 |
+| --- | --- |
+| 直接成员覆盖（矩阵原义） | 65/78 单元；27/39 项双路径全通 |
+| 成员可用性（直接或显式替代） | **39/39 项均有双路径可执行写法** |
+
+## 剩余项（codegen 直接支持，不在本域）
 
 12 项全部是 codegen 缺口，清单见 `收件箱/CEO2/缺口清单-M6-B0-05-codegen-2026-11-07.md`：
 `String.split`、`String.replace`、`T[].join`、`List.insert`、`List.remove`（值返回）、`Map.get`、
 `Map.getMissing`（`Int?` 类型后缀）、`Map.keys`、`Map.values`、`Set.at`、`Set.remove`、`Set.clear`。
+
+替代写法验证过程中另暴露 4 个 codegen 缺口（已并入 CEO2 清单）：
+`+=`/`-=` 复合赋值、`print(null)`、数组形参下标读走原名（漏 `xn_p_` 前缀）、
+`Map.getOr` 的动态 String 键实参触发 `lastVar` 空切片 panic。
 
 ## 三个“未覆盖分支”探测
 
