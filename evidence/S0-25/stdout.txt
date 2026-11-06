@@ -1,0 +1,45 @@
+===== golden/res-with-subdir.c（资源名与计数） =====
+    /* a.txt（5 字节） */
+        .name = "a.txt",
+    /* b.bin（3 字节） */
+        .name = "b.bin",
+    /* config.json（7 字节） */
+        .name = "config.json",
+    /* sub/multi/deep.bin（4 字节） */
+        .name = "sub/multi/deep.bin",
+    /* sub/x.txt（1 字节） */
+        .name = "sub/x.txt",
+    /* templates/mail/welcome.html（9 字节） */
+        .name = "templates/mail/welcome.html",
+
+===== probe/probe.out =====
+S0-25 探针通过：6 项资源，含 3 个多级子目录路径
+probe exit=0
+
+===== negative/run.sh 输出 =====
+badname      exit=2
+broken       exit=2
+escape       exit=2
+dirlink      exit=2
+nonexistent  exit=2
+
+===== go-test-all.out（包级） =====
+ok  	xnull.dev/xnull/internal/cli	6.639s
+ok  	xnull.dev/xnull/internal/codegen	20.198s
+ok  	xnull.dev/xnull/internal/codegen/ffi	9.680s
+ok  	xnull.dev/xnull/internal/devtool	2.735s
+ok  	xnull.dev/xnull/internal/diag	4.097s
+ok  	xnull.dev/xnull/internal/interp	6.205s
+ok  	xnull.dev/xnull/internal/sema	2.148s
+ok  	xnull.dev/xnull/internal/xfront	3.395s
+ok  	xnull.dev/xnull/internal/xpd	5.515s
+
+===== go-test-devcli.out =====
+ok  	xnull.dev/xnull/internal/devtool	1.082s
+ok  	xnull.dev/xnull/internal/cli	2.776s
+
+===== build_rt.out（尾部） =====
+hard-semantics tests passed
+abi 测试通过
+std 测试通过
+资源表测试通过

@@ -1,0 +1,1 @@
+gen_resources: 符号链接指向目录（拒绝递归，避免环）：dirlink

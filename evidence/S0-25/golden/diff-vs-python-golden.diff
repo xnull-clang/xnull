@@ -1,0 +1,33 @@
+--- evidence/S0-21a/golden-res/run1.c	2026-11-07 01:04:59
++++ evidence/S0-25/golden/res-with-subdir.c	2026-11-07 02:05:29
+@@ -34,6 +34,30 @@
+         },
+         .len = 7,
+     },
++    /* sub/multi/deep.bin（4 字节） */
++    {
++        .name = "sub/multi/deep.bin",
++        .data = (const unsigned char[]){
++    0x64, 0x65, 0x65, 0x70,
++        },
++        .len = 4,
++    },
++    /* sub/x.txt（1 字节） */
++    {
++        .name = "sub/x.txt",
++        .data = (const unsigned char[]){
++    0x78,
++        },
++        .len = 1,
++    },
++    /* templates/mail/welcome.html（9 字节） */
++    {
++        .name = "templates/mail/welcome.html",
++        .data = (const unsigned char[]){
++    0x3C, 0x70, 0x3E, 0x68, 0x69, 0x3C, 0x2F, 0x70, 0x3E,
++        },
++        .len = 9,
++    },
+ };
+ 
+ size_t xrt_resource_count(void) {

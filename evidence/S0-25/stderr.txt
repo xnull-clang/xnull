@@ -1,0 +1,9 @@
+===== go-vet.out =====
+(空即无诊断)
+
+===== negative/*.err =====
+-- badname: gen_resources: 资源名非法（每段限 [A-Za-z0-9_.-]）：sub/bad name.txt
+-- broken: gen_resources: 符号链接断链：broken.txt（stat /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.BQsLPWGzEn/broken/broken.txt: no such file or directory）
+-- escape: gen_resources: 符号链接指向资源根之外：escape.txt → /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.BQsLPWGzEn/secret.txt
+-- dirlink: gen_resources: 符号链接指向目录（拒绝递归，避免环）：dirlink
+-- nonexistent: gen_resources: 资源目录不存在：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.BQsLPWGzEn/nonexistent
