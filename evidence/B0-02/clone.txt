@@ -1,27 +1,15 @@
-# 干净 clone 复现（pod/e6-toolchain，未推送，直接从本地仓库 clone）
+# 干净 clone 复现（pod/e6-toolchain，本地 clone，未推送）
 
 clone 源 = /Users/vjs/Desktop/XNull-Lang
-clone 命令 = git clone --branch pod/e6-toolchain --single-branch <源> /tmp/m6-clone
-clone HEAD = e6f4ba11cdc197a31440de11866347efbddb7869
-build_test.go 存在 = 是（impl/internal/codegen/build_test.go）
+clone 命令 = git clone --branch pod/e6-toolchain --single-branch <源> /tmp/b002-clone
+clone HEAD = 05d00154547a4105a68feaaefb97944e833d9f3b
+驱动 = sh evidence/B0-02/run.sh（红 → 绿 → 含 ABI/STD 样例 → 回归）
 
-(cd impl && go test ./internal/codegen ./internal/cli -count=1 -timeout 300s)
-  ok  xnull.dev/xnull/internal/codegen  21.152s
-  ok  xnull.dev/xnull/internal/cli       3.949s
-  exit = 0
-
-sh impl/runtime/build_rt.sh
-  exit = 0（尾部：std 测试通过 / 资源表测试通过）
-
-(cd impl && go build -o /tmp/m6-clone-xnull ./cmd/xnull)
-  exit = 0
-
-/tmp/m6-clone-xnull build examples/hello.x -o /tmp/m6-clone-hello -l m
-  exit = 0
-
-/tmp/m6-clone-hello
-  hello, XNull
-  1 + 2 = 3
-  exit = 0
-
-注：clone 验证的代码提交为 e6f4ba1；其后提交（55fece4 及本次）只追加/补充本证据目录，代码零差异。
+== 结果（exit 0）==
+旧 4 源清单：链接失败（预期红）
+新 8 源清单：链接成功并运行（xrt_abi + rt_std 链接并运行通过）
+xnull build hello.x -l m -L /usr/lib -l m：exit 0，输出 hello, XNull / 1 + 2 = 3
+产物内 xrt_/xdkc_ 符号数：48
+go test ./internal/codegen ./internal/cli：0
+build_rt.sh：PASS
+驱动汇总：B0-02 驱动：全部通过
