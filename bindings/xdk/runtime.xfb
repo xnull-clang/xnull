@@ -1,0 +1,24 @@
+// bindings/xdk/runtime.xfb —— xdk.runtime 的 C 层绑定（S6 §4.4）
+//
+// 公开 API（diagnose/exit/nowMono/nowWall/env）以 XNull 源码层的 xdk.runtime 单元
+// 呈现；本文件只声明其原语，供包装生成与 FFI 合同校验消费。
+// 原语实现：impl/runtime/rt_std_runtime.c（工具链内部库，随产物静态编入）。
+ffi xdkc_runtime {
+  @ffiEntry(cName = "xdkc_diagnose")
+  @lease(msg = .borrow)
+  @blocking(.aware)
+  Void diagnose(String msg);
+
+  @ffiEntry(cName = "xdkc_exit")
+  @lease(code = .borrow)
+  @blocking(.aware)
+  Void exit(Int64 code);
+
+  @ffiEntry(cName = "xdkc_now_mono_ms")
+  @blocking(.aware)
+  Int64 nowMono();
+
+  @ffiEntry(cName = "xdkc_now_wall_ms")
+  @blocking(.aware)
+  Int64 nowWall();
+}
