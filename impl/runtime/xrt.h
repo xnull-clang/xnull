@@ -71,8 +71,40 @@ void xrt_runtime_init(void); /* 幂等；未初始化时创建对象属调用方
 
 xrt_string *xrt_string_new(const char *utf8, size_t len);
 xrt_string *xrt_string_from_c(const char *cstr);
+/* 定长构造：分配头初始化、内容未定义、NUL 结尾；len 为权威长度。
+ * 替代生成代码手写分配头（P-08 迁移清单）。 */
+xrt_string *xrt_string_alloc(size_t len);
+/* String 的类型描述符（S3 §2：is/as 与终结分派用同一描述符实例）。 */
+const xrt_type *xrt_type_string_descriptor(void);
 size_t      xrt_string_len(const xrt_string *s);
 const char *xrt_string_bytes(const xrt_string *s);
+
+/* ---- 边界缓冲区（Bytes 的运行时表示；S7 §3.4） ---- */
+
+typedef struct xrt_bytes {
+    void  *data;
+    size_t len;
+} xrt_bytes;
+
+/* ---- 不透明句柄（S7 §4.3） ----
+ *
+ * 合同：
+ *   - 句柄是普通 ARC 对象，载荷为原生指针；ARC/GC 不解释原生对象（S7 §9 INV-FFI-4）；
+ *   - close 显式且幂等：重复关闭返回成功且不再调用原生 close_fn；
+ *   - deinit 不自动 close，只把泄漏打到诊断通道（S7 §4.3：不得以 deinit 为唯一关闭路径）；
+ *   - 已关闭句柄再取原生指针返回 NULL（拒绝使用后访问）。
+ */
+typedef struct xrt_handle xrt_handle;
+
+xrt_handle *xrt_handle_new(void *native, void (*close_fn)(void *native), const char *what);
+void       *xrt_handle_native(xrt_handle *h); /* 已关闭 → NULL */
+int         xrt_handle_close(xrt_handle *h);  /* 幂等；返回 0 表示已关闭（含重复关闭） */
+void        xrt_handle_mark_closed(xrt_handle *h); /* 已经原生 close 的语义登记：不再触达 close_fn */
+int         xrt_handle_is_closed(const xrt_handle *h);
+
+/* ---- 跨界违约终止（S7 §9 INV-FFI-8：跨界 panic 一律终止进程） ---- */
+
+void xrt_fatal(const char *reason);
 
 #ifdef __cplusplus
 }

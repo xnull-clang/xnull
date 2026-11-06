@@ -90,6 +90,15 @@ rt_string *rt_string_new(const char *utf8, size_t len) {
     return s;
 }
 
+/* 定长构造：只初始化头与长度，内容留给调用方填充（S7 §6.1 稳定 ABI 的
+ * xrt_string_alloc 实现底座；不改变 rt_string_new 语义）。 */
+rt_string *rt_string_alloc(size_t len) {
+    rt_string *s = rt_alloc(RT_KIND_ARC, &RT_TYPE_STRING, sizeof(size_t) + len + 1);
+    s->len = len;
+    s->bytes[len] = '\0';
+    return s;
+}
+
 rt_string *rt_string_from_c(const char *cstr) {
     return rt_string_new(cstr, strlen(cstr));
 }

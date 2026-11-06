@@ -87,6 +87,7 @@ size_t      rt_quarantine_flush(void); /* 回收会合：释放隔离区，返�
 
 /* 字符串构造。 */
 rt_string  *rt_string_new(const char *utf8, size_t len);
+rt_string  *rt_string_alloc(size_t len); /* 定长、内容未初始化、NUL 结尾 */
 rt_string  *rt_string_from_c(const char *cstr);
 
 /* 类型描述符（运行时导出，供 is/as 与编译器登记）。 */

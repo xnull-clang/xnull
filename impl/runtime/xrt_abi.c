@@ -9,6 +9,7 @@
 #include "rt.h"
 #include "rt_gc.h"
 
+#include <stdio.h>
 #include <string.h>
 
 static int g_runtime_inited = 0;
@@ -91,6 +92,91 @@ size_t xrt_string_len(const xrt_string *s) {
     return ((const rt_string *)s)->len;
 }
 
+xrt_string *xrt_string_alloc(size_t len) {
+    return (xrt_string *)rt_string_alloc(len);
+}
+
+const xrt_type *xrt_type_string_descriptor(void) {
+    return (const xrt_type *)&RT_TYPE_STRING;
+}
+
 const char *xrt_string_bytes(const xrt_string *s) {
     return ((const rt_string *)s)->bytes;
 }
+
+/* ---- 句柄（S7 §4.3）：ARC 包装 + 显式幂等关闭 ---- */
+
+typedef struct {
+    void  *native;
+    void (*close_fn)(void *native);
+    int    closed;
+} handle_payload;
+
+static void handle_deinit(void *payload) {
+    handle_payload *p = payload;
+    if (p->native != NULL && !p->closed) {
+        /* 不以 deinit 作唯一关闭路径（S7 §4.3）：只把泄漏暴露到诊断通道 */
+        fprintf(stderr, "xrt: 句柄泄漏：未显式 close（S7 §4.3）\n");
+    }
+}
+
+static const rt_type RT_TYPE_XRT_HANDLE = {
+    "xrt_handle", sizeof(handle_payload), handle_deinit, NULL
+};
+
+xrt_handle *xrt_handle_new(void *native, void (*close_fn)(void *native), const char *what) {
+    (void)what; /* 诊断归属保留位（S7 §4.3；M4.5c 接入任务根后使用） */
+    rt_object *o = rt_arc_new(&RT_TYPE_XRT_HANDLE);
+    handle_payload *p = rt_payload(o);
+    p->native = native;
+    p->close_fn = close_fn;
+    p->closed = (native == NULL);
+    return (xrt_handle *)o;
+}
+
+static handle_payload *handle_of(xrt_handle *h) {
+    return h == NULL ? NULL : rt_payload((rt_object *)h);
+}
+
+void *xrt_handle_native(xrt_handle *h) {
+    handle_payload *p = handle_of(h);
+    if (p == NULL || p->closed || p->native == NULL) {
+        return NULL;
+    }
+    return p->native;
+}
+
+int xrt_handle_close(xrt_handle *h) {
+    handle_payload *p = handle_of(h);
+    if (p == NULL) {
+        return 0;
+    }
+    if (p->closed || p->native == NULL) {
+        p->closed = 1;
+        p->native = NULL;
+        return 0; /* 幂等：重复关闭不再触达原生（S7 §4.3 / INV-FFI-9） */
+    }
+    if (p->close_fn != NULL) {
+        p->close_fn(p->native);
+    }
+    p->closed = 1;
+    p->native = NULL;
+    return 0;
+}
+
+void xrt_handle_mark_closed(xrt_handle *h) {
+    handle_payload *p = handle_of(h);
+    if (p == NULL) {
+        return;
+    }
+    /* 原生侧已完成关闭（绑定 close 入口调用成功）：只登记状态，不重复触达 */
+    p->closed = 1;
+    p->native = NULL;
+}
+
+int xrt_handle_is_closed(const xrt_handle *h) {
+    const handle_payload *p = h == NULL ? NULL : (const void *)((const char *)h + sizeof(rt_header));
+    return p == NULL ? 1 : p->closed;
+}
+
+void xrt_fatal(const char *reason) { rt_fatal(reason); }

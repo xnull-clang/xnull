@@ -114,6 +114,18 @@ int main(void) {
     xrt_release(s2);
     xrt_safepoint();
 
+    /* P-08 迁移面：定长构造、类型描述符、安全点映射 */
+    xrt_string *s3 = xrt_string_alloc(5);
+    CHECK(xrt_string_len(s3) == 5);
+    CHECK(xrt_string_bytes(s3)[5] == '\0');
+    memcpy((char *)xrt_string_bytes(s3), "abcde", 5);
+    CHECK(memcmp(xrt_string_bytes(s3), "abcde", 5) == 0);
+    const xrt_type *td = xrt_type_string_descriptor();
+    CHECK(td != NULL && td->name != NULL && strcmp(td->name, "String") == 0);
+    CHECK(td->deinit != NULL); /* 终结分派与 is/as 共用同一描述符实例 */
+    xrt_release(s3);
+    xrt_safepoint();
+
     if (g_failures != 0) {
         fprintf(stderr, "abi 测试失败 %d 项\n", g_failures);
         return 1;
