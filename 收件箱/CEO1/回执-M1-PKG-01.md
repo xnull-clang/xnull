@@ -1,3 +1,7 @@
+**状态：DONE（7/7）**　**锚点：M1-PKG-01**　**代码+证据提交：`9bb6bef`**　**本回执更新提交：见 `git log -1 -- 收件箱/CEO1/回执-M1-PKG-01.md`**
+
+---
+
 1. 改了什么：实现 PKG-01（S1 §3 包与导入）。新增 `impl/internal/sema/pkg.go`（包符号表 `Package`/`NewPackage`、`AnalyzeWithDeps`、导入环检测、顶层名扫描）与 `impl/internal/sema/pkg_test.go`（8 个 Test，先红后绿）；重写 `impl/internal/sema/xdk.go` 的 `analyzeImports`（XDK 与用户包统一解析、别名/歧义/重复导入规则）；`impl/internal/sema/sema.go` 仅加 `analyzer.deps` 字段并把 `AnalyzeWith` 委托给 `analyzeWith`。未改现有测试期望、未删测试、未改 xfront/CLI/codegen。
 2. 怎么验：`cd impl && go vet ./internal/sema ./internal/xfront`（exit 0）；`go test ./internal/sema -count=1 -v`（ok）；`go test ./internal/xfront -count=1 -v`（ok）；锚点 8 用例全 PASS；`go test ./internal/codegen -count=1 -timeout 300s`（ok，回归）；`go test ./... -count=1 -timeout 300s`（10 包全 ok）；双路径 `examples/multi`：编译产物 stdout 与 `--interp` stdout 逐字节一致、退出码均 0（`diff/` 空 diff）。原始输出见 `evidence/M1-PKG-01/{red,logs,stdout.txt,stderr.txt,exit_code.txt}`。
 3. sha：工作树 `wt/c1-rd1`/分支 `pod/c1-rd1`，提交前基线 `81ec33d`（S0-28；impl 代码与 `dfcf033` 相同）；代码+证据提交 `9bb6bef48e7428c94414391fe27ed929ac2fdfc4`，本回执为紧随其后的独立提交（HEAD 见 `git log -1`）。红证据时间 `2026-11-07 03:22:35 CST`，早于实现落盘；实现补丁见 `evidence/M1-PKG-01/diff/impl.patch`。
