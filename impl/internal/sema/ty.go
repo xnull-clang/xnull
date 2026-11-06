@@ -26,6 +26,7 @@ const (
 	TyNullToValue   = "TY-103" // null → 非可空值类型（§2.6 禁止）
 	TyCondNotBool   = "TY-104" // 条件必须是 Bool（§6.1）
 	TyBadOperand    = "TY-105" // 无效运算操作数（§7.2/§9.2）
+	TyMapKey        = "TY-106" // Map 键类型不支持（§9.5）
 )
 
 // texpr 是表达式的静态类型：key 是规范化类型串；lit 标记未定型字面量。
@@ -88,6 +89,64 @@ func unwrapOpt(key string) string {
 		return key[:len(key)-1]
 	}
 	return key
+}
+
+// mapKeyAllowed 判定 Map 键类型是否合法（§9.5）：String、整数类型、简单枚举。
+// 未知命名类型按“可能是简单枚举”放行（枚举集合在 typedecl 遍，本遍不误报）。
+func mapKeyAllowed(k string) bool {
+	base := unwrapOpt(k)
+	if base == "String" || isIntType(base) {
+		return true
+	}
+	switch base {
+	case "Bool", "Float", "Double", "Char", "Any", "Object", "void", "":
+		return false
+	}
+	if isRefType(base) || strings.HasSuffix(base, "]") ||
+		strings.HasPrefix(base, "List<") || strings.HasPrefix(base, "Map<") ||
+		strings.HasPrefix(base, "Set<") || strings.HasPrefix(base, "(") {
+		return false
+	}
+	return true
+}
+
+// splitTypeArgs 按顶层逗号切分泛型实参（支持 Map<Map<Int,Int>,Int> 这类嵌套）。
+func splitTypeArgs(s string) []string {
+	var out []string
+	depth := 0
+	start := 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '<', '(', '[':
+			depth++
+		case '>', ')', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				out = append(out, s[start:i])
+				start = i + 1
+			}
+		}
+	}
+	out = append(out, s[start:])
+	return out
+}
+
+// checkMapKey 对声明类型 Map<K,V> 的 K 做 §9.5 检查（非 Map 类型不动作）。
+func (e *tyenv) checkMapKey(p xfront.Pos, key string) {
+	if !strings.HasPrefix(key, "Map<") || !strings.HasSuffix(key, ">") {
+		return
+	}
+	parts := splitTypeArgs(key[len("Map<") : len(key)-1])
+	if len(parts) == 0 {
+		return
+	}
+	k := strings.TrimSpace(parts[0])
+	if !mapKeyAllowed(k) {
+		e.errf(p, TyMapKey,
+			fmt.Sprintf("Map 键类型 %s 不被支持（§9.5：只允许 String、整数类型和简单枚举）", k),
+			"改用 String 或整数键，或把键编码为 String")
+	}
 }
 
 // isRefType 判断类型串是否引用类型（§2.6 空值规则）。
@@ -197,6 +256,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			}
 		case *xfront.TopField:
 			k := typeKey(n.Type)
+			e.checkMapKey(n.P, k)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
@@ -219,6 +279,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				retKey = typeKey(fn.Ret)
 			}
 			for _, p := range fn.Params {
+				e.checkMapKey(p.P, typeKey(p.Type))
 				e.vars[p.Name] = typeKey(p.Type)
 			}
 			e.walkFunc(fn.Body, retKey)
@@ -278,6 +339,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			it := e.infer(n.Init)
 			if n.Type != nil {
 				k := typeKey(n.Type)
+				e.checkMapKey(n.P, k)
 				if k == "void" {
 					e.errf(n.P, TyAssignability, "void 不能作为变量类型（§2）", "变量类型必须是具体类型")
 					e.vars[n.Name] = ""
@@ -760,16 +822,18 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 	case strings.HasPrefix(k, "List<"):
 		switch name {
-		case "get":
+		case "get", "remove": // §9.4：remove(index) 返回被删元素
 			return texpr{key: genericArg(k, "List<")}
 		case "length":
 			return texpr{key: "Int"}
-		case "push", "insert", "set", "remove", "clear":
+		case "push", "insert", "set", "clear":
 			return texpr{key: "void"}
 		}
 	case strings.HasPrefix(k, "Map<"):
 		switch name {
-		case "get", "getOr":
+		case "get": // §9.5：get 返回 V?（缺失键 null）
+			return texpr{key: mapVal(k) + "?"}
+		case "getOr":
 			return texpr{key: mapVal(k)}
 		case "has":
 			return texpr{key: "Bool"}

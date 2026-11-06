@@ -11,17 +11,25 @@ import (
 
 // ---------- M2.4 解释器全量化：容器 / 元组 / 闭包 / is / as ----------
 
-// mapv 是 Map 运行值。keys 保持按规范化键排序（DET-01：keys()/values()/打印
-// 顺序确定性——impl/README "map 参与输出必须按键排序"的落实点）。
+// mapv 是 Map 运行值。存储与迭代顺序解耦（§9.8：查找/插入/删除平均 O(1)）：
+//   - vals/disp 是哈希索引（Go map），put/get/remove 均摊 O(1)；
+//   - 输出顺序仍是**规范化键升序**（DET-01 与既有用例要求），但不维护有序数组，
+//     改为惰性快照：sorted 是上次排序结果，dirty 是新增键，stale 标记有删除。
+//     keys()/values() 时做一次「过滤 + 排序 + 归并」，复杂度 O(n + k log k)，
+//     不把排序成本摊到每次 put 上。
 type mapv struct {
-	keys []string // 规范化键，升序
-	vals map[string]*Value
-	disp map[string]*Value // 原始键值（keys() 返回用）
+	vals   map[string]*Value
+	disp   map[string]*Value // 原始键值（keys() 返回用）
+	sorted []string          // 上次升序快照（可能含已删除键，读时按 vals 过滤）
+	dirty  []string          // 快照后新增的键（未排序）
+	stale  bool              // 快照后发生过删除
 }
 
 func newMapv() *mapv {
 	return &mapv{vals: map[string]*Value{}, disp: map[string]*Value{}}
 }
+
+func (m *mapv) len() int { return len(m.vals) }
 
 // canonKey 规范化键：带类别标记避免 `1` 与 `"1"` 与 `'1'` 撞键。
 func canonKey(v *Value) (string, bool) {
@@ -47,10 +55,7 @@ func (m *mapv) set(k, val *Value) {
 		panic(runtimeErr{"Map 键只能是 Int / String / Bool / Char"})
 	}
 	if _, exists := m.vals[ck]; !exists {
-		idx := sort.SearchStrings(m.keys, ck)
-		m.keys = append(m.keys, "")
-		copy(m.keys[idx+1:], m.keys[idx:])
-		m.keys[idx] = ck
+		m.dirty = append(m.dirty, ck)
 	}
 	m.vals[ck] = val
 	m.disp[ck] = k
@@ -75,9 +80,157 @@ func (m *mapv) remove(k *Value) bool {
 	}
 	delete(m.vals, ck)
 	delete(m.disp, ck)
-	idx := sort.SearchStrings(m.keys, ck)
-	m.keys = append(m.keys[:idx], m.keys[idx+1:]...)
+	m.stale = true
 	return true
+}
+
+// keysSorted 返回存活键的升序快照（O(n + k log k)；不改 vals）。
+func (m *mapv) keysSorted() []string {
+	if len(m.dirty) == 0 && !m.stale {
+		return m.sorted
+	}
+	base := m.sorted
+	if m.stale {
+		kept := make([]string, 0, len(base))
+		for _, ck := range base {
+			if _, ok := m.vals[ck]; ok {
+				kept = append(kept, ck)
+			}
+		}
+		base = kept
+		m.stale = false
+	}
+	// dirty 里可能有新增后又删除的键，统一按 vals 过滤。
+	dirty := make([]string, 0, len(m.dirty))
+	for _, ck := range m.dirty {
+		if _, ok := m.vals[ck]; ok {
+			dirty = append(dirty, ck)
+		}
+	}
+	m.dirty = nil
+	sort.Strings(dirty)
+	if len(dirty) == 0 {
+		m.sorted = base
+		return m.sorted
+	}
+	merged := make([]string, 0, len(base)+len(dirty))
+	i, j := 0, 0
+	for i < len(base) && j < len(dirty) {
+		switch {
+		case base[i] < dirty[j]:
+			merged = append(merged, base[i])
+			i++
+		case base[i] > dirty[j]:
+			merged = append(merged, dirty[j])
+			j++
+		default: // 键同时出现在快照与新增（删除后重加）：只保留一份
+			merged = append(merged, base[i])
+			i++
+			j++
+		}
+	}
+	merged = append(merged, base[i:]...)
+	merged = append(merged, dirty[j:]...)
+	m.sorted = merged
+	return m.sorted
+}
+
+// setv 是 Set 运行值：哈希索引 + 插入序（§9.6/§9.8）。
+//   - idx/pos 提供平均 O(1) 的 add/has/remove；
+//   - ord 保持插入序（删除置 nil 墓碑），at/for-in 按序读并跳过墓碑；
+//   - 墓碑过多时 compact（均摊 O(1)）。
+type setv struct {
+	idx  map[string]*Value
+	pos  map[string]int
+	ord  []*Value
+	live int
+}
+
+func newSetv() *setv {
+	return &setv{idx: map[string]*Value{}, pos: map[string]int{}}
+}
+
+// elemKey 取 Set 元素的规范化键；不支持的类型运行时拒绝（静态限制在 sema）。
+func elemKey(v *Value) string {
+	ck, ok := canonKey(v)
+	if !ok {
+		panic(runtimeErr{"Set 元素只能是 Int / String / Bool / Char"})
+	}
+	return ck
+}
+
+func (s *setv) add(v *Value) bool {
+	ck := elemKey(v)
+	if _, exists := s.idx[ck]; exists {
+		return false
+	}
+	s.pos[ck] = len(s.ord)
+	s.ord = append(s.ord, v)
+	s.idx[ck] = v
+	s.live++
+	return true
+}
+
+func (s *setv) has(v *Value) bool {
+	_, ok := s.idx[elemKey(v)]
+	return ok
+}
+
+func (s *setv) remove(v *Value) bool {
+	ck := elemKey(v)
+	if _, exists := s.idx[ck]; !exists {
+		return false
+	}
+	s.ord[s.pos[ck]] = nil
+	delete(s.pos, ck)
+	delete(s.idx, ck)
+	s.live--
+	s.maybeCompact()
+	return true
+}
+
+func (s *setv) at(i int) *Value {
+	if i < 0 || i >= s.live {
+		panic(fatal{"Set.at 越界"})
+	}
+	n := 0
+	for _, e := range s.ord {
+		if e == nil {
+			continue
+		}
+		if n == i {
+			return e
+		}
+		n++
+	}
+	panic(fatal{"Set.at 越界"})
+}
+
+// elements 返回插入序的存活元素（O(n)；墓碑过多时先 compact）。
+func (s *setv) elements() []*Value {
+	s.maybeCompact()
+	out := make([]*Value, 0, s.live)
+	for _, e := range s.ord {
+		if e != nil {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func (s *setv) maybeCompact() {
+	if len(s.ord) <= 2*s.live+8 {
+		return
+	}
+	out := make([]*Value, 0, s.live)
+	for _, e := range s.ord {
+		if e == nil {
+			continue
+		}
+		s.pos[elemKey(e)] = len(out)
+		out = append(out, e)
+	}
+	s.ord = out
 }
 
 // clov 是闭包运行值（§7.7：参数类型显式；捕获创建时作用域）。
@@ -167,7 +320,8 @@ func (in *Interp) evalTupleMember(n *xfront.TupleMember, sc *scope) *Value {
 func (in *Interp) evalNewArray(n *xfront.NewArray, sc *scope) *Value {
 	cnt := in.eval(n.Count, sc)
 	if cnt.K != vInt || cnt.I < 0 {
-		panic(runtimeErr{"数组长度必须是非负 Int"})
+		// §9.3：count 必须是 Int；负数或分配失败是 panic。
+		panic(fatal{"数组长度必须是非负 Int（§9.3：负数即 panic）"})
 	}
 	z := zeroValue(n.Type)
 	elems := make([]*Value, cnt.I)
@@ -311,10 +465,10 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vStr, S: strings.ReplaceAll(recv.S, args[0].S, args[1].S)}, true
 		case "toUpper":
 			need(0)
-			return &Value{K: vStr, S: strings.ToUpper(recv.S)}, true // ASCII（§9.2）
+			return &Value{K: vStr, S: asciiUpper(recv.S)}, true // §9.2：只转 ASCII 字母
 		case "toLower":
 			need(0)
-			return &Value{K: vStr, S: strings.ToLower(recv.S)}, true
+			return &Value{K: vStr, S: asciiLower(recv.S)}, true // §9.2：只转 ASCII 字母
 		case "startsWith":
 			need(1)
 			return &Value{K: vBool, B: strings.HasPrefix(recv.S, args[0].S)}, true
@@ -346,13 +500,11 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
-			i := int(clampIdx(args[0], int64(len(recv.A))))
-			if i < 0 {
-				i = 0
+			// §9.4：insert 只在 0..length 合法，越界 panic（不钳制）。
+			if args[0].K != vInt || args[0].I < 0 || args[0].I > int64(len(recv.A)) {
+				panic(fatal{fmt.Sprintf("List.insert 下标越界：len=%d, idx=%s（§9.4 合法范围 0..length）", len(recv.A), format(args[0]))})
 			}
-			if i > len(recv.A) {
-				i = len(recv.A)
-			}
+			i := int(args[0].I)
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
 			recv.A[i] = args[1]
@@ -375,11 +527,12 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 		case "remove":
 			need(1)
 			i := int(args[0].I)
-			if i < 0 || i >= len(recv.A) {
+			if args[0].K != vInt || i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.remove 下标越界"})
 			}
+			removed := recv.A[i]
 			recv.A = append(recv.A[:i], recv.A[i+1:]...)
-			return &Value{K: vNull}, true
+			return removed, true // §9.4：删除并返回被删元素
 		case "clear":
 			need(0)
 			recv.A = nil
@@ -389,16 +542,17 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 		switch name {
 		case "length":
 			need(0)
-			return &Value{K: vInt, I: int64(len(recv.M.keys))}, true
+			return &Value{K: vInt, I: int64(recv.M.len())}, true
 		case "put":
 			need(2)
 			recv.M.set(args[0], args[1])
 			return &Value{K: vNull}, true
 		case "get":
 			need(1)
+			// §9.5：get 返回 V?，缺失键返回 null，不 panic。
 			v, ok := recv.M.get(args[0])
 			if !ok {
-				panic(fatal{"Map.get 键不存在：" + format(args[0]) + "（用 getOr 提供缺省）"})
+				return &Value{K: vNull}, true
 			}
 			return v, true
 		case "getOr":
@@ -420,15 +574,17 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vNull}, true
 		case "keys":
 			need(0)
-			elems := make([]*Value, len(recv.M.keys))
-			for i, k := range recv.M.keys {
+			ks := recv.M.keysSorted()
+			elems := make([]*Value, len(ks))
+			for i, k := range ks {
 				elems[i] = recv.M.disp[k]
 			}
 			return &Value{K: vArr, A: elems}, true // 按键排序（DET-01）
 		case "values":
 			need(0)
-			elems := make([]*Value, len(recv.M.keys))
-			for i, k := range recv.M.keys {
+			ks := recv.M.keysSorted()
+			elems := make([]*Value, len(ks))
+			for i, k := range ks {
 				elems[i] = recv.M.vals[k]
 			}
 			return &Value{K: vArr, A: elems}, true // 按键排序（DET-01）
@@ -437,47 +593,50 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 		switch name {
 		case "length":
 			need(0)
-			return &Value{K: vInt, I: int64(len(recv.A))}, true
+			return &Value{K: vInt, I: int64(recv.Set.live)}, true
 		case "add":
 			need(1)
-			for _, e := range recv.A {
-				if valueEqual(e, args[0]) {
-					return &Value{K: vBool, B: false}, true
-				}
-			}
-			recv.A = append(recv.A, args[0])
-			return &Value{K: vBool, B: true}, true
+			return &Value{K: vBool, B: recv.Set.add(args[0])}, true
 		case "has":
 			need(1)
-			for _, e := range recv.A {
-				if valueEqual(e, args[0]) {
-					return &Value{K: vBool, B: true}, true
-				}
-			}
-			return &Value{K: vBool, B: false}, true
+			return &Value{K: vBool, B: recv.Set.has(args[0])}, true
 		case "at":
 			need(1)
-			i := int(args[0].I)
-			if i < 0 || i >= len(recv.A) {
-				panic(fatal{"Set.at 越界"})
+			if args[0].K != vInt {
+				panic(runtimeErr{"Set.at 下标必须是 Int"})
 			}
-			return recv.A[i], true
+			return recv.Set.at(int(args[0].I)), true
 		case "remove":
 			need(1)
-			for i, e := range recv.A {
-				if valueEqual(e, args[0]) {
-					recv.A = append(recv.A[:i], recv.A[i+1:]...)
-					return &Value{K: vBool, B: true}, true
-				}
-			}
-			return &Value{K: vBool, B: false}, true
+			return &Value{K: vBool, B: recv.Set.remove(args[0])}, true
 		case "clear":
 			need(0)
-			recv.A = nil
+			recv.Set = newSetv()
 			return &Value{K: vNull}, true
 		}
 	}
 	return nil, false
+}
+
+// asciiUpper / asciiLower 只转换 ASCII 字母（§9.2）；其余字节原样保留。
+func asciiUpper(s string) string {
+	b := []byte(s)
+	for i := range b {
+		if b[i] >= 'a' && b[i] <= 'z' {
+			b[i] -= 'a' - 'A'
+		}
+	}
+	return string(b)
+}
+
+func asciiLower(s string) string {
+	b := []byte(s)
+	for i := range b {
+		if b[i] >= 'A' && b[i] <= 'Z' {
+			b[i] += 'a' - 'A'
+		}
+	}
+	return string(b)
 }
 
 // clampIdx 下标参数钳制（substring 的负数/越界按 §9.2 收敛）。
@@ -522,22 +681,11 @@ func coerceByDecl(t xfront.TypeRef, v *Value) *Value {
 	case "List":
 		return &Value{K: vList, A: v.A}
 	case "Set":
-		seen := newMapv() // 借用 map 的键去重（保持确定性）
-		_ = seen
-		var elems []*Value
+		s := newSetv()
 		for _, e := range v.A {
-			dup := false
-			for _, x := range elems {
-				if valueEqual(x, e) {
-					dup = true
-					break
-				}
-			}
-			if !dup {
-				elems = append(elems, e)
-			}
+			s.add(e) // 去重且保持首次出现顺序（§9.6）
 		}
-		return &Value{K: vSet, A: elems}
+		return &Value{K: vSet, Set: s}
 	}
 	return v
 }
@@ -575,7 +723,7 @@ func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	}()
 	sc := newScope(c.env)
 	for i, prm := range c.params {
-		sc.define(prm.Name, args[i])
+		sc.defineTyped(prm.Name, prm.Type, args[i])
 	}
 	if c.exprB != nil {
 		return in.eval(c.exprB, sc)
@@ -595,14 +743,16 @@ func formatContainer(v *Value) string {
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	case vSet:
-		parts := make([]string, len(v.A))
-		for i, e := range v.A {
+		elems := v.Set.elements()
+		parts := make([]string, len(elems))
+		for i, e := range elems {
 			parts[i] = format(e)
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
 	case vMap:
-		parts := make([]string, 0, len(v.M.keys))
-		for _, k := range v.M.keys {
+		ks := v.M.keysSorted()
+		parts := make([]string, 0, len(ks))
+		for _, k := range ks {
 			parts = append(parts, format(v.M.disp[k])+": "+format(v.M.vals[k]))
 		}
 		return "{" + strings.Join(parts, ", ") + "}"
