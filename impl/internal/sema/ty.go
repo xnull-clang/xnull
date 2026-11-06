@@ -894,7 +894,9 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			return texpr{key: genericArg(k, "List<")}
 		case "length":
 			return texpr{key: "Int"}
-		case "push", "insert", "set", "remove", "clear":
+		case "remove":
+			return texpr{key: genericArg(k, "List<")} // 返回被删元素类型 V（M6-B0-05）
+		case "push", "insert", "set", "clear":
 			return texpr{key: "void"}
 		}
 	case strings.HasPrefix(k, "Map<"):
