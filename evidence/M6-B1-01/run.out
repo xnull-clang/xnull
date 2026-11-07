@@ -1,0 +1,11 @@
+xnfmt sha256=d5c88ce8b4869683ab9bbf754ec5fd910bb04aec42eec7a62b0a5a453b46fc5e
+文件数：122
+幂等失败：0
+稳定性失败：0
+check_exit=1
+未格式化文件数：12 / 122
+
+== 规则与幂等测试 ==
+ok  	xnull.dev/xnull/internal/xnfmt	0.649s
+ok  	xnull.dev/xnull/cmd/xnfmt	1.061s
+B1-01 驱动：全部通过
