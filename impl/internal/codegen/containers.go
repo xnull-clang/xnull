@@ -54,13 +54,14 @@ func isRef(c string) bool {
 
 // containers 收集本次翻译单元需要的实例化，并给出生成文本。
 type containers struct {
-	arr map[string]bool // 元素 C 类型
-	set map[string]bool
-	mp  map[string][2]string // "k|v" → {k, v}
+	arr      map[string]bool // 元素 C 类型
+	set      map[string]bool
+	mp       map[string][2]string // "k|v" → {k, v}
+	declared map[string]bool      // 已提前生成 typedef 的容器（Result 依赖）
 }
 
 func newContainers() *containers {
-	return &containers{arr: map[string]bool{}, set: map[string]bool{}, mp: map[string][2]string{}}
+	return &containers{arr: map[string]bool{}, set: map[string]bool{}, mp: map[string][2]string{}, declared: map[string]bool{}}
 }
 
 func (cs *containers) needArr(elem string) error {
@@ -125,6 +126,51 @@ func mapName(k, v string) string {
 	return "xn_map_" + km + "_" + vm
 }
 
+// emitTypeDecls 只生成指定容器的 typedef（供 Result 成员在容器助手之前引用）。
+func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) {
+	if len(needed) == 0 {
+		return
+	}
+	var kinds []string
+	for e := range cs.arr {
+		if needed[arrName(e)] {
+			kinds = append(kinds, e)
+		}
+	}
+	sort.Strings(kinds)
+	for _, e := range kinds {
+		n := arrName(e)
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %s *data; } %s;\n\n", e, n)
+		cs.declared[n] = true
+	}
+	var skeys []string
+	for k := range cs.set {
+		if needed[setName(k)] {
+			skeys = append(skeys, k)
+		}
+	}
+	sort.Strings(skeys)
+	for _, e := range skeys {
+		n := setName(e)
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; %s *a; } %s;\n\n", arrName(e), n)
+		cs.declared[n] = true
+	}
+	var mkeys []string
+	for k := range cs.mp {
+		pair := cs.mp[k]
+		if needed[mapName(pair[0], pair[1])] {
+			mkeys = append(mkeys, k)
+		}
+	}
+	sort.Strings(mkeys)
+	for _, k := range mkeys {
+		pair := cs.mp[k]
+		n := mapName(pair[0], pair[1])
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %s *keys; %s *vals; } %s;\n\n", pair[0], pair[1], n)
+		cs.declared[n] = true
+	}
+}
+
 // emit 生成全部实例化的结构定义与静态助手（排序保证确定性输出）。
 func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	var kinds []string
@@ -133,7 +179,7 @@ func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	}
 	sort.Strings(kinds)
 	for _, e := range kinds {
-		emitArrHelpers(b, e, isGC(e))
+		emitArrHelpers(b, e, isGC(e), cs.declared[arrName(e)])
 	}
 	var keys []string
 	for k := range cs.set {
@@ -141,7 +187,7 @@ func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	}
 	sort.Strings(keys)
 	for _, e := range keys {
-		emitSetHelpers(b, e, isGC(e))
+		emitSetHelpers(b, e, isGC(e), cs.declared[setName(e)])
 	}
 	var mkeys []string
 	for k := range cs.mp {
@@ -150,12 +196,12 @@ func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	sort.Strings(mkeys)
 	for _, k := range mkeys {
 		pair := cs.mp[k]
-		emitMapHelpers(b, pair[0], pair[1], isGC(pair[0]), isGC(pair[1]))
+		emitMapHelpers(b, pair[0], pair[1], isGC(pair[0]), isGC(pair[1]), cs.declared[mapName(pair[0], pair[1])])
 	}
 }
 
 // emitArrHelpers 生成 T[]/List<T> 的 GC 对象（S3 §10：分配头 + 长度 + 元素区）。
-func emitArrHelpers(b *strings.Builder, elem string, gcElem bool) {
+func emitArrHelpers(b *strings.Builder, elem string, gcElem bool, skipDecl bool) {
 	n := arrName(elem)
 	ref := isRef(elem)
 	arc := ref && !gcElem
@@ -201,9 +247,10 @@ func emitArrHelpers(b *strings.Builder, elem string, gcElem bool) {
 	default:
 		elemStr = "rt_string_from_c(\"\")"
 	}
-	fmt.Fprintf(b, `typedef struct { rt_header hdr; size_t len; size_t cap; %[2]s *data; } %[1]s;
-
-%[9]sstatic void %[1]s_deinit(void *p) {
+	if !skipDecl {
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %s *data; } %s;\n\n", elem, n)
+	}
+	fmt.Fprintf(b, `%[9]sstatic void %[1]s_deinit(void *p) {
     %[1]s *a = (%[1]s *)p;
     if (a->data != NULL) {
 %[10]s        free(a->data);
@@ -286,7 +333,7 @@ static rt_string *%[1]s_join(%[1]s *a, rt_string *sep) {
 }
 
 // emitSetHelpers 生成 Set<T> 的 GC 对象（内部持有数组对象）。
-func emitSetHelpers(b *strings.Builder, elem string, gcElem bool) {
+func emitSetHelpers(b *strings.Builder, elem string, gcElem bool, skipDecl bool) {
 	an := arrName(elem)
 	sn := setName(elem)
 	arc := isRef(elem) && !gcElem
@@ -300,9 +347,10 @@ func emitSetHelpers(b *strings.Builder, elem string, gcElem bool) {
 	if arc {
 		dropRemoved = "            rt_release(s->a->data[i]);\n"
 	}
-	fmt.Fprintf(b, `typedef struct { rt_header hdr; %[1]s *a; } %[2]s;
-
-static void %[2]s_scan(void *p, void (*visit)(void *)) {
+	if !skipDecl {
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; %s *a; } %s;\n\n", an, sn)
+	}
+	fmt.Fprintf(b, `static void %[2]s_scan(void *p, void (*visit)(void *)) {
     %[2]s *s = (%[2]s *)p;
     if (s->a != NULL) { visit(s->a); }
 }
@@ -360,7 +408,7 @@ static void %[2]s_clear(%[2]s *s) { %[1]s_clear(s->a); }
 }
 
 // emitMapHelpers 生成 Map<K,V> 的 GC 对象（keys/vals 元素区登记扫描）。
-func emitMapHelpers(b *strings.Builder, k, v string, gcK, gcV bool) {
+func emitMapHelpers(b *strings.Builder, k, v string, gcK, gcV bool, skipDecl bool) {
 	n := mapName(k, v)
 	arcK := isRef(k) && !gcK
 	arcV := isRef(v) && !gcV

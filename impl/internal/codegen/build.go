@@ -104,6 +104,20 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	// 句柄类型（File/Dir…）由绑定层注入，不在源码中声明；
 	// 登记后再做 sema 的签名类型可见性检查。
 	sema.RegisterExternalTypes(FFIHandleTypes(reg)...)
+	sema.RegisterExternalTypes("Process")
+	// S6-03：sys *Async / Process 入口（Context 与出参形态无法写进 .xfb）。
+	// 仅当工程绑定层已有 File/Dir 句柄时注入，避免无 sys 绑定的工程被塞入未用声明。
+	if regHasHandle(reg, "File") || regHasHandle(reg, "Dir") {
+		if err := InjectSys603(u); err != nil {
+			fmt.Fprintf(stderr, "xnull: %v\n", err)
+			return 1
+		}
+		// S6-04：内嵌资源读取（Result/Bytes/Text/List 形态无法写进 .xfb）。
+		if err := InjectS604(u); err != nil {
+			fmt.Fprintf(stderr, "xnull: %v\n", err)
+			return 1
+		}
+	}
 	for _, note := range UnsupportedFFIEntries(reg) {
 		fmt.Fprintf(stderr, "xnull: 提示：%s（调用将报未定义标识符）\n", note)
 	}

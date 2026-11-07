@@ -382,6 +382,14 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		if !ok {
 			return "", fmt.Errorf("codegen：调用目标 %T 未支持", n.Callee)
 		}
+		// S6-03：内建 sys Async/Process 入口。
+		if t, ok := sys603Type(id.Name); ok {
+			return t, nil
+		}
+		// S6-04：资源读取内建入口。
+		if t, ok, err := s604Type(id.Name, s.g); ok {
+			return t, err
+		}
 		switch id.Name {
 		case "Ok", "Err":
 			return "", fmt.Errorf("codegen：Ok/Err 需在 Result 上下文使用")

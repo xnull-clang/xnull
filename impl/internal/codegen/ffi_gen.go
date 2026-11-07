@@ -216,6 +216,12 @@ func (s *scope) handleExpr(e xfront.Expr) ([]string, string, error) {
 		if !ok {
 			return nil, "", fmt.Errorf("codegen：句柄表达式调用 %T 未支持（B0-07c 范围）", n.Callee)
 		}
+		// S6-03：*Async 打开/创建返回 File?/Dir?/Process?（内建降级，不走 .xfb）。
+		switch id.Name {
+		case "fileOpenReadAsync", "fileOpenWriteAsync", "dirOpenAsync", "procSpawn":
+			lines, expr, _, err := s.sys603Call(n)
+			return lines, expr, err
+		}
 		entry, isFFI := s.ffiEntry(id.Name)
 		if !isFFI || entry.Ret.Kind != ffi.KindHandle {
 			return nil, "", fmt.Errorf("codegen：%s 不是返回句柄的 FFI 入口（B0-07c 范围）", id.Name)

@@ -429,6 +429,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			g.handleNames[h.Name] = true
 		}
 	}
+	// S6-03：Process 是内建句柄族（.xfb 无法声明其 Context/出参入口）。
+	g.handleNames["Process"] = true
 	g.collectGenerics(u)
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
@@ -649,6 +651,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	var b strings.Builder
 	b.WriteString(prelude)
+	b.WriteString(sys603SupportText)
+	b.WriteString(s604SupportText)
 	// 元组结构体（S1 §2.11）：元素可能引用类类型，须在类前向声明之后、
 	// 容器/类/函数定义之前（S3-05：元组引用元素）。
 	// 协议类型与 vtable 对象前缀（S2 §4/§5.7）。
@@ -695,6 +699,19 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	g.emitTupleTypes(&b)
 	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
 	{
+		// S6-04：Result 成员可直接是容器（Result<List<String>, Error>）；
+		// 先提前生成这些容器的 typedef，避免 Result typedef 引用未定义类型。
+		needed := map[string]bool{}
+		for name := range g.results {
+			info, err := g.resultInfo(name)
+			if err != nil {
+				return "", err
+			}
+			if isContainerC(info.memberC) {
+				needed[strings.TrimSuffix(info.memberC, " *")] = true
+			}
+		}
+		g.cs.emitTypeDecls(&b, needed)
 		rnames := make([]string, 0, len(g.results))
 		for name := range g.results {
 			rnames = append(rnames, name)
@@ -1352,6 +1369,25 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 	case "TaskError":
 		// 任务边界错误面：复用 S4 ErrorKind（S5-00 §八）。
 		return "xrt_error_kind", nil
+	case "Bytes":
+		return "xrt_bytes_obj *", nil
+	case "Text":
+		return "xrt_text *", nil
+	case "Error":
+		// S6-04：资源 API 的 Error 以 ErrorKind 值通道交付（E5 资源 ABI）。
+		return "xrt_error_kind", nil
+	case "List":
+		if len(nt.Args) != 1 {
+			return "", fmt.Errorf("codegen：Result 值 List 需要一个类型实参")
+		}
+		ec, err := g.resultCType(nt.Args[0])
+		if err != nil {
+			return "", err
+		}
+		if err := g.cs.needArr(ec); err != nil {
+			return "", err
+		}
+		return arrName(ec) + " *", nil
 	case "void":
 		// Result<void, E>：值槽仅占位（close 等无值结果）。
 		return "int64_t", nil
@@ -2159,6 +2195,21 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("codegen：调用目标 %T 未支持", call.Callee)
 	}
+	if sys603IsAsyncName(id.Name) {
+		lines, expr, handled, err := s.sys603Call(call)
+		if err != nil {
+			return nil, err
+		}
+		if handled {
+			if expr == "" {
+				return lines, nil
+			}
+			if _, ok := sys603Type(id.Name); ok && sys603IsStringOut(id.Name) {
+				lines = append(lines, "rt_release("+expr+");")
+			}
+			return append(lines, expr+";"), nil
+		}
+	}
 	if id.Name == "dumpTasks" {
 		// S6-02：dumpTasks 实现侧诊断（单行；非承诺）。
 		return []string{"xrt_safepoint();", "xn_dump_tasks();"}, nil
@@ -2809,6 +2860,21 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 	call, ok := callExpr.(*xfront.Call)
 	if !ok {
 		return nil, fmt.Errorf("codegen：try 实参必须是调用，got %T", callExpr)
+	}
+	// S6-04：资源读取的 Result 先由内建降级构造，再按 try 传播。
+	if id, ok := call.Callee.(*xfront.IdentExpr); ok {
+		if id.Name == "readResource" || id.Name == "readResourceText" || id.Name == "listResources" {
+			lines, expr, err := s.s604ResultCall(id.Name, call, resultC)
+			if err != nil {
+				return nil, err
+			}
+			lines = append(lines, resultC+" "+name+" = "+expr+";")
+			lines = append(lines, "if (!"+name+".ok) {")
+			lines = append(lines, "    xn_ret = "+name+";")
+			lines = append(lines, reindent(splitLines(strings.TrimSuffix(s.emitCleanup(true, ""), "\n")), "        ")...)
+			lines = append(lines, "    return xn_ret;", "}")
+			return lines, nil
+		}
 	}
 	var callStr string
 	switch callee := call.Callee.(type) {
@@ -3708,6 +3774,16 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			return out, nil // xn_concat 接管两侧所有权
 		}
 	case *xfront.Call:
+		// S6-03：dirReadAsync 等 String 返回的内建入口。
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok && sys603IsAsyncName(id.Name) {
+			lines, _, handled, err := s.sys603Call(n)
+			if err != nil {
+				return nil, err
+			}
+			if handled {
+				return lines, nil
+			}
+		}
 		// S3-04：Text/StringBuilder.toString() 返回新 String（GC）。
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" {
@@ -3981,6 +4057,15 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 		return s.resultExpr(n.X, resultC)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// S6-04：资源读取的 Result 由内建降级直接构造。
+			if id.Name == "readResource" || id.Name == "readResourceText" || id.Name == "listResources" {
+				lines, expr, err := s.s604ResultCall(id.Name, n, resultC)
+				if err != nil {
+					return "", err
+				}
+				s.pending = append(s.pending, lines...)
+				return expr, nil
+			}
 			switch id.Name {
 			case "Ok":
 				return s.resultOkValue(resultC, n.Args[0])
@@ -4375,6 +4460,26 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				return "xdkc_now_mono_ms()", nil
 			case "nowWall":
 				return "xdkc_now_wall_ms()", nil
+			}
+			// S6-03：sys *Async / Process 内建（Context/出参形态不经 .xfb）。
+			if sys603IsAsyncName(id.Name) {
+				lines, expr, handled, err := s.sys603Call(n)
+				if err != nil {
+					return "", err
+				}
+				if handled {
+					s.pending = append(s.pending, lines...)
+					return expr, nil
+				}
+			}
+			// S6-04：resourceExists（无 Result 通道的资源探测）。
+			if id.Name == "resourceExists" {
+				lines, expr, err := s.s604Exists(n)
+				if err != nil {
+					return "", err
+				}
+				s.pending = append(s.pending, lines...)
+				return expr, nil
 			}
 			if e, isFFI := s.ffiEntry(id.Name); isFFI {
 				if e.Ret.Kind != ffi.KindScalar {
