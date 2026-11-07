@@ -9,6 +9,7 @@ package interp
 
 import (
 	"fmt"
+	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
 )
@@ -67,8 +68,7 @@ func (in *Interp) baseClass(c *xfront.ClassDecl) *xfront.ClassDecl {
 	return nil
 }
 
-// evalNew 构造实例：先按主构造器绑定同名字段（§6.1），再按声明序求字段初值
-// （无主构造器的形态同样走字段初值）。字段初值在实例作用域中求值（可引用 self）。
+// evalNew 构造实例：分配并清零整条继承链 → super(...) → 当前类字段初值 → 构造器体（§6.5）。
 func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	nt, ok := n.Type.(*xfront.NamedType)
 	if !ok {
@@ -79,33 +79,39 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	if !ok {
 		panic(runtimeErr{"未定义的类：" + name})
 	}
+	obj := in.newObject(cls)
+	args := make([]*Value, len(n.Args))
+	for i, a := range n.Args {
+		args[i] = in.eval(a, sc)
+	}
+	in.initClass(obj, cls, args, sc)
+	return &Value{K: vObj, O: obj}
+}
+
+// newObject 按继承链声明序登记字段并置零（§6.5 第 1 步）。
+func (in *Interp) newObject(cls *xfront.ClassDecl) *objv {
 	obj := &objv{cls: cls, fields: map[string]*Value{}}
-	// 字段声明序登记（含基类链，基类先）
 	var chain []*xfront.ClassDecl
 	for c := cls; c != nil; c = in.baseClass(c) {
 		chain = append([]*xfront.ClassDecl{c}, chain...)
 	}
 	for _, c := range chain {
 		for _, f := range c.Fields {
-			obj.order = append(obj.order, f.Name)
-			obj.fields[f.Name] = zeroValue(f.Type)
+			key := fieldKey(f)
+			obj.order = append(obj.order, key)
+			obj.fields[key] = zeroValue(f.Type)
 		}
 	}
-	selfScope := newScope(sc)
-	selfScope.define("self", &Value{K: vObj, O: obj})
+	return obj
+}
 
-	// 构造器选择（§6.3）：头部主构造器，或显式 Ctors 中参数个数匹配者。
-	args := make([]*Value, len(n.Args))
-	for i, a := range n.Args {
-		args[i] = in.eval(a, sc)
-	}
+// initClass 在已分配对象上执行某一层的构造：先父构造器，再主构造器绑定，
+// 再本层字段初值，最后构造器体（§6.3/§6.5）。
+func (in *Interp) initClass(obj *objv, cls *xfront.ClassDecl, args []*Value, caller *scope) {
 	var ctor *xfront.CtorDecl
 	if p := cls.Primary; p != nil {
 		if len(args) != len(p.Params) {
-			panic(runtimeErr{fmt.Sprintf("类 %s 的主构造器需要 %d 个参数，实际 %d 个", name, len(p.Params), len(args))})
-		}
-		for i, prm := range p.Params {
-			obj.fields[prm.Name] = args[i]
+			panic(runtimeErr{fmt.Sprintf("类 %s 的主构造器需要 %d 个参数，实际 %d 个", cls.Name, len(p.Params), len(args))})
 		}
 		ctor = p
 	} else {
@@ -115,30 +121,116 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 				break
 			}
 		}
-		if ctor == nil && len(args) > 0 {
-			panic(runtimeErr{fmt.Sprintf("类 %s 没有匹配 %d 个参数的构造器（§6.3）", name, len(args))})
+		if ctor == nil && (len(args) > 0 || len(cls.Ctors) > 0) {
+			panic(runtimeErr{fmt.Sprintf("类 %s 没有匹配 %d 个参数的构造器（§6.3）", cls.Name, len(args))})
 		}
 	}
-	// 字段初值（无初值的字段保留零值/主构造器绑定值）
-	for _, c := range chain {
-		for _, f := range c.Fields {
-			if f.Init == nil {
+	superCall, skip := explicitSuper(ctor)
+	if parent := in.baseClass(cls); parent != nil {
+		var sargs []*Value
+		if superCall != nil {
+			cscope := in.ctorScope(obj, ctor, args, caller)
+			sargs = make([]*Value, len(superCall.Args))
+			for i, a := range superCall.Args {
+				sargs[i] = in.eval(a, cscope)
+			}
+		}
+		in.initClass(obj, parent, sargs, caller)
+	} else if superCall != nil {
+		panic(runtimeErr{"没有父类时不能调用 super(...)（§6.3）"})
+	}
+	// 主构造器参数在 super 之后绑定同名字段（§6.3）。
+	if p := cls.Primary; p != nil {
+		for i, prm := range p.Params {
+			obj.fields[prm.Name] = args[i]
+		}
+	}
+	// 本层字段初始化式在 super 之后、构造器体之前（§6.5 第 4 步）。
+	selfScope := newScope(caller)
+	selfScope.define("self", &Value{K: vObj, O: obj})
+	for _, f := range cls.Fields {
+		if f.Init == nil {
+			continue
+		}
+		if cls.Primary != nil {
+			if _, isPrimaryParam := primaryParam(cls, f.Name); isPrimaryParam {
 				continue
 			}
-			if _, bound := obj.fields[f.Name]; bound && c.Primary != nil {
-				// 主构造器已绑定同名字段：以参数为准（final 字段）
-				if _, isPrimaryParam := primaryParam(c, f.Name); isPrimaryParam {
-					continue
-				}
+		}
+		obj.fields[fieldKey(f)] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
+	}
+	if ctor != nil && ctor.Body != nil {
+		in.execCtorBodySkip(obj, ctor, args, caller, skip)
+	}
+}
+
+// explicitSuper 识别构造器体首条的 `super(...)`，返回调用与需跳过的语句数。
+func explicitSuper(ctor *xfront.CtorDecl) (*xfront.Call, int) {
+	if ctor == nil || ctor.Body == nil || len(ctor.Body.Stmts) == 0 {
+		return nil, 0
+	}
+	es, ok := ctor.Body.Stmts[0].(*xfront.ExprStmt)
+	if !ok {
+		return nil, 0
+	}
+	call, ok := es.X.(*xfront.Call)
+	if !ok {
+		return nil, 0
+	}
+	id, ok := call.Callee.(*xfront.IdentExpr)
+	if !ok || id.Name != "super" {
+		return nil, 0
+	}
+	return call, 1
+}
+
+// execCtorBodySkip 执行构造器体，可跳过首条 super(...)（§6.3）。
+func (in *Interp) execCtorBodySkip(obj *objv, c *xfront.CtorDecl, args []*Value, caller *scope, skip int) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(ctrlReturn); ok {
+				return // 构造器不返回值；sema 已禁止 return
 			}
-			obj.fields[f.Name] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
+			panic(r)
+		}
+	}()
+	sc := in.ctorScope(obj, c, args, caller)
+	body := c.Body
+	if skip > 0 && skip <= len(body.Stmts) {
+		body = &xfront.Block{P: body.P, Stmts: body.Stmts[skip:]}
+	}
+	in.execBlock(body, sc)
+}
+
+// ctorScope 绑定 self 与构造器参数，供 super(...) 实参求值。
+func (in *Interp) ctorScope(obj *objv, ctor *xfront.CtorDecl, args []*Value, caller *scope) *scope {
+	sc := newScope(caller)
+	sc.define("self", &Value{K: vObj, O: obj})
+	if ctor != nil {
+		for i, prm := range ctor.Params {
+			if i < len(args) {
+				sc.defineTyped(prm.Name, prm.Type, args[i])
+			} else {
+				sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
+			}
 		}
 	}
-	// 构造器体：字段初始化式之后执行（§6.5）。
-	if ctor != nil && ctor.Body != nil {
-		in.execCtorBody(obj, ctor, args)
+	return sc
+}
+
+// fieldKey 是字段在运行期的存储键：私有字段用规范名 `_name`（§7.4）。
+func fieldKey(f *xfront.FieldDecl) string {
+	if f.Canonical != "" {
+		return f.Canonical
 	}
-	return &Value{K: vObj, O: obj}
+	// 直跑 interp.Run（未经 sema）时 Canonical 尚未物化，按 §7.4 现场归一。
+	if strings.HasPrefix(f.Name, "_") {
+		return f.Name
+	}
+	if f.Mod.Vis == "private" {
+		return "_" + f.Name
+	}
+	return f.Name
 }
 
 // selfField 在 self 当前对象上解析裸字段名（§5.8：局部/参数优先，其次字段）。

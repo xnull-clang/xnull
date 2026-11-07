@@ -1,0 +1,11 @@
+=== RUN   TestS2SuperConstructorOrder
+=== RUN   TestS2SuperConstructorOrder/ExplicitSuper
+=== RUN   TestS2SuperConstructorOrder/ImplicitSuper
+=== RUN   TestS2SuperConstructorOrder/ParentBodyBeforeChildFieldInit
+--- PASS: TestS2SuperConstructorOrder (0.00s)
+    --- PASS: TestS2SuperConstructorOrder/ExplicitSuper (0.00s)
+    --- PASS: TestS2SuperConstructorOrder/ImplicitSuper (0.00s)
+    --- PASS: TestS2SuperConstructorOrder/ParentBodyBeforeChildFieldInit (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.935s
+exit=0
