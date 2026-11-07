@@ -1,0 +1,7 @@
+基线 HEAD = 7df123d776c53683c3bcee60890e8ca09b94f0e0
+分支 = pod/e6-toolchain
+xnfmt 二进制 = d5c88ce8b4869683ab9bbf754ec5fd910bb04aec42eec7a62b0a5a453b46fc5e
+文件数 = 122
+幂等失败 = 0；稳定性失败 = 0
+全仓 sha256 表 = evidence/M6-B1-01/sha256-table.txt（122 行）
+go 版本 = go1.27.3 darwin/amd64

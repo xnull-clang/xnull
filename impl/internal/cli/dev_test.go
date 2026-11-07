@@ -16,7 +16,7 @@ func TestDevUsage(t *testing.T) {
 		want    int
 		wantErr string
 	}{
-		{name: "无子命令", args: []string{"dev"}, want: exitcode.Usage, wantErr: "xnull dev <check|ledger|res>"},
+		{name: "无子命令", args: []string{"dev"}, want: exitcode.Usage, wantErr: "xnull dev <check|ledger|res|board>"},
 		{name: "未知子命令", args: []string{"dev", "nope"}, want: exitcode.Usage, wantErr: "未知 dev 子命令"},
 		{name: "res 缺参数", args: []string{"dev", "res", "only-one"}, want: exitcode.Usage, wantErr: "gen_resources: 用法"},
 		{name: "res 目录不存在", args: []string{"dev", "res", "/nonexistent-res-dir", "/tmp/x.c"}, want: exitcode.Usage, wantErr: "gen_resources: 资源目录不存在"},

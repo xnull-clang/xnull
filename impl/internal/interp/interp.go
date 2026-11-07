@@ -202,7 +202,8 @@ type Interp struct {
 	funcs   map[string][]*xfront.TopFunc
 	classes map[string]*xfront.ClassDecl
 	globals *scope
-	label   string // 当前执行的带标签循环的标签（break/continue label 匹配）
+	label   string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit  map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -238,7 +239,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			}
 		}
 	}()
-	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil)}
+	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil), strLit: map[string]*Value{}}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
 	var topFields []*xfront.TopField
@@ -634,14 +635,29 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		return &Value{K: vNull}
 	case *xfront.StrLitExpr:
 		var b strings.Builder
+		dynamic := false
 		for _, p := range n.Parts {
 			if p.Expr != nil {
+				dynamic = true
 				b.WriteString(format(in.eval(p.Expr, sc)))
 			} else {
 				b.WriteString(p.Text)
 			}
 		}
-		return &Value{K: vStr, S: b.String()}
+		s := b.String()
+		if dynamic { // 插值结果每次都是新对象
+			return &Value{K: vStr, S: s}
+		}
+		// 纯字面量驻留：同源码字面量共享对象，使 === 按对象身份可观察（§2.8）。
+		if in.strLit == nil {
+			in.strLit = map[string]*Value{}
+		}
+		if v, ok := in.strLit[s]; ok {
+			return v
+		}
+		v := &Value{K: vStr, S: s}
+		in.strLit[s] = v
+		return v
 	case *xfront.Paren:
 		return in.eval(n.X, sc)
 	case *xfront.IdentExpr:
@@ -903,6 +919,8 @@ func valuesEqual(l, r *Value) bool {
 			}
 		}
 		return true
+	case vArr, vList, vMap, vSet, vClosure, vObj:
+		return l == r // §2.8：引用类型 `==` 默认按对象身份
 	}
 	return false
 }
@@ -927,7 +945,7 @@ func identical(l, r *Value) bool {
 			}
 		}
 		return true
-	case vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份
+	case vStr, vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份（§2.8：String === 按对象身份）
 		return l == r
 	}
 	return valuesEqual(l, r)

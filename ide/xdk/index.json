@@ -1,0 +1,278 @@
+{
+  "version": "1.1.0",
+  "source": "XNull 解决方案 第 6 部分：标准库 XDK",
+  "note": "IDE 概览索引，不是完整 API 合同；完整签名与稳定性以第 6 部分及 XDK 实现为准。",
+  "packages": [
+    {
+      "name": "xdk.errors",
+      "summary": "错误协议、错误分类与显式观测",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "Error",
+          "signature": "protocol Error",
+          "summary": "kind() 与 describe() 的最小错误协议"
+        },
+        {
+          "name": "ErrorKind",
+          "signature": "enum ErrorKind",
+          "summary": "14 项粗粒度错误分类"
+        },
+        {
+          "name": "wrap",
+          "signature": "wrap(Result<T,E>, E) -> Result<T,E>",
+          "summary": "失败时丢弃原错误、返回新错误"
+        },
+        {
+          "name": "mapErr",
+          "signature": "mapErr(Result<T,E1>, (E1) -> E2) -> Result<T,E2>",
+          "summary": "映射错误类型"
+        },
+        {
+          "name": "report",
+          "signature": "report(Result<T,E>) -> Result<T,E>",
+          "summary": "边界观测并返回原 Result"
+        }
+      ]
+    },
+    {
+      "name": "xdk.runtime",
+      "summary": "诊断、退出、时间与环境快照",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "diagnose",
+          "signature": "diagnose(String)",
+          "summary": "单行诊断输出，无隐式分配"
+        },
+        {
+          "name": "exit",
+          "signature": "exit(Int)",
+          "summary": "立即退出，不执行 defer"
+        },
+        {
+          "name": "nowMono",
+          "signature": "nowMono() -> Int",
+          "summary": "单调毫秒时钟"
+        },
+        {
+          "name": "nowWall",
+          "signature": "nowWall() -> Int",
+          "summary": "UTC 毫秒时间戳，可回拨"
+        },
+        {
+          "name": "env",
+          "signature": "env(String) -> String?",
+          "summary": "首次读取即快照的环境变量"
+        },
+        {
+          "name": "dumpTasks",
+          "signature": "dumpTasks()",
+          "summary": "实现侧任务转储，格式非承诺"
+        }
+      ]
+    },
+    {
+      "name": "xdk.tasks",
+      "summary": "结构化并发：Task、TaskGroup、Context",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "Task<T>",
+          "signature": "Task<T>",
+          "summary": "任务句柄；join 一次性"
+        },
+        {
+          "name": "TaskGroup",
+          "signature": "TaskGroup.create(Context) -> TaskGroup",
+          "summary": "任务的唯一创建与关闭边界"
+        },
+        {
+          "name": "Context",
+          "signature": "Context",
+          "summary": "显式取消与截止上下文"
+        },
+        {
+          "name": "Context.background",
+          "signature": "Context.background() -> Context",
+          "summary": "根上下文，仅 main/测试入口"
+        },
+        {
+          "name": "Context.checkCancel",
+          "signature": "checkCancel() -> Result<void, CancelledError>",
+          "summary": "协作式取消检查点"
+        }
+      ]
+    },
+    {
+      "name": "xdk.sync",
+      "summary": "互斥、通道与原子单元",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "Mutex<T>",
+          "signature": "Mutex<T>.withLock((T) -> Result<R,E>) -> Result<R,E>",
+          "summary": "作用域化互斥访问"
+        },
+        {
+          "name": "Channel<T>",
+          "signature": "Channel<T>",
+          "summary": "有界通道，挂起点可取消"
+        },
+        {
+          "name": "AtomicInt",
+          "signature": "AtomicInt",
+          "summary": "顺序一致原子整数"
+        },
+        {
+          "name": "AtomicBool",
+          "signature": "AtomicBool",
+          "summary": "顺序一致原子布尔"
+        },
+        {
+          "name": "AtomicRef<T>",
+          "signature": "AtomicRef<T>",
+          "summary": "顺序一致原子引用，T 限引用类型"
+        }
+      ]
+    },
+    {
+      "name": "xdk.collections",
+      "summary": "容器算法与特化容器",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "sort",
+          "signature": "—（见第 6 部分）",
+          "summary": "稳定排序"
+        },
+        {
+          "name": "groupBy",
+          "signature": "—（见第 6 部分）",
+          "summary": "按键分组"
+        },
+        {
+          "name": "dedup",
+          "signature": "—（见第 6 部分）",
+          "summary": "去重"
+        },
+        {
+          "name": "find",
+          "signature": "—（见第 6 部分）",
+          "summary": "查找首个匹配"
+        },
+        {
+          "name": "RingBuffer",
+          "signature": "—（见第 6 部分）",
+          "summary": "环形缓冲"
+        },
+        {
+          "name": "PriorityQueue",
+          "signature": "—（见第 6 部分）",
+          "summary": "优先队列"
+        },
+        {
+          "name": "OrderedMap",
+          "signature": "—（见第 6 部分）",
+          "summary": "有序映射"
+        },
+        {
+          "name": "BTreeMap",
+          "signature": "—（见第 6 部分）",
+          "summary": "B 树映射"
+        }
+      ]
+    },
+    {
+      "name": "xdk.text",
+      "summary": "编码、格式化、解析与正则",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "Format",
+          "signature": "—（见第 6 部分）",
+          "summary": "builder 式格式化"
+        },
+        {
+          "name": "parseInt",
+          "signature": "—（见第 6 部分）",
+          "summary": "严格整数解析"
+        },
+        {
+          "name": "parseFloat",
+          "signature": "—（见第 6 部分）",
+          "summary": "严格浮点解析"
+        },
+        {
+          "name": "Regex",
+          "signature": "—（见第 6 部分）",
+          "summary": "动态编译正则，失败为可恢复错误"
+        }
+      ]
+    },
+    {
+      "name": "xdk.sys",
+      "summary": "文件、目录、子进程与内嵌资源",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "File",
+          "signature": "—（见第 6 部分）",
+          "summary": "文件句柄，close 显式且幂等"
+        },
+        {
+          "name": "Dir",
+          "signature": "—（见第 6 部分）",
+          "summary": "目录句柄"
+        },
+        {
+          "name": "Process",
+          "signature": "—（见第 6 部分）",
+          "summary": "子进程状态"
+        },
+        {
+          "name": "resourceExists",
+          "signature": "resourceExists(String) -> Bool",
+          "summary": "内嵌资源存在性"
+        },
+        {
+          "name": "readResource",
+          "signature": "readResource(Context, String) -> Result<Bytes, Error>",
+          "summary": "读取资源字节"
+        },
+        {
+          "name": "readResourceText",
+          "signature": "readResourceText(Context, String) -> Result<Text, Error>",
+          "summary": "读取资源文本"
+        },
+        {
+          "name": "listResources",
+          "signature": "listResources(Context, String) -> Result<List<String>, Error>",
+          "summary": "按字典序列出资源"
+        },
+        {
+          "name": "resourceSize",
+          "signature": "resourceSize(String) -> Int?",
+          "summary": "资源字节数"
+        }
+      ]
+    },
+    {
+      "name": "xdk.net",
+      "summary": "Socket 与协议",
+      "stability": "preview",
+      "items": [
+        {
+          "name": "Socket",
+          "signature": "—（见第 6 部分）",
+          "summary": "网络套接字句柄"
+        },
+        {
+          "name": "Listener",
+          "signature": "—（见第 6 部分）",
+          "summary": "监听器"
+        }
+      ]
+    }
+  ]
+}
