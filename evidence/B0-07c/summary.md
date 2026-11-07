@@ -30,20 +30,19 @@
 
 ## 4. numeric 变体端到端现状（E4 分支 + 本修复，只读验证）
 
-方法：detached worktree 取 `pod/e4-codegen`（`02e337d`，已合 main），套用本修复，跑
-`evidence/M6-B0-06/run.sh --bin <xnull>`。
+方法：detached worktree 取 `pod/e4-codegen`（`0d8c985`，已合 main），套用本修复，跑
+`evidence/M6-B0-06/run.sh --bin <xnull>`（完整命令 `numeric-command.md`）。
 
 结果：`PASS=0 FAIL=2`（in1.x / in2.x 均 BUILD FAILED），**句柄相关错误已消失**
 （`fileOpenRead`/`fileOpenWrite`/`fileClose` 不再报未定义），剩余阻塞：
 
-| 残留错误 | 归属 |
-| --- | --- |
-| `未定义的名称 Bytes`（RES-101，出现 2 处） | E4 codegen（Bytes 类型面未接） |
-| `fileRead`/`fileWrite 含错误码通道（@errorCode）未接入 Result 映射` | E4 codegen |
-| `实参 1 类型 File? 不能赋给形参 File`（TY-101） | E2/E4（Option<handle> 面） |
-| `pathExists 的返回标量 Bool 未纳入 P-09` | E4 codegen |
+| 残留错误 | 出现次数 | 归属 |
+| --- | --- | --- |
+| `未定义的名称 Bytes`（RES-101） | 6 | E4 codegen（Bytes 类型面未接） |
+| `fileRead`/`fileWrite 含错误码通道（@errorCode）未接入 Result 映射` | 2 提示 ×2 fixture | E4 codegen |
+| `实参 1 类型 File? 不能赋给形参 File`（TY-101） | 4 | E2/E4（Option<handle> 面） |
 
-原始日志：`numeric-after.log`。
+`pathExists` 的 Bool 返回已不再阻塞。原始日志：`numeric-after.log`（sha256 `58f1caab…`）。
 
 ## 5. 边界
 

@@ -8,5 +8,5 @@ abi 测试通过
 std 测试通过
 资源表测试通过
 build_rt EXIT=0
-ok  	xnull.dev/xnull/internal/codegen/ffi	10.889s
+ok  	xnull.dev/xnull/internal/codegen/ffi	8.517s
 go-ffi EXIT=0
