@@ -100,7 +100,10 @@ func (c *typeCheckCtx) rejectInternalPolicyAnnos(annos []*xfront.AnnotationNode)
 func scalarValueType(name string) bool {
 	switch name {
 	case "Bool", "Byte", "Short", "Int", "Long", "UByte", "UShort", "UInt",
-		"ULong", "Int128", "UInt128", "Float", "Double", "Char":
+		"ULong", "Int128", "UInt128", "Float", "Double", "Char",
+		// S7 §3.2 标量映射：定宽标量同样是值字段类型（layout(c) 字段使用）。
+		"Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
+		"Float32", "Float64":
 		return true
 	}
 	return false
@@ -1895,6 +1898,48 @@ func (c *typeCheckCtx) findClassMethod(recvKey, name string) (*xfront.MethodDecl
 		cur = ni.class
 	}
 	return nil, nil, false
+}
+
+// findClassField 在类继承链中查找字段类型，并按接收者泛型实参替换类型参数。
+func (c *typeCheckCtx) findClassField(recvKey, name string) (string, bool) {
+	base := unwrapOpt(recvKey)
+	var args []string
+	if i := strings.Index(base, "<"); i > 0 && strings.HasSuffix(base, ">") {
+		args = splitTopLevel(base[i+1 : len(base)-1])
+		base = base[:i]
+	}
+	info := c.types[base]
+	if info == nil || info.kind != "class" || info.class == nil {
+		return "", false
+	}
+	subst := map[string]string{}
+	for i, tp := range info.class.TypePars {
+		if i < len(args) && args[i] != "" {
+			subst[tp] = args[i]
+		}
+	}
+	seen := map[string]bool{}
+	for cur := info.class; cur != nil; {
+		if seen[cur.Name] {
+			break
+		}
+		seen[cur.Name] = true
+		for _, f := range cur.Fields {
+			if f.Name == name || f.Canonical == name {
+				return substKey(typeKey(f.Type), subst), true
+			}
+		}
+		b := baseRefName(cur.Base)
+		if b == "" {
+			break
+		}
+		ni := c.types[b]
+		if ni == nil || ni.kind != "class" {
+			break
+		}
+		cur = ni.class
+	}
+	return "", false
 }
 
 func hasAnnotation(annos []*xfront.AnnotationNode, name string) bool {

@@ -1,0 +1,11 @@
+=== RUN   TestXDK07SemaSurface
+    xdk07_e2e_test.go:60: 需 main 的 S6-07 collections.x（本分支未合入）
+--- SKIP: TestXDK07SemaSurface (0.00s)
+=== RUN   TestXDK07InterpE2E
+    xdk07_e2e_test.go:68: 需 main 的 S6-07 collections.x（本分支未合入）
+--- SKIP: TestXDK07InterpE2E (0.00s)
+=== RUN   TestXDK07CompiledE2E
+    xdk07_e2e_test.go:74: 需 main 的 S6-07 collections.x（本分支未合入）
+--- SKIP: TestXDK07CompiledE2E (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	1.035s
