@@ -280,6 +280,20 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 			return nil, fmt.Errorf("codegen：结构体 %s 没有字段 %s", ci.decl.Name, mem.Name)
 		}
 		dst := recvName + structSep(recvC) + f.cname
+		if strings.HasPrefix(f.ctype, "xn_opt_") {
+			lines, v, err := s.optExpr(val, f.ctype)
+			if err != nil {
+				return nil, err
+			}
+			return append(lines, dst+" = "+v+";"), nil
+		}
+		if s.g.isStructC(f.ctype) {
+			lines, v, err := s.structValue(val, f.ctype)
+			if err != nil {
+				return nil, err
+			}
+			return append(lines, dst+" = "+v+";"), nil
+		}
 		if f.ctype == "rt_string *" {
 			lines, err := s.strExpr(val)
 			if err != nil {
@@ -306,6 +320,13 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		return nil, fmt.Errorf("codegen：类 %s 没有字段 %s（或方法不可赋值）", ci.decl.Name, mem.Name)
 	}
 	dst := recvName + "->" + f.cname
+	if strings.HasPrefix(f.ctype, "xn_opt_") {
+		lines, v, err := s.optExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, dst+" = "+v+";"), nil
+	}
 	// 容器字段是值结构（本层未做引用语义容器）：浅拷贝会双释放，显式拒绝。
 	if f.isArr {
 		return nil, fmt.Errorf("codegen：容器字段 %s 的赋值需要引用语义容器（B2 范围，显式拒绝）", f.name)

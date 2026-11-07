@@ -540,3 +540,41 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// STRUCT-01 A02：嵌套值 struct + 可空值字段（Int?）成员读写。
+func TestS2STRUCT01NestedNullable(t *testing.T) {
+	src := `struct Inner {
+    Int v = 1;
+}
+struct Outer {
+    Inner inner = new Inner();
+    Int? opt = null;
+}
+static Int main() {
+    Outer o = new Outer()
+    print(o.inner.v)
+    o.opt = 5
+    print(o.opt)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n5\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// STRUCT-01：可空值字段初始化式（Int? v = 1）与 null 清空。
+func TestS2STRUCT01NullableInit(t *testing.T) {
+	src := `struct S { Int? v = 1; }
+static Int main() {
+    S s = new S()
+    print(s.v)
+    s.v = null
+    print(s.v)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\nnull\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
