@@ -40,6 +40,7 @@ var runtimeCSources = []string{
 	"rt_task.c",
 	"rt_sync.c",
 	"rt_std_res.c",
+	"rt_std_res_empty.c",
 }
 
 // emptyResourceTableC 是零资源工程的资源表：count=0、get 恒失败、at 恒失败。

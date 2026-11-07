@@ -1,0 +1,13 @@
+=== RUN   TestBuildCCArgsIncludesRuntimeABIAndStd
+--- PASS: TestBuildCCArgsIncludesRuntimeABIAndStd (0.00s)
+=== RUN   TestBuildCCArgsAppendsLinkArgsLast
+--- PASS: TestBuildCCArgsAppendsLinkArgsLast (0.00s)
+=== RUN   TestBuildSampleHelloWithLinkArgs
+--- PASS: TestBuildSampleHelloWithLinkArgs (2.02s)
+=== RUN   TestBuildWithProjectResources
+--- PASS: TestBuildWithProjectResources (2.50s)
+=== RUN   TestBuildCCArgsAppendsResourceTable
+--- PASS: TestBuildCCArgsAppendsResourceTable (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	6.510s
+EXIT=0

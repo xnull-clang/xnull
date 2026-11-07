@@ -125,7 +125,12 @@ func (in *Interp) callTaskGroupMethod(g *taskGroupV, name string, args []*Value,
 		if g.cancelled {
 			res = errValue(in.cancelledErr())
 		} else {
-			res = in.callClosure(args[0].Clo, nil)
+			// 解释器同步执行任务；liveTasks 在闭包体内为 1，返回后归零。
+			in.liveTasks++
+			func() {
+				defer func() { in.liveTasks-- }()
+				res = in.callClosure(args[0].Clo, nil)
+			}()
 		}
 		if !res.isResult() {
 			panic(runtimeErr{"任务闭包必须返回 Result（S5 §3.4）"})

@@ -96,14 +96,27 @@ static void test_exit_skips_atexit(void) {
     close(fd);
     snprintf(g_atexit_path, sizeof(g_atexit_path), "%s", path);
 
+    char out_path[] = "/tmp/xnull_exit_outXXXXXX";
+    int ofd = mkstemp(out_path);
+    CHECK(ofd >= 0);
+    if (ofd < 0) {
+        unlink(path);
+        return;
+    }
+
     pid_t pid = fork();
     CHECK(pid >= 0);
     if (pid == 0) {
-        /* 子进程：注册 atexit 后 exit(7)，期望 handler 不执行、退出码 7 */
+        /* 子进程：stdout 重定向到文件；注册 atexit 后 exit(7)。
+         * 期望：handler 不执行、退出码 7、exit 前的输出已冲刷。 */
+        CHECK(dup2(ofd, STDOUT_FILENO) >= 0);
+        close(ofd);
         atexit(mark_atexit);
+        printf("before-exit\n");
         xdkc_exit(7);
         _exit(3); /* 不应到达 */
     }
+    close(ofd);
     int status = 0;
     CHECK(waitpid(pid, &status, 0) == pid);
     CHECK(WIFEXITED(status));
@@ -112,7 +125,18 @@ static void test_exit_skips_atexit(void) {
     struct stat st;
     CHECK(stat(path, &st) == 0);
     CHECK(st.st_size == 0); /* atexit 未执行（S1 §10.3） */
+
+    /* exit 只跳过 defer/atexit，不丢已产生的输出：stdio 缓冲先冲刷。 */
+    FILE *f = fopen(out_path, "rb");
+    CHECK(f != NULL);
+    if (f != NULL) {
+        char buf[32] = {0};
+        size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+        fclose(f);
+        CHECK(n == 12 && memcmp(buf, "before-exit\n", 12) == 0);
+    }
     unlink(path);
+    unlink(out_path);
 }
 
 static void test_clocks(void) {

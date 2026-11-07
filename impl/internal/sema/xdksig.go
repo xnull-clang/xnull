@@ -35,6 +35,7 @@ var xdkFuncSigs = map[string]xdkFuncSig{
 	"nowMono":  {"runtime", nil, "Int", false},
 	"nowWall":  {"runtime", nil, "Int", false},
 	"env":      {"runtime", []string{"String"}, "String?", false},
+	"dumpTasks": {"runtime", nil, "void", false},
 
 	// ---- xdk.sys：文件/目录/存在性（S6 §4.7；当前绑定面） ----
 	"fileOpenRead":  {"sys", []string{"String"}, "File", false},

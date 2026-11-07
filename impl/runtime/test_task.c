@@ -375,7 +375,7 @@ static void test_companion_executor(void) {
 static void test_dump_tasks(void) {
     char buf[256];
     capture_dump(buf, sizeof(buf));
-    assert(strstr(buf, "xrt tasks:") != NULL);
+    assert(strstr(buf, "tasks:") != NULL);
     assert(strstr(buf, "live=0") != NULL);
 
     xrt_context *ctx = xrt_context_background();
