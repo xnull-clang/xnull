@@ -555,8 +555,16 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
 				rc := "void"
 				switch {
-				case e.ErrorCodeRet:
+				case e.ErrorCodeRet && e.CloseOf != "":
 					rc = "int"
+				case ffiReturnsResult(e):
+					// S7-02/FFI-01：同步 FFI 以 Result<T, ErrorKind> 暴露。
+					c, err := g.cType(fn.Ret)
+					if err != nil {
+						return "", err
+					}
+					rc = c
+					g.results[c] = ""
 				case e.Ret.Kind == ffi.KindScalar && e.Ret.Name == "Bool":
 					rc = "int"
 				case e.Ret.Kind == ffi.KindScalar:
@@ -4360,6 +4368,15 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 		return s.resultExpr(n.X, resultC)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// FFI-01：同步 FFI 调用构造 Result<T, ErrorKind>（rc==0 → Ok，否则 Err(kind)）。
+			if e, isFFI := s.ffiEntry(id.Name); isFFI && ffiReturnsResult(e) {
+				lines, out, err := s.ffiCallLines(n, e)
+				if err != nil {
+					return "", err
+				}
+				s.pending = append(s.pending, lines...)
+				return out, nil
+			}
 			// S6-04：资源读取的 Result 由内建降级直接构造。
 			if id.Name == "readResource" || id.Name == "readResourceText" || id.Name == "listResources" {
 				lines, expr, err := s.s604ResultCall(id.Name, n, resultC)

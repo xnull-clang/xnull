@@ -110,6 +110,13 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	// 句柄类型（File/Dir…）由绑定层注入，不在源码中声明；
 	// 登记后再做 sema 的签名类型可见性检查。
 	sema.RegisterExternalTypes(FFIHandleTypes(reg)...)
+	// FFI-01：同步 FFI 以 Result<T, ErrorKind> 暴露，ErrorKind 需对 sema 可见。
+	for _, e := range reg.Entries {
+		if ffiReturnsResult(e) {
+			sema.RegisterExternalTypes("ErrorKind")
+			break
+		}
+	}
 	// S7-01：把 .xfb 的 layout/入口签名投射给 sema（调用点类型检查）。
 	if err := RegisterFFIProjection(reg); err != nil {
 		fmt.Fprintf(stderr, "xnull: FFI 投射失败：%v\n", err)
