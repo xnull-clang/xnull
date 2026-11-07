@@ -962,15 +962,19 @@ func (c *typeCheckCtx) checkSyncTypeRef(ty *xfront.NamedType) {
 	if len(ty.Args) != 1 {
 		return
 	}
-	arg := typeKey(ty.Args[0])
+	c.checkSyncTypeArg(name, typeKey(ty.Args[0]), ty.P)
+}
+
+// checkSyncTypeArg 校验同步原语类型实参；构造器调用与类型位置共用。
+func (c *typeCheckCtx) checkSyncTypeArg(name, arg string, p xfront.Pos) {
 	switch name {
 	case "Mutex":
 		if info, ok := c.types[arg]; ok && info.kind == "struct" {
-			c.errf(ty.P, TySyncRule, "Mutex<T> 的 T 不能是 struct（S5 §7.2：值复制会绕过互斥）", "改用 class 或标量")
+			c.errf(p, TySyncRule, "Mutex<T> 的 T 不能是 struct（S5 §7.2：值复制会绕过互斥）", "改用 class 或标量")
 		}
 	case "AtomicRef":
 		if !isReferenceTypeKey(arg, c.types) {
-			c.errf(ty.P, TySyncRule, "AtomicRef<T> 的 T 必须是引用类型（S6 §3-c-1）", "改用 class/协议/容器等引用类型")
+			c.errf(p, TySyncRule, "AtomicRef<T> 的 T 必须是引用类型（S6 §3-c-1）", "改用 class/协议/容器等引用类型")
 		}
 	}
 }

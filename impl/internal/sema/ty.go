@@ -1621,6 +1621,10 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			if sig, ok := lookupXdkFuncSig(id.Name); ok {
 				return e.inferXdkFuncCall(n, id.Name, sig, n.P)
 			}
+			// XDK-05：同步原语构造（Mutex/Channel/Atomic*）。
+			if ret, ok := e.inferXdkCtor(n, id.Name); ok {
+				return ret
+			}
 			// 已知 XDK 符号但无签名：显式诊断，禁止静默放行。
 			if xdkSymbolKnown(id.Name) {
 				e.errf(n.P, TyXdkUnsupported,
