@@ -612,3 +612,59 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// INT-01 A02/A02b：Result<类, String>（Ok 类值 + 工厂成员返回 Result）。
+func TestS2INT01bResultClassAndMemberTarget(t *testing.T) {
+	src := `class Device {
+    String name;
+    private Device(String n) { self.name = n }
+    String label() { return name }
+}
+factory DeviceFactory for Device {
+    static Device create(String n) { return new Device(n) }
+    static Result<Device, String> open(Bool ok) {
+        defer print("f-defer")
+        errdefer print("f-err")
+        if !ok { return Err("boom") }
+        return Ok(new Device("ok"))
+    }
+}
+static Int main() {
+    Device d = DeviceFactory.create("x")
+    print(d.label())
+    Result<Device, String> r = DeviceFactory.open(false)
+    if r.isErr() { print("f-caught:" + r.error()) }
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "x\nf-err\nf-defer\nf-caught:boom\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// INT-01 A03：枚举项作类字段初值 + switch。
+func TestS2INT01bEnumFieldInit(t *testing.T) {
+	src := `enum Color { Red, Green, Blue }
+class Holder {
+    Color c = Color.Green;
+    String name() {
+        switch c {
+            case Color.Red: return "r"
+            case Color.Green: return "g"
+            case Color.Blue: return "b"
+        }
+        return "?"
+    }
+}
+static Int main() {
+    Holder h = new Holder()
+    print(h.name())
+    h.c = Color.Blue
+    print(h.name())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "g\nb\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
