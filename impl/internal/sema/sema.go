@@ -26,15 +26,16 @@ var visibleBuiltins = map[string]bool{"print": true, "str": true, "Ok": true, "E
 
 // analyzer 保存一次分析的上下文。
 type analyzer struct {
-	file      string
-	diags     []diag.Diagnostic
-	tops      map[string]bool     // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
-	hasImp    bool                // 文件是否有 import
-	imported  map[string]bool     // 导入可见的简单名（§3.2/§3.5）
-	ambiguous map[string]bool     // 未消歧的简单名（使用时报 RES-104）
-	tc        *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
-	seenTop   map[string]bool     // 顶层重复声明检测
-	deps      map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
+	file        string
+	diags       []diag.Diagnostic
+	tops        map[string]bool     // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
+	hasImp      bool                // 文件是否有 import
+	imported    map[string]bool     // 导入可见的简单名（§3.2/§3.5）
+	ambiguous   map[string]bool     // 未消歧的简单名（使用时报 RES-104）
+	tc          *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
+	seenTop     map[string]bool     // 顶层重复声明检测
+	deps        map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
+	importPaths [][]string          // 源码导入路径（factory 跨包判定）
 
 	// GEN-01：本编译单元内作为类型参数出现过的名字（用于 §8.1 作用域诊断）。
 	typeParamNames map[string]bool

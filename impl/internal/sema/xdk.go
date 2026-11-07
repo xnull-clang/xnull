@@ -103,6 +103,11 @@ type importInfo struct {
 //  1. 逐个导入展开为 importInfo：XDK 走注册表；用户包走依赖包符号表（deps）。
 //  2. 别名与简单名规则：别名只用于消歧、别名唯一、简单名歧义必须报错。
 func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+	for _, imp := range u.Imports {
+		if len(imp.Path) > 0 {
+			a.importPaths = append(a.importPaths, imp.Path)
+		}
+	}
 	topNames := topLevelNames(u)
 	var binds []importInfo
 
