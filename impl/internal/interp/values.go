@@ -356,9 +356,9 @@ func (in *Interp) evalTypeAs(n *xfront.Binary, sc *scope) *Value {
 	ta := n.R.(*xfront.TypeAsExpr)
 	x := in.eval(n.L, sc)
 	if ta.Is { // is
-		return &Value{K: vBool, B: typeMatches(ta.Type, x)}
+		return &Value{K: vBool, B: in.typeMatches(ta.Type, x)}
 	}
-	if typeMatches(ta.Type, x) {
+	if in.typeMatches(ta.Type, x) {
 		return x
 	}
 	if n.Op == "as?" {
@@ -369,7 +369,7 @@ func (in *Interp) evalTypeAs(n *xfront.Binary, sc *scope) *Value {
 
 // typeMatches 判断运行值是否匹配 TypeRef（is/as 的运行时判定）。
 // 泛型实参不检查（单态化在语义层，M2-C 接管）。
-func typeMatches(t xfront.TypeRef, v *Value) bool {
+func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 	if v == nil {
 		return false
 	}
@@ -398,6 +398,12 @@ func typeMatches(t xfront.TypeRef, v *Value) bool {
 		case "Any", "Object":
 			return v.K != vNull // Any/Object 装箱一切非 null 值
 		}
+		if v.K == vObj { // S2 §4.4/§5.2：类继承链、协议实现、数据枚举项
+			return in.objectIsNamed(v.O, name)
+		}
+		if v.K == vEnum { // S2 §8.2：简单枚举名义类型
+			return v.E == name
+		}
 		return false
 	case *xfront.SuffixedType:
 		for _, s := range ty.Suffixes {
@@ -414,7 +420,7 @@ func typeMatches(t xfront.TypeRef, v *Value) bool {
 				return v.K == vArr
 			}
 		}
-		return typeMatches(base, v)
+		return in.typeMatches(base, v)
 	case *xfront.TupleTypeRef:
 		return v.K == vTuple
 	case *xfront.FuncTypeRef:
