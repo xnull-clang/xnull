@@ -5,6 +5,7 @@
 > **性质**：验收计划与黄金用例矩阵；**尚未执行验收**，不构成任何 PASS 结论
 > **被测规范**：`XNull解决方案-第2部分-对象编程-v3.3.0.md`（§16 实现边界、§18 验收）
 > **台账**：`XNull一致性用例台账-v1.0.0.md`；旁表 `impl/docs/conformance/status.tsv`
+> **落盘**：主工作树 `收件箱/门/S2验收计划-QA.md` 与本工作树同文；审计输入为 `S2审计-E2/E3/E4/E5.md`
 
 ---
 
@@ -431,6 +432,220 @@
 | S2-GATE-G02 | G | 负例断言诊断 | 0 个“只报未实现” |
 | S2-GATE-G03 | G | 全仓测试 + 10 次重复 | 全绿；0 flaky；0 SKIP |
 | S2-GATE-G04 | G | 证据完整性 | 每锚点七件套齐全 |
+
+---
+
+### 2.4 第 1 批详细设计（BND-01 / BND-05 / BND-02 / PCTOR-01 / ENUM-01 / DISP-01）
+
+> 依据：`S2审计-E2/E3/E4/E5.md`。本批先建红色黄金用例，不依赖实现完成；实现卡落地后逐条转绿。
+> 统一变量：
+> ```bash
+> ROOT=/Users/vjs/Desktop/XNull-Lang/wt/qa-1
+> X=${XNULL:-/tmp/xnull-s2}      # 由被测 sha 构建
+> cd "$ROOT"
+> ```
+> 负例用 `$X check <file>`（或 `$X build <file>`）取 stderr；正例用 `$X run --interp` 与 `$X run` 各跑一次。
+> 证据路径统一为 `evidence/S2-QA/<锚点>/<case-id>/`，内含 `cmd.txt/stdout.txt/stderr.txt/exit_code.txt/sha.txt`。
+
+#### 2.4.1 BND-01 成员级可见性（E2 sema 主场）
+
+现状：sema 已有私有字段规范名检查（`TY-207`），`protected`/`public` 成员访问矩阵未做；跨包顶层可见性部分在 `pkg.go`。
+阻塞：E2 成员可见性实现卡；F-01 跨包夹具。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-BND01-A01 | `difftest/s2/bnd01/a01_member_visibility.x` | interp + compiled | 同包 public/protected/private 合法访问；stdout `1\n2\n3\n`；rc=0 |
+| S2-BND01-A02 | `difftest/s2/bnd01/a02_protected_subclass.x` | interp + compiled | 子类内访问 protected；stdout `7\n`；rc=0 |
+| S2-BND01-R01 | `difftest/s2/bnd01/r01_private_outside.x` | check | 类外访问 private；rc≠0；`file:line:col` + 可见性码（当前先断言 `TY-207`/新码，码表后补） |
+| S2-BND01-R02 | `difftest/s2/bnd01/r02_cross_pkg_protected.x` | check（跨包） | 跨包非子类访问 protected；rc≠0；码+位置 |
+| S2-BND01-R03 | `difftest/s2/bnd01/r03_cross_pkg_private.x` | check（跨包） | 跨包 private；rc≠0；码+位置 |
+| S2-BND01-X01 | `difftest/s2/pkg/bnd01/`（`xnull.project`） | project build | 跨包 public 顶层/类型/成员可访问；rc=0 |
+
+验收命令：
+
+```bash
+$X run --interp difftest/s2/bnd01/a01_member_visibility.x
+$X run          difftest/s2/bnd01/a01_member_visibility.x
+$X check        difftest/s2/bnd01/r01_private_outside.x
+$X check        difftest/s2/bnd01/r02_cross_pkg_protected.x
+$X check        difftest/s2/bnd01/r03_cross_pkg_private.x
+(cd difftest/s2/pkg/bnd01 && "$X" build)   # 工程模式；产物在 target/
+(cd impl && go test ./internal/sema -run 'TestPrivateFieldRules|TestS2_BND01' -count=1 -v)
+```
+
+证据：`evidence/S2-QA/BND-01/{S2-BND01-A01,...,S2-BND01-X01}/` + `evidence/S2-QA/BND-01/matrix.tsv`。
+
+#### 2.4.2 BND-05 协议限制（E2 sema + E4 vtable）
+
+现状：parser/sema 已拒绝字段/方法体/泛型协议/private/static/final/abstract；§4.3 实现检查缺失；codegen 遇协议直接报错。
+阻塞：E2 实现检查；E4 vtable（D01 编译路径）。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-BND05-A01 | `difftest/s2/bnd05/a01_impl_parent.x` | interp + compiled | 类实现协议 + 父协议；stdout `1\n`；rc=0 |
+| S2-BND05-A02 | `difftest/s2/bnd05/a02_proto_var.x` | interp + compiled | 协议变量只调协议方法；stdout `2\n`；rc=0 |
+| S2-BND05-A02b | `difftest/s2/bnd05/a02b_non_proto_method.x` | check | 协议变量调非协议方法；rc≠0；码+位置 |
+| S2-BND05-R01 | `difftest/s2/bnd05/r01_forms.x` | check | 字段/方法体/默认实现；逐条码+位置 |
+| S2-BND05-R02 | `difftest/s2/bnd05/r02_generic.x` | check | 泛型协议/关联类型/泛型协议方法/约束；逐条码+位置 |
+| S2-BND05-R03 | `difftest/s2/bnd05/r03_missing_parent.x` | check | 父协议方法未实现；码+位置 |
+| S2-BND05-D01 | A01/A02 | dual | interp 与 compiled stdout+rc 一致 |
+
+验收命令：
+
+```bash
+$X run --interp difftest/s2/bnd05/a01_impl_parent.x
+$X run          difftest/s2/bnd05/a01_impl_parent.x
+$X check        difftest/s2/bnd05/r01_forms.x
+$X check        difftest/s2/bnd05/r03_missing_parent.x
+(cd impl && go test ./internal/sema -run 'TestProtocolRules|TestS2_BND05' -count=1 -v)
+(cd impl && go test ./internal/codegen -run 'TestS2_BND05' -count=1 -v)   # 待 vtable
+```
+
+证据：`evidence/S2-QA/BND-05/...`。
+
+#### 2.4.3 BND-02 继承限制（E2 sema + E4 布局）
+
+现状：sema 已校验父类 kind/final/继承环/implements 目标/字段隐藏/祖先同签名；`abstract` 实例化未拦；继承复用无端到端；codegen 遇 `Base` 报「继承暂未支持」。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-BND02-A01 | `difftest/s2/bnd02/a01_single_parent.x` | interp + compiled | 单父类字段/方法复用；stdout `1\nf\n` |
+| S2-BND02-A02 | `difftest/s2/bnd02/a02_multi.x` | interp + compiled | 多级继承 + 多协议；rc=0 |
+| S2-BND02-R01 | `difftest/s2/bnd02/r01_abstract_new.x` | check | `new abstract`；码+位置（当前 sema 未拦） |
+| S2-BND02-R02 | `difftest/s2/bnd02/r02_final_parent.x` | check | 继承 final 类；码+位置 |
+| S2-BND02-R03 | `difftest/s2/bnd02/r03_override.x` | check | 子类同签名/字段隐藏；两条独立用例 |
+| S2-BND02-X01 | `difftest/s2/pkg/bnd02/` | project build | 跨包继承 + 可见性；rc=0/负例拒绝 |
+
+命令：
+
+```bash
+$X run --interp difftest/s2/bnd02/a01_single_parent.x
+$X run          difftest/s2/bnd02/a01_single_parent.x
+$X check        difftest/s2/bnd02/r01_abstract_new.x
+$X check        difftest/s2/bnd02/r03_override.x
+(cd impl && go test ./internal/sema -run 'TestInheritanceRules|TestS2_BND02' -count=1 -v)
+(cd impl && go test ./internal/codegen -run 'TestS2_BND02' -count=1 -v)
+```
+
+#### 2.4.4 PCTOR-01 主构造器（E2/E3/E4）
+
+现状：解释器头部主构造器可用（`class W(final Int id)` → 7）；显式无参/带参构造器不执行（无参输出初值、带参 fatal）；codegen 不读 `Primary`、带参 `new` 直接拒绝；sema 无 super 首位/final 恰一次/混用限制。
+阻塞：E2 规则、E3 构造器执行、E4 codegen。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-PCTOR-A01 | `difftest/s2/pctor01/a01_primary.x` | interp + compiled | 头部参数绑定字段；stdout `7\n` |
+| S2-PCTOR-A02 | `difftest/s2/pctor01/a02_explicit_noarg.x` | interp + compiled | `E() { self.v = 5 }` 执行；stdout `5\n`（当前 interp 输出 1） |
+| S2-PCTOR-A03 | `difftest/s2/pctor01/a03_explicit_param.x` | interp + compiled | `D(Int x)` + `new D(5)`；stdout `5\n`（当前 fatal） |
+| S2-PCTOR-A04 | `difftest/s2/pctor01/a04_super_final.x` | interp + compiled | super 首位、字段初始化/构造体顺序、final 恰一次；日志顺序符合 §6.3 |
+| S2-PCTOR-R01 | `difftest/s2/pctor01/r01_mix.x` | check | 主构造器与非主构造器混用；码+位置 |
+| S2-PCTOR-R02 | `difftest/s2/pctor01/r02_nonfinal.x`、`r02_nonclass.x` | check | 非 final 参数 / 非 class 使用；码+位置 |
+| S2-PCTOR-D01 | A01–A04 | dual | 双路径一致 |
+
+命令：
+
+```bash
+$X run --interp difftest/s2/pctor01/a02_explicit_noarg.x
+$X run          difftest/s2/pctor01/a02_explicit_noarg.x
+$X run --interp difftest/s2/pctor01/a03_explicit_param.x
+$X check        difftest/s2/pctor01/r01_mix.x
+(cd impl && go test ./internal/sema ./internal/interp ./internal/codegen -run 'TestS2_PCTOR01' -count=1 -v)
+```
+
+#### 2.4.5 ENUM-01 枚举（E2/E3/E4）
+
+现状：sema 已有项唯一/值唯一/混合形式/构造器/final 字段检查；`switch` 穷尽性未做；enum 不实现协议未测；解释器无枚举运行时；codegen 未发射 enum/switch。
+阻塞：E2 穷尽性、E3 运行时、E4 发射。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-ENUM-A01 | `difftest/s2/enum01/a01_simple.x` | interp + compiled | `Color.Green` 格式化；stdout `Green\n` |
+| S2-ENUM-A02 | `difftest/s2/enum01/a02_switch.x` | interp + compiled | 无 default 穷尽 switch；stdout `g\n` |
+| S2-ENUM-A03 | `difftest/s2/enum01/a03_data_enum.x` | interp + compiled | 数据枚举项单例/不可变/字段访问；stdout `Ready\n1\n` |
+| S2-ENUM-R01 | `difftest/s2/enum01/r01_non_exhaustive.x` | check | 非穷尽；码+位置 |
+| S2-ENUM-R02 | `r02_dup_case.x`、`r02_unknown.x` | check | 重复/未知 case；码+位置 |
+| S2-ENUM-R03 | `r03_default.x` | check | `default` 位置非法；码+位置 |
+| S2-ENUM-R04 | `r04_impl.x` | check | enum implements protocol；码+位置 |
+| S2-ENUM-D01 | A01–A03 | dual | 双路径一致 |
+
+命令：
+
+```bash
+$X run --interp difftest/s2/enum01/a01_simple.x
+$X run          difftest/s2/enum01/a01_simple.x
+$X check        difftest/s2/enum01/r01_non_exhaustive.x
+(cd impl && go test ./internal/sema -run 'TestEnumRules|TestS2_ENUM01' -count=1 -v)
+(cd impl && go test ./internal/interp ./internal/codegen -run 'TestS2_ENUM01' -count=1 -v)
+```
+
+#### 2.4.6 DISP-01 派发（E3 + E4）
+
+现状：解释器类继承字段/方法复用可用；协议变量按方法名动态解析（部分 PASS）；方法重载按名取首个、`super`/`is`/`as` 失败；codegen 类方法静态 C 名，协议 vtable/`super` 全缺。
+阻塞：E4 vtable、E3 `super`/`is`/`as`/重载。
+
+| ID | 夹具 | 模式 | 黄金期望 |
+|---|---|---|---|
+| S2-DISP-A01 | `difftest/s2/disp01/a01_class_static.x` | interp + compiled | 类继承静态派发；stdout `1\n` |
+| S2-DISP-A02 | `difftest/s2/disp01/a02_protocol_dynamic.x` | interp + compiled | 协议变量动态派发；stdout `2\n` |
+| S2-DISP-A03 | `difftest/s2/disp01/a03_policy.x` | interp + compiled | 同结构 ARC/GC；结果不受策略影响 |
+| S2-DISP-A04 | `difftest/s2/disp01/a04_super.x` | interp + compiled | `super.f()`/`super.x`；stdout `4\n` |
+| S2-DISP-A05 | `difftest/s2/disp01/a05_is_as.x` | interp + compiled | 类/协议 `is`/`as?`；stdout `true\ntrue\ntrue\n` |
+| S2-DISP-D01 | A01–A05 | dual | 双路径一致（含 vtable 槽位） |
+
+命令：
+
+```bash
+$X run --interp difftest/s2/disp01/a02_protocol_dynamic.x
+$X run          difftest/s2/disp01/a02_protocol_dynamic.x
+$X run --interp difftest/s2/disp01/a04_super.x
+(cd impl && go test ./internal/interp ./internal/codegen -run 'TestS2_DISP01' -count=1 -v)
+```
+
+#### 2.4.7 第 1 批退出判据
+
+- 六个锚点的 A/R/D 用例全部落盘，且每条有 `cmd/stdout/stderr/exit/sha` 五件套。
+- 负例逐条断言 `file:line:col` + 诊断码（或码表未交付时的消息关键字）；0 个“只报未实现”。
+- 正例双路径 stdout 逐字节 + 退出码一致；0 mismatch。
+- 未实现能力（vtable/继承/构造器/枚举）标 BLOCKED，**不判 PASS**；实现卡落地后重跑。
+- 第 1 批结束时输出 `evidence/S2-QA/summary-batch1.md`，逐锚点列 PASS/FAIL/BLOCKED。
+
+---
+
+### 2.5 29 锚点逐条：黄金用例 / 验收命令 / 证据路径
+
+> 用例 ID 详见 §2.3；本表给每锚点的首选命令与证据目录。`TestS2_<ANCHOR>` 为 QA 待建用例；括号内为现有可先用用例。`BLOCKED` 表示实现卡未到，不判 PASS。
+
+| # | 锚点 | 黄金用例（首选） | 验收命令 | 证据路径 | 状态/阻塞 |
+|---:|---|---|---|---|---|
+| 1 | BND-01 | A01/A02/R01–R03/X01 | `$X check difftest/s2/bnd01/r*.x` + `$X run --interp difftest/s2/bnd01/a*.x` + `go test ./internal/sema -run 'TestPrivateFieldRules|TestS2_BND01'` | `evidence/S2-QA/BND-01/` | E2 成员可见性 |
+| 2 | BND-02 | A01/A02/R01–R03/X01 | `go test ./internal/sema -run 'TestInheritanceRules|TestS2_BND02'`；`go test ./internal/codegen -run TestS2_BND02` | `evidence/S2-QA/BND-02/` | E2 abstract + E4 布局 |
+| 3 | BND-03 | A01–A04/D01/M01 | `go test ./internal/interp ./internal/codegen -run TestS2_BND03` | `evidence/S2-QA/BND-03/` | E4 vtable |
+| 4 | BND-04 | A01/R01–R02/D01 | `go test ./internal/sema -run 'TestStructValueRules|TestS2_BND04'`；codegen `TestS2_BND04` | `evidence/S2-QA/BND-04/` | E3/E4 struct |
+| 5 | BND-05 | A01/A02/A02b/R01–R03/D01 | `go test ./internal/sema -run 'TestProtocolRules|TestS2_BND05'`；codegen `TestS2_BND05` | `evidence/S2-QA/BND-05/` | E2 实现检查 + E4 vtable |
+| 6 | BND-06 | A01/A02/R01–R04/D01 | `go test ./internal/sema -run 'TestEnumRules|TestS2_BND06'`；interp/codegen `TestS2_BND06` | `evidence/S2-QA/BND-06/` | E2 穷尽性 + E3/E4 |
+| 7 | BND-07 | A01/A02/R01–R02/M01 | `go test ./internal/sema ./internal/codegen -run TestS2_BND07` | `evidence/S2-QA/BND-07/` | parser/sema/codegen 全缺 |
+| 8 | BND-08 | A01/A02/R01–R03/X01 | `go test ./internal/codegen -run TestS2_BND08` + 工程夹具 | `evidence/S2-QA/BND-08/` | parser/sema/codegen 全缺 |
+| 9 | BND-09 | A01/R01–R02/X01 | `go test ./internal/sema -run 'TestPrivateFieldRules|TestS2_BND09'` | `evidence/S2-QA/BND-09/` | E2 继承链/跨包 |
+| 10 | BND-10 | M01–M03/R01/T01 | `go test ./internal/sema -run 'TestPolicy|TestS2_BND10'` + runtime | `evidence/S2-QA/BND-10/` | E4 消费策略 + E5 |
+| 11 | BND-11 | A01/A02/D01/M01 | `go test ./internal/codegen -run TestS2_BND11` | `evidence/S2-QA/BND-11/` | E4 struct/vtable/ABI |
+| 12 | BND-12 | R01–R03 | `go test ./internal/sema ./internal/codegen -run 'TestGEN01|TestS2_BND12'` | `evidence/S2-QA/BND-12/` | E2/E4 泛型 |
+| 13 | BND-13 | A01/A02/R01–R03 | `go test ./internal/sema -run TestS2_BND13`；codegen `TestS2_BND13` | `evidence/S2-QA/BND-13/` | parser/sema/codegen 全缺 |
+| 14 | BND-14 | R01–R03 | `go test ./Tests -run TestDiagMatrixS2` + 全负例矩阵 | `evidence/S2-QA/BND-14/` | E4 静默构造/deinit + E2 |
+| 15 | BND-15 | A01–A04/D01 | `go test ./... -run TestS2_INTEGRATION` | `evidence/S2-QA/BND-15/` | 跨线集成 |
+| 16 | INH-01 | A01/A02/R01–R02/X01/D01 | `go test ./internal/sema -run 'TestInheritanceRules|TestS2_INH01'` + 双路径 | `evidence/S2-QA/INH-01/` | E4 继承（sema 已 PASS） |
+| 17 | DISP-01 | A01–A05/D01 | `go test ./internal/interp ./internal/codegen -run TestS2_DISP01` | `evidence/S2-QA/DISP-01/` | E3/E4 |
+| 18 | STRUCT-01 | A01/A02/R01–R02/D01 | `go test ./internal/sema -run 'TestStructValueRules|TestS2_STRUCT01'` + runtime | `evidence/S2-QA/STRUCT-01/` | E3/E4 |
+| 19 | PCTOR-01 | A01–A04/R01–R02/D01 | `go test ./internal/sema ./internal/interp ./internal/codegen -run TestS2_PCTOR01` | `evidence/S2-QA/PCTOR-01/` | E2/E3/E4 |
+| 20 | PROTO-01 | A01/A02/R01–R03/D01 | `go test ./internal/sema ./internal/codegen -run 'TestProtocolRules|TestS2_PROTO01'` | `evidence/S2-QA/PROTO-01/` | E2 实现检查 + E4 |
+| 21 | ENUM-01 | A01–A03/R01–R04/D01 | `go test ./internal/sema ./internal/interp ./internal/codegen -run 'TestEnumRules|TestS2_ENUM01'` | `evidence/S2-QA/ENUM-01/` | E2/E3/E4 |
+| 22 | INT-01 | A01–A03/D01 | `go test ./... -run TestS2_INT01` | `evidence/S2-QA/INT-01/` | 跨线集成 |
+| 23 | SINGLE-01 | A01/A02/R01–R03/M01 | `go test ./internal/sema ./internal/codegen -run TestS2_SINGLE01` | `evidence/S2-QA/SINGLE-01/` | parser/sema/codegen/runtime |
+| 24 | EXT-01 | A01/A02/R01–R03 | `go test ./internal/sema -run TestS2_EXT01`；codegen `TestS2_EXT01` | `evidence/S2-QA/EXT-01/` | parser/sema/codegen |
+| 25 | ANN-01 | A01/A02/R01–R03 | `go test ./internal/sema -run TestS2_ANN01` | `evidence/S2-QA/ANN-01/` | parser/sema |
+| 26 | MEM-01 | M01–M03/R01/T01 | `go test ./internal/sema -run 'TestPolicy|TestS2_MEM01'` + runtime | `evidence/S2-QA/MEM-01/` | E4/E5 |
+| 27 | MEM-02 | M01–M04 | `sh impl/runtime/build_rt.sh` + runtime 用例 | `evidence/S2-QA/MEM-02/` | E5/E4 |
+| 28 | FIELD-01 | A01/R01–R02/X01 | `go test ./internal/sema -run 'TestPrivateFieldRules|TestS2_FIELD01'`；codegen `TestS2_FIELD01` | `evidence/S2-QA/FIELD-01/` | E4 非限定字段（sema 已 PASS） |
+| 29 | GATE-01 | G01–G04 | `go test ./... -count=1 -timeout 1200s` + QA 门报告 | `evidence/S2-QA/GATE-01/` | 全部门槛 |
 
 ---
 
