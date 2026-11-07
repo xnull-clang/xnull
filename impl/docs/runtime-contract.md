@@ -5,14 +5,17 @@
 > 任何变更须记录并注明触发来源。
 > 母本依据：`impl/runtime/README.md`、`impl/runtime/rt.h`、`impl/internal/sema/policy.go`（M2.5.2 冻结）。
 
-## A0. ABI v1 状态：候选冻结（EXP-012，2026-11-07）
+## A0. ABI v1 状态：稳定 v1（2026-11-08 转正）
 
-**候选冻结（candidate freeze）**：`xrt.h` / `xrt_abi.c` 的符号与签名可作为 codegen 与绑定层的消费面，
-但**不承诺跨版本二进制稳定**；发现签名/字段需改时，先在候选期改，不毁“稳定 v1”承诺。
+**稳定 v1（stable v1）**：`xrt.h` / `xrt_abi.c` 的符号与签名冻结为跨 FFI ABI 承诺
+（S7 §6.1、附录 B）；变更走主版本。
 
-- **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
-- 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
-- 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **转正依据**：numeric 变体（句柄 + Bytes + `@errorCode`）与资源/任务/同步面已随 S6
+  端到端通过；`xrt.h` 头注释与本文件同步改为“稳定 v1”（S7-05）。
+- **S7-05 转正动作**：生成代码的 `main` 首行调用 `xrt_runtime_init()`；
+  `xrt_alloc` 在未初始化时 fatal（S7 §6.3 顺序合同）；弱表声明由 `XRT_BINDINGS_LAYER`
+  门禁（应用层引用编译失败，S7 §6.2）；新增 `test_abi_link.c`（只 include `xrt.h` 的原生链接测试）。
+- **历史记录**：以下“候选期增补/更正”为转正前记录，保留追溯；自转正日起新增变更按主版本流程。
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
   （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。

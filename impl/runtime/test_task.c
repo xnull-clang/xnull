@@ -1,4 +1,5 @@
 /* test_task.c — S5-01 调度器核心合同测试（任务/组/上下文/取消/超时/panic） */
+#define XRT_BINDINGS_LAYER 1
 #include "xrt.h"
 #include "rt.h"
 #include "rt_gc.h"

@@ -1,8 +1,10 @@
-/* xrt.h — XNull 运行时稳定 ABI（S7 §6.1 / S3 §22，M4.5a 骨架）
+/* xrt.h — XNull 运行时稳定 ABI v1（S7 §6.1 / S3 §22）
  *
- * 状态：**ABI v1 候选冻结**（EXP-012，2026-11-07）。符号与签名冻结为候选消费面，
- *   不承诺跨版本二进制稳定；numeric 变体（句柄 + Bytes + @errorCode）端到端
- *   通过后转“稳定 v1”，此后变更走主版本。状态口径见 docs/runtime-contract.md A0。
+ * 状态：**稳定 v1**（2026-11-08 转正；S7-05）。符号与签名冻结为跨 FFI ABI 承诺，
+ *   变更走主版本（S7 §6.1、附录 B）。状态口径见 docs/runtime-contract.md A0。
+ *
+ * 本头是原生侧唯一可包含的运行时头：只经这里的 xrt_* 入口管理内存（INV-FFI-7），
+ * 不得包含内部 rt.h/rt_gc.h。
  *
  * 合同：
  *   - 本头文件是运行时对外的唯一 ABI 面；符号与签名一经定稿冻结为 ABI 承诺，
@@ -16,6 +18,8 @@
  */
 #ifndef XNULL_XRT_H
 #define XNULL_XRT_H
+
+#define XRT_ABI_VERSION 1
 
 #include <stddef.h>
 #include <stdint.h>
@@ -49,11 +53,16 @@ void       *xrt_retain(void *obj);
 void        xrt_release(void *obj);
 int64_t     xrt_refcount(void *obj);
 
-/* ---- 弱表（S7 §6.2：入口只对 FFI 合同层开放，原生代码不得直接调用） ---- */
-
+/* ---- 弱表（S7 §6.2：仅绑定层合同代码可用） ----
+ *
+ * 应用层/原生代码直接引用弱表符号是合同违规：默认不声明；绑定层生成代码
+ * 必须在包含本头前定义 XRT_BINDINGS_LAYER=1。构建检查见 impl/runtime/build_rt.sh。
+ */
+#if defined(XRT_BINDINGS_LAYER) && XRT_BINDINGS_LAYER
 xrt_weak_slot *xrt_weak_bind(void *target);
 void          *xrt_weak_read(xrt_weak_slot *slot);
 void           xrt_weak_clear(xrt_weak_slot *slot);
+#endif
 
 /* ---- 屏障、根与安全点（S3 §8/§12/§22） ---- */
 

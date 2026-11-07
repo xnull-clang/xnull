@@ -118,6 +118,8 @@ func (r *Registry) EmitSupport() Snippet {
 	}
 	var b strings.Builder
 	b.WriteString("/* 绑定层支撑代码（由 .xfb 注册表生成；只包含 xrt.h，S7 §6.1 / INV-FFI-7） */\n")
+	b.WriteString("/* S7 §6.2：绑定层可访问弱表；应用层包含 xrt.h 时不定义此宏。 */\n")
+	b.WriteString("#define XRT_BINDINGS_LAYER 1\n")
 	b.WriteString("#include \"xrt.h\"\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n\n")
 	b.WriteString(wrapperABI)
 	b.WriteString("\n")

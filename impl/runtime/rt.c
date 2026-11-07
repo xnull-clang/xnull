@@ -195,3 +195,10 @@ size_t rt_quarantine_flush(void) {
     }
     return n;
 }
+
+/* S7-05：xrt_runtime_init 的弱兜底。
+ * 完整 ABI 构建链接 xrt_abi.c 时由强符号覆盖；只链接内部运行时的手工 codegen
+ * 测试也能解析生成 main 的初始化调用，避免测试夹具重复维护源清单。 */
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((weak)) void xrt_runtime_init(void) {}
+#endif

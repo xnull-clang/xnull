@@ -10,6 +10,19 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_hard test_hard.c rt.c r
 /tmp/xnull_test_hard
 cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_abi test_abi.c rt.c rt_gc.c rt_weak.c xrt_abi.c
 /tmp/xnull_test_abi
+# S7-05：稳定 ABI v1 原生链接测试（只 include xrt.h）+ 初始化顺序 + 弱表门禁
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_abi_link \
+  test_abi_link.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_std_bytes.c
+/tmp/xnull_test_abi_link
+# 弱表 bindings-only：应用层（未定义 XRT_BINDINGS_LAYER）引用必须编译失败
+printf '#include "xrt.h"\nint main(void) { return xrt_weak_bind(0) != 0; }\n' > /tmp/xnull_weak_app.c
+if cc -std=c11 -I. -c /tmp/xnull_weak_app.c -o /tmp/xnull_weak_app.o 2>/dev/null; then
+  echo "弱表门禁失败：应用层引用 xrt_weak_* 竟然编译通过（S7 §6.2）" >&2
+  exit 1
+fi
+# 绑定层定义宏后可编译
+printf '#define XRT_BINDINGS_LAYER 1\n#include "xrt.h"\nint main(void) { return xrt_weak_bind(0) != 0; }\n' > /tmp/xnull_weak_bind.c
+cc -std=c11 -I. -c /tmp/xnull_weak_bind.c -o /tmp/xnull_weak_bind.o
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_std test_std.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c
 /tmp/xnull_test_std
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_task test_task.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
