@@ -38,7 +38,7 @@ func TestS810CodeRegistry(t *testing.T) {
 		}
 	}
 
-	d := NewDiag("xnull.project", Pos{Line: 12, Col: 3}, "XPD-204",
+	d := NewDiag("xnull.project", Pos{Line: 12, Col: 3}, "XPD-202",
 		"project/dependencies/dependency[2]/optional", "optonal")
 	if d.Line != 12 || d.Col != 3 || !strings.Contains(d.Message, "optonal") {
 		t.Fatalf("诊断字段不符：%+v", d)
