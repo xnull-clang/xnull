@@ -1,0 +1,6 @@
+XNull CI（单步 11）  工作树=/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+
+PASS 11 xnfmt 全仓校验        10348ms
+
+—— 汇总：PASS=1 FAIL=0 SKIP=0，用时 10552ms ——
+退出码：0

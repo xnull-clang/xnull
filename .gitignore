@@ -14,3 +14,6 @@ Thumbs.db
 
 # 图像生成临时目录
 generated-images/
+
+# 发布产物
+dist/

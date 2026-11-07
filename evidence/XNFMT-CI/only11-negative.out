@@ -1,0 +1,27 @@
+XNull CI（单步 11）  工作树=/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+
+FAIL 11 xnfmt 全仓校验        12366ms (rc=1)
+  ---- 末尾 20 行（完整日志 /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/ci/.out/step-11.log）----
+  |         echo "不幂等：$f"
+  |         fail=1
+  |       fi
+  |       if ! cmp -s "$f" "$tmp/a.x"; then
+  |         if ! grep -qxF "$f" "$baseline"; then
+  |           echo "未格式化且不在 baseline：$f"
+  |           fail=1
+  |         fi
+  |       else
+  |         if grep -qxF "$f" "$baseline"; then
+  |           echo "baseline 已过期（现已规范，可移除）：$f"
+  |           stale=$((stale + 1))
+  |         fi
+  |       fi
+  |     done < "$tmp/files"
+  |     [ "$stale" -gt 0 ] && echo "提示：ci/xnfmt-baseline.txt 有 $stale 行可移除"
+  |     exit $fail
+  |   
+  | 
+  | 未格式化且不在 baseline：ci/probe-unformatted.x
+
+—— 汇总：PASS=0 FAIL=1 SKIP=0，用时 12595ms ——
+退出码：1
