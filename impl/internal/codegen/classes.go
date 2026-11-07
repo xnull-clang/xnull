@@ -52,7 +52,8 @@ type classInfo struct {
 	ctors      []*xfront.CtorDecl      // 普通构造器（S2 §6.3）
 	primary    *xfront.CtorDecl        // 主构造器
 	ctorName   map[*xfront.CtorDecl]string
-	deinit     *classInfo_m // 用户 deinit 体（静态派发，先于字段释放）
+	deinit     *classInfo_m              // 用户 deinit 体（静态派发，先于字段释放）
+	subst      map[string]xfront.TypeRef // 泛型类实例的类型参数替换（BND-12）
 	collected  bool
 	collecting bool
 }
@@ -361,6 +362,9 @@ func (g *gen) registerClassNames(u *xfront.CompilationUnit) {
 	for _, d := range u.Decls {
 		if c, ok := d.(*xfront.ClassDecl); ok {
 			g.classDecls[c.Name] = c
+			if len(c.TypePars) > 0 {
+				continue // 泛型类按实例生成（BND-12），声明本身不登记 shell
+			}
 			if _, exists := g.classes[c.Name]; !exists {
 				g.classes[c.Name] = &classInfo{decl: c, cname: classCName(c.Name),
 					typeVar: classTypeVar(c.Name), methods: map[string]*classInfo_m{}}
@@ -388,6 +392,10 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) error {
 	}
 	for _, name := range names {
 		ci := g.classes[name]
+		savedSubst := g.subst
+		if len(ci.subst) > 0 {
+			g.subst = mergeSubst(savedSubst, ci.subst)
+		}
 		ctors := ci.ctorList()
 		if len(ctors) == 0 {
 			fmt.Fprintf(b, "static %s *%s_new(void);\n", ci.cname, ci.cname)
@@ -408,6 +416,7 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) error {
 		if ci.vptr {
 			fmt.Fprintf(b, "static void *xn_vt_%s[%d];\n", ci.decl.Name, len(g.slotOrder))
 		}
+		g.subst = savedSubst
 	}
 	if len(names) > 0 {
 		b.WriteString("\n")
@@ -542,6 +551,11 @@ func deinitCallsSuper(m *xfront.MethodDecl) bool {
 // （声明顺序）→ 主构造器参数绑定 → 构造器体（跳过 super 语句）。
 // 同时为每个构造器生成 `<ctor>_init`（在既有对象上执行本类字段初值），供派生类复用。
 func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
+	saved := g.subst
+	if len(ci.subst) > 0 {
+		g.subst = mergeSubst(saved, ci.subst)
+	}
+	defer func() { g.subst = saved }()
 	inits, err := g.classCtorInit(ci)
 	if err != nil {
 		return err
@@ -700,6 +714,11 @@ func prefixed(sep string, items []string) string {
 
 // methodProto 生成方法前向声明。
 func (g *gen) methodProto(ci *classInfo, m *classInfo_m) (string, error) {
+	saved := g.subst
+	if len(ci.subst) > 0 {
+		g.subst = mergeSubst(saved, ci.subst)
+	}
+	defer func() { g.subst = saved }()
 	retC := "void"
 	if !m.decl.Void {
 		c, err := g.cType(m.decl.Ret)
@@ -723,6 +742,11 @@ func (g *gen) methodProto(ci *classInfo, m *classInfo_m) (string, error) {
 
 // genMethod 生成实例方法：self 指针首参，方法体内 self 直接可见。
 func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
+	saved := g.subst
+	if len(ci.subst) > 0 {
+		g.subst = mergeSubst(saved, ci.subst)
+	}
+	defer func() { g.subst = saved }()
 	retC := "void"
 	if !m.decl.Void {
 		c, err := g.cType(m.decl.Ret)
