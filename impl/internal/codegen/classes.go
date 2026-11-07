@@ -960,7 +960,11 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		b.WriteString("    xn_ret = xn_zero;\n")
 		b.WriteString("    return xn_ret;\n")
 	} else if retC != "void" && !hasResult {
-		b.WriteString("    return (" + retC + ")0; /* sema 保证不可达（函数体全路径 return） */\n")
+		if strings.HasPrefix(retC, "xn_opt_") || g.isStructC(retC) || g.isTupleC(retC) {
+			b.WriteString("    return (" + retC + "){0}; /* sema 保证不可达 */\n")
+		} else {
+			b.WriteString("    return (" + retC + ")0; /* sema 保证不可达（函数体全路径 return） */\n")
+		}
 	}
 	b.WriteString("}\n")
 	return b.String(), nil

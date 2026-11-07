@@ -108,6 +108,12 @@ func (g *gen) substitute(t xfront.TypeRef) xfront.TypeRef {
 		return &xfront.NamedType{P: n.P, Qual: n.Qual, Args: args}
 	case *xfront.SuffixedType:
 		return &xfront.SuffixedType{P: n.P, Base: g.substitute(n.Base), Suffixes: n.Suffixes}
+	case *xfront.FuncTypeRef:
+		params := make([]xfront.TypeRef, len(n.Params))
+		for i, p := range n.Params {
+			params[i] = g.substitute(p)
+		}
+		return &xfront.FuncTypeRef{P: n.P, Params: params, Ret: g.substitute(n.Ret)}
 	}
 	return t
 }
