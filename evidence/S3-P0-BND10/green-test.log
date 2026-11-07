@@ -1,0 +1,5 @@
+$ go test ./internal/codegen/ -run TestBND10GCMixedARCFieldValid -count=1 -v
+=== RUN   TestBND10GCMixedARCFieldValid
+--- PASS: TestBND10GCMixedARCFieldValid (1.21s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.112s

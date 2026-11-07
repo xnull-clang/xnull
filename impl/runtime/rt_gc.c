@@ -118,33 +118,43 @@ static void sweep_release_arc_ref(void *ref) {
 }
 
 static size_t sweep(void) {
-    size_t freed = 0;
+    /* 两阶段清扫（P0-BND10 / S2 §6.4）：
+     *   1) 从存活表摘下死亡对象，逐个 terminated/清弱槽/调 deinit；
+     *      此阶段不释放任何死亡对象的内存，deinit 之间的字段互读不会命中已释放内存。
+     *   2) 统一 release ARC 引用（scan）并 free。
+     */
+    rt_object *dead = NULL;
+    size_t n = 0;
     rt_object **link = &g_gc_list;
     while (*link != NULL) {
         rt_object *o = *link;
         if (o->hdr.marked) {
-            o->hdr.marked = 0; /* 复位，供下轮收集 */
+            o->hdr.marked = 0;
             link = &o->hdr.gc_next;
             continue;
         }
-        /* 死亡：先置终结标志并清弱槽，再调用 deinit（S2 §6.4：deinit 执行时
-         * 字段仍然有效），最后 release 其持有的 ARC 引用（不变量 3 后半）
-         * 并释放。scan 的 ARC 引用释放必须在 deinit 之后，否则用户 deinit
-         * 观察到已被释放的字段。 */
-        o->hdr.terminated = 1; /* 清扫终结：与 ARC 终结链同一防复活标志 */
-        rt_weak_clear_slots(o); /* GC 终结同样先清弱槽（S3 §14.1/§15） */
+        *link = o->hdr.gc_next;
+        o->hdr.gc_next = dead;
+        dead = o;
+        n++;
+    }
+    for (rt_object *o = dead; o != NULL; o = o->hdr.gc_next) {
+        o->hdr.terminated = 1;
+        rt_weak_clear_slots(o);
         if (o->hdr.type->deinit != NULL) {
             o->hdr.type->deinit(o);
         }
+    }
+    while (dead != NULL) {
+        rt_object *o = dead;
+        dead = o->hdr.gc_next;
         if (o->hdr.type->scan != NULL) {
             o->hdr.type->scan(o, sweep_release_arc_ref);
         }
-        *link = o->hdr.gc_next;
         free(o);
         rt_stats_note_free();
-        freed++;
     }
-    return freed;
+    return n;
 }
 
 size_t rt_gc_collect(void) {

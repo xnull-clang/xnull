@@ -82,6 +82,44 @@ static const rt_type RT_TYPE_GCV = {
 /* 简单字符串（ARC，无 GC 引用）——清扫释放目标。 */
 static rt_string *arc_str(const char *c) { return rt_string_from_c(c); }
 
+/* P0-BND10：死亡 GC 对象之间的字段在 deinit 阶段仍然有效（两阶段清扫）。 */
+typedef struct {
+    rt_header hdr;
+    int       tag;
+} gctarget_t;
+
+typedef struct {
+    rt_header hdr;
+    gctarget_t *ref;
+} gcholder_t;
+
+static int g_holder_seen = -1;
+
+static void gctarget_deinit(void *payload) {
+    gctarget_t *t = payload;
+    t->tag = 77;
+}
+
+static const rt_type RT_TYPE_GCTARGET = {
+    .name = "GcTarget", .payload_size = sizeof(gctarget_t) - sizeof(rt_header),
+    .deinit = gctarget_deinit,
+};
+
+static void gcholder_scan(void *payload, void (*visit)(void *)) {
+    gcholder_t *h = payload;
+    visit(h->ref);
+}
+
+static void gcholder_deinit(void *payload) {
+    gcholder_t *h = payload;
+    g_holder_seen = h->ref->tag;
+}
+
+static const rt_type RT_TYPE_GCHOLDER = {
+    .name = "GcHolder", .payload_size = sizeof(gcholder_t) - sizeof(rt_header),
+    .deinit = gcholder_deinit, .scan = gcholder_scan,
+};
+
 int main(void) {
     /* 1. 不变量 5：GC 对象环不可达 → 回收 */
     assert(rt_gc_live() == 0);
@@ -162,6 +200,17 @@ int main(void) {
     assert(g_gcv_seen_refcount == 2); /* deinit 时字段仍有效 */
     assert(rt_refcount(valid) == 1);  /* sweep 在 deinit 后恰好 release 一次 */
     rt_release(valid);
+
+    /* 7. P0-BND10：holder 先分配、target 后分配 → LIFO 清扫先释放 target；
+     * 两阶段清扫保证 holder deinit 仍能读到 target 字段。 */
+    gctarget_t *gt = rt_gc_new(&RT_TYPE_GCTARGET);
+    gcholder_t *gh = rt_gc_new(&RT_TYPE_GCHOLDER);
+    gh->ref = gt;
+    gt->tag = 11;
+    gh = NULL;
+    gt = NULL;
+    rt_gc_collect();
+    assert(g_holder_seen == 77);
 
     printf("gc tests passed (invariants 2/3/5/6)\n");
     return 0;
