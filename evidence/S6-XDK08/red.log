@@ -1,5 +1,17 @@
+# HEAD (E4 codegen)
 --- FAIL: TestS6XDK08CompiledE2E (0.02s)
     s6_xdk08_e2e_test.go:41: XDK-08 编译路径仍阻塞：xnull: 代码生成失败：codegen：类型 Char 未支持（M4.1 范围）
 FAIL
 FAIL	xnull.dev/xnull/internal/cli	0.909s
 FAIL
+# pod/e3-interp (interp)
+=== RUN   TestXdkTextUTF16Runtime
+    xdk_text_utf_test.go:51: out="" want="5\n65\n233\n20013\n55357\n56832\n10\n65\n195\n128\ntrue\n" code=1 err=未定义的名称：Bytes
+--- FAIL: TestXdkTextUTF16Runtime (0.01s)
+=== RUN   TestS6BytesMethods
+    xdk_text_utf_test.go:74: out="" want="2\n65\n3\n2\n4\n" err=未定义的名称：Bytes
+--- FAIL: TestS6BytesMethods (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	1.008s
+FAIL
+exit=1
