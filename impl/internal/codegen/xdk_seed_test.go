@@ -3,7 +3,6 @@ package codegen
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"xnull.dev/xnull/internal/sema"
@@ -29,16 +28,10 @@ func TestXdkSeedUnitCompiles(t *testing.T) {
 	if sd := sema.Analyze(path, u); len(sd) > 0 {
 		t.Fatalf("语义诊断：%v", sd)
 	}
-	// S6-05 已将 text.x 扩展为完整 API（Format/Regex/UTF），其中 Char 字段/成员
-	// 发射属 E4 语言面扩展；本种子测试保留“可解析 + 可语义检查”，发射受限时记录。
-	c, err := EmitC(u)
-	if err != nil {
-		t.Logf("codegen 限制（E4 范围，暂不阻塞 text.x 语义面）：%v", err)
-		return
-	}
-	for _, sym := range []string{"xn_repeatText", "xn_repeatJoined"} {
-		if !strings.Contains(c, sym) {
-			t.Fatalf("生成代码缺少 %s", sym)
-		}
+	// S6-05 起 text.x 是完整公开面（Format/parse/UTF/Regex），不再含早期种子
+	// xn_repeatText/xn_repeatJoined。编译面依赖 Char/Double/Error 协议等 codegen
+	// 能力（E4 XDK-08 待补）；此处只核验单元自身可解析/语义通过。
+	if _, err := EmitC(u); err != nil {
+		t.Skipf("text.x 编译面未完成（E4 XDK-08）：%v", err)
 	}
 }
