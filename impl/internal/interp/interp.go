@@ -328,6 +328,13 @@ func zeroValue(t xfront.TypeRef) *Value {
 		}
 		return zeroValue(st.Base)
 	}
+	if tt, ok := t.(*xfront.TupleTypeRef); ok { // §2.11：值类型元组逐元素取零值
+		elems := make([]*Value, len(tt.Elems))
+		for i, e := range tt.Elems {
+			elems[i] = zeroValue(e)
+		}
+		return &Value{K: vTuple, A: elems}
+	}
 	if nt, ok := t.(*xfront.NamedType); ok && len(nt.Qual) == 1 {
 		switch nt.Qual[0] {
 		case "Int", "Long", "Byte", "Short", "UByte", "UShort", "UInt", "ULong", "Int128", "UInt128":

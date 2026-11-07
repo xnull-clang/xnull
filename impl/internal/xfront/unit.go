@@ -300,6 +300,9 @@ func (p *parser) parseTopDecl() TopDecl {
 			f.Const = true
 		}
 		f.Type = p.parseTopType()
+		if f.Const && tupleTypeRef(f.Type) {
+			p.err(f.Type.Pos(), synTypeDecl, "元组不能作为 const 类型（§2.11）", "")
+		}
 		f.Name = p.expectKind(Ident, "声明名").Text
 		if p.atOp("=") {
 			p.i++
@@ -472,6 +475,15 @@ func (p *parser) parseAnnotation() *AnnotationNode {
 	return a
 }
 
+// tupleTypeRef 判断类型是否为元组（含 `?` / `[]` 后缀），用于 const 类型拒绝（§2.11）。
+func tupleTypeRef(t TypeRef) bool {
+	if st, ok := t.(*SuffixedType); ok {
+		return tupleTypeRef(st.Base)
+	}
+	_, ok := t.(*TupleTypeRef)
+	return ok
+}
+
 // tryTypeRefQuietTop 顶层声明位置的类型解析：不吞 `(`（函数实参表归函数，
 // 与 new 的处理同理），失败回退。
 func (p *parser) tryTypeRefQuietTop() TypeRef {
@@ -487,7 +499,12 @@ func (p *parser) tryTypeRefQuietTop() TypeRef {
 // parseTopType 解析顶层声明的类型：命名类型 + 后缀；`(` 不构成函数类型
 // （顶层 `static Type name(` 的 `(` 永远是参数表，附录 A 文法说明同理）。
 func (p *parser) parseTopType() TypeRef {
-	base := p.parseNamedType()
+	var base TypeRef
+	if p.at(LParen) { // 顶层返回类型/字段允许元组（§2.11）
+		base = p.parseTupleType()
+	} else {
+		base = p.parseNamedType()
+	}
 	var suffixes []string
 	for {
 		if p.at(LBrack) && p.toks[min(p.i+1, len(p.toks)-1)].at(RBrack) {

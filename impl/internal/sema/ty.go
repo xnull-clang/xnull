@@ -1044,14 +1044,40 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 	return texpr{}
 }
 
+// splitTopLevel 按顶层逗号切分泛型实参串；括号/尖括号/方括号内的逗号不切分。
+func splitTopLevel(inner string) []string {
+	var parts []string
+	depth := 0
+	start := 0
+	for i, r := range inner {
+		switch r {
+		case '(', '<', '[':
+			depth++
+		case ')', '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	if start <= len(inner) {
+		parts = append(parts, strings.TrimSpace(inner[start:]))
+	}
+	return parts
+}
+
 // methodRet 按接收者类型与成员表推断方法返回类型（§9.1 总表）。
 func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) texpr {
 	k := rt.key
 	genericArg := func(key, prefix string) string {
 		if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, ">") {
 			inner := key[len(prefix) : len(key)-1]
-			parts := strings.Split(inner, ",")
-			return strings.TrimSpace(parts[0])
+			parts := splitTopLevel(inner)
+			if len(parts) > 0 {
+				return parts[0]
+			}
 		}
 		return ""
 	}
