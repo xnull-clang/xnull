@@ -69,6 +69,10 @@ func (in *Interp) writeStaticField(cls *xfront.ClassDecl, name string, v *Value)
 
 // findMethods 收集继承链上的实例方法候选（同名重载；类继承本身无覆写）。
 func (in *Interp) findMethods(cls *xfront.ClassDecl, name string) []*xfront.MethodDecl {
+	return in.findMethodsFrom(cls, name)
+}
+
+func (in *Interp) findMethodsFrom(cls *xfront.ClassDecl, name string) []*xfront.MethodDecl {
 	var out []*xfront.MethodDecl
 	for c := cls; c != nil; c = in.baseClass(c) {
 		for _, m := range c.Methods {
@@ -78,6 +82,25 @@ func (in *Interp) findMethods(cls *xfront.ClassDecl, name string) []*xfront.Meth
 		}
 	}
 	return out
+}
+
+// declaringClass 返回方法 m 在 start 链上的声明类（super 起点/当前类栈）。
+func (in *Interp) declaringClass(start *xfront.ClassDecl, m *xfront.MethodDecl) *xfront.ClassDecl {
+	for c := start; c != nil; c = in.baseClass(c) {
+		for _, x := range c.Methods {
+			if x == m {
+				return c
+			}
+		}
+	}
+	return start
+}
+
+func (in *Interp) currentClass() *xfront.ClassDecl {
+	if len(in.methodStack) == 0 {
+		return nil
+	}
+	return in.methodStack[len(in.methodStack)-1]
 }
 
 // findStaticMethods：子类同名静态方法隐藏父类同名集合（§7.2）。

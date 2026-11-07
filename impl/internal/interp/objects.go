@@ -279,12 +279,18 @@ func primaryParam(c *xfront.ClassDecl, field string) (*xfront.Param, bool) {
 }
 
 // callMethod 调用实例方法：绑定 self 与参数，恢复 ctrlReturn（含 defer 语义由 execBlock 承载）。
-func (in *Interp) callMethod(obj *objv, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
-	cands := in.findMethods(obj.cls, name)
+func (in *Interp) callMethod(obj *objv, name string, args []*Value, pos xfront.Pos) (*Value, error) {
+	return in.callMethodFrom(obj.cls, obj, name, args, pos)
+}
+
+// callMethodFrom 从 start 类起静态查找实例方法（super.m() 用父类起点，§5.4）。
+func (in *Interp) callMethodFrom(start *xfront.ClassDecl, obj *objv, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
+	cands := in.findMethodsFrom(start, name)
 	if len(cands) == 0 {
-		panic(runtimeErr{"该类型没有成员方法 " + name + "：" + obj.cls.Name})
+		panic(runtimeErr{"该类型没有成员方法 " + name + "：" + start.Name})
 	}
 	m := in.selectMethod(name, cands, args)
+	declCls := in.declaringClass(start, m)
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {
@@ -301,13 +307,15 @@ func (in *Interp) callMethod(obj *objv, name string, args []*Value, pos xfront.P
 			}
 		}
 	}()
+	in.methodStack = append(in.methodStack, declCls)
+	defer func() { in.methodStack = in.methodStack[:len(in.methodStack)-1] }()
 	sc := newScope(in.globals)
 	sc.define("self", &Value{K: vObj, O: obj})
 	for i, prm := range m.Params {
 		if i < len(args) {
-			sc.define(prm.Name, args[i])
+			sc.defineTyped(prm.Name, prm.Type, args[i])
 		} else {
-			sc.define(prm.Name, &Value{K: vNull})
+			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 		}
 	}
 	if m.Body != nil {

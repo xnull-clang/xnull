@@ -212,20 +212,21 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out        io.Writer
-	funcs      map[string][]*xfront.TopFunc
-	classes    map[string]*xfront.ClassDecl
-	globals    *scope
-	label      string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit     map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
-	enums      map[string]*xfront.EnumDecl
-	enumVals   map[string]map[string]int64  // 简单枚举：项 → 底层值
-	enumItems  map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
-	protocols  map[string]*xfront.ProtocolDecl
-	enumCls    map[string]*xfront.ClassDecl
-	classOrder []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
-	staticVals map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
-	staticCtx  *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
+	out         io.Writer
+	funcs       map[string][]*xfront.TopFunc
+	classes     map[string]*xfront.ClassDecl
+	globals     *scope
+	label       string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit      map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums       map[string]*xfront.EnumDecl
+	enumVals    map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems   map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols   map[string]*xfront.ProtocolDecl
+	enumCls     map[string]*xfront.ClassDecl
+	classOrder  []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
+	staticVals  map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
+	staticCtx   *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
+	methodStack []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -1062,6 +1063,22 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 	}
 	// 方法调用形态：recv.method(args)（§10.1 Result 成员全部为方法）。
 	if mem, ok := n.Callee.(*xfront.Member); ok {
+		// S2 §5.4：`super.m(...)` 从父类起点静态查找。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "super" {
+			self, found := sc.lookup("self")
+			if !found || self.K != vObj {
+				panic(runtimeErr{"super 只能在实例方法中使用（§5.4）"})
+			}
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			v, err := in.callMethodFrom(in.superBase(), self.O, mem.Name, args, n.P)
+			if err != nil {
+				panic(runtimeErr{err.Error()})
+			}
+			return v
+		}
 		// S2 §7.2：`Class.staticMethod(...)`；类名不是运行期变量。
 		if id, ok := mem.X.(*xfront.IdentExpr); ok {
 			if cls, found := in.findClass(id.Name); found {
@@ -1201,6 +1218,13 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 
 func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
 	if id, ok := n.X.(*xfront.IdentExpr); ok {
+		// S2 §5.4：`super.field` 从父类链读字段。
+		if id.Name == "super" {
+			if f, obj, hit := in.superField(sc, n.Name); hit {
+				return obj.fields[fieldKey(f)]
+			}
+			panic(runtimeErr{"父类没有字段 " + n.Name + "（§5.4）"})
+		}
 		// S2 §7.1：`Class.field` 静态字段。
 		if cls, ok := in.findClass(id.Name); ok {
 			if v, hit := in.findStaticField(cls, n.Name); hit {
@@ -1265,6 +1289,14 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 		recv.A[t.Index] = cloneTupleValue(v)
 		return
 	case *xfront.Member:
+		// S2 §5.4：`super.field = v` 写父类链字段。
+		if id, ok := t.X.(*xfront.IdentExpr); ok && id.Name == "super" {
+			if f, obj, hit := in.superField(sc, t.Name); hit {
+				obj.fields[fieldKey(f)] = v
+				return
+			}
+			panic(runtimeErr{"父类没有字段 " + t.Name + "（§5.4）"})
+		}
 		// S2 §7.1：`Class.staticField = v`。
 		if id, ok := t.X.(*xfront.IdentExpr); ok {
 			if cls, found := in.findClass(id.Name); found && in.writeStaticField(cls, t.Name, v) {
