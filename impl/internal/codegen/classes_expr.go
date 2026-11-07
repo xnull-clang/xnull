@@ -73,6 +73,12 @@ func (g *gen) methodRetC(m *classInfo_m) (string, error) {
 func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 	switch n := e.(type) {
 	case *xfront.IdentExpr:
+		if n.Name == "self" && s.self != nil {
+			return s.cRef("self"), s.self.ctype, nil
+		}
+		if n.Name == "super" && s.superT != "" {
+			return s.cRef("super"), s.superT, nil
+		}
 		c, ok := s.localCType(n.Name)
 		if !ok {
 			if gc, isGlobal := s.g.globals[n.Name]; isGlobal {
@@ -165,6 +171,15 @@ func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args 
 			parts = append(parts, lastVar(lines))
 			continue
 		}
+		if s.g.isProtoC(pc) {
+			lines, expr, _, err := s.protoValue(args[i])
+			if err != nil {
+				return "", err
+			}
+			s.pending = append(s.pending, lines...)
+			parts = append(parts, expr)
+			continue
+		}
 		v, err := s.intExpr(args[i])
 		if err != nil {
 			return "", err
@@ -196,6 +211,23 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 	// 容器字段是值结构（本层未做引用语义容器）：浅拷贝会双释放，显式拒绝。
 	if f.isArr {
 		return nil, fmt.Errorf("codegen：容器字段 %s 的赋值需要引用语义容器（B2 范围，显式拒绝）", f.name)
+	}
+	if f.isProto {
+		if _, isNull := val.(*xfront.NullLit); isNull {
+			return []string{"rt_release((void *)" + dst + ");", dst + " = NULL;"}, nil
+		}
+		lines, expr, owned, err := s.protoValue(val)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		if !owned {
+			t := s.tmp()
+			out = append(out, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		out = append(out, "rt_release((void *)"+dst+");", dst+" = "+expr+";")
+		return out, nil
 	}
 	if !f.isRefField() {
 		v, err := s.intExpr(val)

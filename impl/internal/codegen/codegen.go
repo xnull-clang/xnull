@@ -175,7 +175,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
-		tuples: map[string]*tupleInfo{}}
+		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
+		protoSlotByKey: map[string]int{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -197,6 +198,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	// 类名预登记（前向引用）+ 字段/方法签名收集
 	g.registerClassNames(u)
+	if err := g.collectProtocols(u); err != nil {
+		return "", err
+	}
 	for _, d := range u.Decls {
 		if c, ok := d.(*xfront.ClassDecl); ok {
 			if err := g.collectClass(c); err != nil {
@@ -349,6 +353,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	b.WriteString(prelude)
 	// 元组结构体（S1 §2.11）：必须在容器/类/函数之前定义。
 	g.emitTupleTypes(&b)
+	// 协议类型与 vtable 对象前缀（S2 §4/§5.7）。
+	g.emitProtocolTypes(&b)
 	// FFI 支撑代码（P-09）：包装函数 xn_ffi_<entry> 必须定义在调用点之前；
 	// 生成失败即构建失败，绝不静默降级（ffi-contract §5.1）。
 	if g.ffi != nil && !g.ffi.Empty() {
@@ -379,7 +385,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	b.WriteString("}\n\n")
 	// 类前向声明：容器结构、顶层函数原型与类结构都只按指针使用类类型，
 	// 必须先于它们出现（多文件下使用方声明可能先于定义方，S1-06）。
-	g.emitClassForwardDecls(&b)
+	if err := g.emitClassForwardDecls(&b); err != nil {
+		return "", err
+	}
 	// 顶层字段存储：函数体与初始化函数都要引用，声明必须先于函数定义。
 	for _, f := range g.globalList {
 		fmt.Fprintf(&b, "static %s xn_g_%s;\n", g.globals[f.Name], f.Name)
@@ -490,6 +498,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		}
 	}
+	if err := g.emitVtables(&b); err != nil {
+		return "", err
+	}
 	b.WriteString("static rt_string *xn_result_error_copy_rt(rt_string *err) {\n")
 	b.WriteString("    return rt_string_new(err->bytes, err->len);\n")
 	b.WriteString("}\n\n")
@@ -519,6 +530,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			b.WriteString("void")
 		}
 		b.WriteString(") {\n")
+		if len(g.slotOrder) > 0 {
+			b.WriteString("    xn_init_vtables();\n")
+		}
 		if len(g.globalList) > 0 {
 			b.WriteString("    xn_init_globals();\n")
 		}
@@ -730,11 +744,21 @@ type gen struct {
 	entry          *entryInfo                   // 选中的入口（main 重载分派用）
 	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
 	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
+	protocols      map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
+	protoSlotByKey map[string]int               // 签名 key → 全局槽位
+	slotOrder      []protoSlot                  // 槽位表（索引即槽位）
 	tmp            int
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
 func (s *scope) cRef(name string) string {
+	if name == "super" && s.superT != "" {
+		cvar := "self"
+		if s.self != nil && s.self.cvar != "" {
+			cvar = s.self.cvar
+		}
+		return "((" + s.superT + ")" + cvar + ")"
+	}
 	if s.params != nil && s.params[name] {
 		return "xn_p_" + name
 	}
@@ -925,6 +949,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if _, ok := g.classOf(typeName(n)); ok {
 				return "xn_Cls_" + typeName(n) + " *", nil
 			}
+			if ct, ok := g.protoCType(typeName(n)); ok {
+				return ct, nil
+			}
 			if g.handleNames[typeName(n)] {
 				return "xrt_handle *", nil
 			}
@@ -1010,6 +1037,7 @@ type scope struct {
 	params    map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
 	locals    map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
 	self      *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
+	superT    string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
 	isCtor    bool              // 构造器体：`return;` 返回已构造对象
 	returned  bool              // 末句已生成 return（块退出清理跳过）
 }
@@ -1053,7 +1081,7 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, isCtor: s.isCtor}
+	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, superT: s.superT, isCtor: s.isCtor}
 }
 
 func (s *scope) tmp() string {
@@ -1227,6 +1255,15 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		return nil, fmt.Errorf("codegen：表达式语句 %T 未支持（M4.1 范围）", e)
 	}
 	if mem, ok := call.Callee.(*xfront.Member); ok {
+		if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+			expr, _, err := s.protoDispatch(mem, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
 		if rn, rc, err := recvCName(mem.X, s); err == nil {
 			if isClassPtr(rc) {
 				if v, hit, err := s.classMemberValue(rc, rn, mem, call.Args); err != nil {
@@ -1491,6 +1528,24 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		}
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
+	// 协议类型局部（S2 §4.4）：对象指针强引用；null 为零值。
+	if s.g.isProtoC(tc) {
+		s.locals[n.Name] = tc
+		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release((void *)" + n.Name + ");"}})
+		if n.Init == nil {
+			return []string{tc + " " + n.Name + " = NULL;"}, nil
+		}
+		lines, expr, owned, err := s.protoValue(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		return append(lines, tc+" "+n.Name+" = "+expr+";"), nil
+	}
 	if strings.HasPrefix(tc, "xn_opt_") {
 		lines, v := []string{}, "("+tc+"){0, 0}"
 		if n.Init != nil {
@@ -1722,6 +1777,20 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 			return append(lines, tgt+" = "+v+";"), nil
 		}
 	}
+	if tc, ok := s.localCType(id.Name); ok && s.g.isProtoC(tc) {
+		lines, expr, owned, err := s.protoValue(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		out := append([]string{}, lines...)
+		out = append(out, "rt_release((void *)"+tgt+");", tgt+" = "+expr+";")
+		return out, nil
+	}
 	// 句柄局部赋值（B0-07c）：Call/Ident 右值；旧句柄释放。
 	if tc, ok := s.localCType(id.Name); ok && isHandlePtr(tc) {
 		switch v := n.Value.(type) {
@@ -1899,6 +1968,23 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return "+v+";"), nil
+	}
+	if s.g.isProtoC(s.retC) && n.Value != nil {
+		lines, expr, owned, err := s.protoValue(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+expr+";"), nil
 	}
 	if isClassPtr(s.retC) && n.Value != nil {
 		// 类引用返回：与 String 同一纪律——标识符 retain 后返回（本层 defer release 抵消）；
@@ -2238,6 +2324,19 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			}
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+				expr, retC, err := s.protoDispatch(mem, n.Args)
+				if err != nil {
+					return nil, err
+				}
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：协议方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
 				switch mem.Name {
 				case "join":
@@ -2591,6 +2690,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+				expr, _, err := s.protoDispatch(mem, n.Args)
+				if err != nil {
+					return "", err
+				}
+				return expr, nil
+			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
 				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
 					return "", err
@@ -2607,6 +2713,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				if v, hit, err := s.strMemberValue(mem, n.Args, false); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isClassPtr(rc) {
+				if v, hit, err := s.classMemberValue(rc, rn, mem, n.Args); err != nil {
 					return "", err
 				} else if hit {
 					return v, nil
@@ -2700,6 +2813,13 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 		if err != nil {
 			return "", false, err
 		}
+		if s.g.isProtoC(rc) {
+			expr, _, err := s.protoDispatch(c, cl.Args)
+			if err != nil {
+				return "", false, err
+			}
+			return expr, true, nil
+		}
 		if isContainerC(rc) {
 			v, hit, err := s.containerMemberValue(rc, rn, c.Name, cl.Args)
 			if err != nil {
@@ -2780,6 +2900,13 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 			}
 			s.pending = append(s.pending, lines...)
 			out = append(out, v)
+		case s.g.isProtoC(t):
+			lines, expr, _, err := s.protoValue(a)
+			if err != nil {
+				return nil, err
+			}
+			s.pending = append(s.pending, lines...)
+			out = append(out, expr)
 		case isContainerC(t):
 			if id, ok := a.(*xfront.IdentExpr); ok {
 				out = append(out, s.cRef(id.Name))

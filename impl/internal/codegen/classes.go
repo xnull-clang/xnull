@@ -29,13 +29,14 @@ type classField struct {
 	isCls    bool        // 类引用字段（xn_Cls_X *）
 	isHandle bool        // 不透明句柄字段（xrt_handle *）
 	isBytes  bool        // 可变字节缓冲字段（xrt_bytes_obj *）
+	isProto  bool        // 协议类型字段（xn_proto_<P>，强引用，S2 §4.5）
 	elem     string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
 	init     xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
 }
 
 // isRefField 判断字段是否持有 ARC 引用（deinit/赋值需 retain/release）。
 func (f classField) isRefField() bool {
-	return f.isStr || f.isCls || f.isHandle || f.isBytes
+	return f.isStr || f.isCls || f.isHandle || f.isBytes || f.isProto
 }
 
 // classInfo 是一个类的生成信息。
@@ -141,7 +142,7 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 			}
 			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *"})
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct)})
 		}
 	}
 	for _, f := range d.Fields {
@@ -151,7 +152,7 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		}
 		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", init: f.Init})
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init})
 	}
 	// 构造器 C 名：首个（主构造器优先）无后缀，其余按声明序编号（S2 §6.3 重载）。
 	var ctorList []*xfront.CtorDecl
@@ -237,7 +238,7 @@ func (g *gen) registerClassNames(u *xfront.CompilationUnit) {
 // 输出顺序不变量：前向声明（此处）→ 容器结构 → 顶层函数原型 → 类完整定义。
 // 多文件合并后使用方可先于定义方出现，指针形态只需该不完整类型即合法（S1-06）；
 // 字段初值 `new B()` 也要求 B 的构造器原型先于 A 的构造器（B0-04）。
-func (g *gen) emitClassForwardDecls(b *strings.Builder) {
+func (g *gen) emitClassForwardDecls(b *strings.Builder) error {
 	names := make([]string, 0, len(g.classes))
 	for name := range g.classes {
 		names = append(names, name)
@@ -255,26 +256,28 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) {
 		ctors := ci.ctorList()
 		if len(ctors) == 0 {
 			fmt.Fprintf(b, "static %s *%s_new(void);\n", ci.cname, ci.cname)
+			fmt.Fprintf(b, "static void %s(%s *o);\n", ci.initFnName(nil), ci.cname)
 		} else {
 			for _, c := range ctors {
-				parts := []string{}
-				for _, p := range c.Params {
-					pc, err := g.cType(p.Type)
-					if err != nil {
-						continue
-					}
-					parts = append(parts, pc+" xn_p_"+p.Name)
+				parts, _, _, err := g.ctorParamDecls(c)
+				if err != nil {
+					return err
 				}
 				fmt.Fprintf(b, "static %s *%s(%s);\n", ci.cname, ci.ctorName[c], strings.Join(parts, ", "))
+				fmt.Fprintf(b, "static void %s(%s *o%s);\n", ci.initFnName(c), ci.cname, prefixed(", ", parts))
 			}
 		}
 		if ci.deinit != nil {
 			fmt.Fprintf(b, "static void %s(%s *self);\n", ci.deinit.cname, ci.cname)
 		}
+		if ci.vptr {
+			fmt.Fprintf(b, "static void *xn_vt_%s[%d];\n", ci.decl.Name, len(g.slotOrder))
+		}
 	}
 	if len(names) > 0 {
 		b.WriteString("\n")
 	}
+	return nil
 }
 
 // emitClassStruct 生成结构体、类型描述符与构造器。
@@ -315,8 +318,66 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 
 }
 
-// emitClassCtor 生成全部构造器（S2 §6.3）：分配清零 → 字段初值（声明顺序）
-// → 主构造器参数绑定 → 构造器体。无显式构造器时生成隐式无参构造器。
+// ownFields 返回本类声明的字段（不含继承前置的父类字段）。
+func (ci *classInfo) ownFields() []classField {
+	if ci.base == nil {
+		return ci.fields
+	}
+	return ci.fields[len(ci.base.fields):]
+}
+
+// initFnName 构造器初始化函数 C 名（在已分配对象上执行字段初值/构造体前段）。
+func (ci *classInfo) initFnName(c *xfront.CtorDecl) string {
+	if c == nil {
+		return ci.cname + "_new_init"
+	}
+	return ci.ctorName[c] + "_init"
+}
+
+// ctorParamDecls 构造器参数声明串与作用域登记。
+func (g *gen) ctorParamDecls(c *xfront.CtorDecl) ([]string, map[string]bool, map[string]string, error) {
+	parts := []string{}
+	pnames := map[string]bool{}
+	locals := map[string]string{}
+	if c == nil {
+		return parts, pnames, locals, nil
+	}
+	for _, p := range c.Params {
+		pc, err := g.cType(p.Type)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		parts = append(parts, pc+" xn_p_"+p.Name)
+		pnames[p.Name] = true
+		locals[p.Name] = pc
+	}
+	return parts, pnames, locals, nil
+}
+
+// superCtorStmt 识别构造器体内首条 `super(...)` 语句。
+func superCtorStmt(body *xfront.Block) (*xfront.Call, bool) {
+	if body == nil || len(body.Stmts) == 0 {
+		return nil, false
+	}
+	es, ok := body.Stmts[0].(*xfront.ExprStmt)
+	if !ok {
+		return nil, false
+	}
+	call, ok := es.X.(*xfront.Call)
+	if !ok {
+		return nil, false
+	}
+	id, ok := call.Callee.(*xfront.IdentExpr)
+	if !ok || id.Name != "super" {
+		return nil, false
+	}
+	return call, true
+}
+
+// emitClassCtor 生成全部构造器（S2 §6.3/§6.5）：
+// 分配清零 → 安装 vtable → 父类构造（显式 super(...) 或隐式无参）→ 本类字段初值
+// （声明顺序）→ 主构造器参数绑定 → 构造器体（跳过 super 语句）。
+// 同时为每个构造器生成 `<ctor>_init`（在既有对象上执行本类字段初值），供派生类复用。
 func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 	inits, err := g.classCtorInit(ci)
 	if err != nil {
@@ -324,31 +385,66 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 	}
 	ctors := ci.ctorList()
 	if len(ctors) == 0 {
-		fmt.Fprintf(b, "static %s *%s_new(void) {\n", ci.cname, ci.cname)
-		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
-		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
+		// 隐式无参构造器：init 承担父类初始化 + 本类字段初值。
+		fmt.Fprintf(b, "static void %s(%s *o) {\n", ci.initFnName(nil), ci.cname)
+		if ci.base != nil {
+			baseLines, err := g.baseCtorCall(ci, &scope{g: g, locals: map[string]string{}}, nil, 0)
+			if err != nil {
+				return err
+			}
+			for _, l := range baseLines {
+				b.WriteString("    " + l + "\n")
+			}
+		}
 		for _, l := range inits {
 			b.WriteString("    " + l + "\n")
 		}
+		b.WriteString("}\n\n")
+		fmt.Fprintf(b, "static %s *%s_new(void) {\n", ci.cname, ci.cname)
+		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
+		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
+		if ci.vptr {
+			fmt.Fprintf(b, "    o->__vtable = xn_vt_%s;\n", ci.decl.Name)
+		}
+		fmt.Fprintf(b, "    %s(o);\n", ci.initFnName(nil))
 		b.WriteString("    return o;\n}\n\n")
 		return nil
 	}
 	for _, c := range ctors {
-		parts := []string{}
-		pnames := map[string]bool{}
-		locals := map[string]string{}
-		for _, p := range c.Params {
-			pc, err := g.cType(p.Type)
+		parts, pnames, locals, err := g.ctorParamDecls(c)
+		if err != nil {
+			return err
+		}
+		// 初始化函数：父类构造（super(...) 或隐式）→ 本类字段初值 →
+		// 主构造器参数绑定 → 构造器体（跳过 super 语句）。
+		sc := &scope{g: g, retC: "void", params: pnames, locals: locals, self: newSelfCtx(ci)}
+		sc.self.cvar = "o"
+		if ci.base != nil {
+			sc.superT = ci.base.cname + " *"
+		}
+		superCall, hasSuper := superCtorStmt(c.Body)
+		var bodyStmts []xfront.Stmt
+		if c.Body != nil {
+			if hasSuper {
+				bodyStmts = c.Body.Stmts[1:]
+			} else {
+				bodyStmts = c.Body.Stmts
+			}
+		}
+		fmt.Fprintf(b, "static void %s(%s *o%s) {\n", ci.initFnName(c), ci.cname, prefixed(", ", parts))
+		if ci.base != nil {
+			argc := 0
+			if hasSuper {
+				argc = len(superCall.Args)
+			}
+			baseLines, err := g.baseCtorCall(ci, sc, superCall, argc)
 			if err != nil {
 				return err
 			}
-			parts = append(parts, pc+" xn_p_"+p.Name)
-			pnames[p.Name] = true
-			locals[p.Name] = pc
+			for _, l := range baseLines {
+				b.WriteString("    " + l + "\n")
+			}
 		}
-		fmt.Fprintf(b, "static %s *%s(%s) {\n", ci.cname, ci.ctorName[c], strings.Join(parts, ", "))
-		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
-		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
 		for _, l := range inits {
 			b.WriteString("    " + l + "\n")
 		}
@@ -365,18 +461,78 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 				}
 			}
 		}
-		sc := &scope{g: g, retC: ci.cname + " *", params: pnames, locals: locals, self: newSelfCtx(ci), isCtor: true}
-		sc.self.cvar = "o"
-		if c.Body != nil {
-			body, err := sc.emitBlock(c.Body.Stmts)
+		if len(bodyStmts) > 0 {
+			body, err := sc.emitBlock(bodyStmts)
 			if err != nil {
 				return err
 			}
 			b.WriteString(body)
 		}
+		b.WriteString("}\n\n")
+
+		fmt.Fprintf(b, "static %s *%s(%s) {\n", ci.cname, ci.ctorName[c], strings.Join(parts, ", "))
+		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
+		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
+		if ci.vptr {
+			fmt.Fprintf(b, "    o->__vtable = xn_vt_%s;\n", ci.decl.Name)
+		}
+		fmt.Fprintf(b, "    %s(o%s);\n", ci.initFnName(c), prefixed(", ", ctorArgNames(c)))
 		b.WriteString("    return o;\n}\n\n")
 	}
 	return nil
+}
+
+// baseCtorCall 生成父类构造调用（显式 super(args) 或隐式无参）。
+func (g *gen) baseCtorCall(ci *classInfo, sc *scope, superCall *xfront.Call, argc int) ([]string, error) {
+	base := ci.base
+	if base == nil {
+		return nil, nil
+	}
+	var c *xfront.CtorDecl
+	ctors := base.ctorList()
+	if len(ctors) == 0 {
+		if argc != 0 {
+			return nil, fmt.Errorf("codegen：父类 %s 没有 %d 参数的构造器（S2 §6.3）", base.decl.Name, argc)
+		}
+		return []string{fmt.Sprintf("%s((%s *)o);", base.initFnName(nil), base.cname)}, nil
+	}
+	c = base.ctorByArity(argc)
+	if c == nil {
+		return nil, fmt.Errorf("codegen：父类 %s 没有 %d 参数的构造器（S2 §6.3）", base.decl.Name, argc)
+	}
+	args := []string{}
+	var pre []string
+	if superCall != nil {
+		av, err := sc.callArgs(superCall.Args)
+		if err != nil {
+			return nil, err
+		}
+		args = av
+		pre = append(pre, sc.pending...)
+		sc.pending = nil
+	}
+	call := fmt.Sprintf("%s((%s *)o%s);", base.initFnName(c), base.cname, prefixed(", ", args))
+	return append(pre, call), nil
+}
+
+// ctorArgNames 构造器参数在 C 侧的实参名。
+func ctorArgNames(c *xfront.CtorDecl) []string {
+	if c == nil {
+		return nil
+	}
+	out := make([]string, 0, len(c.Params))
+	for _, p := range c.Params {
+		out = append(out, "xn_p_"+p.Name)
+	}
+	return out
+}
+
+// prefixed 将 sep 前缀拼接到列表（空列表返回空串）。
+func prefixed(sep string, items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	return sep + strings.Join(items, ", ")
 }
 
 // methodProto 生成方法前向声明。
@@ -431,6 +587,9 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, params: pnames, locals: locals, self: newSelfCtx(ci)}
+	if ci.base != nil {
+		sc.superT = ci.base.cname + " *"
+	}
 	body, err := sc.emitBlock(m.decl.Body.Stmts)
 	if err != nil {
 		return "", err
@@ -461,8 +620,8 @@ func cZeroValue(ct string) string {
 func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 	var out []string
 	sc := &scope{g: g, locals: map[string]string{}}
-	for i := range ci.fields {
-		f := ci.fields[i]
+	for i := range ci.ownFields() {
+		f := ci.ownFields()[i]
 		if f.init == nil {
 			continue
 		}
@@ -480,11 +639,9 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 		out = append(out, sc.pending...)
 		sc.pending = nil
 		switch {
-		case f.isStr:
+		case f.isRefField():
 			// 旧值为 memset 的 NULL，release 幂等（rt_release 对 NULL 直接返回）
-			out = append(out, fmt.Sprintf("rt_release(o->%s);", f.cname))
-		case f.isCls:
-			out = append(out, fmt.Sprintf("rt_release(o->%s);", f.cname))
+			out = append(out, fmt.Sprintf("rt_release((void *)o->%s);", f.cname))
 		}
 		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, expr))
 	}
@@ -494,6 +651,12 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 // fieldInitValue 为单个字段初值生成 (语句, 右值表达式)。
 func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls string) ([]string, string, error) {
 	switch {
+	case f.isProto:
+		lines, expr, _, err := sc.protoValue(init)
+		if err != nil {
+			return nil, "", err
+		}
+		return lines, expr, nil
 	case f.isStr:
 		lines, err := sc.strExpr(init)
 		if err != nil {
