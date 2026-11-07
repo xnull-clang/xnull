@@ -317,7 +317,7 @@ func interpFile(env Env, path string, progArgs []string) int {
 		}
 		return exitcode.BuildFail
 	}
-	code, err := interp.Run(u, env.Stdout, progArgs)
+	code, err := interp.RunWithDiag(u, env.Stdout, env.Stderr, progArgs)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
 	}
