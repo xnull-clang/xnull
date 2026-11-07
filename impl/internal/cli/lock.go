@@ -39,6 +39,13 @@ func runLock(env Env, args []string) int {
 		return 1
 	}
 	repo := os.Getenv("XNULL_REPO")
+	graph, gds := manifest.ResolveGraph(res, repo)
+	if len(gds) > 0 {
+		for _, d := range gds {
+			fmt.Fprintln(env.Stderr, d.String())
+		}
+		return 1
+	}
 	lockPath := filepath.Join(root, "xnull.lock")
 
 	if update {
@@ -46,9 +53,9 @@ func runLock(env Env, args []string) int {
 		if l, ds, lerr := manifest.LoadLock(lockPath); lerr == nil && len(ds) == 0 {
 			prev = l
 		}
-		lock, gds := manifest.GenerateLock(res, repo, prev)
-		if len(gds) > 0 {
-			for _, d := range gds {
+		lock, genDs := manifest.GenerateLockForGraph(res, graph, repo, prev)
+		if len(genDs) > 0 {
+			for _, d := range genDs {
 				fmt.Fprintln(env.Stderr, d.String())
 			}
 			return 1
@@ -79,7 +86,7 @@ func runLock(env Env, args []string) int {
 		}
 		return 1
 	}
-	if ds := manifest.ValidateLock(lock, res, repo); len(ds) > 0 {
+	if ds := manifest.ValidateLockForGraph(lock, graph, repo); len(ds) > 0 {
 		for _, d := range ds {
 			fmt.Fprintln(env.Stderr, d.String())
 		}
