@@ -24,6 +24,10 @@ extern "C" {
  * type->scan 必须非空。 */
 void *rt_gc_new(const rt_type *type);
 
+/* 变长 GC 对象分配（String/Text 的字节区）：payload 为实际载荷字节数，
+ * 覆盖 type->payload_size（描述符仅用于 deinit/scan）。 */
+void *rt_gc_new_size(const rt_type *type, size_t payload);
+
 /* 持 GC 引用的 ARC 对象分配：type->scan 非空时登记进扫描链（不变量 2）。 */
 void *rt_arc_new(const rt_type *type);
 

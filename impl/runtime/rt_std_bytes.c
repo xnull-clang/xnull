@@ -7,11 +7,11 @@
  *   - push/set 取值的低 8 位（Byte 语义）；扩容按 2 倍几何增长，OOM → xrt_fatal；
  *   - slice 复制出新区间，不共享底层缓冲。
  *
- * 分配种类：当前用 ARC（与 String/类/容器一致；生成代码按作用域 release）。
- * S3 §188 的“GC 对象”分类待 codegen 生命周期整体切到根登记后再改 kind——
- * 本文件的 API、类型名与布局不变，切换点只有 xrt_bytes_alloc 的 kind 实参。
+ * 分配种类：GC（ADR-007 / S3 §188）。`rt_retain/release` 对 GC 对象为 no-op；
+ * 过渡期 codegen 的 release 不改变生命周期，对象由标记—清扫回收。
  */
 #include "rt.h"
+#include "rt_gc.h"
 #include "xrt.h"
 
 #include <stdlib.h>
@@ -44,7 +44,7 @@ static bytes_payload *payload_of(const xrt_bytes_buf *b) {
 }
 
 static xrt_bytes_buf *bytes_new_cap(size_t cap) {
-    xrt_bytes_buf *b = xrt_alloc(XRT_KIND_ARC, (const xrt_type *)&RT_TYPE_BYTES);
+    xrt_bytes_buf *b = rt_gc_new(&RT_TYPE_BYTES);
     bytes_payload *p = payload_of(b);
     p->data = NULL;
     p->len = 0;

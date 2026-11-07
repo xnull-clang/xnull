@@ -427,6 +427,16 @@ func (s *scope) bytesMemberValue(recvName string, name string, args []xfront.Exp
 			return "", true, err
 		}
 		return "((int64_t)xrt_bytes_get(" + recvName + ", (size_t)(" + idx + ")))", true, nil
+	case "slice":
+		a, err := s.intExpr(args[0])
+		if err != nil {
+			return "", true, err
+		}
+		b, err := s.intExpr(args[1])
+		if err != nil {
+			return "", true, err
+		}
+		return "xrt_bytes_slice(" + recvName + ", (size_t)(" + a + "), (size_t)(" + b + "))", true, nil
 	}
 	return "", false, nil
 }
@@ -450,6 +460,12 @@ func (s *scope) bytesMemberStmt(recvName string, name string, args []xfront.Expr
 			return nil, true, err
 		}
 		return []string{"xrt_bytes_set(" + recvName + ", (size_t)(" + idx + "), (int32_t)(" + v + "));"}, true, nil
+	case "append":
+		id, ok := args[0].(*xfront.IdentExpr)
+		if !ok {
+			return nil, true, fmt.Errorf("codegen：Bytes.append 实参仅支持变量（S1 §9.7）")
+		}
+		return []string{"xrt_bytes_append(" + recvName + ", " + s.cRef(id.Name) + ");"}, true, nil
 	}
 	return nil, false, nil
 }

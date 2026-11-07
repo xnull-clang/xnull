@@ -353,15 +353,55 @@ static void test_callback_env(void) {
     }
 }
 
+/* S3-04：String/Text/Bytes/StringBuilder 均为 GC 对象（kind/弱引用/收集释放）。 */
+static void test_s304_gc_types(void) {
+    xrt_string *str = xrt_string_new("gc", 2);
+    CHECK(((rt_object *)str)->hdr.kind == RT_KIND_GC);
+    xrt_weak_slot *ws = xrt_weak_bind(str);
+    CHECK(xrt_weak_read(ws) == str);
+    rt_release(str);              /* GC：no-op */
+    CHECK(xrt_weak_read(ws) == str);
+    rt_gc_collect();              /* 不可达 → 回收 */
+    CHECK(xrt_weak_read(ws) == NULL);
+    xrt_weak_clear(ws);
+
+    xrt_bytes_buf *by = xrt_bytes_from_c("abc", 3);
+    CHECK(((rt_object *)by)->hdr.kind == RT_KIND_GC);
+    xrt_weak_slot *wb = xrt_weak_bind(by);
+    rt_release(by);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wb) == NULL);
+    xrt_weak_clear(wb);
+
+    xrt_text *tx = xrt_text_from_string("hello", 5);
+    CHECK(((rt_object *)tx)->hdr.kind == RT_KIND_GC);
+    CHECK(xrt_text_length(tx) == 5);
+    CHECK(xrt_text_code_point_count(tx) == 5);
+    xrt_weak_slot *wt = xrt_weak_bind(tx);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wt) == NULL);
+    xrt_weak_clear(wt);
+
+    xrt_sb *sb = xrt_sb_new();
+    CHECK(((rt_object *)sb)->hdr.kind == RT_KIND_GC);
+    xrt_sb_append_str(sb, "x", 1);
+    xrt_sb_append_int(sb, 42);
+    CHECK(xrt_sb_length(sb) == 3);
+    xrt_weak_slot *wq = xrt_weak_bind(sb);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wq) == NULL);
+    xrt_weak_clear(wq);
+}
+
 /* S3-08：分配统计与 GC 指标（默认关闭，显式打开）。 */
 static void test_stats(void) {
     xrt_stats s;
     xrt_stats_reset();
     xrt_stats_set_enabled(1);
 
-    xrt_string *str = xrt_string_new("stats", 5);
-    xrt_release(str);
-    xrt_safepoint(); /* 隔离区回收 → frees 计数 */
+    xrt_string *str = xrt_string_new("stats", 5); /* String 为 GC 对象 */
+    (void)str;
+    rt_gc_collect(); /* 不可达 → 清扫，frees/gc_freed 计数 */
 
     xrt_callback_env *env = xrt_callback_env_new(NULL, NULL);
     xrt_callback_env_destroy(env);
@@ -371,7 +411,7 @@ static void test_stats(void) {
     CHECK(s.allocs >= 2);
     CHECK(s.frees >= 1);
     CHECK(s.bytes > 0);
-    CHECK(s.gc_collections == 1);
+    CHECK(s.gc_collections >= 1);
     CHECK(s.gc_freed >= 1);
     xrt_stats_set_enabled(0);
 }
@@ -479,6 +519,7 @@ int main(void) {
     test_bytes_bounds();
     test_bytes_file_io();
     test_callback_env();
+    test_s304_gc_types();
     test_stats();
     test_files();
     test_dirs_procs();

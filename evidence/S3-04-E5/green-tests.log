@@ -1,0 +1,9 @@
+$ go test ./internal/codegen/ -run TestS3_04 -count=1 -v
+=== RUN   TestS3_04GCTextBytesSB
+--- PASS: TestS3_04GCTextBytesSB (1.87s)
+=== RUN   TestS3_04StringFieldScanned
+--- PASS: TestS3_04StringFieldScanned (1.92s)
+=== RUN   TestS3_04TextSBTypes
+--- PASS: TestS3_04TextSBTypes (1.94s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	6.303s

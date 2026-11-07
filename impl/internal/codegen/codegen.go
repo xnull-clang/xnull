@@ -1372,17 +1372,16 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "int64_t", nil
 		case "Bool":
 			return "int", nil
-		case "String":
+		case "String", "Text":
+			if typeName(n) == "Text" {
+				return "xrt_text *", nil
+			}
 			return "rt_string *", nil
+		case "StringBuilder":
+			return "xrt_sb *", nil
 		case "Any", "Object":
 			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
 			return "xn_Any *", nil
-		case "Text":
-			// S3 §10：Text 是 GC 对象（E5 S3-04 运行时 xrt_text）。
-			return "xrt_text *", nil
-		case "StringBuilder":
-			// S3 §10：StringBuilder 是 GC 对象（E5 S3-04 运行时 xrt_sb）。
-			return "xrt_sb *", nil
 		case "Bytes":
 			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
 			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
@@ -1877,6 +1876,15 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return append(out, v+";"), nil
 				}
 			}
+			if rc == "xrt_sb *" {
+				lines, hit, err := s.sbMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
 			if rc == "xrt_bytes_obj *" {
 				lines, hit, err := s.bytesMemberStmt(rn, mem.Name, call.Args)
 				if err != nil {
@@ -2321,6 +2329,22 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		}
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	if tc == "xrt_text *" {
+		lines, out, err := s.textExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_text *"+n.Name+" = "+out+";"), nil
+	}
+	if tc == "xrt_sb *" {
+		lines, out, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_sb *"+n.Name+" = "+out+";"), nil
 	}
 	if isHandlePtr(tc) {
 		lines, out, err := s.handleExpr(n.Init)
@@ -3487,6 +3511,17 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 						return append(out, "rt_string *"+t+" = rt_retain("+contBase(rc)+"_"+mem.Name+"("+rn+", "+i+"));"), nil
 					}
 				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" &&
+				(rc == "xrt_text *" || rc == "xrt_sb *") {
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				call := "(rt_string *)xrt_text_to_string(" + rn + ")"
+				if rc == "xrt_sb *" {
+					call = "(rt_string *)xrt_sb_to_string(" + rn + ")"
+				}
+				return append(out, "rt_string *"+t+" = "+call+";"), nil
 			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				call, hit, err := s.strMemberValue(mem, n.Args, true)

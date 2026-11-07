@@ -79,8 +79,21 @@ static const rt_type RT_TYPE_GCV = {
     .deinit = gcv_deinit, .scan = gcv_scan,
 };
 
-/* 简单字符串（ARC，无 GC 引用）——清扫释放目标。 */
-static rt_string *arc_str(const char *c) { return rt_string_from_c(c); }
+/* 简单 ARC 对象（无 GC 引用）——清扫释放目标。
+ * 注意：String 自 S3-04 起是 GC 对象，不能再作为 ARC 引用测试体。 */
+typedef struct {
+    rt_header hdr;
+    int       marker;
+} arcbox_t;
+
+static void arcbox_deinit(void *payload) { (void)payload; }
+
+static const rt_type RT_TYPE_ARCBOX = {
+    .name = "ArcBox", .payload_size = sizeof(arcbox_t) - sizeof(rt_header),
+    .deinit = arcbox_deinit,
+};
+
+static arcbox_t *arc_box(void) { return rt_arc_new(&RT_TYPE_ARCBOX); }
 
 /* P0-BND10：死亡 GC 对象之间的字段在 deinit 阶段仍然有效（两阶段清扫）。 */
 typedef struct {
@@ -164,7 +177,7 @@ int main(void) {
 
     /* 4. 不变量 3/6：GC 对象持 ARC 引用 → 清扫时 release，无泄漏无重复释放 */
     gnode_t *holder = rt_gc_new(&RT_TYPE_GNODE);
-    rt_string *s = arc_str("held-by-gc");
+    arcbox_t *s = arc_box();
     holder->a = s; /* ARC 引用：持有时必须 retain（成对合同） */
     (void)rt_retain(s);
     holder->b = NULL;
@@ -191,7 +204,7 @@ int main(void) {
 
     /* 6. S2 §6.4：GC deinit 执行时 ARC 字段仍然有效；释放发生在 deinit 之后 */
     gcv_t *hv = rt_gc_new(&RT_TYPE_GCV);
-    rt_string *valid = arc_str("valid-in-deinit");
+    arcbox_t *valid = arc_box();
     (void)rt_retain(valid);
     hv->arc_ref = valid;
     assert(rt_refcount(valid) == 2); /* 局部 + GC 对象 */

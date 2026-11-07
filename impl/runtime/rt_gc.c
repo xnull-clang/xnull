@@ -19,17 +19,17 @@ static size_t     g_root_cap = 0;
 
 /* ---- 分配 ---- */
 
-static void *alloc_common(const rt_type *type, rt_kind kind) {
-    rt_object *o = malloc(sizeof(rt_header) + type->payload_size);
+static void *alloc_sized(const rt_type *type, rt_kind kind, size_t payload) {
+    rt_object *o = malloc(sizeof(rt_header) + payload);
     if (o == NULL) {
         return NULL; /* 分配失败是 panic（S2 §2.7） */
     }
-    memset(o, 0, sizeof(rt_header) + type->payload_size);
+    memset(o, 0, sizeof(rt_header) + payload);
     o->hdr.kind = kind;
     o->hdr.type = type;
     atomic_init(&o->hdr.refcount, 1); /* 计数从 1 起（S3 §7） */
     o->hdr.terminated = 0;
-    rt_stats_note_alloc(sizeof(rt_header) + type->payload_size);
+    rt_stats_note_alloc(sizeof(rt_header) + payload);
     if (kind == RT_KIND_GC) {
         o->hdr.gc_next = g_gc_list;
         g_gc_list = o;
@@ -42,7 +42,15 @@ static void *alloc_common(const rt_type *type, rt_kind kind) {
     return o;
 }
 
+static void *alloc_common(const rt_type *type, rt_kind kind) {
+    return alloc_sized(type, kind, type->payload_size);
+}
+
 void *rt_gc_new(const rt_type *type) { return alloc_common(type, RT_KIND_GC); }
+
+void *rt_gc_new_size(const rt_type *type, size_t payload) {
+    return alloc_sized(type, RT_KIND_GC, payload);
+}
 
 void *rt_arc_new(const rt_type *type) { return alloc_common(type, RT_KIND_ARC); }
 

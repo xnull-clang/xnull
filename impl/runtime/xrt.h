@@ -90,6 +90,23 @@ typedef struct xrt_bytes {
     size_t len;
 } xrt_bytes;
 
+/* ---- Text / StringBuilder（S1 §9.7 / S3 §10：GC 对象，字节区免扫描） ---- */
+
+typedef struct xrt_text xrt_text;
+typedef struct xrt_sb   xrt_sb;
+
+xrt_text   *xrt_text_from_string(const char *bytes, size_t len);
+size_t      xrt_text_length(const xrt_text *t);
+int64_t     xrt_text_code_point_count(const xrt_text *t);
+xrt_string *xrt_text_to_string(const xrt_text *t);
+int32_t     xrt_text_compare_to(const xrt_text *a, const xrt_text *b);
+
+xrt_sb     *xrt_sb_new(void);
+void        xrt_sb_append_str(xrt_sb *sb, const char *bytes, size_t len);
+void        xrt_sb_append_int(xrt_sb *sb, int64_t v);
+size_t      xrt_sb_length(const xrt_sb *sb);
+xrt_string *xrt_sb_to_string(const xrt_sb *sb);
+
 /* ---- 可变字节缓冲（Bytes 语言类型；S1 §9.7 / S3 §188） ----
  *
  * 合同：
