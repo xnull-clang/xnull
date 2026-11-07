@@ -7,12 +7,12 @@ CTRL-01	internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal
 BLD-01	internal/interp/values_test.go + 收件箱/回执箱/验收-M1-BLD-01.md	PASS
 ENTRY-01	internal/interp/interp_test.go + internal/cli/cli_test.go + 收件箱/回执箱/验收-M1-ENTRY-01.md	PASS
 ERR-01	internal/interp/hard_test.go + 收件箱/回执箱/验收-M1-ERR-01.md	PASS
-NEG-01	Tests/neg_test.go（QA 注入）	PASS
+NEG-01	收件箱/回执箱/验收-M1-NEG-01.md	PASS
 TUPLE-01	internal/interp/interp_test.go + 收件箱/回执箱/验收-M1-TUPLE-01.md	PASS
-PKG-01	internal/xfront/unit_test.go + internal/sema/xdk_test.go	PASS
+PKG-01	收件箱/回执箱/验收-M1-PKG-01.md	PASS
 TYPE-01	internal/sema/ty_test.go	PASS
 TYPE-02	internal/sema/ty_test.go	PASS
-GEN-01	internal/codegen/gen01_acceptance_test.go + internal/sema/gen01_test.go	PASS
+GEN-01	收件箱/回执箱/验收-M1-GEN-01.md	PASS
 INH-01	internal/sema/typedecl_test.go	PASS
 DISP-01	internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-DISP-01.md	PASS
 STRUCT-01	internal/interp/struct_test.go + internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-STRUCT-01.md	PASS
