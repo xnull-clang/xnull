@@ -1,0 +1,6 @@
+# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
+internal/sema/s2_enum_immutable_test.go:19:5: undefined: TyEnumImmutable
+internal/sema/s2_enum_immutable_test.go:29:34: undefined: TyEnumImmutable
+internal/sema/s2_enum_immutable_test.go:36:5: undefined: TyEnumImmutable
+FAIL	xnull.dev/xnull/internal/sema [build failed]
+FAIL
