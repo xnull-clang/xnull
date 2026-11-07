@@ -21,14 +21,21 @@ import (
 
 // classField 是类字段的生成信息。
 type classField struct {
-	name  string
-	cname string // C 成员名（私有字段 _name）
-	ctype string
-	isStr bool
-	isArr bool        // 容器值字段（xn_arr_/xn_set_/xn_map_ 值结构）
-	isCls bool        // 类引用字段（xn_Cls_X *）
-	elem  string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
-	init  xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
+	name     string
+	cname    string // C 成员名（私有字段 _name）
+	ctype    string
+	isStr    bool
+	isArr    bool        // 容器值字段（xn_arr_/xn_set_/xn_map_ 值结构）
+	isCls    bool        // 类引用字段（xn_Cls_X *）
+	isHandle bool        // 不透明句柄字段（xrt_handle *）
+	isBytes  bool        // 可变字节缓冲字段（xrt_bytes_obj *）
+	elem     string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
+	init     xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
+}
+
+// isRefField 判断字段是否持有 ARC 引用（deinit/赋值需 retain/release）。
+func (f classField) isRefField() bool {
+	return f.isStr || f.isCls || f.isHandle || f.isBytes
 }
 
 // classInfo 是一个类的生成信息。
@@ -133,7 +140,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 				return err
 			}
 			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
-				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct)})
+				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *"})
 		}
 	}
 	for _, f := range d.Fields {
@@ -142,7 +150,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 			return err
 		}
 		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
-			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct), init: f.Init})
+			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", init: f.Init})
 	}
 	// 构造器 C 名：首个（主构造器优先）无后缀，其余按声明序编号（S2 §6.3 重载）。
 	var ctorList []*xfront.CtorDecl
@@ -294,7 +303,7 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	}
 	for _, f := range ci.fields {
 		switch {
-		case f.isStr, f.isCls:
+		case f.isRefField():
 			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		case f.isArr:
 			fmt.Fprintf(b, "    %s_free(&o->%s);\n", f.ctype, f.cname)
@@ -436,11 +445,13 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 
 func cZeroValue(ct string) string {
 	switch ct {
-	case "rt_string *":
+	case "rt_string *", "xrt_handle *", "xrt_bytes_obj *":
 		return "NULL"
-	default:
-		return "0"
 	}
+	if isClassPtr(ct) {
+		return "NULL"
+	}
+	return "0"
 }
 
 // classCtorInit 生成构造器里的字段初值语句（S2 §6.3 L678-679）：

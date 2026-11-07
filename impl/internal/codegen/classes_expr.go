@@ -177,7 +177,8 @@ func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args 
 	return m.cname + "(" + strings.Join(parts, ", ") + ")", nil
 }
 
-// emitFieldAssign 生成字段赋值（String 字段先释放旧值再取得新引用）。
+// emitFieldAssign 生成字段赋值（S2-E5-01）。
+// 引用字段：先求值（可能与旧值别名）→ 新值持 +1 → 释放旧值 → 写入。
 func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, error) {
 	recvName, recvC, err := recvCName(mem.X, s)
 	if err != nil {
@@ -191,28 +192,113 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 	if !ok {
 		return nil, fmt.Errorf("codegen：类 %s 没有字段 %s（或方法不可赋值）", ci.decl.Name, mem.Name)
 	}
-	if f.isStr {
-		if _, isNull := val.(*xfront.NullLit); isNull {
-			return []string{
-				fmt.Sprintf("rt_release(%s->%s);", recvName, f.cname),
-				fmt.Sprintf("%s->%s = NULL;", recvName, f.cname),
-			}, nil
+	dst := recvName + "->" + f.cname
+	// 容器字段是值结构（本层未做引用语义容器）：浅拷贝会双释放，显式拒绝。
+	if f.isArr {
+		return nil, fmt.Errorf("codegen：容器字段 %s 的赋值需要引用语义容器（B2 范围，显式拒绝）", f.name)
+	}
+	if !f.isRefField() {
+		v, err := s.intExpr(val)
+		if err != nil {
+			return nil, err
 		}
-		lines, err := s.strExpr(val)
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, dst+" = "+v+";"), nil
+	}
+	switch {
+	case f.isStr:
+		if _, isNull := val.(*xfront.NullLit); isNull {
+			return []string{"rt_release(" + dst + ");", dst + " = NULL;"}, nil
+		}
+		lines, err := s.strExpr(val) // 始终 +1
 		if err != nil {
 			return nil, err
 		}
 		t := lastVar(lines)
 		out := append([]string{}, lines...)
-		out = append(out, fmt.Sprintf("rt_release(%s->%s);", recvName, f.cname))
-		out = append(out, fmt.Sprintf("%s->%s = %s;", recvName, f.cname, t))
+		out = append(out, "rt_release("+dst+");", dst+" = "+t+";")
 		return out, nil
+	case f.isHandle, f.isBytes:
+		if _, isNull := val.(*xfront.NullLit); isNull {
+			return []string{"rt_release(" + dst + ");", dst + " = NULL;"}, nil
+		}
+		var lines []string
+		var expr string
+		switch val.(type) {
+		case *xfront.Call, *xfront.IdentExpr, *xfront.Paren:
+			if f.isHandle {
+				lines, expr, err = s.handleExpr(val) // +1
+			} else {
+				lines, expr, err = s.bytesExpr(val) // +1
+			}
+		default:
+			// 成员/下标读是借用：取 +1。
+			expr, err = s.intExpr(val)
+			if err == nil {
+				t := s.tmp()
+				lines = []string{f.ctype + " " + t + " = rt_retain(" + expr + ");"}
+				expr = t
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, "rt_release("+dst+");", dst+" = "+expr+";")
+		return out, nil
+	case f.isCls:
+		switch v := val.(type) {
+		case *xfront.NullLit:
+			return []string{"rt_release(" + dst + ");", dst + " = NULL;"}, nil
+		case *xfront.New:
+			ctor, err := s.emitNewClass(v)
+			if err != nil {
+				return nil, err
+			}
+			t := s.tmp()
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, f.ctype+" "+t+" = "+ctor+";")
+			out = append(out, "rt_release("+dst+");", dst+" = "+t+";")
+			return out, nil
+		case *xfront.Call:
+			expr, owns, err := s.classCallExpr(v)
+			if err != nil {
+				return nil, err
+			}
+			t := s.tmp()
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, f.ctype+" "+t+" = "+expr+";")
+			if !owns {
+				out = append(out, "rt_retain("+t+");")
+			}
+			out = append(out, "rt_release("+dst+");", dst+" = "+t+";")
+			return out, nil
+		case *xfront.IdentExpr:
+			r := s.cRef(v.Name)
+			return []string{
+				"rt_retain(" + r + ");",
+				"rt_release(" + dst + ");",
+				dst + " = " + r + ";",
+			}, nil
+		default:
+			// 成员/下标/括号读是借用：先落临时并 retain（支持 h.a = h.a）。
+			expr, err := s.intExpr(val)
+			if err != nil {
+				return nil, err
+			}
+			t := s.tmp()
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, f.ctype+" "+t+" = "+expr+";")
+			out = append(out, "rt_retain("+t+");")
+			out = append(out, "rt_release("+dst+");", dst+" = "+t+";")
+			return out, nil
+		}
 	}
-	v, err := s.intExpr(val)
-	if err != nil {
-		return nil, err
-	}
-	return []string{fmt.Sprintf("%s->%s = %s;", recvName, f.cname, v)}, nil
+	return nil, fmt.Errorf("codegen：字段 %s 的赋值形态未支持（S2-E5-01 范围）", f.name)
 }
 
 func lastQualName(nt *xfront.NamedType) string {
