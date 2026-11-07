@@ -84,6 +84,13 @@ func Run(env Env) int {
 	if name == "dev" {
 		return runDev(env, rest)
 	}
+	// IDE 支持：工程模板创建与结构化检查。
+	if name == "new" {
+		return runNew(env, rest)
+	}
+	if name == "check" {
+		return runCheck(env, rest)
+	}
 	// 最小可运行闭环：`xnull run path/to/file.x [--] [程序参数...]` 直接执行单文件
 	//（不依赖工程清单；清单模式后续接入）。`--` 之后的参数原样交给 main(String[])。
 	if name == "run" {
@@ -94,6 +101,9 @@ func Run(env Env) int {
 	}
 	// 编译路径（M4.2）：`xnull build file.x [-o bin]` → C → cc → 可执行。
 	if name == "build" && len(rest) > 0 && strings.HasSuffix(rest[0], ".x") {
+		if hasFlag(rest, "--json") {
+			return buildFileJSON(env, rest, rest[0])
+		}
 		return buildFile(env, rest, rest[0])
 	}
 	// 内存策略判定（S2 §15.1）：`xnull policy file.x` 输出 JSON（M3.2 判定表执行器消费）。
@@ -116,6 +126,8 @@ func Run(env Env) int {
 }
 
 var commands = map[string]string{
+	"new":    "创建 XNull 工程模板（app / library）",
+	"check":  "检查源文件并输出诊断（--json 为 IDE/CI 机器接口）",
 	"policy": "输出单文件内存策略判定 JSON（S2 §15.1；开发预览命令）",
 	"build":  "校验清单并构建产物（阶段：validate→compile→test→package→install）",
 	"run":    "构建并运行 app 入口",
@@ -127,7 +139,7 @@ var commands = map[string]string{
 
 func commandList() string {
 	out := ""
-	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy", "dev"} {
+	for _, name := range []string{"new", "check", "build", "run", "test", "fmt", "lock", "policy", "dev"} {
 		if out != "" {
 			out += "、"
 		}
@@ -138,7 +150,7 @@ func commandList() string {
 
 func writeUsage(w io.Writer) {
 	fmt.Fprintf(w, "xnull %s —— XNull 工具链\n\n用法：xnull <command> [flags]\n\n命令：\n", Version)
-	for _, name := range []string{"build", "run", "test", "fmt", "lock", "policy", "dev"} {
+	for _, name := range []string{"new", "check", "build", "run", "test", "fmt", "lock", "policy", "dev"} {
 		fmt.Fprintf(w, "  %-6s %s\n", name, commands[name])
 	}
 	fmt.Fprintf(w, "\n退出码：0 成功 / 1 构建失败 / 2 清单或用法错误 / 130 中断\n")
@@ -213,7 +225,7 @@ func parseRunArgs(rest []string) runOptions {
 var knownFlags = map[string]struct{}{
 	"--update-lock": {}, "--skip": {}, "--profile": {}, "--check": {},
 	"--emit": {}, "--offline": {}, "--verbose": {},
-	"--interp": {}, "--runtime": {}, "-o": {},
+	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。
