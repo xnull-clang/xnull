@@ -45,3 +45,28 @@ static Int main() {
     return 0
 }`)
 }
+
+// PCTOR-01 R03/R04：struct 主构造器、super 非首位。
+func TestS2PCTORStructAndSuper(t *testing.T) {
+	expectCode(t, `
+struct S(final Int x) {
+}
+static Int main() { return 0 }`, TyPCTOR)
+
+	expectCode(t, `
+class B { Int x = 0; }
+class D : B {
+    D() {
+        print("x")
+        super()
+    }
+}
+static Int main() { return 0 }`, TyPCTOR)
+
+	expectNone(t, `
+class B { Int x = 0; }
+class D : B {
+    D() { super() }
+}
+static Int main() { return 0 }`)
+}
