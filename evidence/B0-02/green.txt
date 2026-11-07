@@ -1,0 +1,9 @@
+=== RUN   TestBuildCCArgsIncludesRuntimeABIAndStd
+--- PASS: TestBuildCCArgsIncludesRuntimeABIAndStd (0.00s)
+=== RUN   TestBuildCCArgsAppendsLinkArgsLast
+--- PASS: TestBuildCCArgsAppendsLinkArgsLast (0.00s)
+=== RUN   TestBuildSampleHelloWithLinkArgs
+--- PASS: TestBuildSampleHelloWithLinkArgs (3.14s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.755s
+green_exit=0

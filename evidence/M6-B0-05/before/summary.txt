@@ -1,0 +1,5 @@
+phase=before
+ops=39
+cells_total=78
+cells_pass=64
+ops_both_pass=27

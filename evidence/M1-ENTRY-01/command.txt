@@ -1,0 +1,39 @@
+# M1-ENTRY-01 执行命令（工作区 wt/e4-codegen，pod/e4-codegen）
+
+所有命令在 `impl/` 下执行，除非另行注明。
+
+## 先红（before/）
+
+```
+go test ./internal/interp -run 'TestEntry' -count=1 -v
+go test ./internal/cli -run 'TestRunEntry' -count=1 -v
+```
+
+原始输出：`before/interp-entry-before.log`、`before/cli-entry-before.log`（exit 1）。
+
+## 后绿（after）
+
+```
+go test ./internal/interp/... -count=1 -v
+go test ./internal/cli/... -count=1 -v
+go test ./internal/codegen -run 'TestExamplesCompileMatchesInterp/(ast-seed|classes|containers|defer-cleanup|hello|lexer-seed|objlist|result-try)\.x' -count=1 -v
+go test ./internal/codegen -run 'TestMultiFile|TestLoadUnits|TestCompile|TestXdkSeed' -count=1 -v
+```
+
+原始输出：`after-interp.log`、`after-cli.log`、`after-examples.log`、`after-codegen-other.log`（均 exit 0）。
+
+## 双路径 + 构建产物
+
+```
+go build -o evidence/M1-ENTRY-01/xnull ./cmd/xnull
+xnull build evidence/M1-ENTRY-01/entry.x -o evidence/M1-ENTRY-01/entry-bin
+entry-bin alpha beta
+xnull run entry.x --interp alpha beta
+xnull run entry.x alpha beta
+```
+
+`entry-bin.c` 为编译器生成的 C 源（可审初始化顺序与入口垫片），`artifact.sha256` 为 `entry-bin` 的 SHA-256。
+
+## 说明
+
+- 仅运行本锚点相关包与示例；`TestExamplesCompileMatchesInterp/parser-seed.x` 为已知 P0-1（E3 负责），不在本卡执行。

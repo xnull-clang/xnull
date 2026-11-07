@@ -1,0 +1,3 @@
+branch: pod/e4-codegen
+tested_commit: ada598b
+note: 跨包 import 实现+证据提交；后续仅补录本文件。

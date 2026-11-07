@@ -867,7 +867,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 	case strings.HasPrefix(k, "List<"):
 		switch name {
-		case "get", "remove": // §9.4：remove(index) 返回被删元素
+		case "get", "remove": // §9.4：remove(index) 删除并返回被删元素
 			return texpr{key: genericArg(k, "List<")}
 		case "length":
 			return texpr{key: "Int"}
@@ -893,13 +893,13 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 	case strings.HasPrefix(k, "Set<"):
 		switch name {
-		case "add", "has":
+		case "add", "has", "remove":
 			return texpr{key: "Bool"}
 		case "at":
 			return texpr{key: genericArg(k, "Set<")}
 		case "length":
 			return texpr{key: "Int"}
-		case "remove", "clear":
+		case "clear":
 			return texpr{key: "void"}
 		}
 	case strings.HasPrefix(k, "Result<"):

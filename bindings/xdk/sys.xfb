@@ -20,6 +20,13 @@ ffi xdkc_sys {
   @blocking(.unaware)
   File fileOpenRead(String path);
 
+  // B0-06 阻塞 #3（董事会/CEO3 批准增补）：写模式打开。
+  // 句柄合同同 File；失败（路径非法/打开失败）返回 null，不 panic。
+  @ffiEntry(cName = "xdkc_file_open_write")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  File fileOpenWrite(String path);
+
   @ffiEntry(cName = "xdkc_file_read")
   @lease(f = .borrow, buf = .borrow, code = .borrow)
   @errorCode(codeParam = .code)
@@ -58,4 +65,16 @@ ffi xdkc_sys {
   @lease(path = .borrow)
   @blocking(.aware)
   Bool pathExists(String path);
+
+  // B0-06 文本变体（M6-B0-07b）：整文件读/写，避开句柄/Bytes/错误码通道。
+  // readFileText 失败返回 null；writeFileText 返回 0 成功、非 0 失败。
+  @ffiEntry(cName = "xdkc_read_file_text")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readFileText(String path);
+
+  @ffiEntry(cName = "xdkc_write_file_text")
+  @lease(path = .borrow, text = .borrow)
+  @blocking(.unaware)
+  Int writeFileText(String path, String text);
 }
