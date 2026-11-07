@@ -1604,9 +1604,15 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		out := splitLines(s.emitCleanup(true, "    "))
+		// 先在清理之前把返回值落到临时变量：容器局部（如 List 参数元素）
+		// 的 defer free 会把接收者清零，直接 return 表达式会读到已释放容器（G11）。
+		pre := append([]string{}, s.pending...)
+		s.pending = nil
+		t := s.tmp()
+		out := append(pre, "int64_t "+t+" = "+v+";")
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
-		return append(out, "return "+v+";"), nil
+		return append(out, "return "+t+";"), nil
 	}
 	switch v := n.Value.(type) {
 	case *xfront.Call:
