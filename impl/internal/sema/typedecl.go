@@ -41,6 +41,10 @@ const (
 	TySingletonNew  = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
 	TyFactory       = "TY-217" // factory Target/命名规则（§10）
 	TyEnumImmutable = "TY-218" // 数据枚举项不可变/不可 new（§8.3）
+	TyFactoryAccess = "TY-219" // 跨包 factory 私有成员访问（§10.3）
+	TyFactoryRet    = "TY-220" // factory 方法返回类型（§10.2）
+	TyFactorySelf   = "TY-221" // factory 方法禁用 self/super（§10.2）
+	TySingletonRule = "TY-222" // singleton abstract/前向引用（§9）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -101,12 +105,13 @@ type typeCheckCtx struct {
 	topFuncs     map[string][]*xfront.TopFunc
 	hasDeinit    map[string]bool
 	selfCaptured map[string]bool
+	singleOrder  map[string]int
 }
 
 // checkTypeDecls 对整个编译单元做类型声明检查。
 func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 	c := &typeCheckCtx{a: a, types: map[string]*typeInfo{}, topFuncs: map[string][]*xfront.TopFunc{},
-		hasDeinit: map[string]bool{}, selfCaptured: map[string]bool{}}
+		hasDeinit: map[string]bool{}, selfCaptured: map[string]bool{}, singleOrder: map[string]int{}}
 	a.tc = c
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
@@ -177,6 +182,11 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 			continue
 		}
 		c.types[name] = info
+	}
+	for i, d := range u.Decls {
+		if s, ok := d.(*xfront.SingletonDecl); ok {
+			c.singleOrder[s.Name] = i
+		}
 	}
 	// 2) 逐声明检查
 	for _, d := range u.Decls {
@@ -660,9 +670,18 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 // ---------- BND-07/08：singleton / factory 登记与规则 ----------
 
 func (c *typeCheckCtx) checkSingleton(d *xfront.SingletonDecl) {
+	if d.Mod.Abstract {
+		c.errf(d.P, TySingletonRule, "singleton 不能是 abstract（§9.1/§9.4）", "去掉 abstract")
+	}
 	for _, f := range d.Fields {
 		if f.Canonical == "" {
 			f.Canonical = f.Name
+		}
+		if f.Init != nil {
+			if ref := singletonForwardRef(f.Init); ref != "" && c.singleOrder[ref] > c.singleOrder[d.Name] {
+				c.errf(f.Init.Pos(), TySingletonRule,
+					"单例 `"+d.Name+"` 不能前向引用后面的单例 `"+ref+"`（§9.2/§9.4）", "调整声明顺序")
+			}
 		}
 		if f.Name == "instance" || f.Canonical == "instance" {
 			c.errf(f.P, TySingletonRO, "单例不得手动声明 `instance`（§9.4：自动提供）", "删除该字段")
@@ -685,17 +704,293 @@ func (c *typeCheckCtx) checkFactory(d *xfront.FactoryDecl) {
 		return
 	}
 	name := nt.Qual[0]
+	cross := false
+	for _, p := range c.a.importPaths {
+		if len(p) > 0 && strings.EqualFold(p[len(p)-1], name) {
+			cross = true
+		}
+	}
 	info, found := c.types[name]
 	if !found {
 		if c.a.imported[name] {
-			return // 跨包可见 Target：具体成员可见性由跨包访问检查承担
+			cross = true // 跨包可见 Target：具体成员可见性由跨包访问检查承担
+		} else {
+			c.errf(d.P, TyFactory, "factory Target `"+name+"` 未在本包声明或不可见（§10.1）", "检查 Target 名称与可见性")
+			return
 		}
-		c.errf(d.P, TyFactory, "factory Target `"+name+"` 未在本包声明或不可见（§10.1）", "检查 Target 名称与可见性")
+	}
+	if found && info.kind != "class" && info.kind != "struct" {
+		c.errf(d.P, TyFactory, "factory Target 必须是 class 或 struct（得到 "+info.kind+"，§10.1）", "")
 		return
 	}
-	if info.kind != "class" && info.kind != "struct" {
-		c.errf(d.P, TyFactory, "factory Target 必须是 class 或 struct（得到 "+info.kind+"，§10.1）", "")
+
+	for _, m := range d.Methods {
+		// 工厂方法禁用 self/super。
+		if stmtUsesIdent(m.Body, "self") || stmtUsesIdent(m.Body, "super") {
+			c.errf(m.P, TyFactorySelf, "factory 方法不能使用 self / super（§10.2）", "改用参数和局部变量")
+		}
+		// 返回类型必须可归到 Target（或其父类/协议/Object/可空/Result 包装）。
+		key := "void"
+		if !m.Void && m.Ret != nil {
+			key = typeKey(m.Ret)
+		}
+		if found && !c.factoryRetAllowed(info, key) {
+			c.errf(m.P, TyFactoryRet,
+				"factory 方法 `"+m.Name+"` 返回类型 `"+key+"` 不能归到 Target `"+name+"`（§10.2）", "返回 Target/父类/协议/Object 或 Result 包装")
+		}
+		// 跨包 factory 不得调用 Target 的非公开构造器。
+		if cross && found && info.class != nil && stmtUsesNewTarget(m.Body, name) {
+			for _, ct := range info.class.Ctors {
+				if ct.Mod.Vis == "private" || ct.Mod.Vis == "protected" {
+					c.errf(m.P, TyFactoryAccess,
+						"跨包 factory 不能调用 Target `"+name+"` 的非公开构造器（§10.3）", "改用公开静态工厂/公开构造器")
+					break
+				}
+			}
+		}
 	}
+}
+
+func singletonForwardRef(e xfront.Expr) string {
+	switch n := e.(type) {
+	case nil:
+		return ""
+	case *xfront.Member:
+		if n.Name == "instance" {
+			if id, ok := n.X.(*xfront.IdentExpr); ok {
+				return id.Name
+			}
+		}
+		return singletonForwardRef(n.X)
+	case *xfront.Paren:
+		return singletonForwardRef(n.X)
+	case *xfront.Unary:
+		return singletonForwardRef(n.X)
+	case *xfront.Binary:
+		if r := singletonForwardRef(n.L); r != "" {
+			return r
+		}
+		return singletonForwardRef(n.R)
+	case *xfront.Ternary:
+		if r := singletonForwardRef(n.Cond); r != "" {
+			return r
+		}
+		return singletonForwardRef(n.Then)
+	case *xfront.Call:
+		for _, a := range n.Args {
+			if r := singletonForwardRef(a); r != "" {
+				return r
+			}
+		}
+	case *xfront.Tuple:
+		for _, el := range n.Elems {
+			if r := singletonForwardRef(el); r != "" {
+				return r
+			}
+		}
+	}
+	return ""
+}
+
+func (c *typeCheckCtx) factoryRetAllowed(info *typeInfo, key string) bool {
+	k := unwrapTypeKey(key)
+	if k == "" {
+		return false
+	}
+	if strings.HasPrefix(k, "Result<") {
+		inner := strings.TrimSuffix(strings.TrimPrefix(k, "Result<"), ">")
+		parts := splitTypeArgs(inner)
+		if len(parts) != 2 || parts[1] == "void" {
+			return false
+		}
+		return c.factoryRetAllowed(info, parts[0])
+	}
+	if k == "Object" {
+		return true
+	}
+	if info.class != nil {
+		if info.class.Name == k {
+			return true
+		}
+		for _, anc := range c.ancestorClasses(info.class) {
+			if anc.class.Name == k {
+				return true
+			}
+		}
+		for _, pr := range info.class.Protocols {
+			if lastSeg(pr.Qual) == k {
+				return true
+			}
+		}
+		return false
+	}
+	return info.strct != nil && info.strct.Name == k
+}
+
+func unwrapTypeKey(k string) string {
+	for strings.HasSuffix(k, "?") {
+		k = strings.TrimSuffix(k, "?")
+	}
+	return k
+}
+
+func stmtUsesIdent(s xfront.Stmt, name string) bool {
+	if s == nil {
+		return false
+	}
+	switch st := s.(type) {
+	case *xfront.ExprStmt:
+		return exprUsesIdent(st.X, name)
+	case *xfront.AssignStmt:
+		return exprUsesIdent(st.Target, name) || exprUsesIdent(st.Value, name)
+	case *xfront.LocalDeclStmt:
+		return exprUsesIdent(st.Init, name)
+	case *xfront.ReturnStmt:
+		return exprUsesIdent(st.Value, name)
+	case *xfront.Block:
+		for _, x := range st.Stmts {
+			if stmtUsesIdent(x, name) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return stmtUsesIdent(st.Then, name) || stmtUsesIdent(st.Else, name)
+	case *xfront.WhileStmt:
+		return stmtUsesIdent(st.Body, name)
+	case *xfront.DoWhileStmt:
+		return stmtUsesIdent(st.Body, name)
+	case *xfront.ForStmt:
+		return stmtUsesIdent(st.Body, name)
+	case *xfront.SwitchStmt:
+		for _, c := range st.Cases {
+			for _, x := range c.Stmts {
+				if stmtUsesIdent(x, name) {
+					return true
+				}
+			}
+		}
+		if st.Default != nil {
+			for _, x := range st.Default.Stmts {
+				if stmtUsesIdent(x, name) {
+					return true
+				}
+			}
+		}
+	case *xfront.DeferStmt:
+		if st.Block != nil {
+			return stmtUsesIdent(st.Block, name)
+		}
+		return stmtUsesIdent(st.Stmt, name)
+	case *xfront.LabeledStmt:
+		return stmtUsesIdent(st.Stmt, name)
+	}
+	return false
+}
+
+func exprUsesIdent(e xfront.Expr, name string) bool {
+	switch n := e.(type) {
+	case nil:
+		return false
+	case *xfront.IdentExpr:
+		return n.Name == name
+	case *xfront.Paren:
+		return exprUsesIdent(n.X, name)
+	case *xfront.Unary:
+		return exprUsesIdent(n.X, name)
+	case *xfront.Binary:
+		return exprUsesIdent(n.L, name) || exprUsesIdent(n.R, name)
+	case *xfront.Ternary:
+		return exprUsesIdent(n.Cond, name) || exprUsesIdent(n.Then, name) || exprUsesIdent(n.Else, name)
+	case *xfront.Call:
+		if exprUsesIdent(n.Callee, name) {
+			return true
+		}
+		for _, a := range n.Args {
+			if exprUsesIdent(a, name) {
+				return true
+			}
+		}
+	case *xfront.Member:
+		return exprUsesIdent(n.X, name)
+	case *xfront.TupleMember:
+		return exprUsesIdent(n.X, name)
+	case *xfront.Index:
+		return exprUsesIdent(n.X, name) || exprUsesIdent(n.Idx, name)
+	}
+	return false
+}
+
+func stmtUsesNewTarget(s xfront.Stmt, target string) bool {
+	if s == nil {
+		return false
+	}
+	switch st := s.(type) {
+	case *xfront.ExprStmt:
+		return exprUsesNewTarget(st.X, target)
+	case *xfront.AssignStmt:
+		return exprUsesNewTarget(st.Value, target)
+	case *xfront.LocalDeclStmt:
+		return exprUsesNewTarget(st.Init, target)
+	case *xfront.ReturnStmt:
+		return exprUsesNewTarget(st.Value, target)
+	case *xfront.Block:
+		for _, x := range st.Stmts {
+			if stmtUsesNewTarget(x, target) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return stmtUsesNewTarget(st.Then, target) || stmtUsesNewTarget(st.Else, target)
+	case *xfront.WhileStmt:
+		return stmtUsesNewTarget(st.Body, target)
+	case *xfront.DoWhileStmt:
+		return stmtUsesNewTarget(st.Body, target)
+	case *xfront.ForStmt:
+		return stmtUsesNewTarget(st.Body, target)
+	case *xfront.DeferStmt:
+		if st.Block != nil {
+			return stmtUsesNewTarget(st.Block, target)
+		}
+		return stmtUsesNewTarget(st.Stmt, target)
+	case *xfront.LabeledStmt:
+		return stmtUsesNewTarget(st.Stmt, target)
+	}
+	return false
+}
+
+func exprUsesNewTarget(e xfront.Expr, target string) bool {
+	switch n := e.(type) {
+	case nil:
+		return false
+	case *xfront.New:
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) == 1 && nt.Qual[0] == target {
+			return true
+		}
+	case *xfront.Paren:
+		return exprUsesNewTarget(n.X, target)
+	case *xfront.Unary:
+		return exprUsesNewTarget(n.X, target)
+	case *xfront.Binary:
+		return exprUsesNewTarget(n.L, target) || exprUsesNewTarget(n.R, target)
+	case *xfront.Call:
+		if exprUsesNewTarget(n.Callee, target) {
+			return true
+		}
+		for _, a := range n.Args {
+			if exprUsesNewTarget(a, target) {
+				return true
+			}
+		}
+	case *xfront.Member:
+		return exprUsesNewTarget(n.X, target)
+	case *xfront.Tuple:
+		for _, el := range n.Elems {
+			if exprUsesNewTarget(el, target) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ---------- PCTOR-01：super(...) 必须是构造器首个动作（§6.3） ----------
