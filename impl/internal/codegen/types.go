@@ -54,6 +54,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：new 类型 %T 未支持", n.Type)
 		}
 		name := lastQualName(nt)
+		if ci, ok := s.g.structs[name]; ok {
+			return ci.cname, nil
+		}
 		if _, ok := s.g.classOf(name); !ok {
 			return "", fmt.Errorf("codegen：未定义的类 %s", name)
 		}
@@ -85,9 +88,20 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		}
 		return elems[n.Index], nil
 	case *xfront.Member:
+		if ei, _, ok := s.g.enumItem(n); ok {
+			return ei.ctype, nil
+		}
 		_, recvC, err := recvCName(n.X, s)
 		if err != nil {
 			return "", err
+		}
+		if s.g.isStructC(recvC) {
+			if ci, ok := s.g.structOfC(recvC); ok {
+				if f, ok := ci.fieldOf(n.Name); ok {
+					return f.ctype, nil
+				}
+			}
+			return "", fmt.Errorf("codegen：结构体没有成员 %s", n.Name)
 		}
 		ci, ok := s.g.classOfC(recvC)
 		if !ok {
@@ -165,6 +179,22 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					return "void", nil
 				}
 				return s.g.cType(sig.ret)
+			}
+			if s.g.isStructC(recvC) {
+				ci, _ := s.g.structOfC(recvC)
+				if m, ok := ci.methodOf(mem.Name); ok {
+					return s.g.methodRetC(m)
+				}
+				return "", fmt.Errorf("codegen：结构体没有方法 %s", mem.Name)
+			}
+			if s.g.isDataEnumC(recvC) {
+				name := strings.TrimSuffix(strings.TrimPrefix(recvC, "xn_Enum_"), " *")
+				if ei, ok := s.g.enums[name]; ok && ei.cls != nil {
+					if m, ok := ei.cls.methodOf(mem.Name); ok {
+						return s.g.methodRetC(m)
+					}
+				}
+				return "", fmt.Errorf("codegen：数据枚举没有方法 %s", mem.Name)
 			}
 			if isClassPtr(recvC) {
 				ci, ok := s.g.classOfC(recvC)

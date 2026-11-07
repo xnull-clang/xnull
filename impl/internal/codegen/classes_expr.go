@@ -3,6 +3,7 @@ package codegen
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
@@ -10,8 +11,14 @@ import (
 
 func isClassPtr(c string) bool { return strings.HasPrefix(c, "xn_Cls_") }
 
-// classOfC 由 C 类型名反查类信息。
+// classOfC 由 C 类型名反查类信息（含数据枚举的类结构）。
 func (g *gen) classOfC(c string) (*classInfo, bool) {
+	if strings.HasPrefix(c, "xn_Enum_") && strings.HasSuffix(c, " *") {
+		name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Enum_"), " *")
+		if ei, ok := g.enums[name]; ok && ei.cls != nil {
+			return ei.cls, true
+		}
+	}
 	name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Cls_"), " *")
 	ci, ok := g.classes[name]
 	return ci, ok
@@ -88,10 +95,27 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		}
 		return s.cRef(n.Name), c, nil
 	case *xfront.Member:
+		if ei, it, ok := s.g.enumItem(n); ok {
+			if ei.simple {
+				return strconv.FormatInt(it.value, 10), ei.ctype, nil
+			}
+			return it.varName, ei.ctype, nil
+		}
 		// 字段链（self.kids / a.b.c）：递归解析基址，字段类型给出段类型
 		base, baseC, err := recvCName(n.X, s)
 		if err != nil {
 			return "", "", err
+		}
+		if s.g.isStructC(baseC) {
+			ci, ok := s.g.structOfC(baseC)
+			if !ok {
+				return "", "", fmt.Errorf("codegen：未知结构体类型 %s", baseC)
+			}
+			f, ok := ci.fieldOf(n.Name)
+			if !ok {
+				return "", "", fmt.Errorf("codegen：结构体 %s 没有字段 %s", ci.decl.Name, n.Name)
+			}
+			return base + structSep(baseC) + f.cname, f.ctype, nil
 		}
 		ci, ok := s.g.classOfC(baseC)
 		if !ok {
@@ -113,21 +137,28 @@ func (s *scope) emitNewClass(n *xfront.New) (string, error) {
 		return "", fmt.Errorf("codegen：new 的类型必须是命名类（M4.1/M4.4b 范围）")
 	}
 	ci, ok := s.g.classOf(lastQualName(nt))
-	if !ok {
-		return "", fmt.Errorf("codegen：未定义的类 %s", lastQualName(nt))
-	}
-	if len(n.Args) > 0 {
-		c := ci.ctorByArity(len(n.Args))
-		if c == nil {
-			return "", fmt.Errorf("codegen：类 %s 没有 %d 个参数的构造器（S2 §6.3）", ci.decl.Name, len(n.Args))
+	if ok {
+		if len(n.Args) > 0 {
+			c := ci.ctorByArity(len(n.Args))
+			if c == nil {
+				return "", fmt.Errorf("codegen：类 %s 没有 %d 个参数的构造器（S2 §6.3）", ci.decl.Name, len(n.Args))
+			}
+			args, err := s.callArgs(n.Args)
+			if err != nil {
+				return "", err
+			}
+			return ci.ctorName[c] + "(" + strings.Join(args, ", ") + ")", nil
 		}
+		return ci.cname + "_new()", nil
+	}
+	if sc, ok := s.g.structs[lastQualName(nt)]; ok {
 		args, err := s.callArgs(n.Args)
 		if err != nil {
 			return "", err
 		}
-		return ci.ctorName[c] + "(" + strings.Join(args, ", ") + ")", nil
+		return s.g.structCtorCall(sc, len(n.Args), args)
 	}
-	return ci.cname + "_new()", nil
+	return "", fmt.Errorf("codegen：未定义的类 %s", lastQualName(nt))
 }
 
 // classMemberValue 生成类成员值（字段读 / 方法调用）。
@@ -180,6 +211,15 @@ func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args 
 			parts = append(parts, expr)
 			continue
 		}
+		if s.g.isStructC(pc) {
+			lines, expr, err := s.structValue(args[i], pc)
+			if err != nil {
+				return "", err
+			}
+			s.pending = append(s.pending, lines...)
+			parts = append(parts, expr)
+			continue
+		}
 		v, err := s.intExpr(args[i])
 		if err != nil {
 			return "", err
@@ -198,6 +238,33 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 	recvName, recvC, err := recvCName(mem.X, s)
 	if err != nil {
 		return nil, err
+	}
+	if s.g.isStructC(recvC) {
+		ci, ok := s.g.structOfC(recvC)
+		if !ok {
+			return nil, fmt.Errorf("codegen：未知结构体类型 %s", recvC)
+		}
+		f, ok := ci.fieldOf(mem.Name)
+		if !ok {
+			return nil, fmt.Errorf("codegen：结构体 %s 没有字段 %s", ci.decl.Name, mem.Name)
+		}
+		dst := recvName + structSep(recvC) + f.cname
+		if f.ctype == "rt_string *" {
+			lines, err := s.strExpr(val)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, lines...)
+			out = append(out, "rt_release("+dst+");", dst+" = "+lastVar(lines)+";")
+			return out, nil
+		}
+		v, err := s.intExpr(val)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, dst+" = "+v+";"), nil
 	}
 	ci, ok := s.g.classOfC(recvC)
 	if !ok {
