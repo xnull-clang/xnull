@@ -765,7 +765,7 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		fmt.Fprintf(&b, ", %s xn_p_%s", pc, p.Name)
 	}
 	b.WriteString(") {\n")
-	hasResult := retC == "xn_Result_Int_String" || retC == "xn_Result_Bool_String"
+	hasResult := strings.HasPrefix(retC, "xn_Result_")
 	if hasResult {
 		fmt.Fprintf(&b, "    %s xn_ret;\n", retC)
 	}
@@ -891,6 +891,12 @@ func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls stri
 			return nil, "", err
 		}
 		return lines, v, nil
+	case g.isSimpleEnumC(f.ctype) || g.isDataEnumC(f.ctype):
+		v, err := sc.intExpr(init)
+		if err != nil {
+			return nil, "", err
+		}
+		return nil, v, nil
 	case f.ctype == "int64_t" || f.ctype == "int" || f.ctype == "bool":
 		v, err := sc.intExpr(init)
 		if err != nil {
@@ -973,6 +979,10 @@ func (g *gen) validateFieldInit(e xfront.Expr, cls, field string) error {
 	case *xfront.IdentExpr:
 		return bad("引用了标识符 `" + n.Name + "`（不能引用 self、字段、参数或局部）")
 	case *xfront.Member:
+		// 枚举项（Color.Green）是编译期常量，可作为字段初值（S2 §8.2）。
+		if _, _, ok := g.enumItem(n); ok {
+			return nil
+		}
 		return bad("访问了成员 `" + n.Name + "`（不能引用 self 或其他实例字段）")
 	}
 	return bad(fmt.Sprintf("形态 %T 不受支持", e))
