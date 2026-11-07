@@ -72,7 +72,7 @@ func (g *gen) collectStructs(u *xfront.CompilationUnit) error {
 			if _, dup := ci.methods[m.Name]; dup {
 				return fmt.Errorf("codegen：结构体 %s 方法重名 %s", sd.Name, m.Name)
 			}
-			ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci}
+			ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci, static: m.Mod.Static}
 		}
 		ci.collected = true
 		building[name] = false

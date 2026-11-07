@@ -116,7 +116,7 @@ func (g *gen) collectDataEnum(d *xfront.EnumDecl, ctype string) (*classInfo, err
 		if _, ok := ci.methods[m.Name]; ok {
 			return nil, fmt.Errorf("codegen：数据枚举 %s 方法重名 %s", d.Name, m.Name)
 		}
-		ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci}
+		ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci, static: m.Mod.Static}
 	}
 	ci.collected = true
 	return ci, nil

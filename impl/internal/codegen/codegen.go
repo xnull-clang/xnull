@@ -1478,6 +1478,13 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 			s.pending = nil
 			return append(out, expr+";"), nil
 		}
+		if expr, _, hit, err := s.staticClassCall(mem, call); err != nil {
+			return nil, err
+		} else if hit {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
 		if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 			expr, _, err := s.protoDispatch(mem, call.Args)
 			if err != nil {
@@ -2074,6 +2081,12 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 		callStr = cn + "(" + strings.Join(args, ", ") + ")"
 	case *xfront.Member:
 		if expr, _, hit, err := s.tryFactoryCall(callee, call); err != nil {
+			return nil, err
+		} else if hit {
+			callStr = expr
+			break
+		}
+		if expr, _, hit, err := s.staticClassCall(callee, call); err != nil {
 			return nil, err
 		} else if hit {
 			callStr = expr
@@ -2805,6 +2818,17 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				s.pending = nil
 				return append(out, "rt_string *"+t+" = "+expr+";"), nil
 			}
+			if expr, retC, hit, err := s.staticClassCall(mem, n); err != nil {
+				return nil, err
+			} else if hit {
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：静态方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
 			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 				expr, retC, err := s.protoDispatch(mem, n.Args)
 				if err != nil {
@@ -2969,6 +2993,11 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if expr, _, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
+			if expr, _, hit, err := s.staticClassCall(mem, n); err != nil {
 				return "", err
 			} else if hit {
 				return expr, nil
@@ -3327,6 +3356,11 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			} else if hit {
 				return expr, nil
 			}
+			if expr, _, hit, err := s.staticClassCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
 			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 				expr, _, err := s.protoDispatch(mem, n.Args)
 				if err != nil {
@@ -3462,6 +3496,11 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 		return cn + "(" + strings.Join(args, ", ") + ")", true, nil
 	case *xfront.Member:
 		if expr, _, hit, err := s.tryFactoryCall(c, cl); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
+		if expr, _, hit, err := s.staticClassCall(c, cl); err != nil {
 			return "", false, err
 		} else if hit {
 			return expr, true, nil

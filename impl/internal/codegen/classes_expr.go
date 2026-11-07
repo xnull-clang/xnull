@@ -458,3 +458,43 @@ func lastQualName(nt *xfront.NamedType) string {
 	}
 	return nt.Qual[len(nt.Qual)-1]
 }
+
+// staticClassCall 解析 `ClassName.staticMethod(...)`（S2 §7.2/§10.3）。
+func (s *scope) staticClassCall(mem *xfront.Member, call *xfront.Call) (string, string, bool, error) {
+	id, ok := mem.X.(*xfront.IdentExpr)
+	if !ok {
+		return "", "", false, nil
+	}
+	if s.params != nil && s.params[id.Name] {
+		return "", "", false, nil
+	}
+	if _, local := s.locals[id.Name]; local {
+		return "", "", false, nil
+	}
+	var ci *classInfo
+	if c, ok := s.g.classOf(id.Name); ok {
+		ci = c
+	} else if c, ok := s.g.structs[id.Name]; ok {
+		ci = c
+	} else if c, ok := s.g.singletons[id.Name]; ok {
+		ci = c
+	} else if ei, ok := s.g.enums[id.Name]; ok && ei.cls != nil {
+		ci = ei.cls
+	}
+	if ci == nil {
+		return "", "", false, nil
+	}
+	m, ok := ci.methodOf(mem.Name)
+	if !ok || !m.static {
+		return "", "", false, nil
+	}
+	args, err := s.callArgs(call.Args)
+	if err != nil {
+		return "", "", true, err
+	}
+	retC, err := s.g.methodRetC(m)
+	if err != nil {
+		return "", "", true, err
+	}
+	return m.cname + "(" + strings.Join(args, ", ") + ")", retC, true, nil
+}
