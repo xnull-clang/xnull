@@ -7,6 +7,7 @@
  * 防复活：terminated 置位后 retain 触发 rt_fatal（S3 §15 复活检测，终止进程）。
  */
 #include "rt.h"
+#include "rt_gc.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -53,19 +54,6 @@ void rt_stats_note_gc(size_t freed) {
     g_stats.gc_freed += freed;
 }
 
-static void *rt_alloc(rt_kind kind, const rt_type *type, size_t payload) {
-    rt_object *obj = malloc(sizeof(rt_header) + payload);
-    if (obj == NULL) {
-        abort(); /* OOM：运行期不可恢复（S3 合同：分配失败即 fatal） */
-    }
-    obj->hdr.kind = kind;
-    obj->hdr.type = type;
-    atomic_init(&obj->hdr.refcount, 1); /* 新对象计数从 1 起（§7） */
-    obj->hdr.terminated = 0;
-    rt_stats_note_alloc(sizeof(rt_header) + payload);
-    return obj;
-}
-
 void *rt_payload(void *obj) { return (char *)obj + sizeof(rt_header); }
 
 void *rt_retain(void *obj) {
@@ -73,6 +61,9 @@ void *rt_retain(void *obj) {
         return NULL;
     }
     rt_header *h = &((rt_object *)obj)->hdr;
+    if (h->kind == RT_KIND_GC) {
+        return obj; /* GC 对象不计数（S3 §10：String/Text/Bytes/SB 为 GC 对象） */
+    }
     if (h->terminated) {
         /* 复活检测（S3 §15：deinit 存 self 存入外部状态是程序错误，
          * 运行时检测到复活行为必须终止进程） */
@@ -87,6 +78,9 @@ void rt_release(void *obj) {
         return;
     }
     rt_header *h = &((rt_object *)obj)->hdr;
+    if (h->kind == RT_KIND_GC) {
+        return; /* GC 对象由标记—清扫回收；过渡期 codegen 的 release 变为 no-op */
+    }
     if (h->terminated) {
         return; /* 双重 release 不递减（§14 防御） */
     }
@@ -123,7 +117,7 @@ const rt_type RT_TYPE_STRING = {
 };
 
 rt_string *rt_string_new(const char *utf8, size_t len) {
-    rt_string *s = rt_alloc(RT_KIND_ARC, &RT_TYPE_STRING, sizeof(size_t) + len + 1);
+    rt_string *s = rt_gc_new_size(&RT_TYPE_STRING, sizeof(size_t) + len + 1);
     s->len = len;
     if (len > 0) {
         memcpy(s->bytes, utf8, len);
@@ -135,7 +129,7 @@ rt_string *rt_string_new(const char *utf8, size_t len) {
 /* 定长构造：只初始化头与长度，内容留给调用方填充（S7 §6.1 稳定 ABI 的
  * xrt_string_alloc 实现底座；不改变 rt_string_new 语义）。 */
 rt_string *rt_string_alloc(size_t len) {
-    rt_string *s = rt_alloc(RT_KIND_ARC, &RT_TYPE_STRING, sizeof(size_t) + len + 1);
+    rt_string *s = rt_gc_new_size(&RT_TYPE_STRING, sizeof(size_t) + len + 1);
     s->len = len;
     s->bytes[len] = '\0';
     return s;

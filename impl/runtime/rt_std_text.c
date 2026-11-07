@@ -11,6 +11,7 @@
  * 错误码：0 = 成功；1 = 语法无效；2 = 溢出/模式错误。
  */
 #include "xrt.h"
+#include "rt_gc.h"
 
 #include <errno.h>
 #include <regex.h>
@@ -276,4 +277,142 @@ int64_t xdkc_utf16_to_utf8(const uint16_t *src, size_t n, char *dst, size_t cap)
         w += k;
     }
     return (int64_t)w;
+}
+
+/* ---- Text（S3 §10：GC 对象，UTF-8 字节区免扫描；S1 §9.7） ---- */
+
+struct xrt_text {
+    rt_header hdr;
+    size_t    len;
+    char      bytes[];
+};
+
+static const rt_type RT_TYPE_XRT_TEXT = { "Text", 0, NULL, NULL };
+
+xrt_text *xrt_text_from_string(const char *bytes, size_t len) {
+    xrt_text *t = rt_gc_new_size(&RT_TYPE_XRT_TEXT, sizeof(size_t) + len + 1);
+    t->len = len;
+    if (len > 0) {
+        memcpy(t->bytes, bytes, len);
+    }
+    t->bytes[len] = 0;
+    return t;
+}
+
+size_t xrt_text_length(const xrt_text *t) {
+    return t == NULL ? 0 : t->len;
+}
+
+int64_t xrt_text_code_point_count(const xrt_text *t) {
+    if (t == NULL) {
+        return 0;
+    }
+    int64_t n = 0;
+    for (size_t i = 0; i < t->len; i++) {
+        if (((unsigned char)t->bytes[i] & 0xC0) != 0x80) {
+            n++;
+        }
+    }
+    return n;
+}
+
+xrt_string *xrt_text_to_string(const xrt_text *t) {
+    if (t == NULL) {
+        return (xrt_string *)rt_string_from_c("");
+    }
+    return (xrt_string *)rt_string_new(t->bytes, t->len);
+}
+
+int32_t xrt_text_compare_to(const xrt_text *a, const xrt_text *b) {
+    size_t an = a == NULL ? 0 : a->len;
+    size_t bn = b == NULL ? 0 : b->len;
+    size_t n = an < bn ? an : bn;
+    int c = n == 0 ? 0 : memcmp(a->bytes, b->bytes, n);
+    if (c != 0) {
+        return c < 0 ? -1 : 1;
+    }
+    if (an == bn) {
+        return 0;
+    }
+    return an < bn ? -1 : 1;
+}
+
+/* ---- StringBuilder（S3 §10：GC 对象，可变缓冲区免扫描；S1 §9.7） ---- */
+
+struct xrt_sb {
+    rt_header hdr;
+    size_t    len;
+    size_t    cap;
+    char     *data;
+};
+
+static void sb_deinit(void *obj) {
+    xrt_sb *sb = rt_payload(obj);
+    free(sb->data);
+    sb->data = NULL;
+    sb->len = 0;
+    sb->cap = 0;
+}
+
+static const rt_type RT_TYPE_XRT_SB = { "StringBuilder", sizeof(xrt_sb), sb_deinit, NULL };
+
+static xrt_sb *sb_alloc(void) {
+    xrt_sb *sb = rt_gc_new(&RT_TYPE_XRT_SB);
+    sb->len = 0;
+    sb->cap = 16;
+    sb->data = malloc(sb->cap);
+    if (sb->data == NULL) {
+        xrt_fatal("StringBuilder：分配失败（S3 §2）");
+    }
+    sb->data[0] = 0;
+    return sb;
+}
+
+xrt_sb *xrt_sb_new(void) {
+    return sb_alloc();
+}
+
+static void sb_reserve(xrt_sb *sb, size_t need) {
+    if (need <= sb->cap) {
+        return;
+    }
+    size_t cap = sb->cap ? sb->cap : 16;
+    while (cap < need) {
+        cap *= 2;
+    }
+    char *d = realloc(sb->data, cap);
+    if (d == NULL) {
+        xrt_fatal("StringBuilder：扩容失败（S3 §2）");
+    }
+    sb->data = d;
+    sb->cap = cap;
+}
+
+void xrt_sb_append_str(xrt_sb *sb, const char *bytes, size_t len) {
+    if (sb == NULL || bytes == NULL) {
+        return;
+    }
+    sb_reserve(sb, sb->len + len + 1);
+    memcpy(sb->data + sb->len, bytes, len);
+    sb->len += len;
+    sb->data[sb->len] = 0;
+}
+
+void xrt_sb_append_int(xrt_sb *sb, int64_t v) {
+    char buf[32];
+    int n = snprintf(buf, sizeof(buf), "%lld", (long long)v);
+    if (n > 0) {
+        xrt_sb_append_str(sb, buf, (size_t)n);
+    }
+}
+
+size_t xrt_sb_length(const xrt_sb *sb) {
+    return sb == NULL ? 0 : sb->len;
+}
+
+xrt_string *xrt_sb_to_string(const xrt_sb *sb) {
+    if (sb == NULL) {
+        return (xrt_string *)rt_string_from_c("");
+    }
+    return (xrt_string *)rt_string_new(sb->data, sb->len);
 }

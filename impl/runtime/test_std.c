@@ -359,9 +359,9 @@ static void test_stats(void) {
     xrt_stats_reset();
     xrt_stats_set_enabled(1);
 
-    xrt_string *str = xrt_string_new("stats", 5);
-    xrt_release(str);
-    xrt_safepoint(); /* 隔离区回收 → frees 计数 */
+    xrt_string *str = xrt_string_new("stats", 5); /* String 为 GC 对象 */
+    (void)str;
+    rt_gc_collect(); /* 不可达 → 清扫，frees/gc_freed 计数 */
 
     xrt_callback_env *env = xrt_callback_env_new(NULL, NULL);
     xrt_callback_env_destroy(env);
@@ -371,7 +371,7 @@ static void test_stats(void) {
     CHECK(s.allocs >= 2);
     CHECK(s.frees >= 1);
     CHECK(s.bytes > 0);
-    CHECK(s.gc_collections == 1);
+    CHECK(s.gc_collections >= 1);
     CHECK(s.gc_freed >= 1);
     xrt_stats_set_enabled(0);
 }

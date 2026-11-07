@@ -147,7 +147,7 @@ static Int main() {
 	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("Node（引用环）应以 rt_gc_new 分配")
 	}
-	if !strings.Contains(csrc, "xn_Cls_Node_scan") {
+	if !strings.Contains(csrc, "xn_Cls_Node_gc_scan") {
 		t.Fatalf("GC 类应生成 scan 钩子")
 	}
 	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_Plain)") {
