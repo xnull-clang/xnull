@@ -1,0 +1,14 @@
+# xnull.dev/xnull/internal/manifest [xnull.dev/xnull/internal/manifest.test]
+internal/manifest/manifest_test.go:56:50: undefined: Options
+internal/manifest/manifest_test.go:56:61: undefined: Resolved
+internal/manifest/manifest_test.go:61:21: undefined: Load
+internal/manifest/manifest_test.go:87:5: undefined: Options
+internal/manifest/manifest_test.go:106:4: undefined: Options
+internal/manifest/manifest_test.go:124:20: undefined: Load
+internal/manifest/manifest_test.go:124:28: undefined: Options
+internal/manifest/manifest_test.go:137:20: undefined: Load
+internal/manifest/manifest_test.go:137:64: undefined: Options
+internal/manifest/manifest_test.go:146:19: undefined: Load
+internal/manifest/manifest_test.go:146:19: too many errors
+FAIL	xnull.dev/xnull/internal/manifest [build failed]
+FAIL

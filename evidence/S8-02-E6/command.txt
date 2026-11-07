@@ -1,0 +1,3 @@
+# S8-02：继承 / 变量 / profile（XPD-3xx）
+cd impl && go test ./internal/manifest -count=1 -v
+cd impl && go test ./internal/xpd -count=1

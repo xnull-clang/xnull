@@ -14,6 +14,7 @@ type Diagnostic struct {
 	Col     int
 	Code    string // 形如 XPD-204 / CLI-002
 	Message string
+	Path    string // 段落路径（如 project/dependencies/dependency[2]/optional；可空）
 	Snippet string // 出错行的原文（不含行号）
 	Width   int    // 插入符覆盖宽度；0 表示 1
 	Hint    string // 追加说明（可用键、修复建议等）
@@ -23,6 +24,9 @@ type Diagnostic struct {
 func (d Diagnostic) String() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s:%d:%d: error[%s]: %s", d.File, d.Line, d.Col, d.Code, d.Message)
+	if d.Path != "" {
+		fmt.Fprintf(&b, " (at %s)", d.Path)
+	}
 	if d.Snippet == "" {
 		if d.Hint != "" {
 			b.WriteString("\n  " + d.Hint)

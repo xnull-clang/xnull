@@ -1,0 +1,6 @@
+# xnull.dev/xnull/internal/devtool [xnull.dev/xnull/internal/devtool.test]
+internal/devtool/xdk_check_test.go:57:11: undefined: checkXDK
+internal/devtool/xdk_check_test.go:77:11: undefined: checkXDK
+internal/devtool/xdk_check_test.go:92:14: undefined: checkXDK
+FAIL	xnull.dev/xnull/internal/devtool [build failed]
+FAIL

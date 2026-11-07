@@ -10,6 +10,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"xnull.dev/xnull/internal/xdkcheck"
 )
 
 var (
@@ -62,6 +64,11 @@ func CheckSpecs(start string, out io.Writer) (int, error) {
 		checkBinaries(l.Root),
 		checkEnSync(l, parts),
 	}
+	if r, ok := checkXDK(l.Root); ok {
+		results = append(results, r)
+	} else {
+		fmt.Fprintln(out, "[skip] XDK 合同（未合入 8 包，S6-08 骨架未齐）")
+	}
 
 	var fails []string
 	for _, r := range results {
@@ -94,6 +101,24 @@ func listParts(specDir string) ([]string, error) {
 	}
 	sort.Strings(parts)
 	return parts, nil
+}
+
+// checkXDK 是 `xnull dev check` 的第六检（S8-11）：8 包依赖方向、稳定性标注、
+// 无全局可变，复用 S6-XDK02 的静态合同核验。8 包未齐时返回 ok=false（跳过），
+// 避免在只含部分 XDK 单元的分支上误报。
+func checkXDK(root string) (checkResult, bool) {
+	dir := filepath.Join(root, "impl", "lib", "xdk")
+	for _, pkg := range []string{"errors", "tasks", "sync", "runtime", "collections", "text", "sys", "net"} {
+		if st, err := os.Stat(filepath.Join(dir, pkg+".x")); err != nil || st.IsDir() {
+			return checkResult{}, false
+		}
+	}
+	vs := xdkcheck.CheckContracts(root)
+	fails := make([]string, 0, len(vs))
+	for _, v := range vs {
+		fails = append(fails, v.String())
+	}
+	return checkResult{title: "XDK 合同（8 包依赖/稳定性/无全局可变）", fails: fails}, true
 }
 
 func report(out io.Writer, r checkResult) []string {

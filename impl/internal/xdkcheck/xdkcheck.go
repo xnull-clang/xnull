@@ -1,4 +1,4 @@
-package codegen
+package xdkcheck
 
 import (
 	"fmt"
@@ -37,8 +37,8 @@ const (
 	xdkCodeDocs      = "XDK-009" // 架构文档与包表不一致
 )
 
-// XDKContractViolation 是一条静态合同违约。
-type XDKContractViolation struct {
+// Violation 是一条静态合同违约。
+type Violation struct {
 	File    string
 	Line    int
 	Col     int
@@ -46,7 +46,7 @@ type XDKContractViolation struct {
 	Message string
 }
 
-func (v XDKContractViolation) String() string {
+func (v Violation) String() string {
 	return fmt.Sprintf("%s:%d:%d: %s %s", v.File, v.Line, v.Col, v.Code, v.Message)
 }
 
@@ -63,10 +63,10 @@ var xdkCanonicalPackages = []string{
 	"errors", "tasks", "sync", "runtime", "collections", "text", "sys", "net",
 }
 
-// CheckXDKContracts 对 repoRoot 下的 XDK 包执行静态合同核验。
+// CheckContracts 对 repoRoot 下的 XDK 包执行静态合同核验。
 // 返回按文件/行/码排序的违约列表；空表示通过。
-func CheckXDKContracts(repoRoot string) []XDKContractViolation {
-	var out []XDKContractViolation
+func CheckContracts(repoRoot string) []Violation {
+	var out []Violation
 	add := func(rel string, line, col int, code, msg string) {
 		if line <= 0 {
 			line = 1
@@ -74,7 +74,7 @@ func CheckXDKContracts(repoRoot string) []XDKContractViolation {
 		if col <= 0 {
 			col = 1
 		}
-		out = append(out, XDKContractViolation{
+		out = append(out, Violation{
 			File: rel, Line: line, Col: col, Code: code, Message: msg,
 		})
 	}
@@ -229,7 +229,7 @@ func CheckXDKContracts(repoRoot string) []XDKContractViolation {
 	return sortViolations(out)
 }
 
-func sortViolations(v []XDKContractViolation) []XDKContractViolation {
+func sortViolations(v []Violation) []Violation {
 	sort.Slice(v, func(i, j int) bool {
 		if v[i].File != v[j].File {
 			return v[i].File < v[j].File
@@ -245,11 +245,11 @@ func sortViolations(v []XDKContractViolation) []XDKContractViolation {
 	return v
 }
 
-func loadXDKPackageTable(path string) ([]xdkPackageRow, []XDKContractViolation) {
+func loadXDKPackageTable(path string) ([]xdkPackageRow, []Violation) {
 	var out []xdkPackageRow
-	var diags []XDKContractViolation
+	var diags []Violation
 	add := func(line int, msg string) {
-		diags = append(diags, XDKContractViolation{
+		diags = append(diags, Violation{
 			File: "impl/docs/xdk-packages.tsv", Line: line, Col: 1,
 			Code: xdkCodeTable, Message: msg,
 		})

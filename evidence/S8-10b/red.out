@@ -1,0 +1,19 @@
+--- FAIL: TestS810bCodeCoverage (0.01s)
+    coverage_test.go:50: XPD-204 (段落与字段) 无校验器落点（S8-10b）
+    coverage_test.go:50: XPD-701 (元数据) 无校验器落点（S8-10b）
+    coverage_test.go:50: XPD-702 (元数据) 无校验器落点（S8-10b）
+    coverage_test.go:50: XPD-703 (元数据) 无校验器落点（S8-10b）
+    coverage_test.go:50: XPD-806 (资源与打包) 无校验器落点（S8-10b）
+    coverage_test.go:55: 校验器使用未登记码位 XPD-307
+    coverage_test.go:55: 校验器使用未登记码位 XPD-406
+    coverage_test.go:55: 校验器使用未登记码位 XPD-607
+    coverage_test.go:55: 校验器使用未登记码位 XPD-309
+    coverage_test.go:55: 校验器使用未登记码位 XPD-306
+    coverage_test.go:55: 校验器使用未登记码位 XPD-308
+    coverage_test.go:55: 校验器使用未登记码位 XPD-600
+    coverage_test.go:55: 校验器使用未登记码位 XPD-606
+    coverage_test.go:55: 校验器使用未登记码位 XPD-407
+    coverage_test.go:55: 校验器使用未登记码位 XPD-608
+FAIL
+FAIL	xnull.dev/xnull/internal/xpd	0.804s
+FAIL

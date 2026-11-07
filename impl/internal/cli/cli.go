@@ -41,6 +41,8 @@ type Env struct {
 	Stdout io.Writer
 	Stderr io.Writer
 	Args   []string
+	// Dir 是清单模式的工作目录（空 = 进程当前目录）。
+	Dir string
 }
 
 // Run 执行一次命令行调用并返回进程退出码。
@@ -85,12 +87,20 @@ func Run(env Env) int {
 	if name == "dev" {
 		return runDev(env, rest)
 	}
+	// S8-03：锁文件生成/校验（唯一重生成入口 --update-lock）。
+	if name == "lock" {
+		return runLock(env, rest)
+	}
 	// IDE 支持：工程模板创建与结构化检查。
 	if name == "new" {
 		return runNew(env, rest)
 	}
 	if name == "check" {
 		return runCheck(env, rest)
+	}
+	// S8-10：清单/锁/元数据格式化。
+	if name == "fmt" {
+		return runFmt(env, rest)
 	}
 	// 最小可运行闭环：`xnull run path/to/file.x [--] [程序参数...]` 直接执行单文件
 	//（不依赖工程清单；清单模式后续接入）。`--` 之后的参数原样交给 main(String[])。
@@ -112,9 +122,23 @@ func Run(env Env) int {
 		return policyFile(env, rest[0])
 	}
 
+	dir := env.Dir
+	if dir == "" {
+		dir = "."
+	}
 	switch name {
-	case "build", "run", "test", "lock":
-		if !manifestExists(rest) {
+	case "build":
+		out, code := buildManifest(env, rest, dir)
+		if code == exitcode.Success && out != "" {
+			fmt.Fprintln(env.Stdout, out)
+		}
+		return code
+	case "run":
+		return runManifest(env, rest, dir)
+	case "test":
+		return testManifest(env, rest, dir)
+	case "lock":
+		if findManifestRoot(dir) == "" {
 			return fail(env, diag.Diagnostic{
 				File: "xnull", Line: 1, Col: 1, Code: codeManifestAbsent,
 				Message: "找不到 xnull.project",
@@ -165,7 +189,7 @@ func parseFlags(args []string) *diag.Diagnostic {
 			break
 		}
 		if len(a) > 1 && a[0] == '-' && a[1] == '-' {
-			if strings.HasPrefix(a, "--mem=") {
+			if strings.HasPrefix(a, "--mem=") || strings.HasPrefix(a, "--skip=") {
 				continue
 			}
 			if _, ok := knownFlags[a]; !ok {
@@ -233,14 +257,6 @@ var knownFlags = map[string]struct{}{
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
 	"--resources": {},
 	"--mem":       {}, "--stats": {},
-}
-
-// manifestExists 从当前目录向上查找 xnull.project。
-func manifestExists(args []string) bool {
-	if _, err := os.Stat("xnull.project"); err == nil {
-		return true
-	}
-	return false
 }
 
 func notImplemented(env Env, name string) int {
@@ -538,4 +554,41 @@ func linkArgs(libs []ffi.LinkLib, libDirs []string) []string {
 	sort.Strings(dirs)
 	args = append(args, dirs...)
 	return append(args, ffi.LinkArgs(libs)...)
+}
+
+// runManifest 构建清单工程并运行产物；`--` 之后透传程序参数。
+func runManifest(env Env, rest []string, dir string) int {
+	var progArgs []string
+	buildArgs := rest
+	for i, a := range rest {
+		if a == "--" {
+			buildArgs = rest[:i]
+			progArgs = rest[i+1:]
+			break
+		}
+	}
+	out, code := buildManifest(env, buildArgs, dir)
+	if code != exitcode.Success {
+		return code
+	}
+	cmd := exec.Command(out, progArgs...)
+	cmd.Stdout = env.Stdout
+	cmd.Stderr = env.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return ee.ExitCode()
+		}
+		fmt.Fprintf(env.Stderr, "xnull: 运行产物失败：%v\n", err)
+		return exitcode.BuildFail
+	}
+	return exitcode.Success
+}
+
+// testManifest 执行 validate→compile→test（跳过 package/install）。
+func testManifest(env Env, rest []string, dir string) int {
+	args := append([]string{}, rest...)
+	args = append(args, "--skip", "package", "--skip", "install")
+	_, code := buildManifest(env, args, dir)
+	return code
 }
