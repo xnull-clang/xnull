@@ -1,0 +1,4 @@
+【M6-B1-02】XNull 版 xnfmt：用 XNull 写格式化器，按规范输出。
+【验收】对全仓库 .x 与 Go 版逐字节一致；能读文件、写文件；不依赖 Go 实现；用当前 Go 版 xnull 编译（B1 阶段允许）。
+【回执】收件箱/回执箱/CEO3/回执-M6-B1-02.md；证据 evidence/M6-B1-02/；提交 pod/c3-rd1。
+回复 M6-B1-02 DONE <sha>。

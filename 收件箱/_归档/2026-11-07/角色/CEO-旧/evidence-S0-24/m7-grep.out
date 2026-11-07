@@ -1,0 +1,28 @@
+evidence/S0-21a/command.txt:4:LC_ALL=C python3 impl/tools/check_specs.py                      # ×3（工作树，ROOT=工作树）
+evidence/S0-21a/command.txt:5:(cd /Users/vjs/Desktop/XNull-Lang && LC_ALL=C python3 impl/tools/check_specs.py)   # ×3（主树只读）
+evidence/S0-21a/command.txt:6:LC_ALL=C python3 impl/tools/gen_ledger.py "$PWD"                # ×3，每次 cop y台账
+evidence/S0-21a/command.txt:8:LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res <out>.c      # ×3
+evidence/S0-21a/command.txt:9:LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_sub ...      # 负向：子目录
+evidence/S0-21a/command.txt:10:LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_bad ...      # 负向：含空格
+evidence/S0-21a/command.txt:11:LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/nope ...         # 负向：缺目录
+evidence/S0-21a/command.txt:12:LC_ALL=C python3 impl/tools/gen_resources.py evidence/S0-21a/fixture/res_empty ...    # 空目录
+evidence/S0-21a/stdout.txt:1:$ LC_ALL=C python3 impl/tools/check_specs.py            # 工作树，3 次
+evidence/S0-21a/stdout.txt:41:$ (cd /Users/vjs/Desktop/XNull-Lang && LC_ALL=C python3 impl/tools/check_specs.py)   # 主树只读，3 次
+evidence/S0-21a/stdout.txt:81:$ LC_ALL=C python3 impl/tools/gen_ledger.py <worktree>   # 3 次
+evidence/S0-21a/stdout.txt:88:$ LC_ALL=C python3 impl/tools/gen_resources.py <fixture> <out.c>   # 3 次
+evidence/S0-21c/command.txt:2:git rm impl/tools/check_specs.py impl/tools/gen_ledger.py impl/tools/gen_resources.py
+evidence/S0-21c/command.txt:6:git grep -n 'impl/tools/.*\.py' -- ':!*.md'
+evidence/S0-21d/after-merge/command.txt:31:git grep -n 'impl/tools/.*\.py' -- ':!*.md' ':!evidence/**'
+evidence/S0-21d/after-merge/m5-ledger.diff:6:-> 由 `impl/tools/gen_ledger.py` 自动生成，**不要手改编号列**。人工只维护两列：`用例文件`（相对 `impl/Tests/`）与`状态`。
+evidence/S0-21d/after-merge/m6-res.c:1:/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。
+evidence/S0-21d/after-merge/m7-git-grep-code.out:1:impl/internal/devtool/resources.go:99:	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")
+evidence/S0-21d/after-merge/stdout.txt:60:-> 由 `impl/tools/gen_ledger.py` 自动生成，**不要手改编号列**。人工只维护两列：`用例文件`（相对 `impl/Tests/`）与`状态`。
+evidence/S0-21d/after-merge/stdout.txt:71:impl/internal/devtool/resources.go:99:	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")
+evidence/S0-21d/command.txt:11:git grep -n 'impl/tools/.*\.py' -- ':!*.md' # 1（冻结 golden 头，登记例外）
+evidence/S0-21d/exit_code.txt:8:git grep impl/tools/*.py = 1 条（resources.go 冻结 golden 头）
+evidence/S0-21e/command.txt:33:git grep -n 'impl/tools/.*\.py' -- ':!*.md'                 # 原始口径（含 evidence/ 历史记录）
+evidence/S0-21e/command.txt:34:git grep -n 'impl/tools/.*\.py' -- ':!*.md' ':!evidence/**' # 产品代码口径
+evidence/S0-21e/exit_code.txt:14:| m7b | `git grep 'impl/tools/.*\.py' -- ':!*.md'` | `m7-git-grep.out` | 0（16 条全部位于 `evidence/` 历史记录） | 见说明 |
+evidence/S0-21e/stdout.txt:166:-> 由 `impl/tools/gen_ledger.py` 自动生成，**不要手改编号列**。人工只维护两列：`用例文件`（相对 `impl/Tests/`）与`状态`。
+evidence/S0-21e/stdout.txt:181:impl/internal/devtool/resources.go:99:	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")
+impl/internal/devtool/resources.go:99:	b.WriteString("/* 由 impl/tools/gen_resources.py 生成（构建期产物，勿手改；S8 §5.6）。\n")
