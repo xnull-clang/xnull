@@ -353,6 +353,103 @@ static void test_callback_env(void) {
     }
 }
 
+/* S4 §9：诊断通道合同——无堆分配、单行、无附加敏感信息；ErrorKind 骨架。 */
+static ssize_t read_all(int fd, char *buf, size_t cap) {
+    size_t off = 0;
+    while (off + 1 < cap) {
+        ssize_t n = read(fd, buf + off, cap - off - 1);
+        if (n <= 0) {
+            break;
+        }
+        off += (size_t)n;
+    }
+    buf[off] = 0;
+    return (ssize_t)off;
+}
+
+static void test_diagnose_contract(void) {
+    /* 无堆分配：诊断调用前后 runtime 分配计数不变 */
+    xrt_stats before, after;
+    xrt_stats_reset();
+    xrt_stats_set_enabled(1);
+    xrt_stats_get(&before);
+    xdkc_diagnose("a\nb", 3);
+    xrt_stats_get(&after);
+    CHECK(after.allocs == before.allocs);
+    xrt_stats_set_enabled(0);
+
+    /* 单行 + 控制字符折叠 */
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        xdkc_diagnose("l1\nl2\rx", sizeof("l1\nl2\rx") - 1);
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[256];
+    read_all(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(strstr(buf, "l1 l2 x") != NULL);
+    CHECK(strchr(buf, '\r') == NULL);
+    int lines = 0;
+    for (const char *p = buf; *p; p++) {
+        if (*p == '\n') {
+            lines++;
+        }
+    }
+    CHECK(lines == 1);
+}
+
+static void test_fatal_contract(void) {
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        rt_fatal("bad\nline\x01x");
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[512];
+    read_all(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    CHECK(strncmp(buf, "xnull runtime fatal: ", 21) == 0);
+    CHECK(strstr(buf, "bad line?x") != NULL);
+    int lines = 0;
+    for (const char *p = buf; *p; p++) {
+        if (*p == '\n') {
+            lines++;
+        }
+    }
+    CHECK(lines == 1); /* 无调用栈、无附加行 */
+}
+
+static void test_error_kind_skeleton(void) {
+    CHECK(XRT_ERR_INVALID_ARGUMENT == 0);
+    CHECK(XRT_ERR_TIMEOUT == 6);
+    CHECK(XRT_ERR_CANCELLED == 7);
+    CHECK(XRT_ERR_INTERNAL == 13);
+    CHECK(strcmp(xrt_error_kind_name(XRT_ERR_TIMEOUT), "Timeout") == 0);
+    CHECK(strcmp(xrt_error_kind_name(XRT_ERR_CANCELLED), "Cancelled") == 0);
+    CHECK(xrt_error_kind_parse("Timeout") == XRT_ERR_TIMEOUT);
+    CHECK(xrt_error_kind_parse("Cancelled") == XRT_ERR_CANCELLED);
+    CHECK(xrt_error_kind_parse("Invalid") == XRT_ERR_INVALID_ARGUMENT);
+    CHECK(xrt_error_kind_parse("Limit") == XRT_ERR_BUSY);
+    CHECK(xrt_error_kind_parse("nope") == XRT_ERR_INTERNAL);
+    CHECK(xrt_error_kind_parse(NULL) == XRT_ERR_INTERNAL);
+}
+
 /* S3-04：String/Text/Bytes/StringBuilder 均为 GC 对象（kind/弱引用/收集释放）。 */
 static void test_s304_gc_types(void) {
     xrt_string *str = xrt_string_new("gc", 2);
@@ -520,6 +617,9 @@ int main(void) {
     test_bytes_file_io();
     test_callback_env();
     test_s304_gc_types();
+    test_diagnose_contract();
+    test_fatal_contract();
+    test_error_kind_skeleton();
     test_stats();
     test_files();
     test_dirs_procs();

@@ -13,6 +13,11 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S4-06/S4-04 预备，2026-11-08）**：诊断通道合同（S4 §9）——`rt_fatal` 改用
+  `write(2)` + 栈缓冲（无堆分配），输出单行且折叠控制字符，只含调用方 reason；
+  `xdkc_diagnose` 已为 write + 栈块（无堆）。`xrt.h` 增补稳定 `xrt_error_kind`（14 项，
+  只追加）与 `xrt_error_kind_name/parse`；FFI 包装新增 `xn_ffi_<region>_error_kind_id`
+  枚举映射骨架（Cancelled/Timeout 不降级，未知 → Internal）。调度器相关验证留 B3。
 - **候选期增补（S3-04 GC 化，2026-11-08）**：String/Text/Bytes/StringBuilder 均为 GC 对象
   （`rt_gc_new_size`/`rt_gc_new`，字节区免扫描）。`rt_retain`/`rt_release` 对 GC 对象为 no-op
   （过渡期 codegen 的 release 不改生命周期）；清扫改为两阶段：先对全部死亡对象执行 deinit

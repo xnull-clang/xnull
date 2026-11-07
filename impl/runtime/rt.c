@@ -10,6 +10,7 @@
 #include "rt_gc.h"
 
 #include <stdlib.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -145,11 +146,32 @@ static rt_fatal_handler g_fatal_handler = NULL;
 
 void rt_set_fatal_handler(rt_fatal_handler h) { g_fatal_handler = h; }
 
+/* S4 §9：诊断通道无堆分配。fatal 用 write(2) + 栈缓冲，单行、折叠控制字符；
+ * 输出只含调用方给出的 reason，不附加环境/参数/堆信息（敏感信息责任在错误设计者）。 */
 void rt_fatal(const char *reason) {
     if (g_fatal_handler != NULL) {
         g_fatal_handler(reason); /* 宿主处理器（测试/嵌入）；处理器需自行终止 */
     }
-    fprintf(stderr, "xnull runtime fatal: %s\n", reason);
+    static const char prefix[] = "xnull runtime fatal: ";
+    char buf[256];
+    size_t off = sizeof(prefix) - 1;
+    memcpy(buf, prefix, off);
+    size_t max = sizeof(buf) - 2; /* 预留 '\n' 与终止位 */
+    if (reason != NULL) {
+        for (const char *p = reason; *p != '\0' && off < max; p++) {
+            unsigned char c = (unsigned char)*p;
+            if (c == '\n' || c == '\r') {
+                buf[off++] = ' ';
+            } else if (c < 0x20 || c == 0x7F) {
+                buf[off++] = '?';
+            } else {
+                buf[off++] = (char)c;
+            }
+        }
+    }
+    buf[off++] = '\n';
+    ssize_t w = write(STDERR_FILENO, buf, off);
+    (void)w;
     abort();
 }
 

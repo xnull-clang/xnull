@@ -149,6 +149,31 @@ int         xrt_handle_close(xrt_handle *h);  /* 幂等；返回 0 表示已关�
 void        xrt_handle_mark_closed(xrt_handle *h); /* 已经原生 close 的语义登记：不再触达 close_fn */
 int         xrt_handle_is_closed(const xrt_handle *h);
 
+/* ---- ErrorKind 稳定枚举与 FFI 分类骨架（S4 §3/§7.3/附录 A） ----
+ *
+ * 枚举值跨版本只追加、不改名/删除（S4 §3.3）；数值是 ABI 面。
+ * FFI 绑定层把原生错误码映射到本枚举；Cancelled/Timeout 不得降级为 Internal。
+ */
+typedef enum xrt_error_kind {
+    XRT_ERR_INVALID_ARGUMENT = 0,
+    XRT_ERR_NOT_FOUND        = 1,
+    XRT_ERR_ALREADY_EXISTS   = 2,
+    XRT_ERR_PERMISSION_DENIED = 3,
+    XRT_ERR_IO               = 4,
+    XRT_ERR_NETWORK          = 5,
+    XRT_ERR_TIMEOUT          = 6,
+    XRT_ERR_CANCELLED        = 7,
+    XRT_ERR_BUSY             = 8,
+    XRT_ERR_UNAVAILABLE      = 9,
+    XRT_ERR_DATA_CORRUPTED   = 10,
+    XRT_ERR_UNSUPPORTED      = 11,
+    XRT_ERR_OUT_OF_MEMORY    = 12,
+    XRT_ERR_INTERNAL         = 13
+} xrt_error_kind;
+
+const char     *xrt_error_kind_name(xrt_error_kind kind);
+xrt_error_kind  xrt_error_kind_parse(const char *name); /* NULL/未知 → XRT_ERR_INTERNAL */
+
 /* ---- 分配统计与 GC 指标（S3 §21/§23；默认关闭） ---- */
 
 typedef struct xrt_stats {
