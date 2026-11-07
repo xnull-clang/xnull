@@ -1,0 +1,10 @@
+difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举体 `{`（必须与头部同一行，§1.1），遇到 `implements`
+difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举项名，遇到 `implements`
+difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举体结束，遇到 `implements`
+difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `implements`
+difftest/s2/bnd06/r04_impl.x:2:23: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `P`
+difftest/s2/bnd06/r04_impl.x:2:25: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`
+difftest/s2/bnd06/r04_impl.x:2:27: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Red`
+difftest/s2/bnd06/r04_impl.x:2:30: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `,`
+difftest/s2/bnd06/r04_impl.x:2:32: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Green`
+difftest/s2/bnd06/r04_impl.x:2:38: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`

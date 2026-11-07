@@ -1,0 +1,5 @@
+git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main d620ea5
+cd /private/tmp/qa-m1-main/impl && go build -o /tmp/xnull-qa-d620ea5 ./cmd/xnull
+export XNULL_RUNTIME=/private/tmp/qa-m1-main/impl/runtime
+BIN=/tmp/xnull-qa-d620ea5 sh evidence/M1-ENTRY-01-reverify-d620ea5/run.sh
+cd /private/tmp/qa-m1-main/impl && go test ./internal/cli -run 'TestEntry|TestRunEntry|TestRunMain' -count=1 -v

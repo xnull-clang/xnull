@@ -1,0 +1,4 @@
+X=/private/tmp/qa-a-47fedb8
+XNULL_RUNTIME=/private/tmp/xnull-main-47fedb8/impl/runtime
+file=evidence/S2-QA/probes/struct_nested_only/source.x
+main_sha=47fedb8ad1659925af04a677a9e82b861c2dffcd

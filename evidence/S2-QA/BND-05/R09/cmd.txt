@@ -1,0 +1,3 @@
+X=/tmp/xnull-s2-f975810
+file=difftest/s2/bnd05/r09_generic_protocol.x
+sha=87cac4d8160d06ea4f212f1b79fdf0343b6adc01

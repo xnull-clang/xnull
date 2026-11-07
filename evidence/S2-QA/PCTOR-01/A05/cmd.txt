@@ -1,0 +1,4 @@
+X=/tmp/xnull-s2-f975810
+file=difftest/s2/pctor01/a05_super.x
+runtime=/private/tmp/qa-s2-f975810/impl/runtime
+sha=87cac4d8160d06ea4f212f1b79fdf0343b6adc01

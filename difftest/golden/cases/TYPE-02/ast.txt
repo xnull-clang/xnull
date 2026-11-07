@@ -1,0 +1,1 @@
+(unit  (func static Int main (params) (block (decl Box b (new Box)) (expr (call (ident print) (binary ?? (member (ident b) s) (string "fallback")))) (assign = (member (ident b) s) (string "ok")) (expr (call (ident print) (binary ?? (member (ident b) s) (string "fallback")))) (return (int 0)))))

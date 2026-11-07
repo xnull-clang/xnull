@@ -1,0 +1,74 @@
+BND-01	A01	interp_rc=1	compiled_rc=0	interp=	compiled=12|3|3|
+BND-01	A02	interp_rc=1	compiled_rc=0	interp=	compiled=14|
+BND-01	R01	check_rc=1	err=difftest/s2/bnd01/r01_private_outside.x:6:12: error[TY-207]: 外部访问私有字段 `x`（规范名 `_x`）：私有访问错误（§7.4）|
+BND-01	R02	check_rc=1	err=difftest/s2/bnd01/r02_protected_outside.x:6:12: error[TY-209]: 受保护方法 `f` 不可访问（§7.3：仅声明类/子类经 self 或当前类/子类静态类型访问）|
+BND-01	R03	check_rc=1	err=difftest/s2/bnd01/r03_subclass_private.x:5:26: error[TY-209]: `self.x` 访问父类私有字段被拒绝（§7.3/§7.4）|
+BND-01	R04	check_rc=1	err=difftest/s2/bnd01/r04_other_instance_protected.x:5:34: error[TY-209]: 受保护字段 `x` 不可访问（§7.3：需 self/super 或当前类/子类静态类型）|
+BND-01	X01	interp_rc=0	compiled_rc=0	interp=3|	compiled=3|
+BND-01	X02	check_rc=1	err=difftest/s2/bnd01/xpkg/main_prot.x:4:12: error[TY-209]: 受保护方法 `prot` 不可访问（§7.3：仅声明类/子类经 self 或当前类/子类静态类型访问）|
+BND-01	X03	check_rc=1	err=difftest/s2/bnd01/xpkg/main_priv.x:4:12: error[TY-209]: 私有方法 `priv` 不可访问（§7.3：仅声明类内部）|
+BND-05	A01	interp_rc=0	compiled_rc=0	interp=true|	compiled=true|
+BND-05	A02	interp_rc=0	compiled_rc=0	interp=true|	compiled=true|
+BND-05	R01	check_rc=1	err=difftest/s2/bnd05/r01_missing.x:4:7: error[TY-208]: 类 `C` 未实现协议 `Ready` 的方法 `ready`（§4.3）|  补充同签名公开实例方法|
+BND-05	R02	check_rc=1	err=difftest/s2/bnd05/r02_sig_mismatch.x:5:9: error[TY-208]: 协议方法 `ready` 返回类型不符：期望 Bool，实际 Int（§4.3）|
+BND-05	R03	check_rc=1	err=difftest/s2/bnd05/r03_parent_missing.x:7:7: error[TY-208]: 类 `C` 未实现协议 `Base` 的方法 `base`（§4.3）|  补充同签名公开实例方法|
+BND-05	R04	check_rc=1	err=difftest/s2/bnd05/r04_private_impl.x:5:18: error[TY-208]: 协议方法 `ready` 的实现必须公开（§4.3）|  去掉 private/protected|
+BND-05	R05	check_rc=1	err=difftest/s2/bnd05/r05_override_unknown.x:7:10: error[TY-208]: @Override 未对应任何协议方法（§4.3）|  删除注解，或改为正确的协议方法签名|
+BND-05	R06	check_rc=1	err=difftest/s2/bnd05/r06_multi_conflict.x:7:7: error[TY-208]: 协议方法 `f` 的返回类型冲突（A vs B，§4.3）|  统一返回类型或拆分协议|
+BND-05	R07	check_rc=1	err=difftest/s2/bnd05/r07_field.x:2:14: error[SYN-101]: 协议不能声明字段（§4.2）|
+BND-05	R08	check_rc=1	err=difftest/s2/bnd05/r08_method_body.x:2:15: error[SYN-101]: 协议方法不能有方法体（§4.2：只写签名）|difftest/s2/bnd05/r08_method_body.x:3:5: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `;`|
+BND-05	R09	check_rc=1	err=difftest/s2/bnd05/r09_generic_protocol.x:1:11: error[SYN-101]: 期望协议体 `{`（必须与头部同一行，§1.1），遇到 `<`|difftest/s2/bnd05/r09_generic_protocol.x:1:11: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `<`|difftest/s2/bnd05/r09_generic_protocol.x:1:12: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `T`|difftest/s2/bnd05/r09_generic_protocol.x:1:13: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `>`|difftest/s2/bnd05/r09_generic_protocol.x:1:15: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `{`|
+PCTOR-01	A01	interp_rc=0	compiled_rc=0	interp=5|	compiled=5|
+PCTOR-01	A02	interp_rc=0	compiled_rc=1	interp=1|	compiled=
+PCTOR-01	A03	interp_rc=1	compiled_rc=1	interp=	compiled=
+PCTOR-01	A04	interp_rc=0	compiled_rc=0	interp=1|	compiled=1|2|
+PCTOR-01	A05	interp_rc=1	compiled_rc=1	interp=	compiled=
+PCTOR-01	R01	check_rc=0	err=
+PCTOR-01	R02	check_rc=0	err=
+PCTOR-01	R03	check_rc=0	err=
+PCTOR-01	R04	check_rc=0	err=
+PCTOR-01	R05	check_rc=0	err=
+STRUCT-01	A01	interp_rc=0	compiled_rc=0	interp=1|10|3|12|	compiled=1|10|3|12|
+STRUCT-01	A02	interp_rc=0	compiled_rc=1	interp=1|5|	compiled=
+STRUCT-01	R01a	check_rc=1	err=difftest/s2/struct01/r01_array.x:2:11: error[TY-204]: 结构体 `S` 的字段 `xs` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+STRUCT-01	R01b	check_rc=1	err=difftest/s2/struct01/r01_class.x:3:7: error[TY-204]: 结构体 `S` 的字段 `c` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+STRUCT-01	R01c	check_rc=1	err=difftest/s2/struct01/r01_string.x:2:12: error[TY-204]: 结构体 `S` 的字段 `name` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+STRUCT-01	R02a	check_rc=1	err=difftest/s2/struct01/r02_deinit.x:3:10: error[TY-204]: 结构体不能声明 deinit（§3.1）|  需要终结动作时使用 class|
+STRUCT-01	R02b	check_rc=1	err=difftest/s2/struct01/r02_generic.x:5:17: error[TY-204]: 结构体 `S` 的字段 `b` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+STRUCT-01	R02c	check_rc=1	err=difftest/s2/struct01/r02_recursive.x:2:7: error[TY-204]: 结构体 `S` 的字段 `s` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-03	A01	interp_rc=0	compiled_rc=0	interp=1|1|	compiled=1|1|
+BND-03	A02	interp_rc=0	compiled_rc=0	interp=2|1|	compiled=2|1|
+BND-03	A03	interp_rc=0	compiled_rc=0	interp=7|7|	compiled=7|7|
+BND-03	A04	interp_rc=0	compiled_rc=0	interp=B|D|1|3|	compiled=B|D|1|3|
+BND-03	M01a	interp_rc=0	compiled_rc=0	interp=B|D|1|dD|dB|after|	compiled=B|D|1|dD|dB|after|
+BND-03	M01b	interp_rc=0	compiled_rc=0	interp=dD|after|	compiled=dD|after|
+BND-11	A01	interp_rc=0	compiled_rc=0	interp=1|10|3|12|	compiled=1|10|3|12|
+BND-11	A02	interp_rc=0	compiled_rc=0	interp=true|false|true|	compiled=true|false|true|
+BND-04	A01	interp_rc=0	compiled_rc=0	interp=1|10|9|1|30|4|	compiled=1|10|9|1|30|4|
+BND-04	R01a	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_string.x:2:12: error[TY-204]: 结构体 `S` 的字段 `name` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R01b	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_class.x:3:7: error[TY-204]: 结构体 `S` 的字段 `c` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R01c	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_array.x:2:11: error[TY-204]: 结构体 `S` 的字段 `xs` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R01d	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_list.x:1:22: error[TY-204]: 结构体 `S` 的字段 `xs` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R01e	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_result.x:1:32: error[TY-204]: 结构体 `S` 的字段 `r` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R01f	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r01_nullable_ref.x:2:15: error[TY-204]: 结构体 `S` 的字段 `c` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R02a	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r02_deinit.x:3:10: error[TY-204]: 结构体不能声明 deinit（§3.1）|  需要终结动作时使用 class|
+BND-04	R02b	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r02_self.x:1:8: error[TY-204]: 结构体方法不得在闭包中捕获 self（§3.1：需要捕获接收者时改用 class）|
+BND-04	R02c	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r02_generic_ref.x:2:35: error[TY-204]: 结构体 `Holder` 的字段 `p` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-04	R02d	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd04/r02_recursive.x:2:7: error[TY-204]: 结构体 `S` 的字段 `s` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）|
+BND-06	A01a	interp_rc=0	compiled_rc=0	interp=Green|	compiled=Green|
+BND-06	A01b	interp_rc=0	compiled_rc=0	interp=g|	compiled=g|
+BND-06	A02a	interp_rc=0	compiled_rc=0	interp=Ready|0|	compiled=Ready|0|
+BND-06	A02b	interp_rc=0	compiled_rc=0	interp=r|	compiled=r|
+BND-06	R01	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r01_non_exhaustive.x:4:5: error[TY-213]: 枚举 switch 未覆盖全部项（§8.5）：遗漏 Green、Blue|  补 case，或加 default|
+BND-06	R02a	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r02_dup_case.x:7:19: error[TY-213]: 枚举项 `Red` 在 switch 中重复（§8.5）|  删除重复 case|
+BND-06	R02b	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r02_unknown.x:12:19: error[TY-213]: 枚举 switch 的 case 必须是 `Color.<项>` 项常量（§8.5）|  改用该枚举的项|
+BND-06	R03a	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r03_default_first.x:5:9: error[TY-213]: default 子句必须位于 switch 最后（§8.5）|  把 default 移到所有 case 之后|
+BND-06	R03b	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r03_two_default.x:4:5: error[SYN-101]: default 子句最多一个|
+BND-06	R04	check_rc=1	interp_rc=1	compiled_rc=1	err=difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举体 `{`（必须与头部同一行，§1.1），遇到 `implements`|difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举项名，遇到 `implements`|difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望枚举体结束，遇到 `implements`|difftest/s2/bnd06/r04_impl.x:2:12: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `implements`|difftest/s2/bnd06/r04_impl.x:2:23: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `P`|difftest/s2/bnd06/r04_impl.x:2:25: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`|difftest/s2/bnd06/r04_impl.x:2:27: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Red`|difftest/s2/bnd06/r04_impl.x:2:30: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `,`|difftest/s2/bnd06/r04_impl.x:2:32: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Green`|difftest/s2/bnd06/r04_impl.x:2:38: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`|
+BND-06	R05	check_rc=0	interp_rc=0	compiled_rc=0	err=
+BND-06	R06	check_rc=0	interp_rc=1	compiled_rc=1	err=
+BND-06	R07	check_rc=0	interp_rc=0	compiled_rc=0	err=
+INT-01	A01	interp_rc=0	compiled_rc=1	interp=m-err|m-defer|dR|outer-defer|outer-err|caught:bad|	compiled=
+INT-01	A02	interp_rc=1	compiled_rc=1	interp=	compiled=
+INT-01	A03	interp_rc=0	compiled_rc=1	interp=g|b|	compiled=
+BND-06	A02c	interp_rc=0	compiled_rc=0	interp=true|false|true|	compiled=true|false|true|

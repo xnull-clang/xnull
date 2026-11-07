@@ -1,0 +1,14 @@
+=== RUN   TestS2ProtocolVtableLayout
+--- PASS: TestS2ProtocolVtableLayout (1.10s)
+=== RUN   TestS2StructValueCopy
+--- PASS: TestS2StructValueCopy (1.11s)
+=== RUN   TestS2BND11ClassIdentity
+--- PASS: TestS2BND11ClassIdentity (1.24s)
+=== RUN   TestS2BND11StructSretCopy
+--- PASS: TestS2BND11StructSretCopy (1.36s)
+=== RUN   TestS2BND11VtableOnlyProtocolSlots
+--- PASS: TestS2BND11VtableOnlyProtocolSlots (1.11s)
+=== RUN   TestS2BND03NullableProtocolAndDeinit
+--- PASS: TestS2BND03NullableProtocolAndDeinit (1.22s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	8.194s

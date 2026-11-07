@@ -1,0 +1,14 @@
+git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main d620ea5
+cd /private/tmp/qa-m1-main/impl && go build -o /tmp/xnull-qa-d620ea5 ./cmd/xnull
+export XNULL_RUNTIME=/private/tmp/qa-m1-main/impl/runtime
+cp /Users/vjs/Desktop/XNull-Lang/evidence/M1-TUPLE-01-qa/qa-tests/qa-sema_tuple_test.go impl/internal/sema/
+cp /Users/vjs/Desktop/XNull-Lang/evidence/M1-TUPLE-01-qa/qa-tests/qa-interp_tuple_test.go impl/internal/interp/
+go test ./internal/sema   -run 'TestQATuple' -count=1 -v
+go test ./internal/interp -run 'TestQATuple' -count=1 -v
+go test ./internal/sema   -run '^TestTuple' -count=1 -v
+go test ./internal/interp -run '^TestTuple' -count=1 -v
+go test ./... -count=1 -timeout 900s
+go vet ./...
+# 值语义复现（解释路径）
+/tmp/xnull-qa-d620ea5 run --interp cases/t8_copy_container.x
+/tmp/xnull-qa-d620ea5 run --interp cases/t11_copy_paths.x

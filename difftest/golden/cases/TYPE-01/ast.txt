@@ -1,0 +1,1 @@
+(unit (func static Int main (params) (block (decl Int? a (null)) (decl Int b (binary ?? (ident a) (int 7))) (expr (call (ident print) (ident b))) (return (int 0)))))

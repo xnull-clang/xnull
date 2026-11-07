@@ -1,0 +1,48 @@
+=== RUN   TestRunEntryTwoSignatures
+=== RUN   TestRunEntryTwoSignatures/void_无参
+=== RUN   TestRunEntryTwoSignatures/Int_无参
+=== RUN   TestRunEntryTwoSignatures/void_args
+=== RUN   TestRunEntryTwoSignatures/Int_args
+--- PASS: TestRunEntryTwoSignatures (5.03s)
+    --- PASS: TestRunEntryTwoSignatures/void_无参 (1.25s)
+    --- PASS: TestRunEntryTwoSignatures/Int_无参 (1.26s)
+    --- PASS: TestRunEntryTwoSignatures/void_args (1.26s)
+    --- PASS: TestRunEntryTwoSignatures/Int_args (1.26s)
+=== RUN   TestRunEntryArgsArray
+--- PASS: TestRunEntryArgsArray (1.25s)
+=== RUN   TestRunEntryInitOrder
+--- PASS: TestRunEntryInitOrder (1.26s)
+=== RUN   TestRunEntryMissingRejected
+--- PASS: TestRunEntryMissingRejected (0.00s)
+=== RUN   TestRunEntryDuplicateRejected
+--- PASS: TestRunEntryDuplicateRejected (0.00s)
+=== RUN   TestEntryMissingMainDiagnostic
+--- PASS: TestEntryMissingMainDiagnostic (0.00s)
+=== RUN   TestEntryDuplicateMainDiagnostic
+--- PASS: TestEntryDuplicateMainDiagnostic (0.00s)
+=== RUN   TestEntrySignatureDiagnostic
+=== RUN   TestEntrySignatureDiagnostic/带非_String[]_参数
+=== RUN   TestEntrySignatureDiagnostic/返回_Bool
+=== RUN   TestEntrySignatureDiagnostic/参数个数超限
+--- PASS: TestEntrySignatureDiagnostic (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/带非_String[]_参数 (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/返回_Bool (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/参数个数超限 (0.00s)
+=== RUN   TestEntryMainOverloadIsOrdinary
+--- PASS: TestEntryMainOverloadIsOrdinary (1.30s)
+=== RUN   TestEntryInitDivZeroFatal
+=== RUN   TestEntryInitDivZeroFatal/常量除零
+=== RUN   TestEntryInitDivZeroFatal/运行期除零
+--- PASS: TestEntryInitDivZeroFatal (2.49s)
+    --- PASS: TestEntryInitDivZeroFatal/常量除零 (1.24s)
+    --- PASS: TestEntryInitDivZeroFatal/运行期除零 (1.25s)
+=== RUN   TestRunMainNoArgsExitCodeInterp
+--- PASS: TestRunMainNoArgsExitCodeInterp (0.00s)
+=== RUN   TestRunMainNoArgsExitCodeCompiled
+--- PASS: TestRunMainNoArgsExitCodeCompiled (1.26s)
+=== RUN   TestRunMainWithArgsInterp
+--- PASS: TestRunMainWithArgsInterp (0.00s)
+=== RUN   TestRunMainWithArgsAfterSeparator
+--- PASS: TestRunMainWithArgsAfterSeparator (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	13.194s

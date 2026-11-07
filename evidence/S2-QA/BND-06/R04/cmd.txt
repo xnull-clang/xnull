@@ -1,0 +1,5 @@
+# negative: xnull check (expected rc!=0)
+X=/private/tmp/qa-a-47fedb8
+XNULL_RUNTIME=/private/tmp/xnull-main-47fedb8/impl/runtime
+file=difftest/s2/bnd06/r04_impl.x
+main_sha=47fedb8ad1659925af04a677a9e82b861c2dffcd
