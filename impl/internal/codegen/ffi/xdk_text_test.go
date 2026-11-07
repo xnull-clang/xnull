@@ -72,17 +72,12 @@ int main(void) {
 	rtDir := runtimeDir(t)
 	dir := t.TempDir()
 	prog := filepath.Join(dir, "prog.c")
-	if err := os.WriteFile(prog, []byte(sup.Text+harness), 0o644); err != nil {
+	if err := os.WriteFile(prog, []byte(sup.Text+harness+emptyResC), 0o644); err != nil {
 		t.Fatalf("写 prog.c：%v", err)
 	}
 	exe := filepath.Join(dir, "prog")
 	args := []string{"-std=c11", "-O2", "-Wall", "-Wno-unused-function", "-I", rtDir, "-o", exe, prog}
-	for _, f := range []string{
-		"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c",
-		"rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c", "rt_std_bytes.c",
-	} {
-		args = append(args, filepath.Join(rtDir, f))
-	}
+	args = append(args, rtSources(rtDir)...)
 	if out, err := exec.Command(cc, args...).CombinedOutput(); err != nil {
 		t.Fatalf("cc 失败：%v\n%s", err, out)
 	}

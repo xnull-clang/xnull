@@ -31,7 +31,7 @@ func TestXdkBindingsLoadAndEmit(t *testing.T) {
 	if len(diags) != 0 {
 		t.Fatalf("仓库绑定不应有诊断：%v", codeList(diags))
 	}
-	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "dumpTasks", "env", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "procStatus", "readFileText", "utf8Valid", "writeFileText"}
+	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "dumpTasks", "env", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "procStatus", "readFileText", "regexMatch", "utf8Valid", "writeFileText"}
 	got := make([]string, 0, len(reg.Entries))
 	for _, e := range reg.Entries {
 		got = append(got, e.Name)
@@ -149,17 +149,12 @@ func TestXdkWrappersRun(t *testing.T) {
 
 	dir := t.TempDir()
 	prog := filepath.Join(dir, "prog.c")
-	if err := os.WriteFile(prog, []byte(sup.Text+xdkHarness), 0o644); err != nil {
+	if err := os.WriteFile(prog, []byte(sup.Text+xdkHarness+emptyResC), 0o644); err != nil {
 		t.Fatalf("写 prog.c：%v", err)
 	}
 	exe := filepath.Join(dir, "prog")
 	args := []string{"-std=c11", "-O2", "-Wall", "-Wno-unused-function", "-I", rtDir, "-o", exe, prog}
-	for _, f := range []string{
-		"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c",
-		"rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c", "rt_std_bytes.c",
-	} {
-		args = append(args, filepath.Join(rtDir, f))
-	}
+	args = append(args, rtSources(rtDir)...)
 	if out, err := exec.Command(cc, args...).CombinedOutput(); err != nil {
 		t.Fatalf("cc 失败：%v\n%s", err, out)
 	}

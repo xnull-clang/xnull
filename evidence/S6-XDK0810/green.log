@@ -1,0 +1,20 @@
+=== RUN   TestS6_03ProcStatusAndHandleClose
+--- PASS: TestS6_03ProcStatusAndHandleClose (3.72s)
+=== RUN   TestS6_03AsyncAndProcessSurface
+--- PASS: TestS6_03AsyncAndProcessSurface (0.00s)
+=== RUN   TestS6_03AsyncCancelRecoverable
+--- PASS: TestS6_03AsyncCancelRecoverable (3.21s)
+=== RUN   TestS6_03ProcRunStatus
+--- PASS: TestS6_03ProcRunStatus (1.75s)
+=== RUN   TestS6_04ResourceSurface
+--- PASS: TestS6_04ResourceSurface (0.00s)
+=== RUN   TestS6_04ResourceEndToEnd
+--- PASS: TestS6_04ResourceEndToEnd (3.15s)
+=== RUN   TestS6XDK08TextXfbRegex
+--- PASS: TestS6XDK08TextXfbRegex (2.04s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	15.427s
+=== RUN   TestS6Xdk10CheckBuildRun
+--- PASS: TestS6Xdk10CheckBuildRun (1.97s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	3.068s
