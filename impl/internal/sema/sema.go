@@ -28,12 +28,13 @@ var visibleBuiltins = map[string]bool{"print": true, "str": true, "Ok": true, "E
 type analyzer struct {
 	file      string
 	diags     []diag.Diagnostic
-	tops      map[string]bool // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
-	hasImp    bool            // 文件是否有 import
-	imported  map[string]bool // 导入可见的简单名（§3.2/§3.5）
-	ambiguous map[string]bool // 未消歧的简单名（使用时报 RES-104）
-	tc        *typeCheckCtx   // 类型声明上下文（类字段访问检查用）
-	seenTop   map[string]bool // 顶层重复声明检测
+	tops      map[string]bool     // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
+	hasImp    bool                // 文件是否有 import
+	imported  map[string]bool     // 导入可见的简单名（§3.2/§3.5）
+	ambiguous map[string]bool     // 未消歧的简单名（使用时报 RES-104）
+	tc        *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
+	seenTop   map[string]bool     // 顶层重复声明检测
+	deps      map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
 
 	// GEN-01：本编译单元内作为类型参数出现过的名字（用于 §8.1 作用域诊断）。
 	typeParamNames map[string]bool
@@ -57,46 +58,7 @@ func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.C
 
 // AnalyzeWith 执行语义分析并返回结果句柄。
 func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
-	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
-		imported: map[string]bool{}, ambiguous: map[string]bool{}, typeParamNames: map[string]bool{}}
-	a.collectTypeParamNames(u)
-	a.analyzeImports(u)
-	a.checkTypeDecls(u)
-	for _, d := range u.Decls {
-		switch n := d.(type) {
-		case *xfront.TopFunc:
-			a.collectTop(n.Name, n.P)
-			for _, p := range n.Params {
-				a.collectTopParam(p.Name)
-			}
-		case *xfront.TopField:
-			a.collectTop(n.Name, n.P)
-		}
-	}
-	for _, d := range u.Decls {
-		if fn, ok := d.(*xfront.TopFunc); ok {
-			sc := &nscope{parent: nil}
-			for _, tp := range fn.TypePars { // 类型参数进入第 1 级名字空间（§8.1）
-				if sc.declaredHere(tp) {
-					a.errf(fn.P, ResRedecl, "类型参数 `"+tp+"` 重复声明（§8.1）", "同一泛型声明内类型参数名必须唯一")
-				}
-				sc.define(tp)
-			}
-			for _, p := range fn.Params {
-				sc.define(p.Name)
-			}
-			a.walkBlock(fn.Body, sc)
-		}
-	}
-	// M2-B：确定赋值与返回路径（§5.3、§6.1）——名称解析之后。
-	for _, d := range u.Decls {
-		if fn, ok := d.(*xfront.TopFunc); ok {
-			a.analyzeAssign(file, fn)
-		}
-	}
-	// M2-C：类型检查（§2.6/§2.10/§6.1）——最后（依赖前两遍的环境）。
-	a.analyzeTypes(file, u)
-	return &Result{a: a}, a.diags
+	return analyzeWith(file, u, nil)
 }
 
 // collectTypeParamNames 登记本单元所有类型参数名（含类/结构体），

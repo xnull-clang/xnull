@@ -1,0 +1,21 @@
+=== BEFORE 35f9e06 xfront ===
+/tmp/probe-gen.x:1:11: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `<`
+/tmp/probe-gen.x:1:12: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `T`
+/tmp/probe-gen.x:1:13: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `,`
+/tmp/probe-gen.x:1:15: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `U`
+/tmp/probe-gen.x:1:16: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `>`
+/tmp/probe-gen.x:1:17: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `(`
+/tmp/probe-gen.x:1:21: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `,`
+/tmp/probe-gen.x:1:26: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `)`
+/tmp/probe-gen.x:1:28: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`
+/tmp/probe-gen.x:1:30: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `return`
+/tmp/probe-gen.x:1:37: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `a`
+/tmp/probe-gen.x:1:39: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`
+/tmp/probe-gen.x:4:19: error[SYN-102]: 比较运算不可链式使用
+  必须显式加括号并写出意图，如 (a < b) && (b < c)
+/tmp/probe-gen.x:4:19: error[SYN-108]: 语句未终止（同一行的下一条语句前缺少 `;`）
+exit status 1
+=== AFTER wt/c1-rd1 xfront ===
+/tmp/probe-gen.x:4:13: error[RES-101]: 未定义的名称 `g`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+exit status 1

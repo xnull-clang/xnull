@@ -1,4 +1,16 @@
-# 阶段对齐 main=7df123d
+# SYNC 7df123d 采集命令（合并两分支同名证据，内容并集）
+
+## 分支 pod/c1-rd1（PKG-01 / NEG / xfront）
+cd wt/c1-rd1 && git merge --no-ff main   # 自动合并，无冲突
+cd impl && go test ./... -count=1 -timeout 300s
+cd impl && go test ./internal/sema -run 'TestPkgImport|TestSymbolImport|TestAliasDisambiguation|TestNeedlessAliasRejected|TestAmbiguousSimpleName|TestXdkNotImportedStrict|TestImportCycle|TestImportTargetRules' -count=1 -v
+# NEG：临时放入 wt/c3-rd3/impl/Tests/neg_test.go 后
+cd impl && go test ./Tests/ -run '^TestDiagMatrixS1$' -count=1 -v
+cd impl && go run ./cmd/xnull build ../examples/multi/main.x -o /tmp/sync-multi && /tmp/sync-multi
+cd impl && go run ./cmd/xnull run ../examples/multi/main.x --interp
+diff /tmp/sync-run.log /tmp/sync-interp.log
+
+## 分支 pod/e2-sema（TUPLE-01 / B0-05 / B0-07a，随 main 并入）
 git merge main
 # 冲突文件：impl/internal/sema/ty.go、impl/internal/interp/interp.go
 # 解决后：
