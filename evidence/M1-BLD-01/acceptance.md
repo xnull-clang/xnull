@@ -1,8 +1,8 @@
 # M1-BLD-01 验收材料（S1 内置类型）
 
 > 锚点：**BLD-01**（`String` / `T[]` / `List` / `Map` / `Set` 成员签名、边界、`Map.get` / `getOr` 缺失键、`new T[count]` 分配、复杂度 §9.8）
-> 主责：CEO2-RD2　会签：CEO2-QA1　基线：`main` = `9f5f66c`（B0 门 + e2/c2-rd1/c3-rd1/c3-rd2；已合入 `pod/c2-rd2`）
-> 被测 commit：**`9bc86b6`**（merge main 9f5f66c 后）　实现 commit：`03a73d5`　分支：`pod/c2-rd2`（未 push、未合 main）
+> 主责：CEO2-RD2　会签：CEO2-QA1　基线：`main` = `90fcdc3`（含 c1-rd1/c1-rd2；已合入 `pod/c2-rd2`）
+> 被测 commit：**`9079857`**（merge main 90fcdc3 后）　实现 commit：`03a73d5`　分支：`pod/c2-rd2`（未 push、未合 main）
 
 ## 1. 结论
 
@@ -84,9 +84,11 @@
 
 ```bash
 cd wt/c2-rd2
-git checkout 9bc86b6
+git checkout 9079857
 sh evidence/M1-BLD-01/red/run-red.sh            # 28/28
 cd impl && go vet ./... && go test ./... -count=1 -timeout 300s
 cd impl && go test ./internal/codegen -run TestExamplesCompileMatchesInterp -count=1 -timeout 300s
 cd impl/runtime && sh build_rt.sh               # C 六套件回归
 ```
+
+**本轮合并（main 90fcdc3）**：唯一冲突 `impl/internal/sema/ty.go` 函数参数处——双保留 `checkMapKey`（BLD-01 TY-107）与 `checkTypeParamRef`（main 泛型检查），未整段覆盖；其余文件自动合并。复跑：`go test ./...` 全绿（codegen 39.0s）、锚点矩阵 28/28、9/9 双路径、C 六套件 6/6、vet 0。

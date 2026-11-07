@@ -1,4 +1,4 @@
-merge main 9f5f66c (non-ff)                  exit=0 （3 文件冲突：interp.go / values.go / sema/ty.go，已按「main 为主干 + 保留 BLD-01 增量」解决）
+merge main 90fcdc3 (non-ff)                  exit=0 （1 文件冲突 sema/ty.go：函数参数处双保留 checkMapKey + checkTypeParamRef）
 run-red.sh                                   exit=0 （TOTAL=28 RED=0 GREEN=28）
 go vet ./...                                 exit=0 （零输出）
 go test ./... -count=1 -timeout 300s         exit=0 （10 包全绿）

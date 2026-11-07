@@ -8,15 +8,15 @@
 === RUN   TestExamplesCompileMatchesInterp/objlist.x
 === RUN   TestExamplesCompileMatchesInterp/parser-seed.x
 === RUN   TestExamplesCompileMatchesInterp/result-try.x
---- PASS: TestExamplesCompileMatchesInterp (75.88s)
-    --- PASS: TestExamplesCompileMatchesInterp/ast-seed.x (12.07s)
-    --- PASS: TestExamplesCompileMatchesInterp/classes.x (14.96s)
-    --- PASS: TestExamplesCompileMatchesInterp/containers.x (7.03s)
-    --- PASS: TestExamplesCompileMatchesInterp/defer-cleanup.x (6.82s)
-    --- PASS: TestExamplesCompileMatchesInterp/hello.x (5.54s)
-    --- PASS: TestExamplesCompileMatchesInterp/lexer-seed.x (5.60s)
-    --- PASS: TestExamplesCompileMatchesInterp/objlist.x (5.06s)
-    --- PASS: TestExamplesCompileMatchesInterp/parser-seed.x (4.54s)
-    --- PASS: TestExamplesCompileMatchesInterp/result-try.x (14.26s)
+--- PASS: TestExamplesCompileMatchesInterp (7.82s)
+    --- PASS: TestExamplesCompileMatchesInterp/ast-seed.x (1.02s)
+    --- PASS: TestExamplesCompileMatchesInterp/classes.x (0.89s)
+    --- PASS: TestExamplesCompileMatchesInterp/containers.x (0.90s)
+    --- PASS: TestExamplesCompileMatchesInterp/defer-cleanup.x (0.80s)
+    --- PASS: TestExamplesCompileMatchesInterp/hello.x (0.86s)
+    --- PASS: TestExamplesCompileMatchesInterp/lexer-seed.x (0.85s)
+    --- PASS: TestExamplesCompileMatchesInterp/objlist.x (0.83s)
+    --- PASS: TestExamplesCompileMatchesInterp/parser-seed.x (0.84s)
+    --- PASS: TestExamplesCompileMatchesInterp/result-try.x (0.84s)
 PASS
-ok  	xnull.dev/xnull/internal/codegen	81.765s
+ok  	xnull.dev/xnull/internal/codegen	8.454s

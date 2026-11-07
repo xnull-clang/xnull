@@ -1,7 +1,7 @@
 base_branch_sha=81ec33d（pod/c2-rd2 起点）
-prev_main_sha=7df123d  （上一轮合并）
-main_sha=9f5f66c       （本轮合并的主线，含 B0 门与 e2/c2-rd1/c3-rd1/c3-rd2）
+prev_main_sha=9f5f66c  （上一轮合并）
+main_sha=90fcdc3       （本轮合并的主线，含 c1-rd1/c1-rd2）
 impl_commit=03a73d5    （BLD-01 实现）
-merge_commit=9bc86b6   （merge main 9f5f66c；被测 code state）
-tested_commit=9bc86b6
+merge_commit=9079857   （merge main 90fcdc3；被测 code state）
+tested_commit=9079857
 branch=pod/c2-rd2     （未 push、未合 main）

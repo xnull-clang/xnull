@@ -1,7 +1,7 @@
-# M1-BLD-01 复跑命令（2026-11-07，pod/c2-rd2 @ 9bc86b6，已合 main 9f5f66c）
+# M1-BLD-01 复跑命令（2026-11-07，pod/c2-rd2 @ 9079857，已合 main 90fcdc3）
 
-# 0) 合并主线（非快进；B0 门 + e2/c2-rd1/c3-rd1/c3-rd2）
-git merge main -m "merge: main 9f5f66c into pod/c2-rd2"
+# 0) 合并主线（非快进；c1-rd1 / c1-rd2）
+git merge main -m "merge: main 90fcdc3 into pod/c2-rd2"
 
 # 1) 红/绿锚点用例（28 例，期望取自 S1 §9）
 sh evidence/M1-BLD-01/red/run-red.sh

@@ -1,15 +1,15 @@
 # 回执 M1-BLD-01（S1 内置类型）
 
 > 卡：M1-BLD-01　主责：CEO2-RD2　会签：CEO2-QA1
-> 主线：`main` = `9f5f66c`（B0 门 + e2/c2-rd1/c3-rd1/c3-rd2；已非快进合入 `pod/c2-rd2`）
-> 被测 commit：**`9bc86b6`**（merge main 9f5f66c）　实现 commit：`03a73d5`
+> 主线：`main` = `90fcdc3`（含 c1-rd1/c1-rd2；已非快进合入 `pod/c2-rd2`）
+> 被测 commit：**`9079857`**（merge main 90fcdc3）　实现 commit：`03a73d5`
 > 分支：`pod/c2-rd2`（**未 push、未合 main**）　日期：2026-11-07
 
 ## 一、五行
 
 1. **改了什么**：`impl/internal/interp/values.go`（String ASCII 大小写、`new` 负数 fatal、`List.insert` 越界 panic、`List.remove` 返回元素、`Map.get` 缺失键返回 null、Map 惰性排序快照使 put 均摊 O(1)、Set 哈希索引+插入序墓碑使 add/has/remove 平均 O(1)）；`interp.go`（`Value.Set`、scope 记录声明类型 → 赋值不退化为数组、for-in 走 Set.elements）；`sema/ty.go`（`List.remove` 返回元素、`Map.get` 类型 `V?`、Map 键类型 `TY-106`）。
 2. **怎么验**：合 `main 7df123d` 后复跑——`sh evidence/M1-BLD-01/red/run-red.sh` **28/28 绿**；`go vet ./...` exit 0；`go test ./... -count=1 -timeout 300s` **10 包全绿**；`TestExamplesCompileMatchesInterp` **9/9 双路径 PASS**；`impl/runtime/build_rt.sh` 六套件 **6/6**。
-3. **sha**：被测/合并 `9bc86b6`（main `9f5f66c`）；实现 `03a73d5`；红基线 `96644b3`；分支 `pod/c2-rd2`，未 push、未合 main。
+3. **sha**：被测/合并 `9079857`（main `90fcdc3`）；实现 `03a73d5`；红基线 `96644b3`；分支 `pod/c2-rd2`，未 push、未合 main。
 4. **产物**：`evidence/M1-BLD-01/` 七件套（`command/stdout/stderr/exit_code/sha/artifact.sha256/acceptance.md`）+ `green/` 原始输出 + `red/`（fixtures、cases.tsv、run-red.sh、逐例 `.out/.err/.exit/.time`）。
 5. **未测项**：Set 元素类型静态限制（§9.6）未加检查；`new T[count]` 的 T 为数组类型/OOM 未测；复杂度为墙钟预算且 `Map.keys/values` 惰性排序有 log 因子偏离（待 PM/QA 裁决）；§9.9 null 接收者 panic 未改；编译路径未建 20 条逐项矩阵；枚举键未测；台账状态未改（等 L1/L2）。
 
@@ -69,3 +69,8 @@
 - 原始输出：`evidence/M1-BLD-01/green/{run-red-28.txt,go-vet.txt,go-test-all.txt,dualpath-9.txt,build_rt.txt}`
 - 用例与脚本：`evidence/M1-BLD-01/red/{cases.tsv,fixtures/,run-red.sh,results/}`
 - 红基线（11 红）：commit `96644b3` 的 `evidence/M1-BLD-01/red/results/`
+
+## 三之二、本轮同步（合 main 90fcdc3）
+
+- 唯一冲突 `impl/internal/sema/ty.go`：函数参数检查处双保留 `checkMapKey`（BLD-01，TY-107）与 `checkTypeParamRef`（main 泛型检查）；未整段覆盖、未删他人检查。
+- 复跑：`go test ./... -count=1 -timeout 300s` 全绿（codegen 39.0s）、BLD 矩阵 28/28、`go vet` 0、9/9 双路径、C 六套件 6/6。
