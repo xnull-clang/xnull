@@ -1,0 +1,11 @@
+=== RUN   TestS2EnumSimpleRuntime
+--- PASS: TestS2EnumSimpleRuntime (0.00s)
+=== RUN   TestS2EnumUnknownItemRejected
+--- PASS: TestS2EnumUnknownItemRejected (0.00s)
+=== RUN   TestS2ClassProtocolIsAs
+--- PASS: TestS2ClassProtocolIsAs (0.00s)
+=== RUN   TestS2AsFailure
+--- PASS: TestS2AsFailure (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.774s
+exit=0

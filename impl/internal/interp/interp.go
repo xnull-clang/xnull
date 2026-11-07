@@ -41,6 +41,7 @@ const (
 	vTuple   // (T1, T2, ...)（§2.11）
 	vClosure // 闭包值（§7.7）
 	vObj     // 类实例（M4.4b）
+	vEnum    // 简单枚举值（S2 §8.2：名义类型 + 底层 Int）
 )
 
 // Value 是解释期运行值。
@@ -57,6 +58,7 @@ type Value struct {
 	Set *setv    // Set
 	Clo *clov    // 闭包
 	O   *objv    // 类实例（M4.4b）
+	E   string   // 枚举类型名（vEnum；S2 §8）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -97,7 +99,12 @@ func (v *Value) typeName() string {
 	case vClosure:
 		return "Closure"
 	case vObj:
+		if v.O.enumName != "" {
+			return v.O.enumName
+		}
 		return v.O.cls.Name
+	case vEnum:
+		return v.E
 	}
 	return "?"
 }
@@ -125,6 +132,13 @@ func format(v *Value) string {
 			return "Ok(" + format(v.R.v) + ")"
 		}
 		return "Err(" + format(v.R.e) + ")"
+	case vEnum:
+		return v.S // S2 §8.2：简单枚举按项名格式化
+	case vObj:
+		if v.O.enumName != "" {
+			return v.O.enumItem // S2 §8.5：数据枚举项默认按项名格式化
+		}
+		return formatContainer(v)
 	case vArr, vList, vMap, vSet, vTuple, vClosure:
 		return formatContainer(v)
 	}
@@ -198,12 +212,17 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out     io.Writer
-	funcs   map[string][]*xfront.TopFunc
-	classes map[string]*xfront.ClassDecl
-	globals *scope
-	label   string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit  map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	out       io.Writer
+	funcs     map[string][]*xfront.TopFunc
+	classes   map[string]*xfront.ClassDecl
+	globals   *scope
+	label     string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit    map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums     map[string]*xfront.EnumDecl
+	enumVals  map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols map[string]*xfront.ProtocolDecl
+	enumCls   map[string]*xfront.ClassDecl
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -239,7 +258,13 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			}
 		}
 	}()
-	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil), strLit: map[string]*Value{}}
+	in := &Interp{
+		out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{},
+		globals: newScope(nil), strLit: map[string]*Value{},
+		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
+		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
+		enumCls: map[string]*xfront.ClassDecl{},
+	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
 	var topFields []*xfront.TopField
@@ -252,6 +277,10 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.funcs[n.Name] = append(in.funcs[n.Name], n)
 		case *xfront.ClassDecl:
 			in.classes[n.Name] = n
+		case *xfront.ProtocolDecl:
+			in.protocols[n.Name] = n
+		case *xfront.EnumDecl:
+			in.registerEnum(n)
 		case *xfront.TopField:
 			// BLD-01：登记声明类型并做容器定向；P1-INIT-FWD：先给零值。
 			in.globals.defineTyped(n.Name, n.Type, zeroValue(n.Type))
@@ -838,6 +867,9 @@ func arith(p xfront.Pos, op string, l, r *Value) *Value {
 			return &Value{K: vInt, I: a % b}
 		}
 	case "<", ">", "<=", ">=":
+		if l.K == vEnum && r.K == vEnum && l.E == r.E {
+			return boolOf(op, intCmp(l.I, r.I)) // S2 §8.2：简单枚举按底层值顺序比较
+		}
 		if l.K == vStr && r.K == vStr {
 			cmp := strings.Compare(l.S, r.S)
 			return boolOf(op, cmp)
@@ -936,6 +968,8 @@ func valuesEqual(l, r *Value) bool {
 			}
 		}
 		return true
+	case vEnum: // S2 §8.2：简单枚举按底层值比较（名义类型必须相同）
+		return l.E == r.E && l.I == r.I
 	case vArr, vList, vMap, vSet, vClosure, vObj:
 		return l == r // §2.8：引用类型 `==` 默认按对象身份
 	}
@@ -962,6 +996,8 @@ func identical(l, r *Value) bool {
 			}
 		}
 		return true
+	case vEnum: // 简单枚举是值类型：=== 按底层值
+		return l.E == r.E && l.I == r.I
 	case vStr, vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份（§2.8：String === 按对象身份）
 		return l == r
 	}
@@ -1102,6 +1138,12 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 }
 
 func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
+	// S2 §8.4：`Enum.Item` 项访问（枚举类型名不是运行期变量）。
+	if id, ok := n.X.(*xfront.IdentExpr); ok {
+		if d, ok := in.enums[id.Name]; ok {
+			return in.enumItem(d, n.Name, n.P)
+		}
+	}
 	x := in.eval(n.X, sc)
 	if n.NullSafe && x.K == vNull {
 		return &Value{K: vNull} // ?. 空传播（§7.5）

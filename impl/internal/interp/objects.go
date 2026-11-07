@@ -15,9 +15,11 @@ import (
 
 // objv 是类实例：字段按声明序保存（保持确定性），cls 指向运行时类声明。
 type objv struct {
-	cls    *xfront.ClassDecl
-	fields map[string]*Value
-	order  []string
+	cls      *xfront.ClassDecl
+	fields   map[string]*Value
+	order    []string
+	enumName string // 非空表示数据枚举项（S2 §8.3）
+	enumItem string // 数据枚举项名
 }
 
 // findClass 按名查类（含点分限定名的末段）。
