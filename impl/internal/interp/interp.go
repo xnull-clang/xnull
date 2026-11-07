@@ -169,14 +169,17 @@ type runtimeErr struct{ msg string }
 // ---------- 作用域 ----------
 
 type scope struct {
-	parent *scope
-	vars   map[string]*Value
-	types  map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
-	owned  []*objv                   // 本作用域声明、退出时执行 deinit 的对象（§6.4）
+	parent   *scope
+	vars     map[string]*Value
+	types    map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
+	owned    []*objv                   // 兼容保留（不再用于释放）
+	objOwner map[string]*objv          // 变量名 → 当前持有的对象（§4.4 强持有）
+	objOrder []string                  // 变量声明顺序（作用域退出逆序释放）
 }
 
 func newScope(parent *scope) *scope {
-	return &scope{parent: parent, vars: map[string]*Value{}, types: map[string]xfront.TypeRef{}}
+	return &scope{parent: parent, vars: map[string]*Value{}, types: map[string]xfront.TypeRef{},
+		objOwner: map[string]*objv{}}
 }
 
 func (s *scope) lookup(name string) (*Value, bool) {
@@ -528,14 +531,15 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 			v = in.eval(n.Init, sc)
 		}
 		sc.defineTyped(n.Name, n.Type, v)
-		if v.K == vObj {
-			sc.owned = append(sc.owned, v.O)
-		}
+		in.takeOwnership(sc, n.Name, v)
 	case *xfront.AssignStmt:
 		v := in.eval(n.Value, sc)
 		if n.Op != "=" {
 			cur := in.eval(n.Target, sc)
 			v = arith(n.P, strings.TrimSuffix(n.Op, "="), cur, v)
+		}
+		if id, ok := n.Target.(*xfront.IdentExpr); ok {
+			in.rebindOwnership(sc, id.Name, v)
 		}
 		in.assignTo(n.Target, v, sc)
 	case *xfront.IncDecStmt:
@@ -550,6 +554,7 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		if n.Value != nil {
 			v = in.eval(n.Value, sc)
 		}
+		in.markEscaped(v) // 返回值所有权转移给调用方（不被被调方作用域 deinit）
 		panic(ctrlReturn{v})
 	case *xfront.ThrowStmt:
 		v := in.eval(n.Value, sc)
