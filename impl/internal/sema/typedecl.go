@@ -36,6 +36,7 @@ const (
 	TyProtoMember = "TY-211" // 协议变量只能调用协议方法（§4.4）
 	TyPCTOR       = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
 	TyEnumSwitch  = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
+	TyStaticGen   = "TY-214" // 静态成员不得使用类类型参数（§13.4）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -383,6 +384,41 @@ func (c *typeCheckCtx) checkStruct(d *xfront.StructDecl) {
 		}
 	}
 	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
+}
+
+// typeRefUsesParam 判断类型引用是否直接/嵌套使用给定类型参数（§13.4）。
+func typeRefUsesParam(t xfront.TypeRef, pars map[string]bool) bool {
+	switch ty := t.(type) {
+	case nil:
+		return false
+	case *xfront.NamedType:
+		if len(ty.Args) == 0 && len(ty.Qual) == 1 && pars[ty.Qual[0]] {
+			return true
+		}
+		for _, a := range ty.Args {
+			if typeRefUsesParam(a, pars) {
+				return true
+			}
+		}
+	case *xfront.SuffixedType:
+		return typeRefUsesParam(ty.Base, pars)
+	case *xfront.FuncTypeRef:
+		if typeRefUsesParam(ty.Ret, pars) {
+			return true
+		}
+		for _, p := range ty.Params {
+			if typeRefUsesParam(p, pars) {
+				return true
+			}
+		}
+	case *xfront.TupleTypeRef:
+		for _, e := range ty.Elems {
+			if typeRefUsesParam(e, pars) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (c *typeCheckCtx) isOwnerTypeParam(owner, name string) bool {
@@ -1159,6 +1195,9 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 	for _, f := range fields {
 		e.checkResultType(f.Type, f.P)
 		e.checkTypeParamRef(f.Type, f.P)
+		if f.Mod.Static && typeRefUsesParam(f.Type, e.typePars) {
+			c.errf(f.P, TyStaticGen, "静态字段 `"+f.Name+"` 不得使用类类型参数（§13.4）", "改用实例字段，或实例化具体类型")
+		}
 		if f.Init == nil {
 			continue
 		}
@@ -1184,6 +1223,9 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 		}
 		e.checkResultType(m.Ret, m.P)
 		e.checkTypeParamRef(m.Ret, m.P)
+		if m.Mod.Static && typeRefUsesParam(m.Ret, e.typePars) {
+			c.errf(m.P, TyStaticGen, "静态方法 `"+m.Name+"` 不得使用类类型参数（§13.4）", "改用实例方法，或实例化具体类型")
+		}
 		e.vars = map[string]string{}
 		if ctx.instance {
 			e.vars["self"] = className
@@ -1194,6 +1236,9 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 		for _, p := range m.Params {
 			e.checkResultType(p.Type, p.P)
 			e.checkTypeParamRef(p.Type, p.P)
+			if m.Mod.Static && typeRefUsesParam(p.Type, e.typePars) {
+				c.errf(p.P, TyStaticGen, "静态方法 `"+m.Name+"` 的参数不得使用类类型参数（§13.4）", "")
+			}
 			if ctx.canonPriv[p.Name] {
 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
 			}
