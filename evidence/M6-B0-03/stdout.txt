@@ -1,0 +1,46 @@
+# 原始 stdout 摘要
+
+## 先红（before/red.log）
+```
+--- FAIL: TestMultiPackageThreeFiles        加载诊断：error[RES-109] 跨包导入暂不支持
+--- FAIL: TestMultiPackageDefaultImportedRejected   默认包被跨包导入应报错（未报）
+--- FAIL: TestMultiPackageNameClashExplicit 加载诊断：error[RES-109]
+FAIL  xnull.dev/xnull/internal/codegen
+```
+
+## 后绿
+```
+--- PASS: TestMultiPackageThreeFiles (2.13s)
+--- PASS: TestMultiPackageDefaultImportedRejected (0.00s)
+--- PASS: TestMultiPackageNameClashExplicit (0.00s)
+```
+
+`go test ./...`：
+```
+ok  xnull.dev/xnull/internal/cli
+ok  xnull.dev/xnull/internal/codegen
+ok  xnull.dev/xnull/internal/codegen/ffi
+ok  xnull.dev/xnull/internal/devtool
+ok  xnull.dev/xnull/internal/diag
+ok  xnull.dev/xnull/internal/interp
+ok  xnull.dev/xnull/internal/sema
+ok  xnull.dev/xnull/internal/xfront
+ok  xnull.dev/xnull/internal/xpd
+```
+
+## 样例双路径
+```
+interp.out:        compiled.out:
+[x]                [x]
+8                  8
+```
+`diff` 空；两路径退出码 0。
+
+## B0-05 回归（E3 harness）
+```
+phase=after
+ops=39
+cells_total=78
+cells_pass=78
+ops_both_pass=39
+```
