@@ -156,6 +156,7 @@ func (r *Registry) EmitSupport() Snippet {
 		b.WriteString(proto + "\n")
 	}
 	b.WriteString("#endif\n\n")
+	wrapped := map[string]bool{}
 	for _, e := range r.Entries {
 		text, err := emitWrapper(e)
 		if err != nil {
@@ -164,6 +165,15 @@ func (r *Registry) EmitSupport() Snippet {
 			continue
 		}
 		b.WriteString(text)
+		b.WriteString("\n")
+		wrapped[e.Name] = true
+	}
+	// S7-06/FFI-07：.unaware + @longRunning 的伴生 thunk（调用点经 submit/wait 路由）。
+	for _, e := range r.Entries {
+		if !e.NeedsCompanion() || !wrapped[e.Name] {
+			continue
+		}
+		b.WriteString(emitCompanion(e))
 		b.WriteString("\n")
 	}
 	return Snippet{Text: b.String(), Includes: []string{"xrt.h"}, Problems: problems}
@@ -241,7 +251,10 @@ func (r *Registry) BlockingManifest() []BlockingRow {
 			Class: e.Blocking.String(), LongRunning: e.LongRunning,
 		}
 		if e.LongRunning && e.Blocking == BlockingUnaware {
-			row.Companion = "submit" + e.Name
+			// 只报告注册表实际存在的 companion，不按命名推导（FFI-07）。
+			if _, ok := r.Entry("submit" + e.Name); ok {
+				row.Companion = "submit" + e.Name
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -860,4 +873,131 @@ func callbackRetCType(t BoundType) (string, bool) {
 		return c, false
 	}
 	return "int32_t", false
+}
+
+// CompanionField 是伴生 thunk 参数结构的一个字段；Parts 表示调用点消费的
+// 编组表达式个数（String/Bytes/数组为 2，其余为 1）。
+type CompanionField struct {
+	Name  string
+	CType string
+	Parts int
+}
+
+// NeedsCompanion 报告入口是否必须经伴生执行器路由（S7 §7.3）。
+func (e Entry) NeedsCompanion() bool {
+	return e.LongRunning && e.Blocking == BlockingUnaware
+}
+
+// CompanionArgFields 返回 thunk 参数结构的字段（与包装形参编组顺序一致）。
+func (e Entry) CompanionArgFields() []CompanionField {
+	var out []CompanionField
+	for i, p := range e.Params {
+		if e.ErrorCode != "" && p.Name == e.ErrorCode && !(e.ErrorCodeRet && e.CloseOf != "") {
+			continue
+		}
+		lease := LeaseNone
+		if i < len(e.Lease) {
+			lease = e.Lease[i]
+		}
+		name := fmt.Sprintf("p%d", i)
+		switch p.Type.Kind {
+		case KindScalar:
+			c, _ := scalarC(p.Type.Name)
+			out = append(out, CompanionField{name, c, 1})
+		case KindString, KindText:
+			out = append(out, CompanionField{name + "_bytes", "const char *", 1})
+			out = append(out, CompanionField{name + "_len", "size_t", 1})
+		case KindBytes:
+			out = append(out, CompanionField{name + "_data", "void *", 1})
+			out = append(out, CompanionField{name + "_len", "size_t", 1})
+		case KindLayout:
+			out = append(out, CompanionField{name, "xn_layout_" + p.Type.Name + " *", 1})
+		case KindArray:
+			elemC := "void"
+			if p.Type.Elem != nil {
+				if c, ok := scalarC(p.Type.Elem.Name); ok {
+					elemC = c
+				}
+			}
+			out = append(out, CompanionField{name + "_data", elemC + " *", 1})
+			out = append(out, CompanionField{name + "_len", "size_t", 1})
+		case KindHandle:
+			t := "xrt_handle *"
+			if lease == LeaseTransfer {
+				// .transfer 句柄 out：包装层接收 xrt_handle **（E4 S7-01 约定）。
+				t = "xrt_handle **"
+			}
+			out = append(out, CompanionField{name, t, 1})
+		}
+	}
+	return out
+}
+
+// CompanionOutC 返回 thunk 结果槽的 C 类型；错误码即返回值/close 无结果槽。
+func (e Entry) CompanionOutC() (string, bool) {
+	if e.ErrorCodeRet {
+		return "", false
+	}
+	switch e.Ret.Kind {
+	case KindScalar:
+		c, ok := scalarC(e.Ret.Name)
+		return c, ok
+	case KindString:
+		return "rt_string *", true
+	case KindText:
+		return "xrt_text *", true
+	case KindHandle:
+		return "xrt_handle *", true
+	}
+	return "", false
+}
+
+// CompanionThunkArgExprs 返回 thunk 内调用包装函数的实参表达式。
+func (e Entry) CompanionThunkArgExprs() []string {
+	var out []string
+	for i, p := range e.Params {
+		if e.ErrorCode != "" && p.Name == e.ErrorCode && !(e.ErrorCodeRet && e.CloseOf != "") {
+			out = append(out, "&a->code")
+			continue
+		}
+		out = append(out, fmt.Sprintf("a->p%d", i))
+		// String/Bytes/数组字段拆成两段，第二段在下面补。
+		switch p.Type.Kind {
+		case KindString, KindText, KindBytes, KindArray:
+			// p<i>_bytes/p<i>_data 已由上一行给出，这里补 len 字段。
+			out[len(out)-1] = fmt.Sprintf("a->p%d_data", i)
+			if p.Type.Kind == KindString || p.Type.Kind == KindText {
+				out[len(out)-1] = fmt.Sprintf("a->p%d_bytes", i)
+			}
+			out = append(out, fmt.Sprintf("a->p%d_len", i))
+		}
+	}
+	if _, ok := e.CompanionOutC(); ok {
+		out = append(out, "&a->out")
+	}
+	return out
+}
+
+// emitCompanion 生成伴生 thunk 与参数结构（S7 §7.3：worker 只做原生阻塞调用）。
+func emitCompanion(e Entry) string {
+	name := "xn_companion_" + e.Name
+	var b strings.Builder
+	fmt.Fprintf(&b, "/* companion %s（.unaware + @longRunning → xrt_companion_submit/wait） */\n", e.Name)
+	fmt.Fprintf(&b, "typedef struct {\n")
+	for _, f := range e.CompanionArgFields() {
+		fmt.Fprintf(&b, "    %s %s;\n", f.CType, f.Name)
+	}
+	if e.ErrorCode != "" && !(e.ErrorCodeRet && e.CloseOf != "") {
+		b.WriteString("    int32_t code;\n")
+	}
+	if outC, ok := e.CompanionOutC(); ok {
+		fmt.Fprintf(&b, "    %s out;\n", outC)
+	}
+	b.WriteString("    int32_t rc;\n")
+	fmt.Fprintf(&b, "} %s_args;\n\n", name)
+	fmt.Fprintf(&b, "static void *%s_thunk(void *xn_p) {\n", name)
+	fmt.Fprintf(&b, "    %s_args *a = (%s_args *)xn_p;\n", name, name)
+	fmt.Fprintf(&b, "    a->rc = xn_ffi_%s(%s);\n", e.Name, strings.Join(e.CompanionThunkArgExprs(), ", "))
+	b.WriteString("    return NULL;\n}\n")
+	return b.String()
 }

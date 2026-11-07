@@ -340,7 +340,7 @@ func (c *checker) checkEntry(e *entrySrc, claimTypes map[string]bool) {
 		}
 	}
 
-	entry := Entry{Name: e.Name, Region: c.rg.Name}
+	entry := Entry{Name: e.Name, Region: c.rg.Name, File: c.file, Line: e.Pos.Line, Col: e.Pos.Col}
 	cname := ""
 	if fe := firstAnn(e.Anns, "ffiEntry"); fe == nil {
 		c.diag(e.Pos, "FFI-101", "入口 "+e.Name+" 缺少 @ffiEntry(cName = ...)（S7 §2.2）")
@@ -470,11 +470,6 @@ func (c *checker) checkEntry(e *entrySrc, claimTypes map[string]bool) {
 	}
 	if firstAnn(e.Anns, "longRunning") != nil {
 		entry.LongRunning = true
-		if entry.Blocking == BlockingUnaware {
-			if _, ok := c.entries["submit"+e.Name]; !ok {
-				c.diag(e.Pos, "FFI-107", "长阻塞入口 "+e.Name+" 缺少专用执行器伴生入口 submit"+e.Name+"（S7 §7.3）")
-			}
-		}
 	}
 
 	// @unsafe 受控入口（S7 §8）
