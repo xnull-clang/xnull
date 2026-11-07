@@ -1,0 +1,54 @@
+# M1-BLD-01 merge main sync: anchors + e2e
+Sat Nov  7 12:37:52 CST 2026
+main=7df123d776c53683c3bcee60890e8ca09b94f0e0 branch=pod/c2-rd1
+premerge_head=f84d4af
+
+## 冲突处理
+impl/internal/interp/values.go 3 处：insert/List.remove/Map.get 采用 main 实现（main 已独立修 3/5）；
+保留本分支唯一增量：canonKey 收窄 Bool/Char、List 赋值就地提升。
+
+$ cd impl && go test ./internal/interp/ -count=1 -run "<BLD-01 锚点>" -v
+=== RUN   TestMapGetMissingKeyReturnsNull
+--- PASS: TestMapGetMissingKeyReturnsNull (0.00s)
+=== RUN   TestListRemoveReturnsElement
+--- PASS: TestListRemoveReturnsElement (0.00s)
+=== RUN   TestListInsertOutOfRangeFatal
+=== RUN   TestListInsertOutOfRangeFatal/超过_length
+=== RUN   TestListInsertOutOfRangeFatal/负数
+--- PASS: TestListInsertOutOfRangeFatal (0.00s)
+    --- PASS: TestListInsertOutOfRangeFatal/超过_length (0.00s)
+    --- PASS: TestListInsertOutOfRangeFatal/负数 (0.00s)
+=== RUN   TestListAssignmentKeepsList
+--- PASS: TestListAssignmentKeepsList (0.00s)
+=== RUN   TestMapRejectsUnsupportedKeyTypes
+=== RUN   TestMapRejectsUnsupportedKeyTypes/Bool_键
+=== RUN   TestMapRejectsUnsupportedKeyTypes/Char_键
+--- PASS: TestMapRejectsUnsupportedKeyTypes (0.00s)
+    --- PASS: TestMapRejectsUnsupportedKeyTypes/Bool_键 (0.00s)
+    --- PASS: TestMapRejectsUnsupportedKeyTypes/Char_键 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	4.938s
+exit=0
+
+## e2e (xnull run --interp)
+===== src/map_get.x
+true
+9
+exit=0
+===== src/list_remove.x
+1
+1
+exit=0
+===== src/list_insert_oob.x
+xnull: fatal: List.insert 下标越界
+exit=134
+===== src/list_reassign.x
+2
+exit=0
+===== src/map_key_bool.x
+xnull: Map 键只能是 Int / String（S1 §9.5）
+exit=1
+
+## shas
+c077fd00029fd45b5d4926ea06bf7c8e9ac59de34c013054aef0a0fb662ea7eb  impl/internal/interp/values.go
+91c255d222b3cc14f27cb56ec6d96380e3e9a26933e77e971c1778723eb46f21  impl/internal/interp/values_test.go
