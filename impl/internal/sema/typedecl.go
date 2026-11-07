@@ -23,20 +23,23 @@ import (
 
 // 诊断码。
 const (
-	TyModifier    = "TY-201"
-	TyInherit     = "TY-202"
-	TyOverride    = "TY-203"
-	TyStructVal   = "TY-204"
-	TyProtoForm   = "TY-205"
-	TyEnumRule    = "TY-206"
-	TyPrivField   = "TY-207"
-	TyProtoImpl   = "TY-208" // 协议实现检查（§4.3）
-	TyVisibility  = "TY-209" // 成员可见性（§7.3）
-	TyNewAbstract = "TY-210" // new abstract 类（§2.6）
-	TyProtoMember = "TY-211" // 协议变量只能调用协议方法（§4.4）
-	TyPCTOR       = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
-	TyEnumSwitch  = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
-	TyStaticGen   = "TY-214" // 静态成员不得使用类类型参数（§13.4）
+	TyModifier     = "TY-201"
+	TyInherit      = "TY-202"
+	TyOverride     = "TY-203"
+	TyStructVal    = "TY-204"
+	TyProtoForm    = "TY-205"
+	TyEnumRule     = "TY-206"
+	TyPrivField    = "TY-207"
+	TyProtoImpl    = "TY-208" // 协议实现检查（§4.3）
+	TyVisibility   = "TY-209" // 成员可见性（§7.3）
+	TyNewAbstract  = "TY-210" // new abstract 类（§2.6）
+	TyProtoMember  = "TY-211" // 协议变量只能调用协议方法（§4.4）
+	TyPCTOR        = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
+	TyEnumSwitch   = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
+	TyStaticGen    = "TY-214" // 静态成员不得使用类类型参数（§13.4）
+	TySingletonRO  = "TY-215" // singleton.instance 只读（§9）
+	TySingletonNew = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
+	TyFactory      = "TY-217" // factory Target/命名规则（§10）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -55,13 +58,15 @@ var builtinTypeNames = map[string]bool{
 
 // typeInfo 是包内类型声明登记。
 type typeInfo struct {
-	kind   string // class/struct/protocol/enum
-	mod    xfront.TypeModifiers
-	class  *xfront.ClassDecl
-	strct  *xfront.StructDecl
-	proto  *xfront.ProtocolDecl
-	enum   *xfront.EnumDecl
-	fields []*xfront.FieldDecl
+	kind    string // class/struct/protocol/enum
+	mod     xfront.TypeModifiers
+	class   *xfront.ClassDecl
+	strct   *xfront.StructDecl
+	proto   *xfront.ProtocolDecl
+	enum    *xfront.EnumDecl
+	single  *xfront.SingletonDecl
+	factory *xfront.FactoryDecl
+	fields  []*xfront.FieldDecl
 
 	// 类成员缓存（首访填充；外部访问检查用，§7.4）
 	canonPriv    map[string]bool
@@ -119,6 +124,10 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 			info = &typeInfo{kind: "protocol", proto: n}
 		case *xfront.EnumDecl:
 			info = &typeInfo{kind: "enum", enum: n}
+		case *xfront.SingletonDecl:
+			info = &typeInfo{kind: "singleton", mod: n.Mod, single: n}
+		case *xfront.FactoryDecl:
+			info = &typeInfo{kind: "factory", mod: n.Mod, factory: n}
 		default:
 			continue
 		}
@@ -179,6 +188,10 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 			c.checkProtocol(n)
 		case *xfront.EnumDecl:
 			c.checkEnum(n)
+		case *xfront.SingletonDecl:
+			c.checkSingleton(n)
+		case *xfront.FactoryDecl:
+			c.checkFactory(n)
 		}
 	}
 }
@@ -192,6 +205,10 @@ func (c *typeCheckCtx) declName(d xfront.TopDecl) string {
 	case *xfront.ProtocolDecl:
 		return n.Name
 	case *xfront.EnumDecl:
+		return n.Name
+	case *xfront.SingletonDecl:
+		return n.Name
+	case *xfront.FactoryDecl:
 		return n.Name
 	}
 	return ""
@@ -628,6 +645,47 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 }
 
 // constInt64 求简单枚举项的整数字面量值（含前导 -）。
+// ---------- BND-07/08：singleton / factory 登记与规则 ----------
+
+func (c *typeCheckCtx) checkSingleton(d *xfront.SingletonDecl) {
+	for _, f := range d.Fields {
+		if f.Canonical == "" {
+			f.Canonical = f.Name
+		}
+		if f.Name == "instance" || f.Canonical == "instance" {
+			c.errf(f.P, TySingletonRO, "单例不得手动声明 `instance`（§9.4：自动提供）", "删除该字段")
+		}
+	}
+	if len(d.Ctors) > 0 {
+		c.errf(d.Ctors[0].P, TyModifier, "单例不能声明构造器（§9.4）", "改为字段初始化式")
+	}
+	c.walkClassBodies(d.Name, nil, d.Fields, d.Methods, d.Ctors)
+}
+
+func (c *typeCheckCtx) checkFactory(d *xfront.FactoryDecl) {
+	nt, ok := d.Target.(*xfront.NamedType)
+	if !ok || len(nt.Qual) != 1 {
+		c.errf(d.P, TyFactory, "factory Target 必须是裸类型名（§10.1）", "写 `factory F for Type`")
+		return
+	}
+	if len(nt.Args) > 0 {
+		c.errf(d.P, TyFactory, "factory Target 不能写泛型实参（§10.1）", "写裸名，实参由工厂方法决定")
+		return
+	}
+	name := nt.Qual[0]
+	info, found := c.types[name]
+	if !found {
+		if c.a.imported[name] {
+			return // 跨包可见 Target：具体成员可见性由跨包访问检查承担
+		}
+		c.errf(d.P, TyFactory, "factory Target `"+name+"` 未在本包声明或不可见（§10.1）", "检查 Target 名称与可见性")
+		return
+	}
+	if info.kind != "class" && info.kind != "struct" {
+		c.errf(d.P, TyFactory, "factory Target 必须是 class 或 struct（得到 "+info.kind+"，§10.1）", "")
+	}
+}
+
 // ---------- PCTOR-01：super(...) 必须是构造器首个动作（§6.3） ----------
 
 func isSuperCallStmt(s xfront.Stmt) bool {
