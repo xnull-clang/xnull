@@ -1,0 +1,1 @@
+/tmp/xnull-s2-fa4fbf9 run /tmp/qa-d-probes/struct_enum_tuple_ok.x

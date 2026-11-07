@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r03_nonclass.x:1:9: error[TY-212]: 结构体不能使用主构造器（§3.5/§6.3）
+  改用普通结构体构造器

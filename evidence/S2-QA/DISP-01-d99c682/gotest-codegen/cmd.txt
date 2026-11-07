@@ -1,0 +1,1 @@
+cd impl && go test ./internal/codegen -run TestS2ProtocolVtableLayout -count=1 -v

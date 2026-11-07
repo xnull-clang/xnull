@@ -1,0 +1,1 @@
+/tmp/xnull-s2-8f50690 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/struct01/r01_string.x 

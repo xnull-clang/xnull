@@ -1,0 +1,19 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3555561689/prog.c:176:11: error: use of undeclared identifier 'self'; did you mean 'feof'?
+  176 | rt_retain(self);
+      |           ^~~~
+      |           feof
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h:234:6: note: 'feof' declared here
+  234 | int      feof(FILE *);
+      |          ^
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3555561689/prog.c:177:8: error: use of undeclared identifier 'self'; did you mean 'feof'?
+  177 | return self;
+      |        ^~~~
+      |        feof
+/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/_stdio.h:234:6: note: 'feof' declared here
+  234 | int      feof(FILE *);
+      |          ^
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3555561689/prog.c:177:8: warning: incompatible pointer types returning 'int (FILE *)' (aka 'int (struct __sFILE *)') from a function with result type 'xn_Cls_D *' (aka 'struct xn_Cls_D *') [-Wincompatible-pointer-types]
+  177 | return self;
+      |        ^~~~
+1 warning and 2 errors generated.
+xnull: C 编译失败：exit status 1

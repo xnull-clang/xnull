@@ -1,0 +1,8 @@
+=== RUN   TestS2BND11ClassIdentity
+--- PASS: TestS2BND11ClassIdentity (2.17s)
+=== RUN   TestS2BND11StructSretCopy
+--- PASS: TestS2BND11StructSretCopy (1.55s)
+=== RUN   TestS2BND11VtableOnlyProtocolSlots
+--- PASS: TestS2BND11VtableOnlyProtocolSlots (1.73s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	6.290s

@@ -1,0 +1,18 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-DISP-A01	DISP-01	interp	类静态派发: 1\n1	1\n1, rc=0	PASS	S2-DISP-A01/interp/
+S2-DISP-A01	DISP-01	compiled	1\n1	1\n1, rc=0	PASS	S2-DISP-A01/compiled/
+S2-DISP-A02	DISP-01	interp	协议动态派发: 2\n1	2\n1, rc=0	PASS	S2-DISP-A02/interp/
+S2-DISP-A02	DISP-01	compiled	2\n1	2\n1, rc=0	PASS	S2-DISP-A02/compiled/
+S2-DISP-A03	DISP-01	interp	策略不影响结果: 7\n7	7\n7, rc=0	PASS	S2-DISP-A03/interp/
+S2-DISP-A03	DISP-01	compiled	7\n7	7\n7, rc=0	PASS	S2-DISP-A03/compiled/
+S2-DISP-A04	DISP-01	interp	super 静态父实现: 30	30, rc=0	PASS	S2-DISP-A04/interp/
+S2-DISP-A04	DISP-01	compiled	30	30, rc=0	PASS	S2-DISP-A04/compiled/
+S2-DISP-A05a	DISP-01	interp	c is P: true	true, rc=0	PASS	S2-DISP-A05a/interp/
+S2-DISP-A05a	DISP-01	compiled	true	true, rc=0	PASS	S2-DISP-A05a/compiled/
+S2-DISP-A05b	DISP-01	interp	p is C: true	true, rc=0	PASS	S2-DISP-A05b/interp/
+S2-DISP-A05b	DISP-01	compiled	true	true, rc=0	PASS	S2-DISP-A05b/compiled/
+S2-DISP-A05c	DISP-01	interp	as? 成功: true	true, rc=0	PASS	S2-DISP-A05c/interp/
+S2-DISP-A05c	DISP-01	compiled	true	true, rc=0	PASS	S2-DISP-A05c/compiled/
+S2-DISP-A05d	DISP-01	check	类变量隐式上转协议 rc=0	rc=0, 无诊断	PASS	S2-DISP-A05d/check/
+S2-DISP-D01	DISP-01	dual	A01-A05 双路径一致	全一致	PASS	S2-DISP-A01..A05*/
+S2-DISP-CI	DISP-01	gotest	interp/codegen 派发用例 PASS	PASS	gotest-interp/,gotest-codegen/

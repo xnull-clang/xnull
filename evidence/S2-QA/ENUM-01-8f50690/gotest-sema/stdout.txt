@@ -1,0 +1,6 @@
+=== RUN   TestS2BND06EnumSwitch
+--- PASS: TestS2BND06EnumSwitch (0.00s)
+=== RUN   TestEnumRules
+--- PASS: TestEnumRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.826s

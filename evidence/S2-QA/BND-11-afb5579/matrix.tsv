@@ -1,0 +1,7 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-BND11-A01	BND-11	interp	struct 按值复制: 1\n10\n3\n12	rc=1; 未定义的类：Point	FAIL	S2-BND11-A01/interp/
+S2-BND11-A01	BND-11	compiled	1\n10\n3\n12	1\n10\n3\n12, rc=0	PASS	S2-BND11-A01/compiled/
+S2-BND11-A02	BND-11	interp	class 身份: true\nfalse\ntrue	true\nfalse\ntrue, rc=0	PASS	S2-BND11-A02/interp/
+S2-BND11-A02	BND-11	compiled	true\nfalse\ntrue	true\nfalse\ntrue, rc=0	PASS	S2-BND11-A02/compiled/
+S2-BND11-D01	BND-11	dual	A01/A02 双路径一致	A01 interp 失败	FAIL	S2-BND11-A01/
+S2-BND11-M01	BND-11	gotest	身份/struct sret/vtable 槽位用例 PASS	3/3 PASS	PASS	gotest-codegen/

@@ -1,0 +1,1 @@
+/tmp/qa-d-probes/struct_nullable_ref_bad.x:1:20: error[TY-204]: 结构体 `S` 的字段 `s` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）

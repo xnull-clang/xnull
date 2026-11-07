@@ -1,0 +1,4 @@
+=== RUN   TestS2BND07Singleton
+--- PASS: TestS2BND07Singleton (1.27s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	1.835s

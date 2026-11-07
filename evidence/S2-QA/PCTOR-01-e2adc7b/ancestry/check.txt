@@ -1,0 +1,11 @@
+requested_main=e2adc7b
+observed_main_at_run=daae86b56186a423b73f4229bc8aa936fde55352
+tested_sha=e2adc7b49cabe84b414c338f6903de99f125dfdb
+1c04278_ancestor_exit=0
+7a8dbe4_ancestor_exit=0
+e2adc7b_ancestor_exit=0
+--- main log ---
+e2adc7b Merge commit '7a8dbe4'
+1c04278 merge: E4 PCTOR self/super + 协议 vtable 派发 into main
+315fa9b fix(codegen): PCTOR 构造器 self/super 发射 + 协议变量 vtable 派发
+daae86b receipt(S2-E3c): method overloads + static members

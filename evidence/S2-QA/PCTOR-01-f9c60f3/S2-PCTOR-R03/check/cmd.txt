@@ -1,0 +1,1 @@
+/tmp/xnull-s2-f9c60f3 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r03_nonclass.x 

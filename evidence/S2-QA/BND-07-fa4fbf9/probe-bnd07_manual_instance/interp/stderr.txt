@@ -1,0 +1,2 @@
+/tmp/qa-d-probes/bnd07_manual_instance.x:2:9: error[TY-215]: 单例不得手动声明 `instance`（§9.4：自动提供）
+  删除该字段

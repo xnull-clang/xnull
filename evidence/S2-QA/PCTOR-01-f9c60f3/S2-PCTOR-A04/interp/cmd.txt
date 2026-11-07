@@ -1,0 +1,1 @@
+/tmp/xnull-s2-f9c60f3 run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/a04_ctor_order.x 

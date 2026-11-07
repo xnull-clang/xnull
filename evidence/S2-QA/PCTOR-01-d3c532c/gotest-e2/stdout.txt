@@ -1,0 +1,4 @@
+=== RUN   TestS2PCTORRules
+--- PASS: TestS2PCTORRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.838s

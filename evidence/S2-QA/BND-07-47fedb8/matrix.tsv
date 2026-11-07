@@ -1,0 +1,11 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-BND07-A01	BND-07	interp	instance 字段/方法可读: XNull\n3	rc=1; 6:11 error[RES-101] 未定义的名称 AppInfo	FAIL	S2-BND07-A01/interp/
+S2-BND07-A01	BND-07	compiled	同上	rc=1; 6:11 error[RES-101] 未定义的名称 AppInfo	FAIL	S2-BND07-A01/compiled/
+S2-BND07-A02	BND-07	interp	启动前初始化: localhost\n8080	rc=1; 6:11 error[RES-101] 未定义的名称 Config	FAIL	S2-BND07-A02/interp/
+S2-BND07-A02	BND-07	compiled	同上	rc=1; 6:11 error[RES-101] 未定义的名称 Config	FAIL	S2-BND07-A02/compiled/
+S2-BND07-R01-new	BND-07	check	new 单例拒绝（单例专用诊断）	rc=1; 5:5 error[RES-101] 未定义的类型 AppInfo（非单例规则）	FAIL	S2-BND07-R01-new/check/
+S2-BND07-R01-write	BND-07	check	instance 重新赋值/置 null 拒绝	rc=0; 无诊断	FAIL	S2-BND07-R01-write/check/
+S2-BND07-R01-inherit	BND-07	check	继承单例拒绝（隐式 final/不可子类化）	rc=1; 4:13 error[RES-101] 父类 AppInfo 未在本包声明（非单例规则）	FAIL	S2-BND07-R01-inherit/check/
+S2-BND07-R01-implements	BND-07	check	单例 implements 拒绝	rc=1; 2:19 error[SYN-101] 单例头部不能带参数或继承	PASS	S2-BND07-R01-implements/check/
+S2-BND07-R02-fwd	BND-07	check	跨单例前向引用拒绝	rc=0; 无诊断	FAIL	S2-BND07-R02-fwd/check/
+S2-BND07-M01	BND-07	gotest	单例发射面（无 sema）	codegen TestS2BND07Singleton PASS；语言管线不可达	BLOCKED	gotest-codegen/

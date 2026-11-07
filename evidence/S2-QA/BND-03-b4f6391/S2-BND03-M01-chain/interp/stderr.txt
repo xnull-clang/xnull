@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd03/m01_deinit_chain.x:8:10: error[TY-203]: 方法 `deinit` 与祖先类 `B` 的实例方法同签名：子类覆写被拒绝（§2.5）
+  改用不同参数列表构成重载

@@ -1,0 +1,1 @@
+/tmp/xnull-s2-d3c532c check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r05_final_twice.x 

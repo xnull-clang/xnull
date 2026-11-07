@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/r02_final_parent.x:3:7: error[TY-202]: 父类 `Base` 是 final，不能被继承（§2.5）

@@ -1,0 +1,4 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3540623400/prog.c:211:12: warning: incompatible pointer types initializing 'xn_Cls_B *' (aka 'struct xn_Cls_B *') with an expression of type 'xn_Cls_D *' (aka 'struct xn_Cls_D *') [-Wincompatible-pointer-types]
+  211 | xn_Cls_B * b = xn_Cls_D_new();
+      |            ^   ~~~~~~~~~~~~~~
+1 warning generated.

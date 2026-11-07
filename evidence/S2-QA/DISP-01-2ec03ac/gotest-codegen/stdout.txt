@@ -1,0 +1,4 @@
+=== RUN   TestS2ProtocolVtableLayout
+--- PASS: TestS2ProtocolVtableLayout (1.17s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.082s

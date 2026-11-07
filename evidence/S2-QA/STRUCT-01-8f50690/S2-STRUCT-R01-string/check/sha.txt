@@ -1,0 +1,4 @@
+main_sha=8f50690cce83241a81ae7af6573e3c1375d1daec
+binary=/tmp/xnull-s2-8f50690
+binary_sha256=e88c8aa8180992146ab460a03e394e52d8380ccb5127d9eb57c4accb9fee4b8c
+go=go version go1.27.3 darwin/amd64

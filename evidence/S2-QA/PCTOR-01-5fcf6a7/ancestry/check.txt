@@ -1,0 +1,11 @@
+requested_main=e2adc7b
+main_at_final_run=5fcf6a78bd9724e2ba38e5fa0801f9a09591e064
+note=重测期间 main 由 e2adc7b 前进到 5fcf6a7（E3d super.method/field，非 PCTOR 改动）；e2adc7b 与 5fcf6a7 均全表通过，最终按 5fcf6a7 签收
+1c04278_ancestor_exit=0
+7a8dbe4_ancestor_exit=0
+e2adc7b_ancestor_exit=0
+5fcf6a7_ancestor_exit=0
+--- main log ---
+5fcf6a7 receipt(S2-E3d): super method/field resolution
+d3aeb69 feat(interp): super.method/field resolution (S2-E3d)
+e2adc7b Merge commit '7a8dbe4'

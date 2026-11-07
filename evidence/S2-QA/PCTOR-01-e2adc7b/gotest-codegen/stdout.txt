@@ -1,0 +1,4 @@
+=== RUN   TestS2CtorBodies
+--- PASS: TestS2CtorBodies (1.22s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	1.816s

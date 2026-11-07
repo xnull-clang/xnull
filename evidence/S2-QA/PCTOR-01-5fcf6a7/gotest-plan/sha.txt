@@ -1,0 +1,6 @@
+main_sha=5fcf6a78bd9724e2ba38e5fa0801f9a09591e064
+requested_main=e2adc7b
+tested_sha=5fcf6a78bd9724e2ba38e5fa0801f9a09591e064
+binary=/tmp/xnull-s2-5fcf6a78bd9724e2ba38e5fa0801f9a09591e064
+binary_sha256=b0de8106739e2c7edcbb85fb074b45a9cfd82de3dfc5a73f57d63961cac56c87
+go=go version go1.27.3 darwin/amd64
