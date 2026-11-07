@@ -30,6 +30,12 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 	case *xfront.Paren:
 		return s.exprType(n.X)
 	case *xfront.IdentExpr:
+		if n.Name == "self" && s.self != nil {
+			return s.self.ctype, nil
+		}
+		if n.Name == "super" && s.superT != "" {
+			return s.superT, nil
+		}
 		if c, ok := s.localCType(n.Name); ok {
 			return c, nil
 		}
@@ -145,6 +151,20 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			recvC, err := s.exprType(mem.X)
 			if err != nil {
 				return "", err
+			}
+			if s.g.isProtoC(recvC) {
+				pi := s.g.protocols[strings.TrimPrefix(recvC, "xn_proto_")]
+				if pi == nil {
+					return "", fmt.Errorf("codegen：未定义的协议类型 %s", recvC)
+				}
+				sig := pi.protoSigOf(mem.Name, len(n.Args))
+				if sig == nil {
+					return "", fmt.Errorf("codegen：协议 %s 没有方法 %s/%d（S2 §4.2）", pi.name, mem.Name, len(n.Args))
+				}
+				if sig.void {
+					return "void", nil
+				}
+				return s.g.cType(sig.ret)
 			}
 			if isClassPtr(recvC) {
 				ci, ok := s.g.classOfC(recvC)

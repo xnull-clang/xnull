@@ -106,3 +106,39 @@ static Int main() {
 		t.Fatalf("编译路径输出 %q(code %d)，期望 %q", got, code, "1\nbye\n")
 	}
 }
+
+// S2 §6.3/§6.5：显式构造器内 self 绑定（A02/A03）与 super(...) 首位（A05）。
+func TestS2PctorSelfAndSuper(t *testing.T) {
+	cases := []struct{ name, src, want string }{
+		{"A02 无参构造器 self", `class E {
+    Int v = 1;
+    E() { self.v = 5 }
+}
+static Int main() { E e = new E(); print(e.v); return 0 }`, "5\n"},
+		{"A03 带参构造器 self", `class D {
+    Int v;
+    D(Int x) { self.v = x }
+}
+static Int main() { D d = new D(5); print(d.v); return 0 }`, "5\n"},
+		{"A05 super 首位 + 带参父构造", `class B {
+    Int x;
+    B(Int v) { self.x = v }
+}
+class D : B {
+    Int y;
+    D(Int v) {
+        super(v)
+        self.y = v + 1
+    }
+}
+static Int main() { D d = new D(5); print(d.x); print(d.y); return 0 }`, "5\n6\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, code := compileAndRun(t, c.src)
+			if code != 0 || got != c.want {
+				t.Fatalf("out=%q code=%d，期望 %q / 0", got, code, c.want)
+			}
+		})
+	}
+}
