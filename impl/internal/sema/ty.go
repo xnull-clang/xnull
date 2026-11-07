@@ -2036,6 +2036,27 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			return texpr{key: ek}
 		}
 	}
+	// S6-06/XDK-06：类（含 XDK collections 源码单元）方法按声明签名解析；
+	// 已声明方法不得落到“XDK 未支持”的 TY-229。
+	if e.a.tc != nil {
+		if m, subst, ok := e.a.tc.findClassMethod(k, name); ok {
+			ret := substKey(methodRetKey(m), subst)
+			if len(m.Params) != len(args) {
+				e.errf(p, TyAssignability,
+					fmt.Sprintf("%s.%s 需要 %d 个参数，实际 %d 个（§6/§7）", k, name, len(m.Params), len(args)), "")
+			} else {
+				for i, param := range m.Params {
+					want := substKey(typeKey(param.Type), subst)
+					if !assignable(args[i], want) {
+						e.errf(p, assignDiag(args[i], want),
+							fmt.Sprintf("%s.%s 参数 %d 类型 %s 不能赋给 %s（§6/§7）",
+								k, name, i+1, describeKey(args[i]), want), "")
+					}
+				}
+			}
+			return texpr{key: ret}
+		}
+	}
 	// S6-01：XDK 类型上未登记的成员 → 显式诊断（不静默放行）。
 	if xdkKnownType(k) {
 		e.errf(p, TyXdkUnsupported,
