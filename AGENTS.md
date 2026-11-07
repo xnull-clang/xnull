@@ -1,0 +1,62 @@
+# 会话操作约定（项目级）
+
+> 本文件为安装件，不是任务单。完整说明见 `收件箱/会话命名与通讯约定-v1.0.0-2026-11-07.md`。
+> **治理规则以 `ADR/ADR-001-治理重构.md` 为准（试行）；本文件与其冲突时，以 ADR-001 为准。**
+
+## 死命令（最高优先级）
+
+`死命令.md` 是最高优先级常设强制命令，冻结、不得修改、不得降级解释。**与本文件冲突时，以 `死命令.md` 为准。**
+当前第 1 号：自举路线（借力先行，自举收口）——B0—B4 五道门，详见 `死命令.md`。
+
+## 治理记忆（ADR-001，试行 72 小时）
+
+1. **五线制**：前端线 E2、自举线 E4、运行时线 E5、QA 线 QA1、发布线 COO。E6 归自举线执行工具链/CI/IDE。
+2. **董事会只做三件事**：门判定、owner 冲突仲裁、ADR 归档；不派工、不看板、不写快照。
+3. **ADR 制**：决策一页（背景/决定/后果），签发即冻结；禁止同主题连环升版。
+4. **SSOT**：唯一看板由脚本从 git + go test + 台账 + evidence 生成；手改即作废。停止手工看板、每小时快照、自动刷新器。
+5. **WIP**：每 owner 最多 2 张卡（1 开发 + 1 待验收）；全线在途 ≤10。
+6. **SLA**：P0（门禁/停工）≤2h；P1 当日；P2 周批。只有死命令、预算、公开发布需用户裁决。
+7. **汇报四数**：本周 commit 数、锚点翻转数、全量测试绿/红、门进度。禁止以文件数/回执数/看板数为产出。
+8. **回执只用于门证据**；普通任务不再逐卡写回执。门禁仍按死命令四件套。
+9. **当前门**：B0 已过；M1 6/14、B1 未过；B2–B4 未开工。B1 仅用文本 API 子集，B0-07c 不阻塞 B1。
+10. **预算**：B1 8h、B2 48h、B3 72h；B4 拆 a/b/c 各 24h。
+
+## 命名
+
+- 新建：`<角色>-<任务卡ID>-<任务名>`，如 `E6-S0-18-建-worktree与分支`。
+- 重启：`<原名称>｜重启<N>-<本次任务说明>-<YYYY-MM-DD>`，N 从 1 递增。
+- 禁止「新会话」「临时」「测试」等无信息量标题。
+
+## 创建与迁移（必须两步）
+
+```bash
+opencode api POST /api/session -d '{"title":"<角色>-<任务卡ID>-<任务名>"}'
+opencode api POST /api/session/<SESSION_ID>/move -d '{"directory":"<目标目录>"}'
+```
+
+`POST /api/session` 的 `directory` 参数会被忽略，不调 `move` 就在错误目录开工。
+
+## 投递与查询
+
+```bash
+opencode run -s <SESSION_ID> -m opencode/deepseek-v4.1-flash-free "<消息>"
+opencode api POST /api/session/<SESSION_ID>/prompt -d '{"text":"<消息>"}'
+opencode api GET  /api/session/<SESSION_ID>/message
+opencode api GET  /api/session/<SESSION_ID>
+```
+
+- 投递必须显式带 `-m`；不带会命中区域封锁模型并让该会话永久锁在坏模型上。
+- 锁死后用 `/api/session/<id>/model` 复位：`{"model":{"providerID":"opencode","id":"deepseek-v4.1-flash-free"}}`。
+- `prompt` 请求体里的 `model` 字段被忽略，只能先 `/model` 再投递。
+- 结果看 `/message` 最后一条 `type:"idle"` 的 `outcome`；状态看 `/session/<id>` 的 `outcome`/`busy`/`idle`。
+
+## 通讯
+
+- 父 → 子：`subagent` 工具，带 `sessionID` 可续聊。
+- 子 → 父：subagent 最终答复直接回传。
+- 异步留痕：写 `收件箱/<角色>/回执-*.md`；`/inbox` 接口只读，写入走文件。
+
+## 禁止
+
+- 不建台账、不写巡检脚本、不代董事会跑 E1–E6。
+- 不删含在途子会话的父会话（`session delete` 级联删除）。
