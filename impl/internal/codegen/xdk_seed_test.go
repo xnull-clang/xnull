@@ -34,5 +34,4 @@ func TestXdkSeedUnitCompiles(t *testing.T) {
 	if _, err := EmitC(u); err != nil {
 		t.Skipf("text.x 编译面未完成（E4 XDK-08）：%v", err)
 	}
-	}
 }
