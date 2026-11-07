@@ -41,7 +41,7 @@ var ledgerMilestone = map[string]string{
 }
 
 var (
-	ledgerRowRe = regexp.MustCompile(`^\|\s*([A-Z]{2,6})-(\d{2,3})\s*\|(.*)$`)
+	ledgerRowRe = regexp.MustCompile(`^\|\s*([A-Z]{2,10})-(\d{2,3})\s*\|(.*)$`)
 	spaceRe     = regexp.MustCompile(`\s+`)
 )
 
