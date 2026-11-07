@@ -98,6 +98,11 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		}
 		return 1
 	}
+	// S7-04：@unsafe 受控入口需要工程清单 link.unsafe = true（S7 §8 / S8 §7）。
+	if err := checkUnsafeGate(filepath.Dir(srcPath), reg, stderr); err != nil {
+		fmt.Fprintf(stderr, "xnull: %v\n", err)
+		return 1
+	}
 	if err := InjectFFI(u, reg); err != nil {
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
