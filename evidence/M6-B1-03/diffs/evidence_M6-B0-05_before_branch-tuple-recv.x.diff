@@ -1,0 +1,9 @@
+--- /Users/vjs/Desktop/XNull-Lang/evidence/M6-B1-03/diffs/evidence_M6-B0-05_before_branch-tuple-recv.x.go.out	2026-11-07 13:25:37
++++ /Users/vjs/Desktop/XNull-Lang/evidence/M6-B1-03/diffs/evidence_M6-B0-05_before_branch-tuple-recv.x.xn.out	2026-11-07 13:25:37
+@@ -1,5 +1,5 @@
+ static Int main() {
+     (Int, String) p = (1, "abc")
+-    print(p.1. length())
++    print(p.1.length ())
+     return 0
+ }

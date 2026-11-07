@@ -1,0 +1,4 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/QA1-anchors-2026-11-07/pkg/f1.x:1:7: error[RES-102]: 类型 `X` 在包内重复声明（已有 class，§1.1）
+  换一个类型名
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/QA1-anchors-2026-11-07/pkg/f1.x:1:7: error[RES-102]: 类型 `Y` 在包内重复声明（已有 class，§1.1）
+  换一个类型名

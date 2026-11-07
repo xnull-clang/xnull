@@ -1,0 +1,1 @@
+difftest/s2/bnd01/r03_subclass_private.x:5:26: error[TY-209]: `self.x` 访问父类私有字段被拒绝（§7.3/§7.4）

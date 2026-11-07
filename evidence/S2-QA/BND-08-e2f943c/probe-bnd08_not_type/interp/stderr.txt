@@ -1,0 +1,2 @@
+/tmp/qa-d-probes/bnd08_not_type.x:6:5: error[TY-217]: factory `F` 不是类型，不能用于类型位置（§10.4）
+  改用 Target 类型或工厂方法返回类型

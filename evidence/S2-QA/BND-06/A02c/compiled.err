@@ -1,0 +1,7 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4143819721/prog.c:188:38: warning: self-comparison always evaluates to true [-Wtautological-compare]
+  188 | xn_print_bool(((xn_enum_Status_Ready == xn_enum_Status_Ready)));
+      |                                      ^
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4143819721/prog.c:190:38: warning: self-comparison always evaluates to true [-Wtautological-compare]
+  190 | xn_print_bool(((xn_enum_Status_Ready == xn_enum_Status_Ready)));
+      |                                      ^
+2 warnings generated.

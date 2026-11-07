@@ -111,7 +111,7 @@ ffi <region> {
 | `EmitCall` / `EmitSupport` | **完成**（M4.5b：包装生成、标量/String/Bytes/数组/`layout(c)`/句柄编组、错误码归一、原生符号声明；未覆盖形态记入 `Snippet.Problems` 并附注释占位——构建侧必须视为失败） |
 | `xrt.h` / `xrt_abi.c` 稳定 ABI 封装 | **完成**（分配/计数/弱表/根/安全点/任务根/字符串访问器/`xrt_bytes`/`xrt_handle`/`xrt_fatal`；`test_abi.c` 覆盖） |
 | 句柄与借出 pin | **完成**（M4.5b/c：句柄幂等关闭、关闭入口状态登记、`.transfer` 接管、`.reclaim` 归还登记、canary 越界终止、跨任务规则定案 §5.2） |
-| trampoline / 回调根登记 | **接口预留**（`EmitTrampoline` 显式 `ErrTrampolineReserved`；依赖调度器栈 pin/根登记语义，随调度器切片） |
+| trampoline / 回调根登记 | **完成**（S3-07：`EmitTrampoline` 生成 `xn_tramp_<entry>_{new,destroy}` + 调用跳板；env 创建登记根、销毁注销、注销后调用 `xrt_fatal`；运行时 `xrt_callback_env_*`） |
 | codegen 侧 `FFICall` 钩子 | 待编译器侧接入（提案 P-09 声明注入 + 包装调用；P-10 编译清单纳入 `xrt_abi.c`/`rt_std_*`） |
 
 ### 5.1 包装 ABI（v1，codegen 调用点消费）
@@ -145,6 +145,19 @@ static int32_t xn_ffi_<entry>(<入参...>[, <retC> *xn_out]);
 **跨包入口重名（P-09 条件 1）**：`Load` 对全部 `.xfb` 声明块做跨块重名检测（`FFI-111`，覆盖入口/结构/句柄）——两文件同名入口即构建失败；包装名保持 `xn_ffi_<entry>` 无包段。
 
 **链接参数确定性（P-10 条件 3）**：`LinkArgs` 去重 + 升序；注入位置（目标文件之后）由构建侧保证。
+
+### 5.3 trampoline 生成面（S3-07，2026-11-08）
+
+```c
+/* 由 EmitTrampoline(entry) 生成（目标 ABI 由绑定层以 xrt_callback_fn 提供） */
+static xrt_callback_env *xn_tramp_<entry>_new(void *closure, xrt_callback_fn fn);
+static void              xn_tramp_<entry>_destroy(xrt_callback_env *env);
+static int32_t           xn_tramp_<entry>(void *env, const void *args, size_t n, void *result);
+```
+
+- 创建：`xrt_callback_env_new` 把 env 登记为运行时根（S7 §5.2）；销毁：注销根（幂等）。
+- 已注销 env 再调用 → `xrt_fatal`（原生侧合同违规）；回调内 panic 走既有 fatal 路径（§5.3）。
+- 目标 ABI 的具体参数/返回编组由绑定层提供 `xrt_callback_fn`；闭包引用的生命周期由绑定层管理。
 
 ## 6. 交互记录（追加式，倒序）
 

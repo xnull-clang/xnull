@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-09/R01d/source.x:1:15: error[TY-207]: 私有字段名 `_` 非法：`_` 后必须是 lowerCamelCase（§7.4）

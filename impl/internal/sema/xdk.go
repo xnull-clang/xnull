@@ -36,7 +36,7 @@ var xdkPackages = map[string]map[string]bool{
 		"Error": true, "ErrorKind": true, "wrap": true, "mapErr": true, "report": true,
 	},
 	"tasks": {
-		"Task": true, "TaskGroup": true, "Context": true,
+		"Task": true, "TaskGroup": true, "Context": true, "CancelToken": true, "TaskError": true, "CancelledError": true,
 	},
 	"sync": {
 		"Mutex": true, "Channel": true, "AtomicInt": true, "AtomicBool": true, "AtomicRef": true,
@@ -47,15 +47,35 @@ var xdkPackages = map[string]map[string]bool{
 	"collections": {
 		// 内建容器（List/Map/Set/StringBuilder）属 S1 §9，不在本包；此处是特化容器（S6 §4.5 定案）
 		"RingBuffer": true, "OrderedMap": true, "BTreeMap": true, "PriorityQueue": true,
+		// 算法函数：S6 §4.5 只给类别，签名未冻结；保留名用于 TY-229 显式诊断。
+		"sort": true, "groupBy": true, "dedup": true, "find": true,
 	},
 	"text": {
-		"Regex": true, // S6 §4.6 定案符号；builder 式格式化类型名随实现层立项冻结
+		"Regex": true, "Format": true, "parseInt": true, "parseFloat": true,
+		"utf8ToUtf16": true, "utf16ToUtf8": true,
 	},
 	"sys": {
+		// 句柄类型（S6 §4.7；close 经顶层 fileClose/dirClose）
+		"File": true, "Dir": true, "Process": true,
+		// 文件/目录/存在性（当前绑定面）
+		"fileOpenRead": true, "fileOpenWrite": true, "fileRead": true, "fileWrite": true,
+		"fileClose": true, "dirOpen": true, "dirRead": true, "dirClose": true,
+		"pathExists": true, "utf8Valid": true, "readFileText": true, "writeFileText": true,
+		"procStatus": true,
+		// 资源读取（S6 §4.8）
 		"resourceExists": true, "readResource": true, "readResourceText": true,
 		"listResources": true, "resourceSize": true,
 	},
-	"net": {}, // S6 §4.7 定案独立成包；符号随实现层立项冻结（包存在性可用）
+	"net": {
+		// S6 §4.7 定案独立成包；socket API 名随实现层立项冻结。
+		"Socket": true, "Listener": true,
+	},
+}
+
+// xdkSubPackages 是已定案的多级 XDK 包子包（相对 xdk. 的路径）。
+// `import xdk.net.http` 是包导入，不是 xdk.net 的符号 http（S1 §3.2）。
+var xdkSubPackages = map[string]bool{
+	"net.http": true,
 }
 
 // xdkSymbolKnown 判断名称是否为某个 XDK 包的导出符号（用于 RES-105）。
@@ -97,6 +117,11 @@ type importInfo struct {
 //  1. 逐个导入展开为 importInfo：XDK 走注册表；用户包走依赖包符号表（deps）。
 //  2. 别名与简单名规则：别名只用于消歧、别名唯一、简单名歧义必须报错。
 func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+	for _, imp := range u.Imports {
+		if len(imp.Path) > 0 {
+			a.importPaths = append(a.importPaths, imp.Path)
+		}
+	}
 	topNames := topLevelNames(u)
 	var binds []importInfo
 
@@ -120,16 +145,18 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 			}
 			info.src = "xdk." + pkg
 			switch {
-			case len(p) == 3: // 符号导入
-				sym := p[2]
-				if !syms[sym] {
-					a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+sym+"`（§3.5）",
-						"检查符号名或改用包导入")
-					continue
-				}
-				info.syms = []string{sym}
+			case len(p) == 3 && syms[p[2]]: // 符号导入
+				info.syms = []string{p[2]}
 				info.symbolImport = true
-			default: // 包导入（含 xdk.net.http 这类子包：包存在即可）
+			case len(p) >= 3 && xdkSubPackages[pkg+"."+strings.Join(p[2:], ".")]:
+				// 多级包子包（如 xdk.net.http）：包导入，不绑定符号。
+				info.syms = nil
+				info.pkgImport = true
+			case len(p) == 3:
+				a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+p[2]+"`（§3.5）",
+					"检查符号名或改用包导入")
+				continue
+			default: // 包导入
 				info.syms = sortedKeys(syms)
 				info.pkgImport = true
 			}
@@ -212,8 +239,9 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 					"改用符号导入 `import P.S as A` 仅引入所需符号")
 				continue
 			}
+			aliasID := b.src + "." + b.syms[0]
 			if prev, dup := aliasOwners[b.alias]; dup {
-				if prev != b.src {
+				if prev != aliasID {
 					a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
 				}
 				continue
@@ -226,7 +254,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与预定义类型名冲突（§3.3）", "换一个别名")
 				continue
 			}
-			aliasOwners[b.alias] = b.src
+			aliasOwners[b.alias] = aliasID
 			// 非冲突场景使用 as → RES-107（§3.2）。
 			if len(importedSym[b.syms[0]]) <= 1 {
 				a.errf(b.p, ResNeedlessAlias, "`"+b.syms[0]+"` 无同名歧义，as 别名只用于消歧（§3.2）", "去掉 as 子句")
@@ -241,7 +269,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				if topNames[s] {
 					continue
 				}
-				if prev, dup := aliasOwners[s]; dup && prev != b.src {
+				if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 					if !a.ambiguous[s] {
 						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 已由别名 `"+prev+"` 占用（§3.2/§3.3）", "改用 as 别名或完全限定名")
 						a.ambiguous[s] = true
@@ -261,16 +289,26 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				}
 				continue
 			}
-			if prev, dup := aliasOwners[s]; dup && prev != b.src {
+			if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 				if !a.ambiguous[s] {
-					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					prevSrc := prev
+					if i := strings.LastIndex(prev, "."); i >= 0 {
+						prevSrc = prev[:i]
+					}
+					if prevSrc == b.src {
+						// 同包不同符号：别名唯一性错误（§3.3）。
+						a.errf(b.p, ResAliasConflict, "导入别名 `"+s+"` 已绑定 `"+prev+"`，与裸导入简单名冲突（§3.3/§3.5）", "换一个别名或改名")
+					} else {
+						// 不同包同名：简单名歧义（§3.2/§3.5）。
+						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					}
 					a.ambiguous[s] = true
 				}
 				continue
 			}
 			if _, ok := bound[s]; !ok {
 				bound[s] = b.src
-				aliasOwners[s] = b.src
+				aliasOwners[s] = b.src + "." + s
 			}
 		}
 	}
@@ -286,7 +324,7 @@ func (a *analyzer) checkTypeXdkUse(t xfront.TypeRef) {
 	}
 	switch ty := t.(type) {
 	case *xfront.NamedType:
-		if len(ty.Qual) == 1 && xdkSymbolKnown(ty.Qual[0]) && !a.imported[ty.Qual[0]] {
+		if len(ty.Qual) == 1 && !externalTypes[ty.Qual[0]] && xdkSymbolKnown(ty.Qual[0]) && !a.imported[ty.Qual[0]] {
 			var pkgs []string
 			for _, pkg := range xdkExporters(ty.Qual[0]) {
 				pkgs = append(pkgs, "xdk."+pkg)

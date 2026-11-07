@@ -1,0 +1,1 @@
+/tmp/xnull-s2-d107f3340e9dbcd78e545339703d24b75b8d4fd8 run --runtime /tmp/xnull-main-d107f3340e9dbcd78e545339703d24b75b8d4fd8/impl/runtime /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/a04_default_last.x 

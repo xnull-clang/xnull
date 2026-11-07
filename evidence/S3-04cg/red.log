@@ -1,0 +1,409 @@
+--- FAIL: TestS3_04cgTextSBStringEmission (0.00s)
+    s3_04cg_test.go:24: 代码生成失败：codegen：类型 StringBuilder 未支持（M4.1 范围）
+--- FAIL: TestS3_04cgStringBytesRoots (0.00s)
+    s3_04cg_test.go:67: String/Bytes 局部未登记 GC 根：
+        
+        size_t xn_t1 = xn_root_mark();
+        rt_string *s = rt_string_from_c("keep");
+        rt_string *xn_t3 = rt_string_from_c("abc");
+        xrt_bytes_obj *xn_t4 = xrt_bytes_from_string(xn_t3->bytes, xn_t3->len);
+        rt_release(xn_t3);
+        xrt_bytes_obj *b = xn_t4;
+        int64_t i = 0;
+            while (((i < 3000))) {
+            size_t xn_t5 = xn_root_mark();
+            xn_Cls_N * tmp = xn_Cls_N_new();
+            xn_root_add(tmp);
+            xn_gc_safepoint();
+            rt_string *xn_t6 = rt_string_from_c("v");
+            rt_string *xn_t7 = xn_str_int(i);
+            rt_string *t = xn_concat(xn_t6, xn_t7);
+            i = (i + 1);
+                {
+                rt_release(t);
+                }
+                {
+                xn_root_restore(xn_t5);
+                }
+        
+            xn_gc_safepoint();
+            }
+        rt_string *xn_t9 = rt_retain(s);
+        xn_print_str(xn_t9);
+        rt_release(xn_t9);
+        xn_print_int(((int64_t)xrt_bytes_len(b)));
+        int64_t xn_t10 = 0;
+            {
+        rt_release(b);
+            }
+            {
+        rt_release(s);
+            }
+            {
+        xn_root_restore(xn_t1);
+            }
+        
+        return xn_t10;
+--- FAIL: TestS3_04cgFieldScan (0.00s)
+    s3_04cg_test.go:90: 含 GC 引用字段的类应生成 scan：
+        /* 由 XNull 编译器生成（M4.1 代码生成）。 */
+        #include "rt.h"
+        #include "rt_gc.h"
+        #include "xrt.h"
+        #include <inttypes.h>
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <string.h>
+        
+        static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+        static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+        static void xn_print_str(rt_string *s) { printf("%.*s\n", (int)s->len, s->bytes); }
+        static void xn_print_null(void) { fputs("null\n", stdout); }
+        
+        /* 可空值（S1 §2.10）：has=0 表示 null。 */
+        typedef struct { int has; int64_t v; } xn_opt_i;
+        typedef struct { int has; int v; } xn_opt_b;
+        typedef struct { int has; rt_string *v; } xn_opt_s;
+        
+        static rt_string *xn_str_int(int64_t v) {
+            char buf[32];
+            int n = snprintf(buf, sizeof(buf), "%lld", (long long)v);
+            return rt_string_new(buf, (size_t)n);
+        }
+        
+        static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? "true" : "false"); }
+        
+        /* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */
+        static rt_string *xn_alloc_str(size_t n);
+        
+        /* ---- String 成员（S1 §9.2，字节语义）---- */
+        static int xn_str_eq(rt_string *a, rt_string *b) {
+            return a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0;
+        }
+        
+        static int64_t xn_str_length(rt_string *s) { return (int64_t)s->len; }
+        
+        static rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) {
+            if (start < 0) { start = 0; }
+            if (n < 0) { n = 0; }
+            if ((size_t)start > s->len) { start = (int64_t)s->len; }
+            if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; }
+            rt_string *out = xn_alloc_str((size_t)n);
+            if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); }
+            return out;
+        }
+        
+        static int64_t xn_str_indexof(rt_string *s, rt_string *sub) {
+            if (sub->len == 0) { return 0; }
+            if (sub->len > s->len) { return -1; }
+            for (size_t i = 0; i + sub->len <= s->len; i++) {
+                if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; }
+            }
+            return -1;
+        }
+        
+        static int xn_str_startswith(rt_string *s, rt_string *p) {
+            if (p->len > s->len) { return 0; }
+            return memcmp(s->bytes, p->bytes, p->len) == 0;
+        }
+        
+        static int xn_str_endswith(rt_string *s, rt_string *p) {
+            if (p->len > s->len) { return 0; }
+            return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0;
+        }
+        
+        static int xn_is_space(uint8_t c) {
+            return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+        }
+        
+        static rt_string *xn_str_trim(rt_string *s) {
+            size_t b = 0, e = s->len;
+            while (b < e && xn_is_space((uint8_t)s->bytes[b])) { b++; }
+            while (e > b && xn_is_space((uint8_t)s->bytes[e - 1])) { e--; }
+            return xn_str_substr(s, (int64_t)b, (int64_t)(e - b));
+        }
+        
+        static rt_string *xn_str_upper(rt_string *s) {
+            rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);
+            for (size_t i = 0; i < out->len; i++) {
+                char c = out->bytes[i];
+                if (c >= 'a' && c <= 'z') { out->bytes[i] = (char)(c - 'a' + 'A'); }
+            }
+            return out;
+        }
+        
+        static rt_string *xn_str_lower(rt_string *s) {
+            rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);
+            for (size_t i = 0; i < out->len; i++) {
+                char c = out->bytes[i];
+                if (c >= 'A' && c <= 'Z') { out->bytes[i] = (char)(c - 'A' + 'a'); }
+            }
+            return out;
+        }
+        
+        static rt_string *xn_alloc_str(size_t n) {
+            rt_string *s = malloc(sizeof(rt_string) + n + 1);
+            if (s == NULL) { abort(); }
+            memset(s, 0, sizeof(rt_string) + n + 1);
+            s->hdr.kind = RT_KIND_ARC;
+            s->hdr.type = &RT_TYPE_STRING;
+            atomic_init(&s->hdr.refcount, 1);
+            s->len = n;
+            s->bytes[n] = 0;
+            return s;
+        }
+        
+        /* 拼接：接管 a、b 的所有权，返回新串。 */
+        static rt_string *xn_concat(rt_string *a, rt_string *b) {
+            rt_string *out = xn_alloc_str(a->len + b->len);
+            memcpy(out->bytes, a->bytes, a->len);
+            memcpy(out->bytes + a->len, b->bytes, b->len);
+            rt_release(a);
+            rt_release(b);
+            return out;
+        }
+        
+        static void xn_throw(rt_string *msg) {
+            fprintf(stderr, "fatal: %.*s\n", (int)msg->len, msg->bytes);
+            exit(134);
+        }
+        
+        /* ---- GC 根帧与安全点（S3-02）------------------------------------------
+         * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局
+         * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。
+         * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；
+         * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。
+         * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。
+         * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；
+         * 运行时若暴露阈值 API，这里改为薄调用）。 */
+        typedef struct { void *obj; size_t count; } xn_root_ref;
+        static xn_root_ref *xn_root_refs = NULL;
+        static size_t xn_root_ref_n = 0;
+        static size_t xn_root_ref_cap = 0;
+        static void  **xn_root_track = NULL;
+        static size_t  xn_root_depth = 0;
+        static size_t  xn_root_cap   = 0;
+        
+        static void xn_root_hold(void *obj) {
+            if (obj == NULL) { return; }
+            for (size_t i = 0; i < xn_root_ref_n; i++) {
+                if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }
+            }
+            if (xn_root_ref_n == xn_root_ref_cap) {
+                xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;
+                xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));
+                if (xn_root_refs == NULL) { abort(); }
+            }
+            xn_root_refs[xn_root_ref_n].obj = obj;
+            xn_root_refs[xn_root_ref_n].count = 1;
+            xn_root_ref_n++;
+            rt_gc_root_add(obj);
+        }
+        static void xn_root_release(void *obj) {
+            if (obj == NULL) { return; }
+            for (size_t i = 0; i < xn_root_ref_n; i++) {
+                if (xn_root_refs[i].obj != obj) { continue; }
+                if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }
+                rt_gc_root_remove(obj);
+                xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];
+                return;
+            }
+        }
+        static size_t xn_root_mark(void) { return xn_root_depth; }
+        static void xn_root_add(void *obj) {
+            if (obj == NULL) { return; }
+            xn_root_hold(obj);
+            if (xn_root_depth == xn_root_cap) {
+                xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;
+                xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));
+                if (xn_root_track == NULL) { abort(); }
+            }
+            xn_root_track[xn_root_depth++] = obj;
+        }
+        static void xn_root_restore(size_t mark) {
+            while (xn_root_depth > mark) {
+                xn_root_release(xn_root_track[--xn_root_depth]);
+            }
+        }
+        
+        static size_t xn_gc_alloc_pending = 0;
+        #define XN_GC_SAFEPOINT_THRESHOLD 1024
+        static void *xn_gc_new(const rt_type *type) {
+            xn_gc_alloc_pending++;
+            return rt_gc_new(type);
+        }
+        static void xn_gc_safepoint(void) {
+            if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {
+                xn_gc_alloc_pending = 0;
+                rt_gc_collect();
+            }
+        }
+        
+        /* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */
+        typedef struct {
+            rt_header hdr;
+            const char *typeName;
+            int64_t i;
+            rt_string *s;
+            void *o;
+        } xn_Any;
+        static void xn_Any_scan(void *p, void (*visit)(void *)) {
+            xn_Any *b = (xn_Any *)p;
+            if (b->s) { visit(b->s); }
+            if (b->o) { visit(b->o); }
+        }
+        static const rt_type RT_TYPE_XN_ANY = { "Any", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };
+        static xn_Any *xn_box_int(int64_t v) {
+            xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+            b->typeName = "Int"; b->i = v;
+            return b;
+        }
+        static xn_Any *xn_box_int32(int32_t v) {
+            xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+            b->typeName = "Int32"; b->i = (int64_t)v;
+            return b;
+        }
+        static xn_Any *xn_box_bool(int v) {
+            xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+            b->typeName = "Bool"; b->i = v ? 1 : 0;
+            return b;
+        }
+        static xn_Any *xn_box_str(rt_string *s) {
+            xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+            b->typeName = "String";
+            if (s != NULL) { rt_retain(s); }
+            b->s = s;
+            return b;
+        }
+        /* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，
+         * GC 载荷不计数（由 GC 管理）。 */
+        static xn_Any *xn_box_obj(void *o) {
+            xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+            if (o != NULL) {
+                b->typeName = ((rt_object *)o)->hdr.type->name;
+                if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }
+                b->o = o;
+            }
+            return b;
+        }
+        static int xn_any_is(xn_Any *b, const char *typeName) {
+            return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;
+        }
+        /* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */
+        static int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {
+            if (xn_any_is(b, typeName)) { return b->i; }
+            if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+            return 0;
+        }
+        static rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {
+            if (xn_any_is(b, typeName)) {
+                if (b->s != NULL) { rt_retain(b->s); }
+                return b->s;
+            }
+            if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+            return NULL;
+        }
+        static void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {
+            if (xn_any_is(b, typeName)) {
+                if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }
+                return b->o;
+            }
+            if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+            return NULL;
+        }
+        
+        /* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */
+        static void xn_fatal_div(void) {
+            fprintf(stderr, "xnull: fatal: 除零\n");
+            fflush(stderr);
+            exit(134);
+        }
+        static int64_t xn_div_i64(int64_t a, int64_t b) {
+            if (b == 0) { xn_fatal_div(); }
+            return a / b;
+        }
+        static int64_t xn_mod_i64(int64_t a, int64_t b) {
+            if (b == 0) { xn_fatal_div(); }
+            return a % b;
+        }
+        static void xn_fatal_oob(void);
+        static void xn_fatal_oob(void) {
+            fprintf(stderr, "fatal: 容器下标越界\n");
+            exit(134);
+        }
+        
+        typedef struct xn_Cls_Holder xn_Cls_Holder;
+        
+        static xn_Cls_Holder *xn_Cls_Holder_new();
+        static void xn_Cls_Holder_new_init(xn_Cls_Holder *o);
+        
+        
+        static int64_t xn_main();
+        
+        /* 类 Holder（M4.4b） */
+        typedef struct xn_Cls_Holder {
+            rt_header hdr;
+            rt_string * s;
+            xrt_bytes_obj * b;
+        } xn_Cls_Holder;
+        
+        static void xn_Cls_Holder_deinit_hook(void *p) {
+            xn_Cls_Holder *o = (xn_Cls_Holder *)p;
+            rt_release(o->s);
+            rt_release(o->b);
+        }
+        
+        static const rt_type RT_TYPE_XN_Holder = { "Holder", sizeof(xn_Cls_Holder), xn_Cls_Holder_deinit_hook, NULL };
+        
+        static void xn_Cls_Holder_new_init(xn_Cls_Holder *o) {
+            rt_string *xn_t3 = rt_string_from_c("a");
+            rt_release((void *)o->s);
+            o->s = xn_t3;
+        size_t xn_t4 = xn_root_mark();
+        xn_root_add(o);
+        rt_string *xn_t5 = rt_string_from_c("x");
+        xrt_bytes_obj *xn_t6 = xrt_bytes_from_string(xn_t5->bytes, xn_t5->len);
+        rt_release(xn_t5);
+        rt_release(o->b);
+        o->b = xn_t6;
+            {
+            xn_root_restore(xn_t4);
+            }
+        }
+        
+        static xn_Cls_Holder *xn_Cls_Holder_new() {
+            xn_Cls_Holder *o = (xn_Cls_Holder *)xn_gc_new(&RT_TYPE_XN_Holder);
+            memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_Holder) - sizeof(rt_header));
+            xn_Cls_Holder_new_init(o);
+            return o;
+        }
+        
+        
+        static rt_string *xn_result_error_copy_rt(rt_string *err) {
+            return rt_string_new(err->bytes, err->len);
+        }
+        
+        int64_t xn_main() {
+        size_t xn_t1 = xn_root_mark();
+        xn_Cls_Holder * h = xn_Cls_Holder_new();
+        xn_root_add(h);
+        xn_gc_safepoint();
+        xn_print_str(h->s);
+        xn_print_int(((int64_t)xrt_bytes_len(h->b)));
+        int64_t xn_t2 = 0;
+            {
+        xn_root_restore(xn_t1);
+            }
+        
+        return xn_t2;
+        }
+        
+        int main(void) {
+            int64_t xn_r = xn_main();
+            rt_gc_collect();
+            rt_quarantine_flush();
+            return (int)xn_r;
+        }
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	4.605s
+FAIL

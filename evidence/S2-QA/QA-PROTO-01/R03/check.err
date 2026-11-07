@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R03/source.x:3:7: error[TY-208]: 类 `C` 未实现协议 `Base` 的方法 `base`（§4.3）
+  补充同签名公开实例方法

@@ -1,0 +1,6 @@
+=== RUN   TestS2PROTO01
+    s2_proto_test.go:12: 不应有语义诊断：[TY-103@变量 `p` 的初始化式类型 null 不能赋给 P（§2.6）]
+--- FAIL: TestS2PROTO01 (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	0.761s
+FAIL

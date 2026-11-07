@@ -1,0 +1,4 @@
+=== RUN   TestS6_03ProcStatusAndHandleClose
+--- PASS: TestS6_03ProcStatusAndHandleClose (2.03s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.504s

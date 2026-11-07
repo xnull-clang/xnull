@@ -1,0 +1,6 @@
+# 生成面：分配种类/scan
+cycle-new.c:359:static void xn_Cls_Node_scan(void *p, void (*visit)(void *)) {
+cycle-new.c:367:    xn_Cls_Node *o = (xn_Cls_Node *)rt_gc_new(&RT_TYPE_XN_Node);
+mixed-new.c:366:    xn_Cls_Helper *o = (xn_Cls_Helper *)rt_arc_new(&RT_TYPE_XN_Helper);
+mixed-new.c:394:static void xn_Cls_Node_scan(void *p, void (*visit)(void *)) {
+mixed-new.c:403:    xn_Cls_Node *o = (xn_Cls_Node *)rt_gc_new(&RT_TYPE_XN_Node);

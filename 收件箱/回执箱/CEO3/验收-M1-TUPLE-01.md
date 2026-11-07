@@ -7,6 +7,24 @@
 
 ---
 
+## 0. 当前判定（2026-11-07 复验，main `d349f6a`）：**FAIL**
+
+QA 独立用例（`evidence/M1-TUPLE-01-qa/qa-tests/qa-interp_tuple_test.go`，overlay 注入，不改工作树）复跑：5 PASS / 3 FAIL。
+
+| 用例 | 期望 | 实测 | 判定 |
+|---|---|---|---|
+| `TestQATupleReferenceElementEquality` | 同对象 `a==a`、同一对象 `a==b` 为 `true` | `false` | **FAIL** |
+| `TestQATupleArrayElementEquality` | 同一数组句柄 `p==q` 为 `true` | `false` | **FAIL** |
+| `TestQATupleStringIdentity` | 内容相同但不同对象 `s1===s2` 为 `false` | `true` | **FAIL** |
+
+E2 自有 `TestTuple*`（sema 13 + interp 5）在 main 上全绿，但不覆盖上述 3 项；不能用其覆盖本判定。
+
+复现：`wt/qa-1/evidence/QA1-anchors-2026-11-07/logs/tuple-qa.log`。
+
+**结论：FAIL，不翻转。** 根因仍是 `valuesEqual` 未覆盖引用类型、`valuesIdentical` 把 `vStr` 当值类型。
+
+---
+
 ## 一、结论
 
 **FAIL。** 值元素路径全绿；**引用元素 `==` 与 String 元素 `===` 两项硬失败**，可空元组的 `?.` null 分支未实现/不可达。

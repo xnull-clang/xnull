@@ -1,0 +1,1 @@
+sh -c cd /private/tmp/xnull-main-fa4fbf9/impl && go test ./internal/codegen -run 'TestS2BND08Factory' -count=1 -v

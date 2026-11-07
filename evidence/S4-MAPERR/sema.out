@@ -1,0 +1,4 @@
+=== RUN   TestS4MapErrTopLevelFunc
+--- PASS: TestS4MapErrTopLevelFunc (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	2.323s

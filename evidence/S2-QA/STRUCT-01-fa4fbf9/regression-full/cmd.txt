@@ -1,0 +1,1 @@
+sh -c cd /private/tmp/xnull-main-fa4fbf9/impl && go test ./... -count=1

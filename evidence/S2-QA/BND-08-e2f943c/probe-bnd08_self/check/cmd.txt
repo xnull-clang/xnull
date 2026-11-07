@@ -1,0 +1,1 @@
+/tmp/xnull-s2-e2f943c check /tmp/qa-d-probes/bnd08_self.x

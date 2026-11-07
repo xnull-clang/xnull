@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04a_const/source.x:2:31: error[TY-223]: 注解字段初始化式必须是编译期常量（§12.1）

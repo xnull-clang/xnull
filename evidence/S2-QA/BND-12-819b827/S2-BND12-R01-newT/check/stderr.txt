@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd12/r01_newT.x:2:23: error[GEN-104]: 泛型函数内不能写 new T()：类型参数不是可构造的运行时类型（§8.3）
+  改为具体类型，或由调用方传入构造好的值

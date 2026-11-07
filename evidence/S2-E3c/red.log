@@ -1,0 +1,23 @@
+=== RUN   TestS2MethodOverload
+=== RUN   TestS2MethodOverload/ByType
+    s2_methods_test.go:20: out="14\n" want="14\n3\n" err=运算 * 的操作数类型不符：String * Int
+=== RUN   TestS2MethodOverload/ByArity
+    s2_methods_test.go:36: out="1\n1\n" want="1\n3\n" err=<nil>
+=== RUN   TestS2MethodOverload/InheritedOverload
+    s2_methods_test.go:54: out="" want="2\n12\n" err=该类型没有成员方法 length：Int
+--- FAIL: TestS2MethodOverload (0.00s)
+    --- FAIL: TestS2MethodOverload/ByType (0.00s)
+    --- FAIL: TestS2MethodOverload/ByArity (0.00s)
+    --- FAIL: TestS2MethodOverload/InheritedOverload (0.00s)
+=== RUN   TestS2StaticMembers
+=== RUN   TestS2StaticMembers/FieldAndMethod
+    s2_methods_test.go:77: out="" want="4\n5\n6\n4\n" err=未定义的名称：C
+=== RUN   TestS2StaticMembers/ChildHidesParent
+    s2_methods_test.go:94: out="" want="1\n2\n" err=未定义的名称：A
+--- FAIL: TestS2StaticMembers (0.00s)
+    --- FAIL: TestS2StaticMembers/FieldAndMethod (0.00s)
+    --- FAIL: TestS2StaticMembers/ChildHidesParent (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	1.173s
+FAIL
+exit=1

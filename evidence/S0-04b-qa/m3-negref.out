@@ -1,0 +1,26 @@
+XNull CI（单步 10）  工作树=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/s04b-gate/clone
+
+FAIL 10 文件名扫描（禁旧扩展名）    219ms (rc=1)
+  ---- 末尾 20 行（完整日志 /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/s04b-gate/clone/ci/.out/step-10.log）----
+  | === [10] 文件名扫描（禁旧扩展名） ===
+  | $ 
+  |     hits=$(find . -path ./.git -prune -o -path ./wt -prune -o -path ./xnull -prune -o -name "*$OLD_EXT" -print)
+  |     if [ -n "$hits" ]; then
+  |       echo "发现旧扩展名文件（S1-22 后应为 0）："
+  |       echo "$hits"
+  |       exit 1
+  |     fi
+  |     refs=$(git grep -n "$REF_RE" -- ":!日志/**" ":!收件箱/**" ":!evidence/**" || true)
+  |     if [ -n "$refs" ]; then
+  |       echo "发现旧扩展名活引用（S1-22 后应为 0）："
+  |       echo "$refs"
+  |       exit 1
+  |     fi
+  |     echo "旧扩展名文件 0，活引用 0"
+  |   
+  | 
+  | 发现旧扩展名活引用（S1-22 后应为 0）：
+  | probe-ref.md:1:probe: hello.xn
+
+—— 汇总：PASS=0 FAIL=1 SKIP=0，用时 431ms ——
+退出码：1

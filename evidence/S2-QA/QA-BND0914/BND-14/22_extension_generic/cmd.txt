@@ -1,0 +1,3 @@
+# forbidden construct probe (BND-14)
+X=/tmp/qa-bnd0914-main
+file=evidence/S2-QA/QA-BND0914/BND-14/22_extension_generic/source.x

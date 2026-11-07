@@ -1,0 +1,6 @@
+--- FAIL: TestS6_03ProcStatusAndHandleClose (0.00s)
+    s6_03_test.go:53: 语义诊断：[/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestS6_03ProcStatusAndHandleClose1610012411/001/main.x:3:11: error[RES-101]: 未定义的名称 `procStatus`（§3.3 四级顺序解析后不可见）
+          局部/参数/顶层声明、导入符号或完全限定名之一]
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.738s
+FAIL

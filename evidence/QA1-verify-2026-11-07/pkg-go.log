@@ -1,0 +1,120 @@
+=== RUN   TestQA2SymbolImport
+=== RUN   TestQA2SymbolImport/single-symbol-visible
+=== RUN   TestQA2SymbolImport/sibling-symbol-hidden
+=== RUN   TestQA2SymbolImport/symbol-missing
+=== RUN   TestQA2SymbolImport/private-symbol
+=== RUN   TestQA2SymbolImport/protected-symbol
+=== RUN   TestQA2SymbolImport/class-symbol
+=== RUN   TestQA2SymbolImport/private-class-symbol
+--- PASS: TestQA2SymbolImport (0.00s)
+    --- PASS: TestQA2SymbolImport/single-symbol-visible (0.00s)
+    --- PASS: TestQA2SymbolImport/sibling-symbol-hidden (0.00s)
+    --- PASS: TestQA2SymbolImport/symbol-missing (0.00s)
+    --- PASS: TestQA2SymbolImport/private-symbol (0.00s)
+    --- PASS: TestQA2SymbolImport/protected-symbol (0.00s)
+    --- PASS: TestQA2SymbolImport/class-symbol (0.00s)
+    --- PASS: TestQA2SymbolImport/private-class-symbol (0.00s)
+=== RUN   TestQA2Alias
+=== RUN   TestQA2Alias/both-aliased
+=== RUN   TestQA2Alias/alias-replaces-original
+=== RUN   TestQA2Alias/one-aliased-one-bare
+=== RUN   TestQA2Alias/needless-alias-single
+=== RUN   TestQA2Alias/package-alias-forbidden
+=== RUN   TestQA2Alias/xdk-package-alias-forbidden
+=== RUN   TestQA2Alias/cross-source-alias-conflict
+=== RUN   TestQA2Alias/same-source-alias-conflict
+=== RUN   TestQA2Alias/alias-vs-top-level
+=== RUN   TestQA2Alias/alias-vs-builtin
+--- PASS: TestQA2Alias (0.00s)
+    --- PASS: TestQA2Alias/both-aliased (0.00s)
+    --- PASS: TestQA2Alias/alias-replaces-original (0.00s)
+    --- PASS: TestQA2Alias/one-aliased-one-bare (0.00s)
+    --- PASS: TestQA2Alias/needless-alias-single (0.00s)
+    --- PASS: TestQA2Alias/package-alias-forbidden (0.00s)
+    --- PASS: TestQA2Alias/xdk-package-alias-forbidden (0.00s)
+    --- PASS: TestQA2Alias/cross-source-alias-conflict (0.00s)
+    --- PASS: TestQA2Alias/same-source-alias-conflict (0.00s)
+    --- PASS: TestQA2Alias/alias-vs-top-level (0.00s)
+    --- PASS: TestQA2Alias/alias-vs-builtin (0.00s)
+=== RUN   TestQA2Disambiguation
+=== RUN   TestQA2Disambiguation/two-bare-same-name
+=== RUN   TestQA2Disambiguation/duplicate-package-import
+=== RUN   TestQA2Disambiguation/duplicate-symbol-import
+=== RUN   TestQA2Disambiguation/top-level-shadow
+=== RUN   TestQA2Disambiguation/package-imports-share-symbol
+=== RUN   TestQA2Disambiguation/three-sources-one-aliased
+=== RUN   TestQA2Disambiguation/alias-vs-bare-name
+--- PASS: TestQA2Disambiguation (0.00s)
+    --- PASS: TestQA2Disambiguation/two-bare-same-name (0.00s)
+    --- PASS: TestQA2Disambiguation/duplicate-package-import (0.00s)
+    --- PASS: TestQA2Disambiguation/duplicate-symbol-import (0.00s)
+    --- PASS: TestQA2Disambiguation/top-level-shadow (0.00s)
+    --- PASS: TestQA2Disambiguation/package-imports-share-symbol (0.00s)
+    --- PASS: TestQA2Disambiguation/three-sources-one-aliased (0.00s)
+    --- PASS: TestQA2Disambiguation/alias-vs-bare-name (0.00s)
+=== RUN   TestQA2Xdk
+=== RUN   TestQA2Xdk/use-without-import
+=== RUN   TestQA2Xdk/explicit-import
+=== RUN   TestQA2Xdk/user-import-does-not-mask
+=== RUN   TestQA2Xdk/type-position-without-import
+=== RUN   TestQA2Xdk/type-position-with-import
+=== RUN   TestQA2Xdk/xdk-symbol-import
+=== RUN   TestQA2Xdk/xdk-symbol-missing
+=== RUN   TestQA2Xdk/xdk-unknown-package
+=== RUN   TestQA2Xdk/xdk-root
+=== RUN   TestQA2Xdk/xdk-net-package
+=== RUN   TestQA2Xdk/xdk-multilevel-package
+--- PASS: TestQA2Xdk (0.00s)
+    --- PASS: TestQA2Xdk/use-without-import (0.00s)
+    --- PASS: TestQA2Xdk/explicit-import (0.00s)
+    --- PASS: TestQA2Xdk/user-import-does-not-mask (0.00s)
+    --- PASS: TestQA2Xdk/type-position-without-import (0.00s)
+    --- PASS: TestQA2Xdk/type-position-with-import (0.00s)
+    --- PASS: TestQA2Xdk/xdk-symbol-import (0.00s)
+    --- PASS: TestQA2Xdk/xdk-symbol-missing (0.00s)
+    --- PASS: TestQA2Xdk/xdk-unknown-package (0.00s)
+    --- PASS: TestQA2Xdk/xdk-root (0.00s)
+    --- PASS: TestQA2Xdk/xdk-net-package (0.00s)
+    --- PASS: TestQA2Xdk/xdk-multilevel-package (0.00s)
+=== RUN   TestQA2ImportCycle
+=== RUN   TestQA2ImportCycle/two-node
+=== RUN   TestQA2ImportCycle/three-node
+=== RUN   TestQA2ImportCycle/self-cycle
+=== RUN   TestQA2ImportCycle/diamond-dag
+=== RUN   TestQA2ImportCycle/xdk-edge-not-cycle
+--- PASS: TestQA2ImportCycle (0.00s)
+    --- PASS: TestQA2ImportCycle/two-node (0.00s)
+    --- PASS: TestQA2ImportCycle/three-node (0.00s)
+    --- PASS: TestQA2ImportCycle/self-cycle (0.00s)
+    --- PASS: TestQA2ImportCycle/diamond-dag (0.00s)
+    --- PASS: TestQA2ImportCycle/xdk-edge-not-cycle (0.00s)
+=== RUN   TestQA2TargetRules
+=== RUN   TestQA2TargetRules/package-missing
+=== RUN   TestQA2TargetRules/default-package-import
+=== RUN   TestQA2TargetRules/default-symbol-import
+=== RUN   TestQA2TargetRules/default-entry-imports-default-fragment
+=== RUN   TestQA2TargetRules/private-use-after-package-import
+--- PASS: TestQA2TargetRules (0.00s)
+    --- PASS: TestQA2TargetRules/package-missing (0.00s)
+    --- PASS: TestQA2TargetRules/default-package-import (0.00s)
+    --- PASS: TestQA2TargetRules/default-symbol-import (0.00s)
+    --- PASS: TestQA2TargetRules/default-entry-imports-default-fragment (0.00s)
+    --- PASS: TestQA2TargetRules/private-use-after-package-import (0.00s)
+=== RUN   TestQA2DiagnosticPosition
+--- PASS: TestQA2DiagnosticPosition (0.00s)
+=== RUN   TestQA2Determinism
+--- PASS: TestQA2Determinism (0.00s)
+=== RUN   TestQA2SyntaxGuards
+=== RUN   TestQA2SyntaxGuards/xdk-prefix-package
+=== RUN   TestQA2SyntaxGuards/wildcard-import
+=== RUN   TestQA2SyntaxGuards/import-after-declaration
+--- PASS: TestQA2SyntaxGuards (0.00s)
+    --- PASS: TestQA2SyntaxGuards/xdk-prefix-package (0.00s)
+    --- PASS: TestQA2SyntaxGuards/wildcard-import (0.00s)
+    --- PASS: TestQA2SyntaxGuards/import-after-declaration (0.00s)
+=== RUN   TestQA2SameSourceAliasVsBare
+=== RUN   TestQA2SameSourceAliasVsBare/alias-name-already-bound
+--- PASS: TestQA2SameSourceAliasVsBare (0.00s)
+    --- PASS: TestQA2SameSourceAliasVsBare/alias-name-already-bound (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.483s

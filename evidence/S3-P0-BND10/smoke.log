@@ -1,0 +1,7 @@
+# main + 两阶段清扫：m.x
+main
+node-deinit helper
+node-deinit helper
+helper-deinit
+helper-deinit
+exit=0

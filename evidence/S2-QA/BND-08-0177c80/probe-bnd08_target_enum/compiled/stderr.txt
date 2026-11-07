@@ -1,0 +1,1 @@
+/tmp/qa-b3-probes/bnd08_target_enum.x:2:9: error[TY-217]: factory Target 必须是 class 或 struct（得到 enum，§10.1）

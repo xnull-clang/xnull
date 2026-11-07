@@ -1,0 +1,1 @@
+difftest/s2/bnd01/r01_private_outside.x:6:12: error[TY-207]: 外部访问私有字段 `x`（规范名 `_x`）：私有访问错误（§7.4）

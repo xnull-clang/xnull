@@ -1,0 +1,32 @@
+# 证据七件套
+command.txt       present
+stdout.txt        present
+stderr.txt        present
+exit_code.txt     present
+sha.txt           present
+artifact.sha256   present
+acceptance.md     present
+
+# artifact.sha256 复算
+impl/internal/sema/ty.go: OK
+impl/internal/sema/tuple_test.go: OK
+impl/internal/interp/interp.go: OK
+impl/internal/interp/values.go: OK
+impl/internal/interp/tuple_test.go: OK
+EXIT=0
+
+# sha.txt
+ba4458a8e843
+
+# HEAD / 代码提交
+53c32c756e84614091823b2dd06f101726508791 M1-TUPLE-01: 回执与验收结论标注 DONE
+555ac6b4496908649e2b43e8036801cbf970a14e M1-TUPLE-01: 用最终测试重采集红输出
+1def279d523b7f505d0957c2c1f188900299b2db M1-TUPLE-01: 记录验收提交 sha
+ba4458a8e84394de6ee6d79b482e8b08954610e4 M1-TUPLE-01: 元组类型身份/元素访问/相等插值与拒绝项全绿
+81ec33d574347bf6f36ffeb8963c57e5145a3cf5 ops: create 9 research worktrees and branches (S0-28)
+
+# ba4458a..53c32c7 impl 差异
+(空=无差异)
+
+# 测试文件在 555ac6b 与 53c32c7 是否变化
+(空=无差异)

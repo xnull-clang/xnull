@@ -1,0 +1,210 @@
+2026-11-07 14:28:35 timer started (900s)
+
+## 2026-11-07 14:43:35
+- 窗口：2026-11-07 14:28:35 → now
+- commits：26
+- status.tsv PASS 行：11
+- busy 会话：5
+- 最近：da4d282 merge: main@20f101d into pod/e4-codegen;3749bd3 fix(xfront/sema): NEG-1.3 余项 type别名/Array/true声明名拒绝，NEG 60/60;a56110d test(qa): re-verify PKG/TUPLE/ENTRY on main d349f6a (all FAIL with items); ERR PASS after §10.3 expectation fix;
+2026-11-07 14:43:49 timer started (900s)
+
+## 2026-11-07 14:58:49
+- window: 2026-11-07 14:43:49 -> now
+- commits: 33
+- status.tsv PASS rows: 11
+- busy sessions: 4
+- recent: 2a239dd merge: main@7db5266 into tmp/merge-e2;5d5b422 Merge branch 'main' into pod/qa-1;d24ec4e test(qa): anchor re-verification harness (GEN/NEG/PKG) + QA1-EXP-004b handoff;
+2026-11-07 14:58:49 pushed
+
+## 2026-11-07 19:29:03
+- window: 2026-11-07 19:14:03 -> now
+- commits: 2
+- status.tsv PASS rows: 30
+- busy sessions: 3
+- recent: e2f943c docs(S2): 门报告/ADR-004/回执/QA evidence 入库（防工作区丢失）;4b574dd recover(S2): restore code+books after main race; status PASS=29, golden sync;
+2026-11-07 19:29:03 pushed
+
+## 2026-11-07 19:44:05
+- window: 2026-11-07 19:29:05 -> now
+- commits: 0
+- status.tsv PASS rows: 30
+- busy sessions: 1
+- recent: 
+2026-11-07 19:44:05 pushed
+
+## 2026-11-07 19:59:05
+- window: 2026-11-07 19:44:05 -> now
+- commits: 3
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 35b27f6 docs: trial review commit count = 243 (6h window);03de694 final(6h): SSOT board green, last-green refresh, PCTOR book, trial review v1.0.0;18a69f1 sign(S2): BND-06 + PCTOR-01 PASS; BND-07/08/INT-01 gaps recorded; status PASS=30;
+2026-11-07 19:59:05 pushed
+
+## 2026-11-07 20:14:06
+- window: 2026-11-07 19:59:06 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 20:14:06 pushed
+
+## 2026-11-07 20:29:07
+- window: 2026-11-07 20:14:07 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 20:29:07 pushed
+
+## 2026-11-07 20:44:08
+- window: 2026-11-07 20:29:08 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 20:44:08 pushed
+
+## 2026-11-07 20:59:08
+- window: 2026-11-07 20:44:08 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 20:59:08 pushed
+
+## 2026-11-07 21:14:09
+- window: 2026-11-07 20:59:09 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 21:14:09 pushed
+
+## 2026-11-07 21:29:10
+- window: 2026-11-07 21:14:10 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 21:29:10 pushed
+
+## 2026-11-07 21:44:10
+- window: 2026-11-07 21:29:10 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 21:44:10 pushed
+
+## 2026-11-07 21:59:11
+- window: 2026-11-07 21:44:11 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 21:59:11 pushed
+
+## 2026-11-07 22:14:12
+- window: 2026-11-07 21:59:12 -> now
+- commits: 0
+- status.tsv PASS rows: 31
+- busy sessions: 2
+- recent: 
+2026-11-07 22:14:12 pushed
+
+## 2026-11-07 22:29:12
+- window: 2026-11-07 22:14:12 -> now
+- commits: 4
+- status.tsv PASS rows: 31
+- busy sessions: 4
+- recent: d1790fa merge(pod/e3-interp): S2 singleton interp runtime;cfa9c62 feat(interp): singleton instance + startup init (S2-BND07);44bfcad governance: ADR-006 试行转正式; 索引同步 B1/M1/PASS 与 M2 14/29;
+2026-11-07 22:29:12 pushed
+
+## 2026-11-07 22:44:13
+- window: 2026-11-07 22:29:13 -> now
+- commits: 16
+- status.tsv PASS rows: 31
+- busy sessions: 4
+- recent: cf70f03 fix(sema): PROTO-01 null/协议引用与实现检查补口;7f0d6e1 merge: E2 BND-09/BND-14 S2 合入 main;41147fe docs(S2): E4 BND-13/EXT-01 回执;
+2026-11-07 22:44:13 pushed
+
+## 2026-11-07 22:59:14
+- window: 2026-11-07 22:44:14 -> now
+- commits: 21
+- status.tsv PASS rows: 35
+- busy sessions: 7
+- recent: 3041767 sign(S2): BND-09 + BND-14 PASS; status PASS=34;6073335 docs(S2): E4 BND-15 + EXT-01 回执;f4d1d44 test(codegen): EXT-01 合法扩展重载（元数/类型）回归;
+2026-11-07 22:59:14 pushed
+
+## 2026-11-07 23:14:15
+- window: 2026-11-07 22:59:15 -> now
+- commits: 5
+- status.tsv PASS rows: 36
+- busy sessions: 3
+- recent: e150227 merge: E4 SINGLE-01 单例静态成员 合入 main;5c262d1 sign(S2): PROTO-01 PASS; status PASS=35;49bce1c docs(S2): E4 SINGLE-01 回执;
+2026-11-07 23:14:15 pushed
+
+## 2026-11-07 23:29:16
+- window: 2026-11-07 23:14:16 -> now
+- commits: 13
+- status.tsv PASS rows: 37
+- busy sessions: 4
+- recent: cf76614 docs(S2): E4 BND-10b 回执（E5 后剩余缺口）;a34a392 fix(codegen): BND-10b 全局根与 GC 单例/数据枚举（不重复 E5 实现）;6e37d88 merge: E2 GATE-01 诊断码表 + new 非 class 拒绝 合入 main;
+2026-11-07 23:29:16 pushed
+
+## 2026-11-07 23:44:17
+- window: 2026-11-07 23:29:17 -> now
+- commits: 2
+- status.tsv PASS rows: 40
+- busy sessions: 1
+- recent: af857c2 sign(S2): ANN-01 + BND-13 + EXT-01 PASS; status PASS=39;f7628b9 merge: E4 BND-10b 全局根 + GC 单例/数据枚举 合入 main;
+2026-11-07 23:44:17 pushed
+2026-11-08 00:12:54 timer started (900s)
+
+## 2026-11-08 00:27:54
+- window: 2026-11-08 00:12:54 -> now
+- commits: 0
+- status.tsv PASS rows: 42
+- busy sessions: 0
+- recent: 
+2026-11-08 00:27:54 pushed
+
+## 2026-11-08 00:42:55
+- window: 2026-11-08 00:27:55 -> now
+- commits: 1
+- status.tsv PASS rows: 45
+- busy sessions: 0
+- recent: e4b8f21 sign(S2): MEM-01 + MEM-02 + BND-10 PASS; GATE-01 门报告 PASS; status PASS=44;
+2026-11-08 00:42:55 pushed
+
+## 2026-11-08 00:57:56
+- window: 2026-11-08 00:42:56 -> now
+- commits: 9
+- status.tsv PASS rows: 46
+- busy sessions: 1
+- recent: 427ce94 docs(e5): S3-07/S3-08 回执（d433715 / 153be78）;153be78 feat(runtime,codegen): 分配统计/GC 指标与 --mem/--stats 选项（S3-08）;d60e7c9 docs(S3): E4 S3-09 类字段 8 字节槽回执;
+2026-11-08 00:57:56 pushed
+
+## 2026-11-08 01:12:56
+- window: 2026-11-08 00:57:56 -> now
+- commits: 0
+- status.tsv PASS rows: 46
+- busy sessions: 1
+- recent: 
+2026-11-08 01:12:56 pushed
+
+## 2026-11-08 01:27:57
+- window: 2026-11-08 01:12:57 -> now
+- commits: 0
+- status.tsv PASS rows: 46
+- busy sessions: 1
+- recent: 
+2026-11-08 01:27:57 pushed
+
+## 2026-11-08 01:42:57
+- window: 2026-11-08 01:27:57 -> now
+- commits: 0
+- status.tsv PASS rows: 46
+- busy sessions: 1
+- recent: 
+2026-11-08 01:42:57 pushed

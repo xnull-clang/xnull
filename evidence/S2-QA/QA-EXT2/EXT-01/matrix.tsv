@@ -1,0 +1,17 @@
+A01_class	check=0	interp=0	compiled=0	interp_out=L:x|	compiled_out=L:x|
+A01_struct	check=0	interp=0	compiled=0	interp_out=6|	compiled_out=6|
+A01_singleton	check=1	interp=1	compiled=1	interp_out=	compiled_out=
+A01_dataenum	check=1	interp=1	compiled=1	interp_out=	compiled_out=
+A01_overloads	check=0	interp=0	compiled=0	interp_out=1|2|5|	compiled_out=1|2|5|
+A02_vtable	check=0	interp=0	compiled=0	interp_out=2|1|	compiled_out=2|1|
+R01a_dup_ext	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R01a_dup_ext/source.x:3:11: error[TY-225]: 同一类型 `C` 存在重复 extension 声明（§11.1）
+R01b_same_existing	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R01b_same_existing/source.x:2:19: error[TY-225]: extension 方法 `f` 与已有/继承/其他扩展同签名（§11.1/§11.2）
+R01c_same_inherited	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R01c_same_inherited/source.x:3:19: error[TY-225]: extension 方法 `f` 与已有/继承/其他扩展同签名（§11.1/§11.2）
+R01d_subclass_override	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R01d_subclass_override/source.x:3:19: error[TY-203]: 子类方法 `f` 覆写了扩展方法（§11.2）
+R02_protocol_impl	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R02_protocol_impl/source.x:2:7: error[TY-208]: 类 `C` 未实现协议 `P` 的方法 `f`（§4.3）
+R03a_generic	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R03a_generic/source.x:2:11: error[TY-225]: extension Target 不能写泛型实参（§11.1）
+R03c_predef	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R03c_predef/source.x:1:11: error[TY-225]: extension 不能扩展预定义类型 `Int`（§11.1）
+R03d_simple_enum	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R03d_simple_enum/source.x:2:11: error[TY-225]: extension Target 必须是同包 class/struct（得到 enum，§11.1）
+R04a_private	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R04a_private/source.x:2:19: error[TY-225]: extension 方法只能访问目标公开成员（§11.3）
+R04b_protected	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R04b_protected/source.x:2:19: error[TY-225]: extension 方法只能访问目标公开成员（§11.3）
+R03b_crosspkg	check=0	first=

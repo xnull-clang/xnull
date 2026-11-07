@@ -1,0 +1,4 @@
+# command
+go vet ./...
+# output
+EXIT=0

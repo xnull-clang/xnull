@@ -1,0 +1,32 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-ANN-a01_decl_use	ANN-01	check	声明+类/字段/方法/参数使用合法	rc=0	PASS	S2-ANN-a01_decl_use/check/
+S2-ANN-a01_decl_use	ANN-01	interp	3	3, rc=0	PASS	S2-ANN-a01_decl_use/interp/
+S2-ANN-a01_decl_use	ANN-01	compiled	3	3, rc=0	PASS	S2-ANN-a01_decl_use/compiled/
+S2-ANN-a02_override_protocol	ANN-01	check	@Override 对应协议方法合法	rc=0	PASS	S2-ANN-a02_override_protocol/check/
+S2-ANN-a02_override_protocol	ANN-01	interp	true	true, rc=0	PASS	S2-ANN-a02_override_protocol/interp/
+S2-ANN-a02_override_protocol	ANN-01	compiled	true	true, rc=0	PASS	S2-ANN-a02_override_protocol/compiled/
+S2-ANN-a03_no_runtime	ANN-01	check	注解无运行期对象	rc=0	PASS	S2-ANN-a03_no_runtime/check/
+S2-ANN-a03_no_runtime	ANN-01	interp	3	3, rc=0	PASS	S2-ANN-a03_no_runtime/interp/
+S2-ANN-a03_no_runtime	ANN-01	compiled	3	3, rc=0	PASS	S2-ANN-a03_no_runtime/compiled/
+S2-ANN-r01_nonfinal	ANN-01	check	注解字段必须 final	rc=1 SYN-101	PASS	S2-ANN-r01_nonfinal/check/
+S2-ANN-r01_missing_init	ANN-01	check	注解字段必须有初始化式	rc=1 SYN-101	PASS	S2-ANN-r01_missing_init/check/
+S2-ANN-r01_bad_type	ANN-01	check	注解字段类型必须编译期常量	rc=1 2:19 TY-223	PASS	S2-ANN-r01_bad_type/check/
+S2-ANN-r01_nonconst_init	ANN-01	check	注解字段初始化式必须编译期常量	rc=0 无诊断	FAIL	S2-ANN-r01_nonconst_init/check/
+S2-ANN-r02_unknown	ANN-01	check	未知注解拒绝	rc=1 1:1 TY-223	PASS	S2-ANN-r02_unknown/check/
+S2-ANN-r02_duplicate	ANN-01	check	同目标重复注解拒绝	rc=1 3:1 TY-223	PASS	S2-ANN-r02_duplicate/check/
+S2-ANN-r02_override_field	ANN-01	check	@Override 只能用于方法	rc=1 1:11 TY-223	PASS	S2-ANN-r02_override_field/check/
+S2-ANN-r02_readonly_method	ANN-01	check	@ReadOnly 只能用于字段	rc=1 1:11 TY-223	PASS	S2-ANN-r02_readonly_method/check/
+S2-ANN-r02_args_extra	ANN-01	check	多余参数拒绝	rc=0 无诊断	FAIL	S2-ANN-r02_args_extra/check/
+S2-ANN-r02_args_type	ANN-01	check	参数类型必须可赋给字段	rc=0 无诊断	FAIL	S2-ANN-r02_args_type/check/
+S2-ANN-r02_args_nonconst	ANN-01	check	参数必须是编译期常量	rc=0 无诊断	FAIL	S2-ANN-r02_args_nonconst/check/
+S2-ANN-r03_override_parent	ANN-01	check	@Override 不能标父类方法	rc=1 TY-203 + TY-208	PASS	S2-ANN-r03_override_parent/check/
+S2-ANN-r03_override_none	ANN-01	check	@Override 无协议方法拒绝	rc=1 1:25 TY-208	PASS	S2-ANN-r03_override_none/check/
+S2-ANN-r04_arc	ANN-01	check	源码 @arc 拒绝	rc=1 TY-201 + TY-223	PASS	S2-ANN-r04_arc/check/
+S2-ANN-r04_gc_field	ANN-01	check	源码 @gc 拒绝	rc=1 TY-223	PASS	S2-ANN-r04_gc_field/check/
+S2-ANN-r05_as_type	ANN-01	check	注解不能作为类型/值	rc=0 无诊断；interp rc=0；compiled rc=1 codegen	FAIL	S2-ANN-r05_as_type/
+S2-ANN-r05_new	ANN-01	check	注解不能 new	rc=0 无诊断；interp/compiled rc=1	FAIL	S2-ANN-r05_new/
+S2-ANN-r06_method	ANN-01	check	注解不能有方法	rc=1 SYN-101	PASS	S2-ANN-r06_method/check/
+S2-ANN-r07_enum_item_unknown	ANN-01	check	枚举项未知注解拒绝	rc=0 无诊断；双路径 rc=0	FAIL	S2-ANN-r07_enum_item_unknown/
+S2-ANN-r08_topfunc_param_unknown	ANN-01	check	顶层函数参数未知注解拒绝	rc=0 无诊断	FAIL	S2-ANN-r08_topfunc_param_unknown/check/
+S2-ANN-r09_param_ok	ANN-01	check	参数注解合法	rc=0；双路径 2	PASS	S2-ANN-r09_param_ok/
+S2-ANN-CI	ANN-01	gotest	TestS2ANN01 / TestS2ANN01* PASS	PASS	gotest-sema/,gotest-codegen/

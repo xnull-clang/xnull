@@ -1,0 +1,16 @@
+=== RUN   TestS4CLEAN01ErrdeferCompensation
+--- PASS: TestS4CLEAN01ErrdeferCompensation (0.00s)
+=== RUN   TestS4CLEAN01CompensationFailure
+=== RUN   TestS4CLEAN01CompensationFailure/ReportCompensationFailure
+    s4_clean_test.go:92: out="comp:comp-fail\ndR\nerr:orig\n" want="comp:comp-fail\nerr:orig\ndR\n" err=<nil>
+=== RUN   TestS4CLEAN01CompensationFailure/MultiStepRollback
+--- FAIL: TestS4CLEAN01CompensationFailure (0.00s)
+    --- FAIL: TestS4CLEAN01CompensationFailure/ReportCompensationFailure (0.00s)
+    --- PASS: TestS4CLEAN01CompensationFailure/MultiStepRollback (0.00s)
+=== RUN   TestS4CLEANTempArgDeinitOrder
+    s4_clean_test.go:140: out="dR\nerr:x\n" want="err:x\ndR\n" err=<nil>
+--- FAIL: TestS4CLEANTempArgDeinitOrder (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.692s
+FAIL
+exit=1

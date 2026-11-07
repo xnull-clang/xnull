@@ -275,6 +275,7 @@ type ForStmt struct {
 
 // SwitchCase 是一个 case/default 子句（独立作用域，S1 §6.8）。
 type SwitchCase struct {
+	P       Pos  // case/default 关键字位置（default 位置检查用）
 	Expr    Expr // Default 时为 nil
 	Stmts   []Stmt
 	Default bool

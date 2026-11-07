@@ -1,0 +1,1 @@
+/tmp/xnull-s2-8f50690 run --runtime /tmp/xnull-main-8f50690/impl/runtime /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/a03_data_enum.x 

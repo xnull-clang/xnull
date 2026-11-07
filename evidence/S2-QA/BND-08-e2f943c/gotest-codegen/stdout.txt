@@ -1,0 +1,6 @@
+=== RUN   TestS2BND08Factory
+--- PASS: TestS2BND08Factory (2.14s)
+=== RUN   TestS2BND08FactoryGeneric
+--- PASS: TestS2BND08FactoryGeneric (1.76s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	4.628s

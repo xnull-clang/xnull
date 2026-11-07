@@ -1,0 +1,11 @@
+=== RUN   TestS2StructValueSemantics
+=== RUN   TestS2StructValueSemantics/CopyIndependence
+=== RUN   TestS2StructValueSemantics/NestedNullableFields
+=== RUN   TestS2StructValueSemantics/NestedCopyIndependent
+--- PASS: TestS2StructValueSemantics (0.00s)
+    --- PASS: TestS2StructValueSemantics/CopyIndependence (0.00s)
+    --- PASS: TestS2StructValueSemantics/NestedNullableFields (0.00s)
+    --- PASS: TestS2StructValueSemantics/NestedCopyIndependent (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	1.416s
+exit=0

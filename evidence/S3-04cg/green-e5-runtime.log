@@ -1,0 +1,10 @@
+=== RUN   TestS3_04cgTextSBStringEmission
+--- PASS: TestS3_04cgTextSBStringEmission (0.00s)
+=== RUN   TestS3_04cgStringBytesRoots
+--- PASS: TestS3_04cgStringBytesRoots (0.89s)
+=== RUN   TestS3_04cgFieldScan
+--- PASS: TestS3_04cgFieldScan (0.90s)
+=== RUN   TestS3_04cgTextSBRun
+--- PASS: TestS3_04cgTextSBRun (0.88s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	3.271s

@@ -1,0 +1,4 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/BND-12-47fedb8/probes/class_generic_method.x:2:5: error[RES-101]: 未定义的类型 `U`（§3.3/§8.1）
+  检查拼写，或先声明/导入该类型
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/BND-12-47fedb8/probes/class_generic_method.x:2:18: error[RES-101]: 未定义的类型 `U`（§3.3/§8.1）
+  检查拼写，或先声明/导入该类型

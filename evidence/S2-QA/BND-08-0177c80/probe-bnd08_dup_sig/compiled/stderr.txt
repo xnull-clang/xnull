@@ -1,0 +1,8 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-604509325/prog.c:180:12: error: redefinition of 'xn_Factory_F_make'
+  180 | xn_Cls_D * xn_Factory_F_make() {
+      |            ^
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-604509325/prog.c:175:12: note: previous definition is here
+  175 | xn_Cls_D * xn_Factory_F_make() {
+      |            ^
+1 error generated.
+xnull: C 编译失败：exit status 1

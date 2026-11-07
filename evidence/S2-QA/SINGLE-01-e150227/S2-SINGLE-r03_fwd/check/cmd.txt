@@ -1,0 +1,1 @@
+/tmp/xnull-s2-bnd15 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/single01/r03_fwd.x

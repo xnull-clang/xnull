@@ -1,0 +1,13 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-STRUCT-A01	STRUCT-01	interp	赋值副本独立: 1\n10\n3\n12	rc=1; 未定义的类：Point	FAIL	S2-STRUCT-A01/interp/
+S2-STRUCT-A01	STRUCT-01	compiled	1\n10\n3\n12	1\n10\n3\n12, rc=0	PASS	S2-STRUCT-A01/compiled/
+S2-STRUCT-A02	STRUCT-01	interp	嵌套值 struct + Int? 字段: 1\n5	rc=1; 未定义的类：Outer	FAIL	S2-STRUCT-A02/interp/
+S2-STRUCT-A02	STRUCT-01	compiled	1\n5	rc=1; codegen 可空表达式 *xfront.Member 未支持	FAIL	S2-STRUCT-A02/compiled/
+S2-STRUCT-R01-string	STRUCT-01	check	String 字段拒绝	rc=1; 2:12 error[TY-204]	PASS	S2-STRUCT-R01-string/check/
+S2-STRUCT-R01-array	STRUCT-01	check	数组字段拒绝	rc=1; 2:11 error[TY-204]	PASS	S2-STRUCT-R01-array/check/
+S2-STRUCT-R01-class	STRUCT-01	check	class 字段拒绝	rc=1; 3:7 error[TY-204]	PASS	S2-STRUCT-R01-class/check/
+S2-STRUCT-R02-deinit	STRUCT-01	check	struct deinit 拒绝	rc=1; 3:10 error[TY-204]	PASS	S2-STRUCT-R02-deinit/check/
+S2-STRUCT-R02-recursive	STRUCT-01	check	递归值包含拒绝	rc=1; 2:7 error[TY-204]	PASS	S2-STRUCT-R02-recursive/check/
+S2-STRUCT-R02-generic	STRUCT-01	check	非值泛型实参拒绝	rc=1; 5:17 error[TY-204]	PASS	S2-STRUCT-R02-generic/check/
+S2-STRUCT-D01	STRUCT-01	dual	A01/A02 双路径一致	A01 interp 失败；A02 双路径失败	FAIL	S2-STRUCT-A01/,S2-STRUCT-A02/
+S2-STRUCT-CI	STRUCT-01	gotest	sema/codegen struct 用例 PASS	PASS	gotest-sema/,gotest-codegen/

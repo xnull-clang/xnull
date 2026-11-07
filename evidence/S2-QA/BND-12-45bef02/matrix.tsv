@@ -1,0 +1,10 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-BND12-R01-newT	BND-12	check	泛型内 new T() 拒绝	rc=1; 2:23 error[GEN-104]	PASS	S2-BND12-R01-newT/check/
+S2-BND12-R01-staticT	BND-12	check	静态成员使用类类型参数拒绝	rc=1; 2:14 error[TY-214]	PASS	S2-BND12-R01-staticT/check/
+S2-BND12-R02-generic-protocol	BND-12	check	泛型协议拒绝	rc=1; 1:11 error[SYN-101]	PASS	S2-BND12-R02-generic-protocol/check/
+S2-BND12-R02-assoc	BND-12	check	关联类型拒绝	rc=1; 2:21 error[SYN-101]	PASS	S2-BND12-R02-assoc/check/
+S2-BND12-R03-struct-arg	BND-12	check	泛型 struct 非值实参拒绝	rc=1; 5:17 error[TY-204]	PASS	S2-BND12-R03-struct-arg/check/
+S2-BND12-R03-struct-unused	BND-12	check	类型参数不出现在字段仍拒绝	rc=1; 5:17 error[TY-204]	PASS	S2-BND12-R03-struct-unused/check/
+S2-BND12-A01	BND-12	interp	泛型类单态化补充正例: 7	7, rc=0	PASS	S2-BND12-A01/interp/
+S2-BND12-A01	BND-12	compiled	7	7, rc=0	PASS	S2-BND12-A01/compiled/
+S2-BND12-CI	BND-12	gotest	sema/codegen GEN01 用例 PASS	PASS	gotest-sema/,gotest-codegen/

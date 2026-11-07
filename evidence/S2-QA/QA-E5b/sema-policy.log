@@ -1,0 +1,12 @@
+=== RUN   TestPolicyTable
+--- PASS: TestPolicyTable (0.00s)
+=== RUN   TestPolicyDeterministic
+--- PASS: TestPolicyDeterministic (0.00s)
+=== RUN   TestPolicySelfCaptureScan
+--- PASS: TestPolicySelfCaptureScan (0.00s)
+=== RUN   TestPolicyStructSelfCapture
+--- PASS: TestPolicyStructSelfCapture (0.00s)
+=== RUN   TestPolicyInternalAnnos
+--- PASS: TestPolicyInternalAnnos (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.353s

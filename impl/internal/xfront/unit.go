@@ -107,7 +107,6 @@ func (n *TopField) Pos() Pos    { return n.P }
 // ParseUnit 解析整个编译单元（4d 入口；词法 + 语法诊断全部返回，不中断）。
 func ParseUnit(file, src string) (*CompilationUnit, []diag.Diagnostic) {
 	toks, diags := Lex(file, src)
-	toks = dropSemiInAnnotation(toks)
 	p := &parser{file: file, toks: toks, errs: diags}
 	u := &CompilationUnit{P: p.cur().Pos}
 	if p.atKw("package") {
@@ -124,39 +123,6 @@ func ParseUnit(file, src string) (*CompilationUnit, []diag.Diagnostic) {
 		u.Decls = append(u.Decls, p.parseTopDecl())
 	}
 	return u, p.errs
-}
-
-// dropSemiInAnnotation 丢弃注解应用与所附声明之间的自动分号：
-// `@Range(0, 100)\nInt pct = 50` 中 `)` 后的换行会触发分号插入，
-// 但注解总是附着到下一个声明（§1.6 语句终止不适用于注解行）。
-// 从 Annotation token 起进入注解态；遇到声明起始关键字退出；注解态内的 Semi 丢弃。
-func dropSemiInAnnotation(toks []Token) []Token {
-	out := toks[:0:0]
-	pending := false
-	for _, tk := range toks {
-		if tk.Kind == Annotation {
-			pending = true
-			out = append(out, tk)
-			continue
-		}
-		if pending {
-			if tk.Kind == Semi {
-				continue // 丢弃
-			}
-			if tk.Kind == Keyword && annoDeclStart[tk.Text] {
-				pending = false
-			}
-		}
-		out = append(out, tk)
-	}
-	return out
-}
-
-var annoDeclStart = map[string]bool{
-	"package": true, "import": true, "static": true, "final": true, "const": true,
-	"public": true, "protected": true, "private": true, "void": true,
-	"class": true, "struct": true, "protocol": true, "enum": true,
-	"singleton": true, "extension": true, "annotation": true,
 }
 
 func (p *parser) parseQualifiedName(what string) []string {
@@ -213,7 +179,7 @@ func (p *parser) parseImportDecl() *ImportDecl {
 
 var typeDeclKeywords = map[string]bool{
 	"class": true, "struct": true, "protocol": true, "enum": true,
-	"singleton": true, "extension": true, "annotation": true,
+	"singleton": true, "factory": true, "extension": true, "annotation": true,
 }
 
 // parseTopDecl = { Annotation } { TopLevelModifier } 顶层函数 | 顶层字段。
@@ -222,71 +188,29 @@ func (p *parser) parseTopDecl() TopDecl {
 	t := p.cur()
 	var annos []*AnnotationNode
 	for p.at(Annotation) {
+		// `@annotation Name {` 是注解声明（S2 §12.1），不是注解使用。
+		if p.annotationDeclFollows() {
+			return p.parseAnnotationDecl(annos, TypeModifiers{})
+		}
 		annos = append(annos, p.parseAnnotation())
-	}
-	vis, static := p.parseTopModifiers()
-	// 类型声明（M2.5.1）：class/struct/protocol/enum 走正式解析；
-	// abstract/final 前缀先并入修饰符再判断；singleton/factory/extension/@annotation
-	// 声明仍属后续批次，报 SYN-110 并跳过整个声明。
-	if p.atKw("abstract") || p.atKw("final") {
-		if kw, off := p.typeKeywordAhead(); kw != "" {
-			mod := TypeModifiers{}
-			switch {
-			case vis[0]:
-				mod.Vis = "public"
-			case vis[1]:
-				mod.Vis = "protected"
-			case vis[2]:
-				mod.Vis = "private"
-			}
-			mod.Static = static
-			for k := 0; k < off; k++ {
-				mod2 := p.parseTypeModifiers()
-				if mod2.Vis != "" {
-					mod.Vis = mod2.Vis
-				}
-				mod.Abstract = mod.Abstract || mod2.Abstract
-				mod.Final = mod.Final || mod2.Final
-				mod.Static = mod.Static || mod2.Static
-				mod.Const = mod.Const || mod2.Const
-			}
-			if typeDeclKeywords[kw] && kw != "singleton" && kw != "extension" && kw != "annotation" {
-				kwt := p.next().Text
-				return p.parseTypeDecl(annos, kwt, mod)
-			}
-		}
-	}
-	if p.at(Keyword) && typeDeclKeywords[p.cur().Text] {
-		kw := p.next().Text
-		if kw == "class" || kw == "struct" || kw == "protocol" || kw == "enum" {
-			mod := TypeModifiers{}
-			switch {
-			case vis[0]:
-				mod.Vis = "public"
-			case vis[1]:
-				mod.Vis = "protected"
-			case vis[2]:
-				mod.Vis = "private"
-			}
-			mod.Static = static
-			return p.parseTypeDecl(annos, kw, mod)
-		}
-		// singleton/factory/extension/@annotation：待后续批次
-		p.err(t.Pos, synTypeDecl, "类型声明（"+kw+"）属第 2 部分，语法层待 S2 切片实现", "")
-		depth := 0
-		for !p.at(EOF) {
-			if p.at(LBrace) {
-				depth++
-			} else if p.at(RBrace) {
-				depth--
-				if depth <= 0 {
-					p.i++
-					break
-				}
-			}
+		// 注解行末的自动分号不终止声明（§1.6：注解总是附着到其后的声明）。
+		if p.at(Semi) {
 			p.i++
 		}
-		return &TopField{P: t.Pos, Annos: annos, Name: "<err>"}
+	}
+	vis, static := p.parseTopModifiers()
+	if p.annotationDeclFollows() {
+		return p.parseAnnotationDecl(annos, modFromVis(vis, static))
+	}
+	// 类型声明：{Annotation} {TypeModifier} TypeDeclBody（S2 附录 A）。
+	// typeKeywordAhead 负责跳过 abstract/final；其余修饰符由 parseTypeModifiers 合并。
+	if kw, off := p.typeKeywordAhead(); kw != "" {
+		mod := modFromVis(vis, static)
+		for k := 0; k < off; k++ {
+			mod.merge(p.parseTypeModifiers())
+		}
+		p.next() // 类型声明关键字
+		return p.parseTypeDecl(annos, kw, mod)
 	}
 	// final/const 只出现在字段（函数返回类型不会是 final）。
 	if p.atKw("final") || p.atKw("const") {
@@ -300,6 +224,9 @@ func (p *parser) parseTopDecl() TopDecl {
 			f.Const = true
 		}
 		f.Type = p.parseTopType()
+		if f.Const && tupleTypeRef(f.Type) {
+			p.err(f.Type.Pos(), synTypeDecl, "元组不能作为 const 类型（§2.11）", "")
+		}
 		f.Name = p.expectKind(Ident, "声明名").Text
 		if p.atOp("=") {
 			p.i++
@@ -472,6 +399,15 @@ func (p *parser) parseAnnotation() *AnnotationNode {
 	return a
 }
 
+// tupleTypeRef 判断类型是否为元组（含 `?` / `[]` 后缀），用于 const 类型拒绝（§2.11）。
+func tupleTypeRef(t TypeRef) bool {
+	if st, ok := t.(*SuffixedType); ok {
+		return tupleTypeRef(st.Base)
+	}
+	_, ok := t.(*TupleTypeRef)
+	return ok
+}
+
 // tryTypeRefQuietTop 顶层声明位置的类型解析：不吞 `(`（函数实参表归函数，
 // 与 new 的处理同理），失败回退。
 func (p *parser) tryTypeRefQuietTop() TypeRef {
@@ -487,7 +423,12 @@ func (p *parser) tryTypeRefQuietTop() TypeRef {
 // parseTopType 解析顶层声明的类型：命名类型 + 后缀；`(` 不构成函数类型
 // （顶层 `static Type name(` 的 `(` 永远是参数表，附录 A 文法说明同理）。
 func (p *parser) parseTopType() TypeRef {
-	base := p.parseNamedType()
+	var base TypeRef
+	if p.at(LParen) { // 顶层返回类型/字段允许元组（§2.11）
+		base = p.parseTupleType()
+	} else {
+		base = p.parseNamedType()
+	}
 	var suffixes []string
 	for {
 		if p.at(LBrack) && p.toks[min(p.i+1, len(p.toks)-1)].at(RBrack) {

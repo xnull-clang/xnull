@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/r01_abstract_new.x:5:11: error[TY-210]: 抽象类 `A` 不能实例化（§2.6）
+  由具体子类实例化，或去掉 abstract

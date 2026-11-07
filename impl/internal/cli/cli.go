@@ -164,6 +164,9 @@ func parseFlags(args []string) *diag.Diagnostic {
 			break
 		}
 		if len(a) > 1 && a[0] == '-' && a[1] == '-' {
+			if strings.HasPrefix(a, "--mem=") {
+				continue
+			}
 			if _, ok := knownFlags[a]; !ok {
 				return &diag.Diagnostic{
 					File: "xnull", Line: 1, Col: 1, Code: codeUnknownFlag,
@@ -227,6 +230,7 @@ var knownFlags = map[string]struct{}{
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
+	"--mem": {}, "--stats": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。
@@ -317,7 +321,7 @@ func interpFile(env Env, path string, progArgs []string) int {
 		}
 		return exitcode.BuildFail
 	}
-	code, err := interp.Run(u, env.Stdout, progArgs)
+	code, err := interp.RunWithDiag(u, env.Stdout, env.Stderr, progArgs)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
 	}
@@ -345,23 +349,31 @@ func checkEntry(path string) *diag.Diagnostic {
 			Message: "找不到入口 main",
 			Hint:    "入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）",
 		}
-	case 1:
-		if msg := entrySignatureProblem(mains[0]); msg != "" {
-			return &diag.Diagnostic{
-				File: path, Line: mains[0].P.Line, Col: mains[0].P.Col, Code: codeEntrySignature,
-				Message: "入口 main 的签名不合法：" + msg,
-				Hint:    "入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）",
-			}
-		}
-		return nil
-	default:
-		dup := mains[1]
-		return &diag.Diagnostic{
-			File: path, Line: dup.P.Line, Col: dup.P.Col, Code: codeEntryDuplicate,
-			Message: fmt.Sprintf("重复入口 main：发现 %d 个 main 声明", len(mains)),
-			Hint:    "一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）",
+	}
+	// §11.2：只有匹配入口签名的 main 才是入口；其余 main 重载是普通函数。
+	var matched []*xfront.TopFunc
+	for _, fn := range mains {
+		if entrySignatureProblem(fn) == "" {
+			matched = append(matched, fn)
 		}
 	}
+	if len(matched) == 0 {
+		fn := mains[0]
+		return &diag.Diagnostic{
+			File: path, Line: fn.P.Line, Col: fn.P.Col, Code: codeEntrySignature,
+			Message: "入口 main 的签名不合法：" + entrySignatureProblem(fn),
+			Hint:    "入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）",
+		}
+	}
+	if len(matched) > 1 {
+		dup := matched[1]
+		return &diag.Diagnostic{
+			File: path, Line: dup.P.Line, Col: dup.P.Col, Code: codeEntryDuplicate,
+			Message: fmt.Sprintf("重复入口 main：发现 %d 个匹配签名的 main 声明", len(matched)),
+			Hint:    "一个程序只能有一个匹配签名的入口；其余 main 重载不得与入口同签名（S1 §11.2）",
+		}
+	}
+	return nil
 }
 
 // entrySignatureProblem 返回入口签名问题；空串表示合法。
@@ -452,19 +464,29 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	}
 	out := "prog"
 	runtimeDir := ""
+	memPolicy := ""
+	stats := false
 	var libs []ffi.LinkLib
 	var libDirs []string
 	for i := 1; i < len(rest)-1; i++ {
-		switch rest[i] {
-		case "-o":
+		switch {
+		case rest[i] == "-o":
 			out = rest[i+1]
-		case "--runtime":
+		case rest[i] == "--runtime":
 			runtimeDir = rest[i+1]
-		case "-l":
+		case rest[i] == "-l":
 			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
-		case "-L":
+		case rest[i] == "-L":
 			libDirs = append(libDirs, rest[i+1])
+		case strings.HasPrefix(rest[i], "--mem="):
+			memPolicy = strings.TrimPrefix(rest[i], "--mem=")
+		case rest[i] == "--stats":
+			stats = true
 		}
+	}
+	if memPolicy != "" && memPolicy != "auto" && memPolicy != "arc" && memPolicy != "gc" {
+		fmt.Fprintf(env.Stderr, "xnull: --mem 只接受 auto/arc/gc，got %q\n", memPolicy)
+		return exitcode.Usage
 	}
 	if runtimeDir == "" {
 		runtimeDir = os.Getenv("XNULL_RUNTIME")
@@ -482,7 +504,7 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		return exitcode.Usage
 	}
 	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
-	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs)}
+	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs), MemPolicy: memPolicy, Stats: stats}
 	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
 }
 

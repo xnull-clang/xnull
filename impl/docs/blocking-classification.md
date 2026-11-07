@@ -18,6 +18,8 @@
 | 入口 | 原生符号 | 区域 | 分类 | 长阻塞 | 伴生入口 |
 | --- | --- | --- | --- | --- | --- |
 | diagnose | xdkc_diagnose | xdkc_runtime | .aware | 否 | — |
+| dumpTasks | xdkc_dump_tasks | xdkc_runtime | .aware | 否 | — |
+| env | xdkc_env_lookup | xdkc_runtime | .aware | 否 | — |
 | exit | xdkc_exit | xdkc_runtime | .aware | 否 | — |
 | dirClose | xdkc_dir_close | xdkc_sys | .aware | 否 | — |
 | dirOpen | xdkc_dir_open | xdkc_sys | .unaware | 否 | — |
@@ -30,6 +32,7 @@
 | nowMono | xdkc_now_mono_ms | xdkc_runtime | .aware | 否 | — |
 | nowWall | xdkc_now_wall_ms | xdkc_runtime | .aware | 否 | — |
 | pathExists | xdkc_path_exists | xdkc_sys | .aware | 否 | — |
+| procStatus | xdkc_proc_status | xdkc_sys | .unaware | 否 | — |
 | readFileText | xdkc_read_file_text | xdkc_sys | .unaware | 否 | — |
 | utf8Valid | xdkc_utf8_valid | xdkc_sys | .aware | 否 | — |
 | writeFileText | xdkc_write_file_text | xdkc_sys | .unaware | 否 | — |

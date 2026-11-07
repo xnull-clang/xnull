@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_non_type.x:1:9: error[TY-217]: factory Target `Int` 未在本包声明或不可见（§10.1）
+  检查 Target 名称与可见性

@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/12_inh_final_parent/source.x:2:7: error[TY-202]: 父类 `B` 是 final，不能被继承（§2.5）

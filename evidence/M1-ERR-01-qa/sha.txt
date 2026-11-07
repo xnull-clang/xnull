@@ -1,0 +1,8 @@
+main=2c00cf582c39ce8e19e2f23944d76b672483eb7c
+main_subject=merge(support): GEN-01 interp generic overload (fast-track)
+err01_commit=09367e82cd4f7fd17ead9a09c34b728288733f7d
+base_date=2026-11-06T19:55:26Z
+c5625557cd7667fd5ef1b9b4b3ed1fe8d93a0107579c07770f1e592ea09f7eed  /Users/vjs/Desktop/XNull-Lang/收件箱/CEO1/evidence-M1-ERR-01/qa/qa-sema-test.go.txt
+37574457ffd9ba76b6754696d9444be4141fc34ab829f0d55fff107713cb8cfe  /Users/vjs/Desktop/XNull-Lang/收件箱/CEO1/evidence-M1-ERR-01/qa/qa-interp-test.go.txt
+5c029addc5c9732d6932f5035b34d6292c165f4c221aff2325a884abcc5ee166  /Users/vjs/Desktop/XNull-Lang/收件箱/CEO1/evidence-M1-ERR-01/probes/closure-try2.x
+c2d242a10bf3e1b19d4506065c9004e717cd739cfbb4d155c7649326f9422ec7  /Users/vjs/Desktop/XNull-Lang/收件箱/CEO1/evidence-M1-ERR-01/probes/cleanup-localdecl.x

@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
+	"xnull.dev/xnull/internal/sema"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -27,10 +28,12 @@ import (
 const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 #include "rt.h"
 #include "rt_gc.h"
+#include "xrt.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
 static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
@@ -118,15 +121,11 @@ static rt_string *xn_str_lower(rt_string *s) {
     return out;
 }
 
+/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，
+ * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */
 static rt_string *xn_alloc_str(size_t n) {
-    rt_string *s = malloc(sizeof(rt_string) + n + 1);
-    if (s == NULL) { abort(); }
-    memset(s, 0, sizeof(rt_string) + n + 1);
-    s->hdr.kind = RT_KIND_ARC;
-    s->hdr.type = &RT_TYPE_STRING;
-    atomic_init(&s->hdr.refcount, 1);
-    s->len = n;
-    s->bytes[n] = 0;
+    rt_string *s = rt_string_alloc(n);
+    s->bytes[0] = 0;
     return s;
 }
 
@@ -144,6 +143,220 @@ static void xn_throw(rt_string *msg) {
     fprintf(stderr, "fatal: %.*s\n", (int)msg->len, msg->bytes);
     exit(134);
 }
+
+/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */
+const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
+void xdkc_diagnose(const char *bytes, size_t len);
+void xdkc_exit(int64_t code);
+int64_t xdkc_now_mono_ms(void);
+int64_t xdkc_now_wall_ms(void);
+static size_t xn_task_live = 0;
+static xn_opt_s xn_env_lookup(rt_string *name) {
+    xn_opt_s r;
+    size_t len = 0;
+    const char *v = xdkc_env_get(name->bytes, name->len, &len);
+    if (v == NULL) { r.has = 0; r.v = NULL; }
+    else { r.has = 1; r.v = rt_string_new(v, len); }
+    return r;
+}
+/* dumpTasks：实现侧诊断（非承诺，S6 §4.4）；仅输出生成侧维护的任务计数。 */
+static void xn_dump_tasks(void) {
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "tasks: live=%llu", (unsigned long long)xn_task_live);
+    if (n > 0) { xdkc_diagnose(buf, (size_t)n); }
+}
+
+/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */
+static void xn_report_write(const char *p, size_t n) {
+    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }
+}
+static void xn_report_line(int64_t kind, rt_string *desc) {
+    const char *name = xrt_error_kind_name((xrt_error_kind)kind);
+    char head[96];
+    size_t off = 0;
+    head[off++] = '[';
+    size_t nl = strlen(name);
+    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }
+    memcpy(head + off, name, nl);
+    off += nl;
+    head[off++] = ']';
+    head[off++] = ' ';
+    xn_report_write(head, off);
+    if (desc != NULL) {
+        char chunk[256];
+        size_t i = 0;
+        while (i < desc->len) {
+            size_t n = desc->len - i;
+            if (n > sizeof(chunk)) { n = sizeof(chunk); }
+            for (size_t k = 0; k < n; k++) {
+                char c = desc->bytes[i + k];
+                chunk[k] = (c == '\n' || c == '\r') ? ' ' : c;
+            }
+            xn_report_write(chunk, n);
+            i += n;
+        }
+    }
+    xn_report_write("\n", 1);
+}
+
+/* ---- GC 根帧与安全点（S3-02）------------------------------------------
+ * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局
+ * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。
+ * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；
+ * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。
+ * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。
+ * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；
+ * 运行时若暴露阈值 API，这里改为薄调用）。 */
+typedef struct { void *obj; size_t count; } xn_root_ref;
+static xn_root_ref *xn_root_refs = NULL;
+static size_t xn_root_ref_n = 0;
+static size_t xn_root_ref_cap = 0;
+static void  **xn_root_track = NULL;
+static size_t  xn_root_depth = 0;
+static size_t  xn_root_cap   = 0;
+
+static void xn_root_hold(void *obj) {
+    if (obj == NULL) { return; }
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }
+    }
+    if (xn_root_ref_n == xn_root_ref_cap) {
+        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;
+        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));
+        if (xn_root_refs == NULL) { abort(); }
+    }
+    xn_root_refs[xn_root_ref_n].obj = obj;
+    xn_root_refs[xn_root_ref_n].count = 1;
+    xn_root_ref_n++;
+    rt_gc_root_add(obj);
+}
+static void xn_root_release(void *obj) {
+    if (obj == NULL) { return; }
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj != obj) { continue; }
+        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }
+        rt_gc_root_remove(obj);
+        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];
+        return;
+    }
+}
+static size_t xn_root_mark(void) { return xn_root_depth; }
+static void xn_root_add(void *obj) {
+    if (obj == NULL) { return; }
+    xn_root_hold(obj);
+    if (xn_root_depth == xn_root_cap) {
+        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;
+        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));
+        if (xn_root_track == NULL) { abort(); }
+    }
+    xn_root_track[xn_root_depth++] = obj;
+}
+static void xn_root_restore(size_t mark) {
+    while (xn_root_depth > mark) {
+        xn_root_release(xn_root_track[--xn_root_depth]);
+    }
+}
+
+static size_t xn_gc_alloc_pending = 0;
+#define XN_GC_SAFEPOINT_THRESHOLD 1024
+static void *xn_gc_new(const rt_type *type) {
+    xn_gc_alloc_pending++;
+    return rt_gc_new(type);
+}
+static void xn_gc_safepoint(void) {
+    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {
+        xn_gc_alloc_pending = 0;
+        rt_gc_collect();
+    }
+}
+
+/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */
+typedef struct {
+    rt_header hdr;
+    const char *typeName;
+    int64_t i;
+    rt_string *s;
+    void *o;
+} xn_Any;
+static void xn_Any_scan(void *p, void (*visit)(void *)) {
+    xn_Any *b = (xn_Any *)p;
+    if (b->s) { visit(b->s); }
+    if (b->o) { visit(b->o); }
+}
+static const rt_type RT_TYPE_XN_ANY = { "Any", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };
+static xn_Any *xn_box_int(int64_t v) {
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Int"; b->i = v;
+    return b;
+}
+static xn_Any *xn_box_int32(int32_t v) {
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Int32"; b->i = (int64_t)v;
+    return b;
+}
+static xn_Any *xn_box_bool(int v) {
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Bool"; b->i = v ? 1 : 0;
+    return b;
+}
+static xn_Any *xn_box_str(rt_string *s) {
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "String";
+    if (s != NULL) { rt_retain(s); }
+    b->s = s;
+    return b;
+}
+/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，
+ * GC 载荷不计数（由 GC 管理）。 */
+static xn_Any *xn_box_obj(void *o) {
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
+    if (o != NULL) {
+        b->typeName = ((rt_object *)o)->hdr.type->name;
+        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }
+        b->o = o;
+    }
+    return b;
+}
+static int xn_any_is(xn_Any *b, const char *typeName) {
+    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;
+}
+/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */
+static int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) { return b->i; }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return 0;
+}
+static rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) {
+        if (b->s != NULL) { rt_retain(b->s); }
+        return b->s;
+    }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return NULL;
+}
+static void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) {
+        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }
+        return b->o;
+    }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return NULL;
+}
+
+/* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */
+static void xn_fatal_div(void) {
+    fprintf(stderr, "xnull: fatal: 除零\n");
+    fflush(stderr);
+    exit(134);
+}
+static int64_t xn_div_i64(int64_t a, int64_t b) {
+    if (b == 0) { xn_fatal_div(); }
+    return a / b;
+}
+static int64_t xn_mod_i64(int64_t a, int64_t b) {
+    if (b == 0) { xn_fatal_div(); }
+    return a % b;
+}
 `
 
 // EmitC 生成完整 C 翻译单元文本（无 FFI 路径）。
@@ -154,8 +367,60 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 // EmitCWithFFI 生成完整 C 翻译单元文本，并把 `.xfb` 注册表的入口包装
 // （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
 func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
-	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
-		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}}
+	return EmitCWithStrategies(u, reg, nil)
+}
+
+// EmitCWithBuildOptions 是构建入口（S3-08）：在策略之上叠加 §23 选项
+// （MemPolicy 强制 arc/gc、Stats 打开分配统计）。
+func EmitCWithBuildOptions(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, opts Options) (string, error) {
+	switch opts.MemPolicy {
+	case "", "auto":
+	case "arc", "gc":
+		forced := make([]sema.Strategy, len(strategies))
+		copy(forced, strategies)
+		for i := range forced {
+			if forced[i].Kind == "class" {
+				forced[i].Policy = opts.MemPolicy
+				// --mem=arc/gc 强制全部堆分配，禁用栈优化（S3-03）。
+				forced[i].Escape = "n/a"
+			}
+		}
+		strategies = forced
+	default:
+		return "", fmt.Errorf("codegen：--mem 只接受 auto/arc/gc，got %q", opts.MemPolicy)
+	}
+	return emitC(u, reg, strategies, opts.Stats)
+}
+
+// EmitCWithStrategies 是 EmitCWithFFI 的带策略入口（BND-10）：
+// strategies 来自 sema.ComputeStrategies，决定类的分配种类（arc/gc）。
+// strategies 为空时全部按 ARC（与历史行为一致）。
+func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy) (string, error) {
+	return emitC(u, reg, strategies, false)
+}
+
+func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, stats bool) (string, error) {
+	policy := map[string]string{}
+	stack := map[string]bool{}
+	for _, st := range strategies {
+		if st.Kind == "class" && st.Policy != "" {
+			policy[st.Decl] = st.Policy
+		}
+		// S3-03：Escape=none 的类在局部构造点可栈分配（后续用法安全性再校验）。
+		if st.Kind == "class" && st.Escape == "none" {
+			stack[st.Decl] = true
+		}
+	}
+	g := &gen{results: map[string]string{}, resultArgs: map[string][]xfront.TypeRef{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
+		classDecls: map[string]*xfront.ClassDecl{},
+		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
+		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
+		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
+		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
+		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
+		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
+		factories: map[string]*factoryInfo{}, policy: policy, stack: stack, stats: stats}
+	g.resultArgs = map[string][]xfront.TypeRef{}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -164,6 +429,7 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			g.handleNames[h.Name] = true
 		}
 	}
+	g.collectGenerics(u)
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
@@ -176,11 +442,46 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	// 类名预登记（前向引用）+ 字段/方法签名收集
 	g.registerClassNames(u)
+	if err := g.collectEnums(u); err != nil {
+		return "", err
+	}
+	// S4-02：xdk.errors 的 ErrorKind 为内建简单枚举（§3.1 14 项，值对齐 XRT_ERR_*）。
+	if importsXDK(u, "errors") {
+		g.ensureErrorKind()
+	}
+	if err := g.collectStructs(u); err != nil {
+		return "", err
+	}
+	if err := g.collectProtocols(u); err != nil {
+		return "", err
+	}
 	for _, d := range u.Decls {
 		if c, ok := d.(*xfront.ClassDecl); ok {
+			if len(c.TypePars) > 0 {
+				continue // 泛型类按实例收集（BND-12）
+			}
 			if err := g.collectClass(c); err != nil {
 				return "", err
 			}
+		}
+	}
+	if err := g.collectSingletons(u); err != nil {
+		return "", err
+	}
+	if err := g.collectFactories(u); err != nil {
+		return "", err
+	}
+	if err := g.collectAllResults(u); err != nil {
+		return "", err
+	}
+	if err := g.collectExtensions(u); err != nil {
+		return "", err
+	}
+	// 协议 vtable 槽对齐（S2 §5.7）：子类实现协议时，祖先也必须保留同一 vtable
+	// 指针槽，否则父类字段偏移与子类布局不一致（多级继承回归）。
+	for _, ci := range g.classes {
+		for b := ci.base; ci.vptr && b != nil; b = b.base {
+			b.vptr = true
 		}
 	}
 	// 顶层字段收集（§4.3/§11.3 初始化顺序；ENTRY-01 范围：Int/Bool/String）
@@ -193,7 +494,11 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			switch ct {
 			case "int64_t", "int", "rt_string *":
 			default:
-				return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String）", f.Name, ct)
+				// S3-02：顶层字段允许 GC 引用（类/Any/容器/数据枚举/协议），
+				// 初始化后登记为全局根。
+				if !g.isTupleC(ct) && !g.isGCRootC(ct) {
+					return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String/元组/GC 引用）", f.Name, ct)
+				}
 			}
 			if _, dup := g.globals[f.Name]; dup {
 				return "", fmt.Errorf("codegen：顶层字段 %s 重复声明（§4.2）", f.Name)
@@ -202,10 +507,38 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			g.globalList = append(g.globalList, f)
 		}
 	}
-	// 函数签名表（类型推断消费）
+	// 入口选择（§11.2/§11.4）：匹配签名的 main 才是入口；其余 main 重载是普通函数。
+	// 必须先于签名表/函数生成：非入口 main 需要独立 C 名，否则 C 侧撞名。
+	entry, err := entryDeclOf(u)
+	if err != nil {
+		return "", err
+	}
+	g.assignMainNames(u, entry)
+	g.entry = entry
+	// main 的签名表项固定取入口声明：声明顺序不影响类型推断（§11.2）。
+	if entry != nil {
+		rc, err := g.cType(entry.fn.Ret)
+		if err != nil {
+			return "", err
+		}
+		if entry.fn.Void {
+			rc = "void"
+		}
+		g.fnRet["main"] = rc
+	}
+	// 函数签名表（类型推断消费）。泛型声明不进表：调用点一律走实例名，
+	// 同名普通函数与泛型函数构成合法重载（§8.2），C 侧靠实例后缀区分。
 	seenFn := map[string]bool{}
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
+			if len(fn.TypePars) > 0 {
+				continue
+			}
+			if fn.Name == "main" {
+				// 入口唯一性由 entryDeclOf 判定；其余 main 重载走独立 C 名，
+				// 不参与普通函数的同名冲突检测（与声明顺序无关）。
+				continue
+			}
 			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
 				rc := "void"
 				switch {
@@ -225,9 +558,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				continue
 			}
 			if seenFn[fn.Name] {
-				if fn.Name == "main" {
-					return "", fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
-				}
 				return "", fmt.Errorf("codegen：顶层函数 `%s` 重载未支持（§4.4 重载属 M4.5+；当前同名函数在 C 侧冲突）", fn.Name)
 			}
 			seenFn[fn.Name] = true
@@ -241,11 +571,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			g.fnRet[fn.Name] = rc
 		}
 	}
-	// 入口校验（§11.2/§11.4）：有 main 时校验签名；缺失由 Build 拒绝（EmitC 容许库单元）。
-	entry, err := entryDeclOf(u)
-	if err != nil {
-		return "", err
-	}
 	// 第一遍：试生成以收集 Result/容器实例化（产物丢弃）
 	for _, d := range u.Decls {
 		switch n := d.(type) {
@@ -253,10 +578,16 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			if _, isFFI := g.ffiEntries[n.Name]; isFFI {
 				continue
 			}
-			if _, err := g.genFunc(n); err != nil {
+			if len(n.TypePars) > 0 {
+				continue // 泛型声明按实例生成，见 expandInstances
+			}
+			if _, err := g.genFuncNamed(n, g.fnCName(n)); err != nil {
 				return "", err
 			}
 		case *xfront.ClassDecl:
+			if len(n.TypePars) > 0 {
+				continue // 泛型类实例在 emitClassInstance 中试生成（BND-12）
+			}
 			ci := g.classes[n.Name]
 			for _, m := range ci.methods {
 				if _, err := g.genMethod(ci, m); err != nil {
@@ -265,22 +596,52 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		case *xfront.TopField:
 			// 顶层字段初值在第一遍不需要试生成（无容器/Result 实例化登记）。
+		case *xfront.ProtocolDecl:
+			// 协议只声明方法签名；布局槽由实现类的 vtable 指针承载（S2 §5.7）。
+		case *xfront.EnumDecl:
+			// 枚举由 collectEnums/emitEnumTypes 发射；简单枚举无函数体。
+		case *xfront.StructDecl:
+			// 结构体由 collectStructs/emitStructTypes 发射。
+		case *xfront.SingletonDecl:
+			// 单例由 collectSingletons/emitSingletons 发射。
+		case *xfront.FactoryDecl:
+			// 工厂方法由 collectFactories/emitFactories 发射。
+		case *xfront.ExtensionDecl:
+			// 扩展方法由 collectExtensions/emitExtensions 发射。
+		case *xfront.AnnotationDecl:
+			// 注解是编译期元数据：不产生运行期对象/布局/代码（S2 §12）。
 		default:
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}
 	}
+	// 单态化展开：试生成新发现的实例，直到不再增长（§8.3，含无限展开上限）
+	if err := g.expandInstances(); err != nil {
+		return "", err
+	}
 	g.tmp = 0
+	g.taskID = 0
+	g.taskSupport = nil
+	g.taskSupportAdded = false
+	g.lateProtos = nil
+	g.lateFns = nil
 	var fns []string
-	// 第二遍：正式生成顶层函数
+	// 第二遍：正式生成顶层函数（普通函数 + 单态化实例）
 	for _, d := range u.Decls {
 		fn, ok := d.(*xfront.TopFunc)
-		if !ok {
+		if !ok || len(fn.TypePars) > 0 {
 			continue
 		}
 		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
 			continue
 		}
-		c, err := g.genFunc(fn)
+		c, err := g.genFuncNamed(fn, g.fnCName(fn))
+		if err != nil {
+			return "", err
+		}
+		fns = append(fns, c)
+	}
+	for _, cn := range g.instNames() {
+		c, err := g.genInstance(g.insts[cn])
 		if err != nil {
 			return "", err
 		}
@@ -288,6 +649,17 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	var b strings.Builder
 	b.WriteString(prelude)
+	// 元组结构体（S1 §2.11）：元素可能引用类类型，须在类前向声明之后、
+	// 容器/类/函数定义之前（S3-05：元组引用元素）。
+	// 协议类型与 vtable 对象前缀（S2 §4/§5.7）。
+	g.emitProtocolTypes(&b)
+	// 枚举 typedef / 数据枚举结构与项全局（S2 §8）。
+	if err := g.emitEnumTypes(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitStructTypes(&b); err != nil {
+		return "", err
+	}
 	// FFI 支撑代码（P-09）：包装函数 xn_ffi_<entry> 必须定义在调用点之前；
 	// 生成失败即构建失败，绝不静默降级（ffi-contract §5.1）。
 	if g.ffi != nil && !g.ffi.Empty() {
@@ -303,14 +675,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		names = append(names, name)
 	}
 	sort.Strings(names)
-	for _, name := range names {
-		member := "int64_t"
-		if strings.HasPrefix(name, "xn_Result_Bool_") {
-			member = "int"
-		}
-		fmt.Fprintf(&b, "typedef struct { int ok; %s v; rt_string *err; } %s;\n", member, name)
-	}
-	b.WriteString("\n")
 	b.WriteString("static void xn_fatal_oob(void);\n")
 	b.WriteString("static void xn_fatal_oob(void) {\n")
 	b.WriteString("    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n")
@@ -318,7 +682,37 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	b.WriteString("}\n\n")
 	// 类前向声明：容器结构、顶层函数原型与类结构都只按指针使用类类型，
 	// 必须先于它们出现（多文件下使用方声明可能先于定义方，S1-06）。
-	g.emitClassForwardDecls(&b)
+	if err := g.emitClassForwardDecls(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitSingletonForwards(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitExtensionProtos(&b); err != nil {
+		return "", err
+	}
+	// 元组结构体（S1 §2.11）：类前向 typedef 已就位，可作为元素类型。
+	g.emitTupleTypes(&b)
+	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
+	{
+		rnames := make([]string, 0, len(g.results))
+		for name := range g.results {
+			rnames = append(rnames, name)
+		}
+		sort.Strings(rnames)
+		for _, name := range rnames {
+			info, err := g.resultInfo(name)
+			if err != nil {
+				return "", err
+			}
+			fmt.Fprintf(&b, "typedef struct { int ok; %s v; %s } %s;\n", info.memberC, cDecl(info.errC, "err"), name)
+		}
+		b.WriteString("\n")
+	}
+	// S5-04：任务 env 支撑（按需登记；必须在使用它的函数定义之前）。
+	for _, sup := range g.taskSupport {
+		b.WriteString(sup)
+	}
 	// 顶层字段存储：函数体与初始化函数都要引用，声明必须先于函数定义。
 	for _, f := range g.globalList {
 		fmt.Fprintf(&b, "static %s xn_g_%s;\n", g.globals[f.Name], f.Name)
@@ -327,7 +721,7 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		b.WriteString("\n")
 	}
 	g.cs.ensureMapArrays()
-	g.cs.emit(&b)
+	g.cs.emit(&b, g.isGCTypeC)
 	// String.split 返回 String[]（依赖数组实例化）；replace 为纯字符串助手。
 	if g.cs.arr["rt_string *"] {
 		b.WriteString(strSplitHelper)
@@ -338,8 +732,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	// 顶层函数原型（类方法体可能引用后定义的顶层函数；与顺序无关）
 	for _, d := range u.Decls {
 		fn, ok := d.(*xfront.TopFunc)
-		if !ok {
-			continue
+		if !ok || len(fn.TypePars) > 0 {
+			continue // 泛型声明本身不发原型；实例原型在下方单独发
 		}
 		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
 			continue // 包装由 EmitSupport 提供
@@ -360,7 +754,28 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 			parts = append(parts, pc+" xn_p_"+prm.Name)
 		}
-		fmt.Fprintf(&b, "static %s xn_%s(%s);\n", retC, fn.Name, strings.Join(parts, ", "))
+		fmt.Fprintf(&b, "static %s %s(%s);\n", retC, g.fnCName(fn), strings.Join(parts, ", "))
+	}
+	// 单态化实例原型（§8.3）：params/返回均已替换为具体类型，按实例名排序（DET-01）
+	for _, cn := range g.instNames() {
+		inst := g.insts[cn]
+		saved := g.subst
+		g.subst = inst.subst
+		parts := []string{}
+		var perr error
+		for _, prm := range inst.fn.Params {
+			pc, err := g.cType(prm.Type)
+			if err != nil {
+				perr = err
+				break
+			}
+			parts = append(parts, pc+" xn_p_"+prm.Name)
+		}
+		g.subst = saved
+		if perr != nil {
+			return "", perr
+		}
+		fmt.Fprintf(&b, "static %s %s(%s);\n", inst.retC, inst.cname, strings.Join(parts, ", "))
 	}
 	if len(u.Decls) > 0 {
 		b.WriteString("\n")
@@ -369,6 +784,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	// 类结构/构造/方法（M4.4b）：容器与 Result typedef 已就位
 	for _, d := range u.Decls {
 		if n, ok := d.(*xfront.ClassDecl); ok {
+			if len(n.TypePars) > 0 {
+				continue // 泛型类实例在下方按需发射
+			}
 			ci := g.classes[n.Name]
 			g.emitClassStruct(&b, ci)
 			if err := g.emitClassCtor(&b, ci); err != nil {
@@ -376,10 +794,13 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 			// 方法前向声明（方法间互相调用与声明顺序无关）
 			for _, md := range n.Methods {
-				if md.IsDeinit {
-					continue
-				}
 				m := ci.methods[md.Name]
+				if md.IsDeinit {
+					m = ci.deinit
+				}
+				if m == nil {
+					return "", fmt.Errorf("codegen：类 %s 的成员 %s 未登记", n.Name, md.Name)
+				}
 				proto, err := g.methodProto(ci, m)
 				if err != nil {
 					return "", err
@@ -389,6 +810,12 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			b.WriteString("\n")
 			for _, md := range n.Methods {
 				if md.IsDeinit {
+					// 用户 deinit 体：由类型 deinit 钩子先调用（S2-E5-02）。
+					mc, err := g.genMethod(ci, ci.deinit)
+					if err != nil {
+						return "", err
+					}
+					b.WriteString(mc + "\n")
 					continue
 				}
 				mc, err := g.genMethod(ci, ci.methods[md.Name])
@@ -399,10 +826,49 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		}
 	}
+	// 泛型类实例（BND-12）：按发现顺序发射；嵌套实例可能在本轮追加。
+	for i := 0; i < len(g.classInstKeys); i++ {
+		ci := g.classInsts[g.classInstKeys[i]]
+		if err := g.emitClassInstance(&b, ci); err != nil {
+			return "", err
+		}
+	}
+	if err := g.emitVtables(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitEnumBodies(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitStructBodies(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitSingletons(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitFactories(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitExtensions(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitEnumInit(&b); err != nil {
+		return "", err
+	}
 	b.WriteString("static rt_string *xn_result_error_copy_rt(rt_string *err) {\n")
 	b.WriteString("    return rt_string_new(err->bytes, err->len);\n")
 	b.WriteString("}\n\n")
+	// S5-04：任务闭包体原型（函数体生成阶段登记，晚于用户原型发出）。
+	for _, p := range g.lateProtos {
+		b.WriteString(p + "\n")
+	}
+	if len(g.lateProtos) > 0 {
+		b.WriteString("\n")
+	}
 	for _, fn := range fns {
+		b.WriteString(fn)
+		b.WriteString("\n")
+	}
+	for _, fn := range g.lateFns {
 		b.WriteString(fn)
 		b.WriteString("\n")
 	}
@@ -428,15 +894,27 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			b.WriteString("void")
 		}
 		b.WriteString(") {\n")
+		if len(g.slotOrder) > 0 {
+			b.WriteString("    xn_init_vtables();\n")
+		}
+		if g.stats {
+			b.WriteString("    xrt_stats_reset();\n    xrt_stats_set_enabled(1);\n")
+		}
+		if len(g.enums) > 0 {
+			b.WriteString("    xn_init_enums();\n")
+		}
 		if len(g.globalList) > 0 {
 			b.WriteString("    xn_init_globals();\n")
 		}
+		if len(g.singletonOrder) > 0 {
+			b.WriteString("    xn_init_singletons();\n")
+		}
 		if entry.withArgs {
 			// args 是运行时创建的新数组，元素为进程参数（不含程序名，§11.2）。
-			fmt.Fprintf(&b, "    %s xn_args = %s_new((size_t)(argc > 1 ? argc - 1 : 0));\n", argsArr, argsArr)
+			fmt.Fprintf(&b, "    %s *xn_args = %s_new((size_t)(argc > 1 ? argc - 1 : 0));\n", argsArr, argsArr)
 			b.WriteString("    for (int i = 1; i < argc; i++) {\n")
 			b.WriteString("        rt_string *xn_av = rt_string_from_c(argv[i]);\n")
-			fmt.Fprintf(&b, "        %s_push(&xn_args, xn_av);\n", argsArr)
+			fmt.Fprintf(&b, "        %s_push(xn_args, xn_av);\n", argsArr)
 			b.WriteString("        rt_release(xn_av);\n    }\n")
 		}
 		if entry.fn.Void {
@@ -445,14 +923,22 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			} else {
 				b.WriteString("    xn_main();\n")
 			}
-			b.WriteString("    rt_quarantine_flush();\n    return 0;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n")
+			if g.stats {
+				b.WriteString("    xrt_stats_set_enabled(0);\n    xrt_stats_report();\n")
+			}
+			b.WriteString("    return 0;\n")
 		} else {
 			if entry.withArgs {
 				b.WriteString("    int64_t xn_r = xn_main(xn_args);\n")
 			} else {
 				b.WriteString("    int64_t xn_r = xn_main();\n")
 			}
-			b.WriteString("    rt_quarantine_flush();\n    return (int)xn_r;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n")
+			if g.stats {
+				b.WriteString("    xrt_stats_set_enabled(0);\n    xrt_stats_report();\n")
+			}
+			b.WriteString("    return (int)xn_r;\n")
 		}
 		b.WriteString("}\n")
 	}
@@ -466,6 +952,7 @@ type entryInfo struct {
 }
 
 // entryDeclOf 查找并校验入口声明；无 main 时返回 (nil, nil)（供库单元 EmitC）。
+// §11.2：只有匹配入口签名的 main 才是入口；不匹配的 main 重载是普通函数。
 func entryDeclOf(u *xfront.CompilationUnit) (*entryInfo, error) {
 	var mains []*xfront.TopFunc
 	for _, d := range u.Decls {
@@ -476,28 +963,69 @@ func entryDeclOf(u *xfront.CompilationUnit) (*entryInfo, error) {
 	if len(mains) == 0 {
 		return nil, nil
 	}
-	if len(mains) > 1 {
+	var matched []*xfront.TopFunc
+	for _, fn := range mains {
+		if entrySignatureOK(fn) {
+			matched = append(matched, fn)
+		}
+	}
+	if len(matched) == 0 {
+		return nil, fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)，参数只能是 String[]（§11.2）")
+	}
+	if len(matched) > 1 {
 		return nil, fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
 	}
-	fn := mains[0]
-	if !fn.Static {
-		return nil, fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+	fn := matched[0]
+	return &entryInfo{fn: fn, withArgs: len(fn.Params) == 1}, nil
+}
+
+// entrySignatureOK 判断声明是否满足入口签名（§11.2）：static、公开、非泛型、
+// 返回 void/Int、参数为空或 String[]。
+func entrySignatureOK(fn *xfront.TopFunc) bool {
+	if !fn.Static || fn.Private || fn.Protected || len(fn.TypePars) > 0 {
+		return false
 	}
 	if !fn.Void {
 		nt, ok := fn.Ret.(*xfront.NamedType)
 		if !ok || typeName(nt) != "Int" || len(nt.Args) > 0 {
-			return nil, fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+			return false
 		}
 	}
-	withArgs := false
 	switch {
 	case len(fn.Params) == 0:
+		return true
 	case len(fn.Params) == 1 && isStringArrayType(fn.Params[0].Type):
-		withArgs = true
-	default:
-		return nil, fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)，参数只能是 String[]（§11.2）")
+		return true
 	}
-	return &entryInfo{fn: fn, withArgs: withArgs}, nil
+	return false
+}
+
+// assignMainNames 为入口与其余 main 重载分配唯一 C 名。
+// 入口固定 xn_main（C 垫片按此调用）；非匹配重载用 xn_main__ov<N>（§11.2 普通函数）。
+func (g *gen) assignMainNames(u *xfront.CompilationUnit, entry *entryInfo) {
+	n := 0
+	for _, d := range u.Decls {
+		fn, ok := d.(*xfront.TopFunc)
+		if !ok || fn.Name != "main" {
+			continue
+		}
+		if entry != nil && fn == entry.fn {
+			g.fnNames[fn] = "xn_main"
+			continue
+		}
+		n++
+		name := fmt.Sprintf("xn_main__ov%d", n)
+		g.fnNames[fn] = name
+		g.mainOverloads[len(fn.Params)] = name
+	}
+}
+
+// fnCName 返回顶层函数声明的 C 名（未登记时按常规 xn_<name>）。
+func (g *gen) fnCName(fn *xfront.TopFunc) string {
+	if c, ok := g.fnNames[fn]; ok {
+		return c
+	}
+	return "xn_" + fn.Name
 }
 
 // RequireEntry 校验可执行程序的入口：缺失/重复/签名非法均为编译错误（§11.2/§11.4）。
@@ -539,6 +1067,17 @@ func (g *gen) genGlobalInit() (string, error) {
 			continue
 		}
 		target := "xn_g_" + f.Name
+		if g.isTupleC(g.globals[f.Name]) {
+			tc := g.globals[f.Name]
+			_, v, err := sc.tupleExpr(f.Init, tc)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, sc.pending...)
+			sc.pending = nil
+			lines = append(lines, target+" = "+v+";")
+			continue
+		}
 		if g.globals[f.Name] == "rt_string *" {
 			sl, err := sc.strExpr(f.Init)
 			if err != nil {
@@ -547,7 +1086,61 @@ func (g *gen) genGlobalInit() (string, error) {
 			lines = append(lines, sc.pending...)
 			sc.pending = nil
 			lines = append(lines, sl...)
-			lines = append(lines, target+" = "+lastVar(sl)+";")
+			lines = append(lines, target+" = "+lastVar(sl)+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if isContainerC(g.globals[f.Name]) {
+			vl, v, err := sc.valExpr(f.Init, g.globals[f.Name])
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, vl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if g.isAnyC(g.globals[f.Name]) {
+			al, v, err := sc.anyExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, al...)
+			lines = append(lines, target+" = "+v+";")
+			if g.isGCRootC(g.globals[f.Name]) {
+				lines = append(lines, "xn_root_hold("+target+");")
+			}
+			continue
+		}
+		if g.globals[f.Name] == "xrt_text *" {
+			tl, v, err := sc.textExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, tl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if g.globals[f.Name] == "xrt_sb *" {
+			bl, v, err := sc.sbExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, bl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if g.isProtoC(g.globals[f.Name]) {
+			pl, expr, owned, err := sc.protoValue(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, pl...)
+			if !owned {
+				t := sc.tmp()
+				lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+				expr = t
+			}
+			lines = append(lines, target+" = ("+g.globals[f.Name]+")"+expr+";")
+			lines = append(lines, "xn_root_hold((void *)"+target+");")
 			continue
 		}
 		v, err := sc.intExpr(f.Init)
@@ -557,6 +1150,10 @@ func (g *gen) genGlobalInit() (string, error) {
 		lines = append(lines, sc.pending...)
 		sc.pending = nil
 		lines = append(lines, target+" = "+v+";")
+		// S3-02：GC 顶层字段登记为全局根。
+		if g.isGCRootC(g.globals[f.Name]) {
+			lines = append(lines, "xn_root_hold("+target+");")
+		}
 	}
 	for _, l := range lines {
 		b.WriteString("    " + l + "\n")
@@ -566,26 +1163,84 @@ func (g *gen) genGlobalInit() (string, error) {
 }
 
 type gen struct {
-	results        map[string]string     // Result 实例化名 → v 成员类型
-	cs             *containers           // 容器实例化注册表（M4.4a）
-	fnRet          map[string]string     // 顶层函数名 → 返回 C 类型（类型推断用）
-	classes        map[string]*classInfo // 类名 → 生成信息（M4.4b）
-	globals        map[string]string     // 顶层字段名 → C 类型（ENTRY-01）
-	globalList     []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
-	ffi            *ffi.Registry         // .xfb 绑定注册表（P-09）
-	ffiEntries     map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
-	handleNames    map[string]bool       // 不透明句柄类型（B0-07c）
-	needStrReplace bool                  // 使用过 String.replace（按需发助手）
-	tmp            int
+	results          map[string]string            // Result 实例化名 → v 成员类型
+	resultArgs       map[string][]xfront.TypeRef  // Result 实例化名 → 类型实参（S4-02 任意 E）
+	cs               *containers                  // 容器实例化注册表（M4.4a）
+	fnRet            map[string]string            // 顶层函数名 → 返回 C 类型（类型推断用）
+	classes          map[string]*classInfo        // 类名 → 生成信息（M4.4b）
+	classDecls       map[string]*xfront.ClassDecl // 类名 → 声明（继承递归收集用）
+	globals          map[string]string            // 顶层字段名 → C 类型（ENTRY-01）
+	globalList       []*xfront.TopField           // 顶层字段声明顺序（初始化顺序）
+	ffi              *ffi.Registry                // .xfb 绑定注册表（P-09）
+	ffiEntries       map[string]ffi.Entry         // 入口名 → 合同投影（P-09）
+	handleNames      map[string]bool              // 不透明句柄类型（B0-07c）
+	needStrReplace   bool                         // 使用过 String.replace（按需发助手）
+	generics         map[string]*xfront.TopFunc   // 泛型函数名 → 声明（S1 §8.1）
+	insts            map[string]*instInfo         // 实例 C 名 → 实例信息（S1 §8.3）
+	instOrder        []string                     // 实例发现顺序（展开轮驱动；输出前排序）
+	subst            map[string]xfront.TypeRef    // 当前实例的类型参数替换（空 = 普通函数）
+	fnNames          map[*xfront.TopFunc]string   // 顶层函数声明 → C 名（main 重载需区分）
+	mainOverloads    map[int]string               // 非匹配 main 重载：参数个数 → C 名（§11.2）
+	entry            *entryInfo                   // 选中的入口（main 重载分派用）
+	tuples           map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
+	policy           map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
+	stack            map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
+	inDeinit         bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
+	curEscaped       map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
+	taskID           int                          // 任务闭包编号（S5-04）
+	taskSupport      []string                     // 任务 env 支撑代码（按需）
+	taskSupportAdded bool                         // 任务 env 支撑已登记
+	lateProtos       []string                     // 延迟生成函数原型（任务闭包体）
+	lateFns          []string                     // 延迟生成函数定义（任务闭包体）
+	stats            bool                         // §21/§23：运行期分配统计开关
+	tupleOrder       []string                     // 元组结构体登记顺序（内层先于外层）
+	protocols        map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
+	protoSlotByKey   map[string]int               // 签名 key → 全局槽位
+	slotOrder        []protoSlot                  // 槽位表（索引即槽位）
+	enums            map[string]*enumInfo         // 枚举名 → 定义（S2 §8）
+	enumOrder        []string                     // 枚举声明顺序
+	structs          map[string]*classInfo        // 结构体名 → 值布局（S2 §3）
+	classInsts       map[string]*classInfo        // 泛型类实例 C 名 → 实例（BND-12）
+	classInstKeys    []string                     // 实例发现顺序
+	singletons       map[string]*classInfo        // 单例名 → 对象布局（BND-07）
+	singletonOrder   []string                     // 单例声明顺序
+	factories        map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
+	factoryOrder     []string                     // 工厂声明顺序
+	extensions       []*extensionInfo             // 扩展方法（BND-13）
+	tmp              int
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
 func (s *scope) cRef(name string) string {
+	if name == "super" && s.superT != "" {
+		cvar := "self"
+		if s.self != nil && s.self.cvar != "" {
+			cvar = s.self.cvar
+		}
+		return "((" + s.superT + ")" + cvar + ")"
+	}
 	if s.params != nil && s.params[name] {
 		return "xn_p_" + name
 	}
 	if _, ok := s.locals[name]; ok {
 		return name
+	}
+	if s.self != nil {
+		if name == "self" {
+			return s.self.cvar
+		}
+		if cname, ok := s.self.fields[name]; ok {
+			sep := "->"
+			if s.self.value {
+				sep = "."
+			}
+			return s.self.cvar + sep + cname
+		}
+	}
+	if s.staticRefs != nil {
+		if v, ok := s.staticRefs[name]; ok {
+			return v
+		}
 	}
 	if _, ok := s.g.globals[name]; ok {
 		return "xn_g_" + name
@@ -601,7 +1256,9 @@ func typeName(nt *xfront.NamedType) string {
 	return nt.Qual[len(nt.Qual)-1]
 }
 
-func resultName(args []xfront.TypeRef) (string, error) {
+// resultName 由 Result 类型实参生成内联结构体名（§9/§10；S4-02 支持任意 E）。
+// 命名沿用 xn_Result_<V>_<E>；E=String 保持历史名 xn_Result_<V>_String。
+func (g *gen) resultName(args []xfront.TypeRef) (string, error) {
 	if len(args) != 2 {
 		return "", fmt.Errorf("codegen：Result 需要两个类型实参")
 	}
@@ -610,22 +1267,234 @@ func resultName(args []xfront.TypeRef) (string, error) {
 		return "", fmt.Errorf("codegen：Result 值类型 %T 未支持", args[0])
 	}
 	et, ok := args[1].(*xfront.NamedType)
-	if !ok || typeName(et) != "String" {
-		return "", fmt.Errorf("codegen：Result 错误类型暂仅支持 String（M4.1 范围）")
+	if !ok {
+		return "", fmt.Errorf("codegen：Result 错误类型 %T 未支持（S4-02）", args[1])
 	}
-	switch typeName(vt) {
-	case "Int":
-		return "xn_Result_Int_String", nil
+	vtag := typeName(vt)
+	if vtag == "" {
+		return "", fmt.Errorf("codegen：Result 值类型缺少类型名")
+	}
+	if vtag == "Result" || typeName(et) == "Result" {
+		return "", fmt.Errorf("codegen：Result 不得嵌套 Result（S4 §2.1）")
+	}
+	name := "xn_Result_" + vtag + "_" + typeName(et)
+	if typeName(et) == "String" {
+		name = "xn_Result_" + vtag + "_String"
+	}
+	g.resultArgs[name] = args
+	return name, nil
+}
+
+// resultInfo 解析 Result 实例的 v / err 成员 C 类型。
+type resultInfo struct {
+	memberC string
+	errC    string
+}
+
+func (g *gen) resultInfo(name string) (resultInfo, error) {
+	args := g.resultArgs[name]
+	if args == nil {
+		// 兼容未登记实例（历史代码路径）：按 _String 后缀回退。
+		const pre, suf = "xn_Result_", "_String"
+		if !strings.HasPrefix(name, pre) || !strings.HasSuffix(name, suf) {
+			return resultInfo{}, fmt.Errorf("codegen：未知 Result 类型 %s", name)
+		}
+		tag := strings.TrimSuffix(strings.TrimPrefix(name, pre), suf)
+		mC, err := g.resultCType(&xfront.NamedType{Qual: []string{tag}})
+		if err != nil {
+			return resultInfo{}, err
+		}
+		return resultInfo{memberC: mC, errC: "rt_string *"}, nil
+	}
+	mC, err := g.resultCType(args[0])
+	if err != nil {
+		return resultInfo{}, err
+	}
+	eC, err := g.resultCType(args[1])
+	if err != nil {
+		return resultInfo{}, err
+	}
+	return resultInfo{memberC: mC, errC: eC}, nil
+}
+
+// resultMemberC 由 Result 实例名解析值成员的 C 类型（BND/INT-01）。
+func (g *gen) resultMemberC(resultC string) (string, error) {
+	info, err := g.resultInfo(resultC)
+	if err != nil {
+		return "", err
+	}
+	return info.memberC, nil
+}
+
+// resultCType 把 Result 的 V/E 类型引用解析为 C 类型。
+func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
+	nt, ok := t.(*xfront.NamedType)
+	if !ok {
+		return "", fmt.Errorf("codegen：Result 成员类型 %T 未支持（S4-02）", t)
+	}
+	name := typeName(nt)
+	switch name {
+	case "Int", "Int64":
+		return "int64_t", nil
+	case "Int32":
+		return "int32_t", nil
 	case "Bool":
-		return "xn_Result_Bool_String", nil
+		return "int", nil
+	case "String":
+		return "rt_string *", nil
+	case "Result":
+		return "", fmt.Errorf("codegen：Result 不得嵌套 Result（S4 §2.1）")
+	case "ErrorKind":
+		if ei, ok := g.enums["ErrorKind"]; ok {
+			return ei.ctype, nil
+		}
+		return "int64_t", nil
+	case "TaskError":
+		// 任务边界错误面：复用 S4 ErrorKind（S5-00 §八）。
+		return "xrt_error_kind", nil
+	case "void":
+		// Result<void, E>：值槽仅占位（close 等无值结果）。
+		return "int64_t", nil
 	}
-	return "", fmt.Errorf("codegen：Result 值类型暂支持 Int/Bool，got %s", typeName(vt))
+	if ci, ok := g.classes[name]; ok {
+		return ci.cname + " *", nil
+	}
+	if ci, ok := g.singletons[name]; ok {
+		return ci.cname + " *", nil
+	}
+	if ci, ok := g.structs[name]; ok {
+		return ci.cname, nil
+	}
+	if ei, ok := g.enums[name]; ok {
+		return ei.ctype, nil
+	}
+	if ct, ok := g.protoCType(name); ok {
+		return ct, nil
+	}
+	return "", fmt.Errorf("codegen：Result 成员类型 %s 未支持（S4-02）", name)
+}
+
+// resultZeroC 生成 Result 成员的零值 C 表达式。
+func (g *gen) resultZeroC(c string) string {
+	if strings.HasSuffix(c, "*") {
+		return "NULL"
+	}
+	if g.isStructC(c) || g.isTupleC(c) {
+		return "(" + c + "){0}"
+	}
+	return "0"
+}
+
+// importsXDK 判断编译单元是否导入了 xdk.<pkg>。
+func importsXDK(u *xfront.CompilationUnit, pkg string) bool {
+	for _, imp := range u.Imports {
+		if strings.Join(imp.Path, ".") == "xdk."+pkg {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureErrorKind 注入 xdk.errors 的内建 ErrorKind 简单枚举（S4 §3.1，值对齐 XRT_ERR_*）。
+func (g *gen) ensureErrorKind() {
+	if _, ok := g.enums["ErrorKind"]; ok {
+		return
+	}
+	items := []string{
+		"InvalidArgument", "NotFound", "AlreadyExists", "PermissionDenied",
+		"Io", "Network", "Timeout", "Cancelled", "Busy", "Unavailable",
+		"DataCorrupted", "Unsupported", "OutOfMemory", "Internal",
+	}
+	ei := &enumInfo{name: "ErrorKind", ctype: "xn_Enum_ErrorKind", simple: true,
+		decl: &xfront.EnumDecl{Name: "ErrorKind"}, values: map[string]int64{}}
+	for i, n := range items {
+		ei.values[n] = int64(i)
+		ei.items = append(ei.items, enumItemInfo{name: n, value: int64(i)})
+	}
+	g.enums["ErrorKind"] = ei
+	g.enumOrder = append(g.enumOrder, "ErrorKind")
+}
+
+// collectAllResults 汇总类/结构体/枚举/单例/工厂方法与局部声明中的 Result 实例。
+func (g *gen) collectAllResults(u *xfront.CompilationUnit) error {
+	addType := func(t xfront.TypeRef) error {
+		nt, ok := t.(*xfront.NamedType)
+		if !ok || typeName(nt) != "Result" {
+			return nil
+		}
+		name, err := g.resultName(nt.Args)
+		if err != nil {
+			return err
+		}
+		g.results[name] = ""
+		return nil
+	}
+	addMethods := func(ms []*xfront.MethodDecl) error {
+		for _, m := range ms {
+			if !m.Void {
+				if err := addType(m.Ret); err != nil {
+					return err
+				}
+			}
+			if m.Body != nil {
+				if err := g.collectBlock(m.Body); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	addFields := func(fs []*xfront.FieldDecl) error {
+		for _, f := range fs {
+			if err := addType(f.Type); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	for _, d := range u.Decls {
+		switch n := d.(type) {
+		case *xfront.ClassDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
+			if err := addMethods(n.Methods); err != nil {
+				return err
+			}
+		case *xfront.StructDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
+			if err := addMethods(n.Methods); err != nil {
+				return err
+			}
+		case *xfront.EnumDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
+			if err := addMethods(n.Methods); err != nil {
+				return err
+			}
+		case *xfront.SingletonDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
+			if err := addMethods(n.Methods); err != nil {
+				return err
+			}
+		case *xfront.FactoryDecl:
+			if err := addMethods(n.Methods); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (g *gen) collectResult(fn *xfront.TopFunc) error {
 	if !fn.Void {
 		if nt, ok := fn.Ret.(*xfront.NamedType); ok && typeName(nt) == "Result" {
-			name, err := resultName(nt.Args)
+			name, err := g.resultName(nt.Args)
 			if err != nil {
 				return err
 			}
@@ -648,7 +1517,7 @@ func (g *gen) collectStmt(st xfront.Stmt) error {
 	switch n := st.(type) {
 	case *xfront.LocalDeclStmt:
 		if nt, ok := n.Type.(*xfront.NamedType); ok && typeName(nt) == "Result" {
-			name, err := resultName(nt.Args)
+			name, err := g.resultName(nt.Args)
 			if err != nil {
 				return err
 			}
@@ -675,6 +1544,8 @@ func (g *gen) collectStmt(st xfront.Stmt) error {
 }
 
 func (g *gen) cType(t xfront.TypeRef) (string, error) {
+	// 单态化实例内：先把类型参数替换为具体类型（S1 §8.3）。空替换表为恒等。
+	t = g.substitute(t)
 	switch n := t.(type) {
 	case nil:
 		return "void", nil
@@ -687,24 +1558,57 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err := g.cs.needArr(ec); err != nil {
 				return "", err
 			}
-			return arrName(ec), nil
+			return arrName(ec) + " *", nil
 		}
 		if len(n.Suffixes) == 1 && n.Suffixes[0] == "?" {
 			bc, err := g.cType(n.Base)
 			if err != nil {
 				return "", err
 			}
+			// 类/协议指针本身可空：用 NULL 哨兵，不加 wrapper（S2 §4.5/§5.2）。
+			if isClassPtr(bc) || g.isProtoC(bc) || isHandlePtr(bc) || bc == "xrt_bytes_obj *" {
+				return bc, nil
+			}
 			return optName(bc)
 		}
 		return "", fmt.Errorf("codegen：类型后缀 %v 未支持（M4.4a 范围）", n.Suffixes)
+	case *xfront.TupleTypeRef:
+		return g.tupleTypeFromElems(n.Elems)
 	case *xfront.NamedType:
 		switch typeName(n) {
 		case "Int":
 			return "int64_t", nil
+		case "Int32":
+			return "int32_t", nil
+		case "Int64":
+			return "int64_t", nil
 		case "Bool":
 			return "int", nil
-		case "String":
+		case "String", "Text":
+			if typeName(n) == "Text" {
+				return "xrt_text *", nil
+			}
 			return "rt_string *", nil
+		case "StringBuilder":
+			return "xrt_sb *", nil
+		case "Context":
+			return "xrt_context *", nil
+		case "CancelToken":
+			return "xrt_cancel_token *", nil
+		case "TaskGroup":
+			return "xrt_task_group *", nil
+		case "Task":
+			// Task<T> 的 C 句柄不区分 T（结果映射由 join 目标类型决定）。
+			return "xrt_task *", nil
+		case "TaskError":
+			return "xrt_error_kind", nil
+		case "Any", "Object":
+			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
+			return "xn_Any *", nil
+		case "Bytes":
+			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
+			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
+			return "xrt_bytes_obj *", nil
 		case "List":
 			if len(n.Args) != 1 {
 				return "", fmt.Errorf("codegen：List 需要一个类型实参")
@@ -716,7 +1620,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err := g.cs.needArr(ec); err != nil {
 				return "", err
 			}
-			return arrName(ec), nil
+			return arrName(ec) + " *", nil
 		case "Set":
 			if len(n.Args) != 1 {
 				return "", fmt.Errorf("codegen：Set 需要一个类型实参")
@@ -728,7 +1632,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err := g.cs.needSet(ec); err != nil {
 				return "", err
 			}
-			return setName(ec), nil
+			return setName(ec) + " *", nil
 		case "Map":
 			if len(n.Args) != 2 {
 				return "", fmt.Errorf("codegen：Map 需要两个类型实参")
@@ -744,10 +1648,29 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err := g.cs.needMap(kc, vc); err != nil {
 				return "", err
 			}
-			return mapName(kc, vc), nil
+			return mapName(kc, vc) + " *", nil
 		case "Result":
-			return resultName(n.Args)
+			return g.resultName(n.Args)
 		default:
+			if ci, ok := g.singletons[typeName(n)]; ok {
+				return ci.cname + " *", nil
+			}
+			if decl, ok := g.classDecls[typeName(n)]; ok && len(decl.TypePars) > 0 {
+				ci, err := g.ensureClassInstance(typeName(n), n.Args)
+				if err != nil {
+					return "", err
+				}
+				return ci.cname + " *", nil
+			}
+			if ei, ok := g.enums[typeName(n)]; ok {
+				return ei.ctype, nil
+			}
+			if ci, ok := g.structs[typeName(n)]; ok {
+				return ci.cname, nil
+			}
+			if ct, ok := g.protoCType(typeName(n)); ok {
+				return ct, nil
+			}
 			if _, ok := g.classOf(typeName(n)); ok {
 				return "xn_Cls_" + typeName(n) + " *", nil
 			}
@@ -767,6 +1690,11 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 // ---------- 函数 ----------
 
 func (g *gen) genFunc(fn *xfront.TopFunc) (string, error) {
+	return g.genFuncNamed(fn, "xn_"+fn.Name)
+}
+
+// genFuncNamed 生成函数体，C 名可指定（单态化实例用实例名，§8.3）。
+func (g *gen) genFuncNamed(fn *xfront.TopFunc, cname string) (string, error) {
 	retC, err := g.cType(fn.Ret)
 	if err != nil {
 		return "", err
@@ -782,7 +1710,7 @@ func (g *gen) genFunc(fn *xfront.TopFunc) (string, error) {
 		}
 		params = append(params, pc+" xn_p_"+p.Name)
 	}
-	hasResult := retC == "xn_Result_Int_String" || retC == "xn_Result_Bool_String"
+	hasResult := strings.HasPrefix(retC, "xn_Result_")
 	pnames := map[string]bool{}
 	locals := map[string]string{}
 	for _, p := range fn.Params {
@@ -792,21 +1720,32 @@ func (g *gen) genFunc(fn *xfront.TopFunc) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	// S3-02：函数级根帧；GC 参数在入口登记为栈根。
+	sc.rootMark = g.nextTmp()
+	for _, p := range fn.Params {
+		if pc, err := g.cType(p.Type); err == nil && g.isGCRootC(pc) {
+			sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(xn_p_"+p.Name+");")
+		}
+	}
+	// S3-03：预扫描逃逸位置（发布到实参/返回值/别名的局部退回堆分配）。
+	savedEsc := g.curEscaped
+	g.curEscaped = escapeIdents(fn.Body)
+	defer func() { g.curEscaped = savedEsc }()
 	body, err := sc.emitBlock(fn.Body.Stmts)
 	if err != nil {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s xn_%s(%s) {\n", retC, fn.Name, strings.Join(params, ", "))
+	fmt.Fprintf(&b, "%s %s(%s) {\n", retC, cname, strings.Join(params, ", "))
 	if hasResult {
-		b.WriteString("    xn_Result_Int_String xn_ret;\n")
+		fmt.Fprintf(&b, "    %s xn_ret;\n", retC)
 	}
 	b.WriteString(body)
 	// 函数体末尾自然退出的 defer 已由 emitBlock 的块退出清理承载
 	//（errdefer 不触发：无返回发生，§10.3）
 	if hasResult && !sc.returned {
 		// 自然落到函数末尾（无 return）：C 结构体零值即 ok=0（Err 语义由 sema 保证不可达）
-		b.WriteString("    xn_Result_Int_String xn_zero = {0};\n")
+		fmt.Fprintf(&b, "    %s xn_zero = {0};\n", retC)
 		b.WriteString("    xn_ret = xn_zero;\n")
 		b.WriteString("    return xn_ret;\n")
 	}
@@ -823,14 +1762,54 @@ type deferItem struct {
 }
 
 type scope struct {
-	g         *gen
-	retC      string
-	hasResult bool
-	defers    []deferItem       // 本块注册的清理（LIFO）
-	pending   []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
-	params    map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
-	locals    map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
-	returned  bool              // 末句已生成 return（块退出清理跳过）
+	parent      *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
+	g           *gen
+	retC        string
+	hasResult   bool
+	defers      []deferItem       // 本块注册的清理（LIFO）
+	pending     []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
+	params      map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
+	locals      map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
+	self        *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
+	staticRefs  map[string]string // 单例静态字段 → C 全局变量（BND-07）
+	staticTypes map[string]string // 单例静态字段 → C 类型（BND-07）
+	superT      string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
+	isCtor      bool              // 构造器体：`return;` 返回已构造对象
+	returned    bool              // 末句已生成 return（块退出清理跳过）
+	rootMark    string            // 根帧标记变量（S3-02；空=本块不登记）
+	rootPrelude []string          // 根帧建立后立即执行的登记（参数/self 根）
+	kind        string            // 块种类：loop/switch（break/continue 根帧恢复用）
+	taskBody    *taskBodyInfo     // 任务闭包体（S5-04）：return → xrt_task_result
+	taskEnvVar  string            // 任务体 env 变量名
+	taskOutVar  string            // 任务体 out 参数名
+}
+
+// selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
+type selfCtx struct {
+	ctype   string                  // 当前类 C 类型（xn_Cls_X *）
+	cvar    string                  // 当前 self 的 C 变量名（方法=self，构造器=o）
+	value   bool                    // self 为值（struct 构造器）而非指针
+	fields  map[string]string       // 字段声明名/规范名 → C 成员名
+	types   map[string]string       // 字段声明名/规范名 → C 类型
+	methods map[string]*classInfo_m // 实例方法名 → 签名
+	ci      *classInfo
+}
+
+// newSelfCtx 构建类的实例上下文（字段含私有规范名）。
+func newSelfCtx(ci *classInfo) *selfCtx {
+	sc := &selfCtx{cvar: "self", ctype: ci.cname + " *", fields: map[string]string{}, types: map[string]string{}, methods: map[string]*classInfo_m{}, ci: ci}
+	for _, f := range ci.fields {
+		sc.fields[f.name] = f.cname
+		sc.types[f.name] = f.ctype
+		if f.name != f.cname {
+			sc.fields[f.cname] = f.cname
+			sc.types[f.cname] = f.ctype
+		}
+	}
+	for name, m := range ci.methods {
+		sc.methods[name] = m
+	}
+	return sc
 }
 
 // localCType 查局部变量 C 类型（含参数；参数按其声明类型登记）。
@@ -845,12 +1824,21 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
 }
 
-func (s *scope) tmp() string {
-	s.g.tmp++
-	return fmt.Sprintf("xn_t%d", s.g.tmp)
+func (s *scope) tmp() string { return s.g.nextTmp() }
+
+// nextTaskID 分配任务闭包编号。
+func (g *gen) nextTaskID() int {
+	g.taskID++
+	return g.taskID
+}
+
+// nextTmp 分配一个翻译单元内唯一的临时变量名。
+func (g *gen) nextTmp() string {
+	g.tmp++
+	return fmt.Sprintf("xn_t%d", g.tmp)
 }
 
 // emitCleanup 生成清理序列（注册逆序）。condErr 为 true 时 errdefer 以
@@ -858,19 +1846,22 @@ func (s *scope) tmp() string {
 // （普通块退出/Ok 返回不触发，§10.3）。
 func (s *scope) emitCleanup(condErr bool, indent string) string {
 	var out []string
-	for i := len(s.defers) - 1; i >= 0; i-- {
-		d := s.defers[i]
-		if d.errdefer {
-			if !s.hasResult || !condErr {
-				continue
+	// 返回/传播路径：从最内层块向外执行所有祖先块注册的 defer（LIFO）。
+	for sc := s; sc != nil; sc = sc.parent {
+		for i := len(sc.defers) - 1; i >= 0; i-- {
+			d := sc.defers[i]
+			if d.errdefer {
+				if !s.hasResult || !condErr {
+					continue
+				}
+				out = append(out, indent+"if (!xn_ret.ok) {")
+				out = append(out, d.lines...)
+				out = append(out, indent+"}")
+			} else {
+				out = append(out, indent+"{")
+				out = append(out, d.lines...)
+				out = append(out, indent+"}")
 			}
-			out = append(out, indent+"if (!xn_ret.ok) {")
-			out = append(out, d.lines...)
-			out = append(out, indent+"}")
-		} else {
-			out = append(out, indent+"{")
-			out = append(out, d.lines...)
-			out = append(out, indent+"}")
 		}
 	}
 	return strings.Join(out, "\n") + trailingNewline(out)
@@ -883,9 +1874,39 @@ func trailingNewline(lines []string) string {
 	return "\n"
 }
 
+// emitRootRestores 生成 break/continue 跳出块时的根帧恢复（S3-02）。
+// break 恢复到最近的 loop/switch 块（含）；continue 恢复到最近 loop 块（含）。
+func (s *scope) emitRootRestores(kind string) []string {
+	var out []string
+	for sc := s; sc != nil; sc = sc.parent {
+		if sc.rootMark != "" {
+			out = append(out, "xn_root_restore("+sc.rootMark+");")
+		}
+		if kind == "continue" {
+			if sc.kind == "loop" {
+				break
+			}
+			continue
+		}
+		if sc.kind != "" {
+			break
+		}
+	}
+	return out
+}
+
 // emitBlock 生成语句序列；块退出时执行本块注册的 defer（errdefer 不触发）。
 func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 	var out []string
+	// S3-02：块级根帧——记录进入时的根栈标记，块退出/返回时恢复。
+	if s.rootMark != "" {
+		out = append(out, "size_t "+s.rootMark+" = xn_root_mark();")
+		if len(s.rootPrelude) > 0 {
+			out = append(out, s.rootPrelude...)
+			s.rootPrelude = nil
+		}
+		s.defers = append(s.defers, deferItem{lines: []string{"xn_root_restore(" + s.rootMark + ");"}})
+	}
 	for _, st := range stmts {
 		lines, err := s.emitStmt(st)
 		if err != nil {
@@ -926,18 +1947,30 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 	case *xfront.ExprStmt:
 		return s.emitExprStmt(n.X)
 	case *xfront.LocalDeclStmt:
-		return s.emitLocalDecl(n)
+		lines, err := s.emitLocalDecl(n)
+		if err == nil {
+			// S3-02：GC 引用局部登记为栈根；分配点安全点。
+			if tc, ok := s.locals[n.Name]; ok && s.g.isGCRootC(tc) {
+				lines = append(lines, "xn_root_add("+n.Name+");")
+				if !s.g.inDeinit {
+					lines = append(lines, "xn_gc_safepoint();")
+				}
+			}
+		}
+		return lines, err
 	case *xfront.AssignStmt:
 		return s.emitAssign(n)
 	case *xfront.ReturnStmt:
 		return s.emitReturn(n)
 	case *xfront.IfStmt:
 		return s.emitIf(n)
+	case *xfront.SwitchStmt:
+		return s.emitSwitch(n)
 	case *xfront.BreakStmt:
-		// 循环体内合法（sema 管）；C 的 while(1){} 降级形态同样消费 break
-		return []string{"break;"}, nil
+		// 循环/switch 体内合法；先恢复被跳出块的根帧，再 break。
+		return append(s.emitRootRestores("break"), "break;"), nil
 	case *xfront.ContinueStmt:
-		return []string{"continue;"}, nil
+		return append(s.emitRootRestores("continue"), "continue;"), nil
 	case *xfront.WhileStmt:
 		cond, err := s.cond(n.Cond)
 		if err != nil {
@@ -950,6 +1983,7 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 			pre := append([]string{}, s.pending...)
 			s.pending = nil
 			bodySc := s.newChild()
+			bodySc.kind = "loop"
 			body, err := bodySc.emitBlock(n.Body.Stmts)
 			if err != nil {
 				return nil, err
@@ -958,15 +1992,23 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 			out = append(out, reindent(pre, "        ")...)
 			out = append(out, "        if (!("+cond+")) { break; }")
 			out = append(out, reindent(splitLines(body), "        ")...)
+			if !s.g.inDeinit {
+				out = append(out, "        xn_gc_safepoint();")
+			}
 			out = append(out, "    }")
 			return out, nil
 		}
 		bodySc := s.newChild()
+		bodySc.kind = "loop"
 		body, err := bodySc.emitBlock(n.Body.Stmts)
 		if err != nil {
 			return nil, err
 		}
-		return append([]string{"    while (" + cond + ") {"}, append(reindent(splitLines(body), "    "), "    }")...), nil
+		out := reindent(splitLines(body), "    ")
+		if !s.g.inDeinit {
+			out = append(out, "    xn_gc_safepoint();")
+		}
+		return append([]string{"    while (" + cond + ") {"}, append(out, "    }")...), nil
 	case *xfront.ForStmt:
 		return s.emitForIn(n)
 	case *xfront.DeferStmt:
@@ -1019,14 +2061,78 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		return nil, fmt.Errorf("codegen：表达式语句 %T 未支持（M4.1 范围）", e)
 	}
 	if mem, ok := call.Callee.(*xfront.Member); ok {
+		if expr, _, hit, err := s.tryFactoryCall(mem, call); err != nil {
+			return nil, err
+		} else if hit {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
+		if expr, _, hit, err := s.staticClassCall(mem, call); err != nil {
+			return nil, err
+		} else if hit {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
+		if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+			expr, _, err := s.protoDispatch(mem, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
+		if rn, rc, err := recvCName(mem.X, s); err == nil && s.g.isStructC(rc) {
+			ci, _ := s.g.structOfC(rc)
+			m, ok := s.methodFor(ci, mem.Name, call.Args)
+			if !ok {
+				return nil, fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
+			}
+			expr, err := s.methodCall(ci, m, "(&"+rn+")", call.Args)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
 		if rn, rc, err := recvCName(mem.X, s); err == nil {
-			if isClassPtr(rc) {
+			if isClassPtr(rc) || s.g.isDataEnumC(rc) {
 				if v, hit, err := s.classMemberValue(rc, rn, mem, call.Args); err != nil {
 					return nil, err
 				} else if hit {
 					out := append([]string{}, s.pending...)
 					s.pending = nil
 					return append(out, v+";"), nil
+				}
+			}
+			if rc == "xrt_sb *" {
+				lines, hit, err := s.sbMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
+			if rc == "xrt_bytes_obj *" {
+				lines, hit, err := s.bytesMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
+			if rc == "xrt_sb *" {
+				lines, hit, err := s.sbMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
 				}
 			}
 			if isContainerC(rc) {
@@ -1038,6 +2144,14 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return lines, nil
 				}
 			}
+			if mem.Name == "cancel" {
+				if rc == "xrt_task_group *" {
+					return []string{"xrt_task_group_cancel(" + rn + ");", "xrt_safepoint();"}, nil
+				}
+				if rc == "xrt_context *" {
+					return []string{"xrt_context_cancel(" + rn + ");"}, nil
+				}
+			}
 		}
 		return nil, fmt.Errorf("codegen：成员调用 %s 未支持（M4.4a 范围）", mem.Name)
 	}
@@ -1045,8 +2159,40 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	if !ok {
 		return nil, fmt.Errorf("codegen：调用目标 %T 未支持", call.Callee)
 	}
+	if id.Name == "dumpTasks" {
+		// S6-02：dumpTasks 实现侧诊断（单行；非承诺）。
+		return []string{"xrt_safepoint();", "xn_dump_tasks();"}, nil
+	}
+	if id.Name == "diagnose" && len(call.Args) == 1 {
+		sl, err := s.strExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		return append(sl, "xdkc_diagnose("+lastVar(sl)+"->bytes, "+lastVar(sl)+"->len);"), nil
+	}
+	if id.Name == "exit" && len(call.Args) == 1 {
+		v, err := s.intExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, "xdkc_exit((int64_t)("+v+"));"), nil
+	}
 	if id.Name == "print" {
 		return s.emitPrint(call.Args[0])
+	}
+	// S4-02：report(r) 语句形态（边界观测；返回原 Result 但丢弃）。
+	if id.Name == "report" && len(call.Args) == 1 {
+		if t, err := s.exprType(call.Args[0]); err == nil && strings.HasPrefix(t, "xn_Result_") {
+			v, err := s.emitResultReport(call.Args[0], t)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, "(void)"+v+";"), nil
+		}
 	}
 	if id.Name == "str" {
 		return nil, fmt.Errorf("codegen：str(...) 结果被丢弃（sema 应拒绝）")
@@ -1065,11 +2211,108 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		}
 		return lines, nil
 	}
+	if expr, hit, err := s.selfMethodCall(id.Name, call.Args); err != nil {
+		return nil, err
+	} else if hit {
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, expr+";"), nil
+	}
 	args, err := s.callArgs(call.Args)
 	if err != nil {
 		return nil, err
 	}
-	return []string{"xn_" + id.Name + "(" + strings.Join(args, ", ") + ");"}, nil
+	cn, err := s.g.callName(id.Name, call.TypeArgs, len(call.Args))
+	if err != nil {
+		return nil, err
+	}
+	return []string{cn + "(" + strings.Join(args, ", ") + ");"}, nil
+}
+
+// emitSwitch 生成 switch（S1 §6.8：无隐式贯穿，按源码顺序首个匹配）。
+// 发射为 do{ if/else-if }while(0)：case 体内 break 自然退出 switch。
+func (s *scope) emitSwitch(n *xfront.SwitchStmt) ([]string, error) {
+	vt, err := s.exprType(n.Value)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	var valExpr string
+	isStr := vt == "rt_string *"
+	if isStr {
+		lines, err := s.strExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, lines...)
+		valExpr = lastVar(lines)
+	} else {
+		v, err := s.intExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s.pending...)
+		s.pending = nil
+		valExpr = v
+	}
+	// 先求值全部 case 表达式（无副作用常量/项），保留临时字符串。
+	conds := make([]string, 0, len(n.Cases))
+	var caseTemps []string
+	for _, c := range n.Cases {
+		if isStr {
+			lines, err := s.strExpr(c.Expr)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, lines...)
+			t := lastVar(lines)
+			caseTemps = append(caseTemps, t)
+			conds = append(conds, "xn_str_eq("+valExpr+", "+t+")")
+			continue
+		}
+		v, err := s.intExpr(c.Expr)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, s.pending...)
+		s.pending = nil
+		conds = append(conds, valExpr+" == ("+v+")")
+	}
+	out = append(out, "    do {")
+	for i, c := range n.Cases {
+		kw := "if"
+		if i > 0 {
+			kw = "else if"
+		}
+		bodySc := s.newChild()
+		bodySc.kind = "switch"
+		body, err := bodySc.emitBlock(c.Stmts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, "        "+kw+" ("+conds[i]+") {")
+		out = append(out, reindent(splitLines(body), "            ")...)
+		out = append(out, "        }")
+	}
+	if n.Default != nil {
+		bodySc := s.newChild()
+		bodySc.kind = "switch"
+		body, err := bodySc.emitBlock(n.Default.Stmts)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, "        else {")
+		out = append(out, reindent(splitLines(body), "            ")...)
+		out = append(out, "        }")
+	}
+	out = append(out, "    } while (0);")
+	for _, t := range caseTemps {
+		out = append(out, "    rt_release("+t+");")
+	}
+	if isStr {
+		out = append(out, "    rt_release("+valExpr+");")
+	}
+	return out, nil
 }
 
 // emitForIn 生成 `for x in src { }`：容器遍历（M4.4a；整型区间随区间表达式批次）。
@@ -1085,9 +2328,10 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 	}
 	acc := srcName
 	if strings.HasPrefix(srcC, "xn_set_") {
-		acc += ".a"
+		acc += "->a"
 	}
 	bodySc := s.newChild()
+	bodySc.kind = "loop"
 	bodySc.locals = map[string]string{}
 	if s.locals != nil {
 		for k, v := range s.locals {
@@ -1101,10 +2345,13 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 	}
 	idx := s.tmp()
 	lines := []string{
-		"for (size_t " + idx + " = 0; " + idx + " < " + acc + ".len; " + idx + "++) {",
-		"    " + elem + " " + n.Var + " = " + acc + ".data[" + idx + "];",
+		"for (size_t " + idx + " = 0; " + idx + " < " + acc + "->len; " + idx + "++) {",
+		"    " + elem + " " + n.Var + " = " + acc + "->data[" + idx + "];",
 	}
 	lines = append(lines, reindent(splitLines(body), "    ")...)
+	if !s.g.inDeinit {
+		lines = append(lines, "    xn_gc_safepoint();")
+	}
 	lines = append(lines, "}")
 	return lines, nil
 }
@@ -1118,6 +2365,25 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 	t, err := s.exprType(e)
 	if err != nil {
 		return nil, err
+	}
+	if s.g.isTupleC(t) {
+		lines, v, err := s.tupleStr(e, t)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, "xn_print_str("+v+");", "rt_release("+v+");"), nil
+	}
+	if s.g.isSimpleEnumC(t) || s.g.isDataEnumC(t) {
+		fn := "xn_enum_" + strings.TrimSuffix(strings.TrimPrefix(t, "xn_Enum_"), " *") + "_name"
+		v, err := s.intExpr(e)
+		if err != nil {
+			return nil, err
+		}
+		tmp := s.tmp()
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, "rt_string *"+tmp+" = "+fn+"("+v+");", "xn_print_str("+tmp+");", "rt_release("+tmp+");")
+		return out, nil
 	}
 	switch t {
 	case "xn_opt_i", "xn_opt_b", "xn_opt_s":
@@ -1154,7 +2420,7 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return []string{"xn_print_bool(" + v + ");"}, nil
-	case "int64_t":
+	case "int64_t", "int32_t":
 		v, err := s.intExpr(e)
 		if err != nil {
 			return nil, err
@@ -1173,7 +2439,9 @@ func (s *scope) isBorrowExpr(e xfront.Expr) bool {
 		return true
 	case *xfront.Call:
 		if mem, ok := n.Callee.(*xfront.Member); ok && mem.Name == "get" {
-			return true
+			if _, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				return true
+			}
 		}
 	}
 	return false
@@ -1231,9 +2499,96 @@ func (s *scope) isStrShape(e xfront.Expr) bool {
 
 // emitLocalDecl 局部声明。
 func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
-	tc, err := s.g.cType(n.Type)
+	var tc string
+	var err error
+	if n.Type == nil {
+		// var 推断（S1 §5.1）：编译期按初始化式求 C 类型。
+		if n.Init == nil {
+			return nil, fmt.Errorf("codegen：var 声明缺少初始化式（sema 应拒绝）")
+		}
+		tc, err = s.exprType(n.Init)
+	} else {
+		tc, err = s.g.cType(n.Type)
+	}
 	if err != nil {
 		return nil, err
+	}
+	// try 通用解包（Result<T,String> → T）：类/struct/枚举/协议/String/标量统一走
+	// `Result temp = call; ... T name = temp.v`（INT-01/BND-15 集成）。
+	if n.Init != nil {
+		if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
+			rt, err := s.exprType(u.X)
+			if err != nil {
+				return nil, err
+			}
+			if !strings.HasPrefix(rt, "xn_Result_") {
+				return nil, fmt.Errorf("codegen：try 目标不是 Result（%s）", rt)
+			}
+			t := s.tmp()
+			lines, err := s.emitTryInto(rt, t, u.X)
+			if err != nil {
+				return nil, err
+			}
+			s.locals[n.Name] = tc
+			if strings.HasPrefix(tc, "xn_Result_") {
+				return append(lines, tc+" "+n.Name+" = "+t+";"), nil
+			}
+			switch {
+			case tc == "rt_string *", isClassPtr(tc), s.g.isProtoC(tc), isHandlePtr(tc), tc == "xrt_bytes_obj *":
+				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			}
+			return append(lines, tc+" "+n.Name+" = "+t+".v;"), nil
+		}
+	}
+	// Any/Object 装箱局部（S3 §3）：GC 盒引用，不做 retain/release。
+	if s.g.isAnyC(tc) {
+		lines, v, err := s.anyExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	if s.g.isTupleC(tc) {
+		s.locals[n.Name] = tc
+		if n.Init == nil {
+			return []string{tc + " " + n.Name + " = (" + tc + "){0};"}, nil
+		}
+		lines, v, err := s.tupleExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	// 结构体值局部（S2 §3.3）：C 结构体赋值即整值复制。
+	if s.g.isStructC(tc) {
+		s.locals[n.Name] = tc
+		if n.Init == nil {
+			return []string{tc + " " + n.Name + " = (" + tc + "){0};"}, nil
+		}
+		lines, expr, err := s.structValue(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tc+" "+n.Name+" = "+expr+";"), nil
+	}
+	// 协议类型局部（S2 §4.4）：对象指针强引用；null 为零值。
+	if s.g.isProtoC(tc) {
+		s.locals[n.Name] = tc
+		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release((void *)" + n.Name + ");"}})
+		if n.Init == nil {
+			return []string{tc + " " + n.Name + " = NULL;"}, nil
+		}
+		lines, expr, owned, err := s.protoValue(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		return append(lines, tc+" "+n.Name+" = "+expr+";"), nil
 	}
 	if strings.HasPrefix(tc, "xn_opt_") {
 		lines, v := []string{}, "("+tc+"){0, 0}"
@@ -1247,6 +2602,22 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
+	if tc == "xrt_text *" {
+		lines, out, err := s.textExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_text *"+n.Name+" = "+out+";"), nil
+	}
+	if tc == "xrt_sb *" {
+		lines, out, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_sb *"+n.Name+" = "+out+";"), nil
+	}
 	if isHandlePtr(tc) {
 		lines, out, err := s.handleExpr(n.Init)
 		if err != nil {
@@ -1256,18 +2627,96 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 		return append(lines, "xrt_handle *"+n.Name+" = "+out+";"), nil
 	}
+	if tc == "xrt_bytes_obj *" {
+		lines, out, err := s.bytesExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+		return append(lines, "xrt_bytes_obj *"+n.Name+" = "+out+";"), nil
+	}
+	// S3-04：Text / StringBuilder 局部（GC 引用；根登记由 S3-02 包装统一添加）。
+	if tc == "xrt_text *" {
+		lines, v, err := s.textExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	if tc == "xrt_sb *" {
+		lines, v, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	// S5-04：任务/上下文句柄局部（ARC；不参与 GC 根登记）。
+	if isTaskHandleC(tc) {
+		lines, v, err := s.taskValueExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
 			return nil, fmt.Errorf("codegen：类实例局部声明需要 new 初始化（M4.4b 范围）")
 		}
 		if nw, ok := n.Init.(*xfront.New); ok {
+			// S3-03：Escape=none 且未发布的局部 → 栈对象（无分配器调用）。
+			if s.g.classIsStack(tc) && !s.localEscaped(n.Name) {
+				out, err := s.emitStackNew(nw, tc, n.Name)
+				if err != nil {
+					return nil, err
+				}
+				s.locals[n.Name] = tc
+				return out, nil
+			}
 			ctor, err := s.emitNewClass(nw)
 			if err != nil {
 				return nil, err
 			}
+			if nt, ok := nw.Type.(*xfront.NamedType); ok {
+				if ci, ok := s.g.classOf(typeName(nt)); ok && ci.cname+" *" != tc {
+					ctor = "(" + tc + ")(" + ctor + ")" // 子类 → 父类/协议（S2 §5.2）
+				}
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			if !s.g.classIsGC(tc) {
+				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			}
+			s.locals[n.Name] = tc
+			return append(out, tc+" "+n.Name+" = "+ctor+";"), nil
+		}
+		if _, ok := n.Init.(*xfront.NullLit); ok {
 			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			s.locals[n.Name] = tc
-			return []string{tc + " " + n.Name + " = " + ctor + ";"}, nil
+			return []string{tc + " " + n.Name + " = NULL;"}, nil
+		}
+		if id, ok := n.Init.(*xfront.IdentExpr); ok {
+			r := s.cRef(id.Name)
+			if sc, ok := s.localCType(id.Name); ok && sc != tc {
+				r = "(" + tc + ")(" + r + ")"
+			}
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			s.locals[n.Name] = tc
+			return []string{tc + " " + n.Name + " = rt_retain(" + r + ");"}, nil
+		}
+		if bin, ok := n.Init.(*xfront.Binary); ok && (bin.Op == "as?" || bin.Op == "as") {
+			v, err := s.intExpr(bin)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			s.locals[n.Name] = tc
+			return append(out, tc+" "+n.Name+" = ("+tc+")("+v+");"), nil
 		}
 		if cl, ok := n.Init.(*xfront.Call); ok {
 			expr, owns, err := s.classCallExpr(cl)
@@ -1276,7 +2725,7 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			}
 			lines := append([]string{}, s.pending...)
 			s.pending = nil
-			if owns {
+			if owns && !s.g.classIsGC(tc) {
 				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			}
 			s.locals[n.Name] = tc
@@ -1292,9 +2741,25 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.defers = append(s.defers, deferItem{lines: []string{tc + "_free(&" + n.Name + ");"}})
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	// Result 内联值（§10/§9）：Ok/Err 构造、函数返回、变量/字段复制。
+	if strings.HasPrefix(tc, "xn_Result_") {
+		if n.Init != nil {
+			if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
+				s.locals[n.Name] = tc
+				return s.emitTryInto(tc, n.Name, u.X)
+			}
+		}
+		v, err := s.resultExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		s.locals[n.Name] = tc
+		return append(out, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	switch tc {
 	case "rt_string *":
@@ -1314,21 +2779,6 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		out := append([]string{}, lines[:len(lines)-1]...)
 		last := strings.Replace(lines[len(lines)-1], "rt_string *"+t+" =", "rt_string *"+n.Name+" =", 1)
 		return append(out, last), nil
-	case "xn_Result_Int_String", "xn_Result_Bool_String":
-		// try 形态：`Result<...> r = try f(x)` 或 `T v = try f(x)`（v 取 .v）
-		if n.Init != nil {
-			if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
-				return s.emitTryInto(tc, n.Name, u.X)
-			}
-		}
-		v, err := s.resultExpr(n.Init, tc)
-		if err != nil {
-			return nil, err
-		}
-		out := append([]string{}, s.pending...)
-		s.pending = nil
-		s.locals[n.Name] = tc
-		return append(out, tc+" "+n.Name+" = "+v+";"), nil
 	default:
 		// Int/Bool；try 形态解包 .v
 		if n.Init != nil {
@@ -1338,6 +2788,7 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 				if err != nil {
 					return nil, err
 				}
+				s.locals[n.Name] = tc
 				return append(lines, tc+" "+n.Name+" = "+t+".v;"), nil
 			}
 			v, err := s.intExpr(n.Init)
@@ -1359,20 +2810,85 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 	if !ok {
 		return nil, fmt.Errorf("codegen：try 实参必须是调用，got %T", callExpr)
 	}
-	id, ok := call.Callee.(*xfront.IdentExpr)
-	if !ok {
+	var callStr string
+	switch callee := call.Callee.(type) {
+	case *xfront.IdentExpr:
+		args, err := s.callArgs(call.Args)
+		if err != nil {
+			return nil, err
+		}
+		cn, err := s.g.callName(callee.Name, call.TypeArgs, len(call.Args))
+		if err != nil {
+			return nil, err
+		}
+		callStr = cn + "(" + strings.Join(args, ", ") + ")"
+	case *xfront.Member:
+		if expr, _, hit, err := s.tryFactoryCall(callee, call); err != nil {
+			return nil, err
+		} else if hit {
+			callStr = expr
+			break
+		}
+		if expr, _, hit, err := s.staticClassCall(callee, call); err != nil {
+			return nil, err
+		} else if hit {
+			callStr = expr
+			break
+		}
+		recvName, recvC, err := recvCName(callee.X, s)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case s.g.isStructC(recvC):
+			ci, _ := s.g.structOfC(recvC)
+			m, ok := s.methodFor(ci, callee.Name, call.Args)
+			if !ok {
+				return nil, fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, callee.Name)
+			}
+			expr, err := s.methodCall(ci, m, "(&"+recvName+")", call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		case s.g.isProtoC(recvC):
+			expr, _, err := s.protoDispatch(callee, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		default:
+			ci, ok := s.g.classOfC(recvC)
+			if !ok {
+				return nil, fmt.Errorf("codegen：try 调用目标 %T 未支持", call.Callee)
+			}
+			m, ok := s.methodFor(ci, callee.Name, call.Args)
+			if !ok {
+				return nil, fmt.Errorf("codegen：类 %s 没有方法 %s", ci.decl.Name, callee.Name)
+			}
+			expr, err := s.methodCall(ci, m, recvName, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		}
+	default:
 		return nil, fmt.Errorf("codegen：try 调用目标 %T 未支持", call.Callee)
 	}
-	args, err := s.callArgs(call.Args)
-	if err != nil {
-		return nil, err
+	pre := append([]string{}, s.pending...)
+	s.pending = nil
+	lines := append(pre, resultC+" "+name+" = "+callStr+";", "if (!"+name+".ok) {")
+	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）。
+	// 外层 Result 值类型可与 try 目标不同（如 Result<Color> → Result<Int>）：
+	// 置零后用 Err 通道逐字段转移（BND-15 集成）。
+	if !strings.HasPrefix(s.retC, "xn_Result_") {
+		return nil, fmt.Errorf("codegen：try 只能用于返回 Result 的函数（当前返回 %s）", s.retC)
 	}
-	lines := []string{
-		resultC + " " + name + " = xn_" + id.Name + "(" + strings.Join(args, ", ") + ");",
-		"if (!" + name + ".ok) {",
+	if s.retC == resultC {
+		lines = append(lines, "    xn_ret = "+name+";")
+	} else {
+		lines = append(lines, "    xn_ret = ("+s.retC+"){0};", "    xn_ret.err = "+name+".err;")
 	}
-	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）
-	lines = append(lines, "    xn_ret = "+name+";")
 	lines = append(lines, reindent(splitLines(strings.TrimSuffix(s.emitCleanup(true, ""), "\n")), "        ")...)
 	lines = append(lines, "    return xn_ret;", "}")
 	return lines, nil
@@ -1407,7 +2923,70 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	if n.Op != "=" {
 		return nil, fmt.Errorf("codegen：复合赋值 %s 未支持（M4.1 范围）", n.Op)
 	}
+	// 元组成员赋值（S1 §2.11）：`pair.0 = 2`，目标必须是可赋值元组。
+	if tm, ok := n.Target.(*xfront.TupleMember); ok {
+		lv, err := s.tupleLValue(tm)
+		if err != nil {
+			return nil, err
+		}
+		ec, err := s.exprType(tm)
+		if err != nil {
+			return nil, err
+		}
+		ls, v, err := s.tupleElemExpr(n.Value, ec)
+		if err != nil {
+			return nil, err
+		}
+		return append(ls, lv+" = "+v+";"), nil
+	}
 	if mem, ok := n.Target.(*xfront.Member); ok {
+		if _, _, isInst := s.g.singletonInstance(mem); isInst {
+			return nil, fmt.Errorf("codegen：单例 instance 只读，不能赋值（S2 §9.1）")
+		}
+		if varName, ct, ok := s.g.singletonStatic(mem); ok {
+			if s.g.isGCTypeC(ct) {
+				// 静态字段是 GC 全局根：替换时同步根集合。
+				var expr string
+				var lines []string
+				switch v := n.Value.(type) {
+				case *xfront.New:
+					e, err := s.emitNewClass(v)
+					if err != nil {
+						return nil, err
+					}
+					expr = e
+					lines = append([]string{}, s.pending...)
+					s.pending = nil
+				case *xfront.IdentExpr:
+					expr = s.cRef(v.Name)
+				case *xfront.NullLit:
+					expr = "NULL"
+				default:
+					return nil, fmt.Errorf("codegen：GC 静态字段赋值右值 %T 未支持（BND-10）", n.Value)
+				}
+				out := append(lines, "xn_root_release("+varName+");", varName+" = "+expr+";")
+				out = append(out, "xn_root_hold("+varName+");")
+				return out, nil
+			}
+			switch ct {
+			case "rt_string *":
+				lines, err := s.strExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "rt_release("+varName+");", varName+" = "+lastVar(lines)+";")
+				return out, nil
+			default:
+				v, err := s.intExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, varName+" = "+v+";"), nil
+			}
+		}
 		return s.emitFieldAssign(mem, n.Value)
 	}
 	if idx, ok := n.Target.(*xfront.Index); ok {
@@ -1418,6 +2997,78 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		return nil, fmt.Errorf("codegen：赋值目标 %T 未支持（M4.1 范围）", n.Target)
 	}
 	tgt := s.cRef(id.Name)
+	if tgt == "" {
+		return nil, fmt.Errorf("codegen：结构体赋值目标未支持")
+	}
+	// 结构体值局部赋值（整值复制）。
+	if tc, ok := s.localCType(id.Name); ok && s.g.isStructC(tc) {
+		lines, expr, err := s.structValue(n.Value, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tgt+" = "+expr+";"), nil
+	}
+	// 元组局部/顶层字段赋值（S1 §2.11）：C 结构体整值赋值即整值复制。
+	if u, ok := n.Value.(*xfront.Unary); ok && u.Op == "try" {
+		var tc string
+		if c, ok := s.localCType(id.Name); ok {
+			tc = c
+		} else if c, ok := s.g.globals[id.Name]; ok {
+			tc = c
+		} else {
+			return nil, fmt.Errorf("codegen：try 赋值目标 %s 类型未知", id.Name)
+		}
+		rt, err := s.exprType(u.X)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(rt, "xn_Result_") {
+			return nil, fmt.Errorf("codegen：try 目标不是 Result（%s）", rt)
+		}
+		t := s.tmp()
+		out, err := s.emitTryInto(rt, t, u.X)
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(tc, "xn_Result_") {
+			return append(out, tgt+" = "+t+";"), nil
+		}
+		switch {
+		case tc == "rt_string *", isClassPtr(tc), s.g.isProtoC(tc), isHandlePtr(tc), tc == "xrt_bytes_obj *":
+			out = append(out, "rt_release("+tgt+");")
+		}
+		return append(out, tgt+" = "+t+".v;"), nil
+	}
+	if tc, ok := s.localCType(id.Name); ok && s.g.isTupleC(tc) {
+		lines, v, err := s.tupleExpr(n.Value, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tgt+" = "+v+";"), nil
+	}
+	if tc, ok := s.g.globals[id.Name]; ok && s.g.isTupleC(tc) {
+		if _, shadowed := s.locals[id.Name]; !shadowed && (s.params == nil || !s.params[id.Name]) {
+			lines, v, err := s.tupleExpr(n.Value, tc)
+			if err != nil {
+				return nil, err
+			}
+			return append(lines, tgt+" = "+v+";"), nil
+		}
+	}
+	if tc, ok := s.localCType(id.Name); ok && s.g.isProtoC(tc) {
+		lines, expr, owned, err := s.protoValue(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		out := append([]string{}, lines...)
+		out = append(out, "rt_release((void *)"+tgt+");", tgt+" = "+expr+";")
+		return out, nil
+	}
 	// 句柄局部赋值（B0-07c）：Call/Ident 右值；旧句柄释放。
 	if tc, ok := s.localCType(id.Name); ok && isHandlePtr(tc) {
 		switch v := n.Value.(type) {
@@ -1440,6 +3091,59 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		return nil, fmt.Errorf("codegen：句柄赋值右值 %T 未支持（B0-07c 范围）", n.Value)
 	}
+	// 实例字段赋值（§5.8）：类内非限定名解析到 self->field。
+	if s.self != nil {
+		if ft, ok := s.self.types[id.Name]; ok {
+			field := s.cRef(id.Name)
+			switch {
+			case ft == "rt_string *":
+				if _, isNull := n.Value.(*xfront.NullLit); isNull {
+					return []string{"rt_release(" + field + ");", field + " = NULL;"}, nil
+				}
+				lines, err := s.strExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "rt_release("+field+");")
+				out = append(out, field+" = "+lastVar(lines)+";")
+				return out, nil
+			case isClassPtr(ft):
+				if s.g.classIsGC(ft) {
+					lines, v, _, err := s.classValueExpr(n.Value)
+					if err != nil {
+						return nil, err
+					}
+					out := append([]string{}, lines...)
+					return append(out, field+" = "+v+";"), nil
+				}
+				switch v := n.Value.(type) {
+				case *xfront.IdentExpr:
+					r := s.cRef(v.Name)
+					return []string{"rt_retain(" + r + ");", "rt_release(" + field + ");", field + " = " + r + ";"}, nil
+				case *xfront.New:
+					ctor, err := s.emitNewClass(v)
+					if err != nil {
+						return nil, err
+					}
+					t := s.tmp()
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					out = append(out, ft+" "+t+" = "+ctor+";", "rt_release("+field+");", field+" = "+t+";")
+					return out, nil
+				}
+				return nil, fmt.Errorf("codegen：字段 %s 的类引用赋值右值 %T 未支持（M5.1-c 范围）", id.Name, n.Value)
+			default:
+				v, err := s.intExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, field+" = "+v+";"), nil
+			}
+		}
+	}
 	// 顶层字段赋值（ENTRY-01：Int/Bool/String）
 	if tc, ok := s.g.globals[id.Name]; ok {
 		if _, shadowed := s.locals[id.Name]; !shadowed && (s.params == nil || !s.params[id.Name]) {
@@ -1449,8 +3153,23 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 					return nil, err
 				}
 				out := append([]string{}, lines...)
-				out = append(out, "rt_release("+tgt+");")
-				out = append(out, tgt+" = "+lastVar(lines)+";")
+				out = append(out, "xn_root_release("+tgt+");", tgt+" = "+lastVar(lines)+";", "xn_root_hold("+tgt+");")
+				return out, nil
+			}
+			if tc == "xrt_text *" || tc == "xrt_sb *" {
+				var lines []string
+				var v string
+				var err error
+				if tc == "xrt_text *" {
+					lines, v, err = s.textExpr(n.Value)
+				} else {
+					lines, v, err = s.sbExpr(n.Value)
+				}
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");")
 				return out, nil
 			}
 			v, err := s.intExpr(n.Value)
@@ -1465,6 +3184,14 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	// 类引用局部：按 §3.3 纪律——旧值释放；新值为 +1 产物（调用/new）则接管，
 	// 为借用（变量/容器 get）则 retain 后接管。消除此前「裸赋值泄漏旧值」。
 	if tc, ok := s.localCType(id.Name); ok && isClassPtr(tc) {
+		if s.g.classIsGC(tc) {
+			lines, v, _, err := s.classValueExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, lines...)
+			return append(out, tgt+" = "+v+";"), nil
+		}
 		switch v := n.Value.(type) {
 		case *xfront.Call:
 			// 顺序关键：先求值（+1 产物入临时），再放旧，后赋值——
@@ -1510,18 +3237,101 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		t := lastVar(lines)
 		out := append([]string{}, lines...)
-		out = append(out, "rt_release("+tgt+");")
-		out = append(out, tgt+" = "+t+";")
+		out = append(out, "rt_release("+tgt+");", tgt+" = "+t+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
+		return out, nil
+	}
+	// Result 局部赋值（内联值整值复制 / Ok/Err 构造）。
+	if tc, ok := s.localCType(id.Name); ok && strings.HasPrefix(tc, "xn_Result_") {
+		v, err := s.resultExpr(n.Value, tc)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, tgt+" = "+v+";"), nil
+	}
+	// S3-04：Text/StringBuilder 局部赋值（GC 引用，不计数）。
+	if tc, ok := s.localCType(id.Name); ok && (tc == "xrt_text *" || tc == "xrt_sb *") {
+		var lines []string
+		var v string
+		var err error
+		if tc == "xrt_text *" {
+			lines, v, err = s.textExpr(n.Value)
+		} else {
+			lines, v, err = s.sbExpr(n.Value)
+		}
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
 		return out, nil
 	}
 	v, err := s.intExpr(n.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []string{tgt + " = " + v + ";"}, nil
+	out := append([]string{}, s.pending...)
+	s.pending = nil
+	// S3-02：GC 引用局部赋值后登记栈根（旧值保留登记到块退出）。
+	if tc, ok := s.localCType(id.Name); ok && s.g.isGCRootC(tc) {
+		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
+		return out, nil
+	}
+	// 顶层字段是全局根：替换时同步根集合（持有计数；与栈槽共享对象安全）。
+	if tc, ok := s.g.globals[id.Name]; ok && s.g.isGCRootC(tc) {
+		out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");")
+		return out, nil
+	}
+	return append(out, tgt+" = "+v+";"), nil
 }
 
 func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
+	if s.isCtor {
+		if n.Value != nil {
+			return nil, fmt.Errorf("codegen：构造器不能带返回值（S2 §6.3）")
+		}
+		out := splitLines(s.emitCleanup(true, "    "))
+		s.returned = true
+		return append(out, "return o;"), nil
+	}
+	// S5-04：任务闭包体 return Result → xrt_task_result（值/错误 +1 移交）。
+	if s.taskBody != nil {
+		if n.Value == nil {
+			return nil, fmt.Errorf("codegen：任务闭包必须返回 Result（S5-00 §二）")
+		}
+		v, err := s.resultExpr(n.Value, s.taskBody.resultC)
+		if err != nil {
+			return nil, err
+		}
+		tmp := s.tmp()
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, s.taskBody.resultC+" "+tmp+" = "+v+";")
+		out = append(out, "out->ok = "+tmp+".ok;")
+		out = append(out, "out->value = "+taskBox(s.taskBody.memberC, tmp+".v")+";")
+		out = append(out, "out->kind = "+tmp+".ok ? XRT_ERR_INVALID_ARGUMENT : "+tmp+".err;")
+		out = append(out, "out->error = NULL;")
+		if s.g.isGCRootC(s.taskBody.memberC) {
+			out = append(out, "xrt_task_root_bind(out->value); /* 任务持有 GC 结果（S5-00 §7.3） */")
+		}
+		if s.rootMark != "" {
+			out = append(out, "xn_root_restore("+s.rootMark+");")
+		}
+		out = append(out, "xrt_safepoint(); /* 任务体出口（S5-00 §7.2） */")
+		out = append(out, "return 0;")
+		s.returned = true
+		return out, nil
+	}
 	if s.retC == "void" {
 		if n.Value != nil {
 			return nil, fmt.Errorf("codegen：void 函数不得带返回值")
@@ -1531,6 +3341,58 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return;"), nil
 	}
+	if s.g.isTupleC(s.retC) && n.Value != nil {
+		lines, v, err := s.tupleExpr(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+v+";"), nil
+	}
+	if s.g.isProtoC(s.retC) && n.Value != nil {
+		lines, expr, owned, err := s.protoValue(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		if !owned {
+			t := s.tmp()
+			lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+			expr = t
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+expr+";"), nil
+	}
+	if s.g.isSimpleEnumC(s.retC) && n.Value != nil {
+		v, err := s.intExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+v+";"), nil
+	}
+	if s.g.isStructC(s.retC) && n.Value != nil {
+		lines, expr, err := s.structValue(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+expr+";"), nil
+	}
 	if isClassPtr(s.retC) && n.Value != nil {
 		// 类引用返回：与 String 同一纪律——标识符 retain 后返回（本层 defer release 抵消）；
 		// new 调用产物直接移交（无需 retain）。
@@ -1538,7 +3400,9 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 			name := s.cRef(id.Name)
 			out := append([]string{}, s.pending...)
 			s.pending = nil
-			out = append(out, "rt_retain("+name+");")
+			if !s.g.classIsGC(s.retC) {
+				out = append(out, "rt_retain("+name+");")
+			}
 			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 			s.returned = true
 			return append(out, "return "+name+";"), nil
@@ -1599,7 +3463,20 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return "+t+";"), nil
 	}
-	if (s.retC == "int64_t" || s.retC == "int") && n.Value != nil {
+	// Result 返回（内联值）：Ok/Err/wrap/mapErr/report/变量/字段/调用统一走 resultExpr。
+	if strings.HasPrefix(s.retC, "xn_Result_") && n.Value != nil {
+		v, err := s.resultExpr(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, "xn_ret = "+v+";")
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return xn_ret;"), nil
+	}
+	if isIntScalarC(s.retC) && n.Value != nil {
 		v, err := s.intExpr(n.Value)
 		if err != nil {
 			return nil, err
@@ -1609,7 +3486,7 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		pre := append([]string{}, s.pending...)
 		s.pending = nil
 		t := s.tmp()
-		out := append(pre, "int64_t "+t+" = "+v+";")
+		out := append(pre, s.retC+" "+t+" = "+v+";")
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return "+t+";"), nil
@@ -1637,9 +3514,13 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		if !ok {
 			return nil, fmt.Errorf("codegen：返回调用目标 %T 未支持", v.Callee)
 		}
+		cn, err := s.g.callName(callee.Name, v.TypeArgs, len(v.Args))
+		if err != nil {
+			return nil, err
+		}
 		out := append([]string{}, s.pending...)
 		s.pending = nil
-		out = append(out, "xn_ret = xn_"+callee.Name+"("+strings.Join(args, ", ")+");")
+		out = append(out, "xn_ret = "+cn+"("+strings.Join(args, ", ")+");")
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return xn_ret;"), nil
@@ -1711,11 +3592,105 @@ func lastVar(lines []string) string {
 
 // strExpr 生成"拥有 rt_string*"的字符串值；结果存入最后一个临时变量。
 func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
+	if t, err := s.exprType(e); err == nil && (s.g.isSimpleEnumC(t) || s.g.isDataEnumC(t)) {
+		fn := "xn_enum_" + strings.TrimSuffix(strings.TrimPrefix(t, "xn_Enum_"), " *") + "_name"
+		v, err := s.intExpr(e)
+		if err != nil {
+			return nil, err
+		}
+		tmp := s.tmp()
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, "rt_string *"+tmp+" = "+fn+"("+v+");"), nil
+	}
 	switch n := e.(type) {
 	case *xfront.StrLitExpr:
-		t := s.tmp()
-		return []string{"rt_string *" + t + " = rt_string_from_c(" + cQuote(plainText(n)) + ");"}, nil
+		hasExpr := false
+		for _, p := range n.Parts {
+			if p.Expr != nil {
+				hasExpr = true
+				break
+			}
+		}
+		if !hasExpr {
+			t := s.tmp()
+			return []string{"rt_string *" + t + " = rt_string_from_c(" + cQuote(plainText(n)) + ");"}, nil
+		}
+		// 插值串（S1 §1.4.4）：静态片段与表达式交错拼接。
+		var lines []string
+		acc := ""
+		for _, p := range n.Parts {
+			var piece string
+			if p.Expr == nil {
+				piece = s.tmp()
+				lines = append(lines, "rt_string *"+piece+" = rt_string_from_c("+cQuote(p.Text)+");")
+			} else {
+				ec, err := s.exprType(p.Expr)
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case s.g.isTupleC(ec):
+					ls, v, err := s.tupleStr(p.Expr, ec)
+					if err != nil {
+						return nil, err
+					}
+					lines = append(lines, ls...)
+					piece = v
+				case ec == "rt_string *":
+					ls, err := s.strExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					lines = append(lines, ls...)
+					piece = lastVar(ls)
+				case ec == "int":
+					v, err := s.boolExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_bool("+v+");")
+				default:
+					v, err := s.intExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_int("+v+");")
+				}
+				lines = append(lines, s.pending...)
+				s.pending = nil
+			}
+			if acc == "" {
+				acc = piece
+				continue
+			}
+			nt := s.tmp()
+			lines = append(lines, "rt_string *"+nt+" = xn_concat("+acc+", "+piece+");")
+			acc = nt
+		}
+		if acc == "" {
+			acc = s.tmp()
+			lines = append(lines, "rt_string *"+acc+" = rt_string_from_c(\"\");")
+		}
+		return lines, nil
 	case *xfront.Binary:
+		// Any/Object → String 拆箱（S3 §3）：get_str 取得一份引用。
+		if n.Op == "as" || n.Op == "as?" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				if t, err := s.g.cType(s.g.substitute(ta.Type)); err == nil && t == "rt_string *" {
+					v, err := s.intExpr(n)
+					if err != nil {
+						return nil, err
+					}
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					tv := s.tmp()
+					return append(out, "rt_string *"+tv+" = "+v+";"), nil
+				}
+			}
+		}
 		if n.Op == "+" {
 			var out []string
 			ls, err := s.strExpr(n.L)
@@ -1733,7 +3708,40 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			return out, nil // xn_concat 接管两侧所有权
 		}
 	case *xfront.Call:
+		// S3-04：Text/StringBuilder.toString() 返回新 String（GC）。
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" {
+				switch rc {
+				case "xrt_text *":
+					t := s.tmp()
+					return []string{"rt_string *" + t + " = xrt_text_to_string(" + rn + ");"}, nil
+				case "xrt_sb *":
+					t := s.tmp()
+					return []string{"rt_string *" + t + " = xrt_sb_to_string(" + rn + ");"}, nil
+				}
+			}
+		}
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "str" {
+			if t, err := s.exprType(n.Args[0]); err == nil {
+				if s.g.isTupleC(t) {
+					lines, _, err := s.tupleStr(n.Args[0], t)
+					if err != nil {
+						return nil, err
+					}
+					return lines, nil
+				}
+				if t == "int" {
+					v, err := s.boolExpr(n.Args[0])
+					if err != nil {
+						return nil, err
+					}
+					tmp := s.tmp()
+					return []string{"rt_string *" + tmp + " = xn_str_bool(" + v + ");"}, nil
+				}
+				if t == "rt_string *" {
+					return s.strExpr(n.Args[0])
+				}
+			}
 			v, err := s.intExpr(n.Args[0])
 			if err != nil {
 				return nil, err
@@ -1753,18 +3761,65 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				t := s.tmp()
 				return append(lines, "rt_string *"+t+" = "+out+";"), nil
 			}
-			if ret, ok2 := s.g.fnRet[id.Name]; ok2 && ret == "rt_string *" {
+			if expr, hit, err := s.selfMethodCall(id.Name, n.Args); err != nil {
+				return nil, err
+			} else if hit {
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
+			if ret, ok2 := s.g.callRetC(id.Name, n.TypeArgs); ok2 && ret == "rt_string *" {
 				args, err := s.callArgs(n.Args)
+				if err != nil {
+					return nil, err
+				}
+				cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
 				if err != nil {
 					return nil, err
 				}
 				t := s.tmp()
 				out := append([]string{}, s.pending...)
 				s.pending = nil
-				return append(out, "rt_string *"+t+" = xn_"+id.Name+"("+strings.Join(args, ", ")+");"), nil
+				return append(out, "rt_string *"+t+" = "+cn+"("+strings.Join(args, ", ")+");"), nil
 			}
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if expr, retC, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return nil, err
+			} else if hit {
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：工厂方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
+			if expr, retC, hit, err := s.staticClassCall(mem, n); err != nil {
+				return nil, err
+			} else if hit {
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：静态方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
+			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+				expr, retC, err := s.protoDispatch(mem, n.Args)
+				if err != nil {
+					return nil, err
+				}
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：协议方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
 				switch mem.Name {
 				case "join":
@@ -1776,7 +3831,7 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 					out := append([]string{}, s.pending...)
 					s.pending = nil
 					out = append(out, sep...)
-					return append(out, "rt_string *"+t+" = "+rc+"_join("+rn+", "+lastVar(sep)+");"), nil
+					return append(out, "rt_string *"+t+" = "+contBase(rc)+"_join("+rn+", "+lastVar(sep)+");"), nil
 				case "get", "at":
 					if elem, ok2 := containerElem(rc); ok2 && elem == "rt_string *" {
 						i, err := s.intExpr(n.Args[0])
@@ -1786,9 +3841,20 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 						t := s.tmp()
 						out := append([]string{}, s.pending...)
 						s.pending = nil
-						return append(out, "rt_string *"+t+" = rt_retain("+rc+"_"+mem.Name+"(&"+rn+", "+i+"));"), nil
+						return append(out, "rt_string *"+t+" = rt_retain("+contBase(rc)+"_"+mem.Name+"("+rn+", "+i+"));"), nil
 					}
 				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" &&
+				(rc == "xrt_text *" || rc == "xrt_sb *") {
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				call := "(rt_string *)xrt_text_to_string(" + rn + ")"
+				if rc == "xrt_sb *" {
+					call = "(rt_string *)xrt_sb_to_string(" + rn + ")"
+				}
+				return append(out, "rt_string *"+t+" = "+call+";"), nil
 			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				call, hit, err := s.strMemberValue(mem, n.Args, true)
@@ -1803,7 +3869,7 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				}
 			}
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				if rc, ok3 := s.localCType(recv.Name); ok3 && isClassPtr(rc) {
+				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
 					rn := recv.Name
 					if s.params != nil && s.params[rn] {
 						rn = "xn_p_" + rn
@@ -1821,8 +3887,12 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok && mem.Name == "error" {
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				t := s.tmp()
-				return []string{"rt_string *" + t + " = xn_result_error_copy_rt(" + recv.Name + ".err);"}, nil
+				if rc, ok3 := s.localCType(recv.Name); ok3 && strings.HasPrefix(rc, "xn_Result_") {
+					if info, err := s.g.resultInfo(rc); err == nil && info.errC == "rt_string *" {
+						t := s.tmp()
+						return []string{"rt_string *" + t + " = xn_result_error_copy_rt(" + recv.Name + ".err);"}, nil
+					}
+				}
 			}
 		}
 	case *xfront.Index:
@@ -1842,6 +3912,14 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
+		if s.g.isStructC(recvC) {
+			if ci, ok := s.g.structOfC(recvC); ok {
+				if f, ok2 := ci.fieldOf(n.Name); ok2 && f.ctype == "rt_string *" {
+					t := s.tmp()
+					return []string{"rt_string *" + t + " = rt_retain(" + recvName + structSep(recvC) + f.cname + ");"}, nil
+				}
+			}
+		}
 		ci, ok := s.g.classOfC(recvC)
 		if ok {
 			if f, ok2 := ci.fieldOf(n.Name); ok2 && f.isStr {
@@ -1850,8 +3928,33 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			}
 		}
 		return nil, fmt.Errorf("codegen：String 成员 %s 的接收者不支持（M4.4b 范围）", n.Name)
+	case *xfront.TupleMember:
+		ec, err := s.exprType(n)
+		if err != nil {
+			return nil, err
+		}
+		if ec != "rt_string *" {
+			return nil, fmt.Errorf("codegen：元组元素 .%d 不是 String", n.Index)
+		}
+		baseT, err := s.exprType(n.X)
+		if err != nil {
+			return nil, err
+		}
+		lines, base, err := s.tupleExpr(n.X, baseT)
+		if err != nil {
+			return nil, err
+		}
+		t := s.tmp()
+		return append(lines, "rt_string *"+t+" = rt_retain(("+base+").f"+fmt.Sprintf("%d", n.Index)+");"), nil
 	case *xfront.Paren:
 		return s.strExpr(n.X)
+	}
+	if t, err := s.exprType(e); err == nil && s.g.isTupleC(t) {
+		lines, _, err := s.tupleStr(e, t)
+		if err != nil {
+			return nil, err
+		}
+		return lines, nil
 	}
 	return nil, fmt.Errorf("codegen：String 表达式 %T 未支持（M4.1 范围）", e)
 }
@@ -1859,32 +3962,189 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 // resultExpr 生成 Result 值表达式（Ok/Err 构造或函数调用）。
 func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 	switch n := e.(type) {
-	case *xfront.Call:
-		id, ok := n.Callee.(*xfront.IdentExpr)
-		if !ok {
-			return "", fmt.Errorf("codegen：Result 表达式目标 %T 未支持", n.Callee)
+	case *xfront.IdentExpr:
+		if rc, ok := s.localCType(n.Name); ok && rc == resultC {
+			return "(" + s.cRef(n.Name) + ")", nil
 		}
-		switch id.Name {
-		case "Ok":
-			v, err := s.intExpr(n.Args[0])
-			if err != nil {
-				return "", err
-			}
-			return "(" + resultC + "){1, " + v + ", NULL}", nil
-		case "Err":
-			sv, err := s.strExprOne(n.Args[0])
-			if err != nil {
-				return "", err
-			}
-			return "(" + resultC + "){0, 0, " + sv + "}", nil
+		if rc, ok := s.g.globals[n.Name]; ok && rc == resultC {
+			return "(" + s.cRef(n.Name) + ")", nil
 		}
-		args, err := s.callArgs(n.Args)
+		return "", fmt.Errorf("codegen：Result 复制源 %s 类型不是 %s（S3-RESULT）", n.Name, resultC)
+	case *xfront.Member:
+		// 字段上的 Result 值复制（内联结构整值复制）。
+		v, err := s.intExpr(n)
 		if err != nil {
 			return "", err
 		}
-		return "xn_" + id.Name + "(" + strings.Join(args, ", ") + ")", nil
+		return "(" + v + ")", nil
+	case *xfront.Paren:
+		return s.resultExpr(n.X, resultC)
+	case *xfront.Call:
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			switch id.Name {
+			case "Ok":
+				return s.resultOkValue(resultC, n.Args[0])
+			case "Err":
+				return s.resultErrExpr(resultC, n.Args[0])
+			case "wrap":
+				return s.emitResultWrap(n, resultC)
+			case "mapErr":
+				return s.emitResultMapErr(n, resultC)
+			case "report":
+				if len(n.Args) != 1 {
+					return "", fmt.Errorf("codegen：report 需要 1 个参数（S4-02）")
+				}
+				out, err := s.emitResultReport(n.Args[0], resultC)
+				return out, err
+			}
+			args, err := s.callArgs(n.Args)
+			if err != nil {
+				return "", err
+			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+			if err != nil {
+				return "", err
+			}
+			return cn + "(" + strings.Join(args, ", ") + ")", nil
+		}
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil {
+				if rc == "xrt_task *" && (mem.Name == "join" || mem.Name == "joinDeadline") {
+					return s.emitTaskResult(rn, rc, mem.Name, resultC, n.Args)
+				}
+				if rc == "xrt_task_group *" && mem.Name == "close" {
+					return s.emitTaskResult(rn, rc, mem.Name, resultC, n.Args)
+				}
+			}
+			if expr, _, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
+			if expr, _, hit, err := s.staticClassCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
+			recvName, recvC, err := recvCName(mem.X, s)
+			if err != nil {
+				return "", err
+			}
+			if s.g.isStructC(recvC) {
+				ci, _ := s.g.structOfC(recvC)
+				m, ok := s.methodFor(ci, mem.Name, n.Args)
+				if !ok {
+					return "", fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
+				}
+				return s.methodCall(ci, m, "(&"+recvName+")", n.Args)
+			}
+			if s.g.isProtoC(recvC) {
+				expr, _, err := s.protoDispatch(mem, n.Args)
+				return expr, err
+			}
+			ci, ok := s.g.classOfC(recvC)
+			if !ok {
+				return "", fmt.Errorf("codegen：Result 表达式目标 %T 未支持", n.Callee)
+			}
+			m, ok := s.methodFor(ci, mem.Name, n.Args)
+			if !ok {
+				return "", fmt.Errorf("codegen：类 %s 没有方法 %s", ci.decl.Name, mem.Name)
+			}
+			return s.methodCall(ci, m, recvName, n.Args)
+		}
+		return "", fmt.Errorf("codegen：Result 表达式目标 %T 未支持", n.Callee)
 	}
 	return "", fmt.Errorf("codegen：Result 表达式 %T 未支持（M4.1 范围）", e)
+}
+
+// resultOkValue 生成 Result Ok 值（支持 Int/Bool/String/类/struct/枚举/协议）。
+func (s *scope) resultOkValue(resultC string, e xfront.Expr) (string, error) {
+	mC, err := s.g.resultMemberC(resultC)
+	if err != nil {
+		return "", err
+	}
+	var expr string
+	switch {
+	case isClassPtr(mC):
+		lines, v, owns, err := s.classValueExpr(e)
+		if err != nil {
+			return "", err
+		}
+		s.pending = append(s.pending, lines...)
+		expr = v
+		if !owns {
+			expr = "rt_retain(" + expr + ")"
+		}
+	case s.g.isProtoC(mC):
+		lines, v, _, err := s.protoValue(e)
+		if err != nil {
+			return "", err
+		}
+		s.pending = append(s.pending, lines...)
+		expr = v
+	case s.g.isStructC(mC):
+		lines, v, err := s.structValue(e, mC)
+		if err != nil {
+			return "", err
+		}
+		s.pending = append(s.pending, lines...)
+		expr = v
+	case mC == "rt_string *":
+		v, err := s.strExprOne(e)
+		if err != nil {
+			return "", err
+		}
+		expr = v
+	case s.g.isSimpleEnumC(mC) || s.g.isDataEnumC(mC):
+		v, err := s.intExpr(e)
+		if err != nil {
+			return "", err
+		}
+		expr = v
+	default:
+		v, err := s.intExpr(e)
+		if err != nil {
+			return "", err
+		}
+		expr = v
+	}
+	info, err := s.g.resultInfo(resultC)
+	if err != nil {
+		return "", err
+	}
+	return "(" + resultC + "){1, " + expr + ", " + s.g.resultZeroC(info.errC) + "}", nil
+}
+
+// classValueExpr 生成类引用值表达式（+1 产物 owns=true）。
+func (s *scope) classValueExpr(e xfront.Expr) ([]string, string, bool, error) {
+	switch n := e.(type) {
+	case *xfront.New:
+		expr, err := s.emitNewClass(n)
+		if err != nil {
+			return nil, "", false, err
+		}
+		lines := append([]string{}, s.pending...)
+		s.pending = nil
+		return lines, expr, true, nil
+	case *xfront.Call:
+		expr, owns, err := s.classCallExpr(n)
+		if err != nil {
+			return nil, "", false, err
+		}
+		lines := append([]string{}, s.pending...)
+		s.pending = nil
+		return lines, expr, owns, nil
+	case *xfront.IdentExpr:
+		return nil, s.cRef(n.Name), false, nil
+	case *xfront.NullLit:
+		return nil, "NULL", false, nil
+	case *xfront.Paren:
+		return s.classValueExpr(n.X)
+	case *xfront.Member:
+		v, err := s.intExpr(n)
+		return nil, v, false, err
+	}
+	return nil, "", false, fmt.Errorf("codegen：类值表达式 %T 未支持", e)
 }
 
 // strExprOne 生成字符串表达式（临时语句 + 最终 C 表达式文本，Err 构造用）。
@@ -1945,7 +4205,60 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return "xn_p_" + n.Name, nil
 		}
 		return s.cRef(n.Name), nil
+	case *xfront.NullLit:
+		// 可空句柄（File? 等）以 NULL 哨兵表示，与 null 比较直接落 C 的 NULL。
+		return "NULL", nil
+	case *xfront.TupleMember:
+		baseT, err := s.exprType(n.X)
+		if err != nil {
+			return "", err
+		}
+		lines, base, err := s.tupleExpr(n.X, baseT)
+		if err != nil {
+			return "", err
+		}
+		s.pending = append(s.pending, lines...)
+		return "(" + base + ").f" + fmt.Sprintf("%d", n.Index), nil
 	case *xfront.Binary:
+		// S6-02：可空值 null 比较（String? 等）按 has 位判定。
+		if n.Op == "==" || n.Op == "!=" {
+			if lt, err := s.exprType(n.L); err == nil && strings.HasPrefix(lt, "xn_opt_") {
+				if _, isNull := n.R.(*xfront.NullLit); isNull {
+					x, err := s.intExpr(n.L)
+					if err != nil {
+						return "", err
+					}
+					cond := "(" + x + ").has"
+					if n.Op == "==" {
+						return "(!(" + cond + "))", nil
+					}
+					return "(" + cond + ")", nil
+				}
+			}
+		}
+		if n.Op == "is" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				return s.typeIsExpr(n, ta)
+			}
+		}
+		if n.Op == "as?" || n.Op == "as" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				return s.typeAsExpr(n, ta, n.Op == "as?")
+			}
+		}
+		// 元组相等/同一性（S1 §2.11）：逐元素比较，整值语义。
+		if n.Op == "==" || n.Op == "!=" || n.Op == "===" || n.Op == "!==" {
+			if lt, err := s.exprType(n.L); err == nil && s.g.isTupleC(lt) {
+				cmp, err := s.tupleEq(n.L, n.R, lt, n.Op == "===" || n.Op == "!==")
+				if err != nil {
+					return "", err
+				}
+				if n.Op == "!=" || n.Op == "!==" {
+					return "(!(" + cmp + "))", nil
+				}
+				return cmp, nil
+			}
+		}
 		if n.Op == "==" || n.Op == "!=" {
 			if lt, err := s.exprType(n.L); err == nil && lt == "rt_string *" {
 				ls, err := s.strExpr(n.L)
@@ -1966,6 +4279,24 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				return eq, nil
 			}
 		}
+		// 对象同一性（S2 §2.8/§5.6）：类/协议/数据枚举/句柄/字节缓冲按指针身份。
+		if n.Op == "===" || n.Op == "!==" {
+			if lt, err := s.exprType(n.L); err == nil && (isClassPtr(lt) || s.g.isProtoC(lt) || s.g.isDataEnumC(lt) || lt == "xrt_handle *" || lt == "xrt_bytes_obj *") {
+				l, err := s.intExpr(n.L)
+				if err != nil {
+					return "", err
+				}
+				r, err := s.intExpr(n.R)
+				if err != nil {
+					return "", err
+				}
+				op := "=="
+				if n.Op == "!==" {
+					op = "!="
+				}
+				return "(" + l + " " + op + " " + r + ")", nil
+			}
+		}
 		l, err := s.intExpr(n.L)
 		if err != nil {
 			return "", err
@@ -1973,6 +4304,14 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		r, err := s.intExpr(n.R)
 		if err != nil {
 			return "", err
+		}
+		// 除零是 fatal（S1 §10.4）：编译路径同样必须终止入口，不能被 C 常量折叠吞掉。
+		if n.Op == "/" || n.Op == "%" {
+			fn := "xn_div_i64"
+			if n.Op == "%" {
+				fn = "xn_mod_i64"
+			}
+			return fn + "((int64_t)(" + l + "), (int64_t)(" + r + "))", nil
 		}
 		return "(" + l + " " + cOp(n.Op) + " " + r + ")", nil
 	case *xfront.Paren:
@@ -1996,9 +4335,29 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	case *xfront.Index:
 		return s.indexRead(n)
 	case *xfront.Member:
+		if varName, _, ok := s.g.singletonStatic(n); ok {
+			return varName, nil
+		}
+		if _, varName, ok := s.g.singletonInstance(n); ok {
+			return varName, nil
+		}
+		if ei, it, ok := s.g.enumItem(n); ok {
+			if ei.simple {
+				return strconv.FormatInt(it.value, 10), nil
+			}
+			return it.varName, nil
+		}
 		recvName, recvC, err := recvCName(n.X, s)
 		if err != nil {
 			return "", err
+		}
+		if s.g.isStructC(recvC) {
+			ci, _ := s.g.structOfC(recvC)
+			f, ok := ci.fieldOf(n.Name)
+			if !ok {
+				return "", fmt.Errorf("codegen：结构体没有字段 %s", n.Name)
+			}
+			return recvName + structSep(recvC) + f.cname, nil
 		}
 		if v, hit, err := s.classMemberValue(recvC, recvName, n, nil); err != nil {
 			return "", err
@@ -2010,6 +4369,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		return s.emitNewClass(n)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// S6-02：xdk.runtime 内建（不依赖项目 .xfb 装载）。
+			switch id.Name {
+			case "nowMono":
+				return "xdkc_now_mono_ms()", nil
+			case "nowWall":
+				return "xdkc_now_wall_ms()", nil
+			}
 			if e, isFFI := s.ffiEntry(id.Name); isFFI {
 				if e.Ret.Kind != ffi.KindScalar {
 					return "", fmt.Errorf("codegen：FFI 入口 %s 返回类型不是 Int（P-09）", e.Name)
@@ -2025,14 +4391,83 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			case "Ok", "Err", "print", "str":
 				return "", fmt.Errorf("codegen：%s(...) 不能作为 Int 值（M4.4a 范围）", id.Name)
 			}
+			if expr, hit, err := s.selfMethodCall(id.Name, n.Args); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
 			args, err := s.callArgs(n.Args)
 			if err != nil {
 				return "", err
 			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+			if err != nil {
+				return "", err
+			}
 			s.pending = append(s.pending, s.flushPendingArgs()...)
-			return "xn_" + id.Name + "(" + strings.Join(args, ", ") + ")", nil
+			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if expr, _, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
+			if expr, _, hit, err := s.staticClassCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
+			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
+				expr, _, err := s.protoDispatch(mem, n.Args)
+				if err != nil {
+					return "", err
+				}
+				return expr, nil
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && s.g.isStructC(rc) {
+				ci, _ := s.g.structOfC(rc)
+				m, ok := s.methodFor(ci, mem.Name, n.Args)
+				if !ok {
+					return "", fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
+				}
+				expr, err := s.methodCall(ci, m, "(&"+rn+")", n.Args)
+				if err != nil {
+					return "", err
+				}
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				s.pending = append(out, s.pending...)
+				return expr, nil
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
+				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_text *" {
+				if v, hit, err := s.textMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_sb *" {
+				if mem.Name == "append" {
+					if v, hit, err := s.sbAppendValue(rn, n.Args); err != nil {
+						return "", err
+					} else if hit {
+						return v, nil
+					}
+				}
+				if v, hit, err := s.sbMemberValue(rn, mem.Name); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
 				if v, hit, err := s.containerMemberValue(rc, rn, mem.Name, n.Args); err != nil {
 					return "", err
@@ -2047,8 +4482,15 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					return v, nil
 				}
 			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
+				if v, hit, err := s.classMemberValue(rc, rn, mem, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				if rc, ok3 := s.localCType(recv.Name); ok3 && isClassPtr(rc) {
+				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
 					rn := recv.Name
 					if s.params != nil && s.params[rn] {
 						rn = "xn_p_" + rn
@@ -2063,26 +4505,52 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				base := contBase(rc)
+				if k, _ := mapTypes(base); k != "" && mem.Name == "get" && len(n.Args) == 1 {
+					// S3-EXPR：Map.get 返回 V?；标量参与算术/比较时取 .v（存在键）。
+					kk, kl, err := s.elemValue(n.Args[0], k)
+					if err != nil {
+						return "", err
+					}
+					s.pending = append(s.pending, kl...)
+					return "(" + base + "_get(" + rn + ", " + kk + ").v)", nil
+				}
 				if v, hit, err := s.containerMemberValue(rc, rn, mem.Name, n.Args); err != nil {
 					return "", err
 				} else if hit {
 					return v, nil
 				}
 			}
+			// Result 成员（isOk/isErr/value/unwrapOr）：接收者可为变量或字段链。
+			rn, rc := "", ""
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
+				rn = s.varRef(recv.Name)
+				if c, ok3 := s.localCType(recv.Name); ok3 {
+					rc = c
+				} else if c, ok3 := s.g.globals[recv.Name]; ok3 {
+					rc = c
+				}
+			} else if _, err := s.exprType(mem.X); err == nil {
+				if n2, c2, err2 := recvCName(mem.X, s); err2 == nil {
+					rn, rc = n2, c2
+				}
+			}
+			if rn != "" && strings.HasPrefix(rc, "xn_Result_") {
 				switch mem.Name {
 				case "isOk":
-					return "(" + recv.Name + ").ok", nil
+					return "(" + rn + ").ok", nil
 				case "isErr":
-					return "(!(" + recv.Name + ").ok)", nil
+					return "(!(" + rn + ").ok)", nil
 				case "value":
-					return "(" + recv.Name + ").v", nil
+					return "(" + rn + ").v", nil
+				case "error":
+					return "(" + rn + ").err", nil
 				case "unwrapOr":
 					arg, err := s.intExpr(n.Args[0])
 					if err != nil {
 						return "", err
 					}
-					return "((" + recv.Name + ").ok ? (" + recv.Name + ").v : (" + arg + "))", nil
+					return "((" + rn + ").ok ? (" + rn + ").v : (" + arg + "))", nil
 				}
 			}
 		}
@@ -2090,23 +4558,66 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	return "", fmt.Errorf("codegen：Int 表达式 %T 未支持（M4.1 范围）", e)
 }
 
+// varRef 把 XNull 标识符映射为 C 引用（参数带 xn_p_ 前缀）。
+func (s *scope) varRef(name string) string {
+	if s.params != nil && s.params[name] {
+		return "xn_p_" + name
+	}
+	return name
+}
+
 // retBase 生成返回类型声明前缀（xn_Cls_X * → 'xn_Cls_X *'）。
 func retBase(c string) string { return c }
+
+// isIntScalarC 判断 C 类型是否为整数标量（Int/Int32/Int64；Bool 用 int 表示）。
+func isIntScalarC(c string) bool {
+	switch c {
+	case "int64_t", "int32_t", "int":
+		return true
+	}
+	return false
+}
 
 // classCallExpr 生成「返回类引用」的调用表达式。
 // 返回 owns=true 表示调用点获得 +1 引用（须释放）；false 为借用（容器 get 等）。
 func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 	switch c := cl.Callee.(type) {
 	case *xfront.IdentExpr:
+		if expr, hit, err := s.selfMethodCall(c.Name, cl.Args); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
 		args, err := s.callArgs(cl.Args)
 		if err != nil {
 			return "", false, err
 		}
-		return "xn_" + c.Name + "(" + strings.Join(args, ", ") + ")", true, nil
+		cn, err := s.g.callName(c.Name, cl.TypeArgs, len(cl.Args))
+		if err != nil {
+			return "", false, err
+		}
+		return cn + "(" + strings.Join(args, ", ") + ")", true, nil
 	case *xfront.Member:
+		if expr, _, hit, err := s.tryFactoryCall(c, cl); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
+		if expr, _, hit, err := s.staticClassCall(c, cl); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
 		rn, rc, err := recvCName(c.X, s)
 		if err != nil {
 			return "", false, err
+		}
+		if s.g.isProtoC(rc) {
+			expr, _, err := s.protoDispatch(c, cl.Args)
+			if err != nil {
+				return "", false, err
+			}
+			return expr, true, nil
 		}
 		if isContainerC(rc) {
 			v, hit, err := s.containerMemberValue(rc, rn, c.Name, cl.Args)
@@ -2117,7 +4628,22 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 				return v, false, nil // 容器元素借用
 			}
 		}
-		if isClassPtr(rc) {
+		if strings.HasPrefix(rc, "xn_Result_") && (c.Name == "error" || c.Name == "value") {
+			info, err := s.g.resultInfo(rc)
+			if err != nil {
+				return "", false, err
+			}
+			field, eC := "v", info.memberC
+			if c.Name == "error" {
+				field, eC = "err", info.errC
+			}
+			expr := "(" + rn + ")." + field
+			if isClassPtr(eC) && !s.g.classIsGC(eC) {
+				return "((" + eC + ")rt_retain((void *)" + expr + "))", true, nil
+			}
+			return expr, false, nil
+		}
+		if isClassPtr(rc) || s.g.isDataEnumC(rc) {
 			v, hit, err := s.classMemberValue(rc, rn, c, cl.Args)
 			if err != nil {
 				return "", false, err
@@ -2161,7 +4687,9 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				}
 				tn := s.tmp()
 				s.pending = append(s.pending, t+" "+tn+" = "+ctor+";")
-				s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+				if !s.g.classIsGC(t) {
+					s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+				}
 				out = append(out, tn)
 				continue
 			}
@@ -2173,14 +4701,52 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				if owns {
 					tn := s.tmp()
 					s.pending = append(s.pending, t+" "+tn+" = "+expr+";")
-					s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+					if !s.g.classIsGC(t) {
+						s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+					}
 					out = append(out, tn)
 				} else {
 					out = append(out, expr) // 借用：直传
 				}
 				continue
 			}
-			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用（M5.1-b 范围）")
+			// S3-EXPR：成员表达式作实参（take(h.v)）：字段归持有者，按借用直传。
+			if _, ok := a.(*xfront.Member); ok {
+				v, err := s.intExpr(a)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, v)
+				continue
+			}
+			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用/字段（M5.1-b/S3-EXPR 范围）")
+		case strings.HasPrefix(t, "xn_Result_"):
+			v, err := s.resultExpr(a, t)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
+		case s.g.isTupleC(t):
+			lines, v, err := s.tupleExpr(a, t)
+			if err != nil {
+				return nil, err
+			}
+			s.pending = append(s.pending, lines...)
+			out = append(out, v)
+		case s.g.isProtoC(t):
+			lines, expr, _, err := s.protoValue(a)
+			if err != nil {
+				return nil, err
+			}
+			s.pending = append(s.pending, lines...)
+			out = append(out, expr)
+		case s.g.isStructC(t):
+			lines, v, err := s.structValue(a, t)
+			if err != nil {
+				return nil, err
+			}
+			s.pending = append(s.pending, lines...)
+			out = append(out, v)
 		case isContainerC(t):
 			if id, ok := a.(*xfront.IdentExpr); ok {
 				out = append(out, s.cRef(id.Name))

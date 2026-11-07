@@ -19,7 +19,7 @@ const (
 	synRangeContext = "SYN-107" // 范围只允许出现在 for-in 源位置（此约束语义层执行，解析不报）
 	synStmtTerm     = "SYN-108" // 同一行缺分号（S1 §1.6、STMT-01）
 	synAssignTarget = "SYN-109" // 赋值/自增目标不在 Assignable 集（附录 A）
-	synTypeDecl     = "SYN-110" // 类型声明属第 2 部分（S2 切片实现）
+	synTypeDecl     = "SYN-110" // 已废弃：S2 八类类型声明均已由 types.go 正式解析（保留码值不复用）
 	synXdkPackage   = "SYN-111" // 用户包名使用保留命名空间 xdk（§3.1）
 	synPackageAlias = "SYN-112" // 包导入使用 as 别名（§3.2 只允许符号导入消歧）
 )
@@ -92,8 +92,22 @@ func (p *parser) err(pos Pos, code, msg, hint string) {
 }
 
 // expectKind 消费期望类别的 token；否则报错并返回占位 token（不推进）。
+// checkIdentToken 拒绝保留名与字面量名作标识符（S1 §1.3）。
+func (p *parser) checkIdentToken(t Token) {
+	if t.Kind != Ident {
+		return
+	}
+	if _, reserved := Reserved[t.Text]; reserved || t.Text == "true" || t.Text == "false" || t.Text == "null" {
+		p.err(t.Pos, synExpect, "`"+t.Text+"` 是保留名/字面量，不能作为标识符（§1.3）", "换一个标识符")
+	}
+}
+
 func (p *parser) expectKind(kind Kind, what string) Token {
 	if p.at(kind) {
+		t := p.cur()
+		if kind == Ident {
+			p.checkIdentToken(t)
+		}
 		return p.next()
 	}
 	t := p.cur()
@@ -528,7 +542,12 @@ func (p *parser) parseInterpText(host Pos, text string) Expr {
 // parseNewType 解析 new 的类型：命名类型（含泛型）+ `[]`/`?` 后缀；
 // 不做函数类型探测——`new Type(` 的 `(` 是构造实参表（S1 §7.1）。
 func (p *parser) parseNewType() TypeRef {
-	base := p.parseNamedType()
+	var base TypeRef
+	if p.at(LParen) { // 定长数组元素可为元组：`new (Int, Int)[n]`
+		base = p.parseTupleType()
+	} else {
+		base = p.parseNamedType()
+	}
 	var suffixes []string
 	for {
 		if p.at(LBrack) && p.toks[min(p.i+1, len(p.toks)-1)].at(RBrack) {
@@ -880,17 +899,36 @@ func (p *parser) tryTupleTypeDecl() (Stmt, bool) {
 		return nil, false
 	}
 	p.i++ // )
+	var suffixes []string
+	for {
+		if p.at(LBrack) && p.toks[min(p.i+1, len(p.toks)-1)].at(RBrack) {
+			p.i += 2
+			suffixes = append(suffixes, "[]")
+			continue
+		}
+		if p.atOp("?") {
+			p.i++
+			suffixes = append(suffixes, "?")
+			continue
+		}
+		break
+	}
+	var ty TypeRef = &TupleTypeRef{P: p.cur().Pos, Elems: elems}
+	if len(suffixes) > 0 {
+		ty = &SuffixedType{P: ty.Pos(), Base: ty, Suffixes: suffixes}
+	}
 	if !p.at(Ident) {
 		p.rollback(save, errLen)
 		return nil, false
 	}
+	p.checkIdentToken(p.cur())
 	name := p.next().Text
 	if !p.atOp("=") {
 		p.rollback(save, errLen)
 		return nil, false
 	}
 	p.i++
-	s := &LocalDeclStmt{P: save2pos(p, save), Type: &TupleTypeRef{P: p.cur().Pos, Elems: elems}, Name: name}
+	s := &LocalDeclStmt{P: save2pos(p, save), Type: ty, Name: name}
 	s.Init = p.parseExpr()
 	return s, true
 }
@@ -923,6 +961,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 		if !p.at(Ident) {
 			return nil
 		}
+		p.checkIdentToken(p.cur())
 		s.Name = p.next().Text
 		if !p.atOp("=") {
 			return nil // var 必须有初始化式（文法强制）
@@ -940,6 +979,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 			if !p.at(Ident) {
 				return nil
 			}
+			p.checkIdentToken(p.cur())
 			s.Name = p.next().Text
 			if !p.atOp("=") {
 				return nil
@@ -963,6 +1003,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 	if !p.at(Ident) {
 		return nil
 	}
+	p.checkIdentToken(p.cur())
 	s.Name = p.next().Text
 	if p.atOp("=") {
 		p.i++
@@ -1031,7 +1072,7 @@ func (p *parser) parseSwitch() Stmt {
 	p.expectKind(LBrace, "`{`")
 	s := &SwitchStmt{P: t.Pos, Value: val}
 	for p.atKw("case") || p.atKw("default") {
-		c := &SwitchCase{}
+		c := &SwitchCase{P: p.cur().Pos}
 		if p.atKw("default") {
 			p.i++
 			c.Default = true
@@ -1117,6 +1158,24 @@ func (p *parser) parseTypeRef() TypeRef {
 	return &SuffixedType{P: base.Pos(), Base: base, Suffixes: suffixes}
 }
 
+// parseTupleType 解析 `( T1, T2, ... )` 元组类型（调用方已确认当前为 `(`）。
+func (p *parser) parseTupleType() TypeRef {
+	open := p.next()
+	if !p.at(LParen) && !p.at(Ident) && !p.at(Keyword) {
+		p.err(p.cur().Pos, synTupleArity, "元组类型至少需要两个元素", "")
+		return &TupleTypeRef{P: open.Pos}
+	}
+	e1 := p.parseTypeRef()
+	p.expectOp(",")
+	elems := []TypeRef{e1, p.parseTypeRef()}
+	for p.at(Comma) {
+		p.i++
+		elems = append(elems, p.parseTypeRef())
+	}
+	p.expectKind(RParen, "`)`")
+	return &TupleTypeRef{P: open.Pos, Elems: elems}
+}
+
 // PrimaryType = FunctionType | NamedType | TupleType ;
 // FunctionType = ReturnType "(" [ TypeRef {"," TypeRef} ] ")" ——
 // ReturnType 后紧跟 `(` 时按函数类型解析（附录 A 文法说明第二条）。
@@ -1124,20 +1183,7 @@ func (p *parser) parsePrimaryType() TypeRef {
 	var ret TypeRef
 	switch {
 	case p.at(LParen): // 元组类型（作为 ReturnType 或独立元组类型）
-		open := p.next()
-		if !p.at(LParen) && !p.at(Ident) && !p.at(Keyword) {
-			p.err(p.cur().Pos, synTupleArity, "元组类型至少需要两个元素", "")
-			return &TupleTypeRef{P: open.Pos}
-		}
-		e1 := p.parseTypeRef()
-		p.expectOp(",")
-		elems := []TypeRef{e1, p.parseTypeRef()}
-		for p.at(Comma) {
-			p.i++
-			elems = append(elems, p.parseTypeRef())
-		}
-		p.expectKind(RParen, "`)`")
-		ret = &TupleTypeRef{P: open.Pos, Elems: elems}
+		ret = p.parseTupleType()
 	case p.at(Ident):
 		ret = p.parseNamedType()
 	case p.atKw("void"):
@@ -1179,7 +1225,8 @@ func (p *parser) parseNamedType() TypeRef {
 	if p.atOp("<") {
 		p.i++
 		for {
-			if p.at(EOF) || p.at(RParen) || p.at(LParen) || p.at(RBrack) {
+			// `(` 是合法的元组类型起点（`List<(Int, Int)>`），不能当作未闭合。
+			if p.at(EOF) || p.at(RParen) || p.at(RBrack) {
 				p.err(p.cur().Pos, synExpect, "泛型实参列表未闭合", "期望类型或 `>`")
 				return nt
 			}

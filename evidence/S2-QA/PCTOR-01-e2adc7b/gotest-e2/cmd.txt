@@ -1,0 +1,1 @@
+cd impl && go test ./internal/sema -run TestS2PCTORRules -count=1 -v

@@ -1,0 +1,6 @@
+=== RUN   TestS2EnumSimpleAndSwitch
+--- PASS: TestS2EnumSimpleAndSwitch (1.34s)
+=== RUN   TestS2EnumDataSingleton
+--- PASS: TestS2EnumDataSingleton (0.84s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.960s

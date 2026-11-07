@@ -1,0 +1,6 @@
+git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main 91c89c0
+cd /private/tmp/qa-m1-main/impl && go build -o /tmp/xnull-qa-91c89c0 ./cmd/xnull
+export XNULL_RUNTIME=/private/tmp/qa-m1-main/impl/runtime
+BIN=/tmp/xnull-qa-91c89c0 sh evidence/M1-ENTRY-01-reverify-91c89c0/run.sh
+cd /private/tmp/qa-m1-main/impl && go test ./internal/cli -run 'TestEntryMainOverloadIsOrdinary|TestEntryInitDivZeroFatal' -count=1 -v
+go test ./... -count=1 -timeout 1200s

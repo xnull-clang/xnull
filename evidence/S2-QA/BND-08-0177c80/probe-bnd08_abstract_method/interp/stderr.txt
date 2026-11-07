@@ -1,0 +1,1 @@
+/tmp/qa-b3-probes/bnd08_abstract_method.x:3:21: error[SYN-101]: 工厂方法不能写 abstract / final / const（§10.2）

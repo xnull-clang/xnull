@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r02_external_underscore.x:4:12: error[TY-207]: 外部访问私有字段 `_name`：`W` 的私有字段只能类内裸写（§7.4）

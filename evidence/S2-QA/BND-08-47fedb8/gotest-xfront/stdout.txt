@@ -1,0 +1,4 @@
+=== RUN   TestS2Factory
+--- PASS: TestS2Factory (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/xfront	7.215s

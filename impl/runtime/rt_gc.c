@@ -19,16 +19,17 @@ static size_t     g_root_cap = 0;
 
 /* ---- 分配 ---- */
 
-static void *alloc_common(const rt_type *type, rt_kind kind) {
-    rt_object *o = malloc(sizeof(rt_header) + type->payload_size);
+static void *alloc_sized(const rt_type *type, rt_kind kind, size_t payload) {
+    rt_object *o = malloc(sizeof(rt_header) + payload);
     if (o == NULL) {
         return NULL; /* 分配失败是 panic（S2 §2.7） */
     }
-    memset(o, 0, sizeof(rt_header) + type->payload_size);
+    memset(o, 0, sizeof(rt_header) + payload);
     o->hdr.kind = kind;
     o->hdr.type = type;
     atomic_init(&o->hdr.refcount, 1); /* 计数从 1 起（S3 §7） */
     o->hdr.terminated = 0;
+    rt_stats_note_alloc(sizeof(rt_header) + payload);
     if (kind == RT_KIND_GC) {
         o->hdr.gc_next = g_gc_list;
         g_gc_list = o;
@@ -41,7 +42,15 @@ static void *alloc_common(const rt_type *type, rt_kind kind) {
     return o;
 }
 
+static void *alloc_common(const rt_type *type, rt_kind kind) {
+    return alloc_sized(type, kind, type->payload_size);
+}
+
 void *rt_gc_new(const rt_type *type) { return alloc_common(type, RT_KIND_GC); }
+
+void *rt_gc_new_size(const rt_type *type, size_t payload) {
+    return alloc_sized(type, RT_KIND_GC, payload);
+}
 
 void *rt_arc_new(const rt_type *type) { return alloc_common(type, RT_KIND_ARC); }
 
@@ -117,36 +126,51 @@ static void sweep_release_arc_ref(void *ref) {
 }
 
 static size_t sweep(void) {
-    size_t freed = 0;
+    /* 两阶段清扫（P0-BND10 / S2 §6.4）：
+     *   1) 从存活表摘下死亡对象，逐个 terminated/清弱槽/调 deinit；
+     *      此阶段不释放任何死亡对象的内存，deinit 之间的字段互读不会命中已释放内存。
+     *   2) 统一 release ARC 引用（scan）并 free。
+     */
+    rt_object *dead = NULL;
+    size_t n = 0;
     rt_object **link = &g_gc_list;
     while (*link != NULL) {
         rt_object *o = *link;
         if (o->hdr.marked) {
-            o->hdr.marked = 0; /* 复位，供下轮收集 */
+            o->hdr.marked = 0;
             link = &o->hdr.gc_next;
             continue;
         }
-        /* 死亡：release 其持有的 ARC 引用（不变量 3 后半），再走 GC 终结
-         * （S2 §15.5：GC 对象在清扫时调用 deinit）并释放。 */
-        if (o->hdr.type->scan != NULL) {
-            o->hdr.type->scan(o, sweep_release_arc_ref);
-        }
-        o->hdr.terminated = 1; /* 清扫终结：与 ARC 终结链同一防复活标志 */
-        rt_weak_clear_slots(o); /* GC 终结同样先清弱槽（S3 §14.1/§15） */
+        *link = o->hdr.gc_next;
+        o->hdr.gc_next = dead;
+        dead = o;
+        n++;
+    }
+    for (rt_object *o = dead; o != NULL; o = o->hdr.gc_next) {
+        o->hdr.terminated = 1;
+        rt_weak_clear_slots(o);
         if (o->hdr.type->deinit != NULL) {
             o->hdr.type->deinit(o);
         }
-        *link = o->hdr.gc_next;
-        free(o);
-        freed++;
     }
-    return freed;
+    while (dead != NULL) {
+        rt_object *o = dead;
+        dead = o->hdr.gc_next;
+        if (o->hdr.type->scan != NULL) {
+            o->hdr.type->scan(o, sweep_release_arc_ref);
+        }
+        free(o);
+        rt_stats_note_free();
+    }
+    return n;
 }
 
 size_t rt_gc_collect(void) {
     rt_quarantine_flush(); /* 回收会合：上次终结链隔离的内存在此释放（S3 §13） */
     mark_all();
-    return sweep();
+    size_t freed = sweep();
+    rt_stats_note_gc(freed);
+    return freed;
 }
 
 size_t rt_gc_live(void) {

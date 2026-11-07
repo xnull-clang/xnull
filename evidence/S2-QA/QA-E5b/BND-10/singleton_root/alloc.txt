@@ -1,0 +1,2 @@
+    xn_Single_AppInfo *o = (xn_Single_AppInfo *)rt_gc_new(&RT_TYPE_XN_SINGLE_AppInfo);
+    rt_gc_root_add(xn_single_AppInfo);

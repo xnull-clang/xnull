@@ -182,3 +182,131 @@ int xrt_handle_is_closed(const xrt_handle *h) {
 }
 
 void xrt_fatal(const char *reason) { rt_fatal(reason); }
+
+/* ---- ErrorKind 稳定枚举（S4 §3/§7.3） ---- */
+
+static const char *const g_error_kind_names[] = {
+    "InvalidArgument", "NotFound", "AlreadyExists", "PermissionDenied",
+    "Io", "Network", "Timeout", "Cancelled", "Busy", "Unavailable",
+    "DataCorrupted", "Unsupported", "OutOfMemory", "Internal",
+};
+
+const char *xrt_error_kind_name(xrt_error_kind kind) {
+    if ((int)kind < 0 || (size_t)kind >= sizeof(g_error_kind_names) / sizeof(g_error_kind_names[0])) {
+        return "Internal";
+    }
+    return g_error_kind_names[kind];
+}
+
+xrt_error_kind xrt_error_kind_parse(const char *name) {
+    if (name == NULL) {
+        return XRT_ERR_INTERNAL;
+    }
+    /* 绑定层 errorMap 的短名（S4 附录 A 映射） */
+    if (strcmp(name, "Invalid") == 0) return XRT_ERR_INVALID_ARGUMENT;
+    if (strcmp(name, "NotFound") == 0) return XRT_ERR_NOT_FOUND;
+    if (strcmp(name, "Conflict") == 0) return XRT_ERR_ALREADY_EXISTS;
+    if (strcmp(name, "Permission") == 0) return XRT_ERR_PERMISSION_DENIED;
+    if (strcmp(name, "Limit") == 0) return XRT_ERR_BUSY;
+    if (strcmp(name, "Cancelled") == 0) return XRT_ERR_CANCELLED;
+    if (strcmp(name, "Timeout") == 0) return XRT_ERR_TIMEOUT;
+    if (strcmp(name, "Unavailable") == 0) return XRT_ERR_UNAVAILABLE;
+    if (strcmp(name, "Internal") == 0) return XRT_ERR_INTERNAL;
+    /* 全名（附录 A） */
+    for (size_t i = 0; i < sizeof(g_error_kind_names) / sizeof(g_error_kind_names[0]); i++) {
+        if (strcmp(name, g_error_kind_names[i]) == 0) {
+            return (xrt_error_kind)i;
+        }
+    }
+    return XRT_ERR_INTERNAL;
+}
+
+/* ---- 分配统计与 GC 指标（S3 §21/§23） ---- */
+
+void xrt_stats_reset(void) { rt_stats_reset(); }
+
+void xrt_stats_get(xrt_stats *out) {
+    if (out == NULL) {
+        return;
+    }
+    rt_stats s;
+    rt_stats_get(&s);
+    out->allocs = s.allocs;
+    out->frees = s.frees;
+    out->bytes = s.bytes;
+    out->gc_collections = s.gc_collections;
+    out->gc_freed = s.gc_freed;
+}
+
+void xrt_stats_set_enabled(int on) { rt_stats_set_enabled(on); }
+int xrt_stats_enabled(void) { return rt_stats_enabled(); }
+
+void xrt_stats_report(void) {
+    xrt_stats s;
+    xrt_stats_get(&s);
+    fprintf(stderr, "xrt stats: allocs=%llu frees=%llu live=%lld bytes=%llu gc_collections=%llu gc_freed=%llu\n",
+            (unsigned long long)s.allocs, (unsigned long long)s.frees,
+            (long long)(s.allocs - s.frees), (unsigned long long)s.bytes,
+            (unsigned long long)s.gc_collections, (unsigned long long)s.gc_freed);
+}
+
+/* ---- 回调环境 / trampoline（S7 §5.1/§5.2） ---- */
+
+typedef struct {
+    void            *closure;
+    xrt_callback_fn  fn;
+    int              destroyed;
+} callback_payload;
+
+static void callback_scan(void *obj, void (*visit)(void *)) {
+    (void)obj;
+    (void)visit; /* 闭包引用由绑定层管理；env 只承载生命周期与根登记 */
+}
+
+static const rt_type RT_TYPE_CALLBACK_ENV = {
+    "xrt_callback_env", sizeof(callback_payload), NULL, callback_scan
+};
+
+static callback_payload *callback_of(xrt_callback_env *env) {
+    return env == NULL ? NULL : rt_payload((rt_object *)env);
+}
+
+xrt_callback_env *xrt_callback_env_new(void *closure, xrt_callback_fn fn) {
+    rt_object *o = rt_gc_new(&RT_TYPE_CALLBACK_ENV);
+    callback_payload *p = rt_payload(o);
+    p->closure = closure;
+    p->fn = fn;
+    p->destroyed = 0;
+    rt_gc_root_add(o); /* S7 §5.2：env 在存活期间是运行时根 */
+    return (xrt_callback_env *)o;
+}
+
+int32_t xrt_callback_env_invoke(xrt_callback_env *env, const void *args, size_t nargs, void *result) {
+    callback_payload *p = callback_of(env);
+    if (p == NULL || p->destroyed) {
+        rt_fatal("trampoline：已注销的 env 被调用（S7 §5.2 合同违规）");
+    }
+    if (p->fn == NULL) {
+        rt_fatal("trampoline：env 缺少回调目标（S7 §5.1）");
+    }
+    return p->fn(p->closure, args, nargs, result);
+}
+
+void xrt_callback_env_destroy(xrt_callback_env *env) {
+    callback_payload *p = callback_of(env);
+    if (p == NULL || p->destroyed) {
+        return; /* 幂等 */
+    }
+    p->destroyed = 1;
+    rt_gc_root_remove(env); /* S7 §5.2：销毁即注销根 */
+}
+
+int xrt_callback_env_alive(const xrt_callback_env *env) {
+    const callback_payload *p = env == NULL ? NULL : (const void *)((const char *)env + sizeof(rt_header));
+    return p != NULL && !p->destroyed;
+}
+
+void *xrt_callback_env_closure(const xrt_callback_env *env) {
+    const callback_payload *p = env == NULL ? NULL : (const void *)((const char *)env + sizeof(rt_header));
+    return p == NULL ? NULL : p->closure;
+}

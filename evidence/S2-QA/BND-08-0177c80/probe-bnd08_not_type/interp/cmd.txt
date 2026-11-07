@@ -1,0 +1,1 @@
+/tmp/xnull-s2-0177c80 run --interp /tmp/qa-d-probes/bnd08_not_type.x

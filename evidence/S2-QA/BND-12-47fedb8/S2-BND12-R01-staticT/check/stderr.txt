@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd12/r01_staticT.x:2:14: error[TY-214]: 静态字段 `value` 不得使用类类型参数（§13.4）
+  改用实例字段，或实例化具体类型

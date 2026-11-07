@@ -1,0 +1,2 @@
+/tmp/qa-b3-probes/bnd08_target_any.x:2:9: error[TY-217]: factory Target `Any` 未在本包声明或不可见（§10.1）
+  检查 Target 名称与可见性

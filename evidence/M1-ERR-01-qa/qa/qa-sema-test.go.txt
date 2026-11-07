@@ -1,0 +1,169 @@
+package sema
+
+// QA1 独立验收用例：ERR-01（S1 §10）。期望值按规范手写，不引用 RD 的 err01_test.go。
+// 运行：go test ./internal/sema -run TestQAERR01 -count=1 -v
+
+import (
+	"strings"
+	"testing"
+
+	"xnull.dev/xnull/internal/diag"
+	"xnull.dev/xnull/internal/xfront"
+)
+
+func qaAnalyze(t *testing.T, src string) []diag.Diagnostic {
+	t.Helper()
+	u, pd := xfront.ParseUnit("qa.x", src)
+	if len(pd) != 0 {
+		t.Fatalf("QA 用例本身解析失败：%v", pd)
+	}
+	return Analyze("qa.x", u)
+}
+
+func qaPos(t *testing.T, src, at string) (int, int) {
+	t.Helper()
+	i := strings.Index(src, at)
+	if i < 0 {
+		t.Fatalf("定位串 %q 不在用例中", at)
+	}
+	line := 1 + strings.Count(src[:i], "\n")
+	col := i - strings.LastIndex(src[:i], "\n") // LastIndex=-1 ⇒ i+1
+	return line, col
+}
+
+func qaExpectNone(t *testing.T, src string) {
+	t.Helper()
+	if ds := qaAnalyze(t, src); len(ds) != 0 {
+		t.Fatalf("不应有诊断，实际：%v", ds)
+	}
+}
+
+func qaExpectCodeAt(t *testing.T, src, code, at string) {
+	t.Helper()
+	line, col := qaPos(t, src, at)
+	var got []diag.Diagnostic
+	for _, d := range qaAnalyze(t, src) {
+		if d.Code == code {
+			got = append(got, d)
+			// 诊断必须落在被检查构造的范围内，而不是随便指到别处。
+			if d.File == "qa.x" && d.Line == line && d.Col >= col && d.Col <= col+len(at) {
+				return
+			}
+		}
+	}
+	t.Fatalf("期望 %s 落在 qa.x:%d:%d—%d（%q）内，实际：%v", code, line, col, col+len(at), at, got)
+}
+
+func TestQAERR01SemaPositive(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"构造与成员", `static Result<Int, String> f() { return Ok(1) }
+static Result<void, String> g() { return Ok() }
+static Result<Int, String> h() { return Err("bad") }
+static Int main() {
+    Result<Int, String> a = Ok(2);
+    Result<Int, String> b = Err("e");
+    Result<Int, String> c = f();
+    if a.isOk() { print(a.value()); }
+    if b.isErr() { print(b.error()); }
+    print(a.unwrapOr(9));
+    Bool x = a.isOk();
+    Bool y = b.isErr();
+    return 0;
+}`},
+		{"上下文-参数", `static Int consume(Result<Int, String> r) { if r.isOk() { return r.value() }; return 0 }
+static Int main() { return consume(Ok(1)) }`},
+		{"上下文-字段", `class Box {
+    Result<Int, String> r = Ok(1);
+}
+static Int main() {
+    Box b = new Box();
+    b.r = Err("e");
+    if b.r.isErr() { print("field-err"); }
+    return 0;
+}`},
+		{"上下文-容器", `static Int main() {
+    Result<Int, String>[] a = [Ok(1), Err("e")];
+    return 0;
+}`},
+		{"上下文-void错误成员", `static Int main() {
+    Result<void, String> r = Err("x");
+    String s = r.error();
+    return 0;
+}`},
+		{"try-基础与加宽", `static Result<Int, String> inner() { return Ok(1) }
+static Result<Int, String> same() { Int x = try inner(); return Ok(x + 1) }
+static Result<Int, Any> anyE() { Int x = try inner(); return Ok(x) }
+static Result<Int, Object> objE() { Int x = try inner(); return Ok(x) }
+static Result<void, String> voidR() { try inner(); return Ok() }`},
+		{"try-嵌套与优先级", `static Result<Result<Int, String>, String> nested() { return Ok(Ok(7)) }
+static Result<Int, String> outer() { Int x = try try nested(); Int y = try nested2() + 1; return Ok(x + y) }
+static Result<Int, String> nested2() { return Ok(1) }`},
+		{"清理体-合法", `static Result<Int, String> f() {
+    defer print("d");
+    errdefer print("e");
+    defer { print("b1"); print("b2") };
+    return Ok(1);
+}`},
+		{"errdefer-合法位置", `static Result<Int, String> f() { errdefer print("e"); return Ok(1) }
+static Int g() {
+    Result<Int, String> (Int) h = (Int x) -> { errdefer print("ce"); return Ok(x) };
+    Result<Int, String> r = h(1);
+    return 0;
+}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) { qaExpectNone(t, c.src) })
+	}
+}
+
+func TestQAERR01SemaNegative(t *testing.T) {
+	cases := []struct{ name, src, code, at string }{
+		{"E不能为void", `static Int main() { Result<Int, void> r = Ok(1); return 0 }`, "ERR-202", "Result<Int, void>"},
+		{"Result类型实参不足", `static Int main() { Result<Int> r = Ok(1); return 0 }`, "ERR-202", "Result<Int>"},
+		{"Ok缺少成功值", `static Int main() { Result<Int, String> r = Ok(); return 0 }`, "ERR-202", "Ok()"},
+		{"void的Ok带值", `static Int main() { Result<void, String> r = Ok(1); return 0 }`, "ERR-202", "Ok(1)"},
+		{"Err缺少错误值", `static Int main() { Result<Int, String> r = Err(); return 0 }`, "ERR-202", "Err()"},
+		{"Err错误值类型不符", `static Int main() { Result<Int, String> r = Err(1); return 0 }`, "ERR-202", "Err(1)"},
+		{"Ok实参过多", `static Int main() { Result<Int, String> r = Ok(1, 2); return 0 }`, "ERR-202", "Ok(1, 2)"},
+		{"Ok成功值类型不符", `static Int main() { Result<Int, String> r = Ok("s"); return 0 }`, "ERR-202", `Ok("s")`},
+		{"无目标类型无法推断", `static Int main() { Ok(1); return 0 }`, "ERR-202", "Ok(1)"},
+		{"mustUse-裸变量", `static Int main() { Result<Int, String> r = Ok(1); r; return 0 }`, "ERR-201", "r;"},
+		{"mustUse-裸调用", `static Result<Int, String> work() { return Ok(1) }
+static Int main() { work(); return 0 }`, "ERR-201", "work();"},
+		{"mustUse-清理调用", `static Result<Int, String> close() { return Ok(1) }
+static Result<Int, String> f() { defer close(); return Ok(1) }`, "ERR-201", "close();"},
+		{"成员实参过多", `static Int main() { Result<Int, String> r = Ok(1); r.isOk(1); return 0 }`, "ERR-203", "r.isOk(1)"},
+		{"成员未知", `static Int main() { Result<Int, String> r = Ok(1); r.nope(); return 0 }`, "ERR-203", "r.nope()"},
+		{"成员未调用", `static Int main() { Result<Int, String> r = Ok(1); Bool b = r.isOk; return 0 }`, "ERR-203", "r.isOk"},
+		{"void无value", `static Int main() { Result<void, String> r = Ok(); r.value(); return 0 }`, "ERR-203", "r.value()"},
+		{"unwrapOr缺参", `static Int main() { Result<Int, String> r = Ok(1); Int x = r.unwrapOr(); return 0 }`, "ERR-203", "r.unwrapOr()"},
+		{"unwrapOr参数类型", `static Int main() { Result<Int, String> r = Ok(1); Int x = r.unwrapOr("s"); return 0 }`, "ERR-203", `r.unwrapOr("s")`},
+		{"Result不可==", `static Int main() { Result<Int, String> a = Ok(1); Result<Int, String> b = Ok(1); Bool c = a == b; return 0 }`, "TY-105", "a == b"},
+		{"try不能在main", `static Int main() { Result<Int, String> r = Ok(1); Int x = try r; return 0 }`, "ERR-204", "try r"},
+		{"try外层非Result", `static Int f() { Result<Int, String> r = Ok(1); Int x = try r; return x }`, "ERR-204", "try r"},
+		{"try非Result操作数", `static Result<Int, String> f() { try 1; return Ok(1) }`, "ERR-204", "try 1"},
+		{"try错误类型不可赋值", `static Result<Int, String> inner() { return Ok(1) }
+static Result<Int, Int> outer() { Int x = try inner(); return Ok(x) }`, "ERR-204", "try inner()"},
+		{"try在清理体", `static Result<Int, String> f() { Result<Int, String> r = Ok(1); defer { Int x = try r }; return Ok(1) }`, "ERR-205", "try r"},
+		{"清理体return", `static Result<Int, String> f() { defer { return }; return Ok(1) }`, "ERR-205", "return"},
+		{"清理体break", `static Result<Int, String> f() { defer { break }; return Ok(1) }`, "ERR-205", "break"},
+		{"清理体continue", `static Result<Int, String> f() { defer { continue }; return Ok(1) }`, "ERR-205", "continue"},
+		{"清理体goto", `static Result<Int, String> f() {
+    defer { goto x }
+    x: ;
+    return Ok(1)
+}`, "ERR-205", "goto x"},
+		{"清理体throw", `static Result<Int, String> f() { defer { throw "x" }; return Ok(1) }`, "ERR-205", `throw "x"`},
+		{"清理体嵌套defer", `static Result<Int, String> f() { defer { defer print("n") }; return Ok(1) }`, "ERR-205", `defer print("n")`},
+		{"清理体嵌套errdefer", `static Result<Int, String> f() { defer { errdefer print("n") }; return Ok(1) }`, "ERR-205", `errdefer print("n")`},
+		{"清理体闭包", `static Result<Int, String> f() { defer { () -> 1 }; return Ok(1) }`, "ERR-205", "() -> 1"},
+		{"清理体单条局部声明", `static Result<Int, String> f() { defer Int x = 1; return Ok(1) }`, "ERR-205", "Int x = 1"},
+		{"清理体嵌套return", `static Result<Int, String> f() { defer { if true { return } }; return Ok(1) }`, "ERR-205", "return"},
+		{"清理体嵌套break", `static Result<Int, String> f() { defer { while true { break } }; return Ok(1) }`, "ERR-205", "break"},
+		{"errdefer非Result函数", `static Int f() { errdefer print("e"); return 0 }`, "ERR-206", `errdefer print("e")`},
+		{"errdefer非Result闭包", `static Int f() { Int (Int) g = (Int x) -> { errdefer print("e"); return x }; return g(1) }`, "ERR-206", `errdefer print("e")`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) { qaExpectCodeAt(t, c.src, c.code, c.at) })
+	}
+}

@@ -99,14 +99,17 @@ func AnalyzeWithDeps(file string, u *xfront.CompilationUnit, deps []*Package) (*
 		}
 		m[strings.Join(d.Path, ".")] = d
 	}
-	return analyzeWith(file, u, m)
+	return analyzeWith(file, u, m, nil)
 }
 
 // analyzeWith 是 AnalyzeWith/AnalyzeWithDeps 的共同实现。
-func analyzeWith(file string, u *xfront.CompilationUnit, deps map[string]*Package) (*Result, []diag.Diagnostic) {
+func analyzeWith(file string, u *xfront.CompilationUnit, deps map[string]*Package, opts *Options) (*Result, []diag.Diagnostic) {
 	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
 		imported: map[string]bool{}, ambiguous: map[string]bool{}, deps: deps,
-		typeParamNames: map[string]bool{}}
+		typeParamNames: map[string]bool{}, mustUse: "error"}
+	if opts != nil && opts.MustUse != "" {
+		a.mustUse = opts.MustUse
+	}
 	a.collectTypeParamNames(u)
 	a.analyzeImports(u)
 	a.checkTypeDecls(u)

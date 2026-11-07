@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd07/r01_new.x:5:17: error[TY-216]: `AppInfo` 不是可实例化类型（singleton/factory，§9.4/§10.5）
+  使用 instance 或工厂方法

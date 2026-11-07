@@ -1,0 +1,6 @@
+main=user-declared: 9c336de merged (no git command run)
+binary=/tmp/qa-proto-main
+binary_sha256=3a0cf01d6f80289f8bd7ea2c67abdbbc5cedeaa5df26653348d09c9ba3c7c86e
+runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
+go=go version go1.27.3 darwin/amd64
+date=2026-11-07 22:49:56 +0800

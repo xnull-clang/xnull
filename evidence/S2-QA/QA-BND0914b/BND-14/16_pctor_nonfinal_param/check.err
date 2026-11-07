@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/16_pctor_nonfinal_param/source.x:1:9: error[TY-212]: 主构造器参数 `x` 必须是 final（§6.3）
+  写成 final x，或改用普通构造器

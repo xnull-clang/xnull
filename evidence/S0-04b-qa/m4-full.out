@@ -1,0 +1,16 @@
+XNull CI  工作树=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/s04b-gate/clone
+日志目录=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/s04b-gate/clone/ci/.out
+
+PASS 01 gofmt+vet                  4559ms
+PASS 02 go test -timeout 120s ./...  39199ms
+PASS 03 C 运行时构建         15292ms
+SKIP 04 示例双路径          S0-04 桩：本轮只实现 01–03，未实现
+SKIP 05 check_specs 六检       S0-04 桩：本轮只实现 01–03，未实现
+SKIP 06 台账再生成 diff     S0-04 桩：本轮只实现 01–03，未实现
+SKIP 07 泄漏扫描             S0-04 桩：本轮只实现 01–03，未实现
+SKIP 08 产物与 sha            S0-04 桩：本轮只实现 01–03，未实现
+SKIP 09 汇总 JSON              S0-04 桩：汇总由 run.sh 自身输出，第 09 项待实现
+PASS 10 文件名扫描（禁旧扩展名）    162ms
+
+—— 汇总：PASS=4 FAIL=0 SKIP=6，用时 60145ms ——
+退出码：0

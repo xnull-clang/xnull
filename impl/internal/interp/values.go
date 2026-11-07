@@ -242,7 +242,7 @@ type clov struct {
 func (in *Interp) evalArrayLit(n *xfront.ArrayLit, sc *scope) *Value {
 	elems := make([]*Value, len(n.Elems))
 	for i, e := range n.Elems {
-		elems[i] = in.eval(e, sc)
+		elems[i] = cloneTupleValue(in.eval(e, sc)) // §2.11：存入容器复制整个元组
 	}
 	return &Value{K: vArr, A: elems}
 }
@@ -253,20 +253,53 @@ func (in *Interp) evalMapLit(n *xfront.MapLit, sc *scope) *Value {
 	for i := range n.Keys {
 		k := in.eval(n.Keys[i], sc)
 		v := in.eval(n.Vals[i], sc)
-		m.set(k, v)
+		m.set(k, cloneTupleValue(v)) // §2.11：存入容器复制整个元组
 	}
 	return &Value{K: vMap, M: m}
 }
 
-// cloneTupleValue 复制元组值（§2.11 值语义）：复制元素句柄切片，
+// cloneTupleValue 复制值类型（§2.11 元组 / §3.3 struct）：递归复制嵌套值，
 // 值元素天然独立，引用元素仍共享对象句柄。
 func cloneTupleValue(v *Value) *Value {
-	if v == nil || v.K != vTuple {
+	if v == nil {
 		return v
 	}
-	nv := *v
-	nv.A = append([]*Value(nil), v.A...)
-	return &nv
+	switch v.K {
+	case vTuple:
+		nv := *v
+		nv.A = make([]*Value, len(v.A))
+		for i, e := range v.A {
+			nv.A[i] = cloneTupleValue(e)
+		}
+		return &nv
+	case vStruct:
+		return &Value{K: vStruct, St: cloneStruct(v.St)}
+	}
+	return v
+}
+
+func cloneStruct(s *structv) *structv {
+	if s == nil {
+		return nil
+	}
+	nv := &structv{decl: s.decl, fields: map[string]*Value{}, order: append([]string(nil), s.order...)}
+	for k, v := range s.fields {
+		nv.fields[k] = cloneTupleValue(v)
+	}
+	return nv
+}
+
+func structEqual(a, b *structv) bool {
+	if a == nil || b == nil || a.decl != b.decl || len(a.fields) != len(b.fields) {
+		return a == b
+	}
+	for k, av := range a.fields {
+		bv, ok := b.fields[k]
+		if !ok || !valuesEqual(av, bv) {
+			return false
+		}
+	}
+	return true
 }
 
 // evalTuple 求值元组字面量（§2.11：值类型，至少两元素）。
@@ -335,7 +368,7 @@ func (in *Interp) evalNewArray(n *xfront.NewArray, sc *scope) *Value {
 	z := zeroValue(n.Type)
 	elems := make([]*Value, cnt.I)
 	for i := range elems {
-		elems[i] = z
+		elems[i] = cloneTupleValue(z) // §2.11：每个槽位独立持有元组副本
 	}
 	return &Value{K: vArr, A: elems}
 }
@@ -353,9 +386,9 @@ func (in *Interp) evalTypeAs(n *xfront.Binary, sc *scope) *Value {
 	ta := n.R.(*xfront.TypeAsExpr)
 	x := in.eval(n.L, sc)
 	if ta.Is { // is
-		return &Value{K: vBool, B: typeMatches(ta.Type, x)}
+		return &Value{K: vBool, B: in.typeMatches(ta.Type, x)}
 	}
-	if typeMatches(ta.Type, x) {
+	if in.typeMatches(ta.Type, x) {
 		return x
 	}
 	if n.Op == "as?" {
@@ -366,7 +399,7 @@ func (in *Interp) evalTypeAs(n *xfront.Binary, sc *scope) *Value {
 
 // typeMatches 判断运行值是否匹配 TypeRef（is/as 的运行时判定）。
 // 泛型实参不检查（单态化在语义层，M2-C 接管）。
-func typeMatches(t xfront.TypeRef, v *Value) bool {
+func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 	if v == nil {
 		return false
 	}
@@ -395,6 +428,25 @@ func typeMatches(t xfront.TypeRef, v *Value) bool {
 		case "Any", "Object":
 			return v.K != vNull // Any/Object 装箱一切非 null 值
 		}
+		if st, ok := in.structs[name]; ok { // S2 §3：结构体名义类型
+			return v.K == vStruct && v.St.decl == st
+		}
+		if _, ok := in.singletons[name]; ok { // S2 §9：单例名义类型
+			return v.K == vObj && v.O.singleName == name
+		}
+		// 未登记的命名类型视为泛型类型参数（T），运行期按通配处理。
+		_, isClass := in.classes[name]
+		_, isProto := in.protocols[name]
+		_, isEnum := in.enums[name]
+		if !isClass && !isProto && !isEnum {
+			return true
+		}
+		if v.K == vObj { // S2 §4.4/§5.2：类继承链、协议实现、数据枚举项
+			return in.objectIsNamed(v.O, name)
+		}
+		if v.K == vEnum { // S2 §8.2：简单枚举名义类型
+			return v.E == name
+		}
 		return false
 	case *xfront.SuffixedType:
 		for _, s := range ty.Suffixes {
@@ -411,7 +463,7 @@ func typeMatches(t xfront.TypeRef, v *Value) bool {
 				return v.K == vArr
 			}
 		}
-		return typeMatches(base, v)
+		return in.typeMatches(base, v)
 	case *xfront.TupleTypeRef:
 		return v.K == vTuple
 	case *xfront.FuncTypeRef:
@@ -520,7 +572,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vInt, I: int64(len(recv.A))}, true
 		case "push":
 			need(1)
-			recv.A = append(recv.A, args[0])
+			recv.A = append(recv.A, cloneTupleValue(args[0])) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
@@ -533,7 +585,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			}
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
-			recv.A[i] = args[1]
+			recv.A[i] = cloneTupleValue(args[1]) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "set":
 			need(2)
@@ -541,7 +593,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			if i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.set 下标越界"})
 			}
-			recv.A[i] = args[1]
+			recv.A[i] = cloneTupleValue(args[1]) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "get":
 			need(1)
@@ -571,7 +623,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vInt, I: int64(recv.M.len())}, true
 		case "put":
 			need(2)
-			recv.M.set(args[0], args[1])
+			recv.M.set(args[0], cloneTupleValue(args[1])) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "get":
 			need(1)
@@ -760,6 +812,7 @@ func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	sc := newScope(c.env)
 	for i, prm := range c.params {
 		sc.defineTyped(prm.Name, prm.Type, args[i])
+		in.takeOwnership(sc, prm.Name, args[i])
 	}
 	if c.exprB != nil {
 		return in.eval(c.exprB, sc)

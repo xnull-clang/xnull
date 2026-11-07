@@ -47,9 +47,9 @@ int main(void) {
     assert(strcmp(s->bytes, "hello, XNull") == 0);
     assert(rt_refcount(s) == 1);
 
-    /* 2. retain/release 成对 */
+    /* 2. String 为 GC 对象：retain/release 不影响计数（S3 §10 / ADR-007） */
     assert(rt_retain(s) == s);
-    assert(rt_refcount(s) == 2);
+    assert(rt_refcount(s) == 1);
     rt_release(s);
     assert(rt_refcount(s) == 1);
 
@@ -63,12 +63,12 @@ int main(void) {
     /* 5. 组合对象：deinit 恰好调用一次，内部引用随之释放 */
     rt_string *name = rt_string_from_c("boxed");
     boxed_t *b = boxed_new(name);
-    assert(rt_refcount(name) == 2); /* boxed 持有 + 局部 */
+    assert(rt_refcount(name) == 1); /* String 为 GC：boxed 的 retain 是 no-op */
     assert(rt_retain(b) == b);
     rt_release(b);
-    rt_release(b); /* 到零：deinit → rt_release(name) → free */
+    rt_release(b); /* 到零：deinit → rt_release(name)（GC no-op） */
     assert(deinit_calls == 1);
-    assert(rt_refcount(name) == 1); /* 只剩局部持有 */
+    assert(rt_refcount(name) == 1);
 
     /* 6. 防复活：已终结对象 retain 拒绝（§14）——通过悬空验证成本高，
      *    此处以"终结后计数语义"间接覆盖：rt_release 幂等（用例 4 已验）。 */

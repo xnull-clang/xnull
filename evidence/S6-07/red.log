@@ -1,0 +1,12 @@
+=== RUN   TestXdkCollectionsUnitSurface
+    xdk_collections_test.go:20: 读取 collections.x 失败：open /Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/lib/xdk/collections.x: no such file or directory
+--- FAIL: TestXdkCollectionsUnitSurface (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	2.004s
+=== RUN   TestXdkCollectionsRuntime
+    xdk_collections_test.go:20: 读取 collections.x 失败：open /Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/lib/xdk/collections.x: no such file or directory
+--- FAIL: TestXdkCollectionsRuntime (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	2.683s
+FAIL
+exit=1

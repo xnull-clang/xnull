@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/EXT-01/R01c_same_inherited/source.x:3:19: error[TY-225]: extension 方法 `f` 与已有/继承/其他扩展同签名（§11.1/§11.2）
+  改名或改参数列表

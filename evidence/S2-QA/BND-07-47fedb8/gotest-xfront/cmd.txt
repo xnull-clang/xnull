@@ -1,0 +1,1 @@
+sh -c cd /private/tmp/xnull-main-47fedb8/impl && go test ./internal/xfront -run 'TestS2Singleton' -count=1 -v

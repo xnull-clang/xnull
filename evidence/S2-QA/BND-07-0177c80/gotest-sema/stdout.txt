@@ -1,0 +1,4 @@
+=== RUN   TestS2BND0708SingletonFactory
+--- PASS: TestS2BND0708SingletonFactory (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	2.508s

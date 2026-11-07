@@ -1,0 +1,14 @@
+[
+  {
+    "decl": "Node",
+    "kind": "class",
+    "data": false,
+    "policy": "arc",
+    "stackEligible": false,
+    "deinit": true,
+    "selfCaptured": false,
+    "refCycle": false,
+    "escape": "n/a",
+    "rule": 7
+  }
+]

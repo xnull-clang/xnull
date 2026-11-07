@@ -425,7 +425,230 @@ func writeTopDecl(b *strings.Builder, d TopDecl) {
 			writeExpr(b, n.Init)
 		}
 		b.WriteString(")")
+	case *ClassDecl:
+		b.WriteString("(class")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		writeTypePars(b, n.TypePars)
+		if n.Primary != nil {
+			b.WriteString(" (primary ")
+			writeParams(b, n.Primary.Params)
+			b.WriteString(")")
+		}
+		if n.Base != nil {
+			b.WriteString(" (: ")
+			writeType(b, n.Base)
+			b.WriteString(")")
+		}
+		if len(n.Protocols) > 0 {
+			b.WriteString(" (implements")
+			for _, p := range n.Protocols {
+				b.WriteByte(' ')
+				writeType(b, p)
+			}
+			b.WriteString(")")
+		}
+		writeMembers(b, n.Fields, n.Methods, n.Ctors)
+		b.WriteString(")")
+	case *StructDecl:
+		b.WriteString("(struct")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		writeTypePars(b, n.TypePars)
+		if n.Primary != nil {
+			b.WriteString(" (primary ")
+			writeParams(b, n.Primary.Params)
+			b.WriteString(")")
+		}
+		writeMembers(b, n.Fields, n.Methods, n.Ctors)
+		b.WriteString(")")
+	case *ProtocolDecl:
+		b.WriteString("(protocol")
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		if len(n.Extends) > 0 {
+			b.WriteString(" (:")
+			for _, p := range n.Extends {
+				b.WriteByte(' ')
+				writeType(b, p)
+			}
+			b.WriteString(")")
+		}
+		for _, sg := range n.Sigs {
+			b.WriteString(" (sig")
+			writeTypeMods(b, sg.Mod)
+			writeAnnos(b, sg.Annos)
+			if sg.Void {
+				b.WriteString(" void")
+			} else {
+				b.WriteString(" ")
+				writeType(b, sg.Ret)
+			}
+			fmt.Fprintf(b, " %s ", sg.Name)
+			writeParams(b, sg.Params)
+			b.WriteString(")")
+		}
+		b.WriteString(")")
+	case *EnumDecl:
+		b.WriteString("(enum")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		for _, it := range n.Items {
+			b.WriteString(" (item")
+			writeAnnos(b, it.Annos)
+			fmt.Fprintf(b, " %s", it.Name)
+			if it.Value != nil {
+				b.WriteString(" = ")
+				writeExpr(b, it.Value)
+			}
+			if it.Args != nil {
+				b.WriteString(" (args")
+				for _, a := range it.Args {
+					b.WriteByte(' ')
+					writeExpr(b, a)
+				}
+				b.WriteString(")")
+			}
+			b.WriteString(")")
+		}
+		writeMembers(b, n.Fields, n.Methods, n.Ctors)
+		b.WriteString(")")
+	case *SingletonDecl:
+		b.WriteString("(singleton")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		writeMembers(b, n.Fields, n.Methods, n.Ctors)
+		b.WriteString(")")
+	case *FactoryDecl:
+		b.WriteString("(factory")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s (for ", n.Name)
+		writeType(b, n.Target)
+		b.WriteString(")")
+		for _, m := range n.Methods {
+			writeMethod(b, m)
+		}
+		b.WriteString(")")
+	case *ExtensionDecl:
+		b.WriteString("(extension")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		b.WriteString(" ")
+		writeType(b, n.Target)
+		for _, m := range n.Methods {
+			writeMethod(b, m)
+		}
+		b.WriteString(")")
+	case *AnnotationDecl:
+		b.WriteString("(annotation")
+		writeTypeMods(b, n.Mod)
+		writeAnnos(b, n.Annos)
+		fmt.Fprintf(b, " %s", n.Name)
+		for _, f := range n.Fields {
+			writeField(b, f)
+		}
+		b.WriteString(")")
 	}
+}
+
+// writeTypeMods 打印类型/成员修饰符（S2 §1.6）。
+func writeTypeMods(b *strings.Builder, m TypeModifiers) {
+	if m.Vis != "" {
+		b.WriteString(" " + m.Vis)
+	}
+	if m.Abstract {
+		b.WriteString(" abstract")
+	}
+	if m.Final {
+		b.WriteString(" final")
+	}
+	if m.Static {
+		b.WriteString(" static")
+	}
+	if m.Const {
+		b.WriteString(" const")
+	}
+}
+
+func writeTypePars(b *strings.Builder, pars []string) {
+	if len(pars) == 0 {
+		return
+	}
+	b.WriteString(" <")
+	b.WriteString(strings.Join(pars, ", "))
+	b.WriteString(">")
+}
+
+func writeMembers(b *strings.Builder, fields []*FieldDecl, methods []*MethodDecl, ctors []*CtorDecl) {
+	for _, f := range fields {
+		writeField(b, f)
+	}
+	for _, m := range methods {
+		writeMethod(b, m)
+	}
+	for _, c := range ctors {
+		b.WriteString(" (ctor")
+		writeTypeMods(b, c.Mod)
+		writeAnnos(b, c.Annos)
+		b.WriteString(" ")
+		writeParams(b, c.Params)
+		b.WriteByte(' ')
+		writeBlock(b, c.Body)
+		b.WriteString(")")
+	}
+}
+
+func writeField(b *strings.Builder, f *FieldDecl) {
+	b.WriteString(" (field")
+	writeTypeMods(b, f.Mod)
+	writeAnnos(b, f.Annos)
+	b.WriteString(" ")
+	writeType(b, f.Type)
+	fmt.Fprintf(b, " %s", f.Name)
+	if f.Init != nil {
+		b.WriteByte(' ')
+		writeExpr(b, f.Init)
+	}
+	b.WriteString(")")
+}
+
+func writeMethod(b *strings.Builder, m *MethodDecl) {
+	b.WriteString(" (method")
+	writeTypeMods(b, m.Mod)
+	writeAnnos(b, m.Annos)
+	if m.Void {
+		b.WriteString(" void")
+	} else {
+		b.WriteString(" ")
+		writeType(b, m.Ret)
+	}
+	fmt.Fprintf(b, " %s", m.Name)
+	writeTypePars(b, m.TypePars)
+	b.WriteString(" ")
+	writeParams(b, m.Params)
+	b.WriteByte(' ')
+	writeBlock(b, m.Body)
+	b.WriteString(")")
+}
+
+func writeParams(b *strings.Builder, ps []*Param) {
+	b.WriteString("(params")
+	for _, p := range ps {
+		b.WriteString(" (param")
+		writeAnnos(b, p.Annos)
+		if p.Final {
+			b.WriteString(" final")
+		}
+		b.WriteString(" ")
+		writeType(b, p.Type)
+		fmt.Fprintf(b, " %s)", p.Name)
+	}
+	b.WriteString(")")
 }
 
 func writeMods(b *strings.Builder, pub, prot, priv, static bool) {

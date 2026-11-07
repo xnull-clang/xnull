@@ -13,6 +13,65 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
+  `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
+  （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。
+- **候选期增补（S6-04 资源读取 XDK-10，2026-11-08）**：`rt_std_res.c` 实现 §4.8 五 API 的 C 面——
+  `xdkc_resource_exists`、`xdkc_resource_size`（缺失/非法 → false/null）、
+  `xdkc_read_resource`（`Bytes`）、`xdkc_read_resource_text`（`Text`，非法 UTF-8 → DataCorrupted）、
+  `xdkc_list_resources`（字典序、前缀非目录 → 空列表；数组由 `xdkc_list_resources_free` 释放）。
+  Result 不跨 FFI：成功返回 1，失败返回 0 并写 `*error_kind`（`XRT_ERR_*`；**不以 0 表示成功**，
+  因为 InvalidArgument=0）。只读编译期静态表，不回退文件系统；路径四类非法 → InvalidArgument；
+  入口与逐条枚举检查取消 → Cancelled；无句柄、无 close。资源表生成器追加只读访问面
+  `xrt_resource_at`（golden 校验只看追加前原文），`build_rt.sh` 已把表与 `rt_std_res.c` 一起构建。
+  E6 需把生成的资源表与 `rt_std_res.c` 加入产物构建（`runtimeCSources` 为静态清单，表是工程级路径）。
+- **候选期增补（S6-03 sys plain/Async 双形态，2026-11-08）**：`rt_std_sys.c` 新增
+  `xdkc_file_{open_read,open_write,read,write,close}_async`、`xdkc_dir_{open,read,close}_async`
+  （`xrt_context *` 首参，阻塞原语经伴生执行器；取消后等待完成以回收结果，返回
+  `XRT_ERR_CANCELLED`/code=2）；Process 句柄 `xdkc_proc_{spawn,wait,kill,close}`
+  （close = SIGKILL + reap，句柄层 close 幂等）与 `xdkc_proc_run_async/proc_status_async`
+  （取消立即返回，命令继续）。绑定入口由 E4 sys 卡追加（plain 与 *Async 并存）。
+- **候选期增补（SCHED-01 载体池/伴生执行器，2026-11-08）**：载体线程改为池（默认 4，
+  `XNULL_CARRIERS` 1..64）：任务感知阻塞占用一个载体时其余任务仍可运行；`.unaware` 长阻塞走
+  伴生执行器（默认 2，`XNULL_COMPANIONS`），`xrt_companion_submit/wait` 提供可取消等待
+  （取消后原生调用继续、等待立即返回 `XRT_ERR_CANCELLED`）。E4 需把 `.unaware` +
+  `longRunning` 入口调用点路由到 companion。真 M:N/栈挂起与并发 GC 仍需 S3-06。
+- **候选期增补（S5-03 同步原语，2026-11-08）**：`rt_sync.c` 按 S5-00 冻结面实现
+  `xrt_channel_*`（有界环形缓冲、send/receive 5ms 轮询上下文取消、close 唤醒并释放剩余元素）、
+  `xrt_mutex_*`（数据携锁 + 作用域回调）、`xrt_atomic_int/bool/ref_*`（seq_cst；
+  AtomicRef 用 retain/release ops）。所有权：send 成功消费 +1、receive 取得 +1；
+  Mutex data 创建 +1/deinit 释放；AtomicRef store/CAS 持有新值/释放旧值。
+- **候选期增补（S5-02 取消/超时，2026-11-08）**：取消位改为 `atomic_int`（跨线程 acquire/release）；
+  `xrt_context_token` 返回上下文内嵌令牌，新增 `xrt_cancel_token_cancelled`（原子读）；
+  父链取消传播、`with_deadline` 截止等效 `Cancelled`、`join_deadline` 超时 `Timeout`；
+  取消后的清理完整执行（组 close 等待至清理完成；测试覆盖 50ms 清理窗口）。
+- **候选期增补（S5-01 调度器核心，2026-11-08）**：`rt_task.c` 落地 S5-00 冻结面的任务子集——
+  `xrt_context_*`（取消/截止）、`xrt_task_group_*`（spawn/cancel/close）、`xrt_task_join[_deadline]`；
+  单载体线程 + 全局 FIFO；任务 env 以 `xrt_task_root_bind/unbind` 保活；合同错误与任务内
+  panic 走 `xrt_fatal`。`xrt_clock_mono_ms` 新增。Channel/Mutex/Atomic* 留 S5-03。
+  构建清单纳入 `rt_task.c` 与 `-pthread`。并发 GC 前提（S3-06 原子弱表/屏障）未做：
+  首版要求主线程在 join/close 等待期间不并发触达 GC。
+- **候选期增补（S4-06/S4-04 预备，2026-11-08）**：诊断通道合同（S4 §9）——`rt_fatal` 改用
+  `write(2)` + 栈缓冲（无堆分配），输出单行且折叠控制字符，只含调用方 reason；
+  `xdkc_diagnose` 已为 write + 栈块（无堆）。`xrt.h` 增补稳定 `xrt_error_kind`（14 项，
+  只追加）与 `xrt_error_kind_name/parse`；FFI 包装新增 `xn_ffi_<region>_error_kind_id`
+  枚举映射骨架（Cancelled/Timeout 不降级，未知 → Internal）。调度器相关验证留 B3。
+- **候选期增补（S3-04 GC 化，2026-11-08）**：String/Text/Bytes/StringBuilder 均为 GC 对象
+  （`rt_gc_new_size`/`rt_gc_new`，字节区免扫描）。`rt_retain`/`rt_release` 对 GC 对象为 no-op
+  （过渡期 codegen 的 release 不改生命周期）；清扫改为两阶段：先对全部死亡对象执行 deinit
+  （内存保持有效），再统一 release ARC 引用并释放（S2 §6.4）。新增 `xrt_text_*`、`xrt_sb_*`。
+- **候选期增补（S3-01 容器 GC 化，2026-11-08）**：`T[]`/`List`/`Map`/`Set` 由 codegen
+  生成 GC 对象（`rt_gc_new` + `scan`/`deinit`），元素区在 deinit 释放；ARC 元素
+  retain/release，GC 元素只扫描；容器字段按 GC 引用处理（类 scan 访问、deinit 不 release）。
+- **候选期增补（S3-07/08，2026-11-08）**：`xrt.h` 增补 `xrt_callback_env_*`（trampoline env：
+  GC 对象 + 创建登记根 / 销毁注销 / 注销后调用 fatal）与 `xrt_stats_*`（allocs/frees/bytes/
+  gc_collections/gc_freed，默认关闭）。构建选项 `--mem=auto|arc|gc`（§23）与 `--stats`
+  由 codegen `Options.MemPolicy/Stats` 承载；`--mem` 只强制类的分配种类，数据枚举/单例仍按规范 GC。
+- **候选期增补（BYTES-RUNTIME，2026-11-07）**：`xrt.h` 新增可变字节缓冲面——
+  `xrt_bytes_buf`（不透明）+ `xrt_bytes_new/_alloc/_from_c/_len/_data/_get/_set/_push/_append/_slice`，
+  实现 `impl/runtime/rt_std_bytes.c`；长度权威、允许内嵌 NUL、字节区免扫描（S3 §188），
+  越界 `xrt_fatal`（S1 §9.7）。**分配种类暂用 ARC**（与 String/类/容器一致，生成代码按作用域 release）；
+  S3 §188 的 GC 分类待 codegen 生命周期整体切到根登记后只改 kind，符号/签名不变。
 
 ## A. M3 冻结契约（已落地，变更须双方评审）
 

@@ -8,7 +8,7 @@
 `死命令.md` 是最高优先级常设强制命令，冻结、不得修改、不得降级解释。**与本文件冲突时，以 `死命令.md` 为准。**
 当前第 1 号：自举路线（借力先行，自举收口）——B0—B4 五道门，详见 `死命令.md`。
 
-## 治理记忆（ADR-001/002，试行 6 小时）
+## 治理记忆（ADR-001/002/005，试行已结束，锚点制）
 
 1. **五线制**：3 条生产线——前端线 E2、自举线 E4、运行时线 E5；2 条支撑线——QA 线 QA1、发布线 COO。E6 属自举线执行工具链/CI/IDE，不单列生产线。
 2. **董事会只做三件事**：门判定、owner 冲突仲裁、ADR 归档；不派工、不看板、不写快照。
@@ -18,8 +18,9 @@
 6. **SLA**：P0（门禁/停工）≤2h；P1 当日；P2 周批。只有死命令、预算、公开发布需用户裁决。
 7. **汇报四数**：本周 commit 数、锚点翻转数、全量测试绿/红、门进度。禁止以文件数/回执数/看板数为产出。
 8. **回执只用于门证据**；普通任务不再逐卡写回执。门禁仍按死命令四件套。
-9. **当前门**：B0 已过；M1 6/14、B1 未过；B2–B4 未开工。B1 仅用文本 API 子集，B0-07c 不阻塞 B1。
+9. **当前门**：B0 PASS；B1 PASS；M1 14/14 PASS；M2 29/29 PASS；S3 通过（12/13，MEM-09 挂 B3）；S4 通过（11/11）；**S5 通过（12/12）**（`收件箱/门/S5门.md`）；下一阶段 S6 标准库 XDK。B2 前置：S1–S8 定版 + SHA-256 清单 + MEM-09/S3-06 在 B3 回验。
 10. **预算**：B1 8h、B2 48h、B3 72h；B4 拆 a/b/c 各 24h。
+11. **收线**（ADR-005/006）：M2 期间活跃仅 E4 codegen、E2 sema、QA 串行签；E1/E3/E5 按卡解冻。M2 已关，转 B2 前置：S1–S8 定版与一致性验收；验收文件签字后 5 分钟内 commit；一工作树一会话；main 合并单会话互斥。
 
 ## 命名
 
@@ -39,14 +40,15 @@ opencode api POST /api/session/<SESSION_ID>/move -d '{"directory":"<目标目录
 ## 投递与查询
 
 ```bash
-opencode run -s <SESSION_ID> -m opencode/deepseek-v4.1-flash-free "<消息>"
+opencode run -s <SESSION_ID> -m deepseek/deepseek-flash "<消息>"
 opencode api POST /api/session/<SESSION_ID>/prompt -d '{"text":"<消息>"}'
 opencode api GET  /api/session/<SESSION_ID>/message
 opencode api GET  /api/session/<SESSION_ID>
 ```
 
-- 投递必须显式带 `-m`；不带会命中区域封锁模型并让该会话永久锁在坏模型上。
-- 锁死后用 `/api/session/<id>/model` 复位：`{"model":{"providerID":"opencode","id":"deepseek-v4.1-flash-free"}}`。
+- 投递必须显式带 `-m deepseek/deepseek-flash`；不带会命中区域封锁模型或 free 模型。
+- 所有常驻会话固定 `deepseek/deepseek-flash`；发现 `opencode/deepseek-v4.1-flash-free` 立即用 `/model` 复位。
+- 锁死后用 `/api/session/<id>/model` 复位：`{"model":{"providerID":"deepseek","id":"deepseek-flash"}}`。
 - `prompt` 请求体里的 `model` 字段被忽略，只能先 `/model` 再投递。
 - 结果看 `/message` 最后一条 `type:"idle"` 的 `outcome`；状态看 `/session/<id>` 的 `outcome`/`busy`/`idle`。
 

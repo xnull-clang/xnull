@@ -1,0 +1,19 @@
+=== RUN   TestS2ExplicitConstructorRuntime
+=== RUN   TestS2ExplicitConstructorRuntime/NoArg
+=== RUN   TestS2ExplicitConstructorRuntime/WithParam
+=== RUN   TestS2ExplicitConstructorRuntime/OverloadByArity
+=== RUN   TestS2ExplicitConstructorRuntime/FieldInitBeforeBody
+--- PASS: TestS2ExplicitConstructorRuntime (0.00s)
+    --- PASS: TestS2ExplicitConstructorRuntime/NoArg (0.00s)
+    --- PASS: TestS2ExplicitConstructorRuntime/WithParam (0.00s)
+    --- PASS: TestS2ExplicitConstructorRuntime/OverloadByArity (0.00s)
+    --- PASS: TestS2ExplicitConstructorRuntime/FieldInitBeforeBody (0.00s)
+=== RUN   TestS2BareFieldResolution
+=== RUN   TestS2BareFieldResolution/ReadAndWrite
+=== RUN   TestS2BareFieldResolution/FieldInitializer
+--- PASS: TestS2BareFieldResolution (0.00s)
+    --- PASS: TestS2BareFieldResolution/ReadAndWrite (0.00s)
+    --- PASS: TestS2BareFieldResolution/FieldInitializer (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.924s
+exit=0

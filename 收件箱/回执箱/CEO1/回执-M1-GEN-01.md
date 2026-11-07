@@ -2,7 +2,13 @@
 
 # 回执：M1-GEN-01（main=2c00cf5 复跑复核）
 
-> **状态**：`BLOCKED`（跨域）｜**检查表 2/26**｜**commit** `db0e545`（本条复核）/ `149c50b`（首轮复跑）｜**merge** `dab4d5c`（无冲突）
+> **状态**：`PASS`｜**检查表 26/26**｜**commit** `20e3d838ea45`（E2 GEN-01 集成）｜证据：`evidence/M1-GEN-01/e2-final/`
+>
+> **v3 收口（2026-11-07，E2 前端线）**：原 BLOCKED 2/26 结论已被端到端 26/26 取代。
+> - `TestGEN01` 25/25 PASS + `TestGEN01CrossFile` PASS = **26/26**，0 FAIL / 0 SKIP。
+> - 验证：`go test ./internal/codegen/ -run 'TestGEN01' -v`、`go test ./internal/sema/ -run 'TestGEN01' -v`、`go test ./... -count=1 -timeout 300s` 全部 exit 0。
+> - 证据：`evidence/M1-GEN-01/e2-final/`（command/acceptance + 三份原始日志）；HANDOFF：`handoff/GEN-01.md`。
+> - 剩余边界：G7 直接自递归诊断、G12 解析拒绝、嵌套 `>>` 属 xfront EXP-008；已由 QA1 独立验收请求覆盖。
 > **main**：`2c00cf5`（未再前进）｜**复跑时间**：2026-11-07 04:25 CST｜**基线**：`pod/c1-rd3`
 > **版本**：v2（替代 04:05 的 v1；v1 结论不变，本版修正 2 处口径）
 

@@ -1,0 +1,4 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-144337213/prog.c:203:14: warning: incompatible pointer types initializing 'xn_Cls_Base *' (aka 'struct xn_Cls_Base *') with an expression of type 'xn_Cls_D *' (aka 'struct xn_Cls_D *') [-Wincompatible-pointer-types]
+  203 | xn_Cls_Base *xn_t2 = xn_Cls_D_new();
+      |              ^       ~~~~~~~~~~~~~~
+1 warning generated.

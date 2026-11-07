@@ -1,0 +1,3 @@
+main_sha=47fedb8ad1659925af04a677a9e82b861c2dffcd
+binary_sha256=46a22fee8a5523ef1a6061be2a4c73d3adb8c474762a930efa69850c56d14150
+runtime=/private/tmp/xnull-main-47fedb8/impl/runtime

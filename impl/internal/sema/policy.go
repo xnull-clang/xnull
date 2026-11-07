@@ -51,6 +51,9 @@ func (a *analyzer) ComputeStrategies(u *xfront.CompilationUnit) []Strategy {
 			} else {
 				out = append(out, Strategy{Decl: n.Name, Kind: "enum", Policy: "value", Escape: "n/a", Rule: 3})
 			}
+		case *xfront.SingletonDecl:
+			// §9.3：singleton.instance 是全局 GC 根，进程常驻。
+			out = append(out, Strategy{Decl: n.Name, Kind: "singleton", Policy: "gc", Escape: "other", Rule: 1})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Decl < out[j].Decl })
@@ -73,6 +76,8 @@ func (a *analyzer) fieldRefClass(t xfront.TypeRef, inClass *xfront.ClassDecl) st
 			switch name {
 			case "Any", "Object", "Result":
 				return "gc" // 行 5（基名即命中；Result 为当前实现保守项）
+			case "List", "Set", "Map":
+				return "gc" // ADR-007：容器 GC 化（P1-1）
 			}
 			// 泛型实例：实参含类型参数或未解析类型 → 未单态化 → 行 5
 			for _, arg := range ty.Args {
@@ -82,9 +87,12 @@ func (a *analyzer) fieldRefClass(t xfront.TypeRef, inClass *xfront.ClassDecl) st
 			}
 			return "ref"
 		}
-		if scalarValueType(name) || name == "String" || name == "Text" ||
-			name == "Bytes" || name == "StringBuilder" {
+		if scalarValueType(name) {
 			return "value"
+		}
+		// ADR-007：String/Text/Bytes/StringBuilder 全 GC 化。
+		if name == "String" || name == "Text" || name == "Bytes" || name == "StringBuilder" {
+			return "gc"
 		}
 		if info, ok := a.tc.types[name]; ok {
 			switch info.kind {
@@ -168,11 +176,13 @@ func (a *analyzer) strategyClass(d *xfront.ClassDecl) Strategy {
 			hasRef = true
 		}
 	}
-	// 行 6：强引用环（字段类型图 DFS）
-	if s.Rule == 0 && hasRef && a.classRefCycle(d.Name, map[string]bool{}) {
+	// 行 6：强引用环（字段类型图 DFS，含容器中介；P1-1）。
+	if hasRef && a.classRefCycle(d.Name, map[string]bool{}) {
 		s.RefCycle = true
-		s.Rule = 6
-		s.Policy = "gc"
+		if s.Rule == 0 {
+			s.Rule = 6
+			s.Policy = "gc"
+		}
 	}
 	// 行 7：deinit 或 self 捕获 → ARC，不做栈分配
 	if s.Rule == 0 && (s.Deinit || s.SelfCaptured) {
@@ -190,6 +200,17 @@ func (a *analyzer) strategyClass(d *xfront.ClassDecl) Strategy {
 		s.Rule = 9
 		s.Policy = "arc"
 	}
+	// §6 逃逸分类接口（S3-03pre）：供 E4/E5 消费。
+	switch s.Policy {
+	case "arc":
+		if s.StackEligible && !s.Deinit && !s.SelfCaptured && !s.RefCycle {
+			s.Escape = "none" // 可栈分配
+		} else {
+			s.Escape = "return" // 逃逸到调用方/ARC
+		}
+	case "gc":
+		s.Escape = "other" // 堆/GC
+	}
 	return s
 }
 
@@ -204,14 +225,42 @@ func (a *analyzer) classRefCycle(name string, visiting map[string]bool) bool {
 	}
 	visiting[name] = true
 	for _, f := range info.class.Fields {
-		if c := a.fieldRefClass(f.Type, info.class); len(c) > 6 && c[:6] == "class:" {
-			if a.classRefCycle(c[6:], visiting) {
+		for _, ref := range a.fieldClassRefs(f.Type, info.class) {
+			if a.classRefCycle(ref, visiting) {
 				return true
 			}
 		}
 	}
 	delete(visiting, name)
 	return false
+}
+
+// fieldClassRefs 返回字段可达的具体类名（穿透 List/Set/Map/数组/元组）；
+// 用于识别容器中介的强引用环（P1-1）。
+func (a *analyzer) fieldClassRefs(t xfront.TypeRef, inClass *xfront.ClassDecl) []string {
+	switch ty := t.(type) {
+	case nil:
+		return nil
+	case *xfront.NamedType:
+		name := ty.Qual[len(ty.Qual)-1]
+		if info, ok := a.tc.types[name]; ok && info.kind == "class" {
+			return []string{name}
+		}
+		var out []string
+		for _, arg := range ty.Args {
+			out = append(out, a.fieldClassRefs(arg, inClass)...)
+		}
+		return out
+	case *xfront.SuffixedType:
+		return a.fieldClassRefs(ty.Base, inClass)
+	case *xfront.TupleTypeRef:
+		var out []string
+		for _, el := range ty.Elems {
+			out = append(out, a.fieldClassRefs(el, inClass)...)
+		}
+		return out
+	}
+	return nil
 }
 
 // scanSelfCapture 判断方法体是否在闭包中捕获 self（§15.1 判定输入）。

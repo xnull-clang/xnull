@@ -1,0 +1,8 @@
+=== RUN   TestS3_RESULTCopy
+--- PASS: TestS3_RESULTCopy (1.55s)
+=== RUN   TestS3_RESULTFieldInitAndReceiver
+--- PASS: TestS3_RESULTFieldInitAndReceiver (1.58s)
+=== RUN   TestS3_RESULTFieldCopyInCtor
+--- PASS: TestS3_RESULTFieldCopyInCtor (1.60s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.550s

@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r02_nonfinal.x:1:9: error[TY-212]: 主构造器参数 `id` 必须是 final（§6.3）
+  写成 final id，或改用普通构造器

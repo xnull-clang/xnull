@@ -1,0 +1,4 @@
+=== RUN   TestReservedNamesRejected
+--- PASS: TestReservedNamesRejected (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/xfront	0.521s

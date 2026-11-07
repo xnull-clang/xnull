@@ -8,6 +8,17 @@
 
 ---
 
+## 0. 当前判定（2026-11-07 复验，main `d349f6a`）：**PASS**
+
+- QA 独立用例 overlay 复跑：`TestQAERR01` sema **exit 0**、interp **exit 0**（0 FAIL）。
+- 历史 B1/B2 已由 `evidence/M1-ERR-01-fix2/` 修复（main 上复验通过）。
+- 残留 1 项为 **QA 测试期望顺序错误**，非实现缺陷：原期望 `... after-call, outer-ok, outer-d` 与 S1 §10.3 矛盾。已按 §10.3 修正为 `... after-call, outer-d, outer-ok`（`defer` 在当前作用域退出时执行，先于调用方继续），并在 `evidence/M1-ERR-01-qa/qa/qa-interp-test.go.txt` 注明；未改任何实现代码。
+- 复现：`wt/qa-1/evidence/QA1-anchors-2026-11-07/logs/err-{sema,interp}.log`。
+
+**结论：PASS（0 FAIL）。**
+
+---
+
 ## 结论
 
 **FAIL**（2 项阻塞）

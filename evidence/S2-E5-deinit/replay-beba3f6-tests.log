@@ -1,0 +1,18 @@
+=== RUN   TestS2DeinitUserBodyBeforeFieldRelease
+--- PASS: TestS2DeinitUserBodyBeforeFieldRelease (1.74s)
+=== RUN   TestS2FieldAssignClassRefRetainRelease
+--- PASS: TestS2FieldAssignClassRefRetainRelease (2.40s)
+=== RUN   TestS2FieldAssignMemberSelfAlias
+--- PASS: TestS2FieldAssignMemberSelfAlias (1.09s)
+=== RUN   TestS2DeinitReleasesHandleAndBytes
+--- PASS: TestS2DeinitReleasesHandleAndBytes (0.00s)
+=== RUN   TestS2CtorBodies
+--- PASS: TestS2CtorBodies (1.05s)
+=== RUN   TestS2InheritanceLayout
+--- PASS: TestS2InheritanceLayout (3.16s)
+=== RUN   TestS2ProtocolVtableLayout
+--- PASS: TestS2ProtocolVtableLayout (3.78s)
+=== RUN   TestS2DeinitBody
+--- PASS: TestS2DeinitBody (7.09s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	21.989s

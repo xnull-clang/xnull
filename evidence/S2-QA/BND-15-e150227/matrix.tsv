@@ -1,0 +1,16 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-BND15-a01_result_class	BND-15	check	Result/try/defer + class 合法	rc=0	PASS	S2-BND15-a01_result_class/check/
+S2-BND15-a01_result_class	BND-15	interp	错误传播/清理顺序	m-err|m-defer|dR|outer-defer|outer-err|caught:bad, rc=0	PASS	S2-BND15-a01_result_class/interp/
+S2-BND15-a01_result_class	BND-15	compiled	同上	与 interp 一致, rc=0	PASS	S2-BND15-a01_result_class/compiled/
+S2-BND15-a02_factory_try	BND-15	check	对象 + factory + Result 合法	rc=0	PASS	S2-BND15-a02_factory_try/check/
+S2-BND15-a02_factory_try	BND-15	interp	f-defer|ok|false|f-err|f-defer|boom	f-defer|ok|false|f-err|f-defer|boom, rc=0	PASS	S2-BND15-a02_factory_try/interp/
+S2-BND15-a02_factory_try	BND-15	compiled	同上	与 interp 一致, rc=0	PASS	S2-BND15-a02_factory_try/compiled/
+S2-BND15-a03_enum_struct_try	BND-15	check	Result/try × 枚举穷尽 switch × struct 合法	rc=0	PASS	S2-BND15-a03_enum_struct_try/check/
+S2-BND15-a03_enum_struct_try	BND-15	interp	g|9|false	g|9|false, rc=0	PASS	S2-BND15-a03_enum_struct_try/interp/
+S2-BND15-a03_enum_struct_try	BND-15	compiled	同上	与 interp 一致, rc=0	PASS	S2-BND15-a03_enum_struct_try/compiled/
+S2-BND15-a04_try_assign	BND-15	check	try 赋值到对象合法	rc=0	PASS	S2-BND15-a04_try_assign/check/
+S2-BND15-a04_try_assign	BND-15	interp	ok|false	ok|false, rc=0	PASS	S2-BND15-a04_try_assign/interp/
+S2-BND15-a04_try_assign	BND-15	compiled	同上	与 interp 一致, rc=0	PASS	S2-BND15-a04_try_assign/compiled/
+S2-BND15-a05_new_array	BND-15	compiled	`new T[count]` + class/struct	rc=1 codegen NewArray 未支持	BOUNDARY	S2-BND15-a05_new_array/compiled/
+S2-BND15-a06_labels	BND-15	compiled	标签控制 + 枚举 switch	interp 2 rc=0；compiled rc=1 LabeledStmt 未支持	BOUNDARY	S2-BND15-a06_labels/compiled/
+S2-BND15-CI	BND-15	gotest	TestS2BND15* / TestS2INT01* PASS	PASS	gotest-codegen/

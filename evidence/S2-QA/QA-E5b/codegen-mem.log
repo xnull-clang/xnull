@@ -1,0 +1,24 @@
+=== RUN   TestS2MEM01DeinitOrderBaseChain
+--- PASS: TestS2MEM01DeinitOrderBaseChain (2.21s)
+=== RUN   TestS2MEM01StackPolicyClassification
+--- PASS: TestS2MEM01StackPolicyClassification (0.00s)
+=== RUN   TestS2MEM01StructNotInARCGC
+--- PASS: TestS2MEM01StructNotInARCGC (0.00s)
+=== RUN   TestS2MEM02CycleClassIsGCByPolicy
+--- PASS: TestS2MEM02CycleClassIsGCByPolicy (0.00s)
+=== RUN   TestBND10GCCycleCollected
+--- PASS: TestBND10GCCycleCollected (1.28s)
+=== RUN   TestBND10GCMixedARCFieldValid
+--- PASS: TestBND10GCMixedARCFieldValid (1.19s)
+=== RUN   TestBND10PolicyAllocationKinds
+--- PASS: TestBND10PolicyAllocationKinds (0.00s)
+=== RUN   TestBND10ValueOnlyStaysARC
+--- PASS: TestBND10ValueOnlyStaysARC (0.00s)
+=== RUN   TestBND10bDataEnumGlobalRoot
+--- PASS: TestBND10bDataEnumGlobalRoot (1.01s)
+=== RUN   TestBND10bSingletonGlobalRoot
+--- PASS: TestBND10bSingletonGlobalRoot (1.20s)
+=== RUN   TestBND10bArcStackCandidate
+--- PASS: TestBND10bArcStackCandidate (0.69s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	9.416s

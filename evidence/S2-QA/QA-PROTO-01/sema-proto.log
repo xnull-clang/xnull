@@ -1,0 +1,6 @@
+=== RUN   TestS2PROTO01
+--- PASS: TestS2PROTO01 (0.00s)
+=== RUN   TestProtocolRules
+--- PASS: TestProtocolRules (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.318s

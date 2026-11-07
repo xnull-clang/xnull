@@ -1,0 +1,1 @@
+/tmp/xnull-s2-a076488 run /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/a01_decl_use.x

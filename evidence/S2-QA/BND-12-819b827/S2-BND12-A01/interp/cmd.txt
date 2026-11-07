@@ -1,0 +1,1 @@
+/tmp/xnull-s2-819b827 run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd12/a01_generic_class.x 

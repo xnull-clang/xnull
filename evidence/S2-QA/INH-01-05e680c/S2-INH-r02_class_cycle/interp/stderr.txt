@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/r02_class_cycle.x:1:7: error[TY-202]: 继承环：`A` 与 `B` 互相继承（§1.5）
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/r02_class_cycle.x:2:7: error[TY-202]: 继承环：`B` 与 `A` 互相继承（§1.5）

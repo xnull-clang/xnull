@@ -1,0 +1,66 @@
+# M1-TUPLE-01 独立验收复现命令（CEO3-QA1，2026-11-07）
+
+被测：`wt/e2-sema` @ `53c32c7`（代码提交 `ba4458a`，真实父提交 `81ec33d`；E2 acceptance 记 `db74cc7` 为过期记录）
+原则：在仓外 clone 运行；不改 `wt/e2-sema`；独立用例不放回被测工作树。
+
+```bash
+# 0) 仓外拉起候选
+T=/tmp/tuple-qa
+rm -rf "$T" && mkdir -p "$T"
+git clone /Users/vjs/Desktop/XNull-Lang/wt/e2-sema "$T/r"
+cd "$T/r" && git checkout 53c32c7
+
+# 1) 拷入独立验收用例
+cp 收件箱/CEO3/evidence-M1-TUPLE-01/qa-tests/qa-sema_tuple_test.go   impl/internal/sema/
+cp 收件箱/CEO3/evidence-M1-TUPLE-01/qa-tests/qa-interp_tuple_test.go impl/internal/interp/
+
+# 2) 静态 + 候选自有全量（排除 QA 独立用例）
+cd impl
+go vet ./...
+go test ./internal/sema ./internal/interp -count=1 -skip 'TestQATuple'
+
+# 3) 候选自有 TUPLE 用例
+go test ./internal/sema  -run '^TestTuple' -v -count=1
+go test ./internal/interp -run '^TestTuple' -v -count=1
+
+# 4) 独立验收用例（本次 3 项失败：引用元素 == / String === / 数组元素 ==）
+go test ./internal/sema   -run 'TestQATuple' -v -count=1
+go test ./internal/interp -run 'TestQATuple' -v -count=1
+
+# 5) 9 示例双路径（回归；元组无 codegen 示例）
+go build -o "$T/xnull" ./cmd/xnull
+cd ..
+ok=0; bad=0
+for f in examples/*.x; do
+  n=$(basename "$f" .x)
+  "$T/xnull" run --interp "$f" > "$T/$n.interp.out" 2> "$T/$n.interp.err"; ie=$?
+  "$T/xnull" run "$f"          > "$T/$n.comp.out"   2> "$T/$n.comp.err";   ce=$?
+  if [ "$ie" = "$ce" ] && cmp -s "$T/$n.interp.out" "$T/$n.comp.out"; then
+    ok=$((ok+1)); echo "$n MATCH ie=$ie ce=$ce"
+  else
+    bad=$((bad+1)); echo "$n MISMATCH ie=$ie ce=$ce"
+  fi
+done
+echo "DUAL_OK=$ok DUAL_BAD=$bad"
+
+# 6) 证据七件套与产物哈希
+cd /Users/vjs/Desktop/XNull-Lang/wt/e2-sema
+for f in command.txt stdout.txt stderr.txt exit_code.txt sha.txt artifact.sha256 acceptance.md; do
+  git cat-file -e 53c32c7:evidence/M1-TUPLE-01/$f && echo "$f present" || echo "$f MISSING"
+done
+shasum -a 256 -c evidence/M1-TUPLE-01/artifact.sha256
+
+# 7) 红态独立复跑（真实父提交 81ec33d + 最终测试；db74cc7 复跑同结果）
+cd "$T"
+git clone r base && cd base && git checkout 81ec33d
+cp "$T/r/impl/internal/sema/tuple_test.go"   impl/internal/sema/
+cp "$T/r/impl/internal/interp/tuple_test.go" impl/internal/interp/
+cd impl
+go test ./internal/sema   -run '^TestTuple' -v -count=1
+go test ./internal/interp -run '^TestTuple' -v -count=1
+```
+
+失败点（独立用例）：
+- `TestQATupleReferenceElementEquality`：`(Box,Int)` 元组 `a == a`、`a == b`（同一对象）返回 `false`，期望 `true`。
+- `TestQATupleArrayElementEquality`：`(Int[],Int)` 元组 `p == p`、`p == q`（同一数组句柄）返回 `false`，期望 `true`（S1 数组，不依赖 S2）。
+- `TestQATupleStringIdentity`：`String` 拼接后 `s1 === s2` 返回 `true`，期望 `false`；`(String,Int)` 元组 `p === q` 同理。

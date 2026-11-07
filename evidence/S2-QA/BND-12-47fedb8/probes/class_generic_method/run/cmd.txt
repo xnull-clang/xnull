@@ -1,0 +1,1 @@
+/tmp/xnull-s2-47fedb8 run /Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/BND-12-47fedb8/probes/class_generic_method.x

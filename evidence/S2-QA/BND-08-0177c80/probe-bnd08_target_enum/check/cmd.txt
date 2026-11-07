@@ -1,0 +1,1 @@
+/tmp/xnull-s2-0177c80 check /tmp/qa-b3-probes/bnd08_target_enum.x

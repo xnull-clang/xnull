@@ -1,0 +1,9 @@
+# INTEG-c3-rd1 ancestry
+$ git merge-base --is-ancestor 7c626b5 9f5f66c
+EXIT=0
+
+# SHAs
+main HEAD: 9f5f66c0e132953646ae4213218629dbaa3be0e8
+7c626b5: 7c626b5745aa8e4fc8f17823901d7f27942cfdc7
+9f5f66c: 9f5f66c0e132953646ae4213218629dbaa3be0e8
+c3-rd1 worktree: 7c626b5745aa8e4fc8f17823901d7f27942cfdc7

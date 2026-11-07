@@ -1,0 +1,30 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-BND07-A01	BND-07	check	名称空间可见	rc=0	PASS	S2-BND07-A01/check/
+S2-BND07-A01	BND-07	interp	instance 字段/方法可读: XNull\n3	XNull\n3, rc=0	PASS	S2-BND07-A01/interp/
+S2-BND07-A01	BND-07	compiled	同上	XNull\n3, rc=0	PASS	S2-BND07-A01/compiled/
+S2-BND07-A02	BND-07	check	名称空间可见	rc=0	PASS	S2-BND07-A02/check/
+S2-BND07-A02	BND-07	interp	启动前初始化: localhost\n8080	localhost\n8080, rc=0	PASS	S2-BND07-A02/interp/
+S2-BND07-A02	BND-07	compiled	同上	localhost\n8080, rc=0	PASS	S2-BND07-A02/compiled/
+S2-BND07-R01-implements	BND-07	check	单例 implements 拒绝	rc=1; 2:19 error[SYN-101]	PASS	S2-BND07-R01-implements/check/
+S2-BND07-R01-implements	BND-07	interp	同上	rc=1; SYN-101	PASS	S2-BND07-R01-implements/interp/
+S2-BND07-R01-implements	BND-07	compiled	同上	rc=1; SYN-101	PASS	S2-BND07-R01-implements/compiled/
+S2-BND07-R01-inherit	BND-07	check	继承单例拒绝	rc=1; 4:7 error[TY-202]	PASS	S2-BND07-R01-inherit/check/
+S2-BND07-R01-inherit	BND-07	interp	同上	rc=1; TY-202	PASS	S2-BND07-R01-inherit/interp/
+S2-BND07-R01-inherit	BND-07	compiled	同上	rc=1; TY-202	PASS	S2-BND07-R01-inherit/compiled/
+S2-BND07-R01-new	BND-07	check	new 单例拒绝	rc=1; 5:17 error[TY-216]	PASS	S2-BND07-R01-new/check/
+S2-BND07-R01-new	BND-07	interp	同上	rc=1; TY-216	PASS	S2-BND07-R01-new/interp/
+S2-BND07-R01-new	BND-07	compiled	同上	rc=1; TY-216	PASS	S2-BND07-R01-new/compiled/
+S2-BND07-R01-write	BND-07	check	instance 只读拒绝	rc=1; 5:12 error[TY-215]	PASS	S2-BND07-R01-write/check/
+S2-BND07-R01-write	BND-07	interp	同上	rc=1; TY-215	PASS	S2-BND07-R01-write/interp/
+S2-BND07-R01-write	BND-07	compiled	同上	rc=1; TY-215	PASS	S2-BND07-R01-write/compiled/
+S2-BND07-R02-fwd	BND-07	check	跨单例前向引用拒绝	rc=1; 2:23 error[TY-222]	PASS	S2-BND07-R02-fwd/check/
+S2-BND07-R02-fwd	BND-07	interp	同上	rc=1; TY-222	PASS	S2-BND07-R02-fwd/interp/
+S2-BND07-R02-fwd	BND-07	compiled	同上	rc=1; TY-222	PASS	S2-BND07-R02-fwd/compiled/
+probe-abstract	BND-07	all	abstract 单例拒绝	rc=1; 1:20 error[TY-222]	PASS	probe-bnd07_abstract/
+probe-manual-instance	BND-07	all	手动 instance 拒绝	rc=1; 2:9 error[TY-215]	PASS	probe-bnd07_manual_instance/
+probe-ctor	BND-07	all	单例构造器拒绝	rc=1; 3:6 error[TY-201]	PASS	probe-bnd07_ctor/
+probe-generic	BND-07	all	泛型单例拒绝	rc=1; 1:12 error[SYN-101]	PASS	probe-bnd07_generic/
+probe-static	BND-07	compiled	单例静态字段/方法可用（§9.1）	check rc=0; interp 7 rc=0; compiled rc=1 codegen 暂未支持	BOUNDARY	probe-bnd07_static_ok/
+probe-prev-ref	BND-07	compiled	初始化式引用前面单例（§9.2）	check rc=0; interp 1 rc=0; compiled rc=1 字段初始化式访问成员	BOUNDARY	probe-bnd07_prev_ref_ok/
+S2-BND07-M01	BND-07	code	instance 为 GC 全局根	全局句柄进程常驻；codegen 用 rt_arc_new，GC 分类由 E5	PASS（可观察）	impl/internal/codegen/singleton.go
+S2-BND07-CI	BND-07	gotest	TestS2BND0708SingletonFactory / TestS2SingletonRuntime / TestS2BND07Singleton PASS	PASS	gotest-sema/,gotest-interp/,gotest-codegen/

@@ -1,0 +1,1 @@
+/tmp/xnull-s2-45bef02 run --runtime /tmp/xnull-main-45bef02/impl/runtime /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd03/a04_ctor_dispatch.x 

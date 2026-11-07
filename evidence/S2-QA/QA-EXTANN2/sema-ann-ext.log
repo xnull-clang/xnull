@@ -1,0 +1,10 @@
+=== RUN   TestS2ANNbRules
+--- PASS: TestS2ANNbRules (0.00s)
+=== RUN   TestS2ANN01
+--- PASS: TestS2ANN01 (0.00s)
+=== RUN   TestS2EXTbTargets
+--- PASS: TestS2EXTbTargets (0.00s)
+=== RUN   TestS2EXT01
+--- PASS: TestS2EXT01 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.821s

@@ -1,0 +1,1 @@
+/tmp/xnull-s2-base check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r01_public_underscore.x

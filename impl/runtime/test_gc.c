@@ -25,9 +25,9 @@ static void gnode_scan(void *payload, void (*visit)(void *)) {
 }
 
 static void gnode_deinit(void *payload) {
-    gnode_t *n = payload;
-    n->a = NULL; /* 不变量 6：ARC 释放时清除引用，避免悬挂 */
-    n->b = NULL;
+    /* S2 §6.4：deinit 执行时字段仍然有效；ARC 引用由 sweep 在 deinit 之后
+     * 经 scan(sweep_release_arc_ref) 释放。此处不清空字段（清空等于放弃释放）。 */
+    (void)payload;
 }
 
 static const rt_type RT_TYPE_GNODE = {
@@ -56,8 +56,82 @@ static const rt_type RT_TYPE_ASCAN = {
     .deinit = ascan_deinit, .scan = ascan_scan,
 };
 
-/* 简单字符串（ARC，无 GC 引用）——清扫释放目标。 */
-static rt_string *arc_str(const char *c) { return rt_string_from_c(c); }
+/* GC 对象持 ARC 引用：deinit 执行时字段必须仍然有效（S2 §6.4）。 */
+typedef struct {
+    rt_header hdr;
+    void     *arc_ref;
+} gcv_t;
+
+static int g_gcv_seen_refcount = -1;
+
+static void gcv_scan(void *payload, void (*visit)(void *)) {
+    gcv_t *n = payload;
+    visit(n->arc_ref);
+}
+
+static void gcv_deinit(void *payload) {
+    gcv_t *n = payload;
+    g_gcv_seen_refcount = (int)rt_refcount(n->arc_ref);
+}
+
+static const rt_type RT_TYPE_GCV = {
+    .name = "GcValid", .payload_size = sizeof(gcv_t) - sizeof(rt_header),
+    .deinit = gcv_deinit, .scan = gcv_scan,
+};
+
+/* 简单 ARC 对象（无 GC 引用）——清扫释放目标。
+ * 注意：String 自 S3-04 起是 GC 对象，不能再作为 ARC 引用测试体。 */
+typedef struct {
+    rt_header hdr;
+    int       marker;
+} arcbox_t;
+
+static void arcbox_deinit(void *payload) { (void)payload; }
+
+static const rt_type RT_TYPE_ARCBOX = {
+    .name = "ArcBox", .payload_size = sizeof(arcbox_t) - sizeof(rt_header),
+    .deinit = arcbox_deinit,
+};
+
+static arcbox_t *arc_box(void) { return rt_arc_new(&RT_TYPE_ARCBOX); }
+
+/* P0-BND10：死亡 GC 对象之间的字段在 deinit 阶段仍然有效（两阶段清扫）。 */
+typedef struct {
+    rt_header hdr;
+    int       tag;
+} gctarget_t;
+
+typedef struct {
+    rt_header hdr;
+    gctarget_t *ref;
+} gcholder_t;
+
+static int g_holder_seen = -1;
+
+static void gctarget_deinit(void *payload) {
+    gctarget_t *t = payload;
+    t->tag = 77;
+}
+
+static const rt_type RT_TYPE_GCTARGET = {
+    .name = "GcTarget", .payload_size = sizeof(gctarget_t) - sizeof(rt_header),
+    .deinit = gctarget_deinit,
+};
+
+static void gcholder_scan(void *payload, void (*visit)(void *)) {
+    gcholder_t *h = payload;
+    visit(h->ref);
+}
+
+static void gcholder_deinit(void *payload) {
+    gcholder_t *h = payload;
+    g_holder_seen = h->ref->tag;
+}
+
+static const rt_type RT_TYPE_GCHOLDER = {
+    .name = "GcHolder", .payload_size = sizeof(gcholder_t) - sizeof(rt_header),
+    .deinit = gcholder_deinit, .scan = gcholder_scan,
+};
 
 int main(void) {
     /* 1. 不变量 5：GC 对象环不可达 → 回收 */
@@ -103,7 +177,7 @@ int main(void) {
 
     /* 4. 不变量 3/6：GC 对象持 ARC 引用 → 清扫时 release，无泄漏无重复释放 */
     gnode_t *holder = rt_gc_new(&RT_TYPE_GNODE);
-    rt_string *s = arc_str("held-by-gc");
+    arcbox_t *s = arc_box();
     holder->a = s; /* ARC 引用：持有时必须 retain（成对合同） */
     (void)rt_retain(s);
     holder->b = NULL;
@@ -127,6 +201,29 @@ int main(void) {
     rt_release(box2);
     rt_gc_collect();
     assert(rt_gc_live() == 0);
+
+    /* 6. S2 §6.4：GC deinit 执行时 ARC 字段仍然有效；释放发生在 deinit 之后 */
+    gcv_t *hv = rt_gc_new(&RT_TYPE_GCV);
+    arcbox_t *valid = arc_box();
+    (void)rt_retain(valid);
+    hv->arc_ref = valid;
+    assert(rt_refcount(valid) == 2); /* 局部 + GC 对象 */
+    hv = NULL;
+    rt_gc_collect();
+    assert(g_gcv_seen_refcount == 2); /* deinit 时字段仍有效 */
+    assert(rt_refcount(valid) == 1);  /* sweep 在 deinit 后恰好 release 一次 */
+    rt_release(valid);
+
+    /* 7. P0-BND10：holder 先分配、target 后分配 → LIFO 清扫先释放 target；
+     * 两阶段清扫保证 holder deinit 仍能读到 target 字段。 */
+    gctarget_t *gt = rt_gc_new(&RT_TYPE_GCTARGET);
+    gcholder_t *gh = rt_gc_new(&RT_TYPE_GCHOLDER);
+    gh->ref = gt;
+    gt->tag = 11;
+    gh = NULL;
+    gt = NULL;
+    rt_gc_collect();
+    assert(g_holder_seen == 77);
 
     printf("gc tests passed (invariants 2/3/5/6)\n");
     return 0;

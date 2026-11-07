@@ -1,0 +1,4 @@
+FAIL f1  want=RES-103 rc=1  f1.x:1:7: error[RES-102]: 类型 `X` 在包内重复声明（已有 class，§1.1）
+PASS f2  rc=0  accepted
+FAIL f3  want=RES-103 rc=1  f3.x:1:7: error[RES-102]: 类型 `X` 在包内重复声明（已有 class，§1.1）
+FAIL c1  want=RES-103 rc=1  c1.x:1:7: error[RES-102]: 类型 `X` 在包内重复声明（已有 class，§1.1）

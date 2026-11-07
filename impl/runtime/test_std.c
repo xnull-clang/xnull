@@ -6,8 +6,10 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "xrt.h"
+#include "rt_gc.h"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +30,7 @@ int32_t     xdkc_utf8_valid(const char *bytes, size_t len);
 int64_t     xdkc_utf8_to_utf16(const char *src, size_t n, uint16_t *dst, size_t cap);
 int64_t     xdkc_utf16_to_utf8(const uint16_t *src, size_t n, char *dst, size_t cap);
 void       *xdkc_file_open_read(const char *bytes, size_t len);
+void       *xdkc_file_open_write(const char *bytes, size_t len);
 int64_t     xdkc_file_read(void *fp, void *buf, size_t cap, int32_t *code);
 int32_t     xdkc_file_write(void *fp, const void *buf, size_t n);
 int32_t     xdkc_file_close(void *fp);
@@ -191,6 +194,364 @@ static void test_utf8_valid(void) {
     CHECK(xdkc_utf8_valid(NULL, 1) == 1);
 }
 
+/* BYTES-RUNTIME（B0-07c）：可变字节缓冲的构造/读写/追加/切片与越界终止。 */
+static void test_bytes(void) {
+    xrt_bytes_buf *b = xrt_bytes_from_c("abc", 3);
+    CHECK(xrt_bytes_len(b) == 3);
+    CHECK(xrt_bytes_get(b, 0) == 'a');
+    xrt_bytes_set(b, 0, 'A');
+    CHECK(xrt_bytes_get(b, 0) == 'A');
+
+    xrt_bytes_push(b, 0);
+    xrt_bytes_push(b, 255);
+    CHECK(xrt_bytes_len(b) == 5);
+    CHECK(xrt_bytes_get(b, 3) == 0);
+    CHECK(xrt_bytes_get(b, 4) == 255);
+    CHECK(memcmp(xrt_bytes_data(b), "Abc\0\xff", 5) == 0);
+
+    xrt_bytes_buf *a = xrt_bytes_from_c("XY", 2);
+    xrt_bytes_append(b, a);
+    CHECK(xrt_bytes_len(b) == 7);
+    CHECK(memcmp(xrt_bytes_data(b), "Abc\0\xffXY", 7) == 0);
+    xrt_release(a);
+
+    xrt_bytes_buf *s = xrt_bytes_slice(b, 1, 3);
+    CHECK(xrt_bytes_len(s) == 2);
+    CHECK(memcmp(xrt_bytes_data(s), "bc", 2) == 0);
+    xrt_release(s);
+
+    xrt_bytes_buf *z = xrt_bytes_alloc(4);
+    CHECK(xrt_bytes_len(z) == 4);
+    CHECK(((const unsigned char *)xrt_bytes_data(z))[3] == 0);
+    xrt_release(z);
+
+    xrt_bytes_buf *e = xrt_bytes_new();
+    CHECK(xrt_bytes_len(e) == 0);
+    xrt_bytes_push(e, 7); /* 空缓冲扩容路径 */
+    CHECK(xrt_bytes_len(e) == 1);
+    xrt_release(e);
+
+    xrt_bytes_buf *self = xrt_bytes_from_c("pq", 2);
+    xrt_bytes_append(self, self); /* 自追加：扩容后仍按原长度复制 */
+    CHECK(xrt_bytes_len(self) == 4);
+    CHECK(memcmp(xrt_bytes_data(self), "pqpq", 4) == 0);
+    xrt_release(self);
+
+    xrt_release(b);
+}
+
+/* 越界访问必须终止进程（S1 §9.7 panic），不得静默截断。 */
+static void test_bytes_bounds(void) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        FILE *null = freopen("/dev/null", "w", stderr);
+        (void)null;
+        xrt_bytes_buf *b = xrt_bytes_from_c("a", 1);
+        (void)xrt_bytes_get(b, 1);
+        _exit(0);
+    }
+    int st = 0;
+    CHECK(pid > 0);
+    if (pid > 0) {
+        CHECK(waitpid(pid, &st, 0) == pid);
+        CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    }
+}
+
+/* Bytes 与文件原语的联合路径：证实运行时可作为 FFI 借出缓冲（data/len）直接使用。 */
+static void test_bytes_file_io(void) {
+    char path[] = "/tmp/xnull_std_bytesXXXXXX";
+    int fd = mkstemp(path);
+    CHECK(fd >= 0);
+    if (fd < 0) {
+        return;
+    }
+    CHECK(write(fd, "AB", 2) == 2);
+    close(fd);
+
+    void *fp = xdkc_file_open_read(path, strlen(path));
+    CHECK(fp != NULL);
+    xrt_bytes_buf *b = xrt_bytes_alloc(8);
+    int32_t code = -1;
+    int64_t got = xdkc_file_read(fp, xrt_bytes_data(b), xrt_bytes_len(b), &code);
+    CHECK(code == 0);
+    CHECK(got == 2);
+    CHECK(xrt_bytes_get(b, 0) == 'A');
+    CHECK(xrt_bytes_get(b, 1) == 'B');
+    CHECK(xdkc_file_close(fp) == 0);
+
+    char out[] = "/tmp/xnull_std_bytes_outXXXXXX";
+    int ofd = mkstemp(out);
+    CHECK(ofd >= 0);
+    if (ofd >= 0) {
+        close(ofd);
+        void *wf = xdkc_file_open_write(out, strlen(out));
+        CHECK(wf != NULL);
+        xrt_bytes_buf *w = xrt_bytes_from_c("A\0B", 3);
+        CHECK(xdkc_file_write(wf, xrt_bytes_data(w), xrt_bytes_len(w)) == 0);
+        CHECK(xdkc_file_close(wf) == 0);
+
+        char back[4] = {0};
+        int rfd = open(out, O_RDONLY);
+        CHECK(rfd >= 0);
+        if (rfd >= 0) {
+            CHECK(read(rfd, back, sizeof(back)) == 3);
+            CHECK(memcmp(back, "A\0B", 3) == 0); /* 内嵌 NUL 按长度保留 */
+            close(rfd);
+        }
+        unlink(out);
+        xrt_release(w);
+    }
+    unlink(path);
+    xrt_release(b);
+}
+
+/* S3-07：trampoline env 生命周期（创建登记根 → 调用 → 销毁注销 → 调用终止）。 */
+static int32_t g_cb_calls = 0;
+
+static int32_t test_callback(void *closure, const void *args, size_t nargs, void *result) {
+    g_cb_calls++;
+    (void)closure;
+    (void)args;
+    (void)nargs;
+    if (result != NULL) {
+        *(int32_t *)result = 42;
+    }
+    return 7;
+}
+
+static void test_callback_env(void) {
+    int marker = 0;
+    xrt_callback_env *env = xrt_callback_env_new(&marker, test_callback);
+    CHECK(env != NULL);
+    CHECK(xrt_callback_env_alive(env) == 1);
+    CHECK(xrt_callback_env_closure(env) == &marker);
+
+    int32_t out = 0;
+    CHECK(xrt_callback_env_invoke(env, NULL, 0, &out) == 7);
+    CHECK(out == 42);
+    CHECK(g_cb_calls == 1);
+
+    xrt_callback_env_destroy(env);
+    CHECK(xrt_callback_env_alive(env) == 0);
+    xrt_callback_env_destroy(env); /* 幂等 */
+    CHECK(xrt_callback_env_alive(env) == 0);
+
+    /* 已注销 env 再调用必须终止进程（S7 §5.2） */
+    pid_t pid = fork();
+    if (pid == 0) {
+        FILE *null = freopen("/dev/null", "w", stderr);
+        (void)null;
+        (void)xrt_callback_env_invoke(env, NULL, 0, NULL);
+        _exit(0);
+    }
+    int st = 0;
+    CHECK(pid > 0);
+    if (pid > 0) {
+        CHECK(waitpid(pid, &st, 0) == pid);
+        CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    }
+}
+
+/* S6-02：xdk.runtime env 入口 + exit 不执行 defer/atexit（S1 §10.3）。 */
+const char *xdkc_env_lookup(const char *name, size_t len);
+
+static int g_atexit_fd = -1;
+
+static void atexit_marker(void) {
+    if (g_atexit_fd >= 0) {
+        ssize_t w = write(g_atexit_fd, "x", 1);
+        (void)w;
+    }
+}
+
+static void test_runtime_env_exit(void) {
+    CHECK(setenv("XNULL_S602_ENV", "abc", 1) == 0);
+    const char *v = xdkc_env_lookup("XNULL_S602_ENV", sizeof("XNULL_S602_ENV") - 1);
+    CHECK(v != NULL && strcmp(v, "abc") == 0);
+    CHECK(xdkc_env_lookup("XNULL_S602_MISSING", sizeof("XNULL_S602_MISSING") - 1) == NULL);
+
+    /* exit 不执行 atexit/defer；退出码透传 */
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        g_atexit_fd = fds[1];
+        atexit(atexit_marker);
+        xdkc_exit(7);
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[8];
+    ssize_t n = read(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 7);
+    CHECK(n == 0); /* atexit 未执行 */
+}
+
+/* S4 §9：诊断通道合同——无堆分配、单行、无附加敏感信息；ErrorKind 骨架。 */
+static ssize_t read_all(int fd, char *buf, size_t cap) {
+    size_t off = 0;
+    while (off + 1 < cap) {
+        ssize_t n = read(fd, buf + off, cap - off - 1);
+        if (n <= 0) {
+            break;
+        }
+        off += (size_t)n;
+    }
+    buf[off] = 0;
+    return (ssize_t)off;
+}
+
+static void test_diagnose_contract(void) {
+    /* 无堆分配：诊断调用前后 runtime 分配计数不变 */
+    xrt_stats before, after;
+    xrt_stats_reset();
+    xrt_stats_set_enabled(1);
+    xrt_stats_get(&before);
+    xdkc_diagnose("a\nb", 3);
+    xrt_stats_get(&after);
+    CHECK(after.allocs == before.allocs);
+    xrt_stats_set_enabled(0);
+
+    /* 单行 + 控制字符折叠 */
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        xdkc_diagnose("l1\nl2\rx", sizeof("l1\nl2\rx") - 1);
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[256];
+    read_all(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(strstr(buf, "l1 l2 x") != NULL);
+    CHECK(strchr(buf, '\r') == NULL);
+    int lines = 0;
+    for (const char *p = buf; *p; p++) {
+        if (*p == '\n') {
+            lines++;
+        }
+    }
+    CHECK(lines == 1);
+}
+
+static void test_fatal_contract(void) {
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        dup2(fds[1], STDERR_FILENO);
+        close(fds[1]);
+        rt_fatal("bad\nline\x01x");
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[512];
+    read_all(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    CHECK(strncmp(buf, "xnull runtime fatal: ", 21) == 0);
+    CHECK(strstr(buf, "bad line?x") != NULL);
+    int lines = 0;
+    for (const char *p = buf; *p; p++) {
+        if (*p == '\n') {
+            lines++;
+        }
+    }
+    CHECK(lines == 1); /* 无调用栈、无附加行 */
+}
+
+static void test_error_kind_skeleton(void) {
+    CHECK(XRT_ERR_INVALID_ARGUMENT == 0);
+    CHECK(XRT_ERR_TIMEOUT == 6);
+    CHECK(XRT_ERR_CANCELLED == 7);
+    CHECK(XRT_ERR_INTERNAL == 13);
+    CHECK(strcmp(xrt_error_kind_name(XRT_ERR_TIMEOUT), "Timeout") == 0);
+    CHECK(strcmp(xrt_error_kind_name(XRT_ERR_CANCELLED), "Cancelled") == 0);
+    CHECK(xrt_error_kind_parse("Timeout") == XRT_ERR_TIMEOUT);
+    CHECK(xrt_error_kind_parse("Cancelled") == XRT_ERR_CANCELLED);
+    CHECK(xrt_error_kind_parse("Invalid") == XRT_ERR_INVALID_ARGUMENT);
+    CHECK(xrt_error_kind_parse("Limit") == XRT_ERR_BUSY);
+    CHECK(xrt_error_kind_parse("nope") == XRT_ERR_INTERNAL);
+    CHECK(xrt_error_kind_parse(NULL) == XRT_ERR_INTERNAL);
+}
+
+/* S3-04：String/Text/Bytes/StringBuilder 均为 GC 对象（kind/弱引用/收集释放）。 */
+static void test_s304_gc_types(void) {
+    xrt_string *str = xrt_string_new("gc", 2);
+    CHECK(((rt_object *)str)->hdr.kind == RT_KIND_GC);
+    xrt_weak_slot *ws = xrt_weak_bind(str);
+    CHECK(xrt_weak_read(ws) == str);
+    rt_release(str);              /* GC：no-op */
+    CHECK(xrt_weak_read(ws) == str);
+    rt_gc_collect();              /* 不可达 → 回收 */
+    CHECK(xrt_weak_read(ws) == NULL);
+    xrt_weak_clear(ws);
+
+    xrt_bytes_buf *by = xrt_bytes_from_c("abc", 3);
+    CHECK(((rt_object *)by)->hdr.kind == RT_KIND_GC);
+    xrt_weak_slot *wb = xrt_weak_bind(by);
+    rt_release(by);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wb) == NULL);
+    xrt_weak_clear(wb);
+
+    xrt_text *tx = xrt_text_from_string("hello", 5);
+    CHECK(((rt_object *)tx)->hdr.kind == RT_KIND_GC);
+    CHECK(xrt_text_length(tx) == 5);
+    CHECK(xrt_text_code_point_count(tx) == 5);
+    xrt_weak_slot *wt = xrt_weak_bind(tx);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wt) == NULL);
+    xrt_weak_clear(wt);
+
+    xrt_sb *sb = xrt_sb_new();
+    CHECK(((rt_object *)sb)->hdr.kind == RT_KIND_GC);
+    xrt_sb_append_str(sb, "x", 1);
+    xrt_sb_append_int(sb, 42);
+    CHECK(xrt_sb_length(sb) == 3);
+    xrt_weak_slot *wq = xrt_weak_bind(sb);
+    rt_gc_collect();
+    CHECK(xrt_weak_read(wq) == NULL);
+    xrt_weak_clear(wq);
+}
+
+/* S3-08：分配统计与 GC 指标（默认关闭，显式打开）。 */
+static void test_stats(void) {
+    xrt_stats s;
+    xrt_stats_reset();
+    xrt_stats_set_enabled(1);
+
+    xrt_string *str = xrt_string_new("stats", 5); /* String 为 GC 对象 */
+    (void)str;
+    rt_gc_collect(); /* 不可达 → 清扫，frees/gc_freed 计数 */
+
+    xrt_callback_env *env = xrt_callback_env_new(NULL, NULL);
+    xrt_callback_env_destroy(env);
+    rt_gc_collect(); /* 注销根后回收 → gc_freed 计数 */
+
+    xrt_stats_get(&s);
+    CHECK(s.allocs >= 2);
+    CHECK(s.frees >= 1);
+    CHECK(s.bytes > 0);
+    CHECK(s.gc_collections >= 1);
+    CHECK(s.gc_freed >= 1);
+    xrt_stats_set_enabled(0);
+}
+
 static void test_files(void) {
     char path[] = "/tmp/xnull_std_fileXXXXXX";
     int fd = mkstemp(path);
@@ -290,6 +651,16 @@ int main(void) {
     test_parse_format();
     test_utf();
     test_utf8_valid();
+    test_bytes();
+    test_bytes_bounds();
+    test_bytes_file_io();
+    test_callback_env();
+    test_s304_gc_types();
+    test_diagnose_contract();
+    test_fatal_contract();
+    test_runtime_env_exit();
+    test_error_kind_skeleton();
+    test_stats();
     test_files();
     test_dirs_procs();
     test_regex_fmt();

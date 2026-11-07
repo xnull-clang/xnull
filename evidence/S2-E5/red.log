@@ -1,0 +1,6 @@
+ok  policy table (10 rows, deterministic)
+rt tests passed
+gc tests passed (invariants 2/3/5/6)
+Assertion failed: (rt_weak_is_detached(s3)), function main, file test_hard.c, line 126.
+ok  resurrection detection terminates (fatal handler)
+build_rt.sh: line 10: 61195 Abort trap: 6           /tmp/xnull_test_hard

@@ -1,0 +1,1 @@
+cd impl && go test ./internal/sema -run 'TestEnumRules|TestS2BND06EnumSwitch' -count=1 -v

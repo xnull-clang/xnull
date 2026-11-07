@@ -1,0 +1,81 @@
+=== RUN   TestGEN01
+=== RUN   TestGEN01/G1a_§8.2_显式类型实参
+    gen01_acceptance_test.go:213: OK 输出="7\n" code=0
+=== RUN   TestGEN01/G1b_§8.2_显式类型实参数量必须一致
+=== RUN   TestGEN01/G2a_§8.2_推断：类型参数直接匹配实参类型
+    gen01_acceptance_test.go:213: OK 输出="7\n" code=0
+=== RUN   TestGEN01/G2b_§8.2_推断：嵌套类型逐层匹配
+    gen01_acceptance_test.go:213: OK 输出="4\n" code=0
+=== RUN   TestGEN01/G2c_§8.2_无后缀整数字面量绑定_Int
+    gen01_acceptance_test.go:213: OK 输出="2\n" code=0
+=== RUN   TestGEN01/G2d_§8.2_返回类型上下文不参与推断
+=== RUN   TestGEN01/G3_§8.2_同一类型参数冲突绑定
+=== RUN   TestGEN01/G4_§8.2_结束时仍有未绑定类型参数
+=== RUN   TestGEN01/G5a_§8.2_重载：唯一候选被选中
+    gen01_acceptance_test.go:213: OK 输出="4\n" code=0
+=== RUN   TestGEN01/G5b_§8.2_重载：多个候选适用报歧义
+=== RUN   TestGEN01/G5c_§8.2_重载：零候选是编译错误
+=== RUN   TestGEN01/G6a_§8.3_单态化：两个不同类型实参各自实例
+    gen01_acceptance_test.go:213: OK 输出="1\ns\n" code=0
+=== RUN   TestGEN01/G6b_§8.3_单态化：实例按具体类型检查（T_上的容器操作）
+    gen01_acceptance_test.go:213: OK 输出="3\n1\n" code=0
+=== RUN   TestGEN01/G7_§8.3_递归单态化必须终止，超限必须有诊断
+=== RUN   TestGEN01/G8_台账：Result_类型实参可实例化
+    gen01_acceptance_test.go:213: OK 输出="5\n" code=0
+=== RUN   TestGEN01/G9_§8.1_类型参数只在当前函数可见
+=== RUN   TestGEN01/G10_§8.1_类型参数不得重名
+=== RUN   TestGEN01/G11_§8.1_类型参数可用于局部变量与嵌套类型
+    gen01_acceptance_test.go:213: OK 输出="9\n" code=0
+=== RUN   TestGEN01/G12_§8.1_泛型函数不能作为值直接使用
+=== RUN   TestGEN01/G13_§8.3_类型参数不能是_void
+=== RUN   TestGEN01/G14_§8.3_泛型内_is_T_/_as_T_按具体类型检查
+    gen01_acceptance_test.go:213: OK 输出="true\n" code=0
+=== RUN   TestGEN01/G15_§8.3_泛型内不能写_new_T()
+=== RUN   TestGEN01/G17_§8.4_类型约束必须拒绝
+=== RUN   TestGEN01/G18_§8.2_泛型与普通函数同名共存
+    gen01_acceptance_test.go:213: OK 输出="2\n3\n" code=0
+=== RUN   TestGEN01/G19_§8.2_null_实参不能让类型参数唯一确定
+--- PASS: TestGEN01 (19.94s)
+    --- PASS: TestGEN01/G1a_§8.2_显式类型实参 (2.38s)
+    --- PASS: TestGEN01/G1b_§8.2_显式类型实参数量必须一致 (0.00s)
+    --- PASS: TestGEN01/G2a_§8.2_推断：类型参数直接匹配实参类型 (1.76s)
+    --- PASS: TestGEN01/G2b_§8.2_推断：嵌套类型逐层匹配 (1.75s)
+    --- PASS: TestGEN01/G2c_§8.2_无后缀整数字面量绑定_Int (1.32s)
+    --- PASS: TestGEN01/G2d_§8.2_返回类型上下文不参与推断 (0.00s)
+    --- PASS: TestGEN01/G3_§8.2_同一类型参数冲突绑定 (0.00s)
+    --- PASS: TestGEN01/G4_§8.2_结束时仍有未绑定类型参数 (0.00s)
+    --- PASS: TestGEN01/G5a_§8.2_重载：唯一候选被选中 (1.20s)
+    --- PASS: TestGEN01/G5b_§8.2_重载：多个候选适用报歧义 (0.00s)
+    --- PASS: TestGEN01/G5c_§8.2_重载：零候选是编译错误 (0.00s)
+    --- PASS: TestGEN01/G6a_§8.3_单态化：两个不同类型实参各自实例 (1.81s)
+    --- PASS: TestGEN01/G6b_§8.3_单态化：实例按具体类型检查（T_上的容器操作） (2.15s)
+    --- PASS: TestGEN01/G7_§8.3_递归单态化必须终止，超限必须有诊断 (0.00s)
+    --- PASS: TestGEN01/G8_台账：Result_类型实参可实例化 (1.43s)
+    --- PASS: TestGEN01/G9_§8.1_类型参数只在当前函数可见 (0.00s)
+    --- PASS: TestGEN01/G10_§8.1_类型参数不得重名 (0.00s)
+    --- PASS: TestGEN01/G11_§8.1_类型参数可用于局部变量与嵌套类型 (2.06s)
+    --- PASS: TestGEN01/G12_§8.1_泛型函数不能作为值直接使用 (0.00s)
+    --- PASS: TestGEN01/G13_§8.3_类型参数不能是_void (0.00s)
+    --- PASS: TestGEN01/G14_§8.3_泛型内_is_T_/_as_T_按具体类型检查 (2.40s)
+    --- PASS: TestGEN01/G15_§8.3_泛型内不能写_new_T() (0.00s)
+    --- PASS: TestGEN01/G17_§8.4_类型约束必须拒绝 (0.00s)
+    --- PASS: TestGEN01/G18_§8.2_泛型与普通函数同名共存 (1.68s)
+    --- PASS: TestGEN01/G19_§8.2_null_实参不能让类型参数唯一确定 (0.00s)
+=== RUN   TestGEN01CrossFile
+--- PASS: TestGEN01CrossFile (0.01s)
+=== RUN   TestGEN01MonoExplicit
+--- PASS: TestGEN01MonoExplicit (1.77s)
+=== RUN   TestGEN01MonoNested
+--- PASS: TestGEN01MonoNested (1.30s)
+=== RUN   TestGEN01MonoOverloadCoexist
+--- PASS: TestGEN01MonoOverloadCoexist (1.27s)
+=== RUN   TestGEN01MonoTypeArgEncoding
+--- PASS: TestGEN01MonoTypeArgEncoding (0.00s)
+=== RUN   TestGEN01MonoMissingTypeArgs
+--- PASS: TestGEN01MonoMissingTypeArgs (0.00s)
+=== RUN   TestGEN01MonoWrongTypeArgCount
+--- PASS: TestGEN01MonoWrongTypeArgCount (0.00s)
+=== RUN   TestGEN01MonoDeterministic
+--- PASS: TestGEN01MonoDeterministic (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	26.299s

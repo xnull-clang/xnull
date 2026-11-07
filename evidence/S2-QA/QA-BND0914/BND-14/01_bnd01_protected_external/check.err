@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/01_bnd01_protected_external/source.x:2:43: error[TY-209]: 受保护字段 `x` 不可访问（§7.3：需 self/super 或当前类/子类静态类型）

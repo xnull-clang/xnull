@@ -1,0 +1,2 @@
+difftest/s2/bnd06/r01_non_exhaustive.x:4:5: error[TY-213]: 枚举 switch 未覆盖全部项（§8.5）：遗漏 Green、Blue
+  补 case，或加 default

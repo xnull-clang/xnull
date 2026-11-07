@@ -1,0 +1,1 @@
+(unit (func static Int main (params) (block (expr (call (ident print) (int 0x10))) (expr (call (ident print) (int 0o17))) (expr (call (ident print) (int 0b101))) (expr (call (ident print) (int 1_000))) (expr (call (ident print) (float 2.5))) (expr (call (ident print) (char "A"))) (expr (call (ident print) (string "a\tb"))) (return (int 0)))))

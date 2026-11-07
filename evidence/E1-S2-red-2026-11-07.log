@@ -1,0 +1,13 @@
+--- FAIL: TestS2Singleton (0.00s)
+    s2_syntax_test.go:8: 不应有诊断：SYN-110@t.x:1:1: error[SYN-110]: 类型声明（singleton）属第 2 部分，语法层待 S2 切片实现
+--- FAIL: TestS2Factory (0.00s)
+    s2_syntax_test.go:28: 不应有诊断：SYN-101@t.x:5:1: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `factory`; SYN-101@t.x:5:9: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `DeviceFactory`; SYN-101@t.x:5:23: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `for`; SYN-101@t.x:5:27: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Device`; SYN-101@t.x:5:34: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`; SYN-101@t.x:13:1: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`
+--- FAIL: TestS2Extension (0.00s)
+    s2_syntax_test.go:59: 不应有诊断：SYN-110@t.x:2:1: error[SYN-110]: 类型声明（extension）属第 2 部分，语法层待 S2 切片实现
+--- FAIL: TestS2AnnotationDecl (0.00s)
+    s2_syntax_test.go:75: 不应有诊断：SYN-101@t.x:1:13: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Marker`; SYN-101@t.x:1:20: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`; SYN-101@t.x:4:1: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`
+--- FAIL: TestS2AnnotationUse (0.00s)
+    s2_syntax_test.go:95: 不应有诊断：SYN-101@t.x:1:13: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Marker`; SYN-101@t.x:1:20: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `{`; SYN-101@t.x:3:1: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`; SYN-101@t.x:7:5: error[SYN-101]: 期望类成员（字段、方法或构造器），遇到 注解; SYN-101@t.x:10:5: error[SYN-101]: 期望类成员（字段、方法或构造器），遇到 注解; SYN-101@t.x:10:12: error[SYN-101]: 期望类成员（字段、方法或构造器），遇到 `(`; SYN-101@t.x:10:13: error[SYN-101]: 期望类成员（字段、方法或构造器），遇到 字符串字面量; SYN-101@t.x:10:16: error[SYN-101]: 期望类成员（字段、方法或构造器），遇到 `)`; SYN-101@t.x:12:1: error[SYN-101]: 期望字段声明结束 `;`，遇到 `}`; SYN-101@t.x:15:5: error[SYN-101]: 期望枚举项名，遇到 注解; SYN-101@t.x:15:5: error[SYN-101]: 期望枚举体结束，遇到 注解; SYN-101@t.x:15:17: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Red`; SYN-101@t.x:15:20: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `,`; SYN-101@t.x:16:5: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `Green`; SYN-101@t.x:17:1: error[SYN-101]: 期望顶层声明（函数、字段或类型），遇到 `}`
+FAIL
+FAIL	xnull.dev/xnull/internal/xfront	0.513s
+FAIL

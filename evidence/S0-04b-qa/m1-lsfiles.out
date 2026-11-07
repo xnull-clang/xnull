@@ -1,0 +1,4 @@
+ci/.out/.gitignore
+ci/README.md
+ci/lib.sh
+ci/run.sh

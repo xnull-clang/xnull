@@ -1,7 +1,6 @@
 package ffi
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -306,7 +305,8 @@ func TestEmitSupportReportsUnsupported(t *testing.T) {
 	}
 }
 
-func TestTrampolineReserved(t *testing.T) {
+// S3-07：trampoline 生成 env 生命周期 + 根登记（S7 §5.1/§5.2），不再预留。
+func TestTrampolineGenerated(t *testing.T) {
 	root := t.TempDir()
 	writeXfb(t, root, "bindings/native.xfb", nativeXfb)
 	reg, diags, err := Load(root)
@@ -314,11 +314,16 @@ func TestTrampolineReserved(t *testing.T) {
 		t.Fatalf("Load 失败：%v %v", err, codeList(diags))
 	}
 	sn, err := reg.EmitTrampoline("ffiConnRead")
-	if err == nil || !errors.Is(err, ErrTrampolineReserved) {
-		t.Fatalf("trampoline 应显式预留（不硬做）：%v", err)
+	if err != nil {
+		t.Fatalf("trampoline 应可生成：%v", err)
 	}
-	if sn.Text != "" {
-		t.Fatalf("预留形态不得产出代码")
+	for _, sym := range []string{
+		"xrt_callback_env_new", "xrt_callback_env_invoke", "xrt_callback_env_destroy",
+		"xn_tramp_ffiConnRead_new", "int32_t xn_tramp_ffiConnRead(",
+	} {
+		if !strings.Contains(sn.Text, sym) {
+			t.Fatalf("trampoline 缺少 %q：\n%s", sym, sn.Text)
+		}
 	}
 	if _, err := reg.EmitTrampoline("nope"); err == nil {
 		t.Fatalf("未声明入口应返回错误")
@@ -364,5 +369,44 @@ func TestLinkArgsAndManifest(t *testing.T) {
 	}
 	if !seen {
 		t.Fatalf("清单缺少 ffiSqliteExec")
+	}
+}
+
+// S4-04 骨架：FFI 错误面映射到稳定 ErrorKind 枚举；Cancelled/Timeout 不降级。
+func TestErrorKindEnumHelper(t *testing.T) {
+	const xfb = `ffi native {
+  errorMap {
+    5 = NotFound
+    14 = Cancelled
+    15 = Timeout
+  }
+
+  @ffiEntry(cName = "native_x")
+  @lease(v = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.aware)
+  Int32 ffiX(Int32 v, Int32 code);
+}
+`
+	root := t.TempDir()
+	writeXfb(t, root, "bindings/native.xfb", xfb)
+	reg, diags, err := Load(root)
+	if err != nil || len(diags) != 0 {
+		t.Fatalf("Load 失败：%v %v", err, codeList(diags))
+	}
+	sup := reg.EmitSupport()
+	for _, sym := range []string{
+		"xn_ffi_native_error_kind_id",
+		"case 14: return XRT_ERR_CANCELLED;",
+		"case 15: return XRT_ERR_TIMEOUT;",
+		"case 5: return XRT_ERR_NOT_FOUND;",
+		"default: return XRT_ERR_INTERNAL;",
+	} {
+		if !strings.Contains(sup.Text, sym) {
+			t.Fatalf("缺 %q：\n%s", sym, sup.Text)
+		}
+	}
+	if len(sup.Problems) != 0 {
+		t.Fatalf("不应有 Problems：%v", sup.Problems)
 	}
 }

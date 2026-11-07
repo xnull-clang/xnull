@@ -1,0 +1,5 @@
+$ go test . -run TestErrorKindEnumHelper -v
+=== RUN   TestErrorKindEnumHelper
+--- PASS: TestErrorKindEnumHelper (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen/ffi	1.700s

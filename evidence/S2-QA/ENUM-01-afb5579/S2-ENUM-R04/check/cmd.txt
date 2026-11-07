@@ -1,0 +1,1 @@
+/tmp/xnull-s2-afb5579 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/r04_impl.x 

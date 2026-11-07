@@ -1,0 +1,15 @@
+$ go test ./... -count=1
+ok  	xnull.dev/xnull/cmd/xnfmt	0.602s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	22.831s
+ok  	xnull.dev/xnull/internal/codegen	103.836s
+ok  	xnull.dev/xnull/internal/codegen/ffi	12.028s
+ok  	xnull.dev/xnull/internal/devtool	5.141s
+ok  	xnull.dev/xnull/internal/diag	4.720s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	3.871s
+ok  	xnull.dev/xnull/internal/sema	1.524s
+ok  	xnull.dev/xnull/internal/xfront	5.135s
+ok  	xnull.dev/xnull/internal/xnfmt	4.716s
+ok  	xnull.dev/xnull/internal/xpd	2.996s

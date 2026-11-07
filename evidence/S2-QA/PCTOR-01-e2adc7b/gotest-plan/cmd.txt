@@ -1,0 +1,1 @@
+cd impl && go test ./internal/sema ./internal/interp ./internal/codegen -run TestS2_PCTOR01 -count=1 -v

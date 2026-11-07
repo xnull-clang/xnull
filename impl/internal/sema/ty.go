@@ -196,6 +196,70 @@ func isFloatType(key string) bool {
 	return b == "Float" || b == "Double"
 }
 
+// canAssign 在 assignable 基础上补类/协议层次（S2 §5.2）：
+// 子类 → 祖先类、类 → 其实现（含祖先实现）的协议、协议 → 父协议。
+func (e *tyenv) canAssign(from texpr, to string) bool {
+	if assignable(from, to) {
+		return true
+	}
+	if e.a == nil || e.a.tc == nil || from.key == "" || to == "" {
+		return false
+	}
+	f := unwrapOpt(from.key)
+	t := unwrapOpt(to)
+	if f == t {
+		return true
+	}
+	fi := e.a.tc.types[f]
+	ti := e.a.tc.types[t]
+	// null → 类/协议引用（§4.4/§2.8）。
+	if from.lit == 4 && ti != nil && (ti.kind == "class" || ti.kind == "protocol") {
+		return true
+	}
+	if fi == nil || ti == nil {
+		return false
+	}
+	if fi.kind == "class" {
+		for cur := fi.class; cur != nil; {
+			if cur.Name == t {
+				return true
+			}
+			if ti.kind == "protocol" {
+				for _, pr := range cur.Protocols {
+					if lastSeg(pr.Qual) == t {
+						return true
+					}
+				}
+			}
+			b := baseRefName(cur.Base)
+			ni := e.a.tc.types[b]
+			if ni == nil || ni.kind != "class" {
+				break
+			}
+			cur = ni.class
+		}
+	}
+	if fi.kind == "protocol" && ti.kind == "protocol" {
+		for cur := fi.proto; cur != nil; {
+			found := false
+			for _, ex := range cur.Extends {
+				if lastSeg(ex.Qual) == t {
+					return true
+				}
+				if ni := e.a.tc.types[lastSeg(ex.Qual)]; ni != nil && ni.kind == "protocol" {
+					cur = ni.proto
+					found = true
+					break
+				}
+			}
+			if !found {
+				break
+			}
+		}
+	}
+	return false
+}
+
 // assignable 判断 from 是否可赋给 to（§2.6；lit 提供字面量适配规则）。
 func assignable(from texpr, to string) bool {
 	if to == "" || from.key == "" {
@@ -335,6 +399,355 @@ func unsignedFits(t texpr, max uint64) bool {
 	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
+// isBuiltinStaticReceiver 识别可作静态调用接收者的内建引用类型（S1 §9.7）。
+func isBuiltinStaticReceiver(name string) bool {
+	return name == "Text" || name == "Bytes" || name == "StringBuilder"
+}
+
+func firstLambda(args []xfront.Expr) (*xfront.Lambda, bool) {
+	if len(args) == 0 {
+		return nil, false
+	}
+	lam, ok := args[0].(*xfront.Lambda)
+	return lam, ok
+}
+
+func lambdaCallsMethod(lam *xfront.Lambda, recv, method string) bool {
+	if lam == nil {
+		return false
+	}
+	if lam.ExprB != nil && exprCallsMethod(lam.ExprB, recv, method) {
+		return true
+	}
+	if lam.Block != nil {
+		for _, st := range lam.Block.Stmts {
+			if stmtCallsMethod(st, recv, method) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func stmtCallsMethod(s xfront.Stmt, recv, method string) bool {
+	switch n := s.(type) {
+	case nil:
+		return false
+	case *xfront.ExprStmt:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.AssignStmt:
+		return exprCallsMethod(n.Value, recv, method)
+	case *xfront.LocalDeclStmt:
+		return exprCallsMethod(n.Init, recv, method)
+	case *xfront.ReturnStmt:
+		return exprCallsMethod(n.Value, recv, method)
+	case *xfront.Block:
+		for _, x := range n.Stmts {
+			if stmtCallsMethod(x, recv, method) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return stmtCallsMethod(n.Then, recv, method) || stmtCallsMethod(n.Else, recv, method)
+	case *xfront.WhileStmt:
+		return stmtCallsMethod(n.Body, recv, method)
+	case *xfront.DeferStmt:
+		return stmtCallsMethod(n.Block, recv, method) || stmtCallsMethod(n.Stmt, recv, method)
+	}
+	return false
+}
+
+func exprCallsMethod(e xfront.Expr, recv, method string) bool {
+	switch n := e.(type) {
+	case nil:
+		return false
+	case *xfront.Call:
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == recv && mem.Name == method {
+				return true
+			}
+		}
+		for _, a := range n.Args {
+			if exprCallsMethod(a, recv, method) {
+				return true
+			}
+		}
+	case *xfront.Paren:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.Binary:
+		return exprCallsMethod(n.L, recv, method) || exprCallsMethod(n.R, recv, method)
+	case *xfront.Member:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.Lambda:
+		return lambdaCallsMethod(n, recv, method)
+	}
+	return false
+}
+
+// lambdaReturnKey 尽力推断闭包返回类型（spawn/withLock 签名用）。
+func (e *tyenv) lambdaReturnKey(x xfront.Expr) string {
+	lam, ok := x.(*xfront.Lambda)
+	if !ok {
+		return ""
+	}
+	if lam.ExprB != nil {
+		return e.infer(lam.ExprB).key
+	}
+	if lam.Block != nil {
+		for _, st := range lam.Block.Stmts {
+			if ret, ok := st.(*xfront.ReturnStmt); ok && ret.Value != nil {
+				return e.infer(ret.Value).key
+			}
+		}
+	}
+	return ""
+}
+
+// isTaskAPI 判断接收者类型上的成员是否属于任务/同步 API（@tasks 约束用）。
+func isTaskAPI(recv, name string) bool {
+	if recv == "TaskGroup" && (name == "spawn" || name == "cancel" || name == "close") {
+		return true
+	}
+	if (strings.HasPrefix(recv, "Task<") || recv == "Task") && (name == "join" || name == "joinDeadline") {
+		return true
+	}
+	if recv == "Context" {
+		switch name {
+		case "background", "checkCancel", "withDeadline", "cancel", "token":
+			return true
+		}
+	}
+	if strings.HasPrefix(recv, "Channel<") || strings.HasPrefix(recv, "Mutex<") {
+		return name == "send" || name == "receive" || name == "withLock" || name == "close"
+	}
+	return false
+}
+
+// isXdkTypeName 识别 XDK 公开类型名（S6 §4；类型位置与静态入口）。
+func isXdkTypeName(name string) bool {
+	return xdkTypeNames[name]
+}
+
+// checkValueInstantiation 校验泛型结构体实例实参（BND-04）。
+func (e *tyenv) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos) {
+	if e.a.tc != nil {
+		e.a.tc.checkValueInstantiation(t, p, e.typePars)
+	}
+}
+
+// checkSwitchDefaultLast：default 最多一个且必须位于 switch 最后（§8.5）。
+func (e *tyenv) checkSwitchDefaultLast(n *xfront.SwitchStmt) {
+	if n.Default == nil {
+		return
+	}
+	for _, c := range n.Cases {
+		if c.P.Line > n.Default.P.Line || (c.P.Line == n.Default.P.Line && c.P.Col > n.Default.P.Col) {
+			e.errf(n.Default.P, TyEnumSwitch, "default 子句必须位于 switch 最后（§8.5）", "把 default 移到所有 case 之后")
+			return
+		}
+	}
+}
+
+// checkEnumSwitch 校验枚举 switch 的项合法性/重复/穷尽性（§8.5）。
+func (e *tyenv) checkEnumSwitch(n *xfront.SwitchStmt, key string) {
+	if e.a.tc == nil || key == "" {
+		return
+	}
+	info, ok := e.a.tc.types[key]
+	if !ok || info.kind != "enum" || info.enum == nil {
+		return // 非枚举 switch 不检查穷尽性
+	}
+	items := map[string]bool{}
+	var order []string
+	for _, it := range info.enum.Items {
+		items[it.Name] = true
+		order = append(order, it.Name)
+	}
+	seen := map[string]bool{}
+	for _, c := range n.Cases {
+		mem, ok := c.Expr.(*xfront.Member)
+		recv, ok2 := (*xfront.IdentExpr)(nil), false
+		if ok {
+			recv, ok2 = mem.X.(*xfront.IdentExpr)
+		}
+		if !ok || !ok2 || recv.Name != key {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举 switch 的 case 必须是 `"+key+".<项>` 项常量（§8.5）", "改用该枚举的项")
+			continue
+		}
+		name := mem.Name
+		if !items[name] {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举 `"+key+"` 没有项 `"+name+"`（§8.5）", "检查项名")
+			continue
+		}
+		if seen[name] {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举项 `"+name+"` 在 switch 中重复（§8.5）", "删除重复 case")
+			continue
+		}
+		seen[name] = true
+	}
+	if n.Default != nil {
+		return // default 覆盖剩余项
+	}
+	var missing []string
+	for _, name := range order {
+		if !seen[name] {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		e.errf(n.P, TyEnumSwitch,
+			"枚举 switch 未覆盖全部项（§8.5）：遗漏 "+strings.Join(missing, "、"), "补 case，或加 default")
+	}
+}
+
+// ---------- BND-01：成员可见性（§7.3） ----------
+
+func fieldVisibility(f *xfront.FieldDecl) string {
+	if f.Mod.Vis == "private" || strings.HasPrefix(f.Name, "_") {
+		return "private"
+	}
+	if f.Mod.Vis == "protected" {
+		return "protected"
+	}
+	return "public"
+}
+
+// findField 在类继承链中查找字段，返回字段类型、可见性、声明类。
+func (c *typeCheckCtx) findField(className, name string) (string, string, string, bool) {
+	cur := className
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, f := range info.class.Fields {
+			if f.Name == name || f.Canonical == name {
+				return typeKey(f.Type), fieldVisibility(f), cur, true
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	return "", "", "", false
+}
+
+// findFieldDecl 在类继承链中查找字段声明（final/可见性检查用）。
+func (c *typeCheckCtx) findFieldDecl(className, name string) (*xfront.FieldDecl, string, bool) {
+	cur := className
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, f := range info.class.Fields {
+			if f.Name == name || f.Canonical == name {
+				return f, cur, true
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	return nil, "", false
+}
+
+// findMethodVisibility 在继承链中查找方法可见性；任一公开同名重载即视为公开。
+func (c *typeCheckCtx) findMethodVisibility(className, name string) (string, string, bool) {
+	cur := className
+	best, owner := "", ""
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, m := range info.class.Methods {
+			if m.IsDeinit || m.Name != name {
+				continue
+			}
+			v := "public"
+			if m.Mod.Vis == "private" {
+				v = "private"
+			} else if m.Mod.Vis == "protected" {
+				v = "protected"
+			}
+			if v == "public" {
+				return "public", cur, true
+			}
+			if best == "" {
+				best, owner = v, cur
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	if best != "" {
+		return best, owner, true
+	}
+	return "", "", false
+}
+
+func (c *typeCheckCtx) isSubclass(sub, base string) bool {
+	if sub == base {
+		return true
+	}
+	info, ok := c.types[sub]
+	if !ok || info.kind != "class" || info.class == nil {
+		return false
+	}
+	for _, a := range c.ancestorClasses(info.class) {
+		if a.class.Name == base {
+			return true
+		}
+	}
+	return false
+}
+
+// canAccessProtected：protected 只能由声明类/子类经 self、super 或当前类/子类静态类型访问。
+func (e *tyenv) canAccessProtected(recvKey, owner string) bool {
+	if e.cls == nil || e.a.tc == nil {
+		return false
+	}
+	cur := e.cls.className
+	if !e.a.tc.isSubclass(cur, owner) {
+		return false
+	}
+	return e.a.tc.isSubclass(recvKey, cur)
+}
+
+// checkMethodVisibility 检查类方法调用的可见性。
+func (e *tyenv) checkMethodVisibility(recvKey, name string, p xfront.Pos) {
+	if e.a.tc == nil {
+		return
+	}
+	info, ok := e.a.tc.types[recvKey]
+	if !ok || info.kind != "class" || info.class == nil {
+		return
+	}
+	vis, owner, ok := e.a.tc.findMethodVisibility(recvKey, name)
+	if !ok || vis == "public" {
+		return
+	}
+	if vis == "protected" {
+		if e.canAccessProtected(recvKey, owner) {
+			return
+		}
+		e.errf(p, TyVisibility, "受保护方法 `"+name+"` 不可访问（§7.3：仅声明类/子类经 self 或当前类/子类静态类型访问）", "")
+		return
+	}
+	if e.cls != nil && e.cls.className == owner {
+		return
+	}
+	e.errf(p, TyVisibility, "私有方法 `"+name+"` 不可访问（§7.3：仅声明类内部）", "")
+}
+
 // tyenv 是一个函数的类型环境。
 type tyenv struct {
 	a      *analyzer
@@ -344,9 +757,14 @@ type tyenv struct {
 	cls    *classCtx         // 类方法体上下文（nil = 顶层函数）
 
 	// ERR-01：当前所在的函数/闭包上下文（§10.2/§10.3）。
-	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
-	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
-	inCleanup bool   // 正在检查 defer/errdefer 清理体
+	ret        string // 当前函数/闭包返回类型串（"void" 或具体类型）
+	fnKind     string // func/main/method/ctor/deinit/lambda/fieldinit
+	inCleanup  bool   // 正在检查 defer/errdefer 清理体
+	tasksBlock bool   // 当前函数/方法带 @tasks（S5 §2.3）
+
+	// S5 §7 同步状态（函数内顺序流）。
+	closedChannels map[string]bool
+	lockHeld       map[string]bool
 
 	// GEN-01：泛型函数上下文（§8）。
 	curFunc   string          // 当前泛型函数名（自递归展开检测）
@@ -378,6 +796,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			e.checkMapKey(n.P, k)
 			e.checkResultType(n.Type, n.P)
 			e.checkTypeParamRef(n.Type, n.P)
+			e.checkValueInstantiation(n.Type, n.P)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
@@ -388,7 +807,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				e.fnKind, e.ret = "fieldinit", ""
 				it := e.inferExpected(n.Init, k)
 				e.fnKind, e.ret = oldKind, oldRet
-				if !assignable(it, k) {
+				if !e.canAssign(it, k) {
 					e.a.errf(n.Init.Pos(), assignDiag(it, k),
 						fmt.Sprintf("顶层字段 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
 						hintFor(it, k))
@@ -403,6 +822,9 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				retKey = typeKey(fn.Ret)
 			}
 			e.fnKind, e.ret = "func", retKey
+			e.tasksBlock = hasAnnotation(fn.Annos, "tasks")
+			e.closedChannels = map[string]bool{}
+			e.lockHeld = map[string]bool{}
 			if fn.Name == "main" {
 				e.fnKind = "main"
 			}
@@ -412,9 +834,11 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				e.typePars[tp] = true
 			}
 			e.checkTypeParamRef(fn.Ret, fn.P)
+			e.checkValueInstantiation(fn.Ret, fn.P)
 			for _, p := range fn.Params {
 				e.checkMapKey(p.P, typeKey(p.Type))
 				e.checkTypeParamRef(p.Type, p.P)
+				e.checkValueInstantiation(p.Type, p.P)
 				e.vars[p.Name] = typeKey(p.Type)
 			}
 			e.walkFunc(fn.Body, retKey)
@@ -525,6 +949,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if n.Type != nil {
 			e.checkResultType(n.Type, n.P)
 			e.checkTypeParamRef(n.Type, n.P)
+			e.checkValueInstantiation(n.Type, n.P)
 		}
 		if n.Init != nil {
 			it := e.inferExpected(n.Init, typeKey(n.Type))
@@ -535,7 +960,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 					e.errf(n.P, TyAssignability, "void 不能作为变量类型（§2）", "变量类型必须是具体类型")
 					e.vars[n.Name] = ""
 				} else {
-					if !assignable(it, k) {
+					if !e.canAssign(it, k) {
 						e.errf(n.Init.Pos(), assignDiag(it, k),
 							fmt.Sprintf("变量 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
 							hintFor(it, k))
@@ -565,14 +990,41 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.vars[n.Name] = ""
 		}
 	case *xfront.AssignStmt:
+		if mem, ok := n.Target.(*xfront.Member); ok {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && e.a.tc != nil {
+				if info, found := e.a.tc.types[id.Name]; found && info.kind == "singleton" && mem.Name == "instance" {
+					e.errf(n.P, TySingletonRO, "singleton 的 `instance` 是只读全局实例（§9.4）", "删除对 instance 的赋值")
+				}
+			}
+			// 数据枚举项字段外部写拒绝（§8.3）。
+			if inner, ok := mem.X.(*xfront.Member); ok {
+				if id, ok := inner.X.(*xfront.IdentExpr); ok && e.a.tc != nil {
+					if info, found := e.a.tc.types[id.Name]; found && info.kind == "enum" && info.enum.IsData {
+						e.errf(n.P, TyEnumImmutable, "数据枚举项字段不可变（§8.3）", "数据枚举项只读")
+					}
+				}
+			}
+			// final 字段构造后写入拒绝（§6.1）。
+			if e.a.tc != nil {
+				rt := e.infer(mem.X)
+				if f, owner, ok := e.a.tc.findFieldDecl(rt.key, mem.Name); ok && f.Mod.Final {
+					if !(e.fnKind == "ctor" && e.cls != nil && e.cls.className == owner) {
+						e.errf(n.P, TyFinalWrite, "final 字段 `"+mem.Name+"` 只能在声明类构造器中赋值一次（§6.1）", "")
+					}
+				}
+			}
+		}
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
+			if e.cls != nil && e.cls.finalFields[id.Name] && !(e.fnKind == "ctor") {
+				e.errf(n.P, TyFinalWrite, "final 字段 `"+id.Name+"` 只能在声明类构造器中赋值一次（§6.1）", "")
+			}
 			tt, known := e.vars[id.Name]
 			vt := e.inferExpected(n.Value, tt)
 			if known && tt != "" {
 				if n.Op != "=" {
 					e.checkOperand(id.Name, tt, n.Op) // 复合赋值要求操作数合法
 				}
-				if !assignable(vt, tt) {
+				if !e.canAssign(vt, tt) {
 					e.errf(n.P, assignDiag(vt, tt),
 						fmt.Sprintf("赋值类型不符：%s 不能赋给 `%s` 的声明类型 %s（§2.6）", describeKey(vt), id.Name, tt),
 						hintFor(vt, tt))
@@ -581,7 +1033,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		} else if mem, ok := n.Target.(*xfront.Member); ok {
 			ft := e.inferMember(mem) // 完成私有字段访问校验
 			vt := e.inferExpected(n.Value, ft.key)
-			if ft.key != "" && !assignable(vt, ft.key) {
+			if ft.key != "" && !e.canAssign(vt, ft.key) {
 				e.errf(n.P, assignDiag(vt, ft.key),
 					fmt.Sprintf("字段赋值类型不符：%s 不能赋给字段类型 %s（§2.6）", describeKey(vt), ft.key), "")
 			}
@@ -610,7 +1062,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		}
 	case *xfront.ExprStmt:
 		t := e.infer(n.X)
-		if isResultKey(t.key) {
+		if isResultKey(t.key) && e.a.mustUse != "off" && e.a.mustUse != "warn" {
 			e.errf(n.X.Pos(), ErResultMustUse,
 				"Result 是 @mustUse：不得作为裸表达式语句丢弃（§10.1）",
 				"返回、赋给变量/字段/容器、用 try 传播，或调用其成员")
@@ -627,7 +1079,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			return
 		}
 		vt := e.inferExpected(n.Value, retKey)
-		if !assignable(vt, retKey) {
+		if !e.canAssign(vt, retKey) {
 			e.errf(n.Value.Pos(), assignDiag(vt, retKey),
 				fmt.Sprintf("返回类型不符：%s 不能赋给声明的返回类型 %s（§2.6）", describeKey(vt), retKey),
 				hintFor(vt, retKey))
@@ -656,6 +1108,8 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if _, isTuple := splitTupleKey(vt.key); isTuple {
 			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
 		}
+		e.checkEnumSwitch(n, vt.key)
+		e.checkSwitchDefaultLast(n)
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)
@@ -780,6 +1234,20 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if k, ok := e.fields[n.Name]; ok {
 			return texpr{key: k}
 		}
+		if isBuiltinStaticReceiver(n.Name) || isXdkTypeName(n.Name) {
+			return texpr{key: n.Name}
+		}
+		if e.a.tc != nil {
+			if info, ok := e.a.tc.types[n.Name]; ok {
+				if info.kind == "annotation" {
+					e.errf(n.P, TyAnnotation, "注解 `"+n.Name+"` 只在编译期存在，不能作为值使用（§12.1）", "")
+					return texpr{}
+				}
+				if info.kind == "singleton" || info.kind == "factory" || info.kind == "enum" {
+					return texpr{key: n.Name}
+				}
+			}
+		}
 		if e.cls != nil {
 			if n.Name == "self" && !e.cls.instance {
 				e.errf(n.P, TyModifier, "static 方法不能使用 self（§1.6）", "")
@@ -788,6 +1256,20 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 			if canon, isPriv := e.cls.srcToCanon[n.Name]; isPriv {
 				e.errf(n.P, TyPrivField, "裸 `"+n.Name+"` 引用私有字段：类内只能写 `"+canon+"`（§7.4）", "")
 				return texpr{key: e.vars[canon]}
+			}
+			// 继承字段的裸名访问（§7.3/§7.4）。
+			if e.cls.instance && e.a.tc != nil {
+				if fk, vis, owner, ok := e.a.tc.findField(e.cls.className, n.Name); ok {
+					if vis == "private" {
+						e.errf(n.P, TyVisibility, "裸 `"+n.Name+"` 访问父类私有字段被拒绝（§7.3/§7.4）", "")
+						return texpr{}
+					}
+					if vis == "protected" && !e.canAccessProtected(e.cls.className, owner) {
+						e.errf(n.P, TyVisibility, "裸 `"+n.Name+"` 访问受保护字段被拒绝（§7.3）", "")
+						return texpr{}
+					}
+					return texpr{key: fk}
+				}
 			}
 		}
 		return texpr{}
@@ -931,6 +1413,30 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
 			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
 		}
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) >= 2 && e.a.tc != nil {
+			if info, found := e.a.tc.types[nt.Qual[0]]; found && info.kind == "enum" && info.enum.IsData {
+				e.errf(n.P, TyEnumImmutable, "数据枚举项不能 new（§8.3）", "直接使用项常量")
+			}
+		}
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) == 1 && e.a.tc != nil {
+			if info, found := e.a.tc.types[nt.Qual[0]]; found {
+				if info.kind == "enum" && info.enum.IsData {
+					e.errf(n.P, TyEnumImmutable, "数据枚举类型不能 new（§8.3）", "使用项常量")
+				}
+				if info.kind == "class" && info.mod.Abstract {
+					e.errf(n.P, TyNewAbstract, "抽象类 `"+nt.Qual[0]+"` 不能实例化（§2.6）", "由具体子类实例化，或去掉 abstract")
+				}
+				if info.kind == "singleton" || info.kind == "factory" {
+					e.errf(n.P, TySingletonNew, "`"+nt.Qual[0]+"` 不是可实例化类型（singleton/factory，§9.4/§10.5）", "使用 instance 或工厂方法")
+				}
+				if info.kind == "annotation" {
+					e.errf(n.P, TyAnnotation, "注解 `"+nt.Qual[0]+"` 不能 new（§12.1）", "")
+				}
+				if info.kind == "protocol" || info.kind == "enum" {
+					e.errf(n.P, TyNewKind, "`"+nt.Qual[0]+"`（"+info.kind+"）不能 new（§2.7/§4.1/§8.3）", "协议用实现类实例，枚举用项常量")
+				}
+			}
+		}
 		for _, a := range n.Args {
 			e.infer(a)
 		}
@@ -953,6 +1459,31 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		if k, ok := e.vars[n.Name]; ok && e.cls.instance {
 			return texpr{key: k} // 公开实例字段
 		}
+		// 继承字段：self.<name>（§7.3/§7.4）。
+		if e.cls.instance && e.a.tc != nil {
+			if fk, vis, owner, ok := e.a.tc.findField(e.cls.className, n.Name); ok {
+				if vis == "private" {
+					e.errf(n.P, TyVisibility, "`self."+n.Name+"` 访问父类私有字段被拒绝（§7.3/§7.4）", "")
+					return texpr{}
+				}
+				if vis == "protected" && !e.canAccessProtected(e.cls.className, owner) {
+					e.errf(n.P, TyVisibility, "`self."+n.Name+"` 访问受保护字段被拒绝（§7.3）", "")
+					return texpr{}
+				}
+				return texpr{key: fk}
+			}
+		}
+		return texpr{}
+	}
+	// super.<field>：父类私有字段不可访问（§7.4）。
+	if id, ok := n.X.(*xfront.IdentExpr); ok && id.Name == "super" && e.cls != nil && e.a.tc != nil {
+		if f, owner, ok := e.a.tc.findFieldDecl(e.cls.className, n.Name); ok {
+			if fieldVisibility(f) == "private" {
+				e.errf(n.P, TyPrivField, "`super."+n.Name+"` 不能访问父类 `"+owner+"` 的私有字段（§7.4）", "")
+				return texpr{}
+			}
+			return texpr{key: typeKey(f.Type)}
+		}
 		return texpr{}
 	}
 	// 其他接收者：类类型变量的成员访问（外部私有访问检查，§7.4）
@@ -966,6 +1497,42 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		return texpr{}
 	}
 	if c := e.a.tc; c != nil {
+		if info, ok := c.types[rt.key]; ok && info.kind == "enum" && info.enum != nil {
+			// 数据枚举项字段：Status.Ready.code。
+			if mem, ok := n.X.(*xfront.Member); ok {
+				if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == rt.key && info.enum.IsData {
+					for _, f := range info.enum.Fields {
+						if f.Name == n.Name || f.Canonical == n.Name {
+							return texpr{key: typeKey(f.Type)}
+						}
+					}
+					e.errf(n.P, TyEnumRule, "数据枚举 `"+rt.key+"` 没有字段 `"+n.Name+"`（§8.3）", "")
+					return texpr{}
+				}
+			}
+			for _, it := range info.enum.Items {
+				if it.Name == n.Name {
+					return texpr{key: rt.key}
+				}
+			}
+			e.errf(n.P, TyEnumRule, "枚举 `"+rt.key+"` 没有项 `"+n.Name+"`（§8.3）", "")
+			return texpr{}
+		}
+		if info, ok := c.types[rt.key]; ok && info.kind == "protocol" {
+			e.errf(n.P, TyProtoMember, "协议变量没有字段或属性（§4.4）：`"+n.Name+"`", "协议只暴露声明的方法")
+			return texpr{}
+		}
+		if info, ok := c.types[rt.key]; ok && info.kind == "singleton" && info.single != nil {
+			if n.Name == "instance" {
+				return texpr{key: rt.key}
+			}
+			for _, f := range info.single.Fields {
+				if f.Name == n.Name || f.Canonical == n.Name {
+					return texpr{key: typeKey(f.Type)}
+				}
+			}
+			return texpr{}
+		}
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {
 			if info.canonPriv == nil {
 				canon := map[string]bool{}
@@ -993,6 +1560,21 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 				e.errf(n.P, TyPrivField, "外部访问私有字段 `"+n.Name+"`（规范名 `"+canon+"`）：私有访问错误（§7.4）", "")
 				return texpr{}
 			}
+			if fk, vis, owner, ok := c.findField(rt.key, n.Name); ok {
+				switch vis {
+				case "private":
+					e.errf(n.P, TyVisibility, "外部访问私有字段 `"+n.Name+"` 被拒绝（§7.3）", "")
+					return texpr{}
+				case "protected":
+					if !e.canAccessProtected(rt.key, owner) {
+						e.errf(n.P, TyVisibility, "受保护字段 `"+n.Name+"` 不可访问（§7.3：需 self/super 或当前类/子类静态类型）", "")
+						return texpr{}
+					}
+					return texpr{key: fk}
+				default:
+					return texpr{key: fk}
+				}
+			}
 			if k, ok := info.publicFields[n.Name]; ok {
 				return texpr{key: k}
 			}
@@ -1018,6 +1600,36 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		case "Ok", "Err":
 			// 无目标类型：按 §10.1 报错（有目标类型时由 inferExpected 先行拦截）。
 			return e.inferResultCtor(n, id.Name, "")
+		case "StringBuilder":
+			if len(n.Args) != 0 {
+				e.errf(n.P, TyAssignability, "StringBuilder() 不接受参数（S1 §9.7）", "")
+			}
+			for _, a := range n.Args {
+				e.infer(a)
+			}
+			return texpr{key: "StringBuilder"}
+		}
+	}
+	// xdk.errors 顶层函数：wrap/mapErr/report（S4 §2.3）。
+	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+		if _, user := e.funcs[id.Name]; !user && e.a.imported[id.Name] {
+			switch id.Name {
+			case "wrap", "mapErr", "report":
+				return e.inferXdkErrors(n, id.Name)
+			}
+			// S6-01：XDK 内建签名（check 路径不依赖 .xfb 注入）。
+			if sig, ok := lookupXdkFuncSig(id.Name); ok {
+				return e.inferXdkFuncCall(n, id.Name, sig, n.P)
+			}
+			// 已知 XDK 符号但无签名：显式诊断，禁止静默放行。
+			if xdkSymbolKnown(id.Name) {
+				e.errf(n.P, TyXdkUnsupported,
+					"XDK API `"+id.Name+"` 尚未支持（S6-01）", "该入口未实现或签名未冻结；见 S6 盘点卡")
+				for _, a := range n.Args {
+					e.infer(a)
+				}
+				return texpr{}
+			}
 		}
 	}
 	// 方法调用：recv.method(args)
@@ -1026,9 +1638,63 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		if isResultKey(rt.key) {
 			return e.resultMember(rt, mem, n.Args, n.P)
 		}
+		if isTaskAPI(rt.key, mem.Name) && !e.tasksBlock {
+			e.errf(n.P, TyTasksBlock,
+				"任务 API `"+mem.Name+"` 只能在 @tasks 方法/块内使用（S5 §2.3）", "给所在方法加 @tasks")
+		}
+		if e.a.tc != nil {
+			if info, ok := e.a.tc.types[rt.key]; ok && info.kind == "protocol" {
+				if !e.a.tc.protocolHasMethod(rt.key, mem.Name) {
+					e.errf(n.P, TyProtoMember,
+						"协议变量只能调用协议声明的方法（§4.4）：`"+mem.Name+"` 不在协议合同中", "改用协议声明的方法，或先 `as` 到具体类")
+				}
+			}
+		}
+		e.checkMethodVisibility(rt.key, mem.Name, n.P)
+		// Channel：关闭后 send 拒绝（S5 §7.2）。
+		if strings.HasPrefix(rt.key, "Channel<") && mem.Name == "send" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && e.closedChannels[id.Name] {
+				e.errf(n.P, TySyncRule, "Channel `"+id.Name+"` 已关闭，不能再 send（S5 §7.2）", "")
+			}
+		}
+		// Mutex：同锁重入拒绝（S5 §7.1；作用域回调内再锁同锁）。
+		lockVar := ""
+		if strings.HasPrefix(rt.key, "Mutex<") && mem.Name == "withLock" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok {
+				if e.lockHeld[id.Name] {
+					e.errf(n.P, TySyncRule, "Mutex `"+id.Name+"` 在 withLock 内重入（S5 §7.1 禁止）", "")
+				} else {
+					lockVar = id.Name
+					e.lockHeld[id.Name] = true
+					if lam, ok := firstLambda(n.Args); ok && lambdaCallsMethod(lam, id.Name, "withLock") {
+						e.errf(n.P, TySyncRule, "Mutex `"+id.Name+"` 在 withLock 内重入（S5 §7.1 禁止）", "")
+					}
+				}
+			}
+		}
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
+		}
+		if lockVar != "" {
+			delete(e.lockHeld, lockVar)
+		}
+		if strings.HasPrefix(rt.key, "Channel<") && mem.Name == "close" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok {
+				e.closedChannels[id.Name] = true
+			}
+		}
+		if strings.HasPrefix(rt.key, "Mutex<") && mem.Name == "withLock" && len(n.Args) == 1 {
+			if rk := e.lambdaReturnKey(n.Args[0]); rk != "" {
+				return texpr{key: rk}
+			}
+		}
+		if rt.key == "TaskGroup" && mem.Name == "spawn" && len(n.Args) == 1 {
+			if rk := e.lambdaReturnKey(n.Args[0]); rk != "" {
+				if tk, _, ok := resultArgs(rk); ok {
+					return texpr{key: "Task<" + tk + ">"}
+				}
+			}
 		}
 		return e.methodRet(rt, mem.Name, args, n.P)
 	}
@@ -1044,14 +1710,40 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 	return texpr{}
 }
 
+// splitTopLevel 按顶层逗号切分泛型实参串；括号/尖括号/方括号内的逗号不切分。
+func splitTopLevel(inner string) []string {
+	var parts []string
+	depth := 0
+	start := 0
+	for i, r := range inner {
+		switch r {
+		case '(', '<', '[':
+			depth++
+		case ')', '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	if start <= len(inner) {
+		parts = append(parts, strings.TrimSpace(inner[start:]))
+	}
+	return parts
+}
+
 // methodRet 按接收者类型与成员表推断方法返回类型（§9.1 总表）。
 func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) texpr {
 	k := rt.key
 	genericArg := func(key, prefix string) string {
 		if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, ">") {
 			inner := key[len(prefix) : len(key)-1]
-			parts := strings.Split(inner, ",")
-			return strings.TrimSpace(parts[0])
+			parts := splitTopLevel(inner)
+			if len(parts) > 0 {
+				return parts[0]
+			}
 		}
 		return ""
 	}
@@ -1077,7 +1769,199 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 		return ""
 	}
+	checkArgs := func(want ...string) bool {
+		if len(args) != len(want) {
+			e.errf(p, TyAssignability, fmt.Sprintf("%s.%s 需要 %d 个参数，实际 %d 个（S1 §9.7）", k, name, len(want), len(args)), "")
+			return false
+		}
+		for i := range want {
+			if want[i] == "" {
+				continue
+			}
+			if !assignable(args[i], want[i]) {
+				e.errf(p, assignDiag(args[i], want[i]),
+					fmt.Sprintf("%s.%s 参数 %d 类型 %s 不能赋给 %s（S1 §9.7）", k, name, i+1, describeKey(args[i]), want[i]), "")
+				return false
+			}
+		}
+		return true
+	}
 	switch {
+	case k == "TaskGroup":
+		switch name {
+		case "create":
+			return texpr{key: "TaskGroup"}
+		case "spawn":
+			return texpr{key: "Task<Any>"}
+		case "cancel":
+			return texpr{key: "void"}
+		case "close":
+			return texpr{key: "Result<void,TaskError>"}
+		}
+	case strings.HasPrefix(k, "Task<"):
+		tk := genericArg(k, "Task<")
+		switch name {
+		case "join", "joinDeadline":
+			return texpr{key: "Result<" + tk + ",TaskError>"}
+		}
+	case k == "Context":
+		switch name {
+		case "background", "withDeadline":
+			return texpr{key: "Context"}
+		case "checkCancel":
+			return texpr{key: "Result<void,CancelledError>"}
+		case "token":
+			return texpr{key: "CancelToken"}
+		case "cancel":
+			return texpr{key: "void"}
+		}
+	case strings.HasPrefix(k, "Channel<"):
+		switch name {
+		case "close":
+			return texpr{key: "void"}
+		case "send":
+			checkArgs(genericArg(k, "Channel<"))
+			return texpr{key: "Result<void,CancelledError>"}
+		case "receive":
+			return texpr{key: "Result<" + genericArg(k, "Channel<") + ",CancelledError>"}
+		}
+	case strings.HasPrefix(k, "Mutex<"):
+		if name == "withLock" {
+			return texpr{key: "Result<void,TaskError>"}
+		}
+	case k == "AtomicInt":
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "store":
+			checkArgs("Int")
+			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs("Int", "Int")
+			return texpr{key: "Bool"}
+		}
+	case k == "AtomicBool":
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: "Bool"}
+		case "store":
+			checkArgs("Bool")
+			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs("Bool", "Bool")
+			return texpr{key: "Bool"}
+		}
+	case strings.HasPrefix(k, "AtomicRef<"):
+		at := genericArg(k, "AtomicRef<")
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: at + "?"}
+		case "store":
+			checkArgs(at)
+			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs(at, at)
+			return texpr{key: "Bool"}
+		}
+	case k == "Format":
+		// S6-05：Format builder（设计口径 Format.int(x).width(4).pad('0').build()）。
+		switch name {
+		case "int":
+			checkArgs("Int")
+			return texpr{key: "Format"}
+		case "float":
+			checkArgs("Double")
+			return texpr{key: "Format"}
+		case "string":
+			checkArgs("String")
+			return texpr{key: "Format"}
+		case "bool":
+			checkArgs("Bool")
+			return texpr{key: "Format"}
+		case "width":
+			checkArgs("Int")
+			return texpr{key: "Format"}
+		case "pad":
+			checkArgs("Char")
+			return texpr{key: "Format"}
+		case "build":
+			checkArgs()
+			return texpr{key: "String"}
+		}
+	case k == "Regex":
+		// S6-05：动态编译失败为可恢复错误（XDK-08）。
+		switch name {
+		case "compile":
+			checkArgs("String")
+			return texpr{key: "Result<Regex,Error>"}
+		case "isMatch":
+			checkArgs("String")
+			return texpr{key: "Bool"}
+		}
+	case k == "StringBuilder":
+		switch name {
+		case "append":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "StringBuilder.append 需要 1 个参数（S1 §9.7）", "")
+			}
+			return texpr{key: "StringBuilder"}
+		case "toString":
+			checkArgs()
+			return texpr{key: "String"}
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		}
+		e.errf(p, TyBadOperand, "StringBuilder 没有成员 `"+name+"`（S1 §9.7）", "可用 append/toString/length")
+		return texpr{}
+	case k == "Text":
+		switch name {
+		case "fromString":
+			checkArgs("String")
+			return texpr{key: "Text"}
+		case "length", "codePointCount":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "toString":
+			checkArgs()
+			return texpr{key: "String"}
+		case "compareTo":
+			checkArgs("Text")
+			return texpr{key: "Int"}
+		}
+		e.errf(p, TyBadOperand, "Text 没有成员 `"+name+"`（S1 §9.7）", "可用 fromString/length/codePointCount/toString/compareTo")
+		return texpr{}
+	case k == "Bytes":
+		switch name {
+		case "fromString":
+			checkArgs("String")
+			return texpr{key: "Bytes"}
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "get":
+			checkArgs("Int")
+			return texpr{key: "Int"}
+		case "set":
+			checkArgs("Int", "Int")
+			return texpr{key: "void"}
+		case "push":
+			checkArgs("Int")
+			return texpr{key: "void"}
+		case "append":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "Bytes.append 需要 1 个参数（S1 §9.7）", "")
+			}
+			return texpr{key: "void"}
+		case "slice":
+			checkArgs("Int", "Int")
+			return texpr{key: "Bytes"}
+		}
+		e.errf(p, TyBadOperand, "Bytes 没有成员 `"+name+"`（S1 §9.7）", "可用 fromString/get/set/push/append/slice/length")
+		return texpr{}
 	case k == "String":
 		switch name {
 		case "length", "indexOf":
@@ -1151,6 +2035,12 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		case "error":
 			return texpr{key: ek}
 		}
+	}
+	// S6-01：XDK 类型上未登记的成员 → 显式诊断（不静默放行）。
+	if xdkKnownType(k) {
+		e.errf(p, TyXdkUnsupported,
+			"XDK 类型 `"+xdkTypeBase(k)+"` 的成员 `"+name+"` 尚未支持（S6-01）",
+			"该 API 未实现或签名未冻结；见 S6 盘点卡")
 	}
 	// 未知接收者（动态分派后续切片）：放行，返回未知
 	for _, a := range args {

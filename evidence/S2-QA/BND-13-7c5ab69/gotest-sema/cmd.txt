@@ -1,0 +1,1 @@
+sh -c cd /Users/vjs/Desktop/XNull-Lang/impl && go test ./internal/sema -count=1

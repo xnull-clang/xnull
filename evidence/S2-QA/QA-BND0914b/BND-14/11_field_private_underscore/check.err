@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/11_field_private_underscore/source.x:1:23: error[TY-207]: `private` 与 `_` 前缀不能同时使用：`C._x`（§7.4）
+  写 `private x` 或裸 `_name`

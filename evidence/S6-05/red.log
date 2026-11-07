@@ -1,0 +1,12 @@
+=== RUN   TestXdkTextUnitSurface
+    xdk_text_test.go:20: 读取 text.x 失败：open /Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/lib/xdk/text.x: no such file or directory
+--- FAIL: TestXdkTextUnitSurface (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	1.541s
+=== RUN   TestXdkTextRuntime
+    xdk_text_test.go:50: out="" want="42\ntrue\n1.5\ntrue\n0007\ntrue\ntrue\nfalse\ntrue\n" code=1 err=未定义的函数：parseInt
+--- FAIL: TestXdkTextRuntime (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.841s
+FAIL
+exit=1

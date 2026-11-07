@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/r03_override.x:5:9: error[TY-203]: 方法 `f` 与祖先类 `Base` 的实例方法同签名：子类覆写被拒绝（§2.5）
+  改用不同参数列表构成重载

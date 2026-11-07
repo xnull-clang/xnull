@@ -1,0 +1,2 @@
+cases/t7_map_key.x:2:5: error[TY-107]: Map 键类型 (Int,Int) 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String

@@ -1,0 +1,11 @@
+=== RUN   TestS3_04cgTextSBStringEmission
+--- PASS: TestS3_04cgTextSBStringEmission (0.00s)
+=== RUN   TestS3_04cgStringBytesRoots
+--- PASS: TestS3_04cgStringBytesRoots (0.86s)
+=== RUN   TestS3_04cgFieldScan
+--- PASS: TestS3_04cgFieldScan (0.88s)
+=== RUN   TestS3_04cgTextSBRun
+    s3_04cg_test.go:112: 当前运行时未包含 S3-04 Text/StringBuilder API（等待 E5 合并）
+--- SKIP: TestS3_04cgTextSBRun (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.393s

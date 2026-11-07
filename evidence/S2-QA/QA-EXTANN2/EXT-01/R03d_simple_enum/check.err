@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/EXT-01/R03d_simple_enum/source.x:2:11: error[TY-225]: extension Target 必须是同包非泛型 class/struct/singleton/数据 enum（得到 enum，§11.1）
