@@ -1,12 +1,12 @@
 # 验收：S3-MEM-07（Result）
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL**（含 Result 字段的类 GC 判定通过；Result 值复制/字段初始化的编译路径未支持）
-> **复验点**：main `412fcac`（S3 计划 v0.2 `31bf5f1`、S3-04 `7b50704`）
+> **结论：PASS**（S3-RESULT `cb0dc0c` 补口后复签；Result 值复制/字段初始化双路径通过）
+> **复验点**：main `bd95d86`（含 S3-RESULT `cb0dc0c`、S3-EXPR 补口）
 > **时间**：2026-11-08
-> **二进制**：`/tmp/xnull-s3b`，sha256 `d7fe3b72506598e04df2df831494680d6519b03be5e1a5c8a9c4480c3341dcba`
-> **证据**：`evidence/S3-QA/MEM-07/`
-> **依据**：`收件箱/门/S3验收计划-E2.md` MEM-07；S3 §9/§25；`XNull解决方案-第3部分-内存管理-v3.1.0-修订说明.md`
+> **二进制**：`/tmp/xnull-s3d`，sha256 `8db5c73c4877c5da12f650df4b0b9d8e28b335f34072d4046bc5ad9e3f193ac7`
+> **证据**：`evidence/S3-QA/MEM-07-bd95d86/`
+> **依据**：`收件箱/门/S3验收计划-E2.md` MEM-07；S3 §9/§25；`收件箱/回执箱/回执-S3-RESULT.md`
 > **确认方式**：按“禁止 git”指令未执行任何 git 命令；main 版本读取 `.git/refs/heads/main`。
 
 ---
@@ -15,41 +15,39 @@
 
 | 验收点 | 结果 |
 |---|---|
-| 含 `Result` 字段的类按 GC 分析 | **PASS**：`xnull policy` 输出 `policy=gc`、`rule=5` |
-| `Result` 内联值结构、无盒身份 | **部分**：C 侧为内联结构，但 `Result` 变量复制/字段初始化未支持 |
-| `Result` 变量复制 `Result b = a` | **FAIL**：compiled rc=1，`Result 表达式 *xfront.IdentExpr 未支持（M4.1 范围）` |
-| 类字段 `Result<Int,String> r = Ok(5)` | **FAIL**：compiled rc=1，`Int 表达式 *xfront.Call 未支持（M4.1 范围）` |
-| 解释路径 Result 值复制/字段读取 | **PASS**：`true/true/7`，rc=0 |
-| codegen `TestResult|TestS2` | **PASS**（未覆盖上述表达式形态） |
+| `Result<Int,String> b = a` 值复制 | **PASS**：interp/compiled `5` |
+| `class C { Result<Int,String> r = Ok(5) }` 字段初始化 | **PASS**：interp/compiled `5` |
+| 字段 receiver `c.r.unwrapOr(0)` / `c.e.isErr()` | **PASS**（S3-RESULT 测试） |
+| 字段赋值 `c.r = Ok(7)` / 构造器内 `self.copy = self.r` | **PASS**（S3-RESULT 测试） |
+| 含 `Result` 字段的类按 GC 分析 | **PASS**：`policy=gc, rule=5` |
+| `TestS3_RESULT` / `TestResult` / `TestS2` | **PASS** |
 
-**判定：FAIL。** GC 判定面成立；Result 内联结构的“值”形态在编译路径不可用，值语义未闭合。
+**判定：PASS。** 上一轮 `Result 表达式 *xfront.IdentExpr 未支持` / `Int 表达式 *xfront.Call 未支持` 已由 `cb0dc0c` 关闭；repro-copy/repro-field 双路径一致。
 
 ---
 
 ## 二、逐项实测
 
-| 用例 | 期望 | check | interp | compiled | 判定 |
-|---|---|---|---|---|---|
-| `probe_result_copy` `Result b = a` + 传给类构造器 | 值复制可用 | rc=0 | `true/true/7`，rc=0 | **rc=1** `Result 表达式 *xfront.IdentExpr 未支持` | **FAIL** |
-| `probe_class_field` `class C { Result<Int,String> r = Ok(5) }` | 字段初始化可用 | rc=0 | `true/5`，rc=0 | **rc=1** `Int 表达式 *xfront.Call 未支持` | **FAIL** |
-| `policy_input` 含 Result 字段的类 | GC 判定 | rc=0 | — | `policy=gc, rule=5` | **PASS** |
+| 用例 | check | interp | compiled | 判定 |
+|---|---|---|---|---|
+| `repro-copy.x` `Result b = a` + 函数传参 | rc=0 | `5`，rc=0 | `5`，rc=0 | **PASS** |
+| `repro-field.x` `Result` 字段初始化/成员 | rc=0 | `5`，rc=0 | `5`，rc=0 | **PASS** |
+| 含 Result 字段的类 `xnull policy` | rc=0 | — | `policy=gc, rule=5` | **PASS** |
+| `TestS3_RESULTCopy` / `FieldInitAndReceiver` / `FieldCopyInCtor` | — | — | PASS | **PASS** |
 
 ---
 
-## 三、失败项与归属
+## 三、边界
 
-| # | 失败项 | 证据 | 归属 |
-|---:|---|---|---|
-| P-01 | Result 变量作为表达式未发射 | `probe1.run.err` | E4 codegen |
-| P-02 | Result 字段初始化表达式未发射 | `probe2.run.err` | E4 codegen |
-| P-03 | 现有 `TestResult|TestS2` 未覆盖 Result 值复制/字段初值 | `gotest.out` | QA 用例缺口 |
+| 项 | 现状 | 建议 |
+|---|---|---|
+| `Result` 作类构造器**参数**类型 | compiled 仍报 C 编译错误 `unknown type xn_Result_Int_String`（typedef 顺序） | E4 后续卡；不属本次 S3-RESULT repro 范围 |
 
 ---
 
 ## 四、证据
 
-- `evidence/S3-QA/MEM-07/matrix.tsv`
-- `evidence/S3-QA/MEM-07/policy.out`、`policy_input.x`
-- `evidence/S3-QA/MEM-07/probe_result_copy.x`、`probe1.*`
-- `evidence/S3-QA/MEM-07/probe_class_field.x`、`probe2.*`
-- `evidence/S3-QA/MEM-07/gotest.out`
+- `evidence/S3-QA/MEM-07-bd95d86/matrix.tsv`
+- `repro-copy.x` / `repro-field.x` 的 `check/interp/compiled` 输出与 exit
+- `policy.out`、`gotest.out`
+- 复用 `evidence/S3-RESULT/`（红→绿原始证据）
