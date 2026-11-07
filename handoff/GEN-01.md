@@ -23,6 +23,7 @@
   ```
   结果：GEN-01 26/26 PASS（0 FAIL / 0 SKIP）；全仓 exit 0。
 - **已知缺口/风险**：
+  - G9 签名位置泄漏已修（`static T g(T x)` → `RES-101`，commit `c55dd8151645`）。
   - G7 当前验收走“直接自递归 sema 诊断”；嵌套 `grow<List<T>>` 的源码级用例仍受 xfront `>>` 拆分（EXP-008）限制，未在本卡展开。
   - G12 以“泛型函数作为值 → 解析拒绝”验收；诊断质量仍为 SYN-102 级联，属 xfront。
   - codegen 实例命名/展开上限沿用 `maxInstDepth=64`；跨包泛型实例仅验证到 `LoadUnits` 合并后可见。
@@ -37,7 +38,7 @@
     go test ./internal/sema/ -run 'TestGEN01' -v -count=1
     go test ./... -count=1 -timeout 300s
     ```
-  - **谁接 2（QA 通过后）**：前端线 E2 owner 开 `ERR-01 B2 诊断位置`（EXP-003）。验证命令见 `handoff/ERR-01-B2.md`。
+  - **谁接 2（QA 通过后）**：前端线 E2 owner 先做 NEG 9 项 sema（type Foo/保留名/Array/true 声明），再接 PKG-01；G9 已由 `c55dd8151645` 收口。
 - **上一棒**（路径或 commit）：`handoff/GEN-01-sema.md`；基线 `94e24f4`
 - **下一棒**（路径或 commit）：`handoff/ERR-01-B2.md`
 - **last-green（前端线）**：`131c2449fb14`（main 合并后全仓 `go test ./... -count=1 -timeout 300s` exit 0）
