@@ -165,13 +165,13 @@ func (s *scope) lookup(name string) (*Value, bool) {
 	return nil, false
 }
 
-func (s *scope) define(name string, v *Value) { s.vars[name] = v }
+func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
 
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
 func (s *scope) assign(name string, v *Value) bool {
 	for c := s; c != nil; c = c.parent {
 		if _, ok := c.vars[name]; ok {
-			c.vars[name] = v
+			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
 	}
@@ -1072,6 +1072,16 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.TupleMember:
+		recv := in.eval(t.X, sc)
+		if recv.K != vTuple {
+			panic(runtimeErr{"`.N` 元素赋值只用于元组：" + recv.typeName()})
+		}
+		if t.Index < 0 || t.Index >= len(recv.A) {
+			panic(fatal{fmt.Sprintf("元组下标越界：len=%d, idx=%d（§2.11）", len(recv.A), t.Index)})
+		}
+		recv.A[t.Index] = cloneTupleValue(v)
+		return
 	case *xfront.Member:
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {

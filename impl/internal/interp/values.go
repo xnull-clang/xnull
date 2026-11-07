@@ -110,6 +110,17 @@ func (in *Interp) evalMapLit(n *xfront.MapLit, sc *scope) *Value {
 	return &Value{K: vMap, M: m}
 }
 
+// cloneTupleValue 复制元组值（§2.11 值语义）：复制元素句柄切片，
+// 值元素天然独立，引用元素仍共享对象句柄。
+func cloneTupleValue(v *Value) *Value {
+	if v == nil || v.K != vTuple {
+		return v
+	}
+	nv := *v
+	nv.A = append([]*Value(nil), v.A...)
+	return &nv
+}
+
 // evalTuple 求值元组字面量（§2.11：值类型，至少两元素）。
 func (in *Interp) evalTuple(n *xfront.Tuple, sc *scope) *Value {
 	elems := make([]*Value, len(n.Elems))
@@ -154,6 +165,9 @@ func (in *Interp) evalIndex(n *xfront.Index, sc *scope) *Value {
 // evalTupleMember 元组元素访问 `.N`（§2.11；越界解析层拒绝部分由这里兜底 fatal）。
 func (in *Interp) evalTupleMember(n *xfront.TupleMember, sc *scope) *Value {
 	x := in.eval(n.X, sc)
+	if n.NullSafe && x.K == vNull {
+		return &Value{K: vNull}
+	}
 	if x.K != vTuple {
 		panic(runtimeErr{".N 元素访问只用于元组：" + x.typeName()})
 	}

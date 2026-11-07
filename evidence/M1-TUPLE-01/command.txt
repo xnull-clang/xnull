@@ -1,0 +1,30 @@
+# M1-TUPLE-01 采集命令（T0=2026-11-07 03:30，worktree wt/e2-sema）
+
+# 0 红：新增失败测试先跑（原始输出已存 before/）
+cd impl
+go test ./internal/sema/  -run 'TestTuple' -v -count=1
+go test ./internal/interp/ -run 'TestTuple' -v -count=1
+
+# 1 绿：目标测试
+go test ./internal/sema/  -run 'TestTuple' -v -count=1
+go test ./internal/interp/ -run 'TestTuple' -v -count=1
+
+# 2 包全量 + 全仓
+go test ./internal/sema/ ./internal/interp/ -count=1
+go test ./... -count=1 -timeout 600s
+go vet ./...
+
+# 3 双路径回归（既有 9 个示例；元组无既有示例）
+cd impl && go build -o /tmp/xnull-tuple ./cmd/xnull
+cd ..
+for f in examples/*.x; do
+  n=$(basename "$f" .x)
+  /tmp/xnull-tuple run --interp "$f" > evidence/M1-TUPLE-01/dualpath/$n.interp.out 2> evidence/M1-TUPLE-01/dualpath/$n.interp.err
+  /tmp/xnull-tuple run "$f" > evidence/M1-TUPLE-01/dualpath/$n.compiled.out 2> evidence/M1-TUPLE-01/dualpath/$n.compiled.err
+  cmp evidence/M1-TUPLE-01/dualpath/$n.interp.out evidence/M1-TUPLE-01/dualpath/$n.compiled.out
+done
+
+# 4 CLI 端到端（解释路径；负例应 exit 1）
+/tmp/xnull-tuple run --interp /tmp/tuple-ok.x
+/tmp/xnull-tuple run --interp /tmp/tuple-oob.x
+/tmp/xnull-tuple run --interp /tmp/tuple-switch.x
