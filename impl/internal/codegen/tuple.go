@@ -396,7 +396,8 @@ func (g *gen) tupleRefPaths(base, tc string) []tupleRef {
 			continue
 		}
 		if ec == "rt_string *" || isClassPtr(ec) || g.isProtoC(ec) || isHandlePtr(ec) ||
-			ec == "xrt_bytes_obj *" || g.isDataEnumC(ec) {
+			ec == "xrt_bytes_obj *" || ec == "xrt_text *" || ec == "xrt_sb *" ||
+			isContainerC(ec) || g.isDataEnumC(ec) {
 			out = append(out, tupleRef{path: p, ctype: ec})
 		}
 	}

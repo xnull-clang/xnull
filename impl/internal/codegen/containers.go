@@ -48,7 +48,9 @@ func elemZero(c string) string {
 }
 
 // isRef 判断元素类型是否引用（需 retain/release；ARC 对象与字符串同一纪律）。
-func isRef(c string) bool { return c == "rt_string *" || isClassPtr(c) }
+func isRef(c string) bool {
+	return c == "rt_string *" || c == "xrt_bytes_obj *" || c == "xrt_text *" || c == "xrt_sb *" || isClassPtr(c)
+}
 
 // containers 收集本次翻译单元需要的实例化，并给出生成文本。
 type containers struct {
