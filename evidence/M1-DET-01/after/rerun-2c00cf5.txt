@@ -1,0 +1,24 @@
+== 二次复跑：HEAD 66f3a72（main 2c00cf5 已在祖先链，含 c737099）==
+2026-11-07 04:05:44 CST
+
+--- sema ---
+=== RUN   TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagStableAcrossRuns (0.05s)
+=== RUN   TestDET01DiagIndependentOfMapOrder
+--- PASS: TestDET01DiagIndependentOfMapOrder (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	2.428s
+
+--- interp ---
+=== RUN   TestDET01RuntimeStable
+--- PASS: TestDET01RuntimeStable (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	4.498s
+
+--- codegen ---
+=== RUN   TestDET01InitOrderIndependentOfCreationOrder
+--- PASS: TestDET01InitOrderIndependentOfCreationOrder (0.08s)
+=== RUN   TestDET01EmitCDeterministic
+--- PASS: TestDET01EmitCDeterministic (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	4.015s

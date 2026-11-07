@@ -1,0 +1,16 @@
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:110:15: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:121:15: error[RES-101]: 未定义的名称 `fileOpenRead`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:127:17: error[RES-101]: 未定义的名称 `fileRead`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:128:5: error[RES-101]: 未定义的名称 `fileClose`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:137:17: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:148:15: error[RES-101]: 未定义的名称 `fileOpenWrite`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:152:16: error[RES-101]: 未定义的名称 `fileWrite`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一
+wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x:153:5: error[RES-101]: 未定义的名称 `fileClose`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一

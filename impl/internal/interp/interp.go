@@ -169,7 +169,7 @@ func (s *scope) lookup(name string) (*Value, bool) {
 	return nil, false
 }
 
-func (s *scope) define(name string, v *Value) { s.vars[name] = v }
+func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
 
 // defineTyped 登记变量与声明类型；nil/未知类型只登记值。
 func (s *scope) defineTyped(name string, t xfront.TypeRef, v *Value) {
@@ -177,7 +177,7 @@ func (s *scope) defineTyped(name string, t xfront.TypeRef, v *Value) {
 		s.types[name] = t
 		v = coerceByDecl(t, v)
 	}
-	s.vars[name] = v
+	s.vars[name] = cloneTupleValue(v) // §2.11：元组赋值按值复制
 }
 
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
@@ -188,7 +188,7 @@ func (s *scope) assign(name string, v *Value) bool {
 			if t, typed := c.types[name]; typed {
 				v = coerceByDecl(t, v)
 			}
-			c.vars[name] = v
+			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
 	}
@@ -1097,6 +1097,16 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.TupleMember:
+		recv := in.eval(t.X, sc)
+		if recv.K != vTuple {
+			panic(runtimeErr{"`.N` 元素赋值只用于元组：" + recv.typeName()})
+		}
+		if t.Index < 0 || t.Index >= len(recv.A) {
+			panic(fatal{fmt.Sprintf("元组下标越界：len=%d, idx=%d（§2.11）", len(recv.A), t.Index)})
+		}
+		recv.A[t.Index] = cloneTupleValue(v)
+		return
 	case *xfront.Member:
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {

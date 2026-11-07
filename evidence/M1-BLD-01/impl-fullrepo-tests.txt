@@ -1,0 +1,18 @@
+# M1-BLD-01 full repo test
+Sat Nov  7 03:28:08 CST 2026
+HEAD 81ec33d574347bf6f36ffeb8963c57e5145a3cf5 branch pod/c2-rd1
+
+$ cd impl && go test ./... -count=1
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	32.274s
+ok  	xnull.dev/xnull/internal/codegen	104.507s
+ok  	xnull.dev/xnull/internal/codegen/ffi	39.935s
+ok  	xnull.dev/xnull/internal/devtool	18.287s
+ok  	xnull.dev/xnull/internal/diag	17.488s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	19.778s
+ok  	xnull.dev/xnull/internal/sema	16.826s
+ok  	xnull.dev/xnull/internal/xfront	20.493s
+ok  	xnull.dev/xnull/internal/xpd	21.217s
+exit=0

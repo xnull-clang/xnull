@@ -1,0 +1,35 @@
+# M1-BLD-01 red evidence
+Sat Nov  7 03:24:12 CST 2026
+HEAD 81ec33d574347bf6f36ffeb8963c57e5145a3cf5
+branch pod/c2-rd1
+
+$ cd impl && go test ./internal/interp/ -count=1 -run 'TestMapGetMissingKeyReturnsNull|TestListRemoveReturnsElement|TestListInsertOutOfRangeFatal|TestListAssignmentKeepsList|TestMapRejectsUnsupportedKeyTypes' -v
+=== RUN   TestMapGetMissingKeyReturnsNull
+    values_test.go:247: Map.get 缺失键应返回 null：out="" err=fatal: Map.get 键不存在：z（用 getOr 提供缺省）
+--- FAIL: TestMapGetMissingKeyReturnsNull (0.00s)
+=== RUN   TestListRemoveReturnsElement
+    values_test.go:262: List.remove 应返回被删元素：out="null\n2\n3\n" err=<nil>
+--- FAIL: TestListRemoveReturnsElement (0.00s)
+=== RUN   TestListInsertOutOfRangeFatal
+=== RUN   TestListInsertOutOfRangeFatal/超过_length
+    values_test.go:284: insert 越界应 fatal 134：code=0 err=<nil>
+=== RUN   TestListInsertOutOfRangeFatal/负数
+    values_test.go:284: insert 越界应 fatal 134：code=0 err=<nil>
+--- FAIL: TestListInsertOutOfRangeFatal (0.00s)
+    --- FAIL: TestListInsertOutOfRangeFatal/超过_length (0.00s)
+    --- FAIL: TestListInsertOutOfRangeFatal/负数 (0.00s)
+=== RUN   TestListAssignmentKeepsList
+    values_test.go:314: List 赋值后应保持 List：out="" err=该类型没有成员方法 push：Array
+--- FAIL: TestListAssignmentKeepsList (0.00s)
+=== RUN   TestMapRejectsUnsupportedKeyTypes
+=== RUN   TestMapRejectsUnsupportedKeyTypes/Bool_键
+    values_test.go:330: 不支持的 Map 键类型应报错
+=== RUN   TestMapRejectsUnsupportedKeyTypes/Char_键
+    values_test.go:330: 不支持的 Map 键类型应报错
+--- FAIL: TestMapRejectsUnsupportedKeyTypes (0.00s)
+    --- FAIL: TestMapRejectsUnsupportedKeyTypes/Bool_键 (0.00s)
+    --- FAIL: TestMapRejectsUnsupportedKeyTypes/Char_键 (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	15.173s
+FAIL
+exit=1
