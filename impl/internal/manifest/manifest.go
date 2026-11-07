@@ -61,6 +61,10 @@ type Resolved struct {
 	Plugins []PluginRef
 	// ResourceRoots 是 build.resources.resource 的声明（S8 §5.6）。
 	ResourceRoots []ResourceRoot
+	// Scopes 是直接依赖的 scope（缺省 compile，S8 §3.7）。
+	Scopes map[string]string
+	// Exclusions 是直接依赖的排除坐标（S8 §3.6）。
+	Exclusions map[string][]string
 	// Managed 是合并后的 dependencyManagement（坐标→版本，子优先）。
 	Managed map[string]string
 	// Warnings 是构建警告（如依赖显式版本覆盖管理版本）。
@@ -96,6 +100,13 @@ type fileData struct {
 	managed   map[string]managedEntry
 	plugins   []PluginRef
 	resRoots  []ResourceRoot
+	depMeta   map[string]depSpec
+}
+
+type depSpec struct {
+	version    string
+	scope      string
+	exclusions []string
 }
 
 type managedEntry struct {
@@ -272,7 +283,7 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 		Version: child.version, Packaging: child.packaging,
 		Properties: map[string]string{}, Dependencies: map[string]string{},
 		Build: map[string]string{}, Configuration: map[string]string{},
-		Managed: map[string]string{},
+		Managed: map[string]string{}, Scopes: map[string]string{}, Exclusions: map[string][]string{},
 	}
 	for _, p := range active {
 		res.ActiveProfiles = append(res.ActiveProfiles, p.id)
@@ -282,6 +293,14 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 		res.Chain = append(res.Chain, fd.path)
 		for coord, m := range fd.managed {
 			res.Managed[coord] = m.version
+		}
+		for coord, spec := range fd.depMeta {
+			if spec.scope != "" {
+				res.Scopes[coord] = spec.scope
+			}
+			if len(spec.exclusions) > 0 {
+				res.Exclusions[coord] = spec.exclusions
+			}
 		}
 		res.Plugins = append(res.Plugins, fd.plugins...)
 		if len(fd.resRoots) > 0 {
@@ -492,13 +511,31 @@ func parseFile(path string) (*fileData, []diag.Diagnostic, error) {
 						continue
 					}
 					coord := dep.Args[0].Text
-					ver := ""
+					spec := depSpec{}
 					for _, dc := range dep.Children {
-						if fld, ok := dc.(*xpd.Field); ok && fld.Name == "version" {
-							ver = fld.Value.Text
+						switch dnode := dc.(type) {
+						case *xpd.Field:
+							switch dnode.Name {
+							case "version":
+								spec.version = dnode.Value.Text
+							case "scope":
+								spec.scope = dnode.Value.Text
+							}
+						case *xpd.Block:
+							if dnode.Name == "exclusions" {
+								for _, ec := range dnode.Children {
+									if eb, ok := ec.(*xpd.Block); ok && eb.Name == "exclusion" && len(eb.Args) > 0 {
+										spec.exclusions = append(spec.exclusions, eb.Args[0].Text)
+									}
+								}
+							}
 						}
 					}
-					fd.deps[coord] = ver
+					fd.deps[coord] = spec.version
+					if fd.depMeta == nil {
+						fd.depMeta = map[string]depSpec{}
+					}
+					fd.depMeta[coord] = spec
 				}
 			case "build":
 				for _, c := range node.Children {
