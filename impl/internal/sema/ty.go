@@ -1786,6 +1786,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 		return true
 	}
+	declaredClass := e.a.tc != nil && e.a.tc.hasClassNamed(xdkTypeBase(k))
 	switch {
 	case k == "TaskGroup":
 		switch name {
@@ -1901,7 +1902,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs("String")
 			return texpr{key: "Bool"}
 		}
-	case strings.HasPrefix(k, "RingBuffer<") || k == "RingBuffer":
+	case !declaredClass && (strings.HasPrefix(k, "RingBuffer<") || k == "RingBuffer"):
 		// S6-07：RingBuffer<T> 成员（S6 §4.5）。
 		elem := "T"
 		if strings.Contains(k, "<") {
@@ -1926,7 +1927,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs()
 			return texpr{key: "void"}
 		}
-	case strings.HasPrefix(k, "OrderedMap<") || k == "OrderedMap":
+	case !declaredClass && (strings.HasPrefix(k, "OrderedMap<") || k == "OrderedMap"):
 		// S6-07：OrderedMap<V>（Int 键，插入序）。
 		val := "V"
 		if strings.Contains(k, "<") {
@@ -1967,7 +1968,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs()
 			return texpr{key: "void"}
 		}
-	case strings.HasPrefix(k, "BTreeMap<") || k == "BTreeMap":
+	case !declaredClass && (strings.HasPrefix(k, "BTreeMap<") || k == "BTreeMap"):
 		val := "V"
 		if strings.Contains(k, "<") {
 			val = genericArg(k, "BTreeMap<")
@@ -2004,7 +2005,7 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs()
 			return texpr{key: "void"}
 		}
-	case strings.HasPrefix(k, "PriorityQueue<") || k == "PriorityQueue":
+	case !declaredClass && (strings.HasPrefix(k, "PriorityQueue<") || k == "PriorityQueue"):
 		elem := "T"
 		if strings.Contains(k, "<") {
 			elem = genericArg(k, "PriorityQueue<")
@@ -2184,6 +2185,10 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			}
 			return texpr{key: ret}
 		}
+	}
+	// 字段闭包调用（如 PriorityQueue.less）：字段已声明即放行，返回未知类型。
+	if declaredClass && e.a.tc.hasFieldNamed(k, name) {
+		return texpr{}
 	}
 	// S6-01：XDK 类型上未登记的成员 → 显式诊断（不静默放行）。
 	if xdkKnownType(k) {

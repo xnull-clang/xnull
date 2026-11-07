@@ -1828,6 +1828,30 @@ func methodRetKey(m *xfront.MethodDecl) string {
 
 // findClassMethod 在类继承链中查找方法，并按接收者的泛型实参建立类型参数替换表。
 // 供 sema 的方法调用返回类型/实参检查使用（XDK collections 等源码单元类）。
+// hasFieldNamed 判断用户声明的 class 是否有该字段（字段闭包调用不落 TY-229）。
+func (c *typeCheckCtx) hasFieldNamed(recvKey, name string) bool {
+	base := unwrapOpt(recvKey)
+	if i := strings.Index(base, "<"); i > 0 {
+		base = base[:i]
+	}
+	info := c.types[base]
+	if info == nil || info.kind != "class" || info.class == nil {
+		return false
+	}
+	for _, f := range info.class.Fields {
+		if f.Name == name || f.Canonical == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hasClassNamed 判断用户是否声明了同名 class（同名时优先类方法表，不套用 XDK 内建签名）。
+func (c *typeCheckCtx) hasClassNamed(name string) bool {
+	info := c.types[name]
+	return info != nil && info.kind == "class" && info.class != nil
+}
+
 func (c *typeCheckCtx) findClassMethod(recvKey, name string) (*xfront.MethodDecl, map[string]string, bool) {
 	base := unwrapOpt(recvKey)
 	var args []string
