@@ -29,7 +29,7 @@ bash tests/b0-07c-numeric/run.sh --root /path/to/repo --runtime /path/to/impl/ru
 | `t01_handle_open_close` | `File` 返回 + `fileClose` 返回 `Bool` | — | E4（已实现，回归护栏） |
 | `t02_option_handle` | `File?` + `f == null` + 守卫内收窄为 `File`；失败打开必须回 null | `SEMA-NARROW`；其后 `CG-OPTION-HANDLE` | E2（收窄）/ E4（可空 handle 代码生成）/ E5（包装层 NULL） |
 | `t03_scalars` | `Int32`/`Int64` 变量、字面量、算术、比较 | `CG-INT32`（随后 `CG-INT64`） | E4 |
-| `t04_bytes_surface` | `Bytes.fromString/push/get/length`（无 FFI） | `SEMA-BYTES` | E2（成员面）/ E5（运行时对象）/ E4（代码生成） |
+| `t04_bytes_surface` | `Bytes.fromString/push/get/length`（无 FFI） | `SEMA-BYTES` | E2（成员面）/ E4（代码生成）；运行时对象已就绪 `ce1356c` |
 | `t05_file_read` | `Bytes` 缓冲 + `@errorCode` 出参 + `Int64` 返回 | `SEMA-BYTES` `CG-ERRORCODE` `SEMA-NARROW` | E4 + E5 |
 | `t06_file_write` | `File?` 写打开 + `Bytes` 实参 + `Int32` 返回 + `@errorCode`；产物逐字节 `41 00 42` | `SEMA-BYTES` `CG-ERRORCODE` `SEMA-NARROW` | E4 + E5 |
 
@@ -75,3 +75,6 @@ t06 SEMA-BYTES+CG-ERRORCODE+SEMA-NARROW
 - `impl/runtime/xrt_abi.c` 必须含 `e83f93c`（`handle_deinit` 用 `rt_payload(payload)`）。
   没有它，close 后仍打印 `xrt: 句柄泄漏`，t01/t02 会被误判。执行器会在预检里警告。
 - 包装层 NULL 修复（`emit.go` handle 返回通道）必须在被测树内，否则 t02 的“失败打开”检查会 FAIL。
+- 运行时可变 Bytes 对象已就绪（`impl/runtime/rt_std_bytes.c`，commit `ce1356c`）：
+  E4 的方法降级直接用 `xrt_bytes_from_c/len/data/get/set/push/append/slice`；
+  FFI 形参编组用 `(xrt_bytes_data(b), xrt_bytes_len(b))`。t04–t06 的剩余阻塞只在 sema 成员面与 codegen。
