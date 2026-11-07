@@ -42,6 +42,7 @@ const (
 	vClosure // 闭包值（§7.7）
 	vObj     // 类实例（M4.4b）
 	vEnum    // 简单枚举值（S2 §8.2：名义类型 + 底层 Int）
+	vStruct  // 结构体值（S2 §3：纯值类型）
 )
 
 // Value 是解释期运行值。
@@ -59,6 +60,7 @@ type Value struct {
 	Clo *clov    // 闭包
 	O   *objv    // 类实例（M4.4b）
 	E   string   // 枚举类型名（vEnum；S2 §8）
+	St  *structv // 结构体值（vStruct；S2 §3）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -105,6 +107,8 @@ func (v *Value) typeName() string {
 		return v.O.cls.Name
 	case vEnum:
 		return v.E
+	case vStruct:
+		return v.St.decl.Name
 	}
 	return "?"
 }
@@ -168,6 +172,7 @@ type scope struct {
 	parent *scope
 	vars   map[string]*Value
 	types  map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
+	owned  []*objv                   // 本作用域声明、退出时执行 deinit 的对象（§6.4）
 }
 
 func newScope(parent *scope) *scope {
@@ -212,21 +217,24 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out         io.Writer
-	funcs       map[string][]*xfront.TopFunc
-	classes     map[string]*xfront.ClassDecl
-	globals     *scope
-	label       string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit      map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
-	enums       map[string]*xfront.EnumDecl
-	enumVals    map[string]map[string]int64  // 简单枚举：项 → 底层值
-	enumItems   map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
-	protocols   map[string]*xfront.ProtocolDecl
-	enumCls     map[string]*xfront.ClassDecl
-	classOrder  []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
-	staticVals  map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
-	staticCtx   *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
-	methodStack []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
+	out          io.Writer
+	funcs        map[string][]*xfront.TopFunc
+	classes      map[string]*xfront.ClassDecl
+	globals      *scope
+	label        string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit       map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums        map[string]*xfront.EnumDecl
+	enumVals     map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems    map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols    map[string]*xfront.ProtocolDecl
+	enumCls      map[string]*xfront.ClassDecl
+	classOrder   []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
+	staticVals   map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
+	staticCtx    *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
+	methodStack  []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
+	structs      map[string]*xfront.StructDecl
+	deinited     map[*objv]bool // 已执行 deinit 的对象（引用计数去重）
+	deinitFrames []*bool        // deinit 链帧：显式 super.deinit 标记
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -268,6 +276,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
 		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
+		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -283,13 +292,15 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.classes[n.Name] = n
 			in.classOrder = append(in.classOrder, n)
 			in.registerStaticFields(n)
+		case *xfront.StructDecl:
+			in.structs[n.Name] = n
 		case *xfront.ProtocolDecl:
 			in.protocols[n.Name] = n
 		case *xfront.EnumDecl:
 			in.registerEnum(n)
 		case *xfront.TopField:
 			// BLD-01：登记声明类型并做容器定向；P1-INIT-FWD：先给零值。
-			in.globals.defineTyped(n.Name, n.Type, zeroValue(n.Type))
+			in.globals.defineTyped(n.Name, n.Type, in.zeroOf(n.Type))
 			topFields = append(topFields, n)
 		}
 	}
@@ -433,6 +444,7 @@ type ditem struct {
 }
 
 func (in *Interp) execBlock(b *xfront.Block, sc *scope) {
+	defer in.closeScope(sc) // §6.4：块/函数作用域退出执行 deinit（在 defer 之后）
 	var defers []ditem
 	run := func(errPath bool) {
 		for i := len(defers) - 1; i >= 0; i-- { // LIFO（§10.3）
@@ -490,11 +502,14 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 	case *xfront.ExprStmt:
 		in.eval(n.X, sc)
 	case *xfront.LocalDeclStmt:
-		v := zeroValue(n.Type)
+		v := in.zeroOf(n.Type)
 		if n.Init != nil {
 			v = in.eval(n.Init, sc)
 		}
 		sc.defineTyped(n.Name, n.Type, v)
+		if v.K == vObj {
+			sc.owned = append(sc.owned, v.O)
+		}
 	case *xfront.AssignStmt:
 		v := in.eval(n.Value, sc)
 		if n.Op != "=" {
@@ -988,6 +1003,8 @@ func valuesEqual(l, r *Value) bool {
 		return true
 	case vEnum: // S2 §8.2：简单枚举按底层值比较（名义类型必须相同）
 		return l.E == r.E && l.I == r.I
+	case vStruct: // S2 §3.3：结构体没有对象身份，== 逐字段按值比较
+		return structEqual(l.St, r.St)
 	case vArr, vList, vMap, vSet, vClosure, vObj:
 		return l == r // §2.8：引用类型 `==` 默认按对象身份
 	}
@@ -1016,6 +1033,8 @@ func identical(l, r *Value) bool {
 		return true
 	case vEnum: // 简单枚举是值类型：=== 按底层值
 		return l.E == r.E && l.I == r.I
+	case vStruct: // S2 §3.3：=== 与 == 相同（逐字段）
+		return structEqual(l.St, r.St)
 	case vStr, vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份（§2.8：String === 按对象身份）
 		return l == r
 	}
@@ -1069,6 +1088,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			if !found || self.K != vObj {
 				panic(runtimeErr{"super 只能在实例方法中使用（§5.4）"})
 			}
+			// S2 §6.4：显式 super.deinit() 接管剩余父类链，标记当前帧不再自动补调。
+			if mem.Name == "deinit" {
+				if n := len(in.deinitFrames); n > 0 {
+					*in.deinitFrames[n-1] = true
+				}
+				in.runDeinitFrom(in.superBase(), self.O)
+				return &Value{K: vNull}
+			}
 			args := make([]*Value, len(n.Args))
 			for i, a := range n.Args {
 				args[i] = in.eval(a, sc)
@@ -1106,6 +1133,17 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 				args0[i] = in.eval(a, sc)
 			}
 			v, err := in.dispatchCall(sc, mem.X, recv.O, mem.Name, args0, n.P)
+			if err != nil {
+				panic(runtimeErr{err.Error()})
+			}
+			return v
+		}
+		if recv.K == vStruct {
+			args0 := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args0[i] = in.eval(a, sc)
+			}
+			v, err := in.callStructMethod(recv.St, mem.Name, args0, n.P)
 			if err != nil {
 				panic(runtimeErr{err.Error()})
 			}
@@ -1198,6 +1236,20 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			return &Value{K: vStr, S: format(in.eval(n.Args[0], sc))}
 		}
 		// §5.8：类内裸方法名解析到 self 的实例方法。
+		// §3.4：结构体方法内裸方法名。
+		if sv, ok := sc.lookup("self"); ok && sv.K == vStruct {
+			if len(in.findStructMethod(sv.St.decl, id.Name)) > 0 {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callStructMethod(sv.St, id.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		if sv, ok := sc.lookup("self"); ok && sv.K == vObj {
 			start := sv.O.cls
 			if cur := in.currentClass(); cur != nil {
@@ -1246,6 +1298,9 @@ func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
 	}
 	if x.K == vObj {
 		return in.readMember(x.O, n.Name, n.P) // 实例字段（§7.4）
+	}
+	if x.K == vStruct {
+		return in.readStructMember(x.St, n.Name) // 结构体字段（§3）
 	}
 	panic(runtimeErr{"解释器不支持的裸成员访问（Result 成员是方法，须以 r.isOk() 形式调用）"})
 }
@@ -1310,6 +1365,10 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {
 			in.writeMember(recv.O, t.Name, v)
+			return
+		}
+		if recv.K == vStruct {
+			in.writeStructMember(recv.St, t.Name, v)
 			return
 		}
 		if recv.K == vNull {

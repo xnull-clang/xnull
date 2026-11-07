@@ -75,15 +75,18 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 		panic(runtimeErr{"new 的类型必须是命名类（S1 §7.1）"})
 	}
 	name := lastQual(nt)
+	args := make([]*Value, len(n.Args))
+	for i, a := range n.Args {
+		args[i] = in.eval(a, sc)
+	}
+	if st, ok := in.structs[name]; ok {
+		return in.newStruct(st, args, sc)
+	}
 	cls, ok := in.findClass(name)
 	if !ok {
 		panic(runtimeErr{"未定义的类：" + name})
 	}
 	obj := in.newObject(cls)
-	args := make([]*Value, len(n.Args))
-	for i, a := range n.Args {
-		args[i] = in.eval(a, sc)
-	}
 	in.initClass(obj, cls, args, sc)
 	return &Value{K: vObj, O: obj}
 }

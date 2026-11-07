@@ -1,0 +1,108 @@
+ok  	xnull.dev/xnull/cmd/xnfmt	1.155s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	34.033s
+panic: test timed out after 15m0s
+	running tests:
+		TestS2FieldAssignClassRefRetainRelease (14m4s)
+
+goroutine 102 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2961 +0x34a
+created by time.goFunc
+	/usr/local/Cellar/go/1.27.3/libexec/src/time/sleep.go:182 +0x2d
+
+goroutine 1 [chan receive, 14 minutes]:
+testing.(*T).Run(0x1971839da248, {0xe2f890f?, 0x1971838f8aa0?}, 0xe531f78)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+testing.runTests.func1(0x1971839da248)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2744 +0x37
+testing.tRunner(0x1971839da248, 0x1971838f8bc8)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+testing.runTests({0xe2ed57d, 0xf}, {0xe2f55f8, 0x20}, 0x1971839ac078, {0xe553300, 0x3b, 0x3b}, {0xc2b3dd54aea302b8, 0xd18c341b03, ...})
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2742 +0x510
+testing.(*M).Run(0x197183998140)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2602 +0x6af
+main.main()
+	_testmain.go:162 +0x9b
+
+goroutine 210 [syscall, 14 minutes]:
+syscall.syscalln(0xe0de480, {0x197183bdfac0, 0x6, 0x6})
+	/usr/local/Cellar/go/1.27.3/libexec/src/runtime/sys_darwin.go:27 +0x25
+syscall.syscall6(0x10000000018?, 0x17092848?, 0x105be2f8?, 0x90?, 0x1971838d3008?, 0x1971839d0510?, 0x197183bdfb60?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/syscall_darwin.go:407 +0x37
+syscall.wait4(0x197183bdfb88?, 0xe064405?, 0x90?, 0xe52b150?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/zsyscall_darwin_amd64.go:44 +0x45
+syscall.Wait4(0x19718394a820?, 0x197183bdfbbc, 0x197183962700?, 0x197183c8ac80?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/syscall_bsd.go:144 +0x25
+os.(*Process).pidWait.func1(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:64
+os.ignoringEINTR2[...](...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file_posix.go:273
+os.(*Process).pidWait(0x197183993b00)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:63 +0x85
+os.(*Process).wait(0xe4e8f30?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:28 +0x1a
+os.(*Process).Wait(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec.go:347
+os/exec.(*Cmd).Wait(0x19718394a820)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:944 +0x45
+os/exec.(*Cmd).Run(0x19718394a820)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:643 +0x2d
+xnull.dev/xnull/internal/codegen.compileAndRun(0x1971839feb48, {0xe3079d2, 0xdb})
+	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/internal/codegen/codegen_test.go:48 +0x5ee
+xnull.dev/xnull/internal/codegen.TestS2FieldAssignClassRefRetainRelease(0x1971839feb48)
+	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/internal/codegen/s2_deinit_test.go:68 +0x33
+testing.tRunner(0x1971839feb48, 0xe531f78)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+
+goroutine 197 [IO wait, 14 minutes]:
+internal/poll.runtime_pollWait(0x1723fe00, 0x72)
+	/usr/local/Cellar/go/1.27.3/libexec/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0x197183990d80?, 0x1971839a9400?, 0x1)
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x197183990d80, {0x1971839a9400, 0x200, 0x200})
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_unix.go:170 +0x2a8
+os.(*File).read(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file_posix.go:30
+os.(*File).Read(0x197183b141b0, {0x1971839a9400?, 0x0?, 0x0?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:144 +0x4f
+bytes.(*Buffer).ReadFrom(0x197183a6aba0, {0xe530420, 0x197183b141b0})
+	/usr/local/Cellar/go/1.27.3/libexec/src/bytes/buffer.go:229 +0x98
+io.copyBuffer({0xe530540, 0x197183a6aba0}, {0xe530420, 0x197183b141b0}, {0x0, 0x0, 0x0})
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:415 +0x151
+io.Copy(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:388
+os.genericWriteTo(0x197183990660?, {0xe530540?, 0x197183a6aba0?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:295 +0x35
+os.(*File).WriteTo(0xe54c8d0?, {0xe530540?, 0x197183a6aba0?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:273 +0x49
+io.copyBuffer({0xe530540, 0x197183a6aba0}, {0xe5304e0, 0x197183b141b0}, {0x0, 0x0, 0x0})
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:411 +0x9d
+io.Copy(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:613 +0x34
+os/exec.(*Cmd).Start.func2(0x0?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:768 +0x2c
+created by os/exec.(*Cmd).Start in goroutine 210
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:767 +0x92b
+FAIL	xnull.dev/xnull/internal/codegen	903.888s
+ok  	xnull.dev/xnull/internal/codegen/ffi	17.507s
+--- FAIL: TestBuildLedgerRepoGoldenScale (0.01s)
+    ledger_test.go:102: 台账规模偏离 golden：行数 101（期望 101），PASS 13（期望 18）
+FAIL
+FAIL	xnull.dev/xnull/internal/devtool	5.517s
+ok  	xnull.dev/xnull/internal/diag	5.187s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	4.495s
+ok  	xnull.dev/xnull/internal/sema	5.403s
+ok  	xnull.dev/xnull/internal/xfront	6.073s
+ok  	xnull.dev/xnull/internal/xnfmt	7.046s
+ok  	xnull.dev/xnull/internal/xpd	7.511s
+FAIL
+exit=1
