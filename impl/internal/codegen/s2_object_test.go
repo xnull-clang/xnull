@@ -363,3 +363,69 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// BND-12：泛型类单态化（实例化、字段替换、方法实例名）。
+func TestS2BND12GenericClassBasic(t *testing.T) {
+	src := `class Box<T> {
+    T v;
+    Box(T value) { self.v = value }
+    T get() { return self.v }
+}
+static Int main() {
+    Box<Int> b = new Box<Int>(7)
+    print(b.get())
+    Box<String> s = new Box<String>("x")
+    print(s.get())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "7\nx\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+	u, diags := xfront.ParseUnit("g.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	for _, want := range []string{"xn_Cls_Box_i_get", "xn_Cls_Box_s_get", "int64_t v;", "rt_string * v;"} {
+		if !strings.Contains(csrc, want) {
+			t.Fatalf("缺少实例化产物 %q：\n%s", want, csrc)
+		}
+	}
+}
+
+// BND-12：嵌套泛型（泛型类字段为另一泛型实例）与多类型参数。
+func TestS2BND12GenericClassNested(t *testing.T) {
+	src := `class Box<T> {
+    T v;
+    Box(T value) { self.v = value }
+    T get() { return self.v }
+}
+class Nest<T> {
+    Box<T> inner;
+    Nest(T v) { self.inner = new Box<T>(v) }
+    T get() { return self.inner.get() }
+}
+class Pair<A, B> {
+    A a;
+    B b;
+    Pair(A x, B y) { self.a = x; self.b = y }
+    A first() { return self.a }
+    B second() { return self.b }
+}
+static Int main() {
+    Nest<Int> n = new Nest<Int>(5)
+    print(n.get())
+    Pair<Int, String> p = new Pair<Int, String>(3, "y")
+    print(p.first())
+    print(p.second())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "5\n3\ny\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}

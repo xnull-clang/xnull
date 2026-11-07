@@ -54,6 +54,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：new 类型 %T 未支持", n.Type)
 		}
 		name := lastQualName(nt)
+		if decl, isGen := s.g.classDecls[name]; isGen && len(decl.TypePars) > 0 {
+			return s.g.cType(nt)
+		}
 		if ci, ok := s.g.structs[name]; ok {
 			return ci.cname, nil
 		}

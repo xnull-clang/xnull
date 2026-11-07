@@ -176,7 +176,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
-		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{}}
+		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
+		classInsts: map[string]*classInfo{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -209,6 +210,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	for _, d := range u.Decls {
 		if c, ok := d.(*xfront.ClassDecl); ok {
+			if len(c.TypePars) > 0 {
+				continue // 泛型类按实例收集（BND-12）
+			}
 			if err := g.collectClass(c); err != nil {
 				return "", err
 			}
@@ -320,6 +324,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				return "", err
 			}
 		case *xfront.ClassDecl:
+			if len(n.TypePars) > 0 {
+				continue // 泛型类实例在 emitClassInstance 中试生成（BND-12）
+			}
 			ci := g.classes[n.Name]
 			for _, m := range ci.methods {
 				if _, err := g.genMethod(ci, m); err != nil {
@@ -483,6 +490,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	// 类结构/构造/方法（M4.4b）：容器与 Result typedef 已就位
 	for _, d := range u.Decls {
 		if n, ok := d.(*xfront.ClassDecl); ok {
+			if len(n.TypePars) > 0 {
+				continue // 泛型类实例在下方按需发射
+			}
 			ci := g.classes[n.Name]
 			g.emitClassStruct(&b, ci)
 			if err := g.emitClassCtor(&b, ci); err != nil {
@@ -520,6 +530,13 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				}
 				b.WriteString(mc + "\n")
 			}
+		}
+	}
+	// 泛型类实例（BND-12）：按发现顺序发射；嵌套实例可能在本轮追加。
+	for i := 0; i < len(g.classInstKeys); i++ {
+		ci := g.classInsts[g.classInstKeys[i]]
+		if err := g.emitClassInstance(&b, ci); err != nil {
+			return "", err
 		}
 	}
 	if err := g.emitVtables(&b); err != nil {
@@ -786,6 +803,8 @@ type gen struct {
 	enums          map[string]*enumInfo         // 枚举名 → 定义（S2 §8）
 	enumOrder      []string                     // 枚举声明顺序
 	structs        map[string]*classInfo        // 结构体名 → 值布局（S2 §3）
+	classInsts     map[string]*classInfo        // 泛型类实例 C 名 → 实例（BND-12）
+	classInstKeys  []string                     // 实例发现顺序
 	tmp            int
 }
 
@@ -993,6 +1012,13 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		case "Result":
 			return resultName(n.Args)
 		default:
+			if decl, ok := g.classDecls[typeName(n)]; ok && len(decl.TypePars) > 0 {
+				ci, err := g.ensureClassInstance(typeName(n), n.Args)
+				if err != nil {
+					return "", err
+				}
+				return ci.cname + " *", nil
+			}
 			if ei, ok := g.enums[typeName(n)]; ok {
 				return ei.ctype, nil
 			}
@@ -1611,7 +1637,9 @@ func (s *scope) isBorrowExpr(e xfront.Expr) bool {
 		return true
 	case *xfront.Call:
 		if mem, ok := n.Callee.(*xfront.Member); ok && mem.Name == "get" {
-			return true
+			if _, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				return true
+			}
 		}
 	}
 	return false

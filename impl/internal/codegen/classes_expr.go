@@ -73,6 +73,11 @@ func (ci *classInfo) methodOf(name string) (*classInfo_m, bool) {
 
 // methodRetC 方法返回 C 类型。
 func (g *gen) methodRetC(m *classInfo_m) (string, error) {
+	saved := g.subst
+	if m.owner != nil && len(m.owner.subst) > 0 {
+		g.subst = mergeSubst(saved, m.owner.subst)
+	}
+	defer func() { g.subst = saved }()
 	if m.decl.Void {
 		return "void", nil
 	}
@@ -140,6 +145,15 @@ func (s *scope) emitNewClass(n *xfront.New) (string, error) {
 		return "", fmt.Errorf("codegen：new 的类型必须是命名类（M4.1/M4.4b 范围）")
 	}
 	ci, ok := s.g.classOf(lastQualName(nt))
+	if !ok {
+		if decl, isGen := s.g.classDecls[lastQualName(nt)]; isGen && len(decl.TypePars) > 0 {
+			ct, err := s.g.cType(nt)
+			if err != nil {
+				return "", err
+			}
+			ci, ok = s.g.classOfC(ct)
+		}
+	}
 	if ok {
 		if len(n.Args) > 0 {
 			c := ci.ctorByArity(len(n.Args))
@@ -182,6 +196,11 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 
 // methodCall 生成方法调用实参序列（self 前置）。
 func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args []xfront.Expr) (string, error) {
+	saved := s.g.subst
+	if len(ci.subst) > 0 {
+		s.g.subst = mergeSubst(saved, ci.subst)
+	}
+	defer func() { s.g.subst = saved }()
 	// 继承方法：接收者静态类型可能是子类，调用父类实现时按父类指针转型
 	//（扁平布局保证字段偏移一致）。
 	if m.owner != nil && ci.cname != m.owner.cname {
