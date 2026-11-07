@@ -13,6 +13,11 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S5-03 同步原语，2026-11-08）**：`rt_sync.c` 按 S5-00 冻结面实现
+  `xrt_channel_*`（有界环形缓冲、send/receive 5ms 轮询上下文取消、close 唤醒并释放剩余元素）、
+  `xrt_mutex_*`（数据携锁 + 作用域回调）、`xrt_atomic_int/bool/ref_*`（seq_cst；
+  AtomicRef 用 retain/release ops）。所有权：send 成功消费 +1、receive 取得 +1；
+  Mutex data 创建 +1/deinit 释放；AtomicRef store/CAS 持有新值/释放旧值。
 - **候选期增补（S5-02 取消/超时，2026-11-08）**：取消位改为 `atomic_int`（跨线程 acquire/release）；
   `xrt_context_token` 返回上下文内嵌令牌，新增 `xrt_cancel_token_cancelled`（原子读）；
   父链取消传播、`with_deadline` 截止等效 `Cancelled`、`join_deadline` 超时 `Timeout`；

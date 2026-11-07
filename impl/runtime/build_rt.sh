@@ -14,6 +14,8 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_std test_std.c rt.c rt_
 /tmp/xnull_test_std
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_task test_task.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
 /tmp/xnull_test_task
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sync test_sync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_sync.c
+/tmp/xnull_test_sync
 # 资源表（S8 §5.6）：构建期生成器 + 手工样例验证合同
 XNULL_RES_DIR=$(mktemp -d)
 printf 'hello' > "$XNULL_RES_DIR/a.txt"
