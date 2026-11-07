@@ -241,6 +241,7 @@ type Interp struct {
 	singletonOrder []*xfront.SingletonDecl
 	singletonVals  map[string]*Value
 	singleCls      map[string]*xfront.ClassDecl
+	extMethods     map[string][]*xfront.MethodDecl // target 类型名 → 扩展方法（§11）
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -285,7 +286,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
 		factories:  map[string]*xfront.FactoryDecl{},
 		singletons: map[string]*xfront.SingletonDecl{}, singletonVals: map[string]*Value{},
-		singleCls: map[string]*xfront.ClassDecl{},
+		singleCls: map[string]*xfront.ClassDecl{}, extMethods: map[string][]*xfront.MethodDecl{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -307,6 +308,11 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.factories[n.Name] = n
 		case *xfront.SingletonDecl:
 			in.registerSingleton(n)
+		case *xfront.ExtensionDecl:
+			if nt, ok := n.Target.(*xfront.NamedType); ok {
+				name := lastQual(nt)
+				in.extMethods[name] = append(in.extMethods[name], n.Methods...)
+			}
 		case *xfront.ProtocolDecl:
 			in.protocols[n.Name] = n
 		case *xfront.EnumDecl:
