@@ -86,16 +86,16 @@ enum Status {
 static Int main() { return 0 }`)
 	want := []Strategy{
 		{Decl: "Color", Kind: "enum", Policy: "value", Escape: "n/a", Rule: 3},
-		{Decl: "Node", Kind: "class", Policy: "gc", RefCycle: true, Escape: "n/a", Rule: 6},
-		{Decl: "Pure", Kind: "class", Policy: "arc", StackEligible: true, Escape: "n/a", Rule: 8},
+		{Decl: "Node", Kind: "class", Policy: "gc", RefCycle: true, Escape: "other", Rule: 6},
+		{Decl: "Pure", Kind: "class", Policy: "arc", StackEligible: true, Escape: "none", Rule: 8},
 		{Decl: "Runnable", Kind: "protocol", Policy: "na-gc", Escape: "n/a", Rule: 2},
 		{Decl: "Status", Kind: "enum", DataEnum: true, Policy: "gc", Escape: "n/a", Rule: 4},
 		{Decl: "Val", Kind: "struct", Policy: "value", Escape: "n/a"},
-		{Decl: "WithAny", Kind: "class", Policy: "gc", Escape: "n/a", Rule: 5},
-		{Decl: "WithCapture", Kind: "class", Policy: "arc", SelfCaptured: true, Escape: "n/a", Rule: 7},
-		{Decl: "WithDeinit", Kind: "class", Policy: "arc", Deinit: true, Escape: "n/a", Rule: 7},
-		{Decl: "WithProto", Kind: "class", Policy: "gc", Escape: "n/a", Rule: 5},
-		{Decl: "WithResult", Kind: "class", Policy: "gc", Escape: "n/a", Rule: 5},
+		{Decl: "WithAny", Kind: "class", Policy: "gc", Escape: "other", Rule: 5},
+		{Decl: "WithCapture", Kind: "class", Policy: "arc", SelfCaptured: true, Escape: "return", Rule: 7},
+		{Decl: "WithDeinit", Kind: "class", Policy: "arc", Deinit: true, Escape: "return", Rule: 7},
+		{Decl: "WithProto", Kind: "class", Policy: "gc", Escape: "other", Rule: 5},
+		{Decl: "WithResult", Kind: "class", Policy: "gc", Escape: "other", Rule: 5},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("判定不符：\n got  %+v\n want %+v", got, want)
