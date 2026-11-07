@@ -400,8 +400,15 @@ func (e *tyenv) checkCleanup(d *xfront.DeferStmt) {
 		return
 	}
 	if d.Stmt != nil {
-		if _, ok := d.Stmt.(*xfront.LocalDeclStmt); ok {
-			e.errf(d.Stmt.Pos(), ErCleanupBody,
+		if ld, ok := d.Stmt.(*xfront.LocalDeclStmt); ok {
+			// LocalDeclStmt.P 是零位置；用类型节点定位（`defer Int x = 1` 指向 Int）。
+			p := d.Stmt.Pos()
+			if ld.Type != nil {
+				if tp := ld.Type.Pos(); tp.Line != 0 {
+					p = tp
+				}
+			}
+			e.errf(p, ErCleanupBody,
 				"defer/errdefer 的单条语句体不得是局部声明（§10.3）", "需要局部变量时改用花括号体")
 		}
 		e.scanCleanupStmt(d.Stmt)
