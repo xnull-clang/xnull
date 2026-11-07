@@ -171,7 +171,8 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 // （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
 func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
-		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
+		classDecls: map[string]*xfront.ClassDecl{},
+		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}}
@@ -310,6 +311,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		case *xfront.TopField:
 			// 顶层字段初值在第一遍不需要试生成（无容器/Result 实例化登记）。
+		case *xfront.ProtocolDecl:
+			// 协议只声明方法签名；布局槽由实现类的 vtable 指针承载（S2 §5.7）。
 		default:
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}
@@ -455,9 +458,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 			// 方法前向声明（方法间互相调用与声明顺序无关）
 			for _, md := range n.Methods {
-				if md.IsDeinit {
-					continue
-				}
 				m := ci.methods[md.Name]
 				proto, err := g.methodProto(ci, m)
 				if err != nil {
@@ -467,9 +467,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 			b.WriteString("\n")
 			for _, md := range n.Methods {
-				if md.IsDeinit {
-					continue
-				}
 				mc, err := g.genMethod(ci, ci.methods[md.Name])
 				if err != nil {
 					return "", err
@@ -698,25 +695,26 @@ func (g *gen) genGlobalInit() (string, error) {
 }
 
 type gen struct {
-	results        map[string]string          // Result 实例化名 → v 成员类型
-	cs             *containers                // 容器实例化注册表（M4.4a）
-	fnRet          map[string]string          // 顶层函数名 → 返回 C 类型（类型推断用）
-	classes        map[string]*classInfo      // 类名 → 生成信息（M4.4b）
-	globals        map[string]string          // 顶层字段名 → C 类型（ENTRY-01）
-	globalList     []*xfront.TopField         // 顶层字段声明顺序（初始化顺序）
-	ffi            *ffi.Registry              // .xfb 绑定注册表（P-09）
-	ffiEntries     map[string]ffi.Entry       // 入口名 → 合同投影（P-09）
-	handleNames    map[string]bool            // 不透明句柄类型（B0-07c）
-	needStrReplace bool                       // 使用过 String.replace（按需发助手）
-	generics       map[string]*xfront.TopFunc // 泛型函数名 → 声明（S1 §8.1）
-	insts          map[string]*instInfo       // 实例 C 名 → 实例信息（S1 §8.3）
-	instOrder      []string                   // 实例发现顺序（展开轮驱动；输出前排序）
-	subst          map[string]xfront.TypeRef  // 当前实例的类型参数替换（空 = 普通函数）
-	fnNames        map[*xfront.TopFunc]string // 顶层函数声明 → C 名（main 重载需区分）
-	mainOverloads  map[int]string             // 非匹配 main 重载：参数个数 → C 名（§11.2）
-	entry          *entryInfo                 // 选中的入口（main 重载分派用）
-	tuples         map[string]*tupleInfo      // 元组 C 结构体名 → 定义（S1 §2.11）
-	tupleOrder     []string                   // 元组结构体登记顺序（内层先于外层）
+	results        map[string]string            // Result 实例化名 → v 成员类型
+	cs             *containers                  // 容器实例化注册表（M4.4a）
+	fnRet          map[string]string            // 顶层函数名 → 返回 C 类型（类型推断用）
+	classes        map[string]*classInfo        // 类名 → 生成信息（M4.4b）
+	classDecls     map[string]*xfront.ClassDecl // 类名 → 声明（继承递归收集用）
+	globals        map[string]string            // 顶层字段名 → C 类型（ENTRY-01）
+	globalList     []*xfront.TopField           // 顶层字段声明顺序（初始化顺序）
+	ffi            *ffi.Registry                // .xfb 绑定注册表（P-09）
+	ffiEntries     map[string]ffi.Entry         // 入口名 → 合同投影（P-09）
+	handleNames    map[string]bool              // 不透明句柄类型（B0-07c）
+	needStrReplace bool                         // 使用过 String.replace（按需发助手）
+	generics       map[string]*xfront.TopFunc   // 泛型函数名 → 声明（S1 §8.1）
+	insts          map[string]*instInfo         // 实例 C 名 → 实例信息（S1 §8.3）
+	instOrder      []string                     // 实例发现顺序（展开轮驱动；输出前排序）
+	subst          map[string]xfront.TypeRef    // 当前实例的类型参数替换（空 = 普通函数）
+	fnNames        map[*xfront.TopFunc]string   // 顶层函数声明 → C 名（main 重载需区分）
+	mainOverloads  map[int]string               // 非匹配 main 重载：参数个数 → C 名（§11.2）
+	entry          *entryInfo                   // 选中的入口（main 重载分派用）
+	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
+	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
 	tmp            int
 }
 
@@ -727,6 +725,14 @@ func (s *scope) cRef(name string) string {
 	}
 	if _, ok := s.locals[name]; ok {
 		return name
+	}
+	if s.self != nil {
+		if name == "self" {
+			return s.self.cvar
+		}
+		if cname, ok := s.self.fields[name]; ok {
+			return s.self.cvar + "->" + cname
+		}
 	}
 	if _, ok := s.g.globals[name]; ok {
 		return "xn_g_" + name
@@ -988,7 +994,36 @@ type scope struct {
 	pending   []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
 	params    map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
 	locals    map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
+	self      *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
+	isCtor    bool              // 构造器体：`return;` 返回已构造对象
 	returned  bool              // 末句已生成 return（块退出清理跳过）
+}
+
+// selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
+type selfCtx struct {
+	ctype   string                  // 当前类 C 类型（xn_Cls_X *）
+	cvar    string                  // 当前 self 的 C 变量名（方法=self，构造器=o）
+	fields  map[string]string       // 字段声明名/规范名 → C 成员名
+	types   map[string]string       // 字段声明名/规范名 → C 类型
+	methods map[string]*classInfo_m // 实例方法名 → 签名
+	ci      *classInfo
+}
+
+// newSelfCtx 构建类的实例上下文（字段含私有规范名）。
+func newSelfCtx(ci *classInfo) *selfCtx {
+	sc := &selfCtx{cvar: "self", ctype: ci.cname + " *", fields: map[string]string{}, types: map[string]string{}, methods: map[string]*classInfo_m{}, ci: ci}
+	for _, f := range ci.fields {
+		sc.fields[f.name] = f.cname
+		sc.types[f.name] = f.ctype
+		if f.name != f.cname {
+			sc.fields[f.cname] = f.cname
+			sc.types[f.cname] = f.ctype
+		}
+	}
+	for name, m := range ci.methods {
+		sc.methods[name] = m
+	}
+	return sc
 }
 
 // localCType 查局部变量 C 类型（含参数；参数按其声明类型登记）。
@@ -1003,7 +1038,7 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals}
+	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, isCtor: s.isCtor}
 }
 
 func (s *scope) tmp() string {
@@ -1231,6 +1266,13 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 			return []string{out + ";"}, nil
 		}
 		return lines, nil
+	}
+	if expr, hit, err := s.selfMethodCall(id.Name, call.Args); err != nil {
+		return nil, err
+	} else if hit {
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, expr+";"), nil
 	}
 	args, err := s.callArgs(call.Args)
 	if err != nil {
@@ -1473,9 +1515,11 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
 			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			s.locals[n.Name] = tc
-			return []string{tc + " " + n.Name + " = " + ctor + ";"}, nil
+			return append(out, tc+" "+n.Name+" = "+ctor+";"), nil
 		}
 		if cl, ok := n.Init.(*xfront.Call); ok {
 			expr, owns, err := s.classCallExpr(cl)
@@ -1685,6 +1729,51 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		return nil, fmt.Errorf("codegen：句柄赋值右值 %T 未支持（B0-07c 范围）", n.Value)
 	}
+	// 实例字段赋值（§5.8）：类内非限定名解析到 self->field。
+	if s.self != nil {
+		if ft, ok := s.self.types[id.Name]; ok {
+			field := s.cRef(id.Name)
+			switch {
+			case ft == "rt_string *":
+				if _, isNull := n.Value.(*xfront.NullLit); isNull {
+					return []string{"rt_release(" + field + ");", field + " = NULL;"}, nil
+				}
+				lines, err := s.strExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "rt_release("+field+");")
+				out = append(out, field+" = "+lastVar(lines)+";")
+				return out, nil
+			case isClassPtr(ft):
+				switch v := n.Value.(type) {
+				case *xfront.IdentExpr:
+					r := s.cRef(v.Name)
+					return []string{"rt_retain(" + r + ");", "rt_release(" + field + ");", field + " = " + r + ";"}, nil
+				case *xfront.New:
+					ctor, err := s.emitNewClass(v)
+					if err != nil {
+						return nil, err
+					}
+					t := s.tmp()
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					out = append(out, ft+" "+t+" = "+ctor+";", "rt_release("+field+");", field+" = "+t+";")
+					return out, nil
+				}
+				return nil, fmt.Errorf("codegen：字段 %s 的类引用赋值右值 %T 未支持（M5.1-c 范围）", id.Name, n.Value)
+			default:
+				v, err := s.intExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, field+" = "+v+";"), nil
+			}
+		}
+	}
 	// 顶层字段赋值（ENTRY-01：Int/Bool/String）
 	if tc, ok := s.g.globals[id.Name]; ok {
 		if _, shadowed := s.locals[id.Name]; !shadowed && (s.params == nil || !s.params[id.Name]) {
@@ -1767,6 +1856,14 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 }
 
 func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
+	if s.isCtor {
+		if n.Value != nil {
+			return nil, fmt.Errorf("codegen：构造器不能带返回值（S2 §6.3）")
+		}
+		out := splitLines(s.emitCleanup(true, "    "))
+		s.returned = true
+		return append(out, "return o;"), nil
+	}
 	if s.retC == "void" {
 		if n.Value != nil {
 			return nil, fmt.Errorf("codegen：void 函数不得带返回值")
@@ -2101,6 +2198,14 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				}
 				t := s.tmp()
 				return append(lines, "rt_string *"+t+" = "+out+";"), nil
+			}
+			if expr, hit, err := s.selfMethodCall(id.Name, n.Args); err != nil {
+				return nil, err
+			} else if hit {
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
 			}
 			if ret, ok2 := s.g.callRetC(id.Name, n.TypeArgs); ok2 && ret == "rt_string *" {
 				args, err := s.callArgs(n.Args)
@@ -2454,6 +2559,11 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			case "Ok", "Err", "print", "str":
 				return "", fmt.Errorf("codegen：%s(...) 不能作为 Int 值（M4.4a 范围）", id.Name)
 			}
+			if expr, hit, err := s.selfMethodCall(id.Name, n.Args); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
 			args, err := s.callArgs(n.Args)
 			if err != nil {
 				return "", err
@@ -2556,6 +2666,11 @@ func isIntScalarC(c string) bool {
 func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 	switch c := cl.Callee.(type) {
 	case *xfront.IdentExpr:
+		if expr, hit, err := s.selfMethodCall(c.Name, cl.Args); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
 		args, err := s.callArgs(cl.Args)
 		if err != nil {
 			return "", false, err

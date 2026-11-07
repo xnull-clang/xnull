@@ -27,10 +27,38 @@ func (ci *classInfo) fieldOf(name string) (classField, bool) {
 	return classField{}, false
 }
 
-// classMethodOf 查方法生成信息。
+// selfMethodCall 解析实例方法非限定调用（S2 §5.8 第 3 级）。
+// 返回 hit=false 时调用方回退顶层函数；局部/参数同名时按变量优先，不解析为方法。
+func (s *scope) selfMethodCall(name string, args []xfront.Expr) (string, bool, error) {
+	if s.self == nil {
+		return "", false, nil
+	}
+	if s.params != nil && s.params[name] {
+		return "", false, nil
+	}
+	if _, ok := s.locals[name]; ok {
+		return "", false, nil
+	}
+	m, ok := s.self.ci.methodOf(name)
+	if !ok || m.decl.IsDeinit {
+		return "", false, nil
+	}
+	expr, err := s.methodCall(s.self.ci, m, s.self.cvar, args)
+	if err != nil {
+		return "", true, err
+	}
+	return expr, true, nil
+}
+
+// classMethodOf 查方法生成信息（含继承链；S2 §5.3 子类不覆写）。
 func (ci *classInfo) methodOf(name string) (*classInfo_m, bool) {
-	m, ok := ci.methods[name]
-	return m, ok
+	if m, ok := ci.methods[name]; ok {
+		return m, true
+	}
+	if ci.base != nil {
+		return ci.base.methodOf(name)
+	}
+	return nil, false
 }
 
 // methodRetC 方法返回 C 类型。
@@ -83,7 +111,15 @@ func (s *scope) emitNewClass(n *xfront.New) (string, error) {
 		return "", fmt.Errorf("codegen：未定义的类 %s", lastQualName(nt))
 	}
 	if len(n.Args) > 0 {
-		return "", fmt.Errorf("codegen：类 %s 带参构造暂未支持（M4.4b 范围：无参构造）", ci.decl.Name)
+		c := ci.ctorByArity(len(n.Args))
+		if c == nil {
+			return "", fmt.Errorf("codegen：类 %s 没有 %d 个参数的构造器（S2 §6.3）", ci.decl.Name, len(n.Args))
+		}
+		args, err := s.callArgs(n.Args)
+		if err != nil {
+			return "", err
+		}
+		return ci.ctorName[c] + "(" + strings.Join(args, ", ") + ")", nil
 	}
 	return ci.cname + "_new()", nil
 }
@@ -106,6 +142,11 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 
 // methodCall 生成方法调用实参序列（self 前置）。
 func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args []xfront.Expr) (string, error) {
+	// 继承方法：接收者静态类型可能是子类，调用父类实现时按父类指针转型
+	//（扁平布局保证字段偏移一致）。
+	if m.owner != nil && ci.cname != m.owner.cname {
+		recvName = "(" + m.owner.cname + " *)" + recvName
+	}
 	parts := []string{recvName}
 	for i, p := range m.decl.Params {
 		if i >= len(args) {
@@ -151,6 +192,12 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		return nil, fmt.Errorf("codegen：类 %s 没有字段 %s（或方法不可赋值）", ci.decl.Name, mem.Name)
 	}
 	if f.isStr {
+		if _, isNull := val.(*xfront.NullLit); isNull {
+			return []string{
+				fmt.Sprintf("rt_release(%s->%s);", recvName, f.cname),
+				fmt.Sprintf("%s->%s = NULL;", recvName, f.cname),
+			}, nil
+		}
 		lines, err := s.strExpr(val)
 		if err != nil {
 			return nil, err
