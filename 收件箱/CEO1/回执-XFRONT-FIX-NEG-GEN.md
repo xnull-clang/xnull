@@ -48,3 +48,13 @@ B2 sema（类型参数作用域/推断/`Call.TypeArgs`/重载/单态化，约 6h
 - 集成后复跑：PKG-01 锚点 8/8 PASS；`go test ./...` 10/10 包 ok；`examples/multi` 双路径 stdout 一致、退出码 0。
 - NEG `TestDiagMatrixS1` **51/60**（main 的 defer 修复多清 3 项）；剩余 9 项全部为 sema 域（类型别名、保留名×6、`Array`、`true` 声明名），xfront 侧无新增红项。
 - 证据：`evidence/XFRONT-FIX-NEG-GEN/post-merge.md`、`after/neg-integrated-TestDiagMatrixS1.out`、`after/full-suite-post-merge.out`。
+
+---
+
+## 同步更新（main@7df123d，2026-11-07 12:36）
+
+- `git merge --no-ff main` → 合并提交 `63c972f`，**无冲突**（自动合并）。
+- 全量：`go test ./... -count=1 -timeout 300s` → **10/10 包 ok，exit 0**（首跑因 7 个 13h 前泄漏的 `/tmp/xnull-m5` 进程占满 CPU 而 codegen 5m 超时；kill 后同命令重跑绿，失败原始输出留证）。
+- PKG-01 锚点：**8/8 PASS**；`examples/multi` 双路径 stdout 一致、退出码 0。
+- NEG `TestDiagMatrixS1`：**51/60**；剩余 9 项全在 sema（类型别名、保留名×6、`Array`、`true` 声明名），xfront 无红项。
+- 证据：`evidence/SYNC-7df123d/`。
