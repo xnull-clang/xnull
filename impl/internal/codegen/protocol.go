@@ -248,8 +248,8 @@ func (g *gen) emitVtables(b *strings.Builder) error {
 				}
 				for _, sig := range p.sigs {
 					m, ok := ci.methodOf(sig.name)
-					if !ok || len(m.decl.Params) != len(sig.params) {
-						return fmt.Errorf("codegen：类 %s 未实现协议 %s 的方法 %s（S2 §4.3）", n, p.name, sig.name)
+					if !ok || len(m.decl.Params) != len(sig.params) || m.ext {
+						return fmt.Errorf("codegen：类 %s 未实现协议 %s 的方法 %s（扩展方法不能作协议实现，S2 §11.2）", n, p.name, sig.name)
 					}
 					entries[sig.slot] = m.cname
 				}

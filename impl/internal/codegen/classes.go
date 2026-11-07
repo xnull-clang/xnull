@@ -63,6 +63,7 @@ type classInfo_m struct {
 	cname  string // xn_Cls_<Name>_<method>
 	owner  *classInfo
 	static bool // 静态方法：无 self 参数、类名调用（S2 §7.2）
+	ext    bool // 扩展方法：静态派发，不进入 vtable（S2 §11）
 }
 
 // typeIsExpr 生成 `x is T`：类/协议层次可静态判定，协议接收者按 vtable 运行时判定。

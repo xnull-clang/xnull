@@ -808,3 +808,112 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// BND-13/EXT-01：类扩展方法静态派发（同包非泛型目标、只加方法）。
+func TestS2BND13ExtensionClass(t *testing.T) {
+	src := `class Device {
+    String name;
+    Device(String n) { self.name = n }
+}
+extension Device {
+    String label() { return "L:" + self.name }
+}
+static Int main() {
+    Device d = new Device("x")
+    print(d.label())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "L:x\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-13：struct / singleton 扩展方法（值/单例接收者）。
+func TestS2BND13ExtensionStructSingleton(t *testing.T) {
+	src := `struct P { Int x; }
+extension P {
+    Int twice() { return self.x * 2 }
+}
+singleton S { Int n = 2; }
+extension S {
+    Int twice() { return self.n * 2 }
+}
+static Int main() {
+    P p = new P()
+    p.x = 3
+    print(p.twice())
+    print(S.instance.twice())
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "6\n4\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-13：重复/已有同签名/协议实现违规/泛型目标必须拒绝。
+func TestS2BND13Rejects(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"重复扩展方法", `class D { }
+extension D { Int f() { return 1 } }
+extension D { Int f() { return 2 } }
+static Int main() { return 0 }`},
+		{"与已有方法同签名", `class D { Int f() { return 1 } }
+extension D { Int f() { return 2 } }
+static Int main() { return 0 }`},
+		{"扩展方法作协议实现", `protocol P { Int f(); }
+class C implements P { }
+extension C { Int f() { return 1 } }
+static Int main() { return 0 }`},
+		{"泛型目标", `class Box<T> { T v; }
+extension Box { Int f() { return 1 } }
+static Int main() { return 0 }`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			u, diags := xfront.ParseUnit("e.x", c.src)
+			if len(diags) != 0 {
+				return // 语法层已拒绝也算通过
+			}
+			if _, err := EmitC(u); err == nil {
+				t.Fatalf("应拒绝 %s", c.name)
+			}
+		})
+	}
+}
+
+// BND-13：扩展方法不进入 vtable（仅协议槽）。
+func TestS2BND13ExtensionNotInVtable(t *testing.T) {
+	src := `protocol P { Int f(); }
+class C implements P {
+    Int f() { return 1 }
+}
+extension C {
+    Int g() { return 2 }
+}
+static Int main() { C c = new C(); print(c.f()); print(c.g()); return 0 }`
+	u, diags := xfront.ParseUnit("e.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	vtStart := strings.Index(csrc, "static void xn_init_vtables")
+	if vtStart < 0 {
+		t.Fatalf("缺少 vtable 初始化：\n%s", csrc)
+	}
+	vt := csrc[vtStart:]
+	if end := strings.Index(vt, "}\n\n"); end >= 0 {
+		vt = vt[:end]
+	}
+	if strings.Contains(vt, "_ext_") {
+		t.Fatalf("扩展方法进入了 vtable：\n%s", vt)
+	}
+	got, code := compileAndRun(t, src)
+	if want := "1\n2\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
