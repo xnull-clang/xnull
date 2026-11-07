@@ -396,7 +396,30 @@ func (e *tyenv) inferXdkErrors(n *xfront.Call, name string) texpr {
 			return texpr{}
 		}
 		e2 := ""
-		if lam, ok := n.Args[1].(*xfront.Lambda); ok {
+		if id, ok := n.Args[1].(*xfront.IdentExpr); ok {
+			// 顶层函数作为转换实参：校验 (E1)->E2。
+			matched := false
+			for _, f := range e.funcs[id.Name] {
+				if len(f.Params) != 1 {
+					continue
+				}
+				pk := typeKey(f.Params[0].Type)
+				if pk != "" && !assignable(texpr{key: ek}, pk) {
+					continue
+				}
+				e2 = "void"
+				if !f.Void && f.Ret != nil {
+					e2 = typeKey(f.Ret)
+				}
+				matched = true
+				break
+			}
+			if !matched {
+				e.errf(n.Args[1].Pos(), ErXdkErrors,
+					"mapErr 转换函数 `"+id.Name+"` 签名必须是 ("+ek+")->E2（S4 §2.3）", "")
+				return texpr{}
+			}
+		} else if lam, ok := n.Args[1].(*xfront.Lambda); ok {
 			if lam.ExprB != nil {
 				e2 = e.infer(lam.ExprB).key
 			}
