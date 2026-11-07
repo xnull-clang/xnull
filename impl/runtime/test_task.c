@@ -10,6 +10,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+void xdkc_dump_tasks(void);
 #include <stdatomic.h>
 
 static int32_t body_ok(void *env, xrt_context *ctx, xrt_task_result *out) {
@@ -260,6 +262,47 @@ static void test_panic_fatal(void) {
     assert(rc == 1); /* 任务内 panic → 进程终止 */
 }
 
+static void capture_dump(char *buf, size_t cap) {
+    int fds[2];
+    assert(pipe(fds) == 0);
+    int saved = dup(STDERR_FILENO);
+    assert(saved >= 0);
+    assert(dup2(fds[1], STDERR_FILENO) >= 0);
+    close(fds[1]);
+    xdkc_dump_tasks();
+    fflush(stderr);
+    assert(dup2(saved, STDERR_FILENO) >= 0);
+    close(saved);
+    ssize_t n = read(fds[0], buf, cap - 1);
+    if (n < 0) {
+        n = 0;
+    }
+    buf[n] = 0;
+    close(fds[0]);
+}
+
+static void test_dump_tasks(void) {
+    char buf[256];
+    capture_dump(buf, sizeof(buf));
+    assert(strstr(buf, "xrt tasks:") != NULL);
+    assert(strstr(buf, "live=0") != NULL);
+
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    assert(xrt_task_group_spawn(g, body_slow, NULL, &t) == 0);
+    capture_dump(buf, sizeof(buf));
+    assert(strstr(buf, "live=") != NULL);
+    assert(strstr(buf, "live=0") == NULL); /* 至少一个未终结任务 */
+    xrt_task_result r;
+    assert(xrt_task_join(t, &r) == 0);
+    xrt_release(t);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
 int main(int argc, char **argv) {
     g_self_path = argv[0];
     if (argc > 1 && strcmp(argv[1], "repeat-join") == 0) {
@@ -278,6 +321,7 @@ int main(int argc, char **argv) {
     test_env_root();
     test_contract_fatal();
     test_panic_fatal();
-    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic)\n");
+    test_dump_tasks();
+    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/dump)\n");
     return 0;
 }

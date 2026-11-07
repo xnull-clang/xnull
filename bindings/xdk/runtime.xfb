@@ -21,4 +21,15 @@ ffi xdkc_runtime {
   @ffiEntry(cName = "xdkc_now_wall_ms")
   @blocking(.aware)
   Int64 nowWall();
+
+  // S6-02：环境变量不可变快照；缺失返回 NULL（XNull 侧映射 String?）。
+  @ffiEntry(cName = "xdkc_env_lookup")
+  @lease(name = .borrow)
+  @blocking(.aware)
+  String env(String name);
+
+  // S6-02：任务转储（实现侧诊断，输出格式非承诺；无堆分配单行）。
+  @ffiEntry(cName = "xdkc_dump_tasks")
+  @blocking(.aware)
+  Void dumpTasks();
 }
