@@ -342,6 +342,19 @@ func (e *tyenv) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos) {
 	}
 }
 
+// checkSwitchDefaultLast：default 最多一个且必须位于 switch 最后（§8.5）。
+func (e *tyenv) checkSwitchDefaultLast(n *xfront.SwitchStmt) {
+	if n.Default == nil {
+		return
+	}
+	for _, c := range n.Cases {
+		if c.P.Line > n.Default.P.Line || (c.P.Line == n.Default.P.Line && c.P.Col > n.Default.P.Col) {
+			e.errf(n.Default.P, TyEnumSwitch, "default 子句必须位于 switch 最后（§8.5）", "把 default 移到所有 case 之后")
+			return
+		}
+	}
+}
+
 // checkEnumSwitch 校验枚举 switch 的项合法性/重复/穷尽性（§8.5）。
 func (e *tyenv) checkEnumSwitch(n *xfront.SwitchStmt, key string) {
 	if e.a.tc == nil || key == "" {
@@ -847,6 +860,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
 		}
 		e.checkEnumSwitch(n, vt.key)
+		e.checkSwitchDefaultLast(n)
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)

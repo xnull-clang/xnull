@@ -1072,7 +1072,7 @@ func (p *parser) parseSwitch() Stmt {
 	p.expectKind(LBrace, "`{`")
 	s := &SwitchStmt{P: t.Pos, Value: val}
 	for p.atKw("case") || p.atKw("default") {
-		c := &SwitchCase{}
+		c := &SwitchCase{P: p.cur().Pos}
 		if p.atKw("default") {
 			p.i++
 			c.Default = true
