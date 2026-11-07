@@ -1,0 +1,6 @@
+=== RUN   TestS2EXT01
+    s2_ext_test.go:16: 期望诊断 TY-225，实际：[]
+--- FAIL: TestS2EXT01 (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	0.698s
+FAIL

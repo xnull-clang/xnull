@@ -216,6 +216,7 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 		}
 	}
 	c.checkAllAnnotations(u)
+	c.checkExtensions(u)
 }
 
 func (c *typeCheckCtx) declName(d xfront.TopDecl) string {
@@ -709,14 +710,190 @@ func (c *typeCheckCtx) checkExtension(d *xfront.ExtensionDecl) {
 	}
 	info, found := c.types[name]
 	if !found {
-		if !c.a.imported[name] {
-			c.errf(nt.P, TyExtension, "extension Target `"+name+"` 未声明或不可见（§11.1）", "")
-		}
+		c.errf(nt.P, TyExtension, "extension 不能跨包扩展或 Target `"+name+"` 未声明（§11.1/§11.4）", "")
 		return
 	}
 	if info.kind != "class" && info.kind != "struct" {
 		c.errf(nt.P, TyExtension, "extension Target 必须是同包 class/struct（得到 "+info.kind+"，§11.1）", "")
 	}
+}
+
+func (c *typeCheckCtx) extensionMethodKeys(info *typeInfo) map[string]bool {
+	out := map[string]bool{}
+	if info.class != nil {
+		for _, m := range info.class.Methods {
+			if !m.IsDeinit {
+				out[methodSigKey(m.Name, m.Params)] = true
+			}
+		}
+		for _, anc := range c.ancestorClasses(info.class) {
+			for _, m := range anc.class.Methods {
+				if !m.IsDeinit {
+					out[methodSigKey(m.Name, m.Params)] = true
+				}
+			}
+		}
+	}
+	if info.strct != nil {
+		for _, m := range info.strct.Methods {
+			out[methodSigKey(m.Name, m.Params)] = true
+		}
+	}
+	return out
+}
+
+func (c *typeCheckCtx) extensionDenied(info *typeInfo) map[string]bool {
+	denied := map[string]bool{}
+	if info.class != nil {
+		for _, f := range info.class.Fields {
+			if fieldVisibility(f) != "public" {
+				denied[f.Name] = true
+				denied[f.Canonical] = true
+			}
+		}
+		for _, m := range info.class.Methods {
+			if m.Mod.Vis == "private" || m.Mod.Vis == "protected" {
+				denied[m.Name] = true
+			}
+		}
+	}
+	return denied
+}
+
+func (c *typeCheckCtx) checkExtensions(u *xfront.CompilationUnit) {
+	seen := map[string]bool{}
+	extMethods := map[string]map[string]bool{}
+	for _, d := range u.Decls {
+		ext, ok := d.(*xfront.ExtensionDecl)
+		if !ok {
+			continue
+		}
+		nt, ok := ext.Target.(*xfront.NamedType)
+		if !ok || len(nt.Qual) != 1 || len(nt.Args) > 0 {
+			continue
+		}
+		name := nt.Qual[0]
+		info, found := c.types[name]
+		if !found {
+			continue
+		}
+		if seen[name] {
+			c.errf(ext.P, TyExtension, "同一类型 `"+name+"` 存在重复 extension 声明（§11.1）", "合并到一个 extension")
+		}
+		seen[name] = true
+		if extMethods[name] == nil {
+			extMethods[name] = map[string]bool{}
+		}
+		existing := c.extensionMethodKeys(info)
+		denied := c.extensionDenied(info)
+		for _, m := range ext.Methods {
+			key := methodSigKey(m.Name, m.Params)
+			if existing[key] || extMethods[name][key] {
+				c.errf(m.P, TyExtension, "extension 方法 `"+m.Name+"` 与已有/继承/其他扩展同签名（§11.1/§11.2）", "改名或改参数列表")
+			}
+			extMethods[name][key] = true
+			if stmtUsesDeniedMember(m.Body, denied) {
+				c.errf(m.P, TyExtension, "extension 方法只能访问目标公开成员（§11.3）", "")
+			}
+		}
+	}
+	// 子类不能声明与扩展方法同签名的方法（§11.2）。
+	for _, d := range u.Decls {
+		cls, ok := d.(*xfront.ClassDecl)
+		if !ok {
+			continue
+		}
+		for _, anc := range c.ancestorClasses(cls) {
+			keys := extMethods[anc.class.Name]
+			if keys == nil {
+				continue
+			}
+			for _, m := range cls.Methods {
+				if keys[methodSigKey(m.Name, m.Params)] {
+					c.errf(m.P, TyOverride, "子类方法 `"+m.Name+"` 覆写了扩展方法（§11.2）", "改名或改参数列表")
+				}
+			}
+		}
+	}
+}
+
+func stmtUsesDeniedMember(s xfront.Stmt, denied map[string]bool) bool {
+	switch st := s.(type) {
+	case nil:
+		return false
+	case *xfront.ExprStmt:
+		return exprUsesDeniedMember(st.X, denied)
+	case *xfront.AssignStmt:
+		return exprUsesDeniedMember(st.Target, denied) || exprUsesDeniedMember(st.Value, denied)
+	case *xfront.LocalDeclStmt:
+		return exprUsesDeniedMember(st.Init, denied)
+	case *xfront.ReturnStmt:
+		return exprUsesDeniedMember(st.Value, denied)
+	case *xfront.Block:
+		for _, x := range st.Stmts {
+			if stmtUsesDeniedMember(x, denied) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return stmtUsesDeniedMember(st.Then, denied) || stmtUsesDeniedMember(st.Else, denied)
+	case *xfront.WhileStmt:
+		return stmtUsesDeniedMember(st.Body, denied)
+	case *xfront.DoWhileStmt:
+		return stmtUsesDeniedMember(st.Body, denied)
+	case *xfront.ForStmt:
+		return stmtUsesDeniedMember(st.Body, denied)
+	case *xfront.DeferStmt:
+		if st.Block != nil {
+			return stmtUsesDeniedMember(st.Block, denied)
+		}
+		return stmtUsesDeniedMember(st.Stmt, denied)
+	case *xfront.LabeledStmt:
+		return stmtUsesDeniedMember(st.Stmt, denied)
+	}
+	return false
+}
+
+func exprUsesDeniedMember(e xfront.Expr, denied map[string]bool) bool {
+	switch n := e.(type) {
+	case nil:
+		return false
+	case *xfront.Member:
+		if isSelfIdent(n.X) && denied[n.Name] {
+			return true
+		}
+		return exprUsesDeniedMember(n.X, denied)
+	case *xfront.Paren:
+		return exprUsesDeniedMember(n.X, denied)
+	case *xfront.Unary:
+		return exprUsesDeniedMember(n.X, denied)
+	case *xfront.Binary:
+		return exprUsesDeniedMember(n.L, denied) || exprUsesDeniedMember(n.R, denied)
+	case *xfront.Call:
+		if exprUsesDeniedMember(n.Callee, denied) {
+			return true
+		}
+		for _, a := range n.Args {
+			if exprUsesDeniedMember(a, denied) {
+				return true
+			}
+		}
+	case *xfront.Tuple:
+		for _, el := range n.Elems {
+			if exprUsesDeniedMember(el, denied) {
+				return true
+			}
+		}
+	case *xfront.Index:
+		return exprUsesDeniedMember(n.X, denied) || exprUsesDeniedMember(n.Idx, denied)
+	case *xfront.StrLitExpr:
+		for _, p := range n.Parts {
+			if p.Expr != nil && exprUsesDeniedMember(p.Expr, denied) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // ---------- ANN-01：注解声明与使用（§12） ----------
