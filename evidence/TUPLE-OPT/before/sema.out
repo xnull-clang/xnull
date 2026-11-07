@@ -1,0 +1,6 @@
+=== RUN   TestTupleOptionalDeclaration
+    tuple_optional_test.go:7: 解析不应有诊断：[t.x:3:22: error[SYN-101]: 期望 `:`，遇到 `=` t.x:3:22: error[SYN-101]: 期望表达式，遇到 `=` t.x:3:24: error[SYN-108]: 语句未终止（同一行的下一条语句前缺少 `;`）]
+--- FAIL: TestTupleOptionalDeclaration (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	0.811s
+FAIL

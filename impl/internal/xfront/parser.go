@@ -894,6 +894,11 @@ func (p *parser) tryTupleTypeDecl() (Stmt, bool) {
 		return nil, false
 	}
 	p.i++ // )
+	var ty TypeRef = &TupleTypeRef{P: p.cur().Pos, Elems: elems}
+	if p.atOp("?") { // 可空元组 `(T1,T2)?`
+		q := p.next()
+		ty = &SuffixedType{P: q.Pos, Base: ty, Suffixes: []string{"?"}}
+	}
 	if !p.at(Ident) {
 		p.rollback(save, errLen)
 		return nil, false
@@ -905,7 +910,7 @@ func (p *parser) tryTupleTypeDecl() (Stmt, bool) {
 		return nil, false
 	}
 	p.i++
-	s := &LocalDeclStmt{P: save2pos(p, save), Type: &TupleTypeRef{P: p.cur().Pos, Elems: elems}, Name: name}
+	s := &LocalDeclStmt{P: save2pos(p, save), Type: ty, Name: name}
 	s.Init = p.parseExpr()
 	return s, true
 }
