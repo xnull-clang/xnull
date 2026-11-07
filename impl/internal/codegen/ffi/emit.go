@@ -117,6 +117,7 @@ func (r *Registry) EmitSupport() Snippet {
 		return Snippet{}
 	}
 	var b strings.Builder
+	var problems []string
 	b.WriteString("/* 绑定层支撑代码（由 .xfb 注册表生成；只包含 xrt.h，S7 §6.1 / INV-FFI-7） */\n")
 	b.WriteString("/* S7 §6.2：绑定层可访问弱表；应用层包含 xrt.h 时不定义此宏。 */\n")
 	b.WriteString("#define XRT_BINDINGS_LAYER 1\n")
@@ -131,6 +132,17 @@ func (r *Registry) EmitSupport() Snippet {
 			fmt.Fprintf(&b, "_Static_assert(sizeof(xn_layout_%s) == %d, \"layout(c) %s 尺寸不符（S7 §3.3）\");\n\n", l.Name, n, l.Name)
 		}
 	}
+	for _, cb := range r.Callbacks {
+		// S7-03：回调声明自动生成 typed trampoline（EmitTrampoline 的唯一调用点）。
+		txt, err := r.EmitTrampoline(cb.Name)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("回调 %s：%v", cb.Name, err))
+			fmt.Fprintf(&b, "/* 回调 %s 未生成：%v */\n", cb.Name, err)
+			continue
+		}
+		b.WriteString(txt.Text)
+		b.WriteString("\n")
+	}
 	for _, rg := range r.regionNames() {
 		b.WriteString(emitErrorKind(rg, r.rulesOfRegion(rg)))
 	}
@@ -144,7 +156,6 @@ func (r *Registry) EmitSupport() Snippet {
 		b.WriteString(proto + "\n")
 	}
 	b.WriteString("#endif\n\n")
-	var problems []string
 	for _, e := range r.Entries {
 		text, err := emitWrapper(e)
 		if err != nil {
@@ -187,8 +198,11 @@ func LinkArgs(libs []LinkLib) []string {
 // 已注销 env 再调用由运行时 xrt_fatal 终止（S7 §5.2）；回调内 panic 走
 // 既有 fatal 路径（S7 §5.3），不做任务级隔离。
 func (r *Registry) EmitTrampoline(entry string) (Snippet, error) {
+	if cb, ok := r.Callback(entry); ok {
+		return Snippet{Text: emitCallbackTrampoline(cb), Includes: []string{"xrt.h"}}, nil
+	}
 	if _, ok := r.Entry(entry); !ok {
-		return Snippet{}, fmt.Errorf("ffi: 未声明的入口 %s", entry)
+		return Snippet{}, fmt.Errorf("ffi: 未声明的入口或回调 %s", entry)
 	}
 	name := "xn_tramp_" + entry
 	var b strings.Builder
@@ -752,3 +766,98 @@ func alignUp(n, a int) int {
 
 // CSize 导出 layout 的 C sizeof（与 sema RegisterExternalLayout 同源）。
 func CSize(l Layout, all []Layout) (int, error) { return layoutCSize(l, all) }
+
+// emitCallbackTrampoline 为一条 .xfb 回调声明生成 typed trampoline（S7 §5.1/§5.2/§5.3）。
+//
+// 形态：
+//
+//	xn_tramp_<Name>_args            参数打包结构（C ABI 布局）
+//	xn_tramp_<Name>_fn              闭包函数签名（captures + args + result）
+//	xn_tramp_<Name>_closure         闭包对象（fn + captures，原生持有期间有效）
+//	xn_tramp_<Name>_adapt           xrt_callback_fn 适配层（nargs + 类型校验）
+//	xn_tramp_<Name>_new(closure)    → xrt_callback_env_new（登记根）
+//	xn_tramp_<Name>_destroy(env)    → xrt_callback_env_destroy（注销根，幂等）
+//	xn_tramp_<Name>_invoke(env,a,r) → xrt_callback_env_invoke；非 0 状态按 panic 终止
+func emitCallbackTrampoline(cb Callback) string {
+	name := "xn_tramp_" + cb.Name
+	var b strings.Builder
+	fmt.Fprintf(&b, "/* trampoline %s（S7 §5.1/§5.2：env 生命周期 + 根登记） */\n", cb.Name)
+
+	// 参数打包结构：args 指向它，闭包按字段取值。
+	if len(cb.Params) == 0 {
+		fmt.Fprintf(&b, "typedef struct { uint8_t xn_unused; } %s_args;\n", name)
+	} else {
+		fmt.Fprintf(&b, "typedef struct {\n")
+		for i, p := range cb.Params {
+			fmt.Fprintf(&b, "    %s p%d;\n", callbackCType(p), i)
+		}
+		fmt.Fprintf(&b, "} %s_args;\n", name)
+	}
+
+	// 闭包签名与对象。
+	retC, isVoid := callbackRetCType(cb.Ret)
+	if isVoid {
+		fmt.Fprintf(&b, "typedef int32_t (*%s_fn)(void *xn_captures, const %s_args *xn_args);\n", name, name)
+	} else {
+		fmt.Fprintf(&b, "typedef int32_t (*%s_fn)(void *xn_captures, const %s_args *xn_args, %s *xn_result);\n", name, name, retC)
+	}
+	fmt.Fprintf(&b, "typedef struct { %s_fn fn; void *captures; } %s_closure;\n\n", name, name)
+
+	// 适配层：校验 nargs 后调用闭包；非 0 闭包状态由 invoke 转 fatal（§5.3）。
+	fmt.Fprintf(&b, "static int32_t %s_adapt(void *xn_closure, const void *xn_args, size_t xn_argc, void *xn_result) {\n", name)
+	b.WriteString("    const " + name + "_closure *xn_c = (const " + name + "_closure *)xn_closure;\n")
+	b.WriteString("    const " + name + "_args *xn_a = (const " + name + "_args *)xn_args;\n")
+	fmt.Fprintf(&b, "    if (xn_argc != sizeof(%s_args)) {\n        xrt_fatal(\"trampoline %s：参数尺寸不符（S7 §5.1）\");\n    }\n", name, cb.Name)
+	fmt.Fprintf(&b, "    if (xn_c == NULL || xn_c->fn == NULL) {\n        xrt_fatal(\"trampoline %s：缺少闭包目标（S7 §5.1）\");\n    }\n", cb.Name)
+	if isVoid {
+		b.WriteString("    return xn_c->fn(xn_c->captures, xn_a);\n")
+	} else {
+		b.WriteString("    return xn_c->fn(xn_c->captures, xn_a, (" + retC + " *)xn_result);\n")
+	}
+	b.WriteString("}\n\n")
+
+	// 创建/销毁/调用。
+	fmt.Fprintf(&b, "static xrt_callback_env *%s_new(%s_closure *xn_closure) {\n", name, name)
+	b.WriteString("    return xrt_callback_env_new((void *)xn_closure, " + name + "_adapt);\n")
+	b.WriteString("}\n\n")
+	fmt.Fprintf(&b, "static void %s_destroy(xrt_callback_env *xn_env) {\n", name)
+	b.WriteString("    xrt_callback_env_destroy(xn_env);\n")
+	b.WriteString("}\n\n")
+	if isVoid {
+		fmt.Fprintf(&b, "static int32_t %s_invoke(xrt_callback_env *xn_env, const %s_args *xn_args) {\n", name, name)
+		b.WriteString("    int32_t xn_st = xrt_callback_env_invoke(xn_env, xn_args, sizeof(*xn_args), NULL);\n")
+	} else {
+		fmt.Fprintf(&b, "static int32_t %s_invoke(xrt_callback_env *xn_env, const %s_args *xn_args, %s *xn_result) {\n", name, name, retC)
+		b.WriteString("    int32_t xn_st = xrt_callback_env_invoke(xn_env, xn_args, sizeof(*xn_args), xn_result);\n")
+	}
+	fmt.Fprintf(&b, "    if (xn_st != 0) {\n        /* S7 §5.3：回调内 panic 在嵌入侧根边界终止进程，不做任务级隔离。 */\n        xrt_fatal(\"trampoline %s：回调返回错误状态，按 panic 终止（S7 §5.3）\");\n    }\n", cb.Name)
+	b.WriteString("    return xn_st;\n")
+	b.WriteString("}\n")
+	return b.String()
+}
+
+// callbackCType 把回调参数的边界类型映射为 C 类型（S7 §3.2/§5.1）。
+func callbackCType(t BoundType) string {
+	switch t.Kind {
+	case KindScalar:
+		if c, ok := scalarC(t.Name); ok {
+			return c
+		}
+	case KindLayout:
+		return "xn_layout_" + t.Name
+	case KindHandle:
+		return "xrt_handle *"
+	}
+	return "void *"
+}
+
+// callbackRetCType 返回回调返回值的 C 类型；Void 以 ok=false 表示。
+func callbackRetCType(t BoundType) (string, bool) {
+	if t.Kind == KindVoid {
+		return "", true
+	}
+	if c, ok := scalarC(t.Name); ok {
+		return c, false
+	}
+	return "int32_t", false
+}

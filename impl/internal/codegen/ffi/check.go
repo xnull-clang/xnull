@@ -65,21 +65,23 @@ func annValue(a *annotation, key string) (string, bool) {
 
 // checker 对单个 ffi 块做合同校验并产出注册表条目。
 type checker struct {
-	file    string
-	rg      *region
-	diags   []Diagnostic
-	layouts map[string]*layoutSrc
-	handles map[string]*handleSrc
-	entries map[string]*entrySrc
-	out     *Registry
+	file      string
+	rg        *region
+	diags     []Diagnostic
+	layouts   map[string]*layoutSrc
+	handles   map[string]*handleSrc
+	callbacks map[string]*callbackSrc
+	entries   map[string]*entrySrc
+	out       *Registry
 }
 
 func newChecker(file string, rg *region, out *Registry) *checker {
 	return &checker{
 		file: file, rg: rg, out: out,
-		layouts: map[string]*layoutSrc{},
-		handles: map[string]*handleSrc{},
-		entries: map[string]*entrySrc{},
+		layouts:   map[string]*layoutSrc{},
+		handles:   map[string]*handleSrc{},
+		callbacks: map[string]*callbackSrc{},
+		entries:   map[string]*entrySrc{},
 	}
 }
 
@@ -93,6 +95,7 @@ func (c *checker) run() []Diagnostic {
 	c.collectNames()
 	c.checkLayouts()
 	c.checkHandles()
+	c.checkCallbacks()
 	c.checkEntries()
 	c.checkHandleClose()
 	return c.diags
@@ -128,6 +131,17 @@ func (c *checker) collectNames() {
 		c.handles[h.Name] = h
 		c.out.Handles = append(c.out.Handles, Handle{Name: h.Name, Region: c.rg.Name, Close: h.Close})
 	}
+	for _, cb := range c.rg.Callbacks {
+		if _, dup := c.callbacks[cb.Name]; dup {
+			c.diag(cb.Pos, "FFI-111", "重复的回调声明 "+cb.Name)
+			continue
+		}
+		if _, dup := findCallback(c.out, cb.Name); dup {
+			c.diag(cb.Pos, "FFI-111", "回调 "+cb.Name+" 在其它声明块重复")
+			continue
+		}
+		c.callbacks[cb.Name] = cb
+	}
 	for _, e := range c.rg.Entries {
 		if _, dup := c.entries[e.Name]; dup {
 			c.diag(e.Pos, "FFI-111", "重复的入口声明 "+e.Name)
@@ -146,6 +160,15 @@ func findLayout(r *Registry, name string) (Layout, bool) {
 	return Layout{}, false
 }
 
+func findCallback(r *Registry, name string) (Callback, bool) {
+	for i := range r.Callbacks {
+		if r.Callbacks[i].Name == name {
+			return r.Callbacks[i], true
+		}
+	}
+	return Callback{}, false
+}
+
 func findHandle(r *Registry, name string) (Handle, bool) {
 	for i := range r.Handles {
 		if r.Handles[i].Name == name {
@@ -153,6 +176,39 @@ func findHandle(r *Registry, name string) (Handle, bool) {
 		}
 	}
 	return Handle{}, false
+}
+
+// checkCallbacks 校验回调签名（S7 §5.1）：参数限标量/layout(c)/句柄，返回标量或 Void。
+func (c *checker) checkCallbacks() {
+	for _, cb := range c.rg.Callbacks {
+		out := Callback{Name: cb.Name, Region: c.rg.Name}
+		for _, p := range cb.Params {
+			bt, ok := c.bound(p, false)
+			if !ok {
+				continue
+			}
+			switch bt.Kind {
+			case KindScalar, KindLayout, KindHandle:
+			default:
+				c.diag(p.Pos, "FFI-112", fmt.Sprintf(
+					"回调 %s 的参数类型 %s 不可跨边界：限标量、layout(c) 或句柄（S7 §5.1/§5.3）",
+					cb.Name, bt.String()))
+				continue
+			}
+			out.Params = append(out.Params, bt)
+		}
+		if cb.Ret.Name == "Void" {
+			out.Ret = BoundType{Kind: KindVoid, Name: "Void"}
+		} else if bt, ok := c.bound(cb.Ret, true); ok {
+			if bt.Kind != KindScalar {
+				c.diag(cb.Ret.Pos, "FFI-112", fmt.Sprintf(
+					"回调 %s 的返回类型 %s 非法：限标量或 Void（S7 §5.1）", cb.Name, bt.String()))
+			} else {
+				out.Ret = bt
+			}
+		}
+		c.out.Callbacks = append(c.out.Callbacks, out)
+	}
 }
 
 // checkLayouts 校验 layout(c)：字段限标量与嵌套 layout(c)，禁递归，字段名唯一。
@@ -508,6 +564,8 @@ func (c *checker) resolve(t typeRef, isRet bool) (BoundType, string, string) {
 		base = BoundType{Kind: KindHandle, Name: t.Name}
 	case c.layouts[t.Name] != nil:
 		base = BoundType{Kind: KindLayout, Name: t.Name}
+	case c.callbacks[t.Name] != nil:
+		base = BoundType{Kind: KindCallback, Name: t.Name}
 	default:
 		if msg, ok := bannedTypeNames[t.Name]; ok {
 			return BoundType{}, "FFI-105", msg

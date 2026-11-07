@@ -81,6 +81,7 @@ const (
 	KindArray
 	KindLayout
 	KindHandle
+	KindCallback
 )
 
 // BoundType 是参数/返回值的边界类型。
@@ -186,6 +187,14 @@ type LayoutField struct {
 	Type string // 标量名
 }
 
+// Callback 是回调声明（S7 §5.1：trampoline 的类型来源）。
+type Callback struct {
+	Name   string
+	Region string
+	Params []BoundType
+	Ret    BoundType
+}
+
 // Layout 是 layout(c) 结构声明。
 type Layout struct {
 	Name   string
@@ -202,14 +211,15 @@ type Handle struct {
 
 // Registry 是全部绑定声明的机器可读产物（确定性：各项按名称排序）。
 type Registry struct {
-	Entries []Entry
-	Layouts []Layout
-	Handles []Handle
+	Entries   []Entry
+	Layouts   []Layout
+	Handles   []Handle
+	Callbacks []Callback
 }
 
 // Empty 报告注册表是否为空（无 FFI 的空路径）。
 func (r *Registry) Empty() bool {
-	return r == nil || (len(r.Entries) == 0 && len(r.Layouts) == 0 && len(r.Handles) == 0)
+	return r == nil || (len(r.Entries) == 0 && len(r.Layouts) == 0 && len(r.Handles) == 0 && len(r.Callbacks) == 0)
 }
 
 // Entry 按名称查找入口。
@@ -225,11 +235,25 @@ func (r *Registry) Entry(name string) (Entry, bool) {
 	return Entry{}, false
 }
 
+// Callback 按名称查找回调声明。
+func (r *Registry) Callback(name string) (Callback, bool) {
+	if r == nil {
+		return Callback{}, false
+	}
+	for i := range r.Callbacks {
+		if r.Callbacks[i].Name == name {
+			return r.Callbacks[i], true
+		}
+	}
+	return Callback{}, false
+}
+
 // sortAll 按名称排序（DET-01）。
 func (r *Registry) sortAll() {
 	sort.Slice(r.Entries, func(i, j int) bool { return r.Entries[i].Name < r.Entries[j].Name })
 	sort.Slice(r.Layouts, func(i, j int) bool { return r.Layouts[i].Name < r.Layouts[j].Name })
 	sort.Slice(r.Handles, func(i, j int) bool { return r.Handles[i].Name < r.Handles[j].Name })
+	sort.Slice(r.Callbacks, func(i, j int) bool { return r.Callbacks[i].Name < r.Callbacks[j].Name })
 }
 
 // sortDiags 诊断按文件/行/列/码排序，保证同一输入同一输出顺序。
@@ -260,6 +284,7 @@ func kindName(k BoundKind) string {
 	names := map[BoundKind]string{
 		KindVoid: "Void", KindScalar: "标量", KindString: "String", KindText: "Text",
 		KindBytes: "Bytes", KindArray: "数组", KindLayout: "layout(c) 结构", KindHandle: "句柄",
+		KindCallback: "回调",
 	}
 	if n, ok := names[k]; ok {
 		return n
