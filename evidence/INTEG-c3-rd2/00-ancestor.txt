@@ -1,0 +1,6 @@
+== git merge-base --is-ancestor 3e41a07 9f5f66c ==
+rc=0
+
+== HEAD ==
+9f5f66c0e132953646ae4213218629dbaa3be0e8
+

@@ -1,0 +1,36 @@
+# ENTRY-01 targeted: cli
+=== RUN   TestRunEntryTwoSignatures
+=== RUN   TestRunEntryTwoSignatures/void_无参
+=== RUN   TestRunEntryTwoSignatures/Int_无参
+=== RUN   TestRunEntryTwoSignatures/void_args
+=== RUN   TestRunEntryTwoSignatures/Int_args
+--- PASS: TestRunEntryTwoSignatures (3.87s)
+    --- PASS: TestRunEntryTwoSignatures/void_无参 (0.94s)
+    --- PASS: TestRunEntryTwoSignatures/Int_无参 (0.97s)
+    --- PASS: TestRunEntryTwoSignatures/void_args (0.98s)
+    --- PASS: TestRunEntryTwoSignatures/Int_args (0.98s)
+=== RUN   TestRunEntryArgsArray
+--- PASS: TestRunEntryArgsArray (1.06s)
+=== RUN   TestRunEntryInitOrder
+--- PASS: TestRunEntryInitOrder (1.00s)
+=== RUN   TestRunEntryMissingRejected
+--- PASS: TestRunEntryMissingRejected (0.00s)
+=== RUN   TestRunEntryDuplicateRejected
+--- PASS: TestRunEntryDuplicateRejected (0.00s)
+=== RUN   TestEntryMissingMainDiagnostic
+--- PASS: TestEntryMissingMainDiagnostic (0.00s)
+=== RUN   TestEntryDuplicateMainDiagnostic
+--- PASS: TestEntryDuplicateMainDiagnostic (0.00s)
+=== RUN   TestEntrySignatureDiagnostic
+=== RUN   TestEntrySignatureDiagnostic/带非_String[]_参数
+=== RUN   TestEntrySignatureDiagnostic/返回_Bool
+=== RUN   TestEntrySignatureDiagnostic/参数个数超限
+--- PASS: TestEntrySignatureDiagnostic (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/带非_String[]_参数 (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/返回_Bool (0.00s)
+    --- PASS: TestEntrySignatureDiagnostic/参数个数超限 (0.00s)
+=== RUN   TestInitOrderViaCLI
+--- PASS: TestInitOrderViaCLI (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	6.847s
+EXIT=0

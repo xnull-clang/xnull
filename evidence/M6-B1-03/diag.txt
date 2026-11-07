@@ -1,0 +1,11 @@
+== 异常输入（Go oracle）==
+缺文件          rc=2 stderr=xnfmt: /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/b1-03/diag/nope.x:0:0: error[FMT-104]: 参数不是可读文件
+目录           rc=2 stderr=xnfmt: /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/b1-03/diag/adir:0:0: error[FMT-104]: 参数不是可读文件
+非法UTF-8      rc=2 stderr=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/b1-03/diag/invalid-utf8.x:1:1: error[FMT-102]: 输入不是合法 UTF-8
+无参数          rc=2 stderr=xnfmt: 缺少文件参数（FMT-104）
+
+== 异常输入（XNull 版）==
+缺文件          rc=139 stderr_bytes=0
+目录           rc=139 stderr_bytes=0
+非法UTF-8      rc=0 stderr_bytes=0
+无参数          rc=2 stderr_bytes=0

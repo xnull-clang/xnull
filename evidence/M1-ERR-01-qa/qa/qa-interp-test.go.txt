@@ -1,0 +1,205 @@
+package interp
+
+// QA1 独立验收用例：ERR-01 运行期面（S1 §10.1—§10.3）。
+// 运行：go test ./internal/interp -run TestQAERR01 -count=1 -v
+
+import (
+	"strings"
+	"testing"
+
+	"xnull.dev/xnull/internal/xfront"
+)
+
+func qaRunSrc(t *testing.T, src string) (string, int, error) {
+	t.Helper()
+	u, pd := xfront.ParseUnit("qa.x", src)
+	if len(pd) != 0 {
+		t.Fatalf("QA 用例本身解析失败：%v", pd)
+	}
+	var out strings.Builder
+	code, err := Run(u, &out, nil)
+	return out.String(), code, err
+}
+
+func TestQAERR01Runtime(t *testing.T) {
+	cases := []struct {
+		name    string
+		src     string
+		wantOut string
+		wantCode int
+		wantErr string
+	}{
+		{
+			name:    "Err上读value必须panic",
+			src:     `static Int main() { Result<Int, String> r = Err("bad"); print(r.value()); return 0 }`,
+			wantOut: "", wantCode: 134, wantErr: "value",
+		},
+		{
+			name:    "Ok上读error必须panic",
+			src:     `static Int main() { Result<Int, String> r = Ok(1); print(r.error()); return 0 }`,
+			wantOut: "", wantCode: 134, wantErr: "error",
+		},
+		{
+			name:    "isOk/isErr安全",
+			src:     `static Int main() { Result<Int, String> a = Ok(1); Result<Int, String> b = Err("x"); if a.isOk() { print("aok") }; if b.isErr() { print("berr") }; return 0 }`,
+			wantOut: "aok\nberr\n", wantCode: 0,
+		},
+		{
+			name:    "unwrapOr两分支",
+			src:     `static Int main() { Result<Int, String> a = Ok(5); Result<Int, String> b = Err("x"); print(a.unwrapOr(9)); print(b.unwrapOr(9)); return 0 }`,
+			wantOut: "5\n9\n", wantCode: 0,
+		},
+		{
+			name: "try逐层传播并执行两层清理",
+			src: `static Result<Int, String> step() { defer print("step-d"); errdefer print("step-e"); return Err("x") }
+static Result<Int, String> mid() { defer print("mid-d"); errdefer print("mid-e"); Int v = try step(); return Ok(v) }
+static Int main() { Result<Int, String> r = mid(); if r.isErr() { print(r.error()) }; return 0 }`,
+			wantOut: "step-e\nstep-d\nmid-e\nmid-d\nx\n", wantCode: 0,
+		},
+		{
+			name: "返回Err变量也触发errdefer",
+			src: `static Result<Int, String> f() { errdefer print("e"); Result<Int, String> r = Err("x"); return r }
+static Int main() { Result<Int, String> r = f(); print("done"); return 0 }`,
+			wantOut: "e\ndone\n", wantCode: 0,
+		},
+		{
+			name: "Ok返回不触发errdefer",
+			src: `static Result<Int, String> f() { defer print("d"); errdefer print("e"); return Ok(1) }
+static Int main() { Result<Int, String> r = f(); print("done"); return 0 }`,
+			wantOut: "d\ndone\n", wantCode: 0,
+		},
+		{
+			name: "break只执行defer",
+			src: `static Result<Int, String> f() { for i in 0..<3 { defer print("d"); errdefer print("e"); if i == 1 { break } }; return Ok(1) }
+static Int main() { Result<Int, String> r = f(); print("done"); return 0 }`,
+			wantOut: "d\nd\ndone\n", wantCode: 0,
+		},
+		{
+			name: "continue只执行defer",
+			src: `static Result<Int, String> f() { for i in 0..<3 { defer print("d"); errdefer print("e"); if i == 1 { continue } }; return Ok(1) }
+static Int main() { Result<Int, String> r = f(); print("done"); return 0 }`,
+			wantOut: "d\nd\nd\ndone\n", wantCode: 0,
+		},
+		{
+			name: "throw不执行defer/errdefer",
+			src: `static Int main() { defer print("d"); errdefer print("e"); throw "boom"; return 0 }`,
+			wantOut: "", wantCode: 134, wantErr: "boom",
+		},
+		{
+			name: "Result<void,E>的try语句",
+			src: `static Result<void, String> inner() { return Ok() }
+static Result<void, String> outer() { try inner(); return Ok() }
+static Int main() { Result<void, String> r = outer(); if r.isOk() { print("ok") }; return 0 }`,
+			wantOut: "ok\n", wantCode: 0,
+		},
+		{
+			name: "Result<void,E>的try失败传播",
+			src: `static Result<void, String> inner() { return Err("x") }
+static Result<void, String> outer() { try inner(); return Ok() }
+static Int main() { Result<void, String> r = outer(); if r.isErr() { print("handled:" + r.error()) }; return 0 }`,
+			wantOut: "handled:x\n", wantCode: 0,
+		},
+		{
+			name: "嵌套try",
+			src: `static Result<Result<Int, String>, String> nested() { return Ok(Ok(7)) }
+static Result<Int, String> outer() { Int x = try try nested(); return Ok(x + 1) }
+static Int main() { Result<Int, String> r = outer(); if r.isOk() { print(r.value()) }; return 0 }`,
+			wantOut: "8\n", wantCode: 0,
+		},
+		{
+			name: "try优先级只作用于紧邻前缀表达式",
+			src: `static Result<Int, String> inner() { return Ok(1) }
+static Result<Int, String> outer() { Int x = try inner() + 1; return Ok(x); }
+static Int main() { Result<Int, String> r = outer(); if r.isOk() { print(r.value()) }; return 0; }`,
+			wantOut: "2\n", wantCode: 0,
+		},
+		{
+			name: "defer执行时读取变量当前值",
+			src: `static Result<Int, String> f() { Int x = 1; defer print(x); x = 2; return Ok(1) }
+static Int main() { Result<Int, String> r = f(); return 0 }`,
+			wantOut: "2\n", wantCode: 0,
+		},
+		{
+			name: "循环每轮的defer在当轮结束执行",
+			src: `static Int main() { for i in 0..<3 { defer print("d") }; return 0 }`,
+			wantOut: "d\nd\nd\n", wantCode: 0,
+		},
+		{
+			name: "块作用域退出执行defer",
+			src: `static Int main() { if true { defer print("inner"); print("body") }; print("after"); return 0 }`,
+			wantOut: "body\ninner\nafter\n", wantCode: 0,
+		},
+		{
+			name: "直接return Err的执行顺序",
+			src: `static Result<Int, String> f() { defer print("d"); errdefer print("e"); return Err("x") }
+static Int main() { Result<Int, String> r = f(); print("done"); return 0 }`,
+			wantOut: "e\nd\ndone\n", wantCode: 0,
+		},
+		{
+			name: "闭包try成功返回",
+			src: `static Result<Int, String> g(Int x) { return Ok(x) }
+static Result<Int, String> f() {
+    Result<Int, String>(Int) h = (Int x) -> { Int v = try g(x); return Ok(v + 1); };
+    Result<Int, String> r = h(3);
+    if r.isOk() { print(r.value()); }
+    print("after-call");
+    return Ok(1);
+}
+static Int main() { Result<Int, String> r = f(); if r.isOk() { print("outer-ok") }; return 0; }`,
+			wantOut: "4\nafter-call\nouter-ok\n", wantCode: 0,
+		},
+		{
+			name: "闭包try失败必须从闭包返回而不是穿透外层",
+			src: `static Result<Int, String> g(Int x) { return Err("bad") }
+static Result<Int, String> f() {
+    Result<Int, String>(Int) h = (Int x) -> { Int v = try g(x); return Ok(v); };
+    Result<Int, String> r = h(-1);
+    if r.isErr() { print("closure-err:" + r.error()); }
+    print("after-call");
+    return Ok(1);
+}
+static Int main() { Result<Int, String> r = f(); if r.isOk() { print("outer-ok") } else { print("outer-err:" + r.error()) }; return 0; }`,
+			wantOut: "closure-err:bad\nafter-call\nouter-ok\n", wantCode: 0,
+		},
+		{
+			name: "闭包try失败不触发外层errdefer",
+			src: `static Result<Int, String> g(Int x) { return Err("bad") }
+static Result<Int, String> f() {
+    defer print("outer-d");
+    errdefer print("outer-e");
+    Result<Int, String>(Int) h = (Int x) -> {
+        defer print("closure-d");
+        errdefer print("closure-e");
+        Int v = try g(x);
+        return Ok(v);
+    };
+    Result<Int, String> r = h(-1);
+    if r.isErr() { print("handled"); }
+    print("after-call");
+    return Ok(1);
+}
+static Int main() { Result<Int, String> r = f(); if r.isOk() { print("outer-ok") } else { print("outer-err") }; return 0; }`,
+			// 2026-11-07 QA1 修正期望：S1 §10.3 规定 defer 在“当前作用域退出时”执行，
+			// 且正常退出只执行 defer。f() 的 outer-d 在 f 作用域退出时执行，先于 main 的 outer-ok。
+			wantOut: "closure-e\nclosure-d\nhandled\nafter-call\nouter-d\nouter-ok\n", wantCode: 0,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, code, err := qaRunSrc(t, c.src)
+			if out != c.wantOut {
+				t.Fatalf("stdout 不符：\n got  %q\n want %q", out, c.wantOut)
+			}
+			if code != c.wantCode {
+				t.Fatalf("退出码不符：got %d want %d（err=%v）", code, c.wantCode, err)
+			}
+			if c.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+					t.Fatalf("错误信息应含 %q，实际：%v", c.wantErr, err)
+				}
+			} else if c.wantCode == 0 && err != nil {
+				t.Fatalf("非 fatal 用例不应返回错误：%v", err)
+			}
+		})
+	}
+}

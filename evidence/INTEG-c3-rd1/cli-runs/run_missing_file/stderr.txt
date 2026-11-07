@@ -1,0 +1,2 @@
+does-not-exist.x:1:1: error[RES-106]: 找不到包文件 does-not-exist.x（import 点分路径映射为同目录相对路径 .x）
+  确认文件名与 import 路径一致，或改用已存在的包

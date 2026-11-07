@@ -1,0 +1,1 @@
+# command: /tmp/xnull-integ run does-not-exist.x

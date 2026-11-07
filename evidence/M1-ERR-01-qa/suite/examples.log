@@ -1,0 +1,26 @@
+=== RUN   TestExamplesCompileMatchesInterp
+=== RUN   TestExamplesCompileMatchesInterp/ast-seed.x
+=== RUN   TestExamplesCompileMatchesInterp/classes.x
+=== RUN   TestExamplesCompileMatchesInterp/containers.x
+=== RUN   TestExamplesCompileMatchesInterp/defer-cleanup.x
+=== RUN   TestExamplesCompileMatchesInterp/hello.x
+=== RUN   TestExamplesCompileMatchesInterp/lexer-seed.x
+=== RUN   TestExamplesCompileMatchesInterp/objlist.x
+=== RUN   TestExamplesCompileMatchesInterp/parser-seed.x
+=== RUN   TestExamplesCompileMatchesInterp/result-try.x
+--- PASS: TestExamplesCompileMatchesInterp (36.53s)
+    --- PASS: TestExamplesCompileMatchesInterp/ast-seed.x (4.66s)
+    --- PASS: TestExamplesCompileMatchesInterp/classes.x (3.17s)
+    --- PASS: TestExamplesCompileMatchesInterp/containers.x (4.03s)
+    --- PASS: TestExamplesCompileMatchesInterp/defer-cleanup.x (6.38s)
+    --- PASS: TestExamplesCompileMatchesInterp/hello.x (2.73s)
+    --- PASS: TestExamplesCompileMatchesInterp/lexer-seed.x (3.28s)
+    --- PASS: TestExamplesCompileMatchesInterp/objlist.x (3.76s)
+    --- PASS: TestExamplesCompileMatchesInterp/parser-seed.x (4.38s)
+    --- PASS: TestExamplesCompileMatchesInterp/result-try.x (4.14s)
+=== RUN   TestCompileDeferSemantics
+--- PASS: TestCompileDeferSemantics (4.65s)
+=== RUN   TestMultiFileExampleCompileMatchesInterp
+--- PASS: TestMultiFileExampleCompileMatchesInterp (5.19s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	48.531s

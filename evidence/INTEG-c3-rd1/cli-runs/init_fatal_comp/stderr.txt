@@ -1,0 +1,5 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-594761708/prog.c:140:1: warning: non-void function does not return a value [-Wreturn-type]
+  140 | }
+      | ^
+1 warning generated.
+fatal: init-boom

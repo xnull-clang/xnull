@@ -1,0 +1,5 @@
+== 同命令同 -o 两次构建（examples/containers.x）==
+rc1=0
+sha1=c5aae4b0a79ada4b1ab81f2a6e9c856813420a250ff9fcef1e6df60d21c8fc4e
+rc2=0
+sha2=c5aae4b0a79ada4b1ab81f2a6e9c856813420a250ff9fcef1e6df60d21c8fc4e

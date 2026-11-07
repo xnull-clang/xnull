@@ -1,0 +1,11 @@
+# ENTRY-01 独立验收命令（2026-11-07）
+# 环境：macOS 26.5.2 x86_64 / go1.27.3 / Apple clang 17.0.0
+T=$TMPDIR/opencode/entry-qa
+cd /Users/vjs/Desktop/XNull-Lang/wt/e4-codegen
+git archive 592e7f7 | tar -x -C $T/src
+cd $T/src/impl && go build -o $T/xnull ./cmd/xnull
+export XNULL_RUNTIME=$T/src/impl/runtime
+bash $T/run.sh
+bash $T/run2.sh
+cd $T/src/impl && go vet ./... && go test ./... -count=1 -timeout 900s
+# 示例双路径：9 个 examples/*.x + examples/multi/main.x 逐个 --interp 与默认路径比对 stdout+退出码

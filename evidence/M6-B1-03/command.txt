@@ -1,0 +1,13 @@
+# M6-B1-03 差分验收（只读，未改代码/测试）
+# 环境：macOS 26.5.2 x86_64 / go1.27.3 / Apple clang 17.0.0
+T=$TMPDIR/opencode/b1-03
+cd /Users/vjs/Desktop/XNull-Lang
+git archive 8ed0153 | tar -x -C $T/go
+git archive 65d54ce | tar -x -C $T/xn
+git archive f63fcba | tar -x -C $T/corpus
+cd $T/go/impl && go build -o $T/xnfmt-go ./cmd/xnfmt
+cd $T/xn/impl && go build -o $T/xnull-go ./cmd/xnull
+cd $T/xn && XNULL_RUNTIME=$T/xn/impl/runtime $T/xnull-go build impl/xnfmt/xnfmt.x -o $T/xnfmt-xn
+# 语料：git ls-tree -r --name-only f63fcba | grep '\.x$'  → 155
+bash run-diff.sh        # 逐文件双实现格式化 + cmp + 二次幂等
+# 异常输入：见 diag.txt

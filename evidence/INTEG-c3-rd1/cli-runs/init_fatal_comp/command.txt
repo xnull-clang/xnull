@@ -1,0 +1,1 @@
+# command: /tmp/xnull-integ run /Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/init_fatal.x

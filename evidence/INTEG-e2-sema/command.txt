@@ -1,0 +1,10 @@
+cd /tmp/integ-e2   # git archive 9f5f66c
+git merge-base --is-ancestor 5cfc248 9f5f66c
+cd impl && go vet ./...
+go test ./... -count=1 -timeout 300s
+cd /tmp/integ-e2 && bash impl/runtime/build_rt.sh
+cd impl && go test ./internal/sema -run 'TestTuple|TestNumericVariant' -count=1 -v
+go test ./internal/interp -run 'TestTuple' -count=1 -v
+go test ./internal/sema -run 'TestQA2NumericVariant|TestQA2TupleIndependent' -count=1 -v
+go test ./internal/sema -run TestQA2Int64NegativeOverflowProbe -count=1 -v
+go test ./internal/interp -run TestQA2TupleRuntimeProbe -count=1 -v

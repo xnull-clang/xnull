@@ -1,0 +1,6 @@
+XNull CI（单步 10）  工作树=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/s04b-gate/clone
+
+PASS 10 文件名扫描（禁旧扩展名）    203ms
+
+—— 汇总：PASS=1 FAIL=0 SKIP=0，用时 416ms ——
+退出码：0

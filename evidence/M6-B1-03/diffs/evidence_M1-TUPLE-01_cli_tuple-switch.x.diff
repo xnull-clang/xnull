@@ -1,0 +1,11 @@
+--- /Users/vjs/Desktop/XNull-Lang/evidence/M6-B1-03/diffs/evidence_M1-TUPLE-01_cli_tuple-switch.x.go.out	2026-11-07 13:25:37
++++ /Users/vjs/Desktop/XNull-Lang/evidence/M6-B1-03/diffs/evidence_M1-TUPLE-01_cli_tuple-switch.x.xn.out	2026-11-07 13:25:37
+@@ -1,7 +1,7 @@
+ static Int main() {
+     (Int, Int) p = (1, 2)
+     switch (p) {
+-        case (1, 2):
++        case(1, 2):
+             print("x")
+     }
+     return 0
