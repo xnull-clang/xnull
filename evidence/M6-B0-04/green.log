@@ -1,0 +1,22 @@
+# 命令: go test ./internal/codegen/ -run 'TestB0_04' -count=1 -v -timeout 300s
+# 时间: 2026-11-07T04:30:12+0800
+# 基线: db0e545
+
+=== RUN   TestB0_04FieldInitForms
+--- PASS: TestB0_04FieldInitForms (1.23s)
+=== RUN   TestB0_04FieldInitOrder
+--- PASS: TestB0_04FieldInitOrder (1.31s)
+=== RUN   TestB0_04EmptySetField
+--- PASS: TestB0_04EmptySetField (1.23s)
+=== RUN   TestB0_04ClassFieldForward
+--- PASS: TestB0_04ClassFieldForward (1.29s)
+=== RUN   TestB0_04RejectSelfInFieldInit
+=== RUN   TestB0_04RejectSelfInFieldInit/self
+=== RUN   TestB0_04RejectSelfInFieldInit/bareField
+--- PASS: TestB0_04RejectSelfInFieldInit (0.00s)
+    --- PASS: TestB0_04RejectSelfInFieldInit/self (0.00s)
+    --- PASS: TestB0_04RejectSelfInFieldInit/bareField (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.807s
+
+# 退出码: 0

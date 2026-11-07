@@ -1,0 +1,14 @@
+== 1) xnull build (C generation+compilation OK; link needs native symbols = P-10)
+      _main in prog-795cb6.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+xnull: C 编译失败：exit status 1
+exit status 1
+xnull_build_rc=1 (non-zero is the P-10 link-manifest gap)
+== 2) manual cc (P-09 acceptance surface)
+== 3) run
+== 4) interpreter oracle
+== 5) double-path diff
+5
+5
+OK: compiled == interp

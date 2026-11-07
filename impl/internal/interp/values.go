@@ -356,9 +356,12 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
+			if args[0].K != vInt {
+				panic(runtimeErr{"下标参数必须是 Int"})
+			}
 			i := int(args[0].I)
-			if args[0].K != vInt || i < 0 || i > len(recv.A) {
-				panic(fatal{fmt.Sprintf("List.insert 下标越界：len=%d, idx=%s（§9.4 合法位置 0..length）", len(recv.A), format(args[0]))})
+			if i < 0 || i > len(recv.A) { // §9.4：合法位置 0..length，越界 panic
+				panic(fatal{"List.insert 下标越界"})
 			}
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
@@ -385,7 +388,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			if args[0].K != vInt || i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.remove 下标越界"})
 			}
-			removed := recv.A[i]
+			removed := recv.A[i] // §9.4：删除并返回被删元素
 			recv.A = append(recv.A[:i], recv.A[i+1:]...)
 			return removed, true
 		case "clear":
@@ -406,7 +409,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			need(1)
 			v, ok := recv.M.get(args[0])
 			if !ok {
-				return &Value{K: vNull}, true // §9.5：V?，缺失键返回 null，不 panic
+				return &Value{K: vNull}, true // §9.5：返回 V?，缺键为 null（不 panic）
 			}
 			return v, true
 		case "getOr":

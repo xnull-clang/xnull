@@ -1,0 +1,10 @@
+# M6-B0-05 sema 会签：List.remove 返回 V
+cd impl
+# 红（实现前）
+go test ./internal/sema/ -run TestListRemoveReturnsElement -v -count=1
+# 绿
+go test ./internal/sema/ -run TestListRemoveReturnsElement -v -count=1
+go test ./internal/sema/ -count=1
+go test ./internal/interp/ ./internal/codegen/ -count=1
+go test ./... -count=1 -timeout 600s
+go vet ./...

@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen"
+	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
 	"xnull.dev/xnull/internal/interp"
@@ -175,17 +177,25 @@ func notImplemented(env Env, name string) int {
 // runFile 执行单个 .x 文件：解析 → 解释执行。
 // 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读。
 func runFile(env Env, path string, extraArgs []string) int {
+	// 非标志参数透传为程序参数（入口 String[] args，§11.2）。
+	var progArgs []string
+	for _, a := range extraArgs {
+		if len(a) > 0 && a[0] == '-' {
+			continue
+		}
+		progArgs = append(progArgs, a)
+	}
 	// --interp：解释器调试模式（M4.3）；默认走编译路径（正式路径）。
 	for _, a := range extraArgs {
 		if a == "--interp" {
-			return interpFile(env, path, extraArgs)
+			return interpFile(env, path, progArgs)
 		}
 	}
-	return runCompiled(env, path)
+	return runCompiled(env, path, progArgs)
 }
 
 // runCompiled 编译路径：临时目录构建可执行并运行，透传退出码（M4.2/4.3）。
-func runCompiled(env Env, path string) int {
+func runCompiled(env Env, path string, progArgs []string) int {
 	runtimeDir := ""
 	for _, cand := range []string{"impl/runtime", "../impl/runtime", "../../impl/runtime", "../../runtime", "runtime"} {
 		if st, err := os.Stat(filepath.Join(cand, "rt.h")); err == nil && !st.IsDir() {
@@ -209,7 +219,7 @@ func runCompiled(env Env, path string) int {
 	if code := codegen.Build(path, bin, runtimeDir, env.Stderr); code != 0 {
 		return code
 	}
-	cmd := exec.Command(bin)
+	cmd := exec.Command(bin, progArgs...)
 	cmd.Stdout = env.Stdout
 	cmd.Stderr = env.Stderr
 	if err := cmd.Run(); err != nil {
@@ -286,12 +296,18 @@ func policyFile(env Env, path string) int {
 func buildFile(env Env, rest []string, srcPath string) int {
 	out := "prog"
 	runtimeDir := ""
+	var libs []ffi.LinkLib
+	var libDirs []string
 	for i := 1; i < len(rest)-1; i++ {
 		switch rest[i] {
 		case "-o":
 			out = rest[i+1]
 		case "--runtime":
 			runtimeDir = rest[i+1]
+		case "-l":
+			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
+		case "-L":
+			libDirs = append(libDirs, rest[i+1])
 		}
 	}
 	if runtimeDir == "" {
@@ -309,5 +325,25 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return exitcode.Usage
 	}
-	return codegen.Build(srcPath, out, runtimeDir, env.Stderr)
+	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
+	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs)}
+	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
+}
+
+// linkArgs 把构建命令行/清单的链接库与搜索目录翻译为确定性链接参数。
+// 顺序：-L 在前、-l 在后，各自去重 + 升序（ffi.LinkArgs 负责 -l）。
+func linkArgs(libs []ffi.LinkLib, libDirs []string) []string {
+	args := make([]string, 0, len(libDirs)+len(libs))
+	seen := map[string]bool{}
+	dirs := make([]string, 0, len(libDirs))
+	for _, d := range libDirs {
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		dirs = append(dirs, "-L"+d)
+	}
+	sort.Strings(dirs)
+	args = append(args, dirs...)
+	return append(args, ffi.LinkArgs(libs)...)
 }
