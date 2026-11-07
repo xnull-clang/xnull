@@ -57,9 +57,8 @@ static Int main() {
     }
     File f = fileOpenRead("in.txt")
     Bytes b = Bytes.fromString("AB")
-    Int32 code = 7
-    Int64 got = fileRead(f, b, code)
-    Int32 wc = fileWrite(f, b)
+    Result<Int64, ErrorKind> got = fileRead(f, b)
+    Result<void, ErrorKind> w = fileWrite(f, b)
     return 0
 }
 `
@@ -93,11 +92,11 @@ func TestB007CNumericCodegenSurface(t *testing.T) {
 	}
 	for _, want := range []string{
 		"xrt_bytes_from_string(",
-		"int64_t got = ",
+		"xn_Result_Int64_ErrorKind got = ",
+		"xn_Result_void_ErrorKind w = ",
 		"xn_ffi_fileRead(f, xrt_bytes_data(b), xrt_bytes_len(b), &xn_t",
-		"code = ",
-		"int32_t wc = ",
 		"xn_ffi_fileWrite(f, xrt_bytes_data(b), xrt_bytes_len(b))",
+		"xn_ffi_xdkc_sys_error_kind_id(",
 		"int64_t *xn_out",
 		"xrt_handle *g = ",
 		"(g == NULL)",

@@ -10,6 +10,7 @@ import (
 
 	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/diag"
+	"xnull.dev/xnull/internal/sema"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -62,11 +63,17 @@ func InjectFFI(u *xfront.CompilationUnit, reg *ffi.Registry) error {
 			fn.Ret = rt
 		}
 		for _, p := range e.Params {
+			if ffiCodeParamSkipped(e, p) {
+				continue // 错误码出参由包装层内部承接，不进入 XNull 签名（S7 §7.1）
+			}
 			pt, err := ffiParamXType(p)
 			if err != nil {
 				return fmt.Errorf("FFI 入口 %s：%v", e.Name, err)
 			}
 			fn.Params = append(fn.Params, &xfront.Param{Name: p.Name, Type: pt})
+		}
+		if ffiReturnsResult(e) {
+			sema.RegisterExternalTypes("ErrorKind")
 		}
 		// 合成函数体只为满足 sema 的返回路径检查（while(true) 无正常出口）；codegen 不生成该函数。
 		fn.Body = &xfront.Block{}
@@ -152,6 +159,37 @@ func ffiScalarC(name string) (string, bool) {
 		return "uint32_t", true
 	}
 	return "", false
+}
+
+// ffiCodeParamSkipped 报告错误码出参是否从 XNull 签名移除。
+// 仅非 close 的 @errorCode 出参形态移除；close 保持 Bool 兼容面。
+func ffiCodeParamSkipped(e ffi.Entry, p ffi.Param) bool {
+	return e.ErrorCode != "" && p.Name == e.ErrorCode && !(e.ErrorCodeRet && e.CloseOf != "")
+}
+
+// ffiReturnsResult 报告入口是否以 Result<T, ErrorKind> 暴露（S7 §7.1 / FFI-01）。
+// close（幂等 Bool）与无错误码入口保持既有形态（兼容 .unaware 等调用面）。
+func ffiReturnsResult(e ffi.Entry) bool {
+	if e.ErrorCodeRet && e.CloseOf != "" {
+		return false
+	}
+	return e.ErrorCode != "" || e.ErrorCodeRet
+}
+
+// ffiResultXType 返回 Result<T, ErrorKind> 的 XNull 类型；
+// 错误码即返回值（codeParam=.result）时 T = void。
+func ffiResultXType(e ffi.Entry) (xfront.TypeRef, error) {
+	value := xfront.TypeRef(xfrontNamedType("void"))
+	if !e.ErrorCodeRet && e.Ret.Kind != ffi.KindVoid {
+		base, isVoid, err := ffiBaseRetXType(e)
+		if err != nil {
+			return nil, err
+		}
+		if !isVoid {
+			value = base
+		}
+	}
+	return &xfront.NamedType{Qual: []string{"Result"}, Args: []xfront.TypeRef{value, xfrontNamedType("ErrorKind")}}, nil
 }
 
 func ffiSupported(e ffi.Entry) error {
@@ -337,8 +375,18 @@ func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 }
 
 // ffiRetXType 是入口返回值的 XNull 侧类型（void 返回 nil）。
+// 非 close 的 @errorCode 入口统一以 Result<T, ErrorKind> 暴露（FFI-01）；
 // 句柄 close（@errorCode(.result)）以 Bool 暴露：true=成功（幂等关闭）。
 func ffiRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
+	if ffiReturnsResult(e) {
+		rt, err := ffiResultXType(e)
+		return rt, false, err
+	}
+	return ffiBaseRetXType(e)
+}
+
+// ffiBaseRetXType 是未包裹 Result 时的返回类型映射。
+func ffiBaseRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
 	switch e.Ret.Kind {
 	case ffi.KindVoid:
 		return nil, true, nil
@@ -371,26 +419,28 @@ func (s *scope) ffiEntry(name string) (ffi.Entry, bool) {
 // ffiCallLines 生成一次 FFI 调用：先编组实参，再调包装，错误码非零即 fatal（不隐藏）。
 // 返回值为结果变量名（void 入口为空串）。
 func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, error) {
-	if len(call.Args) != len(e.Params) {
-		return nil, "", fmt.Errorf("codegen：FFI 入口 %s 实参数 %d，声明 %d", e.Name, len(call.Args), len(e.Params))
+	want := len(e.Params)
+	for _, p := range e.Params {
+		if ffiCodeParamSkipped(e, p) {
+			want--
+		}
+	}
+	if len(call.Args) != want {
+		return nil, "", fmt.Errorf("codegen：FFI 入口 %s 实参数 %d，声明 %d", e.Name, len(call.Args), want)
 	}
 	lines := append([]string{}, s.pending...)
 	s.pending = nil
 	var parts []string
 	var post []string
-	codeVar := "" // @errorCode 出参在 XNull 侧的左值（包装签名不含 code）
+	argIdx := 0
 	for i, p := range e.Params {
-		arg := call.Args[i]
-		// 错误码出参：包装层内部承接（signature 不含 code，ffi-contract §5.1），
-		// 调用点只保留左值，归一 rc 后回写。
-		if e.ErrorCode != "" && p.Name == e.ErrorCode {
-			id, ok := arg.(*xfront.IdentExpr)
-			if !ok {
-				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的错误码出参必须是变量（B0-07c 范围），got %T", e.Name, arg)
-			}
-			codeVar = s.cRef(id.Name)
+		// 错误码出参：包装层内部承接（签名不含 code，ffi-contract §5.1），
+		// XNull 调用点不再传入，改由 Result.err 交付（S7 §7.1 / FFI-01）。
+		if ffiCodeParamSkipped(e, p) {
 			continue
 		}
+		arg := call.Args[argIdx]
+		argIdx++
 		switch p.Type.Kind {
 		case ffi.KindScalar:
 			v, err := s.intExpr(arg)
@@ -503,17 +553,14 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	// 错误码即返回值（B0-07c）：
 	//   - 句柄 close：Bool = (rc == 0)；
 	//   - 其余（fileWrite）：按声明宽度返回 rc 本身。
-	if e.ErrorCodeRet {
+	if e.ErrorCodeRet && e.CloseOf != "" {
 		t := s.tmp()
 		lines = append(lines, "int32_t "+t+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
 		lines = append(lines, post...)
-		if e.CloseOf != "" {
-			return lines, "(" + t + " == 0)", nil
-		}
-		if e.Ret.Kind == ffi.KindScalar {
-			return lines, t, nil
-		}
-		return lines, "", nil
+		return lines, "(" + t + " == 0)", nil
+	}
+	if ffiReturnsResult(e) {
+		return s.ffiResultLines(e, lines, parts, post)
 	}
 	out := ""
 	switch e.Ret.Kind {
@@ -543,14 +590,77 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	}
 	rc := s.tmp()
 	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
-	// 出参形态（fileRead）：rc 回写调用点的变量；不在此终止进程（S7-02）。
-	// 调用点（E4）用 ffiErrorKindExpr(e.Region, rc) 把原始码映射为 xrt_error_kind：
-	// 已知码 → ErrorKind，未知码 → Internal，Cancelled/Timeout 不降级；再构造 Result。
-	if codeVar != "" {
-		lines = append(lines, codeVar+" = "+rc+";")
-	}
 	lines = append(lines, post...)
 	return lines, out, nil
+}
+
+// ffiResultLines 生成 Result<T, ErrorKind> 构造：rc==0 → Ok(value)；
+// 非零 → Err(映射分类)，未知码 Internal，Cancelled/Timeout 不降级（S7 §7.1）。
+func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]string, string, error) {
+	rt, err := ffiResultXType(e)
+	if err != nil {
+		return nil, "", err
+	}
+	resultC, err := s.g.cType(rt)
+	if err != nil {
+		return nil, "", err
+	}
+	s.g.results[resultC] = ""
+	info, err := s.g.resultInfo(resultC)
+	if err != nil {
+		return nil, "", err
+	}
+	var out string
+	if !e.ErrorCodeRet {
+		// 出参形态：原生返回值即成功值（可能是 void）。
+		switch e.Ret.Kind {
+		case ffi.KindVoid:
+		case ffi.KindScalar:
+			out = s.tmp()
+			if _, ok := ffiScalarC(e.Ret.Name); !ok {
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
+			}
+			parts = append(parts, "&"+out)
+		case ffi.KindString:
+			out = s.tmp()
+			parts = append(parts, "&"+out)
+		case ffi.KindText:
+			out = s.tmp()
+			parts = append(parts, "&"+out)
+		case ffi.KindHandle:
+			out = s.tmp()
+			parts = append(parts, "&"+out)
+		default:
+			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回类型未纳入 P-09", e.Name)
+		}
+	}
+	if !e.ErrorCodeRet {
+		switch e.Ret.Kind {
+		case ffi.KindVoid:
+		case ffi.KindScalar:
+			cT, _ := ffiScalarC(e.Ret.Name)
+			lines = append(lines, cT+" "+out+" = 0;")
+		case ffi.KindString:
+			lines = append(lines, "rt_string *"+out+" = NULL;")
+		case ffi.KindText:
+			lines = append(lines, "xrt_text *"+out+" = NULL;")
+		case ffi.KindHandle:
+			lines = append(lines, "xrt_handle *"+out+" = NULL;")
+		}
+	}
+	rc := s.tmp()
+	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
+	lines = append(lines, post...)
+	res := s.tmp()
+	lines = append(lines, resultC+" "+res+" = {0};")
+	lines = append(lines, res+".ok = ("+rc+" == 0);")
+	if out != "" {
+		lines = append(lines, res+".v = "+out+";")
+	}
+	lines = append(lines, fmt.Sprintf(
+		"if (%s != 0) { %s.err = (%s)%s; }",
+		rc, res, info.errC, ffiErrorKindExpr(e.Region, rc)))
+	return lines, res, nil
 }
 
 // ffiErrorKindExpr 返回“原生错误码 → xrt_error_kind”的 C 表达式。

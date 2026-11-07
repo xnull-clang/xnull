@@ -3,9 +3,11 @@ package codegen
 
 import (
 	"fmt"
+	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/sema"
+	"xnull.dev/xnull/internal/xfront"
 )
 
 func s701ScalarName(n string) bool {
@@ -80,6 +82,9 @@ func RegisterFFIProjection(reg *ffi.Registry) error {
 	for _, e := range reg.Entries {
 		params := make([]sema.FFIParam, 0, len(e.Params))
 		for i, p := range e.Params {
+			if ffiCodeParamSkipped(e, p) {
+				continue // 错误码出参由 Result.err 交付（S7 §7.1 / FFI-01）
+			}
 			ts, err := s701TypeString(p.Type)
 			if err != nil {
 				return fmt.Errorf("入口 %s 参数 %s：%w", e.Name, p.Name, err)
@@ -96,7 +101,13 @@ func RegisterFFIProjection(reg *ffi.Registry) error {
 			params = append(params, sema.FFIParam{Name: p.Name, Type: ts, Lease: s701Lease(lease), Out: out})
 		}
 		ret := ""
-		if e.Ret.Kind != ffi.KindVoid {
+		if ffiReturnsResult(e) {
+			rt, err := ffiResultXType(e)
+			if err != nil {
+				return fmt.Errorf("入口 %s 返回：%w", e.Name, err)
+			}
+			ret = xTypeKey(rt)
+		} else if e.Ret.Kind != ffi.KindVoid {
 			rs, err := s701TypeString(e.Ret)
 			if err != nil {
 				return fmt.Errorf("入口 %s 返回：%w", e.Name, err)
@@ -106,4 +117,21 @@ func RegisterFFIProjection(reg *ffi.Registry) error {
 		entries = append(entries, sema.FFIEntry{Name: e.Name, Params: params, Ret: ret})
 	}
 	return sema.RegisterFFIEntries(entries...)
+}
+
+// xTypeKey 把类型引用渲染为 sema 的类型键（Result<T,E> 用无空格逗号形式）。
+func xTypeKey(t xfront.TypeRef) string {
+	nt, ok := t.(*xfront.NamedType)
+	if !ok {
+		return ""
+	}
+	name := nt.Qual[len(nt.Qual)-1]
+	if len(nt.Args) == 0 {
+		return name
+	}
+	parts := make([]string, 0, len(nt.Args))
+	for _, a := range nt.Args {
+		parts = append(parts, xTypeKey(a))
+	}
+	return name + "<" + strings.Join(parts, ",") + ">"
 }
