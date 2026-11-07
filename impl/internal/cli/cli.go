@@ -85,6 +85,10 @@ func Run(env Env) int {
 	if name == "dev" {
 		return runDev(env, rest)
 	}
+	// S8-03：锁文件生成/校验（唯一重生成入口 --update-lock）。
+	if name == "lock" {
+		return runLock(env, rest)
+	}
 	// IDE 支持：工程模板创建与结构化检查。
 	if name == "new" {
 		return runNew(env, rest)
