@@ -229,12 +229,28 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	g.assignMainNames(u, entry)
 	g.entry = entry
+	// main 的签名表项固定取入口声明：声明顺序不影响类型推断（§11.2）。
+	if entry != nil {
+		rc, err := g.cType(entry.fn.Ret)
+		if err != nil {
+			return "", err
+		}
+		if entry.fn.Void {
+			rc = "void"
+		}
+		g.fnRet["main"] = rc
+	}
 	// 函数签名表（类型推断消费）。泛型声明不进表：调用点一律走实例名，
 	// 同名普通函数与泛型函数构成合法重载（§8.2），C 侧靠实例后缀区分。
 	seenFn := map[string]bool{}
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			if len(fn.TypePars) > 0 {
+				continue
+			}
+			if fn.Name == "main" {
+				// 入口唯一性由 entryDeclOf 判定；其余 main 重载走独立 C 名，
+				// 不参与普通函数的同名冲突检测（与声明顺序无关）。
 				continue
 			}
 			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
@@ -256,13 +272,6 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				continue
 			}
 			if seenFn[fn.Name] {
-				if fn.Name == "main" && entry != nil && fn != entry.fn {
-					// 非匹配 main 重载（§11.2）：普通函数，C 名已由 assignMainNames 区分。
-					continue
-				}
-				if fn.Name == "main" {
-					return "", fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
-				}
 				return "", fmt.Errorf("codegen：顶层函数 `%s` 重载未支持（§4.4 重载属 M4.5+；当前同名函数在 C 侧冲突）", fn.Name)
 			}
 			seenFn[fn.Name] = true

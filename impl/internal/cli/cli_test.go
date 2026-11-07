@@ -246,18 +246,25 @@ func TestEntrySignatureDiagnostic(t *testing.T) {
 	}
 }
 
-// C-13（§11.2）：非匹配 main 重载是普通函数，不构成重复入口。
+// C-13（§11.2）：非匹配 main 重载是普通函数，不构成重复入口；声明顺序无关。
 func TestEntryMainOverloadIsOrdinary(t *testing.T) {
-	src := "static Int main() {\n    print(\"entry\")\n    return 0\n}\nstatic Int main(Int x) { return x + 1 }\n"
-	path := writeSrc(t, src)
-	for _, args := range [][]string{{"run", path}, {"run", "--interp", path}} {
-		code, out, errOut := run(args...)
-		if code != exitcode.Success {
-			t.Fatalf("args=%v 退出码 %d，stderr=%s", args, code, errOut)
-		}
-		if out != "entry\n" {
-			t.Fatalf("args=%v stdout=%q，期望 entry", args, out)
-		}
+	cases := []struct{ name, src string }{
+		{"入口在前", "static Int main() {\n    print(\"entry\")\n    return 0\n}\nstatic Int main(Int x) { return x + 1 }\n"},
+		{"重载在前", "static Int main(Int x) { return x + 1 }\nstatic Int main() {\n    print(\"entry\")\n    return 0\n}\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := writeSrc(t, c.src)
+			for _, args := range [][]string{{"run", path}, {"run", "--interp", path}} {
+				code, out, errOut := run(args...)
+				if code != exitcode.Success {
+					t.Fatalf("args=%v 退出码 %d，stderr=%s", args, code, errOut)
+				}
+				if out != "entry\n" {
+					t.Fatalf("args=%v stdout=%q，期望 entry", args, out)
+				}
+			}
+		})
 	}
 }
 
