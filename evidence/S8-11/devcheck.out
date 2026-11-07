@@ -1,0 +1,8 @@
+=== RUN   TestCheckXDKContractPass
+--- PASS: TestCheckXDKContractPass (0.01s)
+=== RUN   TestCheckXDKContractViolation
+--- PASS: TestCheckXDKContractViolation (0.01s)
+=== RUN   TestCheckXDKContractSkipWithoutUnits
+--- PASS: TestCheckXDKContractSkipWithoutUnits (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/devtool	0.695s
