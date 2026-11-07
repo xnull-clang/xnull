@@ -217,3 +217,79 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// S2 §2.8/§3.3/§5.7/§3.6（BND-11）：对象身份、结构体复制、vtable 槽位、sret 值语义。
+func TestS2BND11ClassIdentity(t *testing.T) {
+	src := `class C { Int v; }
+static Int main() {
+    C a = new C()
+    C b = a
+    C c = new C()
+    print(a == b)
+    print(a === b)
+    print(a == c)
+    print(a === c)
+    print(a !== c)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "true\ntrue\nfalse\nfalse\ntrue\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-11：struct 返回值（sret）不暴露共享身份；副本独立。
+func TestS2BND11StructSretCopy(t *testing.T) {
+	src := `struct P { Int x; Int y; }
+static P make(Int v) {
+    P p = new P()
+    p.x = v
+    p.y = v + 1
+    return p
+}
+static P pass(P p) { return p }
+static Int main() {
+    P a = make(1)
+    P b = pass(a)
+    b.x = 9
+    print(a.x)
+    print(b.x)
+    print(a.y)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n9\n2\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-11：协议 vtable 只含协议槽位，普通类方法不进入 vtable。
+func TestS2BND11VtableOnlyProtocolSlots(t *testing.T) {
+	src := `protocol P { Int f(); }
+class C implements P {
+    Int f() { return 1 }
+    Int g() { return 2 }
+}
+static Int main() { C c = new C(); print(c.g()); return 0 }`
+	u, diags := xfront.ParseUnit("vt.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	if !strings.Contains(csrc, "xn_vt_C[") {
+		t.Fatalf("缺少 vtable 定义：\n%s", csrc)
+	}
+	if !strings.Contains(csrc, "xn_vt_C[0] = (void *)&xn_Cls_C_f;") {
+		t.Fatalf("vtable 未填充协议槽 f：\n%s", csrc)
+	}
+	if strings.Contains(csrc, "&xn_Cls_C_g") {
+		t.Fatalf("普通方法 g 进入了 vtable：\n%s", csrc)
+	}
+	got, code := compileAndRun(t, src)
+	if got != "2\n" || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 2", got, code)
+	}
+}
