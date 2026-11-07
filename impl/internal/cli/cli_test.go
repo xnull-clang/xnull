@@ -188,3 +188,132 @@ func TestRunEntryDuplicateRejected(t *testing.T) {
 		t.Fatalf("诊断应点名重复入口：%s", errOut)
 	}
 }
+
+// ---------- ENTRY-01 CLI 侧：入口诊断 / 参数边界 ----------
+
+// 缺失入口必须是明确诊断，不能落到 C 编译错误或静默执行。
+func TestEntryMissingMainDiagnostic(t *testing.T) {
+	path := writeSrc(t, "static Int notMain() { return 0 }\n")
+	code, _, errOut := run("run", path)
+	if code != exitcode.BuildFail {
+		t.Fatalf("缺入口退出码 = %d，want %d（stderr：%s）", code, exitcode.BuildFail, errOut)
+	}
+	for _, want := range []string{"ENTRY-001", "找不到入口 main"} {
+		if !strings.Contains(errOut, want) {
+			t.Fatalf("stderr 缺少 %q：%s", want, errOut)
+		}
+	}
+}
+
+// 重复入口必须被拒绝，不能静默取第一个或让 C 侧撞名。
+func TestEntryDuplicateMainDiagnostic(t *testing.T) {
+	path := writeSrc(t, "static Int main() { return 0 }\nstatic Int main() { return 1 }\n")
+	code, _, errOut := run("run", path)
+	if code != exitcode.BuildFail {
+		t.Fatalf("重复入口退出码 = %d，want %d（stderr：%s）", code, exitcode.BuildFail, errOut)
+	}
+	for _, want := range []string{"ENTRY-002", "重复入口 main"} {
+		if !strings.Contains(errOut, want) {
+			t.Fatalf("stderr 缺少 %q：%s", want, errOut)
+		}
+	}
+}
+
+// 非法签名必须在 CLI 入口前置诊断，不能交给 cc 报 C 语法错。
+func TestEntrySignatureDiagnostic(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+	}{
+		{"带非 String[] 参数", "static Int main(Int x) { return 0 }\n"},
+		{"返回 Bool", "static Bool main() { return true }\n"},
+		{"参数个数超限", "static Int main(String[] a, String[] b) { return 0 }\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := writeSrc(t, c.src)
+			code, _, errOut := run("run", path)
+			if code != exitcode.BuildFail {
+				t.Fatalf("非法入口退出码 = %d，want %d（stderr：%s）", code, exitcode.BuildFail, errOut)
+			}
+			if !strings.Contains(errOut, "ENTRY-003") {
+				t.Fatalf("stderr 缺少 ENTRY-003：%s", errOut)
+			}
+			if strings.Contains(errOut, "C 编译失败") {
+				t.Fatalf("非法入口不应落到 C 编译错误：%s", errOut)
+			}
+		})
+	}
+}
+
+// 两种 main 签名的退出码：无参 / String[] args。
+func TestRunMainNoArgsExitCodeInterp(t *testing.T) {
+	path := writeSrc(t, "static Int main() { return 7 }\n")
+	code, _, errOut := run("run", "--interp", path)
+	if code != 7 {
+		t.Fatalf("main() 退出码 = %d，want 7（stderr：%s）", code, errOut)
+	}
+}
+
+func TestRunMainNoArgsExitCodeCompiled(t *testing.T) {
+	path := writeSrc(t, "static Int main() { return 7 }\n")
+	code, _, errOut := run("run", path)
+	if code != 7 {
+		t.Fatalf("编译路径 main() 退出码 = %d，want 7（stderr：%s）", code, errOut)
+	}
+}
+
+func TestRunMainWithArgsInterp(t *testing.T) {
+	path := writeSrc(t, `static Int main(String[] args) {
+    print(args.length())
+    print(args[0])
+    return 3
+}
+`)
+	code, out, errOut := run("run", "--interp", path, "alpha", "beta")
+	if code != 3 {
+		t.Fatalf("main(String[]) 退出码 = %d，want 3（stderr：%s）", code, errOut)
+	}
+	if out != "2\nalpha\n" {
+		t.Fatalf("main(String[]) 输出 = %q，want %q", out, "2\nalpha\n")
+	}
+}
+
+// `--` 之后的参数原样作为程序参数，不能被 CLI 当成未知 flag 拒绝。
+func TestRunMainWithArgsAfterSeparator(t *testing.T) {
+	path := writeSrc(t, `static Int main(String[] args) {
+    print(args.length())
+    print(args[0])
+    return 0
+}
+`)
+	code, out, errOut := run("run", "--interp", path, "--", "--verbose", "x")
+	if code != 0 {
+		t.Fatalf("退出码 = %d，want 0（stderr：%s）", code, errOut)
+	}
+	if out != "2\n--verbose\n" {
+		t.Fatalf("程序参数输出 = %q，want %q", out, "2\n--verbose\n")
+	}
+}
+
+// 初始化顺序：顶层字段按声明顺序初始化，完成后才进入 main（CLI 可断言）。
+func TestInitOrderViaCLI(t *testing.T) {
+	path := writeSrc(t, `static Int mark(String s) {
+    print(s)
+    return 0
+}
+Int a = mark("a")
+Int b = mark("b")
+static Int main() {
+    print("main")
+    return 0
+}
+`)
+	code, out, errOut := run("run", "--interp", path)
+	if code != exitcode.Success {
+		t.Fatalf("退出码 = %d，want 0（stderr：%s）", code, errOut)
+	}
+	if out != "a\nb\nmain\n" {
+		t.Fatalf("初始化顺序输出 = %q，want %q", out, "a\nb\nmain\n")
+	}
+}
