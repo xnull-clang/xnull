@@ -20,6 +20,8 @@ type Options struct {
 	MemPolicy string
 	// Stats 打开运行期分配统计与 GC 指标（§21/§23）；报告写 stderr。
 	Stats bool
+	// Mode 是清单 build.mode（S8 §5.2）：""/"release" = -O2，"debug" = -O0 -g，"size" = -Os。
+	Mode string
 	// ResC 是工程资源表 C 源（由 `xnull dev res` 生成）；为空时使用内置空表。
 	// S6-04：资源表与 rt_std_res.c 一起进入产物链接。
 	ResC string
@@ -175,7 +177,7 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 			return 1
 		}
 	}
-	cc := exec.Command("cc", buildCCArgs(outPath, cfile, runtimeDir, resC, opts.LinkArgs)...)
+	cc := exec.Command("cc", buildCCArgs(outPath, cfile, runtimeDir, resC, opts.LinkArgs, opts.Mode)...)
 	cc.Stderr = stderr
 	cc.Stdout = stderr
 	if err := cc.Run(); err != nil {
@@ -187,8 +189,16 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 
 // buildCCArgs 组装 cc 参数：旗标 → 输出 → 生成源 → 运行时 C 源 → 资源表 → LinkArgs。
 // LinkArgs 必须排在全部目标文件之后（链接顺序敏感，P-10 条件 3）。
-func buildCCArgs(outPath, cfile, runtimeDir, resC string, linkArgs []string) []string {
-	args := []string{"-std=c11", "-O2", "-pthread", "-I", runtimeDir, "-o", outPath, cfile}
+func buildCCArgs(outPath, cfile, runtimeDir, resC string, linkArgs []string, mode string) []string {
+	opt := []string{"-O2"}
+	switch mode {
+	case "debug":
+		opt = []string{"-O0", "-g"}
+	case "size":
+		opt = []string{"-Os"}
+	}
+	args := append([]string{"-std=c11"}, opt...)
+	args = append(args, "-pthread", "-I", runtimeDir, "-o", outPath, cfile)
 	for _, src := range runtimeCSources {
 		args = append(args, filepath.Join(runtimeDir, src))
 	}

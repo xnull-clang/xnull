@@ -25,7 +25,7 @@ func runtimeDirForTest(t *testing.T) string {
 // M6-B0-02（P-10）：C 编译清单必须纳入 xrt_abi.c 与 rt_std_*.c，且顺序固定。
 func TestBuildCCArgsIncludesRuntimeABIAndStd(t *testing.T) {
 	const rt = "/RT"
-	got := buildCCArgs("prog", "prog.c", rt, "", nil)
+	got := buildCCArgs("prog", "prog.c", rt, "", nil, "")
 	want := []string{
 		"-std=c11", "-O2", "-pthread", "-I", rt, "-o", "prog", "prog.c",
 		filepath.Join(rt, "rt.c"),
@@ -51,7 +51,7 @@ func TestBuildCCArgsIncludesRuntimeABIAndStd(t *testing.T) {
 func TestBuildCCArgsAppendsLinkArgsLast(t *testing.T) {
 	const rt = "/RT"
 	link := []string{"-lm", "-lz"}
-	got := buildCCArgs("prog", "prog.c", rt, "", link)
+	got := buildCCArgs("prog", "prog.c", rt, "", link, "")
 
 	if len(got) < 2 || got[len(got)-2] != "-lm" || got[len(got)-1] != "-lz" {
 		t.Fatalf("LinkArgs 未按序追加到末尾：%v", got)
@@ -139,7 +139,7 @@ func TestBuildWithProjectResources(t *testing.T) {
 
 // S6-04：资源表排在运行时源之后、LinkArgs 之前。
 func TestBuildCCArgsAppendsResourceTable(t *testing.T) {
-	got := buildCCArgs("prog", "prog.c", "/RT", "/tmp/res.c", []string{"-lm"})
+	got := buildCCArgs("prog", "prog.c", "/RT", "/tmp/res.c", []string{"-lm"}, "")
 	idxRes, idxLastRuntime, idxLink := -1, -1, -1
 	for i, a := range got {
 		if a == "/tmp/res.c" {
