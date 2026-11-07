@@ -41,6 +41,7 @@ const (
 	vTuple   // (T1, T2, ...)（§2.11）
 	vClosure // 闭包值（§7.7）
 	vObj     // 类实例（M4.4b）
+	vEnum    // 简单枚举值（S2 §8.2：名义类型 + 底层 Int）
 )
 
 // Value 是解释期运行值。
@@ -57,6 +58,7 @@ type Value struct {
 	Set *setv    // Set
 	Clo *clov    // 闭包
 	O   *objv    // 类实例（M4.4b）
+	E   string   // 枚举类型名（vEnum；S2 §8）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -97,7 +99,12 @@ func (v *Value) typeName() string {
 	case vClosure:
 		return "Closure"
 	case vObj:
+		if v.O.enumName != "" {
+			return v.O.enumName
+		}
 		return v.O.cls.Name
+	case vEnum:
+		return v.E
 	}
 	return "?"
 }
@@ -125,6 +132,13 @@ func format(v *Value) string {
 			return "Ok(" + format(v.R.v) + ")"
 		}
 		return "Err(" + format(v.R.e) + ")"
+	case vEnum:
+		return v.S // S2 §8.2：简单枚举按项名格式化
+	case vObj:
+		if v.O.enumName != "" {
+			return v.O.enumItem // S2 §8.5：数据枚举项默认按项名格式化
+		}
+		return formatContainer(v)
 	case vArr, vList, vMap, vSet, vTuple, vClosure:
 		return formatContainer(v)
 	}
@@ -198,12 +212,17 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out     io.Writer
-	funcs   map[string][]*xfront.TopFunc
-	classes map[string]*xfront.ClassDecl
-	globals *scope
-	label   string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit  map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	out       io.Writer
+	funcs     map[string][]*xfront.TopFunc
+	classes   map[string]*xfront.ClassDecl
+	globals   *scope
+	label     string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit    map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums     map[string]*xfront.EnumDecl
+	enumVals  map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols map[string]*xfront.ProtocolDecl
+	enumCls   map[string]*xfront.ClassDecl
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -239,7 +258,13 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			}
 		}
 	}()
-	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil), strLit: map[string]*Value{}}
+	in := &Interp{
+		out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{},
+		globals: newScope(nil), strLit: map[string]*Value{},
+		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
+		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
+		enumCls: map[string]*xfront.ClassDecl{},
+	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
 	var topFields []*xfront.TopField
@@ -252,6 +277,10 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.funcs[n.Name] = append(in.funcs[n.Name], n)
 		case *xfront.ClassDecl:
 			in.classes[n.Name] = n
+		case *xfront.ProtocolDecl:
+			in.protocols[n.Name] = n
+		case *xfront.EnumDecl:
+			in.registerEnum(n)
 		case *xfront.TopField:
 			// BLD-01：登记声明类型并做容器定向；P1-INIT-FWD：先给零值。
 			in.globals.defineTyped(n.Name, n.Type, zeroValue(n.Type))
@@ -269,13 +298,20 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 	if len(mains) == 0 {
 		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
 	}
-	if len(mains) > 1 {
+	// §11.2：只有匹配入口签名的 main 才是入口；其余 main 重载是普通函数。
+	var matched []*xfront.TopFunc
+	for _, fn := range mains {
+		if checkEntry(fn) == nil {
+			matched = append(matched, fn)
+		}
+	}
+	if len(matched) == 0 {
+		return 1, checkEntry(mains[0])
+	}
+	if len(matched) > 1 {
 		return 1, fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
 	}
-	main := mains[0]
-	if err := checkEntry(main); err != nil {
-		return 1, err
-	}
+	main := matched[0]
 	// 两种入口形态（S1 §11.2）：main() 与 main(args: String[])。
 	var callArgs []*Value
 	switch {
@@ -297,10 +333,13 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 	return 0, nil
 }
 
-// checkEntry 校验入口签名（§11.2）：顶层 static、返回 void/Int、参数为空或 String[]。
+// checkEntry 校验入口签名（§11.2）：顶层 static、公开、非泛型、返回 void/Int、参数为空或 String[]。
 func checkEntry(fn *xfront.TopFunc) error {
 	if !fn.Static {
 		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+	}
+	if fn.Private || fn.Protected || len(fn.TypePars) > 0 {
+		return fmt.Errorf("入口 main 必须是公开的非泛型函数（§11.2）")
 	}
 	if !fn.Void {
 		nt, ok := fn.Ret.(*xfront.NamedType)
@@ -327,6 +366,13 @@ func zeroValue(t xfront.TypeRef) *Value {
 			}
 		}
 		return zeroValue(st.Base)
+	}
+	if tt, ok := t.(*xfront.TupleTypeRef); ok { // §2.11：值类型元组逐元素取零值
+		elems := make([]*Value, len(tt.Elems))
+		for i, e := range tt.Elems {
+			elems[i] = zeroValue(e)
+		}
+		return &Value{K: vTuple, A: elems}
 	}
 	if nt, ok := t.(*xfront.NamedType); ok && len(nt.Qual) == 1 {
 		switch nt.Qual[0] {
@@ -670,6 +716,10 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		if v, ok := sc.lookup(n.Name); ok {
 			return v
 		}
+		// §5.8：方法/字段初值中的裸字段名按 self 字段解析（局部/参数优先）。
+		if v, ok := in.selfField(sc, n.Name); ok {
+			return v
+		}
 		if _, isFn := in.funcs[n.Name]; isFn {
 			// 具名函数作为值（§7.7：apply(add, 1)）——包装为闭包值
 			return &Value{K: vClosure, Clo: &clov{top: n.Name}}
@@ -821,6 +871,9 @@ func arith(p xfront.Pos, op string, l, r *Value) *Value {
 			return &Value{K: vInt, I: a % b}
 		}
 	case "<", ">", "<=", ">=":
+		if l.K == vEnum && r.K == vEnum && l.E == r.E {
+			return boolOf(op, intCmp(l.I, r.I)) // S2 §8.2：简单枚举按底层值顺序比较
+		}
 		if l.K == vStr && r.K == vStr {
 			cmp := strings.Compare(l.S, r.S)
 			return boolOf(op, cmp)
@@ -919,6 +972,8 @@ func valuesEqual(l, r *Value) bool {
 			}
 		}
 		return true
+	case vEnum: // S2 §8.2：简单枚举按底层值比较（名义类型必须相同）
+		return l.E == r.E && l.I == r.I
 	case vArr, vList, vMap, vSet, vClosure, vObj:
 		return l == r // §2.8：引用类型 `==` 默认按对象身份
 	}
@@ -945,6 +1000,8 @@ func identical(l, r *Value) bool {
 			}
 		}
 		return true
+	case vEnum: // 简单枚举是值类型：=== 按底层值
+		return l.E == r.E && l.I == r.I
 	case vStr, vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份（§2.8：String === 按对象身份）
 		return l == r
 	}
@@ -1085,6 +1142,12 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 }
 
 func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
+	// S2 §8.4：`Enum.Item` 项访问（枚举类型名不是运行期变量）。
+	if id, ok := n.X.(*xfront.IdentExpr); ok {
+		if d, ok := in.enums[id.Name]; ok {
+			return in.enumItem(d, n.Name, n.P)
+		}
+	}
 	x := in.eval(n.X, sc)
 	if n.NullSafe && x.K == vNull {
 		return &Value{K: vNull} // ?. 空传播（§7.5）
@@ -1100,7 +1163,9 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 	switch t := target.(type) {
 	case *xfront.IdentExpr:
 		if !sc.assign(t.Name, v) {
-			panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+			if !in.writeSelfField(sc, t.Name, v) {
+				panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+			}
 		}
 		return
 	case *xfront.Index:
@@ -1112,14 +1177,14 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("数组下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		case vList:
 			i := int(idx.I)
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("List 下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})

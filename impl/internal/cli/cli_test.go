@@ -246,6 +246,53 @@ func TestEntrySignatureDiagnostic(t *testing.T) {
 	}
 }
 
+// C-13（§11.2）：非匹配 main 重载是普通函数，不构成重复入口；声明顺序无关。
+func TestEntryMainOverloadIsOrdinary(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"入口在前", "static Int main() {\n    print(\"entry\")\n    return 0\n}\nstatic Int main(Int x) { return x + 1 }\n"},
+		{"重载在前", "static Int main(Int x) { return x + 1 }\nstatic Int main() {\n    print(\"entry\")\n    return 0\n}\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := writeSrc(t, c.src)
+			for _, args := range [][]string{{"run", path}, {"run", "--interp", path}} {
+				code, out, errOut := run(args...)
+				if code != exitcode.Success {
+					t.Fatalf("args=%v 退出码 %d，stderr=%s", args, code, errOut)
+				}
+				if out != "entry\n" {
+					t.Fatalf("args=%v stdout=%q，期望 entry", args, out)
+				}
+			}
+		})
+	}
+}
+
+// C-10（§11.3/§10.4）：初始化式除零是 fatal，入口不得执行；双路径同口径。
+func TestEntryInitDivZeroFatal(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"常量除零", "Int a = 1 / 0\nstatic Int main() {\n    print(\"MAIN-SHOULD-NOT-RUN\")\n    return 0\n}\n"},
+		{"运行期除零", "Int d = 0\nInt a = 10 / d\nstatic Int main() {\n    print(\"MAIN-SHOULD-NOT-RUN\")\n    return 0\n}\n"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			path := writeSrc(t, c.src)
+			for _, args := range [][]string{{"run", path}, {"run", "--interp", path}} {
+				code, out, errOut := run(args...)
+				if code != 134 {
+					t.Fatalf("args=%v 退出码 %d，期望 134（stderr：%s）", args, code, errOut)
+				}
+				if out != "" {
+					t.Fatalf("args=%v 入口被执行，stdout=%q", args, out)
+				}
+				if !strings.Contains(errOut, "除零") {
+					t.Fatalf("args=%v stderr 未点名除零：%s", args, errOut)
+				}
+			}
+		})
+	}
+}
+
 // 两种 main 签名的退出码：无参 / String[] args。
 func TestRunMainNoArgsExitCodeInterp(t *testing.T) {
 	path := writeSrc(t, "static Int main() { return 7 }\n")

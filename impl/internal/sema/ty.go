@@ -335,6 +335,130 @@ func unsignedFits(t texpr, max uint64) bool {
 	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
+// ---------- BND-01：成员可见性（§7.3） ----------
+
+func fieldVisibility(f *xfront.FieldDecl) string {
+	if f.Mod.Vis == "private" || strings.HasPrefix(f.Name, "_") {
+		return "private"
+	}
+	if f.Mod.Vis == "protected" {
+		return "protected"
+	}
+	return "public"
+}
+
+// findField 在类继承链中查找字段，返回字段类型、可见性、声明类。
+func (c *typeCheckCtx) findField(className, name string) (string, string, string, bool) {
+	cur := className
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, f := range info.class.Fields {
+			if f.Name == name || f.Canonical == name {
+				return typeKey(f.Type), fieldVisibility(f), cur, true
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	return "", "", "", false
+}
+
+// findMethodVisibility 在继承链中查找方法可见性；任一公开同名重载即视为公开。
+func (c *typeCheckCtx) findMethodVisibility(className, name string) (string, string, bool) {
+	cur := className
+	best, owner := "", ""
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, m := range info.class.Methods {
+			if m.IsDeinit || m.Name != name {
+				continue
+			}
+			v := "public"
+			if m.Mod.Vis == "private" {
+				v = "private"
+			} else if m.Mod.Vis == "protected" {
+				v = "protected"
+			}
+			if v == "public" {
+				return "public", cur, true
+			}
+			if best == "" {
+				best, owner = v, cur
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	if best != "" {
+		return best, owner, true
+	}
+	return "", "", false
+}
+
+func (c *typeCheckCtx) isSubclass(sub, base string) bool {
+	if sub == base {
+		return true
+	}
+	info, ok := c.types[sub]
+	if !ok || info.kind != "class" || info.class == nil {
+		return false
+	}
+	for _, a := range c.ancestorClasses(info.class) {
+		if a.class.Name == base {
+			return true
+		}
+	}
+	return false
+}
+
+// canAccessProtected：protected 只能由声明类/子类经 self、super 或当前类/子类静态类型访问。
+func (e *tyenv) canAccessProtected(recvKey, owner string) bool {
+	if e.cls == nil || e.a.tc == nil {
+		return false
+	}
+	cur := e.cls.className
+	if !e.a.tc.isSubclass(cur, owner) {
+		return false
+	}
+	return e.a.tc.isSubclass(recvKey, cur)
+}
+
+// checkMethodVisibility 检查类方法调用的可见性。
+func (e *tyenv) checkMethodVisibility(recvKey, name string, p xfront.Pos) {
+	if e.a.tc == nil {
+		return
+	}
+	info, ok := e.a.tc.types[recvKey]
+	if !ok || info.kind != "class" || info.class == nil {
+		return
+	}
+	vis, owner, ok := e.a.tc.findMethodVisibility(recvKey, name)
+	if !ok || vis == "public" {
+		return
+	}
+	if vis == "protected" {
+		if e.canAccessProtected(recvKey, owner) {
+			return
+		}
+		e.errf(p, TyVisibility, "受保护方法 `"+name+"` 不可访问（§7.3：仅声明类/子类经 self 或当前类/子类静态类型访问）", "")
+		return
+	}
+	if e.cls != nil && e.cls.className == owner {
+		return
+	}
+	e.errf(p, TyVisibility, "私有方法 `"+name+"` 不可访问（§7.3：仅声明类内部）", "")
+}
+
 // tyenv 是一个函数的类型环境。
 type tyenv struct {
 	a      *analyzer
@@ -789,6 +913,20 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 				e.errf(n.P, TyPrivField, "裸 `"+n.Name+"` 引用私有字段：类内只能写 `"+canon+"`（§7.4）", "")
 				return texpr{key: e.vars[canon]}
 			}
+			// 继承字段的裸名访问（§7.3/§7.4）。
+			if e.cls.instance && e.a.tc != nil {
+				if fk, vis, owner, ok := e.a.tc.findField(e.cls.className, n.Name); ok {
+					if vis == "private" {
+						e.errf(n.P, TyVisibility, "裸 `"+n.Name+"` 访问父类私有字段被拒绝（§7.3/§7.4）", "")
+						return texpr{}
+					}
+					if vis == "protected" && !e.canAccessProtected(e.cls.className, owner) {
+						e.errf(n.P, TyVisibility, "裸 `"+n.Name+"` 访问受保护字段被拒绝（§7.3）", "")
+						return texpr{}
+					}
+					return texpr{key: fk}
+				}
+			}
 		}
 		return texpr{}
 	case *xfront.Paren:
@@ -953,6 +1091,20 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		if k, ok := e.vars[n.Name]; ok && e.cls.instance {
 			return texpr{key: k} // 公开实例字段
 		}
+		// 继承字段：self.<name>（§7.3/§7.4）。
+		if e.cls.instance && e.a.tc != nil {
+			if fk, vis, owner, ok := e.a.tc.findField(e.cls.className, n.Name); ok {
+				if vis == "private" {
+					e.errf(n.P, TyVisibility, "`self."+n.Name+"` 访问父类私有字段被拒绝（§7.3/§7.4）", "")
+					return texpr{}
+				}
+				if vis == "protected" && !e.canAccessProtected(e.cls.className, owner) {
+					e.errf(n.P, TyVisibility, "`self."+n.Name+"` 访问受保护字段被拒绝（§7.3）", "")
+					return texpr{}
+				}
+				return texpr{key: fk}
+			}
+		}
 		return texpr{}
 	}
 	// 其他接收者：类类型变量的成员访问（外部私有访问检查，§7.4）
@@ -993,6 +1145,21 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 				e.errf(n.P, TyPrivField, "外部访问私有字段 `"+n.Name+"`（规范名 `"+canon+"`）：私有访问错误（§7.4）", "")
 				return texpr{}
 			}
+			if fk, vis, owner, ok := c.findField(rt.key, n.Name); ok {
+				switch vis {
+				case "private":
+					e.errf(n.P, TyVisibility, "外部访问私有字段 `"+n.Name+"` 被拒绝（§7.3）", "")
+					return texpr{}
+				case "protected":
+					if !e.canAccessProtected(rt.key, owner) {
+						e.errf(n.P, TyVisibility, "受保护字段 `"+n.Name+"` 不可访问（§7.3：需 self/super 或当前类/子类静态类型）", "")
+						return texpr{}
+					}
+					return texpr{key: fk}
+				default:
+					return texpr{key: fk}
+				}
+			}
 			if k, ok := info.publicFields[n.Name]; ok {
 				return texpr{key: k}
 			}
@@ -1026,6 +1193,7 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		if isResultKey(rt.key) {
 			return e.resultMember(rt, mem, n.Args, n.P)
 		}
+		e.checkMethodVisibility(rt.key, mem.Name, n.P)
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
@@ -1044,14 +1212,40 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 	return texpr{}
 }
 
+// splitTopLevel 按顶层逗号切分泛型实参串；括号/尖括号/方括号内的逗号不切分。
+func splitTopLevel(inner string) []string {
+	var parts []string
+	depth := 0
+	start := 0
+	for i, r := range inner {
+		switch r {
+		case '(', '<', '[':
+			depth++
+		case ')', '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	if start <= len(inner) {
+		parts = append(parts, strings.TrimSpace(inner[start:]))
+	}
+	return parts
+}
+
 // methodRet 按接收者类型与成员表推断方法返回类型（§9.1 总表）。
 func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) texpr {
 	k := rt.key
 	genericArg := func(key, prefix string) string {
 		if strings.HasPrefix(key, prefix) && strings.HasSuffix(key, ">") {
 			inner := key[len(prefix) : len(key)-1]
-			parts := strings.Split(inner, ",")
-			return strings.TrimSpace(parts[0])
+			parts := splitTopLevel(inner)
+			if len(parts) > 0 {
+				return parts[0]
+			}
 		}
 		return ""
 	}

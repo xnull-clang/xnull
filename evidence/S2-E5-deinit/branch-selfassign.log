@@ -1,0 +1,2 @@
+# pod/e4-codegen 70f4385: h.a = h.a (member self-assign)
+xnull: 代码生成失败：codegen：类引用字段赋值右值 *xfront.Member 未支持（S2-E5-01 范围）

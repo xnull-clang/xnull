@@ -23,13 +23,15 @@ import (
 
 // 诊断码。
 const (
-	TyModifier  = "TY-201"
-	TyInherit   = "TY-202"
-	TyOverride  = "TY-203"
-	TyStructVal = "TY-204"
-	TyProtoForm = "TY-205"
-	TyEnumRule  = "TY-206"
-	TyPrivField = "TY-207"
+	TyModifier   = "TY-201"
+	TyInherit    = "TY-202"
+	TyOverride   = "TY-203"
+	TyStructVal  = "TY-204"
+	TyProtoForm  = "TY-205"
+	TyEnumRule   = "TY-206"
+	TyPrivField  = "TY-207"
+	TyProtoImpl  = "TY-208" // 协议实现检查（§4.3）
+	TyVisibility = "TY-209" // 成员可见性（§7.3）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -312,6 +314,7 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 			}
 		}
 	}
+	c.checkProtocolImpl(d)
 	// deinit 规则（§6.4）：最多一个；不能 static；不能有参；不能有可见性
 	deinits := 0
 	for _, m := range d.Methods {
@@ -505,6 +508,153 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 }
 
 // constInt64 求简单枚举项的整数字面量值（含前导 -）。
+// ---------- BND-05：协议实现检查（§4.3） ----------
+
+type protoReq struct {
+	owner string
+	sig   *xfront.ProtocolSig
+}
+
+func methodParamsKey(params []*xfront.Param) string {
+	parts := make([]string, len(params))
+	for i, p := range params {
+		parts[i] = typeKey(p.Type)
+	}
+	return strings.Join(parts, ",")
+}
+
+func methodSigKey(name string, params []*xfront.Param) string {
+	return name + "(" + methodParamsKey(params) + ")"
+}
+
+func protoRetKey(sig *xfront.ProtocolSig) string {
+	if sig.Void {
+		return "void"
+	}
+	return typeKey(sig.Ret)
+}
+
+func methodRetKey(m *xfront.MethodDecl) string {
+	if m.Void {
+		return "void"
+	}
+	return typeKey(m.Ret)
+}
+
+func hasAnnotation(annos []*xfront.AnnotationNode, name string) bool {
+	for _, a := range annos {
+		if a.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// checkProtocolImpl 校验 class 实现协议的全部方法（含父协议、签名、可见性、@Override）。
+func (c *typeCheckCtx) checkProtocolImpl(d *xfront.ClassDecl) {
+	reqs := map[string]protoReq{}
+	var collect func(p *xfront.ProtocolDecl)
+	collect = func(p *xfront.ProtocolDecl) {
+		if p == nil {
+			return
+		}
+		for _, ex := range p.Extends {
+			if info, ok := c.types[lastSeg(ex.Qual)]; ok && info.kind == "protocol" {
+				if info.proto != nil {
+					collect(info.proto)
+				}
+			}
+		}
+		for _, sig := range p.Sigs {
+			key := methodSigKey(sig.Name, sig.Params)
+			if prev, ok := reqs[key]; ok {
+				if protoRetKey(prev.sig) != protoRetKey(sig) {
+					c.errf(d.P, TyProtoImpl,
+						"协议方法 `"+sig.Name+"` 的返回类型冲突（"+prev.owner+" vs "+p.Name+"，§4.3）", "统一返回类型或拆分协议")
+				}
+				continue
+			}
+			reqs[key] = protoReq{owner: p.Name, sig: sig}
+		}
+	}
+	for _, pr := range d.Protocols {
+		if info, ok := c.types[lastSeg(pr.Qual)]; ok && info.kind == "protocol" && info.proto != nil {
+			collect(info.proto)
+		}
+	}
+	if len(reqs) == 0 {
+		// 无协议实现时 @Override 仍非法（类继承不存在覆写）。
+		for _, m := range d.Methods {
+			if hasAnnotation(m.Annos, "Override") {
+				c.errf(m.P, TyProtoImpl, "@Override 没有对应的协议方法（§4.3）", "删除注解，或声明 implements 并提供同签名方法")
+			}
+		}
+		return
+	}
+
+	type implMethod struct {
+		m     *xfront.MethodDecl
+		owner string
+	}
+	methods := map[string]implMethod{}
+	for _, m := range d.Methods {
+		if m.IsDeinit {
+			continue
+		}
+		methods[methodSigKey(m.Name, m.Params)] = implMethod{m: m, owner: d.Name}
+	}
+	for _, anc := range c.ancestorClasses(d) {
+		for _, m := range anc.class.Methods {
+			if m.IsDeinit || m.Mod.Vis == "private" {
+				continue
+			}
+			key := methodSigKey(m.Name, m.Params)
+			if _, exists := methods[key]; !exists {
+				methods[key] = implMethod{m: m, owner: anc.class.Name}
+			}
+		}
+	}
+
+	for key, req := range reqs {
+		im, ok := methods[key]
+		if !ok {
+			c.errf(d.P, TyProtoImpl,
+				"类 `"+d.Name+"` 未实现协议 `"+req.owner+"` 的方法 `"+req.sig.Name+"`（§4.3）", "补充同签名公开实例方法")
+			continue
+		}
+		if im.m.Mod.Static || im.m.IsDeinit {
+			c.errf(im.m.P, TyProtoImpl,
+				"协议方法 `"+req.sig.Name+"` 必须由实例方法实现（§4.3）", "去掉 static")
+			continue
+		}
+		if im.m.Mod.Vis != "" && im.m.Mod.Vis != "public" {
+			c.errf(im.m.P, TyProtoImpl,
+				"协议方法 `"+req.sig.Name+"` 的实现必须公开（§4.3）", "去掉 private/protected")
+			continue
+		}
+		if methodRetKey(im.m) != protoRetKey(req.sig) {
+			c.errf(im.m.P, TyProtoImpl,
+				"协议方法 `"+req.sig.Name+"` 返回类型不符：期望 "+protoRetKey(req.sig)+"，实际 "+methodRetKey(im.m)+"（§4.3）", "")
+		}
+	}
+
+	for _, m := range d.Methods {
+		if !hasAnnotation(m.Annos, "Override") {
+			continue
+		}
+		key := methodSigKey(m.Name, m.Params)
+		req, ok := reqs[key]
+		if !ok {
+			c.errf(m.P, TyProtoImpl, "@Override 未对应任何协议方法（§4.3）", "删除注解，或改为正确的协议方法签名")
+			continue
+		}
+		if methodRetKey(m) != protoRetKey(req.sig) {
+			c.errf(m.P, TyProtoImpl,
+				"@Override 方法 `"+m.Name+"` 返回类型与协议不符（§4.3）", "")
+		}
+	}
+}
+
 func constInt64(e xfront.Expr) (int64, bool) {
 	switch n := e.(type) {
 	case *xfront.IntLitExpr:

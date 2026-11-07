@@ -33,6 +33,10 @@ func mangle(c string) (string, error) {
 	if isClassPtr(c) {
 		return "o_" + strings.TrimSuffix(strings.TrimPrefix(c, "xn_Cls_"), " *"), nil
 	}
+	// 元组元素（S1 §2.11）：xn_tup_<...> → t_<...>（containerElem 可逆）。
+	if strings.HasPrefix(c, "xn_tup_") {
+		return "t_" + strings.TrimPrefix(c, "xn_tup_"), nil
+	}
 	return "", fmt.Errorf("codegen：容器元素类型暂支持 Int/Bool/String/类引用（M5.1-a 范围），got %s", c)
 }
 

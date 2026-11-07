@@ -34,8 +34,11 @@ rt_weak_slot *rt_weak_create(void *target) {
 }
 
 void *rt_weak_get(rt_weak_slot *s) {
-    if (s == NULL || s->cleared || s->target->hdr.terminated) {
+    if (s == NULL || s->cleared || s->target == NULL) {
         return NULL; /* 不变量 4：目标死亡即清除；禁止观察已终结目标 */
+    }
+    if (s->target->hdr.terminated) {
+        return NULL;
     }
     return s->target;
 }
@@ -44,21 +47,32 @@ void rt_weak_destroy(rt_weak_slot *s) {
     if (s == NULL) {
         return;
     }
-    /* 从目标侧链摘除：槽位可复用（S3 §16） */
-    rt_weak_slot **link = (rt_weak_slot **)&s->target->hdr.weak_head;
-    while (*link != NULL) {
-        if (*link == s) {
-            *link = s->next;
-            break;
+    /* 仅“存活且未清除”的槽位需要从目标侧链摘除（S3 §16）。
+     * 目标死亡时 rt_weak_clear_slots 已把 target 置 NULL；此时目标内存可能
+     * 已被隔离区/GC 释放，绝不能再解引用（S2 审计 S2-E5-06 的 UAF）。 */
+    if (!s->cleared && s->target != NULL) {
+        rt_weak_slot **link = (rt_weak_slot **)&s->target->hdr.weak_head;
+        while (*link != NULL) {
+            if (*link == s) {
+                *link = s->next;
+                break;
+            }
+            link = &(*link)->next;
         }
-        link = &(*link)->next;
     }
     s->cleared = 1;
     s->target = NULL;
     free(s);
 }
 
-/* 清除目标的全部弱槽位（终结链第 1 步；rt.c 与 rt_gc.c 调用）。 */
+/* 诊断（测试/运行时内部）：清除后槽位必须与目标解绑，destroy 才能不触达已释放目标。 */
+int rt_weak_is_detached(const rt_weak_slot *s) {
+    return s == NULL || s->target == NULL;
+}
+
+/* 清除目标的全部弱槽位（终结链第 1 步；rt.c 与 rt_gc.c 调用）。
+ * 关键：同时把槽位的 target 置 NULL 并清空目标的侧链——目标随后会被隔离区
+ * 或 GC 释放，槽位此后不得再解引用目标（S2 审计 S2-E5-06 的 UAF 根因）。 */
 void rt_weak_clear_slots(void *target) {
     rt_object *o = target;
     if (o == NULL) {
@@ -66,5 +80,7 @@ void rt_weak_clear_slots(void *target) {
     }
     for (rt_weak_slot *s = o->hdr.weak_head; s != NULL; s = s->next) {
         s->cleared = 1;
+        s->target = NULL;
     }
+    o->hdr.weak_head = NULL;
 }

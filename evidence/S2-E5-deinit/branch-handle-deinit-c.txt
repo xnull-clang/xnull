@@ -1,0 +1,5 @@
+# pod/e4-codegen 70f4385: Holder deinit (handle field released)
+static void xn_Cls_Holder_deinit(void *p) {
+    xn_Cls_Holder *o = (xn_Cls_Holder *)p;
+    rt_release(o->f);
+}

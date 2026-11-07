@@ -1,0 +1,11 @@
+# main f975810: Holder deinit hook (handle field not released)
+static void xn_Cls_Holder_deinit_hook(void *p) {
+    xn_Cls_Holder *o = (xn_Cls_Holder *)p;
+}
+static const rt_type RT_TYPE_XN_Holder = { "Holder", sizeof(xn_Cls_Holder), xn_Cls_Holder_deinit_hook, NULL };
+
+static xn_Cls_Holder *xn_Cls_Holder_new(void) {
+    xn_Cls_Holder *o = (xn_Cls_Holder *)rt_arc_new(&RT_TYPE_XN_Holder);
+    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_Holder) - sizeof(rt_header));
+    return o;
+}

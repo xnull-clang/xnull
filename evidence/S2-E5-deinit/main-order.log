@@ -1,0 +1,6 @@
+# main f975810: user deinit order
+$ ./order
+main
+outer-deinit
+inner-deinit
+exit=0
