@@ -1,0 +1,6 @@
+=== RUN   TestS701LayoutSize
+--- PASS: TestS701LayoutSize (0.00s)
+=== RUN   TestS701FFICallTypes
+--- PASS: TestS701FFICallTypes (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.997s

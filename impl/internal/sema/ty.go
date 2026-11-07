@@ -1612,6 +1612,12 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 	}
 	// xdk.errors 顶层函数：wrap/mapErr/report（S4 §2.3）。
 	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+		// S7-01：E4 注入的 FFI 入口签名（check/build 共用）。
+		if _, user := e.funcs[id.Name]; !user {
+			if entry, ok := lookupFFIEntry(id.Name); ok {
+				return e.inferFFICall(n, entry, n.P)
+			}
+		}
 		if _, user := e.funcs[id.Name]; !user && e.a.imported[id.Name] {
 			switch id.Name {
 			case "wrap", "mapErr", "report":

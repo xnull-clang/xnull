@@ -1,0 +1,14 @@
+# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
+internal/sema/s7_01_test.go:9:12: undefined: RegisterExternalLayout
+internal/sema/s7_01_test.go:9:45: undefined: FFIField
+internal/sema/s7_01_test.go:15:14: undefined: LayoutSize
+internal/sema/s7_01_test.go:19:12: undefined: RegisterExternalLayout
+internal/sema/s7_01_test.go:19:48: undefined: FFIField
+internal/sema/s7_01_test.go:26:12: undefined: RegisterExternalLayout
+internal/sema/s7_01_test.go:26:45: undefined: FFIField
+internal/sema/s7_01_test.go:33:12: undefined: RegisterExternalLayout
+internal/sema/s7_01_test.go:33:48: undefined: FFIField
+internal/sema/s7_01_test.go:40:12: undefined: RegisterExternalLayout
+internal/sema/s7_01_test.go:40:12: too many errors
+FAIL	xnull.dev/xnull/internal/sema [build failed]
+FAIL
