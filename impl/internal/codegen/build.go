@@ -35,6 +35,7 @@ var runtimeCSources = []string{
 	"rt_std_sys.c",
 	"rt_std_bytes.c",
 	"rt_task.c",
+	"rt_sync.c",
 }
 
 // Build 端到端构建：XNull 源文件 → C → cc → 可执行文件（M4.2）。

@@ -244,6 +244,45 @@ int32_t xrt_task_group_close(xrt_task_group *g, xrt_task_result *first_error);
 int32_t xrt_task_join(xrt_task *t, xrt_task_result *out);
 int32_t xrt_task_join_deadline(xrt_task *t, int64_t deadline_mono_ms, xrt_task_result *out);
 
+/* ---- 同步原语（S5-00 冻结面；S5-03） ---- */
+
+typedef void *(*xrt_ref_retain_fn)(void *v);
+typedef void  (*xrt_ref_release_fn)(void *v);
+typedef struct xrt_channel_ops {
+    xrt_ref_retain_fn  retain;  /* 元素入队/引用时持有；NULL = 不持有 */
+    xrt_ref_release_fn release; /* 出队/关闭/替换时释放 */
+} xrt_channel_ops;
+
+typedef struct xrt_channel   xrt_channel;
+typedef struct xrt_mutex     xrt_mutex;
+typedef struct xrt_atomic_int  xrt_atomic_int;
+typedef struct xrt_atomic_bool xrt_atomic_bool;
+typedef struct xrt_atomic_ref  xrt_atomic_ref;
+
+xrt_channel *xrt_channel_new(size_t capacity, const xrt_channel_ops *ops);
+/* send 成功消费 +1；CANCELLED/CLOSED 不消费（调用方仍持有）。 */
+int32_t xrt_channel_send(xrt_channel *ch, void *value, xrt_context *ctx);
+/* receive 成功取得 +1；CANCELLED/CLOSED 不写 *value。 */
+int32_t xrt_channel_receive(xrt_channel *ch, void **value, xrt_context *ctx);
+void    xrt_channel_close(xrt_channel *ch); /* 幂等；唤醒挂起者并释放队列剩余 */
+
+typedef int32_t (*xrt_with_lock_body)(void *data, void *env, xrt_context *ctx);
+xrt_mutex *xrt_mutex_new(void *data, const xrt_channel_ops *ops);
+int32_t    xrt_mutex_with_lock(xrt_mutex *m, xrt_with_lock_body body, void *env, xrt_context *ctx);
+
+xrt_atomic_int  *xrt_atomic_int_new(int64_t v);
+int64_t          xrt_atomic_int_load(const xrt_atomic_int *a);
+void             xrt_atomic_int_store(xrt_atomic_int *a, int64_t v);
+int32_t          xrt_atomic_int_cas(xrt_atomic_int *a, int64_t expect, int64_t desired);
+xrt_atomic_bool *xrt_atomic_bool_new(int v);
+int32_t          xrt_atomic_bool_load(const xrt_atomic_bool *a);
+void             xrt_atomic_bool_store(xrt_atomic_bool *a, int v);
+int32_t          xrt_atomic_bool_cas(xrt_atomic_bool *a, int expect, int desired);
+xrt_atomic_ref  *xrt_atomic_ref_new(void *v, const xrt_channel_ops *ops);
+void            *xrt_atomic_ref_load(const xrt_atomic_ref *a);
+void             xrt_atomic_ref_store(xrt_atomic_ref *a, void *v);
+int32_t          xrt_atomic_ref_cas(xrt_atomic_ref *a, void *expect, void *desired);
+
 /* ---- 跨界违约终止（S7 §9 INV-FFI-8：跨界 panic 一律终止进程） ---- */
 
 void xrt_fatal(const char *reason);

@@ -1,0 +1,3 @@
+$ ./test_sync
+sync tests passed (channel/mutex/atomic/cancel)
+EXIT=0
