@@ -1,0 +1,5 @@
+=== RUN   TestXDK07CompiledE2E
+    xdk07_e2e_test.go:76: compiled 路径 BLOCKED（codegen 缺口，交 E4）：xnull: 代码生成失败：codegen：可空表达式成员 pop 未支持（M6-B0-05 范围）
+--- SKIP: TestXDK07CompiledE2E (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	0.711s
