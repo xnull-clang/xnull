@@ -1,7 +1,7 @@
 # 回执：ENTRY-01 CLI 侧（支援卡 A）
 
 > 角色：CEO3-RD1-工具链（会签人）　日期：2026-11-07　分支：`pod/c3-rd1`
-> 基线：`81ec33d`　代码提交：`5f8b437fa2f9fefb80eedcf0c95fb57f9de9749f`
+> 原始基线：`81ec33d`；CLI 侧提交：`5f8b437`；已并入 main `7df123d`（合并提交 `5dbf0d9`）
 > 范围：`impl/internal/cli/cli.go`、`impl/internal/cli/cli_test.go`；未改 codegen/xfront/sema/interp/runtime。
 
 ## 1. 改了什么
@@ -18,17 +18,20 @@
 cd wt/c3-rd1/impl
 go vet ./internal/cli
 go test ./internal/cli -count=1
-go test ./... -count=1 -timeout 900s
+go test ./... -count=1 -timeout 300s
+go test ./internal/cli -run 'TestRunEntry|TestEntry|TestRunMain|TestInitOrder' -count=1
+go test ./internal/interp -run 'TestEntry|TestTopFieldInitOrder|TestMissingMain|TestMainWithArgs' -count=1
 ```
 
-实测：vet=0；`internal/cli`=0；全量 `./...`=0。先红证据 `evidence/M1-ENTRY-01/cli-red.out`（exit=1），修复后 `cli-targeted.out`/`cli-internal.out`/`cli-full.out` 全绿。
+实测（合并 main 后）：`go test ./... -count=1 -timeout 300s` = 0；CLI 入口锚点矩阵 = 0；interp 入口锚点 = 0；codegen `TestB0_04FieldInitOrder`/`TestXdkSeedUnitCompiles` = 0。先红证据 `evidence/M1-ENTRY-01/cli-red.out`（exit=1），修复后 `cli-targeted.out`/`cli-post-merge-anchor.out`/`cli-post-merge-full.out` 全绿。
 
 ## 3. SHA
 
-- 代码提交：`5f8b437fa2f9fefb80eedcf0c95fb57f9de9749f`
+- CLI 侧提交：`5f8b437fa2f9fefb80eedcf0c95fb57f9de9749f`
+- 合并 main：`5dbf0d930da5465fa0eccbb1405ea2826abea30a`（main=`7df123d`）
 - 文件 SHA-256：见 `evidence/M1-ENTRY-01/cli-sha.txt`
-  - `cli.go`：`08e487471e5fa7db38015d8ca37a30eed3a50c0af5ef826be2d073d9099bde79`
-  - `cli_test.go`：`d0c003dd1495e6a5f0115c2526b566acfff2b6350f1fb3cec12d85f7415c24ae`
+  - `cli.go`：`cea6bc05334993ce554b3ded542ff0b622f713fbc72fbfe182462c36a64a6202`
+  - `cli_test.go`：`2e05d939985a7be08e2c7e8723a2cb30dafd52e0f0d49e0266263067de3948e6`
 
 ## 4. 产物
 
@@ -37,13 +40,14 @@ go test ./... -count=1 -timeout 900s
 - `evidence/M1-ENTRY-01/cli-targeted.out` / `.exit`
 - `evidence/M1-ENTRY-01/cli-internal.out` / `.exit`
 - `evidence/M1-ENTRY-01/cli-full.out` / `.exit`
+- `evidence/M1-ENTRY-01/cli-post-merge-anchor.out` / `.exit`（合并 main 后入口锚点）
+- `evidence/M1-ENTRY-01/cli-post-merge-full.out` / `.exit`（合并 main 后全量）
 - `evidence/M1-ENTRY-01/cli-vet.out` / `.exit`
 - `evidence/M1-ENTRY-01/cli-sha.txt`
 - `evidence/M1-ENTRY-01/cli-acceptance.md`
 
 ## 5. 未测项
 
-- **编译路径 `main(String[] args)` 尚未端到端绿**：`internal/codegen` 现生成 `int main(void) { xn_main(); ... }`，对带参 `xn_main` 直接 cc 报参数不足。CLI 已把 `progArgs` 传给二进制；需 E4 在 codegen 生成 `int main(int argc, char **argv)` 并构造 `String[]` 后，才能用现有用例扩到编译路径。本卡未改 codegen，也不伪造绿。
-- 编译路径顶层字段初始化：`EmitC` 当前对 `TopField` 报未支持；初始化顺序断言暂只走 `--interp`。
+- **已解除**：合并 main `7df123d` 后，E4 的 codegen 已支持带参入口与编译路径顶层字段；`TestRunEntryTwoSignatures`/`TestRunEntryArgsArray`/`TestRunEntryInitOrder` 编译路径全绿。
 - 多文件入口归属：`checkEntry` 基于 `LoadUnits` 合并后的单元，尚未按 S1 §11.4 严格限定“入口文件必须包含 main”。
 - 非匹配 `main` 重载：S1 §11.2 允许其作为普通函数，但 codegen 当前同名顶层函数撞名；本卡对第二个 `main` 一律报 `ENTRY-002`，待重载切片放开。

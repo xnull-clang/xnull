@@ -1,7 +1,8 @@
 # ENTRY-01 CLI 侧验收记录
 
 > 角色：CEO3-RD1-工具链（支援卡 A，会签人）　日期：2026-11-07
-> 基线：`81ec33d`（`pod/c3-rd1`）　范围：`impl/internal/cli/cli.go`、`impl/internal/cli/cli_test.go`
+> 原始基线：`81ec33d`；已并入 main `7df123d`（合并提交 `5dbf0d9`）
+> 范围：`impl/internal/cli/cli.go`、`impl/internal/cli/cli_test.go`
 > 锚点主责：E4（codegen）。本件只证明 CLI 侧，不替代 ENTRY-01 整卡验收。
 
 ## 1. 改了什么
@@ -29,7 +30,7 @@
 ### 1.3 初始化顺序
 
 - CLI 测试断言：顶层字段按声明顺序初始化（`mark("a")` → `mark("b")`），完成后才进入 `main`；输出 `a\nb\nmain\n`。
-- 该断言走 `--interp` 路径；编译路径的顶层字段初始化属 codegen 能力（E4），当前 `EmitC` 对 `TopField` 显式报错，未在本卡冒充通过。
+- 同步 main `7df123d` 后，E4 的 codegen/interp 已补齐编译路径顶层字段与带参入口；`TestRunEntryInitOrder`（编译 + 解释双路径）与 `TestRunEntryTwoSignatures`/`TestRunEntryArgsArray` 均绿。
 
 ## 2. 怎么验
 
@@ -37,7 +38,9 @@
 cd wt/c3-rd1/impl
 go vet ./internal/cli
 go test ./internal/cli -count=1
-go test ./... -count=1 -timeout 900s
+go test ./... -count=1 -timeout 300s
+go test ./internal/cli -run 'TestRunEntry|TestEntry|TestRunMain|TestInitOrder' -count=1
+go test ./internal/interp -run 'TestEntry|TestTopFieldInitOrder|TestMissingMain|TestMainWithArgs' -count=1
 ```
 
 结果：
@@ -45,8 +48,10 @@ go test ./... -count=1 -timeout 900s
 | 命令 | 退出码 | 证据 |
 |---|---:|---|
 | `go vet ./internal/cli` | 0 | `cli-vet.out` / `cli-vet.exit` |
-| `go test ./internal/cli -count=1` | 0 | `cli-internal.out` / `cli-internal.exit` |
-| `go test ./... -count=1 -timeout 900s` | 0 | `cli-full.out` / `cli-full.exit` |
+| `go test ./internal/cli -count=1`（合并前） | 0 | `cli-internal.out` / `cli-internal.exit` |
+| `go test ./... -count=1 -timeout 900s`（合并前） | 0 | `cli-full.out` / `cli-full.exit` |
+| `go test ./... -count=1 -timeout 300s`（合并 main 后） | 0 | `cli-post-merge-full.out` / `.exit` |
+| CLI 入口锚点矩阵（合并 main 后） | 0 | `cli-post-merge-anchor.out` / `.exit` |
 
 先红后绿：
 
@@ -70,14 +75,13 @@ go test ./... -count=1 -timeout 900s
 
 ## 5. 未测项 / 依赖
 
-1. **编译路径的 `main(String[] args)` 尚未端到端通过**：`internal/codegen` 当前生成 `int main(void) { xn_main(); ... }`，对带参 `xn_main` 直接 cc 报“too few arguments”。CLI 已把 `progArgs` 传给进程，但 codegen 必须生成 `int main(int argc, char **argv)` 并构造 `String[]`；该文件属 E4 白名单，本卡未改、也未伪造通过。E4 合入后可直接用现有 `TestRunMainWithArgs*` 扩到编译路径。
-2. **编译路径顶层字段初始化**：`EmitC` 目前对 `TopField` 返回未支持错误；CLI 初始化顺序断言暂只走 `--interp`，不宣称编译路径已支持。
-3. **多文件入口归属**：`checkEntry` 基于 `LoadUnits` 合并后的单元，跨 import 的 `main` 也视为入口；S1 §11.4“入口文件必须包含 main”的严格文件归属未单独校验，待工程清单入口解析时补。
-4. **非匹配 `main` 重载**：S1 §11.2 允许其他 `main` 重载作为普通函数，但 codegen 当前不支持同名顶层函数（C 侧撞名）；本卡对任何第二个 `main` 报 `ENTRY-002`，待重载切片放开。
-5. **`--runtime` 缺失值**：当前静默忽略（沿用既有参数形态校验），未新增用法诊断；不属 ENTRY-01 验收面。
+1. **已解除（原第 1/2 项）**：合并 main `7df123d` 后，E4 的 codegen 已支持带参入口与编译路径顶层字段；`TestRunEntryTwoSignatures`、`TestRunEntryArgsArray`、`TestRunEntryInitOrder` 在编译路径均绿。
+2. **多文件入口归属**：`checkEntry` 基于 `LoadUnits` 合并后的单元，跨 import 的 `main` 也视为入口；S1 §11.4“入口文件必须包含 main”的严格文件归属未单独校验，待工程清单入口解析时补。
+3. **非匹配 `main` 重载**：S1 §11.2 允许其他 `main` 重载作为普通函数，但 codegen 当前不支持同名顶层函数（C 侧撞名）；本卡对任何第二个 `main` 报 `ENTRY-002`，待重载切片放开。
+4. **`--runtime` 缺失值**：当前静默忽略（沿用既有参数形态校验），未新增用法诊断；不属 ENTRY-01 验收面。
 
 ## 6. 声明
 
-- 只改白名单内 `cli.go`、`cli_test.go`；未改 codegen/xfront/sema/interp/runtime。
-- 只 commit 到 `pod/c3-rd1`，未 push、未合并 main、未派工。
+- CLI 侧只改白名单内 `cli.go`、`cli_test.go`；未改 codegen/xfront/sema/interp/runtime。
+- 已按阶段对齐命令并入 main `7df123d`（合并提交 `5dbf0d9`）；只 commit 到 `pod/c3-rd1`，未 push、未派工。
 - 本件是 CLI 侧执行证据，不构成 ENTRY-01 整卡验收签署；整卡由 E4 锚点 + QA 会签。
