@@ -67,3 +67,17 @@
 - 回归：`build_rt.sh` 六套件 exit 0（`replay-beba3f6-build_rt.log`）；E4 的 `TestS2*` 六例全 PASS。
 - 结论：deinit 发射契约 E5 侧复签通过，无 E4 遗留阻断；容器字段赋值（B2）与 `Class?` 未支持按声明接受。
 - 下一步：E2 的 `SEMA-BYTES` / 发布 self 检查；E5 待命。
+
+## E5 复签（2026-11-07，最终 main `fa6d821`）
+
+- 双跑一致：干净 worktree @ `beba3f6` 与最终 main `fa6d821` 探针结果相同。
+- 结果 **5/5 PASS**：
+  1. 用户 deinit 体先于字段释放（main → outer-deinit → inner-deinit）；
+  2. 类引用字段赋值 `rt_retain(a1); rt_release(h->a); h->a = a1;`；
+  3. 成员表达式自赋值 `h.a = h.a`：临时 + retain + release + 写回，运行正常；
+  4. handle 字段：赋值 retain/release，deinit 钩子 `rt_release(o->f)`，显式 close 正常；
+  5. Bytes 字段：`TestS2DeinitReleasesHandleAndBytes` PASS；端到端仍待 E2 `SEMA-BYTES`。
+- 回归：E4 `TestS2*` 六例 PASS；`build_rt.sh` 六套件 exit 0。
+- 遗留（非本卡阻断）：容器字段赋值 → B2 引用语义容器；`Class?` 可空字段；Bytes 端到端 → E2。
+- 证据：`evidence/S2-E5-deinit/replay-beba3f6-*`、回执 `收件箱/回执箱/回执-S2-E5-deinit.md`。
+- **状态**：S2 deinit 发射契约 E4/E5 双方收口。
