@@ -43,24 +43,6 @@ type projectManifest struct {
 	Properties map[string]string
 }
 
-// findManifestRoot 从 start 向上查找 xnull.project；找不到返回空串。
-func findManifestRoot(start string) string {
-	dir, err := filepath.Abs(start)
-	if err != nil {
-		return ""
-	}
-	for {
-		if st, err := os.Stat(filepath.Join(dir, manifestFile)); err == nil && !st.IsDir() {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return ""
-		}
-		dir = parent
-	}
-}
-
 func manifestDiag(path string, p xpd.Pos, code, msg string) *diag.Diagnostic {
 	return &diag.Diagnostic{File: path, Line: p.Line, Col: p.Col, Code: code, Message: msg}
 }
