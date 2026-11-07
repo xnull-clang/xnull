@@ -48,7 +48,7 @@ func (in *Interp) callErrorsBuiltin(name string, n *xfront.Call, sc *scope) *Val
 		if !r.R.ok {
 			in.emitReport(r.R.e)
 		}
-		return r // XDK 定案 3-a-1：report 返回原 Result，支持 return report(r)
+		return &Value{K: vNull} // S4 §2.1：report 返回 void（链式写法已按裁定删除）
 	}
 	panic(runtimeErr{"未定义的函数：" + name})
 }
@@ -61,7 +61,7 @@ func (in *Interp) callValueFn(f *Value, args []*Value, pos xfront.Pos) *Value {
 	return in.callClosure(f.Clo, args)
 }
 
-// emitReport 写单行诊断：`<kind>: <describe>`（S4 §4.3；无调用栈）。
+// emitReport 写单行诊断：`[Kind] describe`（S4 §4.3；无调用栈；以 compiled 为准）。
 func (in *Interp) emitReport(errVal *Value) {
 	kind := "Internal"
 	desc := format(errVal)
@@ -73,7 +73,7 @@ func (in *Interp) emitReport(errVal *Value) {
 	}
 	desc = strings.ReplaceAll(desc, "\r", " ")
 	desc = strings.ReplaceAll(desc, "\n", " ")
-	fmt.Fprintf(in.diag, "%s: %s\n", kind, desc)
+	fmt.Fprintf(in.diag, "[%s] %s\n", kind, desc)
 }
 
 // errorMember 安全调用错误值的 kind()/describe()；非 Error 类型返回 nil（走兜底）。

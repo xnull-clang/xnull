@@ -12,6 +12,34 @@ func (in *Interp) closeScope(sc *scope) {
 		in.releaseObject(sc.objOwner[name])
 		delete(sc.objOwner, name)
 	}
+	// 临时对象在调用方块结束时释放（被调方 errdefer/错误处理先完成）。
+	for i := len(sc.temps) - 1; i >= 0; i-- {
+		in.releaseObject(sc.temps[i])
+	}
+	sc.temps = nil
+}
+
+// detachTemp 把临时引用转交给变量（同作用域最近一次匹配）。
+func (in *Interp) detachTemp(sc *scope, obj *objv) bool {
+	for i := len(sc.temps) - 1; i >= 0; i-- {
+		if sc.temps[i] == obj {
+			sc.temps = append(sc.temps[:i], sc.temps[i+1:]...)
+			if obj.owners > 0 {
+				obj.owners--
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// addTemp 登记 new 产生的临时对象：由创建它的作用域在块结束时释放。
+func (in *Interp) addTemp(sc *scope, obj *objv) {
+	if obj == nil {
+		return
+	}
+	obj.owners++
+	sc.temps = append(sc.temps, obj)
 }
 
 // takeOwnership 变量首次持有一个对象（强持有 +1）。
@@ -20,6 +48,8 @@ func (in *Interp) takeOwnership(sc *scope, name string, v *Value) {
 		return
 	}
 	obj := v.O
+	// `T x = new T()`：临时引用转交变量，避免同一作用域多持有一份。
+	in.detachTemp(sc, obj)
 	obj.escaped = false
 	obj.owners++
 	if _, exists := sc.objOwner[name]; !exists {
@@ -55,6 +85,7 @@ func (in *Interp) rebindOwnership(sc *scope, name string, v *Value) {
 		in.releaseObject(old)
 	}
 	if nw != nil {
+		in.detachTemp(sc, nw)
 		nw.escaped = false
 		nw.owners++
 		if _, exists := holder.objOwner[name]; !exists {

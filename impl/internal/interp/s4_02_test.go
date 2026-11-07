@@ -61,13 +61,13 @@ static Int main() {
     Result<Int, Error> ok = Ok(1)
     report(ok)
     Result<Int, Error> bad = Err(new IoError())
-    Result<Int, Error> same = report(bad)
-    print(same.isErr())
-    print(same.error().describe())
+    report(bad)
+    print(bad.isErr())
+    print(bad.error().describe())
     return 0
 }`)
 	wantOut := "true\ndisk\n"
-	wantDiag := "Io: disk\n"
+	wantDiag := "[Io] disk\n"
 	if err != nil || code != 0 || out != wantOut || diag != wantDiag {
 		t.Fatalf("out=%q wantOut=%q diag=%q wantDiag=%q code=%d err=%v", out, wantOut, diag, wantDiag, code, err)
 	}
@@ -106,7 +106,7 @@ static Int main() {
     print(r.isErr())
     return 0
 }`)
-	if err != nil || code != 0 || out != "true\n" || diag != "Io: disk\n" {
+	if err != nil || code != 0 || out != "true\n" || diag != "[Io] disk\n" {
 		t.Fatalf("out=%q diag=%q code=%d err=%v", out, diag, code, err)
 	}
 }

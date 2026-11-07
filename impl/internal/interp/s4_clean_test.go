@@ -87,7 +87,7 @@ static Int main() {
     print("err:" + r.error())
     return 0
 }`)
-		want := "comp:comp-fail\ndR\nerr:orig\n"
+		want := "comp:comp-fail\nerr:orig\ndR\n"
 		if err != nil || out != want {
 			t.Fatalf("out=%q want=%q err=%v", out, want, err)
 		}
@@ -123,4 +123,20 @@ static Int main() {
 			t.Fatalf("out=%q want=%q err=%v", out, want, err)
 		}
 	})
+}
+
+// CLEAN-01b：临时实参在调用方完整表达式/块结束时 deinit（compiled 口径）。
+func TestS4CLEANTempArgDeinitOrder(t *testing.T) {
+	out, err := runSrc(t, `
+class R { void deinit() { print("dR") } }
+static Result<Int, String> g(R r) { return Err("x") }
+static Int main() {
+    Result<Int, String> r = g(new R())
+    print("err:" + r.error())
+    return 0
+}`)
+	want := "err:x\ndR\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
 }

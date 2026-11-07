@@ -91,7 +91,9 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	}
 	obj := in.newObject(cls)
 	in.initClass(obj, cls, args, sc)
-	return &Value{K: vObj, O: obj}
+	v := &Value{K: vObj, O: obj}
+	in.addTemp(sc, obj)
+	return v
 }
 
 // newObject 按继承链声明序登记字段并置零（§6.5 第 1 步）。
