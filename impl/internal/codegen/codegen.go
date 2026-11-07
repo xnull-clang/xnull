@@ -155,7 +155,8 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 // （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
 func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
-		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}}
+		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
+		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -164,6 +165,7 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			g.handleNames[h.Name] = true
 		}
 	}
+	g.collectGenerics(u)
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
@@ -202,10 +204,14 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			g.globalList = append(g.globalList, f)
 		}
 	}
-	// 函数签名表（类型推断消费）
+	// 函数签名表（类型推断消费）。泛型声明不进表：调用点一律走实例名，
+	// 同名普通函数与泛型函数构成合法重载（§8.2），C 侧靠实例后缀区分。
 	seenFn := map[string]bool{}
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
+			if len(fn.TypePars) > 0 {
+				continue
+			}
 			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
 				rc := "void"
 				switch {
@@ -253,6 +259,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			if _, isFFI := g.ffiEntries[n.Name]; isFFI {
 				continue
 			}
+			if len(n.TypePars) > 0 {
+				continue // 泛型声明按实例生成，见 expandInstances
+			}
 			if _, err := g.genFunc(n); err != nil {
 				return "", err
 			}
@@ -269,18 +278,29 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}
 	}
+	// 单态化展开：试生成新发现的实例，直到不再增长（§8.3，含无限展开上限）
+	if err := g.expandInstances(); err != nil {
+		return "", err
+	}
 	g.tmp = 0
 	var fns []string
-	// 第二遍：正式生成顶层函数
+	// 第二遍：正式生成顶层函数（普通函数 + 单态化实例）
 	for _, d := range u.Decls {
 		fn, ok := d.(*xfront.TopFunc)
-		if !ok {
+		if !ok || len(fn.TypePars) > 0 {
 			continue
 		}
 		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
 			continue
 		}
 		c, err := g.genFunc(fn)
+		if err != nil {
+			return "", err
+		}
+		fns = append(fns, c)
+	}
+	for _, cn := range g.instNames() {
+		c, err := g.genInstance(g.insts[cn])
 		if err != nil {
 			return "", err
 		}
@@ -338,8 +358,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	// 顶层函数原型（类方法体可能引用后定义的顶层函数；与顺序无关）
 	for _, d := range u.Decls {
 		fn, ok := d.(*xfront.TopFunc)
-		if !ok {
-			continue
+		if !ok || len(fn.TypePars) > 0 {
+			continue // 泛型声明本身不发原型；实例原型在下方单独发
 		}
 		if _, isFFI := g.ffiEntries[fn.Name]; isFFI {
 			continue // 包装由 EmitSupport 提供
@@ -361,6 +381,27 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			parts = append(parts, pc+" xn_p_"+prm.Name)
 		}
 		fmt.Fprintf(&b, "static %s xn_%s(%s);\n", retC, fn.Name, strings.Join(parts, ", "))
+	}
+	// 单态化实例原型（§8.3）：params/返回均已替换为具体类型，按实例名排序（DET-01）
+	for _, cn := range g.instNames() {
+		inst := g.insts[cn]
+		saved := g.subst
+		g.subst = inst.subst
+		parts := []string{}
+		var perr error
+		for _, prm := range inst.fn.Params {
+			pc, err := g.cType(prm.Type)
+			if err != nil {
+				perr = err
+				break
+			}
+			parts = append(parts, pc+" xn_p_"+prm.Name)
+		}
+		g.subst = saved
+		if perr != nil {
+			return "", perr
+		}
+		fmt.Fprintf(&b, "static %s %s(%s);\n", inst.retC, inst.cname, strings.Join(parts, ", "))
 	}
 	if len(u.Decls) > 0 {
 		b.WriteString("\n")
@@ -566,16 +607,20 @@ func (g *gen) genGlobalInit() (string, error) {
 }
 
 type gen struct {
-	results        map[string]string     // Result 实例化名 → v 成员类型
-	cs             *containers           // 容器实例化注册表（M4.4a）
-	fnRet          map[string]string     // 顶层函数名 → 返回 C 类型（类型推断用）
-	classes        map[string]*classInfo // 类名 → 生成信息（M4.4b）
-	globals        map[string]string     // 顶层字段名 → C 类型（ENTRY-01）
-	globalList     []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
-	ffi            *ffi.Registry         // .xfb 绑定注册表（P-09）
-	ffiEntries     map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
-	handleNames    map[string]bool       // 不透明句柄类型（B0-07c）
-	needStrReplace bool                  // 使用过 String.replace（按需发助手）
+	results        map[string]string          // Result 实例化名 → v 成员类型
+	cs             *containers                // 容器实例化注册表（M4.4a）
+	fnRet          map[string]string          // 顶层函数名 → 返回 C 类型（类型推断用）
+	classes        map[string]*classInfo      // 类名 → 生成信息（M4.4b）
+	globals        map[string]string          // 顶层字段名 → C 类型（ENTRY-01）
+	globalList     []*xfront.TopField         // 顶层字段声明顺序（初始化顺序）
+	ffi            *ffi.Registry              // .xfb 绑定注册表（P-09）
+	ffiEntries     map[string]ffi.Entry       // 入口名 → 合同投影（P-09）
+	handleNames    map[string]bool            // 不透明句柄类型（B0-07c）
+	needStrReplace bool                       // 使用过 String.replace（按需发助手）
+	generics       map[string]*xfront.TopFunc // 泛型函数名 → 声明（S1 §8.1）
+	insts          map[string]*instInfo       // 实例 C 名 → 实例信息（S1 §8.3）
+	instOrder      []string                   // 实例发现顺序（展开轮驱动；输出前排序）
+	subst          map[string]xfront.TypeRef  // 当前实例的类型参数替换（空 = 普通函数）
 	tmp            int
 }
 
@@ -675,6 +720,8 @@ func (g *gen) collectStmt(st xfront.Stmt) error {
 }
 
 func (g *gen) cType(t xfront.TypeRef) (string, error) {
+	// 单态化实例内：先把类型参数替换为具体类型（S1 §8.3）。空替换表为恒等。
+	t = g.substitute(t)
 	switch n := t.(type) {
 	case nil:
 		return "void", nil
@@ -775,6 +822,11 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 // ---------- 函数 ----------
 
 func (g *gen) genFunc(fn *xfront.TopFunc) (string, error) {
+	return g.genFuncNamed(fn, "xn_"+fn.Name)
+}
+
+// genFuncNamed 生成函数体，C 名可指定（单态化实例用实例名，§8.3）。
+func (g *gen) genFuncNamed(fn *xfront.TopFunc, cname string) (string, error) {
 	retC, err := g.cType(fn.Ret)
 	if err != nil {
 		return "", err
@@ -805,7 +857,7 @@ func (g *gen) genFunc(fn *xfront.TopFunc) (string, error) {
 		return "", err
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s xn_%s(%s) {\n", retC, fn.Name, strings.Join(params, ", "))
+	fmt.Fprintf(&b, "%s %s(%s) {\n", retC, cname, strings.Join(params, ", "))
 	if hasResult {
 		b.WriteString("    xn_Result_Int_String xn_ret;\n")
 	}
@@ -1086,7 +1138,11 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{"xn_" + id.Name + "(" + strings.Join(args, ", ") + ");"}, nil
+	cn, err := s.g.callName(id.Name, call.TypeArgs)
+	if err != nil {
+		return nil, err
+	}
+	return []string{cn + "(" + strings.Join(args, ", ") + ");"}, nil
 }
 
 // emitForIn 生成 `for x in src { }`：容器遍历（M4.4a；整型区间随区间表达式批次）。
@@ -1393,8 +1449,12 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 	if err != nil {
 		return nil, err
 	}
+	cn, err := s.g.callName(id.Name, call.TypeArgs)
+	if err != nil {
+		return nil, err
+	}
 	lines := []string{
-		resultC + " " + name + " = xn_" + id.Name + "(" + strings.Join(args, ", ") + ");",
+		resultC + " " + name + " = " + cn + "(" + strings.Join(args, ", ") + ");",
 		"if (!" + name + ".ok) {",
 	}
 	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）
@@ -1663,9 +1723,13 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		if !ok {
 			return nil, fmt.Errorf("codegen：返回调用目标 %T 未支持", v.Callee)
 		}
+		cn, err := s.g.callName(callee.Name, v.TypeArgs)
+		if err != nil {
+			return nil, err
+		}
 		out := append([]string{}, s.pending...)
 		s.pending = nil
-		out = append(out, "xn_ret = xn_"+callee.Name+"("+strings.Join(args, ", ")+");")
+		out = append(out, "xn_ret = "+cn+"("+strings.Join(args, ", ")+");")
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return xn_ret;"), nil
@@ -1779,15 +1843,19 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				t := s.tmp()
 				return append(lines, "rt_string *"+t+" = "+out+";"), nil
 			}
-			if ret, ok2 := s.g.fnRet[id.Name]; ok2 && ret == "rt_string *" {
+			if ret, ok2 := s.g.callRetC(id.Name, n.TypeArgs); ok2 && ret == "rt_string *" {
 				args, err := s.callArgs(n.Args)
+				if err != nil {
+					return nil, err
+				}
+				cn, err := s.g.callName(id.Name, n.TypeArgs)
 				if err != nil {
 					return nil, err
 				}
 				t := s.tmp()
 				out := append([]string{}, s.pending...)
 				s.pending = nil
-				return append(out, "rt_string *"+t+" = xn_"+id.Name+"("+strings.Join(args, ", ")+");"), nil
+				return append(out, "rt_string *"+t+" = "+cn+"("+strings.Join(args, ", ")+");"), nil
 			}
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
@@ -1908,7 +1976,11 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return "xn_" + id.Name + "(" + strings.Join(args, ", ") + ")", nil
+		cn, err := s.g.callName(id.Name, n.TypeArgs)
+		if err != nil {
+			return "", err
+		}
+		return cn + "(" + strings.Join(args, ", ") + ")", nil
 	}
 	return "", fmt.Errorf("codegen：Result 表达式 %T 未支持（M4.1 范围）", e)
 }
@@ -1975,6 +2047,18 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		// 可空句柄（File? 等）以 NULL 哨兵表示，与 null 比较直接落 C 的 NULL。
 		return "NULL", nil
 	case *xfront.Binary:
+		if n.Op == "is" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				lt, lerr := s.exprType(n.L)
+				rt, rerr := s.g.cType(s.g.substitute(ta.Type))
+				if lerr == nil && rerr == nil {
+					if lt == rt {
+						return "1", nil
+					}
+					return "0", nil
+				}
+			}
+		}
 		if n.Op == "==" || n.Op == "!=" {
 			if lt, err := s.exprType(n.L); err == nil && lt == "rt_string *" {
 				ls, err := s.strExpr(n.L)
@@ -2058,8 +2142,12 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs)
+			if err != nil {
+				return "", err
+			}
 			s.pending = append(s.pending, s.flushPendingArgs()...)
-			return "xn_" + id.Name + "(" + strings.Join(args, ", ") + ")", nil
+			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes *" {
@@ -2106,24 +2194,33 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				}
 			}
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
+				rn := s.varRef(recv.Name)
 				switch mem.Name {
 				case "isOk":
-					return "(" + recv.Name + ").ok", nil
+					return "(" + rn + ").ok", nil
 				case "isErr":
-					return "(!(" + recv.Name + ").ok)", nil
+					return "(!(" + rn + ").ok)", nil
 				case "value":
-					return "(" + recv.Name + ").v", nil
+					return "(" + rn + ").v", nil
 				case "unwrapOr":
 					arg, err := s.intExpr(n.Args[0])
 					if err != nil {
 						return "", err
 					}
-					return "((" + recv.Name + ").ok ? (" + recv.Name + ").v : (" + arg + "))", nil
+					return "((" + rn + ").ok ? (" + rn + ").v : (" + arg + "))", nil
 				}
 			}
 		}
 	}
 	return "", fmt.Errorf("codegen：Int 表达式 %T 未支持（M4.1 范围）", e)
+}
+
+// varRef 把 XNull 标识符映射为 C 引用（参数带 xn_p_ 前缀）。
+func (s *scope) varRef(name string) string {
+	if s.params != nil && s.params[name] {
+		return "xn_p_" + name
+	}
+	return name
 }
 
 // retBase 生成返回类型声明前缀（xn_Cls_X * → 'xn_Cls_X *'）。
@@ -2147,7 +2244,11 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 		if err != nil {
 			return "", false, err
 		}
-		return "xn_" + c.Name + "(" + strings.Join(args, ", ") + ")", true, nil
+		cn, err := s.g.callName(c.Name, cl.TypeArgs)
+		if err != nil {
+			return "", false, err
+		}
+		return cn + "(" + strings.Join(args, ", ") + ")", true, nil
 	case *xfront.Member:
 		rn, rc, err := recvCName(c.X, s)
 		if err != nil {

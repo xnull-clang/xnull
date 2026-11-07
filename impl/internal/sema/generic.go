@@ -502,10 +502,18 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 		return
 	case *xfront.NamedType:
 		name := ty.Qual[len(ty.Qual)-1]
-		if len(ty.Args) == 0 && e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
-			e.errf(ty.P, ResUndefined,
-				"类型参数 `"+name+"` 未定义：类型参数只在声明它的函数/类型内可见（§8.1）", "在函数名后声明 <"+name+">，或改用具体类型")
-			return
+		if len(ty.Args) == 0 {
+			if e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
+				e.errf(ty.P, ResUndefined,
+					"类型参数 `"+name+"` 未定义：类型参数只在声明它的函数/类型内可见（§8.1）", "在函数名后声明 <"+name+">，或改用具体类型")
+				return
+			}
+			// 签名/字段/局部类型位置的未知单段类型名：按 §3.3/§8.1 报未定义。
+			// 限定名（pkg.Type）交由导入/XDK 诊断处理，避免误伤跨包类型。
+			if len(ty.Qual) == 1 && name != "<err>" && !e.typePars[name] && !e.typeDeclared(name) && !xdkSymbolKnown(name) {
+				e.errf(ty.P, ResUndefined, "未定义的类型 `"+name+"`（§3.3/§8.1）", "检查拼写，或先声明/导入该类型")
+				return
+			}
 		}
 		for _, a := range ty.Args {
 			e.checkTypeParamRef(a, ty.P)
@@ -524,9 +532,26 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 	}
 }
 
+// externalTypes 是绑定层（FFI）注入的不透明类型名（File/Dir 等）。
+// 这些类型不在源码包内声明，但 P-09 注入的签名与局部声明必须能解析；
+// 由构建入口在 Analyze 前登记（codegen.Build）。
+var externalTypes = map[string]bool{}
+
+// RegisterExternalTypes 登记绑定层注入的类型名（幂等；只在类型可见性检查中放行）。
+func RegisterExternalTypes(names ...string) {
+	for _, n := range names {
+		if n != "" {
+			externalTypes[n] = true
+		}
+	}
+}
+
 // typeDeclared 判断名字是否是已声明/预定义/已导入的可用类型（非类型参数）。
 func (e *tyenv) typeDeclared(name string) bool {
 	if name == "void" || builtinTypeNames[name] {
+		return true
+	}
+	if externalTypes[name] {
 		return true
 	}
 	if e.a.imported[name] {

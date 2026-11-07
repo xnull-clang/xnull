@@ -1,0 +1,17 @@
+# TUPLE-01 解释路径复核（E3）
+# 被测：main @ 453026b
+# 用例：evidence/M1-TUPLE-01-qa/qa-tests/qa-interp_tuple_test.go（独立 QA）
+# 命令：
+#   cp evidence/M1-TUPLE-01-qa/qa-tests/qa-interp_tuple_test.go impl/internal/interp/qa_tuple_accept_test.go
+#   cd impl && go test ./internal/interp -run TestQATuple -count=1 -v
+#   rm impl/internal/interp/qa_tuple_accept_test.go
+# 结果：exit 0，8 PASS / 0 FAIL
+PASS TestQATupleValueEqualityAndInterp
+PASS TestQATupleReferenceElementEquality
+PASS TestQATupleCopySemantics
+PASS TestQATupleInferenceRuntime
+PASS TestQATupleElementAccessRuntime
+PASS TestQATupleOutOfRangeRuntimeFallback
+PASS TestQATupleStringIdentity
+PASS TestQATupleArrayElementEquality
+# 说明：qa 测试为临时注入，跑后删除；未改代码。

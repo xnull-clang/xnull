@@ -58,6 +58,12 @@ var xdkPackages = map[string]map[string]bool{
 	"net": {}, // S6 §4.7 定案独立成包；符号随实现层立项冻结（包存在性可用）
 }
 
+// xdkSubPackages 是已定案的多级 XDK 包子包（相对 xdk. 的路径）。
+// `import xdk.net.http` 是包导入，不是 xdk.net 的符号 http（S1 §3.2）。
+var xdkSubPackages = map[string]bool{
+	"net.http": true,
+}
+
 // xdkSymbolKnown 判断名称是否为某个 XDK 包的导出符号（用于 RES-105）。
 func xdkSymbolKnown(name string) bool {
 	for _, syms := range xdkPackages {
@@ -120,16 +126,18 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 			}
 			info.src = "xdk." + pkg
 			switch {
-			case len(p) == 3: // 符号导入
-				sym := p[2]
-				if !syms[sym] {
-					a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+sym+"`（§3.5）",
-						"检查符号名或改用包导入")
-					continue
-				}
-				info.syms = []string{sym}
+			case len(p) == 3 && syms[p[2]]: // 符号导入
+				info.syms = []string{p[2]}
 				info.symbolImport = true
-			default: // 包导入（含 xdk.net.http 这类子包：包存在即可）
+			case len(p) >= 3 && xdkSubPackages[pkg+"."+strings.Join(p[2:], ".")]:
+				// 多级包子包（如 xdk.net.http）：包导入，不绑定符号。
+				info.syms = nil
+				info.pkgImport = true
+			case len(p) == 3:
+				a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+p[2]+"`（§3.5）",
+					"检查符号名或改用包导入")
+				continue
+			default: // 包导入
 				info.syms = sortedKeys(syms)
 				info.pkgImport = true
 			}
@@ -212,8 +220,9 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 					"改用符号导入 `import P.S as A` 仅引入所需符号")
 				continue
 			}
+			aliasID := b.src + "." + b.syms[0]
 			if prev, dup := aliasOwners[b.alias]; dup {
-				if prev != b.src {
+				if prev != aliasID {
 					a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
 				}
 				continue
@@ -226,7 +235,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与预定义类型名冲突（§3.3）", "换一个别名")
 				continue
 			}
-			aliasOwners[b.alias] = b.src
+			aliasOwners[b.alias] = aliasID
 			// 非冲突场景使用 as → RES-107（§3.2）。
 			if len(importedSym[b.syms[0]]) <= 1 {
 				a.errf(b.p, ResNeedlessAlias, "`"+b.syms[0]+"` 无同名歧义，as 别名只用于消歧（§3.2）", "去掉 as 子句")
@@ -241,7 +250,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				if topNames[s] {
 					continue
 				}
-				if prev, dup := aliasOwners[s]; dup && prev != b.src {
+				if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 					if !a.ambiguous[s] {
 						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 已由别名 `"+prev+"` 占用（§3.2/§3.3）", "改用 as 别名或完全限定名")
 						a.ambiguous[s] = true
@@ -261,16 +270,26 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				}
 				continue
 			}
-			if prev, dup := aliasOwners[s]; dup && prev != b.src {
+			if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 				if !a.ambiguous[s] {
-					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					prevSrc := prev
+					if i := strings.LastIndex(prev, "."); i >= 0 {
+						prevSrc = prev[:i]
+					}
+					if prevSrc == b.src {
+						// 同包不同符号：别名唯一性错误（§3.3）。
+						a.errf(b.p, ResAliasConflict, "导入别名 `"+s+"` 已绑定 `"+prev+"`，与裸导入简单名冲突（§3.3/§3.5）", "换一个别名或改名")
+					} else {
+						// 不同包同名：简单名歧义（§3.2/§3.5）。
+						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					}
 					a.ambiguous[s] = true
 				}
 				continue
 			}
 			if _, ok := bound[s]; !ok {
 				bound[s] = b.src
-				aliasOwners[s] = b.src
+				aliasOwners[s] = b.src + "." + s
 			}
 		}
 	}

@@ -1,0 +1,10 @@
+=== RUN   TestERR205CleanupLocalDeclPosition
+    diagpos_test.go:20: ERR-205 位置 = 0:0，期望 2:11（指向 `Int`）
+--- FAIL: TestERR205CleanupLocalDeclPosition (0.00s)
+=== RUN   TestAllDiagPositionsNonZero
+    diagpos_test.go:127: ERR-205 诊断位置非法：pos.x:0:0: error[ERR-205]: defer/errdefer 的单条语句体不得是局部声明（§10.3）
+          需要局部变量时改用花括号体
+--- FAIL: TestAllDiagPositionsNonZero (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	1.710s
+FAIL

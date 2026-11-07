@@ -39,14 +39,15 @@ opencode api POST /api/session/<SESSION_ID>/move -d '{"directory":"<目标目录
 ## 投递与查询
 
 ```bash
-opencode run -s <SESSION_ID> -m opencode/deepseek-v4.1-flash-free "<消息>"
+opencode run -s <SESSION_ID> -m deepseek/deepseek-flash "<消息>"
 opencode api POST /api/session/<SESSION_ID>/prompt -d '{"text":"<消息>"}'
 opencode api GET  /api/session/<SESSION_ID>/message
 opencode api GET  /api/session/<SESSION_ID>
 ```
 
-- 投递必须显式带 `-m`；不带会命中区域封锁模型并让该会话永久锁在坏模型上。
-- 锁死后用 `/api/session/<id>/model` 复位：`{"model":{"providerID":"opencode","id":"deepseek-v4.1-flash-free"}}`。
+- 投递必须显式带 `-m deepseek/deepseek-flash`；不带会命中区域封锁模型或 free 模型。
+- 所有常驻会话固定 `deepseek/deepseek-flash`；发现 `opencode/deepseek-v4.1-flash-free` 立即用 `/model` 复位。
+- 锁死后用 `/api/session/<id>/model` 复位：`{"model":{"providerID":"deepseek","id":"deepseek-flash"}}`。
 - `prompt` 请求体里的 `model` 字段被忽略，只能先 `/model` 再投递。
 - 结果看 `/message` 最后一条 `type:"idle"` 的 `outcome`；状态看 `/session/<id>` 的 `outcome`/`busy`/`idle`。
 

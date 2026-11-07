@@ -1,0 +1,12 @@
+== 编译路径 10 次 ==
+  10 6319d98b17033f951fe72bb637d7cc2d40ac849b40d8b088ca467db08948c2b3
+退出码集合：0 
+
+== 解释路径 10 次 ==
+  10 6319d98b17033f951fe72bb637d7cc2d40ac849b40d8b088ca467db08948c2b3
+
+== 双路径逐字节 ==
+same
+      52 /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/integ-c3rd2/build/run.1.out
+      52 /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/integ-c3rd2/build/irun.1.out
+     104 total

@@ -1,0 +1,9 @@
+# clean tree
+sha: f63fcba52a763eb6176c2fabe7aedd80352f72a2
+archive_sha256: 360ae782ac48a8ac897a0c40d2f76d3fdecf920434e9b27db3b4ab4816114d94
+tree_dir: /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/integ-final/tree
+has_git: no
+
+# ancestry
+$ git merge-base --is-ancestor 7c626b5 f63fcba
+EXIT=0

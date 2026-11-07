@@ -1,0 +1,21 @@
+printf '/wt/\n' >> .git/info/exclude
+git worktree add -b pod/e1-front wt/e1-front HEAD
+git worktree add -b pod/e2-sema wt/e2-sema HEAD
+git worktree add -b pod/e3-interp wt/e3-interp HEAD
+git worktree add -b pod/e4-codegen wt/e4-codegen HEAD
+git worktree add -b pod/e5-runtime wt/e5-runtime HEAD
+git worktree add -b pod/e6-toolchain wt/e6-toolchain HEAD
+git worktree add -b pod/qa-1 wt/qa-1 HEAD
+git -C wt/e1-front status --short
+git -C wt/e2-sema status --short
+git -C wt/e3-interp status --short
+git -C wt/e4-codegen status --short
+git -C wt/e5-runtime status --short
+git -C wt/e6-toolchain status --short
+git -C wt/qa-1 status --short
+git worktree list
+git branch --list 'pod/*'
+git rev-parse HEAD
+git worktree list | shasum -a 256
+git worktree list | wc -l
+git branch --list 'pod/*' | wc -l

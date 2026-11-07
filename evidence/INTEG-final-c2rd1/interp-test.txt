@@ -1,0 +1,2 @@
+ok  	xnull.dev/xnull/internal/interp	4.363s
+interp-test exit=0

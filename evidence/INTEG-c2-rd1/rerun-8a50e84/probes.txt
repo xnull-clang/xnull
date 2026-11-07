@@ -1,0 +1,63 @@
+# 追加复核 @8a50e84（git archive 干净树，非工作区）
+# tree: /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//clean-8a50e84
+# binary sha256: 302619a815e6a07ad65c728e1c527a8042478794969d99c22d799c5bec4d0784
+
+== a_assign.x (interp) ==
+true
+1
+exit=0
+
+== d_assign_push.x (interp) ==
+true
+2
+exit=0
+
+== e_set.x (interp) ==
+true
+2
+exit=0
+
+== h_map_assign.x (interp) ==
+true
+2
+exit=0
+
+== i_set_base.x (interp) ==
+true
+2
+exit=0
+
+== j_list_base.x (interp) ==
+true
+exit=0
+
+== b_map.x (interp) ==
+true
+7
+9
+1
+1
+false
+false
+true
+0
+exit=0
+
+== f_bounds.x (interp) ==
+xnull: fatal: List.insert 下标越界：len=2, idx=3（§9.4 合法范围 0..length）
+exit=134
+
+== g_bounds_neg.x (interp) ==
+xnull: fatal: List.remove 下标越界
+exit=134
+
+== k_boolkey.x (interp) ==
+k_boolkey.x:2:5: error[TY-107]: Map 键类型 Bool 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String
+exit=1
+
+== l_charkey.x (interp) ==
+l_charkey.x:2:5: error[TY-107]: Map 键类型 Char 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String
+exit=1
+

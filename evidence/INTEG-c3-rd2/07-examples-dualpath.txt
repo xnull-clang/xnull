@@ -1,0 +1,11 @@
+== 9 示例 + multi 双路径（main 9f5f66c）==
+examples/ast-seed.x              OK compiled=0 interp=0
+examples/classes.x               OK compiled=0 interp=0
+examples/containers.x            OK compiled=0 interp=0
+examples/defer-cleanup.x         OK compiled=0 interp=0
+examples/hello.x                 OK compiled=0 interp=0
+examples/lexer-seed.x            OK compiled=0 interp=0
+examples/objlist.x               OK compiled=0 interp=0
+examples/parser-seed.x           OK compiled=0 interp=0
+examples/result-try.x            OK compiled=0 interp=0
+examples/multi/main.x            OK compiled=0 interp=0

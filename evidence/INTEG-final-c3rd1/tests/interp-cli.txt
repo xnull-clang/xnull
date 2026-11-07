@@ -1,0 +1,7 @@
+# command
+git archive f63fcba | tar -x -C <clean-tree> && cd <clean-tree>
+cd impl && go test ./internal/interp/ ./internal/cli/ -count=1
+# output
+ok  	xnull.dev/xnull/internal/interp	2.036s
+ok  	xnull.dev/xnull/internal/cli	11.166s
+EXIT=0
