@@ -15,6 +15,11 @@ type Options struct {
 	// LinkArgs 追加在全部 C 目标文件之后（链接顺序敏感；S8 §7 / P-10 条件 3）。
 	// 调用方应使用 ffi.LinkArgs 生成（去重 + 升序）；本包不再排序。
 	LinkArgs []string
+	// MemPolicy 是 §23 的 GC 策略选择："" / "auto"（缺省）按 §15.1 判定；
+	// "arc" / "gc" 强制全部类的分配种类（数据枚举/单例仍按规范为 GC）。
+	MemPolicy string
+	// Stats 打开运行期分配统计与 GC 指标（§21/§23）；报告写 stderr。
+	Stats bool
 }
 
 // runtimeCSources 是构建时必须一起编译/链接的 C 源（相对运行时目录，顺序固定）。
@@ -90,7 +95,7 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
-	csrc, err := EmitCWithStrategies(u, reg, strategies)
+	csrc, err := EmitCWithBuildOptions(u, reg, strategies, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "xnull: 代码生成失败：%v\n", err)
 		return 1

@@ -65,6 +65,24 @@ typedef struct rt_object {
     /* 载荷紧跟其后（flexible array 由各具体类型使用）。 */
 } rt_object;
 
+/* ---- 分配/GC 统计（S3 §21/§23；默认关闭，避免无谓开销） ---- */
+
+typedef struct rt_stats {
+    uint64_t allocs;         /* 堆对象分配次数 */
+    uint64_t frees;          /* 堆对象释放次数 */
+    uint64_t bytes;          /* 累计分配字节数（含分配头；释放不扣减） */
+    uint64_t gc_collections; /* 收集轮次 */
+    uint64_t gc_freed;       /* 清扫释放对象数 */
+} rt_stats;
+
+void rt_stats_reset(void);
+void rt_stats_get(rt_stats *out);
+void rt_stats_set_enabled(int on);
+int  rt_stats_enabled(void);
+void rt_stats_note_alloc(size_t bytes);
+void rt_stats_note_free(void);
+void rt_stats_note_gc(size_t freed);
+
 /* ---- 字符串（首个堆对象类型；S1 §2 String 为引用类型） ---- */
 
 typedef struct rt_string {

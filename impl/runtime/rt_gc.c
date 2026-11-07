@@ -29,6 +29,7 @@ static void *alloc_common(const rt_type *type, rt_kind kind) {
     o->hdr.type = type;
     atomic_init(&o->hdr.refcount, 1); /* 计数从 1 起（S3 §7） */
     o->hdr.terminated = 0;
+    rt_stats_note_alloc(sizeof(rt_header) + type->payload_size);
     if (kind == RT_KIND_GC) {
         o->hdr.gc_next = g_gc_list;
         g_gc_list = o;
@@ -140,6 +141,7 @@ static size_t sweep(void) {
         }
         *link = o->hdr.gc_next;
         free(o);
+        rt_stats_note_free();
         freed++;
     }
     return freed;
@@ -148,7 +150,9 @@ static size_t sweep(void) {
 size_t rt_gc_collect(void) {
     rt_quarantine_flush(); /* 回收会合：上次终结链隔离的内存在此释放（S3 §13） */
     mark_all();
-    return sweep();
+    size_t freed = sweep();
+    rt_stats_note_gc(freed);
+    return freed;
 }
 
 size_t rt_gc_live(void) {

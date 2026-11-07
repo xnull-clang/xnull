@@ -6,6 +6,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "xrt.h"
+#include "rt_gc.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -352,6 +353,29 @@ static void test_callback_env(void) {
     }
 }
 
+/* S3-08：分配统计与 GC 指标（默认关闭，显式打开）。 */
+static void test_stats(void) {
+    xrt_stats s;
+    xrt_stats_reset();
+    xrt_stats_set_enabled(1);
+
+    xrt_string *str = xrt_string_new("stats", 5);
+    xrt_release(str);
+    xrt_safepoint(); /* 隔离区回收 → frees 计数 */
+
+    xrt_callback_env *env = xrt_callback_env_new(NULL, NULL);
+    xrt_callback_env_destroy(env);
+    rt_gc_collect(); /* 注销根后回收 → gc_freed 计数 */
+
+    xrt_stats_get(&s);
+    CHECK(s.allocs >= 2);
+    CHECK(s.frees >= 1);
+    CHECK(s.bytes > 0);
+    CHECK(s.gc_collections == 1);
+    CHECK(s.gc_freed >= 1);
+    xrt_stats_set_enabled(0);
+}
+
 static void test_files(void) {
     char path[] = "/tmp/xnull_std_fileXXXXXX";
     int fd = mkstemp(path);
@@ -455,6 +479,7 @@ int main(void) {
     test_bytes_bounds();
     test_bytes_file_io();
     test_callback_env();
+    test_stats();
     test_files();
     test_dirs_procs();
     test_regex_fmt();

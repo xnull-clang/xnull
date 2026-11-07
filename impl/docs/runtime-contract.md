@@ -13,6 +13,10 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S3-07/08，2026-11-08）**：`xrt.h` 增补 `xrt_callback_env_*`（trampoline env：
+  GC 对象 + 创建登记根 / 销毁注销 / 注销后调用 fatal）与 `xrt_stats_*`（allocs/frees/bytes/
+  gc_collections/gc_freed，默认关闭）。构建选项 `--mem=auto|arc|gc`（§23）与 `--stats`
+  由 codegen `Options.MemPolicy/Stats` 承载；`--mem` 只强制类的分配种类，数据枚举/单例仍按规范 GC。
 - **候选期增补（BYTES-RUNTIME，2026-11-07）**：`xrt.h` 新增可变字节缓冲面——
   `xrt_bytes_buf`（不透明）+ `xrt_bytes_new/_alloc/_from_c/_len/_data/_get/_set/_push/_append/_slice`，
   实现 `impl/runtime/rt_std_bytes.c`；长度权威、允许内嵌 NUL、字节区免扫描（S3 §188），

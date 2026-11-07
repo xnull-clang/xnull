@@ -164,6 +164,9 @@ func parseFlags(args []string) *diag.Diagnostic {
 			break
 		}
 		if len(a) > 1 && a[0] == '-' && a[1] == '-' {
+			if strings.HasPrefix(a, "--mem=") {
+				continue
+			}
 			if _, ok := knownFlags[a]; !ok {
 				return &diag.Diagnostic{
 					File: "xnull", Line: 1, Col: 1, Code: codeUnknownFlag,
@@ -227,6 +230,7 @@ var knownFlags = map[string]struct{}{
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
+	"--mem": {}, "--stats": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。
@@ -460,19 +464,29 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	}
 	out := "prog"
 	runtimeDir := ""
+	memPolicy := ""
+	stats := false
 	var libs []ffi.LinkLib
 	var libDirs []string
 	for i := 1; i < len(rest)-1; i++ {
-		switch rest[i] {
-		case "-o":
+		switch {
+		case rest[i] == "-o":
 			out = rest[i+1]
-		case "--runtime":
+		case rest[i] == "--runtime":
 			runtimeDir = rest[i+1]
-		case "-l":
+		case rest[i] == "-l":
 			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
-		case "-L":
+		case rest[i] == "-L":
 			libDirs = append(libDirs, rest[i+1])
+		case strings.HasPrefix(rest[i], "--mem="):
+			memPolicy = strings.TrimPrefix(rest[i], "--mem=")
+		case rest[i] == "--stats":
+			stats = true
 		}
+	}
+	if memPolicy != "" && memPolicy != "auto" && memPolicy != "arc" && memPolicy != "gc" {
+		fmt.Fprintf(env.Stderr, "xnull: --mem 只接受 auto/arc/gc，got %q\n", memPolicy)
+		return exitcode.Usage
 	}
 	if runtimeDir == "" {
 		runtimeDir = os.Getenv("XNULL_RUNTIME")
@@ -490,7 +504,7 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		return exitcode.Usage
 	}
 	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
-	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs)}
+	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs), MemPolicy: memPolicy, Stats: stats}
 	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
 }
 

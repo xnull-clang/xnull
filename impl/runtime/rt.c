@@ -12,6 +12,47 @@
 #include <stdio.h>
 #include <string.h>
 
+/* ---- 分配/GC 统计（S3 §21/§23） ---- */
+
+static rt_stats g_stats;
+static int g_stats_on = 0;
+
+void rt_stats_reset(void) {
+    memset(&g_stats, 0, sizeof(g_stats));
+}
+
+void rt_stats_get(rt_stats *out) {
+    if (out != NULL) {
+        *out = g_stats;
+    }
+}
+
+void rt_stats_set_enabled(int on) { g_stats_on = on ? 1 : 0; }
+int rt_stats_enabled(void) { return g_stats_on; }
+
+void rt_stats_note_alloc(size_t bytes) {
+    if (!g_stats_on) {
+        return;
+    }
+    g_stats.allocs++;
+    g_stats.bytes += bytes;
+}
+
+void rt_stats_note_free(void) {
+    if (!g_stats_on) {
+        return;
+    }
+    g_stats.frees++;
+}
+
+void rt_stats_note_gc(size_t freed) {
+    if (!g_stats_on) {
+        return;
+    }
+    g_stats.gc_collections++;
+    g_stats.gc_freed += freed;
+}
+
 static void *rt_alloc(rt_kind kind, const rt_type *type, size_t payload) {
     rt_object *obj = malloc(sizeof(rt_header) + payload);
     if (obj == NULL) {
@@ -21,6 +62,7 @@ static void *rt_alloc(rt_kind kind, const rt_type *type, size_t payload) {
     obj->hdr.type = type;
     atomic_init(&obj->hdr.refcount, 1); /* 新对象计数从 1 起（§7） */
     obj->hdr.terminated = 0;
+    rt_stats_note_alloc(sizeof(rt_header) + payload);
     return obj;
 }
 
@@ -132,6 +174,7 @@ size_t rt_quarantine_flush(void) {
         rt_object *o = g_quarantine;
         g_quarantine = o->hdr.gc_next;
         free(o);
+        rt_stats_note_free();
         n++;
     }
     return n;

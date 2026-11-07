@@ -183,6 +183,35 @@ int xrt_handle_is_closed(const xrt_handle *h) {
 
 void xrt_fatal(const char *reason) { rt_fatal(reason); }
 
+/* ---- 分配统计与 GC 指标（S3 §21/§23） ---- */
+
+void xrt_stats_reset(void) { rt_stats_reset(); }
+
+void xrt_stats_get(xrt_stats *out) {
+    if (out == NULL) {
+        return;
+    }
+    rt_stats s;
+    rt_stats_get(&s);
+    out->allocs = s.allocs;
+    out->frees = s.frees;
+    out->bytes = s.bytes;
+    out->gc_collections = s.gc_collections;
+    out->gc_freed = s.gc_freed;
+}
+
+void xrt_stats_set_enabled(int on) { rt_stats_set_enabled(on); }
+int xrt_stats_enabled(void) { return rt_stats_enabled(); }
+
+void xrt_stats_report(void) {
+    xrt_stats s;
+    xrt_stats_get(&s);
+    fprintf(stderr, "xrt stats: allocs=%llu frees=%llu live=%lld bytes=%llu gc_collections=%llu gc_freed=%llu\n",
+            (unsigned long long)s.allocs, (unsigned long long)s.frees,
+            (long long)(s.allocs - s.frees), (unsigned long long)s.bytes,
+            (unsigned long long)s.gc_collections, (unsigned long long)s.gc_freed);
+}
+
 /* ---- 回调环境 / trampoline（S7 §5.1/§5.2） ---- */
 
 typedef struct {

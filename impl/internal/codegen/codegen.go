@@ -174,10 +174,34 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	return EmitCWithStrategies(u, reg, nil)
 }
 
+// EmitCWithBuildOptions 是构建入口（S3-08）：在策略之上叠加 §23 选项
+// （MemPolicy 强制 arc/gc、Stats 打开分配统计）。
+func EmitCWithBuildOptions(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, opts Options) (string, error) {
+	switch opts.MemPolicy {
+	case "", "auto":
+	case "arc", "gc":
+		forced := make([]sema.Strategy, len(strategies))
+		copy(forced, strategies)
+		for i := range forced {
+			if forced[i].Kind == "class" {
+				forced[i].Policy = opts.MemPolicy
+			}
+		}
+		strategies = forced
+	default:
+		return "", fmt.Errorf("codegen：--mem 只接受 auto/arc/gc，got %q", opts.MemPolicy)
+	}
+	return emitC(u, reg, strategies, opts.Stats)
+}
+
 // EmitCWithStrategies 是 EmitCWithFFI 的带策略入口（BND-10）：
 // strategies 来自 sema.ComputeStrategies，决定类的分配种类（arc/gc）。
 // strategies 为空时全部按 ARC（与历史行为一致）。
 func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy) (string, error) {
+	return emitC(u, reg, strategies, false)
+}
+
+func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, stats bool) (string, error) {
 	policy := map[string]string{}
 	for _, st := range strategies {
 		if st.Kind == "class" && st.Policy != "" {
@@ -192,7 +216,7 @@ func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategie
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
 		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
 		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
-		factories: map[string]*factoryInfo{}, policy: policy}
+		factories: map[string]*factoryInfo{}, policy: policy, stats: stats}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -641,6 +665,9 @@ func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategie
 		if len(g.slotOrder) > 0 {
 			b.WriteString("    xn_init_vtables();\n")
 		}
+		if g.stats {
+			b.WriteString("    xrt_stats_reset();\n    xrt_stats_set_enabled(1);\n")
+		}
 		if len(g.enums) > 0 {
 			b.WriteString("    xn_init_enums();\n")
 		}
@@ -664,14 +691,22 @@ func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategie
 			} else {
 				b.WriteString("    xn_main();\n")
 			}
-			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n    return 0;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n")
+			if g.stats {
+				b.WriteString("    xrt_stats_set_enabled(0);\n    xrt_stats_report();\n")
+			}
+			b.WriteString("    return 0;\n")
 		} else {
 			if entry.withArgs {
 				b.WriteString("    int64_t xn_r = xn_main(xn_args);\n")
 			} else {
 				b.WriteString("    int64_t xn_r = xn_main();\n")
 			}
-			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n    return (int)xn_r;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n")
+			if g.stats {
+				b.WriteString("    xrt_stats_set_enabled(0);\n    xrt_stats_report();\n")
+			}
+			b.WriteString("    return (int)xn_r;\n")
 		}
 		b.WriteString("}\n")
 	}
@@ -858,6 +893,7 @@ type gen struct {
 	entry          *entryInfo                   // 选中的入口（main 重载分派用）
 	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
 	policy         map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
+	stats          bool                         // §21/§23：运行期分配统计开关
 	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
 	protocols      map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
 	protoSlotByKey map[string]int               // 签名 key → 全局槽位

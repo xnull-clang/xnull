@@ -132,6 +132,22 @@ int         xrt_handle_close(xrt_handle *h);  /* 幂等；返回 0 表示已关�
 void        xrt_handle_mark_closed(xrt_handle *h); /* 已经原生 close 的语义登记：不再触达 close_fn */
 int         xrt_handle_is_closed(const xrt_handle *h);
 
+/* ---- 分配统计与 GC 指标（S3 §21/§23；默认关闭） ---- */
+
+typedef struct xrt_stats {
+    uint64_t allocs;
+    uint64_t frees;
+    uint64_t bytes;         /* 累计分配字节（含分配头） */
+    uint64_t gc_collections;
+    uint64_t gc_freed;
+} xrt_stats;
+
+void xrt_stats_reset(void);
+void xrt_stats_get(xrt_stats *out);
+void xrt_stats_set_enabled(int on);
+int  xrt_stats_enabled(void);
+void xrt_stats_report(void); /* 单行写 stderr（工具能力，非语言语义） */
+
 /* ---- 回调环境 / trampoline（S7 §5.1/§5.2） ----
  *
  * 合同：

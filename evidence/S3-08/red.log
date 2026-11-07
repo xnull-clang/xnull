@@ -1,0 +1,13 @@
+=== RUN   TestS3_08MemPolicyOverride
+    mem_s308_test.go:36: --mem=arc 下环类应为 ARC
+--- FAIL: TestS3_08MemPolicyOverride (0.00s)
+=== RUN   TestS3_08StatsEmission
+    mem_s308_test.go:70: --stats 生成代码缺少 "xrt_stats_reset"
+--- FAIL: TestS3_08StatsEmission (0.00s)
+=== RUN   TestS3_08StatsRun
+    mem_s308_test.go:118: stderr 缺少统计报告：""
+--- FAIL: TestS3_08StatsRun (0.76s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	1.556s
+FAIL
+EXIT=1
