@@ -1,11 +1,18 @@
 == 缺文件
-xnfmt: FMT-104 参数不是可读文件：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.dFxwxn/no-such.x
+xnfmt: FMT-104 参数不是可读文件：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.QOkdk0/no-such.x
 rc=2
 == 目录
-xnfmt: FMT-104 参数不是可读文件：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.dFxwxn
+xnfmt: FMT-104 参数不是可读文件：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.QOkdk0
 rc=2
 == 无参数
 xnfmt: FMT-104 参数不是可读文件
 rc=2
 == 非法 UTF-8
-rc=0
+xnfmt: /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.QOkdk0/bad.x:0:0: error[FMT-102]: 输入不是合法 UTF-8
+rc=2
+== 未闭合字符串
+xnfmt: /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.QOkdk0/unterm.x:0:0: error[FMT-101]: 词法错误（字面量或块注释未闭合）
+rc=2
+== 未闭合块注释
+xnfmt: /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b103.QOkdk0/badc.x:0:0: error[FMT-101]: 词法错误（字面量或块注释未闭合）
+rc=2

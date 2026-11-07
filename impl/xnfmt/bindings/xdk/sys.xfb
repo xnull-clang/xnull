@@ -14,4 +14,10 @@ ffi xdkc_sys {
   @lease(path = .borrow)
   @blocking(.aware)
   Bool pathExists(String path);
+
+  // B1-03 第 4 项诊断：字节级 UTF-8 合法性（0=合法 / 非 0=非法）。
+  @ffiEntry(cName = "xdkc_utf8_valid")
+  @lease(text = .borrow)
+  @blocking(.aware)
+  Int utf8Valid(String text);
 }

@@ -1,3 +1,4 @@
+evidence/B1-02/e5-utf8/probe.x
 evidence/M1-BLD-01/red/fixtures/c01_string_members.x
 evidence/M1-BLD-01/red/fixtures/c02_string_bounds.x
 evidence/M1-BLD-01/red/fixtures/c03_string_ascii_case.x

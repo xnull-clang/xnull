@@ -61,6 +61,8 @@ run_corpus "$OUT/files-union.txt" union
   echo "== 目录"; "$WORK/xnfmt-x" "$WORK"; echo "rc=$?"
   echo "== 无参数"; "$WORK/xnfmt-x"; echo "rc=$?"
   echo "== 非法 UTF-8"; printf 'static Int main() { print("\xff")\n return 0 }\n' > "$WORK/bad.x"; "$WORK/xnfmt-x" "$WORK/bad.x"; echo "rc=$?"
+  echo "== 未闭合字符串"; printf 'static Int main() {\n    print("abc\n    return 0\n}\n' > "$WORK/unterm.x"; "$WORK/xnfmt-x" "$WORK/unterm.x"; echo "rc=$?"
+  echo "== 未闭合块注释"; printf 'static Int main() {\n    /* never closed\n    return 0\n}\n' > "$WORK/badc.x"; "$WORK/xnfmt-x" "$WORK/badc.x"; echo "rc=$?"
 } > "$OUT/diagnostics.log" 2>&1
 
 # 回归

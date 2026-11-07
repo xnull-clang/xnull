@@ -27,6 +27,7 @@ class Fmt {
     List<Int> swBase = []
     List<Int> swCase = []
     Int swLen = 0
+    Bool lexErr = false
 
     String format(String src) {
         src = src.replace("\r\n", "\n")
@@ -40,6 +41,7 @@ class Fmt {
         self.imports.clear()
         self.secComments.clear()
         self.pkg = ""
+        self.lexErr = false
         Int n = self.lines.length()
         Int i = 0
         Bool scanning = true
@@ -439,6 +441,7 @@ class Fmt {
                     i = j
                 } else {
                     t.text = self.rtrim(s.substring(i, n - i))
+                    self.lexErr = true
                     i = n
                 }
                 self.toks.push(t)
@@ -448,6 +451,7 @@ class Fmt {
                 String quote = "\""
                 Int start = i
                 Int j = i + 2
+                Bool closed = false
                 while (j < n) {
                     String d = s.substring(j, 1)
                     if (d == "\\") {
@@ -456,9 +460,13 @@ class Fmt {
                     }
                     if (d == quote) {
                         j = j + 1
+                        closed = true
                         break
                     }
                     j = j + 1
+                }
+                if (!closed) {
+                    self.lexErr = true
                 }
                 if (j > n) {
                     j = n
@@ -473,6 +481,7 @@ class Fmt {
             if (c == "\"" || c == "'") {
                 String quote = c
                 Int j = i + 1
+                Bool closed = false
                 while (j < n) {
                     String d = s.substring(j, 1)
                     if (d == "\\") {
@@ -481,9 +490,13 @@ class Fmt {
                     }
                     if (d == quote) {
                         j = j + 1
+                        closed = true
                         break
                     }
                     j = j + 1
+                }
+                if (!closed) {
+                    self.lexErr = true
                 }
                 if (j > n) {
                     j = n
@@ -803,6 +816,10 @@ class Fmt {
     Bool isRange(String s) {
         return s == "..<" || s == "..."
     }
+
+    Bool hasLexError() {
+        return self.lexErr
+    }
 }
 
 static Int main(String[] args) {
@@ -819,7 +836,17 @@ static Int main(String[] args) {
             return 2
         }
         String src = readFileText(path)
+        // R3.1 / FMT-102：输入必须是合法 UTF-8（与 Go oracle 对齐）。
+        if (utf8Valid(src) != 0) {
+            writeFileText("/dev/stderr", "xnfmt: " + path + ":0:0: error[FMT-102]: 输入不是合法 UTF-8\n")
+            return 2
+        }
         String res = f.format(src)
+        // R13.6 / FMT-101：字符串/字符/块注释未闭合等词法错误（与 Go oracle 对齐）。
+        if (f.hasLexError()) {
+            writeFileText("/dev/stderr", "xnfmt: " + path + ":0:0: error[FMT-101]: 词法错误（字面量或块注释未闭合）\n")
+            return 2
+        }
         Int rc = writeFileText(path, res)
         if (rc != 0) {
             return 2
