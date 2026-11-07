@@ -84,4 +84,13 @@ ffi xdkc_sys {
   @lease(path = .borrow, text = .borrow)
   @blocking(.unaware)
   Int writeFileText(String path, String text);
+
+  // S6-03：子进程 plain 形态（同步、显式阻塞分类）。
+  // 返回子进程退出码（0—255）；被信号终止/无法启动返回 -1。
+  // Process 句柄与 *Async 形态（Context 首参）待 E5 运行时 + E2 签名落地后追加：
+  // 本文件无法表达 Context/Result/Optional 类型（BOUND-02），届时走 codegen 内建发射面。
+  @ffiEntry(cName = "xdkc_proc_status")
+  @lease(cmd = .borrow)
+  @blocking(.unaware)
+  Int32 procStatus(String cmd);
 }

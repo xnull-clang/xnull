@@ -31,7 +31,7 @@ func TestXdkBindingsLoadAndEmit(t *testing.T) {
 	if len(diags) != 0 {
 		t.Fatalf("仓库绑定不应有诊断：%v", codeList(diags))
 	}
-	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "readFileText", "utf8Valid", "writeFileText"}
+	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "procStatus", "readFileText", "utf8Valid", "writeFileText"}
 	got := make([]string, 0, len(reg.Entries))
 	for _, e := range reg.Entries {
 		got = append(got, e.Name)
@@ -46,7 +46,7 @@ func TestXdkBindingsLoadAndEmit(t *testing.T) {
 	}
 	for _, sym := range []string{
 		"xn_ffi_diagnose", "xn_ffi_nowMono", "xn_ffi_fileOpenRead", "xn_ffi_fileClose",
-		"xn_ffi_dirOpen", "xn_ffi_dirRead", "xn_ffi_pathExists",
+		"xn_ffi_dirOpen", "xn_ffi_dirRead", "xn_ffi_pathExists", "xn_ffi_procStatus",
 		"xn_ffi_xdkc_sys_error_kind", "xn_ffi_xdkc_runtime_error_kind",
 	} {
 		if !strings.Contains(sup.Text, sym) {
