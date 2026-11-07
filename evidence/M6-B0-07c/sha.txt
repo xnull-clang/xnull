@@ -1,0 +1,3 @@
+branch: pod/e4-codegen
+tested_commit: 9876813
+note: handle 注入与 close 可见性（B0-07c）；后续仅补录本文件。
