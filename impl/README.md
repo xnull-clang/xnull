@@ -17,7 +17,7 @@ xnull run examples/hello.x
 构建可执行文件：
 
 ```
-xnull build examples/hello.x -o hello [-l <库>]... [-L <目录>]...
+xnull build examples/hello.x -o hello [-l <库>]... [-L <目录>]... [--resources <资源目录>]
 ```
 
 IDE/CI 机器接口（第 10 部分方案 A）：
@@ -28,7 +28,9 @@ xnull check <文件.x> --json
 xnull build <文件.x> --json -o <输出>
 ```
 
-P-10 起，C 编译清单固定为 `rt.c`/`rt_gc.c`/`rt_policy.c`/`rt_weak.c`/`xrt_abi.c`/`rt_std_runtime.c`/`rt_std_text.c`/`rt_std_sys.c`（顺序固定，见 `internal/codegen/build.go` 的 `runtimeCSources`）；`-l`/`-L` 转成 `LinkArgs`，去重 + 升序后排在全部目标文件之后（`ffi.LinkArgs`，P-10 条件 3）。工程清单 `link.libraries` 接入时复用同一 `codegen.Options.LinkArgs`。
+S6-04 起，`--resources <目录>` 会调用 `xnull dev res` 生成资源表并与 `rt_std_res.c` 一起链接；未给该参数时写入零资源空表（`xrt_resource_*` 符号闭合）。
+
+P-10 起，C 编译清单固定为 `rt.c`/`rt_gc.c`/`rt_policy.c`/`rt_weak.c`/`xrt_abi.c`/`rt_std_runtime.c`/`rt_std_text.c`/`rt_std_sys.c`（含 `rt_std_res.c` 等，顺序固定，见 `internal/codegen/build.go` 的 `runtimeCSources`）；`-l`/`-L` 转成 `LinkArgs`，去重 + 升序后排在全部目标文件之后（`ffi.LinkArgs`，P-10 条件 3）。工程清单 `link.libraries` 接入时复用同一 `codegen.Options.LinkArgs`。
 
 ## 内部维护工具（xnull dev）
 

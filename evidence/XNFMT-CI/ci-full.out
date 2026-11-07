@@ -1,0 +1,17 @@
+XNull CI  工作树=/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
+日志目录=/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/ci/.out
+
+PASS 01 gofmt+vet                  1687ms
+PASS 02 go test -timeout 120s ./...  91013ms
+PASS 03 C 运行时构建         13684ms
+SKIP 04 示例双路径          S0-04 桩：本轮只实现 01–03，未实现
+SKIP 05 check_specs 六检       S0-04 桩：本轮只实现 01–03，未实现
+SKIP 06 台账再生成 diff     S0-04 桩：本轮只实现 01–03，未实现
+SKIP 07 泄漏扫描             S0-04 桩：本轮只实现 01–03，未实现
+SKIP 08 产物与 sha            S0-04 桩：本轮只实现 01–03，未实现
+SKIP 09 汇总 JSON              S0-04 桩：汇总由 run.sh 自身输出，第 09 项待实现
+PASS 10 文件名扫描（禁旧扩展名）    141ms
+PASS 11 xnfmt 全仓校验         8078ms
+
+—— 汇总：PASS=5 FAIL=0 SKIP=6，用时 115235ms ——
+退出码：0

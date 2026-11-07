@@ -1,0 +1,17 @@
+# XNFMT-CI：xnfmt 纳入 CI 与发布产物
+
+# 1 第 11 项（全仓幂等 + 存量 baseline 闸门）
+bash ci/run.sh --list                 # 11 项
+bash ci/run.sh --only 11              # 期望 0
+
+# 2 负向：新增未格式化 .x（已跟踪）→ 必须 FAIL
+printf 'static Int main(){\nreturn 0\n}\n' > ci/probe-unformatted.x
+git add ci/probe-unformatted.x
+bash ci/run.sh --only 11              # 期望 1，点名 ci/probe-unformatted.x
+git rm --cached ci/probe-unformatted.x && rm ci/probe-unformatted.x
+
+# 3 全量 CI
+bash ci/run.sh                        # 期望 PASS=5 FAIL=0 SKIP=6 exit 0
+
+# 4 发布产物（xnull + xnfmt + SHA256SUMS）
+sh scripts/build_release.sh /tmp/release
