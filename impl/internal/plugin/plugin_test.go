@@ -1,0 +1,170 @@
+package plugin
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"xnull.dev/xnull/internal/diag"
+)
+
+const goodMeta = `plugin {
+  groupId          = com.example
+  artifactId       = codegen
+  version          = 1.2.0
+  toolchainVersion = 5.0.0
+
+  goals {
+    goal check {
+      phase      = validate
+      configKeys = [output, strict]
+    }
+  }
+}
+`
+
+func writeFile(t *testing.T, dir, name, body string) string {
+	t.Helper()
+	p := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func has(ds []diag.Diagnostic, code string) bool {
+	for _, d := range ds {
+		if strings.HasPrefix(d.Code, code) {
+			return true
+		}
+	}
+	return false
+}
+
+// S8-05：.xplugin 元数据校验。
+func TestLoadMetadata(t *testing.T) {
+	dir := t.TempDir()
+	md, ds, err := LoadMetadata(writeFile(t, dir, ".xplugin", goodMeta))
+	if err != nil || len(ds) != 0 {
+		t.Fatalf("应通过：%v %v", err, ds)
+	}
+	if md.ArtifactID != "codegen" || md.Goals["check"].Phase != "validate" {
+		t.Fatalf("元数据解析错误：%+v", md)
+	}
+
+	cases := []struct{ name, body, code string }{
+		{"缺字段", "plugin {\n  groupId = g\n  artifactId = a\n}\n", "XPD-504"},
+		{"goal 缺 phase", strings.Replace(goodMeta, "      phase      = validate\n", "", 1), "XPD-504"},
+		{"phase 非法", strings.Replace(goodMeta, "phase      = validate", "phase      = deploy", 1), "XPD-501"},
+		{"configKeys 非列表", strings.Replace(goodMeta, "configKeys = [output, strict]", "configKeys = output", 1), "XPD-504"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			d := t.TempDir()
+			_, ds, err := LoadMetadata(writeFile(t, d, ".xplugin", c.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !has(ds, c.code) {
+				t.Fatalf("应报 %s：%v", c.code, ds)
+			}
+		})
+	}
+
+	t.Run("缺失文件", func(t *testing.T) {
+		_, ds, err := LoadMetadata(filepath.Join(t.TempDir(), ".xplugin"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !has(ds, "XPD-504") {
+			t.Fatalf("缺失 .xplugin 应报 XPD-504：%v", ds)
+		}
+	})
+}
+
+// S8-05：清单声明与元数据一致性（坐标/版本/phase/goal/configKeys/toolchain）。
+func TestValidateDeclaration(t *testing.T) {
+	md := &Metadata{GroupID: "com.example", ArtifactID: "codegen", Version: "1.2.0",
+		ToolchainVersion: "5.0.0",
+		Goals:            map[string]Goal{"check": {Name: "check", Phase: "validate", ConfigKeys: []string{"output", "strict"}}}}
+
+	ok := Decl{Coordinate: "com.example:codegen", Version: "1.2.0", Phase: "validate", Goal: "check",
+		Config: map[string]string{"output": "target/gen"}}
+	if ds := Validate(md, ok, "5.3.1"); len(ds) != 0 {
+		t.Fatalf("合法声明不应有诊断：%v", ds)
+	}
+
+	cases := []struct {
+		name string
+		decl Decl
+		code string
+	}{
+		{"版本非精确", Decl{Coordinate: "com.example:codegen", Version: "[1.0,2.0)", Phase: "validate", Goal: "check"}, "XPD-501"},
+		{"phase 非法", Decl{Coordinate: "com.example:codegen", Version: "1.2.0", Phase: "deploy", Goal: "check"}, "XPD-501"},
+		{"goal 未声明", Decl{Coordinate: "com.example:codegen", Version: "1.2.0", Phase: "validate", Goal: "gen"}, "XPD-501"},
+		{"phase 与元数据不符", Decl{Coordinate: "com.example:codegen", Version: "1.2.0", Phase: "test", Goal: "check"}, "XPD-501"},
+		{"config 键未声明", Decl{Coordinate: "com.example:codegen", Version: "1.2.0", Phase: "validate", Goal: "check",
+			Config: map[string]string{"nope": "x"}}, "XPD-501"},
+		{"坐标不符", Decl{Coordinate: "com.example:other", Version: "1.2.0", Phase: "validate", Goal: "check"}, "XPD-504"},
+		{"版本不符", Decl{Coordinate: "com.example:codegen", Version: "9.9.9", Phase: "validate", Goal: "check"}, "XPD-504"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			ds := Validate(md, c.decl, "5.3.1")
+			if !has(ds, c.code) {
+				t.Fatalf("应报 %s：%v", c.code, ds)
+			}
+		})
+	}
+
+	t.Run("工具链主版本不符", func(t *testing.T) {
+		ds := Validate(md, ok, "6.0.0")
+		if !has(ds, "XPD-504") {
+			t.Fatalf("主版本不同应报 XPD-504：%v", ds)
+		}
+	})
+}
+
+// S8-05：插件执行策略（target 外写拒绝、禁网、非零退出）。
+func TestRunPolicy(t *testing.T) {
+	proj := t.TempDir()
+	target := filepath.Join(proj, "target")
+	if err := os.MkdirAll(filepath.Join(proj, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(target, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("target 内写允许", func(t *testing.T) {
+		ds := Run(RunSpec{ProjectDir: proj, TargetDir: target, Command: []string{"sh", "-c", "echo ok > target/out.txt"}})
+		if len(ds) != 0 {
+			t.Fatalf("不应有诊断：%v", ds)
+		}
+	})
+
+	t.Run("target 外写拒绝", func(t *testing.T) {
+		ds := Run(RunSpec{ProjectDir: proj, TargetDir: target, Command: []string{"sh", "-c", "echo bad > src/x.txt"}})
+		if !has(ds, "XPD-502") {
+			t.Fatalf("越界写应报 XPD-502：%v", ds)
+		}
+	})
+
+	t.Run("非零退出", func(t *testing.T) {
+		ds := Run(RunSpec{ProjectDir: proj, TargetDir: target, Command: []string{"sh", "-c", "exit 3"}})
+		if !has(ds, "XPD-503") {
+			t.Fatalf("非零退出应报 XPD-503：%v", ds)
+		}
+	})
+
+	t.Run("无法禁网时拒绝执行", func(t *testing.T) {
+		ds := Run(RunSpec{ProjectDir: proj, TargetDir: target, Command: []string{"sh", "-c", "true"}, NoSandbox: true})
+		if !has(ds, "XPD-505") {
+			t.Fatalf("无沙箱应拒绝执行（XPD-505）：%v", ds)
+		}
+	})
+}

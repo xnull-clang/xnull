@@ -57,6 +57,8 @@ type Resolved struct {
 	ActiveProfiles []string
 	Chain          []string // 根 → 子 的清单绝对路径
 
+	// Plugins 是 build.plugins 的声明（供 S8-05 插件合同校验）。
+	Plugins []PluginRef
 	// Managed 是合并后的 dependencyManagement（坐标→版本，子优先）。
 	Managed map[string]string
 	// Warnings 是构建警告（如依赖显式版本覆盖管理版本）。
@@ -90,10 +92,20 @@ type fileData struct {
 	config    map[string]string
 	profiles  []profileData
 	managed   map[string]managedEntry
+	plugins   []PluginRef
 }
 
 type managedEntry struct {
 	version string
+}
+
+// PluginRef 是清单中的一条插件声明（build.plugins.plugin）。
+type PluginRef struct {
+	Coordinate string // groupId:artifactId
+	Version    string // 块头第二参数（精确版本）
+	Phase      string
+	Goal       string
+	Config     map[string]string
 }
 
 // Load 解析 path 指向的工程清单：展开继承链、执行变量替换、合并激活的 profile。
@@ -261,6 +273,7 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 		for coord, m := range fd.managed {
 			res.Managed[coord] = m.version
 		}
+		res.Plugins = append(res.Plugins, fd.plugins...)
 	}
 
 	// 6. 变量替换（单次；查找用未替换的原始表）
@@ -480,6 +493,41 @@ func parseFile(path string) (*fileData, []diag.Diagnostic, error) {
 						fd.build[fld.Name] = fld.Value.Raw()
 						if fld.Value.Kind == xpd.StringValue || fld.Value.Kind == xpd.BareValue {
 							fd.build[fld.Name] = fld.Value.Text
+						}
+						continue
+					}
+					if plugins, ok := c.(*xpd.Block); ok && plugins.Name == "plugins" {
+						for _, pc := range plugins.Children {
+							pb, ok := pc.(*xpd.Block)
+							if !ok || pb.Name != "plugin" || len(pb.Args) == 0 {
+								continue
+							}
+							ref := PluginRef{Coordinate: pb.Args[0].Text, Config: map[string]string{}}
+							if len(pb.Args) > 1 {
+								ref.Version = pb.Args[1].Text
+							}
+							for _, pcc := range pb.Children {
+								switch pn := pcc.(type) {
+								case *xpd.Field:
+									switch pn.Name {
+									case "version":
+										ref.Version = pn.Value.Text
+									case "phase":
+										ref.Phase = pn.Value.Text
+									case "goal":
+										ref.Goal = pn.Value.Text
+									}
+								case *xpd.Block:
+									if pn.Name == "configuration" {
+										for _, cc := range pn.Children {
+											if fld, ok := cc.(*xpd.Field); ok {
+												ref.Config[fld.Name] = fld.Value.Text
+											}
+										}
+									}
+								}
+							}
+							fd.plugins = append(fd.plugins, ref)
 						}
 					}
 				}
