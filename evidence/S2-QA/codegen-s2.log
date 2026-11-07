@@ -1,0 +1,10 @@
+=== RUN   TestS2CtorBodies
+--- PASS: TestS2CtorBodies (1.36s)
+=== RUN   TestS2InheritanceLayout
+--- PASS: TestS2InheritanceLayout (1.45s)
+=== RUN   TestS2ProtocolVtableLayout
+--- PASS: TestS2ProtocolVtableLayout (1.70s)
+=== RUN   TestS2DeinitBody
+--- PASS: TestS2DeinitBody (0.91s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	6.425s
