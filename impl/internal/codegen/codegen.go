@@ -887,6 +887,11 @@ func (s *scope) cRef(name string) string {
 			return s.self.cvar + sep + cname
 		}
 	}
+	if s.staticRefs != nil {
+		if v, ok := s.staticRefs[name]; ok {
+			return v
+		}
+	}
 	if _, ok := s.g.globals[name]; ok {
 		return "xn_g_" + name
 	}
@@ -1252,18 +1257,20 @@ type deferItem struct {
 }
 
 type scope struct {
-	parent    *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
-	g         *gen
-	retC      string
-	hasResult bool
-	defers    []deferItem       // 本块注册的清理（LIFO）
-	pending   []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
-	params    map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
-	locals    map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
-	self      *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
-	superT    string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
-	isCtor    bool              // 构造器体：`return;` 返回已构造对象
-	returned  bool              // 末句已生成 return（块退出清理跳过）
+	parent      *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
+	g           *gen
+	retC        string
+	hasResult   bool
+	defers      []deferItem       // 本块注册的清理（LIFO）
+	pending     []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
+	params      map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
+	locals      map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
+	self        *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
+	staticRefs  map[string]string // 单例静态字段 → C 全局变量（BND-07）
+	staticTypes map[string]string // 单例静态字段 → C 类型（BND-07）
+	superT      string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
+	isCtor      bool              // 构造器体：`return;` 返回已构造对象
+	returned    bool              // 末句已生成 return（块退出清理跳过）
 }
 
 // selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
@@ -1306,7 +1313,7 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, superT: s.superT, isCtor: s.isCtor}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor}
 }
 
 func (s *scope) tmp() string {
@@ -2238,6 +2245,29 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		return append(ls, lv+" = "+v+";"), nil
 	}
 	if mem, ok := n.Target.(*xfront.Member); ok {
+		if _, _, isInst := s.g.singletonInstance(mem); isInst {
+			return nil, fmt.Errorf("codegen：单例 instance 只读，不能赋值（S2 §9.1）")
+		}
+		if varName, ct, ok := s.g.singletonStatic(mem); ok {
+			switch ct {
+			case "rt_string *":
+				lines, err := s.strExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "rt_release("+varName+");", varName+" = "+lastVar(lines)+";")
+				return out, nil
+			default:
+				v, err := s.intExpr(n.Value)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, varName+" = "+v+";"), nil
+			}
+		}
 		return s.emitFieldAssign(mem, n.Value)
 	}
 	if idx, ok := n.Target.(*xfront.Index); ok {
@@ -3368,6 +3398,9 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	case *xfront.Index:
 		return s.indexRead(n)
 	case *xfront.Member:
+		if varName, _, ok := s.g.singletonStatic(n); ok {
+			return varName, nil
+		}
 		if _, varName, ok := s.g.singletonInstance(n); ok {
 			return varName, nil
 		}

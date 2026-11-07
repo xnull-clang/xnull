@@ -39,6 +39,11 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		if c, ok := s.localCType(n.Name); ok {
 			return c, nil
 		}
+		if s.staticTypes != nil {
+			if c, ok := s.staticTypes[n.Name]; ok {
+				return c, nil
+			}
+		}
 		if s.self != nil {
 			if c, ok := s.self.types[n.Name]; ok {
 				return c, nil
@@ -91,6 +96,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		}
 		return elems[n.Index], nil
 	case *xfront.Member:
+		if _, t, ok := s.g.singletonStatic(n); ok {
+			return t, nil
+		}
 		if ci, _, ok := s.g.singletonInstance(n); ok {
 			return ci.cname + " *", nil
 		}

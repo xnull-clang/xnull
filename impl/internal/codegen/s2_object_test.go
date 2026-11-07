@@ -1186,3 +1186,50 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// SINGLE-01：静态字段/静态方法 + 初始化式引用前面的单例（启动顺序）。
+func TestS2SINGLE01StaticAndPrevRef(t *testing.T) {
+	src := `singleton Config {
+    static Int base = 7;
+    static Int twice() { return base * 2 }
+    Int port = base + 1;
+    String host = "localhost";
+}
+singleton Derived {
+    Int v = Config.instance.port + 1;
+}
+static Int main() {
+    print(Config.base)
+    print(Config.twice())
+    print(Config.instance.port)
+    print(Config.instance.host)
+    print(Derived.instance.v)
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "7\n14\n8\nlocalhost\n9\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// SINGLE-01：instance 只读 / 禁止 new（codegen 兜底）。
+func TestS2SINGLE01InstanceReadonlyAndNew(t *testing.T) {
+	writeSrc := `singleton AppInfo { Int count = 3; }
+static Int main() { AppInfo.instance = null; return 0 }`
+	u, diags := xfront.ParseUnit("s.x", writeSrc)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	if _, err := EmitC(u); err == nil {
+		t.Fatal("instance 赋值应报错")
+	}
+	newSrc := `singleton AppInfo { Int count = 3; }
+static Int main() { AppInfo a = new AppInfo(); return 0 }`
+	u2, diags2 := xfront.ParseUnit("s.x", newSrc)
+	if len(diags2) != 0 {
+		t.Fatalf("解析诊断：%v", diags2)
+	}
+	if _, err := EmitC(u2); err == nil {
+		t.Fatal("new 单例应报错")
+	}
+}
