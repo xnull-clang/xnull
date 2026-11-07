@@ -59,9 +59,10 @@ type classInfo struct {
 }
 
 type classInfo_m struct {
-	decl  *xfront.MethodDecl
-	cname string // xn_Cls_<Name>_<method>
-	owner *classInfo
+	decl   *xfront.MethodDecl
+	cname  string // xn_Cls_<Name>_<method>
+	owner  *classInfo
+	static bool // 静态方法：无 self 参数、类名调用（S2 §7.2）
 }
 
 // typeIsExpr 生成 `x is T`：类/协议层次可静态判定，协议接收者按 vtable 运行时判定。
@@ -316,7 +317,7 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		if _, ok := ci.methods[m.Name]; ok {
 			return fmt.Errorf("codegen：类 %s 方法重名 %s（重载未支持，M4.4b 范围）", d.Name, m.Name)
 		}
-		ci.methods[m.Name] = &classInfo_m{decl: m, cname: classMethodCName(d.Name, m.Name), owner: ci}
+		ci.methods[m.Name] = &classInfo_m{decl: m, cname: classMethodCName(d.Name, m.Name), owner: ci, static: m.Mod.Static}
 	}
 	ci.collected = true
 	return nil
@@ -728,15 +729,18 @@ func (g *gen) methodProto(ci *classInfo, m *classInfo_m) (string, error) {
 		retC = c
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "static %s %s(%s *self", retC, m.cname, ci.cname)
+	parts := []string{}
+	if !m.static {
+		parts = append(parts, ci.cname+" *self")
+	}
 	for _, p := range m.decl.Params {
 		pc, err := g.cType(p.Type)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(&b, ", %s xn_p_%s", pc, p.Name)
+		parts = append(parts, pc+" xn_p_"+p.Name)
 	}
-	b.WriteString(");")
+	fmt.Fprintf(&b, "static %s %s(%s);", retC, m.cname, strings.Join(parts, ", "))
 	return b.String(), nil
 }
 
@@ -756,20 +760,26 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		retC = c
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "static %s %s(%s *self", retC, m.cname, ci.cname)
+	parts := []string{}
+	if !m.static {
+		parts = append(parts, ci.cname+" *self")
+	}
 	for _, p := range m.decl.Params {
 		pc, err := g.cType(p.Type)
 		if err != nil {
 			return "", err
 		}
-		fmt.Fprintf(&b, ", %s xn_p_%s", pc, p.Name)
+		parts = append(parts, pc+" xn_p_"+p.Name)
 	}
-	b.WriteString(") {\n")
+	fmt.Fprintf(&b, "static %s %s(%s) {\n", retC, m.cname, strings.Join(parts, ", "))
 	hasResult := strings.HasPrefix(retC, "xn_Result_")
 	if hasResult {
 		fmt.Fprintf(&b, "    %s xn_ret;\n", retC)
 	}
-	locals := map[string]string{"self": ci.cname + " *"}
+	locals := map[string]string{}
+	if !m.static {
+		locals["self"] = ci.cname + " *"
+	}
 	pnames := map[string]bool{}
 	for _, p := range m.decl.Params {
 		pnames[p.Name] = true
@@ -777,9 +787,12 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 			locals[p.Name] = pc
 		}
 	}
-	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals, self: newSelfCtx(ci)}
-	if ci.base != nil {
-		sc.superT = ci.base.cname + " *"
+	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	if !m.static {
+		sc.self = newSelfCtx(ci)
+		if ci.base != nil {
+			sc.superT = ci.base.cname + " *"
+		}
 	}
 	body, err := sc.emitBlock(m.decl.Body.Stmts)
 	if err != nil {

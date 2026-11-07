@@ -169,6 +169,11 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		return s.exprType(n.Then)
 	case *xfront.Call:
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if _, retC, hit, err := s.staticClassCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return retC, nil
+			}
 			if fi, m, ok := s.g.factoryMethod(mem, len(n.Args)); ok {
 				if len(m.TypePars) > 0 {
 					key := "Factory_" + fi.decl.Name + "_" + m.Name

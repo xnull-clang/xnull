@@ -98,7 +98,7 @@ func (g *gen) ensureClassInstance(name string, args []xfront.TypeRef) (*classInf
 		if _, ok := ci.methods[m.Name]; ok {
 			return nil, fmt.Errorf("codegen：泛型类 %s 方法重名 %s", name, m.Name)
 		}
-		ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci}
+		ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_" + m.Name, owner: ci, static: m.Mod.Static}
 	}
 	ci.collected = true
 	g.classInsts[cname] = ci

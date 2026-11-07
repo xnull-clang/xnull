@@ -668,3 +668,143 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// emitAndRunUnitsNoSema 绕过 sema，按多文件/跨包编译单元发射并运行。
+func emitAndRunUnitsNoSema(t *testing.T, dir, entry string) (string, int) {
+	t.Helper()
+	u, diags := LoadUnits(entry)
+	if len(diags) != 0 {
+		t.Fatalf("加载诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	cfile := filepath.Join(dir, "prog.c")
+	if err := os.WriteFile(cfile, []byte(csrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "prog")
+	rt := filepath.Join("..", "..", "..", "impl", "runtime")
+	args := []string{"-std=c11", "-O2", "-I", rt, "-o", bin, cfile}
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join(rt, s))
+	}
+	cc := exec.Command("cc", args...)
+	var cerr bytes.Buffer
+	cc.Stderr = &cerr
+	if err := cc.Run(); err != nil {
+		t.Fatalf("cc 失败：%v\n%s\n---- C ----\n%s", err, cerr.String(), csrc)
+	}
+	var out bytes.Buffer
+	run := exec.Command(bin)
+	run.Stdout = &out
+	code := 0
+	if err := run.Run(); err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			code = ee.ExitCode()
+		} else {
+			t.Fatalf("运行失败：%v", err)
+		}
+	}
+	return out.String(), code
+}
+
+// BND-08：跨包 Target + 公开静态方法（factory 方法调用 Device.make）。
+func TestS2BND08CrossPackageStatic(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lib := `class Device {
+    public String name;
+    private Device(String n) { self.name = n }
+    public static Device make(String n) { return new Device(n) }
+}
+`
+	main := `import lib.device
+factory DeviceFactory for Device {
+    static Device create(String n) {
+        return Device.make(n)
+    }
+}
+static Int main() {
+    Device d = DeviceFactory.create("x")
+    print(d.name)
+    return 0
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "lib", "device.x"), []byte(lib), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(dir, "main.x")
+	if err := os.WriteFile(entry, []byte(main), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, code := emitAndRunUnitsNoSema(t, dir, entry)
+	if want := "x\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-08：工厂方法不得使用 self（无 self 绑定，显式报错而非生成坏 C）。
+func TestS2BND08FactoryRejectsSelf(t *testing.T) {
+	u, diags := xfront.ParseUnit("t.x", `class D { }
+factory F for D {
+    static D create() { return new D() }
+}
+static Int main() { return 0 }`)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	if _, err := EmitC(u); err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	u2, diags2 := xfront.ParseUnit("t.x", `class D { }
+factory F for D {
+    static D create() { return self.x }
+}
+static Int main() { return 0 }`)
+	if len(diags2) != 0 {
+		t.Fatalf("解析诊断：%v", diags2)
+	}
+	if _, err := EmitC(u2); err == nil {
+		t.Fatal("工厂方法使用 self 应报错（无 self 绑定）")
+	}
+}
+
+// BND-08：跨包 Target 私有构造器经同包 factory 创建。
+func TestS2BND08CrossPackageNew(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lib := `class Device {
+    public String name;
+    private Device(String n) { self.name = n }
+}
+`
+	main := `import lib.device
+factory DeviceFactory for Device {
+    static Device create(String n) {
+        return new Device(n)
+    }
+}
+static Int main() {
+    Device d = DeviceFactory.create("x")
+    print(d.name)
+    return 0
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "lib", "device.x"), []byte(lib), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entry := filepath.Join(dir, "main.x")
+	if err := os.WriteFile(entry, []byte(main), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, code := emitAndRunUnitsNoSema(t, dir, entry)
+	if want := "x\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
