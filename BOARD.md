@@ -1,7 +1,7 @@
 # SSOT 看板（脚本生成，手改即作废）
 
-- 生成时间：2026-11-07 14:21:46 +0800
-- 仓库：`XNull-Lang`　分支：`main`　HEAD：`4d1495c`
+- 生成时间：2026-11-07 14:24:33 +0800
+- 仓库：`XNull-Lang`　分支：`main`　HEAD：`6fed86b`
 - 窗口：近 7 天（起点提交 `852c141`）
 - 数据源：git log / go test / impl/docs/conformance/status.tsv / evidence/ / handoff/
 - 断链协议：ADR-003（接力棒 + last-green；`--record-green` 在测试绿时记录 HEAD）
@@ -10,10 +10,10 @@
 
 | # | 指标 | 值 |
 |---|---|---|
-| 1 | 窗口内 commit 数 | 139 |
+| 1 | 窗口内 commit 数 | 140 |
 | 2 | 锚点翻转（PASS） | 10（起点 10，Δ+0） |
 | 3 | 全量测试 | 绿（9 包 ok） |
-| 4 | 门进度 | B0 8 卡 / B1 1 卡 / B2 0 卡 / B3 0 卡 / B4 0 卡；收件箱/门/M6-B0门.md |
+| 4 | 门进度 | B0 6 卡（有证据 5） / B1 3 卡（有证据 2） / B2 0 卡 / B3 0 卡 / B4 0 卡；收件箱/门/M6-B0门.md |
 
 ## 台账锚点（status.tsv 已登记 35 行）
 
@@ -40,6 +40,7 @@
 
 | sha | 日期 | 作者 | 主题 |
 |---|---|---|---|
+| 6fed86b | 11-07 14:22 | 李飞恒 | chore(board): per-line last-green and handoff warnings (ADR- |
 | 4d1495c | 11-07 14:14 | 李飞恒 | docs: consolidate handoff batons at root and relay B1-02 to  |
 | 8b6ad55 | 11-07 14:08 | 李飞恒 | chore(board): generate SSOT board from git/test/ledger/evide |
 | 1b9f096 | 11-07 14:06 | 李飞恒 | docs(handoff): NEG-01 51/60, interp items closed |
@@ -54,17 +55,16 @@
 | 49cbb27 | 11-07 13:11 | 李飞恒 | merge(pod/e2-sema): SYNCED 9848d06 |
 | 8a50e84 | 11-07 13:09 | 李飞恒 | merge(pod/c2-rd2): SYNCED eaf3c41 |
 | eaf3c41 | 11-07 13:07 | 李飞恒 | docs(evidence): BLD-01 合 main 90fcdc3 复跑证据（sema 参数检查双保留；28/2 |
-| 9079857 | 11-07 13:07 | 李飞恒 | merge: main 90fcdc3（c1-rd1/c1-rd2）into pod/c2-rd2 |
 
 ## 断链与最后绿点（ADR-003）
 
 | 线 | last-green | 落后 HEAD | 状态 | 最近 commit |
 |---|---|---|---|---|
-| 前端线 | 49cbb27 | 14 | 有效（该线最近提交） | ba4458a（10h52m） |
-| 自举线 | 9f5f66c | 44 | 有效（该线最近提交） | fe19e7c（13h19m） |
-| 运行时线 | 5161769 | 74 | 有效（该线最近提交） | db74cc7（15h55m） |
-| QA 线 | 3034293 | 5 | 有效（支撑线：活动路径最近提交） | 2597b36（12h59m） |
-| 发布线 | d000b43 | 8 | 有效（支撑线：活动路径最近提交） | — |
+| 前端线 | 49cbb27 | 15 | 有效（该线最近提交） | ba4458a（10h55m） |
+| 自举线 | 9f5f66c | 45 | 有效（该线最近提交） | fe19e7c（13h21m） |
+| 运行时线 | 5161769 | 75 | 有效（该线最近提交） | db74cc7（15h58m） |
+| QA 线 | 3034293 | 6 | 有效（支撑线：活动路径最近提交） | 2597b36（13h02m） |
+| 发布线 | d000b43 | 9 | 有效（支撑线：活动路径最近提交） | — |
 
 ## 接力棒（handoff/）
 
@@ -113,8 +113,8 @@
 
 ## 告警（ADR-003 断链判据）
 
-- QA 线：12h59m 无 commit（ADR-003 2h 阈值）
-- 前端线：10h52m 无 commit（ADR-003 2h 阈值）
+- QA 线：13h02m 无 commit（ADR-003 2h 阈值）
+- 前端线：10h55m 无 commit（ADR-003 2h 阈值）
 - 接力棒缺失：B0-02
 - 接力棒缺失：B0-07b
 - 接力棒缺失：FIX-E2-INT64
@@ -144,8 +144,8 @@
 - 接力棒缺失：P1-INIT-FWD
 - 接力棒缺失：XFRONT-FIX-NEG-GEN
 - 接力棒缺字段：B0-07c（已知缺口）
-- 自举线：13h19m 无 commit（ADR-003 2h 阈值）
-- 运行时线：15h55m 无 commit（ADR-003 2h 阈值）
+- 自举线：13h21m 无 commit（ADR-003 2h 阈值）
+- 运行时线：15h58m 无 commit（ADR-003 2h 阈值）
 
 ## evidence（按最近修改，最多 10 项；共 53 项）
 
