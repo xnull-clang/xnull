@@ -1,0 +1,42 @@
+# 原始 stdout 摘要
+
+## 先红（before/red.log）
+```
+--- FAIL: TestFFIHandleOpenClose
+    ffi_handle_test.go:48: EmitCWithFFI: codegen：类型 File 未支持（M4.1 范围）
+```
+
+## 后绿（after.log）
+```
+--- PASS: TestFFIEntryInjectedAndCompiles (1.42s)
+--- PASS: TestFFIInjectionDuplicateNameRejected (0.00s)
+--- PASS: TestFFIHandleOpenClose (1.77s)
+```
+
+## go test ./...（go-test-all.log）
+```
+ok  xnull.dev/xnull/internal/cli
+ok  xnull.dev/xnull/internal/codegen
+ok  xnull.dev/xnull/internal/codegen/ffi
+ok  xnull.dev/xnull/internal/devtool
+ok  xnull.dev/xnull/internal/diag
+ok  xnull.dev/xnull/internal/interp
+ok  xnull.dev/xnull/internal/sema
+ok  xnull.dev/xnull/internal/xfront
+ok  xnull.dev/xnull/internal/xpd
+```
+
+## 样例运行（sample/run.out）
+```
+closed
+```
+生成 C 关键片段（`sample/prog.c`）：
+```
+static int32_t xn_ffi_fileClose(xrt_handle *f) {
+    ...
+    xrt_handle_mark_closed(f);
+    return xn_rc;
+}
+xrt_handle *f = xn_t2;
+int32_t xn_t4 = xn_ffi_fileClose(f);
+```

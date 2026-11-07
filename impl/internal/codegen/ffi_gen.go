@@ -49,13 +49,16 @@ func InjectFFI(u *xfront.CompilationUnit, reg *ffi.Registry) error {
 			return fmt.Errorf("codegen：FFI 入口 %s 与编译单元内已有顶层声明重名（P-09 条件 1）", e.Name)
 		}
 		fn := &xfront.TopFunc{P: xfront.Pos{Line: 1, Col: 1}, Name: e.Name, Static: true, Public: true}
-		switch e.Ret.Kind {
-		case ffi.KindVoid:
-			fn.Void = true
-		case ffi.KindScalar:
-			fn.Ret = xfrontIntType()
-		case ffi.KindString:
-			fn.Ret = xfrontStringType()
+		if e.ErrorCodeRet && e.CloseOf != "" {
+			// 句柄 close（@errorCode(.result)）以 Bool 暴露：true = 成功（幂等关闭，B0-07c）。
+			fn.Ret = xfrontNamedType("Bool")
+		} else {
+			rt, isVoid, err := ffiRetXType(e)
+			if err != nil {
+				return fmt.Errorf("%v", err)
+			}
+			fn.Void = isVoid
+			fn.Ret = rt
 		}
 		for _, p := range e.Params {
 			pt, err := ffiParamXType(p)
@@ -64,14 +67,13 @@ func InjectFFI(u *xfront.CompilationUnit, reg *ffi.Registry) error {
 			}
 			fn.Params = append(fn.Params, &xfront.Param{Name: p.Name, Type: pt})
 		}
-		// 合成函数体只为满足 sema 的返回路径检查；codegen 不为其生成 C 函数。
+		// 合成函数体只为满足 sema 的返回路径检查（while(true) 无正常出口）；codegen 不生成该函数。
 		fn.Body = &xfront.Block{}
 		if !fn.Void {
-			zero := xfront.Expr(&xfront.IntLitExpr{P: xfront.Pos{Line: 1, Col: 1}, Text: "0", Base: 10})
-			if e.Ret.Kind == ffi.KindString {
-				zero = &xfront.StrLitExpr{Kind: xfront.StrNormal, Parts: []xfront.StrPart{{Text: ""}}}
-			}
-			fn.Body.Stmts = []xfront.Stmt{&xfront.ReturnStmt{Value: zero}}
+			fn.Body.Stmts = []xfront.Stmt{&xfront.WhileStmt{
+				Cond: &xfront.BoolLit{V: true},
+				Body: &xfront.Block{},
+			}}
 		}
 		u.Decls = append(u.Decls, fn)
 		declared[e.Name] = true
@@ -93,32 +95,35 @@ func UnsupportedFFIEntries(reg *ffi.Registry) []string {
 	return out
 }
 
-// ffiSupported 校验入口形态是否在 P-09 本轮覆盖面内。
+// ffiSupported 校验入口形态是否在 P-09 本轮覆盖面内（B0-07c：含 handle）。
 func ffiSupported(e ffi.Entry) error {
+	isClose := e.ErrorCodeRet && e.CloseOf != ""
 	if e.ErrorCode != "" || e.ErrorCodeRet {
-		return fmt.Errorf("codegen：FFI 入口 %s 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）", e.Name)
-	}
-	if e.CloseOf != "" {
-		return fmt.Errorf("codegen：FFI 入口 %s 是句柄 close 入口，P-09 本轮未接入（显式拒绝）", e.Name)
-	}
-	switch e.Ret.Kind {
-	case ffi.KindVoid, ffi.KindString:
-	case ffi.KindScalar:
-		if e.Ret.Name != "Int" && e.Ret.Name != "Int64" {
-			return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int64）", e.Name, e.Ret.Name)
+		// 句柄 close 以 Bool 暴露（幂等关闭，B0-07c）；其余错误码通道仍拒绝。
+		if !isClose {
+			return fmt.Errorf("codegen：FFI 入口 %s 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）", e.Name)
 		}
-	default:
-		return fmt.Errorf("codegen：FFI 入口 %s 的返回类型 %s 未纳入 P-09（仅 void/Int/String）", e.Name, e.Ret.String())
+	}
+	if !isClose {
+		switch e.Ret.Kind {
+		case ffi.KindVoid, ffi.KindString, ffi.KindHandle:
+		case ffi.KindScalar:
+			if e.Ret.Name != "Int" && e.Ret.Name != "Int64" && e.Ret.Name != "Bool" {
+				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, e.Ret.Name)
+			}
+		default:
+			return fmt.Errorf("codegen：FFI 入口 %s 的返回类型 %s 未纳入 P-09（仅 void/Int/String/handle）", e.Name, e.Ret.String())
+		}
 	}
 	for _, p := range e.Params {
 		switch p.Type.Kind {
 		case ffi.KindScalar:
-			if p.Type.Name != "Int" && p.Type.Name != "Int64" {
-				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int64）", e.Name, p.Name, p.Type.Name)
+			if p.Type.Name != "Int" && p.Type.Name != "Int64" && p.Type.Name != "Bool" {
+				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, p.Name, p.Type.Name)
 			}
-		case ffi.KindString:
+		case ffi.KindString, ffi.KindHandle:
 		default:
-			return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 类型 %s 未纳入 P-09（仅 Int/String）", e.Name, p.Name, p.Type.String())
+			return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 类型 %s 未纳入 P-09（仅 Int/String/handle）", e.Name, p.Name, p.Type.String())
 		}
 	}
 	return nil
@@ -130,18 +135,72 @@ func ffiParamXType(p ffi.Param) (xfront.TypeRef, error) {
 		if p.Type.Name == "Int" || p.Type.Name == "Int64" {
 			return xfrontIntType(), nil
 		}
+		if p.Type.Name == "Bool" {
+			return xfrontNamedType("Bool"), nil
+		}
 	case ffi.KindString:
 		return xfrontStringType(), nil
+	case ffi.KindHandle:
+		return xfrontNamedType(p.Type.Name), nil
 	}
 	return nil, fmt.Errorf("参数 %s 类型 %s 未纳入 P-09", p.Name, p.Type.String())
 }
 
 func xfrontIntType() xfront.TypeRef {
-	return &xfront.NamedType{P: xfront.Pos{Line: 1, Col: 1}, Qual: []string{"Int"}}
+	return xfrontNamedType("Int")
 }
 
 func xfrontStringType() xfront.TypeRef {
-	return &xfront.NamedType{P: xfront.Pos{Line: 1, Col: 1}, Qual: []string{"String"}}
+	return xfrontNamedType("String")
+}
+
+func xfrontNamedType(name string) xfront.TypeRef {
+	return &xfront.NamedType{P: xfront.Pos{Line: 1, Col: 1}, Qual: []string{name}}
+}
+
+// isHandlePtr 判断 C 类型是否为不透明句柄（B0-07c：xrt_handle 为 ARC 对象）。
+func isHandlePtr(c string) bool { return c == "xrt_handle *" }
+
+// handleExpr 生成句柄值：FFI 入口返回（+1）或变量借用（retain）。
+func (s *scope) handleExpr(e xfront.Expr) ([]string, string, error) {
+	switch n := e.(type) {
+	case *xfront.Call:
+		id, ok := n.Callee.(*xfront.IdentExpr)
+		if !ok {
+			return nil, "", fmt.Errorf("codegen：句柄表达式调用 %T 未支持（B0-07c 范围）", n.Callee)
+		}
+		entry, isFFI := s.ffiEntry(id.Name)
+		if !isFFI || entry.Ret.Kind != ffi.KindHandle {
+			return nil, "", fmt.Errorf("codegen：%s 不是返回句柄的 FFI 入口（B0-07c 范围）", id.Name)
+		}
+		return s.ffiCallLines(n, entry)
+	case *xfront.IdentExpr:
+		r := s.cRef(n.Name)
+		t := s.tmp()
+		return []string{"xrt_handle *" + t + " = rt_retain(" + r + ");"}, t, nil
+	case *xfront.Paren:
+		return s.handleExpr(n.X)
+	}
+	return nil, "", fmt.Errorf("codegen：句柄表达式 %T 未支持（B0-07c 范围）", e)
+}
+
+// ffiRetXType 是入口返回值的 XNull 侧类型（void 返回 nil）。
+// 句柄 close（@errorCode(.result)）以 Bool 暴露：true=成功（幂等关闭）。
+func ffiRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
+	switch e.Ret.Kind {
+	case ffi.KindVoid:
+		return nil, true, nil
+	case ffi.KindScalar:
+		if e.Ret.Name == "Bool" {
+			return xfrontNamedType("Bool"), false, nil
+		}
+		return xfrontIntType(), false, nil
+	case ffi.KindString:
+		return xfrontStringType(), false, nil
+	case ffi.KindHandle:
+		return xfrontNamedType(e.Ret.Name), false, nil
+	}
+	return nil, false, fmt.Errorf("FFI 入口 %s 返回类型 %s 未纳入 P-09", e.Name, e.Ret.String())
 }
 
 // ffiEntry 查当前单元的 FFI 入口表。
@@ -162,6 +221,7 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	lines := append([]string{}, s.pending...)
 	s.pending = nil
 	var parts []string
+	var post []string
 	for i, p := range e.Params {
 		arg := call.Args[i]
 		switch p.Type.Kind {
@@ -175,26 +235,55 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 			parts = append(parts, v)
 		case ffi.KindString:
 			// .borrow 借用：只传字节视图，不 retain（ffi-contract §5.2）。
+			// 字面量/表达式实参先生成 owned 临时，调用后释放。
+			name := ""
+			if id, ok := arg.(*xfront.IdentExpr); ok {
+				name = s.cRef(id.Name)
+			} else {
+				sl, err := s.strExpr(arg)
+				if err != nil {
+					return nil, "", err
+				}
+				lines = append(lines, sl...)
+				name = lastVar(sl)
+				post = append(post, "rt_release("+name+");")
+			}
+			parts = append(parts, name+"->bytes", name+"->len")
+		case ffi.KindHandle:
 			id, ok := arg.(*xfront.IdentExpr)
 			if !ok {
-				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 String 实参仅支持变量（P-09 范围），got %T", e.Name, arg)
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 handle 实参仅支持变量（B0-07c 范围），got %T", e.Name, arg)
 			}
-			name := s.cRef(id.Name)
-			parts = append(parts, name+"->bytes", name+"->len")
+			parts = append(parts, s.cRef(id.Name))
 		default:
 			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 参数 %s 类型未纳入 P-09", e.Name, p.Name)
 		}
+	}
+	// 错误码即返回值（句柄 close，B0-07c）：Bool = (rc == 0)，不落 out。
+	if e.ErrorCodeRet {
+		t := s.tmp()
+		lines = append(lines, "int32_t "+t+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
+		lines = append(lines, post...)
+		return lines, "(" + t + " == 0)", nil
 	}
 	out := ""
 	switch e.Ret.Kind {
 	case ffi.KindVoid:
 	case ffi.KindScalar:
 		out = s.tmp()
-		lines = append(lines, "int64_t "+out+" = 0;")
+		if e.Ret.Name == "Bool" {
+			lines = append(lines, "uint8_t "+out+" = 0;")
+		} else {
+			lines = append(lines, "int64_t "+out+" = 0;")
+		}
 		parts = append(parts, "&"+out)
 	case ffi.KindString:
 		out = s.tmp()
 		lines = append(lines, "rt_string *"+out+" = NULL;")
+		parts = append(parts, "&"+out)
+	case ffi.KindHandle:
+		out = s.tmp()
+		lines = append(lines, "xrt_handle *"+out+" = NULL;")
 		parts = append(parts, "&"+out)
 	default:
 		return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回类型未纳入 P-09", e.Name)
@@ -205,6 +294,7 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	lines = append(lines, fmt.Sprintf(
 		`if (%s != 0) { fprintf(stderr, "fatal: FFI 入口 %s 错误码 %%d（%%s）\n", (int)%s, xn_ffi_%s_error_kind(%s)); exit(134); }`,
 		rc, e.Name, rc, ffiRegionIdent(e.Region), rc))
+	lines = append(lines, post...)
 	return lines, out, nil
 }
 

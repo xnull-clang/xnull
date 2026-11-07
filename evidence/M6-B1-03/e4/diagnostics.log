@@ -1,0 +1,11 @@
+== 缺文件
+xnfmt: FMT-104 参数不是可读文件：/tmp/definitely_missing.x
+rc=2
+== 目录
+xnfmt: FMT-104 参数不是可读文件：/tmp
+rc=2
+== 无参数
+xnfmt: FMT-104 参数不是可读文件
+rc=2
+== 非法 UTF-8
+rc=0（静默接受：待运行时 utf8 校验 API）
