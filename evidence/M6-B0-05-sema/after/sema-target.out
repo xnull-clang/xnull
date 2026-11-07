@@ -1,0 +1,4 @@
+=== RUN   TestListRemoveReturnsElement
+--- PASS: TestListRemoveReturnsElement (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	2.046s

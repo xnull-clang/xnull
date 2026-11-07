@@ -1,0 +1,22 @@
+=== RUN   TestCompileDeferSemantics
+--- PASS: TestCompileDeferSemantics (2.12s)
+=== RUN   TestFFIEntryInjectedAndCompiles
+--- PASS: TestFFIEntryInjectedAndCompiles (2.72s)
+=== RUN   TestFFIInjectionDuplicateNameRejected
+--- PASS: TestFFIInjectionDuplicateNameRejected (0.00s)
+=== RUN   TestLoadUnitsOrderDeterministic
+--- PASS: TestLoadUnitsOrderDeterministic (0.00s)
+=== RUN   TestLoadUnitsCycle
+--- PASS: TestLoadUnitsCycle (0.00s)
+=== RUN   TestLoadUnitsMissing
+--- PASS: TestLoadUnitsMissing (0.00s)
+=== RUN   TestMultiFileCrossFileTypeClash
+--- PASS: TestMultiFileCrossFileTypeClash (0.00s)
+=== RUN   TestMultiFileFnOverloadExplicit
+--- PASS: TestMultiFileFnOverloadExplicit (0.00s)
+=== RUN   TestMultiFileExampleCompileMatchesInterp
+--- PASS: TestMultiFileExampleCompileMatchesInterp (2.06s)
+=== RUN   TestXdkSeedUnitCompiles
+--- PASS: TestXdkSeedUnitCompiles (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	8.543s

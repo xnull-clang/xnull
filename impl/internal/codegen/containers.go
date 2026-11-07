@@ -91,6 +91,19 @@ func arrName(elem string) string {
 	return "xn_arr_" + m
 }
 
+// optName 是可空类型 T? 的 C 表示（M6-B0-05：Int/Bool/String）。
+func optName(c string) (string, error) {
+	switch c {
+	case "int64_t":
+		return "xn_opt_i", nil
+	case "int":
+		return "xn_opt_b", nil
+	case "rt_string *":
+		return "xn_opt_s", nil
+	}
+	return "", fmt.Errorf("codegen：可空类型 %s 未支持（M6-B0-05 范围：Int/Bool/String）", c)
+}
+
 func setName(elem string) string {
 	m, _ := mangle(elem)
 	return "xn_set_" + m
@@ -133,7 +146,6 @@ func (cs *containers) emit(b *strings.Builder) {
 
 func emitArrHelpers(b *strings.Builder, elem string) {
 	n := arrName(elem)
-	zero := elemZero(elem)
 	rel := "    free(a->data);\n"
 	if isRef(elem) {
 		rel = "    for (size_t i = 0; i < a->len; i++) { rt_release(a->data[i]); }\n    free(a->data);\n"
@@ -145,6 +157,18 @@ func emitArrHelpers(b *strings.Builder, elem string) {
 	dropOld := ""
 	if isRef(elem) {
 		dropOld = "    rt_release(a->data[i]);\n"
+	}
+	// join：元素字符串化后按分隔符连接（与解释器 format 一致）。
+	elemStr := ""
+	switch elem {
+	case "int64_t":
+		elemStr = "xn_str_int(a.data[i])"
+	case "int":
+		elemStr = "xn_str_bool(a.data[i])"
+	case "rt_string *":
+		elemStr = "rt_string_new(a.data[i]->bytes, a.data[i]->len)"
+	default:
+		elemStr = "rt_string_from_c(\"\")"
 	}
 	fmt.Fprintf(b, `typedef struct { size_t len; size_t cap; %[2]s *data; } %[1]s;
 
@@ -176,16 +200,43 @@ static void %[1]s_set(%[1]s *a, int64_t i, %[2]s v) {
 %[6]s%[5]s    a->data[i] = v;
 }
 
-static void %[1]s_remove(%[1]s *a, int64_t i) {
+static %[2]s %[1]s_remove(%[1]s *a, int64_t i) {
     if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }
-%[7]s    for (size_t j = (size_t)i; j + 1 < a->len; j++) {
+    %[2]s old = a->data[i];
+    for (size_t j = (size_t)i; j + 1 < a->len; j++) {
         a->data[j] = a->data[j + 1];
     }
     a->len--;
+    return old;
+}
+
+static void %[1]s_insert(%[1]s *a, int64_t i, %[2]s v) {
+    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }
+    if (a->len == a->cap) {
+        a->cap *= 2;
+        a->data = realloc(a->data, sizeof(%[2]s) * a->cap);
+        if (a->data == NULL) { abort(); }
+    }
+    for (size_t j = a->len; j > (size_t)i; j--) {
+        a->data[j] = a->data[j - 1];
+    }
+%[5]s    a->data[i] = v;
+    a->len++;
 }
 
 static void %[1]s_clear(%[1]s *a) {
-%[8]s    a->len = 0;
+%[7]s    a->len = 0;
+}
+
+static rt_string *%[1]s_join(%[1]s a, rt_string *sep) {
+    rt_string *res = rt_string_from_c("");
+    for (size_t i = 0; i < a.len; i++) {
+        if (i > 0) {
+            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));
+        }
+        res = xn_concat(res, %[8]s);
+    }
+    return res;
 }
 
 static void %[1]s_free(%[1]s *a) {
@@ -194,9 +245,7 @@ static void %[1]s_free(%[1]s *a) {
     a->cap = 0;
 }
 
-`, n, elem, "", rel, keep, dropOld,
-		relElemLoop(elem), relElemLoop(elem))
-	_ = zero
+`, n, elem, "", rel, keep, dropOld, relElemLoop(elem), elemStr)
 }
 
 func emitSetHelpers(b *strings.Builder, elem string) {
@@ -207,6 +256,10 @@ func emitSetHelpers(b *strings.Builder, elem string) {
 		eq = "s->a.data[i]->len == v->len && memcmp(s->a.data[i]->bytes, v->bytes, v->len) == 0"
 	} else {
 		eq = "s->a.data[i] == v"
+	}
+	dropRemoved := ""
+	if isRef(elem) {
+		dropRemoved = "            rt_release(s->a.data[i]);\n"
 	}
 	fmt.Fprintf(b, `typedef struct { %[1]s a; } %[2]s;
 
@@ -231,9 +284,29 @@ static int %[2]s_has(const %[2]s *s, %[3]s v) {
     return 0;
 }
 
+static %[3]s %[2]s_at(const %[2]s *s, int64_t i) {
+    if (i < 0 || (size_t)i >= s->a.len) { xn_fatal_oob(); }
+    return s->a.data[i];
+}
+
+static int %[2]s_remove(%[2]s *s, %[3]s v) {
+    for (size_t i = 0; i < s->a.len; i++) {
+        if (%[4]s) {
+            for (size_t j = i; j + 1 < s->a.len; j++) {
+                s->a.data[j] = s->a.data[j + 1];
+            }
+%[6]s            s->a.len--;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void %[2]s_clear(%[2]s *s) { %[1]s_clear(&s->a); }
+
 static void %[2]s_free(%[2]s *s) { %[1]s_free(&s->a); }
 
-`, an, sn, elem, eq)
+`, an, sn, elem, eq, "", dropRemoved)
 }
 
 func emitMapHelpers(b *strings.Builder, k, v string) {
@@ -320,6 +393,98 @@ static void %[1]s_free(%[1]s *m) {
 }
 
 `, n, k, v, freeK, freeV, keq, keepK, dropK, dropV, keepV)
+
+	// 排序键（DET-01）：与解释器 canonKey 的字典序一致（String 按字节、Int 按十进制串、Bool false<true）。
+	cmpBody := ""
+	switch k {
+	case "rt_string *":
+		cmpBody = `    size_t n = a->len < b->len ? a->len : b->len;
+    int c = memcmp(a->bytes, b->bytes, n);
+    if (c != 0) { return c; }
+    return (a->len > b->len) - (a->len < b->len);`
+	case "int64_t":
+		cmpBody = `    char ba[32], bb[32];
+    snprintf(ba, sizeof(ba), "%lld", (long long)a);
+    snprintf(bb, sizeof(bb), "%lld", (long long)b);
+    return strcmp(ba, bb);`
+	case "int":
+		cmpBody = `    return (a > b) - (a < b);`
+	default:
+		cmpBody = `    return 0;`
+	}
+	km, kerr := mangle(k)
+	vm, verr := mangle(v)
+	if kerr == nil && verr == nil {
+		fmt.Fprintf(b, `static int %[1]s_cmp_key(%[2]s a, %[2]s b) {
+%[3]s
+}
+
+static void %[1]s_sort_idx(const %[1]s *m, size_t *idx) {
+    for (size_t i = 1; i < m->len; i++) {
+        size_t x = idx[i];
+        size_t j = i;
+        while (j > 0 && %[1]s_cmp_key(m->keys[idx[j - 1]], m->keys[x]) > 0) {
+            idx[j] = idx[j - 1];
+            j--;
+        }
+        idx[j] = x;
+    }
+}
+
+static %[4]s %[1]s_keys(const %[1]s *m) {
+    %[4]s out = %[4]s_new(m->len);
+    if (m->len == 0) { return out; }
+    size_t *idx = malloc(sizeof(size_t) * m->len);
+    if (idx == NULL) { abort(); }
+    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }
+    %[1]s_sort_idx(m, idx);
+    for (size_t i = 0; i < m->len; i++) { %[4]s_push(&out, m->keys[idx[i]]); }
+    free(idx);
+    return out;
+}
+
+static %[5]s %[1]s_values(const %[1]s *m) {
+    %[5]s out = %[5]s_new(m->len);
+    if (m->len == 0) { return out; }
+    size_t *idx = malloc(sizeof(size_t) * m->len);
+    if (idx == NULL) { abort(); }
+    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }
+    %[1]s_sort_idx(m, idx);
+    for (size_t i = 0; i < m->len; i++) { %[5]s_push(&out, m->vals[idx[i]]); }
+    free(idx);
+    return out;
+}
+
+`, n, k, cmpBody, arrName(k), arrName(v))
+		_ = km
+		_ = vm
+		// Map.get → V?（M6-B0-05）：缺键 has=0，按解释器 §9.5 返回 null。
+		if ov, err := optName(v); err == nil {
+			zero := elemZero(v)
+			retainV := ""
+			if isRef(v) {
+				retainV = "    rt_retain(r.v);\n"
+			}
+			fmt.Fprintf(b, `static %[3]s %[1]s_get(const %[1]s *m, %[2]s key) {
+    %[3]s r;
+    long i = %[1]s_find(m, key);
+    if (i < 0) { r.has = 0; r.v = %[4]s; return r; }
+    r.has = 1;
+    r.v = m->vals[i];
+%[5]s    return r;
+}
+
+`, n, k, ov, zero, retainV)
+		}
+	}
+}
+
+// ensureMapArrays 保证 Map 的 keys/values 助手可编译（数组实例化在 Map 之后登记）。
+func (cs *containers) ensureMapArrays() {
+	for _, kv := range cs.mp {
+		cs.arr[kv[0]] = true
+		cs.arr[kv[1]] = true
+	}
 }
 
 // relElemLoop 生成释放全部元素引用的语句（非引用元素为空）。
@@ -329,3 +494,53 @@ func relElemLoop(elem string) string {
 	}
 	return ""
 }
+
+// strSplitHelper 是 String.split 的 C 助手（字节语义，与解释器 §9.2 一致）。
+const strSplitHelper = `
+static xn_arr_s xn_str_split(rt_string *s, rt_string *sep) {
+    xn_arr_s out = xn_arr_s_new(4);
+    if (sep->len == 0) {
+        rt_string *t = rt_string_new(s->bytes, s->len);
+        xn_arr_s_push(&out, t);
+        rt_release(t);
+        return out;
+    }
+    size_t start = 0, i = 0;
+    while (i + sep->len <= s->len) {
+        if (memcmp(s->bytes + i, sep->bytes, sep->len) == 0) {
+            rt_string *t = rt_string_new(s->bytes + start, i - start);
+            xn_arr_s_push(&out, t);
+            rt_release(t);
+            i += sep->len;
+            start = i;
+        } else {
+            i++;
+        }
+    }
+    rt_string *last = rt_string_new(s->bytes + start, s->len - start);
+    xn_arr_s_push(&out, last);
+    rt_release(last);
+    return out;
+}
+`
+
+// strReplaceHelper 是 String.replace 的 C 助手（ReplaceAll 语义，字节匹配）。
+const strReplaceHelper = `
+static rt_string *xn_str_replace(rt_string *s, rt_string *from, rt_string *to) {
+    if (from->len == 0) { return rt_retain(s); }
+    rt_string *res = rt_string_from_c("");
+    size_t start = 0, i = 0;
+    while (i + from->len <= s->len) {
+        if (memcmp(s->bytes + i, from->bytes, from->len) == 0) {
+            res = xn_concat(res, rt_string_new(s->bytes + start, i - start));
+            res = xn_concat(res, rt_string_new(to->bytes, to->len));
+            i += from->len;
+            start = i;
+        } else {
+            i++;
+        }
+    }
+    res = xn_concat(res, rt_string_new(s->bytes + start, s->len - start));
+    return res;
+}
+`
