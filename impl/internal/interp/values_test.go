@@ -230,6 +230,109 @@ static Int main() {
 	}
 }
 
+// ---------- M1-BLD-01：容器成员契约（S1 §9.4—§9.5） ----------
+
+// §9.5：Map.get(key) 返回 V?；键不存在时返回 null，不 panic。
+func TestMapGetMissingKeyReturnsNull(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    Map<String, Int> m = ["a": 1]
+    Int? missing = m.get("z")
+    print(missing == null)
+    print(m.get("z") ?? 7)
+    print(m.getOr("z", 9))
+    return 0
+}`)
+	if err != nil || out != "true\n7\n9\n" {
+		t.Fatalf("Map.get 缺失键应返回 null：out=%q err=%v", out, err)
+	}
+}
+
+// §9.4：List.remove(index) 删除并返回被删元素。
+func TestListRemoveReturnsElement(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    List<Int> xs = [1, 2, 3]
+    print(xs.remove(1))
+    print(xs.length())
+    print(xs.get(1))
+    return 0
+}`)
+	if err != nil || out != "2\n2\n3\n" {
+		t.Fatalf("List.remove 应返回被删元素：out=%q err=%v", out, err)
+	}
+}
+
+// §9.4：List.insert 的合法位置是 0..length；越界 panic（exit 134）。
+func TestListInsertOutOfRangeFatal(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		idx  string
+	}{
+		{"超过 length", "3"},
+		{"负数", "-1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, code, err := runSrcCode(t, `
+static Int main() {
+    List<Int> xs = [1, 2]
+    xs.insert(`+tc.idx+`, 9)
+    print(xs.length())
+    return 0
+}`)
+			if err == nil || code != 134 {
+				t.Fatalf("insert 越界应 fatal 134：code=%d err=%v", code, err)
+			}
+		})
+	}
+	// 边界：index == length 合法（追加）。
+	out, err := runSrc(t, `
+static Int main() {
+    List<Int> xs = [1, 2]
+    xs.insert(2, 9)
+    print(xs.length())
+    return 0
+}`)
+	if err != nil || out != "3\n" {
+		t.Fatalf("insert(length, v) 应合法：out=%q err=%v", out, err)
+	}
+}
+
+// §9.4：List 是引用类型；赋值到 List 变量后仍按 List 使用（不得退化为定长 T[]）。
+func TestListAssignmentKeepsList(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    List<Int> xs = [1]
+    xs = [2]
+    xs.push(3)
+    print(xs.length())
+    print(xs.get(1))
+    print(xs is List)
+    return 0
+}`)
+	if err != nil || out != "2\n3\ntrue\n" {
+		t.Fatalf("List 赋值后应保持 List：out=%q err=%v", out, err)
+	}
+}
+
+// §9.5：Map 键类型只允许 String、整数类型和简单枚举；Bool/Char 不得作为键。
+func TestMapRejectsUnsupportedKeyTypes(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"Bool 键", "static Int main() {\n    Map<Bool, Int> m = [true: 1]\n    print(m.length())\n    return 0\n}"},
+		{"Char 键", "static Int main() {\n    Map<Char, Int> m = ['a': 1]\n    print(m.length())\n    return 0\n}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := runSrcCode(t, tc.src)
+			if err == nil {
+				t.Fatalf("不支持的 Map 键类型应报错")
+			}
+		})
+	}
+}
+
 // §11.2：main(args: String[]) 入口第二形态。
 func TestMainWithArgs(t *testing.T) {
 	u, diags := xfront.ParseUnit("t.x", "static Int main(String[] args) {\n    print(args.length())\n    print(args[0])\n    return 0\n}")

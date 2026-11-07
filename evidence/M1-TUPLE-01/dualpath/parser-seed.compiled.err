@@ -1,0 +1,81 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:355:13: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  355 |     if (((k == 3))) {
+      |           ~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:355:13: note: remove extraneous parentheses around the comparison to silence this warning
+  355 |     if (((k == 3))) {
+      |         ~   ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:355:13: note: use '=' to turn this equality comparison into an assignment
+  355 |     if (((k == 3))) {
+      |             ^~
+      |             =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:463:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  463 |             if (((k == 1))) {
+      |                   ~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:463:21: note: remove extraneous parentheses around the comparison to silence this warning
+  463 |             if (((k == 1))) {
+      |                 ~   ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:463:21: note: use '=' to turn this equality comparison into an assignment
+  463 |             if (((k == 1))) {
+      |                     ^~
+      |                     =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:668:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  668 |     if (((xn_p_n->kind == 1))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:668:24: note: remove extraneous parentheses around the comparison to silence this warning
+  668 |     if (((xn_p_n->kind == 1))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:668:24: note: use '=' to turn this equality comparison into an assignment
+  668 |     if (((xn_p_n->kind == 1))) {
+      |                        ^~
+      |                        =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:677:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  677 |     if (((xn_p_n->kind == 2))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:677:24: note: remove extraneous parentheses around the comparison to silence this warning
+  677 |     if (((xn_p_n->kind == 2))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:677:24: note: use '=' to turn this equality comparison into an assignment
+  677 |     if (((xn_p_n->kind == 2))) {
+      |                        ^~
+      |                        =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:686:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  686 |     if (((xn_p_n->kind == 3))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:686:24: note: remove extraneous parentheses around the comparison to silence this warning
+  686 |     if (((xn_p_n->kind == 3))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:686:24: note: use '=' to turn this equality comparison into an assignment
+  686 |     if (((xn_p_n->kind == 3))) {
+      |                        ^~
+      |                        =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:703:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  703 |     if (((xn_p_n->kind == 4))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:703:24: note: remove extraneous parentheses around the comparison to silence this warning
+  703 |     if (((xn_p_n->kind == 4))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:703:24: note: use '=' to turn this equality comparison into an assignment
+  703 |     if (((xn_p_n->kind == 4))) {
+      |                        ^~
+      |                        =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:716:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  716 |     if (((xn_p_n->kind == 5))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:716:24: note: remove extraneous parentheses around the comparison to silence this warning
+  716 |     if (((xn_p_n->kind == 5))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:716:24: note: use '=' to turn this equality comparison into an assignment
+  716 |     if (((xn_p_n->kind == 5))) {
+      |                        ^~
+      |                        =
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:721:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  721 |     if (((xn_p_n->kind == 6))) {
+      |           ~~~~~~~~~~~~~^~~~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:721:24: note: remove extraneous parentheses around the comparison to silence this warning
+  721 |     if (((xn_p_n->kind == 6))) {
+      |         ~              ^    ~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3186969161/prog.c:721:24: note: use '=' to turn this equality comparison into an assignment
+  721 |     if (((xn_p_n->kind == 6))) {
+      |                        ^~
+      |                        =
+8 warnings generated.

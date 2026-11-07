@@ -2,6 +2,7 @@ package sema
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
@@ -26,17 +27,27 @@ const (
 	TyNullToValue   = "TY-103" // null → 非可空值类型（§2.6 禁止）
 	TyCondNotBool   = "TY-104" // 条件必须是 Bool（§6.1）
 	TyBadOperand    = "TY-105" // 无效运算操作数（§7.2/§9.2）
+	TyTuple         = "TY-106" // 元组规则（S1 §2.11：越界/成员/switch/const/插值/as）
 )
 
 // texpr 是表达式的静态类型：key 是规范化类型串；lit 标记未定型字面量。
 type texpr struct {
-	key string // "" = 未知/void 语义上有别：void 用 "void"，未知用 ""
-	lit int    // 0 普通；1 整数字面量；2 浮点字面量；3 字符串字面量；4 null
+	key   string  // "" = 未知/void 语义上有别：void 用 "void"，未知用 ""
+	lit   int     // 0 普通；1 整数字面量；2 浮点字面量；3 字符串字面量；4 null
+	elems []texpr // 元组字面量的逐元素类型（保留字面量标记，§2.11 目标适配）
+
+	hasInt  bool   // 整数字面量的值已知（M6-B0-07a 范围检查）
+	intVal  int64  // 有符号值
+	uintVal uint64 // 无符号值（仅 isUInt 时有效）
+	isUInt  bool
 }
 
 var intTypeNames = map[string]bool{
 	"Int": true, "Long": true, "Byte": true, "Short": true, "UByte": true,
 	"UShort": true, "UInt": true, "ULong": true, "Int128": true, "UInt128": true,
+	// FFI 定宽整数（S7 §3.2 标量映射）；S1 §2.6 字面量适配按目标宽度检查。
+	"Int8": true, "Int16": true, "Int32": true, "Int64": true,
+	"UInt8": true, "UInt16": true, "UInt32": true, "UInt64": true,
 }
 
 var refTypeNames = map[string]bool{ // §2.6 空值规则：引用类型
@@ -79,6 +90,40 @@ func typeKey(t xfront.TypeRef) string {
 		return "(" + strings.Join(ps, ",") + ")"
 	}
 	return ""
+}
+
+// splitTupleKey 拆分元组类型串 `(T1,T2,...)`；嵌套括号/尖括号/方括号内的逗号不切分。
+// 返回 false 表示不是元组类型（§2.11 元组至少两个元素）。
+func splitTupleKey(key string) ([]string, bool) {
+	key = unwrapOpt(key)
+	if !strings.HasPrefix(key, "(") || !strings.HasSuffix(key, ")") {
+		return nil, false
+	}
+	inner := key[1 : len(key)-1]
+	if inner == "" {
+		return nil, false
+	}
+	depth := 0
+	start := 0
+	var parts []string
+	for i, r := range inner {
+		switch r {
+		case '(', '<', '[':
+			depth++
+		case ')', '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	parts = append(parts, strings.TrimSpace(inner[start:]))
+	if len(parts) < 2 {
+		return nil, false
+	}
+	return parts, true
 }
 
 func isOptional(key string) bool { return strings.HasSuffix(key, "?") }
@@ -131,10 +176,26 @@ func assignable(from texpr, to string) bool {
 			return true
 		}
 	}
+	// 元组字面量按目标元素类型逐项适配（§2.11）：长度相同且元素逐一可赋值。
+	if len(from.elems) > 0 {
+		toElems, ok := splitTupleKey(to)
+		if !ok || len(toElems) != len(from.elems) {
+			return false
+		}
+		for i := range from.elems {
+			if !assignable(from.elems[i], toElems[i]) {
+				return false
+			}
+		}
+		return true
+	}
 	// 字面量规则（§2.6）。
 	switch from.lit {
-	case 1: // 整数字面量可表示在目标整数类型中（表示性检查在常量求值切片，此处按类型接受）
-		return isIntType(to)
+	case 1: // 整数字面量可表示在目标整数类型中（§2.6）
+		if !isIntType(to) {
+			return false
+		}
+		return intLiteralFits(from, to)
 	case 2:
 		return isFloatType(to)
 	case 3:
@@ -173,6 +234,64 @@ func assignable(from texpr, to string) bool {
 		}
 	}
 	return false
+}
+
+// intLiteralFits 检查整数字面量的值能否表示在目标整数类型中（§2.6）。
+// 仅对 S7 定宽整数（Int8..Int64 / UInt8..UInt64）做范围检查；
+// Byte/Short/Int/Long 等既有类型保持历史行为，避免扩大本卡语义面。
+func intLiteralFits(t texpr, to string) bool {
+	if !t.hasInt {
+		return true
+	}
+	switch unwrapOpt(to) {
+	case "Int8":
+		return signedFits(t, -1<<7, 1<<7-1)
+	case "Int16":
+		return signedFits(t, -1<<15, 1<<15-1)
+	case "Int32":
+		return signedFits(t, -1<<31, 1<<31-1)
+	case "Int64":
+		return signedFits(t, -1<<63, 1<<63-1)
+	case "UInt8":
+		return unsignedFits(t, 1<<8-1)
+	case "UInt16":
+		return unsignedFits(t, 1<<16-1)
+	case "UInt32":
+		return unsignedFits(t, 1<<32-1)
+	case "UInt64":
+		return unsignedFits(t, ^uint64(0))
+	}
+	return true
+}
+
+// adaptIntLiteralKeys 让比较中的整数字面量按另一侧整数类型适配（§2.6）；
+// 返回两侧共同类型。非字面量或越界时不放宽。
+func adaptIntLiteralKeys(lt, rt texpr) (string, string, bool) {
+	if lt.key != "" && rt.key != "" && lt.key == rt.key {
+		return lt.key, rt.key, true
+	}
+	// 仅无后缀整数字面量（默认 Int）按另一侧适配；显式后缀类型不隐式转换。
+	if lt.lit == 1 && lt.key == "Int" && rt.key != "" && isIntType(rt.key) && intLiteralFits(lt, rt.key) {
+		return rt.key, rt.key, true
+	}
+	if rt.lit == 1 && rt.key == "Int" && lt.key != "" && isIntType(lt.key) && intLiteralFits(rt, lt.key) {
+		return lt.key, lt.key, true
+	}
+	return lt.key, rt.key, false
+}
+
+func signedFits(t texpr, min, max int64) bool {
+	if t.isUInt {
+		return t.uintVal <= uint64(max)
+	}
+	return t.intVal >= min && t.intVal <= max
+}
+
+func unsignedFits(t texpr, max uint64) bool {
+	if t.isUInt {
+		return t.uintVal <= max
+	}
+	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
 // tyenv 是一个函数的类型环境。
@@ -257,6 +376,57 @@ func assignDiag(from texpr, to string) string {
 		return TyNullToValue
 	}
 	return TyAssignability
+}
+
+// checkTupleInterp 校验元组插值的每个元素可格式化（§2.11 + §1.4.4）。
+func (e *tyenv) checkTupleInterp(p xfront.Pos, t texpr) {
+	parts, ok := splitTupleKey(t.key)
+	if !ok {
+		return
+	}
+	for _, part := range parts {
+		if !e.formattableKey(part) {
+			e.errf(p, TyTuple, "元组插值元素类型 "+part+" 不可格式化（§2.11/§1.4.4）", "")
+		}
+	}
+}
+
+// formattableKey 判断类型串是否属于 §1.4.4 允许的插值格式化值。
+func (e *tyenv) formattableKey(key string) bool {
+	if key == "" || key == "null" {
+		return true
+	}
+	if parts, ok := splitTupleKey(key); ok {
+		for _, part := range parts {
+			if !e.formattableKey(part) {
+				return false
+			}
+		}
+		return true
+	}
+	base := unwrapOpt(key)
+	switch base {
+	case "String", "Bool", "Char":
+		return true
+	}
+	if isIntType(base) || isFloatType(base) {
+		return true
+	}
+	if e.a.tc != nil {
+		if info, ok := e.a.tc.types[base]; ok {
+			if info.kind == "enum" && !info.enum.IsData {
+				return true
+			}
+			if info.kind == "class" {
+				for _, m := range info.class.Methods {
+					if m.Name == "toString" && !m.Void && len(m.Params) == 0 && typeKey(m.Ret) == "String" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func describeKey(t texpr) string {
@@ -365,6 +535,13 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 				e.errf(n.P, assignDiag(vt, elem),
 					fmt.Sprintf("下标赋值类型不符：%s 不能赋给元素类型 %s（§2.6）", describeKey(vt), elem), "")
 			}
+		} else if tm, ok := n.Target.(*xfront.TupleMember); ok {
+			tt := e.infer(tm)
+			vt := e.inferExpected(n.Value, tt.key)
+			if tt.key != "" && !assignable(vt, tt.key) {
+				e.errf(n.P, assignDiag(vt, tt.key),
+					fmt.Sprintf("元组元素赋值类型不符：%s 不能赋给元素类型 %s（§2.11）", describeKey(vt), tt.key), "")
+			}
 		} else {
 			e.infer(n.Value)
 		}
@@ -417,7 +594,10 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		e.infer(n.Src)
 		e.walkFunc(n.Body, retKey)
 	case *xfront.SwitchStmt:
-		e.infer(n.Value)
+		vt := e.infer(n.Value)
+		if _, isTuple := splitTupleKey(vt.key); isTuple {
+			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
+		}
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)
@@ -507,7 +687,16 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		case "UL":
 			k = "ULong"
 		}
-		return texpr{key: k, lit: 1}
+		t := texpr{key: k, lit: 1}
+		txt := strings.ReplaceAll(n.Text, "_", "")
+		if txt != "" {
+			if iv, err := strconv.ParseInt(txt, n.Base, 64); err == nil {
+				t.hasInt, t.intVal = true, iv
+			} else if uv, err := strconv.ParseUint(txt, n.Base, 64); err == nil {
+				t.hasInt, t.isUInt, t.uintVal = true, true, uv
+			}
+		}
+		return t
 	case *xfront.FloatLitExpr:
 		if n.HasSuffixF {
 			return texpr{key: "Float", lit: 2}
@@ -520,6 +709,11 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 	case *xfront.NullLit:
 		return texpr{key: "null", lit: 4}
 	case *xfront.StrLitExpr:
+		for _, p := range n.Parts {
+			if p.Expr != nil {
+				e.checkTupleInterp(p.Expr.Pos(), e.infer(p.Expr))
+			}
+		}
 		return texpr{key: "String", lit: 3}
 	case *xfront.IdentExpr:
 		if k, ok := e.vars[n.Name]; ok {
@@ -581,6 +775,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 			if t.key != "" && !isIntType(t.key) && !isFloatType(t.key) {
 				e.errf(n.P, TyBadOperand, "一元 `-` 操作数必须是数值（§7.2），得到 "+describeKey(t), "")
 			}
+			if t.hasInt {
+				if t.isUInt {
+					t.intVal, t.isUInt = -int64(t.uintVal), false // 2^63 → MinInt64（补码）
+				} else {
+					t.intVal = -t.intVal
+				}
+			}
 			return t
 		}
 		return t
@@ -598,10 +799,12 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		return e.inferCall(n)
 	case *xfront.Tuple:
 		parts := make([]string, len(n.Elems))
+		elems := make([]texpr, len(n.Elems))
 		for i, el := range n.Elems {
-			parts[i] = e.infer(el).key
+			elems[i] = e.infer(el)
+			parts[i] = elems[i].key
 		}
-		return texpr{key: "(" + strings.Join(parts, ",") + ")"}
+		return texpr{key: "(" + strings.Join(parts, ",") + ")", elems: elems}
 	case *xfront.ArrayLit:
 		if len(n.Elems) == 0 {
 			return texpr{}
@@ -634,14 +837,24 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		return texpr{}
 	case *xfront.TupleMember:
 		xt := e.infer(n.X)
-		if strings.HasPrefix(xt.key, "(") && strings.HasSuffix(xt.key, ")") {
-			inner := xt.key[1 : len(xt.key)-1]
-			parts := strings.Split(inner, ",")
-			if n.Index < len(parts) {
-				return texpr{key: strings.TrimSpace(parts[n.Index])}
-			}
+		if xt.key == "" {
+			return texpr{}
 		}
-		return texpr{}
+		parts, ok := splitTupleKey(xt.key)
+		if !ok {
+			e.errf(n.P, TyTuple, "`.N` 元素访问只用于元组（§2.11），得到 "+describeKey(xt), "")
+			return texpr{}
+		}
+		if n.Index >= len(parts) {
+			e.errf(n.P, TyTuple,
+				fmt.Sprintf("元组下标越界：%s 只有 %d 个元素，选择器 .%d（§2.11）", xt.key, len(parts), n.Index), "")
+			return texpr{}
+		}
+		elem := parts[n.Index]
+		if (isOptional(xt.key) || n.NullSafe) && !isOptional(elem) {
+			elem += "?"
+		}
+		return texpr{key: elem}
 	case *xfront.NewArray:
 		return texpr{key: typeKey(n.Type) + "[]"}
 	case *xfront.Lambda:
@@ -672,6 +885,10 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 	}
 	// 其他接收者：类类型变量的成员访问（外部私有访问检查，§7.4）
 	rt := e.infer(n.X)
+	if _, isTuple := splitTupleKey(rt.key); isTuple {
+		e.errf(n.P, TyTuple, "元组没有成员或方法（§2.11：元素只能写作 `.0`、`.1`，不能写 `."+n.Name+"`）", "")
+		return texpr{}
+	}
 	if isResultKey(rt.key) {
 		e.errf(n.P, ErResultMember, "Result 成员必须调用：写 `"+n.Name+"()`（§10.1）", "成员全部是方法")
 		return texpr{}
@@ -891,16 +1108,26 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 
 func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 	if _, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
+		lt := e.infer(n.L)
+		rhs := typeKey(n.R.(*xfront.TypeAsExpr).Type)
+		_, lTuple := splitTupleKey(lt.key)
+		_, rTuple := splitTupleKey(rhs)
 		switch n.Op {
 		case "is":
-			e.infer(n.L)
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组不参与有意义的 is 转换（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
 			return texpr{key: "Bool"}
 		case "as":
-			e.infer(n.L)
-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type)}
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组 as 只允许同型恒等（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
+			return texpr{key: rhs}
 		case "as?":
-			e.infer(n.L)
-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type) + "?"}
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组 as? 只允许同型恒等（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
+			return texpr{key: rhs + "?"}
 		}
 	}
 	lt := e.infer(n.L)
@@ -911,7 +1138,7 @@ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 			e.errf(n.P, TyCondNotBool, "`"+n.Op+"` 操作数必须是 Bool（§7.2）", "")
 		}
 		return texpr{key: "Bool"}
-	case "==", "!=":
+	case "==", "!=", "===", "!==":
 		// §10.1：Result 无 ==
 		if strings.HasPrefix(lt.key, "Result<") || strings.HasPrefix(rt.key, "Result<") {
 			e.errf(n.P, TyBadOperand, "Result 没有 ==（§10.1：用 isOk/isErr 成员检查）", "")
@@ -928,16 +1155,28 @@ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 			return texpr{key: "Bool"}
 		}
 		if lt.key != "" && rt.key != "" && lt.key != rt.key {
-			e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
-				lt.key+" vs "+rt.key, "")
+			if _, _, ok := adaptIntLiteralKeys(lt, rt); !ok {
+				e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
+					lt.key+" vs "+rt.key, "")
+			}
 		}
 		return texpr{key: "Bool"}
 	case "<", ">", "<=", ">=":
 		if lt.key != "" && rt.key != "" {
-			num := (isIntType(lt.key) && isIntType(rt.key)) || (isFloatType(lt.key) && isFloatType(rt.key)) ||
-				(lt.key == "Char" && rt.key == "Char")
+			lk, rk := lt.key, rt.key
+			if lk != rk {
+				a, b, ok := adaptIntLiteralKeys(lt, rt)
+				if !ok {
+					e.errf(n.P, TyBadOperand, "比较运算要求同族同宽（§2.6 禁止隐式转换）："+
+						lt.key+" vs "+rt.key, "")
+					return texpr{key: "Bool"}
+				}
+				lk, rk = a, b
+			}
+			num := (isIntType(lk) && isIntType(rk)) || (isFloatType(lk) && isFloatType(rk)) ||
+				(lk == "Char" && rk == "Char")
 			if !num {
-				e.errf(n.P, TyBadOperand, "比较运算只用于同族数值或 Char（§2.6 禁止隐式转换）："+
+				e.errf(n.P, TyBadOperand, "比较运算只用于同族同宽数值或 Char（§2.6 禁止隐式转换）："+
 					lt.key+" vs "+rt.key, "")
 			}
 		}
