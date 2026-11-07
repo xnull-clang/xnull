@@ -16,6 +16,7 @@ type TypeModifiers struct {
 // FieldDecl 类/结构体/数据枚举字段（S2 §6.1）。
 type FieldDecl struct {
 	P         Pos
+	Annos     []*AnnotationNode
 	Mod       TypeModifiers
 	Type      TypeRef
 	Name      string // 声明名
@@ -26,6 +27,7 @@ type FieldDecl struct {
 // MethodDecl 实例/静态方法；void deinit() 归一为 IsDeinit（S2 §6.2/§6.4）。
 type MethodDecl struct {
 	P        Pos
+	Annos    []*AnnotationNode
 	Mod      TypeModifiers
 	Name     string
 	Void     bool
@@ -299,6 +301,10 @@ func (p *parser) parseClassDecl(mod TypeModifiers) *ClassDecl {
 
 // parseClassMember 解析字段/方法/构造器/deinit（S2 §6）。
 func (p *parser) parseClassMember(d *ClassDecl) {
+	var annos []*AnnotationNode
+	for p.at(Annotation) {
+		annos = append(annos, p.parseAnnotation())
+	}
 	mod := p.parseTypeModifiers()
 	save := p.i
 	ty := p.tryTypeRefQuiet()
@@ -306,11 +312,12 @@ func (p *parser) parseClassMember(d *ClassDecl) {
 		nameTok := p.next()
 		if p.at(LParen) { // 方法（void deinit() 归一为 deinit）
 			m := p.parseMethodRest(mod, ty, nameTok)
+			m.Annos = annos
 			d.Methods = append(d.Methods, m)
 			return
 		}
 		// 字段
-		f := &FieldDecl{P: nameTok.Pos, Mod: mod, Type: ty, Name: nameTok.Text}
+		f := &FieldDecl{P: nameTok.Pos, Annos: annos, Mod: mod, Type: ty, Name: nameTok.Text}
 		if p.atOp("=") {
 			p.i++
 			f.Init = p.parseExpr()
@@ -379,16 +386,22 @@ func (p *parser) parseStructDecl(mod TypeModifiers) *StructDecl {
 	}
 	p.expectKind(LBrace, "结构体体 `{`（必须与头部同一行，§1.1）")
 	for !p.at(RBrace) && !p.at(EOF) {
+		var annos []*AnnotationNode
+		for p.at(Annotation) {
+			annos = append(annos, p.parseAnnotation())
+		}
 		mod2 := p.parseTypeModifiers()
 		save := p.i
 		ty := p.tryTypeRefQuiet()
 		if ty != nil && p.at(Ident) {
 			nameTok := p.next()
 			if p.at(LParen) {
-				d.Methods = append(d.Methods, p.parseMethodRest(mod2, ty, nameTok))
+				m := p.parseMethodRest(mod2, ty, nameTok)
+				m.Annos = annos
+				d.Methods = append(d.Methods, m)
 				continue
 			}
-			f := &FieldDecl{P: nameTok.Pos, Mod: mod2, Type: ty, Name: nameTok.Text}
+			f := &FieldDecl{P: nameTok.Pos, Annos: annos, Mod: mod2, Type: ty, Name: nameTok.Text}
 			if p.atOp("=") {
 				p.i++
 				f.Init = p.parseExpr()
