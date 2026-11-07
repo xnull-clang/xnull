@@ -416,6 +416,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
 		factories: map[string]*factoryInfo{}, policy: policy, stack: stack, stats: stats}
 	g.resultArgs = map[string][]xfront.TypeRef{}
+	g.syncElems = map[string]string{}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -1199,6 +1200,7 @@ type gen struct {
 	stack            map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
 	inDeinit         bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
 	curEscaped       map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
+	syncElems        map[string]string            // 同步原语局部 → 元素 C 类型（XDK-05）
 	taskID           int                          // 任务闭包编号（S5-04）
 	taskSupport      []string                     // 任务 env 支撑代码（按需）
 	taskSupportAdded bool                         // 任务 env 支撑已登记
@@ -1361,8 +1363,8 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 			return ei.ctype, nil
 		}
 		return "int64_t", nil
-	case "TaskError":
-		// 任务边界错误面：复用 S4 ErrorKind（S5-00 §八）。
+	case "TaskError", "CancelledError":
+		// 任务/取消边界错误面：复用 S4 ErrorKind（S5-00 §八）。
 		return "xrt_error_kind", nil
 	case "Bytes":
 		return "xrt_bytes_obj *", nil
@@ -1637,6 +1639,18 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "xrt_task *", nil
 		case "TaskError":
 			return "xrt_error_kind", nil
+		case "CancelledError":
+			return "xrt_error_kind", nil
+		case "Mutex":
+			return "xrt_mutex *", nil
+		case "Channel":
+			return "xrt_channel *", nil
+		case "AtomicInt":
+			return "xrt_atomic_int *", nil
+		case "AtomicBool":
+			return "xrt_atomic_bool *", nil
+		case "AtomicRef":
+			return "xrt_atomic_ref *", nil
 		case "Any", "Object":
 			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
 			return "xn_Any *", nil
@@ -1817,6 +1831,7 @@ type scope struct {
 	taskBody    *taskBodyInfo     // 任务闭包体（S5-04）：return → xrt_task_result
 	taskEnvVar  string            // 任务体 env 变量名
 	taskOutVar  string            // 任务体 out 参数名
+	lockBody    *taskBodyInfo     // Mutex.withLock 回调体（XDK-05）
 }
 
 // selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
@@ -2178,6 +2193,11 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 				if hit {
 					return lines, nil
 				}
+			}
+			if lines, hit, err := s.emitSyncSpecialStmt(rn, rc, mem.Name, call.Args); err != nil {
+				return nil, err
+			} else if hit {
+				return lines, nil
 			}
 			if mem.Name == "cancel" {
 				if rc == "xrt_task_group *" {
@@ -2700,6 +2720,20 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		lines, v, err := s.sbExpr(n.Init)
 		if err != nil {
 			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	// XDK-05：同步原语句柄局部（ARC 资源；不参与 GC 根登记）。
+	if isSyncHandleC(tc) {
+		lines, v, err := s.syncValueExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		if c, ok := n.Init.(*xfront.Call); ok {
+			if e, err := s.syncElemType(c, ""); err == nil {
+				s.g.syncElems[n.Name] = e
+			}
 		}
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
@@ -3369,6 +3403,31 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		out := splitLines(s.emitCleanup(true, "    "))
 		s.returned = true
 		return append(out, "return o;"), nil
+	}
+	// XDK-05：Mutex.withLock 回调体 return Result → int32 状态（Err kind，Ok 0）。
+	if s.lockBody != nil {
+		if n.Value == nil {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			s.returned = true
+			return append(out, "return 0;"), nil
+		}
+		rc, err := s.exprType(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		v, err := s.resultExpr(n.Value, rc)
+		if err != nil {
+			return nil, err
+		}
+		tmp := s.tmp()
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, rc+" "+tmp+" = "+v+";")
+		out = append(out, "if (!"+tmp+".ok) { return (int32_t)"+tmp+".err; }")
+		out = append(out, "return 0;")
+		s.returned = true
+		return out, nil
 	}
 	// S5-04：任务闭包体 return Result → xrt_task_result（值/错误 +1 移交）。
 	if s.taskBody != nil {
@@ -4068,6 +4127,13 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			}
 			switch id.Name {
 			case "Ok":
+				if len(n.Args) == 0 {
+					info, err := s.g.resultInfo(resultC)
+					if err != nil {
+						return "", err
+					}
+					return "(" + resultC + "){1, " + s.g.resultZeroC(info.memberC) + ", " + s.g.resultZeroC(info.errC) + "}", nil
+				}
 				return s.resultOkValue(resultC, n.Args[0])
 			case "Err":
 				return s.resultErrExpr(resultC, n.Args[0])
@@ -4094,6 +4160,9 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil {
+				if isSyncHandleC(rc) {
+					return s.emitSyncResult(rn, rc, mem.Name, resultC, n.Args)
+				}
 				if rc == "xrt_task *" && (mem.Name == "join" || mem.Name == "joinDeadline") {
 					return s.emitTaskResult(rn, rc, mem.Name, resultC, n.Args)
 				}
@@ -4544,6 +4613,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				s.pending = nil
 				s.pending = append(out, s.pending...)
 				return expr, nil
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isSyncHandleC(rc) {
+				if v, hit, err := s.emitSyncAtomicValue(rn, rc, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
 			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
 				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {

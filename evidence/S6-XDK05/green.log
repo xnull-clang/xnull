@@ -1,0 +1,4 @@
+=== RUN   TestXDK05CompiledE2E
+--- PASS: TestXDK05CompiledE2E (3.41s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	4.096s

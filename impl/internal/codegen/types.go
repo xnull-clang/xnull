@@ -293,6 +293,22 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					return "void", nil
 				}
 			}
+			if isSyncHandleC(recvC) {
+				switch recvC {
+				case "xrt_atomic_int *", "xrt_atomic_bool *":
+					switch mem.Name {
+					case "load":
+						if recvC == "xrt_atomic_bool *" {
+							return "int", nil
+						}
+						return "int64_t", nil
+					case "compareExchange":
+						return "int", nil
+					}
+				case "xrt_atomic_ref *":
+					return s.g.syncElems[""], nil
+				}
+			}
 			if recvC == "xrt_text *" {
 				switch mem.Name {
 				case "length", "codePointCount", "compareTo":
@@ -309,6 +325,22 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					return "rt_string *", nil
 				case "append":
 					return "void", nil
+				}
+			}
+			if isSyncHandleC(recvC) {
+				switch recvC {
+				case "xrt_atomic_int *", "xrt_atomic_bool *":
+					switch mem.Name {
+					case "load":
+						if recvC == "xrt_atomic_bool *" {
+							return "int", nil
+						}
+						return "int64_t", nil
+					case "compareExchange":
+						return "int", nil
+					}
+				case "xrt_atomic_ref *":
+					return s.g.syncElems[""], nil
 				}
 			}
 			if recvC == "xrt_text *" {

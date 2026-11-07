@@ -1,0 +1,5 @@
+=== RUN   TestXDK05CompiledE2E
+    xdk05_e2e_test.go:73: compiled 路径 BLOCKED（已知语言面缺口，交 E3/E4）：xnull: 代码生成失败：codegen：类型 Mutex 未支持（M4.1 范围）
+--- SKIP: TestXDK05CompiledE2E (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	1.121s
