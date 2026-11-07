@@ -1758,6 +1758,12 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			s.locals[n.Name] = tc
 			return append(out, tc+" "+n.Name+" = "+ctor+";"), nil
 		}
+		if id, ok := n.Init.(*xfront.IdentExpr); ok {
+			r := s.cRef(id.Name)
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			s.locals[n.Name] = tc
+			return []string{tc + " " + n.Name + " = rt_retain(" + r + ");"}, nil
+		}
 		if cl, ok := n.Init.(*xfront.Call); ok {
 			expr, owns, err := s.classCallExpr(cl)
 			if err != nil {
@@ -2824,6 +2830,24 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					return "(!(" + eq + "))", nil
 				}
 				return eq, nil
+			}
+		}
+		// 对象同一性（S2 §2.8/§5.6）：类/协议/数据枚举/句柄/字节缓冲按指针身份。
+		if n.Op == "===" || n.Op == "!==" {
+			if lt, err := s.exprType(n.L); err == nil && (isClassPtr(lt) || s.g.isProtoC(lt) || s.g.isDataEnumC(lt) || lt == "xrt_handle *" || lt == "xrt_bytes_obj *") {
+				l, err := s.intExpr(n.L)
+				if err != nil {
+					return "", err
+				}
+				r, err := s.intExpr(n.R)
+				if err != nil {
+					return "", err
+				}
+				op := "=="
+				if n.Op == "!==" {
+					op = "!="
+				}
+				return "(" + l + " " + op + " " + r + ")", nil
 			}
 		}
 		l, err := s.intExpr(n.L)

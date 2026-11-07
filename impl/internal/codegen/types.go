@@ -140,7 +140,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			}
 		}
 		switch n.Op {
-		case "==", "!=", "<", "<=", ">", ">=", "&&", "||":
+		case "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||":
 			return "int", nil
 		case "+":
 			lt, err := s.exprType(n.L)

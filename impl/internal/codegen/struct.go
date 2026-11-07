@@ -286,6 +286,34 @@ func (s *scope) structValue(e xfront.Expr, tc string) ([]string, string, error) 
 	case *xfront.Paren:
 		return s.structValue(n.X, tc)
 	case *xfront.Call:
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			if s.self != nil && s.params != nil && !s.params[id.Name] {
+				if _, local := s.locals[id.Name]; !local {
+					if m, ok := s.self.ci.methodOf(id.Name); ok {
+						if rc, err := s.g.methodRetC(m); err == nil && rc == tc {
+							expr, err := s.methodCall(s.self.ci, m, s.self.cvar, n.Args)
+							if err != nil {
+								return nil, "", err
+							}
+							lines := append([]string{}, s.pending...)
+							s.pending = nil
+							return lines, expr, nil
+						}
+					}
+				}
+			}
+			args, err := s.callArgs(n.Args)
+			if err != nil {
+				return nil, "", err
+			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+			if err != nil {
+				return nil, "", err
+			}
+			lines := append([]string{}, s.pending...)
+			s.pending = nil
+			return lines, cn + "(" + strings.Join(args, ", ") + ")", nil
+		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			rn, rc, err := recvCName(mem.X, s)
 			if err != nil {
