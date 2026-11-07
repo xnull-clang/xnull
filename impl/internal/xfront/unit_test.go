@@ -149,20 +149,20 @@ func TestFullUnit(t *testing.T) {
 // ---------- 诊断不中断：多错误可报（对照 §1.7 风格） ----------
 
 func TestUnitMultiDiags(t *testing.T) {
-	_, diags := ParseUnit("t.x", "package xdk.bad\nimport a.b\nsingleton X { }\nstatic Int f() { return 0 }")
+	_, diags := ParseUnit("t.x", "package xdk.bad\nimport a.b\nclass { }\nstatic Int f() { return 0 }")
 	if len(diags) < 2 {
-		t.Fatalf("xdk 前缀与 class 至少两个诊断：%v", render(diags))
+		t.Fatalf("xdk 前缀与缺类名至少两个诊断：%v", render(diags))
 	}
-	hasXdk, hasType := false, false
+	hasXdk, hasExpect := false, false
 	for _, d := range diags {
 		if d.Code == synXdkPackage {
 			hasXdk = true
 		}
-		if d.Code == synTypeDecl {
-			hasType = true
+		if d.Code == synExpect {
+			hasExpect = true
 		}
 	}
-	if !hasXdk || !hasType {
-		t.Fatalf("应同时报 SYN-111 与 SYN-110：%v", render(diags))
+	if !hasXdk || !hasExpect {
+		t.Fatalf("应同时报 SYN-111 与 SYN-101：%v", render(diags))
 	}
 }
