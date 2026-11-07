@@ -52,6 +52,13 @@ type layoutSrc struct {
 	Fields []fieldSrc
 }
 
+type callbackSrc struct {
+	Pos    pos
+	Name   string
+	Params []typeRef
+	Ret    typeRef
+}
+
 type handleSrc struct {
 	Pos   pos
 	Name  string
@@ -65,13 +72,14 @@ type errRuleSrc struct {
 }
 
 type region struct {
-	Name    string
-	Pos     pos
-	File    string
-	Layouts []*layoutSrc
-	Handles []*handleSrc
-	ErrMap  []errRuleSrc
-	Entries []*entrySrc
+	Name      string
+	Pos       pos
+	File      string
+	Layouts   []*layoutSrc
+	Handles   []*handleSrc
+	Callbacks []*callbackSrc
+	ErrMap    []errRuleSrc
+	Entries   []*entrySrc
 }
 
 // ---- 解析器 ----
@@ -174,6 +182,9 @@ func (p *parser) parseRegion() *region {
 				continue
 			case "handle":
 				rg.Handles = append(rg.Handles, p.parseHandle())
+				continue
+			case "callback":
+				rg.Callbacks = append(rg.Callbacks, p.parseCallback())
 				continue
 			case "errorMap":
 				p.parseErrorMap(rg)
@@ -356,4 +367,31 @@ func (p *parser) parseAnnArg() annArg {
 		p.fail(t.pos, "注解参数非法")
 	}
 	return annArg{}
+}
+
+// parseCallback 解析回调声明：
+//
+//	callback Name(P0, P1) -> Ret;
+func (p *parser) parseCallback() *callbackSrc {
+	kw := p.next()
+	nm := p.expectIdent("回调名")
+	cb := &callbackSrc{Pos: kw.pos, Name: nm.text}
+	p.expectPunct("(")
+	if !(p.peek().kind == tokPunct && p.peek().text == ")") {
+		for {
+			cb.Params = append(cb.Params, p.parseType())
+			if p.acceptPunct(",") {
+				continue
+			}
+			break
+		}
+	}
+	p.expectPunct(")")
+	if !p.acceptPunct("-") {
+		p.fail(p.peek().pos, "回调声明缺返回箭头 ->")
+	}
+	p.expectPunct(">")
+	cb.Ret = p.parseType()
+	p.expectPunct(";")
+	return cb
 }
