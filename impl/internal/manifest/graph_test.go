@@ -305,3 +305,38 @@ func containsCode(codes []string, want string) bool {
 	}
 	return false
 }
+
+// S8-09：同一依赖图重复生成锁 → 字节稳定。
+func TestLockBytesStableFromGraph(t *testing.T) {
+	proj, repo := appProject(t, "    dependency g:a {\n      version = 1.0.0\n    }\n    dependency g:b {\n      version = 2.0.0\n    }\n")
+	mkRepoDep(t, repo, "g:a", "1.0.0", "")
+	mkRepoDep(t, repo, "g:b", "2.0.0", "")
+	t.Setenv("XNULL_REPO", repo)
+	res, diags, _ := ResolveDependencies(proj, Options{})
+	if len(diags) > 0 {
+		t.Fatal(diags)
+	}
+	var first string
+	for i := 0; i < 5; i++ {
+		g, gds := ResolveGraph(res, repo)
+		if len(gds) > 0 {
+			t.Fatal(gds)
+		}
+		lock, lds := GenerateLockForGraph(res, g, repo, nil)
+		if len(lds) > 0 {
+			t.Fatal(lds)
+		}
+		p := filepath.Join(t.TempDir(), "xnull.lock")
+		if err := WriteLock(p, lock); err != nil {
+			t.Fatal(err)
+		}
+		data, _ := os.ReadFile(p)
+		if i == 0 {
+			first = string(data)
+			continue
+		}
+		if string(data) != first {
+			t.Fatalf("锁字节不稳定（第 %d 次）", i+1)
+		}
+	}
+}
