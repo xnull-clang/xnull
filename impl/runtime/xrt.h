@@ -101,11 +101,13 @@ typedef struct xrt_bytes {
  *   - 分配种类：当前 ARC（与 String/类/容器一致）；S3 §188 的 GC 分类切换只改
  *     实现内部 kind，本组符号与签名不变。
  */
-typedef struct xrt_bytes_buf xrt_bytes_buf; /* 不透明 */
+typedef struct xrt_bytes_buf xrt_bytes_buf; /* 不透明对象 */
+typedef xrt_bytes_buf xrt_bytes_obj;        /* B0-07c codegen 契约别名 */
 
 xrt_bytes_buf *xrt_bytes_new(void);                          /* 空缓冲 */
 xrt_bytes_buf *xrt_bytes_alloc(size_t len);                  /* 定长、内容清零 */
 xrt_bytes_buf *xrt_bytes_from_c(const void *data, size_t len); /* 复制构造 */
+xrt_bytes_buf *xrt_bytes_from_string(const char *bytes, size_t len); /* from_c 别名 */
 size_t         xrt_bytes_len(const xrt_bytes_buf *b);
 void          *xrt_bytes_data(xrt_bytes_buf *b);
 int32_t        xrt_bytes_get(const xrt_bytes_buf *b, size_t i);

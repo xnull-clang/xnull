@@ -107,6 +107,11 @@ xrt_bytes_buf *xrt_bytes_from_c(const void *data, size_t len) {
     return b;
 }
 
+/* B0-07c codegen 契约别名（E4 发射面使用该名）。 */
+xrt_bytes_buf *xrt_bytes_from_string(const char *bytes, size_t len) {
+    return xrt_bytes_from_c((const void *)bytes, len);
+}
+
 size_t xrt_bytes_len(const xrt_bytes_buf *b) {
     return b == NULL ? 0 : payload_of(b)->len;
 }
