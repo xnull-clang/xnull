@@ -150,16 +150,17 @@ static Int main() {
 	if !strings.Contains(csrc, "xn_Cls_Node_scan") {
 		t.Fatalf("GC 类应生成 scan 钩子")
 	}
-	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_Plain)") {
-		t.Fatalf("Plain（非环）应保持 rt_arc_new")
-	}
 	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Plain)") {
-		t.Fatalf("非环类不得走 GC")
+		t.Fatalf("非环纯值类不得走 GC")
+	}
+	// S3-03：Plain 为 Escape=none，局部构造点走栈分配（不再调用堆包装）。
+	if strings.Contains(funcBody(csrc, "int64_t xn_main() {"), "xn_Cls_Plain_new()") {
+		t.Fatalf("Plain（Escape=none）应栈分配：\n%s", csrc)
 	}
 }
 
-// BND-10：值为空/纯值类保持 ARC（栈候选是许可，不是 GC）。
-func TestBND10ValueOnlyStaysARC(t *testing.T) {
+// BND-10：纯值类不为 GC；S3-03 后栈候选在局部构造点栈分配。
+func TestBND10ValueOnlyStackAllocated(t *testing.T) {
 	src := `
 class ValueOnly { Int x = 1; }
 static Int main() {
@@ -167,11 +168,11 @@ static Int main() {
     return v.x
 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_ValueOnly)") {
-		t.Fatalf("纯值类应保持 ARC")
-	}
 	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_ValueOnly)") {
 		t.Fatalf("纯值类不得走 GC")
+	}
+	if strings.Contains(funcBody(csrc, "int64_t xn_main() {"), "xn_Cls_ValueOnly_new()") {
+		t.Fatalf("纯值类（Escape=none）应栈分配：\n%s", csrc)
 	}
 }
 
@@ -217,7 +218,7 @@ static Int main() { print(AppInfo.instance.count); return 0 }`
 	}
 }
 
-// BND-10b：@arc/stack 候选类保持 ARC 分配（栈优化未启用时身份不变）。
+// BND-10b：@arc/stack 候选类在局部构造点栈分配（S3-03），身份不变。
 func TestBND10bArcStackCandidate(t *testing.T) {
 	src := `
 class Plain { Int x = 1; }
@@ -227,11 +228,11 @@ static Int main() {
     return 0
 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_Plain)") {
-		t.Fatalf("stack 候选类应保持 ARC 分配：\n%s", csrc)
-	}
 	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Plain)") {
 		t.Fatalf("stack 候选类不得走 GC：\n%s", csrc)
+	}
+	if strings.Contains(funcBody(csrc, "int64_t xn_main() {"), "xn_Cls_Plain_new()") {
+		t.Fatalf("stack 候选类应栈分配：\n%s", csrc)
 	}
 	got, code := compileAndRunPolicy(t, src)
 	if got != "1\n" || code != 0 {

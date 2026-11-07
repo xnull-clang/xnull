@@ -29,6 +29,33 @@ func (g *gen) classIsGC(c string) bool {
 	return g.policy[name] == "gc"
 }
 
+// classIsStack 判断类引用 C 类型是否按逃逸分类可栈分配（S3-03：Escape=none）。
+// 防御性校验：类必须无引用字段、无 deinit、无协议 vtable（协议上转需要堆分配头）。
+func (g *gen) classIsStack(c string) bool {
+	name, ok := classPtrName(c)
+	if !ok || !g.stack[name] || g.policy[name] == "gc" {
+		return false
+	}
+	ci, ok := g.classes[name]
+	if !ok {
+		return false
+	}
+	for b := ci; b != nil; b = b.base {
+		if b.deinit != nil || b.vptr {
+			return false
+		}
+	}
+	for _, f := range ci.fields {
+		if f.isRefField() || f.isAny || f.isCls || f.isArr {
+			return false
+		}
+		if g.isTupleC(f.ctype) && len(g.tupleRefPaths("o->"+f.cname, f.ctype)) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // isGCTypeC 判断类/数据枚举/单例 C 类型是否 GC 管理（BND-10b）。
 func (g *gen) isGCTypeC(c string) bool {
 	if g.classIsGC(c) {
