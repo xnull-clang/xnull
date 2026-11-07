@@ -1,0 +1,5 @@
+自举线 last-green
+commit: 755c20e
+code_commit: 0d8c985
+verified: go test ./... 绿; B1-03 diff=0 (155+union); idem=0; 诊断 3/4
+date: 2026-11-07
