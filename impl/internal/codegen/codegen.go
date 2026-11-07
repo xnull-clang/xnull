@@ -228,6 +228,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	if err := g.collectAllResults(u); err != nil {
 		return "", err
 	}
+	if err := g.collectExtensions(u); err != nil {
+		return "", err
+	}
 	// 协议 vtable 槽对齐（S2 §5.7）：子类实现协议时，祖先也必须保留同一 vtable
 	// 指针槽，否则父类字段偏移与子类布局不一致（多级继承回归）。
 	for _, ci := range g.classes {
@@ -355,6 +358,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			// 单例由 collectSingletons/emitSingletons 发射。
 		case *xfront.FactoryDecl:
 			// 工厂方法由 collectFactories/emitFactories 发射。
+		case *xfront.ExtensionDecl:
+			// 扩展方法由 collectExtensions/emitExtensions 发射。
 		default:
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}
@@ -426,6 +431,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		return "", err
 	}
 	if err := g.emitSingletonForwards(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitExtensionProtos(&b); err != nil {
 		return "", err
 	}
 	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
@@ -577,6 +585,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		return "", err
 	}
 	if err := g.emitFactories(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitExtensions(&b); err != nil {
 		return "", err
 	}
 	if err := g.emitEnumInit(&b); err != nil {
@@ -843,6 +854,7 @@ type gen struct {
 	singletonOrder []string                     // 单例声明顺序
 	factories      map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
 	factoryOrder   []string                     // 工厂声明顺序
+	extensions     []*extensionInfo             // 扩展方法（BND-13）
 	tmp            int
 }
 
