@@ -1,0 +1,6 @@
+main_sha=e2f943c
+binary=/tmp/qa-a2-e2f943c
+binary_sha256=baa515e915fb4d1cb653e1dbda5efbc15bab98cf74849b22df832b81a6e9c42d
+runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
+go=go version go1.27.3 darwin/amd64
+date=2026-11-07 19:41:02 +0800
