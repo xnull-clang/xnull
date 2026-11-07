@@ -58,6 +58,12 @@ var xdkPackages = map[string]map[string]bool{
 	"net": {}, // S6 §4.7 定案独立成包；符号随实现层立项冻结（包存在性可用）
 }
 
+// xdkSubPackages 是已定案的多级 XDK 包子包（相对 xdk. 的路径）。
+// `import xdk.net.http` 是包导入，不是 xdk.net 的符号 http（S1 §3.2）。
+var xdkSubPackages = map[string]bool{
+	"net.http": true,
+}
+
 // xdkSymbolKnown 判断名称是否为某个 XDK 包的导出符号（用于 RES-105）。
 func xdkSymbolKnown(name string) bool {
 	for _, syms := range xdkPackages {
@@ -120,16 +126,18 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 			}
 			info.src = "xdk." + pkg
 			switch {
-			case len(p) == 3: // 符号导入
-				sym := p[2]
-				if !syms[sym] {
-					a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+sym+"`（§3.5）",
-						"检查符号名或改用包导入")
-					continue
-				}
-				info.syms = []string{sym}
+			case len(p) == 3 && syms[p[2]]: // 符号导入
+				info.syms = []string{p[2]}
 				info.symbolImport = true
-			default: // 包导入（含 xdk.net.http 这类子包：包存在即可）
+			case len(p) >= 3 && xdkSubPackages[pkg+"."+strings.Join(p[2:], ".")]:
+				// 多级包子包（如 xdk.net.http）：包导入，不绑定符号。
+				info.syms = nil
+				info.pkgImport = true
+			case len(p) == 3:
+				a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+p[2]+"`（§3.5）",
+					"检查符号名或改用包导入")
+				continue
+			default: // 包导入
 				info.syms = sortedKeys(syms)
 				info.pkgImport = true
 			}
