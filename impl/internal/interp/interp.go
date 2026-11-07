@@ -1367,6 +1367,16 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		if id.Name == "wrap" || id.Name == "mapErr" || id.Name == "report" { // S4 §2.3 xdk.errors
 			return in.callErrorsBuiltin(id.Name, n, sc)
 		}
+		if id.Name == "diagnose" { // S6：xdk.runtime.diagnose 解释器桥接（单行、无堆语义）
+			if len(n.Args) != 1 {
+				panic(runtimeErr{"diagnose 恰好接受 1 个参数（S6 §4.4）"})
+			}
+			msg := reportText(in.eval(n.Args[0], sc))
+			msg = strings.ReplaceAll(msg, "\r", " ")
+			msg = strings.ReplaceAll(msg, "\n", " ")
+			fmt.Fprintln(in.diag, msg)
+			return &Value{K: vNull}
+		}
 		if id.Name == "print" || id.Name == "str" { // 内置函数（2/≤3）
 			if len(n.Args) != 1 {
 				panic(runtimeErr{id.Name + " 恰好接受 1 个参数"})
