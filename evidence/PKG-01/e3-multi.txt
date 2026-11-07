@@ -1,0 +1,11 @@
+# PKG-01 多文件解释/编译双路径（E3）
+# 被测：main @ 453026b
+# 命令：
+#   cd impl && go build -o /tmp/xnull-e3v ./cmd/xnull
+#   XNULL_RUNTIME=impl/runtime /tmp/xnull-e3v run --interp examples/multi/main.x
+#   XNULL_RUNTIME=impl/runtime /tmp/xnull-e3v run          examples/multi/main.x
+# 结果：interp exit 0 / compiled exit 0；stdout 逐字节一致（cmp MATCH）；stderr 均 0 B
+# stdout：
+[xnull]
+25
+[norm=25]
