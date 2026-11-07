@@ -49,7 +49,7 @@ func (s *scope) selfMethodCall(name string, args []xfront.Expr) (string, bool, e
 	if _, ok := s.locals[name]; ok {
 		return "", false, nil
 	}
-	m, ok := s.self.ci.methodOf(name)
+	m, ok := s.methodFor(s.self.ci, name, args)
 	if !ok || m.decl.IsDeinit {
 		return "", false, nil
 	}
@@ -70,6 +70,81 @@ func (ci *classInfo) methodOf(name string) (*classInfo_m, bool) {
 	}
 	if ci.base != nil {
 		return ci.base.methodOf(name)
+	}
+	return nil, false
+}
+
+// methodFor 按方法名 + 实参个数/类型选择（扩展合法重载）。
+func (s *scope) methodFor(ci *classInfo, name string, args []xfront.Expr) (*classInfo_m, bool) {
+	argc := len(args)
+	if list := ci.overloads[name]; len(list) > 0 {
+		var cands []*classInfo_m
+		for _, m := range list {
+			if len(m.decl.Params) == argc {
+				cands = append(cands, m)
+			}
+		}
+		if len(cands) == 1 {
+			return cands[0], true
+		}
+		if len(cands) > 1 {
+			argCs := make([]string, 0, argc)
+			okTypes := true
+			for _, a := range args {
+				t, err := s.exprType(a)
+				if err != nil {
+					okTypes = false
+					break
+				}
+				argCs = append(argCs, t)
+			}
+			if okTypes {
+				for _, m := range cands {
+					match := true
+					for i, p := range m.decl.Params {
+						pc, err := s.g.cType(p.Type)
+						if err != nil || pc != argCs[i] {
+							match = false
+							break
+						}
+					}
+					if match {
+						return m, true
+					}
+				}
+			}
+			return cands[0], true
+		}
+	}
+	if m, ok := ci.methods[name]; ok && len(m.decl.Params) == argc {
+		return m, true
+	}
+	if name == "deinit" && ci.deinit != nil {
+		return ci.deinit, true
+	}
+	if ci.base != nil {
+		return s.methodFor(ci.base, name, args)
+	}
+	return nil, false
+}
+
+// methodOfArgs 按方法名 + 实参个数选择（扩展合法重载；vtable 等无实参处使用）。
+func (ci *classInfo) methodOfArgs(name string, argc int) (*classInfo_m, bool) {
+	if list := ci.overloads[name]; len(list) > 0 {
+		for _, m := range list {
+			if len(m.decl.Params) == argc {
+				return m, true
+			}
+		}
+	}
+	if m, ok := ci.methods[name]; ok && len(m.decl.Params) == argc {
+		return m, true
+	}
+	if name == "deinit" && ci.deinit != nil {
+		return ci.deinit, true
+	}
+	if ci.base != nil {
+		return ci.base.methodOfArgs(name, argc)
 	}
 	return nil, false
 }
@@ -196,7 +271,7 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 	if f, ok := ci.fieldOf(mem.Name); ok {
 		return recvName + "->" + f.cname, true, nil
 	}
-	if m, ok := ci.methodOf(mem.Name); ok {
+	if m, ok := s.methodFor(ci, mem.Name, args); ok {
 		call, err := s.methodCall(ci, m, recvName, args)
 		return call, true, err
 	}
@@ -484,7 +559,7 @@ func (s *scope) staticClassCall(mem *xfront.Member, call *xfront.Call) (string, 
 	if ci == nil {
 		return "", "", false, nil
 	}
-	m, ok := ci.methodOf(mem.Name)
+	m, ok := s.methodFor(ci, mem.Name, call.Args)
 	if !ok || !m.static {
 		return "", "", false, nil
 	}

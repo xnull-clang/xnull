@@ -1510,7 +1510,7 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		}
 		if rn, rc, err := recvCName(mem.X, s); err == nil && s.g.isStructC(rc) {
 			ci, _ := s.g.structOfC(rc)
-			m, ok := ci.methodOf(mem.Name)
+			m, ok := s.methodFor(ci, mem.Name, call.Args)
 			if !ok {
 				return nil, fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
 			}
@@ -1873,6 +1873,33 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	// try 通用解包（Result<T,String> → T）：类/struct/枚举/协议/String/标量统一走
+	// `Result temp = call; ... T name = temp.v`（INT-01/BND-15 集成）。
+	if n.Init != nil {
+		if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
+			rt, err := s.exprType(u.X)
+			if err != nil {
+				return nil, err
+			}
+			if !strings.HasPrefix(rt, "xn_Result_") {
+				return nil, fmt.Errorf("codegen：try 目标不是 Result（%s）", rt)
+			}
+			t := s.tmp()
+			lines, err := s.emitTryInto(rt, t, u.X)
+			if err != nil {
+				return nil, err
+			}
+			s.locals[n.Name] = tc
+			if strings.HasPrefix(tc, "xn_Result_") {
+				return append(lines, tc+" "+n.Name+" = "+t+";"), nil
+			}
+			switch {
+			case tc == "rt_string *", isClassPtr(tc), s.g.isProtoC(tc), isHandlePtr(tc), tc == "xrt_bytes_obj *":
+				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			}
+			return append(lines, tc+" "+n.Name+" = "+t+".v;"), nil
+		}
+	}
 	if s.g.isTupleC(tc) {
 		s.locals[n.Name] = tc
 		if n.Init == nil {
@@ -2113,7 +2140,7 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 		switch {
 		case s.g.isStructC(recvC):
 			ci, _ := s.g.structOfC(recvC)
-			m, ok := ci.methodOf(callee.Name)
+			m, ok := s.methodFor(ci, callee.Name, call.Args)
 			if !ok {
 				return nil, fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, callee.Name)
 			}
@@ -2133,7 +2160,7 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 			if !ok {
 				return nil, fmt.Errorf("codegen：try 调用目标 %T 未支持", call.Callee)
 			}
-			m, ok := ci.methodOf(callee.Name)
+			m, ok := s.methodFor(ci, callee.Name, call.Args)
 			if !ok {
 				return nil, fmt.Errorf("codegen：类 %s 没有方法 %s", ci.decl.Name, callee.Name)
 			}
@@ -2149,8 +2176,17 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 	pre := append([]string{}, s.pending...)
 	s.pending = nil
 	lines := append(pre, resultC+" "+name+" = "+callStr+";", "if (!"+name+".ok) {")
-	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）
-	lines = append(lines, "    xn_ret = "+name+";")
+	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）。
+	// 外层 Result 值类型可与 try 目标不同（如 Result<Color> → Result<Int>）：
+	// 置零后用 Err 通道逐字段转移（BND-15 集成）。
+	if !strings.HasPrefix(s.retC, "xn_Result_") {
+		return nil, fmt.Errorf("codegen：try 只能用于返回 Result 的函数（当前返回 %s）", s.retC)
+	}
+	if s.retC == resultC {
+		lines = append(lines, "    xn_ret = "+name+";")
+	} else {
+		lines = append(lines, "    xn_ret = ("+s.retC+"){0};", "    xn_ret.err = "+name+".err;")
+	}
 	lines = append(lines, reindent(splitLines(strings.TrimSuffix(s.emitCleanup(true, ""), "\n")), "        ")...)
 	lines = append(lines, "    return xn_ret;", "}")
 	return lines, nil
@@ -2224,6 +2260,36 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		return append(lines, tgt+" = "+expr+";"), nil
 	}
 	// 元组局部/顶层字段赋值（S1 §2.11）：C 结构体整值赋值即整值复制。
+	if u, ok := n.Value.(*xfront.Unary); ok && u.Op == "try" {
+		var tc string
+		if c, ok := s.localCType(id.Name); ok {
+			tc = c
+		} else if c, ok := s.g.globals[id.Name]; ok {
+			tc = c
+		} else {
+			return nil, fmt.Errorf("codegen：try 赋值目标 %s 类型未知", id.Name)
+		}
+		rt, err := s.exprType(u.X)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasPrefix(rt, "xn_Result_") {
+			return nil, fmt.Errorf("codegen：try 目标不是 Result（%s）", rt)
+		}
+		t := s.tmp()
+		out, err := s.emitTryInto(rt, t, u.X)
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(tc, "xn_Result_") {
+			return append(out, tgt+" = "+t+";"), nil
+		}
+		switch {
+		case tc == "rt_string *", isClassPtr(tc), s.g.isProtoC(tc), isHandlePtr(tc), tc == "xrt_bytes_obj *":
+			out = append(out, "rt_release("+tgt+");")
+		}
+		return append(out, tgt+" = "+t+".v;"), nil
+	}
 	if tc, ok := s.localCType(id.Name); ok && s.g.isTupleC(tc) {
 		lines, v, err := s.tupleExpr(n.Value, tc)
 		if err != nil {
@@ -3022,7 +3088,7 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			}
 			if s.g.isStructC(recvC) {
 				ci, _ := s.g.structOfC(recvC)
-				m, ok := ci.methodOf(mem.Name)
+				m, ok := s.methodFor(ci, mem.Name, n.Args)
 				if !ok {
 					return "", fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
 				}
@@ -3036,7 +3102,7 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			if !ok {
 				return "", fmt.Errorf("codegen：Result 表达式目标 %T 未支持", n.Callee)
 			}
-			m, ok := ci.methodOf(mem.Name)
+			m, ok := s.methodFor(ci, mem.Name, n.Args)
 			if !ok {
 				return "", fmt.Errorf("codegen：类 %s 没有方法 %s", ci.decl.Name, mem.Name)
 			}
@@ -3384,7 +3450,7 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && s.g.isStructC(rc) {
 				ci, _ := s.g.structOfC(rc)
-				m, ok := ci.methodOf(mem.Name)
+				m, ok := s.methodFor(ci, mem.Name, n.Args)
 				if !ok {
 					return "", fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
 				}
