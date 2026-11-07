@@ -130,7 +130,7 @@ func TestS601UnsupportedExplicit(t *testing.T) {
 static Int main() { sort(1); return 0 }`, TyXdkUnsupported)
 
 	expectCode(t, `import xdk.collections
-static Int f(RingBuffer<Int> r) { r.push(1); return 0 }`, TyXdkUnsupported)
+static Int f(RingBuffer<Int> r) { r.nope(1); return 0 }`, TyXdkUnsupported)
 
 	expectCode(t, `import xdk.text
 static Int main() { Regex.find("x"); return 0 }`, TyXdkUnsupported)
