@@ -188,6 +188,26 @@ static size_t utf8_decode(const unsigned char *p, size_t n, uint32_t *cp) {
     return need;
 }
 
+/* 字节级 UTF-8 合法性（S1 §9.2；B1-03 第 4 项诊断入口）：
+ * 返回 0 = 合法 / 1 = 非法（与 XDK 错误码 0=成功同向；绑定暴露为 Int）。
+ * 长度权威、允许内嵌 NUL，不依赖 NUL 终止（S7 §3.4）。 */
+int32_t xdkc_utf8_valid(const char *bytes, size_t len) {
+    if (bytes == NULL) {
+        return len == 0 ? 0 : 1;
+    }
+    const unsigned char *p = (const unsigned char *)bytes;
+    size_t i = 0;
+    while (i < len) {
+        uint32_t cp = 0;
+        size_t used = utf8_decode(p + i, len - i, &cp);
+        if (used == 0) {
+            return 1;
+        }
+        i += used;
+    }
+    return 0;
+}
+
 int64_t xdkc_utf8_to_utf16(const char *src, size_t n, uint16_t *dst, size_t cap) {
     const unsigned char *p = (const unsigned char *)src;
     size_t i = 0, w = 0;

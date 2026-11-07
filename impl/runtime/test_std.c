@@ -24,6 +24,7 @@ const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
 int32_t     xdkc_parse_int(const char *bytes, size_t len, int64_t *out);
 int32_t     xdkc_parse_float(const char *bytes, size_t len, double *out);
 int64_t     xdkc_format_int(int64_t v, char *buf, size_t cap);
+int32_t     xdkc_utf8_valid(const char *bytes, size_t len);
 int64_t     xdkc_utf8_to_utf16(const char *src, size_t n, uint16_t *dst, size_t cap);
 int64_t     xdkc_utf16_to_utf8(const uint16_t *src, size_t n, char *dst, size_t cap);
 void       *xdkc_file_open_read(const char *bytes, size_t len);
@@ -170,6 +171,26 @@ static void test_utf(void) {
     CHECK(xdkc_utf8_to_utf16("abc", 3, u16, 2) == -1); /* 目标不足 */
 }
 
+/* B1-03 第 4 项诊断入口：字节级 UTF-8 合法性（0 合法 / 1 非法）。 */
+static void test_utf8_valid(void) {
+    CHECK(xdkc_utf8_valid("", 0) == 0);
+    CHECK(xdkc_utf8_valid("abc", 3) == 0);
+    CHECK(xdkc_utf8_valid("a\xF0\x9F\x98\x80" "b", 6) == 0); /* 4 字节码点 */
+    CHECK(xdkc_utf8_valid("\xE4\xB8\xAD", 3) == 0);          /* 3 字节码点 */
+    CHECK(xdkc_utf8_valid("a\0b", 3) == 0);                  /* 内嵌 NUL 合法 */
+    CHECK(xdkc_utf8_valid(NULL, 0) == 0);
+
+    CHECK(xdkc_utf8_valid("\x80", 1) == 1);                  /* 孤立续字节 */
+    CHECK(xdkc_utf8_valid("\xC0\x80", 2) == 1);              /* 过短编码 */
+    CHECK(xdkc_utf8_valid("\xE0\x80\x80", 3) == 1);          /* 过短编码 */
+    CHECK(xdkc_utf8_valid("\xF0\x80\x80\x80", 4) == 1);      /* 过短编码 */
+    CHECK(xdkc_utf8_valid("\xED\xA0\x80", 3) == 1);          /* 代理区 */
+    CHECK(xdkc_utf8_valid("\xF4\x90\x80\x80", 4) == 1);      /* > U+10FFFF */
+    CHECK(xdkc_utf8_valid("\xE4\xB8", 2) == 1);              /* 截断 */
+    CHECK(xdkc_utf8_valid("\xFF", 1) == 1);                  /* 非法首字节 */
+    CHECK(xdkc_utf8_valid(NULL, 1) == 1);
+}
+
 static void test_files(void) {
     char path[] = "/tmp/xnull_std_fileXXXXXX";
     int fd = mkstemp(path);
@@ -268,6 +289,7 @@ int main(void) {
     test_env_snapshot();
     test_parse_format();
     test_utf();
+    test_utf8_valid();
     test_files();
     test_dirs_procs();
     test_regex_fmt();
