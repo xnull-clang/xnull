@@ -741,8 +741,12 @@ func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			if sig, ok := r.(ctrlReturn); ok {
+			switch sig := r.(type) {
+			case ctrlReturn:
 				v = sig.v
+				return
+			case ctrlErr: // 闭包内 try 失败：从闭包返回 Err（S1 §10.2）
+				v = &Value{K: vResult, R: sig.r}
 				return
 			}
 			// §10.2：闭包内 try 失败时，错误从闭包以 Err 返回，不穿透外层函数。

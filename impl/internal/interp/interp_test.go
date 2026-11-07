@@ -649,3 +649,106 @@ static Int main() {
 		}
 	})
 }
+
+// ERR-01 B1：闭包内 try 失败必须从闭包返回 Err，不穿透外层函数（S1 §10.2）。
+func TestClosureTryReturnsFromClosure(t *testing.T) {
+	t.Run("NoPenetration", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Result<Int, String> g(Int x) {
+    if x < 0 { return Err("bad") }
+    return Ok(x)
+}
+static Result<Int, String> f() {
+    Result<Int, String>(Int) h = (Int x) -> {
+        Int v = try g(x)
+        return Ok(v)
+    }
+    Result<Int, String> r = h(-1)
+    if r.isErr() { print("closure-err:" + r.error()) }
+    print("after-call")
+    return Ok(1)
+}
+static Int main() {
+    Result<Int, String> r = f()
+    if r.isOk() { print("outer-ok") } else { print("outer-err:" + r.error()) }
+    return 0
+}`)
+		want := "closure-err:bad\nafter-call\nouter-ok\n"
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("OuterErrdeferNotTriggered", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Result<Int, String> g() { return Err("bad") }
+static Result<Int, String> f() {
+    errdefer print("outer-e")
+    defer print("outer-d")
+    Result<Int, String>(Int) h = (Int x) -> {
+        errdefer print("closure-e")
+        defer print("closure-d")
+        Int v = try g()
+        return Ok(v)
+    }
+    Result<Int, String> r = h(0)
+    if r.isErr() { print("handled") }
+    print("after-call")
+    return Ok(1)
+}
+static Int main() {
+    Result<Int, String> r = f()
+    if r.isOk() { print("outer-ok") } else { print("outer-err:" + r.error()) }
+    return 0
+}`)
+		want := "closure-d\nclosure-e\nhandled\nafter-call\nouter-d\nouter-ok\n" // LIFO；f 的 defer 在其返回时执行，早于 main 打印 outer-ok
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+}
+
+// §4.3：顶层字段先置零值，初始化式按声明顺序求值；前向引用读零值。
+func TestTopFieldForwardReference(t *testing.T) {
+	t.Run("Direct", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int a = b + 1
+Int b = 2
+static Int main() {
+    print(a)
+    print(b)
+    return 0
+}`)
+		want := "1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ChainReadsZeroNotEventual", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int a = b + 1
+Int b = c + 1
+Int c = 2
+static Int main() {
+    print(a)
+    print(b)
+    print(c)
+    return 0
+}`)
+		want := "1\n1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ForwardFunction", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int v = twice(3)
+static Int twice(Int x) { return x * 2 }
+static Int main() {
+    print(v)
+    return 0
+}`)
+		if err != nil || out != "6\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "6\n", err)
+		}
+	})
+}
