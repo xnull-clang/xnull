@@ -1,4 +1,4 @@
-package codegen
+package xdkcheck
 
 import (
 	"os"
@@ -79,7 +79,7 @@ func xdkWriteFixtureUnit(t *testing.T, root, pkg, src string) {
 	}
 }
 
-func xdkHasCode(vs []XDKContractViolation, code string) bool {
+func xdkHasCode(vs []Violation, code string) bool {
 	for _, v := range vs {
 		if v.Code == code {
 			return true
@@ -90,7 +90,7 @@ func xdkHasCode(vs []XDKContractViolation, code string) bool {
 
 func xdkWantOnly(t *testing.T, root string, code string) {
 	t.Helper()
-	vs := CheckXDKContracts(root)
+	vs := CheckContracts(root)
 	if !xdkHasCode(vs, code) {
 		t.Fatalf("期望 %s，实际：%v", code, vs)
 	}
@@ -98,7 +98,7 @@ func xdkWantOnly(t *testing.T, root string, code string) {
 
 func TestXDKContractsFixturePass(t *testing.T) {
 	root := xdkFixtureRoot(t)
-	if vs := CheckXDKContracts(root); len(vs) != 0 {
+	if vs := CheckContracts(root); len(vs) != 0 {
 		t.Fatalf("正例不应违约：%v", vs)
 	}
 }
@@ -190,7 +190,7 @@ func TestXDKContractsRepo(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(root, "impl", "lib", "xdk", "errors.x")); err != nil {
 		t.Skip("XDK 单元未合入当前分支（需 main 的 S6-06/07/08）；已用夹具覆盖规则")
 	}
-	if vs := CheckXDKContracts(root); len(vs) != 0 {
+	if vs := CheckContracts(root); len(vs) != 0 {
 		for _, v := range vs {
 			t.Errorf("%s", v)
 		}
