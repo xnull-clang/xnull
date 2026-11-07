@@ -45,13 +45,13 @@ type classInfo struct {
 	typeVar    string // RT_TYPE_XN_<Name>
 	base       *classInfo
 	protocols  []*xfront.NamedType
-	vptr       bool // 协议 vtable 指针槽（S2 §5.7；协议派发批次填充）
+	vptr       bool // 协议 vtable 指针槽（S2 §5.7）
 	fields     []classField
 	methods    map[string]*classInfo_m // 方法名 → 签名
 	ctors      []*xfront.CtorDecl      // 普通构造器（S2 §6.3）
 	primary    *xfront.CtorDecl        // 主构造器
 	ctorName   map[*xfront.CtorDecl]string
-	deinit     *xfront.MethodDecl
+	deinit     *classInfo_m // 用户 deinit 体（静态派发，先于字段释放）
 	collected  bool
 	collecting bool
 }
@@ -168,11 +168,12 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 	}
 	for _, m := range d.Methods {
 		if m.IsDeinit {
+			// 用户 deinit 体静态派发，先于字段释放执行（S2-E5-02）。
+			// 独立 C 名，避免与类型 deinit 钩子 `<cname>_deinit_hook` 冲突。
 			if ci.deinit != nil {
-				return fmt.Errorf("codegen：类 %s 重复 deinit（sema 应拒绝）", d.Name)
+				return fmt.Errorf("codegen：类 %s 声明了多个 deinit（sema 应已拒绝）", d.Name)
 			}
-			ci.deinit = m
-			ci.methods[m.Name] = &classInfo_m{decl: m, cname: ci.cname + "_deinit", owner: ci}
+			ci.deinit = &classInfo_m{decl: m, cname: ci.cname + "_deinit", owner: ci}
 			continue
 		}
 		if _, ok := ci.methods[m.Name]; ok {
@@ -268,7 +269,7 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) {
 			}
 		}
 		if ci.deinit != nil {
-			fmt.Fprintf(b, "static void %s_deinit(%s *self);\n", ci.cname, ci.cname)
+			fmt.Fprintf(b, "static void %s(%s *self);\n", ci.deinit.cname, ci.cname)
 		}
 	}
 	if len(names) > 0 {
@@ -288,17 +289,16 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	}
 	b.WriteString("} " + ci.cname + ";\n\n")
 
-	// 类型 deinit 钩子（S2 §6.4）：先执行用户 deinit（可把字段置 null），
-	// 再释放仍非空的引用字段（rt_release 对 NULL 幂等）。
+	// 类型 deinit 钩子（S2 §6.4）：用户体（静态派发）→ 父类用户体链 →
+	// 释放仍非空的引用字段（rt_release 对 NULL 幂等，保留置 null 提前释放语义）。
 	fmt.Fprintf(b, "static void %s_deinit_hook(void *p) {\n", ci.cname)
 	fmt.Fprintf(b, "    %s *o = (%s *)p;\n", ci.cname, ci.cname)
 	if ci.deinit != nil {
-		fmt.Fprintf(b, "    %s_deinit(o);\n", ci.cname)
+		fmt.Fprintf(b, "    %s(o);\n", ci.deinit.cname)
 	}
-	// 派生类 deinit 体执行后沿父类链执行用户 deinit（§5.5/§6.4；显式 super 批次前自动链）。
 	for base := ci.base; base != nil; base = base.base {
 		if base.deinit != nil {
-			fmt.Fprintf(b, "    %s_deinit((%s *)o);\n", base.cname, base.cname)
+			fmt.Fprintf(b, "    %s((%s *)o);\n", base.deinit.cname, base.cname)
 		}
 	}
 	for _, f := range ci.fields {
