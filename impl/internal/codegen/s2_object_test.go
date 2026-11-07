@@ -1233,3 +1233,42 @@ static Int main() { AppInfo a = new AppInfo(); return 0 }`
 		t.Fatal("new 单例应报错")
 	}
 }
+
+// S3-09 / P1-4：类标量字段统一占 8 字节槽（§2），语义宽度由读写转换保持。
+func TestS3_09ClassFieldSlots(t *testing.T) {
+	src := `class C {
+    Int32 a;
+    Int64 b;
+    Bool flag;
+}
+static Int main() {
+    C c = new C()
+    c.a = 2147483647
+    c.b = 9223372036854775807
+    c.flag = true
+    print(c.a)
+    print(c.b)
+    print(c.flag)
+    return 0
+}`
+	u, diags := xfront.ParseUnit("t.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	for _, want := range []string{"int64_t a;", "int64_t b;", "int64_t flag;"} {
+		if !strings.Contains(csrc, want) {
+			t.Fatalf("字段未占 8 字节槽，缺少 %q：\n%s", want, csrc)
+		}
+	}
+	if strings.Contains(csrc, "int32_t a;") {
+		t.Fatalf("Int32 字段仍为 4 字节：\n%s", csrc)
+	}
+	got, code := compileAndRun(t, src)
+	if want := "2147483647\n9223372036854775807\ntrue\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}

@@ -304,7 +304,7 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 		return "", false, nil
 	}
 	if f, ok := ci.fieldOf(mem.Name); ok {
-		return recvName + "->" + f.cname, true, nil
+		return s.g.fieldReadExpr(f, recvName+"->"+f.cname), true, nil
 	}
 	if m, ok := s.methodFor(ci, mem.Name, args); ok {
 		call, err := s.methodCall(ci, m, recvName, args)
@@ -437,6 +437,14 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		}
 		return append(lines, dst+" = "+v+";"), nil
 	}
+	// Any/Object 字段：GC 盒引用，赋值不 retain/release（旧盒由 GC 回收）。
+	if f.isAny {
+		lines, v, err := s.anyExpr(val)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, dst+" = "+v+";"), nil
+	}
 	// 容器字段是 GC 对象（S3 §10）：引用赋值，不做 ARC 计数。
 	if f.isArr {
 		lines, v, err := s.valExpr(val, f.ctype)
@@ -471,7 +479,7 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		}
 		out := append([]string{}, s.pending...)
 		s.pending = nil
-		return append(out, dst+" = "+v+";"), nil
+		return append(out, dst+" = "+s.g.fieldStoreExpr(f, v)+";"), nil
 	}
 	switch {
 	case f.isStr:
@@ -621,4 +629,29 @@ func (s *scope) staticClassCall(mem *xfront.Member, call *xfront.Call) (string, 
 		return "", "", true, err
 	}
 	return m.cname + "(" + strings.Join(args, ", ") + ")", retC, true, nil
+}
+
+// slotCType 把标量字段存储加宽到 8 字节槽（S3 §2：标量值字段占一个 8 字节槽）。
+func (g *gen) slotCType(c string) string {
+	switch c {
+	case "int32_t", "int":
+		return "int64_t"
+	}
+	return c
+}
+
+// fieldStoreExpr 写入字段时按声明语义宽度截断后再存入 8 字节槽。
+func (g *gen) fieldStoreExpr(f classField, expr string) string {
+	if f.semC == "" || f.semC == f.ctype {
+		return expr
+	}
+	return "(" + f.ctype + ")((" + f.semC + ")(" + expr + "))"
+}
+
+// fieldReadExpr 读取字段时按声明语义宽度转换（槽存储可能加宽）。
+func (g *gen) fieldReadExpr(f classField, expr string) string {
+	if f.semC == "" || f.semC == f.ctype {
+		return expr
+	}
+	return "((" + f.semC + ")(" + expr + "))"
 }

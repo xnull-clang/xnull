@@ -64,9 +64,9 @@ func (g *gen) ensureClassInstance(name string, args []xfront.TypeRef) (*classInf
 			if err != nil {
 				return nil, err
 			}
-			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
+			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: g.slotCType(ct), semC: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct)})
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), isAny: ct == "xn_Any *"})
 		}
 	}
 	for _, f := range decl.Fields {
@@ -74,9 +74,9 @@ func (g *gen) ensureClassInstance(name string, args []xfront.TypeRef) (*classInf
 		if err != nil {
 			return nil, err
 		}
-		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
+		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: g.slotCType(ct), semC: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init})
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), isAny: ct == "xn_Any *", init: f.Init})
 	}
 	var ctorList []*xfront.CtorDecl
 	if decl.Primary != nil {

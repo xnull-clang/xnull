@@ -1,7 +1,7 @@
 # SSOT 看板（脚本生成，手改即作废）
 
-- 生成时间：2026-11-07 19:44:31 +0800
-- 仓库：`XNull-Lang`　分支：`main`　HEAD：`18a69f1`
+- 生成时间：2026-11-08 00:45:09 +0800
+- 仓库：`XNull-Lang`　分支：`main`　HEAD：`e9cd063`
 - 窗口：近 7 天（起点提交 `852c141`）
 - 数据源：git log / go test / impl/docs/conformance/status.tsv / evidence/ / handoff/
 - 断链协议：ADR-003（接力棒 + last-green；`--record-green` 在测试绿时记录 HEAD）
@@ -10,18 +10,18 @@
 
 | # | 指标 | 值 |
 |---|---|---|
-| 1 | 窗口内 commit 数 | 383 |
-| 2 | 锚点翻转（PASS） | 30（起点 30，Δ+0） |
+| 1 | 窗口内 commit 数 | 453 |
+| 2 | 锚点翻转（PASS） | 45（起点 45，Δ+0） |
 | 3 | 全量测试 | 绿（11 包 ok） |
-| 4 | 门进度 | B0 6 卡（有证据 5） / B1 3 卡（有证据 3） / B2 0 卡 / B3 0 卡 / B4 0 卡；收件箱/门/M1门.md；收件箱/门/M6-B0门.md；收件箱/门/M6-B1门.md |
+| 4 | 门进度 | B0 6 卡（有证据 5） / B1 3 卡（有证据 3） / B2 0 卡 / B3 0 卡 / B4 0 卡；收件箱/门/GATE-01门.md；收件箱/门/M1门.md；收件箱/门/M2门.md；收件箱/门/M6-B0门.md；收件箱/门/M6-B1门.md |
 
-## 台账锚点（status.tsv 已登记 45 行）
+## 台账锚点（status.tsv 已登记 55 行）
 
 | 状态 | 数量 |
 |---|---|
-| PASS | 30 |
-| 部分 | 11 |
-| 未实现 | 4 |
+| PASS | 45 |
+| 部分 | 8 |
+| 未实现 | 2 |
 | N/A | 0 |
 
 > 未登记锚点在台账中显示「未实现」（口径见 impl/docs/conformance/ledger-restructure.md）。
@@ -30,45 +30,45 @@
 
 | 线 | Owner | commit | 最近提交 |
 |---|---|---|---|
-| 前端线 | E2 | 48 | c90880d fix(sema): BND-06 数据枚举项字段不可变/不可 new |
-| 自举线 | E4 | 50 | 7181fda fix(codegen): INT-01 try 目标支持成员方法 + 返回路径 |
+| 前端线 | E2 | 58 | 39d0273 feat(sema): GATE-01 诊断码表与 new 非 class ch |
+| 自举线 | E4 | 62 | a34a392 fix(codegen): BND-10b 全局根与 GC 单例/数据枚举（不重 |
 | 运行时线 | E5 | 11 | 9e6de30 fix(runtime): 弱槽位目标死亡后解绑，destroy 不再触达已释放 |
-| QA 线 | QA1 | 101 | e2f943c docs(S2): 门报告/ADR-004/回执/QA evidence 入库（ |
+| QA 线 | QA1 | 107 | e4b8f21 sign(S2): MEM-01 + MEM-02 + BND-10 PASS; |
 | 发布线 | COO | 0 | — |
 
 ## 最近提交（最多 15 条）
 
 | sha | 日期 | 作者 | 主题 |
 |---|---|---|---|
-| 18a69f1 | 11-07 19:44 | 李飞恒 | sign(S2): BND-06 + PCTOR-01 PASS; BND-07/08/INT-01 gaps reco |
-| e2f943c | 11-07 19:27 | 李飞恒 | docs(S2): 门报告/ADR-004/回执/QA evidence 入库（防工作区丢失） |
-| 4b574dd | 11-07 19:19 | 李飞恒 | recover(S2): restore code+books after main race; status PASS |
-| 41891c3 | 11-07 19:13 | 李飞恒 | merge: E2 BND-06 enum item immutability into recovery |
-| c90880d | 11-07 19:12 | 李飞恒 | fix(sema): BND-06 数据枚举项字段不可变/不可 new |
-| a5a635f | 11-07 19:11 | 李飞恒 | merge: E4 INT-01 try member call + defer chain into main |
-| 37d1dec | 11-07 19:11 | 李飞恒 | docs(S2): E4 INT-01 try 成员调用回执 |
-| 7181fda | 11-07 19:11 | 李飞恒 | fix(codegen): INT-01 try 目标支持成员方法 + 返回路径祖先 defer 链 |
-| feabde1 | 11-07 19:08 | 李飞恒 | merge: QA S2 sign-off BND-04 PASS, BND-06/INT-01 FAIL into m |
-| fa4fbf9 | 11-07 19:08 | 李飞恒 | merge: E2 BND-07/08 singleton/factory sema 名称空间 into main |
-| 1b1d12e | 11-07 19:06 | 李飞恒 | feat(sema): BND-07/08 singleton/factory 名称空间与禁止面 |
-| 77694e8 | 11-07 19:05 | 李飞恒 | test(qa): BND-04 record generic struct codegen boundary on m |
-| 6cb5ffe | 11-07 19:05 | 李飞恒 | test(qa): S2 sign-off BND-04 PASS, BND-06/INT-01 FAIL on mai |
-| e360394 | 11-07 19:03 | 李飞恒 | docs(S2): E4 STRUCT-01 可空值字段回执 |
-| cf3e084 | 11-07 19:03 | 李飞恒 | merge: E4 STRUCT-01 nullable value fields into main |
+| e9cd063 | 11-08 00:43 | 李飞恒 | docs: M2 后下一阶段（S3-S8 定版 -> B2 前置） |
+| a5a58a7 | 11-08 00:43 | 李飞恒 | gate(M2): M2 门报告 29/29 通过; AGENTS/索引同步 |
+| 4f63150 | 11-08 00:43 | 李飞恒 | gate(S2): GATE-01 PASS — M2 29/29 达成; status PASS=45 |
+| e4b8f21 | 11-08 00:28 | 李飞恒 | sign(S2): MEM-01 + MEM-02 + BND-10 PASS; GATE-01 门报告 PASS; s |
+| c4361f6 | 11-08 00:12 | 李飞恒 | sign(S2): INH-01 + FIELD-01 根验收 PASS（基线补签） |
+| 05e680c | 11-07 23:44 | 李飞恒 | ssot: INT-01 入 status.tsv；PASS=41 |
+| 02f7d84 | 11-07 23:44 | 李飞恒 | sign(S2): SINGLE-01 PASS; status PASS=40 |
+| af857c2 | 11-07 23:29 | 李飞恒 | sign(S2): ANN-01 + BND-13 + EXT-01 PASS; status PASS=39 |
+| f7628b9 | 11-07 23:29 | 李飞恒 | merge: E4 BND-10b 全局根 + GC 单例/数据枚举 合入 main |
+| cf76614 | 11-07 23:28 | 李飞恒 | docs(S2): E4 BND-10b 回执（E5 后剩余缺口） |
+| a34a392 | 11-07 23:28 | 李飞恒 | fix(codegen): BND-10b 全局根与 GC 单例/数据枚举（不重复 E5 实现） |
+| 6e37d88 | 11-07 23:26 | 李飞恒 | merge: E2 GATE-01 诊断码表 + new 非 class 拒绝 合入 main |
+| 002cdcd | 11-07 23:25 | 李飞恒 | sign(S2): BND-15 PASS; status PASS=36 |
+| 39d0273 | 11-07 23:25 | 李飞恒 | feat(sema): GATE-01 诊断码表与 new 非 class check 拒绝 |
+| 10941d7 | 11-07 23:23 | 李飞恒 | merge: E2 EXT-01 singleton/data-enum + ANN-01 注解检查 合入 main |
 
 ## 断链与最后绿点（ADR-003）
 
 | 线 | last-green | 落后 HEAD | 状态 | 最近 commit |
 |---|---|---|---|---|
-| 前端线 | c90880d | 36 | 有效（该线最近提交） | ba4458a（16h15m） |
-| 自举线 | 18a69f1 | 0 | 有效（该线最近提交） | fe19e7c（18h41m） |
-| 运行时线 | 9e6de30 | 113 | 有效（该线最近提交） | db74cc7（21h18m） |
-| QA 线 | e2f943c | 1 | 有效（支撑线：活动路径最近提交） | 2597b36（18h21m） |
-| 发布线 | 3890532 | 175 | 有效（支撑线：活动路径最近提交） | — |
+| 前端线 | 39d0273 | 96 | 有效（该线最近提交） | ba4458a（21h16m） |
+| 自举线 | 4f63150 | 2 | 有效（该线最近提交） | fe19e7c（23h42m） |
+| 运行时线 | 9e90d4e | 155 | 有效（该线最近提交） | db74cc7（26h19m） |
+| QA 线 | e4b8f21 | 3 | 有效（支撑线：活动路径最近提交） | 2597b36（23h22m） |
+| 发布线 | 3890532 | 245 | 有效（支撑线：活动路径最近提交） | — |
 
 ## 接力棒（handoff/）
 
-已有接力棒 20 根；应覆盖卡片 74 张。
+已有接力棒 22 根；应覆盖卡片 76 张。
 
 | 卡片 | 接力棒 | 字段 |
 |---|---|---|
@@ -139,6 +139,8 @@
 | QA1-GEN-01 | 有 | 缺 已知缺口 |
 | QA1-anchors-2026-11-07 | 缺失 | — |
 | QA1-verify-2026-11-07 | 缺失 | — |
+| S2-E5-BND10 | 有 | 完整 |
+| S2-E5-MEM01 | 有 | 完整 |
 | S2-E5-deinit | 有 | 缺 已知缺口 |
 | S2-E5-weak | 有 | 完整 |
 | TUPLE-01 | 缺失 | — |
@@ -149,8 +151,8 @@
 
 ## 告警（ADR-003 断链判据）
 
-- QA 线：18h21m 无 commit（ADR-003 2h 阈值）
-- 前端线：16h15m 无 commit（ADR-003 2h 阈值）
+- QA 线：23h22m 无 commit（ADR-003 2h 阈值）
+- 前端线：21h16m 无 commit（ADR-003 2h 阈值）
 - 接力棒缺失：B0-02
 - 接力棒缺失：B0-07b
 - 接力棒缺失：FIX-E2-INT64
@@ -210,23 +212,23 @@
 - 接力棒缺字段：QA1-EXP-004b（已知缺口）
 - 接力棒缺字段：QA1-GEN-01（已知缺口）
 - 接力棒缺字段：S2-E5-deinit（已知缺口）
-- 自举线：18h41m 无 commit（ADR-003 2h 阈值）
-- 运行时线：21h18m 无 commit（ADR-003 2h 阈值）
+- 自举线：23h42m 无 commit（ADR-003 2h 阈值）
+- 运行时线：26h19m 无 commit（ADR-003 2h 阈值）
 
-## evidence（按最近修改，最多 10 项；共 106 项）
+## evidence（按最近修改，最多 10 项；共 118 项）
 
 | 目录 | 文件数 | 最近修改 |
 |---|---|---|
-| S2-QA | 3885 | 11-07 19:41 |
-| S2-BND0708 | 6 | 11-07 19:27 |
-| S2-BND06b | 6 | 11-07 19:27 |
-| QA1-verify-2026-11-07 | 22 | 11-07 19:27 |
-| QA1-anchors-2026-11-07 | 49 | 11-07 19:27 |
-| M1-TUPLE-01-reverify-d620ea5 | 51 | 11-07 19:27 |
-| M1-TUPLE-01-reverify-91c89c0 | 114 | 11-07 19:27 |
-| M1-ERR-01-reverify-d620ea5 | 15 | 11-07 19:27 |
-| M1-ENTRY-01-reverify-d620ea5 | 120 | 11-07 19:27 |
-| M1-ENTRY-01-reverify-91c89c0 | 121 | 11-07 19:27 |
+| S2-QA | 9004 | 11-08 00:19 |
+| S2-E5-MEM01 | 4 | 11-07 23:29 |
+| S2-E5-BND10 | 7 | 11-07 23:29 |
+| S2-GATE | 8 | 11-07 23:26 |
+| S2-EXTANNb | 6 | 11-07 23:23 |
+| S2-E3-proto | 14 | 11-07 22:58 |
+| S2-E3-ext | 3 | 11-07 22:56 |
+| S2-EXT | 6 | 11-07 22:55 |
+| S2-BND0914b | 6 | 11-07 22:51 |
+| S2-PROTO | 6 | 11-07 22:44 |
 
 ---
 本文件由 `xnull dev board` 生成；手工编辑无效。

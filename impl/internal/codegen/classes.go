@@ -30,7 +30,9 @@ type classField struct {
 	isHandle bool        // 不透明句柄字段（xrt_handle *）
 	isBytes  bool        // 可变字节缓冲字段（xrt_bytes_obj *）
 	isProto  bool        // 协议类型字段（xn_proto_<P>，强引用，S2 §4.5）
+	isAny    bool        // Any/Object 装箱字段（GC，S3 §3）
 	isGC     bool        // 类引用字段指向 GC 类（BND-10：由 GC 管理，不进入 ARC 计数）
+	semC     string      // 声明语义 C 类型（slot 存储可能加宽到 8 字节，S3 §2）
 	elem     string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
 	init     xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
 }
@@ -80,6 +82,33 @@ func (s *scope) typeIsExpr(n *xfront.Binary, ta *xfront.TypeAsExpr) (string, err
 	rt, err := s.g.cType(s.g.substitute(ta.Type))
 	if err != nil {
 		return "", err
+	}
+	// Any/Object：拆箱检查装箱类型名（S3 §3）。
+	if s.g.isAnyC(lt) {
+		x, err := s.intExpr(n.L)
+		if err != nil {
+			return "", err
+		}
+		if s.g.isAnyC(rt) {
+			return "(" + x + " != NULL)", nil
+		}
+		label, ok := s.g.anyTypeLabel(rt)
+		if !ok {
+			return "", fmt.Errorf("codegen：Any/Object 的 `is %s` 暂未支持（S3 §3）", rt)
+		}
+		return "xn_any_is(" + x + ", " + cQuote(label) + ")", nil
+	}
+	if s.g.isAnyC(rt) {
+		// `x is Any`：非 null 值均可装箱为 Any。
+		x, err := s.intExpr(n.L)
+		if err != nil {
+			return "", err
+		}
+		if isClassPtr(lt) || s.g.isProtoC(lt) || s.g.isDataEnumC(lt) ||
+			isHandlePtr(lt) || lt == "xrt_bytes_obj *" || lt == "rt_string *" {
+			return "(" + x + " != NULL)", nil
+		}
+		return "1", nil
 	}
 	if isClassPtr(lt) {
 		if isClassPtr(rt) {
@@ -140,9 +169,17 @@ func (s *scope) typeAsExpr(n *xfront.Binary, ta *xfront.TypeAsExpr, nullSafe boo
 		return "", err
 	}
 	cast := rt
+	// Any/Object 装箱（S3 §3）：值/引用进入 GC 盒。
+	if s.g.isAnyC(rt) && !s.g.isAnyC(lt) {
+		return s.anyBoxExpr(n.L, lt)
+	}
 	x, err := s.intExpr(n.L)
 	if err != nil {
 		return "", err
+	}
+	// Any/Object 拆箱：类型不匹配时 as? 取零值、as 终止（S3 §3）。
+	if s.g.isAnyC(lt) {
+		return s.anyUnboxC(x, rt, nullSafe)
 	}
 	if s.g.isProtoC(lt) && isClassPtr(rt) {
 		name := strings.TrimSuffix(strings.TrimPrefix(rt, "xn_Cls_"), " *")
@@ -284,9 +321,10 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 			if err != nil {
 				return err
 			}
-			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
+			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name,
+				ctype: g.slotCType(ct), semC: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), isAny: ct == "xn_Any *",
 				isGC: isClassPtr(ct) && g.classIsGC(ct)})
 		}
 	}
@@ -295,9 +333,10 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		if err != nil {
 			return err
 		}
-		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
+		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f),
+			ctype: g.slotCType(ct), semC: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), isAny: ct == "xn_Any *",
 			isGC: isClassPtr(ct) && g.classIsGC(ct), init: f.Init})
 	}
 	// 构造器 C 名：首个（主构造器优先）无后缀，其余按声明序编号（S2 §6.3 重载）。
@@ -466,6 +505,17 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 		case f.isCls && (ci.isGC || f.isGC):
 			/* 类引用字段：GC 对象由 GC 管理；GC 类的 ARC 类引用由
 			 * sweep 的 scan(sweep_release_arc_ref) 释放，deinit 不重复释放。 */
+		case f.isAny && ci.isGC:
+			/* Any/Object 装箱是 GC 盒，由 sweep scan 追踪/释放。 */
+		case f.isProto && ci.isGC:
+			/* 协议字段可能指向 GC/ARC 实现；GC 类由 sweep scan 释放 ARC。 */
+		case g.isTupleC(f.ctype):
+			for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
+				if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+					continue // 由 sweep scan 释放
+				}
+				fmt.Fprintf(b, "    rt_release(%s);\n", tr.path)
+			}
 		case f.isRefField():
 			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		case f.isArr:
@@ -481,14 +531,38 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 		if f.isArr || (f.isCls && (ci.isGC || f.isGC)) {
 			scanFields = append(scanFields, f)
 		}
+		if (f.isProto || f.isAny) && ci.isGC {
+			scanFields = append(scanFields, f)
+		}
+	}
+	hasTupleRefs := false
+	for _, f := range ci.fields {
+		if !g.isTupleC(f.ctype) {
+			continue
+		}
+		for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
+			if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+				hasTupleRefs = true
+			}
+		}
 	}
 	scanName := "NULL"
-	if len(scanFields) > 0 {
+	if len(scanFields) > 0 || hasTupleRefs {
 		scanName = ci.cname + "_scan"
 		fmt.Fprintf(b, "static void %s(void *p, void (*visit)(void *)) {\n", scanName)
 		fmt.Fprintf(b, "    %s *o = (%s *)p;\n", ci.cname, ci.cname)
 		for _, f := range scanFields {
 			fmt.Fprintf(b, "    if (o->%s) { visit(o->%s); }\n", f.cname, f.cname)
+		}
+		for _, f := range ci.fields {
+			if !g.isTupleC(f.ctype) {
+				continue
+			}
+			for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
+				if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+					fmt.Fprintf(b, "    if (%s) { visit(%s); }\n", tr.path, tr.path)
+				}
+			}
 		}
 		b.WriteString("}\n\n")
 	}
@@ -898,7 +972,7 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 			// 旧值为 memset 的 NULL，release 幂等（rt_release 对 NULL 直接返回）
 			out = append(out, fmt.Sprintf("rt_release((void *)o->%s);", f.cname))
 		}
-		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, expr))
+		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, g.fieldStoreExpr(f, expr)))
 	}
 	return out, nil
 }
@@ -910,6 +984,8 @@ func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls stri
 		return sc.optExpr(init, f.ctype)
 	case g.isStructC(f.ctype):
 		return sc.structValue(init, f.ctype)
+	case f.isAny:
+		return sc.anyExpr(init)
 	case f.isProto:
 		lines, expr, _, err := sc.protoValue(init)
 		if err != nil {
