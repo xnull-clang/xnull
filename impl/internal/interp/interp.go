@@ -716,6 +716,10 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 		if v, ok := sc.lookup(n.Name); ok {
 			return v
 		}
+		// §5.8：方法/字段初值中的裸字段名按 self 字段解析（局部/参数优先）。
+		if v, ok := in.selfField(sc, n.Name); ok {
+			return v
+		}
 		if _, isFn := in.funcs[n.Name]; isFn {
 			// 具名函数作为值（§7.7：apply(add, 1)）——包装为闭包值
 			return &Value{K: vClosure, Clo: &clov{top: n.Name}}
@@ -1159,7 +1163,9 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 	switch t := target.(type) {
 	case *xfront.IdentExpr:
 		if !sc.assign(t.Name, v) {
-			panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+			if !in.writeSelfField(sc, t.Name, v) {
+				panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+			}
 		}
 		return
 	case *xfront.Index:
