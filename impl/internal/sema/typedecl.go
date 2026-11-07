@@ -388,6 +388,52 @@ func (c *typeCheckCtx) checkStruct(d *xfront.StructDecl) {
 	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
 }
 
+func (c *typeCheckCtx) isOwnerTypeParam(owner, name string) bool {
+	info, ok := c.types[owner]
+	if !ok || info.strct == nil {
+		return false
+	}
+	for _, tp := range info.strct.TypePars {
+		if tp == name {
+			return true
+		}
+	}
+	return false
+}
+
+// checkValueInstantiation 校验泛型结构体实例的每个实参都是值字段类型（§13.1/§3.2）。
+func (c *typeCheckCtx) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos, typePars map[string]bool) {
+	switch ty := t.(type) {
+	case nil:
+		return
+	case *xfront.NamedType:
+		name := ty.Qual[len(ty.Qual)-1]
+		if info, ok := c.types[name]; ok && info.kind == "struct" && len(ty.Args) > 0 {
+			if len(ty.Args) != len(info.strct.TypePars) {
+				c.errf(p, TyStructVal, "泛型结构体 `"+name+"` 类型实参数量不符（§13.1）", "")
+			} else {
+				for _, a := range ty.Args {
+					if nt, ok := a.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && typePars[nt.Qual[0]] {
+						continue // 泛型上下文中的类型参数：实例化后检查
+					}
+					if !c.isValueTypeRef(a, name, map[string]bool{}) {
+						c.errf(p, TyStructVal, "泛型结构体 `"+name+"` 的类型实参必须是值字段类型（§13.1/§3.2）", "")
+					}
+				}
+			}
+		}
+		for _, a := range ty.Args {
+			c.checkValueInstantiation(a, p, typePars)
+		}
+	case *xfront.SuffixedType:
+		c.checkValueInstantiation(ty.Base, p, typePars)
+	case *xfront.TupleTypeRef:
+		for _, el := range ty.Elems {
+			c.checkValueInstantiation(el, p, typePars)
+		}
+	}
+}
+
 // checkValueField 检查值字段限制与递归值包含（§3.2/§1.5）。
 func (c *typeCheckCtx) checkValueField(f *xfront.FieldDecl, owner string) {
 	if c.isValueTypeRef(f.Type, owner, map[string]bool{}) {
@@ -405,8 +451,20 @@ func (c *typeCheckCtx) isValueTypeRef(t xfront.TypeRef, owner string, visiting m
 		return false
 	case *xfront.NamedType:
 		name := ty.Qual[len(ty.Qual)-1]
+		if len(ty.Args) == 0 && c.isOwnerTypeParam(owner, name) {
+			return true // 泛型结构体字段引用本声明的类型参数（§13.1，实例化时再查）
+		}
 		if len(ty.Args) > 0 {
-			return false // 泛型实例（List<T> 等）不是值字段（§3.2）
+			info, ok := c.types[name]
+			if !ok || info.kind != "struct" || info.strct == nil || len(ty.Args) != len(info.strct.TypePars) {
+				return false // List<T> 等非值字段类型，或泛型实参数量不符
+			}
+			for _, a := range ty.Args {
+				if !c.isValueTypeRef(a, owner, visiting) {
+					return false
+				}
+			}
+			return true
 		}
 		if scalarValueType(name) {
 			return true

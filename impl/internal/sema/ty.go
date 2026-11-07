@@ -395,6 +395,26 @@ func unsignedFits(t texpr, max uint64) bool {
 	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
+// checkValueInstantiation 校验泛型结构体实例实参（BND-04）。
+func (e *tyenv) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos) {
+	if e.a.tc != nil {
+		e.a.tc.checkValueInstantiation(t, p, e.typePars)
+	}
+}
+
+// checkSwitchDefaultLast：default 最多一个且必须位于 switch 最后（§8.5）。
+func (e *tyenv) checkSwitchDefaultLast(n *xfront.SwitchStmt) {
+	if n.Default == nil {
+		return
+	}
+	for _, c := range n.Cases {
+		if c.P.Line > n.Default.P.Line || (c.P.Line == n.Default.P.Line && c.P.Col > n.Default.P.Col) {
+			e.errf(n.Default.P, TyEnumSwitch, "default 子句必须位于 switch 最后（§8.5）", "把 default 移到所有 case 之后")
+			return
+		}
+	}
+}
+
 // checkEnumSwitch 校验枚举 switch 的项合法性/重复/穷尽性（§8.5）。
 func (e *tyenv) checkEnumSwitch(n *xfront.SwitchStmt, key string) {
 	if e.a.tc == nil || key == "" {
@@ -617,6 +637,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			e.checkMapKey(n.P, k)
 			e.checkResultType(n.Type, n.P)
 			e.checkTypeParamRef(n.Type, n.P)
+			e.checkValueInstantiation(n.Type, n.P)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
@@ -651,9 +672,11 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				e.typePars[tp] = true
 			}
 			e.checkTypeParamRef(fn.Ret, fn.P)
+			e.checkValueInstantiation(fn.Ret, fn.P)
 			for _, p := range fn.Params {
 				e.checkMapKey(p.P, typeKey(p.Type))
 				e.checkTypeParamRef(p.Type, p.P)
+				e.checkValueInstantiation(p.Type, p.P)
 				e.vars[p.Name] = typeKey(p.Type)
 			}
 			e.walkFunc(fn.Body, retKey)
@@ -764,6 +787,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if n.Type != nil {
 			e.checkResultType(n.Type, n.P)
 			e.checkTypeParamRef(n.Type, n.P)
+			e.checkValueInstantiation(n.Type, n.P)
 		}
 		if n.Init != nil {
 			it := e.inferExpected(n.Init, typeKey(n.Type))
@@ -896,6 +920,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
 		}
 		e.checkEnumSwitch(n, vt.key)
+		e.checkSwitchDefaultLast(n)
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)
