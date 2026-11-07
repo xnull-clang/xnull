@@ -500,7 +500,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		b.WriteString("\n")
 	}
 	g.cs.ensureMapArrays()
-	g.cs.emit(&b)
+	g.cs.emit(&b, g.classIsGC)
 	// String.split 返回 String[]（依赖数组实例化）；replace 为纯字符串助手。
 	if g.cs.arr["rt_string *"] {
 		b.WriteString(strSplitHelper)
@@ -679,10 +679,10 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		}
 		if entry.withArgs {
 			// args 是运行时创建的新数组，元素为进程参数（不含程序名，§11.2）。
-			fmt.Fprintf(&b, "    %s xn_args = %s_new((size_t)(argc > 1 ? argc - 1 : 0));\n", argsArr, argsArr)
+			fmt.Fprintf(&b, "    %s *xn_args = %s_new((size_t)(argc > 1 ? argc - 1 : 0));\n", argsArr, argsArr)
 			b.WriteString("    for (int i = 1; i < argc; i++) {\n")
 			b.WriteString("        rt_string *xn_av = rt_string_from_c(argv[i]);\n")
-			fmt.Fprintf(&b, "        %s_push(&xn_args, xn_av);\n", argsArr)
+			fmt.Fprintf(&b, "        %s_push(xn_args, xn_av);\n", argsArr)
 			b.WriteString("        rt_release(xn_av);\n    }\n")
 		}
 		if entry.fn.Void {
@@ -1134,7 +1134,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err := g.cs.needArr(ec); err != nil {
 				return "", err
 			}
-			return arrName(ec), nil
+			return arrName(ec) + " *", nil
 		}
 		if len(n.Suffixes) == 1 && n.Suffixes[0] == "?" {
 			bc, err := g.cType(n.Base)
@@ -1174,13 +1174,10 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if g.classIsGC(ec) {
-				return "", fmt.Errorf("codegen：List 元素为 GC 类型 %s 暂未支持（BND-10 范围：直接字段环）", ec)
-			}
 			if err := g.cs.needArr(ec); err != nil {
 				return "", err
 			}
-			return arrName(ec), nil
+			return arrName(ec) + " *", nil
 		case "Set":
 			if len(n.Args) != 1 {
 				return "", fmt.Errorf("codegen：Set 需要一个类型实参")
@@ -1189,13 +1186,10 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if g.classIsGC(ec) {
-				return "", fmt.Errorf("codegen：Set 元素为 GC 类型 %s 暂未支持（BND-10 范围）", ec)
-			}
 			if err := g.cs.needSet(ec); err != nil {
 				return "", err
 			}
-			return setName(ec), nil
+			return setName(ec) + " *", nil
 		case "Map":
 			if len(n.Args) != 2 {
 				return "", fmt.Errorf("codegen：Map 需要两个类型实参")
@@ -1208,13 +1202,10 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			if g.classIsGC(kc) || g.classIsGC(vc) {
-				return "", fmt.Errorf("codegen：Map 键/值为 GC 类型暂未支持（BND-10 范围）：%s/%s", kc, vc)
-			}
 			if err := g.cs.needMap(kc, vc); err != nil {
 				return "", err
 			}
-			return mapName(kc, vc), nil
+			return mapName(kc, vc) + " *", nil
 		case "Result":
 			return resultName(n.Args)
 		default:
@@ -1759,7 +1750,7 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 	}
 	acc := srcName
 	if strings.HasPrefix(srcC, "xn_set_") {
-		acc += ".a"
+		acc += "->a"
 	}
 	bodySc := s.newChild()
 	bodySc.locals = map[string]string{}
@@ -1775,8 +1766,8 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 	}
 	idx := s.tmp()
 	lines := []string{
-		"for (size_t " + idx + " = 0; " + idx + " < " + acc + ".len; " + idx + "++) {",
-		"    " + elem + " " + n.Var + " = " + acc + ".data[" + idx + "];",
+		"for (size_t " + idx + " = 0; " + idx + " < " + acc + "->len; " + idx + "++) {",
+		"    " + elem + " " + n.Var + " = " + acc + "->data[" + idx + "];",
 	}
 	lines = append(lines, reindent(splitLines(body), "    ")...)
 	lines = append(lines, "}")
@@ -2108,7 +2099,6 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		s.defers = append(s.defers, deferItem{lines: []string{tc + "_free(&" + n.Name + ");"}})
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
@@ -3067,7 +3057,7 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 					out := append([]string{}, s.pending...)
 					s.pending = nil
 					out = append(out, sep...)
-					return append(out, "rt_string *"+t+" = "+rc+"_join("+rn+", "+lastVar(sep)+");"), nil
+					return append(out, "rt_string *"+t+" = "+contBase(rc)+"_join("+rn+", "+lastVar(sep)+");"), nil
 				case "get", "at":
 					if elem, ok2 := containerElem(rc); ok2 && elem == "rt_string *" {
 						i, err := s.intExpr(n.Args[0])
@@ -3077,7 +3067,7 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 						t := s.tmp()
 						out := append([]string{}, s.pending...)
 						s.pending = nil
-						return append(out, "rt_string *"+t+" = rt_retain("+rc+"_"+mem.Name+"(&"+rn+", "+i+"));"), nil
+						return append(out, "rt_string *"+t+" = rt_retain("+contBase(rc)+"_"+mem.Name+"("+rn+", "+i+"));"), nil
 					}
 				}
 			}

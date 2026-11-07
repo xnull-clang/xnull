@@ -13,6 +13,9 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S3-01 容器 GC 化，2026-11-08）**：`T[]`/`List`/`Map`/`Set` 由 codegen
+  生成 GC 对象（`rt_gc_new` + `scan`/`deinit`），元素区在 deinit 释放；ARC 元素
+  retain/release，GC 元素只扫描；容器字段按 GC 引用处理（类 scan 访问、deinit 不 release）。
 - **候选期增补（S3-07/08，2026-11-08）**：`xrt.h` 增补 `xrt_callback_env_*`（trampoline env：
   GC 对象 + 创建登记根 / 销毁注销 / 注销后调用 fatal）与 `xrt_stats_*`（allocs/frees/bytes/
   gc_collections/gc_freed，默认关闭）。构建选项 `--mem=auto|arc|gc`（§23）与 `--stats`

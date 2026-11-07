@@ -14,6 +14,8 @@ func isContainerC(c string) bool {
 
 // containerElem 返回容器的元素 C 类型（Set/Array/List 一致；Map 取值类型）。
 func containerElem(c string) (string, bool) {
+	c = strings.TrimSuffix(strings.TrimSpace(c), "*")
+	c = strings.TrimSpace(c)
 	elem := ""
 	switch {
 	case strings.HasPrefix(c, "xn_arr_"), strings.HasPrefix(c, "xn_set_"):
@@ -78,7 +80,7 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 			t := s.tmp()
 			out := append([]string{}, recvLines...)
 			out = append(out, sepLines...)
-			out = append(out, fmt.Sprintf("xn_arr_s %s = xn_str_split(%s, %s);", t, lastVar(recvLines), lastVar(sepLines)))
+			out = append(out, fmt.Sprintf("xn_arr_s *%s = xn_str_split(%s, %s);", t, lastVar(recvLines), lastVar(sepLines)))
 			return out, t, nil
 		}
 		recvName, recvC, err := recvCName(mem.X, s)
@@ -91,67 +93,91 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 		switch mem.Name {
 		case "keys", "values":
 			t := s.tmp()
-			return []string{fmt.Sprintf("%s %s = %s_%s(&%s);", wantC, t, recvC, mem.Name, recvName)}, t, nil
+			return []string{fmt.Sprintf("%s %s = %s_%s(%s);", wantC, t, recvC, mem.Name, recvName)}, t, nil
 		}
 		return nil, "", fmt.Errorf("codegen：容器成员 %s 不返回值（M6-B0-05 范围）", mem.Name)
 	}
 	return nil, "", fmt.Errorf("codegen：容器表达式 %T 未支持（M4.4a 范围）", e)
 }
 
+func contBase(c string) string {
+	c = strings.TrimSpace(c)
+	c = strings.TrimSuffix(c, "*")
+	return strings.TrimSpace(c)
+}
+
 func (s *scope) arrayLit(n *xfront.ArrayLit, wantC string) ([]string, string, error) {
 	t := s.tmp()
 	var out []string
-	switch {
-	case strings.HasPrefix(wantC, "xn_arr_"), strings.HasPrefix(wantC, "xn_set_"):
-		base := wantC
-		if strings.HasPrefix(wantC, "xn_set_") {
-			base = "xn_arr_" + wantC[len("xn_set_"):]
-		}
-		elem, ok := containerElem(base)
-		if !ok {
-			return nil, "", fmt.Errorf("codegen：容器元素类型推不出（%s）", wantC)
-		}
-		out = append(out, fmt.Sprintf("%s %s = %s_new(%d);", base, t, base, len(n.Elems)))
-		for _, el := range n.Elems {
-			v, lines, err := s.elemValue(el, elem)
-			if err != nil {
-				return nil, "", err
-			}
-			out = append(out, lines...)
-			out = append(out, fmt.Sprintf("%s_push(&%s, %s);", base, t, v))
-		}
-		if strings.HasPrefix(wantC, "xn_set_") {
-			// 集合字面量：去重包装
-			st := s.tmp()
-			out = append(out, fmt.Sprintf("%s %s = %s_new();", wantC, st, wantC))
-			out = append(out, fmt.Sprintf("for (size_t i = 0; i < %s.len; i++) { %s_add(&%s, %s.data[i]); }", t, wantC, st, t))
-			out = append(out, fmt.Sprintf("%s_free(&%s);", base, t))
-			return out, st, nil
-		}
+	wantBase := contBase(wantC)
+	if strings.HasPrefix(wantBase, "xn_map_") && len(n.Elems) == 0 {
+		// `Map<K,V> m = []`：空数组字面量是空 Map 的常用写法。
+		out = append(out, fmt.Sprintf("%s *%s = %s_new(0);", wantBase, t, wantBase))
 		return out, t, nil
 	}
-	return nil, "", fmt.Errorf("codegen：数组字面量目标类型 %s 不支持（M4.4a 范围）", wantC)
+	if !strings.HasPrefix(wantBase, "xn_arr_") && !strings.HasPrefix(wantBase, "xn_set_") {
+		return nil, "", fmt.Errorf("codegen：数组字面量目标类型 %s 不支持（M4.4a 范围）", wantC)
+	}
+	isSet := strings.HasPrefix(wantBase, "xn_set_")
+	arrBase := wantBase
+	if isSet {
+		arrBase = "xn_arr_" + strings.TrimPrefix(wantBase, "xn_set_")
+	}
+	elem, ok := containerElem(arrBase)
+	if !ok {
+		return nil, "", fmt.Errorf("codegen：容器元素类型推不出（%s）", wantC)
+	}
+	out = append(out, fmt.Sprintf("%s *%s = %s_new(%d);", arrBase, t, arrBase, len(n.Elems)))
+	for _, el := range n.Elems {
+		v, lines, err := s.elemValue(el, elem)
+		if err != nil {
+			return nil, "", err
+		}
+		out = append(out, lines...)
+		if isRef(elem) && !s.g.classIsGC(elem) {
+			// 引用元素：push 内部 retain；字面量/构造产物 +1 需在入容器后释放
+			//（Ident/Member 是借用，不释放）。
+			switch el.(type) {
+			case *xfront.IdentExpr, *xfront.Member:
+			default:
+				tmp := s.tmp()
+				out = append(out, fmt.Sprintf("%s %s = %s;", elem, tmp, v))
+				out = append(out, fmt.Sprintf("%s_push(%s, %s);", arrBase, t, tmp))
+				out = append(out, fmt.Sprintf("rt_release(%s);", tmp))
+				continue
+			}
+		}
+		out = append(out, fmt.Sprintf("%s_push(%s, %s);", arrBase, t, v))
+	}
+	if isSet {
+		st := s.tmp()
+		out = append(out, fmt.Sprintf("%s *%s = %s_new();", wantBase, st, wantBase))
+		out = append(out, fmt.Sprintf("for (size_t i = 0; i < %s->len; i++) { %s_add(%s, %s->data[i]); }", t, wantBase, st, t))
+		return out, st, nil
+	}
+	return out, t, nil
 }
 
 func (s *scope) mapLit(n *xfront.MapLit, wantC string) ([]string, string, error) {
-	if !strings.HasPrefix(wantC, "xn_map_") {
+	base := contBase(wantC)
+	if !strings.HasPrefix(base, "xn_map_") {
 		return nil, "", fmt.Errorf("codegen：Map 字面量目标类型 %s 不支持（M4.4a 范围）", wantC)
 	}
 	t := s.tmp()
 	var out []string
-	out = append(out, fmt.Sprintf("%s %s = %s_new(%d);", wantC, t, wantC, len(n.Keys)))
+	out = append(out, fmt.Sprintf("%s *%s = %s_new(%d);", base, t, base, len(n.Keys)))
 	for i := range n.Keys {
-		k, klines, err := s.mapKeyValue(n.Keys[i], wantC)
+		k, klines, err := s.mapKeyValue(n.Keys[i], base)
 		if err != nil {
 			return nil, "", err
 		}
 		out = append(out, klines...)
-		v, vlines, err := s.mapValValue(n.Vals[i], wantC)
+		v, vlines, err := s.mapValValue(n.Vals[i], base)
 		if err != nil {
 			return nil, "", err
 		}
 		out = append(out, vlines...)
-		out = append(out, fmt.Sprintf("%s_put(&%s, %s, %s);", wantC, t, k, v))
+		out = append(out, fmt.Sprintf("%s_put(%s, %s, %s);", base, t, k, v))
 	}
 	return out, t, nil
 }
@@ -182,6 +208,8 @@ func (s *scope) mapValValue(e xfront.Expr, mapC string) (string, []string, error
 }
 
 func mapTypes(mapC string) (string, string) {
+	mapC = strings.TrimSuffix(strings.TrimSpace(mapC), "*")
+	mapC = strings.TrimSpace(mapC)
 	rest := strings.TrimPrefix(mapC, "xn_map_")
 	// 形如 i_i / s_i —— 键与值各一位
 	if len(rest) >= 3 {
@@ -256,7 +284,7 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		return lines, fmt.Sprintf("%s_get(&%s, %s)", recvC, recvName, kk), nil
+		return lines, fmt.Sprintf("%s_get(%s, %s)", recvC, recvName, kk), nil
 	}
 	return s.optWrap(e, optC)
 }
@@ -292,7 +320,8 @@ func (s *scope) optWrap(e xfront.Expr, optC string) ([]string, string, error) {
 
 // containerMemberStmt 生成容器成员调用语句（push/put/add/insert/remove/clear/set）。
 func (s *scope) containerMemberStmt(recvC string, recvName string, name string, args []xfront.Expr) ([]string, bool, error) {
-	acc := "&" + recvName
+	recvC = contBase(recvC)
+	acc := recvName
 	var out []string
 	switch {
 	case strings.HasPrefix(recvC, "xn_arr_"):
@@ -427,11 +456,12 @@ func (s *scope) bytesMemberStmt(recvName string, name string, args []xfront.Expr
 
 // containerMemberValue 生成容器成员调用的标量/借用值（length/has/get/getOr）。
 func (s *scope) containerMemberValue(recvC string, recvName string, name string, args []xfront.Expr) (string, bool, error) {
+	recvC = contBase(recvC)
 	if name == "length" {
 		if strings.HasPrefix(recvC, "xn_set_") {
-			return fmt.Sprintf("((int64_t)%s.a.len)", recvName), true, nil
+			return fmt.Sprintf("((int64_t)%s->a->len)", recvName), true, nil
 		}
-		return fmt.Sprintf("((int64_t)%s.len)", recvName), true, nil
+		return fmt.Sprintf("((int64_t)%s->len)", recvName), true, nil
 	}
 	if strings.HasPrefix(recvC, "xn_map_") {
 		k, v := mapTypes(recvC)
@@ -442,7 +472,7 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, lines...)
-			return fmt.Sprintf("%s_has(&%s, %s)", recvC, recvName, kk), true, nil
+			return fmt.Sprintf("%s_has(%s, %s)", recvC, recvName, kk), true, nil
 		case "getOr":
 			kk, kl, err := s.elemValue(args[0], k)
 			if err != nil {
@@ -454,7 +484,7 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, dl...)
-			return fmt.Sprintf("%s_get_or(&%s, %s, %s)", recvC, recvName, kk, d), true, nil
+			return fmt.Sprintf("%s_get_or(%s, %s, %s)", recvC, recvName, kk, d), true, nil
 		}
 	}
 	if strings.HasPrefix(recvC, "xn_set_") {
@@ -465,14 +495,14 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, lines...)
-			return fmt.Sprintf("%s_add(&%s, %s)", recvC, recvName, v), true, nil
+			return fmt.Sprintf("%s_add(%s, %s)", recvC, recvName, v), true, nil
 		}
 		if name == "at" {
 			i, err := s.intExpr(args[0])
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_at(&%s, %s)", recvC, recvName, i), true, nil
+			return fmt.Sprintf("%s_at(%s, %s)", recvC, recvName, i), true, nil
 		}
 	}
 	if strings.HasPrefix(recvC, "xn_arr_") || strings.HasPrefix(recvC, "xn_set_") {
@@ -482,21 +512,21 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_get(&%s, %s)", recvC, recvName, i), true, nil
+			return fmt.Sprintf("%s_get(%s, %s)", recvC, recvName, i), true, nil
 		case "remove":
 			if strings.HasPrefix(recvC, "xn_arr_") {
 				i, err := s.intExpr(args[0])
 				if err != nil {
 					return "", true, err
 				}
-				return fmt.Sprintf("%s_remove(&%s, %s)", recvC, recvName, i), true, nil
+				return fmt.Sprintf("%s_remove(%s, %s)", recvC, recvName, i), true, nil
 			}
 		case "has":
 			v, err := s.intExpr(args[0])
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_has(&%s, %s)", recvC, recvName, v), true, nil
+			return fmt.Sprintf("%s_has(%s, %s)", recvC, recvName, v), true, nil
 		}
 	}
 	return "", false, nil
@@ -523,7 +553,7 @@ func (s *scope) indexRead(n *xfront.Index) (string, error) {
 		}
 		return "", fmt.Errorf("codegen：Map 下标读取请用 getOr（M4.4a 范围）")
 	}
-	return fmt.Sprintf("%s_get(&%s, %s)", c, s.cRef(id.Name), i), nil
+	return fmt.Sprintf("%s_get(%s, %s)", contBase(c), s.cRef(id.Name), i), nil
 }
 
 // emitIndexAssign 生成 `a[i] = v`。
@@ -548,5 +578,5 @@ func (s *scope) emitIndexAssign(idx *xfront.Index, val xfront.Expr) ([]string, e
 	if err != nil {
 		return nil, err
 	}
-	return append(lines, fmt.Sprintf("%s_set(&%s, %s, %s);", c, s.cRef(id.Name), i, v)), nil
+	return append(lines, fmt.Sprintf("%s_set(%s, %s, %s);", contBase(c), s.cRef(id.Name), i, v)), nil
 }
