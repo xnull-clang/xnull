@@ -180,6 +180,9 @@ func (in *Interp) specificity(t xfront.TypeRef, v *Value) int {
 		if v.K == vEnum && v.E == name {
 			return 3
 		}
+		if v.K == vStruct && v.St.decl.Name == name {
+			return 4
+		}
 		return 3
 	}
 	return 1

@@ -1,0 +1,15 @@
+=== RUN   TestS2StructValueSemantics
+=== RUN   TestS2StructValueSemantics/CopyIndependence
+    s2_struct_test.go:28: out="" want="1\n10\n3\n12\n" err=未定义的类：Point
+=== RUN   TestS2StructValueSemantics/NestedNullableFields
+    s2_struct_test.go:49: out="" want="1\n5\n" err=未定义的类：Outer
+=== RUN   TestS2StructValueSemantics/NestedCopyIndependent
+    s2_struct_test.go:70: out="" want="1\n9\n" err=未定义的类：Outer
+--- FAIL: TestS2StructValueSemantics (0.00s)
+    --- FAIL: TestS2StructValueSemantics/CopyIndependence (0.00s)
+    --- FAIL: TestS2StructValueSemantics/NestedNullableFields (0.00s)
+    --- FAIL: TestS2StructValueSemantics/NestedCopyIndependent (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.841s
+FAIL
+exit=1

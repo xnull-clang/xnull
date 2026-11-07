@@ -258,18 +258,48 @@ func (in *Interp) evalMapLit(n *xfront.MapLit, sc *scope) *Value {
 	return &Value{K: vMap, M: m}
 }
 
-// cloneTupleValue 复制元组值（§2.11 值语义）：递归复制嵌套元组，
+// cloneTupleValue 复制值类型（§2.11 元组 / §3.3 struct）：递归复制嵌套值，
 // 值元素天然独立，引用元素仍共享对象句柄。
 func cloneTupleValue(v *Value) *Value {
-	if v == nil || v.K != vTuple {
+	if v == nil {
 		return v
 	}
-	nv := *v
-	nv.A = make([]*Value, len(v.A))
-	for i, e := range v.A {
-		nv.A[i] = cloneTupleValue(e)
+	switch v.K {
+	case vTuple:
+		nv := *v
+		nv.A = make([]*Value, len(v.A))
+		for i, e := range v.A {
+			nv.A[i] = cloneTupleValue(e)
+		}
+		return &nv
+	case vStruct:
+		return &Value{K: vStruct, St: cloneStruct(v.St)}
 	}
-	return &nv
+	return v
+}
+
+func cloneStruct(s *structv) *structv {
+	if s == nil {
+		return nil
+	}
+	nv := &structv{decl: s.decl, fields: map[string]*Value{}, order: append([]string(nil), s.order...)}
+	for k, v := range s.fields {
+		nv.fields[k] = cloneTupleValue(v)
+	}
+	return nv
+}
+
+func structEqual(a, b *structv) bool {
+	if a == nil || b == nil || a.decl != b.decl || len(a.fields) != len(b.fields) {
+		return a == b
+	}
+	for k, av := range a.fields {
+		bv, ok := b.fields[k]
+		if !ok || !valuesEqual(av, bv) {
+			return false
+		}
+	}
+	return true
 }
 
 // evalTuple 求值元组字面量（§2.11：值类型，至少两元素）。
@@ -397,6 +427,9 @@ func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 			return v.K == vSet
 		case "Any", "Object":
 			return v.K != vNull // Any/Object 装箱一切非 null 值
+		}
+		if st, ok := in.structs[name]; ok { // S2 §3：结构体名义类型
+			return v.K == vStruct && v.St.decl == st
 		}
 		if v.K == vObj { // S2 §4.4/§5.2：类继承链、协议实现、数据枚举项
 			return in.objectIsNamed(v.O, name)
