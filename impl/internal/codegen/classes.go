@@ -31,6 +31,7 @@ type classField struct {
 	isBytes  bool        // 可变字节缓冲字段（xrt_bytes_obj *）
 	isProto  bool        // 协议类型字段（xn_proto_<P>，强引用，S2 §4.5）
 	isGC     bool        // 类引用字段指向 GC 类（BND-10：由 GC 管理，不进入 ARC 计数）
+	semC     string      // 声明语义 C 类型（slot 存储可能加宽到 8 字节，S3 §2）
 	elem     string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
 	init     xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
 }
@@ -284,7 +285,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 			if err != nil {
 				return err
 			}
-			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
+			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name,
+				ctype: g.slotCType(ct), semC: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
 				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
 				isGC: isClassPtr(ct) && g.classIsGC(ct)})
@@ -295,7 +297,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		if err != nil {
 			return err
 		}
-		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
+		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f),
+			ctype: g.slotCType(ct), semC: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
 			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
 			isGC: isClassPtr(ct) && g.classIsGC(ct), init: f.Init})
@@ -898,7 +901,7 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 			// 旧值为 memset 的 NULL，release 幂等（rt_release 对 NULL 直接返回）
 			out = append(out, fmt.Sprintf("rt_release((void *)o->%s);", f.cname))
 		}
-		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, expr))
+		out = append(out, fmt.Sprintf("o->%s = %s;", f.cname, g.fieldStoreExpr(f, expr)))
 	}
 	return out, nil
 }
