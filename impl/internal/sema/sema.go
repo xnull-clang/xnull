@@ -237,7 +237,7 @@ func (a *analyzer) walkExpr(e xfront.Expr, sc *nscope) {
 		if n.Name == "true" || n.Name == "false" {
 			return
 		}
-		if !sc.declared(n.Name) && !a.tops[n.Name] && !visibleBuiltins[n.Name] && !a.imported[n.Name] && !isBuiltinStaticReceiver(n.Name) && !isXdkTypeName(n.Name) {
+		if !sc.declared(n.Name) && !a.tops[n.Name] && !visibleBuiltins[n.Name] && !a.imported[n.Name] && !isBuiltinStaticReceiver(n.Name) && !isXdkTypeName(n.Name) && !isExternalFFIName(n.Name) {
 			a.checkXdkUse(n.P, n.Name)
 			if !xdkSymbolKnown(n.Name) {
 				a.errf(n.P, ResUndefined, "未定义的名称 `"+n.Name+"`（§3.3 四级顺序解析后不可见）", "局部/参数/顶层声明、导入符号或完全限定名之一")

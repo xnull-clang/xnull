@@ -100,7 +100,10 @@ func (c *typeCheckCtx) rejectInternalPolicyAnnos(annos []*xfront.AnnotationNode)
 func scalarValueType(name string) bool {
 	switch name {
 	case "Bool", "Byte", "Short", "Int", "Long", "UByte", "UShort", "UInt",
-		"ULong", "Int128", "UInt128", "Float", "Double", "Char":
+		"ULong", "Int128", "UInt128", "Float", "Double", "Char",
+		// S7 §3.2 标量映射：定宽标量同样是值字段类型（layout(c) 字段使用）。
+		"Int8", "Int16", "Int32", "Int64", "UInt8", "UInt16", "UInt32", "UInt64",
+		"Float32", "Float64":
 		return true
 	}
 	return false
