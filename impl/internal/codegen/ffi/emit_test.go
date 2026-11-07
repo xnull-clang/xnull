@@ -84,6 +84,10 @@ int32_t native_fill(void *buf, size_t n) {
 }
 
 int32_t native_open(const char *name, size_t n, void **out) {
+    if (n == 4 && memcmp(name, "fail", 4) == 0) {
+        *out = NULL; /* 打开失败：rc=0 但无原生对象 */
+        return 0;
+    }
     (void)name; (void)n;
     *out = (void *)0x1234;
     return 0;
@@ -142,6 +146,11 @@ int main(int argc, char **argv) {
     xrt_handle *h = NULL;
     rc = xn_ffi_ffiOpen("conn-1", 6, &h);
     printf("open rc=%d handle=%d\n", rc, h != NULL);
+
+    /* 失败打开：原生返回 NULL，包装必须回 NULL（File? 的 f == null 才成立） */
+    xrt_handle *hf = NULL;
+    rc = xn_ffi_ffiOpen("fail", 4, &hf);
+    printf("openfail rc=%d handle=%d\n", rc, hf != NULL);
 
     rc = xn_ffi_ffiConnRead(h);
     printf("read rc=%d kind=%s\n", rc, xn_ffi_native_error_kind(rc));
@@ -251,6 +260,7 @@ func TestEmitSupportEndToEnd(t *testing.T) {
 		"add rc=0 v=5",
 		"strlen rc=0 n=5",
 		"open rc=0 handle=1",
+		"openfail rc=0 handle=0",
 		"read rc=5 kind=NotFound",
 		"close1 rc=0",
 		"close2 rc=0",

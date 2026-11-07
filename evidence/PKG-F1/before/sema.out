@@ -1,0 +1,12 @@
+=== RUN   TestPKGF1SameSourceAliasConflict
+    pkg_alias_f1_test.go:26: 期望诊断 RES-103，实际：[]（源：package app
+        import lib.a.X as P
+        import lib.b.X as BX
+        import lib.a.Y as P
+        import lib.b.Y as BY
+        static Int main() { return P() + BX() + BY() }
+        ）
+--- FAIL: TestPKGF1SameSourceAliasConflict (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	2.882s
+FAIL

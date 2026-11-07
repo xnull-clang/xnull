@@ -1,0 +1,11 @@
+# 原始 stderr
+
+- 先红：`codegen：类型 File 未支持`（见 `before/red.log`）。
+- 后绿：测试无 stderr。
+- 样例运行 stderr（`sample/run.err`）：
+  `xrt: 句柄泄漏：未显式 close（S7 §4.3）`
+  —— 这是**运行时终结钩子缺陷**，不是 codegen 注入问题：`runtime/xrt_abi.c` 的
+  `handle_deinit(void *payload)` 把完整对象指针当 payload 解读（应 `rt_payload(obj)`），
+  导致 `xrt_handle_mark_closed` 后 release 仍报泄漏。独立复现见
+  `xrt-handle-deinit-repro.c` / `xrt-handle-deinit-repro.log`（不依赖编译器）。
+  运行时属 E5 域，本卡未改；已登记为跨域后续项。

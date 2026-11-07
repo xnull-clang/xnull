@@ -79,7 +79,7 @@ int main(void) {
 	args := []string{"-std=c11", "-O2", "-Wall", "-Wno-unused-function", "-I", rtDir, "-o", exe, prog}
 	for _, f := range []string{
 		"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c",
-		"rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c",
+		"rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c", "rt_std_bytes.c",
 	} {
 		args = append(args, filepath.Join(rtDir, f))
 	}

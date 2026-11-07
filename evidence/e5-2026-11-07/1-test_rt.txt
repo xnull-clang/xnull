@@ -1,0 +1,2 @@
+ok  policy table (10 rows, deterministic)
+rt tests passed

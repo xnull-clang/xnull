@@ -1,0 +1,12 @@
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	31.864s
+ok  	xnull.dev/xnull/internal/codegen	71.244s
+ok  	xnull.dev/xnull/internal/codegen/ffi	22.986s
+ok  	xnull.dev/xnull/internal/devtool	2.576s
+ok  	xnull.dev/xnull/internal/diag	2.992s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	5.150s
+ok  	xnull.dev/xnull/internal/sema	4.118s
+ok  	xnull.dev/xnull/internal/xfront	4.602s
+ok  	xnull.dev/xnull/internal/xpd	5.651s

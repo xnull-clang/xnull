@@ -1,0 +1,178 @@
+{
+  "name": "xnull-ide",
+  "displayName": "XNull IDE",
+  "description": "XNull language support: project templates, standard library index, build/run/package integration.",
+  "version": "0.1.0",
+  "publisher": "xnull",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xnull-clang/xnull"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "xnull",
+    "language",
+    "compiler"
+  ],
+  "activationEvents": [
+    "onLanguage:xnull",
+    "workspaceContains:xnull.project"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "xnull",
+        "aliases": [
+          "XNull",
+          "xnull"
+        ],
+        "extensions": [
+          ".x"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "xnull",
+        "scopeName": "source.xnull",
+        "path": "./syntaxes/xnull.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "xnull",
+        "path": "./snippets/xnull.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "xnull.ide.newProject",
+        "title": "XNull: New Project"
+      },
+      {
+        "command": "xnull.ide.check",
+        "title": "XNull: Check"
+      },
+      {
+        "command": "xnull.ide.build",
+        "title": "XNull: Build"
+      },
+      {
+        "command": "xnull.ide.run",
+        "title": "XNull: Run"
+      },
+      {
+        "command": "xnull.ide.packageBinary",
+        "title": "XNull: Package Binary"
+      },
+      {
+        "command": "xnull.ide.showStdlib",
+        "title": "XNull: Show Standard Library"
+      },
+      {
+        "command": "xnull.ide.doctor",
+        "title": "XNull: Doctor"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "xnull.ide.newProject"
+        },
+        {
+          "command": "xnull.ide.check",
+          "when": "resourceExtname == .x"
+        },
+        {
+          "command": "xnull.ide.build",
+          "when": "resourceExtname == .x"
+        },
+        {
+          "command": "xnull.ide.run",
+          "when": "resourceExtname == .x"
+        },
+        {
+          "command": "xnull.ide.packageBinary",
+          "when": "resourceExtname == .x"
+        },
+        {
+          "command": "xnull.ide.showStdlib"
+        },
+        {
+          "command": "xnull.ide.doctor"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "xnull.ide.check",
+          "when": "resourceExtname == .x",
+          "group": "xnull@1"
+        },
+        {
+          "command": "xnull.ide.build",
+          "when": "resourceExtname == .x",
+          "group": "xnull@2"
+        },
+        {
+          "command": "xnull.ide.run",
+          "when": "resourceExtname == .x",
+          "group": "xnull@3"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "XNull",
+      "properties": {
+        "xnull.toolchainPath": {
+          "type": "string",
+          "default": "xnull",
+          "description": "Path to the xnull toolchain executable."
+        },
+        "xnull.runtimePath": {
+          "type": "string",
+          "default": "",
+          "description": "Runtime source directory (passed as --runtime when set)."
+        },
+        "xnull.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run xnull check when a .x file is saved."
+        },
+        "xnull.defaultOutput": {
+          "type": "string",
+          "default": "target",
+          "description": "Default directory for build output, relative to the workspace root."
+        },
+        "xnull.profile": {
+          "type": "string",
+          "default": "",
+          "description": "Default profile for project builds (reserved)."
+        },
+        "xnull.autoOpenProblems": {
+          "type": "boolean",
+          "default": true,
+          "description": "Focus the Problems panel after producing diagnostics."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "node scripts/sync-xdk-index.js && tsc -p .",
+    "watch": "tsc -w -p .",
+    "check": "tsc --noEmit -p ."
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.0.0"
+  }
+}

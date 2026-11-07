@@ -1,0 +1,66 @@
+=== RUN   TestGEN01SemaRejectG10DuplicateTypeParam
+--- PASS: TestGEN01SemaRejectG10DuplicateTypeParam (0.00s)
+=== RUN   TestGEN01G12GenericFuncAsValueRejected
+--- PASS: TestGEN01G12GenericFuncAsValueRejected (0.00s)
+=== RUN   TestGEN01G17ConstraintRejected
+--- PASS: TestGEN01G17ConstraintRejected (0.00s)
+=== RUN   TestGEN01SemaAccept
+=== RUN   TestGEN01SemaAccept/G1a_显式实参
+=== RUN   TestGEN01SemaAccept/G2a_直接推断
+=== RUN   TestGEN01SemaAccept/G2b_嵌套_List<T>_推断
+=== RUN   TestGEN01SemaAccept/G2c_字面量绑定_Int
+=== RUN   TestGEN01SemaAccept/G2c_字面量适配已绑定_T
+=== RUN   TestGEN01SemaAccept/G5a_普通同名函数优先
+=== RUN   TestGEN01SemaAccept/G5a_普通候选不适用时回落泛型
+=== RUN   TestGEN01SemaAccept/G6a_两个实例类型实参
+=== RUN   TestGEN01SemaAccept/G6b_实例内_List<T>_操作
+=== RUN   TestGEN01SemaAccept/G8_Result_实参实例化
+=== RUN   TestGEN01SemaAccept/G11_类型参数用于局部与嵌套
+=== RUN   TestGEN01SemaAccept/G14_泛型内_is_具体类型
+=== RUN   TestGEN01SemaAccept/G18_泛型与普通同名共存
+--- PASS: TestGEN01SemaAccept (0.00s)
+    --- PASS: TestGEN01SemaAccept/G1a_显式实参 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G2a_直接推断 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G2b_嵌套_List<T>_推断 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G2c_字面量绑定_Int (0.00s)
+    --- PASS: TestGEN01SemaAccept/G2c_字面量适配已绑定_T (0.00s)
+    --- PASS: TestGEN01SemaAccept/G5a_普通同名函数优先 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G5a_普通候选不适用时回落泛型 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G6a_两个实例类型实参 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G6b_实例内_List<T>_操作 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G8_Result_实参实例化 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G11_类型参数用于局部与嵌套 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G14_泛型内_is_具体类型 (0.00s)
+    --- PASS: TestGEN01SemaAccept/G18_泛型与普通同名共存 (0.00s)
+=== RUN   TestGEN01SemaReject
+=== RUN   TestGEN01SemaReject/G1b_显式实参数量
+=== RUN   TestGEN01SemaReject/G2d_返回类型不参与推断
+=== RUN   TestGEN01SemaReject/G3_冲突绑定
+=== RUN   TestGEN01SemaReject/G4_未绑定类型参数（单参数可解析形态）
+=== RUN   TestGEN01SemaReject/G5c_零候选
+=== RUN   TestGEN01SemaReject/G9_类型参数越界
+=== RUN   TestGEN01SemaReject/G13_类型实参不能_void
+=== RUN   TestGEN01SemaReject/G15_泛型内_new_T()
+=== RUN   TestGEN01SemaReject/G19_null_不能定_T
+=== RUN   TestGEN01SemaReject/G7_无限展开
+=== RUN   TestGEN01SemaReject/重载歧义
+=== RUN   TestGEN01SemaReject/显式实参与形参不符（不得退回泛型未实现）
+--- PASS: TestGEN01SemaReject (0.00s)
+    --- PASS: TestGEN01SemaReject/G1b_显式实参数量 (0.00s)
+    --- PASS: TestGEN01SemaReject/G2d_返回类型不参与推断 (0.00s)
+    --- PASS: TestGEN01SemaReject/G3_冲突绑定 (0.00s)
+    --- PASS: TestGEN01SemaReject/G4_未绑定类型参数（单参数可解析形态） (0.00s)
+    --- PASS: TestGEN01SemaReject/G5c_零候选 (0.00s)
+    --- PASS: TestGEN01SemaReject/G9_类型参数越界 (0.00s)
+    --- PASS: TestGEN01SemaReject/G13_类型实参不能_void (0.00s)
+    --- PASS: TestGEN01SemaReject/G15_泛型内_new_T() (0.00s)
+    --- PASS: TestGEN01SemaReject/G19_null_不能定_T (0.00s)
+    --- PASS: TestGEN01SemaReject/G7_无限展开 (0.00s)
+    --- PASS: TestGEN01SemaReject/重载歧义 (0.00s)
+    --- PASS: TestGEN01SemaReject/显式实参与形参不符（不得退回泛型未实现） (0.00s)
+=== RUN   TestGEN01WritesBackTypeArgs
+--- PASS: TestGEN01WritesBackTypeArgs (0.00s)
+=== RUN   TestGEN01CrossFileTemplateVisible
+--- PASS: TestGEN01CrossFileTemplateVisible (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.835s

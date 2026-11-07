@@ -2,6 +2,10 @@ package cli
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"time"
 
 	"xnull.dev/xnull/internal/devtool"
 	"xnull.dev/xnull/internal/exitcode"
@@ -15,7 +19,7 @@ import (
 //   - res：错误一律 2，并以 "gen_resources: " 前缀输出（保持诊断文本一致）。
 func runDev(env Env, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(env.Stderr, "xnull: 用法：xnull dev <check|ledger|res> ...")
+		fmt.Fprintln(env.Stderr, "xnull: 用法：xnull dev <check|ledger|res|board> ...")
 		return exitcode.Usage
 	}
 
@@ -51,6 +55,66 @@ func runDev(env Env, args []string) int {
 		}
 		return exitcode.Success
 
+	case "board":
+		// SSOT 看板（ADR-001 §4）：脚本生成，手改即作废。
+		var since time.Duration
+		var writePath string
+		noTest := false
+		recordGreen := false
+		root := "."
+		args := args[1:]
+		for i := 0; i < len(args); i++ {
+			switch args[i] {
+			case "--no-test":
+				noTest = true
+			case "--record-green":
+				recordGreen = true
+			case "--write":
+				if i+1 >= len(args) {
+					fmt.Fprintln(env.Stderr, "xnull: --write 缺少路径")
+					return exitcode.Usage
+				}
+				writePath = args[i+1]
+				i++
+			case "--since":
+				if i+1 >= len(args) {
+					fmt.Fprintln(env.Stderr, "xnull: --since 缺少时长（如 168h）")
+					return exitcode.Usage
+				}
+				d, err := time.ParseDuration(args[i+1])
+				if err != nil {
+					fmt.Fprintf(env.Stderr, "xnull: --since 非法：%v\n", err)
+					return exitcode.Usage
+				}
+				since = d
+				i++
+			default:
+				root = args[i]
+			}
+		}
+		repoRoot, err := devtool.RepoRoot(root)
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		var out io.Writer = env.Stdout
+		var f *os.File
+		if writePath != "" {
+			f, err = os.Create(writePath)
+			if err != nil {
+				fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+				return exitcode.BuildFail
+			}
+			defer f.Close()
+			out = f
+		}
+		opts := devtool.BoardOptions{Since: since, RunTests: !noTest, RecordGreen: recordGreen}
+		if err := devtool.GenerateBoard(repoRoot, filepath.Join(repoRoot, "impl"), opts, out); err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		return exitcode.Success
+
 	case "res":
 		if len(args) != 3 {
 			fmt.Fprintln(env.Stderr, "gen_resources: 用法：gen_resources.py <资源目录> <输出.c>")
@@ -63,7 +127,7 @@ func runDev(env Env, args []string) int {
 		return exitcode.Success
 
 	default:
-		fmt.Fprintf(env.Stderr, "xnull: 未知 dev 子命令 %q（可用：check、ledger、res）\n", args[0])
+		fmt.Fprintf(env.Stderr, "xnull: 未知 dev 子命令 %q（可用：check、ledger、res、board）\n", args[0])
 		return exitcode.Usage
 	}
 }
