@@ -1,0 +1,40 @@
+--- FAIL: TestS4_04ErrorKindCanonicalNames (0.00s)
+    s4_04_test.go:44: LoadFFI: err=<nil> diags=[bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 InvalidArgument（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 AlreadyExists（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 PermissionDenied（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Io（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Network（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Busy（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 DataCorrupted（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Unsupported（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^ bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 OutOfMemory（S4 附录 A 分类名）
+         2 |   errorMap {
+           |   ^]
+--- FAIL: TestS4_04FFIErrorKindRuntime (0.01s)
+    --- FAIL: TestS4_04FFIErrorKindRuntime/Io (0.00s)
+        s4_04_test.go:104: LoadFFI: err=<nil> diags=[bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Io（S4 附录 A 分类名）
+             2 |   errorMap {
+               |   ^]
+    --- FAIL: TestS4_04FFIErrorKindRuntime/Cancelled (0.00s)
+        s4_04_test.go:104: LoadFFI: err=<nil> diags=[bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Io（S4 附录 A 分类名）
+             2 |   errorMap {
+               |   ^]
+    --- FAIL: TestS4_04FFIErrorKindRuntime/Timeout (0.00s)
+        s4_04_test.go:104: LoadFFI: err=<nil> diags=[bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Io（S4 附录 A 分类名）
+             2 |   errorMap {
+               |   ^]
+    --- FAIL: TestS4_04FFIErrorKindRuntime/未知码 (0.00s)
+        s4_04_test.go:104: LoadFFI: err=<nil> diags=[bindings/t.xfb:2:3: error[FFI-106]: 未知错误分类 Io（S4 附录 A 分类名）
+             2 |   errorMap {
+               |   ^]
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	1.800s
+FAIL

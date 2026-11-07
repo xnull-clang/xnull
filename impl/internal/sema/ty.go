@@ -404,6 +404,55 @@ func isBuiltinStaticReceiver(name string) bool {
 	return name == "Text" || name == "Bytes" || name == "StringBuilder"
 }
 
+// lambdaReturnKey 尽力推断闭包返回类型（spawn/withLock 签名用）。
+func (e *tyenv) lambdaReturnKey(x xfront.Expr) string {
+	lam, ok := x.(*xfront.Lambda)
+	if !ok {
+		return ""
+	}
+	if lam.ExprB != nil {
+		return e.infer(lam.ExprB).key
+	}
+	if lam.Block != nil {
+		for _, st := range lam.Block.Stmts {
+			if ret, ok := st.(*xfront.ReturnStmt); ok && ret.Value != nil {
+				return e.infer(ret.Value).key
+			}
+		}
+	}
+	return ""
+}
+
+// isTaskAPI 判断接收者类型上的成员是否属于任务/同步 API（@tasks 约束用）。
+func isTaskAPI(recv, name string) bool {
+	if recv == "TaskGroup" && (name == "spawn" || name == "cancel" || name == "close") {
+		return true
+	}
+	if (strings.HasPrefix(recv, "Task<") || recv == "Task") && (name == "join" || name == "joinDeadline") {
+		return true
+	}
+	if recv == "Context" {
+		switch name {
+		case "background", "checkCancel", "withDeadline", "cancel", "token":
+			return true
+		}
+	}
+	if strings.HasPrefix(recv, "Channel<") || strings.HasPrefix(recv, "Mutex<") {
+		return name == "send" || name == "receive" || name == "withLock" || name == "close"
+	}
+	return false
+}
+
+// isXdkTypeName 识别 xdk.tasks/xdk.sync 的语言面类型名（S5 §3/§7）。
+func isXdkTypeName(name string) bool {
+	switch name {
+	case "Task", "TaskGroup", "Context", "CancelToken", "TaskError",
+		"Channel", "Mutex", "AtomicInt", "AtomicBool", "AtomicRef":
+		return true
+	}
+	return false
+}
+
 // checkValueInstantiation 校验泛型结构体实例实参（BND-04）。
 func (e *tyenv) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos) {
 	if e.a.tc != nil {
@@ -633,9 +682,10 @@ type tyenv struct {
 	cls    *classCtx         // 类方法体上下文（nil = 顶层函数）
 
 	// ERR-01：当前所在的函数/闭包上下文（§10.2/§10.3）。
-	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
-	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
-	inCleanup bool   // 正在检查 defer/errdefer 清理体
+	ret        string // 当前函数/闭包返回类型串（"void" 或具体类型）
+	fnKind     string // func/main/method/ctor/deinit/lambda/fieldinit
+	inCleanup  bool   // 正在检查 defer/errdefer 清理体
+	tasksBlock bool   // 当前函数/方法带 @tasks（S5 §2.3）
 
 	// GEN-01：泛型函数上下文（§8）。
 	curFunc   string          // 当前泛型函数名（自递归展开检测）
@@ -693,6 +743,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				retKey = typeKey(fn.Ret)
 			}
 			e.fnKind, e.ret = "func", retKey
+			e.tasksBlock = hasAnnotation(fn.Annos, "tasks")
 			if fn.Name == "main" {
 				e.fnKind = "main"
 			}
@@ -1102,7 +1153,7 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if k, ok := e.fields[n.Name]; ok {
 			return texpr{key: k}
 		}
-		if isBuiltinStaticReceiver(n.Name) {
+		if isBuiltinStaticReceiver(n.Name) || isXdkTypeName(n.Name) {
 			return texpr{key: n.Name}
 		}
 		if e.a.tc != nil {
@@ -1478,11 +1529,24 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			return texpr{key: "StringBuilder"}
 		}
 	}
+	// xdk.errors 顶层函数：wrap/mapErr/report（S4 §2.3）。
+	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+		if _, user := e.funcs[id.Name]; !user && e.a.imported[id.Name] {
+			switch id.Name {
+			case "wrap", "mapErr", "report":
+				return e.inferXdkErrors(n, id.Name)
+			}
+		}
+	}
 	// 方法调用：recv.method(args)
 	if mem, ok := n.Callee.(*xfront.Member); ok {
 		rt := e.infer(mem.X)
 		if isResultKey(rt.key) {
 			return e.resultMember(rt, mem, n.Args, n.P)
+		}
+		if isTaskAPI(rt.key, mem.Name) && !e.tasksBlock {
+			e.errf(n.P, TyTasksBlock,
+				"任务 API `"+mem.Name+"` 只能在 @tasks 方法/块内使用（S5 §2.3）", "给所在方法加 @tasks")
 		}
 		if e.a.tc != nil {
 			if info, ok := e.a.tc.types[rt.key]; ok && info.kind == "protocol" {
@@ -1496,6 +1560,13 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
+		}
+		if rt.key == "TaskGroup" && mem.Name == "spawn" && len(n.Args) == 1 {
+			if rk := e.lambdaReturnKey(n.Args[0]); rk != "" {
+				if tk, _, ok := resultArgs(rk); ok {
+					return texpr{key: "Task<" + tk + ">"}
+				}
+			}
 		}
 		return e.methodRet(rt, mem.Name, args, n.P)
 	}
@@ -1588,6 +1659,45 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		return true
 	}
 	switch {
+	case k == "TaskGroup":
+		switch name {
+		case "create":
+			return texpr{key: "TaskGroup"}
+		case "spawn":
+			return texpr{key: "Task<Any>"}
+		case "cancel":
+			return texpr{key: "void"}
+		case "close":
+			return texpr{key: "Result<void,TaskError>"}
+		}
+	case strings.HasPrefix(k, "Task<"):
+		tk := genericArg(k, "Task<")
+		switch name {
+		case "join", "joinDeadline":
+			return texpr{key: "Result<" + tk + ",TaskError>"}
+		}
+	case k == "Context":
+		switch name {
+		case "background", "withDeadline":
+			return texpr{key: "Context"}
+		case "checkCancel":
+			return texpr{key: "Result<void,CancelledError>"}
+		case "token":
+			return texpr{key: "CancelToken"}
+		case "cancel":
+			return texpr{key: "void"}
+		}
+	case strings.HasPrefix(k, "Channel<"):
+		switch name {
+		case "send", "close":
+			return texpr{key: "void"}
+		case "receive":
+			return texpr{key: genericArg(k, "Channel<")}
+		}
+	case strings.HasPrefix(k, "Mutex<"):
+		if name == "withLock" {
+			return texpr{key: "void"}
+		}
 	case k == "StringBuilder":
 		switch name {
 		case "append":

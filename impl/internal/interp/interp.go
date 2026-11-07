@@ -175,6 +175,7 @@ type scope struct {
 	owned    []*objv                   // 兼容保留（不再用于释放）
 	objOwner map[string]*objv          // 变量名 → 当前持有的对象（§4.4 强持有）
 	objOrder []string                  // 变量声明顺序（作用域退出逆序释放）
+	temps    []*objv                   // 临时对象（new 产生，块结束时释放）
 }
 
 func newScope(parent *scope) *scope {
@@ -245,6 +246,7 @@ type Interp struct {
 	singletonVals  map[string]*Value
 	singleCls      map[string]*xfront.ClassDecl
 	extMethods     map[string][]*xfront.MethodDecl // target 类型名 → 扩展方法（§11）
+	diag           io.Writer                       // 诊断输出通道（report，§4.3）
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -268,6 +270,14 @@ func isStringArray(t xfront.TypeRef) bool {
 }
 
 func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int, err error) {
+	return RunWithDiag(u, out, out, progArgs)
+}
+
+// RunWithDiag 与 Run 相同，但把 `xdk.errors.report` 的诊断输出写到 diag（§4.3）。
+func RunWithDiag(u *xfront.CompilationUnit, out io.Writer, diag io.Writer, progArgs []string) (code int, err error) {
+	if diag == nil {
+		diag = out
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {
@@ -286,7 +296,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
 		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
-		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
+		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{}, diag: diag,
 		factories:  map[string]*xfront.FactoryDecl{},
 		singletons: map[string]*xfront.SingletonDecl{}, singletonVals: map[string]*Value{},
 		singleCls: map[string]*xfront.ClassDecl{}, extMethods: map[string][]*xfront.MethodDecl{},
@@ -326,6 +336,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			topFields = append(topFields, n)
 		}
 	}
+	// S4：xdk.errors 预置类型（ErrorKind/Error）；用户同名声明显式优先。
+	in.registerBuiltinXDKErrors()
 	// 第二遍：按声明顺序求值顶层字段初始化式并写回（§4.3）。
 	// assign 按第一遍登记的类型做容器定向（List/Set 字面量，BLD-01）。
 	for _, n := range topFields {
@@ -452,6 +464,7 @@ func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) 
 	for i, p := range fn.Params {
 		if i < len(args) {
 			sc.defineTyped(p.Name, p.Type, args[i])
+			in.takeOwnership(sc, p.Name, args[i])
 		} else {
 			sc.defineTyped(p.Name, p.Type, &Value{K: vNull})
 		}
@@ -1296,6 +1309,9 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 				}
 				return v
 			}
+		}
+		if id.Name == "wrap" || id.Name == "mapErr" || id.Name == "report" { // S4 §2.3 xdk.errors
+			return in.callErrorsBuiltin(id.Name, n, sc)
 		}
 		if id.Name == "print" || id.Name == "str" { // 内置函数（2/≤3）
 			if len(n.Args) != 1 {

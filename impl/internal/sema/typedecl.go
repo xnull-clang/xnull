@@ -49,6 +49,7 @@ const (
 	TyFinalWrite    = "TY-224" // final 字段构造后写入（§6.1）
 	TyExtension     = "TY-225" // extension 目标限制（§11）
 	TyNewKind       = "TY-226" // new 非 class 类型（§2.7/§4.1/§8.3）
+	TyTasksBlock    = "TY-227" // 任务 API 必须在 @tasks 块内（S5 §2.3）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -191,6 +192,7 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 		c.types[name] = info
 	}
 	c.registerXdkErrors()
+	c.registerXdkConcurrency()
 	for i, d := range u.Decls {
 		if s, ok := d.(*xfront.SingletonDecl); ok {
 			c.singleOrder[s.Name] = i
@@ -933,6 +935,22 @@ func (c *typeCheckCtx) registerXdkErrors() {
 		}
 		c.types["Error"] = &typeInfo{kind: "protocol", proto: p}
 		c.a.tops["Error"] = true
+	}
+}
+
+// registerXdkConcurrency 注册 xdk.tasks/xdk.sync 语言面类型（S5 §3/§7）。
+func (c *typeCheckCtx) registerXdkConcurrency() {
+	names := []string{"Task", "TaskGroup", "Context", "CancelToken", "TaskError",
+		"Channel", "Mutex", "AtomicInt", "AtomicBool", "AtomicRef"}
+	for _, n := range names {
+		if !c.a.imported[n] {
+			continue
+		}
+		if _, ok := c.types[n]; ok {
+			continue
+		}
+		c.types[n] = &typeInfo{kind: "xdk"}
+		c.a.tops[n] = true
 	}
 }
 
@@ -2099,6 +2117,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 			retKey = typeKey(m.Ret)
 		}
 		e.fnKind, e.ret = "method", retKey
+		e.tasksBlock = hasAnnotation(m.Annos, "tasks")
 		if m.IsDeinit {
 			e.fnKind, e.ret = "deinit", "void"
 		}
