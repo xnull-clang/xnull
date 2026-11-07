@@ -27,6 +27,7 @@ import (
 const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 #include "rt.h"
 #include "rt_gc.h"
+#include "xrt.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -748,10 +749,18 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		switch typeName(n) {
 		case "Int":
 			return "int64_t", nil
+		case "Int32":
+			return "int32_t", nil
+		case "Int64":
+			return "int64_t", nil
 		case "Bool":
 			return "int", nil
 		case "String":
 			return "rt_string *", nil
+		case "Bytes":
+			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
+			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
+			return "xrt_bytes_obj *", nil
 		case "List":
 			if len(n.Args) != 1 {
 				return "", fmt.Errorf("codegen：List 需要一个类型实参")
@@ -1081,6 +1090,15 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return append(out, v+";"), nil
 				}
 			}
+			if rc == "xrt_bytes_obj *" {
+				lines, hit, err := s.bytesMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
 			if isContainerC(rc) {
 				lines, hit, err := s.containerMemberStmt(rc, rn, mem.Name, call.Args)
 				if err != nil {
@@ -1210,7 +1228,7 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return []string{"xn_print_bool(" + v + ");"}, nil
-	case "int64_t":
+	case "int64_t", "int32_t":
 		v, err := s.intExpr(e)
 		if err != nil {
 			return nil, err
@@ -1311,6 +1329,15 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.locals[n.Name] = tc
 		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 		return append(lines, "xrt_handle *"+n.Name+" = "+out+";"), nil
+	}
+	if tc == "xrt_bytes_obj *" {
+		lines, out, err := s.bytesExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+		return append(lines, "xrt_bytes_obj *"+n.Name+" = "+out+";"), nil
 	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
@@ -1659,7 +1686,7 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return "+t+";"), nil
 	}
-	if (s.retC == "int64_t" || s.retC == "int") && n.Value != nil {
+	if isIntScalarC(s.retC) && n.Value != nil {
 		v, err := s.intExpr(n.Value)
 		if err != nil {
 			return nil, err
@@ -1669,7 +1696,7 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		pre := append([]string{}, s.pending...)
 		s.pending = nil
 		t := s.tmp()
-		out := append(pre, "int64_t "+t+" = "+v+";")
+		out := append(pre, s.retC+" "+t+" = "+v+";")
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return "+t+";"), nil
@@ -2017,6 +2044,9 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return "xn_p_" + n.Name, nil
 		}
 		return s.cRef(n.Name), nil
+	case *xfront.NullLit:
+		// 可空句柄（File? 等）以 NULL 哨兵表示，与 null 比较直接落 C 的 NULL。
+		return "NULL", nil
 	case *xfront.Binary:
 		if n.Op == "is" {
 			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
@@ -2121,6 +2151,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
+				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
 				if v, hit, err := s.containerMemberValue(rc, rn, mem.Name, n.Args); err != nil {
 					return "", err
@@ -2189,6 +2226,15 @@ func (s *scope) varRef(name string) string {
 
 // retBase 生成返回类型声明前缀（xn_Cls_X * → 'xn_Cls_X *'）。
 func retBase(c string) string { return c }
+
+// isIntScalarC 判断 C 类型是否为整数标量（Int/Int32/Int64；Bool 用 int 表示）。
+func isIntScalarC(c string) bool {
+	switch c {
+	case "int64_t", "int32_t", "int":
+		return true
+	}
+	return false
+}
 
 // classCallExpr 生成「返回类引用」的调用表达式。
 // 返回 owns=true 表示调用点获得 +1 引用（须释放）；false 为借用（容器 get 等）。
