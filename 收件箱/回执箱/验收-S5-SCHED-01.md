@@ -1,11 +1,11 @@
 # 验收：S5-SCHED-01（调度与阻塞分类）
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL**（基础调度/取消/超时通过；任务感知阻塞不占载体线程、`.unaware` 伴生执行器未达）
-> **复验点**：main `6c0609b`（含 S5-01 `2ac7e21`、S5-02 `1dc8314`、S5-03 `63d15e6`）
+> **结论：PASS**（载体池 + 伴生执行器修复后复签）
+> **复验点**：main `11bf22f`（含 E5 `47fd089` SCHED-01：载体池 + 伴生执行器）
 > **时间**：2026-11-08
-> **证据**：`evidence/S5-QA/SCHED-01/`
-> **依据**：S5 §2.2、§9、SCHED-01；S5-01/S5-03 回执；`收件箱/门/S5盘点-E5.md` P0-6
+> **证据**：`evidence/S5-QA/SCHED-01b/`
+> **依据**：S5 §2.2、§9、SCHED-01；S5-01/02/03 回执
 > **确认方式**：按“禁止 git”指令未执行任何 git 命令；main 版本读取 `.git/refs/heads/main`。
 
 ---
@@ -14,45 +14,50 @@
 
 | 验收点 | 结果 |
 |---|---|
-| 基础调度（spawn/join/close/取消/超时） | **PASS**：`task tests passed` |
-| 阻塞分类清单（声明半段） | **PASS**：`TestBlockingClassificationDocInSync`；`.xfb @blocking(.aware/.unaware)` |
-| 任务感知阻塞不占载体线程 | **FAIL**：单载体线程 + FIFO；任务挂起/长阻塞占住唯一 worker |
-| `.unaware` 长阻塞伴生执行器 | **FAIL**：无 M:N 载体池 / 无 companion executor |
-| 取消/超时 | **PASS**（见 CANCEL/TIMEOUT 验收） |
+| 载体池（默认 4，`XNULL_CARRIERS` 可配） | **PASS**：`worker_init` 创建 N 个载体线程 |
+| 任务感知阻塞不占 worker | **PASS**：3 个阻塞任务 + flag 任务，flag 在 150ms 内完成 |
+| `.unaware` 长阻塞伴生执行器 | **PASS**：2×150ms companion 期间普通任务 <80ms 完成 |
+| 取消/超时可打断等待 | **PASS**：`companion_wait(deadline 10ms)` → `Cancelled`；随后可完成 |
+| 基础调度/取消/超时 | **PASS**：`task tests passed (... pool/companion)` |
+| 阻塞分类清单 | **PASS**：`TestBlockingClassificationDocInSync` |
 
-**判定：FAIL。** 调度器只有 1 个载体线程；`worker_main` 一次只执行一个 task body，任务在 `xrt_channel_receive` 等挂起点上 5ms 轮询期间无法调度其他任务；`.unaware` 长阻塞会占死载体。声明清单已有，运行半段未达 SCHED-01。
-
----
-
-## 二、精确缺口（给 E5）
-
-| # | 缺口 | 证据 | 影响 |
-|---:|---|---|---|
-| S-01 | 单载体线程 + 全局 FIFO，无 M:N 载体池 | `impl/runtime/rt_task.c:184-250`：`worker_main` 单线程、逐个执行 body | 阻塞任务占用唯一 worker，后续任务饥饿 |
-| S-02 | 任务感知阻塞未让出载体 | `rt_sync.c` Channel send/receive 5ms 轮询 `check_cancel`，轮询在 worker 内进行 | 另一个可运行任务无法推进 |
-| S-03 | `.unaware` 长阻塞无伴生执行器 | `BlockingManifest` 仅声明；`S5盘点-E5.md` P0-6；S5-03 回执“单载体线程下任务互阻塞自锁（B3 M:N）” | 长阻塞 FFI 占死载体 |
-
-**建议**：B3/S5-06 落地载体池（M:N）+ `.unaware` companion executor，并补“两个任务、一个长阻塞、另一个应推进”的运行期断言；完成前 SCHED-01 不得判 PASS。
+**判定：PASS。** 上一轮“单载体线程 + 无 unaware executor”的两个缺口已由 `47fd089` 关闭：载体池让阻塞任务不独占 worker，companion executor 承载 `.unaware` 长阻塞，且等待可被 deadline/取消打断。
 
 ---
 
-## 三、已通过面
+## 二、实测
 
 ```text
-task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic)
+$ sh impl/runtime/build_rt.sh
+...
+task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/dump/pool/companion)
+sync tests passed (channel/mutex/atomic/cancel)
+exit 0
 ```
 
-- spawn/join/close、重复 join/close fatal、任务 panic 进程终止。
-- 取消令牌、deadline、joinDeadline 超时、清理排队、env root。
-- 阻塞分类清单与 `.xfb` 声明一致。
+### 2.1 载体池
+
+`test_carrier_pool`：spawn 3 个长阻塞任务 + 1 个 flag 任务；`join_deadline(flag, +150ms)` 返回 0，`g_flag=1`。若仍是单载体，flag 需等 3×长阻塞结束。
+
+### 2.2 伴生执行器
+
+`test_companion_executor`：
+- 提交 2 个 150ms companion；
+- 普通 flag 任务在 80ms deadline 内完成；
+- `companion_wait(fa/fb)` 均得原参数；
+- 10ms deadline 等待 → `XRT_ERR_CANCELLED`；任务继续，随后 `wait(NULL)` 完成。
+
+### 2.3 载体配置
+
+`impl/runtime/rt_task.c:245-262`：`XNULL_CARRIERS` 默认 4（1..64），创建 N 个 `worker_main`。
 
 ---
 
-## 四、证据
+## 三、证据
 
-- `evidence/S5-QA/SCHED-01/matrix.tsv`
-- `runtime-build.log`（task/sync 套件）
-- `blocking-manifest.log`（声明清单一致性）
-- `impl/runtime/rt_task.c:184-250`（单载体 worker）
-- `收件箱/门/S5盘点-E5.md` P0-6
-- `收件箱/回执箱/回执-S5-01.md`、`回执-S5-03-E5.md`
+- `evidence/S5-QA/SCHED-01b/matrix.tsv`
+- `runtime-build.log`（pool/companion 用例）
+- `source-contract.txt`（test_carrier_pool / test_companion_executor）
+- `runtime-source.txt`（worker_init / companion 实现）
+- `evidence/S5-QA/SCHED-01/blocking-manifest.log`
+- `收件箱/回执箱/回执-S5-01.md`、`回执-S5-02.md`、`回执-S5-03-E5.md`

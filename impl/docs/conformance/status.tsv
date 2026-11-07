@@ -82,4 +82,4 @@ TASK-04	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-TASK-04.
 SYNC-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-01.md	PASS
 SYNC-02	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-02.md	PASS
 SYNC-03	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-03.md	PASS
-SCHED-01	单载体线程 FIFO；缺 M:N/伴生执行器（S5 §2.2）	部分
+SCHED-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SCHED-01.md	PASS
