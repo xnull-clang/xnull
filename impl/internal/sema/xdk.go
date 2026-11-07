@@ -272,7 +272,17 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 			}
 			if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 				if !a.ambiguous[s] {
-					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					prevSrc := prev
+					if i := strings.LastIndex(prev, "."); i >= 0 {
+						prevSrc = prev[:i]
+					}
+					if prevSrc == b.src {
+						// 同包不同符号：别名唯一性错误（§3.3）。
+						a.errf(b.p, ResAliasConflict, "导入别名 `"+s+"` 已绑定 `"+prev+"`，与裸导入简单名冲突（§3.3/§3.5）", "换一个别名或改名")
+					} else {
+						// 不同包同名：简单名歧义（§3.2/§3.5）。
+						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
+					}
 					a.ambiguous[s] = true
 				}
 				continue

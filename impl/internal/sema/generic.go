@@ -510,7 +510,7 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 			}
 			// 签名/字段/局部类型位置的未知单段类型名：按 §3.3/§8.1 报未定义。
 			// 限定名（pkg.Type）交由导入/XDK 诊断处理，避免误伤跨包类型。
-			if len(ty.Qual) == 1 && name != "<err>" && !e.typePars[name] && !e.typeDeclared(name) {
+			if len(ty.Qual) == 1 && name != "<err>" && !e.typePars[name] && !e.typeDeclared(name) && !xdkSymbolKnown(name) {
 				e.errf(ty.P, ResUndefined, "未定义的类型 `"+name+"`（§3.3/§8.1）", "检查拼写，或先声明/导入该类型")
 				return
 			}
