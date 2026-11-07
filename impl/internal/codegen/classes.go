@@ -544,7 +544,9 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 			continue
 		}
 		for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
-			if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+			if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) ||
+				tr.ctype == "rt_string *" || tr.ctype == "xrt_bytes_obj *" ||
+				tr.ctype == "xrt_text *" || tr.ctype == "xrt_sb *" || isContainerC(tr.ctype) {
 				hasTupleRefs = true
 			}
 		}
@@ -1013,12 +1015,24 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 // fieldInitValue 为单个字段初值生成 (语句, 右值表达式)。
 func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls string) ([]string, string, error) {
 	switch {
+	case strings.HasPrefix(f.ctype, "xn_Result_"):
+		v, err := sc.resultExpr(init, f.ctype)
+		return nil, v, err
 	case strings.HasPrefix(f.ctype, "xn_opt_"):
 		return sc.optExpr(init, f.ctype)
 	case g.isStructC(f.ctype):
 		return sc.structValue(init, f.ctype)
 	case f.isAny:
 		return sc.anyExpr(init)
+	case f.ctype == "xrt_bytes_obj *":
+		lines, v, err := sc.bytesExpr(init)
+		return lines, v, err
+	case f.ctype == "xrt_text *":
+		lines, v, err := sc.textExpr(init)
+		return lines, v, err
+	case f.ctype == "xrt_sb *":
+		lines, v, err := sc.sbExpr(init)
+		return lines, v, err
 	case f.isProto:
 		lines, expr, _, err := sc.protoValue(init)
 		if err != nil {

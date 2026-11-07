@@ -29,6 +29,10 @@ func (g *gen) anyTypeLabel(c string) (string, bool) {
 		return "Bool", true
 	case "rt_string *":
 		return "String", true
+	case "xrt_text *":
+		return "Text", true
+	case "xrt_sb *":
+		return "StringBuilder", true
 	case "xn_Any *":
 		return "Any", true
 	}
@@ -56,7 +60,8 @@ func (s *scope) anyBoxC(x, lt string) (string, error) {
 		return "xn_box_str(" + x + ")", nil
 	}
 	if isClassPtr(lt) || s.g.isProtoC(lt) || s.g.isDataEnumC(lt) || s.g.isSingletonC(lt) ||
-		isHandlePtr(lt) || lt == "xrt_bytes_obj *" {
+		isHandlePtr(lt) || lt == "xrt_bytes_obj *" || lt == "xrt_text *" || lt == "xrt_sb *" ||
+		lt == "rt_string *" {
 		return "xn_box_obj((void *)(" + x + "))", nil
 	}
 	return "", fmt.Errorf("codegen：类型 %s 暂不支持装箱为 Any/Object（S3 §3）", lt)

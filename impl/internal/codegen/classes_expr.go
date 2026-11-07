@@ -34,10 +34,11 @@ func (g *gen) isGCRootC(c string) bool {
 	if c == "" {
 		return false
 	}
-	if g.isAnyC(c) || g.isProtoC(c) || isContainerC(c) || g.isDataEnumC(c) {
+	// S3-04：String/Bytes/Text/SB 为 GC 对象；容器/数据枚举/类按判定。
+	if g.isAnyC(c) || g.isProtoC(c) || isContainerC(c) {
 		return true
 	}
-	return isClassPtr(c) && g.classIsGC(c)
+	return g.isGCTypeC(c)
 }
 
 // classIsStack 判断类引用 C 类型是否按逃逸分类可栈分配（S3-03：Escape=none）。
@@ -69,6 +70,11 @@ func (g *gen) classIsStack(c string) bool {
 
 // isGCTypeC 判断类/数据枚举/单例 C 类型是否 GC 管理（BND-10b）。
 func (g *gen) isGCTypeC(c string) bool {
+	// S3-04 / ADR-007：String/Text/Bytes/SB 全部 GC 化。
+	switch c {
+	case "rt_string *", "xrt_bytes_obj *", "xrt_text *", "xrt_sb *":
+		return true
+	}
 	if g.classIsGC(c) {
 		return true
 	}
@@ -288,8 +294,27 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 			return "", "", fmt.Errorf("codegen：类 %s 没有字段 %s（成员链）", ci.decl.Name, n.Name)
 		}
 		return base + "->" + f.cname, f.ctype, nil
+	case *xfront.Call:
+		// 调用结果作成员接收者（S3-EXPR）：如 xs.get(0).x。
+		t, err := s.exprType(n)
+		if err != nil {
+			return "", "", err
+		}
+		if !isClassPtr(t) {
+			return "", "", fmt.Errorf("codegen：成员接收者调用返回 %s，不是类引用（S3-EXPR）", t)
+		}
+		expr, owns, err := s.classCallExpr(n)
+		if err != nil {
+			return "", "", err
+		}
+		tmp := s.tmp()
+		s.pending = append(s.pending, t+" "+tmp+" = "+expr+";")
+		if owns && !s.g.classIsGC(t) {
+			s.defers = append(s.defers, deferItem{name: tmp, lines: []string{"rt_release(" + tmp + ");"}})
+		}
+		return tmp, t, nil
 	}
-	return "", "", fmt.Errorf("codegen：类成员接收者 %T 未支持（M5.1-b 范围：局部变量/self/字段链）", e)
+	return "", "", fmt.Errorf("codegen：类成员接收者 %T 未支持（M5.1-b 范围：局部变量/self/字段链/调用）", e)
 }
 
 // emitNewClass 生成 new 表达式。
@@ -470,6 +495,31 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 	dst := recvName + "->" + f.cname
 	if strings.HasPrefix(f.ctype, "xn_opt_") {
 		lines, v, err := s.optExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, dst+" = "+v+";"), nil
+	}
+	// Result 内联值字段赋值（Ok/Err/变量复制）。
+	if strings.HasPrefix(f.ctype, "xn_Result_") {
+		v, err := s.resultExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, dst+" = "+v+";"), nil
+	}
+	// S3-04：Text/StringBuilder 字段是 GC 引用，赋值不计数。
+	if f.ctype == "xrt_text *" || f.ctype == "xrt_sb *" {
+		var lines []string
+		var v string
+		var err error
+		if f.ctype == "xrt_text *" {
+			lines, v, err = s.textExpr(val)
+		} else {
+			lines, v, err = s.sbExpr(val)
+		}
 		if err != nil {
 			return nil, err
 		}

@@ -134,7 +134,7 @@ func (s *scope) arrayLit(n *xfront.ArrayLit, wantC string) ([]string, string, er
 			return nil, "", err
 		}
 		out = append(out, lines...)
-		if isRef(elem) && !s.g.classIsGC(elem) {
+		if isRef(elem) && !s.g.isGCTypeC(elem) {
 			// 引用元素：push 内部 retain；字面量/构造产物 +1 需在入容器后释放
 			//（Ident/Member 是借用，不释放）。
 			switch el.(type) {
@@ -360,7 +360,7 @@ func (s *scope) containerMemberStmt(recvC string, recvName string, name string, 
 			}
 			t := s.tmp()
 			out := []string{fmt.Sprintf("%s %s = %s_remove(%s, %s);", elem, t, recvC, acc, i)}
-			if isRef(elem) {
+			if isRef(elem) && !s.g.isGCTypeC(elem) {
 				out = append(out, "rt_release("+t+");")
 			}
 			return out, true, nil
@@ -595,107 +595,4 @@ func (s *scope) emitIndexAssign(idx *xfront.Index, val xfront.Expr) ([]string, e
 		return nil, err
 	}
 	return append(lines, fmt.Sprintf("%s_set(%s, %s, %s);", contBase(c), s.cRef(id.Name), i, v)), nil
-}
-
-// textExpr 生成 Text 值表达式（S3-04：GC 对象）。
-func (s *scope) textExpr(e xfront.Expr) ([]string, string, error) {
-	switch n := e.(type) {
-	case *xfront.IdentExpr:
-		return nil, s.cRef(n.Name), nil
-	case *xfront.Paren:
-		return s.textExpr(n.X)
-	case *xfront.Call:
-		mem, ok := n.Callee.(*xfront.Member)
-		if !ok {
-			return nil, "", fmt.Errorf("codegen：Text 构造调用 %T 未支持（S3-04 范围）", n.Callee)
-		}
-		recv, ok := mem.X.(*xfront.IdentExpr)
-		if !ok || recv.Name != "Text" || mem.Name != "fromString" {
-			return nil, "", fmt.Errorf("codegen：Text 表达式成员 %s 未支持（S3-04 范围）", mem.Name)
-		}
-		sl, err := s.strExpr(n.Args[0])
-		if err != nil {
-			return nil, "", err
-		}
-		sv := lastVar(sl)
-		t := s.tmp()
-		out := append([]string{}, sl...)
-		out = append(out, "xrt_text *"+t+" = xrt_text_from_string("+sv+"->bytes, "+sv+"->len);")
-		return out, t, nil
-	}
-	return nil, "", fmt.Errorf("codegen：Text 表达式 %T 未支持（S3-04 范围）", e)
-}
-
-// sbExpr 生成 StringBuilder 值表达式（S3-04：GC 对象）。
-func (s *scope) sbExpr(e xfront.Expr) ([]string, string, error) {
-	switch n := e.(type) {
-	case *xfront.IdentExpr:
-		return nil, s.cRef(n.Name), nil
-	case *xfront.Paren:
-		return s.sbExpr(n.X)
-	case *xfront.Call:
-		id, ok := n.Callee.(*xfront.IdentExpr)
-		if !ok || id.Name != "StringBuilder" {
-			return nil, "", fmt.Errorf("codegen：StringBuilder 构造 %T 未支持（S3-04 范围）", n.Callee)
-		}
-		if len(n.Args) != 0 {
-			return nil, "", fmt.Errorf("codegen：StringBuilder() 不接受参数（S1 §9.7）")
-		}
-		t := s.tmp()
-		return []string{"xrt_sb *" + t + " = xrt_sb_new();"}, t, nil
-	}
-	return nil, "", fmt.Errorf("codegen：StringBuilder 表达式 %T 未支持（S3-04 范围）", e)
-}
-
-// textMemberValue 生成 Text 的 Int 返回值成员。
-func (s *scope) textMemberValue(recvName string, name string, args []xfront.Expr) (string, bool, error) {
-	switch name {
-	case "length":
-		return "((int64_t)xrt_text_length(" + recvName + "))", true, nil
-	case "codePointCount":
-		return "((int64_t)xrt_text_code_point_count(" + recvName + "))", true, nil
-	case "compareTo":
-		id, ok := args[0].(*xfront.IdentExpr)
-		if !ok {
-			return "", true, fmt.Errorf("codegen：Text.compareTo 实参仅支持变量（S1 §9.7）")
-		}
-		return "((int64_t)xrt_text_compare_to(" + recvName + ", " + s.cRef(id.Name) + "))", true, nil
-	}
-	return "", false, nil
-}
-
-// sbMemberValue 生成 StringBuilder 的 Int 返回值成员。
-func (s *scope) sbMemberValue(recvName string, name string, _ []xfront.Expr) (string, bool, error) {
-	if name == "length" {
-		return "((int64_t)xrt_sb_length(" + recvName + "))", true, nil
-	}
-	return "", false, nil
-}
-
-// sbMemberStmt 生成 StringBuilder 的语句成员（append）。
-func (s *scope) sbMemberStmt(recvName string, name string, args []xfront.Expr) ([]string, bool, error) {
-	if name != "append" {
-		return nil, false, nil
-	}
-	t, err := s.exprType(args[0])
-	if err != nil {
-		return nil, true, err
-	}
-	if t == "rt_string *" {
-		lines, err := s.strExpr(args[0])
-		if err != nil {
-			return nil, true, err
-		}
-		sv := lastVar(lines)
-		out := append([]string{}, lines...)
-		out = append(out, "xrt_sb_append_str("+recvName+", "+sv+"->bytes, "+sv+"->len);")
-		return out, true, nil
-	}
-	v, err := s.intExpr(args[0])
-	if err != nil {
-		return nil, true, err
-	}
-	out := append([]string{}, s.pending...)
-	s.pending = nil
-	return append(out, "xrt_sb_append_int("+recvName+", "+v+");"), true, nil
 }

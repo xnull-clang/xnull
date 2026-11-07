@@ -208,6 +208,10 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					return "xrt_text *", nil
 				}
 			}
+			// S3-04：Text.fromString / StringBuilder() 构造。
+			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 && recv.Name == "Text" && mem.Name == "fromString" {
+				return "xrt_text *", nil
+			}
 			recvC, err := s.exprType(mem.X)
 			if err != nil {
 				return "", err
@@ -301,6 +305,24 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					return "rt_string *", nil
 				case "append":
 					return "void", nil
+				}
+			}
+			if recvC == "xrt_text *" {
+				switch mem.Name {
+				case "length", "codePointCount", "compareTo":
+					return "int64_t", nil
+				case "toString":
+					return "rt_string *", nil
+				}
+			}
+			if recvC == "xrt_sb *" {
+				switch mem.Name {
+				case "length":
+					return "int64_t", nil
+				case "toString":
+					return "rt_string *", nil
+				case "append":
+					return "xrt_sb *", nil
 				}
 			}
 			switch mem.Name {
