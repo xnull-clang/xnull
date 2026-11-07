@@ -92,8 +92,22 @@ func (p *parser) err(pos Pos, code, msg, hint string) {
 }
 
 // expectKind 消费期望类别的 token；否则报错并返回占位 token（不推进）。
+// checkIdentToken 拒绝保留名与字面量名作标识符（S1 §1.3）。
+func (p *parser) checkIdentToken(t Token) {
+	if t.Kind != Ident {
+		return
+	}
+	if _, reserved := Reserved[t.Text]; reserved {
+		p.err(t.Pos, synExpect, "`"+t.Text+"` 是保留名，不能作为标识符（§1.3）", "换一个标识符")
+	}
+}
+
 func (p *parser) expectKind(kind Kind, what string) Token {
 	if p.at(kind) {
+		t := p.cur()
+		if kind == Ident {
+			p.checkIdentToken(t)
+		}
 		return p.next()
 	}
 	t := p.cur()
@@ -884,6 +898,7 @@ func (p *parser) tryTupleTypeDecl() (Stmt, bool) {
 		p.rollback(save, errLen)
 		return nil, false
 	}
+	p.checkIdentToken(p.cur())
 	name := p.next().Text
 	if !p.atOp("=") {
 		p.rollback(save, errLen)
@@ -923,6 +938,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 		if !p.at(Ident) {
 			return nil
 		}
+		p.checkIdentToken(p.cur())
 		s.Name = p.next().Text
 		if !p.atOp("=") {
 			return nil // var 必须有初始化式（文法强制）
@@ -940,6 +956,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 			if !p.at(Ident) {
 				return nil
 			}
+			p.checkIdentToken(p.cur())
 			s.Name = p.next().Text
 			if !p.atOp("=") {
 				return nil
@@ -963,6 +980,7 @@ func (p *parser) parseLocalDeclHead() Stmt {
 	if !p.at(Ident) {
 		return nil
 	}
+	p.checkIdentToken(p.cur())
 	s.Name = p.next().Text
 	if p.atOp("=") {
 		p.i++
