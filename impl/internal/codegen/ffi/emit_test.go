@@ -1,7 +1,6 @@
 package ffi
 
 import (
-	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -306,7 +305,8 @@ func TestEmitSupportReportsUnsupported(t *testing.T) {
 	}
 }
 
-func TestTrampolineReserved(t *testing.T) {
+// S3-07：trampoline 生成 env 生命周期 + 根登记（S7 §5.1/§5.2），不再预留。
+func TestTrampolineGenerated(t *testing.T) {
 	root := t.TempDir()
 	writeXfb(t, root, "bindings/native.xfb", nativeXfb)
 	reg, diags, err := Load(root)
@@ -314,11 +314,16 @@ func TestTrampolineReserved(t *testing.T) {
 		t.Fatalf("Load 失败：%v %v", err, codeList(diags))
 	}
 	sn, err := reg.EmitTrampoline("ffiConnRead")
-	if err == nil || !errors.Is(err, ErrTrampolineReserved) {
-		t.Fatalf("trampoline 应显式预留（不硬做）：%v", err)
+	if err != nil {
+		t.Fatalf("trampoline 应可生成：%v", err)
 	}
-	if sn.Text != "" {
-		t.Fatalf("预留形态不得产出代码")
+	for _, sym := range []string{
+		"xrt_callback_env_new", "xrt_callback_env_invoke", "xrt_callback_env_destroy",
+		"xn_tramp_ffiConnRead_new", "int32_t xn_tramp_ffiConnRead(",
+	} {
+		if !strings.Contains(sn.Text, sym) {
+			t.Fatalf("trampoline 缺少 %q：\n%s", sym, sn.Text)
+		}
 	}
 	if _, err := reg.EmitTrampoline("nope"); err == nil {
 		t.Fatalf("未声明入口应返回错误")

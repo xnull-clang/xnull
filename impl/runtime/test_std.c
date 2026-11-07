@@ -305,6 +305,53 @@ static void test_bytes_file_io(void) {
     xrt_release(b);
 }
 
+/* S3-07：trampoline env 生命周期（创建登记根 → 调用 → 销毁注销 → 调用终止）。 */
+static int32_t g_cb_calls = 0;
+
+static int32_t test_callback(void *closure, const void *args, size_t nargs, void *result) {
+    g_cb_calls++;
+    (void)closure;
+    (void)args;
+    (void)nargs;
+    if (result != NULL) {
+        *(int32_t *)result = 42;
+    }
+    return 7;
+}
+
+static void test_callback_env(void) {
+    int marker = 0;
+    xrt_callback_env *env = xrt_callback_env_new(&marker, test_callback);
+    CHECK(env != NULL);
+    CHECK(xrt_callback_env_alive(env) == 1);
+    CHECK(xrt_callback_env_closure(env) == &marker);
+
+    int32_t out = 0;
+    CHECK(xrt_callback_env_invoke(env, NULL, 0, &out) == 7);
+    CHECK(out == 42);
+    CHECK(g_cb_calls == 1);
+
+    xrt_callback_env_destroy(env);
+    CHECK(xrt_callback_env_alive(env) == 0);
+    xrt_callback_env_destroy(env); /* 幂等 */
+    CHECK(xrt_callback_env_alive(env) == 0);
+
+    /* 已注销 env 再调用必须终止进程（S7 §5.2） */
+    pid_t pid = fork();
+    if (pid == 0) {
+        FILE *null = freopen("/dev/null", "w", stderr);
+        (void)null;
+        (void)xrt_callback_env_invoke(env, NULL, 0, NULL);
+        _exit(0);
+    }
+    int st = 0;
+    CHECK(pid > 0);
+    if (pid > 0) {
+        CHECK(waitpid(pid, &st, 0) == pid);
+        CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    }
+}
+
 static void test_files(void) {
     char path[] = "/tmp/xnull_std_fileXXXXXX";
     int fd = mkstemp(path);
@@ -407,6 +454,7 @@ int main(void) {
     test_bytes();
     test_bytes_bounds();
     test_bytes_file_io();
+    test_callback_env();
     test_files();
     test_dirs_procs();
     test_regex_fmt();

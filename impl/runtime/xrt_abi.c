@@ -182,3 +182,64 @@ int xrt_handle_is_closed(const xrt_handle *h) {
 }
 
 void xrt_fatal(const char *reason) { rt_fatal(reason); }
+
+/* ---- 回调环境 / trampoline（S7 §5.1/§5.2） ---- */
+
+typedef struct {
+    void            *closure;
+    xrt_callback_fn  fn;
+    int              destroyed;
+} callback_payload;
+
+static void callback_scan(void *obj, void (*visit)(void *)) {
+    (void)obj;
+    (void)visit; /* 闭包引用由绑定层管理；env 只承载生命周期与根登记 */
+}
+
+static const rt_type RT_TYPE_CALLBACK_ENV = {
+    "xrt_callback_env", sizeof(callback_payload), NULL, callback_scan
+};
+
+static callback_payload *callback_of(xrt_callback_env *env) {
+    return env == NULL ? NULL : rt_payload((rt_object *)env);
+}
+
+xrt_callback_env *xrt_callback_env_new(void *closure, xrt_callback_fn fn) {
+    rt_object *o = rt_gc_new(&RT_TYPE_CALLBACK_ENV);
+    callback_payload *p = rt_payload(o);
+    p->closure = closure;
+    p->fn = fn;
+    p->destroyed = 0;
+    rt_gc_root_add(o); /* S7 §5.2：env 在存活期间是运行时根 */
+    return (xrt_callback_env *)o;
+}
+
+int32_t xrt_callback_env_invoke(xrt_callback_env *env, const void *args, size_t nargs, void *result) {
+    callback_payload *p = callback_of(env);
+    if (p == NULL || p->destroyed) {
+        rt_fatal("trampoline：已注销的 env 被调用（S7 §5.2 合同违规）");
+    }
+    if (p->fn == NULL) {
+        rt_fatal("trampoline：env 缺少回调目标（S7 §5.1）");
+    }
+    return p->fn(p->closure, args, nargs, result);
+}
+
+void xrt_callback_env_destroy(xrt_callback_env *env) {
+    callback_payload *p = callback_of(env);
+    if (p == NULL || p->destroyed) {
+        return; /* 幂等 */
+    }
+    p->destroyed = 1;
+    rt_gc_root_remove(env); /* S7 §5.2：销毁即注销根 */
+}
+
+int xrt_callback_env_alive(const xrt_callback_env *env) {
+    const callback_payload *p = env == NULL ? NULL : (const void *)((const char *)env + sizeof(rt_header));
+    return p != NULL && !p->destroyed;
+}
+
+void *xrt_callback_env_closure(const xrt_callback_env *env) {
+    const callback_payload *p = env == NULL ? NULL : (const void *)((const char *)env + sizeof(rt_header));
+    return p == NULL ? NULL : p->closure;
+}

@@ -1,7 +1,6 @@
 package ffi
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -171,21 +170,33 @@ func LinkArgs(libs []LinkLib) []string {
 	return out
 }
 
-// ErrTrampolineReserved 表示回调（trampoline）形态仅做接口预留。
-var ErrTrampolineReserved = errors.New("ffi: 回调（trampoline）形态预留中——回调根登记需要调度器的栈 pin 语义（S7 §5.1），随调度器切片落地")
-
-// EmitTrampoline 为"原生回调 XNull"的注册入口生成跳板。
+// EmitTrampoline 为"原生回调 XNull"生成跳板（S3-07 / S7 §5.1/§5.2）。
 //
-// 接口预留（M4.5c 收尾决议，2026-11-06）：最小跳板形态为
-// 注册函数（fn 指针 + 用户数据指针）+ 回调进入时重入 XNull 调用，
-// 依赖两件尚未落地的事：①调度器的回调期栈 pin/根登记语义；
-// ②P-09 之后的 codegen 回调调用点钩子。两者就绪前显式拒绝，
-// 不硬做（S7 §5.1 合同优先于实现速度）。
+// 生成面（目标 ABI 由绑定层以 xrt_callback_fn 提供，env 生命周期由运行时承担）：
+//
+//	xn_tramp_<entry>_new(closure, fn)   → xrt_callback_env_new（登记根）
+//	xn_tramp_<entry>_destroy(env)       → xrt_callback_env_destroy（注销根，幂等）
+//	xn_tramp_<entry>(env, args, n, res) → xrt_callback_env_invoke
+//
+// 已注销 env 再调用由运行时 xrt_fatal 终止（S7 §5.2）；回调内 panic 走
+// 既有 fatal 路径（S7 §5.3），不做任务级隔离。
 func (r *Registry) EmitTrampoline(entry string) (Snippet, error) {
 	if _, ok := r.Entry(entry); !ok {
 		return Snippet{}, fmt.Errorf("ffi: 未声明的入口 %s", entry)
 	}
-	return Snippet{}, ErrTrampolineReserved
+	name := "xn_tramp_" + entry
+	var b strings.Builder
+	b.WriteString("/* trampoline " + entry + "（S7 §5.1/§5.2：env 生命周期 + 根登记） */\n")
+	b.WriteString("static " + name + "_new(void *xn_closure, xrt_callback_fn xn_fn) {\n")
+	b.WriteString("    return xrt_callback_env_new(xn_closure, xn_fn);\n")
+	b.WriteString("}\n\n")
+	b.WriteString("static void " + name + "_destroy(xrt_callback_env *xn_env) {\n")
+	b.WriteString("    xrt_callback_env_destroy(xn_env);\n")
+	b.WriteString("}\n\n")
+	b.WriteString("static int32_t " + name + "(void *xn_env, const void *xn_args, size_t xn_argc, void *xn_result) {\n")
+	b.WriteString("    return xrt_callback_env_invoke((xrt_callback_env *)xn_env, xn_args, xn_argc, xn_result);\n")
+	b.WriteString("}\n")
+	return Snippet{Text: b.String(), Includes: []string{"xrt.h"}}, nil
 }
 
 // BlockingRow 是逐入口阻塞分类清单的一行（FFI-07 机械核验面）。

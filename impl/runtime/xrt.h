@@ -132,6 +132,23 @@ int         xrt_handle_close(xrt_handle *h);  /* 幂等；返回 0 表示已关�
 void        xrt_handle_mark_closed(xrt_handle *h); /* 已经原生 close 的语义登记：不再触达 close_fn */
 int         xrt_handle_is_closed(const xrt_handle *h);
 
+/* ---- 回调环境 / trampoline（S7 §5.1/§5.2） ----
+ *
+ * 合同：
+ *   - env 是运行时根：创建即登记，销毁即注销（S7 §5.2）；
+ *   - 销毁后原生再调用 → xrt_fatal（原生侧合同违规，不静默）；
+ *   - 目标 ABI 由绑定层以 xrt_callback_fn 提供（闭包调用约定由生成方负责）；
+ *   - env 为 GC 对象；闭包引用生命周期由绑定层管理（env 只存裸指针）。
+ */
+typedef int32_t (*xrt_callback_fn)(void *closure, const void *args, size_t nargs, void *result);
+typedef struct xrt_callback_env xrt_callback_env;
+
+xrt_callback_env *xrt_callback_env_new(void *closure, xrt_callback_fn fn);
+int32_t xrt_callback_env_invoke(xrt_callback_env *env, const void *args, size_t nargs, void *result);
+void    xrt_callback_env_destroy(xrt_callback_env *env); /* 幂等；注销根 */
+int     xrt_callback_env_alive(const xrt_callback_env *env);
+void   *xrt_callback_env_closure(const xrt_callback_env *env);
+
 /* ---- 跨界违约终止（S7 §9 INV-FFI-8：跨界 panic 一律终止进程） ---- */
 
 void xrt_fatal(const char *reason);

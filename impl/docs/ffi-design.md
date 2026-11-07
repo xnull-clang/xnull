@@ -236,6 +236,6 @@ S7 §6.1 + 附录 B 冻结 `xrt_*` 前缀为 ABI 承诺；现有运行时内部�
 
 1. `Bytes` 的 `.transfer/.reclaim` 需绑定层分配器合同（**显式归属：随资源/调度器切片**）；
 2. `layout(c)` 以镜像 + 尺寸核对函数提供，不做逐字段偏移断言（需原生头）；
-3. 回调（trampoline）**接口预留**：`EmitTrampoline` 显式 `ErrTrampolineReserved`——依赖调度器栈 pin/根登记与 P-09 后续回调钩子，两者就绪前不硬做；
+3. 回调（trampoline）**已落地**（S3-07）：`EmitTrampoline` 生成 env 生命周期 + 调用跳板；运行时 `xrt_callback_env_*` 负责根登记/注销与注销后调用终止；目标 ABI 由绑定层 `xrt_callback_fn` 提供；
 4. 与 `xnull build` 的端到端接线按 P-09/P-10 评审条件执行（跨包重名已由 FFI-111 覆盖、LinkArgs 已去重升序；import 闭包与同批切换属编译器侧）。
 
