@@ -106,6 +106,14 @@ static env_entry *env_slot(const char *name, size_t len) {
     return e;
 }
 
+const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
+
+/* S6-02 绑定入口：返回 NUL 结尾快照值；缺失返回 NULL（XNull 侧映射 String?）。 */
+const char *xdkc_env_lookup(const char *name, size_t len) {
+    size_t ignored = 0;
+    return xdkc_env_get(name, len, &ignored);
+}
+
 const char *xdkc_env_get(const char *name, size_t len, size_t *out_len) {
     if (name == NULL || out_len == NULL) {
         xrt_fatal("env：参数为空（S6 §4.4）");

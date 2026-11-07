@@ -21,7 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 #include <stdatomic.h>
+#include <stdio.h>
 
 /* ---- 上下文 ---- */
 
@@ -187,6 +189,9 @@ static pthread_cond_t  g_qcv = PTHREAD_COND_INITIALIZER;
 static struct xrt_task *g_qhead = NULL;
 static struct xrt_task *g_qtail = NULL;
 static pthread_once_t  g_worker_once = PTHREAD_ONCE_INIT;
+static atomic_int      g_live_tasks = 0;
+static atomic_int      g_spawned_tasks = 0;
+static atomic_int      g_settled_tasks = 0;
 
 static void *worker_main(void *arg) {
     (void)arg;
@@ -222,6 +227,10 @@ static void *worker_main(void *arg) {
         pthread_mutex_lock(&g->mu);
         t->result = r;
         t->state = 2;
+        atomic_fetch_add(&g_settled_tasks, 1);
+        if (atomic_load(&g_live_tasks) > 0) {
+            atomic_fetch_sub(&g_live_tasks, 1);
+        }
         if (g->active > 0) {
             g->active--;
         }
@@ -298,6 +307,8 @@ int32_t xrt_task_group_spawn(xrt_task_group *grp, xrt_task_body body, void *env,
     memset(&t->result, 0, sizeof(t->result));
     t->next = NULL;
     g->active++;
+    atomic_fetch_add(&g_live_tasks, 1);
+    atomic_fetch_add(&g_spawned_tasks, 1);
     g->tasks[g->ntasks++] = (xrt_task *)o; /* 组持有 +1 */
     pthread_mutex_unlock(&g->mu);
 
@@ -418,4 +429,19 @@ int32_t xrt_task_join_deadline(xrt_task *task, int64_t deadline_mono_ms, xrt_tas
     t->joined = 1;
     pthread_mutex_unlock(&g->mu);
     return 0;
+}
+
+/* S6 §4.4 / S6-02：任务转储（实现侧诊断，输出格式非承诺）。
+ * 无堆分配：固定栈缓冲 + write(2)。 */
+void xdkc_dump_tasks(void) {
+    char buf[160];
+    int n = snprintf(buf, sizeof(buf),
+                     "xrt tasks: live=%d spawned=%d settled=%d carrier=1\n",
+                     atomic_load(&g_live_tasks), atomic_load(&g_spawned_tasks),
+                     atomic_load(&g_settled_tasks));
+    if (n > 0) {
+        size_t len = (size_t)n < sizeof(buf) ? (size_t)n : sizeof(buf) - 1;
+        ssize_t w = write(2, buf, len);
+        (void)w;
+    }
 }

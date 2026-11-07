@@ -353,6 +353,45 @@ static void test_callback_env(void) {
     }
 }
 
+/* S6-02：xdk.runtime env 入口 + exit 不执行 defer/atexit（S1 §10.3）。 */
+const char *xdkc_env_lookup(const char *name, size_t len);
+
+static int g_atexit_fd = -1;
+
+static void atexit_marker(void) {
+    if (g_atexit_fd >= 0) {
+        ssize_t w = write(g_atexit_fd, "x", 1);
+        (void)w;
+    }
+}
+
+static void test_runtime_env_exit(void) {
+    CHECK(setenv("XNULL_S602_ENV", "abc", 1) == 0);
+    const char *v = xdkc_env_lookup("XNULL_S602_ENV", sizeof("XNULL_S602_ENV") - 1);
+    CHECK(v != NULL && strcmp(v, "abc") == 0);
+    CHECK(xdkc_env_lookup("XNULL_S602_MISSING", sizeof("XNULL_S602_MISSING") - 1) == NULL);
+
+    /* exit 不执行 atexit/defer；退出码透传 */
+    int fds[2];
+    CHECK(pipe(fds) == 0);
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(fds[0]);
+        g_atexit_fd = fds[1];
+        atexit(atexit_marker);
+        xdkc_exit(7);
+        _exit(0);
+    }
+    close(fds[1]);
+    char buf[8];
+    ssize_t n = read(fds[0], buf, sizeof(buf));
+    close(fds[0]);
+    int st = 0;
+    CHECK(pid > 0 && waitpid(pid, &st, 0) == pid);
+    CHECK(WIFEXITED(st) && WEXITSTATUS(st) == 7);
+    CHECK(n == 0); /* atexit 未执行 */
+}
+
 /* S4 §9：诊断通道合同——无堆分配、单行、无附加敏感信息；ErrorKind 骨架。 */
 static ssize_t read_all(int fd, char *buf, size_t cap) {
     size_t off = 0;
@@ -619,6 +658,7 @@ int main(void) {
     test_s304_gc_types();
     test_diagnose_contract();
     test_fatal_contract();
+    test_runtime_env_exit();
     test_error_kind_skeleton();
     test_stats();
     test_files();
