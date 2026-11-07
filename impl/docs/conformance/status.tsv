@@ -19,7 +19,7 @@ STRUCT-01	internal/interp/struct_test.go + internal/codegen/s2_object_test.go + 
 PROTO-01	internal/sema/s2_proto_test.go + internal/codegen/s2_proto_test.go + 收件箱/回执箱/验收-S2-PROTO-01.md	PASS
 ENUM-01	internal/sema/s2_enum_test.go + 收件箱/回执箱/验收-S2-ENUM-01.md	PASS
 INT-01	—	未实现
-ANN-01	—	未实现
+ANN-01	internal/sema/s2_ann_test.go + 收件箱/回执箱/验收-S2-ANN-01.md	PASS
 FIELD-01	internal/sema/typedecl_test.go	PASS
 KIND-01	—	未实现
 BLOCK-01	—	未实现
@@ -49,3 +49,5 @@ BND-08	internal/sema/s2_factory_test.go + internal/codegen/s2_factory_test.go + 
 BND-09	internal/sema/s2_bnd09_test.go + 收件箱/回执箱/验收-S2-BND-09.md	PASS
 BND-14	Tests/s2_neg_diag_test.go + 收件箱/回执箱/验收-S2-BND-14.md	PASS
 BND-15	Tests/s2_integration_test.go + 收件箱/回执箱/验收-S2-BND-15.md	PASS
+BND-13	internal/sema/s2_ext_test.go + internal/interp/ext_test.go + 收件箱/回执箱/验收-S2-BND-13.md	PASS
+EXT-01	internal/sema/s2_ext_test.go + internal/codegen/s2_ext_test.go + 收件箱/回执箱/验收-S2-EXT-01.md	PASS
