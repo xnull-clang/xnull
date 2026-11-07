@@ -1478,6 +1478,15 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			return texpr{key: "StringBuilder"}
 		}
 	}
+	// xdk.errors 顶层函数：wrap/mapErr/report（S4 §2.3）。
+	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+		if _, user := e.funcs[id.Name]; !user && e.a.imported[id.Name] {
+			switch id.Name {
+			case "wrap", "mapErr", "report":
+				return e.inferXdkErrors(n, id.Name)
+			}
+		}
+	}
 	// 方法调用：recv.method(args)
 	if mem, ok := n.Callee.(*xfront.Member); ok {
 		rt := e.infer(mem.X)
