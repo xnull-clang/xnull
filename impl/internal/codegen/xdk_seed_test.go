@@ -28,9 +28,9 @@ func TestXdkSeedUnitCompiles(t *testing.T) {
 	if sd := sema.Analyze(path, u); len(sd) > 0 {
 		t.Fatalf("语义诊断：%v", sd)
 	}
-	// S6-05 起 text.x 是完整公开面（Format/parse/UTF/Regex），不再含早期种子
-	// xn_repeatText/xn_repeatJoined。编译面依赖 Char/Double/Error 协议等 codegen
-	// 能力（E4 XDK-08 待补）；此处只核验单元自身可解析/语义通过。
+	// S6-05 起 text.x 是完整公开面（Format/parse/UTF/Regex），旧种子
+	// xn_repeatText/xn_repeatJoined 已移除；编译面依赖 Char/Double/Error 协议等
+	// codegen 能力（E4 XDK-08 待补），此处核验可解析/语义通过，发射受限则跳过。
 	if _, err := EmitC(u); err != nil {
 		t.Skipf("text.x 编译面未完成（E4 XDK-08）：%v", err)
 	}

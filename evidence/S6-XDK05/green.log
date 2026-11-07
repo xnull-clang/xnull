@@ -1,3 +1,4 @@
+# HEAD (E3 interp)
 === RUN   TestS6SyncPrimitives
 === RUN   TestS6SyncPrimitives/Channel
 === RUN   TestS6SyncPrimitives/AtomicIntAndBool
@@ -9,3 +10,8 @@
 PASS
 ok  	xnull.dev/xnull/internal/interp	0.955s
 exit=0
+# 189b532 (E4 codegen)
+=== RUN   TestXDK05CompiledE2E
+--- PASS: TestXDK05CompiledE2E (3.41s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	4.096s
