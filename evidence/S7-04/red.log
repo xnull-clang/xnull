@@ -1,0 +1,16 @@
+--- FAIL: TestS704UnsafeGateEnabled (1.24s)
+    s704_test.go:77: 启用 link.unsafe 后必须记录构建日志（S8 §7）：""
+--- FAIL: TestS704UnsafeGateRejectsDefault (12.07s)
+    --- FAIL: TestS704UnsafeGateRejectsDefault/无工程清单 (1.58s)
+        s704_test.go:98: 未开启 link.unsafe 时构建必须失败：
+    --- FAIL: TestS704UnsafeGateRejectsDefault/link.unsafe=false (1.93s)
+        s704_test.go:98: 未开启 link.unsafe 时构建必须失败：
+    --- FAIL: TestS704UnsafeGateRejectsDefault/缺省_unsafe (2.88s)
+        s704_test.go:98: 未开启 link.unsafe 时构建必须失败：
+    --- FAIL: TestS704UnsafeGateRejectsDefault/非法值 (2.27s)
+        s704_test.go:98: 未开启 link.unsafe 时构建必须失败：
+    --- FAIL: TestS704UnsafeGateRejectsDefault/重复字段 (3.41s)
+        s704_test.go:98: 未开启 link.unsafe 时构建必须失败：
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	17.041s
+FAIL
