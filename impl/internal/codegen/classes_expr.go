@@ -294,8 +294,27 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 			return "", "", fmt.Errorf("codegen：类 %s 没有字段 %s（成员链）", ci.decl.Name, n.Name)
 		}
 		return base + "->" + f.cname, f.ctype, nil
+	case *xfront.Call:
+		// 调用结果作成员接收者（S3-EXPR）：如 xs.get(0).x。
+		t, err := s.exprType(n)
+		if err != nil {
+			return "", "", err
+		}
+		if !isClassPtr(t) {
+			return "", "", fmt.Errorf("codegen：成员接收者调用返回 %s，不是类引用（S3-EXPR）", t)
+		}
+		expr, owns, err := s.classCallExpr(n)
+		if err != nil {
+			return "", "", err
+		}
+		tmp := s.tmp()
+		s.pending = append(s.pending, t+" "+tmp+" = "+expr+";")
+		if owns && !s.g.classIsGC(t) {
+			s.defers = append(s.defers, deferItem{name: tmp, lines: []string{"rt_release(" + tmp + ");"}})
+		}
+		return tmp, t, nil
 	}
-	return "", "", fmt.Errorf("codegen：类成员接收者 %T 未支持（M5.1-b 范围：局部变量/self/字段链）", e)
+	return "", "", fmt.Errorf("codegen：类成员接收者 %T 未支持（M5.1-b 范围：局部变量/self/字段链/调用）", e)
 }
 
 // emitNewClass 生成 new 表达式。

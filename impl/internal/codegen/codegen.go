@@ -4110,6 +4110,16 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil && isContainerC(rc) {
+				base := contBase(rc)
+				if k, _ := mapTypes(base); k != "" && mem.Name == "get" && len(n.Args) == 1 {
+					// S3-EXPR：Map.get 返回 V?；标量参与算术/比较时取 .v（存在键）。
+					kk, kl, err := s.elemValue(n.Args[0], k)
+					if err != nil {
+						return "", err
+					}
+					s.pending = append(s.pending, kl...)
+					return "(" + base + "_get(" + rn + ", " + kk + ").v)", nil
+				}
 				if v, hit, err := s.containerMemberValue(rc, rn, mem.Name, n.Args); err != nil {
 					return "", err
 				} else if hit {
@@ -4275,7 +4285,16 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				}
 				continue
 			}
-			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用（M5.1-b 范围）")
+			// S3-EXPR：成员表达式作实参（take(h.v)）：字段归持有者，按借用直传。
+			if _, ok := a.(*xfront.Member); ok {
+				v, err := s.intExpr(a)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, v)
+				continue
+			}
+			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用/字段（M5.1-b/S3-EXPR 范围）")
 		case s.g.isTupleC(t):
 			lines, v, err := s.tupleExpr(a, t)
 			if err != nil {
