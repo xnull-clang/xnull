@@ -1,0 +1,6 @@
+$ xnull run core.x
+s6 runtime
+true
+true
+true
+EXIT=0

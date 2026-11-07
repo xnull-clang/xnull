@@ -1,0 +1,15 @@
+=== RUN   TestS6_02RuntimeSurface
+    s6_02_test.go:24: 语义诊断：[t.x:12:5: error[TY-229]: XDK API `dumpTasks` 尚未支持（S6-01）
+          该入口未实现或签名未冻结；见 S6 盘点卡]
+--- FAIL: TestS6_02RuntimeSurface (0.00s)
+=== RUN   TestS6_02ExitSkipsDefer
+--- PASS: TestS6_02ExitSkipsDefer (2.01s)
+=== RUN   TestS6_02DumpTasksCounts
+    s6_02_test.go:94: 语义诊断：[t.x:9:5: error[TY-229]: XDK API `dumpTasks` 尚未支持（S6-01）
+          该入口未实现或签名未冻结；见 S6 盘点卡 t.x:12:5: error[TY-229]: XDK API `dumpTasks` 尚未支持（S6-01）
+          该入口未实现或签名未冻结；见 S6 盘点卡]
+--- FAIL: TestS6_02DumpTasksCounts (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	2.801s
+FAIL
+GOTEST=1

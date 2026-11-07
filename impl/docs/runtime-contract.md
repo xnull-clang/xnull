@@ -20,6 +20,12 @@
   `xdkc_dir_close_async` 在 Context 取消时仍等待关闭完成，并返回**真实 close 结果**
   （成功 0），不再返回 2；close 必达，取消不撤销已完成的关闭（避免句柄层未 mark_closed
   导致悬垂 native 指针）。read/write/open/dir 的取消仍为 code=2（可恢复，调用方决定报告）。
+- **候选期更正（S6-XDK06 runtime，2026-11-08）**：`dumpTasks` 改为直接调用运行时
+  `xdkc_dump_tasks`（调度器计数，单行 `tasks: live=… spawned=… settled=… carrier=…`），
+  删除生成侧 `xn_task_live` 计数；`rt_std_runtime.c` 的 `xdkc_exit` 在 `_Exit` 前
+  `fflush(NULL)`——不执行 defer/atexit，但不丢已产生的输出；新增 `rt_std_res_empty.c`
+  为 `xrt_resource_count/get/at` 提供弱兜底（Exit/手工 cc 测试不再缺资源符号，
+  强表覆盖弱定义）。解释器桥补齐 `nowMono/nowWall/env/dumpTasks/exit`（`exit` 跳过 defer）。
 - **候选期增补（S6-04 资源读取 XDK-10，2026-11-08）**：`rt_std_res.c` 实现 §4.8 五 API 的 C 面——
   `xdkc_resource_exists`、`xdkc_resource_size`（缺失/非法 → false/null）、
   `xdkc_read_resource`（`Bytes`）、`xdkc_read_resource_text`（`Text`，非法 UTF-8 → DataCorrupted）、

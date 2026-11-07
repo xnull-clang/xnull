@@ -92,6 +92,68 @@ func lookupXdkFuncSig(name string) (xdkFuncSig, bool) {
 	return sig, ok
 }
 
+// inferXdkCtor 处理 xdk.sync 内建类型的构造调用（S5 §7）：
+//
+//	Mutex<T>(value) / Channel<T>(capacity) / AtomicRef<T>(value)
+//	AtomicInt(initial) / AtomicBool(initial)
+//
+// 返回 (类型, true) 表示已处理；否则 (_, false) 交给普通调用路径。
+func (e *tyenv) inferXdkCtor(n *xfront.Call, name string) (texpr, bool) {
+	inferArgs := func() {
+		for _, a := range n.Args {
+			e.infer(a)
+		}
+	}
+	switch name {
+	case "Mutex", "Channel", "AtomicRef":
+		if len(n.TypeArgs) != 1 {
+			e.errf(n.P, GenTypeArgs,
+				"`"+name+"<T>` 构造需要 1 个类型实参（S5 §7）", "写 "+name+"<T>(...)")
+			inferArgs()
+			return texpr{}, true
+		}
+		tk := typeKey(n.TypeArgs[0])
+		if e.a.tc != nil {
+			e.a.tc.checkSyncTypeArg(name, tk, n.P)
+		}
+		want := tk
+		if name == "Channel" {
+			want = "Int" // 有界容量
+		}
+		if len(n.Args) != 1 {
+			e.errf(n.P, TyAssignability,
+				"`"+name+"<"+tk+">` 构造需要 1 个参数（S5 §7）", "")
+			inferArgs()
+			return texpr{key: name + "<" + tk + ">"}, true
+		}
+		got := e.infer(n.Args[0])
+		if !assignable(got, want) {
+			e.errf(n.Args[0].Pos(), assignDiag(got, want),
+				"`"+name+"<"+tk+">` 构造参数类型 "+describeKey(got)+" 不能赋给 "+want+"（S5 §7）", "")
+		}
+		return texpr{key: name + "<" + tk + ">"}, true
+	case "AtomicInt":
+		return e.inferXdkAtomicCtor(n, "Int", "AtomicInt", inferArgs), true
+	case "AtomicBool":
+		return e.inferXdkAtomicCtor(n, "Bool", "AtomicBool", inferArgs), true
+	}
+	return texpr{}, false
+}
+
+func (e *tyenv) inferXdkAtomicCtor(n *xfront.Call, want, ret string, inferArgs func()) texpr {
+	if len(n.Args) != 1 {
+		e.errf(n.P, TyAssignability, "`"+ret+"` 构造需要 1 个初始值（S5 §7）", "")
+		inferArgs()
+		return texpr{key: ret}
+	}
+	got := e.infer(n.Args[0])
+	if !assignable(got, want) {
+		e.errf(n.Args[0].Pos(), assignDiag(got, want),
+			"`"+ret+"` 初始值类型 "+describeKey(got)+" 不能赋给 "+want+"（S5 §7）", "")
+	}
+	return texpr{key: ret}
+}
+
 // xdkTypeBase 提取 XDK 类型基础名（去掉可空与泛型实参）。
 func xdkTypeBase(key string) string {
 	k := strings.TrimSuffix(key, "?")

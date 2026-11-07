@@ -62,3 +62,22 @@ func TestXdkCollectionsUnitSurface(t *testing.T) {
 		}
 	}
 }
+
+// S6-07：collections 容器的成员签名（isFull/isEmpty/push/pop 等）在 sema 可见。
+func TestXdkCollectionsMemberSignatures(t *testing.T) {
+	src := `import xdk.collections
+static Bool rb(RingBuffer<Int> r) { return r.isFull() || r.isEmpty() }
+static Int rb2(RingBuffer<Int> r) { r.push(1); return r.pop() ?? 0 }
+static Int om(OrderedMap<Int> m) { m.put(1, 2); return m.getOr(1, 0) }
+static Int bt(BTreeMap<Int> m) { m.put(1, 2); return m.getOr(1, 0) }
+static Int pq(PriorityQueue<Int> q) { q.push(1); return q.peek() ?? 0 }
+static Int main() { return 0 }
+`
+	u, pdiags := xfront.ParseUnit("t.x", src)
+	if len(pdiags) > 0 {
+		t.Fatalf("解析诊断：%v", pdiags)
+	}
+	if sd := sema.Analyze("t.x", u); len(sd) > 0 {
+		t.Fatalf("语义诊断（容器成员未登记）：%v", sd)
+	}
+}

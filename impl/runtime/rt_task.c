@@ -456,7 +456,7 @@ int32_t xrt_task_join_deadline(xrt_task *task, int64_t deadline_mono_ms, xrt_tas
 void xdkc_dump_tasks(void) {
     char buf[160];
     int n = snprintf(buf, sizeof(buf),
-                     "xrt tasks: live=%d spawned=%d settled=%d carrier=%d\n",
+                     "tasks: live=%d spawned=%d settled=%d carrier=%d\n",
                      atomic_load(&g_live_tasks), atomic_load(&g_spawned_tasks),
                      atomic_load(&g_settled_tasks), g_carrier_count);
     if (n > 0) {
