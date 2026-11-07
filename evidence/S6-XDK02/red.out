@@ -1,0 +1,14 @@
+# xnull.dev/xnull/internal/codegen [xnull.dev/xnull/internal/codegen.test]
+internal/codegen/xdk_contract_test.go:27:22: undefined: xdkCanonicalPackages
+internal/codegen/xdk_contract_test.go:34:22: undefined: xdkCanonicalPackages
+internal/codegen/xdk_contract_test.go:82:22: undefined: XDKContractViolation
+internal/codegen/xdk_contract_test.go:93:8: undefined: CheckXDKContracts
+internal/codegen/xdk_contract_test.go:101:11: undefined: CheckXDKContracts
+internal/codegen/xdk_contract_test.go:115:23: undefined: xdkCodeDeps
+internal/codegen/xdk_contract_test.go:135:23: undefined: xdkCodeCycle
+internal/codegen/xdk_contract_test.go:148:23: undefined: xdkCodeNaming
+internal/codegen/xdk_contract_test.go:159:23: undefined: xdkCodeStability
+internal/codegen/xdk_contract_test.go:171:23: undefined: xdkCodeImplicit
+internal/codegen/xdk_contract_test.go:171:23: too many errors
+FAIL	xnull.dev/xnull/internal/codegen [build failed]
+FAIL
