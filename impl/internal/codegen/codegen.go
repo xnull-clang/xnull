@@ -173,7 +173,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
-		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{}}
+		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
+		tuples: map[string]*tupleInfo{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -212,7 +213,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			switch ct {
 			case "int64_t", "int", "rt_string *":
 			default:
-				return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String）", f.Name, ct)
+				if !g.isTupleC(ct) {
+					return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String/元组）", f.Name, ct)
+				}
 			}
 			if _, dup := g.globals[f.Name]; dup {
 				return "", fmt.Errorf("codegen：顶层字段 %s 重复声明（§4.2）", f.Name)
@@ -341,6 +344,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	}
 	var b strings.Builder
 	b.WriteString(prelude)
+	// 元组结构体（S1 §2.11）：必须在容器/类/函数之前定义。
+	g.emitTupleTypes(&b)
 	// FFI 支撑代码（P-09）：包装函数 xn_ffi_<entry> 必须定义在调用点之前；
 	// 生成失败即构建失败，绝不静默降级（ffi-contract §5.1）。
 	if g.ffi != nil && !g.ffi.Empty() {
@@ -655,6 +660,17 @@ func (g *gen) genGlobalInit() (string, error) {
 			continue
 		}
 		target := "xn_g_" + f.Name
+		if g.isTupleC(g.globals[f.Name]) {
+			tc := g.globals[f.Name]
+			_, v, err := sc.tupleExpr(f.Init, tc)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, sc.pending...)
+			sc.pending = nil
+			lines = append(lines, target+" = "+v+";")
+			continue
+		}
 		if g.globals[f.Name] == "rt_string *" {
 			sl, err := sc.strExpr(f.Init)
 			if err != nil {
@@ -699,6 +715,8 @@ type gen struct {
 	fnNames        map[*xfront.TopFunc]string // 顶层函数声明 → C 名（main 重载需区分）
 	mainOverloads  map[int]string             // 非匹配 main 重载：参数个数 → C 名（§11.2）
 	entry          *entryInfo                 // 选中的入口（main 重载分派用）
+	tuples         map[string]*tupleInfo      // 元组 C 结构体名 → 定义（S1 §2.11）
+	tupleOrder     []string                   // 元组结构体登记顺序（内层先于外层）
 	tmp            int
 }
 
@@ -822,6 +840,8 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return optName(bc)
 		}
 		return "", fmt.Errorf("codegen：类型后缀 %v 未支持（M4.4a 范围）", n.Suffixes)
+	case *xfront.TupleTypeRef:
+		return g.tupleTypeFromElems(n.Elems)
 	case *xfront.NamedType:
 		switch typeName(n) {
 		case "Int":
@@ -1270,6 +1290,13 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s.g.isTupleC(t) {
+		lines, v, err := s.tupleStr(e, t)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, "xn_print_str("+v+");", "rt_release("+v+");"), nil
+	}
 	switch t {
 	case "xn_opt_i", "xn_opt_b", "xn_opt_s":
 		lines, v, err := s.optExpr(e, t)
@@ -1382,9 +1409,30 @@ func (s *scope) isStrShape(e xfront.Expr) bool {
 
 // emitLocalDecl 局部声明。
 func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
-	tc, err := s.g.cType(n.Type)
+	var tc string
+	var err error
+	if n.Type == nil {
+		// var 推断（S1 §5.1）：编译期按初始化式求 C 类型。
+		if n.Init == nil {
+			return nil, fmt.Errorf("codegen：var 声明缺少初始化式（sema 应拒绝）")
+		}
+		tc, err = s.exprType(n.Init)
+	} else {
+		tc, err = s.g.cType(n.Type)
+	}
 	if err != nil {
 		return nil, err
+	}
+	if s.g.isTupleC(tc) {
+		s.locals[n.Name] = tc
+		if n.Init == nil {
+			return []string{tc + " " + n.Name + " = (" + tc + "){0};"}, nil
+		}
+		lines, v, err := s.tupleExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	if strings.HasPrefix(tc, "xn_opt_") {
 		lines, v := []string{}, "("+tc+"){0, 0}"
@@ -1571,6 +1619,22 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	if n.Op != "=" {
 		return nil, fmt.Errorf("codegen：复合赋值 %s 未支持（M4.1 范围）", n.Op)
 	}
+	// 元组成员赋值（S1 §2.11）：`pair.0 = 2`，目标必须是可赋值元组。
+	if tm, ok := n.Target.(*xfront.TupleMember); ok {
+		lv, err := s.tupleLValue(tm)
+		if err != nil {
+			return nil, err
+		}
+		ec, err := s.exprType(tm)
+		if err != nil {
+			return nil, err
+		}
+		ls, v, err := s.tupleElemExpr(n.Value, ec)
+		if err != nil {
+			return nil, err
+		}
+		return append(ls, lv+" = "+v+";"), nil
+	}
 	if mem, ok := n.Target.(*xfront.Member); ok {
 		return s.emitFieldAssign(mem, n.Value)
 	}
@@ -1582,6 +1646,23 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		return nil, fmt.Errorf("codegen：赋值目标 %T 未支持（M4.1 范围）", n.Target)
 	}
 	tgt := s.cRef(id.Name)
+	// 元组局部/顶层字段赋值（S1 §2.11）：C 结构体整值赋值即整值复制。
+	if tc, ok := s.localCType(id.Name); ok && s.g.isTupleC(tc) {
+		lines, v, err := s.tupleExpr(n.Value, tc)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, tgt+" = "+v+";"), nil
+	}
+	if tc, ok := s.g.globals[id.Name]; ok && s.g.isTupleC(tc) {
+		if _, shadowed := s.locals[id.Name]; !shadowed && (s.params == nil || !s.params[id.Name]) {
+			lines, v, err := s.tupleExpr(n.Value, tc)
+			if err != nil {
+				return nil, err
+			}
+			return append(lines, tgt+" = "+v+";"), nil
+		}
+	}
 	// 句柄局部赋值（B0-07c）：Call/Ident 右值；旧句柄释放。
 	if tc, ok := s.localCType(id.Name); ok && isHandlePtr(tc) {
 		switch v := n.Value.(type) {
@@ -1694,6 +1775,18 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 		s.returned = true
 		return append(out, "return;"), nil
+	}
+	if s.g.isTupleC(s.retC) && n.Value != nil {
+		lines, v, err := s.tupleExpr(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+v+";"), nil
 	}
 	if isClassPtr(s.retC) && n.Value != nil {
 		// 类引用返回：与 String 同一纪律——标识符 retain 后返回（本层 defer release 抵消）；
@@ -1881,8 +1974,76 @@ func lastVar(lines []string) string {
 func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 	switch n := e.(type) {
 	case *xfront.StrLitExpr:
-		t := s.tmp()
-		return []string{"rt_string *" + t + " = rt_string_from_c(" + cQuote(plainText(n)) + ");"}, nil
+		hasExpr := false
+		for _, p := range n.Parts {
+			if p.Expr != nil {
+				hasExpr = true
+				break
+			}
+		}
+		if !hasExpr {
+			t := s.tmp()
+			return []string{"rt_string *" + t + " = rt_string_from_c(" + cQuote(plainText(n)) + ");"}, nil
+		}
+		// 插值串（S1 §1.4.4）：静态片段与表达式交错拼接。
+		var lines []string
+		acc := ""
+		for _, p := range n.Parts {
+			var piece string
+			if p.Expr == nil {
+				piece = s.tmp()
+				lines = append(lines, "rt_string *"+piece+" = rt_string_from_c("+cQuote(p.Text)+");")
+			} else {
+				ec, err := s.exprType(p.Expr)
+				if err != nil {
+					return nil, err
+				}
+				switch {
+				case s.g.isTupleC(ec):
+					ls, v, err := s.tupleStr(p.Expr, ec)
+					if err != nil {
+						return nil, err
+					}
+					lines = append(lines, ls...)
+					piece = v
+				case ec == "rt_string *":
+					ls, err := s.strExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					lines = append(lines, ls...)
+					piece = lastVar(ls)
+				case ec == "int":
+					v, err := s.boolExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_bool("+v+");")
+				default:
+					v, err := s.intExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_int("+v+");")
+				}
+				lines = append(lines, s.pending...)
+				s.pending = nil
+			}
+			if acc == "" {
+				acc = piece
+				continue
+			}
+			nt := s.tmp()
+			lines = append(lines, "rt_string *"+nt+" = xn_concat("+acc+", "+piece+");")
+			acc = nt
+		}
+		if acc == "" {
+			acc = s.tmp()
+			lines = append(lines, "rt_string *"+acc+" = rt_string_from_c(\"\");")
+		}
+		return lines, nil
 	case *xfront.Binary:
 		if n.Op == "+" {
 			var out []string
@@ -1902,6 +2063,26 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 		}
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "str" {
+			if t, err := s.exprType(n.Args[0]); err == nil {
+				if s.g.isTupleC(t) {
+					lines, _, err := s.tupleStr(n.Args[0], t)
+					if err != nil {
+						return nil, err
+					}
+					return lines, nil
+				}
+				if t == "int" {
+					v, err := s.boolExpr(n.Args[0])
+					if err != nil {
+						return nil, err
+					}
+					tmp := s.tmp()
+					return []string{"rt_string *" + tmp + " = xn_str_bool(" + v + ");"}, nil
+				}
+				if t == "rt_string *" {
+					return s.strExpr(n.Args[0])
+				}
+			}
 			v, err := s.intExpr(n.Args[0])
 			if err != nil {
 				return nil, err
@@ -2022,8 +2203,33 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			}
 		}
 		return nil, fmt.Errorf("codegen：String 成员 %s 的接收者不支持（M4.4b 范围）", n.Name)
+	case *xfront.TupleMember:
+		ec, err := s.exprType(n)
+		if err != nil {
+			return nil, err
+		}
+		if ec != "rt_string *" {
+			return nil, fmt.Errorf("codegen：元组元素 .%d 不是 String", n.Index)
+		}
+		baseT, err := s.exprType(n.X)
+		if err != nil {
+			return nil, err
+		}
+		lines, base, err := s.tupleExpr(n.X, baseT)
+		if err != nil {
+			return nil, err
+		}
+		t := s.tmp()
+		return append(lines, "rt_string *"+t+" = rt_retain(("+base+").f"+fmt.Sprintf("%d", n.Index)+");"), nil
 	case *xfront.Paren:
 		return s.strExpr(n.X)
+	}
+	if t, err := s.exprType(e); err == nil && s.g.isTupleC(t) {
+		lines, _, err := s.tupleStr(e, t)
+		if err != nil {
+			return nil, err
+		}
+		return lines, nil
 	}
 	return nil, fmt.Errorf("codegen：String 表达式 %T 未支持（M4.1 范围）", e)
 }
@@ -2124,6 +2330,17 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	case *xfront.NullLit:
 		// 可空句柄（File? 等）以 NULL 哨兵表示，与 null 比较直接落 C 的 NULL。
 		return "NULL", nil
+	case *xfront.TupleMember:
+		baseT, err := s.exprType(n.X)
+		if err != nil {
+			return "", err
+		}
+		lines, base, err := s.tupleExpr(n.X, baseT)
+		if err != nil {
+			return "", err
+		}
+		s.pending = append(s.pending, lines...)
+		return "(" + base + ").f" + fmt.Sprintf("%d", n.Index), nil
 	case *xfront.Binary:
 		if n.Op == "is" {
 			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
@@ -2135,6 +2352,19 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					}
 					return "0", nil
 				}
+			}
+		}
+		// 元组相等/同一性（S1 §2.11）：逐元素比较，整值语义。
+		if n.Op == "==" || n.Op == "!=" || n.Op == "===" || n.Op == "!==" {
+			if lt, err := s.exprType(n.L); err == nil && s.g.isTupleC(lt) {
+				cmp, err := s.tupleEq(n.L, n.R, lt, n.Op == "===" || n.Op == "!==")
+				if err != nil {
+					return "", err
+				}
+				if n.Op == "!=" || n.Op == "!==" {
+					return "(!(" + cmp + "))", nil
+				}
+				return cmp, nil
 			}
 		}
 		if n.Op == "==" || n.Op == "!=" {
@@ -2413,6 +2643,13 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				continue
 			}
 			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用（M5.1-b 范围）")
+		case s.g.isTupleC(t):
+			lines, v, err := s.tupleExpr(a, t)
+			if err != nil {
+				return nil, err
+			}
+			s.pending = append(s.pending, lines...)
+			out = append(out, v)
 		case isContainerC(t):
 			if id, ok := a.(*xfront.IdentExpr); ok {
 				out = append(out, s.cRef(id.Name))
