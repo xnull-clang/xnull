@@ -29,6 +29,23 @@ func (g *gen) classIsGC(c string) bool {
 	return g.policy[name] == "gc"
 }
 
+// isGCTypeC 判断类/数据枚举/单例 C 类型是否 GC 管理（BND-10b）。
+func (g *gen) isGCTypeC(c string) bool {
+	if g.classIsGC(c) {
+		return true
+	}
+	if strings.HasPrefix(c, "xn_Enum_") && strings.HasSuffix(c, " *") {
+		name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Enum_"), " *")
+		if ei, ok := g.enums[name]; ok && ei.cls != nil && ei.cls.isGC {
+			return true
+		}
+	}
+	if ci, ok := g.singletonOfC(c); ok && ci.isGC {
+		return true
+	}
+	return false
+}
+
 // classOfC 由 C 类型名反查类信息（含数据枚举的类结构）。
 func (g *gen) classOfC(c string) (*classInfo, bool) {
 	if ci, ok := g.singletonOfC(c); ok {

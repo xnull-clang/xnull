@@ -24,7 +24,7 @@ func (g *gen) collectSingletons(u *xfront.CompilationUnit) error {
 		}
 		syn := &xfront.ClassDecl{Name: sd.Name, Fields: sd.Fields, Methods: sd.Methods}
 		ci := &classInfo{decl: syn, cname: "xn_Single_" + sd.Name,
-			typeVar: "RT_TYPE_XN_SINGLE_" + sd.Name, methods: map[string]*classInfo_m{}}
+			typeVar: "RT_TYPE_XN_SINGLE_" + sd.Name, methods: map[string]*classInfo_m{}, isGC: true}
 		for _, f := range sd.Fields {
 			ct, err := g.cType(f.Type)
 			if err != nil {
@@ -162,7 +162,11 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		}
 		// 实例构造：字段置零 → 字段初始化式 → 全局变量。
 		fmt.Fprintf(b, "static void %s_init(void) {\n", ci.cname)
-		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
+		alloc := "rt_arc_new"
+		if ci.isGC {
+			alloc = "rt_gc_new"
+		}
+		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
 		var refs = map[string]string{}
 		var types = map[string]string{}
@@ -180,7 +184,9 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		for _, l := range inits {
 			b.WriteString("    " + l + "\n")
 		}
-		fmt.Fprintf(b, "    %s = o;\n}\n\n", singletonVarName(name))
+		fmt.Fprintf(b, "    %s = o;\n", singletonVarName(name))
+		// 单例实例固定 GC 语义，登记为全局根（S2 §9.3；BND-10）。
+		fmt.Fprintf(b, "    rt_gc_root_add(%s);\n}\n\n", singletonVarName(name))
 	}
 	b.WriteString("static void xn_init_singletons(void) {\n")
 	// 静态字段先于单例实例初始化（S2 §9.2），按声明顺序；可引用前面的静态/单例。
@@ -223,6 +229,9 @@ func (g *gen) singletonStaticInit(ci *classInfo, refs, types map[string]string) 
 		out = append(out, sc.pending...)
 		sc.pending = nil
 		out = append(out, "xn_static_"+ci.decl.Name+"_"+f.cname+" = "+expr+";")
+		if g.isGCTypeC(f.ctype) {
+			out = append(out, "rt_gc_root_add(xn_static_"+ci.decl.Name+"_"+f.cname+");")
+		}
 	}
 	return out, nil
 }

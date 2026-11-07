@@ -89,8 +89,15 @@ static Int main() {
 	if len(diags2) != 0 {
 		t.Fatalf("解析诊断：%v", diags2)
 	}
-	if _, err := EmitC(u2); err == nil || !strings.Contains(err.Error(), "StructDecl 未支持") {
-		t.Fatalf("codegen 应显式拒绝 struct（不得分配），err=%v", err)
+	csrc, err := EmitC(u2)
+	if err != nil {
+		t.Fatalf("struct 值类型应可发射（STRUCT-01），err=%v", err)
+	}
+	if strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_STRUCT") || strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_STRUCT") {
+		t.Fatalf("struct 不得进入 ARC/GC 分配：\n%s", csrc)
+	}
+	if !strings.Contains(csrc, "typedef struct xn_Struct_P") {
+		t.Fatalf("struct 应按值布局发射：\n%s", csrc)
 	}
 }
 

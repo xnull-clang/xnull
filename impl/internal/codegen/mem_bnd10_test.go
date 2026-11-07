@@ -174,3 +174,67 @@ static Int main() {
 		t.Fatalf("纯值类不得走 GC")
 	}
 }
+
+// BND-10b：数据枚举项是 GC 全局根（GC 分配 + 根登记）。
+func TestBND10bDataEnumGlobalRoot(t *testing.T) {
+	src := `
+enum Status {
+    Ready(0);
+    final Int code;
+    Status(Int c) { self.code = c }
+}
+static Int main() { print(Status.Ready.code); return 0 }`
+	csrc := emitWithPolicy(t, src)
+	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_ENUM_Status)") {
+		t.Fatalf("数据枚举未走 GC 分配：\n%s", csrc)
+	}
+	if !strings.Contains(csrc, "rt_gc_root_add(xn_enum_Status_Ready);") {
+		t.Fatalf("数据枚举项未登记全局根：\n%s", csrc)
+	}
+	got, code := compileAndRunPolicy(t, src)
+	if got != "0\n" || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 0", got, code)
+	}
+}
+
+// BND-10b：单例实例固定 GC + 全局根（启动期初始化后常驻）。
+func TestBND10bSingletonGlobalRoot(t *testing.T) {
+	src := `
+singleton AppInfo {
+    Int count = 3;
+}
+static Int main() { print(AppInfo.instance.count); return 0 }`
+	csrc := emitWithPolicy(t, src)
+	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_SINGLE_AppInfo)") {
+		t.Fatalf("单例未走 GC 分配：\n%s", csrc)
+	}
+	if !strings.Contains(csrc, "rt_gc_root_add(xn_single_AppInfo);") {
+		t.Fatalf("单例实例未登记全局根：\n%s", csrc)
+	}
+	got, code := compileAndRunPolicy(t, src)
+	if got != "3\n" || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 3", got, code)
+	}
+}
+
+// BND-10b：@arc/stack 候选类保持 ARC 分配（栈优化未启用时身份不变）。
+func TestBND10bArcStackCandidate(t *testing.T) {
+	src := `
+class Plain { Int x = 1; }
+static Int main() {
+    Plain p = new Plain()
+    print(p.x)
+    return 0
+}`
+	csrc := emitWithPolicy(t, src)
+	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_Plain)") {
+		t.Fatalf("stack 候选类应保持 ARC 分配：\n%s", csrc)
+	}
+	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Plain)") {
+		t.Fatalf("stack 候选类不得走 GC：\n%s", csrc)
+	}
+	got, code := compileAndRunPolicy(t, src)
+	if got != "1\n" || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 1", got, code)
+	}
+}

@@ -2275,6 +2275,30 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 			return nil, fmt.Errorf("codegen：单例 instance 只读，不能赋值（S2 §9.1）")
 		}
 		if varName, ct, ok := s.g.singletonStatic(mem); ok {
+			if s.g.isGCTypeC(ct) {
+				// 静态字段是 GC 全局根：替换时同步根集合。
+				var expr string
+				var lines []string
+				switch v := n.Value.(type) {
+				case *xfront.New:
+					e, err := s.emitNewClass(v)
+					if err != nil {
+						return nil, err
+					}
+					expr = e
+					lines = append([]string{}, s.pending...)
+					s.pending = nil
+				case *xfront.IdentExpr:
+					expr = s.cRef(v.Name)
+				case *xfront.NullLit:
+					expr = "NULL"
+				default:
+					return nil, fmt.Errorf("codegen：GC 静态字段赋值右值 %T 未支持（BND-10）", n.Value)
+				}
+				out := append(lines, "rt_gc_root_remove("+varName+");", varName+" = "+expr+";")
+				out = append(out, "if ("+varName+") { rt_gc_root_add("+varName+"); }")
+				return out, nil
+			}
 			switch ct {
 			case "rt_string *":
 				lines, err := s.strExpr(n.Value)
