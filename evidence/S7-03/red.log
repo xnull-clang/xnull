@@ -1,0 +1,7 @@
+--- FAIL: TestS703CallbackTrampolineEndToEnd (0.00s)
+    s703_test.go:145: 正例不应有诊断：[FFI-100 FFI-100 FFI-100 FFI-100]
+--- FAIL: TestS703CallbackValidation (0.00s)
+    s703_test.go:180: Bytes 回调参数应报 FFI-112，得到 [FFI-100 FFI-100]
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	1.051s
+FAIL

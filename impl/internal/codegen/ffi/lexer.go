@@ -146,7 +146,7 @@ func (l *lexer) run() []token {
 				l.errf(start, "字符串未闭合")
 			}
 			l.toks = append(l.toks, token{tokString, b.String(), start})
-		case strings.ContainsRune("{}()[],;=@.?:*", r):
+		case strings.ContainsRune("{}()[],;=@.?:*-<>", r):
 			l.advance()
 			l.toks = append(l.toks, token{tokPunct, string(r), start})
 		default:
