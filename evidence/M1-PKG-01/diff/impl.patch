@@ -1,0 +1,962 @@
+diff --git a/impl/internal/sema/pkg.go b/impl/internal/sema/pkg.go
+new file mode 100644
+index 0000000..b3ba57d
+--- /dev/null
++++ b/impl/internal/sema/pkg.go
+@@ -0,0 +1,252 @@
++package sema
++
++// PKG-01（S1 §3 包与导入）：跨文件/跨包符号表与导入诊断。
++//
++// 实现落点：
++//   - Package 是导入解析所需的最小包符号表（只含公开顶层符号）；
++//   - NewPackage 从编译单元提取符号表（public 默认；private/protected 不导出）；
++//   - AnalyzeWithDeps 在给定依赖包表时执行严格导入解析；
++//     Analyze（无依赖表）保持旧行为：用户包导入无法解析时延后未定义检查。
++//
++// 诊断码（§3.5）：
++//   RES-103 导入别名冲突
++//   RES-104 未消歧的简单名
++//   RES-105 XDK 包未显式导入
++//   RES-106 包或符号不存在
++//   RES-107 非冲突场景使用 as 别名（含禁止的包别名）
++//   RES-108 包导入环
++//   RES-111 默认包被跨包导入（本文件新增）
++
++import (
++	"sort"
++	"strings"
++
++	"xnull.dev/xnull/internal/diag"
++	"xnull.dev/xnull/internal/xfront"
++)
++
++const (
++	// ResImportCycle 包导入环（§3.4）。
++	ResImportCycle = "RES-108"
++	// ResDefaultPkg 默认包被其他包导入（§3.1/§3.5）。
++	ResDefaultPkg = "RES-111"
++)
++
++// Package 是一个被导入包的最小符号表。
++type Package struct {
++	Path    []string        // 导入路径（点分段）
++	Name    []string        // package 声明；nil 表示默认包
++	Symbols map[string]bool // 公开顶层符号
++	Imports [][]string      // 该包自身的导入路径（环检测用）
++}
++
++// NewPackage 从编译单元提取包符号表。
++// 只登记公开顶层符号：顶层 private/protected 等价于不可跨包导入（§3.1/§3.5）。
++func NewPackage(path []string, u *xfront.CompilationUnit) *Package {
++	p := &Package{Path: path, Symbols: map[string]bool{}}
++	if u == nil {
++		return p
++	}
++	if u.Package != nil {
++		p.Name = u.Package.Name
++	}
++	for _, imp := range u.Imports {
++		if len(imp.Path) > 0 {
++			p.Imports = append(p.Imports, imp.Path)
++		}
++	}
++	for _, d := range u.Decls {
++		switch n := d.(type) {
++		case *xfront.TopFunc:
++			if importableVis(n.Private, n.Protected) {
++				p.Symbols[n.Name] = true
++			}
++		case *xfront.TopField:
++			if importableVis(n.Private, n.Protected) {
++				p.Symbols[n.Name] = true
++			}
++		case *xfront.ClassDecl:
++			if importableTypeVis(n.Mod.Vis) {
++				p.Symbols[n.Name] = true
++			}
++		case *xfront.StructDecl:
++			if importableTypeVis(n.Mod.Vis) {
++				p.Symbols[n.Name] = true
++			}
++		case *xfront.ProtocolDecl:
++			// ProtocolDecl 当前无 Mod 字段（G-P1），按默认 public 处理。
++			p.Symbols[n.Name] = true
++		case *xfront.EnumDecl:
++			if importableTypeVis(n.Mod.Vis) {
++				p.Symbols[n.Name] = true
++			}
++		}
++	}
++	return p
++}
++
++func importableVis(private, protected bool) bool { return !private && !protected }
++
++func importableTypeVis(vis string) bool { return vis != "private" && vis != "protected" }
++
++// AnalyzeWithDeps 在给定依赖包符号表时执行语义分析。
++// deps 必须覆盖入口文件全部非 xdk 导入；缺项按"包不存在"（RES-106）诊断。
++func AnalyzeWithDeps(file string, u *xfront.CompilationUnit, deps []*Package) (*Result, []diag.Diagnostic) {
++	m := make(map[string]*Package, len(deps))
++	for _, d := range deps {
++		if d == nil || len(d.Path) == 0 {
++			continue
++		}
++		m[strings.Join(d.Path, ".")] = d
++	}
++	return analyzeWith(file, u, m)
++}
++
++// analyzeWith 是 AnalyzeWith/AnalyzeWithDeps 的共同实现。
++func analyzeWith(file string, u *xfront.CompilationUnit, deps map[string]*Package) (*Result, []diag.Diagnostic) {
++	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
++		imported: map[string]bool{}, ambiguous: map[string]bool{}, deps: deps}
++	a.analyzeImports(u)
++	a.checkTypeDecls(u)
++	for _, d := range u.Decls {
++		switch n := d.(type) {
++		case *xfront.TopFunc:
++			a.collectTop(n.Name, n.P)
++			for _, p := range n.Params {
++				a.collectTopParam(p.Name)
++			}
++		case *xfront.TopField:
++			a.collectTop(n.Name, n.P)
++		}
++	}
++	for _, d := range u.Decls {
++		if fn, ok := d.(*xfront.TopFunc); ok {
++			sc := &nscope{parent: nil}
++			for _, p := range fn.Params {
++				sc.define(p.Name)
++			}
++			a.walkBlock(fn.Body, sc)
++		}
++	}
++	// M2-B：确定赋值与返回路径（§5.3、§6.1）——名称解析之后。
++	for _, d := range u.Decls {
++		if fn, ok := d.(*xfront.TopFunc); ok {
++			a.analyzeAssign(file, fn)
++		}
++	}
++	// M2-C：类型检查（§2.6/§2.10/§6.1）——最后（依赖前两遍的环境）。
++	a.analyzeTypes(file, u)
++	return &Result{a: a}, a.diags
++}
++
++// topLevelNames 扫描当前文件的顶层声明名（函数/字段/类型）。
++// analyzeImports 早于 collectTop/类型登记，别名与遮蔽判定需要独立扫描（§3.3）。
++func topLevelNames(u *xfront.CompilationUnit) map[string]bool {
++	names := map[string]bool{}
++	for _, d := range u.Decls {
++		switch n := d.(type) {
++		case *xfront.TopFunc:
++			names[n.Name] = true
++		case *xfront.TopField:
++			names[n.Name] = true
++		case *xfront.ClassDecl:
++			names[n.Name] = true
++		case *xfront.StructDecl:
++			names[n.Name] = true
++		case *xfront.ProtocolDecl:
++			names[n.Name] = true
++		case *xfront.EnumDecl:
++			names[n.Name] = true
++		}
++	}
++	return names
++}
++
++// resolveUserImport 把导入路径解析为依赖包：
++//   - 整段命中依赖包 → 包导入，sym 为空；
++//   - 去掉末段命中依赖包 → 符号导入，sym 为末段；
++//   - 其余 → 未找到。
++func (a *analyzer) resolveUserImport(p []string) (*Package, string, bool) {
++	if len(p) == 0 {
++		return nil, "", false
++	}
++	if d, ok := a.deps[strings.Join(p, ".")]; ok {
++		return d, "", true
++	}
++	if len(p) >= 2 {
++		if d, ok := a.deps[strings.Join(p[:len(p)-1], ".")]; ok {
++			return d, p[len(p)-1], true
++		}
++	}
++	return nil, "", false
++}
++
++// samePackage 判断依赖是否属于当前编译单元（同包分片，§3.4 起步形态）。
++func samePackage(u *xfront.CompilationUnit, dep *Package) bool {
++	if u.Package == nil {
++		return len(dep.Name) == 0
++	}
++	return len(dep.Name) > 0 && strings.Join(u.Package.Name, ".") == strings.Join(dep.Name, ".")
++}
++
++// checkImportCycle 检查包导入图是否有环（§3.4）。只报告第一个环。
++func (a *analyzer) checkImportCycle(u *xfront.CompilationUnit) {
++	if a.deps == nil {
++		return
++	}
++	const (
++		gray  = 1
++		black = 2
++	)
++	state := map[string]int{}
++	var stack []string
++	reported := false
++
++	var visit func(p []string, pos xfront.Pos)
++	visit = func(p []string, pos xfront.Pos) {
++		if reported || len(p) == 0 || p[0] == "xdk" {
++			return
++		}
++		dep, _, ok := a.resolveUserImport(p)
++		if !ok {
++			return
++		}
++		k := strings.Join(dep.Path, ".")
++		switch state[k] {
++		case gray:
++			chain := append(append([]string{}, stack...), k)
++			a.errf(pos, ResImportCycle, "包导入图存在环（§3.4）："+strings.Join(chain, " → "),
++				"拆出公共依赖包，消除互相 import")
++			reported = true
++			return
++		case black:
++			return
++		}
++		state[k] = gray
++		stack = append(stack, k)
++		for _, imp := range dep.Imports {
++			visit(imp, pos)
++			if reported {
++				return
++			}
++		}
++		stack = stack[:len(stack)-1]
++		state[k] = black
++	}
++	for _, imp := range u.Imports {
++		visit(imp.Path, imp.P)
++		if reported {
++			return
++		}
++	}
++}
++
++// sortedKeys 返回确定性排序的符号名（诊断顺序稳定，DET-01）。
++func sortedKeys(m map[string]bool) []string {
++	out := make([]string, 0, len(m))
++	for k := range m {
++		out = append(out, k)
++	}
++	sort.Strings(out)
++	return out
++}
+diff --git a/impl/internal/sema/pkg_test.go b/impl/internal/sema/pkg_test.go
+new file mode 100644
+index 0000000..484b2cf
+--- /dev/null
++++ b/impl/internal/sema/pkg_test.go
+@@ -0,0 +1,366 @@
++package sema
++
++import (
++	"strings"
++	"testing"
++
++	"xnull.dev/xnull/internal/xfront"
++)
++
++// ---------- PKG-01（S1 §3.2/§3.4/§3.5）：包导入 / 符号导入 / 别名 / 歧义 / 导入环 ----------
++
++// depPkg 解析一个依赖包源文本并构造符号表。
++func depPkg(t *testing.T, path, src string) *Package {
++	t.Helper()
++	u, ds := xfront.ParseUnit(path+".x", src)
++	if len(ds) != 0 {
++		t.Fatalf("依赖包 %s 解析诊断：%v", path, ds)
++	}
++	return NewPackage(strings.Split(path, "."), u)
++}
++
++// codesWithDeps 分析入口单元并返回诊断码集合。
++func codesWithDeps(t *testing.T, src string, deps ...*Package) []string {
++	t.Helper()
++	u, ds := xfront.ParseUnit("entry.x", src)
++	if len(ds) != 0 {
++		t.Fatalf("入口解析诊断：%v", ds)
++	}
++	_, sd := AnalyzeWithDeps("entry.x", u, deps)
++	out := make([]string, 0, len(sd))
++	for _, d := range sd {
++		out = append(out, d.Code)
++	}
++	return out
++}
++
++func wantNoneWithDeps(t *testing.T, src string, deps ...*Package) {
++	t.Helper()
++	if got := codesWithDeps(t, src, deps...); len(got) != 0 {
++		t.Fatalf("不应有语义诊断，实际：%v（源：%s）", got, src)
++	}
++}
++
++func wantCodeWithDeps(t *testing.T, src, code string, deps ...*Package) {
++	t.Helper()
++	for _, c := range codesWithDeps(t, src, deps...) {
++		if c == code {
++			return
++		}
++	}
++	t.Fatalf("期望诊断 %s，实际：%v（源：%s）", code, codesWithDeps(t, src, deps...), src)
++}
++
++func textDep(t *testing.T) *Package {
++	t.Helper()
++	return depPkg(t, "lib.text", `package lib.text
++
++String banner(String s) { return "[" + s + "]" }
++
++static String shout(String s) { return banner(s) }
++
++private String secret() { return "s" }
++
++protected String guard() { return "g" }
++`)
++}
++
++// ---------- ① 包导入 ----------
++
++func TestPkgImport(t *testing.T) {
++	text := textDep(t)
++
++	// import P 引入 P 的全部公开顶层符号（§3.2）
++	wantNoneWithDeps(t, `package app
++
++import lib.text
++
++static Int main() {
++    String b = banner("x")
++    String c = shout(b)
++    return 0
++}`, text)
++
++	// 包导入不绑定包命名空间别名（§3.2）
++	wantCodeWithDeps(t, `package app
++
++import lib.text
++
++static Int main() {
++    String b = text.banner("x")
++    return 0
++}`, ResUndefined, text)
++
++	// 顶层 private / protected 不可导入（§3.1/§3.5）
++	wantCodeWithDeps(t, `package app
++import lib.text
++static Int main() {
++    String s = secret()
++    return 0
++}`, ResUndefined, text)
++	wantCodeWithDeps(t, `package app
++import lib.text
++static Int main() {
++    String s = guard()
++    return 0
++}`, ResUndefined, text)
++
++	// 当前包顶层声明遮蔽同名导入（§3.3），不是歧义
++	wantNoneWithDeps(t, `package app
++
++import lib.text
++
++String banner(String s) { return s }
++
++static Int main() {
++    String b = banner("x")
++    return 0
++}`, text)
++}
++
++// ---------- ② 符号导入 ----------
++
++func TestSymbolImport(t *testing.T) {
++	text := textDep(t)
++
++	// import P.S 只引入 S（§3.2）
++	wantNoneWithDeps(t, `package app
++
++import lib.text.banner
++
++static Int main() {
++    String b = banner("x")
++    return 0
++}`, text)
++
++	// 同包其他符号不因符号导入而可见
++	wantCodeWithDeps(t, `package app
++
++import lib.text.banner
++
++static Int main() {
++    String c = shout("x")
++    return 0
++}`, ResUndefined, text)
++
++	// 符号不存在（§3.5）
++	wantCodeWithDeps(t, `package app
++
++import lib.text.Nope
++
++static Int main() { return 0 }
++`, ResNotFound, text)
++
++	// 私有符号不能被符号导入（§3.5）
++	wantCodeWithDeps(t, `package app
++
++import lib.text.secret
++
++static Int main() { return 0 }
++`, ResNotFound, text)
++}
++
++// ---------- ③ 同名消歧别名 ----------
++
++func TestAliasDisambiguation(t *testing.T) {
++	a := depPkg(t, "lib.a", "package lib.a\n\nInt Thing(Int x) { return x }\n")
++	b := depPkg(t, "lib.b", "package lib.b\n\nInt Thing(Int x) { return x + 1 }\n")
++
++	// 两处同名符号各自用 as 消歧 → 合法（§3.2）
++	wantNoneWithDeps(t, `package app
++
++import lib.a.Thing as AThing
++import lib.b.Thing as BThing
++
++static Int main() {
++    return AThing(1) + BThing(2)
++}`, a, b)
++
++	// 别名替换原简单名：原简单名不可再裸用
++	wantCodeWithDeps(t, `package app
++
++import lib.a.Thing as AThing
++import lib.b.Thing as BThing
++
++static Int main() {
++    return Thing(1)
++}`, ResUndefined, a, b)
++
++	// 一处消歧、一处裸导入 → 合法；裸导入的简单名仍可用
++	wantNoneWithDeps(t, `package app
++
++import lib.a.Thing as AThing
++import lib.b.Thing
++
++static Int main() {
++    return AThing(1) + Thing(2)
++}`, a, b)
++}
++
++// ---------- ④ 非冲突别名被拒绝 ----------
++
++func TestNeedlessAliasRejected(t *testing.T) {
++	text := textDep(t)
++
++	// 单一符号导入使用 as → RES-107（§3.2）
++	wantCodeWithDeps(t, `package app
++
++import lib.text.banner as B
++
++static Int main() { return 0 }
++`, ResNeedlessAlias, text)
++
++	// 包导入不得使用 as 包别名（§3.2）→ RES-107
++	wantCodeWithDeps(t, `package app
++
++import lib.text as T
++
++static Int main() { return 0 }
++`, ResNeedlessAlias, text)
++
++	// XDK 包别名同样拒绝（§3.2）
++	expectCode(t, `import xdk.text as T
++
++static Int main() { return 0 }
++`, ResNeedlessAlias)
++
++	// 别名冲突：同一别名指向两个符号（§3.5）→ RES-103
++	a := depPkg(t, "lib.a", "package lib.a\n\nInt Thing(Int x) { return x }\n")
++	b := depPkg(t, "lib.b", "package lib.b\n\nInt Thing(Int x) { return x }\n")
++	wantCodeWithDeps(t, `package app
++
++import lib.a.Thing as P
++import lib.b.Thing as P
++
++static Int main() { return 0 }
++`, ResAliasConflict, a, b)
++
++	// 别名不得与当前文件顶层声明冲突（§3.3）→ RES-103
++	wantCodeWithDeps(t, `package app
++
++import lib.a.Thing as P
++
++Int P = 1
++
++static Int main() { return P }
++`, ResAliasConflict, a)
++
++	// 别名不得与预定义类型名冲突（§3.3）→ RES-103
++	wantCodeWithDeps(t, `package app
++
++import lib.a.Thing as Int
++
++static Int main() { return 0 }
++`, ResAliasConflict, a)
++}
++
++// ---------- ⑤ 简单名歧义 ----------
++
++func TestAmbiguousSimpleName(t *testing.T) {
++	a := depPkg(t, "lib.a", "package lib.a\n\nInt Thing(Int x) { return x }\n")
++	b := depPkg(t, "lib.b", "package lib.b\n\nInt Thing(Int x) { return x + 1 }\n")
++
++	// 两个导入提供同一简单名且未消歧 → RES-104（§3.2/§3.5）
++	wantCodeWithDeps(t, `package app
++
++import lib.a.Thing
++import lib.b.Thing
++
++static Int main() { return Thing(1) }
++`, ResAmbiguousName, a, b)
++
++	// 重复导入同一包/同一符号允许，不产生新绑定（§3.2）
++	wantNoneWithDeps(t, `package app
++
++import lib.a.Thing
++import lib.a.Thing
++
++static Int main() { return Thing(1) }
++`, a)
++	expectNone(t, `import xdk.text
++import xdk.text
++
++static Int main() { return 0 }
++`)
++}
++
++// ---------- ⑥ XDK 未导入 ----------
++
++func TestXdkNotImportedStrict(t *testing.T) {
++	// 未导入即使用 XDK 静态入口 → RES-105（§3.2/§3.5）
++	expectCode(t, `static Int main() {
++    diagnose("x")
++    return 0
++}`, ResXdkNotImport)
++
++	// 显式导入后可用
++	expectNone(t, `import xdk.runtime
++
++static Int main() {
++    diagnose("x")
++    return 0
++}`)
++
++	// 其他（用户包）导入不能掩盖 XDK 未导入
++	text := textDep(t)
++	wantCodeWithDeps(t, `package app
++
++import lib.text
++
++static Int main() {
++    diagnose("x")
++    return 0
++}`, ResXdkNotImport, text)
++}
++
++// ---------- ⑦ 导入环 ----------
++
++func TestImportCycle(t *testing.T) {
++	a := depPkg(t, "lib.a", "package lib.a\n\nimport lib.b\n\nInt fa() { return 1 }\n")
++	b := depPkg(t, "lib.b", "package lib.b\n\nimport lib.a\n\nInt fb() { return 2 }\n")
++
++	// 入口 → lib.a → lib.b → lib.a → RES-108（§3.4）
++	wantCodeWithDeps(t, `package app
++
++import lib.a
++
++static Int main() { return fa() }
++`, ResImportCycle, a, b)
++
++	// 无环链：lib.a → lib.c 合法
++	c := depPkg(t, "lib.c", "package lib.c\n\nInt fc() { return 3 }\n")
++	a2 := depPkg(t, "lib.a", "package lib.a\n\nimport lib.c\n\nInt fa() { return fc() }\n")
++	wantNoneWithDeps(t, `package app
++
++import lib.a
++
++static Int main() { return fa() }
++`, a2, c)
++}
++
++// ---------- 包不存在 / 默认包 ----------
++
++func TestImportTargetRules(t *testing.T) {
++	// 包不存在 → RES-106（§3.5）
++	wantCodeWithDeps(t, `package app
++
++import lib.none
++
++static Int main() { return 0 }
++`, ResNotFound)
++
++	// 默认包不能被其他包导入（§3.1/§3.5）→ RES-111
++	plain := depPkg(t, "lib.plain", "Int helper() { return 1 }\n")
++	wantCodeWithDeps(t, `package app
++
++import lib.plain
++
++static Int main() { return helper() }
++`, ResDefaultPkg, plain)
++
++	// 默认包入口导入默认包文件：同一编译单元分片，允许（examples/multi 形态）
++	wantNoneWithDeps(t, `import lib.plain
++
++static Int main() { return helper() }
++`, plain)
++}
+diff --git a/impl/internal/sema/sema.go b/impl/internal/sema/sema.go
+index 26f3d92..dc068b8 100644
+--- a/impl/internal/sema/sema.go
++++ b/impl/internal/sema/sema.go
+@@ -28,12 +28,13 @@ var visibleBuiltins = map[string]bool{"print": true, "str": true, "Ok": true, "E
+ type analyzer struct {
+ 	file      string
+ 	diags     []diag.Diagnostic
+-	tops      map[string]bool // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
+-	hasImp    bool            // 文件是否有 import
+-	imported  map[string]bool // 导入可见的简单名（§3.2/§3.5）
+-	ambiguous map[string]bool // 未消歧的简单名（使用时报 RES-104）
+-	tc        *typeCheckCtx   // 类型声明上下文（类字段访问检查用）
+-	seenTop   map[string]bool // 顶层重复声明检测
++	tops      map[string]bool     // 当前包顶层声明名（函数/字段，§3.3 第 2 级）
++	hasImp    bool                // 文件是否有 import
++	imported  map[string]bool     // 导入可见的简单名（§3.2/§3.5）
++	ambiguous map[string]bool     // 未消歧的简单名（使用时报 RES-104）
++	tc        *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
++	seenTop   map[string]bool     // 顶层重复声明检测
++	deps      map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
+ }
+ 
+ // Analyze 对编译单元做名称解析分析，返回语义诊断（不修改 AST）。
+@@ -54,39 +55,7 @@ func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.C
+ 
+ // AnalyzeWith 执行语义分析并返回结果句柄。
+ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
+-	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
+-		imported: map[string]bool{}, ambiguous: map[string]bool{}}
+-	a.analyzeImports(u)
+-	a.checkTypeDecls(u)
+-	for _, d := range u.Decls {
+-		switch n := d.(type) {
+-		case *xfront.TopFunc:
+-			a.collectTop(n.Name, n.P)
+-			for _, p := range n.Params {
+-				a.collectTopParam(p.Name)
+-			}
+-		case *xfront.TopField:
+-			a.collectTop(n.Name, n.P)
+-		}
+-	}
+-	for _, d := range u.Decls {
+-		if fn, ok := d.(*xfront.TopFunc); ok {
+-			sc := &nscope{parent: nil}
+-			for _, p := range fn.Params {
+-				sc.define(p.Name)
+-			}
+-			a.walkBlock(fn.Body, sc)
+-		}
+-	}
+-	// M2-B：确定赋值与返回路径（§5.3、§6.1）——名称解析之后。
+-	for _, d := range u.Decls {
+-		if fn, ok := d.(*xfront.TopFunc); ok {
+-			a.analyzeAssign(file, fn)
+-		}
+-	}
+-	// M2-C：类型检查（§2.6/§2.10/§6.1）——最后（依赖前两遍的环境）。
+-	a.analyzeTypes(file, u)
+-	return &Result{a: a}, a.diags
++	return analyzeWith(file, u, nil)
+ }
+ 
+ func (a *analyzer) collectTop(name string, p xfront.Pos) {
+diff --git a/impl/internal/sema/xdk.go b/impl/internal/sema/xdk.go
+index 47e5a13..0da57de 100644
+--- a/impl/internal/sema/xdk.go
++++ b/impl/internal/sema/xdk.go
+@@ -1,6 +1,7 @@
+ package sema
+ 
+ import (
++	"sort"
+ 	"strings"
+ 
+ 	"xnull.dev/xnull/internal/xfront"
+@@ -80,16 +81,24 @@ func xdkExporters(name string) []string {
+ 
+ // importInfo 记录一个导入的展开结果。
+ type importInfo struct {
+-	p     xfront.Pos
+-	path  []string
+-	alias string
+-	syms  []string // 包导入时为该包全部导出符号；符号导入时为单符号
++	p            xfront.Pos
++	path         []string
++	alias        string
++	syms         []string // 包导入时为该包全部导出符号；符号导入时为单符号
++	src          string   // 来源标识（包路径）；别名/歧义判定用
++	pkgImport    bool     // 包导入（全部符号）
++	symbolImport bool     // 符号导入（单符号）
+ }
+ 
+ // analyzeImports 处理导入：存在性、别名规则、简单名歧义、XDK 未导入检查基础。
++//
++// 分两段（§3.2/§3.5）：
++//  1. 逐个导入展开为 importInfo：XDK 走注册表；用户包走依赖包符号表（deps）。
++//  2. 别名与简单名规则：别名只用于消歧、别名唯一、简单名歧义必须报错。
+ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+-	var imports []importInfo
+-	aliasOwners := map[string]string{} // 别名 → 来源描述（别名冲突检测）
++	topNames := topLevelNames(u)
++	var binds []importInfo
++
+ 	for _, imp := range u.Imports {
+ 		p := imp.Path
+ 		if len(p) == 0 {
+@@ -98,6 +107,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+ 		info := importInfo{p: imp.P, path: p, alias: imp.Alias}
+ 		if p[0] == "xdk" {
+ 			if len(p) < 2 {
++				a.errf(imp.P, ResNotFound, "XDK 导入缺包名（§3.2）", "写成 import xdk.<包> 或 import xdk.<包>.<符号>")
+ 				continue
+ 			}
+ 			pkg := p[1]
+@@ -107,7 +117,9 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+ 					"可用包：errors/tasks/sync/runtime/collections/text/sys/net")
+ 				continue
+ 			}
+-			if len(p) == 3 { // 符号导入
++			info.src = "xdk." + pkg
++			switch {
++			case len(p) == 3: // 符号导入
+ 				sym := p[2]
+ 				if !syms[sym] {
+ 					a.errf(imp.P, ResNotFound, "XDK 包 `xdk."+pkg+"` 没有导出符号 `"+sym+"`（§3.5）",
+@@ -115,71 +127,155 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
+ 					continue
+ 				}
+ 				info.syms = []string{sym}
+-			} else { // 包导入：全部导出符号可见（§3.2）
+-				for s := range syms {
+-					info.syms = append(info.syms, s)
+-				}
++				info.symbolImport = true
++			default: // 包导入（含 xdk.net.http 这类子包：包存在即可）
++				info.syms = sortedKeys(syms)
++				info.pkgImport = true
+ 			}
+-		} else {
+-			// 用户包：多包符号表属多包切片；此处只登记（存在性检查待工程清单）
++			binds = append(binds, info)
++			continue
++		}
++
++		// 用户包：需要依赖包符号表（AnalyzeWithDeps）。
++		if a.deps == nil {
++			// 旧行为：无法解析用户包，延后未定义检查，避免误报。
+ 			a.hasImp = true
+-			imports = append(imports, info)
+ 			continue
+ 		}
+-		a.hasImp = true
+-		imports = append(imports, info)
+-	}
+-	// 别名与简单名规则（§3.5）。
+-	visible := map[string][]string{} // 简单名 → 来源列表
+-	srcPos := map[string]xfront.Pos{}
+-	for _, imp := range imports {
+-		if len(imp.path) < 2 {
++		dep, sym, ok := a.resolveUserImport(p)
++		if !ok {
++			a.errf(imp.P, ResNotFound, "包 `"+strings.Join(p, ".")+"` 未在本次编译中找到（§3.5）",
++				"检查 import 路径，或把依赖包加入本次编译")
++			continue
++		}
++		if len(dep.Name) == 0 && u.Package != nil {
++			a.errf(imp.P, ResDefaultPkg, "默认包 `"+strings.Join(dep.Path, ".")+"` 不能被其他包导入（§3.1）",
++				"在被导入文件顶部写 package 声明")
+ 			continue
+ 		}
+-		src := strings.Join(imp.path, ".")
+-		if imp.alias != "" {
+-			if prev, dup := aliasOwners[imp.alias]; dup {
+-				a.errf(imp.p, ResAliasConflict, "导入别名 `"+imp.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
++		if samePackage(u, dep) {
++			// 同包分片：符号已随编译单元合并，不建立导入绑定。
++			if imp.Alias != "" {
++				a.errf(imp.P, ResNeedlessAlias, "包导入不能使用 as 别名（§3.2）", "去掉 as 子句")
+ 				continue
+ 			}
+-			aliasOwners[imp.alias] = src
+-			// 非冲突场景使用 as：被导符号来源唯一且无同名符号时，别名即非消歧
+-			if len(imp.syms) == 1 {
+-				sym := imp.syms[0]
+-				other := 0
+-				for _, o := range imports {
+-					for _, s := range o.syms {
+-						if s == sym {
+-							other++
+-						}
+-					}
+-				}
+-				if other <= 1 {
+-					a.errf(imp.p, ResNeedlessAlias,
+-						"`"+sym+"` 无同名歧义，as 别名只用于消歧（§3.5）", "去掉 as 子句")
+-				}
++			for s := range dep.Symbols {
++				a.imported[s] = true
+ 			}
+-			a.imported[imp.alias] = true
+ 			continue
+ 		}
+-		for _, s := range imp.syms {
+-			visible[s] = append(visible[s], src)
+-			if _, ok := srcPos[s]; !ok {
+-				srcPos[s] = imp.p
++		info.src = strings.Join(dep.Path, ".")
++		if sym != "" { // 符号导入
++			if !dep.Symbols[sym] {
++				a.errf(imp.P, ResNotFound, "包 `"+info.src+"` 没有公开符号 `"+sym+"`（§3.5）",
++					"检查符号名（private/protected 不可导入），或改用包导入")
++				continue
++			}
++			info.syms = []string{sym}
++			info.symbolImport = true
++		} else { // 包导入
++			info.syms = sortedKeys(dep.Symbols)
++			info.pkgImport = true
++		}
++		binds = append(binds, info)
++	}
++
++	// 环检测先于绑定（§3.4）：有环即报错，仍继续产出别名/歧义诊断以便一次看全。
++	a.checkImportCycle(u)
++
++	// 别名的"是否需要"判定：统计同一简单名被哪些来源占用（含别名导入，§3.2）。
++	importedSym := map[string]map[string]bool{}
++	// 实际暴露到文件作用域的简单名：来源集合（未别名导入）。
++	exposed := map[string]map[string]bool{}
++	addSrc := func(m map[string]map[string]bool, name, src string) {
++		if m[name] == nil {
++			m[name] = map[string]bool{}
++		}
++		m[name][src] = true
++	}
++	for _, b := range binds {
++		for _, s := range b.syms {
++			addSrc(importedSym, s, b.src)
++			if b.alias == "" {
++				addSrc(exposed, s, b.src)
+ 			}
+ 		}
+ 	}
+-	// 未消歧的简单名：同名符号来自多个包且未用别名（§3.5）。
+-	for name, srcs := range visible {
+-		if len(srcs) > 1 {
+-			a.ambiguous[name] = true
+-			a.errf(srcPos[name], ResAmbiguousName,
+-				"简单名 `"+name+"` 在多个来源间歧义（"+strings.Join(srcs, "、")+"），必须用 as 消歧（§3.5）",
+-				"为其中一个导入加 as 别名")
+-		} else {
+-			a.imported[name] = true
++
++	aliasOwners := map[string]string{} // 已绑定名（简单名+别名）→ 来源
++	bound := map[string]string{}
++	for _, b := range binds {
++		if b.alias != "" {
++			if b.pkgImport {
++				a.errf(b.p, ResNeedlessAlias, "包导入不能使用 as 别名（§3.2）：`"+b.src+"` 不绑定包命名空间",
++					"改用符号导入 `import P.S as A` 仅引入所需符号")
++				continue
++			}
++			if prev, dup := aliasOwners[b.alias]; dup {
++				if prev != b.src {
++					a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
++				}
++				continue
++			}
++			if topNames[b.alias] {
++				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与当前文件顶层声明冲突（§3.3）", "换一个别名")
++				continue
++			}
++			if builtinTypeNames[b.alias] {
++				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与预定义类型名冲突（§3.3）", "换一个别名")
++				continue
++			}
++			aliasOwners[b.alias] = b.src
++			// 非冲突场景使用 as → RES-107（§3.2）。
++			if len(importedSym[b.syms[0]]) <= 1 {
++				a.errf(b.p, ResNeedlessAlias, "`"+b.syms[0]+"` 无同名歧义，as 别名只用于消歧（§3.2）", "去掉 as 子句")
++				continue
++			}
++			a.imported[b.alias] = true
++			continue
++		}
++		for _, s := range b.syms {
++			if srcs := exposed[s]; len(srcs) > 1 {
++				// 当前包顶层声明遮蔽同名导入（§3.3），不算歧义。
++				if topNames[s] {
++					continue
++				}
++				if prev, dup := aliasOwners[s]; dup && prev != b.src {
++					if !a.ambiguous[s] {
++						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 已由别名 `"+prev+"` 占用（§3.2/§3.3）", "改用 as 别名或完全限定名")
++						a.ambiguous[s] = true
++					}
++					continue
++				}
++				if !a.ambiguous[s] {
++					var srcList []string
++					for src := range srcs {
++						srcList = append(srcList, src)
++					}
++					sort.Strings(srcList)
++					a.errf(b.p, ResAmbiguousName,
++						"简单名 `"+s+"` 在多个来源间歧义（"+strings.Join(srcList, "、")+"），必须用 as 消歧（§3.2/§3.5）",
++						"为其中一个导入加 as 别名")
++					a.ambiguous[s] = true
++				}
++				continue
++			}
++			if prev, dup := aliasOwners[s]; dup && prev != b.src {
++				if !a.ambiguous[s] {
++					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
++					a.ambiguous[s] = true
++				}
++				continue
++			}
++			if _, ok := bound[s]; !ok {
++				bound[s] = b.src
++				aliasOwners[s] = b.src
++			}
+ 		}
+ 	}
++	for s := range bound {
++		a.imported[s] = true
++	}
+ }
+ 
+ // checkTypeXdkUse 检查类型位置上的 XDK 符号是否已导入（§3.5）。
