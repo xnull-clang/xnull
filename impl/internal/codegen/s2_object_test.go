@@ -917,3 +917,67 @@ static Int main() { C c = new C(); print(c.f()); print(c.g()); return 0 }`
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// PROTO-01：协议强持有（局部/返回/字段），对象不因源变量离开作用域而失效。
+func TestS2PROTO01StrongHold(t *testing.T) {
+	src := `protocol P { Int f(); }
+class C implements P {
+    Int f() { return 7 }
+    void deinit() { print("dC") }
+}
+class H { P p; }
+static P make() {
+    C c = new C()
+    return c
+}
+static Int main() {
+    P p = make()
+    print(p.f())
+    H h = new H()
+    h.p = new C()
+    print(h.p.f())
+    P q = new C()
+    if true {
+        C c = new C()
+        q = c
+    }
+    print(q.f())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "7\n7\ndC\n7\ndC\ndC\ndC\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// PROTO-01：协议变量只能调用协议声明的方法（codegen 兜底）。
+func TestS2PROTO01OnlyProtocolMethods(t *testing.T) {
+	u, diags := xfront.ParseUnit("p.x", `protocol P { Int f(); }
+class C implements P {
+    Int f() { return 1 }
+    Int g() { return 2 }
+}
+static Int main() { P p = new C(); print(p.g()); return 0 }`)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	if _, err := EmitC(u); err == nil {
+		t.Fatal("协议变量调用非协议方法应报错")
+	}
+}
+
+// PROTO-01：实现检查覆盖父协议（vtable 发射兜底）。
+func TestS2PROTO01ParentProtocolImpl(t *testing.T) {
+	u, diags := xfront.ParseUnit("p.x", `protocol Base { Int base(); }
+protocol Child : Base { Int child(); }
+class C implements Child {
+    Int child() { return 1 }
+}
+static Int main() { return 0 }`)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	if _, err := EmitC(u); err == nil {
+		t.Fatal("父协议方法未实现应报错（vtable 发射）")
+	}
+}
