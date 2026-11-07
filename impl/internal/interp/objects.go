@@ -82,6 +82,9 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	for i, a := range n.Args {
 		args[i] = in.eval(a, sc)
 	}
+	if isSyncTypeName(name) { // S5 §7.1：new Mutex/Channel/Atomic 形态
+		return in.makeSync(name, args)
+	}
 	if st, ok := in.structs[name]; ok {
 		return in.newStruct(st, args, sc)
 	}
