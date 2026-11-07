@@ -1,0 +1,3 @@
+git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main d620ea5
+cd /private/tmp/qa-m1-main && sh evidence/M1-BLD-01/red/run-red.sh
+cd impl && go vet ./...

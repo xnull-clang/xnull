@@ -1,0 +1,9 @@
+git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main d620ea5
+cd /private/tmp/qa-m1-main/impl && go test ./internal/sema ./internal/interp ./internal/codegen -run 'TestDET01' -count=1 -v
+export XNULL_RUNTIME=/private/tmp/qa-m1-main/impl/runtime
+cd /private/tmp/qa-m1-main
+/tmp/xnull-qa-d620ea5 build examples/containers.x -o /tmp/det-same
+shasum -a 256 /tmp/det-same   # 第二次同 -o 重建后比对
+for i in $(seq 1 10); do /tmp/det-same; done
+for i in $(seq 1 10); do /tmp/xnull-qa-d620ea5 run --interp examples/containers.x; done
+for f in examples/*.x; do /tmp/xnull-qa-d620ea5 run --interp "$f" vs run "$f"; done

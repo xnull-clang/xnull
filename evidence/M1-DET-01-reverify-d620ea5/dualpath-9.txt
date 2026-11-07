@@ -1,0 +1,9 @@
+ast-seed MATCH rc=0
+classes MATCH rc=0
+containers MATCH rc=0
+defer-cleanup MATCH rc=0
+hello MATCH rc=0
+lexer-seed MATCH rc=0
+objlist MATCH rc=0
+parser-seed MATCH rc=0
+result-try MATCH rc=0

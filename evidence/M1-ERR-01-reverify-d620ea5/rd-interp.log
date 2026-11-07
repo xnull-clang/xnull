@@ -1,0 +1,18 @@
+=== RUN   TestThrowSkipsDefer
+--- PASS: TestThrowSkipsDefer (0.00s)
+=== RUN   TestErrReturnRunsDeferAndErrdeferLIFO
+--- PASS: TestErrReturnRunsDeferAndErrdeferLIFO (0.00s)
+=== RUN   TestOkReturnSkipsErrdefer
+--- PASS: TestOkReturnSkipsErrdefer (0.00s)
+=== RUN   TestResultTry
+--- PASS: TestResultTry (0.00s)
+=== RUN   TestErrdeferOnlyOnErrorPath
+--- PASS: TestErrdeferOnlyOnErrorPath (0.00s)
+=== RUN   TestResultMemberMisusePanics
+=== RUN   TestResultMemberMisusePanics/ErrValue
+=== RUN   TestResultMemberMisusePanics/OkError
+--- PASS: TestResultMemberMisusePanics (0.00s)
+    --- PASS: TestResultMemberMisusePanics/ErrValue (0.00s)
+    --- PASS: TestResultMemberMisusePanics/OkError (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	1.114s
