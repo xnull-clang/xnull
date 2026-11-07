@@ -1,0 +1,37 @@
+--- FAIL: TestEntryMissingMainDiagnostic (0.57s)
+    cli_test.go:111: stderr 缺少 "ENTRY-001"：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-120066223/prog.c:130:33: error: call to undeclared function 'xn_main'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          130 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+              |                                 ^
+        1 error generated.
+        xnull: C 编译失败：exit status 1
+--- FAIL: TestEntryDuplicateMainDiagnostic (0.00s)
+    cli_test.go:125: stderr 缺少 "ENTRY-002"：xnull: 代码生成失败：codegen：顶层函数 `main` 重载未支持（§4.4 重载属 M4.5+；当前同名函数在 C 侧冲突）
+--- FAIL: TestEntrySignatureDiagnostic (8.50s)
+    --- FAIL: TestEntrySignatureDiagnostic/带非_String[]_参数 (0.67s)
+        cli_test.go:148: stderr 缺少 ENTRY-003：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-789110012/prog.c:130:41: error: too few arguments to function call, single argument 'xn_p_x' was not specified
+              130 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+                  |                                 ~~~~~~~ ^
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-789110012/prog.c:126:9: note: 'xn_main' declared here
+              126 | int64_t xn_main(int64_t xn_p_x) {
+                  |         ^       ~~~~~~~~~~~~~~
+            1 error generated.
+            xnull: C 编译失败：exit status 1
+    --- FAIL: TestEntrySignatureDiagnostic/返回_Bool (7.21s)
+        cli_test.go:148: stderr 缺少 ENTRY-003：
+    --- FAIL: TestEntrySignatureDiagnostic/参数个数超限 (0.63s)
+        cli_test.go:148: stderr 缺少 ENTRY-003：/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3588372496/prog.c:185:41: error: too few arguments to function call, expected 2, have 0
+              185 | int main(void) { int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }
+                  |                                 ~~~~~~~ ^
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3588372496/prog.c:181:9: note: 'xn_main' declared here
+              181 | int64_t xn_main(xn_arr_s xn_p_a, xn_arr_s xn_p_b) {
+                  |         ^       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            1 error generated.
+            xnull: C 编译失败：exit status 1
+--- FAIL: TestRunMainWithArgsInterp (0.01s)
+    cli_test.go:186: main(String[]) 输出 = "3\n--interp\n"，want "2\nalpha\n"
+--- FAIL: TestRunMainWithArgsAfterSeparator (0.00s)
+    cli_test.go:200: 退出码 = 2，want 0（stderr：xnull:1:1: error[CLI-002]: unknown flag "--"
+        ）
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	21.939s
+FAIL

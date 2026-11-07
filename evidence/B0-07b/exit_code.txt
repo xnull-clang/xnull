@@ -1,0 +1,11 @@
+# M6-B0-07b 退出码
+
+| 项 | 产物 | 退出码 |
+|---|---|---|
+| 红：`go test -run TestXDKTextFileAPI`（绑定未加） | `red.txt` | 1 |
+| 绿：同命令（绑定 + C 实现后） | `green.txt` | 0 |
+| 端到端驱动 `sh evidence/B0-07b/run.sh` | `e2e-text-variant.txt` | 0（PASS=2 FAIL=0） |
+| `go vet ./...` | `stdout.txt` | 0 |
+| `go test ./... -timeout 300s` | `go-test.out` | 0 |
+| `build_rt.sh` | `build_rt.out` | 0 |
+| 干净 clone 驱动 | `clone.txt` | 0 |

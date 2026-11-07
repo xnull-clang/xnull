@@ -1,0 +1,52 @@
+# 红（before）
+=== RUN   TestNumericVariantLiteralAdaptation
+    numeric_variant_test.go:8: 不应有语义诊断：[TY-101@变量 `code` 的初始化式类型 Int 不能赋给 Int32（§2.6） TY-101@变量 `got` 的初始化式类型 Int 不能赋给 Int64（§2.6） TY-105@比较运算两侧类型必须相同（§2.6 结构化匹配禁止）：Int32 vs Int TY-105@比较运算只用于同族数值或 Char（§2.6 禁止隐式转换）：Int64 vs Int]
+--- FAIL: TestNumericVariantLiteralAdaptation (0.00s)
+=== RUN   TestNumericVariantOutOfRange
+--- PASS: TestNumericVariantOutOfRange (0.00s)
+=== RUN   TestNumericVariantComparisonWidth
+    numeric_variant_test.go:39: 不应有语义诊断：[TY-101@变量 `a` 的初始化式类型 Int 不能赋给 Int32（§2.6） TY-101@变量 `b` 的初始化式类型 Int 不能赋给 Int64（§2.6） TY-105@比较运算两侧类型必须相同（§2.6 结构化匹配禁止）：Int32 vs Int TY-105@比较运算只用于同族数值或 Char（§2.6 禁止隐式转换）：Int64 vs Int]
+--- FAIL: TestNumericVariantComparisonWidth (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	5.582s
+FAIL
+
+# 绿：目标
+=== RUN   TestNumericVariantLiteralAdaptation
+--- PASS: TestNumericVariantLiteralAdaptation (0.00s)
+=== RUN   TestNumericVariantOutOfRange
+--- PASS: TestNumericVariantOutOfRange (0.00s)
+=== RUN   TestNumericVariantComparisonWidth
+--- PASS: TestNumericVariantComparisonWidth (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.911s
+
+# sema 全量
+ok  	xnull.dev/xnull/internal/sema	1.010s
+
+# 全仓
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	9.852s
+ok  	xnull.dev/xnull/internal/codegen	44.894s
+ok  	xnull.dev/xnull/internal/codegen/ffi	13.524s
+ok  	xnull.dev/xnull/internal/devtool	3.580s
+ok  	xnull.dev/xnull/internal/diag	4.295s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	2.647s
+ok  	xnull.dev/xnull/internal/sema	6.888s
+ok  	xnull.dev/xnull/internal/xfront	6.012s
+ok  	xnull.dev/xnull/internal/xpd	7.693s
+
+# vet
+
+# B0-06 p6 exits
+p6_interp_exit=0
+p6_compiled_exit=1
+main_interp_exit=1
+
+# p6 解释路径 stdout
+0
+0
+# p6 编译路径 stderr（E4 codegen 未支持 Int32）
+xnull: 代码生成失败：codegen：类型 Int32 未支持（M4.1 范围）

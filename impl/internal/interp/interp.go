@@ -52,8 +52,9 @@ type Value struct {
 	C   rune
 	S   string
 	R   *resv
-	A   []*Value // 数组/List/Set/元组元素
+	A   []*Value // 数组/List/元组元素
 	M   *mapv    // Map
+	Set *setv    // Set
 	Clo *clov    // 闭包
 	O   *objv    // 类实例（M4.4b）
 }
@@ -152,9 +153,12 @@ type runtimeErr struct{ msg string }
 type scope struct {
 	parent *scope
 	vars   map[string]*Value
+	types  map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
 }
 
-func newScope(parent *scope) *scope { return &scope{parent: parent, vars: map[string]*Value{}} }
+func newScope(parent *scope) *scope {
+	return &scope{parent: parent, vars: map[string]*Value{}, types: map[string]xfront.TypeRef{}}
+}
 
 func (s *scope) lookup(name string) (*Value, bool) {
 	for c := s; c != nil; c = c.parent {
@@ -165,13 +169,26 @@ func (s *scope) lookup(name string) (*Value, bool) {
 	return nil, false
 }
 
-func (s *scope) define(name string, v *Value) { s.vars[name] = v }
+func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
+
+// defineTyped 登记变量与声明类型；nil/未知类型只登记值。
+func (s *scope) defineTyped(name string, t xfront.TypeRef, v *Value) {
+	if t != nil {
+		s.types[name] = t
+		v = coerceByDecl(t, v)
+	}
+	s.vars[name] = cloneTupleValue(v) // §2.11：元组赋值按值复制
+}
 
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
+// 有声明类型时按类型定向（§9.4/§9.6：容器赋值不得退化为数组）。
 func (s *scope) assign(name string, v *Value) bool {
 	for c := s; c != nil; c = c.parent {
 		if _, ok := c.vars[name]; ok {
-			c.vars[name] = v
+			if t, typed := c.types[name]; typed {
+				v = coerceByDecl(t, v)
+			}
+			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
 	}
@@ -222,6 +239,9 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		}
 	}()
 	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil)}
+	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
+	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
+	var topFields []*xfront.TopField
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.TopFunc:
@@ -232,11 +252,16 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		case *xfront.ClassDecl:
 			in.classes[n.Name] = n
 		case *xfront.TopField:
-			v := zeroValue(n.Type)
-			if n.Init != nil {
-				v = in.eval(n.Init, in.globals)
-			}
-			in.globals.define(n.Name, v)
+			// BLD-01：登记声明类型并做容器定向；P1-INIT-FWD：先给零值。
+			in.globals.defineTyped(n.Name, n.Type, zeroValue(n.Type))
+			topFields = append(topFields, n)
+		}
+	}
+	// 第二遍：按声明顺序求值顶层字段初始化式并写回（§4.3）。
+	// assign 按第一遍登记的类型做容器定向（List/Set 字面量，BLD-01）。
+	for _, n := range topFields {
+		if n.Init != nil {
+			in.globals.assign(n.Name, in.eval(n.Init, in.globals))
 		}
 	}
 	mains := in.funcs["main"]
@@ -336,9 +361,9 @@ func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) 
 	sc := newScope(in.globals)
 	for i, p := range fn.Params {
 		if i < len(args) {
-			sc.define(p.Name, args[i])
+			sc.defineTyped(p.Name, p.Type, args[i])
 		} else {
-			sc.define(p.Name, &Value{K: vNull})
+			sc.defineTyped(p.Name, p.Type, &Value{K: vNull})
 		}
 	}
 	in.execBlock(fn.Body, sc)
@@ -412,9 +437,9 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 	case *xfront.LocalDeclStmt:
 		v := zeroValue(n.Type)
 		if n.Init != nil {
-			v = coerceByDecl(n.Type, in.eval(n.Init, sc))
+			v = in.eval(n.Init, sc)
 		}
-		sc.define(n.Name, v)
+		sc.defineTyped(n.Name, n.Type, v)
 	case *xfront.AssignStmt:
 		v := in.eval(n.Value, sc)
 		if n.Op != "=" {
@@ -486,8 +511,16 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		}
 		src := in.eval(n.Src, sc)
 		switch src.K {
-		case vArr, vList, vSet:
+		case vArr, vList:
 			for _, item := range src.A {
+				body := newScope(sc)
+				body.define(n.Var, item)
+				if in.loopBody(n.Body, body, lbl) {
+					break
+				}
+			}
+		case vSet:
+			for _, item := range src.Set.elements() {
 				body := newScope(sc)
 				body.define(n.Var, item)
 				if in.loopBody(n.Body, body, lbl) {
@@ -1072,6 +1105,16 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.TupleMember:
+		recv := in.eval(t.X, sc)
+		if recv.K != vTuple {
+			panic(runtimeErr{"`.N` 元素赋值只用于元组：" + recv.typeName()})
+		}
+		if t.Index < 0 || t.Index >= len(recv.A) {
+			panic(fatal{fmt.Sprintf("元组下标越界：len=%d, idx=%d（§2.11）", len(recv.A), t.Index)})
+		}
+		recv.A[t.Index] = cloneTupleValue(v)
+		return
 	case *xfront.Member:
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {

@@ -224,6 +224,7 @@ func (p *parser) parseGenericPars(allowVariance bool) []string {
 		}
 		break
 	}
+	p.splitAngleClose()
 	p.expectOp(">")
 	return pars
 }
@@ -256,6 +257,7 @@ func (p *parser) parseNamedTypeRef(what string) *NamedType {
 			}
 			break
 		}
+		p.splitAngleClose()
 		p.expectOp(">")
 	}
 	return nt

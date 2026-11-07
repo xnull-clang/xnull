@@ -1,0 +1,41 @@
+== 1 红：go test ./... -count=1（rc=1）==
+ok    xnull.dev/xnull/internal/cli            20.925s
+ok    xnull.dev/xnull/internal/codegen       103.506s
+ok    xnull.dev/xnull/internal/codegen/ffi    28.438s
+ok    xnull.dev/xnull/internal/devtool        11.641s
+ok    xnull.dev/xnull/internal/diag            9.539s
+ok    xnull.dev/xnull/internal/interp         12.326s
+--- FAIL: TestDET01DiagIndependentOfMapOrder (0.00s)
+FAIL  xnull.dev/xnull/internal/sema            10.459s
+ok    xnull.dev/xnull/internal/xfront          13.454s
+ok    xnull.dev/xnull/internal/xpd             14.469s
+
+== 2 红点原文（sema）==
+第 1 轮歧义诊断顺序与首轮不一致（诊断顺序依赖 map 迭代序，DET-01 违约）
+--- 首轮 ---
+t.x:1:1: error[RES-104]: 简单名 `SharedTwo` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+t.x:1:1: error[RES-104]: 简单名 `SharedOne` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+--- 本轮 ---
+t.x:1:1: error[RES-104]: 简单名 `SharedOne` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+t.x:1:1: error[RES-104]: 简单名 `SharedTwo` 在多个来源间歧义（xdk.alpha、xdk.beta），必须用 as 消歧（§3.5）
+
+== 3 其余用例（红阶段即绿，作为防回归守卫）==
+--- PASS: TestDET01DiagStableAcrossRuns (0.03s)          # 多错误源 200 轮诊断逐字节一致
+--- PASS: TestDET01RuntimeStable (0.00s)                 # 解释路径 10 轮 stdout+退出码一致
+--- PASS: TestDET01InitOrderIndependentOfCreationOrder   # 20 种文件创建顺序，初始化序一致
+--- PASS: TestDET01EmitCDeterministic                    # 同一单元 5 次 EmitC 逐字节一致
+
+== 4 绿证明（临时副本 + fix-proposal.diff）==
+--- PASS: TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagIndependentOfMapOrder
+ok    xnull.dev/xnull/internal/sema   11.442s   rc=0
+
+== 5 示例双路径（9/9 一致）==
+ast-seed 0/0 一致 · classes 0/0 一致 · containers 0/0 一致 · defer-cleanup 0/0 一致
+hello 0/0 一致 · lexer-seed 0/0 一致 · objlist 0/0 一致 · parser-seed 0/0 一致 · result-try 0/0 一致
+
+== 6 确定性判据 ==
+同命令同 -o 两次构建：hash 一致（b1.first == b1）
+10 次编译路径运行：10 个 stdout 同一 sha256
+10 次解释路径运行：10 个 stdout 同一 sha256，且与编译路径逐字节一致
+不同 -o 名两次构建：仅 16 字节不同（Mach-O LC_UUID），内容一致 —— 记入风险

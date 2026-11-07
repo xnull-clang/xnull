@@ -1,0 +1,3 @@
+/tmp/cleanup-localdecl.x:2:11: error[ERR-205]: defer/errdefer 的单条语句体不得是局部声明（§10.3）
+  需要局部变量时改用花括号体
+exit status 1

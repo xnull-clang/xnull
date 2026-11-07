@@ -1,0 +1,1 @@
+/tmp/tuple-switch.x:3:5: error[TY-106]: 元组不能作为 switch 值（§2.11）

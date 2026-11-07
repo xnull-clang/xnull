@@ -1,0 +1,15 @@
+=== RUN   TestTopFieldForwardReference
+=== RUN   TestTopFieldForwardReference/Direct
+    interp_test.go:723: out="" want="1\n2\n" err=未定义的名称：b
+=== RUN   TestTopFieldForwardReference/ChainReadsZeroNotEventual
+    interp_test.go:739: out="" want="1\n1\n2\n" err=未定义的名称：b
+=== RUN   TestTopFieldForwardReference/ForwardFunction
+    interp_test.go:751: out="" want="6\n" err=未定义的函数：twice
+--- FAIL: TestTopFieldForwardReference (0.00s)
+    --- FAIL: TestTopFieldForwardReference/Direct (0.00s)
+    --- FAIL: TestTopFieldForwardReference/ChainReadsZeroNotEventual (0.00s)
+    --- FAIL: TestTopFieldForwardReference/ForwardFunction (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.952s
+FAIL
+exit=1
