@@ -175,7 +175,7 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 
 	// 断链与最后绿点（ADR-003）
 	fmt.Fprintf(&b, "## 断链与最后绿点（ADR-003）\n\n")
-	fmt.Fprintf(&b, "| 线 | last-green | 状态 | 最近 commit |\n|---|---|---|---|\n")
+	fmt.Fprintf(&b, "| 线 | last-green | 落后 HEAD | 状态 | 最近 commit |\n|---|---|---|---|---|\n")
 	warnings := []string{}
 	for _, ln := range boardLines {
 		lg := lastGreen[ln.name]
@@ -206,7 +206,19 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 		} else if status != "有效" {
 			warnings = append(warnings, fmt.Sprintf("%s：last-green %s 失效（不是 HEAD 祖先）", ln.name, lg.sha))
 		}
-		fmt.Fprintf(&b, "| %s | %s | %s | %s |\n", ln.name, orDash(lg.sha), status, latestCommit)
+		lag := "—"
+		if lg.sha != "" {
+			if n := commitsBetween(root, lg.sha, head); n >= 0 {
+				lag = fmt.Sprintf("%d", n)
+			}
+		}
+		note := ""
+		if _, ok := lineCodePaths[ln.name]; !ok {
+			note = "（支撑线：全量绿点）"
+		} else {
+			note = "（该线最近提交）"
+		}
+		fmt.Fprintf(&b, "| %s | %s | %s | %s%s | %s |\n", ln.name, orDash(lg.sha), lag, status, note, latestCommit)
 	}
 	fmt.Fprintf(&b, "\n")
 
@@ -307,6 +319,13 @@ func gateCell(gates []string) string {
 type boardLine struct {
 	name  string
 	owner string
+}
+
+// 各生产线的代码路径（用于计算「该线最近一次随全量测试绿过的提交」）。
+var lineCodePaths = map[string][]string{
+	"前端线":  {"impl/internal/xfront", "impl/internal/sema"},
+	"自举线":  {"impl/internal/codegen", "impl/internal/xnfmt", "impl/cmd", "impl/internal/devtool", "impl/internal/cli"},
+	"运行时线": {"impl/runtime", "bindings"},
 }
 
 // 3 条生产线 + 2 条支撑线（ADR-002）。
@@ -561,7 +580,10 @@ func loadLastGreen(path string) map[string]lastGreenEntry {
 	return out
 }
 
-// recordLastGreen 在全量测试绿时把当前 HEAD 记为所有线的 last-green（脚本生成，手改即作废）。
+// recordLastGreen 在全量测试绿时逐线记录 last-green（脚本生成，手改即作废）。
+//
+// 生产线：取「该线代码路径最近一次提交」——当前全量测试绿，即该提交内容随全量绿点通过；
+// 支撑线无自有代码包，记全量绿点（HEAD）并标注来源。
 func recordLastGreen(root, head string, now time.Time) error {
 	dir := filepath.Join(root, "handoff")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -570,9 +592,30 @@ func recordLastGreen(root, head string, now time.Time) error {
 	var b strings.Builder
 	b.WriteString("# 线\tlast-green\t记录时间（由 xnull dev board --record-green 生成，手改即作废）\n")
 	for _, ln := range boardLines {
-		fmt.Fprintf(&b, "%s\t%s\t%s\n", ln.name, head, now.Format(time.RFC3339))
+		sha := head
+		if paths, ok := lineCodePaths[ln.name]; ok {
+			args := append([]string{"log", "-1", "--format=%h", "--"}, paths...)
+			if got, err := gitLine(root, args...); err == nil && got != "" {
+				sha = got
+			}
+		}
+		fmt.Fprintf(&b, "%s\t%s\t%s\n", ln.name, sha, now.Format(time.RFC3339))
 	}
 	return os.WriteFile(filepath.Join(dir, "last-green.tsv"), []byte(b.String()), 0o644)
+}
+
+// commitsBetween 返回 sha..head 的提交数（该线落后多少个提交）。
+func commitsBetween(root, sha, head string) int {
+	if sha == "" || sha == head {
+		return 0
+	}
+	out, err := gitLine(root, "rev-list", "--count", sha+".."+head)
+	if err != nil {
+		return -1
+	}
+	n := 0
+	fmt.Sscanf(out, "%d", &n)
+	return n
 }
 
 func isAncestor(root, sha, head string) bool {
@@ -645,27 +688,22 @@ func loadHandoffs(dir string) map[string]handoffDoc {
 	return out
 }
 
-// expectedHandoffCards 返回 ADR-003 生效后仍有证据活动、因而必须带接力棒的卡片。
-// 生效时点取 ADR-003 的提交时间（git 为准，避免 merge/checkout 刷新 mtime）；
-// 单卡活动时间取“最近一次触及该 evidence 目录的提交时间”，无提交时退回目录 mtime。
+// legacyEvidencePrefixes 是 ADR-003 之前的历史证据目录：不追溯接力棒。
+var legacyEvidencePrefixes = []string{"S0-", "S1-", "S2-", "S3-", "S4-", "INTEG-", "SYNC-", "D1D3E11-"}
+
+// expectedHandoffCards 返回必须有接力棒的卡片：ADR-003 起所有非历史 evidence 卡。
+// 缺棒 = 卡无效（ADR-003 §2）；历史前缀走白名单，避免追溯噪声。
 func expectedHandoffCards(root string, evidence []evidenceInfo) map[string]bool {
 	out := map[string]bool{}
-	iso, err := gitLine(root, "log", "-1", "--format=%aI", "--", "ADR/ADR-003-断链恢复协议.md")
-	if err != nil || iso == "" {
-		return out
-	}
-	epoch, err := time.Parse(time.RFC3339, iso)
-	if err != nil {
-		return out
-	}
 	for _, e := range evidence {
-		when := e.mtime
-		if ciso, err := gitLine(root, "log", "-1", "--format=%aI", "--", "evidence/"+e.name); err == nil && ciso != "" {
-			if t, err := time.Parse(time.RFC3339, ciso); err == nil {
-				when = t
+		legacy := false
+		for _, prefix := range legacyEvidencePrefixes {
+			if strings.HasPrefix(e.name, prefix) {
+				legacy = true
+				break
 			}
 		}
-		if when.After(epoch) {
+		if !legacy {
 			out[e.name] = true
 		}
 	}

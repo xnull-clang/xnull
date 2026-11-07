@@ -145,3 +145,30 @@ func TestRecordAndLoadLastGreen(t *testing.T) {
 		}
 	}
 }
+
+// ADR-003：每条生产线的 last-green 必须独立（各自最近提交），支撑线记全量绿点。
+func TestRecordLastGreenPerLine(t *testing.T) {
+	root := newBoardRepo(t)
+	// first 提交含 sema/runtime，second 含 codegen → 三线应得出不同 sha。
+	writeFile(t, filepath.Join(root, "impl", "internal", "sema", "a.go"), []byte("package sema\n"))
+	writeFile(t, filepath.Join(root, "impl", "runtime", "rt.c"), []byte("/* rt */\n"))
+	sh(t, root, "git", "add", ".")
+	sh(t, root, "git", "commit", "-q", "-m", "frontend+runtime")
+	writeFile(t, filepath.Join(root, "impl", "internal", "codegen", "a.go"), []byte("package codegen\n"))
+	sh(t, root, "git", "add", ".")
+	sh(t, root, "git", "commit", "-q", "-m", "bootstrap")
+	head, err := gitLine(root, "rev-parse", "--short", "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recordLastGreen(root, head, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	got := loadLastGreen(filepath.Join(root, "handoff", "last-green.tsv"))
+	if got["自举线"].sha == got["前端线"].sha || got["自举线"].sha == got["运行时线"].sha {
+		t.Fatalf("自举线应与其它生产线的 last-green 不同：%+v", got)
+	}
+	if got["QA 线"].sha != head || got["发布线"].sha != head {
+		t.Fatalf("支撑线应记全量绿点：%+v", got)
+	}
+}
