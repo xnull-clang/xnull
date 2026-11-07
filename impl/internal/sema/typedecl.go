@@ -23,15 +23,16 @@ import (
 
 // 诊断码。
 const (
-	TyModifier   = "TY-201"
-	TyInherit    = "TY-202"
-	TyOverride   = "TY-203"
-	TyStructVal  = "TY-204"
-	TyProtoForm  = "TY-205"
-	TyEnumRule   = "TY-206"
-	TyPrivField  = "TY-207"
-	TyProtoImpl  = "TY-208" // 协议实现检查（§4.3）
-	TyVisibility = "TY-209" // 成员可见性（§7.3）
+	TyModifier    = "TY-201"
+	TyInherit     = "TY-202"
+	TyOverride    = "TY-203"
+	TyStructVal   = "TY-204"
+	TyProtoForm   = "TY-205"
+	TyEnumRule    = "TY-206"
+	TyPrivField   = "TY-207"
+	TyProtoImpl   = "TY-208" // 协议实现检查（§4.3）
+	TyVisibility  = "TY-209" // 成员可见性（§7.3）
+	TyNewAbstract = "TY-210" // new abstract 类（§2.6）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -580,6 +581,17 @@ func (c *typeCheckCtx) checkProtocolImpl(d *xfront.ClassDecl) {
 	for _, pr := range d.Protocols {
 		if info, ok := c.types[lastSeg(pr.Qual)]; ok && info.kind == "protocol" && info.proto != nil {
 			collect(info.proto)
+		}
+	}
+	// @Override 不能标记类继承方法（类继承只复用，不存在覆写，§5.3）。
+	for _, anc := range c.ancestorClasses(d) {
+		for _, am := range anc.class.Methods {
+			for _, m := range d.Methods {
+				if hasAnnotation(m.Annos, "Override") && m.Name == am.Name && sameSig(m.Params, am.Params) {
+					c.errf(m.P, TyProtoImpl,
+						"@Override 不能标记父类方法 `"+am.Name+"`：类继承只复用，不存在覆写（§5.3）", "删除注解")
+				}
+			}
 		}
 	}
 	if len(reqs) == 0 {

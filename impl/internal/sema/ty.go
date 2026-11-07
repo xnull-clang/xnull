@@ -1069,6 +1069,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
 			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
 		}
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) == 1 && e.a.tc != nil {
+			if info, found := e.a.tc.types[nt.Qual[0]]; found {
+				if info.kind == "class" && info.mod.Abstract {
+					e.errf(n.P, TyNewAbstract, "抽象类 `"+nt.Qual[0]+"` 不能实例化（§2.6）", "由具体子类实例化，或去掉 abstract")
+				}
+			}
+		}
 		for _, a := range n.Args {
 			e.infer(a)
 		}
