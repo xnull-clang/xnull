@@ -431,6 +431,9 @@ func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 		if st, ok := in.structs[name]; ok { // S2 §3：结构体名义类型
 			return v.K == vStruct && v.St.decl == st
 		}
+		if _, ok := in.singletons[name]; ok { // S2 §9：单例名义类型
+			return v.K == vObj && v.O.singleName == name
+		}
 		if v.K == vObj { // S2 §4.4/§5.2：类继承链、协议实现、数据枚举项
 			return in.objectIsNamed(v.O, name)
 		}
