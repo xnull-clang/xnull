@@ -200,3 +200,46 @@ ok  xnull.dev/xnull/internal/interp
 分支：pod/e2-sema
 签名 / 时间：E2 / 2026-11-07
 ```
+
+---
+
+## 九、E2 补修：容器存入复制整个元组（§2.11 值语义）
+
+> **范围**：QA 剩余 FAIL 项——元组存入容器（容器字面量 / `List.push` 等）必须复制整个元组。
+> **域**：解释器（`impl/internal/interp`）；codegen 元组未支持仍归 E4。
+
+修复前（红）：`TestTupleContainerCopy` 实测
+
+```text
+out="9\n8\n5\n5\n6\n7\n8\n8\n3\n4\n42\n"
+want="1\n2\n9\n9\n5\n6\n7\n7\n0\n8\n42\n"
+```
+
+泄漏点：
+
+- `(Int,Int)[] arr = [t]` 与 `List<(Int,Int)> xs = [t]` 保存的是 `t` 的同一元组指针；改 `t.0` 会改容器元素。
+- `List.push/insert/set` 与 `Map.put` 直接存实参指针。
+- `new (Int,Int)[n]` 所有槽位共用同一个零值元组。
+- 嵌套元组只复制外层切片，内层仍共享。
+
+修复点（`impl/internal/interp/values.go`）：
+
+- `cloneTupleValue` 改为递归复制嵌套元组；引用元素仍只复制句柄（§2.11）。
+- 容器存储点统一调用 `cloneTupleValue`：数组字面量、Map 字面量、`List.push/insert/set`、`Map.put`、下标赋值（`arr[i] = t` / `xs[i] = t`）、`new T[n]` 的零值槽位。
+
+新增用例：`impl/internal/interp/tuple_test.go` 的 `TestTupleContainerCopy`，覆盖数组/List/Map 字面量与 `push/insert/set/put`、下标赋值、定长数组多槽位独立性、嵌套元组复制、引用元素句柄共享。
+
+绿态：
+
+```text
+cd impl
+go test ./internal/sema ./internal/interp -count=1
+ok  xnull.dev/xnull/internal/sema
+ok  xnull.dev/xnull/internal/interp
+```
+
+```
+结论：解释器侧 §2.11 容器值语义 PASS
+分支：pod/e2-sema
+签名 / 时间：E2 / 2026-11-07
+```

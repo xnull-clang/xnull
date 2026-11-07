@@ -1129,14 +1129,14 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("数组下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		case vList:
 			i := int(idx.I)
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("List 下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
