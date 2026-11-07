@@ -105,7 +105,9 @@ func AnalyzeWithDeps(file string, u *xfront.CompilationUnit, deps []*Package) (*
 // analyzeWith 是 AnalyzeWith/AnalyzeWithDeps 的共同实现。
 func analyzeWith(file string, u *xfront.CompilationUnit, deps map[string]*Package) (*Result, []diag.Diagnostic) {
 	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
-		imported: map[string]bool{}, ambiguous: map[string]bool{}, deps: deps}
+		imported: map[string]bool{}, ambiguous: map[string]bool{}, deps: deps,
+		typeParamNames: map[string]bool{}}
+	a.collectTypeParamNames(u)
 	a.analyzeImports(u)
 	a.checkTypeDecls(u)
 	for _, d := range u.Decls {
@@ -122,6 +124,12 @@ func analyzeWith(file string, u *xfront.CompilationUnit, deps map[string]*Packag
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			sc := &nscope{parent: nil}
+			for _, tp := range fn.TypePars { // 类型参数进入第 1 级名字空间（§8.1）
+				if sc.declaredHere(tp) {
+					a.errf(fn.P, ResRedecl, "类型参数 `"+tp+"` 重复声明（§8.1）", "同一泛型声明内类型参数名必须唯一")
+				}
+				sc.define(tp)
+			}
 			for _, p := range fn.Params {
 				sc.define(p.Name)
 			}

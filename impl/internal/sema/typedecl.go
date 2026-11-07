@@ -332,7 +332,7 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 		c.errf(d.P, TyModifier, "每个类最多一个 deinit（§6.4）", "")
 	}
 	// 方法体
-	c.walkClassBodies(d.Name, d.Fields, d.Methods, d.Ctors)
+	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
 }
 
 // checkStruct 结构体检查（§3）。
@@ -352,7 +352,7 @@ func (c *typeCheckCtx) checkStruct(d *xfront.StructDecl) {
 			_ = m
 		}
 	}
-	c.walkClassBodies(d.Name, d.Fields, d.Methods, d.Ctors)
+	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
 }
 
 // checkValueField 检查值字段限制与递归值包含（§3.2/§1.5）。
@@ -628,9 +628,13 @@ func isSelfIdent(x xfront.Expr) bool {
 }
 
 // walkClassBodies 遍历类的全部方法体与构造器体（含字段解析规则）。
-func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldDecl,
+func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fields []*xfront.FieldDecl,
 	methods []*xfront.MethodDecl, ctors []*xfront.CtorDecl) {
-	e := &tyenv{a: c.a, vars: map[string]string{}, funcs: c.topFuncs, fields: map[string]string{}}
+	e := &tyenv{a: c.a, vars: map[string]string{}, funcs: c.topFuncs, fields: map[string]string{}, typePars: map[string]bool{}}
+	e.curFunc = ""
+	for _, tp := range typeParams {
+		e.typePars[tp] = true
+	}
 	// 类字段表：裸规范名解析（实例与静态上下文都可引用静态字段；实例字段仅实例方法）
 	fieldType := map[string]string{}
 	for _, f := range fields {
@@ -649,6 +653,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 	e.fnKind, e.ret = "fieldinit", ""
 	for _, f := range fields {
 		e.checkResultType(f.Type, f.P)
+		e.checkTypeParamRef(f.Type, f.P)
 		if f.Init == nil {
 			continue
 		}
@@ -673,6 +678,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 			e.fnKind, e.ret = "deinit", "void"
 		}
 		e.checkResultType(m.Ret, m.P)
+		e.checkTypeParamRef(m.Ret, m.P)
 		e.vars = map[string]string{}
 		if ctx.instance {
 			e.vars["self"] = className
@@ -682,6 +688,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 		}
 		for _, p := range m.Params {
 			e.checkResultType(p.Type, p.P)
+			e.checkTypeParamRef(p.Type, p.P)
 			if ctx.canonPriv[p.Name] {
 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
 			}
@@ -699,6 +706,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
 		}
 		for _, p := range ct.Params {
 			e.checkResultType(p.Type, p.P)
+			e.checkTypeParamRef(p.Type, p.P)
 			if ctx.canonPriv[p.Name] {
 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4）", "")
 			}

@@ -35,6 +35,9 @@ type analyzer struct {
 	tc        *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
 	seenTop   map[string]bool     // 顶层重复声明检测
 	deps      map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
+
+	// GEN-01：本编译单元内作为类型参数出现过的名字（用于 §8.1 作用域诊断）。
+	typeParamNames map[string]bool
 }
 
 // Analyze 对编译单元做名称解析分析，返回语义诊断（不修改 AST）。
@@ -56,6 +59,27 @@ func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.C
 // AnalyzeWith 执行语义分析并返回结果句柄。
 func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
 	return analyzeWith(file, u, nil)
+}
+
+// collectTypeParamNames 登记本单元所有类型参数名（含类/结构体），
+// 供 §8.1「类型参数只在声明它的函数/类型内可见」诊断使用。
+func (a *analyzer) collectTypeParamNames(u *xfront.CompilationUnit) {
+	for _, d := range u.Decls {
+		switch n := d.(type) {
+		case *xfront.TopFunc:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		case *xfront.ClassDecl:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		case *xfront.StructDecl:
+			for _, tp := range n.TypePars {
+				a.typeParamNames[tp] = true
+			}
+		}
+	}
 }
 
 func (a *analyzer) collectTop(name string, p xfront.Pos) {

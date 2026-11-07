@@ -306,6 +306,11 @@ type tyenv struct {
 	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
 	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
 	inCleanup bool   // 正在检查 defer/errdefer 清理体
+
+	// GEN-01：泛型函数上下文（§8）。
+	curFunc   string          // 当前泛型函数名（自递归展开检测）
+	typePars  map[string]bool // 当前函数/闭包可见的类型参数
+	quietCtor bool            // 重载选择预推断阶段：Ok/Err 无目标类型不立即报错
 }
 
 func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
@@ -314,7 +319,7 @@ func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
 
 // analyzeTypes 对整个编译单元做类型检查。
 func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
-	e := &tyenv{a: a, vars: map[string]string{}, funcs: map[string][]*xfront.TopFunc{}, fields: map[string]string{}}
+	e := &tyenv{a: a, vars: map[string]string{}, funcs: map[string][]*xfront.TopFunc{}, fields: map[string]string{}, typePars: map[string]bool{}}
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.TopFunc:
@@ -330,6 +335,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 		case *xfront.TopField:
 			k := typeKey(n.Type)
 			e.checkResultType(n.Type, n.P)
+			e.checkTypeParamRef(n.Type, n.P)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
@@ -358,7 +364,14 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			if fn.Name == "main" {
 				e.fnKind = "main"
 			}
+			e.curFunc = fn.Name
+			e.typePars = map[string]bool{}
+			for _, tp := range fn.TypePars {
+				e.typePars[tp] = true
+			}
+			e.checkTypeParamRef(fn.Ret, fn.P)
 			for _, p := range fn.Params {
+				e.checkTypeParamRef(p.Type, p.P)
 				e.vars[p.Name] = typeKey(p.Type)
 			}
 			e.walkFunc(fn.Body, retKey)
@@ -468,6 +481,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		}
 		if n.Type != nil {
 			e.checkResultType(n.Type, n.P)
+			e.checkTypeParamRef(n.Type, n.P)
 		}
 		if n.Init != nil {
 			it := e.inferExpected(n.Init, typeKey(n.Type))
@@ -862,6 +876,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 	case *xfront.Member:
 		return e.inferMember(n)
 	case *xfront.New:
+		// §8.3：泛型函数内不能写 new T()（类型参数不是可构造的运行时类型）。
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
+			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
+		}
+		for _, a := range n.Args {
+			e.infer(a)
+		}
 		return texpr{}
 	}
 	return texpr{}
@@ -960,28 +981,10 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		}
 		return e.methodRet(rt, mem.Name, args, n.P)
 	}
-	// 顶层函数调用：按实参数选重载，检查实参可赋值性。
+	// 顶层函数调用：普通/泛型候选解析（§8.2 重载与推断）。
 	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
-		if fns, found := e.funcs[id.Name]; found {
-			for _, f := range fns {
-				if len(f.Params) != len(n.Args) {
-					continue
-				}
-				for i, p := range f.Params {
-					pk := typeKey(p.Type)
-					at := e.inferExpected(n.Args[i], pk)
-					if !assignable(at, pk) {
-						e.errf(n.Args[i].Pos(), TyAssignability,
-							fmt.Sprintf("实参 %d 类型 %s 不能赋给形参 %s（§2.6）", i+1, describeKey(at), pk),
-							hintFor(at, pk))
-					}
-				}
-				if f.Void {
-					return texpr{key: "void"}
-				}
-				return texpr{key: typeKey(f.Ret)}
-			}
-			return texpr{}
+		if _, found := e.funcs[id.Name]; found {
+			return e.resolveUserCall(n, id.Name)
 		}
 	}
 	for _, a := range n.Args {
@@ -1107,9 +1110,10 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 }
 
 func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
-	if _, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
+	if ta, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
+		e.checkTypeParamRef(ta.Type, n.P)
 		lt := e.infer(n.L)
-		rhs := typeKey(n.R.(*xfront.TypeAsExpr).Type)
+		rhs := typeKey(ta.Type)
 		_, lTuple := splitTupleKey(lt.key)
 		_, rTuple := splitTupleKey(rhs)
 		switch n.Op {

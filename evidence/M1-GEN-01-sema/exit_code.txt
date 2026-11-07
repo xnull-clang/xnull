@@ -1,0 +1,2 @@
+red (c1-rd3): 1 (TestGEN01 24 FAIL / 1 SKIP / 1 PASS)
+after sema:   0 (TestGEN01Sema* + WriteBack 全绿；sema/interp/codegen 示例/go test ./.../vet/gofmt 均 0)
