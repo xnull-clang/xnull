@@ -104,7 +104,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			// Bytes.fromString 是唯一构造入口（S1 §9.7）。
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 && recv.Name == "Bytes" && mem.Name == "fromString" {
-				return "xrt_bytes *", nil
+				return "xrt_bytes_obj *", nil
 			}
 			recvC, err := s.exprType(mem.X)
 			if err != nil {
@@ -123,7 +123,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 				}
 				return "", fmt.Errorf("codegen：类 %s 没有成员 %s", ci.decl.Name, mem.Name)
 			}
-			if recvC == "xrt_bytes *" {
+			if recvC == "xrt_bytes_obj *" {
 				switch mem.Name {
 				case "length", "get":
 					return "int64_t", nil

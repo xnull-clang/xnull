@@ -261,7 +261,7 @@ func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 			sv := lastVar(sl)
 			t := s.tmp()
 			out := append([]string{}, sl...)
-			out = append(out, "xrt_bytes *"+t+" = xrt_bytes_from_string("+sv+"->bytes, "+sv+"->len);")
+			out = append(out, "xrt_bytes_obj *"+t+" = xrt_bytes_from_string("+sv+"->bytes, "+sv+"->len);")
 			out = append(out, "rt_release("+sv+");")
 			return out, t, nil
 		}
@@ -339,7 +339,7 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 Bytes 实参仅支持变量（B0-07c 范围），got %T", e.Name, arg)
 			}
 			b := s.cRef(id.Name)
-			parts = append(parts, b+"->data", b+"->len")
+			parts = append(parts, "xrt_bytes_data("+b+")", "xrt_bytes_len("+b+")")
 		case ffi.KindString:
 			// .borrow 借用：只传字节视图，不 retain（ffi-contract §5.2）。
 			// 字面量/表达式实参先生成 owned 临时，调用后释放。

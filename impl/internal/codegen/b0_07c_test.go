@@ -1,7 +1,9 @@
 package codegen
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -92,10 +94,10 @@ func TestB007CNumericCodegenSurface(t *testing.T) {
 	for _, want := range []string{
 		"xrt_bytes_from_string(",
 		"int64_t got = ",
-		"xn_ffi_fileRead(f, b->data, b->len, &xn_t",
+		"xn_ffi_fileRead(f, xrt_bytes_data(b), xrt_bytes_len(b), &xn_t",
 		"code = ",
 		"int32_t wc = ",
-		"xn_ffi_fileWrite(f, b->data, b->len)",
+		"xn_ffi_fileWrite(f, xrt_bytes_data(b), xrt_bytes_len(b))",
 		"int64_t *xn_out",
 		"xrt_handle *g = ",
 		"(g == NULL)",
@@ -107,5 +109,54 @@ func TestB007CNumericCodegenSurface(t *testing.T) {
 	// 包装签名不得含 code 形参（ffi-contract §5.1）。
 	if strings.Contains(csrc, "xn_ffi_fileRead(xrt_handle *f, void *buf, size_t buf_len, int32_t *code") {
 		t.Fatalf("fileRead 包装签名不应暴露 code 形参：\n%s", csrc)
+	}
+}
+
+// TestB007CBytesSurfaceRuns 绕过 sema（Bytes 成员面属 E2），直接验证
+// Bytes 三处发射点与 E5 运行时的接口一致：fromString/length/get/push。
+func TestB007CBytesSurfaceRuns(t *testing.T) {
+	src := `static Int main() {
+    Bytes b = Bytes.fromString("abc")
+    b.push(0)
+    b.push(66)
+    print(str(b.length()))
+    print(str(b.get(0)))
+    print(str(b.get(4)))
+    return 0
+}
+`
+	u, diags := xfront.ParseUnit("bytes.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	dir := t.TempDir()
+	cf := filepath.Join(dir, "p.c")
+	if err := os.WriteFile(cf, []byte(csrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "p")
+	rt := filepath.Join("..", "..", "..", "impl", "runtime")
+	args := []string{"-std=c11", "-O2", "-I", rt, "-o", bin, cf}
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join(rt, s))
+	}
+	cc := exec.Command("cc", args...)
+	var cerr bytes.Buffer
+	cc.Stderr = &cerr
+	if err := cc.Run(); err != nil {
+		t.Fatalf("cc 失败：%v\n%s\n---- C ----\n%s", err, cerr.String(), csrc)
+	}
+	var out bytes.Buffer
+	run := exec.Command(bin)
+	run.Stdout = &out
+	if err := run.Run(); err != nil {
+		t.Fatalf("运行失败：%v", err)
+	}
+	if got, want := out.String(), "5\n97\n66\n"; got != want {
+		t.Fatalf("stdout=%q，期望 %q", got, want)
 	}
 }

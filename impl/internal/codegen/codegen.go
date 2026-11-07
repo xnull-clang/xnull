@@ -27,6 +27,7 @@ import (
 const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 #include "rt.h"
 #include "rt_gc.h"
+#include "xrt.h"
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -759,7 +760,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		case "Bytes":
 			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
 			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
-			return "xrt_bytes *", nil
+			return "xrt_bytes_obj *", nil
 		case "List":
 			if len(n.Args) != 1 {
 				return "", fmt.Errorf("codegen：List 需要一个类型实参")
@@ -1089,7 +1090,7 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return append(out, v+";"), nil
 				}
 			}
-			if rc == "xrt_bytes *" {
+			if rc == "xrt_bytes_obj *" {
 				lines, hit, err := s.bytesMemberStmt(rn, mem.Name, call.Args)
 				if err != nil {
 					return nil, err
@@ -1329,14 +1330,14 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 		return append(lines, "xrt_handle *"+n.Name+" = "+out+";"), nil
 	}
-	if tc == "xrt_bytes *" {
+	if tc == "xrt_bytes_obj *" {
 		lines, out, err := s.bytesExpr(n.Init)
 		if err != nil {
 			return nil, err
 		}
 		s.locals[n.Name] = tc
 		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
-		return append(lines, "xrt_bytes *"+n.Name+" = "+out+";"), nil
+		return append(lines, "xrt_bytes_obj *"+n.Name+" = "+out+";"), nil
 	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
@@ -2150,7 +2151,7 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
-			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes *" {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
 				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
 					return "", err
 				} else if hit {
