@@ -1,0 +1,4 @@
+=== RUN   TestS2EXT01
+--- PASS: TestS2EXT01 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.030s
