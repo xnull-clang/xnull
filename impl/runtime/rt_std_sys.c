@@ -40,6 +40,21 @@ void *xdkc_file_open_read(const char *bytes, size_t len) {
     return f;
 }
 
+/* fileOpenWrite（B0-06 阻塞 #3 增补）：写模式打开，语义同 fileOpenRead。
+ * 失败（路径非法/打开失败）返回 NULL；不 panic（S6 §3 第 1 条）。 */
+void *xdkc_file_open_write(const char *bytes, size_t len) {
+    if (bytes == NULL) {
+        xrt_fatal("fileOpenWrite：路径为空（S6 §4.7）");
+    }
+    if (len == 0 || memchr(bytes, 0, len) != NULL) {
+        return NULL;
+    }
+    char *p = path_dup(bytes, len);
+    FILE *f = fopen(p, "wb");
+    free(p);
+    return f;
+}
+
 /* 返回值 = 读取字节数；code 为错误码出参（0 成功、1 句柄无效、2 IO 失败）。
  * 该形态与 .xfb 的 @errorCode(codeParam = .code) 合同一一对应（S7 §7.1）。 */
 int64_t xdkc_file_read(void *fp, void *buf, size_t cap, int32_t *code) {
@@ -150,4 +165,83 @@ int32_t xdkc_proc_status(const char *cmd, size_t len) {
         return -1;
     }
     return (int32_t)WEXITSTATUS(st);
+}
+
+/* ---- 文本 API（B0-06 文本变体，M6-B0-07b） ----
+ *
+ * 合同：整文件读/写，不暴露句柄与 Bytes；失败返回 NULL/非 0，不 panic（S6 §3 第 1 条）。
+ * readFileText 返回 NUL 结尾的复用缓冲：包装层 xrt_string_from_c 在调用返回后立即复制，
+ * 因此缓冲可复用；运行时当前为单线程，调用期间不得重入（与 rt_* 同款假设）。
+ */
+static char *g_text_buf = NULL;
+static size_t g_text_cap = 0;
+
+const char *xdkc_read_file_text(const char *bytes, size_t len) {
+    if (bytes == NULL) {
+        xrt_fatal("readFileText：路径为空（S6 §4.7）");
+    }
+    if (len == 0 || memchr(bytes, 0, len) != NULL) {
+        return NULL;
+    }
+    char *p = path_dup(bytes, len);
+    FILE *f = fopen(p, "rb");
+    free(p);
+    if (f == NULL) {
+        return NULL;
+    }
+    if (fseek(f, 0, SEEK_END) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    long n = ftell(f);
+    if (n < 0 || fseek(f, 0, SEEK_SET) != 0) {
+        fclose(f);
+        return NULL;
+    }
+    size_t need = (size_t)n + 1;
+    if (need > g_text_cap) {
+        char *nb = realloc(g_text_buf, need);
+        if (nb == NULL) {
+            fclose(f);
+            return NULL;
+        }
+        g_text_buf = nb;
+        g_text_cap = need;
+    }
+    size_t got = fread(g_text_buf, 1, (size_t)n, f);
+    int bad = ferror(f);
+    fclose(f);
+    if (bad || got != (size_t)n) {
+        return NULL;
+    }
+    g_text_buf[got] = 0;
+    return g_text_buf;
+}
+
+int64_t xdkc_write_file_text(const char *bytes, size_t plen,
+                             const char *text, size_t tlen) {
+    if (bytes == NULL) {
+        xrt_fatal("writeFileText：路径为空（S6 §4.7）");
+    }
+    if (plen == 0 || memchr(bytes, 0, plen) != NULL) {
+        return 1;
+    }
+    if (tlen > 0 && text == NULL) {
+        xrt_fatal("writeFileText：内容为空但长度非零（S6 §4.7）");
+    }
+    char *p = path_dup(bytes, plen);
+    FILE *f = fopen(p, "wb");
+    free(p);
+    if (f == NULL) {
+        return 1;
+    }
+    size_t n = 0;
+    if (tlen > 0) {
+        n = fwrite(text, 1, tlen, f);
+    }
+    int rc = (n == tlen) ? 0 : 1;
+    if (fclose(f) != 0) {
+        rc = 1;
+    }
+    return (int64_t)rc;
 }

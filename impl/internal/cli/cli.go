@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen"
+	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
 	"xnull.dev/xnull/internal/interp"
@@ -437,12 +439,18 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	}
 	out := "prog"
 	runtimeDir := ""
+	var libs []ffi.LinkLib
+	var libDirs []string
 	for i := 1; i < len(rest)-1; i++ {
 		switch rest[i] {
 		case "-o":
 			out = rest[i+1]
 		case "--runtime":
 			runtimeDir = rest[i+1]
+		case "-l":
+			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
+		case "-L":
+			libDirs = append(libDirs, rest[i+1])
 		}
 	}
 	if runtimeDir == "" {
@@ -460,5 +468,25 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return exitcode.Usage
 	}
-	return codegen.Build(srcPath, out, runtimeDir, env.Stderr)
+	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
+	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs)}
+	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
+}
+
+// linkArgs 把构建命令行/清单的链接库与搜索目录翻译为确定性链接参数。
+// 顺序：-L 在前、-l 在后，各自去重 + 升序（ffi.LinkArgs 负责 -l）。
+func linkArgs(libs []ffi.LinkLib, libDirs []string) []string {
+	args := make([]string, 0, len(libDirs)+len(libs))
+	seen := map[string]bool{}
+	dirs := make([]string, 0, len(libDirs))
+	for _, d := range libDirs {
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		dirs = append(dirs, "-L"+d)
+	}
+	sort.Strings(dirs)
+	args = append(args, dirs...)
+	return append(args, ffi.LinkArgs(libs)...)
 }

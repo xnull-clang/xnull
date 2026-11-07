@@ -321,6 +321,92 @@ static Int main() {
 	}
 }
 
+// ---------- ENTRY-01（M1）：入口签名与缺失/重复入口 ----------
+
+// runSrcCodeArgs 解析并执行，带程序参数。
+func runSrcCodeArgs(t *testing.T, src string, args []string) (string, int, error) {
+	t.Helper()
+	u, diags := xfront.ParseUnit("t.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("不应有解析诊断：%v", diags)
+	}
+	var out strings.Builder
+	code, err := Run(u, &out, args)
+	return out.String(), code, err
+}
+
+// §11.2：void 与 Int 两种 main 签名均接收 String[] 参数并可运行。
+func TestEntryTwoSignatures(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+		code int
+	}{
+		{"void+args", "static void main(final String[] args) {\n    print(\"void\")\n}", "void\n", 0},
+		{"Int+args", "static Int main(final String[] args) {\n    print(\"int\")\n    return 3\n}", "int\n", 3},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, code, err := runSrcCodeArgs(t, c.src, []string{"x"})
+			if err != nil {
+				t.Fatalf("运行失败：%v", err)
+			}
+			if out != c.want || code != c.code {
+				t.Fatalf("out=%q code=%d，期望 out=%q code=%d", out, code, c.want, c.code)
+			}
+		})
+	}
+}
+
+// §11.4：缺失入口是编译错误。
+func TestEntryMissingRejected(t *testing.T) {
+	_, code, err := runSrcCode(t, "static Int helper() { return 1 }")
+	if err == nil {
+		t.Fatal("缺失入口应报错")
+	}
+	if code != 1 {
+		t.Fatalf("缺失入口退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(err.Error(), "入口") {
+		t.Fatalf("诊断应点名入口：%v", err)
+	}
+}
+
+// §11.4：重复入口是编译错误。
+func TestEntryDuplicateRejected(t *testing.T) {
+	_, code, err := runSrcCode(t, "static Int main() { return 0 }\nstatic Int main() { return 1 }")
+	if err == nil {
+		t.Fatal("重复入口应报错")
+	}
+	if code != 1 {
+		t.Fatalf("重复入口退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(err.Error(), "重复入口") {
+		t.Fatalf("诊断应点名重复入口：%v", err)
+	}
+}
+
+// §11.2：非法入口签名（返回类型非 void/Int、额外参数、非 static）被拒绝。
+func TestEntryInvalidSignatureRejected(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"返回 String", "static String main() { return \"\" }"},
+		{"额外参数", "static Int main(Int n) { return n }"},
+		{"非 static", "Int main() { return 0 }"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, _, err := runSrcCode(t, c.src)
+			if err == nil {
+				t.Fatal("非法入口签名应报错")
+			}
+			if !strings.Contains(err.Error(), "签名") {
+				t.Fatalf("诊断应点名入口签名：%v", err)
+			}
+		})
+	}
+}
+
 // TUPLE-01（语法可判定部分）：单元素/零元元组被拒绝；`(e)` 是括号表达式。
 func TestTupleSyntaxRejections(t *testing.T) {
 	// 零元元组拒绝
@@ -340,4 +426,226 @@ func TestTupleSyntaxRejections(t *testing.T) {
 	if _, err := Run(u, &out, nil); err != nil || out.String() != "5\n" {
 		t.Fatalf("out=%q err=%v", out.String(), err)
 	}
+}
+
+// TUPLE-01：元组 == / != 逐元素（§2.11、§2.8）。
+func TestTupleEquality(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) a = (1, "one")
+    (Int, String) b = (1, "one")
+    (Int, String) c = (1, "two")
+    if a == b { print("eq") }
+    if a != c { print("ne") }
+    if !(a == c) { print("not") }
+    (Int, (Int, Bool)) n1 = (1, (2, true))
+    (Int, (Int, Bool)) n2 = (1, (2, true))
+    (Int, (Int, Bool)) n3 = (1, (2, false))
+    if n1 == n2 { print("nested-eq") }
+    if n1 != n3 { print("nested-ne") }
+    return 0
+}`)
+	want := "eq\nne\nnot\nnested-eq\nnested-ne\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：元组 === / !== 逐元素同一性（§2.11、§2.8）。
+func TestTupleIdentity(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) a = (1, "one")
+    (Int, String) b = (1, "one")
+    if a === b { print("id") }
+    if a !== (1, "two") { print("nid") }
+    (Int, (Int, Bool)) n1 = (1, (2, true))
+    (Int, (Int, Bool)) n2 = (1, (2, true))
+    if n1 === n2 { print("nested-id") }
+    return 0
+}`)
+	want := "id\nnid\nnested-id\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：元组插值格式 `(a, b)`，元素递归格式化（§1.4.4、§2.11）。
+func TestTupleInterpolation(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    (Int, String) p = (1, "one")
+    print($"p={p}")
+    ((Int, Int), Bool) n = ((1, 2), true)
+    print($"n={n}")
+    return 0
+}`)
+	want := "p=(1, one)\nn=((1, 2), true)\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+// TUPLE-01：越界选择器是 fatal（§2.11：越界是编译错误，解释器兜底）。
+func TestTupleMemberOutOfRange(t *testing.T) {
+	_, code, err := runSrcCode(t, `
+static Int main() {
+    (Int, String) p = (1, "one")
+    print(p.2)
+    return 0
+}`)
+	if err == nil || code != 134 {
+		t.Fatalf("越界选择器应为 fatal（134）：code=%d err=%v", code, err)
+	}
+}
+
+// GEN-01（解释器半边）：泛型 accept 用例必须在 interp 路径产出台账期望输出。
+// 用例源与 c1-rd3 的 gen01_red_test.go 保持一致（不依赖 sema；sema 缺口另域负责）。
+func TestGEN01InterpAccept(t *testing.T) {
+	cases := []struct {
+		id   string
+		src  string
+		want string
+	}{
+		{"G1a", `
+static T identity<T>(T value) { return value }
+static Int main() { print(identity<Int>(7)); return 0 }`, "7\n"},
+		{"G2a", `
+static T identity<T>(T value) { return value }
+static Int main() { print(identity(7)); return 0 }`, "7\n"},
+		{"G2b", `
+static T head<T>(List<T> xs) { return xs.get(0) }
+static Int main() {
+    List<Int> xs = [4, 5]
+    print(head(xs))
+    return 0
+}`, "4\n"},
+		{"G2c", `
+static T pick<T>(T a, T b) { return b }
+static Int main() { print(pick(1, 2)); return 0 }`, "2\n"},
+		{"G5a", `
+static Int pick(Int v) { return v + 1 }
+static T pick<T>(T v) { return v }
+static Int main() { print(pick(3)); return 0 }`, "4\n"},
+		{"G6a", `
+static T identity<T>(T value) { return value }
+static Int main() {
+    print(identity<Int>(1))
+    print(identity<String>("s"))
+    return 0
+}`, "1\ns\n"},
+		{"G6b", `
+static Int count<T>(List<T> xs) { return xs.length() }
+static Int main() {
+    List<Int> a = [1, 2, 3]
+    List<String> b = ["x"]
+    print(count(a))
+    print(count(b))
+    return 0
+}`, "3\n1\n"},
+		{"G8", `
+static T unwrapOr<T>(Result<T, String> r, T d) { return r.unwrapOr(d) }
+static Int main() {
+    Result<Int, String> r = Ok(5)
+    print(unwrapOr(r, 0))
+    return 0
+}`, "5\n"},
+		{"G11", `
+static T keep<T>(T v) {
+    T local = v
+    List<T> box = [v]
+    return local
+}
+static Int main() { print(keep(9)); return 0 }`, "9\n"},
+		{"G14", `
+static Bool isInt<T>(T v) { return v is Int }
+static Int main() { print(isInt<Int>(1)); return 0 }`, "true\n"},
+		{"G18", `
+static Int plain(Int v) { return v }
+static T gen<T>(T v) { return v }
+static Int main() { print(plain(2)); print(gen(3)); return 0 }`, "2\n3\n"},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.id, func(t *testing.T) {
+			out, err := runSrc(t, c.src)
+			if err != nil || out != c.want {
+				t.Fatalf("out=%q want=%q err=%v", out, c.want, err)
+			}
+		})
+	}
+}
+
+// GEN-01（解释器半边）：重载选择必须尊重显式类型实参与非泛型优先级（§8.2）。
+// 红证据：当前 interp 只按参数个数取首个候选，泛型/普通同名会选错。
+func TestGEN01InterpOverloadSelection(t *testing.T) {
+	t.Run("ExplicitTypeArgPicksGeneric", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int pick(Int v) { return v + 1 }
+static T pick<T>(T v) { return v }
+static Int main() { print(pick<Int>(10)); return 0 }`)
+		if err != nil || out != "10\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "10\n", err)
+		}
+	})
+	t.Run("NonGenericPreferred", func(t *testing.T) {
+		out, err := runSrc(t, `
+static T pick<T>(T v) { return v }
+static Int pick(Int v) { return v + 1 }
+static Int main() { print(pick(3)); return 0 }`)
+		if err != nil || out != "4\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "4\n", err)
+		}
+	})
+	t.Run("TypeArgCountMismatchRejected", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static T identity<T>(T v) { return v }
+static Int main() { print(identity<Int, Int>(7)); return 0 }`)
+		if err == nil || code != 1 {
+			t.Fatalf("类型实参数量不符应显式失败：code=%d err=%v", code, err)
+		}
+	})
+}
+
+// M6-B0-05：容器成员规范边界（§9.4 List / §9.5 Map）。
+func TestContainerMemberSpecEdges(t *testing.T) {
+	t.Run("MapGetMissingReturnsNull", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    Map<String, Int> m = ["a": 1]
+    Int? v = m.get("z")
+    print(v)
+    return 0
+}`)
+		if err != nil || out != "null\n" {
+			t.Fatalf("Map.get 缺键应返回 null：out=%q err=%v", out, err)
+		}
+	})
+	t.Run("ListRemoveReturnsElement", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    List<Int> l = [1, 2]
+    Int x = l.remove(0)
+    print(x)
+    print(l.length())
+    print(l.get(0))
+    return 0
+}`)
+		want := "1\n1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("List.remove 应返回被删元素：out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ListInsertOutOfRangePanics", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static Int main() {
+    List<Int> l = [1]
+    l.insert(5, 9)
+    print(l.length())
+    return 0
+}`)
+		if err == nil || code != 134 {
+			t.Fatalf("List.insert 越界应 panic（134）：code=%d err=%v", code, err)
+		}
+	})
 }

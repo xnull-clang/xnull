@@ -1,0 +1,8 @@
+# xnull.dev/xnull/internal/codegen [xnull.dev/xnull/internal/codegen.test]
+internal/codegen/ffi_gen_test.go:75:21: undefined: LoadFFI
+internal/codegen/ffi_gen_test.go:87:12: undefined: InjectFFI
+internal/codegen/ffi_gen_test.go:93:15: undefined: EmitCWithFFI
+internal/codegen/ffi_gen_test.go:157:21: undefined: LoadFFI
+internal/codegen/ffi_gen_test.go:166:12: undefined: InjectFFI
+FAIL	xnull.dev/xnull/internal/codegen [build failed]
+FAIL

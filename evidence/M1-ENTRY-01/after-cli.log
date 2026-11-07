@@ -1,0 +1,54 @@
+=== RUN   TestRun
+=== RUN   TestRun/无参数打印用法
+=== RUN   TestRun/版本
+=== RUN   TestRun/帮助
+=== RUN   TestRun/未知命令
+=== RUN   TestRun/未知参数
+=== RUN   TestRun/未知标志
+=== RUN   TestRun/缺清单
+--- PASS: TestRun (0.00s)
+    --- PASS: TestRun/无参数打印用法 (0.00s)
+    --- PASS: TestRun/版本 (0.00s)
+    --- PASS: TestRun/帮助 (0.00s)
+    --- PASS: TestRun/未知命令 (0.00s)
+    --- PASS: TestRun/未知参数 (0.00s)
+    --- PASS: TestRun/未知标志 (0.00s)
+    --- PASS: TestRun/缺清单 (0.00s)
+=== RUN   TestUnknownCommandIsUsageError
+--- PASS: TestUnknownCommandIsUsageError (0.00s)
+=== RUN   TestRunSingleFile
+--- PASS: TestRunSingleFile (5.41s)
+=== RUN   TestRunSingleFileDeterministic
+--- PASS: TestRunSingleFileDeterministic (0.00s)
+=== RUN   TestRunEntryTwoSignatures
+=== RUN   TestRunEntryTwoSignatures/void_无参
+=== RUN   TestRunEntryTwoSignatures/Int_无参
+=== RUN   TestRunEntryTwoSignatures/void_args
+=== RUN   TestRunEntryTwoSignatures/Int_args
+--- PASS: TestRunEntryTwoSignatures (14.53s)
+    --- PASS: TestRunEntryTwoSignatures/void_无参 (3.31s)
+    --- PASS: TestRunEntryTwoSignatures/Int_无参 (3.02s)
+    --- PASS: TestRunEntryTwoSignatures/void_args (3.97s)
+    --- PASS: TestRunEntryTwoSignatures/Int_args (4.22s)
+=== RUN   TestRunEntryArgsArray
+--- PASS: TestRunEntryArgsArray (3.74s)
+=== RUN   TestRunEntryInitOrder
+--- PASS: TestRunEntryInitOrder (5.99s)
+=== RUN   TestRunEntryMissingRejected
+--- PASS: TestRunEntryMissingRejected (0.01s)
+=== RUN   TestRunEntryDuplicateRejected
+--- PASS: TestRunEntryDuplicateRejected (0.01s)
+=== RUN   TestDevUsage
+=== RUN   TestDevUsage/无子命令
+=== RUN   TestDevUsage/未知子命令
+=== RUN   TestDevUsage/res_缺参数
+=== RUN   TestDevUsage/res_目录不存在
+--- PASS: TestDevUsage (0.00s)
+    --- PASS: TestDevUsage/无子命令 (0.00s)
+    --- PASS: TestDevUsage/未知子命令 (0.00s)
+    --- PASS: TestDevUsage/res_缺参数 (0.00s)
+    --- PASS: TestDevUsage/res_目录不存在 (0.00s)
+=== RUN   TestDevResGenerates
+--- PASS: TestDevResGenerates (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	36.801s
