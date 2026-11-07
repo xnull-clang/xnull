@@ -1,29 +1,29 @@
 === 1) BLD-01 锚点用例（28/28 绿）===
-GREEN c04_array_members          exit=0      114ms  
-GREEN c05_array_bounds_read      exit=134    122ms  
-GREEN c06_array_bounds_write     exit=134    124ms  
-GREEN c07_new_array_zero         exit=0      110ms  
-GREEN c08_new_array_negative     exit=134    139ms  
-GREEN c09_list_members           exit=0      117ms  
-GREEN c10_list_insert_low        exit=134    157ms  
-GREEN c11_list_insert_high       exit=134    116ms  
-GREEN c12_list_remove_return     exit=0      113ms  
-GREEN c13_list_get_bounds        exit=134    115ms  
-GREEN c14_list_set_bounds        exit=134    114ms  
-GREEN c15_list_remove_bounds     exit=134    121ms  
-GREEN c16_map_members            exit=0      113ms  
-GREEN c17_map_get_missing        exit=0      114ms  
-GREEN c18_map_getor              exit=0      121ms  
-GREEN c19_map_bool_key           exit=1      123ms  
-GREEN c20_map_dup_key            exit=0      140ms  
-GREEN c21_map_int_key            exit=0      117ms  
-GREEN c22_set_members            exit=0      110ms  
-GREEN c23_set_at_low             exit=134    114ms  
-GREEN c24_set_at_high            exit=134    106ms  
-GREEN c25_assign_list            exit=0      115ms  
-GREEN c26_assign_set             exit=0       96ms  
-GREEN c27_set_complexity         exit=0      232ms  
-GREEN c28_map_put_complexity     exit=0      725ms  
+GREEN c04_array_members          exit=0       45ms  
+GREEN c05_array_bounds_read      exit=134     50ms  
+GREEN c06_array_bounds_write     exit=134     45ms  
+GREEN c07_new_array_zero         exit=0       47ms  
+GREEN c08_new_array_negative     exit=134     47ms  
+GREEN c09_list_members           exit=0       50ms  
+GREEN c10_list_insert_low        exit=134     55ms  
+GREEN c11_list_insert_high       exit=134     52ms  
+GREEN c12_list_remove_return     exit=0       50ms  
+GREEN c13_list_get_bounds        exit=134     48ms  
+GREEN c14_list_set_bounds        exit=134     46ms  
+GREEN c15_list_remove_bounds     exit=134     48ms  
+GREEN c16_map_members            exit=0       46ms  
+GREEN c17_map_get_missing        exit=0       48ms  
+GREEN c18_map_getor              exit=0       47ms  
+GREEN c19_map_bool_key           exit=1       46ms  
+GREEN c20_map_dup_key            exit=0       47ms  
+GREEN c21_map_int_key            exit=0       49ms  
+GREEN c22_set_members            exit=0       56ms  
+GREEN c23_set_at_low             exit=134     49ms  
+GREEN c24_set_at_high            exit=134     48ms  
+GREEN c25_assign_list            exit=0       47ms  
+GREEN c26_assign_set             exit=0       48ms  
+GREEN c27_set_complexity         exit=0      106ms  
+GREEN c28_map_put_complexity     exit=0      312ms  
 
 TOTAL=28 RED=0 GREEN=28
 证据目录：/Users/vjs/Desktop/XNull-Lang/wt/c2-rd2/evidence/M1-BLD-01/red
@@ -33,23 +33,18 @@ TOTAL=28 RED=0 GREEN=28
 === 2) go vet ./...（exit 0，零输出）===
 
 === 3) go test ./... -count=1 -timeout 300s ===
--- 首次（冷缓存/并发争用，codegen 超 300s，判失败，如实留档）--
-panic: test timed out after 5m0s
-	running tests:
-FAIL	xnull.dev/xnull/internal/codegen	345.304s
--- 复跑（同一命令，全绿）--
 ?   	xnull.dev/xnull/cmd/xnpt	[no test files]
 ?   	xnull.dev/xnull/cmd/xnull	[no test files]
-ok  	xnull.dev/xnull/internal/cli	35.681s
-ok  	xnull.dev/xnull/internal/codegen	62.673s
-ok  	xnull.dev/xnull/internal/codegen/ffi	27.405s
-ok  	xnull.dev/xnull/internal/devtool	2.754s
-ok  	xnull.dev/xnull/internal/diag	5.631s
+ok  	xnull.dev/xnull/internal/cli	25.004s
+ok  	xnull.dev/xnull/internal/codegen	37.899s
+ok  	xnull.dev/xnull/internal/codegen/ffi	18.119s
+ok  	xnull.dev/xnull/internal/devtool	4.485s
+ok  	xnull.dev/xnull/internal/diag	3.053s
 ?   	xnull.dev/xnull/internal/exitcode	[no test files]
-ok  	xnull.dev/xnull/internal/interp	8.525s
-ok  	xnull.dev/xnull/internal/sema	6.390s
-ok  	xnull.dev/xnull/internal/xfront	7.091s
-ok  	xnull.dev/xnull/internal/xpd	7.793s
+ok  	xnull.dev/xnull/internal/interp	5.574s
+ok  	xnull.dev/xnull/internal/sema	6.017s
+ok  	xnull.dev/xnull/internal/xfront	5.153s
+ok  	xnull.dev/xnull/internal/xpd	6.636s
 
 === 4) 9 示例双路径 ===
 === RUN   TestExamplesCompileMatchesInterp/ast-seed.x
@@ -62,7 +57,7 @@ ok  	xnull.dev/xnull/internal/xpd	7.793s
 === RUN   TestExamplesCompileMatchesInterp/parser-seed.x
 === RUN   TestExamplesCompileMatchesInterp/result-try.x
 PASS
-ok  	xnull.dev/xnull/internal/codegen	36.467s
+ok  	xnull.dev/xnull/internal/codegen	81.765s
 
 === 5) C 运行时六套件（回归）===
 ok  policy table (10 rows, deterministic)

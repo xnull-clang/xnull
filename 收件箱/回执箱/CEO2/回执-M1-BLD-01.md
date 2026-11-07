@@ -1,15 +1,15 @@
 # 回执 M1-BLD-01（S1 内置类型）
 
 > 卡：M1-BLD-01　主责：CEO2-RD2　会签：CEO2-QA1
-> 主线：`main` = `7df123d`（B0 门已过；已非快进合入 `pod/c2-rd2`）
-> 被测 commit：**`65f74ed`**（merge main 7df123d）　实现 commit：`03a73d5`
+> 主线：`main` = `9f5f66c`（B0 门 + e2/c2-rd1/c3-rd1/c3-rd2；已非快进合入 `pod/c2-rd2`）
+> 被测 commit：**`9bc86b6`**（merge main 9f5f66c）　实现 commit：`03a73d5`
 > 分支：`pod/c2-rd2`（**未 push、未合 main**）　日期：2026-11-07
 
 ## 一、五行
 
 1. **改了什么**：`impl/internal/interp/values.go`（String ASCII 大小写、`new` 负数 fatal、`List.insert` 越界 panic、`List.remove` 返回元素、`Map.get` 缺失键返回 null、Map 惰性排序快照使 put 均摊 O(1)、Set 哈希索引+插入序墓碑使 add/has/remove 平均 O(1)）；`interp.go`（`Value.Set`、scope 记录声明类型 → 赋值不退化为数组、for-in 走 Set.elements）；`sema/ty.go`（`List.remove` 返回元素、`Map.get` 类型 `V?`、Map 键类型 `TY-106`）。
 2. **怎么验**：合 `main 7df123d` 后复跑——`sh evidence/M1-BLD-01/red/run-red.sh` **28/28 绿**；`go vet ./...` exit 0；`go test ./... -count=1 -timeout 300s` **10 包全绿**；`TestExamplesCompileMatchesInterp` **9/9 双路径 PASS**；`impl/runtime/build_rt.sh` 六套件 **6/6**。
-3. **sha**：被测/合并 `65f74ed`（main `7df123d`）；实现 `03a73d5`；红基线 `96644b3`；分支 `pod/c2-rd2`，未 push、未合 main。
+3. **sha**：被测/合并 `9bc86b6`（main `9f5f66c`）；实现 `03a73d5`；红基线 `96644b3`；分支 `pod/c2-rd2`，未 push、未合 main。
 4. **产物**：`evidence/M1-BLD-01/` 七件套（`command/stdout/stderr/exit_code/sha/artifact.sha256/acceptance.md`）+ `green/` 原始输出 + `red/`（fixtures、cases.tsv、run-red.sh、逐例 `.out/.err/.exit/.time`）。
 5. **未测项**：Set 元素类型静态限制（§9.6）未加检查；`new T[count]` 的 T 为数组类型/OOM 未测；复杂度为墙钟预算且 `Map.keys/values` 惰性排序有 log 因子偏离（待 PM/QA 裁决）；§9.9 null 接收者 panic 未改；编译路径未建 20 条逐项矩阵；枚举键未测；台账状态未改（等 L1/L2）。
 
@@ -38,11 +38,14 @@
 | 19 | 赋值保持容器种类（List/Set） | c25、c26 | ✅ |
 | 20 | 复杂度 §9.8（Set 增删查、Map put 平均 O(1)） | c27、c28 | ✅ |
 
-## 三、本轮同步（合 main 7df123d）
+## 三、本轮同步（合 main 9f5f66c）
 
-- `git merge main` 非快进；合并冲突：`impl/internal/interp/values.go`（List.insert/remove、Map.get——main B0 已有同类实现，按语义取一份；保留更明确的 fatal 诊断）；`sema/ty.go` 自动合并后出现重复 `case "remove"`，已去重。
-- **如实留档**：合并后首次 `go test ./... -count=1 -timeout 300s` 在 `internal/codegen` 触 300s 超时（冷缓存 + 并发包争用，`TestMultiFileExampleCompileMatchesInterp` 被挂起）；同一命令复跑 **62.7s 全绿**，单独跑 codegen 亦 **119s 全绿**。原始输出见 `stdout.txt` 两段。
-- 合并后锚点矩阵仍 **28/28**，说明 main 的 B0 改动未回退 BLD-01。
+- `git merge main` 非快进；3 文件冲突，按「main 为主干 + 保留 BLD-01 增量」解决：
+  - `interp.go`：`scope.assign` 同时保留声明类型定向（BLD-01）与 `cloneTupleValue`（main 的元组值语义）；`defineTyped` 补克隆，修复 main 的 `TestTupleElementAssignmentAndEquality` 回归。
+  - `values.go`：保留 `mapv.len()`；`canonKey` 采用 main 的 Int/String 键限制（§9.5）；注释合并。
+  - `sema/ty.go`：诊断码撞号——main `TY-106` = 元组，BLD-01 MapKey 改 **`TY-107`**。
+- 复跑：`go test ./... -count=1 -timeout 300s` **首跑即全绿**（codegen 37.9s）；锚点矩阵 **28/28**、`go vet` 0、9 双路径 **9/9**、C 六套件 **6/6**。
+- 未删任何他人测试、未改任何测试期望。
 
 ## 四、未测项与风险（详）
 

@@ -1,4 +1,4 @@
 go vet ./...                                无输出（零诊断）
-go test ./...                               无 stderr；首次超时的 goroutine dump 在 stdout.txt 中留档
+go test ./...                               无 stderr（ok 行写 stdout）
 run-red.sh                                  无脚本级 stderr；逐例 stderr 见 red/results/<id>.err
                                              （fatal 用例的 stderr 为运行期 panic 诊断，属预期）

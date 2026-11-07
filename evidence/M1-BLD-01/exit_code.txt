@@ -1,6 +1,6 @@
-merge main 7df123d (non-ff)                  exit=0 （1 文件冲突 values.go，已按语义合并；ty.go 去重复 case）
+merge main 9f5f66c (non-ff)                  exit=0 （3 文件冲突：interp.go / values.go / sema/ty.go，已按「main 为主干 + 保留 BLD-01 增量」解决）
 run-red.sh                                   exit=0 （TOTAL=28 RED=0 GREEN=28）
 go vet ./...                                 exit=0 （零输出）
-go test ./... -count=1 -timeout 300s         exit=0 （10 包全绿；首次冷缓存跑 codegen 触 300s 超时，复跑 62.7s 全绿，见 stdout）
+go test ./... -count=1 -timeout 300s         exit=0 （10 包全绿）
 go test TestExamplesCompileMatchesInterp     exit=0 （9/9 子测试 PASS）
 build_rt.sh（六套件，回归）                   exit=0
