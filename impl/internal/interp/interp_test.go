@@ -752,3 +752,30 @@ static Int main() {
 		}
 	})
 }
+
+// NEG（interp 项）：Result 成员误用必须是运行期 fatal（§10.1）。
+// 对应 ERR-01 回执「interp 负向单测未入库」的缺口。
+func TestResultMemberMisusePanics(t *testing.T) {
+	t.Run("ErrValue", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static Int main() {
+    Result<Int, String> r = Err("bad")
+    print(r.value())
+    return 0
+}`)
+		if err == nil || code != 134 {
+			t.Fatalf("Err.value() 应 fatal（134）：code=%d err=%v", code, err)
+		}
+	})
+	t.Run("OkError", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static Int main() {
+    Result<Int, String> r = Ok(1)
+    print(r.error())
+    return 0
+}`)
+		if err == nil || code != 134 {
+			t.Fatalf("Ok.error() 应 fatal（134）：code=%d err=%v", code, err)
+		}
+	})
+}
