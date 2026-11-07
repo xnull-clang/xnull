@@ -8,6 +8,7 @@
 #include "xrt.h"
 
 #include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,7 @@ int32_t     xdkc_utf8_valid(const char *bytes, size_t len);
 int64_t     xdkc_utf8_to_utf16(const char *src, size_t n, uint16_t *dst, size_t cap);
 int64_t     xdkc_utf16_to_utf8(const uint16_t *src, size_t n, char *dst, size_t cap);
 void       *xdkc_file_open_read(const char *bytes, size_t len);
+void       *xdkc_file_open_write(const char *bytes, size_t len);
 int64_t     xdkc_file_read(void *fp, void *buf, size_t cap, int32_t *code);
 int32_t     xdkc_file_write(void *fp, const void *buf, size_t n);
 int32_t     xdkc_file_close(void *fp);
@@ -191,6 +193,118 @@ static void test_utf8_valid(void) {
     CHECK(xdkc_utf8_valid(NULL, 1) == 1);
 }
 
+/* BYTES-RUNTIME（B0-07c）：可变字节缓冲的构造/读写/追加/切片与越界终止。 */
+static void test_bytes(void) {
+    xrt_bytes_buf *b = xrt_bytes_from_c("abc", 3);
+    CHECK(xrt_bytes_len(b) == 3);
+    CHECK(xrt_bytes_get(b, 0) == 'a');
+    xrt_bytes_set(b, 0, 'A');
+    CHECK(xrt_bytes_get(b, 0) == 'A');
+
+    xrt_bytes_push(b, 0);
+    xrt_bytes_push(b, 255);
+    CHECK(xrt_bytes_len(b) == 5);
+    CHECK(xrt_bytes_get(b, 3) == 0);
+    CHECK(xrt_bytes_get(b, 4) == 255);
+    CHECK(memcmp(xrt_bytes_data(b), "Abc\0\xff", 5) == 0);
+
+    xrt_bytes_buf *a = xrt_bytes_from_c("XY", 2);
+    xrt_bytes_append(b, a);
+    CHECK(xrt_bytes_len(b) == 7);
+    CHECK(memcmp(xrt_bytes_data(b), "Abc\0\xffXY", 7) == 0);
+    xrt_release(a);
+
+    xrt_bytes_buf *s = xrt_bytes_slice(b, 1, 3);
+    CHECK(xrt_bytes_len(s) == 2);
+    CHECK(memcmp(xrt_bytes_data(s), "bc", 2) == 0);
+    xrt_release(s);
+
+    xrt_bytes_buf *z = xrt_bytes_alloc(4);
+    CHECK(xrt_bytes_len(z) == 4);
+    CHECK(((const unsigned char *)xrt_bytes_data(z))[3] == 0);
+    xrt_release(z);
+
+    xrt_bytes_buf *e = xrt_bytes_new();
+    CHECK(xrt_bytes_len(e) == 0);
+    xrt_bytes_push(e, 7); /* 空缓冲扩容路径 */
+    CHECK(xrt_bytes_len(e) == 1);
+    xrt_release(e);
+
+    xrt_bytes_buf *self = xrt_bytes_from_c("pq", 2);
+    xrt_bytes_append(self, self); /* 自追加：扩容后仍按原长度复制 */
+    CHECK(xrt_bytes_len(self) == 4);
+    CHECK(memcmp(xrt_bytes_data(self), "pqpq", 4) == 0);
+    xrt_release(self);
+
+    xrt_release(b);
+}
+
+/* 越界访问必须终止进程（S1 §9.7 panic），不得静默截断。 */
+static void test_bytes_bounds(void) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        FILE *null = freopen("/dev/null", "w", stderr);
+        (void)null;
+        xrt_bytes_buf *b = xrt_bytes_from_c("a", 1);
+        (void)xrt_bytes_get(b, 1);
+        _exit(0);
+    }
+    int st = 0;
+    CHECK(pid > 0);
+    if (pid > 0) {
+        CHECK(waitpid(pid, &st, 0) == pid);
+        CHECK(!(WIFEXITED(st) && WEXITSTATUS(st) == 0));
+    }
+}
+
+/* Bytes 与文件原语的联合路径：证实运行时可作为 FFI 借出缓冲（data/len）直接使用。 */
+static void test_bytes_file_io(void) {
+    char path[] = "/tmp/xnull_std_bytesXXXXXX";
+    int fd = mkstemp(path);
+    CHECK(fd >= 0);
+    if (fd < 0) {
+        return;
+    }
+    CHECK(write(fd, "AB", 2) == 2);
+    close(fd);
+
+    void *fp = xdkc_file_open_read(path, strlen(path));
+    CHECK(fp != NULL);
+    xrt_bytes_buf *b = xrt_bytes_alloc(8);
+    int32_t code = -1;
+    int64_t got = xdkc_file_read(fp, xrt_bytes_data(b), xrt_bytes_len(b), &code);
+    CHECK(code == 0);
+    CHECK(got == 2);
+    CHECK(xrt_bytes_get(b, 0) == 'A');
+    CHECK(xrt_bytes_get(b, 1) == 'B');
+    CHECK(xdkc_file_close(fp) == 0);
+
+    char out[] = "/tmp/xnull_std_bytes_outXXXXXX";
+    int ofd = mkstemp(out);
+    CHECK(ofd >= 0);
+    if (ofd >= 0) {
+        close(ofd);
+        void *wf = xdkc_file_open_write(out, strlen(out));
+        CHECK(wf != NULL);
+        xrt_bytes_buf *w = xrt_bytes_from_c("A\0B", 3);
+        CHECK(xdkc_file_write(wf, xrt_bytes_data(w), xrt_bytes_len(w)) == 0);
+        CHECK(xdkc_file_close(wf) == 0);
+
+        char back[4] = {0};
+        int rfd = open(out, O_RDONLY);
+        CHECK(rfd >= 0);
+        if (rfd >= 0) {
+            CHECK(read(rfd, back, sizeof(back)) == 3);
+            CHECK(memcmp(back, "A\0B", 3) == 0); /* 内嵌 NUL 按长度保留 */
+            close(rfd);
+        }
+        unlink(out);
+        xrt_release(w);
+    }
+    unlink(path);
+    xrt_release(b);
+}
+
 static void test_files(void) {
     char path[] = "/tmp/xnull_std_fileXXXXXX";
     int fd = mkstemp(path);
@@ -290,6 +404,9 @@ int main(void) {
     test_parse_format();
     test_utf();
     test_utf8_valid();
+    test_bytes();
+    test_bytes_bounds();
+    test_bytes_file_io();
     test_files();
     test_dirs_procs();
     test_regex_fmt();

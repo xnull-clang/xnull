@@ -83,12 +83,38 @@ const xrt_type *xrt_type_string_descriptor(void);
 size_t      xrt_string_len(const xrt_string *s);
 const char *xrt_string_bytes(const xrt_string *s);
 
-/* ---- 边界缓冲区（Bytes 的运行时表示；S7 §3.4） ---- */
+/* ---- 边界缓冲区视图（S7 §3.4；FFI 借出时由调用方填 data/len） ---- */
 
 typedef struct xrt_bytes {
     void  *data;
     size_t len;
 } xrt_bytes;
+
+/* ---- 可变字节缓冲（Bytes 语言类型；S1 §9.7 / S3 §188） ----
+ *
+ * 合同：
+ *   - 长度权威，允许内嵌 NUL，不要求 NUL 终止（S7 §3.4）；
+ *   - 字节区免扫描（S3 §188）；对象无引用字段；
+ *   - get/set/slice 越界 → xrt_fatal（S1 §9.7“越界 panic”）；push/set 取低 8 位；
+ *   - FFI 借出：生成代码传 (xrt_bytes_data(b), xrt_bytes_len(b))，包装层做 canary
+ *     拷贝进出（ffi-contract §5.1）。
+ *   - 分配种类：当前 ARC（与 String/类/容器一致）；S3 §188 的 GC 分类切换只改
+ *     实现内部 kind，本组符号与签名不变。
+ */
+typedef struct xrt_bytes_buf xrt_bytes_buf; /* 不透明对象 */
+typedef xrt_bytes_buf xrt_bytes_obj;        /* B0-07c codegen 契约别名 */
+
+xrt_bytes_buf *xrt_bytes_new(void);                          /* 空缓冲 */
+xrt_bytes_buf *xrt_bytes_alloc(size_t len);                  /* 定长、内容清零 */
+xrt_bytes_buf *xrt_bytes_from_c(const void *data, size_t len); /* 复制构造 */
+xrt_bytes_buf *xrt_bytes_from_string(const char *bytes, size_t len); /* from_c 别名 */
+size_t         xrt_bytes_len(const xrt_bytes_buf *b);
+void          *xrt_bytes_data(xrt_bytes_buf *b);
+int32_t        xrt_bytes_get(const xrt_bytes_buf *b, size_t i);
+void           xrt_bytes_set(xrt_bytes_buf *b, size_t i, int32_t v);
+void           xrt_bytes_push(xrt_bytes_buf *b, int32_t v);
+void           xrt_bytes_append(xrt_bytes_buf *b, const xrt_bytes_buf *src);
+xrt_bytes_buf *xrt_bytes_slice(const xrt_bytes_buf *b, size_t start, size_t end);
 
 /* ---- 不透明句柄（S7 §4.3） ----
  *
