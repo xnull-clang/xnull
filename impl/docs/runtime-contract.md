@@ -16,6 +16,15 @@
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
   （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。
+- **候选期增补（S6-04 资源读取 XDK-10，2026-11-08）**：`rt_std_res.c` 实现 §4.8 五 API 的 C 面——
+  `xdkc_resource_exists`、`xdkc_resource_size`（缺失/非法 → false/null）、
+  `xdkc_read_resource`（`Bytes`）、`xdkc_read_resource_text`（`Text`，非法 UTF-8 → DataCorrupted）、
+  `xdkc_list_resources`（字典序、前缀非目录 → 空列表；数组由 `xdkc_list_resources_free` 释放）。
+  Result 不跨 FFI：成功返回 1，失败返回 0 并写 `*error_kind`（`XRT_ERR_*`；**不以 0 表示成功**，
+  因为 InvalidArgument=0）。只读编译期静态表，不回退文件系统；路径四类非法 → InvalidArgument；
+  入口与逐条枚举检查取消 → Cancelled；无句柄、无 close。资源表生成器追加只读访问面
+  `xrt_resource_at`（golden 校验只看追加前原文），`build_rt.sh` 已把表与 `rt_std_res.c` 一起构建。
+  E6 需把生成的资源表与 `rt_std_res.c` 加入产物构建（`runtimeCSources` 为静态清单，表是工程级路径）。
 - **候选期增补（S6-03 sys plain/Async 双形态，2026-11-08）**：`rt_std_sys.c` 新增
   `xdkc_file_{open_read,open_write,read,write,close}_async`、`xdkc_dir_{open,read,close}_async`
   （`xrt_context *` 首参，阻塞原语经伴生执行器；取消后等待完成以回收结果，返回

@@ -149,6 +149,14 @@ func within(root, target string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator))
 }
 
+// resourceIndexMarker 是资源枚举访问面的起始标记。
+//
+// 生成器在 Python golden 文本之后**仅追加**该段，不修改原有表/查找函数：
+// 运行时 listResources 需要按名称升序遍历，而原表是 static 的，只能由生成器
+// 暴露 xrt_resource_at。golden 校验只比对标记之前的文本（见 resources_test.go），
+// 保持迁移期「逐字节一致」的约束不被新增接口破坏。
+const resourceIndexMarker = "/* ---- 资源枚举（S6-04/XDK-10）"
+
 // renderResources 生成 C 源文本。
 //
 // 首行保留迁移前的生成器署名文本，是为了与 Python golden 逐字节一致；
@@ -177,6 +185,7 @@ func renderResources(entries []resourceEntry) string {
 		b.WriteString("    *out = 0; *out_len = 0;\n")
 		b.WriteString("    return 1;\n")
 		b.WriteString("}\n")
+		writeResourceIndex(&b, true)
 		return b.String()
 	}
 
@@ -215,7 +224,30 @@ func renderResources(entries []resourceEntry) string {
 	b.WriteString("    }\n")
 	b.WriteString("    return 1; /* 未找到：显式区分，不静默给空 */\n")
 	b.WriteString("}\n")
+	writeResourceIndex(&b, false)
 	return b.String()
+}
+
+// writeResourceIndex 追加按索引访问接口（S6-04/XDK-10）。
+//
+// 资源名按生成顺序（字节序升序）排列；返回 0 成功、1 越界。
+// 指针指向静态表，调用方不得释放；运行时 listResources 只在单次调用内使用。
+func writeResourceIndex(b *strings.Builder, empty bool) {
+	b.WriteString(resourceIndexMarker + "：按名称升序；供 listResources 枚举 ---- */\n")
+	b.WriteString("int xrt_resource_at(size_t i, const char **name, size_t *nlen,\n")
+	b.WriteString("                    const unsigned char **out, size_t *out_len) {\n")
+	if empty {
+		b.WriteString("    (void)i; (void)name; (void)nlen; (void)out; (void)out_len;\n")
+		b.WriteString("    return 1;\n")
+		b.WriteString("}\n")
+		return
+	}
+	b.WriteString("    if (i >= xrt_resource_count()) { return 1; }\n")
+	b.WriteString("    const xrt_resource *r = &g_xrt_resources[i];\n")
+	b.WriteString("    *name = r->name; *nlen = strlen(r->name);\n")
+	b.WriteString("    *out = r->data; *out_len = r->len;\n")
+	b.WriteString("    return 0;\n")
+	b.WriteString("}\n")
 }
 
 // writeCBytes 每行 16 字节、大写十六进制、行尾逗号（与旧实现逐字节一致）。

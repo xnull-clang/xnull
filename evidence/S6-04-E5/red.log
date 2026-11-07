@@ -1,0 +1,59 @@
+test_res_api.c:37:11: error: call to undeclared function 'xdkc_read_resource'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   37 |     CHECK(xdkc_read_resource(ctx, p, n, &b, &ek) == 0);
+      |           ^
+test_res_api.c:46:11: error: call to undeclared function 'xdkc_read_resource_text'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   46 |     CHECK(xdkc_read_resource_text(ctx, p, n, &t, &ek) == 0);
+      |           ^
+test_res_api.c:56:11: error: call to undeclared function 'xdkc_list_resources'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   56 |     CHECK(xdkc_list_resources(ctx, p, n, &items, &count, &ek) == 0);
+      |           ^
+test_res_api.c:97:11: error: call to undeclared function 'xdkc_resource_exists'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   97 |     CHECK(xdkc_resource_exists("a.txt", 5) == 1);
+      |           ^
+test_res_api.c:98:11: error: call to undeclared function 'xdkc_resource_exists'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   98 |     CHECK(xdkc_resource_exists("nope.txt", 8) == 0);
+      |           ^
+test_res_api.c:99:11: error: call to undeclared function 'xdkc_resource_exists'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   99 |     CHECK(xdkc_resource_exists("/a.txt", 6) == 0); /* 非法 → false */
+      |           ^
+test_res_api.c:102:11: error: call to undeclared function 'xdkc_resource_size'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  102 |     CHECK(xdkc_resource_size("a.txt", 5, &sz) == 1 && sz == 5);
+      |           ^
+test_res_api.c:104:11: error: call to undeclared function 'xdkc_resource_size'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  104 |     CHECK(xdkc_resource_size("nope.txt", 8, &sz) == 0 && sz == 0);
+      |           ^
+test_res_api.c:106:11: error: call to undeclared function 'xdkc_resource_size'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  106 |     CHECK(xdkc_resource_size("/a.txt", 6, &sz) == 0 && sz == 0); /* 非法 → null */
+      |           ^
+test_res_api.c:115:11: error: call to undeclared function 'xdkc_read_resource'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  115 |     CHECK(xdkc_read_resource(ctx, "a.txt", 5, &b, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:119:11: error: call to undeclared function 'xdkc_read_resource'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  119 |     CHECK(xdkc_read_resource(ctx, "b.bin", 5, &b, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:124:11: error: call to undeclared function 'xdkc_read_resource_text'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  124 |     CHECK(xdkc_read_resource_text(ctx, "a.txt", 5, &t, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:133:11: error: call to undeclared function 'xdkc_read_resource'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  133 |     CHECK(xdkc_read_resource(ctx, "bad.txt", 7, &b, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:148:11: error: call to undeclared function 'xdkc_list_resources'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  148 |     CHECK(xdkc_list_resources(ctx, "", 0, &items, &count, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:153:5: error: call to undeclared function 'xdkc_list_resources_free'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  153 |     xdkc_list_resources_free(items);
+      |     ^
+test_res_api.c:157:11: error: call to undeclared function 'xdkc_list_resources'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  157 |     CHECK(xdkc_list_resources(ctx, "dir1", 4, &items, &count, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:167:15: error: call to undeclared function 'xdkc_list_resources'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  167 |         CHECK(xdkc_list_resources(ctx, empty_prefix[i], strlen(empty_prefix[i]),
+      |               ^
+test_res_api.c:188:11: error: call to undeclared function 'xdkc_read_resource'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  188 |     CHECK(xdkc_read_resource(ctx, name, strlen(name), &b, &ek) == 1 && ek == 0);
+      |           ^
+test_res_api.c:195:11: error: call to undeclared function 'xdkc_resource_exists'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  195 |     CHECK(xdkc_resource_exists("a.txt", 5) == 1);
+      |           ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.

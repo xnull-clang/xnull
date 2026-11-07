@@ -21,6 +21,15 @@ func sha256Hex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// baseTable 截去 S6-04 追加的资源枚举访问面，只校验迁移期 Python golden 的原文。
+// 这样新增 xrt_resource_at 不破坏「逐字节一致」约束，也不会掩盖原有表/查找的漂移。
+func baseTable(s string) string {
+	if i := strings.Index(s, resourceIndexMarker); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
+
 func writeFile(t *testing.T, path string, data []byte) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -55,7 +64,7 @@ func TestGenerateResourcesMatchesPythonGolden(t *testing.T) {
 	writeFile(t, filepath.Join(src, "a.txt"), []byte("hello"))
 
 	got := generate(t, src)
-	if h := sha256Hex(got); h != goldenTwoFilesSHA256 {
+	if h := sha256Hex(baseTable(got)); h != goldenTwoFilesSHA256 {
 		t.Fatalf("与 Python golden 的 sha256 不一致：got %s want %s\n%s", h, goldenTwoFilesSHA256, got)
 	}
 	if !strings.Contains(got, `"a.txt"`) || !strings.Contains(got, `"c.bin"`) {
@@ -68,7 +77,7 @@ func TestGenerateResourcesMatchesPythonGolden(t *testing.T) {
 
 func TestGenerateResourcesEmptyMatchesPythonGolden(t *testing.T) {
 	got := generate(t, t.TempDir())
-	if h := sha256Hex(got); h != goldenEmptySHA256 {
+	if h := sha256Hex(baseTable(got)); h != goldenEmptySHA256 {
 		t.Fatalf("空表与 Python golden 的 sha256 不一致：got %s want %s\n%s", h, goldenEmptySHA256, got)
 	}
 	if !strings.Contains(got, "空表：无资源的工程零成本") || !strings.Contains(got, "return 0") {
