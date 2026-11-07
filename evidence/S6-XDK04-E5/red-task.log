@@ -1,0 +1,5 @@
+BUILD=0
+xnull runtime fatal: task_join：重复 join（S5 §3.1 合同错误）
+xnull runtime fatal: 任务内 panic（S5 §8：进程级终止）
+Assertion failed: (rc == 1), function test_unclosed_group_fatal, file test_task.c, line 275.
+RUN=134

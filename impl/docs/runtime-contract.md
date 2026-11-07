@@ -20,6 +20,11 @@
   `xdkc_dir_close_async` 在 Context 取消时仍等待关闭完成，并返回**真实 close 结果**
   （成功 0），不再返回 2；close 必达，取消不撤销已完成的关闭（避免句柄层未 mark_closed
   导致悬垂 native 指针）。read/write/open/dir 的取消仍为 code=2（可恢复，调用方决定报告）。
+- **候选期更正（S6-XDK04 组必关，2026-11-08）**：`xrt_task_group` 的 `group_deinit`
+  在 `closed == 0` 时一律 `rt_fatal`（不再只在 `active > 0` 时），即使当前无活跃任务；
+  codegen 对拥有型任务/上下文句柄局部（`TaskGroup.create`/`Context.background`/
+  `Context.withDeadline`/`group.spawn`）在作用域退出发射 `rt_release`，
+  使「未 close 即离开作用域」触发合同诊断。标识符/`token()` 等借用不释放。
 - **候选期更正（S6-XDK06 runtime，2026-11-08）**：`dumpTasks` 改为直接调用运行时
   `xdkc_dump_tasks`（调度器计数，单行 `tasks: live=… spawned=… settled=… carrier=…`），
   删除生成侧 `xn_task_live` 计数；`rt_std_runtime.c` 的 `xdkc_exit` 在 `_Exit` 前

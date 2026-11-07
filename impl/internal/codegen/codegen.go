@@ -2711,6 +2711,11 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			return nil, err
 		}
 		s.locals[n.Name] = tc
+		// 作用域退出释放本地句柄；只有“拥有型”初始化才释放（标识符/borrow 不重复释放）。
+		// TaskGroup 未 close 时，release 会触发 group_deinit 的合同诊断（S5 §3.2）。
+		if taskValueOwned(n.Init, tc) {
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+		}
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	if isClassPtr(tc) {

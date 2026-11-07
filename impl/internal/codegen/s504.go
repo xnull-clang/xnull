@@ -458,6 +458,30 @@ func taskUnbox(memberC, v string) string {
 }
 
 // taskValueExpr 生成任务/上下文句柄值表达式（含 spawn 闭包装箱）。
+// taskValueOwned 判断任务/上下文句柄初始化是否产生新的 +1 所有权。
+// 标识符、null、token() 是借用，不能在作用域退出时 release。
+func taskValueOwned(e xfront.Expr, wantC string) bool {
+	if e == nil {
+		return false
+	}
+	switch n := e.(type) {
+	case *xfront.Paren:
+		return taskValueOwned(n.X, wantC)
+	case *xfront.Call:
+		mem, ok := n.Callee.(*xfront.Member)
+		if !ok {
+			return false
+		}
+		switch mem.Name {
+		case "background", "withDeadline", "child", "create", "spawn":
+			return true
+		}
+		return false
+	}
+	_ = wantC
+	return false
+}
+
 func (s *scope) taskValueExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 	switch n := e.(type) {
 	case *xfront.IdentExpr:

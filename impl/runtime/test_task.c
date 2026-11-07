@@ -223,6 +223,29 @@ static void run_repeat_join(void) {
     _exit(0);
 }
 
+/* 组必关：未 close 就释放（离开作用域）→ 进程级 fatal（S5 §3.2）。 */
+/* 任务失败后仍未 close 组 → 同样 fatal（失败不豁免组必关）。 */
+static void run_unclosed_failed_group(void) {
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    if (xrt_task_group_spawn(g, body_err, NULL, &t) != 0) {
+        _exit(0);
+    }
+    xrt_task_result r;
+    (void)xrt_task_join(t, &r); /* 业务错误 NotFound */
+    xrt_release(t);
+    xrt_release(g); /* 未 close → group_deinit fatal */
+    _exit(0);       /* 不应到达 */
+}
+
+static void run_unclosed_group(void) {
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_release(g); /* 未 close → group_deinit fatal */
+    _exit(0);       /* 不应到达 */
+}
+
 static void run_panic(void) {
     xrt_context *ctx = xrt_context_background();
     xrt_task_group *g = xrt_task_group_new(ctx);
@@ -260,6 +283,16 @@ static void test_contract_fatal(void) {
 static void test_panic_fatal(void) {
     int rc = spawn_self("panic");
     assert(rc == 1); /* 任务内 panic → 进程终止 */
+}
+
+static void test_unclosed_group_fatal(void) {
+    int rc = spawn_self("unclosed-group");
+    assert(rc == 1); /* 未 close 释放组 → fatal */
+}
+
+static void test_unclosed_failed_group_fatal(void) {
+    int rc = spawn_self("unclosed-failed-group");
+    assert(rc == 1); /* 任务失败后未 close 组 → 仍 fatal */
 }
 
 static void capture_dump(char *buf, size_t cap) {
@@ -404,6 +437,14 @@ int main(int argc, char **argv) {
         run_panic();
         return 0;
     }
+    if (argc > 1 && strcmp(argv[1], "unclosed-group") == 0) {
+        run_unclosed_group();
+        return 0;
+    }
+    if (argc > 1 && strcmp(argv[1], "unclosed-failed-group") == 0) {
+        run_unclosed_failed_group();
+        return 0;
+    }
     test_ok_and_err();
     test_cancel_close();
     test_join_deadline();
@@ -412,9 +453,11 @@ int main(int argc, char **argv) {
     test_env_root();
     test_contract_fatal();
     test_panic_fatal();
+    test_unclosed_group_fatal();
+    test_unclosed_failed_group_fatal();
     test_dump_tasks();
     test_carrier_pool();
     test_companion_executor();
-    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/dump/pool/companion)\n");
+    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/group-must-close/dump/pool/companion)\n");
     return 0;
 }

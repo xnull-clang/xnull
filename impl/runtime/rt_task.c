@@ -167,8 +167,13 @@ static const rt_type RT_TYPE_XRT_TASK = {
 
 static void group_deinit(void *obj) {
     struct xrt_task_group *g = obj;
-    if (g->active > 0) {
-        rt_fatal("任务组在未关闭/未终结时释放（S5 §3.2 合同错误）");
+    /* 组是资源：close 是唯一合法终结路径（S5 §3.2）。
+     * 未 close 就释放（离开作用域/被丢弃）一律是使用错误，即使当前没有活跃任务。 */
+    if (!g->closed) {
+        if (g->active > 0) {
+            rt_fatal("任务组在未关闭且仍有活跃任务时释放（S5 §3.2 合同错误）");
+        }
+        rt_fatal("任务组在未关闭时释放（S5 §3.2 合同错误）");
     }
     pthread_cond_destroy(&g->cv);
     pthread_mutex_destroy(&g->mu);
