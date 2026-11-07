@@ -1,0 +1,39 @@
+== QA sema after ==
+    --- PASS: TestQAERR01SemaNegative/errdefer非Result函数 (0.00s)
+    --- PASS: TestQAERR01SemaNegative/errdefer非Result闭包 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	7.237s
+
+== QA interp after (tail) ==
+    --- PASS: TestQAERR01Runtime/嵌套try (0.00s)
+    --- PASS: TestQAERR01Runtime/try优先级只作用于紧邻前缀表达式 (0.00s)
+    --- PASS: TestQAERR01Runtime/defer执行时读取变量当前值 (0.00s)
+    --- PASS: TestQAERR01Runtime/循环每轮的defer在当轮结束执行 (0.00s)
+    --- PASS: TestQAERR01Runtime/块作用域退出执行defer (0.00s)
+    --- PASS: TestQAERR01Runtime/直接return_Err的执行顺序 (0.00s)
+    --- PASS: TestQAERR01Runtime/闭包try成功返回 (0.00s)
+    --- PASS: TestQAERR01Runtime/闭包try失败必须从闭包返回而不是穿透外层 (0.00s)
+    --- FAIL: TestQAERR01Runtime/闭包try失败不触发外层errdefer (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	4.460s
+FAIL
+
+== closure repro ==
+closure-err:bad
+after-call
+outer-ok
+exit=0
+
+== cleanup repro ==
+/tmp/cleanup-localdecl.x:2:11: error[ERR-205]: defer/errdefer 的单条语句体不得是局部声明（§10.3）
+  需要局部变量时改用花括号体
+exit status 1
+exit=1
+
+== full/lint ==
+ok  	xnull.dev/xnull/internal/diag	4.598s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	6.149s
+ok  	xnull.dev/xnull/internal/sema	6.905s
+ok  	xnull.dev/xnull/internal/xfront	5.349s
+ok  	xnull.dev/xnull/internal/xpd	7.603s

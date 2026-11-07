@@ -199,6 +199,11 @@ func (p *parser) parseImportDecl() *ImportDecl {
 	if p.atKw("as") {
 		p.i++
 		d.Alias = p.expectKind(Ident, "消歧别名").Text
+		// §3.2：as 只用于符号导入 `import P.S as A` 的消歧；
+		// 单段路径是包导入 `import P`，禁止包别名 `import P as Q`。
+		if len(d.Path) < 2 {
+			p.err(d.P, synPackageAlias, "包导入不能使用 as 别名（§3.2）：`as` 只用于符号导入 `import P.S as A`", "去掉 as 子句，或改为导入具体符号")
+		}
 	}
 	if p.at(Semi) {
 		p.i++
@@ -361,7 +366,7 @@ func (p *parser) genericParamsFollows() bool {
 			if depth == 0 {
 				return j+1 < len(p.toks) && p.toks[j+1].at(LParen)
 			}
-		case tk.Kind == Ident || (tk.Kind == Op && tk.Text == ","):
+		case tk.Kind == Ident || tk.Kind == Comma:
 		default:
 			return false
 		}
@@ -407,12 +412,13 @@ func (p *parser) parseTopFuncRest(pos Pos, annos []*AnnotationNode, vis [3]bool,
 		p.i++
 		for {
 			f.TypePars = append(f.TypePars, p.expectKind(Ident, "类型参数").Text)
-			if p.atOp(",") {
+			if p.at(Comma) {
 				p.i++
 				continue
 			}
 			break
 		}
+		p.splitAngleClose()
 		p.expectOp(">")
 	}
 	p.expectKind(LParen, "`(`")
