@@ -192,6 +192,7 @@ static pthread_once_t  g_worker_once = PTHREAD_ONCE_INIT;
 static atomic_int      g_live_tasks = 0;
 static atomic_int      g_spawned_tasks = 0;
 static atomic_int      g_settled_tasks = 0;
+static int             g_carrier_count = 0;
 
 static void *worker_main(void *arg) {
     (void)arg;
@@ -247,12 +248,31 @@ static void *worker_main(void *arg) {
     return NULL;
 }
 
-static void worker_init(void) {
-    pthread_t th;
-    if (pthread_create(&th, NULL, worker_main, NULL) != 0) {
-        rt_fatal("调度器：载体线程创建失败（S5 §2.2）");
+static int env_int(const char *name, int def) {
+    const char *v = getenv(name);
+    if (v == NULL) {
+        return def;
     }
-    pthread_detach(th);
+    int n = atoi(v);
+    if (n < 1) {
+        n = 1;
+    }
+    if (n > 64) {
+        n = 64;
+    }
+    return n;
+}
+
+static void worker_init(void) {
+    int n = env_int("XNULL_CARRIERS", 4); /* 载体池：阻塞任务不占唯一 worker */
+    g_carrier_count = n;
+    for (int i = 0; i < n; i++) {
+        pthread_t th;
+        if (pthread_create(&th, NULL, worker_main, NULL) != 0) {
+            rt_fatal("调度器：载体线程创建失败（S5 §2.2）");
+        }
+        pthread_detach(th);
+    }
 }
 
 xrt_task_group *xrt_task_group_new(xrt_context *parent) {
@@ -436,12 +456,131 @@ int32_t xrt_task_join_deadline(xrt_task *task, int64_t deadline_mono_ms, xrt_tas
 void xdkc_dump_tasks(void) {
     char buf[160];
     int n = snprintf(buf, sizeof(buf),
-                     "xrt tasks: live=%d spawned=%d settled=%d carrier=1\n",
+                     "xrt tasks: live=%d spawned=%d settled=%d carrier=%d\n",
                      atomic_load(&g_live_tasks), atomic_load(&g_spawned_tasks),
-                     atomic_load(&g_settled_tasks));
+                     atomic_load(&g_settled_tasks), g_carrier_count);
     if (n > 0) {
         size_t len = (size_t)n < sizeof(buf) ? (size_t)n : sizeof(buf) - 1;
         ssize_t w = write(2, buf, len);
         (void)w;
     }
+}
+
+/* ---- 伴生执行器（S5 §2.2 / S7 §7.3：.unaware 长阻塞不占载体线程） ---- */
+
+struct xrt_future {
+    rt_header        hdr;
+    pthread_mutex_t  mu;
+    pthread_cond_t   cv;
+    xrt_blocking_fn  fn;
+    void            *arg;
+    void            *result;
+    int              done;
+    struct xrt_future *next_unused; /* 伴生队列链 */
+};
+
+static void future_deinit(void *obj) {
+    xrt_future *f = obj;
+    pthread_cond_destroy(&f->cv);
+    pthread_mutex_destroy(&f->mu);
+}
+
+static const rt_type RT_TYPE_XRT_FUTURE = {
+    "xrt_future", sizeof(struct xrt_future) - sizeof(rt_header), future_deinit, NULL
+};
+
+static pthread_mutex_t g_cmu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_ccv = PTHREAD_COND_INITIALIZER;
+static xrt_future     *g_chead = NULL;
+static xrt_future     *g_ctail = NULL;
+static pthread_once_t  g_companion_once = PTHREAD_ONCE_INIT;
+
+static void *companion_main(void *arg) {
+    (void)arg;
+    for (;;) {
+        pthread_mutex_lock(&g_cmu);
+        while (g_chead == NULL) {
+            pthread_cond_wait(&g_ccv, &g_cmu);
+        }
+        xrt_future *f = g_chead;
+        g_chead = f->next_unused;
+        if (g_chead == NULL) {
+            g_ctail = NULL;
+        }
+        pthread_mutex_unlock(&g_cmu);
+
+        void *r = f->fn(f->arg);
+        pthread_mutex_lock(&f->mu);
+        f->result = r;
+        f->done = 1;
+        pthread_cond_broadcast(&f->cv);
+        pthread_mutex_unlock(&f->mu);
+        rt_release(f); /* 执行器持有的 +1 */
+    }
+    return NULL;
+}
+
+static void companion_init(void) {
+    int n = env_int("XNULL_COMPANIONS", 2);
+    for (int i = 0; i < n; i++) {
+        pthread_t th;
+        if (pthread_create(&th, NULL, companion_main, NULL) != 0) {
+            rt_fatal("伴生执行器：线程创建失败（S7 §7.3）");
+        }
+        pthread_detach(th);
+    }
+}
+
+xrt_future *xrt_companion_submit(xrt_blocking_fn fn, void *arg) {
+    if (fn == NULL) {
+        rt_fatal("companion_submit：回调为空（S7 §7.3）");
+    }
+    pthread_once(&g_companion_once, companion_init);
+    rt_object *o = rt_arc_new(&RT_TYPE_XRT_FUTURE);
+    xrt_future *f = (xrt_future *)o;
+    f->fn = fn;
+    f->arg = arg;
+    f->result = NULL;
+    f->done = 0;
+    f->next_unused = NULL;
+    pthread_mutex_init(&f->mu, NULL);
+    pthread_cond_init(&f->cv, NULL);
+    rt_retain(f); /* 执行器持有 +1 */
+
+    pthread_mutex_lock(&g_cmu);
+    if (g_ctail != NULL) {
+        g_ctail->next_unused = f;
+    } else {
+        g_chead = f;
+    }
+    g_ctail = f;
+    pthread_cond_signal(&g_ccv);
+    pthread_mutex_unlock(&g_cmu);
+    return f;
+}
+
+int32_t xrt_companion_wait(xrt_future *f, xrt_context *ctx, void **out) {
+    if (f == NULL) {
+        rt_fatal("companion_wait：future 为空（S7 §7.3）");
+    }
+    pthread_mutex_lock(&f->mu);
+    while (!f->done) {
+        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+            pthread_mutex_unlock(&f->mu);
+            return XRT_ERR_CANCELLED; /* 不消费；future 继续在伴生线程执行 */
+        }
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_nsec += 5 * 1000 * 1000;
+        if (ts.tv_nsec >= 1000000000L) {
+            ts.tv_sec++;
+            ts.tv_nsec -= 1000000000L;
+        }
+        pthread_cond_timedwait(&f->cv, &f->mu, &ts);
+    }
+    if (out != NULL) {
+        *out = f->result;
+    }
+    pthread_mutex_unlock(&f->mu);
+    return 0;
 }

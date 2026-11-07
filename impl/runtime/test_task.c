@@ -281,6 +281,97 @@ static void capture_dump(char *buf, size_t cap) {
     close(fds[0]);
 }
 
+static atomic_int g_flag = 0;
+
+static int32_t body_sleep_long(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)env;
+    (void)ctx;
+    struct timespec ts = {0, 200000000}; /* 200ms：占住一个载体 */
+    nanosleep(&ts, NULL);
+    out->ok = 1;
+    out->value = (void *)(intptr_t)1;
+    return 0;
+}
+
+static int32_t body_flag(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)ctx;
+    atomic_store((atomic_int *)env, 1);
+    out->ok = 1;
+    return 0;
+}
+
+static void test_carrier_pool(void) {
+    atomic_store(&g_flag, 0);
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *sleepers[3] = {NULL, NULL, NULL};
+    for (int i = 0; i < 3; i++) {
+        assert(xrt_task_group_spawn(g, body_sleep_long, NULL, &sleepers[i]) == 0);
+    }
+    xrt_task *flag = NULL;
+    assert(xrt_task_group_spawn(g, body_flag, &g_flag, &flag) == 0);
+    xrt_task_result r;
+    /* 3 个阻塞任务占用 3 个载体；池 >=4 时 flag 任务应立即执行 */
+    int rc = xrt_task_join_deadline(flag, xrt_clock_mono_ms() + 150, &r);
+    assert(rc == 0 && r.ok == 1 && atomic_load(&g_flag) == 1);
+    xrt_release(flag);
+    for (int i = 0; i < 3; i++) {
+        assert(xrt_task_join(sleepers[i], &r) == 0 && r.ok == 1);
+        xrt_release(sleepers[i]);
+    }
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
+static void *companion_sleep(void *arg) {
+    struct timespec ts = {0, 150000000}; /* 150ms */
+    nanosleep(&ts, NULL);
+    return arg;
+}
+
+static void test_companion_executor(void) {
+    int a = 1;
+    int b = 2;
+    xrt_future *fa = xrt_companion_submit(companion_sleep, &a);
+    xrt_future *fb = xrt_companion_submit(companion_sleep, &b);
+    assert(fa != NULL && fb != NULL);
+
+    /* 伴生执行器占用不阻塞载体：普通任务仍能按时完成 */
+    atomic_store(&g_flag, 0);
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *flag = NULL;
+    assert(xrt_task_group_spawn(g, body_flag, &g_flag, &flag) == 0);
+    xrt_task_result r;
+    int rc = xrt_task_join_deadline(flag, xrt_clock_mono_ms() + 80, &r);
+    assert(rc == 0 && r.ok == 1);
+    xrt_release(flag);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+
+    void *out = NULL;
+    assert(xrt_companion_wait(fa, NULL, &out) == 0 && out == &a);
+    assert(xrt_companion_wait(fb, NULL, &out) == 0 && out == &b);
+    xrt_release(fa);
+    xrt_release(fb);
+
+    /* 取消等待：伴生调用继续，等待立即返回 Cancelled */
+    xrt_context *deadline = xrt_context_with_deadline(xrt_context_background(),
+                                                      xrt_clock_mono_ms() + 10);
+    xrt_future *fc = xrt_companion_submit(companion_sleep, &a);
+    int crc = xrt_companion_wait(fc, deadline, &out);
+    assert(crc == XRT_ERR_CANCELLED);
+    struct timespec wait = {0, 200000000};
+    nanosleep(&wait, NULL);
+    assert(xrt_companion_wait(fc, NULL, &out) == 0 && out == &a);
+    xrt_release(fc);
+    xrt_release(deadline);
+}
+
 static void test_dump_tasks(void) {
     char buf[256];
     capture_dump(buf, sizeof(buf));
@@ -322,6 +413,8 @@ int main(int argc, char **argv) {
     test_contract_fatal();
     test_panic_fatal();
     test_dump_tasks();
-    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/dump)\n");
+    test_carrier_pool();
+    test_companion_executor();
+    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/dump/pool/companion)\n");
     return 0;
 }
