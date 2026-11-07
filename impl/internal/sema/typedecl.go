@@ -300,6 +300,7 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 			c.errf(d.P, TyInherit, "继承环：`"+d.Name+"` 与 `"+baseName+"` 互相继承（§1.5）", "")
 		}
 	}
+	c.checkSuperOrder(d)
 	// 协议目标
 	for _, pr := range d.Protocols {
 		if info, ok := c.types[lastSeg(pr.Qual)]; ok && info.kind != "protocol" {
@@ -362,6 +363,9 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 
 // checkStruct 结构体检查（§3）。
 func (c *typeCheckCtx) checkStruct(d *xfront.StructDecl) {
+	if d.Primary != nil {
+		c.errf(d.Primary.P, TyPCTOR, "结构体不能使用主构造器（§3.5/§6.3）", "改用普通结构体构造器")
+	}
 	materializePrimary(d.Primary, &d.Fields, &d.Ctors)
 	c.checkModifiers(d.P, d.Mod, "struct")
 	for _, f := range d.Fields {
@@ -526,6 +530,101 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 }
 
 // constInt64 求简单枚举项的整数字面量值（含前导 -）。
+// ---------- PCTOR-01：super(...) 必须是构造器首个动作（§6.3） ----------
+
+func isSuperCallStmt(s xfront.Stmt) bool {
+	es, ok := s.(*xfront.ExprStmt)
+	if !ok {
+		return false
+	}
+	call, ok := es.X.(*xfront.Call)
+	if !ok {
+		return false
+	}
+	id, ok := call.Callee.(*xfront.IdentExpr)
+	return ok && id.Name == "super"
+}
+
+func firstActionIsSuper(b *xfront.Block) bool {
+	if b == nil {
+		return false
+	}
+	for _, s := range b.Stmts {
+		if _, empty := s.(*xfront.EmptyStmt); empty {
+			continue
+		}
+		return isSuperCallStmt(s)
+	}
+	return false
+}
+
+func containsSuperCall(s xfront.Stmt) bool {
+	if s == nil {
+		return false
+	}
+	switch st := s.(type) {
+	case *xfront.ExprStmt:
+		return isSuperCallStmt(st)
+	case *xfront.Block:
+		if st != nil {
+			for _, x := range st.Stmts {
+				if containsSuperCall(x) {
+					return true
+				}
+			}
+		}
+	case *xfront.IfStmt:
+		return containsSuperCall(st.Then) || containsSuperCall(st.Else)
+	case *xfront.WhileStmt:
+		return containsSuperCall(st.Body)
+	case *xfront.DoWhileStmt:
+		return containsSuperCall(st.Body)
+	case *xfront.ForStmt:
+		return containsSuperCall(st.Body)
+	case *xfront.SwitchStmt:
+		for _, c := range st.Cases {
+			for _, x := range c.Stmts {
+				if containsSuperCall(x) {
+					return true
+				}
+			}
+		}
+		if st.Default != nil {
+			for _, x := range st.Default.Stmts {
+				if containsSuperCall(x) {
+					return true
+				}
+			}
+		}
+	case *xfront.DeferStmt:
+		if st.Block != nil {
+			return containsSuperCall(st.Block)
+		}
+		return containsSuperCall(st.Stmt)
+	case *xfront.LabeledStmt:
+		return containsSuperCall(st.Stmt)
+	}
+	return false
+}
+
+func (c *typeCheckCtx) checkSuperOrder(d *xfront.ClassDecl) {
+	for _, ct := range d.Ctors {
+		if ct == nil || ct.Body == nil {
+			continue
+		}
+		if !containsSuperCall(ct.Body) {
+			continue
+		}
+		if d.Base == nil {
+			c.errf(ct.P, TyPCTOR, "没有显式父类时不能调用 super(...)（§6.3）", "删除 super(...) 调用")
+			continue
+		}
+		if !firstActionIsSuper(ct.Body) {
+			c.errf(ct.P, TyPCTOR, "super(...) 必须是构造器的首个动作（§6.3）", "把 super(...) 移到构造器体第一句")
+		}
+	}
+}
+
 // ---------- PCTOR-01：final 字段恰好赋值一次（§6.1/§6.3） ----------
 
 func (c *typeCheckCtx) checkFinalFieldAssignments(d *xfront.ClassDecl, primaryFields map[string]bool) {
