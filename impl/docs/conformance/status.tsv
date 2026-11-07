@@ -51,3 +51,4 @@ BND-14	Tests/s2_neg_diag_test.go + 收件箱/回执箱/验收-S2-BND-14.md	PASS
 BND-15	Tests/s2_integration_test.go + 收件箱/回执箱/验收-S2-BND-15.md	PASS
 BND-13	internal/sema/s2_ext_test.go + internal/interp/ext_test.go + 收件箱/回执箱/验收-S2-BND-13.md	PASS
 EXT-01	internal/sema/s2_ext_test.go + internal/codegen/s2_ext_test.go + 收件箱/回执箱/验收-S2-EXT-01.md	PASS
+SINGLE-01	internal/codegen/s2_singleton_test.go + 收件箱/回执箱/验收-S2-SINGLE-01.md	PASS
