@@ -1,0 +1,7 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:5: error[SYN-101]: 工厂方法必须写 static（§10.1）
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:11: error[SYN-101]: 期望`(`，遇到 `=`
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:11: error[SYN-101]: 期望类型，遇到 `=`
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:13: error[SYN-101]: 期望参数名，遇到 整数字面量
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:13: error[SYN-101]: 期望`)`，遇到 整数字面量
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:3:13: error[SYN-101]: 期望`{`，遇到 整数字面量
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_field.x:6:1: error[SYN-101]: 期望工厂体结束，遇到 文件结束

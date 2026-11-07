@@ -1,0 +1,6 @@
+=== RUN   TestS2ANN01NoRuntimeOverhead
+--- PASS: TestS2ANN01NoRuntimeOverhead (0.65s)
+=== RUN   TestS2ANN01UnknownAnnotationNeutral
+--- PASS: TestS2ANN01UnknownAnnotationNeutral (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	1.132s

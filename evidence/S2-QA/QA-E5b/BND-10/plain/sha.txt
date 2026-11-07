@@ -1,0 +1,6 @@
+main=c4361f6 (user-declared; no git command run)
+binary=/tmp/qa-e5c-main
+binary_sha256=a81a6d759ca4520e54c514962e90a6a47be50ca5b611be7cecaf1d1e7dc623c6
+runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
+go=go version go1.27.3 darwin/amd64
+date=2026-11-08 00:13:44 +0800

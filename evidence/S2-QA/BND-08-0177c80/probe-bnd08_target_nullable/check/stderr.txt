@@ -1,0 +1,2 @@
+/tmp/qa-d-probes/bnd08_target_nullable.x:2:9: error[TY-217]: factory Target 必须是裸类型名（§10.1）
+  写 `factory F for Type`

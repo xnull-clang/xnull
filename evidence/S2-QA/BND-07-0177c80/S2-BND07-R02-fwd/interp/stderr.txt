@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd07/r02_fwd.x:2:23: error[TY-222]: 单例 `A` 不能前向引用后面的单例 `B`（§9.2/§9.4）
+  调整声明顺序

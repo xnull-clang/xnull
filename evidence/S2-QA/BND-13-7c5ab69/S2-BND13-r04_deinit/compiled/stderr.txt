@@ -1,0 +1,1 @@
+xnull: 代码生成失败：codegen：extension 不能添加 deinit（S2 §11.1）

@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/13_proto_private_method/source.x:1:27: error[TY-205]: 协议方法不能是 private/protected（§4.2：默认公开）

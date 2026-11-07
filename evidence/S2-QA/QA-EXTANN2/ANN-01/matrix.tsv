@@ -1,0 +1,20 @@
+A01a	check=0	interp=0	compiled=0	interp_out=x|7|	compiled_out=x|7|
+A01b	check=0	interp=0	compiled=0	interp_out=	compiled_out=
+A02	check=0	interp=0	compiled=0	interp_out=true|	compiled_out=true|
+R01a_override_field	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R01a_override_field/source.x:2:5: error[TY-223]: @Override 只能用于方法（§12.3）
+R01b_readonly_method	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R01b_readonly_method/source.x:2:5: error[TY-223]: @ReadOnly 只能用于字段（§12.3）
+R01c_unknown	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R01c_unknown/source.x:1:1: error[TY-223]: 未知注解 `@Nope`（§12.2）
+R01d_duplicate	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R01d_duplicate/source.x:3:1: error[TY-223]: 同一目标重复使用注解 `@Marker`（§12.2）
+R01e_nonfinal	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R01e_nonfinal/source.x:2:5: error[SYN-101]: 注解体只能声明 `final` 字段（§12.1）
+R02a_type	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R02a_type/source.x:3:5: error[TY-223]: 注解 `A` 不是类型，不能用于类型位置（§12.1）
+R02b_new	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R02b_new/source.x:3:5: error[TY-223]: 注解 `A` 不是类型，不能用于类型位置（§12.1）
+R03a_override_parent	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03a_override_parent/source.x:4:10: error[TY-203]: 方法 `go` 与祖先类 `B` 的实例方法同签名：子类覆写被拒绝（§2.5）
+R03b_arc	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03b_arc/source.x:1:1: error[TY-201]: 源码不得使用 @arc（§15.1.2：实现内部策略注解，不是语言特性）
+R03c_gc	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03c_gc/source.x:1:1: error[TY-201]: 源码不得使用 @gc（§15.1.2：实现内部策略注解，不是语言特性）
+R04a_const	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04a_const/source.x:2:31: error[TY-223]: 注解字段初始化式必须是编译期常量（§12.1）
+R04b_toomany	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04b_toomany/source.x:2:1: error[TY-223]: 注解 `@A` 参数过多（§12.2）
+R04c_type	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04c_type/source.x:2:4: error[TY-223]: 注解参数类型不匹配字段 `x`（§12.2）
+R04d_enum_unknown	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04d_enum_unknown/source.x:1:10: error[TY-223]: 未知注解 `@Nope`（§12.2）
+R04e_param_unknown	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04e_param_unknown/source.x:1:14: error[TY-223]: 未知注解 `@Nope`（§12.2）
+R04f_fieldtype	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04f_fieldtype/source.x:1:34: error[TY-223]: 注解字段初始化式必须是编译期常量（§12.1）
+P01_readonly_external	check=0	interp=0	compiled=0	interp_out=2|3|	compiled_out=2|3|

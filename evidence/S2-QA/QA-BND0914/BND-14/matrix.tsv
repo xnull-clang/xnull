@@ -1,0 +1,23 @@
+01_bnd01_protected_external	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/01_bnd01_protected_external/source.x:2:43: error[TY-209]: 受保护字段 `x` 不可访问（§7.3：需 self/super 或当前类/子类静态类型）
+02_bnd02_new_abstract	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/02_bnd02_new_abstract/source.x:2:27: error[TY-210]: 抽象类 `A` 不能实例化（§2.6）
+03_bnd04_struct_ref_field	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/03_bnd04_struct_ref_field/source.x:1:19: error[TY-204]: 结构体 `S` 的字段 `name` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）
+04_bnd05_protocol_missing	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/04_bnd05_protocol_missing/source.x:2:7: error[TY-208]: 类 `C` 未实现协议 `P` 的方法 `go`（§4.3）
+05_bnd06_enum_switch_missing	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/05_bnd06_enum_switch_missing/source.x:4:5: error[TY-213]: 枚举 switch 未覆盖全部项（§8.5）：遗漏 B
+06_bnd07_new_singleton	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/06_bnd07_new_singleton/source.x:2:27: error[TY-216]: `S` 不是可实例化类型（singleton/factory，§9.4/§10.5）
+07_bnd08_factory_invisible_target	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/07_bnd08_factory_invisible_target/source.x:1:9: error[TY-217]: factory Target `Missing` 未在本包声明或不可见（§10.1）
+08_bnd09_private_field_external	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/08_bnd09_private_field_external/source.x:2:43: error[TY-207]: 外部访问私有字段 `x`（规范名 `_x`）：私有访问错误（§7.4）
+09_bnd10_internal_policy_anno	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/09_bnd10_internal_policy_anno/source.x:1:1: error[TY-201]: 源码不得使用 @arc（§15.1.2：实现内部策略注解，不是语言特性）
+10_bnd12_static_type_param	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/10_bnd12_static_type_param/source.x:1:25: error[TY-214]: 静态字段 `value` 不得使用类类型参数（§13.4）
+11_field_private_underscore	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/11_field_private_underscore/source.x:1:23: error[TY-207]: `private` 与 `_` 前缀不能同时使用：`C._x`（§7.4）
+12_inh_final_parent	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/12_inh_final_parent/source.x:2:7: error[TY-202]: 父类 `B` 是 final，不能被继承（§2.5）
+13_proto_private_method	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/13_proto_private_method/source.x:1:27: error[TY-205]: 协议方法不能是 private/protected（§4.2：默认公开）
+14_struct_deinit	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/14_struct_deinit/source.x:1:17: error[TY-204]: 结构体不能声明 deinit（§3.1）
+15_enum_data_field_nonfinal	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/15_enum_data_field_nonfinal/source.x:1:20: error[TY-206]: 数据枚举字段必须 final（§8.3：实例不可变）
+16_pctor_nonfinal_param	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/16_pctor_nonfinal_param/source.x:1:9: error[TY-212]: 主构造器参数 `x` 必须是 final（§6.3）
+17_singleton_manual_instance	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/17_singleton_manual_instance/source.x:1:19: error[TY-215]: 单例不得手动声明 `instance`（§9.4：自动提供）
+18_factory_self	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/18_factory_self/source.x:2:28: error[TY-221]: factory 方法不能使用 self / super（§10.2）
+19_enum_immutable_write	check_rc=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/19_enum_immutable_write/source.x:2:24: error[TY-218]: 数据枚举项字段不可变（§8.3）
+20_final_field_write	check=0	interp=0	compiled=0	first=
+21_extension_predefined	check=0	interp=0	compiled=1	first=
+22_extension_generic	check=0	interp=0	compiled=1	first=
+23_super_private	check=0	interp=0	compiled=0	first=

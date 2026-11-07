@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/07_bnd08_factory_invisible_target/source.x:1:9: error[TY-217]: factory Target `Missing` 未在本包声明或不可见（§10.1）
+  检查 Target 名称与可见性

@@ -1,0 +1,30 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-SINGLE-a01_instance_ro	SINGLE-01	check	instance 自动提供合法	rc=0	PASS	S2-SINGLE-a01_instance_ro/check/
+S2-SINGLE-a01_instance_ro	SINGLE-01	interp	XNull\n6	XNull\n6, rc=0	PASS	S2-SINGLE-a01_instance_ro/interp/
+S2-SINGLE-a01_instance_ro	SINGLE-01	compiled	同上	XNull\n6, rc=0	PASS	S2-SINGLE-a01_instance_ro/compiled/
+S2-SINGLE-a02_startup	SINGLE-01	check	启动前初始化合法	rc=0	PASS	S2-SINGLE-a02_startup/check/
+S2-SINGLE-a02_startup	SINGLE-01	interp	localhost\n8080	localhost\n8080, rc=0	PASS	S2-SINGLE-a02_startup/interp/
+S2-SINGLE-a02_startup	SINGLE-01	compiled	同上	localhost\n8080, rc=0	PASS	S2-SINGLE-a02_startup/compiled/
+S2-SINGLE-a03_static_prev	SINGLE-01	check	静态字段/方法 + 前序单例引用合法	rc=0	PASS	S2-SINGLE-a03_static_prev/check/
+S2-SINGLE-a03_static_prev	SINGLE-01	interp	7\n14\n8\nlocalhost\n9	一致, rc=0	PASS	S2-SINGLE-a03_static_prev/interp/
+S2-SINGLE-a03_static_prev	SINGLE-01	compiled	同上	一致, rc=0	PASS	S2-SINGLE-a03_static_prev/compiled/
+S2-SINGLE-a04_static_write	SINGLE-01	check	静态字段可读写合法	rc=0	PASS	S2-SINGLE-a04_static_write/check/
+S2-SINGLE-a04_static_write	SINGLE-01	interp	1\n5\n6	1\n5\n6, rc=0	PASS	S2-SINGLE-a04_static_write/interp/
+S2-SINGLE-a04_static_write	SINGLE-01	compiled	同上	1\n5\n6, rc=0	PASS	S2-SINGLE-a04_static_write/compiled/
+S2-SINGLE-r01_new	SINGLE-01	check	new 单例拒绝	rc=1 3:17 TY-216	PASS	S2-SINGLE-r01_new/check/
+S2-SINGLE-r01_new	SINGLE-01	interp	拒绝	rc=1 TY-216	PASS	S2-SINGLE-r01_new/interp/
+S2-SINGLE-r01_new	SINGLE-01	compiled	拒绝	rc=1 TY-216	PASS	S2-SINGLE-r01_new/compiled/
+S2-SINGLE-r01_write_instance	SINGLE-01	check	instance 只读拒绝	rc=1 3:12 TY-215 + TY-103	PASS	S2-SINGLE-r01_write_instance/check/
+S2-SINGLE-r01_write_instance	SINGLE-01	interp	拒绝	rc=1 TY-215 + TY-103	PASS	S2-SINGLE-r01_write_instance/interp/
+S2-SINGLE-r01_write_instance	SINGLE-01	compiled	拒绝	rc=1 TY-215 + TY-103	PASS	S2-SINGLE-r01_write_instance/compiled/
+S2-SINGLE-r02_inherit	SINGLE-01	check	继承单例拒绝	rc=1 2:7 TY-202	PASS	S2-SINGLE-r02_inherit/check/
+S2-SINGLE-r02_inherit	SINGLE-01	interp	拒绝	rc=1 TY-202	PASS	S2-SINGLE-r02_inherit/interp/
+S2-SINGLE-r02_inherit	SINGLE-01	compiled	拒绝	rc=1 TY-202	PASS	S2-SINGLE-r02_inherit/compiled/
+S2-SINGLE-r02_implements	SINGLE-01	check	实现协议拒绝	rc=1 2:19 SYN-101	PASS	S2-SINGLE-r02_implements/check/
+S2-SINGLE-r02_implements	SINGLE-01	interp	拒绝	rc=1 SYN-101	PASS	S2-SINGLE-r02_implements/interp/
+S2-SINGLE-r02_implements	SINGLE-01	compiled	拒绝	rc=1 SYN-101	PASS	S2-SINGLE-r02_implements/compiled/
+S2-SINGLE-r03_fwd	SINGLE-01	check	前向引用拒绝	rc=1 2:23 TY-222	PASS	S2-SINGLE-r03_fwd/check/
+S2-SINGLE-r03_fwd	SINGLE-01	interp	拒绝	rc=1 TY-222	PASS	S2-SINGLE-r03_fwd/interp/
+S2-SINGLE-r03_fwd	SINGLE-01	compiled	拒绝	rc=1 TY-222	PASS	S2-SINGLE-r03_fwd/compiled/
+S2-SINGLE-M01	SINGLE-01	code	instance 进程常驻	全局句柄进程常驻；ARC 全局根可观察一致，GC 分类归 E5	PASS（可观察）	impl/internal/codegen/singleton.go
+S2-SINGLE-CI	SINGLE-01	gotest	TestS2SINGLE01 / TestS2SingletonRuntime / TestS2BND07* PASS	PASS	gotest-codegen/,gotest-sema/,gotest-interp/

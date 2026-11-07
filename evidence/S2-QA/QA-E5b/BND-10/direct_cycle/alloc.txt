@@ -1,0 +1,1 @@
+    xn_Cls_Node *o = (xn_Cls_Node *)rt_gc_new(&RT_TYPE_XN_Node);

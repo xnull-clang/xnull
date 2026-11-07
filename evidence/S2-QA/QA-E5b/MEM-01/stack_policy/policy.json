@@ -1,0 +1,26 @@
+[
+  {
+    "decl": "NeedsArc",
+    "kind": "class",
+    "data": false,
+    "policy": "arc",
+    "stackEligible": false,
+    "deinit": true,
+    "selfCaptured": false,
+    "refCycle": false,
+    "escape": "n/a",
+    "rule": 7
+  },
+  {
+    "decl": "ValueOnly",
+    "kind": "class",
+    "data": false,
+    "policy": "arc",
+    "stackEligible": true,
+    "deinit": false,
+    "selfCaptured": false,
+    "refCycle": false,
+    "escape": "n/a",
+    "rule": 8
+  }
+]

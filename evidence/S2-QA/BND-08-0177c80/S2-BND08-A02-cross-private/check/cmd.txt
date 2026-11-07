@@ -1,0 +1,1 @@
+/tmp/xnull-s2-0177c80 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/xpkg/factory_cross.x

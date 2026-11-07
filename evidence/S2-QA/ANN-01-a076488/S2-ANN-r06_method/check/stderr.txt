@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r06_method.x:1:19: error[SYN-101]: 注解体只能声明 `final` 字段（§12.1）

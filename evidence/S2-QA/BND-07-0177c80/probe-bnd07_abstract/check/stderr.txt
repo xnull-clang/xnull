@@ -1,0 +1,2 @@
+/tmp/qa-d-probes/bnd07_abstract.x:1:20: error[TY-222]: singleton 不能是 abstract（§9.1/§9.4）
+  去掉 abstract

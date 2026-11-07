@@ -1,0 +1,2 @@
+/tmp/qa-d-probes/bnd08_bad_return.x:3:16: error[TY-220]: factory 方法 `make` 返回类型 `Int` 不能归到 Target `D`（§10.2）
+  返回 Target/父类/协议/Object 或 Result 包装

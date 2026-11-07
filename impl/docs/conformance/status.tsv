@@ -24,8 +24,8 @@ FIELD-01	internal/sema/typedecl_test.go	PASS
 KIND-01	—	未实现
 BLOCK-01	—	未实现
 DET-01	internal/sema/policy_test.go + 收件箱/回执箱/验收-M1-DET-01.md	PASS
-MEM-01	internal/sema/policy_test.go	部分
-MEM-02	impl/runtime/test_gc.c + impl/runtime/test_hard.c	部分
+MEM-01	internal/sema/policy_test.go + impl/runtime/test_gc.c + 收件箱/回执箱/验收-S2-MEM-01.md	PASS
+MEM-02	impl/runtime/test_gc.c + impl/runtime/test_hard.c + 收件箱/回执箱/验收-S2-MEM-02.md	PASS
 FFI-01	internal/codegen/ffi/emit_test.go	PASS
 FFI-02	internal/codegen/ffi/emit_test.go	部分
 FFI-04	internal/codegen/ffi/ffi_test.go	部分
@@ -52,3 +52,4 @@ BND-15	Tests/s2_integration_test.go + 收件箱/回执箱/验收-S2-BND-15.md	PA
 BND-13	internal/sema/s2_ext_test.go + internal/interp/ext_test.go + 收件箱/回执箱/验收-S2-BND-13.md	PASS
 EXT-01	internal/sema/s2_ext_test.go + internal/codegen/s2_ext_test.go + 收件箱/回执箱/验收-S2-EXT-01.md	PASS
 SINGLE-01	internal/codegen/s2_singleton_test.go + 收件箱/回执箱/验收-S2-SINGLE-01.md	PASS
+BND-10	internal/codegen/s2_policy_test.go + impl/runtime/test_gc.c + 收件箱/回执箱/验收-S2-BND-10.md	PASS

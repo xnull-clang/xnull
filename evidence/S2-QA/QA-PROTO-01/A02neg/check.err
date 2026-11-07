@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/A02neg/source.x:8:12: error[TY-211]: 协议变量只能调用协议声明的方法（§4.4）：`g` 不在协议合同中
+  改用协议声明的方法，或先 `as` 到具体类

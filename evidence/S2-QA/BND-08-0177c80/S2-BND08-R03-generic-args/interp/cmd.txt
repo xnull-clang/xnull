@@ -1,0 +1,1 @@
+/tmp/xnull-s2-0177c80 run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_generic_args.x

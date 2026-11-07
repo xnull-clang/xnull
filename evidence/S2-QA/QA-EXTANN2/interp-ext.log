@@ -1,0 +1,12 @@
+=== RUN   TestS2ExtensionMethods
+=== RUN   TestS2ExtensionMethods/Class
+=== RUN   TestS2ExtensionMethods/Struct
+=== RUN   TestS2ExtensionMethods/Singleton
+=== RUN   TestS2ExtensionMethods/DataEnum
+--- PASS: TestS2ExtensionMethods (0.00s)
+    --- PASS: TestS2ExtensionMethods/Class (0.00s)
+    --- PASS: TestS2ExtensionMethods/Struct (0.00s)
+    --- PASS: TestS2ExtensionMethods/Singleton (0.00s)
+    --- PASS: TestS2ExtensionMethods/DataEnum (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	1.404s

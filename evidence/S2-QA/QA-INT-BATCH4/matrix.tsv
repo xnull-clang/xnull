@@ -1,0 +1,5 @@
+A01	positive	check=0	interp=0	compiled=0	interp_out=m-err|m-defer|dR|outer-defer|outer-err|caught:bad|	compiled_out=m-err|m-defer|dR|outer-defer|outer-err|caught:bad|
+A02	positive	check=0	interp=0	compiled=0	interp_out=x|f-err|f-defer|f-caught:boom|	compiled_out=x|f-err|f-defer|f-caught:boom|
+A02b	positive	check=0	interp=0	compiled=0	interp_out=f-err|f-defer|f-caught:boom|	compiled_out=f-err|f-defer|f-caught:boom|
+A03	positive	check=0	interp=0	compiled=0	interp_out=g|b|	compiled_out=g|b|
+R01	negative	check=1	interp=1	compiled=1	interp_out=	compiled_out=

@@ -1,0 +1,3 @@
+# positive: check + interp + compiled
+X=/tmp/qa-e5b-main
+file=evidence/S2-QA/QA-E5b/MEM-02/direct_cycle/source.x

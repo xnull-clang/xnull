@@ -1,0 +1,3 @@
+# positive: check + interp + compiled
+X=/tmp/qa-extann2-main
+file=evidence/S2-QA/QA-EXTANN2/BND-13/A01_class/source.x

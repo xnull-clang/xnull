@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r04_gc_field.x:1:11: error[TY-223]: 未知注解 `@gc`（§12.2）
+  先声明 @annotation，或使用内建注解

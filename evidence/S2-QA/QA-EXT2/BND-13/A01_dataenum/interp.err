@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/BND-13/A01_dataenum/source.x:11:11: error[TY-225]: extension Target 必须是同包 class/struct（得到 enum，§11.1）

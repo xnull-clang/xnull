@@ -1,0 +1,1 @@
+xnull: 代码生成失败：codegen：extension 目标 Box 不是 class/struct/singleton/数据 enum（S2 §11.1）

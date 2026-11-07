@@ -1,0 +1,3 @@
+# negative: xnull check (expected rc=1)
+X=/tmp/qa-ext2-main
+file=evidence/S2-QA/QA-EXT2/BND-13/R03c_predef/source.x

@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r02_duplicate.x:3:1: error[TY-223]: 同一目标重复使用注解 `@Marker`（§12.2）
+  删除重复注解

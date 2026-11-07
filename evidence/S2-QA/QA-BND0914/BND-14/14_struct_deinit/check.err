@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/14_struct_deinit/source.x:1:17: error[TY-204]: 结构体不能声明 deinit（§3.1）
+  需要终结动作时使用 class

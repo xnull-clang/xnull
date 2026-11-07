@@ -1,0 +1,26 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S2-INH-a01_single_parent_multi_proto	INH-01	check	单父类+多协议合法	rc=0	PASS	S2-INH-a01_single_parent_multi_proto/check/
+S2-INH-a01_single_parent_multi_proto	INH-01	interp	1\n3\n1\n3\n1	一致, rc=0	PASS	S2-INH-a01_single_parent_multi_proto/interp/
+S2-INH-a01_single_parent_multi_proto	INH-01	compiled	同上	一致, rc=0	PASS	S2-INH-a01_single_parent_multi_proto/compiled/
+S2-INH-a02_multilevel	INH-01	check	多级继承合法	rc=0	PASS	S2-INH-a02_multilevel/check/
+S2-INH-a02_multilevel	INH-01	interp	1\n2\n3\n6	一致, rc=0	PASS	S2-INH-a02_multilevel/interp/
+S2-INH-a02_multilevel	INH-01	compiled	同上	一致, rc=0	PASS	S2-INH-a02_multilevel/compiled/
+S2-INH-r01_colon_struct	INH-01	check	非法 : 目标拒绝	rc=1 2:7 TY-202	PASS	S2-INH-r01_colon_struct/check/
+S2-INH-r01_colon_struct	INH-01	interp	拒绝	rc=1 TY-202	PASS	S2-INH-r01_colon_struct/interp/
+S2-INH-r01_colon_struct	INH-01	compiled	拒绝	rc=1 TY-202	PASS	S2-INH-r01_colon_struct/compiled/
+S2-INH-r01_implements_class	INH-01	check	implements 非 protocol 拒绝	rc=1 2:7 TY-202	PASS	S2-INH-r01_implements_class/check/
+S2-INH-r01_implements_class	INH-01	interp	拒绝	rc=1 TY-202	PASS	S2-INH-r01_implements_class/interp/
+S2-INH-r01_implements_class	INH-01	compiled	拒绝	rc=1 TY-202	PASS	S2-INH-r01_implements_class/compiled/
+S2-INH-r02_class_cycle	INH-01	check	继承环拒绝	rc=1 1:7 TY-202	PASS	S2-INH-r02_class_cycle/check/
+S2-INH-r02_class_cycle	INH-01	interp	拒绝	rc=1 TY-202	PASS	S2-INH-r02_class_cycle/interp/
+S2-INH-r02_class_cycle	INH-01	compiled	拒绝	rc=1 TY-202	PASS	S2-INH-r02_class_cycle/compiled/
+S2-INH-r02_proto_cycle	INH-01	check	协议环拒绝	rc=1 1:10 TY-202	PASS	S2-INH-r02_proto_cycle/check/
+S2-INH-r02_proto_cycle	INH-01	interp	拒绝	rc=1 TY-202	PASS	S2-INH-r02_proto_cycle/interp/
+S2-INH-r02_proto_cycle	INH-01	compiled	拒绝	rc=1 TY-202	PASS	S2-INH-r02_proto_cycle/compiled/
+S2-INH-r02_same_sig	INH-01	check	子类同签名拒绝	rc=1 2:24 TY-203	PASS	S2-INH-r02_same_sig/check/
+S2-INH-r02_same_sig	INH-01	interp	拒绝	rc=1 TY-203	PASS	S2-INH-r02_same_sig/interp/
+S2-INH-r02_same_sig	INH-01	compiled	拒绝	rc=1 TY-203	PASS	S2-INH-r02_same_sig/compiled/
+S2-INH-X01-cross-package	INH-01	check	跨包继承合法	rc=0	PASS	S2-INH-X01-cross-package/check/
+S2-INH-X01-cross-package	INH-01	interp	2	2, rc=0	PASS	S2-INH-X01-cross-package/interp/
+S2-INH-X01-cross-package	INH-01	compiled	2	2, rc=0	PASS	S2-INH-X01-cross-package/compiled/
+S2-INH-CI	INH-01	gotest	TestInheritanceRules PASS	PASS	gotest-sema/

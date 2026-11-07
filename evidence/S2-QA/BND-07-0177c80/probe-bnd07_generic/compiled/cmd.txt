@@ -1,0 +1,1 @@
+/tmp/xnull-s2-0177c80 run /tmp/qa-d-probes/bnd07_generic.x

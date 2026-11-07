@@ -1,0 +1,1 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-09/R02b/source.x:3:24: error[TY-207]: 裸 `name` 引用私有字段：类内只能写 `_name`（§7.4）
