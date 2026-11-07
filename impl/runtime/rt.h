@@ -105,6 +105,7 @@ rt_weak_slot *rt_weak_create(void *target); /* 建立弱槽位（不持强引用
 void         *rt_weak_get(rt_weak_slot *s); /* 终结后返回 NULL，禁止观察到已终结目标 */
 void          rt_weak_destroy(rt_weak_slot *s); /* 槽位摘除与复用 */
 void          rt_weak_clear_slots(void *target); /* 终结链第 1 步：清除全部弱槽位 */
+int           rt_weak_is_detached(const rt_weak_slot *s); /* 诊断：清除后槽位是否已与目标解绑 */
 
 #ifdef __cplusplus
 }

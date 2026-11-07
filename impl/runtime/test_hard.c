@@ -117,6 +117,16 @@ int main(void) {
     assert(g_gc_weak_deinit == 1); /* 清扫 deinit 时弱槽已清除 */
     assert(rt_weak_get(g->w) == NULL);
 
+    /* 5. 目标死亡且内存回收后销毁槽位：不得触达已释放目标（UAF 回归，S2 审计 S2-E5-06） */
+    weak_target_t *w3 = rt_arc_new(&RT_TYPE_WEAK_TARGET);
+    rt_weak_slot *s3 = rt_weak_create(w3);
+    assert(rt_weak_get(s3) == w3);
+    rt_release(w3);              /* 终结链：清弱槽 */
+    rt_quarantine_flush();       /* 回收会合：目标内存已释放 */
+    assert(rt_weak_is_detached(s3)); /* 修复前：target 仍悬空 → 红 */
+    rt_weak_destroy(s3);         /* 修复前：解引用已释放目标（UAF） */
+    printf("ok  weak slot detached after target death\n");
+
     /* 4. 槽位复用：销毁后目标侧链正确摘除（S3 §16） */
     weak_target_t *w2 = rt_arc_new(&RT_TYPE_WEAK_TARGET);
     rt_weak_slot *s1 = rt_weak_create(w2);
