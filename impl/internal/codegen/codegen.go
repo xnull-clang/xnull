@@ -360,6 +360,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			// 工厂方法由 collectFactories/emitFactories 发射。
 		case *xfront.ExtensionDecl:
 			// 扩展方法由 collectExtensions/emitExtensions 发射。
+		case *xfront.AnnotationDecl:
+			// 注解是编译期元数据：不产生运行期对象/布局/代码（S2 §12）。
 		default:
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}

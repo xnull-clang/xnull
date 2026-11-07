@@ -279,6 +279,12 @@ func (s *scope) protoRecv(e xfront.Expr) (string, error) {
 		return s.cRef(n.Name), nil
 	case *xfront.Paren:
 		return s.protoRecv(n.X)
+	case *xfront.Member:
+		rn, _, err := recvCName(n, s)
+		if err != nil {
+			return "", err
+		}
+		return rn, nil
 	}
 	return "", fmt.Errorf("codegen：协议接收者 %T 未支持（M4.4b 范围）", e)
 }
@@ -341,6 +347,19 @@ func (s *scope) protoValue(e xfront.Expr) ([]string, string, bool, error) {
 			return nil, "", false, err
 		}
 		if s.g.isProtoC(et) {
+			if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+				args, err := s.callArgs(n.Args)
+				if err != nil {
+					return nil, "", false, err
+				}
+				cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+				if err != nil {
+					return nil, "", false, err
+				}
+				lines := append([]string{}, s.pending...)
+				s.pending = nil
+				return lines, cn + "(" + strings.Join(args, ", ") + ")", true, nil
+			}
 			mem, ok := n.Callee.(*xfront.Member)
 			if !ok {
 				return nil, "", false, fmt.Errorf("codegen：协议值调用 %T 未支持", n.Callee)
