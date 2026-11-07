@@ -1,0 +1,7 @@
+--- FAIL: TestS605TextPositive (0.00s)
+    s6_05_test.go:9: 不应有语义诊断：[RES-101@未定义的名称 `utf8ToUtf16`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `utf16ToUtf8`（§3.3 四级顺序解析后不可见） TY-229@XDK 类型 `Format` 的成员 `int` 尚未支持（S6-01） TY-229@XDK 类型 `Format` 的成员 `float` 尚未支持（S6-01） TY-229@XDK 类型 `Format` 的成员 `string` 尚未支持（S6-01） TY-229@XDK 类型 `Format` 的成员 `bool` 尚未支持（S6-01） TY-229@XDK 类型 `Regex` 的成员 `compile` 尚未支持（S6-01） TY-229@XDK 类型 `Regex` 的成员 `isMatch` 尚未支持（S6-01）]
+--- FAIL: TestS605TextNegative (0.00s)
+    s6_05_test.go:41: 期望诊断 TY-101，实际：[TY-229@XDK 类型 `Format` 的成员 `int` 尚未支持（S6-01）]
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	2.161s
+FAIL

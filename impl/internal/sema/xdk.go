@@ -52,6 +52,7 @@ var xdkPackages = map[string]map[string]bool{
 	},
 	"text": {
 		"Regex": true, "Format": true, "parseInt": true, "parseFloat": true,
+		"utf8ToUtf16": true, "utf16ToUtf8": true,
 	},
 	"sys": {
 		// 句柄类型（S6 §4.7；close 经顶层 fileClose/dirClose）

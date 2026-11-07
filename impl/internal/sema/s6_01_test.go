@@ -136,7 +136,7 @@ static Int main() { sort(1); return 0 }`, TyXdkUnsupported)
 static Int f(RingBuffer<Int> r) { r.push(1); return 0 }`, TyXdkUnsupported)
 
 	expectCode(t, `import xdk.text
-static Int main() { Regex.compile("x"); return 0 }`, TyXdkUnsupported)
+static Int main() { Regex.find("x"); return 0 }`, TyXdkUnsupported)
 
 	expectCode(t, `import xdk.net
 static Int f(Socket s) { s.connect("x"); return 0 }`, TyXdkUnsupported)
