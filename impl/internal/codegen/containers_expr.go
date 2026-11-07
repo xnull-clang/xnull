@@ -268,6 +268,14 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 		}
 		return nil, "", fmt.Errorf("codegen：可空成员 %s 的接收者 %s 不支持", n.Name, recvC)
 	case *xfront.Call:
+		// S6-04：resourceSize 的缺失语义（成功=1 / 缺失=0）落 Int?。
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "resourceSize" {
+			lines, expr, err := s.s604Size(n)
+			if err != nil {
+				return nil, "", err
+			}
+			return lines, expr, nil
+		}
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "env" {
 			if len(n.Args) != 1 {
 				return nil, "", fmt.Errorf("codegen：env 需要 1 个参数（S6 §4.4）")
