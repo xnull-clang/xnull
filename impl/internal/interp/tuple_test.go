@@ -141,3 +141,64 @@ static Int main() {
 		t.Fatalf("out=%q want=%q err=%v", out, want, err)
 	}
 }
+
+// §2.11 值语义：存入容器（数组/List/Map 字面量与 push/insert/set/put）复制整个元组；
+// 引用元素只复制句柄。
+func TestTupleContainerCopy(t *testing.T) {
+	out, err := runSrc(t, `
+class Box { Int v = 0; }
+static Int main() {
+    (Int, Int) t = (1, 2)
+    (Int, Int)[] arr = [t]
+    t.0 = 9
+    print(arr[0].0)
+    arr[0].1 = 8
+    print(t.1)
+
+    List<(Int, Int)> xs = [t]
+    xs.push(t)
+    t.0 = 5
+    print(xs.get(0).0)
+    print(xs.get(1).0)
+    xs.set(0, t)
+    t.0 = 6
+    print(xs.get(0).0)
+    xs.insert(0, t)
+    t.0 = 7
+    print(xs.get(0).0)
+
+    arr[0] = t
+    xs[0] = t
+    t.0 = 70
+    print(arr[0].0)
+    print(xs[0].0)
+
+    Map<String, (Int, Int)> m = ["a": t]
+    m.put("b", t)
+    t.0 = 8
+    (Int, Int)? a = m.get("a")
+    (Int, Int)? b = m.get("b")
+    print(a?.0)
+    print(b?.0)
+
+    (Int, Int)[] fixed = new (Int, Int)[2]
+    fixed[0].0 = 3
+    print(fixed[1].0)
+
+    ((Int, Int), Int) nested = (t, 1)
+    t.0 = 4
+    print((nested.0).0)
+
+    Box box = new Box()
+    (Box, Int) bt = (box, 1)
+    List<(Box, Int)> bs = [bt]
+    box.v = 42
+    (Box, Int) got = bs.get(0)
+    print(got.0.v)
+    return 0
+}`)
+	want := "1\n2\n9\n9\n5\n6\n7\n7\n70\n70\n0\n8\n42\n"
+	if err != nil || out != want {
+		t.Fatalf("out=%q want=%q err=%v", out, want, err)
+	}
+}
