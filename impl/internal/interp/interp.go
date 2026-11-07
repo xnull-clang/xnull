@@ -52,8 +52,9 @@ type Value struct {
 	C   rune
 	S   string
 	R   *resv
-	A   []*Value // 数组/List/Set/元组元素
+	A   []*Value // 数组/List/元组元素
 	M   *mapv    // Map
+	Set *setv    // Set
 	Clo *clov    // 闭包
 	O   *objv    // 类实例（M4.4b）
 }
@@ -152,9 +153,12 @@ type runtimeErr struct{ msg string }
 type scope struct {
 	parent *scope
 	vars   map[string]*Value
+	types  map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
 }
 
-func newScope(parent *scope) *scope { return &scope{parent: parent, vars: map[string]*Value{}} }
+func newScope(parent *scope) *scope {
+	return &scope{parent: parent, vars: map[string]*Value{}, types: map[string]xfront.TypeRef{}}
+}
 
 func (s *scope) lookup(name string) (*Value, bool) {
 	for c := s; c != nil; c = c.parent {
@@ -167,10 +171,23 @@ func (s *scope) lookup(name string) (*Value, bool) {
 
 func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
 
+// defineTyped 登记变量与声明类型；nil/未知类型只登记值。
+func (s *scope) defineTyped(name string, t xfront.TypeRef, v *Value) {
+	if t != nil {
+		s.types[name] = t
+		v = coerceByDecl(t, v)
+	}
+	s.vars[name] = cloneTupleValue(v) // §2.11：元组赋值按值复制
+}
+
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
+// 有声明类型时按类型定向（§9.4/§9.6：容器赋值不得退化为数组）。
 func (s *scope) assign(name string, v *Value) bool {
 	for c := s; c != nil; c = c.parent {
 		if _, ok := c.vars[name]; ok {
+			if t, typed := c.types[name]; typed {
+				v = coerceByDecl(t, v)
+			}
 			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
@@ -236,7 +253,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			if n.Init != nil {
 				v = in.eval(n.Init, in.globals)
 			}
-			in.globals.define(n.Name, v)
+			in.globals.defineTyped(n.Name, n.Type, v)
 		}
 	}
 	mains := in.funcs["main"]
@@ -336,9 +353,9 @@ func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) 
 	sc := newScope(in.globals)
 	for i, p := range fn.Params {
 		if i < len(args) {
-			sc.define(p.Name, args[i])
+			sc.defineTyped(p.Name, p.Type, args[i])
 		} else {
-			sc.define(p.Name, &Value{K: vNull})
+			sc.defineTyped(p.Name, p.Type, &Value{K: vNull})
 		}
 	}
 	in.execBlock(fn.Body, sc)
@@ -412,9 +429,9 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 	case *xfront.LocalDeclStmt:
 		v := zeroValue(n.Type)
 		if n.Init != nil {
-			v = coerceByDecl(n.Type, in.eval(n.Init, sc))
+			v = in.eval(n.Init, sc)
 		}
-		sc.define(n.Name, v)
+		sc.defineTyped(n.Name, n.Type, v)
 	case *xfront.AssignStmt:
 		v := in.eval(n.Value, sc)
 		if n.Op != "=" {
@@ -486,8 +503,16 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 		}
 		src := in.eval(n.Src, sc)
 		switch src.K {
-		case vArr, vList, vSet:
+		case vArr, vList:
 			for _, item := range src.A {
+				body := newScope(sc)
+				body.define(n.Var, item)
+				if in.loopBody(n.Body, body, lbl) {
+					break
+				}
+			}
+		case vSet:
+			for _, item := range src.Set.elements() {
 				body := newScope(sc)
 				body.define(n.Var, item)
 				if in.loopBody(n.Body, body, lbl) {

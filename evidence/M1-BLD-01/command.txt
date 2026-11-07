@@ -1,0 +1,17 @@
+# M1-BLD-01 复跑命令（2026-11-07，pod/c2-rd2 @ 9079857，已合 main 90fcdc3）
+
+# 0) 合并主线（非快进；c1-rd1 / c1-rd2）
+git merge main -m "merge: main 90fcdc3 into pod/c2-rd2"
+
+# 1) 红/绿锚点用例（28 例，期望取自 S1 §9）
+sh evidence/M1-BLD-01/red/run-red.sh
+
+# 2) 静态检查 + 全量测试
+cd impl && go vet ./...
+cd impl && go test ./... -count=1 -timeout 300s
+
+# 3) 9 示例双路径（解释 vs 编译，stdout 逐字节 + 退出码）
+cd impl && go test ./internal/codegen -run TestExamplesCompileMatchesInterp -v -count=1 -timeout 300s
+
+# 4) C 运行时六套件（回归）
+cd impl/runtime && sh build_rt.sh
