@@ -1,0 +1,4 @@
+=== RUN   TestS2GATENewKinds
+--- PASS: TestS2GATENewKinds (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.032s

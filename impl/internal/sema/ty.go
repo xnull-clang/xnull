@@ -1292,6 +1292,9 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 				if info.kind == "annotation" {
 					e.errf(n.P, TyAnnotation, "注解 `"+nt.Qual[0]+"` 不能 new（§12.1）", "")
 				}
+				if info.kind == "protocol" || info.kind == "enum" {
+					e.errf(n.P, TyNewKind, "`"+nt.Qual[0]+"`（"+info.kind+"）不能 new（§2.7/§4.1/§8.3）", "协议用实现类实例，枚举用项常量")
+				}
 			}
 		}
 		for _, a := range n.Args {
