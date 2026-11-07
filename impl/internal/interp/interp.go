@@ -46,6 +46,9 @@ const (
 	vContext   // 任务上下文（S5 §3.3）
 	vTaskGroup // 任务组（S5 §3.2）
 	vTask      // 任务句柄（S5 §3.1）
+	vMutex     // 数据携锁（S5 §7.1）
+	vChannel   // 有界通道（S5 §7.1）
+	vAtomic    // 原子单元（S5 §7.1）
 )
 
 // Value 是解释期运行值。
@@ -67,6 +70,9 @@ type Value struct {
 	Ctx *ctxV       // 上下文（vContext）
 	TG  *taskGroupV // 任务组（vTaskGroup）
 	T   *taskV      // 任务句柄（vTask）
+	Mu  *mutexV     // Mutex<T>（vMutex）
+	Ch  *channelV   // Channel<T>（vChannel）
+	At  *atomicV    // AtomicInt/Bool/Ref（vAtomic）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -121,6 +127,12 @@ func (v *Value) typeName() string {
 		return "TaskGroup"
 	case vTask:
 		return "Task"
+	case vMutex:
+		return "Mutex"
+	case vChannel:
+		return "Channel"
+	case vAtomic:
+		return "Atomic"
 	}
 	return "?"
 }
@@ -1216,6 +1228,27 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
 		}
+		if recv.K == vMutex {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callMutexMethod(recv.Mu, mem.Name, args, n.P)
+		}
+		if recv.K == vChannel {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callChannelMethod(recv.Ch, mem.Name, args, n.P)
+		}
+		if recv.K == vAtomic {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callAtomicMethod(recv.At, mem.Name, args, n.P)
+		}
 		if recv.K == vClosure { // 字段/表达式中的闭包值调用（如 self.less(a,b)）
 			args := make([]*Value, len(n.Args))
 			for i, a := range n.Args {
@@ -1363,6 +1396,13 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 				}
 				return v
 			}
+		}
+		if isSyncTypeName(id.Name) { // S5 §7.1：Mutex/Channel/Atomic 构造
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.makeSync(id.Name, args)
 		}
 		if id.Name == "wrap" || id.Name == "mapErr" || id.Name == "report" { // S4 §2.3 xdk.errors
 			return in.callErrorsBuiltin(id.Name, n, sc)
