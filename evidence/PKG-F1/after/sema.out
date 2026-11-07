@@ -1,0 +1,4 @@
+=== RUN   TestPKGF1SameSourceAliasConflict
+--- PASS: TestPKGF1SameSourceAliasConflict (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	2.363s
