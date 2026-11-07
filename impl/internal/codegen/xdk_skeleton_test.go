@@ -18,6 +18,7 @@ func TestXdkPackageSkeletons(t *testing.T) {
 	want := []string{"errors", "tasks", "sync", "runtime", "collections", "text", "sys", "net"}
 	allowed := map[string][]string{
 		"errors": {"runtime"}, // S6-06：report 经 xdk.runtime.diagnose
+		"text":   {"errors"},  // S6-05：text 的错误面复用 xdk.errors（ErrorKind/CauseError）
 	}
 	for _, name := range want {
 		path := filepath.Join(dir, name+".x")

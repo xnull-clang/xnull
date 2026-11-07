@@ -1901,6 +1901,134 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs("String")
 			return texpr{key: "Bool"}
 		}
+	case strings.HasPrefix(k, "RingBuffer<") || k == "RingBuffer":
+		// S6-07：RingBuffer<T> 成员（S6 §4.5）。
+		elem := "T"
+		if strings.Contains(k, "<") {
+			elem = genericArg(k, "RingBuffer<")
+		}
+		switch name {
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "isEmpty", "isFull":
+			checkArgs()
+			return texpr{key: "Bool"}
+		case "push":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "RingBuffer.push 需要 1 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "void"}
+		case "pop", "peek":
+			checkArgs()
+			return texpr{key: elem + "?"}
+		case "clear":
+			checkArgs()
+			return texpr{key: "void"}
+		}
+	case strings.HasPrefix(k, "OrderedMap<") || k == "OrderedMap":
+		// S6-07：OrderedMap<V>（Int 键，插入序）。
+		val := "V"
+		if strings.Contains(k, "<") {
+			val = genericArg(k, "OrderedMap<")
+		}
+		switch name {
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "indexOf", "lowerBound":
+			checkArgs("Int")
+			return texpr{key: "Int"}
+		case "has", "remove":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "OrderedMap."+name+" 需要 1 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "Bool"}
+		case "put":
+			if len(args) != 2 {
+				e.errf(p, TyAssignability, "OrderedMap.put 需要 2 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "void"}
+		case "get":
+			checkArgs("Int")
+			return texpr{key: val + "?"}
+		case "getOr":
+			if len(args) != 2 {
+				e.errf(p, TyAssignability, "getOr 需要 2 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: val}
+		case "keysArray":
+			checkArgs()
+			return texpr{key: "Int[]"}
+		case "valuesArray":
+			checkArgs()
+			return texpr{key: val + "[]"}
+		case "clear":
+			checkArgs()
+			return texpr{key: "void"}
+		}
+	case strings.HasPrefix(k, "BTreeMap<") || k == "BTreeMap":
+		val := "V"
+		if strings.Contains(k, "<") {
+			val = genericArg(k, "BTreeMap<")
+		}
+		switch name {
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "indexOf", "lowerBound":
+			checkArgs("Int")
+			return texpr{key: "Int"}
+		case "has", "remove":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "BTreeMap."+name+" 需要 1 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "Bool"}
+		case "put":
+			if len(args) != 2 {
+				e.errf(p, TyAssignability, "BTreeMap.put 需要 2 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "void"}
+		case "get":
+			checkArgs("Int")
+			return texpr{key: val + "?"}
+		case "getOr":
+			if len(args) != 2 {
+				e.errf(p, TyAssignability, "getOr 需要 2 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: val}
+		case "keysArray":
+			checkArgs()
+			return texpr{key: "Int[]"}
+		case "clear":
+			checkArgs()
+			return texpr{key: "void"}
+		}
+	case strings.HasPrefix(k, "PriorityQueue<") || k == "PriorityQueue":
+		elem := "T"
+		if strings.Contains(k, "<") {
+			elem = genericArg(k, "PriorityQueue<")
+		}
+		switch name {
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "isEmpty":
+			checkArgs()
+			return texpr{key: "Bool"}
+		case "push":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "PriorityQueue.push 需要 1 个参数（S6 §4.5）", "")
+			}
+			return texpr{key: "void"}
+		case "peek", "pop":
+			checkArgs()
+			return texpr{key: elem + "?"}
+		case "swap", "siftUp", "siftDown", "clear":
+			return texpr{key: "void"}
+		case "less":
+			return texpr{} // 比较器字段（闭包值）；调用实参由运行期/目标类型检查
+		}
 	case k == "StringBuilder":
 		switch name {
 		case "append":
