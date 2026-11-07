@@ -23,23 +23,24 @@ import (
 
 // 诊断码。
 const (
-	TyModifier     = "TY-201"
-	TyInherit      = "TY-202"
-	TyOverride     = "TY-203"
-	TyStructVal    = "TY-204"
-	TyProtoForm    = "TY-205"
-	TyEnumRule     = "TY-206"
-	TyPrivField    = "TY-207"
-	TyProtoImpl    = "TY-208" // 协议实现检查（§4.3）
-	TyVisibility   = "TY-209" // 成员可见性（§7.3）
-	TyNewAbstract  = "TY-210" // new abstract 类（§2.6）
-	TyProtoMember  = "TY-211" // 协议变量只能调用协议方法（§4.4）
-	TyPCTOR        = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
-	TyEnumSwitch   = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
-	TyStaticGen    = "TY-214" // 静态成员不得使用类类型参数（§13.4）
-	TySingletonRO  = "TY-215" // singleton.instance 只读（§9）
-	TySingletonNew = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
-	TyFactory      = "TY-217" // factory Target/命名规则（§10）
+	TyModifier      = "TY-201"
+	TyInherit       = "TY-202"
+	TyOverride      = "TY-203"
+	TyStructVal     = "TY-204"
+	TyProtoForm     = "TY-205"
+	TyEnumRule      = "TY-206"
+	TyPrivField     = "TY-207"
+	TyProtoImpl     = "TY-208" // 协议实现检查（§4.3）
+	TyVisibility    = "TY-209" // 成员可见性（§7.3）
+	TyNewAbstract   = "TY-210" // new abstract 类（§2.6）
+	TyProtoMember   = "TY-211" // 协议变量只能调用协议方法（§4.4）
+	TyPCTOR         = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
+	TyEnumSwitch    = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
+	TyStaticGen     = "TY-214" // 静态成员不得使用类类型参数（§13.4）
+	TySingletonRO   = "TY-215" // singleton.instance 只读（§9）
+	TySingletonNew  = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
+	TyFactory       = "TY-217" // factory Target/命名规则（§10）
+	TyEnumImmutable = "TY-218" // 数据枚举项不可变/不可 new（§8.3）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -631,10 +632,21 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 				}
 			}
 		}
+		enumFields := map[string]bool{}
 		for _, f := range d.Fields {
 			c.checkFieldDecl(f, d.Name)
+			enumFields[f.Name] = true
+			enumFields[f.Canonical] = true
 			if !f.Mod.Final {
 				c.errf(f.P, TyEnumRule, "数据枚举字段必须 final（§8.3：实例不可变）", "")
+			}
+		}
+		for _, m := range d.Methods {
+			if m.IsDeinit {
+				continue
+			}
+			if enumWritesField(m.Body, enumFields) {
+				c.errf(m.P, TyEnumImmutable, "数据枚举方法不能写字段（§8.3：实例不可变）", "")
 			}
 		}
 	} else {
@@ -840,6 +852,58 @@ func targetIsField(t xfront.Expr, names map[string]bool) bool {
 		return names[n.Name]
 	case *xfront.Member:
 		return isSelfIdent(n.X) && names[n.Name]
+	}
+	return false
+}
+
+func enumWritesField(s xfront.Stmt, names map[string]bool) bool {
+	if s == nil {
+		return false
+	}
+	switch st := s.(type) {
+	case *xfront.AssignStmt:
+		return targetIsField(st.Target, names)
+	case *xfront.IncDecStmt:
+		return targetIsField(st.Target, names)
+	case *xfront.Block:
+		if st == nil {
+			return false
+		}
+		for _, x := range st.Stmts {
+			if enumWritesField(x, names) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return enumWritesField(st.Then, names) || enumWritesField(st.Else, names)
+	case *xfront.WhileStmt:
+		return enumWritesField(st.Body, names)
+	case *xfront.DoWhileStmt:
+		return enumWritesField(st.Body, names)
+	case *xfront.ForStmt:
+		return enumWritesField(st.Body, names)
+	case *xfront.SwitchStmt:
+		for _, c := range st.Cases {
+			for _, x := range c.Stmts {
+				if enumWritesField(x, names) {
+					return true
+				}
+			}
+		}
+		if st.Default != nil {
+			for _, x := range st.Default.Stmts {
+				if enumWritesField(x, names) {
+					return true
+				}
+			}
+		}
+	case *xfront.DeferStmt:
+		if st.Block != nil {
+			return enumWritesField(st.Block, names)
+		}
+		return enumWritesField(st.Stmt, names)
+	case *xfront.LabeledStmt:
+		return enumWritesField(st.Stmt, names)
 	}
 	return false
 }

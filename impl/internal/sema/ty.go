@@ -834,6 +834,14 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 					e.errf(n.P, TySingletonRO, "singleton 的 `instance` 是只读全局实例（§9.4）", "删除对 instance 的赋值")
 				}
 			}
+			// 数据枚举项字段外部写拒绝（§8.3）。
+			if inner, ok := mem.X.(*xfront.Member); ok {
+				if id, ok := inner.X.(*xfront.IdentExpr); ok && e.a.tc != nil {
+					if info, found := e.a.tc.types[id.Name]; found && info.kind == "enum" && info.enum.IsData {
+						e.errf(n.P, TyEnumImmutable, "数据枚举项字段不可变（§8.3）", "数据枚举项只读")
+					}
+				}
+			}
 		}
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
 			tt, known := e.vars[id.Name]
@@ -1222,8 +1230,16 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
 			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
 		}
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) >= 2 && e.a.tc != nil {
+			if info, found := e.a.tc.types[nt.Qual[0]]; found && info.kind == "enum" && info.enum.IsData {
+				e.errf(n.P, TyEnumImmutable, "数据枚举项不能 new（§8.3）", "直接使用项常量")
+			}
+		}
 		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) == 1 && e.a.tc != nil {
 			if info, found := e.a.tc.types[nt.Qual[0]]; found {
+				if info.kind == "enum" && info.enum.IsData {
+					e.errf(n.P, TyEnumImmutable, "数据枚举类型不能 new（§8.3）", "使用项常量")
+				}
 				if info.kind == "class" && info.mod.Abstract {
 					e.errf(n.P, TyNewAbstract, "抽象类 `"+nt.Qual[0]+"` 不能实例化（§2.6）", "由具体子类实例化，或去掉 abstract")
 				}
