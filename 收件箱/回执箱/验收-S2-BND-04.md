@@ -72,6 +72,7 @@
 1. **嵌套 struct 字段初始化式** `Inner inner = new Inner()` 编译路径暂不支持（`codegen ... B0-04`），归 STRUCT-01 / E4；BND-04 的 A01 用无初始化式嵌套字段，已验证复制独立。
 2. **`final` 字段写入**未在 sema 强制（`final Int x=1; c.x=2` check rc=0），归 PCTOR-01 / E2；不影响 BND-04 的值字段判定。
 3. 跨包 struct 未单列（BND-04 黄金用例不含 X 类），跨包属于 PKG-01/BND-01 范畴。
+4. **泛型 struct 编译路径**：sema 接受 `Pair<Int,Int>` / `Pair<(Int,Int),Bool>`（BND-04 值实参面 PASS）；E4 codegen 对 `Pair<Int,Int>` 实例化报 `codegen：类型 A 未支持（M4.1 范围）`，归 BND-12/STRUCT-01 的 codegen 面，不在 BND-04 的编译期值字段门内。证据：`evidence/S2-QA/BND-04/probe-generic-codegen/`。
 
 ---
 
@@ -89,6 +90,7 @@
 ## 五、证据
 
 - `evidence/S2-QA/BND-04/A01/`、`R01a/`–`R02d/`（每条含 `cmd.txt`、`check.*`、`interp.*`、`compiled.*`、`sha.txt`）
+- `evidence/S2-QA/BND-04/probe-generic-codegen/`（泛型 struct 正值 codegen 边界）
 - `evidence/S2-QA/qa-c-sema.log`、`qa-c-codegen.log`、`qa-c-fulltest.log`、`qa-c-vet.log`
 - `evidence/S2-QA/matrix.tsv`
 - 断言依据：`XNull解决方案-第2部分-对象编程-v3.3.0.md` §3.1–§3.3、§16 BND-04
