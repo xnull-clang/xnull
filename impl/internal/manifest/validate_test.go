@@ -120,3 +120,37 @@ func TestPluginsParsed(t *testing.T) {
 		t.Fatalf("插件字段错误：%+v", pl)
 	}
 }
+
+// S8-08：build.resources.resource 解析（dir + includes/excludes）。
+func TestResourceRootsParsed(t *testing.T) {
+	body := `project {
+  groupId = g
+  artifactId = a
+  version = 1.0.0
+  packaging = app
+  build {
+    resources {
+      resource src/main/resources {
+      }
+      resource assets {
+        includes = [images/**, fonts/**]
+        excludes = [**/*.psd]
+      }
+    }
+  }
+}
+`
+	dir := t.TempDir()
+	p := write(t, dir, "xnull.project", body)
+	res, ds, err := Load(p, Options{})
+	if err != nil || len(ds) != 0 {
+		t.Fatalf("不应有诊断：%v %v", err, ds)
+	}
+	if len(res.ResourceRoots) != 2 {
+		t.Fatalf("资源根数量不符：%+v", res.ResourceRoots)
+	}
+	if res.ResourceRoots[1].Dir != "assets" || len(res.ResourceRoots[1].Includes) != 2 ||
+		len(res.ResourceRoots[1].Excludes) != 1 {
+		t.Fatalf("资源根字段错误：%+v", res.ResourceRoots[1])
+	}
+}
