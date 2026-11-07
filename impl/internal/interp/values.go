@@ -434,6 +434,13 @@ func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 		if _, ok := in.singletons[name]; ok { // S2 §9：单例名义类型
 			return v.K == vObj && v.O.singleName == name
 		}
+		// 未登记的命名类型视为泛型类型参数（T），运行期按通配处理。
+		_, isClass := in.classes[name]
+		_, isProto := in.protocols[name]
+		_, isEnum := in.enums[name]
+		if !isClass && !isProto && !isEnum {
+			return true
+		}
 		if v.K == vObj { // S2 §4.4/§5.2：类继承链、协议实现、数据枚举项
 			return in.objectIsNamed(v.O, name)
 		}
