@@ -502,6 +502,9 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 		return
 	case *xfront.NamedType:
 		name := ty.Qual[len(ty.Qual)-1]
+		if e.a.tc != nil {
+			e.a.tc.checkSyncTypeRef(ty)
+		}
 		if len(ty.Args) == 0 {
 			if e.a.tc != nil {
 				if info, ok := e.a.tc.types[name]; ok && info.kind == "factory" {

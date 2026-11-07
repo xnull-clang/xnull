@@ -50,6 +50,7 @@ const (
 	TyExtension     = "TY-225" // extension 目标限制（§11）
 	TyNewKind       = "TY-226" // new 非 class 类型（§2.7/§4.1/§8.3）
 	TyTasksBlock    = "TY-227" // 任务 API 必须在 @tasks 块内（S5 §2.3）
+	TySyncRule      = "TY-228" // 同步原语约束（S5 §7/SYNC-01）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -940,7 +941,7 @@ func (c *typeCheckCtx) registerXdkErrors() {
 
 // registerXdkConcurrency 注册 xdk.tasks/xdk.sync 语言面类型（S5 §3/§7）。
 func (c *typeCheckCtx) registerXdkConcurrency() {
-	names := []string{"Task", "TaskGroup", "Context", "CancelToken", "TaskError",
+	names := []string{"Task", "TaskGroup", "Context", "CancelToken", "TaskError", "CancelledError",
 		"Channel", "Mutex", "AtomicInt", "AtomicBool", "AtomicRef"}
 	for _, n := range names {
 		if !c.a.imported[n] {
@@ -952,6 +953,47 @@ func (c *typeCheckCtx) registerXdkConcurrency() {
 		c.types[n] = &typeInfo{kind: "xdk"}
 		c.a.tops[n] = true
 	}
+}
+
+// checkSyncTypeRef 校验 Mutex<T>/AtomicRef<T> 的类型实参（S5 §7.2）。
+func (c *typeCheckCtx) checkSyncTypeRef(ty *xfront.NamedType) {
+	name := ty.Qual[len(ty.Qual)-1]
+	if len(ty.Args) != 1 {
+		return
+	}
+	arg := typeKey(ty.Args[0])
+	switch name {
+	case "Mutex":
+		if info, ok := c.types[arg]; ok && info.kind == "struct" {
+			c.errf(ty.P, TySyncRule, "Mutex<T> 的 T 不能是 struct（S5 §7.2：值复制会绕过互斥）", "改用 class 或标量")
+		}
+	case "AtomicRef":
+		if !isReferenceTypeKey(arg, c.types) {
+			c.errf(ty.P, TySyncRule, "AtomicRef<T> 的 T 必须是引用类型（S6 §3-c-1）", "改用 class/协议/容器等引用类型")
+		}
+	}
+}
+
+func isReferenceTypeKey(key string, types map[string]*typeInfo) bool {
+	k := unwrapTypeKey(key)
+	switch k {
+	case "String", "Text", "Bytes", "StringBuilder", "Any", "Object":
+		return true
+	}
+	if strings.HasSuffix(k, "[]") || strings.HasPrefix(k, "List<") ||
+		strings.HasPrefix(k, "Map<") || strings.HasPrefix(k, "Set<") ||
+		strings.HasPrefix(k, "Result<") || strings.HasPrefix(k, "(") {
+		return true
+	}
+	if info, ok := types[k]; ok {
+		switch info.kind {
+		case "class", "protocol", "singleton", "annotation":
+			return true
+		case "enum":
+			return info.enum != nil && info.enum.IsData
+		}
+	}
+	return false
 }
 
 // ---------- ANN-01：注解声明与使用（§12） ----------
@@ -2118,6 +2160,8 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 		}
 		e.fnKind, e.ret = "method", retKey
 		e.tasksBlock = hasAnnotation(m.Annos, "tasks")
+		e.closedChannels = map[string]bool{}
+		e.lockHeld = map[string]bool{}
 		if m.IsDeinit {
 			e.fnKind, e.ret = "deinit", "void"
 		}
@@ -2150,6 +2194,8 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 		ctx.instance = true
 		e.cls = ctx
 		e.fnKind, e.ret = "ctor", "void"
+		e.closedChannels = map[string]bool{}
+		e.lockHeld = map[string]bool{}
 		e.vars = map[string]string{"self": className}
 		for name, tk := range fieldType {
 			e.vars[name] = tk
