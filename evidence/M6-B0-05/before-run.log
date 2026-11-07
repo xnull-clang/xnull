@@ -1,0 +1,45 @@
+String.length          interp=PASS       compiled=PASS      
+String.substring       interp=PASS       compiled=PASS      
+String.indexOf         interp=PASS       compiled=PASS      
+String.trim            interp=PASS       compiled=PASS      
+String.split           interp=PASS       compiled=FAIL      
+String.replace         interp=PASS       compiled=FAIL      
+String.toUpper         interp=PASS       compiled=PASS      
+String.toLower         interp=PASS       compiled=PASS      
+String.startsWith      interp=PASS       compiled=PASS      
+String.endsWith        interp=PASS       compiled=PASS      
+T[].indexRead          interp=PASS       compiled=PASS      
+T[].indexWrite         interp=PASS       compiled=PASS      
+T[].length             interp=PASS       compiled=PASS      
+T[].join               interp=PASS       compiled=FAIL      
+List.length            interp=PASS       compiled=PASS      
+List.push              interp=PASS       compiled=PASS      
+List.insert            interp=PASS       compiled=FAIL      
+List.set               interp=PASS       compiled=PASS      
+List.get               interp=PASS       compiled=PASS      
+List.remove            interp=FAIL       compiled=FAIL      
+List.clear             interp=PASS       compiled=PASS      
+List.indexRead         interp=PASS       compiled=PASS      
+List.indexWrite        interp=PASS       compiled=PASS      
+Map.length             interp=PASS       compiled=PASS      
+Map.put                interp=PASS       compiled=PASS      
+Map.get                interp=PASS       compiled=FAIL      
+Map.getMissing         interp=FAIL       compiled=FAIL      
+Map.getOr              interp=PASS       compiled=PASS      
+Map.has                interp=PASS       compiled=PASS      
+Map.remove             interp=PASS       compiled=PASS      
+Map.clear              interp=PASS       compiled=PASS      
+Map.keys               interp=PASS       compiled=FAIL      
+Map.values             interp=PASS       compiled=FAIL      
+Set.length             interp=PASS       compiled=PASS      
+Set.add                interp=PASS       compiled=PASS      
+Set.has                interp=PASS       compiled=PASS      
+Set.at                 interp=PASS       compiled=FAIL      
+Set.remove             interp=PASS       compiled=FAIL      
+Set.clear              interp=PASS       compiled=FAIL      
+----
+phase=before
+ops=39
+cells_total=78
+cells_pass=64
+ops_both_pass=27

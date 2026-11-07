@@ -1,0 +1,9 @@
+red=1
+green_multipackage_tests=0
+go_test_all=0
+sample_interp=0
+sample_compiled=0
+double_path_diff=0
+b0_05_matrix=0          # 78/78、39/39
+artifact_build=0
+artifact_run=0

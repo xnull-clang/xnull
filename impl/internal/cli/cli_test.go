@@ -86,3 +86,105 @@ func TestRunSingleFileDeterministic(t *testing.T) {
 		t.Fatalf("两次运行输出不一致：%q vs %q", out1.String(), out2.String())
 	}
 }
+
+// ---------- ENTRY-01（M1）：入口与启动 ----------
+
+// writeSrc 在临时目录写出单文件源码，返回路径。
+func writeSrc(t *testing.T, src string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "entry.x")
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+// §11.2：void/Int × 无参/String[] 参数，四种入口形态在编译路径均可运行。
+func TestRunEntryTwoSignatures(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+		code int
+	}{
+		{"void 无参", "static void main() { print(\"v\") }", "v\n", exitcode.Success},
+		{"Int 无参", "static Int main() { print(\"i\"); return 4 }", "i\n", 4},
+		{"void args", "static void main(final String[] args) { print(\"va\") }", "va\n", exitcode.Success},
+		{"Int args", "static Int main(final String[] args) { print(\"ia\"); return 5 }", "ia\n", 5},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			code, out, errOut := run("run", writeSrc(t, c.src))
+			if code != c.code {
+				t.Fatalf("退出码 %d，期望 %d（stderr=%s）", code, c.code, errOut)
+			}
+			if out != c.want {
+				t.Fatalf("stdout=%q，期望 %q", out, c.want)
+			}
+		})
+	}
+}
+
+// §11.2：args 是运行时创建的新数组，元素为进程参数（不含程序名）。
+func TestRunEntryArgsArray(t *testing.T) {
+	path := writeSrc(t, "static Int main(final String[] args) {\n    print(str(args.length()))\n    return 0\n}")
+	code, out, errOut := run("run", path, "alpha", "beta")
+	if code != exitcode.Success {
+		t.Fatalf("退出码 %d（stderr=%s）", code, errOut)
+	}
+	if out != "2\n" {
+		t.Fatalf("stdout=%q，期望 2 个参数", out)
+	}
+	// 解释路径参数语义一致（不含程序名、不含标志）
+	code, out, _ = run("run", path, "--interp", "alpha", "beta")
+	if code != exitcode.Success || out != "2\n" {
+		t.Fatalf("解释路径 code=%d stdout=%q，期望 2 个参数", code, out)
+	}
+}
+
+// §11.3：顶层字段先于入口、按声明顺序初始化；解释/编译双路径一致。
+func TestRunEntryInitOrder(t *testing.T) {
+	src := `static Int mark(Int v) {
+    print("init " + str(v))
+    return v
+}
+Int a = mark(1)
+Int b = mark(a + 1)
+static Int main() {
+    print("main " + str(b))
+    return 0
+}`
+	path := writeSrc(t, src)
+	want := "init 1\ninit 2\nmain 2\n"
+	code, out, errOut := run("run", path)
+	if code != exitcode.Success || out != want {
+		t.Fatalf("编译路径 code=%d out=%q err=%s", code, out, errOut)
+	}
+	code, out, _ = run("run", path, "--interp")
+	if code != exitcode.Success || out != want {
+		t.Fatalf("解释路径 code=%d out=%q", code, out)
+	}
+}
+
+// §11.4：缺失入口是编译错误，不得落到 cc。
+func TestRunEntryMissingRejected(t *testing.T) {
+	code, _, errOut := run("run", writeSrc(t, "static Int helper() { return 1 }"))
+	if code != exitcode.BuildFail {
+		t.Fatalf("退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(errOut, "入口") {
+		t.Fatalf("诊断应点名入口：%s", errOut)
+	}
+}
+
+// §11.4：重复入口是编译错误。
+func TestRunEntryDuplicateRejected(t *testing.T) {
+	src := "static Int main() { return 0 }\nstatic Int main() { return 1 }"
+	code, _, errOut := run("run", writeSrc(t, src))
+	if code != exitcode.BuildFail {
+		t.Fatalf("退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(errOut, "重复入口") {
+		t.Fatalf("诊断应点名重复入口：%s", errOut)
+	}
+}

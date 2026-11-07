@@ -1,0 +1,11 @@
+# 阶段对齐 main=7df123d
+git merge main
+# 冲突文件：impl/internal/sema/ty.go、impl/internal/interp/interp.go
+# 解决后：
+cd impl
+go test ./... -count=1 -timeout 300s
+go test ./internal/sema/ -run 'TestTuple|TestListRemoveReturnsElement|TestNumericVariant' -v -count=1
+go test ./internal/interp/ -run 'TestTuple' -v -count=1
+go build -o /tmp/xnull-synced ./cmd/xnull
+cd ..
+bash wt/qa-1/evidence/M6-B0-06/run.sh --root /Users/vjs/Desktop/XNull-Lang/wt/e2-sema --bin /tmp/xnull-synced

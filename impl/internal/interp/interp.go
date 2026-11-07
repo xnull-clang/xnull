@@ -239,24 +239,29 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.globals.define(n.Name, v)
 		}
 	}
-	main, ok := in.funcs["main"]
-	if !ok {
-		return 1, fmt.Errorf("找不到入口 main（缺失入口）")
+	mains := in.funcs["main"]
+	if len(mains) == 0 {
+		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
+	}
+	if len(mains) > 1 {
+		return 1, fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
+	}
+	main := mains[0]
+	if err := checkEntry(main); err != nil {
+		return 1, err
 	}
 	// 两种入口形态（S1 §11.2）：main() 与 main(args: String[])。
 	var callArgs []*Value
 	switch {
-	case len(main[0].Params) == 0:
-	case len(main[0].Params) == 1 && isStringArray(main[0].Params[0].Type):
+	case len(main.Params) == 0:
+	case len(main.Params) == 1 && isStringArray(main.Params[0].Type):
 		elems := make([]*Value, len(progArgs))
 		for i, a := range progArgs {
 			elems[i] = &Value{K: vStr, S: a}
 		}
 		callArgs = []*Value{{K: vArr, A: elems}}
-	default:
-		return 1, fmt.Errorf("main 的签名必须是 main() 或 main(args: String[])")
 	}
-	v, err := in.call(main[0], callArgs)
+	v, err := in.call(main, callArgs)
 	if err != nil {
 		return 1, err
 	}
@@ -264,6 +269,26 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		return int(v.I), nil
 	}
 	return 0, nil
+}
+
+// checkEntry 校验入口签名（§11.2）：顶层 static、返回 void/Int、参数为空或 String[]。
+func checkEntry(fn *xfront.TopFunc) error {
+	if !fn.Static {
+		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+	}
+	if !fn.Void {
+		nt, ok := fn.Ret.(*xfront.NamedType)
+		if !ok || lastQual(nt) != "Int" || len(nt.Args) > 0 {
+			return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+		}
+	}
+	switch {
+	case len(fn.Params) == 0:
+	case len(fn.Params) == 1 && isStringArray(fn.Params[0].Type):
+	default:
+		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)，参数只能是 String[]（§11.2）")
+	}
+	return nil
 }
 
 func zeroValue(t xfront.TypeRef) *Value {
@@ -690,9 +715,9 @@ func (in *Interp) evalBinary(n *xfront.Binary, sc *scope) *Value {
 	case "!=":
 		return &Value{K: vBool, B: !valuesEqual(l, r)}
 	case "===":
-		return &Value{K: vBool, B: valuesIdentical(l, r)}
+		return &Value{K: vBool, B: identical(l, r)}
 	case "!==":
-		return &Value{K: vBool, B: !valuesIdentical(l, r)}
+		return &Value{K: vBool, B: !identical(l, r)}
 	case "+":
 		if l.K == vStr || r.K == vStr { // String + String（§5.4 也允许常量域）
 			return &Value{K: vStr, S: format(l) + format(r)}
@@ -835,7 +860,7 @@ func valuesEqual(l, r *Value) bool {
 		return l.C == r.C
 	case vStr:
 		return l.S == r.S
-	case vTuple:
+	case vTuple: // §2.11：逐元素使用元素类型的相等语义
 		if len(l.A) != len(r.A) {
 			return false
 		}
@@ -849,8 +874,9 @@ func valuesEqual(l, r *Value) bool {
 	return false
 }
 
-// valuesIdentical 同一性比较（§2.11：===/!== 逐元素；引用元素比较对象身份）。
-func valuesIdentical(l, r *Value) bool {
+// identical 严格同一性（§2.8、§2.11）：元组逐元素比较同一性；
+// 引用类型比较引用身份，值类型比较值；null === null 为 true。
+func identical(l, r *Value) bool {
 	if l.K == vNull || r.K == vNull {
 		return l.K == vNull && r.K == vNull
 	}
@@ -858,20 +884,45 @@ func valuesIdentical(l, r *Value) bool {
 		return false
 	}
 	switch l.K {
-	case vBool, vInt, vFloat, vChar, vStr:
-		return valuesEqual(l, r)
 	case vTuple:
 		if len(l.A) != len(r.A) {
 			return false
 		}
 		for i := range l.A {
-			if !valuesIdentical(l.A[i], r.A[i]) {
+			if !identical(l.A[i], r.A[i]) {
 				return false
 			}
 		}
 		return true
+	case vArr, vList, vMap, vSet, vClosure, vObj: // 引用类型：对象身份
+		return l == r
 	}
-	return l == r // 引用类型：对象句柄身份
+	return valuesEqual(l, r)
+}
+
+// selectFunc 选择重载/泛型候选（§8.2）：显式类型实参只匹配类型参数个数相同的泛型候选；
+// 无显式实参时优先非泛型（更具体），否则取首个参数个数相同的候选。
+// 解释器是动态路径，不做静态类型合一；参数个数是可判定过滤条件（§4.4 既有口径）。
+func (in *Interp) selectFunc(name string, fns []*xfront.TopFunc, typeArgs []xfront.TypeRef, argc int) *xfront.TopFunc {
+	if len(typeArgs) > 0 {
+		for _, f := range fns {
+			if len(f.Params) == argc && len(f.TypePars) == len(typeArgs) {
+				return f
+			}
+		}
+		panic(runtimeErr{fmt.Sprintf("函数 %s 没有匹配 %d 个类型实参的重载（§8.2）", name, len(typeArgs))})
+	}
+	for _, f := range fns {
+		if len(f.Params) == argc && len(f.TypePars) == 0 {
+			return f
+		}
+	}
+	for _, f := range fns {
+		if len(f.Params) == argc {
+			return f
+		}
+	}
+	panic(runtimeErr{fmt.Sprintf("函数 %s 无 %d 参数的重载", name, argc)})
 }
 
 func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
@@ -956,20 +1007,16 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 		}
 		if fns, found := in.funcs[id.Name]; found {
-			for _, f := range fns { // 重载按参数数量过滤（§4.4）
-				if len(f.Params) == len(n.Args) {
-					args := make([]*Value, len(n.Args))
-					for i, a := range n.Args {
-						args[i] = in.eval(a, sc)
-					}
-					v, err := in.call(f, args)
-					if err != nil {
-						panic(runtimeErr{err.Error()})
-					}
-					return v
-				}
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
 			}
-			panic(runtimeErr{fmt.Sprintf("函数 %s 无 %d 参数的重载", id.Name, len(n.Args))})
+			f := in.selectFunc(id.Name, fns, n.TypeArgs, len(args))
+			v, err := in.call(f, args)
+			if err != nil {
+				panic(runtimeErr{err.Error()})
+			}
+			return v
 		}
 		if id.Name == "print" || id.Name == "str" { // 内置函数（2/≤3）
 			if len(n.Args) != 1 {

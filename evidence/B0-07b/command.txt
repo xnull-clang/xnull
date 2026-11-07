@@ -1,0 +1,32 @@
+# M6-B0-07b 采集命令
+
+```bash
+# 0 基线：main（本卡前为快进合并）
+git log --oneline -1          # 7d5651a
+
+# 1 红：测试先写，绑定未加
+cd impl && go test ./internal/codegen/ffi -count=1 -run TestXDKTextFileAPI -v
+#   → FAIL：绑定缺少 readFileText（B0-06 文本变体）
+
+# 2 绿：sys.xfb 增 readFileText/writeFileText；rt_std_sys.c 增 C 实现
+cd impl && go test ./internal/codegen/ffi -count=1 -run TestXDKTextFileAPI -v
+
+# 3 端到端：真实 B0-06 文本变体程序（QA1）
+sh evidence/B0-07b/run.sh
+#   build exit=0；PASS in1.x / PASS in2.x；PASS=2 FAIL=0
+
+# 4 生成告警
+BIN=$(mktemp -d)/xnull; (cd impl && go build -o "$BIN" ./cmd/xnull)
+T=$(mktemp -d); mkdir -p "$T/bindings/xdk"; cp bindings/xdk/*.xfb "$T/bindings/xdk/"
+cp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M6-B0-06/program/read_parse_write_text.x "$T/prog.x"
+"$BIN" build "$T/prog.x" -o "$T/prog.bin" 2>&1 | grep -E 'warning:'
+
+# 5 回归
+cd impl && go vet ./...
+cd impl && go test ./... -count=1 -timeout 300s
+sh impl/runtime/build_rt.sh
+
+# 6 干净 clone（提交后）
+git clone --branch pod/e6-toolchain --single-branch <主仓> /tmp/b007b-clone
+cd /tmp/b007b-clone && sh evidence/B0-07b/run.sh
+```
