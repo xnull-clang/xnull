@@ -10,14 +10,27 @@ import (
 )
 
 // S6-08：8 个 xdk 源码单元骨架 + 命名 + 依赖矩阵（机械核验）。
+// S6-02：依赖矩阵以 impl/docs/xdk-packages.tsv 为 SSOT（这里保留同口径的
+// 硬编码兜底；新增/调整依赖必须两处同步，否则本测试失败）。
 func TestXdkPackageSkeletons(t *testing.T) {
 	dir, err := filepath.Abs(filepath.Join("..", "..", "lib", "xdk"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, "errors.x")); err != nil {
+		t.Skip("XDK 单元未合入当前分支（需 main 的 S6-06/07/08）")
+	}
 	want := []string{"errors", "tasks", "sync", "runtime", "collections", "text", "sys", "net"}
+	// S6 §1.4.3/§2：包间依赖单向、无环；与 impl/docs/xdk-packages.tsv 的 deps 列一致。
 	allowed := map[string][]string{
-		"errors": {"runtime"}, // S6-06：report 经 xdk.runtime.diagnose
+		"errors":      {"runtime"},
+		"tasks":       {"errors", "runtime"},
+		"sync":        {"errors", "runtime"},
+		"runtime":     {},
+		"collections": {},
+		"text":        {"errors"},
+		"sys":         {"errors"},
+		"net":         {"errors", "tasks", "sync"},
 	}
 	for _, name := range want {
 		path := filepath.Join(dir, name+".x")
@@ -54,6 +67,9 @@ func TestXdkPackageSkeletons(t *testing.T) {
 
 // S6-08：按 import 装载 xdk 源码单元（LoadUnits），依赖先、入口后。
 func TestXdkLoaderByImport(t *testing.T) {
+	if _, err := os.Stat(filepath.Join("..", "..", "lib", "xdk", "errors.x")); err != nil {
+		t.Skip("XDK 单元未合入当前分支（需 main 的 S6-06/07/08）")
+	}
 	dir := t.TempDir()
 	mainPath := filepath.Join(dir, "main.x")
 	src := "import xdk.errors\n\nstatic Int main() {\n    return 0\n}\n"

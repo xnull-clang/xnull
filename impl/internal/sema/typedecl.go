@@ -962,15 +962,19 @@ func (c *typeCheckCtx) checkSyncTypeRef(ty *xfront.NamedType) {
 	if len(ty.Args) != 1 {
 		return
 	}
-	arg := typeKey(ty.Args[0])
+	c.checkSyncTypeArg(name, typeKey(ty.Args[0]), ty.P)
+}
+
+// checkSyncTypeArg 校验同步原语类型实参；构造器调用与类型位置共用。
+func (c *typeCheckCtx) checkSyncTypeArg(name, arg string, p xfront.Pos) {
 	switch name {
 	case "Mutex":
 		if info, ok := c.types[arg]; ok && info.kind == "struct" {
-			c.errf(ty.P, TySyncRule, "Mutex<T> 的 T 不能是 struct（S5 §7.2：值复制会绕过互斥）", "改用 class 或标量")
+			c.errf(p, TySyncRule, "Mutex<T> 的 T 不能是 struct（S5 §7.2：值复制会绕过互斥）", "改用 class 或标量")
 		}
 	case "AtomicRef":
 		if !isReferenceTypeKey(arg, c.types) {
-			c.errf(ty.P, TySyncRule, "AtomicRef<T> 的 T 必须是引用类型（S6 §3-c-1）", "改用 class/协议/容器等引用类型")
+			c.errf(p, TySyncRule, "AtomicRef<T> 的 T 必须是引用类型（S6 §3-c-1）", "改用 class/协议/容器等引用类型")
 		}
 	}
 }
@@ -1828,6 +1832,30 @@ func methodRetKey(m *xfront.MethodDecl) string {
 
 // findClassMethod 在类继承链中查找方法，并按接收者的泛型实参建立类型参数替换表。
 // 供 sema 的方法调用返回类型/实参检查使用（XDK collections 等源码单元类）。
+// hasFieldNamed 判断用户声明的 class 是否有该字段（字段闭包调用不落 TY-229）。
+func (c *typeCheckCtx) hasFieldNamed(recvKey, name string) bool {
+	base := unwrapOpt(recvKey)
+	if i := strings.Index(base, "<"); i > 0 {
+		base = base[:i]
+	}
+	info := c.types[base]
+	if info == nil || info.kind != "class" || info.class == nil {
+		return false
+	}
+	for _, f := range info.class.Fields {
+		if f.Name == name || f.Canonical == name {
+			return true
+		}
+	}
+	return false
+}
+
+// hasClassNamed 判断用户是否声明了同名 class（同名时优先类方法表，不套用 XDK 内建签名）。
+func (c *typeCheckCtx) hasClassNamed(name string) bool {
+	info := c.types[name]
+	return info != nil && info.kind == "class" && info.class != nil
+}
+
 func (c *typeCheckCtx) findClassMethod(recvKey, name string) (*xfront.MethodDecl, map[string]string, bool) {
 	base := unwrapOpt(recvKey)
 	var args []string

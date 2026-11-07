@@ -1,0 +1,4 @@
+=== RUN   TestXDK05SyncConstructors
+--- PASS: TestXDK05SyncConstructors (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.496s

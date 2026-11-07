@@ -1,0 +1,25 @@
+--- FAIL: TestDiagMatrixS1 (0.01s)
+    --- FAIL: TestDiagMatrixS1/neg-0.6-34 (0.00s)
+        neg_test.go:87: §0.6 单例实现协议 期望诊断码 "SYN-110"，实际：
+              neg.x:5:13: error[SYN-101]: 单例头部不能带参数或继承（§9.1、§6.3）
+              写 `singleton Name {`
+FAIL
+FAIL	xnull.dev/xnull/Tests	1.393s
+ok  	xnull.dev/xnull/cmd/xnfmt	2.061s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	53.086s
+ok  	xnull.dev/xnull/internal/codegen	132.624s
+ok  	xnull.dev/xnull/internal/codegen/ffi	18.146s
+--- FAIL: TestBuildLedgerRepoGoldenScale (0.00s)
+    ledger_test.go:102: 台账规模偏离 golden：行数 101（期望 101），PASS 13（期望 18）
+FAIL
+FAIL	xnull.dev/xnull/internal/devtool	8.302s
+ok  	xnull.dev/xnull/internal/diag	4.609s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	3.321s
+ok  	xnull.dev/xnull/internal/sema	7.072s
+ok  	xnull.dev/xnull/internal/xfront	7.447s
+ok  	xnull.dev/xnull/internal/xnfmt	6.077s
+ok  	xnull.dev/xnull/internal/xpd	3.922s
+FAIL
