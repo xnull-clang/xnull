@@ -507,6 +507,27 @@ func (c *typeCheckCtx) findField(className, name string) (string, string, string
 	return "", "", "", false
 }
 
+// findFieldDecl 在类继承链中查找字段声明（final/可见性检查用）。
+func (c *typeCheckCtx) findFieldDecl(className, name string) (*xfront.FieldDecl, string, bool) {
+	cur := className
+	for i := 0; i < 64 && cur != ""; i++ {
+		info, ok := c.types[cur]
+		if !ok || info.kind != "class" || info.class == nil {
+			break
+		}
+		for _, f := range info.class.Fields {
+			if f.Name == name || f.Canonical == name {
+				return f, cur, true
+			}
+		}
+		if info.class.Base == nil {
+			break
+		}
+		cur = baseRefName(info.class.Base)
+	}
+	return nil, "", false
+}
+
 // findMethodVisibility 在继承链中查找方法可见性；任一公开同名重载即视为公开。
 func (c *typeCheckCtx) findMethodVisibility(className, name string) (string, string, bool) {
 	cur := className
@@ -846,8 +867,20 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 					}
 				}
 			}
+			// final 字段构造后写入拒绝（§6.1）。
+			if e.a.tc != nil {
+				rt := e.infer(mem.X)
+				if f, owner, ok := e.a.tc.findFieldDecl(rt.key, mem.Name); ok && f.Mod.Final {
+					if !(e.fnKind == "ctor" && e.cls != nil && e.cls.className == owner) {
+						e.errf(n.P, TyFinalWrite, "final 字段 `"+mem.Name+"` 只能在声明类构造器中赋值一次（§6.1）", "")
+					}
+				}
+			}
 		}
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
+			if e.cls != nil && e.cls.finalFields[id.Name] && !(e.fnKind == "ctor") {
+				e.errf(n.P, TyFinalWrite, "final 字段 `"+id.Name+"` 只能在声明类构造器中赋值一次（§6.1）", "")
+			}
 			tt, known := e.vars[id.Name]
 			vt := e.inferExpected(n.Value, tt)
 			if known && tt != "" {
@@ -1287,6 +1320,17 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 				}
 				return texpr{key: fk}
 			}
+		}
+		return texpr{}
+	}
+	// super.<field>：父类私有字段不可访问（§7.4）。
+	if id, ok := n.X.(*xfront.IdentExpr); ok && id.Name == "super" && e.cls != nil && e.a.tc != nil {
+		if f, owner, ok := e.a.tc.findFieldDecl(e.cls.className, n.Name); ok {
+			if fieldVisibility(f) == "private" {
+				e.errf(n.P, TyPrivField, "`super."+n.Name+"` 不能访问父类 `"+owner+"` 的私有字段（§7.4）", "")
+				return texpr{}
+			}
+			return texpr{key: typeKey(f.Type)}
 		}
 		return texpr{}
 	}

@@ -45,6 +45,9 @@ const (
 	TyFactoryRet    = "TY-220" // factory 方法返回类型（§10.2）
 	TyFactorySelf   = "TY-221" // factory 方法禁用 self/super（§10.2）
 	TySingletonRule = "TY-222" // singleton abstract/前向引用（§9）
+	TyAnnotation    = "TY-223" // 注解声明/使用/目标（§12）
+	TyFinalWrite    = "TY-224" // final 字段构造后写入（§6.1）
+	TyExtension     = "TY-225" // extension 目标限制（§11）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -71,6 +74,7 @@ type typeInfo struct {
 	enum    *xfront.EnumDecl
 	single  *xfront.SingletonDecl
 	factory *xfront.FactoryDecl
+	anno    *xfront.AnnotationDecl
 	fields  []*xfront.FieldDecl
 
 	// 类成员缓存（首访填充；外部访问检查用，§7.4）
@@ -134,6 +138,8 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 			info = &typeInfo{kind: "singleton", mod: n.Mod, single: n}
 		case *xfront.FactoryDecl:
 			info = &typeInfo{kind: "factory", mod: n.Mod, factory: n}
+		case *xfront.AnnotationDecl:
+			info = &typeInfo{kind: "annotation", mod: n.Mod, anno: n}
 		default:
 			continue
 		}
@@ -203,8 +209,13 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 			c.checkSingleton(n)
 		case *xfront.FactoryDecl:
 			c.checkFactory(n)
+		case *xfront.AnnotationDecl:
+			c.checkAnnotationDecl(n)
+		case *xfront.ExtensionDecl:
+			c.checkExtension(n)
 		}
 	}
+	c.checkAllAnnotations(u)
 }
 
 func (c *typeCheckCtx) declName(d xfront.TopDecl) string {
@@ -220,6 +231,8 @@ func (c *typeCheckCtx) declName(d xfront.TopDecl) string {
 	case *xfront.SingletonDecl:
 		return n.Name
 	case *xfront.FactoryDecl:
+		return n.Name
+	case *xfront.AnnotationDecl:
 		return n.Name
 	}
 	return ""
@@ -679,6 +692,143 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 }
 
 // constInt64 求简单枚举项的整数字面量值（含前导 -）。
+func (c *typeCheckCtx) checkExtension(d *xfront.ExtensionDecl) {
+	nt, ok := d.Target.(*xfront.NamedType)
+	if !ok || len(nt.Qual) != 1 {
+		c.errf(d.P, TyExtension, "extension Target 必须是裸类型名（§11.1）", "")
+		return
+	}
+	if len(nt.Args) > 0 {
+		c.errf(d.P, TyExtension, "extension Target 不能写泛型实参（§11.1）", "写裸类型名")
+		return
+	}
+	name := nt.Qual[0]
+	if builtinTypeNames[name] || scalarValueType(name) {
+		c.errf(nt.P, TyExtension, "extension 不能扩展预定义类型 `"+name+"`（§11.1）", "改为同包 class/struct")
+		return
+	}
+	info, found := c.types[name]
+	if !found {
+		if !c.a.imported[name] {
+			c.errf(nt.P, TyExtension, "extension Target `"+name+"` 未声明或不可见（§11.1）", "")
+		}
+		return
+	}
+	if info.kind != "class" && info.kind != "struct" {
+		c.errf(nt.P, TyExtension, "extension Target 必须是同包 class/struct（得到 "+info.kind+"，§11.1）", "")
+	}
+}
+
+// ---------- ANN-01：注解声明与使用（§12） ----------
+
+var builtinAnnotations = map[string]bool{
+	"ReadOnly": true, "Override": true, "WriteOnly": true, "Target": true,
+	"Retention": true, "Repeatable": true, "Deprecated": true, "SuppressWarnings": true,
+	"tasks": true, "arena": true, "Immediate": true, "NoAlloc": true, "Pure": true, "Sendable": true,
+}
+
+func (c *typeCheckCtx) checkAnnotationDecl(d *xfront.AnnotationDecl) {
+	for _, f := range d.Fields {
+		if !f.Mod.Final {
+			c.errf(f.P, TyAnnotation, "注解字段必须 final（§12.1）", "")
+		}
+		if f.Init == nil {
+			c.errf(f.P, TyAnnotation, "注解字段必须有编译期常量初始化式（§12.1）", "")
+		}
+		k := typeKey(f.Type)
+		allowed := scalarValueType(k) || k == "Bool" || k == "String" || k == "Char"
+		if info, ok := c.types[k]; ok && info.kind == "enum" && !info.enum.IsData {
+			allowed = true
+		}
+		if !allowed {
+			c.errf(f.P, TyAnnotation, "注解字段类型 `"+k+"` 不是编译期常量类型（§12.1）", "")
+		}
+	}
+}
+
+func (c *typeCheckCtx) checkAnnos(target string, annos []*xfront.AnnotationNode) {
+	seen := map[string]bool{}
+	for _, a := range annos {
+		if seen[a.Name] {
+			c.errf(a.P, TyAnnotation, "同一目标重复使用注解 `@"+a.Name+"`（§12.2）", "删除重复注解")
+		}
+		seen[a.Name] = true
+		switch a.Name {
+		case "Override":
+			if target != "method" {
+				c.errf(a.P, TyAnnotation, "@Override 只能用于方法（§12.3）", "")
+			}
+		case "ReadOnly":
+			if target != "field" {
+				c.errf(a.P, TyAnnotation, "@ReadOnly 只能用于字段（§12.3）", "")
+			}
+		default:
+			if builtinAnnotations[a.Name] {
+				continue
+			}
+			if info, ok := c.types[a.Name]; !ok || info.kind != "annotation" {
+				c.errf(a.P, TyAnnotation, "未知注解 `@"+a.Name+"`（§12.2）", "先声明 @annotation，或使用内建注解")
+			}
+		}
+	}
+}
+
+func (c *typeCheckCtx) checkAllAnnotations(u *xfront.CompilationUnit) {
+	checkParams := func(ps []*xfront.Param) {
+		for _, p := range ps {
+			c.checkAnnos("param", p.Annos)
+		}
+	}
+	for _, d := range u.Decls {
+		switch n := d.(type) {
+		case *xfront.ClassDecl:
+			c.checkAnnos("type", n.Annos)
+			for _, f := range n.Fields {
+				c.checkAnnos("field", f.Annos)
+			}
+			for _, m := range n.Methods {
+				c.checkAnnos("method", m.Annos)
+				checkParams(m.Params)
+			}
+			for _, ct := range n.Ctors {
+				c.checkAnnos("ctor", ct.Annos)
+				checkParams(ct.Params)
+			}
+		case *xfront.StructDecl:
+			c.checkAnnos("type", n.Annos)
+			for _, f := range n.Fields {
+				c.checkAnnos("field", f.Annos)
+			}
+			for _, m := range n.Methods {
+				c.checkAnnos("method", m.Annos)
+				checkParams(m.Params)
+			}
+		case *xfront.ProtocolDecl:
+			c.checkAnnos("type", n.Annos)
+		case *xfront.EnumDecl:
+			c.checkAnnos("type", n.Annos)
+		case *xfront.SingletonDecl:
+			c.checkAnnos("type", n.Annos)
+			for _, f := range n.Fields {
+				c.checkAnnos("field", f.Annos)
+			}
+			for _, m := range n.Methods {
+				c.checkAnnos("method", m.Annos)
+			}
+		case *xfront.FactoryDecl:
+			c.checkAnnos("type", n.Annos)
+			for _, m := range n.Methods {
+				c.checkAnnos("method", m.Annos)
+			}
+		case *xfront.AnnotationDecl:
+			c.checkAnnos("type", n.Annos)
+			for _, f := range n.Fields {
+				c.checkAnnos("field", f.Annos)
+			}
+		}
+	}
+}
+
 // ---------- BND-07/08：singleton / factory 登记与规则 ----------
 
 func (c *typeCheckCtx) checkSingleton(d *xfront.SingletonDecl) {
@@ -1588,10 +1738,11 @@ func (c *typeCheckCtx) hasProtoCycle(name string, visiting map[string]bool) bool
 
 // classCtx 是方法体遍历的类上下文。
 type classCtx struct {
-	className  string
-	srcToCanon map[string]string // 声明名 → 规范名（仅 private name 形式；规范名 != 声明名）
-	canonPriv  map[string]bool   // 私有字段规范名集合（含 _name 形式）
-	instance   bool              // 是否实例方法（static 方法禁用 self）
+	className   string
+	srcToCanon  map[string]string // 声明名 → 规范名（仅 private name 形式；规范名 != 声明名）
+	canonPriv   map[string]bool   // 私有字段规范名集合（含 _name 形式）
+	finalFields map[string]bool   // final 字段名（声明名与规范名）
+	instance    bool              // 是否实例方法（static 方法禁用 self）
 }
 
 // isSelfIdent 判断表达式是否为 `self`。
@@ -1613,13 +1764,17 @@ func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fi
 	for _, f := range fields {
 		fieldType[f.Canonical] = typeKey(f.Type)
 	}
-	ctx := &classCtx{className: className, srcToCanon: map[string]string{}, canonPriv: map[string]bool{}}
+	ctx := &classCtx{className: className, srcToCanon: map[string]string{}, canonPriv: map[string]bool{}, finalFields: map[string]bool{}}
 	for _, f := range fields {
 		if f.Canonical != f.Name {
 			ctx.srcToCanon[f.Name] = f.Canonical
 		}
 		if f.Mod.Vis == "private" || strings.HasPrefix(f.Name, "_") {
 			ctx.canonPriv[f.Canonical] = true
+		}
+		if f.Mod.Final {
+			ctx.finalFields[f.Name] = true
+			ctx.finalFields[f.Canonical] = true
 		}
 	}
 	// 字段类型与初始化式（§6.1/§10.1：Result 可以出现在字段）。
