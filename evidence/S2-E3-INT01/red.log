@@ -1,0 +1,12 @@
+=== RUN   TestS2INT01ResultTryObject
+    s2_int01_test.go:36: out="m-err\nm-defer\ndR\nouter-defer\nouter-err\ncaught:bad\n" want="m-err\nm-defer\ndR\nouter-err\nouter-defer\ncaught:bad\n" err=<nil>
+--- FAIL: TestS2INT01ResultTryObject (0.00s)
+=== RUN   TestS2INT01FactoryResult
+    s2_int01_test.go:66: out="" want="x\nf-err\nf-defer\nf-caught:boom\n" err=未定义的名称：DeviceFactory
+--- FAIL: TestS2INT01FactoryResult (0.00s)
+=== RUN   TestS2INT01EnumSwitchObject
+--- PASS: TestS2INT01EnumSwitchObject (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	5.253s
+FAIL
+exit=1

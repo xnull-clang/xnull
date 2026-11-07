@@ -235,6 +235,8 @@ type Interp struct {
 	structs      map[string]*xfront.StructDecl
 	deinited     map[*objv]bool // 已执行 deinit 的对象（引用计数去重）
 	deinitFrames []*bool        // deinit 链帧：显式 super.deinit 标记
+	factories    map[string]*xfront.FactoryDecl
+	factoryCtx   *xfront.FactoryDecl
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -277,6 +279,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
 		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
 		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
+		factories: map[string]*xfront.FactoryDecl{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -294,6 +297,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.registerStaticFields(n)
 		case *xfront.StructDecl:
 			in.structs[n.Name] = n
+		case *xfront.FactoryDecl:
+			in.factories[n.Name] = n
 		case *xfront.ProtocolDecl:
 			in.protocols[n.Name] = n
 		case *xfront.EnumDecl:
@@ -1106,6 +1111,20 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 			return v
 		}
+		// S2 §10.3：`Factory.method(...)` 静态调用。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok {
+			if fac, found := in.factories[id.Name]; found {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callFactoryMethod(fac, mem.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		// S2 §7.2：`Class.staticMethod(...)`；类名不是运行期变量。
 		if id, ok := mem.X.(*xfront.IdentExpr); ok {
 			if cls, found := in.findClass(id.Name); found {
@@ -1210,6 +1229,20 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 				panic(runtimeErr{err.Error()})
 			}
 			return v
+		}
+		// §10.2：工厂方法内调用同一工厂的裸方法名。
+		if in.factoryCtx != nil {
+			if len(in.findFactoryMethod(in.factoryCtx, id.Name)) > 0 {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callFactoryMethod(in.factoryCtx, id.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
 		}
 		// §7.2：静态方法内的裸静态方法名。
 		if in.staticCtx != nil {
