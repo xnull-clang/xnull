@@ -1,0 +1,13 @@
+xnull: 提示：codegen：FFI 入口 fileRead 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+xnull: 提示：codegen：FFI 入口 fileWrite 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+xnull: 提示：codegen：FFI 入口 pathExists 的返回标量 Bool 未纳入 P-09（仅 Int/Int64）（调用将报未定义标识符）
+prog.c:199:18: warning: incompatible pointer types initializing 'xrt_string *' (aka 'struct xrt_string *') with an expression of type 'const char *' [-Wincompatible-pointer-types]
+  199 |     xrt_string * xn_v = xdkc_dir_read(xn_h_d);
+      |                  ^      ~~~~~~~~~~~~~~~~~~~~~
+prog.c:200:57: warning: incompatible pointer types passing 'xrt_string *' (aka 'struct xrt_string *') to parameter of type 'const char *' [-Wincompatible-pointer-types]
+  200 |     *xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);
+      |                                                         ^~~~
+../../../impl/runtime/xrt.h:73:43: note: passing argument to parameter 'cstr' here
+   73 | xrt_string *xrt_string_from_c(const char *cstr);
+      |                                           ^
+2 warnings generated.

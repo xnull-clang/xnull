@@ -155,10 +155,13 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 // （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
 func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
-		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}}
+		globals: map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
+		}
+		for _, h := range reg.Handles {
+			g.handleNames[h.Name] = true
 		}
 	}
 	for _, d := range u.Decls {
@@ -205,11 +208,15 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		if fn, ok := d.(*xfront.TopFunc); ok {
 			if e, isFFI := g.ffiEntries[fn.Name]; isFFI {
 				rc := "void"
-				switch e.Ret.Kind {
-				case ffi.KindScalar:
+				switch {
+				case e.ErrorCodeRet:
+					rc = "int"
+				case e.Ret.Kind == ffi.KindScalar:
 					rc = "int64_t"
-				case ffi.KindString:
+				case e.Ret.Kind == ffi.KindString:
 					rc = "rt_string *"
+				case e.Ret.Kind == ffi.KindHandle:
+					rc = "xrt_handle *"
 				}
 				g.fnRet[fn.Name] = rc
 				seenFn[fn.Name] = true
@@ -565,6 +572,7 @@ type gen struct {
 	globalList     []*xfront.TopField    // 顶层字段声明顺序（初始化顺序）
 	ffi            *ffi.Registry         // .xfb 绑定注册表（P-09）
 	ffiEntries     map[string]ffi.Entry  // 入口名 → 合同投影（P-09）
+	handleNames    map[string]bool       // 不透明句柄类型（B0-07c）
 	needStrReplace bool                  // 使用过 String.replace（按需发助手）
 	tmp            int
 }
@@ -740,6 +748,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		default:
 			if _, ok := g.classOf(typeName(n)); ok {
 				return "xn_Cls_" + typeName(n) + " *", nil
+			}
+			if g.handleNames[typeName(n)] {
+				return "xrt_handle *", nil
 			}
 		case "void":
 			return "void", nil
@@ -1046,6 +1057,10 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		if e.Ret.Kind == ffi.KindString && out != "" {
 			lines = append(lines, "rt_release("+out+");")
 		}
+		if len(lines) == 0 && out != "" {
+			// 错误码即返回值（句柄 close）：表达式自含调用，语句化执行。
+			return []string{out + ";"}, nil
+		}
 		return lines, nil
 	}
 	args, err := s.callArgs(call.Args)
@@ -1230,6 +1245,15 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
+	if isHandlePtr(tc) {
+		lines, out, err := s.handleExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+		return append(lines, "xrt_handle *"+n.Name+" = "+out+";"), nil
+	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
 			return nil, fmt.Errorf("codegen：类实例局部声明需要 new 初始化（M4.4b 范围）")
@@ -1392,6 +1416,28 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		return nil, fmt.Errorf("codegen：赋值目标 %T 未支持（M4.1 范围）", n.Target)
 	}
 	tgt := s.cRef(id.Name)
+	// 句柄局部赋值（B0-07c）：Call/Ident 右值；旧句柄释放。
+	if tc, ok := s.localCType(id.Name); ok && isHandlePtr(tc) {
+		switch v := n.Value.(type) {
+		case *xfront.Call:
+			lines, expr, err := s.handleExpr(v)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, lines...)
+			out = append(out, "rt_release("+tgt+");")
+			out = append(out, tgt+" = "+expr+";")
+			return out, nil
+		case *xfront.IdentExpr:
+			r := s.cRef(v.Name)
+			return []string{
+				"rt_retain(" + r + ");",
+				"rt_release(" + tgt + ");",
+				tgt + " = " + r + ";",
+			}, nil
+		}
+		return nil, fmt.Errorf("codegen：句柄赋值右值 %T 未支持（B0-07c 范围）", n.Value)
+	}
 	// 顶层字段赋值（ENTRY-01：Int/Bool/String）
 	if tc, ok := s.g.globals[id.Name]; ok {
 		if _, shadowed := s.locals[id.Name]; !shadowed && (s.params == nil || !s.params[id.Name]) {
