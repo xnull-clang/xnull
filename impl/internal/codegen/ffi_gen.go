@@ -434,7 +434,7 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	}
 	// 错误码经包装层归一（未知码 → Internal），非零即终止：不隐藏、不吞错（P-09 条件 2）。
 	lines = append(lines, fmt.Sprintf(
-		`if (%s != 0) { fprintf(stderr, "fatal: FFI 入口 %s 错误码 %%d（%%s）\n", (int)%s, xn_ffi_%s_error_kind(%s)); exit(134); }`,
+		`if (%s != 0) { fprintf(stderr, "fatal: FFI 入口 %s 错误码 %%d（%%s）\n", (int)%s, xrt_error_kind_name(xn_ffi_%s_error_kind_id(%s))); exit(134); }`,
 		rc, e.Name, rc, ffiRegionIdent(e.Region), rc))
 	lines = append(lines, post...)
 	return lines, out, nil
