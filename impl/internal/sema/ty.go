@@ -523,14 +523,9 @@ func isTaskAPI(recv, name string) bool {
 	return false
 }
 
-// isXdkTypeName 识别 xdk.tasks/xdk.sync 的语言面类型名（S5 §3/§7）。
+// isXdkTypeName 识别 XDK 公开类型名（S6 §4；类型位置与静态入口）。
 func isXdkTypeName(name string) bool {
-	switch name {
-	case "Task", "TaskGroup", "Context", "CancelToken", "TaskError",
-		"Channel", "Mutex", "AtomicInt", "AtomicBool", "AtomicRef":
-		return true
-	}
-	return false
+	return xdkTypeNames[name]
 }
 
 // checkValueInstantiation 校验泛型结构体实例实参（BND-04）。
@@ -1622,6 +1617,19 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			case "wrap", "mapErr", "report":
 				return e.inferXdkErrors(n, id.Name)
 			}
+			// S6-01：XDK 内建签名（check 路径不依赖 .xfb 注入）。
+			if sig, ok := lookupXdkFuncSig(id.Name); ok {
+				return e.inferXdkFuncCall(n, id.Name, sig, n.P)
+			}
+			// 已知 XDK 符号但无签名：显式诊断，禁止静默放行。
+			if xdkSymbolKnown(id.Name) {
+				e.errf(n.P, TyXdkUnsupported,
+					"XDK API `"+id.Name+"` 尚未支持（S6-01）", "该入口未实现或签名未冻结；见 S6 盘点卡")
+				for _, a := range n.Args {
+					e.infer(a)
+				}
+				return texpr{}
+			}
 		}
 	}
 	// 方法调用：recv.method(args)
@@ -1992,6 +2000,12 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		case "error":
 			return texpr{key: ek}
 		}
+	}
+	// S6-01：XDK 类型上未登记的成员 → 显式诊断（不静默放行）。
+	if xdkKnownType(k) {
+		e.errf(p, TyXdkUnsupported,
+			"XDK 类型 `"+xdkTypeBase(k)+"` 的成员 `"+name+"` 尚未支持（S6-01）",
+			"该 API 未实现或签名未冻结；见 S6 盘点卡")
 	}
 	// 未知接收者（动态分派后续切片）：放行，返回未知
 	for _, a := range args {

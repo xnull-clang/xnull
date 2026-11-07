@@ -23,34 +23,35 @@ import (
 
 // 诊断码。
 const (
-	TyModifier      = "TY-201"
-	TyInherit       = "TY-202"
-	TyOverride      = "TY-203"
-	TyStructVal     = "TY-204"
-	TyProtoForm     = "TY-205"
-	TyEnumRule      = "TY-206"
-	TyPrivField     = "TY-207"
-	TyProtoImpl     = "TY-208" // 协议实现检查（§4.3）
-	TyVisibility    = "TY-209" // 成员可见性（§7.3）
-	TyNewAbstract   = "TY-210" // new abstract 类（§2.6）
-	TyProtoMember   = "TY-211" // 协议变量只能调用协议方法（§4.4）
-	TyPCTOR         = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
-	TyEnumSwitch    = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
-	TyStaticGen     = "TY-214" // 静态成员不得使用类类型参数（§13.4）
-	TySingletonRO   = "TY-215" // singleton.instance 只读（§9）
-	TySingletonNew  = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
-	TyFactory       = "TY-217" // factory Target/命名规则（§10）
-	TyEnumImmutable = "TY-218" // 数据枚举项不可变/不可 new（§8.3）
-	TyFactoryAccess = "TY-219" // 跨包 factory 私有成员访问（§10.3）
-	TyFactoryRet    = "TY-220" // factory 方法返回类型（§10.2）
-	TyFactorySelf   = "TY-221" // factory 方法禁用 self/super（§10.2）
-	TySingletonRule = "TY-222" // singleton abstract/前向引用（§9）
-	TyAnnotation    = "TY-223" // 注解声明/使用/目标（§12）
-	TyFinalWrite    = "TY-224" // final 字段构造后写入（§6.1）
-	TyExtension     = "TY-225" // extension 目标限制（§11）
-	TyNewKind       = "TY-226" // new 非 class 类型（§2.7/§4.1/§8.3）
-	TyTasksBlock    = "TY-227" // 任务 API 必须在 @tasks 块内（S5 §2.3）
-	TySyncRule      = "TY-228" // 同步原语约束（S5 §7/SYNC-01）
+	TyModifier       = "TY-201"
+	TyInherit        = "TY-202"
+	TyOverride       = "TY-203"
+	TyStructVal      = "TY-204"
+	TyProtoForm      = "TY-205"
+	TyEnumRule       = "TY-206"
+	TyPrivField      = "TY-207"
+	TyProtoImpl      = "TY-208" // 协议实现检查（§4.3）
+	TyVisibility     = "TY-209" // 成员可见性（§7.3）
+	TyNewAbstract    = "TY-210" // new abstract 类（§2.6）
+	TyProtoMember    = "TY-211" // 协议变量只能调用协议方法（§4.4）
+	TyPCTOR          = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
+	TyEnumSwitch     = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
+	TyStaticGen      = "TY-214" // 静态成员不得使用类类型参数（§13.4）
+	TySingletonRO    = "TY-215" // singleton.instance 只读（§9）
+	TySingletonNew   = "TY-216" // singleton/factory 不能 new（§9.4/§10.5）
+	TyFactory        = "TY-217" // factory Target/命名规则（§10）
+	TyEnumImmutable  = "TY-218" // 数据枚举项不可变/不可 new（§8.3）
+	TyFactoryAccess  = "TY-219" // 跨包 factory 私有成员访问（§10.3）
+	TyFactoryRet     = "TY-220" // factory 方法返回类型（§10.2）
+	TyFactorySelf    = "TY-221" // factory 方法禁用 self/super（§10.2）
+	TySingletonRule  = "TY-222" // singleton abstract/前向引用（§9）
+	TyAnnotation     = "TY-223" // 注解声明/使用/目标（§12）
+	TyFinalWrite     = "TY-224" // final 字段构造后写入（§6.1）
+	TyExtension      = "TY-225" // extension 目标限制（§11）
+	TyNewKind        = "TY-226" // new 非 class 类型（§2.7/§4.1/§8.3）
+	TyTasksBlock     = "TY-227" // 任务 API 必须在 @tasks 块内（S5 §2.3）
+	TySyncRule       = "TY-228" // 同步原语约束（S5 §7/SYNC-01）
+	TyXdkUnsupported = "TY-229" // XDK API 未实现/签名未冻结（S6 §4）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
