@@ -293,3 +293,73 @@ static Int main() { C c = new C(); print(c.g()); return 0 }`
 		t.Fatalf("out=%q code=%d，期望 2", got, code)
 	}
 }
+
+// BND-02：多级继承 + 协议实现时字段/vtable 偏移一致（A02 回归）。
+func TestS2BND02MultiInheritanceProtocol(t *testing.T) {
+	src := `protocol Ready { Bool ready(); }
+class A { Int a = 1; Int fa() { return 2 } }
+class B : A { Int b = 3; Int fb() { return 4 } }
+class C : B implements Ready {
+    Int c = 5;
+    Bool ready() { return true }
+}
+static Int main() {
+    C x = new C()
+    print(x.a)
+    print(x.fa())
+    print(x.b)
+    print(x.fb())
+    print(x.c)
+    print(x.ready())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n2\n3\n4\n5\ntrue\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-03：可空协议字段（P? peer = null）与 deinit 链。
+func TestS2BND03NullableProtocolAndDeinit(t *testing.T) {
+	src := `protocol P { Int f(); }
+class Ref implements P {
+    P? peer = null;
+    Int x = 7;
+    Int f() { return x }
+}
+class B { void deinit() { print("dB") } }
+class D : B {
+    void deinit() { print("dD"); super.deinit() }
+}
+static Int main() {
+    Ref r = new Ref()
+    print(r.f())
+    D d = new D()
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "7\ndD\ndB\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// DISP-01：is / as? / 类变量隐式上转到协议。
+func TestS2DISP01IsAsUpcast(t *testing.T) {
+	src := `protocol P { Int f(); }
+class C implements P { Int f() { return 1 } }
+static Int main() {
+    C c = new C()
+    print(c is P)
+    P p = new C()
+    print(p is C)
+    C? c2 = p as? C
+    print(c2 != null)
+    P p2 = c
+    print(p2.f())
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "true\ntrue\ntrue\n1\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}

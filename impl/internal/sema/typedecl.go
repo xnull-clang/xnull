@@ -307,6 +307,9 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 		}
 		for _, am := range anc.class.Methods {
 			for _, m := range d.Methods {
+				if m.IsDeinit {
+					continue // §6.4：派生类 deinit 合法，按链自动/显式调用父类
+				}
 				if m.Name == am.Name && m.IsDeinit == am.IsDeinit && sameSig(m.Params, am.Params) {
 					c.errf(m.P, TyOverride, "方法 `"+m.Name+"` 与祖先类 `"+anc.class.Name+"` 的实例方法同签名：子类覆写被拒绝（§2.5）",
 						"改用不同参数列表构成重载")

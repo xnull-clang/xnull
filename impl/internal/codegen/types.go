@@ -140,8 +140,13 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			}
 		}
 		switch n.Op {
-		case "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||":
+		case "==", "!=", "===", "!==", "<", "<=", ">", ">=", "&&", "||", "is":
 			return "int", nil
+		case "as", "as?":
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				return s.g.cType(s.g.substitute(ta.Type))
+			}
+			return "", fmt.Errorf("codegen：%s 缺少目标类型", n.Op)
 		case "+":
 			lt, err := s.exprType(n.L)
 			if err != nil {
