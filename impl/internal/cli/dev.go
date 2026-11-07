@@ -60,12 +60,15 @@ func runDev(env Env, args []string) int {
 		var since time.Duration
 		var writePath string
 		noTest := false
+		recordGreen := false
 		root := "."
 		args := args[1:]
 		for i := 0; i < len(args); i++ {
 			switch args[i] {
 			case "--no-test":
 				noTest = true
+			case "--record-green":
+				recordGreen = true
 			case "--write":
 				if i+1 >= len(args) {
 					fmt.Fprintln(env.Stderr, "xnull: --write 缺少路径")
@@ -105,7 +108,7 @@ func runDev(env Env, args []string) int {
 			defer f.Close()
 			out = f
 		}
-		opts := devtool.BoardOptions{Since: since, RunTests: !noTest}
+		opts := devtool.BoardOptions{Since: since, RunTests: !noTest, RecordGreen: recordGreen}
 		if err := devtool.GenerateBoard(repoRoot, filepath.Join(repoRoot, "impl"), opts, out); err != nil {
 			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
 			return exitcode.BuildFail

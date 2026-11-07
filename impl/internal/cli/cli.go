@@ -214,6 +214,7 @@ var knownFlags = map[string]struct{}{
 	"--update-lock": {}, "--skip": {}, "--profile": {}, "--check": {},
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "-o": {},
+	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。

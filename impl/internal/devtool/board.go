@@ -22,9 +22,10 @@ func RepoRoot(start string) (string, error) {
 
 // BoardOptions 是 SSOT 看板生成参数。
 type BoardOptions struct {
-	Since    time.Duration // 统计窗口，缺省 7 天
-	RunTests bool          // 是否现场跑 go test ./...
-	Now      time.Time     // 注入时间（测试用）
+	Since       time.Duration // 统计窗口，缺省 7 天
+	RunTests    bool          // 是否现场跑 go test ./...
+	RecordGreen bool          // 测试绿时把 HEAD 记为每条线的 last-green
+	Now         time.Time     // 注入时间（测试用）
 }
 
 type commitInfo struct {
@@ -94,19 +95,33 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 	if opts.RunTests {
 		tests = runTests(implDir)
 	}
+	greenNote := ""
+	if opts.RecordGreen && opts.RunTests {
+		if tests.green {
+			if err := recordLastGreen(root, head, opts.Now); err != nil {
+				return err
+			}
+		} else {
+			greenNote = "> 测试红：未更新 last-green（ADR-003）\n\n"
+		}
+	}
 
 	evidence, err := loadEvidence(filepath.Join(root, "evidence"))
 	if err != nil {
 		return err
 	}
 	gates := gateProgress(evidence, root)
+	lastGreen := loadLastGreen(filepath.Join(root, "handoff", "last-green.tsv"))
+	handoffs := loadHandoffs(filepath.Join(root, "handoff"))
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# SSOT 看板（脚本生成，手改即作废）\n\n")
 	fmt.Fprintf(&b, "- 生成时间：%s\n", opts.Now.Format("2006-01-02 15:04:05 -0700"))
 	fmt.Fprintf(&b, "- 仓库：`%s`　分支：`%s`　HEAD：`%s`\n", filepath.Base(root), branch, head)
 	fmt.Fprintf(&b, "- 窗口：近 %s（起点提交 `%s`）\n", humanDuration(opts.Since), windowStart)
-	fmt.Fprintf(&b, "- 数据源：git log / go test / impl/docs/conformance/status.tsv / evidence/\n\n")
+	fmt.Fprintf(&b, "- 数据源：git log / go test / impl/docs/conformance/status.tsv / evidence/ / handoff/\n")
+	fmt.Fprintf(&b, "- 断链协议：ADR-003（接力棒 + last-green；`--record-green` 在测试绿时记录 HEAD）\n\n")
+	b.WriteString(greenNote)
 
 	// 四数（ADR-001 §7）
 	fmt.Fprintf(&b, "## 四数\n\n")
@@ -157,6 +172,96 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 		fmt.Fprintf(&b, "| %s | %s | %s | %s |\n", c.sha, c.when.Format("01-02 15:04"), c.author, truncateRunes(c.subject, 60))
 	}
 	fmt.Fprintf(&b, "\n")
+
+	// 断链与最后绿点（ADR-003）
+	fmt.Fprintf(&b, "## 断链与最后绿点（ADR-003）\n\n")
+	fmt.Fprintf(&b, "| 线 | last-green | 状态 | 最近 commit |\n|---|---|---|---|\n")
+	warnings := []string{}
+	for _, ln := range boardLines {
+		lg := lastGreen[ln.name]
+		status := "缺失"
+		if lg.sha != "" {
+			if isAncestor(root, lg.sha, head) {
+				status = "有效"
+			} else {
+				status = "失效（非 HEAD 祖先）"
+			}
+		}
+		latestAge := "—"
+		latestCommit := "—"
+		for i := len(commits) - 1; i >= 0; i-- {
+			if lineOf(commits[i].files) == ln.name {
+				d := opts.Now.Sub(commits[i].when)
+				latestCommit = commits[i].sha + "（" + humanAge(d) + "）"
+				if d > 2*time.Hour {
+					warnings = append(warnings, fmt.Sprintf("%s：%s 无 commit（ADR-003 2h 阈值）", ln.name, humanAge(d)))
+				}
+				latestAge = humanAge(d)
+				break
+			}
+		}
+		_ = latestAge
+		if lg.sha == "" {
+			warnings = append(warnings, fmt.Sprintf("%s：缺 last-green（ADR-003）", ln.name))
+		} else if status != "有效" {
+			warnings = append(warnings, fmt.Sprintf("%s：last-green %s 失效（不是 HEAD 祖先）", ln.name, lg.sha))
+		}
+		fmt.Fprintf(&b, "| %s | %s | %s | %s |\n", ln.name, orDash(lg.sha), status, latestCommit)
+	}
+	fmt.Fprintf(&b, "\n")
+
+	// 接力棒（ADR-003）
+	expected := expectedHandoffCards(root, evidence)
+	for name := range handoffs {
+		expected[name] = true
+	}
+	missingHandoff := 0
+	fmt.Fprintf(&b, "## 接力棒（handoff/）\n\n")
+	fmt.Fprintf(&b, "已有接力棒 %d 根；应覆盖卡片 %d 张。\n\n", len(handoffs), len(expected))
+	if len(expected) > 0 {
+		fmt.Fprintf(&b, "| 卡片 | 接力棒 | 字段 |\n|---|---|---|\n")
+		names := make([]string, 0, len(expected))
+		for name := range expected {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			h, ok := handoffs[name]
+			state := "缺失"
+			fieldState := "—"
+			if ok {
+				state = "有"
+				if len(h.missing) == 0 {
+					fieldState = "完整"
+				} else {
+					fieldState = "缺 " + strings.Join(h.missing, "、")
+				}
+			} else {
+				missingHandoff++
+				warnings = append(warnings, "接力棒缺失："+name)
+			}
+			fmt.Fprintf(&b, "| %s | %s | %s |\n", name, state, fieldState)
+		}
+		for name, h := range handoffs {
+			if len(h.missing) > 0 {
+				warnings = append(warnings, "接力棒缺字段："+name+"（"+strings.Join(h.missing, "、")+"）")
+			}
+			_ = name
+		}
+		fmt.Fprintf(&b, "\n")
+	}
+
+	// 告警汇总
+	fmt.Fprintf(&b, "## 告警（ADR-003 断链判据）\n\n")
+	sort.Strings(warnings)
+	if len(warnings) == 0 {
+		fmt.Fprintf(&b, "无。\n\n")
+	} else {
+		for _, w := range warnings {
+			fmt.Fprintf(&b, "- %s\n", w)
+		}
+		fmt.Fprintf(&b, "\n")
+	}
 
 	// evidence
 	fmt.Fprintf(&b, "## evidence（按最近修改，最多 10 项；共 %d 项）\n\n", len(evidence))
@@ -405,4 +510,164 @@ func gitLine(root string, args ...string) (string, error) {
 
 func gitShow(root, sha, path string) (string, error) {
 	return gitOutput(root, "show", sha+":"+path)
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
+}
+
+func humanAge(d time.Duration) string {
+	if d < time.Minute {
+		return "<1m"
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	return fmt.Sprintf("%dh%02dm", int(d.Hours()), int(d.Minutes())%60)
+}
+
+// lastGreenEntry 是一条线的最后绿点。
+type lastGreenEntry struct {
+	line string
+	sha  string
+	when time.Time
+}
+
+func loadLastGreen(path string) map[string]lastGreenEntry {
+	out := map[string]lastGreenEntry{}
+	s, err := readText(path)
+	if err != nil {
+		return out
+	}
+	for _, line := range splitLines(s) {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		cells := strings.Split(line, "\t")
+		if len(cells) < 2 {
+			continue
+		}
+		e := lastGreenEntry{line: strings.TrimSpace(cells[0]), sha: strings.TrimSpace(cells[1])}
+		if len(cells) >= 3 {
+			if t, err := time.Parse(time.RFC3339, strings.TrimSpace(cells[2])); err == nil {
+				e.when = t
+			}
+		}
+		out[e.line] = e
+	}
+	return out
+}
+
+// recordLastGreen 在全量测试绿时把当前 HEAD 记为所有线的 last-green（脚本生成，手改即作废）。
+func recordLastGreen(root, head string, now time.Time) error {
+	dir := filepath.Join(root, "handoff")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	var b strings.Builder
+	b.WriteString("# 线\tlast-green\t记录时间（由 xnull dev board --record-green 生成，手改即作废）\n")
+	for _, ln := range boardLines {
+		fmt.Fprintf(&b, "%s\t%s\t%s\n", ln.name, head, now.Format(time.RFC3339))
+	}
+	return os.WriteFile(filepath.Join(dir, "last-green.tsv"), []byte(b.String()), 0o644)
+}
+
+func isAncestor(root, sha, head string) bool {
+	cmd := exec.Command("git", "merge-base", "--is-ancestor", sha, head)
+	cmd.Dir = root
+	return cmd.Run() == nil
+}
+
+// handoffDoc 是一根接力棒。
+type handoffDoc struct {
+	card    string
+	missing []string
+}
+
+var handoffRequired = []string{"卡片ID", "输入", "输出文件", "commit", "验证命令", "已知缺口", "下一步"}
+
+// loadHandoffs 解析 handoff/*.md（跳过模板与 last-green）。
+func loadHandoffs(dir string) map[string]handoffDoc {
+	out := map[string]handoffDoc{}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".md") || strings.HasPrefix(name, "_") {
+			continue
+		}
+		data, err := readText(filepath.Join(dir, name))
+		if err != nil {
+			continue
+		}
+		card := strings.TrimSuffix(name, ".md")
+		doc := handoffDoc{card: card}
+		values := map[string]string{}
+		current := ""
+		for _, line := range splitLines(data) {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "- **") {
+				rest := strings.TrimPrefix(trimmed, "- **")
+				idx := strings.Index(rest, "**")
+				if idx < 0 {
+					continue
+				}
+				current = rest[:idx]
+				val := strings.TrimPrefix(rest[idx+2:], "：")
+				val = strings.TrimPrefix(val, ":")
+				values[current] = strings.TrimSpace(val)
+				continue
+			}
+			// 多行字段值：续行并入当前字段
+			if current != "" && trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+				values[current] = strings.TrimSpace(values[current] + " " + trimmed)
+			}
+		}
+		for _, key := range handoffRequired {
+			val := ""
+			for k, v := range values {
+				if strings.HasPrefix(k, key) {
+					val = v
+					break
+				}
+			}
+			if val == "" || strings.HasPrefix(val, "<") {
+				doc.missing = append(doc.missing, key)
+			}
+		}
+		out[card] = doc
+	}
+	return out
+}
+
+// expectedHandoffCards 返回 ADR-003 生效后仍有证据活动、因而必须带接力棒的卡片。
+// 生效时点取 ADR-003 的提交时间（git 为准，避免 merge/checkout 刷新 mtime）；
+// 单卡活动时间取“最近一次触及该 evidence 目录的提交时间”，无提交时退回目录 mtime。
+func expectedHandoffCards(root string, evidence []evidenceInfo) map[string]bool {
+	out := map[string]bool{}
+	iso, err := gitLine(root, "log", "-1", "--format=%aI", "--", "ADR/ADR-003-断链恢复协议.md")
+	if err != nil || iso == "" {
+		return out
+	}
+	epoch, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return out
+	}
+	for _, e := range evidence {
+		when := e.mtime
+		if ciso, err := gitLine(root, "log", "-1", "--format=%aI", "--", "evidence/"+e.name); err == nil && ciso != "" {
+			if t, err := time.Parse(time.RFC3339, ciso); err == nil {
+				when = t
+			}
+		}
+		if when.After(epoch) {
+			out[e.name] = true
+		}
+	}
+	return out
 }
