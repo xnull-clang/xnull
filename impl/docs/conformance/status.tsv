@@ -7,11 +7,12 @@ CTRL-01	internal/xfront/stmt_test.go + internal/interp/interp_test.go + internal
 BLD-01	internal/interp/values_test.go	部分
 ENTRY-01	internal/interp/interp_test.go + internal/cli/cli_test.go	部分
 ERR-01	internal/interp/hard_test.go	部分
+NEG-01	Tests/neg_test.go（QA 注入）	PASS
 TUPLE-01	internal/interp/interp_test.go	部分
-PKG-01	internal/xfront/unit_test.go + internal/sema/xdk_test.go	部分
+PKG-01	internal/xfront/unit_test.go + internal/sema/xdk_test.go	PASS
 TYPE-01	internal/sema/ty_test.go	PASS
 TYPE-02	internal/sema/ty_test.go	PASS
-GEN-01	—	未实现
+GEN-01	internal/codegen/gen01_acceptance_test.go + internal/sema/gen01_test.go	PASS
 INH-01	internal/sema/typedecl_test.go	PASS
 DISP-01	—	未实现
 STRUCT-01	internal/sema/typedecl_test.go	部分
