@@ -1,6 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/S6-XDK05/sync.x:5:20: error[TY-229]: XDK API `Mutex` 尚未支持（S6-01）
-  该入口未实现或签名未冻结；见 S6 盘点卡
-/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/S6-XDK05/sync.x:6:19: error[TY-229]: XDK API `AtomicInt` 尚未支持（S6-01）
-  该入口未实现或签名未冻结；见 S6 盘点卡
-/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/S6-XDK05/sync.x:7:23: error[TY-229]: XDK API `Channel` 尚未支持（S6-01）
-  该入口未实现或签名未冻结；见 S6 盘点卡
