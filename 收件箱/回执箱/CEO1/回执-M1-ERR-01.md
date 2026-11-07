@@ -1,4 +1,6 @@
 # 回执：M1-ERR-01
+> **B2 守门补强（2026-11-07，E2 前端线）**：`LocalDeclStmt` 清理体诊断已从 `0:0` 修为 `2:11`（`error.go` 改用 `Type` 节点）；新增 **31 个单文件可触发诊断码**的 `Line>0 && Col>0` 守门测试（`impl/internal/sema/diagpos_test.go`）。commit `041d8f807d7f`；证据 `evidence/FIX-ERR-B2/`；`go test ./... -count=1 -timeout 300s` exit 0。原“B2 已修”结论保持，本次补的是全局不变量守门。
+
 
 - **卡片ID**：`M1-ERR-01`
 - **角色/会话**：`CEO1-RD2-语义` / `ses_e4dc38fe7ffe9ixnueVA93u852`
