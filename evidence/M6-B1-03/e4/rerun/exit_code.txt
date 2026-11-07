@@ -1,0 +1,7 @@
+diff_base155=0
+idem_go_base155=0
+idem_x_base155=0
+diff_union=0
+idem_go_union=0
+idem_x_union=0
+go_test_all=0
