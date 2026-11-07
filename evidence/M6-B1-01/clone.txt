@@ -1,0 +1,17 @@
+# 干净 clone 复现（pod/e6-toolchain，本地 clone，未推送）
+
+clone 源 = /Users/vjs/Desktop/XNull-Lang
+clone HEAD = 8e0ffe321bc412f1a81a00b90aa3501489dee16b
+驱动 = sh evidence/M6-B1-01/run.sh
+
+== 结果（exit 0）==
+xnfmt sha256=845be613bf4c617eb8a5c6811e75bc23c94b4d391b23fa761074642f0e947eac（与工作树构建不同属 Go 构建不可复现，不影响判定）
+文件数：122
+幂等失败：0
+稳定性失败：0
+check_exit=1（有差异，未写文件）
+未格式化文件数：12 / 122
+go test ./internal/xnfmt ./cmd/xnfmt：ok
+B1-01 驱动：全部通过
+
+注：clone 验证提交为 8e0ffe3；其后只追加本证据文件，代码零差异。

@@ -134,7 +134,7 @@ var commands = map[string]string{
 	"test":   "运行测试入口（src/test/x）",
 	"fmt":    "格式化 xnull.project / .xmeta / .xplugin / xnull.lock",
 	"lock":   "校验或重生成锁文件（--update-lock 为唯一重生成入口）",
-	"dev":    "内部维护工具（check / ledger / res）",
+	"dev":    "内部维护工具（check / ledger / res / board）",
 }
 
 func commandList() string {
@@ -226,6 +226,7 @@ var knownFlags = map[string]struct{}{
 	"--update-lock": {}, "--skip": {}, "--profile": {}, "--check": {},
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
+	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。
