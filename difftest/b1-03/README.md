@@ -33,6 +33,17 @@ FAIL 清单（1 项）：
 - TUPLE：22 PASS / 0 FAIL
 - ENTRY：interp 9 PASS、cli 9 PASS、codegen 18 PASS；0 FAIL
 
+## 诊断项（XNull xnfmt）
+
+```bash
+bash difftest/b1-03/verify-diagnostics.sh
+# noargs/missing/directory PASS；badutf8 FAIL；诊断项：3/4
+```
+
+- 缺文件、目录、无参数：rc=2 + FMT-104（3/4）
+- 非法 UTF-8：rc=0，静默接受（缺第 4 项）
+- 阻塞：E5 的 `xdkc_utf8_valid` 未落地；落地后重跑本脚本即可。
+
 ## 口径
 
 - 只报 FAIL 叶子用例；聚合父测试 `TestQAERR01Runtime` 不重复计数。
