@@ -1,0 +1,52 @@
+=== RUN   TestEmitSupportEndToEnd
+--- PASS: TestEmitSupportEndToEnd (5.65s)
+=== RUN   TestEmitSupportReportsUnsupported
+--- PASS: TestEmitSupportReportsUnsupported (0.00s)
+=== RUN   TestTrampolineReserved
+--- PASS: TestTrampolineReserved (0.00s)
+=== RUN   TestLinkArgsAndManifest
+--- PASS: TestLinkArgsAndManifest (0.00s)
+=== RUN   TestLoadNoBindings
+--- PASS: TestLoadNoBindings (0.00s)
+=== RUN   TestLoadPositiveAndDeterministic
+--- PASS: TestLoadPositiveAndDeterministic (0.00s)
+=== RUN   TestContractNegatives
+=== RUN   TestContractNegatives/语法错误
+=== RUN   TestContractNegatives/缺租约
+=== RUN   TestContractNegatives/移交无归还
+=== RUN   TestContractNegatives/String_移交
+=== RUN   TestContractNegatives/嵌套数组
+=== RUN   TestContractNegatives/Result_跨界
+=== RUN   TestContractNegatives/错误码形参不存在
+=== RUN   TestContractNegatives/缺阻塞分类
+=== RUN   TestContractNegatives/裸指针
+=== RUN   TestContractNegatives/layout_字段类型非法
+=== RUN   TestContractNegatives/unsafe_缺合同文本
+=== RUN   TestContractNegatives/重复入口
+--- PASS: TestContractNegatives (0.04s)
+    --- PASS: TestContractNegatives/语法错误 (0.00s)
+    --- PASS: TestContractNegatives/缺租约 (0.00s)
+    --- PASS: TestContractNegatives/移交无归还 (0.00s)
+    --- PASS: TestContractNegatives/String_移交 (0.00s)
+    --- PASS: TestContractNegatives/嵌套数组 (0.00s)
+    --- PASS: TestContractNegatives/Result_跨界 (0.00s)
+    --- PASS: TestContractNegatives/错误码形参不存在 (0.00s)
+    --- PASS: TestContractNegatives/缺阻塞分类 (0.00s)
+    --- PASS: TestContractNegatives/裸指针 (0.01s)
+    --- PASS: TestContractNegatives/layout_字段类型非法 (0.00s)
+    --- PASS: TestContractNegatives/unsafe_缺合同文本 (0.00s)
+    --- PASS: TestContractNegatives/重复入口 (0.00s)
+=== RUN   TestUnsafeOutsideBindings
+--- PASS: TestUnsafeOutsideBindings (0.00s)
+=== RUN   TestUnsafeInBindingsAccepted
+--- PASS: TestUnsafeInBindingsAccepted (0.00s)
+=== RUN   TestEmitEntryLookup
+--- PASS: TestEmitEntryLookup (0.00s)
+=== RUN   TestXdkBindingsLoadAndEmit
+--- PASS: TestXdkBindingsLoadAndEmit (0.00s)
+=== RUN   TestXdkWrappersRun
+--- PASS: TestXdkWrappersRun (6.81s)
+=== RUN   TestBlockingClassificationDocInSync
+--- PASS: TestBlockingClassificationDocInSync (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen/ffi	14.869s
