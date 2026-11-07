@@ -217,26 +217,30 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out          io.Writer
-	funcs        map[string][]*xfront.TopFunc
-	classes      map[string]*xfront.ClassDecl
-	globals      *scope
-	label        string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit       map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
-	enums        map[string]*xfront.EnumDecl
-	enumVals     map[string]map[string]int64  // 简单枚举：项 → 底层值
-	enumItems    map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
-	protocols    map[string]*xfront.ProtocolDecl
-	enumCls      map[string]*xfront.ClassDecl
-	classOrder   []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
-	staticVals   map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
-	staticCtx    *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
-	methodStack  []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
-	structs      map[string]*xfront.StructDecl
-	deinited     map[*objv]bool // 已执行 deinit 的对象（引用计数去重）
-	deinitFrames []*bool        // deinit 链帧：显式 super.deinit 标记
-	factories    map[string]*xfront.FactoryDecl
-	factoryCtx   *xfront.FactoryDecl
+	out            io.Writer
+	funcs          map[string][]*xfront.TopFunc
+	classes        map[string]*xfront.ClassDecl
+	globals        *scope
+	label          string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit         map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums          map[string]*xfront.EnumDecl
+	enumVals       map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems      map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols      map[string]*xfront.ProtocolDecl
+	enumCls        map[string]*xfront.ClassDecl
+	classOrder     []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
+	staticVals     map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
+	staticCtx      *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
+	methodStack    []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
+	structs        map[string]*xfront.StructDecl
+	deinited       map[*objv]bool // 已执行 deinit 的对象（引用计数去重）
+	deinitFrames   []*bool        // deinit 链帧：显式 super.deinit 标记
+	factories      map[string]*xfront.FactoryDecl
+	factoryCtx     *xfront.FactoryDecl
+	singletons     map[string]*xfront.SingletonDecl
+	singletonOrder []*xfront.SingletonDecl
+	singletonVals  map[string]*Value
+	singleCls      map[string]*xfront.ClassDecl
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -279,7 +283,9 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
 		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
 		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
-		factories: map[string]*xfront.FactoryDecl{},
+		factories:  map[string]*xfront.FactoryDecl{},
+		singletons: map[string]*xfront.SingletonDecl{}, singletonVals: map[string]*Value{},
+		singleCls: map[string]*xfront.ClassDecl{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -299,6 +305,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.structs[n.Name] = n
 		case *xfront.FactoryDecl:
 			in.factories[n.Name] = n
+		case *xfront.SingletonDecl:
+			in.registerSingleton(n)
 		case *xfront.ProtocolDecl:
 			in.protocols[n.Name] = n
 		case *xfront.EnumDecl:
@@ -318,6 +326,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 	}
 	// 静态字段初始化式：按类声明顺序（§7.1）。
 	in.initStaticFields()
+	// 单例在顶层/静态字段之后、main 之前构造（§9.2）。
+	in.initSingletons()
 	mains := in.funcs["main"]
 	if len(mains) == 0 {
 		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
@@ -1111,6 +1121,24 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 			return v
 		}
+		// S2 §9.1：`Singleton.staticMethod(...)`；实例方法经 `.instance` 调用。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok {
+			if _, found := in.singletons[id.Name]; found {
+				cls := in.singleCls[id.Name]
+				if len(in.findStaticMethods(cls, mem.Name)) == 0 {
+					panic(runtimeErr{"单例 " + id.Name + " 没有静态方法 " + mem.Name + "（§9.1）"})
+				}
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callStatic(cls, mem.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		// S2 §10.3：`Factory.method(...)` 静态调用。
 		if id, ok := mem.X.(*xfront.IdentExpr); ok {
 			if fac, found := in.factories[id.Name]; found {
@@ -1314,6 +1342,13 @@ func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
 			}
 			panic(runtimeErr{"父类没有字段 " + n.Name + "（§5.4）"})
 		}
+		// S2 §9.1：`Singleton.instance` / 单例静态字段。
+		if d, ok := in.singletons[id.Name]; ok {
+			if v, hit := in.singletonMember(d, n.Name); hit {
+				return v
+			}
+			panic(runtimeErr{"单例 " + id.Name + " 没有成员 " + n.Name + "（§9.1）"})
+		}
 		// S2 §7.1：`Class.field` 静态字段。
 		if cls, ok := in.findClass(id.Name); ok {
 			if v, hit := in.findStaticField(cls, n.Name); hit {
@@ -1388,6 +1423,17 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 				return
 			}
 			panic(runtimeErr{"父类没有字段 " + t.Name + "（§5.4）"})
+		}
+		// S2 §9.1：`instance` 只读；单例静态字段可写。
+		if id, ok := t.X.(*xfront.IdentExpr); ok {
+			if _, isSingle := in.singletons[id.Name]; isSingle {
+				if t.Name == "instance" {
+					panic(runtimeErr{"instance 是只读全局实例（§9.1）"})
+				}
+				if in.writeStaticField(in.singleCls[id.Name], t.Name, v) {
+					return
+				}
+			}
 		}
 		// S2 §7.1：`Class.staticField = v`。
 		if id, ok := t.X.(*xfront.IdentExpr); ok {

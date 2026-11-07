@@ -120,6 +120,9 @@ func (in *Interp) objectIsNamed(o *objv, name string) bool {
 	if o.enumName != "" && o.enumName == name {
 		return true
 	}
+	if o.singleName != "" && o.singleName == name {
+		return true
+	}
 	for c := o.cls; c != nil; c = in.baseClass(c) {
 		if c.Name == name {
 			return true
