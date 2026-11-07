@@ -268,6 +268,19 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 		}
 		return nil, "", fmt.Errorf("codegen：可空成员 %s 的接收者 %s 不支持", n.Name, recvC)
 	case *xfront.Call:
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "env" {
+			if len(n.Args) != 1 {
+				return nil, "", fmt.Errorf("codegen：env 需要 1 个参数（S6 §4.4）")
+			}
+			sl, err := s.strExpr(n.Args[0])
+			if err != nil {
+				return nil, "", err
+			}
+			t := s.tmp()
+			out := append([]string{}, sl...)
+			out = append(out, "xn_opt_s "+t+" = xn_env_lookup("+lastVar(sl)+");")
+			return out, t, nil
+		}
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
 			return s.optWrap(n, optC)

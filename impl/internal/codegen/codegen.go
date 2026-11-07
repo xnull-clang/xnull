@@ -144,6 +144,28 @@ static void xn_throw(rt_string *msg) {
     exit(134);
 }
 
+/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */
+const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
+void xdkc_diagnose(const char *bytes, size_t len);
+void xdkc_exit(int64_t code);
+int64_t xdkc_now_mono_ms(void);
+int64_t xdkc_now_wall_ms(void);
+static size_t xn_task_live = 0;
+static xn_opt_s xn_env_lookup(rt_string *name) {
+    xn_opt_s r;
+    size_t len = 0;
+    const char *v = xdkc_env_get(name->bytes, name->len, &len);
+    if (v == NULL) { r.has = 0; r.v = NULL; }
+    else { r.has = 1; r.v = rt_string_new(v, len); }
+    return r;
+}
+/* dumpTasks：实现侧诊断（非承诺，S6 §4.4）；仅输出生成侧维护的任务计数。 */
+static void xn_dump_tasks(void) {
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "tasks: live=%llu", (unsigned long long)xn_task_live);
+    if (n > 0) { xdkc_diagnose(buf, (size_t)n); }
+}
+
 /* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */
 static void xn_report_write(const char *p, size_t n) {
     if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }
@@ -2136,6 +2158,26 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	id, ok := call.Callee.(*xfront.IdentExpr)
 	if !ok {
 		return nil, fmt.Errorf("codegen：调用目标 %T 未支持", call.Callee)
+	}
+	if id.Name == "dumpTasks" {
+		// S6-02：dumpTasks 实现侧诊断（单行；非承诺）。
+		return []string{"xrt_safepoint();", "xn_dump_tasks();"}, nil
+	}
+	if id.Name == "diagnose" && len(call.Args) == 1 {
+		sl, err := s.strExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		return append(sl, "xdkc_diagnose("+lastVar(sl)+"->bytes, "+lastVar(sl)+"->len);"), nil
+	}
+	if id.Name == "exit" && len(call.Args) == 1 {
+		v, err := s.intExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, "xdkc_exit((int64_t)("+v+"));"), nil
 	}
 	if id.Name == "print" {
 		return s.emitPrint(call.Args[0])
@@ -4178,6 +4220,22 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		s.pending = append(s.pending, lines...)
 		return "(" + base + ").f" + fmt.Sprintf("%d", n.Index), nil
 	case *xfront.Binary:
+		// S6-02：可空值 null 比较（String? 等）按 has 位判定。
+		if n.Op == "==" || n.Op == "!=" {
+			if lt, err := s.exprType(n.L); err == nil && strings.HasPrefix(lt, "xn_opt_") {
+				if _, isNull := n.R.(*xfront.NullLit); isNull {
+					x, err := s.intExpr(n.L)
+					if err != nil {
+						return "", err
+					}
+					cond := "(" + x + ").has"
+					if n.Op == "==" {
+						return "(!(" + cond + "))", nil
+					}
+					return "(" + cond + ")", nil
+				}
+			}
+		}
 		if n.Op == "is" {
 			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
 				return s.typeIsExpr(n, ta)
@@ -4311,6 +4369,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		return s.emitNewClass(n)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// S6-02：xdk.runtime 内建（不依赖项目 .xfb 装载）。
+			switch id.Name {
+			case "nowMono":
+				return "xdkc_now_mono_ms()", nil
+			case "nowWall":
+				return "xdkc_now_wall_ms()", nil
+			}
 			if e, isFFI := s.ffiEntry(id.Name); isFFI {
 				if e.Ret.Kind != ffi.KindScalar {
 					return "", fmt.Errorf("codegen：FFI 入口 %s 返回类型不是 Int（P-09）", e.Name)
