@@ -1138,6 +1138,7 @@ type deferItem struct {
 }
 
 type scope struct {
+	parent    *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
 	g         *gen
 	retC      string
 	hasResult bool
@@ -1191,7 +1192,7 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, superT: s.superT, isCtor: s.isCtor}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, superT: s.superT, isCtor: s.isCtor}
 }
 
 func (s *scope) tmp() string {
@@ -1204,19 +1205,22 @@ func (s *scope) tmp() string {
 // （普通块退出/Ok 返回不触发，§10.3）。
 func (s *scope) emitCleanup(condErr bool, indent string) string {
 	var out []string
-	for i := len(s.defers) - 1; i >= 0; i-- {
-		d := s.defers[i]
-		if d.errdefer {
-			if !s.hasResult || !condErr {
-				continue
+	// 返回/传播路径：从最内层块向外执行所有祖先块注册的 defer（LIFO）。
+	for sc := s; sc != nil; sc = sc.parent {
+		for i := len(sc.defers) - 1; i >= 0; i-- {
+			d := sc.defers[i]
+			if d.errdefer {
+				if !s.hasResult || !condErr {
+					continue
+				}
+				out = append(out, indent+"if (!xn_ret.ok) {")
+				out = append(out, d.lines...)
+				out = append(out, indent+"}")
+			} else {
+				out = append(out, indent+"{")
+				out = append(out, d.lines...)
+				out = append(out, indent+"}")
 			}
-			out = append(out, indent+"if (!xn_ret.ok) {")
-			out = append(out, d.lines...)
-			out = append(out, indent+"}")
-		} else {
-			out = append(out, indent+"{")
-			out = append(out, d.lines...)
-			out = append(out, indent+"}")
 		}
 	}
 	return strings.Join(out, "\n") + trailingNewline(out)
@@ -1913,6 +1917,7 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		// try 形态：`Result<...> r = try f(x)` 或 `T v = try f(x)`（v 取 .v）
 		if n.Init != nil {
 			if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
+				s.locals[n.Name] = tc
 				return s.emitTryInto(tc, n.Name, u.X)
 			}
 		}
@@ -1933,6 +1938,7 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 				if err != nil {
 					return nil, err
 				}
+				s.locals[n.Name] = tc
 				return append(lines, tc+" "+n.Name+" = "+t+".v;"), nil
 			}
 			v, err := s.intExpr(n.Init)
@@ -1954,22 +1960,68 @@ func (s *scope) emitTryInto(resultC, name string, callExpr xfront.Expr) ([]strin
 	if !ok {
 		return nil, fmt.Errorf("codegen：try 实参必须是调用，got %T", callExpr)
 	}
-	id, ok := call.Callee.(*xfront.IdentExpr)
-	if !ok {
+	var callStr string
+	switch callee := call.Callee.(type) {
+	case *xfront.IdentExpr:
+		args, err := s.callArgs(call.Args)
+		if err != nil {
+			return nil, err
+		}
+		cn, err := s.g.callName(callee.Name, call.TypeArgs, len(call.Args))
+		if err != nil {
+			return nil, err
+		}
+		callStr = cn + "(" + strings.Join(args, ", ") + ")"
+	case *xfront.Member:
+		if expr, _, hit, err := s.tryFactoryCall(callee, call); err != nil {
+			return nil, err
+		} else if hit {
+			callStr = expr
+			break
+		}
+		recvName, recvC, err := recvCName(callee.X, s)
+		if err != nil {
+			return nil, err
+		}
+		switch {
+		case s.g.isStructC(recvC):
+			ci, _ := s.g.structOfC(recvC)
+			m, ok := ci.methodOf(callee.Name)
+			if !ok {
+				return nil, fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, callee.Name)
+			}
+			expr, err := s.methodCall(ci, m, "(&"+recvName+")", call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		case s.g.isProtoC(recvC):
+			expr, _, err := s.protoDispatch(callee, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		default:
+			ci, ok := s.g.classOfC(recvC)
+			if !ok {
+				return nil, fmt.Errorf("codegen：try 调用目标 %T 未支持", call.Callee)
+			}
+			m, ok := ci.methodOf(callee.Name)
+			if !ok {
+				return nil, fmt.Errorf("codegen：类 %s 没有方法 %s", ci.decl.Name, callee.Name)
+			}
+			expr, err := s.methodCall(ci, m, recvName, call.Args)
+			if err != nil {
+				return nil, err
+			}
+			callStr = expr
+		}
+	default:
 		return nil, fmt.Errorf("codegen：try 调用目标 %T 未支持", call.Callee)
 	}
-	args, err := s.callArgs(call.Args)
-	if err != nil {
-		return nil, err
-	}
-	cn, err := s.g.callName(id.Name, call.TypeArgs, len(call.Args))
-	if err != nil {
-		return nil, err
-	}
-	lines := []string{
-		resultC + " " + name + " = " + cn + "(" + strings.Join(args, ", ") + ");",
-		"if (!" + name + ".ok) {",
-	}
+	pre := append([]string{}, s.pending...)
+	s.pending = nil
+	lines := append(pre, resultC+" "+name+" = "+callStr+";", "if (!"+name+".ok) {")
 	// try 传播 = 以 Err 返回：全部 defer 执行，errdefer 触发（xn_ret 为 Err）
 	lines = append(lines, "    xn_ret = "+name+";")
 	lines = append(lines, reindent(splitLines(strings.TrimSuffix(s.emitCleanup(true, ""), "\n")), "        ")...)

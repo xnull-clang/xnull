@@ -765,6 +765,10 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		fmt.Fprintf(&b, ", %s xn_p_%s", pc, p.Name)
 	}
 	b.WriteString(") {\n")
+	hasResult := retC == "xn_Result_Int_String" || retC == "xn_Result_Bool_String"
+	if hasResult {
+		fmt.Fprintf(&b, "    %s xn_ret;\n", retC)
+	}
 	locals := map[string]string{"self": ci.cname + " *"}
 	pnames := map[string]bool{}
 	for _, p := range m.decl.Params {
@@ -773,7 +777,7 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 			locals[p.Name] = pc
 		}
 	}
-	sc := &scope{g: g, retC: retC, params: pnames, locals: locals, self: newSelfCtx(ci)}
+	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals, self: newSelfCtx(ci)}
 	if ci.base != nil {
 		sc.superT = ci.base.cname + " *"
 	}
@@ -782,7 +786,11 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		return "", err
 	}
 	b.WriteString(body)
-	if retC != "void" {
+	if hasResult && !sc.returned {
+		fmt.Fprintf(&b, "    %s xn_zero = {0};\n", retC)
+		b.WriteString("    xn_ret = xn_zero;\n")
+		b.WriteString("    return xn_ret;\n")
+	} else if retC != "void" && !hasResult {
 		b.WriteString("    return (" + retC + ")0; /* sema 保证不可达（函数体全路径 return） */\n")
 	}
 	b.WriteString("}\n")
