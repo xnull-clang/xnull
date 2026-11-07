@@ -1,0 +1,5 @@
+# 原始 stderr
+
+- 先红/后绿测试运行未产生独立 stderr（go test 的失败详情写入 stdout，见 before/*.log、after-*.log 与 stdout.txt）。
+- `entry-bin` 正常运行无 stderr。
+- `go test` 全部 exit 0 时无警告输出；`gofmt -l internal`、`go vet ./internal/interp ./internal/cli ./internal/codegen` 均无输出。

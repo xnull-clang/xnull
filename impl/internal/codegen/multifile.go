@@ -18,11 +18,12 @@ import (
 //   - 同一文件只加载一次（重复导入允许，§3.2）；
 //   - 合并顺序＝依赖优先的后序（确定性：同一 import 列表按源码书写顺序，
 //     不依赖文件系统枚举顺序）。
+//   - 跨包（M6-B0-03）：命名包可导入命名包；符号在同一翻译单元内扁平链接
+//     （§3.4 的包前缀属后续切片）；命名包导入默认包文件报 RES-110。
 
 // 多文件加载诊断码（续 RES-1xx 导入族；规范 §3.5 列明情形，码值由实现分配）。
 const (
 	codeImportCycle     = "RES-108" // 包导入环（§3.4）
-	codeMultiPackage    = "RES-109" // 跨包导入未支持（多包编译属工程清单批次）
 	codeImportFileMiss  = "RES-106" // 包或符号不存在（§3.5）——复用导入族既有码
 	codeSubFileNotNamed = "RES-110" // 子文件缺少 package 声明（默认包不可跨包导入，§3.3）
 )
@@ -37,6 +38,8 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	state := map[string]int{} // 0 未访问 / 1 访问中 / 2 已完成
 	units := map[string]*xfront.CompilationUnit{}
 	var order []string // 后序：依赖在前
+	type importEdge struct{ from, to string }
+	var edges []importEdge
 
 	var visit func(path, from string) bool
 	visit = func(path, from string) bool {
@@ -77,6 +80,7 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 				continue
 			}
 			dep := filepath.Join(dir, filepath.Join(imp.Path...)+".x")
+			edges = append(edges, importEdge{from: abs, to: filepath.Clean(dep)})
 			if !visit(dep, path) {
 				okAll = false
 			}
@@ -113,22 +117,20 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 			merged.Imports = append(merged.Imports, imp)
 		}
 	}
-	// 包一致性：多包编译（§3.4 类型带包前缀）属工程清单批次；本次要求同包。
-	for _, abs := range order {
-		u := units[abs]
-		if abs == filepath.Clean(entryPath) {
+	// 包规则（§3.3/§3.4）：
+	//   - 命名包可以导入命名包（多包编译，符号在同一翻译单元内扁平链接）；
+	//   - 命名包不得导入默认包文件（默认包符号不能被其他包导入）→ RES-110；
+	//   - 入口为默认包时，默认包子文件视为同一包的分片（兼容既有单包多文件形态）。
+	for _, e := range edges {
+		from, to := units[e.from], units[e.to]
+		if from == nil || to == nil {
 			continue
 		}
-		if entry.Package == nil && u.Package == nil {
-			// 默认包跨文件组合是当前起步形态：视为同一编译单元的多个分片
-			continue
-		}
-		if entry.Package == nil || u.Package == nil ||
-			strings.Join(entry.Package.Name, ".") != strings.Join(u.Package.Name, ".") {
+		if from.Package != nil && to.Package == nil {
 			diags = append(diags, diag.Diagnostic{
-				File: abs, Line: 1, Col: 1, Code: codeMultiPackage,
-				Message: "跨包导入暂不支持：子文件包名必须与入口一致（§3.4 多包编译属工程清单批次）",
-				Hint:    "统一 package 声明，或等待多包编译切片",
+				File: e.to, Line: 1, Col: 1, Code: codeSubFileNotNamed,
+				Message: "默认包的符号不能被其他包导入（§3.3）：被导入文件缺少 package 声明",
+				Hint:    "为被导入文件补充 package 声明",
 			})
 		}
 	}

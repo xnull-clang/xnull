@@ -14,10 +14,7 @@ import (
 func (s *scope) strMemberValue(mem *xfront.Member, args []xfront.Expr, wantStr bool) (string, bool, error) {
 	recv := ""
 	if id, ok := mem.X.(*xfront.IdentExpr); ok {
-		recv = id.Name
-		if s.params != nil && s.params[recv] {
-			recv = "xn_p_" + recv
-		}
+		recv = s.cRef(id.Name)
 	} else {
 		// 字面量/表达式接收者：先求值得到 owned 串
 		lines, err := s.strExpr(mem.X)
@@ -71,6 +68,20 @@ func (s *scope) strMemberValue(mem *xfront.Member, args []xfront.Expr, wantStr b
 			return "", true, err
 		}
 		return fmt.Sprintf("xn_str_substr(%s, %s, %s)", recv, start, n), true, nil
+	case "replace":
+		if len(args) != 2 {
+			return "", true, fmt.Errorf("codegen：String.replace 需要 2 个实参")
+		}
+		from, err := strArg(0)
+		if err != nil {
+			return "", true, err
+		}
+		to, err := strArg(1)
+		if err != nil {
+			return "", true, err
+		}
+		s.g.needStrReplace = true
+		return fmt.Sprintf("xn_str_replace(%s, %s, %s)", recv, from, to), true, nil
 	case "trim":
 		return fmt.Sprintf("xn_str_trim(%s)", recv), true, nil
 	case "toUpper":
@@ -91,6 +102,8 @@ var strMethodReturnNames = map[string]string{
 	"trim":       "rt_string *",
 	"toUpper":    "rt_string *",
 	"toLower":    "rt_string *",
+	"split":      "xn_arr_s",
+	"replace":    "rt_string *",
 }
 
 var _ = strings.TrimSpace

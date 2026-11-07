@@ -1,0 +1,14 @@
+matrix_before=0            # 脚本 exit 0；cells_pass=64/78
+matrix_after_branch=0      # exit 0；cells_pass=76/78（2 个解释器侧）
+matrix_after_combined=0    # exit 0；cells_pass=78/78
+extras=0                   # 6/6
+alternatives=0             # 12/12
+go_test_codegen_examples=0
+go_test_codegen_other=0
+go_test_codegen_ffi=0
+go_test_interp=0
+go_test_sema=0
+go_test_cli=0
+go_build=0
+artifact_build=0
+artifact_run=0

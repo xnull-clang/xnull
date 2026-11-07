@@ -1,0 +1,26 @@
+# CLI 双路径（样例: evidence/M6-B0-04/sample-field-init.x）
+# 时间: 2026-11-07T04:31:19+0800
+--- compiled ---
+3
+true
+xy
+42
+mk
+2
+2
+7
+2
+0
+exit=0
+--- interp ---
+3
+true
+xy
+42
+mk
+2
+2
+7
+2
+0
+exit=0

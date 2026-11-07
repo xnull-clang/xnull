@@ -1,0 +1,10 @@
+Undefined symbols for architecture x86_64:
+  "_native_add", referenced from:
+      _main in prog-1db162.o
+  "_native_strlen2", referenced from:
+      _main in prog-1db162.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+xnull: C 编译失败：exit status 1
+exit status 1
+cli_build=1
