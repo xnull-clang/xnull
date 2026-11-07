@@ -1069,6 +1069,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
 			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
 		}
+		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Qual) == 1 && e.a.tc != nil {
+			if info, found := e.a.tc.types[nt.Qual[0]]; found {
+				if info.kind == "class" && info.mod.Abstract {
+					e.errf(n.P, TyNewAbstract, "抽象类 `"+nt.Qual[0]+"` 不能实例化（§2.6）", "由具体子类实例化，或去掉 abstract")
+				}
+			}
+		}
 		for _, a := range n.Args {
 			e.infer(a)
 		}
@@ -1118,6 +1125,10 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		return texpr{}
 	}
 	if c := e.a.tc; c != nil {
+		if info, ok := c.types[rt.key]; ok && info.kind == "protocol" {
+			e.errf(n.P, TyProtoMember, "协议变量没有字段或属性（§4.4）：`"+n.Name+"`", "协议只暴露声明的方法")
+			return texpr{}
+		}
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {
 			if info.canonPriv == nil {
 				canon := map[string]bool{}
@@ -1192,6 +1203,14 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		rt := e.infer(mem.X)
 		if isResultKey(rt.key) {
 			return e.resultMember(rt, mem, n.Args, n.P)
+		}
+		if e.a.tc != nil {
+			if info, ok := e.a.tc.types[rt.key]; ok && info.kind == "protocol" {
+				if !e.a.tc.protocolHasMethod(rt.key, mem.Name) {
+					e.errf(n.P, TyProtoMember,
+						"协议变量只能调用协议声明的方法（§4.4）：`"+mem.Name+"` 不在协议合同中", "改用协议声明的方法，或先 `as` 到具体类")
+				}
+			}
 		}
 		e.checkMethodVisibility(rt.key, mem.Name, n.P)
 		args := make([]texpr, len(n.Args))
