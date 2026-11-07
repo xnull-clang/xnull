@@ -1,50 +1,46 @@
-# QA1-B1-03 独立复验记录
+# QA1 B1-03 独立复验
 
-## B1-03：122 文件差分
+被测：`pod/e4-codegen` @ `cac6686`（`9832bfb`/`6dc2bfa` 的 `impl/`、`bindings/` 与之一致）。
+不引用 E4 的 evidence/结论；从 git 提交导出源码，QA1 自行构建两侧二进制。
 
-```bash
-bash difftest/b1-03/verify-b1-03.sh
-# files=122 diffs=0 errors=0
-```
-
-- 语料：B1-00 基线 `7df123d` 的 122 个 `.x`（`git archive` 导出）
-- Go oracle：`0d8c985` 的 `impl/cmd/xnfmt`（自行构建）
-- XNull formatter：`0d8c985` 的 `impl/xnfmt/xnfmt.x`（用同树 `xnull` 构建）
-- 结果：**0 差异、0 错误**；另跑 main 155 文件：**0 差异、0 错误**
-- 未引用 E4 的 evidence/结论；二进制由 QA1 从提交重建。
-
-## ERR/PKG/TUPLE/ENTRY 现有验收复跑
+## 一键复验
 
 ```bash
-bash difftest/b1-03/verify-acceptance.sh
-# ERR: 1 FAIL（叶子用例）
-# PKG/TUPLE/ENTRY: 0 FAIL
+cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1
+E4_SHA=cac6686 bash difftest/b1-03/verify-b1-03.sh
+E4_SHA=cac6686 bash difftest/b1-03/verify-diagnostics.sh
+bash difftest/b1-03/verify-utf8-runtime.sh      # E5_SHA 默认 c9e8a5d
 ```
 
-FAIL 清单（1 项）：
+## 结果
 
-| # | 项 | 说明 |
-|---|---|---|
-| 1 | `TestQAERR01Runtime/闭包try失败不触发外层errdefer` | 已知期望顺序问题：实际无 `outer-e`，外层 `errdefer` 未误触发；现有 QA 期望写成 `after-call, outer-ok, outer-d`，与 S1 §10.3 顺序矛盾。属测试期望待修，不是实现回归。 |
+```
+corpus=7df123d files=122 diffs=0 errors=0 idem_go=0 idem_xn=0
+corpus=f63fcba files=155 diffs=0 errors=0 idem_go=0 idem_xn=0
 
-分项：
-- ERR：sema QA 用例 exit 0；interp QA 用例 exit 1（仅上表 1 项）
-- PKG：8 PASS / 0 FAIL
-- TUPLE：22 PASS / 0 FAIL
-- ENTRY：interp 9 PASS、cli 9 PASS、codegen 18 PASS；0 FAIL
+noargs       rc=2  期望=2/FMT-104  PASS
+missing      rc=2  期望=2/FMT-104  PASS
+directory    rc=2  期望=2/FMT-104  PASS
+badutf8      rc=2  期望=2/FMT-102  PASS
+unterm       rc=2  期望=2/FMT-101  PASS
+badcomment   rc=2  期望=2/FMT-101  PASS
+诊断项：6/6
 
-## 诊断项（XNull xnfmt）
-
-```bash
-bash difftest/b1-03/verify-diagnostics.sh
-# noargs/missing/directory PASS；badutf8 FAIL；诊断项：3/4
+utf8_valid QA probe: 32/32 PASS
 ```
 
-- 缺文件、目录、无参数：rc=2 + FMT-104（3/4）
-- 非法 UTF-8：rc=0，静默接受（缺第 4 项）
-- 阻塞：E5 的 `xdkc_utf8_valid` 未落地；落地后重跑本脚本即可。
+判定 **PASS**。完整回执：`收件箱/回执箱/CEO3/验收-M6-B1-03.md`。
 
-## 口径
+## 脚本
 
-- 只报 FAIL 叶子用例；聚合父测试 `TestQAERR01Runtime` 不重复计数。
-- 不修改任何测试期望；该 ERR 项保留为 FAIL，交前端线修期望。
+| 文件 | 作用 |
+|---|---|
+| `verify-b1-03.sh` | 多语料逐字节差分 + 双方二次格式化幂等；`CORPUS_SHAS` 可覆盖，默认 `7df123d f63fcba` |
+| `verify-diagnostics.sh` | 6 项诊断：FMT-104（缺文件/目录/无参数）、FMT-102（非法 UTF-8）、FMT-101（未闭合字符串/块注释），均断言 rc=2 |
+| `verify-utf8-runtime.sh` + `utf8_valid_probe.c` | 独立 C 探针验证 `xdkc_utf8_valid`，32 条语义/边界断言 |
+
+## 限制
+
+- 差分只证明 Go oracle 与 XNull 版一致，不证明符合规范；规范级共享向量仍缺。
+- union 语料（E4 自报 156/157）未由 QA1 复跑。
+- XNull 诊断位置统一 `0:0`，Go 为精确 `line:col`；码型与退出码一致。

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# QA1-B1-03 诊断项复验（XNull xnfmt）：缺文件 / 目录 / 无参数 / 非法 UTF-8。
-# 用法：bash verify-diagnostics.sh            # 从 E4_SHA 构建并测
+# QA1-B1-03 诊断项复验（XNull xnfmt）：6 项，码型 + rc=2。
+# 缺文件/目录/无参数 → FMT-104；非法 UTF-8 → FMT-102；未闭合字符串/块注释 → FMT-101。
+# 用法：bash verify-diagnostics.sh
 #       XNFMT_BIN=/path/xnfmt bash verify-diagnostics.sh
 set -uo pipefail
 
 REPO=${REPO:-/Users/vjs/Desktop/XNull-Lang}
-E4_SHA=${E4_SHA:-0d8c985}
+E4_SHA=${E4_SHA:-cac6686}
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/qa-b1-diag.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 
@@ -21,6 +22,8 @@ fi
 
 mkdir -p "$TMP/dir"
 printf '\xff\xfe' >"$TMP/bad.x"
+printf '"abc\n' >"$TMP/unterm.x"
+printf '/* abc\n' >"$TMP/badc.x"
 
 ok=0
 check() { # name expect_rc needle cmd...
@@ -36,6 +39,8 @@ check noargs    2 'FMT-104' "$BIN"
 check missing   2 'FMT-104' "$BIN" "$TMP/nope.x"
 check directory 2 'FMT-104' "$BIN" "$TMP/dir"
 check badutf8   2 'FMT-102' "$BIN" "$TMP/bad.x"
+check unterm    2 'FMT-101' "$BIN" "$TMP/unterm.x"
+check badcomment 2 'FMT-101' "$BIN" "$TMP/badc.x"
 
-echo "诊断项：$ok/4"
-[ "$ok" -eq 4 ] && exit 0 || exit 1
+echo "诊断项：$ok/6"
+[ "$ok" -eq 6 ] && exit 0 || exit 1

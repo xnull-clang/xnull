@@ -1,29 +1,30 @@
-# 接力棒：QA1-GEN-01
+# 接力棒：QA1-GEN-01（终判）
 
-- **卡片ID**：QA1-GEN-01（GEN-01 独立验收，26 项）
+- **卡片ID**：QA1-GEN-01（GEN-01 独立 26 项验收）
 - **输入**（上游产物/条款/接口）：
-  - 台账 GEN-01（`XNull一致性用例台账-v1.0.0.md`）；S1 §8.1–§8.4
-  - 检查表：`evidence/M1-GEN-01-sema/checklist-source.md`（只取 26 项定义，不引用 E2 测试/结论）
-  - 被测：`pod/e2-sema` @ `20e3d83`（E2 声称 26/26；**尚未 merge main**）
+  - 台账 GEN-01；S1 §8.1–§8.4
+  - 被测：`pod/e2-sema` @ `c969a83`（merge `131c244`）
 - **输出文件**（精确路径）：
-  - `difftest/gen01/cases.json`（26 个独立用例，QA 自写）
+  - `difftest/gen01/cases.json`（26 项，QA1 自写）
   - `difftest/gen01/run_gen01.py`（双路径 accept / 单路径 reject）
   - `difftest/gen01/run.sh`
-- **commit**：Pending（本条提交）
+  - 回执：`收件箱/回执箱/CEO1/验收-M1-GEN-01.md`
+- **commit**：见本次提交
 - **验证命令**（可复制）：
   ```bash
   cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1
-  bash difftest/gen01/run.sh --bin <xnull> --root <repo>
+  bash difftest/gen01/run.sh --bin <xnull-c969a83> --root <同提交导出树>
   ```
-  merge 后默认：`bash difftest/gen01/run.sh`（自行构建 main xnull）。
-- **已知缺口/风险**：
-  - **尚未 merge**：当前 main `4d1495c` 无 GEN 集成；以下为 `20e3d83` 分支预检，不是终判。
-  - 分支预检：**GEN-QA 24/26**。
-    - **G9 FAIL**：函数外使用 `T` 被 codegen 报 `类型 T 未支持`，不是 §8.1 要求的“未定义”（RES-101）。
-    - **G11 FAIL**：`T local` + `List<T> box = [local]` 解释路径通过，编译路径 `fatal: 容器下标越界`（exit 134）。
-  - G5c 实际诊断 TY-101（非 GEN-103），按“零候选必须编译错误”判 PASS；G10 实际 RES-102（非 SYN-101），按“必须拒绝重名”判 PASS。
-  - G12 用 `Any f = identity<Int>` 构造，按解析拒绝判 PASS；若 E2 的 26 项口径不同，需董事会裁定。
-- **下一步**（谁接、做什么）：E2 合入 main 后，QA1 立即跑 `difftest/gen01/run.sh`，回复 `GEN-QA PASS/FAIL <x/26>`；若仍 24/26，提交 G9/G11 缺陷。
-- **上一棒**：`handoff/QA1-B1-03.md`（commit `e06df57`）
-- **下一棒**：`handoff/QA1-GEN-01-final.md`（merge 后终判）
-- **last-green**：`4e5bc64`（QA 线；最近一次全量测试绿）
+- **结果**：**FAIL 24/26**
+  - G9：`static T g(T x)` 签名位置未由 sema 报 `RES-101`，落到 codegen `类型 T 未支持`。
+  - G11：`List<T> box = [local]; box.get(0)` 编译路径 `fatal: 容器下标越界`（exit 134），解释路径正常。
+  - G11 根因非泛型：`List<Int> box = [v]`（形参元素）+ `box.get(0)` 在 main `4d1495c` 同样崩溃；`[4]` 与局部变量元素正常。
+- **口径差异**：E2 `TestGEN01` 在本提交 26/26 PASS（QA1 已复跑确认）；其 G9 用例只覆盖函数体位置，G11 用例不调用 `get`。
+- **已复核项**：G5c 实际 TY-101、G10 实际 RES-102，按条款“必须拒绝”判 PASS；G12 用 `Any f = identity<Int>` 构造，按解析拒绝判 PASS。
+- **下一步**（谁接、做什么）：
+  1. 董事会：裁定 GEN-01 门判定（建议：主体认可，G9/G11 开缺陷卡，不阻塞合入）。
+  2. 前端线 E2：修 sema 签名位置；修列表字面量形参元素。
+  3. QA1：修复后复跑 `difftest/gen01/run.sh`。
+- **上一棒**：`handoff/QA1-B1-03.md`
+- **下一棒**：`handoff/QA1-EXP-004b.md`（待建）
+- **last-green**：见 `handoff/last-green.tsv`（board 生成）。
