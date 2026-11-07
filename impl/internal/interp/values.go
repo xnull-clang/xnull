@@ -544,7 +544,8 @@ func coerceByDecl(t xfront.TypeRef, v *Value) *Value {
 }
 
 // callClosure 调用闭包值：新作用域挂在捕获环境上（§7.7）；
-// return 信号转返回值，try/Err 信号穿出（由外层函数边界接管）。
+// return 信号转返回值；try 失败的 Err 在闭包边界转成 Result 返回值，
+// 不穿透外层函数（S1 §10.2）。
 func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	if c.top != "" { // 顶层函数按参数数量分派（§4.4 重载）
 		fns, ok := in.funcs[c.top]
@@ -567,8 +568,12 @@ func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	}
 	defer func() {
 		if r := recover(); r != nil {
-			if sig, ok := r.(ctrlReturn); ok {
+			switch sig := r.(type) {
+			case ctrlReturn:
 				v = sig.v
+				return
+			case ctrlErr: // 闭包内 try 失败：从闭包返回 Err（S1 §10.2）
+				v = &Value{K: vResult, R: sig.r}
 				return
 			}
 			panic(r)
