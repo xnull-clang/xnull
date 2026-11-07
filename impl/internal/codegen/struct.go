@@ -289,7 +289,7 @@ func (s *scope) structValue(e xfront.Expr, tc string) ([]string, string, error) 
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
 			if s.self != nil && s.params != nil && !s.params[id.Name] {
 				if _, local := s.locals[id.Name]; !local {
-					if m, ok := s.self.ci.methodOf(id.Name); ok {
+					if m, ok := s.methodFor(s.self.ci, id.Name, n.Args); ok {
 						if rc, err := s.g.methodRetC(m); err == nil && rc == tc {
 							expr, err := s.methodCall(s.self.ci, m, s.self.cvar, n.Args)
 							if err != nil {
@@ -321,7 +321,7 @@ func (s *scope) structValue(e xfront.Expr, tc string) ([]string, string, error) 
 			}
 			if s.g.isStructC(rc) {
 				ci, _ := s.g.structOfC(rc)
-				m, ok := ci.methodOf(mem.Name)
+				m, ok := s.methodFor(ci, mem.Name, n.Args)
 				if !ok {
 					return nil, "", fmt.Errorf("codegen：结构体 %s 没有方法 %s", ci.decl.Name, mem.Name)
 				}

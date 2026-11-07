@@ -193,6 +193,26 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			if strings.HasPrefix(recvC, "xn_Result_") {
+				switch mem.Name {
+				case "isOk", "isErr":
+					return "int", nil
+				case "value":
+					mC, err := s.g.resultMemberC(recvC)
+					if err != nil {
+						return "", err
+					}
+					return mC, nil
+				case "error":
+					return "rt_string *", nil
+				case "unwrapOr":
+					mC, err := s.g.resultMemberC(recvC)
+					if err != nil {
+						return "", err
+					}
+					return mC, nil
+				}
+			}
 			if s.g.isProtoC(recvC) {
 				pi := s.g.protocols[strings.TrimPrefix(recvC, "xn_proto_")]
 				if pi == nil {
@@ -209,7 +229,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			}
 			if s.g.isStructC(recvC) {
 				ci, _ := s.g.structOfC(recvC)
-				if m, ok := ci.methodOf(mem.Name); ok {
+				if m, ok := s.methodFor(ci, mem.Name, n.Args); ok {
 					return s.g.methodRetC(m)
 				}
 				return "", fmt.Errorf("codegen：结构体没有方法 %s", mem.Name)
@@ -217,7 +237,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			if s.g.isDataEnumC(recvC) {
 				name := strings.TrimSuffix(strings.TrimPrefix(recvC, "xn_Enum_"), " *")
 				if ei, ok := s.g.enums[name]; ok && ei.cls != nil {
-					if m, ok := ei.cls.methodOf(mem.Name); ok {
+					if m, ok := s.methodFor(ei.cls, mem.Name, n.Args); ok {
 						return s.g.methodRetC(m)
 					}
 				}
@@ -228,7 +248,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 				if !ok {
 					return "", fmt.Errorf("codegen：未知类类型 %s", recvC)
 				}
-				if m, ok := ci.methodOf(mem.Name); ok {
+				if m, ok := s.methodFor(ci, mem.Name, n.Args); ok {
 					return s.g.methodRetC(m)
 				}
 				if f, ok := ci.fieldOf(mem.Name); ok {
@@ -303,7 +323,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		}
 		if s.self != nil && (s.params == nil || !s.params[id.Name]) {
 			if _, local := s.locals[id.Name]; !local {
-				if m, ok := s.self.ci.methodOf(id.Name); ok && !m.decl.IsDeinit {
+				if m, ok := s.methodFor(s.self.ci, id.Name, n.Args); ok && !m.decl.IsDeinit {
 					return s.g.methodRetC(m)
 				}
 			}

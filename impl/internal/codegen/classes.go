@@ -48,9 +48,11 @@ type classInfo struct {
 	protocols  []*xfront.NamedType
 	vptr       bool // 协议 vtable 指针槽（S2 §5.7）
 	fields     []classField
-	methods    map[string]*classInfo_m // 方法名 → 签名
-	ctors      []*xfront.CtorDecl      // 普通构造器（S2 §6.3）
-	primary    *xfront.CtorDecl        // 主构造器
+	methods    map[string]*classInfo_m   // 方法名 → 主签名
+	overloads  map[string][]*classInfo_m // 扩展/重载集合（按声明序）
+	extCount   int                       // 扩展方法 C 名序号（唯一化）
+	ctors      []*xfront.CtorDecl        // 普通构造器（S2 §6.3）
+	primary    *xfront.CtorDecl          // 主构造器
 	ctorName   map[*xfront.CtorDecl]string
 	deinit     *classInfo_m              // 用户 deinit 体（静态派发，先于字段释放）
 	subst      map[string]xfront.TypeRef // 泛型类实例的类型参数替换（BND-12）

@@ -40,6 +40,9 @@ func (g *gen) collectExtensions(u *xfront.CompilationUnit) error {
 		if decl, ok := g.classDecls[name]; ok && len(decl.TypePars) > 0 {
 			return fmt.Errorf("codegen：extension 不能扩展泛型类型 %s（S2 §11.1）", name)
 		}
+		if ci.overloads == nil {
+			ci.overloads = map[string][]*classInfo_m{}
+		}
 		ei := &extensionInfo{decl: ed, target: ci}
 		for _, m := range ed.Methods {
 			if m.Mod.Static {
@@ -51,16 +54,14 @@ func (g *gen) collectExtensions(u *xfront.CompilationUnit) error {
 			if m.IsDeinit {
 				return fmt.Errorf("codegen：extension 不能添加 deinit（S2 §11.1）")
 			}
-			if _, dup := ci.methods[m.Name]; dup {
-				return fmt.Errorf("codegen：扩展方法 %s.%s 与已有方法同名/同签名（S2 §11.4）", name, m.Name)
+			// 合法重载（同名不同参数）由本层支持；重复/同签名拒绝归 sema（E2）。
+			// C 名按扩展声明序唯一化，避免重载撞名。
+			ci.extCount++
+			cm := &classInfo_m{decl: m, cname: fmt.Sprintf("%s_ext_%s_%d", ci.cname, m.Name, ci.extCount), owner: ci, ext: true}
+			if _, exists := ci.methods[m.Name]; !exists {
+				ci.methods[m.Name] = cm
 			}
-			if ci.base != nil {
-				if _, inherited := ci.base.methodOf(m.Name); inherited {
-					return fmt.Errorf("codegen：扩展方法 %s.%s 与继承方法同名/同签名（S2 §11.4）", name, m.Name)
-				}
-			}
-			cm := &classInfo_m{decl: m, cname: fmt.Sprintf("%s_ext_%s_%d", ci.cname, m.Name, len(m.Params)), owner: ci, ext: true}
-			ci.methods[m.Name] = cm
+			ci.overloads[m.Name] = append(ci.overloads[m.Name], cm)
 			ei.method = append(ei.method, cm)
 		}
 		g.extensions = append(g.extensions, ei)

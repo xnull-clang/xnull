@@ -855,13 +855,6 @@ static Int main() {
 // BND-13：重复/已有同签名/协议实现违规/泛型目标必须拒绝。
 func TestS2BND13Rejects(t *testing.T) {
 	cases := []struct{ name, src string }{
-		{"重复扩展方法", `class D { }
-extension D { Int f() { return 1 } }
-extension D { Int f() { return 2 } }
-static Int main() { return 0 }`},
-		{"与已有方法同签名", `class D { Int f() { return 1 } }
-extension D { Int f() { return 2 } }
-static Int main() { return 0 }`},
 		{"扩展方法作协议实现", `protocol P { Int f(); }
 class C implements P { }
 extension C { Int f() { return 1 } }
@@ -1069,5 +1062,104 @@ static Int main() { return 0 }`
 	}
 	if strings.Contains(csrc, "Unknown") {
 		t.Fatalf("未知注解进入产物：\n%s", csrc)
+	}
+}
+
+// BND-15：Result/try/defer × 对象 + factory 组合（类值 try 解包）。
+func TestS2BND15TryFactoryObject(t *testing.T) {
+	src := `class Device {
+    String name;
+    private Device(String n) { self.name = n }
+    String label() { return name }
+}
+factory F for Device {
+    static Result<Device, String> open(Bool ok) {
+        defer print("f-defer")
+        errdefer print("f-err")
+        if !ok { return Err("boom") }
+        return Ok(new Device("ok"))
+    }
+}
+static Result<Int, String> run(Bool ok) {
+    Device d = try F.open(ok)
+    print(d.label())
+    return Ok(0)
+}
+static Int main() {
+    Result<Int, String> r = run(true)
+    print(r.isErr())
+    Result<Int, String> r2 = run(false)
+    if r2.isErr() { print(r2.error()) }
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "f-defer\nok\nfalse\nf-err\nf-defer\nboom\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-15：Result/try × 枚举穷尽 switch + struct 值。
+func TestS2BND15TryEnumStruct(t *testing.T) {
+	src := `enum Color { Red, Green, Blue }
+struct Box { Int v; }
+static Result<Color, String> pick(Bool ok) {
+    if !ok { return Err("no") }
+    return Ok(Color.Green)
+}
+static Result<Box, String> makeBox(Bool ok) {
+    if !ok { return Err("no") }
+    Box b = new Box()
+    b.v = 9
+    return Ok(b)
+}
+static Result<Int, String> run() {
+    Color c = try pick(true)
+    switch c {
+        case Color.Red: print("r")
+        case Color.Green: print("g")
+        case Color.Blue: print("b")
+    }
+    Box b = try makeBox(true)
+    print(b.v)
+    return Ok(0)
+}
+static Int main() {
+    Result<Int, String> r = run()
+    print(r.isErr())
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "g\n9\nfalse\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-15：try 赋值（非声明）到对象变量。
+func TestS2BND15TryAssignObject(t *testing.T) {
+	src := `class Device {
+    String name;
+    private Device(String n) { self.name = n }
+    String label() { return name }
+}
+factory F for Device {
+    static Result<Device, String> open(Bool ok) {
+        if !ok { return Err("boom") }
+        return Ok(new Device("ok"))
+    }
+}
+static Result<Int, String> run() {
+    Device d = new Device("a")
+    d = try F.open(true)
+    print(d.label())
+    return Ok(0)
+}
+static Int main() {
+    Result<Int, String> r = run()
+    print(r.isErr())
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "ok\nfalse\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
