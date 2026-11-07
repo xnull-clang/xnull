@@ -1105,7 +1105,7 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			for i, a := range n.Args {
 				args0[i] = in.eval(a, sc)
 			}
-			v, err := in.callMethod(recv.O, mem.Name, args0, n.P)
+			v, err := in.dispatchCall(sc, mem.X, recv.O, mem.Name, args0, n.P)
 			if err != nil {
 				panic(runtimeErr{err.Error()})
 			}
@@ -1199,12 +1199,16 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		}
 		// §5.8：类内裸方法名解析到 self 的实例方法。
 		if sv, ok := sc.lookup("self"); ok && sv.K == vObj {
-			if len(in.findMethods(sv.O.cls, id.Name)) > 0 {
+			start := sv.O.cls
+			if cur := in.currentClass(); cur != nil {
+				start = cur // §5.6：self.method() 静态派发到当前声明类
+			}
+			if len(in.findMethodsFrom(start, id.Name)) > 0 {
 				args := make([]*Value, len(n.Args))
 				for i, a := range n.Args {
 					args[i] = in.eval(a, sc)
 				}
-				v, err := in.callMethod(sv.O, id.Name, args, n.P)
+				v, err := in.callMethodFrom(start, sv.O, id.Name, args, n.P)
 				if err != nil {
 					panic(runtimeErr{err.Error()})
 				}
