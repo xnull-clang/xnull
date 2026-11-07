@@ -5,6 +5,7 @@
  */
 #define _POSIX_C_SOURCE 200809L
 
+#define XRT_BINDINGS_LAYER 1
 #include "xrt.h"
 #include "rt_gc.h"
 

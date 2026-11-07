@@ -1,0 +1,2 @@
+$ cc abi_uninit.c ... && run
+EXIT=0

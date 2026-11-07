@@ -49,6 +49,7 @@ const (
 	vMutex     // 数据携锁（S5 §7.1）
 	vChannel   // 有界通道（S5 §7.1）
 	vAtomic    // 原子单元（S5 §7.1）
+	vBytes     // Bytes 字节缓冲（S1 §9.7）
 )
 
 // Value 是解释期运行值。
@@ -73,6 +74,7 @@ type Value struct {
 	Mu  *mutexV     // Mutex<T>（vMutex）
 	Ch  *channelV   // Channel<T>（vChannel）
 	At  *atomicV    // AtomicInt/Bool/Ref（vAtomic）
+	Bs  []byte      // Bytes 内容（vBytes）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -133,6 +135,8 @@ func (v *Value) typeName() string {
 		return "Channel"
 	case vAtomic:
 		return "Atomic"
+	case vBytes:
+		return "Bytes"
 	}
 	return "?"
 }
@@ -751,6 +755,14 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 	switch n := e.(type) {
 	case *xfront.IntLitExpr:
 		clean := strings.ReplaceAll(strings.TrimRight(n.Text, "LlUu"), "_", "")
+		switch n.Base {
+		case 16:
+			clean = strings.TrimPrefix(strings.TrimPrefix(clean, "0x"), "0X")
+		case 2:
+			clean = strings.TrimPrefix(strings.TrimPrefix(clean, "0b"), "0B")
+		case 8:
+			clean = strings.TrimPrefix(strings.TrimPrefix(clean, "0o"), "0O")
+		}
 		v, err := strconv.ParseInt(clean, n.Base, 64)
 		if err != nil {
 			panic(runtimeErr{"整数字面量超 Int 范围：" + n.Text})
@@ -1154,6 +1166,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 				return v
 			}
 		}
+		// S1 §9.7：`Bytes.fromString(s)` 静态构造。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "Bytes" && mem.Name == "fromString" {
+			if len(n.Args) != 1 {
+				panic(runtimeErr{"Bytes.fromString 恰好接受 1 个参数（S1 §9.7）"})
+			}
+			s := in.eval(n.Args[0], sc)
+			return &Value{K: vBytes, Bs: []byte(reportText(s))}
+		}
 		// S2 §5.4：`super.m(...)` 从父类起点静态查找。
 		if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "super" {
 			self, found := sc.lookup("self")
@@ -1230,6 +1250,13 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		recv := in.eval(mem.X, sc)
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
+		}
+		if recv.K == vBytes {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callBytesMethod(recv, mem.Name, args)
 		}
 		if recv.K == vMutex {
 			args := make([]*Value, len(n.Args))

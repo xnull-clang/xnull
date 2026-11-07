@@ -5,6 +5,7 @@
  *   - 描述符与字符串类型与内部实现同构（见 rt.h），此处以指针转换对接，
  *     不复制结构定义，避免双份布局漂移。
  */
+#define XRT_BINDINGS_LAYER 1
 #include "xrt.h"
 #include "rt.h"
 #include "rt_gc.h"
@@ -22,6 +23,9 @@ void xrt_runtime_init(void) {
 }
 
 void *xrt_alloc(xrt_kind kind, const xrt_type *type) {
+    if (!g_runtime_inited) {
+        rt_fatal("xrt_alloc：运行时未初始化（S7 §6.3：先调 xrt_runtime_init）");
+    }
     if (type == NULL) {
         rt_fatal("xrt_alloc：类型描述符为空（S7 §6.1）");
     }

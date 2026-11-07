@@ -6,6 +6,7 @@
  */
 #define _POSIX_C_SOURCE 200809L
 
+#define XRT_BINDINGS_LAYER 1
 #include "xrt.h"
 #include "rt_gc.h" /* 仅测试使用：rt_gc_live / rt_gc_collect 诊断入口 */
 

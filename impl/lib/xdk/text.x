@@ -191,14 +191,14 @@ Result<List<UInt16>, Error> utf8ToUtf16(Bytes b) {
         } else if c >= 0xC0 && c < 0xE0 {
             if i + 1 >= b.length() { return Err(textErr("utf8ToUtf16: 截断的 2 字节序列")) }
             Int c2 = b.get(i + 1)
-            if c2 & 0xC0 != 0x80 { return Err(textErr("utf8ToUtf16: 非法续字节")) }
+            if (c2 & 0xC0) != 0x80 { return Err(textErr("utf8ToUtf16: 非法续字节")) }
             res.push(((c & 0x1F) << 6) | (c2 & 0x3F))
             i = i + 2
         } else if c >= 0xE0 && c < 0xF0 {
             if i + 2 >= b.length() { return Err(textErr("utf8ToUtf16: 截断的 3 字节序列")) }
             Int c2 = b.get(i + 1)
             Int c3 = b.get(i + 2)
-            if c2 & 0xC0 != 0x80 || c3 & 0xC0 != 0x80 { return Err(textErr("utf8ToUtf16: 非法续字节")) }
+            if (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 { return Err(textErr("utf8ToUtf16: 非法续字节")) }
             res.push(((c & 0x0F) << 12) | ((c2 & 0x3F) << 6) | (c3 & 0x3F))
             i = i + 3
         } else if c >= 0xF0 && c < 0xF8 {
@@ -206,7 +206,7 @@ Result<List<UInt16>, Error> utf8ToUtf16(Bytes b) {
             Int c2 = b.get(i + 1)
             Int c3 = b.get(i + 2)
             Int c4 = b.get(i + 3)
-            if c2 & 0xC0 != 0x80 || c3 & 0xC0 != 0x80 || c4 & 0xC0 != 0x80 {
+            if (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 || (c4 & 0xC0) != 0x80 {
                 return Err(textErr("utf8ToUtf16: 非法续字节"))
             }
             Int cp = ((c & 0x07) << 18) | ((c2 & 0x3F) << 12) | ((c3 & 0x3F) << 6) | (c4 & 0x3F)

@@ -940,6 +940,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			b.WriteString("void")
 		}
 		b.WriteString(") {\n")
+		// S7-05 / S7 §6.3：先初始化运行时，再创建任何对象（vtable/枚举/全局/单例）。
+		b.WriteString("    xrt_runtime_init();\n")
 		if len(g.slotOrder) > 0 {
 			b.WriteString("    xn_init_vtables();\n")
 		}

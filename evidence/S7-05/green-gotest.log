@@ -1,0 +1,7 @@
+=== RUN   TestS7_05RuntimeInitFirst
+--- PASS: TestS7_05RuntimeInitFirst (2.57s)
+=== RUN   TestS7_05HeaderStableV1
+--- PASS: TestS7_05HeaderStableV1 (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	3.203s
+EXIT=0
