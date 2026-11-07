@@ -41,3 +41,11 @@
 - `go test ./... -count=1` → 9/9 包 ok，rc=0（`after/rerun-full-test.txt`）。
 - 示例双路径 → 9/9 一致（`after/rerun-examples.txt`）。
 - 结论不变：DONE 3/3。
+
+## 阶段对齐复跑（2026-11-07，main `7df123d`，B0 门）
+
+- `git merge --no-ff main` 无冲突，合并提交 `3bead3b`。
+- `go test ./... -count=1 -timeout 300s`：首次 rc=1（`after/sync-7df123d-full-test.txt`）——机器争用导致 codegen 包 359s 超时（cli 263s / ffi 191s，全部包同比放慢 3–7 倍）；同命令立即重跑 rc=0，9/9 包 ok（`after/sync-7df123d-full-test-2.txt`）。`internal/codegen` 单包独立复跑 119s ok（-timeout 600s），排除代码回归。
+- DET-01 三项矩阵：5 个用例全 PASS（`after/sync-7df123d-det01.txt`）。
+- 示例双路径 9/9 一致（`after/sync-7df123d-examples.txt`）；同命令两次构建 hash 一致 `f013ccf2…`；10 次编译路径运行同一 sha256 `a6ed6096…`（`after/sync-7df123d-hash-and-runs.txt`）。
+- 结论不变：DONE 3/3，无回退。
