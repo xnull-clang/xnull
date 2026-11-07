@@ -35,6 +35,7 @@ const (
 	TyNewAbstract = "TY-210" // new abstract 类（§2.6）
 	TyProtoMember = "TY-211" // 协议变量只能调用协议方法（§4.4）
 	TyPCTOR       = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
+	TyEnumSwitch  = "TY-213" // 枚举 switch 穷尽性/项合法性（§8.5）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
