@@ -98,8 +98,15 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 	greenNote := ""
 	if opts.RecordGreen && opts.RunTests {
 		if tests.green {
-			if err := recordLastGreen(root, head, opts.Now); err != nil {
+			notes, err := recordLastGreen(root, head, implDir, opts.Now)
+			if err != nil {
 				return err
+			}
+			for _, n := range notes {
+				greenNote += "> last-green 未推进：" + n + "\n"
+			}
+			if greenNote != "" {
+				greenNote += "\n"
 			}
 		} else {
 			greenNote = "> 测试红：未更新 last-green（ADR-003）\n\n"
@@ -580,28 +587,86 @@ func loadLastGreen(path string) map[string]lastGreenEntry {
 	return out
 }
 
-// recordLastGreen 在全量测试绿时逐线记录 last-green（脚本生成，手改即作废）。
+// recordLastGreen 逐线跑全量测试，绿的那条线才推进 last-green（脚本生成，手改即作废）。
 //
-// 生产线：取「该线代码路径最近一次提交」——当前全量测试绿，即该提交内容随全量绿点通过；
-// 支撑线无自有代码包，记全量绿点（HEAD）并标注来源。
-func recordLastGreen(root, head string, now time.Time) error {
+// 每线 last-green 的 sha 取「该线路径最近一次提交」：本次测试在 HEAD 上跑绿，
+// 即证明该提交所在线的代码当前是绿的；红则保留旧值，不推进。
+func recordLastGreen(root, head, implDir string, now time.Time) ([]string, error) {
 	dir := filepath.Join(root, "handoff")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return nil, err
 	}
+	prev := loadLastGreen(filepath.Join(dir, "last-green.tsv"))
 	var b strings.Builder
 	b.WriteString("# 线\tlast-green\t记录时间（由 xnull dev board --record-green 生成，手改即作废）\n")
+	var notes []string
 	for _, ln := range boardLines {
-		sha := head
-		if paths, ok := lineCodePaths[ln.name]; ok {
-			args := append([]string{"log", "-1", "--format=%h", "--"}, paths...)
-			if got, err := gitLine(root, args...); err == nil && got != "" {
-				sha = got
+		if ok, out := runLineTestsFn(root, implDir, ln.name); !ok {
+			keep := head
+			if e := prev[ln.name]; e.sha != "" {
+				keep = e.sha
 			}
+			notes = append(notes, fmt.Sprintf("%s：测试红，last-green 保持 %s（%s）", ln.name, keep, firstLine(out)))
+			fmt.Fprintf(&b, "%s\t%s\t%s\n", ln.name, keep, now.Format(time.RFC3339))
+			continue
+		}
+		sha := head
+		if got, err := gitLine(root, append([]string{"log", "-1", "--format=%h", "--"}, linePaths(ln.name)...)...); err == nil && got != "" {
+			sha = got
 		}
 		fmt.Fprintf(&b, "%s\t%s\t%s\n", ln.name, sha, now.Format(time.RFC3339))
 	}
-	return os.WriteFile(filepath.Join(dir, "last-green.tsv"), []byte(b.String()), 0o644)
+	return notes, os.WriteFile(filepath.Join(dir, "last-green.tsv"), []byte(b.String()), 0o644)
+}
+
+// linePaths 返回该线的路径集合（含支撑线的活动目录）。
+func linePaths(line string) []string {
+	if p, ok := lineCodePaths[line]; ok {
+		return p
+	}
+	switch line {
+	case "QA 线":
+		return []string{"evidence", "收件箱/QA1"}
+	case "发布线":
+		return []string{"xnull", "推广", "收件箱/COO"}
+	}
+	return nil
+}
+
+// runLineTestsFn 可注入（测试用），默认跑真实测试。
+var runLineTestsFn = runLineTests
+
+// runLineTests 按线跑全量测试：生产线跑各自代码包，运行时线跑 C 套件 + Go 包，支撑线跑全仓。
+func runLineTests(root, implDir, line string) (bool, string) {
+	if line == "运行时线" {
+		cmd := exec.Command("sh", "runtime/build_rt.sh")
+		cmd.Dir = implDir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return false, string(out)
+		}
+	}
+	pkgs := "./..."
+	switch line {
+	case "前端线":
+		pkgs = "./internal/xfront/... ./internal/sema/..."
+	case "自举线":
+		pkgs = "./internal/codegen/... ./internal/xnfmt/... ./cmd/... ./internal/devtool/... ./internal/cli/..."
+	}
+	cmd := exec.Command("sh", "-c", "go test -count=1 -timeout 300s "+pkgs)
+	cmd.Dir = implDir
+	out, err := cmd.CombinedOutput()
+	return err == nil, string(out)
+}
+
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" && !strings.HasPrefix(line, "ok ") {
+			return truncateRunes(line, 80)
+		}
+	}
+	return ""
 }
 
 // commitsBetween 返回 sha..head 的提交数（该线落后多少个提交）。

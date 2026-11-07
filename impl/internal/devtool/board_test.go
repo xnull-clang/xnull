@@ -135,13 +135,13 @@ func TestBoardHandoffWarnings(t *testing.T) {
 func TestRecordAndLoadLastGreen(t *testing.T) {
 	root := t.TempDir()
 	now := time.Date(2026, 11, 7, 14, 30, 0, 0, time.UTC)
-	if err := recordLastGreen(root, "abc1234", now); err != nil {
+	if _, err := recordLastGreen(root, "abc1234", root, now); err != nil {
 		t.Fatal(err)
 	}
 	got := loadLastGreen(filepath.Join(root, "handoff", "last-green.tsv"))
 	for _, ln := range boardLines {
 		if e, ok := got[ln.name]; !ok || e.sha != "abc1234" {
-			t.Fatalf("%s 的 last-green 未记录：%+v", ln.name, got)
+			t.Fatalf("%s 的 last-green 未记录（非 git 仓库时退回 HEAD）：%+v", ln.name, got)
 		}
 	}
 }
@@ -161,14 +161,17 @@ func TestRecordLastGreenPerLine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := recordLastGreen(root, head, time.Now()); err != nil {
+	orig := runLineTestsFn
+	runLineTestsFn = func(string, string, string) (bool, string) { return true, "" }
+	defer func() { runLineTestsFn = orig }()
+	if _, err := recordLastGreen(root, head, filepath.Join(root, "impl"), time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	got := loadLastGreen(filepath.Join(root, "handoff", "last-green.tsv"))
 	if got["自举线"].sha == got["前端线"].sha || got["自举线"].sha == got["运行时线"].sha {
 		t.Fatalf("自举线应与其它生产线的 last-green 不同：%+v", got)
 	}
-	if got["QA 线"].sha != head || got["发布线"].sha != head {
-		t.Fatalf("支撑线应记全量绿点：%+v", got)
+	if got["QA 线"].sha == "" || got["发布线"].sha == "" {
+		t.Fatalf("支撑线也必须有 last-green：%+v", got)
 	}
 }
