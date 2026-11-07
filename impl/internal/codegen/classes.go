@@ -754,7 +754,9 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 			}
 		}
 		if len(bodyStmts) > 0 {
+			g.curEscaped = escapeIdents(c.Body)
 			body, err := sc.emitBlock(bodyStmts)
+			g.curEscaped = nil
 			if err != nil {
 				return err
 			}
@@ -920,7 +922,9 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 			sc.superT = ci.base.cname + " *"
 		}
 	}
+	g.curEscaped = escapeIdents(m.decl.Body)
 	body, err := sc.emitBlock(m.decl.Body.Stmts)
+	g.curEscaped = nil
 	if err != nil {
 		return "", err
 	}

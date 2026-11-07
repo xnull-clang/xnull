@@ -258,6 +258,8 @@ func EmitCWithBuildOptions(u *xfront.CompilationUnit, reg *ffi.Registry, strateg
 		for i := range forced {
 			if forced[i].Kind == "class" {
 				forced[i].Policy = opts.MemPolicy
+				// --mem=arc/gc 强制全部堆分配，禁用栈优化（S3-03）。
+				forced[i].Escape = "n/a"
 			}
 		}
 		strategies = forced
@@ -276,9 +278,14 @@ func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategie
 
 func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, stats bool) (string, error) {
 	policy := map[string]string{}
+	stack := map[string]bool{}
 	for _, st := range strategies {
 		if st.Kind == "class" && st.Policy != "" {
 			policy[st.Decl] = st.Policy
+		}
+		// S3-03：Escape=none 的类在局部构造点可栈分配（后续用法安全性再校验）。
+		if st.Kind == "class" && st.Escape == "none" {
+			stack[st.Decl] = true
 		}
 	}
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
@@ -289,7 +296,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
 		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
 		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
-		factories: map[string]*factoryInfo{}, policy: policy, stats: stats}
+		factories: map[string]*factoryInfo{}, policy: policy, stack: stack, stats: stats}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -968,6 +975,8 @@ type gen struct {
 	entry          *entryInfo                   // 选中的入口（main 重载分派用）
 	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
 	policy         map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
+	stack          map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
+	curEscaped     map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
 	stats          bool                         // §21/§23：运行期分配统计开关
 	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
 	protocols      map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
@@ -1355,6 +1364,10 @@ func (g *gen) genFuncNamed(fn *xfront.TopFunc, cname string) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	// S3-03：预扫描逃逸位置（发布到实参/返回值/别名的局部退回堆分配）。
+	savedEsc := g.curEscaped
+	g.curEscaped = escapeIdents(fn.Body)
+	defer func() { g.curEscaped = savedEsc }()
 	body, err := sc.emitBlock(fn.Body.Stmts)
 	if err != nil {
 		return "", err
@@ -2121,6 +2134,15 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			return nil, fmt.Errorf("codegen：类实例局部声明需要 new 初始化（M4.4b 范围）")
 		}
 		if nw, ok := n.Init.(*xfront.New); ok {
+			// S3-03：Escape=none 且未发布的局部 → 栈对象（无分配器调用）。
+			if s.g.classIsStack(tc) && !s.localEscaped(n.Name) {
+				out, err := s.emitStackNew(nw, tc, n.Name)
+				if err != nil {
+					return nil, err
+				}
+				s.locals[n.Name] = tc
+				return out, nil
+			}
 			ctor, err := s.emitNewClass(nw)
 			if err != nil {
 				return nil, err

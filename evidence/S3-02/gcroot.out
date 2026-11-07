@@ -1,0 +1,4 @@
+=== RUN   TestS3GCRootVisibility
+--- PASS: TestS3GCRootVisibility (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.962s
