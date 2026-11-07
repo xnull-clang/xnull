@@ -21,7 +21,9 @@
   产生的局部在作用域退出发射 `rt_release`；借用/标识符不释放。
 - `test_task`（含 unclosed-group、unclosed-failed-group）PASS；
   `TestS6_XDK04GroupMustClose` / `GroupCloseOK` PASS；
-  `TestS5|TestS6_0[234]` 回归 PASS；`build_rt.sh` 全套 exit 0。
+  `TestS5|TestS6_0[234]` 回归 PASS；全量 `go test ./internal/codegen` PASS；
+  `go test ./internal/cli ./internal/interp ./internal/sema` PASS；
+  `build_rt.sh` 全套 exit 0。
 - XNull 实测：未 close → fatal `任务组在未关闭时释放（S5 §3.2 合同错误）`；
   已 close → exit 0。
 

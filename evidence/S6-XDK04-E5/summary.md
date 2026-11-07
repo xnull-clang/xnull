@@ -46,6 +46,8 @@ if (!g->closed) {
 | `test_task`（含 unclosed-group / unclosed-failed-group） | PASS | `green-task.log` |
 | `go test ./internal/codegen -run TestS6_XDK04` | 2/2 PASS | `green-codegen.log` |
 | `go test ./internal/codegen -run 'TestS5|TestS6_0[234]'` | PASS | `green-codegen-regression.log` |
+| `go test ./internal/codegen`（全量） | PASS | `green-full-codegen.log` |
+| `go test ./internal/cli ./internal/interp ./internal/sema` | PASS | `green-cli-interp-sema.log` |
 | `sh impl/runtime/build_rt.sh` | 全套 exit 0 | `green-build_rt.log` |
 | 未 close 的 XNull 程序 | fatal `任务组在未关闭时释放` | `green-forgot-close.log` |
 | 已 close 的 XNull 程序 | exit 0 | `green-closed-ok.log` |

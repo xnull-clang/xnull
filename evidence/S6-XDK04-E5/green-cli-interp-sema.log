@@ -1,0 +1,4 @@
+ok  	xnull.dev/xnull/internal/cli	36.353s
+ok  	xnull.dev/xnull/internal/interp	0.723s
+ok  	xnull.dev/xnull/internal/sema	2.134s
+EXIT=0
