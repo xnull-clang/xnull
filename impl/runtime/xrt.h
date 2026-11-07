@@ -232,6 +232,7 @@ xrt_context *xrt_context_with_deadline(xrt_context *parent, int64_t deadline_mon
 int32_t      xrt_context_check_cancel(const xrt_context *ctx); /* 0 或 XRT_ERR_CANCELLED */
 int32_t      xrt_context_cancelled(const xrt_context *ctx);
 xrt_cancel_token *xrt_context_token(xrt_context *ctx); /* 借用 */
+int32_t      xrt_cancel_token_cancelled(const xrt_cancel_token *token); /* 0/1；原子读 */
 void         xrt_context_cancel(xrt_context *ctx);     /* 幂等 */
 int64_t      xrt_clock_mono_ms(void);
 
