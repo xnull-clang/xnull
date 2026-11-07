@@ -1420,7 +1420,7 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		return "uint16_t", nil
 	case "UInt32":
 		return "uint32_t", nil
-	case "UInt64":
+	case "UInt64", "UInt":
 		return "uint64_t", nil
 	case "String":
 		return "rt_string *", nil
@@ -1710,7 +1710,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "uint16_t", nil
 		case "UInt32":
 			return "uint32_t", nil
-		case "UInt64":
+		case "UInt64", "UInt":
 			return "uint64_t", nil
 		case "Bool":
 			return "int", nil
@@ -2584,12 +2584,12 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return []string{"xn_print_bool(" + v + ");"}, nil
-	case "int64_t", "int32_t", "xn_char":
+	case "int64_t", "int32_t", "xn_char", "uint64_t", "uint32_t", "uint16_t", "uint8_t", "int8_t", "int16_t":
 		v, err := s.intExpr(e)
 		if err != nil {
 			return nil, err
 		}
-		return []string{"xn_print_int(" + v + ");"}, nil
+		return []string{"xn_print_int((int64_t)(" + v + "));"}, nil
 	case "double", "float":
 		v, err := s.intExpr(e)
 		if err != nil {

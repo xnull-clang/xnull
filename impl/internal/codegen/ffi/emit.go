@@ -126,6 +126,10 @@ func (r *Registry) EmitSupport() Snippet {
 	b.WriteString(canaryHelpers)
 	for _, l := range r.Layouts {
 		b.WriteString(emitLayout(l))
+		// S7-01：layout(c) 尺寸检查（编译期；与 sema.RegisterExternalLayout 同源计算）。
+		if n, err := layoutCSize(l, r.Layouts); err == nil {
+			fmt.Fprintf(&b, "_Static_assert(sizeof(xn_layout_%s) == %d, \"layout(c) %s 尺寸不符（S7 §3.3）\");\n\n", l.Name, n, l.Name)
+		}
 	}
 	for _, rg := range r.regionNames() {
 		b.WriteString(emitErrorKind(rg, r.rulesOfRegion(rg)))
@@ -394,14 +398,20 @@ func emitWrapper(e Entry) (string, error) {
 			}
 			decls = append(decls, "const char *"+p.Name+"_bytes, size_t "+p.Name+"_len")
 			call = append(call, p.Name+"_bytes, "+p.Name+"_len")
+		case KindText:
+			decls = append(decls, "const char *"+p.Name+"_bytes, size_t "+p.Name+"_len")
+			call = append(call, p.Name+"_bytes, "+p.Name+"_len")
 		case KindBytes:
-			if lease != LeaseBorrow {
-				return "", fmt.Errorf("Bytes %s 的 %s 形态需绑定层分配器合同（显式归属：随资源/调度器切片落地）", p.Name, lease.String())
+			if lease == LeaseBorrow {
+				decls = append(decls, "void *"+p.Name+", size_t "+p.Name+"_len")
+				pre = append(pre, "uint8_t *xn_buf_"+p.Name+" = xn_ffi_canary_enter((const uint8_t *)"+p.Name+", "+p.Name+"_len);")
+				call = append(call, "(void *)(xn_buf_"+p.Name+" + XN_FFI_CANARY), "+p.Name+"_len")
+				postAlways = append(postAlways, "xn_ffi_canary_leave(xn_buf_"+p.Name+", (uint8_t *)"+p.Name+", "+p.Name+"_len);")
+				break
 			}
+			// S7-01：transfer/reclaim 为显式所有权转移，不经 canary（S7 §3.4）。
 			decls = append(decls, "void *"+p.Name+", size_t "+p.Name+"_len")
-			pre = append(pre, "uint8_t *xn_buf_"+p.Name+" = xn_ffi_canary_enter((const uint8_t *)"+p.Name+", "+p.Name+"_len);")
-			call = append(call, "(void *)(xn_buf_"+p.Name+" + XN_FFI_CANARY), "+p.Name+"_len")
-			postAlways = append(postAlways, "xn_ffi_canary_leave(xn_buf_"+p.Name+", (uint8_t *)"+p.Name+", "+p.Name+"_len);")
+			call = append(call, p.Name+", "+p.Name+"_len")
 		case KindArray:
 			if p.Type.Elem == nil {
 				return "", fmt.Errorf("数组元素缺失（S7 §3.5）")
@@ -480,6 +490,11 @@ func emitWrapper(e Entry) (string, error) {
 			// 不是 rt/xrt_string：变量类型必须与原生签名一致，否则 C 侧类型不符。
 			nativeC = "const char *"
 			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);"
+		case KindText:
+			hasOut = true
+			retC = "xrt_text *"
+			nativeC = "const char *"
+			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_text_from_string(xn_v, strlen(xn_v));"
 		case KindHandle:
 			hasOut = true
 			retC = "xrt_handle *"
@@ -612,7 +627,7 @@ func nativeProto(e Entry) (string, error) {
 				return "", fmt.Errorf("标量 %s 无映射", p.Type.Name)
 			}
 			parts = append(parts, cT+" "+p.Name)
-		case KindString:
+		case KindString, KindText:
 			parts = append(parts, "const char *"+p.Name+"_bytes", "size_t "+p.Name+"_len")
 		case KindBytes:
 			parts = append(parts, "void *"+p.Name, "size_t "+p.Name+"_len")
@@ -654,7 +669,7 @@ func nativeProto(e Entry) (string, error) {
 				return "", fmt.Errorf("返回类型无映射")
 			}
 			ret = cT
-		case KindString:
+		case KindString, KindText:
 			ret = "const char *"
 		case KindHandle:
 			ret = "void *"
@@ -664,3 +679,76 @@ func nativeProto(e Entry) (string, error) {
 	}
 	return ret + " " + e.CName + "(" + strings.Join(parts, ", ") + ");", nil
 }
+
+// layoutCSize 按 C 自然对齐计算 layout 尺寸（与 sema S7-01 同规则）。
+func layoutCSize(l Layout, all []Layout) (int, error) {
+	sizes := map[string]int{}
+	aligns := map[string]int{}
+	var calc func(name string, seen map[string]bool) (int, int, error)
+	calc = func(name string, seen map[string]bool) (int, int, error) {
+		if s, ok := sizes[name]; ok {
+			return s, aligns[name], nil
+		}
+		if seen[name] {
+			return 0, 0, fmt.Errorf("layout(c) 嵌套环：%s", name)
+		}
+		seen[name] = true
+		var fields []LayoutField
+		for _, x := range all {
+			if x.Name == name {
+				fields = x.Fields
+				break
+			}
+		}
+		if fields == nil {
+			return 0, 0, fmt.Errorf("未知 layout %s", name)
+		}
+		off, maxAlign := 0, 1
+		for _, f := range fields {
+			size, align := 0, 1
+			if fs, fa, ok := scalarSizeAlign(f.Type); ok {
+				size, align = fs, fa
+			} else if fs, fa, err := calc(f.Type, seen); err == nil {
+				size, align = fs, fa
+			} else {
+				return 0, 0, err
+			}
+			off = alignUp(off, align)
+			off += size
+			if align > maxAlign {
+				maxAlign = align
+			}
+		}
+		total := alignUp(off, maxAlign)
+		sizes[name], aligns[name] = total, maxAlign
+		return total, maxAlign, nil
+	}
+	return func() (int, error) {
+		n, _, err := calc(l.Name, map[string]bool{})
+		return n, err
+	}()
+}
+
+func scalarSizeAlign(name string) (int, int, bool) {
+	switch name {
+	case "Int8", "UInt8", "Bool", "Byte", "UByte":
+		return 1, 1, true
+	case "Int16", "UInt16", "Short", "UShort":
+		return 2, 2, true
+	case "Int32", "UInt32", "Float32", "Char":
+		return 4, 4, true
+	case "Int", "UInt", "Int64", "UInt64", "Long", "ULong", "Float", "Float64", "Double":
+		return 8, 8, true
+	}
+	return 0, 0, false
+}
+
+func alignUp(n, a int) int {
+	if a <= 1 || n%a == 0 {
+		return n
+	}
+	return n + a - n%a
+}
+
+// CSize 导出 layout 的 C sizeof（与 sema RegisterExternalLayout 同源）。
+func CSize(l Layout, all []Layout) (int, error) { return layoutCSize(l, all) }
