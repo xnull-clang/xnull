@@ -40,6 +40,7 @@ type texpr struct {
 	intVal  int64  // 有符号值
 	uintVal uint64 // 无符号值（仅 isUInt 时有效）
 	isUInt  bool
+	intBad  bool // 字面量运算后无法用 int64 表达（负向越界，禁止回绕）
 }
 
 var intTypeNames = map[string]bool{
@@ -242,6 +243,9 @@ func assignable(from texpr, to string) bool {
 func intLiteralFits(t texpr, to string) bool {
 	if !t.hasInt {
 		return true
+	}
+	if t.intBad {
+		return false
 	}
 	switch unwrapOpt(to) {
 	case "Int8":
@@ -777,7 +781,14 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 			}
 			if t.hasInt {
 				if t.isUInt {
-					t.intVal, t.isUInt = -int64(t.uintVal), false // 2^63 → MinInt64（补码）
+					// 仅 2^63 可经负号表示为 MinInt64；更大的量级禁止 int64 回绕。
+					if t.uintVal == 1<<63 {
+						t.intVal, t.isUInt = -1<<63, false
+					} else {
+						t.intBad = true
+					}
+				} else if t.intVal == -1<<63 {
+					t.intBad = true // -MinInt64 不可表示
 				} else {
 					t.intVal = -t.intVal
 				}
