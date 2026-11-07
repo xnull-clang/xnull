@@ -48,6 +48,7 @@ const (
 	TyAnnotation    = "TY-223" // 注解声明/使用/目标（§12）
 	TyFinalWrite    = "TY-224" // final 字段构造后写入（§6.1）
 	TyExtension     = "TY-225" // extension 目标限制（§11）
+	TyNewKind       = "TY-226" // new 非 class 类型（§2.7/§4.1/§8.3）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。

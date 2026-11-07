@@ -1,0 +1,5 @@
+# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
+internal/sema/s2_gate_test.go:12:5: undefined: TyNewKind
+internal/sema/s2_gate_test.go:19:5: undefined: TyNewKind
+FAIL	xnull.dev/xnull/internal/sema [build failed]
+FAIL
