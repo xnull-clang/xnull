@@ -32,7 +32,7 @@ func (g *gen) collectSingletons(u *xfront.CompilationUnit) error {
 			}
 			cf := classField{name: f.Name, cname: fieldCName(f), ctype: g.slotCType(ct), semC: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init}
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), isAny: ct == "xn_Any *", init: f.Init}
 			if f.Mod.Static {
 				ci.staticFields = append(ci.staticFields, cf)
 			} else {

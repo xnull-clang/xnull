@@ -437,6 +437,14 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		}
 		return append(lines, dst+" = "+v+";"), nil
 	}
+	// Any/Object 字段：GC 盒引用，赋值不 retain/release（旧盒由 GC 回收）。
+	if f.isAny {
+		lines, v, err := s.anyExpr(val)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, dst+" = "+v+";"), nil
+	}
 	// 容器字段是值结构（本层未做引用语义容器）：浅拷贝会双释放，显式拒绝。
 	if f.isArr {
 		return nil, fmt.Errorf("codegen：容器字段 %s 的赋值需要引用语义容器（B2 范围，显式拒绝）", f.name)

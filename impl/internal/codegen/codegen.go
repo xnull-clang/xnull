@@ -147,6 +147,79 @@ static void xn_throw(rt_string *msg) {
     exit(134);
 }
 
+/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */
+typedef struct {
+    rt_header hdr;
+    const char *typeName;
+    int64_t i;
+    rt_string *s;
+    void *o;
+} xn_Any;
+static void xn_Any_scan(void *p, void (*visit)(void *)) {
+    xn_Any *b = (xn_Any *)p;
+    if (b->s) { visit(b->s); }
+    if (b->o) { visit(b->o); }
+}
+static const rt_type RT_TYPE_XN_ANY = { "Any", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };
+static xn_Any *xn_box_int(int64_t v) {
+    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Int"; b->i = v;
+    return b;
+}
+static xn_Any *xn_box_int32(int32_t v) {
+    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Int32"; b->i = (int64_t)v;
+    return b;
+}
+static xn_Any *xn_box_bool(int v) {
+    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "Bool"; b->i = v ? 1 : 0;
+    return b;
+}
+static xn_Any *xn_box_str(rt_string *s) {
+    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    b->typeName = "String";
+    if (s != NULL) { rt_retain(s); }
+    b->s = s;
+    return b;
+}
+/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，
+ * GC 载荷不计数（由 GC 管理）。 */
+static xn_Any *xn_box_obj(void *o) {
+    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    if (o != NULL) {
+        b->typeName = ((rt_object *)o)->hdr.type->name;
+        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }
+        b->o = o;
+    }
+    return b;
+}
+static int xn_any_is(xn_Any *b, const char *typeName) {
+    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;
+}
+/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */
+static int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) { return b->i; }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return 0;
+}
+static rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) {
+        if (b->s != NULL) { rt_retain(b->s); }
+        return b->s;
+    }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return NULL;
+}
+static void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {
+    if (xn_any_is(b, typeName)) {
+        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }
+        return b->o;
+    }
+    if (!nullSafe) { rt_fatal("Any 拆箱类型不匹配（S3 §3）"); }
+    return NULL;
+}
+
 /* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */
 static void xn_fatal_div(void) {
     fprintf(stderr, "xnull: fatal: 除零\n");
@@ -434,8 +507,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	var b strings.Builder
 	b.WriteString(prelude)
-	// 元组结构体（S1 §2.11）：必须在容器/类/函数之前定义。
-	g.emitTupleTypes(&b)
+	// 元组结构体（S1 §2.11）：元素可能引用类类型，须在类前向声明之后、
+	// 容器/类/函数定义之前（S3-05：元组引用元素）。
 	// 协议类型与 vtable 对象前缀（S2 §4/§5.7）。
 	g.emitProtocolTypes(&b)
 	// 枚举 typedef / 数据枚举结构与项全局（S2 §8）。
@@ -476,6 +549,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	if err := g.emitExtensionProtos(&b); err != nil {
 		return "", err
 	}
+	// 元组结构体（S1 §2.11）：类前向 typedef 已就位，可作为元素类型。
+	g.emitTupleTypes(&b)
 	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
 	{
 		rnames := make([]string, 0, len(g.results))
@@ -1162,6 +1237,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "int", nil
 		case "String":
 			return "rt_string *", nil
+		case "Any", "Object":
+			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
+			return "xn_Any *", nil
 		case "Bytes":
 			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
 			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
@@ -1966,6 +2044,15 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			}
 			return append(lines, tc+" "+n.Name+" = "+t+".v;"), nil
 		}
+	}
+	// Any/Object 装箱局部（S3 §3）：GC 盒引用，不做 retain/release。
+	if s.g.isAnyC(tc) {
+		lines, v, err := s.anyExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	if s.g.isTupleC(tc) {
 		s.locals[n.Name] = tc
@@ -2940,6 +3027,21 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 		}
 		return lines, nil
 	case *xfront.Binary:
+		// Any/Object → String 拆箱（S3 §3）：get_str 取得一份引用。
+		if n.Op == "as" || n.Op == "as?" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				if t, err := s.g.cType(s.g.substitute(ta.Type)); err == nil && t == "rt_string *" {
+					v, err := s.intExpr(n)
+					if err != nil {
+						return nil, err
+					}
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					tv := s.tmp()
+					return append(out, "rt_string *"+tv+" = "+v+";"), nil
+				}
+			}
+		}
 		if n.Op == "+" {
 			var out []string
 			ls, err := s.strExpr(n.L)
