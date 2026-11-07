@@ -981,3 +981,93 @@ static Int main() { return 0 }`)
 		t.Fatal("父协议方法未实现应报错（vtable 发射）")
 	}
 }
+
+// ANN-01：注解声明/使用零运行期开销；@Override 不进产物。
+func TestS2ANN01NoRuntimeOverhead(t *testing.T) {
+	annotated := `@annotation Marker {
+    final String tag = "ANN_MARKER_TAG";
+    final Int level = 42;
+}
+@Marker("cls", 1)
+class Device {
+    @Marker("field", 2)
+    String name;
+    Device(String n) { self.name = n }
+    @Marker("method", 3)
+    String label() { return name }
+}
+protocol P { String label(); }
+class Impl implements P {
+    @Override
+    String label() { return "ok" }
+}
+static Int main() {
+    Device d = new Device("x")
+    print(d.label())
+    Impl i = new Impl()
+    print(i.label())
+    return 0
+}`
+	plain := `class Device {
+    String name;
+    Device(String n) { self.name = n }
+    String label() { return name }
+}
+protocol P { String label(); }
+class Impl implements P {
+    String label() { return "ok" }
+}
+static Int main() {
+    Device d = new Device("x")
+    print(d.label())
+    Impl i = new Impl()
+    print(i.label())
+    return 0
+}`
+	ua, da := xfront.ParseUnit("a.x", annotated)
+	if len(da) != 0 {
+		t.Fatalf("解析诊断：%v", da)
+	}
+	ca, err := EmitC(ua)
+	if err != nil {
+		t.Fatalf("EmitC(annotated): %v", err)
+	}
+	up, dp := xfront.ParseUnit("p.x", plain)
+	if len(dp) != 0 {
+		t.Fatalf("解析诊断：%v", dp)
+	}
+	cp, err := EmitC(up)
+	if err != nil {
+		t.Fatalf("EmitC(plain): %v", err)
+	}
+	if ca != cp {
+		t.Fatalf("注解产生了运行期差异：\n--- annotated ---\n%s\n--- plain ---\n%s", ca, cp)
+	}
+	for _, bad := range []string{"Marker", "Override", "ANN_MARKER_TAG", "annotation"} {
+		if strings.Contains(ca, bad) {
+			t.Fatalf("产物含注解元数据 %q：\n%s", bad, ca)
+		}
+	}
+	got, code := compileAndRun(t, annotated)
+	if want := "x\nok\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// ANN-01：未知注解的接受/拒绝归 sema；codegen 不应崩溃或发射元数据。
+func TestS2ANN01UnknownAnnotationNeutral(t *testing.T) {
+	src := `@Unknown("x")
+class D { }
+static Int main() { return 0 }`
+	u, diags := xfront.ParseUnit("u.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	if strings.Contains(csrc, "Unknown") {
+		t.Fatalf("未知注解进入产物：\n%s", csrc)
+	}
+}
