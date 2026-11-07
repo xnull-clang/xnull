@@ -142,3 +142,78 @@ static Int main() { D d = new D(5); print(d.x); print(d.y); return 0 }`, "5\n6\n
 		})
 	}
 }
+
+// S2 §8：简单枚举格式化 + 穷尽 switch（A01/A02）。
+func TestS2EnumSimpleAndSwitch(t *testing.T) {
+	src := `enum Color { Red, Green, Blue }
+static Int main() {
+    Color c = Color.Green
+    print(c)
+    switch (c) {
+        case Color.Red: print("r")
+        case Color.Green: print("g")
+        case Color.Blue: print("b")
+    }
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "Green\ng\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// S2 §8.3：数据枚举项单例、字段访问与格式化（A03）。
+func TestS2EnumDataSingleton(t *testing.T) {
+	src := `enum Status {
+    Ready(0), Failed(1);
+    final Int code;
+    Status(Int c) { self.code = c }
+    Int get() { return self.code }
+}
+static Int main() {
+    print(Status.Ready)
+    print(Status.Ready.code)
+    print(Status.Failed.get())
+    print(Status.Ready == Status.Ready)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "Ready\n0\n1\ntrue\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// S2 §3.3：struct 布局/值复制（A01）与嵌套值（A02）。
+func TestS2StructValueCopy(t *testing.T) {
+	src := `struct Point {
+    Int x;
+    Int y;
+}
+struct Inner { Int v; }
+struct Outer { Inner inner; Int k; }
+static Int copyOf(Point p) { p.x = 9; return p.x }
+static Int main() {
+    Point a = new Point()
+    a.x = 1
+    a.y = 2
+    Point b = a
+    b.x = 9
+    print(a.x)
+    print(b.x)
+    print(copyOf(a))
+    print(a.x)
+
+    Outer o = new Outer()
+    o.inner.v = 7
+    o.k = 3
+    Outer c = o
+    c.inner.v = 9
+    print(o.inner.v)
+    print(c.inner.v)
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n9\n9\n1\n7\n9\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
