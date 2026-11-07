@@ -713,8 +713,17 @@ func (c *typeCheckCtx) checkExtension(d *xfront.ExtensionDecl) {
 		c.errf(nt.P, TyExtension, "extension 不能跨包扩展或 Target `"+name+"` 未声明（§11.1/§11.4）", "")
 		return
 	}
-	if info.kind != "class" && info.kind != "struct" {
-		c.errf(nt.P, TyExtension, "extension Target 必须是同包 class/struct（得到 "+info.kind+"，§11.1）", "")
+	// 跨包扩展拒绝（导入路径末段与 Target 同名视为跨包来源）。
+	for _, p := range c.a.importPaths {
+		if len(p) > 0 && strings.EqualFold(p[len(p)-1], name) {
+			c.errf(nt.P, TyExtension, "extension 不能跨包扩展 `"+name+"`（§11.4）", "在目标所在包内声明 extension")
+			return
+		}
+	}
+	allowed := info.kind == "class" || info.kind == "struct" || info.kind == "singleton" ||
+		(info.kind == "enum" && info.enum != nil && info.enum.IsData)
+	if !allowed {
+		c.errf(nt.P, TyExtension, "extension Target 必须是同包非泛型 class/struct/singleton/数据 enum（得到 "+info.kind+"，§11.1）", "")
 	}
 }
 
@@ -904,6 +913,55 @@ var builtinAnnotations = map[string]bool{
 	"tasks": true, "arena": true, "Immediate": true, "NoAlloc": true, "Pure": true, "Sendable": true,
 }
 
+func isConstExpr(e xfront.Expr) bool {
+	switch n := e.(type) {
+	case *xfront.IntLitExpr, *xfront.FloatLitExpr, *xfront.CharLitExpr, *xfront.BoolLit, *xfront.StrLitExpr:
+		return true
+	case *xfront.Paren:
+		return isConstExpr(n.X)
+	case *xfront.Unary:
+		return isConstExpr(n.X)
+	case *xfront.Binary:
+		return isConstExpr(n.L) && isConstExpr(n.R)
+	case *xfront.Member:
+		_, ok := n.X.(*xfront.IdentExpr)
+		return ok // 简单枚举项常量
+	}
+	return false
+}
+
+func constExprType(e xfront.Expr) texpr {
+	switch n := e.(type) {
+	case *xfront.IntLitExpr:
+		k := "Int"
+		switch n.Suffix {
+		case "L":
+			k = "Long"
+		case "U":
+			k = "UInt"
+		case "UL":
+			k = "ULong"
+		}
+		return texpr{key: k, lit: 1}
+	case *xfront.FloatLitExpr:
+		if n.HasSuffixF {
+			return texpr{key: "Float", lit: 2}
+		}
+		return texpr{key: "Double", lit: 2}
+	case *xfront.CharLitExpr:
+		return texpr{key: "Char"}
+	case *xfront.BoolLit:
+		return texpr{key: "Bool"}
+	case *xfront.StrLitExpr:
+		return texpr{key: "String", lit: 3}
+	case *xfront.Paren:
+		return constExprType(n.X)
+	case *xfront.Unary:
+		return constExprType(n.X)
+	}
+	return texpr{}
+}
+
 func (c *typeCheckCtx) checkAnnotationDecl(d *xfront.AnnotationDecl) {
 	for _, f := range d.Fields {
 		if !f.Mod.Final {
@@ -911,6 +969,8 @@ func (c *typeCheckCtx) checkAnnotationDecl(d *xfront.AnnotationDecl) {
 		}
 		if f.Init == nil {
 			c.errf(f.P, TyAnnotation, "注解字段必须有编译期常量初始化式（§12.1）", "")
+		} else if !isConstExpr(f.Init) {
+			c.errf(f.Init.Pos(), TyAnnotation, "注解字段初始化式必须是编译期常量（§12.1）", "")
 		}
 		k := typeKey(f.Type)
 		allowed := scalarValueType(k) || k == "Bool" || k == "String" || k == "Char"
@@ -943,8 +1003,26 @@ func (c *typeCheckCtx) checkAnnos(target string, annos []*xfront.AnnotationNode)
 			if builtinAnnotations[a.Name] {
 				continue
 			}
-			if info, ok := c.types[a.Name]; !ok || info.kind != "annotation" {
+			info, ok := c.types[a.Name]
+			if !ok || info.kind != "annotation" || info.anno == nil {
 				c.errf(a.P, TyAnnotation, "未知注解 `@"+a.Name+"`（§12.2）", "先声明 @annotation，或使用内建注解")
+				continue
+			}
+			fields := info.anno.Fields
+			if len(a.Args) > len(fields) {
+				c.errf(a.P, TyAnnotation, "注解 `@"+a.Name+"` 参数过多（§12.2）", "")
+			}
+			for i, arg := range a.Args {
+				if i >= len(fields) {
+					break
+				}
+				if !isConstExpr(arg) {
+					c.errf(arg.Pos(), TyAnnotation, "注解参数必须是编译期常量（§12.2）", "")
+					continue
+				}
+				if !assignable(constExprType(arg), typeKey(fields[i].Type)) {
+					c.errf(arg.Pos(), TyAnnotation, "注解参数类型不匹配字段 `"+fields[i].Name+"`（§12.2）", "")
+				}
 			}
 		}
 	}
@@ -958,6 +1036,11 @@ func (c *typeCheckCtx) checkAllAnnotations(u *xfront.CompilationUnit) {
 	}
 	for _, d := range u.Decls {
 		switch n := d.(type) {
+		case *xfront.TopFunc:
+			c.checkAnnos("decl", n.Annos)
+			checkParams(n.Params)
+		case *xfront.TopField:
+			c.checkAnnos("field", n.Annos)
 		case *xfront.ClassDecl:
 			c.checkAnnos("type", n.Annos)
 			for _, f := range n.Fields {
@@ -984,6 +1067,9 @@ func (c *typeCheckCtx) checkAllAnnotations(u *xfront.CompilationUnit) {
 			c.checkAnnos("type", n.Annos)
 		case *xfront.EnumDecl:
 			c.checkAnnos("type", n.Annos)
+			for _, it := range n.Items {
+				c.checkAnnos("enumitem", it.Annos)
+			}
 		case *xfront.SingletonDecl:
 			c.checkAnnos("type", n.Annos)
 			for _, f := range n.Fields {

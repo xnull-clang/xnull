@@ -508,6 +508,10 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 					e.errf(ty.P, TyFactory, "factory `"+name+"` 不是类型，不能用于类型位置（§10.4）", "改用 Target 类型或工厂方法返回类型")
 					return
 				}
+				if info, ok := e.a.tc.types[name]; ok && info.kind == "annotation" {
+					e.errf(ty.P, TyAnnotation, "注解 `"+name+"` 不是类型，不能用于类型位置（§12.1）", "")
+					return
+				}
 			}
 			if e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
 				e.errf(ty.P, ResUndefined,

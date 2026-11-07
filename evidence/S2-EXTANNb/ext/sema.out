@@ -1,0 +1,4 @@
+=== RUN   TestS2EXTbTargets
+--- PASS: TestS2EXTbTargets (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.764s

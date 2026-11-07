@@ -1098,8 +1098,14 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 			return texpr{key: k}
 		}
 		if e.a.tc != nil {
-			if info, ok := e.a.tc.types[n.Name]; ok && (info.kind == "singleton" || info.kind == "factory") {
-				return texpr{key: n.Name}
+			if info, ok := e.a.tc.types[n.Name]; ok {
+				if info.kind == "annotation" {
+					e.errf(n.P, TyAnnotation, "注解 `"+n.Name+"` 只在编译期存在，不能作为值使用（§12.1）", "")
+					return texpr{}
+				}
+				if info.kind == "singleton" || info.kind == "factory" {
+					return texpr{key: n.Name}
+				}
 			}
 		}
 		if e.cls != nil {
@@ -1282,6 +1288,9 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 				}
 				if info.kind == "singleton" || info.kind == "factory" {
 					e.errf(n.P, TySingletonNew, "`"+nt.Qual[0]+"` 不是可实例化类型（singleton/factory，§9.4/§10.5）", "使用 instance 或工厂方法")
+				}
+				if info.kind == "annotation" {
+					e.errf(n.P, TyAnnotation, "注解 `"+nt.Qual[0]+"` 不能 new（§12.1）", "")
 				}
 			}
 		}
