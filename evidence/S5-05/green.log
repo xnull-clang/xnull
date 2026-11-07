@@ -1,0 +1,11 @@
+=== RUN   TestS5TasksBasic
+=== RUN   TestS5TasksBasic/SpawnJoinClose
+=== RUN   TestS5TasksBasic/BusinessErrorPassthrough
+=== RUN   TestS5TasksBasic/ContextCancel
+--- PASS: TestS5TasksBasic (0.00s)
+    --- PASS: TestS5TasksBasic/SpawnJoinClose (0.00s)
+    --- PASS: TestS5TasksBasic/BusinessErrorPassthrough (0.00s)
+    --- PASS: TestS5TasksBasic/ContextCancel (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.744s
+exit=0
