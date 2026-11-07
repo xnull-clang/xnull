@@ -425,6 +425,8 @@ func (in *Interp) typeMatches(t xfront.TypeRef, v *Value) bool {
 			return v.K == vMap
 		case "Set":
 			return v.K == vSet
+		case "Bytes":
+			return v.K == vBytes
 		case "Any", "Object":
 			return v.K != vNull // Any/Object 装箱一切非 null 值
 		}

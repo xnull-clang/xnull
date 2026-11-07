@@ -1,0 +1,7 @@
+=== RUN   TestXdkTextUTF16Runtime
+--- PASS: TestXdkTextUTF16Runtime (0.01s)
+=== RUN   TestS6BytesMethods
+--- PASS: TestS6BytesMethods (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.648s
+exit=0
