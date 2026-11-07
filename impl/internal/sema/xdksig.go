@@ -58,9 +58,12 @@ var xdkFuncSigs = map[string]xdkFuncSig{
 	"listResources":    {"sys", []string{"Context", "String"}, "Result<List<String>,Error>", true},
 	"resourceSize":     {"sys", []string{"String"}, "Int?", false},
 
-	// ---- xdk.text：解析（S6 §4.6/XDK-08） ----
-	"parseInt":   {"text", []string{"String"}, "Result<Int,Error>", false},
-	"parseFloat": {"text", []string{"String"}, "Result<Double,Error>", false},
+	// ---- xdk.text：解析与编码转换（S6 §4.6/XDK-08） ----
+	// UTF-8↔UTF-16 以字节/码元序列表达，避免隐式端序：UTF-16 方向返回 List<UInt16> 码元。
+	"parseInt":    {"text", []string{"String"}, "Result<Int,Error>", false},
+	"parseFloat":  {"text", []string{"String"}, "Result<Double,Error>", false},
+	"utf8ToUtf16": {"text", []string{"Bytes"}, "Result<List<UInt16>,Error>", false},
+	"utf16ToUtf8": {"text", []string{"List<UInt16>"}, "Result<Bytes,Error>", false},
 }
 
 // xdkTypeNames 是 XDK 语言面公开类型（可出现在类型位置，成员未支持时 TY-229）。

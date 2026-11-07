@@ -1866,6 +1866,41 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs(at, at)
 			return texpr{key: "Bool"}
 		}
+	case k == "Format":
+		// S6-05：Format builder（设计口径 Format.int(x).width(4).pad('0').build()）。
+		switch name {
+		case "int":
+			checkArgs("Int")
+			return texpr{key: "Format"}
+		case "float":
+			checkArgs("Double")
+			return texpr{key: "Format"}
+		case "string":
+			checkArgs("String")
+			return texpr{key: "Format"}
+		case "bool":
+			checkArgs("Bool")
+			return texpr{key: "Format"}
+		case "width":
+			checkArgs("Int")
+			return texpr{key: "Format"}
+		case "pad":
+			checkArgs("Char")
+			return texpr{key: "Format"}
+		case "build":
+			checkArgs()
+			return texpr{key: "String"}
+		}
+	case k == "Regex":
+		// S6-05：动态编译失败为可恢复错误（XDK-08）。
+		switch name {
+		case "compile":
+			checkArgs("String")
+			return texpr{key: "Result<Regex,Error>"}
+		case "isMatch":
+			checkArgs("String")
+			return texpr{key: "Bool"}
+		}
 	case k == "StringBuilder":
 		switch name {
 		case "append":
