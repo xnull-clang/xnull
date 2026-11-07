@@ -1,0 +1,5 @@
+--- FAIL: TestS6XDK08TextXfbRegex (0.00s)
+    s6_xdk08_test.go:20: 读取 text.xfb：open ../../../bindings/xdk/text.xfb: no such file or directory
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.422s
+FAIL
