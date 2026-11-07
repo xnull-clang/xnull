@@ -48,3 +48,4 @@ BND-07	internal/interp/singleton_test.go + internal/codegen/s2_singleton_test.go
 BND-08	internal/sema/s2_factory_test.go + internal/codegen/s2_factory_test.go + 收件箱/回执箱/验收-S2-BND-08.md	PASS
 BND-09	internal/sema/s2_bnd09_test.go + 收件箱/回执箱/验收-S2-BND-09.md	PASS
 BND-14	Tests/s2_neg_diag_test.go + 收件箱/回执箱/验收-S2-BND-14.md	PASS
+BND-15	Tests/s2_integration_test.go + 收件箱/回执箱/验收-S2-BND-15.md	PASS
