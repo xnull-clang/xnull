@@ -31,7 +31,7 @@ func TestXdkBindingsLoadAndEmit(t *testing.T) {
 	if len(diags) != 0 {
 		t.Fatalf("仓库绑定不应有诊断：%v", codeList(diags))
 	}
-	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "readFileText", "writeFileText"}
+	want := []string{"diagnose", "dirClose", "dirOpen", "dirRead", "exit", "fileClose", "fileOpenRead", "fileOpenWrite", "fileRead", "fileWrite", "nowMono", "nowWall", "pathExists", "readFileText", "utf8Valid", "writeFileText"}
 	got := make([]string, 0, len(reg.Entries))
 	for _, e := range reg.Entries {
 		got = append(got, e.Name)

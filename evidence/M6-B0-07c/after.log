@@ -1,0 +1,8 @@
+=== RUN   TestFFIEntryInjectedAndCompiles
+--- PASS: TestFFIEntryInjectedAndCompiles (1.42s)
+=== RUN   TestFFIInjectionDuplicateNameRejected
+--- PASS: TestFFIInjectionDuplicateNameRejected (0.00s)
+=== RUN   TestFFIHandleOpenClose
+--- PASS: TestFFIHandleOpenClose (1.77s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	4.368s

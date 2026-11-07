@@ -347,9 +347,12 @@ func scanNumber(src string, i int) int {
 		j++
 	}
 	if j < len(src) && src[j] == '.' && !(j+1 < len(src) && src[j+1] == '.') {
-		j++
-		for j < len(src) && (isDigit(src[j]) || src[j] == '_') {
+		// R6.4：`p.1.length()` 的 `.` 是成员选择符；只有点后是数字/下划线才并入数字字面量。
+		if j+1 < len(src) && (isDigit(src[j+1]) || src[j+1] == '_') {
 			j++
+			for j < len(src) && (isDigit(src[j]) || src[j] == '_') {
+				j++
+			}
 		}
 	}
 	if j < len(src) && (src[j] == 'e' || src[j] == 'E') {
