@@ -44,3 +44,5 @@ BND-04	internal/sema/s2_bnd04_test.go + 收件箱/回执箱/验收-S2-BND-04.md	
 BND-11	internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-BND-11.md	PASS
 BND-12	internal/codegen/s2_generic_test.go + 收件箱/回执箱/验收-S2-BND-12.md	PASS
 BND-06	internal/sema/s2_enum_immutable_test.go + 收件箱/回执箱/验收-S2-BND-06.md	PASS
+BND-07	internal/interp/singleton_test.go + internal/codegen/s2_singleton_test.go + 收件箱/回执箱/验收-S2-BND-07.md	PASS
+BND-08	internal/sema/s2_factory_test.go + internal/codegen/s2_factory_test.go + 收件箱/回执箱/验收-S2-BND-08.md	PASS
