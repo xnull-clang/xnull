@@ -3,6 +3,7 @@ package codegen
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"xnull.dev/xnull/internal/diag"
@@ -13,7 +14,7 @@ import (
 //
 // 加载规则（起步形态，细化路径解析归后续工程清单批次）：
 //   - `import p1.p2.…pn` 映射为 entry 所在目录下的相对文件 p1/p2/…/pn.x；
-//   - `xdk.*` 导入由 sema 处理，加载器不解析为文件；
+//   - `xdk.*` 导入装载 impl/lib/xdk/<pkg>.x 源码单元（S6-08；符号签名仍由 sema 把关）；
 //   - 包导入图必须无环（§3.4），检测到环即编译错误；
 //   - 同一文件只加载一次（重复导入允许，§3.2）；
 //   - 合并顺序＝依赖优先的后序（确定性：同一 import 列表按源码书写顺序，
@@ -76,7 +77,19 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 		units[abs] = u
 		okAll := true
 		for _, imp := range u.Imports {
-			if len(imp.Path) == 0 || imp.Path[0] == "xdk" {
+			if len(imp.Path) == 0 {
+				continue
+			}
+			if imp.Path[0] == "xdk" {
+				// S6-08：xdk.<pkg>[.<symbol>] 装载 impl/lib/xdk/<pkg>.x。
+				if len(imp.Path) >= 2 {
+					dep := filepath.Join(xdkLibDir(), imp.Path[1]+".x")
+					if _, err := os.Stat(dep); err == nil {
+						if !visit(dep, path) {
+							okAll = false
+						}
+					}
+				}
 				continue
 			}
 			dep := filepath.Join(dir, filepath.Join(imp.Path...)+".x")
@@ -142,6 +155,15 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 		merged.Decls = append(merged.Decls, units[abs].Decls...)
 	}
 	return merged, nil
+}
+
+// xdkLibDir 定位源码树中的 XDK 单元目录（impl/lib/xdk）。
+func xdkLibDir() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return filepath.Join("lib", "xdk")
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "lib", "xdk"))
 }
 
 // relName 生成相对 entry 目录的展示名（诊断友好）。

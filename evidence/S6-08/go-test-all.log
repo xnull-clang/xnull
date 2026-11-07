@@ -1,0 +1,19 @@
+ok  	xnull.dev/xnull/cmd/xnfmt	2.035s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	43.594s
+ok  	xnull.dev/xnull/internal/codegen	137.988s
+ok  	xnull.dev/xnull/internal/codegen/ffi	22.732s
+--- FAIL: TestBuildLedgerRepoGoldenScale (0.00s)
+    ledger_test.go:102: 台账规模偏离 golden：行数 101（期望 101），PASS 13（期望 18）
+FAIL
+FAIL	xnull.dev/xnull/internal/devtool	8.576s
+ok  	xnull.dev/xnull/internal/diag	4.600s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	3.990s
+ok  	xnull.dev/xnull/internal/sema	6.301s
+ok  	xnull.dev/xnull/internal/xfront	5.245s
+ok  	xnull.dev/xnull/internal/xnfmt	8.335s
+ok  	xnull.dev/xnull/internal/xpd	7.547s
+FAIL
+exit=1
