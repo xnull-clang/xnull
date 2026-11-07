@@ -23,6 +23,10 @@
   `xdkc_dir_close_async` 在 Context 取消时仍等待关闭完成，并返回**真实 close 结果**
   （成功 0），不再返回 2；close 必达，取消不撤销已完成的关闭（避免句柄层未 mark_closed
   导致悬垂 native 指针）。read/write/open/dir 的取消仍为 code=2（可恢复，调用方决定报告）。
+- **S7-06 伴生路由（2026-11-08）**：`xrt_companion_submit/wait` 作为
+  `.unaware + @longRunning` 的运行时入口；新增诊断 `xrt_companion_thread_count` /
+  `xrt_companion_on_worker`（非语言 API，分类一致性与压力测试用）。
+  `test_companion.c` 覆盖 4 worker 池、64 并发提交、16 取消风暴、伴生池忙时载体任务不受阻。
 - **候选期更正（S6-XDK04 组必关，2026-11-08）**：`xrt_task_group` 的 `group_deinit`
   在 `closed == 0` 时一律 `rt_fatal`（不再只在 `active > 0` 时），即使当前无活跃任务；
   codegen 对拥有型任务/上下文句柄局部（`TaskGroup.create`/`Context.background`/

@@ -291,6 +291,10 @@ typedef struct xrt_future xrt_future;
 xrt_future *xrt_companion_submit(xrt_blocking_fn fn, void *arg);
 /* 等待完成：0 = 已完成（*out 有效）；XRT_ERR_CANCELLED = 上下文取消（任务继续执行）。 */
 int32_t xrt_companion_wait(xrt_future *f, xrt_context *ctx, void **out);
+/* S7-06 诊断（非语言 API）：伴生池线程数与“当前线程是否伴生 worker”。
+ * 用于 .unaware + @longRunning 路由的分类一致性与压力测试。 */
+int xrt_companion_thread_count(void);
+int xrt_companion_on_worker(void);
 
 /* ---- 同步原语（S5-00 冻结面；S5-03） ---- */
 

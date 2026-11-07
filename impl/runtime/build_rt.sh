@@ -31,6 +31,9 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_std test_std.c
 /tmp/xnull_test_std
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_task test_task.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
 /tmp/xnull_test_task
+# S7-06：.unaware + @longRunning 伴生路由压力/一致性
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_companion test_companion.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
+/tmp/xnull_test_companion
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sync test_sync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_sync.c
 /tmp/xnull_test_sync
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sysasync test_sysasync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_sys.c

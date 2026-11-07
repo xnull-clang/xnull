@@ -499,9 +499,12 @@ static pthread_cond_t  g_ccv = PTHREAD_COND_INITIALIZER;
 static xrt_future     *g_chead = NULL;
 static xrt_future     *g_ctail = NULL;
 static pthread_once_t  g_companion_once = PTHREAD_ONCE_INIT;
+static int             g_companion_count = 0;
+static _Thread_local int tls_companion_worker = 0;
 
 static void *companion_main(void *arg) {
     (void)arg;
+    tls_companion_worker = 1;
     for (;;) {
         pthread_mutex_lock(&g_cmu);
         while (g_chead == NULL) {
@@ -527,6 +530,7 @@ static void *companion_main(void *arg) {
 
 static void companion_init(void) {
     int n = env_int("XNULL_COMPANIONS", 2);
+    g_companion_count = n;
     for (int i = 0; i < n; i++) {
         pthread_t th;
         if (pthread_create(&th, NULL, companion_main, NULL) != 0) {
@@ -588,4 +592,15 @@ int32_t xrt_companion_wait(xrt_future *f, xrt_context *ctx, void **out) {
     }
     pthread_mutex_unlock(&f->mu);
     return 0;
+}
+
+/* ---- S7-06 伴生执行器诊断（非语言 API；分类一致性/压力测试） ---- */
+
+int xrt_companion_thread_count(void) {
+    pthread_once(&g_companion_once, companion_init);
+    return g_companion_count;
+}
+
+int xrt_companion_on_worker(void) {
+    return tls_companion_worker;
 }

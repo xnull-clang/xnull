@@ -1,0 +1,11 @@
+test_companion.c:28:12: error: call to undeclared function 'xrt_companion_on_worker'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   28 |     assert(xrt_companion_on_worker() == 1); /* 必须运行在伴生 worker 上 */
+      |            ^
+test_companion.c:47:12: error: call to undeclared function 'xrt_companion_thread_count'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   47 |     assert(xrt_companion_thread_count() == 4);
+      |            ^
+test_companion.c:48:12: error: call to undeclared function 'xrt_companion_on_worker'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   48 |     assert(xrt_companion_on_worker() == 0);
+      |            ^
+3 errors generated.
+EXIT=1
