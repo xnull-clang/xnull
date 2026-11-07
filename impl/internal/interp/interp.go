@@ -34,15 +34,18 @@ const (
 	vChar
 	vStr
 	vResult
-	vArr     // T[]（固定长度，§9.3）
-	vList    // List<T>（§9.1）
-	vMap     // Map<K,V>（§9.1，键序确定性见 mapv）
-	vSet     // Set<T>（§9.1）
-	vTuple   // (T1, T2, ...)（§2.11）
-	vClosure // 闭包值（§7.7）
-	vObj     // 类实例（M4.4b）
-	vEnum    // 简单枚举值（S2 §8.2：名义类型 + 底层 Int）
-	vStruct  // 结构体值（S2 §3：纯值类型）
+	vArr       // T[]（固定长度，§9.3）
+	vList      // List<T>（§9.1）
+	vMap       // Map<K,V>（§9.1，键序确定性见 mapv）
+	vSet       // Set<T>（§9.1）
+	vTuple     // (T1, T2, ...)（§2.11）
+	vClosure   // 闭包值（§7.7）
+	vObj       // 类实例（M4.4b）
+	vEnum      // 简单枚举值（S2 §8.2：名义类型 + 底层 Int）
+	vStruct    // 结构体值（S2 §3：纯值类型）
+	vContext   // 任务上下文（S5 §3.3）
+	vTaskGroup // 任务组（S5 §3.2）
+	vTask      // 任务句柄（S5 §3.1）
 )
 
 // Value 是解释期运行值。
@@ -54,13 +57,16 @@ type Value struct {
 	C   rune
 	S   string
 	R   *resv
-	A   []*Value // 数组/List/元组元素
-	M   *mapv    // Map
-	Set *setv    // Set
-	Clo *clov    // 闭包
-	O   *objv    // 类实例（M4.4b）
-	E   string   // 枚举类型名（vEnum；S2 §8）
-	St  *structv // 结构体值（vStruct；S2 §3）
+	A   []*Value    // 数组/List/元组元素
+	M   *mapv       // Map
+	Set *setv       // Set
+	Clo *clov       // 闭包
+	O   *objv       // 类实例（M4.4b）
+	E   string      // 枚举类型名（vEnum；S2 §8）
+	St  *structv    // 结构体值（vStruct；S2 §3）
+	Ctx *ctxV       // 上下文（vContext）
+	TG  *taskGroupV // 任务组（vTaskGroup）
+	T   *taskV      // 任务句柄（vTask）
 }
 
 // resv 是 Result 运行值（当前 E 限定为可打印值；泛型检查在语义层）。
@@ -109,6 +115,12 @@ func (v *Value) typeName() string {
 		return v.E
 	case vStruct:
 		return v.St.decl.Name
+	case vContext:
+		return "Context"
+	case vTaskGroup:
+		return "TaskGroup"
+	case vTask:
+		return "Task"
 	}
 	return "?"
 }
@@ -1121,6 +1133,12 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 	}
 	// 方法调用形态：recv.method(args)（§10.1 Result 成员全部为方法）。
 	if mem, ok := n.Callee.(*xfront.Member); ok {
+		// S5 §3：Context.background() / TaskGroup.create(ctx) 静态入口。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok && (id.Name == "Context" || id.Name == "TaskGroup") {
+			if v, hit := in.evalTasksStatic(id.Name, n, sc); hit {
+				return v
+			}
+		}
 		// S2 §5.4：`super.m(...)` 从父类起点静态查找。
 		if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "super" {
 			self, found := sc.lookup("self")
@@ -1197,6 +1215,27 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		recv := in.eval(mem.X, sc)
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
+		}
+		if recv.K == vContext {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callContextMethod(recv.Ctx, mem.Name, args, n.P)
+		}
+		if recv.K == vTaskGroup {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callTaskGroupMethod(recv.TG, mem.Name, args, n.P)
+		}
+		if recv.K == vTask {
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callTaskMethod(recv.T, mem.Name, args, n.P)
 		}
 		if recv.K == vObj {
 			args0 := make([]*Value, len(n.Args))
