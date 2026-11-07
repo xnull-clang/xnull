@@ -88,4 +88,16 @@ static Int main() {
     rb.push("x")
     return 0
 }`, TyAssignability)
+
+	// 函数类型字段（less）的实参也必须按声明检查；不能只“放行未知返回”。
+	expectCode(t, `import xdk.collections
+class PriorityQueue<T> {
+    Bool(T, T) less;
+    PriorityQueue(Bool(T, T) less) { self.less = less }
+}
+static Int main() {
+    PriorityQueue<Int> pq = new PriorityQueue<Int>((Int a, Int b) -> a < b)
+    Bool b = pq.less(1, "x")
+    return 0
+}`, TyAssignability)
 }
