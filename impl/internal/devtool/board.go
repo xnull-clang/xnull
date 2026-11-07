@@ -221,7 +221,7 @@ func GenerateBoard(root, implDir string, opts BoardOptions, out io.Writer) error
 		}
 		note := ""
 		if _, ok := lineCodePaths[ln.name]; !ok {
-			note = "（支撑线：全量绿点）"
+			note = "（支撑线：活动路径最近提交）"
 		} else {
 			note = "（该线最近提交）"
 		}
