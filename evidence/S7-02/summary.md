@@ -39,6 +39,7 @@
 | 场景 | 结果 | 证据 |
 | --- | --- | --- |
 | 调用点：原生码 5 → 程序 exit 0，`code=5`，结果槽 0 | PASS | `green-gotest-codegen.log` |
+| 错误码即返回值：原生返回 7 → exit 0、打印 7 | PASS | `green-gotest-codegen.log` |
 | 映射运行时：5→NotFound、99→Internal、14→Cancelled、15→Timeout | PASS | `green-gotest-ffi.log` |
 | `ffiErrorKindExpr("native","rc")` | PASS | `green-gotest-codegen.log` |
 | S4 旧 fatal 用例改造（`s4_04`/`s4_05`） | PASS | `green-gotest-codegen.log` |

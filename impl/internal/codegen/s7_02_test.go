@@ -110,3 +110,90 @@ func TestS7_02ErrorKindExpr(t *testing.T) {
 		t.Fatalf("ffiErrorKindExpr=%q，期望 %q", got, want)
 	}
 }
+
+const s702RetXfb = `ffi native {
+  @ffiEntry(cName = "native_write")
+  @lease(v = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 ffiWrite(Int32 v);
+}
+`
+
+const s702RetNativeC = `#include <stdint.h>
+
+int32_t native_write(int32_t v) {
+    (void)v;
+    return 7; /* 错误码即返回值 */
+}
+`
+
+const s702RetSrc = `static Int main() {
+    Int32 rc = ffiWrite(1)
+    print(str(rc))
+    return 0
+}
+`
+
+// S7-02：错误码即返回值的入口也不 fatal；原始码交付调用点。
+func TestS7_02ErrorCodeReturnNoFatal(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.x")
+	writeFFIFile(t, mainPath, s702RetSrc)
+	writeFFIFile(t, filepath.Join(dir, "bindings", "native.xfb"), s702RetXfb)
+	nativePath := filepath.Join(dir, "native.c")
+	writeFFIFile(t, nativePath, s702RetNativeC)
+
+	reg, diags, err := LoadFFI(dir)
+	if err != nil || len(diags) != 0 {
+		t.Fatalf("LoadFFI: err=%v diags=%v", err, diags)
+	}
+	u, pdiags := xfront.ParseUnit(mainPath, s702RetSrc)
+	if len(pdiags) != 0 {
+		t.Fatalf("解析诊断：%v", pdiags)
+	}
+	if err := InjectFFI(u, reg); err != nil {
+		t.Fatalf("InjectFFI: %v", err)
+	}
+	if sd := sema.Analyze(mainPath, u); len(sd) != 0 {
+		t.Fatalf("语义诊断：%v", sd)
+	}
+	csrc, err := EmitCWithFFI(u, reg)
+	if err != nil {
+		t.Fatalf("EmitCWithFFI: %v", err)
+	}
+	if strings.Contains(csrc, "fatal: FFI 入口") {
+		t.Fatalf("错误码即返回值入口仍 fatal（S7-02）：\n%s", csrc)
+	}
+
+	cc, err := exec.LookPath("cc")
+	if err != nil {
+		t.Skip("无 C 编译器")
+	}
+	rt := filepath.Join("..", "..", "runtime")
+	if _, err := os.Stat(filepath.Join(rt, "xrt.h")); err != nil {
+		t.Skipf("运行时目录不可用：%v", err)
+	}
+	cfile := filepath.Join(dir, "prog.c")
+	writeFFIFile(t, cfile, csrc)
+	bin := filepath.Join(dir, "prog")
+	args := []string{"-std=c11", "-O2", "-Wno-unused-function", "-I", rt, "-o", bin, cfile, nativePath}
+	for _, f := range []string{"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c"} {
+		args = append(args, filepath.Join(rt, f))
+	}
+	var ccErr bytes.Buffer
+	cmd := exec.Command(cc, args...)
+	cmd.Stderr = &ccErr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("cc 失败：%v\n%s", err, ccErr.String())
+	}
+	var out bytes.Buffer
+	run := exec.Command(bin)
+	run.Stdout = &out
+	if err := run.Run(); err != nil {
+		t.Fatalf("运行失败：%v（stdout=%q）", err, out.String())
+	}
+	if got, want := out.String(), "7\n"; got != want {
+		t.Fatalf("stdout=%q，期望 %q", got, want)
+	}
+}
