@@ -18,15 +18,15 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 	case *xfront.IntLitExpr:
 		return "int64_t", nil
 	case *xfront.FloatLitExpr:
-		return "", fmt.Errorf("codegen：Float 未支持（M4.4a 范围）")
+		return "double", nil
 	case *xfront.CharLitExpr:
-		return "", fmt.Errorf("codegen：Char 未支持（M4.4a 范围）")
+		return "xn_char", nil
 	case *xfront.BoolLit:
 		return "int", nil
 	case *xfront.StrLitExpr:
 		return "rt_string *", nil
 	case *xfront.NullLit:
-		return "", fmt.Errorf("codegen：null 未支持（M4.4a 范围）")
+		return "void *", nil
 	case *xfront.Paren:
 		return s.exprType(n.X)
 	case *xfront.IdentExpr:
