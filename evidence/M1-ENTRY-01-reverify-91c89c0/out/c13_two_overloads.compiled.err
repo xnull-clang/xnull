@@ -1,0 +1,8 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-316394346/prog.c:163:27: error: incompatible integer to pointer conversion passing 'int' to parameter of type 'rt_string *' (aka 'struct rt_string *') [-Wint-conversion]
+  163 | xn_print_int(xn_main__ov2(41));
+      |                           ^~
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-316394346/prog.c:157:34: note: passing argument to parameter 'xn_p_s' here
+  157 | int64_t xn_main__ov2(rt_string * xn_p_s) {
+      |                                  ^
+1 error generated.
+xnull: C 编译失败：exit status 1

@@ -1,0 +1,16 @@
+c3_init_fatal
+c7b
+c7_runtime_divzero
+c7c_runtime_divzero
+c7d_args_divzero
+c7e_runtime_divzero
+e3_dup_overload
+c13_entry_first_call
+c13_call_overload
+c13_call_helper
+c13_two_overloads
+e10_private_main
+e11_generic_main
+e12_protected_main
+e13_public_main
+e14_int_args_noreturn

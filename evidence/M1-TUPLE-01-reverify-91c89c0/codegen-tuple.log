@@ -1,0 +1,4 @@
+=== RUN   TestTupleCodegenRuns
+--- PASS: TestTupleCodegenRuns (1.31s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.124s

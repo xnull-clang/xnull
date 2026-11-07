@@ -1,0 +1,42 @@
+t1_nullable	interp	0	true|5|a|	
+t1_nullable	compiled	1		xnull: 代码生成失败：codegen：可空类型 xn_tup_int64_t_int64_t 未支持（M6-B0-05 范围：Int/Bool/String/handle）|
+t2_return	interp	0	1|2|true|	
+t2_return	compiled	1		xnull: 代码生成失败：codegen：可空类型 xn_tup_int64_t_int64_t 未支持（M6-B0-05 范围：Int/Bool/String/handle）|
+t3_field	interp	0	1|2|0|0|true|1|4|1|5|	
+t3_field	compiled	1		xnull: 代码生成失败：codegen：可空类型 xn_tup_int64_t_rt_string__ 未支持（M6-B0-05 范围：Int/Bool/String/handle）|
+t4_container	interp	0	7|7|10|0|0|	
+t4_container	compiled	1		xnull: 代码生成失败：codegen：返回表达式 *xfront.ArrayLit 未支持（M4.1 范围）|
+t5_topfield	interp	0	11|12|true|	
+t5_topfield	compiled	1		xnull: 代码生成失败：codegen：可空类型 xn_tup_int64_t_rt_string__ 未支持（M6-B0-05 范围：Int/Bool/String/handle）|
+t6_generic_closure	interp	0	1|a|2|	
+t6_generic_closure	compiled	1		xnull: 代码生成失败：codegen：类型实参 *xfront.TupleTypeRef 未支持（§8.3 单态化）|
+t7_map_key	interp	1		cases/t7_map_key.x:2:5: error[TY-107]: Map 键类型 (Int,Int) 不被支持（§9.5：只允许 String、整数类型和简单枚举）|  改用 String 或整数键，或把键编码为 String|
+t7_map_key	compiled	1		cases/t7_map_key.x:2:5: error[TY-107]: Map 键类型 (Int,Int) 不被支持（§9.5：只允许 String、整数类型和简单枚举）|  改用 String 或整数键，或把键编码为 String|
+t8_copy_container	interp	0	1|4|8|	
+t8_copy_container	compiled	0	1|4|8|	
+t9_interp_eq	interp	0	(1, x)|true|true|false|false|	
+t9_interp_eq	compiled	0	(1, x)|true|false|false|true|	
+t10_nullable_value	interp	0	false|1|true|	
+t10_nullable_value	compiled	1		xnull: 代码生成失败：codegen：可空类型 xn_tup_int64_t_int64_t 未支持（M6-B0-05 范围：Int/Bool/String/handle）|
+t11_copy_paths	interp	0	1|9|8|7|7|7|	
+t11_copy_paths	compiled	0	1|9|8|7|7|7|	
+t12_set_key	interp	1		xnull: Set 元素只能是 Int / String（S1 §9.6）|
+t12_set_key	compiled	1		/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2282976085/prog.c:235:26: error: invalid operands to binary expression ('xn_tup_int64_t_int64_t' and 'xn_tup_int64_t_int64_t')|  235 |         if (s->a.data[i] == v) { return 0; }|      |             ~~~~~~~~~~~~ ^  ~|/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2282976085/prog.c:243:26: error: invalid operands to binary expression ('xn_tup_int64_t_int64_t' and 'xn_tup_int64_t_int64_t')|  243 |         if (s->a.data[i] == v) { return 1; }|      |             ~~~~~~~~~~~~ ^  ~|/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2282976085/prog.c:255:26: error: invalid operands to binary expression ('xn_tup_int64_t_int64_t' and 'xn_tup_int64_t_int64_t')|  255 |         if (s->a.data[i] == v) {|      |             ~~~~~~~~~~~~ ^  ~|3 errors generated.|xnull: C 编译失败：exit status 1|
+t13_container_get_copy	interp	0	1|4|	
+t13_container_get_copy	compiled	0	1|4|	
+c1_return	interp	0	1|2|	
+c1_return	compiled	0	1|2|	
+c2_field	interp	0	1|2|0|0|1|4|1|5|	
+c2_field	compiled	0	1|2|0|0|1|4|1|5|	
+c3_container	interp	0	7|10|0|0|	
+c3_container	compiled	1		xnull: 代码生成失败：codegen：容器表达式 *xfront.NewArray 未支持（M4.4a 范围）|
+c4_topfield	interp	0	11|12|	
+c4_topfield	compiled	0	11|12|	
+c5_eq_identity	interp	0	true|false|true|false|	
+c5_eq_identity	compiled	1		/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2823180333/prog.c:142:5: error: unknown type name 'xn_arr_i'|  142 |     xn_arr_i f0;|      |     ^|1 error generated.|xnull: C 编译失败：exit status 1|
+c6_copy_param	interp	0	1|1|	
+c6_copy_param	compiled	0	1|1|	
+c7_eq_value	interp	0	true|false|false|true|true|(1, 2)|	
+c7_eq_value	compiled	0	true|false|false|true|true|(1, 2)|	
+c8_element_assign	interp	0	9|2|	
+c8_element_assign	compiled	0	9|2|	

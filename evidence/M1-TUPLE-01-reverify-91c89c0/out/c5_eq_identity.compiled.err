@@ -1,0 +1,5 @@
+/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2823180333/prog.c:142:5: error: unknown type name 'xn_arr_i'
+  142 |     xn_arr_i f0;
+      |     ^
+1 error generated.
+xnull: C 编译失败：exit status 1

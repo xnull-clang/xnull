@@ -1,0 +1,14 @@
+=== RUN   TestEntryMainOverloadIsOrdinary
+=== RUN   TestEntryMainOverloadIsOrdinary/入口在前
+=== RUN   TestEntryMainOverloadIsOrdinary/重载在前
+--- PASS: TestEntryMainOverloadIsOrdinary (2.83s)
+    --- PASS: TestEntryMainOverloadIsOrdinary/入口在前 (1.58s)
+    --- PASS: TestEntryMainOverloadIsOrdinary/重载在前 (1.25s)
+=== RUN   TestEntryInitDivZeroFatal
+=== RUN   TestEntryInitDivZeroFatal/常量除零
+=== RUN   TestEntryInitDivZeroFatal/运行期除零
+--- PASS: TestEntryInitDivZeroFatal (2.82s)
+    --- PASS: TestEntryInitDivZeroFatal/常量除零 (1.54s)
+    --- PASS: TestEntryInitDivZeroFatal/运行期除零 (1.28s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	6.465s

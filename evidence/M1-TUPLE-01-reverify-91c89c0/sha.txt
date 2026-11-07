@@ -1,0 +1,5 @@
+main_sha=91c89c05b70b151f6956e2f504ffed9082deb600
+tuple_copy_fix=df81c75
+tuple_codegen=91c89c0
+date=2026-11-07
+go=go1.27.3 darwin/amd64
