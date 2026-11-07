@@ -1,0 +1,2 @@
+difftest/s2/bnd06/r02_dup_case.x:7:19: error[TY-213]: 枚举项 `Red` 在 switch 中重复（§8.5）
+  删除重复 case

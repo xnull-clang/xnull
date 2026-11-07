@@ -1,0 +1,14 @@
+=== RUN   TestS2EnumSimpleRuntime
+--- PASS: TestS2EnumSimpleRuntime (0.00s)
+=== RUN   TestS2EnumUnknownItemRejected
+--- PASS: TestS2EnumUnknownItemRejected (0.00s)
+=== RUN   TestS2EnumDataRuntime
+--- PASS: TestS2EnumDataRuntime (0.00s)
+=== RUN   TestS2INT01ResultTryObject
+--- PASS: TestS2INT01ResultTryObject (0.00s)
+=== RUN   TestS2INT01FactoryResult
+--- PASS: TestS2INT01FactoryResult (0.00s)
+=== RUN   TestS2INT01EnumSwitchObject
+--- PASS: TestS2INT01EnumSwitchObject (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.579s

@@ -1,0 +1,1 @@
+difftest/s2/bnd04/r02_self.x:1:8: error[TY-204]: 结构体方法不得在闭包中捕获 self（§3.1：需要捕获接收者时改用 class）
