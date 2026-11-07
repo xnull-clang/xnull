@@ -59,6 +59,8 @@ type Resolved struct {
 
 	// Plugins 是 build.plugins 的声明（供 S8-05 插件合同校验）。
 	Plugins []PluginRef
+	// ResourceRoots 是 build.resources.resource 的声明（S8 §5.6）。
+	ResourceRoots []ResourceRoot
 	// Managed 是合并后的 dependencyManagement（坐标→版本，子优先）。
 	Managed map[string]string
 	// Warnings 是构建警告（如依赖显式版本覆盖管理版本）。
@@ -93,10 +95,18 @@ type fileData struct {
 	profiles  []profileData
 	managed   map[string]managedEntry
 	plugins   []PluginRef
+	resRoots  []ResourceRoot
 }
 
 type managedEntry struct {
 	version string
+}
+
+// ResourceRoot 是一条资源根声明（build.resources.resource）。Dir 相对工程根。
+type ResourceRoot struct {
+	Dir      string
+	Includes []string
+	Excludes []string
 }
 
 // PluginRef 是清单中的一条插件声明（build.plugins.plugin）。
@@ -274,6 +284,9 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 			res.Managed[coord] = m.version
 		}
 		res.Plugins = append(res.Plugins, fd.plugins...)
+		if len(fd.resRoots) > 0 {
+			res.ResourceRoots = append(res.ResourceRoots, fd.resRoots...)
+		}
 	}
 
 	// 6. 变量替换（单次；查找用未替换的原始表）
@@ -493,6 +506,33 @@ func parseFile(path string) (*fileData, []diag.Diagnostic, error) {
 						fd.build[fld.Name] = fld.Value.Raw()
 						if fld.Value.Kind == xpd.StringValue || fld.Value.Kind == xpd.BareValue {
 							fd.build[fld.Name] = fld.Value.Text
+						}
+						continue
+					}
+					if resBlock, ok := c.(*xpd.Block); ok && resBlock.Name == "resources" {
+						for _, rc := range resBlock.Children {
+							rb, ok := rc.(*xpd.Block)
+							if !ok || rb.Name != "resource" || len(rb.Args) == 0 {
+								continue
+							}
+							rr := ResourceRoot{Dir: rb.Args[0].Text}
+							for _, rcc := range rb.Children {
+								fld, ok := rcc.(*xpd.Field)
+								if !ok {
+									continue
+								}
+								switch fld.Name {
+								case "includes":
+									for _, e := range fld.Value.Elems {
+										rr.Includes = append(rr.Includes, e.Text)
+									}
+								case "excludes":
+									for _, e := range fld.Value.Elems {
+										rr.Excludes = append(rr.Excludes, e.Text)
+									}
+								}
+							}
+							fd.resRoots = append(fd.resRoots, rr)
 						}
 						continue
 					}

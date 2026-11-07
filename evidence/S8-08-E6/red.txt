@@ -1,0 +1,14 @@
+# xnull.dev/xnull/internal/resman [xnull.dev/xnull/internal/resman.test]
+internal/resman/resman_test.go:48:16: undefined: Collect
+internal/resman/resman_test.go:48:26: undefined: Root
+internal/resman/resman_test.go:62:15: undefined: Collect
+internal/resman/resman_test.go:62:25: undefined: Root
+internal/resman/resman_test.go:91:13: undefined: Match
+internal/resman/resman_test.go:102:14: undefined: Collect
+internal/resman/resman_test.go:102:24: undefined: Root
+internal/resman/resman_test.go:120:12: undefined: Collect
+internal/resman/resman_test.go:120:22: undefined: Root
+internal/resman/resman_test.go:224:13: undefined: Set
+internal/resman/resman_test.go:120:22: too many errors
+FAIL	xnull.dev/xnull/internal/resman [build failed]
+FAIL

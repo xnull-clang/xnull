@@ -1,0 +1,17 @@
+=== RUN   TestCollectGlobAndPrefix
+--- PASS: TestCollectGlobAndPrefix (0.00s)
+=== RUN   TestGlobSemantics
+--- PASS: TestGlobSemantics (0.00s)
+=== RUN   TestConflictNamesBothSources
+--- PASS: TestConflictNamesBothSources (0.00s)
+=== RUN   TestMergeDependency
+--- PASS: TestMergeDependency (0.00s)
+=== RUN   TestSymlinks
+--- PASS: TestSymlinks (0.00s)
+=== RUN   TestPhaseAndPackaging
+--- PASS: TestPhaseAndPackaging (0.00s)
+=== RUN   TestInvalidRootAndGlob
+--- PASS: TestInvalidRootAndGlob (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/resman	1.545s
+exit=0
