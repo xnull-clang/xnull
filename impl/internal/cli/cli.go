@@ -91,6 +91,10 @@ func Run(env Env) int {
 	if name == "check" {
 		return runCheck(env, rest)
 	}
+	// S8-10：清单/锁/元数据格式化。
+	if name == "fmt" {
+		return runFmt(env, rest)
+	}
 	// 最小可运行闭环：`xnull run path/to/file.x [--] [程序参数...]` 直接执行单文件
 	//（不依赖工程清单；清单模式后续接入）。`--` 之后的参数原样交给 main(String[])。
 	if name == "run" {
