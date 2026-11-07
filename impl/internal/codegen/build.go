@@ -20,6 +20,9 @@ type Options struct {
 	MemPolicy string
 	// Stats 打开运行期分配统计与 GC 指标（§21/§23）；报告写 stderr。
 	Stats bool
+	// ResC 是工程资源表 C 源（由 `xnull dev res` 生成）；为空时使用内置空表。
+	// S6-04：资源表与 rt_std_res.c 一起进入产物链接。
+	ResC string
 }
 
 // runtimeCSources 是构建时必须一起编译/链接的 C 源（相对运行时目录，顺序固定）。
@@ -36,7 +39,31 @@ var runtimeCSources = []string{
 	"rt_std_bytes.c",
 	"rt_task.c",
 	"rt_sync.c",
+	"rt_std_res.c",
 }
+
+// emptyResourceTableC 是零资源工程的资源表：count=0、get 恒失败、at 恒失败。
+// 保证 rt_std_res.c 引用的 xrt_resource_* 符号在任何产物中都有定义（S8 §5.6 空表零成本）。
+const emptyResourceTableC = `/* 由 xnull build 生成：零资源工程空表（S8 §5.6） */
+#include <stddef.h>
+#include <string.h>
+
+size_t xrt_resource_count(void) { return 0; }
+
+int xrt_resource_get(const char *name, size_t nlen,
+                     const unsigned char **out, size_t *out_len) {
+    (void)name; (void)nlen;
+    *out = 0; *out_len = 0;
+    return 1;
+}
+
+int xrt_resource_at(size_t i, const char **name, size_t *nlen,
+                    const unsigned char **out, size_t *out_len) {
+    (void)i;
+    *name = 0; *nlen = 0; *out = 0; *out_len = 0;
+    return 1;
+}
+`
 
 // Build 端到端构建：XNull 源文件 → C → cc → 可执行文件（M4.2）。
 // 返回进程退出码；诊断写 stderr。
@@ -107,7 +134,16 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		fmt.Fprintf(stderr, "xnull: 无法写出 %s：%v\n", cfile, err)
 		return 1
 	}
-	cc := exec.Command("cc", buildCCArgs(outPath, cfile, runtimeDir, opts.LinkArgs)...)
+	// 资源表（S6-04）：工程表由调用方生成；缺省写零资源空表，保证 xrt_resource_* 符号闭合。
+	resC := opts.ResC
+	if resC == "" {
+		resC = outPath + ".res.c"
+		if err := os.WriteFile(resC, []byte(emptyResourceTableC), 0o644); err != nil {
+			fmt.Fprintf(stderr, "xnull: 无法写出资源表 %s：%v\n", resC, err)
+			return 1
+		}
+	}
+	cc := exec.Command("cc", buildCCArgs(outPath, cfile, runtimeDir, resC, opts.LinkArgs)...)
 	cc.Stderr = stderr
 	cc.Stdout = stderr
 	if err := cc.Run(); err != nil {
@@ -117,12 +153,15 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	return 0
 }
 
-// buildCCArgs 组装 cc 参数：旗标 → 输出 → 生成源 → 运行时 C 源 → LinkArgs。
+// buildCCArgs 组装 cc 参数：旗标 → 输出 → 生成源 → 运行时 C 源 → 资源表 → LinkArgs。
 // LinkArgs 必须排在全部目标文件之后（链接顺序敏感，P-10 条件 3）。
-func buildCCArgs(outPath, cfile, runtimeDir string, linkArgs []string) []string {
+func buildCCArgs(outPath, cfile, runtimeDir, resC string, linkArgs []string) []string {
 	args := []string{"-std=c11", "-O2", "-pthread", "-I", runtimeDir, "-o", outPath, cfile}
 	for _, src := range runtimeCSources {
 		args = append(args, filepath.Join(runtimeDir, src))
+	}
+	if resC != "" {
+		args = append(args, resC)
 	}
 	args = append(args, linkArgs...)
 	return args
