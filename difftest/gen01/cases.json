@@ -1,0 +1,186 @@
+[
+  {
+    "id": "G1a",
+    "mode": "accept",
+    "src": "static T identity<T>(T value) { return value }\nstatic Int main() { print(identity<Int>(7)); return 0 }",
+    "expected": "7\n",
+    "files": {}
+  },
+  {
+    "id": "G1b",
+    "mode": "reject",
+    "src": "static T identity<T>(T value) { return value }\nstatic Int main() { print(identity<Int, Int>(7)); return 0 }",
+    "expected": "GEN-101",
+    "files": {}
+  },
+  {
+    "id": "G2a",
+    "mode": "accept",
+    "src": "static T identity<T>(T value) { return value }\nstatic Int main() { print(identity(7)); return 0 }",
+    "expected": "7\n",
+    "files": {}
+  },
+  {
+    "id": "G2b",
+    "mode": "accept",
+    "src": "static T head<T>(List<T> xs) { return xs.get(0) }\nstatic Int main() { List<Int> xs = [1,2,3]; print(head(xs)); return 0 }",
+    "expected": "1\n",
+    "files": {}
+  },
+  {
+    "id": "G2c",
+    "mode": "accept",
+    "src": "static T pick<T>(T a, T b) { return a }\nstatic Int main() { print(pick(1, 2)); return 0 }",
+    "expected": "1\n",
+    "files": {}
+  },
+  {
+    "id": "G2d",
+    "mode": "reject",
+    "src": "static T make<T>() { return make<T>() }\nstatic Int main() { Int x = make(); print(x); return 0 }",
+    "expected": "GEN-102",
+    "files": {}
+  },
+  {
+    "id": "G3",
+    "mode": "reject",
+    "src": "static T pick<T>(T a, T b) { return a }\nstatic Int main() { print(pick(1, \"s\")); return 0 }",
+    "expected": "GEN-102",
+    "files": {}
+  },
+  {
+    "id": "G4",
+    "mode": "reject",
+    "src": "static T firstOf<T, U>(T a) { return a }\nstatic Int main() { print(firstOf(1)); return 0 }",
+    "expected": "GEN-102",
+    "files": {}
+  },
+  {
+    "id": "G5a",
+    "mode": "accept",
+    "src": "static Int pick(Int x) { return x + 1 }\nstatic T pick<T>(T x) { return x }\nstatic Int main() { print(pick(3)); return 0 }",
+    "expected": "4\n",
+    "files": {}
+  },
+  {
+    "id": "G5b",
+    "mode": "reject",
+    "src": "static T pick<T>(T a) { return a }\nstatic T pick<T>(List<T> a) { return a.get(0) }\nstatic Int main() { List<Int> xs = [1,2]; Int v = pick(xs); print(v); return 0 }",
+    "expected": "GEN-103",
+    "files": {}
+  },
+  {
+    "id": "G5c",
+    "mode": "reject",
+    "src": "static Int pick(Int a) { return a }\nstatic T pick<T>(List<T> a) { return a.get(0) }\nstatic Int main() { print(pick(\"x\")); return 0 }",
+    "expected": "TY-101",
+    "files": {}
+  },
+  {
+    "id": "G6a",
+    "mode": "accept",
+    "src": "static T identity<T>(T value) { return value }\nstatic Int main() { print(identity<Int>(7)); print(identity<String>(\"ok\")); return 0 }",
+    "expected": "7\nok\n",
+    "files": {}
+  },
+  {
+    "id": "G6b",
+    "mode": "accept",
+    "src": "static Int count<T>(List<T> xs) { return xs.length() }\nstatic Int main() { List<Int> a = [1,2]; List<String> b = [\"a\",\"b\",\"c\"]; print(count(a)); print(count(b)); return 0 }",
+    "expected": "2\n3\n",
+    "files": {}
+  },
+  {
+    "id": "G7",
+    "mode": "reject",
+    "src": "static T loop<T>(T v) { return loop<T>(v) }\nstatic Int main() { print(loop<Int>(1)); return 0 }",
+    "expected": "GEN-104",
+    "files": {}
+  },
+  {
+    "id": "G8",
+    "mode": "accept",
+    "src": "static T unwrapOr<T>(Result<T, String> r, T d) {\n    if (r.isOk()) {\n        return r.value()\n    }\n    return d\n}\nstatic Int main() {\n    Result<Int, String> a = Ok(5)\n    Result<Int, String> b = Err(\"x\")\n    print(unwrapOr(a, 0))\n    print(unwrapOr(b, 9))\n    return 0\n}",
+    "expected": "5\n9\n",
+    "files": {}
+  },
+  {
+    "id": "G9",
+    "mode": "reject",
+    "src": "static T g(T x) { return x }\nstatic Int main() { return 0 }",
+    "expected": "RES-101",
+    "files": {}
+  },
+  {
+    "id": "G10",
+    "mode": "reject",
+    "src": "static T f<T, T>(T x) { return x }\nstatic Int main() { return 0 }",
+    "expected": "RES-102",
+    "files": {}
+  },
+  {
+    "id": "G11",
+    "mode": "accept",
+    "src": "static T boxFirst<T>(T v) {\n    T local = v\n    List<T> box = [local]\n    return box.get(0)\n}\nstatic Int main() { print(boxFirst<Int>(4)); return 0 }",
+    "expected": "4\n",
+    "files": {}
+  },
+  {
+    "id": "G12",
+    "mode": "reject",
+    "src": "static T identity<T>(T v) { return v }\nstatic Int main() { Any f = identity<Int>; print(1); return 0 }",
+    "expected": "SYN-",
+    "files": {}
+  },
+  {
+    "id": "G13",
+    "mode": "reject",
+    "src": "static T identity<T>(T v) { return v }\nstatic Int main() { print(identity<void>()); return 0 }",
+    "expected": "GEN-101",
+    "files": {}
+  },
+  {
+    "id": "G14",
+    "mode": "accept",
+    "src": "static Bool isInt<T>(T v) { return v is Int }\nstatic Int main() { print(isInt<Int>(1)); print(isInt<String>(\"s\")); return 0 }",
+    "expected": "true\nfalse\n",
+    "files": {}
+  },
+  {
+    "id": "G15",
+    "mode": "reject",
+    "src": "static T make<T>() { return new T() }\nstatic Int main() { print(make<Int>()); return 0 }",
+    "expected": "GEN-104",
+    "files": {}
+  },
+  {
+    "id": "G16",
+    "mode": "accept",
+    "src": "import lib.generic\nstatic Int main() { print(id2<Int>(8)); return 0 }",
+    "expected": "8\n",
+    "files": {
+      "lib/generic.x": "static T id2<T>(T v) { return v }"
+    }
+  },
+  {
+    "id": "G17",
+    "mode": "reject",
+    "src": "static T f<T: Comparable>(T v) { return v }\nstatic Int main() { return 0 }",
+    "expected": "SYN-",
+    "files": {}
+  },
+  {
+    "id": "G18",
+    "mode": "accept",
+    "src": "static Int pick(Int x) { return x + 1 }\nstatic T pick<T>(T x) { return x }\nstatic Int main() { print(pick(3)); print(pick<String>(\"s\")); return 0 }",
+    "expected": "4\ns\n",
+    "files": {}
+  },
+  {
+    "id": "G19",
+    "mode": "reject",
+    "src": "static T id<T>(T v) { return v }\nstatic Int main() { print(id(null)); return 0 }",
+    "expected": "GEN-102",
+    "files": {}
+  }
+]
