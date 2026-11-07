@@ -1,0 +1,28 @@
+=== RUN   TestS4BOUND01ProcessExitCodes
+=== RUN   TestS4BOUND01ProcessExitCodes/成功_0
+=== RUN   TestS4BOUND01ProcessExitCodes/非零原样
+=== RUN   TestS4BOUND01ProcessExitCodes/fatal_除零_134
+=== RUN   TestS4BOUND01ProcessExitCodes/fatal_throw_134
+=== RUN   TestS4BOUND01ProcessExitCodes/void_main_0
+--- PASS: TestS4BOUND01ProcessExitCodes (12.19s)
+    --- PASS: TestS4BOUND01ProcessExitCodes/成功_0 (2.92s)
+    --- PASS: TestS4BOUND01ProcessExitCodes/非零原样 (2.36s)
+    --- PASS: TestS4BOUND01ProcessExitCodes/fatal_除零_134 (2.32s)
+    --- PASS: TestS4BOUND01ProcessExitCodes/fatal_throw_134 (2.39s)
+    --- PASS: TestS4BOUND01ProcessExitCodes/void_main_0 (2.20s)
+=== RUN   TestS4BOUND02ResultNoCrossBoundary
+=== RUN   TestS4BOUND02ResultNoCrossBoundary/参数位
+=== RUN   TestS4BOUND02ResultNoCrossBoundary/返回位
+--- PASS: TestS4BOUND02ResultNoCrossBoundary (0.00s)
+    --- PASS: TestS4BOUND02ResultNoCrossBoundary/参数位 (0.00s)
+    --- PASS: TestS4BOUND02ResultNoCrossBoundary/返回位 (0.00s)
+=== RUN   TestS4CLEAN01ErrdeferCompensation
+--- PASS: TestS4CLEAN01ErrdeferCompensation (2.04s)
+=== RUN   TestS4FFIBoundaryErrorPaths
+=== RUN   TestS4FFIBoundaryErrorPaths/已映射码
+=== RUN   TestS4FFIBoundaryErrorPaths/未知码
+--- PASS: TestS4FFIBoundaryErrorPaths (5.08s)
+    --- PASS: TestS4FFIBoundaryErrorPaths/已映射码 (2.65s)
+    --- PASS: TestS4FFIBoundaryErrorPaths/未知码 (2.42s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	21.998s
