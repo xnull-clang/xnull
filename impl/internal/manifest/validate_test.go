@@ -84,3 +84,39 @@ func TestSchemaPositions(t *testing.T) {
 	}
 	_ = filepath.Base
 }
+
+// S8-05：build.plugins 声明解析（供插件合同校验）。
+func TestPluginsParsed(t *testing.T) {
+	body := `project {
+  groupId = g
+  artifactId = a
+  version = 1.0.0
+  packaging = app
+  build {
+    plugins {
+      plugin com.example:codegen 1.2.0 {
+        phase = validate
+        goal  = check
+        configuration {
+          output = target/gen
+        }
+      }
+    }
+  }
+}
+`
+	dir := t.TempDir()
+	p := write(t, dir, "xnull.project", body)
+	res, ds, err := Load(p, Options{})
+	if err != nil || len(ds) != 0 {
+		t.Fatalf("不应有诊断：%v %v", err, ds)
+	}
+	if len(res.Plugins) != 1 {
+		t.Fatalf("插件声明未解析：%+v", res.Plugins)
+	}
+	pl := res.Plugins[0]
+	if pl.Coordinate != "com.example:codegen" || pl.Version != "1.2.0" || pl.Phase != "validate" ||
+		pl.Goal != "check" || pl.Config["output"] != "target/gen" {
+		t.Fatalf("插件字段错误：%+v", pl)
+	}
+}
