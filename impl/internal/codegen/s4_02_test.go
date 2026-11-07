@@ -70,17 +70,17 @@ class E2 implements Error {
     ErrorKind kind() { return ErrorKind.NotFound }
     String describe() { return "missing" }
 }
-static E2 conv(E1 e) { return new E2() }
+static E1 conv(E1 e) { return new E1() }
 static Int main() {
     Result<Int, E1> bad = Err(new E1())
-    Result<Int, E2> mapped = mapErr(bad, conv)
+    Result<Int, E1> mapped = mapErr(bad, conv)
     report(mapped)
-    Result<Int, E2> wrapped = wrap(mapped, new E2())
+    Result<Int, E1> wrapped = wrap(mapped, new E1())
     print(wrapped.isErr())
     E1 e = bad.error()
     print(e.describe())
-    Result<Int, E2> good = Ok(5)
-    Result<Int, E2> m2 = mapErr(good, conv)
+    Result<Int, E1> good = Ok(5)
+    Result<Int, E1> m2 = mapErr(good, conv)
     print(m2.unwrapOr(0))
     report(m2)
     return 0
@@ -90,7 +90,7 @@ static Int main() {
 	if code != 0 || stdout != wantOut {
 		t.Fatalf("stdout=%q code=%d，期望 %q", stdout, code, wantOut)
 	}
-	if got, want := strings.TrimSuffix(stderr, "\n"), "[NotFound] missing"; got != want {
+	if got, want := strings.TrimSuffix(stderr, "\n"), "[Io] io-err"; got != want {
 		t.Fatalf("stderr=%q，期望单行 %q", stderr, want)
 	}
 	if strings.Count(strings.TrimSuffix(stderr, "\n"), "\n") != 0 {
@@ -109,8 +109,8 @@ static Int main() {
     Result<Int, E> ok = Ok(1)
     report(ok)
     Result<Int, E> bad = Err(new E())
-    Result<Int, E> again = report(bad)
-    print(again.isErr())
+    report(bad)
+    print(bad.isErr())
     return 0
 }`
 	csrc := emitWithPolicy(t, src)

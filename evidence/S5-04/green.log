@@ -1,0 +1,6 @@
+=== RUN   TestS5_04TaskSpawnJoin
+--- PASS: TestS5_04TaskSpawnJoin (1.93s)
+=== RUN   TestS5_04TaskEnvScan
+--- PASS: TestS5_04TaskEnvScan (2.11s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.043s

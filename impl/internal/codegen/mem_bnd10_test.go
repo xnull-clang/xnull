@@ -34,11 +34,11 @@ func compileAndRunPolicy(t *testing.T, src string) (string, int) {
 		t.Fatal(err)
 	}
 	bin := filepath.Join(dir, "prog")
-	cc := exec.Command("cc", "-std=c11", "-I", "../../../impl/runtime", "-O2", "-o", bin,
-		cfile, "../../../impl/runtime/rt.c", "../../../impl/runtime/rt_gc.c",
-		"../../../impl/runtime/rt_policy.c", "../../../impl/runtime/rt_weak.c",
-		"../../../impl/runtime/rt_std_bytes.c", "../../../impl/runtime/rt_std_text.c",
-		"../../../impl/runtime/xrt_abi.c")
+	args := []string{"-std=c11", "-pthread", "-I", "../../../impl/runtime", "-O2", "-o", bin, cfile}
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join("../../../impl/runtime", s))
+	}
+	cc := exec.Command("cc", args...)
 	var ccerr bytes.Buffer
 	cc.Stderr = &ccerr
 	if err := cc.Run(); err != nil {
