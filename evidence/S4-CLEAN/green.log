@@ -1,0 +1,11 @@
+=== RUN   TestS4CLEAN01ErrdeferCompensation
+--- PASS: TestS4CLEAN01ErrdeferCompensation (0.00s)
+=== RUN   TestS4CLEAN01CompensationFailure
+=== RUN   TestS4CLEAN01CompensationFailure/ReportCompensationFailure
+=== RUN   TestS4CLEAN01CompensationFailure/MultiStepRollback
+--- PASS: TestS4CLEAN01CompensationFailure (0.00s)
+    --- PASS: TestS4CLEAN01CompensationFailure/ReportCompensationFailure (0.00s)
+    --- PASS: TestS4CLEAN01CompensationFailure/MultiStepRollback (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	2.402s
+exit=0

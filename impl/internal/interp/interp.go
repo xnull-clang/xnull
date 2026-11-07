@@ -463,6 +463,7 @@ func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) 
 	for i, p := range fn.Params {
 		if i < len(args) {
 			sc.defineTyped(p.Name, p.Type, args[i])
+			in.takeOwnership(sc, p.Name, args[i])
 		} else {
 			sc.defineTyped(p.Name, p.Type, &Value{K: vNull})
 		}

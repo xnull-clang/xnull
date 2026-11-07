@@ -47,6 +47,7 @@ func (in *Interp) callFactoryMethod(fac *xfront.FactoryDecl, name string, args [
 	for i, prm := range m.Params {
 		if i < len(args) {
 			sc.defineTyped(prm.Name, prm.Type, args[i])
+			in.takeOwnership(sc, prm.Name, args[i])
 		} else {
 			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 		}
