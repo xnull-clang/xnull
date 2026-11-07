@@ -220,6 +220,13 @@ func (s *scope) tupleCallExpr(cl *xfront.Call, tc string) ([]string, string, err
 	if !ok {
 		return nil, "", fmt.Errorf("codegen：元组调用目标 %T 未支持", cl.Callee)
 	}
+	if expr, hit, err := s.selfMethodCall(id.Name, cl.Args); err != nil {
+		return nil, "", err
+	} else if hit {
+		lines := append([]string{}, s.pending...)
+		s.pending = nil
+		return lines, expr, nil
+	}
 	args, err := s.callArgs(cl.Args)
 	if err != nil {
 		return nil, "", err

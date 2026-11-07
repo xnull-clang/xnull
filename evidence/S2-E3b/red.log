@@ -1,0 +1,26 @@
+=== RUN   TestS2ExplicitConstructorRuntime
+=== RUN   TestS2ExplicitConstructorRuntime/NoArg
+    s2_ctor_field_test.go:16: out="1\n" want="5\n" err=<nil>
+=== RUN   TestS2ExplicitConstructorRuntime/WithParam
+    s2_ctor_field_test.go:28: out="" want="5\n" err=类 D 没有带参构造器（§6.1）
+=== RUN   TestS2ExplicitConstructorRuntime/OverloadByArity
+    s2_ctor_field_test.go:47: out="" want="1\n10\n" err=类 O 没有带参构造器（§6.1）
+=== RUN   TestS2ExplicitConstructorRuntime/FieldInitBeforeBody
+    s2_ctor_field_test.go:59: out="1\n" want="2\n" err=<nil>
+--- FAIL: TestS2ExplicitConstructorRuntime (0.00s)
+    --- FAIL: TestS2ExplicitConstructorRuntime/NoArg (0.00s)
+    --- FAIL: TestS2ExplicitConstructorRuntime/WithParam (0.00s)
+    --- FAIL: TestS2ExplicitConstructorRuntime/OverloadByArity (0.00s)
+    --- FAIL: TestS2ExplicitConstructorRuntime/FieldInitBeforeBody (0.00s)
+=== RUN   TestS2BareFieldResolution
+=== RUN   TestS2BareFieldResolution/ReadAndWrite
+    s2_ctor_field_test.go:81: out="" want="2\n" err=未定义的名称：x
+=== RUN   TestS2BareFieldResolution/FieldInitializer
+    s2_ctor_field_test.go:93: out="" want="2\n" err=未定义的名称：a
+--- FAIL: TestS2BareFieldResolution (0.00s)
+    --- FAIL: TestS2BareFieldResolution/ReadAndWrite (0.00s)
+    --- FAIL: TestS2BareFieldResolution/FieldInitializer (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	1.280s
+FAIL
+exit=1

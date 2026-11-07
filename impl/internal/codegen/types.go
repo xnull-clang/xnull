@@ -33,6 +33,11 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		if c, ok := s.localCType(n.Name); ok {
 			return c, nil
 		}
+		if s.self != nil {
+			if c, ok := s.self.types[n.Name]; ok {
+				return c, nil
+			}
+		}
 		if c, ok := s.g.globals[n.Name]; ok {
 			return c, nil
 		}
@@ -218,6 +223,13 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：Ok/Err 需在 Result 上下文使用")
 		case "str":
 			return "rt_string *", nil
+		}
+		if s.self != nil && (s.params == nil || !s.params[id.Name]) {
+			if _, local := s.locals[id.Name]; !local {
+				if m, ok := s.self.ci.methodOf(id.Name); ok && !m.decl.IsDeinit {
+					return s.g.methodRetC(m)
+				}
+			}
 		}
 		if ret, ok := s.g.callRetC(id.Name, n.TypeArgs); ok {
 			return ret, nil
