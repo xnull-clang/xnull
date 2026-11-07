@@ -1,0 +1,4 @@
+=== RUN   TestS4ErrorsProtocol
+--- PASS: TestS4ErrorsProtocol (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.827s
