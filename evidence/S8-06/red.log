@@ -1,0 +1,15 @@
+# xnull.dev/xnull/internal/config [xnull.dev/xnull/internal/config.test]
+internal/config/config_test.go:52:17: undefined: Spec
+internal/config/config_test.go:53:9: undefined: Spec
+internal/config/config_test.go:54:20: undefined: KeySpec
+internal/config/config_test.go:55:35: undefined: KindString
+internal/config/config_test.go:56:35: undefined: KindInt
+internal/config/config_test.go:57:35: undefined: KindString
+internal/config/config_test.go:58:35: undefined: KindString
+internal/config/config_test.go:59:35: undefined: KindBool
+internal/config/config_test.go:60:35: undefined: KindFloat
+internal/config/config_test.go:74:13: undefined: Load
+internal/config/config_test.go:74:13: too many errors
+FAIL	xnull.dev/xnull/internal/config [build failed]
+FAIL
+EXIT=1
