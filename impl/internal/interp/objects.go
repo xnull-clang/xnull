@@ -22,6 +22,8 @@ type objv struct {
 	enumName   string // 非空表示数据枚举项（S2 §8.3）
 	enumItem   string // 数据枚举项名
 	singleName string // 非空表示 singleton 实例（S2 §9）
+	owners     int    // 强持有计数（§4.4 协议/变量/字段）
+	escaped    bool   // 返回值所有权已转交调用方
 }
 
 // findClass 按名查类（含点分限定名的末段）。
@@ -340,15 +342,35 @@ func (in *Interp) readMember(obj *objv, name string, pos xfront.Pos) *Value {
 	panic(runtimeErr{"该类型没有字段 " + name + "：" + obj.cls.Name})
 }
 
-// writeMember 写实例字段（成员赋值，§7.4 可见性由 sema 守护）。
+// writeMember 写实例字段（成员赋值，§7.4 可见性由 sema 守护）；引用字段强持有。
 func (in *Interp) writeMember(obj *objv, name string, v *Value) {
-	if _, ok := obj.fields[name]; ok {
-		obj.fields[name] = v
-		return
+	key := name
+	if _, ok := obj.fields[key]; !ok {
+		if _, ok := obj.fields["_"+name]; ok {
+			key = "_" + name
+		} else {
+			panic(runtimeErr{"该类型没有字段 " + name + "：" + obj.cls.Name})
+		}
 	}
-	if _, ok := obj.fields["_"+name]; ok {
-		obj.fields["_"+name] = v
-		return
+	in.setObjectField(obj, key, v)
+}
+
+// setObjectField 写对象字段并维护强持有计数（§4.4/§6.4）。
+func (in *Interp) setObjectField(obj *objv, key string, v *Value) {
+	old := obj.fields[key]
+	var oldObj, newObj *objv
+	if old != nil && old.K == vObj {
+		oldObj = old.O
 	}
-	panic(runtimeErr{"该类型没有字段 " + name + "：" + obj.cls.Name})
+	if v != nil && v.K == vObj {
+		newObj = v.O
+	}
+	if oldObj != nil && oldObj != newObj {
+		in.releaseObject(oldObj)
+	}
+	obj.fields[key] = v
+	if newObj != nil && newObj != oldObj {
+		newObj.escaped = false
+		newObj.owners++
+	}
 }

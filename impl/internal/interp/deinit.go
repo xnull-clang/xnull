@@ -5,10 +5,105 @@ import (
 	"xnull.dev/xnull/internal/xfront"
 )
 
-// closeScope 在作用域退出时按声明逆序执行对象 deinit（§6.4）。
+// closeScope 在作用域退出时按声明逆序释放变量持有，最后一次 release 触发 deinit（§6.4）。
 func (in *Interp) closeScope(sc *scope) {
-	for i := len(sc.owned) - 1; i >= 0; i-- {
-		in.runDeinit(sc.owned[i])
+	for i := len(sc.objOrder) - 1; i >= 0; i-- {
+		name := sc.objOrder[i]
+		in.releaseObject(sc.objOwner[name])
+		delete(sc.objOwner, name)
+	}
+}
+
+// takeOwnership 变量首次持有一个对象（强持有 +1）。
+func (in *Interp) takeOwnership(sc *scope, name string, v *Value) {
+	if v == nil || v.K != vObj {
+		return
+	}
+	obj := v.O
+	obj.escaped = false
+	obj.owners++
+	if _, exists := sc.objOwner[name]; !exists {
+		sc.objOrder = append(sc.objOrder, name)
+	}
+	sc.objOwner[name] = obj
+}
+
+// rebindOwnership 变量重新赋值：释放旧对象，持有新对象（§4.4 强持有）。
+func (in *Interp) rebindOwnership(sc *scope, name string, v *Value) {
+	var holder *scope
+	for c := sc; c != nil; c = c.parent {
+		if _, ok := c.vars[name]; ok {
+			holder = c
+			break
+		}
+	}
+	if holder == nil {
+		return
+	}
+	old := holder.objOwner[name]
+	var nw *objv
+	if v != nil && v.K == vObj {
+		nw = v.O
+	}
+	if old == nw {
+		if nw != nil {
+			nw.escaped = false
+		}
+		return
+	}
+	if old != nil {
+		in.releaseObject(old)
+	}
+	if nw != nil {
+		nw.escaped = false
+		nw.owners++
+		if _, exists := holder.objOwner[name]; !exists {
+			holder.objOrder = append(holder.objOrder, name)
+		}
+		holder.objOwner[name] = nw
+	} else {
+		delete(holder.objOwner, name)
+	}
+}
+
+// releaseObject 释放一个强引用；归零时执行 deinit（返回值转交的 escaped 只跳过一次）。
+func (in *Interp) releaseObject(obj *objv) {
+	if obj == nil {
+		return
+	}
+	if obj.owners > 0 {
+		obj.owners--
+	}
+	if obj.owners > 0 {
+		return
+	}
+	if obj.escaped {
+		obj.escaped = false
+		return
+	}
+	in.runDeinit(obj)
+}
+
+// markEscaped 标记返回值所有权转交调用方（被调方作用域释放时不 deinit）。
+func (in *Interp) markEscaped(v *Value) {
+	if v == nil {
+		return
+	}
+	switch v.K {
+	case vObj:
+		v.O.escaped = true
+	case vResult:
+		if v.R != nil {
+			if v.R.ok {
+				in.markEscaped(v.R.v)
+			} else {
+				in.markEscaped(v.R.e)
+			}
+		}
+	case vTuple:
+		for _, e := range v.A {
+			in.markEscaped(e)
+		}
 	}
 }
 
@@ -19,6 +114,11 @@ func (in *Interp) runDeinit(obj *objv) {
 	}
 	in.deinited[obj] = true
 	in.runDeinitFrom(obj.cls, obj)
+	for _, v := range obj.fields { // §6.4：deinit 链完成后释放字段引用
+		if v != nil && v.K == vObj {
+			in.releaseObject(v.O)
+		}
+	}
 }
 
 // findDeinit 从 start 起沿父类链找 deinit 声明。
