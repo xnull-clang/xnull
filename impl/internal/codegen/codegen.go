@@ -144,6 +144,28 @@ static void xn_throw(rt_string *msg) {
     exit(134);
 }
 
+/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */
+const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
+void xdkc_diagnose(const char *bytes, size_t len);
+void xdkc_exit(int64_t code);
+int64_t xdkc_now_mono_ms(void);
+int64_t xdkc_now_wall_ms(void);
+static size_t xn_task_live = 0;
+static xn_opt_s xn_env_lookup(rt_string *name) {
+    xn_opt_s r;
+    size_t len = 0;
+    const char *v = xdkc_env_get(name->bytes, name->len, &len);
+    if (v == NULL) { r.has = 0; r.v = NULL; }
+    else { r.has = 1; r.v = rt_string_new(v, len); }
+    return r;
+}
+/* dumpTasks：实现侧诊断（非承诺，S6 §4.4）；仅输出生成侧维护的任务计数。 */
+static void xn_dump_tasks(void) {
+    char buf[64];
+    int n = snprintf(buf, sizeof(buf), "tasks: live=%llu", (unsigned long long)xn_task_live);
+    if (n > 0) { xdkc_diagnose(buf, (size_t)n); }
+}
+
 /* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */
 static void xn_report_write(const char *p, size_t n) {
     if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }
@@ -597,6 +619,11 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		return "", err
 	}
 	g.tmp = 0
+	g.taskID = 0
+	g.taskSupport = nil
+	g.taskSupportAdded = false
+	g.lateProtos = nil
+	g.lateFns = nil
 	var fns []string
 	// 第二遍：正式生成顶层函数（普通函数 + 单态化实例）
 	for _, d := range u.Decls {
@@ -681,6 +708,10 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			fmt.Fprintf(&b, "typedef struct { int ok; %s v; %s } %s;\n", info.memberC, cDecl(info.errC, "err"), name)
 		}
 		b.WriteString("\n")
+	}
+	// S5-04：任务 env 支撑（按需登记；必须在使用它的函数定义之前）。
+	for _, sup := range g.taskSupport {
+		b.WriteString(sup)
 	}
 	// 顶层字段存储：函数体与初始化函数都要引用，声明必须先于函数定义。
 	for _, f := range g.globalList {
@@ -826,7 +857,18 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	b.WriteString("static rt_string *xn_result_error_copy_rt(rt_string *err) {\n")
 	b.WriteString("    return rt_string_new(err->bytes, err->len);\n")
 	b.WriteString("}\n\n")
+	// S5-04：任务闭包体原型（函数体生成阶段登记，晚于用户原型发出）。
+	for _, p := range g.lateProtos {
+		b.WriteString(p + "\n")
+	}
+	if len(g.lateProtos) > 0 {
+		b.WriteString("\n")
+	}
 	for _, fn := range fns {
+		b.WriteString(fn)
+		b.WriteString("\n")
+	}
+	for _, fn := range g.lateFns {
 		b.WriteString(fn)
 		b.WriteString("\n")
 	}
@@ -1121,46 +1163,51 @@ func (g *gen) genGlobalInit() (string, error) {
 }
 
 type gen struct {
-	results        map[string]string            // Result 实例化名 → v 成员类型
-	resultArgs     map[string][]xfront.TypeRef  // Result 实例化名 → 类型实参（S4-02 任意 E）
-	cs             *containers                  // 容器实例化注册表（M4.4a）
-	fnRet          map[string]string            // 顶层函数名 → 返回 C 类型（类型推断用）
-	classes        map[string]*classInfo        // 类名 → 生成信息（M4.4b）
-	classDecls     map[string]*xfront.ClassDecl // 类名 → 声明（继承递归收集用）
-	globals        map[string]string            // 顶层字段名 → C 类型（ENTRY-01）
-	globalList     []*xfront.TopField           // 顶层字段声明顺序（初始化顺序）
-	ffi            *ffi.Registry                // .xfb 绑定注册表（P-09）
-	ffiEntries     map[string]ffi.Entry         // 入口名 → 合同投影（P-09）
-	handleNames    map[string]bool              // 不透明句柄类型（B0-07c）
-	needStrReplace bool                         // 使用过 String.replace（按需发助手）
-	generics       map[string]*xfront.TopFunc   // 泛型函数名 → 声明（S1 §8.1）
-	insts          map[string]*instInfo         // 实例 C 名 → 实例信息（S1 §8.3）
-	instOrder      []string                     // 实例发现顺序（展开轮驱动；输出前排序）
-	subst          map[string]xfront.TypeRef    // 当前实例的类型参数替换（空 = 普通函数）
-	fnNames        map[*xfront.TopFunc]string   // 顶层函数声明 → C 名（main 重载需区分）
-	mainOverloads  map[int]string               // 非匹配 main 重载：参数个数 → C 名（§11.2）
-	entry          *entryInfo                   // 选中的入口（main 重载分派用）
-	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
-	policy         map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
-	stack          map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
-	inDeinit       bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
-	curEscaped     map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
-	stats          bool                         // §21/§23：运行期分配统计开关
-	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
-	protocols      map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
-	protoSlotByKey map[string]int               // 签名 key → 全局槽位
-	slotOrder      []protoSlot                  // 槽位表（索引即槽位）
-	enums          map[string]*enumInfo         // 枚举名 → 定义（S2 §8）
-	enumOrder      []string                     // 枚举声明顺序
-	structs        map[string]*classInfo        // 结构体名 → 值布局（S2 §3）
-	classInsts     map[string]*classInfo        // 泛型类实例 C 名 → 实例（BND-12）
-	classInstKeys  []string                     // 实例发现顺序
-	singletons     map[string]*classInfo        // 单例名 → 对象布局（BND-07）
-	singletonOrder []string                     // 单例声明顺序
-	factories      map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
-	factoryOrder   []string                     // 工厂声明顺序
-	extensions     []*extensionInfo             // 扩展方法（BND-13）
-	tmp            int
+	results          map[string]string            // Result 实例化名 → v 成员类型
+	resultArgs       map[string][]xfront.TypeRef  // Result 实例化名 → 类型实参（S4-02 任意 E）
+	cs               *containers                  // 容器实例化注册表（M4.4a）
+	fnRet            map[string]string            // 顶层函数名 → 返回 C 类型（类型推断用）
+	classes          map[string]*classInfo        // 类名 → 生成信息（M4.4b）
+	classDecls       map[string]*xfront.ClassDecl // 类名 → 声明（继承递归收集用）
+	globals          map[string]string            // 顶层字段名 → C 类型（ENTRY-01）
+	globalList       []*xfront.TopField           // 顶层字段声明顺序（初始化顺序）
+	ffi              *ffi.Registry                // .xfb 绑定注册表（P-09）
+	ffiEntries       map[string]ffi.Entry         // 入口名 → 合同投影（P-09）
+	handleNames      map[string]bool              // 不透明句柄类型（B0-07c）
+	needStrReplace   bool                         // 使用过 String.replace（按需发助手）
+	generics         map[string]*xfront.TopFunc   // 泛型函数名 → 声明（S1 §8.1）
+	insts            map[string]*instInfo         // 实例 C 名 → 实例信息（S1 §8.3）
+	instOrder        []string                     // 实例发现顺序（展开轮驱动；输出前排序）
+	subst            map[string]xfront.TypeRef    // 当前实例的类型参数替换（空 = 普通函数）
+	fnNames          map[*xfront.TopFunc]string   // 顶层函数声明 → C 名（main 重载需区分）
+	mainOverloads    map[int]string               // 非匹配 main 重载：参数个数 → C 名（§11.2）
+	entry            *entryInfo                   // 选中的入口（main 重载分派用）
+	tuples           map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
+	policy           map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
+	stack            map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
+	inDeinit         bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
+	curEscaped       map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
+	taskID           int                          // 任务闭包编号（S5-04）
+	taskSupport      []string                     // 任务 env 支撑代码（按需）
+	taskSupportAdded bool                         // 任务 env 支撑已登记
+	lateProtos       []string                     // 延迟生成函数原型（任务闭包体）
+	lateFns          []string                     // 延迟生成函数定义（任务闭包体）
+	stats            bool                         // §21/§23：运行期分配统计开关
+	tupleOrder       []string                     // 元组结构体登记顺序（内层先于外层）
+	protocols        map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
+	protoSlotByKey   map[string]int               // 签名 key → 全局槽位
+	slotOrder        []protoSlot                  // 槽位表（索引即槽位）
+	enums            map[string]*enumInfo         // 枚举名 → 定义（S2 §8）
+	enumOrder        []string                     // 枚举声明顺序
+	structs          map[string]*classInfo        // 结构体名 → 值布局（S2 §3）
+	classInsts       map[string]*classInfo        // 泛型类实例 C 名 → 实例（BND-12）
+	classInstKeys    []string                     // 实例发现顺序
+	singletons       map[string]*classInfo        // 单例名 → 对象布局（BND-07）
+	singletonOrder   []string                     // 单例声明顺序
+	factories        map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
+	factoryOrder     []string                     // 工厂声明顺序
+	extensions       []*extensionInfo             // 扩展方法（BND-13）
+	tmp              int
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
@@ -1301,6 +1348,12 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		if ei, ok := g.enums["ErrorKind"]; ok {
 			return ei.ctype, nil
 		}
+		return "int64_t", nil
+	case "TaskError":
+		// 任务边界错误面：复用 S4 ErrorKind（S5-00 §八）。
+		return "xrt_error_kind", nil
+	case "void":
+		// Result<void, E>：值槽仅占位（close 等无值结果）。
 		return "int64_t", nil
 	}
 	if ci, ok := g.classes[name]; ok {
@@ -1538,6 +1591,17 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "rt_string *", nil
 		case "StringBuilder":
 			return "xrt_sb *", nil
+		case "Context":
+			return "xrt_context *", nil
+		case "CancelToken":
+			return "xrt_cancel_token *", nil
+		case "TaskGroup":
+			return "xrt_task_group *", nil
+		case "Task":
+			// Task<T> 的 C 句柄不区分 T（结果映射由 join 目标类型决定）。
+			return "xrt_task *", nil
+		case "TaskError":
+			return "xrt_error_kind", nil
 		case "Any", "Object":
 			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
 			return "xn_Any *", nil
@@ -1715,6 +1779,9 @@ type scope struct {
 	rootMark    string            // 根帧标记变量（S3-02；空=本块不登记）
 	rootPrelude []string          // 根帧建立后立即执行的登记（参数/self 根）
 	kind        string            // 块种类：loop/switch（break/continue 根帧恢复用）
+	taskBody    *taskBodyInfo     // 任务闭包体（S5-04）：return → xrt_task_result
+	taskEnvVar  string            // 任务体 env 变量名
+	taskOutVar  string            // 任务体 out 参数名
 }
 
 // selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
@@ -1761,6 +1828,12 @@ func (s *scope) newChild() *scope {
 }
 
 func (s *scope) tmp() string { return s.g.nextTmp() }
+
+// nextTaskID 分配任务闭包编号。
+func (g *gen) nextTaskID() int {
+	g.taskID++
+	return g.taskID
+}
 
 // nextTmp 分配一个翻译单元内唯一的临时变量名。
 func (g *gen) nextTmp() string {
@@ -2071,12 +2144,40 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return lines, nil
 				}
 			}
+			if mem.Name == "cancel" {
+				if rc == "xrt_task_group *" {
+					return []string{"xrt_task_group_cancel(" + rn + ");", "xrt_safepoint();"}, nil
+				}
+				if rc == "xrt_context *" {
+					return []string{"xrt_context_cancel(" + rn + ");"}, nil
+				}
+			}
 		}
 		return nil, fmt.Errorf("codegen：成员调用 %s 未支持（M4.4a 范围）", mem.Name)
 	}
 	id, ok := call.Callee.(*xfront.IdentExpr)
 	if !ok {
 		return nil, fmt.Errorf("codegen：调用目标 %T 未支持", call.Callee)
+	}
+	if id.Name == "dumpTasks" {
+		// S6-02：dumpTasks 实现侧诊断（单行；非承诺）。
+		return []string{"xrt_safepoint();", "xn_dump_tasks();"}, nil
+	}
+	if id.Name == "diagnose" && len(call.Args) == 1 {
+		sl, err := s.strExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		return append(sl, "xdkc_diagnose("+lastVar(sl)+"->bytes, "+lastVar(sl)+"->len);"), nil
+	}
+	if id.Name == "exit" && len(call.Args) == 1 {
+		v, err := s.intExpr(call.Args[0])
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, "xdkc_exit((int64_t)("+v+"));"), nil
 	}
 	if id.Name == "print" {
 		return s.emitPrint(call.Args[0])
@@ -2546,6 +2647,15 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 	}
 	if tc == "xrt_sb *" {
 		lines, v, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	// S5-04：任务/上下文句柄局部（ARC；不参与 GC 根登记）。
+	if isTaskHandleC(tc) {
+		lines, v, err := s.taskValueExpr(n.Init, tc)
 		if err != nil {
 			return nil, err
 		}
@@ -3193,6 +3303,34 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		out := splitLines(s.emitCleanup(true, "    "))
 		s.returned = true
 		return append(out, "return o;"), nil
+	}
+	// S5-04：任务闭包体 return Result → xrt_task_result（值/错误 +1 移交）。
+	if s.taskBody != nil {
+		if n.Value == nil {
+			return nil, fmt.Errorf("codegen：任务闭包必须返回 Result（S5-00 §二）")
+		}
+		v, err := s.resultExpr(n.Value, s.taskBody.resultC)
+		if err != nil {
+			return nil, err
+		}
+		tmp := s.tmp()
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, s.taskBody.resultC+" "+tmp+" = "+v+";")
+		out = append(out, "out->ok = "+tmp+".ok;")
+		out = append(out, "out->value = "+taskBox(s.taskBody.memberC, tmp+".v")+";")
+		out = append(out, "out->kind = "+tmp+".ok ? XRT_ERR_INVALID_ARGUMENT : "+tmp+".err;")
+		out = append(out, "out->error = NULL;")
+		if s.g.isGCRootC(s.taskBody.memberC) {
+			out = append(out, "xrt_task_root_bind(out->value); /* 任务持有 GC 结果（S5-00 §7.3） */")
+		}
+		if s.rootMark != "" {
+			out = append(out, "xn_root_restore("+s.rootMark+");")
+		}
+		out = append(out, "xrt_safepoint(); /* 任务体出口（S5-00 §7.2） */")
+		out = append(out, "return 0;")
+		s.returned = true
+		return out, nil
 	}
 	if s.retC == "void" {
 		if n.Value != nil {
@@ -3870,6 +4008,14 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil {
+				if rc == "xrt_task *" && (mem.Name == "join" || mem.Name == "joinDeadline") {
+					return s.emitTaskResult(rn, rc, mem.Name, resultC, n.Args)
+				}
+				if rc == "xrt_task_group *" && mem.Name == "close" {
+					return s.emitTaskResult(rn, rc, mem.Name, resultC, n.Args)
+				}
+			}
 			if expr, _, hit, err := s.tryFactoryCall(mem, n); err != nil {
 				return "", err
 			} else if hit {
@@ -4074,6 +4220,22 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		s.pending = append(s.pending, lines...)
 		return "(" + base + ").f" + fmt.Sprintf("%d", n.Index), nil
 	case *xfront.Binary:
+		// S6-02：可空值 null 比较（String? 等）按 has 位判定。
+		if n.Op == "==" || n.Op == "!=" {
+			if lt, err := s.exprType(n.L); err == nil && strings.HasPrefix(lt, "xn_opt_") {
+				if _, isNull := n.R.(*xfront.NullLit); isNull {
+					x, err := s.intExpr(n.L)
+					if err != nil {
+						return "", err
+					}
+					cond := "(" + x + ").has"
+					if n.Op == "==" {
+						return "(!(" + cond + "))", nil
+					}
+					return "(" + cond + ")", nil
+				}
+			}
+		}
 		if n.Op == "is" {
 			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
 				return s.typeIsExpr(n, ta)
@@ -4207,6 +4369,13 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		return s.emitNewClass(n)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// S6-02：xdk.runtime 内建（不依赖项目 .xfb 装载）。
+			switch id.Name {
+			case "nowMono":
+				return "xdkc_now_mono_ms()", nil
+			case "nowWall":
+				return "xdkc_now_wall_ms()", nil
+			}
 			if e, isFFI := s.ffiEntry(id.Name); isFFI {
 				if e.Ret.Kind != ffi.KindScalar {
 					return "", fmt.Errorf("codegen：FFI 入口 %s 返回类型不是 Int（P-09）", e.Name)

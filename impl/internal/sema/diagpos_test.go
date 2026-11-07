@@ -44,6 +44,9 @@ static Int main() { return 0 }`},
 		{ResNeedlessAlias, `import xdk.text.Regex as Pattern
 
 static Int main() { return 0 }`},
+		{TyXdkUnsupported, `import xdk.runtime
+
+static Int main() { dumpTasks(); return 0 }`},
 
 		{DaMaybeUnassigned, `static Int main() { Int x; print(str(x)); return 0 }`},
 		{DaReassign, `static Int main() {

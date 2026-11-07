@@ -1216,6 +1216,13 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
 		}
+		if recv.K == vClosure { // 字段/表达式中的闭包值调用（如 self.less(a,b)）
+			args := make([]*Value, len(n.Args))
+			for i, a := range n.Args {
+				args[i] = in.eval(a, sc)
+			}
+			return in.callClosure(recv.Clo, args)
+		}
 		if recv.K == vContext {
 			args := make([]*Value, len(n.Args))
 			for i, a := range n.Args {
@@ -1238,6 +1245,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			return in.callTaskMethod(recv.T, mem.Name, args, n.P)
 		}
 		if recv.K == vObj {
+			// 闭包字段调用：`self.cmp(a, b)`（字段持有函数值）。
+			if fv, ok := recv.O.fields[mem.Name]; ok && fv.K == vClosure {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				return in.callClosure(fv.Clo, args)
+			}
 			args0 := make([]*Value, len(n.Args))
 			for i, a := range n.Args {
 				args0[i] = in.eval(a, sc)

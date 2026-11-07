@@ -47,15 +47,28 @@ var xdkPackages = map[string]map[string]bool{
 	"collections": {
 		// 内建容器（List/Map/Set/StringBuilder）属 S1 §9，不在本包；此处是特化容器（S6 §4.5 定案）
 		"RingBuffer": true, "OrderedMap": true, "BTreeMap": true, "PriorityQueue": true,
+		// 算法函数：S6 §4.5 只给类别，签名未冻结；保留名用于 TY-229 显式诊断。
+		"sort": true, "groupBy": true, "dedup": true, "find": true,
 	},
 	"text": {
-		"Regex": true, // S6 §4.6 定案符号；builder 式格式化类型名随实现层立项冻结
+		"Regex": true, "Format": true, "parseInt": true, "parseFloat": true,
 	},
 	"sys": {
+		// 句柄类型（S6 §4.7；close 经顶层 fileClose/dirClose）
+		"File": true, "Dir": true, "Process": true,
+		// 文件/目录/存在性（当前绑定面）
+		"fileOpenRead": true, "fileOpenWrite": true, "fileRead": true, "fileWrite": true,
+		"fileClose": true, "dirOpen": true, "dirRead": true, "dirClose": true,
+		"pathExists": true, "utf8Valid": true, "readFileText": true, "writeFileText": true,
+		"procStatus": true,
+		// 资源读取（S6 §4.8）
 		"resourceExists": true, "readResource": true, "readResourceText": true,
 		"listResources": true, "resourceSize": true,
 	},
-	"net": {}, // S6 §4.7 定案独立成包；符号随实现层立项冻结（包存在性可用）
+	"net": {
+		// S6 §4.7 定案独立成包；socket API 名随实现层立项冻结。
+		"Socket": true, "Listener": true,
+	},
 }
 
 // xdkSubPackages 是已定案的多级 XDK 包子包（相对 xdk. 的路径）。
@@ -310,7 +323,7 @@ func (a *analyzer) checkTypeXdkUse(t xfront.TypeRef) {
 	}
 	switch ty := t.(type) {
 	case *xfront.NamedType:
-		if len(ty.Qual) == 1 && xdkSymbolKnown(ty.Qual[0]) && !a.imported[ty.Qual[0]] {
+		if len(ty.Qual) == 1 && !externalTypes[ty.Qual[0]] && xdkSymbolKnown(ty.Qual[0]) && !a.imported[ty.Qual[0]] {
 			var pkgs []string
 			for _, pkg := range xdkExporters(ty.Qual[0]) {
 				pkgs = append(pkgs, "xdk."+pkg)

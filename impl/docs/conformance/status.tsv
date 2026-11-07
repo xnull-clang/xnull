@@ -22,7 +22,7 @@ INT-01	internal/interp/int01_test.go + internal/codegen/s2_object_test.go + 收�
 ANN-01	internal/sema/s2_ann_test.go + 收件箱/回执箱/验收-S2-ANN-01.md	PASS
 FIELD-01	internal/sema/typedecl_test.go	PASS
 KIND-01	internal/sema/s4_error_test.go + 收件箱/回执箱/验收-S4-KIND-01.md	PASS
-BLOCK-01	—	未实现
+BLOCK-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-BLOCK-01.md	PASS
 DET-01	internal/sema/policy_test.go + 收件箱/回执箱/验收-M1-DET-01.md	PASS
 MEM-01	internal/sema/policy_test.go + impl/runtime/test_gc.c + 收件箱/回执箱/验收-S2-MEM-01.md	PASS
 MEM-02	impl/runtime/test_gc.c + impl/runtime/test_hard.c + 收件箱/回执箱/验收-S2-MEM-02.md	PASS
@@ -75,3 +75,11 @@ CLEAN-01	internal/interp/s4_clean_test.go + 收件箱/回执箱/验收-S4-CLEAN-
 CANCEL-01	impl/runtime + 收件箱/回执箱/验收-S4-CANCEL-01.md	PASS
 CANCEL-02	impl/runtime + 收件箱/回执箱/验收-S4-CANCEL-02.md	PASS
 TIMEOUT-01	impl/runtime + 收件箱/回执箱/验收-S4-TIMEOUT-01.md	PASS
+TASK-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-TASK-01.md	PASS
+TASK-02	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-TASK-02.md	PASS
+TASK-03	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-TASK-03.md	PASS
+TASK-04	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-TASK-04.md	PASS
+SYNC-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-01.md	PASS
+SYNC-02	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-02.md	PASS
+SYNC-03	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-03.md	PASS
+SCHED-01	单载体线程 FIFO；缺 M:N/伴生执行器（S5 §2.2）	部分
