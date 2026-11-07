@@ -1700,6 +1700,28 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 				}
 			}
 		}
+		// 函数类型字段调用：self.less(a,b) 等。先于方法返回表，避免把字段当未知方法。
+		if ft, ok := e.xdkFunctionFieldType(rt.key, mem); ok {
+			if ret, params, ok := funcTypeParts(ft); ok {
+				if len(args) != len(params) {
+					e.errf(n.P, TyAssignability,
+						fmt.Sprintf("%s.%s 需要 %d 个参数，实际 %d 个（§7.2）",
+							rt.key, mem.Name, len(params), len(args)), "")
+				} else {
+					for i, want := range params {
+						if e.typePars[unwrapOpt(want)] {
+							continue // 类/函数类型参数：类体内按占位符放行
+						}
+						if !assignable(args[i], want) {
+							e.errf(n.Args[i].Pos(), assignDiag(args[i], want),
+								fmt.Sprintf("%s.%s 参数 %d 类型 %s 不能赋给 %s（§7.2）",
+									rt.key, mem.Name, i+1, describeKey(args[i]), want), "")
+						}
+					}
+				}
+				return texpr{key: ret}
+			}
+		}
 		return e.methodRet(rt, mem.Name, args, n.P)
 	}
 	// 顶层函数调用：普通/泛型候选解析（§8.2 重载与推断）。
@@ -2199,4 +2221,19 @@ func (e *tyenv) arith(n *xfront.Binary, lt, rt texpr) texpr {
 			lt.key+" "+n.Op+" "+rt.key, "")
 		return texpr{}
 	}
+}
+
+// xdkFunctionFieldType 返回接收者上函数类型字段的类型串（不触发成员访问错误）。
+func (e *tyenv) xdkFunctionFieldType(recvKey string, mem *xfront.Member) (string, bool) {
+	if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "self" && e.cls != nil {
+		if k, ok := e.vars[mem.Name]; ok && strings.Contains(k, "(") {
+			return k, true
+		}
+	}
+	if e.a.tc != nil {
+		if k, ok := e.a.tc.findClassField(recvKey, mem.Name); ok && strings.Contains(k, "(") {
+			return k, true
+		}
+	}
+	return "", false
 }

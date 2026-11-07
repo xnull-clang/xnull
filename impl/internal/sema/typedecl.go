@@ -1873,6 +1873,48 @@ func (c *typeCheckCtx) findClassMethod(recvKey, name string) (*xfront.MethodDecl
 	return nil, nil, false
 }
 
+// findClassField 在类继承链中查找字段类型，并按接收者泛型实参替换类型参数。
+func (c *typeCheckCtx) findClassField(recvKey, name string) (string, bool) {
+	base := unwrapOpt(recvKey)
+	var args []string
+	if i := strings.Index(base, "<"); i > 0 && strings.HasSuffix(base, ">") {
+		args = splitTopLevel(base[i+1 : len(base)-1])
+		base = base[:i]
+	}
+	info := c.types[base]
+	if info == nil || info.kind != "class" || info.class == nil {
+		return "", false
+	}
+	subst := map[string]string{}
+	for i, tp := range info.class.TypePars {
+		if i < len(args) && args[i] != "" {
+			subst[tp] = args[i]
+		}
+	}
+	seen := map[string]bool{}
+	for cur := info.class; cur != nil; {
+		if seen[cur.Name] {
+			break
+		}
+		seen[cur.Name] = true
+		for _, f := range cur.Fields {
+			if f.Name == name || f.Canonical == name {
+				return substKey(typeKey(f.Type), subst), true
+			}
+		}
+		b := baseRefName(cur.Base)
+		if b == "" {
+			break
+		}
+		ni := c.types[b]
+		if ni == nil || ni.kind != "class" {
+			break
+		}
+		cur = ni.class
+	}
+	return "", false
+}
+
 func hasAnnotation(annos []*xfront.AnnotationNode, name string) bool {
 	for _, a := range annos {
 		if a.Name == name {
