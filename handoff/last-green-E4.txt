@@ -1,0 +1,6 @@
+自举线 last-green
+commit: 9832bfb
+code_commit: cac6686
+runtime: 2948e82 (E5 c9e8a5d cherry-pick)
+verified: go test ./... 绿; B1-03 diff=0 (155+union); idem=0; 诊断 6/6 (FMT-101/102/104)
+date: 2026-11-07
