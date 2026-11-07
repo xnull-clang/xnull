@@ -32,6 +32,7 @@
 | nowMono | xdkc_now_mono_ms | xdkc_runtime | .aware | 否 | — |
 | nowWall | xdkc_now_wall_ms | xdkc_runtime | .aware | 否 | — |
 | pathExists | xdkc_path_exists | xdkc_sys | .aware | 否 | — |
+| procStatus | xdkc_proc_status | xdkc_sys | .unaware | 否 | — |
 | readFileText | xdkc_read_file_text | xdkc_sys | .unaware | 否 | — |
 | utf8Valid | xdkc_utf8_valid | xdkc_sys | .aware | 否 | — |
 | writeFileText | xdkc_write_file_text | xdkc_sys | .unaware | 否 | — |
