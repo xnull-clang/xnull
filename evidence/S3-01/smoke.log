@@ -1,0 +1,14 @@
+$ xnull build c.x && ./c
+10
+4
+--- c2
+2
+2
+3
+x
+1
+7
+--- c3
+2
+node-deinit
+node-deinit

@@ -1,0 +1,11 @@
+$ go test ./internal/codegen/ -run TestS3_01 -count=1 -v
+=== RUN   TestS3_01ContainerGCAllocation
+--- PASS: TestS3_01ContainerGCAllocation (0.00s)
+=== RUN   TestS3_01GCContainerElements
+--- PASS: TestS3_01GCContainerElements (0.96s)
+=== RUN   TestS3_01ContainerField
+--- PASS: TestS3_01ContainerField (0.98s)
+=== RUN   TestS3_01ClearReleasesARCElements
+--- PASS: TestS3_01ClearReleasesARCElements (0.99s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	3.693s

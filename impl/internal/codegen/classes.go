@@ -519,7 +519,7 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 		case f.isRefField():
 			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		case f.isArr:
-			fmt.Fprintf(b, "    %s_free(&o->%s);\n", f.ctype, f.cname)
+			/* 容器是 GC 对象：字段不 release，容器自身 deinit 释放元素/元素区。 */
 		}
 	}
 	b.WriteString("}\n\n")
@@ -528,7 +528,7 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	// 标记 GC 引用）；ARC 类只需访问其中的 GC 引用（作为 GC 根）。
 	scanFields := []classField{}
 	for _, f := range ci.fields {
-		if f.isCls && (ci.isGC || f.isGC) {
+		if f.isArr || (f.isCls && (ci.isGC || f.isGC)) {
 			scanFields = append(scanFields, f)
 		}
 		if (f.isProto || f.isAny) && ci.isGC {
@@ -1001,7 +1001,7 @@ func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls stri
 	case f.isArr:
 		// `Map<K,V> m = []`：空数组字面量是空 Map 的常用写法，按 map_new(0) 发射。
 		if al, ok := init.(*xfront.ArrayLit); ok && len(al.Elems) == 0 && strings.HasPrefix(f.ctype, "xn_map_") {
-			return nil, fmt.Sprintf("%s_new(0)", f.ctype), nil
+			return nil, fmt.Sprintf("%s_new(0)", contBase(f.ctype)), nil
 		}
 		lines, v, err := sc.valExpr(init, f.ctype)
 		if err != nil {

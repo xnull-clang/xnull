@@ -445,9 +445,15 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		}
 		return append(lines, dst+" = "+v+";"), nil
 	}
-	// 容器字段是值结构（本层未做引用语义容器）：浅拷贝会双释放，显式拒绝。
+	// 容器字段是 GC 对象（S3 §10）：引用赋值，不做 ARC 计数。
 	if f.isArr {
-		return nil, fmt.Errorf("codegen：容器字段 %s 的赋值需要引用语义容器（B2 范围，显式拒绝）", f.name)
+		lines, v, err := s.valExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, dst+" = "+v+";")
+		return out, nil
 	}
 	if f.isProto {
 		if _, isNull := val.(*xfront.NullLit); isNull {
