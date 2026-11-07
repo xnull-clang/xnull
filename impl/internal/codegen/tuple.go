@@ -375,3 +375,30 @@ func (s *scope) tupleCmp(l, r, tc string, identity bool) (string, error) {
 	}
 	return "(" + strings.Join(parts, " && ") + ")", nil
 }
+
+// tupleRef 是元组内引用元素的访问路径与 C 类型（S3-05：含引用元素元组扫描）。
+type tupleRef struct {
+	path  string
+	ctype string
+}
+
+// tupleRefPaths 递归收集元组值（base 为 C 表达式）内的引用元素路径。
+func (g *gen) tupleRefPaths(base, tc string) []tupleRef {
+	elems, ok := g.tupleElems(tc)
+	if !ok {
+		return nil
+	}
+	var out []tupleRef
+	for i, ec := range elems {
+		p := fmt.Sprintf("(%s).f%d", base, i)
+		if g.isTupleC(ec) {
+			out = append(out, g.tupleRefPaths(p, ec)...)
+			continue
+		}
+		if ec == "rt_string *" || isClassPtr(ec) || g.isProtoC(ec) || isHandlePtr(ec) ||
+			ec == "xrt_bytes_obj *" || g.isDataEnumC(ec) {
+			out = append(out, tupleRef{path: p, ctype: ec})
+		}
+	}
+	return out
+}
