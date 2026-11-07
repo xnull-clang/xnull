@@ -24,6 +24,13 @@ const (
 	codeUnresolvedVar = "XPD-307"
 	codeEnumVar       = "XPD-308"
 	codeProfile       = "XPD-309"
+	codeDepVersion    = "XPD-401" // 依赖缺版本
+	codeVersionForm   = "XPD-402" // 版本形态非法（范围/SNAPSHOT/LATEST）
+	codeDepConflict   = "XPD-403" // 同层坐标冲突/管理表重复
+	codeLockMismatch  = "XPD-404" // 锁与清单不一致/缺条目
+	codeLockExtra     = "XPD-405" // 锁定坐标多余
+	codeLockDigest    = "XPD-406" // 摘要格式/内容不符/排序不稳
+	codeManagedField  = "XPD-407" // 管理表出现 scope/optional
 )
 
 const maxParentDepth = 8
@@ -49,6 +56,11 @@ type Resolved struct {
 
 	ActiveProfiles []string
 	Chain          []string // 根 → 子 的清单绝对路径
+
+	// Managed 是合并后的 dependencyManagement（坐标→版本，子优先）。
+	Managed map[string]string
+	// Warnings 是构建警告（如依赖显式版本覆盖管理版本）。
+	Warnings []string
 }
 
 type parentRef struct {
@@ -77,6 +89,11 @@ type fileData struct {
 	build     map[string]string
 	config    map[string]string
 	profiles  []profileData
+	managed   map[string]managedEntry
+}
+
+type managedEntry struct {
+	version string
 }
 
 // Load 解析 path 指向的工程清单：展开继承链、执行变量替换、合并激活的 profile。
@@ -233,6 +250,7 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 		Version: child.version, Packaging: child.packaging,
 		Properties: map[string]string{}, Dependencies: map[string]string{},
 		Build: map[string]string{}, Configuration: map[string]string{},
+		Managed: map[string]string{},
 	}
 	for _, p := range active {
 		res.ActiveProfiles = append(res.ActiveProfiles, p.id)
@@ -240,6 +258,9 @@ func Load(path string, opts Options) (*Resolved, []diag.Diagnostic, error) {
 	sort.Strings(res.ActiveProfiles)
 	for _, fd := range rootToChild {
 		res.Chain = append(res.Chain, fd.path)
+		for coord, m := range fd.managed {
+			res.Managed[coord] = m.version
+		}
 	}
 
 	// 6. 变量替换（单次；查找用未替换的原始表）
@@ -385,6 +406,9 @@ func parseFile(path string) (*fileData, []diag.Diagnostic, error) {
 	if len(sdiags) > 0 {
 		return nil, sdiags, nil
 	}
+	if vdiags := validateSchema(path, f); len(vdiags) > 0 {
+		return nil, vdiags, nil
+	}
 	proj := f.Find("project")
 	if proj == nil {
 		return nil, []diag.Diagnostic{{File: path, Line: 1, Col: 1, Code: codeCoords, Message: "清单缺少 project 块（S8 §3.2）"}}, nil
@@ -463,6 +487,44 @@ func parseFile(path string) (*fileData, []diag.Diagnostic, error) {
 				for _, c := range node.Children {
 					if fld, ok := c.(*xpd.Field); ok {
 						fd.config[fld.Name] = fld.Value.Text
+					}
+				}
+			case "dependencyManagement":
+				seen := map[string]bool{}
+				for _, c := range node.Children {
+					deps, ok := c.(*xpd.Block)
+					if !ok || deps.Name != "dependencies" {
+						continue
+					}
+					for _, dc := range deps.Children {
+						dep, ok := dc.(*xpd.Block)
+						if !ok || dep.Name != "dependency" || len(dep.Args) == 0 {
+							continue
+						}
+						coord := dep.Args[0].Text
+						if seen[coord] {
+							diags = append(diags, diag.Diagnostic{File: path, Line: dep.Pos.Line, Col: dep.Pos.Col,
+								Code: codeCoordsDup, Message: fmt.Sprintf("dependencyManagement 坐标重复：%s（S8 §3.5）", coord)})
+						}
+						seen[coord] = true
+						ver := ""
+						for _, f := range dep.Children {
+							fld, ok := f.(*xpd.Field)
+							if !ok {
+								continue
+							}
+							switch fld.Name {
+							case "version":
+								ver = fld.Value.Text
+							case "scope", "optional":
+								diags = append(diags, diag.Diagnostic{File: path, Line: fld.Pos.Line, Col: fld.Pos.Col,
+									Code: codeManagedField, Message: fmt.Sprintf("dependencyManagement 不得声明 %s（S8 §3.5）：%s", fld.Name, coord)})
+							}
+						}
+						if fd.managed == nil {
+							fd.managed = map[string]managedEntry{}
+						}
+						fd.managed[coord] = managedEntry{version: ver}
 					}
 				}
 			case "profiles":
