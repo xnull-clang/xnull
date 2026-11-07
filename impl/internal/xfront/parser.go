@@ -97,8 +97,8 @@ func (p *parser) checkIdentToken(t Token) {
 	if t.Kind != Ident {
 		return
 	}
-	if _, reserved := Reserved[t.Text]; reserved {
-		p.err(t.Pos, synExpect, "`"+t.Text+"` 是保留名，不能作为标识符（§1.3）", "换一个标识符")
+	if _, reserved := Reserved[t.Text]; reserved || t.Text == "true" || t.Text == "false" || t.Text == "null" {
+		p.err(t.Pos, synExpect, "`"+t.Text+"` 是保留名/字面量，不能作为标识符（§1.3）", "换一个标识符")
 	}
 }
 
