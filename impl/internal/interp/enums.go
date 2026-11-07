@@ -99,24 +99,7 @@ func (in *Interp) buildDataEnumItem(d *xfront.EnumDecl, it *xfront.EnumItem) *Va
 
 // execCtorBody 在 self 作用域中执行枚举/类构造器体。
 func (in *Interp) execCtorBody(obj *objv, c *xfront.CtorDecl, args []*Value) {
-	defer func() {
-		if r := recover(); r != nil {
-			if _, ok := r.(ctrlReturn); ok {
-				return // 构造器不返回值；sema 已禁止 return
-			}
-			panic(r)
-		}
-	}()
-	sc := newScope(in.globals)
-	sc.defineTyped("self", nil, &Value{K: vObj, O: obj})
-	for i, prm := range c.Params {
-		if i < len(args) {
-			sc.defineTyped(prm.Name, prm.Type, args[i])
-		} else {
-			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
-		}
-	}
-	in.execBlock(c.Body, sc)
+	in.execCtorBodySkip(obj, c, args, in.globals, 0)
 }
 
 // enumClass 为数据枚举生成合成 ClassDecl，使 callMethod/readMember 可复用。
