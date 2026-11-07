@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/bad_return.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：返回类型必须是 void 或 Int
+  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）

@@ -1,0 +1,8 @@
+vet=0
+go_test=0 (10 packages ok)
+build_rt=0
+focus_sema=16 PASS
+focus_interp=9 PASS
+probe_sema=0 (5/5 Int64 boundary PASS, numeric boundaries PASS, tuple PASS)
+probe_interp=0
+exact_codes_probe=0 (6/6: TY-101 x3, TY-105 x3)

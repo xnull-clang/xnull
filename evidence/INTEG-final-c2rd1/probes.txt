@@ -1,0 +1,80 @@
+# 集成最终复核 @f63fcba（git archive 干净树）
+# tree: /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//clean-f63fcba
+# binary sha256: 6b6cab4874265f46e64d3ede17813efeb6c4df80dc56abdae5019580b75576b5
+
+== a_assign.x ==
+true
+1
+exit=0
+
+== d_assign_push.x ==
+true
+2
+exit=0
+
+== e_set.x ==
+true
+2
+exit=0
+
+== i_set_base.x ==
+true
+2
+exit=0
+
+== j_list_base.x ==
+true
+exit=0
+
+== b_map.x ==
+true
+7
+9
+1
+1
+false
+false
+true
+0
+exit=0
+
+== h_map_assign.x ==
+true
+2
+exit=0
+
+== m_list_edge.x ==
+2
+2
+9
+8
+4
+exit=0
+
+== n_map_edge.x ==
+b
+missing
+fallback
+true
+true
+0
+exit=0
+
+== f_bounds.x ==
+xnull: fatal: List.insert 下标越界：len=2, idx=3（§9.4 合法范围 0..length）
+exit=134
+
+== g_bounds_neg.x ==
+xnull: fatal: List.remove 下标越界
+exit=134
+
+== k_boolkey.x ==
+k_boolkey.x:2:5: error[TY-107]: Map 键类型 Bool 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String
+exit=1
+
+== l_charkey.x ==
+l_charkey.x:2:5: error[TY-107]: Map 键类型 Char 不被支持（§9.5：只允许 String、整数类型和简单枚举）
+  改用 String 或整数键，或把键编码为 String
+exit=1
+

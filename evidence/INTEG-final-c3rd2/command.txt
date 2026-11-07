@@ -1,0 +1,12 @@
+# INTEG-final-c3rd2（只读，main=f63fcba，干净 git archive）
+# 环境：macOS 26.5.2 x86_64 / go1.27.3 / Apple clang 17.0.0
+cd /Users/vjs/Desktop/XNull-Lang && git rev-parse f63fcba
+T=$TMPDIR/opencode/integ-final-c3rd2
+git archive f63fcba | tar -x -C $T/src
+cd $T/src/impl && go build -o $T/bin-xnull ./cmd/xnull
+cd $T/src/impl && go test ./internal/sema ./internal/interp ./internal/codegen -run 'TestDET01' -v -count=1
+cd $T/src/impl && go test ./internal/sema/ ./internal/interp/ -count=1
+cd $T/src && $T/bin-xnull build examples/containers.x -o $T/build/prog   # 连续两次，逐次 sha
+cd $T/src && for i in 1..10: $T/bin-xnull run examples/containers.x
+cd $T/src && for i in 1..10: $T/bin-xnull run examples/containers.x --interp
+cd $T/src && cmp $T/build/c1.out $T/build/i1.out

@@ -1,0 +1,14 @@
+# integration diff: what the c3-rd1 merge changed on main
+$ git diff --stat 6f77167..f20081b -- impl
+ impl/internal/cli/cli.go      | 203 +++++++++++++++++++++++++++++++++++-------
+ impl/internal/cli/cli_test.go | 129 +++++++++++++++++++++++++++
+ 2 files changed, 302 insertions(+), 30 deletions(-)
+
+$ git diff --name-status 6f77167..f20081b -- impl
+M	impl/internal/cli/cli.go
+M	impl/internal/cli/cli_test.go
+
+# c3-rd2 merge (for completeness)
+ impl/internal/codegen/det01_test.go | 106 ++++++++++++++++++++++++++++++++++++
+ impl/internal/interp/det01_test.go  |  70 ++++++++++++++++++++++++
+ 2 files changed, 176 insertions(+)

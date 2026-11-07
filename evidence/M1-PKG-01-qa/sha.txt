@@ -1,0 +1,9 @@
+main_commit: 2c00cf5 (2c00cf582c39ce8e19e2f23944d76b672483eb7c)
+pkg01_code_commit: 9bb6bef (9bb6bef48e7428c94414391fe27ed929ac2fdfc4)
+merge_commit: 39552bc (main@2c00cf5 -> pod/c1-rd1)
+merged_head: a6fb48d (a6fb48dacd8107ee4f7cc5b0dceac574a2837625)
+merge_conflict_file: impl/internal/sema/xdk.go (resolved in 39552bc, xdk.go +1 sort.Strings)
+merged_sema_full: 57 PASS / 0 FAIL
+merged_independent: 46 PASS / 3 FAIL (same-source-alias x2, xdk-multilevel-package)
+merged_vet: exit 0
+main_baseline_reproA: PASS (RES-103)

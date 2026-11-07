@@ -324,6 +324,45 @@ func (s *scope) containerMemberStmt(recvC string, recvName string, name string, 
 	return nil, false, nil
 }
 
+// bytesMemberValue 生成 Bytes 成员调用的标量值（length/get，S1 §9.7）。
+// 运行时对象是 ARC 管理的 xrt_bytes_obj（E5 BYTES-RUNTIME），字段不可直接读。
+func (s *scope) bytesMemberValue(recvName string, name string, args []xfront.Expr) (string, bool, error) {
+	switch name {
+	case "length":
+		return "((int64_t)xrt_bytes_len(" + recvName + "))", true, nil
+	case "get":
+		idx, err := s.intExpr(args[0])
+		if err != nil {
+			return "", true, err
+		}
+		return "((int64_t)xrt_bytes_get(" + recvName + ", (size_t)(" + idx + ")))", true, nil
+	}
+	return "", false, nil
+}
+
+// bytesMemberStmt 生成 Bytes 成员调用语句（push/set，S1 §9.7）。
+func (s *scope) bytesMemberStmt(recvName string, name string, args []xfront.Expr) ([]string, bool, error) {
+	switch name {
+	case "push":
+		v, err := s.intExpr(args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		return []string{"xrt_bytes_push(" + recvName + ", (int32_t)(" + v + "));"}, true, nil
+	case "set":
+		idx, err := s.intExpr(args[0])
+		if err != nil {
+			return nil, true, err
+		}
+		v, err := s.intExpr(args[1])
+		if err != nil {
+			return nil, true, err
+		}
+		return []string{"xrt_bytes_set(" + recvName + ", (size_t)(" + idx + "), (int32_t)(" + v + "));"}, true, nil
+	}
+	return nil, false, nil
+}
+
 // containerMemberValue 生成容器成员调用的标量/借用值（length/has/get/getOr）。
 func (s *scope) containerMemberValue(recvC string, recvName string, name string, args []xfront.Expr) (string, bool, error) {
 	if name == "length" {

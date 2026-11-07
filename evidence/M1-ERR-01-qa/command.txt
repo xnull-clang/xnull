@@ -1,0 +1,27 @@
+# 基线：main 2c00cf5（含 ERR-01 09367e8 + DET/TYPE-01 c737099 + GEN-01）
+# 说明：为避免改动被测工作树，以下命令在 rsync 出的临时副本中执行；qa-*.go.txt 复制为 _test.go 后运行。
+
+git rev-parse HEAD
+# 2c00cf582c39ce8e19e2f23944d76b672483eb7c
+
+# 1) sema + interp 全量
+cd impl && go test ./internal/sema ./internal/interp -count=1 -timeout 300s
+# exit 0
+
+# 2) 9 示例双路径 + defer 语义 + multi
+go test ./internal/codegen -run 'TestExamplesCompileMatchesInterp|TestCompileDeferSemantics|TestMultiFileExampleCompileMatchesInterp' -count=1 -v
+# exit 0，9/9 子用例 PASS
+
+# 3) QA 独立用例（不引用 RD 的 err01_test.go）
+cp evidence-M1-ERR-01/qa/qa-sema-test.go.txt impl/internal/sema/qa_err01_accept_test.go
+cp evidence-M1-ERR-01/qa/qa-interp-test.go.txt impl/internal/interp/qa_err01_accept_test.go
+go test ./internal/sema -run TestQAERR01 -count=1 -v
+# exit 1：清理体单条局部声明诊断位置 0:0
+go test ./internal/interp -run TestQAERR01 -count=1 -v
+# exit 1：闭包 try 失败穿透外层（2 个子用例）
+
+# 4) CLI 复现
+go run ./cmd/xnull run --interp probes/closure-try2.x
+# stdout: outer-err:bad（期望 closure-err:bad / after-call / outer-ok），exit 0
+go run ./cmd/xnull build probes/cleanup-localdecl.x
+# stderr: <path>:0:0: error[ERR-205] ...，exit 1

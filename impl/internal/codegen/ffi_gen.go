@@ -5,6 +5,7 @@ package codegen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
@@ -81,6 +82,32 @@ func InjectFFI(u *xfront.CompilationUnit, reg *ffi.Registry) error {
 	return nil
 }
 
+// FFIHandleTypes 返回绑定声明的全部句柄类型名（File/Dir 等）。
+// 句柄类型不在源码中声明，由 InjectFFI 注入签名；sema 的签名类型可见性
+// 检查需要这些名字（E2 §8.1 严格化后，否则 File/Dir 报 RES-101）。
+func FFIHandleTypes(reg *ffi.Registry) []string {
+	if reg == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, e := range reg.Entries {
+		if e.Ret.Kind == ffi.KindHandle {
+			seen[e.Ret.Name] = true
+		}
+		for _, p := range e.Params {
+			if p.Type.Kind == ffi.KindHandle {
+				seen[p.Type.Name] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for n := range seen {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
+}
+
 // UnsupportedFFIEntries 列出未纳入 P-09 的入口及原因（按注册表顺序，确定性）。
 func UnsupportedFFIEntries(reg *ffi.Registry) []string {
 	if reg == nil {
@@ -95,21 +122,37 @@ func UnsupportedFFIEntries(reg *ffi.Registry) []string {
 	return out
 }
 
-// ffiSupported 校验入口形态是否在 P-09 本轮覆盖面内（B0-07c：含 handle）。
+// ffiSupported 校验入口形态是否在 P-09 本轮覆盖面内（B0-07c：handle/Bytes/@errorCode/Int32/Int64）。
 func ffiSupported(e ffi.Entry) error {
 	isClose := e.ErrorCodeRet && e.CloseOf != ""
-	if e.ErrorCode != "" || e.ErrorCodeRet {
-		// 句柄 close 以 Bool 暴露（幂等关闭，B0-07c）；其余错误码通道仍拒绝。
-		if !isClose {
-			return fmt.Errorf("codegen：FFI 入口 %s 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）", e.Name)
+	// 错误码通道（S7 §7.1）：
+	//   - 句柄 close（codeParam=.result）以 Bool 暴露（幂等关闭）；
+	//   - 其余 codeParam 出参形态（fileRead）与「返回码即错误码」（fileWrite）放行。
+	if e.ErrorCodeRet && !isClose && e.Ret.Kind != ffi.KindScalar {
+		return fmt.Errorf("codegen：FFI 入口 %s 的 @errorCode(.result) 要求标量返回（S7 §7.1）", e.Name)
+	}
+	if e.ErrorCode != "" {
+		found := false
+		for _, p := range e.Params {
+			if p.Name == e.ErrorCode {
+				found = true
+				if p.Type.Kind != ffi.KindScalar || p.Type.Name != "Int32" {
+					return fmt.Errorf("codegen：FFI 入口 %s 的错误码出参 %s 必须是 Int32（S7 §7.1）", e.Name, p.Name)
+				}
+			}
+		}
+		if !found {
+			return fmt.Errorf("codegen：FFI 入口 %s 的 @errorCode 出参 %s 不在形参表（S7 §7.1）", e.Name, e.ErrorCode)
 		}
 	}
 	if !isClose {
 		switch e.Ret.Kind {
 		case ffi.KindVoid, ffi.KindString, ffi.KindHandle:
 		case ffi.KindScalar:
-			if e.Ret.Name != "Int" && e.Ret.Name != "Int64" && e.Ret.Name != "Bool" {
-				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, e.Ret.Name)
+			switch e.Ret.Name {
+			case "Int", "Int32", "Int64", "Bool":
+			default:
+				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int32/Int64/Bool）", e.Name, e.Ret.Name)
 			}
 		default:
 			return fmt.Errorf("codegen：FFI 入口 %s 的返回类型 %s 未纳入 P-09（仅 void/Int/String/handle）", e.Name, e.Ret.String())
@@ -118,12 +161,16 @@ func ffiSupported(e ffi.Entry) error {
 	for _, p := range e.Params {
 		switch p.Type.Kind {
 		case ffi.KindScalar:
-			if p.Type.Name != "Int" && p.Type.Name != "Int64" && p.Type.Name != "Bool" {
-				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, p.Name, p.Type.Name)
+			switch p.Type.Name {
+			case "Int", "Int32", "Int64", "Bool":
+			default:
+				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int32/Int64/Bool）", e.Name, p.Name, p.Type.Name)
 			}
+		case ffi.KindBytes:
+			// B0-07c：Bytes 形参按 (data, len) 借出；包装层已做 canary 进出。
 		case ffi.KindString, ffi.KindHandle:
 		default:
-			return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 类型 %s 未纳入 P-09（仅 Int/String/handle）", e.Name, p.Name, p.Type.String())
+			return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 类型 %s 未纳入 P-09（仅 Int/String/handle/Bytes）", e.Name, p.Name, p.Type.String())
 		}
 	}
 	return nil
@@ -132,14 +179,14 @@ func ffiSupported(e ffi.Entry) error {
 func ffiParamXType(p ffi.Param) (xfront.TypeRef, error) {
 	switch p.Type.Kind {
 	case ffi.KindScalar:
-		if p.Type.Name == "Int" || p.Type.Name == "Int64" {
-			return xfrontIntType(), nil
-		}
-		if p.Type.Name == "Bool" {
-			return xfrontNamedType("Bool"), nil
+		switch p.Type.Name {
+		case "Int", "Int32", "Int64", "Bool":
+			return xfrontNamedType(p.Type.Name), nil
 		}
 	case ffi.KindString:
 		return xfrontStringType(), nil
+	case ffi.KindBytes:
+		return xfrontNamedType("Bytes"), nil
 	case ffi.KindHandle:
 		return xfrontNamedType(p.Type.Name), nil
 	}
@@ -178,10 +225,49 @@ func (s *scope) handleExpr(e xfront.Expr) ([]string, string, error) {
 		r := s.cRef(n.Name)
 		t := s.tmp()
 		return []string{"xrt_handle *" + t + " = rt_retain(" + r + ");"}, t, nil
+	case *xfront.NullLit:
+		// File? 用 NULL 哨兵（S6 §3：打开失败返回 null）。
+		return nil, "NULL", nil
 	case *xfront.Paren:
 		return s.handleExpr(n.X)
 	}
 	return nil, "", fmt.Errorf("codegen：句柄表达式 %T 未支持（B0-07c 范围）", e)
+}
+
+// bytesExpr 生成 Bytes 值表达式（B0-07c：Bytes.fromString 起步）。
+// 运行时对象（data/len/cap + push/get）由 E5 的 BYTES-RUNTIME 提供；
+// 本层只发出调用，不自行实现分配器。
+func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
+	switch n := e.(type) {
+	case *xfront.IdentExpr:
+		return nil, s.cRef(n.Name), nil
+	case *xfront.Paren:
+		return s.bytesExpr(n.X)
+	case *xfront.Call:
+		mem, ok := n.Callee.(*xfront.Member)
+		if !ok {
+			return nil, "", fmt.Errorf("codegen：Bytes 构造调用 %T 未支持（B0-07c 范围）", n.Callee)
+		}
+		recv, ok := mem.X.(*xfront.IdentExpr)
+		if !ok || recv.Name != "Bytes" {
+			return nil, "", fmt.Errorf("codegen：Bytes 表达式成员 %s 未支持（B0-07c 范围）", mem.Name)
+		}
+		switch mem.Name {
+		case "fromString":
+			sl, err := s.strExpr(n.Args[0])
+			if err != nil {
+				return nil, "", err
+			}
+			sv := lastVar(sl)
+			t := s.tmp()
+			out := append([]string{}, sl...)
+			out = append(out, "xrt_bytes_obj *"+t+" = xrt_bytes_from_string("+sv+"->bytes, "+sv+"->len);")
+			out = append(out, "rt_release("+sv+");")
+			return out, t, nil
+		}
+		return nil, "", fmt.Errorf("codegen：Bytes.fromString 之外的构造 %s 未支持（B0-07c 范围）", mem.Name)
+	}
+	return nil, "", fmt.Errorf("codegen：Bytes 表达式 %T 未支持（B0-07c 范围）", e)
 }
 
 // ffiRetXType 是入口返回值的 XNull 侧类型（void 返回 nil）。
@@ -191,10 +277,12 @@ func ffiRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
 	case ffi.KindVoid:
 		return nil, true, nil
 	case ffi.KindScalar:
-		if e.Ret.Name == "Bool" {
+		// 句柄 close 以 Bool 暴露（幂等关闭，B0-07c）。
+		if e.CloseOf != "" {
 			return xfrontNamedType("Bool"), false, nil
 		}
-		return xfrontIntType(), false, nil
+		// 其余按声明宽度保留类型（Int32/Int64 不再一律折成 Int）。
+		return xfrontNamedType(e.Ret.Name), false, nil
 	case ffi.KindString:
 		return xfrontStringType(), false, nil
 	case ffi.KindHandle:
@@ -222,8 +310,19 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	s.pending = nil
 	var parts []string
 	var post []string
+	codeVar := "" // @errorCode 出参在 XNull 侧的左值（包装签名不含 code）
 	for i, p := range e.Params {
 		arg := call.Args[i]
+		// 错误码出参：包装层内部承接（signature 不含 code，ffi-contract §5.1），
+		// 调用点只保留左值，归一 rc 后回写。
+		if e.ErrorCode != "" && p.Name == e.ErrorCode {
+			id, ok := arg.(*xfront.IdentExpr)
+			if !ok {
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的错误码出参必须是变量（B0-07c 范围），got %T", e.Name, arg)
+			}
+			codeVar = s.cRef(id.Name)
+			continue
+		}
 		switch p.Type.Kind {
 		case ffi.KindScalar:
 			v, err := s.intExpr(arg)
@@ -233,6 +332,14 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 			lines = append(lines, s.pending...)
 			s.pending = nil
 			parts = append(parts, v)
+		case ffi.KindBytes:
+			// S7 §3.4 借用：只传 data/len 视图，不转移所有权。
+			id, ok := arg.(*xfront.IdentExpr)
+			if !ok {
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 Bytes 实参仅支持变量（B0-07c 范围），got %T", e.Name, arg)
+			}
+			b := s.cRef(id.Name)
+			parts = append(parts, "xrt_bytes_data("+b+")", "xrt_bytes_len("+b+")")
 		case ffi.KindString:
 			// .borrow 借用：只传字节视图，不 retain（ffi-contract §5.2）。
 			// 字面量/表达式实参先生成 owned 临时，调用后释放。
@@ -259,21 +366,32 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 参数 %s 类型未纳入 P-09", e.Name, p.Name)
 		}
 	}
-	// 错误码即返回值（句柄 close，B0-07c）：Bool = (rc == 0)，不落 out。
+	// 错误码即返回值（B0-07c）：
+	//   - 句柄 close：Bool = (rc == 0)；
+	//   - 其余（fileWrite）：按声明宽度返回 rc 本身。
 	if e.ErrorCodeRet {
 		t := s.tmp()
 		lines = append(lines, "int32_t "+t+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
 		lines = append(lines, post...)
-		return lines, "(" + t + " == 0)", nil
+		if e.CloseOf != "" {
+			return lines, "(" + t + " == 0)", nil
+		}
+		if e.Ret.Kind == ffi.KindScalar {
+			return lines, t, nil
+		}
+		return lines, "", nil
 	}
 	out := ""
 	switch e.Ret.Kind {
 	case ffi.KindVoid:
 	case ffi.KindScalar:
 		out = s.tmp()
-		if e.Ret.Name == "Bool" {
+		switch e.Ret.Name {
+		case "Bool":
 			lines = append(lines, "uint8_t "+out+" = 0;")
-		} else {
+		case "Int32":
+			lines = append(lines, "int32_t "+out+" = 0;")
+		default:
 			lines = append(lines, "int64_t "+out+" = 0;")
 		}
 		parts = append(parts, "&"+out)
@@ -290,6 +408,10 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	}
 	rc := s.tmp()
 	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
+	// 出参形态（fileRead）：归一 rc 回写调用点的变量（夹具预置 7 → 成功必须变 0）。
+	if codeVar != "" {
+		lines = append(lines, codeVar+" = "+rc+";")
+	}
 	// 错误码经包装层归一（未知码 → Internal），非零即终止：不隐藏、不吞错（P-09 条件 2）。
 	lines = append(lines, fmt.Sprintf(
 		`if (%s != 0) { fprintf(stderr, "fatal: FFI 入口 %s 错误码 %%d（%%s）\n", (int)%s, xn_ffi_%s_error_kind(%s)); exit(134); }`,

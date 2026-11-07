@@ -1,0 +1,10 @@
+ok  policy table (10 rows, deterministic)
+rt tests passed
+gc tests passed (invariants 2/3/5/6)
+ok  resurrection detection terminates (fatal handler)
+ok  weak slots (invariant 4, cleared before deinit, reusable)
+hard-semantics tests passed
+abi 测试通过
+std 测试通过
+资源表测试通过
+RT_RC=0

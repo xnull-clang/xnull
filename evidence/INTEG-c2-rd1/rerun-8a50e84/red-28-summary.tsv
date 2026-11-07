@@ -1,0 +1,29 @@
+id	status	expect_exit	actual_exit	elapsed_ms	note	reason
+c01_string_members	GREEN	0	0	52	成员签名：length/substring/indexOf/trim/split/replace/toUpper/toLower/startsWith/endsWith	
+c02_string_bounds	GREEN	0	0	51	边界：substring 钳制、indexOf 未命中、split 空段、replace 空 from、trim 仅 ASCII、UTF-8 字节长度	
+c03_string_ascii_case	GREEN	0	0	49	边界：toUpper/toLower 只转 ASCII（§9.2）	
+c04_array_members	GREEN	0	0	48	成员：下标读写、length、join（空数组 join = 空串）	
+c05_array_bounds_read	GREEN	134	134	47	边界：下标读越界 panic	
+c06_array_bounds_write	GREEN	134	134	46	边界：下标写越界 panic	
+c07_new_array_zero	GREEN	0	0	46	new T[count]：Int/Bool/Float/String 零值、长度 0	
+c08_new_array_negative	GREEN	134	134	47	边界：new T[-1] 是 panic（§9.3）	
+c09_list_members	GREEN	0	0	47	成员：push/insert/set/get/remove/clear/length + 下标等价	
+c10_list_insert_low	GREEN	134	134	48	边界：insert(-1) 越界 panic（§9.4）	
+c11_list_insert_high	GREEN	134	134	46	边界：insert(length+1) 越界 panic（§9.4）	
+c12_list_remove_return	GREEN	0	0	44	remove(index) 返回被删元素（§9.4）	
+c13_list_get_bounds	GREEN	134	134	44	边界：get 越界 panic	
+c14_list_set_bounds	GREEN	134	134	44	边界：set 越界 panic	
+c15_list_remove_bounds	GREEN	134	134	44	边界：remove 越界 panic	
+c16_map_members	GREEN	0	0	45	成员：put/get/getOr/has/remove/clear/length/keys/values	
+c17_map_get_missing	GREEN	0	0	45	Map.get 缺失键返回 null，不 panic（§9.5）	
+c18_map_getor	GREEN	0	0	47	getOr 缺失键返回 fallback，存在键返回原值（§9.5）	
+c19_map_bool_key	GREEN	nonzero	1	49	边界：Map 键只允许 String/整数/简单枚举，Bool 键是编译错误（§9.5）	
+c20_map_dup_key	GREEN	0	0	52	边界：重复键后者覆盖前者（§9.5）	
+c21_map_int_key	GREEN	0	0	49	边界：整数键可用；keys() 顺序确定	
+c22_set_members	GREEN	0	0	52	成员：add/has/at/remove/clear/length + 字面量去重 + for-in	
+c23_set_at_low	GREEN	134	134	52	边界：at(-1) 越界 panic（§9.6）	
+c24_set_at_high	GREEN	134	134	53	边界：at(length) 越界 panic（§9.6）	
+c25_assign_list	GREEN	0	0	54	边界：List 变量重新赋值后仍是 List（push 可用）	
+c26_assign_set	GREEN	0	0	51	边界：Set 变量重新赋值后仍是 Set（add 可用）	
+c27_set_complexity	GREEN	0	0	99	复杂度：Set add/has/remove 平均 O(1)（§9.8）	
+c28_map_put_complexity	GREEN	0	0	308	复杂度：Map put 平均 O(1)（§9.8）	

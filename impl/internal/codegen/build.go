@@ -28,6 +28,7 @@ var runtimeCSources = []string{
 	"rt_std_runtime.c",
 	"rt_std_text.c",
 	"rt_std_sys.c",
+	"rt_std_bytes.c",
 }
 
 // Build 端到端构建：XNull 源文件 → C → cc → 可执行文件（M4.2）。
@@ -66,6 +67,9 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
+	// 句柄类型（File/Dir…）由绑定层注入，不在源码中声明；
+	// 登记后再做 sema 的签名类型可见性检查。
+	sema.RegisterExternalTypes(FFIHandleTypes(reg)...)
 	for _, note := range UnsupportedFFIEntries(reg) {
 		fmt.Fprintf(stderr, "xnull: 提示：%s（调用将报未定义标识符）\n", note)
 	}

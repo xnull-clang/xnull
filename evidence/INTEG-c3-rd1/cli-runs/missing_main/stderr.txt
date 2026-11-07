@@ -1,0 +1,2 @@
+/Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/missing.x:1:1: error[ENTRY-001]: 找不到入口 main
+  入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）

@@ -345,23 +345,31 @@ func checkEntry(path string) *diag.Diagnostic {
 			Message: "找不到入口 main",
 			Hint:    "入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）",
 		}
-	case 1:
-		if msg := entrySignatureProblem(mains[0]); msg != "" {
-			return &diag.Diagnostic{
-				File: path, Line: mains[0].P.Line, Col: mains[0].P.Col, Code: codeEntrySignature,
-				Message: "入口 main 的签名不合法：" + msg,
-				Hint:    "入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）",
-			}
-		}
-		return nil
-	default:
-		dup := mains[1]
-		return &diag.Diagnostic{
-			File: path, Line: dup.P.Line, Col: dup.P.Col, Code: codeEntryDuplicate,
-			Message: fmt.Sprintf("重复入口 main：发现 %d 个 main 声明", len(mains)),
-			Hint:    "一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）",
+	}
+	// §11.2：只有匹配入口签名的 main 才是入口；其余 main 重载是普通函数。
+	var matched []*xfront.TopFunc
+	for _, fn := range mains {
+		if entrySignatureProblem(fn) == "" {
+			matched = append(matched, fn)
 		}
 	}
+	if len(matched) == 0 {
+		fn := mains[0]
+		return &diag.Diagnostic{
+			File: path, Line: fn.P.Line, Col: fn.P.Col, Code: codeEntrySignature,
+			Message: "入口 main 的签名不合法：" + entrySignatureProblem(fn),
+			Hint:    "入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）",
+		}
+	}
+	if len(matched) > 1 {
+		dup := matched[1]
+		return &diag.Diagnostic{
+			File: path, Line: dup.P.Line, Col: dup.P.Col, Code: codeEntryDuplicate,
+			Message: fmt.Sprintf("重复入口 main：发现 %d 个匹配签名的 main 声明", len(matched)),
+			Hint:    "一个程序只能有一个匹配签名的入口；其余 main 重载不得与入口同签名（S1 §11.2）",
+		}
+	}
+	return nil
 }
 
 // entrySignatureProblem 返回入口签名问题；空串表示合法。

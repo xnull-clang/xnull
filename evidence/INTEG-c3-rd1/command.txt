@@ -1,0 +1,41 @@
+# INTEG-c3-rd1 集成复核复现命令（只读；2026-11-07）
+# main = 9f5f66c, pod/c3-rd1 = 7c626b5
+
+# 1) 祖先关系（必须 exit 0）
+git merge-base --is-ancestor 7c626b5 9f5f66c
+echo $?
+
+# 2) 构建与全量门禁
+cd impl
+go vet ./...
+go test ./... -count=1 -timeout 300s
+cd ..
+bash impl/runtime/build_rt.sh
+
+# 3) ENTRY-01 定向测试
+cd impl
+go test ./internal/cli    -run 'TestRunEntry|TestEntry|TestInitOrderViaCLI' -v -count=1
+go test ./internal/interp -run 'TestEntry|TestExitCodeMapping|TestTopFieldInitOrder' -v -count=1
+cd ..
+
+# 4) 独立 CLI 用例（两种签名 / 退出码 / 初始化顺序）
+go build -o /tmp/xnull-integ ./impl/cmd/xnull
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/void_args.x alpha beta
+/tmp/xnull-integ run --interp evidence/INTEG-c3-rd1/cases/void_args.x alpha beta
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/int_args.x alpha beta
+/tmp/xnull-integ run --interp evidence/INTEG-c3-rd1/cases/int_args.x alpha beta
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/exit_300.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/exit_neg.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/init_order.x
+/tmp/xnull-integ run --interp evidence/INTEG-c3-rd1/cases/init_order.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/init_fatal.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/missing.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/duplicate.x
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/args_echo.x -- alpha beta
+
+# 5) 失败用例：前向引用初始化（§4.3：未初始化字段读零值）
+/tmp/xnull-integ run        evidence/INTEG-c3-rd1/cases/init_forward.x   # rc 0, "1\n2"
+/tmp/xnull-integ run --interp evidence/INTEG-c3-rd1/cases/init_forward.x # rc 1, 未定义的名称：b
+
+# 6) 确认缺陷是否由 c3-rd1 引入（主分支合并前 6f77167）
+#    已在仓外 clone @6f77167 复跑：interp 同样 rc 1；compiled 同样 rc 0

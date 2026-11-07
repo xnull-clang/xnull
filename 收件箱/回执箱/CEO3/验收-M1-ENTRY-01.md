@@ -9,6 +9,29 @@
 
 ---
 
+## 0. 当前判定（2026-11-07 复验，main `d349f6a`）：**FAIL**
+
+在原失败集上逐项复跑（二进制：main `d349f6a` 导出树自建）。
+
+| 项 | 期望（S1 §11.2/§11.3） | 实测 | 判定 |
+|---|---|---|---|
+| **e3** `main()` + `main(Int)` 重载 | 合法；`main(Int)` 是普通函数，应运行并输出 `entry` | 双路径 `error[ENTRY-002]: 重复入口 main` rc=1 | **FAIL** |
+| **c3** 初始化除零（编译路径） | fatal 终止，main 不运行，rc=134 | rc=0，stdout `MAIN-SHOULD-NOT-RUN` | **FAIL** |
+| **c7b** 初始化除零（编译路径） | fatal 终止，main 不运行 | rc=0，stdout `a=0` | **FAIL** |
+| **c7e** 运行期除零退出码 | rc=134 | rc=255 | **FAIL** |
+| **c9** `str(Bool)` 双路径 | 两路径一致（`s=true` 或 `s=1` 同一口径） | interp `s=true`；compiled `s=1` | **FAIL** |
+| e10 `private main` | `ENTRY-003` 拒绝 | 双路径 `ENTRY-003` rc=1 | PASS（已修） |
+| e11 泛型 `main` | `ENTRY-003` 拒绝 | 双路径 `ENTRY-003` rc=1 | PASS（已修） |
+| e12 `protected main` | `ENTRY-003` 拒绝 | 双路径 `ENTRY-003` rc=1 | PASS（已修） |
+| c8 `print(Bool)` | 双路径一致 | 双路径 `true` | PASS（已修） |
+
+复现：`wt/qa-1/evidence/QA1-anchors-2026-11-07/logs/entry-reverify.log`。
+`sema`/`cli` 自有 `TestRunEntry|TestEntry` 在 main 上 18 PASS / 0 FAIL，但不覆盖上表 5 项。
+
+**结论：FAIL，不翻转。** 原 5 项未修；3 项已修。
+
+---
+
 ## 一、五行结论
 
 1. **FAIL**：4 项 §11.2 强制约束未实现或未强制，1 项初始化失败语义在编译路径不成立。

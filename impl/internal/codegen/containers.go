@@ -100,8 +100,12 @@ func optName(c string) (string, error) {
 		return "xn_opt_b", nil
 	case "rt_string *":
 		return "xn_opt_s", nil
+	case "xrt_handle *":
+		// B0-07c：可空句柄不加 wrapper 结构，直接用指针的 NULL 哨兵。
+		// 收窄（File? → File）后 C 类型不变，由 sema 负责流敏感判定。
+		return "xrt_handle *", nil
 	}
-	return "", fmt.Errorf("codegen：可空类型 %s 未支持（M6-B0-05 范围：Int/Bool/String）", c)
+	return "", fmt.Errorf("codegen：可空类型 %s 未支持（M6-B0-05 范围：Int/Bool/String/handle）", c)
 }
 
 func setName(elem string) string {
