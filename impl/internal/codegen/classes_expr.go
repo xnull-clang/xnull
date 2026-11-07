@@ -62,6 +62,9 @@ func (ci *classInfo) methodOf(name string) (*classInfo_m, bool) {
 	if m, ok := ci.methods[name]; ok {
 		return m, true
 	}
+	if name == "deinit" && ci.deinit != nil {
+		return ci.deinit, true
+	}
 	if ci.base != nil {
 		return ci.base.methodOf(name)
 	}

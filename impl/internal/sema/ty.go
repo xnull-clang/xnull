@@ -196,6 +196,66 @@ func isFloatType(key string) bool {
 	return b == "Float" || b == "Double"
 }
 
+// canAssign 在 assignable 基础上补类/协议层次（S2 §5.2）：
+// 子类 → 祖先类、类 → 其实现（含祖先实现）的协议、协议 → 父协议。
+func (e *tyenv) canAssign(from texpr, to string) bool {
+	if assignable(from, to) {
+		return true
+	}
+	if e.a == nil || e.a.tc == nil || from.key == "" || to == "" {
+		return false
+	}
+	f := unwrapOpt(from.key)
+	t := unwrapOpt(to)
+	if f == t {
+		return true
+	}
+	fi := e.a.tc.types[f]
+	ti := e.a.tc.types[t]
+	if fi == nil || ti == nil {
+		return false
+	}
+	if fi.kind == "class" {
+		for cur := fi.class; cur != nil; {
+			if cur.Name == t {
+				return true
+			}
+			if ti.kind == "protocol" {
+				for _, pr := range cur.Protocols {
+					if lastSeg(pr.Qual) == t {
+						return true
+					}
+				}
+			}
+			b := baseRefName(cur.Base)
+			ni := e.a.tc.types[b]
+			if ni == nil || ni.kind != "class" {
+				break
+			}
+			cur = ni.class
+		}
+	}
+	if fi.kind == "protocol" && ti.kind == "protocol" {
+		for cur := fi.proto; cur != nil; {
+			found := false
+			for _, ex := range cur.Extends {
+				if lastSeg(ex.Qual) == t {
+					return true
+				}
+				if ni := e.a.tc.types[lastSeg(ex.Qual)]; ni != nil && ni.kind == "protocol" {
+					cur = ni.proto
+					found = true
+					break
+				}
+			}
+			if !found {
+				break
+			}
+		}
+	}
+	return false
+}
+
 // assignable 判断 from 是否可赋给 to（§2.6；lit 提供字面量适配规则）。
 func assignable(from texpr, to string) bool {
 	if to == "" || from.key == "" {
@@ -567,7 +627,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 				e.fnKind, e.ret = "fieldinit", ""
 				it := e.inferExpected(n.Init, k)
 				e.fnKind, e.ret = oldKind, oldRet
-				if !assignable(it, k) {
+				if !e.canAssign(it, k) {
 					e.a.errf(n.Init.Pos(), assignDiag(it, k),
 						fmt.Sprintf("顶层字段 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
 						hintFor(it, k))
@@ -714,7 +774,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 					e.errf(n.P, TyAssignability, "void 不能作为变量类型（§2）", "变量类型必须是具体类型")
 					e.vars[n.Name] = ""
 				} else {
-					if !assignable(it, k) {
+					if !e.canAssign(it, k) {
 						e.errf(n.Init.Pos(), assignDiag(it, k),
 							fmt.Sprintf("变量 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
 							hintFor(it, k))
@@ -751,7 +811,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 				if n.Op != "=" {
 					e.checkOperand(id.Name, tt, n.Op) // 复合赋值要求操作数合法
 				}
-				if !assignable(vt, tt) {
+				if !e.canAssign(vt, tt) {
 					e.errf(n.P, assignDiag(vt, tt),
 						fmt.Sprintf("赋值类型不符：%s 不能赋给 `%s` 的声明类型 %s（§2.6）", describeKey(vt), id.Name, tt),
 						hintFor(vt, tt))
@@ -760,7 +820,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		} else if mem, ok := n.Target.(*xfront.Member); ok {
 			ft := e.inferMember(mem) // 完成私有字段访问校验
 			vt := e.inferExpected(n.Value, ft.key)
-			if ft.key != "" && !assignable(vt, ft.key) {
+			if ft.key != "" && !e.canAssign(vt, ft.key) {
 				e.errf(n.P, assignDiag(vt, ft.key),
 					fmt.Sprintf("字段赋值类型不符：%s 不能赋给字段类型 %s（§2.6）", describeKey(vt), ft.key), "")
 			}
@@ -806,7 +866,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			return
 		}
 		vt := e.inferExpected(n.Value, retKey)
-		if !assignable(vt, retKey) {
+		if !e.canAssign(vt, retKey) {
 			e.errf(n.Value.Pos(), assignDiag(vt, retKey),
 				fmt.Sprintf("返回类型不符：%s 不能赋给声明的返回类型 %s（§2.6）", describeKey(vt), retKey),
 				hintFor(vt, retKey))

@@ -214,6 +214,13 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 		}
 	}
+	// 协议 vtable 槽对齐（S2 §5.7）：子类实现协议时，祖先也必须保留同一 vtable
+	// 指针槽，否则父类字段偏移与子类布局不一致（多级继承回归）。
+	for _, ci := range g.classes {
+		for b := ci.base; ci.vptr && b != nil; b = b.base {
+			b.vptr = true
+		}
+	}
 	// 顶层字段收集（§4.3/§11.3 初始化顺序；ENTRY-01 范围：Int/Bool/String）
 	for _, d := range u.Decls {
 		if f, ok := d.(*xfront.TopField); ok {
@@ -917,6 +924,10 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			bc, err := g.cType(n.Base)
 			if err != nil {
 				return "", err
+			}
+			// 类/协议指针本身可空：用 NULL 哨兵，不加 wrapper（S2 §4.5/§5.2）。
+			if isClassPtr(bc) || g.isProtoC(bc) || isHandlePtr(bc) || bc == "xrt_bytes_obj *" {
+				return bc, nil
 			}
 			return optName(bc)
 		}
@@ -1752,17 +1763,41 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
+			if nt, ok := nw.Type.(*xfront.NamedType); ok {
+				if ci, ok := s.g.classOf(typeName(nt)); ok && ci.cname+" *" != tc {
+					ctor = "(" + tc + ")(" + ctor + ")" // 子类 → 父类/协议（S2 §5.2）
+				}
+			}
 			out := append([]string{}, s.pending...)
 			s.pending = nil
 			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			s.locals[n.Name] = tc
 			return append(out, tc+" "+n.Name+" = "+ctor+";"), nil
 		}
+		if _, ok := n.Init.(*xfront.NullLit); ok {
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			s.locals[n.Name] = tc
+			return []string{tc + " " + n.Name + " = NULL;"}, nil
+		}
 		if id, ok := n.Init.(*xfront.IdentExpr); ok {
 			r := s.cRef(id.Name)
+			if sc, ok := s.localCType(id.Name); ok && sc != tc {
+				r = "(" + tc + ")(" + r + ")"
+			}
 			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			s.locals[n.Name] = tc
 			return []string{tc + " " + n.Name + " = rt_retain(" + r + ");"}, nil
+		}
+		if bin, ok := n.Init.(*xfront.Binary); ok && (bin.Op == "as?" || bin.Op == "as") {
+			v, err := s.intExpr(bin)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			s.locals[n.Name] = tc
+			return append(out, tc+" "+n.Name+" = ("+tc+")("+v+");"), nil
 		}
 		if cl, ok := n.Init.(*xfront.Call); ok {
 			expr, owns, err := s.classCallExpr(cl)
@@ -2789,14 +2824,12 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	case *xfront.Binary:
 		if n.Op == "is" {
 			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
-				lt, lerr := s.exprType(n.L)
-				rt, rerr := s.g.cType(s.g.substitute(ta.Type))
-				if lerr == nil && rerr == nil {
-					if lt == rt {
-						return "1", nil
-					}
-					return "0", nil
-				}
+				return s.typeIsExpr(n, ta)
+			}
+		}
+		if n.Op == "as?" || n.Op == "as" {
+			if ta, ok := n.R.(*xfront.TypeAsExpr); ok {
+				return s.typeAsExpr(n, ta, n.Op == "as?")
 			}
 		}
 		// 元组相等/同一性（S1 §2.11）：逐元素比较，整值语义。

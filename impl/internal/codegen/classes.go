@@ -63,7 +63,142 @@ type classInfo_m struct {
 	owner *classInfo
 }
 
-// classCName 类名 → C 结构体名。
+// typeIsExpr 生成 `x is T`：类/协议层次可静态判定，协议接收者按 vtable 运行时判定。
+func (s *scope) typeIsExpr(n *xfront.Binary, ta *xfront.TypeAsExpr) (string, error) {
+	lt, err := s.exprType(n.L)
+	if err != nil {
+		return "", err
+	}
+	rt, err := s.g.cType(s.g.substitute(ta.Type))
+	if err != nil {
+		return "", err
+	}
+	if isClassPtr(lt) {
+		if isClassPtr(rt) {
+			if s.g.classIsA(lt, rt) {
+				return "1", nil
+			}
+			return "0", nil
+		}
+		if s.g.isProtoC(rt) {
+			if s.g.classImplements(lt, strings.TrimPrefix(rt, "xn_proto_")) {
+				return "1", nil
+			}
+			return "0", nil
+		}
+	}
+	if s.g.isProtoC(lt) {
+		x, err := s.intExpr(n.L)
+		if err != nil {
+			return "", err
+		}
+		if s.g.isProtoC(rt) {
+			if lt == rt {
+				return "((void *)(" + x + ") != NULL)", nil
+			}
+			return "0", nil
+		}
+		if isClassPtr(rt) {
+			name := strings.TrimSuffix(strings.TrimPrefix(rt, "xn_Cls_"), " *")
+			if _, ok := s.g.classes[name]; ok {
+				return "(((void *)(" + x + ") != NULL) && (((xn_vt_obj *)(" + x + "))->__vtable == xn_vt_" + name + "))", nil
+			}
+		}
+	}
+	if s.g.isDataEnumC(lt) {
+		x, err := s.intExpr(n.L)
+		if err != nil {
+			return "", err
+		}
+		if lt == rt {
+			return "((void *)(" + x + ") != NULL)", nil
+		}
+		return "0", nil
+	}
+	if lt == rt {
+		return "1", nil
+	}
+	return "0", nil
+}
+
+// typeAsExpr 生成 `x as T` / `x as? T`：协议→类用 vtable 身份判定。
+func (s *scope) typeAsExpr(n *xfront.Binary, ta *xfront.TypeAsExpr, nullSafe bool) (string, error) {
+	lt, err := s.exprType(n.L)
+	if err != nil {
+		return "", err
+	}
+	rt, err := s.g.cType(s.g.substitute(ta.Type))
+	if err != nil {
+		return "", err
+	}
+	cast := rt
+	x, err := s.intExpr(n.L)
+	if err != nil {
+		return "", err
+	}
+	if s.g.isProtoC(lt) && isClassPtr(rt) {
+		name := strings.TrimSuffix(strings.TrimPrefix(rt, "xn_Cls_"), " *")
+		if _, ok := s.g.classes[name]; ok {
+			cond := "(((void *)(" + x + ") != NULL) && (((xn_vt_obj *)(" + x + "))->__vtable == xn_vt_" + name + "))"
+			if nullSafe {
+				return "(" + cond + " ? (" + cast + ")(" + x + ") : NULL)", nil
+			}
+			return "(" + cond + " ? (" + cast + ")(" + x + ") : NULL)", nil
+		}
+	}
+	if isClassPtr(lt) && s.g.isProtoC(rt) {
+		if s.g.classImplements(lt, strings.TrimPrefix(rt, "xn_proto_")) {
+			return "((" + cast + ")(" + x + "))", nil
+		}
+		if nullSafe {
+			return "NULL", nil
+		}
+	}
+	if lt == rt {
+		return x, nil
+	}
+	if isClassPtr(lt) && isClassPtr(rt) {
+		return "((" + cast + ")(" + x + "))", nil
+	}
+	if nullSafe {
+		return "NULL", nil
+	}
+	return "((" + cast + ")(" + x + "))", nil
+}
+
+// classIsA 判断 from 类是否等于或继承 to 类（C 指针类型）。
+func (g *gen) classIsA(fromC, toC string) bool {
+	fi, ok := g.classOfC(fromC)
+	if !ok {
+		return false
+	}
+	ti, ok := g.classOfC(toC)
+	if !ok {
+		return false
+	}
+	for cur := fi; cur != nil; cur = cur.base {
+		if cur.cname == ti.cname {
+			return true
+		}
+	}
+	return false
+}
+
+// classImplements 判断类（含祖先）是否实现协议。
+func (g *gen) classImplements(classC, protoName string) bool {
+	ci, ok := g.classOfC(classC)
+	if !ok {
+		return false
+	}
+	for cur := ci; cur != nil; cur = cur.base {
+		for _, p := range cur.protocols {
+			if typeName(p) == protoName {
+				return true
+			}
+		}
+	}
+	return false
+}
 func classCName(name string) string         { return "xn_Cls_" + name }
 func classTypeVar(name string) string       { return "RT_TYPE_XN_" + name }
 func classMethodCName(cls, m string) string { return classCName(cls) + "_" + m }
@@ -299,9 +434,12 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	if ci.deinit != nil {
 		fmt.Fprintf(b, "    %s(o);\n", ci.deinit.cname)
 	}
-	for base := ci.base; base != nil; base = base.base {
-		if base.deinit != nil {
-			fmt.Fprintf(b, "    %s((%s *)o);\n", base.deinit.cname, base.cname)
+	// 显式 super.deinit() 接管父链；否则自动沿父类执行用户 deinit（§6.4）。
+	if ci.deinit == nil || !deinitCallsSuper(ci.deinit.decl) {
+		for base := ci.base; base != nil; base = base.base {
+			if base.deinit != nil {
+				fmt.Fprintf(b, "    %s((%s *)o);\n", base.deinit.cname, base.cname)
+			}
 		}
 	}
 	for _, f := range ci.fields {
@@ -372,6 +510,31 @@ func superCtorStmt(body *xfront.Block) (*xfront.Call, bool) {
 		return nil, false
 	}
 	return call, true
+}
+
+// deinitCallsSuper 判断 deinit 体是否显式调用 super.deinit()。
+func deinitCallsSuper(m *xfront.MethodDecl) bool {
+	if m == nil || m.Body == nil {
+		return false
+	}
+	for _, st := range m.Body.Stmts {
+		es, ok := st.(*xfront.ExprStmt)
+		if !ok {
+			continue
+		}
+		call, ok := es.X.(*xfront.Call)
+		if !ok {
+			continue
+		}
+		mem, ok := call.Callee.(*xfront.Member)
+		if !ok || mem.Name != "deinit" {
+			continue
+		}
+		if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == "super" {
+			return true
+		}
+	}
+	return false
 }
 
 // emitClassCtor 生成全部构造器（S2 §6.3/§6.5）：
