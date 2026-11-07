@@ -12,7 +12,7 @@
   - `impl/internal/codegen/classes.go`（GC 分配、scan 钩子、deinit 字段过滤）
   - `impl/internal/codegen/classes_expr.go`（`classIsGC`/`classPtrName`、GC 字段赋值）
   - `impl/internal/codegen/mem_bnd10_test.go`（4 例：环收集、GC 持 ARC、分配种类、纯值保持 ARC）
-  - `evidence/S2-E5-BND10/{summary.md,S2-E5-BND10-red.log,green-cycle.log,green-mixed.log,green-generated-c.txt,tests.log,build_rt.log}`
+  - `evidence/S2-E5-BND10/{summary.md,red-cycle.log,green-cycle.log,green-mixed.log,green-generated-c.txt,tests.log,build_rt.log}`
 - **commit**：见本卡提交（pod/e5-runtime；未合并 main）
 - **验证命令**（可复制）：
   ```bash

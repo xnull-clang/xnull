@@ -16,7 +16,7 @@ main
 exit=0
 ```
 
-生成 C：`xn_Cls_Node *o = rt_arc_new(&RT_TYPE_XN_Node);`（`S2-E5-BND10-red.log`）。
+生成 C：`xn_Cls_Node *o = rt_arc_new(&RT_TYPE_XN_Node);`（`red-cycle.log`）。
 
 ## 实现（`impl/internal/codegen`）
 
