@@ -129,9 +129,15 @@ func (g *gen) isGenericName(name string) bool {
 
 // callName 计算调用点的 C 函数名：带类型实参 → 实例名；否则普通名。
 // 泛型函数缺少类型实参时显式报错（推断结果由 sema 写回 Call.TypeArgs）。
-func (g *gen) callName(name string, typeArgs []xfront.TypeRef) (string, error) {
+func (g *gen) callName(name string, typeArgs []xfront.TypeRef, argc int) (string, error) {
 	typeArgs = g.substTypeArgs(typeArgs)
 	if len(typeArgs) == 0 {
+		// main 重载（§11.2）：非匹配签名的 main 是普通函数，按参数个数分派到独立 C 名。
+		if name == "main" {
+			if c, ok := g.mainCallName(argc); ok {
+				return c, nil
+			}
+		}
 		// 同名普通函数优先（§8.2 重载：无类型实参的非泛型调用）。
 		if _, ok := g.fnRet[name]; ok {
 			return "xn_" + name, nil
@@ -148,9 +154,30 @@ func (g *gen) callName(name string, typeArgs []xfront.TypeRef) (string, error) {
 	return inst.cname, nil
 }
 
+// mainCallName 按参数个数选择 main 的 C 名：入口优先，其后是非匹配重载。
+// argc < 0 表示调用点未提供实参个数（仅类型推断路径），交给默认 xn_main。
+func (g *gen) mainCallName(argc int) (string, bool) {
+	if argc < 0 {
+		return "", false
+	}
+	// 非入口重载优先（用户代码调用普通函数）；0 参只可能是入口。
+	if argc > 0 {
+		if c, ok := g.mainOverloads[argc]; ok {
+			return c, true
+		}
+	}
+	if g.entry != nil && len(g.entry.fn.Params) == argc {
+		return "xn_main", true
+	}
+	if c, ok := g.mainOverloads[argc]; ok {
+		return c, true
+	}
+	return "", false
+}
+
 // callErr 返回 callName 的失败原因（供 exprType 等处给出准确诊断）。
 func (g *gen) callErr(name string, typeArgs []xfront.TypeRef) error {
-	_, err := g.callName(name, typeArgs)
+	_, err := g.callName(name, typeArgs, -1)
 	if err == nil {
 		return fmt.Errorf("调用 `%s` 无法解析类型", name)
 	}

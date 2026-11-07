@@ -123,6 +123,40 @@ static Int main() {
 }`, TyBadOperand)
 }
 
+// TUPLE-01 类型位置：顶层返回类型、类字段、容器元素、可空元组（§2.11）。
+func TestTupleTypePositions(t *testing.T) {
+	expectNone(t, `
+static (Int, Int) top = (11, 12)
+static (Int, String)? topOpt = null
+static (Int, Int) make() {
+    return (1, 2)
+}
+static (Int, Int)? maybe() {
+    return null
+}
+class Holder {
+    (Int, Int) p = (1, 2)
+    (Int, Int) zero
+    (Int, String)? opt = null
+    List<(Int, Int)> xs = [(1, 2)]
+}
+static Int use((Int, Int) p, List<(Int, Int)> xs) {
+    return p.0 + xs.get(0).0
+}
+static List<(Int, Int)> all() {
+    return [(5, 6)]
+}
+static Int main() {
+    (Int, Int)? o = null
+    Int? a = o?.0
+    Holder h = new Holder()
+    (Int, Int)[] arr = [(3, 4)]
+    (Int, Int)[] fixed = new (Int, Int)[2]
+    List<(Int, Int)> got = all()
+    return make().0 + use(h.p, h.xs) + arr[0].0 + fixed[0].0 + got.get(0).0
+}`)
+}
+
 // T7：越界选择器是编译错误。
 func TestTupleOutOfRangeSelector(t *testing.T) {
 	expectCode(t, `

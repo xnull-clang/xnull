@@ -39,6 +39,9 @@ func containerElem(c string) (string, bool) {
 		if strings.HasPrefix(elem, "o_") {
 			return "xn_Cls_" + elem[2:] + " *", true
 		}
+		if strings.HasPrefix(elem, "t_") {
+			return "xn_tup_" + elem[2:], true
+		}
 	}
 	return "", false
 }
@@ -155,6 +158,10 @@ func (s *scope) mapLit(n *xfront.MapLit, wantC string) ([]string, string, error)
 
 // elemValue 生成容器元素值（Int/Bool/String）。
 func (s *scope) elemValue(e xfront.Expr, elemC string) (string, []string, error) {
+	if s.g.isTupleC(elemC) {
+		lines, v, err := s.tupleExpr(e, elemC)
+		return v, lines, err
+	}
 	if elemC == "rt_string *" {
 		lines, err := s.strExpr(e)
 		return lastVar(lines), lines, err

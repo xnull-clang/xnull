@@ -269,13 +269,20 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 	if len(mains) == 0 {
 		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
 	}
-	if len(mains) > 1 {
+	// §11.2：只有匹配入口签名的 main 才是入口；其余 main 重载是普通函数。
+	var matched []*xfront.TopFunc
+	for _, fn := range mains {
+		if checkEntry(fn) == nil {
+			matched = append(matched, fn)
+		}
+	}
+	if len(matched) == 0 {
+		return 1, checkEntry(mains[0])
+	}
+	if len(matched) > 1 {
 		return 1, fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
 	}
-	main := mains[0]
-	if err := checkEntry(main); err != nil {
-		return 1, err
-	}
+	main := matched[0]
 	// 两种入口形态（S1 §11.2）：main() 与 main(args: String[])。
 	var callArgs []*Value
 	switch {
@@ -297,10 +304,13 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 	return 0, nil
 }
 
-// checkEntry 校验入口签名（§11.2）：顶层 static、返回 void/Int、参数为空或 String[]。
+// checkEntry 校验入口签名（§11.2）：顶层 static、公开、非泛型、返回 void/Int、参数为空或 String[]。
 func checkEntry(fn *xfront.TopFunc) error {
 	if !fn.Static {
 		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+	}
+	if fn.Private || fn.Protected || len(fn.TypePars) > 0 {
+		return fmt.Errorf("入口 main 必须是公开的非泛型函数（§11.2）")
 	}
 	if !fn.Void {
 		nt, ok := fn.Ret.(*xfront.NamedType)
@@ -327,6 +337,13 @@ func zeroValue(t xfront.TypeRef) *Value {
 			}
 		}
 		return zeroValue(st.Base)
+	}
+	if tt, ok := t.(*xfront.TupleTypeRef); ok { // §2.11：值类型元组逐元素取零值
+		elems := make([]*Value, len(tt.Elems))
+		for i, e := range tt.Elems {
+			elems[i] = zeroValue(e)
+		}
+		return &Value{K: vTuple, A: elems}
 	}
 	if nt, ok := t.(*xfront.NamedType); ok && len(nt.Qual) == 1 {
 		switch nt.Qual[0] {
@@ -1112,14 +1129,14 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("数组下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		case vList:
 			i := int(idx.I)
 			if idx.K != vInt || i < 0 || i >= len(x.A) {
 				panic(fatal{fmt.Sprintf("List 下标越界：len=%d, idx=%s", len(x.A), format(idx))})
 			}
-			x.A[i] = v
+			x.A[i] = cloneTupleValue(v) // §2.11：存入容器复制整个元组
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})

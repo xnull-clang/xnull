@@ -242,7 +242,7 @@ type clov struct {
 func (in *Interp) evalArrayLit(n *xfront.ArrayLit, sc *scope) *Value {
 	elems := make([]*Value, len(n.Elems))
 	for i, e := range n.Elems {
-		elems[i] = in.eval(e, sc)
+		elems[i] = cloneTupleValue(in.eval(e, sc)) // §2.11：存入容器复制整个元组
 	}
 	return &Value{K: vArr, A: elems}
 }
@@ -253,19 +253,22 @@ func (in *Interp) evalMapLit(n *xfront.MapLit, sc *scope) *Value {
 	for i := range n.Keys {
 		k := in.eval(n.Keys[i], sc)
 		v := in.eval(n.Vals[i], sc)
-		m.set(k, v)
+		m.set(k, cloneTupleValue(v)) // §2.11：存入容器复制整个元组
 	}
 	return &Value{K: vMap, M: m}
 }
 
-// cloneTupleValue 复制元组值（§2.11 值语义）：复制元素句柄切片，
+// cloneTupleValue 复制元组值（§2.11 值语义）：递归复制嵌套元组，
 // 值元素天然独立，引用元素仍共享对象句柄。
 func cloneTupleValue(v *Value) *Value {
 	if v == nil || v.K != vTuple {
 		return v
 	}
 	nv := *v
-	nv.A = append([]*Value(nil), v.A...)
+	nv.A = make([]*Value, len(v.A))
+	for i, e := range v.A {
+		nv.A[i] = cloneTupleValue(e)
+	}
 	return &nv
 }
 
@@ -335,7 +338,7 @@ func (in *Interp) evalNewArray(n *xfront.NewArray, sc *scope) *Value {
 	z := zeroValue(n.Type)
 	elems := make([]*Value, cnt.I)
 	for i := range elems {
-		elems[i] = z
+		elems[i] = cloneTupleValue(z) // §2.11：每个槽位独立持有元组副本
 	}
 	return &Value{K: vArr, A: elems}
 }
@@ -520,7 +523,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vInt, I: int64(len(recv.A))}, true
 		case "push":
 			need(1)
-			recv.A = append(recv.A, args[0])
+			recv.A = append(recv.A, cloneTupleValue(args[0])) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "insert":
 			need(2)
@@ -533,7 +536,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			}
 			recv.A = append(recv.A, nil)
 			copy(recv.A[i+1:], recv.A[i:])
-			recv.A[i] = args[1]
+			recv.A[i] = cloneTupleValue(args[1]) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "set":
 			need(2)
@@ -541,7 +544,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			if i < 0 || i >= len(recv.A) {
 				panic(fatal{"List.set 下标越界"})
 			}
-			recv.A[i] = args[1]
+			recv.A[i] = cloneTupleValue(args[1]) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "get":
 			need(1)
@@ -571,7 +574,7 @@ func (in *Interp) callValueMethod(recv *Value, name string, args []*Value, p xfr
 			return &Value{K: vInt, I: int64(recv.M.len())}, true
 		case "put":
 			need(2)
-			recv.M.set(args[0], args[1])
+			recv.M.set(args[0], cloneTupleValue(args[1])) // §2.11：存入容器复制整个元组
 			return &Value{K: vNull}, true
 		case "get":
 			need(1)

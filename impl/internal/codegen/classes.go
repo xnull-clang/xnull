@@ -326,6 +326,12 @@ func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls stri
 			return nil, "", err
 		}
 		return nil, ctor, nil
+	case g.isTupleC(f.ctype):
+		lines, v, err := sc.tupleExpr(init, f.ctype)
+		if err != nil {
+			return nil, "", err
+		}
+		return lines, v, nil
 	case f.ctype == "int64_t" || f.ctype == "int" || f.ctype == "bool":
 		v, err := sc.intExpr(init)
 		if err != nil {
@@ -364,6 +370,13 @@ func (g *gen) validateFieldInit(e xfront.Expr, cls, field string) error {
 			return err
 		}
 		return g.validateFieldInit(n.Else, cls, field)
+	case *xfront.Tuple:
+		for _, el := range n.Elems {
+			if err := g.validateFieldInit(el, cls, field); err != nil {
+				return err
+			}
+		}
+		return nil
 	case *xfront.ArrayLit:
 		for _, el := range n.Elems {
 			if err := g.validateFieldInit(el, cls, field); err != nil {

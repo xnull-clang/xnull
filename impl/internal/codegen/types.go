@@ -47,6 +47,32 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：未定义的类 %s", name)
 		}
 		return "xn_Cls_" + name + " *", nil
+	case *xfront.Tuple:
+		elems := make([]string, 0, len(n.Elems))
+		for _, el := range n.Elems {
+			ec, err := s.exprType(el)
+			if err != nil {
+				return "", err
+			}
+			elems = append(elems, ec)
+		}
+		if len(elems) < 2 {
+			return "", fmt.Errorf("codegen：元组至少需要两个元素（S1 §2.11）")
+		}
+		return s.g.tupleOf(elems), nil
+	case *xfront.TupleMember:
+		baseT, err := s.exprType(n.X)
+		if err != nil {
+			return "", err
+		}
+		elems, ok := s.g.tupleElems(baseT)
+		if !ok {
+			return "", fmt.Errorf("codegen：成员 .%d 的接收者 %s 不是元组", n.Index, baseT)
+		}
+		if n.Index < 0 || n.Index >= len(elems) {
+			return "", fmt.Errorf("codegen：元组下标 .%d 越界", n.Index)
+		}
+		return elems[n.Index], nil
 	case *xfront.Member:
 		_, recvC, err := recvCName(n.X, s)
 		if err != nil {
@@ -83,6 +109,11 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		}
 		return "", fmt.Errorf("codegen：一元运算 %s 未支持（M4.4a 范围）", n.Op)
 	case *xfront.Binary:
+		if n.Op == "==" || n.Op == "!=" || n.Op == "===" || n.Op == "!==" {
+			if lt, err := s.exprType(n.L); err == nil && s.g.isTupleC(lt) {
+				return "int", nil
+			}
+		}
 		switch n.Op {
 		case "==", "!=", "<", "<=", ">", ">=", "&&", "||":
 			return "int", nil
