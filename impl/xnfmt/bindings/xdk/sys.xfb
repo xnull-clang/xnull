@@ -1,0 +1,17 @@
+// xnfmt 只使用 B0-07b 的文本变体入口 + 路径判定（诊断用）。
+ffi xdkc_sys {
+  @ffiEntry(cName = "xdkc_read_file_text")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readFileText(String path);
+
+  @ffiEntry(cName = "xdkc_write_file_text")
+  @lease(path = .borrow, text = .borrow)
+  @blocking(.unaware)
+  Int writeFileText(String path, String text);
+
+  @ffiEntry(cName = "xdkc_path_exists")
+  @lease(path = .borrow)
+  @blocking(.aware)
+  Bool pathExists(String path);
+}

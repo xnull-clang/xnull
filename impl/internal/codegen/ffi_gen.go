@@ -108,8 +108,8 @@ func ffiSupported(e ffi.Entry) error {
 		switch e.Ret.Kind {
 		case ffi.KindVoid, ffi.KindString, ffi.KindHandle:
 		case ffi.KindScalar:
-			if e.Ret.Name != "Int" && e.Ret.Name != "Int64" {
-				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int64）", e.Name, e.Ret.Name)
+			if e.Ret.Name != "Int" && e.Ret.Name != "Int64" && e.Ret.Name != "Bool" {
+				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, e.Ret.Name)
 			}
 		default:
 			return fmt.Errorf("codegen：FFI 入口 %s 的返回类型 %s 未纳入 P-09（仅 void/Int/String/handle）", e.Name, e.Ret.String())
@@ -118,8 +118,8 @@ func ffiSupported(e ffi.Entry) error {
 	for _, p := range e.Params {
 		switch p.Type.Kind {
 		case ffi.KindScalar:
-			if p.Type.Name != "Int" && p.Type.Name != "Int64" {
-				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int64）", e.Name, p.Name, p.Type.Name)
+			if p.Type.Name != "Int" && p.Type.Name != "Int64" && p.Type.Name != "Bool" {
+				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int64/Bool）", e.Name, p.Name, p.Type.Name)
 			}
 		case ffi.KindString, ffi.KindHandle:
 		default:
@@ -134,6 +134,9 @@ func ffiParamXType(p ffi.Param) (xfront.TypeRef, error) {
 	case ffi.KindScalar:
 		if p.Type.Name == "Int" || p.Type.Name == "Int64" {
 			return xfrontIntType(), nil
+		}
+		if p.Type.Name == "Bool" {
+			return xfrontNamedType("Bool"), nil
 		}
 	case ffi.KindString:
 		return xfrontStringType(), nil
@@ -188,6 +191,9 @@ func ffiRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
 	case ffi.KindVoid:
 		return nil, true, nil
 	case ffi.KindScalar:
+		if e.Ret.Name == "Bool" {
+			return xfrontNamedType("Bool"), false, nil
+		}
 		return xfrontIntType(), false, nil
 	case ffi.KindString:
 		return xfrontStringType(), false, nil
@@ -265,7 +271,11 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	case ffi.KindVoid:
 	case ffi.KindScalar:
 		out = s.tmp()
-		lines = append(lines, "int64_t "+out+" = 0;")
+		if e.Ret.Name == "Bool" {
+			lines = append(lines, "uint8_t "+out+" = 0;")
+		} else {
+			lines = append(lines, "int64_t "+out+" = 0;")
+		}
 		parts = append(parts, "&"+out)
 	case ffi.KindString:
 		out = s.tmp()

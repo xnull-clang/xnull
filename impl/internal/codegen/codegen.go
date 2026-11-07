@@ -211,6 +211,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				switch {
 				case e.ErrorCodeRet:
 					rc = "int"
+				case e.Ret.Kind == ffi.KindScalar && e.Ret.Name == "Bool":
+					rc = "int"
 				case e.Ret.Kind == ffi.KindScalar:
 					rc = "int64_t"
 				case e.Ret.Kind == ffi.KindString:
