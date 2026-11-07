@@ -532,9 +532,26 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 	}
 }
 
+// externalTypes 是绑定层（FFI）注入的不透明类型名（File/Dir 等）。
+// 这些类型不在源码包内声明，但 P-09 注入的签名与局部声明必须能解析；
+// 由构建入口在 Analyze 前登记（codegen.Build）。
+var externalTypes = map[string]bool{}
+
+// RegisterExternalTypes 登记绑定层注入的类型名（幂等；只在类型可见性检查中放行）。
+func RegisterExternalTypes(names ...string) {
+	for _, n := range names {
+		if n != "" {
+			externalTypes[n] = true
+		}
+	}
+}
+
 // typeDeclared 判断名字是否是已声明/预定义/已导入的可用类型（非类型参数）。
 func (e *tyenv) typeDeclared(name string) bool {
 	if name == "void" || builtinTypeNames[name] {
+		return true
+	}
+	if externalTypes[name] {
 		return true
 	}
 	if e.a.imported[name] {
