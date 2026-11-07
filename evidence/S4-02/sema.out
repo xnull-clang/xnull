@@ -1,0 +1,6 @@
+=== RUN   TestS4XdkErrorsFunctions
+--- PASS: TestS4XdkErrorsFunctions (0.00s)
+=== RUN   TestS4ResultMembersContract
+--- PASS: TestS4ResultMembersContract (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.051s

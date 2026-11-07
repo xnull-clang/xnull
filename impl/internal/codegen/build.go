@@ -34,6 +34,7 @@ var runtimeCSources = []string{
 	"rt_std_text.c",
 	"rt_std_sys.c",
 	"rt_std_bytes.c",
+	"rt_task.c",
 }
 
 // Build 端到端构建：XNull 源文件 → C → cc → 可执行文件（M4.2）。
@@ -118,7 +119,7 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 // buildCCArgs 组装 cc 参数：旗标 → 输出 → 生成源 → 运行时 C 源 → LinkArgs。
 // LinkArgs 必须排在全部目标文件之后（链接顺序敏感，P-10 条件 3）。
 func buildCCArgs(outPath, cfile, runtimeDir string, linkArgs []string) []string {
-	args := []string{"-std=c11", "-O2", "-I", runtimeDir, "-o", outPath, cfile}
+	args := []string{"-std=c11", "-O2", "-pthread", "-I", runtimeDir, "-o", outPath, cfile}
 	for _, src := range runtimeCSources {
 		args = append(args, filepath.Join(runtimeDir, src))
 	}

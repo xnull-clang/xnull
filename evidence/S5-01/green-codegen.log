@@ -1,0 +1,3 @@
+$ go test ./internal/codegen/... -count=1
+ok  	xnull.dev/xnull/internal/codegen	225.700s
+ok  	xnull.dev/xnull/internal/codegen/ffi	12.573s

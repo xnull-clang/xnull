@@ -207,6 +207,42 @@ void    xrt_callback_env_destroy(xrt_callback_env *env); /* 幂等；注销根 *
 int     xrt_callback_env_alive(const xrt_callback_env *env);
 void   *xrt_callback_env_closure(const xrt_callback_env *env);
 
+/* ---- 任务运行时（S5-00 冻结面 v0；S5-01 调度器核心） ---- */
+
+typedef struct xrt_task         xrt_task;         /* ARC 句柄：join 一次 */
+typedef struct xrt_task_group   xrt_task_group;   /* ARC 资源：close 唯一终结路径 */
+typedef struct xrt_context      xrt_context;      /* ARC 句柄：取消 + 截止 */
+typedef struct xrt_cancel_token xrt_cancel_token; /* 借用：内嵌于 context */
+
+typedef struct xrt_task_result {
+    int32_t        ok;     /* 1 = Ok；0 = Err */
+    void          *value;  /* Ok：+1/拥有 */
+    xrt_error_kind kind;   /* Err：S4 ErrorKind */
+    void          *error;  /* Err：错误值 +1（可为 NULL） */
+} xrt_task_result;
+
+typedef int32_t (*xrt_task_body)(void *env, xrt_context *ctx, xrt_task_result *out);
+
+#define XRT_STATUS_CLOSED 100 /* 通道关闭终态（状态域，非 ErrorKind；S5-00 §六） */
+
+/* Context / 时钟 */
+xrt_context *xrt_context_background(void); /* +1；仅 main/测试 */
+xrt_context *xrt_context_child(xrt_context *parent);
+xrt_context *xrt_context_with_deadline(xrt_context *parent, int64_t deadline_mono_ms);
+int32_t      xrt_context_check_cancel(const xrt_context *ctx); /* 0 或 XRT_ERR_CANCELLED */
+int32_t      xrt_context_cancelled(const xrt_context *ctx);
+xrt_cancel_token *xrt_context_token(xrt_context *ctx); /* 借用 */
+void         xrt_context_cancel(xrt_context *ctx);     /* 幂等 */
+int64_t      xrt_clock_mono_ms(void);
+
+/* Task / TaskGroup */
+xrt_task_group *xrt_task_group_new(xrt_context *parent);
+int32_t xrt_task_group_spawn(xrt_task_group *g, xrt_task_body body, void *env, xrt_task **out);
+void    xrt_task_group_cancel(xrt_task_group *g);
+int32_t xrt_task_group_close(xrt_task_group *g, xrt_task_result *first_error);
+int32_t xrt_task_join(xrt_task *t, xrt_task_result *out);
+int32_t xrt_task_join_deadline(xrt_task *t, int64_t deadline_mono_ms, xrt_task_result *out);
+
 /* ---- 跨界违约终止（S7 §9 INV-FFI-8：跨界 panic 一律终止进程） ---- */
 
 void xrt_fatal(const char *reason);

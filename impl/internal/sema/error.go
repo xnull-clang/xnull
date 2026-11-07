@@ -24,6 +24,7 @@ const (
 	ErTryContext      = "ERR-204"
 	ErCleanupBody     = "ERR-205"
 	ErErrdeferContext = "ERR-206"
+	ErXdkErrors       = "ERR-207" // xdk.errors wrap/mapErr/report 签名/观测合同（S4 §2.3）
 )
 
 // splitTypeArgs 按顶层逗号切分类型实参串，忽略 <> () [] 内的逗号。
@@ -361,6 +362,88 @@ func (e *tyenv) resultMember(rt texpr, mem *xfront.Member, args []xfront.Expr, p
 		}
 		return texpr{}
 	}
+}
+
+// inferXdkErrors 处理 xdk.errors 的 wrap/mapErr/report（S4 §2.3）。
+func (e *tyenv) inferXdkErrors(n *xfront.Call, name string) texpr {
+	args := make([]texpr, len(n.Args))
+	for i, a := range n.Args {
+		args[i] = e.infer(a)
+	}
+	switch name {
+	case "wrap":
+		if len(args) != 2 {
+			e.errf(n.P, ErXdkErrors, "wrap 需要 2 个参数：Result、替换错误值（S4 §2.3）", "")
+			return texpr{}
+		}
+		_, ek, ok := resultArgs(args[0].key)
+		if !ok {
+			e.errf(n.Args[0].Pos(), ErXdkErrors, "wrap 第一个参数必须是 Result（S4 §2.3）", "")
+			return texpr{}
+		}
+		if !assignable(args[1], ek) {
+			e.errf(n.Args[1].Pos(), ErXdkErrors, "wrap 替换错误类型不匹配：期望 "+ek+"（S4 §2.3）", "")
+		}
+		return texpr{key: args[0].key}
+	case "mapErr":
+		if len(args) != 2 {
+			e.errf(n.P, ErXdkErrors, "mapErr 需要 2 个参数：Result、错误转换函数（S4 §2.3）", "")
+			return texpr{}
+		}
+		tk, ek, ok := resultArgs(args[0].key)
+		if !ok {
+			e.errf(n.Args[0].Pos(), ErXdkErrors, "mapErr 第一个参数必须是 Result（S4 §2.3）", "")
+			return texpr{}
+		}
+		e2 := ""
+		if id, ok := n.Args[1].(*xfront.IdentExpr); ok {
+			// 顶层函数作为转换实参：校验 (E1)->E2。
+			matched := false
+			for _, f := range e.funcs[id.Name] {
+				if len(f.Params) != 1 {
+					continue
+				}
+				pk := typeKey(f.Params[0].Type)
+				if pk != "" && !assignable(texpr{key: ek}, pk) {
+					continue
+				}
+				e2 = "void"
+				if !f.Void && f.Ret != nil {
+					e2 = typeKey(f.Ret)
+				}
+				matched = true
+				break
+			}
+			if !matched {
+				e.errf(n.Args[1].Pos(), ErXdkErrors,
+					"mapErr 转换函数 `"+id.Name+"` 签名必须是 ("+ek+")->E2（S4 §2.3）", "")
+				return texpr{}
+			}
+		} else if lam, ok := n.Args[1].(*xfront.Lambda); ok {
+			if lam.ExprB != nil {
+				e2 = e.infer(lam.ExprB).key
+			}
+		} else if strings.Contains(args[1].key, "(") {
+			e2 = args[1].key[:strings.Index(args[1].key, "(")]
+		} else {
+			e.errf(n.Args[1].Pos(), ErXdkErrors, "mapErr 第二个参数必须是错误转换函数（S4 §2.3）", "")
+			return texpr{}
+		}
+		if e2 == "" {
+			e2 = ek // 闭包体无法推断时保守保持原错误类型
+		}
+		return texpr{key: "Result<" + tk + "," + e2 + ">"}
+	case "report":
+		if len(args) != 1 {
+			e.errf(n.P, ErXdkErrors, "report 需要 1 个 Result 参数（S4 §2.3）", "")
+			return texpr{key: "void"}
+		}
+		if _, _, ok := resultArgs(args[0].key); !ok {
+			e.errf(n.Args[0].Pos(), ErXdkErrors, "report 参数必须是 Result（S4 §2.3）", "")
+		}
+		return texpr{key: "void"}
+	}
+	return texpr{}
 }
 
 // checkLambda 按目标函数类型检查闭包体（§10.2：闭包内 try 的目标返回类型必须是 Result）。

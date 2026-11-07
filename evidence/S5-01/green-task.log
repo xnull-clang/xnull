@@ -1,0 +1,5 @@
+$ ./test_task
+xnull runtime fatal: task_join：重复 join（S5 §3.1 合同错误）
+xnull runtime fatal: 任务内 panic（S5 §8：进程级终止）
+task tests passed (spawn/join/close/cancel/timeout/root/panic)
+EXIT=0

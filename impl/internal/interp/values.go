@@ -805,6 +805,7 @@ func (in *Interp) callClosure(c *clov, args []*Value) (v *Value) {
 	sc := newScope(c.env)
 	for i, prm := range c.params {
 		sc.defineTyped(prm.Name, prm.Type, args[i])
+		in.takeOwnership(sc, prm.Name, args[i])
 	}
 	if c.exprB != nil {
 		return in.eval(c.exprB, sc)

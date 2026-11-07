@@ -13,6 +13,12 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S5-01 调度器核心，2026-11-08）**：`rt_task.c` 落地 S5-00 冻结面的任务子集——
+  `xrt_context_*`（取消/截止）、`xrt_task_group_*`（spawn/cancel/close）、`xrt_task_join[_deadline]`；
+  单载体线程 + 全局 FIFO；任务 env 以 `xrt_task_root_bind/unbind` 保活；合同错误与任务内
+  panic 走 `xrt_fatal`。`xrt_clock_mono_ms` 新增。Channel/Mutex/Atomic* 留 S5-03。
+  构建清单纳入 `rt_task.c` 与 `-pthread`。并发 GC 前提（S3-06 原子弱表/屏障）未做：
+  首版要求主线程在 join/close 等待期间不并发触达 GC。
 - **候选期增补（S4-06/S4-04 预备，2026-11-08）**：诊断通道合同（S4 §9）——`rt_fatal` 改用
   `write(2)` + 栈缓冲（无堆分配），输出单行且折叠控制字符，只含调用方 reason；
   `xdkc_diagnose` 已为 write + 栈块（无堆）。`xrt.h` 增补稳定 `xrt_error_kind`（14 项，
