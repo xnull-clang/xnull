@@ -1252,21 +1252,41 @@ func (g *gen) collectAllResults(u *xfront.CompilationUnit) error {
 		}
 		return nil
 	}
+	addFields := func(fs []*xfront.FieldDecl) error {
+		for _, f := range fs {
+			if err := addType(f.Type); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.ClassDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
 			if err := addMethods(n.Methods); err != nil {
 				return err
 			}
 		case *xfront.StructDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
 			if err := addMethods(n.Methods); err != nil {
 				return err
 			}
 		case *xfront.EnumDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
 			if err := addMethods(n.Methods); err != nil {
 				return err
 			}
 		case *xfront.SingletonDecl:
+			if err := addFields(n.Fields); err != nil {
+				return err
+			}
 			if err := addMethods(n.Methods); err != nil {
 				return err
 			}
@@ -2463,6 +2483,23 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
+	// Result 内联值（§10/§9）：Ok/Err 构造、函数返回、变量/字段复制。
+	if strings.HasPrefix(tc, "xn_Result_") {
+		if n.Init != nil {
+			if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
+				s.locals[n.Name] = tc
+				return s.emitTryInto(tc, n.Name, u.X)
+			}
+		}
+		v, err := s.resultExpr(n.Init, tc)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		s.locals[n.Name] = tc
+		return append(out, tc+" "+n.Name+" = "+v+";"), nil
+	}
 	switch tc {
 	case "rt_string *":
 		if n.Init == nil {
@@ -2481,22 +2518,6 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		out := append([]string{}, lines[:len(lines)-1]...)
 		last := strings.Replace(lines[len(lines)-1], "rt_string *"+t+" =", "rt_string *"+n.Name+" =", 1)
 		return append(out, last), nil
-	case "xn_Result_Int_String", "xn_Result_Bool_String":
-		// try 形态：`Result<...> r = try f(x)` 或 `T v = try f(x)`（v 取 .v）
-		if n.Init != nil {
-			if u, ok := n.Init.(*xfront.Unary); ok && u.Op == "try" {
-				s.locals[n.Name] = tc
-				return s.emitTryInto(tc, n.Name, u.X)
-			}
-		}
-		v, err := s.resultExpr(n.Init, tc)
-		if err != nil {
-			return nil, err
-		}
-		out := append([]string{}, s.pending...)
-		s.pending = nil
-		s.locals[n.Name] = tc
-		return append(out, tc+" "+n.Name+" = "+v+";"), nil
 	default:
 		// Int/Bool；try 形态解包 .v
 		if n.Init != nil {
@@ -2960,6 +2981,16 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 			out = append(out, "xn_gc_safepoint();")
 		}
 		return out, nil
+	}
+	// Result 局部赋值（内联值整值复制 / Ok/Err 构造）。
+	if tc, ok := s.localCType(id.Name); ok && strings.HasPrefix(tc, "xn_Result_") {
+		v, err := s.resultExpr(n.Value, tc)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, tgt+" = "+v+";"), nil
 	}
 	// S3-04：Text/StringBuilder 局部赋值（GC 引用，不计数）。
 	if tc, ok := s.localCType(id.Name); ok && (tc == "xrt_text *" || tc == "xrt_sb *") {
@@ -3625,6 +3656,23 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 // resultExpr 生成 Result 值表达式（Ok/Err 构造或函数调用）。
 func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 	switch n := e.(type) {
+	case *xfront.IdentExpr:
+		if rc, ok := s.localCType(n.Name); ok && rc == resultC {
+			return "(" + s.cRef(n.Name) + ")", nil
+		}
+		if rc, ok := s.g.globals[n.Name]; ok && rc == resultC {
+			return "(" + s.cRef(n.Name) + ")", nil
+		}
+		return "", fmt.Errorf("codegen：Result 复制源 %s 类型不是 %s（S3-RESULT）", n.Name, resultC)
+	case *xfront.Member:
+		// 字段上的 Result 值复制（内联结构整值复制）。
+		v, err := s.intExpr(n)
+		if err != nil {
+			return "", err
+		}
+		return "(" + v + ")", nil
+	case *xfront.Paren:
+		return s.resultExpr(n.X, resultC)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
 			switch id.Name {
@@ -4126,8 +4174,21 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					return v, nil
 				}
 			}
+			// Result 成员（isOk/isErr/value/unwrapOr）：接收者可为变量或字段链。
+			rn, rc := "", ""
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				rn := s.varRef(recv.Name)
+				rn = s.varRef(recv.Name)
+				if c, ok3 := s.localCType(recv.Name); ok3 {
+					rc = c
+				} else if c, ok3 := s.g.globals[recv.Name]; ok3 {
+					rc = c
+				}
+			} else if _, err := s.exprType(mem.X); err == nil {
+				if n2, c2, err2 := recvCName(mem.X, s); err2 == nil {
+					rn, rc = n2, c2
+				}
+			}
+			if rn != "" && strings.HasPrefix(rc, "xn_Result_") {
 				switch mem.Name {
 				case "isOk":
 					return "(" + rn + ").ok", nil
@@ -4295,6 +4356,12 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				continue
 			}
 			return nil, fmt.Errorf("codegen：类实例实参只支持变量/new/调用/字段（M5.1-b/S3-EXPR 范围）")
+		case strings.HasPrefix(t, "xn_Result_"):
+			v, err := s.resultExpr(a, t)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
 		case s.g.isTupleC(t):
 			lines, v, err := s.tupleExpr(a, t)
 			if err != nil {

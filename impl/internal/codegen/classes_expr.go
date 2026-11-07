@@ -500,6 +500,16 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		}
 		return append(lines, dst+" = "+v+";"), nil
 	}
+	// Result 内联值字段赋值（Ok/Err/变量复制）。
+	if strings.HasPrefix(f.ctype, "xn_Result_") {
+		v, err := s.resultExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return append(out, dst+" = "+v+";"), nil
+	}
 	// S3-04：Text/StringBuilder 字段是 GC 引用，赋值不计数。
 	if f.ctype == "xrt_text *" || f.ctype == "xrt_sb *" {
 		var lines []string

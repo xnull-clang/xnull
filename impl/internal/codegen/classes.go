@@ -1015,6 +1015,9 @@ func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 // fieldInitValue 为单个字段初值生成 (语句, 右值表达式)。
 func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls string) ([]string, string, error) {
 	switch {
+	case strings.HasPrefix(f.ctype, "xn_Result_"):
+		v, err := sc.resultExpr(init, f.ctype)
+		return nil, v, err
 	case strings.HasPrefix(f.ctype, "xn_opt_"):
 		return sc.optExpr(init, f.ctype)
 	case g.isStructC(f.ctype):
