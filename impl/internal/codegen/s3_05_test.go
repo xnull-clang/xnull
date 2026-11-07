@@ -47,7 +47,7 @@ func TestS3_05AnyBoxing(t *testing.T) {
     return 0
 }`
 	csrc := emitWithPolicy(t, src)
-	for _, want := range []string{"rt_gc_new(&RT_TYPE_XN_ANY)", "xn_box_int(", "xn_box_bool(", "xn_box_str(", "xn_any_is(", "xn_any_get_int("} {
+	for _, want := range []string{"xn_gc_new(&RT_TYPE_XN_ANY)", "xn_box_int(", "xn_box_bool(", "xn_box_str(", "xn_any_is(", "xn_any_get_int("} {
 		if !strings.Contains(csrc, want) {
 			t.Fatalf("缺少 Any 装箱产物 %q：\n%s", want, csrc)
 		}

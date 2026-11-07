@@ -686,7 +686,7 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		fmt.Fprintf(b, "static %s *%s_new(void) {\n", ci.cname, ci.cname)
 		alloc := "rt_arc_new"
 		if ci.isGC {
-			alloc = "rt_gc_new"
+			alloc = "xn_gc_new"
 		}
 		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
@@ -705,6 +705,16 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		// 初始化函数：父类构造（super(...) 或隐式）→ 本类字段初值 →
 		// 主构造器参数绑定 → 构造器体（跳过 super 语句）。
 		sc := &scope{g: g, retC: "void", params: pnames, locals: locals, self: newSelfCtx(ci)}
+		// S3-02：构造器 init 的根帧（构造对象/GC 参数在构造体执行期间可被收集）。
+		sc.rootMark = g.nextTmp()
+		if g.isGCRootC(ci.cname + " *") {
+			sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(o);")
+		}
+		for _, p := range c.Params {
+			if pc, err := g.cType(p.Type); err == nil && g.isGCRootC(pc) {
+				sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(xn_p_"+p.Name+");")
+			}
+		}
 		sc.self.cvar = "o"
 		if ci.base != nil {
 			sc.superT = ci.base.cname + " *"
@@ -762,7 +772,7 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		fmt.Fprintf(b, "static %s *%s(%s) {\n", ci.cname, ci.ctorName[c], strings.Join(parts, ", "))
 		alloc := "rt_arc_new"
 		if ci.isGC {
-			alloc = "rt_gc_new"
+			alloc = "xn_gc_new"
 		}
 		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
@@ -903,6 +913,16 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	// S3-02：方法级根帧；GC self/参数在入口登记。
+	sc.rootMark = g.nextTmp()
+	if !m.static && g.isGCRootC(ci.cname+" *") {
+		sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(self);")
+	}
+	for _, p := range m.decl.Params {
+		if pc, err := g.cType(p.Type); err == nil && g.isGCRootC(pc) {
+			sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(xn_p_"+p.Name+");")
+		}
+	}
 	if len(ci.staticFields) > 0 {
 		sc.staticRefs = map[string]string{}
 		sc.staticTypes = map[string]string{}
@@ -918,6 +938,10 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		}
 	}
 	g.curEscaped = escapeIdents(m.decl.Body)
+	if m.decl.Name == "deinit" {
+		g.inDeinit = true
+		defer func() { g.inDeinit = false }()
+	}
 	body, err := sc.emitBlock(m.decl.Body.Stmts)
 	g.curEscaped = nil
 	if err != nil {

@@ -7,7 +7,7 @@
 //	xn_set_<e>   { rt_header hdr; xn_arr_<e> *a; }                 Set<T>（add 去重）
 //	xn_map_<k>_<v> { rt_header hdr; size_t len, cap; <k> *keys; <v> *vals; }  Map<K,V>
 //
-// 生命周期：三者均为 GC 对象（rt_gc_new + 类型描述符 scan/deinit）；局部不 release、
+// 生命周期：三者均为 GC 对象（xn_gc_new + 类型描述符 scan/deinit）；局部不 release、
 // 不 free；元素区由容器 deinit 释放。ARC 元素入容器 retain、覆盖/移除/clear 时
 // release；GC 元素只登记扫描（不计数）。元素扫描区由生成的 scan 钩子遍历。
 // Map 键序：插入序（keys() 未纳入 4.4a 面，DET-01 不受影响）。
@@ -214,7 +214,7 @@ func emitArrHelpers(b *strings.Builder, elem string, gcElem bool) {
 static const rt_type RT_TYPE_%[1]s = { "List", sizeof(%[1]s), %[1]s_deinit, %[11]s };
 
 static %[1]s *%[1]s_new(size_t cap) {
-    %[1]s *a = (%[1]s *)rt_gc_new(&RT_TYPE_%[1]s);
+    %[1]s *a = (%[1]s *)xn_gc_new(&RT_TYPE_%[1]s);
     memset((char *)a + sizeof(rt_header), 0, sizeof(%[1]s) - sizeof(rt_header));
     a->cap = cap ? cap : 4;
     a->data = malloc(sizeof(%[2]s) * a->cap);
@@ -313,7 +313,7 @@ static void %[2]s_deinit(void *p) {
 static const rt_type RT_TYPE_%[2]s = { "Set", sizeof(%[2]s), %[2]s_deinit, %[2]s_scan };
 
 static %[2]s *%[2]s_new(void) {
-    %[2]s *s = (%[2]s *)rt_gc_new(&RT_TYPE_%[2]s);
+    %[2]s *s = (%[2]s *)xn_gc_new(&RT_TYPE_%[2]s);
     memset((char *)s + sizeof(rt_header), 0, sizeof(%[2]s) - sizeof(rt_header));
     s->a = %[1]s_new(4);
     return s;
@@ -415,7 +415,7 @@ static void %[1]s_deinit(void *p) {
 static const rt_type RT_TYPE_%[1]s = { "Map", sizeof(%[1]s), %[1]s_deinit, %[1]s_scan };
 
 static %[1]s *%[1]s_new(size_t cap) {
-    %[1]s *m = (%[1]s *)rt_gc_new(&RT_TYPE_%[1]s);
+    %[1]s *m = (%[1]s *)xn_gc_new(&RT_TYPE_%[1]s);
     memset((char *)m + sizeof(rt_header), 0, sizeof(%[1]s) - sizeof(rt_header));
     m->cap = cap ? cap : 4;
     m->keys = malloc(sizeof(%[2]s) * m->cap);

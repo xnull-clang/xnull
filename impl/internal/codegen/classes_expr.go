@@ -29,6 +29,17 @@ func (g *gen) classIsGC(c string) bool {
 	return g.policy[name] == "gc"
 }
 
+// isGCRootC 判断 C 类型是否需要在栈槽位登记 GC 根（S3-02 根集合）。
+func (g *gen) isGCRootC(c string) bool {
+	if c == "" {
+		return false
+	}
+	if g.isAnyC(c) || g.isProtoC(c) || isContainerC(c) || g.isDataEnumC(c) {
+		return true
+	}
+	return isClassPtr(c) && g.classIsGC(c)
+}
+
 // classIsStack 判断类引用 C 类型是否按逃逸分类可栈分配（S3-03：Escape=none）。
 // 防御性校验：类必须无引用字段、无 deinit、无协议 vtable（协议上转需要堆分配头）。
 func (g *gen) classIsStack(c string) bool {

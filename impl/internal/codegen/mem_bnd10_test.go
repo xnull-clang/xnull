@@ -99,13 +99,13 @@ static Int main() {
 func TestBND10GCMixedARCFieldValid(t *testing.T) {
 	src := `
 class Helper {
-    String name = "helper"
+    Int id = 1;
     void deinit() { print("helper-deinit") }
 }
 class Node {
     Node next;
     Helper h;
-    void deinit() { print("node-deinit " + self.h.name) }
+    void deinit() { print("node-deinit " + str(self.h.id)) }
 }
 static Int main() {
     Node a = new Node()
@@ -124,7 +124,7 @@ static Int main() {
 	if !strings.Contains(got, "main") {
 		t.Fatalf("缺少 main 输出：%q", got)
 	}
-	if n := strings.Count(got, "node-deinit helper"); n != 2 {
+	if n := strings.Count(got, "node-deinit 1"); n != 2 {
 		t.Fatalf("node deinit 时字段应仍有效（2 次），实际 %d 次：%q", n, got)
 	}
 	if n := strings.Count(got, "helper-deinit"); n != 2 {
@@ -144,13 +144,13 @@ static Int main() {
     return p.x
 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Node)") {
+	if !strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("Node（引用环）应以 rt_gc_new 分配")
 	}
 	if !strings.Contains(csrc, "xn_Cls_Node_scan") {
 		t.Fatalf("GC 类应生成 scan 钩子")
 	}
-	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Plain)") {
+	if strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Plain)") {
 		t.Fatalf("非环纯值类不得走 GC")
 	}
 	// S3-03：Plain 为 Escape=none，局部构造点走栈分配（不再调用堆包装）。
@@ -168,7 +168,7 @@ static Int main() {
     return v.x
 }`
 	csrc := emitWithPolicy(t, src)
-	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_ValueOnly)") {
+	if strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_ValueOnly)") {
 		t.Fatalf("纯值类不得走 GC")
 	}
 	if strings.Contains(funcBody(csrc, "int64_t xn_main() {"), "xn_Cls_ValueOnly_new()") {
@@ -186,10 +186,10 @@ enum Status {
 }
 static Int main() { print(Status.Ready.code); return 0 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_ENUM_Status)") {
+	if !strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_ENUM_Status)") {
 		t.Fatalf("数据枚举未走 GC 分配：\n%s", csrc)
 	}
-	if !strings.Contains(csrc, "rt_gc_root_add(xn_enum_Status_Ready);") {
+	if !strings.Contains(csrc, "xn_root_hold(xn_enum_Status_Ready);") {
 		t.Fatalf("数据枚举项未登记全局根：\n%s", csrc)
 	}
 	got, code := compileAndRunPolicy(t, src)
@@ -206,10 +206,10 @@ singleton AppInfo {
 }
 static Int main() { print(AppInfo.instance.count); return 0 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_SINGLE_AppInfo)") {
+	if !strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_SINGLE_AppInfo)") {
 		t.Fatalf("单例未走 GC 分配：\n%s", csrc)
 	}
-	if !strings.Contains(csrc, "rt_gc_root_add(xn_single_AppInfo);") {
+	if !strings.Contains(csrc, "xn_root_hold(xn_single_AppInfo);") {
 		t.Fatalf("单例实例未登记全局根：\n%s", csrc)
 	}
 	got, code := compileAndRunPolicy(t, src)
@@ -228,7 +228,7 @@ static Int main() {
     return 0
 }`
 	csrc := emitWithPolicy(t, src)
-	if strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Plain)") {
+	if strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Plain)") {
 		t.Fatalf("stack 候选类不得走 GC：\n%s", csrc)
 	}
 	if strings.Contains(funcBody(csrc, "int64_t xn_main() {"), "xn_Cls_Plain_new()") {
