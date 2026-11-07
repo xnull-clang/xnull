@@ -828,6 +828,13 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.vars[n.Name] = ""
 		}
 	case *xfront.AssignStmt:
+		if mem, ok := n.Target.(*xfront.Member); ok {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && e.a.tc != nil {
+				if info, found := e.a.tc.types[id.Name]; found && info.kind == "singleton" && mem.Name == "instance" {
+					e.errf(n.P, TySingletonRO, "singleton 的 `instance` 是只读全局实例（§9.4）", "删除对 instance 的赋值")
+				}
+			}
+		}
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
 			tt, known := e.vars[id.Name]
 			vt := e.inferExpected(n.Value, tt)
@@ -1045,6 +1052,11 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if k, ok := e.fields[n.Name]; ok {
 			return texpr{key: k}
 		}
+		if e.a.tc != nil {
+			if info, ok := e.a.tc.types[n.Name]; ok && (info.kind == "singleton" || info.kind == "factory") {
+				return texpr{key: n.Name}
+			}
+		}
 		if e.cls != nil {
 			if n.Name == "self" && !e.cls.instance {
 				e.errf(n.P, TyModifier, "static 方法不能使用 self（§1.6）", "")
@@ -1215,6 +1227,9 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 				if info.kind == "class" && info.mod.Abstract {
 					e.errf(n.P, TyNewAbstract, "抽象类 `"+nt.Qual[0]+"` 不能实例化（§2.6）", "由具体子类实例化，或去掉 abstract")
 				}
+				if info.kind == "singleton" || info.kind == "factory" {
+					e.errf(n.P, TySingletonNew, "`"+nt.Qual[0]+"` 不是可实例化类型（singleton/factory，§9.4/§10.5）", "使用 instance 或工厂方法")
+				}
 			}
 		}
 		for _, a := range n.Args {
@@ -1268,6 +1283,17 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 	if c := e.a.tc; c != nil {
 		if info, ok := c.types[rt.key]; ok && info.kind == "protocol" {
 			e.errf(n.P, TyProtoMember, "协议变量没有字段或属性（§4.4）：`"+n.Name+"`", "协议只暴露声明的方法")
+			return texpr{}
+		}
+		if info, ok := c.types[rt.key]; ok && info.kind == "singleton" && info.single != nil {
+			if n.Name == "instance" {
+				return texpr{key: rt.key}
+			}
+			for _, f := range info.single.Fields {
+				if f.Name == n.Name || f.Canonical == n.Name {
+					return texpr{key: typeKey(f.Type)}
+				}
+			}
 			return texpr{}
 		}
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {

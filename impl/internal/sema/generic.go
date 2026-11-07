@@ -503,6 +503,12 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 	case *xfront.NamedType:
 		name := ty.Qual[len(ty.Qual)-1]
 		if len(ty.Args) == 0 {
+			if e.a.tc != nil {
+				if info, ok := e.a.tc.types[name]; ok && info.kind == "factory" {
+					e.errf(ty.P, TyFactory, "factory `"+name+"` 不是类型，不能用于类型位置（§10.4）", "改用 Target 类型或工厂方法返回类型")
+					return
+				}
+			}
 			if e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
 				e.errf(ty.P, ResUndefined,
 					"类型参数 `"+name+"` 未定义：类型参数只在声明它的函数/类型内可见（§8.1）", "在函数名后声明 <"+name+">，或改用具体类型")
