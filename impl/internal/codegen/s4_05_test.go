@@ -134,16 +134,16 @@ static Int main() {
 	}
 }
 
-// S4-05 / FFI 边界错误路径：非零错误码 → fatal 134，未知码归 Internal（绝不 Ok）。
+// S4-05 / S7-02：FFI 非零错误码回写调用点，不再 fatal；入口继续执行。
+// 错误分类映射（已知/未知/Cancelled/Timeout）由 ffi.TestS7_02ErrorKindMappingRuntime 覆盖。
 func TestS4FFIBoundaryErrorPaths(t *testing.T) {
 	cases := []struct {
 		name     string
 		errorMap string
 		native   string
-		kind     string
 	}{
-		{"已映射码", "  errorMap {\n    7 = NotFound\n  }\n", "7", "NotFound"},
-		{"未知码", "", "9", "Internal"},
+		{"已映射码", "  errorMap {\n    7 = NotFound\n  }\n", "7"},
+		{"未知码", "", "9"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -157,7 +157,7 @@ func TestS4FFIBoundaryErrorPaths(t *testing.T) {
 }
 `
 			writeFFIFile(t, filepath.Join(dir, "bindings", "t.xfb"), xfb)
-			mainSrc := "static Int main() {\n    Int32 code = 0\n    stubFail(code)\n    print(\"MAIN-SHOULD-NOT-RUN\")\n    return 0\n}\n"
+			mainSrc := "static Int main() {\n    Int32 code = 0\n    stubFail(code)\n    print(str(code))\n    return 0\n}\n"
 			mainPath := filepath.Join(dir, "main.x")
 			writeFFIFile(t, mainPath, mainSrc)
 			nativePath := filepath.Join(dir, "stub.c")
@@ -207,14 +207,11 @@ func TestS4FFIBoundaryErrorPaths(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if code != 134 {
-				t.Fatalf("退出码 %d，期望 134（stderr=%s）", code, errb.String())
+			if code != 0 {
+				t.Fatalf("退出码 %d，期望 0（S7-02：不再 fatal；stderr=%s）", code, errb.String())
 			}
-			if out.String() != "" {
-				t.Fatalf("FFI 失败后入口仍继续执行：stdout=%q", out.String())
-			}
-			if !strings.Contains(errb.String(), c.kind) || !strings.Contains(errb.String(), "错误码") {
-				t.Fatalf("stderr 未点名错误分类 %q：%s", c.kind, errb.String())
+			if got, want := out.String(), c.native+"\n"; got != want {
+				t.Fatalf("stdout=%q，期望错误码回写 %q", got, want)
 			}
 		})
 	}

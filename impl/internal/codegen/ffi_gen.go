@@ -434,16 +434,21 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	}
 	rc := s.tmp()
 	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
-	// 出参形态（fileRead）：归一 rc 回写调用点的变量（夹具预置 7 → 成功必须变 0）。
+	// 出参形态（fileRead）：rc 回写调用点的变量；不在此终止进程（S7-02）。
+	// 调用点（E4）用 ffiErrorKindExpr(e.Region, rc) 把原始码映射为 xrt_error_kind：
+	// 已知码 → ErrorKind，未知码 → Internal，Cancelled/Timeout 不降级；再构造 Result。
 	if codeVar != "" {
 		lines = append(lines, codeVar+" = "+rc+";")
 	}
-	// 错误码经包装层归一（未知码 → Internal），非零即终止：不隐藏、不吞错（P-09 条件 2）。
-	lines = append(lines, fmt.Sprintf(
-		`if (%s != 0) { fprintf(stderr, "fatal: FFI 入口 %s 错误码 %%d（%%s）\n", (int)%s, xrt_error_kind_name(xn_ffi_%s_error_kind_id(%s))); exit(134); }`,
-		rc, e.Name, rc, ffiRegionIdent(e.Region), rc))
 	lines = append(lines, post...)
 	return lines, out, nil
+}
+
+// ffiErrorKindExpr 返回“原生错误码 → xrt_error_kind”的 C 表达式。
+// 生成支撑代码提供 xn_ffi_<region>_error_kind_id：已知码 → ErrorKind；
+// 未知码 → Internal；Cancelled/Timeout 不降级。E4 的调用点改造用它构造 Result.err。
+func ffiErrorKindExpr(region, code string) string {
+	return "xn_ffi_" + ffiRegionIdent(region) + "_error_kind_id(" + code + ")"
 }
 
 // ffiRegionIdent 把区域名转成 C 标识符片段（与 ffi 子模块生成规则一致）。

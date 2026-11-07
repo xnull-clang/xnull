@@ -93,7 +93,7 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 }
 `
 			writeFFIFile(t, filepath.Join(dir, "bindings", "t.xfb"), xfb)
-			mainSrc := "static Int main() {\n    Int32 code = 0\n    stubFail(code)\n    print(\"MAIN-SHOULD-NOT-RUN\")\n    return 0\n}\n"
+			mainSrc := "static Int main() {\n    Int32 code = 0\n    stubFail(code)\n    print(str(code))\n    return 0\n}\n"
 			mainPath := filepath.Join(dir, "main.x")
 			writeFFIFile(t, mainPath, mainSrc)
 			nativePath := filepath.Join(dir, "stub.c")
@@ -117,8 +117,23 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 			if err != nil {
 				t.Fatalf("EmitCWithFFI: %v", err)
 			}
-			if !strings.Contains(csrc, "xrt_error_kind_name(xn_ffi_t_error_kind_id(") {
-				t.Fatalf("调用点未使用 ErrorKind 枚举分类：\n%s", csrc)
+			// S7-02：映射函数由支撑代码提供；调用点不再 fatal，原始码回写调用点。
+			// 已知码必须在生成的 switch 中有稳定枚举；未知码走 default → Internal。
+			if !strings.Contains(csrc, "xn_ffi_t_error_kind_id(") {
+				t.Fatalf("支撑代码缺少 ErrorKind 映射函数：\n%s", csrc)
+			}
+			ret := map[string]string{
+				"Io": "XRT_ERR_IO", "Cancelled": "XRT_ERR_CANCELLED", "Timeout": "XRT_ERR_TIMEOUT",
+			}[c.want]
+			if ret != "" {
+				if !strings.Contains(csrc, "case "+c.code+": return "+ret+";") {
+					t.Fatalf("错误码 %s 未映射到 %s：\n%s", c.code, ret, csrc)
+				}
+			} else if !strings.Contains(csrc, "default: return XRT_ERR_INTERNAL;") {
+				t.Fatalf("未知码未走 Internal：\n%s", csrc)
+			}
+			if strings.Contains(csrc, "fatal: FFI 入口") {
+				t.Fatalf("调用点仍保留 FFI fatal（S7-02）：\n%s", csrc)
 			}
 			rt := filepath.Join("..", "..", "runtime")
 			cfile := filepath.Join(dir, "prog.c")
@@ -146,14 +161,11 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			if code != 134 {
-				t.Fatalf("退出码 %d，期望 134（stderr=%s）", code, errb.String())
+			if code != 0 {
+				t.Fatalf("退出码 %d，期望 0（S7-02：不再 fatal；stderr=%s）", code, errb.String())
 			}
-			if out.String() != "" {
-				t.Fatalf("错误码非零后入口仍执行：stdout=%q", out.String())
-			}
-			if !strings.Contains(errb.String(), c.want) {
-				t.Fatalf("stderr 未含分类 %q：%s", c.want, errb.String())
+			if got, want := out.String(), c.code+"\n"; got != want {
+				t.Fatalf("stdout=%q，期望错误码回写 %q", got, want)
 			}
 		})
 	}

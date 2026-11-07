@@ -1,0 +1,23 @@
+=== RUN   TestS4_04FFIErrorKindRuntime
+=== RUN   TestS4_04FFIErrorKindRuntime/Io
+=== RUN   TestS4_04FFIErrorKindRuntime/Cancelled
+=== RUN   TestS4_04FFIErrorKindRuntime/Timeout
+=== RUN   TestS4_04FFIErrorKindRuntime/未知码
+--- PASS: TestS4_04FFIErrorKindRuntime (5.65s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Io (1.28s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Cancelled (1.31s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Timeout (1.53s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/未知码 (1.52s)
+=== RUN   TestS4FFIBoundaryErrorPaths
+=== RUN   TestS4FFIBoundaryErrorPaths/已映射码
+=== RUN   TestS4FFIBoundaryErrorPaths/未知码
+--- PASS: TestS4FFIBoundaryErrorPaths (3.07s)
+    --- PASS: TestS4FFIBoundaryErrorPaths/已映射码 (1.49s)
+    --- PASS: TestS4FFIBoundaryErrorPaths/未知码 (1.58s)
+=== RUN   TestS7_02ErrorCodeNoFatal
+--- PASS: TestS7_02ErrorCodeNoFatal (0.86s)
+=== RUN   TestS7_02ErrorKindExpr
+--- PASS: TestS7_02ErrorKindExpr (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	10.045s
+EXIT=0

@@ -1,0 +1,5 @@
+ok  	xnull.dev/xnull/internal/codegen/ffi	13.736s
+ok  	xnull.dev/xnull/internal/cli	36.367s
+ok  	xnull.dev/xnull/internal/interp	2.291s
+ok  	xnull.dev/xnull/internal/sema	2.961s
+EXIT=0
