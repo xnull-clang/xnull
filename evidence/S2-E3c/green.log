@@ -1,0 +1,17 @@
+=== RUN   TestS2MethodOverload
+=== RUN   TestS2MethodOverload/ByType
+=== RUN   TestS2MethodOverload/ByArity
+=== RUN   TestS2MethodOverload/InheritedOverload
+--- PASS: TestS2MethodOverload (0.00s)
+    --- PASS: TestS2MethodOverload/ByType (0.00s)
+    --- PASS: TestS2MethodOverload/ByArity (0.00s)
+    --- PASS: TestS2MethodOverload/InheritedOverload (0.00s)
+=== RUN   TestS2StaticMembers
+=== RUN   TestS2StaticMembers/FieldAndMethod
+=== RUN   TestS2StaticMembers/ChildHidesParent
+--- PASS: TestS2StaticMembers (0.00s)
+    --- PASS: TestS2StaticMembers/FieldAndMethod (0.00s)
+    --- PASS: TestS2StaticMembers/ChildHidesParent (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	2.019s
+exit=0

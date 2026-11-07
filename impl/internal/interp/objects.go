@@ -280,10 +280,11 @@ func primaryParam(c *xfront.ClassDecl, field string) (*xfront.Param, bool) {
 
 // callMethod 调用实例方法：绑定 self 与参数，恢复 ctrlReturn（含 defer 语义由 execBlock 承载）。
 func (in *Interp) callMethod(obj *objv, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
-	m, ok := in.findMethod(obj.cls, name)
-	if !ok {
+	cands := in.findMethods(obj.cls, name)
+	if len(cands) == 0 {
 		panic(runtimeErr{"该类型没有成员方法 " + name + "：" + obj.cls.Name})
 	}
+	m := in.selectMethod(name, cands, args)
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {

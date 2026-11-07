@@ -212,17 +212,20 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out       io.Writer
-	funcs     map[string][]*xfront.TopFunc
-	classes   map[string]*xfront.ClassDecl
-	globals   *scope
-	label     string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit    map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
-	enums     map[string]*xfront.EnumDecl
-	enumVals  map[string]map[string]int64  // 简单枚举：项 → 底层值
-	enumItems map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
-	protocols map[string]*xfront.ProtocolDecl
-	enumCls   map[string]*xfront.ClassDecl
+	out        io.Writer
+	funcs      map[string][]*xfront.TopFunc
+	classes    map[string]*xfront.ClassDecl
+	globals    *scope
+	label      string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit     map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums      map[string]*xfront.EnumDecl
+	enumVals   map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems  map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols  map[string]*xfront.ProtocolDecl
+	enumCls    map[string]*xfront.ClassDecl
+	classOrder []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
+	staticVals map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
+	staticCtx  *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -263,7 +266,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		globals: newScope(nil), strLit: map[string]*Value{},
 		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
-		enumCls: map[string]*xfront.ClassDecl{},
+		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -277,6 +280,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.funcs[n.Name] = append(in.funcs[n.Name], n)
 		case *xfront.ClassDecl:
 			in.classes[n.Name] = n
+			in.classOrder = append(in.classOrder, n)
+			in.registerStaticFields(n)
 		case *xfront.ProtocolDecl:
 			in.protocols[n.Name] = n
 		case *xfront.EnumDecl:
@@ -294,6 +299,8 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.globals.assign(n.Name, in.eval(n.Init, in.globals))
 		}
 	}
+	// 静态字段初始化式：按类声明顺序（§7.1）。
+	in.initStaticFields()
 	mains := in.funcs["main"]
 	if len(mains) == 0 {
 		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
@@ -724,6 +731,12 @@ func (in *Interp) eval(e xfront.Expr, sc *scope) *Value {
 			// 具名函数作为值（§7.7：apply(add, 1)）——包装为闭包值
 			return &Value{K: vClosure, Clo: &clov{top: n.Name}}
 		}
+		// §7.1：静态字段初始化式/静态方法中的裸静态字段名。
+		if in.staticCtx != nil {
+			if v, ok := in.findStaticField(in.staticCtx, n.Name); ok {
+				return v
+			}
+		}
 		panic(runtimeErr{"未定义的名称：" + n.Name})
 	case *xfront.Unary:
 		switch n.Op {
@@ -1049,6 +1062,23 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 	}
 	// 方法调用形态：recv.method(args)（§10.1 Result 成员全部为方法）。
 	if mem, ok := n.Callee.(*xfront.Member); ok {
+		// S2 §7.2：`Class.staticMethod(...)`；类名不是运行期变量。
+		if id, ok := mem.X.(*xfront.IdentExpr); ok {
+			if cls, found := in.findClass(id.Name); found {
+				if len(in.findStaticMethods(cls, mem.Name)) == 0 {
+					panic(runtimeErr{"实例方法必须通过实例调用：" + id.Name + "." + mem.Name})
+				}
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callStatic(cls, mem.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		recv := in.eval(mem.X, sc)
 		if mem.NullSafe && recv.K == vNull {
 			return &Value{K: vNull}
@@ -1126,6 +1156,20 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 			return v
 		}
+		// §7.2：静态方法内的裸静态方法名。
+		if in.staticCtx != nil {
+			if cands := in.findStaticMethods(in.staticCtx, id.Name); len(cands) > 0 {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callStatic(in.staticCtx, id.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		if id.Name == "print" || id.Name == "str" { // 内置函数（2/≤3）
 			if len(n.Args) != 1 {
 				panic(runtimeErr{id.Name + " 恰好接受 1 个参数"})
@@ -1138,7 +1182,7 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		}
 		// §5.8：类内裸方法名解析到 self 的实例方法。
 		if sv, ok := sc.lookup("self"); ok && sv.K == vObj {
-			if _, found := in.findMethod(sv.O.cls, id.Name); found {
+			if len(in.findMethods(sv.O.cls, id.Name)) > 0 {
 				args := make([]*Value, len(n.Args))
 				for i, a := range n.Args {
 					args[i] = in.eval(a, sc)
@@ -1156,8 +1200,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 }
 
 func (in *Interp) evalMember(n *xfront.Member, sc *scope) *Value {
-	// S2 §8.4：`Enum.Item` 项访问（枚举类型名不是运行期变量）。
 	if id, ok := n.X.(*xfront.IdentExpr); ok {
+		// S2 §7.1：`Class.field` 静态字段。
+		if cls, ok := in.findClass(id.Name); ok {
+			if v, hit := in.findStaticField(cls, n.Name); hit {
+				return v
+			}
+		}
+		// S2 §8.4：`Enum.Item` 项访问（枚举类型名不是运行期变量）。
 		if d, ok := in.enums[id.Name]; ok {
 			return in.enumItem(d, n.Name, n.P)
 		}
@@ -1178,7 +1228,9 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 	case *xfront.IdentExpr:
 		if !sc.assign(t.Name, v) {
 			if !in.writeSelfField(sc, t.Name, v) {
-				panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+				if in.staticCtx == nil || !in.writeStaticField(in.staticCtx, t.Name, v) {
+					panic(runtimeErr{"向未定义的名称赋值：" + t.Name})
+				}
 			}
 		}
 		return
@@ -1213,6 +1265,12 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 		recv.A[t.Index] = cloneTupleValue(v)
 		return
 	case *xfront.Member:
+		// S2 §7.1：`Class.staticField = v`。
+		if id, ok := t.X.(*xfront.IdentExpr); ok {
+			if cls, found := in.findClass(id.Name); found && in.writeStaticField(cls, t.Name, v) {
+				return
+			}
+		}
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {
 			in.writeMember(recv.O, t.Name, v)
