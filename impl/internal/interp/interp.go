@@ -172,6 +172,7 @@ type scope struct {
 	parent *scope
 	vars   map[string]*Value
 	types  map[string]xfront.TypeRef // 声明类型（容器赋值保持种类用）
+	owned  []*objv                   // 本作用域声明、退出时执行 deinit 的对象（§6.4）
 }
 
 func newScope(parent *scope) *scope {
@@ -216,22 +217,24 @@ func (s *scope) assign(name string, v *Value) bool {
 // ---------- 解释器 ----------
 
 type Interp struct {
-	out         io.Writer
-	funcs       map[string][]*xfront.TopFunc
-	classes     map[string]*xfront.ClassDecl
-	globals     *scope
-	label       string            // 当前执行的带标签循环的标签（break/continue label 匹配）
-	strLit      map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
-	enums       map[string]*xfront.EnumDecl
-	enumVals    map[string]map[string]int64  // 简单枚举：项 → 底层值
-	enumItems   map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
-	protocols   map[string]*xfront.ProtocolDecl
-	enumCls     map[string]*xfront.ClassDecl
-	classOrder  []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
-	staticVals  map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
-	staticCtx   *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
-	methodStack []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
-	structs     map[string]*xfront.StructDecl
+	out          io.Writer
+	funcs        map[string][]*xfront.TopFunc
+	classes      map[string]*xfront.ClassDecl
+	globals      *scope
+	label        string            // 当前执行的带标签循环的标签（break/continue label 匹配）
+	strLit       map[string]*Value // 字符串字面量驻留（§2.8：字面量 === 按对象身份）
+	enums        map[string]*xfront.EnumDecl
+	enumVals     map[string]map[string]int64  // 简单枚举：项 → 底层值
+	enumItems    map[string]map[string]*Value // 枚举项缓存（数据枚举惰性构造）
+	protocols    map[string]*xfront.ProtocolDecl
+	enumCls      map[string]*xfront.ClassDecl
+	classOrder   []*xfront.ClassDecl          // 类声明顺序（静态字段初始化）
+	staticVals   map[string]map[string]*Value // 类名 → 静态字段规范名 → 值
+	staticCtx    *xfront.ClassDecl            // 当前静态方法/静态字段初始化上下文
+	methodStack  []*xfront.ClassDecl          // 实例方法声明类栈（super 起点，§5.4）
+	structs      map[string]*xfront.StructDecl
+	deinited     map[*objv]bool // 已执行 deinit 的对象（引用计数去重）
+	deinitFrames []*bool        // deinit 链帧：显式 super.deinit 标记
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -273,7 +276,7 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		enums: map[string]*xfront.EnumDecl{}, enumVals: map[string]map[string]int64{},
 		enumItems: map[string]map[string]*Value{}, protocols: map[string]*xfront.ProtocolDecl{},
 		enumCls: map[string]*xfront.ClassDecl{}, staticVals: map[string]map[string]*Value{},
-		structs: map[string]*xfront.StructDecl{},
+		structs: map[string]*xfront.StructDecl{}, deinited: map[*objv]bool{},
 	}
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
@@ -441,6 +444,7 @@ type ditem struct {
 }
 
 func (in *Interp) execBlock(b *xfront.Block, sc *scope) {
+	defer in.closeScope(sc) // §6.4：块/函数作用域退出执行 deinit（在 defer 之后）
 	var defers []ditem
 	run := func(errPath bool) {
 		for i := len(defers) - 1; i >= 0; i-- { // LIFO（§10.3）
@@ -503,6 +507,9 @@ func (in *Interp) exec(st xfront.Stmt, sc *scope, defers *[]ditem) {
 			v = in.eval(n.Init, sc)
 		}
 		sc.defineTyped(n.Name, n.Type, v)
+		if v.K == vObj {
+			sc.owned = append(sc.owned, v.O)
+		}
 	case *xfront.AssignStmt:
 		v := in.eval(n.Value, sc)
 		if n.Op != "=" {
@@ -1080,6 +1087,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			self, found := sc.lookup("self")
 			if !found || self.K != vObj {
 				panic(runtimeErr{"super 只能在实例方法中使用（§5.4）"})
+			}
+			// S2 §6.4：显式 super.deinit() 接管剩余父类链，标记当前帧不再自动补调。
+			if mem.Name == "deinit" {
+				if n := len(in.deinitFrames); n > 0 {
+					*in.deinitFrames[n-1] = true
+				}
+				in.runDeinitFrom(in.superBase(), self.O)
+				return &Value{K: vNull}
 			}
 			args := make([]*Value, len(n.Args))
 			for i, a := range n.Args {

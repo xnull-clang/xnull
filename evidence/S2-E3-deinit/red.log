@@ -1,0 +1,15 @@
+=== RUN   TestS2DeinitChain
+=== RUN   TestS2DeinitChain/SingleScope
+    s2_deinit_test.go:20: out="after\n" want="dD\nafter\n" err=<nil>
+=== RUN   TestS2DeinitChain/ExplicitSuper
+    s2_deinit_test.go:44: out="B\nD\n1\nafter\n" want="B\nD\n1\ndD\ndB\nafter\n" err=<nil>
+=== RUN   TestS2DeinitChain/AutoParent
+    s2_deinit_test.go:62: out="after\n" want="dB\nafter\n" err=<nil>
+--- FAIL: TestS2DeinitChain (0.00s)
+    --- FAIL: TestS2DeinitChain/SingleScope (0.00s)
+    --- FAIL: TestS2DeinitChain/ExplicitSuper (0.00s)
+    --- FAIL: TestS2DeinitChain/AutoParent (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.814s
+FAIL
+exit=1
