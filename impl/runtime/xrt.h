@@ -234,6 +234,31 @@ int32_t      xrt_context_cancelled(const xrt_context *ctx);
 xrt_cancel_token *xrt_context_token(xrt_context *ctx); /* 借用 */
 int32_t      xrt_cancel_token_cancelled(const xrt_cancel_token *token); /* 0/1；原子读 */
 void         xrt_context_cancel(xrt_context *ctx);     /* 幂等 */
+
+/* ---- 内嵌资源读取（S6 §4.8 / XDK-10；S8 §5.6） ----
+ *
+ * 只读编译期静态表，不回退文件系统；返回值不是句柄，无 close。
+ * 路径以 resources/ 为根；绝对路径 / `..` 段 / 空段 / 反斜杠 → InvalidArgument。
+ * Result 不跨 FFI：成功返回 1，失败返回 0 并写 *error_kind（XRT_ERR_*）。
+ */
+int32_t        xdkc_resource_exists(const char *path, size_t len);
+int32_t        xdkc_resource_size(const char *path, size_t len, int64_t *out_size);
+int32_t        xdkc_read_resource(xrt_context *ctx, const char *path, size_t len,
+                                  xrt_bytes_buf **out, int32_t *error_kind);
+int32_t        xdkc_read_resource_text(xrt_context *ctx, const char *path, size_t len,
+                                       xrt_text **out, int32_t *error_kind);
+int32_t        xdkc_list_resources(xrt_context *ctx, const char *prefix, size_t len,
+                                   const char ***out, size_t *out_count,
+                                   int32_t *error_kind);
+void           xdkc_list_resources_free(const char **items);
+
+/* 资源表符号（由 `xnull dev res` 生成；S8 §5.6）。 */
+size_t         xrt_resource_count(void);
+int            xrt_resource_get(const char *name, size_t nlen,
+                                const unsigned char **out, size_t *out_len);
+int            xrt_resource_at(size_t i, const char **name, size_t *nlen,
+                               const unsigned char **out, size_t *out_len);
+
 int64_t      xrt_clock_mono_ms(void);
 
 /* Task / TaskGroup */

@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <unistd.h>
 
 static char *path_dup(const char *bytes, size_t len) {
@@ -244,4 +245,403 @@ int64_t xdkc_write_file_text(const char *bytes, size_t plen,
         rc = 1;
     }
     return (int64_t)rc;
+}
+
+/* ---- S6-03：plain/Async 双形态（Context 首参；close 必达/幂等由句柄层保证） ----
+ *
+ * Async 形态把阻塞原语投递到伴生执行器（S5 §2.2），等待可被 Context 取消。
+ * 取消语义：
+ *   - open/read/write/dir/close：等待取消后仍等待完成以回收结果（避免泄漏/UAF），
+ *     返回 XRT_ERR_CANCELLED（写操作可能已产生副作用，属原生调用不可抢占；B3 异步 I/O 收敛）；
+ *   - proc_run_async：取消立即返回，命令继续在伴生线程执行（结果丢弃）。
+ */
+
+typedef struct {
+    const char *bytes;
+    size_t      len;
+} async_path_arg;
+
+typedef struct {
+    void   *fp;
+    void   *buf;
+    size_t  cap;
+    const void *wbuf;
+    size_t  wn;
+} async_file_arg;
+
+typedef struct {
+    char  *cmd;
+    size_t len;
+} async_cmd_arg;
+
+static int32_t wait_future_reap(xrt_future *f, xrt_context *ctx, void **out) {
+    int32_t rc = xrt_companion_wait(f, ctx, out);
+    if (rc == XRT_ERR_CANCELLED) {
+        void *ignored = NULL;
+        (void)xrt_companion_wait(f, NULL, &ignored); /* 等完成以回收资源 */
+        if (out != NULL) {
+            *out = ignored;
+        }
+    }
+    xrt_release(f);
+    return rc;
+}
+
+static void *thunk_file_open_read(void *arg) {
+    async_path_arg *a = arg;
+    void *fp = xdkc_file_open_read(a->bytes, a->len);
+    free(a);
+    return fp;
+}
+
+void *xdkc_file_open_read_async(xrt_context *ctx, const char *bytes, size_t len, int32_t *code) {
+    async_path_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("fileOpenReadAsync：内存不足（S6 §4.7）");
+    }
+    a->bytes = bytes;
+    a->len = len;
+    xrt_future *f = xrt_companion_submit(thunk_file_open_read, a);
+    void *fp = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &fp);
+    if (rc == XRT_ERR_CANCELLED) {
+        if (fp != NULL) {
+            (void)xdkc_file_close(fp); /* 取消后的打开结果必须关闭 */
+        }
+        if (code != NULL) {
+            *code = 2;
+        }
+        return NULL;
+    }
+    if (code != NULL) {
+        *code = 0;
+    }
+    return fp;
+}
+
+static void *thunk_file_open_write(void *arg) {
+    async_path_arg *a = arg;
+    void *fp = xdkc_file_open_write(a->bytes, a->len);
+    free(a);
+    return fp;
+}
+
+void *xdkc_file_open_write_async(xrt_context *ctx, const char *bytes, size_t len, int32_t *code) {
+    async_path_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("fileOpenWriteAsync：内存不足（S6 §4.7）");
+    }
+    a->bytes = bytes;
+    a->len = len;
+    xrt_future *f = xrt_companion_submit(thunk_file_open_write, a);
+    void *fp = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &fp);
+    if (rc == XRT_ERR_CANCELLED) {
+        if (fp != NULL) {
+            (void)xdkc_file_close(fp);
+        }
+        if (code != NULL) {
+            *code = 2;
+        }
+        return NULL;
+    }
+    if (code != NULL) {
+        *code = 0;
+    }
+    return fp;
+}
+
+static void *thunk_file_read(void *arg) {
+    async_file_arg *a = arg;
+    int32_t code = 0;
+    int64_t n = xdkc_file_read(a->fp, a->buf, a->cap, &code);
+    int64_t *r = malloc(sizeof(*r));
+    if (r == NULL) {
+        abort();
+    }
+    *r = (code != 0) ? -1 : n;
+    free(a);
+    return r;
+}
+
+int64_t xdkc_file_read_async(xrt_context *ctx, void *fp, void *buf, size_t cap, int32_t *code) {
+    async_file_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("fileReadAsync：内存不足（S6 §4.7）");
+    }
+    a->fp = fp;
+    a->buf = buf;
+    a->cap = cap;
+    xrt_future *f = xrt_companion_submit(thunk_file_read, a);
+    void *out = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &out);
+    int64_t n = -1;
+    if (out != NULL) {
+        int64_t *p = out;
+        n = *p;
+        free(p);
+    }
+    if (rc == XRT_ERR_CANCELLED) {
+        if (code != NULL) {
+            *code = 2;
+        }
+        return -1;
+    }
+    if (code != NULL) {
+        *code = (n < 0) ? 2 : 0;
+    }
+    return n;
+}
+
+static void *thunk_file_write(void *arg) {
+    async_file_arg *a = arg;
+    int32_t rc = xdkc_file_write(a->fp, a->wbuf, a->wn);
+    int64_t *r = malloc(sizeof(*r));
+    if (r == NULL) {
+        abort();
+    }
+    *r = rc;
+    free(a);
+    return r;
+}
+
+int32_t xdkc_file_write_async(xrt_context *ctx, void *fp, const void *buf, size_t n) {
+    async_file_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("fileWriteAsync：内存不足（S6 §4.7）");
+    }
+    a->fp = fp;
+    a->wbuf = buf;
+    a->wn = n;
+    xrt_future *f = xrt_companion_submit(thunk_file_write, a);
+    void *out = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &out);
+    int32_t wrc = 0;
+    if (out != NULL) {
+        int64_t *p = out;
+        wrc = (int32_t)*p;
+        free(p);
+    }
+    return rc == XRT_ERR_CANCELLED ? 2 : wrc;
+}
+
+static void *thunk_file_close(void *arg) {
+    async_file_arg *a = arg;
+    int32_t rc = xdkc_file_close(a->fp);
+    free(a);
+    return (void *)(intptr_t)rc;
+}
+
+int32_t xdkc_file_close_async(xrt_context *ctx, void *fp) {
+    async_file_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("fileCloseAsync：内存不足（S6 §4.7）");
+    }
+    a->fp = fp;
+    xrt_future *f = xrt_companion_submit(thunk_file_close, a);
+    void *out = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &out);
+    return rc == XRT_ERR_CANCELLED ? 2 : (int32_t)(intptr_t)out;
+}
+
+static void *thunk_dir_open(void *arg) {
+    async_path_arg *a = arg;
+    void *dp = xdkc_dir_open(a->bytes, a->len);
+    free(a);
+    return dp;
+}
+
+void *xdkc_dir_open_async(xrt_context *ctx, const char *bytes, size_t len, int32_t *code) {
+    async_path_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("dirOpenAsync：内存不足（S6 §4.7）");
+    }
+    a->bytes = bytes;
+    a->len = len;
+    xrt_future *f = xrt_companion_submit(thunk_dir_open, a);
+    void *dp = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &dp);
+    if (rc == XRT_ERR_CANCELLED) {
+        if (dp != NULL) {
+            (void)xdkc_dir_close(dp);
+        }
+        if (code != NULL) {
+            *code = 2;
+        }
+        return NULL;
+    }
+    if (code != NULL) {
+        *code = 0;
+    }
+    return dp;
+}
+
+static void *thunk_dir_read(void *arg) {
+    void *dp = arg;
+    return (void *)xdkc_dir_read(dp);
+}
+
+const char *xdkc_dir_read_async(xrt_context *ctx, void *dp, int32_t *code) {
+    xrt_future *f = xrt_companion_submit(thunk_dir_read, dp);
+    void *out = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &out);
+    if (rc == XRT_ERR_CANCELLED) {
+        if (code != NULL) {
+            *code = 2;
+        }
+        return NULL;
+    }
+    if (code != NULL) {
+        *code = 0;
+    }
+    return (const char *)out;
+}
+
+static void *thunk_dir_close(void *arg) {
+    int32_t rc = xdkc_dir_close(arg);
+    return (void *)(intptr_t)rc;
+}
+
+int32_t xdkc_dir_close_async(xrt_context *ctx, void *dp) {
+    xrt_future *f = xrt_companion_submit(thunk_dir_close, dp);
+    void *out = NULL;
+    int32_t rc = wait_future_reap(f, ctx, &out);
+    return rc == XRT_ERR_CANCELLED ? 2 : (int32_t)(intptr_t)out;
+}
+
+/* ---- Process 句柄（S6 §4.7 子进程；close 必达：kill+reap） ---- */
+
+typedef struct {
+    pid_t pid;
+    int   reaped;
+    int   status;
+} proc_t;
+
+void *xdkc_proc_spawn(const char *cmd, size_t len, int32_t *code) {
+    if (cmd == NULL) {
+        xrt_fatal("procSpawn：命令为空（S6 §4.7）");
+    }
+    char *c = malloc(len + 1);
+    if (c == NULL) {
+        xrt_fatal("procSpawn：内存不足（S6 §4.7）");
+    }
+    memcpy(c, cmd, len);
+    c[len] = 0;
+    pid_t pid = fork();
+    if (pid == 0) {
+        execl("/bin/sh", "sh", "-c", c, (char *)NULL);
+        _exit(127);
+    }
+    free(c);
+    if (pid < 0) {
+        if (code != NULL) {
+            *code = 2;
+        }
+        return NULL;
+    }
+    proc_t *p = malloc(sizeof(*p));
+    if (p == NULL) {
+        xrt_fatal("procSpawn：内存不足（S6 §4.7）");
+    }
+    p->pid = pid;
+    p->reaped = 0;
+    p->status = 0;
+    if (code != NULL) {
+        *code = 0;
+    }
+    return p;
+}
+
+int32_t xdkc_proc_wait(void *proc, int32_t *status) {
+    proc_t *p = proc;
+    if (p == NULL) {
+        return 1;
+    }
+    if (!p->reaped) {
+        int st = 0;
+        if (waitpid(p->pid, &st, 0) < 0) {
+            return 2;
+        }
+        p->status = WIFEXITED(st) ? WEXITSTATUS(st) : 128 + WTERMSIG(st);
+        p->reaped = 1;
+    }
+    if (status != NULL) {
+        *status = p->status;
+    }
+    return 0;
+}
+
+int32_t xdkc_proc_kill(void *proc, int32_t sig) {
+    proc_t *p = proc;
+    if (p == NULL || p->reaped) {
+        return 1;
+    }
+    return kill(p->pid, sig) == 0 ? 0 : 2;
+}
+
+/* close 必达：未终结则 SIGKILL + reap；幂等（reaped 后只释放）。 */
+int32_t xdkc_proc_close(void *proc) {
+    proc_t *p = proc;
+    if (p == NULL) {
+        return 0;
+    }
+    if (!p->reaped) {
+        (void)kill(p->pid, SIGKILL);
+        int st = 0;
+        (void)waitpid(p->pid, &st, 0);
+        p->reaped = 1;
+    }
+    free(p);
+    return 0;
+}
+
+typedef struct {
+    char  *cmd;
+    size_t len;
+} proc_async_arg;
+
+static void *thunk_proc_run(void *arg) {
+    proc_async_arg *a = arg;
+    int32_t st = 0;
+    void *h = xdkc_proc_spawn(a->cmd, a->len, NULL);
+    free(a->cmd);
+    free(a);
+    if (h == NULL) {
+        return (void *)(intptr_t)(-1);
+    }
+    (void)xdkc_proc_wait(h, &st);
+    (void)xdkc_proc_close(h);
+    return (void *)(intptr_t)st;
+}
+
+/* 运行 shell 命令并返回退出状态；取消立即返回 XRT_ERR_CANCELLED（命令继续）。 */
+int32_t xdkc_proc_run_async(xrt_context *ctx, const char *cmd, size_t len, int32_t *status) {
+    proc_async_arg *a = malloc(sizeof(*a));
+    if (a == NULL) {
+        xrt_fatal("procRunAsync：内存不足（S6 §4.7）");
+    }
+    a->cmd = malloc(len + 1);
+    if (a->cmd == NULL) {
+        xrt_fatal("procRunAsync：内存不足（S6 §4.7）");
+    }
+    memcpy(a->cmd, cmd, len);
+    a->cmd[len] = 0;
+    a->len = len;
+    xrt_future *f = xrt_companion_submit(thunk_proc_run, a);
+    void *out = NULL;
+    int32_t rc = xrt_companion_wait(f, ctx, &out);
+    xrt_release(f); /* 取消时 future 由伴生线程持有并自行完成 */
+    if (rc == XRT_ERR_CANCELLED) {
+        return XRT_ERR_CANCELLED;
+    }
+    if (status != NULL) {
+        *status = (int32_t)(intptr_t)out;
+    }
+    return 0;
+}
+
+int32_t xdkc_proc_status_async(xrt_context *ctx, const char *cmd, size_t len) {
+    int32_t st = -1;
+    int32_t rc = xdkc_proc_run_async(ctx, cmd, len, &st);
+    return rc == XRT_ERR_CANCELLED ? -1 : st;
 }

@@ -1,0 +1,3 @@
+$ ./test_sysasync
+sysasync tests passed (file/dir/process async + close)
+EXIT=0
