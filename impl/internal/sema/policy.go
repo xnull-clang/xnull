@@ -51,6 +51,9 @@ func (a *analyzer) ComputeStrategies(u *xfront.CompilationUnit) []Strategy {
 			} else {
 				out = append(out, Strategy{Decl: n.Name, Kind: "enum", Policy: "value", Escape: "n/a", Rule: 3})
 			}
+		case *xfront.SingletonDecl:
+			// §9.3：singleton.instance 是全局 GC 根，进程常驻。
+			out = append(out, Strategy{Decl: n.Name, Kind: "singleton", Policy: "gc", Escape: "other", Rule: 1})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Decl < out[j].Decl })
@@ -84,9 +87,12 @@ func (a *analyzer) fieldRefClass(t xfront.TypeRef, inClass *xfront.ClassDecl) st
 			}
 			return "ref"
 		}
-		if scalarValueType(name) || name == "String" || name == "Text" ||
-			name == "Bytes" || name == "StringBuilder" {
+		if scalarValueType(name) {
 			return "value"
+		}
+		// ADR-007：String/Text/Bytes/StringBuilder 全 GC 化。
+		if name == "String" || name == "Text" || name == "Bytes" || name == "StringBuilder" {
+			return "gc"
 		}
 		if info, ok := a.tc.types[name]; ok {
 			switch info.kind {
