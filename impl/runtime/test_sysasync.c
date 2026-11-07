@@ -67,6 +67,43 @@ static void test_dir_async(void) {
     xrt_release(ctx);
 }
 
+/* 取消语义（S6-03 / S3 §18）：
+ *   - read 取消是可恢复的 code=2（调用方自行决定），不是进程终止；
+ *   - close 取消仍完成关闭，返回真实 close 结果（0），句柄层据此 mark_closed。 */
+static void test_cancel_semantics(void) {
+    char path[] = "/tmp/xnull_sysasync_cancelXXXXXX";
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
+    size_t plen = strlen(path);
+
+    xrt_context *ctx = xrt_context_background();
+    int32_t code = -1;
+    void *wf = xdkc_file_open_write_async(ctx, path, plen, &code);
+    assert(code == 0 && wf != NULL);
+    assert(xdkc_file_write_async(ctx, wf, "AB", 2) == 0);
+
+    xrt_context *dead = xrt_context_with_deadline(xrt_context_background(),
+                                                  xrt_clock_mono_ms() - 1);
+    /* close 必达：取消不撤销已完成的关闭，返回 0 而不是 2。 */
+    assert(xdkc_file_close_async(dead, wf) == 0);
+
+    void *rf = xdkc_file_open_read_async(ctx, path, plen, &code);
+    assert(code == 0 && rf != NULL);
+    char buf[8] = {0};
+    int64_t n = xdkc_file_read_async(dead, rf, buf, sizeof(buf), &code);
+    assert(n == -1 && code == 2); /* 可恢复的取消码，调用方决定如何报告 */
+    assert(xdkc_file_close_async(ctx, rf) == 0);
+
+    void *dp = xdkc_dir_open_async(ctx, ".", 1, &code);
+    assert(code == 0 && dp != NULL);
+    assert(xdkc_dir_close_async(dead, dp) == 0);
+
+    xrt_release(dead);
+    xrt_release(ctx);
+    unlink(path);
+}
+
 static void test_process(void) {
     int32_t code = -1;
     void *p = xdkc_proc_spawn("exit 7", 6, &code);
@@ -107,6 +144,7 @@ int main(void) {
     test_dir_async();
     test_process();
     test_process_async();
-    printf("sysasync tests passed (file/dir/process async + close)\n");
+    test_cancel_semantics();
+    printf("sysasync tests passed (file/dir/process async + close + cancel)\n");
     return 0;
 }

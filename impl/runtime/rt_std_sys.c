@@ -251,8 +251,11 @@ int64_t xdkc_write_file_text(const char *bytes, size_t plen,
  *
  * Async 形态把阻塞原语投递到伴生执行器（S5 §2.2），等待可被 Context 取消。
  * 取消语义：
- *   - open/read/write/dir/close：等待取消后仍等待完成以回收结果（避免泄漏/UAF），
- *     返回 XRT_ERR_CANCELLED（写操作可能已产生副作用，属原生调用不可抢占；B3 异步 I/O 收敛）；
+ *   - open/read/write/dir：等待取消后仍等待完成以回收结果（避免泄漏/UAF），
+ *     返回 XRT_ERR_CANCELLED/code=2（写操作可能已产生副作用，属原生调用不可抢占；
+ *     B3 异步 I/O 收敛）；
+ *   - close（file/dir）：取消只打断等待，不撤销已完成的关闭；返回真实 close 结果（0 成功），
+ *     确保句柄层能 mark_closed，不留下“已关闭但句柄层以为未关闭”的悬垂指针；
  *   - proc_run_async：取消立即返回，命令继续在伴生线程执行（结果丢弃）。
  */
 
@@ -440,8 +443,11 @@ int32_t xdkc_file_close_async(xrt_context *ctx, void *fp) {
     a->fp = fp;
     xrt_future *f = xrt_companion_submit(thunk_file_close, a);
     void *out = NULL;
-    int32_t rc = wait_future_reap(f, ctx, &out);
-    return rc == XRT_ERR_CANCELLED ? 2 : (int32_t)(intptr_t)out;
+    /* close 必达（S6 §4.7 / S3 §18）：取消只打断“等待”，不撤销已完成的关闭。
+     * wait_future_reap 在取消后仍等待完成以回收，返回真实 close 结果，
+     * 使句柄层能正确 mark_closed，避免“已关闭但句柄层以为未关闭”的悬垂指针。 */
+    (void)wait_future_reap(f, ctx, &out);
+    return (int32_t)(intptr_t)out;
 }
 
 static void *thunk_dir_open(void *arg) {
@@ -505,8 +511,9 @@ static void *thunk_dir_close(void *arg) {
 int32_t xdkc_dir_close_async(xrt_context *ctx, void *dp) {
     xrt_future *f = xrt_companion_submit(thunk_dir_close, dp);
     void *out = NULL;
-    int32_t rc = wait_future_reap(f, ctx, &out);
-    return rc == XRT_ERR_CANCELLED ? 2 : (int32_t)(intptr_t)out;
+    /* 同 fileCloseAsync：close 必达，取消不改变已完成的关闭结果。 */
+    (void)wait_future_reap(f, ctx, &out);
+    return (int32_t)(intptr_t)out;
 }
 
 /* ---- Process 句柄（S6 §4.7 子进程；close 必达：kill+reap） ---- */

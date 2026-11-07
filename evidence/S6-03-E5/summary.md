@@ -44,3 +44,14 @@
 - Async 取消不抢占原生阻塞调用；文件/目录等待取消后仍等待完成（回收资源）。
 - 多载体下并发 GC 前提仍为 S3-06；本卡测试避免并行 GC 变更。
 - 绑定入口与语言签名由 E4/E2 卡落地；本卡只提供 C 原语。
+
+## 补正（2026-11-08）：close 取消语义
+
+E4 发射面按 `code/返回码 != 0` 判定 close 未完成；而原实现取消等待时返回 2，
+但伴生线程已完成关闭 → 句柄层不 mark_closed，留下悬垂 native 指针。
+
+- `xdkc_file_close_async` / `xdkc_dir_close_async`：取消只打断“等待”，
+  仍等待完成以回收，并返回**真实 close 结果**（成功 0）。close 必达，取消不撤销关闭。
+- read/write/open/dir 取消仍返回 `code=2`（可恢复，调用方决定如何报告）。
+- 用例：`test_sysasync.c: test_cancel_semantics`——过期 Context 下 close 返回 0；
+  read 返回 -1/code=2；`build_rt.sh` 九套件 exit 0。

@@ -16,6 +16,10 @@
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
   （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。
+- **候选期更正（S6-03 close 取消语义，2026-11-08）**：`xdkc_file_close_async` /
+  `xdkc_dir_close_async` 在 Context 取消时仍等待关闭完成，并返回**真实 close 结果**
+  （成功 0），不再返回 2；close 必达，取消不撤销已完成的关闭（避免句柄层未 mark_closed
+  导致悬垂 native 指针）。read/write/open/dir 的取消仍为 code=2（可恢复，调用方决定报告）。
 - **候选期增补（S6-04 资源读取 XDK-10，2026-11-08）**：`rt_std_res.c` 实现 §4.8 五 API 的 C 面——
   `xdkc_resource_exists`、`xdkc_resource_size`（缺失/非法 → false/null）、
   `xdkc_read_resource`（`Bytes`）、`xdkc_read_resource_text`（`Text`，非法 UTF-8 → DataCorrupted）、
