@@ -267,7 +267,7 @@ func (g *gen) emitEnumInit(b *strings.Builder) error {
 			sc.pending = nil
 			fmt.Fprintf(b, "    %s = %s(%s);\n", it.varName, ei.cls.ctorName[c], strings.Join(args, ", "))
 			// 数据枚举项是 GC 全局根（S2 §8.4/§8.6；BND-10 根登记）。
-			fmt.Fprintf(b, "    rt_gc_root_add(%s);\n", it.varName)
+			fmt.Fprintf(b, "    xn_root_hold(%s);\n", it.varName)
 		}
 	}
 	b.WriteString("}\n\n")

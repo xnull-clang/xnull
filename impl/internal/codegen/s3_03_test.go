@@ -135,7 +135,7 @@ static Int main() {
 	if !strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_D)") {
 		t.Fatalf("Escape=return 的类应为 ARC 堆分配：\n%s", csrc)
 	}
-	if !strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_Node)") {
+	if !strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("Escape=other 的类应为 GC 堆分配：\n%s", csrc)
 	}
 	got, code := compileAndRunPolicy(t, src)

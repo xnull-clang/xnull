@@ -164,7 +164,7 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		fmt.Fprintf(b, "static void %s_init(void) {\n", ci.cname)
 		alloc := "rt_arc_new"
 		if ci.isGC {
-			alloc = "rt_gc_new"
+			alloc = "xn_gc_new"
 		}
 		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
@@ -186,7 +186,7 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		}
 		fmt.Fprintf(b, "    %s = o;\n", singletonVarName(name))
 		// 单例实例固定 GC 语义，登记为全局根（S2 §9.3；BND-10）。
-		fmt.Fprintf(b, "    rt_gc_root_add(%s);\n}\n\n", singletonVarName(name))
+		fmt.Fprintf(b, "    xn_root_hold(%s);\n}\n\n", singletonVarName(name))
 	}
 	b.WriteString("static void xn_init_singletons(void) {\n")
 	// 静态字段先于单例实例初始化（S2 §9.2），按声明顺序；可引用前面的静态/单例。
@@ -230,7 +230,7 @@ func (g *gen) singletonStaticInit(ci *classInfo, refs, types map[string]string) 
 		sc.pending = nil
 		out = append(out, "xn_static_"+ci.decl.Name+"_"+f.cname+" = "+expr+";")
 		if g.isGCTypeC(f.ctype) {
-			out = append(out, "rt_gc_root_add(xn_static_"+ci.decl.Name+"_"+f.cname+");")
+			out = append(out, "xn_root_hold(xn_static_"+ci.decl.Name+"_"+f.cname+");")
 		}
 	}
 	return out, nil

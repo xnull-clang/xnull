@@ -147,6 +147,77 @@ static void xn_throw(rt_string *msg) {
     exit(134);
 }
 
+/* ---- GC 根帧与安全点（S3-02）------------------------------------------
+ * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局
+ * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。
+ * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；
+ * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。
+ * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。
+ * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；
+ * 运行时若暴露阈值 API，这里改为薄调用）。 */
+typedef struct { void *obj; size_t count; } xn_root_ref;
+static xn_root_ref *xn_root_refs = NULL;
+static size_t xn_root_ref_n = 0;
+static size_t xn_root_ref_cap = 0;
+static void  **xn_root_track = NULL;
+static size_t  xn_root_depth = 0;
+static size_t  xn_root_cap   = 0;
+
+static void xn_root_hold(void *obj) {
+    if (obj == NULL) { return; }
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }
+    }
+    if (xn_root_ref_n == xn_root_ref_cap) {
+        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;
+        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));
+        if (xn_root_refs == NULL) { abort(); }
+    }
+    xn_root_refs[xn_root_ref_n].obj = obj;
+    xn_root_refs[xn_root_ref_n].count = 1;
+    xn_root_ref_n++;
+    rt_gc_root_add(obj);
+}
+static void xn_root_release(void *obj) {
+    if (obj == NULL) { return; }
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj != obj) { continue; }
+        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }
+        rt_gc_root_remove(obj);
+        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];
+        return;
+    }
+}
+static size_t xn_root_mark(void) { return xn_root_depth; }
+static void xn_root_add(void *obj) {
+    if (obj == NULL) { return; }
+    xn_root_hold(obj);
+    if (xn_root_depth == xn_root_cap) {
+        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;
+        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));
+        if (xn_root_track == NULL) { abort(); }
+    }
+    xn_root_track[xn_root_depth++] = obj;
+}
+static void xn_root_restore(size_t mark) {
+    while (xn_root_depth > mark) {
+        xn_root_release(xn_root_track[--xn_root_depth]);
+    }
+}
+
+static size_t xn_gc_alloc_pending = 0;
+#define XN_GC_SAFEPOINT_THRESHOLD 1024
+static void *xn_gc_new(const rt_type *type) {
+    xn_gc_alloc_pending++;
+    return rt_gc_new(type);
+}
+static void xn_gc_safepoint(void) {
+    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {
+        xn_gc_alloc_pending = 0;
+        rt_gc_collect();
+    }
+}
+
 /* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */
 typedef struct {
     rt_header hdr;
@@ -162,22 +233,22 @@ static void xn_Any_scan(void *p, void (*visit)(void *)) {
 }
 static const rt_type RT_TYPE_XN_ANY = { "Any", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };
 static xn_Any *xn_box_int(int64_t v) {
-    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
     b->typeName = "Int"; b->i = v;
     return b;
 }
 static xn_Any *xn_box_int32(int32_t v) {
-    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
     b->typeName = "Int32"; b->i = (int64_t)v;
     return b;
 }
 static xn_Any *xn_box_bool(int v) {
-    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
     b->typeName = "Bool"; b->i = v ? 1 : 0;
     return b;
 }
 static xn_Any *xn_box_str(rt_string *s) {
-    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
     b->typeName = "String";
     if (s != NULL) { rt_retain(s); }
     b->s = s;
@@ -186,7 +257,7 @@ static xn_Any *xn_box_str(rt_string *s) {
 /* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，
  * GC 载荷不计数（由 GC 管理）。 */
 static xn_Any *xn_box_obj(void *o) {
-    xn_Any *b = (xn_Any *)rt_gc_new(&RT_TYPE_XN_ANY);
+    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);
     if (o != NULL) {
         b->typeName = ((rt_object *)o)->hdr.type->name;
         if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }
@@ -366,8 +437,10 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			switch ct {
 			case "int64_t", "int", "rt_string *":
 			default:
-				if !g.isTupleC(ct) {
-					return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String/元组）", f.Name, ct)
+				// S3-02：顶层字段允许 GC 引用（类/Any/容器/数据枚举/协议），
+				// 初始化后登记为全局根。
+				if !g.isTupleC(ct) && !g.isGCRootC(ct) {
+					return "", fmt.Errorf("codegen：顶层字段 %s 的类型 %s 暂未支持（ENTRY-01 范围：Int/Bool/String/元组/GC 引用）", f.Name, ct)
 				}
 			}
 			if _, dup := g.globals[f.Name]; dup {
@@ -939,6 +1012,42 @@ func (g *gen) genGlobalInit() (string, error) {
 			lines = append(lines, target+" = "+lastVar(sl)+";")
 			continue
 		}
+		if isContainerC(g.globals[f.Name]) {
+			vl, v, err := sc.valExpr(f.Init, g.globals[f.Name])
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, vl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if g.isAnyC(g.globals[f.Name]) {
+			al, v, err := sc.anyExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, al...)
+			lines = append(lines, target+" = "+v+";")
+			if g.isGCRootC(g.globals[f.Name]) {
+				lines = append(lines, "xn_root_hold("+target+");")
+			}
+			continue
+		}
+		if g.isProtoC(g.globals[f.Name]) {
+			pl, expr, owned, err := sc.protoValue(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, pl...)
+			if !owned {
+				t := sc.tmp()
+				lines = append(lines, "void *"+t+" = rt_retain((void *)"+expr+");")
+				expr = t
+			}
+			lines = append(lines, target+" = ("+g.globals[f.Name]+")"+expr+";")
+			lines = append(lines, "xn_root_hold((void *)"+target+");")
+			continue
+		}
 		v, err := sc.intExpr(f.Init)
 		if err != nil {
 			return "", err
@@ -946,6 +1055,10 @@ func (g *gen) genGlobalInit() (string, error) {
 		lines = append(lines, sc.pending...)
 		sc.pending = nil
 		lines = append(lines, target+" = "+v+";")
+		// S3-02：GC 顶层字段登记为全局根。
+		if g.isGCRootC(g.globals[f.Name]) {
+			lines = append(lines, "xn_root_hold("+target+");")
+		}
 	}
 	for _, l := range lines {
 		b.WriteString("    " + l + "\n")
@@ -976,6 +1089,7 @@ type gen struct {
 	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
 	policy         map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
 	stack          map[string]bool              // 类名 → 栈分配候选（S3-03：Escape=none）
+	inDeinit       bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
 	curEscaped     map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
 	stats          bool                         // §21/§23：运行期分配统计开关
 	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
@@ -1369,6 +1483,13 @@ func (g *gen) genFuncNamed(fn *xfront.TopFunc, cname string) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	// S3-02：函数级根帧；GC 参数在入口登记为栈根。
+	sc.rootMark = g.nextTmp()
+	for _, p := range fn.Params {
+		if pc, err := g.cType(p.Type); err == nil && g.isGCRootC(pc) {
+			sc.rootPrelude = append(sc.rootPrelude, "xn_root_add(xn_p_"+p.Name+");")
+		}
+	}
 	// S3-03：预扫描逃逸位置（发布到实参/返回值/别名的局部退回堆分配）。
 	savedEsc := g.curEscaped
 	g.curEscaped = escapeIdents(fn.Body)
@@ -1418,6 +1539,9 @@ type scope struct {
 	superT      string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
 	isCtor      bool              // 构造器体：`return;` 返回已构造对象
 	returned    bool              // 末句已生成 return（块退出清理跳过）
+	rootMark    string            // 根帧标记变量（S3-02；空=本块不登记）
+	rootPrelude []string          // 根帧建立后立即执行的登记（参数/self 根）
+	kind        string            // 块种类：loop/switch（break/continue 根帧恢复用）
 }
 
 // selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
@@ -1460,12 +1584,15 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
 }
 
-func (s *scope) tmp() string {
-	s.g.tmp++
-	return fmt.Sprintf("xn_t%d", s.g.tmp)
+func (s *scope) tmp() string { return s.g.nextTmp() }
+
+// nextTmp 分配一个翻译单元内唯一的临时变量名。
+func (g *gen) nextTmp() string {
+	g.tmp++
+	return fmt.Sprintf("xn_t%d", g.tmp)
 }
 
 // emitCleanup 生成清理序列（注册逆序）。condErr 为 true 时 errdefer 以
@@ -1501,9 +1628,39 @@ func trailingNewline(lines []string) string {
 	return "\n"
 }
 
+// emitRootRestores 生成 break/continue 跳出块时的根帧恢复（S3-02）。
+// break 恢复到最近的 loop/switch 块（含）；continue 恢复到最近 loop 块（含）。
+func (s *scope) emitRootRestores(kind string) []string {
+	var out []string
+	for sc := s; sc != nil; sc = sc.parent {
+		if sc.rootMark != "" {
+			out = append(out, "xn_root_restore("+sc.rootMark+");")
+		}
+		if kind == "continue" {
+			if sc.kind == "loop" {
+				break
+			}
+			continue
+		}
+		if sc.kind != "" {
+			break
+		}
+	}
+	return out
+}
+
 // emitBlock 生成语句序列；块退出时执行本块注册的 defer（errdefer 不触发）。
 func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 	var out []string
+	// S3-02：块级根帧——记录进入时的根栈标记，块退出/返回时恢复。
+	if s.rootMark != "" {
+		out = append(out, "size_t "+s.rootMark+" = xn_root_mark();")
+		if len(s.rootPrelude) > 0 {
+			out = append(out, s.rootPrelude...)
+			s.rootPrelude = nil
+		}
+		s.defers = append(s.defers, deferItem{lines: []string{"xn_root_restore(" + s.rootMark + ");"}})
+	}
 	for _, st := range stmts {
 		lines, err := s.emitStmt(st)
 		if err != nil {
@@ -1544,7 +1701,17 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 	case *xfront.ExprStmt:
 		return s.emitExprStmt(n.X)
 	case *xfront.LocalDeclStmt:
-		return s.emitLocalDecl(n)
+		lines, err := s.emitLocalDecl(n)
+		if err == nil {
+			// S3-02：GC 引用局部登记为栈根；分配点安全点。
+			if tc, ok := s.locals[n.Name]; ok && s.g.isGCRootC(tc) {
+				lines = append(lines, "xn_root_add("+n.Name+");")
+				if !s.g.inDeinit {
+					lines = append(lines, "xn_gc_safepoint();")
+				}
+			}
+		}
+		return lines, err
 	case *xfront.AssignStmt:
 		return s.emitAssign(n)
 	case *xfront.ReturnStmt:
@@ -1554,10 +1721,10 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 	case *xfront.SwitchStmt:
 		return s.emitSwitch(n)
 	case *xfront.BreakStmt:
-		// 循环体内合法（sema 管）；C 的 while(1){} 降级形态同样消费 break
-		return []string{"break;"}, nil
+		// 循环/switch 体内合法；先恢复被跳出块的根帧，再 break。
+		return append(s.emitRootRestores("break"), "break;"), nil
 	case *xfront.ContinueStmt:
-		return []string{"continue;"}, nil
+		return append(s.emitRootRestores("continue"), "continue;"), nil
 	case *xfront.WhileStmt:
 		cond, err := s.cond(n.Cond)
 		if err != nil {
@@ -1570,6 +1737,7 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 			pre := append([]string{}, s.pending...)
 			s.pending = nil
 			bodySc := s.newChild()
+			bodySc.kind = "loop"
 			body, err := bodySc.emitBlock(n.Body.Stmts)
 			if err != nil {
 				return nil, err
@@ -1578,15 +1746,23 @@ func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
 			out = append(out, reindent(pre, "        ")...)
 			out = append(out, "        if (!("+cond+")) { break; }")
 			out = append(out, reindent(splitLines(body), "        ")...)
+			if !s.g.inDeinit {
+				out = append(out, "        xn_gc_safepoint();")
+			}
 			out = append(out, "    }")
 			return out, nil
 		}
 		bodySc := s.newChild()
+		bodySc.kind = "loop"
 		body, err := bodySc.emitBlock(n.Body.Stmts)
 		if err != nil {
 			return nil, err
 		}
-		return append([]string{"    while (" + cond + ") {"}, append(reindent(splitLines(body), "    "), "    }")...), nil
+		out := reindent(splitLines(body), "    ")
+		if !s.g.inDeinit {
+			out = append(out, "    xn_gc_safepoint();")
+		}
+		return append([]string{"    while (" + cond + ") {"}, append(out, "    }")...), nil
 	case *xfront.ForStmt:
 		return s.emitForIn(n)
 	case *xfront.DeferStmt:
@@ -1814,6 +1990,7 @@ func (s *scope) emitSwitch(n *xfront.SwitchStmt) ([]string, error) {
 			kw = "else if"
 		}
 		bodySc := s.newChild()
+		bodySc.kind = "switch"
 		body, err := bodySc.emitBlock(c.Stmts)
 		if err != nil {
 			return nil, err
@@ -1824,6 +2001,7 @@ func (s *scope) emitSwitch(n *xfront.SwitchStmt) ([]string, error) {
 	}
 	if n.Default != nil {
 		bodySc := s.newChild()
+		bodySc.kind = "switch"
 		body, err := bodySc.emitBlock(n.Default.Stmts)
 		if err != nil {
 			return nil, err
@@ -1858,6 +2036,7 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 		acc += "->a"
 	}
 	bodySc := s.newChild()
+	bodySc.kind = "loop"
 	bodySc.locals = map[string]string{}
 	if s.locals != nil {
 		for k, v := range s.locals {
@@ -1875,6 +2054,9 @@ func (s *scope) emitForIn(n *xfront.ForStmt) ([]string, error) {
 		"    " + elem + " " + n.Var + " = " + acc + "->data[" + idx + "];",
 	}
 	lines = append(lines, reindent(splitLines(body), "    ")...)
+	if !s.g.inDeinit {
+		lines = append(lines, "    xn_gc_safepoint();")
+	}
 	lines = append(lines, "}")
 	return lines, nil
 }
@@ -2460,8 +2642,8 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 				default:
 					return nil, fmt.Errorf("codegen：GC 静态字段赋值右值 %T 未支持（BND-10）", n.Value)
 				}
-				out := append(lines, "rt_gc_root_remove("+varName+");", varName+" = "+expr+";")
-				out = append(out, "if ("+varName+") { rt_gc_root_add("+varName+"); }")
+				out := append(lines, "xn_root_release("+varName+");", varName+" = "+expr+";")
+				out = append(out, "xn_root_hold("+varName+");")
 				return out, nil
 			}
 			switch ct {
@@ -2726,7 +2908,22 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []string{tgt + " = " + v + ";"}, nil
+	out := append([]string{}, s.pending...)
+	s.pending = nil
+	// S3-02：GC 引用局部赋值后登记栈根（旧值保留登记到块退出）。
+	if tc, ok := s.localCType(id.Name); ok && s.g.isGCRootC(tc) {
+		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
+		return out, nil
+	}
+	// 顶层字段是全局根：替换时同步根集合（持有计数；与栈槽共享对象安全）。
+	if tc, ok := s.g.globals[id.Name]; ok && s.g.isGCRootC(tc) {
+		out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");")
+		return out, nil
+	}
+	return append(out, tgt+" = "+v+";"), nil
 }
 
 func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {

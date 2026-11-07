@@ -35,7 +35,7 @@ static Int main() { Node n = new Node(); Plain p = new Plain(); n.next = n; retu
 	if !strings.Contains(arcC, "rt_arc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("--mem=arc 下环类应为 ARC")
 	}
-	if strings.Contains(arcC, "rt_gc_new(&RT_TYPE_XN_Node)") {
+	if strings.Contains(arcC, "xn_gc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("--mem=arc 下不得出现 GC 分配")
 	}
 
@@ -43,7 +43,7 @@ static Int main() { Node n = new Node(); Plain p = new Plain(); n.next = n; retu
 	if err != nil {
 		t.Fatalf("gc 选项代码生成失败：%v", err)
 	}
-	if !strings.Contains(gcC, "rt_gc_new(&RT_TYPE_XN_Plain)") {
+	if !strings.Contains(gcC, "xn_gc_new(&RT_TYPE_XN_Plain)") {
 		t.Fatalf("--mem=gc 下非环类也应为 GC")
 	}
 }

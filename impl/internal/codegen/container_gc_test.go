@@ -17,9 +17,9 @@ static Int main() {
 }`
 	csrc := emitWithPolicy(t, src)
 	for _, sym := range []string{
-		"rt_gc_new(&RT_TYPE_xn_arr_i)",
-		"rt_gc_new(&RT_TYPE_xn_set_i)",
-		"rt_gc_new(&RT_TYPE_xn_map_s_i)",
+		"xn_gc_new(&RT_TYPE_xn_arr_i)",
+		"xn_gc_new(&RT_TYPE_xn_set_i)",
+		"xn_gc_new(&RT_TYPE_xn_map_s_i)",
 		", NULL };", // 纯值元素容器：无 scan
 	} {
 		if !strings.Contains(csrc, sym) {
