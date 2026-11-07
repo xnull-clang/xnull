@@ -1,8 +1,8 @@
 # M1-BLD-01 验收材料（S1 内置类型）
 
 > 锚点：**BLD-01**（`String` / `T[]` / `List` / `Map` / `Set` 成员签名、边界、`Map.get` / `getOr` 缺失键、`new T[count]` 分配、复杂度 §9.8）
-> 主责：CEO2-RD2　会签：CEO2-QA1　基线：`main` = `2c00cf5`（已合入 `pod/c2-rd2`）
-> 被测 commit：**`349c3b2`**（merge main 后）　实现 commit：`03a73d5`　分支：`pod/c2-rd2`（未 push、未合 main）
+> 主责：CEO2-RD2　会签：CEO2-QA1　基线：`main` = `7df123d`（B0 门；已合入 `pod/c2-rd2`）
+> 被测 commit：**`65f74ed`**（merge main 7df123d 后）　实现 commit：`03a73d5`　分支：`pod/c2-rd2`（未 push、未合 main）
 
 ## 1. 结论
 
@@ -64,7 +64,9 @@
 | `impl/internal/interp/interp.go` | `Value.Set`；scope 声明类型（赋值保容器种类）；局部/顶层/参数 defineTyped；for-in 经 Set.elements() |
 | `impl/internal/sema/ty.go` | `List.remove` 返回元素类型；`Map.get` → `V?`；Map 键类型检查 `TY-106`（§9.5） |
 
-跨域说明：BLD-01 的实现面在 `interp/` 与 `sema/`（非 RD2 原 runtime 域），按 v1.7.1「8 锚点并行、不排队」直接落地；合并 `main 2c00cf5` 时仅 `sema/ty.go` 1 处冲突，双保留解决（`checkMapKey` + `checkResultType`），并删除与 main `splitTypeArgs` 重名的本地副本。
+跨域说明：BLD-01 的实现面在 `interp/` 与 `sema/`（非 RD2 原 runtime 域），按 v1.7.1「8 锚点并行、不排队」直接落地。合并 `main 7df123d`（B0 门）时：`values.go` 的 List.insert/remove、Map.get 与 main 同类实现按语义取一份（保留更明确的 fatal 诊断）；`sema/ty.go` 自动合并后出现重复 `case "remove"`，已去重；`splitTypeArgs` 使用 main 版本。
+
+**复跑留档**：合并后首次 `go test ./... -count=1 -timeout 300s` 在 `internal/codegen` 触 300s 超时（冷缓存 + 并发争用，挂起 `TestMultiFileExampleCompileMatchesInterp`）；同一命令复跑 62.7s 全绿，codegen 单跑 119s 全绿。两段原始输出都在 `stdout.txt`。
 
 ## 5. 未测项 / 已知边界（如实申报）
 
@@ -80,7 +82,7 @@
 
 ```bash
 cd wt/c2-rd2
-git checkout 349c3b2
+git checkout 65f74ed
 sh evidence/M1-BLD-01/red/run-red.sh            # 28/28
 cd impl && go vet ./... && go test ./... -count=1 -timeout 300s
 cd impl && go test ./internal/codegen -run TestExamplesCompileMatchesInterp -count=1 -timeout 300s

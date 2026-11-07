@@ -1,12 +1,12 @@
-# M1-BLD-01 复跑命令（2026-11-07，pod/c2-rd2 @ 349c3b2，已合 main 2c00cf5）
+# M1-BLD-01 复跑命令（2026-11-07，pod/c2-rd2 @ 65f74ed，已合 main 7df123d）
 
-# 0) 合并主线（非快进）
-git merge main -m "merge: main 2c00cf5 into pod/c2-rd2"
+# 0) 合并主线（非快进；B0 门：P-09/P-10、跨包 import、类字段初值、容器成员）
+git merge main -m "merge: main 7df123d into pod/c2-rd2"
 
 # 1) 红/绿锚点用例（28 例，期望取自 S1 §9）
 sh evidence/M1-BLD-01/red/run-red.sh
 
-# 2) 静态检查 + 全量测试（含 devtool / codegen / ffi / sema / interp / cli）
+# 2) 静态检查 + 全量测试
 cd impl && go vet ./...
 cd impl && go test ./... -count=1 -timeout 300s
 
