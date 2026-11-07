@@ -8,9 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen"
+	"xnull.dev/xnull/internal/codegen/ffi"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
 	"xnull.dev/xnull/internal/interp"
@@ -26,6 +28,11 @@ const (
 	codeUnknownFlag    = "CLI-002"
 	codeManifestAbsent = "CLI-003"
 	codeNotImplemented = "CLI-901"
+
+	// 入口诊断（ENTRY-01；S1 §11.2/§11.4）。
+	codeEntryMissing   = "ENTRY-001"
+	codeEntryDuplicate = "ENTRY-002"
+	codeEntrySignature = "ENTRY-003"
 )
 
 // Env 承载一次调用的输入输出与环境，便于测试注入。
@@ -77,12 +84,12 @@ func Run(env Env) int {
 	if name == "dev" {
 		return runDev(env, rest)
 	}
-	// 最小可运行闭环：`xnull run path/to/file.x` 直接执行单文件（不依赖工程清单；清单模式后续接入）。
+	// 最小可运行闭环：`xnull run path/to/file.x [--] [程序参数...]` 直接执行单文件
+	//（不依赖工程清单；清单模式后续接入）。`--` 之后的参数原样交给 main(String[])。
 	if name == "run" {
-		for i, a := range rest {
-			if strings.HasSuffix(a, ".x") {
-				return runFile(env, a, append(append([]string{}, rest[:i]...), rest[i+1:]...))
-			}
+		opts := parseRunArgs(rest)
+		if opts.path != "" {
+			return runFile(env, opts)
 		}
 	}
 	// 编译路径（M4.2）：`xnull build file.x [-o bin]` → C → cc → 可执行。
@@ -138,8 +145,12 @@ func writeUsage(w io.Writer) {
 }
 
 // parseFlags 只校验形态：当前阶段命令参数集尚未冻结，未知长参数即用法错误。
+// `--` 是命令参数与程序参数的分界；其后的内容不属于工具链，不再按 flag 校验。
 func parseFlags(args []string) *diag.Diagnostic {
 	for _, a := range args {
+		if a == "--" {
+			break
+		}
 		if len(a) > 1 && a[0] == '-' && a[1] == '-' {
 			if _, ok := knownFlags[a]; !ok {
 				return &diag.Diagnostic{
@@ -150,6 +161,53 @@ func parseFlags(args []string) *diag.Diagnostic {
 		}
 	}
 	return nil
+}
+
+// runOptions 是一次 `xnull run` 的解析结果：入口文件、执行模式与程序参数。
+// 程序参数与工具链 flag 分离，`--` 之后一律视为程序参数（S1 §11.2）。
+type runOptions struct {
+	path       string
+	interp     bool
+	runtimeDir string
+	progArgs   []string
+}
+
+// parseRunArgs 解析 run 的位置参数：
+//   - 第一个以 .x 结尾的位置参数是入口文件；
+//   - `--` 之后全部是程序参数；
+//   - `--interp` / `--runtime <dir>` 是工具链选项，不进入程序参数；
+//   - 其余非 flag 位置参数作为程序参数（保持“源文件可在参数中任意位置”的既有行为）。
+func parseRunArgs(rest []string) runOptions {
+	var opts runOptions
+	afterSep := false
+	for i := 0; i < len(rest); i++ {
+		a := rest[i]
+		if afterSep {
+			opts.progArgs = append(opts.progArgs, a)
+			continue
+		}
+		switch {
+		case a == "--":
+			afterSep = true
+		case a == "--interp":
+			opts.interp = true
+		case a == "--runtime":
+			if i+1 < len(rest) {
+				opts.runtimeDir = rest[i+1]
+				i++
+			}
+		case strings.HasPrefix(a, "--"):
+			// 其余已知长 flag 当前对 run 无语义（如 --profile/--verbose），保持既有“接受但不生效”行为。
+			// 单横线参数不是工具链 flag，按程序参数处理。
+		default:
+			if opts.path == "" && strings.HasSuffix(a, ".x") {
+				opts.path = a
+				continue
+			}
+			opts.progArgs = append(opts.progArgs, a)
+		}
+	}
+	return opts
 }
 
 var knownFlags = map[string]struct{}{
@@ -172,30 +230,33 @@ func notImplemented(env Env, name string) int {
 	return exitcode.Usage
 }
 
-// runFile 执行单个 .x 文件：解析 → 解释执行。
-// 退出码：0 成功；1 语法/运行错误（含 fatal）；2 文件不可读。
-func runFile(env Env, path string, extraArgs []string) int {
-	// --interp：解释器调试模式（M4.3）；默认走编译路径（正式路径）。
-	for _, a := range extraArgs {
-		if a == "--interp" {
-			return interpFile(env, path, extraArgs)
-		}
+// runFile 执行单个 .x 文件：先做入口前置检查，再按模式执行。
+// 退出码：0 成功；1 入口/语法/运行错误（含 fatal）；2 文件不可读。
+func runFile(env Env, opts runOptions) int {
+	if d := checkEntry(opts.path); d != nil {
+		return failEntry(env, *d)
 	}
-	return runCompiled(env, path)
+	// --interp：解释器调试模式（M4.3）；默认走编译路径（正式路径）。
+	if opts.interp {
+		return interpFile(env, opts.path, opts.progArgs)
+	}
+	return runCompiled(env, opts.path, opts.progArgs, opts.runtimeDir)
 }
 
-// runCompiled 编译路径：临时目录构建可执行并运行，透传退出码（M4.2/4.3）。
-func runCompiled(env Env, path string) int {
-	runtimeDir := ""
-	for _, cand := range []string{"impl/runtime", "../impl/runtime", "../../impl/runtime", "../../runtime", "runtime"} {
-		if st, err := os.Stat(filepath.Join(cand, "rt.h")); err == nil && !st.IsDir() {
-			runtimeDir = cand
-			break
+// runCompiled 编译路径：临时目录构建可执行并运行，透传退出码与程序参数（M4.2/4.3）。
+func runCompiled(env Env, path string, progArgs []string, flagRuntime string) int {
+	runtimeDir := flagRuntime
+	if runtimeDir == "" {
+		for _, cand := range []string{"impl/runtime", "../impl/runtime", "../../impl/runtime", "../../runtime", "runtime"} {
+			if st, err := os.Stat(filepath.Join(cand, "rt.h")); err == nil && !st.IsDir() {
+				runtimeDir = cand
+				break
+			}
 		}
 	}
 	if runtimeDir == "" {
 		if runtimeDir = os.Getenv("XNULL_RUNTIME"); runtimeDir == "" {
-			fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 XNULL_RUNTIME 指定")
+			fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 			return exitcode.Usage
 		}
 	}
@@ -209,7 +270,7 @@ func runCompiled(env Env, path string) int {
 	if code := codegen.Build(path, bin, runtimeDir, env.Stderr); code != 0 {
 		return code
 	}
-	cmd := exec.Command(bin)
+	cmd := exec.Command(bin, progArgs...)
 	cmd.Stdout = env.Stdout
 	cmd.Stderr = env.Stderr
 	if err := cmd.Run(); err != nil {
@@ -223,7 +284,7 @@ func runCompiled(env Env, path string) int {
 }
 
 // interpFile 解释执行（调试模式；M4.3 降级）。
-func interpFile(env Env, path string, extraArgs []string) int {
+func interpFile(env Env, path string, progArgs []string) int {
 	// 多文件编译单元：解释路径与编译路径共用同一加载器（保证双路径看到同一组声明）。
 	u, diags := codegen.LoadUnits(path)
 	if u == nil && len(diags) == 0 {
@@ -243,11 +304,100 @@ func interpFile(env Env, path string, extraArgs []string) int {
 		}
 		return exitcode.BuildFail
 	}
-	code, err := interp.Run(u, env.Stdout, extraArgs)
+	code, err := interp.Run(u, env.Stdout, progArgs)
 	if err != nil {
 		fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
 	}
 	return code
+}
+
+// checkEntry 在编译/解释之前校验入口（S1 §11.2/§11.4）：
+// 缺失、重复、非法签名都给出带位置的明确诊断，不落到 C 编译错误或静默执行。
+// 解析/导入诊断由既有路径报告，这里不重复。
+func checkEntry(path string) *diag.Diagnostic {
+	u, diags := codegen.LoadUnits(path)
+	if u == nil || len(diags) > 0 {
+		return nil
+	}
+	var mains []*xfront.TopFunc
+	for _, d := range u.Decls {
+		if fn, ok := d.(*xfront.TopFunc); ok && fn.Name == "main" {
+			mains = append(mains, fn)
+		}
+	}
+	switch len(mains) {
+	case 0:
+		return &diag.Diagnostic{
+			File: path, Line: 1, Col: 1, Code: codeEntryMissing,
+			Message: "找不到入口 main",
+			Hint:    "入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）",
+		}
+	case 1:
+		if msg := entrySignatureProblem(mains[0]); msg != "" {
+			return &diag.Diagnostic{
+				File: path, Line: mains[0].P.Line, Col: mains[0].P.Col, Code: codeEntrySignature,
+				Message: "入口 main 的签名不合法：" + msg,
+				Hint:    "入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）",
+			}
+		}
+		return nil
+	default:
+		dup := mains[1]
+		return &diag.Diagnostic{
+			File: path, Line: dup.P.Line, Col: dup.P.Col, Code: codeEntryDuplicate,
+			Message: fmt.Sprintf("重复入口 main：发现 %d 个 main 声明", len(mains)),
+			Hint:    "一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）",
+		}
+	}
+}
+
+// entrySignatureProblem 返回入口签名问题；空串表示合法。
+func entrySignatureProblem(fn *xfront.TopFunc) string {
+	if len(fn.TypePars) > 0 {
+		return "不能是泛型函数"
+	}
+	if fn.Private || fn.Protected {
+		return "必须是公开的"
+	}
+	if !fn.Void && !isIntType(fn.Ret) {
+		return "返回类型必须是 void 或 Int"
+	}
+	if len(fn.Params) == 0 {
+		return ""
+	}
+	if len(fn.Params) != 1 {
+		return "只能接收 0 个参数或 1 个 String[] 参数"
+	}
+	if !isStringArrayType(fn.Params[0].Type) {
+		return "参数类型必须是 String[]"
+	}
+	return ""
+}
+
+func isIntType(t xfront.TypeRef) bool {
+	nt, ok := t.(*xfront.NamedType)
+	return ok && lastQualified(nt) == "Int"
+}
+
+func isStringArrayType(t xfront.TypeRef) bool {
+	st, ok := t.(*xfront.SuffixedType)
+	if !ok || len(st.Suffixes) != 1 || st.Suffixes[0] != "[]" {
+		return false
+	}
+	nt, ok := st.Base.(*xfront.NamedType)
+	return ok && lastQualified(nt) == "String"
+}
+
+func lastQualified(nt *xfront.NamedType) string {
+	if len(nt.Qual) == 0 {
+		return ""
+	}
+	return nt.Qual[len(nt.Qual)-1]
+}
+
+func failEntry(env Env, d diag.Diagnostic) int {
+	fmt.Fprintln(env.Stderr, d.String())
+	return exitcode.BuildFail
 }
 
 func fail(env Env, d diag.Diagnostic) int {
@@ -284,14 +434,23 @@ func policyFile(env Env, path string) int {
 // buildFile 编译路径：解析→语义→C→cc→可执行（M4.2）。
 // 运行时源码目录解析顺序：XNULL_RUNTIME 环境变量 → 相对探测 impl/runtime。
 func buildFile(env Env, rest []string, srcPath string) int {
+	if d := checkEntry(srcPath); d != nil {
+		return failEntry(env, *d)
+	}
 	out := "prog"
 	runtimeDir := ""
+	var libs []ffi.LinkLib
+	var libDirs []string
 	for i := 1; i < len(rest)-1; i++ {
 		switch rest[i] {
 		case "-o":
 			out = rest[i+1]
 		case "--runtime":
 			runtimeDir = rest[i+1]
+		case "-l":
+			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
+		case "-L":
+			libDirs = append(libDirs, rest[i+1])
 		}
 	}
 	if runtimeDir == "" {
@@ -309,5 +468,25 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return exitcode.Usage
 	}
-	return codegen.Build(srcPath, out, runtimeDir, env.Stderr)
+	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
+	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs)}
+	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
+}
+
+// linkArgs 把构建命令行/清单的链接库与搜索目录翻译为确定性链接参数。
+// 顺序：-L 在前、-l 在后，各自去重 + 升序（ffi.LinkArgs 负责 -l）。
+func linkArgs(libs []ffi.LinkLib, libDirs []string) []string {
+	args := make([]string, 0, len(libDirs)+len(libs))
+	seen := map[string]bool{}
+	dirs := make([]string, 0, len(libDirs))
+	for _, d := range libDirs {
+		if d == "" || seen[d] {
+			continue
+		}
+		seen[d] = true
+		dirs = append(dirs, "-L"+d)
+	}
+	sort.Strings(dirs)
+	args = append(args, dirs...)
+	return append(args, ffi.LinkArgs(libs)...)
 }

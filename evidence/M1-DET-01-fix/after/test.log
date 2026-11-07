@@ -1,0 +1,6 @@
+=== RUN   TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagStableAcrossRuns (0.04s)
+=== RUN   TestDET01DiagIndependentOfMapOrder
+--- PASS: TestDET01DiagIndependentOfMapOrder (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	18.845s

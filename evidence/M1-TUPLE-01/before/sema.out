@@ -1,0 +1,37 @@
+=== RUN   TestTupleIdentity
+    tuple_test.go:16: 不应有语义诊断：[TY-101@变量 `inner` 的初始化式类型 (Int 不能赋给 (Int,String)（§2.6）]
+--- FAIL: TestTupleIdentity (0.00s)
+=== RUN   TestTupleLiteralAdaptation
+    tuple_test.go:43: 不应有语义诊断：[TY-101@变量 `t` 的初始化式类型 (Int,Int,Double,String) 不能赋给 (Long,Byte,Double,String)（§2.6）]
+--- FAIL: TestTupleLiteralAdaptation (0.00s)
+=== RUN   TestTupleElementAccess
+    tuple_test.go:60: 期望诊断 TY-106，实际：[]
+--- FAIL: TestTupleElementAccess (0.00s)
+=== RUN   TestTupleInference
+--- PASS: TestTupleInference (0.00s)
+=== RUN   TestTupleAssignability
+--- PASS: TestTupleAssignability (0.00s)
+=== RUN   TestTupleEqualityAndInterpolation
+    tuple_test.go:110: 期望诊断 TY-106，实际：[]
+--- FAIL: TestTupleEqualityAndInterpolation (0.00s)
+=== RUN   TestTupleOutOfRangeSelector
+    tuple_test.go:128: 期望诊断 TY-106，实际：[]
+--- FAIL: TestTupleOutOfRangeSelector (0.00s)
+=== RUN   TestTupleArityRejected
+--- PASS: TestTupleArityRejected (0.00s)
+=== RUN   TestTupleDestructuringRejected
+--- PASS: TestTupleDestructuringRejected (0.00s)
+=== RUN   TestTupleSwitchRejected
+    tuple_test.go:166: 期望诊断 TY-106，实际：[]
+--- FAIL: TestTupleSwitchRejected (0.00s)
+=== RUN   TestTupleConstRejected
+--- PASS: TestTupleConstRejected (0.00s)
+=== RUN   TestTupleElementAssignment
+    tuple_test.go:194: 期望诊断 TY-101，实际：[]
+--- FAIL: TestTupleElementAssignment (0.00s)
+=== RUN   TestTupleTypeAs
+    tuple_test.go:210: 期望诊断 TY-106，实际：[]
+--- FAIL: TestTupleTypeAs (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	11.209s
+FAIL

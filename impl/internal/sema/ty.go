@@ -2,6 +2,7 @@ package sema
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
@@ -26,17 +27,27 @@ const (
 	TyNullToValue   = "TY-103" // null → 非可空值类型（§2.6 禁止）
 	TyCondNotBool   = "TY-104" // 条件必须是 Bool（§6.1）
 	TyBadOperand    = "TY-105" // 无效运算操作数（§7.2/§9.2）
+	TyTuple         = "TY-106" // 元组规则（S1 §2.11：越界/成员/switch/const/插值/as）
 )
 
 // texpr 是表达式的静态类型：key 是规范化类型串；lit 标记未定型字面量。
 type texpr struct {
-	key string // "" = 未知/void 语义上有别：void 用 "void"，未知用 ""
-	lit int    // 0 普通；1 整数字面量；2 浮点字面量；3 字符串字面量；4 null
+	key   string  // "" = 未知/void 语义上有别：void 用 "void"，未知用 ""
+	lit   int     // 0 普通；1 整数字面量；2 浮点字面量；3 字符串字面量；4 null
+	elems []texpr // 元组字面量的逐元素类型（保留字面量标记，§2.11 目标适配）
+
+	hasInt  bool   // 整数字面量的值已知（M6-B0-07a 范围检查）
+	intVal  int64  // 有符号值
+	uintVal uint64 // 无符号值（仅 isUInt 时有效）
+	isUInt  bool
 }
 
 var intTypeNames = map[string]bool{
 	"Int": true, "Long": true, "Byte": true, "Short": true, "UByte": true,
 	"UShort": true, "UInt": true, "ULong": true, "Int128": true, "UInt128": true,
+	// FFI 定宽整数（S7 §3.2 标量映射）；S1 §2.6 字面量适配按目标宽度检查。
+	"Int8": true, "Int16": true, "Int32": true, "Int64": true,
+	"UInt8": true, "UInt16": true, "UInt32": true, "UInt64": true,
 }
 
 var refTypeNames = map[string]bool{ // §2.6 空值规则：引用类型
@@ -81,6 +92,40 @@ func typeKey(t xfront.TypeRef) string {
 	return ""
 }
 
+// splitTupleKey 拆分元组类型串 `(T1,T2,...)`；嵌套括号/尖括号/方括号内的逗号不切分。
+// 返回 false 表示不是元组类型（§2.11 元组至少两个元素）。
+func splitTupleKey(key string) ([]string, bool) {
+	key = unwrapOpt(key)
+	if !strings.HasPrefix(key, "(") || !strings.HasSuffix(key, ")") {
+		return nil, false
+	}
+	inner := key[1 : len(key)-1]
+	if inner == "" {
+		return nil, false
+	}
+	depth := 0
+	start := 0
+	var parts []string
+	for i, r := range inner {
+		switch r {
+		case '(', '<', '[':
+			depth++
+		case ')', '>', ']':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(inner[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	parts = append(parts, strings.TrimSpace(inner[start:]))
+	if len(parts) < 2 {
+		return nil, false
+	}
+	return parts, true
+}
+
 func isOptional(key string) bool { return strings.HasSuffix(key, "?") }
 
 func unwrapOpt(key string) string {
@@ -121,10 +166,36 @@ func assignable(from texpr, to string) bool {
 	if from.key == to {
 		return true
 	}
+	// 可选提升：from 可赋给 T 即可赋给 T?（§2.6；含 null、字面量与容器字面量）。
+	// 先于字面量分支，避免 `String? s = "x"` 被字面量规则短路成 TY-101。
+	if isOptional(to) {
+		if from.lit == 4 {
+			return true
+		}
+		if assignable(from, unwrapOpt(to)) {
+			return true
+		}
+	}
+	// 元组字面量按目标元素类型逐项适配（§2.11）：长度相同且元素逐一可赋值。
+	if len(from.elems) > 0 {
+		toElems, ok := splitTupleKey(to)
+		if !ok || len(toElems) != len(from.elems) {
+			return false
+		}
+		for i := range from.elems {
+			if !assignable(from.elems[i], toElems[i]) {
+				return false
+			}
+		}
+		return true
+	}
 	// 字面量规则（§2.6）。
 	switch from.lit {
-	case 1: // 整数字面量可表示在目标整数类型中（表示性检查在常量求值切片，此处按类型接受）
-		return isIntType(to)
+	case 1: // 整数字面量可表示在目标整数类型中（§2.6）
+		if !isIntType(to) {
+			return false
+		}
+		return intLiteralFits(from, to)
 	case 2:
 		return isFloatType(to)
 	case 3:
@@ -134,10 +205,6 @@ func assignable(from texpr, to string) bool {
 			return true
 		}
 		return false
-	}
-	// 可选提升：T → T?（§2.6）
-	if isOptional(to) && unwrapOpt(to) == from.key {
-		return true
 	}
 	// 容器字面量：数组形态初始化式 → List<X>/Set<X>（目标给元素类型，§2.6）
 	if strings.HasSuffix(from.key, "[]") {
@@ -169,6 +236,64 @@ func assignable(from texpr, to string) bool {
 	return false
 }
 
+// intLiteralFits 检查整数字面量的值能否表示在目标整数类型中（§2.6）。
+// 仅对 S7 定宽整数（Int8..Int64 / UInt8..UInt64）做范围检查；
+// Byte/Short/Int/Long 等既有类型保持历史行为，避免扩大本卡语义面。
+func intLiteralFits(t texpr, to string) bool {
+	if !t.hasInt {
+		return true
+	}
+	switch unwrapOpt(to) {
+	case "Int8":
+		return signedFits(t, -1<<7, 1<<7-1)
+	case "Int16":
+		return signedFits(t, -1<<15, 1<<15-1)
+	case "Int32":
+		return signedFits(t, -1<<31, 1<<31-1)
+	case "Int64":
+		return signedFits(t, -1<<63, 1<<63-1)
+	case "UInt8":
+		return unsignedFits(t, 1<<8-1)
+	case "UInt16":
+		return unsignedFits(t, 1<<16-1)
+	case "UInt32":
+		return unsignedFits(t, 1<<32-1)
+	case "UInt64":
+		return unsignedFits(t, ^uint64(0))
+	}
+	return true
+}
+
+// adaptIntLiteralKeys 让比较中的整数字面量按另一侧整数类型适配（§2.6）；
+// 返回两侧共同类型。非字面量或越界时不放宽。
+func adaptIntLiteralKeys(lt, rt texpr) (string, string, bool) {
+	if lt.key != "" && rt.key != "" && lt.key == rt.key {
+		return lt.key, rt.key, true
+	}
+	// 仅无后缀整数字面量（默认 Int）按另一侧适配；显式后缀类型不隐式转换。
+	if lt.lit == 1 && lt.key == "Int" && rt.key != "" && isIntType(rt.key) && intLiteralFits(lt, rt.key) {
+		return rt.key, rt.key, true
+	}
+	if rt.lit == 1 && rt.key == "Int" && lt.key != "" && isIntType(lt.key) && intLiteralFits(rt, lt.key) {
+		return lt.key, lt.key, true
+	}
+	return lt.key, rt.key, false
+}
+
+func signedFits(t texpr, min, max int64) bool {
+	if t.isUInt {
+		return t.uintVal <= uint64(max)
+	}
+	return t.intVal >= min && t.intVal <= max
+}
+
+func unsignedFits(t texpr, max uint64) bool {
+	if t.isUInt {
+		return t.uintVal <= max
+	}
+	return t.intVal >= 0 && uint64(t.intVal) <= max
+}
+
 // tyenv 是一个函数的类型环境。
 type tyenv struct {
 	a      *analyzer
@@ -176,6 +301,11 @@ type tyenv struct {
 	funcs  map[string][]*xfront.TopFunc
 	fields map[string]string // 顶层字段 → 类型串
 	cls    *classCtx         // 类方法体上下文（nil = 顶层函数）
+
+	// ERR-01：当前所在的函数/闭包上下文（§10.2/§10.3）。
+	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
+	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
+	inCleanup bool   // 正在检查 defer/errdefer 清理体
 }
 
 func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
@@ -190,20 +320,26 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 		case *xfront.TopFunc:
 			e.funcs[n.Name] = append(e.funcs[n.Name], n)
 			// void 参数/返回之外的参数类型 void 检查
+			e.checkResultType(n.Ret, n.P)
 			for _, p := range n.Params {
+				e.checkResultType(p.Type, p.P)
 				if typeKey(p.Type) == "void" {
 					a.errf(p.P, TyAssignability, "void 不能作为参数类型（§2）", "参数类型必须是具体类型")
 				}
 			}
 		case *xfront.TopField:
 			k := typeKey(n.Type)
+			e.checkResultType(n.Type, n.P)
 			if k == "void" {
 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
 				continue
 			}
 			e.fields[n.Name] = k
 			if n.Init != nil {
-				it := e.infer(n.Init)
+				oldKind, oldRet := e.fnKind, e.ret
+				e.fnKind, e.ret = "fieldinit", ""
+				it := e.inferExpected(n.Init, k)
+				e.fnKind, e.ret = oldKind, oldRet
 				if !assignable(it, k) {
 					e.a.errf(n.Init.Pos(), assignDiag(it, k),
 						fmt.Sprintf("顶层字段 `%s` 的初始化式类型 %s 不能赋给 %s（§2.6）", n.Name, describeKey(it), k),
@@ -217,6 +353,10 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			retKey := "void"
 			if !fn.Void && fn.Ret != nil {
 				retKey = typeKey(fn.Ret)
+			}
+			e.fnKind, e.ret = "func", retKey
+			if fn.Name == "main" {
+				e.fnKind = "main"
 			}
 			for _, p := range fn.Params {
 				e.vars[p.Name] = typeKey(p.Type)
@@ -236,6 +376,57 @@ func assignDiag(from texpr, to string) string {
 		return TyNullToValue
 	}
 	return TyAssignability
+}
+
+// checkTupleInterp 校验元组插值的每个元素可格式化（§2.11 + §1.4.4）。
+func (e *tyenv) checkTupleInterp(p xfront.Pos, t texpr) {
+	parts, ok := splitTupleKey(t.key)
+	if !ok {
+		return
+	}
+	for _, part := range parts {
+		if !e.formattableKey(part) {
+			e.errf(p, TyTuple, "元组插值元素类型 "+part+" 不可格式化（§2.11/§1.4.4）", "")
+		}
+	}
+}
+
+// formattableKey 判断类型串是否属于 §1.4.4 允许的插值格式化值。
+func (e *tyenv) formattableKey(key string) bool {
+	if key == "" || key == "null" {
+		return true
+	}
+	if parts, ok := splitTupleKey(key); ok {
+		for _, part := range parts {
+			if !e.formattableKey(part) {
+				return false
+			}
+		}
+		return true
+	}
+	base := unwrapOpt(key)
+	switch base {
+	case "String", "Bool", "Char":
+		return true
+	}
+	if isIntType(base) || isFloatType(base) {
+		return true
+	}
+	if e.a.tc != nil {
+		if info, ok := e.a.tc.types[base]; ok {
+			if info.kind == "enum" && !info.enum.IsData {
+				return true
+			}
+			if info.kind == "class" {
+				for _, m := range info.class.Methods {
+					if m.Name == "toString" && !m.Void && len(m.Params) == 0 && typeKey(m.Ret) == "String" {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 func describeKey(t texpr) string {
@@ -260,6 +451,7 @@ func hintFor(from texpr, to string) string {
 
 // walkFunc 遍历函数体做类型检查。
 func (e *tyenv) walkFunc(b *xfront.Block, retKey string) {
+	e.ret = retKey
 	if b == nil {
 		return
 	}
@@ -274,8 +466,11 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if e.cls != nil && e.cls.canonPriv[n.Name] {
 			e.errf(n.P, TyPrivField, "局部变量 `"+n.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
 		}
+		if n.Type != nil {
+			e.checkResultType(n.Type, n.P)
+		}
 		if n.Init != nil {
-			it := e.infer(n.Init)
+			it := e.inferExpected(n.Init, typeKey(n.Type))
 			if n.Type != nil {
 				k := typeKey(n.Type)
 				if k == "void" {
@@ -312,9 +507,10 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.vars[n.Name] = ""
 		}
 	case *xfront.AssignStmt:
-		vt := e.infer(n.Value)
 		if id, ok := n.Target.(*xfront.IdentExpr); ok {
-			if tt, known := e.vars[id.Name]; known && tt != "" {
+			tt, known := e.vars[id.Name]
+			vt := e.inferExpected(n.Value, tt)
+			if known && tt != "" {
 				if n.Op != "=" {
 					e.checkOperand(id.Name, tt, n.Op) // 复合赋值要求操作数合法
 				}
@@ -325,8 +521,8 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 				}
 			}
 		} else if mem, ok := n.Target.(*xfront.Member); ok {
-			vt := e.infer(n.Value)
 			ft := e.inferMember(mem) // 完成私有字段访问校验
+			vt := e.inferExpected(n.Value, ft.key)
 			if ft.key != "" && !assignable(vt, ft.key) {
 				e.errf(n.P, assignDiag(vt, ft.key),
 					fmt.Sprintf("字段赋值类型不符：%s 不能赋给字段类型 %s（§2.6）", describeKey(vt), ft.key), "")
@@ -334,10 +530,20 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		} else if ix, ok := n.Target.(*xfront.Index); ok {
 			xt := e.infer(ix.X)
 			elem := elemTypeOf(xt.key)
+			vt := e.inferExpected(n.Value, elem)
 			if elem != "" && !assignable(vt, elem) {
 				e.errf(n.P, assignDiag(vt, elem),
 					fmt.Sprintf("下标赋值类型不符：%s 不能赋给元素类型 %s（§2.6）", describeKey(vt), elem), "")
 			}
+		} else if tm, ok := n.Target.(*xfront.TupleMember); ok {
+			tt := e.infer(tm)
+			vt := e.inferExpected(n.Value, tt.key)
+			if tt.key != "" && !assignable(vt, tt.key) {
+				e.errf(n.P, assignDiag(vt, tt.key),
+					fmt.Sprintf("元组元素赋值类型不符：%s 不能赋给元素类型 %s（§2.11）", describeKey(vt), tt.key), "")
+			}
+		} else {
+			e.infer(n.Value)
 		}
 		e.infer(n.Target) // 目标子表达式的读取检查（越界等留给运行时）
 	case *xfront.IncDecStmt:
@@ -345,7 +551,12 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.checkOperand(id.Name, e.vars[id.Name], n.Op)
 		}
 	case *xfront.ExprStmt:
-		e.infer(n.X)
+		t := e.infer(n.X)
+		if isResultKey(t.key) {
+			e.errf(n.X.Pos(), ErResultMustUse,
+				"Result 是 @mustUse：不得作为裸表达式语句丢弃（§10.1）",
+				"返回、赋给变量/字段/容器、用 try 传播，或调用其成员")
+		}
 	case *xfront.ReturnStmt:
 		if retKey == "void" {
 			if n.Value != nil {
@@ -357,7 +568,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.errf(n.P, TyAssignability, "非 void 函数必须返回值（§6.1）", "补充返回值")
 			return
 		}
-		vt := e.infer(n.Value)
+		vt := e.inferExpected(n.Value, retKey)
 		if !assignable(vt, retKey) {
 			e.errf(n.Value.Pos(), assignDiag(vt, retKey),
 				fmt.Sprintf("返回类型不符：%s 不能赋给声明的返回类型 %s（§2.6）", describeKey(vt), retKey),
@@ -383,7 +594,10 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		e.infer(n.Src)
 		e.walkFunc(n.Body, retKey)
 	case *xfront.SwitchStmt:
-		e.infer(n.Value)
+		vt := e.infer(n.Value)
+		if _, isTuple := splitTupleKey(vt.key); isTuple {
+			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
+		}
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)
@@ -394,11 +608,19 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 			e.walkFunc(&xfront.Block{P: n.P, Stmts: n.Default.Stmts}, retKey)
 		}
 	case *xfront.DeferStmt:
+		if n.Errdefer && !isResultKey(e.ret) {
+			e.errf(n.P, ErErrdeferContext,
+				"errdefer 只能出现在返回 Result 的函数或闭包中（§10.3）", "改用 defer，或把函数返回类型改为 Result")
+		}
+		e.checkCleanup(n)
+		oldCleanup := e.inCleanup
+		e.inCleanup = true
 		if n.Block != nil {
 			e.walkFunc(n.Block, retKey)
 		} else if n.Stmt != nil {
 			e.walkStmt(n.Stmt, retKey)
 		}
+		e.inCleanup = oldCleanup
 	case *xfront.LabeledStmt:
 		if n.Stmt != nil {
 			e.walkStmt(n.Stmt, retKey)
@@ -465,7 +687,16 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		case "UL":
 			k = "ULong"
 		}
-		return texpr{key: k, lit: 1}
+		t := texpr{key: k, lit: 1}
+		txt := strings.ReplaceAll(n.Text, "_", "")
+		if txt != "" {
+			if iv, err := strconv.ParseInt(txt, n.Base, 64); err == nil {
+				t.hasInt, t.intVal = true, iv
+			} else if uv, err := strconv.ParseUint(txt, n.Base, 64); err == nil {
+				t.hasInt, t.isUInt, t.uintVal = true, true, uv
+			}
+		}
+		return t
 	case *xfront.FloatLitExpr:
 		if n.HasSuffixF {
 			return texpr{key: "Float", lit: 2}
@@ -478,6 +709,11 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 	case *xfront.NullLit:
 		return texpr{key: "null", lit: 4}
 	case *xfront.StrLitExpr:
+		for _, p := range n.Parts {
+			if p.Expr != nil {
+				e.checkTupleInterp(p.Expr.Pos(), e.infer(p.Expr))
+			}
+		}
 		return texpr{key: "String", lit: 3}
 	case *xfront.IdentExpr:
 		if k, ok := e.vars[n.Name]; ok {
@@ -503,13 +739,33 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		t := e.infer(n.X)
 		switch n.Op {
 		case "try": // try 传播：Result<T,E> → T（§10.2）
-			if strings.HasPrefix(t.key, "Result<") && strings.HasSuffix(t.key, ">") {
-				inner := t.key[len("Result<") : len(t.key)-1]
-				if i := strings.Index(inner, ","); i >= 0 {
-					return texpr{key: strings.TrimSpace(inner[:i])}
-				}
+			if e.inCleanup {
+				e.errf(n.P, ErTryContext, "try 不能用于 defer/errdefer 清理体（§10.3）", "清理必须非抛出")
 			}
-			return texpr{}
+			if e.fnKind == "ctor" || e.fnKind == "deinit" || e.fnKind == "main" {
+				e.errf(n.P, ErTryContext, "try 不能用于构造器、deinit 或 main（§10.2）", "把错误处理移到返回 Result 的函数中")
+			}
+			if t.key != "" && !isResultKey(t.key) {
+				e.errf(n.P, ErTryContext, "try 只能作用于 Result（§10.2），得到 "+describeKey(t), "")
+				return texpr{}
+			}
+			if !isResultKey(t.key) {
+				return texpr{}
+			}
+			tk, ek, ok := resultArgs(t.key)
+			if !ok || tk == "" || ek == "" {
+				e.errf(n.P, ErResultCtor, "Result 类型实参不完整：try 需要 Result<T,E>（§10.1）", "")
+				return texpr{}
+			}
+			if !isResultKey(e.ret) {
+				e.errf(n.P, ErTryContext, "使用 try 的函数或闭包必须返回 Result<_,E2>（§10.2）", "把外层返回类型改为 Result")
+			} else if _, e2, ok2 := resultArgs(e.ret); ok2 && e2 != "" && !assignableError(ek, e2) {
+				e.errf(n.P, ErTryContext, "try 的错误类型 "+ek+" 不能赋给外层错误类型 "+e2+"（§10.2）", "禁止隐式字符串化；改用可赋值的错误类型")
+			}
+			if tk == "void" {
+				return texpr{key: "void"}
+			}
+			return texpr{key: tk}
 		case "!":
 			if t.key != "Bool" && t.key != "" {
 				e.errf(n.P, TyBadOperand, "`!` 操作数必须是 Bool（§7.2），得到 "+describeKey(t), "")
@@ -518,6 +774,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		case "-":
 			if t.key != "" && !isIntType(t.key) && !isFloatType(t.key) {
 				e.errf(n.P, TyBadOperand, "一元 `-` 操作数必须是数值（§7.2），得到 "+describeKey(t), "")
+			}
+			if t.hasInt {
+				if t.isUInt {
+					t.intVal, t.isUInt = -int64(t.uintVal), false // 2^63 → MinInt64（补码）
+				} else {
+					t.intVal = -t.intVal
+				}
 			}
 			return t
 		}
@@ -536,10 +799,12 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		return e.inferCall(n)
 	case *xfront.Tuple:
 		parts := make([]string, len(n.Elems))
+		elems := make([]texpr, len(n.Elems))
 		for i, el := range n.Elems {
-			parts[i] = e.infer(el).key
+			elems[i] = e.infer(el)
+			parts[i] = elems[i].key
 		}
-		return texpr{key: "(" + strings.Join(parts, ",") + ")"}
+		return texpr{key: "(" + strings.Join(parts, ",") + ")", elems: elems}
 	case *xfront.ArrayLit:
 		if len(n.Elems) == 0 {
 			return texpr{}
@@ -572,14 +837,24 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		return texpr{}
 	case *xfront.TupleMember:
 		xt := e.infer(n.X)
-		if strings.HasPrefix(xt.key, "(") && strings.HasSuffix(xt.key, ")") {
-			inner := xt.key[1 : len(xt.key)-1]
-			parts := strings.Split(inner, ",")
-			if n.Index < len(parts) {
-				return texpr{key: strings.TrimSpace(parts[n.Index])}
-			}
+		if xt.key == "" {
+			return texpr{}
 		}
-		return texpr{}
+		parts, ok := splitTupleKey(xt.key)
+		if !ok {
+			e.errf(n.P, TyTuple, "`.N` 元素访问只用于元组（§2.11），得到 "+describeKey(xt), "")
+			return texpr{}
+		}
+		if n.Index >= len(parts) {
+			e.errf(n.P, TyTuple,
+				fmt.Sprintf("元组下标越界：%s 只有 %d 个元素，选择器 .%d（§2.11）", xt.key, len(parts), n.Index), "")
+			return texpr{}
+		}
+		elem := parts[n.Index]
+		if (isOptional(xt.key) || n.NullSafe) && !isOptional(elem) {
+			elem += "?"
+		}
+		return texpr{key: elem}
 	case *xfront.NewArray:
 		return texpr{key: typeKey(n.Type) + "[]"}
 	case *xfront.Lambda:
@@ -610,6 +885,14 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 	}
 	// 其他接收者：类类型变量的成员访问（外部私有访问检查，§7.4）
 	rt := e.infer(n.X)
+	if _, isTuple := splitTupleKey(rt.key); isTuple {
+		e.errf(n.P, TyTuple, "元组没有成员或方法（§2.11：元素只能写作 `.0`、`.1`，不能写 `."+n.Name+"`）", "")
+		return texpr{}
+	}
+	if isResultKey(rt.key) {
+		e.errf(n.P, ErResultMember, "Result 成员必须调用：写 `"+n.Name+"()`（§10.1）", "成员全部是方法")
+		return texpr{}
+	}
 	if c := e.a.tc; c != nil {
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {
 			if info.canonPriv == nil {
@@ -661,15 +944,16 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			}
 			return texpr{key: "String"}
 		case "Ok", "Err":
-			for _, a := range n.Args {
-				e.infer(a)
-			}
-			return texpr{key: "Result<,>"} // 泛型实参由目标类型适配（§2.6 错误值规则骨架）
+			// 无目标类型：按 §10.1 报错（有目标类型时由 inferExpected 先行拦截）。
+			return e.inferResultCtor(n, id.Name, "")
 		}
 	}
 	// 方法调用：recv.method(args)
 	if mem, ok := n.Callee.(*xfront.Member); ok {
 		rt := e.infer(mem.X)
+		if isResultKey(rt.key) {
+			return e.resultMember(rt, mem, n.Args, n.P)
+		}
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
@@ -684,8 +968,8 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 					continue
 				}
 				for i, p := range f.Params {
-					at := e.infer(n.Args[i])
 					pk := typeKey(p.Type)
+					at := e.inferExpected(n.Args[i], pk)
 					if !assignable(at, pk) {
 						e.errf(n.Args[i].Pos(), TyAssignability,
 							fmt.Sprintf("实参 %d 类型 %s 不能赋给形参 %s（§2.6）", i+1, describeKey(at), pk),
@@ -762,9 +1046,11 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		switch name {
 		case "get":
 			return texpr{key: genericArg(k, "List<")}
+		case "remove":
+			return texpr{key: genericArg(k, "List<")} // §9.4：删除并返回被删元素
 		case "length":
 			return texpr{key: "Int"}
-		case "push", "insert", "set", "remove", "clear":
+		case "push", "insert", "set", "clear":
 			return texpr{key: "void"}
 		}
 	case strings.HasPrefix(k, "Map<"):
@@ -784,13 +1070,13 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 	case strings.HasPrefix(k, "Set<"):
 		switch name {
-		case "add", "has":
+		case "add", "has", "remove":
 			return texpr{key: "Bool"}
 		case "at":
 			return texpr{key: genericArg(k, "Set<")}
 		case "length":
 			return texpr{key: "Int"}
-		case "remove", "clear":
+		case "clear":
 			return texpr{key: "void"}
 		}
 	case strings.HasPrefix(k, "Result<"):
@@ -822,16 +1108,26 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 
 func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 	if _, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
+		lt := e.infer(n.L)
+		rhs := typeKey(n.R.(*xfront.TypeAsExpr).Type)
+		_, lTuple := splitTupleKey(lt.key)
+		_, rTuple := splitTupleKey(rhs)
 		switch n.Op {
 		case "is":
-			e.infer(n.L)
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组不参与有意义的 is 转换（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
 			return texpr{key: "Bool"}
 		case "as":
-			e.infer(n.L)
-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type)}
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组 as 只允许同型恒等（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
+			return texpr{key: rhs}
 		case "as?":
-			e.infer(n.L)
-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type) + "?"}
+			if (lTuple || rTuple) && lt.key != rhs {
+				e.errf(n.P, TyTuple, "元组 as? 只允许同型恒等（§2.11）："+describeKey(lt)+" vs "+rhs, "")
+			}
+			return texpr{key: rhs + "?"}
 		}
 	}
 	lt := e.infer(n.L)
@@ -842,7 +1138,7 @@ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 			e.errf(n.P, TyCondNotBool, "`"+n.Op+"` 操作数必须是 Bool（§7.2）", "")
 		}
 		return texpr{key: "Bool"}
-	case "==", "!=":
+	case "==", "!=", "===", "!==":
 		// §10.1：Result 无 ==
 		if strings.HasPrefix(lt.key, "Result<") || strings.HasPrefix(rt.key, "Result<") {
 			e.errf(n.P, TyBadOperand, "Result 没有 ==（§10.1：用 isOk/isErr 成员检查）", "")
@@ -859,16 +1155,28 @@ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 			return texpr{key: "Bool"}
 		}
 		if lt.key != "" && rt.key != "" && lt.key != rt.key {
-			e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
-				lt.key+" vs "+rt.key, "")
+			if _, _, ok := adaptIntLiteralKeys(lt, rt); !ok {
+				e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
+					lt.key+" vs "+rt.key, "")
+			}
 		}
 		return texpr{key: "Bool"}
 	case "<", ">", "<=", ">=":
 		if lt.key != "" && rt.key != "" {
-			num := (isIntType(lt.key) && isIntType(rt.key)) || (isFloatType(lt.key) && isFloatType(rt.key)) ||
-				(lt.key == "Char" && rt.key == "Char")
+			lk, rk := lt.key, rt.key
+			if lk != rk {
+				a, b, ok := adaptIntLiteralKeys(lt, rt)
+				if !ok {
+					e.errf(n.P, TyBadOperand, "比较运算要求同族同宽（§2.6 禁止隐式转换）："+
+						lt.key+" vs "+rt.key, "")
+					return texpr{key: "Bool"}
+				}
+				lk, rk = a, b
+			}
+			num := (isIntType(lk) && isIntType(rk)) || (isFloatType(lk) && isFloatType(rk)) ||
+				(lk == "Char" && rk == "Char")
 			if !num {
-				e.errf(n.P, TyBadOperand, "比较运算只用于同族数值或 Char（§2.6 禁止隐式转换）："+
+				e.errf(n.P, TyBadOperand, "比较运算只用于同族同宽数值或 Char（§2.6 禁止隐式转换）："+
 					lt.key+" vs "+rt.key, "")
 			}
 		}

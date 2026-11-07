@@ -387,6 +387,7 @@ func emitWrapper(e Entry) (string, error) {
 
 	// 返回通道
 	retC := ""
+	nativeC := "" // 原生返回值的 C 类型（空则与 retC 相同；String 为 const char *）
 	hasOut := false
 	postOut := ""
 	if !codeRet {
@@ -407,6 +408,9 @@ func emitWrapper(e Entry) (string, error) {
 		case KindString:
 			hasOut = true
 			retC = "xrt_string *"
+			// 原生 String 返回是 C 字符串（借用给包装层立即复制，S7 §3.4/§5.1），
+			// 不是 rt/xrt_string：变量类型必须与原生签名一致，否则 C 侧类型不符。
+			nativeC = "const char *"
 			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);"
 		case KindHandle:
 			hasOut = true
@@ -462,7 +466,10 @@ func emitWrapper(e Entry) (string, error) {
 		}
 	default:
 		if hasOut {
-			b.WriteString("    " + retC + " xn_v = " + nativeCall + ";\n")
+			if nativeC == "" {
+				nativeC = retC
+			}
+			b.WriteString("    " + nativeC + " xn_v = " + nativeCall + ";\n")
 			if codeParam != "" {
 				b.WriteString("    if (xn_code != 0) { return xn_code; }\n")
 			}

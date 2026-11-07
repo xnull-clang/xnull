@@ -47,13 +47,12 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 	case *xfront.IdentExpr:
 		c, ok := s.localCType(n.Name)
 		if !ok {
+			if gc, isGlobal := s.g.globals[n.Name]; isGlobal {
+				return s.cRef(n.Name), gc, nil
+			}
 			return "", "", fmt.Errorf("codegen：未登记标识符 %s", n.Name)
 		}
-		name := n.Name
-		if s.params != nil && s.params[name] {
-			name = "xn_p_" + name
-		}
-		return name, c, nil
+		return s.cRef(n.Name), c, nil
 	case *xfront.Member:
 		// 字段链（self.kids / a.b.c）：递归解析基址，字段类型给出段类型
 		base, baseC, err := recvCName(n.X, s)

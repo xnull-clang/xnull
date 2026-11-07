@@ -1,0 +1,10 @@
+81ec33d574347bf6f36ffeb8963c57e5145a3cf5
+# branch: pod/c1-rd1
+# go: go version go1.27.3 darwin/amd64
+# cc: Apple clang version 17.0.0 (clang-1700.6.3.2)
+# 采集: 2026-11-07 03:33:00 CST
+# 改动文件 sha256:
+919c2852da097ee6f06352939df05f50a120c29c50a60856498d5fc5c66f4c56  impl/internal/sema/pkg.go
+8a174a7314effd6985f930634746fee06352335d5d3e9ade47b89830a4072c63  impl/internal/sema/pkg_test.go
+bede4a761b22f4df23ad4f15f34cf1fc09b6aa531f2d0c88ccaefbb496585e5e  impl/internal/sema/sema.go
+b31a592e18f24f7cce20e1cd2f04305fc556e4f9f18d5809b74a95d3e1838896  impl/internal/sema/xdk.go

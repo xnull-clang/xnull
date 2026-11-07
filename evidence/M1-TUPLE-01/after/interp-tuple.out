@@ -1,0 +1,12 @@
+=== RUN   TestTupleSyntaxRejections
+--- PASS: TestTupleSyntaxRejections (0.00s)
+=== RUN   TestTupleElementAssignmentAndEquality
+--- PASS: TestTupleElementAssignmentAndEquality (0.00s)
+=== RUN   TestTupleInferenceAndNested
+--- PASS: TestTupleInferenceAndNested (0.00s)
+=== RUN   TestTupleNullSafeElement
+--- PASS: TestTupleNullSafeElement (0.00s)
+=== RUN   TestTuple
+--- PASS: TestTuple (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	6.423s

@@ -165,13 +165,13 @@ func (s *scope) lookup(name string) (*Value, bool) {
 	return nil, false
 }
 
-func (s *scope) define(name string, v *Value) { s.vars[name] = v }
+func (s *scope) define(name string, v *Value) { s.vars[name] = cloneTupleValue(v) }
 
 // assign 找到名字所在作用域并写入（遮蔽规则：最近声明优先，§5.2）。
 func (s *scope) assign(name string, v *Value) bool {
 	for c := s; c != nil; c = c.parent {
 		if _, ok := c.vars[name]; ok {
-			c.vars[name] = v
+			c.vars[name] = cloneTupleValue(v)
 			return true
 		}
 	}
@@ -239,24 +239,29 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 			in.globals.define(n.Name, v)
 		}
 	}
-	main, ok := in.funcs["main"]
-	if !ok {
-		return 1, fmt.Errorf("找不到入口 main（缺失入口）")
+	mains := in.funcs["main"]
+	if len(mains) == 0 {
+		return 1, fmt.Errorf("找不到入口 main（缺失入口，§11.4）")
+	}
+	if len(mains) > 1 {
+		return 1, fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
+	}
+	main := mains[0]
+	if err := checkEntry(main); err != nil {
+		return 1, err
 	}
 	// 两种入口形态（S1 §11.2）：main() 与 main(args: String[])。
 	var callArgs []*Value
 	switch {
-	case len(main[0].Params) == 0:
-	case len(main[0].Params) == 1 && isStringArray(main[0].Params[0].Type):
+	case len(main.Params) == 0:
+	case len(main.Params) == 1 && isStringArray(main.Params[0].Type):
 		elems := make([]*Value, len(progArgs))
 		for i, a := range progArgs {
 			elems[i] = &Value{K: vStr, S: a}
 		}
 		callArgs = []*Value{{K: vArr, A: elems}}
-	default:
-		return 1, fmt.Errorf("main 的签名必须是 main() 或 main(args: String[])")
 	}
-	v, err := in.call(main[0], callArgs)
+	v, err := in.call(main, callArgs)
 	if err != nil {
 		return 1, err
 	}
@@ -264,6 +269,26 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		return int(v.I), nil
 	}
 	return 0, nil
+}
+
+// checkEntry 校验入口签名（§11.2）：顶层 static、返回 void/Int、参数为空或 String[]。
+func checkEntry(fn *xfront.TopFunc) error {
+	if !fn.Static {
+		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+	}
+	if !fn.Void {
+		nt, ok := fn.Ret.(*xfront.NamedType)
+		if !ok || lastQual(nt) != "Int" || len(nt.Args) > 0 {
+			return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）")
+		}
+	}
+	switch {
+	case len(fn.Params) == 0:
+	case len(fn.Params) == 1 && isStringArray(fn.Params[0].Type):
+	default:
+		return fmt.Errorf("入口 main 的签名必须是 static void main(...) 或 static Int main(...)，参数只能是 String[]（§11.2）")
+	}
+	return nil
 }
 
 func zeroValue(t xfront.TypeRef) *Value {
@@ -1047,6 +1072,16 @@ func (in *Interp) assignTo(target xfront.Expr, v *Value, sc *scope) {
 			return
 		}
 		panic(runtimeErr{"该类型不支持下标赋值：" + x.typeName()})
+	case *xfront.TupleMember:
+		recv := in.eval(t.X, sc)
+		if recv.K != vTuple {
+			panic(runtimeErr{"`.N` 元素赋值只用于元组：" + recv.typeName()})
+		}
+		if t.Index < 0 || t.Index >= len(recv.A) {
+			panic(fatal{fmt.Sprintf("元组下标越界：len=%d, idx=%d（§2.11）", len(recv.A), t.Index)})
+		}
+		recv.A[t.Index] = cloneTupleValue(v)
+		return
 	case *xfront.Member:
 		recv := in.eval(t.X, sc)
 		if recv.K == vObj {

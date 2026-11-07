@@ -1,0 +1,28 @@
+== 在 PKG-01 分支基线上验证 DET-01 三项（不改他人树）==
+分支：pod/c1-rd1 @ bc01a32
+做法：git archive pod/c1-rd1 → 临时目录，拷入本卡 det01_test.go，跑 go test
+
+--- git archive + 拷入用例 ---
+$ cd impl && go test ./internal/sema/ -run TestDET01 -v -count=1
+  === RUN   TestDET01DiagStableAcrossRuns
+  --- PASS: TestDET01DiagStableAcrossRuns (0.04s)
+  === RUN   TestDET01DiagIndependentOfMapOrder
+  --- PASS: TestDET01DiagIndependentOfMapOrder (0.01s)
+  PASS
+  ok  	xnull.dev/xnull/internal/sema	2.558s
+
+--- sema 包全量 ---
+  ok  	xnull.dev/xnull/internal/sema	8.737s
+
+--- 全包 ---
+  ok  	xnull.dev/xnull/internal/cli	42.506s
+  ok  	xnull.dev/xnull/internal/codegen	104.825s
+  ok  	xnull.dev/xnull/internal/codegen/ffi	51.257s
+  ok  	xnull.dev/xnull/internal/devtool	26.191s
+  ok  	xnull.dev/xnull/internal/diag	17.292s
+  ok  	xnull.dev/xnull/internal/interp	29.251s
+  ok  	xnull.dev/xnull/internal/sema	20.395s
+  ok  	xnull.dev/xnull/internal/xfront	31.860s
+  ok  	xnull.dev/xnull/internal/xpd	23.412s
+
+结论：DET-01 a/b/c 在 PKG-01 提交基线上全绿；本卡红点（RES-104 map 序）由 PKG-01 重写顺带消除，无需再落 fix-proposal.diff。

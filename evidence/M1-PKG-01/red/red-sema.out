@@ -1,0 +1,70 @@
+=== RUN   TestPkgImport
+    pkg_test.go:74: 不应有语义诊断，实际：[RES-101 RES-101]（源：package app
+        
+        import lib.text
+        
+        static Int main() {
+            String b = banner("x")
+            String c = shout(b)
+            return 0
+        }）
+--- FAIL: TestPkgImport (0.00s)
+=== RUN   TestSymbolImport
+    pkg_test.go:127: 不应有语义诊断，实际：[RES-101]（源：package app
+        
+        import lib.text.banner
+        
+        static Int main() {
+            String b = banner("x")
+            return 0
+        }）
+--- FAIL: TestSymbolImport (0.00s)
+=== RUN   TestAliasDisambiguation
+    pkg_test.go:190: 不应有语义诊断，实际：[RES-101]（源：package app
+        
+        import lib.a.Thing as AThing
+        import lib.b.Thing
+        
+        static Int main() {
+            return AThing(1) + Thing(2)
+        }）
+--- FAIL: TestAliasDisambiguation (0.00s)
+=== RUN   TestNeedlessAliasRejected
+    pkg_test.go:206: 期望诊断 RES-107，实际：[]（源：package app
+        
+        import lib.text.banner as B
+        
+        static Int main() { return 0 }
+        ）
+--- FAIL: TestNeedlessAliasRejected (0.00s)
+=== RUN   TestAmbiguousSimpleName
+    pkg_test.go:264: 期望诊断 RES-104，实际：[RES-101]（源：package app
+        
+        import lib.a.Thing
+        import lib.b.Thing
+        
+        static Int main() { return Thing(1) }
+        ）
+--- FAIL: TestAmbiguousSimpleName (0.00s)
+=== RUN   TestXdkNotImportedStrict
+--- PASS: TestXdkNotImportedStrict (0.00s)
+=== RUN   TestImportCycle
+    pkg_test.go:323: 期望诊断 RES-108，实际：[RES-101]（源：package app
+        
+        import lib.a
+        
+        static Int main() { return fa() }
+        ）
+--- FAIL: TestImportCycle (0.00s)
+=== RUN   TestImportTargetRules
+    pkg_test.go:345: 期望诊断 RES-106，实际：[]（源：package app
+        
+        import lib.none
+        
+        static Int main() { return 0 }
+        ）
+--- FAIL: TestImportTargetRules (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	4.159s
+FAIL
+exit=1

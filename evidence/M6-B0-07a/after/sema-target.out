@@ -1,0 +1,8 @@
+=== RUN   TestNumericVariantLiteralAdaptation
+--- PASS: TestNumericVariantLiteralAdaptation (0.00s)
+=== RUN   TestNumericVariantOutOfRange
+--- PASS: TestNumericVariantOutOfRange (0.00s)
+=== RUN   TestNumericVariantComparisonWidth
+--- PASS: TestNumericVariantComparisonWidth (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.911s

@@ -1,0 +1,5 @@
+branch=pod/c3-rd2
+merge_commit=3bead3b173fb642c2ef326ba82825b7bc3777e8b
+merged_main=7df123d
+date=2026-11-07 12:39:57 CST
+go=go version go1.27.3 darwin/amd64

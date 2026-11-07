@@ -1,0 +1,18 @@
+# XFRONT-FIX（NEG-01 / GEN-01）采集命令
+# 工作树：wt/c1-rd1（pod/c1-rd1）；基线 81ec33d；时间 2026-11-07 03:4x–04:0x CST
+# before/after 均在 /tmp 导出树完成，仅覆盖 internal/xfront/*.go，不改对方 worktree。
+
+git -C wt/c3-rd3 archive df36621 | tar -x -C /tmp/xf-neg
+cd /tmp/xf-neg/impl && go test ./Tests/ -run '^TestDiagMatrixS1$' -count=1 -v          # 47/60
+
+cp wt/c1-rd1/impl/internal/xfront/{ast,lexer,parser,printer,token,types,unit}.go /tmp/xf-neg/impl/internal/xfront/
+cd /tmp/xf-neg/impl && go test ./Tests/ -run '^TestDiagMatrixS1$' -count=1 -v          # 48/60
+
+git -C wt/c1-rd3 archive 35f9e06 | tar -x -C /tmp/xf-gen
+cd /tmp/xf-gen/impl && go test ./internal/codegen -run '^TestGEN01$' -count=1 -v -timeout 300s   # 2/25
+cp wt/c1-rd1/impl/internal/xfront/{ast,lexer,parser,printer,token,types,unit}.go /tmp/xf-gen/impl/internal/xfront/
+cd /tmp/xf-gen/impl && go test ./internal/codegen -run '^TestGEN01$' -count=1 -v -timeout 300s   # 2/25；G4/G10 进入语义层
+
+cd wt/c1-rd1/impl
+go test ./internal/xfront -run 'TestImportPackageAliasRejected|TestGenericMultiTypeParams|TestNestedTypeArgs' -count=1 -v
+go test ./... -count=1 -timeout 300s
