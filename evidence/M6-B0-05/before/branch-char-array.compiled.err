@@ -1,0 +1,3 @@
+/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/M6-B0-05/before/branch-char-array.x:2:17: error[TY-101]: 变量 `cs` 的初始化式类型 String[] 不能赋给 Char[]（§2.6）
+  检查类型声明与初始化式是否一致
+exit status 1

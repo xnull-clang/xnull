@@ -1,0 +1,39 @@
+String.length	String	length	PASS	PASS		
+String.substring	String	substring	PASS	PASS		
+String.indexOf	String	indexOf	PASS	PASS		
+String.trim	String	trim	PASS	PASS		
+String.split	String	split	PASS	FAIL		xnull: 代码生成失败：codegen：容器表达式 *xfront.Call 未支持（M4.4a 范围）
+String.replace	String	replace	PASS	FAIL		xnull: 代码生成失败：codegen：String 成员 replace 未支持（M4.4a 范围）
+String.toUpper	String	toUpper	PASS	PASS		
+String.toLower	String	toLower	PASS	PASS		
+String.startsWith	String	startsWith	PASS	PASS		
+String.endsWith	String	endsWith	PASS	PASS		
+T[].indexRead	T[]	indexRead	PASS	PASS		
+T[].indexWrite	T[]	indexWrite	PASS	PASS		
+T[].length	T[]	length	PASS	PASS		
+T[].join	T[]	join	PASS	FAIL		xnull: 代码生成失败：codegen：成员 join 返回类型不可判定（M4.4a 范围）
+List.length	List	length	PASS	PASS		
+List.push	List	push	PASS	PASS		
+List.insert	List	insert	PASS	FAIL		xnull: 代码生成失败：codegen：List.insert 未支持（M4.4a 范围；示例与自举不使用）
+List.set	List	set	PASS	PASS		
+List.get	List	get	PASS	PASS		
+List.remove	List	remove	FAIL	FAIL	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/M6-B0-05/after/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 voi	/Users/vjs/Desktop/XNull-Lang/wt/e3-interp/evidence/M6-B0-05/after/List.remove.x:3:14: error[TY-101]: 变量 `x` 的初始化式类型 voi
+List.clear	List	clear	PASS	PASS		
+List.indexRead	List	indexRead	PASS	PASS		
+List.indexWrite	List	indexWrite	PASS	PASS		
+Map.length	Map	length	PASS	PASS		
+Map.put	Map	put	PASS	PASS		
+Map.get	Map	get	PASS	FAIL		xnull: 代码生成失败：codegen：Map.get 未支持（M4.4a 范围）
+Map.getMissing	Map	getMissing	PASS	FAIL		xnull: 代码生成失败：codegen：类型后缀 [?] 未支持（M4.4a 范围）
+Map.getOr	Map	getOr	PASS	PASS		
+Map.has	Map	has	PASS	PASS		
+Map.remove	Map	remove	PASS	PASS		
+Map.clear	Map	clear	PASS	PASS		
+Map.keys	Map	keys	PASS	FAIL		xnull: 代码生成失败：codegen：容器表达式 *xfront.Call 未支持（M4.4a 范围）
+Map.values	Map	values	PASS	FAIL		xnull: 代码生成失败：codegen：容器表达式 *xfront.Call 未支持（M4.4a 范围）
+Set.length	Set	length	PASS	PASS		
+Set.add	Set	add	PASS	PASS		
+Set.has	Set	has	PASS	PASS		
+Set.at	Set	at	PASS	FAIL		xnull: 代码生成失败：codegen：成员 at 返回类型不可判定（M4.4a 范围）
+Set.remove	Set	remove	PASS	FAIL		xnull: 代码生成失败：codegen：Set 成员 remove 未支持（M4.4a 范围）
+Set.clear	Set	clear	PASS	FAIL		xnull: 代码生成失败：codegen：Set 成员 clear 未支持（M4.4a 范围）

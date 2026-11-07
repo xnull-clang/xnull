@@ -321,6 +321,92 @@ static Int main() {
 	}
 }
 
+// ---------- ENTRY-01（M1）：入口签名与缺失/重复入口 ----------
+
+// runSrcCodeArgs 解析并执行，带程序参数。
+func runSrcCodeArgs(t *testing.T, src string, args []string) (string, int, error) {
+	t.Helper()
+	u, diags := xfront.ParseUnit("t.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("不应有解析诊断：%v", diags)
+	}
+	var out strings.Builder
+	code, err := Run(u, &out, args)
+	return out.String(), code, err
+}
+
+// §11.2：void 与 Int 两种 main 签名均接收 String[] 参数并可运行。
+func TestEntryTwoSignatures(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+		code int
+	}{
+		{"void+args", "static void main(final String[] args) {\n    print(\"void\")\n}", "void\n", 0},
+		{"Int+args", "static Int main(final String[] args) {\n    print(\"int\")\n    return 3\n}", "int\n", 3},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			out, code, err := runSrcCodeArgs(t, c.src, []string{"x"})
+			if err != nil {
+				t.Fatalf("运行失败：%v", err)
+			}
+			if out != c.want || code != c.code {
+				t.Fatalf("out=%q code=%d，期望 out=%q code=%d", out, code, c.want, c.code)
+			}
+		})
+	}
+}
+
+// §11.4：缺失入口是编译错误。
+func TestEntryMissingRejected(t *testing.T) {
+	_, code, err := runSrcCode(t, "static Int helper() { return 1 }")
+	if err == nil {
+		t.Fatal("缺失入口应报错")
+	}
+	if code != 1 {
+		t.Fatalf("缺失入口退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(err.Error(), "入口") {
+		t.Fatalf("诊断应点名入口：%v", err)
+	}
+}
+
+// §11.4：重复入口是编译错误。
+func TestEntryDuplicateRejected(t *testing.T) {
+	_, code, err := runSrcCode(t, "static Int main() { return 0 }\nstatic Int main() { return 1 }")
+	if err == nil {
+		t.Fatal("重复入口应报错")
+	}
+	if code != 1 {
+		t.Fatalf("重复入口退出码 %d，期望 1", code)
+	}
+	if !strings.Contains(err.Error(), "重复入口") {
+		t.Fatalf("诊断应点名重复入口：%v", err)
+	}
+}
+
+// §11.2：非法入口签名（返回类型非 void/Int、额外参数、非 static）被拒绝。
+func TestEntryInvalidSignatureRejected(t *testing.T) {
+	cases := []struct{ name, src string }{
+		{"返回 String", "static String main() { return \"\" }"},
+		{"额外参数", "static Int main(Int n) { return n }"},
+		{"非 static", "Int main() { return 0 }"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, _, err := runSrcCode(t, c.src)
+			if err == nil {
+				t.Fatal("非法入口签名应报错")
+			}
+			if !strings.Contains(err.Error(), "签名") {
+				t.Fatalf("诊断应点名入口签名：%v", err)
+			}
+		})
+	}
+}
+
 // TUPLE-01（语法可判定部分）：单元素/零元元组被拒绝；`(e)` 是括号表达式。
 func TestTupleSyntaxRejections(t *testing.T) {
 	// 零元元组拒绝
@@ -517,6 +603,49 @@ static T identity<T>(T v) { return v }
 static Int main() { print(identity<Int, Int>(7)); return 0 }`)
 		if err == nil || code != 1 {
 			t.Fatalf("类型实参数量不符应显式失败：code=%d err=%v", code, err)
+		}
+	})
+}
+
+// M6-B0-05：容器成员规范边界（§9.4 List / §9.5 Map）。
+func TestContainerMemberSpecEdges(t *testing.T) {
+	t.Run("MapGetMissingReturnsNull", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    Map<String, Int> m = ["a": 1]
+    Int? v = m.get("z")
+    print(v)
+    return 0
+}`)
+		if err != nil || out != "null\n" {
+			t.Fatalf("Map.get 缺键应返回 null：out=%q err=%v", out, err)
+		}
+	})
+	t.Run("ListRemoveReturnsElement", func(t *testing.T) {
+		out, err := runSrc(t, `
+static Int main() {
+    List<Int> l = [1, 2]
+    Int x = l.remove(0)
+    print(x)
+    print(l.length())
+    print(l.get(0))
+    return 0
+}`)
+		want := "1\n1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("List.remove 应返回被删元素：out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ListInsertOutOfRangePanics", func(t *testing.T) {
+		_, code, err := runSrcCode(t, `
+static Int main() {
+    List<Int> l = [1]
+    l.insert(5, 9)
+    print(l.length())
+    return 0
+}`)
+		if err == nil || code != 134 {
+			t.Fatalf("List.insert 越界应 panic（134）：code=%d err=%v", code, err)
 		}
 	})
 }
