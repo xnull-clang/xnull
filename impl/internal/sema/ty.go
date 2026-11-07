@@ -335,6 +335,61 @@ func unsignedFits(t texpr, max uint64) bool {
 	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
+// checkEnumSwitch 校验枚举 switch 的项合法性/重复/穷尽性（§8.5）。
+func (e *tyenv) checkEnumSwitch(n *xfront.SwitchStmt, key string) {
+	if e.a.tc == nil || key == "" {
+		return
+	}
+	info, ok := e.a.tc.types[key]
+	if !ok || info.kind != "enum" || info.enum == nil {
+		return // 非枚举 switch 不检查穷尽性
+	}
+	items := map[string]bool{}
+	var order []string
+	for _, it := range info.enum.Items {
+		items[it.Name] = true
+		order = append(order, it.Name)
+	}
+	seen := map[string]bool{}
+	for _, c := range n.Cases {
+		mem, ok := c.Expr.(*xfront.Member)
+		recv, ok2 := (*xfront.IdentExpr)(nil), false
+		if ok {
+			recv, ok2 = mem.X.(*xfront.IdentExpr)
+		}
+		if !ok || !ok2 || recv.Name != key {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举 switch 的 case 必须是 `"+key+".<项>` 项常量（§8.5）", "改用该枚举的项")
+			continue
+		}
+		name := mem.Name
+		if !items[name] {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举 `"+key+"` 没有项 `"+name+"`（§8.5）", "检查项名")
+			continue
+		}
+		if seen[name] {
+			e.errf(c.Expr.Pos(), TyEnumSwitch,
+				"枚举项 `"+name+"` 在 switch 中重复（§8.5）", "删除重复 case")
+			continue
+		}
+		seen[name] = true
+	}
+	if n.Default != nil {
+		return // default 覆盖剩余项
+	}
+	var missing []string
+	for _, name := range order {
+		if !seen[name] {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		e.errf(n.P, TyEnumSwitch,
+			"枚举 switch 未覆盖全部项（§8.5）：遗漏 "+strings.Join(missing, "、"), "补 case，或加 default")
+	}
+}
+
 // ---------- BND-01：成员可见性（§7.3） ----------
 
 func fieldVisibility(f *xfront.FieldDecl) string {
@@ -780,6 +835,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		if _, isTuple := splitTupleKey(vt.key); isTuple {
 			e.errf(n.P, TyTuple, "元组不能作为 switch 值（§2.11）", "")
 		}
+		e.checkEnumSwitch(n, vt.key)
 		for _, c := range n.Cases {
 			if c.Expr != nil {
 				e.infer(c.Expr)
