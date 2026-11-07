@@ -168,6 +168,9 @@ type Entry struct {
 	Name         string
 	CName        string
 	Region       string
+	File         string // 声明文件（相对工程根，诊断定位）
+	Line         int
+	Col          int
 	Ret          BoundType
 	Params       []Param
 	Lease        []LeaseKind // 与 Params 同序

@@ -554,10 +554,11 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	//   - 句柄 close：Bool = (rc == 0)；
 	//   - 其余（fileWrite）：按声明宽度返回 rc 本身。
 	if e.ErrorCodeRet && e.CloseOf != "" {
-		t := s.tmp()
-		lines = append(lines, "int32_t "+t+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
-		lines = append(lines, post...)
-		return lines, "(" + t + " == 0)", nil
+		lines, rc, err := s.ffiInvokeLines(e, lines, parts, post, "")
+		if err != nil {
+			return nil, "", err
+		}
+		return lines, "(" + rc + " == 0)", nil
 	}
 	if ffiReturnsResult(e) {
 		return s.ffiResultLines(e, lines, parts, post)
@@ -572,26 +573,70 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
 		}
 		lines = append(lines, cT+" "+out+" = 0;")
-		parts = append(parts, "&"+out)
 	case ffi.KindString:
 		out = s.tmp()
 		lines = append(lines, "rt_string *"+out+" = NULL;")
-		parts = append(parts, "&"+out)
 	case ffi.KindText:
 		out = s.tmp()
 		lines = append(lines, "xrt_text *"+out+" = NULL;")
-		parts = append(parts, "&"+out)
 	case ffi.KindHandle:
 		out = s.tmp()
 		lines = append(lines, "xrt_handle *"+out+" = NULL;")
-		parts = append(parts, "&"+out)
 	default:
 		return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回类型未纳入 P-09", e.Name)
 	}
-	rc := s.tmp()
-	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
-	lines = append(lines, post...)
+	lines, _, err := s.ffiInvokeLines(e, lines, parts, post, out)
+	if err != nil {
+		return nil, "", err
+	}
 	return lines, out, nil
+}
+
+// ffiInvokeLines 生成实际调用：.unaware + @longRunning 走 xrt_companion_submit/wait，
+// 其余直接调用冻结包装 ABI。返回 rc 变量名。
+func (s *scope) ffiInvokeLines(e ffi.Entry, lines, parts, post []string, out string) ([]string, string, error) {
+	if e.NeedsCompanion() {
+		fields := e.CompanionArgFields()
+		total := 0
+		for _, f := range fields {
+			total += f.Parts
+		}
+		if total != len(parts) {
+			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 伴生参数个数不符：字段 %d，编组 %d", e.Name, total, len(parts))
+		}
+		ca := s.tmp()
+		lines = append(lines, "xn_companion_"+e.Name+"_args "+ca+" = {0};")
+		pi := 0
+		for _, f := range fields {
+			for k := 0; k < f.Parts; k++ {
+				lines = append(lines, ca+"."+f.Name+" = "+parts[pi]+";")
+				pi++
+			}
+		}
+		fut := s.tmp()
+		lines = append(lines, "xrt_future *"+fut+" = xrt_companion_submit(xn_companion_"+e.Name+"_thunk, &"+ca+");")
+		dummy := s.tmp()
+		lines = append(lines, "void *"+dummy+" = NULL;")
+		wst := s.tmp()
+		lines = append(lines, "int32_t "+wst+" = xrt_companion_wait("+fut+", NULL, &"+dummy+");")
+		lines = append(lines, "xrt_release("+fut+");")
+		lines = append(lines, post...)
+		rc := s.tmp()
+		// 等待被取消时以 Cancelled 交付，不降级 Internal（S7 §7.3 / FFI-01）。
+		lines = append(lines, "int32_t "+rc+" = ("+wst+" != 0) ? "+wst+" : "+ca+".rc;")
+		if out != "" {
+			lines = append(lines, out+" = "+ca+".out;")
+		}
+		return lines, rc, nil
+	}
+	callParts := append([]string{}, parts...)
+	if out != "" {
+		callParts = append(callParts, "&"+out)
+	}
+	rc := s.tmp()
+	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(callParts, ", ")+");")
+	lines = append(lines, post...)
+	return lines, rc, nil
 }
 
 // ffiResultLines 生成 Result<T, ErrorKind> 构造：rc==0 → Ok(value)；
@@ -620,16 +665,12 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 			if _, ok := ffiScalarC(e.Ret.Name); !ok {
 				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
 			}
-			parts = append(parts, "&"+out)
 		case ffi.KindString:
 			out = s.tmp()
-			parts = append(parts, "&"+out)
 		case ffi.KindText:
 			out = s.tmp()
-			parts = append(parts, "&"+out)
 		case ffi.KindHandle:
 			out = s.tmp()
-			parts = append(parts, "&"+out)
 		default:
 			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回类型未纳入 P-09", e.Name)
 		}
@@ -648,9 +689,10 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 			lines = append(lines, "xrt_handle *"+out+" = NULL;")
 		}
 	}
-	rc := s.tmp()
-	lines = append(lines, "int32_t "+rc+" = xn_ffi_"+e.Name+"("+strings.Join(parts, ", ")+");")
-	lines = append(lines, post...)
+	lines, rc, err := s.ffiInvokeLines(e, lines, parts, post, out)
+	if err != nil {
+		return nil, "", err
+	}
 	res := s.tmp()
 	lines = append(lines, resultC+" "+res+" = {0};")
 	lines = append(lines, res+".ok = ("+rc+" == 0);")
