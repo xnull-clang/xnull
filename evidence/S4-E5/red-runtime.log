@@ -1,0 +1,68 @@
+ok  policy table (10 rows, deterministic)
+rt tests passed
+gc tests passed (invariants 2/3/5/6)
+ok  resurrection detection terminates (fatal handler)
+ok  weak slot detached after target death
+ok  weak slots (invariant 4, cleared before deinit, reusable)
+hard-semantics tests passed
+abi 测试通过
+test_std.c:439:11: error: use of undeclared identifier 'XRT_ERR_INVALID_ARGUMENT'
+  439 |     CHECK(XRT_ERR_INVALID_ARGUMENT == 0);
+      |           ^
+test_std.c:440:11: error: use of undeclared identifier 'XRT_ERR_TIMEOUT'
+  440 |     CHECK(XRT_ERR_TIMEOUT == 6);
+      |           ^
+test_std.c:441:11: error: use of undeclared identifier 'XRT_ERR_CANCELLED'
+  441 |     CHECK(XRT_ERR_CANCELLED == 7);
+      |           ^
+test_std.c:442:11: error: use of undeclared identifier 'XRT_ERR_INTERNAL'
+  442 |     CHECK(XRT_ERR_INTERNAL == 13);
+      |           ^
+test_std.c:443:18: error: call to undeclared function 'xrt_error_kind_name'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  443 |     CHECK(strcmp(xrt_error_kind_name(XRT_ERR_TIMEOUT), "Timeout") == 0);
+      |                  ^
+test_std.c:443:38: error: use of undeclared identifier 'XRT_ERR_TIMEOUT'
+  443 |     CHECK(strcmp(xrt_error_kind_name(XRT_ERR_TIMEOUT), "Timeout") == 0);
+      |                                      ^
+test_std.c:444:18: error: call to undeclared function 'xrt_error_kind_name'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  444 |     CHECK(strcmp(xrt_error_kind_name(XRT_ERR_CANCELLED), "Cancelled") == 0);
+      |                  ^
+test_std.c:444:38: error: use of undeclared identifier 'XRT_ERR_CANCELLED'
+  444 |     CHECK(strcmp(xrt_error_kind_name(XRT_ERR_CANCELLED), "Cancelled") == 0);
+      |                                      ^
+test_std.c:445:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  445 |     CHECK(xrt_error_kind_parse("Timeout") == XRT_ERR_TIMEOUT);
+      |           ^
+test_std.c:445:46: error: use of undeclared identifier 'XRT_ERR_TIMEOUT'
+  445 |     CHECK(xrt_error_kind_parse("Timeout") == XRT_ERR_TIMEOUT);
+      |                                              ^
+test_std.c:446:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  446 |     CHECK(xrt_error_kind_parse("Cancelled") == XRT_ERR_CANCELLED);
+      |           ^
+test_std.c:446:48: error: use of undeclared identifier 'XRT_ERR_CANCELLED'
+  446 |     CHECK(xrt_error_kind_parse("Cancelled") == XRT_ERR_CANCELLED);
+      |                                                ^
+test_std.c:447:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  447 |     CHECK(xrt_error_kind_parse("Invalid") == XRT_ERR_INVALID_ARGUMENT);
+      |           ^
+test_std.c:447:46: error: use of undeclared identifier 'XRT_ERR_INVALID_ARGUMENT'
+  447 |     CHECK(xrt_error_kind_parse("Invalid") == XRT_ERR_INVALID_ARGUMENT);
+      |                                              ^
+test_std.c:448:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  448 |     CHECK(xrt_error_kind_parse("Limit") == XRT_ERR_BUSY);
+      |           ^
+test_std.c:448:44: error: use of undeclared identifier 'XRT_ERR_BUSY'
+  448 |     CHECK(xrt_error_kind_parse("Limit") == XRT_ERR_BUSY);
+      |                                            ^
+test_std.c:449:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  449 |     CHECK(xrt_error_kind_parse("nope") == XRT_ERR_INTERNAL);
+      |           ^
+test_std.c:449:43: error: use of undeclared identifier 'XRT_ERR_INTERNAL'
+  449 |     CHECK(xrt_error_kind_parse("nope") == XRT_ERR_INTERNAL);
+      |                                           ^
+test_std.c:450:11: error: call to undeclared function 'xrt_error_kind_parse'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+  450 |     CHECK(xrt_error_kind_parse(NULL) == XRT_ERR_INTERNAL);
+      |           ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+EXIT=1

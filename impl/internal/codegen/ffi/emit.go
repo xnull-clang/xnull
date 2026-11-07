@@ -286,15 +286,48 @@ func emitLayout(l Layout) string {
 	return b.String()
 }
 
-// emitErrorKind 生成错误码分类函数：已知码 → 分类名，未知码 → Internal（绝不 Ok）。
+// errorKindEnum 把绑定层 errorMap 的短名映射到稳定枚举（S4 §3/附录 A）。
+func errorKindEnum(kind string) string {
+	switch kind {
+	case "Invalid":
+		return "XRT_ERR_INVALID_ARGUMENT"
+	case "NotFound":
+		return "XRT_ERR_NOT_FOUND"
+	case "Conflict":
+		return "XRT_ERR_ALREADY_EXISTS"
+	case "Permission":
+		return "XRT_ERR_PERMISSION_DENIED"
+	case "Limit":
+		return "XRT_ERR_BUSY"
+	case "Cancelled":
+		return "XRT_ERR_CANCELLED"
+	case "Timeout":
+		return "XRT_ERR_TIMEOUT"
+	case "Unavailable":
+		return "XRT_ERR_UNAVAILABLE"
+	default:
+		return "XRT_ERR_INTERNAL"
+	}
+}
+
+// emitErrorKind 生成错误码分类函数：已知码 → 分类名 / 稳定枚举，未知码 → Internal。
 func emitErrorKind(region string, rules []ErrRule) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "static const char *xn_ffi_%s_error_kind(int32_t code) {\n", sanitizeIdent(region))
+	rid := sanitizeIdent(region)
+	fmt.Fprintf(&b, "static const char *xn_ffi_%s_error_kind(int32_t code) {\n", rid)
 	b.WriteString("    switch (code) {\n")
 	for _, r := range rules {
 		fmt.Fprintf(&b, "    case %d: return \"%s\";\n", r.Code, r.Kind)
 	}
 	b.WriteString("    default: return \"Internal\";\n")
+	b.WriteString("    }\n}\n\n")
+	// S4-04 骨架：稳定的 ErrorKind 枚举映射；Cancelled/Timeout 不降级。
+	fmt.Fprintf(&b, "static xrt_error_kind xn_ffi_%s_error_kind_id(int32_t code) {\n", rid)
+	b.WriteString("    switch (code) {\n")
+	for _, r := range rules {
+		fmt.Fprintf(&b, "    case %d: return %s;\n", r.Code, errorKindEnum(r.Kind))
+	}
+	b.WriteString("    default: return XRT_ERR_INTERNAL;\n")
 	b.WriteString("    }\n}\n\n")
 	return b.String()
 }

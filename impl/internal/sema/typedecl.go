@@ -190,6 +190,7 @@ func (a *analyzer) checkTypeDecls(u *xfront.CompilationUnit) {
 		}
 		c.types[name] = info
 	}
+	c.registerXdkErrors()
 	for i, d := range u.Decls {
 		if s, ok := d.(*xfront.SingletonDecl); ok {
 			c.singleOrder[s.Name] = i
@@ -904,6 +905,35 @@ func exprUsesDeniedMember(e xfront.Expr, denied map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+// registerXdkErrors 注册 xdk.errors 的 ErrorKind 枚举与 Error 协议（S4 §2/§3）。
+func (c *typeCheckCtx) registerXdkErrors() {
+	if !c.a.imported["Error"] && !c.a.imported["ErrorKind"] {
+		return
+	}
+	if _, ok := c.types["ErrorKind"]; !ok {
+		items := []string{
+			"InvalidArgument", "NotFound", "AlreadyExists", "PermissionDenied",
+			"Io", "Network", "Timeout", "Cancelled", "Busy", "Unavailable",
+			"DataCorrupted", "Unsupported", "OutOfMemory", "Internal",
+		}
+		e := &xfront.EnumDecl{Name: "ErrorKind"}
+		for _, n := range items {
+			e.Items = append(e.Items, &xfront.EnumItem{Name: n})
+		}
+		c.types["ErrorKind"] = &typeInfo{kind: "enum", enum: e}
+		c.a.tops["ErrorKind"] = true
+	}
+	if _, ok := c.types["Error"]; !ok {
+		p := &xfront.ProtocolDecl{Name: "Error"}
+		p.Sigs = []*xfront.ProtocolSig{
+			{Name: "kind", Ret: &xfront.NamedType{Qual: []string{"ErrorKind"}}},
+			{Name: "describe", Ret: &xfront.NamedType{Qual: []string{"String"}}},
+		}
+		c.types["Error"] = &typeInfo{kind: "protocol", proto: p}
+		c.a.tops["Error"] = true
+	}
 }
 
 // ---------- ANN-01：注解声明与使用（§12） ----------

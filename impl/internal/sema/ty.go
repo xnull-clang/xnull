@@ -930,7 +930,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
 		}
 	case *xfront.ExprStmt:
 		t := e.infer(n.X)
-		if isResultKey(t.key) {
+		if isResultKey(t.key) && e.a.mustUse != "off" && e.a.mustUse != "warn" {
 			e.errf(n.X.Pos(), ErResultMustUse,
 				"Result 是 @mustUse：不得作为裸表达式语句丢弃（§10.1）",
 				"返回、赋给变量/字段/容器、用 try 传播，或调用其成员")
@@ -1111,7 +1111,7 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 					e.errf(n.P, TyAnnotation, "注解 `"+n.Name+"` 只在编译期存在，不能作为值使用（§12.1）", "")
 					return texpr{}
 				}
-				if info.kind == "singleton" || info.kind == "factory" {
+				if info.kind == "singleton" || info.kind == "factory" || info.kind == "enum" {
 					return texpr{key: n.Name}
 				}
 			}
@@ -1365,6 +1365,27 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		return texpr{}
 	}
 	if c := e.a.tc; c != nil {
+		if info, ok := c.types[rt.key]; ok && info.kind == "enum" && info.enum != nil {
+			// 数据枚举项字段：Status.Ready.code。
+			if mem, ok := n.X.(*xfront.Member); ok {
+				if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == rt.key && info.enum.IsData {
+					for _, f := range info.enum.Fields {
+						if f.Name == n.Name || f.Canonical == n.Name {
+							return texpr{key: typeKey(f.Type)}
+						}
+					}
+					e.errf(n.P, TyEnumRule, "数据枚举 `"+rt.key+"` 没有字段 `"+n.Name+"`（§8.3）", "")
+					return texpr{}
+				}
+			}
+			for _, it := range info.enum.Items {
+				if it.Name == n.Name {
+					return texpr{key: rt.key}
+				}
+			}
+			e.errf(n.P, TyEnumRule, "枚举 `"+rt.key+"` 没有项 `"+n.Name+"`（§8.3）", "")
+			return texpr{}
+		}
 		if info, ok := c.types[rt.key]; ok && info.kind == "protocol" {
 			e.errf(n.P, TyProtoMember, "协议变量没有字段或属性（§4.4）：`"+n.Name+"`", "协议只暴露声明的方法")
 			return texpr{}

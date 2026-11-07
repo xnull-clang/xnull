@@ -183,6 +183,44 @@ int xrt_handle_is_closed(const xrt_handle *h) {
 
 void xrt_fatal(const char *reason) { rt_fatal(reason); }
 
+/* ---- ErrorKind 稳定枚举（S4 §3/§7.3） ---- */
+
+static const char *const g_error_kind_names[] = {
+    "InvalidArgument", "NotFound", "AlreadyExists", "PermissionDenied",
+    "Io", "Network", "Timeout", "Cancelled", "Busy", "Unavailable",
+    "DataCorrupted", "Unsupported", "OutOfMemory", "Internal",
+};
+
+const char *xrt_error_kind_name(xrt_error_kind kind) {
+    if ((int)kind < 0 || (size_t)kind >= sizeof(g_error_kind_names) / sizeof(g_error_kind_names[0])) {
+        return "Internal";
+    }
+    return g_error_kind_names[kind];
+}
+
+xrt_error_kind xrt_error_kind_parse(const char *name) {
+    if (name == NULL) {
+        return XRT_ERR_INTERNAL;
+    }
+    /* 绑定层 errorMap 的短名（S4 附录 A 映射） */
+    if (strcmp(name, "Invalid") == 0) return XRT_ERR_INVALID_ARGUMENT;
+    if (strcmp(name, "NotFound") == 0) return XRT_ERR_NOT_FOUND;
+    if (strcmp(name, "Conflict") == 0) return XRT_ERR_ALREADY_EXISTS;
+    if (strcmp(name, "Permission") == 0) return XRT_ERR_PERMISSION_DENIED;
+    if (strcmp(name, "Limit") == 0) return XRT_ERR_BUSY;
+    if (strcmp(name, "Cancelled") == 0) return XRT_ERR_CANCELLED;
+    if (strcmp(name, "Timeout") == 0) return XRT_ERR_TIMEOUT;
+    if (strcmp(name, "Unavailable") == 0) return XRT_ERR_UNAVAILABLE;
+    if (strcmp(name, "Internal") == 0) return XRT_ERR_INTERNAL;
+    /* 全名（附录 A） */
+    for (size_t i = 0; i < sizeof(g_error_kind_names) / sizeof(g_error_kind_names[0]); i++) {
+        if (strcmp(name, g_error_kind_names[i]) == 0) {
+            return (xrt_error_kind)i;
+        }
+    }
+    return XRT_ERR_INTERNAL;
+}
+
 /* ---- 分配统计与 GC 指标（S3 §21/§23） ---- */
 
 void xrt_stats_reset(void) { rt_stats_reset(); }

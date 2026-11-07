@@ -34,6 +34,7 @@ type analyzer struct {
 	ambiguous   map[string]bool     // 未消歧的简单名（使用时报 RES-104）
 	tc          *typeCheckCtx       // 类型声明上下文（类字段访问检查用）
 	seenTop     map[string]bool     // 顶层重复声明检测
+	mustUse     string              // 裸 Result 丢弃强度：error/warn/off
 	deps        map[string]*Package // 依赖包符号表（nil＝未提供，用户包导入延后检查）
 	importPaths [][]string          // 源码导入路径（factory 跨包判定）
 
@@ -57,9 +58,20 @@ type Result struct{ a *analyzer }
 // Strategies 返回内存策略判定（S2 §15.1；按声明名排序，确定性）。
 func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.ComputeStrategies(u) }
 
+// Options 是语义分析配置。
+type Options struct {
+	// MustUse 是裸 Result 丢弃的强度：error（默认）/ warn / off。
+	MustUse string
+}
+
 // AnalyzeWith 执行语义分析并返回结果句柄。
 func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
-	return analyzeWith(file, u, nil)
+	return analyzeWith(file, u, nil, nil)
+}
+
+// AnalyzeWithOptions 按配置执行语义分析。
+func AnalyzeWithOptions(file string, u *xfront.CompilationUnit, opts Options) (*Result, []diag.Diagnostic) {
+	return analyzeWith(file, u, nil, &opts)
 }
 
 // collectTypeParamNames 登记本单元所有类型参数名（含类/结构体），
