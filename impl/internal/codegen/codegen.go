@@ -37,6 +37,7 @@ const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 
 static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
 static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+static void xn_print_double(double v) { printf("%g\n", v); }
 static void xn_print_str(rt_string *s) { printf("%.*s\n", (int)s->len, s->bytes); }
 static void xn_print_null(void) { fputs("null\n", stdout); }
 
@@ -45,12 +46,25 @@ typedef struct { int has; int64_t v; } xn_opt_i;
 typedef struct { int has; int v; } xn_opt_b;
 typedef struct { int has; rt_string *v; } xn_opt_s;
 
+typedef int32_t xn_char; /* S1 Char：Unicode 标量值 */
+static rt_string *xn_str_char(int32_t cp) {
+    char buf[8];
+    size_t n = 0;
+    if (cp < 0) { cp = 0xFFFD; }
+    if (cp < 0x80) { buf[n++] = (char)cp; }
+    else if (cp < 0x800) { buf[n++] = (char)(0xC0 | (cp >> 6)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }
+    else if (cp < 0x10000) { buf[n++] = (char)(0xE0 | (cp >> 12)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }
+    else { buf[n++] = (char)(0xF0 | (cp >> 18)); buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }
+    return rt_string_new(buf, n);
+}
+
 static rt_string *xn_str_int(int64_t v) {
     char buf[32];
     int n = snprintf(buf, sizeof(buf), "%lld", (long long)v);
     return rt_string_new(buf, (size_t)n);
 }
 
+static rt_string *xn_str_double(double v) { char buf[64]; int n = snprintf(buf, sizeof(buf), "%g", v); return rt_string_new(buf, (size_t)n); }
 static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? "true" : "false"); }
 
 /* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */
@@ -427,6 +441,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	// S6-03：Process 是内建句柄族（.xfb 无法声明其 Context/出参入口）。
 	g.handleNames["Process"] = true
+	g.resourceErr = importsXDK(u, "sys")
 	g.collectGenerics(u)
 	for _, d := range u.Decls {
 		if fn, ok := d.(*xfront.TopFunc); ok {
@@ -444,9 +459,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		return "", err
 	}
 	// S4-02：xdk.errors 的 ErrorKind 为内建简单枚举（§3.1 14 项，值对齐 XRT_ERR_*）。
-	if importsXDK(u, "errors") {
-		g.ensureErrorKind()
-	}
+	g.ensureErrorKind()
 	if err := g.collectStructs(u); err != nil {
 		return "", err
 	}
@@ -1203,6 +1216,7 @@ type gen struct {
 	inDeinit         bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
 	curEscaped       map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
 	syncElems        map[string]string            // 同步原语局部 → 元素 C 类型（XDK-05）
+	resourceErr      bool                         // 资源工程：Result<_,Error> 用 ErrorKind 值通道（S6-04）
 	taskID           int                          // 任务闭包编号（S5-04）
 	taskSupport      []string                     // 任务 env 支撑代码（按需）
 	taskSupportAdded bool                         // 任务 env 支撑已登记
@@ -1326,9 +1340,23 @@ func (g *gen) resultInfo(name string) (resultInfo, error) {
 	if err != nil {
 		return resultInfo{}, err
 	}
-	eC, err := g.resultCType(args[1])
-	if err != nil {
-		return resultInfo{}, err
+	var eC string
+	if et, ok := args[1].(*xfront.NamedType); ok && typeName(et) == "Error" {
+		// 资源工程（import xdk.sys）以 ErrorKind 值通道交付（E5 rt_std_res ABI）；
+		// 其余工程（text/errors 源码单元）用 Error 协议值。
+		if g.resourceErr {
+			eC = "xrt_error_kind"
+		} else if ct, ok3 := g.protoCType("Error"); ok3 {
+			eC = ct
+		} else {
+			eC = "xn_proto_Error"
+		}
+	} else {
+		var err error
+		eC, err = g.resultCType(args[1])
+		if err != nil {
+			return resultInfo{}, err
+		}
 	}
 	return resultInfo{memberC: mC, errC: eC}, nil
 }
@@ -1356,6 +1384,22 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		return "int32_t", nil
 	case "Bool":
 		return "int", nil
+	case "Double", "Float":
+		return "double", nil
+	case "Char":
+		return "xn_char", nil
+	case "Int8":
+		return "int8_t", nil
+	case "Int16":
+		return "int16_t", nil
+	case "UInt8":
+		return "uint8_t", nil
+	case "UInt16":
+		return "uint16_t", nil
+	case "UInt32":
+		return "uint32_t", nil
+	case "UInt64":
+		return "uint64_t", nil
 	case "String":
 		return "rt_string *", nil
 	case "Result":
@@ -1372,9 +1416,6 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		return "xrt_bytes_obj *", nil
 	case "Text":
 		return "xrt_text *", nil
-	case "Error":
-		// S6-04：资源 API 的 Error 以 ErrorKind 值通道交付（E5 资源 ABI）。
-		return "xrt_error_kind", nil
 	case "List":
 		if len(nt.Args) != 1 {
 			return "", fmt.Errorf("codegen：Result 值 List 需要一个类型实参")
@@ -1407,6 +1448,14 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		return ct, nil
 	}
 	return "", fmt.Errorf("codegen：Result 成员类型 %s 未支持（S4-02）", name)
+}
+
+// typeNameArg 返回 NamedType 实参的简单名（非命名类型返回空）。
+func typeNameArg(t xfront.TypeRef) string {
+	if nt, ok := t.(*xfront.NamedType); ok {
+		return typeName(nt)
+	}
+	return ""
 }
 
 // resultZeroC 生成 Result 成员的零值 C 表达式。
@@ -1621,6 +1670,24 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "int32_t", nil
 		case "Int64":
 			return "int64_t", nil
+		case "Char":
+			return "xn_char", nil
+		case "Double", "Float":
+			return "double", nil
+		case "Float32":
+			return "float", nil
+		case "Int8":
+			return "int8_t", nil
+		case "Int16":
+			return "int16_t", nil
+		case "UInt8":
+			return "uint8_t", nil
+		case "UInt16":
+			return "uint16_t", nil
+		case "UInt32":
+			return "uint32_t", nil
+		case "UInt64":
+			return "uint64_t", nil
 		case "Bool":
 			return "int", nil
 		case "String", "Text":
@@ -2493,12 +2560,18 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return []string{"xn_print_bool(" + v + ");"}, nil
-	case "int64_t", "int32_t":
+	case "int64_t", "int32_t", "xn_char":
 		v, err := s.intExpr(e)
 		if err != nil {
 			return nil, err
 		}
 		return []string{"xn_print_int(" + v + ");"}, nil
+	case "double", "float":
+		v, err := s.intExpr(e)
+		if err != nil {
+			return nil, err
+		}
+		return []string{"xn_print_double(" + v + ");"}, nil
 	}
 	return nil, fmt.Errorf("codegen：print 实参类型 %s 未支持（M4.4a 范围）", t)
 }
@@ -3608,6 +3681,19 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return xn_ret;"), nil
 	}
+	if (s.retC == "double" || s.retC == "float") && n.Value != nil {
+		v, err := s.intExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		pre := append([]string{}, s.pending...)
+		s.pending = nil
+		t := s.tmp()
+		out := append(pre, s.retC+" "+t+" = "+v+";")
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+t+";"), nil
+	}
 	if isIntScalarC(s.retC) && n.Value != nil {
 		v, err := s.intExpr(n.Value)
 		if err != nil {
@@ -3783,6 +3869,20 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 					}
 					piece = s.tmp()
 					lines = append(lines, "rt_string *"+piece+" = xn_str_bool("+v+");")
+				case ec == "double":
+					v, err := s.intExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_double("+v+");")
+				case ec == "xn_char":
+					v, err := s.intExpr(p.Expr)
+					if err != nil {
+						return nil, err
+					}
+					piece = s.tmp()
+					lines = append(lines, "rt_string *"+piece+" = xn_str_char((int32_t)("+v+"));")
 				default:
 					v, err := s.intExpr(p.Expr)
 					if err != nil {
@@ -3850,6 +3950,42 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				return lines, nil
 			}
 		}
+		// 协议方法返回 String（Error.describe 等）。
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && s.g.isProtoC(rc) && rn != "" {
+				expr, retC, err := s.protoDispatch(mem, n.Args)
+				if err != nil {
+					return nil, err
+				}
+				if retC == "rt_string *" {
+					t := s.tmp()
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					return append(out, "rt_string *"+t+" = "+expr+";"), nil
+				}
+			}
+		}
+		// 类方法返回 String（含链式调用接收者，如 Format.build）。
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isClassPtr(rc) && rn != "" {
+				if ci, ok2 := s.g.classOfC(rc); ok2 {
+					if m, ok3 := s.methodFor(ci, mem.Name, n.Args); ok3 {
+						if ret, err2 := s.g.methodRetC(m); err2 == nil && ret == "rt_string *" {
+							call, hit, err3 := s.classMemberValue(rc, rn, mem, n.Args)
+							if err3 != nil {
+								return nil, err3
+							}
+							if hit {
+								tmp := s.tmp()
+								out := append([]string{}, s.pending...)
+								s.pending = nil
+								return append(out, "rt_string *"+tmp+" = "+call+";"), nil
+							}
+						}
+					}
+				}
+			}
+		}
 		// S3-04：Text/StringBuilder.toString() 返回新 String（GC）。
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" {
@@ -3879,6 +4015,14 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 					}
 					tmp := s.tmp()
 					return []string{"rt_string *" + tmp + " = xn_str_bool(" + v + ");"}, nil
+				}
+				if t == "double" {
+					v, err := s.intExpr(n.Args[0])
+					if err != nil {
+						return nil, err
+					}
+					tmp := s.tmp()
+					return []string{"rt_string *" + tmp + " = xn_str_double(" + v + ");"}, nil
 				}
 				if t == "rt_string *" {
 					return s.strExpr(n.Args[0])
@@ -4097,6 +4241,9 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return lines, nil
+	}
+	if c, ok := e.(*xfront.Call); ok {
+		return nil, fmt.Errorf("codegen：String 表达式调用未支持（%d:%d，%T）", c.P.Line, c.P.Col, c.Callee)
 	}
 	return nil, fmt.Errorf("codegen：String 表达式 %T 未支持（M4.1 范围）", e)
 }
@@ -4355,6 +4502,10 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return "1", nil
 		}
 		return "0", nil
+	case *xfront.CharLitExpr:
+		return strconv.FormatInt(int64(n.Rune), 10), nil
+	case *xfront.FloatLitExpr:
+		return n.Text, nil
 	case *xfront.IntLitExpr:
 		v, err := intValue(n)
 		if err != nil {
@@ -4760,7 +4911,7 @@ func retBase(c string) string { return c }
 // isIntScalarC 判断 C 类型是否为整数标量（Int/Int32/Int64；Bool 用 int 表示）。
 func isIntScalarC(c string) bool {
 	switch c {
-	case "int64_t", "int32_t", "int":
+	case "int64_t", "int32_t", "int", "xn_char":
 		return true
 	}
 	return false
@@ -4940,6 +5091,19 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				out = append(out, s.cRef(id.Name))
 				continue
 			}
+			if cl, ok := a.(*xfront.Call); ok {
+				if mem, ok2 := cl.Callee.(*xfront.Member); ok2 {
+					if rn, rc, err := recvCName(mem.X, s); err == nil && strings.HasPrefix(rc, "xn_Result_") {
+						switch mem.Name {
+						case "value":
+							out = append(out, "("+rn+").v")
+							continue
+						case "error":
+							continue
+						}
+					}
+				}
+			}
 			lines, v, err := s.valExpr(a, t)
 			if err != nil {
 				return nil, err
@@ -4962,7 +5126,11 @@ func intValue(n *xfront.IntLitExpr) (int64, error) {
 	for _, suf := range []string{"i", "I", "u", "U", "l", "L"} {
 		text = strings.TrimSuffix(text, suf)
 	}
-	return strconv.ParseInt(text, n.Base, 64)
+	base := n.Base
+	if base == 16 || base == 8 || base == 2 {
+		text = strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(text, "0x"), "0X"), "0o"), "0b")
+	}
+	return strconv.ParseInt(text, base, 64)
 }
 
 func cOp(op string) string { return op }

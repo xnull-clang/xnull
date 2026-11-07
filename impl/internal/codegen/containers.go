@@ -26,6 +26,24 @@ func mangle(c string) (string, error) {
 		return "i", nil
 	case "int":
 		return "b", nil
+	case "uint8_t":
+		return "u8", nil
+	case "uint16_t":
+		return "u16", nil
+	case "uint32_t":
+		return "u32", nil
+	case "uint64_t":
+		return "u64", nil
+	case "int8_t":
+		return "i8", nil
+	case "int16_t":
+		return "i16", nil
+	case "int32_t":
+		return "i32", nil
+	case "double":
+		return "f64", nil
+	case "float":
+		return "f32", nil
 	case "rt_string *":
 		return "s", nil
 	}
