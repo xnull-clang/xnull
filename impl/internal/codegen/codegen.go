@@ -150,7 +150,8 @@ void xdkc_diagnose(const char *bytes, size_t len);
 void xdkc_exit(int64_t code);
 int64_t xdkc_now_mono_ms(void);
 int64_t xdkc_now_wall_ms(void);
-static size_t xn_task_live = 0;
+/* dumpTasks：运行时诊断（非承诺，S6 §4.4）；单行、无堆，计数由调度器维护。 */
+void xdkc_dump_tasks(void);
 static xn_opt_s xn_env_lookup(rt_string *name) {
     xn_opt_s r;
     size_t len = 0;
@@ -158,12 +159,6 @@ static xn_opt_s xn_env_lookup(rt_string *name) {
     if (v == NULL) { r.has = 0; r.v = NULL; }
     else { r.has = 1; r.v = rt_string_new(v, len); }
     return r;
-}
-/* dumpTasks：实现侧诊断（非承诺，S6 §4.4）；仅输出生成侧维护的任务计数。 */
-static void xn_dump_tasks(void) {
-    char buf[64];
-    int n = snprintf(buf, sizeof(buf), "tasks: live=%llu", (unsigned long long)xn_task_live);
-    if (n > 0) { xdkc_diagnose(buf, (size_t)n); }
 }
 
 /* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */
@@ -2215,8 +2210,9 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		}
 	}
 	if id.Name == "dumpTasks" {
-		// S6-02：dumpTasks 实现侧诊断（单行；非承诺）。
-		return []string{"xrt_safepoint();", "xn_dump_tasks();"}, nil
+		// S6-02：dumpTasks 运行时诊断（单行；非承诺）。计数由调度器维护，
+		// 与生成侧任务提交/终结共用同一来源，避免两套计数漂移。
+		return []string{"xrt_safepoint();", "xdkc_dump_tasks();"}, nil
 	}
 	if id.Name == "diagnose" && len(call.Args) == 1 {
 		sl, err := s.strExpr(call.Args[0])

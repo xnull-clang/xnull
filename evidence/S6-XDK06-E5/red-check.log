@@ -1,0 +1,5 @@
+$ xnull check dump.x
+/tmp/xdk06_dump.x:2:21: error[TY-229]: XDK API `dumpTasks` 尚未支持（S6-01）
+  该入口未实现或签名未冻结；见 S6 盘点卡
+exit status 1
+EXIT=1

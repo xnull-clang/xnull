@@ -357,7 +357,6 @@ func (s *scope) emitTaskSpawn(recvName, recvC string, lam *xfront.Lambda, taskC 
 	lines = append(lines, fmt.Sprintf("xrt_task *%s = NULL;", task))
 	lines = append(lines, fmt.Sprintf("int32_t %s = xrt_task_group_spawn(%s, %s, %s, &%s);", rc, recvName, taskBodyName(bodyText), env, task))
 	lines = append(lines, fmt.Sprintf("if (%s != 0) { xrt_fatal(\"task_group_spawn 失败（S5-00 §三）\"); }", rc))
-	lines = append(lines, "xn_task_live++;")
 	lines = append(lines, "xrt_safepoint(); /* 任务 env 发布点（S5-00 §7.6） */")
 	return lines, task, nil
 }
@@ -391,7 +390,6 @@ func (s *scope) emitTaskResult(recvName, recvC, name, resultC string, args []xfr
 	case recvC == "xrt_task *" && name == "join":
 		lines = append(lines, "xrt_task_result "+tr+";")
 		lines = append(lines, "int32_t "+rc+" = xrt_task_join("+recvName+", &"+tr+");")
-		lines = append(lines, "if ("+rc+" == 0 && xn_task_live > 0) { xn_task_live--; }")
 	case recvC == "xrt_task *" && name == "joinDeadline":
 		if len(args) != 1 {
 			return "", fmt.Errorf("codegen：joinDeadline 需要 1 个参数（S5-02）")

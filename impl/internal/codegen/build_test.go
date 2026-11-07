@@ -40,6 +40,7 @@ func TestBuildCCArgsIncludesRuntimeABIAndStd(t *testing.T) {
 		filepath.Join(rt, "rt_task.c"),
 		filepath.Join(rt, "rt_sync.c"),
 		filepath.Join(rt, "rt_std_res.c"),
+		filepath.Join(rt, "rt_std_res_empty.c"),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("cc 参数不符（P-10 要求 xrt_abi.c + rt_std_*.c）\n got: %v\nwant: %v", got, want)

@@ -13,6 +13,7 @@
 
 #include "xrt.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -55,7 +56,10 @@ void xdkc_diagnose(const char *bytes, size_t len) {
 }
 
 void xdkc_exit(int64_t code) {
-    _Exit((int)code); /* 不执行 defer/atexit（S1 §10.3） */
+    /* 先冲刷 stdio 缓冲：exit 只跳过 defer/atexit，不应丢失已产生的输出；
+     * `_Exit` 不运行 atexit 处理器，满足 S1 §10.3。 */
+    fflush(NULL);
+    _Exit((int)code);
 }
 
 int64_t xdkc_now_mono_ms(void) {

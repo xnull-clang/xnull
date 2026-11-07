@@ -44,3 +44,8 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -I. -o /tmp/xnull_test_res_api \
   test_res_api.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c \
   rt_std_res.c rt_std_bytes.c rt_std_text.c rt_std_sys.c "$XNULL_RES_API_C"
 /tmp/xnull_test_res_api
+# 零资源工程 / 手工 cc 测试：rt_std_res_empty.c 弱兜底闭合 xrt_resource_* 符号
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -I. -o /tmp/xnull_test_res_empty \
+  test_res_empty.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c \
+  rt_std_res.c rt_std_res_empty.c rt_std_bytes.c rt_std_text.c
+/tmp/xnull_test_res_empty

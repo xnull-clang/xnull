@@ -1,0 +1,5 @@
+$ xnull run --interp core.x
+s6 runtime
+xnull: 未定义的函数：nowMono
+exit status 1
+EXIT=1

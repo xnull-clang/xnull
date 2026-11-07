@@ -271,6 +271,7 @@ type Interp struct {
 	singleCls      map[string]*xfront.ClassDecl
 	extMethods     map[string][]*xfront.MethodDecl // target 类型名 → 扩展方法（§11）
 	diag           io.Writer                       // 诊断输出通道（report，§4.3）
+	liveTasks      int                             // 解释器在途任务数（dumpTasks 诊断）
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -309,6 +310,8 @@ func RunWithDiag(u *xfront.CompilationUnit, out io.Writer, diag io.Writer, progA
 				code, err = 134, fmt.Errorf("fatal: %s", sig.msg)
 			case runtimeErr:
 				code, err = 1, fmt.Errorf("%s", sig.msg)
+			case exitSignal:
+				code, err = sig.code, nil
 			default:
 				panic(r)
 			}
@@ -1406,6 +1409,9 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		}
 		if id.Name == "wrap" || id.Name == "mapErr" || id.Name == "report" { // S4 §2.3 xdk.errors
 			return in.callErrorsBuiltin(id.Name, n, sc)
+		}
+		if v, ok := in.evalRuntimeBuiltin(id.Name, n, sc); ok { // S6：xdk.runtime 解释器桥
+			return v
 		}
 		if id.Name == "diagnose" { // S6：xdk.runtime.diagnose 解释器桥接（单行、无堆语义）
 			if len(n.Args) != 1 {
