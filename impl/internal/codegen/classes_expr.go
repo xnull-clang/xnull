@@ -246,6 +246,10 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 	switch n := e.(type) {
 	case *xfront.IdentExpr:
 		if n.Name == "self" && s.self != nil {
+			if s.self.value {
+				// 结构体构造器内 self 是值（§3.5），字段访问用 '.'。
+				return s.cRef("self"), strings.TrimSuffix(s.self.ctype, " *"), nil
+			}
 			return s.cRef("self"), s.self.ctype, nil
 		}
 		if n.Name == "super" && s.superT != "" {

@@ -287,6 +287,20 @@ func (s *scope) structValue(e xfront.Expr, tc string) ([]string, string, error) 
 		return s.structValue(n.X, tc)
 	case *xfront.Call:
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+			// 结构体构造：与结构体同名的调用（S2 §3.5）。
+			if ci, isStruct := s.g.structs[id.Name]; isStruct {
+				args, err := s.callArgs(n.Args)
+				if err != nil {
+					return nil, "", err
+				}
+				lines := append([]string{}, s.pending...)
+				s.pending = nil
+				call, err := s.g.structCtorCall(ci, len(n.Args), args)
+				if err != nil {
+					return nil, "", err
+				}
+				return lines, call, nil
+			}
 			if s.self != nil && s.params != nil && !s.params[id.Name] {
 				if _, local := s.locals[id.Name]; !local {
 					if m, ok := s.methodFor(s.self.ci, id.Name, n.Args); ok {

@@ -1,0 +1,9 @@
+--- FAIL: TestS4_02WrapMapErrReport (0.00s)
+    s4_02_test.go:88: 代码生成失败：codegen：Result 错误类型暂仅支持 String（M4.1 范围）
+--- FAIL: TestS4_02ReportContract (0.00s)
+    s4_02_test.go:116: 代码生成失败：codegen：Result 错误类型暂仅支持 String（M4.1 范围）
+--- FAIL: TestS4_02StructErrorAndErrorKind (0.00s)
+    s4_02_test.go:156: 代码生成失败：codegen：Result 错误类型暂仅支持 String（M4.1 范围）
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.702s
+FAIL

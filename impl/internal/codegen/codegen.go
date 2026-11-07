@@ -33,6 +33,7 @@ const prelude = `/* 由 XNull 编译器生成（M4.1 代码生成）。 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
 static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
@@ -141,6 +142,39 @@ static rt_string *xn_concat(rt_string *a, rt_string *b) {
 static void xn_throw(rt_string *msg) {
     fprintf(stderr, "fatal: %.*s\n", (int)msg->len, msg->bytes);
     exit(134);
+}
+
+/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */
+static void xn_report_write(const char *p, size_t n) {
+    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }
+}
+static void xn_report_line(int64_t kind, rt_string *desc) {
+    const char *name = xrt_error_kind_name((xrt_error_kind)kind);
+    char head[96];
+    size_t off = 0;
+    head[off++] = '[';
+    size_t nl = strlen(name);
+    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }
+    memcpy(head + off, name, nl);
+    off += nl;
+    head[off++] = ']';
+    head[off++] = ' ';
+    xn_report_write(head, off);
+    if (desc != NULL) {
+        char chunk[256];
+        size_t i = 0;
+        while (i < desc->len) {
+            size_t n = desc->len - i;
+            if (n > sizeof(chunk)) { n = sizeof(chunk); }
+            for (size_t k = 0; k < n; k++) {
+                char c = desc->bytes[i + k];
+                chunk[k] = (c == '\n' || c == '\r') ? ' ' : c;
+            }
+            xn_report_write(chunk, n);
+            i += n;
+        }
+    }
+    xn_report_write("\n", 1);
 }
 
 /* ---- GC 根帧与安全点（S3-02）------------------------------------------
@@ -355,7 +389,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 			stack[st.Decl] = true
 		}
 	}
-	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
+	g := &gen{results: map[string]string{}, resultArgs: map[string][]xfront.TypeRef{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		classDecls: map[string]*xfront.ClassDecl{},
 		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
@@ -364,6 +398,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
 		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
 		factories: map[string]*factoryInfo{}, policy: policy, stack: stack, stats: stats}
+	g.resultArgs = map[string][]xfront.TypeRef{}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -387,6 +422,10 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	g.registerClassNames(u)
 	if err := g.collectEnums(u); err != nil {
 		return "", err
+	}
+	// S4-02：xdk.errors 的 ErrorKind 为内建简单枚举（§3.1 14 项，值对齐 XRT_ERR_*）。
+	if importsXDK(u, "errors") {
+		g.ensureErrorKind()
 	}
 	if err := g.collectStructs(u); err != nil {
 		return "", err
@@ -635,11 +674,11 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		}
 		sort.Strings(rnames)
 		for _, name := range rnames {
-			member, err := g.resultMemberC(name)
+			info, err := g.resultInfo(name)
 			if err != nil {
 				return "", err
 			}
-			fmt.Fprintf(&b, "typedef struct { int ok; %s v; rt_string *err; } %s;\n", member, name)
+			fmt.Fprintf(&b, "typedef struct { int ok; %s v; %s } %s;\n", info.memberC, cDecl(info.errC, "err"), name)
 		}
 		b.WriteString("\n")
 	}
@@ -1083,6 +1122,7 @@ func (g *gen) genGlobalInit() (string, error) {
 
 type gen struct {
 	results        map[string]string            // Result 实例化名 → v 成员类型
+	resultArgs     map[string][]xfront.TypeRef  // Result 实例化名 → 类型实参（S4-02 任意 E）
 	cs             *containers                  // 容器实例化注册表（M4.4a）
 	fnRet          map[string]string            // 顶层函数名 → 返回 C 类型（类型推断用）
 	classes        map[string]*classInfo        // 类名 → 生成信息（M4.4b）
@@ -1169,7 +1209,9 @@ func typeName(nt *xfront.NamedType) string {
 	return nt.Qual[len(nt.Qual)-1]
 }
 
-func resultName(args []xfront.TypeRef) (string, error) {
+// resultName 由 Result 类型实参生成内联结构体名（§9/§10；S4-02 支持任意 E）。
+// 命名沿用 xn_Result_<V>_<E>；E=String 保持历史名 xn_Result_<V>_String。
+func (g *gen) resultName(args []xfront.TypeRef) (string, error) {
 	if len(args) != 2 {
 		return "", fmt.Errorf("codegen：Result 需要两个类型实参")
 	}
@@ -1178,27 +1220,73 @@ func resultName(args []xfront.TypeRef) (string, error) {
 		return "", fmt.Errorf("codegen：Result 值类型 %T 未支持", args[0])
 	}
 	et, ok := args[1].(*xfront.NamedType)
-	if !ok || typeName(et) != "String" {
-		return "", fmt.Errorf("codegen：Result 错误类型暂仅支持 String（M4.1 范围）")
+	if !ok {
+		return "", fmt.Errorf("codegen：Result 错误类型 %T 未支持（S4-02）", args[1])
 	}
-	tag := typeName(vt)
-	switch tag {
-	case "Int", "Bool", "String", "Int32", "Int64":
-	case "":
+	vtag := typeName(vt)
+	if vtag == "" {
 		return "", fmt.Errorf("codegen：Result 值类型缺少类型名")
 	}
-	return "xn_Result_" + tag + "_String", nil
+	if vtag == "Result" || typeName(et) == "Result" {
+		return "", fmt.Errorf("codegen：Result 不得嵌套 Result（S4 §2.1）")
+	}
+	name := "xn_Result_" + vtag + "_" + typeName(et)
+	if typeName(et) == "String" {
+		name = "xn_Result_" + vtag + "_String"
+	}
+	g.resultArgs[name] = args
+	return name, nil
+}
+
+// resultInfo 解析 Result 实例的 v / err 成员 C 类型。
+type resultInfo struct {
+	memberC string
+	errC    string
+}
+
+func (g *gen) resultInfo(name string) (resultInfo, error) {
+	args := g.resultArgs[name]
+	if args == nil {
+		// 兼容未登记实例（历史代码路径）：按 _String 后缀回退。
+		const pre, suf = "xn_Result_", "_String"
+		if !strings.HasPrefix(name, pre) || !strings.HasSuffix(name, suf) {
+			return resultInfo{}, fmt.Errorf("codegen：未知 Result 类型 %s", name)
+		}
+		tag := strings.TrimSuffix(strings.TrimPrefix(name, pre), suf)
+		mC, err := g.resultCType(&xfront.NamedType{Qual: []string{tag}})
+		if err != nil {
+			return resultInfo{}, err
+		}
+		return resultInfo{memberC: mC, errC: "rt_string *"}, nil
+	}
+	mC, err := g.resultCType(args[0])
+	if err != nil {
+		return resultInfo{}, err
+	}
+	eC, err := g.resultCType(args[1])
+	if err != nil {
+		return resultInfo{}, err
+	}
+	return resultInfo{memberC: mC, errC: eC}, nil
 }
 
 // resultMemberC 由 Result 实例名解析值成员的 C 类型（BND/INT-01）。
 func (g *gen) resultMemberC(resultC string) (string, error) {
-	const pre = "xn_Result_"
-	const suf = "_String"
-	if !strings.HasPrefix(resultC, pre) || !strings.HasSuffix(resultC, suf) {
-		return "", fmt.Errorf("codegen：未知 Result 类型 %s", resultC)
+	info, err := g.resultInfo(resultC)
+	if err != nil {
+		return "", err
 	}
-	tag := strings.TrimSuffix(strings.TrimPrefix(resultC, pre), suf)
-	switch tag {
+	return info.memberC, nil
+}
+
+// resultCType 把 Result 的 V/E 类型引用解析为 C 类型。
+func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
+	nt, ok := t.(*xfront.NamedType)
+	if !ok {
+		return "", fmt.Errorf("codegen：Result 成员类型 %T 未支持（S4-02）", t)
+	}
+	name := typeName(nt)
+	switch name {
 	case "Int", "Int64":
 		return "int64_t", nil
 	case "Int32":
@@ -1207,20 +1295,71 @@ func (g *gen) resultMemberC(resultC string) (string, error) {
 		return "int", nil
 	case "String":
 		return "rt_string *", nil
+	case "Result":
+		return "", fmt.Errorf("codegen：Result 不得嵌套 Result（S4 §2.1）")
+	case "ErrorKind":
+		if ei, ok := g.enums["ErrorKind"]; ok {
+			return ei.ctype, nil
+		}
+		return "int64_t", nil
 	}
-	if ci, ok := g.classOf(tag); ok {
+	if ci, ok := g.classes[name]; ok {
 		return ci.cname + " *", nil
 	}
-	if ci, ok := g.singletons[tag]; ok {
+	if ci, ok := g.singletons[name]; ok {
 		return ci.cname + " *", nil
 	}
-	if ci, ok := g.structs[tag]; ok {
+	if ci, ok := g.structs[name]; ok {
 		return ci.cname, nil
 	}
-	if ei, ok := g.enums[tag]; ok {
+	if ei, ok := g.enums[name]; ok {
 		return ei.ctype, nil
 	}
-	return "", fmt.Errorf("codegen：Result 值类型 %s 未支持", tag)
+	if ct, ok := g.protoCType(name); ok {
+		return ct, nil
+	}
+	return "", fmt.Errorf("codegen：Result 成员类型 %s 未支持（S4-02）", name)
+}
+
+// resultZeroC 生成 Result 成员的零值 C 表达式。
+func (g *gen) resultZeroC(c string) string {
+	if strings.HasSuffix(c, "*") {
+		return "NULL"
+	}
+	if g.isStructC(c) || g.isTupleC(c) {
+		return "(" + c + "){0}"
+	}
+	return "0"
+}
+
+// importsXDK 判断编译单元是否导入了 xdk.<pkg>。
+func importsXDK(u *xfront.CompilationUnit, pkg string) bool {
+	for _, imp := range u.Imports {
+		if strings.Join(imp.Path, ".") == "xdk."+pkg {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureErrorKind 注入 xdk.errors 的内建 ErrorKind 简单枚举（S4 §3.1，值对齐 XRT_ERR_*）。
+func (g *gen) ensureErrorKind() {
+	if _, ok := g.enums["ErrorKind"]; ok {
+		return
+	}
+	items := []string{
+		"InvalidArgument", "NotFound", "AlreadyExists", "PermissionDenied",
+		"Io", "Network", "Timeout", "Cancelled", "Busy", "Unavailable",
+		"DataCorrupted", "Unsupported", "OutOfMemory", "Internal",
+	}
+	ei := &enumInfo{name: "ErrorKind", ctype: "xn_Enum_ErrorKind", simple: true,
+		decl: &xfront.EnumDecl{Name: "ErrorKind"}, values: map[string]int64{}}
+	for i, n := range items {
+		ei.values[n] = int64(i)
+		ei.items = append(ei.items, enumItemInfo{name: n, value: int64(i)})
+	}
+	g.enums["ErrorKind"] = ei
+	g.enumOrder = append(g.enumOrder, "ErrorKind")
 }
 
 // collectAllResults 汇总类/结构体/枚举/单例/工厂方法与局部声明中的 Result 实例。
@@ -1230,7 +1369,7 @@ func (g *gen) collectAllResults(u *xfront.CompilationUnit) error {
 		if !ok || typeName(nt) != "Result" {
 			return nil
 		}
-		name, err := resultName(nt.Args)
+		name, err := g.resultName(nt.Args)
 		if err != nil {
 			return err
 		}
@@ -1302,7 +1441,7 @@ func (g *gen) collectAllResults(u *xfront.CompilationUnit) error {
 func (g *gen) collectResult(fn *xfront.TopFunc) error {
 	if !fn.Void {
 		if nt, ok := fn.Ret.(*xfront.NamedType); ok && typeName(nt) == "Result" {
-			name, err := resultName(nt.Args)
+			name, err := g.resultName(nt.Args)
 			if err != nil {
 				return err
 			}
@@ -1325,7 +1464,7 @@ func (g *gen) collectStmt(st xfront.Stmt) error {
 	switch n := st.(type) {
 	case *xfront.LocalDeclStmt:
 		if nt, ok := n.Type.(*xfront.NamedType); ok && typeName(nt) == "Result" {
-			name, err := resultName(nt.Args)
+			name, err := g.resultName(nt.Args)
 			if err != nil {
 				return err
 			}
@@ -1447,7 +1586,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			}
 			return mapName(kc, vc) + " *", nil
 		case "Result":
-			return resultName(n.Args)
+			return g.resultName(n.Args)
 		default:
 			if ci, ok := g.singletons[typeName(n)]; ok {
 				return ci.cname + " *", nil
@@ -1941,6 +2080,18 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	}
 	if id.Name == "print" {
 		return s.emitPrint(call.Args[0])
+	}
+	// S4-02：report(r) 语句形态（边界观测；返回原 Result 但丢弃）。
+	if id.Name == "report" && len(call.Args) == 1 {
+		if t, err := s.exprType(call.Args[0]); err == nil && strings.HasPrefix(t, "xn_Result_") {
+			v, err := s.emitResultReport(call.Args[0], t)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, "(void)"+v+";"), nil
+		}
 	}
 	if id.Name == "str" {
 		return nil, fmt.Errorf("codegen：str(...) 结果被丢弃（sema 应拒绝）")
@@ -3174,6 +3325,19 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return "+t+";"), nil
 	}
+	// Result 返回（内联值）：Ok/Err/wrap/mapErr/report/变量/字段/调用统一走 resultExpr。
+	if strings.HasPrefix(s.retC, "xn_Result_") && n.Value != nil {
+		v, err := s.resultExpr(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		out = append(out, "xn_ret = "+v+";")
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return xn_ret;"), nil
+	}
 	if isIntScalarC(s.retC) && n.Value != nil {
 		v, err := s.intExpr(n.Value)
 		if err != nil {
@@ -3585,8 +3749,12 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok && mem.Name == "error" {
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				t := s.tmp()
-				return []string{"rt_string *" + t + " = xn_result_error_copy_rt(" + recv.Name + ".err);"}, nil
+				if rc, ok3 := s.localCType(recv.Name); ok3 && strings.HasPrefix(rc, "xn_Result_") {
+					if info, err := s.g.resultInfo(rc); err == nil && info.errC == "rt_string *" {
+						t := s.tmp()
+						return []string{"rt_string *" + t + " = xn_result_error_copy_rt(" + recv.Name + ".err);"}, nil
+					}
+				}
 			}
 		}
 	case *xfront.Index:
@@ -3679,11 +3847,17 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			case "Ok":
 				return s.resultOkValue(resultC, n.Args[0])
 			case "Err":
-				sv, err := s.strExprOne(n.Args[0])
-				if err != nil {
-					return "", err
+				return s.resultErrExpr(resultC, n.Args[0])
+			case "wrap":
+				return s.emitResultWrap(n, resultC)
+			case "mapErr":
+				return s.emitResultMapErr(n, resultC)
+			case "report":
+				if len(n.Args) != 1 {
+					return "", fmt.Errorf("codegen：report 需要 1 个参数（S4-02）")
 				}
-				return "(" + resultC + "){0, 0, " + sv + "}", nil
+				out, err := s.emitResultReport(n.Args[0], resultC)
+				return out, err
 			}
 			args, err := s.callArgs(n.Args)
 			if err != nil {
@@ -3788,7 +3962,11 @@ func (s *scope) resultOkValue(resultC string, e xfront.Expr) (string, error) {
 		}
 		expr = v
 	}
-	return "(" + resultC + "){1, " + expr + ", NULL}", nil
+	info, err := s.g.resultInfo(resultC)
+	if err != nil {
+		return "", err
+	}
+	return "(" + resultC + "){1, " + expr + ", " + s.g.resultZeroC(info.errC) + "}", nil
 }
 
 // classValueExpr 生成类引用值表达式（+1 产物 owns=true）。
@@ -4196,6 +4374,8 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					return "(!(" + rn + ").ok)", nil
 				case "value":
 					return "(" + rn + ").v", nil
+				case "error":
+					return "(" + rn + ").err", nil
 				case "unwrapOr":
 					arg, err := s.intExpr(n.Args[0])
 					if err != nil {
@@ -4278,6 +4458,21 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 			if hit {
 				return v, false, nil // 容器元素借用
 			}
+		}
+		if strings.HasPrefix(rc, "xn_Result_") && (c.Name == "error" || c.Name == "value") {
+			info, err := s.g.resultInfo(rc)
+			if err != nil {
+				return "", false, err
+			}
+			field, eC := "v", info.memberC
+			if c.Name == "error" {
+				field, eC = "err", info.errC
+			}
+			expr := "(" + rn + ")." + field
+			if isClassPtr(eC) && !s.g.classIsGC(eC) {
+				return "((" + eC + ")rt_retain((void *)" + expr + "))", true, nil
+			}
+			return expr, false, nil
 		}
 		if isClassPtr(rc) || s.g.isDataEnumC(rc) {
 			v, hit, err := s.classMemberValue(rc, rn, c, cl.Args)

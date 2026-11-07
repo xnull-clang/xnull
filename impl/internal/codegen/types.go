@@ -227,7 +227,11 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 					}
 					return mC, nil
 				case "error":
-					return "rt_string *", nil
+					info, err := s.g.resultInfo(recvC)
+					if err != nil {
+						return "", err
+					}
+					return info.errC, nil
 				case "unwrapOr":
 					mC, err := s.g.resultMemberC(recvC)
 					if err != nil {

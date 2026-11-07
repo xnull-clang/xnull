@@ -1,0 +1,8 @@
+=== RUN   TestS4_02WrapMapErrReport
+--- PASS: TestS4_02WrapMapErrReport (1.41s)
+=== RUN   TestS4_02ReportContract
+--- PASS: TestS4_02ReportContract (1.40s)
+=== RUN   TestS4_02StructErrorAndErrorKind
+--- PASS: TestS4_02StructErrorAndErrorKind (1.39s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	4.882s
