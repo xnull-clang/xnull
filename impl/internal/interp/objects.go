@@ -94,16 +94,30 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	selfScope := newScope(sc)
 	selfScope.define("self", &Value{K: vObj, O: obj})
 
-	// 主构造器：参数个数匹配时绑定同名字段（final Int id 形态）
-	if p := cls.Primary; p != nil && len(p.Params) > 0 {
-		if len(n.Args) != len(p.Params) {
-			panic(runtimeErr{fmt.Sprintf("类 %s 的主构造器需要 %d 个参数，实际 %d 个", name, len(p.Params), len(n.Args))})
+	// 构造器选择（§6.3）：头部主构造器，或显式 Ctors 中参数个数匹配者。
+	args := make([]*Value, len(n.Args))
+	for i, a := range n.Args {
+		args[i] = in.eval(a, sc)
+	}
+	var ctor *xfront.CtorDecl
+	if p := cls.Primary; p != nil {
+		if len(args) != len(p.Params) {
+			panic(runtimeErr{fmt.Sprintf("类 %s 的主构造器需要 %d 个参数，实际 %d 个", name, len(p.Params), len(args))})
 		}
 		for i, prm := range p.Params {
-			obj.fields[prm.Name] = in.eval(n.Args[i], sc)
+			obj.fields[prm.Name] = args[i]
 		}
-	} else if len(n.Args) > 0 {
-		panic(runtimeErr{"类 " + name + " 没有带参构造器（§6.1）"})
+		ctor = p
+	} else {
+		for _, c := range cls.Ctors {
+			if len(c.Params) == len(args) {
+				ctor = c
+				break
+			}
+		}
+		if ctor == nil && len(args) > 0 {
+			panic(runtimeErr{fmt.Sprintf("类 %s 没有匹配 %d 个参数的构造器（§6.3）", name, len(args))})
+		}
 	}
 	// 字段初值（无初值的字段保留零值/主构造器绑定值）
 	for _, c := range chain {
@@ -120,7 +134,43 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 			obj.fields[f.Name] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
 		}
 	}
+	// 构造器体：字段初始化式之后执行（§6.5）。
+	if ctor != nil && ctor.Body != nil {
+		in.execCtorBody(obj, ctor, args)
+	}
 	return &Value{K: vObj, O: obj}
+}
+
+// selfField 在 self 当前对象上解析裸字段名（§5.8：局部/参数优先，其次字段）。
+func (in *Interp) selfField(sc *scope, name string) (*Value, bool) {
+	sv, ok := sc.lookup("self")
+	if !ok || sv.K != vObj {
+		return nil, false
+	}
+	if v, ok := sv.O.fields[name]; ok {
+		return v, true
+	}
+	if v, ok := sv.O.fields["_"+name]; ok {
+		return v, true
+	}
+	return nil, false
+}
+
+// writeSelfField 写 self 上的裸字段名（§5.8/§7.4）。
+func (in *Interp) writeSelfField(sc *scope, name string, v *Value) bool {
+	sv, ok := sc.lookup("self")
+	if !ok || sv.K != vObj {
+		return false
+	}
+	if _, ok := sv.O.fields[name]; ok {
+		sv.O.fields[name] = v
+		return true
+	}
+	if _, ok := sv.O.fields["_"+name]; ok {
+		sv.O.fields["_"+name] = v
+		return true
+	}
+	return false
 }
 
 // primaryParam 判断字段是否为主构造器参数绑定。
