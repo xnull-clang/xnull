@@ -30,11 +30,12 @@ type xdkFuncSig struct {
 // xdkFuncSigs 是 XDK 顶层函数签名表。键为源码中的简单名（包导入后绑定）。
 var xdkFuncSigs = map[string]xdkFuncSig{
 	// ---- xdk.runtime（S6 §4.4） ----
-	"diagnose": {"runtime", []string{"String"}, "void", false},
-	"exit":     {"runtime", []string{"Int"}, "void", false},
-	"nowMono":  {"runtime", nil, "Int", false},
-	"nowWall":  {"runtime", nil, "Int", false},
-	"env":      {"runtime", []string{"String"}, "String?", false},
+	"diagnose":  {"runtime", []string{"String"}, "void", false},
+	"exit":      {"runtime", []string{"Int"}, "void", false},
+	"nowMono":   {"runtime", nil, "Int", false},
+	"nowWall":   {"runtime", nil, "Int", false},
+	"env":       {"runtime", []string{"String"}, "String?", false},
+	"dumpTasks": {"runtime", nil, "void", false},
 
 	// ---- xdk.sys：文件/目录/存在性（S6 §4.7；当前绑定面） ----
 	"fileOpenRead":  {"sys", []string{"String"}, "File", false},

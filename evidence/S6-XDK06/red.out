@@ -1,0 +1,7 @@
+--- FAIL: TestXDK06DumpTasksSignature (0.00s)
+    s6_xdk06_test.go:7: 不应有语义诊断：[TY-229@XDK API `dumpTasks` 尚未支持（S6-01）]
+--- FAIL: TestXDK06CollectionsMethods (0.00s)
+    s6_xdk06_test.go:20: 不应有语义诊断：[TY-229@XDK 类型 `RingBuffer` 的成员 `isEmpty` 尚未支持（S6-01） TY-229@XDK 类型 `RingBuffer` 的成员 `isFull` 尚未支持（S6-01） TY-229@XDK 类型 `RingBuffer` 的成员 `length` 尚未支持（S6-01） TY-229@XDK 类型 `RingBuffer` 的成员 `push` 尚未支持（S6-01） TY-229@XDK 类型 `RingBuffer` 的成员 `pop` 尚未支持（S6-01） TY-229@XDK 类型 `RingBuffer` 的成员 `clear` 尚未支持（S6-01）]
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	1.343s
+FAIL
