@@ -292,16 +292,13 @@ func TestEmitSupportReportsUnsupported(t *testing.T) {
 	if err != nil || len(diags) != 0 {
 		t.Fatalf("Load 失败：%v %v", err, codeList(diags))
 	}
+	// S7-01：Bytes .transfer/.reclaim 已纳入调用点编组，不再记为未覆盖。
 	sup := reg.EmitSupport()
-	if len(sup.Problems) == 0 {
-		t.Fatalf("Bytes 移交形态应记为未覆盖，实际无 Problems")
+	if len(sup.Problems) != 0 {
+		t.Fatalf("Bytes 移交/归还应已覆盖，Problems=%v", sup.Problems)
 	}
-	joined := strings.Join(sup.Problems, "；")
-	if !strings.Contains(joined, "ffiSqliteExec") {
-		t.Fatalf("未覆盖入口应在 Problems 中指明：%v", sup.Problems)
-	}
-	if strings.Contains(sup.Text, "xn_ffi_ffiSqliteExec(") {
-		t.Fatalf("未覆盖入口不得生成静默占位函数")
+	if !strings.Contains(sup.Text, "xn_ffi_ffiSqliteExec(") {
+		t.Fatalf("Bytes 移交入口应生成包装函数")
 	}
 }
 

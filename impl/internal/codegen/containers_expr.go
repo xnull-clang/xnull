@@ -307,6 +307,22 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 			out = append(out, "xn_opt_s "+t+" = xn_env_lookup("+lastVar(sl)+");")
 			return out, t, nil
 		}
+		// 类方法返回 T?（RingBuffer.pop / OrderedMap.get / BTreeMap.get 等）。
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && isClassPtr(rc) {
+				call, hit, err := s.classMemberValue(rc, rn, mem, n.Args)
+				if err != nil {
+					return nil, "", err
+				}
+				if hit {
+					out := append([]string{}, s.pending...)
+					s.pending = nil
+					t := s.tmp()
+					out = append(out, optC+" "+t+" = "+call+";")
+					return out, t, nil
+				}
+			}
+		}
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
 			return s.optWrap(n, optC)
@@ -315,8 +331,14 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
+		if isContainerC(recvC) {
+			if t, err := s.exprType(n); err == nil && t != "" && !strings.HasPrefix(t, "xn_opt_") {
+				return s.optWrap(n, optC)
+			}
+		}
 		if !strings.HasPrefix(recvC, "xn_map_") || mem.Name != "get" {
-			return nil, "", fmt.Errorf("codegen：可空表达式成员 %s 未支持（M6-B0-05 范围）", mem.Name)
+			t, _ := s.exprType(n)
+			return nil, "", fmt.Errorf("codegen：可空表达式成员 %s 未支持（recv=%s t=%s，M6-B0-05 范围）", mem.Name, recvC, t)
 		}
 		k, _ := mapTypes(recvC)
 		kk, lines, err := s.elemValue(n.Args[0], k)

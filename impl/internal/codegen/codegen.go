@@ -431,6 +431,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		factories: map[string]*factoryInfo{}, policy: policy, stack: stack, stats: stats}
 	g.resultArgs = map[string][]xfront.TypeRef{}
 	g.syncElems = map[string]string{}
+	g.fnTypes = map[string]bool{}
+	g.fnTypeSig = map[string]string{}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -666,6 +668,24 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	// 容器/类/函数定义之前（S3-05：元组引用元素）。
 	// 协议类型与 vtable 对象前缀（S2 §4/§5.7）。
 	g.emitProtocolTypes(&b)
+	// XDK-07：函数指针 typedef（按需登记；类字段/构造参数/间接调用共用）。
+	if len(g.fnTypes) > 0 {
+		names := make([]string, 0, len(g.fnTypes))
+		for n := range g.fnTypes {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			seg := strings.SplitN(g.fnTypeSig[n], "|", 2)
+			ret, params := seg[0], ""
+			if len(seg) == 2 {
+				params = seg[1]
+			}
+			b.WriteString("typedef " + ret + " (*" + n + ")(" + params + ");\n")
+		}
+		b.WriteString("\n")
+	}
+
 	// 枚举 typedef / 数据枚举结构与项全局（S2 §8）。
 	if err := g.emitEnumTypes(&b); err != nil {
 		return "", err
@@ -1216,6 +1236,8 @@ type gen struct {
 	inDeinit         bool                         // 正在发射 deinit 体（禁安全点：清扫期间不可重入收集）
 	curEscaped       map[string]bool              // 当前函数体内已发布的局部名（S3-03 安全性）
 	syncElems        map[string]string            // 同步原语局部 → 元素 C 类型（XDK-05）
+	fnTypes          map[string]bool              // 函数指针 typedef（XDK-07）
+	fnTypeSig        map[string]string            // typedef 名 → 签名
 	resourceErr      bool                         // 资源工程：Result<_,Error> 用 ErrorKind 值通道（S6-04）
 	taskID           int                          // 任务闭包编号（S5-04）
 	taskSupport      []string                     // 任务 env 支撑代码（按需）
@@ -1398,7 +1420,7 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 		return "uint16_t", nil
 	case "UInt32":
 		return "uint32_t", nil
-	case "UInt64":
+	case "UInt64", "UInt":
 		return "uint64_t", nil
 	case "String":
 		return "rt_string *", nil
@@ -1662,6 +1684,8 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		return "", fmt.Errorf("codegen：类型后缀 %v 未支持（M4.4a 范围）", n.Suffixes)
 	case *xfront.TupleTypeRef:
 		return g.tupleTypeFromElems(n.Elems)
+	case *xfront.FuncTypeRef:
+		return g.funcTypeC(n)
 	case *xfront.NamedType:
 		switch typeName(n) {
 		case "Int":
@@ -1686,7 +1710,7 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "uint16_t", nil
 		case "UInt32":
 			return "uint32_t", nil
-		case "UInt64":
+		case "UInt64", "UInt":
 			return "uint64_t", nil
 		case "Bool":
 			return "int", nil
@@ -2560,12 +2584,12 @@ func (s *scope) emitPrint(e xfront.Expr) ([]string, error) {
 			return nil, err
 		}
 		return []string{"xn_print_bool(" + v + ");"}, nil
-	case "int64_t", "int32_t", "xn_char":
+	case "int64_t", "int32_t", "xn_char", "uint64_t", "uint32_t", "uint16_t", "uint8_t", "int8_t", "int16_t":
 		v, err := s.intExpr(e)
 		if err != nil {
 			return nil, err
 		}
-		return []string{"xn_print_int(" + v + ");"}, nil
+		return []string{"xn_print_int((int64_t)(" + v + "));"}, nil
 	case "double", "float":
 		v, err := s.intExpr(e)
 		if err != nil {
@@ -2901,6 +2925,30 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 	if isContainerC(tc) {
 		if n.Init == nil {
 			return nil, fmt.Errorf("codegen：容器局部声明需要初始化（M4.4a 范围）")
+		}
+		if na, ok := n.Init.(*xfront.NewArray); ok {
+			lines, v, err := s.arrayNewExpr(na, tc)
+			if err != nil {
+				return nil, err
+			}
+			s.locals[n.Name] = tc
+			return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+		}
+		if cl, ok := n.Init.(*xfront.Call); ok {
+			if mem, ok2 := cl.Callee.(*xfront.Member); ok2 {
+				if rn, rc, err := recvCName(mem.X, s); err == nil && isClassPtr(rc) {
+					call, hit, err := s.classMemberValue(rc, rn, mem, cl.Args)
+					if err != nil {
+						return nil, err
+					}
+					if hit {
+						out := append([]string{}, s.pending...)
+						s.pending = nil
+						s.locals[n.Name] = tc
+						return append(out, tc+" "+n.Name+" = "+call+";"), nil
+					}
+				}
+			}
 		}
 		lines, v, err := s.valExpr(n.Init, tc)
 		if err != nil {
@@ -3546,6 +3594,36 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return;"), nil
 	}
+	// XDK-07：可空返回（T?）：null → 零值；值 → optWrap。
+	if strings.HasPrefix(s.retC, "xn_opt_") && n.Value != nil {
+		if _, isNull := n.Value.(*xfront.NullLit); isNull {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return ("+s.retC+"){0, 0};"), nil
+		}
+		lines, v, err := s.optExpr(n.Value, s.retC)
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, s.pending...)
+		s.pending = nil
+		out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+		s.returned = true
+		return append(out, "return "+v+";"), nil
+	}
+	// XDK-07：容器/数组返回（keysArray/valuesArray 等，GC 容器指针移交）。
+	if isContainerC(s.retC) && n.Value != nil {
+		if id, ok := n.Value.(*xfront.IdentExpr); ok {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return "+s.cRef(id.Name)+";"), nil
+		}
+	}
 	if s.g.isTupleC(s.retC) && n.Value != nil {
 		lines, v, err := s.tupleExpr(n.Value, s.retC)
 		if err != nil {
@@ -3695,6 +3773,18 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		return append(out, "return "+t+";"), nil
 	}
 	if isIntScalarC(s.retC) && n.Value != nil {
+		// XDK-07：可空变量在判空后按值返回（T? → T 的显式收窄）。
+		if lt, err := s.exprType(n.Value); err == nil && strings.HasPrefix(lt, "xn_opt_") {
+			v, err := s.intExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return ("+s.retC+")(("+v+").v);"), nil
+		}
 		v, err := s.intExpr(n.Value)
 		if err != nil {
 			return nil, err
@@ -5000,9 +5090,23 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 	var out []string
 	for _, a := range args {
+		if lam, ok := a.(*xfront.Lambda); ok {
+			name, err := s.emitLambdaFn(lam)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, name)
+			continue
+		}
 		t, err := s.exprType(a)
 		if err != nil {
 			return nil, err
+		}
+		if strings.HasPrefix(t, "xn_fn_") {
+			if id, ok := a.(*xfront.IdentExpr); ok {
+				out = append(out, s.cRef(id.Name))
+				continue
+			}
 		}
 		switch {
 		case t == "rt_string *":

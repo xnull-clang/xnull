@@ -123,6 +123,37 @@ func UnsupportedFFIEntries(reg *ffi.Registry) []string {
 }
 
 // ffiSupported 校验入口形态是否在 P-09 本轮覆盖面内（B0-07c：handle/Bytes/@errorCode/Int32/Int64）。
+// ffiScalarC 把 S7 标量名映射为 C 类型（S7 §3.2）。
+func ffiScalarC(name string) (string, bool) {
+	switch name {
+	case "Int", "Int64":
+		return "int64_t", true
+	case "UInt", "UInt64":
+		return "uint64_t", true
+	case "Int8":
+		return "int8_t", true
+	case "Int16":
+		return "int16_t", true
+	case "Int32":
+		return "int32_t", true
+	case "UInt8":
+		return "uint8_t", true
+	case "UInt16":
+		return "uint16_t", true
+	case "UInt32":
+		return "uint32_t", true
+	case "Float", "Float64", "Double":
+		return "double", true
+	case "Float32":
+		return "float", true
+	case "Bool":
+		return "uint8_t", true
+	case "Char":
+		return "uint32_t", true
+	}
+	return "", false
+}
+
 func ffiSupported(e ffi.Entry) error {
 	isClose := e.ErrorCodeRet && e.CloseOf != ""
 	// 错误码通道（S7 §7.1）：
@@ -147,12 +178,10 @@ func ffiSupported(e ffi.Entry) error {
 	}
 	if !isClose {
 		switch e.Ret.Kind {
-		case ffi.KindVoid, ffi.KindString, ffi.KindHandle:
+		case ffi.KindVoid, ffi.KindString, ffi.KindText, ffi.KindHandle:
 		case ffi.KindScalar:
-			switch e.Ret.Name {
-			case "Int", "Int32", "Int64", "Bool":
-			default:
-				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 P-09（仅 Int/Int32/Int64/Bool）", e.Name, e.Ret.Name)
+			if _, ok := ffiScalarC(e.Ret.Name); !ok {
+				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
 			}
 		default:
 			return fmt.Errorf("codegen：FFI 入口 %s 的返回类型 %s 未纳入 P-09（仅 void/Int/String/handle）", e.Name, e.Ret.String())
@@ -161,14 +190,12 @@ func ffiSupported(e ffi.Entry) error {
 	for _, p := range e.Params {
 		switch p.Type.Kind {
 		case ffi.KindScalar:
-			switch p.Type.Name {
-			case "Int", "Int32", "Int64", "Bool":
-			default:
-				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 P-09（仅 Int/Int32/Int64/Bool）", e.Name, p.Name, p.Type.Name)
+			if _, ok := ffiScalarC(p.Type.Name); !ok {
+				return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 标量 %s 未纳入 S7-01", e.Name, p.Name, p.Type.Name)
 			}
 		case ffi.KindBytes:
-			// B0-07c：Bytes 形参按 (data, len) 借出；包装层已做 canary 进出。
-		case ffi.KindString, ffi.KindHandle:
+			// S7-01：borrow 走 canary；transfer/reclaim 显式所有权转移。
+		case ffi.KindString, ffi.KindText, ffi.KindHandle, ffi.KindLayout, ffi.KindArray:
 		default:
 			return fmt.Errorf("codegen：FFI 入口 %s 的参数 %s 类型 %s 未纳入 P-09（仅 Int/String/handle/Bytes）", e.Name, p.Name, p.Type.String())
 		}
@@ -179,18 +206,31 @@ func ffiSupported(e ffi.Entry) error {
 func ffiParamXType(p ffi.Param) (xfront.TypeRef, error) {
 	switch p.Type.Kind {
 	case ffi.KindScalar:
-		switch p.Type.Name {
-		case "Int", "Int32", "Int64", "Bool":
+		if _, ok := ffiScalarC(p.Type.Name); ok {
 			return xfrontNamedType(p.Type.Name), nil
 		}
 	case ffi.KindString:
 		return xfrontStringType(), nil
+	case ffi.KindText:
+		return xfrontNamedType("Text"), nil
 	case ffi.KindBytes:
 		return xfrontNamedType("Bytes"), nil
-	case ffi.KindHandle:
+	case ffi.KindLayout:
 		return xfrontNamedType(p.Type.Name), nil
+	case ffi.KindArray:
+		if p.Type.Elem == nil {
+			return nil, fmt.Errorf("参数 %s 数组元素缺失", p.Name)
+		}
+		base, err := ffiParamXType(ffi.Param{Name: p.Name, Type: *p.Type.Elem})
+		if err != nil {
+			return nil, err
+		}
+		return &xfront.SuffixedType{Base: base, Suffixes: []string{"[]"}}, nil
+	case ffi.KindHandle:
+		// 句柄参数可为空（out/.transfer 与关闭失败路径统一以 null 表示）。
+		return &xfront.SuffixedType{Base: xfrontNamedType(p.Type.Name), Suffixes: []string{"?"}}, nil
 	}
-	return nil, fmt.Errorf("参数 %s 类型 %s 未纳入 P-09", p.Name, p.Type.String())
+	return nil, fmt.Errorf("参数 %s 类型 %s 未纳入 S7-01", p.Name, p.Type.String())
 }
 
 func xfrontIntType() xfront.TypeRef {
@@ -311,6 +351,8 @@ func ffiRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
 		return xfrontNamedType(e.Ret.Name), false, nil
 	case ffi.KindString:
 		return xfrontStringType(), false, nil
+	case ffi.KindText:
+		return xfrontNamedType("Text"), false, nil
 	case ffi.KindHandle:
 		return xfrontNamedType(e.Ret.Name), false, nil
 	}
@@ -359,13 +401,70 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 			s.pending = nil
 			parts = append(parts, v)
 		case ffi.KindBytes:
-			// S7 §3.4 借用：只传 data/len 视图，不转移所有权。
+			lease := ffi.LeaseNone
+			if i < len(e.Lease) {
+				lease = e.Lease[i]
+			}
 			id, ok := arg.(*xfront.IdentExpr)
 			if !ok {
-				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 Bytes 实参仅支持变量（B0-07c 范围），got %T", e.Name, arg)
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 Bytes 实参必须是变量（S7 §4.2），got %T", e.Name, arg)
 			}
 			b := s.cRef(id.Name)
 			parts = append(parts, "xrt_bytes_data("+b+")", "xrt_bytes_len("+b+")")
+			_ = lease
+		case ffi.KindText:
+			lease := ffi.LeaseNone
+			if i < len(e.Lease) {
+				lease = e.Lease[i]
+			}
+			if lease == ffi.LeaseTransfer || lease == ffi.LeaseClaim {
+				return nil, "", fmt.Errorf("codegen：Text %s 的移交/归还不可编组（S7 §3.4）", p.Name)
+			}
+			tl, vt, err := s.textExpr(arg)
+			if err != nil {
+				return nil, "", err
+			}
+			lines = append(lines, tl...)
+			xt := s.tmp()
+			lines = append(lines, "rt_string *"+xt+" = xrt_text_to_string("+vt+");")
+			parts = append(parts, xt+"->bytes", xt+"->len")
+		case ffi.KindLayout:
+			ct := "xn_Struct_" + p.Type.Name
+			expr, err := s.intExpr(arg)
+			if err != nil {
+				return nil, "", err
+			}
+			_ = expr
+			lines = append(lines, s.pending...)
+			s.pending = nil
+			sl, v, err := s.structValue(arg, ct)
+			if err != nil {
+				return nil, "", err
+			}
+			lines = append(lines, sl...)
+			t := s.tmp()
+			lines = append(lines, ct+" "+t+" = "+v+";")
+			parts = append(parts, "(xn_layout_"+p.Type.Name+" *)&"+t)
+		case ffi.KindArray:
+			if p.Type.Elem == nil {
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 数组元素缺失（S7 §3.5）", e.Name)
+			}
+			elemC, ok := ffiScalarC(p.Type.Elem.Name)
+			if !ok {
+				return nil, "", fmt.Errorf("codegen：数组元素 %s 不可编组（S7 §3.5）", p.Type.Elem.String())
+			}
+			if err := s.g.cs.needArr(elemC); err != nil {
+				return nil, "", err
+			}
+			arrC := arrName(elemC) + " *"
+			al, v, err := s.valExpr(arg, arrC)
+			if err != nil {
+				return nil, "", err
+			}
+			t := s.tmp()
+			lines = append(lines, al...)
+			lines = append(lines, arrC+" "+t+" = "+v+";")
+			parts = append(parts, t+"->data", "(size_t)"+t+"->len")
 		case ffi.KindString:
 			// .borrow 借用：只传字节视图，不 retain（ffi-contract §5.2）。
 			// 字面量/表达式实参先生成 owned 临时，调用后释放。
@@ -385,9 +484,18 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 		case ffi.KindHandle:
 			id, ok := arg.(*xfront.IdentExpr)
 			if !ok {
-				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 handle 实参仅支持变量（B0-07c 范围），got %T", e.Name, arg)
+				return nil, "", fmt.Errorf("codegen：FFI 入口 %s 的 handle 实参必须是变量（S7 §4.2），got %T", e.Name, arg)
 			}
-			parts = append(parts, s.cRef(id.Name))
+			lease := ffi.LeaseNone
+			if i < len(e.Lease) {
+				lease = e.Lease[i]
+			}
+			if lease == ffi.LeaseTransfer {
+				// .transfer 句柄 out：包装层经 xrt_handle ** 写回。
+				parts = append(parts, "&"+s.cRef(id.Name))
+			} else {
+				parts = append(parts, s.cRef(id.Name))
+			}
 		default:
 			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 参数 %s 类型未纳入 P-09", e.Name, p.Name)
 		}
@@ -412,18 +520,19 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	case ffi.KindVoid:
 	case ffi.KindScalar:
 		out = s.tmp()
-		switch e.Ret.Name {
-		case "Bool":
-			lines = append(lines, "uint8_t "+out+" = 0;")
-		case "Int32":
-			lines = append(lines, "int32_t "+out+" = 0;")
-		default:
-			lines = append(lines, "int64_t "+out+" = 0;")
+		cT, ok := ffiScalarC(e.Ret.Name)
+		if !ok {
+			return nil, "", fmt.Errorf("codegen：FFI 入口 %s 返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
 		}
+		lines = append(lines, cT+" "+out+" = 0;")
 		parts = append(parts, "&"+out)
 	case ffi.KindString:
 		out = s.tmp()
 		lines = append(lines, "rt_string *"+out+" = NULL;")
+		parts = append(parts, "&"+out)
+	case ffi.KindText:
+		out = s.tmp()
+		lines = append(lines, "xrt_text *"+out+" = NULL;")
 		parts = append(parts, "&"+out)
 	case ffi.KindHandle:
 		out = s.tmp()

@@ -370,8 +370,24 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 	if !ok {
 		return "", false, nil
 	}
-	if f, ok := ci.fieldOf(mem.Name); ok && len(args) == 0 {
-		return s.g.fieldReadExpr(f, recvName+"->"+f.cname), true, nil
+	if f, ok := ci.fieldOf(mem.Name); ok {
+		if strings.HasPrefix(f.ctype, "xn_fn_") {
+			parts := make([]string, 0, len(args))
+			for _, a := range args {
+				v, err := s.intExpr(a)
+				if err != nil {
+					return "", true, err
+				}
+				parts = append(parts, v)
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			_ = out
+			return recvName + "->" + f.cname + "(" + strings.Join(parts, ", ") + ")", true, nil
+		}
+		if len(args) == 0 {
+			return s.g.fieldReadExpr(f, recvName+"->"+f.cname), true, nil
+		}
 	}
 	if m, ok := s.methodFor(ci, mem.Name, args); ok {
 		call, err := s.methodCall(ci, m, recvName, args)

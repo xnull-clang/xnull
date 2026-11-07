@@ -33,8 +33,8 @@ FFI-07	internal/codegen/ffi/xdk_test.go	部分
 FFI-03	internal/codegen/ffi/emit_test.go	PASS
 FFI-05	internal/codegen/ffi/emit_test.go	部分
 FFI-06	internal/codegen/ffi/emit_test.go	部分
-XDK-06	runtime/test_std.c	部分
-XDK-09	runtime/test_std.c	部分
+XDK-06	收件箱/回执箱/验收-S6-XDK-06.md	PASS
+XDK-09	sys 可用；net 骨架（P2，S6-09 后置）	部分
 BND-01	internal/sema/s2_bnd_test.go + 收件箱/回执箱/验收-S2-BND-01.md	PASS
 BND-02	internal/sema/s2_bnd02_test.go + internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-BND-02.md	PASS
 BND-05	internal/sema/s2_bnd_test.go + 收件箱/回执箱/验收-S2-BND-05.md	PASS
@@ -83,3 +83,11 @@ SYNC-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-01.
 SYNC-02	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-02.md	PASS
 SYNC-03	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SYNC-03.md	PASS
 SCHED-01	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S5-SCHED-01.md	PASS
+XDK-01	收件箱/回执箱/验收-S6-XDK-01.md	PASS
+XDK-02	收件箱/回执箱/验收-S6-XDK-02.md	PASS
+XDK-03	收件箱/回执箱/验收-S6-XDK-03.md	PASS
+XDK-04	收件箱/回执箱/验收-S6-XDK-04.md	PASS
+XDK-05	收件箱/回执箱/验收-S6-XDK-05.md	PASS
+XDK-07	收件箱/回执箱/验收-S6-XDK-07.md	PASS
+XDK-08	收件箱/回执箱/验收-S6-XDK-08.md	PASS
+XDK-10	收件箱/回执箱/验收-S6-XDK-10.md	PASS
