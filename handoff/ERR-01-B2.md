@@ -10,7 +10,7 @@
   - `impl/internal/sema/diagpos_test.go`（全诊断码位置非零守门 + ERR-205 精确 2:11）
   - `evidence/FIX-ERR-B2/`（red/green/全量原始输出）
   - `handoff/ERR-01-B2.md`（本棒）
-- **commit**：`041d8f807d7f`（代码/测试/证据）；merge main 后 HEAD `dc7c950`
+- **commit**：`9adbc334d739`（error.go 回退 + 守门测试）；代码/测试前置 `041d8f807d7f`；merge main 后 HEAD `dc7c950`
 - **验证命令**（可复制）：
   ```bash
   cd impl
@@ -35,4 +35,4 @@
   - QA1 复验 ERR-01 B2（本卡证据）；通过后 SSOT 更新 ERR-01 状态。
 - **上一棒**（路径或 commit）：`handoff/GEN-01.md`；`20e3d838ea45`
 - **下一棒**（路径或 commit）：`handoff/PKG-01.md`（待建）
-- **last-green（前端线）**：`041d8f807d7f`（全仓 `go test ./... -count=1 -timeout 300s` exit 0）
+- **last-green（前端线）**：`9adbc334d739`（全仓 `go test ./... -count=1 -timeout 300s` exit 0）
