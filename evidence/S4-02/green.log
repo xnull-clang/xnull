@@ -1,3 +1,4 @@
+# HEAD (interp)
 === RUN   TestS4WrapMapErr
 --- PASS: TestS4WrapMapErr (0.00s)
 === RUN   TestS4Report
@@ -9,3 +10,12 @@
 PASS
 ok  	xnull.dev/xnull/internal/interp	1.646s
 exit=0
+# pod/e4-codegen (codegen)
+=== RUN   TestS4_02WrapMapErrReport
+--- PASS: TestS4_02WrapMapErrReport (1.41s)
+=== RUN   TestS4_02ReportContract
+--- PASS: TestS4_02ReportContract (1.40s)
+=== RUN   TestS4_02StructErrorAndErrorKind
+--- PASS: TestS4_02StructErrorAndErrorKind (1.39s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	4.882s
