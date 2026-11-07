@@ -1,0 +1,5 @@
+# cycle.x @ BND-10 codegen
+main
+node-deinit
+node-deinit
+exit=0

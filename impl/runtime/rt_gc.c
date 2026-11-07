@@ -126,15 +126,17 @@ static size_t sweep(void) {
             link = &o->hdr.gc_next;
             continue;
         }
-        /* 死亡：release 其持有的 ARC 引用（不变量 3 后半），再走 GC 终结
-         * （S2 §15.5：GC 对象在清扫时调用 deinit）并释放。 */
-        if (o->hdr.type->scan != NULL) {
-            o->hdr.type->scan(o, sweep_release_arc_ref);
-        }
+        /* 死亡：先置终结标志并清弱槽，再调用 deinit（S2 §6.4：deinit 执行时
+         * 字段仍然有效），最后 release 其持有的 ARC 引用（不变量 3 后半）
+         * 并释放。scan 的 ARC 引用释放必须在 deinit 之后，否则用户 deinit
+         * 观察到已被释放的字段。 */
         o->hdr.terminated = 1; /* 清扫终结：与 ARC 终结链同一防复活标志 */
         rt_weak_clear_slots(o); /* GC 终结同样先清弱槽（S3 §14.1/§15） */
         if (o->hdr.type->deinit != NULL) {
             o->hdr.type->deinit(o);
+        }
+        if (o->hdr.type->scan != NULL) {
+            o->hdr.type->scan(o, sweep_release_arc_ref);
         }
         *link = o->hdr.gc_next;
         free(o);

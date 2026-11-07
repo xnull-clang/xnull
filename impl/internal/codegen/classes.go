@@ -30,6 +30,7 @@ type classField struct {
 	isHandle bool        // 不透明句柄字段（xrt_handle *）
 	isBytes  bool        // 可变字节缓冲字段（xrt_bytes_obj *）
 	isProto  bool        // 协议类型字段（xn_proto_<P>，强引用，S2 §4.5）
+	isGC     bool        // 类引用字段指向 GC 类（BND-10：由 GC 管理，不进入 ARC 计数）
 	elem     string      // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
 	init     xfront.Expr // 字段初始化式（可空；主构造器字段无初值）
 }
@@ -57,6 +58,7 @@ type classInfo struct {
 	ctorName     map[*xfront.CtorDecl]string
 	deinit       *classInfo_m              // 用户 deinit 体（静态派发，先于字段释放）
 	subst        map[string]xfront.TypeRef // 泛型类实例的类型参数替换（BND-12）
+	isGC         bool                      // 本类按策略判定为 GC（BND-10）
 	collected    bool
 	collecting   bool
 }
@@ -254,6 +256,7 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		}
 	}
 	ci.protocols = d.Protocols
+	ci.isGC = g.policy[d.Name] == "gc"
 	// vtable 槽：本类或祖先实现协议时存在（S2 §5.7；派发批次填充，当前仅布局）。
 	ci.vptr = len(d.Protocols) > 0 || (ci.base != nil && ci.base.vptr)
 	ci.decl = d
@@ -283,7 +286,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 			}
 			ci.fields = append(ci.fields, classField{name: p.Name, cname: p.Name, ctype: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct)})
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
+				isGC: isClassPtr(ct) && g.classIsGC(ct)})
 		}
 	}
 	for _, f := range d.Fields {
@@ -293,7 +297,8 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 		}
 		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init})
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct),
+			isGC: isClassPtr(ct) && g.classIsGC(ct), init: f.Init})
 	}
 	// 构造器 C 名：首个（主构造器优先）无后缀，其余按声明序编号（S2 §6.3 重载）。
 	var ctorList []*xfront.CtorDecl
@@ -458,6 +463,9 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	}
 	for _, f := range ci.fields {
 		switch {
+		case f.isCls && (ci.isGC || f.isGC):
+			/* 类引用字段：GC 对象由 GC 管理；GC 类的 ARC 类引用由
+			 * sweep 的 scan(sweep_release_arc_ref) 释放，deinit 不重复释放。 */
 		case f.isRefField():
 			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		case f.isArr:
@@ -465,8 +473,27 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 		}
 	}
 	b.WriteString("}\n\n")
-	fmt.Fprintf(b, "static const rt_type %s = { %q, sizeof(%s), %s_deinit_hook, NULL };\n\n",
-		ci.typeVar, ci.decl.Name, ci.cname, ci.cname)
+
+	// scan 钩子（BND-10）：GC 类访问全部类引用字段（交给 sweep 释放 ARC 引用 /
+	// 标记 GC 引用）；ARC 类只需访问其中的 GC 引用（作为 GC 根）。
+	scanFields := []classField{}
+	for _, f := range ci.fields {
+		if f.isCls && (ci.isGC || f.isGC) {
+			scanFields = append(scanFields, f)
+		}
+	}
+	scanName := "NULL"
+	if len(scanFields) > 0 {
+		scanName = ci.cname + "_scan"
+		fmt.Fprintf(b, "static void %s(void *p, void (*visit)(void *)) {\n", scanName)
+		fmt.Fprintf(b, "    %s *o = (%s *)p;\n", ci.cname, ci.cname)
+		for _, f := range scanFields {
+			fmt.Fprintf(b, "    if (o->%s) { visit(o->%s); }\n", f.cname, f.cname)
+		}
+		b.WriteString("}\n\n")
+	}
+	fmt.Fprintf(b, "static const rt_type %s = { %q, sizeof(%s), %s_deinit_hook, %s };\n\n",
+		ci.typeVar, ci.decl.Name, ci.cname, ci.cname, scanName)
 
 }
 
@@ -583,7 +610,11 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		}
 		b.WriteString("}\n\n")
 		fmt.Fprintf(b, "static %s *%s_new(void) {\n", ci.cname, ci.cname)
-		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
+		alloc := "rt_arc_new"
+		if ci.isGC {
+			alloc = "rt_gc_new"
+		}
+		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
 		if ci.vptr {
 			fmt.Fprintf(b, "    o->__vtable = xn_vt_%s;\n", ci.decl.Name)
@@ -653,7 +684,11 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		b.WriteString("}\n\n")
 
 		fmt.Fprintf(b, "static %s *%s(%s) {\n", ci.cname, ci.ctorName[c], strings.Join(parts, ", "))
-		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
+		alloc := "rt_arc_new"
+		if ci.isGC {
+			alloc = "rt_gc_new"
+		}
+		fmt.Fprintf(b, "    %s *o = (%s *)%s(&%s);\n", ci.cname, ci.cname, alloc, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
 		if ci.vptr {
 			fmt.Fprintf(b, "    o->__vtable = xn_vt_%s;\n", ci.decl.Name)

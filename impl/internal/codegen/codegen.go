@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
+	"xnull.dev/xnull/internal/sema"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -170,6 +171,19 @@ func EmitC(u *xfront.CompilationUnit) (string, error) {
 // EmitCWithFFI 生成完整 C 翻译单元文本，并把 `.xfb` 注册表的入口包装
 // （`xn_ffi_<entry>`）插入单元级支撑代码（P-09；空注册表零成本）。
 func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) {
+	return EmitCWithStrategies(u, reg, nil)
+}
+
+// EmitCWithStrategies 是 EmitCWithFFI 的带策略入口（BND-10）：
+// strategies 来自 sema.ComputeStrategies，决定类的分配种类（arc/gc）。
+// strategies 为空时全部按 ARC（与历史行为一致）。
+func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy) (string, error) {
+	policy := map[string]string{}
+	for _, st := range strategies {
+		if st.Kind == "class" && st.Policy != "" {
+			policy[st.Decl] = st.Policy
+		}
+	}
 	g := &gen{results: map[string]string{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		classDecls: map[string]*xfront.ClassDecl{},
 		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
@@ -178,7 +192,7 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
 		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
 		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
-		factories: map[string]*factoryInfo{}}
+		factories: map[string]*factoryInfo{}, policy: policy}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -650,14 +664,14 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			} else {
 				b.WriteString("    xn_main();\n")
 			}
-			b.WriteString("    rt_quarantine_flush();\n    return 0;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n    return 0;\n")
 		} else {
 			if entry.withArgs {
 				b.WriteString("    int64_t xn_r = xn_main(xn_args);\n")
 			} else {
 				b.WriteString("    int64_t xn_r = xn_main();\n")
 			}
-			b.WriteString("    rt_quarantine_flush();\n    return (int)xn_r;\n")
+			b.WriteString("    rt_gc_collect();\n    rt_quarantine_flush();\n    return (int)xn_r;\n")
 		}
 		b.WriteString("}\n")
 	}
@@ -843,6 +857,7 @@ type gen struct {
 	mainOverloads  map[int]string               // 非匹配 main 重载：参数个数 → C 名（§11.2）
 	entry          *entryInfo                   // 选中的入口（main 重载分派用）
 	tuples         map[string]*tupleInfo        // 元组 C 结构体名 → 定义（S1 §2.11）
+	policy         map[string]string            // 类名 → 内存策略（BND-10：arc/gc；缺省 arc）
 	tupleOrder     []string                     // 元组结构体登记顺序（内层先于外层）
 	protocols      map[string]*protoInfo        // 协议名 → 签名/槽位（S2 §4）
 	protoSlotByKey map[string]int               // 签名 key → 全局槽位
@@ -1123,6 +1138,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			if err != nil {
 				return "", err
 			}
+			if g.classIsGC(ec) {
+				return "", fmt.Errorf("codegen：List 元素为 GC 类型 %s 暂未支持（BND-10 范围：直接字段环）", ec)
+			}
 			if err := g.cs.needArr(ec); err != nil {
 				return "", err
 			}
@@ -1134,6 +1152,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			ec, err := g.cType(n.Args[0])
 			if err != nil {
 				return "", err
+			}
+			if g.classIsGC(ec) {
+				return "", fmt.Errorf("codegen：Set 元素为 GC 类型 %s 暂未支持（BND-10 范围）", ec)
 			}
 			if err := g.cs.needSet(ec); err != nil {
 				return "", err
@@ -1150,6 +1171,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			vc, err := g.cType(n.Args[1])
 			if err != nil {
 				return "", err
+			}
+			if g.classIsGC(kc) || g.classIsGC(vc) {
+				return "", fmt.Errorf("codegen：Map 键/值为 GC 类型暂未支持（BND-10 范围）：%s/%s", kc, vc)
 			}
 			if err := g.cs.needMap(kc, vc); err != nil {
 				return "", err
@@ -1994,7 +2018,9 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			}
 			out := append([]string{}, s.pending...)
 			s.pending = nil
-			s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			if !s.g.classIsGC(tc) {
+				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
+			}
 			s.locals[n.Name] = tc
 			return append(out, tc+" "+n.Name+" = "+ctor+";"), nil
 		}
@@ -2030,7 +2056,7 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 			}
 			lines := append([]string{}, s.pending...)
 			s.pending = nil
-			if owns {
+			if owns && !s.g.classIsGC(tc) {
 				s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 			}
 			s.locals[n.Name] = tc
@@ -2390,6 +2416,14 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 				out = append(out, field+" = "+lastVar(lines)+";")
 				return out, nil
 			case isClassPtr(ft):
+				if s.g.classIsGC(ft) {
+					lines, v, _, err := s.classValueExpr(n.Value)
+					if err != nil {
+						return nil, err
+					}
+					out := append([]string{}, lines...)
+					return append(out, field+" = "+v+";"), nil
+				}
 				switch v := n.Value.(type) {
 				case *xfront.IdentExpr:
 					r := s.cRef(v.Name)
@@ -2442,6 +2476,14 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	// 类引用局部：按 §3.3 纪律——旧值释放；新值为 +1 产物（调用/new）则接管，
 	// 为借用（变量/容器 get）则 retain 后接管。消除此前「裸赋值泄漏旧值」。
 	if tc, ok := s.localCType(id.Name); ok && isClassPtr(tc) {
+		if s.g.classIsGC(tc) {
+			lines, v, _, err := s.classValueExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, lines...)
+			return append(out, tgt+" = "+v+";"), nil
+		}
 		switch v := n.Value.(type) {
 		case *xfront.Call:
 			// 顺序关键：先求值（+1 产物入临时），再放旧，后赋值——
@@ -2575,7 +2617,9 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 			name := s.cRef(id.Name)
 			out := append([]string{}, s.pending...)
 			s.pending = nil
-			out = append(out, "rt_retain("+name+");")
+			if !s.g.classIsGC(s.retC) {
+				out = append(out, "rt_retain("+name+");")
+			}
 			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 			s.returned = true
 			return append(out, "return "+name+";"), nil
@@ -3222,6 +3266,9 @@ func (s *scope) classValueExpr(e xfront.Expr) ([]string, string, bool, error) {
 		return nil, "NULL", false, nil
 	case *xfront.Paren:
 		return s.classValueExpr(n.X)
+	case *xfront.Member:
+		v, err := s.intExpr(n)
+		return nil, v, false, err
 	}
 	return nil, "", false, fmt.Errorf("codegen：类值表达式 %T 未支持", e)
 }
@@ -3682,7 +3729,9 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				}
 				tn := s.tmp()
 				s.pending = append(s.pending, t+" "+tn+" = "+ctor+";")
-				s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+				if !s.g.classIsGC(t) {
+					s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+				}
 				out = append(out, tn)
 				continue
 			}
@@ -3694,7 +3743,9 @@ func (s *scope) callArgs(args []xfront.Expr) ([]string, error) {
 				if owns {
 					tn := s.tmp()
 					s.pending = append(s.pending, t+" "+tn+" = "+expr+";")
-					s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+					if !s.g.classIsGC(t) {
+						s.defers = append(s.defers, deferItem{name: tn, lines: []string{"rt_release(" + tn + ");"}})
+					}
 					out = append(out, tn)
 				} else {
 					out = append(out, expr) // 借用：直传

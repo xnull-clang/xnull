@@ -1,0 +1,2 @@
+Assertion failed: (g_gcv_seen_refcount == 2), function main, file test_gc.c, line 162.
+EXIT=134

@@ -25,9 +25,9 @@ static void gnode_scan(void *payload, void (*visit)(void *)) {
 }
 
 static void gnode_deinit(void *payload) {
-    gnode_t *n = payload;
-    n->a = NULL; /* 不变量 6：ARC 释放时清除引用，避免悬挂 */
-    n->b = NULL;
+    /* S2 §6.4：deinit 执行时字段仍然有效；ARC 引用由 sweep 在 deinit 之后
+     * 经 scan(sweep_release_arc_ref) 释放。此处不清空字段（清空等于放弃释放）。 */
+    (void)payload;
 }
 
 static const rt_type RT_TYPE_GNODE = {
@@ -54,6 +54,29 @@ static void ascan_scan(void *payload, void (*visit)(void *)) {
 static const rt_type RT_TYPE_ASCAN = {
     .name = "AScan", .payload_size = sizeof(ascan_t) - sizeof(rt_header),
     .deinit = ascan_deinit, .scan = ascan_scan,
+};
+
+/* GC 对象持 ARC 引用：deinit 执行时字段必须仍然有效（S2 §6.4）。 */
+typedef struct {
+    rt_header hdr;
+    void     *arc_ref;
+} gcv_t;
+
+static int g_gcv_seen_refcount = -1;
+
+static void gcv_scan(void *payload, void (*visit)(void *)) {
+    gcv_t *n = payload;
+    visit(n->arc_ref);
+}
+
+static void gcv_deinit(void *payload) {
+    gcv_t *n = payload;
+    g_gcv_seen_refcount = (int)rt_refcount(n->arc_ref);
+}
+
+static const rt_type RT_TYPE_GCV = {
+    .name = "GcValid", .payload_size = sizeof(gcv_t) - sizeof(rt_header),
+    .deinit = gcv_deinit, .scan = gcv_scan,
 };
 
 /* 简单字符串（ARC，无 GC 引用）——清扫释放目标。 */
@@ -127,6 +150,18 @@ int main(void) {
     rt_release(box2);
     rt_gc_collect();
     assert(rt_gc_live() == 0);
+
+    /* 6. S2 §6.4：GC deinit 执行时 ARC 字段仍然有效；释放发生在 deinit 之后 */
+    gcv_t *hv = rt_gc_new(&RT_TYPE_GCV);
+    rt_string *valid = arc_str("valid-in-deinit");
+    (void)rt_retain(valid);
+    hv->arc_ref = valid;
+    assert(rt_refcount(valid) == 2); /* 局部 + GC 对象 */
+    hv = NULL;
+    rt_gc_collect();
+    assert(g_gcv_seen_refcount == 2); /* deinit 时字段仍有效 */
+    assert(rt_refcount(valid) == 1);  /* sweep 在 deinit 后恰好 release 一次 */
+    rt_release(valid);
 
     printf("gc tests passed (invariants 2/3/5/6)\n");
     return 0;
