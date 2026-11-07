@@ -73,18 +73,24 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	for _, note := range UnsupportedFFIEntries(reg) {
 		fmt.Fprintf(stderr, "xnull: 提示：%s（调用将报未定义标识符）\n", note)
 	}
-	if sd := sema.Analyze(srcPath, u); len(sd) > 0 {
+	res, sd := sema.AnalyzeWith(srcPath, u)
+	if len(sd) > 0 {
 		for _, d := range sd {
 			fmt.Fprintln(stderr, d)
 		}
 		return 1
+	}
+	// BND-10：策略判定随编译单元一起交给 codegen（类分配种类 arc/gc）。
+	var strategies []sema.Strategy
+	if res != nil {
+		strategies = res.Strategies(u)
 	}
 	// 入口校验（§11.2/§11.4）：缺失/重复/签名非法都是编译错误，不落到 cc。
 	if err := RequireEntry(u); err != nil {
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
-	csrc, err := EmitCWithFFI(u, reg)
+	csrc, err := EmitCWithStrategies(u, reg, strategies)
 	if err != nil {
 		fmt.Fprintf(stderr, "xnull: 代码生成失败：%v\n", err)
 		return 1

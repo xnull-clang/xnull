@@ -92,7 +92,7 @@ func (g *gen) collectDataEnum(d *xfront.EnumDecl, ctype string) (*classInfo, err
 	syn := &xfront.ClassDecl{Name: d.Name, Fields: d.Fields, Methods: d.Methods, Ctors: d.Ctors}
 	ci := &classInfo{decl: syn, cname: strings.TrimSuffix(ctype, " *"),
 		typeVar: "RT_TYPE_XN_ENUM_" + d.Name, methods: map[string]*classInfo_m{},
-		ctors: d.Ctors, ctorName: map[*xfront.CtorDecl]string{}}
+		ctors: d.Ctors, ctorName: map[*xfront.CtorDecl]string{}, isGC: true}
 	for _, f := range d.Fields {
 		ct, err := g.cType(f.Type)
 		if err != nil {
@@ -266,6 +266,8 @@ func (g *gen) emitEnumInit(b *strings.Builder) error {
 			}
 			sc.pending = nil
 			fmt.Fprintf(b, "    %s = %s(%s);\n", it.varName, ei.cls.ctorName[c], strings.Join(args, ", "))
+			// 数据枚举项是 GC 全局根（S2 §8.4/§8.6；BND-10 根登记）。
+			fmt.Fprintf(b, "    rt_gc_root_add(%s);\n", it.varName)
 		}
 	}
 	b.WriteString("}\n\n")
