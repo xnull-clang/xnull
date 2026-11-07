@@ -13,6 +13,13 @@ static T f<T, T>(T v) { return v }
 static Int main() { return 0 }`, ResRedecl)
 }
 
+// GEN-01 G9（QA1 复核）：类型参数在签名位置泄漏也必须报 RES-101，而不是落到 codegen。
+func TestGEN01G9SignatureLeak(t *testing.T) {
+	expectCode(t, `
+static T g(T x) { return x }
+static Int main() { return 0 }`, ResUndefined)
+}
+
 // GEN-01 检查表补项：G12 泛型函数不能作为值（无实例化的函数引用必须拒绝）。
 func TestGEN01G12GenericFuncAsValueRejected(t *testing.T) {
 	src := `

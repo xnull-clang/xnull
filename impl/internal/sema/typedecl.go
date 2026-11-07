@@ -37,6 +37,10 @@ var builtinTypeNames = map[string]bool{
 	"Bool": true, "Byte": true, "Short": true, "Int": true, "Long": true,
 	"UByte": true, "UShort": true, "UInt": true, "ULong": true,
 	"Int128": true, "UInt128": true, "Float": true, "Double": true, "Char": true,
+	// S7 定宽标量（FFI 面）：作为类型名合法，避免签名/局部位置被误报未定义。
+	"Int8": true, "Int16": true, "Int32": true, "Int64": true,
+	"UInt8": true, "UInt16": true, "UInt32": true, "UInt64": true,
+	"Float32": true, "Float64": true,
 	"String": true, "Text": true, "Bytes": true, "StringBuilder": true,
 	"Any": true, "Object": true, "List": true, "Map": true, "Set": true,
 	"Result": true, "Range": true,

@@ -502,10 +502,18 @@ func (e *tyenv) checkTypeParamRef(t xfront.TypeRef, p xfront.Pos) {
 		return
 	case *xfront.NamedType:
 		name := ty.Qual[len(ty.Qual)-1]
-		if len(ty.Args) == 0 && e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
-			e.errf(ty.P, ResUndefined,
-				"类型参数 `"+name+"` 未定义：类型参数只在声明它的函数/类型内可见（§8.1）", "在函数名后声明 <"+name+">，或改用具体类型")
-			return
+		if len(ty.Args) == 0 {
+			if e.a.typeParamNames[name] && !e.typePars[name] && !e.typeDeclared(name) {
+				e.errf(ty.P, ResUndefined,
+					"类型参数 `"+name+"` 未定义：类型参数只在声明它的函数/类型内可见（§8.1）", "在函数名后声明 <"+name+">，或改用具体类型")
+				return
+			}
+			// 签名/字段/局部类型位置的未知单段类型名：按 §3.3/§8.1 报未定义。
+			// 限定名（pkg.Type）交由导入/XDK 诊断处理，避免误伤跨包类型。
+			if len(ty.Qual) == 1 && name != "<err>" && !e.typePars[name] && !e.typeDeclared(name) {
+				e.errf(ty.P, ResUndefined, "未定义的类型 `"+name+"`（§3.3/§8.1）", "检查拼写，或先声明/导入该类型")
+				return
+			}
 		}
 		for _, a := range ty.Args {
 			e.checkTypeParamRef(a, ty.P)
