@@ -1,4 +1,4 @@
-$ ./t (Text/SB/Bytes 端到端)
+# merged 树：Text/SB/Bytes 端到端
 x1
 117
 exit=0
