@@ -459,6 +459,12 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			// 方法前向声明（方法间互相调用与声明顺序无关）
 			for _, md := range n.Methods {
 				m := ci.methods[md.Name]
+				if md.IsDeinit {
+					m = ci.deinit
+				}
+				if m == nil {
+					return "", fmt.Errorf("codegen：类 %s 的成员 %s 未登记", n.Name, md.Name)
+				}
 				proto, err := g.methodProto(ci, m)
 				if err != nil {
 					return "", err
@@ -467,6 +473,15 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			}
 			b.WriteString("\n")
 			for _, md := range n.Methods {
+				if md.IsDeinit {
+					// 用户 deinit 体：由类型 deinit 钩子先调用（S2-E5-02）。
+					mc, err := g.genMethod(ci, ci.deinit)
+					if err != nil {
+						return "", err
+					}
+					b.WriteString(mc + "\n")
+					continue
+				}
 				mc, err := g.genMethod(ci, ci.methods[md.Name])
 				if err != nil {
 					return "", err
