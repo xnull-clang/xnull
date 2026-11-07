@@ -1,0 +1,7 @@
+=== RUN   TestXdkErrorsUnitSurface
+    xdk_errors_test.go:22: 读取 errors.x 失败：open /Users/vjs/Desktop/XNull-Lang/wt/e3-interp/impl/lib/xdk/errors.x: no such file or directory
+--- FAIL: TestXdkErrorsUnitSurface (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	1.095s
+FAIL
+exit=1
