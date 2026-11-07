@@ -36,7 +36,9 @@ func compileAndRunPolicy(t *testing.T, src string) (string, int) {
 	bin := filepath.Join(dir, "prog")
 	cc := exec.Command("cc", "-std=c11", "-I", "../../../impl/runtime", "-O2", "-o", bin,
 		cfile, "../../../impl/runtime/rt.c", "../../../impl/runtime/rt_gc.c",
-		"../../../impl/runtime/rt_policy.c", "../../../impl/runtime/rt_weak.c")
+		"../../../impl/runtime/rt_policy.c", "../../../impl/runtime/rt_weak.c",
+		"../../../impl/runtime/xrt_abi.c", "../../../impl/runtime/rt_std_text.c",
+		"../../../impl/runtime/rt_std_bytes.c")
 	var ccerr bytes.Buffer
 	cc.Stderr = &ccerr
 	if err := cc.Run(); err != nil {

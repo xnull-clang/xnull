@@ -255,6 +255,21 @@ func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 		}
 		recv, ok := mem.X.(*xfront.IdentExpr)
 		if !ok || recv.Name != "Bytes" {
+			// Bytes 实例的 slice（S3-04）：返回新 Bytes。
+			if ok && mem.Name == "slice" {
+				if rc, ok2 := s.localCType(recv.Name); ok2 && rc == "xrt_bytes_obj *" {
+					a, err := s.intExpr(n.Args[0])
+					if err != nil {
+						return nil, "", err
+					}
+					b, err := s.intExpr(n.Args[1])
+					if err != nil {
+						return nil, "", err
+					}
+					t := s.tmp()
+					return []string{"xrt_bytes_obj *" + t + " = xrt_bytes_slice(" + s.cRef(recv.Name) + ", (size_t)(" + a + "), (size_t)(" + b + "));"}, t, nil
+				}
+			}
 			return nil, "", fmt.Errorf("codegen：Bytes 表达式成员 %s 未支持（B0-07c 范围）", mem.Name)
 		}
 		switch mem.Name {

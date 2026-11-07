@@ -83,7 +83,7 @@ void rt_stats_note_alloc(size_t bytes);
 void rt_stats_note_free(void);
 void rt_stats_note_gc(size_t freed);
 
-/* ---- 字符串（首个堆对象类型；S1 §2 String 为引用类型） ---- */
+/* ---- 字符串（S1 §2 String 为引用类型；S3 §10：GC 对象，字节区免扫描） ---- */
 
 typedef struct rt_string {
     rt_header hdr;

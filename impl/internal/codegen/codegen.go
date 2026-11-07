@@ -1244,8 +1244,13 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 			return "int64_t", nil
 		case "Bool":
 			return "int", nil
-		case "String":
+		case "String", "Text":
+			if typeName(n) == "Text" {
+				return "xrt_text *", nil
+			}
 			return "rt_string *", nil
+		case "StringBuilder":
+			return "xrt_sb *", nil
 		case "Any", "Object":
 			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
 			return "xn_Any *", nil
@@ -1681,6 +1686,15 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return append(out, v+";"), nil
 				}
 			}
+			if rc == "xrt_sb *" {
+				lines, hit, err := s.sbMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
 			if rc == "xrt_bytes_obj *" {
 				lines, hit, err := s.bytesMemberStmt(rn, mem.Name, call.Args)
 				if err != nil {
@@ -2110,6 +2124,22 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		}
 		s.locals[n.Name] = tc
 		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	if tc == "xrt_text *" {
+		lines, out, err := s.textExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_text *"+n.Name+" = "+out+";"), nil
+	}
+	if tc == "xrt_sb *" {
+		lines, out, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, "xrt_sb *"+n.Name+" = "+out+";"), nil
 	}
 	if isHandlePtr(tc) {
 		lines, out, err := s.handleExpr(n.Init)
@@ -3195,6 +3225,17 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 					}
 				}
 			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" &&
+				(rc == "xrt_text *" || rc == "xrt_sb *") {
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				call := "(rt_string *)xrt_text_to_string(" + rn + ")"
+				if rc == "xrt_sb *" {
+					call = "(rt_string *)xrt_sb_to_string(" + rn + ")"
+				}
+				return append(out, "rt_string *"+t+" = "+call+";"), nil
+			}
 			if rt, err2 := s.exprType(mem.X); err2 == nil && rt == "rt_string *" {
 				call, hit, err := s.strMemberValue(mem, n.Args, true)
 				if err != nil {
@@ -3716,6 +3757,20 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				s.pending = nil
 				s.pending = append(out, s.pending...)
 				return expr, nil
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_text *" {
+				if v, hit, err := s.textMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_sb *" {
+				if v, hit, err := s.sbMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
 			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
 				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
