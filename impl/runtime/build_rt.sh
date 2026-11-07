@@ -10,12 +10,14 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_hard test_hard.c rt.c r
 /tmp/xnull_test_hard
 cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_abi test_abi.c rt.c rt_gc.c rt_weak.c xrt_abi.c
 /tmp/xnull_test_abi
-cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_std test_std.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_std test_std.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c
 /tmp/xnull_test_std
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_task test_task.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
 /tmp/xnull_test_task
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sync test_sync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_sync.c
 /tmp/xnull_test_sync
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sysasync test_sysasync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_sys.c
+/tmp/xnull_test_sysasync
 # 资源表（S8 §5.6）：构建期生成器 + 手工样例验证合同
 XNULL_RES_DIR=$(mktemp -d)
 printf 'hello' > "$XNULL_RES_DIR/a.txt"

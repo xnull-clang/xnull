@@ -16,6 +16,12 @@
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
   （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。
+- **候选期增补（S6-03 sys plain/Async 双形态，2026-11-08）**：`rt_std_sys.c` 新增
+  `xdkc_file_{open_read,open_write,read,write,close}_async`、`xdkc_dir_{open,read,close}_async`
+  （`xrt_context *` 首参，阻塞原语经伴生执行器；取消后等待完成以回收结果，返回
+  `XRT_ERR_CANCELLED`/code=2）；Process 句柄 `xdkc_proc_{spawn,wait,kill,close}`
+  （close = SIGKILL + reap，句柄层 close 幂等）与 `xdkc_proc_run_async/proc_status_async`
+  （取消立即返回，命令继续）。绑定入口由 E4 sys 卡追加（plain 与 *Async 并存）。
 - **候选期增补（SCHED-01 载体池/伴生执行器，2026-11-08）**：载体线程改为池（默认 4，
   `XNULL_CARRIERS` 1..64）：任务感知阻塞占用一个载体时其余任务仍可运行；`.unaware` 长阻塞走
   伴生执行器（默认 2，`XNULL_COMPANIONS`），`xrt_companion_submit/wait` 提供可取消等待
