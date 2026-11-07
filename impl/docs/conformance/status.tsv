@@ -54,3 +54,14 @@ EXT-01	internal/sema/s2_ext_test.go + internal/codegen/s2_ext_test.go + 收件�
 SINGLE-01	internal/codegen/s2_singleton_test.go + 收件箱/回执箱/验收-S2-SINGLE-01.md	PASS
 BND-10	internal/codegen/s2_policy_test.go + impl/runtime/test_gc.c + 收件箱/回执箱/验收-S2-BND-10.md	PASS
 GATE-01	收件箱/门/GATE-01门.md + 收件箱/回执箱/验收-S2-GATE-01.md	PASS
+MEM-03	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-03.md	PASS
+MEM-04	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-04.md	PASS
+MEM-05	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-05.md	PASS
+MEM-06	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-06.md	PASS
+MEM-07	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-07.md	PASS
+MEM-08	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-08.md	PASS
+MEM-10	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-10.md	PASS
+MEM-11	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-11.md	PASS
+MEM-12	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-12.md	PASS
+MEM-13	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-13.md	PASS
+MEM-09	BLOCKED(B3)：任务根/调度器未实现，S3 定版条件项	部分
