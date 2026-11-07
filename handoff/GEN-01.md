@@ -13,7 +13,7 @@
   - `impl/internal/codegen/codegen.go`、`types.go`（实例调用/类型替换/is 静态判定）
   - `impl/internal/codegen/gen01_acceptance_test.go`（26 项权威检查表）
   - `impl/internal/codegen/gen01_mono_test.go`
-- **commit**：本次 GEN-01 集成提交（回复 sha）
+- **commit**：`20e3d838ea45`（GEN-01 集成提交）
 - **验证命令**（可复制）：
   ```bash
   cd impl
@@ -28,11 +28,19 @@
   - codegen 实例命名/展开上限沿用 `maxInstDepth=64`；跨包泛型实例仅验证到 `LoadUnits` 合并后可见。
   - `status.tsv` 未手改；由 QA/SSOT 按端到端结果翻状态。
 - **下一步**（谁接、做什么）：
-  - E2 owner：ERR-01 B2 诊断位置（`LocalDeclStmt` 行列非零 + 全诊断码守门）。
-  - QA1：独立复跑 GEN 26 项并签收；若通过，SSOT 将 GEN-01 翻 PASS（M1 7/14）。
+  - **谁接**：前端线 E2 owner（唯一集成人）。
+  - **做什么**：开 `ERR-01 B2 诊断位置`（EXP-003）：修 `LocalDeclStmt` 诊断行列 0:0；补“全诊断码行/列非零”守门测试；不改既有测试期望。
+  - **验证命令**：
+    ```bash
+    cd impl
+    go test ./internal/sema/ -run 'TestDiagPos|TestErr01' -v -count=1
+    go test ./internal/sema/ -count=1
+    go test ./... -count=1 -timeout 300s
+    ```
+  - QA1 独立复跑 GEN 25+CrossFile=26 项并签收；通过后 SSOT 将 GEN-01 翻 PASS（M1 7/14）。
 - **上一棒**（路径或 commit）：`handoff/GEN-01-sema.md`；基线 `94e24f4`
-- **下一棒**（路径或 commit）：`handoff/ERR-01-B2.md`（待建）
-- **last-green（前端线）**：本次 GEN-01 集成提交（全仓 `go test ./... -count=1 -timeout 300s` exit 0）
+- **下一棒**（路径或 commit）：`handoff/ERR-01-B2.md`
+- **last-green（前端线）**：`20e3d838ea45`（全仓 `go test ./... -count=1 -timeout 300s` exit 0）
 
 ## 接口合同
 
