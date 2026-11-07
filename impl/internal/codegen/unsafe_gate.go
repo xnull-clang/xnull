@@ -104,20 +104,24 @@ func checkUnsafeGate(entryDir string, reg *ffi.Registry, stderr io.Writer) error
 			unsafeEntries = append(unsafeEntries, e.Name)
 		}
 	}
-	if len(unsafeEntries) == 0 {
-		return nil
-	}
 	names := strings.Join(unsafeEntries, ", ")
 	root := findProjectRoot(entryDir)
-	if root == "" {
-		return fmt.Errorf("@unsafe 受控入口 [%s] 需要工程清单 %s 且 link.unsafe = true（S7 §8 / S8 §7）",
-			names, projectManifest)
+	enabled, found := false, false
+	if root != "" {
+		var err error
+		enabled, found, err = readLinkUnsafe(root)
+		if err != nil {
+			return err
+		}
 	}
-	enabled, found, err := readLinkUnsafe(root)
-	if err != nil {
-		return err
+	if len(unsafeEntries) == 0 {
+		// S8 §7：link.unsafe=true 启用后构建日志必须记录（即使本次没有 @unsafe 入口）。
+		if found && enabled {
+			fmt.Fprintln(stderr, "xnull: link.unsafe=true（S8 §7）")
+		}
+		return nil
 	}
-	if !found {
+	if root == "" || !found {
 		return fmt.Errorf("@unsafe 受控入口 [%s] 需要工程清单 %s 且 link.unsafe = true（S7 §8 / S8 §7）",
 			names, projectManifest)
 	}

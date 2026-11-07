@@ -1,0 +1,9 @@
+# xnull.dev/xnull/internal/codegen [xnull.dev/xnull/internal/codegen.test]
+internal/codegen/s807_test.go:36:20: undefined: readLinkLibraries
+internal/codegen/s807_test.go:69:17: undefined: readLinkLibraries
+internal/codegen/s807_test.go:83:9: undefined: checkFFILibraries
+internal/codegen/s807_test.go:90:12: undefined: checkFFILibraries
+internal/codegen/s807_test.go:96:9: undefined: mergeLinkArgs
+FAIL	xnull.dev/xnull/internal/codegen [build failed]
+FAIL
+EXIT=1

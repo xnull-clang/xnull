@@ -103,6 +103,21 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
+	// S8-07：读取 link.libraries，交叉校验 FFI 区域，并并入链接参数。
+	if root := findProjectRoot(filepath.Dir(srcPath)); root != "" {
+		libs, hasLibraries, lerr := readLinkLibraries(root)
+		if lerr != nil {
+			fmt.Fprintf(stderr, "xnull: %v\n", lerr)
+			return 1
+		}
+		if hasLibraries {
+			if err := checkFFILibraries(reg, libs, true); err != nil {
+				fmt.Fprintf(stderr, "xnull: %v\n", err)
+				return 1
+			}
+			opts.LinkArgs = mergeLinkArgs(opts.LinkArgs, libs)
+		}
+	}
 	if err := InjectFFI(u, reg); err != nil {
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
