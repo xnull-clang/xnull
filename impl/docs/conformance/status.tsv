@@ -16,7 +16,7 @@ GEN-01	internal/codegen/gen01_acceptance_test.go + internal/sema/gen01_test.go	P
 INH-01	internal/sema/typedecl_test.go	PASS
 DISP-01	internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-DISP-01.md	PASS
 STRUCT-01	internal/interp/struct_test.go + internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-STRUCT-01.md	PASS
-PROTO-01	internal/sema/typedecl_test.go	部分
+PROTO-01	internal/sema/s2_proto_test.go + internal/codegen/s2_proto_test.go + 收件箱/回执箱/验收-S2-PROTO-01.md	PASS
 ENUM-01	internal/sema/s2_enum_test.go + 收件箱/回执箱/验收-S2-ENUM-01.md	PASS
 INT-01	—	未实现
 ANN-01	—	未实现
