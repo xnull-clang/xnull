@@ -177,7 +177,8 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
 		protoSlotByKey: map[string]int{}, enums: map[string]*enumInfo{}, structs: map[string]*classInfo{},
-		classInsts: map[string]*classInfo{}}
+		classInsts: map[string]*classInfo{}, singletons: map[string]*classInfo{},
+		factories: map[string]*factoryInfo{}}
 	if reg != nil {
 		for _, e := range reg.Entries {
 			g.ffiEntries[e.Name] = e
@@ -217,6 +218,12 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 				return "", err
 			}
 		}
+	}
+	if err := g.collectSingletons(u); err != nil {
+		return "", err
+	}
+	if err := g.collectFactories(u); err != nil {
+		return "", err
 	}
 	// 协议 vtable 槽对齐（S2 §5.7）：子类实现协议时，祖先也必须保留同一 vtable
 	// 指针槽，否则父类字段偏移与子类布局不一致（多级继承回归）。
@@ -341,6 +348,10 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			// 枚举由 collectEnums/emitEnumTypes 发射；简单枚举无函数体。
 		case *xfront.StructDecl:
 			// 结构体由 collectStructs/emitStructTypes 发射。
+		case *xfront.SingletonDecl:
+			// 单例由 collectSingletons/emitSingletons 发射。
+		case *xfront.FactoryDecl:
+			// 工厂方法由 collectFactories/emitFactories 发射。
 		default:
 			return "", fmt.Errorf("codegen：顶层声明 %T 未支持（M4.1 范围：顶层函数/类）", d)
 		}
@@ -417,6 +428,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	// 类前向声明：容器结构、顶层函数原型与类结构都只按指针使用类类型，
 	// 必须先于它们出现（多文件下使用方声明可能先于定义方，S1-06）。
 	if err := g.emitClassForwardDecls(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitSingletonForwards(&b); err != nil {
 		return "", err
 	}
 	// 顶层字段存储：函数体与初始化函数都要引用，声明必须先于函数定义。
@@ -548,6 +562,12 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 	if err := g.emitStructBodies(&b); err != nil {
 		return "", err
 	}
+	if err := g.emitSingletons(&b); err != nil {
+		return "", err
+	}
+	if err := g.emitFactories(&b); err != nil {
+		return "", err
+	}
 	if err := g.emitEnumInit(&b); err != nil {
 		return "", err
 	}
@@ -588,6 +608,9 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 		}
 		if len(g.globalList) > 0 {
 			b.WriteString("    xn_init_globals();\n")
+		}
+		if len(g.singletonOrder) > 0 {
+			b.WriteString("    xn_init_singletons();\n")
 		}
 		if entry.withArgs {
 			// args 是运行时创建的新数组，元素为进程参数（不含程序名，§11.2）。
@@ -805,6 +828,10 @@ type gen struct {
 	structs        map[string]*classInfo        // 结构体名 → 值布局（S2 §3）
 	classInsts     map[string]*classInfo        // 泛型类实例 C 名 → 实例（BND-12）
 	classInstKeys  []string                     // 实例发现顺序
+	singletons     map[string]*classInfo        // 单例名 → 对象布局（BND-07）
+	singletonOrder []string                     // 单例声明顺序
+	factories      map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
+	factoryOrder   []string                     // 工厂声明顺序
 	tmp            int
 }
 
@@ -1012,6 +1039,9 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		case "Result":
 			return resultName(n.Args)
 		default:
+			if ci, ok := g.singletons[typeName(n)]; ok {
+				return ci.cname + " *", nil
+			}
 			if decl, ok := g.classDecls[typeName(n)]; ok && len(decl.TypePars) > 0 {
 				ci, err := g.ensureClassInstance(typeName(n), n.Args)
 				if err != nil {
@@ -1337,6 +1367,13 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 		return nil, fmt.Errorf("codegen：表达式语句 %T 未支持（M4.1 范围）", e)
 	}
 	if mem, ok := call.Callee.(*xfront.Member); ok {
+		if expr, _, hit, err := s.tryFactoryCall(mem, call); err != nil {
+			return nil, err
+		} else if hit {
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, expr+";"), nil
+		}
 		if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 			expr, _, err := s.protoDispatch(mem, call.Args)
 			if err != nil {
@@ -2605,6 +2642,17 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			}
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if expr, retC, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return nil, err
+			} else if hit {
+				if retC != "rt_string *" {
+					return nil, fmt.Errorf("codegen：工厂方法 %s 返回 %s，不是 String", mem.Name, retC)
+				}
+				t := s.tmp()
+				out := append([]string{}, s.pending...)
+				s.pending = nil
+				return append(out, "rt_string *"+t+" = "+expr+";"), nil
+			}
 			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 				expr, retC, err := s.protoDispatch(mem, n.Args)
 				if err != nil {
@@ -2656,7 +2704,7 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 				}
 			}
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc)) {
+				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
 					rn := recv.Name
 					if s.params != nil && s.params[rn] {
 						rn = "xn_p_" + rn
@@ -2949,6 +2997,9 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 	case *xfront.Index:
 		return s.indexRead(n)
 	case *xfront.Member:
+		if _, varName, ok := s.g.singletonInstance(n); ok {
+			return varName, nil
+		}
 		if ei, it, ok := s.g.enumItem(n); ok {
 			if ei.simple {
 				return strconv.FormatInt(it.value, 10), nil
@@ -3009,6 +3060,11 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			return cn + "(" + strings.Join(args, ", ") + ")", nil
 		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if expr, _, hit, err := s.tryFactoryCall(mem, n); err != nil {
+				return "", err
+			} else if hit {
+				return expr, nil
+			}
 			if rt, err := s.exprType(mem.X); err == nil && s.g.isProtoC(rt) {
 				expr, _, err := s.protoDispatch(mem, n.Args)
 				if err != nil {
@@ -3052,7 +3108,7 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 					return v, nil
 				}
 			}
-			if rn, rc, err := recvCName(mem.X, s); err == nil && (isClassPtr(rc) || s.g.isDataEnumC(rc)) {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
 				if v, hit, err := s.classMemberValue(rc, rn, mem, n.Args); err != nil {
 					return "", err
 				} else if hit {
@@ -3060,7 +3116,7 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 				}
 			}
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 {
-				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc)) {
+				if rc, ok3 := s.localCType(recv.Name); ok3 && (isClassPtr(rc) || s.g.isDataEnumC(rc) || s.g.isSingletonC(rc)) {
 					rn := recv.Name
 					if s.params != nil && s.params[rn] {
 						rn = "xn_p_" + rn
@@ -3143,6 +3199,11 @@ func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
 		}
 		return cn + "(" + strings.Join(args, ", ") + ")", true, nil
 	case *xfront.Member:
+		if expr, _, hit, err := s.tryFactoryCall(c, cl); err != nil {
+			return "", false, err
+		} else if hit {
+			return expr, true, nil
+		}
 		rn, rc, err := recvCName(c.X, s)
 		if err != nil {
 			return "", false, err

@@ -1,6 +1,10 @@
 package codegen
 
 import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -426,6 +430,113 @@ static Int main() {
 }`
 	got, code := compileAndRun(t, src)
 	if want := "5\n3\ny\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// emitAndRunNoSema 绕过 sema 验证 codegen 发射面（sema 支持由 E2 并行接入）。
+func emitAndRunNoSema(t *testing.T, src string) (string, int) {
+	t.Helper()
+	u, diags := xfront.ParseUnit("t.x", src)
+	if len(diags) != 0 {
+		t.Fatalf("解析诊断：%v", diags)
+	}
+	csrc, err := EmitC(u)
+	if err != nil {
+		t.Fatalf("EmitC: %v", err)
+	}
+	dir := t.TempDir()
+	cf := filepath.Join(dir, "p.c")
+	if err := os.WriteFile(cf, []byte(csrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "p")
+	rt := filepath.Join("..", "..", "..", "impl", "runtime")
+	args := []string{"-std=c11", "-O2", "-I", rt, "-o", bin, cf}
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join(rt, s))
+	}
+	cc := exec.Command("cc", args...)
+	var cerr bytes.Buffer
+	cc.Stderr = &cerr
+	if err := cc.Run(); err != nil {
+		t.Fatalf("cc 失败：%v\n%s\n---- C ----\n%s", err, cerr.String(), csrc)
+	}
+	var out bytes.Buffer
+	run := exec.Command(bin)
+	run.Stdout = &out
+	code := 0
+	if err := run.Run(); err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			code = ee.ExitCode()
+		} else {
+			t.Fatalf("运行失败：%v", err)
+		}
+	}
+	return out.String(), code
+}
+
+// BND-07：单例 instance 访问/字段初始化/方法调用（codegen 面）。
+func TestS2BND07Singleton(t *testing.T) {
+	src := `singleton AppInfo {
+    final String name = "XNull"
+    Int n = 3
+    Int twice() { return self.n * 2 }
+}
+static Int main() {
+    print(AppInfo.instance.name)
+    print(AppInfo.instance.twice())
+    AppInfo.instance.n = 4
+    print(AppInfo.instance.twice())
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "XNull\n6\n8\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-08：工厂静态方法发射（非泛型）。
+func TestS2BND08Factory(t *testing.T) {
+	src := `class Device {
+    String name;
+    Device(String n) { self.name = n }
+}
+factory DeviceFactory for Device {
+    static Device create(String name) {
+        return new Device(name)
+    }
+}
+static Int main() {
+    Device d = DeviceFactory.create("A")
+    print(d.name)
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "A\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
+// BND-08：工厂泛型方法（显式类型实参）与泛型目标。
+func TestS2BND08FactoryGeneric(t *testing.T) {
+	src := `class Box<T> {
+    T v;
+    Box(T value) { self.v = value }
+    T get() { return self.v }
+}
+factory BoxFactory for Box {
+    static Box<T> create<T>(T value) {
+        return new Box<T>(value)
+    }
+}
+static Int main() {
+    Box<Int> b = BoxFactory.create<Int>(9)
+    print(b.get())
+    return 0
+}`
+	got, code := emitAndRunNoSema(t, src)
+	if want := "9\n"; got != want || code != 0 {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
