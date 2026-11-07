@@ -113,7 +113,9 @@ typedef struct {
 } handle_payload;
 
 static void handle_deinit(void *payload) {
-    handle_payload *p = payload;
+    /* deinit/scan 钩子收到的是完整对象指针（rt.h rt_type 约定），不是载荷起点：
+     * 必须先取 rt_payload，否则会把分配头当 handle_payload 读（B0-07c 假泄漏）。 */
+    handle_payload *p = rt_payload(payload);
     if (p->native != NULL && !p->closed) {
         /* 不以 deinit 作唯一关闭路径（S7 §4.3）：只把泄漏暴露到诊断通道 */
         fprintf(stderr, "xrt: 句柄泄漏：未显式 close（S7 §4.3）\n");
