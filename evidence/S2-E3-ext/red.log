@@ -1,0 +1,18 @@
+=== RUN   TestS2ExtensionMethods
+=== RUN   TestS2ExtensionMethods/Class
+    s2_ext_test.go:22: out="" want="L:x\n" err=该类型没有成员方法 label：Device
+=== RUN   TestS2ExtensionMethods/Struct
+    s2_ext_test.go:38: out="" want="6\n" err=该结构体没有成员方法 twice：P
+=== RUN   TestS2ExtensionMethods/Singleton
+    s2_ext_test.go:52: out="" want="4\n" err=该类型没有成员方法 twice：S
+=== RUN   TestS2ExtensionMethods/DataEnum
+    s2_ext_test.go:77: out="" want="true\nfalse\n" err=该类型没有成员方法 isReady：Status
+--- FAIL: TestS2ExtensionMethods (0.00s)
+    --- FAIL: TestS2ExtensionMethods/Class (0.00s)
+    --- FAIL: TestS2ExtensionMethods/Struct (0.00s)
+    --- FAIL: TestS2ExtensionMethods/Singleton (0.00s)
+    --- FAIL: TestS2ExtensionMethods/DataEnum (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	1.838s
+FAIL
+exit=1

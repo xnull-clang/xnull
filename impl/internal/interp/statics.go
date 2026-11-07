@@ -80,6 +80,12 @@ func (in *Interp) findMethodsFrom(cls *xfront.ClassDecl, name string) []*xfront.
 				out = append(out, m)
 			}
 		}
+		// §11：扩展方法参与目标类型（含子类继承）的静态方法集合。
+		for _, m := range in.extMethods[c.Name] {
+			if !m.Mod.Static && m.Name == name {
+				out = append(out, m)
+			}
+		}
 	}
 	return out
 }

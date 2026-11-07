@@ -130,6 +130,12 @@ func (in *Interp) findStructMethod(st *xfront.StructDecl, name string) []*xfront
 			out = append(out, m)
 		}
 	}
+	// §11：struct 扩展方法。
+	for _, m := range in.extMethods[st.Name] {
+		if !m.Mod.Static && m.Name == name {
+			out = append(out, m)
+		}
+	}
 	return out
 }
 
