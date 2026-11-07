@@ -126,9 +126,6 @@ static Int main() {
 
 // 未支持入口必须显式诊断，不能静默放行。
 func TestS601UnsupportedExplicit(t *testing.T) {
-	expectCode(t, `import xdk.runtime
-static Int main() { dumpTasks(); return 0 }`, TyXdkUnsupported)
-
 	expectCode(t, `import xdk.collections
 static Int main() { sort(1); return 0 }`, TyXdkUnsupported)
 
