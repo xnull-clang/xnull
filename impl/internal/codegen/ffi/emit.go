@@ -357,7 +357,7 @@ func emitWrapper(e Entry) (string, error) {
 				decls = append(decls, "xrt_handle **"+p.Name+"_out")
 				pre = append(pre, "void *xn_native_"+p.Name+" = NULL;")
 				call = append(call, "&xn_native_"+p.Name)
-				postOK = append(postOK, "*"+p.Name+"_out = xrt_handle_new(xn_native_"+p.Name+", NULL, \""+e.Name+"\");")
+				postOK = append(postOK, "*"+p.Name+"_out = (xn_native_"+p.Name+" == NULL) ? NULL : xrt_handle_new(xn_native_"+p.Name+", NULL, \""+e.Name+"\");")
 				break
 			}
 			if lease == LeaseClaim {
@@ -415,7 +415,10 @@ func emitWrapper(e Entry) (string, error) {
 		case KindHandle:
 			hasOut = true
 			retC = "xrt_handle *"
-			postOut = "*xn_out = xrt_handle_new(xn_v, NULL, \"" + e.Name + "\");"
+			// 原生返回 NULL = 打开失败（S6 §3 第 1 条：不 panic）。
+			// 必须回 NULL 而不是包一个 native==NULL 的句柄：否则 File? 的
+			// `f == null` 永远为假，失败被静默当成成功。
+			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, \"" + e.Name + "\");"
 		default:
 			return "", fmt.Errorf("返回类型 %s 的编组未实现（M4.5c）", e.Ret.String())
 		}

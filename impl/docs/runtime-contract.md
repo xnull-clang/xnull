@@ -5,6 +5,15 @@
 > 任何变更须记录并注明触发来源。
 > 母本依据：`impl/runtime/README.md`、`impl/runtime/rt.h`、`impl/internal/sema/policy.go`（M2.5.2 冻结）。
 
+## A0. ABI v1 状态：候选冻结（EXP-012，2026-11-07）
+
+**候选冻结（candidate freeze）**：`xrt.h` / `xrt_abi.c` 的符号与签名可作为 codegen 与绑定层的消费面，
+但**不承诺跨版本二进制稳定**；发现签名/字段需改时，先在候选期改，不毁“稳定 v1”承诺。
+
+- **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
+- 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
+- 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+
 ## A. M3 冻结契约（已落地，变更须双方评审）
 
 ### A1. 值模型与生命周期（rt.h，S3 §2/§7/§14）

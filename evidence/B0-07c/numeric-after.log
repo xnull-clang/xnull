@@ -1,0 +1,38 @@
+xnull  ：/tmp/xnull-e5check
+程序   ：/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x（句柄/Bytes API）
+源码 sha256：f5273e474fa640a7e5d9374ce44487d9b78c73c13319d19c69cb2edb251d0460
+
+===== fixture in1.x
+  BUILD FAILED
+    xnull: 提示：codegen：FFI 入口 fileRead 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+    xnull: 提示：codegen：FFI 入口 fileWrite 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:110:15: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:127:17: error[RES-101]: 未定义的名称 `fileRead`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:137:17: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:152:16: error[RES-101]: 未定义的名称 `fileWrite`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:128:15: error[TY-101]: 实参 1 类型 File? 不能赋给形参 File（§2.6）
+      检查类型声明与初始化式是否一致
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:153:15: error[TY-101]: 实参 1 类型 File? 不能赋给形参 File（§2.6）
+      检查类型声明与初始化式是否一致
+===== fixture in2.x
+  BUILD FAILED
+    xnull: 提示：codegen：FFI 入口 fileRead 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+    xnull: 提示：codegen：FFI 入口 fileWrite 含错误码通道（@errorCode），P-09 本轮未接入 Result 映射（显式拒绝，不静默）（调用将报未定义标识符）
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:110:15: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:127:17: error[RES-101]: 未定义的名称 `fileRead`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:137:17: error[RES-101]: 未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:152:16: error[RES-101]: 未定义的名称 `fileWrite`（§3.3 四级顺序解析后不可见）
+      局部/参数/顶层声明、导入符号或完全限定名之一
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:128:15: error[TY-101]: 实参 1 类型 File? 不能赋给形参 File（§2.6）
+      检查类型声明与初始化式是否一致
+    /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/m6-b0-06.YA4ZHy/stage/prog.x:153:15: error[TY-101]: 实参 1 类型 File? 不能赋给形参 File（§2.6）
+      检查类型声明与初始化式是否一致
+
+汇总：PASS=0 FAIL=2

@@ -1,13 +1,17 @@
 /* test_abi.c — 稳定 ABI 封装层骨架测试（M4.5a）
  *
  * 覆盖：初始化幂等、ARC 分配/计数/终结、双重释放防御、弱表绑定与清除、
+ * 句柄 close 生命周期（B0-07c：deinit 载荷回归/幂等/泄漏诊断）、
  * 写屏障存活校验、全局根登记与 GC 收集、字符串边界访问器。
  */
+#define _POSIX_C_SOURCE 200809L
+
 #include "xrt.h"
 #include "rt_gc.h" /* 仅测试使用：rt_gc_live / rt_gc_collect 诊断入口 */
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 static int g_failures = 0;
 
@@ -43,6 +47,42 @@ static void gc_scan(void *payload, void (*visit)(void *ref)) {
     g_gc_scan++;
 }
 
+/* ---- 句柄 close 生命周期（B0-07c）：全局状态 + stderr 诊断捕获 ---- */
+
+static int g_handle_close_calls = 0;
+static xrt_handle *g_handle_under_test = NULL;
+
+static void handle_close_fn(void *native) {
+    (void)native;
+    g_handle_close_calls++;
+}
+
+static void release_handle_under_test(void) {
+    xrt_release(g_handle_under_test);
+    xrt_safepoint();
+}
+
+/* 返回 fn 执行期间写入 stderr 的字节数：用于断言“假句柄泄漏”不出现/真泄漏仍报。 */
+static long stderr_bytes_during(void (*fn)(void)) {
+    long n = -1;
+    int saved = dup(fileno(stderr));
+    FILE *tmp = tmpfile();
+    if (saved >= 0 && tmp != NULL) {
+        fflush(stderr);
+        if (dup2(fileno(tmp), fileno(stderr)) >= 0) {
+            fn();
+            fflush(stderr);
+            n = ftell(tmp);
+        }
+        dup2(saved, fileno(stderr));
+        close(saved);
+    }
+    if (tmp != NULL) {
+        fclose(tmp);
+    }
+    return n;
+}
+
 static const xrt_type T_BOX = {"Box", sizeof(payload_int), arc_deinit, NULL};
 static const xrt_type T_NODE = {"Node", sizeof(payload_int), gc_deinit, gc_scan};
 
@@ -74,6 +114,31 @@ int main(void) {
     CHECK(xrt_weak_read(w) == NULL);
     xrt_weak_clear(w);
     xrt_safepoint();
+
+    /* ---- 句柄 close：显式幂等 + deinit 不误报泄漏（B0-07c） ---- */
+    int marker = 0;
+    g_handle_close_calls = 0;
+    g_handle_under_test = xrt_handle_new(&marker, handle_close_fn, "test");
+    CHECK(xrt_handle_native(g_handle_under_test) == &marker);
+    CHECK(xrt_handle_close(g_handle_under_test) == 0);
+    CHECK(g_handle_close_calls == 1);
+    CHECK(xrt_handle_close(g_handle_under_test) == 0); /* 幂等：不再触达原生 */
+    CHECK(g_handle_close_calls == 1);
+    CHECK(xrt_handle_is_closed(g_handle_under_test) == 1);
+    CHECK(xrt_handle_native(g_handle_under_test) == NULL);
+    CHECK(stderr_bytes_during(release_handle_under_test) == 0);
+
+    /* mark_closed：原生侧已关闭，deinit 同样不得误报泄漏 */
+    g_handle_close_calls = 0;
+    g_handle_under_test = xrt_handle_new(&marker, handle_close_fn, "mark");
+    xrt_handle_mark_closed(g_handle_under_test);
+    CHECK(stderr_bytes_during(release_handle_under_test) == 0);
+    CHECK(g_handle_close_calls == 0);
+
+    /* 未关闭：deinit 仍必须把泄漏打到诊断通道（S7 §4.3，不以 deinit 自动关闭） */
+    g_handle_under_test = xrt_handle_new(&marker, handle_close_fn, "leak");
+    CHECK(stderr_bytes_during(release_handle_under_test) > 0);
+    CHECK(g_handle_close_calls == 0);
 
     /* ---- 写屏障（单线程骨架：存活校验） ---- */
     void *c = xrt_alloc(XRT_KIND_ARC, &T_BOX);
