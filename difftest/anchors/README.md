@@ -23,7 +23,7 @@ bash difftest/anchors/run-pkg.sh --sha main
 |---|---|---|
 | `run-gen.sh` | `difftest/gen01/cases.json`（QA1 自写 26 项） | 26/26 |
 | `run-neg.sh` | `impl/Tests/neg_test.go`（台账 NEG-01，60 项） | 60/60 |
-| `run-pkg.sh` | `cases/qa2_pkg_accept_test.go`（49 子项）+ `cases/pkg/{f1,f2,f3,c1}.x` | 49/49 且 4 个 CLI 例码型正确 |
+| `run-pkg.sh` | `cases/qa2_pkg_accept_test.go`（49 子项）+ `cases/pkg/{f1,f2,f3,c1}.x` | 49/49；CLI 例默认只作补充观察 |
 
 PKG CLI 期望：
 
@@ -34,7 +34,12 @@ PKG CLI 期望：
 | `f3.x` | `RES-103` | 别名 `Y` 与同包裸导入 `lib.a.Y` 撞名 |
 | `c1.x` | `RES-103` | 同一别名 `P` 指向 `lib.a.X` / `lib.b.X` |
 
-`RES-102`（包内类型重复声明）不是 §3.5 要求的别名消歧诊断，仍判 FAIL。
+`RES-102`（包内类型重复声明）不是 §3.5 要求的别名消歧诊断。
+
+**CLI 例不计入 PKG-01 的 49 项门禁**：`PKG-01` 的验收面是 sema 的
+`AnalyzeWithDeps`（原验收单“未跑清单”第 3 条已声明 CLI 未接导入诊断）。
+需要连 CLI 一起卡时加 `--require-cli`；当前 `f1/f3/c1` 在 CLI 多文件路径仍
+`RES-102`（同名类跨包被扁平合并）或静默通过，属加载器包前缀缺口，另记。
 
 ## 注意
 

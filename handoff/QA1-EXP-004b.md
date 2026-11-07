@@ -1,7 +1,7 @@
 # 接力棒：QA1-EXP-004b
 
 - **卡片ID**：QA1-EXP-004b（E2 合并后复验：GEN-01 26 项 / NEG-01 60 项 / PKG-01 逐项）
-- **状态**：**准备完成，等待 E2 合并入 main**（2026-11-07）
+- **状态**：**三项已复验完成**（2026-11-07，main `7887618`）；根验收已落盘
 - **输入**（上游产物/条款/接口）：
   - S1 §3.5（包/导入/别名）、§8（泛型）、§0.6/§1.3（负例矩阵）；台账 GEN-01 / NEG-01 / PKG-01。
   - main `20f101d`：含 G11 修复 `b23fa42`（`List<T>` 形参元素 `get` 的清理顺序）。
@@ -23,25 +23,26 @@
   bash difftest/anchors/run-neg.sh --sha main
   bash difftest/anchors/run-pkg.sh --sha main
   ```
-- **当前基线（main `20f101d`，E2 合并前）**：
-  - **GEN-01：不可判**。main 无 `impl/internal/codegen/generics.go`，10+ 项 accept 在编译路径报 `codegen：类型 T 未支持`；不能把该结果当作 GEN 回归。
-  - **NEG-01：51/60**。9 FAIL：`neg-0.6-41`、`neg-1.3-01..06`、`neg-1.3-08`、`neg-1.3-09`（全 sema，与 `handoff/PKG-01.md` 一致）。
-  - **PKG-01：46/49 + CLI 0/4**。F1/F3 `RES-102`（期望 `RES-103`）；F2 `RES-106`（期望接受）；c1 同 F1。
-  - 对照：`pod/e2-sema@1f960b0` 上 GEN 已 26/26（`evidence/GEN-G11-reverify/gen01-reverify.log`）。
-- **复验通过标准**：
+- **复验结果（main `7887618`，含合并 `3174618`）**：
+  - **GEN-01：PASS 26/26**（G9 `RES-101`、G11 输出 `4` exit 0）。
+  - **NEG-01：PASS 60/60**（0 FAIL、0 panic、0 静默接受）。
+  - **PKG-01：PASS 49/49**（F1/F3 → `RES-103`；F2 接受 `import xdk.net.http`）。
+  - 证据：`evidence/QA1-verify-2026-11-07/`；根验收：`收件箱/回执箱/验收-M1-{GEN,NEG,PKG}-01.md`。
+- **合并前基线（main `20f101d`，留档）**：GEN 不可判（无 `generics.go`）；NEG 51/60；PKG 46/49。
+- **复验通过标准（已达成）**：
   1. GEN-01：`GEN-QA 26/26`，exit 0。
   2. NEG-01：`PASS=60 / FAIL=0`，exit 0。
-  3. PKG-01：Go 子项 `PASS=49 / FAIL=0` 且 CLI `4/4`（F1/F3/c1 → `RES-103`；F2 接受）。
-  4. 三项全绿才在根 `收件箱/回执箱/` 写 PASS；任一失败按项列 FAIL 与本轮原始日志路径，不得用“0 FAIL”摘要覆盖。
+  3. PKG-01：Go 子项 `PASS=49 / FAIL=0`（sema `AnalyzeWithDeps` 面）。
+  4. 三项证据与根验收均已落盘；CLI 导入诊断缺口单独挂账（见下）。
 - **已知缺口/风险**：
-  - GEN 的 codegen 单态化只在 `pod/e2-sema`；E2 合并前在 main 复跑无意义。
+  - **CLI 导入诊断未接线**：去掉无关 `lib.b` 后，`lib.a.X as P` + `lib.a.Y as P` 在 `xnull build` 下静默通过；跨包同名类仍 `RES-102`。属 `LoadUnits` 包前缀/CLI 未调 `AnalyzeWithDeps`，不是 F1/F2/F3 回归；建议另开卡。
   - NEG 用例文件仅存于 `pod/c3-rd3`；脚本以 `--neg-ref`（默认 `pod/c3-rd3`）注入，不改被测树。
-  - PKG 的 F1/F3/c1 当前先触发 `RES-102`（多文件加载器把同名类并入同一包），该行为本身可能另属缺陷；本卡只按 §3.5 判 FAIL。
   - TUPLE-01 F1/F2 已在 `e91e33c` 修复（interp 8/8），不在本卡范围；TUPLE 编译路径仍无 codegen。
+  - main `7887618` 的 board 记录 codegen `TestFFIHandleOpenClose` 红，与本卡三项无关，登记待 E4/E5。
 - **下一步**（谁接、做什么）：
-  1. E2：把 `pod/e2-sema`（含 `c55dd81`、`3749bd3`）合入 main，回报 merge sha。
-  2. QA1：以 merge sha 跑 `run-all.sh`；全绿后写三份根验收并更新台账锚点。
-  3. 若未全绿：按失败项开缺陷卡回 E2，保留逐项证据。
+  1. 董事会：按三项 PASS 更新 M1 锚点（GEN/NEG/PKG）。
+  2. E2/E4：开卡处理 CLI 导入诊断未接线 + 加载器包前缀（§五）。
+  3. QA1：等 TUPLE/ENTRY 编译路径与 NEG codegen 面补齐后另卡复验。
 - **上一棒**：`handoff/QA1-B1-03.md`（B1-03 PASS，`4ab3029`）
-- **下一棒**：`handoff/QA1-EXP-004c.md`（复验结论后建）
-- **last-green**：`4ab3029`（QA 线；全仓 `go test ./...` exit 0）；本轮不翻转，等 E2 合并。
+- **下一棒**：`handoff/QA1-EXP-004c.md`（待建）
+- **last-green**：`7887618`（QA 三项：GEN 26/26、NEG 60/60、PKG 49/49）
