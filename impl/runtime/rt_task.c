@@ -21,13 +21,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdatomic.h>
 
 /* ---- 上下文 ---- */
 
 typedef struct {
+    atomic_int      cancelled; /* S5-02：取消位跨线程原子读写 */
+} token_impl;
+
+typedef struct {
     rt_header       hdr;
     xrt_context    *parent;  /* ARC 持有 */
-    int             cancelled;
+    token_impl      token;   /* 本上下文取消令牌（借用导出） */
     int64_t         deadline; /* 单调毫秒；0 = 无截止 */
 } context_obj;
 
@@ -45,7 +50,7 @@ static xrt_context *context_alloc(xrt_context *parent, int64_t deadline) {
     rt_object *o = rt_arc_new(&RT_TYPE_XRT_CONTEXT);
     context_obj *c = (context_obj *)o;
     c->parent = (xrt_context *)rt_retain(parent);
-    c->cancelled = 0;
+    atomic_init(&c->token.cancelled, 0);
     c->deadline = deadline;
     return (xrt_context *)o;
 }
@@ -79,11 +84,11 @@ static int context_cancelled_flag(context_obj *c) {
     if (c == NULL) {
         return 0;
     }
-    if (c->cancelled) {
+    if (atomic_load_explicit(&c->token.cancelled, memory_order_acquire)) {
         return 1;
     }
     if (c->deadline != 0 && xrt_clock_mono_ms() >= c->deadline) {
-        c->cancelled = 1;
+        atomic_store_explicit(&c->token.cancelled, 1, memory_order_release);
         return 1;
     }
     return 0;
@@ -103,13 +108,22 @@ int32_t xrt_context_cancelled(const xrt_context *ctx) {
 }
 
 xrt_cancel_token *xrt_context_token(xrt_context *ctx) {
-    return (xrt_cancel_token *)ctx; /* 借用：token 即 context 自身 */
+    context_obj *c = context_of(ctx);
+    return c == NULL ? NULL : (xrt_cancel_token *)&c->token;
+}
+
+int32_t xrt_cancel_token_cancelled(const xrt_cancel_token *token) {
+    if (token == NULL) {
+        return 0;
+    }
+    const token_impl *t = (const token_impl *)token;
+    return atomic_load_explicit(&t->cancelled, memory_order_acquire) ? 1 : 0;
 }
 
 void xrt_context_cancel(xrt_context *ctx) {
     context_obj *c = context_of(ctx);
     if (c != NULL) {
-        c->cancelled = 1;
+        atomic_store_explicit(&c->token.cancelled, 1, memory_order_release);
     }
 }
 
