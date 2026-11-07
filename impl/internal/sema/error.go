@@ -151,6 +151,9 @@ func (e *tyenv) checkResultType(t xfront.TypeRef, p xfront.Pos) {
 			if len(ty.Args) == 2 && typeKey(ty.Args[1]) == "void" {
 				e.errf(ty.P, ErResultCtor, "Result 的错误类型 E 不能是 void（§10.1）", "换用具体错误类型；只有 T 可以是 void")
 			}
+			if len(ty.Args) == 2 && strings.HasPrefix(typeKey(ty.Args[1]), "Result<") {
+				e.errf(ty.P, ErResultCtor, "Result 的错误类型 E 不能是 Result（S4 §2.1：禁止嵌套）", "换用枚举/结构体/类错误类型")
+			}
 			return
 		}
 		for _, a := range ty.Args {
