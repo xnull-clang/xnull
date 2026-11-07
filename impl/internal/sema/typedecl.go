@@ -345,12 +345,16 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 	ancestors := c.ancestorClasses(d)
 	ownFields := map[string]bool{}
 	for _, f := range d.Fields {
-		ownFields[f.Canonical] = true
+		base := fieldBaseName(f)
+		if ownFields[base] {
+			c.errf(f.P, TyOverride, "字段基名 `"+base+"` 在同一类中重复（§7.4：基名唯一）", "")
+		}
+		ownFields[base] = true
 	}
 	for _, anc := range ancestors {
 		for _, af := range anc.class.Fields {
-			if ownFields[af.Canonical] {
-				c.errf(d.P, TyOverride, "字段 `"+af.Canonical+"` 在父类 `"+anc.class.Name+"` 中已声明：字段隐藏被拒绝（§2.5）", "")
+			if ownFields[fieldBaseName(af)] {
+				c.errf(d.P, TyOverride, "字段基名 `"+fieldBaseName(af)+"` 在父类 `"+anc.class.Name+"` 中已声明：字段隐藏被拒绝（§2.5/§7.4）", "")
 			}
 		}
 		for _, am := range anc.class.Methods {
@@ -450,6 +454,14 @@ func typeRefUsesParam(t xfront.TypeRef, pars map[string]bool) bool {
 		}
 	}
 	return false
+}
+
+func fieldBaseName(f *xfront.FieldDecl) string {
+	n := f.Canonical
+	if n == "" {
+		n = f.Name
+	}
+	return strings.TrimPrefix(n, "_")
 }
 
 func (c *typeCheckCtx) isOwnerTypeParam(owner, name string) bool {
