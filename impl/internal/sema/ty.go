@@ -1125,6 +1125,10 @@ func (e *tyenv) inferMember(n *xfront.Member) texpr {
 		return texpr{}
 	}
 	if c := e.a.tc; c != nil {
+		if info, ok := c.types[rt.key]; ok && info.kind == "protocol" {
+			e.errf(n.P, TyProtoMember, "协议变量没有字段或属性（§4.4）：`"+n.Name+"`", "协议只暴露声明的方法")
+			return texpr{}
+		}
 		if info, ok := c.types[rt.key]; ok && info.kind == "class" {
 			if info.canonPriv == nil {
 				canon := map[string]bool{}
@@ -1199,6 +1203,14 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		rt := e.infer(mem.X)
 		if isResultKey(rt.key) {
 			return e.resultMember(rt, mem, n.Args, n.P)
+		}
+		if e.a.tc != nil {
+			if info, ok := e.a.tc.types[rt.key]; ok && info.kind == "protocol" {
+				if !e.a.tc.protocolHasMethod(rt.key, mem.Name) {
+					e.errf(n.P, TyProtoMember,
+						"协议变量只能调用协议声明的方法（§4.4）：`"+mem.Name+"` 不在协议合同中", "改用协议声明的方法，或先 `as` 到具体类")
+				}
+			}
 		}
 		e.checkMethodVisibility(rt.key, mem.Name, n.P)
 		args := make([]texpr, len(n.Args))

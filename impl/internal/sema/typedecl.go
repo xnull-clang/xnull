@@ -33,6 +33,8 @@ const (
 	TyProtoImpl   = "TY-208" // 协议实现检查（§4.3）
 	TyVisibility  = "TY-209" // 成员可见性（§7.3）
 	TyNewAbstract = "TY-210" // new abstract 类（§2.6）
+	TyProtoMember = "TY-211" // 协议变量只能调用协议方法（§4.4）
+	TyPCTOR       = "TY-212" // 主构造器/final 字段赋值规则（§6.1/§6.3）
 )
 
 // builtinTypeNames 是预定义类型名（§1.1：类型名不得与之冲突）。
@@ -262,6 +264,20 @@ func materializePrimary(pr *xfront.CtorDecl, fields *[]*xfront.FieldDecl, ctors 
 
 // checkClass 类检查（§2）。
 func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
+	primaryFields := map[string]bool{}
+	if d.Primary != nil {
+		for _, p := range d.Primary.Params {
+			primaryFields[p.Name] = true
+			if !p.Final {
+				c.errf(p.P, TyPCTOR,
+					"主构造器参数 `"+p.Name+"` 必须是 final（§6.3）", "写成 final "+p.Name+"，或改用普通构造器")
+			}
+		}
+		if len(d.Ctors) > 0 {
+			c.errf(d.Primary.P, TyPCTOR,
+				"主构造器不能与普通构造器混用（§6.3）", "删除主构造器或普通构造器其一")
+		}
+	}
 	materializePrimary(d.Primary, &d.Fields, &d.Ctors)
 	c.checkModifiers(d.P, d.Mod, "class")
 	if d.Mod.Abstract && d.Mod.Final {
@@ -315,6 +331,7 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
 			}
 		}
 	}
+	c.checkFinalFieldAssignments(d, primaryFields)
 	c.checkProtocolImpl(d)
 	// deinit 规则（§6.4）：最多一个；不能 static；不能有参；不能有可见性
 	deinits := 0
@@ -509,6 +526,142 @@ func (c *typeCheckCtx) checkEnum(d *xfront.EnumDecl) {
 }
 
 // constInt64 求简单枚举项的整数字面量值（含前导 -）。
+// ---------- PCTOR-01：final 字段恰好赋值一次（§6.1/§6.3） ----------
+
+func (c *typeCheckCtx) checkFinalFieldAssignments(d *xfront.ClassDecl, primaryFields map[string]bool) {
+	checkCtor := func(ct *xfront.CtorDecl) {
+		for _, f := range d.Fields {
+			if !f.Mod.Final {
+				continue
+			}
+			names := map[string]bool{f.Name: true, f.Canonical: true}
+			n := 0
+			if ct == d.Primary && primaryFields[f.Name] {
+				n++
+			}
+			if f.Init != nil {
+				n++
+			}
+			n += countFieldAssign(ct.Body, names)
+			if n != 1 {
+				c.errf(ct.P, TyPCTOR,
+					"final 字段 `"+f.Name+"` 必须在构造器中恰好赋值一次（实际 "+itoa(n)+" 次，§6.1）", "删除重复赋值，或补上缺失赋值")
+			}
+		}
+	}
+	if len(d.Ctors) == 0 {
+		for _, f := range d.Fields {
+			if f.Mod.Final && f.Init == nil {
+				c.errf(f.P, TyPCTOR, "final 字段 `"+f.Name+"` 必须初始化（§6.1）", "添加初始化式，或声明构造器赋值")
+			}
+		}
+		return
+	}
+	for _, ct := range d.Ctors {
+		checkCtor(ct)
+	}
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	if n < 0 {
+		return "-" + itoa(-n)
+	}
+	var b [20]byte
+	i := len(b)
+	for n > 0 {
+		i--
+		b[i] = byte('0' + n%10)
+		n /= 10
+	}
+	return string(b[i:])
+}
+
+func targetIsField(t xfront.Expr, names map[string]bool) bool {
+	switch n := t.(type) {
+	case *xfront.IdentExpr:
+		return names[n.Name]
+	case *xfront.Member:
+		return isSelfIdent(n.X) && names[n.Name]
+	}
+	return false
+}
+
+func countFieldAssign(s xfront.Stmt, names map[string]bool) int {
+	if s == nil {
+		return 0
+	}
+	n := 0
+	switch st := s.(type) {
+	case *xfront.AssignStmt:
+		if targetIsField(st.Target, names) {
+			n++
+		}
+	case *xfront.IncDecStmt:
+		if targetIsField(st.Target, names) {
+			n++
+		}
+	case *xfront.Block:
+		if st == nil {
+			return 0
+		}
+		for _, x := range st.Stmts {
+			n += countFieldAssign(x, names)
+		}
+	case *xfront.IfStmt:
+		if st == nil {
+			return 0
+		}
+		n += countFieldAssign(st.Then, names)
+		if st.Else != nil {
+			n += countFieldAssign(st.Else, names)
+		}
+	case *xfront.WhileStmt:
+		if st == nil {
+			return 0
+		}
+		n += countFieldAssign(st.Body, names)
+	case *xfront.DoWhileStmt:
+		if st == nil {
+			return 0
+		}
+		n += countFieldAssign(st.Body, names)
+	case *xfront.ForStmt:
+		if st == nil {
+			return 0
+		}
+		n += countFieldAssign(st.Body, names)
+	case *xfront.SwitchStmt:
+		for _, c := range st.Cases {
+			for _, x := range c.Stmts {
+				n += countFieldAssign(x, names)
+			}
+		}
+		if st.Default != nil {
+			for _, x := range st.Default.Stmts {
+				n += countFieldAssign(x, names)
+			}
+		}
+	case *xfront.DeferStmt:
+		if st == nil {
+			return 0
+		}
+		if st.Block != nil {
+			n += countFieldAssign(st.Block, names)
+		} else if st.Stmt != nil {
+			n += countFieldAssign(st.Stmt, names)
+		}
+	case *xfront.LabeledStmt:
+		if st == nil {
+			return 0
+		}
+		n += countFieldAssign(st.Stmt, names)
+	}
+	return n
+}
+
 // ---------- BND-05：协议实现检查（§4.3） ----------
 
 type protoReq struct {
@@ -665,6 +818,34 @@ func (c *typeCheckCtx) checkProtocolImpl(d *xfront.ClassDecl) {
 				"@Override 方法 `"+m.Name+"` 返回类型与协议不符（§4.3）", "")
 		}
 	}
+}
+
+// protocolHasMethod 判断协议（含父协议）是否声明了该方法（§4.4）。
+func (c *typeCheckCtx) protocolHasMethod(name, method string) bool {
+	seen := map[string]bool{}
+	var visit func(string) bool
+	visit = func(n string) bool {
+		if seen[n] {
+			return false
+		}
+		seen[n] = true
+		info, ok := c.types[n]
+		if !ok || info.kind != "protocol" || info.proto == nil {
+			return false
+		}
+		for _, sig := range info.proto.Sigs {
+			if sig.Name == method {
+				return true
+			}
+		}
+		for _, ex := range info.proto.Extends {
+			if visit(lastSeg(ex.Qual)) {
+				return true
+			}
+		}
+		return false
+	}
+	return visit(name)
 }
 
 func constInt64(e xfront.Expr) (int64, bool) {
