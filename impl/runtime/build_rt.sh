@@ -14,6 +14,10 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_abi test_abi.c rt.c rt_
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_abi_link \
   test_abi_link.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_std_bytes.c
 /tmp/xnull_test_abi_link
+# S7-05 最小验收：XRT_ABI_VERSION 编译期断言 + init 顺序（正例/子进程负例）
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_abi_v1 \
+  test_abi_v1.c rt.c rt_gc.c rt_weak.c xrt_abi.c
+/tmp/xnull_test_abi_v1
 # 弱表 bindings-only：应用层（未定义 XRT_BINDINGS_LAYER）引用必须编译失败
 printf '#include "xrt.h"\nint main(void) { return xrt_weak_bind(0) != 0; }\n' > /tmp/xnull_weak_app.c
 if cc -std=c11 -I. -c /tmp/xnull_weak_app.c -o /tmp/xnull_weak_app.o 2>/dev/null; then

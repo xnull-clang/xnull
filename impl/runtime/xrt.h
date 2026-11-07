@@ -21,6 +21,11 @@
 
 #define XRT_ABI_VERSION 1
 
+/* S7-05：版本宏与头内容必须一致；不匹配即编译失败，防止“改了头忘了版本”。 */
+#if XRT_ABI_VERSION != 1
+#error "xrt.h: only ABI v1 is supported (S7-05)"
+#endif
+
 #include <stddef.h>
 #include <stdint.h>
 

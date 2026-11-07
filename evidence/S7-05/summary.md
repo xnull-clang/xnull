@@ -76,3 +76,15 @@
 - `xrt_runtime_init` 强实现仍在 `xrt_abi.c`；`rt.c` 的弱兜底仅服务手工测试，
   产品构建（`runtimeCSources` 含 `xrt_abi.c`）始终使用强符号。
 - FFI-06 的 ABI 稳定命名/初始化顺序/弱表门禁已补齐；QA 可据此重评 FFI-06。
+
+
+## S7-05b 重做补充（三项各自测试）
+
+- 新增 `impl/runtime/test_abi_v1.c`：`_Static_assert(XRT_ABI_VERSION == 1)` +
+  `xrt_runtime_init` 正例/子进程负例。
+- 新增 `impl/internal/codegen/s7_05_weak_test.go`：`TestS7_05WeakTableBindingsOnly`
+  直接编译两段 C（应用层必须失败、绑定层必须成功）。
+- `xrt.h` 增加版本宏一致性 `#error` 守卫。
+- 红：`red-retry-gotest.log`（三项测试在基线 `3e7f225` 全失败）、
+  `red-retry-abi.log`（`XRT_ABI_VERSION` 未定义）。
+- 绿：`green-retry-gotest.log`、`green-retry-abi.log`、`green-retry-build_rt.log`。
