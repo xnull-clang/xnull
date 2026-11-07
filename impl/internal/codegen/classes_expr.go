@@ -299,13 +299,13 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		}
 		return base + "->" + f.cname, f.ctype, nil
 	case *xfront.Call:
-		// 调用结果作成员接收者（S3-EXPR）：如 xs.get(0).x。
+		// 调用结果作成员接收者（S3-EXPR）：如 xs.get(0).x / r.error().describe()。
 		t, err := s.exprType(n)
 		if err != nil {
 			return "", "", err
 		}
-		if !isClassPtr(t) {
-			return "", "", fmt.Errorf("codegen：成员接收者调用返回 %s，不是类引用（S3-EXPR）", t)
+		if !isClassPtr(t) && !s.g.isProtoC(t) {
+			return "", "", fmt.Errorf("codegen：成员接收者调用返回 %s，不是类/协议引用（S3-EXPR）", t)
 		}
 		expr, owns, err := s.classCallExpr(n)
 		if err != nil {
@@ -313,7 +313,7 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		}
 		tmp := s.tmp()
 		s.pending = append(s.pending, t+" "+tmp+" = "+expr+";")
-		if owns && !s.g.classIsGC(t) {
+		if owns && !s.g.classIsGC(t) && !s.g.isProtoC(t) {
 			s.defers = append(s.defers, deferItem{name: tmp, lines: []string{"rt_release(" + tmp + ");"}})
 		}
 		return tmp, t, nil
@@ -370,7 +370,7 @@ func (s *scope) classMemberValue(recvC, recvName string, mem *xfront.Member, arg
 	if !ok {
 		return "", false, nil
 	}
-	if f, ok := ci.fieldOf(mem.Name); ok {
+	if f, ok := ci.fieldOf(mem.Name); ok && len(args) == 0 {
 		return s.g.fieldReadExpr(f, recvName+"->"+f.cname), true, nil
 	}
 	if m, ok := s.methodFor(ci, mem.Name, args); ok {

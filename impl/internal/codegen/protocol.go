@@ -62,6 +62,16 @@ func (g *gen) collectProtocols(u *xfront.CompilationUnit) error {
 			order = append(order, p.Name)
 		}
 	}
+	// S6：Error 协议（xdk.errors，S4-01）是内建协议；为未装载 errors.x 的
+	// 工程（如纯 sys/资源工程）合成 codegen 协议/槽位，保证 xn_proto_Error 有定义。
+	if _, ok := decls["Error"]; !ok {
+		p := &xfront.ProtocolDecl{Name: "Error", Sigs: []*xfront.ProtocolSig{
+			{Name: "kind", Ret: &xfront.NamedType{Qual: []string{"ErrorKind"}}},
+			{Name: "describe", Ret: &xfront.NamedType{Qual: []string{"String"}}},
+		}}
+		decls["Error"] = p
+		order = append(order, "Error")
+	}
 	var visiting map[string]bool
 	var build func(name string) (*protoInfo, error)
 	build = func(name string) (*protoInfo, error) {

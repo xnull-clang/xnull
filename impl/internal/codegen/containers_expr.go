@@ -35,6 +35,24 @@ func containerElem(c string) (string, bool) {
 		return "int64_t", true
 	case "b":
 		return "int", true
+	case "u8":
+		return "uint8_t", true
+	case "u16":
+		return "uint16_t", true
+	case "u32":
+		return "uint32_t", true
+	case "u64":
+		return "uint64_t", true
+	case "i8":
+		return "int8_t", true
+	case "i16":
+		return "int16_t", true
+	case "i32":
+		return "int32_t", true
+	case "f64":
+		return "double", true
+	case "f32":
+		return "float", true
 	case "s":
 		return "rt_string *", true
 	default:
