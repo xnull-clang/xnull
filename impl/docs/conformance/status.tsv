@@ -53,3 +53,4 @@ BND-13	internal/sema/s2_ext_test.go + internal/interp/ext_test.go + 收件箱/�
 EXT-01	internal/sema/s2_ext_test.go + internal/codegen/s2_ext_test.go + 收件箱/回执箱/验收-S2-EXT-01.md	PASS
 SINGLE-01	internal/codegen/s2_singleton_test.go + 收件箱/回执箱/验收-S2-SINGLE-01.md	PASS
 BND-10	internal/codegen/s2_policy_test.go + impl/runtime/test_gc.c + 收件箱/回执箱/验收-S2-BND-10.md	PASS
+GATE-01	收件箱/门/GATE-01门.md + 收件箱/回执箱/验收-S2-GATE-01.md	PASS
