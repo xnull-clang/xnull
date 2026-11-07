@@ -436,26 +436,51 @@ func loadEvidence(dir string) ([]evidenceInfo, error) {
 	return out, nil
 }
 
-// gateProgress 从 evidence 卡数推导门进度（SSOT 数据源），并附加门文件（若存在）。
+// gateCards 是各门的固定卡清单（死命令第 1 号 §1.3 / 门报告）。
+var gateCards = map[string][]string{
+	"B0": {"B0-01", "B0-02", "B0-03", "B0-04", "B0-05", "B0-06"},
+	"B1": {"B1-01", "B1-02", "B1-03"},
+}
+
+// canonicalCard 把证据目录/接力棒名归一为卡片 ID（M6-B0-05-sema → B0-05）。
+func canonicalCard(name string) string {
+	n := strings.TrimPrefix(name, "M6-")
+	n = strings.TrimSuffix(n, "-sema")
+	n = strings.TrimSuffix(n, "-qa")
+	if i := strings.Index(n, "-fix"); i > 0 {
+		n = n[:i]
+	}
+	return n
+}
+
+// gateProgress 给出各门的卡总数与「有证据」卡数（数据源：evidence/ + handoff/）。
 func gateProgress(evidence []evidenceInfo, root string) []string {
-	counts := map[string]int{}
+	have := map[string]bool{}
 	for _, e := range evidence {
-		switch {
-		case strings.HasPrefix(e.name, "B0") || strings.HasPrefix(e.name, "M6-B0"):
-			counts["B0"]++
-		case strings.HasPrefix(e.name, "B1") || strings.HasPrefix(e.name, "M6-B1"):
-			counts["B1"]++
-		case strings.HasPrefix(e.name, "B2") || strings.HasPrefix(e.name, "M6-B2"):
-			counts["B2"]++
-		case strings.HasPrefix(e.name, "B3") || strings.HasPrefix(e.name, "M6-B3"):
-			counts["B3"]++
-		case strings.HasPrefix(e.name, "B4") || strings.HasPrefix(e.name, "M6-B4"):
-			counts["B4"]++
+		have[canonicalCard(e.name)] = true
+	}
+	if entries, err := os.ReadDir(filepath.Join(root, "handoff")); err == nil {
+		for _, e := range entries {
+			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") || strings.HasPrefix(e.Name(), "_") {
+				continue
+			}
+			have[canonicalCard(strings.TrimSuffix(e.Name(), ".md"))] = true
 		}
 	}
 	var parts []string
 	for _, gate := range []string{"B0", "B1", "B2", "B3", "B4"} {
-		parts = append(parts, fmt.Sprintf("%s %d 卡", gate, counts[gate]))
+		cards, ok := gateCards[gate]
+		if !ok {
+			parts = append(parts, gate+" 0 卡")
+			continue
+		}
+		done := 0
+		for _, id := range cards {
+			if have[id] {
+				done++
+			}
+		}
+		parts = append(parts, fmt.Sprintf("%s %d 卡（有证据 %d）", gate, len(cards), done))
 	}
 	out := []string{strings.Join(parts, " / ")}
 	out = append(out, loadGates(root)...)

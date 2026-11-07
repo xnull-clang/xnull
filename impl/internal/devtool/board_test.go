@@ -175,3 +175,25 @@ func TestRecordLastGreenPerLine(t *testing.T) {
 		t.Fatalf("支撑线也必须有 last-green：%+v", got)
 	}
 }
+
+func TestCanonicalCardAndGates(t *testing.T) {
+	cases := map[string]string{
+		"M6-B0-05-sema":  "B0-05",
+		"M6-B0-01":       "B0-01",
+		"B0-07b":         "B0-07b",
+		"B1-03":          "B1-03",
+		"M1-ENTRY-01-qa": "M1-ENTRY-01",
+	}
+	for in, want := range cases {
+		if got := canonicalCard(in); got != want {
+			t.Fatalf("canonicalCard(%q)=%q，期望 %q", in, got, want)
+		}
+	}
+	ev := []evidenceInfo{{name: "M6-B0-01"}, {name: "B0-02"}, {name: "M6-B0-05-sema"}, {name: "M6-B1-03"}}
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "handoff", "B0-03.md"), []byte("# x\n"))
+	got := gateProgress(ev, root)
+	if !strings.Contains(got[0], "B0 6 卡（有证据 4）") || !strings.Contains(got[0], "B1 3 卡（有证据 1）") {
+		t.Fatalf("门卡数不符：%v", got)
+	}
+}
