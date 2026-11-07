@@ -1,0 +1,6 @@
+=== RUN   TestS3StaticRoots
+--- PASS: TestS3StaticRoots (0.00s)
+=== RUN   TestS3StaticRootsCrossModule
+--- PASS: TestS3StaticRootsCrossModule (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.482s
