@@ -401,8 +401,9 @@ func (e *tyenv) checkCleanup(d *xfront.DeferStmt) {
 	}
 	if d.Stmt != nil {
 		if ld, ok := d.Stmt.(*xfront.LocalDeclStmt); ok {
-			// LocalDeclStmt.P 是零位置；用类型节点定位（`defer Int x = 1` 指向 Int）。
-			p := d.Stmt.Pos()
+			// LocalDeclStmt.P 是零位置；优先用类型节点定位（`defer Int x = 1` 指向 Int），
+			// 类型缺失时回退到 defer/errdefer 关键字位置，保证诊断永不为 0:0。
+			p := d.P
 			if ld.Type != nil {
 				if tp := ld.Type.Pos(); tp.Line != 0 {
 					p = tp

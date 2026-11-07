@@ -5,6 +5,7 @@ package codegen
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
@@ -79,6 +80,32 @@ func InjectFFI(u *xfront.CompilationUnit, reg *ffi.Registry) error {
 		declared[e.Name] = true
 	}
 	return nil
+}
+
+// FFIHandleTypes 返回绑定声明的全部句柄类型名（File/Dir 等）。
+// 句柄类型不在源码中声明，由 InjectFFI 注入签名；sema 的签名类型可见性
+// 检查需要这些名字（E2 §8.1 严格化后，否则 File/Dir 报 RES-101）。
+func FFIHandleTypes(reg *ffi.Registry) []string {
+	if reg == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	for _, e := range reg.Entries {
+		if e.Ret.Kind == ffi.KindHandle {
+			seen[e.Ret.Name] = true
+		}
+		for _, p := range e.Params {
+			if p.Type.Kind == ffi.KindHandle {
+				seen[p.Type.Name] = true
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for n := range seen {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // UnsupportedFFIEntries 列出未纳入 P-09 的入口及原因（按注册表顺序，确定性）。
