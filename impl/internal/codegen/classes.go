@@ -21,13 +21,20 @@ import (
 
 // classField 是类字段的生成信息。
 type classField struct {
-	name  string
-	cname string // C 成员名（私有字段 _name）
-	ctype string
-	isStr bool
-	isArr bool   // 容器值字段（xn_arr_/xn_set_/xn_map_ 值结构）
-	isCls bool   // 类引用字段（xn_Cls_X *）
-	elem  string // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
+	name     string
+	cname    string // C 成员名（私有字段 _name）
+	ctype    string
+	isStr    bool
+	isArr    bool   // 容器值字段（xn_arr_/xn_set_/xn_map_ 值结构）
+	isCls    bool   // 类引用字段（xn_Cls_X *）
+	isHandle bool   // 不透明句柄字段（xrt_handle *）
+	isBytes  bool   // 可变字节缓冲字段（xrt_bytes_obj *）
+	elem     string // 容器元素 C 类型（isArr 时用于 deinit 释放；辅助记录）
+}
+
+// isRefField 判断字段是否持有 ARC 引用（deinit/赋值需 retain/release）。
+func (f classField) isRefField() bool {
+	return f.isStr || f.isCls || f.isHandle || f.isBytes
 }
 
 // classInfo 是一个类的生成信息。
@@ -37,6 +44,7 @@ type classInfo struct {
 	typeVar string // RT_TYPE_XN_<Name>
 	fields  []classField
 	methods map[string]*classInfo_m // 方法名 → 签名
+	deinit  *classInfo_m            // 用户 deinit 体（静态派发，先于字段释放）
 }
 
 type classInfo_m struct {
@@ -74,17 +82,25 @@ func (g *gen) collectClass(d *xfront.ClassDecl) error {
 	ci.decl = d
 	ci.fields = nil
 	ci.methods = map[string]*classInfo_m{}
+	ci.deinit = nil
 	for _, f := range d.Fields {
 		ct, err := g.cType(f.Type)
 		if err != nil {
 			return err
 		}
 		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
-			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct)})
+			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
+			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *"})
 	}
 	for _, m := range d.Methods {
 		if m.IsDeinit {
-			continue // deinit 归一到类型 deinit 钩子（字段释放已生成）
+			// 用户 deinit 体静态派发，先于字段释放执行（S2-E5-02）。
+			// 独立 C 名，避免与类型 deinit 钩子 `<cname>_deinit` 冲突。
+			if ci.deinit != nil {
+				return fmt.Errorf("codegen：类 %s 声明了多个 deinit（sema 应已拒绝）", d.Name)
+			}
+			ci.deinit = &classInfo_m{decl: m, cname: classCName(d.Name) + "_deinit_user"}
+			continue
 		}
 		if _, ok := ci.methods[m.Name]; ok {
 			return fmt.Errorf("codegen：类 %s 方法重名 %s（重载未支持，M4.4b 范围）", d.Name, m.Name)
@@ -133,6 +149,9 @@ func (g *gen) emitClassForwardDecls(b *strings.Builder) {
 	for _, name := range names {
 		cn := classCName(name)
 		fmt.Fprintf(b, "static %s *%s_new(void);\n", cn, cn)
+		if ci := g.classes[name]; ci != nil && ci.deinit != nil {
+			fmt.Fprintf(b, "static void %s(%s *self);\n", ci.deinit.cname, cn)
+		}
 	}
 	if len(names) > 0 {
 		b.WriteString("\n")
@@ -148,17 +167,19 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	}
 	b.WriteString("} " + ci.cname + ";\n\n")
 
-	// deinit：按字段类别释放（String 引用 / 容器值 / 类引用）
+	// deinit：用户体（静态派发）→ 父类链（当前不支持继承）→ 释放仍非空字段。
+	// 字段在用户体中置 null 时，rt_release(NULL) 安全，保留「置 null 提前释放」语义。
 	fmt.Fprintf(b, "static void %s_deinit(void *p) {\n", ci.cname)
 	fmt.Fprintf(b, "    %s *o = (%s *)p;\n", ci.cname, ci.cname)
+	if ci.deinit != nil {
+		fmt.Fprintf(b, "    %s(o);\n", ci.deinit.cname)
+	}
 	for _, f := range ci.fields {
 		switch {
-		case f.isStr:
+		case f.isRefField():
 			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		case f.isArr:
 			fmt.Fprintf(b, "    %s_free(&o->%s);\n", f.ctype, f.cname)
-		case f.isCls:
-			fmt.Fprintf(b, "    rt_release(o->%s);\n", f.cname)
 		}
 	}
 	b.WriteString("}\n\n")
@@ -249,11 +270,13 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 
 func cZeroValue(ct string) string {
 	switch ct {
-	case "rt_string *":
+	case "rt_string *", "xrt_handle *", "xrt_bytes_obj *":
 		return "NULL"
-	default:
-		return "0"
 	}
+	if isClassPtr(ct) {
+		return "NULL"
+	}
+	return "0"
 }
 
 // classCtorInit 生成构造器里的字段初值语句（S2 §6.3 L678-679）：

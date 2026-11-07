@@ -431,6 +431,15 @@ func EmitCWithFFI(u *xfront.CompilationUnit, reg *ffi.Registry) (string, error) 
 			b.WriteString("\n")
 			for _, md := range n.Methods {
 				if md.IsDeinit {
+					// 用户 deinit 体：由类型 deinit 钩子先调用（S2-E5-02）。
+					if ci.deinit == nil {
+						return "", fmt.Errorf("codegen：类 %s 的 deinit 未登记", n.Name)
+					}
+					mc, err := g.genMethod(ci, ci.deinit)
+					if err != nil {
+						return "", err
+					}
+					b.WriteString(mc + "\n")
 					continue
 				}
 				mc, err := g.genMethod(ci, ci.methods[md.Name])

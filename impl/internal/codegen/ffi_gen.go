@@ -240,7 +240,12 @@ func (s *scope) handleExpr(e xfront.Expr) ([]string, string, error) {
 func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 	switch n := e.(type) {
 	case *xfront.IdentExpr:
-		return nil, s.cRef(n.Name), nil
+		// 借用转 +1：本地/字段赋值按统一所有权接管（S2-E5-01）。
+		r := s.cRef(n.Name)
+		t := s.tmp()
+		return []string{"xrt_bytes_obj *" + t + " = rt_retain(" + r + ");"}, t, nil
+	case *xfront.NullLit:
+		return nil, "NULL", nil
 	case *xfront.Paren:
 		return s.bytesExpr(n.X)
 	case *xfront.Call:
