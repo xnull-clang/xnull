@@ -98,7 +98,7 @@ func (g *gen) collectDataEnum(d *xfront.EnumDecl, ctype string) (*classInfo, err
 		if err != nil {
 			return nil, err
 		}
-		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
+		ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: g.slotCType(ct), semC: ct,
 			isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
 			isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init})
 	}

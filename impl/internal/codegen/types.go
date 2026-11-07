@@ -122,6 +122,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：成员 %s 的接收者类型 %s 不可判定（M4.4b 范围）", n.Name, recvC)
 		}
 		if f, ok := ci.fieldOf(n.Name); ok {
+			if f.semC != "" {
+				return f.semC, nil
+			}
 			return f.ctype, nil
 		}
 		return "", fmt.Errorf("codegen：类 %s 没有字段 %s（裸成员读取；方法请调用）", ci.decl.Name, n.Name)
