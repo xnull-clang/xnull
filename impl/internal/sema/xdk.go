@@ -212,8 +212,9 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 					"改用符号导入 `import P.S as A` 仅引入所需符号")
 				continue
 			}
+			aliasID := b.src + "." + b.syms[0]
 			if prev, dup := aliasOwners[b.alias]; dup {
-				if prev != b.src {
+				if prev != aliasID {
 					a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 冲突（已由 `"+prev+"` 使用）（§3.5）", "换一个别名")
 				}
 				continue
@@ -226,7 +227,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				a.errf(b.p, ResAliasConflict, "导入别名 `"+b.alias+"` 与预定义类型名冲突（§3.3）", "换一个别名")
 				continue
 			}
-			aliasOwners[b.alias] = b.src
+			aliasOwners[b.alias] = aliasID
 			// 非冲突场景使用 as → RES-107（§3.2）。
 			if len(importedSym[b.syms[0]]) <= 1 {
 				a.errf(b.p, ResNeedlessAlias, "`"+b.syms[0]+"` 无同名歧义，as 别名只用于消歧（§3.2）", "去掉 as 子句")
@@ -241,7 +242,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				if topNames[s] {
 					continue
 				}
-				if prev, dup := aliasOwners[s]; dup && prev != b.src {
+				if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 					if !a.ambiguous[s] {
 						a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 已由别名 `"+prev+"` 占用（§3.2/§3.3）", "改用 as 别名或完全限定名")
 						a.ambiguous[s] = true
@@ -261,7 +262,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				}
 				continue
 			}
-			if prev, dup := aliasOwners[s]; dup && prev != b.src {
+			if prev, dup := aliasOwners[s]; dup && prev != b.src+"."+s {
 				if !a.ambiguous[s] {
 					a.errf(b.p, ResAmbiguousName, "简单名 `"+s+"` 与别名 `"+prev+"` 冲突（§3.3）", "换一个别名")
 					a.ambiguous[s] = true
@@ -270,7 +271,7 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 			}
 			if _, ok := bound[s]; !ok {
 				bound[s] = b.src
-				aliasOwners[s] = b.src
+				aliasOwners[s] = b.src + "." + s
 			}
 		}
 	}
