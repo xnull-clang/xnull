@@ -201,6 +201,13 @@ func (in *Interp) execCtorBodySkip(obj *objv, c *xfront.CtorDecl, args []*Value,
 		}
 	}()
 	sc := in.ctorScope(obj, c, args, caller)
+	if c != nil {
+		for i, prm := range c.Params {
+			if i < len(args) {
+				in.takeOwnership(sc, prm.Name, args[i])
+			}
+		}
+	}
 	body := c.Body
 	if skip > 0 && skip <= len(body.Stmts) {
 		body = &xfront.Block{P: body.P, Stmts: body.Stmts[skip:]}
@@ -216,6 +223,7 @@ func (in *Interp) ctorScope(obj *objv, ctor *xfront.CtorDecl, args []*Value, cal
 		for i, prm := range ctor.Params {
 			if i < len(args) {
 				sc.defineTyped(prm.Name, prm.Type, args[i])
+				in.takeOwnership(sc, prm.Name, args[i])
 			} else {
 				sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 			}
@@ -320,6 +328,7 @@ func (in *Interp) callMethodFrom(start *xfront.ClassDecl, obj *objv, name string
 	for i, prm := range m.Params {
 		if i < len(args) {
 			sc.defineTyped(prm.Name, prm.Type, args[i])
+			in.takeOwnership(sc, prm.Name, args[i])
 		} else {
 			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 		}

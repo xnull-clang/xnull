@@ -116,6 +116,7 @@ func (in *Interp) execStructCtorBody(s *structv, c *xfront.CtorDecl, args []*Val
 	for i, prm := range c.Params {
 		if i < len(args) {
 			sc.defineTyped(prm.Name, prm.Type, args[i])
+			in.takeOwnership(sc, prm.Name, args[i])
 		} else {
 			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 		}
@@ -167,6 +168,7 @@ func (in *Interp) callStructMethod(s *structv, name string, args []*Value, pos x
 	for i, prm := range m.Params {
 		if i < len(args) {
 			sc.defineTyped(prm.Name, prm.Type, args[i])
+			in.takeOwnership(sc, prm.Name, args[i])
 		} else {
 			sc.defineTyped(prm.Name, prm.Type, &Value{K: vNull})
 		}
