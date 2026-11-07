@@ -175,6 +175,7 @@ type scope struct {
 	owned    []*objv                   // 兼容保留（不再用于释放）
 	objOwner map[string]*objv          // 变量名 → 当前持有的对象（§4.4 强持有）
 	objOrder []string                  // 变量声明顺序（作用域退出逆序释放）
+	temps    []*objv                   // 临时对象（new 产生，块结束时释放）
 }
 
 func newScope(parent *scope) *scope {
