@@ -1,0 +1,21 @@
+# ENTRY-01 CLI 侧证据命令
+# 基线：81ec33d574347bf6f36ffeb8963c57e5145a3cf5（pod/c3-rd1）
+# 工作目录：wt/c3-rd1/impl
+
+# 0. 先红：用基线实现 + 新测试，确认缺口可复现
+#    （临时恢复 HEAD 的 cli.go，保留新增测试）
+git -C .. show HEAD:impl/internal/cli/cli.go > internal/cli/cli.go
+go test ./internal/cli -run 'TestEntry|TestRunMain|TestInitOrder' -count=1
+# 期望：FAIL；本证据实际 exit=1
+
+# 1. 恢复实现后：定向用例
+go test ./internal/cli -run 'TestEntry|TestRunMain|TestInitOrder' -count=1
+
+# 2. 本包验收
+go test ./internal/cli -count=1
+
+# 3. 全量回归
+go test ./... -count=1 -timeout 900s
+
+# 4. 静态检查
+go vet ./internal/cli
