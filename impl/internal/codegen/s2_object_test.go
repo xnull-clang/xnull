@@ -1163,3 +1163,26 @@ static Int main() {
 		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
 	}
 }
+
+// EXT-01 补口：合法扩展重载（同名不同元数/类型）不再被 codegen 误拒。
+func TestS2EXT01ExtensionOverloads(t *testing.T) {
+	src := `class D { }
+extension D {
+    Int f() { return 1 }
+    Int f(Int x) { return x }
+    String g(Int x) { return "i" + str(x) }
+    String g(String x) { return "s" + x }
+}
+static Int main() {
+    D d = new D()
+    print(d.f())
+    print(d.f(2))
+    print(d.g(1))
+    print(d.g("x"))
+    return 0
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n2\ni1\nsx\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
