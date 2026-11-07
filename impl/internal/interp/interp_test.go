@@ -779,3 +779,38 @@ static Int main() {
 		}
 	})
 }
+
+// TUPLE-01 QA F1/F2：引用元素 == 按对象身份；String === 按对象身份（§2.8、§2.11）。
+func TestTupleReferenceElementEquality(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    Int[] xs = [1, 2]
+    (Int[], Int) p = (xs, 1)
+    (Int[], Int) q = (xs, 1)
+    print(p == p)
+    print(p == q)
+    return 0
+}`)
+	want := "true\ntrue\n"
+	if err != nil || out != want {
+		t.Fatalf("引用元素 == 应按对象身份：out=%q want=%q err=%v", out, want, err)
+	}
+}
+
+func TestTupleStringIdentity(t *testing.T) {
+	out, err := runSrc(t, `
+static Int main() {
+    String s1 = "a" + "b"
+    String s2 = "a" + "b"
+    print(s1 === s1)
+    print(s1 === s2)
+    (String, String) p = (s1, "x")
+    (String, String) q = (s2, "x")
+    print(p === q)
+    return 0
+}`)
+	want := "true\nfalse\nfalse\n"
+	if err != nil || out != want {
+		t.Fatalf("String === 应按对象身份：out=%q want=%q err=%v", out, want, err)
+	}
+}
