@@ -26,21 +26,20 @@ func (g *gen) collectSingletons(u *xfront.CompilationUnit) error {
 		ci := &classInfo{decl: syn, cname: "xn_Single_" + sd.Name,
 			typeVar: "RT_TYPE_XN_SINGLE_" + sd.Name, methods: map[string]*classInfo_m{}}
 		for _, f := range sd.Fields {
-			if f.Mod.Static {
-				return fmt.Errorf("codegen：单例静态字段暂未支持（BND-07 边界：%s）", f.Name)
-			}
 			ct, err := g.cType(f.Type)
 			if err != nil {
 				return err
 			}
-			ci.fields = append(ci.fields, classField{name: f.Name, cname: fieldCName(f), ctype: ct,
+			cf := classField{name: f.Name, cname: fieldCName(f), ctype: ct,
 				isStr: ct == "rt_string *", isArr: isContainerC(ct), isCls: isClassPtr(ct),
-				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init})
+				isHandle: isHandlePtr(ct), isBytes: ct == "xrt_bytes_obj *", isProto: g.isProtoC(ct), init: f.Init}
+			if f.Mod.Static {
+				ci.staticFields = append(ci.staticFields, cf)
+			} else {
+				ci.fields = append(ci.fields, cf)
+			}
 		}
 		for _, m := range sd.Methods {
-			if m.Mod.Static {
-				return fmt.Errorf("codegen：单例静态方法暂未支持（BND-07 边界：%s）", m.Name)
-			}
 			if m.IsDeinit {
 				ci.deinit = &classInfo_m{decl: m, cname: ci.cname + "_deinit", owner: ci}
 				continue
@@ -85,6 +84,24 @@ func (g *gen) singletonInstance(mem *xfront.Member) (*classInfo, string, bool) {
 	return ci, "xn_single_" + id.Name, true
 }
 
+// singletonStatic 解析 `Singleton.staticField` 访问。
+func (g *gen) singletonStatic(mem *xfront.Member) (string, string, bool) {
+	id, ok := mem.X.(*xfront.IdentExpr)
+	if !ok {
+		return "", "", false
+	}
+	ci, ok := g.singletons[id.Name]
+	if !ok {
+		return "", "", false
+	}
+	for _, f := range ci.staticFields {
+		if f.name == mem.Name || f.cname == mem.Name {
+			return "xn_static_" + ci.decl.Name + "_" + f.cname, f.ctype, true
+		}
+	}
+	return "", "", false
+}
+
 // singletonVarOf 返回单例全局实例变量名。
 func singletonVarName(name string) string { return "xn_single_" + name }
 
@@ -100,6 +117,9 @@ func (g *gen) emitSingletonForwards(b *strings.Builder) error {
 	for _, name := range g.singletonOrder {
 		ci := g.singletons[name]
 		fmt.Fprintf(b, "static %s *%s;\n", ci.cname, singletonVarName(name))
+		for _, f := range ci.staticFields {
+			fmt.Fprintf(b, "static %s xn_static_%s_%s;\n", f.ctype, ci.decl.Name, f.cname)
+		}
 		for _, md := range ci.decl.Methods {
 			if md.IsDeinit {
 				continue
@@ -144,7 +164,16 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		fmt.Fprintf(b, "static void %s_init(void) {\n", ci.cname)
 		fmt.Fprintf(b, "    %s *o = (%s *)rt_arc_new(&%s);\n", ci.cname, ci.cname, ci.typeVar)
 		fmt.Fprintf(b, "    memset((char *)o + sizeof(rt_header), 0, sizeof(%s) - sizeof(rt_header));\n", ci.cname)
-		inits, err := g.classCtorInit(ci)
+		var refs = map[string]string{}
+		var types = map[string]string{}
+		for _, name2 := range g.singletonOrder {
+			c2 := g.singletons[name2]
+			for _, f := range c2.staticFields {
+				refs[f.name] = "xn_static_" + c2.decl.Name + "_" + f.cname
+				types[f.name] = f.ctype
+			}
+		}
+		inits, err := g.singletonInstanceInit(ci, refs, types)
 		if err != nil {
 			return err
 		}
@@ -154,9 +183,66 @@ func (g *gen) emitSingletons(b *strings.Builder) error {
 		fmt.Fprintf(b, "    %s = o;\n}\n\n", singletonVarName(name))
 	}
 	b.WriteString("static void xn_init_singletons(void) {\n")
+	// 静态字段先于单例实例初始化（S2 §9.2），按声明顺序；可引用前面的静态/单例。
+	refs := map[string]string{}
+	types := map[string]string{}
+	for _, name := range g.singletonOrder {
+		ci := g.singletons[name]
+		for _, f := range ci.staticFields {
+			refs[f.name] = "xn_static_" + ci.decl.Name + "_" + f.cname
+			types[f.name] = f.ctype
+		}
+		lines, err := g.singletonStaticInit(ci, refs, types)
+		if err != nil {
+			return err
+		}
+		for _, l := range lines {
+			b.WriteString("    " + l + "\n")
+		}
+	}
 	for _, name := range g.singletonOrder {
 		fmt.Fprintf(b, "    %s_init();\n", g.singletons[name].cname)
 	}
 	b.WriteString("}\n\n")
 	return nil
+}
+
+// singletonStaticInit 生成单例静态字段初始化（引用前面静态/单例）。
+func (g *gen) singletonStaticInit(ci *classInfo, refs, types map[string]string) ([]string, error) {
+	var out []string
+	sc := &scope{g: g, locals: map[string]string{}, staticRefs: refs, staticTypes: types}
+	for _, f := range ci.staticFields {
+		if f.init == nil {
+			continue
+		}
+		lines, expr, err := g.fieldInitValue(sc, f, f.init, ci.decl.Name)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, lines...)
+		out = append(out, sc.pending...)
+		sc.pending = nil
+		out = append(out, "xn_static_"+ci.decl.Name+"_"+f.cname+" = "+expr+";")
+	}
+	return out, nil
+}
+
+// singletonInstanceInit 生成单例实例字段初始化（不走类字段初始值校验，允许引用前序单例）。
+func (g *gen) singletonInstanceInit(ci *classInfo, refs, types map[string]string) ([]string, error) {
+	var out []string
+	sc := &scope{g: g, locals: map[string]string{}, staticRefs: refs, staticTypes: types}
+	for _, f := range ci.fields {
+		if f.init == nil {
+			continue
+		}
+		lines, expr, err := g.fieldInitValue(sc, f, f.init, ci.decl.Name)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, lines...)
+		out = append(out, sc.pending...)
+		sc.pending = nil
+		out = append(out, "o->"+f.cname+" = "+expr+";")
+	}
+	return out, nil
 }

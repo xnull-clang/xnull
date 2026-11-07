@@ -41,23 +41,24 @@ func (f classField) isRefField() bool {
 
 // classInfo 是一个类的生成信息。
 type classInfo struct {
-	decl       *xfront.ClassDecl
-	cname      string // xn_Cls_<Name>
-	typeVar    string // RT_TYPE_XN_<Name>
-	base       *classInfo
-	protocols  []*xfront.NamedType
-	vptr       bool // 协议 vtable 指针槽（S2 §5.7）
-	fields     []classField
-	methods    map[string]*classInfo_m   // 方法名 → 主签名
-	overloads  map[string][]*classInfo_m // 扩展/重载集合（按声明序）
-	extCount   int                       // 扩展方法 C 名序号（唯一化）
-	ctors      []*xfront.CtorDecl        // 普通构造器（S2 §6.3）
-	primary    *xfront.CtorDecl          // 主构造器
-	ctorName   map[*xfront.CtorDecl]string
-	deinit     *classInfo_m              // 用户 deinit 体（静态派发，先于字段释放）
-	subst      map[string]xfront.TypeRef // 泛型类实例的类型参数替换（BND-12）
-	collected  bool
-	collecting bool
+	decl         *xfront.ClassDecl
+	cname        string // xn_Cls_<Name>
+	typeVar      string // RT_TYPE_XN_<Name>
+	base         *classInfo
+	protocols    []*xfront.NamedType
+	vptr         bool // 协议 vtable 指针槽（S2 §5.7）
+	fields       []classField
+	staticFields []classField              // 静态字段（singleton BND-07）
+	methods      map[string]*classInfo_m   // 方法名 → 主签名
+	overloads    map[string][]*classInfo_m // 扩展/重载集合（按声明序）
+	extCount     int                       // 扩展方法 C 名序号（唯一化）
+	ctors        []*xfront.CtorDecl        // 普通构造器（S2 §6.3）
+	primary      *xfront.CtorDecl          // 主构造器
+	ctorName     map[*xfront.CtorDecl]string
+	deinit       *classInfo_m              // 用户 deinit 体（静态派发，先于字段释放）
+	subst        map[string]xfront.TypeRef // 泛型类实例的类型参数替换（BND-12）
+	collected    bool
+	collecting   bool
 }
 
 type classInfo_m struct {
@@ -791,6 +792,14 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 		}
 	}
 	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	if len(ci.staticFields) > 0 {
+		sc.staticRefs = map[string]string{}
+		sc.staticTypes = map[string]string{}
+		for _, f := range ci.staticFields {
+			sc.staticRefs[f.name] = "xn_static_" + ci.decl.Name + "_" + f.cname
+			sc.staticTypes[f.name] = f.ctype
+		}
+	}
 	if !m.static {
 		sc.self = newSelfCtx(ci)
 		if ci.base != nil {
