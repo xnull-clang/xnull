@@ -29,11 +29,15 @@ var bannedTypeNames = map[string]string{
 	"Optional": "可选类型不跨边界（S7 §3.6）；NULL 语义由绑定包装层处理",
 }
 
-// errorKinds 是允许的错误分类名（S4 附录 A）。
+// errorKinds 是允许的错误分类名（S4 附录 A + 历史短名别名）。
 var errorKinds = map[string]bool{
-	"Invalid": true, "NotFound": true, "Permission": true, "Conflict": true,
-	"Cancelled": true, "Timeout": true, "Internal": true, "Limit": true,
-	"Unavailable": true,
+	// S4 §3.1 规范名（14 项，与 xrt_error_kind 一一对应）
+	"InvalidArgument": true, "NotFound": true, "AlreadyExists": true,
+	"PermissionDenied": true, "Io": true, "Network": true, "Timeout": true,
+	"Cancelled": true, "Busy": true, "Unavailable": true, "DataCorrupted": true,
+	"Unsupported": true, "OutOfMemory": true, "Internal": true,
+	// 历史短名（既有 .xfb 兼容；kind 枚举映射到规范分类）
+	"Invalid": true, "Permission": true, "Conflict": true, "Limit": true,
 }
 
 var knownAnnotations = map[string]bool{

@@ -289,22 +289,44 @@ func emitLayout(l Layout) string {
 // errorKindEnum 把绑定层 errorMap 的短名映射到稳定枚举（S4 §3/附录 A）。
 func errorKindEnum(kind string) string {
 	switch kind {
-	case "Invalid":
+	// S4 §3.1 规范名
+	case "InvalidArgument":
 		return "XRT_ERR_INVALID_ARGUMENT"
 	case "NotFound":
 		return "XRT_ERR_NOT_FOUND"
+	case "AlreadyExists":
+		return "XRT_ERR_ALREADY_EXISTS"
+	case "PermissionDenied":
+		return "XRT_ERR_PERMISSION_DENIED"
+	case "Io":
+		return "XRT_ERR_IO"
+	case "Network":
+		return "XRT_ERR_NETWORK"
+	case "Timeout":
+		return "XRT_ERR_TIMEOUT"
+	case "Cancelled":
+		return "XRT_ERR_CANCELLED"
+	case "Busy":
+		return "XRT_ERR_BUSY"
+	case "Unavailable":
+		return "XRT_ERR_UNAVAILABLE"
+	case "DataCorrupted":
+		return "XRT_ERR_DATA_CORRUPTED"
+	case "Unsupported":
+		return "XRT_ERR_UNSUPPORTED"
+	case "OutOfMemory":
+		return "XRT_ERR_OUT_OF_MEMORY"
+	case "Internal":
+		return "XRT_ERR_INTERNAL"
+	// 历史短名别名
+	case "Invalid":
+		return "XRT_ERR_INVALID_ARGUMENT"
 	case "Conflict":
 		return "XRT_ERR_ALREADY_EXISTS"
 	case "Permission":
 		return "XRT_ERR_PERMISSION_DENIED"
 	case "Limit":
 		return "XRT_ERR_BUSY"
-	case "Cancelled":
-		return "XRT_ERR_CANCELLED"
-	case "Timeout":
-		return "XRT_ERR_TIMEOUT"
-	case "Unavailable":
-		return "XRT_ERR_UNAVAILABLE"
 	default:
 		return "XRT_ERR_INTERNAL"
 	}
