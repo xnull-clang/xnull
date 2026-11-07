@@ -69,6 +69,7 @@ static Int main() {
 	for _, s := range runtimeCSources {
 		args = append(args, filepath.Join(rt, s))
 	}
+	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	var cerr bytes.Buffer
 	cc := exec.Command("cc", args...)
 	cc.Stderr = &cerr
@@ -159,5 +160,82 @@ static Int main() {
 		if !strings.Contains(csrc, want) {
 			t.Fatalf("缺少 S6-03 发射 %q：\n%s", want, csrc)
 		}
+	}
+}
+
+// s6BuildRun 用真实 sys 绑定构建并运行（Build 负责 FFI/S6-03 注入）。
+func s6BuildRun(t *testing.T, src string) (string, int) {
+	t.Helper()
+	dir := t.TempDir()
+	sysSrc, err := os.ReadFile(filepath.Join("..", "..", "..", "bindings", "xdk", "sys.xfb"))
+	if err != nil {
+		t.Fatalf("读取 sys.xfb：%v", err)
+	}
+	writeFFIFile(t, filepath.Join(dir, "bindings", "xdk", "sys.xfb"), string(sysSrc))
+	mainPath := filepath.Join(dir, "main.x")
+	writeFFIFile(t, mainPath, src)
+	bin := filepath.Join(dir, "prog")
+	var stderr bytes.Buffer
+	if code := Build(mainPath, bin, filepath.Join("..", "..", "runtime"), &stderr); code != 0 {
+		t.Fatalf("构建失败 code=%d\n%s", code, stderr.String())
+	}
+	var out bytes.Buffer
+	cmd := exec.Command(bin)
+	cmd.Stdout = &out
+	err = cmd.Run()
+	code := 0
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			code = ee.ExitCode()
+		} else {
+			t.Fatalf("运行失败：%v", err)
+		}
+	}
+	return out.String(), code
+}
+
+// S6-03：Async 取消是可恢复错误（fileReadAsync 返回 -1、code=2，不 exit）。
+func TestS6_03AsyncCancelRecoverable(t *testing.T) {
+	dir := t.TempDir()
+	data := filepath.Join(dir, "in.txt")
+	writeFFIFile(t, data, "abc")
+	src := `import xdk.sys
+import xdk.tasks
+import xdk.runtime
+@tasks
+static Int main() {
+    Context c = Context.background()
+    Context dead = c.withDeadline(nowMono() - 1)
+    File f = fileOpenRead("` + data + `")
+    Bytes b = Bytes.fromString("")
+    Int32 code = 0
+    Int64 n = fileReadAsync(dead, f, b, code)
+    print(str(n))
+    print(code)
+    fileClose(f)
+    return 0
+}`
+	out, code := s6BuildRun(t, src)
+	if code != 0 || out != "-1\n2\n" {
+		t.Fatalf("out=%q code=%d，期望 \"-1\\n2\\n\" / 0", out, code)
+	}
+}
+
+// S6-03：procRunAsync 成功返回子进程退出码；取消返回 -1（不与 0—255 退出码混淆）。
+func TestS6_03ProcRunStatus(t *testing.T) {
+	src := `import xdk.sys
+import xdk.tasks
+import xdk.runtime
+@tasks
+static Int main() {
+    Context c = Context.background()
+    print(procRunAsync(c, "exit 7"))
+    Context dead = c.withDeadline(nowMono() - 1)
+    print(procRunAsync(dead, "sleep 1"))
+    return 0
+}`
+	out, code := s6BuildRun(t, src)
+	if code != 0 || out != "7\n-1\n" {
+		t.Fatalf("out=%q code=%d，期望 \"7\\n-1\\n\" / 0", out, code)
 	}
 }

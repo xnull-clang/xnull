@@ -315,7 +315,7 @@ func (s *scope) sys603Call(call *xfront.Call) ([]string, string, bool, error) {
 		add("int32_t " + code + " = 0;")
 		add("int64_t " + n + " = xdkc_file_read_async(" + ctx + ", " + hn + ", " + data + ", " + blen + ", &" + code + ");")
 		add(codeVar + " = " + code + ";")
-		add(fmt.Sprintf(`if (%s != 0) { fprintf(stderr, "fatal: S6-03 %s 错误码 %%d\n", (int)%s); exit(134); }`, code, name, code))
+		// 取消/IO 失败是可恢复的：native 返回 -1 且 code=2，不终止进程（S6-03）
 		expr = n
 	case kSys603Write:
 		ctxE, err := arg(0)
@@ -392,6 +392,8 @@ func (s *scope) sys603Call(call *xfront.Call) ([]string, string, bool, error) {
 		out := s.tmp()
 		add("int32_t " + code + " = 0;")
 		add("const char *" + src + " = xdkc_dir_read_async(" + ctx + ", " + hn + ", &" + code + ");")
+		// 限制（S6-03）：EOF 与取消（code=2）都映射为 null；区分二者需
+		// Result<String?, Error> 签名（待 E2），当前在文档标注。
 		add("rt_string *" + out + " = (" + src + " == NULL || " + code + " != 0) ? NULL : rt_string_from_c(" + src + ");")
 		expr = out
 	case kSys603ProcSpawn:
@@ -491,9 +493,12 @@ func (s *scope) sys603Call(call *xfront.Call) ([]string, string, bool, error) {
 			st := s.tmp()
 			add("int32_t " + st + " = 0;")
 			add("int32_t " + r + " = xdkc_proc_run_async(" + ctx + ", " + cmd + "->bytes, " + cmd + "->len, &" + st + ");")
-		} else {
-			add("int32_t " + r + " = xdkc_proc_status_async(" + ctx + ", " + cmd + "->bytes, " + cmd + "->len);")
+			add("rt_release(" + cmd + ");")
+			// 成功（rc=0）返回子进程退出码；取消/失败返回 -1（取消码 7 不与真实退出码混淆）。
+			expr = "((" + r + " == 0) ? " + st + " : -1)"
+			return lines, expr, true, nil
 		}
+		add("int32_t " + r + " = xdkc_proc_status_async(" + ctx + ", " + cmd + "->bytes, " + cmd + "->len);")
 		add("rt_release(" + cmd + ");")
 		expr = r
 	}
