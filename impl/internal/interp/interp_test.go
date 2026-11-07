@@ -706,3 +706,49 @@ static Int main() {
 		}
 	})
 }
+
+// §4.3：顶层字段先置零值，初始化式按声明顺序求值；前向引用读零值。
+func TestTopFieldForwardReference(t *testing.T) {
+	t.Run("Direct", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int a = b + 1
+Int b = 2
+static Int main() {
+    print(a)
+    print(b)
+    return 0
+}`)
+		want := "1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ChainReadsZeroNotEventual", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int a = b + 1
+Int b = c + 1
+Int c = 2
+static Int main() {
+    print(a)
+    print(b)
+    print(c)
+    return 0
+}`)
+		want := "1\n1\n2\n"
+		if err != nil || out != want {
+			t.Fatalf("out=%q want=%q err=%v", out, want, err)
+		}
+	})
+	t.Run("ForwardFunction", func(t *testing.T) {
+		out, err := runSrc(t, `
+Int v = twice(3)
+static Int twice(Int x) { return x * 2 }
+static Int main() {
+    print(v)
+    return 0
+}`)
+		if err != nil || out != "6\n" {
+			t.Fatalf("out=%q want=%q err=%v", out, "6\n", err)
+		}
+	})
+}

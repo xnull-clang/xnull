@@ -222,6 +222,9 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		}
 	}()
 	in := &Interp{out: out, funcs: map[string][]*xfront.TopFunc{}, classes: map[string]*xfront.ClassDecl{}, globals: newScope(nil)}
+	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
+	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
+	var topFields []*xfront.TopField
 	for _, d := range u.Decls {
 		switch n := d.(type) {
 		case *xfront.TopFunc:
@@ -232,11 +235,14 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 		case *xfront.ClassDecl:
 			in.classes[n.Name] = n
 		case *xfront.TopField:
-			v := zeroValue(n.Type)
-			if n.Init != nil {
-				v = in.eval(n.Init, in.globals)
-			}
-			in.globals.define(n.Name, v)
+			in.globals.define(n.Name, zeroValue(n.Type))
+			topFields = append(topFields, n)
+		}
+	}
+	// 第二遍：按声明顺序求值顶层字段初始化式并写回（§4.3）。
+	for _, n := range topFields {
+		if n.Init != nil {
+			in.globals.assign(n.Name, in.eval(n.Init, in.globals))
 		}
 	}
 	mains := in.funcs["main"]
