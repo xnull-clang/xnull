@@ -42,6 +42,18 @@ func Load(root string) (*Registry, []Diagnostic, error) {
 			diags = append(diags, newChecker(rel, rg, reg).run()...)
 		}
 	}
+	// FFI-07：全局 registry 校验 companion 入口（跨文件可见，不按命名推导）。
+	for _, e := range reg.Entries {
+		if !e.NeedsCompanion() {
+			continue
+		}
+		if _, ok := reg.Entry("submit" + e.Name); !ok {
+			diags = append(diags, Diagnostic{
+				File: e.File, Line: e.Line, Col: e.Col, Code: "FFI-107",
+				Message: "长阻塞入口 " + e.Name + " 缺少专用执行器伴生入口 submit" + e.Name + "（S7 §7.3）",
+			})
+		}
+	}
 	fillSnippets(root, diags)
 	sortDiags(diags)
 	if len(diags) > 0 {

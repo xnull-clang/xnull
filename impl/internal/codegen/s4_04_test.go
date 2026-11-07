@@ -93,7 +93,7 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 }
 `
 			writeFFIFile(t, filepath.Join(dir, "bindings", "t.xfb"), xfb)
-			mainSrc := "static Int main() {\n    Int32 code = 0\n    stubFail(code)\n    print(str(code))\n    return 0\n}\n"
+			mainSrc := "import xdk.errors\n\nstatic Int main() {\n    Result<Int32, ErrorKind> r = stubFail()\n    print(str(r.error() == ErrorKind." + c.want + "))\n    return 0\n}\n"
 			mainPath := filepath.Join(dir, "main.x")
 			writeFFIFile(t, mainPath, mainSrc)
 			nativePath := filepath.Join(dir, "stub.c")
@@ -164,8 +164,8 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("退出码 %d，期望 0（S7-02：不再 fatal；stderr=%s）", code, errb.String())
 			}
-			if got, want := out.String(), c.code+"\n"; got != want {
-				t.Fatalf("stdout=%q，期望错误码回写 %q", got, want)
+			if got, want := out.String(), "true\n"; got != want {
+				t.Fatalf("stdout=%q，期望 Err(ErrorKind.%s) 为 true", got, c.want)
 			}
 		})
 	}
