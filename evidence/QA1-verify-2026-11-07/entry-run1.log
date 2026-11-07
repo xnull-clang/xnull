@@ -1,0 +1,67 @@
+===== A 四形态 =====
+a1	interp	rc=0	out=v0|	err=
+a1	compiled	rc=0	out=v0|	err=
+a2	interp	rc=7	out=i0|	err=
+a2	compiled	rc=7	out=i0|	err=
+a3	interp	rc=0	out=va 0|	err=
+a3	compiled	rc=0	out=va 0|	err=
+a4	interp	rc=5	out=ia 2|	err=
+a4	compiled	rc=5	out=ia 2|	err=
+===== B 退出码 =====
+b0	interp	rc=0	out=	err=
+b0	compiled	rc=0	out=	err=
+b1	interp	rc=1	out=	err=
+b1	compiled	rc=1	out=	err=
+b42	interp	rc=42	out=	err=
+b42	compiled	rc=42	out=	err=
+b255	interp	rc=255	out=	err=
+b255	compiled	rc=255	out=	err=
+b256	interp	rc=0	out=	err=
+b256	compiled	rc=0	out=	err=
+b300	interp	rc=44	out=	err=
+b300	compiled	rc=44	out=	err=
+b_neg1	interp	rc=255	out=	err=
+b_neg1	compiled	rc=255	out=	err=
+===== C 初始化顺序 =====
+c1_init_order	interp	rc=0	out=init 1|init 2|main 2|	err=
+c1_init_order	compiled	rc=0	out=init 1|init 2|main 2|	err=
+c2_forward_zero	interp	rc=0	out=a=5 b=1|	err=
+c2_forward_zero	compiled	rc=0	out=a=5 b=1|	err=
+c3_init_fatal	interp	rc=134	out=	err=xnull: fatal: 除零|
+c3_init_fatal	compiled	rc=0	out=MAIN-SHOULD-NOT-RUN|	err=/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-4051544495/prog.c:146:17: warning: division by zero is undefined [-Wdivision-by-zero]|  146 |     xn_g_a = (1 / 0);|
+c4_fields_order	interp	rc=0	out=true top 3|	err=
+c4_fields_order	compiled	rc=0	out=1 top 3|	err=
+c5_init_calls_func	interp	rc=0	out=read a=1|main b=2|	err=
+c5_init_calls_func	compiled	rc=0	out=read a=1|main b=2|	err=
+c6_init_reads_future	interp	rc=0	out=read c=0|main c=9|	err=
+c6_init_reads_future	compiled	rc=0	out=read c=0|main c=9|	err=
+===== D args =====
+d0	interp	rc=0	out=n=0|	err=
+d0	compiled	rc=0	out=n=0|	err=
+d2	interp	rc=0	out=n=2|ARG|alpha|ARG|beta|	err=
+d2	compiled	rc=0	out=n=2|ARG|alpha|ARG|beta|	err=
+ddash	interp	rc=0	out=n=2|ARG|-x|ARG|beta|	err=
+ddash	compiled	rc=0	out=n=2|ARG|-x|ARG|beta|	err=
+===== E 负例 =====
+e1_missing_main	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e1_missing_main.x:1:1: error[ENTRY-001]: 找不到入口 main|  入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）|
+e1_missing_main	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e1_missing_main.x:1:1: error[ENTRY-001]: 找不到入口 main|  入口文件必须包含唯一入口 main；签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.4）|
+e2_dup_same	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e2_dup_same.x:4:1: error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明|  一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）|
+e2_dup_same	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e2_dup_same.x:4:1: error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明|  一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）|
+e3_dup_overload	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e3_dup_overload.x:5:1: error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明|  一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）|
+e3_dup_overload	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e3_dup_overload.x:5:1: error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明|  一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）|
+e4_nonstatic	interp	rc=1	out=	err=xnull: 入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）|
+e4_nonstatic	compiled	rc=1	out=	err=xnull: 入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）|
+e5_ret_string	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e5_ret_string.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：返回类型必须是 void 或 Int|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e5_ret_string	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e5_ret_string.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：返回类型必须是 void 或 Int|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e6_ret_bool	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e6_ret_bool.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：返回类型必须是 void 或 Int|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e6_ret_bool	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e6_ret_bool.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：返回类型必须是 void 或 Int|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e7_param_int	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e7_param_int.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：参数类型必须是 String[]|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e7_param_int	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e7_param_int.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：参数类型必须是 String[]|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e8_two_params	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e8_two_params.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：只能接收 0 个参数或 1 个 String[] 参数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e8_two_params	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e8_two_params.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：只能接收 0 个参数或 1 个 String[] 参数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e9_param_string	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e9_param_string.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：参数类型必须是 String[]|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e9_param_string	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e9_param_string.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：参数类型必须是 String[]|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e10_private_main	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e10_private_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e10_private_main	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e10_private_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e11_generic_main	interp	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e11_generic_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：不能是泛型函数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e11_generic_main	compiled	rc=1	out=	err=/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/entry-qa/cases/e11_generic_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：不能是泛型函数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
