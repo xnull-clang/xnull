@@ -69,3 +69,33 @@ func TestCheckJSON(t *testing.T) {
 		t.Fatalf("诊断字段不完整：%+v", res.Diagnostics[0])
 	}
 }
+
+// S6-01：check 路径不依赖 .xfb 注入，XDK 内建签名必须生效。
+func TestCheckXDKSignatures(t *testing.T) {
+	dir := t.TempDir()
+	good := filepath.Join(dir, "good.x")
+	goodSrc := "import xdk.runtime\n\nstatic Int main() {\n    diagnose(\"x\")\n    return nowMono()\n}\n"
+	if err := os.WriteFile(good, []byte(goodSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, errOut := runJSON(t, "check", good, "--json"); code != exitcode.Success {
+		t.Fatalf("正例应通过：exit=%d out=%s stderr=%s", code, out, errOut)
+	}
+
+	bad := filepath.Join(dir, "bad.x")
+	badSrc := "import xdk.runtime\n\nstatic Int main() {\n    diagnose(1)\n    return 0\n}\n"
+	if err := os.WriteFile(bad, []byte(badSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errOut := runJSON(t, "check", bad, "--json")
+	if code != exitcode.BuildFail {
+		t.Fatalf("错误实参应被拒：exit=%d out=%s stderr=%s", code, out, errOut)
+	}
+	var res checkJSONResult
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("JSON 解析失败：%v\n%s", err, out)
+	}
+	if res.OK || len(res.Diagnostics) == 0 || res.Diagnostics[0].Code != "TY-101" {
+		t.Fatalf("应返回 TY-101 诊断：%+v", res)
+	}
+}
