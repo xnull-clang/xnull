@@ -204,19 +204,45 @@ func unMangle(c byte) string {
 	return ""
 }
 
-// optExpr 生成可空值表达式（M6-B0-05：null / 变量 / Map.get）。
+// optExpr 生成可空值表达式（M6-B0-05：null / 变量 / 成员 / 字面量 / Map.get）。
 func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 	switch n := e.(type) {
 	case *xfront.NullLit:
 		return nil, "(" + optC + "){0, 0}", nil
-	case *xfront.IdentExpr:
-		return nil, s.cRef(n.Name), nil
 	case *xfront.Paren:
 		return s.optExpr(n.X, optC)
+	case *xfront.IdentExpr:
+		if t, err := s.exprType(n); err == nil && t == optC {
+			return nil, s.cRef(n.Name), nil
+		}
+		return s.optWrap(n, optC)
+	case *xfront.Member:
+		// 可空字段（含 struct/类字段链）：直接引用字段。
+		recvName, recvC, err := recvCName(n.X, s)
+		if err != nil {
+			return nil, "", err
+		}
+		if s.g.isStructC(recvC) {
+			ci, ok := s.g.structOfC(recvC)
+			if !ok {
+				return nil, "", fmt.Errorf("codegen：未知结构体类型 %s", recvC)
+			}
+			f, ok := ci.fieldOf(n.Name)
+			if !ok {
+				return nil, "", fmt.Errorf("codegen：结构体 %s 没有字段 %s", ci.decl.Name, n.Name)
+			}
+			return nil, recvName + structSep(recvC) + f.cname, nil
+		}
+		if ci, ok := s.g.classOfC(recvC); ok {
+			if f, ok := ci.fieldOf(n.Name); ok {
+				return nil, recvName + "->" + f.cname, nil
+			}
+		}
+		return nil, "", fmt.Errorf("codegen：可空成员 %s 的接收者 %s 不支持", n.Name, recvC)
 	case *xfront.Call:
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
-			return nil, "", fmt.Errorf("codegen：可空表达式调用 %T 未支持（M6-B0-05 范围）", n.Callee)
+			return s.optWrap(n, optC)
 		}
 		recvName, recvC, err := recvCName(mem.X, s)
 		if err != nil {
@@ -231,6 +257,35 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 			return nil, "", err
 		}
 		return lines, fmt.Sprintf("%s_get(&%s, %s)", recvC, recvName, kk), nil
+	}
+	return s.optWrap(e, optC)
+}
+
+// optWrap 把基础值表达式包成可选值（{has=1, v}）。
+func (s *scope) optWrap(e xfront.Expr, optC string) ([]string, string, error) {
+	switch optC {
+	case "xn_opt_i":
+		v, err := s.intExpr(e)
+		if err != nil {
+			return nil, "", err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return out, "(" + optC + "){1, " + v + "}", nil
+	case "xn_opt_b":
+		v, err := s.boolExpr(e)
+		if err != nil {
+			return nil, "", err
+		}
+		out := append([]string{}, s.pending...)
+		s.pending = nil
+		return out, "(" + optC + "){1, " + v + "}", nil
+	case "xn_opt_s":
+		lines, err := s.strExpr(e)
+		if err != nil {
+			return nil, "", err
+		}
+		return lines, "(" + optC + "){1, " + lastVar(lines) + "}", nil
 	}
 	return nil, "", fmt.Errorf("codegen：可空表达式 %T 未支持（M6-B0-05 范围）", e)
 }
