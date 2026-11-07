@@ -1,0 +1,13 @@
+# S6-04-E6：资源表进入产物构建
+
+# 1 构建（工程资源目录 → 资源表 C → 与 rt_std_res.c 一起链接）
+xnull build examples/hello.x -o /tmp/hello --resources <资源目录>
+strings /tmp/hello | grep 'templates/a.txt'     # 资源名在产物内
+
+# 2 无资源工程：内置零资源空表（xrt_resource_* 符号闭合）
+xnull build examples/hello.x -o /tmp/hello-empty
+
+# 3 回归
+sh impl/runtime/build_rt.sh                     # 含资源 API 测试
+go test ./internal/codegen -run TestBuild       # 需先排除 s6_03_test.go（见缺口）
+go test ./internal/cli

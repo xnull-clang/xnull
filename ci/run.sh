@@ -2,13 +2,13 @@
 # ci/run.sh — XNull CI 唯一入口
 #
 # 用法：
-#   bash ci/run.sh              顺序执行 10 项
-#   bash ci/run.sh --list       只列 10 项
+#   bash ci/run.sh              顺序执行 11 项
+#   bash ci/run.sh --list       只列 11 项
 #   bash ci/run.sh --only 02    只跑第 02 项
 #
 # 退出码：全部 PASS=0；任一 FAIL=1；无 PASS 且只有 SKIP=2。
 #
-# 本轮实现范围：01–03 真实现，04–09 为 SKIP 桩（不伪装 PASS），10 文件名扫描（S0-04b/S1-22 门禁）真实现。
+# 本轮实现范围：01–03 真实现，04–09 为 SKIP 桩（不伪装 PASS），10 文件名扫描（S0-04b/S1-22 门禁）真实现，11 xnfmt 全仓校验（B1-01）。
 
 set -u
 
@@ -22,7 +22,7 @@ mkdir -p "$CI_OUT_DIR"
 ci_color_init
 
 # ---------- 步骤表 ----------
-STEP_IDS="01 02 03 04 05 06 07 08 09 10"
+STEP_IDS="01 02 03 04 05 06 07 08 09 10 11"
 step_name() {
   case "$1" in
     01) echo "gofmt+vet" ;;
@@ -35,6 +35,7 @@ step_name() {
     08) echo "产物与 sha" ;;
     09) echo "汇总 JSON" ;;
     10) echo "文件名扫描（禁旧扩展名）" ;;
+    11) echo "xnfmt 全仓校验" ;;
     *)  echo "unknown" ;;
   esac
 }
@@ -115,6 +116,46 @@ step_10() {
   '
 }
 
+# ---------- 11 xnfmt 全仓校验（B1-01 oracle 纳入 CI） ----------
+# 判据：
+#   a) 每个 .x 格式化两次结果相同（幂等，全仓强制）；
+#   b) 已规范文件不得回退；未规范文件必须在 ci/xnfmt-baseline.txt（存量冻结，只减不增）；
+#   c) baseline 中已规范的文件只提示移除，不判红。
+step_11() {
+  run_step 11 "xnfmt 全仓校验" "$ROOT" '
+    tmp=$(mktemp -d) || exit 1
+    trap "rm -rf $tmp" EXIT
+    ( cd impl && go build -o "$tmp/xnfmt" ./cmd/xnfmt ) || exit 1
+    baseline=ci/xnfmt-baseline.txt
+    fail=0
+    stale=0
+    git ls-files "*.x" | sort > "$tmp/files"
+    while IFS= read -r f; do
+      cp "$f" "$tmp/a.x" || exit 1
+      "$tmp/xnfmt" "$tmp/a.x" || exit 1
+      cp "$tmp/a.x" "$tmp/b.x" || exit 1
+      "$tmp/xnfmt" "$tmp/b.x" || exit 1
+      if ! cmp -s "$tmp/a.x" "$tmp/b.x"; then
+        echo "不幂等：$f"
+        fail=1
+      fi
+      if ! cmp -s "$f" "$tmp/a.x"; then
+        if ! grep -qxF "$f" "$baseline"; then
+          echo "未格式化且不在 baseline：$f"
+          fail=1
+        fi
+      else
+        if grep -qxF "$f" "$baseline"; then
+          echo "baseline 已过期（现已规范，可移除）：$f"
+          stale=$((stale + 1))
+        fi
+      fi
+    done < "$tmp/files"
+    [ "$stale" -gt 0 ] && echo "提示：ci/xnfmt-baseline.txt 有 $stale 行可移除"
+    exit $fail
+  '
+}
+
 run_one() {
   case "$1" in
     01) step_01 ;;
@@ -127,6 +168,7 @@ run_one() {
     08) step_08 ;;
     09) step_09 ;;
     10) step_10 ;;
+    11) step_11 ;;
     *)  printf '未知步骤：%s\n' "$1" >&2; return 64 ;;
   esac
 }
@@ -135,8 +177,8 @@ usage() {
   cat <<'EOF'
 用法：bash ci/run.sh [--list] [--only NN]
 
-  --list      只列 10 项，不执行
-  --only NN   只执行第 NN 项（01–10）
+  --list      只列 11 项，不执行
+  --only NN   只执行第 NN 项（01–11）
 
 退出码：全部 PASS=0；任一 FAIL=1；无 PASS 且只有 SKIP=2。
 EOF
@@ -171,8 +213,8 @@ main() {
       [0-9]) _only="0$_only" ;;
     esac
     case "$_only" in
-      01|02|03|04|05|06|07|08|09|10) ;;
-      *) printf '未知步骤：%s（应为 01–10）\n' "$_only" >&2; return 64 ;;
+      01|02|03|04|05|06|07|08|09|10|11) ;;
+      *) printf '未知步骤：%s（应为 01–11）\n' "$_only" >&2; return 64 ;;
     esac
     printf 'XNull CI（单步 %s）  工作树=%s\n\n' "$_only" "$ROOT"
     run_one "$_only"

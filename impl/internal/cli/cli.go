@@ -13,6 +13,7 @@ import (
 
 	"xnull.dev/xnull/internal/codegen"
 	"xnull.dev/xnull/internal/codegen/ffi"
+	"xnull.dev/xnull/internal/devtool"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
 	"xnull.dev/xnull/internal/interp"
@@ -230,7 +231,8 @@ var knownFlags = map[string]struct{}{
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
-	"--mem": {}, "--stats": {},
+	"--resources": {},
+	"--mem":       {}, "--stats": {},
 }
 
 // manifestExists 从当前目录向上查找 xnull.project。
@@ -468,6 +470,7 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	stats := false
 	var libs []ffi.LinkLib
 	var libDirs []string
+	resDir := ""
 	for i := 1; i < len(rest)-1; i++ {
 		switch {
 		case rest[i] == "-o":
@@ -478,6 +481,8 @@ func buildFile(env Env, rest []string, srcPath string) int {
 			libs = append(libs, ffi.LinkLib{Name: rest[i+1]})
 		case rest[i] == "-L":
 			libDirs = append(libDirs, rest[i+1])
+		case rest[i] == "--resources":
+			resDir = rest[i+1]
 		case strings.HasPrefix(rest[i], "--mem="):
 			memPolicy = strings.TrimPrefix(rest[i], "--mem=")
 		case rest[i] == "--stats":
@@ -505,6 +510,15 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	}
 	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
 	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs), MemPolicy: memPolicy, Stats: stats}
+	// S6-04：工程资源目录 → 资源表 C（缺省由 codegen 写零资源空表）。
+	if resDir != "" {
+		resC := out + ".res.c"
+		if err := devtool.GenerateResources(resDir, resC); err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		opts.ResC = resC
+	}
 	return codegen.BuildWithOptions(srcPath, out, runtimeDir, opts, env.Stderr)
 }
 
