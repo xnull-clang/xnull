@@ -13,6 +13,14 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
+  `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
+  （`xdkc_dump_tasks`，无堆单行、格式非承诺）；`bindings/xdk/runtime.xfb` 与阻塞分类表同步。
+- **候选期增补（SCHED-01 载体池/伴生执行器，2026-11-08）**：载体线程改为池（默认 4，
+  `XNULL_CARRIERS` 1..64）：任务感知阻塞占用一个载体时其余任务仍可运行；`.unaware` 长阻塞走
+  伴生执行器（默认 2，`XNULL_COMPANIONS`），`xrt_companion_submit/wait` 提供可取消等待
+  （取消后原生调用继续、等待立即返回 `XRT_ERR_CANCELLED`）。E4 需把 `.unaware` +
+  `longRunning` 入口调用点路由到 companion。真 M:N/栈挂起与并发 GC 仍需 S3-06。
 - **候选期增补（S5-03 同步原语，2026-11-08）**：`rt_sync.c` 按 S5-00 冻结面实现
   `xrt_channel_*`（有界环形缓冲、send/receive 5ms 轮询上下文取消、close 唤醒并释放剩余元素）、
   `xrt_mutex_*`（数据携锁 + 作用域回调）、`xrt_atomic_int/bool/ref_*`（seq_cst；

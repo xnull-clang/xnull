@@ -244,6 +244,15 @@ int32_t xrt_task_group_close(xrt_task_group *g, xrt_task_result *first_error);
 int32_t xrt_task_join(xrt_task *t, xrt_task_result *out);
 int32_t xrt_task_join_deadline(xrt_task *t, int64_t deadline_mono_ms, xrt_task_result *out);
 
+/* ---- 伴生执行器（S5 §2.2 / S7 §7.3：.unaware 长阻塞不占载体线程） ---- */
+
+typedef void *(*xrt_blocking_fn)(void *arg);
+typedef struct xrt_future xrt_future;
+
+xrt_future *xrt_companion_submit(xrt_blocking_fn fn, void *arg);
+/* 等待完成：0 = 已完成（*out 有效）；XRT_ERR_CANCELLED = 上下文取消（任务继续执行）。 */
+int32_t xrt_companion_wait(xrt_future *f, xrt_context *ctx, void **out);
+
 /* ---- 同步原语（S5-00 冻结面；S5-03） ---- */
 
 typedef void *(*xrt_ref_retain_fn)(void *v);
