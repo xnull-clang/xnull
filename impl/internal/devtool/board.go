@@ -649,14 +649,30 @@ func runLineTests(root, implDir, line string) (bool, string) {
 	pkgs := "./..."
 	switch line {
 	case "前端线":
-		pkgs = "./internal/xfront/... ./internal/sema/..."
+		pkgs = existingPkgPatterns(implDir, "./internal/xfront/...", "./internal/sema/...")
 	case "自举线":
-		pkgs = "./internal/codegen/... ./internal/xnfmt/... ./cmd/... ./internal/devtool/... ./internal/cli/..."
+		pkgs = existingPkgPatterns(implDir, "./internal/codegen/...", "./internal/xnfmt/...",
+			"./cmd/...", "./internal/devtool/...", "./internal/cli/...")
 	}
 	cmd := exec.Command("sh", "-c", "go test -count=1 -timeout 300s "+pkgs)
 	cmd.Dir = implDir
 	out, err := cmd.CombinedOutput()
 	return err == nil, string(out)
+}
+
+// existingPkgPatterns 过滤不存在的包（例如未合入的 xnfmt），避免 go test 因 pattern 无匹配而红。
+func existingPkgPatterns(implDir string, pats ...string) string {
+	var kept []string
+	for _, p := range pats {
+		dir := strings.TrimSuffix(strings.TrimPrefix(p, "./"), "/...")
+		if st, err := os.Stat(filepath.Join(implDir, dir)); err == nil && st.IsDir() {
+			kept = append(kept, p)
+		}
+	}
+	if len(kept) == 0 {
+		return "./..."
+	}
+	return strings.Join(kept, " ")
 }
 
 func firstLine(s string) string {
