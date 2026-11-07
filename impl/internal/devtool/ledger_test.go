@@ -10,7 +10,7 @@ import (
 // goldenLedgerRows 是 S0-21a 固化的台账行数（101）与 PASS 数（18，
 // 随 status.tsv 新增 S1/S2 用例同步更新）。
 const (
-	goldenLedgerRows = 101
+	goldenLedgerRows = 103
 	goldenLedgerPass = 75
 )
 
