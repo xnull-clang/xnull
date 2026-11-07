@@ -1,0 +1,6 @@
+=== RUN   TestS3TextTypesMethods
+    s3_text_test.go:7: 不应有语义诊断：[RES-101@未定义的名称 `StringBuilder`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `Text`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `Bytes`（§3.3 四级顺序解析后不可见）]
+--- FAIL: TestS3TextTypesMethods (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	1.511s
+FAIL

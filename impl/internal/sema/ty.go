@@ -399,6 +399,11 @@ func unsignedFits(t texpr, max uint64) bool {
 	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
+// isBuiltinStaticReceiver 识别可作静态调用接收者的内建引用类型（S1 §9.7）。
+func isBuiltinStaticReceiver(name string) bool {
+	return name == "Text" || name == "Bytes" || name == "StringBuilder"
+}
+
 // checkValueInstantiation 校验泛型结构体实例实参（BND-04）。
 func (e *tyenv) checkValueInstantiation(t xfront.TypeRef, p xfront.Pos) {
 	if e.a.tc != nil {
@@ -1097,6 +1102,9 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		if k, ok := e.fields[n.Name]; ok {
 			return texpr{key: k}
 		}
+		if isBuiltinStaticReceiver(n.Name) {
+			return texpr{key: n.Name}
+		}
 		if e.a.tc != nil {
 			if info, ok := e.a.tc.types[n.Name]; ok {
 				if info.kind == "annotation" {
@@ -1439,6 +1447,14 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 		case "Ok", "Err":
 			// 无目标类型：按 §10.1 报错（有目标类型时由 inferExpected 先行拦截）。
 			return e.inferResultCtor(n, id.Name, "")
+		case "StringBuilder":
+			if len(n.Args) != 0 {
+				e.errf(n.P, TyAssignability, "StringBuilder() 不接受参数（S1 §9.7）", "")
+			}
+			for _, a := range n.Args {
+				e.infer(a)
+			}
+			return texpr{key: "StringBuilder"}
 		}
 	}
 	// 方法调用：recv.method(args)
@@ -1533,7 +1549,85 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 		return ""
 	}
+	checkArgs := func(want ...string) bool {
+		if len(args) != len(want) {
+			e.errf(p, TyAssignability, fmt.Sprintf("%s.%s 需要 %d 个参数，实际 %d 个（S1 §9.7）", k, name, len(want), len(args)), "")
+			return false
+		}
+		for i := range want {
+			if want[i] == "" {
+				continue
+			}
+			if !assignable(args[i], want[i]) {
+				e.errf(p, assignDiag(args[i], want[i]),
+					fmt.Sprintf("%s.%s 参数 %d 类型 %s 不能赋给 %s（S1 §9.7）", k, name, i+1, describeKey(args[i]), want[i]), "")
+				return false
+			}
+		}
+		return true
+	}
 	switch {
+	case k == "StringBuilder":
+		switch name {
+		case "append":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "StringBuilder.append 需要 1 个参数（S1 §9.7）", "")
+			}
+			return texpr{key: "StringBuilder"}
+		case "toString":
+			checkArgs()
+			return texpr{key: "String"}
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		}
+		e.errf(p, TyBadOperand, "StringBuilder 没有成员 `"+name+"`（S1 §9.7）", "可用 append/toString/length")
+		return texpr{}
+	case k == "Text":
+		switch name {
+		case "fromString":
+			checkArgs("String")
+			return texpr{key: "Text"}
+		case "length", "codePointCount":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "toString":
+			checkArgs()
+			return texpr{key: "String"}
+		case "compareTo":
+			checkArgs("Text")
+			return texpr{key: "Int"}
+		}
+		e.errf(p, TyBadOperand, "Text 没有成员 `"+name+"`（S1 §9.7）", "可用 fromString/length/codePointCount/toString/compareTo")
+		return texpr{}
+	case k == "Bytes":
+		switch name {
+		case "fromString":
+			checkArgs("String")
+			return texpr{key: "Bytes"}
+		case "length":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "get":
+			checkArgs("Int")
+			return texpr{key: "Int"}
+		case "set":
+			checkArgs("Int", "Int")
+			return texpr{key: "void"}
+		case "push":
+			checkArgs("Int")
+			return texpr{key: "void"}
+		case "append":
+			if len(args) != 1 {
+				e.errf(p, TyAssignability, "Bytes.append 需要 1 个参数（S1 §9.7）", "")
+			}
+			return texpr{key: "void"}
+		case "slice":
+			checkArgs("Int", "Int")
+			return texpr{key: "Bytes"}
+		}
+		e.errf(p, TyBadOperand, "Bytes 没有成员 `"+name+"`（S1 §9.7）", "可用 fromString/get/set/push/append/slice/length")
+		return texpr{}
 	case k == "String":
 		switch name {
 		case "length", "indexOf":
