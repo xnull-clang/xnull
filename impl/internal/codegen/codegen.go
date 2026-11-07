@@ -1528,6 +1528,10 @@ func (g *gen) collectAllResults(u *xfront.CompilationUnit) error {
 }
 
 func (g *gen) collectResult(fn *xfront.TopFunc) error {
+	// 泛型声明的 Result<T,E> 不在此实例化（单态化实例走 expandInstances）。
+	if len(fn.TypePars) > 0 {
+		return nil
+	}
 	if !fn.Void {
 		if nt, ok := fn.Ret.(*xfront.NamedType); ok && typeName(nt) == "Result" {
 			name, err := g.resultName(nt.Args)

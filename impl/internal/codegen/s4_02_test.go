@@ -38,6 +38,7 @@ func compileAndRunPolicyFull(t *testing.T, src string) (string, string, int) {
 	for _, s := range runtimeCSources {
 		args = append(args, filepath.Join(rt, s))
 	}
+	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	var ccerr bytes.Buffer
 	cc := exec.Command("cc", args...)
 	cc.Stderr = &ccerr

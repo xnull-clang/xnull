@@ -144,6 +144,7 @@ func TestB007CBytesSurfaceRuns(t *testing.T) {
 	for _, s := range runtimeCSources {
 		args = append(args, filepath.Join(rt, s))
 	}
+	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	cc := exec.Command("cc", args...)
 	var cerr bytes.Buffer
 	cc.Stderr = &cerr

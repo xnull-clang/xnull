@@ -456,6 +456,7 @@ func emitAndRunNoSema(t *testing.T, src string) (string, int) {
 	for _, s := range runtimeCSources {
 		args = append(args, filepath.Join(rt, s))
 	}
+	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	cc := exec.Command("cc", args...)
 	var cerr bytes.Buffer
 	cc.Stderr = &cerr
@@ -690,6 +691,7 @@ func emitAndRunUnitsNoSema(t *testing.T, dir, entry string) (string, int) {
 	for _, s := range runtimeCSources {
 		args = append(args, filepath.Join(rt, s))
 	}
+	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	cc := exec.Command("cc", args...)
 	var cerr bytes.Buffer
 	cc.Stderr = &cerr
