@@ -179,6 +179,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 	case *xfront.Ternary:
 		return s.exprType(n.Then)
 	case *xfront.Call:
+		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "StringBuilder" {
+			return "xrt_sb *", nil
+		}
 		if mem, ok := n.Callee.(*xfront.Member); ok {
 			if _, retC, hit, err := s.staticClassCall(mem, n); err != nil {
 				return "", err
@@ -199,6 +202,10 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			// Bytes.fromString 是唯一构造入口（S1 §9.7）。
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 && recv.Name == "Bytes" && mem.Name == "fromString" {
 				return "xrt_bytes_obj *", nil
+			}
+			// S3-04：Text.fromString / StringBuilder() 构造。
+			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 && recv.Name == "Text" && mem.Name == "fromString" {
+				return "xrt_text *", nil
 			}
 			recvC, err := s.exprType(mem.X)
 			if err != nil {
@@ -271,6 +278,24 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 				switch mem.Name {
 				case "length", "get":
 					return "int64_t", nil
+				}
+			}
+			if recvC == "xrt_text *" {
+				switch mem.Name {
+				case "length", "codePointCount", "compareTo":
+					return "int64_t", nil
+				case "toString":
+					return "rt_string *", nil
+				}
+			}
+			if recvC == "xrt_sb *" {
+				switch mem.Name {
+				case "length":
+					return "int64_t", nil
+				case "toString":
+					return "rt_string *", nil
+				case "append":
+					return "xrt_sb *", nil
 				}
 			}
 			switch mem.Name {

@@ -120,15 +120,11 @@ static rt_string *xn_str_lower(rt_string *s) {
     return out;
 }
 
+/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，
+ * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */
 static rt_string *xn_alloc_str(size_t n) {
-    rt_string *s = malloc(sizeof(rt_string) + n + 1);
-    if (s == NULL) { abort(); }
-    memset(s, 0, sizeof(rt_string) + n + 1);
-    s->hdr.kind = RT_KIND_ARC;
-    s->hdr.type = &RT_TYPE_STRING;
-    atomic_init(&s->hdr.refcount, 1);
-    s->len = n;
-    s->bytes[n] = 0;
+    rt_string *s = rt_string_alloc(n);
+    s->bytes[0] = 0;
     return s;
 }
 
@@ -655,7 +651,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 		b.WriteString("\n")
 	}
 	g.cs.ensureMapArrays()
-	g.cs.emit(&b, g.classIsGC)
+	g.cs.emit(&b, g.isGCTypeC)
 	// String.split 返回 String[]（依赖数组实例化）；replace 为纯字符串助手。
 	if g.cs.arr["rt_string *"] {
 		b.WriteString(strSplitHelper)
@@ -1009,7 +1005,7 @@ func (g *gen) genGlobalInit() (string, error) {
 			lines = append(lines, sc.pending...)
 			sc.pending = nil
 			lines = append(lines, sl...)
-			lines = append(lines, target+" = "+lastVar(sl)+";")
+			lines = append(lines, target+" = "+lastVar(sl)+";", "xn_root_hold("+target+");")
 			continue
 		}
 		if isContainerC(g.globals[f.Name]) {
@@ -1031,6 +1027,24 @@ func (g *gen) genGlobalInit() (string, error) {
 			if g.isGCRootC(g.globals[f.Name]) {
 				lines = append(lines, "xn_root_hold("+target+");")
 			}
+			continue
+		}
+		if g.globals[f.Name] == "xrt_text *" {
+			tl, v, err := sc.textExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, tl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
+			continue
+		}
+		if g.globals[f.Name] == "xrt_sb *" {
+			bl, v, err := sc.sbExpr(f.Init)
+			if err != nil {
+				return "", err
+			}
+			lines = append(lines, bl...)
+			lines = append(lines, target+" = "+v+";", "xn_root_hold("+target+");")
 			continue
 		}
 		if g.isProtoC(g.globals[f.Name]) {
@@ -1363,6 +1377,12 @@ func (g *gen) cType(t xfront.TypeRef) (string, error) {
 		case "Any", "Object":
 			// Any/Object 是 GC 装箱盒（S3 §3：值类型进入 Any 必须装箱，装箱对象由 GC 管理）。
 			return "xn_Any *", nil
+		case "Text":
+			// S3 §10：Text 是 GC 对象（E5 S3-04 运行时 xrt_text）。
+			return "xrt_text *", nil
+		case "StringBuilder":
+			// S3 §10：StringBuilder 是 GC 对象（E5 S3-04 运行时 xrt_sb）。
+			return "xrt_sb *", nil
 		case "Bytes":
 			// S1 §9.7：Bytes 是 GC 管理的可变字节缓冲（引用类型）。
 			// data/len 字段同时充当 S7 §3.4 的边界视图（FFI 借出用）。
@@ -1866,6 +1886,15 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 					return lines, nil
 				}
 			}
+			if rc == "xrt_sb *" {
+				lines, hit, err := s.sbMemberStmt(rn, mem.Name, call.Args)
+				if err != nil {
+					return nil, err
+				}
+				if hit {
+					return lines, nil
+				}
+			}
 			if isContainerC(rc) {
 				lines, hit, err := s.containerMemberStmt(rc, rn, mem.Name, call.Args)
 				if err != nil {
@@ -2310,6 +2339,23 @@ func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
 		s.locals[n.Name] = tc
 		s.defers = append(s.defers, deferItem{name: n.Name, lines: []string{"rt_release(" + n.Name + ");"}})
 		return append(lines, "xrt_bytes_obj *"+n.Name+" = "+out+";"), nil
+	}
+	// S3-04：Text / StringBuilder 局部（GC 引用；根登记由 S3-02 包装统一添加）。
+	if tc == "xrt_text *" {
+		lines, v, err := s.textExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
+	}
+	if tc == "xrt_sb *" {
+		lines, v, err := s.sbExpr(n.Init)
+		if err != nil {
+			return nil, err
+		}
+		s.locals[n.Name] = tc
+		return append(lines, tc+" "+n.Name+" = "+v+";"), nil
 	}
 	if isClassPtr(tc) {
 		if n.Init == nil {
@@ -2801,8 +2847,23 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 					return nil, err
 				}
 				out := append([]string{}, lines...)
-				out = append(out, "rt_release("+tgt+");")
-				out = append(out, tgt+" = "+lastVar(lines)+";")
+				out = append(out, "xn_root_release("+tgt+");", tgt+" = "+lastVar(lines)+";", "xn_root_hold("+tgt+");")
+				return out, nil
+			}
+			if tc == "xrt_text *" || tc == "xrt_sb *" {
+				var lines []string
+				var v string
+				var err error
+				if tc == "xrt_text *" {
+					lines, v, err = s.textExpr(n.Value)
+				} else {
+					lines, v, err = s.sbExpr(n.Value)
+				}
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");")
 				return out, nil
 			}
 			v, err := s.intExpr(n.Value)
@@ -2870,8 +2931,30 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		t := lastVar(lines)
 		out := append([]string{}, lines...)
-		out = append(out, "rt_release("+tgt+");")
-		out = append(out, tgt+" = "+t+";")
+		out = append(out, "rt_release("+tgt+");", tgt+" = "+t+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
+		return out, nil
+	}
+	// S3-04：Text/StringBuilder 局部赋值（GC 引用，不计数）。
+	if tc, ok := s.localCType(id.Name); ok && (tc == "xrt_text *" || tc == "xrt_sb *") {
+		var lines []string
+		var v string
+		var err error
+		if tc == "xrt_text *" {
+			lines, v, err = s.textExpr(n.Value)
+		} else {
+			lines, v, err = s.sbExpr(n.Value)
+		}
+		if err != nil {
+			return nil, err
+		}
+		out := append([]string{}, lines...)
+		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if !s.g.inDeinit {
+			out = append(out, "xn_gc_safepoint();")
+		}
 		return out, nil
 	}
 	v, err := s.intExpr(n.Value)
@@ -3268,6 +3351,19 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			return out, nil // xn_concat 接管两侧所有权
 		}
 	case *xfront.Call:
+		// S3-04：Text/StringBuilder.toString() 返回新 String（GC）。
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && mem.Name == "toString" {
+				switch rc {
+				case "xrt_text *":
+					t := s.tmp()
+					return []string{"rt_string *" + t + " = xrt_text_to_string(" + rn + ");"}, nil
+				case "xrt_sb *":
+					t := s.tmp()
+					return []string{"rt_string *" + t + " = xrt_sb_to_string(" + rn + ");"}, nil
+				}
+			}
+		}
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "str" {
 			if t, err := s.exprType(n.Args[0]); err == nil {
 				if s.g.isTupleC(t) {
@@ -3916,6 +4012,27 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 			}
 			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_bytes_obj *" {
 				if v, hit, err := s.bytesMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_text *" {
+				if v, hit, err := s.textMemberValue(rn, mem.Name, n.Args); err != nil {
+					return "", err
+				} else if hit {
+					return v, nil
+				}
+			}
+			if rn, rc, err := recvCName(mem.X, s); err == nil && rc == "xrt_sb *" {
+				if mem.Name == "append" {
+					if v, hit, err := s.sbAppendValue(rn, n.Args); err != nil {
+						return "", err
+					} else if hit {
+						return v, nil
+					}
+				}
+				if v, hit, err := s.sbMemberValue(rn, mem.Name); err != nil {
 					return "", err
 				} else if hit {
 					return v, nil

@@ -36,7 +36,9 @@ func compileAndRunPolicy(t *testing.T, src string) (string, int) {
 	bin := filepath.Join(dir, "prog")
 	cc := exec.Command("cc", "-std=c11", "-I", "../../../impl/runtime", "-O2", "-o", bin,
 		cfile, "../../../impl/runtime/rt.c", "../../../impl/runtime/rt_gc.c",
-		"../../../impl/runtime/rt_policy.c", "../../../impl/runtime/rt_weak.c")
+		"../../../impl/runtime/rt_policy.c", "../../../impl/runtime/rt_weak.c",
+		"../../../impl/runtime/rt_std_bytes.c", "../../../impl/runtime/rt_std_text.c",
+		"../../../impl/runtime/xrt_abi.c")
 	var ccerr bytes.Buffer
 	cc.Stderr = &ccerr
 	if err := cc.Run(); err != nil {
@@ -147,7 +149,7 @@ static Int main() {
 	if !strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Node)") {
 		t.Fatalf("Node（引用环）应以 rt_gc_new 分配")
 	}
-	if !strings.Contains(csrc, "xn_Cls_Node_scan") {
+	if !strings.Contains(csrc, "xn_Cls_Node_gc_scan") {
 		t.Fatalf("GC 类应生成 scan 钩子")
 	}
 	if strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_Plain)") {

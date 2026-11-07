@@ -134,7 +134,7 @@ func (s *scope) arrayLit(n *xfront.ArrayLit, wantC string) ([]string, string, er
 			return nil, "", err
 		}
 		out = append(out, lines...)
-		if isRef(elem) && !s.g.classIsGC(elem) {
+		if isRef(elem) && !s.g.isGCTypeC(elem) {
 			// 引用元素：push 内部 retain；字面量/构造产物 +1 需在入容器后释放
 			//（Ident/Member 是借用，不释放）。
 			switch el.(type) {
@@ -360,7 +360,7 @@ func (s *scope) containerMemberStmt(recvC string, recvName string, name string, 
 			}
 			t := s.tmp()
 			out := []string{fmt.Sprintf("%s %s = %s_remove(%s, %s);", elem, t, recvC, acc, i)}
-			if isRef(elem) {
+			if isRef(elem) && !s.g.isGCTypeC(elem) {
 				out = append(out, "rt_release("+t+");")
 			}
 			return out, true, nil

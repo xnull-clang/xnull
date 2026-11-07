@@ -34,10 +34,11 @@ func (g *gen) isGCRootC(c string) bool {
 	if c == "" {
 		return false
 	}
-	if g.isAnyC(c) || g.isProtoC(c) || isContainerC(c) || g.isDataEnumC(c) {
+	// S3-04：String/Bytes/Text/SB 为 GC 对象；容器/数据枚举/类按判定。
+	if g.isAnyC(c) || g.isProtoC(c) || isContainerC(c) {
 		return true
 	}
-	return isClassPtr(c) && g.classIsGC(c)
+	return g.isGCTypeC(c)
 }
 
 // classIsStack 判断类引用 C 类型是否按逃逸分类可栈分配（S3-03：Escape=none）。
@@ -69,6 +70,11 @@ func (g *gen) classIsStack(c string) bool {
 
 // isGCTypeC 判断类/数据枚举/单例 C 类型是否 GC 管理（BND-10b）。
 func (g *gen) isGCTypeC(c string) bool {
+	// S3-04 / ADR-007：String/Text/Bytes/SB 全部 GC 化。
+	switch c {
+	case "rt_string *", "xrt_bytes_obj *", "xrt_text *", "xrt_sb *":
+		return true
+	}
 	if g.classIsGC(c) {
 		return true
 	}
@@ -470,6 +476,21 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 	dst := recvName + "->" + f.cname
 	if strings.HasPrefix(f.ctype, "xn_opt_") {
 		lines, v, err := s.optExpr(val, f.ctype)
+		if err != nil {
+			return nil, err
+		}
+		return append(lines, dst+" = "+v+";"), nil
+	}
+	// S3-04：Text/StringBuilder 字段是 GC 引用，赋值不计数。
+	if f.ctype == "xrt_text *" || f.ctype == "xrt_sb *" {
+		var lines []string
+		var v string
+		var err error
+		if f.ctype == "xrt_text *" {
+			lines, v, err = s.textExpr(val)
+		} else {
+			lines, v, err = s.sbExpr(val)
+		}
 		if err != nil {
 			return nil, err
 		}

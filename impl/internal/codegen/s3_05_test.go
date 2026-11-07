@@ -19,7 +19,7 @@ static Int main() {
     return 0
 }`
 	csrc := emitWithPolicy(t, src)
-	if !strings.Contains(csrc, "xn_Cls_Holder_scan") || !strings.Contains(csrc, "visit(o->p);") {
+	if !strings.Contains(csrc, "xn_Cls_Holder_gc_scan") || !strings.Contains(csrc, "visit(o->p);") {
 		t.Fatalf("协议字段未纳入 scan：\n%s", csrc)
 	}
 	if strings.Contains(csrc, "rt_release(o->p);") {
@@ -116,7 +116,7 @@ static Int main() {
 	if !strings.Contains(csrc, "rt_release((o->p).f1);") {
 		t.Fatalf("元组 String 元素应由 deinit 释放：\n%s", csrc)
 	}
-	if !strings.Contains(csrc, "xn_Cls_TC_scan") || !strings.Contains(csrc, "visit((o->q).f1);") {
+	if !strings.Contains(csrc, "xn_Cls_TC_gc_scan") || !strings.Contains(csrc, "visit((o->q).f1);") {
 		t.Fatalf("元组类引用元素应按路径纳入 scan：\n%s", csrc)
 	}
 	if strings.Contains(csrc, "rt_release((o->q).f1);") {

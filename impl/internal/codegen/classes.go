@@ -528,7 +528,10 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 	// 标记 GC 引用）；ARC 类只需访问其中的 GC 引用（作为 GC 根）。
 	scanFields := []classField{}
 	for _, f := range ci.fields {
-		if f.isArr || (f.isCls && (ci.isGC || f.isGC)) {
+		// String/Text/Bytes/SB 自 S3-04 起是 GC 对象；容器是 GC；类引用按策略。
+		if f.isArr || f.isStr || f.isBytes ||
+			f.ctype == "xrt_text *" || f.ctype == "xrt_sb *" ||
+			(f.isCls && (ci.isGC || f.isGC)) {
 			scanFields = append(scanFields, f)
 		}
 		if (f.isProto || f.isAny) && ci.isGC {
@@ -541,14 +544,16 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 			continue
 		}
 		for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
-			if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+			if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) ||
+				tr.ctype == "rt_string *" || tr.ctype == "xrt_bytes_obj *" ||
+				tr.ctype == "xrt_text *" || tr.ctype == "xrt_sb *" || isContainerC(tr.ctype) {
 				hasTupleRefs = true
 			}
 		}
 	}
 	scanName := "NULL"
 	if len(scanFields) > 0 || hasTupleRefs {
-		scanName = ci.cname + "_scan"
+		scanName = ci.cname + "_gc_scan"
 		fmt.Fprintf(b, "static void %s(void *p, void (*visit)(void *)) {\n", scanName)
 		fmt.Fprintf(b, "    %s *o = (%s *)p;\n", ci.cname, ci.cname)
 		for _, f := range scanFields {
@@ -559,7 +564,9 @@ func (g *gen) emitClassStruct(b *strings.Builder, ci *classInfo) {
 				continue
 			}
 			for _, tr := range g.tupleRefPaths("o->"+f.cname, f.ctype) {
-				if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) {
+				if isClassPtr(tr.ctype) || g.isProtoC(tr.ctype) || g.isDataEnumC(tr.ctype) ||
+					tr.ctype == "rt_string *" || tr.ctype == "xrt_bytes_obj *" ||
+					tr.ctype == "xrt_text *" || tr.ctype == "xrt_sb *" || isContainerC(tr.ctype) {
 					fmt.Fprintf(b, "    if (%s) { visit(%s); }\n", tr.path, tr.path)
 				}
 			}
@@ -1014,6 +1021,15 @@ func (g *gen) fieldInitValue(sc *scope, f classField, init xfront.Expr, cls stri
 		return sc.structValue(init, f.ctype)
 	case f.isAny:
 		return sc.anyExpr(init)
+	case f.ctype == "xrt_bytes_obj *":
+		lines, v, err := sc.bytesExpr(init)
+		return lines, v, err
+	case f.ctype == "xrt_text *":
+		lines, v, err := sc.textExpr(init)
+		return lines, v, err
+	case f.ctype == "xrt_sb *":
+		lines, v, err := sc.sbExpr(init)
+		return lines, v, err
 	case f.isProto:
 		lines, expr, _, err := sc.protoValue(init)
 		if err != nil {
