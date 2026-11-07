@@ -404,6 +404,86 @@ func isBuiltinStaticReceiver(name string) bool {
 	return name == "Text" || name == "Bytes" || name == "StringBuilder"
 }
 
+func firstLambda(args []xfront.Expr) (*xfront.Lambda, bool) {
+	if len(args) == 0 {
+		return nil, false
+	}
+	lam, ok := args[0].(*xfront.Lambda)
+	return lam, ok
+}
+
+func lambdaCallsMethod(lam *xfront.Lambda, recv, method string) bool {
+	if lam == nil {
+		return false
+	}
+	if lam.ExprB != nil && exprCallsMethod(lam.ExprB, recv, method) {
+		return true
+	}
+	if lam.Block != nil {
+		for _, st := range lam.Block.Stmts {
+			if stmtCallsMethod(st, recv, method) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func stmtCallsMethod(s xfront.Stmt, recv, method string) bool {
+	switch n := s.(type) {
+	case nil:
+		return false
+	case *xfront.ExprStmt:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.AssignStmt:
+		return exprCallsMethod(n.Value, recv, method)
+	case *xfront.LocalDeclStmt:
+		return exprCallsMethod(n.Init, recv, method)
+	case *xfront.ReturnStmt:
+		return exprCallsMethod(n.Value, recv, method)
+	case *xfront.Block:
+		for _, x := range n.Stmts {
+			if stmtCallsMethod(x, recv, method) {
+				return true
+			}
+		}
+	case *xfront.IfStmt:
+		return stmtCallsMethod(n.Then, recv, method) || stmtCallsMethod(n.Else, recv, method)
+	case *xfront.WhileStmt:
+		return stmtCallsMethod(n.Body, recv, method)
+	case *xfront.DeferStmt:
+		return stmtCallsMethod(n.Block, recv, method) || stmtCallsMethod(n.Stmt, recv, method)
+	}
+	return false
+}
+
+func exprCallsMethod(e xfront.Expr, recv, method string) bool {
+	switch n := e.(type) {
+	case nil:
+		return false
+	case *xfront.Call:
+		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && id.Name == recv && mem.Name == method {
+				return true
+			}
+		}
+		for _, a := range n.Args {
+			if exprCallsMethod(a, recv, method) {
+				return true
+			}
+		}
+	case *xfront.Paren:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.Binary:
+		return exprCallsMethod(n.L, recv, method) || exprCallsMethod(n.R, recv, method)
+	case *xfront.Member:
+		return exprCallsMethod(n.X, recv, method)
+	case *xfront.Lambda:
+		return lambdaCallsMethod(n, recv, method)
+	}
+	return false
+}
+
 // lambdaReturnKey 尽力推断闭包返回类型（spawn/withLock 签名用）。
 func (e *tyenv) lambdaReturnKey(x xfront.Expr) string {
 	lam, ok := x.(*xfront.Lambda)
@@ -687,6 +767,10 @@ type tyenv struct {
 	inCleanup  bool   // 正在检查 defer/errdefer 清理体
 	tasksBlock bool   // 当前函数/方法带 @tasks（S5 §2.3）
 
+	// S5 §7 同步状态（函数内顺序流）。
+	closedChannels map[string]bool
+	lockHeld       map[string]bool
+
 	// GEN-01：泛型函数上下文（§8）。
 	curFunc   string          // 当前泛型函数名（自递归展开检测）
 	typePars  map[string]bool // 当前函数/闭包可见的类型参数
@@ -744,6 +828,8 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
 			}
 			e.fnKind, e.ret = "func", retKey
 			e.tasksBlock = hasAnnotation(fn.Annos, "tasks")
+			e.closedChannels = map[string]bool{}
+			e.lockHeld = map[string]bool{}
 			if fn.Name == "main" {
 				e.fnKind = "main"
 			}
@@ -1557,9 +1643,43 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
 			}
 		}
 		e.checkMethodVisibility(rt.key, mem.Name, n.P)
+		// Channel：关闭后 send 拒绝（S5 §7.2）。
+		if strings.HasPrefix(rt.key, "Channel<") && mem.Name == "send" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok && e.closedChannels[id.Name] {
+				e.errf(n.P, TySyncRule, "Channel `"+id.Name+"` 已关闭，不能再 send（S5 §7.2）", "")
+			}
+		}
+		// Mutex：同锁重入拒绝（S5 §7.1；作用域回调内再锁同锁）。
+		lockVar := ""
+		if strings.HasPrefix(rt.key, "Mutex<") && mem.Name == "withLock" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok {
+				if e.lockHeld[id.Name] {
+					e.errf(n.P, TySyncRule, "Mutex `"+id.Name+"` 在 withLock 内重入（S5 §7.1 禁止）", "")
+				} else {
+					lockVar = id.Name
+					e.lockHeld[id.Name] = true
+					if lam, ok := firstLambda(n.Args); ok && lambdaCallsMethod(lam, id.Name, "withLock") {
+						e.errf(n.P, TySyncRule, "Mutex `"+id.Name+"` 在 withLock 内重入（S5 §7.1 禁止）", "")
+					}
+				}
+			}
+		}
 		args := make([]texpr, len(n.Args))
 		for i, a := range n.Args {
 			args[i] = e.infer(a)
+		}
+		if lockVar != "" {
+			delete(e.lockHeld, lockVar)
+		}
+		if strings.HasPrefix(rt.key, "Channel<") && mem.Name == "close" {
+			if id, ok := mem.X.(*xfront.IdentExpr); ok {
+				e.closedChannels[id.Name] = true
+			}
+		}
+		if strings.HasPrefix(rt.key, "Mutex<") && mem.Name == "withLock" && len(n.Args) == 1 {
+			if rk := e.lambdaReturnKey(n.Args[0]); rk != "" {
+				return texpr{key: rk}
+			}
 		}
 		if rt.key == "TaskGroup" && mem.Name == "spawn" && len(n.Args) == 1 {
 			if rk := e.lambdaReturnKey(n.Args[0]); rk != "" {
@@ -1689,14 +1809,54 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 		}
 	case strings.HasPrefix(k, "Channel<"):
 		switch name {
-		case "send", "close":
+		case "close":
 			return texpr{key: "void"}
+		case "send":
+			checkArgs(genericArg(k, "Channel<"))
+			return texpr{key: "Result<void,CancelledError>"}
 		case "receive":
-			return texpr{key: genericArg(k, "Channel<")}
+			return texpr{key: "Result<" + genericArg(k, "Channel<") + ",CancelledError>"}
 		}
 	case strings.HasPrefix(k, "Mutex<"):
 		if name == "withLock" {
+			return texpr{key: "Result<void,TaskError>"}
+		}
+	case k == "AtomicInt":
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "store":
+			checkArgs("Int")
 			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs("Int", "Int")
+			return texpr{key: "Bool"}
+		}
+	case k == "AtomicBool":
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: "Bool"}
+		case "store":
+			checkArgs("Bool")
+			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs("Bool", "Bool")
+			return texpr{key: "Bool"}
+		}
+	case strings.HasPrefix(k, "AtomicRef<"):
+		at := genericArg(k, "AtomicRef<")
+		switch name {
+		case "load":
+			checkArgs()
+			return texpr{key: at + "?"}
+		case "store":
+			checkArgs(at)
+			return texpr{key: "void"}
+		case "compareExchange":
+			checkArgs(at, at)
+			return texpr{key: "Bool"}
 		}
 	case k == "StringBuilder":
 		switch name {
