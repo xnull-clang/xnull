@@ -13,6 +13,9 @@ func isClassPtr(c string) bool { return strings.HasPrefix(c, "xn_Cls_") }
 
 // classOfC 由 C 类型名反查类信息（含数据枚举的类结构）。
 func (g *gen) classOfC(c string) (*classInfo, bool) {
+	if ci, ok := g.singletonOfC(c); ok {
+		return ci, true
+	}
 	if strings.HasPrefix(c, "xn_Enum_") && strings.HasSuffix(c, " *") {
 		name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Enum_"), " *")
 		if ei, ok := g.enums[name]; ok && ei.cls != nil {
@@ -103,6 +106,9 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		}
 		return s.cRef(n.Name), c, nil
 	case *xfront.Member:
+		if ci, varName, ok := s.g.singletonInstance(n); ok {
+			return varName, ci.cname + " *", nil
+		}
 		if ei, it, ok := s.g.enumItem(n); ok {
 			if ei.simple {
 				return strconv.FormatInt(it.value, 10), ei.ctype, nil
@@ -146,6 +152,9 @@ func (s *scope) emitNewClass(n *xfront.New) (string, error) {
 	}
 	ci, ok := s.g.classOf(lastQualName(nt))
 	if !ok {
+		if sc, isSingleton := s.g.singletons[lastQualName(nt)]; isSingleton {
+			return "", fmt.Errorf("codegen：单例 %s 不能用 new（S2 §9.1）", sc.decl.Name)
+		}
 		if decl, isGen := s.g.classDecls[lastQualName(nt)]; isGen && len(decl.TypePars) > 0 {
 			ct, err := s.g.cType(nt)
 			if err != nil {

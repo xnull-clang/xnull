@@ -91,6 +91,9 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		}
 		return elems[n.Index], nil
 	case *xfront.Member:
+		if ci, _, ok := s.g.singletonInstance(n); ok {
+			return ci.cname + " *", nil
+		}
 		if ei, _, ok := s.g.enumItem(n); ok {
 			return ei.ctype, nil
 		}
@@ -166,6 +169,17 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 		return s.exprType(n.Then)
 	case *xfront.Call:
 		if mem, ok := n.Callee.(*xfront.Member); ok {
+			if fi, m, ok := s.g.factoryMethod(mem, len(n.Args)); ok {
+				if len(m.TypePars) > 0 {
+					key := "Factory_" + fi.decl.Name + "_" + m.Name
+					inst, err := s.g.needInstance(key, n.TypeArgs)
+					if err != nil {
+						return "", err
+					}
+					return inst.retC, nil
+				}
+				return fi.retC[m], nil
+			}
 			// Bytes.fromString 是唯一构造入口（S1 §9.7）。
 			if recv, ok2 := mem.X.(*xfront.IdentExpr); ok2 && recv.Name == "Bytes" && mem.Name == "fromString" {
 				return "xrt_bytes_obj *", nil
@@ -204,7 +218,7 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 				}
 				return "", fmt.Errorf("codegen：数据枚举没有方法 %s", mem.Name)
 			}
-			if isClassPtr(recvC) {
+			if isClassPtr(recvC) || s.g.isSingletonC(recvC) {
 				ci, ok := s.g.classOfC(recvC)
 				if !ok {
 					return "", fmt.Errorf("codegen：未知类类型 %s", recvC)
