@@ -31,7 +31,7 @@
   3. E2：`SEMA-BYTES` 与 deinit 发布 self 检查。
 - **上一棒**：`handoff/S2-E5-weak.md`（commit `9e6de30`）
 - **下一棒**：E4 的 deinit 发射重放卡 → `evidence/S2-E5-deinit/` 复签
-- **last-green**：`f975810`（验证时为只读；`build_rt.sh` 六套件与 `go test ./internal/codegen/...` 均绿）
+- **last-green**：`ea913dd`（含 `beba3f6` 重放；E5 复签 5/5，`build_rt.sh` 六套件 exit 0，日志 `evidence/S2-E5-deinit/replay-beba3f6-*`）
 
 ## E4 重放交付（2026-11-07，main `beba3f6`）
 
@@ -54,3 +54,16 @@
   注：`TestBuildLedgerRepoGoldenScale` 依赖工作区 `impl/docs/conformance/status.tsv` 的最新落盘；
   干净检出 main 时该文件为旧版会红，属台账落盘节奏，与本卡代码无关。
 - **下一步**：E5 按 `evidence/S2-E5-deinit/probes/` 同一组探针复签。
+
+## E5 复签（2026-11-07，`beba3f6` 重放）：通过
+
+- 复跑环境：干净 worktree `/tmp/e5-deinit-verify` @ `beba3f6`（根工作区当时处于 `7b907ba` 在途合并，`UU` 索引，不影响该提交树）。
+- 结果：**5/5 PASS**
+  - 用户 deinit 体先于字段释放：`replay-beba3f6-order.log`；
+  - 类引用字段 retain/release：`replay-beba3f6-assign-c.txt`；
+  - `h.a = h.a` 成员自赋值：同一日志（临时 + retain + release + 写回）；
+  - handle 字段赋值/deinit 释放：`replay-beba3f6-hold-c.txt`；
+  - Bytes 字段（单测口径）：`replay-beba3f6-tests.log`；端到端仍等 E2 `SEMA-BYTES`（`bytes-sema-block.log`）。
+- 回归：`build_rt.sh` 六套件 exit 0（`replay-beba3f6-build_rt.log`）；E4 的 `TestS2*` 六例全 PASS。
+- 结论：deinit 发射契约 E5 侧复签通过，无 E4 遗留阻断；容器字段赋值（B2）与 `Class?` 未支持按声明接受。
+- 下一步：E2 的 `SEMA-BYTES` / 发布 self 检查；E5 待命。

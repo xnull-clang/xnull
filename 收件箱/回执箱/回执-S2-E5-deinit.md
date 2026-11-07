@@ -1,5 +1,18 @@
 # 回执：S2-E5-deinit（E4 deinit 发射契约的运行时侧验证）
 
+## 复签（beba3f6 重放）：通过
+
+- 被验：`main=beba3f6`（当前 main `ea913dd` 含该提交）
+- 结果：**5/5 PASS**——用户体顺序、类引用字段 retain/release、`h.a = h.a` 成员自赋值、handle 字段赋值/释放、（单测口径）Bytes 字段释放。
+- 回归：`build_rt.sh` 六套件 exit 0；E4 的 `TestS2*` 六例全 PASS。
+- 证据：`evidence/S2-E5-deinit/replay-beba3f6-*`。
+- 遗留：Bytes 字段端到端仍等 E2 `SEMA-BYTES`；容器字段赋值显式报错（B2）与 `Class?` 可空字段未支持均按 E4 声明接受。
+- 结论：**E5 对 deinit 发射契约复签通过，无 E4 侧遗留阻断。**
+
+---
+
+## 首轮（f975810）：已由重放修复
+
 - 卡片：S2-E5-deinit（验证）；被验交付：E4 `pod/e4-codegen@70f4385`，main 上的 handoff `a75226a`
 - 基线：`main=f975810`
 - 结论：**契约在 70f4385 成立；main 未合入该提交，三项中两项在 main 不成立**

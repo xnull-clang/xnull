@@ -1,9 +1,28 @@
 # S2-E5-deinit 验证：E4 deinit 发射契约（运行时侧独立复跑）
 
+## 复签（2026-11-07，beba3f6 重放）——通过
+
+- 被验：`main=beba3f6`（E4 以 main 为基重放；当前 main `ea913dd` 含该提交）
+- 复跑环境：干净 worktree `/tmp/e5-deinit-verify` @ `beba3f6`，`/tmp/xnull-beba` 构建
+- 结果：**5/5 通过**
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| 用户 deinit 体先于字段释放 | PASS | `replay-beba3f6-order.log`（main → outer-deinit → inner-deinit） |
+| 类引用字段赋值 retain 新值 / release 旧值 | PASS | `replay-beba3f6-assign-c.txt`（`rt_retain(a1); rt_release(h->a); h->a = a1;`） |
+| 成员表达式自赋值 `h.a = h.a` | PASS | 同上（临时 + retain + release + 写回） |
+| handle 字段赋值与 deinit 释放 | PASS | `replay-beba3f6-hold-c.txt`（`rt_retain(g); rt_release(h->f); h->f = ...` + deinit `rt_release(o->f)`） |
+| Bytes 字段释放（单测口径） | PASS | `replay-beba3f6-tests.log`（`TestS2DeinitReleasesHandleAndBytes`）；端到端仍被 `SEMA-BYTES` 阻断（`bytes-sema-block.log`） |
+
+- 回归：`build_rt.sh` 六套件 exit 0（`replay-beba3f6-build_rt.log`）；E4 的 `TestS2*` 六例全 PASS（含继承/vtable/构造器）。
+- 说明：根工作区当时处于 `7b907ba` 的在途合并（`UU` 索引），故用干净 worktree @ `beba3f6` 验证；结论只针对该提交树。
+
+## 首轮（main=f975810）——已由重放覆盖
+
 - 基线：`main=f975810`
 - 被验交付：E4 `pod/e4-codegen@70f4385`（声称已落 deinit 契约）；`main` 上的 handoff 为 `a75226a`
 - 方法：同一组 XNull 探针分别用 main 与 70f4385 构建运行；检查生成 C 的赋值/释放顺序；不修改 E4 代码
-- 结论：**契约在 70f4385 上成立；main 未包含该提交，三项中两项在 main 上不成立**
+- 结论：**契约在 70f4385 上成立；main 未包含该提交，三项中两项在 main 上不成立**（该缺口已由 `beba3f6` 重放修复）
 
 ## 一、逐项结果
 

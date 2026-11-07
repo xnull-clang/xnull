@@ -1,0 +1,5 @@
+# beba3f6: user deinit order
+main
+outer-deinit
+inner-deinit
+exit=0

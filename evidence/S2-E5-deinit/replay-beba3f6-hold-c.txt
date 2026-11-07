@@ -1,0 +1,20 @@
+# beba3f6: handle field assignment + deinit release
+xrt_handle *xn_t4 = rt_retain(g);
+rt_release(h->f);
+h->f = xn_t4;
+int32_t xn_t5 = xn_ffi_fileClose(g);
+int ok = (xn_t5 == 0);
+    if (((!(ok)))) {
+        int64_t xn_t6 = 12;
+---
+static void xn_Cls_Holder_deinit_hook(void *p) {
+    xn_Cls_Holder *o = (xn_Cls_Holder *)p;
+    rt_release(o->f);
+}
+static const rt_type RT_TYPE_XN_Holder = { "Holder", sizeof(xn_Cls_Holder), xn_Cls_Holder_deinit_hook, NULL };
+
+static xn_Cls_Holder *xn_Cls_Holder_new(void) {
+    xn_Cls_Holder *o = (xn_Cls_Holder *)rt_arc_new(&RT_TYPE_XN_Holder);
+    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_Holder) - sizeof(rt_header));
+    return o;
+}
