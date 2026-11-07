@@ -1,0 +1,12 @@
+xnull  ：/tmp/xnull-synced
+程序   ：/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M6-B0-06/program/read_parse_write_text.x（String-only API）
+源码 sha256：3b14c062924aa463f1d406b73bc88a3a7786739d3739f5816de6ef8110f8678f
+
+===== fixture in1.x
+  exit=0
+  OUTPUT MATCH  sha256=610855eb669b5cd613b35eee1aa6c5b19e3b83a981bfc4e4047ecdb5af1d1e18
+===== fixture in2.x
+  exit=0
+  OUTPUT MATCH  sha256=9b10db97c43759f8dcfe8775f003f51079a5101a048c50272e44260da4ab2299
+
+汇总：PASS=2 FAIL=0

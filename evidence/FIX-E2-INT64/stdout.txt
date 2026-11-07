@@ -1,0 +1,24 @@
+# 红
+=== RUN   TestNumericVariantOutOfRange
+    numeric_variant_test.go:34: 期望诊断 TY-101，实际：[]
+--- FAIL: TestNumericVariantOutOfRange (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	0.894s
+FAIL
+
+# 绿：目标
+ok  	xnull.dev/xnull/internal/sema	0.738s
+
+# 全仓
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	28.489s
+ok  	xnull.dev/xnull/internal/codegen	57.527s
+ok  	xnull.dev/xnull/internal/codegen/ffi	19.421s
+ok  	xnull.dev/xnull/internal/devtool	5.278s
+ok  	xnull.dev/xnull/internal/diag	3.459s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	4.406s
+ok  	xnull.dev/xnull/internal/sema	7.459s
+ok  	xnull.dev/xnull/internal/xfront	6.000s
+ok  	xnull.dev/xnull/internal/xpd	6.807s

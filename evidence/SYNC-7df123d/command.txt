@@ -1,0 +1,23 @@
+# SYNC 7df123d 采集命令（合并两分支同名证据，内容并集）
+
+## 分支 pod/c1-rd1（PKG-01 / NEG / xfront）
+cd wt/c1-rd1 && git merge --no-ff main   # 自动合并，无冲突
+cd impl && go test ./... -count=1 -timeout 300s
+cd impl && go test ./internal/sema -run 'TestPkgImport|TestSymbolImport|TestAliasDisambiguation|TestNeedlessAliasRejected|TestAmbiguousSimpleName|TestXdkNotImportedStrict|TestImportCycle|TestImportTargetRules' -count=1 -v
+# NEG：临时放入 wt/c3-rd3/impl/Tests/neg_test.go 后
+cd impl && go test ./Tests/ -run '^TestDiagMatrixS1$' -count=1 -v
+cd impl && go run ./cmd/xnull build ../examples/multi/main.x -o /tmp/sync-multi && /tmp/sync-multi
+cd impl && go run ./cmd/xnull run ../examples/multi/main.x --interp
+diff /tmp/sync-run.log /tmp/sync-interp.log
+
+## 分支 pod/e2-sema（TUPLE-01 / B0-05 / B0-07a，随 main 并入）
+git merge main
+# 冲突文件：impl/internal/sema/ty.go、impl/internal/interp/interp.go
+# 解决后：
+cd impl
+go test ./... -count=1 -timeout 300s
+go test ./internal/sema/ -run 'TestTuple|TestListRemoveReturnsElement|TestNumericVariant' -v -count=1
+go test ./internal/interp/ -run 'TestTuple' -v -count=1
+go build -o /tmp/xnull-synced ./cmd/xnull
+cd ..
+bash wt/qa-1/evidence/M6-B0-06/run.sh --root /Users/vjs/Desktop/XNull-Lang/wt/e2-sema --bin /tmp/xnull-synced

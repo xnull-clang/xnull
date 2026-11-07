@@ -1,0 +1,9 @@
+=== RUN   TestResultMemberMisusePanics
+=== RUN   TestResultMemberMisusePanics/ErrValue
+=== RUN   TestResultMemberMisusePanics/OkError
+--- PASS: TestResultMemberMisusePanics (0.00s)
+    --- PASS: TestResultMemberMisusePanics/ErrValue (0.00s)
+    --- PASS: TestResultMemberMisusePanics/OkError (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.634s
+exit=0

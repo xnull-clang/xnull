@@ -1,0 +1,24 @@
+== 阶段对齐复跑：HEAD 3bead3b（main 7df123d 已合入）==
+2026-11-07 12:38:32 CST
+
+--- sema ---
+=== RUN   TestDET01DiagStableAcrossRuns
+--- PASS: TestDET01DiagStableAcrossRuns (0.02s)
+=== RUN   TestDET01DiagIndependentOfMapOrder
+--- PASS: TestDET01DiagIndependentOfMapOrder (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.944s
+
+--- interp ---
+=== RUN   TestDET01RuntimeStable
+--- PASS: TestDET01RuntimeStable (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	2.250s
+
+--- codegen ---
+=== RUN   TestDET01InitOrderIndependentOfCreationOrder
+--- PASS: TestDET01InitOrderIndependentOfCreationOrder (0.04s)
+=== RUN   TestDET01EmitCDeterministic
+--- PASS: TestDET01EmitCDeterministic (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	1.563s

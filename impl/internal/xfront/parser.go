@@ -21,6 +21,7 @@ const (
 	synAssignTarget = "SYN-109" // 赋值/自增目标不在 Assignable 集（附录 A）
 	synTypeDecl     = "SYN-110" // 类型声明属第 2 部分（S2 切片实现）
 	synXdkPackage   = "SYN-111" // 用户包名使用保留命名空间 xdk（§3.1）
+	synPackageAlias = "SYN-112" // 包导入使用 as 别名（§3.2 只允许符号导入消歧）
 )
 
 // ParseExpr 解析一个完整表达式（S1 附录 A：Expression）。
@@ -115,6 +116,19 @@ func (p *parser) expectOp(op string) bool {
 var punctKind = map[string]Kind{
 	"(": LParen, ")": RParen, "{": LBrace, "}": RBrace,
 	"[": LBrack, "]": RBrack, ",": Comma, ";": Semi,
+}
+
+// splitAngleClose 把嵌套泛型实参闭合处的 `>>` 拆成两个 `>`（S1 附录 A TypeArgList）。
+// 只在类型实参上下文调用；不改变 `a >> b` 的移位语义（那里不会调用本函数）。
+func (p *parser) splitAngleClose() {
+	t := p.cur()
+	if t.Kind != Op || t.Text != ">>" {
+		return
+	}
+	p.toks = append(p.toks, Token{})
+	copy(p.toks[p.i+1:], p.toks[p.i:])
+	p.toks[p.i] = Token{Kind: Op, Text: ">", Pos: t.Pos}
+	p.toks[p.i+1] = Token{Kind: Op, Text: ">", Pos: Pos{Line: t.Pos.Line, Col: t.Pos.Col + 1}}
 }
 
 func describe(t Token) string {
@@ -406,6 +420,7 @@ func (p *parser) tryTypeArgs() ([]TypeRef, bool) {
 		}
 		break
 	}
+	p.splitAngleClose()
 	if !p.atOp(">") || !p.toks[min(p.i+1, len(p.toks)-1)].at(LParen) {
 		p.i, p.errs = save, p.errs[:errLen]
 		return nil, false
@@ -1175,6 +1190,7 @@ func (p *parser) parseNamedType() TypeRef {
 			}
 			break
 		}
+		p.splitAngleClose()
 		p.expectOp(">")
 	}
 	return nt

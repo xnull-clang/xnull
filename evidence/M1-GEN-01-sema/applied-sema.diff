@@ -1,0 +1,278 @@
+diff --git a/impl/internal/sema/error.go b/impl/internal/sema/error.go
+index 9b18b58..9aea131 100644
+--- a/impl/internal/sema/error.go
++++ b/impl/internal/sema/error.go
+@@ -236,9 +236,11 @@ func (e *tyenv) inferResultCtor(n *xfront.Call, kind, want string) texpr {
+ 		for _, a := range n.Args {
+ 			e.infer(a)
+ 		}
+-		e.errf(n.P, ErResultCtor,
+-			"无法推断 Result 的另一侧类型：Ok/Err 需要目标类型或显式类型（§10.1）",
+-			"写成 Result<T,E> 目标类型，或使用类型注解")
++		if !e.quietCtor {
++			e.errf(n.P, ErResultCtor,
++				"无法推断 Result 的另一侧类型：Ok/Err 需要目标类型或显式类型（§10.1）",
++				"写成 Result<T,E> 目标类型，或使用类型注解")
++		}
+ 		return texpr{key: "Result<,>"}
+ 	}
+ 	if kind == "Ok" {
+diff --git a/impl/internal/sema/sema.go b/impl/internal/sema/sema.go
+index 26f3d92..611920c 100644
+--- a/impl/internal/sema/sema.go
++++ b/impl/internal/sema/sema.go
+@@ -34,6 +34,9 @@ type analyzer struct {
+ 	ambiguous map[string]bool // 未消歧的简单名（使用时报 RES-104）
+ 	tc        *typeCheckCtx   // 类型声明上下文（类字段访问检查用）
+ 	seenTop   map[string]bool // 顶层重复声明检测
++
++	// GEN-01：本编译单元内作为类型参数出现过的名字（用于 §8.1 作用域诊断）。
++	typeParamNames map[string]bool
+ }
+ 
+ // Analyze 对编译单元做名称解析分析，返回语义诊断（不修改 AST）。
+@@ -55,7 +58,8 @@ func (r *Result) Strategies(u *xfront.CompilationUnit) []Strategy { return r.a.C
+ // AnalyzeWith 执行语义分析并返回结果句柄。
+ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagnostic) {
+ 	a := &analyzer{file: file, tops: map[string]bool{}, seenTop: map[string]bool{},
+-		imported: map[string]bool{}, ambiguous: map[string]bool{}}
++		imported: map[string]bool{}, ambiguous: map[string]bool{}, typeParamNames: map[string]bool{}}
++	a.collectTypeParamNames(u)
+ 	a.analyzeImports(u)
+ 	a.checkTypeDecls(u)
+ 	for _, d := range u.Decls {
+@@ -72,6 +76,12 @@ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagno
+ 	for _, d := range u.Decls {
+ 		if fn, ok := d.(*xfront.TopFunc); ok {
+ 			sc := &nscope{parent: nil}
++			for _, tp := range fn.TypePars { // 类型参数进入第 1 级名字空间（§8.1）
++				if sc.declaredHere(tp) {
++					a.errf(fn.P, ResRedecl, "类型参数 `"+tp+"` 重复声明（§8.1）", "同一泛型声明内类型参数名必须唯一")
++				}
++				sc.define(tp)
++			}
+ 			for _, p := range fn.Params {
+ 				sc.define(p.Name)
+ 			}
+@@ -89,6 +99,27 @@ func AnalyzeWith(file string, u *xfront.CompilationUnit) (*Result, []diag.Diagno
+ 	return &Result{a: a}, a.diags
+ }
+ 
++// collectTypeParamNames 登记本单元所有类型参数名（含类/结构体），
++// 供 §8.1「类型参数只在声明它的函数/类型内可见」诊断使用。
++func (a *analyzer) collectTypeParamNames(u *xfront.CompilationUnit) {
++	for _, d := range u.Decls {
++		switch n := d.(type) {
++		case *xfront.TopFunc:
++			for _, tp := range n.TypePars {
++				a.typeParamNames[tp] = true
++			}
++		case *xfront.ClassDecl:
++			for _, tp := range n.TypePars {
++				a.typeParamNames[tp] = true
++			}
++		case *xfront.StructDecl:
++			for _, tp := range n.TypePars {
++				a.typeParamNames[tp] = true
++			}
++		}
++	}
++}
++
+ func (a *analyzer) collectTop(name string, p xfront.Pos) {
+ 	if name == "" || name == "<err>" {
+ 		return
+diff --git a/impl/internal/sema/ty.go b/impl/internal/sema/ty.go
+index 50dfc63..3884201 100644
+--- a/impl/internal/sema/ty.go
++++ b/impl/internal/sema/ty.go
+@@ -187,6 +187,11 @@ type tyenv struct {
+ 	ret       string // 当前函数/闭包返回类型串（"void" 或具体类型）
+ 	fnKind    string // func/main/method/ctor/deinit/lambda/fieldinit
+ 	inCleanup bool   // 正在检查 defer/errdefer 清理体
++
++	// GEN-01：泛型函数上下文（§8）。
++	curFunc   string          // 当前泛型函数名（自递归展开检测）
++	typePars  map[string]bool // 当前函数/闭包可见的类型参数
++	quietCtor bool            // 重载选择预推断阶段：Ok/Err 无目标类型不立即报错
+ }
+ 
+ func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
+@@ -195,7 +200,7 @@ func (e *tyenv) errf(p xfront.Pos, code, msg, hint string) {
+ 
+ // analyzeTypes 对整个编译单元做类型检查。
+ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
+-	e := &tyenv{a: a, vars: map[string]string{}, funcs: map[string][]*xfront.TopFunc{}, fields: map[string]string{}}
++	e := &tyenv{a: a, vars: map[string]string{}, funcs: map[string][]*xfront.TopFunc{}, fields: map[string]string{}, typePars: map[string]bool{}}
+ 	for _, d := range u.Decls {
+ 		switch n := d.(type) {
+ 		case *xfront.TopFunc:
+@@ -211,6 +216,7 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
+ 		case *xfront.TopField:
+ 			k := typeKey(n.Type)
+ 			e.checkResultType(n.Type, n.P)
++			e.checkTypeParamRef(n.Type, n.P)
+ 			if k == "void" {
+ 				a.errf(n.P, TyAssignability, "void 不能作为字段类型（§2）", "字段类型必须是具体类型")
+ 				continue
+@@ -239,7 +245,14 @@ func (a *analyzer) analyzeTypes(file string, u *xfront.CompilationUnit) {
+ 			if fn.Name == "main" {
+ 				e.fnKind = "main"
+ 			}
++			e.curFunc = fn.Name
++			e.typePars = map[string]bool{}
++			for _, tp := range fn.TypePars {
++				e.typePars[tp] = true
++			}
++			e.checkTypeParamRef(fn.Ret, fn.P)
+ 			for _, p := range fn.Params {
++				e.checkTypeParamRef(p.Type, p.P)
+ 				e.vars[p.Name] = typeKey(p.Type)
+ 			}
+ 			e.walkFunc(fn.Body, retKey)
+@@ -298,6 +311,7 @@ func (e *tyenv) walkStmt(st xfront.Stmt, retKey string) {
+ 		}
+ 		if n.Type != nil {
+ 			e.checkResultType(n.Type, n.P)
++			e.checkTypeParamRef(n.Type, n.P)
+ 		}
+ 		if n.Init != nil {
+ 			it := e.inferExpected(n.Init, typeKey(n.Type))
+@@ -649,6 +663,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
+ 	case *xfront.Member:
+ 		return e.inferMember(n)
+ 	case *xfront.New:
++		// §8.3：泛型函数内不能写 new T()（类型参数不是可构造的运行时类型）。
++		if nt, ok := n.Type.(*xfront.NamedType); ok && len(nt.Args) == 0 && len(nt.Qual) == 1 && e.typePars[nt.Qual[0]] {
++			e.errf(n.P, GenScope, "泛型函数内不能写 new "+nt.Qual[0]+"()：类型参数不是可构造的运行时类型（§8.3）", "改为具体类型，或由调用方传入构造好的值")
++		}
++		for _, a := range n.Args {
++			e.infer(a)
++		}
+ 		return texpr{}
+ 	}
+ 	return texpr{}
+@@ -743,28 +764,10 @@ func (e *tyenv) inferCall(n *xfront.Call) texpr {
+ 		}
+ 		return e.methodRet(rt, mem.Name, args, n.P)
+ 	}
+-	// 顶层函数调用：按实参数选重载，检查实参可赋值性。
++	// 顶层函数调用：普通/泛型候选解析（§8.2 重载与推断）。
+ 	if id, ok := n.Callee.(*xfront.IdentExpr); ok {
+-		if fns, found := e.funcs[id.Name]; found {
+-			for _, f := range fns {
+-				if len(f.Params) != len(n.Args) {
+-					continue
+-				}
+-				for i, p := range f.Params {
+-					pk := typeKey(p.Type)
+-					at := e.inferExpected(n.Args[i], pk)
+-					if !assignable(at, pk) {
+-						e.errf(n.Args[i].Pos(), TyAssignability,
+-							fmt.Sprintf("实参 %d 类型 %s 不能赋给形参 %s（§2.6）", i+1, describeKey(at), pk),
+-							hintFor(at, pk))
+-					}
+-				}
+-				if f.Void {
+-					return texpr{key: "void"}
+-				}
+-				return texpr{key: typeKey(f.Ret)}
+-			}
+-			return texpr{}
++		if _, found := e.funcs[id.Name]; found {
++			return e.resolveUserCall(n, id.Name)
+ 		}
+ 	}
+ 	for _, a := range n.Args {
+@@ -888,17 +891,18 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
+ }
+ 
+ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
+-	if _, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
++	if ta, isTypeAs := n.R.(*xfront.TypeAsExpr); isTypeAs {
++		e.checkTypeParamRef(ta.Type, n.P)
+ 		switch n.Op {
+ 		case "is":
+ 			e.infer(n.L)
+ 			return texpr{key: "Bool"}
+ 		case "as":
+ 			e.infer(n.L)
+-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type)}
++			return texpr{key: typeKey(ta.Type)}
+ 		case "as?":
+ 			e.infer(n.L)
+-			return texpr{key: typeKey(n.R.(*xfront.TypeAsExpr).Type) + "?"}
++			return texpr{key: typeKey(ta.Type) + "?"}
+ 		}
+ 	}
+ 	lt := e.infer(n.L)
+diff --git a/impl/internal/sema/typedecl.go b/impl/internal/sema/typedecl.go
+index b5fcd23..1ed34c9 100644
+--- a/impl/internal/sema/typedecl.go
++++ b/impl/internal/sema/typedecl.go
+@@ -332,7 +332,7 @@ func (c *typeCheckCtx) checkClass(d *xfront.ClassDecl) {
+ 		c.errf(d.P, TyModifier, "每个类最多一个 deinit（§6.4）", "")
+ 	}
+ 	// 方法体
+-	c.walkClassBodies(d.Name, d.Fields, d.Methods, d.Ctors)
++	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
+ }
+ 
+ // checkStruct 结构体检查（§3）。
+@@ -352,7 +352,7 @@ func (c *typeCheckCtx) checkStruct(d *xfront.StructDecl) {
+ 			_ = m
+ 		}
+ 	}
+-	c.walkClassBodies(d.Name, d.Fields, d.Methods, d.Ctors)
++	c.walkClassBodies(d.Name, d.TypePars, d.Fields, d.Methods, d.Ctors)
+ }
+ 
+ // checkValueField 检查值字段限制与递归值包含（§3.2/§1.5）。
+@@ -628,9 +628,13 @@ func isSelfIdent(x xfront.Expr) bool {
+ }
+ 
+ // walkClassBodies 遍历类的全部方法体与构造器体（含字段解析规则）。
+-func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldDecl,
++func (c *typeCheckCtx) walkClassBodies(className string, typeParams []string, fields []*xfront.FieldDecl,
+ 	methods []*xfront.MethodDecl, ctors []*xfront.CtorDecl) {
+-	e := &tyenv{a: c.a, vars: map[string]string{}, funcs: c.topFuncs, fields: map[string]string{}}
++	e := &tyenv{a: c.a, vars: map[string]string{}, funcs: c.topFuncs, fields: map[string]string{}, typePars: map[string]bool{}}
++	e.curFunc = ""
++	for _, tp := range typeParams {
++		e.typePars[tp] = true
++	}
+ 	// 类字段表：裸规范名解析（实例与静态上下文都可引用静态字段；实例字段仅实例方法）
+ 	fieldType := map[string]string{}
+ 	for _, f := range fields {
+@@ -649,6 +653,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
+ 	e.fnKind, e.ret = "fieldinit", ""
+ 	for _, f := range fields {
+ 		e.checkResultType(f.Type, f.P)
++		e.checkTypeParamRef(f.Type, f.P)
+ 		if f.Init == nil {
+ 			continue
+ 		}
+@@ -673,6 +678,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
+ 			e.fnKind, e.ret = "deinit", "void"
+ 		}
+ 		e.checkResultType(m.Ret, m.P)
++		e.checkTypeParamRef(m.Ret, m.P)
+ 		e.vars = map[string]string{}
+ 		if ctx.instance {
+ 			e.vars["self"] = className
+@@ -682,6 +688,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
+ 		}
+ 		for _, p := range m.Params {
+ 			e.checkResultType(p.Type, p.P)
++			e.checkTypeParamRef(p.Type, p.P)
+ 			if ctx.canonPriv[p.Name] {
+ 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）", "")
+ 			}
+@@ -699,6 +706,7 @@ func (c *typeCheckCtx) walkClassBodies(className string, fields []*xfront.FieldD
+ 		}
+ 		for _, p := range ct.Params {
+ 			e.checkResultType(p.Type, p.P)
++			e.checkTypeParamRef(p.Type, p.P)
+ 			if ctx.canonPriv[p.Name] {
+ 				c.errf(p.P, TyPrivField, "参数 `"+p.Name+"` 与类私有字段规范名冲突（§7.4）", "")
+ 			}

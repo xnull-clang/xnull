@@ -1,0 +1,8 @@
+== 同命令同 -o 两次构建 ==
+4e3ec1d7b53204db8cee3835d4e087576ee77f0c59ff9db83c63ebb57211f44e  /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.BxIPvytKFv/b.first
+4e3ec1d7b53204db8cee3835d4e087576ee77f0c59ff9db83c63ebb57211f44e  /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/tmp.BxIPvytKFv/b
+
+== 10 次编译路径 ==
+  10 a6ed6096dbb3bc0c84249cec672037536c7d8f047c44b6807561c57b5448c055
+== 10 次解释路径 ==
+  10 a6ed6096dbb3bc0c84249cec672037536c7d8f047c44b6807561c57b5448c055
