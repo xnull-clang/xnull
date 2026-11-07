@@ -2,6 +2,7 @@ package sema
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
@@ -34,11 +35,19 @@ type texpr struct {
 	key   string  // "" = 未知/void 语义上有别：void 用 "void"，未知用 ""
 	lit   int     // 0 普通；1 整数字面量；2 浮点字面量；3 字符串字面量；4 null
 	elems []texpr // 元组字面量的逐元素类型（保留字面量标记，§2.11 目标适配）
+
+	hasInt  bool   // 整数字面量的值已知（M6-B0-07a 范围检查）
+	intVal  int64  // 有符号值
+	uintVal uint64 // 无符号值（仅 isUInt 时有效）
+	isUInt  bool
 }
 
 var intTypeNames = map[string]bool{
 	"Int": true, "Long": true, "Byte": true, "Short": true, "UByte": true,
 	"UShort": true, "UInt": true, "ULong": true, "Int128": true, "UInt128": true,
+	// FFI 定宽整数（S7 §3.2 标量映射）；S1 §2.6 字面量适配按目标宽度检查。
+	"Int8": true, "Int16": true, "Int32": true, "Int64": true,
+	"UInt8": true, "UInt16": true, "UInt32": true, "UInt64": true,
 }
 
 var refTypeNames = map[string]bool{ // §2.6 空值规则：引用类型
@@ -172,8 +181,11 @@ func assignable(from texpr, to string) bool {
 	}
 	// 字面量规则（§2.6）。
 	switch from.lit {
-	case 1: // 整数字面量可表示在目标整数类型中（表示性检查在常量求值切片，此处按类型接受）
-		return isIntType(to)
+	case 1: // 整数字面量可表示在目标整数类型中（§2.6）
+		if !isIntType(to) {
+			return false
+		}
+		return intLiteralFits(from, to)
 	case 2:
 		return isFloatType(to)
 	case 3:
@@ -216,6 +228,64 @@ func assignable(from texpr, to string) bool {
 		}
 	}
 	return false
+}
+
+// intLiteralFits 检查整数字面量的值能否表示在目标整数类型中（§2.6）。
+// 仅对 S7 定宽整数（Int8..Int64 / UInt8..UInt64）做范围检查；
+// Byte/Short/Int/Long 等既有类型保持历史行为，避免扩大本卡语义面。
+func intLiteralFits(t texpr, to string) bool {
+	if !t.hasInt {
+		return true
+	}
+	switch unwrapOpt(to) {
+	case "Int8":
+		return signedFits(t, -1<<7, 1<<7-1)
+	case "Int16":
+		return signedFits(t, -1<<15, 1<<15-1)
+	case "Int32":
+		return signedFits(t, -1<<31, 1<<31-1)
+	case "Int64":
+		return signedFits(t, -1<<63, 1<<63-1)
+	case "UInt8":
+		return unsignedFits(t, 1<<8-1)
+	case "UInt16":
+		return unsignedFits(t, 1<<16-1)
+	case "UInt32":
+		return unsignedFits(t, 1<<32-1)
+	case "UInt64":
+		return unsignedFits(t, ^uint64(0))
+	}
+	return true
+}
+
+// adaptIntLiteralKeys 让比较中的整数字面量按另一侧整数类型适配（§2.6）；
+// 返回两侧共同类型。非字面量或越界时不放宽。
+func adaptIntLiteralKeys(lt, rt texpr) (string, string, bool) {
+	if lt.key != "" && rt.key != "" && lt.key == rt.key {
+		return lt.key, rt.key, true
+	}
+	// 仅无后缀整数字面量（默认 Int）按另一侧适配；显式后缀类型不隐式转换。
+	if lt.lit == 1 && lt.key == "Int" && rt.key != "" && isIntType(rt.key) && intLiteralFits(lt, rt.key) {
+		return rt.key, rt.key, true
+	}
+	if rt.lit == 1 && rt.key == "Int" && lt.key != "" && isIntType(lt.key) && intLiteralFits(rt, lt.key) {
+		return lt.key, lt.key, true
+	}
+	return lt.key, rt.key, false
+}
+
+func signedFits(t texpr, min, max int64) bool {
+	if t.isUInt {
+		return t.uintVal <= uint64(max)
+	}
+	return t.intVal >= min && t.intVal <= max
+}
+
+func unsignedFits(t texpr, max uint64) bool {
+	if t.isUInt {
+		return t.uintVal <= max
+	}
+	return t.intVal >= 0 && uint64(t.intVal) <= max
 }
 
 // tyenv 是一个函数的类型环境。
@@ -574,7 +644,16 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		case "UL":
 			k = "ULong"
 		}
-		return texpr{key: k, lit: 1}
+		t := texpr{key: k, lit: 1}
+		txt := strings.ReplaceAll(n.Text, "_", "")
+		if txt != "" {
+			if iv, err := strconv.ParseInt(txt, n.Base, 64); err == nil {
+				t.hasInt, t.intVal = true, iv
+			} else if uv, err := strconv.ParseUint(txt, n.Base, 64); err == nil {
+				t.hasInt, t.isUInt, t.uintVal = true, true, uv
+			}
+		}
+		return t
 	case *xfront.FloatLitExpr:
 		if n.HasSuffixF {
 			return texpr{key: "Float", lit: 2}
@@ -632,6 +711,13 @@ func (e *tyenv) infer(x xfront.Expr) texpr {
 		case "-":
 			if t.key != "" && !isIntType(t.key) && !isFloatType(t.key) {
 				e.errf(n.P, TyBadOperand, "一元 `-` 操作数必须是数值（§7.2），得到 "+describeKey(t), "")
+			}
+			if t.hasInt {
+				if t.isUInt {
+					t.intVal, t.isUInt = -int64(t.uintVal), false // 2^63 → MinInt64（补码）
+				} else {
+					t.intVal = -t.intVal
+				}
 			}
 			return t
 		}
@@ -1001,16 +1087,28 @@ func (e *tyenv) inferBinary(n *xfront.Binary) texpr {
 			return texpr{key: "Bool"}
 		}
 		if lt.key != "" && rt.key != "" && lt.key != rt.key {
-			e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
-				lt.key+" vs "+rt.key, "")
+			if _, _, ok := adaptIntLiteralKeys(lt, rt); !ok {
+				e.errf(n.P, TyBadOperand, "比较运算两侧类型必须相同（§2.6 结构化匹配禁止）："+
+					lt.key+" vs "+rt.key, "")
+			}
 		}
 		return texpr{key: "Bool"}
 	case "<", ">", "<=", ">=":
 		if lt.key != "" && rt.key != "" {
-			num := (isIntType(lt.key) && isIntType(rt.key)) || (isFloatType(lt.key) && isFloatType(rt.key)) ||
-				(lt.key == "Char" && rt.key == "Char")
+			lk, rk := lt.key, rt.key
+			if lk != rk {
+				a, b, ok := adaptIntLiteralKeys(lt, rt)
+				if !ok {
+					e.errf(n.P, TyBadOperand, "比较运算要求同族同宽（§2.6 禁止隐式转换）："+
+						lt.key+" vs "+rt.key, "")
+					return texpr{key: "Bool"}
+				}
+				lk, rk = a, b
+			}
+			num := (isIntType(lk) && isIntType(rk)) || (isFloatType(lk) && isFloatType(rk)) ||
+				(lk == "Char" && rk == "Char")
 			if !num {
-				e.errf(n.P, TyBadOperand, "比较运算只用于同族数值或 Char（§2.6 禁止隐式转换）："+
+				e.errf(n.P, TyBadOperand, "比较运算只用于同族同宽数值或 Char（§2.6 禁止隐式转换）："+
 					lt.key+" vs "+rt.key, "")
 			}
 		}

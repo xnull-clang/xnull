@@ -1,0 +1,15 @@
+# M6-B0-07a sema：Int32/Int64 字面量适配 + 同族同宽比较
+cd impl
+# 红
+go test ./internal/sema/ -run 'TestNumericVariant' -v -count=1
+# 绿
+go test ./internal/sema/ -run 'TestNumericVariant' -v -count=1
+go test ./internal/sema/ -count=1
+go test ./... -count=1 -timeout 600s
+go vet ./...
+# B0-06 p6 数字变体
+go build -o /tmp/xnull-b007a ./cmd/xnull
+cd ..
+/tmp/xnull-b007a run --interp wt/qa-1/evidence/M6-B0-06/probes/p6_numeric.x
+/tmp/xnull-b007a run          wt/qa-1/evidence/M6-B0-06/probes/p6_numeric.x
+/tmp/xnull-b007a run --interp wt/qa-1/evidence/M6-B0-06/program/read_parse_write.x
