@@ -212,6 +212,10 @@ func (e *tyenv) canAssign(from texpr, to string) bool {
 	}
 	fi := e.a.tc.types[f]
 	ti := e.a.tc.types[t]
+	// null → 类/协议引用（§4.4/§2.8）。
+	if from.lit == 4 && ti != nil && (ti.kind == "class" || ti.kind == "protocol") {
+		return true
+	}
 	if fi == nil || ti == nil {
 		return false
 	}
