@@ -1,0 +1,6 @@
+=== RUN   TestXDKTextFileAPI
+    xdk_text_test.go:23: 绑定缺少 readFileText（B0-06 文本变体）
+--- FAIL: TestXDKTextFileAPI (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	0.914s
+FAIL

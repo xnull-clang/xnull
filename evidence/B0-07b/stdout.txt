@@ -1,0 +1,45 @@
+===== 红（实现前） =====
+=== RUN   TestXDKTextFileAPI
+    xdk_text_test.go:23: 绑定缺少 readFileText（B0-06 文本变体）
+--- FAIL: TestXDKTextFileAPI (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	0.914s
+FAIL
+
+===== 绿（实现后） =====
+=== RUN   TestXDKTextFileAPI
+--- PASS: TestXDKTextFileAPI (1.98s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen/ffi	2.897s
+
+===== 端到端（B0-06 文本变体） =====
+build exit=0
+生成告警数：3
+PASS  in1.x  exit=0  sha256=610855eb669b5cd613b35eee1aa6c5b19e3b83a981bfc4e4047ecdb5af1d1e18
+PASS  in2.x  exit=0  sha256=9b10db97c43759f8dcfe8775f003f51079a5101a048c50272e44260da4ab2299
+汇总：PASS=2 FAIL=0
+
+===== 生成告警 =====
+prog.bin.c:562:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+prog.bin.c:605:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+prog.bin.c:640:66: warning: incompatible pointer types passing 'rt_string **' (aka 'struct rt_string **') to parameter of type 'xrt_string **' (aka 'struct xrt_string **') [-Wincompatible-pointer-types]
+
+===== go test ./... =====
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/cli	30.660s
+ok  	xnull.dev/xnull/internal/codegen	48.978s
+ok  	xnull.dev/xnull/internal/codegen/ffi	23.405s
+ok  	xnull.dev/xnull/internal/devtool	3.216s
+ok  	xnull.dev/xnull/internal/diag	4.114s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	6.245s
+ok  	xnull.dev/xnull/internal/sema	7.167s
+ok  	xnull.dev/xnull/internal/xfront	9.021s
+ok  	xnull.dev/xnull/internal/xpd	8.076s
+
+===== build_rt.sh（尾部） =====
+hard-semantics tests passed
+abi 测试通过
+std 测试通过
+资源表测试通过
