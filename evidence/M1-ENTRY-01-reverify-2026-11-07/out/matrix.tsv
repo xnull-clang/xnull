@@ -1,0 +1,32 @@
+c3_init_fatal	interp	134	xnull: fatal: 除零|
+c3_init_fatal	compiled	134	xnull: fatal: 除零|
+c7b	interp	134	xnull: fatal: 除零|
+c7b	compiled	134	xnull: fatal: 除零|
+c7_runtime_divzero	interp	134	xnull: fatal: 除零|
+c7_runtime_divzero	compiled	134	xnull: fatal: 除零|
+c7c_runtime_divzero	interp	134	xnull: fatal: 除零|
+c7c_runtime_divzero	compiled	134	xnull: fatal: 除零|
+c7d_args_divzero	interp	134	xnull: fatal: 除零|
+c7d_args_divzero	compiled	134	xnull: fatal: 除零|
+c7e_runtime_divzero	interp	134	xnull: fatal: 除零|
+c7e_runtime_divzero	compiled	134	xnull: fatal: 除零|
+e3_dup_overload	interp	0	
+e3_dup_overload	compiled	0	
+c13_entry_first_call	interp	0	
+c13_entry_first_call	compiled	0	
+c13_call_overload	interp	0	
+c13_call_overload	compiled	1	xnull: 代码生成失败：重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口|
+c13_call_helper	interp	0	
+c13_call_helper	compiled	1	xnull: 代码生成失败：重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口|
+c13_two_overloads	interp	0	
+c13_two_overloads	compiled	1	xnull: 代码生成失败：重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口|
+e10_private_main	interp	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e10_private_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e10_private_main	compiled	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e10_private_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e11_generic_main	interp	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e11_generic_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：不能是泛型函数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e11_generic_main	compiled	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e11_generic_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：不能是泛型函数|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e12_protected_main	interp	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e12_protected_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e12_protected_main	compiled	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e12_protected_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的|  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）|
+e13_public_main	interp	3	
+e13_public_main	compiled	3	
+e14_int_args_noreturn	interp	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e14_int_args_noreturn.x:1:1: error[DA-103]: 函数 `main` 存在不返回的正常路径（非 void 返回类型，§6.1）|  为所有路径补充 return；`while true` 无 break 的循环之后视为不可达|
+e14_int_args_noreturn	compiled	1	/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e14_int_args_noreturn.x:1:1: error[DA-103]: 函数 `main` 存在不返回的正常路径（非 void 返回类型，§6.1）|  为所有路径补充 return；`while true` 无 break 的循环之后视为不可达|

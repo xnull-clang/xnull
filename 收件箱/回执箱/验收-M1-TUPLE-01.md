@@ -1,9 +1,8 @@
 # 验收：M1-TUPLE-01（元组，S1 §2.11）
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL（收窄至 §2.11 类型位置/可空元组；核心 17/17 PASS，F1/F2 已转绿）**
-> **复验点**：main `7262ff0`（含 TUPLE F1/F2 修复 `f53f6fb`）
-> **用例**：`evidence/M1-TUPLE-01-qa/qa-tests/`（QA1 自写 17 项）+ §2.11 定点探针 7 项
+> **结论：FAIL**
+> **复验点**：main `d620ea5`（`46f36f2` 已并入）
 > **时间**：2026-11-07
 
 ---
@@ -12,111 +11,151 @@
 
 | 验收面 | 判定 | 依据 |
 |---|---|---|
-| QA 独立用例（sema 9 + interp 8） | **PASS 17/17** | 原 5/8 → 8/8；F1 引用元素 `==`、F2 String `===` 已修 |
-| §2.11 元素访问（含可空元组 `?.`） | **FAIL** | `(T1,T2)?` 无法声明，`?.` null 分支不可达 |
-| §2.11 类型位置（返回值/字段/容器元素） | **FAIL** | 语法层拒绝：`static (Int,Int) f()`、类字段、`List<(Int,Int)>` |
-| §2.11 泛型实参与 tuple codegen | **FAIL（编译路径）** | 解释路径通过；编译路径 `codegen：类型 *xfront.TupleTypeRef 未支持` |
-| 字面量表示性（`Byte=300`） | 挂 M2-C | 非 TUPLE 阻断项，沿用原验收口径 |
+| 四类类型位置：可空 / 返回 / 字段 / 容器元素 | **PASS** | sema + 解释路径全部通过；见 §二 |
+| QA 独立用例（sema 9 + interp 8） | **PASS 17/17** | `qa-sema.log`、`qa-interp.log` |
+| E2 TUPLE 用例（含新增类型位置） | **PASS** | `e2-sema-tuple.log`、`e2-interp-tuple.log` |
+| 核心语义：身份/字面量/访问/推断/可赋值/相等/插值/拒绝项 | **PASS** | 17/17 + 13 项拒绝用例 |
+| **§2.11 值语义：存入容器复制整个元组** | **FAIL** | 容器字面量 / `List.push` 存入后仍与原元组共享，修改原值会改变容器内元素 |
+| 编译路径元组（codegen） | **FAIL（M4.1 边界）** | `codegen：类型 *xfront.TupleTypeRef 未支持` |
 
-**整体 FAIL 的原因不是 F1/F2 回归**，而是原验收单已登记的 F3（可空元组）与“元组作类型位置”语法缺口仍在。
-核心清单（类型身份、字面量、元素访问、推断、可赋值性、相等、插值、越界/单零元/解构/switch/const 拒绝）17/17 全绿。
-
----
-
-## 二、QA 独立用例（17/17 PASS）
-
-### 2.1 sema（9/9）
-
-| # | 用例 | 验收点 | 结果 |
-|---:|---|---|---|
-| 1 | TestQATupleTypeIdentity | 同长同元素同型；换序/换长/嵌套不同均拒绝 | PASS |
-| 2 | TestQATupleLiteral | 字面量按目标元组元素类型适配 | PASS |
-| 3 | TestQATupleElementAccess | `.0/.1` 通过；越界拒绝；`?.` 非空分支 | PASS |
-| 4 | TestQATupleInference | `var t=(1,"a")` 推断 `(Int,String)` | PASS |
-| 5 | TestQATupleAssignability | 仅同型可赋；元组参数合法 | PASS |
-| 6 | TestQATupleEqualityStatic | `==`/`===` 两侧须同型 | PASS |
-| 7 | TestQATupleInterpolationStatic | 可格式化递归；不可格式化 `TY-106` | PASS |
-| 8 | TestQATupleRejections | 单元素/零元/解构/switch/const/`.length` 拒绝 | PASS |
-| 9 | TestQATupleParenAndParam | `(T)` 是括号而非元组；元组参数 | PASS |
-
-### 2.2 interp（8/8）
-
-| # | 用例 | 验收点 | 结果 |
-|---:|---|---|---|
-| 10 | TestQATupleValueEqualityAndInterp | 值元素 `==`/`===` 与插值 | PASS |
-| 11 | **TestQATupleReferenceElementEquality（原 F1）** | 引用元素 `==` 按对象身份 | **PASS** |
-| 12 | TestQATupleCopySemantics | 赋值/传参复制，副本独立 | PASS |
-| 13 | TestQATupleInferenceRuntime | 推断后的运行期访问 | PASS |
-| 14 | TestQATupleElementAccessRuntime | `.0/.1` 运行期取值 | PASS |
-| 15 | TestQATupleOutOfRangeRuntimeFallback | 越界在 sema 拦截，运行期不可达 | PASS |
-| 16 | **TestQATupleStringIdentity（原 F2）** | String `===` 按对象身份（非内容） | **PASS** |
-| 17 | **TestQATupleArrayElementEquality（原 F2 同类）** | 数组元素 `==` 按句柄身份 | **PASS** |
+**锚点判定：FAIL。** 四类类型位置已修复，但 §2.11 明确要求“存入容器都复制整个元组；副本与原值独立”，当前容器写入路径未复制元组，属于值语义硬缺陷。
 
 ---
 
-## 三、§2.11 定点探针（7 项）
+## 二、四类类型位置（PASS）
 
-| # | 探针 | 条款 | 期望 | 解释路径 | 编译路径 | 判定 |
-|---:|---|---|---|---|---|---|
-| P1 | `(Int,Int)? p = null` | §2.11 成员访问 | 可声明 | `SYN-101` 遇 `(` | `SYN-101` | **FAIL** |
-| P2 | `p?.0` | §2.11 成员访问 | null 时得 `null` | `SYN-101` | `SYN-101` | **FAIL** |
-| P3 | `static (Int,Int) f()` | §2.11 形式与身份 | 元组可作返回值 | `SYN-101` | `SYN-101` | **FAIL** |
-| P4 | `class C { (Int,Int) p = ... }` | §2.11 形式与身份 | 元组可作字段 | `SYN-101` | `SYN-101` | **FAIL** |
-| P5 | `List<(Int,Int)>` | §2.11 形式与身份 | 元组可作容器元素 | `SYN-102` 链式比较 | `SYN-102` | **FAIL** |
-| P6 | `id<(Int,Int)>(t)` | §2.11 形式与身份 | 元组可作泛型实参 | rc=0，输出 `1` | `TupleTypeRef 未支持` | **FAIL（编译）** |
-| P7 | `(Int,Int) u = t` | §2.11 值语义 | 同型赋值 | rc=0，输出 `2` | `TupleTypeRef 未支持` | **FAIL（编译）** |
+解释路径实测（`--interp`）：
 
-原始输出：`evidence/QA1-verify-2026-11-07/tuple-probes.log`。
+| # | 位置 | 用例 | 实测 stdout | 判定 |
+|---:|---|---|---|---|
+| 1 | 可空元组 `(T1,T2)?` + `?.` | `t1_nullable` | `true` / `5` / `a`（null 分支得 null；非空取元素） | PASS |
+| 2 | 顶层返回 `static (Int,Int) f()` | `t2_return` | `1` / `2` / `true`（可空返回 null） | PASS |
+| 3 | 类字段 `(Int,Int) p` / 无初值零值 | `t3_field` | `1 2 0 0 true 1 4 1 5` | PASS |
+| 4 | 容器元素 `List<(Int,Int)>`、`(Int,Int)[]`、`new (Int,Int)[n]` | `t4_container` | `7` / `7` / `10` / `0` / `0` | PASS |
+| 5 | 顶层字段 `static (Int,Int) top` | `t5_topfield` | `11` / `12` / `true` | PASS |
 
----
+补充（解释路径）：
 
-## 四、缺陷与归属
-
-| # | 缺陷 | 归属 | 阻断 |
+| 用例 | 验收点 | 实测 | 判定 |
 |---|---|---|---|
-| T-F3 | 可空元组 `(T1,T2)?` 与 `?.` 不可声明/不可达 | xfront | 是 |
-| T-P1 | 元组作返回值/类字段/容器元素的类型语法未支持 | xfront | 是 |
-| T-C1 | 元组 codegen 未实现（`TupleTypeRef`），赋值/泛型实参编译路径失败 | codegen（M4.1） | 是（编译路径） |
-| T-F4 | `Byte=300` 字面量表示性未验 | 全局 M2-C | 否（挂账） |
+| `t6_generic_closure` | 元组作泛型实参、闭包捕获 | `1` / `a` / `2` | PASS |
+| `t7_map_key` | 元组不能作 `Map` 键 | `TY-107`，rc=1 | PASS |
+| `t12_set_key` | 元组不能作 `Set` 元素 | `Set 元素只能是 Int / String`，rc=1 | PASS |
+| `t9_interp_eq` | 插值 `(1, x)`、`==`/`!=`、`===`/`!==` | `(1, x)` / true / true / false / false | PASS |
+| `t10_nullable_value` | 可空元组 `?.` 值元素得 `T?` | `false` / `1` / `true` | PASS |
+| `TestQATupleReferenceElementEquality` | 引用元素 `==` 按对象身份 | PASS | PASS |
+| `TestQATupleStringIdentity` | String `===` 按对象身份 | PASS | PASS |
+
+E2 新增 `TestTupleTypePositions`、`TestTupleTypePositionsRuntime`、`TestTupleClassFieldCopy` 均 PASS。
 
 ---
 
-## 五、已跑命令与结果
+## 三、失败项：容器写入未复制元组（§2.11）
 
-```bash
-cd /Users/vjs/Desktop/XNull-Lang
-SHA=$(git rev-parse main)   # 7262ff0
-git archive "$SHA" | tar -x -C $T/src
-cp evidence/M1-TUPLE-01-qa/qa-tests/qa-sema_tuple_test.go   $T/src/impl/internal/sema/qa_tuple_accept_test.go
-cp evidence/M1-TUPLE-01-qa/qa-tests/qa-interp_tuple_test.go $T/src/impl/internal/interp/qa_tuple_accept_test.go
-cd $T/src/impl
-go test ./internal/sema   -run 'TestQATuple' -count=1 -v   # PASS 9/9
-go test ./internal/interp -run 'TestQATuple' -count=1 -v   # PASS 8/8
+### 3.1 最小复现
+
+```x
+static Int main() {
+    (Int, Int) t = (1, 2)
+    List<(Int, Int)> l = [t]
+    t.0 = 9
+    print(l.get(0).0)   // 期望 1，实际 9
+    return 0
+}
 ```
 
-原样输出：
+| 路径 | 实测 |
+|---|---|
+| `run --interp` | `9`，rc=0 |
 
-```
-ok  xnull.dev/xnull/internal/sema     1.164s
-ok  xnull.dev/xnull/internal/interp   0.826s
+### 3.2 三条写入路径均失败
+
+`t11_copy_paths.x`：
+
+```x
+(Int, Int) t = (1, 2)
+List<(Int, Int)> l = [t]
+t.0 = 9
+print(l.get(0).0)       // 期望 1，实际 9
+
+List<(Int, Int)> p = []
+p.push(t)
+t.0 = 8
+print(p.get(0).0)       // 期望 9，实际 8
+
+(Int, Int)[] a = [t]
+t.0 = 7
+print(a[0].0)           // 期望 8，实际 7
 ```
 
-探针命令见 §三；原始输出 `tuple-probes.log`。
+实测输出：`9 / 8 / 7`。  
+对照：赋值 `c = t`、传参 `mutate(t)`、返回 `ret(t)` 三条路径均正确复制（实测 `7 / 7 / 7`），问题只在容器写入。
+
+### 3.3 根因定位
+
+- `impl/internal/interp/values.go:521-524` `List.push`：`append(recv.A, args[0])`，未调用 `cloneTupleValue`。
+- `impl/internal/interp/values.go:536-543` `insert`/`set`：直接写入 `args[1]`，未复制。
+- `impl/internal/interp/values.go:242-248` `evalArrayLit`：`elems[i] = in.eval(e, sc)`，未复制。
+- `impl/internal/interp/values.go:250-258` `evalMapLit`：值未复制。
+
+对照 `impl/internal/interp/interp.go:172,180,191` 的作用域绑定/赋值/传参已调用 `cloneTupleValue`，容器路径遗漏。
+
+### 3.4 影响
+
+违反 §2.11：“赋值、传参、返回、**存入容器**都复制整个元组；副本与原值独立。”  
+当前行为等价于容器持有原元组的别名，后续 `t.N = ...` 会静默改写容器内元素。
 
 ---
 
-## 六、证据路径
+## 四、编译路径（边界申报）
 
-- 独立用例：`evidence/M1-TUPLE-01-qa/qa-tests/qa-sema_tuple_test.go`、`qa-interp_tuple_test.go`
-- 本轮日志：`evidence/QA1-verify-2026-11-07/tuple-sema.log`、`tuple-interp.log`、`tuple-probes.log`
-- 被测 sha：`7262ff0`（见 `evidence/QA1-verify-2026-11-07/sha.txt` 同批）
-- 历史验收：`收件箱/回执箱/CEO3/验收-M1-TUPLE-01.md`（旧 FAIL，F1/F2/F3）
+四类位置在编译路径均失败，错误一致：
+
+```
+xnull: 代码生成失败：codegen：类型 *xfront.TupleTypeRef 未支持（M4.1 范围）
+```
+
+涉及 `t1_nullable`、`t2_return`、`t3_field`、`t4_container`、`t5_topfield` 五例。  
+该项属 `T-C1` / M4.1 codegen 范围，不是本轮四类类型位置修复的目标；若 Stage 1 门把“元组编译路径”纳入判据，则本锚点应继续 FAIL。
 
 ---
 
-## 七、未跑 / 边界
+## 五、回归
 
-1. 元组作 `Map`/`Set` 键、`switch` 值、`const` 的**拒绝**已由 sema 用例覆盖；**允许**场景不适用。
-2. 元组 `is`/`as` 同型恒等：解释路径通过，编译路径同 T-C1 失败，未单列。
-3. 元组字段内存布局（第 2 部分）不在 S1 本卡。
-4. 变异/覆盖率/性能未跑。
+| 项 | 命令 | 结果 |
+|---|---|---|
+| QA 独立用例 | `go test ./internal/{sema,interp} -run TestQATuple` | 17/17 PASS |
+| E2 TUPLE 用例 | `go test ./internal/{sema,interp} -run '^TestTuple'` | 全 PASS |
+| `go vet ./...` | — | exit 0 |
+| `go test ./...` | — | **1 红**：`internal/devtool` `TestBuildLedgerRepoGoldenScale`，台账 PASS 计数 13（golden 10）。由 `status.tsv` 的 GEN/NEG/PKG 翻 PASS 引起，与本锚点无关，需另修 golden 或回退状态。 |
+
+---
+
+## 六、证据
+
+- 复验目录：`evidence/M1-TUPLE-01-reverify-d620ea5/`
+  - `qa-sema.log`、`qa-interp.log`：QA 独立 17 项
+  - `e2-sema-tuple.log`、`e2-interp-tuple.log`：E2 TUPLE 用例
+  - `out/matrix.tsv`：四类位置 + 补充探针双路径结果
+  - `cases/t8_copy_container.x`、`cases/t11_copy_paths.x`、`cases/t13_container_get_copy.x`：值语义复现
+  - `full-test.log`、`vet.log`
+- 被测 sha：main `d620ea5`（`46f36f2` 已并入）
+- 断言依据：`XNull解决方案-第1部分-基础语法-v3.3.0.md` §2.11、§13 TUPLE-01
+
+---
+
+## 七、放行条件
+
+1. 容器写入复制：`List` 字面量、`List.push/insert/set`、数组字面量、`Map` 值写入均对元组调用 `cloneTupleValue`。
+2. 复跑 `t11_copy_paths.x` 应为 `1 / 9 / 8 / 7 / 7 / 7`。
+3. 四类类型位置与 17 项 QA 用例不得回退。
+4. 编译路径是否纳入 TUPLE-01 由门禁口径裁定；若纳入，需另开 codegen 卡。
+
+---
+
+## 八、未测 / 边界
+
+1. `struct` 字段的元组内存布局与“含引用元素元组字段被拒绝”（S2 / 第 2 部分 TUPLE-01）。
+2. `Map` 值、嵌套容器、闭包捕获后写入容器的复制路径未逐一展开（同根因）。
+3. `Byte=300` 字面量表示性挂 M2-C。
+4. 变异 / 覆盖率不属本卡。

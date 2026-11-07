@@ -1,9 +1,8 @@
-# 验收：M1-ENTRY-01（入口与启动，S1 §11）
+# 验收：M1-ENTRY-01（入口与启动）—— C-10 / C-13 复验
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL（2 项 P1 阻断：初始化 fatal 不终止、main 重载误判重复）**
-> **复验点**：main `7262ff0`
-> **用例**：`evidence/M1-ENTRY-01-qa/`（42 份源码，双路径）
+> **结论：FAIL**（C-10 PASS；C-13 部分 PASS，存在声明顺序相关的编译路径缺陷）
+> **复验点**：main `d620ea5`（`4a741a6`、`46f36f2` 均已并入）
 > **时间**：2026-11-07
 
 ---
@@ -12,116 +11,160 @@
 
 | 项 | 结果 |
 |---|---|
-| 检查表 C-01～C-22 | **20 PASS / 2 FAIL** |
-| 阻断项 | D-01（初始化 fatal 编译路径不终止）、D-04（`main` 重载误判重复入口） |
-| 已转绿 | D-02 `private`/`protected` 入口、D-03 泛型入口、D-05 初始化前向引用 |
-| P2 未闭环 | D-06 fatal 退出码 134 vs 255、D-07 `str(Bool)`/`print(Bool)` 双路径分歧 |
+| C-10 初始化 fatal 终止（编译 + 解释） | **PASS**（6/6 用例，双路径 rc=134，入口零输出） |
+| C-13 非匹配 `main` 重载（入口在前） | **PASS**（`main()` + `main(Int)` 双路径输出 `entry`） |
+| C-13 非匹配 `main` 重载（重载在前） | **FAIL**（编译路径报 `重复入口 main`；解释路径正常） |
+| C-13 非匹配 `main` 重载可调用（重载在前） | **FAIL**（编译路径 rc=1，`main(41)` 无法调用） |
 
-**FAIL 不放行**。入口四形态、退出码、args、负例主体均已通过；两项 P1 仍违反 §11.2/§11.3。
+**总判定：FAIL。** `4a741a6` 修好了 C-10 和 C-13 的“入口在前”形态，但没有消除“非匹配 `main` 声明在入口之前”时的误判：编译路径仍把后出现的入口当成重复入口，违反 §11.2“其余 `main` 重载是普通函数”及顶层函数声明顺序无关的语义。
 
----
-
-## 二、检查表（逐项）
-
-| # | 检查项 | 条款 | 结果 | 实测 |
-|---|---|---|---|---|
-| C-01 | `void main()` 可运行，退出码 0 | §11.2 | PASS | `v0`，rc=0（双路径） |
-| C-02 | `Int main()` 返回值即退出码 | §11.2 | PASS | `i0`，rc=7（双路径） |
-| C-03 | `void main(final String[] args)` | §11.2 | PASS | `va 0`，rc=0 |
-| C-04 | `Int main(final String[] args)`（2 参透传） | §11.2 | PASS | `ia 2`，rc=5 |
-| C-05 | `final` 可选 | §11.2 | PASS | a5 形态通过 |
-| C-06 | 退出码 0/1/42/255 直通；256→0、300→44、-1→255 | §11.2 | PASS | 双路径一致 |
-| C-07 | 顶层字段按声明顺序先于入口 | §4.3/§11.3 | PASS | `init 1 / init 2 / main 2` |
-| C-08 | 初始化式读未初始化字段得零值不报错 | §4.3 | **PASS** | c2 双路径 `a=5 b=1`（原 interp FAIL 已修） |
-| C-09 | 初始化式可调用其后声明函数 | §4.3 | **PASS** | c6 双路径 `read c=0 / main c=9` |
-| C-10 | 初始化 fatal 终止且不调用入口 | §11.3/§10.4 | **FAIL** | c3/c7b/c7c/c7d compiled rc=0，main 被执行 |
-| C-11 | 缺失入口拒绝 | §11.4 | PASS | `ENTRY-001` |
-| C-12 | 同签名重复入口拒绝 | §11.4 | PASS | `ENTRY-002` |
-| C-13 | 非匹配 `main` 重载是普通函数 | §11.2 | **FAIL** | `main()` + `main(Int)` 报 `ENTRY-002`（e3） |
-| C-14 | 非 `static` 入口拒绝 | §11.2 | PASS | rc=1 |
-| C-15 | 返回 `String`/`Bool` 拒绝 | §11.2 | PASS | `ENTRY-003` |
-| C-16 | 参数 `Int`/`String`/双参拒绝 | §11.2 | PASS | `ENTRY-003` |
-| C-17 | `private`/`protected` 入口拒绝 | §11.2 | **PASS** | e10/e12 → `ENTRY-003`（原 FAIL 已修） |
-| C-18 | 泛型入口拒绝 | §11.2 | **PASS** | e11 → `ENTRY-003`（原 FAIL 已修） |
-| C-19 | `args` 为新数组、不含程序名 | §11.2 | PASS | `n=0`；`n=2 ARG alpha ARG beta` |
-| C-20 | 非 void 入口缺 return 拒绝 | §6.1 | PASS | e14 → `DA-103` |
-| C-21 | 示例双路径一致 | M1 门禁 | PASS | **10/10** MATCH |
-| C-22 | 全量测试回归 | 回归 | 未复跑 | 沿用 `M1-ENTRY-01` 9/9 包绿；本轮未跑 `go test ./...` |
+**d620ea5 复验结论不变**：C-10 仍 6/6 PASS；C-13 顺序缺陷仍在（重载在前的编译路径 rc=1）。
 
 ---
 
-## 三、失败项原样输出
+## 二、C-10 逐项结果（PASS）
 
-```
-c3_init_fatal   interp   rc=134  err=xnull: fatal: 除零
-c3_init_fatal   compiled rc=0    out=MAIN-SHOULD-NOT-RUN
-c7_runtime_divzero interp rc=134 err=xnull: fatal: 除零
-c7_runtime_divzero compiled rc=0 out=MAIN-SHOULD-NOT-RUN
-c7b             interp   rc=134  err=xnull: fatal: 除零
-c7b             compiled rc=0    out=a=0
-c7c             interp   rc=134  err=xnull: fatal: 除零
-c7c             compiled rc=0    out=MAIN-SHOULD-NOT-RUN
-c7d             interp   rc=134  err=xnull: fatal: 除零
-c7d             compiled rc=0    out=MAIN-SHOULD-NOT-RUN a=0
-e3_dup_overload interp/compiled rc=1 err=error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明
-```
+`Int a = <初始化式>` 在入口运行前除零，两条路径都必须是 fatal、exit 134、入口不得执行。
 
-P2 观察：
+| # | 用例 | 初始化形态 | interp | compiled | 判定 |
+|---:|---|---|---|---|---|
+| 1 | `c3_init_fatal` | 常量 `1 / 0` | rc=134，无输出 | rc=134，无输出 | PASS |
+| 2 | `c7b` | 运行期 `10 / d` | rc=134，无输出 | rc=134，无输出 | PASS |
+| 3 | `c7_runtime_divzero` | `d=0; 10/d` | rc=134，无输出 | rc=134，无输出 | PASS |
+| 4 | `c7c_runtime_divzero` | 顶层字段在入口声明之后 | rc=134，无输出 | rc=134，无输出 | PASS |
+| 5 | `c7d_args_divzero` | 初始化式调用后置函数 | rc=134，无输出 | rc=134，无输出 | PASS |
+| 6 | `c7e_runtime_divzero` | `s.length()-1` 得 0 | rc=134，无输出 | rc=134，无输出 | PASS |
 
-```
-c7e   interp rc=134 / compiled rc=255
-c4    interp "true top 3" / compiled "1 top 3"
-c8    interp "true|true|false" / compiled "true|1|0"
-c9    interp "s=true|raw=true" / compiled "s=1|raw=1"
-```
+补充探针：
 
----
-
-## 四、缺陷状态
-
-| # | 缺陷 | 状态 | 严重度 |
+| 用例 | interp | compiled | 判定 |
 |---|---|---|---|
-| D-01 | 初始化除零在编译路径不终止，入口被调用（常量折叠/运行期两形态） | **OPEN** | P1 |
-| D-02 | `private`/`protected` 入口未拒绝 | **FIXED** | — |
-| D-03 | 泛型入口未拒绝 | **FIXED** | — |
-| D-04 | 非匹配 `main` 重载误判重复入口 | **OPEN** | P1 |
-| D-05 | interp 初始化前向引用/调用函数报未定义 | **FIXED** | — |
-| D-06 | fatal 退出码 interp 134 vs compiled 255 | **OPEN** | P2 |
-| D-07 | `str(Bool)`/`print(Bool)` 输出 `true` vs `1`/`0` | **OPEN** | P2 |
+| `1 % 0` | rc=134，`xnull: fatal: 除零` | rc=134，`xnull: fatal: 除零` | PASS |
+| `1 / (1 - 1)`（常量折叠） | rc=134，`xnull: fatal: 除零` | rc=134，`xnull: fatal: 除零` | PASS |
+
+C-10 闭环：原 `c7b` 编译路径 rc=0 打印 `a=0`、`c7e` rc=255 两项均已转绿。
 
 ---
 
-## 五、已跑命令与结果
+## 三、C-13 逐项结果（部分 FAIL）
 
-```bash
-cd /Users/vjs/Desktop/XNull-Lang
-SHA=$(git rev-parse main)   # 7262ff0
-git archive "$SHA" | tar -x -C $T/src
-( cd $T/src/impl && go build -o $T/xnull ./cmd/xnull )
-bash evidence/M1-ENTRY-01-qa/run.sh   # A/B/C/D/E 共 31 用例 × 2 路径
-bash evidence/M1-ENTRY-01-qa/run2.sh  # c7/c8/c9/c10/c11
-# 追加：c7b/c7c/c7d/c7e/e12/e13/e14
-# 示例双路径 10/10
+### 3.1 通过面
+
+用例 `e3_dup_overload.x`（入口在前）：
+
+```x
+static Int main() {
+    print("entry")
+    return 0
+}
+static Int main(Int x) {
+    return x + 1
+}
 ```
 
-示例双路径原样输出：`DUAL_OK=10 DUAL_BAD=0`。
+| 路径 | rc | stdout | 判定 |
+|---|---:|---|---|
+| `run --interp` | 0 | `entry` | PASS |
+| `run`（编译） | 0 | `entry` | PASS |
+
+入口在前且调用重载（`c13_entry_first_call`）：双路径均输出 `42`，PASS。
+
+### 3.2 失败面
+
+**F1：非匹配 `main` 声明在入口之前，编译路径误报重复入口。**
+
+`c13_call_overload.x`：
+
+```x
+static Int main(Int x) { return x + 1 }
+static Int main() {
+    print(main(41))
+    return 0
+}
+```
+
+| 路径 | rc | stdout | stderr |
+|---|---:|---|---|
+| `run --interp` | 0 | `42` | — |
+| `run`（编译） | 1 | — | `xnull: 代码生成失败：重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口` |
+
+同形态另两例（`c13_call_helper.x`、`c13_two_overloads.x`）编译路径同样 rc=1；解释路径分别输出 `42`、`42`/`x1`。
+
+**F2：声明顺序影响结果，违反顶层函数顺序无关。**
+
+仅调整两个 `main` 的声明顺序，同一程序从 PASS 变为 FAIL：
+
+| 声明顺序 | interp | compiled |
+|---|---|---|
+| 入口 `main()` 在前 | rc=0 / `entry` 或 `42` | rc=0 / `entry` 或 `42` |
+| 重载 `main(Int)` 在前 | rc=0 / 正常 | **rc=1 / `重复入口 main`** |
+
+**F3：`4a741a6` 自带用例未覆盖该顺序。**
+
+`TestEntryMainOverloadIsOrdinary` 的源码固定为“入口在前”，因此该测试在 main 上 PASS，但无法暴露 F1/F2。
+
+### 3.3 根因定位
+
+`impl/internal/codegen/codegen.go:255-267` 的函数签名表遍历按声明顺序执行：
+
+```go
+if seenFn[fn.Name] {
+    if fn.Name == "main" && entry != nil && fn != entry.fn {
+        continue
+    }
+    if fn.Name == "main" {
+        return "", fmt.Errorf("重复入口 main（§11.4）：一个程序只能有一个匹配签名的入口")
+    }
+    ...
+}
+```
+
+当非匹配 `main(Int)` 先出现时，`seenFn["main"]` 先被置位；随后遍历到真正的入口 `main()`，`fn == entry.fn` 使上一分支不成立，直接落到报错。该逻辑只对“入口在前”成立。
 
 ---
 
-## 六、证据路径
+## 四、回归（本轮实测）
 
-- 本轮日志：`evidence/QA1-verify-2026-11-07/entry-run1.log`、`entry-run2.log`、`entry-run3.log`、`entry-examples.log`
-- 用例与运行器：`evidence/M1-ENTRY-01-qa/{cases,run.sh,run2.sh}`
-- 被测 sha：`7262ff0`（导出树构建）
-- 历史验收：`收件箱/回执箱/CEO3/验收-M1-ENTRY-01.md`
+| 项 | 命令 | 结果 |
+|---|---|---|
+| ENTRY 相关 CLI 测试 | `go test ./internal/cli -run 'TestEntry|TestRunEntry|TestRunMain' -count=1 -v` | 18 PASS，0 FAIL |
+| cli + interp 全量 | `go test ./internal/cli ./internal/interp -count=1` | 两包 ok |
+| `private main`（e10） | 双路径 | `ENTRY-003`，rc=1，PASS |
+| 泛型 `main`（e11） | 双路径 | `ENTRY-003`，rc=1，PASS |
+| `protected main`（e12） | 双路径 | `ENTRY-003`，rc=1，PASS |
+| `public main`（e13） | 双路径 | rc=3，`pub`，PASS |
+| 非 void 入口缺 return（e14） | 双路径 | `DA-103`，rc=1，PASS |
+| 两个匹配签名入口 | 双路径 | `ENTRY-002`，rc=1，PASS（重复入口仍拒绝） |
+| 全仓测试 | `go test ./... -count=1` | **1 红**：`internal/devtool` `TestBuildLedgerRepoGoldenScale`，台账 PASS 计数 13（golden 10）。由 `status.tsv` 的 GEN/NEG/PKG 翻 PASS 引起，与本锚点无关，需另修 golden 或回退状态。 |
 
 ---
 
-## 七、放行条件（复验判据）
+## 五、证据
 
-1. D-01：`Int a = 1/0` 常量与运行期两形态，编译路径必须终止且 main 零输出；退出码与 interp 同口径（可同卡修 D-06）。
-2. D-04：`main()` + `main(Int)` 不得报重复入口；入口取匹配签名，其余为普通函数。
-3. D-07：`str(Bool)`/`print(Bool)` 两路径同文案（`true`/`false`）。
-4. 复验从干净导出副本重跑 `run.sh`/`run2.sh` + 追加 7 例 + 示例 10/10。
+- 复验目录：`evidence/M1-ENTRY-01-reverify-d620ea5/`
+  - `sha.txt`：main `d620ea5`、修复提交 `4a741a6`、二进制 sha256
+  - `command.txt`：复现命令
+  - `cases/`：本轮全部用例源码
+  - `out/matrix.tsv`：16 个用例 × 双路径的 rc/stderr
+  - `out/<case>.<mode>.{out,err}`：原始 stdout/stderr
+  - `cli-entry-tests.log`：ENTRY 相关 CLI 测试 18 PASS
+- 前一轮（`c5694b3`）：`evidence/M1-ENTRY-01-reverify-2026-11-07/`
+- 历史用例：`wt/e5-runtime/evidence/M1-ENTRY-01-qa/cases/`
+- 断言依据：`XNull解决方案-第1部分-基础语法-v3.3.0.md` §11.2、§11.3、§11.4
 
-D-06/D-07 不单独阻断，但需在对应锚点闭环。
+---
+
+## 六、放行条件（复验判据）
+
+1. F1/F2：`main(Int)` 声明在入口之前时，编译路径必须与解释路径一致（rc=0，`main(41)` 可调用）。
+2. 回归：入口在前形态、C-10 六例、e10–e14 负例不得回退。
+3. 建议补充 `TestEntryMainOverloadIsOrdinary` 的顺序变体（重载在前 + 调用重载），避免同类问题再次漏检。
+
+---
+
+## 七、未跑 / 边界
+
+1. 工程清单指定入口文件/入口包（§11.4 清单模式）：工程配置规范未落地。
+2. 非默认包 `main`：多包编译未支持（PKG-01 范围）。
+3. 默认参数/可变参数入口：语法层无该构造。
+4. 变异 / 覆盖率：不属本卡。
