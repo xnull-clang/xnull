@@ -2,7 +2,7 @@
 
 > **验收人**：QA1（独立质量线）
 > **结论：PASS 49/49（sema 独立用例面）**
-> **复验点**：main `7887618`（含合并 `3174618`：PKG F1 `d3053f1`、F2 `b7e2d0e`、F3 `b4ecc70`）
+> **复验点**：main `1ca2153`（含合并 `3174618`：PKG F1 `d3053f1`、F2 `b7e2d0e`、F3 `b4ecc70`）
 > **用例**：`evidence/M1-PKG-01-qa/qa2_independent_test.go`（QA1 自写，49 子项）
 > **时间**：2026-11-07
 
@@ -121,7 +121,7 @@
 
 ## 三、原失败项对照
 
-| 项 | 原实测（main `d349f6a`） | 期望 | 现测（main `7887618`） | 判定 |
+| 项 | 原实测（main `d349f6a`） | 期望 | 现测（main `1ca2153`） | 判定 |
 |---|---|---|---|---|
 | F1 | `RES-102` 类型重复声明 | `RES-103` | `RES-103` | **PASS** |
 | F2 | `RES-106` 无导出符号 `http` | 接受 | 接受（rc=0） | **PASS** |
@@ -135,7 +135,7 @@
 
 ```bash
 cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1
-bash difftest/anchors/run-pkg.sh --sha 7887618 --out evidence/QA1-verify-2026-11-07
+bash difftest/anchors/run-pkg.sh --sha 1ca2153 --out evidence/QA1-verify-2026-11-07
 ```
 
 原样输出：
@@ -174,7 +174,7 @@ Go 独立用例：PASS=49 / FAIL=0（exit 0）
 
 - Go 用例原始日志：`evidence/QA1-verify-2026-11-07/pkg-go.log`
 - CLI 原始输出：`evidence/QA1-verify-2026-11-07/pkg-cli.log`
-- 被测 sha：`evidence/QA1-verify-2026-11-07/pkg-sha.txt`（`7887618…`）
+- 被测 sha：`evidence/QA1-verify-2026-11-07/pkg-sha.txt`（`1ca2153…`）
 - 用例副本：`difftest/anchors/cases/qa2_pkg_accept_test.go`、`difftest/anchors/cases/pkg/`
 - 原独立用例：`evidence/M1-PKG-01-qa/qa2_independent_test.go`
 - 执行器：`difftest/anchors/run-pkg.sh`

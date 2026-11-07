@@ -2,7 +2,7 @@
 
 > **验收人**：QA1（独立质量线）
 > **结论：PASS 26/26**
-> **复验点**：main `7887618`（含 G9 `c55dd81`、G11 `b23fa42`、泛型 codegen 随 `3174618` 合入）
+> **复验点**：main `1ca2153`（含 G9 `c55dd81`、G11 `b23fa42`、泛型 codegen 随 `3174618` 合入）
 > **用例**：`difftest/gen01/cases.json`（QA1 自写 26 项，不引用 E2 测试）
 > **时间**：2026-11-07
 
@@ -74,7 +74,7 @@ G11 的泛型形态 `boxFirst<T>` 依赖泛型 codegen（随 `3174618` 合入）
 
 ```bash
 cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1
-bash difftest/anchors/run-gen.sh --sha 7887618 --out evidence/QA1-verify-2026-11-07
+bash difftest/anchors/run-gen.sh --sha 1ca2153 --out evidence/QA1-verify-2026-11-07
 ```
 
 原样输出：
@@ -91,7 +91,7 @@ GEN-QA 26/26
 ## 五、证据路径
 
 - 汇总日志：`evidence/QA1-verify-2026-11-07/gen01.log`
-- 被测 sha：`evidence/QA1-verify-2026-11-07/sha.txt`（`7887618…`）
+- 被测 sha：`evidence/QA1-verify-2026-11-07/sha.txt`（`1ca2153…`）
 - G9/G11 定点证据：`evidence/GEN-G11-reverify/targeted.log`、`gen01-reverify.log`
 - 用例：`difftest/gen01/cases.json`；执行器：`difftest/gen01/run.sh`、`difftest/anchors/run-gen.sh`
 

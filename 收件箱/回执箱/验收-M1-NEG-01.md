@@ -2,7 +2,7 @@
 
 > **验收人**：QA1（独立质量线）
 > **结论：PASS 60/60**
-> **复验点**：main `7887618`（含 `7db5266` 与合并 `3174618`）；用例源 `pod/c3-rd3:impl/Tests/neg_test.go`
+> **复验点**：main `1ca2153`（含 `7db5266` 与合并 `3174618`）；用例源 `pod/c3-rd3:impl/Tests/neg_test.go`
 > **时间**：2026-11-07　**不设条件通过**
 
 ---
@@ -96,7 +96,7 @@
 
 ```bash
 cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1
-bash difftest/anchors/run-neg.sh --sha 7887618 --out evidence/QA1-verify-2026-11-07
+bash difftest/anchors/run-neg.sh --sha 1ca2153 --out evidence/QA1-verify-2026-11-07
 ```
 
 原样输出：
@@ -114,7 +114,7 @@ ok  	xnull.dev/xnull/Tests	1.359s
 ## 四、证据路径
 
 - 原始日志：`evidence/QA1-verify-2026-11-07/neg01.log`
-- 被测 sha：`evidence/QA1-verify-2026-11-07/neg01-sha.txt`（`7887618…`）
+- 被测 sha：`evidence/QA1-verify-2026-11-07/neg01-sha.txt`（`1ca2153…`）
 - 用例源：`pod/c3-rd3:impl/Tests/neg_test.go`（脚本按 `--neg-ref` 注入导出树，不改工作树）
 - 执行器：`difftest/anchors/run-neg.sh`
 

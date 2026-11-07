@@ -117,4 +117,4 @@
 --- PASS: TestQA2SameSourceAliasVsBare (0.00s)
     --- PASS: TestQA2SameSourceAliasVsBare/alias-name-already-bound (0.00s)
 PASS
-ok  	xnull.dev/xnull/internal/sema	0.824s
+ok  	xnull.dev/xnull/internal/sema	1.483s

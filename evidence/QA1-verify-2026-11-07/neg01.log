@@ -121,4 +121,4 @@
     --- PASS: TestDiagMatrixS1/neg-2.11-02 (0.00s)
     --- PASS: TestDiagMatrixS1/neg-6-01 (0.00s)
 PASS
-ok  	xnull.dev/xnull/Tests	1.359s
+ok  	xnull.dev/xnull/Tests	0.834s
