@@ -36,7 +36,7 @@ var xdkPackages = map[string]map[string]bool{
 		"Error": true, "ErrorKind": true, "wrap": true, "mapErr": true, "report": true,
 	},
 	"tasks": {
-		"Task": true, "TaskGroup": true, "Context": true, "CancelToken": true, "TaskError": true,
+		"Task": true, "TaskGroup": true, "Context": true, "CancelToken": true, "TaskError": true, "CancelledError": true,
 	},
 	"sync": {
 		"Mutex": true, "Channel": true, "AtomicInt": true, "AtomicBool": true, "AtomicRef": true,

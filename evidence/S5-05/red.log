@@ -1,0 +1,15 @@
+=== RUN   TestS5TasksBasic
+=== RUN   TestS5TasksBasic/SpawnJoinClose
+    s5_05_test.go:23: out="" want="7\ntrue\n0\n" err=未定义的名称：Context
+=== RUN   TestS5TasksBasic/BusinessErrorPassthrough
+    s5_05_test.go:42: out="" want="true\nbad\ntrue\nbad\n" err=未定义的名称：Context
+=== RUN   TestS5TasksBasic/ContextCancel
+    s5_05_test.go:58: out="" want="true\ntrue\n" err=未定义的名称：Context
+--- FAIL: TestS5TasksBasic (0.00s)
+    --- FAIL: TestS5TasksBasic/SpawnJoinClose (0.00s)
+    --- FAIL: TestS5TasksBasic/BusinessErrorPassthrough (0.00s)
+    --- FAIL: TestS5TasksBasic/ContextCancel (0.00s)
+FAIL
+FAIL	xnull.dev/xnull/internal/interp	0.666s
+FAIL
+exit=1

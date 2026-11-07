@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdatomic.h>
 
 static int32_t body_ok(void *env, xrt_context *ctx, xrt_task_result *out) {
     (void)env;
@@ -53,6 +54,25 @@ static int32_t body_panic(void *env, xrt_context *ctx, xrt_task_result *out) {
     (void)ctx;
     (void)out;
     rt_fatal("任务内 panic（S5 §8：进程级终止）");
+    return 0;
+}
+
+static atomic_int g_cleanup_started = 0;
+static atomic_int g_cleanup_done = 0;
+
+static int32_t body_cleanup(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)env;
+    while (xrt_context_check_cancel(ctx) == 0) {
+        struct timespec ts = {0, 1000000};
+        nanosleep(&ts, NULL);
+    }
+    atomic_store(&g_cleanup_started, 1);
+    /* 清理路径：取消后再到也要完整执行（S5 §5 清理不跳过） */
+    struct timespec clean = {0, 50000000}; /* 50ms */
+    nanosleep(&clean, NULL);
+    atomic_store(&g_cleanup_done, 1);
+    out->ok = 0;
+    out->kind = XRT_ERR_CANCELLED;
     return 0;
 }
 
@@ -140,6 +160,52 @@ static void test_env_root(void) {
     xrt_release(ctx);
 }
 
+static void test_cancel_token_and_deadline(void) {
+    xrt_context *root = xrt_context_background();
+    xrt_cancel_token *tok = xrt_context_token(root);
+    assert(tok != NULL && xrt_cancel_token_cancelled(tok) == 0);
+
+    xrt_context *child = xrt_context_child(root);
+    xrt_context_cancel(root);
+    assert(xrt_cancel_token_cancelled(tok) == 1);
+    assert(xrt_context_check_cancel(child) == XRT_ERR_CANCELLED); /* 父→子传播 */
+
+    xrt_context *past = xrt_context_with_deadline(xrt_context_background(), xrt_clock_mono_ms() - 1);
+    assert(xrt_context_check_cancel(past) == XRT_ERR_CANCELLED); /* 截止 = Cancelled */
+    assert(xrt_cancel_token_cancelled(xrt_context_token(past)) == 1);
+
+    xrt_context *future = xrt_context_with_deadline(xrt_context_background(), xrt_clock_mono_ms() + 5000);
+    assert(xrt_context_check_cancel(future) == 0);
+    assert(xrt_cancel_token_cancelled(xrt_context_token(future)) == 0);
+
+    xrt_release(future);
+    xrt_release(past);
+    xrt_release(child);
+    xrt_release(root);
+}
+
+static void test_cleanup_queued(void) {
+    atomic_store(&g_cleanup_started, 0);
+    atomic_store(&g_cleanup_done, 0);
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    assert(xrt_task_group_spawn(g, body_cleanup, NULL, &t) == 0);
+    int64_t t0 = xrt_clock_mono_ms();
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    int64_t elapsed = xrt_clock_mono_ms() - t0;
+    assert(atomic_load(&g_cleanup_started) == 1);
+    assert(atomic_load(&g_cleanup_done) == 1); /* 清理完整执行后 close 才返回 */
+    assert(elapsed >= 40);                     /* 未被取消提前打断 */
+    xrt_task_result r;
+    assert(xrt_task_join(t, &r) == 0);
+    assert(r.ok == 0 && r.kind == XRT_ERR_CANCELLED);
+    xrt_release(t);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
 static const char *g_self_path = NULL;
 
 static void run_repeat_join(void) {
@@ -207,9 +273,11 @@ int main(int argc, char **argv) {
     test_ok_and_err();
     test_cancel_close();
     test_join_deadline();
+    test_cancel_token_and_deadline();
+    test_cleanup_queued();
     test_env_root();
     test_contract_fatal();
     test_panic_fatal();
-    printf("task tests passed (spawn/join/close/cancel/timeout/root/panic)\n");
+    printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic)\n");
     return 0;
 }

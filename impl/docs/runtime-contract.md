@@ -13,6 +13,10 @@
 - **转正判据（唯一）**：numeric 变体（句柄 + Bytes + `@errorCode`）经 `xnull build` 端到端通过，并由 QA 复验。
 - 当前未满足：`evidence/B0-07c/numeric-after.log` 中 Bytes / `@errorCode` / `Option<handle>` / Bool 仍属 codegen 面缺口。
 - 转正动作：本文件 A0 与 `xrt.h` 头注释同步改“稳定 v1”；此后变更走主版本（S7 §6.1、附录 B）。
+- **候选期增补（S5-02 取消/超时，2026-11-08）**：取消位改为 `atomic_int`（跨线程 acquire/release）；
+  `xrt_context_token` 返回上下文内嵌令牌，新增 `xrt_cancel_token_cancelled`（原子读）；
+  父链取消传播、`with_deadline` 截止等效 `Cancelled`、`join_deadline` 超时 `Timeout`；
+  取消后的清理完整执行（组 close 等待至清理完成；测试覆盖 50ms 清理窗口）。
 - **候选期增补（S5-01 调度器核心，2026-11-08）**：`rt_task.c` 落地 S5-00 冻结面的任务子集——
   `xrt_context_*`（取消/截止）、`xrt_task_group_*`（spawn/cancel/close）、`xrt_task_join[_deadline]`；
   单载体线程 + 全局 FIFO；任务 env 以 `xrt_task_root_bind/unbind` 保活；合同错误与任务内
