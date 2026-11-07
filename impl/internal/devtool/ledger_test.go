@@ -11,7 +11,7 @@ import (
 // 随 status.tsv 新增 S1/S2 用例同步更新）。
 const (
 	goldenLedgerRows = 103
-	goldenLedgerPass = 84
+	goldenLedgerPass = 89
 )
 
 func newLedgerFixture(t *testing.T) string {
