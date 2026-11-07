@@ -32,3 +32,25 @@
 - **上一棒**：`handoff/S2-E5-weak.md`（commit `9e6de30`）
 - **下一棒**：E4 的 deinit 发射重放卡 → `evidence/S2-E5-deinit/` 复签
 - **last-green**：`f975810`（验证时为只读；`build_rt.sh` 六套件与 `go test ./internal/codegen/...` 均绿）
+
+## E4 重放交付（2026-11-07，main `beba3f6`）
+
+- **基线**：main `6ca3775`（含 `81e146e` 构造器/deinit 体 + 单继承布局、E5 `c1ffd20` 弱槽修复）。
+  以 main 为基重放 `70f4385` 增量，不再使用旧分支提交。
+- **实现**（`impl/internal/codegen`）：
+  1. 字段赋值（类引用/String/handle/Bytes）：求值 → 新值 +1 → `rt_release` 旧值 → 写入；
+     新增 **成员表达式 RHS**（`h.a = h.a`、`h.a = other.a`）：先落临时并 `rt_retain`，再释放旧值，别名安全。
+  2. 字段释放：`isRefField()` 覆盖 `rt_string *` / 类引用 / `xrt_handle *` / `xrt_bytes_obj *`；
+     容器字段仍 `_free`；用户 deinit 体（含父类链）先于字段释放（沿用 `81e146e` 顺序）。
+  3. `bytesExpr` 的 Ident 分支改为 `rt_retain` +1，局部声明/字段赋值共用所有权纪律；构造器指针字段零值 `NULL`。
+- **显式拒绝（E5 已确认可接受）**：容器字段赋值（值结构浅拷贝会双释放）→ B2 引用语义容器；
+  `Class?` 可空类字段未支持（deinit 内置 null 端到端待该项）。
+- **测试**：`impl/internal/codegen/s2_deinit_test.go`
+  - 用户体先于字段释放（行为 + 生成 C 顺序）；
+  - 类引用字段 `rt_retain(x); rt_release(o->inner); o->inner = x;`；
+  - **成员表达式自赋值** `h.a = h.a`（行为 + retain 先于 release）；
+  - handle/Bytes 字段在钩子中 `rt_release` 且用户体先执行。
+- **验证**：`go test ./... -count=1` 全绿（main `beba3f6`）。
+  注：`TestBuildLedgerRepoGoldenScale` 依赖工作区 `impl/docs/conformance/status.tsv` 的最新落盘；
+  干净检出 main 时该文件为旧版会红，属台账落盘节奏，与本卡代码无关。
+- **下一步**：E5 按 `evidence/S2-E5-deinit/probes/` 同一组探针复签。
