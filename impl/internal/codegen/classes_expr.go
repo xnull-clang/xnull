@@ -10,6 +10,24 @@ import (
 
 func isClassPtr(c string) bool { return strings.HasPrefix(c, "xn_Cls_") }
 
+// classPtrName 从 C 类型名取类名（"xn_Cls_X *" → "X"）。
+func classPtrName(c string) (string, bool) {
+	if !isClassPtr(c) {
+		return "", false
+	}
+	name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Cls_"), " *")
+	return name, name != ""
+}
+
+// classIsGC 判断类引用 C 类型是否按策略归 GC（BND-10）。缺省为 false（ARC）。
+func (g *gen) classIsGC(c string) bool {
+	name, ok := classPtrName(c)
+	if !ok {
+		return false
+	}
+	return g.policy[name] == "gc"
+}
+
 // classOfC 由 C 类型名反查类信息。
 func (g *gen) classOfC(c string) (*classInfo, bool) {
 	name := strings.TrimSuffix(strings.TrimPrefix(c, "xn_Cls_"), " *")
@@ -248,6 +266,15 @@ func (s *scope) emitFieldAssign(mem *xfront.Member, val xfront.Expr) ([]string, 
 		out = append(out, "rt_release("+dst+");", dst+" = "+expr+";")
 		return out, nil
 	case f.isCls:
+		if f.isGC {
+			v, err := s.classValueExpr(val)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			return append(out, dst+" = "+v+";"), nil
+		}
 		switch v := val.(type) {
 		case *xfront.NullLit:
 			return []string{"rt_release(" + dst + ");", dst + " = NULL;"}, nil
