@@ -93,7 +93,7 @@ static Int main() {
 	if err != nil {
 		t.Fatalf("struct 值类型应可发射（STRUCT-01），err=%v", err)
 	}
-	if strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_STRUCT") || strings.Contains(csrc, "rt_gc_new(&RT_TYPE_XN_STRUCT") {
+	if strings.Contains(csrc, "rt_arc_new(&RT_TYPE_XN_STRUCT") || strings.Contains(csrc, "xn_gc_new(&RT_TYPE_XN_STRUCT") {
 		t.Fatalf("struct 不得进入 ARC/GC 分配：\n%s", csrc)
 	}
 	if !strings.Contains(csrc, "typedef struct xn_Struct_P") {
