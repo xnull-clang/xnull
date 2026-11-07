@@ -9,6 +9,7 @@ package interp
 
 import (
 	"fmt"
+	"strings"
 
 	"xnull.dev/xnull/internal/xfront"
 )
@@ -87,8 +88,9 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 	}
 	for _, c := range chain {
 		for _, f := range c.Fields {
-			obj.order = append(obj.order, f.Name)
-			obj.fields[f.Name] = zeroValue(f.Type)
+			key := fieldKey(f)
+			obj.order = append(obj.order, key)
+			obj.fields[key] = zeroValue(f.Type)
 		}
 	}
 	selfScope := newScope(sc)
@@ -125,13 +127,14 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 			if f.Init == nil {
 				continue
 			}
-			if _, bound := obj.fields[f.Name]; bound && c.Primary != nil {
+			key := fieldKey(f)
+			if _, bound := obj.fields[key]; bound && c.Primary != nil {
 				// 主构造器已绑定同名字段：以参数为准（final 字段）
 				if _, isPrimaryParam := primaryParam(c, f.Name); isPrimaryParam {
 					continue
 				}
 			}
-			obj.fields[f.Name] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
+			obj.fields[key] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
 		}
 	}
 	// 构造器体：字段初始化式之后执行（§6.5）。
@@ -139,6 +142,21 @@ func (in *Interp) evalNew(n *xfront.New, sc *scope) *Value {
 		in.execCtorBody(obj, ctor, args)
 	}
 	return &Value{K: vObj, O: obj}
+}
+
+// fieldKey 是字段在运行期的存储键：私有字段用规范名 `_name`（§7.4）。
+func fieldKey(f *xfront.FieldDecl) string {
+	if f.Canonical != "" {
+		return f.Canonical
+	}
+	// 直跑 interp.Run（未经 sema）时 Canonical 尚未物化，按 §7.4 现场归一。
+	if strings.HasPrefix(f.Name, "_") {
+		return f.Name
+	}
+	if f.Mod.Vis == "private" {
+		return "_" + f.Name
+	}
+	return f.Name
 }
 
 // selfField 在 self 当前对象上解析裸字段名（§5.8：局部/参数优先，其次字段）。

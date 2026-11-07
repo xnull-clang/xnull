@@ -1136,6 +1136,20 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 			}
 			return &Value{K: vStr, S: format(in.eval(n.Args[0], sc))}
 		}
+		// §5.8：类内裸方法名解析到 self 的实例方法。
+		if sv, ok := sc.lookup("self"); ok && sv.K == vObj {
+			if _, found := in.findMethod(sv.O.cls, id.Name); found {
+				args := make([]*Value, len(n.Args))
+				for i, a := range n.Args {
+					args[i] = in.eval(a, sc)
+				}
+				v, err := in.callMethod(sv.O, id.Name, args, n.P)
+				if err != nil {
+					panic(runtimeErr{err.Error()})
+				}
+				return v
+			}
+		}
 		panic(runtimeErr{"未定义的函数：" + id.Name})
 	}
 	panic(runtimeErr{"解释器暂不支持非常量可调用表达式"})

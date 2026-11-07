@@ -64,15 +64,16 @@ func (in *Interp) buildDataEnumItem(d *xfront.EnumDecl, it *xfront.EnumItem) *Va
 	cls := in.enumClass(d)
 	obj := &objv{cls: cls, fields: map[string]*Value{}, enumName: d.Name, enumItem: it.Name}
 	for _, f := range d.Fields {
-		obj.order = append(obj.order, f.Name)
-		obj.fields[f.Name] = zeroValue(f.Type)
+		key := fieldKey(f)
+		obj.order = append(obj.order, key)
+		obj.fields[key] = zeroValue(f.Type)
 	}
 	v := &Value{K: vObj, O: obj}
 	selfScope := newScope(in.globals)
 	selfScope.defineTyped("self", nil, v)
 	for _, f := range d.Fields {
 		if f.Init != nil {
-			obj.fields[f.Name] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
+			obj.fields[fieldKey(f)] = coerceByDecl(f.Type, in.eval(f.Init, selfScope))
 		}
 	}
 	var ctor *xfront.CtorDecl

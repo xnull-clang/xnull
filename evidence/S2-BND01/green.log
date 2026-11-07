@@ -1,0 +1,7 @@
+=== RUN   TestS2PrivateCanonicalField
+--- PASS: TestS2PrivateCanonicalField (0.00s)
+=== RUN   TestS2InheritedProtectedField
+--- PASS: TestS2InheritedProtectedField (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.758s
+exit=0
