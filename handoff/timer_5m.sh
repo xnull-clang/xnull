@@ -1,19 +1,19 @@
 #!/bin/bash
-# 15 分钟进度定时器：到点把四数推给董事会，并写日志
+# 5 分钟进度定时器：到点把四数推给董事会，并写日志
 set -u
 ROOT=/Users/vjs/Desktop/XNull-Lang
 BOARD=ses_e5064858fffebRYkY6Gr2xlCPu
 OPENCODE=/usr/local/bin/opencode
 PY=/usr/bin/python3
-LOG="$ROOT/收件箱/告警/timer-15m.log"
+LOG="$ROOT/收件箱/告警/timer-5m.log"
 mkdir -p "$ROOT/收件箱/告警"
-echo "$$" > /tmp/timer_15m.pid
-echo "$(date '+%F %T') timer started (900s)" >> "$LOG"
+echo "$$" > /tmp/timer_5m.pid
+echo "$(date '+%F %T') timer started (300s)" >> "$LOG"
 
 while :; do
-  sleep 900
+  sleep 300
   NOW=$(date '+%F %T')
-  SINCE=$(date -v-15M '+%Y-%m-%d %H:%M:%S')
+  SINCE=$(date -v-5M '+%Y-%m-%d %H:%M:%S')
   cd "$ROOT" || exit 1
   COMMITS=$(git log --since="$SINCE" --oneline --all 2>/dev/null | /usr/bin/wc -l | /usr/bin/tr -d ' ')
   PASS=$(/usr/bin/grep -c 'PASS' impl/docs/conformance/status.tsv 2>/dev/null || echo '?')
@@ -37,7 +37,7 @@ except Exception: print("?")' 2>/dev/null)
     echo "- busy sessions: ${BUSY}"
     echo "- recent: ${TOP}"
   } >> "$LOG"
-  MSG="[TIMER 15m] ${NOW} | commits +${COMMITS} | status.tsv PASS=${PASS} | busy=${BUSY} | recent: ${TOP} | log: 收件箱/告警/timer-15m.log"
+  MSG="[TIMER 5m] ${NOW} | commits +${COMMITS} | status.tsv PASS=${PASS} | busy=${BUSY} | recent: ${TOP} | log: 收件箱/告警/timer-5m.log"
   BODY=$("$PY" -c 'import json,sys;print(json.dumps({"text":sys.argv[1]}))' "$MSG")
   "$OPENCODE" api POST "/api/session/${BOARD}/prompt" -d "$BODY" >/dev/null 2>&1
   echo "${NOW} pushed" >> "$LOG"
