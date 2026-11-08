@@ -1,0 +1,425 @@
+ok  	xnull.dev/xnull/cmd/xnfmt	2.765s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/artifact	5.965s
+ok  	xnull.dev/xnull/internal/cli	360.677s
+--- FAIL: TestExamplesCompileMatchesInterp (40.98s)
+    --- FAIL: TestExamplesCompileMatchesInterp/ast-seed.x (3.80s)
+        codegen_test.go:87: cc 编译失败：exit status 1
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:394:57: error: unknown type name 'xn_Cls_Node'
+              394 | typedef struct { rt_header hdr; size_t len; size_t cap; xn_Cls_Node * *data; } xn_arr_o_Node;
+                  |                                                         ^
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:589:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+              589 |     if (((xn_p_n->kind == 1))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:589:24: note: remove extraneous parentheses around the comparison to silence this warning
+              589 |     if (((xn_p_n->kind == 1))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:589:24: note: use '=' to turn this equality comparison into an assignment
+              589 |     if (((xn_p_n->kind == 1))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:659:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+              659 |     if (((xn_p_n->kind == 1))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:659:24: note: remove extraneous parentheses around the comparison to silence this warning
+              659 |     if (((xn_p_n->kind == 1))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpast-seed.x3111470064/001/prog.c:659:24: note: use '=' to turn this equality comparison into an assignment
+              659 |     if (((xn_p_n->kind == 1))) {
+                  |                        ^~
+                  |                        =
+            2 warnings and 1 error generated.
+    --- FAIL: TestExamplesCompileMatchesInterp/objlist.x (1.23s)
+        codegen_test.go:87: cc 编译失败：exit status 1
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpobjlist.x2760867659/001/prog.c:394:57: error: unknown type name 'xn_Cls_Node'
+              394 | typedef struct { rt_header hdr; size_t len; size_t cap; xn_Cls_Node * *data; } xn_arr_o_Node;
+                  |                                                         ^
+            1 error generated.
+    --- FAIL: TestExamplesCompileMatchesInterp/parser-seed.x (2.53s)
+        codegen_test.go:87: cc 编译失败：exit status 1
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:394:57: error: unknown type name 'xn_Cls_Node'
+              394 | typedef struct { rt_header hdr; size_t len; size_t cap; xn_Cls_Node * *data; } xn_arr_o_Node;
+                  |                                                         ^
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:802:13: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+              802 |     if (((k == 3))) {
+                  |           ~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:802:13: note: remove extraneous parentheses around the comparison to silence this warning
+              802 |     if (((k == 3))) {
+                  |         ~   ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:802:13: note: use '=' to turn this equality comparison into an assignment
+              802 |     if (((k == 3))) {
+                  |             ^~
+                  |             =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:994:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+              994 |             if (((k == 1))) {
+                  |                   ~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:994:21: note: remove extraneous parentheses around the comparison to silence this warning
+              994 |             if (((k == 1))) {
+                  |                 ~   ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:994:21: note: use '=' to turn this equality comparison into an assignment
+              994 |             if (((k == 1))) {
+                  |                     ^~
+                  |                     =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1403:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1403 |     if (((xn_p_n->kind == 1))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1403:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1403 |     if (((xn_p_n->kind == 1))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1403:24: note: use '=' to turn this equality comparison into an assignment
+             1403 |     if (((xn_p_n->kind == 1))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1420:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1420 |     if (((xn_p_n->kind == 2))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1420:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1420 |     if (((xn_p_n->kind == 2))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1420:24: note: use '=' to turn this equality comparison into an assignment
+             1420 |     if (((xn_p_n->kind == 2))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1437:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1437 |     if (((xn_p_n->kind == 3))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1437:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1437 |     if (((xn_p_n->kind == 3))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1437:24: note: use '=' to turn this equality comparison into an assignment
+             1437 |     if (((xn_p_n->kind == 3))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1462:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1462 |     if (((xn_p_n->kind == 4))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1462:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1462 |     if (((xn_p_n->kind == 4))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1462:24: note: use '=' to turn this equality comparison into an assignment
+             1462 |     if (((xn_p_n->kind == 4))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1483:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1483 |     if (((xn_p_n->kind == 5))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1483:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1483 |     if (((xn_p_n->kind == 5))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1483:24: note: use '=' to turn this equality comparison into an assignment
+             1483 |     if (((xn_p_n->kind == 5))) {
+                  |                        ^~
+                  |                        =
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1496:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+             1496 |     if (((xn_p_n->kind == 6))) {
+                  |           ~~~~~~~~~~~~~^~~~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1496:24: note: remove extraneous parentheses around the comparison to silence this warning
+             1496 |     if (((xn_p_n->kind == 6))) {
+                  |         ~              ^    ~
+            /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestExamplesCompileMatchesInterpparser-seed.x3795107764/001/prog.c:1496:24: note: use '=' to turn this equality comparison into an assignment
+             1496 |     if (((xn_p_n->kind == 6))) {
+                  |                        ^~
+                  |                        =
+            8 warnings and 1 error generated.
+--- FAIL: TestS3_01GCContainerElements (9.95s)
+    container_gc_test.go:50: cc 编译失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestS3_01GCContainerElements2255677560/001/prog.c:394:57: error: unknown type name 'xn_Cls_Node'
+          394 | typedef struct { rt_header hdr; size_t len; size_t cap; xn_Cls_Node * *data; } xn_arr_o_Node;
+              |                                                         ^
+        1 error generated.
+--- FAIL: TestS3_01ClearReleasesARCElements (11.55s)
+    container_gc_test.go:100: cc 编译失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestS3_01ClearReleasesARCElements3778940674/001/prog.c:394:57: error: unknown type name 'xn_Cls_A'
+          394 | typedef struct { rt_header hdr; size_t len; size_t cap; xn_Cls_A * *data; } xn_arr_o_A;
+              |                                                         ^
+        1 error generated.
+panic: test timed out after 6m40s
+	running tests:
+		TestS2FieldAssignClassRefRetainRelease (3s)
+
+goroutine 220 [running]:
+testing.(*M).startAlarm.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2961 +0x34a
+created by time.goFunc
+	/usr/local/Cellar/go/1.27.3/libexec/src/time/sleep.go:182 +0x2d
+
+goroutine 1 [chan receive]:
+testing.(*T).Run(0x9fc25bc2248, {0x1723623?, 0x9fc25a83aa0?}, 0x1a20538)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2268 +0x4f2
+testing.runTests.func1(0x9fc25bc2248)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2744 +0x37
+testing.tRunner(0x9fc25bc2248, 0x9fc25a83bc8)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+testing.runTests({0x1712876, 0xf}, {0x171eea5, 0x20}, 0x9fc25a68168, {0x1a45cd0, 0xbf, 0xbf}, {0xc2b4336233e9bbe0, 0x5d21fe191b, ...})
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2742 +0x510
+testing.(*M).Run(0x9fc25aeefa0)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2602 +0x6af
+main.main()
+	_testmain.go:426 +0x9b
+
+goroutine 218 [syscall]:
+syscall.syscalln(0x13f0b20, {0x9fc25bf7ac0, 0x6, 0x6})
+	/usr/local/Cellar/go/1.27.3/libexec/src/runtime/sys_darwin.go:27 +0x25
+syscall.syscall6(0x101010000000018?, 0xa817e00?, 0x3ab72f8?, 0x90?, 0x9fc25a54808?, 0x9fc25f0e000?, 0x9fc25bf7b60?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/syscall_darwin.go:407 +0x37
+syscall.wait4(0x9fc25bf7b88?, 0x1373705?, 0x90?, 0x1a179b8?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/zsyscall_darwin_amd64.go:44 +0x45
+syscall.Wait4(0x9fc25afc000?, 0x9fc25bf7bbc, 0x9fc25c261c0?, 0x9fc25e9c8c0?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/syscall/syscall_bsd.go:144 +0x25
+os.(*Process).pidWait.func1(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:64
+os.ignoringEINTR2[...](...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file_posix.go:273
+os.(*Process).pidWait(0x9fc25ebe0c0)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:63 +0x85
+os.(*Process).wait(0x19c0618?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec_unix.go:28 +0x1a
+os.(*Process).Wait(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec.go:347
+os/exec.(*Cmd).Wait(0x9fc25afc000)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:944 +0x45
+os/exec.(*Cmd).Run(0x9fc25afc000)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:643 +0x2d
+xnull.dev/xnull/internal/codegen.compileAndRun(0x9fc25bc2488, {0x173c059, 0xdb})
+	/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/internal/codegen/codegen_test.go:48 +0x5ee
+xnull.dev/xnull/internal/codegen.TestS2FieldAssignClassRefRetainRelease(0x9fc25bc2488)
+	/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/internal/codegen/s2_deinit_test.go:68 +0x33
+testing.tRunner(0x9fc25bc2488, 0x1a20538)
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2195 +0xea
+created by testing.(*T).Run in goroutine 1
+	/usr/local/Cellar/go/1.27.3/libexec/src/testing/testing.go:2260 +0x4d4
+
+goroutine 257 [IO wait]:
+internal/poll.runtime_pollWait(0xa569400, 0x72)
+	/usr/local/Cellar/go/1.27.3/libexec/src/runtime/netpoll.go:351 +0x85
+internal/poll.(*pollDesc).wait(0x9fc25d7a1e0?, 0x9fc25f69000?, 0x1)
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_poll_runtime.go:84 +0x27
+internal/poll.(*pollDesc).waitRead(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_poll_runtime.go:89
+internal/poll.(*FD).Read(0x9fc25d7a1e0, {0x9fc25f69000, 0x200, 0x200})
+	/usr/local/Cellar/go/1.27.3/libexec/src/internal/poll/fd_unix.go:170 +0x2a8
+os.(*File).read(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file_posix.go:30
+os.(*File).Read(0x9fc25b02048, {0x9fc25f69000?, 0x9fc25b2f658?, 0x0?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:144 +0x4f
+bytes.(*Buffer).ReadFrom(0x9fc25ee2d80, {0x1a1e010, 0x9fc25b02048})
+	/usr/local/Cellar/go/1.27.3/libexec/src/bytes/buffer.go:229 +0x98
+io.copyBuffer({0x1a1e130, 0x9fc25ee2d80}, {0x1a1e010, 0x9fc25b02048}, {0x0, 0x0, 0x0})
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:415 +0x151
+io.Copy(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:388
+os.genericWriteTo(0x0?, {0x1a1e130?, 0x9fc25ee2d80?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:295 +0x35
+os.(*File).WriteTo(0x0?, {0x1a1e130?, 0x9fc25ee2d80?})
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/file.go:273 +0x49
+io.copyBuffer({0x1a1e130, 0x9fc25ee2d80}, {0x1a1e0d0, 0x9fc25b02048}, {0x0, 0x0, 0x0})
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:411 +0x9d
+io.Copy(...)
+	/usr/local/Cellar/go/1.27.3/libexec/src/io/io.go:388
+os/exec.(*Cmd).writerDescriptor.func1()
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:613 +0x34
+os/exec.(*Cmd).Start.func2(0x1a20440?)
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:768 +0x2c
+created by os/exec.(*Cmd).Start in goroutine 218
+	/usr/local/Cellar/go/1.27.3/libexec/src/os/exec/exec.go:767 +0x92b
+FAIL	xnull.dev/xnull/internal/codegen	410.037s
+--- FAIL: TestS609NetXfbContracts (0.00s)
+    s609_test.go:34: 缺少句柄 Listener
+--- FAIL: TestXdkWrappersRun (6.85s)
+    xdk_test.go:159: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:162:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          162 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:166:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:166:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:95:13: note: 'xrt_string_from_c' declared here
+           95 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:166:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:177:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          177 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:179:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:179:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:236:54: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          236 | static int32_t xn_ffi_httpBodyText(xrt_handle *resp, rt_string * *xn_out) {
+              |                                                      ^~~~~~~~~
+              |                                                      xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:240:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:240:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:302:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          302 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:304:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3297573849/001/prog.c:304:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        4 warnings and 8 errors generated.
+--- FAIL: TestXDKTextFileAPI (4.47s)
+    xdk_text_test.go:82: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:162:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          162 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:166:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:166:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:95:13: note: 'xrt_string_from_c' declared here
+           95 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:166:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:177:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          177 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:179:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:179:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:236:54: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          236 | static int32_t xn_ffi_httpBodyText(xrt_handle *resp, rt_string * *xn_out) {
+              |                                                      ^~~~~~~~~
+              |                                                      xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:240:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:240:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:302:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          302 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:304:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI1565551622/001/prog.c:304:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        4 warnings and 8 errors generated.
+--- FAIL: TestXDKSysFileOpenWrite (15.70s)
+    xdk_write_test.go:77: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:162:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          162 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:166:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:166:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:95:13: note: 'xrt_string_from_c' declared here
+           95 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:166:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          166 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:177:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          177 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:179:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:179:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          179 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:236:54: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          236 | static int32_t xn_ffi_httpBodyText(xrt_handle *resp, rt_string * *xn_out) {
+              |                                                      ^~~~~~~~~
+              |                                                      xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:240:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:240:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          240 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:302:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          302 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:304:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite2968740064/001/prog.c:304:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          304 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        4 warnings and 8 errors generated.
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	104.646s
+ok  	xnull.dev/xnull/internal/config	16.595s
+ok  	xnull.dev/xnull/internal/devtool	26.419s
+ok  	xnull.dev/xnull/internal/diag	21.556s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/interp	24.952s
+ok  	xnull.dev/xnull/internal/manifest	23.472s
+ok  	xnull.dev/xnull/internal/plugin	27.204s
+ok  	xnull.dev/xnull/internal/reactor	31.312s
+ok  	xnull.dev/xnull/internal/repro	35.703s
+ok  	xnull.dev/xnull/internal/resman	36.587s
+ok  	xnull.dev/xnull/internal/sema	31.458s
+?   	xnull.dev/xnull/internal/version	[no test files]
+ok  	xnull.dev/xnull/internal/xdkcheck	32.292s
+ok  	xnull.dev/xnull/internal/xfront	31.563s
+ok  	xnull.dev/xnull/internal/xmeta	31.490s
+ok  	xnull.dev/xnull/internal/xnfmt	34.159s
+ok  	xnull.dev/xnull/internal/xpd	32.049s
+FAIL

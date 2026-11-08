@@ -106,6 +106,10 @@ func Run(env Env) int {
 	if name == "fmt" {
 		return runFmtDispatch(env, rest)
 	}
+	// S8-17：依赖命令（install / tree / why）。
+	if name == "install" || name == "tree" || name == "why" {
+		return runDepsCommand(env, name, rest)
+	}
 	// S8-16：清理与自检。
 	if name == "clean" {
 		return runClean(env, rest)
@@ -162,17 +166,20 @@ func Run(env Env) int {
 }
 
 var commands = map[string]string{
-	"new":    "创建 XNull 工程模板（app / library）",
-	"check":  "检查源文件并输出诊断（--json 为 IDE/CI 机器接口）",
-	"policy": "输出单文件内存策略判定 JSON（S2 §15.1；开发预览命令）",
-	"build":  "校验清单并构建产物（阶段：validate→compile→test→package→install）",
-	"run":    "构建并运行 app 入口",
-	"test":   "运行测试入口（src/test/x）",
-	"fmt":    "格式化 .x 源码或 xnull.project / .xmeta / .xplugin / xnull.lock（--check 只检查）",
-	"clean":  "清理 target/ 与缓存（--all 含本地仓库缓存）",
-	"doctor": "环境自检：cc / runtime / 本地仓库 / 清单 / 锁",
-	"lock":   "校验或重生成锁文件（--update-lock 为唯一重生成入口）",
-	"dev":    "内部维护工具（check / ledger / res / board）",
+	"new":     "创建 XNull 工程模板（app / library）",
+	"check":   "检查源文件并输出诊断（--json 为 IDE/CI 机器接口）",
+	"policy":  "输出单文件内存策略判定 JSON（S2 §15.1；开发预览命令）",
+	"build":   "校验清单并构建产物（阶段：validate→compile→test→package→install）",
+	"run":     "构建并运行 app 入口",
+	"test":    "运行测试入口（src/test/x）",
+	"fmt":     "格式化 .x 源码或 xnull.project / .xmeta / .xplugin / xnull.lock（--check 只检查）",
+	"clean":   "清理 target/ 与缓存（--all 含本地仓库缓存）",
+	"doctor":  "环境自检：cc / runtime / 本地仓库 / 清单 / 锁",
+	"install": "构建并安装产物到本地仓库（.xlib / app）",
+	"tree":    "输出依赖树（坐标/版本/仲裁）",
+	"why":     "解释某依赖的引入路径与版本来源",
+	"lock":    "校验或重生成锁文件（--update-lock 为唯一重生成入口）",
+	"dev":     "内部维护工具（check / ledger / res / board）",
 }
 
 func commandList() string {
