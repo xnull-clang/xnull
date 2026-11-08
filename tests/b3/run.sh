@@ -9,4 +9,5 @@ bash "$HERE/emit-diff.sh" || rc=1
 bash "$HERE/dual-path.sh" || rc=1
 bash "$HERE/negative.sh" || rc=1
 bash "$HERE/xnullc-skeleton.sh" || rc=1
+bash "$HERE/xnullc-expr-stmt.sh" || rc=1
 exit $rc
