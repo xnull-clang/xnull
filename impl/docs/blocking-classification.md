@@ -19,7 +19,15 @@
 | --- | --- | --- | --- | --- | --- |
 | diagnose | xdkc_diagnose | xdkc_runtime | .aware | 否 | — |
 | dumpTasks | xdkc_dump_tasks | xdkc_runtime | .aware | 否 | — |
+| httpBodyText | xdkc_http_body_text | xdkc_net | .aware | 否 | — |
+| httpRequest | xdkc_http_request | xdkc_net | .unaware | 否 | — |
+| httpResponseClose | xdkc_http_response_close | xdkc_net | .aware | 否 | — |
+| httpStatus | xdkc_http_status | xdkc_net | .aware | 否 | — |
 | env | xdkc_env_lookup | xdkc_runtime | .aware | 否 | — |
+| socketClose | xdkc_socket_close | xdkc_net | .aware | 否 | — |
+| socketConnect | xdkc_socket_connect | xdkc_net | .unaware | 否 | — |
+| socketRecv | xdkc_socket_recv | xdkc_net | .unaware | 否 | — |
+| socketSend | xdkc_socket_send | xdkc_net | .unaware | 否 | — |
 | exit | xdkc_exit | xdkc_runtime | .aware | 否 | — |
 | dirClose | xdkc_dir_close | xdkc_sys | .aware | 否 | — |
 | dirOpen | xdkc_dir_open | xdkc_sys | .unaware | 否 | — |

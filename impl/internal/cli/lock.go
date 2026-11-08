@@ -95,21 +95,3 @@ func runLock(env Env, args []string) int {
 	fmt.Fprintf(env.Stdout, "锁有效：%s（%d 条）\n", lockPath, len(lock.Entries))
 	return exitcode.Success
 }
-
-// findManifestRoot 从 dir 向上查找 xnull.project。
-func findManifestRoot(dir string) string {
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		return ""
-	}
-	for {
-		if st, err := os.Stat(filepath.Join(abs, "xnull.project")); err == nil && !st.IsDir() {
-			return abs
-		}
-		parent := filepath.Dir(abs)
-		if parent == abs {
-			return ""
-		}
-		abs = parent
-	}
-}
