@@ -1,0 +1,9 @@
+--- FAIL: TestS609NetSignatures (0.00s)
+    s6_09_test.go:28: 不应有语义诊断：[RES-101@未定义的名称 `httpRequestAsync`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `httpStatus`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `httpBodyText`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `httpResponseClose`（§3.3 四级顺序解析后不可见） RES-101@未定义的类型 `HttpResponse`（§3.3/§8.1） RES-101@未定义的类型 `HttpResponse`（§3.3/§8.1）]
+--- FAIL: TestS609dHttpResponseImport (0.00s)
+    s6_09d_test.go:13: 不应有语义诊断：[RES-101@未定义的类型 `HttpResponse`（§3.3/§8.1）]
+--- FAIL: TestS609dHttpResponseHint (0.00s)
+    s6_09d_test.go:64: 未触发 RES-105
+FAIL
+FAIL	xnull.dev/xnull/internal/sema	0.848s
+FAIL

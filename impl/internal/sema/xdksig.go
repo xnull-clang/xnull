@@ -66,10 +66,15 @@ var xdkFuncSigs = map[string]xdkFuncSig{
 	"bindAsync":    {"net", []string{"Context", "String", "Int"}, "Result<Listener,Error>", true},
 
 	// ---- xdk.net.http（S6-09） ----
-	"get":       {"net.http", []string{"String"}, "Result<Response,Error>", false},
-	"post":      {"net.http", []string{"String", "Bytes"}, "Result<Response,Error>", false},
-	"getAsync":  {"net.http", []string{"Context", "String"}, "Result<Response,Error>", true},
-	"postAsync": {"net.http", []string{"Context", "String", "Bytes"}, "Result<Response,Error>", true},
+	"httpRequest":       {"net.http", []string{"String", "String", "Int32", "String", "Bytes"}, "Result<HttpResponse,ErrorKind>", false},
+	"httpStatus":        {"net.http", []string{"HttpResponse"}, "Int32", false},
+	"httpBodyText":      {"net.http", []string{"HttpResponse"}, "String", false},
+	"httpResponseClose": {"net.http", []string{"HttpResponse"}, "Bool", false},
+	"httpRequestAsync":  {"net.http", []string{"Context", "String", "String", "Int32", "String", "Bytes"}, "Result<HttpResponse,ErrorKind>", true},
+	"get":               {"net.http", []string{"String"}, "Result<Response,Error>", false},
+	"post":              {"net.http", []string{"String", "Bytes"}, "Result<Response,Error>", false},
+	"getAsync":          {"net.http", []string{"Context", "String"}, "Result<Response,Error>", true},
+	"postAsync":         {"net.http", []string{"Context", "String", "Bytes"}, "Result<Response,Error>", true},
 
 	// ---- xdk.text：解析与编码转换（S6 §4.6/XDK-08） ----
 	// UTF-8↔UTF-16 以字节/码元序列表达，避免隐式端序：UTF-16 方向返回 List<UInt16> 码元。
@@ -92,7 +97,7 @@ var xdkTypeNames = map[string]bool{
 	// collections（S6 §4.5）
 	"RingBuffer": true, "OrderedMap": true, "BTreeMap": true, "PriorityQueue": true,
 	// net（S6 §4.7；独立包）
-	"Socket": true, "Listener": true, "Request": true, "Response": true,
+	"Socket": true, "Listener": true, "Request": true, "Response": true, "HttpResponse": true,
 }
 
 // xdkSpecialSigned 是已有专用签名检查、不进入 xdkFuncSigs 的包（S4/S5 已交）。

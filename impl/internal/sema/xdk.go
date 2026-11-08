@@ -68,9 +68,14 @@ var xdkPackages = map[string]map[string]bool{
 	},
 	"net": {
 		// S6 §4.7 / S6-09：socket 句柄与 plain/Async 入口。
-		"Socket": true, "Listener": true,
+		"Socket": true, "Listener": true, "HttpResponse": true,
 		"connect": true, "connectAsync": true,
 		"bind": true, "bindAsync": true,
+		"accept": true, "acceptAsync": true,
+		"socketConnect": true, "socketSend": true, "socketRecv": true, "socketClose": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
+		"socketConnectAsync": true, "socketSendAsync": true, "socketRecvAsync": true,
+		"httpRequestAsync": true,
 	},
 }
 
@@ -83,8 +88,10 @@ var xdkSubPackages = map[string]bool{
 // xdkSubPackageSymbols 是多级包子包的导出符号（S6 §4.7）。
 var xdkSubPackageSymbols = map[string]map[string]bool{
 	"net.http": {
-		"Request": true, "Response": true,
+		"Request": true, "Response": true, "HttpResponse": true,
 		"get": true, "post": true, "getAsync": true, "postAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
+		"httpRequestAsync": true,
 	},
 }
 
