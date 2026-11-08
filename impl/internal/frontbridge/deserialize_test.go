@@ -10,7 +10,7 @@ import (
 	"xnull.dev/xnull/internal/xfront"
 )
 
-func repoRoot(t *testing.T) string {
+func repoRoot(t testing.TB) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
 	if err != nil {
@@ -19,7 +19,7 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
-func corpusSources(t *testing.T) []string {
+func corpusSources(t testing.TB) []string {
 	t.Helper()
 	root := repoRoot(t)
 	f, err := os.Open(filepath.Join(root, "tests", "b2", "corpus.tsv"))
@@ -103,5 +103,42 @@ func TestDeserializeRejectsBadInput(t *testing.T) {
 		if _, err := Deserialize(bad); err == nil {
 			t.Fatalf("期望失败：%q", bad)
 		}
+	}
+}
+
+// TestDeserializeTupleTypes 回归：元组类型（含泛型实参与数组后缀）不得在反序列化中丢失。
+func TestDeserializeTupleTypes(t *testing.T) {
+	const src = `static (Int, Int) top = (11, 12)
+
+class Holder {
+    (Int, Int) p = (1, 2)
+}
+
+static (Int, Int) make(Int a, Int b) { return (a, b) }
+
+static Int main() {
+    (Int, Int) t = (1, 2)
+    List<(Int, Int)> l = [t]
+    (Int, Int)[] arr = [(3, 4)]
+    ((Int, String), Bool) nested = ((2, "b"), true)
+    var inferred = (5, "z")
+    return 0
+}
+`
+	u, ds := xfront.ParseUnit("tuple.x", src)
+	if len(ds) > 0 {
+		t.Fatalf("oracle 诊断：%s", ds[0].String())
+	}
+	dump := xfront.PrintUnitPos(u)
+	got, err := Deserialize(dump)
+	if err != nil {
+		t.Fatalf("反序列化失败：%v", err)
+	}
+	re := xfront.PrintUnitPos(got)
+	if re != dump {
+		t.Fatalf("元组 AST 往返不一致")
+	}
+	if n := strings.Count(re, "(TupleTypeRef "); n < 5 {
+		t.Fatalf("TupleTypeRef 数量异常：%d", n)
 	}
 }
