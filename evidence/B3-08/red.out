@@ -1,0 +1,86 @@
+FAIL cdiff ffi-cases/basic/add.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/go.c	2026-11-09 03:27:10
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/xn.c	2026-11-09 03:27:10
+@@ -1,525 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff ffi-cases/err/wrap.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/go.c	2026-11-09 03:27:10
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/xn.c	2026-11-09 03:27:10
+@@ -1,502 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff ffi-cases/comp/exec.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/go.c	2026-11-09 03:27:10
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/xn.c	2026-11-09 03:27:10
+@@ -1,532 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff fixtures/xdk/runtime.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/go.c	2026-11-09 03:27:10
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/xn.c	2026-11-09 03:27:10
+@@ -1,463 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff fixtures/xdk/exit.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/go.c	2026-11-09 03:27:11
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-ffi.Y3pJtG/xn.c	2026-11-09 03:27:11
+@@ -1,442 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+xnullc-ffi 汇总：PASS=0 FAIL=5
