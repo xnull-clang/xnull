@@ -229,6 +229,7 @@ static String typeKey0(N t) {
     }
     if t.nm == "SuffixedType" {
         N sfx = fld(t, "Suffixes")
+        if sfx.el.length() == 1 && unq(txt(sfx.el.get(0))) == "?" { return typeKey(fld(t, "Base")) + "?" }
         if sfx.el.length() == 1 && unq(txt(sfx.el.get(0))) == "[]" { return typeKey(fld(t, "Base")) + "[]" }
         return typeKey(fld(t, "Base"))
     }
@@ -260,6 +261,9 @@ static String cType(String k) {
     if k == "Bool" { return "int" }
     if k == "Char" { return "xn_char" }
     if k == "Float" || k == "Double" { return "double" }
+    if k == "Int?" { return "xn_opt_i" }
+    if k == "Bool?" { return "xn_opt_b" }
+    if k == "String?" { return "xn_opt_s" }
     if k == "String" { return "rt_string *" }
     if k == "List<Int>" || k == "Int[]" { return "xn_arr_i *" }
     if isTupList(k) { return arrTupName(k) + " *" }
@@ -656,6 +660,7 @@ static String exprType(N x, SC sc) {
     if x.nm == "CharLitExpr" { return "Char" }
     if x.nm == "FloatLitExpr" { return "Double" }
     if x.nm == "StrLitExpr" { return "String" }
+    if x.nm == "NullLit" { return "Null" }
     if x.nm == "Paren" { return exprType(fld(x, "X"), sc) }
     if x.nm == "Tuple" {
         N els = fld(x, "Elems")
@@ -829,6 +834,7 @@ static String argExpr(N a, EM e, SC sc) {
 
 static String expr(N x, EM e, SC sc) {
     if x.nm == "IntLitExpr" { return unq(txt(fld(x, "Text"))) }
+    if x.nm == "NullLit" { return "0" }
     if x.nm == "BoolLit" { if txt(fld(x, "V")) == "true" { return "1" }; return "0" }
     if x.nm == "CharLitExpr" { return txt(fld(x, "Rune")) }
     if x.nm == "FloatLitExpr" { return unq(txt(fld(x, "Text"))) }
@@ -1214,6 +1220,15 @@ static void emitPrint(N arg, EM e, SC sc, Int extraRoots) {
         e.add("rt_release(" + t + ");")
         return
     }
+    if ty == "Int?" || ty == "Bool?" || ty == "String?" {
+        String base = expr(arg, e, sc)
+        String inner = ""
+        if ty == "Int?" { inner = "xn_print_int(" + base + ".v);" }
+        else if ty == "Bool?" { inner = "xn_print_bool(" + base + ".v);" }
+        else { inner = "xn_print_str(" + base + ".v);" }
+        e.add("if (" + base + ".has) { " + inner + " } else { xn_print_null(); }")
+        return
+    }
     if isEnumType(ty) && !isDataEnum(ty) {
         String t = e.nt()
         e.add("rt_string *" + t + " = xn_enum_" + ty + "_name(" + expr(arg, e, sc) + ");")
@@ -1417,6 +1432,15 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.raw("xn_root_add(" + nm + ");")
             e.raw("xn_root_add(" + nm + ");")
             e.raw("xn_gc_safepoint();")
+            return
+        }
+        if ty == "Int?" || ty == "Bool?" || ty == "String?" {
+            if init.nm == "NullLit" { e.add(cType(ty) + " " + nm + " = (" + cType(ty) + "){0, 0};") }
+            else {
+                String iv = expr(init, e, sc)
+                if ty == "String?" && exprType(init, sc) == "String" { iv = emitStr(init, e, sc) }
+                e.add(cType(ty) + " " + nm + " = (" + cType(ty) + "){1, " + iv + "};")
+            }
             return
         }
         if isTupleKey(ty) {
