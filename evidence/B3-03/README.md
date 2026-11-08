@@ -5,12 +5,15 @@
 - `impl/lib/b3/xnullc.x` 已支持：Result 实例化、`Ok`/`Err`、`isOk/isErr/value/error/unwrapOr`、`try` 传播、`defer`/`errdefer` 内联（LIFO、错误路径守卫）、`throw`。
 - 4 个 CLEAN/ERR 锚点的 C 与 Go `--emit-c` **逐字节一致**，双路径（Go 原生 vs xnullc C）stdout/退出码一致。
 - 先红：空 stub xnullc `PASS=0 FAIL=4`（`red.out`）。
+- 5 个 CLEAN/ERR 锚点的 C 与 Go `--emit-c` **逐字节一致**，双路径（Go 原生 vs xnullc C）stdout/退出码一致。
+- 先红：空 stub xnullc `PASS=0 FAIL=5`（`red.out`）。
 
 ## 锚点
 
 | 类别 | 文件 | 覆盖点 |
 | --- | --- | --- |
 | CLEAN | `fixtures/err/clean_defer.x` | 函数级 `defer` LIFO 清理 |
+| CLEAN | `fixtures/err/clean_block_defer.x` | 块级 `defer`（if 块退出即执行） |
 | CLEAN | `fixtures/err/errdefer.x` | `defer` + `errdefer`；Ok 路径与 early-return 错误路径 |
 | ERR | `fixtures/err/result_try.x` | Result 实例化、`Ok`/`Err`、`try`、`isOk/isErr/value/error/unwrapOr` |
 | ERR | `fixtures/err/throw.x` | `throw` → `xn_throw` |
@@ -27,6 +30,14 @@ XNULL_BIN=/tmp/xnull-b3 bash tests/b3/run.sh
 ```
 
 - `hashes.out`：4 例 Go/XNull C SHA-256 全部相同。
+# PASS err/clean_block_defer.x / clean_defer.x / errdefer.x / result_try.x / throw.x
+# xnullc-err 汇总：PASS=5 FAIL=0
+
+XNULL_BIN=/tmp/xnull-b3 bash tests/b3/run.sh
+# emit-diff 9/9、dual-path 9/9、negative 7/7、skeleton 2/2、expr-stmt 6/6、err 5/5
+```
+
+- `hashes.out`：5 例 Go/XNull C SHA-256 全部相同。
 - `xnull check impl/lib/b3/xnullc.x` 通过（`check.out`）。
 
 ## 实现要点

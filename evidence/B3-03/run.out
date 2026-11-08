@@ -37,8 +37,10 @@ PASS stmt/for_in.x
 PASS stmt/if_while.x
 PASS stmt/switch.x
 xnullc-expr-stmt 汇总：PASS=6 FAIL=0
+PASS err/clean_block_defer.x
 PASS err/clean_defer.x
 PASS err/errdefer.x
 PASS err/result_try.x
 PASS err/throw.x
 xnullc-err 汇总：PASS=4 FAIL=0
+xnullc-err 汇总：PASS=5 FAIL=0
