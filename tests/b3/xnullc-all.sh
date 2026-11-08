@@ -3,6 +3,8 @@
 #   xnullc-all.sh [--shard k/n] [--parallel N] [--go-bin P] [--xnullc P]
 #   xnullc-all.sh --all-shards N [--parallel N]   # 跑全部 shard 后聚合
 #   xnullc-all.sh --aggregate                     # 聚合已有 shard 结果
+#   xnullc-all.sh --inline-args                   # 兼容旧位置参数（K-07 合同 1.1）
+# 默认把 AST/bundle 写临时文件，走 K-07 文件形态（合同 1.2）。
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
