@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,15 +17,15 @@ import (
 	"time"
 
 	"xnull.dev/xnull/internal/diag"
-	"xnull.dev/xnull/internal/interp"
 	"xnull.dev/xnull/internal/xfront"
 )
 
 // 前端模式（XNULL_FRONTEND）：
-//   - 未设置（默认）：解释器前端（xnull 管线）+ 磁盘缓存；无 runner 或失败时回退 Go；
-//   - auto：同默认（显式写法）；
-//   - xnull：显式自举；失败返回 B2-001，不回退；
-//   - go：直接使用 Go oracle。
+//   - 未设置 / go（默认）：直接使用 Go oracle；
+//   - auto：缓存 → 原生（仅显式）→ 解释器（外部/自身 CLI 子进程）；失败回退 Go；
+//   - xnull：显式自举；失败返回 B2-001，超时返回 B2-002，不回退。
+//
+// B2-04f：E3 修复解释器递归前，默认保持 go；进程内 runner 因无法取消已改为独立进程 + 硬超时。
 //
 // B2-04b：全量 codegen 未达到 ≤170s 门禁前，默认保持 go；auto 由显式环境变量开启。
 const (
@@ -64,17 +65,7 @@ func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	if mode == modeGo || os.Getenv(innerGuard) != "" || os.Getenv(buildGuard) != "" {
 		return goUnit, nil
 	}
-	if !hasRunner() {
-		if mode == modeXNull {
-			return nil, []diag.Diagnostic{{
-				File: file, Line: 1, Col: 1, Code: "B2-001",
-				Message: "XNull 前端不可用：没有原生二进制、外部自举二进制或可用的进程内解释器",
-				Hint:    "设置 XNULL_FRONTEND=go 可回退 Go 前端",
-			}}
-		}
-		return goUnit, nil
-	}
-	// auto/xnull 都先查磁盘缓存；命中时直接反序列化，不启动任何 runner。
+	// xnull/auto 都先查磁盘缓存；命中时直接反序列化，不启动任何 runner。
 	dump, err := parserAST(src, mode)
 	if err == nil {
 		if strings.Contains(dump, "(depth-limit)") {
@@ -88,9 +79,13 @@ func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 		}
 	}
 	if mode == modeXNull {
+		code, msg := "B2-001", "XNull 前端失败："+err.Error()
+		if isTimeout(err) {
+			code, msg = "B2-002", "XNull 前端超时："+err.Error()
+		}
 		return nil, []diag.Diagnostic{{
-			File: file, Line: 1, Col: 1, Code: "B2-001",
-			Message: "XNull 前端失败：" + err.Error(),
+			File: file, Line: 1, Col: 1, Code: code,
+			Message: msg,
 			Hint:    "设置 XNULL_FRONTEND=go 可回退 Go 前端",
 		}}
 	}
@@ -160,54 +155,59 @@ func RunSelfhost(programPath string, args ...string) (string, error) {
 	if bin != "" && !sameExecutable(bin) {
 		return runExternal(bin, programPath, args...)
 	}
-	if !inprocAvailable() {
-		return "", fmt.Errorf("进程内解释器不支持 Bytes，无法运行自举前端（设置 XNULL_SELFHOST_BIN）")
+	if exe, ok := selfCLI(); ok {
+		return runSelfCLI(exe, programPath, args...)
 	}
-	return runInProcess(programPath, args...)
+	return "", fmt.Errorf("没有可用的外部分析器进程（设置 XNULL_SELFHOST_BIN；进程内 runner 因无法取消已禁用）")
 }
 
-var (
-	inprocOnce  sync.Once
-	inprocOK    bool
-	inprocCalls int
-	inprocMu    sync.Mutex
-)
-
-// inprocAvailable 探测当前进程内解释器能否运行自举前端所需的最小能力（Bytes）。
-// 结果按进程缓存，避免每个文件都重复失败。
-func inprocAvailable() bool {
-	inprocOnce.Do(func() {
-		const probe = "static Int main() { Bytes b = Bytes.fromString(\"x\"); return b.length() - 1 }\n"
-		u, ds := xfront.ParseUnit("frontbridge-probe.x", probe)
-		if len(ds) > 0 {
-			return
-		}
-		var out bytes.Buffer
-		code, err := interp.Run(u, &out, nil)
-		inprocOK = err == nil && code == 0
-	})
-	return inprocOK
+// selfCLI 返回当前 xnull 可执行文件（排除 go test 二进制）。
+func selfCLI() (string, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+	base := filepath.Base(exe)
+	if strings.HasSuffix(base, ".test") || strings.Contains(base, ".test-") {
+		return "", false
+	}
+	if strings.Contains(strings.ToLower(base), "xnull") {
+		return exe, true
+	}
+	return "", false
 }
 
-// runnerOnce 缓存“是否存在可用前端执行器”，避免无 runner 时每个文件重复探测。
-var (
-	runnerOnce sync.Once
-	runnerOK   bool
-)
+func runSelfCLI(exe, programPath string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), selfhostTimeout())
+	defer cancel()
+	cmdArgs := append([]string{"run", "--interp", programPath, "--"}, args...)
+	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
+	cmd.Env = append(os.Environ(), innerGuard+"=1")
+	var out, errb bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errb
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return "", timeoutError{selfhostTimeout()}
+	}
+	if err != nil {
+		msg := strings.TrimSpace(errb.String())
+		if msg == "" {
+			return "", fmt.Errorf("自举前端失败：%v", err)
+		}
+		return "", fmt.Errorf("自举前端失败：%v：%s", err, msg)
+	}
+	return out.String(), nil
+}
 
-func hasRunner() bool {
-	runnerOnce.Do(func() {
-		if _, ok := explicitNative(); ok {
-			runnerOK = true
-			return
-		}
-		if selfhostBin() != "" && !sameExecutable(selfhostBin()) {
-			runnerOK = true
-			return
-		}
-		runnerOK = inprocAvailable()
-	})
-	return runnerOK
+// timeoutError 表示前端执行超时（xnull 模式映射为 B2-002）。
+type timeoutError struct{ d time.Duration }
+
+func (e timeoutError) Error() string { return "超时（" + e.d.String() + "）" }
+
+func isTimeout(err error) bool {
+	var te timeoutError
+	return errors.As(err, &te)
 }
 
 // explicitNative 只认显式 XNULL_NATIVE_XPARSER；原生 parser 暂缓，不参与默认发现/自动构建。
@@ -221,16 +221,14 @@ func explicitNative() (string, bool) {
 
 func frontendMode() string {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("XNULL_FRONTEND"))) {
-	case "":
-		return modeDefault
-	case "go", "oracle":
+	case "", "go", "oracle":
 		return modeGo
 	case "auto":
 		return modeAuto
 	case "xnull", "selfhost":
 		return modeXNull
 	default:
-		return modeDefault
+		return modeGo
 	}
 }
 
@@ -260,7 +258,7 @@ func selfhostTimeout() time.Duration {
 			return n
 		}
 	}
-	return 120 * time.Second
+	return 5 * time.Second
 }
 
 // ---- 外部执行器（解释器）----
@@ -276,7 +274,7 @@ func runExternal(bin, programPath string, args ...string) (string, error) {
 	cmd.Stderr = &errb
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		return "", fmt.Errorf("XNull 前端超时（%s）", selfhostTimeout())
+		return "", timeoutError{selfhostTimeout()}
 	}
 	if err != nil {
 		msg := strings.TrimSpace(errb.String())
@@ -284,29 +282,6 @@ func runExternal(bin, programPath string, args ...string) (string, error) {
 			return "", fmt.Errorf("XNull 前端失败：%v", err)
 		}
 		return "", fmt.Errorf("XNull 前端失败：%v：%s", err, msg)
-	}
-	return out.String(), nil
-}
-
-func runInProcess(programPath string, args ...string) (string, error) {
-	inprocMu.Lock()
-	inprocCalls++
-	inprocMu.Unlock()
-	src, err := os.ReadFile(programPath)
-	if err != nil {
-		return "", fmt.Errorf("读取自举前端 %s：%w", programPath, err)
-	}
-	u, pd := xfront.ParseUnit(programPath, string(src))
-	if len(pd) > 0 {
-		return "", fmt.Errorf("自举前端 %s 无法解析（%s）", programPath, pd[0].String())
-	}
-	var out bytes.Buffer
-	code, err := interp.Run(u, &out, args)
-	if err != nil {
-		return "", fmt.Errorf("自举前端运行失败：%w", err)
-	}
-	if code != 0 {
-		return "", fmt.Errorf("自举前端退出码 %d", code)
 	}
 	return out.String(), nil
 }
@@ -432,7 +407,7 @@ func runNative(bin string, args ...string) (string, error) {
 	cmd.Stderr = &errb
 	err := cmd.Run()
 	if ctx.Err() == context.DeadlineExceeded {
-		return "", fmt.Errorf("原生 xparser 超时（%s）", selfhostTimeout())
+		return "", timeoutError{selfhostTimeout()}
 	}
 	if err != nil {
 		msg := strings.TrimSpace(errb.String())
