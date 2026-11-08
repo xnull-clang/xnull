@@ -307,6 +307,9 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		if !isClassPtr(t) && !s.g.isProtoC(t) {
 			return "", "", fmt.Errorf("codegen：成员接收者调用返回 %s，不是类/协议引用（S3-EXPR）", t)
 		}
+		if c, ok := s.g.recvTemps[n]; ok {
+			return c[0], c[1], nil
+		}
 		expr, owns, err := s.classCallExpr(n)
 		if err != nil {
 			return "", "", err
@@ -316,6 +319,7 @@ func recvCName(e xfront.Expr, s *scope) (string, string, error) {
 		if owns && !s.g.classIsGC(t) && !s.g.isProtoC(t) {
 			s.defers = append(s.defers, deferItem{name: tmp, lines: []string{"rt_release(" + tmp + ");"}})
 		}
+		s.g.recvTemps[n] = [2]string{tmp, t}
 		return tmp, t, nil
 	}
 	return "", "", fmt.Errorf("codegen：类成员接收者 %T 未支持（M5.1-b 范围：局部变量/self/字段链/调用）", e)

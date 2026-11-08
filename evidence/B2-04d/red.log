@@ -1,0 +1,3 @@
+# B2-04d 初始（修复前）
+TOK FAIL text.x/xnfmt.x/collections_*.x（重复求值）
+AST FAIL 8 项（hello/ast-seed/parser-seed/text/xnfmt/collections_*）

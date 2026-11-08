@@ -1,0 +1,4 @@
+# 修复后
+TOK 0 差异；DIAG 0 差异；AST 37/39
+FAIL	tests/b2/corpus/impl/lib/xdk/text.x
+FAIL	tests/b2/corpus/impl/xnfmt/xnfmt.x
