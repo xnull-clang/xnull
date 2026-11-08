@@ -658,6 +658,15 @@ static String exprType(N x, SC sc) {
             String n = unq(txt(fld(callee, "Name")))
             if n == "str" { return "String" }
             if n == "Ok" || n == "Err" { return "Result" }
+            N ta2 = fld(x, "TypeArgs")
+            if ta2.el.length() > 0 && isGenericFn(n) {
+                SUB_FROM = ["T"]
+                SUB_TO = [typeKey(ta2.el.get(0))]
+                String rt2 = typeKey(fld(genFnDecl(n), "Ret"))
+                SUB_FROM = []
+                SUB_TO = []
+                return rt2
+            }
             return sc.retOf(n)
         }
         if callee.nm == "Member" {
@@ -1034,8 +1043,9 @@ static String emitStr(N x, EM e, SC sc) {
                 return t
             }
         }
+        String val0 = expr(x, e, sc)
         String t = e.nt()
-        e.add("rt_string *" + t + " = " + expr(x, e, sc) + ";")
+        e.add("rt_string *" + t + " = " + val0 + ";")
         rootStr(e, sc, t)
         return t
     }
@@ -1453,6 +1463,18 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             return
         }
         if exprType(v, sc) == "String" {
+            if v.nm == "IdentExpr" {
+                String vid = unq(txt(fld(v, "Name")))
+                Bool isP = false
+                Int pi = 0
+                while pi < sc.params.length() { if sc.params.get(pi) == vid { isP = true }; pi = pi + 1 }
+                if isP {
+                    String pv = expr(v, e, sc)
+                    e.add("rt_retain(" + pv + ");")
+                    sc.ret = pv
+                    return
+                }
+            }
             String t = emitStr(v, e, sc)
             if !sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
             sc.ret = t

@@ -14,7 +14,7 @@ cd "$ROOT" || exit 2
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/b3-es.XXXXXX"); trap 'rm -rf "$TMP"' EXIT
 RT_SRCS="rt.c rt_gc.c rt_policy.c rt_weak.c xrt_abi.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c rt_std_net.c rt_task.c rt_sync.c rt_std_res.c rt_std_res_empty.c"
 pass=0; fail=0
-for f in "$HERE"/fixtures/gen/fn.x; do
+for f in "$HERE"/fixtures/gen/*.x; do
   [ -f "$f" ] || continue
   rel=${f#"$ROOT"/}
   name=${rel#tests/b3/fixtures/}
