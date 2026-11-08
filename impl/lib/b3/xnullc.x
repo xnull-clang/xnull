@@ -777,7 +777,7 @@ static String exprType(N x, SC sc) {
     }
     if x.nm == "Binary" {
         String op = unq(txt(fld(x, "Op")))
-        if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=" || op == "&&" || op == "||" { return "Bool" }
+        if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=" || op == "===" || op == "!==" || op == "&&" || op == "||" { return "Bool" }
         if op == "+" && (exprType(fld(x, "L"), sc) == "String" || exprType(fld(x, "R"), sc) == "String") { return "String" }
         if exprType(fld(x, "L"), sc) == "Double" || exprType(fld(x, "R"), sc) == "Double" { return "Double" }
         return "Int"
@@ -835,6 +835,30 @@ static String expr(N x, EM e, SC sc) {
     }
     if x.nm == "Binary" {
         String op = unq(txt(fld(x, "Op")))
+        if (op == "==" || op == "!=" || op == "===" || op == "!==") && isTupleKey(exprType(fld(x, "L"), sc)) {
+            String lt = exprType(fld(x, "L"), sc)
+            String ltmp = e.nt()
+            e.add(cType(lt) + " " + ltmp + " = " + expr(fld(x, "L"), e, sc) + ";")
+            String rtmp = e.nt()
+            e.add(cType(lt) + " " + rtmp + " = " + expr(fld(x, "R"), e, sc) + ";")
+            String eq = ""
+            Int ei = 0
+            while ei < 2 {
+                String ek = tupleElemAt(lt, ei)
+                String term = ""
+                if ek == "String" && (op == "==" || op == "!=") {
+                    term = "xn_str_eq((" + ltmp + ").f" + str(ei) + ", (" + rtmp + ").f" + str(ei) + ")"
+                } else {
+                    term = "((" + ltmp + ").f" + str(ei) + " == (" + rtmp + ").f" + str(ei) + ")"
+                }
+                if eq == "" { eq = term } else { eq = eq + " && " + term }
+                ei = ei + 1
+            }
+            String eq2 = "(" + eq + ")"
+            if op == "!=" { return "(!(" + eq2 + "))" }
+            if op == "!==" { return "(!(" + eq2 + "))" }
+            return eq2
+        }
         if op == "/" { return "xn_div_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         if op == "%" { return "xn_mod_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         return "(" + expr(fld(x, "L"), e, sc) + " " + op + " " + expr(fld(x, "R"), e, sc) + ")"
@@ -1053,6 +1077,46 @@ static String emitStr(N x, EM e, SC sc) {
                 if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); rootStr(e, sc, c); cur = c }
             }
             if ex.nm != "" && ex.nm != "nil" {
+                if isTupleKey(exprType(ex, sc)) {
+                    String tk = exprType(ex, sc)
+                    String tt = e.nt()
+                    e.add(cType(tk) + " " + tt + " = " + expr(ex, e, sc) + ";")
+                    String curT = e.nt()
+                    e.add("rt_string *" + curT + " = rt_string_from_c(\"(\");")
+                    rootStr(e, sc, curT)
+                    Int tei = 0
+                    while tei < 2 {
+                        if tei > 0 {
+                            String sep = e.nt()
+                            e.add("rt_string *" + sep + " = xn_concat(" + curT + ", rt_string_from_c(\", \"));")
+                            rootStr(e, sc, sep)
+                            curT = sep
+                        }
+                        String ek = tupleElemAt(tk, tei)
+                        String ev = ""
+                        if ek == "String" {
+                            ev = e.nt()
+                            e.add("rt_string *" + ev + " = rt_retain((" + tt + ").f" + str(tei) + ");")
+                            rootStr(e, sc, ev)
+                        } else {
+                            ev = e.nt()
+                            e.add("rt_string *" + ev + " = xn_str_int((" + tt + ").f" + str(tei) + ");")
+                            rootStr(e, sc, ev)
+                        }
+                        String cc = e.nt()
+                        e.add("rt_string *" + cc + " = xn_concat(" + curT + ", " + ev + ");")
+                        rootStr(e, sc, cc)
+                        curT = cc
+                        tei = tei + 1
+                    }
+                    String cl = e.nt()
+                    e.add("rt_string *" + cl + " = xn_concat(" + curT + ", rt_string_from_c(\")\"));")
+                    rootStr(e, sc, cl)
+                    curT = cl
+                    if cur == "" { cur = curT } else { String c2 = e.nt(); e.add("rt_string *" + c2 + " = xn_concat(" + cur + ", " + curT + ");"); rootStr(e, sc, c2); cur = c2 }
+                    i = i + 1
+                    continue
+                }
                 String t = ""
                 if exprType(ex, sc) == "String" { t = emitStr(ex, e, sc) } else {
                     t = e.nt()
@@ -2759,6 +2823,21 @@ static String tupleCN(String k) {
     Int i = 0
     while i < TUPLE_KEYS.length() { if TUPLE_KEYS.get(i) == k { return TUPLE_CN.get(i) }; i = i + 1 }
     return "xn_tup"
+}
+static String tupleElemAt(String k, Int idx) {
+    String es = tupleInnerKeys(k)
+    Int c = 0; String cur = ""
+    while c <= es.length() {
+        String ch = ""
+        if c < es.length() { ch = es.substring(c, 1) }
+        if c == es.length() || ch == "," {
+            if idx == 0 { return cur.trim() }
+            idx = idx - 1
+            cur = ""
+        } else { cur = cur + ch }
+        c = c + 1
+    }
+    return "Int"
 }
 static String tupleInnerKeys(String k) {
     Int l = k.indexOf("<")
