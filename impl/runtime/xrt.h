@@ -71,7 +71,11 @@ void           xrt_weak_clear(xrt_weak_slot *slot);
 
 /* ---- 屏障、根与安全点（S3 §8/§12/§22） ---- */
 
-void xrt_write_barrier(void *obj);   /* 单线程骨架期无增量屏障：仅存活校验 */
+/* S3-06 合同：本运行时只在安全点/显式 collect 做 STW 标记-清扫；两次安全点之间的
+ * mutator 写入无需增量屏障。xrt_write_barrier 只做存活校验（写入已终结对象 fatal）。
+ * 收集前所有 mutator 必须静止/到达安全点；并发增量收集不在 v1 承诺。 */
+#define XRT_WRITE_BARRIER_SAFEPOINT_ONLY 1
+void xrt_write_barrier(void *obj);
 void xrt_register_root(void *obj);   /* 全局根（静态/顶层/单例/枚举项） */
 void xrt_unregister_root(void *obj);
 void xrt_safepoint(void);            /* 回收会合点：刷新隔离区（S3 §13） */
