@@ -1,0 +1,86 @@
+FAIL cdiff container/array.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/go.c	2026-11-09 00:19:16
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/xn.c	2026-11-09 00:19:16
+@@ -1,521 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff container/containers.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/go.c	2026-11-09 00:19:16
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/xn.c	2026-11-09 00:19:16
+@@ -1,931 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff container/list.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/go.c	2026-11-09 00:19:16
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/xn.c	2026-11-09 00:19:16
+@@ -1,525 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff container/mapset.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/go.c	2026-11-09 00:19:16
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/xn.c	2026-11-09 00:19:16
+@@ -1,840 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+FAIL cdiff container/oob.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/go.c	2026-11-09 00:19:16
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-es.17xRHC/xn.c	2026-11-09 00:19:16
+@@ -1,517 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+xnullc-containers 汇总：PASS=0 FAIL=5

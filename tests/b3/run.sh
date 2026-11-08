@@ -11,4 +11,5 @@ bash "$HERE/negative.sh" || rc=1
 bash "$HERE/xnullc-skeleton.sh" || rc=1
 bash "$HERE/xnullc-expr-stmt.sh" || rc=1
 bash "$HERE/xnullc-err.sh" || rc=1
+bash "$HERE/xnullc-containers.sh" || rc=1
 exit $rc
