@@ -1,0 +1,11 @@
+=== RUN   TestFmtSource
+--- PASS: TestFmtSource (0.00s)
+=== RUN   TestClean
+--- PASS: TestClean (0.01s)
+=== RUN   TestVersionOutput
+--- PASS: TestVersionOutput (0.00s)
+=== RUN   TestDoctor
+--- PASS: TestDoctor (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	2.152s
+exit=0

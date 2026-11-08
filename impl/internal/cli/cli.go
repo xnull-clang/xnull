@@ -17,12 +17,16 @@ import (
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
 	"xnull.dev/xnull/internal/interp"
+	"xnull.dev/xnull/internal/manifest"
 	"xnull.dev/xnull/internal/sema"
+	"xnull.dev/xnull/internal/version"
 	"xnull.dev/xnull/internal/xfront"
+	"xnull.dev/xnull/internal/xnfmt"
+	"xnull.dev/xnull/internal/xpd"
 )
 
-// Version 工具链版本；与清单 properties.xdk-version 的校验后续接入。
-const Version = "0.1.0-dev"
+// Version 工具链完整版本（含 commit 短哈希；由 internal/version 提供）。
+var Version = version.Full()
 
 const (
 	codeUnknownCommand = "CLI-001"
@@ -60,7 +64,7 @@ func Run(env Env) int {
 		writeUsage(env.Stdout)
 		return exitcode.Success
 	case "-v", "--version", "version":
-		fmt.Fprintf(env.Stdout, "xnull %s\n", Version)
+		fmt.Fprintf(env.Stdout, "xnull %s", version.Info())
 		return exitcode.Success
 	}
 
@@ -98,9 +102,16 @@ func Run(env Env) int {
 	if name == "check" {
 		return runCheck(env, rest)
 	}
-	// S8-10：清单/锁/元数据格式化。
+	// S8-10/S8-16：清单类与 .x 源码格式化。
 	if name == "fmt" {
-		return runFmt(env, rest)
+		return runFmtDispatch(env, rest)
+	}
+	// S8-16：清理与自检。
+	if name == "clean" {
+		return runClean(env, rest)
+	}
+	if name == "doctor" {
+		return runDoctor(env, rest)
 	}
 	// 最小可运行闭环：`xnull run path/to/file.x [--] [程序参数...]` 直接执行单文件
 	//（不依赖工程清单；清单模式后续接入）。`--` 之后的参数原样交给 main(String[])。
@@ -157,7 +168,9 @@ var commands = map[string]string{
 	"build":  "校验清单并构建产物（阶段：validate→compile→test→package→install）",
 	"run":    "构建并运行 app 入口",
 	"test":   "运行测试入口（src/test/x）",
-	"fmt":    "格式化 xnull.project / .xmeta / .xplugin / xnull.lock",
+	"fmt":    "格式化 .x 源码或 xnull.project / .xmeta / .xplugin / xnull.lock（--check 只检查）",
+	"clean":  "清理 target/ 与缓存（--all 含本地仓库缓存）",
+	"doctor": "环境自检：cc / runtime / 本地仓库 / 清单 / 锁",
 	"lock":   "校验或重生成锁文件（--update-lock 为唯一重生成入口）",
 	"dev":    "内部维护工具（check / ledger / res / board）",
 }
@@ -255,8 +268,8 @@ var knownFlags = map[string]struct{}{
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
-	"--resources": {},
-	"--mem":       {}, "--stats": {},
+	"--resources": {}, "--all": {},
+	"--mem": {}, "--stats": {},
 }
 
 func notImplemented(env Env, name string) int {
@@ -591,4 +604,188 @@ func testManifest(env Env, rest []string, dir string) int {
 	args = append(args, "--skip", "package", "--skip", "install")
 	_, code := buildManifest(env, args, dir)
 	return code
+}
+
+// runFmtDispatch：显式 `.x` 路径走源码格式化，其余走清单/锁/元数据格式化。
+func runFmtDispatch(env Env, rest []string) int {
+	for _, a := range rest {
+		if !strings.HasPrefix(a, "-") && strings.HasSuffix(a, ".x") {
+			return runFmtSources(env, rest)
+		}
+	}
+	return runFmt(env, rest)
+}
+
+// runFmtSources 用 internal/xnfmt 格式化 `.x`；--check 只检查、不写文件。
+func runFmtSources(env Env, rest []string) int {
+	check := hasFlag(rest, "--check")
+	var paths []string
+	for _, a := range rest {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		paths = append(paths, a)
+	}
+	if len(paths) == 0 {
+		fmt.Fprintln(env.Stderr, "xnull: fmt 需要 .x 文件路径")
+		return exitcode.Usage
+	}
+	failed := false
+	for _, p := range paths {
+		src, err := os.ReadFile(p)
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: 无法读取 %s：%v\n", p, err)
+			failed = true
+			continue
+		}
+		out, ds := xnfmt.Format(p, string(src))
+		if len(ds) > 0 {
+			for _, d := range ds {
+				fmt.Fprintln(env.Stderr, d.Error())
+			}
+			failed = true
+			continue
+		}
+		if out == string(src) {
+			continue
+		}
+		if check {
+			fmt.Fprintf(env.Stderr, "xnull: 需要格式化 %s\n", p)
+			failed = true
+			continue
+		}
+		if err := os.WriteFile(p, []byte(out), 0o644); err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: 无法写入 %s：%v\n", p, err)
+			failed = true
+		}
+	}
+	if failed {
+		return exitcode.BuildFail
+	}
+	return exitcode.Success
+}
+
+// runClean 清理 target/ 与缓存；--all 连本地仓库缓存一起清理。
+func runClean(env Env, rest []string) int {
+	all := hasFlag(rest, "--all")
+	root := env.Dir
+	if root == "" {
+		root = "."
+	}
+	for _, a := range rest {
+		if !strings.HasPrefix(a, "-") {
+			root = a
+		}
+	}
+	target := filepath.Join(root, "target")
+	if err := os.RemoveAll(target); err != nil {
+		fmt.Fprintf(env.Stderr, "xnull: 清理 %s 失败：%v\n", target, err)
+		return exitcode.BuildFail
+	}
+	fmt.Fprintf(env.Stdout, "已清理 %s\n", target)
+	if all {
+		repo := os.Getenv("XNULL_REPO")
+		if repo == "" {
+			if home, err := os.UserHomeDir(); err == nil {
+				repo = filepath.Join(home, ".xnull", "repository")
+			}
+		}
+		if repo != "" {
+			if err := os.RemoveAll(repo); err != nil {
+				fmt.Fprintf(env.Stderr, "xnull: 清理本地仓库 %s 失败：%v\n", repo, err)
+				return exitcode.BuildFail
+			}
+			fmt.Fprintf(env.Stdout, "已清理本地仓库缓存 %s\n", repo)
+		}
+	}
+	return exitcode.Success
+}
+
+// runDoctor 环境自检：cc / runtime / 本地仓库 / 清单 / 锁。fail 级才算失败。
+func runDoctor(env Env, rest []string) int {
+	root := env.Dir
+	if root == "" {
+		root = "."
+	}
+	for _, a := range rest {
+		if !strings.HasPrefix(a, "-") {
+			root = a
+		}
+	}
+	failed := false
+	report := func(level, name, detail string) {
+		fmt.Fprintf(env.Stdout, "[%s] %s：%s\n", level, name, detail)
+		if level == "fail" {
+			failed = true
+		}
+	}
+
+	if cc, err := exec.LookPath("cc"); err == nil {
+		report("ok", "cc", cc)
+	} else {
+		report("fail", "cc", "未找到 C 编译器（cc）")
+	}
+
+	rt := manifestRuntimeDir(root)
+	if rt == "" {
+		rt = os.Getenv("XNULL_RUNTIME")
+	}
+	if rt != "" {
+		if st, err := os.Stat(filepath.Join(rt, "rt.h")); err == nil && !st.IsDir() {
+			report("ok", "runtime", rt)
+		} else {
+			report("fail", "runtime", "rt.h 不存在："+rt)
+		}
+	} else {
+		report("fail", "runtime", "找不到运行时源码目录（rt.h）")
+	}
+
+	repo := os.Getenv("XNULL_REPO")
+	if repo == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			repo = filepath.Join(home, ".xnull", "repository")
+		}
+	}
+	if repo == "" {
+		report("warn", "repo", "未设置本地仓库")
+	} else if st, err := os.Stat(repo); err == nil && st.IsDir() {
+		report("ok", "repo", repo)
+	} else {
+		report("warn", "repo", "本地仓库尚未创建："+repo)
+	}
+
+	projectRoot := findManifestRoot(root)
+	if projectRoot == "" {
+		report("warn", "manifest", "当前目录不在工程内（无 xnull.project）")
+	} else {
+		src, err := os.ReadFile(filepath.Join(projectRoot, "xnull.project"))
+		if err != nil {
+			report("fail", "manifest", "读取失败："+err.Error())
+		} else if f, ds := xpd.Parse("xnull.project", string(src)); len(ds) > 0 {
+			report("fail", "manifest", ds[0].Message)
+		} else if f.Find("project") == nil {
+			report("fail", "manifest", "缺少 project 块")
+		} else {
+			report("ok", "manifest", projectRoot)
+		}
+	}
+
+	lockPath := filepath.Join(root, "xnull.lock")
+	if projectRoot != "" {
+		lockPath = filepath.Join(projectRoot, "xnull.lock")
+	}
+	if _, err := os.Stat(lockPath); err != nil {
+		report("warn", "lock", "未找到 xnull.lock（首次构建后可生成）")
+	} else if lock, ds, lerr := manifest.LoadLock(lockPath); lerr != nil {
+		report("fail", "lock", "读取失败："+lerr.Error())
+	} else if len(ds) > 0 {
+		report("fail", "lock", ds[0].Message)
+	} else {
+		report("ok", "lock", fmt.Sprintf("%s（%d 条）", lockPath, len(lock.Entries)))
+	}
+
+	if failed {
+		return exitcode.BuildFail
+	}
+	return exitcode.Success
 }
