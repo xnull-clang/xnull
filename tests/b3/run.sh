@@ -17,4 +17,5 @@ bash "$HERE/xnullc-obj2.sh" || rc=1
 bash "$HERE/xnullc-obj3.sh" || rc=1
 bash "$HERE/xnullc-gen.sh" || rc=1
 bash "$HERE/xnullc-tuple.sh" || rc=1
+bash "$HERE/xnullc-type.sh" || rc=1
 exit $rc

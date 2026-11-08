@@ -1,0 +1,12 @@
+FAIL cdiff tests/b3/fixtures/type/opt.x
+--- /tmp/ty.go	2026-11-09 02:21:34
++++ /tmp/ty.xn	2026-11-09 02:21:34
+@@ -1,434 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+xnullc-type 汇总：PASS=0 FAIL=1
