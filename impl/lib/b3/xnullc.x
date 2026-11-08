@@ -268,10 +268,12 @@ static String cType(String k) {
     if k == "String?" { return "xn_opt_s" }
     if k == "String" { return "rt_string *" }
     if k == "List<Int>" || k == "Int[]" { return "xn_arr_i *" }
+    if isObjArr(k) { return classArrName(k) + " *" }
     if isTupList(k) { return arrTupName(k) + " *" }
     if k == "Set<Int>" { return "xn_set_i *" }
     if k == "Map<String, Int>" { return "xn_map_s_i *" }
     if k.indexOf("Result<") == 0 { return resultName(k) }
+    if baseCls(k) != "" { return "xn_Cls_" + baseCls(k) + " *" }
     if isEnumType(k) { if isDataEnum(k) { return "xn_Enum_" + k + " *" }; return "xn_Enum_" + k }
     if isProtoType(k) { return "xn_proto_" + k }
     if isClass(k) { return "xn_Cls_" + k + " *" }
@@ -282,6 +284,116 @@ static Bool isResult(String k) { return k.indexOf("Result<") == 0 }
 static Bool isArr(String k) { return k == "List<Int>" || k == "Int[]" }
 static Bool isMap(String k) { return k.indexOf("Map<") == 0 }
 static Bool isSet(String k) { return k.indexOf("Set<") == 0 }
+static String stripQ(String k) {
+    if k.length() > 0 && k.substring(k.length() - 1, 1) == "?" { return k.substring(0, k.length() - 1) }
+    return k
+}
+static String baseCls(String k) {
+    String b = stripQ(k)
+    if isClass(b) { return b }
+    return ""
+}
+static Bool isObjArr(String k) {
+    if k.indexOf("List<") != 0 { return false }
+    Int l = k.indexOf("<")
+    if l < 0 { return false }
+    String e = k.substring(l + 1, k.length() - l - 2).trim()
+    return isClass(e)
+}
+static String objArrElem(String k) {
+    Int l = k.indexOf("<")
+    if l < 0 { return "Int" }
+    return k.substring(l + 1, k.length() - l - 2).trim()
+}
+static String classArrName(String k) { return "xn_arr_o_" + objArrElem(k) }
+static Bool fieldIsGC(String k) {
+    String b = stripQ(k)
+    if b == "Any" || b == "Object" || b == "Result" { return true }
+    if b == "String" || b == "Text" || b == "Bytes" || b == "StringBuilder" { return true }
+    if b.indexOf("List<") == 0 || b.indexOf("Set<") == 0 || b.indexOf("Map<") == 0 { return true }
+    if b.indexOf("Result<") == 0 { return true }
+    if isProtoType(b) { return true }
+    if b.indexOf("Tuple<") == 0 {
+        Int l = b.indexOf("<")
+        String es = b.substring(l + 1, b.length() - l - 1)
+        if es.indexOf("String") >= 0 || es.indexOf("Any") >= 0 { return true }
+    }
+    return false
+}
+static String fieldKind(String k) {
+    if fieldIsGC(k) { return "gc" }
+    if baseCls(k) != "" { return "ref" }
+    if isDataEnum(stripQ(k)) { return "ref" }
+    return "value"
+}
+static Bool clsHasGC(String cn) {
+    String cur = cn
+    while cur != "" {
+        Int i = 0
+        while i < FLD_OWNER.length() {
+            if FLD_OWNER.get(i) == cur && fieldIsGC(FLD_TYPE.get(i)) { return true }
+            i = i + 1
+        }
+        cur = baseOf(cur)
+    }
+    return false
+}
+static Bool clsReaches(String cur, String target, List<String> seen) {
+    String base = baseOf(cur)
+    if base != "" {
+        if base == target { return true }
+        Bool vb = false
+        Int jb = 0
+        while jb < seen.length() { if seen.get(jb) == base { vb = true }; jb = jb + 1 }
+        if !vb { List<String> sb = []; Int kb = 0; while kb < seen.length() { sb.push(seen.get(kb)); kb = kb + 1 }; sb.push(base); if clsReaches(base, target, sb) { return true } }
+    }
+    Int i = 0
+    while i < FLD_OWNER.length() {
+        if FLD_OWNER.get(i) == cur {
+            String b = baseCls(FLD_TYPE.get(i))
+            if b != "" {
+                if b == target { return true }
+                Bool vis = false
+                Int j = 0
+                while j < seen.length() { if seen.get(j) == b { vis = true }; j = j + 1 }
+                if !vis {
+                    List<String> s2 = []
+                    Int k = 0
+                    while k < seen.length() { s2.push(seen.get(k)); k = k + 1 }
+                    s2.push(b)
+                    if clsReaches(b, target, s2) { return true }
+                }
+            }
+        }
+        i = i + 1
+    }
+    return false
+}
+static Bool clsHasCycle(String cn) {
+    List<String> s = []
+    s.push(cn)
+    return clsReaches(cn, cn, s)
+}
+static String classPolicy(String cn) {
+    if clsHasGC(cn) { return "gc" }
+    if clsHasCycle(cn) { return "gc" }
+    return "arc"
+}
+static Bool classStackOK(String cn) {
+    if classPolicy(cn) != "arc" { return false }
+    if hasDeinitDeep(cn) || hasProto(cn) || isGenInstCls(cn) { return false }
+    String cur = cn
+    while cur != "" {
+        if hasDeinit(cur) || hasProto(cur) { return false }
+        Int i = 0
+        while i < FLD_OWNER.length() {
+            if FLD_OWNER.get(i) == cur && fieldKind(FLD_TYPE.get(i)) != "value" { return false }
+            i = i + 1
+        }
+        cur = baseOf(cur)
+    }
+    return true
+}
 static List<String> CLS_NAMES = []
 static List<String> PRIMARY_NAMES = []
 static List<String> SINGLE_NAMES = []
@@ -585,6 +697,7 @@ class SC {
     List<String> blockRoots = []
     List<String> params = []
     List<String> paramTypes = []
+    List<String> escaped = []
     List<String> fnNames = []
     List<String> fnRets = []
     List<String> resultTypes = []
@@ -649,6 +762,8 @@ class EM {
     Bool hasGetOr = false
     Bool usesTArr = false
     Bool usesAny = false
+    Bool usesObjArr = false
+    String objArrKey = ""
     Bool terminated = false
     String path = ""
     void add(String s) { self.ls.push(sp(self.ind) + s) }
@@ -665,6 +780,7 @@ static String exprType(N x, SC sc) {
     if x.nm == "StrLitExpr" { return "String" }
     if x.nm == "NullLit" { return "Null" }
     if x.nm == "Paren" { return exprType(fld(x, "X"), sc) }
+    if x.nm == "New" { return typeKey(fld(x, "Type")) }
     if x.nm == "Tuple" {
         N els = fld(x, "Elems")
         String b = "Tuple<"
@@ -698,6 +814,7 @@ static String exprType(N x, SC sc) {
         }
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
+        if baseCls(bt) != "" { return fieldType(fieldOwner(baseCls(bt), f), f) }
         if isClass(bt) || isStruct(bt) { return fieldType(fieldOwner(bt, f), f) }
         if isDataEnum(bt) { return fieldType(bt, f) }
         if isSingle(bt) { return fieldType(bt, f) }
@@ -756,7 +873,7 @@ static String exprType(N x, SC sc) {
                 return methodRet(mt, mn)
             }
             if mn == "length" { return "Int" }
-            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
+            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
             if mn == "getOr" { return mapVal(mt) }
             if mn == "has" { return "Bool" }
             if mn == "add" { return "Bool" }
@@ -848,6 +965,19 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "CharLitExpr" { return txt(fld(x, "Rune")) }
     if x.nm == "FloatLitExpr" { return unq(txt(fld(x, "Text"))) }
     if x.nm == "Paren" { return expr(fld(x, "X"), e, sc) }
+    if x.nm == "New" {
+        String ccls = typeKey(fld(x, "Type"))
+        N nargs = fld(x, "Args")
+        String b = "xn_Cls_" + ccls + "_new("
+        Int ai = 0
+        while ai < nargs.el.length() {
+            if ai > 0 { b = b + ", " }
+            N av = nargs.el.get(ai)
+            if exprType(av, sc) == "String" { b = b + emitStr(av, e, sc) } else { b = b + expr(av, e, sc) }
+            ai = ai + 1
+        }
+        return b + ")"
+    }
     if x.nm == "Tuple" {
         N els = fld(x, "Elems")
         String ek = "Tuple<"
@@ -953,6 +1083,7 @@ static String expr(N x, EM e, SC sc) {
         }
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
+        if baseCls(bt) != "" { return expr(fld(x, "X"), e, sc) + "->" + f }
         if isClass(bt) || isSingle(bt) || isDataEnum(bt) { return expr(fld(x, "X"), e, sc) + "->" + f }
         if isStruct(bt) {
             String bx = expr(fld(x, "X"), e, sc)
@@ -1059,6 +1190,13 @@ static String expr(N x, EM e, SC sc) {
                     else { a0 = expr(args.el.get(0), e, sc) }
                 }
                 if isMap(mt2) { return "(xn_map_s_i_get(" + xb + ", " + a0 + ").v)" }
+                if isObjArr(mt2) {
+                    String an = classArrName(mt2)
+                    String t = e.nt()
+                    e.add(cType(objArrElem(mt2)) + " " + t + " = " + an + "_get(" + xb + ", " + a0 + ");")
+                    e.raw("xn_root_add(" + t + ");")
+                    return t
+                }
                 if isTupList(mt2) { return arrTupName(mt2) + "_get(" + xb + ", " + a0 + ")" }
                 return "xn_arr_i_get(" + xb + ", " + a0 + ")"
             }
@@ -1414,6 +1552,22 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             sc.strLocals.push(nm)
             return
         }
+        if isObjArr(ty) {
+            e.usesObjArr = true
+            e.objArrKey = ty
+            String an = classArrName(ty)
+            N elems = fld(init, "Elems")
+            String t = e.nt()
+            e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
+            e.raw("xn_root_add(" + t + ");")
+            Int i = 0
+            while i < elems.el.length() { e.raw(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            e.add(an + " * " + nm + " = " + t + ";")
+            e.raw("xn_root_add(" + nm + ");")
+            e.raw("xn_root_add(" + nm + ");")
+            e.raw("xn_gc_safepoint();")
+            return
+        }
         if isTupList(ty) {
             e.usesTArr = true
             String an = arrTupName(ty)
@@ -1536,9 +1690,20 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             return
         }
         if isClass(ty) {
+            Bool isGC = classPolicy(ty) == "gc"
             if init.nm == "New" {
                 N args = fld(init, "Args")
-                if hasRefFieldsDeep(ty) || hasDeinitDeep(ty) || hasProto(ty) || isGenInstCls(ty) {
+                if classStackOK(ty) && !isEscaped(sc, nm) {
+                    String t = e.nt()
+                    e.add("xn_Cls_" + ty + " " + t + ";")
+                    e.raw("memset((char *)&" + t + ", 0, sizeof(xn_Cls_" + ty + "));")
+                    String b = "xn_Cls_" + ty + "_new" + (isPrimaryName(ty) ? "_1" : "") + "_init" + "(&" + t
+                    Int ai = 0
+                    while ai < args.el.length() { b = b + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                    e.raw(b + ");")
+                    e.add("xn_Cls_" + ty + " * " + nm + " = &" + t + ";")
+                    e.raw("xn_root_add(" + nm + ");")
+                } else {
                     String b = "xn_Cls_" + ty + "_new("
                     Int ai = 0
                     while ai < args.el.length() {
@@ -1549,28 +1714,24 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     }
                     e.add("xn_Cls_" + ty + " * " + nm + " = " + b + ");")
                     e.raw("xn_root_add(" + nm + ");")
-                    if hasRefFieldsDeep(ty) {
+                    if isGC {
                         e.raw("xn_root_add(" + nm + ");")
                         e.raw("xn_gc_safepoint();")
-                    }
-                    if hasDeinitDeep(ty) || hasProto(ty) || isGenInstCls(ty) { sc.releases.push("rt_release(" + nm + ");") }
-                } else {
-                    String t = e.nt()
-                    e.add("xn_Cls_" + ty + " " + t + ";")
-                    e.raw("memset((char *)&" + t + ", 0, sizeof(xn_Cls_" + ty + "));")
-                    String b = "xn_Cls_" + ty + "_new" + (isPrimaryName(ty) ? "_1" : "") + "_init" + "(&" + t
-                    Int ai = 0
-                    while ai < args.el.length() { b = b + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
-                    e.raw(b + ");")
-                    e.add("xn_Cls_" + ty + " * " + nm + " = &" + t + ";")
-                    e.raw("xn_root_add(" + nm + ");")
+                    } else { sc.releases.push("rt_release(" + nm + ");") }
                 }
+                return
+            }
+            if init.nm == "IdentExpr" && !isGC {
+                String src = expr(init, e, sc)
+                e.add("xn_Cls_" + ty + " * " + nm + " = rt_retain(" + src + ");")
+                e.raw("xn_root_add(" + nm + ");")
+                sc.releases.push("rt_release(" + nm + ");")
                 return
             }
             e.add("xn_Cls_" + ty + " * " + nm + " = " + expr(init, e, sc) + ";")
             e.raw("xn_root_add(" + nm + ");")
-            if hasRefFieldsDeep(ty) { e.raw("xn_root_add(" + nm + ");"); e.raw("xn_gc_safepoint();") }
-            if hasDeinitDeep(ty) || hasProto(ty) { sc.releases.push("rt_release(" + nm + ");") }
+            if isGC { e.raw("xn_root_add(" + nm + ");"); e.raw("xn_gc_safepoint();") }
+            else { sc.releases.push("rt_release(" + nm + ");") }
             return
         }
         if isStruct(ty) {
@@ -1598,6 +1759,26 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "AssignStmt" {
         N tgt = fld(st, "Target")
+        String op0 = unq(txt(fld(st, "Op")))
+        N val0 = fld(st, "Value")
+        if tgt.nm == "Member" && op0 == "=" {
+            String mtt = exprType(tgt, sc)
+            String mcls = baseCls(mtt)
+            if mcls != "" {
+                String mnm = expr(tgt, e, sc)
+                if classPolicy(mcls) == "arc" {
+                    String t = e.nt()
+                    if val0.nm == "New" { e.add(cType(mcls) + " " + t + " = " + expr(val0, e, sc) + ";") }
+                    else { e.add(cType(mcls) + " " + t + " = rt_retain(" + expr(val0, e, sc) + ");") }
+                    e.raw("xn_root_add(" + t + ");")
+                    e.add("rt_release(" + mnm + ");")
+                    e.add(mnm + " = " + t + ";")
+                } else {
+                    e.add(mnm + " = " + expr(val0, e, sc) + ";")
+                }
+                return
+            }
+        }
         String v0 = expr(fld(st, "Value"), e, sc)
         if tgt.nm == "TupleMember" {
             e.add(expr(fld(tgt, "X"), e, sc) + ".f" + txt(fld(tgt, "Index")) + " = " + v0 + ";")
@@ -1641,12 +1822,15 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 if mn == "push" {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
-                    e.add("xn_arr_i_push(" + xb + ", " + a0 + ");")
+                    String rt0 = exprType(mx, sc)
+                    if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
+                    else { e.add("xn_arr_i_push(" + xb + ", " + a0 + ");") }
                     return
                 }
                 if mn == "clear" {
                     String mt = exprType(mx, sc)
                     if isSet(mt) { e.add("xn_set_i_clear(" + xb + ");") }
+                    else if isObjArr(mt) { e.add(classArrName(mt) + "_clear(" + xb + ");") }
                     else { e.add("xn_arr_i_clear(" + xb + ");") }
                     return
                 }
@@ -1727,6 +1911,12 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.add("xn_root_add(" + nt0 + ");")
             e.add("xn_root_add(" + nt0 + ");")
             sc.ret = nt0
+            return
+        }
+        if baseCls(sc.retKind) != "" && v.nm == "IdentExpr" {
+            String pv = expr(v, e, sc)
+            if classPolicy(baseCls(sc.retKind)) == "arc" { e.add("rt_retain(" + pv + ");") }
+            sc.ret = pv
             return
         }
         if isTupleKey(exprType(v, sc)) {
@@ -1939,6 +2129,152 @@ static String paramsOf(N fn) {
     return b
 }
 
+static Bool inNames(List<String> xs, String v) {
+    Int i = 0
+    while i < xs.length() { if xs.get(i) == v { return true }; i = i + 1 }
+    return false
+}
+static void escMark(SC sc, String n) {
+    if n == "" || n == "self" || n == "super" { return }
+    if !inNames(sc.escaped, n) { sc.escaped.push(n) }
+}
+static void escAll(N n, SC sc) {
+    if n.nm == "" || n.nm == "nil" { return }
+    if n.nm == "IdentExpr" { escMark(sc, unq(txt(fld(n, "Name")))) }
+    Int i = 0
+    while i < n.fv.length() { escAll(n.fv.get(i), sc); i = i + 1 }
+    i = 0
+    while i < n.el.length() { escAll(n.el.get(i), sc); i = i + 1 }
+}
+static void escExpr(N x, Bool mark, SC sc) {
+    if x.nm == "" || x.nm == "nil" { return }
+    if x.nm == "IdentExpr" { if mark { escMark(sc, unq(txt(fld(x, "Name")))) }; return }
+    if x.nm == "StrLitExpr" {
+        N ps = fld(x, "Parts")
+        Int i = 0
+        while i < ps.el.length() { escExpr(ps.el.get(i), mark, sc); i = i + 1 }
+        return
+    }
+    if x.nm == "Paren" { escExpr(fld(x, "X"), mark, sc); return }
+    if x.nm == "Tuple" {
+        N els = fld(x, "Elems")
+        Int i = 0
+        while i < els.el.length() { escExpr(els.el.get(i), mark, sc); i = i + 1 }
+        return
+    }
+    if x.nm == "ArrayLit" {
+        N els = fld(x, "Elems")
+        Int i = 0
+        while i < els.el.length() { escExpr(els.el.get(i), mark, sc); i = i + 1 }
+        return
+    }
+    if x.nm == "MapLit" {
+        N ks = fld(x, "Keys")
+        N vs = fld(x, "Vals")
+        Int i = 0
+        while i < ks.el.length() { escExpr(ks.el.get(i), mark, sc); escExpr(vs.el.get(i), mark, sc); i = i + 1 }
+        return
+    }
+    if x.nm == "Unary" { escExpr(fld(x, "X"), mark, sc); return }
+    if x.nm == "Binary" {
+        String op = unq(txt(fld(x, "Op")))
+        Bool m2 = mark
+        if op == "is" || op == "==" || op == "!=" || op == "===" || op == "!==" { m2 = false }
+        escExpr(fld(x, "L"), m2, sc)
+        escExpr(fld(x, "R"), m2, sc)
+        return
+    }
+    if x.nm == "Ternary" {
+        escExpr(fld(x, "Cond"), mark, sc)
+        escExpr(fld(x, "Then"), mark, sc)
+        escExpr(fld(x, "Else"), mark, sc)
+        return
+    }
+    if x.nm == "Member" { escExpr(fld(x, "X"), false, sc); return }
+    if x.nm == "TupleMember" { escExpr(fld(x, "X"), false, sc); return }
+    if x.nm == "Call" {
+        N args = fld(x, "Args")
+        Int i = 0
+        while i < args.el.length() { escExpr(args.el.get(i), true, sc); i = i + 1 }
+        N callee = fld(x, "Callee")
+        if callee.nm == "Member" { escExpr(fld(callee, "X"), false, sc) } else { escExpr(callee, true, sc) }
+        return
+    }
+    if x.nm == "Index" { escExpr(fld(x, "X"), true, sc); escExpr(fld(x, "Idx"), true, sc); return }
+    if x.nm == "New" {
+        N args = fld(x, "Args")
+        Int i = 0
+        while i < args.el.length() { escExpr(args.el.get(i), true, sc); i = i + 1 }
+        return
+    }
+    if x.nm == "NewArray" { escExpr(fld(x, "Count"), true, sc); return }
+    if x.nm == "Lambda" { escAll(x, sc); return }
+    escAll(x, sc)
+}
+static void escStmt(N st, SC sc) {
+    if st.nm == "ReturnStmt" || st.nm == "ThrowStmt" { escExpr(fld(st, "Value"), true, sc); return }
+    if st.nm == "ExprStmt" { escExpr(fld(st, "X"), true, sc); return }
+    if st.nm == "LocalDeclStmt" { escExpr(fld(st, "Init"), true, sc); return }
+    if st.nm == "AssignStmt" {
+        escExpr(fld(st, "Value"), true, sc)
+        N tg = fld(st, "Target")
+        if tg.nm == "IdentExpr" { escMark(sc, unq(txt(fld(tg, "Name")))) }
+        else if tg.nm == "Member" { escExpr(fld(tg, "X"), false, sc) }
+        else if tg.nm == "Index" { escExpr(fld(tg, "X"), true, sc); escExpr(fld(tg, "Idx"), true, sc) }
+        return
+    }
+    if st.nm == "IncDecStmt" {
+        N tg = fld(st, "Target")
+        if tg.nm == "IdentExpr" { escMark(sc, unq(txt(fld(tg, "Name")))) }
+        return
+    }
+    if st.nm == "IfStmt" {
+        escExpr(fld(st, "Cond"), true, sc)
+        escBlock(fld(st, "Then"), sc)
+        N el = fld(st, "Else")
+        if el.nm != "" && el.nm != "nil" {
+            if el.nm == "Block" { escBlock(el, sc) } else { escStmt(el, sc) }
+        }
+        return
+    }
+    if st.nm == "WhileStmt" { escExpr(fld(st, "Cond"), true, sc); escBlock(fld(st, "Body"), sc); return }
+    if st.nm == "DoWhileStmt" { escBlock(fld(st, "Body"), sc); escExpr(fld(st, "Cond"), true, sc); return }
+    if st.nm == "ForStmt" { escExpr(fld(st, "Src"), true, sc); escBlock(fld(st, "Body"), sc); return }
+    if st.nm == "SwitchStmt" {
+        escExpr(fld(st, "Value"), true, sc)
+        N cs = fld(st, "Cases")
+        Int i = 0
+        while i < cs.el.length() {
+            N c = cs.el.get(i)
+            escExpr(fld(c, "Expr"), true, sc)
+            N ss = fld(c, "Stmts")
+            Int j = 0
+            while j < ss.el.length() { escStmt(ss.el.get(j), sc); j = j + 1 }
+            i = i + 1
+        }
+        N df = fld(st, "Default")
+        if df.nm != "" && df.nm != "nil" {
+            N ss2 = fld(df, "Stmts")
+            Int j2 = 0
+            while j2 < ss2.el.length() { escStmt(ss2.el.get(j2), sc); j2 = j2 + 1 }
+        }
+        return
+    }
+    if st.nm == "DeferStmt" {
+        N b = fld(st, "Block")
+        if b.nm == "Block" { escBlock(b, sc) } else { escStmt(fld(st, "Stmt"), sc) }
+        return
+    }
+    if st.nm == "LabeledStmt" { escStmt(fld(st, "Stmt"), sc); return }
+}
+static void escBlock(N b, SC sc) {
+    if b.nm != "Block" { return }
+    N stmts = fld(b, "Stmts")
+    Int i = 0
+    while i < stmts.el.length() { escStmt(stmts.el.get(i), sc); i = i + 1 }
+}
+static Bool isEscaped(SC sc, String n) { return inNames(sc.escaped, n) }
+
 static void emitFunc(N fn, EM e, SC sc) {
     String fname = unq(txt(fld(fn, "Name")))
     String rk = typeKey(fld(fn, "Ret"))
@@ -1958,6 +2294,9 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.errdefers = []
     sc.strLocals = []
     sc.blockRoots = []
+    sc.releases = []
+    sc.escaped = []
+    escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
     if isResult(rk) {
@@ -1974,17 +2313,22 @@ static void emitFunc(N fn, EM e, SC sc) {
         String pnm = unq(txt(fld(ps2.el.get(pj), "Name")))
         String pct = cType(pty)
         if pct.length() > 0 && pct.substring(pct.length() - 1, 1) == "*" {
-            e.raw("xn_root_add(xn_p_" + pnm + ");")
+            Bool needRoot = true
+            if baseCls(pty) != "" && classPolicy(baseCls(pty)) != "gc" { needRoot = false }
+            if needRoot { e.raw("xn_root_add(xn_p_" + pnm + ");") }
         }
         pj = pj + 1
     }
     emitBlock(fld(fn, "Body"), e, sc, 0, false)
     emitCleanup(sc, e, 0, 0, false)
     if sc.releases.length() > 0 {
-        e.add("    {")
-        Int ai0 = 0
-        while ai0 < sc.releases.length() { e.raw(sc.releases.get(ai0)); ai0 = ai0 + 1 }
-        e.add("    }")
+        Int ri0 = sc.releases.length() - 1
+        while ri0 >= 0 {
+            e.add("    {")
+            e.raw(sc.releases.get(ri0))
+            e.add("    }")
+            ri0 = ri0 - 1
+        }
     }
     Int i = 0
     while i < sc.strLocals.length() {
@@ -2049,7 +2393,7 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
 static void emitClassSection(N cls, EM ce) {
     String cn = unq(txt(fld(cls, "Name")))
     if CLS_OVERRIDE != "" { cn = CLS_OVERRIDE }
-    Bool ref = hasRefFieldsDeep(cn)
+    Bool ref = classPolicy(cn) == "gc"
     N fs = fld(cls, "Fields")
     N ms = fld(cls, "Methods")
     N cs = fld(cls, "Ctors")
@@ -2091,7 +2435,10 @@ static void emitClassSection(N cls, EM ce) {
     if hasDeinit(cn) { ce.add("    xn_Cls_" + cn + "_deinit(o);") }
     i = 0
     while i < fs.el.length() {
-        if typeKey(fld(fs.el.get(i), "Type")) == "String" { ce.add("    rt_release(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ");") }
+        String dft = typeKey(fld(fs.el.get(i), "Type"))
+        String dfn = unq(txt(fld(fs.el.get(i), "Name")))
+        if dft == "String" { ce.add("    rt_release(o->" + dfn + ");") }
+        else if baseCls(dft) != "" && classPolicy(baseCls(dft)) == "arc" { ce.add("    rt_release(o->" + dfn + ");") }
         i = i + 1
     }
     ce.add("}")
@@ -2101,7 +2448,9 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)p;")
         i = 0
         while i < fs.el.length() {
-            if typeKey(fld(fs.el.get(i), "Type")) == "String" { ce.add("    if (o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ") { visit(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + "); }") }
+            String sft = typeKey(fld(fs.el.get(i), "Type"))
+            String sfn = unq(txt(fld(fs.el.get(i), "Name")))
+            if sft == "String" || fieldIsGC(sft) || baseCls(sft) != "" { ce.add("    if (o->" + sfn + ") { visit(o->" + sfn + "); }") }
             i = i + 1
         }
         ce.add("}")
@@ -2187,6 +2536,15 @@ static void emitClassSection(N cls, EM ce) {
             ce.addAt(4, "rt_string *" + t + " = rt_string_from_c(" + q(text) + ");")
             ce.addAt(4, "rt_release((void *)o->" + fn + ");")
             ce.addAt(4, "o->" + fn + " = " + t + ";")
+        } else if isArr(ft) || isObjArr(ft) {
+            N elems = fld(init, "Elems")
+            String t = ce.nt()
+            String an = classArrName(ft)
+            if isArr(ft) { an = "xn_arr_i" }
+            ce.add("    " + cType(ft) + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
+            Int ei = 0
+            while ei < elems.el.length() { ce.add("    " + an + "_push(" + t + ", " + expr(elems.el.get(ei), ce, new SC()) + ");"); ei = ei + 1 }
+            ce.add("    o->" + fn + " = " + t + ";")
         } else {
             String dv = "0"
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
@@ -2244,6 +2602,7 @@ static void emitClassSection(N cls, EM ce) {
     ce.add("    return o;")
     ce.add("}")
     ce.raw("")
+    if ms.el.length() == 0 { ce.raw("") }
     // methods
     i = 0
     while i < ms.el.length() {
@@ -3096,6 +3455,167 @@ static void scanTupleTypes(N n) {
     while i < n.el.length() { scanTupleTypes(n.el.get(i)); i = i + 1 }
 }
 
+static Int chRank(String c) {
+    return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_".indexOf(c)
+}
+static Int cmpName(String a, String b) {
+    Int i = 0
+    while i < a.length() && i < b.length() {
+        if a.substring(i, 1) != b.substring(i, 1) {
+            Int ra = chRank(a.substring(i, 1))
+            Int rb = chRank(b.substring(i, 1))
+            if ra < rb { return -1 }
+            return 1
+        }
+        i = i + 1
+    }
+    if a.length() < b.length() { return -1 }
+    if a.length() > b.length() { return 1 }
+    return 0
+}
+static List<N> sortedClassDecls(N decls) {
+    List<N> xs = []
+    Int i = 0
+    while i < decls.el.length() {
+        N d = decls.el.get(i)
+        if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 { xs.push(d) }
+        i = i + 1
+    }
+    List<N> resL = []
+    List<String> used = []
+    while resL.length() < xs.length() {
+        Int best = -1
+        String bestNm = ""
+        Int j = 0
+        while j < xs.length() {
+            String nm = unq(txt(fld(xs.get(j), "Name")))
+            if !inNames(used, nm) {
+                if (best < 0) || (cmpName(nm, bestNm) < 0) { best = j; bestNm = nm }
+            }
+            j = j + 1
+        }
+        resL.push(xs.get(best))
+        used.push(bestNm)
+    }
+    return resL
+}
+static String containerTypedef(String key) {
+    if isObjArr(key) {
+        String e = objArrElem(key)
+        return "typedef struct { rt_header hdr; size_t len; size_t cap; " + cType(e) + " *data; } " + classArrName(key) + ";"
+    }
+    if key == "List<Int>" || key == "Int[]" { return "typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_arr_i;" }
+    return ""
+}
+static String arrIHelperText() {
+    Int s = PRELUDE_ARR.indexOf("static void xn_arr_i_deinit")
+    Int e = PRELUDE_ARR.indexOf("static int64_t xn_main();")
+    return PRELUDE_ARR.substring(s, e - s).trim() + "\n"
+}
+static String classArrHelperText(String key) {
+    String an = classArrName(key)
+    String ec = objArrElem(key)
+    String ct = cType(ec)
+    Bool gcEl = classPolicy(ec) == "gc"
+    String b = ""
+    b = b + "static void " + an + "_scan(void *p, void (*visit)(void *)) {\n"
+    b = b + "    " + an + " *a = (" + an + " *)p;\n"
+    b = b + "    if (a->data == NULL) { return; }\n"
+    b = b + "    for (size_t i = 0; i < a->len; i++) { visit(a->data[i]); }\n"
+    b = b + "}\n\n"
+    b = b + "static void " + an + "_deinit(void *p) {\n"
+    b = b + "    " + an + " *a = (" + an + " *)p;\n"
+    b = b + "    if (a->data != NULL) {\n"
+    if !gcEl { b = b + "        for (size_t i = 0; i < a->len; i++) { rt_release(a->data[i]); }\n" }
+    b = b + "        free(a->data);\n"
+    b = b + "        a->data = NULL;\n"
+    b = b + "    }\n"
+    b = b + "    a->len = 0;\n"
+    b = b + "    a->cap = 0;\n"
+    b = b + "}\n\n"
+    b = b + "static const rt_type RT_TYPE_" + an + " = { \"List\", sizeof(" + an + "), " + an + "_deinit, " + an + "_scan };\n\n"
+    b = b + "static " + an + " *" + an + "_new(size_t cap) {\n"
+    b = b + "    " + an + " *a = (" + an + " *)xn_gc_new(&RT_TYPE_" + an + ");\n"
+    b = b + "    memset((char *)a + sizeof(rt_header), 0, sizeof(" + an + ") - sizeof(rt_header));\n"
+    b = b + "    a->cap = cap ? cap : 4;\n"
+    b = b + "    a->data = malloc(sizeof(" + ct + ") * a->cap);\n"
+    b = b + "    if (a->data == NULL) { abort(); }\n"
+    b = b + "    return a;\n"
+    b = b + "}\n\n"
+    b = b + "static void " + an + "_push(" + an + " *a, " + ct + " v) {\n"
+    b = b + "    if (a->len == a->cap) {\n"
+    b = b + "        a->cap *= 2;\n"
+    b = b + "        a->data = realloc(a->data, sizeof(" + ct + ") * a->cap);\n"
+    b = b + "        if (a->data == NULL) { abort(); }\n"
+    b = b + "    }\n"
+    if !gcEl { b = b + "    rt_retain(v);\n" }
+    b = b + "    a->data[a->len++] = v;\n"
+    b = b + "}\n\n"
+    b = b + "static " + ct + " " + an + "_get(const " + an + " *a, int64_t i) {\n"
+    b = b + "    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n"
+    b = b + "    return a->data[i];\n"
+    b = b + "}\n\n"
+    b = b + "static void " + an + "_set(" + an + " *a, int64_t i, " + ct + " v) {\n"
+    b = b + "    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n"
+    if !gcEl { b = b + "    rt_release(a->data[i]);\n    rt_retain(v);\n" }
+    b = b + "    a->data[i] = v;\n"
+    b = b + "}\n\n"
+    b = b + "static " + ct + " " + an + "_remove(" + an + " *a, int64_t i) {\n"
+    b = b + "    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n"
+    b = b + "    " + ct + " old = a->data[i];\n"
+    b = b + "    for (size_t j = (size_t)i; j + 1 < a->len; j++) {\n"
+    b = b + "        a->data[j] = a->data[j + 1];\n"
+    b = b + "    }\n"
+    b = b + "    a->len--;\n"
+    b = b + "    return old;\n"
+    b = b + "}\n\n"
+    b = b + "static void " + an + "_insert(" + an + " *a, int64_t i, " + ct + " v) {\n"
+    b = b + "    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }\n"
+    b = b + "    if (a->len == a->cap) {\n"
+    b = b + "        a->cap *= 2;\n"
+    b = b + "        a->data = realloc(a->data, sizeof(" + ct + ") * a->cap);\n"
+    b = b + "        if (a->data == NULL) { abort(); }\n"
+    b = b + "    }\n"
+    b = b + "    for (size_t j = a->len; j > (size_t)i; j--) {\n"
+    b = b + "        a->data[j] = a->data[j - 1];\n"
+    b = b + "    }\n"
+    if !gcEl { b = b + "    rt_retain(v);\n" }
+    b = b + "    a->data[i] = v;\n"
+    b = b + "    a->len++;\n"
+    b = b + "}\n\n"
+    b = b + "static void " + an + "_clear(" + an + " *a) {\n"
+    if !gcEl { b = b + "    for (size_t i = 0; i < a->len; i++) { rt_release(a->data[i]); }\n" }
+    b = b + "    a->len = 0;\n"
+    b = b + "}\n\n"
+    b = b + "static rt_string *" + an + "_join(" + an + " *a, rt_string *sep) {\n"
+    b = b + "    rt_string *res = rt_string_from_c(\"\");\n"
+    b = b + "    for (size_t i = 0; i < a->len; i++) {\n"
+    b = b + "        if (i > 0) {\n"
+    b = b + "            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));\n"
+    b = b + "        }\n"
+    b = b + "        res = xn_concat(res, rt_string_from_c(\"\"));\n"
+    b = b + "    }\n"
+    b = b + "    return res;\n"
+    b = b + "}\n"
+    return b
+}
+static String topFuncProtos(N decls) {
+    String b = ""
+    Int i = 0
+    while i < decls.el.length() {
+        N d = decls.el.get(i)
+        if d.nm == "TopFunc" {
+            String nm = unq(txt(fld(d, "Name")))
+            if nm != "main" && fld(d, "TypePars").el.length() == 0 {
+                String rk = typeKey(fld(d, "Ret"))
+                b = b + "static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n"
+            }
+        }
+        i = i + 1
+    }
+    return b
+}
+
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -3359,37 +3879,58 @@ static String emitUnit(N unit, String path) {
             fi2 = fi2 + 1
         }
         e.tmp = fe.tmp
+        List<N> sdecls = sortedClassDecls(decls)
+        String cbKey = ""
+        if e.usesObjArr { cbKey = e.objArrKey }
+        if cbKey == "" {
+            Int cbi = 0
+            while cbi < FLD_TYPE.length() {
+                if isObjArr(FLD_TYPE.get(cbi)) { cbKey = FLD_TYPE.get(cbi) }
+                cbi = cbi + 1
+            }
+        }
+        if cbKey == "" {
+            Int cbi2 = 0
+            while cbi2 < FLD_TYPE.length() {
+                if cbKey == "" && (FLD_TYPE.get(cbi2) == "List<Int>" || FLD_TYPE.get(cbi2) == "Int[]") { cbKey = "List<Int>" }
+                cbi2 = cbi2 + 1
+            }
+        }
+        if cbKey == "" && e.usesList { cbKey = "List<Int>" }
+        String cbType = ""
+        String cbHelp = ""
+        if cbKey != "" {
+            cbType = containerTypedef(cbKey)
+            if isObjArr(cbKey) { cbHelp = classArrHelperText(cbKey) } else { cbHelp = arrIHelperText() }
+        }
+        String tfp = topFuncProtos(decls)
         List<String> fw = []
         Int pass = 0
         while pass < 2 {
-            ci = 0
-            while ci < decls.el.length() {
-                N d = decls.el.get(ci)
-                if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 {
-                    String ccn = unq(txt(fld(d, "Name")))
-                    fw.push("typedef struct xn_Cls_" + ccn + " xn_Cls_" + ccn + ";")
-                }
-                ci = ci + 1
+            Int sci2 = 0
+            while sci2 < sdecls.length() {
+                String ccn = unq(txt(fld(sdecls.get(sci2), "Name")))
+                fw.push("typedef struct xn_Cls_" + ccn + " xn_Cls_" + ccn + ";")
+                sci2 = sci2 + 1
             }
             Int gti = 0
             while gti < GEN_INST_NAME.length() { fw.push("typedef struct xn_Cls_" + GEN_INST_NAME.get(gti) + " xn_Cls_" + GEN_INST_NAME.get(gti) + ";"); gti = gti + 1 }
             fw.push("")
+            if pass == 0 && cbType != "" { fw.push(cbType); fw.push("") }
             pass = pass + 1
         }
         ci = 0
-        while ci < decls.el.length() {
-            N d = decls.el.get(ci)
-            if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 {
-                String ccn = unq(txt(fld(d, "Name")))
-                String csx = ""
-                if isPrimary(d) { csx = "_1" }
-                String cnp = ctorParams(d)
-                if cnp == "" { cnp = "void" }
-                fw.push("static xn_Cls_" + ccn + " *xn_Cls_" + ccn + "_new" + csx + "(" + cnp + ");")
-                fw.push("static void xn_Cls_" + ccn + "_new" + csx + "_init(xn_Cls_" + ccn + " *o" + (ctorParams(d) == "" ? "" : ", " + ctorParams(d)) + ");")
-                if hasDeinit(ccn) { fw.push("static void xn_Cls_" + ccn + "_deinit(xn_Cls_" + ccn + " *self);") }
-                if hasProto(ccn) { fw.push("static void *xn_vt_" + ccn + "[" + str(protoSlots(ccn) + 2) + "];") }
-            }
+        while ci < sdecls.length() {
+            N d = sdecls.get(ci)
+            String ccn = unq(txt(fld(d, "Name")))
+            String csx = ""
+            if isPrimary(d) { csx = "_1" }
+            String cnp = ctorParams(d)
+            if cnp == "" { cnp = "void" }
+            fw.push("static xn_Cls_" + ccn + " *xn_Cls_" + ccn + "_new" + csx + "(" + cnp + ");")
+            fw.push("static void xn_Cls_" + ccn + "_new" + csx + "_init(xn_Cls_" + ccn + " *o" + (ctorParams(d) == "" ? "" : ", " + ctorParams(d)) + ");")
+            if hasDeinit(ccn) { fw.push("static void xn_Cls_" + ccn + "_deinit(xn_Cls_" + ccn + " *self);") }
+            if hasProto(ccn) { fw.push("static void *xn_vt_" + ccn + "[" + str(protoSlots(ccn) + 2) + "];") }
             ci = ci + 1
         }
         Int gpi = 0
@@ -3427,7 +3968,7 @@ static String emitUnit(N unit, String path) {
         }
         fw.push("")
         fw.push("")
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + (FACTORY_NAMES.length() > 0 || EXT_TARGET.length() > 0 ? "\n" : "") + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
