@@ -1,0 +1,5 @@
+=== RUN   TestS2BND08CrossPackageStatic
+--- PASS: TestS2BND08CrossPackageStatic (2.14s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.646s
+default rc=0

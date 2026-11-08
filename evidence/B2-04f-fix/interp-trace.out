@@ -1,0 +1,27 @@
+# 新 xparser.x + XNULL_INTERP_TRACE=1
+rc=0
+trace_lines=    4122
+max_depth=41
+FactoryDecl=1
+--- head ---
+interp trace: func main @2060:1 (depth 0)
+interp trace:   method Lexer.next @2076:18 (depth 1)
+interp trace:     method Lexer.skipTrivia @193:17 (depth 2)
+interp trace:       method Lexer.eof @120:26 (depth 3)
+interp trace:     method Lexer.eof @194:20 (depth 2)
+interp trace:     method Lexer.scanToken @201:25 (depth 2)
+interp trace:       method Lexer.isDigit @241:16 (depth 3)
+interp trace:       method Lexer.isIdentStart @244:16 (depth 3)
+interp trace:       method Lexer.adv @246:17 (depth 3)
+interp trace:         method Lexer.eof @87:16 (depth 4)
+interp trace:       method Lexer.eof @247:24 (depth 3)
+interp trace:       method Lexer.isIdentRune @247:38 (depth 3)
+--- tail ---
+interp trace:                                   method TP.renderField @771:42 (depth 17)
+interp trace:                                     method TP.render @779:50 (depth 18)
+interp trace:                               method TP.fcat @771:81 (depth 15)
+interp trace:                               method TP.renderField @771:42 (depth 15)
+interp trace:                                 method TP.render @779:50 (depth 16)
+interp trace:               method TP.fcat @771:81 (depth 7)
+interp trace:               method TP.renderField @771:42 (depth 7)
+interp trace:                 method TP.render @779:50 (depth 8)

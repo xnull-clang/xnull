@@ -196,6 +196,9 @@ func (in *Interp) specificity(t xfront.TypeRef, v *Value) int {
 
 // callStatic 调用静态方法（无 self；静态上下文内裸静态名可解析）。
 func (in *Interp) callStatic(cls *xfront.ClassDecl, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
+	if in.trace != nil {
+		defer in.traceCall("static", cls.Name+"."+name, pos)()
+	}
 	cands := in.findStaticMethods(cls, name)
 	if len(cands) == 0 {
 		panic(runtimeErr{"该类型没有静态方法 " + name + "：" + cls.Name})

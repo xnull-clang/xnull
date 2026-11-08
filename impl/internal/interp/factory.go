@@ -19,6 +19,9 @@ func (in *Interp) findFactoryMethod(fac *xfront.FactoryDecl, name string) []*xfr
 
 // callFactoryMethod 执行工厂方法：无 self；`try` 在方法边界转 Result 返回（§10.2）。
 func (in *Interp) callFactoryMethod(fac *xfront.FactoryDecl, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
+	if in.trace != nil {
+		defer in.traceCall("factory", fac.Name+"."+name, pos)()
+	}
 	cands := in.findFactoryMethod(fac, name)
 	if len(cands) == 0 {
 		panic(runtimeErr{"工厂 " + fac.Name + " 没有方法 " + name + "（§10.2）"})

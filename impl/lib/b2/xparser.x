@@ -1333,6 +1333,8 @@ class Parser {
             }
         } else if kw == "factory" || kw == "extension" {
             if self.atKw("for") { self.next(); base = self.parseType() }
+            // factory 的 `{` 在 target 之后（`factory F for T {`）；通用位置在 target 之前检查不到。
+            if self.at(12) { self.next() }
             while !self.at(13) && !self.eof() {
                 if self.at(1) { self.next(); continue }
                 String r = self.parseMember(name, fields, methods, ctors)
