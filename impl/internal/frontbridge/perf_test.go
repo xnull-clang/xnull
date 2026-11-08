@@ -3,14 +3,15 @@ package frontbridge
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
 	"xnull.dev/xnull/internal/xfront"
 )
 
-// TestXNullTimeoutReturnsB2002 验证前端超时映射为 B2-002（独立进程 + 硬超时）。
-func TestXNullTimeoutReturnsB2002(t *testing.T) {
+// TestXNullTimeoutFallsBackAndRecordsB2002 验证前端超时回退 Go 并记录 B2-002。
+func TestXNullTimeoutFallsBackAndRecordsB2002(t *testing.T) {
 	dir := t.TempDir()
 	slow := filepath.Join(dir, "slow-runner")
 	if err := os.WriteFile(slow, []byte("#!/bin/sh\nsleep 5\n"), 0o755); err != nil {
@@ -23,9 +24,17 @@ func TestXNullTimeoutReturnsB2002(t *testing.T) {
 	t.Setenv("XNULL_FRONTBRIDGE_CACHE", t.TempDir())
 	astCache = newLRU(256)
 
-	_, ds := ParseUnit("t.x", "static Int main() { return 0 }\n")
-	if len(ds) != 1 || ds[0].Code != "B2-002" {
-		t.Fatalf("期望 B2-002，得到 %+v", ds)
+	src := "static Int main() { return 0 }\n"
+	u, ds := ParseUnit("t.x", src)
+	if len(ds) > 0 {
+		t.Fatalf("超时应回退 Go，不应返回诊断：%s", ds[0].String())
+	}
+	want, _ := xfront.ParseUnit("t.x", src)
+	if xfront.PrintUnitPos(u) != xfront.PrintUnitPos(want) {
+		t.Fatal("超时后未回退 Go AST")
+	}
+	if issue := LastIssue(); !strings.Contains(issue, "B2-002") {
+		t.Fatalf("未记录 B2-002：%q", issue)
 	}
 }
 
@@ -148,6 +157,7 @@ func TestAutoUsesNativeParser(t *testing.T) {
 	t.Setenv("XNULL_NATIVE_XPARSER", native)
 	t.Setenv("XNULL_FRONTBRIDGE_CACHE", filepath.Join(dir, "cache"))
 	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "0")
+	t.Setenv("XNULL_SELFHOST_TIMEOUT", "30s")
 	nativeOnce = sync.Once{}
 	nativeBin, nativeErr = "", nil
 	astCache = newLRU(256)
@@ -182,6 +192,7 @@ func TestNativeParserAutobuild(t *testing.T) {
 	t.Setenv("XNULL_TOOLCHAIN_BIN", tool)
 	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "1")
 	t.Setenv("XNULL_NATIVE_XPARSER", "")
+	t.Setenv("XNULL_SELFHOST_TIMEOUT", "30s")
 	nativeOnce = sync.Once{}
 	nativeBin, nativeErr = "", nil
 

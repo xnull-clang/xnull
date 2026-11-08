@@ -1,0 +1,112 @@
+---- 并行分片 1 ----
+?   	xnull.dev/xnull/cmd/xnast	[no test files]
+ok  	xnull.dev/xnull/cmd/xnfmt	2.581s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnselfhost	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/artifact	3.609s
+ok  	xnull.dev/xnull/internal/cli	85.381s
+ok  	xnull.dev/xnull/internal/codegen	113.258s
+ok  	xnull.dev/xnull/internal/codegen/ffi	48.777s
+ok  	xnull.dev/xnull/internal/config	11.362s
+ok  	xnull.dev/xnull/internal/devtool	12.959s
+ok  	xnull.dev/xnull/internal/diag	13.347s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/frontbridge	38.942s
+ok  	xnull.dev/xnull/internal/interp	16.814s
+ok  	xnull.dev/xnull/internal/manifest	18.672s
+ok  	xnull.dev/xnull/internal/plugin	20.971s
+ok  	xnull.dev/xnull/internal/reactor	21.605s
+ok  	xnull.dev/xnull/internal/repro	22.310s
+ok  	xnull.dev/xnull/internal/resman	22.939s
+ok  	xnull.dev/xnull/internal/sema	22.980s
+?   	xnull.dev/xnull/internal/version	[no test files]
+ok  	xnull.dev/xnull/internal/xdkcheck	33.111s
+ok  	xnull.dev/xnull/internal/xfront	23.105s
+ok  	xnull.dev/xnull/internal/xmeta	23.470s
+ok  	xnull.dev/xnull/internal/xnfmt	23.715s
+ok  	xnull.dev/xnull/internal/xpd	23.232s
+---- 并行分片 2 ----
+?   	xnull.dev/xnull/cmd/xnast	[no test files]
+ok  	xnull.dev/xnull/cmd/xnfmt	2.286s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnselfhost	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/artifact	2.929s
+ok  	xnull.dev/xnull/internal/cli	82.684s
+ok  	xnull.dev/xnull/internal/codegen	113.019s
+ok  	xnull.dev/xnull/internal/codegen/ffi	47.360s
+ok  	xnull.dev/xnull/internal/config	5.875s
+ok  	xnull.dev/xnull/internal/devtool	7.116s
+ok  	xnull.dev/xnull/internal/diag	10.409s [no tests to run]
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/frontbridge	36.984s
+ok  	xnull.dev/xnull/internal/interp	14.649s
+ok  	xnull.dev/xnull/internal/manifest	17.760s
+ok  	xnull.dev/xnull/internal/plugin	19.185s
+ok  	xnull.dev/xnull/internal/reactor	21.483s [no tests to run]
+ok  	xnull.dev/xnull/internal/repro	21.777s
+ok  	xnull.dev/xnull/internal/resman	22.104s
+ok  	xnull.dev/xnull/internal/sema	22.271s
+?   	xnull.dev/xnull/internal/version	[no test files]
+ok  	xnull.dev/xnull/internal/xdkcheck	22.469s
+ok  	xnull.dev/xnull/internal/xfront	22.906s
+ok  	xnull.dev/xnull/internal/xmeta	23.334s
+ok  	xnull.dev/xnull/internal/xnfmt	23.624s
+ok  	xnull.dev/xnull/internal/xpd	23.030s
+---- 并行分片 3 ----
+?   	xnull.dev/xnull/cmd/xnast	[no test files]
+ok  	xnull.dev/xnull/cmd/xnfmt	3.192s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnselfhost	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/artifact	3.425s
+ok  	xnull.dev/xnull/internal/cli	62.990s
+ok  	xnull.dev/xnull/internal/codegen	105.654s
+ok  	xnull.dev/xnull/internal/codegen/ffi	50.019s
+ok  	xnull.dev/xnull/internal/config	9.971s
+ok  	xnull.dev/xnull/internal/devtool	11.009s
+ok  	xnull.dev/xnull/internal/diag	12.366s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/frontbridge	15.434s
+ok  	xnull.dev/xnull/internal/interp	16.616s
+ok  	xnull.dev/xnull/internal/manifest	17.267s
+ok  	xnull.dev/xnull/internal/plugin	18.183s [no tests to run]
+ok  	xnull.dev/xnull/internal/reactor	21.959s
+ok  	xnull.dev/xnull/internal/repro	22.148s
+ok  	xnull.dev/xnull/internal/resman	21.916s
+ok  	xnull.dev/xnull/internal/sema	22.819s
+?   	xnull.dev/xnull/internal/version	[no test files]
+ok  	xnull.dev/xnull/internal/xdkcheck	23.137s
+ok  	xnull.dev/xnull/internal/xfront	22.929s
+ok  	xnull.dev/xnull/internal/xmeta	22.782s
+ok  	xnull.dev/xnull/internal/xnfmt	24.280s
+ok  	xnull.dev/xnull/internal/xpd	23.468s
+---- 并行分片 4 ----
+?   	xnull.dev/xnull/cmd/xnast	[no test files]
+ok  	xnull.dev/xnull/cmd/xnfmt	2.001s
+?   	xnull.dev/xnull/cmd/xnpt	[no test files]
+?   	xnull.dev/xnull/cmd/xnselfhost	[no test files]
+?   	xnull.dev/xnull/cmd/xnull	[no test files]
+ok  	xnull.dev/xnull/internal/artifact	3.923s [no tests to run]
+ok  	xnull.dev/xnull/internal/cli	68.227s
+ok  	xnull.dev/xnull/internal/codegen	148.335s
+ok  	xnull.dev/xnull/internal/codegen/ffi	7.089s
+ok  	xnull.dev/xnull/internal/config	7.422s
+ok  	xnull.dev/xnull/internal/devtool	10.636s
+ok  	xnull.dev/xnull/internal/diag	11.863s
+?   	xnull.dev/xnull/internal/exitcode	[no test files]
+ok  	xnull.dev/xnull/internal/frontbridge	15.062s
+ok  	xnull.dev/xnull/internal/interp	19.580s
+ok  	xnull.dev/xnull/internal/manifest	20.049s
+ok  	xnull.dev/xnull/internal/plugin	20.472s
+ok  	xnull.dev/xnull/internal/reactor	21.390s
+ok  	xnull.dev/xnull/internal/repro	22.466s
+ok  	xnull.dev/xnull/internal/resman	21.756s
+ok  	xnull.dev/xnull/internal/sema	22.538s
+?   	xnull.dev/xnull/internal/version	[no test files]
+ok  	xnull.dev/xnull/internal/xdkcheck	22.361s
+ok  	xnull.dev/xnull/internal/xfront	22.965s
+ok  	xnull.dev/xnull/internal/xmeta	22.775s
+ok  	xnull.dev/xnull/internal/xnfmt	23.822s
+ok  	xnull.dev/xnull/internal/xpd	24.041s

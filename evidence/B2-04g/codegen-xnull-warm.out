@@ -1,0 +1,8 @@
+---- 并行分片 1 ----
+ok  	xnull.dev/xnull/internal/codegen	59.219s
+---- 并行分片 2 ----
+ok  	xnull.dev/xnull/internal/codegen	51.697s
+---- 并行分片 3 ----
+ok  	xnull.dev/xnull/internal/codegen	92.475s
+---- 并行分片 4 ----
+ok  	xnull.dev/xnull/internal/codegen	57.456s
