@@ -126,6 +126,14 @@ func Run(env Env) int {
 			return runFile(env, opts)
 		}
 	}
+	// B3-00：`xnull build --emit-c file.x [-o out.c]` 只生成 C。
+	if name == "build" && hasFlag(rest, "--emit-c") {
+		for _, a := range rest {
+			if strings.HasSuffix(a, ".x") {
+				return buildFile(env, rest, a)
+			}
+		}
+	}
 	// 编译路径（M4.2）：`xnull build file.x [-o bin]` → C → cc → 可执行。
 	if name == "build" && len(rest) > 0 && strings.HasSuffix(rest[0], ".x") {
 		if hasFlag(rest, "--json") {
@@ -276,7 +284,7 @@ var knownFlags = map[string]struct{}{
 	"--emit": {}, "--offline": {}, "--verbose": {},
 	"--interp": {}, "--runtime": {}, "--json": {}, "-o": {},
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
-	"--resources": {}, "--all": {},
+	"--resources": {}, "--emit-c": {}, "--all": {},
 	"--mem": {}, "--stats": {},
 	// S8-21：`xnull dev test` 的开发期测试开关（--fast/--merge/--shard/--parallel）。
 	"--fast": {}, "--merge": {}, "--shard": {}, "--parallel": {},
@@ -504,16 +512,19 @@ func buildFile(env Env, rest []string, srcPath string) int {
 		return failEntry(env, *d)
 	}
 	out := "prog"
+	outSet := false
+	emitC := false
 	runtimeDir := ""
 	memPolicy := ""
 	stats := false
 	var libs []ffi.LinkLib
 	var libDirs []string
 	resDir := ""
-	for i := 1; i < len(rest)-1; i++ {
+	for i := 0; i < len(rest)-1; i++ {
 		switch {
 		case rest[i] == "-o":
 			out = rest[i+1]
+			outSet = true
 		case rest[i] == "--runtime":
 			runtimeDir = rest[i+1]
 		case rest[i] == "-l":
@@ -526,6 +537,8 @@ func buildFile(env Env, rest []string, srcPath string) int {
 			memPolicy = strings.TrimPrefix(rest[i], "--mem=")
 		case rest[i] == "--stats":
 			stats = true
+		case rest[i] == "--emit-c":
+			emitC = true
 		}
 	}
 	if memPolicy != "" && memPolicy != "auto" && memPolicy != "arc" && memPolicy != "gc" {
@@ -546,6 +559,34 @@ func buildFile(env Env, rest []string, srcPath string) int {
 	if runtimeDir == "" {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return exitcode.Usage
+	}
+	// B3-00：--emit-c 只生成 C（不调 cc）。
+	if emitC {
+		tmp, err := os.MkdirTemp("", "xnull-emit-")
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		defer os.RemoveAll(tmp)
+		opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs), MemPolicy: memPolicy, Stats: stats, EmitOnly: true}
+		base := filepath.Join(tmp, "out")
+		if code := codegen.BuildWithOptions(srcPath, base, runtimeDir, opts, env.Stderr); code != 0 {
+			return code
+		}
+		data, err := os.ReadFile(base + ".c")
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		if outSet && out != "prog" {
+			if err := os.WriteFile(out, data, 0o644); err != nil {
+				fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+				return exitcode.BuildFail
+			}
+			return exitcode.Success
+		}
+		_, _ = env.Stdout.Write(data)
+		return exitcode.Success
 	}
 	// P-10：link.libraries → LinkArgs（去重 + 升序）；-L/-l 一律排在全部目标文件之后。
 	opts := codegen.Options{LinkArgs: linkArgs(libs, libDirs), MemPolicy: memPolicy, Stats: stats}
