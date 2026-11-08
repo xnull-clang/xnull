@@ -1,5 +1,5 @@
 # 编号	用例文件（相对 impl/Tests/）	状态（未实现/部分/PASS/N/A）
-PROJ-05	internal/cli/cli_test.go	部分
+PROJ-05	收件箱/回执箱/验收-S8-PROJ-05.md	PASS
 LEX-01	internal/xfront/lexer_test.go	PASS
 STMT-01	internal/xfront/lexer_test.go + internal/xfront/stmt_test.go	PASS
 EXPR-01	internal/interp/interp_test.go	PASS
@@ -91,3 +91,13 @@ XDK-05	收件箱/回执箱/验收-S6-XDK-05.md	PASS
 XDK-07	收件箱/回执箱/验收-S6-XDK-07.md	PASS
 XDK-08	收件箱/回执箱/验收-S6-XDK-08.md	PASS
 XDK-10	收件箱/回执箱/验收-S6-XDK-10.md	PASS
+PROJ-01	收件箱/回执箱/验收-S8-PROJ-01.md	PASS
+PROJ-02	收件箱/回执箱/验收-S8-PROJ-02.md	PASS
+PROJ-03	收件箱/回执箱/验收-S8-PROJ-03.md	PASS
+PROJ-04	收件箱/回执箱/验收-S8-PROJ-04.md	PASS
+PROJ-06	收件箱/回执箱/验收-S8-PROJ-06.md	PASS
+PROJ-07	收件箱/回执箱/验收-S8-PROJ-07.md	PASS
+PROJ-08	收件箱/回执箱/验收-S8-PROJ-08.md	PASS
+PROJ-09	收件箱/回执箱/验收-S8-PROJ-09.md	PASS
+PROJ-10	收件箱/回执箱/验收-S8-PROJ-10.md	PASS
+PROJ-11	收件箱/回执箱/验收-S8-PROJ-11.md	PASS
