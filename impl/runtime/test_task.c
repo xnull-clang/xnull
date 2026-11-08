@@ -163,6 +163,56 @@ static void test_env_root(void) {
     xrt_release(ctx);
 }
 
+static int32_t body_shared_fast(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)env;
+    (void)ctx;
+    out->ok = 1;
+    out->value = (void *)(intptr_t)1;
+    return 0;
+}
+
+static int32_t body_shared_slow(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)ctx;
+    struct timespec ts = {0, 50000000}; /* 50ms：确保 fast 先终结 */
+    nanosleep(&ts, NULL);
+    test_env_t *e = env;
+    out->ok = 1;
+    out->value = (void *)(intptr_t)e->marker;
+    return 0;
+}
+
+/* MEM-09：两个任务共享同一 env；先完成者不得提前撤根。 */
+static void test_shared_env_root(void) {
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    test_env_t *env = rt_gc_new(&RT_TYPE_TEST_ENV);
+    env->marker = 42;
+    xrt_weak_slot *w = xrt_weak_bind(env);
+
+    xrt_task *fast = NULL;
+    xrt_task *slow = NULL;
+    assert(xrt_task_group_spawn(g, body_shared_fast, env, &fast) == 0);
+    assert(xrt_task_group_spawn(g, body_shared_slow, env, &slow) == 0);
+
+    xrt_task_result r;
+    assert(xrt_task_join(fast, &r) == 0 && r.ok == 1);
+    rt_gc_collect();
+    assert(xrt_weak_read(w) == env); /* slow 仍存活：根必须保留 */
+
+    assert(xrt_task_join(slow, &r) == 0 && r.ok == 1);
+    assert((intptr_t)r.value == 42); /* 读到完整 env，而非已回收对象 */
+    rt_gc_collect();
+    assert(xrt_weak_read(w) == NULL); /* 两个任务都终结后才可回收 */
+
+    xrt_weak_clear(w);
+    xrt_release(fast);
+    xrt_release(slow);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
 static void test_cancel_token_and_deadline(void) {
     xrt_context *root = xrt_context_background();
     xrt_cancel_token *tok = xrt_context_token(root);
@@ -452,6 +502,7 @@ int main(int argc, char **argv) {
     test_cancel_token_and_deadline();
     test_cleanup_queued();
     test_env_root();
+    test_shared_env_root();
     test_contract_fatal();
     test_panic_fatal();
     test_unclosed_group_fatal();
