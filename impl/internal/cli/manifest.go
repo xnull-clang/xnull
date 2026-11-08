@@ -9,8 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 
+	"xnull.dev/xnull/internal/artifact"
 	"xnull.dev/xnull/internal/codegen"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
@@ -286,6 +288,9 @@ type manifestPipeline struct {
 }
 
 func (p *manifestPipeline) artifactPath() string {
+	if p.m.Packaging == "library" {
+		return filepath.Join(p.m.Root, "target", artifact.XlibName(p.m.ArtifactID, p.m.Version))
+	}
 	ext := ""
 	if runtime.GOOS == "windows" {
 		ext = ".exe"
@@ -306,13 +311,17 @@ func (p *manifestPipeline) compileTo(src, dst string) int {
 }
 
 func (p *manifestPipeline) run(env Env) (string, int) {
-	// validate
-	entry, d := resolveEntry(p.m)
-	if d != nil {
-		fmt.Fprintln(env.Stderr, d.String())
-		return "", exitcode.Usage
+	// validate：app 需要入口；library 无入口。
+	entry := ""
+	if p.m.Packaging == "app" {
+		var d *diag.Diagnostic
+		entry, d = resolveEntry(p.m)
+		if d != nil {
+			fmt.Fprintln(env.Stderr, d.String())
+			return "", exitcode.Usage
+		}
+		p.entry = entry
 	}
-	p.entry = entry
 
 	// S8 集成：锁 → 配置 → 资源 → 插件（失败即停，诊断带 XPD 码与位置）。
 	// 资源表在 compile 阶段作为 opts.ResC 传入。
@@ -321,6 +330,11 @@ func (p *manifestPipeline) run(env Env) (string, int) {
 		return "", exitcode.BuildFail
 	}
 	p.integ = integ
+
+	// library：源码包 + 元数据 + 依赖 + 哈希，打包 `.xlib` 并安装到本地仓库。
+	if p.m.Packaging == "library" {
+		return p.runLibrary(env)
+	}
 
 	// compile
 	cache := filepath.Join(p.m.Root, "target", ".cache", p.m.ArtifactID+"-"+p.m.Version)
@@ -372,7 +386,61 @@ func (p *manifestPipeline) run(env Env) (string, int) {
 			return "", exitcode.BuildFail
 		}
 	}
-	// install：1.x 可跳过；当前为本地空操作。
+	// install：app 安装阶段当前为本地空操作（.xlib 由 library 卡覆盖）。
+	return final, exitcode.Success
+}
+
+// runLibrary 生成 `.xlib` 并在 install 阶段写入本地仓库（S8 §5.3/§4）。
+func (p *manifestPipeline) runLibrary(env Env) (string, int) {
+	final := p.artifactPath()
+	if p.skip["package"] {
+		return final, exitcode.Success
+	}
+	var deps []artifact.Dependency
+	for coord, ver := range p.res.Dependencies {
+		deps = append(deps, artifact.Dependency{Coordinate: coord, Version: ver})
+	}
+	sort.Slice(deps, func(i, j int) bool { return deps[i].Coordinate < deps[j].Coordinate })
+	var resourceDirs []string
+	for _, rr := range p.res.ResourceRoots {
+		resourceDirs = append(resourceDirs, rr.Dir)
+	}
+	if len(resourceDirs) == 0 {
+		if st, err := os.Stat(filepath.Join(p.m.Root, "src", "main", "resources")); err == nil && st.IsDir() {
+			resourceDirs = append(resourceDirs, "src/main/resources")
+		}
+	}
+	spec := artifact.Spec{
+		Root: p.m.Root, GroupID: p.m.GroupID, ArtifactID: p.m.ArtifactID,
+		Version: p.m.Version, Packaging: p.m.Packaging, ManifestPath: p.m.Path,
+		SourceRoot: p.m.Build.SourceRoot, ResourceDirs: resourceDirs,
+		LockPath: filepath.Join(p.m.Root, "xnull.lock"), Dependencies: deps,
+	}
+	info, ds, err := artifact.Build(spec, final)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "xnull: 生成 .xlib 失败：%v\n", err)
+		return "", exitcode.BuildFail
+	}
+	if len(ds) > 0 {
+		printDiags(env, ds)
+		return "", exitcode.BuildFail
+	}
+	if !p.skip["install"] {
+		repo := os.Getenv("XNULL_REPO")
+		if repo == "" {
+			if home, herr := os.UserHomeDir(); herr == nil {
+				repo = filepath.Join(home, ".xnull", "repository")
+			}
+		}
+		if repo != "" {
+			installed, ierr := artifact.Install(repo, spec, final)
+			if ierr != nil {
+				fmt.Fprintf(env.Stderr, "xnull: 安装到本地仓库失败：%v\n", ierr)
+				return "", exitcode.BuildFail
+			}
+			fmt.Fprintf(env.Stderr, "xnull: 已安装 %s（sha256 %s）\n", installed, info.SHA256)
+		}
+	}
 	return final, exitcode.Success
 }
 

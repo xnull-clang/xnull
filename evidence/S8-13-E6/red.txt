@@ -1,0 +1,7 @@
+=== RUN   TestLibraryBuildInstallAndConsume
+    manifest_s813_test.go:36: library 构建失败，exit=2
+        xnull.project:1:1: error[XPD-201]: 当前构建仅支持 packaging=app（library/pom/starter 后续卡）
+--- FAIL: TestLibraryBuildInstallAndConsume (0.01s)
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	2.276s
+FAIL
