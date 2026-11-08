@@ -1,10 +1,12 @@
 # 验收：S6-XDK-03（errors）
 
 > **验收人**：QA1（独立质量线）
-> **结论：BLOCKED / 规范冲突（`report` 返回类型未裁决）**
-> **复验点**：main 含 S6-03/04/05 合并（按任务声明；本次**未运行任何 git 命令**）
+> **结论：PASS**（按 ADR-008 `report -> void` 复验；compiled Error 协议为边界）
+> **复验点**：main `d4f0209`（ADR-008 生效；`errors.x` report void）
 > **时间**：2026-11-08
-> **证据**：`/Users/vjs/Desktop/XNull-Lang/impl/lib/xdk/errors.x`、`收件箱/门/S6验收计划-E2.md`、`evidence/S4-*`
+> **证据**：`evidence/S6-QA/XDK-03/`
+> **依据**：ADR-008；S4 §2.1；S6 §4.1（编辑性修订为 void）；XDK-03 验收计划
+> **确认方式**：main 版本读取 `.git/refs/heads/main`；未做分支/提交操作。
 
 ---
 
@@ -12,48 +14,49 @@
 
 | 验收点 | 结果 |
 |---|---|
-| `ErrorKind` 14 项、`Error` 协议 2 成员 | **PASS**：`errors.x` 与 S4 一致 |
-| `CauseError.cause: Error?` | **PASS**：`errors.x` 声明 |
-| `wrap` 丢弃原错误 / `mapErr` 转换 | **PASS（源码单元静态面）** |
-| `report` 行为 | **BLOCKED**：S6 §4.1 要求“返回原 `Result`”，S4 已签为 `void`，`errors.x` 当前 `void` |
-| 端到端 errors 单元 | **BLOCKED**：依赖 S6-02 runtime / codegen 链接 |
+| `ErrorKind` 14 项顺序 | **PASS**：`TestXdkErrorsUnitSurface` |
+| `Error` 协议恰 2 成员（kind/describe） | **PASS** |
+| `CauseError` 含 `cause: Error?` | **PASS** |
+| `report -> void`（ADR-008） | **PASS**：`Result x = report(r)` → `TY-101`；语句形态可执行 |
+| `report` 格式 `[Kind] describe` | **PASS**：`errors.x` 使用 `diagnose($"[{kind}] {describe}")` |
+| `wrap` 丢弃换新 / `mapErr` 转换 | **PASS**：`TestS4WrapMapErr`、`TestS4Report` |
+| 源码单元解析/语义/单测 | **PASS** |
+| compiled `report(Error 协议)` | **BOUNDARY**：codegen `report 不支持错误类型 xrt_error_kind`（E4） |
 
-**判定：BLOCKED / 规范冲突。** 计划明确：`report` 返回类型在裁决前 **XDK-03 不得签 PASS**。当前 `errors.x` 按 S4 门口径返回 `void`，与 S6 §4.1 定案 3-a-1 冲突。
+**判定：PASS。** ADR-008 已消除 `report` 返回类型冲突；按 void 口径，源码单元、sema、interp 与格式合同全部成立。compiled Error 协议错误类型归 E4 语言面，不阻塞本锚点的 source/sema/interp 层判定。
 
 ---
 
-## 二、实测/静态证据
-
-`impl/lib/xdk/errors.x`：
-
-- `enum ErrorKind` 14 项（`InvalidArgument..Internal`）。
-- `protocol Error { ErrorKind kind(); String describe(); }`。
-- `class CauseError implements Error { final Error? cause; ... }`。
-- `wrap`/`mapErr` 实现；`report` 注释明确“返回 void”。
-
-计划 §0.4：
+## 二、实测
 
 ```text
-S6 §4.1 定案 3-a-1 = 返回原 Result；S4 门按 S4 §2.1 = void；errors.x 当前 void。
-XDK-03 在裁决前不得签 PASS。
+$ go test ./internal/codegen -run TestXdkErrorsUnitSurface -count=1
+PASS
+
+$ go test ./internal/interp -run 'TestS4BuiltinXDKErrors|TestErrdeferOnlyOnErrorPath|TestS4WrapMapErr|TestS4Report' -count=1
+PASS
+
+$ xnull check report_assign.x
+error[TY-101]: 变量 x 的初始化式类型 void 不能赋给 Result<Int,E>
 ```
 
-`codegen-s6.log` 中 S6-02/S6-03 的链接失败会阻断 errors 端到端；本锚点也不能以单侧源码静态面签 PASS。
+`errors.x`：`void report<T>(Result<T, Error> r)`；失败 `diagnose($"[{r.error().kind()}] {r.error().describe()}")`，成功零输出。
 
 ---
 
-## 三、阻塞项
+## 三、边界
 
-| # | 阻塞 | 归属 |
-|---:|---|---|
-| 03-1 | `report` 返回类型 S6/S4 冲突，未裁决 | 董事会/规范 |
-| 03-2 | errors 单元端到端（codegen/interp 链接）未通 | E4/E5 |
+| 项 | 现状 | 归属 |
+|---|---|---|
+| compiled `report(Result<T, Error 协议>)` | `report 不支持错误类型 xrt_error_kind（S4-02）` | E4 语言面 |
+| S6 §4.1 “返回原 Result” | ADR-008 编辑性修订为 void | 已裁决 |
 
 ---
 
 ## 四、证据
 
-- `/Users/vjs/Desktop/XNull-Lang/impl/lib/xdk/errors.x`
-- `/Users/vjs/Desktop/XNull-Lang/收件箱/门/S6验收计划-E2.md` §0.4
-- `/Users/vjs/Desktop/XNull-Lang/evidence/QA-S6A/codegen-s6.log`
-- 断言依据：S6 §4.1/§10 XDK-03；S4 §2.1
+- `evidence/S6-QA/XDK-03/matrix.tsv`
+- `gotest-codegen.out`、`gotest-interp.out`
+- `report_void.x` / `report_assign.x` 及 check/interp/compiled 输出
+- `impl/lib/xdk/errors.x`
+- `ADR/ADR-008-report返回void裁决.md`

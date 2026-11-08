@@ -1,12 +1,10 @@
 # 验收：S6-XDK-06（runtime）
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL**（核心 runtime API 编译路径可用；`dumpTasks` 未支持、interp 桥缺失）
-> **复验点**：main `64e7052`（含 S6-02 / S6-03/04/05 批量）
+> **结论：PASS**
+> **复验点**：main 含 E5 XDK-06 runtime `5c88e82`（按任务声明；本次**未运行任何 git 命令**）
 > **时间**：2026-11-08
-> **证据**：`evidence/S6-QA/XDK-06/`
-> **依据**：S6 §4.1–§4.4、XDK-06；`收件箱/门/S6验收计划-E2.md`
-> **确认方式**：main 版本读取 `.git/refs/heads/main`；未做分支/提交操作。
+> **证据**：`/Users/vjs/Desktop/XNull-Lang/evidence/QA-XDK016/XDK-06/`
 
 ---
 
@@ -14,49 +12,65 @@
 
 | 验收点 | 结果 |
 |---|---|
-| `diagnose` 单行、`nowMono` 单调、`nowWall` UTC、`env` 快照 | **PASS（compiled）**：`s6 runtime` 单行，`true/true/true` |
-| `exit` 不执行 defer、退出码原样 | **PASS（compiled）**：rc=7，stdout 无 defer |
-| `dumpTasks` 单行 `tasks: live=N` | **FAIL**：sema `TY-229` 未支持，`check` rc=1 |
-| 解释路径 | **FAIL**：`run --interp` rc=1（XDK 桥缺失） |
-| `TestS6_02*` | **FAIL**：RuntimeSurface/DumpTasks 被 TY-229 拒绝；Exit 测试链接缺资源符号 |
+| `diagnose` 单行、无控制字符 | **PASS**：stderr `diag-line` |
+| `dumpTasks` 单行 | **PASS**：interp `tasks: live=0`；compiled `tasks: live=0 spawned=0 settled=0 carrier=0` |
+| `nowMono` 单调 | **PASS**：连续两次 `b >= a` 为 `true` |
+| `env` 快照 / 缺失返回 null | **PASS**：`env("PATH") != null`；缺失变量 `== null` |
+| `exit` 立即终止、跳过 `defer`、退出码原样 | **PASS**：双路径 rc=3，`defer-should-not-run` 未输出 |
+| 解释器桥接 | **PASS**：`TestS6XDK06RuntimeBuiltins` |
+| 编译路径资源符号 / 链接 | **PASS**：compiled 程序正常链接运行 |
 
-**判定：FAIL。** 编译路径的 5 个 runtime API 可用；`dumpTasks` 仍被 sema 列为未支持，解释路径未接，XDK-06 不能签 PASS。
+**判定：PASS。** XDK-06 的六个 runtime API 在解释/编译双路径行为一致；`dumpTasks` 单行、`exit` 跳过 defer、env 快照与 nowMono 单调均成立。
 
 ---
 
-## 二、实测
+## 二、双路径实测
 
-```text
-$ xnull run core.x
-true
-true
-true
-stderr: s6 runtime        # diagnose 单行
+夹具：`evidence/QA-XDK016/XDK-06/source.x`
 
-$ xnull check dumpTasks
-error[TY-229]: XDK API `dumpTasks` 尚未支持（S6-01）
-
-$ xnull run exit.x         # compiled
-exit=7，stdout 无 defer
-
-$ xnull run --interp core.x
-rc=1（解释器 XDK 桥缺失）
+```x
+import xdk.runtime
+static Int main() {
+    diagnose("diag-line")
+    dumpTasks()
+    Int a = nowMono()
+    Int b = nowMono()
+    print(b >= a)
+    String? e = env("PATH")
+    print(e != null)
+    String? missing = env("XNULL_NO_SUCH_ENV_QA")
+    print(missing == null)
+    defer { print("defer-should-not-run") }
+    exit(3)
+    return 0
+}
 ```
 
+| 路径 | stdout | stderr | rc |
+|---|---|---|---|
+| `run --interp` | `true\ntrue\ntrue\n` | `diag-line\ntasks: live=0\n` | 3 |
+| `run`（编译） | `true\ntrue\ntrue\n` | `diag-line\ntasks: live=0 spawned=0 settled=0 carrier=0\n` | 3 |
+
+`defer-should-not-run` 两路径均未出现；`exit` 退出码原样为 3。
+
 ---
 
-## 三、失败项
+## 三、官方用例
 
-| # | 失败项 | 归属 |
-|---:|---|---|
-| P-01 | `dumpTasks` 在 sema 白名单中显式未支持（`sema/s6_01_test.go:130`），与 S6-02 codegen 发射面冲突 | E2 sema |
-| P-02 | 解释器 XDK runtime 桥缺失（diagnose/env/now* 均 rc=1） | E3 |
-| P-03 | codegen 测试链接 `rt_std_res.c` 缺资源表符号（测试 harness 未注入空表） | E4/E6 |
+| 用例 | 结果 |
+|---|---|
+| `internal/codegen/s6_02_test.go:TestS6_02RuntimeSurface` | **PASS** |
+| `TestS6_02ExitSkipsDefer` | **PASS** |
+| `TestS6_02DumpTasksCounts` | **PASS** |
+| `internal/interp/s6_xdk06_test.go:TestS6XDK06RuntimeBuiltins` | **PASS** |
+| `TestS6XDK06ExitSkipsDefer` | **PASS** |
+| `TestS6XDK06EnvSnapshot` | **PASS** |
 
 ---
 
 ## 四、证据
 
-- `evidence/S6-QA/XDK-06/matrix.tsv`
-- `core.x` / `core.compiled.{out,err}` / `core.interp.err`
-- `codegen-s602.log`、`runtime-build.log`
+- `/Users/vjs/Desktop/XNull-Lang/evidence/QA-XDK016/XDK-06/source.x`、`interp.*`、`compiled.*`
+- `/Users/vjs/Desktop/XNull-Lang/evidence/QA-XDK016/XDK-06/codegen-xdk06.log`
+- `/Users/vjs/Desktop/XNull-Lang/evidence/QA-XDK016/XDK-06/interp-xdk06.log`
+- 断言依据：S6 §5/§10 XDK-06
