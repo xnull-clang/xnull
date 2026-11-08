@@ -422,7 +422,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	g := &gen{results: map[string]string{}, resultArgs: map[string][]xfront.TypeRef{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		classDecls: map[string]*xfront.ClassDecl{},
-		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}, srcPath: srcPath,
+		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}, aliases: map[string]string{}, srcPath: srcPath,
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
@@ -724,6 +724,8 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	// 先预登记全部签名/字段用到的容器，再输出 typedef 与原型。
 	g.prewarmTypeContainers(u)
 	g.emitClassTypedefs(&b)
+	// 元组结构体先于容器 typedef（容器元素可能是元组）。
+	g.emitTupleTypes(&b)
 	// 容器 typedef 必须先于类前向声明/方法原型（Map/List 字段会出现在原型里）。
 	{
 		g.cs.declared = map[string]bool{}
@@ -751,8 +753,6 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	if err := g.emitExtensionProtos(&b); err != nil {
 		return "", err
 	}
-	// 元组结构体（S1 §2.11）：类前向 typedef 已就位，可作为元素类型。
-	g.emitTupleTypes(&b)
 	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
 	{
 		// 容器 typedef 已统一在前向前置生成（含 Result 成员容器）。
@@ -1275,11 +1275,21 @@ type gen struct {
 	factoryOrder     []string                     // 工厂声明顺序
 	extensions       []*extensionInfo             // 扩展方法（BND-13）
 	tmp              int                          // 临时变量编号
+	aliases          map[string]string            // 原标识符 → C 安全名（跨两遍生成持久）
 	srcPath          string                       // 源文件路径（#line 映射）
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
 func (s *scope) cRef(name string) string {
+	if cReserved(name) {
+		return "xn_v_" + name
+	}
+	if safe, ok := s.g.aliases[name]; ok {
+		return safe
+	}
+	if safe, ok := s.alias[name]; ok {
+		return safe
+	}
 	if name == "super" && s.superT != "" {
 		cvar := "self"
 		if s.self != nil && s.self.cvar != "" {
@@ -1923,27 +1933,29 @@ type deferItem struct {
 }
 
 type scope struct {
-	parent      *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
-	g           *gen
-	retC        string
-	hasResult   bool
-	defers      []deferItem       // 本块注册的清理（LIFO）
-	pending     []string          // 表达式求值产生的临时声明（语句边界冲刷到输出）
-	params      map[string]bool   // 参数名（C 侧带 xn_p_ 前缀）
-	locals      map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
-	self        *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
-	staticRefs  map[string]string // 单例静态字段 → C 全局变量（BND-07）
-	staticTypes map[string]string // 单例静态字段 → C 类型（BND-07）
-	superT      string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
-	isCtor      bool              // 构造器体：`return;` 返回已构造对象
-	returned    bool              // 末句已生成 return（块退出清理跳过）
-	rootMark    string            // 根帧标记变量（S3-02；空=本块不登记）
-	rootPrelude []string          // 根帧建立后立即执行的登记（参数/self 根）
-	kind        string            // 块种类：loop/switch（break/continue 根帧恢复用）
-	taskBody    *taskBodyInfo     // 任务闭包体（S5-04）：return → xrt_task_result
-	taskEnvVar  string            // 任务体 env 变量名
-	taskOutVar  string            // 任务体 out 参数名
-	lockBody    *taskBodyInfo     // Mutex.withLock 回调体（XDK-05）
+	parent       *scope // 父块作用域（return/try 需执行祖先块注册的 defer）
+	g            *gen
+	retC         string
+	hasResult    bool
+	defers       []deferItem     // 本块注册的清理（LIFO）
+	pending      []string        // 表达式求值产生的临时声明（语句边界冲刷到输出）
+	params       map[string]bool // 参数名（C 侧带 xn_p_ 前缀）
+	locals       map[string]string
+	alias        map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
+	self         *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
+	staticRefs   map[string]string // 单例静态字段 → C 全局变量（BND-07）
+	staticTypes  map[string]string // 单例静态字段 → C 类型（BND-07）
+	superT       string            // super 的静态类型（直接父类 C 指针类型；无继承为空）
+	isCtor       bool              // 构造器体：`return;` 返回已构造对象
+	returned     bool              // 末句已生成 return（块退出清理跳过）
+	rootMark     string            // 根帧标记变量（S3-02；空=本块不登记）
+	rootDeclared bool              // 本块根帧已输出声明（break/return 仅恢复已声明帧）
+	rootPrelude  []string          // 根帧建立后立即执行的登记（参数/self 根）
+	kind         string            // 块种类：loop/switch（break/continue 根帧恢复用）
+	taskBody     *taskBodyInfo     // 任务闭包体（S5-04）：return → xrt_task_result
+	taskEnvVar   string            // 任务体 env 变量名
+	taskOutVar   string            // 任务体 out 参数名
+	lockBody     *taskBodyInfo     // Mutex.withLock 回调体（XDK-05）
 }
 
 // selfCtx 是实例上下文：非限定字段/方法按 §5.8 解析到 self。
@@ -1976,6 +1988,9 @@ func newSelfCtx(ci *classInfo) *selfCtx {
 
 // localCType 查局部变量 C 类型（含参数；参数按其声明类型登记）。
 func (s *scope) localCType(name string) (string, bool) {
+	if safe, ok := s.g.aliases[name]; ok {
+		name = safe
+	}
 	c, ok := s.locals[name]
 	return c, ok
 }
@@ -1986,7 +2001,11 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.locals {
 		locals[k] = v
 	}
-	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
+	alias := map[string]string{}
+	for k, v := range s.alias {
+		alias[k] = v
+	}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, alias: alias, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
 }
 
 func (s *scope) tmp() string { return s.g.nextTmp() }
@@ -2041,7 +2060,7 @@ func trailingNewline(lines []string) string {
 func (s *scope) emitRootRestores(kind string) []string {
 	var out []string
 	for sc := s; sc != nil; sc = sc.parent {
-		if sc.rootMark != "" {
+		if sc.rootMark != "" && sc.rootDeclared {
 			out = append(out, "xn_root_restore("+sc.rootMark+");")
 		}
 		if kind == "continue" {
@@ -2062,6 +2081,7 @@ func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 	var out []string
 	// S3-02：块级根帧——记录进入时的根栈标记，块退出/返回时恢复。
 	if s.rootMark != "" {
+		s.rootDeclared = true
 		out = append(out, "size_t "+s.rootMark+" = xn_root_mark();")
 		if len(s.rootPrelude) > 0 {
 			out = append(out, s.rootPrelude...)
@@ -2697,6 +2717,15 @@ func (s *scope) isStrShape(e xfront.Expr) bool {
 
 // emitLocalDecl 局部声明。
 func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
+	if cReserved(n.Name) {
+		safe := "xn_v_" + n.Name
+		if s.alias == nil {
+			s.alias = map[string]string{}
+		}
+		s.alias[n.Name] = safe
+		s.g.aliases[n.Name] = safe
+		n.Name = safe
+	}
 	var tc string
 	var err error
 	if n.Type == nil {
@@ -3605,7 +3634,7 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		if s.g.isGCRootC(s.taskBody.memberC) {
 			out = append(out, "xrt_task_root_bind(out->value); /* 任务持有 GC 结果（S5-00 §7.3） */")
 		}
-		if s.rootMark != "" {
+		if s.rootMark != "" && s.rootDeclared {
 			out = append(out, "xn_root_restore("+s.rootMark+");")
 		}
 		out = append(out, "xrt_safepoint(); /* 任务体出口（S5-00 §7.2） */")
@@ -3730,6 +3759,20 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
 			s.returned = true
 			return append(out, "return "+t+";"), nil
+		}
+		if _, ok := n.Value.(*xfront.Member); ok {
+			v, err := s.intExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			if !s.g.classIsGC(s.retC) {
+				out = append(out, "rt_retain("+v+");")
+			}
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return "+v+";"), nil
 		}
 		if cl, ok := n.Value.(*xfront.Call); ok {
 			expr, _, err := s.classCallExpr(cl)
@@ -5469,4 +5512,16 @@ func stmtPos(st xfront.Stmt) xfront.Pos {
 		return n.P
 	}
 	return xfront.Pos{}
+}
+
+// cReserved 判断标识符是否为 C 关键字（XNull 允许 void 等作变量名）。
+func cReserved(name string) bool {
+	switch name {
+	case "void", "int", "char", "float", "double", "long", "short", "signed", "unsigned",
+		"struct", "union", "enum", "typedef", "static", "extern", "const", "volatile",
+		"if", "else", "for", "while", "do", "switch", "case", "default", "break", "continue",
+		"return", "goto", "sizeof", "register", "auto", "inline", "restrict", "bool":
+		return true
+	}
+	return false
 }
