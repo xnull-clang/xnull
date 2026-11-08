@@ -784,6 +784,7 @@ class SC {
     Bool selfPtr = false
     Bool doubleRoot = false
     Int loopDepth = 0
+    Bool staticMeth = false
     String retKind = "Int"
     Bool directRet = false
     String deferredRet = ""
@@ -1160,6 +1161,14 @@ static String expr(N x, EM e, SC sc) {
             if op == "!=" { return "(!(" + eq2 + "))" }
             if op == "!==" { return "(!(" + eq2 + "))" }
             return eq2
+        }
+        if op == "&&" || op == "||" {
+            N lb = fld(x, "L")
+            N rb = fld(x, "R")
+            String lv = expr(lb, e, sc)
+            String rv = expr(rb, e, sc)
+
+            return "(" + lv + " " + op + " " + rv + ")"
         }
         if op == "/" { return "xn_div_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         if op == "%" { return "xn_mod_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
@@ -1644,6 +1653,13 @@ static void emitEarlyRet(SC sc, EM e) {
         bri = bri - 1
     }
     emitCleanup(sc, e, e.ind, 1, false)
+    Int sri = sc.strLocals.length() - 1
+    while sri >= 0 {
+        e.addAt(e.ind + 4, "{")
+        e.addAt(e.ind, "rt_release(" + sc.strLocals.get(sri) + ");")
+        e.addAt(e.ind + 4, "}")
+        sri = sri - 1
+    }
     e.addAt(e.ind + 4, "{")
     e.addAt(e.ind, "xn_root_restore(" + sc.root + ");")
     e.addAt(e.ind + 4, "}")
@@ -1654,7 +1670,7 @@ static void emitEarlyRet(SC sc, EM e) {
 }
 
 static void emitStmt(N st, EM e, SC sc, Bool early) {
-    Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "ThrowStmt"
+    Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "BreakStmt" || st.nm == "ContinueStmt" || st.nm == "ThrowStmt"
     if SKIP_LINE { SKIP_LINE = false }
     else if lineStmt { e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"") }
     if st.nm == "DeferStmt" {
@@ -1670,6 +1686,16 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         d.temp = t
         d.err = err
         if err { sc.errdefers.push(d) } else if e.ind > 0 { sc.blockDefers.push(d) } else { sc.defers.push(d) }
+        return
+    }
+    if st.nm == "BreakStmt" || st.nm == "ContinueStmt" {
+        Int bi = sc.blockRoots.length() - 1
+        while bi >= 0 {
+            e.raw("xn_root_restore(" + sc.blockRoots.get(bi) + ");")
+            bi = bi - 1
+        }
+        if st.nm == "BreakStmt" { e.add("break;") } else { e.add("continue;") }
+        e.terminated = false
         return
     }
     if st.nm == "ThrowStmt" {
@@ -1737,12 +1763,14 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     String text = liteText(init)
                     e.add("rt_string *" + nm + " = rt_string_from_c(" + q(text) + ");")
                 } else if parts0.el.length() == 1 && unq(txt(fld(parts0.el.get(0), "Text"))) == "" {
+                    String sdum0 = e.nt()
                     e.add("rt_string *" + nm + " = " + strHelper(fld(parts0.el.get(0), "Expr"), e, sc) + ";")
                 } else {
                     String sv = emitStr(init, e, sc)
                     e.add("rt_string *" + nm + " = " + sv + ";")
                 }
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
+                String sdum1 = e.nt()
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
             } else if init.nm == "Call" {
                 String sdum = e.nt()
@@ -1751,10 +1779,17 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 String sv = emitStr(init, e, sc)
                 e.add("rt_string *" + nm + " = " + sv + ";")
             }
-            e.raw("xn_root_add(" + nm + ");")
-            e.raw("xn_root_add(" + nm + ");")
-            e.raw("xn_gc_safepoint();")
+            if init.nm == "Call" {
+                e.raw("xn_root_add(" + nm + ");")
+                e.add("xn_root_add(" + nm + ");")
+                e.add("xn_root_add(" + nm + ");")
+            } else {
+                e.raw("xn_root_add(" + nm + ");")
+                e.raw("xn_root_add(" + nm + ");")
+            }
+            e.add("xn_gc_safepoint();")
             sc.strLocals.push(nm)
+            sc.doubleRoot = true
             return
         }
         if isU16List(ty) {
@@ -2136,7 +2171,9 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 if cn == "Ok" {
                     String arg = "0"
                     if args.el.length() > 0 { arg = expr(args.el.get(0), e, sc) }
-                    e.add("xn_ret = (" + cType(rk) + "){1, " + arg + ", NULL};")
+                    String rvz = "0"
+                    if cType(resultVal(rk)).length() > 0 && cType(resultVal(rk)).substring(cType(resultVal(rk)).length() - 1, 1) == "*" { rvz = arg } else { rvz = arg }
+                    e.add("xn_ret = (" + cType(rk) + "){1, " + rvz + ", NULL};")
                 } else if cn == "Err" {
                     N ea = args.el.get(0)
                     String et = exprType(ea, sc)
@@ -2154,7 +2191,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                             String mt = emitStr(ecs.el.get(0), e, sc)
                             sc.doubleRoot = odr
                             e.add("xn_root_add(" + mt + ");")
-                            if sc.loopDepth > 0 { e.add("xn_root_add(" + mt + ");") }
+                            if sc.loopDepth > 0 && !sc.doubleRoot && !sc.staticMeth { e.add("xn_root_add(" + mt + ");") }
                             ev = "xn_" + unq(txt(fld(ec, "Name"))) + "(" + mt + ")"
                         } else {
                             ev = expr(ea, e, sc)
@@ -2162,7 +2199,10 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     } else {
                         ev = expr(ea, e, sc)
                     }
-                    e.add("xn_ret = (" + cType(rk) + "){0, 0, " + ev + "};")
+                    String evz = "0"
+                    String vct = cType(resultVal(rk))
+                    if vct.length() > 0 && vct.substring(vct.length() - 1, 1) == "*" { evz = "NULL" }
+                    e.add("xn_ret = (" + cType(rk) + "){0, " + evz + ", " + ev + "};")
                 }
             }
             if early {
@@ -2174,6 +2214,15 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     rb = rb - 1
                 }
                 emitCleanup(sc, e, e.ind, 1, false)
+                if sc.curClass != "" {
+                    Int sri3 = sc.strLocals.length() - 1
+                    while sri3 >= 0 {
+                        e.addAt(e.ind + 4, "{")
+                        e.addAt(e.ind, "rt_release(" + sc.strLocals.get(sri3) + ");")
+                        e.addAt(e.ind + 4, "}")
+                        sri3 = sri3 - 1
+                    }
+                }
                 e.addAt(e.ind + 4, "{")
                 e.addAt(e.ind, "xn_root_restore(" + sc.root + ");")
                 e.addAt(e.ind + 4, "}")
@@ -2195,7 +2244,8 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 if an.nm == "NullLit" { b = b + "NULL" }
                 else if exprType(an, sc) == "String" {
                     String stx = emitStr(an, e, sc)
-                    e.add("xn_root_add(" + stx + ");")
+                    if !sc.doubleRoot { e.add("xn_root_add(" + stx + ");") }
+                    if early { e.add("xn_root_add(" + stx + ");") }
                     b = b + stx
                 } else { b = b + expr(an, e, sc) }
                 ai = ai + 1
@@ -2205,10 +2255,17 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             } else {
                 String nt0 = e.nt()
                 e.add(cType(sc.retKind) + nt0 + " = " + b + ");")
-                e.add("xn_root_add(" + nt0 + ");")
-                e.add("xn_root_add(" + nt0 + ");")
+                if early {
+                    e.raw("xn_root_add(" + nt0 + ");")
+                    e.add("xn_root_add(" + nt0 + ");")
+                    e.add("xn_root_add(" + nt0 + ");")
+                } else {
+                    e.raw("xn_root_add(" + nt0 + ");")
+                    e.raw("xn_root_add(" + nt0 + ");")
+                }
                 sc.ret = nt0
             }
+            if early { emitEarlyRet(sc, e) }
             return
         }
         if baseCls(sc.retKind) != "" && v.nm == "IdentExpr" {
@@ -2233,17 +2290,11 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         }
         if exprType(v, sc) == "String" {
             if v.nm == "IdentExpr" {
-                String vid = unq(txt(fld(v, "Name")))
-                Bool isP = false
-                Int pi = 0
-                while pi < sc.params.length() { if sc.params.get(pi) == vid { isP = true }; pi = pi + 1 }
-                if isP {
-                    String pv = expr(v, e, sc)
-                    e.add("rt_retain(" + pv + ");")
-                    sc.ret = pv
-                    if early { emitEarlyRet(sc, e) }
-                    return
-                }
+                String pv = expr(v, e, sc)
+                e.add("rt_retain(" + pv + ");")
+                sc.ret = pv
+                if early { emitEarlyRet(sc, e) }
+                return
             }
             String t = emitStr(v, e, sc)
             if !sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
@@ -2717,6 +2768,26 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     dst.push("")
 }
 
+static String clsMethRet(N m) {
+    String rt = typeKey(fld(m, "Ret"))
+    if txt(fld(m, "Void")) == "true" { rt = "void" }
+    return rt
+}
+static String clsMethSig(N m, String cn) {
+    Bool stat = isStaticM(m)
+    String sig = "xn_Cls_" + cn + "_" + unq(txt(fld(m, "Name"))) + "("
+    N mps = fld(m, "Params")
+    Int mj = 0
+    if !stat { sig = sig + "xn_Cls_" + cn + " *self" }
+    while mj < mps.el.length() {
+        String mt = typeKey(fld(mps.el.get(mj), "Type"))
+        if !stat || mj > 0 { sig = sig + ", " }
+        sig = sig + cType(mt) + " xn_p_" + unq(txt(fld(mps.el.get(mj), "Name")))
+        mj = mj + 1
+    }
+    return sig + ")"
+}
+
 static void emitClassSection(N cls, EM ce) {
     String cn = unq(txt(fld(cls, "Name")))
     if CLS_OVERRIDE != "" { cn = CLS_OVERRIDE }
@@ -2932,33 +3003,31 @@ static void emitClassSection(N cls, EM ce) {
     ce.add("}")
     ce.raw("")
     if ms.el.length() == 0 { ce.raw("") }
-    // methods
+    // methods: 先全部原型，再逐个函数体（与 Go 两遍发射一致）
+    i = 0
+    while i < ms.el.length() {
+        N m = ms.el.get(i)
+        ce.add("static " + cType(clsMethRet(m)) + " " + clsMethSig(m, cn) + ";")
+        i = i + 1
+    }
+    if ms.el.length() > 0 { ce.raw("") }
     i = 0
     while i < ms.el.length() {
         N m = ms.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
-        if txt(fld(m, "Void")) == "true" { rt = "void" }
+        String rt = clsMethRet(m)
         Bool stat = isStaticM(m)
-        String sig = "xn_Cls_" + cn + "_" + mn + "("
+        String sig = clsMethSig(m, cn)
+        ce.add("static " + cType(rt) + " " + sig + " {")
         N mps = fld(m, "Params")
         Int mj = 0
-        if !stat { sig = sig + "xn_Cls_" + cn + " *self" }
-        while mj < mps.el.length() {
-            String mt = typeKey(fld(mps.el.get(mj), "Type"))
-            if !stat || mj > 0 { sig = sig + ", " }
-            sig = sig + decl(cType(mt), "xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))))
-            mj = mj + 1
-        }
-        sig = sig + ")"
-        ce.add("static " + cType(rt) + " " + sig + ";")
-        ce.raw("")
-        ce.add("static " + cType(rt) + " " + sig + " {")
         SC msc = new SC()
         msc.selfName = "self"
-        msc.curClass = cn
+        if !stat { msc.curClass = cn }
+        msc.staticMeth = stat
         if !stat { msc.def("self", cn) }
         msc.retKind = rt
+        msc.doubleRoot = !stat
         msc.params = []
         msc.paramTypes = []
         mj = 0
@@ -2967,14 +3036,43 @@ static void emitClassSection(N cls, EM ce) {
             msc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
             mj = mj + 1
         }
+        if isResult(rt) { ce.add("    " + cType(rt) + " xn_ret;"); msc.useResult(rt) }
         String mr = ce.nt()
+        msc.root = mr
         ce.add("size_t " + mr + " = xn_root_mark();")
         if ref && !stat { ce.raw("xn_root_add(self);") }
+        mj = 0
+        while mj < mps.el.length() {
+            String pt0 = typeKey(fld(mps.el.get(mj), "Type"))
+            Bool proot0 = (cType(pt0).length() > 0 && cType(pt0).substring(cType(pt0).length() - 1, 1) == "*")
+            if isProtoType(stripQ(pt0)) { proot0 = true }
+            if proot0 { ce.raw("xn_root_add(xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))) + ");") }
+            mj = mj + 1
+        }
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
+        Int mri = msc.releases.length() - 1
+        while mri >= 0 {
+            ce.add("    {")
+            ce.raw(msc.releases.get(mri))
+            ce.add("    }")
+            mri = mri - 1
+        }
+        mri = msc.strLocals.length() - 1
+        while mri >= 0 {
+            ce.add("    {")
+            ce.raw("rt_release(" + msc.strLocals.get(mri) + ");")
+            ce.add("    }")
+            mri = mri - 1
+        }
         ce.add("    {")
         if mn == "deinit" { ce.addAt(4, "xn_root_restore(" + mr + ");") } else { ce.addAt(0, "xn_root_restore(" + mr + ");") }
         ce.add("    }")
-        if rt != "void" { ce.raw(""); ce.add("return " + msc.ret + ";"); ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" {
+            ce.raw("")
+            ce.add("return " + msc.ret + ";")
+            if rt == "String" && inNames(msc.strLocals, msc.ret) { ce.raw("xn_root_release(" + msc.ret + ");") }
+            ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+        }
         ce.add("}")
         ce.raw("")
         i = i + 1
