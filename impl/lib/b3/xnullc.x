@@ -1045,7 +1045,16 @@ static String argExpr(N a, EM e, SC sc) {
 }
 
 static String expr(N x, EM e, SC sc) {
-    if x.nm == "IntLitExpr" { return unq(txt(fld(x, "Text"))) }
+    if x.nm == "IntLitExpr" {
+        String it = unq(txt(fld(x, "Text")))
+        if it.indexOf("0x") == 0 || it.indexOf("0X") == 0 {
+            Int hv = 0
+            Int hi = 2
+            while hi < it.length() { hv = hv * 16 + jsonHex1(it.substring(hi, 1)); hi = hi + 1 }
+            return str(hv)
+        }
+        return it
+    }
     if x.nm == "NullLit" { return "0" }
     if x.nm == "BoolLit" { if txt(fld(x, "V")) == "true" { return "1" }; return "0" }
     if x.nm == "CharLitExpr" { return txt(fld(x, "Rune")) }
@@ -1100,7 +1109,11 @@ static String expr(N x, EM e, SC sc) {
             String tyn = typeKey(fld(ta, "Type"))
             String lv = expr(fld(x, "L"), e, sc)
             if op == "is" { return "xn_any_is(" + lv + ", \"" + tyn + "\")" }
-            if op == "as" && tyn == "Int" { return "((int64_t)(" + lv + "))" }
+            if op == "as" && tyn == "Int" {
+                N asl = fld(x, "L")
+                if asl.nm == "IdentExpr" || asl.nm == "Member" { return "((int64_t)(" + lv + "))" }
+                return lv
+            }
             if tyn == "Any" {
                 e.usesAny = true
                 String lt = exprType(fld(x, "L"), sc)
@@ -1167,6 +1180,10 @@ static String expr(N x, EM e, SC sc) {
             N rb = fld(x, "R")
             String lv = expr(lb, e, sc)
             String rv = expr(rb, e, sc)
+            if lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
+            if lb.nm == "Unary" { lv = "(" + lv + ")" }
+            if rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
+            if rb.nm == "Unary" { rv = "(" + rv + ")" }
 
             return "(" + lv + " " + op + " " + rv + ")"
         }
@@ -1288,7 +1305,7 @@ static String expr(N x, EM e, SC sc) {
                 return "(" + base + ".ok ? " + base + ".v : (" + d + "))"
             }
             String mt2 = exprType(mx, sc)
-            if mt2 == "Bytes" && mn == "length" { return "xrt_bytes_len(" + expr(mx, e, sc) + ")" }
+            if mt2 == "Bytes" && mn == "length" { return "((int64_t)xrt_bytes_len(" + expr(mx, e, sc) + "))" }
             if mt2 == "Bytes" && mn == "get" {
                 String ix = "0"
                 if args.el.length() > 0 { ix = expr(args.el.get(0), e, sc) }
@@ -1691,7 +1708,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     if st.nm == "BreakStmt" || st.nm == "ContinueStmt" {
         Int bi = sc.blockRoots.length() - 1
         while bi >= 0 {
-            e.raw("xn_root_restore(" + sc.blockRoots.get(bi) + ");")
+            e.add("xn_root_restore(" + sc.blockRoots.get(bi) + ");")
             bi = bi - 1
         }
         if st.nm == "BreakStmt" { e.add("break;") } else { e.add("continue;") }
@@ -1738,14 +1755,16 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     e.add("xrt_bytes_obj *" + bt + " = xrt_bytes_from_string(" + bs + "->bytes, " + bs + "->len);")
                     e.raw("xn_root_add(" + bt + ");")
                     e.add("rt_release(" + bs + ");")
-                    e.add("xrt_bytes_obj * " + nm + " = " + bt + ";")
+                    e.add("xrt_bytes_obj *" + nm + " = " + bt + ";")
                     e.raw("xn_root_add(" + nm + ");")
                     e.raw("xn_root_add(" + nm + ");")
                     e.raw("xn_gc_safepoint();")
+                    sc.strLocals.push(nm)
                     return
                 }
             }
-            e.add("xrt_bytes_obj * " + nm + " = " + expr(init, e, sc) + ";")
+            e.add("xrt_bytes_obj *" + nm + " = " + expr(init, e, sc) + ";")
+            sc.strLocals.push(nm)
             return
         }
         if ty == "String" {
@@ -2173,7 +2192,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     if args.el.length() > 0 { arg = expr(args.el.get(0), e, sc) }
                     String rvz = "0"
                     if cType(resultVal(rk)).length() > 0 && cType(resultVal(rk)).substring(cType(resultVal(rk)).length() - 1, 1) == "*" { rvz = arg } else { rvz = arg }
-                    e.add("xn_ret = (" + cType(rk) + "){1, " + rvz + ", NULL};")
+                    e.add("xn_ret = (" + cType(rk) + "){1, " + rvz + ", 0};")
                 } else if cn == "Err" {
                     N ea = args.el.get(0)
                     String et = exprType(ea, sc)
@@ -3069,9 +3088,11 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("    }")
         if rt != "void" {
             ce.raw("")
-            ce.add("return " + msc.ret + ";")
-            if rt == "String" && inNames(msc.strLocals, msc.ret) { ce.raw("xn_root_release(" + msc.ret + ");") }
-            ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+            if isResult(rt) { ce.add("return xn_ret;") } else {
+                ce.add("return " + msc.ret + ";")
+                if rt == "String" && inNames(msc.strLocals, msc.ret) { ce.raw("xn_root_release(" + msc.ret + ");") }
+                ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+            }
         }
         ce.add("}")
         ce.raw("")
