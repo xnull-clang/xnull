@@ -1318,13 +1318,19 @@ static String expr(N x, EM e, SC sc) {
                 if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
                 return "xrt_bytes_slice(" + expr(mx, e, sc) + ", (size_t)(" + a0 + "), (size_t)(" + a1 + "))"
             }
-            if mt2 == "String" && mn == "length" { return "xn_str_length(" + expr(mx, e, sc) + ")" }
+            if mt2 == "String" && mn == "length" {
+                String rb = expr(mx, e, sc)
+                if mx.nm == "Member" { rb = emitStr(mx, e, sc) }
+                return "xn_str_length(" + rb + ")"
+            }
             if mt2 == "String" && mn == "substring" {
                 String a0 = "0"
                 String a1 = "0"
                 if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                 if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
-                return "xn_str_substr(" + expr(mx, e, sc) + ", " + a0 + ", " + a1 + ")"
+                String rb = expr(mx, e, sc)
+                if mx.nm == "Member" { rb = emitStr(mx, e, sc) }
+                return "xn_str_substr(" + rb + ", " + a0 + ", " + a1 + ")"
             }
             if mt2 == "String" && (mn == "indexOf" || mn == "indexOfByte") {
                 String a0 = "0"
