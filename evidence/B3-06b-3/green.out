@@ -1,0 +1,6 @@
+PASS tests/b3/fixtures/tuple/basic.x
+PASS tests/b3/fixtures/tuple/eq_interp.x
+PASS tests/b3/fixtures/tuple/in_list.x
+PASS tests/b3/fixtures/tuple/nested.x
+PASS tests/b3/fixtures/tuple/param_ret.x
+xnullc-tuple 汇总：PASS=5 FAIL=0
