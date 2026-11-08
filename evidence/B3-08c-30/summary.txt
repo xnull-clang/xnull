@@ -1,0 +1,1 @@
+C.3a: emitFunc rootMark/rootPrelude + emitBlockExit; raw=822; bundle runs

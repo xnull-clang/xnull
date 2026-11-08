@@ -1,0 +1,1 @@
+C.9b: 修 mem 回归——移除类指针表达式临时（objArr get / ARC 成员赋值）的手写 root_add，改由 rootTempDecls 统一补；ARC 类局部钩子按 classPolicy=="gc" 跳过。xnullc-mem=11/11，text raw=0（109514 bytes），ffi=5/5，bundle=4/4，obj=4/4，containers=5/5，err=5/5，expr-stmt=6/6，gen=3/3，obj2=5/5，obj3=5/5，tuple=5/5，type=2/2。

@@ -1,0 +1,1 @@
+C.6: switch 先求匹配值与全部 case 表达式，再逐个 newChild+emitBlock；for-in 保持 bodySc 先占号（与 Go 0 差异）；else-if 只 newChild 不 emitBlock。raw=707；switch 仅剩 3 行 root_add 残留；bundle C 语法 0 error。
