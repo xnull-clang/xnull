@@ -105,7 +105,7 @@ var xdkTypeNames = map[string]bool{
 	// collections（S6 §4.5）
 	"RingBuffer": true, "OrderedMap": true, "BTreeMap": true, "PriorityQueue": true,
 	// net（S6 §4.7；独立包）
-	"Socket": true, "Listener": true, "Request": true, "Response": true,
+	"Socket": true, "Listener": true, "Request": true, "Response": true, "HttpResponse": true,
 }
 
 // xdkSpecialSigned 是已有专用签名检查、不进入 xdkFuncSigs 的包（S4/S5 已交）。

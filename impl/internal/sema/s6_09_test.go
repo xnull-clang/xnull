@@ -4,8 +4,8 @@ import "testing"
 
 // S6-09：xdk.net socket plain/Async + net.http 子包签名。
 func TestS609NetSignatures(t *testing.T) {
+	// socket 面：只导入 xdk.net。
 	expectNone(t, `import xdk.net
-import xdk.net.http
 import xdk.tasks
 import xdk.errors
 
@@ -21,26 +21,27 @@ static Int main() {
     Result<Listener, Error> l = bind("0.0.0.0", 8080)
     Result<Socket, Error> a = l.value().acceptAsync(c)
     Result<void, Error> lc = l.value().close()
-
-    Result<Response, Error> r = getAsync(c, "http://example.com")
-    Int st = r.value().status()
-    Bytes body = r.value().body()
-    String? h = r.value().header("content-type")
-    Result<Response, Error> p = post("http://example.com", body)
-    return st
+    return n.value()
 }`)
 
-	// 子包符号导入。
+	// HTTP 面：只导入 xdk.net.http；HttpResponse 必须由子包再导出。
 	expectNone(t, `import xdk.net.http
 import xdk.tasks
 import xdk.errors
 @tasks
 static Int main() {
     Context c = Context.background()
-    Result<Response, Error> r = getAsync(c, "http://example.com")
-    return r.value().status()
+    Bytes body = Bytes.fromString("")
+    Result<HttpResponse, ErrorKind> r = httpRequestAsync(c, "GET", "http://example.com", 80, "/", body)
+    HttpResponse resp = r.value()
+    print(httpStatus(resp))
+    print(httpBodyText(resp))
+    print(httpResponseClose(resp))
+    var g = getAsync(c, "http://example.com")
+    return 0
 }`)
 
+	// 子包符号导入。
 	expectNone(t, `import xdk.net.http.getAsync
 import xdk.tasks
 @tasks

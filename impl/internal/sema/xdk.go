@@ -76,11 +76,6 @@ var xdkPackages = map[string]map[string]bool{
 		"socketConnectAsync": true, "socketSendAsync": true, "socketRecvAsync": true,
 		"httpRequestAsync": true,
 	},
-	"net.http": {
-		"get": true, "getAsync": true, "post": true, "postAsync": true,
-		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
-		"httpRequestAsync": true,
-	},
 }
 
 // xdkSubPackages 是已定案的多级 XDK 包子包（相对 xdk. 的路径）。
@@ -92,8 +87,10 @@ var xdkSubPackages = map[string]bool{
 // xdkSubPackageSymbols 是多级包子包的导出符号（S6 §4.7）。
 var xdkSubPackageSymbols = map[string]map[string]bool{
 	"net.http": {
-		"Request": true, "Response": true,
+		"Request": true, "Response": true, "HttpResponse": true,
 		"get": true, "post": true, "getAsync": true, "postAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
+		"httpRequestAsync": true,
 	},
 }
 
