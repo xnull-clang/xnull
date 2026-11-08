@@ -1754,21 +1754,21 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     Int i = stStart
     while i < e.ls.length() {
         String ln = e.ls.get(i)
-        resL.push(ln)
         String t = ln.trim()
-        if t.indexOf("xn_root_add(") == 0 {
+        Bool isAdd = t.indexOf("xn_root_add(") == 0
+        String ra = ""
+        if isAdd {
             Int rp = t.indexOf("(")
             Int rq = t.indexOf(")")
-            String ra = ""
             if rp >= 0 && rq > rp { ra = t.substring(rp + 1, rq - rp - 1) }
-            if pendNm != "" && ra == pendNm {
-                resL.push(sp(8 + 4 * pendEc) + "xn_root_add(" + pendNm + ");")
-                bumpExtra(sc, pendNm)
-                pendNm = ""
-            }
-            i = i + 1
-            continue
         }
+        if pendNm != "" && !(isAdd && ra == pendNm) {
+            resL.push(sp(8 + 4 * pendEc) + "xn_root_add(" + pendNm + ");")
+            bumpExtra(sc, pendNm)
+            pendNm = ""
+        }
+        resL.push(ln)
+        if isAdd { i = i + 1; continue }
         if t.indexOf("xn_root_hold(") >= 0 { i = i + 1; continue }
         if t.indexOf(" = ") < 0 || !gcDeclLine(t) { i = i + 1; continue }
         String nm = declNameOf(t)
@@ -2866,7 +2866,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.types = []
     sc.loopDepth = 0
     sc.loopIndent = 0
-    if fname == "regexMatchAt" { sc.doubleRoot = false }
+    if fname == "regexMatchAt" || fname == "regexAtomMatch" || fname == "repeatText" || fname == "repeatJoined" { sc.doubleRoot = false }
     sc.rootedTemps = []
     sc.extraTmpName = []
     sc.extraTmpCount = []
