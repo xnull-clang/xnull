@@ -64,7 +64,7 @@ MEM-10	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-10.md
 MEM-11	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-11.md	PASS
 MEM-12	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-12.md	PASS
 MEM-13	impl/runtime + internal/codegen + 收件箱/回执箱/验收-S3-MEM-13.md	PASS
-MEM-09	BLOCKED(B3)：任务根/调度器未实现，S3 定版条件项	部分
+MEM-09	impl/runtime/rt_task.c + 收件箱/回执箱/验收-S3-MEM-09.md	PASS
 OBS-01	internal/interp/s4_obs_test.go + internal/codegen/s4_obs_test.go + 收件箱/回执箱/验收-S4-OBS-01.md	PASS
 OBS-02	internal/codegen/s4_obs_test.go + 收件箱/回执箱/验收-S4-OBS-02.md	PASS
 OBS-03	internal/runtime + 收件箱/回执箱/验收-S4-OBS-03.md	PASS
