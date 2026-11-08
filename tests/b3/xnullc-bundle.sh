@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # B3-08c：xnullc 消费 AST bundle（入口 + import 闭包，依赖后序）。
 # 验收面：sync/tasks/collections 多文件 C 逐字节 + 双路径；
-# text 因既有 String/Text/Bytes 发射面缺口记 KNOWN-DIFF（不计入通过）。
+# text 与 Go --emit-c 逐字节一致（cmp 0，失败即 FAIL）。
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
@@ -51,7 +51,7 @@ run_case() {
 run_case sync pass
 run_case tasks pass
 run_case collections pass
-run_case text known
+run_case text pass
 
-echo "xnullc-bundle 汇总：PASS=$pass FAIL=$fail (text=KNOWN-DIFF)"
+echo "xnullc-bundle 汇总：PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

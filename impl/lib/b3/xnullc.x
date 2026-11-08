@@ -1720,13 +1720,8 @@ static void emitDeferItem(DF d, EM e, Int braceInd, Int lineInd, Bool guarded) {
     if guarded { e.addAt(braceInd, "if (!xn_ret.ok) {") }
     else { e.addAt(braceInd, "{") }
     Int i = 0
-    Int adds = 0
     while i < d.lines.length() {
-        String l0 = d.lines.get(i)
-        if lineInd == 0 && l0.trim().indexOf("xn_root_add(") == 0 {
-            adds = adds + 1
-            if adds <= 2 { e.addAt(0, l0.trim()) } else { e.addAt(8, l0.trim()) }
-        } else { e.addAt(lineInd, l0) }
+        e.addAt(lineInd, d.lines.get(i))
         i = i + 1
     }
     e.addAt(braceInd, "}")
@@ -1821,12 +1816,12 @@ static void rootTempDecls(SC sc, EM e, Int start, Int ind) {
                 if rawIdx < 0 { res.push(sp(ind) + "xn_root_add(" + nm + ");") }
                 else {
                     Int at = rawIdx + 1
-                    if ind == 0 {
+                    if ind == 0 && nm.indexOf("xn_t") != 0 {
                         while at < e.ls.length() && e.ls.get(at).trim().indexOf("xn_root_add(" + nm + ");") == 0 { at = at + 1 }
                     }
                     pendAt = at
                     pendNm = nm
-                    if ind > 0 { pendLead = ind } else { pendLead = lead }
+                    if ind > 0 || nm.indexOf("xn_t") == 0 { pendLead = ind } else { pendLead = lead }
                 }
             }
         }
@@ -1872,17 +1867,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         e.tmp = de.tmp
         List<String> dl = []
         Int j2 = 0
-        while j2 < de.ls.length() {
-            String dl0 = de.ls.get(j2)
-            if dl0.indexOf("xn_root_add(") == 0 || dl0.trim().indexOf("xn_root_add(") == 0 {
-                String base = dl0.trim()
-                Int cnt = 0
-                Int q = 0
-                while q < dl.length() { if dl.get(q).trim() == base { cnt = cnt + 1 }; q = q + 1 }
-                if cnt < 2 { dl.push(base) } else { dl.push("        " + base) }
-            } else { dl.push("        " + dl0) }
-            j2 = j2 + 1
-        }
+        while j2 < de.ls.length() { dl.push("        " + de.ls.get(j2)); j2 = j2 + 1 }
         addDefer(sc, dl, err)
         return
     }
