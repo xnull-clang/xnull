@@ -1,0 +1,181 @@
+--- /tmp/pf_go	2026-11-09 05:55:41
++++ /tmp/pf_xn	2026-11-09 05:55:41
+@@ -133,9 +133,6 @@
+             xn_root_restore(xn_t131);
+                 }
+                 {
+-            rt_release(ch);
+-                }
+-                {
+             xn_root_restore(xn_t120);
+                 }
+                 {
+@@ -152,9 +149,6 @@
+     #line 139 "tests/b3/fixtures/bundle_text/app.x"
+     i = (i + 1);
+         {
+-        rt_release(ch);
+-        }
+-        {
+         xn_root_restore(xn_t120);
+         }
+ 
+@@ -163,8 +157,10 @@
+ #line 141 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t133 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t133);
++xn_root_add(xn_t133);
+ rt_string *xn_t134 = rt_string_from_c(".");
+ xn_root_add(xn_t134);
++xn_root_add(xn_t134);
+     if ((((i < n)) && (xn_str_eq(xn_t133, xn_t134)))) {
+         size_t xn_t135 = xn_root_mark();
+         #line 142 "tests/b3/fixtures/bundle_text/app.x"
+@@ -177,32 +173,28 @@
+             #line 145 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *ch = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(ch);
+-        xn_root_add(ch);
+             xn_root_add(ch);
+             xn_root_add(ch);
+             xn_gc_safepoint();
+             #line 146 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t138 = rt_retain(ch);
+ xn_root_add(xn_t138);
+-        xn_root_add(xn_t138);
+             xn_root_add(xn_t138);
+             rt_string *xn_t139 = rt_string_from_c("e");
+ xn_root_add(xn_t139);
+-        xn_root_add(xn_t139);
+             xn_root_add(xn_t139);
+             rt_string *xn_t140 = rt_retain(ch);
+ xn_root_add(xn_t140);
+-        xn_root_add(xn_t140);
+             xn_root_add(xn_t140);
+             rt_string *xn_t141 = rt_string_from_c("E");
+ xn_root_add(xn_t141);
+-        xn_root_add(xn_t141);
+             xn_root_add(xn_t141);
+                 if (((xn_str_eq(xn_t138, xn_t139)) || (xn_str_eq(xn_t140, xn_t141)))) {
+                     size_t xn_t142 = xn_root_mark();
+                     #line 146 "tests/b3/fixtures/bundle_text/app.x"
+                     xn_root_restore(xn_t142);
+                     xn_root_restore(xn_t136);
++                    xn_root_restore(xn_t135);
+                     break;
+                         {
+                         xn_root_restore(xn_t142);
+@@ -212,7 +204,6 @@
+             #line 147 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t143 = rt_retain(ch);
+ xn_root_add(xn_t143);
+-        xn_root_add(xn_t143);
+             xn_root_add(xn_t143);
+             double d = xn_digitOfD(xn_t143);
+             #line 148 "tests/b3/fixtures/bundle_text/app.x"
+@@ -221,7 +212,6 @@
+                     #line 148 "tests/b3/fixtures/bundle_text/app.x"
+                     rt_string *xn_t145 = rt_string_from_c("parseFloat: 非法小数");
+ xn_root_add(xn_t145);
+-        xn_root_add(xn_t145);
+             xn_root_add(xn_t145);
+                     xn_root_add(xn_t145);
+                     xn_root_add(xn_t145);
+@@ -230,9 +220,6 @@
+                     xn_root_restore(xn_t144);
+                         }
+                         {
+-                    rt_release(ch);
+-                        }
+-                        {
+                     xn_root_restore(xn_t136);
+                         }
+                         {
+@@ -253,19 +240,12 @@
+             any = 1;
+             #line 152 "tests/b3/fixtures/bundle_text/app.x"
+             i = (i + 1);
+-                {
+-                rt_release(ch);
+-                }
+                 {
+                 xn_root_restore(xn_t136);
+                 }
+ 
+             xn_gc_safepoint();
+             }
+-            {
+-            xn_root_restore(xn_t135);
+-            }
+-
+     }
+ #line 155 "tests/b3/fixtures/bundle_text/app.x"
+     if (((!(any)))) {
+@@ -289,13 +269,17 @@
+ #line 156 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t148 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t148);
++xn_root_add(xn_t148);
+ rt_string *xn_t149 = rt_string_from_c("e");
+ xn_root_add(xn_t149);
++xn_root_add(xn_t149);
+ rt_string *xn_t150 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t150);
++xn_root_add(xn_t150);
+ rt_string *xn_t151 = rt_string_from_c("E");
+ xn_root_add(xn_t151);
+-    if ((((i < n)) && ((xn_str_eq(xn_t148, xn_t149) || xn_str_eq(xn_t150, xn_t151))))) {
++xn_root_add(xn_t151);
++    if ((((i < n)) && (xn_str_eq(xn_t148, xn_t149) || xn_str_eq(xn_t150, xn_t151)))) {
+         size_t xn_t152 = xn_root_mark();
+         #line 157 "tests/b3/fixtures/bundle_text/app.x"
+         i = (i + 1);
+@@ -321,11 +305,9 @@
+             } else {
+                 rt_string *xn_t157 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t157);
+-        xn_root_add(xn_t157);
+                 xn_root_add(xn_t157);
+                 rt_string *xn_t158 = rt_string_from_c("+");
+ xn_root_add(xn_t158);
+-        xn_root_add(xn_t158);
+                 xn_root_add(xn_t158);
+                     if ((((i < n)) && (xn_str_eq(xn_t157, xn_t158)))) {
+                         size_t xn_t159 = xn_root_mark();
+@@ -343,7 +325,6 @@
+                 #line 161 "tests/b3/fixtures/bundle_text/app.x"
+                 rt_string *xn_t161 = rt_string_from_c("parseFloat: 指数缺少数字");
+ xn_root_add(xn_t161);
+-        xn_root_add(xn_t161);
+                 xn_root_add(xn_t161);
+                 xn_root_add(xn_t161);
+                 xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_t161)};
+@@ -368,8 +349,8 @@
+             #line 164 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t163 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t163);
+-        xn_root_add(xn_t163);
+             xn_root_add(xn_t163);
++            xn_root_add(xn_t163);
+             int64_t d = xn_digitOf(xn_t163);
+             #line 165 "tests/b3/fixtures/bundle_text/app.x"
+                 if (((d < 0))) {
+@@ -377,7 +358,6 @@
+                     #line 165 "tests/b3/fixtures/bundle_text/app.x"
+                     rt_string *xn_t165 = rt_string_from_c("parseFloat: 非法指数");
+ xn_root_add(xn_t165);
+-        xn_root_add(xn_t165);
+             xn_root_add(xn_t165);
+                     xn_root_add(xn_t165);
+                     xn_root_add(xn_t165);
+@@ -481,6 +461,10 @@
+ #line 177 "tests/b3/fixtures/bundle_text/app.x"
+ xn_ret = (xn_Result_Double_Error){1, v, 0};
+     {
++rt_release(ch);
++rt_release(ch);
++    }
++    {
+ xn_root_restore(xn_t110);
+     }
+ 
