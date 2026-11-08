@@ -1,0 +1,9 @@
+--- FAIL: TestS609SocketPlainAndAsyncClose (0.01s)
+    s609_test.go:78: 构建失败 code=1
+        xnull: 代码生成失败：codegen：返回表达式 *xfront.Member 未支持（M4.1 范围）
+--- FAIL: TestS609HTTPGetAsync (0.01s)
+    s609_test.go:125: 构建失败 code=1
+        xnull: 代码生成失败：codegen：返回表达式 *xfront.Member 未支持（M4.1 范围）
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.478s
+FAIL
