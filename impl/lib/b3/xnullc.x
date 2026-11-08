@@ -499,6 +499,7 @@ static String FFI_FIXED_HEAD = "/* 绑定层支撑代码（由 .xfb 注册表生
 static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_canary_enter(const uint8_t *src, size_t n) {\n    uint8_t *buf = (uint8_t *)malloc(n + 2 * XN_FFI_CANARY);\n    if (buf == NULL) { xrt_fatal(\"FFI 编组：内存不足（S7 §9）\"); }\n    memset(buf, 0xA5, XN_FFI_CANARY);\n    memset(buf + XN_FFI_CANARY, 0, n);\n    if (src != NULL) { memcpy(buf + XN_FFI_CANARY, src, n); }\n    memset(buf + XN_FFI_CANARY + n, 0x5A, XN_FFI_CANARY);\n    return buf;\n}\n\nstatic void xn_ffi_canary_leave(uint8_t *buf, uint8_t *dst, size_t n) {\n    size_t i;\n    for (i = 0; i < XN_FFI_CANARY; i++) {\n        if (buf[i] != 0xA5 || buf[XN_FFI_CANARY + n + i] != 0x5A) {\n            xrt_fatal(\"FFI 借出缓冲区越界写（S7 §9 INV-FFI-5）\");\n        }\n    }\n    if (dst != NULL) { memcpy(dst, buf + XN_FFI_CANARY, n); }\n    free(buf);\n}\n\nstatic int xn_ffi_bool_from_native(uint8_t v) {\n    if (v > 1) { xrt_fatal(\"FFI Bool 返回值非 0/1（S7 §3.2 合同违规）\"); }\n    return (int)v;\n}\n\n"
 static Bool SKIP_LINE = false
 static Bool IN_PAREN = false
+static Bool NO_OP_WRAP = false
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -1189,10 +1190,10 @@ static String expr(N x, EM e, SC sc) {
             N rb = fld(x, "R")
             String lv = expr(lb, e, sc)
             String rv = expr(rb, e, sc)
-            if !IN_PAREN && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
-            if !IN_PAREN && lb.nm == "Unary" { lv = "(" + lv + ")" }
-            if !IN_PAREN && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
-            if !IN_PAREN && rb.nm == "Unary" { rv = "(" + rv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && lb.nm == "Unary" { lv = "(" + lv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && rb.nm == "Unary" { rv = "(" + rv + ")" }
 
             return "(" + lv + " " + op + " " + rv + ")"
         }
@@ -2051,7 +2052,11 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
             return
         }
-        e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+        Bool now0 = NO_OP_WRAP
+        if init.nm == "Binary" && (unq(txt(fld(init, "Op"))) == "&&" || unq(txt(fld(init, "Op"))) == "||") { NO_OP_WRAP = true }
+        String genv = expr(init, e, sc)
+        NO_OP_WRAP = now0
+        e.add(cType(ty) + " " + nm + " = " + genv + ";")
         return
     }
     if st.nm == "AssignStmt" {
