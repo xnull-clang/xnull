@@ -398,17 +398,17 @@ func EmitCWithBuildOptions(u *xfront.CompilationUnit, reg *ffi.Registry, strateg
 	default:
 		return "", fmt.Errorf("codegen：--mem 只接受 auto/arc/gc，got %q", opts.MemPolicy)
 	}
-	return emitC(u, reg, strategies, opts.Stats)
+	return emitC(u, reg, strategies, opts.Stats, opts.SrcPath)
 }
 
 // EmitCWithStrategies 是 EmitCWithFFI 的带策略入口（BND-10）：
 // strategies 来自 sema.ComputeStrategies，决定类的分配种类（arc/gc）。
 // strategies 为空时全部按 ARC（与历史行为一致）。
 func EmitCWithStrategies(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy) (string, error) {
-	return emitC(u, reg, strategies, false)
+	return emitC(u, reg, strategies, false, "")
 }
 
-func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, stats bool) (string, error) {
+func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strategy, stats bool, srcPath string) (string, error) {
 	policy := map[string]string{}
 	stack := map[string]bool{}
 	for _, st := range strategies {
@@ -422,7 +422,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	g := &gen{results: map[string]string{}, resultArgs: map[string][]xfront.TypeRef{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		classDecls: map[string]*xfront.ClassDecl{},
-		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{},
+		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}, srcPath: srcPath,
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
@@ -723,6 +723,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	b.WriteString("}\n\n")
 	// 先预登记全部签名/字段用到的容器，再输出 typedef 与原型。
 	g.prewarmTypeContainers(u)
+	g.emitClassTypedefs(&b)
 	// 容器 typedef 必须先于类前向声明/方法原型（Map/List 字段会出现在原型里）。
 	{
 		g.cs.declared = map[string]bool{}
@@ -1273,7 +1274,8 @@ type gen struct {
 	factories        map[string]*factoryInfo      // 工厂名 → 方法表（BND-08）
 	factoryOrder     []string                     // 工厂声明顺序
 	extensions       []*extensionInfo             // 扩展方法（BND-13）
-	tmp              int
+	tmp              int                          // 临时变量编号
+	srcPath          string                       // 源文件路径（#line 映射）
 }
 
 // cRef 把 XNull 标识符映射为 C 侧名字：参数带 xn_p_ 前缀，顶层字段带 xn_g_ 前缀。
@@ -2068,6 +2070,9 @@ func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 		s.defers = append(s.defers, deferItem{lines: []string{"xn_root_restore(" + s.rootMark + ");"}})
 	}
 	for _, st := range stmts {
+		if d := s.lineDirective(st); d != "" {
+			out = append(out, d)
+		}
 		lines, err := s.emitStmt(st)
 		if err != nil {
 			return "", err
@@ -5412,4 +5417,56 @@ func (g *gen) prewarmTypeContainers(u *xfront.CompilationUnit) {
 			}
 		}
 	}
+}
+
+// lineDirective 生成 #line 指令，把 cc 诊断映射回 .x 行。
+func (s *scope) lineDirective(st xfront.Stmt) string {
+	p := stmtPos(st)
+	if p.Line <= 0 || s.g.srcPath == "" {
+		return ""
+	}
+	q := strings.ReplaceAll(s.g.srcPath, "\\", "\\\\")
+	q = strings.ReplaceAll(q, "\"", "\\\"")
+	return fmt.Sprintf("#line %d \"%s\"", p.Line, q)
+}
+
+// stmtPos 读取语句声明位置（xfront 的 Stmt.Pos() 当前返回空，需按具体类型取 P）。
+func stmtPos(st xfront.Stmt) xfront.Pos {
+	switch n := st.(type) {
+	case *xfront.ReturnStmt:
+		return n.P
+	case *xfront.ExprStmt:
+		return n.P
+	case *xfront.LocalDeclStmt:
+		return n.P
+	case *xfront.AssignStmt:
+		return n.P
+	case *xfront.IncDecStmt:
+		return n.P
+	case *xfront.IfStmt:
+		return n.P
+	case *xfront.WhileStmt:
+		return n.P
+	case *xfront.DoWhileStmt:
+		return n.P
+	case *xfront.ForStmt:
+		return n.P
+	case *xfront.SwitchStmt:
+		return n.P
+	case *xfront.DeferStmt:
+		return n.P
+	case *xfront.BreakStmt:
+		return n.P
+	case *xfront.ContinueStmt:
+		return n.P
+	case *xfront.GotoStmt:
+		return n.P
+	case *xfront.LabeledStmt:
+		return n.P
+	case *xfront.ThrowStmt:
+		return n.P
+	case *xfront.EmptyStmt:
+		return n.P
+	}
+	return xfront.Pos{}
 }

@@ -426,6 +426,22 @@ func (g *gen) registerClassNames(u *xfront.CompilationUnit) {
 // 输出顺序不变量：前向声明（此处）→ 容器结构 → 顶层函数原型 → 类完整定义。
 // 多文件合并后使用方可先于定义方出现，指针形态只需该不完整类型即合法（S1-06）；
 // 字段初值 `new B()` 也要求 B 的构造器原型先于 A 的构造器（B0-04）。
+// emitClassTypedefs 只输出类/单例的 struct 前向 typedef（供容器 typedef 引用）。
+func (g *gen) emitClassTypedefs(b *strings.Builder) {
+	names := make([]string, 0, len(g.classes))
+	for name := range g.classes {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		cn := classCName(name)
+		fmt.Fprintf(b, "typedef struct %s %s;\n", cn, cn)
+	}
+	if len(names) > 0 {
+		b.WriteString("\n")
+	}
+}
+
 func (g *gen) emitClassForwardDecls(b *strings.Builder) error {
 	names := make([]string, 0, len(g.classes))
 	for name := range g.classes {

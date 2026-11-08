@@ -522,11 +522,11 @@ func emitWrapper(e Entry) (string, error) {
 			postOut = "*xn_out = xn_v;"
 		case KindString:
 			hasOut = true
-			retC = "rt_string *"
+			retC = "xrt_string *"
 			// 原生 String 返回是 C 字符串（借用给包装层立即复制，S7 §3.4/§5.1），
 			// 不是 rt/xrt_string：变量类型必须与原生签名一致，否则 C 侧类型不符。
 			nativeC = "const char *"
-			postOut = "*xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);"
+			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);"
 		case KindText:
 			hasOut = true
 			retC = "xrt_text *"
