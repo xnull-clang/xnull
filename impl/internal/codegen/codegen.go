@@ -2134,7 +2134,7 @@ func (s *scope) emitStmt(st xfront.Stmt) ([]string, error) {
 	}
 	out = append(out, s.pending...)
 	s.pending = nil
-	return append(out, lines...), nil
+	return s.rootTempDecls(append(out, lines...)), nil
 }
 
 func (s *scope) emitStmtInner(st xfront.Stmt) ([]string, error) {
@@ -3610,6 +3610,14 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 }
 
 func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
+	lines, err := s.emitReturnInner(n)
+	if err != nil {
+		return nil, err
+	}
+	return s.rootTempDecls(lines), nil
+}
+
+func (s *scope) emitReturnInner(n *xfront.ReturnStmt) ([]string, error) {
 	if s.isCtor {
 		if n.Value != nil {
 			return nil, fmt.Errorf("codegen：构造器不能带返回值（S2 §6.3）")
@@ -5588,4 +5596,46 @@ func (s *scope) promoteRoot(name string) []string {
 	}
 	owner.blockHeld = append(owner.blockHeld, name)
 	return []string{"xn_root_hold(" + name + ");"}
+}
+
+// rootTempDecls 为表达式临时 GC 值补栈根（String/Bytes/容器/类等）。
+// 根在所在块退出时由 root_restore 释放；循环体每轮重新登记，避免跨分配点被回收。
+func (s *scope) rootTempDecls(lines []string) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+	out := make([]string, 0, len(lines))
+	for _, ln := range lines {
+		out = append(out, ln)
+		t := strings.TrimSpace(ln)
+		if strings.Contains(t, "xn_root_add(") || strings.Contains(t, "xn_root_hold(") {
+			continue
+		}
+		if !strings.Contains(t, " = ") {
+			continue
+		}
+		isGC := strings.HasPrefix(t, "rt_string *") ||
+			strings.HasPrefix(t, "xrt_bytes_obj *") ||
+			strings.HasPrefix(t, "xrt_text *") ||
+			strings.HasPrefix(t, "xrt_sb *") ||
+			strings.HasPrefix(t, "xn_arr_") ||
+			strings.HasPrefix(t, "xn_set_") ||
+			strings.HasPrefix(t, "xn_map_") ||
+			strings.HasPrefix(t, "xn_Cls_")
+		if !isGC {
+			continue
+		}
+		lhs := strings.SplitN(t, " = ", 2)[0]
+		fields := strings.Fields(lhs)
+		if len(fields) == 0 {
+			continue
+		}
+		name := strings.TrimSuffix(fields[len(fields)-1], ";")
+		name = strings.TrimLeft(name, "*")
+		if name == "" || strings.Contains(name, "(") {
+			continue
+		}
+		out = append(out, "xn_root_add("+name+");")
+	}
+	return out
 }

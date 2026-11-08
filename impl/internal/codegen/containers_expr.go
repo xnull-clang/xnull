@@ -210,6 +210,37 @@ func (s *scope) elemValue(e xfront.Expr, elemC string) (string, []string, error)
 		lines, err := s.strExpr(e)
 		return lastVar(lines), lines, err
 	}
+	if isClassPtr(elemC) {
+		if nw, ok := e.(*xfront.New); ok {
+			expr, err := s.emitNewClass(nw)
+			if err != nil {
+				return "", nil, err
+			}
+			t := s.tmp()
+			lines := append([]string{}, s.pending...)
+			s.pending = nil
+			lines = append(lines, elemC+" "+t+" = "+expr+";")
+			if s.g.classIsGC(elemC) {
+				lines = append(lines, "xn_root_add("+t+");")
+			}
+			return t, lines, nil
+		}
+		if cl, ok := e.(*xfront.Call); ok {
+			expr, owns, err := s.classCallExpr(cl)
+			if err != nil {
+				return "", nil, err
+			}
+			t := s.tmp()
+			lines := append([]string{}, s.pending...)
+			s.pending = nil
+			lines = append(lines, elemC+" "+t+" = "+expr+";")
+			if s.g.classIsGC(elemC) {
+				lines = append(lines, "xn_root_add("+t+");")
+			}
+			_ = owns
+			return t, lines, nil
+		}
+	}
 	v, err := s.intExpr(e)
 	return v, nil, err
 }
