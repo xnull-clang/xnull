@@ -384,7 +384,7 @@ class Lexer {
                 }
                 String sf = self.scanSuffix()
                 Tok t = self.mk(6, self.piece(start, self.pos), l, c)
-                t.base = 10
+                t.base = 0
                 t.suffix = sf
                 t.hasSuffixF = sf == "F"
                 return t
@@ -464,17 +464,71 @@ class Lexer {
     }
 
     Tok scanString(Int l, Int c, Bool raw, Bool multiline, Bool interp) {
-        Int start = self.pos
-        Int begin = self.pos
         if raw || interp { self.adv() }
         self.adv()
         if multiline { self.adv(); self.adv() }
         String val = ""
+        String joined = ""
+        List<String> segs = []
+        List<String> interps = []
         Bool closed = false
         while !self.eof() {
             Int x = self.bytes.get(self.pos)
             if !multiline && x == 10 {
                 break
+            }
+            if interp && x == 123 {
+                if self.b(self.pos + 1) == 123 {
+                    self.adv(); self.adv()
+                    val = val + "{"
+                    continue
+                }
+                segs.push(val)
+                joined = joined + val
+                val = ""
+                self.adv()
+                String expr = ""
+                Int depth = 1
+                while !self.eof() && depth > 0 {
+                    Int y = self.bytes.get(self.pos)
+                    if y == 123 {
+                        depth = depth + 1
+                        expr = expr + "{"
+                        self.adv()
+                    } else if y == 125 {
+                        depth = depth - 1
+                        if depth == 0 {
+                            self.adv()
+                        } else {
+                            expr = expr + "}"
+                            self.adv()
+                        }
+                    } else if y == 34 {
+                        expr = expr + "\""
+                        self.adv()
+                        Bool qdone = false
+                        while !self.eof() && !qdone {
+                            Int z = self.bytes.get(self.pos)
+                            if z == 92 {
+                                expr = expr + self.one(self.pos)
+                                self.adv()
+                                if !self.eof() {
+                                    expr = expr + self.one(self.pos)
+                                    self.adv()
+                                }
+                            } else {
+                                expr = expr + self.one(self.pos)
+                                self.adv()
+                                if z == 34 { qdone = true }
+                            }
+                        }
+                    } else {
+                        expr = expr + self.one(self.pos)
+                        self.adv()
+                    }
+                }
+                interps.push(expr)
+                continue
             }
             if x == 34 {
                 if multiline {
@@ -513,6 +567,8 @@ class Lexer {
         if !closed {
             self.err("LEX-102", l, c, "字符串未闭合")
         }
+        segs.push(val)
+        joined = joined + val
         Int kind = 0
         if interp { kind = 4 }
         else if raw && multiline { kind = 3 }
@@ -520,8 +576,9 @@ class Lexer {
         else if multiline { kind = 2 }
         Tok t = self.mk(8, "", l, c)
         t.str = kind
-        t.value = val
-        t.segs.push(val)
+        t.value = joined
+        t.segs = segs
+        t.interps = interps
         return t
     }
 }
