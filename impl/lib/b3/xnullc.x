@@ -775,6 +775,8 @@ class SC {
     List<String> blockRoots = []
     List<Int> blockInds = []
     List<String> rootedTemps = []
+    List<String> extraTmpName = []
+    List<Int> extraTmpCount = []
     String curFn = ""
     List<String> held = []
     Bool inRet = false
@@ -1722,6 +1724,23 @@ static String declNameOf(String t) {
     return nm
 }
 
+static Int extraCountOf(SC sc, String nm) {
+    Int i = 0
+    while i < sc.extraTmpName.length() { if sc.extraTmpName.get(i) == nm { return sc.extraTmpCount.get(i) }; i = i + 1 }
+    sc.extraTmpName.push(nm)
+    sc.extraTmpCount.push(0)
+    return 0
+}
+static void bumpExtra(SC sc, String nm) {
+    Int i = 0
+    while i < sc.extraTmpName.length() {
+        if sc.extraTmpName.get(i) == nm { sc.extraTmpCount.set(i, sc.extraTmpCount.get(i) + 1); return }
+        i = i + 1
+    }
+    sc.extraTmpName.push(nm)
+    sc.extraTmpCount.push(1)
+}
+
 static void emitStmt(N st, EM e, SC sc, Bool early) {
     if sc.curFn != "regexMatchAt" {
         emitStmtInner(st, e, sc, early)
@@ -1730,20 +1749,36 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     Int stStart = e.ls.length()
     emitStmtInner(st, e, sc, early)
     List<String> resL = []
+    String pendNm = ""
+    Int pendEc = 0
     Int i = stStart
     while i < e.ls.length() {
         String ln = e.ls.get(i)
         resL.push(ln)
         String t = ln.trim()
-        if t.indexOf("xn_root_add(") >= 0 || t.indexOf("xn_root_hold(") >= 0 { i = i + 1; continue }
+        if t.indexOf("xn_root_add(") == 0 {
+            Int rp = t.indexOf("(")
+            Int rq = t.indexOf(")")
+            String ra = ""
+            if rp >= 0 && rq > rp { ra = t.substring(rp + 1, rq - rp - 1) }
+            if pendNm != "" && ra == pendNm {
+                resL.push(sp(8 + 4 * pendEc) + "xn_root_add(" + pendNm + ");")
+                bumpExtra(sc, pendNm)
+                pendNm = ""
+            }
+            i = i + 1
+            continue
+        }
+        if t.indexOf("xn_root_hold(") >= 0 { i = i + 1; continue }
         if t.indexOf(" = ") < 0 || !gcDeclLine(t) { i = i + 1; continue }
         String nm = declNameOf(t)
         if nm != "" && nm.indexOf("(") < 0 {
             if !inNames(sc.rootedTemps, nm) { sc.rootedTemps.push(nm) }
-            else { resL.push("xn_root_add(" + nm + ");") }
+            else { pendNm = nm; pendEc = extraCountOf(sc, nm) }
         }
         i = i + 1
     }
+    if pendNm != "" { resL.push(sp(8 + 4 * pendEc) + "xn_root_add(" + pendNm + ");") }
     while e.ls.length() > stStart { e.ls.remove(e.ls.length() - 1) }
     i = 0
     while i < resL.length() { e.ls.push(resL.get(i)); i = i + 1 }
@@ -2833,6 +2868,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.loopIndent = 0
     if fname == "regexMatchAt" { sc.doubleRoot = false }
     sc.rootedTemps = []
+    sc.extraTmpName = []
+    sc.extraTmpCount = []
     escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
     sc.curFn = fname
