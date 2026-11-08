@@ -38,6 +38,11 @@ func ResolveDependencies(path string, opts Options) (*Resolved, []diag.Diagnosti
 			}
 		}
 		if ver == "" {
+			if mv, ok := opts.ManagedFallback[coord]; ok && mv != "" {
+				ver = mv
+			}
+		}
+		if ver == "" {
 			ds = append(ds, diag.Diagnostic{File: res.Chain[len(res.Chain)-1], Line: 1, Col: 1,
 				Code: codeDepVersion, Message: fmt.Sprintf("依赖 %s 无版本：自身未写且 management 未提供（S8 §3.5）", coord)})
 			continue

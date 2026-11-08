@@ -40,6 +40,9 @@ type Options struct {
 	Profiles         []string // -P 显式激活
 	Platform         string   // 当前构建平台（macos/linux/windows…）
 	ToolchainVersion string   // 内置变量 xnull.version
+	// ManagedFallback 是外部仲裁表（聚合根 dependencyManagement），
+	// 用于模块自身未声明版本时的最终兜底（S8 §4.2：管理版本优先）。
+	ManagedFallback map[string]string
 }
 
 // Resolved 是继承与 profile 合并后的清单视图（值已完成单次变量替换）。
