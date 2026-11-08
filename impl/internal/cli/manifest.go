@@ -20,6 +20,24 @@ import (
 
 const manifestFile = "xnull.project"
 
+// findManifestRoot 从 start 向上查找 xnull.project（与 lock/manifest 共用）。
+func findManifestRoot(start string) string {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return ""
+	}
+	for {
+		if st, err := os.Stat(filepath.Join(dir, manifestFile)); err == nil && !st.IsDir() {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 // buildSpec 是 build 段中 S8-04 消费的字段（S8 §5.2）。
 type buildSpec struct {
 	Mode         string

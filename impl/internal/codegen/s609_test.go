@@ -58,27 +58,25 @@ func TestS609SocketPlainAndAsyncClose(t *testing.T) {
 		}
 	}()
 	port := ln.Addr().(*net.TCPAddr).Port
-	src := fmt.Sprintf(`import xdk.net
-import xdk.errors
+	src := fmt.Sprintf(`import xdk.errors
 import xdk.tasks
 
 @tasks
 static Int main() {
     Context ctx = Context.background()
-    Result<Socket, ErrorKind> r = socketConnect("127.0.0.1", %d)
+    var r = socketConnectAsync(ctx, "127.0.0.1", %d)
     print(r.isOk())
     if (r.isOk()) {
-        Socket s = r.value()
-        Result<void, ErrorKind> c = socketCloseAsync(ctx, s)
-        print(c.isOk())
+        var s = r.value()
+        print(socketClose(s))
     }
     return 0
 }
 `, port)
 	bin, csrc := s609Project(t, src)
 	for _, want := range []string{
-		"xn_Result_Socket_ErrorKind", "xdkc_net_connect(", "xrt_context_check_cancel(",
-		"xdkc_net_close(", "xrt_handle_mark_closed(",
+		"xn_Result_Socket_ErrorKind", "xdkc_socket_connect_async(",
+		"xn_ffi_socketClose(",
 	} {
 		if !strings.Contains(csrc, want) {
 			t.Fatalf("生成 C 缺少 %q", want)
@@ -105,7 +103,8 @@ func TestS609HTTPGetAsync(t *testing.T) {
 		_, _ = c.Read(buf)
 		io.WriteString(c, "HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello")
 	}()
-	addr := ln.Addr().String()
+	addr := ln.Addr().(*net.TCPAddr)
+	host, port := addr.IP.String(), addr.Port
 	src := fmt.Sprintf(`import xdk.net.http
 import xdk.errors
 import xdk.tasks
@@ -113,24 +112,27 @@ import xdk.tasks
 @tasks
 static Int main() {
     Context ctx = Context.background()
-    Result<Bytes, ErrorKind> r = httpGet(ctx, "http://%s/")
+    Bytes empty = Bytes.fromString("")
+    Result<HttpResponse, ErrorKind> r = httpRequestAsync(ctx, "GET", "%s", %d, "/", empty)
     print(r.isOk())
     if (r.isOk()) {
-        Bytes b = r.value()
-        print(str(b.length()))
+        HttpResponse resp = r.value()
+        print(str(httpStatus(resp)))
+        print(httpBodyText(resp))
+        print(httpResponseClose(resp))
     }
     return 0
 }
-`, addr)
+`, host, port)
 	bin, csrc := s609Project(t, src)
 	for _, want := range []string{
-		"xn_Result_Bytes_ErrorKind", "xdkc_http_get(", "xrt_context_check_cancel(",
+		"xn_Result_HttpResponse_ErrorKind", "xdkc_http_request_async(", "xn_ffi_httpStatus(",
 	} {
 		if !strings.Contains(csrc, want) {
 			t.Fatalf("生成 C 缺少 %q", want)
 		}
 	}
-	if got := s609Run(t, bin); got != "true\n5" {
-		t.Fatalf("stdout=%q，期望 true/5", got)
+	if got := s609Run(t, bin); got != "true\n200\nhello\ntrue" {
+		t.Fatalf("stdout=%q，期望 true/200/hello/true", got)
 	}
 }

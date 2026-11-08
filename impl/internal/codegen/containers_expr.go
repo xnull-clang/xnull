@@ -345,7 +345,7 @@ func (s *scope) optExpr(e xfront.Expr, optC string) ([]string, string, error) {
 		if err != nil {
 			return nil, "", err
 		}
-		return lines, fmt.Sprintf("%s_get(%s, %s)", recvC, recvName, kk), nil
+		return lines, fmt.Sprintf("%s_get(%s, %s)", contBase(recvC), recvName, kk), nil
 	}
 	return s.optWrap(e, optC)
 }
@@ -549,7 +549,7 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, lines...)
-			return fmt.Sprintf("%s_has(%s, %s)", recvC, recvName, kk), true, nil
+			return fmt.Sprintf("%s_has(%s, %s)", contBase(recvC), recvName, kk), true, nil
 		case "getOr":
 			kk, kl, err := s.elemValue(args[0], k)
 			if err != nil {
@@ -561,7 +561,7 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, dl...)
-			return fmt.Sprintf("%s_get_or(%s, %s, %s)", recvC, recvName, kk, d), true, nil
+			return fmt.Sprintf("%s_get_or(%s, %s, %s)", contBase(recvC), recvName, kk, d), true, nil
 		}
 	}
 	if strings.HasPrefix(recvC, "xn_set_") {
@@ -572,14 +572,14 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 				return "", true, err
 			}
 			s.pending = append(s.pending, lines...)
-			return fmt.Sprintf("%s_add(%s, %s)", recvC, recvName, v), true, nil
+			return fmt.Sprintf("%s_add(%s, %s)", contBase(recvC), recvName, v), true, nil
 		}
 		if name == "at" {
 			i, err := s.intExpr(args[0])
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_at(%s, %s)", recvC, recvName, i), true, nil
+			return fmt.Sprintf("%s_at(%s, %s)", contBase(recvC), recvName, i), true, nil
 		}
 	}
 	if strings.HasPrefix(recvC, "xn_arr_") || strings.HasPrefix(recvC, "xn_set_") {
@@ -589,21 +589,21 @@ func (s *scope) containerMemberValue(recvC string, recvName string, name string,
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_get(%s, %s)", recvC, recvName, i), true, nil
+			return fmt.Sprintf("%s_get(%s, %s)", contBase(recvC), recvName, i), true, nil
 		case "remove":
 			if strings.HasPrefix(recvC, "xn_arr_") {
 				i, err := s.intExpr(args[0])
 				if err != nil {
 					return "", true, err
 				}
-				return fmt.Sprintf("%s_remove(%s, %s)", recvC, recvName, i), true, nil
+				return fmt.Sprintf("%s_remove(%s, %s)", contBase(recvC), recvName, i), true, nil
 			}
 		case "has":
 			v, err := s.intExpr(args[0])
 			if err != nil {
 				return "", true, err
 			}
-			return fmt.Sprintf("%s_has(%s, %s)", recvC, recvName, v), true, nil
+			return fmt.Sprintf("%s_has(%s, %s)", contBase(recvC), recvName, v), true, nil
 		}
 	}
 	return "", false, nil

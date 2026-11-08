@@ -158,6 +158,9 @@ func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) 
 	sort.Strings(kinds)
 	for _, e := range kinds {
 		n := arrName(e)
+		if cs.declared[n] {
+			continue
+		}
 		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %s *data; } %s;\n\n", e, n)
 		cs.declared[n] = true
 	}
@@ -170,6 +173,9 @@ func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) 
 	sort.Strings(skeys)
 	for _, e := range skeys {
 		n := setName(e)
+		if cs.declared[n] {
+			continue
+		}
 		fmt.Fprintf(b, "typedef struct { rt_header hdr; %s *a; } %s;\n\n", arrName(e), n)
 		cs.declared[n] = true
 	}
@@ -184,6 +190,9 @@ func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) 
 	for _, k := range mkeys {
 		pair := cs.mp[k]
 		n := mapName(pair[0], pair[1])
+		if cs.declared[n] {
+			continue
+		}
 		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %s *keys; %s *vals; } %s;\n\n", pair[0], pair[1], n)
 		cs.declared[n] = true
 	}
@@ -460,9 +469,10 @@ func emitMapHelpers(b *strings.Builder, k, v string, gcK, gcV bool, skipDecl boo
 	if isRef(v) {
 		scanVals = "    if (m->vals != NULL) { for (size_t i = 0; i < m->len; i++) { visit(m->vals[i]); } }\n"
 	}
-	fmt.Fprintf(b, `typedef struct { rt_header hdr; size_t len; size_t cap; %[2]s *keys; %[3]s *vals; } %[1]s;
-
-static void %[1]s_scan(void *p, void (*visit)(void *)) {
+	if !skipDecl {
+		fmt.Fprintf(b, "typedef struct { rt_header hdr; size_t len; size_t cap; %[2]s *keys; %[3]s *vals; } %[1]s;\n\n", n, k, v)
+	}
+	fmt.Fprintf(b, `static void %[1]s_scan(void *p, void (*visit)(void *)) {
     %[1]s *m = (%[1]s *)p;
 %[11]s%[12]s}
 

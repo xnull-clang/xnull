@@ -22,7 +22,12 @@ import (
 // 生成代码只 include xrt.h（S7 §6.1 / INV-FFI-7），不使用内部 rt_* 符号。
 
 // wrapperABI 是包装 ABI 的注释头（写进生成代码，便于审计）。
-const wrapperABI = "/* 包装 ABI：返回 0 成功；非 0 为原生错误码（未知码→Internal，S7 §7.2） */\n"
+const wrapperABI = "/* 包装 ABI：返回 0 成功；非 0 为原生错误码（未知码→Internal，S7 §7.2） */\n" +
+	"/* S6-09 net Async 运行时原语（E5 rt_std_net.c） */\n" +
+	"void *xdkc_socket_connect_async(xrt_context *ctx, const char *host, size_t hlen, int32_t port, int32_t *code);\n" +
+	"int64_t xdkc_socket_send_async(xrt_context *ctx, void *sock, const void *buf, size_t n, int32_t *code);\n" +
+	"int64_t xdkc_socket_recv_async(xrt_context *ctx, void *sock, void *buf, size_t cap, int32_t *code);\n" +
+	"void *xdkc_http_request_async(xrt_context *ctx, const char *method, size_t mlen, const char *host, size_t hlen, int32_t port, const char *path, size_t plen, const void *body, size_t blen, int32_t *code);\n"
 
 // canaryHelpers 是借出缓冲区的 pin/canary 助手（S7 §9 INV-FFI-5）。
 const canaryHelpers = `#define XN_FFI_CANARY 16
@@ -517,11 +522,11 @@ func emitWrapper(e Entry) (string, error) {
 			postOut = "*xn_out = xn_v;"
 		case KindString:
 			hasOut = true
-			retC = "xrt_string *"
+			retC = "rt_string *"
 			// 原生 String 返回是 C 字符串（借用给包装层立即复制，S7 §3.4/§5.1），
 			// 不是 rt/xrt_string：变量类型必须与原生签名一致，否则 C 侧类型不符。
 			nativeC = "const char *"
-			postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);"
+			postOut = "*xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);"
 		case KindText:
 			hasOut = true
 			retC = "xrt_text *"
