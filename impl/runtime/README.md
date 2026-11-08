@@ -50,3 +50,37 @@ C 侧对应 `rt_policy.h` 的 `rt_policy_input`，字段一一映射：
 
 确定性（DET-01）：`rt_decide_policy` 是纯函数，同一输入恒产生同一输出；
 Go 侧 `ComputeStrategies` 按声明名排序输出，不依赖声明顺序与文件枚举顺序。
+
+## 文件地图（中文对照）
+
+命名约定：`rt_` = 运行时内部实现；`xrt_` = 对外稳定 ABI；`rt_std_` = 标准库的 C 实现。
+
+| 文件 | 全称/含义 | 作用 | 可见性 |
+|---|---|---|---|
+| `rt.h` / `rt.c` | Runtime core | 分配头、ARC retain/release、隔离区、fatal | 内部 |
+| `rt_gc.h` / `rt_gc.c` | Garbage Collector | 标记—清扫、全局根、扫描链 | 内部 |
+| `rt_weak.c` | Weak references | 弱槽位、目标死亡清除、复用池 | 内部 |
+| `rt_policy.h` / `rt_policy.c` | Policy executor | 策略判定表执行 | 内部 |
+| `rt_task.c` | Task runtime | 任务/组/Context/载体线程/伴生执行器 | 内部 |
+| `rt_sync.c` | Synchronization | Mutex/Channel/Atomic | 内部 |
+| `rt_std_runtime.c` | Stdlib runtime | 时钟/env/diagnose/exit | 内部（XDK 实现） |
+| `rt_std_text.c` | Stdlib text | UTF/parse/format/regex | 内部（XDK 实现） |
+| `rt_std_sys.c` | Stdlib system | 文件/目录/进程/路径 | 内部（XDK 实现） |
+| `rt_std_bytes.c` | Stdlib bytes | 可变字节缓冲 | 内部（XDK 实现） |
+| `rt_std_net.c` | Stdlib network | socket/http | 内部（XDK 实现） |
+| `rt_std_res.c` / `_empty.c` | Stdlib resources | 资源表 5 API / 空表回退 | 内部（XDK 实现） |
+| `xrt.h` | XNull Runtime ABI v1 | 对外唯一稳定 ABI：alloc/retain/release、弱表、根、任务根、String/Handle/Bytes、fatal | **公开** |
+| `xrt_abi.c` | ABI implementation | `xrt_*` 入口的薄封装 | 公开 ABI 的实现 |
+| `build_rt.sh` | Build & test | 全量编译 + 跑 rt/gc/hard/abi/std/res/net 套件 | 工具 |
+| `test_*.c` | Test suites | 各子切片验收用例 | 测试 |
+
+## 谁能调用运行时
+
+| 调用方 | 允许的接口 | 说明 |
+|---|---|---|
+| 编译器生成代码 | 仅 `xrt.h` 的 `xrt_*` | 稳定 ABI v1；不直接碰 `rt_*` |
+| FFI 绑定层 | 仅 `xrt.h` | 跨语言边界合同（INV-FFI-7） |
+| 应用开发者 | XNull 语言 + `xdk.*` | **不直接调用 C 运行时**；绕过 ARC/GC 合同会破坏不变量 |
+| 运行时/绑定开发者 | `rt.h` 内部接口 | 仅限 runtime 子切片开发与测试 |
+
+结论：内部文件名是缩写，但分层是清楚的——应用只看 XDK，生成代码只看 `xrt.h`，`rt_*` 是内部实现，不随 SDK 分发。
