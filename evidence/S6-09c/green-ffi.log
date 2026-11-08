@@ -1,0 +1,144 @@
+--- FAIL: TestXdkWrappersRun (1.39s)
+    xdk_test.go:159: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:161:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          161 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:165:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:165:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:91:13: note: 'xrt_string_from_c' declared here
+           91 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:165:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:176:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          176 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:178:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:178:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:292:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          292 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:294:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXdkWrappersRun3510874697/001/prog.c:294:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        3 warnings and 6 errors generated.
+--- FAIL: TestBlockingClassificationDocInSync (0.00s)
+    xdk_test.go:209: 清单未与注册表同步，缺行：| httpGetPlain | xdkc_http_get | xdkc_net | .unaware | 否 | — |
+--- FAIL: TestXDKTextFileAPI (1.34s)
+    xdk_text_test.go:82: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:161:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          161 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:165:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:165:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:91:13: note: 'xrt_string_from_c' declared here
+           91 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:165:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:176:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          176 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:178:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:178:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:292:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          292 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:294:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKTextFileAPI40129886/001/prog.c:294:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        3 warnings and 6 errors generated.
+--- FAIL: TestXDKSysFileOpenWrite (1.35s)
+    xdk_write_test.go:77: cc 失败：exit status 1
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:161:46: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          161 | static int32_t xn_ffi_dirRead(xrt_handle *d, rt_string * *xn_out) {
+              |                                              ^~~~~~~~~
+              |                                              xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:165:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:165:39: note: did you mean 'xrt_string_from_c'?
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:91:13: note: 'xrt_string_from_c' declared here
+           91 | xrt_string *xrt_string_from_c(const char *cstr);
+              |             ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:165:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          165 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:176:68: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          176 | static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, rt_string * *xn_out) {
+              |                                                                    ^~~~~~~~~
+              |                                                                    xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:178:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:178:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          178 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:292:77: error: unknown type name 'rt_string'; did you mean 'xrt_string'?
+          292 | static int32_t xn_ffi_readFileText(const char *path_bytes, size_t path_len, rt_string * *xn_out) {
+              |                                                                             ^~~~~~~~~
+              |                                                                             xrt_string
+        /Users/vjs/Desktop/XNull-Lang/wt/e5-runtime/impl/runtime/xrt.h:51:30: note: 'xrt_string' declared here
+           51 | typedef struct xrt_string    xrt_string;    /* 不透明（长度与字节经访问器） */
+              |                              ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:294:39: error: call to undeclared function 'rt_string_from_c'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                                       ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestXDKSysFileOpenWrite3944887150/001/prog.c:294:30: warning: pointer/integer type mismatch in conditional expression ('void *' and 'int') [-Wconditional-type-mismatch]
+          294 |     *xn_out = (xn_v == NULL) ? NULL : rt_string_from_c(xn_v);
+              |                              ^ ~~~~   ~~~~~~~~~~~~~~~~~~~~~~
+        3 warnings and 6 errors generated.
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	7.778s
+FAIL
+EXIT=1

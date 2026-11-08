@@ -24,8 +24,15 @@
 | httpResponseClose | xdkc_http_response_close | xdkc_net | .aware | 否 | — |
 | httpStatus | xdkc_http_status | xdkc_net | .aware | 否 | — |
 | env | xdkc_env_lookup | xdkc_runtime | .aware | 否 | — |
-| socketClose | xdkc_socket_close | xdkc_net | .aware | 否 | — |
-| socketConnect | xdkc_socket_connect | xdkc_net | .unaware | 否 | — |
+| httpGetPlain | xdkc_http_get | xdkc_net | .unaware | 否 | — |
+| httpPostPlain | xdkc_http_post | xdkc_net | .unaware | 否 | — |
+| listenerClose | xdkc_net_close | xdkc_net | .aware | 否 | — |
+| socketAccept | xdkc_net_accept | xdkc_net | .unaware | 否 | — |
+| socketClose | xdkc_net_close | xdkc_net | .aware | 否 | — |
+| socketConnect | xdkc_net_connect | xdkc_net | .unaware | 否 | — |
+| socketListen | xdkc_net_listen | xdkc_net | .unaware | 否 | — |
+| socketRead | xdkc_net_read | xdkc_net | .unaware | 否 | — |
+| socketWrite | xdkc_net_write | xdkc_net | .unaware | 否 | — |
 | socketRecv | xdkc_socket_recv | xdkc_net | .unaware | 否 | — |
 | socketSend | xdkc_socket_send | xdkc_net | .unaware | 否 | — |
 | exit | xdkc_exit | xdkc_runtime | .aware | 否 | — |

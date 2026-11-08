@@ -1,0 +1,3 @@
+$ /tmp/xnull_test_net
+net tests passed (socket plain/close + http get/post/status)
+EXIT=0

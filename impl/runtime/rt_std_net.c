@@ -537,3 +537,122 @@ int32_t xdkc_http_response_close(void *resp) {
     return 0;
 }
 
+
+/* ---- XDK-09c：codegen 绑定面 C 名（xdkc_net_* / xdkc_http_get|post）----
+ * 实现/别名到既有 socket/http 原语；只补链接符号，不改变行为。
+ */
+void *xdkc_net_connect(const char *host, size_t hlen, int32_t port, int32_t *code) {
+    return xdkc_socket_connect(host, hlen, port, code);
+}
+
+int64_t xdkc_net_read(void *sock, void *buf, size_t cap, int32_t *code) {
+    return xdkc_socket_recv(sock, buf, cap, code);
+}
+
+int32_t xdkc_net_write(void *sock, const void *buf, size_t n) {
+    int32_t code = 0;
+    int64_t w = xdkc_socket_send(sock, buf, n, &code);
+    return w < 0 ? (code != 0 ? code : 2) : 0;
+}
+
+int32_t xdkc_net_close(void *sock) {
+    return xdkc_socket_close(sock);
+}
+
+static int parse_http_url(const char *url, size_t len,
+                          char **host, size_t *hlen, int32_t *port,
+                          char **path, size_t *plen) {
+    if (url == NULL || len < 8 || memcmp(url, "http://", 7) != 0) {
+        return -1;
+    }
+    char *copy = malloc(len + 1);
+    if (copy == NULL) {
+        return -1;
+    }
+    memcpy(copy, url, len);
+    copy[len] = 0;
+    char *p = copy + 7;
+    char *slash = strchr(p, '/');
+    char *hostend = slash != NULL ? slash : p + strlen(p);
+    char *colon = memchr(p, ':', (size_t)(hostend - p));
+    *port = 80;
+    if (colon != NULL) {
+        *port = atoi(colon + 1);
+        hostend = colon;
+    }
+    *hlen = (size_t)(hostend - p);
+    *host = malloc(*hlen + 1);
+    if (*host == NULL) {
+        free(copy);
+        return -1;
+    }
+    memcpy(*host, p, *hlen);
+    (*host)[*hlen] = 0;
+    const char *pp = slash != NULL ? slash : "/";
+    *plen = strlen(pp);
+    *path = malloc(*plen + 1);
+    if (*path == NULL) {
+        free(*host);
+        free(copy);
+        return -1;
+    }
+    memcpy(*path, pp, *plen + 1);
+    free(copy);
+    return 0;
+}
+
+static xrt_bytes_buf *http_response_bytes(void *resp, int32_t *code) {
+    if (resp == NULL) {
+        return NULL;
+    }
+    int status = xdkc_http_status(resp);
+    if (status < 200 || status >= 300) {
+        *code = status == 404 ? 3 : 2;
+        (void)xdkc_http_response_close(resp);
+        return NULL;
+    }
+    size_t n = 0;
+    const char *body = xdkc_http_body(resp, &n);
+    xrt_bytes_buf *out = xrt_bytes_from_c(body, n);
+    (void)xdkc_http_response_close(resp);
+    if (out == NULL) {
+        *code = 2;
+        return NULL;
+    }
+    *code = 0;
+    return out;
+}
+
+xrt_bytes_buf *xdkc_http_get(const char *url, size_t len, int32_t *code) {
+    if (code == NULL) {
+        xrt_fatal("httpGet：错误码出参为空（S6 §4.7）");
+    }
+    char *host = NULL, *path = NULL;
+    size_t hlen = 0, plen = 0;
+    int32_t port = 0;
+    if (parse_http_url(url, len, &host, &hlen, &port, &path, &plen) != 0) {
+        *code = 1;
+        return NULL;
+    }
+    void *resp = xdkc_http_request("GET", 3, host, hlen, port, path, plen, NULL, 0, code);
+    free(host);
+    free(path);
+    return http_response_bytes(resp, code);
+}
+
+xrt_bytes_buf *xdkc_http_post(const char *url, size_t ulen, const void *body, size_t blen, int32_t *code) {
+    if (code == NULL) {
+        xrt_fatal("httpPost：错误码出参为空（S6 §4.7）");
+    }
+    char *host = NULL, *path = NULL;
+    size_t hlen = 0, plen = 0;
+    int32_t port = 0;
+    if (parse_http_url(url, ulen, &host, &hlen, &port, &path, &plen) != 0) {
+        *code = 1;
+        return NULL;
+    }
+    void *resp = xdkc_http_request("POST", 4, host, hlen, port, path, plen, body, blen, code);
+    free(host);
+    free(path);
+    return http_response_bytes(resp, code);
+}
