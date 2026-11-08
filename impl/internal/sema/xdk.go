@@ -71,6 +71,15 @@ var xdkPackages = map[string]map[string]bool{
 		"Socket": true, "Listener": true,
 		"connect": true, "connectAsync": true,
 		"bind": true, "bindAsync": true,
+		// S6-09（ADR-009）：plain socket + Async 双形态 + HTTP。
+		"socketConnect": true, "socketListen": true, "socketAccept": true,
+		"socketRead": true, "socketWrite": true, "socketClose": true, "listenerClose": true,
+		"socketConnectAsync": true, "socketListenAsync": true, "socketAcceptAsync": true,
+		"socketReadAsync": true, "socketWriteAsync": true, "socketCloseAsync": true,
+		"listenerCloseAsync": true,
+	},
+	"net.http": {
+		"httpGet": true, "httpPost": true, "httpGetPlain": true, "httpPostPlain": true,
 	},
 }
 

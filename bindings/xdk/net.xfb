@@ -1,64 +1,73 @@
-// bindings/xdk/net.xfb —— xdk.net 的 C 层绑定（S6 §4.7 / ADR-009）
+// bindings/xdk/net.xfb —— xdk.net 的 C 原语绑定（S6-09 / XDK-09 net 部分）
 //
-// 句柄合同（S3 §18）：Socket/HttpResponse 由 xrt_handle 包装，close 显式且幂等。
-// 错误码：0 ok / 1 InvalidArgument / 2 Io / 3 Cancelled / 4 Timeout / 5 Unavailable。
-// Async 形态（Context 首参）无法在 .xfb 表达，由 codegen 内建发射面调用
-// xdkc_socket_{connect,send,recv}_async / xdkc_http_request_async（运行时已就绪）。
+// 独立成包（S6 §4.7 定案 3-g-1）；句柄走 xrt_handle（close 幂等，S3 §18）。
+// 双形态：plain 基础函数；*Async 形态由 codegen 内建（Context 首参），运行时
+// 以取消检查 + 阻塞原语实现（调度器切片接管后保持同一符号/签名）。
+// HTTP 原语返回 Bytes；错误码经 @errorCode 映射为 Result<T, ErrorKind>。
 ffi xdkc_net {
   handle Socket { close = socketClose }
-  handle HttpResponse { close = httpResponseClose }
+  handle Listener { close = listenerClose }
 
   errorMap {
     1 = InvalidArgument
     2 = Io
-    3 = Cancelled
+    3 = NotFound
     4 = Timeout
-    5 = Unavailable
   }
 
-  @ffiEntry(cName = "xdkc_socket_connect")
+  // ---- plain socket ----
+  @ffiEntry(cName = "xdkc_net_connect")
   @lease(host = .borrow, port = .borrow, code = .borrow)
   @errorCode(codeParam = .code)
   @blocking(.unaware)
   Socket socketConnect(String host, Int32 port, Int32 code);
 
-  @ffiEntry(cName = "xdkc_socket_send")
-  @lease(sock = .borrow, buf = .borrow, code = .borrow)
+  @ffiEntry(cName = "xdkc_net_listen")
+  @lease(host = .borrow, port = .borrow, code = .borrow)
   @errorCode(codeParam = .code)
   @blocking(.unaware)
-  Int64 socketSend(Socket sock, Bytes buf, Int32 code);
+  Listener socketListen(String host, Int32 port, Int32 code);
 
-  @ffiEntry(cName = "xdkc_socket_recv")
-  @lease(sock = .borrow, buf = .borrow, code = .borrow)
+  @ffiEntry(cName = "xdkc_net_accept")
+  @lease(l = .borrow, code = .borrow)
   @errorCode(codeParam = .code)
   @blocking(.unaware)
-  Int64 socketRecv(Socket sock, Bytes buf, Int32 code);
+  Socket socketAccept(Listener l, Int32 code);
 
-  @ffiEntry(cName = "xdkc_socket_close")
-  @lease(sock = .borrow)
+  @ffiEntry(cName = "xdkc_net_read")
+  @lease(s = .borrow, buf = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 socketRead(Socket s, Bytes buf, Int32 code);
+
+  @ffiEntry(cName = "xdkc_net_write")
+  @lease(s = .borrow, buf = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.unaware)
+  Int32 socketWrite(Socket s, Bytes buf);
+
+  @ffiEntry(cName = "xdkc_net_close")
+  @lease(s = .borrow)
   @errorCode(codeParam = .result)
   @blocking(.aware)
-  Int32 socketClose(Socket sock);
+  Int32 socketClose(Socket s);
 
-  @ffiEntry(cName = "xdkc_http_request")
-  @lease(method = .borrow, host = .borrow, port = .borrow, path = .borrow, body = .borrow, code = .borrow)
-  @errorCode(codeParam = .code)
-  @blocking(.unaware)
-  HttpResponse httpRequest(String method, String host, Int32 port, String path, Bytes body, Int32 code);
-
-  @ffiEntry(cName = "xdkc_http_status")
-  @lease(resp = .borrow)
-  @blocking(.aware)
-  Int32 httpStatus(HttpResponse resp);
-
-  @ffiEntry(cName = "xdkc_http_body_text")
-  @lease(resp = .borrow)
-  @blocking(.aware)
-  String httpBodyText(HttpResponse resp);
-
-  @ffiEntry(cName = "xdkc_http_response_close")
-  @lease(resp = .borrow)
+  @ffiEntry(cName = "xdkc_net_close")
+  @lease(l = .borrow)
   @errorCode(codeParam = .result)
   @blocking(.aware)
-  Int32 httpResponseClose(HttpResponse resp);
+  Int32 listenerClose(Listener l);
+
+  // ---- HTTP（xdk.net.http 子包；异步默认，首参 Context 由 codegen 内建） ----
+  @ffiEntry(cName = "xdkc_http_get")
+  @lease(url = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Bytes httpGetPlain(String url, Int32 code);
+
+  @ffiEntry(cName = "xdkc_http_post")
+  @lease(url = .borrow, body = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Bytes httpPostPlain(String url, Bytes body, Int32 code);
 }
