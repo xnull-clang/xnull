@@ -1864,12 +1864,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             if init.nm == "Call" {
                 e.raw("xn_root_add(" + nm + ");")
                 e.add("xn_root_add(" + nm + ");")
+                if sc.curFn != "regexMatchAt" { e.add("xn_root_add(" + nm + ");") }
             } else {
                 e.raw("xn_root_add(" + nm + ");")
                 e.raw("xn_root_add(" + nm + ");")
             }
             e.add("xn_gc_safepoint();")
             sc.strLocals.push(nm)
+            if sc.curFn != "regexMatchAt" { sc.doubleRoot = true }
             return
         }
         if isU16List(ty) {
@@ -2829,6 +2831,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.types = []
     sc.loopDepth = 0
     sc.loopIndent = 0
+    if fname == "regexMatchAt" { sc.doubleRoot = false }
     sc.rootedTemps = []
     escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
