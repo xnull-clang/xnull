@@ -1,0 +1,8 @@
+$ /tmp/xnull build lib/b2/xlex.x -o /tmp/xlex
+exit=0
+$ /tmp/xnull build lib/b2/xparser.x -o /tmp/xparser
+exit=0
+$ go test ./internal/codegen -count=1 -timeout 30m
+ok xnull.dev/xnull/internal/codegen
+$ go test -p 4 ./internal/codegen/ffi ./internal/sema
+ok

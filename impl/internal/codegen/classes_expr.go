@@ -444,6 +444,19 @@ func (s *scope) methodCall(ci *classInfo, m *classInfo_m, recvName string, args 
 			parts = append(parts, expr)
 			continue
 		}
+		if isContainerC(pc) {
+			if id, ok := args[i].(*xfront.IdentExpr); ok {
+				parts = append(parts, s.cRef(id.Name))
+				continue
+			}
+			lines, expr, err := s.valExpr(args[i], pc)
+			if err != nil {
+				return "", err
+			}
+			s.pending = append(s.pending, lines...)
+			parts = append(parts, expr)
+			continue
+		}
 		v, err := s.intExpr(args[i])
 		if err != nil {
 			return "", err
