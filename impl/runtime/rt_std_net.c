@@ -536,8 +536,6 @@ int32_t xdkc_http_response_close(void *resp) {
     }
     return 0;
 }
-
-
 /* ---- XDK-09c：codegen 绑定面 C 名（xdkc_net_* / xdkc_http_get|post）----
  * 实现/别名到既有 socket/http 原语；只补链接符号，不改变行为。
  */

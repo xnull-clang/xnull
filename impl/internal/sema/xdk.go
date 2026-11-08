@@ -72,8 +72,14 @@ var xdkPackages = map[string]map[string]bool{
 		"connect": true, "connectAsync": true, "bind": true, "bindAsync": true,
 		"accept": true, "acceptAsync": true,
 		"socketConnect": true, "socketSend": true, "socketRecv": true, "socketClose": true,
-		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
 		"socketConnectAsync": true, "socketSendAsync": true, "socketRecvAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true,
+		"httpResponseClose": true, "httpRequestAsync": true,
+	},
+	"net.http": {
+		"HttpResponse": true,
+		"get":          true, "getAsync": true, "post": true, "postAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
 		"httpRequestAsync": true,
 	},
 }
@@ -89,8 +95,8 @@ var xdkSubPackageSymbols = map[string]map[string]bool{
 	"net.http": {
 		"Request": true, "Response": true, "HttpResponse": true,
 		"get": true, "post": true, "getAsync": true, "postAsync": true,
-		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
-		"httpRequestAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true,
+		"httpResponseClose": true, "httpRequestAsync": true,
 	},
 }
 
