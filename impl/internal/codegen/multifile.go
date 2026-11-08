@@ -43,6 +43,47 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	type importEdge struct{ from, to string }
 	var edges []importEdge
 
+	parsed := map[string]frontbridge.Result{}
+	importDeps := func(u *xfront.CompilationUnit, abs string) []string {
+		var deps []string
+		for _, imp := range u.Imports {
+			if len(imp.Path) == 0 || imp.Path[0] == "xdk" {
+				continue
+			}
+			dep := filepath.Clean(filepath.Join(dir, filepath.Join(imp.Path...)+".x"))
+			edges = append(edges, importEdge{from: abs, to: dep})
+			deps = append(deps, dep)
+		}
+		return deps
+	}
+	// 预取同一文件的多个直接依赖：一次 ParseBatch（多文件批处理），
+	// 结果按路径缓存，visit 时直接消费；诊断仍按 DFS 顺序输出。
+	prefetch := func(deps []string) {
+		var batch []frontbridge.Source
+		var paths []string
+		for _, dep := range deps {
+			if _, ok := parsed[dep]; ok {
+				continue
+			}
+			if _, ok := state[dep]; ok {
+				continue
+			}
+			b, err := os.ReadFile(dep)
+			if err != nil {
+				continue
+			}
+			batch = append(batch, frontbridge.Source{File: dep, Src: string(b)})
+			paths = append(paths, dep)
+		}
+		if len(batch) == 0 {
+			return
+		}
+		res := frontbridge.ParseBatch(batch)
+		for i, p := range paths {
+			parsed[p] = res[i]
+		}
+	}
+
 	var visit func(path, from string) bool
 	visit = func(path, from string) bool {
 		abs := path
@@ -59,42 +100,44 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 			return true
 		}
 		state[abs] = 1
-		src, err := os.ReadFile(path)
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				File: from, Line: 1, Col: 1, Code: codeImportFileMiss,
-				Message: "找不到包文件 " + relName(dir, abs) + "（import 点分路径映射为同目录相对路径 .x）",
-				Hint:    "确认文件名与 import 路径一致，或改用已存在的包",
-			})
+		pr, ok := parsed[abs]
+		if !ok {
+			src, err := os.ReadFile(path)
+			if err != nil {
+				diags = append(diags, diag.Diagnostic{
+					File: from, Line: 1, Col: 1, Code: codeImportFileMiss,
+					Message: "找不到包文件 " + relName(dir, abs) + "（import 点分路径映射为同目录相对路径 .x）",
+					Hint:    "确认文件名与 import 路径一致，或改用已存在的包",
+				})
+				state[abs] = 2
+				return false
+			}
+			u, pd := frontbridge.ParseUnit(path, string(src))
+			pr = frontbridge.Result{Unit: u, Diags: pd}
+			parsed[abs] = pr
+		}
+		diags = append(diags, pr.Diags...)
+		if len(pr.Diags) > 0 {
 			state[abs] = 2
 			return false
 		}
-		u, pd := frontbridge.ParseUnit(path, string(src))
-		diags = append(diags, pd...)
-		if len(pd) > 0 {
-			state[abs] = 2
-			return false
-		}
+		u := pr.Unit
 		units[abs] = u
+		deps := importDeps(u, abs)
+		prefetch(deps)
 		okAll := true
 		for _, imp := range u.Imports {
-			if len(imp.Path) == 0 {
-				continue
-			}
-			if imp.Path[0] == "xdk" {
+			if len(imp.Path) >= 2 && imp.Path[0] == "xdk" {
 				// S6-08：xdk.<pkg>[.<symbol>] 装载 impl/lib/xdk/<pkg>.x。
-				if len(imp.Path) >= 2 {
-					dep := filepath.Join(xdkLibDir(), imp.Path[1]+".x")
-					if _, err := os.Stat(dep); err == nil {
-						if !visit(dep, path) {
-							okAll = false
-						}
+				dep := filepath.Join(xdkLibDir(), imp.Path[1]+".x")
+				if _, err := os.Stat(dep); err == nil {
+					if !visit(dep, path) {
+						okAll = false
 					}
 				}
-				continue
 			}
-			dep := filepath.Join(dir, filepath.Join(imp.Path...)+".x")
-			edges = append(edges, importEdge{from: abs, to: filepath.Clean(dep)})
+		}
+		for _, dep := range deps {
 			if !visit(dep, path) {
 				okAll = false
 			}

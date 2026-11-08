@@ -50,6 +50,13 @@ func Deserialize(dump string) (*xfront.CompilationUnit, error) {
 	if !ok {
 		return nil, fmt.Errorf("frontbridge: dump 根节点不是 CompilationUnit")
 	}
+	// 元组类型防丢：dump 中出现的 TupleTypeRef 必须在解码后等量存在。
+	// 任何丢失都视为传输失败（auto 会回退 Go oracle，避免生成缺元组定义的 C）。
+	if want := strings.Count(dump, "(TupleTypeRef "); want > 0 {
+		if got := strings.Count(xfront.PrintUnitPos(u), "(TupleTypeRef "); got != want {
+			return nil, fmt.Errorf("frontbridge: 元组类型反序列化丢失（dump=%d ast=%d）", want, got)
+		}
+	}
 	return u, nil
 }
 
