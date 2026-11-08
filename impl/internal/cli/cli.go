@@ -60,6 +60,32 @@ func Run(env Env) int {
 	name := env.Args[0]
 	rest := env.Args[1:]
 
+	// B3-08b：多文件 import 闭包 AST bundle（只读输出，供 xnullc 消费）。
+	if name == "--emit-ast-bundle" || name == "emit-ast-bundle" {
+		if len(rest) != 1 {
+			fmt.Fprintln(env.Stderr, "用法：xnull --emit-ast-bundle <entry.x>")
+			return exitcode.Usage
+		}
+		files, diags := frontbridge.ASTBundle(rest[0])
+		if len(diags) > 0 {
+			for _, d := range diags {
+				fmt.Fprintln(env.Stderr, d.String())
+			}
+			return exitcode.BuildFail
+		}
+		type bundleOut struct {
+			Version string                   `json:"version"`
+			Files   []frontbridge.BundleFile `json:"files"`
+		}
+		b, err := json.MarshalIndent(bundleOut{Version: "xnast-bundle v1", Files: files}, "", "  ")
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
+			return exitcode.BuildFail
+		}
+		fmt.Fprintln(env.Stdout, string(b))
+		return exitcode.Success
+	}
+
 	switch name {
 	case "-h", "--help", "help":
 		writeUsage(env.Stdout)
