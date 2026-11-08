@@ -1,0 +1,12 @@
+ffi native {
+  @ffiEntry(cName = "native_exec")
+  @lease(x = .borrow)
+  @longRunning
+  @blocking(.unaware)
+  Int64 ffiExec(Int64 x);
+
+  @ffiEntry(cName = "native_exec_companion")
+  @lease(x = .borrow)
+  @blocking(.aware)
+  Int64 submitffiExec(Int64 x);
+}

@@ -1,0 +1,6 @@
+PASS ffi-cases/basic/add.x
+PASS ffi-cases/err/wrap.x
+PASS ffi-cases/comp/exec.x
+PASS fixtures/xdk/runtime.x
+PASS fixtures/xdk/exit.x
+xnullc-ffi 汇总：PASS=5 FAIL=0

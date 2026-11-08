@@ -238,6 +238,12 @@ static String typeKey0(N t) {
 }
 static String cNamePart(String k) {
     if k == "Int" { return "Int" }
+    if k == "Int32" { return "Int32" }
+    if k == "Int64" { return "Int64" }
+    if k == "UInt" { return "UInt" }
+    if k == "UInt32" { return "UInt32" }
+    if k == "UInt64" { return "UInt64" }
+    if k == "ErrorKind" { return "ErrorKind" }
     if k == "Bool" { return "Bool" }
     if k == "Char" { return "Char" }
     if k == "Float" { return "Float" }
@@ -259,6 +265,15 @@ static String cType(String k) {
     if k == "void" { return "void" }
     if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
     if k == "Int" { return "int64_t" }
+    if k == "Int8" { return "int8_t" }
+    if k == "Int16" { return "int16_t" }
+    if k == "Int32" { return "int32_t" }
+    if k == "Int64" { return "int64_t" }
+    if k == "UInt" || k == "UInt64" { return "uint64_t" }
+    if k == "UInt8" { return "uint8_t" }
+    if k == "UInt16" { return "uint16_t" }
+    if k == "UInt32" { return "uint32_t" }
+    if k == "ErrorKind" { return "xn_Enum_ErrorKind" }
     if k == "Bool" { return "int" }
     if k == "Char" { return "xn_char" }
     if k == "Float" || k == "Double" { return "double" }
@@ -422,6 +437,20 @@ static List<String> GEN_INST_BASE = []
 static List<String> TUPLE_KEYS = []
 static List<String> TUPLE_ELEMS = []
 static List<String> TUPLE_CN = []
+static List<String> FFI_E_REGION = []
+static List<String> FFI_E_NAME = []
+static List<String> FFI_E_CNAME = []
+static List<String> FFI_E_RETK = []
+static List<String> FFI_E_RETN = []
+static List<String> FFI_E_ERRP = []
+static List<Int> FFI_E_ERRRET = []
+static List<Int> FFI_E_COMP = []
+static List<String> FFI_E_PARAMS = []
+static List<String> FFI_RULE_REGION = []
+static List<Int> FFI_RULE_CODE = []
+static List<String> FFI_RULE_KIND = []
+static String FFI_FIXED_HEAD = "/* 绑定层支撑代码（由 .xfb 注册表生成；只包含 xrt.h，S7 §6.1 / INV-FFI-7） */\n/* S7 §6.2：绑定层可访问弱表；应用层包含 xrt.h 时不定义此宏。 */\n#define XRT_BINDINGS_LAYER 1\n#include \"xrt.h\"\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n\n/* 包装 ABI：返回 0 成功；非 0 为原生错误码（未知码→Internal，S7 §7.2） */\n/* S6-09 net Async 运行时原语（E5 rt_std_net.c） */\nvoid *xdkc_socket_connect_async(xrt_context *ctx, const char *host, size_t hlen, int32_t port, int32_t *code);\nint64_t xdkc_socket_send_async(xrt_context *ctx, void *sock, const void *buf, size_t n, int32_t *code);\nint64_t xdkc_socket_recv_async(xrt_context *ctx, void *sock, void *buf, size_t cap, int32_t *code);\nvoid *xdkc_http_request_async(xrt_context *ctx, const char *method, size_t mlen, const char *host, size_t hlen, int32_t port, const char *path, size_t plen, const void *body, size_t blen, int32_t *code);\n\n"
+static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_canary_enter(const uint8_t *src, size_t n) {\n    uint8_t *buf = (uint8_t *)malloc(n + 2 * XN_FFI_CANARY);\n    if (buf == NULL) { xrt_fatal(\"FFI 编组：内存不足（S7 §9）\"); }\n    memset(buf, 0xA5, XN_FFI_CANARY);\n    memset(buf + XN_FFI_CANARY, 0, n);\n    if (src != NULL) { memcpy(buf + XN_FFI_CANARY, src, n); }\n    memset(buf + XN_FFI_CANARY + n, 0x5A, XN_FFI_CANARY);\n    return buf;\n}\n\nstatic void xn_ffi_canary_leave(uint8_t *buf, uint8_t *dst, size_t n) {\n    size_t i;\n    for (i = 0; i < XN_FFI_CANARY; i++) {\n        if (buf[i] != 0xA5 || buf[XN_FFI_CANARY + n + i] != 0x5A) {\n            xrt_fatal(\"FFI 借出缓冲区越界写（S7 §9 INV-FFI-5）\");\n        }\n    }\n    if (dst != NULL) { memcpy(dst, buf + XN_FFI_CANARY, n); }\n    free(buf);\n}\n\nstatic int xn_ffi_bool_from_native(uint8_t v) {\n    if (v > 1) { xrt_fatal(\"FFI Bool 返回值非 0/1（S7 §3.2 合同违规）\"); }\n    return (int)v;\n}\n\n"
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -831,6 +860,11 @@ static String exprType(N x, SC sc) {
         N callee = fld(x, "Callee")
         if callee.nm == "IdentExpr" {
             String n = unq(txt(fld(callee, "Name")))
+            if isFFI(n) {
+                Int fidx = ffiIdx(n)
+                if ffiIsErr(fidx) { return "Result<" + FFI_E_RETN.get(fidx) + ", ErrorKind>" }
+                return ffiRetType(n)
+            }
             if n == "str" { return "String" }
             if n == "Ok" || n == "Err" { return "Result" }
             N ta2 = fld(x, "TypeArgs")
@@ -1036,6 +1070,14 @@ static String expr(N x, EM e, SC sc) {
             if rt == "Bool" { return "((int)xn_any_get_int(" + lv + ", \"" + rt + "\", " + ns + "))" }
             return "xn_any_get_int(" + lv + ", \"" + rt + "\", " + ns + ")"
         }
+        if (op == "==" || op == "!=") && fld(x, "R").nm == "NullLit" {
+            String lt0 = exprType(fld(x, "L"), sc)
+            if lt0.length() > 0 && lt0.substring(lt0.length() - 1, 1) == "?" {
+                String lb = expr(fld(x, "L"), e, sc)
+                if op == "!=" { return "((" + lb + ").has)" }
+                return "(!((" + lb + ").has))"
+            }
+        }
         if (op == "==" || op == "!=" || op == "===" || op == "!==") && isTupleKey(exprType(fld(x, "L"), sc)) {
             String lt = exprType(fld(x, "L"), sc)
             String ltmp = e.nt()
@@ -1238,6 +1280,13 @@ static String expr(N x, EM e, SC sc) {
         N args = fld(x, "Args")
         if cl.nm == "IdentExpr" {
             String cn = unq(txt(fld(cl, "Name")))
+            if isFFI(cn) { return ffiCallExpr(cn, x, e, sc) }
+            if cn == "nowMono" { return "xdkc_now_mono_ms()" }
+            if cn == "nowWall" { return "xdkc_now_wall_ms()" }
+            if cn == "env" {
+                N envArgs = fld(x, "Args")
+                if envArgs.el.length() > 0 { return "xn_env_lookup(" + emitStr(envArgs.el.get(0), e, sc) + ")" }
+            }
             N targs0 = fld(x, "TypeArgs")
             if targs0.el.length() > 0 && isGenericFn(cn) {
                 String ag = ""
@@ -1643,6 +1692,16 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             return
         }
         if ty == "Int?" || ty == "Bool?" || ty == "String?" {
+            if init.nm == "Call" {
+                N ic = fld(init, "Callee")
+                if ic.nm == "IdentExpr" && unq(txt(fld(ic, "Name"))) == "env" {
+                    String ev = expr(init, e, sc)
+                    String et = e.nt()
+                    e.add(cType(ty) + " " + et + " = " + ev + ";")
+                    e.add(cType(ty) + " " + nm + " = " + et + ";")
+                    return
+                }
+            }
             if init.nm == "NullLit" { e.add(cType(ty) + " " + nm + " = (" + cType(ty) + "){0, 0};") }
             else {
                 String iv = expr(init, e, sc)
@@ -1848,6 +1907,23 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
                     e.add("xn_arr_i_set(" + xb + ", " + a0 + ", " + a1 + ");")
+                    return
+                }
+            }
+            if callee.nm == "IdentExpr" {
+                String bn = unq(txt(fld(callee, "Name")))
+                if bn == "diagnose" && args.el.length() > 0 {
+                    String dt = emitStr(args.el.get(0), e, sc)
+                    e.add("xdkc_diagnose(" + dt + "->bytes, " + dt + "->len);")
+                    return
+                }
+                if bn == "dumpTasks" {
+                    e.add("xrt_safepoint();")
+                    e.add("xdkc_dump_tasks();")
+                    return
+                }
+                if bn == "exit" && args.el.length() > 0 {
+                    e.add("xdkc_exit((int64_t)(" + expr(args.el.get(0), e, sc) + "));")
                     return
                 }
             }
@@ -3616,10 +3692,449 @@ static String topFuncProtos(N decls) {
     return b
 }
 
+static String joinList(List<String> xs, String sep) {
+    String b = ""
+    Int i = 0
+    while i < xs.length() { if i > 0 { b = b + sep }; b = b + xs.get(i); i = i + 1 }
+    return b
+}
+static Int ffiIdx(String name) {
+    Int i = 0
+    while i < FFI_E_NAME.length() { if FFI_E_NAME.get(i) == name { return i }; i = i + 1 }
+    return -1
+}
+static Bool isFFI(String name) { return ffiIdx(name) >= 0 }
+static Bool ffiIsErr(Int idx) { return FFI_E_ERRP.get(idx) != "" || FFI_E_ERRRET.get(idx) == 1 }
+static String ffiRetType(String name) {
+    Int idx = ffiIdx(name)
+    if idx < 0 { return "Int" }
+    String k = FFI_E_RETK.get(idx)
+    if k == "string" { return "String" }
+    if k == "text" { return "Text" }
+    if k == "bytes" { return "Bytes" }
+    if k == "void" { return "void" }
+    return FFI_E_RETN.get(idx)
+}
+static String ffiScalarC(String n) {
+    if n == "Int" || n == "Int64" { return "int64_t" }
+    if n == "UInt" || n == "UInt64" { return "uint64_t" }
+    if n == "Int8" { return "int8_t" }
+    if n == "Int16" { return "int16_t" }
+    if n == "Int32" { return "int32_t" }
+    if n == "UInt8" { return "uint8_t" }
+    if n == "UInt16" { return "uint16_t" }
+    if n == "UInt32" { return "uint32_t" }
+    if n == "Float" || n == "Float64" { return "double" }
+    if n == "Float32" { return "float" }
+    if n == "Bool" { return "uint8_t" }
+    if n == "Char" { return "uint32_t" }
+    return "int64_t"
+}
+static String ffiErrEnum(String kind) {
+    if kind == "InvalidArgument" { return "XRT_ERR_INVALID_ARGUMENT" }
+    if kind == "NotFound" { return "XRT_ERR_NOT_FOUND" }
+    if kind == "AlreadyExists" || kind == "Conflict" { return "XRT_ERR_ALREADY_EXISTS" }
+    if kind == "PermissionDenied" || kind == "Permission" { return "XRT_ERR_PERMISSION_DENIED" }
+    if kind == "Io" { return "XRT_ERR_IO" }
+    if kind == "Network" { return "XRT_ERR_NETWORK" }
+    if kind == "Timeout" { return "XRT_ERR_TIMEOUT" }
+    if kind == "Cancelled" { return "XRT_ERR_CANCELLED" }
+    if kind == "Busy" || kind == "Limit" { return "XRT_ERR_BUSY" }
+    if kind == "Unavailable" { return "XRT_ERR_UNAVAILABLE" }
+    if kind == "DataCorrupted" { return "XRT_ERR_DATA_CORRUPTED" }
+    if kind == "Unsupported" { return "XRT_ERR_UNSUPPORTED" }
+    if kind == "OutOfMemory" { return "XRT_ERR_OUT_OF_MEMORY" }
+    if kind == "Internal" { return "XRT_ERR_INTERNAL" }
+    return "XRT_ERR_INTERNAL"
+}
+static List<String> ffiSegs(Int idx) {
+    String ps = FFI_E_PARAMS.get(idx)
+    List<String> resL = []
+    if ps == "" { return resL }
+    List<String> xs = ps.split(";")
+    Int i = 0
+    while i < xs.length() { resL.push(xs.get(i)); i = i + 1 }
+    return resL
+}
+static String ffiSegField(String seg, Int n) {
+    List<String> fs = seg.split(":")
+    if n < fs.length() { return fs.get(n) }
+    return ""
+}
+static String ffiRegions() {
+    List<String> rs = []
+    Int i = 0
+    while i < FFI_E_REGION.length() {
+        if !inNames(rs, FFI_E_REGION.get(i)) { rs.push(FFI_E_REGION.get(i)) }
+        i = i + 1
+    }
+    Int a = 1
+    while a < rs.length() {
+        Int b = a
+        while b > 0 {
+            if cmpName(rs.get(b - 1), rs.get(b)) > 0 {
+                String t = rs.get(b - 1)
+                rs.set(b - 1, rs.get(b))
+                rs.set(b, t)
+                b = b - 1
+            } else { b = 0 }
+        }
+        a = a + 1
+    }
+    return joinList(rs, ";")
+}
+static String ffiNativeProto(Int idx) {
+    String retk = FFI_E_RETK.get(idx)
+    String retn = FFI_E_RETN.get(idx)
+    String cname = FFI_E_CNAME.get(idx)
+    String errp = FFI_E_ERRP.get(idx)
+    String ret = "void"
+    if retk == "scalar" { ret = ffiScalarC(retn) }
+    else if retk == "string" || retk == "text" { ret = "const char *" }
+    else if retk == "bytes" { ret = "xrt_bytes_obj *" }
+    else if retk == "handle" { ret = "void *" }
+    List<String> parts = []
+    List<String> segs = ffiSegs(idx)
+    Int i = 0
+    while i < segs.length() {
+        String pn = ffiSegField(segs.get(i), 0)
+        String kind = ffiSegField(segs.get(i), 1)
+        String pt = ffiSegField(segs.get(i), 2)
+        String lk = ffiSegField(segs.get(i), 3)
+        if errp != "" && pn == errp { parts.push("int32_t *" + pn) }
+        else if kind == "string" || kind == "text" { parts.push("const char *" + pn + "_bytes"); parts.push("size_t " + pn + "_len") }
+        else if kind == "bytes" { parts.push("void *" + pn); parts.push("size_t " + pn + "_len") }
+        else if kind == "handle" {
+            if lk == "transfer" || lk == "reclaim" { parts.push("void **" + pn + "_out") }
+            else { parts.push("void *" + pn) }
+        }
+        else { parts.push(ffiScalarC(pt) + " " + pn) }
+        i = i + 1
+    }
+    return ret + " " + cname + "(" + joinList(parts, ", ") + ");"
+}
+static String ffiWrapper(Int idx) {
+    String name = FFI_E_NAME.get(idx)
+    String cname = FFI_E_CNAME.get(idx)
+    String retk = FFI_E_RETK.get(idx)
+    String retn = FFI_E_RETN.get(idx)
+    String errp = FFI_E_ERRP.get(idx)
+    Bool codeRet = FFI_E_ERRRET.get(idx) == 1
+    List<String> decls = []
+    List<String> pre = []
+    List<String> call = []
+    List<String> postAlways = []
+    List<String> postOK = []
+    String closeTarget = ""
+    List<String> segs = ffiSegs(idx)
+    Int i = 0
+    while i < segs.length() {
+        String pn = ffiSegField(segs.get(i), 0)
+        String kind = ffiSegField(segs.get(i), 1)
+        String pt = ffiSegField(segs.get(i), 2)
+        String lk = ffiSegField(segs.get(i), 3)
+        if errp != "" && pn == errp {
+            pre.push("int32_t xn_code = 0;")
+            call.push("&xn_code")
+        } else if kind == "scalar" {
+            if pt == "Bool" { decls.push("int " + pn); call.push("((uint8_t)(" + pn + " ? 1 : 0))") }
+            else { decls.push(ffiScalarC(pt) + " " + pn); call.push(pn) }
+        } else if kind == "string" || kind == "text" {
+            decls.push("const char *" + pn + "_bytes, size_t " + pn + "_len")
+            call.push(pn + "_bytes, " + pn + "_len")
+        } else if kind == "bytes" {
+            decls.push("void *" + pn + ", size_t " + pn + "_len")
+            if lk == "borrow" {
+                pre.push("uint8_t *xn_buf_" + pn + " = xn_ffi_canary_enter((const uint8_t *)" + pn + ", " + pn + "_len);")
+                call.push("(void *)(xn_buf_" + pn + " + XN_FFI_CANARY), " + pn + "_len")
+                postAlways.push("xn_ffi_canary_leave(xn_buf_" + pn + ", (uint8_t *)" + pn + ", " + pn + "_len);")
+            } else { call.push(pn + ", " + pn + "_len") }
+        } else if kind == "handle" {
+            if lk == "transfer" {
+                decls.push("xrt_handle **" + pn + "_out")
+                pre.push("void *xn_native_" + pn + " = NULL;")
+                call.push("&xn_native_" + pn)
+                postOK.push("*" + pn + "_out = (xn_native_" + pn + " == NULL) ? NULL : xrt_handle_new(xn_native_" + pn + ", NULL, \"" + name + "\");")
+            } else if lk == "reclaim" {
+                decls.push("xrt_handle *" + pn)
+                pre.push("void *xn_h_" + pn + " = xrt_handle_native(" + pn + ");")
+                pre.push("if (xn_h_" + pn + " == NULL) { xrt_fatal(\"FFI 归还句柄已关闭或为空（S7 §4.3）：" + name + "\"); }")
+                call.push("xn_h_" + pn)
+                postAlways.push("xrt_handle_mark_closed(" + pn + ");")
+            } else {
+                decls.push("xrt_handle *" + pn)
+                pre.push("void *xn_h_" + pn + " = xrt_handle_native(" + pn + ");")
+                pre.push("if (xn_h_" + pn + " == NULL) { xrt_fatal(\"FFI 句柄已关闭或为空（S7 §4.3）：" + name + "\"); }")
+                call.push("xn_h_" + pn)
+            }
+        }
+        i = i + 1
+    }
+    Bool hasOut = false
+    String retC = ""
+    String nativeC = ""
+    String postOut = ""
+    if !codeRet {
+        if retk == "scalar" {
+            hasOut = true
+            retC = ffiScalarC(retn)
+            if retn == "Bool" { postOut = "*xn_out = (uint8_t)xn_ffi_bool_from_native((uint8_t)xn_v);" }
+            else { postOut = "*xn_out = (" + retC + ")xn_v;" }
+        } else if retk == "string" {
+            hasOut = true; retC = "xrt_string *"; nativeC = "const char *"
+            postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);"
+        } else if retk == "text" {
+            hasOut = true; retC = "xrt_text *"; nativeC = "const char *"
+            postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_text_from_string(xn_v, strlen(xn_v));"
+        } else if retk == "bytes" {
+            hasOut = true; retC = "xrt_bytes_obj *"; nativeC = "xrt_bytes_obj *"
+            postOut = "*xn_out = xn_v;"
+        } else if retk == "handle" {
+            hasOut = true; retC = "xrt_handle *"
+            postOut = "*xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, \"" + name + "\");"
+        }
+    }
+    String b = "/* 绑定入口 " + name + "（原生 " + cname + "） */\n"
+    String sig = "static int32_t xn_ffi_" + name + "("
+    List<String> parts = []
+    i = 0
+    while i < decls.length() { parts.push(decls.get(i)); i = i + 1 }
+    if hasOut { parts.push(retC + " *xn_out") }
+    if parts.length() == 0 { sig = sig + "void" } else { sig = sig + joinList(parts, ", ") }
+    b = b + sig + ") {\n"
+    i = 0
+    while i < pre.length() { b = b + "    " + pre.get(i) + "\n"; i = i + 1 }
+    String nativeCall = cname + "(" + joinList(call, ", ") + ")"
+    if codeRet {
+        b = b + "    return (int32_t)" + nativeCall + ";\n"
+    } else if hasOut {
+        if nativeC == "" { nativeC = retC }
+        b = b + "    " + nativeC + " xn_v = " + nativeCall + ";\n"
+        if errp != "" { b = b + "    if (xn_code != 0) { return xn_code; }\n" }
+        i = 0
+        while i < postAlways.length() { b = b + "    " + postAlways.get(i) + "\n"; i = i + 1 }
+        i = 0
+        while i < postOK.length() { b = b + "    " + postOK.get(i) + "\n"; i = i + 1 }
+        b = b + "    " + postOut + "\n    return 0;\n"
+    } else {
+        b = b + "    " + nativeCall + ";\n"
+        if errp != "" { b = b + "    if (xn_code != 0) { return xn_code; }\n" }
+        i = 0
+        while i < postAlways.length() { b = b + "    " + postAlways.get(i) + "\n"; i = i + 1 }
+        i = 0
+        while i < postOK.length() { b = b + "    " + postOK.get(i) + "\n"; i = i + 1 }
+        b = b + "    return 0;\n"
+    }
+    return b + "}\n"
+}
+static String ffiCompanion(Int idx) {
+    String name = FFI_E_NAME.get(idx)
+    String retk = FFI_E_RETK.get(idx)
+    String retn = FFI_E_RETN.get(idx)
+    List<String> fields = []
+    List<String> fieldTypes = []
+    List<String> segs = ffiSegs(idx)
+    Int i = 0
+    while i < segs.length() {
+        String pn = ffiSegField(segs.get(i), 0)
+        String kind = ffiSegField(segs.get(i), 1)
+        String pt = ffiSegField(segs.get(i), 2)
+        String lk = ffiSegField(segs.get(i), 3)
+        if kind == "scalar" { fields.push("p" + str(i)); fieldTypes.push(ffiScalarC(pt)) }
+        else if kind == "string" || kind == "text" { fields.push("p" + str(i) + "_bytes"); fieldTypes.push("const char *"); fields.push("p" + str(i) + "_len"); fieldTypes.push("size_t") }
+        else if kind == "bytes" { fields.push("p" + str(i) + "_data"); fieldTypes.push("void *"); fields.push("p" + str(i) + "_len"); fieldTypes.push("size_t") }
+        else if kind == "handle" { fields.push("p" + str(i)); fieldTypes.push("xrt_handle *") }
+        i = i + 1
+    }
+    Bool hasOut = false
+    String outC = ""
+    if retk == "scalar" { hasOut = true; outC = ffiScalarC(retn) }
+    else if retk == "string" { hasOut = true; outC = "rt_string *" }
+    else if retk == "text" { hasOut = true; outC = "xrt_text *" }
+    else if retk == "bytes" { hasOut = true; outC = "xrt_bytes_obj *" }
+    else if retk == "handle" { hasOut = true; outC = "xrt_handle *" }
+    String b = "/* companion " + name + "（.unaware + @longRunning → xrt_companion_submit/wait） */\n"
+    b = b + "typedef struct {\n"
+    i = 0
+    while i < fields.length() { b = b + "    " + fieldTypes.get(i) + " " + fields.get(i) + ";\n"; i = i + 1 }
+    if hasOut { b = b + "    " + outC + " out;\n" }
+    if FFI_E_ERRP.get(idx) != "" { b = b + "    int32_t code;\n" }
+    b = b + "    int32_t rc;\n"
+    b = b + "} xn_companion_" + name + "_args;\n\n"
+    b = b + "static void *xn_companion_" + name + "_thunk(void *xn_p) {\n"
+    b = b + "    xn_companion_" + name + "_args *a = (xn_companion_" + name + "_args *)xn_p;\n"
+    List<String> args = []
+    i = 0
+    while i < fields.length() { args.push("a->" + fields.get(i)); i = i + 1 }
+    if hasOut { args.push("&a->out") }
+    b = b + "    a->rc = xn_ffi_" + name + "(" + joinList(args, ", ") + ");\n"
+    return b + "    return NULL;\n}\n"
+}
+static String ffiSupportText() {
+    String b = FFI_FIXED_HEAD + FFI_CANARY
+    List<String> regs = ffiRegions().split(";")
+    Int ri = 0
+    while ri < regs.length() {
+        String rg = regs.get(ri)
+        b = b + "static const char *xn_ffi_" + rg + "_error_kind(int32_t code) {\n    switch (code) {\n"
+        Int j = 0
+        while j < FFI_RULE_REGION.length() {
+            if FFI_RULE_REGION.get(j) == rg { b = b + "    case " + str(FFI_RULE_CODE.get(j)) + ": return \"" + FFI_RULE_KIND.get(j) + "\";\n" }
+            j = j + 1
+        }
+        b = b + "    default: return \"Internal\";\n    }\n}\n\n"
+        b = b + "static xrt_error_kind xn_ffi_" + rg + "_error_kind_id(int32_t code) {\n    switch (code) {\n"
+        j = 0
+        while j < FFI_RULE_REGION.length() {
+            if FFI_RULE_REGION.get(j) == rg { b = b + "    case " + str(FFI_RULE_CODE.get(j)) + ": return " + ffiErrEnum(FFI_RULE_KIND.get(j)) + ";\n" }
+            j = j + 1
+        }
+        b = b + "    default: return XRT_ERR_INTERNAL;\n    }\n}\n\n"
+        ri = ri + 1
+    }
+    b = b + "/* 原生符号声明：编组签名的投影。绑定层自行包含原生头时\n"
+    b = b + "   定义 XN_FFI_NATIVE_DECLS 关闭本节（S7 §3.2）。 */\n#ifndef XN_FFI_NATIVE_DECLS\n"
+    Int i = 0
+    while i < FFI_E_NAME.length() { b = b + ffiNativeProto(i) + "\n"; i = i + 1 }
+    b = b + "#endif\n\n"
+    i = 0
+    while i < FFI_E_NAME.length() { b = b + ffiWrapper(i) + "\n"; i = i + 1 }
+    i = 0
+    while i < FFI_E_NAME.length() {
+        if FFI_E_COMP.get(i) == 1 { b = b + ffiCompanion(i) + "\n" }
+        i = i + 1
+    }
+    return b
+}
+static void parseRegistry(String text) {
+    FFI_E_REGION = []
+    FFI_E_NAME = []
+    FFI_E_CNAME = []
+    FFI_E_RETK = []
+    FFI_E_RETN = []
+    FFI_E_ERRP = []
+    FFI_E_ERRRET = []
+    FFI_E_COMP = []
+    FFI_E_PARAMS = []
+    FFI_RULE_REGION = []
+    FFI_RULE_CODE = []
+    FFI_RULE_KIND = []
+    List<String> lines = text.split("\n")
+    Int i = 0
+    while i < lines.length() {
+        String ln = lines.get(i)
+        if ln.length() > 2 {
+            List<String> f = ln.split("|")
+            if f.get(0) == "M" && f.length() >= 4 {
+                FFI_RULE_REGION.push(f.get(1))
+                FFI_RULE_CODE.push(dec(f.get(2)))
+                FFI_RULE_KIND.push(f.get(3))
+            } else if f.get(0) == "E" && f.length() >= 10 {
+                FFI_E_REGION.push(f.get(1))
+                FFI_E_NAME.push(f.get(2))
+                FFI_E_CNAME.push(f.get(3))
+                FFI_E_RETK.push(f.get(4))
+                FFI_E_RETN.push(f.get(5))
+                FFI_E_ERRP.push(f.get(6))
+                FFI_E_ERRRET.push(dec(f.get(7)))
+                FFI_E_COMP.push(dec(f.get(8)))
+                FFI_E_PARAMS.push(f.get(9))
+            }
+        }
+        i = i + 1
+    }
+}
+static String ffiCallExpr(String name, N x, EM e, SC sc) {
+    Int idx = ffiIdx(name)
+    String retk = FFI_E_RETK.get(idx)
+    String retn = FFI_E_RETN.get(idx)
+    N args = fld(x, "Args")
+    List<String> parts = []
+    List<String> segs = ffiSegs(idx)
+    String errp0 = FFI_E_ERRP.get(idx)
+    Int ai = 0
+    Int argi = 0
+    while ai < segs.length() {
+        String pn = ffiSegField(segs.get(ai), 0)
+        String kind = ffiSegField(segs.get(ai), 1)
+        String pt = ffiSegField(segs.get(ai), 2)
+        if errp0 != "" && pn == errp0 { ai = ai + 1; continue }
+        String av = expr(args.el.get(argi), e, sc)
+        if kind == "string" || kind == "text" {
+            String sv = av
+            if args.el.get(argi).nm != "IdentExpr" { sv = emitStr(args.el.get(argi), e, sc) }
+            parts.push(sv + "->bytes")
+            parts.push(sv + "->len")
+        } else if kind == "scalar" && pt == "Bool" {
+            parts.push("((uint8_t)(" + av + " ? 1 : 0))")
+        } else { parts.push(av) }
+        argi = argi + 1
+        ai = ai + 1
+    }
+    Bool hasOut = retk != "void"
+    String outC = "int64_t"
+    String zero = "0"
+    if retk == "scalar" { outC = ffiScalarC(retn) }
+    else if retk == "string" { outC = "xrt_string *"; zero = "NULL" }
+    else if retk == "text" { outC = "xrt_text *"; zero = "NULL" }
+    else if retk == "bytes" { outC = "xrt_bytes_obj *"; zero = "NULL" }
+    else if retk == "handle" { outC = "xrt_handle *"; zero = "NULL" }
+    String outv = ""
+    if hasOut {
+        outv = e.nt()
+        e.add(outC + " " + outv + " = " + zero + ";")
+    }
+    if FFI_E_COMP.get(idx) == 1 {
+        List<String> fields = []
+        Int si = 0
+        while si < segs.length() {
+            String kind = ffiSegField(segs.get(si), 1)
+            if kind == "scalar" { fields.push("p" + str(si)) }
+            else if kind == "string" || kind == "text" { fields.push("p" + str(si) + "_bytes"); fields.push("p" + str(si) + "_len") }
+            else if kind == "bytes" { fields.push("p" + str(si) + "_data"); fields.push("p" + str(si) + "_len") }
+            else { fields.push("p" + str(si)) }
+            si = si + 1
+        }
+        String ca = e.nt()
+        e.add("xn_companion_" + name + "_args " + ca + " = {0};")
+        Int fi = 0
+        while fi < fields.length() { e.add(ca + "." + fields.get(fi) + " = " + parts.get(fi) + ";"); fi = fi + 1 }
+        String fut = e.nt()
+        e.add("xrt_future *" + fut + " = xrt_companion_submit(xn_companion_" + name + "_thunk, &" + ca + ");")
+        String dummy = e.nt()
+        e.add("void *" + dummy + " = NULL;")
+        String wst = e.nt()
+        e.add("int32_t " + wst + " = xrt_companion_wait(" + fut + ", NULL, &" + dummy + ");")
+        e.add("xrt_release(" + fut + ");")
+        String rc = e.nt()
+        e.add("int32_t " + rc + " = (" + wst + " != 0) ? " + wst + " : " + ca + ".rc;")
+        if hasOut { e.add(outv + " = " + ca + ".out;") }
+        return outv
+    }
+    if hasOut { parts.push("&" + outv) }
+    String rc = e.nt()
+    e.add("int32_t " + rc + " = xn_ffi_" + name + "(" + joinList(parts, ", ") + ");")
+    if ffiIsErr(idx) && FFI_E_ERRRET.get(idx) == 0 {
+        String rt = "Result<" + retn + ", ErrorKind>"
+        String resT = e.nt()
+        e.add(cType(rt) + " " + resT + " = {0};")
+        e.add(resT + ".ok = (" + rc + " == 0);")
+        e.add(resT + ".v = " + outv + ";")
+        e.add("if (" + rc + " != 0) { " + resT + ".err = (xn_Enum_ErrorKind)xn_ffi_" + FFI_E_REGION.get(idx) + "_error_kind_id(" + rc + "); }")
+        return resT
+    }
+    return outv
+}
+
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
     e.path = path
+    Int fui = 0
+    while fui < FFI_E_NAME.length() {
+        if ffiIsErr(fui) && FFI_E_ERRRET.get(fui) == 0 { sc.useResult("Result<" + FFI_E_RETN.get(fui) + ", ErrorKind>") }
+        fui = fui + 1
+    }
     N decls = fld(unit, "Decls")
     CLS_NAMES = []
     CLS_DECLS = []
@@ -4239,6 +4754,10 @@ static String emitUnit(N unit, String path) {
         res = res + e.ls.get(j) + "\n"
         j = j + 1
     }
+    if FFI_E_NAME.length() > 0 {
+        Int fp = res.indexOf("static void xn_fatal_oob(void);")
+        if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
+    }
     return res.substring(0, res.length() - 1)
 }
 
@@ -4249,6 +4768,7 @@ static Int main(String[] args) {
     }
     String path = args[0]
     String ast = args[1]
+    if args.length() >= 3 { parseRegistry(args[2]) }
     if ast.indexOf("(xnast v1 ") == 0 && ast.length() > 11 { ast = ast.substring(10, ast.length() - 11) }
     AP ap = new AP(ast)
     N unit = ap.val()
