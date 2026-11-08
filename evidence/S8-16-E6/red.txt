@@ -1,0 +1,27 @@
+--- FAIL: TestFmtSource (0.00s)
+    s816_test.go:31: fmt 应成功，实际 1（/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestFmtSource3193762916/001/a.x:1:17: error[XPD-103]: 缺少值，实际为`)`
+         1 | static Int main(){
+           |                 ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestFmtSource3193762916/001/a.x:1:17: error[XPD-101]: 此处应为名称，实际为`)`
+         1 | static Int main(){
+           |                 ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestFmtSource3193762916/001/a.x:1:18: error[XPD-101]: 此处应为名称，实际为`{`
+         1 | static Int main(){
+           |                  ^
+        /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/TestFmtSource3193762916/001/a.x:3:1: error[XPD-101]: 多余的 `}`
+         3 | }
+           | ^ 根层不允许闭合括号
+        ）
+--- FAIL: TestClean (0.00s)
+    s816_test.go:60: clean 应成功，实际 2（xnull:1:1: error[CLI-001]: unknown command "clean"
+          可用命令：new、check、build、run、test、fmt、lock、policy、dev
+        ）
+--- FAIL: TestVersionOutput (0.00s)
+    s816_test.go:86: [version] 输出缺少 "commit:"：
+        xnull 0.1.0-dev
+--- FAIL: TestDoctor (0.00s)
+    s816_test.go:112: doctor 应通过：xnull:1:1: error[CLI-001]: unknown command "doctor"
+          可用命令：new、check、build、run、test、fmt、lock、policy、dev
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	1.598s
+FAIL
