@@ -1,0 +1,741 @@
+FAIL L1 examples/ast-seed.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:46
++++ /tmp/b2-xn.tok	2026-11-08 17:37:46
+@@ -1,439 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 6) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Node") (Pos (Pos (Line 6) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 7) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "kind") (Pos (Pos (Line 7) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 7) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 7) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 7) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 8) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 8) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 8) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 8) (Col 19))) (Str 0) (Value "") (Segs (slice "")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 8) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 9) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "num") (Pos (Pos (Line 9) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 9) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/classes.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:46
++++ /tmp/b2-xn.tok	2026-11-08 17:37:46
+@@ -1,270 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Tally") (Pos (Pos (Line 4) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 4) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "total") (Pos (Pos (Line 5) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 5) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 5) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 5) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "label") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 6) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 6) (Col 20))) (Str 0) (Value "tally") (Segs (slice "tally")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 6) (Col 27))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 8) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "add") (Pos (Pos (Line 8) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 8) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/containers.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:46
++++ /tmp/b2-xn.tok	2026-11-08 17:37:46
+@@ -1,309 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sum") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 4) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 4) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 4) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 15) (Text "]") (Pos (Pos (Line 4) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xs") (Pos (Pos (Line 4) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 4) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 4) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "total") (Pos (Pos (Line 5) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 5) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 5) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 5) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "for") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/defer-cleanup.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:46
++++ /tmp/b2-xn.tok	2026-11-08 17:37:46
+@@ -1,205 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 18) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 18) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "work") (Pos (Pos (Line 18) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 18) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 18) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 18) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "print") (Pos (Pos (Line 19) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 19) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 19) (Col 11))) (Str 0) (Value "A") (Segs (slice "A")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 19) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 19) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "defer") (Pos (Pos (Line 20) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "print") (Pos (Pos (Line 20) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 20) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 20) (Col 17))) (Str 0) (Value "cleanup 1") (Segs (slice "cleanup 1")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 20) (Col 28))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/hello.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:46
++++ /tmp/b2-xn.tok	2026-11-08 17:37:46
+@@ -1,30 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 6) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 6) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 6) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 6) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 6) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "print") (Pos (Pos (Line 7) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 7) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 7) (Col 11))) (Str 0) (Value "hello, XNull") (Segs (slice "hello, XNull")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 7) (Col 25))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 7) (Col 25))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "print") (Pos (Pos (Line 8) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 8) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 8) (Col 11))) (Str 0) (Value "1 + 2 = ") (Segs (slice "1 + 2 = ")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "+") (Pos (Pos (Line 8) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "str") (Pos (Pos (Line 8) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/lexer-seed.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,506 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 8) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Scan") (Pos (Pos (Line 8) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 8) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 9) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "src") (Pos (Pos (Line 9) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 9) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 10) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "pos") (Pos (Pos (Line 10) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 10) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 10) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 10) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 11) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "ntoks") (Pos (Pos (Line 11) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 11) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 11) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 11) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/multi/lib/shapes.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,41 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Point") (Pos (Pos (Line 2) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 3) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 3) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 3) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 3) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 4) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "y") (Pos (Pos (Line 4) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 4) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 4) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "norm2") (Pos (Pos (Line 6) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 6) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/multi/lib/text.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,47 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "lib") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 2) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "shapes") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "banner") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 4) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 4) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "s") (Pos (Pos (Line 4) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 4) (Col 23))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 4) (Col 25))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "return") (Pos (Pos (Line 5) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "[") (Segs (slice "[")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "+") (Pos (Pos (Line 5) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "s") (Pos (Pos (Line 5) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/multi/main.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,68 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "lib") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "lib") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "shapes") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 6) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 6) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 6) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 6) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 6) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/objlist.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,127 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Node") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "v") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 2) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 2) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sumAll") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 5) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "List") (Pos (Pos (Line 5) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 5) (Col 23))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/parser-seed.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,1523 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 11) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Node") (Pos (Pos (Line 11) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 11) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 12) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "kind") (Pos (Pos (Line 12) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 12) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 12) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 12) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 13) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 13) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 13) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 13) (Col 19))) (Str 0) (Value "") (Segs (slice "")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 13) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "List") (Pos (Pos (Line 14) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 14) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Node") (Pos (Pos (Line 14) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 examples/result-try.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,154 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 9) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Result") (Pos (Pos (Line 9) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 9) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 9) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 9) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 9) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 9) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "double") (Pos (Pos (Line 9) (Col 28))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 9) (Col 34))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 9) (Col 35))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "n") (Pos (Pos (Line 9) (Col 39))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 9) (Col 40))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 9) (Col 42))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "if") (Pos (Pos (Line 10) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "n") (Pos (Pos (Line 10) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 10) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 impl/lib/xdk/text.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,107 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 9) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "repeatText") (Pos (Pos (Line 9) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 9) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 9) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "unit") (Pos (Pos (Line 9) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 9) (Col 30))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 9) (Col 32))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "times") (Pos (Pos (Line 9) (Col 36))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 9) (Col 41))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 9) (Col 43))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "if") (Pos (Pos (Line 10) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 10) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "times") (Pos (Pos (Line 10) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<=") (Pos (Pos (Line 10) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 10) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 10) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 impl/xnfmt/xnfmt.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,5931 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 8) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Tok") (Pos (Pos (Line 8) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 8) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 9) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 9) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 9) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 9) (Col 19))) (Str 0) (Value "") (Segs (slice "")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 9) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 10) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "kind") (Pos (Pos (Line 10) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 10) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 10) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 10) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Bool") (Pos (Pos (Line 11) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "gen") (Pos (Pos (Line 11) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 11) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t00_sanity_text/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,50 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sys") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 5) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 5) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 5) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "outPath") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 6) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 6) (Col 22))) (Str 0) (Value "out.txt") (Segs (slice "out.txt")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 6) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t01_handle_open_close/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,50 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sys") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 5) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 5) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 5) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "p") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 6) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 6) (Col 16))) (Str 0) (Value "in.txt") (Segs (slice "in.txt")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 6) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t02_option_handle/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,89 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sys") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 6) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 6) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 6) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 6) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 6) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 6) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 7) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "p") (Pos (Pos (Line 7) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 7) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 7) (Col 16))) (Str 0) (Value "in.txt") (Segs (slice "in.txt")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 7) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t03_scalars/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,108 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 3) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 3) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 3) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int32") (Pos (Pos (Line 4) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "lo") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 4) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "-") (Pos (Pos (Line 4) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "2147483648") (Pos (Pos (Line 4) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 4) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int32") (Pos (Pos (Line 5) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "hi") (Pos (Pos (Line 5) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 5) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "2147483647") (Pos (Pos (Line 5) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t04_bytes_surface/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,125 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 5) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 5) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 5) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Bytes") (Pos (Pos (Line 6) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "b") (Pos (Pos (Line 6) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 6) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Bytes") (Pos (Pos (Line 6) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 6) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t05_file_read/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,180 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sys") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 5) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 7) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 7) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 7) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 7) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 7) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 7) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/b0-07c-numeric/cases/t06_file_write/case.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,114 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 4) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 4) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 4) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sys") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 4) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 5) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 5) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "text") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 5) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 7) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 7) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 7) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 7) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 7) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 7) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem03/container_cycle.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,80 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "N") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "List") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "N") (Pos (Pos (Line 1) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "kids") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 1) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 15) (Text "]") (Pos (Pos (Line 1) (Col 27))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 28))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 30))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 34))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 36))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 1) (Col 38))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem03/cycle.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,72 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "N") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "N") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "?") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "next") (Pos (Pos (Line 1) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 1) (Col 28))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 29))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 31))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 31))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem03/identity.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,49 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "N") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 2) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem05/none.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,44 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 2) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem05/other.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,86 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "H") (Pos (Pos (Line 2) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 2) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "v") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 2) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem05/return.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,62 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "make") (Pos (Pos (Line 2) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 2) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 2) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem06/array.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,51 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 1) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 15) (Text "]") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "a") (Pos (Pos (Line 2) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 2) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 2) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "2") (Pos (Pos (Line 2) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem06/gc_elem.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,65 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "V") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "x") (Pos (Pos (Line 1) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "0") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text ";") (Pos (Pos (Line 1) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 13) (Text "}") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 2) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 2) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem06/holder.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,59 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "class") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Holder") (Pos (Pos (Line 1) (Col 7))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 14))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "List") (Pos (Pos (Line 2) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xs") (Pos (Pos (Line 2) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 2) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 2) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 2) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "2") (Pos (Pos (Line 2) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 25))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "3") (Pos (Pos (Line 2) (Col 27))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 15) (Text "]") (Pos (Pos (Line 2) (Col 28))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem06/list.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,65 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 1) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "List") (Pos (Pos (Line 2) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 10))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 2) (Col 13))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xs") (Pos (Pos (Line 2) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 2) (Col 18))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 2) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "1") (Pos (Pos (Line 2) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 5) (Text "2") (Pos (Pos (Line 2) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s3/mem06/mapset.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,70 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 1) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 1) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 1) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Map") (Pos (Pos (Line 2) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "String") (Pos (Pos (Line 2) (Col 9))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 16) (Text ",") (Pos (Pos (Line 2) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 2) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 2) (Col 20))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "m") (Pos (Pos (Line 2) (Col 22))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "=") (Pos (Pos (Line 2) (Col 24))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 14) (Text "[") (Pos (Pos (Line 2) (Col 26))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 8) (Text "") (Pos (Pos (Line 2) (Col 27))) (Str 0) (Value "a") (Segs (slice "a")) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s6/xdk05/sync_basic.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:47
++++ /tmp/b2-xn.tok	2026-11-08 17:37:47
+@@ -1,202 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "sync") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 2) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 2) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 2) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "tasks") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 2) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 3) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "errors") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 4) (Text "tasks") (Pos (Pos (Line 5) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s6/xdk07/collections_basic.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:48
++++ /tmp/b2-xn.tok	2026-11-08 17:37:48
+@@ -1,341 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "collections") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 3) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 3) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 3) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "RingBuffer") (Pos (Pos (Line 4) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 4) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 4) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 4) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "rb") (Pos (Pos (Line 4) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL L1 tests/s6/xdk07/collections_nonnull.x
+--- /tmp/b2-go.tok	2026-11-08 17:37:48
++++ /tmp/b2-xn.tok	2026-11-08 17:37:48
+@@ -1,316 +0,0 @@
+-xnast-tokens v1
+-(Token (Kind 3) (Text "import") (Pos (Pos (Line 1) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "xdk") (Pos (Pos (Line 1) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ".") (Pos (Pos (Line 1) (Col 11))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "collections") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 1) (Text "") (Pos (Pos (Line 1) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 3) (Text "static") (Pos (Pos (Line 3) (Col 1))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 3) (Col 8))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "main") (Pos (Pos (Line 3) (Col 12))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 10) (Text "(") (Pos (Pos (Line 3) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 11) (Text ")") (Pos (Pos (Line 3) (Col 17))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 12) (Text "{") (Pos (Pos (Line 3) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "RingBuffer") (Pos (Pos (Line 4) (Col 5))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text "<") (Pos (Pos (Line 4) (Col 15))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "Int") (Pos (Pos (Line 4) (Col 16))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 9) (Text ">") (Pos (Pos (Line 4) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+-(Token (Kind 2) (Text "rb") (Pos (Pos (Line 4) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))
+FAIL LEX bad_escape.x: got= want=LEX-103 1 34
+FAIL LEX bad_underscore.x: got= want=LEX-104 1 30
+FAIL LEX empty_char.x: got= want=LEX-106 1 30
+FAIL LEX unclosed_comment.x: got= want=LEX-102 1 21
+FAIL LEX unclosed_string.x: got= want=LEX-102 1 32
+汇总：PASS=0 FAIL=40
