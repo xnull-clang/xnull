@@ -201,6 +201,13 @@ static String typeKey0(N t) {
         String last = lastQual(t)
         N args = fld(t, "Args")
         if last == "List" && args.el.length() > 0 { return "List<" + typeKey(args.el.get(0)) + ">" }
+        Int gi = 0
+        Bool isGenCls = false
+        while gi < GEN_CLS_NAMES.length() { if GEN_CLS_NAMES.get(gi) == last { isGenCls = true }; gi = gi + 1 }
+        if isGenCls && args.el.length() > 0 {
+            String ak = typeKey(args.el.get(0))
+            return last + "_" + mangle(ak)
+        }
         if last == "Result" && args.el.length() == 2 {
             return "Result<" + typeKey(args.el.get(0)) + ", " + typeKey(args.el.get(1)) + ">"
         }
@@ -279,6 +286,12 @@ static List<String> SUB_FROM = []
 static List<String> SUB_TO = []
 static String FN_SUFFIX = ""
 static Bool IN_GEN = false
+static List<String> GEN_CLS_NAMES = []
+static List<N> GEN_CLS_DECLS = []
+static List<String> GEN_INST_NAME = []
+static List<String> GEN_INST_KEY = []
+static List<String> GEN_INST_BASE = []
+static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
 static List<String> ENUM_ITEM_NAME = []
@@ -451,6 +464,11 @@ static N classByName(String cn) {
     Int i = 0
     while i < CLS_DECLS.length() {
         if unq(txt(fld(CLS_DECLS.get(i), "Name"))) == cn { return CLS_DECLS.get(i) }
+        i = i + 1
+    }
+    i = 0
+    while i < GEN_CLS_DECLS.length() {
+        if unq(txt(fld(GEN_CLS_DECLS.get(i), "Name"))) == cn { return GEN_CLS_DECLS.get(i) }
         i = i + 1
     }
     return new N()
@@ -1275,7 +1293,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         if isClass(ty) {
             if init.nm == "New" {
                 N args = fld(init, "Args")
-                if hasRefFieldsDeep(ty) || hasDeinitDeep(ty) || hasProto(ty) {
+                if hasRefFieldsDeep(ty) || hasDeinitDeep(ty) || hasProto(ty) || isGenInstCls(ty) {
                     String b = "xn_Cls_" + ty + "_new("
                     Int ai = 0
                     while ai < args.el.length() {
@@ -1290,7 +1308,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                         e.raw("xn_root_add(" + nm + ");")
                         e.raw("xn_gc_safepoint();")
                     }
-                    if hasDeinitDeep(ty) || hasProto(ty) { sc.releases.push("rt_release(" + nm + ");") }
+                    if hasDeinitDeep(ty) || hasProto(ty) || isGenInstCls(ty) { sc.releases.push("rt_release(" + nm + ");") }
                 } else {
                     String t = e.nt()
                     e.add("xn_Cls_" + ty + " " + t + ";")
@@ -1748,6 +1766,7 @@ static String ctorArgs(N cls) {
 
 static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     String cn = unq(txt(fld(cls, "Name")))
+    if CLS_OVERRIDE != "" { cn = CLS_OVERRIDE }
     dst.push("typedef struct xn_Cls_" + cn + " xn_Cls_" + cn + ";")
     dst.push("")
     dst.push("typedef struct xn_Cls_" + cn + " xn_Cls_" + cn + ";")
@@ -1766,6 +1785,7 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
 
 static void emitClassSection(N cls, EM ce) {
     String cn = unq(txt(fld(cls, "Name")))
+    if CLS_OVERRIDE != "" { cn = CLS_OVERRIDE }
     Bool ref = hasRefFieldsDeep(cn)
     N fs = fld(cls, "Fields")
     N ms = fld(cls, "Methods")
@@ -1773,7 +1793,7 @@ static void emitClassSection(N cls, EM ce) {
     Bool primary = isPrimary(cls)
     String sfx = ""
     if primary { sfx = "_1" }
-    ce.add("/* 类 " + cn + "（M4.4b） */")
+    ce.add("/* 类 " + unq(txt(fld(cls, "Name"))) + "（M4.4b） */")
     ce.add("typedef struct xn_Cls_" + cn + " {")
     ce.add("    rt_header hdr;")
     if hasProto(cn) { ce.add("    void **__vtable; /* 协议 vtable 槽（S2 §5.7；派发批次填充） */") }
@@ -1787,7 +1807,7 @@ static void emitClassSection(N cls, EM ce) {
         }
     } else {
         List<String> chain = []
-        String cur = cn
+        String cur = unq(txt(fld(cls, "Name")))
         while cur != "" { chain.insert(0, cur); cur = baseOf(cur) }
         Int ci2 = 0
         while ci2 < chain.length() {
@@ -1824,7 +1844,7 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("}")
         ce.raw("")
     }
-    ce.add("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), xn_Cls_" + cn + "_deinit_hook, " + (ref ? "xn_Cls_" + cn + "_gc_scan" : "NULL") + " };")
+    ce.add("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + unq(txt(fld(cls, "Name"))) + "\", sizeof(xn_Cls_" + cn + "), xn_Cls_" + cn + "_deinit_hook, " + (ref ? "xn_Cls_" + cn + "_gc_scan" : "NULL") + " };")
     ce.raw("")
     // new_init
     ce.add("static void xn_Cls_" + cn + "_new" + sfx + "_init" + "(xn_Cls_" + cn + " *o" + (ctorParams(cls) == "" ? "" : ", " + ctorParams(cls)) + ") {")
@@ -2622,6 +2642,72 @@ static void emitInstances(EM e, SC sc) {
     }
 }
 
+static Bool isGenInstCls(String k) {
+    Int i = 0
+    while i < GEN_INST_NAME.length() { if GEN_INST_NAME.get(i) == k { return true }; i = i + 1 }
+    return false
+}
+static Bool isGenCls(String n) {
+    Int i = 0
+    while i < GEN_CLS_NAMES.length() { if GEN_CLS_NAMES.get(i) == n { return true }; i = i + 1 }
+    return false
+}
+static N genClsDecl(String n) {
+    Int i = 0
+    while i < GEN_CLS_NAMES.length() {
+        if GEN_CLS_NAMES.get(i) == n { return GEN_CLS_DECLS.get(i) }
+        i = i + 1
+    }
+    return new N()
+}
+static void addClsInst(String cn, String key) {
+    String inst = cn + "_" + mangle(key)
+    Int i = 0
+    while i < GEN_INST_NAME.length() { if GEN_INST_NAME.get(i) == inst { return }; i = i + 1 }
+    GEN_INST_NAME.push(inst)
+    GEN_INST_KEY.push(key)
+    GEN_INST_BASE.push(cn)
+    CLS_NAMES.push(inst)
+    N d = genClsDecl(cn)
+    SUB_FROM = ["T"]
+    SUB_TO = [key]
+    N fs = fld(d, "Fields")
+    Int fi = 0
+    while fi < fs.el.length() {
+        FLD_OWNER.push(inst)
+        FLD_NAME.push(unq(txt(fld(fs.el.get(fi), "Name"))))
+        FLD_TYPE.push(typeKey(fld(fs.el.get(fi), "Type")))
+        fi = fi + 1
+    }
+    N ms = fld(d, "Methods")
+    fi = 0
+    while fi < ms.el.length() {
+        MTH_OWNER.push(inst)
+        MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
+        MTH_RET.push(typeKey(fld(ms.el.get(fi), "Ret")))
+        fi = fi + 1
+    }
+    SUB_FROM = []
+    SUB_TO = []
+}
+static void scanCls(N n) {
+    if n.nm == "New" {
+        N t = fld(n, "Type")
+        String last = lastQual(t)
+        N ta = fld(t, "Args")
+        if isGenCls(last) && ta.el.length() > 0 { addClsInst(last, typeKey(ta.el.get(0))) }
+    }
+    if n.nm == "NamedType" {
+        String last2 = lastQual(n)
+        N ta2 = fld(n, "Args")
+        if isGenCls(last2) && ta2.el.length() > 0 { addClsInst(last2, typeKey(ta2.el.get(0))) }
+    }
+    Int i = 0
+    while i < n.fv.length() { scanCls(n.fv.get(i)); i = i + 1 }
+    i = 0
+    while i < n.el.length() { scanCls(n.el.get(i)); i = i + 1 }
+}
+
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -2651,6 +2737,10 @@ static String emitUnit(N unit, String path) {
         N d = decls.el.get(i)
         if d.nm == "ClassDecl" {
             String cn = unq(txt(fld(d, "Name")))
+            if fld(d, "TypePars").el.length() > 0 {
+                GEN_CLS_NAMES.push(cn)
+                GEN_CLS_DECLS.push(d)
+            } else {
             CLS_NAMES.push(cn)
             CLS_DECLS.push(d)
             if isPrimary(d) {
@@ -2691,6 +2781,7 @@ static String emitUnit(N unit, String path) {
                 MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
                 MTH_RET.push(typeKey(fld(ms.el.get(fi), "Ret")))
                 fi = fi + 1
+            }
             }
         }
         if d.nm == "ExtensionDecl" {
@@ -2786,6 +2877,17 @@ static String emitUnit(N unit, String path) {
         }
         i = i + 1
     }
+    Int sci = 0
+    while sci < decls.el.length() {
+        N d = decls.el.get(sci)
+        if d.nm == "TopFunc" { scanCls(fld(d, "Body")) }
+        if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 {
+            N ms0 = fld(d, "Methods")
+            Int mi0 = 0
+            while mi0 < ms0.el.length() { scanCls(fld(ms0.el.get(mi0), "Body")); mi0 = mi0 + 1 }
+        }
+        sci = sci + 1
+    }
     i = 0
     while i < decls.el.length() {
         N d = decls.el.get(i)
@@ -2820,8 +2922,19 @@ static String emitUnit(N unit, String path) {
         Int ci = 0
         while ci < decls.el.length() {
             N d = decls.el.get(ci)
-            if d.nm == "ClassDecl" { emitClassSection(d, ce) }
+            if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 { emitClassSection(d, ce) }
             ci = ci + 1
+        }
+        Int gci = 0
+        while gci < GEN_INST_NAME.length() {
+            CLS_OVERRIDE = GEN_INST_NAME.get(gci)
+            SUB_FROM = ["T"]
+            SUB_TO = [GEN_INST_KEY.get(gci)]
+            emitClassSection(genClsDecl(GEN_INST_BASE.get(gci)), ce)
+            SUB_FROM = []
+            SUB_TO = []
+            CLS_OVERRIDE = ""
+            gci = gci + 1
         }
         e.tmp = ce.tmp
         EM xe = new EM()
@@ -2863,19 +2976,21 @@ static String emitUnit(N unit, String path) {
             ci = 0
             while ci < decls.el.length() {
                 N d = decls.el.get(ci)
-                if d.nm == "ClassDecl" {
+                if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 {
                     String ccn = unq(txt(fld(d, "Name")))
                     fw.push("typedef struct xn_Cls_" + ccn + " xn_Cls_" + ccn + ";")
                 }
                 ci = ci + 1
             }
+            Int gti = 0
+            while gti < GEN_INST_NAME.length() { fw.push("typedef struct xn_Cls_" + GEN_INST_NAME.get(gti) + " xn_Cls_" + GEN_INST_NAME.get(gti) + ";"); gti = gti + 1 }
             fw.push("")
             pass = pass + 1
         }
         ci = 0
         while ci < decls.el.length() {
             N d = decls.el.get(ci)
-            if d.nm == "ClassDecl" {
+            if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 {
                 String ccn = unq(txt(fld(d, "Name")))
                 String csx = ""
                 if isPrimary(d) { csx = "_1" }
@@ -2887,6 +3002,22 @@ static String emitUnit(N unit, String path) {
                 if hasProto(ccn) { fw.push("static void *xn_vt_" + ccn + "[" + str(protoSlots(ccn) + 2) + "];") }
             }
             ci = ci + 1
+        }
+        Int gpi = 0
+        while gpi < GEN_INST_NAME.length() {
+            String instn = GEN_INST_NAME.get(gpi)
+            N gd = genClsDecl(GEN_INST_BASE.get(gpi))
+            SUB_FROM = ["T"]
+            SUB_TO = [GEN_INST_KEY.get(gpi)]
+            CLS_OVERRIDE = instn
+            String gnp = ctorParams(gd)
+            if gnp == "" { gnp = "void" }
+            fw.push("static xn_Cls_" + instn + " *xn_Cls_" + instn + "_new(" + gnp + ");")
+            fw.push("static void xn_Cls_" + instn + "_new_init(xn_Cls_" + instn + " *o" + (ctorParams(gd) == "" ? "" : ", " + ctorParams(gd)) + ");")
+            SUB_FROM = []
+            SUB_TO = []
+            CLS_OVERRIDE = ""
+            gpi = gpi + 1
         }
         if EXT_TARGET.length() > 0 { fw.push("") }
         Int exi = 0

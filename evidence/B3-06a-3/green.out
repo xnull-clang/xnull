@@ -1,0 +1,4 @@
+PASS gen/class.x
+PASS gen/fn.x
+PASS gen/fn2.x
+xnullc-gen 汇总：PASS=3 FAIL=0
