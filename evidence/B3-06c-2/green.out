@@ -1,0 +1,3 @@
+PASS tests/b3/fixtures/type/is_as.x
+PASS tests/b3/fixtures/type/opt.x
+xnullc-type 汇总：PASS=2 FAIL=0
