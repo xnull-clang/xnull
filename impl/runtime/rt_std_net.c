@@ -356,3 +356,64 @@ xrt_bytes_buf *xdkc_http_post(const char *url, size_t ulen, const void *body, si
     }
     return http_request(url, ulen, body, blen, "POST", kind);
 }
+
+/* ---- S6-09 兼容别名（早期 C 名；E4 绑定面使用 xdkc_net_*） ----
+ * QA XDK-09b：旧测试/绑定若引用 xdkc_socket_*，链接不再缺符号。
+ * Async 别名只在调用前检查 Context；真正的取消检查由 codegen 调用点负责。
+ */
+void *xdkc_socket_connect(const char *host, size_t hlen, int32_t port, int32_t *code) {
+    return xdkc_net_connect(host, hlen, port, code);
+}
+
+int64_t xdkc_socket_send(void *sock, const void *buf, size_t n, int32_t *code) {
+    int32_t rc = xdkc_net_write(sock, buf, n);
+    if (code != NULL) {
+        *code = rc;
+    }
+    return rc == 0 ? (int64_t)n : -1;
+}
+
+int64_t xdkc_socket_recv(void *sock, void *buf, size_t cap, int32_t *code) {
+    return xdkc_net_read(sock, buf, cap, code);
+}
+
+int32_t xdkc_socket_close(void *sock) {
+    return xdkc_net_close(sock);
+}
+
+static int net_ctx_cancelled(xrt_context *ctx) {
+    return ctx != NULL && xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED;
+}
+
+void *xdkc_socket_connect_async(xrt_context *ctx, const char *host, size_t hlen,
+                                int32_t port, int32_t *code) {
+    if (net_ctx_cancelled(ctx)) {
+        if (code != NULL) {
+            *code = 3;
+        }
+        return NULL;
+    }
+    return xdkc_net_connect(host, hlen, port, code);
+}
+
+int64_t xdkc_socket_send_async(xrt_context *ctx, void *sock, const void *buf,
+                               size_t n, int32_t *code) {
+    if (net_ctx_cancelled(ctx)) {
+        if (code != NULL) {
+            *code = 3;
+        }
+        return -1;
+    }
+    return xdkc_socket_send(sock, buf, n, code);
+}
+
+int64_t xdkc_socket_recv_async(xrt_context *ctx, void *sock, void *buf,
+                               size_t cap, int32_t *code) {
+    if (net_ctx_cancelled(ctx)) {
+        if (code != NULL) {
+            *code = 3;
+        }
+        return -1;
+    }
+    return xdkc_net_read(sock, buf, cap, code);
+}
