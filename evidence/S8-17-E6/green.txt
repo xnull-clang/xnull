@@ -1,0 +1,9 @@
+=== RUN   TestTreeCommand
+--- PASS: TestTreeCommand (0.02s)
+=== RUN   TestWhyCommand
+--- PASS: TestWhyCommand (0.02s)
+=== RUN   TestInstallCommand
+--- PASS: TestInstallCommand (0.06s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	4.357s
+exit=0
