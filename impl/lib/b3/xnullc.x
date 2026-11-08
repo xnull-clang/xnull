@@ -788,6 +788,8 @@ class SC {
     List<String> resultTypes = []
     String ret = ""
     String root = "xn_t1"
+    String rootMark = ""
+    List<String> rootPrelude = []
     String selfName = "self"
     String curClass = ""
     Bool selfPtr = false
@@ -2861,6 +2863,28 @@ static void escBlock(N b, SC sc) {
 }
 static Bool isEscaped(SC sc, String n) { return inNames(sc.escaped, n) }
 
+static void emitBlockExit(SC sc, EM e, Int ind) {
+    if sc.releases.length() > 0 {
+        Int ri0 = sc.releases.length() - 1
+        while ri0 >= 0 {
+            e.addAt(ind + 4, "{")
+            e.addAt(ind, sc.releases.get(ri0))
+            e.addAt(ind + 4, "}")
+            ri0 = ri0 - 1
+        }
+    }
+    Int si0 = 0
+    while si0 < sc.strLocals.length() {
+        if si0 == 0 { e.addAt(ind + 4, "{") }
+        e.addAt(ind, "rt_release(" + sc.strLocals.get(si0) + ");")
+        if si0 == sc.strLocals.length() - 1 { e.addAt(ind + 4, "}") }
+        si0 = si0 + 1
+    }
+    e.addAt(ind + 4, "{")
+    e.addAt(ind, "xn_root_restore(" + sc.root + ");")
+    e.addAt(ind + 4, "}")
+}
+
 static void emitFunc(N fn, EM e, SC sc) {
     String fname = unq(txt(fld(fn, "Name")))
     String rk = typeKey(fld(fn, "Ret"))
@@ -2902,6 +2926,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     }
     String root = e.nt()
     sc.root = root
+    sc.rootMark = root
+    sc.rootPrelude = []
     e.add("size_t " + root + " = xn_root_mark();")
     N ps2 = fld(fn, "Params")
     Int pj = 0
