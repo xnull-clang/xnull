@@ -762,6 +762,8 @@ class DF {
     String text = ""
     String temp = ""
     Bool err = false
+    List<String> lines = []
+    String name = ""
 }
 
 class SC {
@@ -790,6 +792,15 @@ class SC {
     String root = "xn_t1"
     String rootMark = ""
     List<String> rootPrelude = []
+    Int sid = -1
+    Int parentId = -1
+    Bool hasResult = false
+    Bool isCtor = false
+    List<String> own = []
+    List<String> blockHeld = []
+    Bool returned = false
+    Bool rootDeclared = false
+    String kind = ""
     String selfName = "self"
     String curClass = ""
     Bool selfPtr = false
@@ -840,6 +851,13 @@ class SC {
         }
         self.resultTypes.push(k)
     }
+}
+
+List<SC> SC_REG = []
+
+static SC parentOf(SC s) {
+    if s.parentId < 0 { return s }
+    return SC_REG.get(s.parentId)
 }
 
 class EM {
@@ -1672,10 +1690,78 @@ static void finishLocalRoot(SC sc, EM e, String nm, String ty) {
     }
 }
 
-static void emitDeferItem(EM e, Int ind, String line) {
-    e.addAt(ind + 4, "{")
-    e.addAt(ind, line)
-    e.addAt(ind + 4, "}")
+static SC newChild(SC parent, EM e) {
+    if parent.sid < 0 { parent.sid = SC_REG.length(); SC_REG.push(parent) }
+    SC s = new SC()
+    s.parentId = parent.sid
+    s.sid = SC_REG.length()
+    SC_REG.push(s)
+    s.curFn = parent.curFn
+    s.retKind = parent.retKind
+    s.selfName = parent.selfName
+    s.curClass = parent.curClass
+    s.selfPtr = parent.selfPtr
+    s.staticMeth = parent.staticMeth
+    s.hasResult = parent.hasResult
+    s.isCtor = parent.isCtor
+    s.params = parent.params
+    s.paramTypes = parent.paramTypes
+    s.fnNames = parent.fnNames
+    s.fnRets = parent.fnRets
+    s.resultTypes = parent.resultTypes
+    s.escaped = parent.escaped
+    s.names = copyStrs(parent.names)
+    s.types = copyStrs(parent.types)
+    s.blockDefers = parent.blockDefers
+    s.errdefers = parent.errdefers
+    s.rootedTemps = parent.rootedTemps
+    s.extraTmpName = parent.extraTmpName
+    s.extraTmpCount = parent.extraTmpCount
+    s.doubleRoot = parent.doubleRoot
+    s.inRet = parent.inRet
+    s.ret = parent.ret
+    s.root = parent.root
+    s.directRet = parent.directRet
+    s.deferredRet = parent.deferredRet
+    s.loopDepth = parent.loopDepth
+    s.loopIndent = parent.loopIndent
+    s.own = []
+    s.defers = []
+    s.blockHeld = []
+    s.rootPrelude = []
+    s.returned = false
+    s.rootDeclared = false
+    s.kind = ""
+    s.rootMark = e.nt()
+    return s
+}
+
+static void addDefer(SC s, List<String> lines, Bool err) {
+    DF d = new DF()
+    d.lines = lines
+    d.err = err
+    s.defers.push(d)
+}
+
+static void addRelease(SC s, String code) { addDefer(s, [code], false) }
+
+static void addNamedRelease(SC s, String name, String code) {
+    DF d = new DF()
+    d.lines = [code]
+    d.err = false
+    d.name = name
+    s.defers.push(d)
+}
+
+static void emitDeferItem(DF d, EM e, Int braceInd, Int lineInd, Bool guarded) {
+    if guarded { e.addAt(braceInd, "if (!xn_ret.ok) {") }
+    else { e.addAt(braceInd, "{") }
+    Int i = 0
+    while i < d.lines.length() {
+        e.addAt(lineInd, d.lines.get(i))
+        i = i + 1
+    }
+    e.addAt(braceInd, "}")
 }
 
 static void emitBlockDefers(SC sc, EM e, Int ind) {
@@ -1696,12 +1782,12 @@ static void emitBlockDefers(SC sc, EM e, Int ind) {
 static void emitCleanup(SC sc, EM e, Int base, Int mode, Bool skipErr) {
     Int i = sc.errdefers.length() - 1
     while i >= 0 {
-        if !skipErr { emitDeferBody(sc.errdefers.get(i), e, base, mode, true) }
+        if !skipErr && sc.errdefers.get(i).lines.length() == 0 { emitDeferBody(sc.errdefers.get(i), e, base, mode, true) }
         i = i - 1
     }
     i = sc.defers.length() - 1
     while i >= 0 {
-        emitDeferBody(sc.defers.get(i), e, base, mode, false)
+        if sc.defers.get(i).lines.length() == 0 { emitDeferBody(sc.defers.get(i), e, base, mode, false) }
         i = i - 1
     }
 }
@@ -1877,12 +1963,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.raw("xn_root_add(" + nm + ");")
                     e.raw("xn_root_add(" + nm + ");")
                     e.raw("xn_gc_safepoint();")
-                    sc.strLocals.push(nm)
+                    addRelease(sc, "rt_release(" + nm + ");")
                     return
                 }
             }
             e.add("xrt_bytes_obj *" + nm + " = " + expr(init, e, sc) + ";")
-            sc.strLocals.push(nm)
+            addRelease(sc, "rt_release(" + nm + ");")
             return
         }
         if ty == "String" {
@@ -1925,7 +2011,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 e.raw("xn_root_add(" + nm + ");")
             }
             e.add("xn_gc_safepoint();")
-            sc.strLocals.push(nm)
+            addRelease(sc, "rt_release(" + nm + ");")
             if sc.curFn != "regexMatchAt" { sc.doubleRoot = true }
             return
         }
@@ -2086,7 +2172,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             }
             e.raw("xn_root_add(" + nm + ");")
             e.raw("xn_gc_safepoint();")
-            sc.releases.push("rt_release((void *)" + nm + ");")
+            addNamedRelease(sc, nm, "rt_release((void *)" + nm + ");")
             return
         }
         if isClass(ty) {
@@ -2117,7 +2203,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     if isGC {
                         e.raw("xn_root_add(" + nm + ");")
                         e.raw("xn_gc_safepoint();")
-                    } else { sc.releases.push("rt_release(" + nm + ");") }
+                    } else { addNamedRelease(sc, nm, "rt_release(" + nm + ");") }
                 }
                 return
             }
@@ -2125,13 +2211,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 String src = expr(init, e, sc)
                 e.add("xn_Cls_" + ty + " * " + nm + " = rt_retain(" + src + ");")
                 e.raw("xn_root_add(" + nm + ");")
-                sc.releases.push("rt_release(" + nm + ");")
+                addNamedRelease(sc, nm, "rt_release(" + nm + ");")
                 return
             }
             e.add("xn_Cls_" + ty + " * " + nm + " = " + expr(init, e, sc) + ";")
             e.raw("xn_root_add(" + nm + ");")
             if isGC { e.raw("xn_root_add(" + nm + ");"); e.raw("xn_gc_safepoint();") }
-            else { sc.releases.push("rt_release(" + nm + ");") }
+            else { addNamedRelease(sc, nm, "rt_release(" + nm + ");") }
             return
         }
         if isStruct(ty) {
@@ -2477,25 +2563,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         sc.doubleRoot = odrIf0
         if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "if (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "if ((" + cexpr + ")) {") }
-        String r = e.nt()
-        e.addAt(e.ind + 8, "size_t " + r + " = xn_root_mark();")
-        sc.blockRoots.push(r)
-        sc.blockInds.push(e.ind + 8)
         e.terminated = false
         List<DF> savedDefers = sc.blockDefers
         sc.blockDefers = []
-        emitBlock(fld(st, "Then"), e, sc, e.ind + 8, true)
-        Bool termThen = e.terminated
+        SC thenSc = newChild(sc, e)
+        emitBlock(fld(st, "Then"), e, thenSc, e.ind + 8, true)
         emitBlockDefers(sc, e, e.ind + 8)
         sc.blockDefers = savedDefers
-        sc.blockRoots.remove(sc.blockRoots.length() - 1)
-        sc.blockInds.remove(sc.blockInds.length() - 1)
-        if !termThen {
-            e.addAt(e.ind + 12, "{")
-            e.addAt(e.ind + 12, "xn_root_restore(" + r + ");")
-            e.addAt(e.ind + 12, "}")
-            e.raw("")
-        }
         N els = fld(st, "Else")
         if els.nm != "" && els.nm != "nil" {
             e.addAt(e.ind + 4, "} else {")
@@ -2503,7 +2577,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 Int saveEI = e.ind
                 e.ind = e.ind + 8
                 e.terminated = false
-                String eDiscard = e.nt()
+                SC elseSc = newChild(sc, e)
                 Bool oldDR = sc.doubleRoot
                 sc.doubleRoot = true
                 SKIP_LINE = true
@@ -2511,30 +2585,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 sc.doubleRoot = oldDR
                 e.ind = saveEI
             } else {
-                String r2 = e.nt()
-                e.addAt(e.ind + 8, "size_t " + r2 + " = xn_root_mark();")
-                sc.blockRoots.push(r2)
-                sc.blockInds.push(e.ind + 8)
                 e.terminated = false
                 List<DF> savedDefers2 = sc.blockDefers
                 sc.blockDefers = []
-                if els.nm == "Block" { emitBlock(els, e, sc, e.ind + 8, true) } else {
+                SC elseSc2 = newChild(sc, e)
+                if els.nm == "Block" { emitBlock(els, e, elseSc2, e.ind + 8, true) } else {
                     Int save = e.ind
                     e.ind = e.ind + 8
-                    emitStmt(els, e, sc, true)
+                    emitStmt(els, e, elseSc2, true)
                     e.ind = save
                 }
-                Bool termElse = e.terminated
                 emitBlockDefers(sc, e, e.ind + 8)
                 sc.blockDefers = savedDefers2
-                sc.blockRoots.remove(sc.blockRoots.length() - 1)
-                sc.blockInds.remove(sc.blockInds.length() - 1)
-                if !termElse {
-                    e.addAt(e.ind + 12, "{")
-                    e.addAt(e.ind + 12, "xn_root_restore(" + r2 + ");")
-                    e.addAt(e.ind + 12, "}")
-                    e.raw("")
-                }
             }
             e.addAt(e.ind + 4, "}")
         } else {
@@ -2563,43 +2625,27 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             wi = 0
             while wi < cl.length() { e.ls.push(cl.get(wi)); wi = wi + 1 }
             e.addAt(e.ind + 8, "if (!(" + cexprRaw + ")) { break; }")
-            String rl = e.nt()
-            e.addAt(e.ind + 8, "size_t " + rl + " = xn_root_mark();")
-            sc.blockRoots.push(rl)
+            SC bodySc = newChild(sc, e)
             sc.loopDepth = sc.loopDepth + 1
             Int oldLI2 = sc.loopIndent
             sc.loopIndent = e.ind + 8
             e.terminated = false
-            emitBlock(fld(st, "Body"), e, sc, e.ind + 8, true)
+            emitBlock(fld(st, "Body"), e, bodySc, e.ind + 8, true)
             sc.loopDepth = sc.loopDepth - 1
             sc.loopIndent = oldLI2
-            sc.blockRoots.remove(sc.blockRoots.length() - 1)
-            e.addAt(e.ind + 12, "{")
-            e.addAt(e.ind + 12, "xn_root_restore(" + rl + ");")
-            e.addAt(e.ind + 12, "}")
-            e.raw("")
             e.addAt(e.ind + 8, "xn_gc_safepoint();")
             e.addAt(e.ind + 4, "}")
             return
         }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "while (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "while ((" + cexpr + ")) {") }
-        String r = e.nt()
-        e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
-        sc.blockRoots.push(r)
-        sc.blockInds.push(e.ind + 4)
+        SC bodySc2 = newChild(sc, e)
         sc.loopDepth = sc.loopDepth + 1
         Int oldLI = sc.loopIndent
         sc.loopIndent = e.ind + 4
         e.terminated = false
-        emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
+        emitBlock(fld(st, "Body"), e, bodySc2, e.ind + 4, true)
         sc.loopDepth = sc.loopDepth - 1
         sc.loopIndent = oldLI
-        sc.blockRoots.remove(sc.blockRoots.length() - 1)
-        sc.blockInds.remove(sc.blockInds.length() - 1)
-        e.addAt(e.ind + 8, "{")
-        e.addAt(e.ind + 8, "xn_root_restore(" + r + ");")
-        e.addAt(e.ind + 8, "}")
-        e.raw("")
         e.addAt(e.ind + 4, "xn_gc_safepoint();")
         e.addAt(e.ind + 4, "}")
         return
@@ -2607,23 +2653,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     if st.nm == "ForStmt" {
         String vname = unq(txt(fld(st, "Var")))
         String coll = expr(fld(st, "Src"), e, sc)
-        String bodyRoot = e.nt()
+        SC bodySc3 = newChild(sc, e)
         String loop = e.nt()
         e.addAt(e.ind, "for (size_t " + loop + " = 0; " + loop + " < " + coll + "->len; " + loop + "++) {")
         e.addAt(e.ind + 4, "int64_t " + vname + " = " + coll + "->data[" + loop + "];")
-        e.addAt(e.ind + 4, "size_t " + bodyRoot + " = xn_root_mark();")
-        sc.blockRoots.push(bodyRoot)
-        sc.blockInds.push(e.ind + 4)
         sc.loopDepth = sc.loopDepth + 1
         e.terminated = false
-        emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
+        emitBlock(fld(st, "Body"), e, bodySc3, e.ind + 4, true)
         sc.loopDepth = sc.loopDepth - 1
-        sc.blockRoots.remove(sc.blockRoots.length() - 1)
-        sc.blockInds.remove(sc.blockInds.length() - 1)
-        e.addAt(e.ind + 8, "{")
-        e.addAt(e.ind + 8, "xn_root_restore(" + bodyRoot + ");")
-        e.addAt(e.ind + 8, "}")
-        e.raw("")
         e.addAt(e.ind + 4, "xn_gc_safepoint();")
         e.addAt(e.ind, "}")
         return
@@ -2639,49 +2676,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             if i == 0 { head = "if " }
             e.addAt(e.ind + 8, head + "(" + val + " == (" + expr(fld(c, "Expr"), e, sc) + ")) {")
             String r = e.nt()
-            e.addAt(e.ind + 12, "size_t " + r + " = xn_root_mark();")
-            sc.blockRoots.push(r)
-            sc.blockInds.push(e.ind + 12)
-            N stmts = fld(c, "Stmts")
-            Int j = 0
-            while j < stmts.el.length() {
-                Int save = e.ind
-                e.ind = e.ind + 12
-                emitStmt(stmts.el.get(j), e, sc, true)
-                e.ind = save
-                j = j + 1
-            }
-            sc.blockRoots.remove(sc.blockRoots.length() - 1)
-        sc.blockInds.remove(sc.blockInds.length() - 1)
-            e.addAt(e.ind + 16, "{")
-            e.addAt(e.ind + 16, "xn_root_restore(" + r + ");")
-            e.addAt(e.ind + 16, "}")
-            e.raw("")
+            SC caseSc = newChild(sc, e)
+            emitScopedStmts(caseSc, fld(c, "Stmts"), e, e.ind + 12, true)
             e.addAt(e.ind + 8, "}")
             i = i + 1
         }
         N def = fld(st, "Default")
         if def.nm != "" && def.nm != "nil" {
             e.addAt(e.ind + 8, "else {")
-            String r = e.nt()
-            e.addAt(e.ind + 12, "size_t " + r + " = xn_root_mark();")
-            sc.blockRoots.push(r)
-            sc.blockInds.push(e.ind + 12)
-            N stmts = fld(def, "Stmts")
-            Int j = 0
-            while j < stmts.el.length() {
-                Int save = e.ind
-                e.ind = e.ind + 12
-                emitStmt(stmts.el.get(j), e, sc, true)
-                e.ind = save
-                j = j + 1
-            }
-            sc.blockRoots.remove(sc.blockRoots.length() - 1)
-        sc.blockInds.remove(sc.blockInds.length() - 1)
-            e.addAt(e.ind + 16, "{")
-            e.addAt(e.ind + 16, "xn_root_restore(" + r + ");")
-            e.addAt(e.ind + 16, "}")
-            e.raw("")
+            SC defSc = newChild(sc, e)
+            emitScopedStmts(defSc, fld(def, "Stmts"), e, e.ind + 12, true)
             e.addAt(e.ind + 8, "}")
         }
         e.addAt(e.ind + 4, "} while (0);")
@@ -2689,17 +2693,32 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     }
 }
 
-static void emitBlock(N blk, EM e, SC sc, Int ind, Bool early) {
-    if blk.nm != "Block" { return }
-    N stmts = fld(blk, "Stmts")
+static void emitScopedStmts(SC s, N stmts, EM e, Int ind, Bool early) {
+    if s.rootMark != "" && !s.rootDeclared {
+        s.rootDeclared = true
+        e.addAt(ind, "size_t " + s.rootMark + " = xn_root_mark();")
+        Int pi = 0
+        while pi < s.rootPrelude.length() {
+            e.addAt(ind, s.rootPrelude.get(pi))
+            pi = pi + 1
+        }
+        s.rootPrelude = []
+        addDefer(s, ["xn_root_restore(" + s.rootMark + ");"], false)
+    }
     Int i = 0
     while i < stmts.el.length() {
         Int save = e.ind
         e.ind = ind
-        emitStmt(stmts.el.get(i), e, sc, early)
+        emitStmt(stmts.el.get(i), e, s, early)
         e.ind = save
         i = i + 1
     }
+    emitBlockExit(s, e, ind)
+}
+
+static void emitBlock(N blk, EM e, SC sc, Int ind, Bool early) {
+    if blk.nm != "Block" { return }
+    emitScopedStmts(sc, fld(blk, "Stmts"), e, ind, early)
 }
 
 static String paramsOf(N fn) {
@@ -2864,25 +2883,18 @@ static void escBlock(N b, SC sc) {
 static Bool isEscaped(SC sc, String n) { return inNames(sc.escaped, n) }
 
 static void emitBlockExit(SC sc, EM e, Int ind) {
-    if sc.releases.length() > 0 {
-        Int ri0 = sc.releases.length() - 1
-        while ri0 >= 0 {
-            e.addAt(ind + 4, "{")
-            e.addAt(ind, sc.releases.get(ri0))
-            e.addAt(ind + 4, "}")
-            ri0 = ri0 - 1
-        }
+    Int hi = 0
+    while hi < sc.blockHeld.length() {
+        e.addAt(ind, "xn_root_release(" + sc.blockHeld.get(hi) + ");")
+        hi = hi + 1
     }
-    Int si0 = 0
-    while si0 < sc.strLocals.length() {
-        if si0 == 0 { e.addAt(ind + 4, "{") }
-        e.addAt(ind, "rt_release(" + sc.strLocals.get(si0) + ");")
-        if si0 == sc.strLocals.length() - 1 { e.addAt(ind + 4, "}") }
-        si0 = si0 + 1
+    if sc.returned { return }
+    Int i = sc.defers.length() - 1
+    while i >= 0 {
+        DF d = sc.defers.get(i)
+        if !d.err && d.lines.length() > 0 { emitDeferItem(d, e, ind + 4, ind + 4, false) }
+        i = i - 1
     }
-    e.addAt(ind + 4, "{")
-    e.addAt(ind, "xn_root_restore(" + sc.root + ");")
-    e.addAt(ind + 4, "}")
 }
 
 static void emitFunc(N fn, EM e, SC sc) {
@@ -2928,6 +2940,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.root = root
     sc.rootMark = root
     sc.rootPrelude = []
+    sc.hasResult = isResult(rk)
+    sc.rootDeclared = true
     e.add("size_t " + root + " = xn_root_mark();")
     N ps2 = fld(fn, "Params")
     Int pj = 0
