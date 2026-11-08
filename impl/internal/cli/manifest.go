@@ -14,6 +14,7 @@ import (
 	"xnull.dev/xnull/internal/codegen"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
+	"xnull.dev/xnull/internal/manifest"
 	"xnull.dev/xnull/internal/xfront"
 	"xnull.dev/xnull/internal/xpd"
 )
@@ -87,105 +88,54 @@ func valueText(v xpd.Value) string {
 	}
 }
 
-// loadProjectManifest 读取并校验 S8-04 所需清单字段。
-func loadProjectManifest(root string) (*projectManifest, *diag.Diagnostic) {
+// loadProjectManifest 使用 internal/manifest 的完整模型生成 build 视图：
+// parent 展开（relativePath）、属性替换、profile 合并、dependencyManagement/依赖图。
+// 错误一律带 XPD 码与位置（S8 §3）。
+func loadProjectManifest(root, profile string) (*projectManifest, *manifest.Resolved, []diag.Diagnostic) {
 	path := filepath.Join(root, manifestFile)
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return nil, &diag.Diagnostic{File: "xnull", Line: 1, Col: 1, Code: codeManifestAbsent,
-			Message: "找不到 xnull.project", Hint: "在进程内向上查找清单；确认当前目录属于某个工程"}
+		return nil, nil, []diag.Diagnostic{{File: manifestFile, Line: 1, Col: 1, Code: codeManifestAbsent,
+			Message: "找不到 xnull.project", Hint: "在进程内向上查找清单；确认当前目录属于某个工程"}}
 	}
-	f, diags := xpd.Parse(manifestFile, string(raw))
-	if len(diags) > 0 {
-		return nil, &diags[0]
+	res, ds, rerr := manifest.ResolveDependencies(path, manifest.Options{
+		ToolchainVersion: Version,
+		Profiles:         profileList(profile),
+		Platform:         platformName(),
+	})
+	if rerr != nil {
+		return nil, nil, []diag.Diagnostic{{File: manifestFile, Line: 1, Col: 1, Code: "XPD-201",
+			Message: fmt.Sprintf("读取工程清单失败：%v", rerr)}}
 	}
-	m := &projectManifest{Root: root, Path: path, Raw: raw, Properties: map[string]string{}}
-	proj := f.Find("project")
-	if proj == nil {
-		return nil, manifestDiag(manifestFile, xpd.Pos{Line: 1, Col: 1}, "XPD-201", "清单缺少 project 块")
+	if len(ds) > 0 {
+		return nil, nil, ds
 	}
-	coords := []struct {
-		name string
-		dst  *string
-	}{
-		{"groupId", &m.GroupID}, {"artifactId", &m.ArtifactID},
-		{"version", &m.Version}, {"packaging", &m.Packaging},
-	}
-	for _, c := range coords {
-		fld, dup := blockField(proj, c.name)
-		if dup != nil {
-			return nil, manifestDiag(manifestFile, dup.Pos, "XPD-201", "字段 "+c.name+" 重复声明")
-		}
-		if fld == nil || strings.TrimSpace(valueText(fld.Value)) == "" {
-			return nil, manifestDiag(manifestFile, proj.Pos, "XPD-301", "缺少坐标字段 "+c.name)
-		}
-		*c.dst = valueText(fld.Value)
+	m := &projectManifest{
+		Root: root, Path: path, Raw: raw,
+		GroupID: res.GroupID, ArtifactID: res.ArtifactID,
+		Version: res.Version, Packaging: res.Packaging,
+		Properties: res.Properties,
 	}
 	switch m.Packaging {
 	case "app", "library", "pom", "starter":
 	default:
-		return nil, manifestDiag(manifestFile, proj.Pos, "XPD-201", "packaging 非法："+m.Packaging+"（限 app/library/pom/starter）")
-	}
-	if props := childBlock(proj, "properties"); props != nil {
-		for _, n := range props.Children {
-			fld, ok := n.(*xpd.Field)
-			if !ok {
-				continue
-			}
-			m.Properties[fld.Name] = valueText(fld.Value)
-		}
+		return nil, nil, []diag.Diagnostic{{File: manifestFile, Line: 1, Col: 1, Code: "XPD-201",
+			Message: "packaging 非法：" + m.Packaging + "（限 app/library/pom/starter）"}}
 	}
 	m.Build = buildSpec{Mode: "debug", Warnings: "default", SourceRoot: "src/main/x", TestRoot: "src/test/x"}
-	build := childBlock(proj, "build")
-	if build != nil {
-		if d := parseBuildSpec(m, build); d != nil {
-			return nil, d
+	for key, dst := range map[string]*string{
+		"mode": &m.Build.Mode, "warnings": &m.Build.Warnings,
+		"sourceRoot": &m.Build.SourceRoot, "testRoot": &m.Build.TestRoot,
+		"entryFile": &m.Build.EntryFile, "entryPackage": &m.Build.EntryPackage,
+	} {
+		if v := strings.TrimSpace(res.Build[key]); v != "" {
+			*dst = v
 		}
 	}
 	if d := validateBuildSpec(m); d != nil {
-		return nil, d
+		return nil, nil, []diag.Diagnostic{*d}
 	}
-	return m, nil
-}
-
-var buildFieldNames = map[string]bool{
-	"mode": true, "warnings": true, "sourceRoot": true, "testRoot": true,
-	"entryFile": true, "entryPackage": true, "resources": true, "plugins": true,
-}
-
-func parseBuildSpec(m *projectManifest, build *xpd.Block) *diag.Diagnostic {
-	type dst struct {
-		name string
-		val  *string
-	}
-	fields := []dst{
-		{"mode", &m.Build.Mode}, {"warnings", &m.Build.Warnings},
-		{"sourceRoot", &m.Build.SourceRoot}, {"testRoot", &m.Build.TestRoot},
-		{"entryFile", &m.Build.EntryFile}, {"entryPackage", &m.Build.EntryPackage},
-	}
-	seen := map[string]bool{}
-	for _, n := range build.Children {
-		switch it := n.(type) {
-		case *xpd.Field:
-			if !buildFieldNames[it.Name] {
-				return manifestDiag(manifestFile, it.Pos, "XPD-201", "未知 build 字段 "+it.Name)
-			}
-			if seen[it.Name] {
-				return manifestDiag(manifestFile, it.Pos, "XPD-201", "build 字段 "+it.Name+" 重复声明")
-			}
-			seen[it.Name] = true
-			for _, f := range fields {
-				if f.name == it.Name {
-					*f.val = valueText(it.Value)
-				}
-			}
-		case *xpd.Block:
-			if it.Name != "resources" && it.Name != "plugins" {
-				return manifestDiag(manifestFile, it.Pos, "XPD-201", "未知 build 段 "+it.Name)
-			}
-		}
-	}
-	return nil
+	return m, res, nil
 }
 
 func validateBuildSpec(m *projectManifest) *diag.Diagnostic {
@@ -332,6 +282,7 @@ type manifestPipeline struct {
 	env     Env
 	profile string
 	integ   *integrationState
+	res     *manifest.Resolved
 }
 
 func (p *manifestPipeline) artifactPath() string {
@@ -501,9 +452,10 @@ func buildManifest(env Env, rest []string, dir string) (string, int) {
 		fmt.Fprintln(env.Stderr, (&diag.Diagnostic{File: "xnull", Line: 1, Col: 1, Code: codeManifestAbsent, Message: "找不到 xnull.project"}).String())
 		return "", exitcode.Usage
 	}
-	m, d := loadProjectManifest(root)
-	if d != nil {
-		fmt.Fprintln(env.Stderr, d.String())
+	profile := flagValue(rest, "--profile")
+	m, res, mds := loadProjectManifest(root, profile)
+	if len(mds) > 0 {
+		printDiags(env, mds)
 		return "", exitcode.Usage
 	}
 	skip, d := parseSkipStages(rest)
@@ -519,6 +471,6 @@ func buildManifest(env Env, rest []string, dir string) (string, int) {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return "", exitcode.Usage
 	}
-	p := &manifestPipeline{m: m, skip: skip, rtDir: rt, env: env, profile: flagValue(rest, "--profile")}
+	p := &manifestPipeline{m: m, skip: skip, rtDir: rt, env: env, profile: profile, res: res}
 	return p.run(env)
 }

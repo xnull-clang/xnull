@@ -1,0 +1,9 @@
+=== RUN   TestBuildInheritsParentBuild
+    manifest_s812_test.go:50: 继承工程应构建通过，exit=2
+        src/main/x/main.x:1:1: error[XPD-202]: 入口文件不存在：src/main/x/main.x
+--- FAIL: TestBuildInheritsParentBuild (0.00s)
+=== RUN   TestBuildDependencyWithLock
+--- PASS: TestBuildDependencyWithLock (0.98s)
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	1.668s
+FAIL
