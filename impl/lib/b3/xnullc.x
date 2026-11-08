@@ -250,7 +250,10 @@ static String cNamePart(String k) {
     if k == "Double" { return "Double" }
     if k == "String" { return "String" }
     if k == "Error" { return "Error" }
+    if k == "Bytes" { return "Bytes" }
     if k == "List<Int>" { return "List_Int" }
+    if k.indexOf("List<") == 0 { return "List" }
+    if isClass(k) { return k }
     return "X"
 }
 static String resultName(String k) {
@@ -282,12 +285,15 @@ static String cType(String k) {
     if k == "Bool?" { return "xn_opt_b" }
     if k == "String?" { return "xn_opt_s" }
     if k == "String" { return "rt_string *" }
+    if k == "Bytes" { return "xrt_bytes_obj *" }
     if k == "List<Int>" || k == "Int[]" { return "xn_arr_i *" }
+    if k == "List<UInt16>" || k == "UInt16[]" { return "xn_arr_u16 *" }
     if isObjArr(k) { return classArrName(k) + " *" }
     if isTupList(k) { return arrTupName(k) + " *" }
     if k == "Set<Int>" { return "xn_set_i *" }
     if k == "Map<String, Int>" { return "xn_map_s_i *" }
     if k.indexOf("Result<") == 0 { return resultName(k) }
+    if isProtoType(stripQ(k)) { return "xn_proto_" + stripQ(k) }
     if baseCls(k) != "" { return "xn_Cls_" + baseCls(k) + " *" }
     if isEnumType(k) { if isDataEnum(k) { return "xn_Enum_" + k + " *" }; return "xn_Enum_" + k }
     if isProtoType(k) { return "xn_proto_" + k }
@@ -297,6 +303,7 @@ static String cType(String k) {
 }
 static Bool isResult(String k) { return k.indexOf("Result<") == 0 }
 static Bool isArr(String k) { return k == "List<Int>" || k == "Int[]" }
+static Bool isU16List(String k) { return k == "List<UInt16>" || k == "UInt16[]" }
 static Bool isMap(String k) { return k.indexOf("Map<") == 0 }
 static Bool isSet(String k) { return k.indexOf("Set<") == 0 }
 static String stripQ(String k) {
@@ -612,7 +619,7 @@ static Int protoSlots(String cls) {
             String pn = CLS_PROTO_NAME.get(i)
             Int j = 0
             while j < PROTO_OWNER.length() {
-                if PROTO_OWNER.get(j) == pn { n = n + 1 }
+                if PROTO_OWNER.get(j) == pn && pn != "Error" { n = n + 1 }
                 j = j + 1
             }
         }
@@ -907,7 +914,7 @@ static String exprType(N x, SC sc) {
                 return methodRet(mt, mn)
             }
             if mn == "length" { return "Int" }
-            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
+            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
             if mn == "getOr" { return mapVal(mt) }
             if mn == "has" { return "Bool" }
             if mn == "add" { return "Bool" }
@@ -1232,6 +1239,7 @@ static String expr(N x, EM e, SC sc) {
                     else { a0 = expr(args.el.get(0), e, sc) }
                 }
                 if isMap(mt2) { return "(xn_map_s_i_get(" + xb + ", " + a0 + ").v)" }
+                if isU16List(mt2) { return "xn_arr_u16_get(" + xb + ", " + a0 + ")" }
                 if isObjArr(mt2) {
                     String an = classArrName(mt2)
                     String t = e.nt()
@@ -1601,6 +1609,19 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             sc.strLocals.push(nm)
             return
         }
+        if isU16List(ty) {
+            N elems = fld(init, "Elems")
+            String t = e.nt()
+            e.add("xn_arr_u16 *" + t + " = xn_arr_u16_new(" + str(elems.el.length()) + ");")
+            e.raw("xn_root_add(" + t + ");")
+            Int i = 0
+            while i < elems.el.length() { e.raw("xn_arr_u16_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            e.add("xn_arr_u16 * " + nm + " = " + t + ";")
+            e.raw("xn_root_add(" + nm + ");")
+            e.raw("xn_root_add(" + nm + ");")
+            e.raw("xn_gc_safepoint();")
+            return
+        }
         if isObjArr(ty) {
             e.usesObjArr = true
             e.objArrKey = ty
@@ -1882,13 +1903,15 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     String rt0 = exprType(mx, sc)
-                    if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
+                    if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
+                    else if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
                     else { e.add("xn_arr_i_push(" + xb + ", " + a0 + ");") }
                     return
                 }
                 if mn == "clear" {
                     String mt = exprType(mx, sc)
                     if isSet(mt) { e.add("xn_set_i_clear(" + xb + ");") }
+                    else if isU16List(mt) { e.add("xn_arr_u16_clear(" + xb + ");") }
                     else if isObjArr(mt) { e.add(classArrName(mt) + "_clear(" + xb + ");") }
                     else { e.add("xn_arr_i_clear(" + xb + ");") }
                     return
@@ -2835,7 +2858,7 @@ static String protoTypedefs() {
         Bool seen = false
         Int j = 0
         while j < i { if PROTO_OWNER.get(j) == pn { seen = true }; j = j + 1 }
-        if !seen { b = b + "typedef void *xn_proto_" + pn + ";\n" }
+        if !seen && pn != "Error" { b = b + "typedef void *xn_proto_" + pn + ";\n" }
         i = i + 1
     }
     return b
@@ -3174,7 +3197,7 @@ static String enumTypedefs() {
     Int i = 0
     while i < ENUM_NAMES.length() {
         String en = ENUM_NAMES.get(i)
-        if !isDataEnum(en) { b = b + "typedef int64_t xn_Enum_" + en + ";\n" }
+        if !isDataEnum(en) && en != "ErrorKind" { b = b + "typedef int64_t xn_Enum_" + en + ";\n" }
         i = i + 1
     }
     return b
@@ -3184,7 +3207,7 @@ static String enumNameDefs() {
     Int i = 0
     while i < ENUM_NAMES.length() {
         String en = ENUM_NAMES.get(i)
-        if !isDataEnum(en) {
+        if !isDataEnum(en) && en != "ErrorKind" {
             b = b + "static rt_string *xn_enum_" + en + "_name(int64_t v) {\n"
             b = b + "    switch (v) {\n"
             Int j = 0
@@ -3549,6 +3572,54 @@ static Int cmpName(String a, String b) {
     if a.length() > b.length() { return 1 }
     return 0
 }
+static Bool hasGenericListType(N n) {
+    if n.nm == "NamedType" && lastQual(n) == "List" {
+        N ags = fld(n, "Args")
+        if ags.el.length() > 0 {
+            N a0 = ags.el.get(0)
+            if a0.nm == "NamedType" && lastQual(a0) == "T" { return true }
+        }
+    }
+    Int j = 0
+    while j < n.fv.length() { if hasGenericListType(n.fv.get(j)) { return true }; j = j + 1 }
+    j = 0
+    while j < n.el.length() { if hasGenericListType(n.el.get(j)) { return true }; j = j + 1 }
+    return false
+}
+
+static Bool hasU16In(N n) {
+    if n.nm == "NamedType" && lastQual(n) == "List" {
+        N ags = fld(n, "Args")
+        if ags.el.length() > 0 {
+            N a0 = ags.el.get(0)
+            if a0.nm == "NamedType" && lastQual(a0) == "UInt16" { return true }
+        }
+    }
+    if n.nm == "SuffixedType" {
+        N bs = fld(n, "Base")
+        if bs.nm == "NamedType" && lastQual(bs) == "UInt16" { return true }
+    }
+    Int j = 0
+    while j < n.fv.length() { if hasU16In(n.fv.get(j)) { return true }; j = j + 1 }
+    j = 0
+    while j < n.el.length() { if hasU16In(n.el.get(j)) { return true }; j = j + 1 }
+    return false
+}
+
+static Bool hasListIn(N n) {
+    if n.nm == "NamedType" && lastQual(n) == "List" { return true }
+    if n.nm == "SuffixedType" {
+        N sf = fld(n, "Suffixes")
+        Int i = 0
+        while i < sf.el.length() { if unq(txt(sf.el.get(i))) == "[]" { return true }; i = i + 1 }
+    }
+    Int j = 0
+    while j < n.fv.length() { if hasListIn(n.fv.get(j)) { return true }; j = j + 1 }
+    j = 0
+    while j < n.el.length() { if hasListIn(n.el.get(j)) { return true }; j = j + 1 }
+    return false
+}
+
 static List<N> sortedClassDecls(N decls) {
     List<N> xs = []
     Int i = 0
@@ -3581,7 +3652,35 @@ static String containerTypedef(String key) {
         return "typedef struct { rt_header hdr; size_t len; size_t cap; " + cType(e) + " *data; } " + classArrName(key) + ";"
     }
     if key == "List<Int>" || key == "Int[]" { return "typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_arr_i;" }
+    if key == "List<UInt16>" || key == "UInt16[]" { return "typedef struct { rt_header hdr; size_t len; size_t cap; uint16_t *data; } xn_arr_u16;" }
     return ""
+}
+static String u16ArrHelperText() {
+    String b = ""
+    b = b + "static void xn_arr_u16_deinit(void *p) {\n"
+    b = b + "    xn_arr_u16 *a = (xn_arr_u16 *)p;\n"
+    b = b + "    if (a->data != NULL) {\n        free(a->data);\n        a->data = NULL;\n    }\n"
+    b = b + "    a->len = 0;\n    a->cap = 0;\n}\n\n"
+    b = b + "static const rt_type RT_TYPE_xn_arr_u16 = { \"List\", sizeof(xn_arr_u16), xn_arr_u16_deinit, NULL };\n\n"
+    b = b + "static xn_arr_u16 *xn_arr_u16_new(size_t cap) {\n"
+    b = b + "    xn_arr_u16 *a = (xn_arr_u16 *)xn_gc_new(&RT_TYPE_xn_arr_u16);\n"
+    b = b + "    memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_u16) - sizeof(rt_header));\n"
+    b = b + "    a->cap = cap ? cap : 4;\n    a->data = malloc(sizeof(uint16_t) * a->cap);\n"
+    b = b + "    if (a->data == NULL) { abort(); }\n    return a;\n}\n\n"
+    b = b + "static void xn_arr_u16_push(xn_arr_u16 *a, uint16_t v) {\n"
+    b = b + "    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(uint16_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n"
+    b = b + "    a->data[a->len++] = v;\n}\n\n"
+    b = b + "static uint16_t xn_arr_u16_get(const xn_arr_u16 *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    return a->data[i];\n}\n\n"
+    b = b + "static void xn_arr_u16_set(xn_arr_u16 *a, int64_t i, uint16_t v) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    a->data[i] = v;\n}\n\n"
+    b = b + "static uint16_t xn_arr_u16_remove(xn_arr_u16 *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n"
+    b = b + "    uint16_t old = a->data[i];\n    for (size_t j = (size_t)i; j + 1 < a->len; j++) {\n        a->data[j] = a->data[j + 1];\n    }\n    a->len--;\n    return old;\n}\n\n"
+    b = b + "static void xn_arr_u16_insert(xn_arr_u16 *a, int64_t i, uint16_t v) {\n    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }\n"
+    b = b + "    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(uint16_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n"
+    b = b + "    for (size_t j = a->len; j > (size_t)i; j--) {\n        a->data[j] = a->data[j - 1];\n    }\n    a->data[i] = v;\n    a->len++;\n}\n\n"
+    b = b + "static void xn_arr_u16_clear(xn_arr_u16 *a) {\n    a->len = 0;\n}\n\n"
+    b = b + "static rt_string *xn_arr_u16_join(xn_arr_u16 *a, rt_string *sep) {\n"
+    b = b + "    rt_string *res = rt_string_from_c(\"\");\n    for (size_t i = 0; i < a->len; i++) {\n        if (i > 0) {\n            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));\n        }\n        res = xn_concat(res, rt_string_from_c(\"\"));\n    }\n    return res;\n}\n"
+    return b
 }
 static String arrIHelperText() {
     Int s = PRELUDE_ARR.indexOf("static void xn_arr_i_deinit")
@@ -4126,6 +4225,36 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
     return outv
 }
 
+static String resultTypedefsSorted(SC sc) {
+    if sc.resultTypes.length() == 0 { return "" }
+    List<String> rs = []
+    Int i = 0
+    while i < sc.resultTypes.length() { rs.push(sc.resultTypes.get(i)); i = i + 1 }
+    Int a = 1
+    while a < rs.length() {
+        Int b = a
+        while b > 0 {
+            if cmpName(rs.get(b - 1), rs.get(b)) > 0 {
+                String t = rs.get(b - 1)
+                rs.set(b - 1, rs.get(b))
+                rs.set(b, t)
+                b = b - 1
+            } else { b = 0 }
+        }
+        a = a + 1
+    }
+    String resT = ""
+    i = 0
+    while i < rs.length() {
+        String rk = rs.get(i)
+        String vt = resultVal(rk)
+        String et = resultErr(rk)
+        resT = resT + "typedef struct { int ok; " + decl(cType(vt), "v") + "; " + decl(cType(et), "err") + "; } " + cType(rk) + ";\n"
+        i = i + 1
+    }
+    return resT + "\n"
+}
+
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -4136,6 +4265,11 @@ static String emitUnit(N unit, String path) {
         fui = fui + 1
     }
     N decls = fld(unit, "Decls")
+    Int glc = 0
+    while glc < decls.el.length() {
+        if hasGenericListType(decls.el.get(glc)) { e.usesList = true; glc = decls.el.length() }
+        else { glc = glc + 1 }
+    }
     CLS_NAMES = []
     CLS_DECLS = []
     SINGLE_DECLS = []
@@ -4412,11 +4546,27 @@ static String emitUnit(N unit, String path) {
             }
         }
         if cbKey == "" && e.usesList { cbKey = "List<Int>" }
+        if cbKey == "" {
+            Int hui = 0
+            while hui < decls.el.length() {
+                if hasU16In(decls.el.get(hui)) { cbKey = "List<UInt16>"; hui = decls.el.length() }
+                else { hui = hui + 1 }
+            }
+        }
+        if cbKey == "" {
+            Int hli = 0
+            while hli < decls.el.length() {
+                if hasListIn(decls.el.get(hli)) { cbKey = "List<Int>"; hli = decls.el.length() }
+                else { hli = hli + 1 }
+            }
+        }
         String cbType = ""
         String cbHelp = ""
         if cbKey != "" {
             cbType = containerTypedef(cbKey)
-            if isObjArr(cbKey) { cbHelp = classArrHelperText(cbKey) } else { cbHelp = arrIHelperText() }
+            if isObjArr(cbKey) { cbHelp = classArrHelperText(cbKey) }
+            else if isU16List(cbKey) { cbHelp = u16ArrHelperText() }
+            else { cbHelp = arrIHelperText() }
         }
         String tfp = topFuncProtos(decls)
         List<String> fw = []
@@ -4483,7 +4633,10 @@ static String emitUnit(N unit, String path) {
         }
         fw.push("")
         fw.push("")
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        String fwj = joinLines(fw)
+        String rtd = resultTypedefsSorted(sc)
+        if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
@@ -4761,6 +4914,81 @@ static String emitUnit(N unit, String path) {
     return res.substring(0, res.length() - 1)
 }
 
+static Int JSON_I = 0
+static Int jsonHex1(String c) {
+    Int i = "0123456789abcdef".indexOf(c)
+    if i >= 0 { return i }
+    return "0123456789ABCDEF".indexOf(c)
+}
+static Int jsonHex4(String s, Int p) {
+    return jsonHex1(s.substring(p, 1)) * 4096 + jsonHex1(s.substring(p + 1, 1)) * 256 + jsonHex1(s.substring(p + 2, 1)) * 16 + jsonHex1(s.substring(p + 3, 1))
+}
+static String jsonChr(Int code) {
+    if code == 34 { return "\"" }
+    if code == 38 { return "&" }
+    if code == 39 { return "'" }
+    if code == 47 { return "/" }
+    if code == 60 { return "<" }
+    if code == 62 { return ">" }
+    if code == 92 { return "\\" }
+    if code == 9 { return "\t" }
+    if code == 10 { return "\n" }
+    if code == 13 { return "\r" }
+    if code >= 32 && code < 127 { return "" }
+    return ""
+}
+static String jsonStr(String s, Int p) {
+    String b = ""
+    Int i = p
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        if c == "\"" { JSON_I = i + 1; return b }
+        if c == "\\" {
+            String e = s.substring(i + 1, 1)
+            if e == "n" { b = b + "\n"; i = i + 2 }
+            else if e == "r" { b = b + "\r"; i = i + 2 }
+            else if e == "t" { b = b + "\t"; i = i + 2 }
+            else if e == "\"" { b = b + "\""; i = i + 2 }
+            else if e == "\\" { b = b + "\\"; i = i + 2 }
+            else if e == "/" { b = b + "/"; i = i + 2 }
+            else if e == "u" { b = b + jsonChr(jsonHex4(s, i + 2)); i = i + 6 }
+            else { b = b + e; i = i + 2 }
+        } else { b = b + c; i = i + 1 }
+    }
+    JSON_I = i
+    return b
+}
+static N parseBundle(String text) {
+    List<N> units = []
+    Int i = 0
+    while true {
+        String rest = text.substring(i, text.length() - i)
+        Int kr = rest.indexOf("\"ast\"")
+        if kr < 0 { i = text.length(); break }
+        Int k = i + kr
+        String afterKey = text.substring(k + 5, text.length() - k - 5)
+        Int c = k + 5 + afterKey.indexOf(":")
+        String afterColon = text.substring(c + 1, text.length() - c - 1)
+        Int q = c + 1 + afterColon.indexOf("\"")
+        String ast = jsonStr(text, q + 1)
+        i = JSON_I
+        if ast.indexOf("(xnast v1 ") == 0 && ast.length() > 11 { ast = ast.substring(10, ast.length() - 11) }
+        AP ap = new AP(ast)
+        units.push(ap.val())
+    }
+    if units.length() == 0 { return new N() }
+    N base = units.get(0)
+    N bd = fld(base, "Decls")
+    Int u = 1
+    while u < units.length() {
+        N du = fld(units.get(u), "Decls")
+        Int j = 0
+        while j < du.el.length() { bd.el.push(du.el.get(j)); j = j + 1 }
+        u = u + 1
+    }
+    return base
+}
+
 static Int main(String[] args) {
     if args.length() < 2 {
         print("xnullc: 用法：xnullc <entryPath> <xnast-v1-ast>")
@@ -4769,6 +4997,11 @@ static Int main(String[] args) {
     String path = args[0]
     String ast = args[1]
     if args.length() >= 3 { parseRegistry(args[2]) }
+    if args.length() >= 4 {
+        N bunit = parseBundle(args[3])
+        print(emitUnit(bunit, path))
+        return 0
+    }
     if ast.indexOf("(xnast v1 ") == 0 && ast.length() > 11 { ast = ast.substring(10, ast.length() - 11) }
     AP ap = new AP(ast)
     N unit = ap.val()

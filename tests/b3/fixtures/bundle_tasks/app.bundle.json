@@ -1,0 +1,13 @@
+{
+  "version": "xnast-bundle v1",
+  "files": [
+    {
+      "path": "/Users/vjs/Desktop/XNull-Lang/impl/lib/xdk/tasks.x",
+      "ast": "(xnast v1 (CompilationUnit (P (Pos (Line 6) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice))))"
+    },
+    {
+      "path": "/Users/vjs/Desktop/XNull-Lang/wt/e2-sema/tests/b3/fixtures/bundle_tasks/app.x",
+      "ast": "(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 1) (Col 1))) (Path (slice \"xdk\" \"tasks\")) (Alias \"\")))) (Decls (slice (TopFunc (P (Pos (Line 3) (Col 1))) (Annos (slice)) (Public false) (Protected false) (Private false) (Static true) (Void false) (Ret (NamedType (P (Pos (Line 3) (Col 8))) (Qual (slice \"Int\")) (Args (slice)))) (Name \"main\") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 3) (Col 19))) (Stmts (slice (ReturnStmt (P (Pos (Line 4) (Col 5))) (Value (IntLitExpr (P (Pos (Line 4) (Col 12))) (Text \"0\") (Base 10) (Suffix \"\")))))))))))))"
+    }
+  ]
+}

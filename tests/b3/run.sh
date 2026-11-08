@@ -21,4 +21,5 @@ bash "$HERE/xnullc-type.sh" || rc=1
 bash "$HERE/xnullc-mem.sh" || rc=1
 bash "$HERE/xnullc-ffi.sh" || rc=1
 bash "$HERE/ast-bundle.sh" || rc=1
+bash "$HERE/xnullc-bundle.sh" || rc=1
 exit $rc
