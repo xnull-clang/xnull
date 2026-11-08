@@ -19,7 +19,7 @@ func rtSources(rtDir string) []string {
 	names := []string{
 		"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c",
 		"rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c", "rt_std_bytes.c",
-		"rt_task.c", "rt_sync.c", "rt_std_res.c",
+		"rt_task.c", "rt_sync.c", "rt_std_res.c", "rt_std_net.c",
 	}
 	out := make([]string, 0, len(names))
 	for _, n := range names {

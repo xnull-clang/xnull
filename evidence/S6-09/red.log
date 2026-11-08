@@ -1,3 +1,4 @@
+# HEAD (E1/E2 net 面)
 --- FAIL: TestS609NetUnitSurface (0.00s)
     xdk_net_test.go:44: 缺少类型 Socket
     xdk_net_test.go:44: 缺少类型 Listener
@@ -14,3 +15,38 @@
 FAIL
 FAIL	xnull.dev/xnull/internal/codegen	0.896s
 FAIL
+# pod/e5-runtime
+Undefined symbols for architecture x86_64:
+  "_xdkc_http_body", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_http_request", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_http_request_async", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_http_response_close", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_http_status", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_socket_close", referenced from:
+      _main in test_net-6d41de.o
+      _main in test_net-6d41de.o
+      _handle_close_socket in test_net-6d41de.o
+  "_xdkc_socket_connect", referenced from:
+      _main in test_net-6d41de.o
+      _main in test_net-6d41de.o
+      _main in test_net-6d41de.o
+  "_xdkc_socket_connect_async", referenced from:
+      _main in test_net-6d41de.o
+      _main in test_net-6d41de.o
+  "_xdkc_socket_recv", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_socket_recv_async", referenced from:
+      _main in test_net-6d41de.o
+      _main in test_net-6d41de.o
+  "_xdkc_socket_send", referenced from:
+      _main in test_net-6d41de.o
+  "_xdkc_socket_send_async", referenced from:
+      _main in test_net-6d41de.o
+ld: symbol(s) not found for architecture x86_64
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+EXIT=1
