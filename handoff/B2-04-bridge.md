@@ -87,6 +87,12 @@ B2-04b：默认模式保持 `go`；全量 `internal/codegen` 在真实 auto/nati
 - `ci/run.sh` 第 04 项：检测到可执行的自举二进制时运行该差分，否则显式 SKIP（不伪装 PASS）。
 - 主分支 interp 具备 Bytes 后，差分器自动走进程内执行器，无需外部二进制（仍建议显式开启 `XNULL_B2_DIFF=1` 控制耗时）。
 
+## 6.1 B2-04d 原生差分门禁
+
+`tests/b2/native-diff.sh` 用原生 `xlex`/`xparser` 与 `xnast` oracle 对全语料做三层比较，输出
+`evidence/B2-04d/native-diff.tsv`（层/文件/首个差异/want/got）。该脚本只作门禁，不接入生产路径；
+原生差异为 0 之前，默认模式保持 `go`，`auto` 需显式且仅用于验证。
+
 ## 7. 回滚
 
 - 环境开关 `XNULL_FRONTEND=go` 可立即恢复旧解析路径（无需回滚代码）。
