@@ -1,0 +1,16 @@
+--- FAIL: TestS609NetUnitSurface (0.00s)
+    xdk_net_test.go:44: 缺少类型 Socket
+    xdk_net_test.go:44: 缺少类型 Listener
+    xdk_net_test.go:44: 缺少类型 Request
+    xdk_net_test.go:44: 缺少类型 Response
+    xdk_net_test.go:52: 缺少入口函数 connect
+    xdk_net_test.go:52: 缺少入口函数 connectAsync
+    xdk_net_test.go:52: 缺少入口函数 bind
+    xdk_net_test.go:52: 缺少入口函数 bindAsync
+    xdk_net_test.go:52: 缺少入口函数 get
+    xdk_net_test.go:52: 缺少入口函数 post
+    xdk_net_test.go:52: 缺少入口函数 getAsync
+    xdk_net_test.go:52: 缺少入口函数 postAsync
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.896s
+FAIL
