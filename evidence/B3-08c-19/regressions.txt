@@ -1,0 +1,2 @@
+difftest/s2/bnd03/a02_dynamic.x SAME
+difftest/s2/bnd05/a01_impl_ok.x SAME
