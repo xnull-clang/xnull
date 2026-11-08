@@ -1,0 +1,1 @@
+C.7: struct/extension/factory/dataenum/singleton 入口改 rootMark+rootPrelude+emitBlock，删尾部手写 mark/restore/return；方法保 genMethod fallback，工厂不保留；zeroOf 对聚合类型用 {0}。raw=713；obj3 extension/factory/singleton/enum_data、obj2/proto、obj/struct_point、tuple/param_ret 与 Go 0 差异；bundle C 语法 0 error。
