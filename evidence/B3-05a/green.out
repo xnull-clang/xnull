@@ -1,0 +1,5 @@
+PASS obj/class_point.x
+PASS obj/class_primary.x
+PASS obj/class_string.x
+PASS obj/struct_point.x
+xnullc-obj 汇总：PASS=4 FAIL=0
