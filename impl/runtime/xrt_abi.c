@@ -59,8 +59,9 @@ void xrt_weak_clear(xrt_weak_slot *slot) { rt_weak_destroy((rt_weak_slot *)slot)
 /* ---- 屏障、根、安全点 ---- */
 
 void xrt_write_barrier(void *obj) {
-    /* 单线程骨架期：无增量屏障（S3 §12 并发子切片接入）。
-     * 仍做存活校验：对已终结对象写入属违约，检测到即终止（S3 §14/§15）。 */
+    /* S3-06 合同：仅安全点/显式 collect 的 STW 标记-清扫（XRT_WRITE_BARRIER_SAFEPOINT_ONLY）。
+     * 两次安全点之间的 mutator 写入无需增量屏障；这里只做存活校验，
+     * 对已终结对象写入属违约，检测到即终止（S3 §14/§15）。 */
     if (obj != NULL && ((rt_object *)obj)->hdr.terminated) {
         rt_fatal("xrt_write_barrier：写入已终结对象（S3 §15）");
     }

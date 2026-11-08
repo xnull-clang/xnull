@@ -1,0 +1,5 @@
+test_weak.c:138:12: error: use of undeclared identifier 'XRT_WRITE_BARRIER_SAFEPOINT_ONLY'
+  138 |     assert(XRT_WRITE_BARRIER_SAFEPOINT_ONLY == 1);
+      |            ^
+1 error generated.
+EXIT=1

@@ -2,15 +2,18 @@
 # M3 运行时构建与测试（验收基线：-O2 -Werror 零缺陷）
 set -e
 cd "$(dirname "$0")"
-cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_rt test_rt.c rt.c rt_policy.c rt_gc.c rt_weak.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_rt test_rt.c rt.c rt_policy.c rt_gc.c rt_weak.c
 /tmp/xnull_test_rt
-cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_gc test_gc.c rt.c rt_gc.c rt_weak.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_gc test_gc.c rt.c rt_gc.c rt_weak.c
 /tmp/xnull_test_gc
-cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_hard test_hard.c rt.c rt_gc.c rt_weak.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_hard test_hard.c rt.c rt_gc.c rt_weak.c
 /tmp/xnull_test_hard
-cc -std=c11 -Wall -Wextra -Werror -O2 -o /tmp/xnull_test_abi test_abi.c rt.c rt_gc.c rt_weak.c xrt_abi.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_abi test_abi.c rt.c rt_gc.c rt_weak.c xrt_abi.c
 /tmp/xnull_test_abi
 # S7-05：稳定 ABI v1 原生链接测试（只 include xrt.h）+ 初始化顺序 + 弱表门禁
+# S3-06：弱表并发/复用池 + 仅安全点收集的写屏障合同
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_weak test_weak.c rt.c rt_gc.c rt_weak.c xrt_abi.c
+/tmp/xnull_test_weak
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_abi_link \
   test_abi_link.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_std_bytes.c
 /tmp/xnull_test_abi_link
