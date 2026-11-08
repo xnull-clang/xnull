@@ -1,0 +1,3 @@
+PASS tests/b3/fixtures/tuple/basic.x
+PASS tests/b3/fixtures/tuple/eq_interp.x
+xnullc-tuple 汇总：PASS=2 FAIL=0
