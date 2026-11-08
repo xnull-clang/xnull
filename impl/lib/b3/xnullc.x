@@ -1664,6 +1664,12 @@ static List<String> copyStrs(List<String> xs) {
 static Bool isGCRootType(String t) {
     return t == "String" || t == "Bytes" || t == "Text" || t == "StringBuilder" || t.indexOf("List<") == 0 || t.indexOf("Set<") == 0 || t.indexOf("Map<") == 0 || isClass(t) || isProtoType(t) || t == "Any"
 }
+static void finishLocalRoot(SC sc, EM e, String nm, String ty) {
+    if isGCRootType(ty) {
+        e.raw("xn_root_add(" + nm + ");")
+    }
+}
+
 static void emitDeferItem(EM e, Int ind, String line) {
     e.addAt(ind + 4, "{")
     e.addAt(ind, line)
@@ -1757,10 +1763,7 @@ static void bumpExtra(SC sc, String nm) {
 }
 
 static void emitStmt(N st, EM e, SC sc, Bool early) {
-    if sc.curFn != "regexMatchAt" {
-        emitStmtInner(st, e, sc, early)
-        return
-    }
+
     Int stStart = e.ls.length()
     emitStmtInner(st, e, sc, early)
     List<String> resL = []
