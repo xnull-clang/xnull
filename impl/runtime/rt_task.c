@@ -199,6 +199,62 @@ static atomic_int      g_spawned_tasks = 0;
 static atomic_int      g_settled_tasks = 0;
 static int             g_carrier_count = 0;
 
+/* MEM-09：同一 env 可被多个任务共享；按任务计数，最后一个任务退出才撤根。
+ * 全局根集合是 idempotent 集合，不能直接按任务 bind/unbind。 */
+typedef struct task_env_root {
+    void                  *env;
+    int                    count;
+    struct task_env_root  *next;
+} task_env_root;
+
+static pthread_mutex_t g_env_root_mu = PTHREAD_MUTEX_INITIALIZER;
+static task_env_root  *g_env_roots = NULL;
+
+static void task_env_bind(void *env) {
+    if (env == NULL) {
+        return;
+    }
+    pthread_mutex_lock(&g_env_root_mu);
+    for (task_env_root *e = g_env_roots; e != NULL; e = e->next) {
+        if (e->env == env) {
+            e->count++;
+            pthread_mutex_unlock(&g_env_root_mu);
+            return;
+        }
+    }
+    task_env_root *e = malloc(sizeof(*e));
+    if (e == NULL) {
+        pthread_mutex_unlock(&g_env_root_mu);
+        rt_fatal("任务 env 根计数：内存不足（S3 §2）");
+    }
+    e->env = env;
+    e->count = 1;
+    e->next = g_env_roots;
+    g_env_roots = e;
+    xrt_task_root_bind(env);
+    pthread_mutex_unlock(&g_env_root_mu);
+}
+
+static void task_env_unbind(void *env) {
+    if (env == NULL) {
+        return;
+    }
+    pthread_mutex_lock(&g_env_root_mu);
+    task_env_root **link = &g_env_roots;
+    while (*link != NULL && (*link)->env != env) {
+        link = &(*link)->next;
+    }
+    if (*link != NULL) {
+        task_env_root *e = *link;
+        if (--e->count == 0) {
+            *link = e->next;
+            xrt_task_root_unbind(env);
+            free(e);
+        }
+    }
+    pthread_mutex_unlock(&g_env_root_mu);
+}
+
 static void *worker_main(void *arg) {
     (void)arg;
     for (;;) {
@@ -229,7 +285,7 @@ static void *worker_main(void *arg) {
             r.value = NULL;
         }
 
-        xrt_task_root_unbind(t->env);
+        task_env_unbind(t->env);
         pthread_mutex_lock(&g->mu);
         t->result = r;
         t->state = 2;
@@ -337,7 +393,7 @@ int32_t xrt_task_group_spawn(xrt_task_group *grp, xrt_task_body body, void *env,
     g->tasks[g->ntasks++] = (xrt_task *)o; /* 组持有 +1 */
     pthread_mutex_unlock(&g->mu);
 
-    xrt_task_root_bind(env);
+    task_env_bind(env);
     pthread_mutex_lock(&g_qmu);
     if (g_qtail != NULL) {
         g_qtail->next = t;
