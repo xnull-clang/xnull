@@ -8,11 +8,16 @@ static String PRELUDE_HEAD = "/* 由 XNull 编译器生成（M4.1 代码生成�
 static String PRELUDE_PRE_FATAL = "/* 由 XNull 编译器生成（M4.1 代码生成）。 */\n#include \"rt.h\"\n#include \"rt_gc.h\"\n#include \"xrt.h\"\n#include <inttypes.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\nstatic void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }\nstatic void xn_print_bool(int v) { fputs(v ? \"true\\n\" : \"false\\n\", stdout); }\nstatic void xn_print_double(double v) { printf(\"%g\\n\", v); }\nstatic void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }\nstatic void xn_print_null(void) { fputs(\"null\\n\", stdout); }\n\n/* 可空值（S1 §2.10）：has=0 表示 null。 */\ntypedef struct { int has; int64_t v; } xn_opt_i;\ntypedef struct { int has; int v; } xn_opt_b;\ntypedef struct { int has; rt_string *v; } xn_opt_s;\n\ntypedef int32_t xn_char; /* S1 Char：Unicode 标量值 */\nstatic rt_string *xn_str_char(int32_t cp) {\n    char buf[8];\n    size_t n = 0;\n    if (cp < 0) { cp = 0xFFFD; }\n    if (cp < 0x80) { buf[n++] = (char)cp; }\n    else if (cp < 0x800) { buf[n++] = (char)(0xC0 | (cp >> 6)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else if (cp < 0x10000) { buf[n++] = (char)(0xE0 | (cp >> 12)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else { buf[n++] = (char)(0xF0 | (cp >> 18)); buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    return rt_string_new(buf, n);\n}\n\nstatic rt_string *xn_str_int(int64_t v) {\n    char buf[32];\n    int n = snprintf(buf, sizeof(buf), \"%lld\", (long long)v);\n    return rt_string_new(buf, (size_t)n);\n}\n\nstatic rt_string *xn_str_double(double v) { char buf[64]; int n = snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_new(buf, (size_t)n); }\nstatic rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }\n\n/* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */\nstatic rt_string *xn_alloc_str(size_t n);\n\n/* ---- String 成员（S1 §9.2，字节语义）---- */\nstatic int xn_str_eq(rt_string *a, rt_string *b) {\n    return a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0;\n}\n\nstatic int64_t xn_str_length(rt_string *s) { return (int64_t)s->len; }\n\nstatic rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) {\n    if (start < 0) { start = 0; }\n    if (n < 0) { n = 0; }\n    if ((size_t)start > s->len) { start = (int64_t)s->len; }\n    if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; }\n    rt_string *out = xn_alloc_str((size_t)n);\n    if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); }\n    return out;\n}\n\nstatic int64_t xn_str_indexof(rt_string *s, rt_string *sub) {\n    if (sub->len == 0) { return 0; }\n    if (sub->len > s->len) { return -1; }\n    for (size_t i = 0; i + sub->len <= s->len; i++) {\n        if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; }\n    }\n    return -1;\n}\n\nstatic int xn_str_startswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes, p->bytes, p->len) == 0;\n}\n\nstatic int xn_str_endswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0;\n}\n\nstatic int xn_is_space(uint8_t c) {\n    return c == ' ' || c == '\\t' || c == '\\n' || c == '\\v' || c == '\\f' || c == '\\r';\n}\n\nstatic rt_string *xn_str_trim(rt_string *s) {\n    size_t b = 0, e = s->len;\n    while (b < e && xn_is_space((uint8_t)s->bytes[b])) { b++; }\n    while (e > b && xn_is_space((uint8_t)s->bytes[e - 1])) { e--; }\n    return xn_str_substr(s, (int64_t)b, (int64_t)(e - b));\n}\n\nstatic rt_string *xn_str_upper(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'a' && c <= 'z') { out->bytes[i] = (char)(c - 'a' + 'A'); }\n    }\n    return out;\n}\n\nstatic rt_string *xn_str_lower(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'A' && c <= 'Z') { out->bytes[i] = (char)(c - 'A' + 'a'); }\n    }\n    return out;\n}\n\n/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，\n * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */\nstatic rt_string *xn_alloc_str(size_t n) {\n    rt_string *s = rt_string_alloc(n);\n    s->bytes[0] = 0;\n    return s;\n}\n\n/* 拼接：接管 a、b 的所有权，返回新串。 */\nstatic rt_string *xn_concat(rt_string *a, rt_string *b) {\n    rt_string *out = xn_alloc_str(a->len + b->len);\n    memcpy(out->bytes, a->bytes, a->len);\n    memcpy(out->bytes + a->len, b->bytes, b->len);\n    rt_release(a);\n    rt_release(b);\n    return out;\n}\n\nstatic void xn_throw(rt_string *msg) {\n    fprintf(stderr, \"fatal: %.*s\\n\", (int)msg->len, msg->bytes);\n    exit(134);\n}\n\n/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */\nconst char *xdkc_env_get(const char *name, size_t len, size_t *out_len);\nvoid xdkc_diagnose(const char *bytes, size_t len);\nvoid xdkc_exit(int64_t code);\nint64_t xdkc_now_mono_ms(void);\nint64_t xdkc_now_wall_ms(void);\n/* dumpTasks：运行时诊断（非承诺，S6 §4.4）；单行、无堆，计数由调度器维护。 */\nvoid xdkc_dump_tasks(void);\nstatic xn_opt_s xn_env_lookup(rt_string *name) {\n    xn_opt_s r;\n    size_t len = 0;\n    const char *v = xdkc_env_get(name->bytes, name->len, &len);\n    if (v == NULL) { r.has = 0; r.v = NULL; }\n    else { r.has = 1; r.v = rt_string_new(v, len); }\n    return r;\n}\n\n/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */\nstatic void xn_report_write(const char *p, size_t n) {\n    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }\n}\nstatic void xn_report_line(int64_t kind, rt_string *desc) {\n    const char *name = xrt_error_kind_name((xrt_error_kind)kind);\n    char head[96];\n    size_t off = 0;\n    head[off++] = '[';\n    size_t nl = strlen(name);\n    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }\n    memcpy(head + off, name, nl);\n    off += nl;\n    head[off++] = ']';\n    head[off++] = ' ';\n    xn_report_write(head, off);\n    if (desc != NULL) {\n        char chunk[256];\n        size_t i = 0;\n        while (i < desc->len) {\n            size_t n = desc->len - i;\n            if (n > sizeof(chunk)) { n = sizeof(chunk); }\n            for (size_t k = 0; k < n; k++) {\n                char c = desc->bytes[i + k];\n                chunk[k] = (c == '\\n' || c == '\\r') ? ' ' : c;\n            }\n            xn_report_write(chunk, n);\n            i += n;\n        }\n    }\n    xn_report_write(\"\\n\", 1);\n}\n\n/* ---- GC 根帧与安全点（S3-02）------------------------------------------\n * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局\n * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。\n * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；\n * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。\n * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。\n * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；\n * 运行时若暴露阈值 API，这里改为薄调用）。 */\ntypedef struct { void *obj; size_t count; } xn_root_ref;\nstatic xn_root_ref *xn_root_refs = NULL;\nstatic size_t xn_root_ref_n = 0;\nstatic size_t xn_root_ref_cap = 0;\nstatic void  **xn_root_track = NULL;\nstatic size_t  xn_root_depth = 0;\nstatic size_t  xn_root_cap   = 0;\n\nstatic void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }\n    }\n    if (xn_root_ref_n == xn_root_ref_cap) {\n        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;\n        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));\n        if (xn_root_refs == NULL) { abort(); }\n    }\n    xn_root_refs[xn_root_ref_n].obj = obj;\n    xn_root_refs[xn_root_ref_n].count = 1;\n    xn_root_ref_n++;\n    rt_gc_root_add(obj);\n}\nstatic void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj != obj) { continue; }\n        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }\n        rt_gc_root_remove(obj);\n        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];\n        return;\n    }\n}\nstatic size_t xn_root_mark(void) { return xn_root_depth; }\nstatic void xn_root_add(void *obj) {\n    if (obj == NULL) { return; }\n    xn_root_hold(obj);\n    if (xn_root_depth == xn_root_cap) {\n        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;\n        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));\n        if (xn_root_track == NULL) { abort(); }\n    }\n    xn_root_track[xn_root_depth++] = obj;\n}\nstatic void xn_root_restore(size_t mark) {\n    while (xn_root_depth > mark) {\n        xn_root_release(xn_root_track[--xn_root_depth]);\n    }\n}\n\nstatic size_t xn_gc_alloc_pending = 0;\n#define XN_GC_SAFEPOINT_THRESHOLD 1024\nstatic void *xn_gc_new(const rt_type *type) {\n    xn_gc_alloc_pending++;\n    return rt_gc_new(type);\n}\nstatic void xn_gc_safepoint(void) {\n    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {\n        xn_gc_alloc_pending = 0;\n        rt_gc_collect();\n    }\n}\n\n/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */\ntypedef struct {\n    rt_header hdr;\n    const char *typeName;\n    int64_t i;\n    rt_string *s;\n    void *o;\n} xn_Any;\nstatic void xn_Any_scan(void *p, void (*visit)(void *)) {\n    xn_Any *b = (xn_Any *)p;\n    if (b->s) { visit(b->s); }\n    if (b->o) { visit(b->o); }\n}\nstatic const rt_type RT_TYPE_XN_ANY = { \"Any\", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };\nstatic xn_Any *xn_box_int(int64_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int\"; b->i = v;\n    return b;\n}\nstatic xn_Any *xn_box_int32(int32_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int32\"; b->i = (int64_t)v;\n    return b;\n}\nstatic xn_Any *xn_box_bool(int v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Bool\"; b->i = v ? 1 : 0;\n    return b;\n}\nstatic xn_Any *xn_box_str(rt_string *s) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"String\";\n    if (s != NULL) { rt_retain(s); }\n    b->s = s;\n    return b;\n}\n/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，\n * GC 载荷不计数（由 GC 管理）。 */\nstatic xn_Any *xn_box_obj(void *o) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    if (o != NULL) {\n        b->typeName = ((rt_object *)o)->hdr.type->name;\n        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }\n        b->o = o;\n    }\n    return b;\n}\nstatic int xn_any_is(xn_Any *b, const char *typeName) {\n    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;\n}\n/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */\nstatic int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) { return b->i; }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return 0;\n}\nstatic rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->s != NULL) { rt_retain(b->s); }\n        return b->s;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\nstatic void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }\n        return b->o;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\n\n/* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */\nstatic void xn_fatal_div(void) {\n    fprintf(stderr, \"xnull: fatal: 除零\\n\");\n    fflush(stderr);\n    exit(134);\n}\nstatic int64_t xn_div_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a / b;\n}\nstatic int64_t xn_mod_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a % b;\n}\n/* S6-03：sys Async/Process 原生原型（E5 runtime；Context/出参形态不经 .xfb） */\nextern void *xdkc_file_open_read_async(xrt_context *, const char *, size_t, int32_t *);\nextern void *xdkc_file_open_write_async(xrt_context *, const char *, size_t, int32_t *);\nextern int64_t xdkc_file_read_async(xrt_context *, void *, void *, size_t, int32_t *);\nextern int32_t xdkc_file_write_async(xrt_context *, void *, const void *, size_t);\nextern int32_t xdkc_file_close_async(xrt_context *, void *);\nextern void *xdkc_dir_open_async(xrt_context *, const char *, size_t, int32_t *);\nextern const char *xdkc_dir_read_async(xrt_context *, void *, int32_t *);\nextern int32_t xdkc_dir_close_async(xrt_context *, void *);\nextern void *xdkc_proc_spawn(const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_wait(void *, int32_t *);\nextern int32_t xdkc_proc_kill(void *, int32_t);\nextern int32_t xdkc_proc_close(void *);\nextern int32_t xdkc_proc_run_async(xrt_context *, const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_status_async(xrt_context *, const char *, size_t);\n/* S6-04：xdk.sys 内嵌资源读取原生原型（E5 runtime） */\nextern int32_t xdkc_resource_exists(const char *, size_t);\nextern int32_t xdkc_resource_size(const char *, size_t, int64_t *);\nextern int32_t xdkc_read_resource(xrt_context *, const char *, size_t, xrt_bytes_buf **, int32_t *);\nextern int32_t xdkc_read_resource_text(xrt_context *, const char *, size_t, xrt_text **, int32_t *);\nextern int32_t xdkc_list_resources(xrt_context *, const char *, size_t, const char ***, size_t *, int32_t *);\nextern void xdkc_list_resources_free(const char **);\ntypedef void *xn_proto_Error;\ntypedef struct { rt_header hdr; void **__vtable; } xn_vt_obj;\n\ntypedef int64_t xn_Enum_ErrorKind;\nstatic rt_string *xn_enum_ErrorKind_name(int64_t v) {\n    switch (v) {\n    case 0: return rt_string_from_c(\"InvalidArgument\");\n    case 1: return rt_string_from_c(\"NotFound\");\n    case 2: return rt_string_from_c(\"AlreadyExists\");\n    case 3: return rt_string_from_c(\"PermissionDenied\");\n    case 4: return rt_string_from_c(\"Io\");\n    case 5: return rt_string_from_c(\"Network\");\n    case 6: return rt_string_from_c(\"Timeout\");\n    case 7: return rt_string_from_c(\"Cancelled\");\n    case 8: return rt_string_from_c(\"Busy\");\n    case 9: return rt_string_from_c(\"Unavailable\");\n    case 10: return rt_string_from_c(\"DataCorrupted\");\n    case 11: return rt_string_from_c(\"Unsupported\");\n    case 12: return rt_string_from_c(\"OutOfMemory\");\n    case 13: return rt_string_from_c(\"Internal\");\n    default: return xn_str_int(v);\n    }\n}\n\n";
 static String PRELUDE_PRE_A = "/* 由 XNull 编译器生成（M4.1 代码生成）。 */\n#include \"rt.h\"\n#include \"rt_gc.h\"\n#include \"xrt.h\"\n#include <inttypes.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\nstatic void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }\nstatic void xn_print_bool(int v) { fputs(v ? \"true\\n\" : \"false\\n\", stdout); }\nstatic void xn_print_double(double v) { printf(\"%g\\n\", v); }\nstatic void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }\nstatic void xn_print_null(void) { fputs(\"null\\n\", stdout); }\n\n/* 可空值（S1 §2.10）：has=0 表示 null。 */\ntypedef struct { int has; int64_t v; } xn_opt_i;\ntypedef struct { int has; int v; } xn_opt_b;\ntypedef struct { int has; rt_string *v; } xn_opt_s;\n\ntypedef int32_t xn_char; /* S1 Char：Unicode 标量值 */\nstatic rt_string *xn_str_char(int32_t cp) {\n    char buf[8];\n    size_t n = 0;\n    if (cp < 0) { cp = 0xFFFD; }\n    if (cp < 0x80) { buf[n++] = (char)cp; }\n    else if (cp < 0x800) { buf[n++] = (char)(0xC0 | (cp >> 6)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else if (cp < 0x10000) { buf[n++] = (char)(0xE0 | (cp >> 12)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else { buf[n++] = (char)(0xF0 | (cp >> 18)); buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    return rt_string_new(buf, n);\n}\n\nstatic rt_string *xn_str_int(int64_t v) {\n    char buf[32];\n    int n = snprintf(buf, sizeof(buf), \"%lld\", (long long)v);\n    return rt_string_new(buf, (size_t)n);\n}\n\nstatic rt_string *xn_str_double(double v) { char buf[64]; int n = snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_new(buf, (size_t)n); }\nstatic rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }\n\n/* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */\nstatic rt_string *xn_alloc_str(size_t n);\n\n/* ---- String 成员（S1 §9.2，字节语义）---- */\nstatic int xn_str_eq(rt_string *a, rt_string *b) {\n    return a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0;\n}\n\nstatic int64_t xn_str_length(rt_string *s) { return (int64_t)s->len; }\n\nstatic rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) {\n    if (start < 0) { start = 0; }\n    if (n < 0) { n = 0; }\n    if ((size_t)start > s->len) { start = (int64_t)s->len; }\n    if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; }\n    rt_string *out = xn_alloc_str((size_t)n);\n    if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); }\n    return out;\n}\n\nstatic int64_t xn_str_indexof(rt_string *s, rt_string *sub) {\n    if (sub->len == 0) { return 0; }\n    if (sub->len > s->len) { return -1; }\n    for (size_t i = 0; i + sub->len <= s->len; i++) {\n        if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; }\n    }\n    return -1;\n}\n\nstatic int xn_str_startswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes, p->bytes, p->len) == 0;\n}\n\nstatic int xn_str_endswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0;\n}\n\nstatic int xn_is_space(uint8_t c) {\n    return c == ' ' || c == '\\t' || c == '\\n' || c == '\\v' || c == '\\f' || c == '\\r';\n}\n\nstatic rt_string *xn_str_trim(rt_string *s) {\n    size_t b = 0, e = s->len;\n    while (b < e && xn_is_space((uint8_t)s->bytes[b])) { b++; }\n    while (e > b && xn_is_space((uint8_t)s->bytes[e - 1])) { e--; }\n    return xn_str_substr(s, (int64_t)b, (int64_t)(e - b));\n}\n\nstatic rt_string *xn_str_upper(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'a' && c <= 'z') { out->bytes[i] = (char)(c - 'a' + 'A'); }\n    }\n    return out;\n}\n\nstatic rt_string *xn_str_lower(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'A' && c <= 'Z') { out->bytes[i] = (char)(c - 'A' + 'a'); }\n    }\n    return out;\n}\n\n/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，\n * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */\nstatic rt_string *xn_alloc_str(size_t n) {\n    rt_string *s = rt_string_alloc(n);\n    s->bytes[0] = 0;\n    return s;\n}\n\n/* 拼接：接管 a、b 的所有权，返回新串。 */\nstatic rt_string *xn_concat(rt_string *a, rt_string *b) {\n    rt_string *out = xn_alloc_str(a->len + b->len);\n    memcpy(out->bytes, a->bytes, a->len);\n    memcpy(out->bytes + a->len, b->bytes, b->len);\n    rt_release(a);\n    rt_release(b);\n    return out;\n}\n\nstatic void xn_throw(rt_string *msg) {\n    fprintf(stderr, \"fatal: %.*s\\n\", (int)msg->len, msg->bytes);\n    exit(134);\n}\n\n/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */\nconst char *xdkc_env_get(const char *name, size_t len, size_t *out_len);\nvoid xdkc_diagnose(const char *bytes, size_t len);\nvoid xdkc_exit(int64_t code);\nint64_t xdkc_now_mono_ms(void);\nint64_t xdkc_now_wall_ms(void);\n/* dumpTasks：运行时诊断（非承诺，S6 §4.4）；单行、无堆，计数由调度器维护。 */\nvoid xdkc_dump_tasks(void);\nstatic xn_opt_s xn_env_lookup(rt_string *name) {\n    xn_opt_s r;\n    size_t len = 0;\n    const char *v = xdkc_env_get(name->bytes, name->len, &len);\n    if (v == NULL) { r.has = 0; r.v = NULL; }\n    else { r.has = 1; r.v = rt_string_new(v, len); }\n    return r;\n}\n\n/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */\nstatic void xn_report_write(const char *p, size_t n) {\n    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }\n}\nstatic void xn_report_line(int64_t kind, rt_string *desc) {\n    const char *name = xrt_error_kind_name((xrt_error_kind)kind);\n    char head[96];\n    size_t off = 0;\n    head[off++] = '[';\n    size_t nl = strlen(name);\n    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }\n    memcpy(head + off, name, nl);\n    off += nl;\n    head[off++] = ']';\n    head[off++] = ' ';\n    xn_report_write(head, off);\n    if (desc != NULL) {\n        char chunk[256];\n        size_t i = 0;\n        while (i < desc->len) {\n            size_t n = desc->len - i;\n            if (n > sizeof(chunk)) { n = sizeof(chunk); }\n            for (size_t k = 0; k < n; k++) {\n                char c = desc->bytes[i + k];\n                chunk[k] = (c == '\\n' || c == '\\r') ? ' ' : c;\n            }\n            xn_report_write(chunk, n);\n            i += n;\n        }\n    }\n    xn_report_write(\"\\n\", 1);\n}\n\n/* ---- GC 根帧与安全点（S3-02）------------------------------------------\n * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局\n * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。\n * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；\n * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。\n * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。\n * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；\n * 运行时若暴露阈值 API，这里改为薄调用）。 */\ntypedef struct { void *obj; size_t count; } xn_root_ref;\nstatic xn_root_ref *xn_root_refs = NULL;\nstatic size_t xn_root_ref_n = 0;\nstatic size_t xn_root_ref_cap = 0;\nstatic void  **xn_root_track = NULL;\nstatic size_t  xn_root_depth = 0;\nstatic size_t  xn_root_cap   = 0;\n\nstatic void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }\n    }\n    if (xn_root_ref_n == xn_root_ref_cap) {\n        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;\n        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));\n        if (xn_root_refs == NULL) { abort(); }\n    }\n    xn_root_refs[xn_root_ref_n].obj = obj;\n    xn_root_refs[xn_root_ref_n].count = 1;\n    xn_root_ref_n++;\n    rt_gc_root_add(obj);\n}\nstatic void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj != obj) { continue; }\n        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }\n        rt_gc_root_remove(obj);\n        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];\n        return;\n    }\n}\nstatic size_t xn_root_mark(void) { return xn_root_depth; }\nstatic void xn_root_add(void *obj) {\n    if (obj == NULL) { return; }\n    xn_root_hold(obj);\n    if (xn_root_depth == xn_root_cap) {\n        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;\n        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));\n        if (xn_root_track == NULL) { abort(); }\n    }\n    xn_root_track[xn_root_depth++] = obj;\n}\nstatic void xn_root_restore(size_t mark) {\n    while (xn_root_depth > mark) {\n        xn_root_release(xn_root_track[--xn_root_depth]);\n    }\n}\n\nstatic size_t xn_gc_alloc_pending = 0;\n#define XN_GC_SAFEPOINT_THRESHOLD 1024\nstatic void *xn_gc_new(const rt_type *type) {\n    xn_gc_alloc_pending++;\n    return rt_gc_new(type);\n}\nstatic void xn_gc_safepoint(void) {\n    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {\n        xn_gc_alloc_pending = 0;\n        rt_gc_collect();\n    }\n}\n\n/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */\ntypedef struct {\n    rt_header hdr;\n    const char *typeName;\n    int64_t i;\n    rt_string *s;\n    void *o;\n} xn_Any;\nstatic void xn_Any_scan(void *p, void (*visit)(void *)) {\n    xn_Any *b = (xn_Any *)p;\n    if (b->s) { visit(b->s); }\n    if (b->o) { visit(b->o); }\n}\nstatic const rt_type RT_TYPE_XN_ANY = { \"Any\", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };\nstatic xn_Any *xn_box_int(int64_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int\"; b->i = v;\n    return b;\n}\nstatic xn_Any *xn_box_int32(int32_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int32\"; b->i = (int64_t)v;\n    return b;\n}\nstatic xn_Any *xn_box_bool(int v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Bool\"; b->i = v ? 1 : 0;\n    return b;\n}\nstatic xn_Any *xn_box_str(rt_string *s) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"String\";\n    if (s != NULL) { rt_retain(s); }\n    b->s = s;\n    return b;\n}\n/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，\n * GC 载荷不计数（由 GC 管理）。 */\nstatic xn_Any *xn_box_obj(void *o) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    if (o != NULL) {\n        b->typeName = ((rt_object *)o)->hdr.type->name;\n        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }\n        b->o = o;\n    }\n    return b;\n}\nstatic int xn_any_is(xn_Any *b, const char *typeName) {\n    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;\n}\n/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */\nstatic int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) { return b->i; }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return 0;\n}\nstatic rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->s != NULL) { rt_retain(b->s); }\n        return b->s;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\nstatic void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }\n        return b->o;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\n\n/* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */\nstatic void xn_fatal_div(void) {\n    fprintf(stderr, \"xnull: fatal: 除零\\n\");\n    fflush(stderr);\n    exit(134);\n}\nstatic int64_t xn_div_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a / b;\n}\nstatic int64_t xn_mod_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a % b;\n}\n/* S6-03：sys Async/Process 原生原型（E5 runtime；Context/出参形态不经 .xfb） */\nextern void *xdkc_file_open_read_async(xrt_context *, const char *, size_t, int32_t *);\nextern void *xdkc_file_open_write_async(xrt_context *, const char *, size_t, int32_t *);\nextern int64_t xdkc_file_read_async(xrt_context *, void *, void *, size_t, int32_t *);\nextern int32_t xdkc_file_write_async(xrt_context *, void *, const void *, size_t);\nextern int32_t xdkc_file_close_async(xrt_context *, void *);\nextern void *xdkc_dir_open_async(xrt_context *, const char *, size_t, int32_t *);\nextern const char *xdkc_dir_read_async(xrt_context *, void *, int32_t *);\nextern int32_t xdkc_dir_close_async(xrt_context *, void *);\nextern void *xdkc_proc_spawn(const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_wait(void *, int32_t *);\nextern int32_t xdkc_proc_kill(void *, int32_t);\nextern int32_t xdkc_proc_close(void *);\nextern int32_t xdkc_proc_run_async(xrt_context *, const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_status_async(xrt_context *, const char *, size_t);\n/* S6-04：xdk.sys 内嵌资源读取原生原型（E5 runtime） */\nextern int32_t xdkc_resource_exists(const char *, size_t);\nextern int32_t xdkc_resource_size(const char *, size_t, int64_t *);\nextern int32_t xdkc_read_resource(xrt_context *, const char *, size_t, xrt_bytes_buf **, int32_t *);\nextern int32_t xdkc_read_resource_text(xrt_context *, const char *, size_t, xrt_text **, int32_t *);\nextern int32_t xdkc_list_resources(xrt_context *, const char *, size_t, const char ***, size_t *, int32_t *);\nextern void xdkc_list_resources_free(const char **);\ntypedef void *xn_proto_Error;\n";
 static String PRELUDE_PRE_B = "typedef struct { rt_header hdr; void **__vtable; } xn_vt_obj;\n\ntypedef int64_t xn_Enum_ErrorKind;\nstatic rt_string *xn_enum_ErrorKind_name(int64_t v) {\n    switch (v) {\n    case 0: return rt_string_from_c(\"InvalidArgument\");\n    case 1: return rt_string_from_c(\"NotFound\");\n    case 2: return rt_string_from_c(\"AlreadyExists\");\n    case 3: return rt_string_from_c(\"PermissionDenied\");\n    case 4: return rt_string_from_c(\"Io\");\n    case 5: return rt_string_from_c(\"Network\");\n    case 6: return rt_string_from_c(\"Timeout\");\n    case 7: return rt_string_from_c(\"Cancelled\");\n    case 8: return rt_string_from_c(\"Busy\");\n    case 9: return rt_string_from_c(\"Unavailable\");\n    case 10: return rt_string_from_c(\"DataCorrupted\");\n    case 11: return rt_string_from_c(\"Unsupported\");\n    case 12: return rt_string_from_c(\"OutOfMemory\");\n    case 13: return rt_string_from_c(\"Internal\");\n    default: return xn_str_int(v);\n    }\n}\n\n";
+static String PRELUDE_B1 = "typedef struct { rt_header hdr; void **__vtable; } xn_vt_obj;\n\n";
+static String PRELUDE_B2 = "typedef int64_t xn_Enum_ErrorKind;\n";
+static String PRELUDE_B3 = "static rt_string *xn_enum_ErrorKind_name(int64_t v) {\n    switch (v) {\n    case 0: return rt_string_from_c(\"InvalidArgument\");\n    case 1: return rt_string_from_c(\"NotFound\");\n    case 2: return rt_string_from_c(\"AlreadyExists\");\n    case 3: return rt_string_from_c(\"PermissionDenied\");\n    case 4: return rt_string_from_c(\"Io\");\n    case 5: return rt_string_from_c(\"Network\");\n    case 6: return rt_string_from_c(\"Timeout\");\n    case 7: return rt_string_from_c(\"Cancelled\");\n    case 8: return rt_string_from_c(\"Busy\");\n    case 9: return rt_string_from_c(\"Unavailable\");\n    case 10: return rt_string_from_c(\"DataCorrupted\");\n    case 11: return rt_string_from_c(\"Unsupported\");\n    case 12: return rt_string_from_c(\"OutOfMemory\");\n    case 13: return rt_string_from_c(\"Internal\");\n    default: return xn_str_int(v);\n    }\n}\n\n";
 static String PRELUDE_FATAL_MID = "static void xn_fatal_oob(void);\nstatic void xn_fatal_oob(void) {\n    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n    exit(134);\n}\n\n\n";
 static String PRELUDE_TAIL_A = "\nstatic void xn_init_vtables(void) {\n}\n\n";
 static String PRELUDE_VT_OPEN = "\nstatic void xn_init_vtables(void) {\n";
 static String PRELUDE_VT_CLOSE = "}\n\n";
 static String PRELUDE_TAIL_B = "static void xn_init_enums(void) {\n}\n\nstatic rt_string *xn_result_error_copy_rt(rt_string *err) {\n    return rt_string_new(err->bytes, err->len);\n}\n\n";
+static String PRELUDE_EN_OPEN = "static void xn_init_enums(void) {\n";
+static String PRELUDE_EN_CLOSE = "}\n\nstatic rt_string *xn_result_error_copy_rt(rt_string *err) {\n    return rt_string_new(err->bytes, err->len);\n}\n\n";
 static String PRELUDE_TAIL = "\nstatic void xn_init_vtables(void) {\n}\n\nstatic void xn_init_enums(void) {\n}\n\nstatic rt_string *xn_result_error_copy_rt(rt_string *err) {\n    return rt_string_new(err->bytes, err->len);\n}\n\n";
 static String PRELUDE_ARR = "/* 由 XNull 编译器生成（M4.1 代码生成）。 */\n#include \"rt.h\"\n#include \"rt_gc.h\"\n#include \"xrt.h\"\n#include <inttypes.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\nstatic void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }\nstatic void xn_print_bool(int v) { fputs(v ? \"true\\n\" : \"false\\n\", stdout); }\nstatic void xn_print_double(double v) { printf(\"%g\\n\", v); }\nstatic void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }\nstatic void xn_print_null(void) { fputs(\"null\\n\", stdout); }\n\n/* 可空值（S1 §2.10）：has=0 表示 null。 */\ntypedef struct { int has; int64_t v; } xn_opt_i;\ntypedef struct { int has; int v; } xn_opt_b;\ntypedef struct { int has; rt_string *v; } xn_opt_s;\n\ntypedef int32_t xn_char; /* S1 Char：Unicode 标量值 */\nstatic rt_string *xn_str_char(int32_t cp) {\n    char buf[8];\n    size_t n = 0;\n    if (cp < 0) { cp = 0xFFFD; }\n    if (cp < 0x80) { buf[n++] = (char)cp; }\n    else if (cp < 0x800) { buf[n++] = (char)(0xC0 | (cp >> 6)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else if (cp < 0x10000) { buf[n++] = (char)(0xE0 | (cp >> 12)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else { buf[n++] = (char)(0xF0 | (cp >> 18)); buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    return rt_string_new(buf, n);\n}\n\nstatic rt_string *xn_str_int(int64_t v) {\n    char buf[32];\n    int n = snprintf(buf, sizeof(buf), \"%lld\", (long long)v);\n    return rt_string_new(buf, (size_t)n);\n}\n\nstatic rt_string *xn_str_double(double v) { char buf[64]; int n = snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_new(buf, (size_t)n); }\nstatic rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }\n\n/* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */\nstatic rt_string *xn_alloc_str(size_t n);\n\n/* ---- String 成员（S1 §9.2，字节语义）---- */\nstatic int xn_str_eq(rt_string *a, rt_string *b) {\n    return a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0;\n}\n\nstatic int64_t xn_str_length(rt_string *s) { return (int64_t)s->len; }\n\nstatic rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) {\n    if (start < 0) { start = 0; }\n    if (n < 0) { n = 0; }\n    if ((size_t)start > s->len) { start = (int64_t)s->len; }\n    if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; }\n    rt_string *out = xn_alloc_str((size_t)n);\n    if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); }\n    return out;\n}\n\nstatic int64_t xn_str_indexof(rt_string *s, rt_string *sub) {\n    if (sub->len == 0) { return 0; }\n    if (sub->len > s->len) { return -1; }\n    for (size_t i = 0; i + sub->len <= s->len; i++) {\n        if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; }\n    }\n    return -1;\n}\n\nstatic int xn_str_startswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes, p->bytes, p->len) == 0;\n}\n\nstatic int xn_str_endswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0;\n}\n\nstatic int xn_is_space(uint8_t c) {\n    return c == ' ' || c == '\\t' || c == '\\n' || c == '\\v' || c == '\\f' || c == '\\r';\n}\n\nstatic rt_string *xn_str_trim(rt_string *s) {\n    size_t b = 0, e = s->len;\n    while (b < e && xn_is_space((uint8_t)s->bytes[b])) { b++; }\n    while (e > b && xn_is_space((uint8_t)s->bytes[e - 1])) { e--; }\n    return xn_str_substr(s, (int64_t)b, (int64_t)(e - b));\n}\n\nstatic rt_string *xn_str_upper(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'a' && c <= 'z') { out->bytes[i] = (char)(c - 'a' + 'A'); }\n    }\n    return out;\n}\n\nstatic rt_string *xn_str_lower(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'A' && c <= 'Z') { out->bytes[i] = (char)(c - 'A' + 'a'); }\n    }\n    return out;\n}\n\n/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，\n * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */\nstatic rt_string *xn_alloc_str(size_t n) {\n    rt_string *s = rt_string_alloc(n);\n    s->bytes[0] = 0;\n    return s;\n}\n\n/* 拼接：接管 a、b 的所有权，返回新串。 */\nstatic rt_string *xn_concat(rt_string *a, rt_string *b) {\n    rt_string *out = xn_alloc_str(a->len + b->len);\n    memcpy(out->bytes, a->bytes, a->len);\n    memcpy(out->bytes + a->len, b->bytes, b->len);\n    rt_release(a);\n    rt_release(b);\n    return out;\n}\n\nstatic void xn_throw(rt_string *msg) {\n    fprintf(stderr, \"fatal: %.*s\\n\", (int)msg->len, msg->bytes);\n    exit(134);\n}\n\n/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */\nconst char *xdkc_env_get(const char *name, size_t len, size_t *out_len);\nvoid xdkc_diagnose(const char *bytes, size_t len);\nvoid xdkc_exit(int64_t code);\nint64_t xdkc_now_mono_ms(void);\nint64_t xdkc_now_wall_ms(void);\n/* dumpTasks：运行时诊断（非承诺，S6 §4.4）；单行、无堆，计数由调度器维护。 */\nvoid xdkc_dump_tasks(void);\nstatic xn_opt_s xn_env_lookup(rt_string *name) {\n    xn_opt_s r;\n    size_t len = 0;\n    const char *v = xdkc_env_get(name->bytes, name->len, &len);\n    if (v == NULL) { r.has = 0; r.v = NULL; }\n    else { r.has = 1; r.v = rt_string_new(v, len); }\n    return r;\n}\n\n/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */\nstatic void xn_report_write(const char *p, size_t n) {\n    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }\n}\nstatic void xn_report_line(int64_t kind, rt_string *desc) {\n    const char *name = xrt_error_kind_name((xrt_error_kind)kind);\n    char head[96];\n    size_t off = 0;\n    head[off++] = '[';\n    size_t nl = strlen(name);\n    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }\n    memcpy(head + off, name, nl);\n    off += nl;\n    head[off++] = ']';\n    head[off++] = ' ';\n    xn_report_write(head, off);\n    if (desc != NULL) {\n        char chunk[256];\n        size_t i = 0;\n        while (i < desc->len) {\n            size_t n = desc->len - i;\n            if (n > sizeof(chunk)) { n = sizeof(chunk); }\n            for (size_t k = 0; k < n; k++) {\n                char c = desc->bytes[i + k];\n                chunk[k] = (c == '\\n' || c == '\\r') ? ' ' : c;\n            }\n            xn_report_write(chunk, n);\n            i += n;\n        }\n    }\n    xn_report_write(\"\\n\", 1);\n}\n\n/* ---- GC 根帧与安全点（S3-02）------------------------------------------\n * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局\n * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。\n * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；\n * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。\n * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。\n * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；\n * 运行时若暴露阈值 API，这里改为薄调用）。 */\ntypedef struct { void *obj; size_t count; } xn_root_ref;\nstatic xn_root_ref *xn_root_refs = NULL;\nstatic size_t xn_root_ref_n = 0;\nstatic size_t xn_root_ref_cap = 0;\nstatic void  **xn_root_track = NULL;\nstatic size_t  xn_root_depth = 0;\nstatic size_t  xn_root_cap   = 0;\n\nstatic void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }\n    }\n    if (xn_root_ref_n == xn_root_ref_cap) {\n        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;\n        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));\n        if (xn_root_refs == NULL) { abort(); }\n    }\n    xn_root_refs[xn_root_ref_n].obj = obj;\n    xn_root_refs[xn_root_ref_n].count = 1;\n    xn_root_ref_n++;\n    rt_gc_root_add(obj);\n}\nstatic void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj != obj) { continue; }\n        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }\n        rt_gc_root_remove(obj);\n        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];\n        return;\n    }\n}\nstatic size_t xn_root_mark(void) { return xn_root_depth; }\nstatic void xn_root_add(void *obj) {\n    if (obj == NULL) { return; }\n    xn_root_hold(obj);\n    if (xn_root_depth == xn_root_cap) {\n        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;\n        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));\n        if (xn_root_track == NULL) { abort(); }\n    }\n    xn_root_track[xn_root_depth++] = obj;\n}\nstatic void xn_root_restore(size_t mark) {\n    while (xn_root_depth > mark) {\n        xn_root_release(xn_root_track[--xn_root_depth]);\n    }\n}\n\nstatic size_t xn_gc_alloc_pending = 0;\n#define XN_GC_SAFEPOINT_THRESHOLD 1024\nstatic void *xn_gc_new(const rt_type *type) {\n    xn_gc_alloc_pending++;\n    return rt_gc_new(type);\n}\nstatic void xn_gc_safepoint(void) {\n    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {\n        xn_gc_alloc_pending = 0;\n        rt_gc_collect();\n    }\n}\n\n/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */\ntypedef struct {\n    rt_header hdr;\n    const char *typeName;\n    int64_t i;\n    rt_string *s;\n    void *o;\n} xn_Any;\nstatic void xn_Any_scan(void *p, void (*visit)(void *)) {\n    xn_Any *b = (xn_Any *)p;\n    if (b->s) { visit(b->s); }\n    if (b->o) { visit(b->o); }\n}\nstatic const rt_type RT_TYPE_XN_ANY = { \"Any\", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };\nstatic xn_Any *xn_box_int(int64_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int\"; b->i = v;\n    return b;\n}\nstatic xn_Any *xn_box_int32(int32_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int32\"; b->i = (int64_t)v;\n    return b;\n}\nstatic xn_Any *xn_box_bool(int v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Bool\"; b->i = v ? 1 : 0;\n    return b;\n}\nstatic xn_Any *xn_box_str(rt_string *s) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"String\";\n    if (s != NULL) { rt_retain(s); }\n    b->s = s;\n    return b;\n}\n/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，\n * GC 载荷不计数（由 GC 管理）。 */\nstatic xn_Any *xn_box_obj(void *o) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    if (o != NULL) {\n        b->typeName = ((rt_object *)o)->hdr.type->name;\n        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }\n        b->o = o;\n    }\n    return b;\n}\nstatic int xn_any_is(xn_Any *b, const char *typeName) {\n    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;\n}\n/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */\nstatic int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) { return b->i; }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return 0;\n}\nstatic rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->s != NULL) { rt_retain(b->s); }\n        return b->s;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\nstatic void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }\n        return b->o;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\n\n/* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */\nstatic void xn_fatal_div(void) {\n    fprintf(stderr, \"xnull: fatal: 除零\\n\");\n    fflush(stderr);\n    exit(134);\n}\nstatic int64_t xn_div_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a / b;\n}\nstatic int64_t xn_mod_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a % b;\n}\n/* S6-03：sys Async/Process 原生原型（E5 runtime；Context/出参形态不经 .xfb） */\nextern void *xdkc_file_open_read_async(xrt_context *, const char *, size_t, int32_t *);\nextern void *xdkc_file_open_write_async(xrt_context *, const char *, size_t, int32_t *);\nextern int64_t xdkc_file_read_async(xrt_context *, void *, void *, size_t, int32_t *);\nextern int32_t xdkc_file_write_async(xrt_context *, void *, const void *, size_t);\nextern int32_t xdkc_file_close_async(xrt_context *, void *);\nextern void *xdkc_dir_open_async(xrt_context *, const char *, size_t, int32_t *);\nextern const char *xdkc_dir_read_async(xrt_context *, void *, int32_t *);\nextern int32_t xdkc_dir_close_async(xrt_context *, void *);\nextern void *xdkc_proc_spawn(const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_wait(void *, int32_t *);\nextern int32_t xdkc_proc_kill(void *, int32_t);\nextern int32_t xdkc_proc_close(void *);\nextern int32_t xdkc_proc_run_async(xrt_context *, const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_status_async(xrt_context *, const char *, size_t);\n/* S6-04：xdk.sys 内嵌资源读取原生原型（E5 runtime） */\nextern int32_t xdkc_resource_exists(const char *, size_t);\nextern int32_t xdkc_resource_size(const char *, size_t, int64_t *);\nextern int32_t xdkc_read_resource(xrt_context *, const char *, size_t, xrt_bytes_buf **, int32_t *);\nextern int32_t xdkc_read_resource_text(xrt_context *, const char *, size_t, xrt_text **, int32_t *);\nextern int32_t xdkc_list_resources(xrt_context *, const char *, size_t, const char ***, size_t *, int32_t *);\nextern void xdkc_list_resources_free(const char **);\ntypedef void *xn_proto_Error;\ntypedef struct { rt_header hdr; void **__vtable; } xn_vt_obj;\n\ntypedef int64_t xn_Enum_ErrorKind;\nstatic rt_string *xn_enum_ErrorKind_name(int64_t v) {\n    switch (v) {\n    case 0: return rt_string_from_c(\"InvalidArgument\");\n    case 1: return rt_string_from_c(\"NotFound\");\n    case 2: return rt_string_from_c(\"AlreadyExists\");\n    case 3: return rt_string_from_c(\"PermissionDenied\");\n    case 4: return rt_string_from_c(\"Io\");\n    case 5: return rt_string_from_c(\"Network\");\n    case 6: return rt_string_from_c(\"Timeout\");\n    case 7: return rt_string_from_c(\"Cancelled\");\n    case 8: return rt_string_from_c(\"Busy\");\n    case 9: return rt_string_from_c(\"Unavailable\");\n    case 10: return rt_string_from_c(\"DataCorrupted\");\n    case 11: return rt_string_from_c(\"Unsupported\");\n    case 12: return rt_string_from_c(\"OutOfMemory\");\n    case 13: return rt_string_from_c(\"Internal\");\n    default: return xn_str_int(v);\n    }\n}\n\nstatic void xn_fatal_oob(void);\nstatic void xn_fatal_oob(void) {\n    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n    exit(134);\n}\n\ntypedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_arr_i;\n\n\nstatic void xn_arr_i_deinit(void *p) {\n    xn_arr_i *a = (xn_arr_i *)p;\n    if (a->data != NULL) {\n        free(a->data);\n        a->data = NULL;\n    }\n    a->len = 0;\n    a->cap = 0;\n}\n\nstatic const rt_type RT_TYPE_xn_arr_i = { \"List\", sizeof(xn_arr_i), xn_arr_i_deinit, NULL };\n\nstatic xn_arr_i *xn_arr_i_new(size_t cap) {\n    xn_arr_i *a = (xn_arr_i *)xn_gc_new(&RT_TYPE_xn_arr_i);\n    memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_i) - sizeof(rt_header));\n    a->cap = cap ? cap : 4;\n    a->data = malloc(sizeof(int64_t) * a->cap);\n    if (a->data == NULL) { abort(); }\n    return a;\n}\n\nstatic void xn_arr_i_push(xn_arr_i *a, int64_t v) {\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(int64_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    a->data[a->len++] = v;\n}\n\nstatic int64_t xn_arr_i_get(const xn_arr_i *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    return a->data[i];\n}\n\nstatic void xn_arr_i_set(xn_arr_i *a, int64_t i, int64_t v) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    a->data[i] = v;\n}\n\nstatic int64_t xn_arr_i_remove(xn_arr_i *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    int64_t old = a->data[i];\n    for (size_t j = (size_t)i; j + 1 < a->len; j++) {\n        a->data[j] = a->data[j + 1];\n    }\n    a->len--;\n    return old;\n}\n\nstatic void xn_arr_i_insert(xn_arr_i *a, int64_t i, int64_t v) {\n    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(int64_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    for (size_t j = a->len; j > (size_t)i; j--) {\n        a->data[j] = a->data[j - 1];\n    }\n    a->data[i] = v;\n    a->len++;\n}\n\nstatic void xn_arr_i_clear(xn_arr_i *a) {\n    a->len = 0;\n}\n\nstatic rt_string *xn_arr_i_join(xn_arr_i *a, rt_string *sep) {\n    rt_string *res = rt_string_from_c(\"\");\n    for (size_t i = 0; i < a->len; i++) {\n        if (i > 0) {\n            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));\n        }\n        res = xn_concat(res, xn_str_int(a->data[i]));\n    }\n    return res;\n}\n\nstatic int64_t xn_main();\n\nstatic void xn_init_vtables(void) {\n}\n\nstatic void xn_init_enums(void) {\n}\n\nstatic rt_string *xn_result_error_copy_rt(rt_string *err) {\n    return rt_string_new(err->bytes, err->len);\n}\n\n";
 static String PRELUDE_MAPSET = "/* 由 XNull 编译器生成（M4.1 代码生成）。 */\n#include \"rt.h\"\n#include \"rt_gc.h\"\n#include \"xrt.h\"\n#include <inttypes.h>\n#include <stdio.h>\n#include <stdlib.h>\n#include <string.h>\n#include <unistd.h>\n\nstatic void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }\nstatic void xn_print_bool(int v) { fputs(v ? \"true\\n\" : \"false\\n\", stdout); }\nstatic void xn_print_double(double v) { printf(\"%g\\n\", v); }\nstatic void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }\nstatic void xn_print_null(void) { fputs(\"null\\n\", stdout); }\n\n/* 可空值（S1 §2.10）：has=0 表示 null。 */\ntypedef struct { int has; int64_t v; } xn_opt_i;\ntypedef struct { int has; int v; } xn_opt_b;\ntypedef struct { int has; rt_string *v; } xn_opt_s;\n\ntypedef int32_t xn_char; /* S1 Char：Unicode 标量值 */\nstatic rt_string *xn_str_char(int32_t cp) {\n    char buf[8];\n    size_t n = 0;\n    if (cp < 0) { cp = 0xFFFD; }\n    if (cp < 0x80) { buf[n++] = (char)cp; }\n    else if (cp < 0x800) { buf[n++] = (char)(0xC0 | (cp >> 6)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else if (cp < 0x10000) { buf[n++] = (char)(0xE0 | (cp >> 12)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    else { buf[n++] = (char)(0xF0 | (cp >> 18)); buf[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); buf[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); buf[n++] = (char)(0x80 | (cp & 0x3F)); }\n    return rt_string_new(buf, n);\n}\n\nstatic rt_string *xn_str_int(int64_t v) {\n    char buf[32];\n    int n = snprintf(buf, sizeof(buf), \"%lld\", (long long)v);\n    return rt_string_new(buf, (size_t)n);\n}\n\nstatic rt_string *xn_str_double(double v) { char buf[64]; int n = snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_new(buf, (size_t)n); }\nstatic rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }\n\n/* 按分配头合同构造定长字符串（S3 §2：计数从 1 起）。 */\nstatic rt_string *xn_alloc_str(size_t n);\n\n/* ---- String 成员（S1 §9.2，字节语义）---- */\nstatic int xn_str_eq(rt_string *a, rt_string *b) {\n    return a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0;\n}\n\nstatic int64_t xn_str_length(rt_string *s) { return (int64_t)s->len; }\n\nstatic rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) {\n    if (start < 0) { start = 0; }\n    if (n < 0) { n = 0; }\n    if ((size_t)start > s->len) { start = (int64_t)s->len; }\n    if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; }\n    rt_string *out = xn_alloc_str((size_t)n);\n    if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); }\n    return out;\n}\n\nstatic int64_t xn_str_indexof(rt_string *s, rt_string *sub) {\n    if (sub->len == 0) { return 0; }\n    if (sub->len > s->len) { return -1; }\n    for (size_t i = 0; i + sub->len <= s->len; i++) {\n        if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; }\n    }\n    return -1;\n}\n\nstatic int xn_str_startswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes, p->bytes, p->len) == 0;\n}\n\nstatic int xn_str_endswith(rt_string *s, rt_string *p) {\n    if (p->len > s->len) { return 0; }\n    return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0;\n}\n\nstatic int xn_is_space(uint8_t c) {\n    return c == ' ' || c == '\\t' || c == '\\n' || c == '\\v' || c == '\\f' || c == '\\r';\n}\n\nstatic rt_string *xn_str_trim(rt_string *s) {\n    size_t b = 0, e = s->len;\n    while (b < e && xn_is_space((uint8_t)s->bytes[b])) { b++; }\n    while (e > b && xn_is_space((uint8_t)s->bytes[e - 1])) { e--; }\n    return xn_str_substr(s, (int64_t)b, (int64_t)(e - b));\n}\n\nstatic rt_string *xn_str_upper(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'a' && c <= 'z') { out->bytes[i] = (char)(c - 'a' + 'A'); }\n    }\n    return out;\n}\n\nstatic rt_string *xn_str_lower(rt_string *s) {\n    rt_string *out = xn_str_substr(s, 0, (int64_t)s->len);\n    for (size_t i = 0; i < out->len; i++) {\n        char c = out->bytes[i];\n        if (c >= 'A' && c <= 'Z') { out->bytes[i] = (char)(c - 'A' + 'a'); }\n    }\n    return out;\n}\n\n/* 定长 String 分配走运行时入口：S3-04 起 String 为 GC 对象，\n * 运行时负责分配头/GC 清单登记（main 过渡期仍为 ARC，接口一致）。 */\nstatic rt_string *xn_alloc_str(size_t n) {\n    rt_string *s = rt_string_alloc(n);\n    s->bytes[0] = 0;\n    return s;\n}\n\n/* 拼接：接管 a、b 的所有权，返回新串。 */\nstatic rt_string *xn_concat(rt_string *a, rt_string *b) {\n    rt_string *out = xn_alloc_str(a->len + b->len);\n    memcpy(out->bytes, a->bytes, a->len);\n    memcpy(out->bytes + a->len, b->bytes, b->len);\n    rt_release(a);\n    rt_release(b);\n    return out;\n}\n\nstatic void xn_throw(rt_string *msg) {\n    fprintf(stderr, \"fatal: %.*s\\n\", (int)msg->len, msg->bytes);\n    exit(134);\n}\n\n/* S6-02：xdk.runtime 绑定/发射面（E5 runtime 原语）。 */\nconst char *xdkc_env_get(const char *name, size_t len, size_t *out_len);\nvoid xdkc_diagnose(const char *bytes, size_t len);\nvoid xdkc_exit(int64_t code);\nint64_t xdkc_now_mono_ms(void);\nint64_t xdkc_now_wall_ms(void);\n/* dumpTasks：运行时诊断（非承诺，S6 §4.4）；单行、无堆，计数由调度器维护。 */\nvoid xdkc_dump_tasks(void);\nstatic xn_opt_s xn_env_lookup(rt_string *name) {\n    xn_opt_s r;\n    size_t len = 0;\n    const char *v = xdkc_env_get(name->bytes, name->len, &len);\n    if (v == NULL) { r.has = 0; r.v = NULL; }\n    else { r.has = 1; r.v = rt_string_new(v, len); }\n    return r;\n}\n\n/* S4-02：边界观测输出——单行「[kind] describe」，无堆分配（栈缓冲 + write）。 */\nstatic void xn_report_write(const char *p, size_t n) {\n    if (n > 0) { ssize_t w = write(STDERR_FILENO, p, n); (void)w; }\n}\nstatic void xn_report_line(int64_t kind, rt_string *desc) {\n    const char *name = xrt_error_kind_name((xrt_error_kind)kind);\n    char head[96];\n    size_t off = 0;\n    head[off++] = '[';\n    size_t nl = strlen(name);\n    if (nl > sizeof(head) - 8) { nl = sizeof(head) - 8; }\n    memcpy(head + off, name, nl);\n    off += nl;\n    head[off++] = ']';\n    head[off++] = ' ';\n    xn_report_write(head, off);\n    if (desc != NULL) {\n        char chunk[256];\n        size_t i = 0;\n        while (i < desc->len) {\n            size_t n = desc->len - i;\n            if (n > sizeof(chunk)) { n = sizeof(chunk); }\n            for (size_t k = 0; k < n; k++) {\n                char c = desc->bytes[i + k];\n                chunk[k] = (c == '\\n' || c == '\\r') ? ' ' : c;\n            }\n            xn_report_write(chunk, n);\n            i += n;\n        }\n    }\n    xn_report_write(\"\\n\", 1);\n}\n\n/* ---- GC 根帧与安全点（S3-02）------------------------------------------\n * 根登记用「对象→持有计数」表镜像到运行时根集合：同一对象被多个栈槽/全局\n * 槽位持有时只登记一次，最后一个持有者撤销时才 rt_gc_root_remove。\n * 块级根帧：块进入记录影子栈标记（xn_root_mark），局部赋值后 xn_root_add；\n * 块退出/return/break/continue 恢复到标记，逆序撤销本块登记。\n * 长期根（全局字段/单例/数据枚举项）用 xn_root_hold 登记，不随块恢复撤销。\n * 安全点：GC 分配计数达阈值时执行一次完整收集（S3 §8 分配点/回边；\n * 运行时若暴露阈值 API，这里改为薄调用）。 */\ntypedef struct { void *obj; size_t count; } xn_root_ref;\nstatic xn_root_ref *xn_root_refs = NULL;\nstatic size_t xn_root_ref_n = 0;\nstatic size_t xn_root_ref_cap = 0;\nstatic void  **xn_root_track = NULL;\nstatic size_t  xn_root_depth = 0;\nstatic size_t  xn_root_cap   = 0;\n\nstatic void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }\n    }\n    if (xn_root_ref_n == xn_root_ref_cap) {\n        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;\n        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));\n        if (xn_root_refs == NULL) { abort(); }\n    }\n    xn_root_refs[xn_root_ref_n].obj = obj;\n    xn_root_refs[xn_root_ref_n].count = 1;\n    xn_root_ref_n++;\n    rt_gc_root_add(obj);\n}\nstatic void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }\n    for (size_t i = 0; i < xn_root_ref_n; i++) {\n        if (xn_root_refs[i].obj != obj) { continue; }\n        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }\n        rt_gc_root_remove(obj);\n        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];\n        return;\n    }\n}\nstatic size_t xn_root_mark(void) { return xn_root_depth; }\nstatic void xn_root_add(void *obj) {\n    if (obj == NULL) { return; }\n    xn_root_hold(obj);\n    if (xn_root_depth == xn_root_cap) {\n        xn_root_cap = xn_root_cap ? xn_root_cap * 2 : 16;\n        xn_root_track = (void **)realloc(xn_root_track, xn_root_cap * sizeof(void *));\n        if (xn_root_track == NULL) { abort(); }\n    }\n    xn_root_track[xn_root_depth++] = obj;\n}\nstatic void xn_root_restore(size_t mark) {\n    while (xn_root_depth > mark) {\n        xn_root_release(xn_root_track[--xn_root_depth]);\n    }\n}\n\nstatic size_t xn_gc_alloc_pending = 0;\n#define XN_GC_SAFEPOINT_THRESHOLD 1024\nstatic void *xn_gc_new(const rt_type *type) {\n    xn_gc_alloc_pending++;\n    return rt_gc_new(type);\n}\nstatic void xn_gc_safepoint(void) {\n    if (xn_gc_alloc_pending >= XN_GC_SAFEPOINT_THRESHOLD) {\n        xn_gc_alloc_pending = 0;\n        rt_gc_collect();\n    }\n}\n\n/* Any/Object 装箱（S3 §3）：GC 盒，typeName 供 is/as 拆箱；引用元素由 scan 追踪。 */\ntypedef struct {\n    rt_header hdr;\n    const char *typeName;\n    int64_t i;\n    rt_string *s;\n    void *o;\n} xn_Any;\nstatic void xn_Any_scan(void *p, void (*visit)(void *)) {\n    xn_Any *b = (xn_Any *)p;\n    if (b->s) { visit(b->s); }\n    if (b->o) { visit(b->o); }\n}\nstatic const rt_type RT_TYPE_XN_ANY = { \"Any\", sizeof(xn_Any) - sizeof(rt_header), NULL, xn_Any_scan };\nstatic xn_Any *xn_box_int(int64_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int\"; b->i = v;\n    return b;\n}\nstatic xn_Any *xn_box_int32(int32_t v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Int32\"; b->i = (int64_t)v;\n    return b;\n}\nstatic xn_Any *xn_box_bool(int v) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"Bool\"; b->i = v ? 1 : 0;\n    return b;\n}\nstatic xn_Any *xn_box_str(rt_string *s) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    b->typeName = \"String\";\n    if (s != NULL) { rt_retain(s); }\n    b->s = s;\n    return b;\n}\n/* 对象装箱：类型名取运行期分配头的类型描述符（动态类型），ARC 载荷持有一份引用，\n * GC 载荷不计数（由 GC 管理）。 */\nstatic xn_Any *xn_box_obj(void *o) {\n    xn_Any *b = (xn_Any *)xn_gc_new(&RT_TYPE_XN_ANY);\n    if (o != NULL) {\n        b->typeName = ((rt_object *)o)->hdr.type->name;\n        if (((rt_object *)o)->hdr.kind == RT_KIND_ARC) { rt_retain(o); }\n        b->o = o;\n    }\n    return b;\n}\nstatic int xn_any_is(xn_Any *b, const char *typeName) {\n    return b != NULL && b->typeName != NULL && strcmp(b->typeName, typeName) == 0;\n}\n/* 拆箱：类型匹配才取值；nullSafe=0 时类型不匹配是 fatal（as），=1 返回零值（as?）。 */\nstatic int64_t xn_any_get_int(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) { return b->i; }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return 0;\n}\nstatic rt_string *xn_any_get_str(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->s != NULL) { rt_retain(b->s); }\n        return b->s;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\nstatic void *xn_any_get_obj(xn_Any *b, const char *typeName, int nullSafe) {\n    if (xn_any_is(b, typeName)) {\n        if (b->o != NULL && ((rt_object *)b->o)->hdr.kind == RT_KIND_ARC) { rt_retain(b->o); }\n        return b->o;\n    }\n    if (!nullSafe) { rt_fatal(\"Any 拆箱类型不匹配（S3 §3）\"); }\n    return NULL;\n}\n\n/* 除零 fatal（S1 §10.4）：与解释路径同口径，退出码 134，入口不执行。 */\nstatic void xn_fatal_div(void) {\n    fprintf(stderr, \"xnull: fatal: 除零\\n\");\n    fflush(stderr);\n    exit(134);\n}\nstatic int64_t xn_div_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a / b;\n}\nstatic int64_t xn_mod_i64(int64_t a, int64_t b) {\n    if (b == 0) { xn_fatal_div(); }\n    return a % b;\n}\n/* S6-03：sys Async/Process 原生原型（E5 runtime；Context/出参形态不经 .xfb） */\nextern void *xdkc_file_open_read_async(xrt_context *, const char *, size_t, int32_t *);\nextern void *xdkc_file_open_write_async(xrt_context *, const char *, size_t, int32_t *);\nextern int64_t xdkc_file_read_async(xrt_context *, void *, void *, size_t, int32_t *);\nextern int32_t xdkc_file_write_async(xrt_context *, void *, const void *, size_t);\nextern int32_t xdkc_file_close_async(xrt_context *, void *);\nextern void *xdkc_dir_open_async(xrt_context *, const char *, size_t, int32_t *);\nextern const char *xdkc_dir_read_async(xrt_context *, void *, int32_t *);\nextern int32_t xdkc_dir_close_async(xrt_context *, void *);\nextern void *xdkc_proc_spawn(const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_wait(void *, int32_t *);\nextern int32_t xdkc_proc_kill(void *, int32_t);\nextern int32_t xdkc_proc_close(void *);\nextern int32_t xdkc_proc_run_async(xrt_context *, const char *, size_t, int32_t *);\nextern int32_t xdkc_proc_status_async(xrt_context *, const char *, size_t);\n/* S6-04：xdk.sys 内嵌资源读取原生原型（E5 runtime） */\nextern int32_t xdkc_resource_exists(const char *, size_t);\nextern int32_t xdkc_resource_size(const char *, size_t, int64_t *);\nextern int32_t xdkc_read_resource(xrt_context *, const char *, size_t, xrt_bytes_buf **, int32_t *);\nextern int32_t xdkc_read_resource_text(xrt_context *, const char *, size_t, xrt_text **, int32_t *);\nextern int32_t xdkc_list_resources(xrt_context *, const char *, size_t, const char ***, size_t *, int32_t *);\nextern void xdkc_list_resources_free(const char **);\ntypedef void *xn_proto_Error;\ntypedef struct { rt_header hdr; void **__vtable; } xn_vt_obj;\n\ntypedef int64_t xn_Enum_ErrorKind;\nstatic rt_string *xn_enum_ErrorKind_name(int64_t v) {\n    switch (v) {\n    case 0: return rt_string_from_c(\"InvalidArgument\");\n    case 1: return rt_string_from_c(\"NotFound\");\n    case 2: return rt_string_from_c(\"AlreadyExists\");\n    case 3: return rt_string_from_c(\"PermissionDenied\");\n    case 4: return rt_string_from_c(\"Io\");\n    case 5: return rt_string_from_c(\"Network\");\n    case 6: return rt_string_from_c(\"Timeout\");\n    case 7: return rt_string_from_c(\"Cancelled\");\n    case 8: return rt_string_from_c(\"Busy\");\n    case 9: return rt_string_from_c(\"Unavailable\");\n    case 10: return rt_string_from_c(\"DataCorrupted\");\n    case 11: return rt_string_from_c(\"Unsupported\");\n    case 12: return rt_string_from_c(\"OutOfMemory\");\n    case 13: return rt_string_from_c(\"Internal\");\n    default: return xn_str_int(v);\n    }\n}\n\nstatic void xn_fatal_oob(void);\nstatic void xn_fatal_oob(void) {\n    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n    exit(134);\n}\n\ntypedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_arr_i;\n\ntypedef struct { rt_header hdr; xn_arr_i *a; } xn_set_i;\n\ntypedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;\n\n\nstatic void xn_arr_i_deinit(void *p) {\n    xn_arr_i *a = (xn_arr_i *)p;\n    if (a->data != NULL) {\n        free(a->data);\n        a->data = NULL;\n    }\n    a->len = 0;\n    a->cap = 0;\n}\n\nstatic const rt_type RT_TYPE_xn_arr_i = { \"List\", sizeof(xn_arr_i), xn_arr_i_deinit, NULL };\n\nstatic xn_arr_i *xn_arr_i_new(size_t cap) {\n    xn_arr_i *a = (xn_arr_i *)xn_gc_new(&RT_TYPE_xn_arr_i);\n    memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_i) - sizeof(rt_header));\n    a->cap = cap ? cap : 4;\n    a->data = malloc(sizeof(int64_t) * a->cap);\n    if (a->data == NULL) { abort(); }\n    return a;\n}\n\nstatic void xn_arr_i_push(xn_arr_i *a, int64_t v) {\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(int64_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    a->data[a->len++] = v;\n}\n\nstatic int64_t xn_arr_i_get(const xn_arr_i *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    return a->data[i];\n}\n\nstatic void xn_arr_i_set(xn_arr_i *a, int64_t i, int64_t v) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    a->data[i] = v;\n}\n\nstatic int64_t xn_arr_i_remove(xn_arr_i *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    int64_t old = a->data[i];\n    for (size_t j = (size_t)i; j + 1 < a->len; j++) {\n        a->data[j] = a->data[j + 1];\n    }\n    a->len--;\n    return old;\n}\n\nstatic void xn_arr_i_insert(xn_arr_i *a, int64_t i, int64_t v) {\n    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(int64_t) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    for (size_t j = a->len; j > (size_t)i; j--) {\n        a->data[j] = a->data[j - 1];\n    }\n    a->data[i] = v;\n    a->len++;\n}\n\nstatic void xn_arr_i_clear(xn_arr_i *a) {\n    a->len = 0;\n}\n\nstatic rt_string *xn_arr_i_join(xn_arr_i *a, rt_string *sep) {\n    rt_string *res = rt_string_from_c(\"\");\n    for (size_t i = 0; i < a->len; i++) {\n        if (i > 0) {\n            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));\n        }\n        res = xn_concat(res, xn_str_int(a->data[i]));\n    }\n    return res;\n}\n\ntypedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *data; } xn_arr_s;\n\nstatic void xn_arr_s_scan(void *p, void (*visit)(void *)) {\n    xn_arr_s *a = (xn_arr_s *)p;\n    if (a->data == NULL) { return; }\n    for (size_t i = 0; i < a->len; i++) { visit(a->data[i]); }\n}\n\nstatic void xn_arr_s_deinit(void *p) {\n    xn_arr_s *a = (xn_arr_s *)p;\n    if (a->data != NULL) {\n        free(a->data);\n        a->data = NULL;\n    }\n    a->len = 0;\n    a->cap = 0;\n}\n\nstatic const rt_type RT_TYPE_xn_arr_s = { \"List\", sizeof(xn_arr_s), xn_arr_s_deinit, xn_arr_s_scan };\n\nstatic xn_arr_s *xn_arr_s_new(size_t cap) {\n    xn_arr_s *a = (xn_arr_s *)xn_gc_new(&RT_TYPE_xn_arr_s);\n    memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_s) - sizeof(rt_header));\n    a->cap = cap ? cap : 4;\n    a->data = malloc(sizeof(rt_string *) * a->cap);\n    if (a->data == NULL) { abort(); }\n    return a;\n}\n\nstatic void xn_arr_s_push(xn_arr_s *a, rt_string * v) {\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(rt_string *) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    a->data[a->len++] = v;\n}\n\nstatic rt_string * xn_arr_s_get(const xn_arr_s *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    return a->data[i];\n}\n\nstatic void xn_arr_s_set(xn_arr_s *a, int64_t i, rt_string * v) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    a->data[i] = v;\n}\n\nstatic rt_string * xn_arr_s_remove(xn_arr_s *a, int64_t i) {\n    if (i < 0 || (size_t)i >= a->len) { xn_fatal_oob(); }\n    rt_string * old = a->data[i];\n    for (size_t j = (size_t)i; j + 1 < a->len; j++) {\n        a->data[j] = a->data[j + 1];\n    }\n    a->len--;\n    return old;\n}\n\nstatic void xn_arr_s_insert(xn_arr_s *a, int64_t i, rt_string * v) {\n    if (i < 0 || (size_t)i > a->len) { xn_fatal_oob(); }\n    if (a->len == a->cap) {\n        a->cap *= 2;\n        a->data = realloc(a->data, sizeof(rt_string *) * a->cap);\n        if (a->data == NULL) { abort(); }\n    }\n    for (size_t j = a->len; j > (size_t)i; j--) {\n        a->data[j] = a->data[j - 1];\n    }\n    a->data[i] = v;\n    a->len++;\n}\n\nstatic void xn_arr_s_clear(xn_arr_s *a) {\n    a->len = 0;\n}\n\nstatic rt_string *xn_arr_s_join(xn_arr_s *a, rt_string *sep) {\n    rt_string *res = rt_string_from_c(\"\");\n    for (size_t i = 0; i < a->len; i++) {\n        if (i > 0) {\n            res = xn_concat(res, rt_string_new(sep->bytes, sep->len));\n        }\n        res = xn_concat(res, rt_string_new(a->data[i]->bytes, a->data[i]->len));\n    }\n    return res;\n}\n\nstatic void xn_set_i_scan(void *p, void (*visit)(void *)) {\n    xn_set_i *s = (xn_set_i *)p;\n    if (s->a != NULL) { visit(s->a); }\n}\n\nstatic void xn_set_i_deinit(void *p) {\n    xn_set_i *s = (xn_set_i *)p;\n    s->a = NULL; /* 数组是 GC 对象，由 GC 回收 */\n}\n\nstatic const rt_type RT_TYPE_xn_set_i = { \"Set\", sizeof(xn_set_i), xn_set_i_deinit, xn_set_i_scan };\n\nstatic xn_set_i *xn_set_i_new(void) {\n    xn_set_i *s = (xn_set_i *)xn_gc_new(&RT_TYPE_xn_set_i);\n    memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_i) - sizeof(rt_header));\n    s->a = xn_arr_i_new(4);\n    return s;\n}\n\nstatic int xn_set_i_add(xn_set_i *s, int64_t v) {\n    for (size_t i = 0; i < s->a->len; i++) {\n        if (s->a->data[i] == v) { return 0; }\n    }\n    xn_arr_i_push(s->a, v);\n    return 1;\n}\n\nstatic int xn_set_i_has(const xn_set_i *s, int64_t v) {\n    for (size_t i = 0; i < s->a->len; i++) {\n        if (s->a->data[i] == v) { return 1; }\n    }\n    return 0;\n}\n\nstatic int64_t xn_set_i_at(const xn_set_i *s, int64_t i) {\n    if (i < 0 || (size_t)i >= s->a->len) { xn_fatal_oob(); }\n    return s->a->data[i];\n}\n\nstatic int xn_set_i_remove(xn_set_i *s, int64_t v) {\n    for (size_t i = 0; i < s->a->len; i++) {\n        if (s->a->data[i] == v) {\n            for (size_t j = i; j + 1 < s->a->len; j++) {\n                s->a->data[j] = s->a->data[j + 1];\n            }\n            s->a->len--;\n            return 1;\n        }\n    }\n    return 0;\n}\n\nstatic void xn_set_i_clear(xn_set_i *s) { xn_arr_i_clear(s->a); }\n\nstatic void xn_map_s_i_scan(void *p, void (*visit)(void *)) {\n    xn_map_s_i *m = (xn_map_s_i *)p;\n    if (m->keys != NULL) { for (size_t i = 0; i < m->len; i++) { visit(m->keys[i]); } }\n}\n\nstatic void xn_map_s_i_deinit(void *p) {\n    xn_map_s_i *m = (xn_map_s_i *)p;\n    if (m->keys != NULL) {\n        free(m->keys);\n        m->keys = NULL;\n    }\n    if (m->vals != NULL) {\n        free(m->vals);\n        m->vals = NULL;\n    }\n    m->len = 0;\n    m->cap = 0;\n}\n\nstatic const rt_type RT_TYPE_xn_map_s_i = { \"Map\", sizeof(xn_map_s_i), xn_map_s_i_deinit, xn_map_s_i_scan };\n\nstatic xn_map_s_i *xn_map_s_i_new(size_t cap) {\n    xn_map_s_i *m = (xn_map_s_i *)xn_gc_new(&RT_TYPE_xn_map_s_i);\n    memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_s_i) - sizeof(rt_header));\n    m->cap = cap ? cap : 4;\n    m->keys = malloc(sizeof(rt_string *) * m->cap);\n    m->vals = malloc(sizeof(int64_t) * m->cap);\n    if (m->keys == NULL || m->vals == NULL) { abort(); }\n    return m;\n}\n\nstatic long xn_map_s_i_find(const xn_map_s_i *m, rt_string * key) {\n    for (size_t i = 0; i < m->len; i++) {\n        if (m->keys[i]->len == key->len && memcmp(m->keys[i]->bytes, key->bytes, key->len) == 0) { return (long)i; }\n    }\n    return -1;\n}\n\nstatic void xn_map_s_i_put(xn_map_s_i *m, rt_string * key, int64_t val) {\n    long i = xn_map_s_i_find(m, key);\n    if (i >= 0) {\n        m->vals[i] = val;\n        return;\n    }\n    if (m->len == m->cap) {\n        m->cap *= 2;\n        m->keys = realloc(m->keys, sizeof(rt_string *) * m->cap);\n        m->vals = realloc(m->vals, sizeof(int64_t) * m->cap);\n        if (m->keys == NULL || m->vals == NULL) { abort(); }\n    }\n    m->keys[m->len] = key;\n    m->vals[m->len] = val;\n    m->len++;\n}\n\nstatic int xn_map_s_i_has(const xn_map_s_i *m, rt_string * key) { return xn_map_s_i_find(m, key) >= 0; }\n\nstatic int64_t xn_map_s_i_get_or(const xn_map_s_i *m, rt_string * key, int64_t dflt) {\n    long i = xn_map_s_i_find(m, key);\n    return i >= 0 ? m->vals[i] : dflt;\n}\n\nstatic int xn_map_s_i_remove(xn_map_s_i *m, rt_string * key) {\n    long i = xn_map_s_i_find(m, key);\n    if (i < 0) { return 0; }\n    for (size_t j = (size_t)i; j + 1 < m->len; j++) {\n        m->keys[j] = m->keys[j + 1];\n        m->vals[j] = m->vals[j + 1];\n    }\n    m->len--;\n    return 1;\n}\n\nstatic void xn_map_s_i_clear(xn_map_s_i *m) {\n    m->len = 0;\n}\n\nstatic int xn_map_s_i_cmp_key(rt_string * a, rt_string * b) {\n    size_t n = a->len < b->len ? a->len : b->len;\n    int c = memcmp(a->bytes, b->bytes, n);\n    if (c != 0) { return c; }\n    return (a->len > b->len) - (a->len < b->len);\n}\n\nstatic void xn_map_s_i_sort_idx(const xn_map_s_i *m, size_t *idx) {\n    for (size_t i = 1; i < m->len; i++) {\n        size_t x = idx[i];\n        size_t j = i;\n        while (j > 0 && xn_map_s_i_cmp_key(m->keys[idx[j - 1]], m->keys[x]) > 0) {\n            idx[j] = idx[j - 1];\n            j--;\n        }\n        idx[j] = x;\n    }\n}\n\nstatic xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) {\n    xn_arr_s *out = xn_arr_s_new(m->len);\n    if (m->len == 0) { return out; }\n    size_t *idx = malloc(sizeof(size_t) * m->len);\n    if (idx == NULL) { abort(); }\n    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }\n    xn_map_s_i_sort_idx(m, idx);\n    for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[idx[i]]); }\n    free(idx);\n    return out;\n}\n\nstatic xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) {\n    xn_arr_i *out = xn_arr_i_new(m->len);\n    if (m->len == 0) { return out; }\n    size_t *idx = malloc(sizeof(size_t) * m->len);\n    if (idx == NULL) { abort(); }\n    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }\n    xn_map_s_i_sort_idx(m, idx);\n    for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[idx[i]]); }\n    free(idx);\n    return out;\n}\n\nstatic xn_opt_i xn_map_s_i_get(const xn_map_s_i *m, rt_string * key) {\n    xn_opt_i r;\n    long i = xn_map_s_i_find(m, key);\n    if (i < 0) { r.has = 0; r.v = 0; return r; }\n    r.has = 1;\n    r.v = m->vals[i];\n    return r;\n}\n\n\nstatic xn_arr_s *xn_str_split(rt_string *s, rt_string *sep) {\n    xn_arr_s *out = xn_arr_s_new(4);\n    if (sep->len == 0) {\n        rt_string *t = rt_string_new(s->bytes, s->len);\n        xn_arr_s_push(out, t);\n        rt_release(t);\n        return out;\n    }\n    size_t start = 0, i = 0;\n    while (i + sep->len <= s->len) {\n        if (memcmp(s->bytes + i, sep->bytes, sep->len) == 0) {\n            rt_string *t = rt_string_new(s->bytes + start, i - start);\n            xn_arr_s_push(out, t);\n            rt_release(t);\n            i += sep->len;\n            start = i;\n        } else {\n            i++;\n        }\n    }\n    rt_string *last = rt_string_new(s->bytes + start, s->len - start);\n    xn_arr_s_push(out, last);\n    rt_release(last);\n    return out;\n}\nstatic int64_t xn_main();\n\nstatic void xn_init_vtables(void) {\n}\n\nstatic void xn_init_enums(void) {\n}\n\nstatic rt_string *xn_result_error_copy_rt(rt_string *err) {\n    return rt_string_new(err->bytes, err->len);\n}\n\n";
@@ -235,6 +240,7 @@ static String cType(String k) {
     if k == "Set<Int>" { return "xn_set_i *" }
     if k == "Map<String, Int>" { return "xn_map_s_i *" }
     if k.indexOf("Result<") == 0 { return resultName(k) }
+    if isEnumType(k) { if isDataEnum(k) { return "xn_Enum_" + k + " *" }; return "xn_Enum_" + k }
     if isProtoType(k) { return "xn_proto_" + k }
     if isClass(k) { return "xn_Cls_" + k + " *" }
     if isStruct(k) { return "xn_Struct_" + k }
@@ -246,6 +252,22 @@ static Bool isMap(String k) { return k.indexOf("Map<") == 0 }
 static Bool isSet(String k) { return k.indexOf("Set<") == 0 }
 static List<String> CLS_NAMES = []
 static List<String> PRIMARY_NAMES = []
+static List<String> SINGLE_NAMES = []
+static List<String> FACTORY_NAMES = []
+static List<String> FACTORY_TARGET = []
+static List<N> FACTORY_DECLS = []
+static List<String> EXT_TARGET = []
+static List<String> EXT_NAME = []
+static List<String> EXT_CNAME = []
+static List<N> EXT_DECLS = []
+static List<N> SINGLE_DECLS = []
+static List<String> ENUM_NAMES = []
+static List<String> ENUM_ITEM_OWNER = []
+static List<String> ENUM_ITEM_NAME = []
+static Int ENUM_ITEM_INDEX_N = 0
+static List<Int> ENUM_ITEM_INDEX = []
+static List<String> DATA_ENUM_NAMES = []
+static List<N> DATA_ENUM_DECLS = []
 static List<String> PROTO_NAMES = []
 static List<String> PROTO_OWNER = []
 static List<String> PROTO_MNAME = []
@@ -293,6 +315,73 @@ static Bool fieldExists(String cls, String f) {
         i = i + 1
     }
     return false
+}
+static Bool isExtMethod(String cls, String mn) {
+    Int i = 0
+    while i < EXT_TARGET.length() {
+        if EXT_TARGET.get(i) == cls && EXT_NAME.get(i) == mn { return true }
+        i = i + 1
+    }
+    return false
+}
+static String extCName(String cls, String mn) {
+    Int i = 0
+    while i < EXT_TARGET.length() {
+        if EXT_TARGET.get(i) == cls && EXT_NAME.get(i) == mn { return EXT_CNAME.get(i) }
+        i = i + 1
+    }
+    return ""
+}
+static Bool isFactory(String k) {
+    Int i = 0
+    while i < FACTORY_NAMES.length() { if FACTORY_NAMES.get(i) == k { return true }; i = i + 1 }
+    return false
+}
+static String factoryTarget(String k) {
+    Int i = 0
+    while i < FACTORY_NAMES.length() { if FACTORY_NAMES.get(i) == k { return FACTORY_TARGET.get(i) }; i = i + 1 }
+    return "Int"
+}
+static String factoryMethodRet(String fac, String mn) {
+    N d = factoryDecl(fac)
+    N ms = fld(d, "Methods")
+    Int i = 0
+    while i < ms.el.length() {
+        if unq(txt(fld(ms.el.get(i), "Name"))) == mn { return typeKey(fld(ms.el.get(i), "Ret")) }
+        i = i + 1
+    }
+    return factoryTarget(fac)
+}
+static N factoryDecl(String fac) {
+    Int i = 0
+    while i < FACTORY_NAMES.length() {
+        if FACTORY_NAMES.get(i) == fac { return FACTORY_DECLS.get(i) }
+        i = i + 1
+    }
+    return new N()
+}
+static Bool isSingle(String k) {
+    Int i = 0
+    while i < SINGLE_NAMES.length() { if SINGLE_NAMES.get(i) == k { return true }; i = i + 1 }
+    return false
+}
+static Bool isEnumType(String k) {
+    Int i = 0
+    while i < ENUM_NAMES.length() { if ENUM_NAMES.get(i) == k { return true }; i = i + 1 }
+    return false
+}
+static Bool isDataEnum(String k) {
+    Int i = 0
+    while i < DATA_ENUM_NAMES.length() { if DATA_ENUM_NAMES.get(i) == k { return true }; i = i + 1 }
+    return false
+}
+static Int enumIndex(String en, String item) {
+    Int i = 0
+    while i < ENUM_ITEM_OWNER.length() {
+        if ENUM_ITEM_OWNER.get(i) == en && ENUM_ITEM_NAME.get(i) == item { return ENUM_ITEM_INDEX.get(i) }
+        i = i + 1
+    }
+    return 0
 }
 static Bool isProtoType(String k) {
     Int i = 0
@@ -440,6 +529,7 @@ class SC {
     List<String> releases = []
     List<String> blockRoots = []
     List<String> params = []
+    List<String> paramTypes = []
     List<String> fnNames = []
     List<String> fnRets = []
     List<String> resultTypes = []
@@ -448,10 +538,16 @@ class SC {
     String selfName = "self"
     String curClass = ""
     Bool selfPtr = false
+    Bool doubleRoot = false
     String retKind = "Int"
     void def(String n, String t) { self.names.push(n); self.types.push(t) }
     String typeOf(String n) {
         Int i = 0
+        while i < self.params.length() {
+            if self.params.get(i) == n && i < self.paramTypes.length() { return self.paramTypes.get(i) }
+            i = i + 1
+        }
+        i = 0
         while i < self.names.length() {
             if self.names.get(i) == n { return self.types.get(i) }
             i = i + 1
@@ -509,6 +605,29 @@ static String exprType(N x, SC sc) {
     if x.nm == "FloatLitExpr" { return "Double" }
     if x.nm == "StrLitExpr" { return "String" }
     if x.nm == "IdentExpr" { return sc.typeOf(unq(txt(fld(x, "Name")))) }
+    if x.nm == "Member" {
+        N mb = fld(x, "X")
+        if mb.nm == "Member" && fld(mb, "X").nm == "IdentExpr" {
+            String si0 = unq(txt(fld(fld(mb, "X"), "Name")))
+            if isSingle(si0) && unq(txt(fld(mb, "Name"))) == "instance" { return fieldType(si0, unq(txt(fld(x, "Name")))) }
+        }
+        if mb.nm == "IdentExpr" && isSingle(unq(txt(fld(mb, "Name")))) {
+            if unq(txt(fld(x, "Name"))) == "instance" { return unq(txt(fld(mb, "Name"))) }
+            return fieldType(unq(txt(fld(mb, "Name"))), unq(txt(fld(x, "Name"))))
+        }
+        if mb.nm == "IdentExpr" && isEnumType(unq(txt(fld(mb, "Name")))) {
+            String en1 = unq(txt(fld(mb, "Name")))
+            if isDataEnum(en1) { if unq(txt(fld(x, "Name"))) != "instance" { return en1 } }
+            return en1
+        }
+        String bt = exprType(mb, sc)
+        String f = unq(txt(fld(x, "Name")))
+        if isClass(bt) || isStruct(bt) { return fieldType(fieldOwner(bt, f), f) }
+        if isDataEnum(bt) { return fieldType(bt, f) }
+        if isSingle(bt) { return fieldType(bt, f) }
+        if isProtoType(bt) { return "Int" }
+        return "Int"
+    }
     if x.nm == "Unary" {
         String op = unq(txt(fld(x, "Op")))
         if op == "!" { return "Bool" }
@@ -531,6 +650,20 @@ static String exprType(N x, SC sc) {
             if mn == "isOk" || mn == "isErr" { return "Bool" }
             if mn == "value" || mn == "unwrapOr" { return resultVal(mt) }
             if mn == "error" { return resultErr(mt) }
+            if mx.nm == "IdentExpr" && isFactory(unq(txt(fld(mx, "Name")))) { return factoryMethodRet(unq(txt(fld(mx, "Name"))), mn) }
+            if mx.nm == "Member" && fld(mx, "X").nm == "IdentExpr" {
+                String si3 = unq(txt(fld(fld(mx, "X"), "Name")))
+                if isSingle(si3) && unq(txt(fld(mx, "Name"))) == "instance" { return methodRet(si3, mn) }
+            }
+            if isDataEnum(mt) { return methodRet(mt, mn) }
+            if isClass(mt) && isExtMethod(mt, mn) {
+                Int ei = 0
+                while ei < EXT_TARGET.length() {
+                    if EXT_TARGET.get(ei) == mt && EXT_NAME.get(ei) == mn { return "String" }
+                    ei = ei + 1
+                }
+            }
+            if isSingle(mt) { return methodRet(mt, mn) }
             if isProtoType(mt) { return protoRet(mt, mn) }
             if isClass(mt) || isStruct(mt) {
                 String mow = methodOwner(mt, mn)
@@ -547,9 +680,22 @@ static String exprType(N x, SC sc) {
         return "Int"
     }
     if x.nm == "Member" {
-        String bt = exprType(fld(x, "X"), sc)
+        N mb = fld(x, "X")
+        if mb.nm == "Member" && fld(mb, "X").nm == "IdentExpr" {
+            String si1 = unq(txt(fld(fld(mb, "X"), "Name")))
+            if isSingle(si1) && unq(txt(fld(mb, "Name"))) == "instance" { return "xn_single_" + si1 + "->" + unq(txt(fld(x, "Name"))) }
+        }
+        if mb.nm == "IdentExpr" && isSingle(unq(txt(fld(mb, "Name")))) && unq(txt(fld(x, "Name"))) == "instance" {
+            return "xn_single_" + unq(txt(fld(mb, "Name")))
+        }
+        if mb.nm == "IdentExpr" && isEnumType(unq(txt(fld(mb, "Name")))) {
+            String en0 = unq(txt(fld(mb, "Name")))
+            if isDataEnum(en0) { return "xn_enum_" + en0 + "_" + unq(txt(fld(x, "Name"))) }
+            return str(enumIndex(en0, unq(txt(fld(x, "Name")))))
+        }
+        String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
-        if isClass(bt) || isStruct(bt) { return fieldType(fieldOwner(bt, f), f) }
+        if isClass(bt) || isStruct(bt) || isSingle(bt) { return fieldType((isSingle(bt) ? bt : fieldOwner(bt, f)), f) }
         return "Int"
     }
     if x.nm == "Index" {
@@ -586,11 +732,22 @@ static String strHelper(N a, EM e, SC sc) {
     return "xn_str_int(" + v + ")"
 }
 
+static void rootStr(EM e, SC sc, String t) {
+    e.raw("xn_root_add(" + t + ");")
+    if sc.doubleRoot { e.raw("xn_root_add(" + t + ");") }
+}
+
+static String argExpr(N a, EM e, SC sc) {
+    if exprType(a, sc) == "String" { return emitStr(a, e, sc) }
+    return expr(a, e, sc)
+}
+
 static String expr(N x, EM e, SC sc) {
     if x.nm == "IntLitExpr" { return unq(txt(fld(x, "Text"))) }
     if x.nm == "BoolLit" { if txt(fld(x, "V")) == "true" { return "1" }; return "0" }
     if x.nm == "CharLitExpr" { return txt(fld(x, "Rune")) }
     if x.nm == "FloatLitExpr" { return unq(txt(fld(x, "Text"))) }
+    if x.nm == "Paren" { return expr(fld(x, "X"), e, sc) }
     if x.nm == "IdentExpr" {
         String idn = unq(txt(fld(x, "Name")))
         if idn == "self" { return sc.selfName }
@@ -611,9 +768,22 @@ static String expr(N x, EM e, SC sc) {
         return "(" + expr(fld(x, "L"), e, sc) + " " + op + " " + expr(fld(x, "R"), e, sc) + ")"
     }
     if x.nm == "Member" {
-        String bt = exprType(fld(x, "X"), sc)
+        N mb = fld(x, "X")
+        if mb.nm == "Member" && fld(mb, "X").nm == "IdentExpr" {
+            String si1 = unq(txt(fld(fld(mb, "X"), "Name")))
+            if isSingle(si1) && unq(txt(fld(mb, "Name"))) == "instance" { return "xn_single_" + si1 + "->" + unq(txt(fld(x, "Name"))) }
+        }
+        if mb.nm == "IdentExpr" && isSingle(unq(txt(fld(mb, "Name")))) && unq(txt(fld(x, "Name"))) == "instance" {
+            return "xn_single_" + unq(txt(fld(mb, "Name")))
+        }
+        if mb.nm == "IdentExpr" && isEnumType(unq(txt(fld(mb, "Name")))) {
+            String en0 = unq(txt(fld(mb, "Name")))
+            if isDataEnum(en0) { return "xn_enum_" + en0 + "_" + unq(txt(fld(x, "Name"))) }
+            return str(enumIndex(en0, unq(txt(fld(x, "Name")))))
+        }
+        String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
-        if isClass(bt) { return expr(fld(x, "X"), e, sc) + "->" + f }
+        if isClass(bt) || isSingle(bt) || isDataEnum(bt) { return expr(fld(x, "X"), e, sc) + "->" + f }
         if isStruct(bt) {
             String bx = expr(fld(x, "X"), e, sc)
             if bx == "self" && sc.selfPtr { return "self->" + f }
@@ -637,6 +807,22 @@ static String expr(N x, EM e, SC sc) {
             N mx = fld(callee, "X")
             String mn = unq(txt(fld(callee, "Name")))
             N args = fld(x, "Args")
+            if mx.nm == "IdentExpr" && isFactory(unq(txt(fld(mx, "Name")))) {
+                String facn = unq(txt(fld(mx, "Name")))
+                String callf = "xn_Factory_" + facn + "_" + mn + "("
+                Int af = 0
+                while af < args.el.length() { if af > 0 { callf = callf + ", " }; callf = callf + argExpr(args.el.get(af), e, sc); af = af + 1 }
+                return callf + ")"
+            }
+            if mx.nm == "Member" && fld(mx, "X").nm == "IdentExpr" {
+                String si2 = unq(txt(fld(fld(mx, "X"), "Name")))
+                if isSingle(si2) && unq(txt(fld(mx, "Name"))) == "instance" {
+                    String call0 = "xn_Single_" + si2 + "_" + mn + "(xn_single_" + si2
+                    Int ai0 = 0
+                    while ai0 < args.el.length() { call0 = call0 + ", " + expr(args.el.get(ai0), e, sc); ai0 = ai0 + 1 }
+                    return call0 + ")"
+                }
+            }
             if mx.nm == "IdentExpr" && unq(txt(fld(mx, "Name"))) == "super" {
                 String bcn2 = baseOf(sc.curClass)
                 String bb2 = "xn_Cls_" + bcn2 + "_" + mn + "(((" + cType(bcn2) + ")" + sc.selfName + ")"
@@ -645,11 +831,25 @@ static String expr(N x, EM e, SC sc) {
                 return bb2 + ")"
             }
             String cbt = exprType(mx, sc)
+            if isSingle(cbt) {
+                String b0 = "xn_single_" + cbt
+                String call = "xn_Single_" + cbt + "_" + mn + "(" + b0
+                Int ai = 0
+                while ai < args.el.length() { call = call + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                return call + ")"
+            }
             if isProtoType(cbt) {
                 String b0 = expr(mx, e, sc)
                 Int slot = protoSlot(cbt, mn)
                 String rc = cType(protoRet(cbt, mn))
                 return "((" + rc + " (*)(void *))((xn_vt_obj *)(" + b0 + "))->__vtable[" + str(slot) + "])(" + b0 + ")"
+            }
+            if isDataEnum(cbt) {
+                String b0 = expr(mx, e, sc)
+                String call = "xn_Enum_" + cbt + "_" + mn + "(" + b0
+                Int ai = 0
+                while ai < args.el.length() { call = call + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                return call + ")"
             }
             if isClass(cbt) || isStruct(cbt) {
                 String b0 = expr(mx, e, sc)
@@ -657,7 +857,9 @@ static String expr(N x, EM e, SC sc) {
                 if owner == "" { owner = cbt }
                 if isStruct(cbt) { b0 = "(&" + b0 + ")" }
                 else if owner != cbt { b0 = "(xn_Cls_" + owner + " *)" + b0 }
-                String call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0
+                String call = ""
+                if isClass(cbt) && isExtMethod(cbt, mn) { call = extCName(cbt, mn) + "(" + b0 }
+                else { call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0 }
                 Int ai = 0
                 while ai < args.el.length() {
                     call = call + ", " + expr(args.el.get(ai), e, sc)
@@ -741,7 +943,7 @@ static String expr(N x, EM e, SC sc) {
         Int i = 0
         while i < args.el.length() {
             if i > 0 { b = b + ", " }
-            b = b + expr(args.el.get(i), e, sc)
+            b = b + argExpr(args.el.get(i), e, sc)
             i = i + 1
         }
         return b + ")"
@@ -761,17 +963,17 @@ static String emitStr(N x, EM e, SC sc) {
             if text != "" {
                 String t = e.nt()
                 e.add("rt_string *" + t + " = rt_string_from_c(" + q(text) + ");")
-                e.raw("xn_root_add(" + t + ");")
-                if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); e.raw("xn_root_add(" + c + ");"); cur = c }
+                rootStr(e, sc, t)
+                if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); rootStr(e, sc, c); cur = c }
             }
             if ex.nm != "" && ex.nm != "nil" {
                 String t = ""
                 if exprType(ex, sc) == "String" { t = emitStr(ex, e, sc) } else {
                     t = e.nt()
                     e.add("rt_string *" + t + " = " + strHelper(ex, e, sc) + ";")
-                    e.raw("xn_root_add(" + t + ");")
+                    rootStr(e, sc, t)
                 }
-                if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); e.raw("xn_root_add(" + c + ");"); cur = c }
+                if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); rootStr(e, sc, c); cur = c }
             }
             i = i + 1
         }
@@ -782,13 +984,13 @@ static String emitStr(N x, EM e, SC sc) {
         String r = emitStr(fld(x, "R"), e, sc)
         String t = e.nt()
         e.add("rt_string *" + t + " = xn_concat(" + l + ", " + r + ");")
-        e.raw("xn_root_add(" + t + ");")
+        rootStr(e, sc, t)
         return t
     }
     if x.nm == "IdentExpr" || x.nm == "Member" {
         String t = e.nt()
         e.add("rt_string *" + t + " = rt_retain(" + expr(x, e, sc) + ");")
-        e.raw("xn_root_add(" + t + ");")
+        rootStr(e, sc, t)
         return t
     }
     if x.nm == "Call" {
@@ -799,27 +1001,44 @@ static String emitStr(N x, EM e, SC sc) {
                 N mx = fld(callee, "X")
                 String t = e.nt()
                 e.add("rt_string *" + t + " = xn_result_error_copy_rt(" + expr(mx, e, sc) + ".err);")
-                e.raw("xn_root_add(" + t + ");")
+                rootStr(e, sc, t)
                 return t
             }
         }
         String t = e.nt()
         e.add("rt_string *" + t + " = " + expr(x, e, sc) + ";")
-        e.raw("xn_root_add(" + t + ");")
+        rootStr(e, sc, t)
         return t
     }
     String t = e.nt()
     e.add("rt_string *" + t + " = rt_string_from_c(" + q("") + ");")
-    e.raw("xn_root_add(" + t + ");")
+    rootStr(e, sc, t)
     return t
 }
 
 static void emitPrint(N arg, EM e, SC sc, Int extraRoots) {
     String ty = exprType(arg, sc)
     if ty == "String" {
+        if arg.nm == "Member" { e.add("xn_print_str(" + expr(arg, e, sc) + ");"); return }
         String t = emitStr(arg, e, sc)
         Int i = 0
         while i < extraRoots { e.add("xn_root_add(" + t + ");"); i = i + 1 }
+        e.add("xn_print_str(" + t + ");")
+        e.add("rt_release(" + t + ");")
+        return
+    }
+    if isEnumType(ty) && !isDataEnum(ty) {
+        String t = e.nt()
+        e.add("rt_string *" + t + " = xn_enum_" + ty + "_name(" + expr(arg, e, sc) + ");")
+        rootStr(e, sc, t)
+        e.add("xn_print_str(" + t + ");")
+        e.add("rt_release(" + t + ");")
+        return
+    }
+    if isDataEnum(ty) {
+        String t = e.nt()
+        e.add("rt_string *" + t + " = xn_enum_" + ty + "_name(" + expr(arg, e, sc) + ");")
+        rootStr(e, sc, t)
         e.add("xn_print_str(" + t + ");")
         e.add("rt_release(" + t + ");")
         return
@@ -951,7 +1170,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             N elems = fld(init, "Elems")
             String t = e.nt()
             e.add("xn_arr_i *" + t + " = xn_arr_i_new(" + str(elems.el.length()) + ");")
-            e.raw("xn_root_add(" + t + ");")
+            rootStr(e, sc, t)
             Int i = 0
             while i < elems.el.length() { e.raw("xn_arr_i_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
             e.add("xn_arr_i * " + nm + " = " + t + ";")
@@ -1046,7 +1265,10 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 }
                 return
             }
-            e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+            e.add("xn_Cls_" + ty + " * " + nm + " = " + expr(init, e, sc) + ";")
+            e.raw("xn_root_add(" + nm + ");")
+            if hasRefFieldsDeep(ty) { e.raw("xn_root_add(" + nm + ");"); e.raw("xn_gc_safepoint();") }
+            if hasDeinitDeep(ty) || hasProto(ty) { sc.releases.push("rt_release(" + nm + ");") }
             return
         }
         if isStruct(ty) {
@@ -1087,7 +1309,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         if tgt.nm == "Member" && exprType(tgt, sc) == "String" && op == "=" {
             String t = e.nt()
             e.add("rt_string *" + t + " = rt_retain(" + v + ");")
-            e.raw("xn_root_add(" + t + ");")
+            rootStr(e, sc, t)
             e.add("rt_release(" + nm + ");")
             e.add(nm + " = " + t + ";")
             return
@@ -1180,9 +1402,30 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             }
             return
         }
+        if v.nm == "New" {
+            String ccls = typeKey(fld(v, "Type"))
+            N nargs = fld(v, "Args")
+            String b = "xn_Cls_" + ccls + "_new("
+            Int ai = 0
+            while ai < nargs.el.length() {
+                if ai > 0 { b = b + ", " }
+                if exprType(nargs.el.get(ai), sc) == "String" {
+                    String stx = emitStr(nargs.el.get(ai), e, sc)
+                    e.add("xn_root_add(" + stx + ");")
+                    b = b + stx
+                } else { b = b + expr(nargs.el.get(ai), e, sc) }
+                ai = ai + 1
+            }
+            String nt0 = e.nt()
+            e.add("xn_Cls_" + ccls + " *" + nt0 + " = " + b + ");")
+            e.add("xn_root_add(" + nt0 + ");")
+            e.add("xn_root_add(" + nt0 + ");")
+            sc.ret = nt0
+            return
+        }
         if exprType(v, sc) == "String" {
             String t = emitStr(v, e, sc)
-            e.add("xn_root_add(" + t + ");")
+            if !sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
             sc.ret = t
             return
         }
@@ -1372,10 +1615,12 @@ static void emitFunc(N fn, EM e, SC sc) {
     if fname == "main" { rk = "Int" }
     sc.retKind = rk
     sc.params = []
+    sc.paramTypes = []
     N ps = fld(fn, "Params")
     Int pi = 0
     while pi < ps.el.length() {
         sc.params.push(unq(txt(fld(ps.el.get(pi), "Name"))))
+        sc.paramTypes.push(typeKey(fld(ps.el.get(pi), "Type")))
         pi = pi + 1
     }
     sc.defers = []
@@ -1597,6 +1842,7 @@ static void emitClassSection(N cls, EM ce) {
         String ft = typeKey(fld(fs.el.get(i), "Type"))
         String fn = unq(txt(fld(fs.el.get(i), "Name")))
         N init = fld(fs.el.get(i), "Init")
+        if init.nm == "" || init.nm == "nil" { i = i + 1; continue }
         if ft == "String" {
             String text = ""
             if init.nm == "StrLitExpr" {
@@ -1636,8 +1882,13 @@ static void emitClassSection(N cls, EM ce) {
     csc.def("self", cn)
     csc.retKind = "Int"
     csc.params = []
+    csc.paramTypes = []
     Int cpj = 0
-    while cpj < cps.el.length() { csc.params.push(unq(txt(fld(cps.el.get(cpj), "Name")))); cpj = cpj + 1 }
+    while cpj < cps.el.length() {
+        csc.params.push(unq(txt(fld(cps.el.get(cpj), "Name"))))
+        csc.paramTypes.push(typeKey(fld(cps.el.get(cpj), "Type")))
+        cpj = cpj + 1
+    }
     if hasCtor {
         if ctor.nm == "CtorDecl" { emitBlock(fld(ctor, "Body"), ce, csc, 0, false) }
         ce.add("    {")
@@ -1684,8 +1935,13 @@ static void emitClassSection(N cls, EM ce) {
         msc.def("self", cn)
         msc.retKind = rt
         msc.params = []
+        msc.paramTypes = []
         mj = 0
-        while mj < mps.el.length() { msc.params.push(unq(txt(fld(mps.el.get(mj), "Name")))); mj = mj + 1 }
+        while mj < mps.el.length() {
+            msc.params.push(unq(txt(fld(mps.el.get(mj), "Name"))))
+            msc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
+            mj = mj + 1
+        }
         String mr = ce.nt()
         ce.add("size_t " + mr + " = xn_root_mark();")
         if ref { ce.raw("xn_root_add(self);") }
@@ -1781,8 +2037,13 @@ static void emitStructMethods(N st, EM ce) {
         msc.def("self", sn)
         msc.retKind = rt
         msc.params = []
+        msc.paramTypes = []
         mj = 0
-        while mj < mps.el.length() { msc.params.push(unq(txt(fld(mps.el.get(mj), "Name")))); mj = mj + 1 }
+        while mj < mps.el.length() {
+            msc.params.push(unq(txt(fld(mps.el.get(mj), "Name"))))
+            msc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
+            mj = mj + 1
+        }
         String mr = ce.nt()
         ce.add("size_t " + mr + " = xn_root_mark();")
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
@@ -1806,6 +2067,367 @@ static String protoTypedefs() {
         Int j = 0
         while j < i { if PROTO_OWNER.get(j) == pn { seen = true }; j = j + 1 }
         if !seen { b = b + "typedef void *xn_proto_" + pn + ";\n" }
+        i = i + 1
+    }
+    return b
+}
+
+static void emitExtensionMethods(N ext, EM ce) {
+    N ems = fld(ext, "Methods")
+    Int i = 0
+    String et = typeKey(fld(ext, "Target"))
+    while i < ems.el.length() {
+        N m = ems.el.get(i)
+        String mn = unq(txt(fld(m, "Name")))
+        String rt = typeKey(fld(m, "Ret"))
+        String cn = "xn_Cls_" + et + "_ext_" + mn + "_" + str(i + 1)
+        ce.add("static " + cType(rt) + " " + cn + "(xn_Cls_" + et + " *self) {")
+        SC msc = new SC()
+        msc.selfName = "self"
+        msc.curClass = et
+        msc.doubleRoot = true
+        msc.def("self", et)
+        msc.retKind = rt
+        String mr = ce.nt()
+        ce.add("size_t " + mr + " = xn_root_mark();")
+        ce.raw("xn_root_add(self);")
+        emitBlock(fld(m, "Body"), ce, msc, 0, false)
+        ce.add("    {")
+        ce.addAt(0, "xn_root_restore(" + mr + ");")
+        ce.add("    }")
+        ce.raw("")
+        ce.add("return " + msc.ret + ";")
+        ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+        ce.add("}")
+        ce.raw("")
+        i = i + 1
+    }
+}
+
+static void emitFactoryMethods(N fac, EM ce) {
+    String fn = unq(txt(fld(fac, "Name")))
+    N ms = fld(fac, "Methods")
+    Int i = 0
+    while i < ms.el.length() {
+        N m = ms.el.get(i)
+        String mn = unq(txt(fld(m, "Name")))
+        String rt = typeKey(fld(m, "Ret"))
+        N mps = fld(m, "Params")
+        String sig = "xn_Factory_" + fn + "_" + mn + "("
+        Int mj = 0
+        while mj < mps.el.length() {
+            if mj > 0 { sig = sig + ", " }
+            sig = sig + paramDecl(cType(typeKey(fld(mps.el.get(mj), "Type"))), "xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))))
+            mj = mj + 1
+        }
+        sig = sig + ")"
+        ce.add(cType(rt) + " " + sig + " {")
+        SC fsc = new SC()
+        fsc.retKind = rt
+        fsc.params = []
+        fsc.paramTypes = []
+        mj = 0
+        while mj < mps.el.length() {
+            fsc.params.push(unq(txt(fld(mps.el.get(mj), "Name"))))
+            fsc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
+            mj = mj + 1
+        }
+        String r = ce.nt()
+        ce.add("size_t " + r + " = xn_root_mark();")
+        mj = 0
+        while mj < mps.el.length() {
+            String pt = typeKey(fld(mps.el.get(mj), "Type"))
+            if cType(pt).length() > 0 && cType(pt).substring(cType(pt).length() - 1, 1) == "*" { ce.raw("xn_root_add(xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))) + ");") }
+            mj = mj + 1
+        }
+        emitBlock(fld(m, "Body"), ce, fsc, 0, false)
+        ce.add("    {")
+        ce.addAt(0, "xn_root_restore(" + r + ");")
+        ce.add("    }")
+        ce.raw("")
+        ce.add("return " + fsc.ret + ";")
+        ce.add("}")
+        ce.raw("")
+        i = i + 1
+    }
+}
+
+
+static void emitDataEnum(N de, EM e) {
+    String en = unq(txt(fld(de, "Name")))
+    N fs = fld(de, "Fields")
+    N its = fld(de, "Items")
+    N ctor = ctorOf(de)
+    Bool ref = false
+    Int i = 0
+    while i < fs.el.length() { if typeKey(fld(fs.el.get(i), "Type")) == "String" { ref = true }; i = i + 1 }
+    e.add("/* 类 " + en + "（M4.4b） */")
+    e.add("typedef struct xn_Enum_" + en + " {")
+    e.add("    rt_header hdr;")
+    i = 0
+    while i < fs.el.length() {
+        e.add("    " + cType(typeKey(fld(fs.el.get(i), "Type"))) + " " + unq(txt(fld(fs.el.get(i), "Name"))) + ";")
+        i = i + 1
+    }
+    e.add("} xn_Enum_" + en + ";")
+    e.raw("")
+    e.add("static void xn_Enum_" + en + "_deinit_hook(void *p) {")
+    e.add("    xn_Enum_" + en + " *o = (xn_Enum_" + en + " *)p;")
+    i = 0
+    while i < fs.el.length() { if typeKey(fld(fs.el.get(i), "Type")) == "String" { e.add("    rt_release(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ");") }; i = i + 1 }
+    e.add("}")
+    e.raw("")
+    if ref {
+        e.add("static void xn_Enum_" + en + "_gc_scan(void *p, void (*visit)(void *)) {")
+        e.add("    xn_Enum_" + en + " *o = (xn_Enum_" + en + " *)p;")
+        i = 0
+        while i < fs.el.length() { if typeKey(fld(fs.el.get(i), "Type")) == "String" { e.add("    if (o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ") { visit(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + "); }") }; i = i + 1 }
+        e.add("}")
+        e.raw("")
+    }
+    e.add("static const rt_type RT_TYPE_XN_ENUM_" + en + " = { \"" + en + "\", sizeof(xn_Enum_" + en + "), xn_Enum_" + en + "_deinit_hook, " + (ref ? "xn_Enum_" + en + "_gc_scan" : "NULL") + " };")
+    e.raw("")
+    e.add("static void xn_Enum_" + en + "_new_init(xn_Enum_" + en + " *o" + (ctorParams(de) == "" ? "" : ", " + ctorParams(de)) + ") {")
+    String rt = e.nt()
+    e.add("size_t " + rt + " = xn_root_mark();")
+    e.raw("xn_root_add(o);")
+    SC csc = new SC()
+    csc.selfName = "o"
+    csc.def("self", en)
+    csc.params = []
+    csc.paramTypes = []
+    N cps0 = fld(ctor, "Params")
+    Int cp0 = 0
+    while cp0 < cps0.el.length() {
+        csc.params.push(unq(txt(fld(cps0.el.get(cp0), "Name"))))
+        csc.paramTypes.push(typeKey(fld(cps0.el.get(cp0), "Type")))
+        cp0 = cp0 + 1
+    }
+    String pa = ctorArgs(de)
+    if ctor.nm == "CtorDecl" { emitBlock(fld(ctor, "Body"), e, csc, 0, false) }
+    e.add("    {")
+    e.addAt(4, "xn_root_restore(" + rt + ");")
+    e.add("    }")
+    e.add("}")
+    e.raw("")
+    e.add("static xn_Enum_" + en + " *xn_Enum_" + en + "_new(" + ctorParams(de) + ") {")
+    e.add("    xn_Enum_" + en + " *o = (xn_Enum_" + en + " *)xn_gc_new(&RT_TYPE_XN_ENUM_" + en + ");")
+    e.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Enum_" + en + ") - sizeof(rt_header));")
+    if pa == "" { e.add("    xn_Enum_" + en + "_new_init(o);") } else { e.add("    xn_Enum_" + en + "_new_init(o, " + pa + ");") }
+    e.add("    return o;")
+    e.add("}")
+    e.raw("")
+    i = 0
+    while i < its.el.length() {
+        e.add("static xn_Enum_" + en + " * xn_enum_" + en + "_" + unq(txt(fld(its.el.get(i), "Name"))) + ";")
+        i = i + 1
+    }
+    e.add("static rt_string *xn_enum_" + en + "_name(xn_Enum_" + en + " * v) {")
+    i = 0
+    while i < its.el.length() {
+        e.add("    if (v == xn_enum_" + en + "_" + unq(txt(fld(its.el.get(i), "Name"))) + ") { return rt_string_from_c(\"" + unq(txt(fld(its.el.get(i), "Name"))) + "\"); }")
+        i = i + 1
+    }
+    e.add("    return rt_string_from_c(\"null\");")
+    e.add("}")
+    e.raw("")
+}
+
+static void emitDataEnumMethods(N de, EM e) {
+    String en = unq(txt(fld(de, "Name")))
+    N ms = fld(de, "Methods")
+    Int i = 0
+    while i < ms.el.length() {
+        N m = ms.el.get(i)
+        String mn = unq(txt(fld(m, "Name")))
+        String rt = typeKey(fld(m, "Ret"))
+        e.add("static " + cType(rt) + " xn_Enum_" + en + "_" + mn + "(xn_Enum_" + en + " *self);")
+        e.raw("")
+        e.add("static " + cType(rt) + " xn_Enum_" + en + "_" + mn + "(xn_Enum_" + en + " *self) {")
+        SC msc = new SC()
+        msc.selfName = "self"
+        msc.curClass = en
+        msc.def("self", en)
+        msc.retKind = rt
+        String r = e.nt()
+        e.add("size_t " + r + " = xn_root_mark();")
+        e.raw("xn_root_add(self);")
+        emitBlock(fld(m, "Body"), e, msc, 0, false)
+        e.add("    {")
+        e.addAt(0, "xn_root_restore(" + r + ");")
+        e.add("    }")
+        e.raw("")
+        e.add("return " + msc.ret + ";")
+        e.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+        e.add("}")
+        e.raw("")
+        i = i + 1
+    }
+}
+
+static String dataEnumInit() {
+    String b = ""
+    Int i = 0
+    while i < DATA_ENUM_DECLS.length() {
+        N de = DATA_ENUM_DECLS.get(i)
+        String en = unq(txt(fld(de, "Name")))
+        N its = fld(de, "Items")
+        String pa = ctorArgs(de)
+        Int j = 0
+        while j < its.el.length() {
+            String item = unq(txt(fld(its.el.get(j), "Name")))
+            String args = ""
+            N ia = fld(its.el.get(j), "Args")
+            Int k = 0
+            while k < ia.el.length() { if k > 0 { args = args + ", " }; args = args + expr(ia.el.get(k), new EM(), new SC()); k = k + 1 }
+            b = b + "    xn_enum_" + en + "_" + item + " = xn_Enum_" + en + "_new(" + args + ");\n"
+            b = b + "    xn_root_hold(xn_enum_" + en + "_" + item + ");\n"
+            j = j + 1
+        }
+        i = i + 1
+    }
+    return b
+}
+
+static void emitSingletonSection(N sg, EM ce) {
+    String sn = unq(txt(fld(sg, "Name")))
+    N fs = fld(sg, "Fields")
+    N ms = fld(sg, "Methods")
+    Bool ref = hasRefFields(sn)
+    ce.add("/* 类 " + sn + "（M4.4b） */")
+    ce.add("typedef struct xn_Single_" + sn + " {")
+    ce.add("    rt_header hdr;")
+    Int i = 0
+    while i < fs.el.length() {
+        String ft = typeKey(fld(fs.el.get(i), "Type"))
+        ce.add("    " + cType(ft) + " " + unq(txt(fld(fs.el.get(i), "Name"))) + ";")
+        i = i + 1
+    }
+    ce.add("} xn_Single_" + sn + ";")
+    ce.raw("")
+    ce.add("static void xn_Single_" + sn + "_deinit_hook(void *p) {")
+    ce.add("    xn_Single_" + sn + " *o = (xn_Single_" + sn + " *)p;")
+    i = 0
+    while i < fs.el.length() {
+        if typeKey(fld(fs.el.get(i), "Type")) == "String" { ce.add("    rt_release(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ");") }
+        i = i + 1
+    }
+    ce.add("}")
+    ce.raw("")
+    if ref {
+        ce.add("static void xn_Single_" + sn + "_gc_scan(void *p, void (*visit)(void *)) {")
+        ce.add("    xn_Single_" + sn + " *o = (xn_Single_" + sn + " *)p;")
+        i = 0
+        while i < fs.el.length() {
+            if typeKey(fld(fs.el.get(i), "Type")) == "String" { ce.add("    if (o->" + unq(txt(fld(fs.el.get(i), "Name"))) + ") { visit(o->" + unq(txt(fld(fs.el.get(i), "Name"))) + "); }") }
+            i = i + 1
+        }
+        ce.add("}")
+        ce.raw("")
+    }
+    ce.add("static const rt_type RT_TYPE_XN_SINGLE_" + sn + " = { \"" + sn + "\", sizeof(xn_Single_" + sn + "), xn_Single_" + sn + "_deinit_hook, " + (ref ? "xn_Single_" + sn + "_gc_scan" : "NULL") + " };")
+    ce.raw("")
+    // methods
+    i = 0
+    while i < ms.el.length() {
+        N m = ms.el.get(i)
+        String mn = unq(txt(fld(m, "Name")))
+        String rt = typeKey(fld(m, "Ret"))
+        N mps = fld(m, "Params")
+        String sig = "xn_Single_" + sn + "_" + mn + "(xn_Single_" + sn + " *self"
+        Int mj = 0
+        while mj < mps.el.length() {
+            sig = sig + ", " + decl(cType(typeKey(fld(mps.el.get(mj), "Type"))), "xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))))
+            mj = mj + 1
+        }
+        sig = sig + ")"
+        ce.add("static " + cType(rt) + " " + sig + " {")
+        SC msc = new SC()
+        msc.selfName = "self"
+        msc.def("self", sn)
+        msc.retKind = rt
+        String mr = ce.nt()
+        ce.add("size_t " + mr + " = xn_root_mark();")
+        if ref { ce.raw("xn_root_add(self);") }
+        emitBlock(fld(m, "Body"), ce, msc, 0, false)
+        ce.add("    {")
+        ce.addAt(0, "xn_root_restore(" + mr + ");")
+        ce.add("    }")
+        ce.raw("")
+        ce.add("return " + msc.ret + ";")
+        ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */")
+        ce.add("}")
+        ce.raw("")
+        i = i + 1
+    }
+    // init
+    ce.add("static void xn_Single_" + sn + "_init(void) {")
+    ce.add("    xn_Single_" + sn + " *o = (xn_Single_" + sn + " *)xn_gc_new(&RT_TYPE_XN_SINGLE_" + sn + ");")
+    ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Single_" + sn + ") - sizeof(rt_header));")
+    i = 0
+    while i < fs.el.length() {
+        String ft = typeKey(fld(fs.el.get(i), "Type"))
+        String fn = unq(txt(fld(fs.el.get(i), "Name")))
+        N init = fld(fs.el.get(i), "Init")
+        if init.nm == "" || init.nm == "nil" { i = i + 1; continue }
+        if ft == "String" {
+            String text = ""
+            if init.nm == "StrLitExpr" {
+                N parts = fld(init, "Parts")
+                if parts.el.length() > 0 { text = unq(txt(fld(parts.el.get(0), "Text"))) }
+            }
+            String t = ce.nt()
+            ce.add("    rt_string *" + t + " = rt_string_from_c(" + q(text) + ");")
+            ce.add("    o->" + fn + " = " + t + ";")
+        } else {
+            String dv = "0"
+            if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
+            ce.add("    o->" + fn + " = " + dv + ";")
+        }
+        i = i + 1
+    }
+    ce.add("    xn_single_" + sn + " = o;")
+    ce.add("    xn_root_hold(xn_single_" + sn + ");")
+    ce.add("}")
+    ce.raw("")
+}
+
+static N dataEnumDecl(String en) {
+    Int i = 0
+    while i < DATA_ENUM_DECLS.length() {
+        if unq(txt(fld(DATA_ENUM_DECLS.get(i), "Name"))) == en { return DATA_ENUM_DECLS.get(i) }
+        i = i + 1
+    }
+    return new N()
+}
+static String enumTypedefs() {
+    String b = ""
+    Int i = 0
+    while i < ENUM_NAMES.length() {
+        String en = ENUM_NAMES.get(i)
+        if !isDataEnum(en) { b = b + "typedef int64_t xn_Enum_" + en + ";\n" }
+        i = i + 1
+    }
+    return b
+}
+static String enumNameDefs() {
+    String b = ""
+    Int i = 0
+    while i < ENUM_NAMES.length() {
+        String en = ENUM_NAMES.get(i)
+        if !isDataEnum(en) {
+            b = b + "static rt_string *xn_enum_" + en + "_name(int64_t v) {\n"
+            b = b + "    switch (v) {\n"
+            Int j = 0
+            while j < ENUM_ITEM_OWNER.length() {
+                if ENUM_ITEM_OWNER.get(j) == en {
+                    b = b + "    case " + str(ENUM_ITEM_INDEX.get(j)) + ": return rt_string_from_c(\"" + ENUM_ITEM_NAME.get(j) + "\");\n"
+                }
+                j = j + 1
+            }
+            b = b + "    default: return xn_str_int(v);\n"
+            b = b + "    }\n}\n\n"
+        }
         i = i + 1
     }
     return b
@@ -1854,6 +2476,7 @@ static String emitUnit(N unit, String path) {
     N decls = fld(unit, "Decls")
     CLS_NAMES = []
     CLS_DECLS = []
+    SINGLE_DECLS = []
     PRIMARY_NAMES = []
     STRUCT_NAMES = []
     FLD_OWNER = []
@@ -1907,6 +2530,60 @@ static String emitUnit(N unit, String path) {
                 MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
                 MTH_RET.push(typeKey(fld(ms.el.get(fi), "Ret")))
                 fi = fi + 1
+            }
+        }
+        if d.nm == "ExtensionDecl" {
+            String et = typeKey(fld(d, "Target"))
+            N ems = fld(d, "Methods")
+            Int ei = 0
+            while ei < ems.el.length() {
+                String emn = unq(txt(fld(ems.el.get(ei), "Name")))
+                EXT_TARGET.push(et)
+                EXT_NAME.push(emn)
+                EXT_CNAME.push("xn_Cls_" + et + "_ext_" + emn + "_" + str(ei + 1))
+                ei = ei + 1
+            }
+            EXT_DECLS.push(d)
+        }
+        if d.nm == "FactoryDecl" {
+            String fn = unq(txt(fld(d, "Name")))
+            FACTORY_NAMES.push(fn)
+            FACTORY_TARGET.push(typeKey(fld(d, "Target")))
+            FACTORY_DECLS.push(d)
+        }
+        if d.nm == "SingletonDecl" {
+            String sn = unq(txt(fld(d, "Name")))
+            SINGLE_NAMES.push(sn)
+            SINGLE_DECLS.push(d)
+            N sfs = fld(d, "Fields")
+            Int sfi = 0
+            while sfi < sfs.el.length() {
+                FLD_OWNER.push(sn)
+                FLD_NAME.push(unq(txt(fld(sfs.el.get(sfi), "Name"))))
+                FLD_TYPE.push(typeKey(fld(sfs.el.get(sfi), "Type")))
+                sfi = sfi + 1
+            }
+            N sms = fld(d, "Methods")
+            sfi = 0
+            while sfi < sms.el.length() {
+                MTH_OWNER.push(sn)
+                MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
+                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                sfi = sfi + 1
+            }
+        }
+        if d.nm == "EnumDecl" {
+            String en = unq(txt(fld(d, "Name")))
+            ENUM_NAMES.push(en)
+            N its = fld(d, "Items")
+            Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
+            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            Int ij = 0
+            while ij < its.el.length() {
+                ENUM_ITEM_OWNER.push(en)
+                ENUM_ITEM_NAME.push(unq(txt(fld(its.el.get(ij), "Name"))))
+                ENUM_ITEM_INDEX.push(ij)
+                ij = ij + 1
             }
         }
         if d.nm == "ProtocolDecl" {
@@ -1967,6 +2644,7 @@ static String emitUnit(N unit, String path) {
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
     e.add("    xn_init_enums();")
+    if SINGLE_NAMES.length() > 0 { e.add("    xn_init_singletons();") }
     e.add("    int64_t xn_r = xn_main();")
     e.add("    rt_gc_collect();")
     e.add("    rt_quarantine_flush();")
@@ -1983,6 +2661,39 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = ce.tmp
+        EM xe = new EM()
+        xe.tmp = e.tmp
+        xe.path = e.path
+        Int xi = 0
+        while xi < decls.el.length() {
+            N d = decls.el.get(xi)
+            if d.nm == "ExtensionDecl" { emitExtensionMethods(d, xe) }
+            xi = xi + 1
+        }
+        e.tmp = xe.tmp
+        EM fe = new EM()
+        fe.tmp = e.tmp
+        fe.path = e.path
+        Int fi2 = 0
+        while fi2 < decls.el.length() {
+            N d = decls.el.get(fi2)
+            if d.nm == "ExtensionDecl" {
+            String et = typeKey(fld(d, "Target"))
+            N ems = fld(d, "Methods")
+            Int ei = 0
+            while ei < ems.el.length() {
+                String emn = unq(txt(fld(ems.el.get(ei), "Name")))
+                EXT_TARGET.push(et)
+                EXT_NAME.push(emn)
+                EXT_CNAME.push("xn_Cls_" + et + "_ext_" + emn + "_" + str(ei + 1))
+                ei = ei + 1
+            }
+            EXT_DECLS.push(d)
+        }
+        if d.nm == "FactoryDecl" { emitFactoryMethods(d, fe) }
+            fi2 = fi2 + 1
+        }
+        e.tmp = fe.tmp
         List<String> fw = []
         Int pass = 0
         while pass < 2 {
@@ -2014,9 +2725,90 @@ static String emitUnit(N unit, String path) {
             }
             ci = ci + 1
         }
+        if EXT_TARGET.length() > 0 { fw.push("") }
+        Int exi = 0
+        while exi < decls.el.length() {
+            N d = decls.el.get(exi)
+            if d.nm == "ExtensionDecl" {
+                String et2 = typeKey(fld(d, "Target"))
+                N ems2 = fld(d, "Methods")
+                Int emi = 0
+                while emi < ems2.el.length() {
+                    String emn2 = unq(txt(fld(ems2.el.get(emi), "Name")))
+                    String ert2 = typeKey(fld(ems2.el.get(emi), "Ret"))
+                    fw.push("static " + cType(ert2) + " xn_Cls_" + et2 + "_ext_" + emn2 + "_" + str(emi + 1) + "(xn_Cls_" + et2 + " *self);")
+                    emi = emi + 1
+                }
+            }
+            exi = exi + 1
+        }
         fw.push("")
         fw.push("")
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_PRE_B + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + (FACTORY_NAMES.length() > 0 || EXT_TARGET.length() > 0 ? "\n" : "") + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+    } else if DATA_ENUM_NAMES.length() > 0 {
+        EM de = new EM()
+        de.tmp = e.tmp
+        de.path = e.path
+        Int di = 0
+        while di < DATA_ENUM_DECLS.length() { emitDataEnum(DATA_ENUM_DECLS.get(di), de); di = di + 1 }
+        EM dme = new EM()
+        dme.tmp = de.tmp
+        dme.path = e.path
+        di = 0
+        while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
+        e.tmp = dme.tmp
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
+    } else if SINGLE_NAMES.length() > 0 {
+        List<String> fw = []
+        Int si = 0
+        while si < SINGLE_DECLS.length() {
+            String sn = unq(txt(fld(SINGLE_DECLS.get(si), "Name")))
+            fw.push("typedef struct xn_Single_" + sn + " xn_Single_" + sn + ";")
+            fw.push("static xn_Single_" + sn + " *xn_single_" + sn + ";")
+            N ms0 = fld(SINGLE_DECLS.get(si), "Methods")
+            Int mj0 = 0
+            while mj0 < ms0.el.length() {
+                N m0 = ms0.el.get(mj0)
+                String rt0 = typeKey(fld(m0, "Ret"))
+                String sg0 = "xn_Single_" + sn + "_" + unq(txt(fld(m0, "Name"))) + "(xn_Single_" + sn + " *self)"
+                fw.push("static " + cType(rt0) + " " + sg0 + ";")
+                mj0 = mj0 + 1
+            }
+            si = si + 1
+        }
+        Int exi = 0
+        while exi < decls.el.length() {
+            N d = decls.el.get(exi)
+            if d.nm == "ExtensionDecl" {
+                String et2 = typeKey(fld(d, "Target"))
+                N ems2 = fld(d, "Methods")
+                Int emi = 0
+                while emi < ems2.el.length() {
+                    String emn2 = unq(txt(fld(ems2.el.get(emi), "Name")))
+                    String ert2 = typeKey(fld(ems2.el.get(emi), "Ret"))
+                    fw.push("static " + cType(ert2) + " xn_Cls_" + et2 + "_ext_" + emn2 + "_" + str(emi + 1) + "(xn_Cls_" + et2 + " *self);")
+                    emi = emi + 1
+                }
+            }
+            exi = exi + 1
+        }
+        fw.push("")
+        fw.push("")
+        EM ce = new EM()
+        ce.tmp = e.tmp
+        ce.path = e.path
+        si = 0
+        while si < SINGLE_DECLS.length() { emitSingletonSection(SINGLE_DECLS.get(si), ce); si = si + 1 }
+        e.tmp = ce.tmp
+        String sinit = ""
+        si = 0
+        while si < SINGLE_DECLS.length() {
+            sinit = sinit + "    xn_Single_" + unq(txt(fld(SINGLE_DECLS.get(si), "Name"))) + "_init();\n"
+            si = si + 1
+        }
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
+    } else if ENUM_NAMES.length() > 0 {
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_TAIL
     } else if STRUCT_NAMES.length() > 0 {
         EM ce = new EM()
         ce.tmp = e.tmp
@@ -2029,7 +2821,61 @@ static String emitUnit(N unit, String path) {
         Int ci = 0
         while ci < decls.el.length() {
             N d = decls.el.get(ci)
-            if d.nm == "ProtocolDecl" {
+            if d.nm == "ExtensionDecl" {
+            String et = typeKey(fld(d, "Target"))
+            N ems = fld(d, "Methods")
+            Int ei = 0
+            while ei < ems.el.length() {
+                String emn = unq(txt(fld(ems.el.get(ei), "Name")))
+                EXT_TARGET.push(et)
+                EXT_NAME.push(emn)
+                EXT_CNAME.push("xn_Cls_" + et + "_ext_" + emn + "_" + str(ei + 1))
+                ei = ei + 1
+            }
+            EXT_DECLS.push(d)
+        }
+        if d.nm == "FactoryDecl" {
+            String fn = unq(txt(fld(d, "Name")))
+            FACTORY_NAMES.push(fn)
+            FACTORY_TARGET.push(typeKey(fld(d, "Target")))
+            FACTORY_DECLS.push(d)
+        }
+        if d.nm == "SingletonDecl" {
+            String sn = unq(txt(fld(d, "Name")))
+            SINGLE_NAMES.push(sn)
+            SINGLE_DECLS.push(d)
+            N sfs = fld(d, "Fields")
+            Int sfi = 0
+            while sfi < sfs.el.length() {
+                FLD_OWNER.push(sn)
+                FLD_NAME.push(unq(txt(fld(sfs.el.get(sfi), "Name"))))
+                FLD_TYPE.push(typeKey(fld(sfs.el.get(sfi), "Type")))
+                sfi = sfi + 1
+            }
+            N sms = fld(d, "Methods")
+            sfi = 0
+            while sfi < sms.el.length() {
+                MTH_OWNER.push(sn)
+                MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
+                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                sfi = sfi + 1
+            }
+        }
+        if d.nm == "EnumDecl" {
+            String en = unq(txt(fld(d, "Name")))
+            ENUM_NAMES.push(en)
+            N its = fld(d, "Items")
+            Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
+            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            Int ij = 0
+            while ij < its.el.length() {
+                ENUM_ITEM_OWNER.push(en)
+                ENUM_ITEM_NAME.push(unq(txt(fld(its.el.get(ij), "Name"))))
+                ENUM_ITEM_INDEX.push(ij)
+                ij = ij + 1
+            }
+        }
+        if d.nm == "ProtocolDecl" {
             String pn = unq(txt(fld(d, "Name")))
             PROTO_NAMES.push(pn)
             N sigs = fld(d, "Sigs")
@@ -2049,7 +2895,61 @@ static String emitUnit(N unit, String path) {
         ci = 0
         while ci < decls.el.length() {
             N d = decls.el.get(ci)
-            if d.nm == "ProtocolDecl" {
+            if d.nm == "ExtensionDecl" {
+            String et = typeKey(fld(d, "Target"))
+            N ems = fld(d, "Methods")
+            Int ei = 0
+            while ei < ems.el.length() {
+                String emn = unq(txt(fld(ems.el.get(ei), "Name")))
+                EXT_TARGET.push(et)
+                EXT_NAME.push(emn)
+                EXT_CNAME.push("xn_Cls_" + et + "_ext_" + emn + "_" + str(ei + 1))
+                ei = ei + 1
+            }
+            EXT_DECLS.push(d)
+        }
+        if d.nm == "FactoryDecl" {
+            String fn = unq(txt(fld(d, "Name")))
+            FACTORY_NAMES.push(fn)
+            FACTORY_TARGET.push(typeKey(fld(d, "Target")))
+            FACTORY_DECLS.push(d)
+        }
+        if d.nm == "SingletonDecl" {
+            String sn = unq(txt(fld(d, "Name")))
+            SINGLE_NAMES.push(sn)
+            SINGLE_DECLS.push(d)
+            N sfs = fld(d, "Fields")
+            Int sfi = 0
+            while sfi < sfs.el.length() {
+                FLD_OWNER.push(sn)
+                FLD_NAME.push(unq(txt(fld(sfs.el.get(sfi), "Name"))))
+                FLD_TYPE.push(typeKey(fld(sfs.el.get(sfi), "Type")))
+                sfi = sfi + 1
+            }
+            N sms = fld(d, "Methods")
+            sfi = 0
+            while sfi < sms.el.length() {
+                MTH_OWNER.push(sn)
+                MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
+                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                sfi = sfi + 1
+            }
+        }
+        if d.nm == "EnumDecl" {
+            String en = unq(txt(fld(d, "Name")))
+            ENUM_NAMES.push(en)
+            N its = fld(d, "Items")
+            Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
+            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            Int ij = 0
+            while ij < its.el.length() {
+                ENUM_ITEM_OWNER.push(en)
+                ENUM_ITEM_NAME.push(unq(txt(fld(its.el.get(ij), "Name"))))
+                ENUM_ITEM_INDEX.push(ij)
+                ij = ij + 1
+            }
+        }
+        if d.nm == "ProtocolDecl" {
             String pn = unq(txt(fld(d, "Name")))
             PROTO_NAMES.push(pn)
             N sigs = fld(d, "Sigs")
@@ -2064,7 +2964,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_PRE_B + joinLines(ee.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
     } else if e.usesList || e.hasMap || e.hasSet {
         if e.hasMap {
             if e.hasGetOr { res = PRELUDE_CONT } else { res = PRELUDE_MAPSET }
