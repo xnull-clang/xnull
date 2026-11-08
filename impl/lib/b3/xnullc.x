@@ -785,6 +785,7 @@ class SC {
     Bool doubleRoot = false
     Int loopDepth = 0
     Bool staticMeth = false
+    Int loopIndent = 0
     String retKind = "Int"
     Bool directRet = false
     String deferredRet = ""
@@ -2215,8 +2216,8 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                             sc.doubleRoot = true
                             String mt = emitStr(ecs.el.get(0), e, sc)
                             sc.doubleRoot = odr
+                            if sc.loopDepth > 0 && !sc.doubleRoot && !sc.staticMeth { e.addAt(sc.loopIndent, "xn_root_add(" + mt + ");") }
                             e.add("xn_root_add(" + mt + ");")
-                            if sc.loopDepth > 0 && !sc.doubleRoot && !sc.staticMeth { e.add("xn_root_add(" + mt + ");") }
                             ev = "xn_" + unq(txt(fld(ec, "Name"))) + "(" + mt + ")"
                         } else {
                             ev = expr(ea, e, sc)
@@ -2411,9 +2412,12 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
         sc.blockRoots.push(r)
         sc.loopDepth = sc.loopDepth + 1
+        Int oldLI = sc.loopIndent
+        sc.loopIndent = e.ind + 4
         e.terminated = false
         emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
         sc.loopDepth = sc.loopDepth - 1
+        sc.loopIndent = oldLI
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
         e.addAt(e.ind + 8, "{")
         e.addAt(e.ind + 8, "xn_root_restore(" + r + ");")
