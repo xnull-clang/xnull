@@ -142,7 +142,7 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	}
 	sema.RegisterExternalTypes("Process")
 	// S6-09：net Async/HTTP 内建（Context 首参）。
-	if regHasHandle(reg, "Socket") && regHasHandle(reg, "Listener") {
+	if regHasHandle(reg, "Socket") {
 		if err := InjectNet609(u); err != nil {
 			fmt.Fprintf(stderr, "xnull: %v\n", err)
 			return 1

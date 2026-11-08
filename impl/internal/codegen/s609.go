@@ -2,8 +2,7 @@
 //
 // `.xfb` 无法表达 Context（S7 §3.6），因此 *Async 入口在 codegen 合成：
 //   - 注入 XNull 声明（sema 名称/类型检查）；
-//   - 调用点降到 E5 原语 xdkc_net_* / xdkc_http_*，先做 Context 取消检查，
-//     取消返回 Err(Cancelled)，不发起阻塞调用；
+//   - 调用点直接降到 E5 运行时原语 xdkc_socket_*_async / xdkc_http_request_async；
 //   - 结果构造 Result<T, ErrorKind>，复用 .xfb 的 errorMap 映射函数。
 package codegen
 
@@ -17,26 +16,16 @@ type net609Kind int
 
 const (
 	k609Connect net609Kind = iota
-	k609Listen
-	k609Accept
-	k609Read
-	k609Write
-	k609Close
-	k609ListenerClose
-	k609HTTPGet
-	k609HTTPPost
+	k609Send
+	k609Recv
+	k609HTTPRequest
 )
 
 var net609Kinds = map[string]net609Kind{
 	"socketConnectAsync": k609Connect,
-	"socketListenAsync":  k609Listen,
-	"socketAcceptAsync":  k609Accept,
-	"socketReadAsync":    k609Read,
-	"socketWriteAsync":   k609Write,
-	"socketCloseAsync":   k609Close,
-	"listenerCloseAsync": k609ListenerClose,
-	"httpGet":            k609HTTPGet,
-	"httpPost":           k609HTTPPost,
+	"socketSendAsync":    k609Send,
+	"socketRecvAsync":    k609Recv,
+	"httpRequestAsync":   k609HTTPRequest,
 }
 
 // net609XType 返回内建入口的 XNull 返回类型（Result<T, ErrorKind>）。
@@ -48,24 +37,16 @@ func net609XType(name string) xfront.TypeRef {
 			Args: []xfront.TypeRef{nt(v), nt("ErrorKind")}}
 	}
 	switch name {
-	case "socketConnectAsync", "socketAcceptAsync":
+	case "socketConnectAsync":
 		return res("Socket")
-	case "socketListenAsync":
-		return res("Listener")
-	case "socketReadAsync":
+	case "socketSendAsync", "socketRecvAsync":
 		return res("Int64")
-	case "socketWriteAsync":
-		return res("Int64")
-	case "socketCloseAsync", "listenerCloseAsync":
-		return &xfront.NamedType{P: pos, Qual: []string{"Result"},
-			Args: []xfront.TypeRef{nt("void"), nt("ErrorKind")}}
-	case "httpGet", "httpPost":
-		return res("Bytes")
+	case "httpRequestAsync":
+		return res("HttpResponse")
 	}
 	return nil
 }
 
-// net609Decls 构造 Async/HTTP 的内建声明。
 func net609Decls() []*xfront.TopFunc {
 	pos := xfront.Pos{Line: 1, Col: 1}
 	nt := func(n string) xfront.TypeRef { return &xfront.NamedType{P: pos, Qual: []string{n}} }
@@ -78,18 +59,14 @@ func net609Decls() []*xfront.TopFunc {
 	}
 	return []*xfront.TopFunc{
 		mk("socketConnectAsync", p("ctx", "Context"), p("host", "String"), p("port", "Int32")),
-		mk("socketListenAsync", p("ctx", "Context"), p("host", "String"), p("port", "Int32")),
-		mk("socketAcceptAsync", p("ctx", "Context"), p("l", "Listener")),
-		mk("socketReadAsync", p("ctx", "Context"), p("s", "Socket"), p("buf", "Bytes")),
-		mk("socketWriteAsync", p("ctx", "Context"), p("s", "Socket"), p("buf", "Bytes")),
-		mk("socketCloseAsync", p("ctx", "Context"), p("s", "Socket")),
-		mk("listenerCloseAsync", p("ctx", "Context"), p("l", "Listener")),
-		mk("httpGet", p("ctx", "Context"), p("url", "String")),
-		mk("httpPost", p("ctx", "Context"), p("url", "String"), p("body", "Bytes")),
+		mk("socketSendAsync", p("ctx", "Context"), p("sock", "Socket"), p("buf", "Bytes")),
+		mk("socketRecvAsync", p("ctx", "Context"), p("sock", "Socket"), p("buf", "Bytes")),
+		mk("httpRequestAsync", p("ctx", "Context"), p("method", "String"), p("host", "String"),
+			p("port", "Int32"), p("path", "String"), p("body", "Bytes")),
 	}
 }
 
-// InjectNet609 把 net Async/HTTP 声明追加到编译单元（net.xfb 已声明 Socket/Listener）。
+// InjectNet609 把 net Async 声明追加到编译单元（net.xfb 已声明 Socket/HttpResponse）。
 func InjectNet609(u *xfront.CompilationUnit) error {
 	declared := map[string]bool{}
 	for _, d := range u.Decls {
@@ -112,7 +89,7 @@ func InjectNet609(u *xfront.CompilationUnit) error {
 	return nil
 }
 
-// net609Result 生成 Result<T, ErrorKind> 构造：ok 条件 + 成功值 + 错误码表达式。
+// net609Result 生成 Result<T, ErrorKind> 构造。
 func (s *scope) net609Result(resultC, okExpr, valExpr, errExpr string) ([]string, string, error) {
 	info, err := s.g.resultInfo(resultC)
 	if err != nil {
@@ -130,7 +107,7 @@ func (s *scope) net609Result(resultC, okExpr, valExpr, errExpr string) ([]string
 	return lines, r, nil
 }
 
-// net609Call 生成 Async/HTTP 调用（返回前置语句与 Result 表达式）。
+// net609Call 生成 Async 调用（返回前置语句与 Result 表达式）。
 func (s *scope) net609Call(call *xfront.Call) ([]string, string, bool, error) {
 	id, ok := call.Callee.(*xfront.IdentExpr)
 	if !ok {
@@ -157,7 +134,7 @@ func (s *scope) net609Call(call *xfront.Call) ([]string, string, bool, error) {
 		}
 		return s.sys603ArgCtx(e)
 	}
-	hostArg := func(i int) (string, error) {
+	strArg := func(i int) (string, error) {
 		e, err := arg(i)
 		if err != nil {
 			return "", err
@@ -169,20 +146,6 @@ func (s *scope) net609Call(call *xfront.Call) ([]string, string, bool, error) {
 		add(sl...)
 		return lastVar(sl), nil
 	}
-	portArg := func(i int) (string, error) {
-		e, err := arg(i)
-		if err != nil {
-			return "", err
-		}
-		return s.intExpr(e)
-	}
-	handleArg := func(i int) (string, string, error) {
-		e, err := arg(i)
-		if err != nil {
-			return "", "", err
-		}
-		return s.sys603ArgHandle(e)
-	}
 	bytesArg := func(i int) (string, string, error) {
 		e, err := arg(i)
 		if err != nil {
@@ -190,157 +153,106 @@ func (s *scope) net609Call(call *xfront.Call) ([]string, string, bool, error) {
 		}
 		return s.sys603ArgBytes(e)
 	}
-	errKind := func(code string, cancelled string) string {
-		return "(" + cancelled + " != 0) ? XRT_ERR_CANCELLED : xn_ffi_xdkc_net_error_kind_id(" + code + ")"
+	handleArg := func(i int) (string, error) {
+		e, err := arg(i)
+		if err != nil {
+			return "", err
+		}
+		_, hn, err := s.sys603ArgHandle(e)
+		return hn, err
 	}
+	intArg := func(i int) (string, error) {
+		e, err := arg(i)
+		if err != nil {
+			return "", err
+		}
+		return s.intExpr(e)
+	}
+	kindExpr := func(code string) string { return "xn_ffi_xdkc_net_error_kind_id(" + code + ")" }
 
 	switch kind {
-	case k609Connect, k609Listen:
+	case k609Connect:
 		ctx, err := ctxArg()
 		if err != nil {
 			return nil, "", true, err
 		}
-		host, err := hostArg(1)
+		host, err := strArg(1)
 		if err != nil {
 			return nil, "", true, err
 		}
-		port, err := portArg(2)
+		port, err := intArg(2)
 		if err != nil {
 			return nil, "", true, err
 		}
-		native := "xdkc_net_connect"
-		if kind == k609Listen {
-			native = "xdkc_net_listen"
-		}
-		code, xc, nv, h := s.tmp(), s.tmp(), s.tmp(), s.tmp()
+		code, nv, h := s.tmp(), s.tmp(), s.tmp()
 		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("void *" + nv + " = NULL;")
-		add("if (" + xc + " == 0) { " + nv + " = " + native + "(" + host + "->bytes, " + host + "->len, (int32_t)(" + port + "), &" + code + "); }")
+		add("void *" + nv + " = xdkc_socket_connect_async(" + ctx + ", " + host + "->bytes, " + host + "->len, (int32_t)(" + port + "), &" + code + ");")
 		add("rt_release(" + host + ");")
 		add("xrt_handle *" + h + " = (" + nv + " == NULL) ? NULL : xrt_handle_new(" + nv + ", NULL, \"" + name + "\");")
-		resultC, err := s.g.cType(net609XType(name))
-		if err != nil {
-			return nil, "", true, err
-		}
-		rl, expr, err := s.net609Result(resultC, h+" != NULL", h, errKind(code, xc))
-		if err != nil {
-			return nil, "", true, err
-		}
+		resultC, _ := s.g.cType(net609XType(name))
+		rl, expr, err := s.net609Result(resultC, h+" != NULL", h, kindExpr(code))
 		add(rl...)
-		return lines, expr, true, nil
+		return lines, expr, true, err
 
-	case k609Accept:
+	case k609Send, k609Recv:
 		ctx, err := ctxArg()
 		if err != nil {
 			return nil, "", true, err
 		}
-		_, hn, err := handleArg(1)
+		hn, err := handleArg(1)
 		if err != nil {
 			return nil, "", true, err
 		}
-		code, xc, nv, h := s.tmp(), s.tmp(), s.tmp(), s.tmp()
+		data, blen, err := bytesArg(2)
+		if err != nil {
+			return nil, "", true, err
+		}
+		native := "xdkc_socket_send_async"
+		if kind == k609Recv {
+			native = "xdkc_socket_recv_async"
+		}
+		code, n := s.tmp(), s.tmp()
 		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("void *" + nv + " = NULL;")
-		add("if (" + xc + " == 0) { " + nv + " = xdkc_net_accept(" + hn + ", &" + code + "); }")
+		add("int64_t " + n + " = " + native + "(" + ctx + ", " + hn + ", " + data + ", " + blen + ", &" + code + ");")
+		resultC, _ := s.g.cType(net609XType(name))
+		rl, expr, err := s.net609Result(resultC, code+" == 0", n, kindExpr(code))
+		add(rl...)
+		return lines, expr, true, err
+
+	case k609HTTPRequest:
+		ctx, err := ctxArg()
+		if err != nil {
+			return nil, "", true, err
+		}
+		method, err := strArg(1)
+		if err != nil {
+			return nil, "", true, err
+		}
+		host, err := strArg(2)
+		if err != nil {
+			return nil, "", true, err
+		}
+		port, err := intArg(3)
+		if err != nil {
+			return nil, "", true, err
+		}
+		path, err := strArg(4)
+		if err != nil {
+			return nil, "", true, err
+		}
+		data, blen, err := bytesArg(5)
+		if err != nil {
+			return nil, "", true, err
+		}
+		code, nv, h := s.tmp(), s.tmp(), s.tmp()
+		add("int32_t " + code + " = 0;")
+		add("void *" + nv + " = xdkc_http_request_async(" + ctx + ", " + method + "->bytes, " + method + "->len, " +
+			host + "->bytes, " + host + "->len, (int32_t)(" + port + "), " + path + "->bytes, " + path + "->len, " +
+			data + ", " + blen + ", &" + code + ");")
+		add("rt_release(" + method + "); rt_release(" + host + "); rt_release(" + path + ");")
 		add("xrt_handle *" + h + " = (" + nv + " == NULL) ? NULL : xrt_handle_new(" + nv + ", NULL, \"" + name + "\");")
 		resultC, _ := s.g.cType(net609XType(name))
-		rl, expr, err := s.net609Result(resultC, h+" != NULL", h, errKind(code, xc))
-		add(rl...)
-		return lines, expr, true, err
-
-	case k609Read:
-		ctx, err := ctxArg()
-		if err != nil {
-			return nil, "", true, err
-		}
-		_, hn, err := handleArg(1)
-		if err != nil {
-			return nil, "", true, err
-		}
-		data, blen, err := bytesArg(2)
-		if err != nil {
-			return nil, "", true, err
-		}
-		code, xc, n := s.tmp(), s.tmp(), s.tmp()
-		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("int64_t " + n + " = -1;")
-		add("if (" + xc + " == 0) { " + n + " = xdkc_net_read(" + hn + ", " + data + ", " + blen + ", &" + code + "); }")
-		resultC, _ := s.g.cType(net609XType(name))
-		rl, expr, err := s.net609Result(resultC, code+" == 0 && "+xc+" == 0", n, errKind(code, xc))
-		add(rl...)
-		return lines, expr, true, err
-
-	case k609Write:
-		ctx, err := ctxArg()
-		if err != nil {
-			return nil, "", true, err
-		}
-		_, hn, err := handleArg(1)
-		if err != nil {
-			return nil, "", true, err
-		}
-		data, blen, err := bytesArg(2)
-		if err != nil {
-			return nil, "", true, err
-		}
-		code, xc := s.tmp(), s.tmp()
-		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("if (" + xc + " == 0) { " + code + " = xdkc_net_write(" + hn + ", " + data + ", " + blen + "); }")
-		resultC, _ := s.g.cType(net609XType(name))
-		rl, expr, err := s.net609Result(resultC, code+" == 0 && "+xc+" == 0", "(int64_t)("+blen+")", errKind(code, xc))
-		add(rl...)
-		return lines, expr, true, err
-
-	case k609Close, k609ListenerClose:
-		ctx, err := ctxArg()
-		if err != nil {
-			return nil, "", true, err
-		}
-		hr, hn, err := handleArg(1)
-		if err != nil {
-			return nil, "", true, err
-		}
-		code, xc := s.tmp(), s.tmp()
-		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("if (" + xc + " == 0) { " + code + " = xdkc_net_close(" + hn + "); }")
-		add("if (" + code + " == 0) { xrt_handle_mark_closed(" + hr + "); }")
-		resultC, _ := s.g.cType(net609XType(name))
-		rl, expr, err := s.net609Result(resultC, code+" == 0 && "+xc+" == 0", "", errKind(code, xc))
-		add(rl...)
-		return lines, expr, true, err
-
-	case k609HTTPGet, k609HTTPPost:
-		ctx, err := ctxArg()
-		if err != nil {
-			return nil, "", true, err
-		}
-		url, err := hostArg(1)
-		if err != nil {
-			return nil, "", true, err
-		}
-		native := "xdkc_http_get"
-		bodyCall := ""
-		if kind == k609HTTPPost {
-			native = "xdkc_http_post"
-			data, blen, err := bytesArg(2)
-			if err != nil {
-				return nil, "", true, err
-			}
-			bodyCall = ", " + data + ", " + blen
-		}
-		code, xc, b := s.tmp(), s.tmp(), s.tmp()
-		add("int32_t " + code + " = 0;")
-		add("int32_t " + xc + " = xrt_context_check_cancel(" + ctx + ");")
-		add("xrt_bytes_obj *" + b + " = NULL;")
-		add("if (" + xc + " == 0) { " + b + " = " + native + "(" + url + "->bytes, " + url + "->len" + bodyCall + ", &" + code + "); }")
-		add("rt_release(" + url + ");")
-		resultC, _ := s.g.cType(net609XType(name))
-		rl, expr, err := s.net609Result(resultC, b+" != NULL", b, errKind(code, xc))
+		rl, expr, err := s.net609Result(resultC, h+" != NULL", h, kindExpr(code))
 		add(rl...)
 		return lines, expr, true, err
 	}

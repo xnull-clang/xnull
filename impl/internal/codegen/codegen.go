@@ -721,6 +721,24 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	b.WriteString("    fprintf(stderr, \"fatal: 容器下标越界\\n\");\n")
 	b.WriteString("    exit(134);\n")
 	b.WriteString("}\n\n")
+	// 先预登记全部签名/字段用到的容器，再输出 typedef 与原型。
+	g.prewarmTypeContainers(u)
+	// 容器 typedef 必须先于类前向声明/方法原型（Map/List 字段会出现在原型里）。
+	{
+		g.cs.declared = map[string]bool{}
+		all := map[string]bool{}
+		for e := range g.cs.arr {
+			all[arrName(e)] = true
+		}
+		for k := range g.cs.set {
+			all[setName(k)] = true
+		}
+		for k, pair := range g.cs.mp {
+			_ = k
+			all[mapName(pair[0], pair[1])] = true
+		}
+		g.cs.emitTypeDecls(&b, all)
+	}
 	// 类前向声明：容器结构、顶层函数原型与类结构都只按指针使用类类型，
 	// 必须先于它们出现（多文件下使用方声明可能先于定义方，S1-06）。
 	if err := g.emitClassForwardDecls(&b); err != nil {
@@ -736,19 +754,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	g.emitTupleTypes(&b)
 	// Result 实例 typedef：需要类/struct/枚举的前向 typedef 先就位（INT-01b）。
 	{
-		// S6-04：Result 成员可直接是容器（Result<List<String>, Error>）；
-		// 先提前生成这些容器的 typedef，避免 Result typedef 引用未定义类型。
-		needed := map[string]bool{}
-		for name := range g.results {
-			info, err := g.resultInfo(name)
-			if err != nil {
-				return "", err
-			}
-			if isContainerC(info.memberC) {
-				needed[strings.TrimSuffix(info.memberC, " *")] = true
-			}
-		}
-		g.cs.emitTypeDecls(&b, needed)
+		// 容器 typedef 已统一在前向前置生成（含 Result 成员容器）。
 		rnames := make([]string, 0, len(g.results))
 		for name := range g.results {
 			rnames = append(rnames, name)
@@ -3816,6 +3822,42 @@ func (s *scope) emitReturn(n *xfront.ReturnStmt) ([]string, error) {
 		s.returned = true
 		return append(out, "return "+t+";"), nil
 	}
+	// 成员返回值（self.field / obj.field）：按目标 C 类型选择求值器。
+	if _, ok := n.Value.(*xfront.Member); ok {
+		switch {
+		case isIntScalarC(s.retC) || s.g.isSimpleEnumC(s.retC) || s.retC == "double" || s.retC == "float":
+			v, err := s.intExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, s.pending...)
+			s.pending = nil
+			t := s.tmp()
+			out = append(out, s.retC+" "+t+" = "+v+";")
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return "+t+";"), nil
+		case s.retC == "rt_string *":
+			lines, err := s.strExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			t := lastVar(lines)
+			out := append([]string{}, lines...)
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return "+t+";"), nil
+		case s.retC == "xrt_bytes_obj *":
+			lines, v, err := s.bytesExpr(n.Value)
+			if err != nil {
+				return nil, err
+			}
+			out := append([]string{}, lines...)
+			out = append(out, splitLines(s.emitCleanup(true, "    "))...)
+			s.returned = true
+			return append(out, "return "+v+";"), nil
+		}
+	}
 	switch v := n.Value.(type) {
 	case *xfront.Call:
 		if id, ok := v.Callee.(*xfront.IdentExpr); ok && (id.Name == "Ok" || id.Name == "Err") {
@@ -5320,4 +5362,54 @@ func (s *scope) flushPendingArgs() []string {
 	out := s.pending
 	s.pending = nil
 	return out
+}
+
+// prewarmTypeContainers 预登记所有声明签名/字段中的容器类型，
+// 保证 typedef 先于类/函数原型输出（Map/List 字段出现在原型里）。
+func (g *gen) prewarmTypeContainers(u *xfront.CompilationUnit) {
+	var ct func(t xfront.TypeRef)
+	ct = func(t xfront.TypeRef) {
+		if t == nil {
+			return
+		}
+		_, _ = g.cType(t)
+		if nt, ok := t.(*xfront.NamedType); ok && typeName(nt) == "Result" {
+			for _, a := range nt.Args {
+				ct(a)
+			}
+		}
+	}
+	params := func(ps []*xfront.Param) {
+		for _, p := range ps {
+			ct(p.Type)
+		}
+	}
+	for _, d := range u.Decls {
+		switch n := d.(type) {
+		case *xfront.TopFunc:
+			params(n.Params)
+			ct(n.Ret)
+		case *xfront.ClassDecl:
+			for _, f := range n.Fields {
+				ct(f.Type)
+			}
+			for _, m := range n.Methods {
+				params(m.Params)
+				ct(m.Ret)
+			}
+		case *xfront.StructDecl:
+			for _, f := range n.Fields {
+				ct(f.Type)
+			}
+		case *xfront.SingletonDecl:
+			for _, f := range n.Fields {
+				ct(f.Type)
+			}
+		case *xfront.FactoryDecl:
+			for _, m := range n.Methods {
+				params(m.Params)
+				ct(m.Ret)
+			}
+		}
+	}
 }

@@ -337,6 +337,12 @@ func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 		return []string{"xrt_bytes_obj *" + t + " = rt_retain(" + r + ");"}, t, nil
 	case *xfront.NullLit:
 		return nil, "NULL", nil
+	case *xfront.Member:
+		v, err := s.intExpr(n)
+		if err != nil {
+			return nil, "", err
+		}
+		return nil, v, nil
 	case *xfront.Paren:
 		return s.bytesExpr(n.X)
 	case *xfront.Call:

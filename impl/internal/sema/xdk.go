@@ -67,19 +67,19 @@ var xdkPackages = map[string]map[string]bool{
 		"listResources": true, "resourceSize": true,
 	},
 	"net": {
-		// S6 §4.7 / S6-09：socket 句柄与 plain/Async 入口。
-		"Socket": true, "Listener": true,
-		"connect": true, "connectAsync": true,
-		"bind": true, "bindAsync": true,
-		// S6-09（ADR-009）：plain socket + Async 双形态 + HTTP。
-		"socketConnect": true, "socketListen": true, "socketAccept": true,
-		"socketRead": true, "socketWrite": true, "socketClose": true, "listenerClose": true,
-		"socketConnectAsync": true, "socketListenAsync": true, "socketAcceptAsync": true,
-		"socketReadAsync": true, "socketWriteAsync": true, "socketCloseAsync": true,
-		"listenerCloseAsync": true,
+		// S6-09（ADR-009）：socket plain/Async + HTTP 响应句柄。
+		"Socket": true, "Listener": true, "HttpResponse": true,
+		"connect": true, "connectAsync": true, "bind": true, "bindAsync": true,
+		"accept": true, "acceptAsync": true,
+		"socketConnect": true, "socketSend": true, "socketRecv": true, "socketClose": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
+		"socketConnectAsync": true, "socketSendAsync": true, "socketRecvAsync": true,
+		"httpRequestAsync": true,
 	},
 	"net.http": {
-		"httpGet": true, "httpPost": true, "httpGetPlain": true, "httpPostPlain": true,
+		"get": true, "getAsync": true, "post": true, "postAsync": true,
+		"httpRequest": true, "httpStatus": true, "httpBodyText": true, "httpResponseClose": true,
+		"httpRequestAsync": true,
 	},
 }
 
