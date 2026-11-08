@@ -1,0 +1,11 @@
+=== RUN   TestManifestIntegrationEndToEnd
+--- PASS: TestManifestIntegrationEndToEnd (2.04s)
+=== RUN   TestManifestIntegrationMissingPluginMeta
+--- PASS: TestManifestIntegrationMissingPluginMeta (0.01s)
+=== RUN   TestBuildInheritsParentBuild
+--- PASS: TestBuildInheritsParentBuild (2.23s)
+=== RUN   TestBuildDependencyWithLock
+--- PASS: TestBuildDependencyWithLock (2.39s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	7.662s
+exit=0

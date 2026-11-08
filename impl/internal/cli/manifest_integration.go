@@ -45,17 +45,9 @@ func printDiags(env Env, ds []diag.Diagnostic) {
 // 任一失败即停（失败即停，不继续后续阶段）。
 func (p *manifestPipeline) validateIntegrations(profile string) (*integrationState, bool) {
 	st := &integrationState{}
-	res, ds, err := manifest.ResolveDependencies(p.m.Path, manifest.Options{
-		ToolchainVersion: Version,
-		Profiles:         profileList(profile),
-		Platform:         platformName(),
-	})
-	if err != nil {
-		fmt.Fprintf(p.env.Stderr, "xnull: %v\n", err)
-		return nil, false
-	}
-	if len(ds) > 0 {
-		printDiags(p.env, ds)
+	res := p.res
+	if res == nil {
+		fmt.Fprintln(p.env.Stderr, "xnull: 内部错误：清单模型未加载")
 		return nil, false
 	}
 	st.profiles = append([]string{}, res.ActiveProfiles...)
