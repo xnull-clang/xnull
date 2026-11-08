@@ -20,6 +20,8 @@ type Options struct {
 	MemPolicy string
 	// Stats 打开运行期分配统计与 GC 指标（§21/§23）；报告写 stderr。
 	Stats bool
+	// EmitOnly 只生成 C（写 <out>.c），不生成资源表、不调用 cc（B3-00 差分）。
+	EmitOnly bool
 	// SrcPath 用于 #line 诊断映射（装配处填写；空则只写行号）。
 	SrcPath string
 	// Mode 是清单 build.mode（S8 §5.2）：""/"release" = -O2，"debug" = -O0 -g，"size" = -Os。
@@ -193,6 +195,9 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 	if err := os.WriteFile(cfile, []byte(csrc), 0o644); err != nil {
 		fmt.Fprintf(stderr, "xnull: 无法写出 %s：%v\n", cfile, err)
 		return 1
+	}
+	if opts.EmitOnly {
+		return 0
 	}
 	// 资源表（S6-04）：工程表由调用方生成；缺省写零资源空表，保证 xrt_resource_* 符号闭合。
 	resC := opts.ResC

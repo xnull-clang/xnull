@@ -1,0 +1,4 @@
+# 路径	期望非零
+../b2/parser_neg/chain_cmp.x	1
+../b2/parser_neg/missing_brace.x	1
+../b2/parser_neg/missing_paren.x	1
