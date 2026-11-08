@@ -9,44 +9,48 @@ import (
 	"xnull.dev/xnull/internal/xfront"
 )
 
-// TestAutoTriesInterpreterWhenNoNative 验证 auto 在无原生二进制时允许进程内解释器，
-// 并在解释器不可用时回退 Go（结果仍与 oracle 一致）。
-func TestAutoTriesInterpreterWhenNoNative(t *testing.T) {
-	t.Setenv("XNULL_FRONTEND", "auto")
+// TestXNullTimeoutReturnsB2002 验证前端超时映射为 B2-002（独立进程 + 硬超时）。
+func TestXNullTimeoutReturnsB2002(t *testing.T) {
+	dir := t.TempDir()
+	slow := filepath.Join(dir, "slow-runner")
+	if err := os.WriteFile(slow, []byte("#!/bin/sh\nsleep 5\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XNULL_FRONTEND", "xnull")
+	t.Setenv("XNULL_SELFHOST_BIN", slow)
+	t.Setenv("XNULL_SELFHOST_TIMEOUT", "200ms")
 	t.Setenv("XNULL_NATIVE_XPARSER", "")
-	t.Setenv("XNULL_SELFHOST_BIN", "")
-	t.Setenv("XNULL_BIN", "")
-	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "0")
 	t.Setenv("XNULL_FRONTBRIDGE_CACHE", t.TempDir())
-	nativeOnce = sync.Once{}
-	nativeBin, nativeErr = "", nil
-	runnerOnce = sync.Once{}
-	runnerOK = false
 	astCache = newLRU(256)
 
-	inprocOnce.Do(func() {})
-	oldOK := inprocOK
-	inprocOK = true
-	defer func() { inprocOK = oldOK }()
+	_, ds := ParseUnit("t.x", "static Int main() { return 0 }\n")
+	if len(ds) != 1 || ds[0].Code != "B2-002" {
+		t.Fatalf("期望 B2-002，得到 %+v", ds)
+	}
+}
 
-	inprocMu.Lock()
-	inprocCalls = 0
-	inprocMu.Unlock()
+// TestAutoTimeoutFallsBackToGo 验证 auto 超时后回退 Go，不阻塞工具链。
+func TestAutoTimeoutFallsBackToGo(t *testing.T) {
+	dir := t.TempDir()
+	slow := filepath.Join(dir, "slow-runner")
+	if err := os.WriteFile(slow, []byte("#!/bin/sh\nsleep 5\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("XNULL_FRONTEND", "auto")
+	t.Setenv("XNULL_SELFHOST_BIN", slow)
+	t.Setenv("XNULL_SELFHOST_TIMEOUT", "200ms")
+	t.Setenv("XNULL_NATIVE_XPARSER", "")
+	t.Setenv("XNULL_FRONTBRIDGE_CACHE", t.TempDir())
+	astCache = newLRU(256)
 
 	src := "static Int main() { return 0 }\n"
 	u, ds := ParseUnit("t.x", src)
 	if len(ds) > 0 {
-		t.Fatalf("诊断：%s", ds[0].String())
-	}
-	inprocMu.Lock()
-	n := inprocCalls
-	inprocMu.Unlock()
-	if n == 0 {
-		t.Fatal("auto 在无原生二进制时应尝试进程内解释器")
+		t.Fatalf("auto 超时应回退 Go，不应返回诊断：%s", ds[0].String())
 	}
 	want, _ := xfront.ParseUnit("t.x", src)
 	if xfront.PrintUnitPos(u) != xfront.PrintUnitPos(want) {
-		t.Fatal("解释器不可用时 auto 应回退 Go AST")
+		t.Fatal("auto 超时后未回退 Go AST")
 	}
 }
 
@@ -146,8 +150,6 @@ func TestAutoUsesNativeParser(t *testing.T) {
 	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "0")
 	nativeOnce = sync.Once{}
 	nativeBin, nativeErr = "", nil
-	runnerOnce = sync.Once{}
-	runnerOK = false
 	astCache = newLRU(256)
 
 	u, ds := ParseUnit("t.x", "static Int main() { return 0 }\n")
