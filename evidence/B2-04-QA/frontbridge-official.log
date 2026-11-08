@@ -1,0 +1,10 @@
+=== RUN   TestParseUnitMatchesOracle
+--- PASS: TestParseUnitMatchesOracle (0.04s)
+=== RUN   TestParseUnitDiagnosticsFromOracle
+--- PASS: TestParseUnitDiagnosticsFromOracle (0.00s)
+=== RUN   TestXNullTimeoutFallsBackAndRecordsB2002
+--- PASS: TestXNullTimeoutFallsBackAndRecordsB2002 (0.20s)
+=== RUN   TestAutoTimeoutFallsBackToGo
+--- PASS: TestAutoTimeoutFallsBackToGo (0.20s)
+PASS
+ok  	xnull.dev/xnull/internal/frontbridge	0.908s
