@@ -1,0 +1,4 @@
+tests/b3/fixtures/err/clean_defer.x      go=ed9aa874ad9b0da21012a187a7d4a523eaa0edcaae7aee2fef32d7fd9dd3ce9c xn=ed9aa874ad9b0da21012a187a7d4a523eaa0edcaae7aee2fef32d7fd9dd3ce9c
+tests/b3/fixtures/err/errdefer.x         go=c6e709556699c747fc84c39046bb775e847f725be66ada5f0de5b91a67a092d6 xn=c6e709556699c747fc84c39046bb775e847f725be66ada5f0de5b91a67a092d6
+tests/b3/fixtures/err/result_try.x       go=8db09fbc6b1f03b109b10b702a743bd30c88b1fb0ce797136f4c2cee1e6cdb71 xn=8db09fbc6b1f03b109b10b702a743bd30c88b1fb0ce797136f4c2cee1e6cdb71
+tests/b3/fixtures/err/throw.x            go=1f2661fdc99c4f7fc149c6a34e1423523184d9a47607f175eab62061d6b4c695 xn=1f2661fdc99c4f7fc149c6a34e1423523184d9a47607f175eab62061d6b4c695

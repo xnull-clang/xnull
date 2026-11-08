@@ -1,0 +1,5 @@
+PASS err/clean_defer.x
+PASS err/errdefer.x
+PASS err/result_try.x
+PASS err/throw.x
+xnullc-err 汇总：PASS=4 FAIL=0
