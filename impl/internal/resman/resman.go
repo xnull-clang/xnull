@@ -234,7 +234,7 @@ func validateGlob(pat string) error {
 	return nil
 }
 
-// Match 实现 S8 §5.6 的 glob：`*` 单段内任意、`**` 跨段（其后仍有段时至少消费一段）、`?` 单字符。
+// Match 实现 S8 §5.6 的 glob：`*` 单段内任意、`**` 跨段（可消费零段）、`?` 单字符。
 func Match(pattern, path string) bool {
 	return matchSegs(strings.Split(pattern, "/"), strings.Split(path, "/"))
 }
@@ -247,7 +247,7 @@ func matchSegs(pat, path []string) bool {
 		if len(pat) == 1 {
 			return true
 		}
-		for i := 1; i <= len(path); i++ {
+		for i := 0; i <= len(path); i++ {
 			if matchSegs(pat[1:], path[i:]) {
 				return true
 			}

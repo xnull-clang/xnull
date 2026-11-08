@@ -84,7 +84,7 @@ func TestGlobSemantics(t *testing.T) {
 		{"?.txt", "a.txt", true},
 		{"?.txt", "ab.txt", false},
 		{"**/*.psd", "a/b/y.psd", true},
-		{"**/*.psd", "y.psd", false}, // `*` 不跨段：`**/` 需要至少一段
+		{"**/*.psd", "y.psd", true}, // `**` 可消费零段
 		{"images/**", "images/a/b.png", true},
 	}
 	for _, c := range cases {

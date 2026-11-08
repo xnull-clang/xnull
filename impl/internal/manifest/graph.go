@@ -199,7 +199,7 @@ func repoManifestPath(repoRoot, coord, version string) string {
 	if len(parts) != 2 {
 		return ""
 	}
-	return filepath.Join(repoRoot, filepath.FromSlash(parts[0]), parts[1], version, "xnull.project")
+	return filepath.Join(repoRoot, filepath.FromSlash(strings.ReplaceAll(parts[0], ".", "/")), parts[1], version, "xnull.project")
 }
 
 func sortedKeys(m map[string]string) []string {

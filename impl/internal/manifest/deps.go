@@ -127,7 +127,7 @@ func artifactSHA(repoRoot, coord, version string) (string, bool) {
 	if len(parts) != 2 {
 		return "", false
 	}
-	dir := filepath.Join(repoRoot, filepath.FromSlash(parts[0]), parts[1], version)
+	dir := filepath.Join(repoRoot, filepath.FromSlash(strings.ReplaceAll(parts[0], ".", "/")), parts[1], version)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", false

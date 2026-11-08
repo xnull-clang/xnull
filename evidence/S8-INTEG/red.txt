@@ -1,0 +1,5 @@
+--- FAIL: TestManifestIntegrationEndToEnd (0.90s)
+    manifest_integration_test.go:80: 产物未包含资源名 templates/a.txt
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	1.606s
+FAIL
