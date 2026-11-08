@@ -1048,8 +1048,7 @@ static void rootStr(EM e, SC sc, String t) {
 static String argExpr(N a, EM e, SC sc) {
     if exprType(a, sc) == "String" {
         String at = emitStr(a, e, sc)
-        if a.nm == "Call" && sc.curFn != "regexMatchAt" { e.add("xn_root_add(" + at + ");") }
-        if a.nm == "IdentExpr" && sc.curFn == "regexMatchAt" && sc.inRet && sc.blockRoots.length() >= 1 { e.add("xn_root_add(" + at + ");") }
+
         return at
     }
     return expr(a, e, sc)
@@ -1899,14 +1898,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             if init.nm == "Call" {
                 e.raw("xn_root_add(" + nm + ");")
                 e.add("xn_root_add(" + nm + ");")
-                if sc.curFn != "regexMatchAt" { e.add("xn_root_add(" + nm + ");") }
             } else {
                 e.raw("xn_root_add(" + nm + ");")
                 e.raw("xn_root_add(" + nm + ");")
             }
             e.add("xn_gc_safepoint();")
             sc.strLocals.push(nm)
-            if sc.curFn != "regexMatchAt" { sc.doubleRoot = true }
             return
         }
         if isU16List(ty) {
@@ -2193,7 +2190,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             e.add("rt_release(" + nm + ");")
             e.add(nm + " = " + sv + ";")
             e.add("xn_root_hold(" + nm + ");")
-            if sc.curFn == "regexMatchAt" && !inNames(sc.held, nm) { sc.held.push(nm) }
+            if !inNames(sc.held, nm) { sc.held.push(nm) }
             e.add("xn_gc_safepoint();")
             return
         }
@@ -2283,6 +2280,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "ReturnStmt" {
         e.terminated = false
+        sc.inRet = true
         N v = fld(st, "Value")
         if isResult(sc.retKind) {
             String rk = sc.retKind
@@ -2866,7 +2864,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.types = []
     sc.loopDepth = 0
     sc.loopIndent = 0
-    if fname == "regexMatchAt" || fname == "regexAtomMatch" || fname == "repeatText" || fname == "repeatJoined" { sc.doubleRoot = false }
+    sc.doubleRoot = false
     sc.rootedTemps = []
     sc.extraTmpName = []
     sc.extraTmpCount = []
@@ -2905,22 +2903,12 @@ static void emitFunc(N fn, EM e, SC sc) {
             ri0 = ri0 - 1
         }
     }
-    if sc.curFn == "regexMatchAt" {
-        Int si0 = sc.strLocals.length() - 1
-        while si0 >= 0 {
-            e.add("    {")
-            e.raw("rt_release(" + sc.strLocals.get(si0) + ");")
-            e.add("    }")
-            si0 = si0 - 1
-        }
-    } else {
-        Int si1 = 0
-        while si1 < sc.strLocals.length() {
-            if si1 == 0 { e.add("    {") }
-            e.raw("rt_release(" + sc.strLocals.get(si1) + ");")
-            if si1 == sc.strLocals.length() - 1 { e.add("    }") }
-            si1 = si1 + 1
-        }
+    Int si0 = sc.strLocals.length() - 1
+    while si0 >= 0 {
+        e.add("    {")
+        e.raw("rt_release(" + sc.strLocals.get(si0) + ");")
+        e.add("    }")
+        si0 = si0 - 1
     }
     e.add("    {")
     e.raw("xn_root_restore(" + root + ");")
@@ -2929,7 +2917,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     if sc.directRet { e.add("return " + sc.deferredRet + ";") }
     else { if isResult(rk) { e.add("return xn_ret;") } else { e.add("return " + sc.ret + ";") } }
     Int hdi = 0
-    if sc.curFn == "regexMatchAt" { while hdi < sc.held.length() { e.raw("xn_root_release(" + sc.held.get(hdi) + ");"); hdi = hdi + 1 } }
+    while hdi < sc.held.length() { e.raw("xn_root_release(" + sc.held.get(hdi) + ");"); hdi = hdi + 1 }
     e.add("}")
     e.add("")
 }
