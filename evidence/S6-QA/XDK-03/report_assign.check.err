@@ -1,0 +1,2 @@
+evidence/S6-QA/XDK-03/report_assign.x:8:24: error[TY-101]: 变量 `x` 的初始化式类型 void 不能赋给 Result<Int,E>（§2.6）
+  检查类型声明与初始化式是否一致

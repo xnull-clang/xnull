@@ -1,0 +1,63 @@
+== test_cancel_close ==
+    xrt_release(ctx);
+}
+
+static void test_cancel_close(void) {
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    assert(xrt_task_group_spawn(g, body_cancel, NULL, &t) == 0);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0); /* 取消 + 等待终结 */
+    xrt_task_result r;
+    assert(xrt_task_join(t, &r) == 0);
+    assert(r.ok == 0 && r.kind == XRT_ERR_CANCELLED);
+    xrt_release(t);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
+== test_cancel_token_and_deadline ==
+
+static void test_cancel_token_and_deadline(void) {
+    xrt_context *root = xrt_context_background();
+    xrt_cancel_token *tok = xrt_context_token(root);
+    assert(tok != NULL && xrt_cancel_token_cancelled(tok) == 0);
+
+    xrt_context *child = xrt_context_child(root);
+    xrt_context_cancel(root);
+    assert(xrt_cancel_token_cancelled(tok) == 1);
+    assert(xrt_context_check_cancel(child) == XRT_ERR_CANCELLED); /* 父→子传播 */
+
+    xrt_context *past = xrt_context_with_deadline(xrt_context_background(), xrt_clock_mono_ms() - 1);
+    assert(xrt_context_check_cancel(past) == XRT_ERR_CANCELLED); /* 截止 = Cancelled */
+    assert(xrt_cancel_token_cancelled(xrt_context_token(past)) == 1);
+
+    xrt_context *future = xrt_context_with_deadline(xrt_context_background(), xrt_clock_mono_ms() + 5000);
+    assert(xrt_context_check_cancel(future) == 0);
+    assert(xrt_cancel_token_cancelled(xrt_context_token(future)) == 0);
+
+    xrt_release(future);
+    xrt_release(past);
+    xrt_release(child);
+    xrt_release(root);
+}
+
+== test_join_deadline ==
+static void test_join_deadline(void) {
+    xrt_context *ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    assert(xrt_task_group_spawn(g, body_slow, NULL, &t) == 0);
+    xrt_task_result r;
+    int rc = xrt_task_join_deadline(t, xrt_clock_mono_ms() + 5, &r);
+    assert(rc == XRT_ERR_TIMEOUT);
+    assert(xrt_task_join(t, &r) == 0);
+    assert(r.ok == 1 && (intptr_t)r.value == 7);
+    xrt_release(t);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+

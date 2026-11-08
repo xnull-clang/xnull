@@ -1,0 +1,4 @@
+id	anchor	mode	expect	actual	verdict	evidence
+XDK08-sema	XDK-08	gotest	Format/parse/UTF/Regex 签名与负例	TestS605 3/3 PASS	PASS	sema.log
+XDK08-runtime	XDK-08	runtime	parse/format/utf/regex C 原语	std 测试通过；codegen TestXdkTextUnitSurface PASS（Char 边界）	PASS	runtime-build.log,codegen.log
+XDK08-e2e	XDK-08	e2e	text.xfb + XNull 包装端到端	缺 text.xfb/包装；E4/E5 待接	BLOCKED/P2	-

@@ -1,0 +1,12 @@
+=== RUN   TestS4_02WrapMapErrReport
+    s4_02_test.go:88: 语义诊断：[t.x:13:42: error[ERR-207]: mapErr 第二个参数必须是错误转换函数（S4 §2.3） t.x:20:39: error[ERR-207]: mapErr 第二个参数必须是错误转换函数（S4 §2.3）]
+--- FAIL: TestS4_02WrapMapErrReport (0.00s)
+=== RUN   TestS4_02ReportContract
+    s4_02_test.go:116: 语义诊断：[t.x:10:28: error[TY-101]: 变量 `again` 的初始化式类型 void 不能赋给 Result<Int,E>（§2.6）
+          检查类型声明与初始化式是否一致]
+--- FAIL: TestS4_02ReportContract (0.00s)
+=== RUN   TestS4_02StructErrorAndErrorKind
+--- PASS: TestS4_02StructErrorAndErrorKind (1.72s)
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	3.830s
+FAIL

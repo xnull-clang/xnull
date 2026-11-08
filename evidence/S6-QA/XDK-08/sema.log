@@ -1,0 +1,8 @@
+=== RUN   TestS605TextPositive
+--- PASS: TestS605TextPositive (0.00s)
+=== RUN   TestS605TextNegative
+--- PASS: TestS605TextNegative (0.00s)
+=== RUN   TestS605TextUnsupportedMember
+--- PASS: TestS605TextUnsupportedMember (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	0.436s

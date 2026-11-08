@@ -1,0 +1,138 @@
+== Result mapping source ==
+package codegen
+
+import (
+	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"xnull.dev/xnull/internal/sema"
+	"xnull.dev/xnull/internal/xfront"
+)
+
+const s702Xfb = `ffi native {
+  errorMap {
+    5 = NotFound
+  }
+  @ffiEntry(cName = "native_read")
+  @lease(path = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.aware)
+  Int64 ffiRead(String path, Int32 code);
+}
+`
+
+const s702NativeC = `#include <stdint.h>
+#include <stddef.h>
+
+int64_t native_read(const char *path, size_t n, int32_t *code) {
+    (void)path;
+    (void)n;
+    *code = 5; /* 已知码：NotFound */
+    return -1;
+}
+`
+
+const s702Src = `import xdk.errors
+
+static Int main() {
+    Result<Int64, ErrorKind> r = ffiRead("x")
+    print(r.isErr())
+    print(r.error() == ErrorKind.NotFound)
+    return 0
+}
+== Result mapping cases ==
+223:func TestS7_02ResultMapping(t *testing.T) {
+224-	cases := []struct {
+225-		name string
+226-		code string
+227-		want string
+228-	}{
+229-		{"Ok", "0", "ok 42\n"},
+230-		{"已知码 5", "5", "err true\n"},
+231-		{"未知码 99", "99", "err true\n"},
+232-		{"Cancelled", "14", "err true\n"},
+233-		{"Timeout", "15", "err true\n"},
+234-	}
+235-	// 每种情况的期望比较项：已知码比较对应 ErrorKind 项；未知码/取消/超时分开写。
+236-	kindOf := map[string]string{
+237-		"0":  "Internal", // Ok 分支不引用；占位避免生成空成员名
+238-		"5":  "NotFound",
+239-		"99": "Internal",
+240-		"14": "Cancelled",
+241-		"15": "Timeout",
+242-	}
+243-	for _, tc := range cases {
+244-		t.Run(tc.name, func(t *testing.T) {
+245-			dir := t.TempDir()
+246-			xfb := `ffi native {
+247-  errorMap {
+248-    5 = NotFound
+249-    14 = Cancelled
+250-    15 = Timeout
+251-  }
+252-  @ffiEntry(cName = "native_read")
+253-  @lease(path = .borrow, code = .borrow)
+254-  @errorCode(codeParam = .code)
+255-  @blocking(.aware)
+256-  Int64 ffiRead(String path, Int32 code);
+257-}
+258-`
+259-			writeFFIFile(t, filepath.Join(dir, "bindings", "native.xfb"), xfb)
+260-			src := `import xdk.errors
+261-
+262-static Int main() {
+263-    Result<Int64, ErrorKind> r = ffiRead("x")
+264-    if (r.isOk()) {
+265-        print("ok " + str(r.value()))
+266-    } else {
+267-        print("err " + str(r.error() == ErrorKind.` + kindOf[tc.code] + `))
+268-    }
+269-    return 0
+270-}
+271-`
+272-			mainPath := filepath.Join(dir, "main.x")
+273-			writeFFIFile(t, mainPath, src)
+274-			nativePath := filepath.Join(dir, "native.c")
+275-			writeFFIFile(t, nativePath, `#include <stdint.h>
+276-#include <stddef.h>
+277-int64_t native_read(const char *path, size_t n, int32_t *code) {
+278-    (void)path; (void)n;
+279-    *code = `+tc.code+`;
+280-    return 42;
+281-}
+282-`)
+283-			reg, diags, err := LoadFFI(dir)
+284-			if err != nil || len(diags) != 0 {
+285-				t.Fatalf("LoadFFI: err=%v diags=%v", err, diags)
+286-			}
+287-			u, pdiags := xfront.ParseUnit(mainPath, src)
+288-			if len(pdiags) != 0 {
+289-				t.Fatalf("解析诊断：%v", pdiags)
+290-			}
+291-			if err := InjectFFI(u, reg); err != nil {
+292-				t.Fatalf("InjectFFI: %v", err)
+293-			}
+294-			if sd := sema.Analyze(mainPath, u); len(sd) != 0 {
+295-				t.Fatalf("语义诊断：%v", sd)
+296-			}
+297-			csrc, err := EmitCWithFFI(u, reg)
+298-			if err != nil {
+299-				t.Fatalf("EmitCWithFFI: %v", err)
+300-			}
+301-			if strings.Contains(csrc, "fatal: FFI 入口") {
+302-				t.Fatalf("Result 通道不应 fatal：\n%s", csrc)
+303-			}
+304-			cc, err := exec.LookPath("cc")
+305-			if err != nil {
+306-				t.Skip("无 C 编译器")
+307-			}
+308-			rt := filepath.Join("..", "..", "runtime")
+309-			cfile := filepath.Join(dir, "prog.c")
+310-			writeFFIFile(t, cfile, csrc)
+311-			bin := filepath.Join(dir, "prog")
+312-			args := []string{"-std=c11", "-O2", "-Wno-unused-function", "-I", rt, "-o", bin, cfile, nativePath}
+313-			for _, f := range []string{"rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c"} {

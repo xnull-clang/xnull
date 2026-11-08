@@ -1,0 +1,6 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S3-MEM07-policy	MEM-07	policy	含 Result 字段的类按 GC	policy=gc, rule=5	PASS	policy.out
+S3-MEM07-gotest	MEM-07	gotest	TestResult/TestS2 PASS	ok internal/codegen	PASS	gotest.out
+S3-MEM07-copy	MEM-07	compiled	Result 值复制/变量应可用	rc=1 codegen：Result 表达式 *xfront.IdentExpr 未支持	FAIL	probe1.run.err
+S3-MEM07-classfield	MEM-07	compiled	Result 字段初始化应可用	rc=1 codegen：Int 表达式 *xfront.Call 未支持	FAIL	probe2.run.err
+S3-MEM07-interp	MEM-07	interp	Result 值复制/字段可读	true/true/7, rc=0	PASS	probe1.check.out

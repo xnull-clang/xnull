@@ -1,0 +1,32 @@
+=== RUN   TestParseSample
+--- PASS: TestParseSample (0.00s)
+=== RUN   TestStringEscapesAndArgs
+--- PASS: TestStringEscapesAndArgs (0.00s)
+=== RUN   TestErrors
+=== RUN   TestErrors/缺值
+=== RUN   TestErrors/缺等号
+=== RUN   TestErrors/块未闭合
+=== RUN   TestErrors/多余右括号
+=== RUN   TestErrors/字符串未闭合
+=== RUN   TestErrors/非法转义
+=== RUN   TestErrors/非法字符
+=== RUN   TestErrors/BOM
+=== RUN   TestErrors/变量未闭合
+=== RUN   TestErrors/范围端点不足
+--- PASS: TestErrors (0.00s)
+    --- PASS: TestErrors/缺值 (0.00s)
+    --- PASS: TestErrors/缺等号 (0.00s)
+    --- PASS: TestErrors/块未闭合 (0.00s)
+    --- PASS: TestErrors/多余右括号 (0.00s)
+    --- PASS: TestErrors/字符串未闭合 (0.00s)
+    --- PASS: TestErrors/非法转义 (0.00s)
+    --- PASS: TestErrors/非法字符 (0.00s)
+    --- PASS: TestErrors/BOM (0.00s)
+    --- PASS: TestErrors/变量未闭合 (0.00s)
+    --- PASS: TestErrors/范围端点不足 (0.00s)
+=== RUN   TestMultipleErrorsReported
+--- PASS: TestMultipleErrorsReported (0.00s)
+=== RUN   TestSpecExamples
+--- PASS: TestSpecExamples (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/xpd	0.722s

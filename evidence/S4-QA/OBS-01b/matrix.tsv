@@ -1,0 +1,9 @@
+id	anchor	mode	expect	actual	verdict	evidence
+OBS01-report-void	OBS-01	compiled	report(Err) 单行 `[Kind] describe`	`[Io] disk`（单行）, rc=0	PASS	report_void.compiled.err
+OBS01-report-ok	OBS-01	compiled	report(Ok) 零输出	stdout `true`，stderr 无 Ok 行	PASS	report_void.compiled.out/err
+OBS01-report-void-sig	OBS-01	check	report -> void；链式赋值不是要求	`Result r = report(x)` 报 TY-101（符合 §2.1；该期望删除）	PASS	report_chain_obsolete.err
+OBS01-no-heap	OBS-01	code	无 malloc，write + 栈缓冲	xn_report_line/write(STDERR_FILENO)，无 malloc	PASS	impl/internal/codegen/codegen.go:148-177
+OBS01-sensitive	OBS-01	compiled	只输出 kind+describe；describe 换行折叠	`[Io] user=alice password=secret`（单行）	PASS	report_sensitive.compiled.err
+OBS01-format	OBS-01	dual	compiled `[Kind] describe` 为准	compiled `[Io] disk`；interp `Io: disk`（E3 待改）	PASS（compiled 为准）	report_void.interp.err
+OBS01-mapErr-topconv	OBS-01	check	mapErr 顶层转换函数（E2 待修）	ERR-207（已知 sema 缺口）	BOUNDARY	mapErr_topconv.err
+OBS01-struct-error	OBS-01	gotest	结构体错误 + ErrorKind PASS	PASS	struct-error-test.out

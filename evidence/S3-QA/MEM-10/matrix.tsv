@@ -1,0 +1,3 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S3-MEM10-interp	MEM-10	gotest	TestDefer/TestTry/TestErrdefer/TestThrow/TestFatal PASS	ok internal/interp	PASS	gotest.out
+S3-MEM10-example	MEM-10	dual	examples/defer-cleanup.x 双路径一致	interp/compiled stdout 完全一致，rc=0	PASS	defer-interp.out,defer-compiled.out

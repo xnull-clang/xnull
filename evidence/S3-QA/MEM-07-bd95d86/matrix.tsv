@@ -1,0 +1,10 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S3-MEM07-repro-copy-check	MEM-07	check	S3-RESULT repro-copy 合法	rc=0	PASS	repro-copy.check.out
+S3-MEM07-repro-copy-interp	MEM-07	interp	5	5, rc=0	PASS	repro-copy.interp.out
+S3-MEM07-repro-copy-compiled	MEM-07	compiled	5	5, rc=0	PASS	repro-copy.compiled.out
+S3-MEM07-repro-field-check	MEM-07	check	S3-RESULT repro-field 合法	rc=0	PASS	repro-field.check.out
+S3-MEM07-repro-field-interp	MEM-07	interp	5	5, rc=0	PASS	repro-field.interp.out
+S3-MEM07-repro-field-compiled	MEM-07	compiled	5	5, rc=0	PASS	repro-field.compiled.out
+S3-MEM07-policy	MEM-07	policy	含 Result 字段类按 GC	policy=gc, rule=5	PASS	policy.out
+S3-MEM07-gotest	MEM-07	gotest	TestS3_RESULT / TestResult / TestS2 PASS	ok internal/codegen	PASS	gotest.out
+S3-MEM07-ctor-param	MEM-07	compiled	Result 作构造器参数的 typedef	rc=1 C 编译错误 unknown type xn_Result_Int_String	BOUNDARY	ctor_param.err

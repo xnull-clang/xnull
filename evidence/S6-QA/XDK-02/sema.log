@@ -1,0 +1,6 @@
+=== RUN   TestS601XDK02Clause1Result
+--- PASS: TestS601XDK02Clause1Result (0.00s)
+=== RUN   TestS601XDK02Clause3ContextFirst
+--- PASS: TestS601XDK02Clause3ContextFirst (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/sema	1.379s

@@ -1,0 +1,4 @@
+=== RUN   TestS701CallSiteMarshalling
+--- PASS: TestS701CallSiteMarshalling (1.79s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	2.305s

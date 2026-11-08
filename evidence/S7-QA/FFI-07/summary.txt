@@ -1,0 +1,9 @@
+--- companion runtime test
+task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/group-must-close/dump/pool/companion)
+companion tests passed (pool=4, stress=64+cancel=16, carrier-free)
+--- manifest test
+    --- PASS: TestContractNegatives/layout_字段类型非法 (0.00s)
+    --- PASS: TestContractNegatives/unsafe_缺合同文本 (0.00s)
+    --- PASS: TestContractNegatives/重复入口 (0.00s)
+--- PASS: TestXdkWrappersRun (3.69s)
+PASS

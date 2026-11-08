@@ -1,0 +1,5 @@
+=== RUN   TestXdkTextUnitSurface
+    xdk_text_test.go:48: codegen 限制（E4 范围）：codegen：类型 Char 未支持（M4.1 范围）
+--- PASS: TestXdkTextUnitSurface (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	0.573s

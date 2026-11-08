@@ -1,0 +1,9 @@
+id	anchor	mode	expect	actual	verdict	evidence
+PROJ08-unknown	PROJ-08	gotest	未知键失败并列出	TestUnknownKeysListed：3 个键点名	PASS	config-tests.log
+PROJ08-missing	PROJ-08	gotest	缺失必需键失败	TestMissingRequiredKey：app.name	PASS	config-tests.log
+PROJ08-type	PROJ-08	gotest	类型错误含键与层级/文件	TestTypeMismatch：2 例 + application.properties	PASS	config-tests.log
+PROJ08-secret	PROJ-08	gotest	疑似密钥构建失败	TestSecretLiteralsRejected：db.password/api.token	PASS	config-tests.log
+PROJ08-secret-placeholder	PROJ-08	gotest	`${...}` 占位允许	TestSecretPlaceholderAllowed PASS	PASS	config-tests.log
+PROJ08-keyname	PROJ-08	gotest	非法键名失败	TestInvalidKeys：6 例 + TestParseCLIOverrides	PASS	config-tests.log
+PROJ08-nonapp	PROJ-08	gotest	非 app 出现 application.properties 失败	TestNonAppConfigRejected PASS	PASS	config-tests.log
+PROJ08-placement	PROJ-08	gotest	配置必须在资源根顶层	TestConfigFileMustBeAtResourcesRoot PASS	PASS	config-tests.log

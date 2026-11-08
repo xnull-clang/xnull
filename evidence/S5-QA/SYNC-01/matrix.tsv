@@ -1,0 +1,3 @@
+id	anchor	mode	expect	actual	verdict	evidence
+SYNC01-mutex	S5-SYNC-01	runtime	Mutex.with_lock 作用域化；data 引用计数	test_mutex PASS（hits=1, value=6, deinit=1）	PASS	runtime-build.log
+SYNC01-rules	S5-SYNC-01	sema	Mutex<struct> 拒绝；嵌套 withLock 拒绝	TestS5SyncTypeRules/ChannelAndMutexFlow PASS	PASS	sema.log

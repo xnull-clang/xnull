@@ -1,0 +1,11 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S4-CLEAN-main-seq	S4-CLEAN-01	interp	work/close:b/close:a/err:boom/1/0/fail/inner-e/outer-e/true	一致, rc=0	PASS	clean.interp.out
+S4-CLEAN-main-seq	S4-CLEAN-01	compiled	同上	一致, rc=0	PASS	clean.compiled.out
+S4-CLEAN-main-seq	S4-CLEAN-01	dual	双路径逐字节一致	diff exit 0	PASS	clean.diff
+S4-CLEAN-comp-fail	S4-CLEAN-01	interp	comp:comp-fail/dR/err:orig	一致, rc=0	PASS	clean2.interp.out
+S4-CLEAN-comp-fail	S4-CLEAN-01	compiled	同上	comp:comp-fail/err:orig/dR（dR 顺序不同）	FAIL	clean2.compiled.out
+S4-CLEAN-param-ownership	S4-CLEAN-01	interp	g(new R()) 后 dR 先于 caller print	dR/err:x, rc=0	PASS	clean-param.interp.out
+S4-CLEAN-param-ownership	S4-CLEAN-01	compiled	同上	err:x/dR（顺序不同）, rc=0	FAIL	clean-param.compiled.out
+S4-CLEAN-partial-state	S4-CLEAN-01	interp	回滚后 0/fail	0/fail, rc=0	PASS	clean-partial.interp.out
+S4-CLEAN-partial-state	S4-CLEAN-01	compiled	0/fail	0/fail, rc=0	PASS	clean-partial.compiled.out
+S4-CLEAN-CI	S4-CLEAN-01	gotest	TestS4CLEAN01* PASS	ok internal/interp	PASS	gotest.out

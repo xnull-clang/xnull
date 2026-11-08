@@ -1,0 +1,7 @@
+id	anchor	mode	expect	actual	verdict	evidence
+FFI03-transfer-out	FFI-03	e2e	`.transfer` 句柄 out 传 `xrt_handle **`，包装写回	`open rc=0 handle=1`；fail `handle=0`	PASS	emit-e2e.log
+FFI03-bytes-transfer	FFI-03	e2e	Bytes `.transfer` 所有权移交	`ffiFill` 返回 2；不二次释放	PASS	codegen-s701.log
+FFI03-bytes-reclaim	FFI-03	e2e	Bytes `.reclaim` 归还原生	`reclaim=0 reclaim_total=1 closed=1`	PASS	emit-e2e.log
+FFI03-borrow	FFI-03	runtime	`.borrow` 边界期间 pin；越界写可见	canary 模式进程终止、无 `canary-missed`	PASS	emit-e2e.log
+FFI03-layout	FFI-03	runtime	layout 尺寸检查	layout 模式终止、无 `layout-missed`；正常 `layout_ok=1`	PASS	emit-e2e.log
+FFI03-lease-neg	FFI-03	ffi	租约合同负例	TestContractNegatives（缺租约/移交无归还/裸指针/layout）PASS	PASS	ffi-tests.log

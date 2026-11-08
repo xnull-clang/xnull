@@ -1,0 +1,2 @@
+evidence/QA-S5A/TASK-01/free_spawn/source.x:3:19: error[RES-101]: 未定义的名称 `spawn`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一

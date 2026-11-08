@@ -1,0 +1,7 @@
+id	anchor	mode	expect	actual	verdict	evidence
+FFI05-decl	FFI-05	ffi	callback 声明登记	2 callbacks 登记；参数结构 `xn_tramp_<Cb>_args`	PASS	ffi-s703.log
+FFI05-trampoline	FFI-05	build	typed trampoline 生成	new/destroy/invoke/adapt 符号齐全	PASS	ffi-s703.log
+FFI05-env-root	FFI-05	runtime	env 创建登记根，存活可调用	`log st=0 r=7 n=1 alive=1`；`notify st=0 n=9`	PASS	ffi-s703.log,runtime-build.log
+FFI05-destroy	FFI-05	runtime	destroy 注销根；注销后调用 fatal	`destroyed alive=0`；destroyed 模式进程终止、无 `destroyed-missed`	PASS	ffi-s703.log
+FFI05-panic	FFI-05	runtime	回调 panic/非 0 状态 fatal	panic 模式进程终止、无 `panic-missed`	PASS	ffi-s703.log
+FFI05-validation	FFI-05	ffi	Bytes/layout/重复声明拒绝	FFI-112 / FFI-111	PASS	ffi-s703.log

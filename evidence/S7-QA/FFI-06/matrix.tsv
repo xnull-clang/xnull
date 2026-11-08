@@ -1,0 +1,6 @@
+id	anchor	mode	expect	actual	verdict	evidence
+FFI06-abi-v1	FFI-06	build	XRT_ABI_VERSION=1；xrt.h 稳定 v1	版本宏/稳定注释/不匹配 #error；abi v1 tests passed	PASS	contracts.txt,runtime-build.log
+FFI06-init-order	FFI-06	gotest	main 首行 xrt_runtime_init；未 init fatal	TestS7_05RuntimeInitFirst PASS；未 init exit 134	PASS	gotest-s705.log,runtime-build.log
+FFI06-native-link	FFI-06	runtime	仅 include xrt.h 可链接并管理内存	abi link tests passed（alloc/retain/release/weak/root/handle/callback/string/bytes）	PASS	runtime-build.log
+FFI06-weak-gate	FFI-06	gotest	应用层引用弱表编译失败；绑定层成功	TestS7_05WeakTableBindingsOnly PASS；EXPECTED-FAIL/EXIT=0	PASS	gotest-s705.log,runtime-build.log
+FFI06-ffi	FFI-06	gotest	FFI 绑定/发射回归	go test ./internal/codegen/ffi PASS	PASS	ffi-tests.log

@@ -1,0 +1,9 @@
+xdk.errors rc=0 
+xdk.tasks rc=0 
+xdk.sync rc=0 
+xdk.runtime rc=0 
+xdk.collections rc=0 
+xdk.text rc=0 
+xdk.sys rc=0 
+xdk.net rc=0 
+all rc=0 

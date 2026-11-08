@@ -1,0 +1,8 @@
+=== RUN   TestXDK07SemaSurface
+--- PASS: TestXDK07SemaSurface (0.00s)
+=== RUN   TestXDK07InterpE2E
+--- PASS: TestXDK07InterpE2E (0.01s)
+=== RUN   TestXDK07CompiledE2E
+--- PASS: TestXDK07CompiledE2E (3.07s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	3.801s

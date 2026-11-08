@@ -1,0 +1,5 @@
+id	anchor	mode	expect	actual	verdict	evidence
+CANCEL01-token	CANCEL-01	runtime	原子令牌；父取消→子 Cancelled	test_task.c test_cancel_token_and_deadline PASS	PASS	runtime-build.log,source-contract.txt
+CANCEL01-cancel-close	CANCEL-01	runtime	取消任务返回 Err+Cancelled	test_cancel_close：r.ok=0, kind=XRT_ERR_CANCELLED	PASS	runtime-build.log
+CANCEL01-ffi	CANCEL-01	gotest	Cancelled ErrorKind 映射不降级	TestS4_04FFIErrorKindRuntime/Cancelled PASS	PASS	ffi-cancel-timeout.log
+CANCEL01-interp	CANCEL-01	gotest	Context.cancel/checkCancel 返回 Err	TestS5TasksBasic/ContextCancel PASS	PASS	interp-tasks.log

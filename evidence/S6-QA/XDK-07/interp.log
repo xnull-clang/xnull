@@ -1,0 +1,4 @@
+=== RUN   TestXdkCollectionsRuntime
+--- PASS: TestXdkCollectionsRuntime (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.455s

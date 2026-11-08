@@ -1,0 +1,6 @@
+id	anchor	mode	expect	actual	verdict	evidence
+XDK07-sema	XDK-07	gotest	容器成员签名可见	TestXdkCollectionsMemberSignatures PASS	PASS	codegen.log
+XDK07-sema-e2e	XDK-07	e2e	sema 面	TestXDK07SemaSurface PASS	PASS	cli-xdk07.log
+XDK07-interp	XDK-07	e2e	解释路径 19 行输出	TestXDK07InterpE2E PASS	PASS	cli-xdk07.log
+XDK07-compiled	XDK-07	e2e	编译路径 19 行输出	TestXDK07CompiledE2E PASS（collections_basic/nonnull expect 匹配）	PASS	cli-xdk07.log
+XDK07-members	XDK-07	e2e	isFull/isEmpty/indexOf/lowerBound/get/less/swap/sift*	collections_basic.x 全成员调用编译并运行	PASS	collections_basic.x

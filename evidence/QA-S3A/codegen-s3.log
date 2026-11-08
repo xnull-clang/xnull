@@ -1,0 +1,56 @@
+=== RUN   TestS3_01ContainerGCAllocation
+--- PASS: TestS3_01ContainerGCAllocation (0.00s)
+=== RUN   TestS3_01GCContainerElements
+--- PASS: TestS3_01GCContainerElements (1.67s)
+=== RUN   TestS3_01ContainerField
+--- PASS: TestS3_01ContainerField (1.12s)
+=== RUN   TestS3_01ClearReleasesARCElements
+--- PASS: TestS3_01ClearReleasesARCElements (1.01s)
+=== RUN   TestS3_08MemPolicyOverride
+--- PASS: TestS3_08MemPolicyOverride (0.00s)
+=== RUN   TestS3_08StatsEmission
+--- PASS: TestS3_08StatsEmission (0.00s)
+=== RUN   TestS3_08StatsRun
+--- PASS: TestS3_08StatsRun (0.95s)
+=== RUN   TestS3_09ClassFieldSlots
+--- PASS: TestS3_09ClassFieldSlots (0.95s)
+=== RUN   TestS3_02RootEmission
+--- PASS: TestS3_02RootEmission (0.00s)
+=== RUN   TestS3_02MidCollectionKeepsLocalRoot
+--- PASS: TestS3_02MidCollectionKeepsLocalRoot (1.23s)
+=== RUN   TestS3_02ParamRootAcrossCollection
+--- PASS: TestS3_02ParamRootAcrossCollection (1.28s)
+=== RUN   TestS3_02GlobalRootAcrossCollection
+--- PASS: TestS3_02GlobalRootAcrossCollection (1.30s)
+=== RUN   TestS3_03StackAllocation
+--- PASS: TestS3_03StackAllocation (1.20s)
+=== RUN   TestS3_03StackLoopIdentity
+--- PASS: TestS3_03StackLoopIdentity (1.18s)
+=== RUN   TestS3_03EscapingLocalStaysHeap
+--- PASS: TestS3_03EscapingLocalStaysHeap (1.18s)
+=== RUN   TestS3_03EscapeReturnAndOther
+--- PASS: TestS3_03EscapeReturnAndOther (1.29s)
+=== RUN   TestS3_04GCTextBytesSB
+--- PASS: TestS3_04GCTextBytesSB (0.97s)
+=== RUN   TestS3_04StringFieldScanned
+--- PASS: TestS3_04StringFieldScanned (1.00s)
+=== RUN   TestS3_04TextSBTypes
+--- PASS: TestS3_04TextSBTypes (1.28s)
+=== RUN   TestS3_04cgTextSBStringEmission
+--- PASS: TestS3_04cgTextSBStringEmission (0.00s)
+=== RUN   TestS3_04cgStringBytesRoots
+--- PASS: TestS3_04cgStringBytesRoots (0.99s)
+=== RUN   TestS3_04cgFieldScan
+--- PASS: TestS3_04cgFieldScan (1.27s)
+=== RUN   TestS3_04cgTextSBRun
+--- PASS: TestS3_04cgTextSBRun (1.40s)
+=== RUN   TestS3_05ProtoFieldScan
+--- PASS: TestS3_05ProtoFieldScan (1.56s)
+=== RUN   TestS3_05AnyBoxing
+--- PASS: TestS3_05AnyBoxing (1.18s)
+=== RUN   TestS3_05AnyFieldAndUnboxClass
+--- PASS: TestS3_05AnyFieldAndUnboxClass (1.19s)
+=== RUN   TestS3_05TupleRefScanDeinit
+--- PASS: TestS3_05TupleRefScanDeinit (2.14s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	28.650s

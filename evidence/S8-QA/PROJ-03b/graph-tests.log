@@ -1,0 +1,36 @@
+=== RUN   TestLockGenerateAndValidate
+=== RUN   TestLockGenerateAndValidate/锁缺条目
+=== RUN   TestLockGenerateAndValidate/锁多余坐标
+=== RUN   TestLockGenerateAndValidate/摘要不符
+=== RUN   TestLockGenerateAndValidate/锁与清单版本不一致
+--- PASS: TestLockGenerateAndValidate (0.01s)
+    --- PASS: TestLockGenerateAndValidate/锁缺条目 (0.00s)
+    --- PASS: TestLockGenerateAndValidate/锁多余坐标 (0.00s)
+    --- PASS: TestLockGenerateAndValidate/摘要不符 (0.00s)
+    --- PASS: TestLockGenerateAndValidate/锁与清单版本不一致 (0.00s)
+=== RUN   TestLockSortOrder
+--- PASS: TestLockSortOrder (0.00s)
+=== RUN   TestGraphTransitive
+--- PASS: TestGraphTransitive (0.01s)
+=== RUN   TestGraphArbitration
+=== RUN   TestGraphArbitration/最近优先
+=== RUN   TestGraphArbitration/同深度冲突
+--- PASS: TestGraphArbitration (0.01s)
+    --- PASS: TestGraphArbitration/最近优先 (0.01s)
+    --- PASS: TestGraphArbitration/同深度冲突 (0.01s)
+=== RUN   TestGraphConflictPaths
+--- PASS: TestGraphConflictPaths (0.01s)
+=== RUN   TestGraphRules
+=== RUN   TestGraphRules/管理版本优先于最近
+=== RUN   TestGraphRules/test_scope_不传递
+=== RUN   TestGraphRules/exclusions_生效
+=== RUN   TestGraphRules/环失败
+--- PASS: TestGraphRules (0.02s)
+    --- PASS: TestGraphRules/管理版本优先于最近 (0.01s)
+    --- PASS: TestGraphRules/test_scope_不传递 (0.00s)
+    --- PASS: TestGraphRules/exclusions_生效 (0.01s)
+    --- PASS: TestGraphRules/环失败 (0.00s)
+=== RUN   TestLockBytesStableFromGraph
+--- PASS: TestLockBytesStableFromGraph (0.01s)
+PASS
+ok  	xnull.dev/xnull/internal/manifest	0.601s

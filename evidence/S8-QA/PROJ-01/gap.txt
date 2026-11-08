@@ -1,0 +1,4 @@
+== no semantic validator symbols ==
+impl/internal/diag/diag_test.go:7:		File: "xnull.project", Line: 12, Col: 3, Code: "XPD-204",
+impl/internal/diag/diag_test.go:13:	want := "xnull.project:12:3: error[XPD-204]: unknown field \"optonal\" in dependency\n" +
+impl/internal/diag/diag.go:15:	Code    string // 形如 XPD-204 / CLI-002

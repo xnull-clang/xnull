@@ -1,0 +1,23 @@
+PASS  mem05/none  interp=7
+PASS  mem05/none  compiled=7
+PASS  mem05/other  interp=6
+BLOCKED/FAIL  mem05/other  compiled rc=1 err=xnull: 代码生成失败：codegen：类实例实参只支持变量/new/调用（M5.1-b 范围）
+PASS  mem05/return  interp=7
+PASS  mem05/return  compiled=7
+PASS  mem06/array  interp=13
+PASS  mem06/array  compiled=13
+PASS  mem06/gc_elem  interp=5
+BLOCKED/FAIL  mem06/gc_elem  compiled rc=1 err=xnull: 代码生成失败：codegen：类成员接收者 *xfront.Call 未支持（M5.1-b 范围：局部变量/self/字段链）
+PASS  mem06/holder  interp=0
+PASS  mem06/holder  compiled=0
+PASS  mem06/list  interp=4
+PASS  mem06/list  compiled=4
+PASS  mem06/mapset  interp=6
+BLOCKED/FAIL  mem06/mapset  compiled rc=1 err=xnull: 代码生成失败：codegen：Int 表达式 *xfront.Call 未支持（M4.1 范围）
+PASS  mem03/container_cycle  interp=1
+BLOCKED/FAIL  mem03/container_cycle  compiled rc=1 err=xnull: 代码生成失败：codegen：类成员接收者 *xfront.Call 未支持（M5.1-b 范围：局部变量/self/字段链）
+PASS  mem03/cycle  interp=7
+PASS  mem03/cycle  compiled=7
+PASS  mem03/identity  interp=5
+PASS  mem03/identity  compiled=5
+汇总：PASS=11 FAIL=0

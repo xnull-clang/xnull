@@ -1,0 +1,2 @@
+evidence/S4-QA/OBS-02/last_error.x:2:11: error[RES-101]: 未定义的名称 `lastError`（§3.3 四级顺序解析后不可见）
+  局部/参数/顶层声明、导入符号或完全限定名之一

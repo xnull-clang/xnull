@@ -1,0 +1,52 @@
+== s703 E2E criteria ==
+	}
+	return exe
+}
+
+func TestS703CallbackTrampolineEndToEnd(t *testing.T) {
+	exe := buildS703(t)
+
+	out, err := exec.Command(exe).CombinedOutput()
+	if err != nil {
+		t.Fatalf("运行失败：%v\n%s", err, out)
+	}
+	want := strings.Join([]string{
+		"log st=0 r=7 n=1 alive=1",
+		"notify st=0 n=9",
+		"destroyed alive=0",
+	}, "\n")
+	if got := strings.TrimSpace(string(out)); got != want {
+		t.Fatalf("输出不符\n got:\n%s\nwant:\n%s", got, want)
+	}
+
+	// 注销后调用：运行时 xrt_fatal → abort（S7 §5.2 合同违规，不得静默）。
+	for _, mode := range []string{"destroyed", "panic"} {
+		c := exec.Command(exe, mode)
+		o, err := c.CombinedOutput()
+		if err == nil {
+			t.Fatalf("%s 模式应终止进程，实际通过：%s", mode, o)
+		}
+		if strings.Contains(string(o), mode+"-missed") {
+			t.Fatalf("%s 模式未检出违规：%s", mode, o)
+		}
+	}
+}
+
+func TestS703CallbackValidation(t *testing.T) {
+	// 参数含 Bytes：不可跨回调边界（S7 §5.1/§5.3）。
+	_, diags := loadSrc(t, "bindings/bad.xfb", `ffi bad {
+  callback Bad(Bytes) -> Int64;
+}
+`)
+	if len(diags) == 0 || !strings.Contains(strings.Join(codeList(diags), ","), "FFI-112") {
+		t.Fatalf("Bytes 回调参数应报 FFI-112，得到 %v", codeList(diags))
+	}
+
+	// 返回 layout：回调返回限标量或 Void。
+	_, diags = loadSrc(t, "bindings/bad2.xfb", `ffi bad2 {
+  layout(c) struct Pair { Int64 a; }
+  callback Bad(Pair) -> Pair;
+}
+`)
+	if len(diags) == 0 || !strings.Contains(strings.Join(codeList(diags), ","), "FFI-112") {
+		t.Fatalf("layout 回调返回应报 FFI-112，得到 %v", codeList(diags))

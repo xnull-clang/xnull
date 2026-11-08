@@ -1,0 +1,3 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S3-MEM08-runtime	MEM-08	runtime	ARC 归零链/GC 清扫顺序/复活终止	runtime build exit 0；deinit→release→sweep、resurrection fatal、weak clear 通过	PASS	runtime-build.out
+S3-MEM08-gotest	MEM-08	gotest	TestS2MEM01/02 PASS	ok internal/codegen	PASS	gotest.out

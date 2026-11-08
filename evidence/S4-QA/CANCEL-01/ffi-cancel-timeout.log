@@ -1,0 +1,12 @@
+=== RUN   TestS4_04FFIErrorKindRuntime
+=== RUN   TestS4_04FFIErrorKindRuntime/Io
+=== RUN   TestS4_04FFIErrorKindRuntime/Cancelled
+=== RUN   TestS4_04FFIErrorKindRuntime/Timeout
+=== RUN   TestS4_04FFIErrorKindRuntime/未知码
+--- PASS: TestS4_04FFIErrorKindRuntime (8.60s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Io (2.10s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Cancelled (2.46s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/Timeout (2.26s)
+    --- PASS: TestS4_04FFIErrorKindRuntime/未知码 (1.77s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	9.641s

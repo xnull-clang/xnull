@@ -1,0 +1,6 @@
+=== RUN   TestErrorKindEnumHelper
+--- PASS: TestErrorKindEnumHelper (0.01s)
+=== RUN   TestXdkWrappersRun
+--- PASS: TestXdkWrappersRun (2.60s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen/ffi	3.678s

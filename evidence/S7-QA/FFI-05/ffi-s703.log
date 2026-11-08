@@ -1,0 +1,8 @@
+=== RUN   TestTrampolineGenerated
+--- PASS: TestTrampolineGenerated (0.00s)
+=== RUN   TestS703CallbackTrampolineEndToEnd
+--- PASS: TestS703CallbackTrampolineEndToEnd (2.97s)
+=== RUN   TestS703CallbackValidation
+--- PASS: TestS703CallbackValidation (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen/ffi	4.640s

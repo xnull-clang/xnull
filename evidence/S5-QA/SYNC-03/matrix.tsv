@@ -1,0 +1,4 @@
+id	anchor	mode	expect	actual	verdict	evidence
+SYNC03-atomics	S5-SYNC-03	runtime	AtomicInt/Bool/Ref seq_cst load/store/CAS	test_atomics PASS（CAS/refcount/deinit=3）	PASS	runtime-build.log
+SYNC03-rules	S5-SYNC-03	sema	AtomicRef<Int> 拒绝；Atomic 类型检查	TestS5SyncTypeRules/ChannelAndMutexFlow PASS	PASS	sema.log
+SYNC03-escape	S5-SYNC-03	note	跨任务未同步共享按逃逸/GC保守处理	由 S3-03/S5-04 承担；本卡未单列运行期断言	BOUNDARY	-

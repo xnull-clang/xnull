@@ -1,0 +1,12 @@
+PASS  mem05/none  interp=7
+PASS  mem05/other  interp=6
+PASS  mem05/return  interp=7
+PASS  mem06/array  interp=13
+PASS  mem06/gc_elem  interp=5
+PASS  mem06/holder  interp=0
+PASS  mem06/list  interp=4
+PASS  mem06/mapset  interp=6
+PASS  mem03/container_cycle  interp=1
+PASS  mem03/cycle  interp=7
+PASS  mem03/identity  interp=5
+汇总：PASS=11 FAIL=0

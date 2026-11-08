@@ -1,0 +1,2 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S3-MEM09-taskroot	MEM-09	task	env external root bind/unbind + dispose 可回收	依赖 B3 调度器/任务 env；ABI xrt_task_root_bind/unbind 已有，驱动未建	BLOCKED(B3)	BLOCKED.md

@@ -1,0 +1,4 @@
+id	anchor	mode	expect	actual	verdict	evidence
+XDK10-resapi	XDK-10	runtime	5 API + 7 约束	test_res_api PASS（资源 API 测试通过）	PASS	runtime-build.log
+XDK10-emit	XDK-10	gotest	资源 API 发射面	TestS6_04ResourceSurface PASS	PASS	codegen-s604.log
+XDK10-e2e	XDK-10	e2e	XNull 资源程序端到端	E4 FFI Bytes 返回编组未实现；CLI 端到端未验	BLOCKED/P2	回执-S6-04-E5.md

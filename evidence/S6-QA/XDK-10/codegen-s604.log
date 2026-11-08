@@ -1,0 +1,4 @@
+=== RUN   TestS6_04ResourceSurface
+--- PASS: TestS6_04ResourceSurface (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	0.688s

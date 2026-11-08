@@ -1,0 +1,2 @@
+evidence/S4-QA/OBS-03/defer_unhandled.x:3:11: error[ERR-201]: Result 是 @mustUse：不得作为裸表达式语句丢弃（§10.1）
+  返回、赋给变量/字段/容器、用 try 传播，或调用其成员

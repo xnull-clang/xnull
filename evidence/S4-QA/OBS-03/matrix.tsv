@@ -1,0 +1,5 @@
+id	anchor	mode	expect	actual	verdict	evidence
+OBS03-defer-unhandled	OBS-03	check	defer 内裸 Result 诊断	rc=1 3:11 ERR-201	PASS	defer_unhandled.err
+OBS03-defer-observed	OBS-03	check	§4.4 显式观测模式零诊断	rc=0	PASS	defer_observed.err
+OBS03-defer-observed	OBS-03	interp	显式观测可执行	Internal: disk, rc=0	PASS	observed.interp.err
+OBS03-defer-observed	OBS-03	compiled	显式观测可执行	[Internal] disk, rc=0	PASS	observed.compiled.err

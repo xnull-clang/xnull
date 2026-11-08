@@ -1,0 +1,108 @@
+===== xdk.errors rc=0
+
+===== xdk.tasks rc=0
+
+===== xdk.sync rc=0
+
+===== xdk.runtime rc=0
+
+===== xdk.collections rc=1
+one.x:83:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isFull` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:91:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:98:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:114:34: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:128:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:138:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:146:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:154:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:211:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:216:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:226:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:234:20: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `get` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:242:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:289:20: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:290:21: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `swap` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:304:29: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:307:29: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:313:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `swap` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:320:13: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `siftUp` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:324:16: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:331:16: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:338:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+one.x:339:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `siftDown` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+===== xdk.text rc=0
+
+===== xdk.sys rc=0
+
+===== xdk.net rc=0
+
+all_rc=1
+all.x:83:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isFull` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:91:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:98:16: error[TY-229]: XDK 类型 `RingBuffer` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:114:34: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:128:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:138:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:146:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:154:21: error[TY-229]: XDK 类型 `OrderedMap` 的成员 `indexOf` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:211:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:216:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:226:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:234:20: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `get` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:242:21: error[TY-229]: XDK 类型 `BTreeMap` 的成员 `lowerBound` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:289:20: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:290:21: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `swap` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:304:29: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:307:29: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:313:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `swap` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:320:13: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `siftUp` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:324:16: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:331:16: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:338:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `isEmpty` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
+all.x:339:17: error[TY-229]: XDK 类型 `PriorityQueue` 的成员 `siftDown` 尚未支持（S6-01）
+  该 API 未实现或签名未冻结；见 S6 盘点卡
