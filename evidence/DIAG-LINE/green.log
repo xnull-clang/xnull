@@ -1,0 +1,4 @@
+=== RUN   TestDiagLineMapping
+--- PASS: TestDiagLineMapping (3.49s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.023s

@@ -29,14 +29,14 @@ func loadNetXfb(t *testing.T) *Registry {
 
 func TestS609NetXfbContracts(t *testing.T) {
 	reg := loadNetXfb(t)
-	for _, h := range []string{"Socket", "Listener"} {
+	for _, h := range []string{"Socket", "HttpResponse"} {
 		if _, ok := findHandle(reg, h); !ok {
 			t.Fatalf("缺少句柄 %s", h)
 		}
 	}
 	for _, e := range []string{
-		"socketConnect", "socketListen", "socketAccept", "socketRead",
-		"socketWrite", "socketClose", "listenerClose", "httpGetPlain", "httpPostPlain",
+		"socketConnect", "socketSend", "socketRecv", "socketClose",
+		"httpRequest", "httpStatus", "httpBodyText", "httpResponseClose",
 	} {
 		if _, ok := reg.Entry(e); !ok {
 			t.Fatalf("缺少入口 %s", e)
@@ -55,8 +55,8 @@ func TestS609NetXfbContracts(t *testing.T) {
 		t.Fatalf("支撑代码失败：%v", sup.Problems)
 	}
 	for _, sym := range []string{
-		"xn_ffi_socketConnect(", "xn_ffi_socketRead(", "xn_ffi_httpGetPlain(",
-		"xrt_bytes_buf * xdkc_http_get(", "xn_ffi_xdkc_net_error_kind_id(",
+		"xn_ffi_socketConnect(", "xn_ffi_socketRecv(", "xn_ffi_httpRequest(",
+		"xn_ffi_xdkc_net_error_kind_id(",
 	} {
 		if !strings.Contains(sup.Text, sym) {
 			t.Fatalf("支撑代码缺少 %q：\n%s", sym, sup.Text)

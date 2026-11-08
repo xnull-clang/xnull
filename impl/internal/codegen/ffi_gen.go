@@ -595,7 +595,7 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 		lines = append(lines, cT+" "+out+" = 0;")
 	case ffi.KindString:
 		out = s.tmp()
-		lines = append(lines, "rt_string *"+out+" = NULL;")
+		lines = append(lines, "xrt_string *"+out+" = NULL;")
 	case ffi.KindText:
 		out = s.tmp()
 		lines = append(lines, "xrt_text *"+out+" = NULL;")
@@ -611,6 +611,9 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	lines, _, err := s.ffiInvokeLines(e, lines, parts, post, out)
 	if err != nil {
 		return nil, "", err
+	}
+	if e.Ret.Kind == ffi.KindString && out != "" {
+		out = "(rt_string *)" + out
 	}
 	return lines, out, nil
 }
@@ -707,7 +710,7 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 			cT, _ := ffiScalarC(e.Ret.Name)
 			lines = append(lines, cT+" "+out+" = 0;")
 		case ffi.KindString:
-			lines = append(lines, "rt_string *"+out+" = NULL;")
+			lines = append(lines, "xrt_string *"+out+" = NULL;")
 		case ffi.KindText:
 			lines = append(lines, "xrt_text *"+out+" = NULL;")
 		case ffi.KindBytes:
@@ -724,7 +727,11 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 	lines = append(lines, resultC+" "+res+" = {0};")
 	lines = append(lines, res+".ok = ("+rc+" == 0);")
 	if out != "" {
-		lines = append(lines, res+".v = "+out+";")
+		val := out
+		if e.Ret.Kind == ffi.KindString {
+			val = "(rt_string *)" + out
+		}
+		lines = append(lines, res+".v = "+val+";")
 	}
 	lines = append(lines, fmt.Sprintf(
 		"if (%s != 0) { %s.err = (%s)%s; }",

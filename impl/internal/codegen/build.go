@@ -20,6 +20,8 @@ type Options struct {
 	MemPolicy string
 	// Stats 打开运行期分配统计与 GC 指标（§21/§23）；报告写 stderr。
 	Stats bool
+	// SrcPath 用于 #line 诊断映射（装配处填写；空则只写行号）。
+	SrcPath string
 	// Mode 是清单 build.mode（S8 §5.2）：""/"release" = -O2，"debug" = -O0 -g，"size" = -Os。
 	Mode string
 	// ResC 是工程资源表 C 源（由 `xnull dev res` 生成）；为空时使用内置空表。
@@ -181,6 +183,7 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		fmt.Fprintf(stderr, "xnull: %v\n", err)
 		return 1
 	}
+	opts.SrcPath = srcPath
 	csrc, err := EmitCWithBuildOptions(u, reg, strategies, opts)
 	if err != nil {
 		fmt.Fprintf(stderr, "xnull: 代码生成失败：%v\n", err)
