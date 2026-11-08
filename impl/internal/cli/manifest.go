@@ -257,7 +257,7 @@ func resolveEntry(m *projectManifest) (string, *diag.Diagnostic) {
 }
 
 // xmeta 生成 .xmeta（XPD）内容；字段顺序固定保证可复现（S8 §5.3）。
-func (m *projectManifest) xmeta(lockSHA, inputsSHA string) string {
+func (m *projectManifest) xmeta(lockSHA, inputsSHA string, integ *integrationState) string {
 	platform := runtime.GOOS
 	if platform == "darwin" {
 		platform = "macos"
@@ -278,8 +278,22 @@ func (m *projectManifest) xmeta(lockSHA, inputsSHA string) string {
 	fmt.Fprintf(&b, "  xdkVersion       = %s\n", fallback(xdk, "unknown"))
 	fmt.Fprintf(&b, "  languageVersion  = %s\n", fallback(lang, "unknown"))
 	fmt.Fprintf(&b, "  toolchainVersion = %s\n", toolchain)
-	b.WriteString("  profiles         = []\n")
-	b.WriteString("  plugins          = []\n")
+	profiles, plugins := "[]", "[]"
+	cfgSHA, resSHA, pluginSHA := "", "", ""
+	if integ != nil {
+		if len(integ.profiles) > 0 {
+			profiles = "[" + strings.Join(integ.profiles, ", ") + "]"
+		}
+		if len(integ.plugins) > 0 {
+			plugins = "[" + strings.Join(integ.plugins, ", ") + "]"
+		}
+		cfgSHA, resSHA, pluginSHA = integ.cfgDigest, integ.resDigest, integ.pluginDigest
+	}
+	fmt.Fprintf(&b, "  profiles         = %s\n", profiles)
+	fmt.Fprintf(&b, "  plugins          = %s\n", plugins)
+	fmt.Fprintf(&b, "  configSha256     = %s\n", cfgSHA)
+	fmt.Fprintf(&b, "  resourcesSha256  = %s\n", resSHA)
+	fmt.Fprintf(&b, "  pluginsSha256    = %s\n", pluginSHA)
 	fmt.Fprintf(&b, "  lockSha256       = %s\n", lockSHA)
 	fmt.Fprintf(&b, "  inputs           = %s\n", inputsSHA)
 	b.WriteString("}\n")
@@ -310,12 +324,14 @@ func hashInputs(parts ...[]byte) string {
 
 // manifestPipeline 执行 5 阶段生命周期；返回产物路径与退出码。
 type manifestPipeline struct {
-	m     *projectManifest
-	skip  map[string]bool
-	entry string
-	rtDir string
-	out   string
-	env   Env
+	m       *projectManifest
+	skip    map[string]bool
+	entry   string
+	rtDir   string
+	out     string
+	env     Env
+	profile string
+	integ   *integrationState
 }
 
 func (p *manifestPipeline) artifactPath() string {
@@ -328,6 +344,9 @@ func (p *manifestPipeline) artifactPath() string {
 
 func (p *manifestPipeline) compileTo(src, dst string) int {
 	opts := codegen.Options{Mode: p.m.Build.Mode}
+	if p.integ != nil && p.integ.resC != "" {
+		opts.ResC = p.integ.resC
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		fmt.Fprintf(p.env.Stderr, "xnull: %v\n", err)
 		return exitcode.BuildFail
@@ -343,6 +362,14 @@ func (p *manifestPipeline) run(env Env) (string, int) {
 		return "", exitcode.Usage
 	}
 	p.entry = entry
+
+	// S8 集成：锁 → 配置 → 资源 → 插件（失败即停，诊断带 XPD 码与位置）。
+	// 资源表在 compile 阶段作为 opts.ResC 传入。
+	integ, ok := p.validateIntegrations(p.profile)
+	if !ok {
+		return "", exitcode.BuildFail
+	}
+	p.integ = integ
 
 	// compile
 	cache := filepath.Join(p.m.Root, "target", ".cache", p.m.ArtifactID+"-"+p.m.Version)
@@ -382,8 +409,12 @@ func (p *manifestPipeline) run(env Env) (string, int) {
 		}
 		lock, _ := os.ReadFile(filepath.Join(p.m.Root, "xnull.lock"))
 		entrySrc, _ := os.ReadFile(entry)
-		inputs := hashInputs(p.m.Raw, entrySrc, lock, []byte(Version))
-		meta := p.m.xmeta(sha256Hex(lock), inputs)
+		resBytes := []byte{}
+		if p.integ != nil {
+			resBytes = []byte(p.integ.resDigest + p.integ.cfgDigest + p.integ.pluginDigest)
+		}
+		inputs := hashInputs(p.m.Raw, entrySrc, lock, []byte(Version), resBytes)
+		meta := p.m.xmeta(sha256Hex(lock), inputs, p.integ)
 		metaPath := final + ".xmeta"
 		if err := os.WriteFile(metaPath, []byte(meta), 0o644); err != nil {
 			fmt.Fprintf(env.Stderr, "xnull: %v\n", err)
@@ -488,6 +519,6 @@ func buildManifest(env Env, rest []string, dir string) (string, int) {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")
 		return "", exitcode.Usage
 	}
-	p := &manifestPipeline{m: m, skip: skip, rtDir: rt, env: env}
+	p := &manifestPipeline{m: m, skip: skip, rtDir: rt, env: env, profile: flagValue(rest, "--profile")}
 	return p.run(env)
 }

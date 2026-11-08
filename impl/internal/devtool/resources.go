@@ -267,3 +267,21 @@ func writeCBytes(b *strings.Builder, data []byte) {
 		b.WriteString(",\n")
 	}
 }
+
+// GenerateResourcesFromMap 按「资源名 → 内容」生成资源表 C 源（S8 集成用）。
+// 名称按字节序升序；与 GenerateResources 输出同一渲染格式。
+func GenerateResourcesFromMap(entries map[string][]byte, outPath string) error {
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	list := make([]resourceEntry, 0, len(names))
+	for _, name := range names {
+		if err := validateResourceName(name); err != nil {
+			return err
+		}
+		list = append(list, resourceEntry{name: name, data: entries[name]})
+	}
+	return os.WriteFile(outPath, []byte(renderResources(list)), 0o644)
+}
