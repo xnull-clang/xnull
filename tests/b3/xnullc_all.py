@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """B3-09 全量门禁：Go emit-c vs xnullc（单文件/多文件/负例），支持稳定分片与聚合。"""
-import argparse, csv, hashlib, json, os, re, subprocess, sys, tempfile
+import argparse, csv, hashlib, json, os, re, shutil, subprocess, sys, tempfile
 from concurrent.futures import ThreadPoolExecutor
 from difflib import unified_diff
+
+# K-07 文件通道契约：AST/bundle 单文件上限 16 MiB。
+LIMIT_BYTES = 16 * 1024 * 1024
 
 def run(cmd, cwd, timeout=300):
     try:
@@ -100,22 +103,89 @@ def process(row, args):
                     cause="AST 失败", note=ast_err[:120])
     proj_code, proj, _ = run(["python3", os.path.join(root, "tests/b3/xfb-projection.py"),
                               os.path.dirname(f) or "."], root)
-    base = [args.go_bin, "run", "--interp", args.xnullc, "--", f, ast, proj]
-    if nf > 1:
-        base.append(json.dumps(bundle, ensure_ascii=False))
+    bundle_json = json.dumps(bundle, ensure_ascii=False)
+    tmpdir = ""
+    paths = []
+    if args.inline_args:
+        # 兼容形态（合同 1.1）：AST/projection/bundle 走位置参数。
+        base = [args.go_bin, "run", "--interp", args.xnullc, "--", f, ast, proj]
+        if nf > 1:
+            base.append(bundle_json)
+    else:
+        # 文件形态（合同 1.2）：AST/bundle 写临时文件，projection 仍内联。
+        tmpdir = tempfile.mkdtemp(prefix="b3-09-")
+        ast_path = os.path.join(tmpdir, "ast.txt")
+        note = write_limited(ast_path, ast)
+        if note:
+            return limit_row(row, kind, nf, f"ast-file {ast_path} {note} tmp={tmpdir}")
+        paths.append(ast_path)
+        base = [args.go_bin, "run", "--interp", args.xnullc, "--", f,
+                "--ast-file", ast_path, "--project", proj]
+        bundle_path = os.path.join(tmpdir, "bundle.json")
+        note = write_limited(bundle_path, bundle_json)
+        if note:
+            return limit_row(row, kind, nf, f"bundle-file {bundle_path} {note} tmp={tmpdir}")
+        paths.append(bundle_path)
+        if nf > 1:
+            base += ["--bundle-file", bundle_path]
     code, xn_c, xn_err = run(base, root)
-    if code == 125 and "Argument list too long" in xn_err:
-        return dict(row, kind=kind, files=nf, go_exit=0, raw="", content="",
-                    status="ARGMAX", cause="K-07 bundle argv 上限", note=xn_err[:120])
     if code != 0:
+        lines = (xn_err or "").strip().splitlines()
+        first = lines[0] if lines else ""
+        # 文件通道读写失败 / argv 超限统一归 K-07-LIMIT，不再产生 ARGMAX。
+        limit = is_limit_error(code, xn_err, paths if not args.inline_args else [])
+        note = first[:200]
+        if tmpdir:
+            note = (note + " " if note else "") + f"tmp={tmpdir}"
+        if limit:
+            return dict(row, kind=kind, files=nf, go_exit=0, raw="", content="",
+                        status="K07-LIMIT", cause="K-07-LIMIT", note=note)
         return dict(row, kind=kind, files=nf, go_exit=0, raw="", content="",
-                    status="FAIL", cause="xnullc 失败",
-                    note=(xn_err.splitlines()[0] if xn_err.splitlines() else ""))
+                    status="FAIL", cause="xnullc 失败", note=note)
+    if tmpdir:
+        shutil.rmtree(tmpdir, ignore_errors=True)
     raw, rd = diff_count(go_c, xn_c)
     content, cd = diff_count(norm(go_c), norm(xn_c))
     status = "PASS0" if raw == 0 else ("NORM0" if content == 0 else "DIFF")
     return dict(row, kind=kind, files=nf, go_exit=0, raw=raw, content=content,
                 status=status, cause=(cause_of(cd) if raw else ""), note="")
+
+
+def write_limited(path, text):
+    """写临时文件；超 16 MiB 或写入失败返回错误说明（空串表示成功）。"""
+    data = text.encode("utf-8")
+    if len(data) > LIMIT_BYTES:
+        return f"超过 16MiB（{len(data)} 字节）"
+    try:
+        with open(path, "wb") as fh:
+            fh.write(data)
+    except OSError as e:
+        return f"写入失败：{e}"
+    return ""
+
+
+def supports_file_args(path):
+    """检查 xnullc 是否已实现 K-07 文件形态参数（源内出现 --ast-file）。"""
+    try:
+        with open(path, "rb") as fh:
+            return b"--ast-file" in fh.read()
+    except OSError:
+        return False
+
+
+def is_limit_error(code, stderr, paths):
+    """判断失败是否属于 K-07 文件通道（读写失败/超限/argv 超限）。"""
+    low = (stderr or "").lower()
+    if "argument list too long" in low or code == 125 and "argument" in low:
+        return True
+    if any(p and p in (stderr or "") for p in paths):
+        return True
+    return bool(re.search(r"readfile|读取|无法打开|no such file|enoent|too large|16\s*mib", low))
+
+
+def limit_row(row, kind, nf, note):
+    return dict(row, kind=kind, files=nf, go_exit=0, raw="", content="",
+                status="K07-LIMIT", cause="K-07-LIMIT", note=note)
 
 def main():
     ap = argparse.ArgumentParser()
@@ -126,6 +196,8 @@ def main():
     ap.add_argument("--xnullc", default="impl/lib/b3/xnullc.x")
     ap.add_argument("--shard", default="1/1")
     ap.add_argument("--parallel", type=int, default=4)
+    ap.add_argument("--inline-args", action="store_true",
+                    help="兼容旧位置参数形态（合同 1.1；默认走 AST/bundle 临时文件）")
     ap.add_argument("--out", default="")
     ap.add_argument("--aggregate", action="store_true")
     args = ap.parse_args()
@@ -134,6 +206,11 @@ def main():
     os.makedirs(out, exist_ok=True)
     if not os.path.exists(os.path.join(root, args.xnullc)):
         print(f"缺少 xnullc：{args.xnullc}", file=sys.stderr); return 2
+    if not args.inline_args and not supports_file_args(os.path.join(root, args.xnullc)):
+        print("xnullc 尚未实现 --ast-file/--bundle-file/--project（K-07 合同 1.2）；\n"
+              "当前请加 --inline-args 走兼容形态保持绿，待 E2 合入文件通道后去掉该开关。",
+              file=sys.stderr)
+        return 2
     for b, name in ((args.go_bin, "xnull"), (args.xnast_bin, "xnast")):
         if not os.path.exists(b):
             print(f"缺少 Go helper：{b}（{name}）", file=sys.stderr); return 2
