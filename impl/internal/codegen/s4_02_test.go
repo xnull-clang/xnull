@@ -35,7 +35,9 @@ func compileAndRunPolicyFull(t *testing.T, src string) (string, string, int) {
 	bin := filepath.Join(dir, "prog")
 	rt := filepath.Join("..", "..", "runtime")
 	args := []string{"-std=c11", "-O2", "-I", rt, "-o", bin, cfile}
-	args = append(args, runtimeLib(t))
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join(rt, s))
+	}
 	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	var ccerr bytes.Buffer
 	cc := exec.Command("cc", args...)

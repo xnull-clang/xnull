@@ -140,7 +140,9 @@ func TestS4_04FFIErrorKindRuntime(t *testing.T) {
 			writeFFIFile(t, cfile, csrc)
 			bin := filepath.Join(dir, "prog")
 			args := []string{"-std=c11", "-O2", "-I", rt, "-o", bin, cfile, nativePath}
-			args = append(args, runtimeLib(t))
+			for _, s := range runtimeCSources {
+				args = append(args, filepath.Join(rt, s))
+			}
 			var cerr bytes.Buffer
 			cc := exec.Command("cc", args...)
 			cc.Stderr = &cerr

@@ -35,7 +35,9 @@ func compileAndRunPolicy(t *testing.T, src string) (string, int) {
 	}
 	bin := filepath.Join(dir, "prog")
 	args := []string{"-std=c11", "-pthread", "-I", "../../../impl/runtime", "-O2", "-o", bin, cfile}
-	args = append(args, runtimeLib(t))
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join("../../../impl/runtime", s))
+	}
 	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	cc := exec.Command("cc", args...)
 	var ccerr bytes.Buffer
