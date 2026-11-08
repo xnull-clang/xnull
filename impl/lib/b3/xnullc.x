@@ -2194,6 +2194,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         return
     }
     if st.nm == "ReturnStmt" {
+        e.terminated = false
         N v = fld(st, "Value")
         if isResult(sc.retKind) {
             String rk = sc.retKind
