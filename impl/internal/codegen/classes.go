@@ -727,7 +727,7 @@ func (g *gen) emitClassCtor(b *strings.Builder, ci *classInfo) error {
 		}
 		// 初始化函数：父类构造（super(...) 或隐式）→ 本类字段初值 →
 		// 主构造器参数绑定 → 构造器体（跳过 super 语句）。
-		sc := &scope{g: g, retC: "void", params: pnames, locals: locals, self: newSelfCtx(ci)}
+		sc := &scope{g: g, retC: "void", params: pnames, locals: locals, self: newSelfCtx(ci), own: map[string]bool{}}
 		// S3-02：构造器 init 的根帧（构造对象/GC 参数在构造体执行期间可被收集）。
 		sc.rootMark = g.nextTmp()
 		if g.isGCRootC(ci.cname + " *") {
@@ -935,7 +935,7 @@ func (g *gen) genMethod(ci *classInfo, m *classInfo_m) (string, error) {
 			locals[p.Name] = pc
 		}
 	}
-	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals, own: map[string]bool{}}
 	// S3-02：方法级根帧；GC self/参数在入口登记。
 	sc.rootMark = g.nextTmp()
 	if !m.static && g.isGCRootC(ci.cname+" *") {
@@ -1003,7 +1003,7 @@ func cZeroValue(ct string) string {
 // 类引用 new。借用形态（字段/局部引用）显式拒绝，避免双重释放。
 func (g *gen) classCtorInit(ci *classInfo) ([]string, error) {
 	var out []string
-	sc := &scope{g: g, locals: map[string]string{}}
+	sc := &scope{g: g, locals: map[string]string{}, own: map[string]bool{}}
 	for i := range ci.ownFields() {
 		f := ci.ownFields()[i]
 		if f.init == nil {

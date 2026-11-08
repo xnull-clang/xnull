@@ -422,7 +422,7 @@ func emitC(u *xfront.CompilationUnit, reg *ffi.Registry, strategies []sema.Strat
 	}
 	g := &gen{results: map[string]string{}, resultArgs: map[string][]xfront.TypeRef{}, cs: newContainers(), fnRet: map[string]string{}, classes: map[string]*classInfo{},
 		classDecls: map[string]*xfront.ClassDecl{},
-		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}, aliases: map[string]string{}, srcPath: srcPath,
+		globals:    map[string]string{}, ffi: reg, ffiEntries: map[string]ffi.Entry{}, handleNames: map[string]bool{}, aliases: map[string]string{}, callExpr: map[*xfront.Call]string{}, recvTemps: map[*xfront.Call][2]string{}, srcPath: srcPath,
 		generics: map[string]*xfront.TopFunc{}, insts: map[string]*instInfo{},
 		fnNames: map[*xfront.TopFunc]string{}, mainOverloads: map[int]string{},
 		tuples: map[string]*tupleInfo{}, protocols: map[string]*protoInfo{},
@@ -1276,6 +1276,8 @@ type gen struct {
 	extensions       []*extensionInfo             // 扩展方法（BND-13）
 	tmp              int                          // 临时变量编号
 	aliases          map[string]string            // 原标识符 → C 安全名（跨两遍生成持久）
+	callExpr         map[*xfront.Call]string      // 同一语句内的类调用缓存（防重复求值）
+	recvTemps        map[*xfront.Call][2]string   // 同一语句内类调用接收者临时值
 	srcPath          string                       // 源文件路径（#line 映射）
 }
 
@@ -1890,7 +1892,7 @@ func (g *gen) genFuncNamed(fn *xfront.TopFunc, cname string) (string, error) {
 			locals[p.Name] = pc
 		}
 	}
-	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals}
+	sc := &scope{g: g, retC: retC, hasResult: hasResult, params: pnames, locals: locals, own: map[string]bool{}}
 	// S3-02：函数级根帧；GC 参数在入口登记为栈根。
 	sc.rootMark = g.nextTmp()
 	for _, p := range fn.Params {
@@ -1942,6 +1944,8 @@ type scope struct {
 	params       map[string]bool // 参数名（C 侧带 xn_p_ 前缀）
 	locals       map[string]string
 	alias        map[string]string // 局部变量 → C 类型（for-in/容器成员查找）
+	own          map[string]bool   // 本作用域直接声明的局部
+	blockHeld    []string          // 本作用域持有的 GC 根（提升赋值登记，块退出释放）
 	self         *selfCtx          // 实例成员上下文（方法/构造器/deinit 内非限定名，§5.8）
 	staticRefs   map[string]string // 单例静态字段 → C 全局变量（BND-07）
 	staticTypes  map[string]string // 单例静态字段 → C 类型（BND-07）
@@ -2005,7 +2009,7 @@ func (s *scope) newChild() *scope {
 	for k, v := range s.alias {
 		alias[k] = v
 	}
-	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, alias: alias, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
+	return &scope{parent: s, g: s.g, retC: s.retC, hasResult: s.hasResult, params: s.params, locals: locals, alias: alias, own: map[string]bool{}, self: s.self, staticRefs: s.staticRefs, staticTypes: s.staticTypes, superT: s.superT, isCtor: s.isCtor, rootMark: s.tmp()}
 }
 
 func (s *scope) tmp() string { return s.g.nextTmp() }
@@ -2099,6 +2103,10 @@ func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 		}
 		out = append(out, lines...)
 	}
+	// 本作用域提升的 GC 根在块退出释放（声明处普通根由 root_restore 处理）。
+	for _, v := range s.blockHeld {
+		out = append(out, "xn_root_release("+v+");")
+	}
 	// 块退出清理（跳过 errdefer）；末句是 return 时清理已随返回路径生成
 	if !s.returned {
 		for i := len(s.defers) - 1; i >= 0; i-- {
@@ -2116,6 +2124,8 @@ func (s *scope) emitBlock(stmts []xfront.Stmt) (string, error) {
 // ---------- 语句 ----------
 
 func (s *scope) emitStmt(st xfront.Stmt) ([]string, error) {
+	s.g.callExpr = map[*xfront.Call]string{}
+	s.g.recvTemps = map[*xfront.Call][2]string{}
 	out := s.pending
 	s.pending = nil
 	lines, err := s.emitStmtInner(st)
@@ -2717,6 +2727,10 @@ func (s *scope) isStrShape(e xfront.Expr) bool {
 
 // emitLocalDecl 局部声明。
 func (s *scope) emitLocalDecl(n *xfront.LocalDeclStmt) ([]string, error) {
+	if s.own == nil {
+		s.own = map[string]bool{}
+	}
+	s.own[n.Name] = true
 	if cReserved(n.Name) {
 		safe := "xn_v_" + n.Name
 		if s.alias == nil {
@@ -3522,7 +3536,12 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		t := lastVar(lines)
 		out := append([]string{}, lines...)
-		out = append(out, "rt_release("+tgt+");", tgt+" = "+t+";", "xn_root_add("+tgt+");")
+		if h := s.promoteRoot(id.Name); h != nil {
+			out = append(out, "xn_root_release("+tgt+");", "rt_release("+tgt+");", tgt+" = "+t+";")
+			out = append(out, h...)
+		} else {
+			out = append(out, "rt_release("+tgt+");", tgt+" = "+t+";", "xn_root_add("+tgt+");")
+		}
 		if !s.g.inDeinit {
 			out = append(out, "xn_gc_safepoint();")
 		}
@@ -3552,7 +3571,12 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 			return nil, err
 		}
 		out := append([]string{}, lines...)
-		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if h := s.promoteRoot(id.Name); h != nil {
+			out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";")
+			out = append(out, h...)
+		} else {
+			out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		}
 		if !s.g.inDeinit {
 			out = append(out, "xn_gc_safepoint();")
 		}
@@ -3566,7 +3590,12 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 	s.pending = nil
 	// S3-02：GC 引用局部赋值后登记栈根（旧值保留登记到块退出）。
 	if tc, ok := s.localCType(id.Name); ok && s.g.isGCRootC(tc) {
-		out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		if h := s.promoteRoot(id.Name); h != nil {
+			out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";")
+			out = append(out, h...)
+		} else {
+			out = append(out, tgt+" = "+v+";", "xn_root_add("+tgt+");")
+		}
 		if !s.g.inDeinit {
 			out = append(out, "xn_gc_safepoint();")
 		}
@@ -5134,6 +5163,15 @@ func isIntScalarC(c string) bool {
 // classCallExpr 生成「返回类引用」的调用表达式。
 // 返回 owns=true 表示调用点获得 +1 引用（须释放）；false 为借用（容器 get 等）。
 func (s *scope) classCallExpr(cl *xfront.Call) (string, bool, error) {
+	expr, owns, err := s.classCallExprOnce(cl)
+	if err != nil {
+		return "", false, err
+	}
+	s.g.callExpr[cl] = expr
+	return expr, owns, nil
+}
+
+func (s *scope) classCallExprOnce(cl *xfront.Call) (string, bool, error) {
 	switch c := cl.Callee.(type) {
 	case *xfront.IdentExpr:
 		if expr, hit, err := s.selfMethodCall(c.Name, cl.Args); err != nil {
@@ -5524,4 +5562,30 @@ func cReserved(name string) bool {
 		return true
 	}
 	return false
+}
+
+// promoteRoot 在跨作用域赋值 GC 根时登记 hold；返回应插入的语句。
+func (s *scope) promoteRoot(name string) []string {
+	owner := s
+	for owner.parent != nil {
+		if owner.own[name] {
+			break
+		}
+		owner = owner.parent
+	}
+	if owner == s || owner.own[name] {
+		if owner == s {
+			return nil // 本作用域声明：普通 root_add 由调用方生成
+		}
+	}
+	if owner == s {
+		return nil
+	}
+	for _, v := range owner.blockHeld {
+		if v == name {
+			return []string{"xn_root_hold(" + name + ");"}
+		}
+	}
+	owner.blockHeld = append(owner.blockHeld, name)
+	return []string{"xn_root_hold(" + name + ");"}
 }
