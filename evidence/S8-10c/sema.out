@@ -1,0 +1,17 @@
+=== RUN   TestS810bCodeCoverage
+    coverage_test.go:18: 上游校验器未合入当前分支（需 manifest/config/plugin/resman）
+--- SKIP: TestS810bCodeCoverage (0.00s)
+=== RUN   TestS810CodeRegistry
+--- PASS: TestS810CodeRegistry (0.00s)
+=== RUN   TestS810NoUnknownSegment
+--- PASS: TestS810NoUnknownSegment (0.00s)
+=== RUN   TestS810cGraphCodes
+--- PASS: TestS810cGraphCodes (0.00s)
+=== RUN   TestS810FormatSource
+--- PASS: TestS810FormatSource (0.00s)
+=== RUN   TestS810FormatLockAndMeta
+--- PASS: TestS810FormatLockAndMeta (0.00s)
+=== RUN   TestS810FormatRejectsSyntax
+--- PASS: TestS810FormatRejectsSyntax (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/xpd	0.408s

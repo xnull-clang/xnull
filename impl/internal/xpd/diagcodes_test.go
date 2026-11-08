@@ -59,3 +59,27 @@ func TestS810NoUnknownSegment(t *testing.T) {
 		}
 	}
 }
+
+// S8-10c：E6 lock/manifest 图校验使用的 408/409 必须登记且文案固定。
+func TestS810cGraphCodes(t *testing.T) {
+	cases := map[string]string{
+		"XPD-408": "依赖元数据非法",
+		"XPD-409": "依赖环",
+	}
+	for code, want := range cases {
+		spec, ok := CodeSpec(code)
+		if !ok {
+			t.Fatalf("%s 未登记", code)
+		}
+		if spec.Category != "依赖与锁" {
+			t.Fatalf("%s 类别=%q", code, spec.Category)
+		}
+		if !strings.Contains(spec.Template, want) {
+			t.Fatalf("%s 文案=%q，期望含 %q", code, spec.Template, want)
+		}
+		d := NewDiag("xnull.graph", Pos{Line: 1, Col: 1}, code, "project/dependencies", "x")
+		if d.Code != code || d.Path != "project/dependencies" || !strings.Contains(d.Message, want) {
+			t.Fatalf("%s 诊断不符：%+v", code, d)
+		}
+	}
+}
