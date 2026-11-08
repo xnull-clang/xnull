@@ -1763,10 +1763,7 @@ static void bumpExtra(SC sc, String nm) {
 }
 
 static void emitStmt(N st, EM e, SC sc, Bool early) {
-    if sc.curFn != "regexMatchAt" {
-        emitStmtInner(st, e, sc, early)
-        return
-    }
+
     Int stStart = e.ls.length()
     emitStmtInner(st, e, sc, early)
     List<String> resL = []
