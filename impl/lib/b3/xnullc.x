@@ -254,16 +254,55 @@ static String cNamePart(String k) {
     if k == "List<Int>" { return "List_Int" }
     if k.indexOf("List<") == 0 { return "List" }
     if isClass(k) { return k }
-    return "X"
+    if k == "" || k == "T" || k == "V" { return "X" }
+    return k
+}
+static Int topComma(String k) {
+    Int d = 0
+    Int i = 0
+    while i < k.length() {
+        String c = k.substring(i, 1)
+        if c == "<" { d = d + 1 }
+        if c == ">" { d = d - 1 }
+        if c == "," && d == 1 { return i }
+        i = i + 1
+    }
+    return -1
+}
+static Int lastClose(String k) {
+    Int d = 0
+    Int i = 0
+    while i < k.length() {
+        String c = k.substring(i, 1)
+        if c == "<" { d = d + 1 }
+        if c == ">" { d = d - 1; if d == 0 { return i } }
+        i = i + 1
+    }
+    return -1
 }
 static String resultName(String k) {
     Int l = k.indexOf("<")
-    Int c = k.indexOf(",")
-    Int r = k.indexOf(">")
+    Int c = topComma(k)
+    Int r = lastClose(k)
+    if l < 0 || c < 0 || r < 0 { return "xn_Result_X_X" }
     String a = k.substring(l + 1, c - l - 1).trim()
     String b = k.substring(c + 1, r - c - 1).trim()
     return "xn_Result_" + cNamePart(a) + "_" + cNamePart(b)
 }
+static String resultVal(String k) {
+    Int l = k.indexOf("<")
+    Int c = topComma(k)
+    if l < 0 || c < 0 { return "Int" }
+    return k.substring(l + 1, c - l - 1).trim()
+}
+static String resultErr(String k) {
+    Int c = topComma(k)
+    Int r = lastClose(k)
+    if c < 0 || r < 0 { return "String" }
+    return k.substring(c + 1, r - c - 1).trim()
+}
+
+
 static String cType(String k) {
     if k == "void" { return "void" }
     if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
@@ -458,6 +497,7 @@ static List<Int> FFI_RULE_CODE = []
 static List<String> FFI_RULE_KIND = []
 static String FFI_FIXED_HEAD = "/* 绑定层支撑代码（由 .xfb 注册表生成；只包含 xrt.h，S7 §6.1 / INV-FFI-7） */\n/* S7 §6.2：绑定层可访问弱表；应用层包含 xrt.h 时不定义此宏。 */\n#define XRT_BINDINGS_LAYER 1\n#include \"xrt.h\"\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n\n/* 包装 ABI：返回 0 成功；非 0 为原生错误码（未知码→Internal，S7 §7.2） */\n/* S6-09 net Async 运行时原语（E5 rt_std_net.c） */\nvoid *xdkc_socket_connect_async(xrt_context *ctx, const char *host, size_t hlen, int32_t port, int32_t *code);\nint64_t xdkc_socket_send_async(xrt_context *ctx, void *sock, const void *buf, size_t n, int32_t *code);\nint64_t xdkc_socket_recv_async(xrt_context *ctx, void *sock, void *buf, size_t cap, int32_t *code);\nvoid *xdkc_http_request_async(xrt_context *ctx, const char *method, size_t mlen, const char *host, size_t hlen, int32_t port, const char *path, size_t plen, const void *body, size_t blen, int32_t *code);\n\n"
 static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_canary_enter(const uint8_t *src, size_t n) {\n    uint8_t *buf = (uint8_t *)malloc(n + 2 * XN_FFI_CANARY);\n    if (buf == NULL) { xrt_fatal(\"FFI 编组：内存不足（S7 §9）\"); }\n    memset(buf, 0xA5, XN_FFI_CANARY);\n    memset(buf + XN_FFI_CANARY, 0, n);\n    if (src != NULL) { memcpy(buf + XN_FFI_CANARY, src, n); }\n    memset(buf + XN_FFI_CANARY + n, 0x5A, XN_FFI_CANARY);\n    return buf;\n}\n\nstatic void xn_ffi_canary_leave(uint8_t *buf, uint8_t *dst, size_t n) {\n    size_t i;\n    for (i = 0; i < XN_FFI_CANARY; i++) {\n        if (buf[i] != 0xA5 || buf[XN_FFI_CANARY + n + i] != 0x5A) {\n            xrt_fatal(\"FFI 借出缓冲区越界写（S7 §9 INV-FFI-5）\");\n        }\n    }\n    if (dst != NULL) { memcpy(dst, buf + XN_FFI_CANARY, n); }\n    free(buf);\n}\n\nstatic int xn_ffi_bool_from_native(uint8_t v) {\n    if (v > 1) { xrt_fatal(\"FFI Bool 返回值非 0/1（S7 §3.2 合同违规）\"); }\n    return (int)v;\n}\n\n"
+static Bool SKIP_LINE = false
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -743,6 +783,7 @@ class SC {
     String curClass = ""
     Bool selfPtr = false
     Bool doubleRoot = false
+    Int loopDepth = 0
     String retKind = "Int"
     Bool directRet = false
     String deferredRet = ""
@@ -969,33 +1010,29 @@ static String exprType(N x, SC sc) {
     }
     return "Int"
 }
-static String resultVal(String k) {
-    Int l = k.indexOf("<"); Int c = k.indexOf(",")
-    if l < 0 || c < 0 { return "Int" }
-    return k.substring(l + 1, c - l - 1).trim()
-}
-static String resultErr(String k) {
-    Int c = k.indexOf(","); Int r = k.indexOf(">")
-    if c < 0 || r < 0 { return "String" }
-    return k.substring(c + 1, r - c - 1).trim()
-}
-
 static String strHelper(N a, EM e, SC sc) {
     String t = exprType(a, sc)
     String v = expr(a, e, sc)
     if t == "Bool" { return "xn_str_bool((" + v + "))" }
-    if t == "Char" { return "xn_str_int(" + v + ")" }
+    if t == "Char" {
+        if a.nm == "Member" || a.nm == "CharLitExpr" { return "xn_str_char((int32_t)(" + v + "))" }
+        return "xn_str_int(" + v + ")"
+    }
     if t == "Double" || t == "Float" { return "xn_str_double(" + v + ")" }
     return "xn_str_int(" + v + ")"
 }
 
 static void rootStr(EM e, SC sc, String t) {
     e.raw("xn_root_add(" + t + ");")
-    if sc.doubleRoot { e.raw("xn_root_add(" + t + ");") }
+    if sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
 }
 
 static String argExpr(N a, EM e, SC sc) {
-    if exprType(a, sc) == "String" { return emitStr(a, e, sc) }
+    if exprType(a, sc) == "String" {
+        String at = emitStr(a, e, sc)
+        if a.nm == "Call" { e.add("xn_root_add(" + at + ");") }
+        return at
+    }
     return expr(a, e, sc)
 }
 
@@ -1076,6 +1113,13 @@ static String expr(N x, EM e, SC sc) {
             if rt == "String" { return "xn_any_get_str(" + lv + ", \"" + rt + "\", " + ns + ")" }
             if rt == "Bool" { return "((int)xn_any_get_int(" + lv + ", \"" + rt + "\", " + ns + "))" }
             return "xn_any_get_int(" + lv + ", \"" + rt + "\", " + ns + ")"
+        }
+        if ((op == "==" || op == "!=" || op == "===" || op == "!==") && (exprType(fld(x, "L"), sc) == "String" || exprType(fld(x, "R"), sc) == "String")) {
+            String sl = emitStr(fld(x, "L"), e, sc)
+            String sr = emitStr(fld(x, "R"), e, sc)
+            String se = "xn_str_eq(" + sl + ", " + sr + ")"
+            if op == "==" || op == "===" { return se }
+            return "(!(" + se + "))"
         }
         if (op == "==" || op == "!=") && fld(x, "R").nm == "NullLit" {
             String lt0 = exprType(fld(x, "L"), sc)
@@ -1227,6 +1271,19 @@ static String expr(N x, EM e, SC sc) {
                 return "(" + base + ".ok ? " + base + ".v : (" + d + "))"
             }
             String mt2 = exprType(mx, sc)
+            if mt2 == "String" && mn == "length" { return "xn_str_length(" + expr(mx, e, sc) + ")" }
+            if mt2 == "String" && mn == "substring" {
+                String a0 = "0"
+                String a1 = "0"
+                if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
+                if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
+                return "xn_str_substr(" + expr(mx, e, sc) + ", " + a0 + ", " + a1 + ")"
+            }
+            if mt2 == "String" && (mn == "indexOf" || mn == "indexOfByte") {
+                String a0 = "0"
+                if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
+                return "xn_str_indexof(" + expr(mx, e, sc) + ", " + a0 + ")"
+            }
             if mn == "length" {
                 if isSet(mt2) { return "((int64_t)" + expr(mx, e, sc) + "->a->len)" }
                 return "((int64_t)" + expr(mx, e, sc) + "->len)"
@@ -1550,10 +1607,29 @@ static void emitCleanup(SC sc, EM e, Int base, Int mode, Bool skipErr) {
     }
 }
 
-static void emitStmt(N st, EM e, SC sc, Bool early) {
-    if st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "ThrowStmt" {
-        e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"")
+static void emitEarlyRet(SC sc, EM e) {
+    if e.terminated { return }
+    Int bri = sc.blockRoots.length() - 1
+    while bri >= 0 {
+        e.addAt(e.ind + 4, "{")
+        e.addAt(e.ind, "xn_root_restore(" + sc.blockRoots.get(bri) + ");")
+        e.addAt(e.ind + 4, "}")
+        bri = bri - 1
     }
+    emitCleanup(sc, e, e.ind, 1, false)
+    e.addAt(e.ind + 4, "{")
+    e.addAt(e.ind, "xn_root_restore(" + sc.root + ");")
+    e.addAt(e.ind + 4, "}")
+    e.raw("")
+    e.add("return " + sc.ret + ";")
+    e.raw("")
+    e.terminated = true
+}
+
+static void emitStmt(N st, EM e, SC sc, Bool early) {
+    Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "ThrowStmt"
+    if SKIP_LINE { SKIP_LINE = false }
+    else if lineStmt { e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"") }
     if st.nm == "DeferStmt" {
         Bool err = txt(fld(st, "Errdefer")) == "true"
         N inner = fld(st, "Stmt")
@@ -1600,9 +1676,33 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             return
         }
         if ty == "String" {
-            e.tmp = e.tmp + 1
-            String text = liteText(init)
-            e.add("rt_string *" + nm + " = rt_string_from_c(" + q(text) + ");")
+            if init.nm == "StrLitExpr" {
+                N parts0 = fld(init, "Parts")
+                Bool hasEx = false
+                Int pei = 0
+                while pei < parts0.el.length() {
+                    N ex0 = fld(parts0.el.get(pei), "Expr")
+                    if ex0.nm != "" && ex0.nm != "nil" { hasEx = true }
+                    pei = pei + 1
+                }
+                if !hasEx {
+                    e.tmp = e.tmp + 1
+                    String text = liteText(init)
+                    e.add("rt_string *" + nm + " = rt_string_from_c(" + q(text) + ");")
+                } else if parts0.el.length() == 1 && unq(txt(fld(parts0.el.get(0), "Text"))) == "" {
+                    e.add("rt_string *" + nm + " = " + strHelper(fld(parts0.el.get(0), "Expr"), e, sc) + ";")
+                } else {
+                    String sv = emitStr(init, e, sc)
+                    e.add("rt_string *" + nm + " = " + sv + ";")
+                }
+            } else if init.nm == "IdentExpr" || init.nm == "Member" {
+                e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+            } else if init.nm == "Call" {
+                e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
+            } else {
+                String sv = emitStr(init, e, sc)
+                e.add("rt_string *" + nm + " = " + sv + ";")
+            }
             e.raw("xn_root_add(" + nm + ");")
             e.raw("xn_root_add(" + nm + ");")
             e.raw("xn_gc_safepoint();")
@@ -1843,6 +1943,16 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         N val0 = fld(st, "Value")
         if tgt.nm == "Member" && op0 == "=" {
             String mtt = exprType(tgt, sc)
+            if isProtoType(stripQ(mtt)) {
+                String mnm = expr(tgt, e, sc)
+                String pt0 = e.nt()
+                String pv0 = expr(val0, e, sc)
+                if val0.nm == "IdentExpr" || val0.nm == "Member" { e.add("void *" + pt0 + " = rt_retain((void *)" + pv0 + ");") }
+                else { e.add("void *" + pt0 + " = rt_retain((void *)(" + pv0 + "));") }
+                e.add("rt_release((void *)" + mnm + ");")
+                e.add(mnm + " = " + pt0 + ";")
+                return
+            }
             String mcls = baseCls(mtt)
             if mcls != "" {
                 String mnm = expr(tgt, e, sc)
@@ -1873,6 +1983,15 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         String nm = expr(tgt, e, sc)
         String op = unq(txt(fld(st, "Op")))
         String v = v0
+        if tgt.nm == "IdentExpr" && exprType(tgt, sc) == "String" && op == "=" {
+            String sv = emitStr(fld(st, "Value"), e, sc)
+            e.add("xn_root_release(" + nm + ");")
+            e.add("rt_release(" + nm + ");")
+            e.add(nm + " = " + sv + ";")
+            e.add("xn_root_hold(" + nm + ");")
+            e.add("xn_gc_safepoint();")
+            return
+        }
         if tgt.nm == "Member" && exprType(tgt, sc) == "String" && op == "=" {
             String t = e.nt()
             e.add("rt_string *" + t + " = rt_retain(" + v + ");")
@@ -1970,16 +2089,41 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     if args.el.length() > 0 { arg = expr(args.el.get(0), e, sc) }
                     e.add("xn_ret = (" + cType(rk) + "){1, " + arg + ", NULL};")
                 } else if cn == "Err" {
-                    String t = emitStr(args.el.get(0), e, sc)
-                    Int i = 0
-                    while i < 2 { e.add("xn_root_add(" + t + ");"); i = i + 1 }
-                    e.add("xn_ret = (" + cType(rk) + "){0, 0, " + t + "};")
+                    N ea = args.el.get(0)
+                    String et = exprType(ea, sc)
+                    String ev = ""
+                    if et == "String" {
+                        ev = emitStr(ea, e, sc)
+                        Int i = 0
+                        while i < 2 { e.add("xn_root_add(" + ev + ");"); i = i + 1 }
+                    } else if ea.nm == "Call" {
+                        N ec = fld(ea, "Callee")
+                        N ecs = fld(ea, "Args")
+                        if ec.nm == "IdentExpr" && ecs.el.length() == 1 && exprType(ecs.el.get(0), sc) == "String" {
+                            Bool odr = sc.doubleRoot
+                            sc.doubleRoot = true
+                            String mt = emitStr(ecs.el.get(0), e, sc)
+                            sc.doubleRoot = odr
+                            e.add("xn_root_add(" + mt + ");")
+                            if sc.loopDepth > 0 { e.add("xn_root_add(" + mt + ");") }
+                            ev = "xn_" + unq(txt(fld(ec, "Name"))) + "(" + mt + ")"
+                        } else {
+                            ev = expr(ea, e, sc)
+                        }
+                    } else {
+                        ev = expr(ea, e, sc)
+                    }
+                    e.add("xn_ret = (" + cType(rk) + "){0, 0, " + ev + "};")
                 }
             }
             if early {
-                e.addAt(e.ind + 4, "{")
-                e.addAt(e.ind, "xn_root_restore(" + sc.blockRoots.get(sc.blockRoots.length() - 1) + ");")
-                e.addAt(e.ind + 4, "}")
+                Int rb = sc.blockRoots.length() - 1
+                while rb >= 0 {
+                    e.addAt(e.ind + 4, "{")
+                    e.addAt(e.ind, "xn_root_restore(" + sc.blockRoots.get(rb) + ");")
+                    e.addAt(e.ind + 4, "}")
+                    rb = rb - 1
+                }
                 emitCleanup(sc, e, e.ind, 1, false)
                 e.addAt(e.ind + 4, "{")
                 e.addAt(e.ind, "xn_root_restore(" + sc.root + ");")
@@ -1998,24 +2142,31 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             Int ai = 0
             while ai < nargs.el.length() {
                 if ai > 0 { b = b + ", " }
-                if exprType(nargs.el.get(ai), sc) == "String" {
-                    String stx = emitStr(nargs.el.get(ai), e, sc)
+                N an = nargs.el.get(ai)
+                if an.nm == "NullLit" { b = b + "NULL" }
+                else if exprType(an, sc) == "String" {
+                    String stx = emitStr(an, e, sc)
                     e.add("xn_root_add(" + stx + ");")
                     b = b + stx
-                } else { b = b + expr(nargs.el.get(ai), e, sc) }
+                } else { b = b + expr(an, e, sc) }
                 ai = ai + 1
             }
-            String nt0 = e.nt()
-            e.add("xn_Cls_" + ccls + " *" + nt0 + " = " + b + ");")
-            e.add("xn_root_add(" + nt0 + ");")
-            e.add("xn_root_add(" + nt0 + ");")
-            sc.ret = nt0
+            if isProtoType(sc.retKind) {
+                sc.ret = b + ")"
+            } else {
+                String nt0 = e.nt()
+                e.add(cType(sc.retKind) + nt0 + " = " + b + ");")
+                e.add("xn_root_add(" + nt0 + ");")
+                e.add("xn_root_add(" + nt0 + ");")
+                sc.ret = nt0
+            }
             return
         }
         if baseCls(sc.retKind) != "" && v.nm == "IdentExpr" {
             String pv = expr(v, e, sc)
             if classPolicy(baseCls(sc.retKind)) == "arc" { e.add("rt_retain(" + pv + ");") }
             sc.ret = pv
+            if early { emitEarlyRet(sc, e) }
             return
         }
         if isTupleKey(exprType(v, sc)) {
@@ -2028,6 +2179,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             String tt = e.nt()
             e.add(cType(tk) + " " + tt + " = " + expr(v, e, sc) + ";")
             sc.ret = tt
+            if early { emitEarlyRet(sc, e) }
             return
         }
         if exprType(v, sc) == "String" {
@@ -2040,17 +2192,25 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     String pv = expr(v, e, sc)
                     e.add("rt_retain(" + pv + ");")
                     sc.ret = pv
+                    if early { emitEarlyRet(sc, e) }
                     return
                 }
             }
             String t = emitStr(v, e, sc)
             if !sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
             sc.ret = t
+            if early { emitEarlyRet(sc, e) }
+            return
+        }
+        if isEnumType(sc.retKind) && (v.nm == "Member" || v.nm == "IdentExpr") {
+            sc.ret = expr(v, e, sc)
+            if early { emitEarlyRet(sc, e) }
             return
         }
         String t = e.nt()
-        e.add("int64_t " + t + " = " + expr(v, e, sc) + ";")
+        e.add(cType(sc.retKind) + " " + t + " = " + expr(v, e, sc) + ";")
         sc.ret = t
+        if early { emitEarlyRet(sc, e) }
         return
     }
     if st.nm == "IfStmt" {
@@ -2077,27 +2237,40 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         N els = fld(st, "Else")
         if els.nm != "" && els.nm != "nil" {
             e.addAt(e.ind + 4, "} else {")
-            String r2 = e.nt()
-            e.addAt(e.ind + 8, "size_t " + r2 + " = xn_root_mark();")
-            sc.blockRoots.push(r2)
-            e.terminated = false
-            List<DF> savedDefers2 = sc.blockDefers
-            sc.blockDefers = []
-            if els.nm == "Block" { emitBlock(els, e, sc, e.ind + 8, true) } else {
-                Int save = e.ind
+            if els.nm == "IfStmt" {
+                Int saveEI = e.ind
                 e.ind = e.ind + 8
+                e.terminated = false
+                String eDiscard = e.nt()
+                Bool oldDR = sc.doubleRoot
+                sc.doubleRoot = true
+                SKIP_LINE = true
                 emitStmt(els, e, sc, true)
-                e.ind = save
-            }
-            Bool termElse = e.terminated
-            emitBlockDefers(sc, e, e.ind + 8)
-            sc.blockDefers = savedDefers2
-            sc.blockRoots.remove(sc.blockRoots.length() - 1)
-            if !termElse {
-                e.addAt(e.ind + 12, "{")
-                e.addAt(e.ind + 12, "xn_root_restore(" + r2 + ");")
-                e.addAt(e.ind + 12, "}")
-                e.raw("")
+                sc.doubleRoot = oldDR
+                e.ind = saveEI
+            } else {
+                String r2 = e.nt()
+                e.addAt(e.ind + 8, "size_t " + r2 + " = xn_root_mark();")
+                sc.blockRoots.push(r2)
+                e.terminated = false
+                List<DF> savedDefers2 = sc.blockDefers
+                sc.blockDefers = []
+                if els.nm == "Block" { emitBlock(els, e, sc, e.ind + 8, true) } else {
+                    Int save = e.ind
+                    e.ind = e.ind + 8
+                    emitStmt(els, e, sc, true)
+                    e.ind = save
+                }
+                Bool termElse = e.terminated
+                emitBlockDefers(sc, e, e.ind + 8)
+                sc.blockDefers = savedDefers2
+                sc.blockRoots.remove(sc.blockRoots.length() - 1)
+                if !termElse {
+                    e.addAt(e.ind + 12, "{")
+                    e.addAt(e.ind + 12, "xn_root_restore(" + r2 + ");")
+                    e.addAt(e.ind + 12, "}")
+                    e.raw("")
+                }
             }
             e.addAt(e.ind + 4, "}")
         } else {
@@ -2112,8 +2285,10 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         String r = e.nt()
         e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
         sc.blockRoots.push(r)
+        sc.loopDepth = sc.loopDepth + 1
         e.terminated = false
         emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
+        sc.loopDepth = sc.loopDepth - 1
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
         e.addAt(e.ind + 8, "{")
         e.addAt(e.ind + 8, "xn_root_restore(" + r + ");")
@@ -2132,8 +2307,10 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         e.addAt(e.ind + 4, "int64_t " + vname + " = " + coll + "->data[" + loop + "];")
         e.addAt(e.ind + 4, "size_t " + bodyRoot + " = xn_root_mark();")
         sc.blockRoots.push(bodyRoot)
+        sc.loopDepth = sc.loopDepth + 1
         e.terminated = false
         emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
+        sc.loopDepth = sc.loopDepth - 1
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
         e.addAt(e.ind + 8, "{")
         e.addAt(e.ind + 8, "xn_root_restore(" + bodyRoot + ");")
@@ -2664,7 +2841,9 @@ static void emitClassSection(N cls, EM ce) {
     Int pj = 0
     while pj < cps.el.length() {
         String pt = typeKey(fld(cps.el.get(pj), "Type"))
-        if cType(pt).length() > 0 && cType(pt).substring(cType(pt).length() - 1, 1) == "*" { ce.raw("xn_root_add(xn_p_" + unq(txt(fld(cps.el.get(pj), "Name"))) + ");") }
+        Bool proot = cType(pt).length() > 0 && cType(pt).substring(cType(pt).length() - 1, 1) == "*"
+        if isProtoType(stripQ(pt)) { proot = true }
+        if proot { ce.raw("xn_root_add(xn_p_" + unq(txt(fld(cps.el.get(pj), "Name"))) + ");") }
         pj = pj + 1
     }
     N ctor = ctorOf(cls)
@@ -2709,12 +2888,15 @@ static void emitClassSection(N cls, EM ce) {
         String mn = unq(txt(fld(m, "Name")))
         String rt = typeKey(fld(m, "Ret"))
         if txt(fld(m, "Void")) == "true" { rt = "void" }
-        String sig = "xn_Cls_" + cn + "_" + mn + "(xn_Cls_" + cn + " *self"
+        Bool stat = isStaticM(m)
+        String sig = "xn_Cls_" + cn + "_" + mn + "("
         N mps = fld(m, "Params")
         Int mj = 0
+        if !stat { sig = sig + "xn_Cls_" + cn + " *self" }
         while mj < mps.el.length() {
             String mt = typeKey(fld(mps.el.get(mj), "Type"))
-            sig = sig + ", " + decl(cType(mt), "xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))))
+            if !stat || mj > 0 { sig = sig + ", " }
+            sig = sig + decl(cType(mt), "xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))))
             mj = mj + 1
         }
         sig = sig + ")"
@@ -2724,7 +2906,7 @@ static void emitClassSection(N cls, EM ce) {
         SC msc = new SC()
         msc.selfName = "self"
         msc.curClass = cn
-        msc.def("self", cn)
+        if !stat { msc.def("self", cn) }
         msc.retKind = rt
         msc.params = []
         msc.paramTypes = []
@@ -2736,7 +2918,7 @@ static void emitClassSection(N cls, EM ce) {
         }
         String mr = ce.nt()
         ce.add("size_t " + mr + " = xn_root_mark();")
-        if ref { ce.raw("xn_root_add(self);") }
+        if ref && !stat { ce.raw("xn_root_add(self);") }
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
         ce.add("    {")
         if mn == "deinit" { ce.addAt(4, "xn_root_restore(" + mr + ");") } else { ce.addAt(0, "xn_root_restore(" + mr + ");") }
@@ -2746,6 +2928,12 @@ static void emitClassSection(N cls, EM ce) {
         ce.raw("")
         i = i + 1
     }
+}
+
+static Bool isStaticM(N m) {
+    N md = fld(m, "Mod")
+    if md.nm == "" || md.nm == "nil" { return false }
+    return txt(fld(md, "Static")) == "true"
 }
 
 static Bool isPrimaryName(String cn) {
@@ -4249,7 +4437,7 @@ static String resultTypedefsSorted(SC sc) {
         String rk = rs.get(i)
         String vt = resultVal(rk)
         String et = resultErr(rk)
-        resT = resT + "typedef struct { int ok; " + decl(cType(vt), "v") + "; " + decl(cType(et), "err") + "; } " + cType(rk) + ";\n"
+        resT = resT + "typedef struct { int ok; " + cType(vt) + " v; " + cType(et) + " err; } " + cType(rk) + ";\n"
         i = i + 1
     }
     return resT + "\n"
@@ -4336,7 +4524,9 @@ static String emitUnit(N unit, String path) {
             while fi < ms.el.length() {
                 MTH_OWNER.push(cn)
                 MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
-                MTH_RET.push(typeKey(fld(ms.el.get(fi), "Ret")))
+                String mret0 = typeKey(fld(ms.el.get(fi), "Ret"))
+                MTH_RET.push(mret0)
+                sc.useResult(mret0)
                 fi = fi + 1
             }
             }
@@ -4427,10 +4617,14 @@ static String emitUnit(N unit, String path) {
             }
         }
         if d.nm == "TopFunc" {
-            String rk = typeKey(fld(d, "Ret"))
-            sc.useResult(rk)
-            sc.defFn(unq(txt(fld(d, "Name"))), rk)
-            if fld(d, "TypePars").el.length() > 0 { GEN_FN_DECLS.push(d) } else { scanCalls(fld(d, "Body")) }
+            if fld(d, "TypePars").el.length() > 0 {
+                GEN_FN_DECLS.push(d)
+            } else {
+                String rk = typeKey(fld(d, "Ret"))
+                sc.useResult(rk)
+                sc.defFn(unq(txt(fld(d, "Name"))), rk)
+                scanCalls(fld(d, "Body"))
+            }
         }
         i = i + 1
     }
