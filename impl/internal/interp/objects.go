@@ -304,6 +304,9 @@ func (in *Interp) callMethod(obj *objv, name string, args []*Value, pos xfront.P
 
 // callMethodFrom 从 start 类起静态查找实例方法（super.m() 用父类起点，§5.4）。
 func (in *Interp) callMethodFrom(start *xfront.ClassDecl, obj *objv, name string, args []*Value, pos xfront.Pos) (v *Value, err error) {
+	if in.trace != nil {
+		defer in.traceCall("method", start.Name+"."+name, pos)()
+	}
 	cands := in.findMethodsFrom(start, name)
 	if len(cands) == 0 {
 		panic(runtimeErr{"该类型没有成员方法 " + name + "：" + start.Name})

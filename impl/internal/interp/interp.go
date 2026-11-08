@@ -276,6 +276,10 @@ type Interp struct {
 	extMethods     map[string][]*xfront.MethodDecl // target 类型名 → 扩展方法（§11）
 	diag           io.Writer                       // 诊断输出通道（report，§4.3）
 	liveTasks      int                             // 解释器在途任务数（dumpTasks 诊断）
+	trace          io.Writer                       // XNULL_INTERP_TRACE=1 时的调用轨迹（诊断）
+	traceDepth     int
+	traceLines     int
+	traceLimit     int
 }
 
 // Run 执行一个编译单元：初始化顶层字段（§4.3 声明顺序），调用 main。
@@ -332,6 +336,7 @@ func RunWithDiag(u *xfront.CompilationUnit, out io.Writer, diag io.Writer, progA
 		singletons: map[string]*xfront.SingletonDecl{}, singletonVals: map[string]*Value{},
 		singleCls: map[string]*xfront.ClassDecl{}, extMethods: map[string][]*xfront.MethodDecl{},
 	}
+	in.initTrace()
 	// 第一遍：登记全部顶层函数/类，并为顶层字段预置零值（§4.3）。
 	// 初始化式按声明顺序求值，读尚未初始化的字段得到零值，而不是“未定义”。
 	var topFields []*xfront.TopField
@@ -477,6 +482,9 @@ func zeroValue(t xfront.TypeRef) *Value {
 
 // call 调用顶层函数；恢复 ctrlReturn 等信号。
 func (in *Interp) call(fn *xfront.TopFunc, args []*Value) (v *Value, err error) {
+	if in.trace != nil {
+		defer in.traceCall("func", fn.Name, fn.P)()
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			switch sig := r.(type) {
