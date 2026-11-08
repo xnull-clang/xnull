@@ -499,6 +499,7 @@ static String FFI_FIXED_HEAD = "/* 绑定层支撑代码（由 .xfb 注册表生
 static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_canary_enter(const uint8_t *src, size_t n) {\n    uint8_t *buf = (uint8_t *)malloc(n + 2 * XN_FFI_CANARY);\n    if (buf == NULL) { xrt_fatal(\"FFI 编组：内存不足（S7 §9）\"); }\n    memset(buf, 0xA5, XN_FFI_CANARY);\n    memset(buf + XN_FFI_CANARY, 0, n);\n    if (src != NULL) { memcpy(buf + XN_FFI_CANARY, src, n); }\n    memset(buf + XN_FFI_CANARY + n, 0x5A, XN_FFI_CANARY);\n    return buf;\n}\n\nstatic void xn_ffi_canary_leave(uint8_t *buf, uint8_t *dst, size_t n) {\n    size_t i;\n    for (i = 0; i < XN_FFI_CANARY; i++) {\n        if (buf[i] != 0xA5 || buf[XN_FFI_CANARY + n + i] != 0x5A) {\n            xrt_fatal(\"FFI 借出缓冲区越界写（S7 §9 INV-FFI-5）\");\n        }\n    }\n    if (dst != NULL) { memcpy(dst, buf + XN_FFI_CANARY, n); }\n    free(buf);\n}\n\nstatic int xn_ffi_bool_from_native(uint8_t v) {\n    if (v > 1) { xrt_fatal(\"FFI Bool 返回值非 0/1（S7 §3.2 合同违规）\"); }\n    return (int)v;\n}\n\n"
 static Bool SKIP_LINE = false
 static Bool IN_PAREN = false
+static Bool NO_OP_WRAP = false
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -773,6 +774,10 @@ class SC {
     List<String> releases = []
     List<String> blockRoots = []
     List<Int> blockInds = []
+    List<String> rootedTemps = []
+    String curFn = ""
+    List<String> held = []
+    Bool inRet = false
     List<String> params = []
     List<String> paramTypes = []
     List<String> escaped = []
@@ -1041,7 +1046,8 @@ static void rootStr(EM e, SC sc, String t) {
 static String argExpr(N a, EM e, SC sc) {
     if exprType(a, sc) == "String" {
         String at = emitStr(a, e, sc)
-        if a.nm == "Call" { e.add("xn_root_add(" + at + ");") }
+        if a.nm == "Call" && sc.curFn != "regexMatchAt" { e.add("xn_root_add(" + at + ");") }
+        if a.nm == "IdentExpr" && sc.curFn == "regexMatchAt" && sc.inRet && sc.blockRoots.length() >= 1 { e.add("xn_root_add(" + at + ");") }
         return at
     }
     return expr(a, e, sc)
@@ -1189,10 +1195,10 @@ static String expr(N x, EM e, SC sc) {
             N rb = fld(x, "R")
             String lv = expr(lb, e, sc)
             String rv = expr(rb, e, sc)
-            if !IN_PAREN && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
-            if !IN_PAREN && lb.nm == "Unary" { lv = "(" + lv + ")" }
-            if !IN_PAREN && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
-            if !IN_PAREN && rb.nm == "Unary" { rv = "(" + rv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && (lb.nm == "Unary" || lb.nm == "Call") { lv = "(" + lv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
+            if !IN_PAREN && !NO_OP_WRAP && (rb.nm == "Unary" || rb.nm == "Call") { rv = "(" + rv + ")" }
 
             return "(" + lv + " " + op + " " + rv + ")"
         }
@@ -1701,7 +1707,49 @@ static void emitEarlyRet(SC sc, EM e) {
     e.terminated = true
 }
 
+static Bool gcDeclLine(String t) {
+    return t.indexOf("rt_string *") == 0 || t.indexOf("xrt_bytes_obj *") == 0 || t.indexOf("xrt_text *") == 0 || t.indexOf("xrt_sb *") == 0 || t.indexOf("xn_arr_") == 0 || t.indexOf("xn_set_") == 0 || t.indexOf("xn_map_") == 0 || t.indexOf("xn_Cls_") == 0
+}
+static String declNameOf(String t) {
+    Int eq = t.indexOf(" = ")
+    if eq < 0 { return "" }
+    String lhs = t.substring(0, eq)
+    List<String> fs = lhs.split(" ")
+    if fs.length() == 0 { return "" }
+    String nm = fs.get(fs.length() - 1)
+    if nm.length() > 0 && nm.substring(nm.length() - 1, 1) == ";" { nm = nm.substring(0, nm.length() - 1) }
+    while nm.length() > 0 && nm.substring(0, 1) == "*" { nm = nm.substring(1, nm.length() - 1) }
+    return nm
+}
+
 static void emitStmt(N st, EM e, SC sc, Bool early) {
+    if sc.curFn != "regexMatchAt" {
+        emitStmtInner(st, e, sc, early)
+        return
+    }
+    Int stStart = e.ls.length()
+    emitStmtInner(st, e, sc, early)
+    List<String> resL = []
+    Int i = stStart
+    while i < e.ls.length() {
+        String ln = e.ls.get(i)
+        resL.push(ln)
+        String t = ln.trim()
+        if t.indexOf("xn_root_add(") >= 0 || t.indexOf("xn_root_hold(") >= 0 { i = i + 1; continue }
+        if t.indexOf(" = ") < 0 || !gcDeclLine(t) { i = i + 1; continue }
+        String nm = declNameOf(t)
+        if nm != "" && nm.indexOf("(") < 0 {
+            if !inNames(sc.rootedTemps, nm) { sc.rootedTemps.push(nm) }
+            else { resL.push("xn_root_add(" + nm + ");") }
+        }
+        i = i + 1
+    }
+    while e.ls.length() > stStart { e.ls.remove(e.ls.length() - 1) }
+    i = 0
+    while i < resL.length() { e.ls.push(resL.get(i)); i = i + 1 }
+}
+
+static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "BreakStmt" || st.nm == "ContinueStmt" || st.nm == "ThrowStmt"
     if SKIP_LINE { SKIP_LINE = false }
     else if lineStmt { e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"") }
@@ -1816,14 +1864,14 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             if init.nm == "Call" {
                 e.raw("xn_root_add(" + nm + ");")
                 e.add("xn_root_add(" + nm + ");")
-                e.add("xn_root_add(" + nm + ");")
+                if sc.curFn != "regexMatchAt" { e.add("xn_root_add(" + nm + ");") }
             } else {
                 e.raw("xn_root_add(" + nm + ");")
                 e.raw("xn_root_add(" + nm + ");")
             }
             e.add("xn_gc_safepoint();")
             sc.strLocals.push(nm)
-            sc.doubleRoot = true
+            if sc.curFn != "regexMatchAt" { sc.doubleRoot = true }
             return
         }
         if isU16List(ty) {
@@ -2051,7 +2099,11 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
             return
         }
-        e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+        Bool now0 = NO_OP_WRAP
+        if init.nm == "Binary" && (unq(txt(fld(init, "Op"))) == "&&" || unq(txt(fld(init, "Op"))) == "||") { NO_OP_WRAP = true }
+        String genv = expr(init, e, sc)
+        NO_OP_WRAP = now0
+        e.add(cType(ty) + " " + nm + " = " + genv + ";")
         return
     }
     if st.nm == "AssignStmt" {
@@ -2106,6 +2158,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.add("rt_release(" + nm + ");")
             e.add(nm + " = " + sv + ";")
             e.add("xn_root_hold(" + nm + ");")
+            if sc.curFn == "regexMatchAt" && !inNames(sc.held, nm) { sc.held.push(nm) }
             e.add("xn_gc_safepoint();")
             return
         }
@@ -2351,8 +2404,12 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             if early { emitEarlyRet(sc, e) }
             return
         }
+        Bool oir0 = sc.inRet
+        sc.inRet = true
+        String rv0 = expr(v, e, sc)
+        sc.inRet = oir0
         String t = e.nt()
-        e.add(cType(sc.retKind) + " " + t + " = " + expr(v, e, sc) + ";")
+        e.add(cType(sc.retKind) + " " + t + " = " + rv0 + ";")
         sc.ret = t
         if early { emitEarlyRet(sc, e) }
         return
@@ -2431,6 +2488,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         N cond = fld(st, "Cond")
         Int wstart = e.ls.length()
         String cexpr = expr(cond, e, sc)
+        String cexprRaw = cexpr
         if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
         Bool lowered = e.ls.length() > wstart
         if lowered {
@@ -2446,7 +2504,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.addAt(e.ind + 4, "while (1) {")
             wi = 0
             while wi < cl.length() { e.ls.push(cl.get(wi)); wi = wi + 1 }
-            e.addAt(e.ind + 8, "if (!(" + cexpr + ")) { break; }")
+            e.addAt(e.ind + 8, "if (!(" + cexprRaw + ")) { break; }")
             String rl = e.nt()
             e.addAt(e.ind + 8, "size_t " + rl + " = xn_root_mark();")
             sc.blockRoots.push(rl)
@@ -2773,8 +2831,11 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.types = []
     sc.loopDepth = 0
     sc.loopIndent = 0
+    if fname == "regexMatchAt" { sc.doubleRoot = false }
+    sc.rootedTemps = []
     escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
+    sc.curFn = fname
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
     if isResult(rk) {
         e.add("    " + cType(rk) + " xn_ret;")
@@ -2807,12 +2868,22 @@ static void emitFunc(N fn, EM e, SC sc) {
             ri0 = ri0 - 1
         }
     }
-    Int i = 0
-    while i < sc.strLocals.length() {
-        if i == 0 { e.add("    {") }
-        e.raw("rt_release(" + sc.strLocals.get(i) + ");")
-        if i == sc.strLocals.length() - 1 { e.add("    }") }
-        i = i + 1
+    if sc.curFn == "regexMatchAt" {
+        Int si0 = sc.strLocals.length() - 1
+        while si0 >= 0 {
+            e.add("    {")
+            e.raw("rt_release(" + sc.strLocals.get(si0) + ");")
+            e.add("    }")
+            si0 = si0 - 1
+        }
+    } else {
+        Int si1 = 0
+        while si1 < sc.strLocals.length() {
+            if si1 == 0 { e.add("    {") }
+            e.raw("rt_release(" + sc.strLocals.get(si1) + ");")
+            if si1 == sc.strLocals.length() - 1 { e.add("    }") }
+            si1 = si1 + 1
+        }
     }
     e.add("    {")
     e.raw("xn_root_restore(" + root + ");")
@@ -2820,6 +2891,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     e.add("")
     if sc.directRet { e.add("return " + sc.deferredRet + ";") }
     else { if isResult(rk) { e.add("return xn_ret;") } else { e.add("return " + sc.ret + ";") } }
+    Int hdi = 0
+    if sc.curFn == "regexMatchAt" { while hdi < sc.held.length() { e.raw("xn_root_release(" + sc.held.get(hdi) + ");"); hdi = hdi + 1 } }
     e.add("}")
     e.add("")
 }
