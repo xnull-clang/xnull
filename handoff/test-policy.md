@@ -27,5 +27,5 @@
 - `--shard 0/n` 一次跑完全部 1..n 片并聚合，任一片红即整体红（合并门禁口径）；
 - 必须串行的用例登记在 `handoff/serial-tests.txt`（每行一个一级测试名，`#` 注释）：工具把它们从切片中摘出，等所有分片结束后单独串行跑一次；
 - `xnull dev test --merge` 持有 `handoff/merge.lock`，同一时刻只允许一套全量；
-- codegen 测试经 `libxnrt.a`（缓存命中 0.2s）链接运行时，冷/热数据见 `handoff/test-speed.md`；
+- codegen 测试直接用 `runtimeCSources` 编译运行时（S8-21c 已回退 `libxnrt.a` 链接），耗时数据见 `handoff/test-speed.md`；
 - B2 差分 `tests/b2/batch.sh` 已按分片并行（实测 PASS=101 FAIL=0 @ JOBS=4）。

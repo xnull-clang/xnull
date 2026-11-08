@@ -66,7 +66,9 @@ static Int main() {
 	writeFFIFile(t, cfile, csrc)
 	bin := filepath.Join(dir, "prog")
 	args := []string{"-std=c11", "-O2", "-pthread", "-I", rt, "-o", bin, cfile}
-	args = append(args, runtimeLib(t))
+	for _, s := range runtimeCSources {
+		args = append(args, filepath.Join(rt, s))
+	}
 	args = append(args, writeEmptyResourceTable(t, t.TempDir()))
 	var cerr bytes.Buffer
 	cc := exec.Command("cc", args...)
