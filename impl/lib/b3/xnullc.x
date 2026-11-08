@@ -187,7 +187,16 @@ static String lastQual(N t) {
     if ql.el.length() == 0 { return "" }
     return unq(txt(ql.el.get(ql.el.length() - 1)))
 }
+static String substKey(String k) {
+    Int i = 0
+    while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
+    return k
+}
 static String typeKey(N t) {
+    String rr = typeKey0(t)
+    return substKey(rr)
+}
+static String typeKey0(N t) {
     if t.nm == "NamedType" {
         String last = lastQual(t)
         N args = fld(t, "Args")
@@ -261,6 +270,15 @@ static List<String> EXT_NAME = []
 static List<String> EXT_CNAME = []
 static List<N> EXT_DECLS = []
 static List<N> SINGLE_DECLS = []
+static List<N> GEN_FN_DECLS = []
+static List<String> INST_FN = []
+static List<String> INST_NAME = []
+static List<String> INST_ARGS = []
+static List<String> INST_KEYS = []
+static List<String> SUB_FROM = []
+static List<String> SUB_TO = []
+static String FN_SUFFIX = ""
+static Bool IN_GEN = false
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
 static List<String> ENUM_ITEM_NAME = []
@@ -929,6 +947,17 @@ static String expr(N x, EM e, SC sc) {
         N args = fld(x, "Args")
         if cl.nm == "IdentExpr" {
             String cn = unq(txt(fld(cl, "Name")))
+            N targs0 = fld(x, "TypeArgs")
+            if targs0.el.length() > 0 && isGenericFn(cn) {
+                String ag = ""
+                Int ti = 0
+                while ti < targs0.el.length() { if ti > 0 { ag = ag + "," }; ag = ag + typeKey(targs0.el.get(ti)); ti = ti + 1 }
+                String nm0 = "xn_" + cn + "_" + mangle(ag)
+                String bb0 = nm0 + "("
+                Int ai = 0
+                while ai < args.el.length() { if ai > 0 { bb0 = bb0 + ", " }; bb0 = bb0 + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
+                return bb0 + ")"
+            }
             if sc.curClass != "" && methodOwner(sc.curClass, cn) != "" {
                 String own = methodOwner(sc.curClass, cn)
                 String cast = "(xn_Cls_" + own + " *)" + sc.selfName
@@ -1627,7 +1656,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.errdefers = []
     sc.strLocals = []
     sc.blockRoots = []
-    String outName = "xn_" + fname
+    String outName = "xn_" + fname + FN_SUFFIX
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
     if isResult(rk) {
         e.add("    " + cType(rk) + " xn_ret;")
@@ -2469,6 +2498,108 @@ static String vtableInit(N unit) {
     return b
 }
 
+static Bool isGenericFn(String n) {
+    Int i = 0
+    while i < GEN_FN_DECLS.length() { if unq(txt(fld(GEN_FN_DECLS.get(i), "Name"))) == n { return true }; i = i + 1 }
+    return false
+}
+static String mangle(String k) {
+    if k == "Int" { return "i" }
+    if k == "String" { return "s" }
+    if k == "Bool" { return "b" }
+    if k == "Char" { return "c" }
+    if k == "Double" || k == "Float" { return "d" }
+    return "x"
+}
+static String instName(String fn, String args) {
+    String b = ""
+    Int i = 0
+    while i < args.length() {
+        String c = args.substring(i, 1)
+        if c == "," { } else if c == " " { } else { b = b + c }
+        i = i + 1
+    }
+    b = b.replace(",", "_")
+    b = b.replace(" ", "")
+    return b
+}
+static String instSuffix(String fn) {
+    Int i = 0
+    while i < INST_FN.length() {
+        if INST_FN.get(i) == fn { return INST_ARGS.get(i) }
+        i = i + 1
+    }
+    return ""
+}
+static N genFnDecl(String n) {
+    Int i = 0
+    while i < GEN_FN_DECLS.length() {
+        if unq(txt(fld(GEN_FN_DECLS.get(i), "Name"))) == n { return GEN_FN_DECLS.get(i) }
+        i = i + 1
+    }
+    return new N()
+}
+static void addInst(String fn, String args) {
+    String sfx = "_" + mangle(args)
+    String nm = "xn_" + fn + sfx
+    Int j = 0
+    while j < INST_NAME.length() { if INST_NAME.get(j) == nm { return }; j = j + 1 }
+    INST_FN.push(fn)
+    INST_NAME.push(nm)
+    INST_ARGS.push(sfx)
+    INST_KEYS.push(args)
+}
+static void scanCalls(N n) {
+    if n.nm == "Call" {
+        N ta = fld(n, "TypeArgs")
+        if ta.el.length() > 0 {
+            N cal = fld(n, "Callee")
+            if cal.nm == "IdentExpr" {
+                String fn = unq(txt(fld(cal, "Name")))
+                if isGenericFn(fn) {
+                    String args = ""
+                    Int i = 0
+                    while i < ta.el.length() { if i > 0 { args = args + "," }; args = args + typeKey(ta.el.get(i)); i = i + 1 }
+                    addInst(fn, args)
+                }
+            }
+        }
+    }
+    Int i = 0
+    while i < n.fv.length() { scanCalls(n.fv.get(i)); i = i + 1 }
+    i = 0
+    while i < n.el.length() { scanCalls(n.el.get(i)); i = i + 1 }
+}
+static String genProtos() {
+    String b = ""
+    Int i = 0
+    while i < INST_FN.length() {
+        N fn = genFnDecl(INST_FN.get(i))
+        SUB_FROM = ["T"]
+        SUB_TO = [INST_KEYS.get(i)]
+        String rt = typeKey(fld(fn, "Ret"))
+        b = b + "static " + cType(rt) + " " + INST_NAME.get(i) + "(" + paramsOf(fn) + ");\n"
+        i = i + 1
+    }
+    SUB_FROM = []
+    SUB_TO = []
+    return b
+}
+static void emitInstances(EM e, SC sc) {
+    Int i = 0
+    while i < INST_FN.length() {
+        N fn = genFnDecl(INST_FN.get(i))
+        SUB_FROM = ["T"]
+        SUB_TO = [INST_KEYS.get(i)]
+        FN_SUFFIX = INST_ARGS.get(i)
+        emitFunc(fn, e, sc)
+        FN_SUFFIX = ""
+        SUB_FROM = []
+        SUB_TO = []
+        i = i + 1
+    }
+}
+
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -2477,6 +2608,14 @@ static String emitUnit(N unit, String path) {
     CLS_NAMES = []
     CLS_DECLS = []
     SINGLE_DECLS = []
+    GEN_FN_DECLS = []
+    INST_FN = []
+    INST_NAME = []
+    INST_ARGS = []
+    INST_KEYS = []
+    SUB_FROM = []
+    SUB_TO = []
+    FN_SUFFIX = ""
     PRIMARY_NAMES = []
     STRUCT_NAMES = []
     FLD_OWNER = []
@@ -2621,6 +2760,7 @@ static String emitUnit(N unit, String path) {
             String rk = typeKey(fld(d, "Ret"))
             sc.useResult(rk)
             sc.defFn(unq(txt(fld(d, "Name"))), rk)
+            if fld(d, "TypePars").el.length() > 0 { GEN_FN_DECLS.push(d) } else { scanCalls(fld(d, "Body")) }
         }
         i = i + 1
     }
@@ -2629,7 +2769,7 @@ static String emitUnit(N unit, String path) {
         N d = decls.el.get(i)
         if d.nm == "TopFunc" {
             String nm = unq(txt(fld(d, "Name")))
-            if nm != "main" { emitFunc(d, e, sc) }
+            if nm != "main" && fld(d, "TypePars").el.length() == 0 { emitFunc(d, e, sc) }
         }
         i = i + 1
     }
@@ -2639,6 +2779,7 @@ static String emitUnit(N unit, String path) {
         if d.nm == "TopFunc" && unq(txt(fld(d, "Name"))) == "main" { emitFunc(d, e, sc) }
         i = i + 1
     }
+    emitInstances(e, sc)
     Int funcEnd = e.ls.length()
     e.add("int main(void) {")
     e.add("    xrt_runtime_init();")
@@ -2990,7 +3131,7 @@ static String emitUnit(N unit, String path) {
             N d = decls.el.get(i)
             if d.nm == "TopFunc" {
                 String nm = unq(txt(fld(d, "Name")))
-                if nm != "main" {
+                if nm != "main" && fld(d, "TypePars").el.length() == 0 {
                     String rk = typeKey(fld(d, "Ret"))
                     res = res + "static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n"
                 }
@@ -2998,6 +3139,7 @@ static String emitUnit(N unit, String path) {
             i = i + 1
         }
         res = res + "static int64_t xn_main();\n"
+        res = res + genProtos()
         res = res + PRELUDE_TAIL
     }
     e.add("}")
