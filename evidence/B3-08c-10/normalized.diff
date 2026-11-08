@@ -1,0 +1,482 @@
+--- /tmp/go_nw	2026-11-09 04:55:59
++++ /tmp/xn_nw	2026-11-09 05:04:10
+@@ -928,9 +928,6 @@
+ xn_ret = (xn_Result_Regex_Error){0, NULL, xn_textErr(xn_tN)};
+ {
+ xn_root_restore(xn_tN);
+-}
+-{
+-rt_release(ch);
+ }
+ {
+ xn_root_restore(xn_tN);
+@@ -961,7 +958,7 @@
+ rt_string *xn_tN = rt_string_from_c("?");
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-if (((((xn_str_eq(xn_tN, xn_tN) || xn_str_eq(xn_tN, xn_tN)) || xn_str_eq(xn_tN, xn_tN))) && ((i == 0)))) {
++if ((((xn_str_eq(xn_tN, xn_tN) || xn_str_eq(xn_tN, xn_tN)) || xn_str_eq(xn_tN, xn_tN)) && ((i == 0)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 276 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_string_from_c("Regex.compile: 量词缺少原子");
+@@ -974,9 +971,6 @@
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ {
+@@ -1006,9 +1000,6 @@
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ {
+@@ -1021,9 +1012,6 @@
+ #line 281 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 1);
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -1034,6 +1022,9 @@
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ xn_ret = (xn_Result_Regex_Error){1, xn_Cls_Regex_new(xn_tN), 0};
++{
++rt_release(ch);
++}
+ {
+ xn_root_restore(xn_tN);
+ }
+@@ -1050,23 +1041,25 @@
+ #line 288 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(self->pattern);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(self->pattern);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = xn_str_substr(xn_tN, 0, 1);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("^");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ if ((((xn_str_length(xn_tN) > 0)) && (xn_str_eq(xn_tN, xn_tN)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 289 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(self->pattern);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(xn_p_text);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ int xn_tN = xn_regexMatchAt(xn_tN, 1, xn_tN, 0);
+ {
+ xn_root_restore(xn_tN);
+@@ -1906,9 +1899,6 @@
+ xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_tN)};
+ {
+ xn_root_restore(xn_tN);
+-}
+-{
+-rt_release(ch);
+ }
+ {
+ xn_root_restore(xn_tN);
+@@ -1927,9 +1917,6 @@
+ #line 139 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 1);
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -1938,8 +1925,10 @@
+ #line 141 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c(".");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ if ((((i < n)) && (xn_str_eq(xn_tN, xn_tN)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 142 "tests/b3/fixtures/bundle_text/app.x"
+@@ -1954,30 +1943,26 @@
+ xn_root_add(ch);
+ xn_root_add(ch);
+ xn_root_add(ch);
+-xn_root_add(ch);
+ xn_gc_safepoint();
+ #line 146 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(ch);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("e");
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(ch);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("E");
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ if (((xn_str_eq(xn_tN, xn_tN)) || (xn_str_eq(xn_tN, xn_tN)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 146 "tests/b3/fixtures/bundle_text/app.x"
+ xn_root_restore(xn_tN);
+ xn_root_restore(xn_tN);
++xn_root_restore(xn_tN);
+ break;
+ {
+ xn_root_restore(xn_tN);
+@@ -1988,7 +1973,6 @@
+ rt_string *xn_tN = rt_retain(ch);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ double d = xn_digitOfD(xn_tN);
+ #line 148 "tests/b3/fixtures/bundle_text/app.x"
+ if (((d < 0.0))) {
+@@ -1999,15 +1983,11 @@
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_tN)};
+ {
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ {
+@@ -2029,19 +2009,12 @@
+ #line 152 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 1);
+ {
+-rt_release(ch);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+ xn_gc_safepoint();
+ }
+-{
+-xn_root_restore(xn_tN);
+ }
+-
+-}
+ #line 155 "tests/b3/fixtures/bundle_text/app.x"
+ if (((!(any)))) {
+ size_t xn_tN = xn_root_mark();
+@@ -2064,13 +2037,17 @@
+ #line 156 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("e");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("E");
+ xn_root_add(xn_tN);
+-if ((((i < n)) && ((xn_str_eq(xn_tN, xn_tN) || xn_str_eq(xn_tN, xn_tN))))) {
++xn_root_add(xn_tN);
++if ((((i < n)) && (xn_str_eq(xn_tN, xn_tN) || xn_str_eq(xn_tN, xn_tN)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 157 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 1);
+@@ -2097,11 +2074,9 @@
+ rt_string *xn_tN = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("+");
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ if ((((i < n)) && (xn_str_eq(xn_tN, xn_tN)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 160 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2120,7 +2095,6 @@
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_tN)};
+ {
+ xn_root_restore(xn_tN);
+@@ -2151,7 +2125,6 @@
+ size_t xn_tN = xn_root_mark();
+ #line 165 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_string_from_c("parseFloat: 非法指数");
+-xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+@@ -2256,6 +2229,10 @@
+ #line 177 "tests/b3/fixtures/bundle_text/app.x"
+ xn_ret = (xn_Result_Double_Error){1, v, 0};
+ {
++rt_release(ch);
++rt_release(ch);
++}
++{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -2356,10 +2333,6 @@
+ xn_arr_u16_push(res, (((c & 31) << 6) | (c2 & 63)));
+ #line 196 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 2);
+-{
+-xn_root_restore(xn_tN);
+-}
+-
+ } else {
+ if ((((c >= 224)) && ((c < 240)))) {
+ size_t xn_tN = xn_root_mark();
+@@ -2429,10 +2402,6 @@
+ xn_arr_u16_push(res, ((((c & 15) << 12) | ((c2 & 63) << 6)) | (c3 & 63)));
+ #line 203 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 3);
+-{
+-xn_root_restore(xn_tN);
+-}
+-
+ } else {
+ if ((((c >= 240)) && ((c < 248)))) {
+ size_t xn_tN = xn_root_mark();
+@@ -2512,10 +2481,6 @@
+ xn_arr_u16_push(res, (56320 + (cp & 1023)));
+ #line 216 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 4);
+-{
+-xn_root_restore(xn_tN);
+-}
+-
+ } else {
+ size_t xn_tN = xn_root_mark();
+ #line 218 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2566,6 +2531,7 @@
+ #line 226 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_string_from_c("");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ xrt_bytes_obj *xn_tN = xrt_bytes_from_string(xn_tN->bytes, xn_tN->len);
+ xn_root_add(xn_tN);
+ rt_release(xn_tN);
+@@ -2630,9 +2596,6 @@
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(res);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -2664,9 +2627,6 @@
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(res);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -2685,10 +2645,6 @@
+ xrt_bytes_push(res, (int32_t)((128 | (cp & 63))));
+ #line 246 "tests/b3/fixtures/bundle_text/app.x"
+ i = (i + 2);
+-{
+-xn_root_restore(xn_tN);
+-}
+-
+ } else {
+ if ((((u >= 56320)) && ((u <= 57343)))) {
+ size_t xn_tN = xn_root_mark();
+@@ -2709,9 +2665,6 @@
+ xn_root_restore(xn_tN);
+ }
+ {
+-rt_release(res);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+@@ -2760,8 +2713,10 @@
+ #line 301 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(xn_p_atom);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c(".");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ if ((xn_str_eq(xn_tN, xn_tN))) {
+ size_t xn_tN = xn_root_mark();
+ #line 301 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2816,12 +2771,15 @@
+ rt_string *c = xn_str_substr(xn_p_pattern, xn_p_pi, 1);
+ xn_root_add(c);
+ xn_root_add(c);
++xn_root_add(c);
+ xn_gc_safepoint();
+ #line 309 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(c);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("$");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ if (((xn_str_eq(xn_tN, xn_tN)) && ((xn_p_pi == (plen - 1))))) {
+ size_t xn_tN = xn_root_mark();
+ #line 309 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2864,17 +2822,23 @@
+ #line 312 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(next);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("*");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(next);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("+");
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(next);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_string_from_c("?");
+ xn_root_add(xn_tN);
+-int quant = ((xn_str_eq(xn_tN, xn_tN) || xn_str_eq(xn_tN, xn_tN)) || xn_str_eq(xn_tN, xn_tN));
++xn_root_add(xn_tN);
++int quant = (((xn_str_eq(xn_tN, xn_tN)) || (xn_str_eq(xn_tN, xn_tN))) || (xn_str_eq(xn_tN, xn_tN)));
+ #line 313 "tests/b3/fixtures/bundle_text/app.x"
+ if ((quant)) {
+ size_t xn_tN = xn_root_mark();
+@@ -2885,14 +2849,14 @@
+ #line 316 "tests/b3/fixtures/bundle_text/app.x"
+ int64_t count = 0;
+ #line 317 "tests/b3/fixtures/bundle_text/app.x"
+-while (1) {
+ rt_string *xn_tN = rt_retain(c);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+ rt_string *xn_tN = xn_str_substr(xn_p_text, k, 1);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-if (!((((k < xn_str_length(xn_p_text))) && (xn_regexAtomMatch(xn_tN, xn_tN))))) { break; }
++xn_root_add(xn_tN);
++while ((((k < xn_str_length(xn_p_text))) && xn_regexAtomMatch(xn_tN, xn_tN))) {
+ size_t xn_tN = xn_root_mark();
+ #line 318 "tests/b3/fixtures/bundle_text/app.x"
+ count = (count + 1);
+@@ -2959,11 +2923,9 @@
+ rt_string *xn_tN = rt_retain(xn_p_pattern);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(xn_p_text);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ if ((xn_regexMatchAt(xn_tN, nextp, xn_tN, (xn_p_ti + use)))) {
+ size_t xn_tN = xn_root_mark();
+ #line 327 "tests/b3/fixtures/bundle_text/app.x"
+@@ -3000,22 +2962,7 @@
+ }
+ #line 330 "tests/b3/fixtures/bundle_text/app.x"
+ int xn_tN = 0;
+-{
+-xn_root_restore(xn_tN);
+-}
+-{
+-rt_release(next);
+-}
+-{
+-rt_release(c);
+-}
+-{
+-xn_root_restore(xn_tN);
+ }
+-
+-return xn_tN;
+-
+-}
+ #line 332 "tests/b3/fixtures/bundle_text/app.x"
+ if (((xn_p_ti >= xn_str_length(xn_p_text)))) {
+ size_t xn_tN = xn_root_mark();
+@@ -3040,19 +2987,20 @@
+ #line 333 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(c);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ rt_string *xn_tN = xn_str_substr(xn_p_text, xn_p_ti, 1);
+ xn_root_add(xn_tN);
++xn_root_add(xn_tN);
++xn_root_add(xn_tN);
+ if ((xn_regexAtomMatch(xn_tN, xn_tN))) {
+ size_t xn_tN = xn_root_mark();
+ #line 333 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_tN = rt_retain(xn_p_pattern);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ rt_string *xn_tN = rt_retain(xn_p_text);
+ xn_root_add(xn_tN);
+ xn_root_add(xn_tN);
+-xn_root_add(xn_tN);
+ int xn_tN = xn_regexMatchAt(xn_tN, (xn_p_pi + 1), xn_tN, (xn_p_ti + 1));
+ {
+ xn_root_restore(xn_tN);
+@@ -3073,17 +3021,14 @@
+ #line 334 "tests/b3/fixtures/bundle_text/app.x"
+ int xn_tN = 0;
+ {
++rt_release(c);
+ rt_release(next);
+ }
+ {
+-rt_release(c);
+-}
+-{
+ xn_root_restore(xn_tN);
+ }
+ 
+ return xn_tN;
+-xn_root_release(next);
+ }
+ 
+ rt_string * xn_repeatText(rt_string * xn_p_unit, int64_t xn_p_times) {
