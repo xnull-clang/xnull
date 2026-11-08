@@ -2429,8 +2429,43 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "WhileStmt" {
         N cond = fld(st, "Cond")
+        Int wstart = e.ls.length()
         String cexpr = expr(cond, e, sc)
         if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
+        Bool lowered = e.ls.length() > wstart
+        if lowered {
+            List<String> cl = []
+            Int wi = wstart
+            while wi < e.ls.length() {
+                String wl = e.ls.get(wi)
+                String wt = wl.trim()
+                if wt.indexOf("rt_string *") == 0 || wt.indexOf("xrt_bytes_obj *") == 0 || wt.indexOf("xn_arr_") == 0 { cl.push(sp(8) + wl) } else { cl.push(wl) }
+                wi = wi + 1
+            }
+            while e.ls.length() > wstart { e.ls.remove(e.ls.length() - 1) }
+            e.addAt(e.ind + 4, "while (1) {")
+            wi = 0
+            while wi < cl.length() { e.ls.push(cl.get(wi)); wi = wi + 1 }
+            e.addAt(e.ind + 8, "if (!(" + cexpr + ")) { break; }")
+            String rl = e.nt()
+            e.addAt(e.ind + 8, "size_t " + rl + " = xn_root_mark();")
+            sc.blockRoots.push(rl)
+            sc.loopDepth = sc.loopDepth + 1
+            Int oldLI2 = sc.loopIndent
+            sc.loopIndent = e.ind + 8
+            e.terminated = false
+            emitBlock(fld(st, "Body"), e, sc, e.ind + 8, true)
+            sc.loopDepth = sc.loopDepth - 1
+            sc.loopIndent = oldLI2
+            sc.blockRoots.remove(sc.blockRoots.length() - 1)
+            e.addAt(e.ind + 12, "{")
+            e.addAt(e.ind + 12, "xn_root_restore(" + rl + ");")
+            e.addAt(e.ind + 12, "}")
+            e.raw("")
+            e.addAt(e.ind + 8, "xn_gc_safepoint();")
+            e.addAt(e.ind + 4, "}")
+            return
+        }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "while (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "while ((" + cexpr + ")) {") }
         String r = e.nt()
         e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
@@ -2736,6 +2771,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.escaped = []
     sc.names = []
     sc.types = []
+    sc.loopDepth = 0
+    sc.loopIndent = 0
     escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
