@@ -21,17 +21,19 @@ import (
 )
 
 // 前端模式（XNULL_FRONTEND）：
-//   - 未设置 / go（默认）：直接使用 Go oracle；
-//   - auto：只用外部原生 xparser 二进制；没有就回退 Go，绝不在生产路径跑解释器；
-//   - xnull：显式自举，允许外部/进程内解释器（测试/差分用）。
+//   - 未设置（默认）：解释器前端（xnull 管线）+ 磁盘缓存；无 runner 或失败时回退 Go；
+//   - auto：同默认（显式写法）；
+//   - xnull：显式自举；失败返回 B2-001，不回退；
+//   - go：直接使用 Go oracle。
 //
 // B2-04b：全量 codegen 未达到 ≤170s 门禁前，默认保持 go；auto 由显式环境变量开启。
 const (
-	modeAuto   = "auto"
-	modeXNull  = "xnull"
-	modeGo     = "go"
-	innerGuard = "XNULL_FRONTEND_INNER"
-	buildGuard = "XNULL_FRONTEND_BUILDING"
+	modeDefault = "default"
+	modeAuto    = "auto"
+	modeXNull   = "xnull"
+	modeGo      = "go"
+	innerGuard  = "XNULL_FRONTEND_INNER"
+	buildGuard  = "XNULL_FRONTEND_BUILDING"
 
 	cacheFormat = "b2-04b-1"
 )
@@ -51,7 +53,8 @@ type Result struct {
 // ParseUnit 是 check/run/build 的统一解析入口。
 //
 // Go xfront 先跑一次，仅用于诊断与回退；正常文件的 AST 来自 XNull 前端。
-// auto 模式下 XNull 前端只允许外部原生二进制，避免解释器拖慢生产路径。
+// 默认/auto 走“缓存 → 原生 xparser → 解释器”，无 runner 或失败时回退 Go；
+// 显式 xnull 才把前端失败升级为 B2-001。
 func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	goUnit, goDiags := xfront.ParseUnit(file, src)
 	if len(goDiags) > 0 {
@@ -61,12 +64,17 @@ func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	if mode == modeGo || os.Getenv(innerGuard) != "" || os.Getenv(buildGuard) != "" {
 		return goUnit, nil
 	}
-	if mode == modeAuto {
-		// 生产路径禁止进程内解释器：没有可用原生二进制直接回退 Go。
-		if _, err := nativeParser(); err != nil {
-			return goUnit, nil
+	if !hasRunner() {
+		if mode == modeXNull {
+			return nil, []diag.Diagnostic{{
+				File: file, Line: 1, Col: 1, Code: "B2-001",
+				Message: "XNull 前端不可用：没有原生二进制、外部自举二进制或可用的进程内解释器",
+				Hint:    "设置 XNULL_FRONTEND=go 可回退 Go 前端",
+			}}
 		}
+		return goUnit, nil
 	}
+	// auto/xnull 都先查磁盘缓存；命中时直接反序列化，不启动任何 runner。
 	dump, err := parserAST(src, mode)
 	if err == nil {
 		if strings.Contains(dump, "(depth-limit)") {
@@ -181,17 +189,48 @@ func inprocAvailable() bool {
 	return inprocOK
 }
 
+// runnerOnce 缓存“是否存在可用前端执行器”，避免无 runner 时每个文件重复探测。
+var (
+	runnerOnce sync.Once
+	runnerOK   bool
+)
+
+func hasRunner() bool {
+	runnerOnce.Do(func() {
+		if _, ok := explicitNative(); ok {
+			runnerOK = true
+			return
+		}
+		if selfhostBin() != "" && !sameExecutable(selfhostBin()) {
+			runnerOK = true
+			return
+		}
+		runnerOK = inprocAvailable()
+	})
+	return runnerOK
+}
+
+// explicitNative 只认显式 XNULL_NATIVE_XPARSER；原生 parser 暂缓，不参与默认发现/自动构建。
+func explicitNative() (string, bool) {
+	v := strings.TrimSpace(os.Getenv("XNULL_NATIVE_XPARSER"))
+	if v != "" && isExecutable(v) {
+		return v, true
+	}
+	return "", false
+}
+
 func frontendMode() string {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("XNULL_FRONTEND"))) {
-	case "",
-		"go", "oracle":
+	case "":
+		return modeDefault
+	case "go", "oracle":
 		return modeGo
 	case "auto":
 		return modeAuto
 	case "xnull", "selfhost":
 		return modeXNull
 	default:
-		return modeGo
+		return modeDefault
 	}
 }
 
@@ -326,9 +365,8 @@ func autobuildEnabled() bool {
 	case "1", "on", "true", "yes":
 		return true
 	}
-	// 默认：能找到工具链才尝试，避免每次进程都白跑。
-	_, ok := toolchainBin()
-	return ok
+	// 默认不自动构建（原生 parser 暂缓）；仅显式开启。
+	return false
 }
 
 func toolchainBin() (string, bool) {
@@ -531,13 +569,13 @@ func parserAST(src, mode string) (string, error) {
 		return v, nil
 	}
 	var out string
-	if native, nerr := nativeParser(); nerr == nil {
+	if native, ok := explicitNative(); ok {
 		out, err = nativeRunner(native, src)
-	} else if mode == modeXNull {
-		// 显式自举模式才允许解释器（外部优先，进程内兜底）。
+	} else if mode == modeAuto || mode == modeXNull || mode == modeDefault {
+		// 解释器前端：外部二进制优先，进程内兜底；默认/auto 失败后回退 Go。
 		out, err = RunSelfhost(parser, src)
 	} else {
-		return "", nerr
+		return "", fmt.Errorf("没有可用前端执行器")
 	}
 	if err != nil {
 		return "", err

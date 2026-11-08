@@ -16,7 +16,7 @@ func TestParseUnitMatchesOracle(t *testing.T) {
 		filepath.Join(root, "examples", "classes.x"),
 		filepath.Join(root, "tests", "b2", "parser_cases", "stmt.x"),
 	}
-	for _, mode := range []string{"go", "auto"} {
+	for _, mode := range []string{"go", "auto", ""} {
 		t.Setenv("XNULL_FRONTEND", mode)
 		t.Setenv("XNULL_SELFHOST_BIN", "")
 		t.Setenv("XNULL_BIN", "")
