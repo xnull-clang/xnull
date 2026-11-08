@@ -39,7 +39,7 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sync test_sync
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_sysasync test_sysasync.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_sys.c
 /tmp/xnull_test_sysasync
 # S6-09/ADR-009：socket plain/Async + net.http 最小面
-cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_net test_net.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_net.c
+cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_net test_net.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_std_net.c rt_std_bytes.c
 /tmp/xnull_test_net
 # 资源表（S8 §5.6）：构建期生成器 + 手工样例验证合同
 XNULL_RES_DIR=$(mktemp -d)
