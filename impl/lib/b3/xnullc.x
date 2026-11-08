@@ -1655,6 +1655,21 @@ static void emitDeferBody(DF d, EM e, Int base, Int mode, Bool guarded) {
     e.addAt(base + 4, "}")
 }
 
+static List<String> copyStrs(List<String> xs) {
+    List<String> r = []
+    Int i = 0
+    while i < xs.length() { r.push(xs.get(i)); i = i + 1 }
+    return r
+}
+static Bool isGCRootType(String t) {
+    return t == "String" || t == "Bytes" || t == "Text" || t == "StringBuilder" || t.indexOf("List<") == 0 || t.indexOf("Set<") == 0 || t.indexOf("Map<") == 0 || isClass(t) || isProtoType(t) || t == "Any"
+}
+static void emitDeferItem(EM e, Int ind, String line) {
+    e.addAt(ind + 4, "{")
+    e.addAt(ind, line)
+    e.addAt(ind + 4, "}")
+}
+
 static void emitBlockDefers(SC sc, EM e, Int ind) {
     Int i = sc.blockDefers.length() - 1
     while i >= 0 {
