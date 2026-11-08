@@ -4,6 +4,9 @@
 #   L3：parser_neg 负例，诊断码与位置序列一致（以 Go oracle 为准）。
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+B2_TMP=${B2_TMP:-$(mktemp -d "${TMPDIR:-/tmp}/b2-run.XXXXXX")}
+trap '[ -n "${B2_TMP_KEEP:-}" ] || rm -rf "$B2_TMP"' EXIT
+mkdir -p "$B2_TMP"
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 BIN=${XNULL_BIN:-}
 ORACLE=${XNAST_BIN:-}
@@ -14,13 +17,13 @@ pass=0 fail=0
 
 l2_case() {
   local f="$1" label="$2"
-  "$ORACLE" --ast "$f" > /tmp/b2-go.ast 2>/dev/null
+  "$ORACLE" --ast "$f" > "$B2_TMP"/b2-go.ast 2>/dev/null
   SRC="$(cat "$f")"$'\n'
-  ( cd "$ROOT/impl" && "$BIN" run --interp "$XPARSE" "$SRC" > /tmp/b2-xn.ast 2>/tmp/b2-xn.err )
-  if cmp -s /tmp/b2-go.ast /tmp/b2-xn.ast; then
+  ( cd "$ROOT/impl" && "$BIN" run --interp "$XPARSE" "$SRC" > "$B2_TMP"/b2-xn.ast 2>"$B2_TMP"/b2-xn.err )
+  if cmp -s "$B2_TMP"/b2-go.ast "$B2_TMP"/b2-xn.ast; then
     echo "PASS L2 $label"; pass=$((pass+1))
   else
-    echo "FAIL L2 $label"; diff -u /tmp/b2-go.ast /tmp/b2-xn.ast | head -20; fail=$((fail+1))
+    echo "FAIL L2 $label"; diff -u "$B2_TMP"/b2-go.ast "$B2_TMP"/b2-xn.ast | head -20; fail=$((fail+1))
   fi
 }
 
