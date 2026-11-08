@@ -2666,13 +2666,19 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     if st.nm == "SwitchStmt" {
         String val = expr(fld(st, "Value"), e, sc)
         N cases = fld(st, "Cases")
+        List<String> caseVals = []
+        Int ci = 0
+        while ci < cases.el.length() {
+            caseVals.push(expr(fld(cases.el.get(ci), "Expr"), e, sc))
+            ci = ci + 1
+        }
         e.addAt(e.ind + 4, "do {")
         Int i = 0
         while i < cases.el.length() {
             N c = cases.el.get(i)
             String head = "else if "
             if i == 0 { head = "if " }
-            e.addAt(e.ind + 8, head + "(" + val + " == (" + expr(fld(c, "Expr"), e, sc) + ")) {")
+            e.addAt(e.ind + 8, head + "(" + val + " == (" + caseVals.get(i) + ")) {")
             SC caseSc = newChild(sc, e)
             caseSc.kind = "switch"
             emitScopedStmts(caseSc, fld(c, "Stmts"), e, e.ind + 12, true)
