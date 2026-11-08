@@ -177,26 +177,38 @@ int32_t xdkc_proc_status(const char *cmd, size_t len) {
 static char *g_text_buf = NULL;
 static size_t g_text_cap = 0;
 
+/* K-07：readFileText 的错误码旁路（0 成功 / 2 打开或读取失败）。
+ * 线程局部：调用点与错误读取点在同一线程；.unaware 未加 @longRunning，
+ * 不走 companion 路由，因此不会跨线程丢失错误状态。 */
+static _Thread_local int32_t g_read_file_text_error = 0;
+
+#define XDK_READ_FILE_TEXT_MAX (64u * 1024u * 1024u) /* K-07：≥16 MiB，实取 64 MiB */
+
 const char *xdkc_read_file_text(const char *bytes, size_t len) {
+    g_read_file_text_error = 0;
     if (bytes == NULL) {
         xrt_fatal("readFileText：路径为空（S6 §4.7）");
     }
     if (len == 0 || memchr(bytes, 0, len) != NULL) {
+        g_read_file_text_error = 2;
         return NULL;
     }
     char *p = path_dup(bytes, len);
     FILE *f = fopen(p, "rb");
     free(p);
     if (f == NULL) {
+        g_read_file_text_error = 2;
         return NULL;
     }
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
+        g_read_file_text_error = 2;
         return NULL;
     }
     long n = ftell(f);
-    if (n < 0 || fseek(f, 0, SEEK_SET) != 0) {
+    if (n < 0 || (size_t)n > XDK_READ_FILE_TEXT_MAX || fseek(f, 0, SEEK_SET) != 0) {
         fclose(f);
+        g_read_file_text_error = 2;
         return NULL;
     }
     size_t need = (size_t)n + 1;
@@ -204,6 +216,7 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
         char *nb = realloc(g_text_buf, need);
         if (nb == NULL) {
             fclose(f);
+            g_read_file_text_error = 2;
             return NULL;
         }
         g_text_buf = nb;
@@ -213,10 +226,36 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
     int bad = ferror(f);
     fclose(f);
     if (bad || got != (size_t)n) {
+        g_read_file_text_error = 2;
         return NULL;
     }
     g_text_buf[got] = 0;
     return g_text_buf;
+}
+
+/* K-07：最近一次 xdkc_read_file_text 的错误码（0=成功）。
+ * 供 xdk.sys 源码层把失败转成 throw，避免静默空串。 */
+int32_t xdkc_read_file_text_error(void) {
+    return g_read_file_text_error;
+}
+
+/* K-07：带错误码的文件读取入口（C 层测试与解释器语义对齐用）。
+ * code=0 成功；1 参数非法；2 打开/读取失败或超过 64 MiB。 */
+const char *xdkc_read_file_text_code(const char *bytes, size_t len, int32_t *code) {
+    if (code != NULL) {
+        *code = 0;
+    }
+    if (bytes == NULL || len == 0) {
+        if (code != NULL) {
+            *code = 1;
+        }
+        return NULL;
+    }
+    const char *p = xdkc_read_file_text(bytes, len);
+    if (code != NULL) {
+        *code = g_read_file_text_error;
+    }
+    return p;
 }
 
 int64_t xdkc_write_file_text(const char *bytes, size_t plen,

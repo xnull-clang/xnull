@@ -1,0 +1,8 @@
+--- FAIL: TestS8K07RunInterpReadFileText (0.05s)
+    sys_readfile_test.go:31: code=1 stderr="xnull: 未定义的函数：readFileText\n"
+--- FAIL: TestS8K07RunInterpReadFileTextMissing (0.00s)
+    sys_readfile_test.go:57: stderr 未点名 readFileText/path："xnull: 未定义的函数：readFileText\n"
+FAIL
+FAIL	xnull.dev/xnull/internal/cli	0.862s
+FAIL
+EXIT=1

@@ -1,0 +1,7 @@
+=== RUN   TestS8K07ReadFileText
+--- PASS: TestS8K07ReadFileText (0.01s)
+=== RUN   TestS8K07ReadFileTextMissing
+--- PASS: TestS8K07ReadFileTextMissing (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/interp	0.882s
+EXIT=0

@@ -34,6 +34,8 @@ void       *xdkc_file_open_read(const char *bytes, size_t len);
 void       *xdkc_file_open_write(const char *bytes, size_t len);
 int64_t     xdkc_file_read(void *fp, void *buf, size_t cap, int32_t *code);
 int32_t     xdkc_file_write(void *fp, const void *buf, size_t n);
+const char *xdkc_read_file_text_code(const char *bytes, size_t len, int32_t *code);
+int32_t     xdkc_read_file_text_error(void);
 int32_t     xdkc_file_close(void *fp);
 void       *xdkc_dir_open(const char *path, size_t len);
 const char *xdkc_dir_read(void *dp);
@@ -390,6 +392,33 @@ static void atexit_marker(void) {
     }
 }
 
+static void test_read_file_text_code(void) {
+    char path[] = "/tmp/xnull_readfile_k07XXXXXX";
+    int fd = mkstemp(path);
+    CHECK(fd >= 0);
+    if (fd < 0) {
+        return;
+    }
+    size_t n = 1u << 20; /* 1 MiB */
+    char chunk[4096];
+    memset(chunk, 'a', sizeof(chunk));
+    for (size_t off = 0; off < n; off += sizeof(chunk)) {
+        CHECK(write(fd, chunk, sizeof(chunk)) == (ssize_t)sizeof(chunk));
+    }
+    close(fd);
+
+    int32_t code = -1;
+    const char *text = xdkc_read_file_text_code(path, strlen(path), &code);
+    CHECK(code == 0 && text != NULL && strlen(text) == n);
+    CHECK(xdkc_read_file_text_error() == 0);
+
+    unlink(path);
+    code = -1;
+    text = xdkc_read_file_text_code("/tmp/xnull_no_such_k07_file", 25, &code);
+    CHECK(text == NULL && code != 0);
+    CHECK(xdkc_read_file_text_error() != 0);
+}
+
 static void test_runtime_env_exit(void) {
     CHECK(setenv("XNULL_S602_ENV", "abc", 1) == 0);
     const char *v = xdkc_env_lookup("XNULL_S602_ENV", sizeof("XNULL_S602_ENV") - 1);
@@ -684,6 +713,7 @@ int main(void) {
     test_diagnose_contract();
     test_fatal_contract();
     test_runtime_env_exit();
+    test_read_file_text_code();
     test_error_kind_skeleton();
     test_stats();
     test_files();

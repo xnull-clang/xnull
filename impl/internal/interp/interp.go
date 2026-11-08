@@ -1166,6 +1166,14 @@ func (in *Interp) evalCall(n *xfront.Call, sc *scope) *Value {
 		}
 		return &Value{K: vResult, R: &resv{ok: false, e: in.eval(n.Args[0], sc)}}
 	}
+	// K-07：xdk.sys.readFileText 解释器内建优先于 sys.x 源码包装
+	// （源码包装调用 FFI 原语；解释器不走 FFI 注入）。
+	if id, ok := n.Callee.(*xfront.IdentExpr); ok && id.Name == "readFileText" {
+		if v, ok := in.evalSysBuiltin(id.Name, n, sc); ok {
+			return v
+		}
+	}
+
 	// 方法调用形态：recv.method(args)（§10.1 Result 成员全部为方法）。
 	if mem, ok := n.Callee.(*xfront.Member); ok {
 		// S5 §3：Context.background() / TaskGroup.create(ctx) 静态入口。
