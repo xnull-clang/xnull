@@ -771,6 +771,7 @@ class SC {
     List<DF> blockDefers = []
     List<String> releases = []
     List<String> blockRoots = []
+    List<Int> blockInds = []
     List<String> params = []
     List<String> paramTypes = []
     List<String> escaped = []
@@ -2213,11 +2214,19 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                         N ecs = fld(ea, "Args")
                         if ec.nm == "IdentExpr" && ecs.el.length() == 1 && exprType(ecs.el.get(0), sc) == "String" {
                             Bool odr = sc.doubleRoot
-                            sc.doubleRoot = true
+                            Bool oldD = sc.doubleRoot
+                            sc.doubleRoot = false
                             String mt = emitStr(ecs.el.get(0), e, sc)
-                            sc.doubleRoot = odr
-                            if sc.loopDepth > 0 && !sc.doubleRoot && !sc.staticMeth { e.addAt(sc.loopIndent, "xn_root_add(" + mt + ");") }
+                            sc.doubleRoot = oldD
+                            if sc.loopDepth > 0 {
+                                Int lind = sc.loopIndent
+                                while lind < e.ind {
+                                    e.addAt(lind, "xn_root_add(" + mt + ");")
+                                    lind = lind + 8
+                                }
+                            }
                             e.add("xn_root_add(" + mt + ");")
+                            if !odr { e.add("xn_root_add(" + mt + ");") }
                             ev = "xn_" + unq(txt(fld(ec, "Name"))) + "(" + mt + ")"
                         } else {
                             ev = expr(ea, e, sc)
@@ -2346,6 +2355,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         String r = e.nt()
         e.addAt(e.ind + 8, "size_t " + r + " = xn_root_mark();")
         sc.blockRoots.push(r)
+        sc.blockInds.push(e.ind + 8)
         e.terminated = false
         List<DF> savedDefers = sc.blockDefers
         sc.blockDefers = []
@@ -2354,6 +2364,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         emitBlockDefers(sc, e, e.ind + 8)
         sc.blockDefers = savedDefers
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
+        sc.blockInds.remove(sc.blockInds.length() - 1)
         if !termThen {
             e.addAt(e.ind + 12, "{")
             e.addAt(e.ind + 12, "xn_root_restore(" + r + ");")
@@ -2378,6 +2389,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 String r2 = e.nt()
                 e.addAt(e.ind + 8, "size_t " + r2 + " = xn_root_mark();")
                 sc.blockRoots.push(r2)
+                sc.blockInds.push(e.ind + 8)
                 e.terminated = false
                 List<DF> savedDefers2 = sc.blockDefers
                 sc.blockDefers = []
@@ -2391,6 +2403,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 emitBlockDefers(sc, e, e.ind + 8)
                 sc.blockDefers = savedDefers2
                 sc.blockRoots.remove(sc.blockRoots.length() - 1)
+                sc.blockInds.remove(sc.blockInds.length() - 1)
                 if !termElse {
                     e.addAt(e.ind + 12, "{")
                     e.addAt(e.ind + 12, "xn_root_restore(" + r2 + ");")
@@ -2411,6 +2424,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         String r = e.nt()
         e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
         sc.blockRoots.push(r)
+        sc.blockInds.push(e.ind + 4)
         sc.loopDepth = sc.loopDepth + 1
         Int oldLI = sc.loopIndent
         sc.loopIndent = e.ind + 4
@@ -2419,6 +2433,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         sc.loopDepth = sc.loopDepth - 1
         sc.loopIndent = oldLI
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
+        sc.blockInds.remove(sc.blockInds.length() - 1)
         e.addAt(e.ind + 8, "{")
         e.addAt(e.ind + 8, "xn_root_restore(" + r + ");")
         e.addAt(e.ind + 8, "}")
@@ -2436,11 +2451,13 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
         e.addAt(e.ind + 4, "int64_t " + vname + " = " + coll + "->data[" + loop + "];")
         e.addAt(e.ind + 4, "size_t " + bodyRoot + " = xn_root_mark();")
         sc.blockRoots.push(bodyRoot)
+        sc.blockInds.push(e.ind + 4)
         sc.loopDepth = sc.loopDepth + 1
         e.terminated = false
         emitBlock(fld(st, "Body"), e, sc, e.ind + 4, true)
         sc.loopDepth = sc.loopDepth - 1
         sc.blockRoots.remove(sc.blockRoots.length() - 1)
+        sc.blockInds.remove(sc.blockInds.length() - 1)
         e.addAt(e.ind + 8, "{")
         e.addAt(e.ind + 8, "xn_root_restore(" + bodyRoot + ");")
         e.addAt(e.ind + 8, "}")
@@ -2462,6 +2479,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             String r = e.nt()
             e.addAt(e.ind + 12, "size_t " + r + " = xn_root_mark();")
             sc.blockRoots.push(r)
+            sc.blockInds.push(e.ind + 12)
             N stmts = fld(c, "Stmts")
             Int j = 0
             while j < stmts.el.length() {
@@ -2472,6 +2490,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 j = j + 1
             }
             sc.blockRoots.remove(sc.blockRoots.length() - 1)
+        sc.blockInds.remove(sc.blockInds.length() - 1)
             e.addAt(e.ind + 16, "{")
             e.addAt(e.ind + 16, "xn_root_restore(" + r + ");")
             e.addAt(e.ind + 16, "}")
@@ -2485,6 +2504,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             String r = e.nt()
             e.addAt(e.ind + 12, "size_t " + r + " = xn_root_mark();")
             sc.blockRoots.push(r)
+            sc.blockInds.push(e.ind + 12)
             N stmts = fld(def, "Stmts")
             Int j = 0
             while j < stmts.el.length() {
@@ -2495,6 +2515,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                 j = j + 1
             }
             sc.blockRoots.remove(sc.blockRoots.length() - 1)
+        sc.blockInds.remove(sc.blockInds.length() - 1)
             e.addAt(e.ind + 16, "{")
             e.addAt(e.ind + 16, "xn_root_restore(" + r + ");")
             e.addAt(e.ind + 16, "}")
@@ -2699,6 +2720,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.errdefers = []
     sc.strLocals = []
     sc.blockRoots = []
+    sc.blockInds = []
     sc.releases = []
     sc.escaped = []
     sc.names = []
