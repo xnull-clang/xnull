@@ -1,0 +1,1570 @@
+--- /tmp/t_go.c	2026-11-09 04:34:13
++++ /tmp/t_xn.c	2026-11-09 04:37:02
+@@ -560,7 +560,6 @@
+ }
+ 
+ static xn_Enum_ErrorKind xn_Cls_CauseError_kind(xn_Cls_CauseError *self);
+-static rt_string * xn_Cls_CauseError_describe(xn_Cls_CauseError *self);
+ 
+ static xn_Enum_ErrorKind xn_Cls_CauseError_kind(xn_Cls_CauseError *self) {
+ size_t xn_t289 = xn_root_mark();
+@@ -573,6 +572,8 @@
+ return self->errorKind;
+     return (xn_Enum_ErrorKind)0; /* sema 保证不可达（函数体全路径 return） */
+ }
++
++static rt_string * xn_Cls_CauseError_describe(xn_Cls_CauseError *self);
+ 
+ static rt_string * xn_Cls_CauseError_describe(xn_Cls_CauseError *self) {
+ size_t xn_t290 = xn_root_mark();
+@@ -635,12 +636,6 @@
+ }
+ 
+ static xn_Cls_Format * xn_Cls_Format_int(int64_t xn_p_v);
+-static xn_Cls_Format * xn_Cls_Format_float(double xn_p_v);
+-static xn_Cls_Format * xn_Cls_Format_string(rt_string * xn_p_v);
+-static xn_Cls_Format * xn_Cls_Format_bool(int xn_p_v);
+-static xn_Cls_Format * xn_Cls_Format_width(xn_Cls_Format *self, int64_t xn_p_w);
+-static xn_Cls_Format * xn_Cls_Format_pad(xn_Cls_Format *self, xn_char xn_p_c);
+-static rt_string * xn_Cls_Format_build(xn_Cls_Format *self);
+ 
+ static xn_Cls_Format * xn_Cls_Format_int(int64_t xn_p_v) {
+ size_t xn_t294 = xn_root_mark();
+@@ -659,6 +654,8 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
++static xn_Cls_Format * xn_Cls_Format_float(double xn_p_v);
++
+ static xn_Cls_Format * xn_Cls_Format_float(double xn_p_v) {
+ size_t xn_t297 = xn_root_mark();
+ #line 29 "tests/b3/fixtures/bundle_text/app.x"
+@@ -676,9 +673,10 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
+-static xn_Cls_Format * xn_Cls_Format_string(rt_string * xn_p_v) {
++static xn_Cls_Format * xn_Cls_Format_string(rt_string *xn_p_v);
++
++static xn_Cls_Format * xn_Cls_Format_string(rt_string *xn_p_v) {
+ size_t xn_t300 = xn_root_mark();
+-xn_root_add(xn_p_v);
+ #line 33 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t301 = rt_retain(xn_p_v);
+ xn_root_add(xn_t301);
+@@ -694,6 +692,8 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
++static xn_Cls_Format * xn_Cls_Format_bool(int xn_p_v);
++
+ static xn_Cls_Format * xn_Cls_Format_bool(int xn_p_v) {
+ size_t xn_t303 = xn_root_mark();
+ #line 37 "tests/b3/fixtures/bundle_text/app.x"
+@@ -703,20 +703,13 @@
+         rt_string *xn_t305 = rt_string_from_c("true");
+ xn_root_add(xn_t305);
+         xn_root_add(xn_t305);
+-        xn_root_add(xn_t305);
+         xn_Cls_Format *xn_t306 = xn_Cls_Format_new(xn_t305, 0, 32);
+-xn_root_add(xn_t306);
+         xn_root_add(xn_t306);
+         xn_root_add(xn_t306);
+             {
+-        xn_root_restore(xn_t304);
++            xn_root_restore(xn_t304);
+             }
+-            {
+-        xn_root_restore(xn_t303);
+-            }
+ 
+-        return xn_t306;
+-
+     }
+ #line 40 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t307 = rt_string_from_c("false");
+@@ -733,6 +726,8 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
++static xn_Cls_Format * xn_Cls_Format_width(xn_Cls_Format *self, int64_t xn_p_w);
++
+ static xn_Cls_Format * xn_Cls_Format_width(xn_Cls_Format *self, int64_t xn_p_w) {
+ size_t xn_t309 = xn_root_mark();
+ xn_root_add(self);
+@@ -751,6 +746,8 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
++static xn_Cls_Format * xn_Cls_Format_pad(xn_Cls_Format *self, xn_char xn_p_c);
++
+ static xn_Cls_Format * xn_Cls_Format_pad(xn_Cls_Format *self, xn_char xn_p_c) {
+ size_t xn_t312 = xn_root_mark();
+ xn_root_add(self);
+@@ -769,6 +766,8 @@
+     return (xn_Cls_Format *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
++static rt_string * xn_Cls_Format_build(xn_Cls_Format *self);
++
+ static rt_string * xn_Cls_Format_build(xn_Cls_Format *self) {
+ size_t xn_t315 = xn_root_mark();
+ xn_root_add(self);
+@@ -784,42 +783,34 @@
+ xn_gc_safepoint();
+ #line 54 "tests/b3/fixtures/bundle_text/app.x"
+     while (((xn_str_length(res) < self->width))) {
+-    size_t xn_t318 = xn_root_mark();
++    size_t xn_t316 = xn_root_mark();
+     #line 55 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *xn_t319 = rt_retain(unit);
++    rt_string *xn_t317 = rt_retain(unit);
++xn_root_add(xn_t317);
++    rt_string *xn_t318 = rt_retain(res);
++xn_root_add(xn_t318);
++    rt_string *xn_t319 = xn_concat(xn_t317, xn_t318);
+ xn_root_add(xn_t319);
+-    xn_root_add(xn_t319);
+-    rt_string *xn_t320 = rt_retain(res);
+-xn_root_add(xn_t320);
+-    xn_root_add(xn_t320);
+-    rt_string *xn_t321 = xn_concat(xn_t319, xn_t320);
+-xn_root_add(xn_t321);
+-    xn_root_add(xn_t321);
+     xn_root_release(res);
+     rt_release(res);
+-    res = xn_t321;
++    res = xn_t319;
+     xn_root_hold(res);
+     xn_gc_safepoint();
+         {
+-        xn_root_restore(xn_t318);
++        xn_root_restore(xn_t316);
+         }
+ 
+     xn_gc_safepoint();
+     }
+ #line 57 "tests/b3/fixtures/bundle_text/app.x"
+-rt_retain(res);
++rt_string *xn_t320 = rt_retain(res);
++xn_root_add(xn_t320);
++xn_root_add(xn_t320);
+     {
+-rt_release(unit);
+-    }
+-    {
+-rt_release(res);
+-    }
+-    {
+ xn_root_restore(xn_t315);
+     }
+ 
+-return res;
+-xn_root_release(res);
++return xn_t320;
+     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
+@@ -842,16 +833,16 @@
+ static const rt_type RT_TYPE_XN_Regex = { "Regex", sizeof(xn_Cls_Regex), xn_Cls_Regex_deinit_hook, xn_Cls_Regex_gc_scan };
+ 
+ static void xn_Cls_Regex_new_init(xn_Cls_Regex *o, rt_string * xn_p_pattern) {
+-size_t xn_t322 = xn_root_mark();
++size_t xn_t321 = xn_root_mark();
+ xn_root_add(o);
+ xn_root_add(xn_p_pattern);
+ #line 265 "tests/b3/fixtures/bundle_text/app.x"
+-rt_string *xn_t323 = rt_retain(xn_p_pattern);
+-xn_root_add(xn_t323);
++rt_string *xn_t322 = rt_retain(xn_p_pattern);
++xn_root_add(xn_t322);
+ rt_release(o->pattern);
+-o->pattern = xn_t323;
++o->pattern = xn_t322;
+     {
+-    xn_root_restore(xn_t322);
++    xn_root_restore(xn_t321);
+     }
+ }
+ 
+@@ -862,158 +853,125 @@
+     return o;
+ }
+ 
+-static xn_Result_Regex_Error xn_Cls_Regex_compile(rt_string * xn_p_pattern);
+-static int xn_Cls_Regex_isMatch(xn_Cls_Regex *self, rt_string * xn_p_text);
++static xn_Result_Regex_Error xn_Cls_Regex_compile(rt_string *xn_p_pattern);
+ 
+-static xn_Result_Regex_Error xn_Cls_Regex_compile(rt_string * xn_p_pattern) {
+-    xn_Result_Regex_Error xn_ret;
+-size_t xn_t324 = xn_root_mark();
+-xn_root_add(xn_p_pattern);
++static xn_Result_Regex_Error xn_Cls_Regex_compile(rt_string *xn_p_pattern) {
++size_t xn_t323 = xn_root_mark();
+ #line 269 "tests/b3/fixtures/bundle_text/app.x"
+ int64_t i = 0;
+ #line 270 "tests/b3/fixtures/bundle_text/app.x"
+-    while (((i < xn_str_length(xn_p_pattern)))) {
+-    size_t xn_t325 = xn_root_mark();
++    while (((i < xn_str_length(self->pattern)))) {
++    size_t xn_t324 = xn_root_mark();
+     #line 271 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *ch = xn_str_substr(xn_p_pattern, i, 1);
++    rt_string *ch = xn_str_substr(self->pattern, i, 1);
+ xn_root_add(ch);
+-    xn_root_add(ch);
+-    xn_root_add(ch);
+-    xn_gc_safepoint();
++xn_root_add(ch);
++xn_gc_safepoint();
+     #line 272 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *xn_t327 = rt_retain(ch);
++    rt_string *xn_t326 = rt_retain(ch);
++xn_root_add(xn_t326);
++    rt_string *xn_t327 = rt_string_from_c("(");
+ xn_root_add(xn_t327);
+-    xn_root_add(xn_t327);
+-    rt_string *xn_t328 = rt_string_from_c("(");
++    rt_string *xn_t328 = rt_retain(ch);
+ xn_root_add(xn_t328);
+-    xn_root_add(xn_t328);
+-    rt_string *xn_t329 = rt_retain(ch);
++    rt_string *xn_t329 = rt_string_from_c(")");
+ xn_root_add(xn_t329);
+-    xn_root_add(xn_t329);
+-    rt_string *xn_t330 = rt_string_from_c(")");
++    rt_string *xn_t330 = rt_retain(ch);
+ xn_root_add(xn_t330);
+-    xn_root_add(xn_t330);
+-    rt_string *xn_t331 = rt_retain(ch);
++    rt_string *xn_t331 = rt_string_from_c("[");
+ xn_root_add(xn_t331);
+-    xn_root_add(xn_t331);
+-    rt_string *xn_t332 = rt_string_from_c("[");
++    rt_string *xn_t332 = rt_retain(ch);
+ xn_root_add(xn_t332);
+-    xn_root_add(xn_t332);
+-    rt_string *xn_t333 = rt_retain(ch);
++    rt_string *xn_t333 = rt_string_from_c("]");
+ xn_root_add(xn_t333);
+-    xn_root_add(xn_t333);
+-    rt_string *xn_t334 = rt_string_from_c("]");
++    rt_string *xn_t334 = rt_retain(ch);
+ xn_root_add(xn_t334);
+-    xn_root_add(xn_t334);
+-    rt_string *xn_t335 = rt_retain(ch);
++    rt_string *xn_t335 = rt_string_from_c("|");
+ xn_root_add(xn_t335);
+-    xn_root_add(xn_t335);
+-    rt_string *xn_t336 = rt_string_from_c("|");
++    rt_string *xn_t336 = rt_retain(ch);
+ xn_root_add(xn_t336);
+-    xn_root_add(xn_t336);
+-    rt_string *xn_t337 = rt_retain(ch);
++    rt_string *xn_t337 = rt_string_from_c("\\");
+ xn_root_add(xn_t337);
+-    xn_root_add(xn_t337);
+-    rt_string *xn_t338 = rt_string_from_c("\\");
+-xn_root_add(xn_t338);
+-    xn_root_add(xn_t338);
+-        if (((((((xn_str_eq(xn_t327, xn_t328)) || (xn_str_eq(xn_t329, xn_t330))) || (xn_str_eq(xn_t331, xn_t332))) || (xn_str_eq(xn_t333, xn_t334))) || (xn_str_eq(xn_t335, xn_t336))) || (xn_str_eq(xn_t337, xn_t338)))) {
+-            size_t xn_t339 = xn_root_mark();
++        if (((((((xn_str_eq(xn_t326, xn_t327) || xn_str_eq(xn_t328, xn_t329)) || xn_str_eq(xn_t330, xn_t331)) || xn_str_eq(xn_t332, xn_t333)) || xn_str_eq(xn_t334, xn_t335)) || xn_str_eq(xn_t336, xn_t337)))) {
++            size_t xn_t338 = xn_root_mark();
+             #line 273 "tests/b3/fixtures/bundle_text/app.x"
+-            rt_string *xn_t340 = rt_string_from_c("Regex.compile: 暂不支持该 ERE 构造");
+-xn_root_add(xn_t340);
+-    xn_root_add(xn_t340);
+-            xn_root_add(xn_t340);
+-            xn_root_add(xn_t340);
+-            xn_ret = (xn_Result_Regex_Error){0, NULL, xn_textErr(xn_t340)};
++            rt_string *xn_t339 = rt_string_from_c("Regex.compile: 暂不支持该 ERE 构造");
++xn_root_add(xn_t339);
++            xn_root_add(xn_t339);
++            xn_root_add(xn_t339);
++            xn_root_add(xn_t339);
++            xn_ret = (xn_Result_Regex_Error){0, 0, xn_textErr(xn_t339)};
+                 {
+-            xn_root_restore(xn_t339);
++            xn_root_restore(xn_t338);
+                 }
+                 {
+-            rt_release(ch);
++            xn_root_restore(xn_t324);
+                 }
+                 {
+-            xn_root_restore(xn_t325);
++            xn_root_restore(xn_t1);
+                 }
+-                {
+-            xn_root_restore(xn_t324);
+-                }
+ 
+             return xn_ret;
+ 
+         }
+     #line 275 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *xn_t341 = rt_retain(ch);
++    rt_string *xn_t340 = rt_retain(ch);
++xn_root_add(xn_t340);
++    rt_string *xn_t341 = rt_string_from_c("*");
+ xn_root_add(xn_t341);
+-    xn_root_add(xn_t341);
+-    rt_string *xn_t342 = rt_string_from_c("*");
++    rt_string *xn_t342 = rt_retain(ch);
+ xn_root_add(xn_t342);
+-    xn_root_add(xn_t342);
+-    rt_string *xn_t343 = rt_retain(ch);
++    rt_string *xn_t343 = rt_string_from_c("+");
+ xn_root_add(xn_t343);
+-    xn_root_add(xn_t343);
+-    rt_string *xn_t344 = rt_string_from_c("+");
++    rt_string *xn_t344 = rt_retain(ch);
+ xn_root_add(xn_t344);
+-    xn_root_add(xn_t344);
+-    rt_string *xn_t345 = rt_retain(ch);
++    rt_string *xn_t345 = rt_string_from_c("?");
+ xn_root_add(xn_t345);
+-    xn_root_add(xn_t345);
+-    rt_string *xn_t346 = rt_string_from_c("?");
+-xn_root_add(xn_t346);
+-    xn_root_add(xn_t346);
+-        if (((((xn_str_eq(xn_t341, xn_t342) || xn_str_eq(xn_t343, xn_t344)) || xn_str_eq(xn_t345, xn_t346))) && ((i == 0)))) {
+-            size_t xn_t347 = xn_root_mark();
++        if (((((xn_str_eq(xn_t340, xn_t341) || xn_str_eq(xn_t342, xn_t343)) || xn_str_eq(xn_t344, xn_t345)) && (i == 0)))) {
++            size_t xn_t346 = xn_root_mark();
+             #line 276 "tests/b3/fixtures/bundle_text/app.x"
+-            rt_string *xn_t348 = rt_string_from_c("Regex.compile: 量词缺少原子");
+-xn_root_add(xn_t348);
+-    xn_root_add(xn_t348);
+-            xn_root_add(xn_t348);
+-            xn_root_add(xn_t348);
+-            xn_ret = (xn_Result_Regex_Error){0, NULL, xn_textErr(xn_t348)};
++            rt_string *xn_t347 = rt_string_from_c("Regex.compile: 量词缺少原子");
++xn_root_add(xn_t347);
++            xn_root_add(xn_t347);
++            xn_root_add(xn_t347);
++            xn_root_add(xn_t347);
++            xn_ret = (xn_Result_Regex_Error){0, 0, xn_textErr(xn_t347)};
+                 {
+-            xn_root_restore(xn_t347);
++            xn_root_restore(xn_t346);
+                 }
+                 {
+-            rt_release(ch);
+-                }
+-                {
+-            xn_root_restore(xn_t325);
++            xn_root_restore(xn_t324);
+                 }
+                 {
+-            xn_root_restore(xn_t324);
++            xn_root_restore(xn_t1);
+                 }
+ 
+             return xn_ret;
+ 
+         }
+     #line 278 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *xn_t349 = rt_retain(ch);
++    rt_string *xn_t348 = rt_retain(ch);
++xn_root_add(xn_t348);
++    rt_string *xn_t349 = rt_string_from_c("$");
+ xn_root_add(xn_t349);
+-    xn_root_add(xn_t349);
+-    rt_string *xn_t350 = rt_string_from_c("$");
+-xn_root_add(xn_t350);
+-    xn_root_add(xn_t350);
+-        if (((xn_str_eq(xn_t349, xn_t350)) && ((i != (xn_str_length(xn_p_pattern) - 1))))) {
+-            size_t xn_t351 = xn_root_mark();
++        if (((xn_str_eq(xn_t348, xn_t349) && (i != (xn_str_length(self->pattern) - 1))))) {
++            size_t xn_t350 = xn_root_mark();
+             #line 279 "tests/b3/fixtures/bundle_text/app.x"
+-            rt_string *xn_t352 = rt_string_from_c("Regex.compile: $ 只能在末尾");
+-xn_root_add(xn_t352);
+-    xn_root_add(xn_t352);
+-            xn_root_add(xn_t352);
+-            xn_root_add(xn_t352);
+-            xn_ret = (xn_Result_Regex_Error){0, NULL, xn_textErr(xn_t352)};
++            rt_string *xn_t351 = rt_string_from_c("Regex.compile: $ 只能在末尾");
++xn_root_add(xn_t351);
++            xn_root_add(xn_t351);
++            xn_root_add(xn_t351);
++            xn_root_add(xn_t351);
++            xn_ret = (xn_Result_Regex_Error){0, 0, xn_textErr(xn_t351)};
+                 {
+-            xn_root_restore(xn_t351);
++            xn_root_restore(xn_t350);
+                 }
+                 {
+-            rt_release(ch);
++            xn_root_restore(xn_t324);
+                 }
+                 {
+-            xn_root_restore(xn_t325);
++            xn_root_restore(xn_t1);
+                 }
+-                {
+-            xn_root_restore(xn_t324);
+-                }
+ 
+             return xn_ret;
+ 
+@@ -1021,107 +979,95 @@
+     #line 281 "tests/b3/fixtures/bundle_text/app.x"
+     i = (i + 1);
+         {
+-        rt_release(ch);
++        xn_root_restore(xn_t324);
+         }
+-        {
+-        xn_root_restore(xn_t325);
+-        }
+ 
+     xn_gc_safepoint();
+     }
+ #line 283 "tests/b3/fixtures/bundle_text/app.x"
+-rt_string *xn_t353 = rt_retain(xn_p_pattern);
+-xn_root_add(xn_t353);
+-xn_root_add(xn_t353);
+-xn_ret = (xn_Result_Regex_Error){1, xn_Cls_Regex_new(xn_t353), 0};
++rt_string *xn_t352 = rt_retain(self->pattern);
++xn_root_add(xn_t352);
++xn_ret = (xn_Result_Regex_Error){1, xn_Cls_Regex_new(xn_t352), NULL};
+     {
+-xn_root_restore(xn_t324);
++xn_root_restore(xn_t323);
+     }
+ 
+-return xn_ret;
++return ;
++    return (xn_Result_Regex_Error)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
+-static int xn_Cls_Regex_isMatch(xn_Cls_Regex *self, rt_string * xn_p_text) {
+-size_t xn_t354 = xn_root_mark();
++static int xn_Cls_Regex_isMatch(xn_Cls_Regex *self, rt_string *xn_p_text);
++
++static int xn_Cls_Regex_isMatch(xn_Cls_Regex *self, rt_string *xn_p_text) {
++size_t xn_t353 = xn_root_mark();
+ xn_root_add(self);
+-xn_root_add(xn_p_text);
+ #line 287 "tests/b3/fixtures/bundle_text/app.x"
+ int64_t pi = 0;
+ #line 288 "tests/b3/fixtures/bundle_text/app.x"
+-rt_string *xn_t355 = rt_retain(self->pattern);
++rt_string *xn_t354 = xn_str_substr(self->pattern, 0, 1);
++xn_root_add(xn_t354);
++rt_string *xn_t355 = rt_string_from_c("^");
+ xn_root_add(xn_t355);
+-rt_string *xn_t356 = rt_retain(self->pattern);
+-xn_root_add(xn_t356);
+-rt_string *xn_t357 = xn_str_substr(xn_t356, 0, 1);
+-xn_root_add(xn_t357);
+-rt_string *xn_t358 = rt_string_from_c("^");
+-xn_root_add(xn_t358);
+-    if ((((xn_str_length(xn_t355) > 0)) && (xn_str_eq(xn_t357, xn_t358)))) {
+-        size_t xn_t359 = xn_root_mark();
++    if ((((xn_str_length(self->pattern) > 0) && xn_str_eq(xn_t354, xn_t355)))) {
++        size_t xn_t356 = xn_root_mark();
+         #line 289 "tests/b3/fixtures/bundle_text/app.x"
+-        rt_string *xn_t360 = rt_retain(self->pattern);
+-xn_root_add(xn_t360);
+-        xn_root_add(xn_t360);
+-        xn_root_add(xn_t360);
+-        rt_string *xn_t361 = rt_retain(xn_p_text);
+-xn_root_add(xn_t361);
+-        xn_root_add(xn_t361);
+-        xn_root_add(xn_t361);
+-        int xn_t362 = xn_regexMatchAt(xn_t360, 1, xn_t361, 0);
++        rt_string *xn_t358 = rt_retain(self->pattern);
++xn_root_add(xn_t358);
++        rt_string *xn_t359 = rt_retain(xn_p_text);
++xn_root_add(xn_t359);
++        int xn_t357 = xn_regexMatchAt(xn_t358, 1, xn_t359, 0);
+             {
+-        xn_root_restore(xn_t359);
++        xn_root_restore(xn_t356);
+             }
+             {
+-        xn_root_restore(xn_t354);
++        xn_root_restore(xn_t1);
+             }
+ 
+-        return xn_t362;
++        return xn_t357;
+ 
+     }
+ #line 291 "tests/b3/fixtures/bundle_text/app.x"
+ int64_t start = 0;
+ #line 292 "tests/b3/fixtures/bundle_text/app.x"
+     while (((start <= xn_str_length(xn_p_text)))) {
+-    size_t xn_t363 = xn_root_mark();
++    size_t xn_t360 = xn_root_mark();
+     #line 293 "tests/b3/fixtures/bundle_text/app.x"
+-    rt_string *xn_t364 = rt_retain(self->pattern);
+-xn_root_add(xn_t364);
+-    xn_root_add(xn_t364);
+-    rt_string *xn_t365 = rt_retain(xn_p_text);
+-xn_root_add(xn_t365);
+-    xn_root_add(xn_t365);
+-        if ((xn_regexMatchAt(xn_t364, 0, xn_t365, start))) {
+-            size_t xn_t366 = xn_root_mark();
++    rt_string *xn_t361 = rt_retain(self->pattern);
++xn_root_add(xn_t361);
++    rt_string *xn_t362 = rt_retain(xn_p_text);
++xn_root_add(xn_t362);
++        if ((xn_regexMatchAt(xn_t361, 0, xn_t362, start))) {
++            size_t xn_t363 = xn_root_mark();
+             #line 293 "tests/b3/fixtures/bundle_text/app.x"
+-            int xn_t367 = 1;
++            int xn_t364 = 1;
+                 {
+-            xn_root_restore(xn_t366);
++            xn_root_restore(xn_t363);
+                 }
+                 {
+-            xn_root_restore(xn_t363);
++            xn_root_restore(xn_t360);
+                 }
+                 {
+-            xn_root_restore(xn_t354);
++            xn_root_restore(xn_t1);
+                 }
+ 
+-            return xn_t367;
++            return xn_t364;
+ 
+         }
+     #line 294 "tests/b3/fixtures/bundle_text/app.x"
+     start = (start + 1);
+         {
+-        xn_root_restore(xn_t363);
++        xn_root_restore(xn_t360);
+         }
+ 
+     xn_gc_safepoint();
+     }
+ #line 296 "tests/b3/fixtures/bundle_text/app.x"
+-int xn_t368 = 0;
++int xn_t365 = 0;
+     {
+-xn_root_restore(xn_t354);
++xn_root_restore(xn_t353);
+     }
+ 
+-return xn_t368;
++return xn_t365;
+     return (int)0; /* sema 保证不可达（函数体全路径 return） */
+ }
+ 
+@@ -1653,7 +1599,7 @@
+             #line 108 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t102 = rt_string_from_c("parseInt: 非法字符");
+ xn_root_add(xn_t102);
+-    xn_root_add(xn_t102);
++            xn_root_add(xn_t102);
+             xn_root_add(xn_t102);
+             xn_root_add(xn_t102);
+             xn_ret = (xn_Result_Int_Error){0, 0, xn_textErr(xn_t102)};
+@@ -1680,9 +1626,9 @@
+             #line 111 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t104 = rt_string_from_c("parseInt: 溢出");
+ xn_root_add(xn_t104);
+-    xn_root_add(xn_t104);
+             xn_root_add(xn_t104);
+             xn_root_add(xn_t104);
++            xn_root_add(xn_t104);
+             xn_ret = (xn_Result_Int_Error){0, 0, xn_textErr(xn_t104)};
+                 {
+             xn_root_restore(xn_t103);
+@@ -1700,14 +1646,14 @@
+     #line 112 "tests/b3/fixtures/bundle_text/app.x"
+     v = ((v * 10) + d);
+     #line 113 "tests/b3/fixtures/bundle_text/app.x"
+-        if ((((!(neg))) && ((v < 0)))) {
++        if ((((!(neg)) && (v < 0)))) {
+             size_t xn_t105 = xn_root_mark();
+             #line 113 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t106 = rt_string_from_c("parseInt: 溢出");
+ xn_root_add(xn_t106);
+-    xn_root_add(xn_t106);
+             xn_root_add(xn_t106);
+             xn_root_add(xn_t106);
++            xn_root_add(xn_t106);
+             xn_ret = (xn_Result_Int_Error){0, 0, xn_textErr(xn_t106)};
+                 {
+             xn_root_restore(xn_t105);
+@@ -1753,7 +1699,7 @@
+     if ((neg)) {
+         size_t xn_t109 = xn_root_mark();
+         #line 117 "tests/b3/fixtures/bundle_text/app.x"
+-        xn_ret = (xn_Result_Int_Error){1, (0 - v), 0};
++        xn_ret = (xn_Result_Int_Error){1, (0 - v), NULL};
+             {
+         xn_root_restore(xn_t109);
+             }
+@@ -1765,7 +1711,7 @@
+ 
+     }
+ #line 118 "tests/b3/fixtures/bundle_text/app.x"
+-xn_ret = (xn_Result_Int_Error){1, v, 0};
++xn_ret = (xn_Result_Int_Error){1, v, NULL};
+     {
+ xn_root_restore(xn_t87);
+     }
+@@ -1844,22 +1790,15 @@
+     #line 132 "tests/b3/fixtures/bundle_text/app.x"
+     rt_string *ch = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(ch);
+-    xn_root_add(ch);
+-    xn_root_add(ch);
+-    xn_gc_safepoint();
++xn_root_add(ch);
++xn_gc_safepoint();
+     #line 133 "tests/b3/fixtures/bundle_text/app.x"
+     rt_string *xn_t122 = rt_retain(ch);
+ xn_root_add(xn_t122);
+-    xn_root_add(xn_t122);
+     rt_string *xn_t123 = rt_string_from_c(".");
+ xn_root_add(xn_t123);
+-    xn_root_add(xn_t123);
+         if ((xn_str_eq(xn_t122, xn_t123))) {
+             size_t xn_t124 = xn_root_mark();
+-            #line 133 "tests/b3/fixtures/bundle_text/app.x"
+-            xn_root_restore(xn_t124);
+-            xn_root_restore(xn_t120);
+-            break;
+                 {
+                 xn_root_restore(xn_t124);
+                 }
+@@ -1868,22 +1807,14 @@
+     #line 134 "tests/b3/fixtures/bundle_text/app.x"
+     rt_string *xn_t125 = rt_retain(ch);
+ xn_root_add(xn_t125);
+-    xn_root_add(xn_t125);
+     rt_string *xn_t126 = rt_string_from_c("e");
+ xn_root_add(xn_t126);
+-    xn_root_add(xn_t126);
+     rt_string *xn_t127 = rt_retain(ch);
+ xn_root_add(xn_t127);
+-    xn_root_add(xn_t127);
+     rt_string *xn_t128 = rt_string_from_c("E");
+ xn_root_add(xn_t128);
+-    xn_root_add(xn_t128);
+-        if (((xn_str_eq(xn_t125, xn_t126)) || (xn_str_eq(xn_t127, xn_t128)))) {
++        if (((xn_str_eq(xn_t125, xn_t126) || xn_str_eq(xn_t127, xn_t128)))) {
+             size_t xn_t129 = xn_root_mark();
+-            #line 134 "tests/b3/fixtures/bundle_text/app.x"
+-            xn_root_restore(xn_t129);
+-            xn_root_restore(xn_t120);
+-            break;
+                 {
+                 xn_root_restore(xn_t129);
+                 }
+@@ -1892,7 +1823,6 @@
+     #line 135 "tests/b3/fixtures/bundle_text/app.x"
+     rt_string *xn_t130 = rt_retain(ch);
+ xn_root_add(xn_t130);
+-    xn_root_add(xn_t130);
+     double d = xn_digitOfD(xn_t130);
+     #line 136 "tests/b3/fixtures/bundle_text/app.x"
+         if (((d < 0.0))) {
+@@ -1900,17 +1830,14 @@
+             #line 136 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t132 = rt_string_from_c("parseFloat: 非法字符");
+ xn_root_add(xn_t132);
+-    xn_root_add(xn_t132);
+             xn_root_add(xn_t132);
+             xn_root_add(xn_t132);
++            xn_root_add(xn_t132);
+             xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_t132)};
+                 {
+             xn_root_restore(xn_t131);
+                 }
+                 {
+-            rt_release(ch);
+-                }
+-                {
+             xn_root_restore(xn_t120);
+                 }
+                 {
+@@ -1927,9 +1854,6 @@
+     #line 139 "tests/b3/fixtures/bundle_text/app.x"
+     i = (i + 1);
+         {
+-        rt_release(ch);
+-        }
+-        {
+         xn_root_restore(xn_t120);
+         }
+ 
+@@ -1940,7 +1864,7 @@
+ xn_root_add(xn_t133);
+ rt_string *xn_t134 = rt_string_from_c(".");
+ xn_root_add(xn_t134);
+-    if ((((i < n)) && (xn_str_eq(xn_t133, xn_t134)))) {
++    if ((((i < n) && xn_str_eq(xn_t133, xn_t134)))) {
+         size_t xn_t135 = xn_root_mark();
+         #line 142 "tests/b3/fixtures/bundle_text/app.x"
+         i = (i + 1);
+@@ -1952,33 +1876,19 @@
+             #line 145 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *ch = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(ch);
+-        xn_root_add(ch);
+-            xn_root_add(ch);
+-            xn_root_add(ch);
+-            xn_gc_safepoint();
++xn_root_add(ch);
++xn_gc_safepoint();
+             #line 146 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t138 = rt_retain(ch);
+ xn_root_add(xn_t138);
+-        xn_root_add(xn_t138);
+-            xn_root_add(xn_t138);
+             rt_string *xn_t139 = rt_string_from_c("e");
+ xn_root_add(xn_t139);
+-        xn_root_add(xn_t139);
+-            xn_root_add(xn_t139);
+             rt_string *xn_t140 = rt_retain(ch);
+ xn_root_add(xn_t140);
+-        xn_root_add(xn_t140);
+-            xn_root_add(xn_t140);
+             rt_string *xn_t141 = rt_string_from_c("E");
+ xn_root_add(xn_t141);
+-        xn_root_add(xn_t141);
+-            xn_root_add(xn_t141);
+-                if (((xn_str_eq(xn_t138, xn_t139)) || (xn_str_eq(xn_t140, xn_t141)))) {
++                if (((xn_str_eq(xn_t138, xn_t139) || xn_str_eq(xn_t140, xn_t141)))) {
+                     size_t xn_t142 = xn_root_mark();
+-                    #line 146 "tests/b3/fixtures/bundle_text/app.x"
+-                    xn_root_restore(xn_t142);
+-                    xn_root_restore(xn_t136);
+-                    break;
+                         {
+                         xn_root_restore(xn_t142);
+                         }
+@@ -1987,8 +1897,6 @@
+             #line 147 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t143 = rt_retain(ch);
+ xn_root_add(xn_t143);
+-        xn_root_add(xn_t143);
+-            xn_root_add(xn_t143);
+             double d = xn_digitOfD(xn_t143);
+             #line 148 "tests/b3/fixtures/bundle_text/app.x"
+                 if (((d < 0.0))) {
+@@ -1996,18 +1904,14 @@
+                     #line 148 "tests/b3/fixtures/bundle_text/app.x"
+                     rt_string *xn_t145 = rt_string_from_c("parseFloat: 非法小数");
+ xn_root_add(xn_t145);
+-        xn_root_add(xn_t145);
+-            xn_root_add(xn_t145);
+                     xn_root_add(xn_t145);
+                     xn_root_add(xn_t145);
++                    xn_root_add(xn_t145);
+                     xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_t145)};
+                         {
+                     xn_root_restore(xn_t144);
+                         }
+                         {
+-                    rt_release(ch);
+-                        }
+-                        {
+                     xn_root_restore(xn_t136);
+                         }
+                         {
+@@ -2028,19 +1932,12 @@
+             any = 1;
+             #line 152 "tests/b3/fixtures/bundle_text/app.x"
+             i = (i + 1);
+-                {
+-                rt_release(ch);
+-                }
+                 {
+                 xn_root_restore(xn_t136);
+                 }
+ 
+             xn_gc_safepoint();
+             }
+-            {
+-            xn_root_restore(xn_t135);
+-            }
+-
+     }
+ #line 155 "tests/b3/fixtures/bundle_text/app.x"
+     if (((!(any)))) {
+@@ -2070,7 +1967,7 @@
+ xn_root_add(xn_t150);
+ rt_string *xn_t151 = rt_string_from_c("E");
+ xn_root_add(xn_t151);
+-    if ((((i < n)) && ((xn_str_eq(xn_t148, xn_t149) || xn_str_eq(xn_t150, xn_t151))))) {
++    if ((((i < n) && (xn_str_eq(xn_t148, xn_t149) || xn_str_eq(xn_t150, xn_t151))))) {
+         size_t xn_t152 = xn_root_mark();
+         #line 157 "tests/b3/fixtures/bundle_text/app.x"
+         i = (i + 1);
+@@ -2079,11 +1976,9 @@
+         #line 159 "tests/b3/fixtures/bundle_text/app.x"
+         rt_string *xn_t153 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t153);
+-        xn_root_add(xn_t153);
+         rt_string *xn_t154 = rt_string_from_c("-");
+ xn_root_add(xn_t154);
+-        xn_root_add(xn_t154);
+-            if ((((i < n)) && (xn_str_eq(xn_t153, xn_t154)))) {
++            if ((((i < n) && xn_str_eq(xn_t153, xn_t154)))) {
+                 size_t xn_t155 = xn_root_mark();
+                 #line 159 "tests/b3/fixtures/bundle_text/app.x"
+                 eneg = 1;
+@@ -2096,13 +1991,11 @@
+             } else {
+                 rt_string *xn_t157 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t157);
+-        xn_root_add(xn_t157);
+                 xn_root_add(xn_t157);
+                 rt_string *xn_t158 = rt_string_from_c("+");
+ xn_root_add(xn_t158);
+-        xn_root_add(xn_t158);
+                 xn_root_add(xn_t158);
+-                    if ((((i < n)) && (xn_str_eq(xn_t157, xn_t158)))) {
++                    if ((((i < n) && xn_str_eq(xn_t157, xn_t158)))) {
+                         size_t xn_t159 = xn_root_mark();
+                         #line 160 "tests/b3/fixtures/bundle_text/app.x"
+                         i = (i + 1);
+@@ -2118,7 +2011,6 @@
+                 #line 161 "tests/b3/fixtures/bundle_text/app.x"
+                 rt_string *xn_t161 = rt_string_from_c("parseFloat: 指数缺少数字");
+ xn_root_add(xn_t161);
+-        xn_root_add(xn_t161);
+                 xn_root_add(xn_t161);
+                 xn_root_add(xn_t161);
+                 xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_t161)};
+@@ -2143,7 +2035,6 @@
+             #line 164 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t163 = xn_str_substr(xn_p_s, i, 1);
+ xn_root_add(xn_t163);
+-        xn_root_add(xn_t163);
+             xn_root_add(xn_t163);
+             int64_t d = xn_digitOf(xn_t163);
+             #line 165 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2152,10 +2043,9 @@
+                     #line 165 "tests/b3/fixtures/bundle_text/app.x"
+                     rt_string *xn_t165 = rt_string_from_c("parseFloat: 非法指数");
+ xn_root_add(xn_t165);
+-        xn_root_add(xn_t165);
+-            xn_root_add(xn_t165);
+                     xn_root_add(xn_t165);
+                     xn_root_add(xn_t165);
++                    xn_root_add(xn_t165);
+                     xn_ret = (xn_Result_Double_Error){0, 0, xn_textErr(xn_t165)};
+                         {
+                     xn_root_restore(xn_t164);
+@@ -2242,7 +2132,7 @@
+     if ((neg)) {
+         size_t xn_t171 = xn_root_mark();
+         #line 176 "tests/b3/fixtures/bundle_text/app.x"
+-        xn_ret = (xn_Result_Double_Error){1, (0.0 - v), 0};
++        xn_ret = (xn_Result_Double_Error){1, (0.0 - v), NULL};
+             {
+         xn_root_restore(xn_t171);
+             }
+@@ -2254,8 +2144,12 @@
+ 
+     }
+ #line 177 "tests/b3/fixtures/bundle_text/app.x"
+-xn_ret = (xn_Result_Double_Error){1, v, 0};
++xn_ret = (xn_Result_Double_Error){1, v, NULL};
+     {
++rt_release(ch);
++rt_release(ch);
++    }
++    {
+ xn_root_restore(xn_t110);
+     }
+ 
+@@ -2276,12 +2170,12 @@
+ #line 185 "tests/b3/fixtures/bundle_text/app.x"
+ int64_t i = 0;
+ #line 186 "tests/b3/fixtures/bundle_text/app.x"
+-    while (((i < ((int64_t)xrt_bytes_len(xn_p_b))))) {
++    while (((i < xrt_bytes_len(xn_p_b)))) {
+     size_t xn_t174 = xn_root_mark();
+     #line 187 "tests/b3/fixtures/bundle_text/app.x"
+     int64_t c = ((int64_t)xrt_bytes_get(xn_p_b, (size_t)(i)));
+     #line 188 "tests/b3/fixtures/bundle_text/app.x"
+-        if (((c < 128))) {
++        if (((c < 0x80))) {
+             size_t xn_t175 = xn_root_mark();
+             #line 189 "tests/b3/fixtures/bundle_text/app.x"
+             xn_arr_u16_push(res, c);
+@@ -2292,20 +2186,18 @@
+                 }
+ 
+         } else {
+-                if ((((c >= 192)) && ((c < 224)))) {
++                if ((((c >= 0xC0) && (c < 0xE0)))) {
+                     size_t xn_t177 = xn_root_mark();
+                     #line 192 "tests/b3/fixtures/bundle_text/app.x"
+-                        if ((((i + 1) >= ((int64_t)xrt_bytes_len(xn_p_b))))) {
++                        if ((((i + 1) >= xrt_bytes_len(xn_p_b)))) {
+                             size_t xn_t178 = xn_root_mark();
+                             #line 192 "tests/b3/fixtures/bundle_text/app.x"
+                             rt_string *xn_t179 = rt_string_from_c("utf8ToUtf16: 截断的 2 字节序列");
+ xn_root_add(xn_t179);
+-    xn_root_add(xn_t179);
+-            xn_root_add(xn_t179);
+-                    xn_root_add(xn_t179);
+                             xn_root_add(xn_t179);
+                             xn_root_add(xn_t179);
+-                            xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t179)};
++                            xn_root_add(xn_t179);
++                            xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t179)};
+                                 {
+                             xn_root_restore(xn_t178);
+                                 }
+@@ -2325,17 +2217,15 @@
+                     #line 193 "tests/b3/fixtures/bundle_text/app.x"
+                     int64_t c2 = ((int64_t)xrt_bytes_get(xn_p_b, (size_t)((i + 1))));
+                     #line 194 "tests/b3/fixtures/bundle_text/app.x"
+-                        if ((((c2 & 192) != 128))) {
++                        if ((((c2 & 0xC0) != 0x80))) {
+                             size_t xn_t180 = xn_root_mark();
+                             #line 194 "tests/b3/fixtures/bundle_text/app.x"
+                             rt_string *xn_t181 = rt_string_from_c("utf8ToUtf16: 非法续字节");
+ xn_root_add(xn_t181);
+-    xn_root_add(xn_t181);
+-            xn_root_add(xn_t181);
+-                    xn_root_add(xn_t181);
+                             xn_root_add(xn_t181);
+                             xn_root_add(xn_t181);
+-                            xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t181)};
++                            xn_root_add(xn_t181);
++                            xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t181)};
+                                 {
+                             xn_root_restore(xn_t180);
+                                 }
+@@ -2353,29 +2243,22 @@
+ 
+                         }
+                     #line 195 "tests/b3/fixtures/bundle_text/app.x"
+-                    xn_arr_u16_push(res, (((c & 31) << 6) | (c2 & 63)));
++                    xn_arr_u16_push(res, (((c & 0x1F) << 6) | (c2 & 0x3F)));
+                     #line 196 "tests/b3/fixtures/bundle_text/app.x"
+                     i = (i + 2);
+-                        {
+-                        xn_root_restore(xn_t177);
+-                        }
+-
+                 } else {
+-                        if ((((c >= 224)) && ((c < 240)))) {
++                        if ((((c >= 0xE0) && (c < 0xF0)))) {
+                             size_t xn_t183 = xn_root_mark();
+                             #line 198 "tests/b3/fixtures/bundle_text/app.x"
+-                                if ((((i + 2) >= ((int64_t)xrt_bytes_len(xn_p_b))))) {
++                                if ((((i + 2) >= xrt_bytes_len(xn_p_b)))) {
+                                     size_t xn_t184 = xn_root_mark();
+                                     #line 198 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t185 = rt_string_from_c("utf8ToUtf16: 截断的 3 字节序列");
+ xn_root_add(xn_t185);
+-    xn_root_add(xn_t185);
+-            xn_root_add(xn_t185);
+-                    xn_root_add(xn_t185);
+-                            xn_root_add(xn_t185);
+                                     xn_root_add(xn_t185);
+                                     xn_root_add(xn_t185);
+-                                    xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t185)};
++                                    xn_root_add(xn_t185);
++                                    xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t185)};
+                                         {
+                                     xn_root_restore(xn_t184);
+                                         }
+@@ -2397,18 +2280,15 @@
+                             #line 200 "tests/b3/fixtures/bundle_text/app.x"
+                             int64_t c3 = ((int64_t)xrt_bytes_get(xn_p_b, (size_t)((i + 2))));
+                             #line 201 "tests/b3/fixtures/bundle_text/app.x"
+-                                if (((((c2 & 192) != 128)) || (((c3 & 192) != 128)))) {
++                                if (((((c2 & 0xC0) != 0x80) || ((c3 & 0xC0) != 0x80)))) {
+                                     size_t xn_t186 = xn_root_mark();
+                                     #line 201 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t187 = rt_string_from_c("utf8ToUtf16: 非法续字节");
+ xn_root_add(xn_t187);
+-    xn_root_add(xn_t187);
+-            xn_root_add(xn_t187);
+-                    xn_root_add(xn_t187);
+-                            xn_root_add(xn_t187);
+                                     xn_root_add(xn_t187);
+                                     xn_root_add(xn_t187);
+-                                    xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t187)};
++                                    xn_root_add(xn_t187);
++                                    xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t187)};
+                                         {
+                                     xn_root_restore(xn_t186);
+                                         }
+@@ -2426,30 +2306,22 @@
+ 
+                                 }
+                             #line 202 "tests/b3/fixtures/bundle_text/app.x"
+-                            xn_arr_u16_push(res, ((((c & 15) << 12) | ((c2 & 63) << 6)) | (c3 & 63)));
++                            xn_arr_u16_push(res, ((((c & 0x0F) << 12) | ((c2 & 0x3F) << 6)) | (c3 & 0x3F)));
+                             #line 203 "tests/b3/fixtures/bundle_text/app.x"
+                             i = (i + 3);
+-                                {
+-                                xn_root_restore(xn_t183);
+-                                }
+-
+                         } else {
+-                                if ((((c >= 240)) && ((c < 248)))) {
++                                if ((((c >= 0xF0) && (c < 0xF8)))) {
+                                     size_t xn_t189 = xn_root_mark();
+                                     #line 205 "tests/b3/fixtures/bundle_text/app.x"
+-                                        if ((((i + 3) >= ((int64_t)xrt_bytes_len(xn_p_b))))) {
++                                        if ((((i + 3) >= xrt_bytes_len(xn_p_b)))) {
+                                             size_t xn_t190 = xn_root_mark();
+                                             #line 205 "tests/b3/fixtures/bundle_text/app.x"
+                                             rt_string *xn_t191 = rt_string_from_c("utf8ToUtf16: 截断的 4 字节序列");
+ xn_root_add(xn_t191);
+-    xn_root_add(xn_t191);
+-            xn_root_add(xn_t191);
+-                    xn_root_add(xn_t191);
+-                            xn_root_add(xn_t191);
+-                                    xn_root_add(xn_t191);
+                                             xn_root_add(xn_t191);
+                                             xn_root_add(xn_t191);
+-                                            xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t191)};
++                                            xn_root_add(xn_t191);
++                                            xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t191)};
+                                                 {
+                                             xn_root_restore(xn_t190);
+                                                 }
+@@ -2473,19 +2345,15 @@
+                                     #line 208 "tests/b3/fixtures/bundle_text/app.x"
+                                     int64_t c4 = ((int64_t)xrt_bytes_get(xn_p_b, (size_t)((i + 3))));
+                                     #line 209 "tests/b3/fixtures/bundle_text/app.x"
+-                                        if ((((((c2 & 192) != 128)) || (((c3 & 192) != 128))) || (((c4 & 192) != 128)))) {
++                                        if ((((((c2 & 0xC0) != 0x80) || ((c3 & 0xC0) != 0x80)) || ((c4 & 0xC0) != 0x80)))) {
+                                             size_t xn_t192 = xn_root_mark();
+                                             #line 210 "tests/b3/fixtures/bundle_text/app.x"
+                                             rt_string *xn_t193 = rt_string_from_c("utf8ToUtf16: 非法续字节");
+ xn_root_add(xn_t193);
+-    xn_root_add(xn_t193);
+-            xn_root_add(xn_t193);
+-                    xn_root_add(xn_t193);
+-                            xn_root_add(xn_t193);
+-                                    xn_root_add(xn_t193);
+                                             xn_root_add(xn_t193);
+                                             xn_root_add(xn_t193);
+-                                            xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t193)};
++                                            xn_root_add(xn_t193);
++                                            xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t193)};
+                                                 {
+                                             xn_root_restore(xn_t192);
+                                                 }
+@@ -2503,31 +2371,24 @@
+ 
+                                         }
+                                     #line 212 "tests/b3/fixtures/bundle_text/app.x"
+-                                    int64_t cp = (((((c & 7) << 18) | ((c2 & 63) << 12)) | ((c3 & 63) << 6)) | (c4 & 63));
++                                    int64_t cp = (((((c & 0x07) << 18) | ((c2 & 0x3F) << 12)) | ((c3 & 0x3F) << 6)) | (c4 & 0x3F));
+                                     #line 213 "tests/b3/fixtures/bundle_text/app.x"
+-                                    cp = (cp - 65536);
++                                    cp = (cp - 0x10000);
+                                     #line 214 "tests/b3/fixtures/bundle_text/app.x"
+-                                    xn_arr_u16_push(res, (55296 + (cp >> 10)));
++                                    xn_arr_u16_push(res, ((int64_t)((0xD800 + (cp >> 10)))));
+                                     #line 215 "tests/b3/fixtures/bundle_text/app.x"
+-                                    xn_arr_u16_push(res, (56320 + (cp & 1023)));
++                                    xn_arr_u16_push(res, ((int64_t)((0xDC00 + (cp & 0x3FF)))));
+                                     #line 216 "tests/b3/fixtures/bundle_text/app.x"
+                                     i = (i + 4);
+-                                        {
+-                                        xn_root_restore(xn_t189);
+-                                        }
+-
+                                 } else {
+                                     size_t xn_t194 = xn_root_mark();
+                                     #line 218 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t195 = rt_string_from_c("utf8ToUtf16: 不支持的 UTF-8 序列");
+ xn_root_add(xn_t195);
+-    xn_root_add(xn_t195);
+-            xn_root_add(xn_t195);
+-                    xn_root_add(xn_t195);
+-                            xn_root_add(xn_t195);
+                                     xn_root_add(xn_t195);
+                                     xn_root_add(xn_t195);
+-                                    xn_ret = (xn_Result_List_Error){0, NULL, xn_textErr(xn_t195)};
++                                    xn_root_add(xn_t195);
++                                    xn_ret = (xn_Result_List_Error){0, 0, xn_textErr(xn_t195)};
+                                         {
+                                     xn_root_restore(xn_t194);
+                                         }
+@@ -2551,7 +2412,7 @@
+     xn_gc_safepoint();
+     }
+ #line 221 "tests/b3/fixtures/bundle_text/app.x"
+-xn_ret = (xn_Result_List_Error){1, res, 0};
++xn_ret = (xn_Result_List_Error){1, res, NULL};
+     {
+ xn_root_restore(xn_t172);
+     }
+@@ -2569,7 +2430,7 @@
+ xrt_bytes_obj *xn_t198 = xrt_bytes_from_string(xn_t197->bytes, xn_t197->len);
+ xn_root_add(xn_t198);
+ rt_release(xn_t197);
+-xrt_bytes_obj *res = xn_t198;
++xrt_bytes_obj * res = xn_t198;
+ xn_root_add(res);
+ xn_root_add(res);
+ xn_gc_safepoint();
+@@ -2581,7 +2442,7 @@
+     #line 229 "tests/b3/fixtures/bundle_text/app.x"
+     uint16_t u = xn_arr_u16_get(xn_p_xs, i);
+     #line 230 "tests/b3/fixtures/bundle_text/app.x"
+-        if (((u < 128))) {
++        if (((u < 0x80))) {
+             size_t xn_t200 = xn_root_mark();
+             #line 231 "tests/b3/fixtures/bundle_text/app.x"
+             xrt_bytes_push(res, (int32_t)(((int64_t)(u))));
+@@ -2592,12 +2453,12 @@
+                 }
+ 
+         } else {
+-                if (((u < 2048))) {
++                if (((u < 0x800))) {
+                     size_t xn_t202 = xn_root_mark();
+                     #line 234 "tests/b3/fixtures/bundle_text/app.x"
+-                    xrt_bytes_push(res, (int32_t)((192 | (u >> 6))));
++                    xrt_bytes_push(res, (int32_t)(((int64_t)((0xC0 | (u >> 6))))));
+                     #line 235 "tests/b3/fixtures/bundle_text/app.x"
+-                    xrt_bytes_push(res, (int32_t)((128 | (u & 63))));
++                    xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | (u & 0x3F))))));
+                     #line 236 "tests/b3/fixtures/bundle_text/app.x"
+                     i = (i + 1);
+                         {
+@@ -2605,7 +2466,7 @@
+                         }
+ 
+                 } else {
+-                        if ((((u >= 55296)) && ((u <= 56319)))) {
++                        if ((((u >= 0xD800) && (u <= 0xDBFF)))) {
+                             size_t xn_t204 = xn_root_mark();
+                             #line 238 "tests/b3/fixtures/bundle_text/app.x"
+                                 if ((((i + 1) >= ((int64_t)xn_p_xs->len)))) {
+@@ -2613,13 +2474,10 @@
+                                     #line 238 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t206 = rt_string_from_c("utf16ToUtf8: 孤立的高代理");
+ xn_root_add(xn_t206);
+-    xn_root_add(xn_t206);
+-            xn_root_add(xn_t206);
+-                    xn_root_add(xn_t206);
+-                            xn_root_add(xn_t206);
+                                     xn_root_add(xn_t206);
+                                     xn_root_add(xn_t206);
+-                                    xn_ret = (xn_Result_Bytes_Error){0, NULL, xn_textErr(xn_t206)};
++                                    xn_root_add(xn_t206);
++                                    xn_ret = (xn_Result_Bytes_Error){0, 0, xn_textErr(xn_t206)};
+                                         {
+                                     xn_root_restore(xn_t205);
+                                         }
+@@ -2630,9 +2488,6 @@
+                                     xn_root_restore(xn_t199);
+                                         }
+                                         {
+-                                    rt_release(res);
+-                                        }
+-                                        {
+                                     xn_root_restore(xn_t196);
+                                         }
+ 
+@@ -2642,18 +2497,15 @@
+                             #line 239 "tests/b3/fixtures/bundle_text/app.x"
+                             uint16_t u2 = xn_arr_u16_get(xn_p_xs, (i + 1));
+                             #line 240 "tests/b3/fixtures/bundle_text/app.x"
+-                                if ((((u2 < 56320)) || ((u2 > 57343)))) {
++                                if ((((u2 < 0xDC00) || (u2 > 0xDFFF)))) {
+                                     size_t xn_t207 = xn_root_mark();
+                                     #line 240 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t208 = rt_string_from_c("utf16ToUtf8: 高代理后缺低代理");
+ xn_root_add(xn_t208);
+-    xn_root_add(xn_t208);
+-            xn_root_add(xn_t208);
+-                    xn_root_add(xn_t208);
+-                            xn_root_add(xn_t208);
+                                     xn_root_add(xn_t208);
+                                     xn_root_add(xn_t208);
+-                                    xn_ret = (xn_Result_Bytes_Error){0, NULL, xn_textErr(xn_t208)};
++                                    xn_root_add(xn_t208);
++                                    xn_ret = (xn_Result_Bytes_Error){0, 0, xn_textErr(xn_t208)};
+                                         {
+                                     xn_root_restore(xn_t207);
+                                         }
+@@ -2664,9 +2516,6 @@
+                                     xn_root_restore(xn_t199);
+                                         }
+                                         {
+-                                    rt_release(res);
+-                                        }
+-                                        {
+                                     xn_root_restore(xn_t196);
+                                         }
+ 
+@@ -2674,34 +2523,27 @@
+ 
+                                 }
+                             #line 241 "tests/b3/fixtures/bundle_text/app.x"
+-                            int64_t cp = ((65536 + ((((int64_t)(u)) - 55296) << 10)) + (((int64_t)(u2)) - 56320));
++                            int64_t cp = ((0x10000 + ((((int64_t)(u)) - 0xD800) << 10)) + (((int64_t)(u2)) - 0xDC00));
+                             #line 242 "tests/b3/fixtures/bundle_text/app.x"
+-                            xrt_bytes_push(res, (int32_t)((240 | (cp >> 18))));
++                            xrt_bytes_push(res, (int32_t)(((int64_t)((0xF0 | (cp >> 18))))));
+                             #line 243 "tests/b3/fixtures/bundle_text/app.x"
+-                            xrt_bytes_push(res, (int32_t)((128 | ((cp >> 12) & 63))));
++                            xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | ((cp >> 12) & 0x3F))))));
+                             #line 244 "tests/b3/fixtures/bundle_text/app.x"
+-                            xrt_bytes_push(res, (int32_t)((128 | ((cp >> 6) & 63))));
++                            xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | ((cp >> 6) & 0x3F))))));
+                             #line 245 "tests/b3/fixtures/bundle_text/app.x"
+-                            xrt_bytes_push(res, (int32_t)((128 | (cp & 63))));
++                            xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | (cp & 0x3F))))));
+                             #line 246 "tests/b3/fixtures/bundle_text/app.x"
+                             i = (i + 2);
+-                                {
+-                                xn_root_restore(xn_t204);
+-                                }
+-
+                         } else {
+-                                if ((((u >= 56320)) && ((u <= 57343)))) {
++                                if ((((u >= 0xDC00) && (u <= 0xDFFF)))) {
+                                     size_t xn_t210 = xn_root_mark();
+                                     #line 248 "tests/b3/fixtures/bundle_text/app.x"
+                                     rt_string *xn_t211 = rt_string_from_c("utf16ToUtf8: 孤立的低代理");
+ xn_root_add(xn_t211);
+-    xn_root_add(xn_t211);
+-            xn_root_add(xn_t211);
+-                    xn_root_add(xn_t211);
+-                            xn_root_add(xn_t211);
+                                     xn_root_add(xn_t211);
+                                     xn_root_add(xn_t211);
+-                                    xn_ret = (xn_Result_Bytes_Error){0, NULL, xn_textErr(xn_t211)};
++                                    xn_root_add(xn_t211);
++                                    xn_ret = (xn_Result_Bytes_Error){0, 0, xn_textErr(xn_t211)};
+                                         {
+                                     xn_root_restore(xn_t210);
+                                         }
+@@ -2709,9 +2551,6 @@
+                                     xn_root_restore(xn_t199);
+                                         }
+                                         {
+-                                    rt_release(res);
+-                                        }
+-                                        {
+                                     xn_root_restore(xn_t196);
+                                         }
+ 
+@@ -2720,11 +2559,11 @@
+                                 } else {
+                                     size_t xn_t212 = xn_root_mark();
+                                     #line 250 "tests/b3/fixtures/bundle_text/app.x"
+-                                    xrt_bytes_push(res, (int32_t)((224 | (u >> 12))));
++                                    xrt_bytes_push(res, (int32_t)(((int64_t)((0xE0 | (u >> 12))))));
+                                     #line 251 "tests/b3/fixtures/bundle_text/app.x"
+-                                    xrt_bytes_push(res, (int32_t)((128 | ((u >> 6) & 63))));
++                                    xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | ((u >> 6) & 0x3F))))));
+                                     #line 252 "tests/b3/fixtures/bundle_text/app.x"
+-                                    xrt_bytes_push(res, (int32_t)((128 | (u & 63))));
++                                    xrt_bytes_push(res, (int32_t)(((int64_t)((0x80 | (u & 0x3F))))));
+                                     #line 253 "tests/b3/fixtures/bundle_text/app.x"
+                                     i = (i + 1);
+                                         {
+@@ -2742,11 +2581,8 @@
+     xn_gc_safepoint();
+     }
+ #line 256 "tests/b3/fixtures/bundle_text/app.x"
+-xn_ret = (xn_Result_Bytes_Error){1, res, 0};
++xn_ret = (xn_Result_Bytes_Error){1, res, NULL};
+     {
+-rt_release(res);
+-    }
+-    {
+ xn_root_restore(xn_t196);
+     }
+ 
+@@ -2777,18 +2613,16 @@
+ 
+     }
+ #line 302 "tests/b3/fixtures/bundle_text/app.x"
+-rt_string *xn_t218 = rt_retain(xn_p_atom);
+-xn_root_add(xn_t218);
+-xn_root_add(xn_t218);
+-rt_string *xn_t219 = rt_retain(xn_p_ch);
++rt_string *xn_t219 = rt_retain(xn_p_atom);
+ xn_root_add(xn_t219);
+-xn_root_add(xn_t219);
+-int xn_t220 = xn_str_eq(xn_t218, xn_t219);
++rt_string *xn_t220 = rt_retain(xn_p_ch);
++xn_root_add(xn_t220);
++int xn_t218 = xn_str_eq(xn_t219, xn_t220);
+     {
+ xn_root_restore(xn_t213);
+     }
+ 
+-return xn_t220;
++return xn_t218;
+ }
+ 
+ int xn_regexMatchAt(rt_string * xn_p_pattern, int64_t xn_p_pi, rt_string * xn_p_text, int64_t xn_p_ti) {
+@@ -2822,7 +2656,7 @@
+ xn_root_add(xn_t225);
+ rt_string *xn_t226 = rt_string_from_c("$");
+ xn_root_add(xn_t226);
+-    if (((xn_str_eq(xn_t225, xn_t226)) && ((xn_p_pi == (plen - 1))))) {
++    if (((xn_str_eq(xn_t225, xn_t226) && (xn_p_pi == (plen - 1))))) {
+         size_t xn_t227 = xn_root_mark();
+         #line 309 "tests/b3/fixtures/bundle_text/app.x"
+         int xn_t228 = (xn_p_ti == xn_str_length(xn_p_text));
+@@ -2830,9 +2664,6 @@
+         xn_root_restore(xn_t227);
+             }
+             {
+-        rt_release(c);
+-            }
+-            {
+         xn_root_restore(xn_t221);
+             }
+ 
+@@ -2850,7 +2681,6 @@
+         #line 311 "tests/b3/fixtures/bundle_text/app.x"
+         rt_string *xn_t231 = xn_str_substr(xn_p_pattern, (xn_p_pi + 1), 1);
+ xn_root_add(xn_t231);
+-        xn_root_add(xn_t231);
+         xn_root_release(next);
+         rt_release(next);
+         next = xn_t231;
+@@ -2885,24 +2715,22 @@
+         #line 316 "tests/b3/fixtures/bundle_text/app.x"
+         int64_t count = 0;
+         #line 317 "tests/b3/fixtures/bundle_text/app.x"
+-            while (1) {
+-                rt_string *xn_t239 = rt_retain(c);
++        rt_string *xn_t239 = rt_retain(c);
+ xn_root_add(xn_t239);
+-        xn_root_add(xn_t239);
+-                rt_string *xn_t240 = xn_str_substr(xn_p_text, k, 1);
++        rt_string *xn_t240 = xn_str_substr(xn_p_text, k, 1);
+ xn_root_add(xn_t240);
+         xn_root_add(xn_t240);
+-                if (!((((k < xn_str_length(xn_p_text))) && (xn_regexAtomMatch(xn_t239, xn_t240))))) { break; }
+-                size_t xn_t241 = xn_root_mark();
+-                #line 318 "tests/b3/fixtures/bundle_text/app.x"
+-                count = (count + 1);
+-                #line 319 "tests/b3/fixtures/bundle_text/app.x"
+-                k = (k + 1);
+-                    {
+-                    xn_root_restore(xn_t241);
+-                    }
++            while ((((k < xn_str_length(xn_p_text)) && xn_regexAtomMatch(xn_t239, xn_t240)))) {
++            size_t xn_t241 = xn_root_mark();
++            #line 318 "tests/b3/fixtures/bundle_text/app.x"
++            count = (count + 1);
++            #line 319 "tests/b3/fixtures/bundle_text/app.x"
++            k = (k + 1);
++                {
++                xn_root_restore(xn_t241);
++                }
+ 
+-                xn_gc_safepoint();
++            xn_gc_safepoint();
+             }
+         #line 321 "tests/b3/fixtures/bundle_text/app.x"
+         int64_t min = 1;
+@@ -2911,10 +2739,8 @@
+         #line 323 "tests/b3/fixtures/bundle_text/app.x"
+         rt_string *xn_t242 = rt_retain(next);
+ xn_root_add(xn_t242);
+-        xn_root_add(xn_t242);
+         rt_string *xn_t243 = rt_string_from_c("*");
+ xn_root_add(xn_t243);
+-        xn_root_add(xn_t243);
+             if ((xn_str_eq(xn_t242, xn_t243))) {
+                 size_t xn_t244 = xn_root_mark();
+                 #line 323 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2927,10 +2753,8 @@
+         #line 324 "tests/b3/fixtures/bundle_text/app.x"
+         rt_string *xn_t245 = rt_retain(next);
+ xn_root_add(xn_t245);
+-        xn_root_add(xn_t245);
+         rt_string *xn_t246 = rt_string_from_c("?");
+ xn_root_add(xn_t246);
+-        xn_root_add(xn_t246);
+             if ((xn_str_eq(xn_t245, xn_t246))) {
+                 size_t xn_t247 = xn_root_mark();
+                 #line 324 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2958,12 +2782,8 @@
+             #line 327 "tests/b3/fixtures/bundle_text/app.x"
+             rt_string *xn_t250 = rt_retain(xn_p_pattern);
+ xn_root_add(xn_t250);
+-        xn_root_add(xn_t250);
+-            xn_root_add(xn_t250);
+             rt_string *xn_t251 = rt_retain(xn_p_text);
+ xn_root_add(xn_t251);
+-        xn_root_add(xn_t251);
+-            xn_root_add(xn_t251);
+                 if ((xn_regexMatchAt(xn_t250, nextp, xn_t251, (xn_p_ti + use)))) {
+                     size_t xn_t252 = xn_root_mark();
+                     #line 327 "tests/b3/fixtures/bundle_text/app.x"
+@@ -2978,12 +2798,6 @@
+                     xn_root_restore(xn_t238);
+                         }
+                         {
+-                    rt_release(next);
+-                        }
+-                        {
+-                    rt_release(c);
+-                        }
+-                        {
+                     xn_root_restore(xn_t221);
+                         }
+ 
+@@ -3000,21 +2814,6 @@
+             }
+         #line 330 "tests/b3/fixtures/bundle_text/app.x"
+         int xn_t254 = 0;
+-            {
+-        xn_root_restore(xn_t238);
+-            }
+-            {
+-        rt_release(next);
+-            }
+-            {
+-        rt_release(c);
+-            }
+-            {
+-        xn_root_restore(xn_t221);
+-            }
+-
+-        return xn_t254;
+-
+     }
+ #line 332 "tests/b3/fixtures/bundle_text/app.x"
+     if (((xn_p_ti >= xn_str_length(xn_p_text)))) {
+@@ -3025,12 +2824,6 @@
+         xn_root_restore(xn_t255);
+             }
+             {
+-        rt_release(next);
+-            }
+-            {
+-        rt_release(c);
+-            }
+-            {
+         xn_root_restore(xn_t221);
+             }
+ 
+@@ -3042,48 +2835,36 @@
+ xn_root_add(xn_t257);
+ rt_string *xn_t258 = xn_str_substr(xn_p_text, xn_p_ti, 1);
+ xn_root_add(xn_t258);
++xn_root_add(xn_t258);
+     if ((xn_regexAtomMatch(xn_t257, xn_t258))) {
+         size_t xn_t259 = xn_root_mark();
+         #line 333 "tests/b3/fixtures/bundle_text/app.x"
+-        rt_string *xn_t260 = rt_retain(xn_p_pattern);
+-xn_root_add(xn_t260);
+-        xn_root_add(xn_t260);
+-        xn_root_add(xn_t260);
+-        rt_string *xn_t261 = rt_retain(xn_p_text);
++        rt_string *xn_t261 = rt_retain(xn_p_pattern);
+ xn_root_add(xn_t261);
+-        xn_root_add(xn_t261);
+-        xn_root_add(xn_t261);
+-        int xn_t262 = xn_regexMatchAt(xn_t260, (xn_p_pi + 1), xn_t261, (xn_p_ti + 1));
++        rt_string *xn_t262 = rt_retain(xn_p_text);
++xn_root_add(xn_t262);
++        int xn_t260 = xn_regexMatchAt(xn_t261, (xn_p_pi + 1), xn_t262, (xn_p_ti + 1));
+             {
+         xn_root_restore(xn_t259);
+             }
+             {
+-        rt_release(next);
+-            }
+-            {
+-        rt_release(c);
+-            }
+-            {
+         xn_root_restore(xn_t221);
+             }
+ 
+-        return xn_t262;
++        return xn_t260;
+ 
+     }
+ #line 334 "tests/b3/fixtures/bundle_text/app.x"
+ int xn_t263 = 0;
+     {
++rt_release(c);
+ rt_release(next);
+     }
+     {
+-rt_release(c);
+-    }
+-    {
+ xn_root_restore(xn_t221);
+     }
+ 
+ return xn_t263;
+-xn_root_release(next);
+ }
+ 
+ rt_string * xn_repeatText(rt_string * xn_p_unit, int64_t xn_p_times) {
+@@ -3096,7 +2877,6 @@
+         rt_string *xn_t266 = rt_string_from_c("");
+ xn_root_add(xn_t266);
+         xn_root_add(xn_t266);
+-        xn_root_add(xn_t266);
+             {
+         xn_root_restore(xn_t265);
+             }
+@@ -3110,13 +2890,10 @@
+ #line 341 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t267 = rt_retain(xn_p_unit);
+ xn_root_add(xn_t267);
+-xn_root_add(xn_t267);
+ rt_string *xn_t268 = rt_retain(xn_p_unit);
+ xn_root_add(xn_t268);
+-xn_root_add(xn_t268);
+ rt_string *xn_t269 = xn_repeatText(xn_t268, (xn_p_times - 1));
+ xn_root_add(xn_t269);
+-xn_root_add(xn_t269);
+ rt_string *xn_t270 = xn_concat(xn_t267, xn_t269);
+ xn_root_add(xn_t270);
+ xn_root_add(xn_t270);
+@@ -3138,7 +2915,6 @@
+         rt_string *xn_t273 = rt_string_from_c("");
+ xn_root_add(xn_t273);
+         xn_root_add(xn_t273);
+-        xn_root_add(xn_t273);
+             {
+         xn_root_restore(xn_t272);
+             }
+@@ -3167,22 +2943,16 @@
+ #line 347 "tests/b3/fixtures/bundle_text/app.x"
+ rt_string *xn_t275 = rt_retain(xn_p_unit);
+ xn_root_add(xn_t275);
+-xn_root_add(xn_t275);
+ rt_string *xn_t276 = rt_retain(xn_p_sep);
+ xn_root_add(xn_t276);
+-xn_root_add(xn_t276);
+ rt_string *xn_t277 = xn_concat(xn_t275, xn_t276);
+ xn_root_add(xn_t277);
+-xn_root_add(xn_t277);
+ rt_string *xn_t278 = rt_retain(xn_p_unit);
+ xn_root_add(xn_t278);
+-xn_root_add(xn_t278);
+ rt_string *xn_t279 = rt_retain(xn_p_sep);
+ xn_root_add(xn_t279);
+-xn_root_add(xn_t279);
+ rt_string *xn_t280 = xn_repeatJoined(xn_t278, xn_t279, (xn_p_times - 1));
+ xn_root_add(xn_t280);
+-xn_root_add(xn_t280);
+ rt_string *xn_t281 = xn_concat(xn_t277, xn_t280);
+ xn_root_add(xn_t281);
+ xn_root_add(xn_t281);

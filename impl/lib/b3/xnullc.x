@@ -954,7 +954,14 @@ static String exprType(N x, SC sc) {
                 if mow != "" { return methodRet(mow, mn) }
                 return methodRet(mt, mn)
             }
+            if mt == "Bytes" && mn == "length" { return "Int" }
+            if mt == "Bytes" && mn == "get" { return "Int" }
+            if mt == "Bytes" && mn == "toString" { return "String" }
+            if mt == "Bytes" && mn == "slice" { return "Bytes" }
             if mn == "length" { return "Int" }
+            if mn == "substring" { return "String" }
+            if mn == "indexOf" || mn == "indexOfByte" { return "Int" }
+            if mn == "charAt" { return "Char" }
             if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
             if mn == "getOr" { return mapVal(mt) }
             if mn == "has" { return "Bool" }
@@ -1092,6 +1099,7 @@ static String expr(N x, EM e, SC sc) {
             String tyn = typeKey(fld(ta, "Type"))
             String lv = expr(fld(x, "L"), e, sc)
             if op == "is" { return "xn_any_is(" + lv + ", \"" + tyn + "\")" }
+            if op == "as" && tyn == "Int" { return "((int64_t)(" + lv + "))" }
             if tyn == "Any" {
                 e.usesAny = true
                 String lt = exprType(fld(x, "L"), sc)
@@ -1229,7 +1237,7 @@ static String expr(N x, EM e, SC sc) {
                 String b0 = "xn_single_" + cbt
                 String call = "xn_Single_" + cbt + "_" + mn + "(" + b0
                 Int ai = 0
-                while ai < args.el.length() { call = call + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                while ai < args.el.length() { call = call + ", " + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
                 return call + ")"
             }
             if isProtoType(cbt) {
@@ -1242,7 +1250,7 @@ static String expr(N x, EM e, SC sc) {
                 String b0 = expr(mx, e, sc)
                 String call = "xn_Enum_" + cbt + "_" + mn + "(" + b0
                 Int ai = 0
-                while ai < args.el.length() { call = call + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                while ai < args.el.length() { call = call + ", " + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
                 return call + ")"
             }
             if isClass(cbt) || isStruct(cbt) {
@@ -1256,7 +1264,7 @@ static String expr(N x, EM e, SC sc) {
                 else { call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0 }
                 Int ai = 0
                 while ai < args.el.length() {
-                    call = call + ", " + expr(args.el.get(ai), e, sc)
+                    call = call + ", " + argExpr(args.el.get(ai), e, sc)
                     ai = ai + 1
                 }
                 return call + ")"
@@ -1271,6 +1279,19 @@ static String expr(N x, EM e, SC sc) {
                 return "(" + base + ".ok ? " + base + ".v : (" + d + "))"
             }
             String mt2 = exprType(mx, sc)
+            if mt2 == "Bytes" && mn == "length" { return "xrt_bytes_len(" + expr(mx, e, sc) + ")" }
+            if mt2 == "Bytes" && mn == "get" {
+                String ix = "0"
+                if args.el.length() > 0 { ix = expr(args.el.get(0), e, sc) }
+                return "((int64_t)xrt_bytes_get(" + expr(mx, e, sc) + ", (size_t)(" + ix + ")))"
+            }
+            if mt2 == "Bytes" && mn == "slice" {
+                String a0 = "0"
+                String a1 = "0"
+                if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
+                if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
+                return "xrt_bytes_slice(" + expr(mx, e, sc) + ", (size_t)(" + a0 + "), (size_t)(" + a1 + "))"
+            }
             if mt2 == "String" && mn == "length" { return "xn_str_length(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && mn == "substring" {
                 String a0 = "0"
@@ -1368,7 +1389,7 @@ static String expr(N x, EM e, SC sc) {
                 String cast = "(xn_Cls_" + own + " *)" + sc.selfName
                 String bb = "xn_Cls_" + own + "_" + cn + "(" + cast
                 Int ai = 0
-                while ai < args.el.length() { bb = bb + ", " + expr(args.el.get(ai), e, sc); ai = ai + 1 }
+                while ai < args.el.length() { bb = bb + ", " + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
                 return bb + ")"
             }
             if cn != "str" && cn != "print" && cn != "Ok" && cn != "Err" { cal = "xn_" + cn }
@@ -1450,6 +1471,12 @@ static String emitStr(N x, EM e, SC sc) {
                 if cur == "" { cur = t } else { String c = e.nt(); e.add("rt_string *" + c + " = xn_concat(" + cur + ", " + t + ");"); rootStr(e, sc, c); cur = c }
             }
             i = i + 1
+        }
+        if cur == "" {
+            String et0 = e.nt()
+            e.add("rt_string *" + et0 + " = rt_string_from_c(\"\");")
+            rootStr(e, sc, et0)
+            return et0
         }
         return cur
     }
@@ -1675,6 +1702,26 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.add(cType(vt) + " " + nm + " = " + t + ".v;")
             return
         }
+        if ty == "Bytes" {
+            if init.nm == "Call" {
+                N bc = fld(init, "Callee")
+                N bargs = fld(init, "Args")
+                if bc.nm == "Member" && unq(txt(fld(bc, "Name"))) == "fromString" && bargs.el.length() == 1 {
+                    String bs = emitStr(bargs.el.get(0), e, sc)
+                    String bt = e.nt()
+                    e.add("xrt_bytes_obj *" + bt + " = xrt_bytes_from_string(" + bs + "->bytes, " + bs + "->len);")
+                    e.raw("xn_root_add(" + bt + ");")
+                    e.add("rt_release(" + bs + ");")
+                    e.add("xrt_bytes_obj * " + nm + " = " + bt + ";")
+                    e.raw("xn_root_add(" + nm + ");")
+                    e.raw("xn_root_add(" + nm + ");")
+                    e.raw("xn_gc_safepoint();")
+                    return
+                }
+            }
+            e.add("xrt_bytes_obj * " + nm + " = " + expr(init, e, sc) + ";")
+            return
+        }
         if ty == "String" {
             if init.nm == "StrLitExpr" {
                 N parts0 = fld(init, "Parts")
@@ -1698,6 +1745,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
             } else if init.nm == "Call" {
+                String sdum = e.nt()
                 e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
             } else {
                 String sv = emitStr(init, e, sc)
@@ -2022,7 +2070,8 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     String rt0 = exprType(mx, sc)
-                    if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
+                    if rt0 == "Bytes" { e.add("xrt_bytes_push(" + xb + ", (int32_t)(" + a0 + "));") }
+                    else if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
                     else { e.add("xn_arr_i_push(" + xb + ", " + a0 + ");") }
                     return
@@ -2572,6 +2621,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.blockRoots = []
     sc.releases = []
     sc.escaped = []
+    sc.names = []
+    sc.types = []
     escBlock(fld(fn, "Body"), sc)
     String outName = "xn_" + fname + FN_SUFFIX
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
