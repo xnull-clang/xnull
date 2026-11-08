@@ -9,15 +9,20 @@ import (
 	"xnull.dev/xnull/internal/xfront"
 )
 
-// TestAutoNeverRunsInProcess 锁死性能约束：auto 生产路径绝不调用进程内解释器。
-func TestAutoNeverRunsInProcess(t *testing.T) {
+// TestAutoTriesInterpreterWhenNoNative 验证 auto 在无原生二进制时允许进程内解释器，
+// 并在解释器不可用时回退 Go（结果仍与 oracle 一致）。
+func TestAutoTriesInterpreterWhenNoNative(t *testing.T) {
 	t.Setenv("XNULL_FRONTEND", "auto")
 	t.Setenv("XNULL_NATIVE_XPARSER", "")
 	t.Setenv("XNULL_SELFHOST_BIN", "")
 	t.Setenv("XNULL_BIN", "")
 	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "0")
+	t.Setenv("XNULL_FRONTBRIDGE_CACHE", t.TempDir())
 	nativeOnce = sync.Once{}
 	nativeBin, nativeErr = "", nil
+	runnerOnce = sync.Once{}
+	runnerOK = false
+	astCache = newLRU(256)
 
 	inprocOnce.Do(func() {})
 	oldOK := inprocOK
@@ -28,13 +33,20 @@ func TestAutoNeverRunsInProcess(t *testing.T) {
 	inprocCalls = 0
 	inprocMu.Unlock()
 
-	ParseUnit("t.x", "static Int main() { return 0 }\n")
-
+	src := "static Int main() { return 0 }\n"
+	u, ds := ParseUnit("t.x", src)
+	if len(ds) > 0 {
+		t.Fatalf("诊断：%s", ds[0].String())
+	}
 	inprocMu.Lock()
 	n := inprocCalls
 	inprocMu.Unlock()
-	if n != 0 {
-		t.Fatalf("auto 模式调用了进程内解释器 %d 次（应只走原生二进制/Go）", n)
+	if n == 0 {
+		t.Fatal("auto 在无原生二进制时应尝试进程内解释器")
+	}
+	want, _ := xfront.ParseUnit("t.x", src)
+	if xfront.PrintUnitPos(u) != xfront.PrintUnitPos(want) {
+		t.Fatal("解释器不可用时 auto 应回退 Go AST")
 	}
 }
 
@@ -134,6 +146,8 @@ func TestAutoUsesNativeParser(t *testing.T) {
 	t.Setenv("XNULL_FRONTEND_AUTOBUILD", "0")
 	nativeOnce = sync.Once{}
 	nativeBin, nativeErr = "", nil
+	runnerOnce = sync.Once{}
+	runnerOK = false
 	astCache = newLRU(256)
 
 	u, ds := ParseUnit("t.x", "static Int main() { return 0 }\n")
