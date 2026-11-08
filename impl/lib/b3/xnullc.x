@@ -219,6 +219,13 @@ static String typeKey0(N t) {
         }
         return last
     }
+    if t.nm == "TupleTypeRef" {
+        N els = fld(t, "Elems")
+        String b = "Tuple<"
+        Int i = 0
+        while i < els.el.length() { if i > 0 { b = b + ", " }; b = b + typeKey(els.el.get(i)); i = i + 1 }
+        return b + ">"
+    }
     if t.nm == "SuffixedType" {
         N sfx = fld(t, "Suffixes")
         if sfx.el.length() == 1 && unq(txt(sfx.el.get(0))) == "[]" { return typeKey(fld(t, "Base")) + "[]" }
@@ -247,6 +254,7 @@ static String resultName(String k) {
 }
 static String cType(String k) {
     if k == "void" { return "void" }
+    if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
     if k == "Int" { return "int64_t" }
     if k == "Bool" { return "int" }
     if k == "Char" { return "xn_char" }
@@ -291,6 +299,9 @@ static List<N> GEN_CLS_DECLS = []
 static List<String> GEN_INST_NAME = []
 static List<String> GEN_INST_KEY = []
 static List<String> GEN_INST_BASE = []
+static List<String> TUPLE_KEYS = []
+static List<String> TUPLE_ELEMS = []
+static List<String> TUPLE_CN = []
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -641,6 +652,14 @@ static String exprType(N x, SC sc) {
     if x.nm == "FloatLitExpr" { return "Double" }
     if x.nm == "StrLitExpr" { return "String" }
     if x.nm == "IdentExpr" { return sc.typeOf(unq(txt(fld(x, "Name")))) }
+    if x.nm == "TupleMember" {
+        String bt = exprType(fld(x, "X"), sc)
+        String es = tupleInnerKeys(bt)
+        Int idx = dec(txt(fld(x, "Index")))
+        Int c = 0; Int st = 0; String cur = ""
+        while c < es.length() { if es.substring(c,1) == "," { if idx == 0 { return cur.trim() }; idx = idx - 1; cur = "" } else { cur = cur + es.substring(c,1) }; c = c + 1 }
+        return cur.trim()
+    }
     if x.nm == "Member" {
         N mb = fld(x, "X")
         if mb.nm == "Member" && fld(mb, "X").nm == "IdentExpr" {
@@ -723,6 +742,14 @@ static String exprType(N x, SC sc) {
             if mn == "remove" { return "Int" }
         }
         return "Int"
+    }
+    if x.nm == "TupleMember" {
+        String bt = exprType(fld(x, "X"), sc)
+        String es = tupleInnerKeys(bt)
+        Int idx = dec(txt(fld(x, "Index")))
+        Int c = 0; Int st = 0; String cur = ""
+        while c < es.length() { if es.substring(c,1) == "," { if idx == 0 { return cur.trim() }; idx = idx - 1; cur = "" } else { cur = cur + es.substring(c,1) }; c = c + 1 }
+        return cur.trim()
     }
     if x.nm == "Member" {
         N mb = fld(x, "X")
@@ -811,6 +838,9 @@ static String expr(N x, EM e, SC sc) {
         if op == "/" { return "xn_div_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         if op == "%" { return "xn_mod_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         return "(" + expr(fld(x, "L"), e, sc) + " " + op + " " + expr(fld(x, "R"), e, sc) + ")"
+    }
+    if x.nm == "TupleMember" {
+        return "(" + expr(fld(x, "X"), e, sc) + ").f" + txt(fld(x, "Index"))
     }
     if x.nm == "Member" {
         N mb = fld(x, "X")
@@ -1040,6 +1070,12 @@ static String emitStr(N x, EM e, SC sc) {
         String r = emitStr(fld(x, "R"), e, sc)
         String t = e.nt()
         e.add("rt_string *" + t + " = xn_concat(" + l + ", " + r + ");")
+        rootStr(e, sc, t)
+        return t
+    }
+    if x.nm == "TupleMember" {
+        String t = e.nt()
+        e.add("rt_string *" + t + " = rt_retain(" + expr(x, e, sc) + ");")
         rootStr(e, sc, t)
         return t
     }
@@ -1274,6 +1310,24 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             e.raw("xn_gc_safepoint();")
             return
         }
+        if isTupleKey(ty) {
+            N elems = fld(init, "Elems")
+            List<String> vals = []
+            Int ei = 0
+            String elemsStr = tupleElems(ty)
+            while ei < elems.el.length() {
+                String ev = ""
+                if exprType(elems.el.get(ei), sc) == "String" { ev = emitStr(elems.el.get(ei), e, sc) } else { ev = expr(elems.el.get(ei), e, sc) }
+                vals.push(ev)
+                ei = ei + 1
+            }
+            String cn0 = cType(ty)
+            String b0 = cn0 + " " + nm + " = (" + cn0 + "){"
+            ei = 0
+            while ei < vals.length() { if ei > 0 { b0 = b0 + ", " }; b0 = b0 + ".f" + str(ei) + " = " + vals.get(ei); ei = ei + 1 }
+            e.add(b0 + "};")
+            return
+        }
         if isProtoType(ty) {
             if init.nm == "New" {
                 String ccls = typeKey(fld(init, "Type"))
@@ -1354,6 +1408,10 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     if st.nm == "AssignStmt" {
         N tgt = fld(st, "Target")
         String v0 = expr(fld(st, "Value"), e, sc)
+        if tgt.nm == "TupleMember" {
+            e.add(expr(fld(tgt, "X"), e, sc) + ".f" + txt(fld(tgt, "Index")) + " = " + v0 + ";")
+            return
+        }
         if tgt.nm == "Index" {
             String xb = expr(fld(tgt, "X"), e, sc)
             String ix = expr(fld(tgt, "Idx"), e, sc)
@@ -2612,6 +2670,28 @@ static void scanCalls(N n) {
     i = 0
     while i < n.el.length() { scanCalls(n.el.get(i)); i = i + 1 }
 }
+static String tupleTypedefs() {
+    String b = ""
+    Int i = 0
+    while i < TUPLE_KEYS.length() {
+        String es = TUPLE_ELEMS.get(i)
+        b = b + "typedef struct {\n"
+        Int c = 0; Int fi = 0; String cur = ""
+        while c <= es.length() {
+            String ch = ""
+            if c < es.length() { ch = es.substring(c, 1) }
+            if c == es.length() || ch == "," {
+                String ct = cur.trim()
+                if ct != "" { b = b + "    " + cType(ct) + " f" + str(fi) + ";\n"; fi = fi + 1 }
+                cur = ""
+            } else { cur = cur + ch }
+            c = c + 1
+        }
+        b = b + "} " + TUPLE_CN.get(i) + ";\n"
+        i = i + 1
+    }
+    return b
+}
 static String genProtos() {
     String b = ""
     Int i = 0
@@ -2642,6 +2722,55 @@ static void emitInstances(EM e, SC sc) {
     }
 }
 
+static Bool isTupleKey(String k) { return k.indexOf("Tuple<") == 0 }
+static void addTuple(String key, String elems) {
+    Int i = 0
+    while i < TUPLE_KEYS.length() { if TUPLE_KEYS.get(i) == key { return }; i = i + 1 }
+    TUPLE_KEYS.push(key)
+    TUPLE_ELEMS.push(elems)
+    TUPLE_CN.push(tupleCName(elems))
+}
+static String tupleCName(String elems) {
+    String b = "xn_tup"
+    Int i = 0
+    String cur = ""
+    while i <= elems.length() {
+        String c = ""
+        if i < elems.length() { c = elems.substring(i, 1) }
+        if i == elems.length() || c == "," {
+            String e = cur.trim()
+            if e != "" {
+                b = b + "_"
+                String ct = cType(e)
+                Int j = 0
+                while j < ct.length() {
+                    String ch = ct.substring(j, 1)
+                    if ch == " " || ch == "*" || ch == "(" || ch == ")" { b = b + "_" } else { b = b + ch }
+                    j = j + 1
+                }
+            }
+            cur = ""
+        } else { cur = cur + c }
+        i = i + 1
+    }
+    return b
+}
+static String tupleCN(String k) {
+    Int i = 0
+    while i < TUPLE_KEYS.length() { if TUPLE_KEYS.get(i) == k { return TUPLE_CN.get(i) }; i = i + 1 }
+    return "xn_tup"
+}
+static String tupleInnerKeys(String k) {
+    Int l = k.indexOf("<")
+    Int r = k.indexOf(">")
+    if l < 0 || r < 0 { return "Int" }
+    return k.substring(l + 1, r - l - 1).trim()
+}
+static String tupleElems(String k) {
+    Int i = 0
+    while i < TUPLE_KEYS.length() { if TUPLE_KEYS.get(i) == k { return TUPLE_ELEMS.get(i) }; i = i + 1 }
+    return "int64_t"
+}
 static Bool isGenInstCls(String k) {
     Int i = 0
     while i < GEN_INST_NAME.length() { if GEN_INST_NAME.get(i) == k { return true }; i = i + 1 }
@@ -2706,6 +2835,20 @@ static void scanCls(N n) {
     while i < n.fv.length() { scanCls(n.fv.get(i)); i = i + 1 }
     i = 0
     while i < n.el.length() { scanCls(n.el.get(i)); i = i + 1 }
+}
+
+static void scanTupleTypes(N n) {
+    if n.nm == "TupleTypeRef" {
+        N els = fld(n, "Elems")
+        String b = ""
+        Int i = 0
+        while i < els.el.length() { if i > 0 { b = b + ", " }; b = b + typeKey(els.el.get(i)); i = i + 1 }
+        addTuple(typeKey(n), b)
+    }
+    Int i = 0
+    while i < n.fv.length() { scanTupleTypes(n.fv.get(i)); i = i + 1 }
+    i = 0
+    while i < n.el.length() { scanTupleTypes(n.el.get(i)); i = i + 1 }
 }
 
 static String emitUnit(N unit, String path) {
@@ -2914,6 +3057,7 @@ static String emitUnit(N unit, String path) {
     e.add("    rt_gc_collect();")
     e.add("    rt_quarantine_flush();")
     e.add("    return (int)xn_r;")
+    scanTupleTypes(unit)
     String res = ""
     if CLS_NAMES.length() > 0 {
         EM ce = new EM()
@@ -3267,6 +3411,7 @@ static String emitUnit(N unit, String path) {
         }
     } else {
         res = PRELUDE_HEAD
+        if TUPLE_KEYS.length() > 0 { res = res.substring(0, res.length() - 1) }
         if sc.resultTypes.length() > 0 {
             res = res.substring(0, res.length() - 1)
             Int k = 0
@@ -3291,6 +3436,8 @@ static String emitUnit(N unit, String path) {
             }
             i = i + 1
         }
+        res = res + tupleTypedefs()
+        if TUPLE_KEYS.length() > 0 { res = res + "\n\n" }
         res = res + "static int64_t xn_main();\n"
         res = res + genProtos()
         res = res + PRELUDE_TAIL
