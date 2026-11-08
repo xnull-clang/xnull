@@ -498,6 +498,7 @@ static List<String> FFI_RULE_KIND = []
 static String FFI_FIXED_HEAD = "/* 绑定层支撑代码（由 .xfb 注册表生成；只包含 xrt.h，S7 §6.1 / INV-FFI-7） */\n/* S7 §6.2：绑定层可访问弱表；应用层包含 xrt.h 时不定义此宏。 */\n#define XRT_BINDINGS_LAYER 1\n#include \"xrt.h\"\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n\n/* 包装 ABI：返回 0 成功；非 0 为原生错误码（未知码→Internal，S7 §7.2） */\n/* S6-09 net Async 运行时原语（E5 rt_std_net.c） */\nvoid *xdkc_socket_connect_async(xrt_context *ctx, const char *host, size_t hlen, int32_t port, int32_t *code);\nint64_t xdkc_socket_send_async(xrt_context *ctx, void *sock, const void *buf, size_t n, int32_t *code);\nint64_t xdkc_socket_recv_async(xrt_context *ctx, void *sock, void *buf, size_t cap, int32_t *code);\nvoid *xdkc_http_request_async(xrt_context *ctx, const char *method, size_t mlen, const char *host, size_t hlen, int32_t port, const char *path, size_t plen, const void *body, size_t blen, int32_t *code);\n\n"
 static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_canary_enter(const uint8_t *src, size_t n) {\n    uint8_t *buf = (uint8_t *)malloc(n + 2 * XN_FFI_CANARY);\n    if (buf == NULL) { xrt_fatal(\"FFI 编组：内存不足（S7 §9）\"); }\n    memset(buf, 0xA5, XN_FFI_CANARY);\n    memset(buf + XN_FFI_CANARY, 0, n);\n    if (src != NULL) { memcpy(buf + XN_FFI_CANARY, src, n); }\n    memset(buf + XN_FFI_CANARY + n, 0x5A, XN_FFI_CANARY);\n    return buf;\n}\n\nstatic void xn_ffi_canary_leave(uint8_t *buf, uint8_t *dst, size_t n) {\n    size_t i;\n    for (i = 0; i < XN_FFI_CANARY; i++) {\n        if (buf[i] != 0xA5 || buf[XN_FFI_CANARY + n + i] != 0x5A) {\n            xrt_fatal(\"FFI 借出缓冲区越界写（S7 §9 INV-FFI-5）\");\n        }\n    }\n    if (dst != NULL) { memcpy(dst, buf + XN_FFI_CANARY, n); }\n    free(buf);\n}\n\nstatic int xn_ffi_bool_from_native(uint8_t v) {\n    if (v > 1) { xrt_fatal(\"FFI Bool 返回值非 0/1（S7 §3.2 合同违规）\"); }\n    return (int)v;\n}\n\n"
 static Bool SKIP_LINE = false
+static Bool IN_PAREN = false
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -1061,7 +1062,13 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "BoolLit" { if txt(fld(x, "V")) == "true" { return "1" }; return "0" }
     if x.nm == "CharLitExpr" { return txt(fld(x, "Rune")) }
     if x.nm == "FloatLitExpr" { return unq(txt(fld(x, "Text"))) }
-    if x.nm == "Paren" { return expr(fld(x, "X"), e, sc) }
+    if x.nm == "Paren" {
+        Bool op0 = IN_PAREN
+        IN_PAREN = true
+        String pv0 = expr(fld(x, "X"), e, sc)
+        IN_PAREN = op0
+        return pv0
+    }
     if x.nm == "New" {
         String ccls = typeKey(fld(x, "Type"))
         N nargs = fld(x, "Args")
@@ -1182,10 +1189,10 @@ static String expr(N x, EM e, SC sc) {
             N rb = fld(x, "R")
             String lv = expr(lb, e, sc)
             String rv = expr(rb, e, sc)
-            if lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
-            if lb.nm == "Unary" { lv = "(" + lv + ")" }
-            if rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
-            if rb.nm == "Unary" { rv = "(" + rv + ")" }
+            if !IN_PAREN && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
+            if !IN_PAREN && lb.nm == "Unary" { lv = "(" + lv + ")" }
+            if !IN_PAREN && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
+            if !IN_PAREN && rb.nm == "Unary" { rv = "(" + rv + ")" }
 
             return "(" + lv + " " + op + " " + rv + ")"
         }
@@ -2226,7 +2233,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
                                 }
                             }
                             e.add("xn_root_add(" + mt + ");")
-                            if !odr { e.add("xn_root_add(" + mt + ");") }
+                            e.add("xn_root_add(" + mt + ");")
                             ev = "xn_" + unq(txt(fld(ec, "Name"))) + "(" + mt + ")"
                         } else {
                             ev = expr(ea, e, sc)
@@ -2333,6 +2340,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
             }
             String t = emitStr(v, e, sc)
             if !sc.doubleRoot { e.add("xn_root_add(" + t + ");") }
+            if early { e.add("xn_root_add(" + t + ");") }
             sc.ret = t
             if early { emitEarlyRet(sc, e) }
             return
@@ -2351,6 +2359,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     if st.nm == "IfStmt" {
         N cond = fld(st, "Cond")
         String cexpr = expr(cond, e, sc)
+        if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "if (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "if ((" + cexpr + ")) {") }
         String r = e.nt()
         e.addAt(e.ind + 8, "size_t " + r + " = xn_root_mark();")
@@ -2420,6 +2429,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
     if st.nm == "WhileStmt" {
         N cond = fld(st, "Cond")
         String cexpr = expr(cond, e, sc)
+        if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "while (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "while ((" + cexpr + ")) {") }
         String r = e.nt()
         e.addAt(e.ind + 4, "size_t " + r + " = xn_root_mark();")
@@ -2785,6 +2795,12 @@ static String joinLines(List<String> xs) {
 }
 
 static String zeroOf(String cty) { return "(" + cty + ")0" }
+static String stripOuter(String x) {
+    if x.length() >= 2 && x.substring(0, 1) == "(" && x.substring(x.length() - 1, 1) == ")" {
+        return x.substring(1, x.length() - 2)
+    }
+    return x
+}
 
 static String ctorParams(N cls) { return paramsOf(ctorOf(cls)) }
 static String ctorArgs(N cls) {
