@@ -510,6 +510,11 @@ func emitWrapper(e Entry) (string, error) {
 			} else {
 				postOut = "*xn_out = (" + cT + ")xn_v;"
 			}
+		case KindBytes:
+			hasOut = true
+			retC = "xrt_bytes_obj *"
+			nativeC = "xrt_bytes_obj *"
+			postOut = "*xn_out = xn_v;"
 		case KindString:
 			hasOut = true
 			retC = "xrt_string *"
@@ -696,6 +701,8 @@ func nativeProto(e Entry) (string, error) {
 				return "", fmt.Errorf("返回类型无映射")
 			}
 			ret = cT
+		case KindBytes:
+			ret = "xrt_bytes_buf *"
 		case KindString, KindText:
 			ret = "const char *"
 		case KindHandle:
@@ -946,6 +953,8 @@ func (e Entry) CompanionOutC() (string, bool) {
 		return "rt_string *", true
 	case KindText:
 		return "xrt_text *", true
+	case KindBytes:
+		return "xrt_bytes_obj *", true
 	case KindHandle:
 		return "xrt_handle *", true
 	}

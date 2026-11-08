@@ -59,6 +59,25 @@ var xdkFuncSigs = map[string]xdkFuncSig{
 	"listResources":    {"sys", []string{"Context", "String"}, "Result<List<String>,Error>", true},
 	"resourceSize":     {"sys", []string{"String"}, "Int?", false},
 
+	// ---- xdk.net：socket plain/Async + HTTP（S6-09 / ADR-009） ----
+	"socketConnect": {"net", []string{"String", "Int32"}, "Result<Socket,ErrorKind>", false},
+	"socketListen":  {"net", []string{"String", "Int32"}, "Result<Listener,ErrorKind>", false},
+	"socketAccept":  {"net", []string{"Listener"}, "Result<Socket,ErrorKind>", false},
+	"socketRead":    {"net", []string{"Socket", "Bytes"}, "Result<Int64,ErrorKind>", false},
+	"socketWrite":   {"net", []string{"Socket", "Bytes"}, "Result<Int64,ErrorKind>", false},
+	"socketClose":   {"net", []string{"Socket"}, "Bool", false},
+	"listenerClose": {"net", []string{"Listener"}, "Bool", false},
+
+	"socketConnectAsync": {"net", []string{"Context", "String", "Int32"}, "Result<Socket,ErrorKind>", true},
+	"socketListenAsync":  {"net", []string{"Context", "String", "Int32"}, "Result<Listener,ErrorKind>", true},
+	"socketAcceptAsync":  {"net", []string{"Context", "Listener"}, "Result<Socket,ErrorKind>", true},
+	"socketReadAsync":    {"net", []string{"Context", "Socket", "Bytes"}, "Result<Int64,ErrorKind>", true},
+	"socketWriteAsync":   {"net", []string{"Context", "Socket", "Bytes"}, "Result<Int64,ErrorKind>", true},
+	"socketCloseAsync":   {"net", []string{"Context", "Socket"}, "Result<void,ErrorKind>", true},
+	"listenerCloseAsync": {"net", []string{"Context", "Listener"}, "Result<void,ErrorKind>", true},
+	"httpGet":            {"net.http", []string{"Context", "String"}, "Result<Bytes,ErrorKind>", true},
+	"httpPost":           {"net.http", []string{"Context", "String", "Bytes"}, "Result<Bytes,ErrorKind>", true},
+
 	// ---- xdk.text：解析与编码转换（S6 §4.6/XDK-08） ----
 	// UTF-8↔UTF-16 以字节/码元序列表达，避免隐式端序：UTF-16 方向返回 List<UInt16> 码元。
 	"parseInt":    {"text", []string{"String"}, "Result<Int,Error>", false},

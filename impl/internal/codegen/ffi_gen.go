@@ -216,7 +216,7 @@ func ffiSupported(e ffi.Entry) error {
 	}
 	if !isClose {
 		switch e.Ret.Kind {
-		case ffi.KindVoid, ffi.KindString, ffi.KindText, ffi.KindHandle:
+		case ffi.KindVoid, ffi.KindString, ffi.KindText, ffi.KindBytes, ffi.KindHandle:
 		case ffi.KindScalar:
 			if _, ok := ffiScalarC(e.Ret.Name); !ok {
 				return fmt.Errorf("codegen：FFI 入口 %s 的返回标量 %s 未纳入 S7-01", e.Name, e.Ret.Name)
@@ -292,6 +292,13 @@ func (s *scope) handleExpr(e xfront.Expr) ([]string, string, error) {
 	case *xfront.Call:
 		id, ok := n.Callee.(*xfront.IdentExpr)
 		if !ok {
+			// Result<T, Error>.value()：句柄槽直接取 .v（S6-09 net Result<Socket,…>）。
+			if mem, ok2 := n.Callee.(*xfront.Member); ok2 && mem.Name == "value" {
+				rn, rc, err := recvCName(mem.X, s)
+				if err == nil && strings.HasPrefix(rc, "xn_Result_") {
+					return nil, rn + ".v", nil
+				}
+			}
 			return nil, "", fmt.Errorf("codegen：句柄表达式调用 %T 未支持（B0-07c 范围）", n.Callee)
 		}
 		// S6-03：*Async 打开/创建返回 File?/Dir?/Process?（内建降级，不走 .xfb）。
@@ -336,6 +343,11 @@ func (s *scope) bytesExpr(e xfront.Expr) ([]string, string, error) {
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
 			return nil, "", fmt.Errorf("codegen：Bytes 构造调用 %T 未支持（B0-07c 范围）", n.Callee)
+		}
+		if mem.Name == "value" {
+			if rn, rc, err := recvCName(mem.X, s); err == nil && strings.HasPrefix(rc, "xn_Result_") {
+				return nil, rn + ".v", nil
+			}
 		}
 		recv, ok := mem.X.(*xfront.IdentExpr)
 		if !ok || recv.Name != "Bytes" {
@@ -401,6 +413,8 @@ func ffiBaseRetXType(e ffi.Entry) (xfront.TypeRef, bool, error) {
 		return xfrontStringType(), false, nil
 	case ffi.KindText:
 		return xfrontNamedType("Text"), false, nil
+	case ffi.KindBytes:
+		return xfrontNamedType("Bytes"), false, nil
 	case ffi.KindHandle:
 		return xfrontNamedType(e.Ret.Name), false, nil
 	}
@@ -579,6 +593,9 @@ func (s *scope) ffiCallLines(call *xfront.Call, e ffi.Entry) ([]string, string, 
 	case ffi.KindText:
 		out = s.tmp()
 		lines = append(lines, "xrt_text *"+out+" = NULL;")
+	case ffi.KindBytes:
+		out = s.tmp()
+		lines = append(lines, "xrt_bytes_obj *"+out+" = NULL;")
 	case ffi.KindHandle:
 		out = s.tmp()
 		lines = append(lines, "xrt_handle *"+out+" = NULL;")
@@ -669,6 +686,8 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 			out = s.tmp()
 		case ffi.KindText:
 			out = s.tmp()
+		case ffi.KindBytes:
+			out = s.tmp()
 		case ffi.KindHandle:
 			out = s.tmp()
 		default:
@@ -685,6 +704,8 @@ func (s *scope) ffiResultLines(e ffi.Entry, lines, parts, post []string) ([]stri
 			lines = append(lines, "rt_string *"+out+" = NULL;")
 		case ffi.KindText:
 			lines = append(lines, "xrt_text *"+out+" = NULL;")
+		case ffi.KindBytes:
+			lines = append(lines, "xrt_bytes_obj *"+out+" = NULL;")
 		case ffi.KindHandle:
 			lines = append(lines, "xrt_handle *"+out+" = NULL;")
 		}

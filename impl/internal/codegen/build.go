@@ -39,6 +39,7 @@ var runtimeCSources = []string{
 	"rt_std_text.c",
 	"rt_std_sys.c",
 	"rt_std_bytes.c",
+	"rt_std_net.c",
 	"rt_task.c",
 	"rt_sync.c",
 	"rt_std_res.c",
@@ -140,6 +141,13 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		return 1
 	}
 	sema.RegisterExternalTypes("Process")
+	// S6-09：net Async/HTTP 内建（Context 首参）。
+	if regHasHandle(reg, "Socket") && regHasHandle(reg, "Listener") {
+		if err := InjectNet609(u); err != nil {
+			fmt.Fprintf(stderr, "xnull: %v\n", err)
+			return 1
+		}
+	}
 	// S6-03：sys *Async / Process 入口（Context 与出参形态无法写进 .xfb）。
 	// 仅当工程绑定层已有 File/Dir 句柄时注入，避免无 sys 绑定的工程被塞入未用声明。
 	if regHasHandle(reg, "File") && regHasHandle(reg, "Dir") {

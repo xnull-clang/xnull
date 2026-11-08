@@ -1,0 +1,13 @@
+--- FAIL: TestS609NetXfbContracts (0.00s)
+    s609_test.go:42: 缺少入口 httpGet
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen/ffi	1.109s
+--- FAIL: TestS609SocketPlainAndAsyncClose (0.01s)
+    s609_test.go:78: 构建失败 code=1
+        xnull: FFI 投射失败：入口 httpGetPlain 返回：FFI 入口 httpGetPlain 返回类型 Bytes 未纳入 P-09
+--- FAIL: TestS609HTTPGetAsync (0.00s)
+    s609_test.go:125: 构建失败 code=1
+        xnull: FFI 投射失败：入口 httpGetPlain 返回：FFI 入口 httpGetPlain 返回类型 Bytes 未纳入 P-09
+FAIL
+FAIL	xnull.dev/xnull/internal/codegen	0.910s
+FAIL

@@ -1,0 +1,73 @@
+// bindings/xdk/net.xfb —— xdk.net 的 C 原语绑定（S6-09 / XDK-09 net 部分）
+//
+// 独立成包（S6 §4.7 定案 3-g-1）；句柄走 xrt_handle（close 幂等，S3 §18）。
+// 双形态：plain 基础函数；*Async 形态由 codegen 内建（Context 首参），运行时
+// 以取消检查 + 阻塞原语实现（调度器切片接管后保持同一符号/签名）。
+// HTTP 原语返回 Bytes；错误码经 @errorCode 映射为 Result<T, ErrorKind>。
+ffi xdkc_net {
+  handle Socket { close = socketClose }
+  handle Listener { close = listenerClose }
+
+  errorMap {
+    1 = InvalidArgument
+    2 = Io
+    3 = NotFound
+    4 = Timeout
+  }
+
+  // ---- plain socket ----
+  @ffiEntry(cName = "xdkc_net_connect")
+  @lease(host = .borrow, port = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Socket socketConnect(String host, Int32 port, Int32 code);
+
+  @ffiEntry(cName = "xdkc_net_listen")
+  @lease(host = .borrow, port = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Listener socketListen(String host, Int32 port, Int32 code);
+
+  @ffiEntry(cName = "xdkc_net_accept")
+  @lease(l = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Socket socketAccept(Listener l, Int32 code);
+
+  @ffiEntry(cName = "xdkc_net_read")
+  @lease(s = .borrow, buf = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 socketRead(Socket s, Bytes buf, Int32 code);
+
+  @ffiEntry(cName = "xdkc_net_write")
+  @lease(s = .borrow, buf = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.unaware)
+  Int32 socketWrite(Socket s, Bytes buf);
+
+  @ffiEntry(cName = "xdkc_net_close")
+  @lease(s = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 socketClose(Socket s);
+
+  @ffiEntry(cName = "xdkc_net_close")
+  @lease(l = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 listenerClose(Listener l);
+
+  // ---- HTTP（xdk.net.http 子包；异步默认，首参 Context 由 codegen 内建） ----
+  @ffiEntry(cName = "xdkc_http_get")
+  @lease(url = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Bytes httpGetPlain(String url, Int32 code);
+
+  @ffiEntry(cName = "xdkc_http_post")
+  @lease(url = .borrow, body = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Bytes httpPostPlain(String url, Bytes body, Int32 code);
+}

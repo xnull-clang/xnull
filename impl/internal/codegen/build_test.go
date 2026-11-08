@@ -37,6 +37,7 @@ func TestBuildCCArgsIncludesRuntimeABIAndStd(t *testing.T) {
 		filepath.Join(rt, "rt_std_text.c"),
 		filepath.Join(rt, "rt_std_sys.c"),
 		filepath.Join(rt, "rt_std_bytes.c"),
+		filepath.Join(rt, "rt_std_net.c"),
 		filepath.Join(rt, "rt_task.c"),
 		filepath.Join(rt, "rt_sync.c"),
 		filepath.Join(rt, "rt_std_res.c"),

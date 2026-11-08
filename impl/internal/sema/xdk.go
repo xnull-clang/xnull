@@ -67,8 +67,16 @@ var xdkPackages = map[string]map[string]bool{
 		"listResources": true, "resourceSize": true,
 	},
 	"net": {
-		// S6 §4.7 定案独立成包；socket API 名随实现层立项冻结。
+		// S6-09（ADR-009）：plain socket + Async 双形态 + HTTP。
 		"Socket": true, "Listener": true,
+		"socketConnect": true, "socketListen": true, "socketAccept": true,
+		"socketRead": true, "socketWrite": true, "socketClose": true, "listenerClose": true,
+		"socketConnectAsync": true, "socketListenAsync": true, "socketAcceptAsync": true,
+		"socketReadAsync": true, "socketWriteAsync": true, "socketCloseAsync": true,
+		"listenerCloseAsync": true,
+	},
+	"net.http": {
+		"httpGet": true, "httpPost": true, "httpGetPlain": true, "httpPostPlain": true,
 	},
 }
 

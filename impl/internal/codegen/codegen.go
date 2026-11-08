@@ -1477,6 +1477,9 @@ func (g *gen) resultCType(t xfront.TypeRef) (string, error) {
 	if ct, ok := g.protoCType(name); ok {
 		return ct, nil
 	}
+	if g.handleNames[name] {
+		return "xrt_handle *", nil
+	}
 	return "", fmt.Errorf("codegen：Result 成员类型 %s 未支持（S4-02）", name)
 }
 
@@ -2368,6 +2371,12 @@ func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	}
 	if id.Name == "str" {
 		return nil, fmt.Errorf("codegen：str(...) 结果被丢弃（sema 应拒绝）")
+	}
+	if lines, _, hit, err := s.net609Call(call); hit {
+		if err != nil {
+			return nil, err
+		}
+		return lines, nil
 	}
 	if e, isFFI := s.ffiEntry(id.Name); isFFI {
 		lines, out, err := s.ffiCallLines(call, e)
@@ -4371,6 +4380,14 @@ func (s *scope) resultExpr(e xfront.Expr, resultC string) (string, error) {
 			// FFI-01：同步 FFI 调用构造 Result<T, ErrorKind>（rc==0 → Ok，否则 Err(kind)）。
 			if e, isFFI := s.ffiEntry(id.Name); isFFI && ffiReturnsResult(e) {
 				lines, out, err := s.ffiCallLines(n, e)
+				if err != nil {
+					return "", err
+				}
+				s.pending = append(s.pending, lines...)
+				return out, nil
+			}
+			// S6-09：net Async/HTTP 内建（Context 首参，返回 Result）。
+			if lines, out, hit, err := s.net609Call(n); hit {
 				if err != nil {
 					return "", err
 				}
