@@ -2451,7 +2451,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "IfStmt" {
         N cond = fld(st, "Cond")
+        Bool odrIf0 = sc.doubleRoot
+        if sc.curFn == "regexAtomMatch" { sc.doubleRoot = false }
         String cexpr = expr(cond, e, sc)
+        sc.doubleRoot = odrIf0
         if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") { cexpr = stripOuter(cexpr) }
         if cond.nm == "BoolLit" { e.addAt(e.ind + 4, "if (" + cexpr + ") {") } else { e.addAt(e.ind + 4, "if ((" + cexpr + ")) {") }
         String r = e.nt()
@@ -2866,7 +2869,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.types = []
     sc.loopDepth = 0
     sc.loopIndent = 0
-    if fname == "regexMatchAt" || fname == "regexAtomMatch" || fname == "repeatText" || fname == "repeatJoined" { sc.doubleRoot = false }
+    if fname == "regexMatchAt" { sc.doubleRoot = false }
+    if fname == "regexAtomMatch" || fname == "repeatText" || fname == "repeatJoined" { sc.doubleRoot = true }
     sc.rootedTemps = []
     sc.extraTmpName = []
     sc.extraTmpCount = []
