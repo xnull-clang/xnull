@@ -1,10 +1,12 @@
-# 验收：S8-PROJ-05（生命周期与产物）
+# 验收：S8-PROJ-05（生命周期/构建/.xmeta，端到端复签）
 
 > **验收人**：QA1（独立质量线）
-> **结论：PASS**
-> **复验点**：main `e1cdf78`（含 `3756faf` cli 冲突修复、S8-04；按任务声明，本次**未运行任何 git 命令**）
+> **结论：PASS**（S8-12 接入后按真实工程复验）
+> **复验点**：main `9c4f51e`（S8-12 已入 main）；`68d29f4`、`9de80eb` 正例抽检复跑通过
 > **时间**：2026-11-08
-> **证据**：`/Users/vjs/Desktop/XNull-Lang/evidence/S8-QA/PROJ-05/`
+> **证据**：`evidence/S8-12-E2E/p05/`、`f1/`、`f2/`、`f3/`、`matrix-PROJ-05.tsv`
+> **依据**：S8 §5、PROJ-05；`收件箱/门/S8-12验收用例-QA.md`；`回执-S8-12.md`
+> **确认方式**：读取 `.git/refs/heads/main`；执行 `xnull build/run`；未做 git 操作。
 
 ---
 
@@ -12,54 +14,60 @@
 
 | 验收点 | 结果 |
 |---|---|
-| 5 阶段 `validate→compile→test→package→install` | **PASS**：`manifest.go` 顺序执行；`TestS804ManifestBuildLifecycle` |
-| `--skip test` | **PASS**：失败测试 rc=1；`--skip test` rc=0 |
-| 产物 `target/<artifactId>-<version>` | **PASS**：`target/app-1.2.3` |
-| `.xmeta` 字段完整 | **PASS**：groupId/artifactId/version/packaging/platform/xdkVersion/languageVersion/toolchainVersion/profiles/plugins/lockSha256/inputs |
-| 退出码 0/1/2/130 | **PASS**：0（成功）、1（编译失败）、2（清单/用法）、130（SIGINT） |
-| `deploy` 不存在 | **PASS**：`CLI-001 unknown command "deploy"` rc=2 |
-| 阶段失败不进入后续 | **PASS**：`TestS804SkipTestStage` |
+| 生命周期 validate→compile→test→package | **PASS**：build exit 0，测试阶段输出 `F1-TEST-OK`，产物生成 |
+| 入口可执行 | **PASS**：`run` 输出 `F1-TEST-OK` + `F1-MAIN-OK` |
+| `--skip test` | **PASS**：不输出测试标记，exit 0 |
+| `--skip package` | **PASS**：`target/` 为空，exit 0 |
+| `.xmeta` 字段 | **PASS**：坐标/平台/xdk/language/toolchain/profiles/plugins/三摘要/lockSha256/inputs 齐全 |
+| `.xmeta.lockSha256` | **PASS**：与 `xnull.lock` 字节 SHA-256 一致 |
+| 可复现 | **PASS**：连续两次 build `.xmeta` 字节一致（f1/p05/f3 三处） |
+| 入口缺失 | **PASS**：`XPD-202`，exit 2 |
+| `entryPackage` 不符 | **PASS**：`XPD-202`（com.acme vs com.other） |
+| `sourceRoot` 含 `target/` | **PASS**：`XPD-201` |
+| `build.mode` 非法 | **PASS**：`XPD-201` |
 
-**判定：PASS。** cli 冲突修复后，清单模式生命周期、`--skip`、产物、`.xmeta` 与退出码全部可执行并通过。
+**判定：PASS。** 五阶段、跳过语义、入口解析、`.xmeta` 字段与复现性均成立。
 
 ---
 
 ## 二、实测
 
-### 2.1 构建与产物
-
 ```text
-build1_rc=0
-target/app-1.2.3
-target/app-1.2.3.xmeta
+$ xnull build            # F1
+F1-TEST-OK
+…/target/app-1.0.0       # exit 0
+$ xnull run
+F1-TEST-OK
+F1-MAIN-OK
+
+$ xnull build --skip test
+…/target/app-1.0.0       # exit 0，无 F1-TEST-OK
+$ xnull build --skip package
+F1-TEST-OK               # exit 0，target/ 为空
+
+$ 两次 build 后 cmp target/app-1.0.0.xmeta → identical
+
+$ 负例：XPD-202(入口缺失) / XPD-202(entryPackage) / XPD-201(sourceRoot) / XPD-201(mode)
 ```
-
-`.xmeta` 示例（`evidence/S8-QA/PROJ-05/`）：包含 `xmeta {`、坐标、`packaging=app`、`platform=macos`、`xdkVersion=1.1.0`、`languageVersion=[3.3, 4.0)`、`toolchainVersion=0.1.0-dev`、`profiles=[]`、`plugins=[]`、`lockSha256`、`inputs`。
-
-### 2.2 `--skip test`
-
-- 放入失败测试 `src/test/x/main.x`（return 3）：`build` rc=1。
-- `build --skip test` rc=0，产物生成。
-
-### 2.3 退出码
-
-| 场景 | rc |
-|---|---:|
-| 成功构建 | 0 |
-| 编译失败 | 1 |
-| 清单文法/用法错误 | 2 |
-| SIGINT | 130（stderr `xnull: 已中断`） |
-| `xnull deploy` | 2（unknown command） |
-
-### 2.4 官方用例
-
-`TestS804ManifestBuildLifecycle`、`TestS804SkipTestStage`、`TestS804ManifestFieldValidation`、`TestS804EntryResolution`、`TestS804ExitCodes`、`TestS804RunManifest` 全 PASS。
 
 ---
 
-## 三、证据
+## 三、边界
 
-- `/Users/vjs/Desktop/XNull-Lang/evidence/S8-QA/PROJ-05/cli-tests.log`
-- `/Users/vjs/Desktop/XNull-Lang/evidence/S8-QA/PROJ-05/build1.out`、`build2.out`
-- `/Users/vjs/Desktop/XNull-Lang/evidence/S8-QA/PROJ-05/skip.txt`、`sigint.txt`、`deploy.err`
-- 断言依据：S8 §5.5/§10 PROJ-05；`收件箱/门/S8验收计划-QA.md`
+| 项 | 说明 |
+|---|---|
+| install 阶段 | 当前为本地空操作（1.x 可跳过） |
+| library/pom/starter 构建 | 未接；`resolveEntry` 仅支持 `packaging=app`（S8-13/14） |
+| 测试阶段 | 仅当 `build.testRoot/main.x` 存在时执行；并发/报告格式未在本卡断言 |
+| `.xmeta` 平台字段 | 取构建机 GOOS（macos），跨平台一致性未验 |
+
+---
+
+## 四、证据
+
+- `evidence/S8-12-E2E/matrix-PROJ-05.tsv`
+- `f1/F1-build.log`、`f1/F1-run.log`
+- `p05/P05-skip-test.log`、`P05-skip-package.log`、`P05-skip-package-target.txt`
+- `p05/P05-deterministic.txt`、`f3/F3-deterministic.txt`
+- `p05/P05-entry-missing.log`、`P05-entrypackage-mismatch.log`、`P05-badsource.log`、`P05-badmode.log`
+- `f2/F2-meta.log`、`f3/F3-meta.log`
