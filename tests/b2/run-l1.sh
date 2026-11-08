@@ -21,6 +21,18 @@ while IFS=$'\t' read -r h p; do
     echo "FAIL L1 $p"; diff -u /tmp/b2-go.tok /tmp/b2-xn.tok | head -20; fail=$((fail+1))
   fi
 done < "$HERE/corpus.tsv"
+for f in "$HERE"/lex_extra/*.x; do
+  [ -e "$f" ] || continue
+  p=${f#"$ROOT"/}
+  "$ORACLE" --tokens "$f" > /tmp/b2-go.tok 2>/dev/null
+  SRC="$(cat "$f")"$'\n'
+  ( cd "$ROOT/impl" && "$BIN" run --interp "$XLEX" "$SRC" > /tmp/b2-xn.tok 2>/tmp/b2-xn.err )
+  if cmp -s /tmp/b2-go.tok /tmp/b2-xn.tok; then
+    echo "PASS EXTRA $p"
+  else
+    echo "FAIL EXTRA $p"; diff -u /tmp/b2-go.tok /tmp/b2-xn.tok | head -20; fail=$((fail+1))
+  fi
+done
 for f in "$HERE"/lex_neg/*.x; do
   base=${f%.x}; want=$(cat "$base.diag")
   SRC="$(cat "$f")"$'\n'
