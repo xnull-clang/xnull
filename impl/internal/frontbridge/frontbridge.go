@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"xnull.dev/xnull/internal/diag"
@@ -21,9 +22,10 @@ import (
 )
 
 // 前端模式（XNULL_FRONTEND）：
-//   - 未设置 / go（默认）：直接使用 Go oracle；
-//   - auto：缓存 → 原生（仅显式）→ 解释器（外部/自身 CLI 子进程）；失败回退 Go；
-//   - xnull：显式自举；失败返回 B2-001，超时返回 B2-002，不回退。
+//   - 未设置（默认）：解释器前端（xnull 管线 + 磁盘缓存）；失败/超时回退 Go；
+//   - auto：同默认（显式写法）；
+//   - xnull：显式自举；失败返回 B2-001，超时回退 Go 并记 B2-002；
+//   - go：直接使用 Go oracle。
 //
 // B2-04f：E3 修复解释器递归前，默认保持 go；进程内 runner 因无法取消已改为独立进程 + 硬超时。
 //
@@ -78,14 +80,15 @@ func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 			err = derr
 		}
 	}
+	if isTimeout(err) {
+		// 超时一律回退 Go（含显式 xnull），并记录 B2-002；不阻塞工具链。
+		recordIssue("B2-002", "XNull 前端超时："+err.Error())
+		return goUnit, nil
+	}
 	if mode == modeXNull {
-		code, msg := "B2-001", "XNull 前端失败："+err.Error()
-		if isTimeout(err) {
-			code, msg = "B2-002", "XNull 前端超时："+err.Error()
-		}
 		return nil, []diag.Diagnostic{{
-			File: file, Line: 1, Col: 1, Code: code,
-			Message: msg,
+			File: file, Line: 1, Col: 1, Code: "B2-001",
+			Message: "XNull 前端失败：" + err.Error(),
 			Hint:    "设置 XNULL_FRONTEND=go 可回退 Go 前端",
 		}}
 	}
@@ -148,40 +151,138 @@ func Diags(src string) (string, error) {
 }
 
 // RunSelfhost 运行一个自举 XNull 程序（xlex.x / xparser.x 等）。
-// 优先外部解释器二进制（XNULL_SELFHOST_BIN / XNULL_BIN），否则走进程内解释器。
-// 该入口只用于测试/显式自举；生产 auto 路径不会调用。
+// 优先外部解释器二进制（XNULL_SELFHOST_BIN / XNULL_BIN），否则使用自动构建并缓存
+// 的 xnselfhost helper（独立进程，可被 CommandContext 取消）。
 func RunSelfhost(programPath string, args ...string) (string, error) {
 	bin := selfhostBin()
 	if bin != "" && !sameExecutable(bin) {
 		return runExternal(bin, programPath, args...)
 	}
-	if exe, ok := selfCLI(); ok {
-		return runSelfCLI(exe, programPath, args...)
+	if helperBroken.Load() {
+		return "", fmt.Errorf("xnselfhost helper 不可用（进程级缓存）")
 	}
-	return "", fmt.Errorf("没有可用的外部分析器进程（设置 XNULL_SELFHOST_BIN；进程内 runner 因无法取消已禁用）")
-}
-
-// selfCLI 返回当前 xnull 可执行文件（排除 go test 二进制）。
-func selfCLI() (string, bool) {
-	exe, err := os.Executable()
+	helper, err := selfhostHelper()
 	if err != nil {
-		return "", false
+		return "", err
 	}
-	base := filepath.Base(exe)
-	if strings.HasSuffix(base, ".test") || strings.Contains(base, ".test-") {
-		return "", false
+	out, err := runHelper(helper, programPath, args...)
+	if err != nil && !isTimeout(err) {
+		helperBroken.Store(true)
 	}
-	if strings.Contains(strings.ToLower(base), "xnull") {
-		return exe, true
-	}
-	return "", false
+	return out, err
 }
 
-func runSelfCLI(exe, programPath string, args ...string) (string, error) {
+const helperVersion = "b2-04g-1"
+
+var (
+	helperOnce   sync.Once
+	helperBin    string
+	helperErr    error
+	helperBroken atomic.Bool
+)
+
+func selfhostHelper() (string, error) {
+	helperOnce.Do(func() { helperBin, helperErr = resolveHelper() })
+	return helperBin, helperErr
+}
+
+func resolveHelper() (string, error) {
+	if v := strings.TrimSpace(os.Getenv("XNULL_SELFHOST_HELPER")); v != "" {
+		if isExecutable(v) {
+			return v, nil
+		}
+		return "", fmt.Errorf("XNULL_SELFHOST_HELPER 不可执行：%s", v)
+	}
+	root, err := moduleRoot()
+	if err != nil {
+		return "", err
+	}
+	hash, err := helperHash(root)
+	if err != nil {
+		return "", err
+	}
+	cache, err := cacheDir()
+	if err != nil {
+		return "", err
+	}
+	bin := filepath.Join(cache, "helper", "xnselfhost-"+hash[:16])
+	if isExecutable(bin) {
+		return bin, nil
+	}
+	return buildHelper(root, bin)
+}
+
+// moduleRoot 从本文件向上找到包含 go.mod 与 cmd/xnselfhost 的 impl 模块根。
+func moduleRoot() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("无法定位 frontbridge 源码路径")
+	}
+	dir := filepath.Dir(file)
+	for i := 0; i < 8; i++ {
+		if st, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !st.IsDir() {
+			if st, err := os.Stat(filepath.Join(dir, "cmd", "xnselfhost", "main.go")); err == nil && !st.IsDir() {
+				return dir, nil
+			}
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return "", fmt.Errorf("找不到 impl 模块根（cmd/xnselfhost）")
+}
+
+func helperHash(root string) (string, error) {
+	h := sha256.New()
+	h.Write([]byte(helperVersion))
+	h.Write([]byte{0})
+	for _, rel := range []string{"go.mod", "cmd/xnselfhost/main.go"} {
+		b, err := os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			return "", err
+		}
+		h.Write(b)
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+func buildHelper(root, bin string) (string, error) {
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		return "", err
+	}
+	tmp := bin + fmt.Sprintf(".tmp-%d", os.Getpid())
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "go", "build", "-o", tmp, "./cmd/xnselfhost")
+	cmd.Dir = root
+	cmd.Env = append(os.Environ(), innerGuard+"=1", buildGuard+"=1")
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	if err := cmd.Run(); err != nil {
+		_ = os.Remove(tmp)
+		msg := strings.TrimSpace(errb.String())
+		if msg == "" {
+			msg = err.Error()
+		}
+		return "", fmt.Errorf("构建 xnselfhost helper 失败：%s", msg)
+	}
+	if err := os.Chmod(tmp, 0o755); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, bin); err != nil {
+		return "", err
+	}
+	return bin, nil
+}
+
+func runHelper(bin, programPath string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), selfhostTimeout())
 	defer cancel()
-	cmdArgs := append([]string{"run", "--interp", programPath, "--"}, args...)
-	cmd := exec.CommandContext(ctx, exe, cmdArgs...)
+	cmdArgs := append([]string{programPath}, args...)
+	cmd := exec.CommandContext(ctx, bin, cmdArgs...)
 	cmd.Env = append(os.Environ(), innerGuard+"=1")
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
@@ -200,7 +301,17 @@ func runSelfCLI(exe, programPath string, args ...string) (string, error) {
 	return out.String(), nil
 }
 
-// timeoutError 表示前端执行超时（xnull 模式映射为 B2-002）。
+var lastIssue atomic.Value // string：最近一次前端问题（B2-002 等），供测试/诊断读取。
+
+// LastIssue 返回最近一次前端问题（形如 "B2-002: ..."）；无问题为空串。
+func LastIssue() string {
+	v, _ := lastIssue.Load().(string)
+	return v
+}
+
+func recordIssue(code, msg string) { lastIssue.Store(code + ": " + msg) }
+
+// timeoutError 表示前端执行超时。
 type timeoutError struct{ d time.Duration }
 
 func (e timeoutError) Error() string { return "超时（" + e.d.String() + "）" }
@@ -221,14 +332,16 @@ func explicitNative() (string, bool) {
 
 func frontendMode() string {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("XNULL_FRONTEND"))) {
-	case "", "go", "oracle":
+	case "":
+		return modeDefault
+	case "go", "oracle":
 		return modeGo
 	case "auto":
 		return modeAuto
 	case "xnull", "selfhost":
 		return modeXNull
 	default:
-		return modeGo
+		return modeDefault
 	}
 }
 

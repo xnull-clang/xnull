@@ -44,7 +44,7 @@ XNull 前端按模式选择执行器（B2-04f 修订：默认 Go；解释器仅�
 
 | 执行器 | 允许模式 | 说明 |
 |---|---|---|
-| 解释器（外部二进制 / 自身 CLI 子进程） | `auto` / `xnull` | `xparser.x` + 磁盘缓存；硬超时默认 5s（`XNULL_SELFHOST_TIMEOUT`） |
+| 外部 helper `cmd/xnselfhost` | 默认 / `auto` / `xnull` | 自动构建并缓存；加载 `xparser.x`/`xlex.x` 后用 interp 执行；硬超时默认 5s（`XNULL_SELFHOST_TIMEOUT`） |
 | 原生 xparser 二进制 | 仅显式 `XNULL_NATIVE_XPARSER` | B2-04d 证明原生语义不可信，暂缓；不自动发现/构建 |
 | Go oracle | 默认 / 全部模式的回退 | 未设置 `XNULL_FRONTEND` 即 Go；`auto` 失败/超时回退 Go；显式 `xnull` 失败 B2-001、超时 B2-002 |
 
@@ -58,8 +58,9 @@ XNull 前端按模式选择执行器（B2-04f 修订：默认 Go；解释器仅�
 | `auto`（显式） | 用原生 xparser AST | 回退 Go AST，不报错 | 返回 Go 诊断（消息/位置完全保真） |
 | `xnull` | 用 XNull AST | 返回桥接失败诊断（不静默） | 返回 Go 诊断 |
 
-B2-04f：解释器在 `TestS2BND08CrossPackageStatic` 上无限递归，默认模式改回 `go`；E3 修复前不得默认 `xnull`。
-进程内 runner 因无法取消已禁用，解释器改由外部进程/自身 CLI 子进程执行，5s 硬超时；超时在 `xnull` 下报 B2-002，`auto` 回退 Go。
+B2-04g：解释器 runner 改为独立 helper `cmd/xnselfhost`（frontbridge 自动构建/缓存，`exec.CommandContext` 5s 超时）。
+超时一律回退 Go 并记录 B2-002；不再依赖进程内 runner 或原生 parser。默认走 xnull 管线（helper 不可用时回退 Go）。
+解释器递归仍归 E3；未修复前由 5s 超时兜底。
 反序列化增加元组防丢校验：dump 里 `TupleTypeRef` 数量与解码后 AST 不一致即视为失败（auto 回退 Go）。
 
 说明：Go oracle 在入口处先跑一次，只用于“诊断与回退”；正常文件的 AST 来自 XNull。这样 `check` 的错误消息、退出码、诊断顺序与旧路径逐字节不变。
