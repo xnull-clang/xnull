@@ -8,7 +8,7 @@
 #
 # 退出码：全部 PASS=0；任一 FAIL=1；无 PASS 且只有 SKIP=2。
 #
-# 本轮实现范围：01–03 真实现，04–09 为 SKIP 桩（不伪装 PASS），10 文件名扫描（S0-04b/S1-22 门禁）真实现。
+# 本轮实现范围：01–03 真实现，04 条件实现（B2 差分），05–09 为 SKIP 桩（不伪装 PASS），10 文件名扫描（S0-04b/S1-22 门禁）真实现。
 
 set -u
 
@@ -28,7 +28,7 @@ step_name() {
     01) echo "gofmt+vet" ;;
     02) echo "go test -timeout 120s ./..." ;;
     03) echo "C 运行时构建" ;;
-    04) echo "示例双路径" ;;
+    04) echo "B2 双路径差分" ;;
     05) echo "check_specs 六检" ;;
     06) echo "台账再生成 diff" ;;
     07) echo "泄漏扫描" ;;
@@ -68,9 +68,14 @@ step_03() {
   run_step 03 "C 运行时构建" "$IMPL" 'sh ./runtime/build_rt.sh'
 }
 
-# ---------- 04–09：本轮为 SKIP 桩 ----------
+# ---------- 04 B2 双路径差分 ----------
 step_04() {
-  skip_step 04 "示例双路径" "S0-04 桩：本轮只实现 01–03，未实现"
+  _bin=${XNULL_SELFHOST_BIN:-${XNULL_BIN:-}}
+  if [ -z "$_bin" ] || [ ! -x "$_bin" ]; then
+    skip_step 04 "B2 双路径差分" "未设置可执行的 XNULL_SELFHOST_BIN/XNULL_BIN，跳过全语料三层差分"
+    return 0
+  fi
+  run_step 04 "B2 双路径差分" "$IMPL" "XNULL_B2_DIFF=1 XNULL_SELFHOST_BIN='$_bin' go test ./internal/frontbridge -run TestB2Differential -count=1"
 }
 step_05() {
   skip_step 05 "check_specs 六检" "S0-04 桩：本轮只实现 01–03，未实现"

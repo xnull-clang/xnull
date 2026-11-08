@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"xnull.dev/xnull/internal/diag"
+	"xnull.dev/xnull/internal/frontbridge"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -67,7 +68,7 @@ func LoadUnits(entryPath string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 			state[abs] = 2
 			return false
 		}
-		u, pd := xfront.ParseUnit(path, string(src))
+		u, pd := frontbridge.ParseUnit(path, string(src))
 		diags = append(diags, pd...)
 		if len(pd) > 0 {
 			state[abs] = 2

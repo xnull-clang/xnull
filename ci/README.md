@@ -15,7 +15,7 @@ bash ci/run.sh --only 10    # 只跑第 10 项
 | 01 | gofmt+vet | 真实现 | `gofmt -l` 必须为空；`go vet ./...` |
 | 02 | go test | 真实现 | `go test -timeout 120s ./...` |
 | 03 | C 运行时构建 | 真实现 | `impl/runtime/build_rt.sh` |
-| 04 | 示例双路径 | SKIP 桩 | 未实现，显式 SKIP，不伪装 PASS |
+| 04 | B2 双路径差分 | 条件实现 | 设置可执行的 `XNULL_SELFHOST_BIN`/`XNULL_BIN` 时跑全语料三层差分；未设置显式 SKIP |
 | 05 | check_specs 六检 | SKIP 桩 | 同上 |
 | 06 | 台账再生成 diff | SKIP 桩 | 同上 |
 | 07 | 泄漏扫描 | SKIP 桩 | 同上 |

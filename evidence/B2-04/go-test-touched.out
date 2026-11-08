@@ -1,0 +1,7 @@
+ok  	xnull.dev/xnull/internal/frontbridge	5.934s
+ok  	xnull.dev/xnull/internal/cli	136.341s
+ok  	xnull.dev/xnull/internal/codegen	341.901s
+ok  	xnull.dev/xnull/internal/xdkcheck	15.399s
+ok  	xnull.dev/xnull/internal/xfront	(cached)
+ok  	xnull.dev/xnull/internal/interp	(cached)
+ok  	xnull.dev/xnull/internal/sema	17.784s

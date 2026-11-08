@@ -1,0 +1,6 @@
+XNull CI（单步 04）  工作树=/Users/vjs/Desktop/XNull-Lang/wt/e2-sema
+
+PASS 04 B2 双路径差分        77499ms
+
+—— 汇总：PASS=1 FAIL=0 SKIP=0，用时 77858ms ——
+退出码：0

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"xnull.dev/xnull/internal/codegen/ffi"
+	"xnull.dev/xnull/internal/frontbridge"
 	"xnull.dev/xnull/internal/xfront"
 )
 
@@ -160,7 +161,7 @@ func CheckContracts(repoRoot string) []Violation {
 				"源码稳定性 @"+marker+" 与包表 `"+row.Stability+"` 不一致（S6 §3 第 6 条）")
 		}
 
-		u, pdiags := xfront.ParseUnit(filepath.Join(xdkDir, pkg+".x"), text)
+		u, pdiags := frontbridge.ParseUnit(filepath.Join(xdkDir, pkg+".x"), text)
 		for _, d := range pdiags {
 			add(rel, d.Line, d.Col, xdkCodePackages, "解析失败："+d.Message)
 		}
@@ -604,7 +605,7 @@ func xdkCheckResources(repoRoot string, add func(string, int, int, string, strin
 		if err != nil {
 			continue
 		}
-		u, diags := xfront.ParseUnit(path, string(src))
+		u, diags := frontbridge.ParseUnit(path, string(src))
 		if len(diags) > 0 || u == nil {
 			continue
 		}
