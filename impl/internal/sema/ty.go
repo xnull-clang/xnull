@@ -1933,6 +1933,61 @@ func (e *tyenv) methodRet(rt texpr, name string, args []texpr, p xfront.Pos) tex
 			checkArgs("String")
 			return texpr{key: "Bool"}
 		}
+	case k == "Socket":
+		// S6-09：socket plain（无 Context）/Async（Context 首参）。
+		switch name {
+		case "connect":
+			checkArgs("String", "Int")
+			return texpr{key: "Result<Socket,Error>"}
+		case "connectAsync":
+			checkArgs("Context", "String", "Int")
+			return texpr{key: "Result<Socket,Error>"}
+		case "read":
+			checkArgs("Bytes")
+			return texpr{key: "Result<Int,Error>"}
+		case "readAsync":
+			checkArgs("Context", "Bytes")
+			return texpr{key: "Result<Int,Error>"}
+		case "write":
+			checkArgs("Bytes")
+			return texpr{key: "Result<Int,Error>"}
+		case "writeAsync":
+			checkArgs("Context", "Bytes")
+			return texpr{key: "Result<Int,Error>"}
+		case "close":
+			checkArgs()
+			return texpr{key: "Result<void,Error>"}
+		}
+	case k == "Listener":
+		switch name {
+		case "bind":
+			checkArgs("String", "Int")
+			return texpr{key: "Result<Listener,Error>"}
+		case "bindAsync":
+			checkArgs("Context", "String", "Int")
+			return texpr{key: "Result<Listener,Error>"}
+		case "accept":
+			checkArgs()
+			return texpr{key: "Result<Socket,Error>"}
+		case "acceptAsync":
+			checkArgs("Context")
+			return texpr{key: "Result<Socket,Error>"}
+		case "close":
+			checkArgs()
+			return texpr{key: "Result<void,Error>"}
+		}
+	case k == "Response":
+		switch name {
+		case "status":
+			checkArgs()
+			return texpr{key: "Int"}
+		case "body":
+			checkArgs()
+			return texpr{key: "Bytes"}
+		case "header":
+			checkArgs("String")
+			return texpr{key: "String?"}
+		}
 	case k == "StringBuilder":
 		switch name {
 		case "append":

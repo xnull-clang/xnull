@@ -67,8 +67,10 @@ var xdkPackages = map[string]map[string]bool{
 		"listResources": true, "resourceSize": true,
 	},
 	"net": {
-		// S6 §4.7 定案独立成包；socket API 名随实现层立项冻结。
+		// S6 §4.7 / S6-09：socket 句柄与 plain/Async 入口。
 		"Socket": true, "Listener": true,
+		"connect": true, "connectAsync": true,
+		"bind": true, "bindAsync": true,
 	},
 }
 
@@ -76,6 +78,14 @@ var xdkPackages = map[string]map[string]bool{
 // `import xdk.net.http` 是包导入，不是 xdk.net 的符号 http（S1 §3.2）。
 var xdkSubPackages = map[string]bool{
 	"net.http": true,
+}
+
+// xdkSubPackageSymbols 是多级包子包的导出符号（S6 §4.7）。
+var xdkSubPackageSymbols = map[string]map[string]bool{
+	"net.http": {
+		"Request": true, "Response": true,
+		"get": true, "post": true, "getAsync": true, "postAsync": true,
+	},
 }
 
 // xdkSymbolKnown 判断名称是否为某个 XDK 包的导出符号（用于 RES-105）。
@@ -144,6 +154,26 @@ func (a *analyzer) analyzeImports(u *xfront.CompilationUnit) {
 				continue
 			}
 			info.src = "xdk." + pkg
+			// 多级包子包（如 xdk.net.http）：包导入或子包符号导入。
+			if len(p) >= 3 {
+				if subSyms, ok := xdkSubPackageSymbols[pkg+"."+p[2]]; ok {
+					info.src = "xdk." + pkg + "." + p[2]
+					switch {
+					case len(p) == 3:
+						info.syms = sortedKeys(subSyms)
+						info.pkgImport = true
+					case len(p) == 4 && subSyms[p[3]]:
+						info.syms = []string{p[3]}
+						info.symbolImport = true
+					default:
+						a.errf(imp.P, ResNotFound, "XDK 子包 `xdk."+pkg+"."+p[2]+"` 没有导出符号 `"+
+							strings.Join(p[3:], ".")+"`（§3.5）", "检查符号名或改用包导入")
+						continue
+					}
+					binds = append(binds, info)
+					continue
+				}
+			}
 			switch {
 			case len(p) == 3 && syms[p[2]]: // 符号导入
 				info.syms = []string{p[2]}

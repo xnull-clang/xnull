@@ -136,7 +136,7 @@ static Int f(RingBuffer<Int> r) { r.push(1); return 0 }`, TyXdkUnsupported)
 static Int main() { Regex.find("x"); return 0 }`, TyXdkUnsupported)
 
 	expectCode(t, `import xdk.net
-static Int f(Socket s) { s.connect("x"); return 0 }`, TyXdkUnsupported)
+static Int f(Socket s) { s.nope(); return 0 }`, TyXdkUnsupported)
 }
 
 // 8 个包都必须有内建类型或函数签名面（不允许只登记包名）。

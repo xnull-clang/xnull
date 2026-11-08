@@ -59,6 +59,18 @@ var xdkFuncSigs = map[string]xdkFuncSig{
 	"listResources":    {"sys", []string{"Context", "String"}, "Result<List<String>,Error>", true},
 	"resourceSize":     {"sys", []string{"String"}, "Int?", false},
 
+	// ---- xdk.net：socket plain/Async（S6 §4.7 / S6-09） ----
+	"connect":      {"net", []string{"String", "Int"}, "Result<Socket,Error>", false},
+	"connectAsync": {"net", []string{"Context", "String", "Int"}, "Result<Socket,Error>", true},
+	"bind":         {"net", []string{"String", "Int"}, "Result<Listener,Error>", false},
+	"bindAsync":    {"net", []string{"Context", "String", "Int"}, "Result<Listener,Error>", true},
+
+	// ---- xdk.net.http（S6-09） ----
+	"get":       {"net.http", []string{"String"}, "Result<Response,Error>", false},
+	"post":      {"net.http", []string{"String", "Bytes"}, "Result<Response,Error>", false},
+	"getAsync":  {"net.http", []string{"Context", "String"}, "Result<Response,Error>", true},
+	"postAsync": {"net.http", []string{"Context", "String", "Bytes"}, "Result<Response,Error>", true},
+
 	// ---- xdk.text：解析与编码转换（S6 §4.6/XDK-08） ----
 	// UTF-8↔UTF-16 以字节/码元序列表达，避免隐式端序：UTF-16 方向返回 List<UInt16> 码元。
 	"parseInt":    {"text", []string{"String"}, "Result<Int,Error>", false},
@@ -80,7 +92,7 @@ var xdkTypeNames = map[string]bool{
 	// collections（S6 §4.5）
 	"RingBuffer": true, "OrderedMap": true, "BTreeMap": true, "PriorityQueue": true,
 	// net（S6 §4.7；独立包）
-	"Socket": true, "Listener": true,
+	"Socket": true, "Listener": true, "Request": true, "Response": true,
 }
 
 // xdkSpecialSigned 是已有专用签名检查、不进入 xdkFuncSigs 的包（S4/S5 已交）。
