@@ -1,10 +1,10 @@
 # 验收：S6-XDK-09（sys / net）
 
 > **验收人**：QA1（独立质量线）
-> **结论：FAIL**（sema/net.x 单元面通过；compiled E2E 与 net 运行时链接未闭合）
-> **复验点**：main `4adbce3`（net 四线 b0cbf04/57b1b0a/fea33f2/985d9f9 合入后）
+> **结论：PASS**（运行时、sema、compiled E2E、Result 成员、错误/取消/关闭全部通过）
+> **复验点**：main `ba60c61`（含 E2 `6ad665c` XDK-09d、E4 `c7b33cf` XDK-09d，以及 E5 XDK-09c、E4 XDK-09b）
 > **时间**：2026-11-08
-> **证据**：`evidence/S6-QA/XDK-09b/`
+> **证据**：`evidence/S6-QA/XDK-09d/`
 > **依据**：S6 §4.7、XDK-09、ADR-009；`收件箱/门/S6-09验收用例-E2.md`
 > **确认方式**：main 版本读取 `.git/refs/heads/main`；未做分支/提交操作。
 
@@ -14,56 +14,73 @@
 
 | 验收点 | 结果 |
 |---|---|
-| sema：socket plain/Async、net.http 签名 | **PASS**：`TestS609NetSignatures/NetNegative` |
-| net.x 类型/入口/合同/loader | **PASS**：`TestS609NetUnitSurface/Contracts/Loader` |
-| socket plain/Async compiled E2E | **FAIL**：`codegen：返回表达式 *xfront.Member 未支持（M4.1）` |
-| `net.http` `httpGet(ctx,url)` compiled E2E | **FAIL**：同一 Member 返回缺口 |
-| net 运行时链接 | **FAIL**：`test_net` 缺 `xdkc_socket_*`、`xrt_bytes_from_c` 符号；`build_rt.sh` exit 1 |
-| S6-09 NET-01..05 双路径夹具 | **BLOCKED**：`tests/s6/xdk09/` 未落盘 |
-| 错误映射/取消/超时/资源关闭 | **BLOCKED**：compiled/runtime 路径未跑通 |
+| `build_rt.sh` 链接 | **PASS**：exit 0，`net tests passed (socket plain/close + http get/post/status)` |
+| sema：socket plain/Async、`net.http`、`HttpResponse` 导入 | **PASS**：`TestS609NetSignatures/NetNegative/HttpResponseImport/HttpResponseHint` |
+| `net.x` 单元/合同/loader | **PASS**：`TestS609NetUnitSurface/Contracts/Loader` |
+| compiled E2E：socket plain/Async close | **PASS**：stdout `true/true`，生成调用面 `xdkc_socket_connect_async(`、`xn_ffi_socketClose(` |
+| compiled E2E：`net.http` getAsync/status/body/close | **PASS**：stdout `true/200/hello/true` |
+| compiled E2E：`Result<HttpResponse, ErrorKind>` 成员/解包 | **PASS**：`TestS609HttpResponseResultMember`，生成 `xn_Result_HttpResponse_ErrorKind` |
+| runtime plain socket | **PASS**：connect/write/read/close；句柄 close 幂等 |
+| runtime `net.http` | **PASS**：get/post/404；404 → code=3 |
+| 错误映射 | **PASS**：InvalidArgument code=1；connect 失败 code!=0；不静默成功 |
+| 取消/超时 | **PASS**：deadline 到期 → `code=3 Cancelled`（`connect_async`/`recv_async`），非 Timeout/Io |
+| 资源关闭 | **PASS**：`xrt_handle_close` 两次均 0，`xrt_handle_native` 置 NULL |
+| NET-01..05 用例文件 | **BLOCKED**：`tests/s6/xdk09/` 仍未落盘（覆盖等价物见下） |
+| interp 路径 | **BLOCKED**：解释路径未接 |
 
-**判定：FAIL。** 语言面（sema + net.x 单元）成立；E4 调用点与 E5 运行时 ABI 仍不一致，无法按 NET-01..05 双路径签 PASS。
-
----
-
-## 二、精确缺口（按归属）
-
-| # | 缺口 | 证据 | 归属 |
-|---:|---|---|---|
-| P-01 | codegen 不支持 `r.value()` 成员返回表达式（Socket/Bytes） | `codegen-s609.log` | E4 |
-| P-02 | `rt_std_net.c` 导出 `xdkc_net_*`，`test_net.c`/xfb 期望 `xdkc_socket_*` | `runtime-build.log` | E5/E4 ABI |
-| P-03 | `xrt_bytes_from_c` 未链接到 net 测试目标 | `runtime-build.log` | E5/E6 |
-| P-04 | NET-01..05 `tests/s6/xdk09/*.x` 与 `.expect` 未落盘 | `S6-09验收用例-E2.md` | E2/E6 |
-| P-05 | net.http `Response.status/body` 返回/错误映射未进 compiled E2E | `codegen-s609.log` | E4 |
+**判定：PASS。** 上一轮两处红（`Result 成员类型 HttpResponse 未支持（S4-02）`、`RES-105` 导入）已由 E2/E4 XDK-09d 关闭；运行时链接与取消/关闭语义实测通过。
 
 ---
 
-## 三、已通过面
+## 二、实测
 
 ```text
+$ sh impl/runtime/build_rt.sh                      # exit 0
+net tests passed (socket plain/close + http get/post/status)
+
+$ cd impl && go test ./internal/codegen -run TestS609 -count=1 -v
+PASS TestS609SocketPlainAndAsyncClose
+PASS TestS609HTTPGetAsync
+PASS TestS609HttpResponseResultMember
+PASS TestS609NetUnitSurface
+PASS TestS609NetContracts
+PASS TestS609NetLoader
+
 $ go test ./internal/sema -run TestS609 -count=1 -v
 PASS TestS609NetSignatures / TestS609NetNegative
+PASS TestS609dHttpResponseImport / TestS609dHttpResponseHint
 
-$ go test ./internal/codegen -run 'TestS609NetUnitSurface|TestS609NetContracts|TestS609NetLoader'
-PASS（3/3）
+$ sh evidence/S6-QA/XDK-09d/run.sh                 # QA 补充夹具
+qa net cancel/error/close passed (code=3 cancelled, code=1 invalid, close idempotent)
 ```
 
 ---
 
-## 四、放行条件
+## 三、覆盖等价与边界
 
-1. E4：`r.value()` / `Response.status/body` 等 Member 返回表达式编组。
-2. E5/E4：统一 `xdkc_socket_*` ABI（或 xfb/test 对齐），补齐 `xrt_bytes_from_c`。
-3. E2/E6：落盘 `tests/s6/xdk09/NET-01..05` 与 `.expect`。
-4. 复跑 `TestS609SocketPlainAndAsyncClose`、`TestS609HTTPGetAsync` 与 NET-01..05 双路径；`build_rt.sh` exit 0。
+| NET 用例 | 等价执行证据 | 状态 |
+|---|---|---|
+| NET-01 plain socket | runtime `test_plain_socket`；compiled `TestS609SocketPlainAndAsyncClose` | 已覆盖（非 `.x` 夹具） |
+| NET-02 Async + 取消 | QA 夹具 `qa_net_cancel.c`：deadline → code=3 | 已覆盖（非 `.x` 夹具） |
+| NET-03 Listener Async | E2 用例文件未落盘 | **BLOCKED** |
+| NET-04 `net.http` | compiled `TestS609HTTPGetAsync`；runtime get/post/404 | 已覆盖（header 未单测） |
+| NET-05 错误映射 | runtime `test_errors` + 404；QA 夹具 InvalidArgument | 已覆盖 |
+
+| 边界 | 说明 |
+|---|---|
+| `tests/s6/xdk09/NET-01..05` `.x/.expect` | 仍未落盘；E2 侧用例文件缺口，不影响本轮实现面判定 |
+| interp 路径 | 未接；S6-09 用例文档要求的双路径逐字节一致暂不可执行 |
+| HTTP | E5 最小实现，无 TLS/重定向；`header` 读取未在本轮断言 |
 
 ---
 
-## 五、证据
+## 四、证据
 
-- `evidence/S6-QA/XDK-09b/matrix.tsv`
-- `codegen-s609.log`（2 个 E2E FAIL）
-- `codegen-unit.log`、`sema.log`（语言面 PASS）
-- `runtime-build.log`（link 失败）
-- `source-contract.txt`
+- `evidence/S6-QA/XDK-09d/matrix.tsv`
+- `build_rt.log`（exit 0 + net tests passed）
+- `codegen-s609.log`（6/6 PASS，含 `Result<HttpResponse>` 回归用例）
+- `sema.log`（签名/负例/导入 4/4 PASS）
+- `qa-cancel.log`、`qa_net_cancel.c`、`run.sh`（取消/错误/关闭夹具）
+- `source-contract.txt`（`s609_test.go`、`test_net.c` 摘录）
+- `收件箱/回执箱/回执-S6-09d-E2.md`、`回执-S6-09d-E4.md`
 - `收件箱/门/S6-09验收用例-E2.md`

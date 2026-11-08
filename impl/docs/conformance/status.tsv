@@ -34,7 +34,7 @@ FFI-03	收件箱/回执箱/验收-S7-FFI-03.md	PASS
 FFI-05	收件箱/回执箱/验收-S7-FFI-05.md	PASS
 FFI-06	收件箱/回执箱/验收-S7-FFI-06.md	PASS
 XDK-06	收件箱/回执箱/验收-S6-XDK-06.md	PASS
-XDK-09	sys 可用；net 骨架（P2，S6-09 后置）	部分
+XDK-09	impl/runtime/rt_std_net.c + impl/lib/xdk/net.x + 收件箱/回执箱/验收-S6-XDK-09.md	PASS
 BND-01	internal/sema/s2_bnd_test.go + 收件箱/回执箱/验收-S2-BND-01.md	PASS
 BND-02	internal/sema/s2_bnd02_test.go + internal/codegen/s2_object_test.go + 收件箱/回执箱/验收-S2-BND-02.md	PASS
 BND-05	internal/sema/s2_bnd_test.go + 收件箱/回执箱/验收-S2-BND-05.md	PASS
