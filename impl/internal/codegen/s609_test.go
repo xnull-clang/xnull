@@ -136,3 +136,36 @@ static Int main() {
 		t.Fatalf("stdout=%q，期望 true/200/hello/true", got)
 	}
 }
+
+// XDK-09d：Result<HttpResponse, Error> 成员类型/解包。
+func TestS609HttpResponseResultMember(t *testing.T) {
+	dir := t.TempDir()
+	writeFFIFile(t, filepath.Join(dir, "main.x"), `import xdk.net.http
+import xdk.errors
+
+static Int main() {
+    Bytes body = Bytes.fromString("")
+    Result<HttpResponse, ErrorKind> r = httpRequest("GET", "127.0.0.1", 1, "/", body)
+    return 0
+}
+`)
+	xfb, err := os.ReadFile(filepath.Join("..", "..", "..", "bindings", "xdk", "net.xfb"))
+	if err != nil {
+		t.Skipf("net.xfb 不可用：%v", err)
+	}
+	writeFFIFile(t, filepath.Join(dir, "bindings", "xdk", "net.xfb"), string(xfb))
+	var stderr bytes.Buffer
+	bin := filepath.Join(t.TempDir(), "prog")
+	code := BuildWithOptions(filepath.Join(dir, "main.x"), bin,
+		filepath.Join("..", "..", "runtime"), Options{}, &stderr)
+	if code != 0 {
+		t.Fatalf("构建失败 code=%d\n%s", code, stderr.String())
+	}
+	csrc, err := os.ReadFile(bin + ".c")
+	if err != nil {
+		t.Fatalf("读取生成 C：%v", err)
+	}
+	if !strings.Contains(string(csrc), "xn_Result_HttpResponse_ErrorKind") {
+		t.Fatalf("缺少 Result<HttpResponse, ErrorKind> 实例：\n%s", csrc)
+	}
+}

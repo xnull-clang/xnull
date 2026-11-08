@@ -1,0 +1,16 @@
+=== RUN   TestS609SocketPlainAndAsyncClose
+--- PASS: TestS609SocketPlainAndAsyncClose (1.94s)
+=== RUN   TestS609HTTPGetAsync
+--- PASS: TestS609HTTPGetAsync (1.93s)
+=== RUN   TestS609HttpResponseResultMember
+--- PASS: TestS609HttpResponseResultMember (1.38s)
+=== RUN   TestS609NetUnitSurface
+--- PASS: TestS609NetUnitSurface (0.00s)
+=== RUN   TestS609NetContracts
+--- PASS: TestS609NetContracts (0.01s)
+=== RUN   TestS609NetLoader
+--- PASS: TestS609NetLoader (0.00s)
+PASS
+ok  	xnull.dev/xnull/internal/codegen	5.737s
+ok  	xnull.dev/xnull/internal/sema	0.869s
+ok  	xnull.dev/xnull/internal/cli	3.904s
