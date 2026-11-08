@@ -1381,7 +1381,6 @@ static String expr(N x, EM e, SC sc) {
                     String an = classArrName(mt2)
                     String t = e.nt()
                     e.add(cType(objArrElem(mt2)) + " " + t + " = " + an + "_get(" + xb + ", " + a0 + ");")
-                    e.raw("xn_root_add(" + t + ");")
                     return t
                 }
                 if isTupList(mt2) { return arrTupName(mt2) + "_get(" + xb + ", " + a0 + ")" }
@@ -2193,7 +2192,6 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String t = e.nt()
                     if val0.nm == "New" { e.add(cType(mcls) + " " + t + " = " + expr(val0, e, sc) + ";") }
                     else { e.add(cType(mcls) + " " + t + " = rt_retain(" + expr(val0, e, sc) + ");") }
-                    e.raw("xn_root_add(" + t + ");")
                     e.add("rt_release(" + mnm + ");")
                     e.add(mnm + " = " + t + ";")
                 } else {
