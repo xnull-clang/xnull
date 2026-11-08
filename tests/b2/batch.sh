@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-# S8-21：B2 差分批处理——L1 语料按 B2_JOBS 分片并行，L2/L3 并行跑一次。
-# 用法：B2_JOBS=4 bash tests/b2/batch.sh
+# S8-21：B2 差分批处理——L1 语料按分片并行，L2/L3 并行跑一次。
+# 用法：bash tests/b2/batch.sh [--parallel N]（等价 B2_JOBS=N，默认 4）
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 JOBS=${B2_JOBS:-4}
+# 兼容 `--parallel N`（handoff/test-policy.md 标准命令）与 `B2_JOBS=N`。
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --parallel|-j) JOBS=${2:-4}; shift 2 ;;
+    --parallel=*) JOBS=${1#*=}; shift ;;
+    *) shift ;;
+  esac
+done
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/b2-batch.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT

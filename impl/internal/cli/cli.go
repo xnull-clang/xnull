@@ -278,6 +278,8 @@ var knownFlags = map[string]struct{}{
 	"--no-test": {}, "--record-green": {}, "--since": {}, "--write": {},
 	"--resources": {}, "--all": {},
 	"--mem": {}, "--stats": {},
+	// S8-21：`xnull dev test` 的开发期测试开关（--fast/--merge/--shard/--parallel）。
+	"--fast": {}, "--merge": {}, "--shard": {}, "--parallel": {},
 }
 
 func notImplemented(env Env, name string) int {

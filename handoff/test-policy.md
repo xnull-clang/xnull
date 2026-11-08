@@ -23,6 +23,9 @@
 
 ## 当前实现
 
-- `xnull dev test --shard/--parallel` 已在 S8-21 WIP 中实现；
-- codegen 测试的 `libxnrt.a` 链路待隔离测量后决定保留或回退；
-- B2 差分 `tests/b2/batch.sh` 已具备批处理基础。
+- `xnull dev test --shard k/n --parallel N` 已实现：按测试名 FNV-1a 哈希取模切片（S8-21）；
+- `--shard 0/n` 一次跑完全部 1..n 片并聚合，任一片红即整体红（合并门禁口径）；
+- 必须串行的用例登记在 `handoff/serial-tests.txt`（每行一个一级测试名，`#` 注释）：工具把它们从切片中摘出，等所有分片结束后单独串行跑一次；
+- `xnull dev test --merge` 持有 `handoff/merge.lock`，同一时刻只允许一套全量；
+- codegen 测试经 `libxnrt.a`（缓存命中 0.2s）链接运行时，冷/热数据见 `handoff/test-speed.md`；
+- B2 差分 `tests/b2/batch.sh` 已按分片并行（实测 PASS=101 FAIL=0 @ JOBS=4）。

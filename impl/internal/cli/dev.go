@@ -3,10 +3,13 @@ package cli
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -23,7 +26,8 @@ import (
 //   - res：错误一律 2，并以 "gen_resources: " 前缀输出（保持诊断文本一致）。
 func runDev(env Env, args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(env.Stderr, "xnull: 用法：xnull dev <check|ledger|res|board|test> ...")
+		fmt.Fprintln(env.Stderr, "xnull: 用法：xnull dev <check|ledger|res|board> ...")
+		fmt.Fprintln(env.Stderr, "xnull: 用法：xnull dev test [--fast] [--merge] [--shard k/n] [--parallel N] [包...]")
 		return exitcode.Usage
 	}
 
@@ -194,6 +198,9 @@ func runDevTest(env Env, args []string) int {
 		}
 		defer release()
 	}
+	// 所有测试统一走切片并发（AGENTS 测试硬规则 1/2）：
+	// 未显式 --shard 时默认 0/4（跑完全部 4 片并聚合），--merge 再保证并发不低于 4。
+	shard, parallel = gatePlan(merge, shard, parallel)
 	targets := pkgs
 	if len(targets) == 0 && fast {
 		targets = changedPackages(root)
@@ -203,13 +210,7 @@ func runDevTest(env Env, args []string) int {
 	} else {
 		targets = expandPackages(targets)
 	}
-	if shard != "" {
-		return runSharded(env, root, targets, shard, parallel)
-	}
-	if parallel > 1 {
-		return runAutoParallel(env, root, targets, parallel)
-	}
-	return goTest(env, root, targets, "")
+	return runSharded(env, root, targets, shard, parallel)
 }
 
 func expandPackages(pkgs []string) []string {
@@ -256,119 +257,197 @@ func changedPackages(root string) []string {
 	return nil
 }
 
-func goTest(env Env, root string, targets []string, runRe string) int {
-	args := []string{"test", "-count=1", "-timeout", "600s"}
-	if runRe != "" {
-		args = append(args, "-run", runRe)
+// gatePlan 落实「所有测试切片并发 + 合并门禁跑完全部 shard」：
+// 未指定分片时默认 0/4（全部 4 片并聚合）；--merge 时并发不足 4 抬到 4。
+func gatePlan(merge bool, shard string, parallel int) (string, int) {
+	if shard == "" {
+		shard = "0/4"
 	}
-	args = append(args, targets...)
-	cmd := exec.Command("go", args...)
-	cmd.Dir = filepath.Join(root, "impl")
-	cmd.Stdout = env.Stdout
-	cmd.Stderr = env.Stderr
-	fmt.Fprintf(env.Stderr, "xnull: go %s\n", strings.Join(args, " "))
-	if err := cmd.Run(); err != nil {
-		return exitcode.BuildFail
+	if merge && parallel < 4 {
+		parallel = 4
 	}
-	return exitcode.Success
+	return shard, parallel
 }
 
-// runSharded 按一级测试名取模分片；--parallel 同时跑多个分片。
-func runSharded(env Env, root string, targets []string, shard string, parallel int) int {
-	var k, n int
-	if _, err := fmt.Sscanf(shard, "%d/%d", &k, &n); err != nil || n < 1 || k < 1 || k > n {
-		fmt.Fprintf(env.Stderr, "xnull: --shard 需形如 1/4（且 1<=k<=n），实际 %q\n", shard)
-		return exitcode.Usage
-	}
-	listCmd := exec.Command("go", append([]string{"test", "-list", "^Test"}, targets...)...)
-	listCmd.Dir = filepath.Join(root, "impl")
-	out, err := listCmd.Output()
+// shardOf 用 FNV-1a 哈希把一级测试名稳定映射到 [0,n)。
+// 切片只依赖测试名本身：增删其他用例不影响已有用例的归属（AGENTS 测试硬规则 5）。
+func shardOf(name string, n int) int {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(name))
+	return int(h.Sum32() % uint32(n))
+}
+
+// listTests 列举目标包的一级测试名（去重、保序）。
+func listTests(root string, targets []string) ([]string, error) {
+	cmd := exec.Command("go", append([]string{"test", "-list", "^Test"}, targets...)...)
+	cmd.Dir = filepath.Join(root, "impl")
+	out, err := cmd.Output()
 	if err != nil {
-		fmt.Fprintf(env.Stderr, "xnull: 列举测试失败：%v\n", err)
-		return exitcode.BuildFail
+		return nil, err
 	}
+	seen := map[string]bool{}
 	var names []string
 	for _, line := range strings.Split(string(out), "\n") {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Test") {
+		if strings.HasPrefix(line, "Test") && !seen[line] {
+			seen[line] = true
 			names = append(names, line)
 		}
+	}
+	return names, nil
+}
+
+// serialTests 读取 handoff/serial-tests.txt：每行一个一级测试名，# 开头为注释。
+// 登记在此的用例必须串行执行（并发/GC 压力、固定端口、全局状态），不得默默并发。
+func serialTests(root string) map[string]bool {
+	mark := make(map[string]bool)
+	data, err := os.ReadFile(filepath.Join(root, "handoff", "serial-tests.txt"))
+	if err != nil {
+		return mark
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		mark[line] = true
+	}
+	return mark
+}
+
+// splitTests 按稳定哈希分片；串行标记的用例单独返回，保证只跑一次且不并发。
+func splitTests(names []string, n int, serial map[string]bool) ([][]string, []string) {
+	shards := make([][]string, n)
+	var serialList []string
+	for _, name := range names {
+		if serial[name] {
+			serialList = append(serialList, name)
+			continue
+		}
+		i := shardOf(name, n)
+		shards[i] = append(shards[i], name)
+	}
+	return shards, serialList
+}
+
+func runReFor(names []string) string {
+	if len(names) == 0 {
+		return ""
+	}
+	quoted := make([]string, len(names))
+	for i, name := range names {
+		quoted[i] = regexp.QuoteMeta(name)
+	}
+	return "^(" + strings.Join(quoted, "|") + ")$"
+}
+
+// runSharded 按稳定哈希分片；k=0 表示跑全部 1..n 片并聚合（合并门禁口径），
+// --parallel 决定同时跑几个分片。串行标记的用例在最后单独串行跑一次。
+func runSharded(env Env, root string, targets []string, shard string, parallel int) int {
+	var k, n int
+	if _, err := fmt.Sscanf(shard, "%d/%d", &k, &n); err != nil || n < 1 || k < 0 || k > n {
+		fmt.Fprintf(env.Stderr, "xnull: --shard 需形如 1/4（0/4 表示跑全部；且 0<=k<=n），实际 %q\n", shard)
+		return exitcode.Usage
+	}
+	names, err := listTests(root, targets)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "xnull: 列举测试失败：%v\n", err)
+		return exitcode.BuildFail
 	}
 	if len(names) == 0 {
 		fmt.Fprintln(env.Stderr, "xnull: 没有可分片的测试")
 		return exitcode.BuildFail
 	}
-	var mine []string
-	for i, name := range names {
-		if i%n == k-1 {
-			mine = append(mine, name)
+	shards, serialList := splitTests(names, n, serialTests(root))
+	var jobs []testJob
+	for i := 0; i < n; i++ {
+		if k != 0 && i != k-1 {
+			continue
+		}
+		jobs = append(jobs, testJob{label: fmt.Sprintf("分片 %d/%d（%d 例）", i+1, n, len(shards[i])), run: runReFor(shards[i])})
+	}
+	if k == 0 || k == 1 {
+		if len(serialList) > 0 {
+			jobs = append(jobs, testJob{label: fmt.Sprintf("串行标记（%d 例）", len(serialList)), run: runReFor(serialList), serial: true})
 		}
 	}
-	if len(mine) == 0 {
-		return exitcode.Success
-	}
-	runRe := "^(" + strings.Join(mine, "|") + ")$"
-	return goTest(env, root, targets, runRe)
+	return runJobs(env, root, targets, jobs, parallel)
 }
 
 // runAutoParallel 把目标包的一级测试按 N 片并发跑（每片独立 go test 进程）。
 func runAutoParallel(env Env, root string, targets []string, n int) int {
-	listCmd := exec.Command("go", append([]string{"test", "-list", "^Test"}, targets...)...)
-	listCmd.Dir = filepath.Join(root, "impl")
-	out, err := listCmd.Output()
-	if err != nil {
-		fmt.Fprintf(env.Stderr, "xnull: 列举测试失败：%v\n", err)
-		return exitcode.BuildFail
+	return runSharded(env, root, targets, "0/"+strconv.Itoa(n), n)
+}
+
+// testJob 是一次 go test 调用（一个分片或一组串行用例）。
+type testJob struct {
+	label  string
+	run    string
+	serial bool
+	out    *safeBuffer
+}
+
+// runJobs 以 parallel 并发执行 jobs；串行标记的 job 在其余 job 结束后再跑。
+// 任一分片红即整体红（AGENTS 测试硬规则 3）。
+func runJobs(env Env, root string, targets []string, jobs []testJob, parallel int) int {
+	if parallel < 1 {
+		parallel = 1
 	}
-	var names []string
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "Test") {
-			names = append(names, line)
-		}
+	if len(jobs) == 0 {
+		fmt.Fprintln(env.Stderr, "xnull: 该分片没有用例")
+		return exitcode.Success
 	}
-	if len(names) == 0 {
-		fmt.Fprintln(env.Stderr, "xnull: 没有可并行的测试")
-		return exitcode.BuildFail
-	}
-	if n > len(names) {
-		n = len(names)
-	}
-	type job struct {
-		idx int
-		run string
-		out *safeBuffer
-	}
-	jobs := make([]*job, n)
-	for i := 0; i < n; i++ {
-		var mine []string
-		for j, name := range names {
-			if j%n == i {
-				mine = append(mine, name)
-			}
-		}
-		jobs[i] = &job{idx: i, run: "^(" + strings.Join(mine, "|") + ")$", out: &safeBuffer{}}
-	}
-	var wg sync.WaitGroup
 	failed := false
-	for _, jb := range jobs {
-		wg.Add(1)
-		go func(jb *job) {
-			defer wg.Done()
-			args := []string{"test", "-count=1", "-timeout", "600s", "-run", jb.run}
-			args = append(args, targets...)
-			cmd := exec.Command("go", args...)
-			cmd.Dir = filepath.Join(root, "impl")
-			cmd.Stdout = jb.out
-			cmd.Stderr = jb.out
-			if err := cmd.Run(); err != nil {
-				failed = true
-			}
-		}(jb)
+	// idxs 是 jobs 的下标，避免拷贝 testJob 导致 out 指针丢失。
+	runAll := func(idxs []int, workers int) {
+		sem := make(chan struct{}, workers)
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		for _, idx := range idxs {
+			jb := &jobs[idx]
+			sem <- struct{}{}
+			wg.Add(1)
+			go func(jb *testJob) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				args := []string{"test", "-count=1", "-timeout", "900s"}
+				if jb.run != "" {
+					args = append(args, "-run", jb.run)
+				}
+				args = append(args, targets...)
+				cmd := exec.Command("go", args...)
+				cmd.Dir = filepath.Join(root, "impl")
+				cmd.Stdout = jb.out
+				cmd.Stderr = jb.out
+				if err := cmd.Run(); err != nil {
+					mu.Lock()
+					failed = true
+					mu.Unlock()
+				}
+			}(jb)
+		}
+		wg.Wait()
 	}
-	wg.Wait()
-	for _, jb := range jobs {
-		fmt.Fprintf(env.Stdout, "---- 并行分片 %d ----\n%s", jb.idx+1, jb.out.String())
+	for i := range jobs {
+		jobs[i].out = &safeBuffer{}
+	}
+	var concurrent, sequential []int
+	for i := range jobs {
+		if jobs[i].serial {
+			sequential = append(sequential, i)
+		} else {
+			concurrent = append(concurrent, i)
+		}
+	}
+	runAll(concurrent, parallel)
+	runAll(sequential, 1)
+	for i := range jobs {
+		jb := &jobs[i]
+		status := "绿"
+		if strings.Contains(jb.out.String(), "\nFAIL") {
+			status = "红"
+		}
+		fmt.Fprintf(env.Stdout, "---- %s：%s ----\n%s", jb.label, status, jb.out.String())
 	}
 	if failed {
 		return exitcode.BuildFail

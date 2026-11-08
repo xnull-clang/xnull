@@ -3,15 +3,26 @@
 set -e
 cd "$(dirname "$0")"
 
-# S8-21：--lib 只产出预编译静态库 libxnrt.a（codegen 测试链接用，不重编 rt*.c）。
+# S8-21：--lib 按运行时源文件内容 SHA-256 缓存静态库 libxnrt.a。
+# 命中缓存直接复用；未命中才编译 11 个 C 源。缓存键含编译旗标版本。
 if [ "${1:-}" = "--lib" ]; then
+  SRCS="rt.c rt_policy.c rt_gc.c rt_weak.c xrt_abi.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c rt_task.c rt_sync.c"
+  hash=$( { echo "cflags=-std=c11 -O2 -pthread -I. v1"; cat $SRCS; } | shasum -a 256 | awk '{print $1}')
+  cache=".cache/libxnrt-$hash.a"
+  mkdir -p .cache
+  if [ -f "$cache" ]; then
+    cp "$cache" libxnrt.a
+    echo "libxnrt.a 命中缓存：$cache"
+    exit 0
+  fi
   obj=$(mktemp -d)
   trap 'rm -rf "$obj"' EXIT
-  for f in rt rt_policy rt_gc rt_weak xrt_abi rt_std_runtime rt_std_text rt_std_sys rt_std_bytes rt_task rt_sync; do
-    cc -std=c11 -O2 -pthread -I. -c "$f.c" -o "$obj/$f.o"
+  for f in $SRCS; do
+    cc -std=c11 -O2 -pthread -I. -c "$f" -o "$obj/${f%.c}.o"
   done
   ar rcs libxnrt.a "$obj"/*.o
-  echo "libxnrt.a 就绪：$(pwd)/libxnrt.a"
+  cp libxnrt.a "$cache"
+  echo "libxnrt.a 已构建并缓存：$cache"
   exit 0
 fi
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_rt test_rt.c rt.c rt_policy.c rt_gc.c rt_weak.c

@@ -74,6 +74,10 @@ func TestDevTestFastAndShard(t *testing.T) {
 	if code, out, errOut := devTest("--fast", "--parallel", "2", "devtool"); code != exitcode.Success {
 		t.Fatalf("--parallel 2 devtool 应通过：%s%s", out, errOut)
 	}
+	// 合并门禁口径：0/n 跑全部 shard 并聚合，任一红即整体红。
+	if code, out, errOut := devTest("--fast", "--shard", "0/2", "manifest"); code != exitcode.Success {
+		t.Fatalf("--shard 0/2（全部聚合）manifest 应通过：%s%s", out, errOut)
+	}
 }
 
 func TestMergeLockExclusive(t *testing.T) {
@@ -88,5 +92,69 @@ func TestMergeLockExclusive(t *testing.T) {
 	release()
 	if _, err := acquireMergeLock(root); err != nil {
 		t.Fatalf("释放后应可再次加锁：%v", err)
+	}
+}
+
+// S8-21（测试硬规则 5）：分片必须按测试名稳定哈希，增删其他用例不改变归属。
+func TestShardHashStable(t *testing.T) {
+	for _, name := range []string{"TestA", "TestS2StructValueCopy", "TestExamplesCompileMatchesInterp"} {
+		first := shardOf(name, 4)
+		if first != shardOf(name, 4) {
+			t.Fatalf("%s 分片不稳定", name)
+		}
+		if first < 0 || first > 3 {
+			t.Fatalf("%s 分片越界：%d", name, first)
+		}
+	}
+	names := []string{"T1", "T2", "T3", "T4", "T5", "T6", "T7"}
+	shards, serial := splitTests(names, 3, map[string]bool{"T3": true})
+	seen := map[string]int{}
+	for _, group := range shards {
+		for _, n := range group {
+			seen[n]++
+		}
+	}
+	for _, n := range serial {
+		seen[n]++
+	}
+	for _, n := range names {
+		if seen[n] != 1 {
+			t.Fatalf("%s 出现 %d 次（分片必须不重不漏）", n, seen[n])
+		}
+	}
+	if len(serial) != 1 || serial[0] != "T3" {
+		t.Fatalf("串行标记应只包含 T3，实际 %v", serial)
+	}
+}
+
+// S8-21（测试硬规则 4）：串行用例显式登记在 handoff/serial-tests.txt。
+func TestSerialTestsMarkFile(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "handoff"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "# 并发/端口/全局状态用例\nTestX\n\nTestY\n"
+	if err := os.WriteFile(filepath.Join(root, "handoff", "serial-tests.txt"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mark := serialTests(root)
+	if !mark["TestX"] || !mark["TestY"] || len(mark) != 2 {
+		t.Fatalf("串行标记解析错误：%v", mark)
+	}
+}
+
+// S8-21（测试硬规则 3）：合并门禁必须跑完全部分片。
+func TestGatePlanAllShards(t *testing.T) {
+	if shard, par := gatePlan(true, "", 1); shard != "0/4" || par != 4 {
+		t.Fatalf("--merge 默认应为 0/4、并发 4，实际 %q/%d", shard, par)
+	}
+	if shard, par := gatePlan(true, "2/3", 2); shard != "2/3" || par != 4 {
+		t.Fatalf("显式分片应保留，并发抬到 4，实际 %q/%d", shard, par)
+	}
+	if shard, par := gatePlan(false, "", 1); shard != "0/4" || par != 1 {
+		t.Fatalf("未指定分片应默认 0/4（全部片跑完并聚合），实际 %q/%d", shard, par)
+	}
+	if shard, par := gatePlan(false, "3/4", 2); shard != "3/4" || par != 2 {
+		t.Fatalf("显式分片与并发应原样保留，实际 %q/%d", shard, par)
 	}
 }
