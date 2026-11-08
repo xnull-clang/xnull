@@ -1,0 +1,21 @@
+=== RUN   TestPlanTopologicalOrder
+--- PASS: TestPlanTopologicalOrder (0.02s)
+=== RUN   TestPlanValidation
+=== RUN   TestPlanValidation/重复_GAV
+=== RUN   TestPlanValidation/环
+=== RUN   TestPlanValidation/starter_含_src_失败
+=== RUN   TestPlanValidation/starter_依赖传递给使用者
+--- PASS: TestPlanValidation (0.02s)
+    --- PASS: TestPlanValidation/重复_GAV (0.01s)
+    --- PASS: TestPlanValidation/环 (0.01s)
+    --- PASS: TestPlanValidation/starter_含_src_失败 (0.01s)
+    --- PASS: TestPlanValidation/starter_依赖传递给使用者 (0.01s)
+=== RUN   TestBuildFailFast
+--- PASS: TestBuildFailFast (0.02s)
+PASS
+ok  	xnull.dev/xnull/internal/reactor	1.067s
+=== RUN   TestReactorAggregateBuild
+--- PASS: TestReactorAggregateBuild (1.72s)
+PASS
+ok  	xnull.dev/xnull/internal/cli	3.535s
+exit=0

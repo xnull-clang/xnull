@@ -93,7 +93,7 @@ func valueText(v xpd.Value) string {
 // loadProjectManifest 使用 internal/manifest 的完整模型生成 build 视图：
 // parent 展开（relativePath）、属性替换、profile 合并、dependencyManagement/依赖图。
 // 错误一律带 XPD 码与位置（S8 §3）。
-func loadProjectManifest(root, profile string) (*projectManifest, *manifest.Resolved, []diag.Diagnostic) {
+func loadProjectManifest(root, profile string, managed map[string]string) (*projectManifest, *manifest.Resolved, []diag.Diagnostic) {
 	path := filepath.Join(root, manifestFile)
 	raw, err := os.ReadFile(path)
 	if err != nil {
@@ -104,6 +104,7 @@ func loadProjectManifest(root, profile string) (*projectManifest, *manifest.Reso
 		ToolchainVersion: Version,
 		Profiles:         profileList(profile),
 		Platform:         platformName(),
+		ManagedFallback:  managed,
 	})
 	if rerr != nil {
 		return nil, nil, []diag.Diagnostic{{File: manifestFile, Line: 1, Col: 1, Code: "XPD-201",
@@ -515,13 +516,18 @@ func manifestRuntimeDir(root string) string {
 
 // buildManifest 是 `xnull build`（清单模式）入口。
 func buildManifest(env Env, rest []string, dir string) (string, int) {
+	return buildManifestManaged(env, rest, dir, nil)
+}
+
+// buildManifestManaged 允许聚合 reactor 注入聚合根 dependencyManagement。
+func buildManifestManaged(env Env, rest []string, dir string, managed map[string]string) (string, int) {
 	root := findManifestRoot(dir)
 	if root == "" {
 		fmt.Fprintln(env.Stderr, (&diag.Diagnostic{File: "xnull", Line: 1, Col: 1, Code: codeManifestAbsent, Message: "找不到 xnull.project"}).String())
 		return "", exitcode.Usage
 	}
 	profile := flagValue(rest, "--profile")
-	m, res, mds := loadProjectManifest(root, profile)
+	m, res, mds := loadProjectManifest(root, profile, managed)
 	if len(mds) > 0 {
 		printDiags(env, mds)
 		return "", exitcode.Usage
@@ -534,6 +540,10 @@ func buildManifest(env Env, rest []string, dir string) (string, int) {
 	rt := manifestRuntimeDir(root)
 	if v := flagValue(rest, "--runtime"); v != "" {
 		rt = v
+	}
+	// 聚合根：pom + modules → 拓扑构建（S8-14）。
+	if m.Packaging == "pom" {
+		return runReactorBuild(env, rest, m.Root, profile)
 	}
 	if rt == "" {
 		fmt.Fprintln(env.Stderr, "xnull: 找不到运行时源码目录（rt.h）；用 --runtime 或 XNULL_RUNTIME 指定")

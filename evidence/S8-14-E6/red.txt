@@ -1,0 +1,14 @@
+# xnull.dev/xnull/internal/reactor [xnull.dev/xnull/internal/reactor.test]
+internal/reactor/reactor_test.go:96:19: undefined: Load
+internal/reactor/reactor_test.go:96:30: undefined: Options
+internal/reactor/reactor_test.go:142:15: undefined: Load
+internal/reactor/reactor_test.go:142:26: undefined: Options
+internal/reactor/reactor_test.go:163:15: undefined: Load
+internal/reactor/reactor_test.go:163:26: undefined: Options
+internal/reactor/reactor_test.go:189:15: undefined: Load
+internal/reactor/reactor_test.go:189:26: undefined: Options
+internal/reactor/reactor_test.go:238:20: undefined: Load
+internal/reactor/reactor_test.go:238:31: undefined: Options
+internal/reactor/reactor_test.go:238:31: too many errors
+FAIL	xnull.dev/xnull/internal/reactor [build failed]
+FAIL
