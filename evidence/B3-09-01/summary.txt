@@ -1,0 +1,1 @@
+B3-09-01 K-01: TopFunc/MethodDecl 以 Void 为权威（retKey），原型/定义/实例化统一 void；void 不生成 xn_ret、ReturnStmt 走 cleanup+return;；void 调用作为语句发射；String 字面量接收者 indexOf 补 emitStr。parser-seed raw 1365→1228（剩余为 K-06 类：函数体前 temp 编号 +4、其他发射类别）；不回归 bundle_text(0)/obj 4/4/containers 5/5/err 5/5/mem 11/11/ffi 5/5/bundle 4/4。

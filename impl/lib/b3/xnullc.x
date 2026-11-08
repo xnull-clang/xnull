@@ -587,7 +587,7 @@ static String factoryMethodRet(String fac, String mn) {
     N ms = fld(d, "Methods")
     Int i = 0
     while i < ms.el.length() {
-        if unq(txt(fld(ms.el.get(i), "Name"))) == mn { return typeKey(fld(ms.el.get(i), "Ret")) }
+        if unq(txt(fld(ms.el.get(i), "Name"))) == mn { return retKey(ms.el.get(i)) }
         i = i + 1
     }
     return factoryTarget(fac)
@@ -939,7 +939,7 @@ static String exprType(N x, SC sc) {
             if ta2.el.length() > 0 && isGenericFn(n) {
                 SUB_FROM = ["T"]
                 SUB_TO = [typeKey(ta2.el.get(0))]
-                String rt2 = typeKey(fld(genFnDecl(n), "Ret"))
+                String rt2 = retKey(genFnDecl(n))
                 SUB_FROM = []
                 SUB_TO = []
                 return rt2
@@ -1362,7 +1362,9 @@ static String expr(N x, EM e, SC sc) {
             if mt2 == "String" && (mn == "indexOf" || mn == "indexOfByte") {
                 String a0 = "0"
                 if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
-                return "xn_str_indexof(" + expr(mx, e, sc) + ", " + a0 + ")"
+                String rb = expr(mx, e, sc)
+                if mx.nm == "StrLitExpr" || mx.nm == "Member" { rb = emitStr(mx, e, sc) }
+                return "xn_str_indexof(" + rb + ", " + a0 + ")"
             }
             if mn == "length" {
                 if isSet(mt2) { return "((int64_t)" + expr(mx, e, sc) + "->a->len)" }
@@ -2304,14 +2306,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     return
                 }
             }
-            if args.el.length() > 0 { emitPrint(args.el.get(0), e, sc) }
+            if callee.nm == "IdentExpr" {
+                String bn2 = unq(txt(fld(callee, "Name")))
+                if bn2 == "print" && args.el.length() > 0 { emitPrint(args.el.get(0), e, sc); return }
+            }
+            if exprType(call, sc) == "void" { e.add(expr(call, e, sc) + ";") }
         }
         return
     }
     if st.nm == "ReturnStmt" {
         e.terminated = false
         N v = fld(st, "Value")
-        if sc.isCtor {
+        if sc.isCtor || sc.retKind == "void" {
             emitReturnClose(sc, e, "")
             return
         }
@@ -2758,7 +2764,7 @@ static void emitBlockExit(SC sc, EM e, Int ind) {
 
 static void emitFunc(N fn, EM e, SC sc) {
     String fname = unq(txt(fld(fn, "Name")))
-    String rk = typeKey(fld(fn, "Ret"))
+    String rk = retKey(fn)
     if fname == "main" { rk = "Int" }
     sc.retKind = rk
     sc.directRet = false
@@ -2873,10 +2879,13 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     dst.push("")
 }
 
+static String retKey(N fn) {
+    if txt(fld(fn, "Void")) == "true" { return "void" }
+    return typeKey(fld(fn, "Ret"))
+}
+
 static String clsMethRet(N m) {
-    String rt = typeKey(fld(m, "Ret"))
-    if txt(fld(m, "Void")) == "true" { rt = "void" }
-    return rt
+    return retKey(m)
 }
 static String clsMethSig(N m, String cn) {
     Bool stat = isStaticM(m)
@@ -2990,7 +2999,7 @@ static void emitClassSection(N cls, EM ce) {
         while i < ms.el.length() {
             N m = ms.el.get(i)
             String mn = unq(txt(fld(m, "Name")))
-            String rt = typeKey(fld(m, "Ret"))
+            String rt = retKey(m)
             N mps = fld(m, "Params")
             String sig = "xn_Cls_" + cn + "_" + mn + "(xn_Cls_" + cn + " *self"
             Int mj = 0
@@ -3233,7 +3242,7 @@ static void emitStructMethods(N st, EM ce) {
     while i < ms.el.length() {
         N m = ms.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
+        String rt = retKey(m)
         N mps = fld(m, "Params")
         String sig = "xn_Struct_" + sn + "_" + mn + "(xn_Struct_" + sn + " *self"
         Int mj = 0
@@ -3293,7 +3302,7 @@ static void emitExtensionMethods(N ext, EM ce) {
     while i < ems.el.length() {
         N m = ems.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
+        String rt = retKey(m)
         String cn = "xn_Cls_" + et + "_ext_" + mn + "_" + str(i + 1)
         ce.add("static " + cType(rt) + " " + cn + "(xn_Cls_" + et + " *self) {")
         SC msc = new SC()
@@ -3321,7 +3330,7 @@ static void emitFactoryMethods(N fac, EM ce) {
     while i < ms.el.length() {
         N m = ms.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
+        String rt = retKey(m)
         N mps = fld(m, "Params")
         String sig = "xn_Factory_" + fn + "_" + mn + "("
         Int mj = 0
@@ -3447,7 +3456,7 @@ static void emitDataEnumMethods(N de, EM e) {
     while i < ms.el.length() {
         N m = ms.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
+        String rt = retKey(m)
         e.add("static " + cType(rt) + " xn_Enum_" + en + "_" + mn + "(xn_Enum_" + en + " *self);")
         e.raw("")
         e.add("static " + cType(rt) + " xn_Enum_" + en + "_" + mn + "(xn_Enum_" + en + " *self) {")
@@ -3536,7 +3545,7 @@ static void emitSingletonSection(N sg, EM ce) {
     while i < ms.el.length() {
         N m = ms.el.get(i)
         String mn = unq(txt(fld(m, "Name")))
-        String rt = typeKey(fld(m, "Ret"))
+        String rt = retKey(m)
         N mps = fld(m, "Params")
         String sig = "xn_Single_" + sn + "_" + mn + "(xn_Single_" + sn + " *self"
         Int mj = 0
@@ -3774,7 +3783,7 @@ static String genProtos() {
         N fn = genFnDecl(INST_FN.get(i))
         SUB_FROM = ["T"]
         SUB_TO = [INST_KEYS.get(i)]
-        String rt = typeKey(fld(fn, "Ret"))
+        String rt = retKey(fn)
         b = b + "static " + cType(rt) + " " + INST_NAME.get(i) + "(" + paramsOf(fn) + ");\n"
         i = i + 1
     }
@@ -3924,7 +3933,7 @@ static void addClsInst(String cn, String key) {
     while fi < ms.el.length() {
         MTH_OWNER.push(inst)
         MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
-        MTH_RET.push(typeKey(fld(ms.el.get(fi), "Ret")))
+        MTH_RET.push(retKey(ms.el.get(fi)))
         fi = fi + 1
     }
     SUB_FROM = []
@@ -4192,7 +4201,7 @@ static String topFuncProtos(N decls) {
         if d.nm == "TopFunc" {
             String nm = unq(txt(fld(d, "Name")))
             if nm != "main" && fld(d, "TypePars").el.length() == 0 {
-                String rk = typeKey(fld(d, "Ret"))
+                String rk = retKey(d)
                 b = b + "static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n"
             }
         }
@@ -4746,7 +4755,7 @@ static String emitUnit(N unit, String path) {
             while fi < ms.el.length() {
                 MTH_OWNER.push(cn)
                 MTH_NAME.push(unq(txt(fld(ms.el.get(fi), "Name"))))
-                String mret0 = typeKey(fld(ms.el.get(fi), "Ret"))
+                String mret0 = retKey(ms.el.get(fi))
                 MTH_RET.push(mret0)
                 sc.useResult(mret0)
                 fi = fi + 1
@@ -4789,7 +4798,7 @@ static String emitUnit(N unit, String path) {
             while sfi < sms.el.length() {
                 MTH_OWNER.push(sn)
                 MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
-                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                MTH_RET.push(retKey(sms.el.get(sfi)))
                 sfi = sfi + 1
             }
         }
@@ -4834,7 +4843,7 @@ static String emitUnit(N unit, String path) {
             while sfi < sms.el.length() {
                 MTH_OWNER.push(sn)
                 MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
-                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                MTH_RET.push(retKey(sms.el.get(sfi)))
                 sfi = sfi + 1
             }
         }
@@ -4842,7 +4851,7 @@ static String emitUnit(N unit, String path) {
             if fld(d, "TypePars").el.length() > 0 {
                 GEN_FN_DECLS.push(d)
             } else {
-                String rk = typeKey(fld(d, "Ret"))
+                String rk = retKey(d)
                 sc.useResult(rk)
                 sc.defFn(unq(txt(fld(d, "Name"))), rk)
                 scanCalls(fld(d, "Body"))
@@ -5040,7 +5049,7 @@ static String emitUnit(N unit, String path) {
                 Int emi = 0
                 while emi < ems2.el.length() {
                     String emn2 = unq(txt(fld(ems2.el.get(emi), "Name")))
-                    String ert2 = typeKey(fld(ems2.el.get(emi), "Ret"))
+                    String ert2 = retKey(ems2.el.get(emi))
                     fw.push("static " + cType(ert2) + " xn_Cls_" + et2 + "_ext_" + emn2 + "_" + str(emi + 1) + "(xn_Cls_" + et2 + " *self);")
                     emi = emi + 1
                 }
@@ -5077,7 +5086,7 @@ static String emitUnit(N unit, String path) {
             Int mj0 = 0
             while mj0 < ms0.el.length() {
                 N m0 = ms0.el.get(mj0)
-                String rt0 = typeKey(fld(m0, "Ret"))
+                String rt0 = retKey(m0)
                 String sg0 = "xn_Single_" + sn + "_" + unq(txt(fld(m0, "Name"))) + "(xn_Single_" + sn + " *self)"
                 fw.push("static " + cType(rt0) + " " + sg0 + ";")
                 mj0 = mj0 + 1
@@ -5093,7 +5102,7 @@ static String emitUnit(N unit, String path) {
                 Int emi = 0
                 while emi < ems2.el.length() {
                     String emn2 = unq(txt(fld(ems2.el.get(emi), "Name")))
-                    String ert2 = typeKey(fld(ems2.el.get(emi), "Ret"))
+                    String ert2 = retKey(ems2.el.get(emi))
                     fw.push("static " + cType(ert2) + " xn_Cls_" + et2 + "_ext_" + emn2 + "_" + str(emi + 1) + "(xn_Cls_" + et2 + " *self);")
                     emi = emi + 1
                 }
@@ -5165,7 +5174,7 @@ static String emitUnit(N unit, String path) {
             while sfi < sms.el.length() {
                 MTH_OWNER.push(sn)
                 MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
-                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                MTH_RET.push(retKey(sms.el.get(sfi)))
                 sfi = sfi + 1
             }
         }
@@ -5239,7 +5248,7 @@ static String emitUnit(N unit, String path) {
             while sfi < sms.el.length() {
                 MTH_OWNER.push(sn)
                 MTH_NAME.push(unq(txt(fld(sms.el.get(sfi), "Name"))))
-                MTH_RET.push(typeKey(fld(sms.el.get(sfi), "Ret")))
+                MTH_RET.push(retKey(sms.el.get(sfi)))
                 sfi = sfi + 1
             }
         }
@@ -5306,7 +5315,7 @@ static String emitUnit(N unit, String path) {
             if d.nm == "TopFunc" {
                 String nm = unq(txt(fld(d, "Name")))
                 if nm != "main" && fld(d, "TypePars").el.length() == 0 {
-                    String rk = typeKey(fld(d, "Ret"))
+                    String rk = retKey(d)
                     res = res + "static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n"
                 }
             }
