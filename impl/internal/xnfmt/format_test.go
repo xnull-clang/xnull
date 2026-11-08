@@ -191,6 +191,11 @@ func TestRepoIdempotent(t *testing.T) {
 			case ".git", "wt", "xnull":
 				return filepath.SkipDir
 			}
+			// B2 差分负例语料是故意非法的源码（LEX/SYN 负例），不参与格式化幂等扫描。
+			p := filepath.ToSlash(path)
+			if strings.HasSuffix(p, "tests/b2/lex_neg") || strings.HasSuffix(p, "tests/b2/parser_neg") {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".x") {

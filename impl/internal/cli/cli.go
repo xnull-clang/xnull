@@ -16,6 +16,7 @@ import (
 	"xnull.dev/xnull/internal/devtool"
 	"xnull.dev/xnull/internal/diag"
 	"xnull.dev/xnull/internal/exitcode"
+	"xnull.dev/xnull/internal/frontbridge"
 	"xnull.dev/xnull/internal/interp"
 	"xnull.dev/xnull/internal/manifest"
 	"xnull.dev/xnull/internal/sema"
@@ -475,7 +476,7 @@ func policyFile(env Env, path string) int {
 		fmt.Fprintf(env.Stderr, "xnull: 无法读取文件 %s：%v\n", path, err)
 		return exitcode.Usage
 	}
-	u, pdiags := xfront.ParseUnit(path, string(src))
+	u, pdiags := frontbridge.ParseUnit(path, string(src))
 	if len(pdiags) > 0 {
 		for _, d := range pdiags {
 			fmt.Fprintln(env.Stderr, d.String())

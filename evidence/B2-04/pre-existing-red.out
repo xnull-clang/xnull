@@ -1,0 +1,11 @@
+# 基线 HEAD=0d25ba8（B2-03）既有红，未叠加 B2-04 改动
+--- FAIL: TestBuildLedgerRepoGoldenScale (0.02s)
+    ledger_test.go:102: 台账规模偏离 golden：行数 101（期望 101），PASS 13（期望 18）
+FAIL
+FAIL	xnull.dev/xnull/internal/devtool	5.155s
+FAIL
+--- FAIL: TestRepoIdempotent (1.95s)
+    format_test.go:214: /tmp/b204-base/tests/b2/lex_neg/unclosed_comment.x: [/tmp/b204-base/tests/b2/lex_neg/unclosed_comment.x:1:21: error[FMT-101]: 块注释未闭合]
+FAIL
+FAIL	xnull.dev/xnull/internal/xnfmt	11.584s
+FAIL

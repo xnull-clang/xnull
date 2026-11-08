@@ -1,0 +1,9 @@
+# 双路径 check（XNULL_FRONTEND=go vs xnull + /tmp/xnull-b2）
+SAME exit=0 ../examples/hello.x
+SAME exit=0 ../examples/classes.x
+SAME exit=0 ../examples/containers.x
+SAME exit=0 ../examples/result-try.x
+SAME exit=0 ../tests/b2/parser_cases/stmt.x
+SAME exit=1 ../tests/b2/parser_neg/chain_cmp.x
+SAME exit=1 ../tests/b2/parser_neg/missing_brace.x
+SAME exit=1 ../tests/b2/parser_neg/missing_paren.x
