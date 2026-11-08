@@ -1,0 +1,6 @@
+PASS obj3/enum_data.x
+PASS obj3/enum_simple.x
+PASS obj3/extension.x
+PASS obj3/factory.x
+PASS obj3/singleton.x
+xnullc-obj3 汇总：PASS=5 FAIL=0

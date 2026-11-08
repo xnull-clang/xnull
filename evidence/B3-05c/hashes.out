@@ -1,0 +1,5 @@
+tests/b3/fixtures/obj3/enum_data.x       go=41243f3c3ab31d0d35d7b2a4ad28d1e0e06ce582e49059a76c0c63f920e808e6 xn=41243f3c3ab31d0d35d7b2a4ad28d1e0e06ce582e49059a76c0c63f920e808e6
+tests/b3/fixtures/obj3/enum_simple.x     go=c8f645741091cb338da7970ea578c8256a3ed4edd0a7e8d4f4f218a38fa3bcba xn=c8f645741091cb338da7970ea578c8256a3ed4edd0a7e8d4f4f218a38fa3bcba
+tests/b3/fixtures/obj3/extension.x       go=6d07a42976df4a810ef5d354483d0fefe16a21c229ef89043b5a8f59f9f1bea6 xn=6d07a42976df4a810ef5d354483d0fefe16a21c229ef89043b5a8f59f9f1bea6
+tests/b3/fixtures/obj3/factory.x         go=6aaf7fcc565431d83b1591c0be8cee3a168c907aa9cd81df0ca2c97f3e7a5c9f xn=6aaf7fcc565431d83b1591c0be8cee3a168c907aa9cd81df0ca2c97f3e7a5c9f
+tests/b3/fixtures/obj3/singleton.x       go=7b54cc392d20864b605405e278f434cc3730206e6efda5efac3a7015478742bf xn=7b54cc392d20864b605405e278f434cc3730206e6efda5efac3a7015478742bf
