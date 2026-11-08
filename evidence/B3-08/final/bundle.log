@@ -1,0 +1,5 @@
+PASS bundle_sync
+PASS bundle_tasks
+PASS bundle_collections
+PASS bundle_text
+xnullc-bundle 汇总：PASS=4 FAIL=0
