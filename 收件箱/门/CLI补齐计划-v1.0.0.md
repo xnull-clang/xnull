@@ -49,10 +49,26 @@
 
 | 卡 | 内容 | owner | 依赖 |
 |---|---|---|---|
-| S8-16 | P0 无依赖四项：`fmt .x`、`clean`、`version`、`doctor` | E6 | 无 |
+| S8-16 | P0 无依赖四项：`fmt .x`、`clean`、`version`、`doctor`；含版本体系 | E6 | 无 |
 | S8-17 | `install`、`tree`、`why` | E6 | S8-13 |
 | S8-18 | `add/remove`、`update`、`vendor` | E6 | S8-13 |
 | S8-19 | `lint`、`doc`、`completion`、`test --filter` | E6 | 无（可并行后置） |
 | S8-20 | `lsp`、`repl`、`audit`、`migrate` | E6+E2 | B4 后 |
 
 > 以上全部排 E6，因为 CLI 是单写者；E6 当前在 S8-12，S8-16 排在 S8-12 之后。
+
+## 六、版本体系（并入 S8-16）
+
+现状：`impl/internal/cli/cli.go` 硬编码 `Version = "0.1.0-dev"`，无 `version` 命令、无 commit/日期/规范集/ABI 版本。
+
+目标：
+
+1. 新增 `impl/internal/version` 包：`Version`、`Commit`、`BuildDate`、`SpecSet`、`ABIVersion`；
+2. 构建时用 `-ldflags -X` 注入 commit/date，未注入时回退 `dev`；
+3. `xnull version` 与 `xnull --version` 输出：
+   - 工具链版本（semver）
+   - commit / 构建日期
+   - 规范集：S1 v3.3.0 … S8 v5.2.0
+   - 运行时 ABI：v1
+4. `.xmeta` 的 `toolchainVersion` 记录完整版本（含 commit 短哈希）；
+5. 版本策略：B4 前保持 `0.x`；B4 门通过后升 `1.0.0`；规范版本独立，不跟随工具链。
