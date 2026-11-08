@@ -618,6 +618,8 @@ class E {
     String d = ""
     Int l = 1
     Int c = 1
+    Int sl = 1
+    Int sc = 1
 }
 
 static String P(Int l, Int c) {
@@ -652,6 +654,434 @@ static String B(Bool v) {
     return "false"
 }
 
+class M {
+    String vis = ""
+    Bool abs = false
+    Bool fin = false
+    Bool stat = false
+    Bool cons = false
+}
+
+class TN {
+    Bool sc = false
+    String raw = ""
+    String nm = ""
+    List<String> fn = []
+    List<TN> fv = []
+    List<TN> el = []
+}
+
+class TP {
+    String s = ""
+    Int p = 0
+    Int n = 0
+
+    TP(String t) { self.s = t; self.n = t.length() }
+
+    String ch(Int i) {
+        if i < 0 { return "" }
+        if i >= self.n { return "" }
+        return self.s.substring(i, 1)
+    }
+
+    void ws() {
+        while self.p < self.n && self.ch(self.p) == " " { self.p = self.p + 1 }
+    }
+
+    String bare() {
+        Int st = self.p
+        while self.p < self.n {
+            String c = self.ch(self.p)
+            if c == " " || c == "(" || c == ")" { break }
+            self.p = self.p + 1
+        }
+        return self.s.substring(st, self.p - st)
+    }
+
+    TN val() {
+        self.ws()
+        if self.ch(self.p) == "(" {
+            self.p = self.p + 1
+            String name = self.bare()
+            TN r = new TN()
+            if name == "slice" {
+                r.nm = "slice"
+                while true {
+                    self.ws()
+                    if self.ch(self.p) == ")" { self.p = self.p + 1; break }
+                    r.el.push(self.val())
+                }
+                return r
+            }
+            r.nm = name
+            while true {
+                self.ws()
+                if self.ch(self.p) == ")" { self.p = self.p + 1; break }
+                self.p = self.p + 1
+                String f = self.bare()
+                TN v = self.val()
+                self.ws()
+                self.p = self.p + 1
+                r.fn.push(f)
+                r.fv.push(v)
+            }
+            return r
+        }
+        TN r = new TN()
+        r.sc = true
+        if self.ch(self.p) == "\"" {
+            Int st = self.p
+            self.p = self.p + 1
+            while true {
+                String c = self.ch(self.p)
+                if c == "\\" { self.p = self.p + 2; continue }
+                if c == "\"" { self.p = self.p + 1; break }
+                self.p = self.p + 1
+            }
+            r.raw = self.s.substring(st, self.p - st)
+            return r
+        }
+        Int st = self.p
+        while self.p < self.n {
+            String c = self.ch(self.p)
+            if c == " " || c == "(" || c == ")" { break }
+            self.p = self.p + 1
+        }
+        r.raw = self.s.substring(st, self.p - st)
+        return r
+    }
+
+    String render(TN v, Int dep) {
+        if dep > 64 { return "(depth-limit)" }
+        if v.sc { return v.raw }
+        if v.nm == "nil" { return "(nil)" }
+        if v.nm == "slice" {
+            String r = "(slice"
+            Int i = 0
+            while i < v.el.length() {
+                r = r + " " + self.render(v.el.get(i), dep + 1)
+                i = i + 1
+            }
+            return r + ")"
+        }
+        String r = "(" + v.nm
+        Int i = 0
+        while i < v.fn.length() {
+            String f = v.fn.get(i)
+            r = r + " (" + f + " " + self.renderField(v.fv.get(i), dep + 1, self.fcat(v.nm, f)) + ")"
+            i = i + 1
+        }
+        return r + ")"
+    }
+
+    String renderField(TN v, Int cd, String cat) {
+        if cd > 64 { return "(depth-limit)" }
+        if cat == "s" || cat == "v" { return self.render(v, cd) }
+        if cat == "p" { return self.render(v, cd + 1) }
+        if cat == "i" { return self.render(v, cd + 2) }
+        String r = "(slice"
+        Int i = 0
+        while i < v.el.length() {
+            if cat == "ss" || cat == "sv" { r = r + " " + self.render(v.el.get(i), cd + 1) }
+            else if cat == "sp" { r = r + " " + self.render(v.el.get(i), cd + 2) }
+            else if cat == "si" { r = r + " " + self.render(v.el.get(i), cd + 3) }
+            i = i + 1
+        }
+        return r + ")"
+    }
+
+    String fcat(String nd, String f) {
+        String k = nd + "." + f
+        if k == "AnnotationDecl.Annos" { return "sp" }
+        if k == "AnnotationDecl.Fields" { return "sp" }
+        if k == "AnnotationDecl.Mod" { return "v" }
+        if k == "AnnotationDecl.Name" { return "s" }
+        if k == "AnnotationDecl.P" { return "v" }
+        if k == "AnnotationNode.Args" { return "si" }
+        if k == "AnnotationNode.Name" { return "s" }
+        if k == "AnnotationNode.P" { return "v" }
+        if k == "ArrayLit.Elems" { return "si" }
+        if k == "ArrayLit.P" { return "v" }
+        if k == "AssignStmt.Op" { return "s" }
+        if k == "AssignStmt.P" { return "v" }
+        if k == "AssignStmt.Target" { return "i" }
+        if k == "AssignStmt.Value" { return "i" }
+        if k == "Binary.L" { return "i" }
+        if k == "Binary.Op" { return "s" }
+        if k == "Binary.P" { return "v" }
+        if k == "Binary.R" { return "i" }
+        if k == "Block.P" { return "v" }
+        if k == "Block.Stmts" { return "si" }
+        if k == "BoolLit.P" { return "v" }
+        if k == "BoolLit.V" { return "s" }
+        if k == "BreakStmt.Label" { return "s" }
+        if k == "BreakStmt.P" { return "v" }
+        if k == "Call.Args" { return "si" }
+        if k == "Call.Callee" { return "i" }
+        if k == "Call.P" { return "v" }
+        if k == "Call.TypeArgs" { return "si" }
+        if k == "CharLitExpr.P" { return "v" }
+        if k == "CharLitExpr.Rune" { return "s" }
+        if k == "ClassDecl.Annos" { return "sp" }
+        if k == "ClassDecl.Base" { return "i" }
+        if k == "ClassDecl.Ctors" { return "sp" }
+        if k == "ClassDecl.Fields" { return "sp" }
+        if k == "ClassDecl.Methods" { return "sp" }
+        if k == "ClassDecl.Mod" { return "v" }
+        if k == "ClassDecl.Name" { return "s" }
+        if k == "ClassDecl.P" { return "v" }
+        if k == "ClassDecl.Primary" { return "p" }
+        if k == "ClassDecl.Protocols" { return "sp" }
+        if k == "ClassDecl.TypePars" { return "ss" }
+        if k == "CompilationUnit.Decls" { return "si" }
+        if k == "CompilationUnit.Imports" { return "sp" }
+        if k == "CompilationUnit.P" { return "v" }
+        if k == "CompilationUnit.Package" { return "p" }
+        if k == "ContinueStmt.Label" { return "s" }
+        if k == "ContinueStmt.P" { return "v" }
+        if k == "CtorDecl.Annos" { return "sp" }
+        if k == "CtorDecl.Body" { return "p" }
+        if k == "CtorDecl.Mod" { return "v" }
+        if k == "CtorDecl.P" { return "v" }
+        if k == "CtorDecl.Params" { return "sp" }
+        if k == "DeferStmt.Block" { return "p" }
+        if k == "DeferStmt.Errdefer" { return "s" }
+        if k == "DeferStmt.P" { return "v" }
+        if k == "DeferStmt.Stmt" { return "i" }
+        if k == "DoWhileStmt.Body" { return "p" }
+        if k == "DoWhileStmt.Cond" { return "i" }
+        if k == "DoWhileStmt.P" { return "v" }
+        if k == "EnumDecl.Annos" { return "sp" }
+        if k == "EnumDecl.Ctors" { return "sp" }
+        if k == "EnumDecl.Fields" { return "sp" }
+        if k == "EnumDecl.IsData" { return "s" }
+        if k == "EnumDecl.Items" { return "sp" }
+        if k == "EnumDecl.Methods" { return "sp" }
+        if k == "EnumDecl.Mod" { return "v" }
+        if k == "EnumDecl.Name" { return "s" }
+        if k == "EnumDecl.P" { return "v" }
+        if k == "EnumItem.Annos" { return "sp" }
+        if k == "EnumItem.Args" { return "si" }
+        if k == "EnumItem.Name" { return "s" }
+        if k == "EnumItem.P" { return "v" }
+        if k == "EnumItem.Value" { return "i" }
+        if k == "ExprStmt.P" { return "v" }
+        if k == "ExprStmt.X" { return "i" }
+        if k == "ExtensionDecl.Annos" { return "sp" }
+        if k == "ExtensionDecl.Methods" { return "sp" }
+        if k == "ExtensionDecl.Mod" { return "v" }
+        if k == "ExtensionDecl.P" { return "v" }
+        if k == "ExtensionDecl.Target" { return "i" }
+        if k == "FactoryDecl.Annos" { return "sp" }
+        if k == "FactoryDecl.Methods" { return "sp" }
+        if k == "FactoryDecl.Mod" { return "v" }
+        if k == "FactoryDecl.Name" { return "s" }
+        if k == "FactoryDecl.P" { return "v" }
+        if k == "FactoryDecl.Target" { return "i" }
+        if k == "FieldDecl.Annos" { return "sp" }
+        if k == "FieldDecl.Canonical" { return "s" }
+        if k == "FieldDecl.Init" { return "i" }
+        if k == "FieldDecl.Mod" { return "v" }
+        if k == "FieldDecl.Name" { return "s" }
+        if k == "FieldDecl.P" { return "v" }
+        if k == "FieldDecl.Type" { return "i" }
+        if k == "FloatLitExpr.HasSuffixF" { return "s" }
+        if k == "FloatLitExpr.P" { return "v" }
+        if k == "FloatLitExpr.Text" { return "s" }
+        if k == "ForStmt.Body" { return "p" }
+        if k == "ForStmt.P" { return "v" }
+        if k == "ForStmt.Src" { return "i" }
+        if k == "ForStmt.Var" { return "s" }
+        if k == "FuncTypeRef.P" { return "v" }
+        if k == "FuncTypeRef.Params" { return "si" }
+        if k == "FuncTypeRef.Ret" { return "i" }
+        if k == "GotoStmt.Label" { return "s" }
+        if k == "GotoStmt.P" { return "v" }
+        if k == "IdentExpr.Name" { return "s" }
+        if k == "IdentExpr.P" { return "v" }
+        if k == "IfStmt.Cond" { return "i" }
+        if k == "IfStmt.Else" { return "i" }
+        if k == "IfStmt.P" { return "v" }
+        if k == "IfStmt.Then" { return "p" }
+        if k == "ImportDecl.Alias" { return "s" }
+        if k == "ImportDecl.P" { return "v" }
+        if k == "ImportDecl.Path" { return "ss" }
+        if k == "IncDecStmt.Op" { return "s" }
+        if k == "IncDecStmt.P" { return "v" }
+        if k == "IncDecStmt.Prefix" { return "s" }
+        if k == "IncDecStmt.Target" { return "i" }
+        if k == "Index.Idx" { return "i" }
+        if k == "Index.P" { return "v" }
+        if k == "Index.X" { return "i" }
+        if k == "IntLitExpr.Base" { return "s" }
+        if k == "IntLitExpr.P" { return "v" }
+        if k == "IntLitExpr.Suffix" { return "s" }
+        if k == "IntLitExpr.Text" { return "s" }
+        if k == "LabeledStmt.Label" { return "s" }
+        if k == "LabeledStmt.P" { return "v" }
+        if k == "LabeledStmt.Stmt" { return "i" }
+        if k == "Lambda.Block" { return "p" }
+        if k == "Lambda.ExprB" { return "i" }
+        if k == "Lambda.P" { return "v" }
+        if k == "Lambda.Params" { return "sv" }
+        if k == "Lambda.Single" { return "s" }
+        if k == "LambdaParam.Final" { return "s" }
+        if k == "LambdaParam.Name" { return "s" }
+        if k == "LambdaParam.P" { return "v" }
+        if k == "LambdaParam.Type" { return "i" }
+        if k == "LocalDeclStmt.Const" { return "s" }
+        if k == "LocalDeclStmt.Final" { return "s" }
+        if k == "LocalDeclStmt.Init" { return "i" }
+        if k == "LocalDeclStmt.Name" { return "s" }
+        if k == "LocalDeclStmt.P" { return "v" }
+        if k == "LocalDeclStmt.Type" { return "i" }
+        if k == "LocalDeclStmt.Var" { return "s" }
+        if k == "MapLit.Keys" { return "si" }
+        if k == "MapLit.P" { return "v" }
+        if k == "MapLit.Vals" { return "si" }
+        if k == "Member.Name" { return "s" }
+        if k == "Member.NullSafe" { return "s" }
+        if k == "Member.P" { return "v" }
+        if k == "Member.X" { return "i" }
+        if k == "MethodDecl.Annos" { return "sp" }
+        if k == "MethodDecl.Body" { return "p" }
+        if k == "MethodDecl.IsDeinit" { return "s" }
+        if k == "MethodDecl.Mod" { return "v" }
+        if k == "MethodDecl.Name" { return "s" }
+        if k == "MethodDecl.P" { return "v" }
+        if k == "MethodDecl.Params" { return "sp" }
+        if k == "MethodDecl.Ret" { return "i" }
+        if k == "MethodDecl.TypePars" { return "ss" }
+        if k == "MethodDecl.Void" { return "s" }
+        if k == "NamedType.Args" { return "si" }
+        if k == "NamedType.P" { return "v" }
+        if k == "NamedType.Qual" { return "ss" }
+        if k == "New.Args" { return "si" }
+        if k == "New.P" { return "v" }
+        if k == "New.Type" { return "i" }
+        if k == "NewArray.Count" { return "i" }
+        if k == "NewArray.P" { return "v" }
+        if k == "NewArray.Type" { return "i" }
+        if k == "PackageDecl.Name" { return "ss" }
+        if k == "PackageDecl.P" { return "v" }
+        if k == "Param.Annos" { return "sp" }
+        if k == "Param.Final" { return "s" }
+        if k == "Param.Name" { return "s" }
+        if k == "Param.P" { return "v" }
+        if k == "Param.Type" { return "i" }
+        if k == "Paren.P" { return "v" }
+        if k == "Paren.X" { return "i" }
+        if k == "Pos.Col" { return "s" }
+        if k == "Pos.Line" { return "s" }
+        if k == "ProtocolDecl.Annos" { return "sp" }
+        if k == "ProtocolDecl.Extends" { return "sp" }
+        if k == "ProtocolDecl.Name" { return "s" }
+        if k == "ProtocolDecl.P" { return "v" }
+        if k == "ProtocolDecl.Sigs" { return "sp" }
+        if k == "ProtocolSig.Annos" { return "sp" }
+        if k == "ProtocolSig.Mod" { return "v" }
+        if k == "ProtocolSig.Name" { return "s" }
+        if k == "ProtocolSig.P" { return "v" }
+        if k == "ProtocolSig.Params" { return "sp" }
+        if k == "ProtocolSig.Ret" { return "i" }
+        if k == "ProtocolSig.Void" { return "s" }
+        if k == "ReturnStmt.P" { return "v" }
+        if k == "ReturnStmt.Value" { return "i" }
+        if k == "SingletonDecl.Annos" { return "sp" }
+        if k == "SingletonDecl.Ctors" { return "sp" }
+        if k == "SingletonDecl.Fields" { return "sp" }
+        if k == "SingletonDecl.Methods" { return "sp" }
+        if k == "SingletonDecl.Mod" { return "v" }
+        if k == "SingletonDecl.Name" { return "s" }
+        if k == "SingletonDecl.P" { return "v" }
+        if k == "StrLitExpr.Kind" { return "s" }
+        if k == "StrLitExpr.P" { return "v" }
+        if k == "StrLitExpr.Parts" { return "sv" }
+        if k == "StrPart.Expr" { return "i" }
+        if k == "StrPart.Text" { return "s" }
+        if k == "StructDecl.Annos" { return "sp" }
+        if k == "StructDecl.Ctors" { return "sp" }
+        if k == "StructDecl.Fields" { return "sp" }
+        if k == "StructDecl.Methods" { return "sp" }
+        if k == "StructDecl.Mod" { return "v" }
+        if k == "StructDecl.Name" { return "s" }
+        if k == "StructDecl.P" { return "v" }
+        if k == "StructDecl.Primary" { return "p" }
+        if k == "StructDecl.TypePars" { return "ss" }
+        if k == "SuffixedType.Base" { return "i" }
+        if k == "SuffixedType.P" { return "v" }
+        if k == "SuffixedType.Suffixes" { return "ss" }
+        if k == "SwitchCase.Default" { return "s" }
+        if k == "SwitchCase.Expr" { return "i" }
+        if k == "SwitchCase.P" { return "v" }
+        if k == "SwitchCase.Stmts" { return "si" }
+        if k == "SwitchStmt.Cases" { return "sp" }
+        if k == "SwitchStmt.Default" { return "p" }
+        if k == "SwitchStmt.P" { return "v" }
+        if k == "SwitchStmt.Value" { return "i" }
+        if k == "Ternary.Cond" { return "i" }
+        if k == "Ternary.Else" { return "i" }
+        if k == "Ternary.P" { return "v" }
+        if k == "Ternary.Then" { return "i" }
+        if k == "ThrowStmt.P" { return "v" }
+        if k == "ThrowStmt.Value" { return "i" }
+        if k == "Token.Base" { return "s" }
+        if k == "Token.Char" { return "s" }
+        if k == "Token.HasSuffixF" { return "s" }
+        if k == "Token.Interps" { return "ss" }
+        if k == "Token.Kind" { return "v" }
+        if k == "Token.Pos" { return "v" }
+        if k == "Token.Segs" { return "ss" }
+        if k == "Token.Str" { return "s" }
+        if k == "Token.Suffix" { return "s" }
+        if k == "Token.Text" { return "s" }
+        if k == "Token.Value" { return "s" }
+        if k == "TopField.Annos" { return "sp" }
+        if k == "TopField.Const" { return "s" }
+        if k == "TopField.Final" { return "s" }
+        if k == "TopField.Init" { return "i" }
+        if k == "TopField.Name" { return "s" }
+        if k == "TopField.P" { return "v" }
+        if k == "TopField.Private" { return "s" }
+        if k == "TopField.Protected" { return "s" }
+        if k == "TopField.Public" { return "s" }
+        if k == "TopField.Static" { return "s" }
+        if k == "TopField.Type" { return "i" }
+        if k == "TopFunc.Annos" { return "sp" }
+        if k == "TopFunc.Body" { return "p" }
+        if k == "TopFunc.Name" { return "s" }
+        if k == "TopFunc.P" { return "v" }
+        if k == "TopFunc.Params" { return "sp" }
+        if k == "TopFunc.Private" { return "s" }
+        if k == "TopFunc.Protected" { return "s" }
+        if k == "TopFunc.Public" { return "s" }
+        if k == "TopFunc.Ret" { return "i" }
+        if k == "TopFunc.Static" { return "s" }
+        if k == "TopFunc.TypePars" { return "ss" }
+        if k == "TopFunc.Void" { return "s" }
+        if k == "Tuple.Elems" { return "si" }
+        if k == "Tuple.P" { return "v" }
+        if k == "TupleMember.Index" { return "s" }
+        if k == "TupleMember.NullSafe" { return "s" }
+        if k == "TupleMember.P" { return "v" }
+        if k == "TupleMember.X" { return "i" }
+        if k == "TupleTypeRef.Elems" { return "si" }
+        if k == "TupleTypeRef.P" { return "v" }
+        if k == "TypeModifiers.Abstract" { return "s" }
+        if k == "TypeModifiers.Const" { return "s" }
+        if k == "TypeModifiers.Final" { return "s" }
+        if k == "TypeModifiers.Static" { return "s" }
+        if k == "TypeModifiers.Vis" { return "s" }
+        if k == "Unary.Op" { return "s" }
+        if k == "Unary.P" { return "v" }
+        if k == "Unary.X" { return "i" }
+        if k == "WhileStmt.Body" { return "p" }
+        if k == "WhileStmt.Cond" { return "i" }
+        if k == "WhileStmt.P" { return "v" }
+        return "s"
+    }
+}
+
 class Parser {
     List<Tok> toks = []
     Int i = 0
@@ -678,48 +1108,67 @@ class Parser {
     String parseUnit() {
         Int sl = self.cur().line
         Int sc = self.cur().col
+        String pkg = "(nil)"
+        List<String> imps = []
         List<String> ds = []
         while !self.eof() {
             if self.at(1) { self.next(); continue }
             if self.atKw("package") {
-                self.next()
-                while self.at(2) || self.atOp(".") { self.next() }
+                Tok pt = self.next()
+                List<String> qn = []
+                if self.at(2) { qn.push(self.next().text) }
+                while self.atOp(".") { self.next(); if self.at(2) { qn.push(self.next().text) } }
                 if self.at(1) { self.next() }
+                pkg = "(PackageDecl " + P(pt.line, pt.col) + " (Name " + SLS(qn) + "))"
                 continue
             }
             if self.atKw("import") {
-                self.next()
-                while self.at(2) || self.atOp(".") { self.next() }
-                if self.atKw("as") { self.next(); self.next() }
+                Tok it = self.next()
+                List<String> qn = []
+                if self.at(2) { qn.push(self.next().text) }
+                while self.atOp(".") { self.next(); if self.at(2) { qn.push(self.next().text) } }
+                String al = ""
+                if self.atKw("as") { self.next(); if self.at(2) { al = self.next().text } }
                 if self.at(1) { self.next() }
+                imps.push("(ImportDecl " + P(it.line, it.col) + " (Path " + SLS(qn) + ") (Alias " + q(al) + "))")
                 continue
             }
             ds.push(self.parseTop())
         }
-        String body = "(CompilationUnit " + P(sl, sc) + " (Package (nil)) (Imports (slice)) (Decls " + SL(ds) + "))"
-        return "(xnast v1 " + body + ")"
+        String body = "(CompilationUnit " + P(sl, sc) + " (Package " + pkg + ") (Imports " + SL(imps) + ") (Decls " + SL(ds) + "))"
+        TP tpn = new TP(body)
+        TN tn = tpn.val()
+        return "(xnast v1 " + tpn.render(tn, 1) + ")"
     }
 
     String parseTop() {
         Int sl = self.cur().line
         Int sc = self.cur().col
-        Bool pub = false
-        Bool pro = false
-        Bool priv = false
-        Bool stat = false
-        while true {
-            if self.atKw("public") { pub = true; self.next() }
-            else if self.atKw("protected") { pro = true; self.next() }
-            else if self.atKw("private") { priv = true; self.next() }
-            else if self.atKw("static") { stat = true; self.next() }
-            else { break }
+        List<String> annos = self.parseAnnos()
+        if self.at(4) && self.cur().text == "annotation" {
+            return self.parseAnnotationDecl(sl, sc, annos)
+        }
+        M m = self.parseMods()
+        String kw = ""
+        if self.cur().kind == 3 {
+            String k = self.cur().text
+            if k == "class" || k == "struct" || k == "protocol" || k == "enum" ||
+                k == "singleton" || k == "factory" || k == "extension" {
+                kw = k
+            }
+        }
+        if kw != "" {
+            self.next()
+            return self.parseTypeDecl(kw, sl, sc, annos, m)
         }
         Bool void = false
         String ret = ""
         if self.at(2) && self.cur().text == "void" { void = true; self.next() }
         else { ret = self.parseType() }
         String name = ""
-        if self.at(2) { name = self.next().text }
+        Int nl = sl
+        Int nc = sc
+        if self.at(2) { Tok nt = self.next(); name = nt.text; nl = nt.line; nc = nt.col }
         List<String> tps = []
         if self.atOp("<") {
             self.next()
@@ -728,6 +1177,71 @@ class Parser {
             }
             if self.atOp(">") { self.next() }
         }
+        if self.at(10) {
+            List<String> ps = self.parseParams()
+            String body = self.parseBlock()
+            String retv = "(nil)"
+            if !void { retv = ret }
+            return "(TopFunc " + P(sl, sc) + " (Annos " + SL(annos) + ") (Public " + B(m.vis == "public") +
+                ") (Protected " + B(m.vis == "protected") + ") (Private " + B(m.vis == "private") +
+                ") (Static " + B(m.stat) + ") (Void " + B(void) + ") (Ret " + retv + ") (Name " + q(name) +
+                ") (TypePars " + SLS(tps) + ") (Params " + SL(ps) + ") (Body " + body + "))"
+        }
+        String init = "(nil)"
+        if self.atOp("=") { self.next(); init = self.parseExpr().d }
+        if self.at(1) { self.next() }
+        return "(TopField " + P(sl, sc) + " (Annos " + SL(annos) + ") (Public " + B(m.vis == "public") +
+            ") (Protected " + B(m.vis == "protected") + ") (Private " + B(m.vis == "private") +
+            ") (Static " + B(m.stat) + ") (Final " + B(m.fin) + ") (Const " + B(m.cons) + ") (Type " + ret +
+            ") (Name " + q(name) + ") (Init " + init + "))"
+    }
+
+    List<String> parseAnnos() {
+        List<String> res = []
+        while self.at(4) {
+            Tok t = self.next()
+            List<String> args = []
+            if self.at(10) {
+                self.next()
+                while !self.at(11) && !self.eof() {
+                    if self.at(16) { self.next(); continue }
+                    args.push(self.parseExpr().d)
+                }
+                if self.at(11) { self.next() }
+            }
+            res.push("(AnnotationNode " + P(t.line, t.col) + " (Name " + q(t.text) + ") (Args " + SL(args) + "))")
+            if self.at(1) { self.next() }
+        }
+        return res
+    }
+
+    M parseMods() {
+        M m = new M()
+        while true {
+            if self.atKw("public") { m.vis = "public"; self.next() }
+            else if self.atKw("protected") { m.vis = "protected"; self.next() }
+            else if self.atKw("private") { m.vis = "private"; self.next() }
+            else if self.atKw("abstract") { m.abs = true; self.next() }
+            else if self.atKw("final") { m.fin = true; self.next() }
+            else if self.atKw("static") { m.stat = true; self.next() }
+            else if self.atKw("const") { m.cons = true; self.next() }
+            else { break }
+        }
+        return m
+    }
+
+    String retv(Bool vd, String rt) {
+        if vd { return "(nil)" }
+        if rt == "" { return "(nil)" }
+        return rt
+    }
+
+    String modDump(M m) {
+        return "(TypeModifiers (Vis " + q(m.vis) + ") (Abstract " + B(m.abs) + ") (Final " + B(m.fin) +
+            ") (Static " + B(m.stat) + ") (Const " + B(m.cons) + "))"
+    }
+
+    List<String> parseParams() {
         List<String> ps = []
         if self.at(10) {
             self.next()
@@ -737,12 +1251,215 @@ class Parser {
             }
             if self.at(11) { self.next() }
         }
+        return ps
+    }
+
+    String parseTypeDecl(String kw, Int sl, Int sc, List<String> annos, M m) {
+        String name = ""
+        Int nl = sl
+        Int nc = sc
+        if self.at(2) { Tok nt = self.next(); name = nt.text; nl = nt.line; nc = nt.col }
+        List<String> tps = []
+        if self.atOp("<") {
+            self.next()
+            while !self.atOp(">") && !self.eof() {
+                if self.at(2) { tps.push(self.next().text) } else { self.next() }
+            }
+            if self.atOp(">") { self.next() }
+        }
+        String primary = "(nil)"
+        if self.at(10) { primary = self.parseCtor(sl, sc, []) }
+        String base = "(nil)"
+        if self.atOp(":") { self.next(); base = self.parseType() }
+        List<String> protos = []
+        if self.atKw("implements") {
+            self.next()
+            while self.at(2) { protos.push(self.parseType()); if self.at(16) { self.next() } else { break } }
+        }
+        if self.at(12) { self.next() }
+        List<String> fields = []
+        List<String> methods = []
+        List<String> ctors = []
+        List<String> items = []
+        List<String> sigs = []
+        if kw == "protocol" {
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                String ms = self.parseModsDump()
+                Bool vd = false
+                String rt = ""
+                if self.at(2) && self.cur().text == "void" { vd = true; self.next() } else { rt = self.parseType() }
+                String mn = ""
+                if self.at(2) { mn = self.next().text }
+                List<String> ps = self.parseParams()
+                if self.at(1) { self.next() }
+                sigs.push("(ProtocolSig " + P(sl, sc) + " (Annos (slice)) (Mod " + ms + ") (Name " + q(mn) +
+                    ") (Void " + B(vd) + ") (Ret " + self.retv(vd, rt) + ") (Params " + SL(ps) + "))")
+            }
+        } else if kw == "enum" {
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                if self.at(2) {
+                    Tok it = self.cur()
+                    // 数据项/简单项判别：Name 后紧跟 ( 或 , / }
+                    self.next()
+                    List<String> args = []
+                    if self.at(10) {
+                        self.next()
+                        while !self.at(11) && !self.eof() {
+                            if self.at(16) { self.next(); continue }
+                            args.push(self.parseExpr().d)
+                        }
+                        if self.at(11) { self.next() }
+                    }
+                    String val = "(nil)"
+                    if self.atOp("=") { self.next(); val = self.parseExpr().d }
+                    items.push("(EnumItem " + P(it.line, it.col) + " (Annos (slice)) (Name " + q(it.text) +
+                        ") (Value " + val + ") (Args " + SL(args) + "))")
+                    if self.at(16) { self.next() }
+                    continue
+                }
+                break
+            }
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                String r = self.parseMember(name, fields, methods, ctors)
+                if r != "" { methods.push(r) }
+            }
+        } else if kw == "annotation" {
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                fields.push(self.parseField())
+            }
+        } else if kw == "factory" || kw == "extension" {
+            if self.atKw("for") { self.next(); base = self.parseType() }
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                String r = self.parseMember(name, fields, methods, ctors)
+                if r != "" { methods.push(r) }
+            }
+        } else {
+            while !self.at(13) && !self.eof() {
+                if self.at(1) { self.next(); continue }
+                String r = self.parseMember(name, fields, methods, ctors)
+                if r != "" { methods.push(r) }
+            }
+        }
+        if self.at(13) { self.next() }
+        if kw == "class" {
+            return "(ClassDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(name) +
+                ") (TypePars " + SLS(tps) + ") (Primary " + primary + ") (Base " + base + ") (Protocols " + SL(protos) +
+                ") (Fields " + SL(fields) + ") (Methods " + SL(methods) + ") (Ctors " + SL(ctors) + "))"
+        }
+        if kw == "struct" {
+            return "(StructDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(name) +
+                ") (TypePars " + SLS(tps) + ") (Primary " + primary + ") (Fields " + SL(fields) + ") (Methods " + SL(methods) +
+                ") (Ctors " + SL(ctors) + "))"
+        }
+        if kw == "protocol" {
+            return "(ProtocolDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Name " + q(name) + ") (Extends " + SL(protos) +
+                ") (Sigs " + SL(sigs) + "))"
+        }
+        if kw == "enum" {
+            return "(EnumDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(name) +
+                ") (Items " + SL(items) + ") (IsData " + B(fields.length() > 0 || methods.length() > 0 || ctors.length() > 0) +
+                ") (Fields " + SL(fields) + ") (Methods " + SL(methods) + ") (Ctors " + SL(ctors) + "))"
+        }
+        if kw == "singleton" {
+            return "(SingletonDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(name) +
+                ") (Fields " + SL(fields) + ") (Methods " + SL(methods) + ") (Ctors " + SL(ctors) + "))"
+        }
+        if kw == "factory" {
+            return "(FactoryDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(name) +
+                ") (Target " + base + ") (Methods " + SL(methods) + "))"
+        }
+        return "(ExtensionDecl " + P(nl, nc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Target " + base +
+            ") (Methods " + SL(methods) + "))"
+    }
+
+    String parseModsDump() {
+        M mm = self.parseMods()
+        return self.modDump(mm)
+    }
+
+    String parseMember(String cls, List<String> fields, List<String> methods, List<String> ctors) {
+        List<String> annos = self.parseAnnos()
+        M m = self.parseMods()
+        Int ml = self.cur().line
+        Int mc = self.cur().col
+        if self.at(2) && self.cur().text == cls && self.toks.get(self.i + 1).kind == 10 {
+            self.next()
+            String c = self.parseCtor(ml, mc, annos)
+            ctors.push(c)
+            return ""
+        }
+        Bool vd = false
+        String rt = ""
+        if self.at(2) && self.cur().text == "void" { vd = true; self.next() } else { rt = self.parseType() }
+        String nm = ""
+        Int nml = ml
+        Int nmc = mc
+        if self.at(2) { Tok nt = self.next(); nm = nt.text; nml = nt.line; nmc = nt.col }
+        List<String> tps = []
+        if self.atOp("<") {
+            self.next()
+            while !self.atOp(">") && !self.eof() { if self.at(2) { tps.push(self.next().text) } else { self.next() } }
+            if self.atOp(">") { self.next() }
+        }
+        if self.at(10) {
+            List<String> ps = self.parseParams()
+            String body = self.parseBlock()
+            methods.push("(MethodDecl " + P(nml, nmc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Name " + q(nm) +
+                ") (TypePars " + SLS(tps) + ") (Void " + B(vd) + ") (Ret " + self.retv(vd, rt) + ") (Params " + SL(ps) + ") (Body " + body +
+                ") (IsDeinit " + B(nm == "deinit") + "))")
+            return ""
+        }
+        String init = "(nil)"
+        if self.atOp("=") { self.next(); init = self.parseExpr().d }
+        if self.at(1) { self.next() }
+        fields.push("(FieldDecl " + P(nml, nmc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Type " + rt +
+            ") (Name " + q(nm) + ") (Canonical \"\") (Init " + init + "))")
+        return ""
+    }
+
+    String parseField() {
+        List<String> annos = self.parseAnnos()
+        M m = self.parseMods()
+        Int l = self.cur().line
+        Int c = self.cur().col
+        String ty = self.parseType()
+        String nm = ""
+        Int nml = l
+        Int nmc = c
+        if self.at(2) { Tok nt = self.next(); nm = nt.text; nml = nt.line; nmc = nt.col }
+        String init = "(nil)"
+        if self.atOp("=") { self.next(); init = self.parseExpr().d }
+        if self.at(1) { self.next() }
+        return "(FieldDecl " + P(nml, nmc) + " (Annos " + SL(annos) + ") (Mod " + self.modDump(m) + ") (Type " + ty +
+            ") (Name " + q(nm) + ") (Canonical \"\") (Init " + init + "))"
+    }
+
+    String parseCtor(Int l, Int c, List<String> annos) {
+        Int pl = self.cur().line
+        Int pc = self.cur().col
+        List<String> ps = self.parseParams()
         String body = self.parseBlock()
-        String retv = "(nil)"
-        if void { retv = "(nil)" } else { retv = ret }
-        return "(TopFunc " + P(sl, sc) + " (Annos (slice)) (Public " + B(pub) + ") (Protected " + B(pro) +
-            ") (Private " + B(priv) + ") (Static " + B(stat) + ") (Void " + B(void) + ") (Ret " + retv +
-            ") (Name " + q(name) + ") (TypePars " + SLS(tps) + ") (Params " + SL(ps) + ") (Body " + body + "))"
+        return "(CtorDecl " + P(pl, pc) + " (Annos " + SL(annos) + ") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Params " + SL(ps) + ") (Body " + body + "))"
+    }
+
+    String parseAnnotationDecl(Int sl, Int sc, List<String> annos) {
+        self.next() // @annotation
+        String name = ""
+        if self.at(2) { name = self.next().text }
+        if self.at(12) { self.next() }
+        List<String> fs = []
+        while !self.at(13) && !self.eof() {
+            if self.at(1) { self.next(); continue }
+            fs.push(self.parseField())
+        }
+        if self.at(13) { self.next() }
+        return "(AnnotationDecl " + P(sl, sc) + " (Annos " + SL(annos) + ") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Name " + q(name) +
+            ") (Fields " + SL(fs) + "))"
     }
 
     String parseParam() {
@@ -843,8 +1560,24 @@ class Parser {
                 n == "Map" || n == "List" || n == "Set" || n == "Result" || n == "Object" || n == "Any" {
                 return true
             }
-            if self.toks.get(self.i + 1).kind == 2 && self.toks.get(self.i + 2).kind == 16 {
+            if self.toks.get(self.i + 1).kind == 2 && (self.toks.get(self.i + 2).kind == 9 || self.toks.get(self.i + 2).kind == 1) {
                 return true
+            }
+            if self.toks.get(self.i + 1).kind == 9 && self.toks.get(self.i + 1).text == "?" && self.toks.get(self.i + 2).kind == 2 {
+                return true
+            }
+            if self.toks.get(self.i + 1).kind == 9 && self.toks.get(self.i + 1).text == "<" {
+                Int j = self.i + 2
+                Int dep = 1
+                while j < self.toks.length() && dep > 0 {
+                    Tok x = self.toks.get(j)
+                    if x.kind == 9 && x.text == "<" { dep = dep + 1 }
+                    else if x.kind == 9 && x.text == ">" { dep = dep - 1 }
+                    j = j + 1
+                }
+                if dep == 0 && j < self.toks.length() && self.toks.get(j).kind == 2 {
+                    return true
+                }
             }
         }
         return false
@@ -909,7 +1642,7 @@ class Parser {
             return "(IncDecStmt " + P(e.l, e.c) + " (Target " + e.d + ") (Op " + q(op) + ") (Prefix false))"
         }
         if self.at(1) { self.next() }
-        return "(ExprStmt " + P(e.l, e.c) + " (X " + e.d + "))"
+        return "(ExprStmt " + P(e.sl, e.sc) + " (X " + e.d + "))"
     }
 
     String parseLocal() {
@@ -1012,7 +1745,7 @@ class Parser {
         return "(DeferStmt " + P(t.line, t.col) + " (Errdefer " + B(er) + ") (Block " + blk + ") (Stmt " + st + "))"
     }
 
-    E mk(String d, Int l, Int c) { E e = new E(); e.d = d; e.l = l; e.c = c; return e }
+    E mk(String d, Int l, Int c) { E e = new E(); e.d = d; e.l = l; e.c = c; e.sl = l; e.sc = c; return e }
 
     E parseExpr() { return self.parseTernary() }
 
@@ -1023,7 +1756,10 @@ class Parser {
             E a = self.parseExpr()
             if self.atOp(":") { self.next() }
             E b = self.parseTernary()
-            return self.mk("(Ternary " + P(t.line, t.col) + " (Cond " + c.d + ") (Then " + a.d + ") (Else " + b.d + "))", t.line, t.col)
+            E te = self.mk("(Ternary " + P(t.line, t.col) + " (Cond " + c.d + ") (Then " + a.d + ") (Else " + b.d + "))", t.line, t.col)
+            te.sl = c.sl
+            te.sc = c.sc
+            return te
         }
         return c
     }
@@ -1035,7 +1771,7 @@ class Parser {
         if op == "^" { return 4 }
         if op == "&" { return 5 }
         if op == "==" || op == "!=" || op == "===" { return 6 }
-        if op == "<" || op == ">" || op == "<=" || op == ">=" { return 7 }
+        if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "is" || op == "as" || op == "as?" { return 7 }
         if op == "..<" || op == "..." { return 8 }
         if op == "<<" || op == ">>" { return 9 }
         if op == "+" || op == "-" { return 10 }
@@ -1046,20 +1782,31 @@ class Parser {
     E parseBin(Int lvl) {
         if lvl > 11 { return self.parseUnary() }
         E l = self.parseBin(lvl + 1)
-        while self.cur().kind == 9 && self.prec(self.cur().text) == lvl {
+        while (self.cur().kind == 9 || self.cur().kind == 3) && self.prec(self.cur().text) == lvl {
             Tok op = self.next()
             if (op.text == "<" || op.text == ">" || op.text == "<=" || op.text == ">=") && l.d.indexOf("(Binary ") == 0 && l.d.indexOf("(Op \"") > 0 {
                 self.err("SYN-102", op.line, op.col, "比较运算不可链式使用")
+                self.err("SYN-108", op.line, op.col, "语句未终止（同一行的下一条语句前缺少 `;`）")
             }
-            E r = self.parseBin(lvl + 1)
-            l = self.mk("(Binary " + P(op.line, op.col) + " (Op " + q(op.text) + ") (L " + l.d + ") (R " + r.d + "))", op.line, op.col)
+            E r = self.mk("(nil)", 0, 0)
+            if op.text == "is" || op.text == "as" || op.text == "as?" {
+                String ty = self.parseType()
+                String ta = "(TypeAsExpr " + P(0, 0) + " (Type " + ty + ") (Is " + B(op.text == "is") + ") (NullSafe " + B(op.text == "as?") + "))"
+                r = self.mk(ta, 0, 0)
+            } else {
+                r = self.parseBin(lvl + 1)
+            }
+            E be = self.mk("(Binary " + P(op.line, op.col) + " (Op " + q(op.text) + ") (L " + l.d + ") (R " + r.d + "))", op.line, op.col)
+            be.sl = l.sl
+            be.sc = l.sc
+            l = be
         }
         return l
     }
 
     E parseUnary() {
         Tok t = self.cur()
-        if t.kind == 9 && (t.text == "!" || t.text == "-" || t.text == "+" || t.text == "~" || t.text == "try") {
+        if (t.kind == 9 && (t.text == "!" || t.text == "-" || t.text == "+" || t.text == "~")) || (t.kind == 3 && t.text == "try") {
             self.next()
             E x = self.parseUnary()
             return self.mk("(Unary " + P(t.line, t.col) + " (Op " + q(t.text) + ") (X " + x.d + "))", t.line, t.col)
@@ -1071,44 +1818,84 @@ class Parser {
         E e = self.parsePrimary()
         Bool go = true
         while go {
-            if self.atOp(".") || self.atOp("?.") {
+            if self.genericCallAhead() && e.d.indexOf("(IdentExpr ") == 0 {
+                self.next()
+                List<String> tas2 = []
+                while !self.atOp(">") && !self.eof() {
+                    if self.at(16) { self.next(); continue }
+                    tas2.push(self.parseType())
+                }
+                if self.atOp(">") { self.next() }
+                List<String> cas = []
+                if self.at(10) {
+                    self.next()
+                    while !self.at(11) && !self.eof() {
+                        if self.at(1) { break }
+                        if self.at(16) { self.next(); continue }
+                        cas.push(self.parseExpr().d)
+                    }
+                    if self.at(11) { self.next() }
+                }
+                E ne = self.mk("(Call " + P(e.l, e.c) + " (Callee " + e.d + ") (TypeArgs " + SL(tas2) + ") (Args " + SL(cas) + "))", e.l, e.c)
+                ne.sl = e.sl; ne.sc = e.sc; e = ne
+            } else if self.atOp(".") || self.atOp("?.") {
                 Bool ns = self.cur().text == "?."
                 Tok dot = self.next()
                 Tok n = self.cur()
                 if n.kind == 2 {
                     self.next()
                     String d = "(Member " + P(dot.line, dot.col) + " (X " + e.d + ") (Name " + q(n.text) + ") (NullSafe " + B(ns) + "))"
-                    e = self.mk(d, dot.line, dot.col)
+                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; e = ne
                 } else if n.kind == 5 {
                     self.next()
                     String d = "(TupleMember " + P(dot.line, dot.col) + " (X " + e.d + ") (Index " + n.text + ") (NullSafe " + B(ns) + "))"
-                    e = self.mk(d, dot.line, dot.col)
+                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; e = ne
                 } else { self.next() }
             } else if self.at(10) {
                 self.next()
                 List<String> tas = []
+                Bool argBad = false
                 while !self.at(11) && !self.eof() {
                     if self.at(1) {
                         Tok ce = self.cur()
                         self.err("SYN-101", ce.line, ce.col, "期望`)`")
+                        argBad = true
                         break
                     }
                     if self.at(16) { self.next(); continue }
                     tas.push(self.parseExpr().d)
                 }
-                if self.at(11) { self.next() } else {
+                if self.at(11) { self.next() } else if !argBad {
                     Tok ce = self.cur()
                     self.err("SYN-101", ce.line, ce.col, "期望`)`")
                 }
-                e = self.mk("(Call " + P(e.l, e.c) + " (Callee " + e.d + ") (TypeArgs (slice)) (Args " + SL(tas) + "))", e.l, e.c)
+                E ne = self.mk("(Call " + P(e.l, e.c) + " (Callee " + e.d + ") (TypeArgs (slice)) (Args " + SL(tas) + "))", e.l, e.c)
+                ne.sl = e.sl; ne.sc = e.sc; e = ne
             } else if self.at(14) {
                 self.next()
                 E idx = self.parseExpr()
                 if self.at(15) { self.next() }
-                e = self.mk("(Index " + P(e.l, e.c) + " (X " + e.d + ") (Idx " + idx.d + "))", e.l, e.c)
+                E ne = self.mk("(Index " + P(e.l, e.c) + " (X " + e.d + ") (Idx " + idx.d + "))", e.l, e.c)
+                ne.sl = e.sl; ne.sc = e.sc; e = ne
             } else { go = false }
         }
         return e
+    }
+
+    Bool genericCallAhead() {
+        if !self.atOp("<") { return false }
+        Int dep = 0
+        Int j = self.i
+        while j < self.toks.length() {
+            Tok x = self.toks.get(j)
+            if x.kind == 9 && x.text == "<" { dep = dep + 1 }
+            else if x.kind == 9 && x.text == ">" {
+                dep = dep - 1
+                if dep == 0 { return j + 1 < self.toks.length() && self.toks.get(j + 1).kind == 10 }
+            }
+            j = j + 1
+        }
+        return false
     }
 
     Bool lambdaAhead() {
@@ -1122,6 +1909,19 @@ class Parser {
             j = j + 1
         }
         return j < self.toks.length() && self.toks.get(j).kind == 9 && self.toks.get(j).text == "->"
+    }
+
+    String parseSubExpr(String text) {
+        Lexer sl = new Lexer(text)
+        List<Tok> ts = []
+        Bool go = true
+        while go {
+            Tok x = sl.next()
+            ts.push(x)
+            if x.kind == 0 { go = false }
+        }
+        Parser sp = new Parser(ts)
+        return sp.parseExpr().d
     }
 
     E parsePrimary() {
@@ -1151,10 +1951,18 @@ class Parser {
         if t.kind == 8 {
             self.next()
             List<String> parts = []
-            Int j = 0
-            while j < t.segs.length() {
-                parts.push("(StrPart (Text " + q(t.segs.get(j)) + ") (Expr (nil)))")
-                j = j + 1
+            if t.interps.length() == 0 {
+                parts.push("(StrPart (Text " + q(t.value) + ") (Expr (nil)))")
+            } else {
+                Int j = 0
+                while j < t.interps.length() {
+                    parts.push("(StrPart (Text " + q(t.segs.get(j)) + ") (Expr " + self.parseSubExpr(t.interps.get(j)) + "))")
+                    j = j + 1
+                }
+                String tail = t.segs.get(t.segs.length() - 1)
+                if tail != "" {
+                    parts.push("(StrPart (Text " + q(tail) + ") (Expr (nil)))")
+                }
             }
             return self.mk("(StrLitExpr " + P(t.line, t.col) + " (Kind " + str(t.str) + ") (Parts " + SL(parts) + "))", t.line, t.col)
         }
