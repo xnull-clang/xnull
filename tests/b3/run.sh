@@ -8,4 +8,5 @@ rc=0
 bash "$HERE/emit-diff.sh" || rc=1
 bash "$HERE/dual-path.sh" || rc=1
 bash "$HERE/negative.sh" || rc=1
+bash "$HERE/xnullc-skeleton.sh" || rc=1
 exit $rc

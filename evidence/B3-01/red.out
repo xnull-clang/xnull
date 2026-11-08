@@ -1,0 +1,43 @@
+FAIL skel tests/b3/fixtures/empty_main.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-skel.ZJjf7x/go.c	2026-11-08 23:46:42
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-skel.ZJjf7x/xn.c	2026-11-08 23:46:42
+@@ -1,426 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+-static void xn_print_str(rt_string *s) { printf("%.*s\n", (int)s->len, s->bytes); }
+-static void xn_print_null(void) { fputs("null\n", stdout); }
+-
+-/* 可空值（S1 §2.10）：has=0 表示 null。 */
+FAIL skel examples/hello.x
+--- /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-skel.ZJjf7x/go.c	2026-11-08 23:46:42
++++ /var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T//b3-skel.ZJjf7x/xn.c	2026-11-08 23:46:42
+@@ -1,440 +0,0 @@
+-/* 由 XNull 编译器生成（M4.1 代码生成）。 */
+-#include "rt.h"
+-#include "rt_gc.h"
+-#include "xrt.h"
+-#include <inttypes.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <unistd.h>
+-
+-static void xn_print_int(int64_t v) { printf("%lld\n", (long long)v); }
+-static void xn_print_bool(int v) { fputs(v ? "true\n" : "false\n", stdout); }
+-static void xn_print_double(double v) { printf("%g\n", v); }
+-static void xn_print_str(rt_string *s) { printf("%.*s\n", (int)s->len, s->bytes); }
+-static void xn_print_null(void) { fputs("null\n", stdout); }
+-
+-/* 可空值（S1 §2.10）：has=0 表示 null。 */
+xnullc-skeleton 汇总：PASS=0 FAIL=2
