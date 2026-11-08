@@ -2,6 +2,18 @@
 # M3 运行时构建与测试（验收基线：-O2 -Werror 零缺陷）
 set -e
 cd "$(dirname "$0")"
+
+# S8-21：--lib 只产出预编译静态库 libxnrt.a（codegen 测试链接用，不重编 rt*.c）。
+if [ "${1:-}" = "--lib" ]; then
+  obj=$(mktemp -d)
+  trap 'rm -rf "$obj"' EXIT
+  for f in rt rt_policy rt_gc rt_weak xrt_abi rt_std_runtime rt_std_text rt_std_sys rt_std_bytes rt_task rt_sync; do
+    cc -std=c11 -O2 -pthread -I. -c "$f.c" -o "$obj/$f.o"
+  done
+  ar rcs libxnrt.a "$obj"/*.o
+  echo "libxnrt.a 就绪：$(pwd)/libxnrt.a"
+  exit 0
+fi
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_rt test_rt.c rt.c rt_policy.c rt_gc.c rt_weak.c
 /tmp/xnull_test_rt
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_gc test_gc.c rt.c rt_gc.c rt_weak.c

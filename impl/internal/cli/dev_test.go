@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -50,5 +51,42 @@ func TestDevResGenerates(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"a.txt"`) {
 		t.Fatalf("生成内容缺少资源：\n%s", data)
+	}
+}
+
+// S8-21：开发期 --fast 与分片；合并锁互斥。
+func devTest(args ...string) (int, string, string) {
+	var out, errb bytes.Buffer
+	code := runDevTest(Env{Stdout: &out, Stderr: &errb}, args)
+	return code, out.String(), errb.String()
+}
+
+func TestDevTestFastAndShard(t *testing.T) {
+	if code, out, errOut := devTest("--fast", "devtool"); code != exitcode.Success {
+		t.Fatalf("--fast devtool 应通过：%s%s", out, errOut)
+	}
+	if code, out, errOut := devTest("--fast", "--shard", "1/2", "manifest"); code != exitcode.Success {
+		t.Fatalf("--shard 1/2 manifest 应通过：%s%s", out, errOut)
+	}
+	if code, _, _ := devTest("--fast", "--shard", "3/2", "manifest"); code != exitcode.Usage {
+		t.Fatalf("非法分片应退出 2，实际 %d", code)
+	}
+	if code, out, errOut := devTest("--fast", "--parallel", "2", "devtool"); code != exitcode.Success {
+		t.Fatalf("--parallel 2 devtool 应通过：%s%s", out, errOut)
+	}
+}
+
+func TestMergeLockExclusive(t *testing.T) {
+	root := t.TempDir()
+	release, err := acquireMergeLock(root)
+	if err != nil {
+		t.Fatalf("首次加锁应成功：%v", err)
+	}
+	if _, err := acquireMergeLock(root); err == nil {
+		t.Fatalf("重复加锁应失败")
+	}
+	release()
+	if _, err := acquireMergeLock(root); err != nil {
+		t.Fatalf("释放后应可再次加锁：%v", err)
 	}
 }

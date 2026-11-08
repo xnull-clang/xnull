@@ -55,9 +55,7 @@ func TestS6XDK08TextXfbRegex(t *testing.T) {
 	bin := filepath.Join(dir, "prog")
 	resC := writeEmptyResourceTable(t, dir)
 	args := []string{"-std=c11", "-O2", "-pthread", "-I", rt, "-o", bin, cfile, resC}
-	for _, s := range runtimeCSources {
-		args = append(args, filepath.Join(rt, s))
-	}
+	args = append(args, runtimeLib(t))
 	var cerr bytes.Buffer
 	cc := exec.Command("cc", args...)
 	cc.Stderr = &cerr
