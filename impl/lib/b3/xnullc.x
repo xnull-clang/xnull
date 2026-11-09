@@ -237,6 +237,7 @@ static Bool hasStr(List<String> xs, String v) {
     return false
 }
 static void needArr(String ec) {
+    if ec.indexOf("xn_arr_") == 0 || ec.indexOf("xn_set_") == 0 || ec.indexOf("xn_map_") == 0 { return }
     if !hasStr(C_ARR, ec) { C_ARR.push(ec) }
     if ec == "rt_string *" { USES_ARR_S = true }
 }
@@ -245,6 +246,8 @@ static void needSet(String ec) {
     if !hasStr(C_SET, ec) { C_SET.push(ec) }
 }
 static void needMap(String kc, String vc) {
+    if kc.indexOf("xn_arr_") == 0 || kc.indexOf("xn_set_") == 0 || kc.indexOf("xn_map_") == 0 { return }
+    if vc.indexOf("xn_arr_") == 0 || vc.indexOf("xn_set_") == 0 || vc.indexOf("xn_map_") == 0 { return }
     String key = kc + "|" + vc
     Int i = 0
     while i < C_MAPK.length() { if C_MAPK.get(i) + "|" + C_MAPV.get(i) == key { return }; i = i + 1 }
@@ -4567,7 +4570,7 @@ static String dynContainerHelpers() {
         String ec = arrs.get(i)
         if ec == "int64_t" { s = s + arrIHelperText() }
         else if ec == "rt_string *" { s = s + arrSHelperOnly() }
-        else if ec == "uint16_t" { s = s + u16ArrHelperText() }
+        else if ec == "uint16_t" { if s != "" { s = s + "\n" }; s = s + u16ArrHelperText() }
         else if ec.indexOf("xn_Cls_") == 0 && ec.length() > 9 && ec.substring(ec.length() - 2, 2) == " *" {
             s = s + classArrHelperText("List<" + ec.substring(7, ec.length() - 9) + ">")
         }
@@ -5236,6 +5239,21 @@ static String resultTypedefsSorted(SC sc) {
     return resT + "\n"
 }
 
+static void prewarmN(N n) {
+    if n.nm == "" || n.nm == "nil" { return }
+    if n.nm == "NamedType" || n.nm == "SuffixedType" || n.nm == "TupleTypeRef" {
+        String k0 = typeKey(n)
+        String junk0 = cType(k0)
+    }
+    Int i = 0
+    while i < n.fv.length() { prewarmN(n.fv.get(i)); i = i + 1 }
+    i = 0
+    while i < n.el.length() { prewarmN(n.el.get(i)); i = i + 1 }
+}
+static void prewarmContainers(N decls) {
+    Int i = 0
+    while i < decls.el.length() { prewarmN(decls.el.get(i)); i = i + 1 }
+}
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -5448,6 +5466,7 @@ static String emitUnit(N unit, String path) {
         i = i + 1
     }
     emitInstances(e, sc)
+    prewarmContainers(decls)
     e.add("int main(void) {")
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
