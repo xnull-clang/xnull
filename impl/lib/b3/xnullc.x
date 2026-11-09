@@ -3881,6 +3881,9 @@ static void emitClassSection(N cls, EM ce) {
         } else if isClass(ft) && init.nm == "New" {
             ce.add("    rt_release((void *)o->" + fn + ");")
             ce.add("    o->" + fn + " = " + expr(init, ce, new SC()) + ";")
+        } else if init.nm == "NullLit" && (isProtoType(stripQ(ft)) || isClass(stripQ(ft)) || isDataEnum(stripQ(ft)) || ft == "Bytes" || ft == "String?") {
+            ce.add("    rt_release((void *)o->" + fn + ");")
+            ce.add("    o->" + fn + " = NULL;")
         } else {
             String dv = "0"
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
