@@ -1422,6 +1422,8 @@ static String expr(N x, EM e, SC sc) {
         }
         if op == "/" { return "xn_div_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
         if op == "%" { return "xn_mod_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
+        if op == "===" { op = "==" }
+        if op == "!==" { op = "!=" }
         return "(" + expr(fld(x, "L"), e, sc) + " " + op + " " + expr(fld(x, "R"), e, sc) + ")"
     }
     if x.nm == "TupleMember" {
@@ -4610,7 +4612,7 @@ static String dynContainerHelpers() {
         if !mapUsesS { s = s + "\n\n" }
         s = s + strSplitBlock()
     }
-    if USES_STR_REPLACE { s = s + "\n" + strReplaceBlock() }
+    if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
     return s
 }
 static String arrSBlock() {
