@@ -4608,6 +4608,8 @@ static String dynContainerHelpers() {
         else if mks.get(i) == "s|s" { s = s + mapSSBlock() }
         i = i + 1
     }
+    s = s.replace("}\nstatic", "}\n\nstatic")
+    while s.indexOf("}\n\n\nstatic") >= 0 { s = s.replace("}\n\n\nstatic", "}\n\nstatic") }
     if mapUsesS || hasStr(C_ARR, "rt_string *") {
         if !mapUsesS { s = s + "\n\n" }
         s = s + strSplitBlock()
@@ -5267,6 +5269,18 @@ static String emitUnit(N unit, String path) {
         fui = fui + 1
     }
     N decls = fld(unit, "Decls")
+    String mainParams = ""
+    Bool mainArgv = false
+    Int mfi0 = 0
+    while mfi0 < decls.el.length() {
+        N d0 = decls.el.get(mfi0)
+        if d0.nm == "TopFunc" && unq(txt(fld(d0, "Name"))) == "main" {
+            mainParams = paramsOf(d0)
+            if fld(d0, "Params").el.length() > 0 { mainArgv = true }
+            mfi0 = decls.el.length()
+        } else { mfi0 = mfi0 + 1 }
+    }
+    String mainProto = "static int64_t xn_main(" + mainParams + ");\n"
     Int glc = 0
     while glc < decls.el.length() {
         if hasGenericListType(decls.el.get(glc)) { e.usesList = true; glc = decls.el.length() }
@@ -5470,12 +5484,22 @@ static String emitUnit(N unit, String path) {
     }
     emitInstances(e, sc)
     prewarmContainers(decls)
-    e.add("int main(void) {")
+    if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
     e.add("    xn_init_enums();")
     if SINGLE_NAMES.length() > 0 { e.add("    xn_init_singletons();") }
-    e.add("    int64_t xn_r = xn_main();")
+    if mainArgv {
+        e.add("    xn_arr_s *xn_args = xn_arr_s_new((size_t)(argc > 1 ? argc - 1 : 0));")
+        e.add("    for (int i = 1; i < argc; i++) {")
+        e.add("        rt_string *xn_av = rt_string_from_c(argv[i]);")
+        e.add("        xn_arr_s_push(xn_args, xn_av);")
+        e.add("        rt_release(xn_av);")
+        e.add("    }")
+        e.add("    int64_t xn_r = xn_main(xn_args);")
+    } else {
+        e.add("    int64_t xn_r = xn_main();")
+    }
     e.add("    rt_gc_collect();")
     e.add("    rt_quarantine_flush();")
     e.add("    return (int)xn_r;")
@@ -5651,7 +5675,7 @@ static String emitUnit(N unit, String path) {
         }
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
@@ -5664,7 +5688,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -5713,9 +5737,9 @@ static String emitUnit(N unit, String path) {
             sinit = sinit + "    xn_Single_" + unq(txt(fld(SINGLE_DECLS.get(si), "Name"))) + "_init();\n"
             si = si + 1
         }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
     } else if ENUM_NAMES.length() > 0 {
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_TAIL
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID + mainProto + PRELUDE_TAIL
     } else if STRUCT_NAMES.length() > 0 {
         EM ce = new EM()
         ce.tmp = e.tmp
@@ -5871,7 +5895,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
@@ -5911,7 +5935,7 @@ static String emitUnit(N unit, String path) {
             }
             i = i + 1
         }
-        res = res + "static int64_t xn_main();\n"
+        res = res + mainProto
         res = res + genProtos()
         res = res + PRELUDE_TAIL
     }
