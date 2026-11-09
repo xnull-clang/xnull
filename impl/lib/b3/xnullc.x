@@ -4199,6 +4199,32 @@ static N genClsDecl(String n) {
     }
     return new N()
 }
+static List<String> genSorted() {
+    List<String> xs = []
+    Int i = 0
+    while i < GEN_INST_NAME.length() { xs.push(GEN_INST_NAME.get(i)); i = i + 1 }
+    sortStrs(xs)
+    return xs
+}
+static void sortGenInsts() {
+    Int a = 1
+    while a < GEN_INST_NAME.length() {
+        String xn = GEN_INST_NAME.get(a)
+        String xk = GEN_INST_KEY.get(a)
+        String xb = GEN_INST_BASE.get(a)
+        Int b = a
+        while b > 0 && strLess(xn, GEN_INST_NAME.get(b - 1)) {
+            GEN_INST_NAME.set(b, GEN_INST_NAME.get(b - 1))
+            GEN_INST_KEY.set(b, GEN_INST_KEY.get(b - 1))
+            GEN_INST_BASE.set(b, GEN_INST_BASE.get(b - 1))
+            b = b - 1
+        }
+        GEN_INST_NAME.set(b, xn)
+        GEN_INST_KEY.set(b, xk)
+        GEN_INST_BASE.set(b, xb)
+        a = a + 1
+    }
+}
 static void addClsInst(String cn, String key) {
     String inst = cn + "_" + mangle(key)
     Int i = 0
@@ -5414,7 +5440,8 @@ static String emitUnit(N unit, String path) {
                 sci2 = sci2 + 1
             }
             Int gti = 0
-            while gti < GEN_INST_NAME.length() { fw.push("typedef struct xn_Cls_" + GEN_INST_NAME.get(gti) + " xn_Cls_" + GEN_INST_NAME.get(gti) + ";"); gti = gti + 1 }
+            List<String> gs0 = genSorted()
+            while gti < gs0.length() { fw.push("typedef struct xn_Cls_" + gs0.get(gti) + " xn_Cls_" + gs0.get(gti) + ";"); gti = gti + 1 }
             fw.push("")
             pass = pass + 1
         }
@@ -5432,11 +5459,14 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         Int gpi = 0
-        while gpi < GEN_INST_NAME.length() {
-            String instn = GEN_INST_NAME.get(gpi)
-            N gd = genClsDecl(GEN_INST_BASE.get(gpi))
+        List<String> gs1 = genSorted()
+        while gpi < gs1.length() {
+            String instn = gs1.get(gpi)
+            Int gi0 = 0
+            while gi0 < GEN_INST_NAME.length() && GEN_INST_NAME.get(gi0) != instn { gi0 = gi0 + 1 }
+            N gd = genClsDecl(GEN_INST_BASE.get(gi0))
             SUB_FROM = ["T"]
-            SUB_TO = [GEN_INST_KEY.get(gpi)]
+            SUB_TO = [GEN_INST_KEY.get(gi0)]
             CLS_OVERRIDE = instn
             String gnp = ctorParams(gd)
             if gnp == "" { gnp = "void" }

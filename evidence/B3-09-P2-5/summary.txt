@@ -1,0 +1,1 @@
+P2-5: 泛型实例前向/构造器原型按名字排序（genSorted），类体仍按实例化顺序（Go 同）。collections_basic 1354→1318、nonnull 1226→1190。首条差异转为泛型实例策略：Go RingBuffer_i 用 rt_arc_new 且不 root_add(o)，xnullc 用 xn_gc_new + root_add(o)；随后方法内 -1 temp 基线。text 0，全组绿。
