@@ -1651,12 +1651,7 @@ static String expr(N x, EM e, SC sc) {
                 }
                 if isMap(mt2) { return "(" + mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_get(" + xb + ", " + a0 + ").v)" }
                 if isU16List(mt2) { return "xn_arr_u16_get(" + xb + ", " + a0 + ")" }
-                if isObjArr(mt2) {
-                    String an = classArrName(mt2)
-                    String t = e.nt()
-                    e.add(cType(objArrElem(mt2)) + " " + t + " = " + an + "_get(" + xb + ", " + a0 + ");")
-                    return t
-                }
+                if isObjArr(mt2) { return classArrName(mt2) + "_get(" + xb + ", " + a0 + ")" }
                 if isTupList(mt2) { return arrTupName(mt2) + "_get(" + xb + ", " + a0 + ")" }
                 return arrNameC(cType(arrElem(mt2))) + "_get(" + xb + ", " + a0 + ")"
             }
@@ -2054,7 +2049,7 @@ static void emitReturnClose(SC sc, EM e, String expr) {
     sc.returned = true
     e.raw("")
     if expr == "" { e.add("return;") } else { e.add("return " + expr + ";") }
-    if e.ind > 0 { e.raw("") }
+    if e.ind > 0 && sc.blockHeld.length() == 0 { e.raw("") }
 }
 
 static List<String> rootRestoresOf(SC s, String kind) {
@@ -2851,7 +2846,8 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             emitReturnClose(sc, e, sc.ret)
             return
         }
-        if v.nm == "Call" && isClass(sc.retKind) {
+        if (v.nm == "Call" || v.nm == "Index") && isClass(sc.retKind) {
+            if v.nm == "Index" { emitReturnClose(sc, e, expr(v, e, sc)); return }
             N cv1 = fld(v, "Callee")
             if cv1.nm == "IdentExpr" {
                 N av1 = fld(v, "Args")
@@ -2886,6 +2882,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         if v.nm == "Call" && sc.retKind == "Int" {
             N cv2 = fld(v, "Callee")
             if cv2.nm == "IdentExpr" {
+                emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
+        if v.nm == "Call" {
+            N cg0 = fld(v, "Callee")
+            String gvt = exprType(v, sc)
+            if cg0.nm == "Member" && unq(txt(fld(cg0, "Name"))) == "get" && (isClass(gvt) || isProtoType(gvt) || isDataEnum(gvt)) {
                 emitReturnClose(sc, e, expr(v, e, sc))
                 return
             }
@@ -3221,7 +3225,10 @@ static void emitBlockExit(SC sc, EM e, Int ind) {
         e.addAt(ind, "xn_root_release(" + sc.blockHeld.get(hi) + ");")
         hi = hi + 1
     }
-    if sc.returned { return }
+    if sc.returned {
+        if sc.blockHeld.length() > 0 && sc.parentId >= 0 { e.raw("") }
+        return
+    }
     Int i = sc.defers.length() - 1
     while i >= 0 {
         DF d = sc.defers.get(i)
