@@ -863,6 +863,16 @@ static Int protoSlots(String cls) {
     }
     return n
 }
+static List<String> genTypePars(String base) {
+    List<String> ps = []
+    N gd = genClsDecl(base)
+    N tp = fld(gd, "TypePars")
+    Int i = 0
+    while i < tp.el.length() { ps.push(unq(txt(tp.el.get(i)))); i = i + 1 }
+    if ps.length() == 0 { ps.push("T") }
+    return ps
+}
+
 static N classByName(String cn) {
     Int i = 0
     while i < CLS_DECLS.length() {
@@ -4582,7 +4592,7 @@ static void addClsInst(String cn, String key) {
     GEN_INST_BASE.push(cn)
     CLS_NAMES.push(inst)
     N d = genClsDecl(cn)
-    SUB_FROM = ["T"]
+    SUB_FROM = genTypePars(cn)
     SUB_TO = [key]
     N fs = fld(d, "Fields")
     Int fi = 0
@@ -5807,7 +5817,7 @@ static String emitUnit(N unit, String path) {
         Int gci = 0
         while gci < GEN_INST_NAME.length() {
             CLS_OVERRIDE = GEN_INST_NAME.get(gci)
-            SUB_FROM = ["T"]
+            SUB_FROM = genTypePars(GEN_INST_BASE.get(gci))
             SUB_TO = [GEN_INST_KEY.get(gci)]
             emitClassSection(genClsDecl(GEN_INST_BASE.get(gci)), ce)
             SUB_FROM = []
@@ -5919,7 +5929,7 @@ static String emitUnit(N unit, String path) {
             Int gi0 = 0
             while gi0 < GEN_INST_NAME.length() && GEN_INST_NAME.get(gi0) != instn { gi0 = gi0 + 1 }
             N gd = genClsDecl(GEN_INST_BASE.get(gi0))
-            SUB_FROM = ["T"]
+            SUB_FROM = genTypePars(GEN_INST_BASE.get(gi0))
             SUB_TO = [GEN_INST_KEY.get(gi0)]
             CLS_OVERRIDE = instn
             String gnp = ctorParams(gd)
