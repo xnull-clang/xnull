@@ -192,6 +192,9 @@ static String q(String s) {
     return b + "\""
 }
 static Int lineOf(N n) { return dec(txt(fld(fld(n, "P"), "Line"))) }
+static Int colOf(N n) { return dec(txt(fld(fld(n, "P"), "Col"))) }
+static List<String> LAM_KEYS = []
+static List<N> LAM_NODES = []
 static String sp(Int n) {
     String b = ""
     Int i = 0
@@ -863,6 +866,16 @@ static Int protoSlots(String cls) {
     }
     return n
 }
+static List<String> genTypePars(String base) {
+    List<String> ps = []
+    N gd = genClsDecl(base)
+    N tp = fld(gd, "TypePars")
+    Int i = 0
+    while i < tp.el.length() { ps.push(unq(txt(tp.el.get(i)))); i = i + 1 }
+    if ps.length() == 0 { ps.push("T") }
+    return ps
+}
+
 static N classByName(String cn) {
     Int i = 0
     while i < CLS_DECLS.length() {
@@ -1346,7 +1359,67 @@ static String arrayLitArg(N a, String expect, EM e, SC sc) {
     return t
 }
 
+static Int lambdaId(N x) {
+    String k = str(lineOf(x)) + ":" + str(colOf(x))
+    Int i = 0
+    while i < LAM_KEYS.length() {
+        if LAM_KEYS.get(i) == k { return i + 1 }
+        i = i + 1
+    }
+    LAM_KEYS.push(k)
+    LAM_NODES.push(x)
+    return LAM_KEYS.length()
+}
+static String lambdaParamDecl(N x) {
+    N ps = fld(x, "Params")
+    String b = ""
+    Int i = 0
+    while i < ps.el.length() {
+        N p = ps.el.get(i)
+        if i > 0 { b = b + ", " }
+        b = b + cType(typeKey(fld(p, "Type"))) + " " + unq(txt(fld(p, "Name")))
+        i = i + 1
+    }
+    return b
+}
+static SC lambdaScope(N x) {
+    SC ls = new SC()
+    N ps = fld(x, "Params")
+    Int i = 0
+    while i < ps.el.length() { N p = ps.el.get(i); ls.def(unq(txt(fld(p, "Name"))), typeKey(fld(p, "Type"))); i = i + 1 }
+    return ls
+}
+static String lambdaRetC(N x) {
+    N eb = fld(x, "ExprB")
+    if eb.nm == "" || eb.nm == "nil" { return "void" }
+    return cType(exprType(eb, lambdaScope(x)))
+}
+static String lambdaDefText(N x, Int id) {
+    EM le = new EM()
+    le.ind = 4
+    SC ls = lambdaScope(x)
+    N eb = fld(x, "ExprB")
+    if eb.nm != "" && eb.nm != "nil" {
+        le.add("(void)0;")
+        String bv = expr(eb, le, ls)
+        le.add("return " + bv + ";")
+    }
+    return "static " + lambdaRetC(x) + " xn_fn_lit_" + str(id) + "(" + lambdaParamDecl(x) + ") {\n" + joinLines(le.ls) + "\n}\n\n"
+}
+static String lambdaProtos() {
+    String b = ""
+    Int i = 0
+    while i < LAM_NODES.length() {
+        N x = LAM_NODES.get(i)
+        b = b + "static " + lambdaRetC(x) + " xn_fn_lit_" + str(i + 1) + "(" + lambdaParamDecl(x) + ");\n"
+        i = i + 1
+    }
+    if b != "" { b = b + "\n" }
+    return b
+}
+
 static String expr(N x, EM e, SC sc) {
+    if x.nm == "Lambda" { return "xn_fn_lit_" + str(lambdaId(x)) }
     if x.nm == "IntLitExpr" {
         String it = unq(txt(fld(x, "Text")))
         if it.indexOf("0x") == 0 || it.indexOf("0X") == 0 {
@@ -1625,6 +1698,21 @@ static String expr(N x, EM e, SC sc) {
                 if isStruct(cbt) { b0 = "(&" + b0 + ")" }
                 else if owner != cbt { b0 = "(xn_Cls_" + owner + " *)" + b0 }
                 String call = ""
+                if isClass(cbt) {
+                    String fo0 = methodOwner(cbt, mn)
+                    if fo0 == "" { fo0 = cbt }
+                    String fdt0 = fieldType(fo0, mn)
+                    if fieldExists(fo0, mn) && cType(fdt0).indexOf("xn_fn_") == 0 {
+                        String fcall = expr(mx, e, sc) + "->" + mn + "("
+                        Int fai = 0
+                        while fai < args.el.length() {
+                            if fai > 0 { fcall = fcall + ", " }
+                            fcall = fcall + argExpr(args.el.get(fai), e, sc)
+                            fai = fai + 1
+                        }
+                        return fcall + ")"
+                    }
+                }
                 if isClass(cbt) && isExtMethod(cbt, mn) { call = extCName(cbt, mn) + "(" + b0 }
                 else { call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0 }
                 Int ai = 0
@@ -1986,6 +2074,11 @@ static void emitPrint(N arg, EM e, SC sc) {
     }
     if ty == "Int?" || ty == "Bool?" || ty == "String?" {
         String base = expr(arg, e, sc)
+        if arg.nm == "Call" {
+            String ot = e.nt()
+            e.add(cType(ty) + " " + ot + " = " + base + ";")
+            base = ot
+        }
         String inner = ""
         if ty == "Int?" { inner = "xn_print_int(" + base + ".v);" }
         else if ty == "Bool?" { inner = "xn_print_bool(" + base + ".v);" }
@@ -2034,6 +2127,7 @@ static List<String> copyStrs(List<String> xs) {
     return r
 }
 static Bool isGCRootType(String t) {
+    if isGenInstCls(t) { return false }
     if t == "String" || t == "Bytes" || t == "Text" || t == "StringBuilder" || t == "Any" { return true }
     if t.indexOf("List<") == 0 || t.indexOf("Set<") == 0 || t.indexOf("Map<") == 0 { return true }
     if isArr(t) || isSet(t) || isMap(t) || isTupList(t) || isU16List(t) || isObjArr(t) { return true }
@@ -2434,6 +2528,19 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             finishLocalRoot(sc, e, nm, ty)
             return
         }
+        if init.nm == "NewArray" && isArr(ty) {
+            e.usesList = true
+            String nsz = expr(fld(init, "Count"), e, sc)
+            String ec = cType(arrElem(ty))
+            String an = arrNameC(ec)
+            String nt = e.nt()
+            e.add(an + " *" + nt + " = " + an + "_new((size_t)(" + nsz + "));")
+            e.add(nt + "->len = (size_t)(" + nsz + ");")
+            e.add("memset(" + nt + "->data, 0, sizeof(" + ec + ") * (size_t)(" + nsz + "));")
+            e.add(an + " * " + nm + " = " + nt + ";")
+            finishLocalRoot(sc, e, nm, ty)
+            return
+        }
         if init.nm == "ArrayLit" && isArr(ty) {
             e.usesList = true
             N elems = fld(init, "Elems")
@@ -2489,6 +2596,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if ty == "Int?" || ty == "Bool?" || ty == "String?" {
+            if init.nm == "Call" && !(fld(init, "Callee").nm == "IdentExpr" && unq(txt(fld(fld(init, "Callee"), "Name"))) == "env") {
+                String optv = e.nt()
+                e.add(cType(ty) + " " + optv + " = " + expr(init, e, sc) + ";")
+                e.add(cType(ty) + " " + nm + " = " + optv + ";")
+                return
+            }
             if init.nm == "Call" {
                 N ic = fld(init, "Callee")
                 if ic.nm == "IdentExpr" && unq(txt(fld(ic, "Name"))) == "env" {
@@ -2545,7 +2658,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if isClass(ty) {
-            Bool isGC = classPolicy(ty) == "gc"
+            Bool isGC = classPolicy(ty) == "gc" && !isGenInstCls(ty)
             if init.nm == "New" {
                 N args = fld(init, "Args")
                 if classStackOK(ty) && !isEscaped(sc, nm) {
@@ -2804,6 +2917,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.add(mapNameC(cType(mapKey(rt0)), cType(mapVal(rt0))) + "_put(" + xb + ", " + a0 + ", " + a1 + ");")
                     return
                 }
+                if mn == "remove" && (isArr(rt0) || isU16List(rt0) || isObjArr(rt0)) {
+                    String et = "int64_t"
+                    if isU16List(rt0) { et = "uint16_t" }
+                    else if isObjArr(rt0) { et = cType(objArrElem(rt0)) }
+                    else { et = cType(arrElem(rt0)) }
+                    String rt0t = e.nt()
+                    e.add(et + " " + rt0t + " = " + expr(call, e, sc) + ";")
+                    return
+                }
                 if mn == "set" && (isArr(rt0) || isU16List(rt0) || isObjArr(rt0)) {
                     String a0 = "0"
                     String a1 = "0"
@@ -3019,6 +3141,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             N cv2 = fld(v, "Callee")
             if cv2.nm == "IdentExpr" {
                 emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
+        if v.nm == "IdentExpr" {
+            String ivt0 = exprType(v, sc)
+            if (ivt0 == "Int?" || ivt0 == "Bool?" || ivt0 == "String?") && sc.retKind != ivt0 {
+                String ipv0 = expr(v, e, sc)
+                emitReturnClose(sc, e, "(" + cType(sc.retKind) + ")((" + ipv0 + ").v)")
                 return
             }
         }
@@ -4582,7 +4712,7 @@ static void addClsInst(String cn, String key) {
     GEN_INST_BASE.push(cn)
     CLS_NAMES.push(inst)
     N d = genClsDecl(cn)
-    SUB_FROM = ["T"]
+    SUB_FROM = genTypePars(cn)
     SUB_TO = [key]
     N fs = fld(d, "Fields")
     Int fi = 0
@@ -5751,6 +5881,8 @@ static String emitUnit(N unit, String path) {
         }
         sci = sci + 1
     }
+    LAM_KEYS = []
+    LAM_NODES = []
     PREPASS = true
     i = 0
     while i < decls.el.length() {
@@ -5773,6 +5905,8 @@ static String emitUnit(N unit, String path) {
     PRE_CGET = 0
     PREPASS = false
     prewarmContainers(decls)
+    Int lamd = 0
+    while lamd < LAM_NODES.length() { e.raw(lambdaDefText(LAM_NODES.get(lamd), lamd + 1)); lamd = lamd + 1 }
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
@@ -5807,7 +5941,7 @@ static String emitUnit(N unit, String path) {
         Int gci = 0
         while gci < GEN_INST_NAME.length() {
             CLS_OVERRIDE = GEN_INST_NAME.get(gci)
-            SUB_FROM = ["T"]
+            SUB_FROM = genTypePars(GEN_INST_BASE.get(gci))
             SUB_TO = [GEN_INST_KEY.get(gci)]
             emitClassSection(genClsDecl(GEN_INST_BASE.get(gci)), ce)
             SUB_FROM = []
@@ -5919,7 +6053,7 @@ static String emitUnit(N unit, String path) {
             Int gi0 = 0
             while gi0 < GEN_INST_NAME.length() && GEN_INST_NAME.get(gi0) != instn { gi0 = gi0 + 1 }
             N gd = genClsDecl(GEN_INST_BASE.get(gi0))
-            SUB_FROM = ["T"]
+            SUB_FROM = genTypePars(GEN_INST_BASE.get(gi0))
             SUB_TO = [GEN_INST_KEY.get(gi0)]
             CLS_OVERRIDE = instn
             String gnp = ctorParams(gd)
@@ -5964,7 +6098,7 @@ static String emitUnit(N unit, String path) {
         }
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B + lambdaProtos()
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
