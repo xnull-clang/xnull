@@ -2351,8 +2351,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     if isArr(grt0) && cType(arrElem(grt0)) == "rt_string *" { strGet0 = true }
                 }
                 if strGet0 {
+                    String gv0 = expr(init, e, sc)
                     String sdGt = e.nt()
-                    e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+                    e.add("rt_string *" + nm + " = rt_retain(" + gv0 + ");")
                 } else {
                 Bool subM = false
                 if ic0.nm == "Member" && unq(txt(fld(ic0, "Name"))) == "substring" {
@@ -2364,8 +2365,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String sd1 = e.nt()
                     e.add("rt_string *" + nm + " = xn_str_substr(" + sd0 + ", " + expr(as0.el.get(0), e, sc) + ", " + expr(as0.el.get(1), e, sc) + ");")
                 } else {
+                    String cv1 = expr(init, e, sc)
                     String sdum = e.nt()
-                    e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
+                    e.add("rt_string *" + nm + " = " + cv1 + ";")
                 }
                 }
             } else {
