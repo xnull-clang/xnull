@@ -93,7 +93,31 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 	case *xfront.Call:
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
-			return nil, "", fmt.Errorf("codegen：容器表达式调用 %T 未支持（M6-B0-05 范围）", n.Callee)
+			// 顶层函数返回容器：调用结果直接作容器值（借用；GC 根由消费方登记）。
+			id, isID := n.Callee.(*xfront.IdentExpr)
+			if !isID {
+				return nil, "", fmt.Errorf("codegen：容器表达式调用 %T 未支持（M6-B0-05 范围）", n.Callee)
+			}
+			retC, err := s.exprType(n)
+			if err != nil {
+				return nil, "", err
+			}
+			if !isContainerC(retC) {
+				return nil, "", fmt.Errorf("codegen：容器表达式调用 %s 返回 %s，不是容器", id.Name, retC)
+			}
+			args, err := s.callArgs(n.Args)
+			if err != nil {
+				return nil, "", err
+			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+			if err != nil {
+				return nil, "", err
+			}
+			lines := append([]string{}, s.pending...)
+			s.pending = nil
+			t := s.tmp()
+			lines = append(lines, fmt.Sprintf("%s *%s = %s(%s);", contBase(wantC), t, cn, strings.Join(args, ", ")))
+			return lines, t, nil
 		}
 		rt, terr := s.exprType(mem.X)
 		if terr == nil && rt == "rt_string *" && mem.Name == "split" {

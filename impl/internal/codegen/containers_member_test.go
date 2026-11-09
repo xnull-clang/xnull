@@ -78,6 +78,35 @@ static Int main() {
 	}
 }
 
+// M4.4a：顶层函数返回容器——初始化为变量/作实参。
+func TestM44aContainerCallValue(t *testing.T) {
+	src := `
+import xdk.collections;
+static List<Int> makeList(Int n) {
+    List<Int> xs = [];
+    xs.push(n);
+    return xs;
+}
+static Map<String, Int> makeMap(Int n) {
+    Map<String, Int> m = [:];
+    m.put("k", n);
+    return m;
+}
+static Int firstOf(List<Int> xs) { return xs.get(0); }
+static Int main() {
+    List<Int> xs = makeList(3);
+    print(xs.length());
+    print(firstOf(makeList(4)));
+    Map<String, Int> m = makeMap(5);
+    print(m.getOr("k", 0));
+    return 0;
+}`
+	got, code := compileAndRun(t, src)
+	if want := "1\n4\n5\n"; got != want || code != 0 {
+		t.Fatalf("out=%q code=%d，期望 %q", got, code, want)
+	}
+}
+
 // M4.4a：容器字段作为值——类字段链（o.h.xs）与 Map 字段。
 // 注：struct 字段不允许容器（S2 §3.2 值字段限制，sema TY-204），字段链用类覆盖。
 func TestM44aContainerMemberValueClassChain(t *testing.T) {

@@ -2249,6 +2249,18 @@ func reindent(lines []string, indent string) []string {
 	return out
 }
 
+// scopeDeferLines 取子作用域注册的普通清理语句（LIFO；errdefer 不展开）。
+func scopeDeferLines(sc *scope) []string {
+	var out []string
+	for i := len(sc.defers) - 1; i >= 0; i-- {
+		if sc.defers[i].errdefer {
+			continue
+		}
+		out = append(out, sc.defers[i].lines...)
+	}
+	return out
+}
+
 // emitExprStmt 表达式语句：print(...) 或 void 调用。
 func (s *scope) emitExprStmt(e xfront.Expr) ([]string, error) {
 	call, ok := e.(*xfront.Call)
@@ -4204,6 +4216,43 @@ func (s *scope) strExpr(e xfront.Expr) ([]string, error) {
 			out = append(out, "rt_string *"+t+" = xn_concat("+lastVar(ls)+", "+lastVar(rs)+");")
 			return out, nil // xn_concat 接管两侧所有权
 		}
+	case *xfront.Ternary:
+		// `cond ? a : b`（String 结果）：分支各自产出拥有所有权的临时，
+		// 用 if/else 只求值命中分支，再把结果交给统一临时。
+		base := len(s.pending)
+		cond, err := s.boolExpr(n.Cond)
+		if err != nil {
+			return nil, err
+		}
+		condPre := append([]string{}, s.pending[base:]...)
+		s.pending = s.pending[:base]
+		thenSc := s.newChild()
+		thenLines, err := thenSc.strExpr(n.Then)
+		if err != nil {
+			return nil, err
+		}
+		elseSc := s.newChild()
+		elseLines, err := elseSc.strExpr(n.Else)
+		if err != nil {
+			return nil, err
+		}
+		t := s.tmp()
+		out := append([]string{}, condPre...)
+		out = append(out, "rt_string *"+t+" = NULL;", "if ("+cond+") {")
+		thenBlock := append(append([]string{}, thenSc.pending...), thenLines...)
+		thenBlock = append(thenBlock, t+" = "+lastVar(thenLines)+";")
+		thenBlock = append(thenBlock, scopeDeferLines(thenSc)...)
+		out = append(out, reindent(thenBlock, "    ")...)
+		out = append(out, "} else {")
+		elseBlock := append(append([]string{}, elseSc.pending...), elseLines...)
+		elseBlock = append(elseBlock, t+" = "+lastVar(elseLines)+";")
+		elseBlock = append(elseBlock, scopeDeferLines(elseSc)...)
+		out = append(out, reindent(elseBlock, "    ")...)
+		out = append(out, "}")
+		// strExpr 约定：最后一行必须声明结果临时。
+		res := s.tmp()
+		out = append(out, "rt_string *"+res+" = "+t+";")
+		return out, nil
 	case *xfront.Call:
 		// S6-03：dirReadAsync 等 String 返回的内建入口。
 		if id, ok := n.Callee.(*xfront.IdentExpr); ok && sys603IsAsyncName(id.Name) {
@@ -4910,6 +4959,44 @@ func (s *scope) intExpr(e xfront.Expr) (string, error) {
 		return "(" + l + " " + cOp(n.Op) + " " + r + ")", nil
 	case *xfront.Paren:
 		return s.intExpr(n.X)
+	case *xfront.Ternary:
+		tc, err := s.exprType(n)
+		if err != nil {
+			return "", err
+		}
+		if tc == "void" {
+			return "", fmt.Errorf("codegen：void 三元表达式不能作值（M4.1 范围）")
+		}
+		base := len(s.pending)
+		cond, err := s.boolExpr(n.Cond)
+		if err != nil {
+			return "", err
+		}
+		condPre := append([]string{}, s.pending[base:]...)
+		s.pending = s.pending[:base]
+		thenSc := s.newChild()
+		thenExpr, err := thenSc.intExpr(n.Then)
+		if err != nil {
+			return "", err
+		}
+		elseSc := s.newChild()
+		elseExpr, err := elseSc.intExpr(n.Else)
+		if err != nil {
+			return "", err
+		}
+		t := s.tmp()
+		out := append([]string{}, condPre...)
+		out = append(out, tc+" "+t+";", "if ("+cond+") {")
+		thenBlock := append(append([]string{}, thenSc.pending...), t+" = "+thenExpr+";")
+		thenBlock = append(thenBlock, scopeDeferLines(thenSc)...)
+		out = append(out, reindent(thenBlock, "    ")...)
+		out = append(out, "} else {")
+		elseBlock := append(append([]string{}, elseSc.pending...), t+" = "+elseExpr+";")
+		elseBlock = append(elseBlock, scopeDeferLines(elseSc)...)
+		out = append(out, reindent(elseBlock, "    ")...)
+		out = append(out, "}")
+		s.pending = append(s.pending, out...)
+		return t, nil
 	case *xfront.Unary:
 		switch n.Op {
 		case "!":
