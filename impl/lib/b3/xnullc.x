@@ -4086,7 +4086,10 @@ static void emitClassSection(N cls, EM ce) {
             }
             si0 = si0 + 1
         }
-        if hs0 { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o, " + sargs0 + ");") }
+        if hs0 {
+            if sargs0 == "" { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
+            else { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o, " + sargs0 + ");") }
+        }
         else { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
     }
     if primary {
@@ -4108,6 +4111,7 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("    return o;")
         ce.add("}")
         ce.raw("")
+        if ms.el.length() == 0 { ce.raw("") }
         ce.tmp = ce.tmp + 1
         // methods below
         i = 0
