@@ -1651,7 +1651,12 @@ static String expr(N x, EM e, SC sc) {
                 }
                 if isMap(mt2) { return "(" + mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_get(" + xb + ", " + a0 + ").v)" }
                 if isU16List(mt2) { return "xn_arr_u16_get(" + xb + ", " + a0 + ")" }
-                if isObjArr(mt2) { return classArrName(mt2) + "_get(" + xb + ", " + a0 + ")" }
+                if isObjArr(mt2) {
+                    String an = classArrName(mt2)
+                    String t = e.nt()
+                    e.add(cType(objArrElem(mt2)) + " " + t + " = " + an + "_get(" + xb + ", " + a0 + ");")
+                    return t
+                }
                 if isTupList(mt2) { return arrTupName(mt2) + "_get(" + xb + ", " + a0 + ")" }
                 return arrNameC(cType(arrElem(mt2))) + "_get(" + xb + ", " + a0 + ")"
             }
@@ -2868,6 +2873,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
             if cv1.nm == "Member" {
+                String mn1 = unq(txt(fld(cv1, "Name")))
+                if mn1 == "get" {
+                    String rxt = exprType(fld(cv1, "X"), sc)
+                    if isObjArr(rxt) {
+                        String rxb = expr(fld(cv1, "X"), e, sc)
+                        N rag = fld(v, "Args")
+                        String rix = "0"
+                        if rag.el.length() > 0 { rix = expr(rag.el.get(0), e, sc) }
+                        emitReturnClose(sc, e, classArrName(rxt) + "_get(" + rxb + ", " + rix + ")")
+                        return
+                    }
+                }
                 emitReturnClose(sc, e, expr(v, e, sc))
                 return
             }
