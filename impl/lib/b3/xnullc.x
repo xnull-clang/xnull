@@ -1666,6 +1666,7 @@ static String expr(N x, EM e, SC sc) {
                 String xb = expr(mx, e, sc)
                 String a0 = "0"
                 if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
+                if args.el.length() > 0 && cType(setElem(mt2)) == "rt_string *" { a0 = emitStr(args.el.get(0), e, sc) }
                 return setNameC(cType(setElem(mt2))) + "_add(" + xb + ", " + a0 + ")"
             }
             if mn == "remove" {
@@ -2616,6 +2617,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 if mn == "push" && (rt0 == "Bytes" || isU16List(rt0) || isObjArr(rt0) || isArr(rt0)) {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
+                    if args.el.length() > 0 && isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" { a0 = emitStr(args.el.get(0), e, sc) }
                     if rt0 == "Bytes" { e.add("xrt_bytes_push(" + xb + ", (int32_t)(" + a0 + "));") }
                     else if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
@@ -2634,6 +2636,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String a1 = "0"
                     if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
+                    if args.el.length() > 1 && cType(mapVal(rt0)) == "rt_string *" { a1 = emitStr(args.el.get(1), e, sc) }
                     e.add(mapNameC(cType(mapKey(rt0)), cType(mapVal(rt0))) + "_put(" + xb + ", " + a0 + ", " + a1 + ");")
                     return
                 }
@@ -2642,6 +2645,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String a1 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
+                    if args.el.length() > 1 && isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" { a1 = emitStr(args.el.get(1), e, sc) }
                     if isU16List(rt0) { e.add("xn_arr_u16_set(" + xb + ", " + a0 + ", " + a1 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
                     else { e.add(arrNameC(cType(arrElem(rt0))) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
