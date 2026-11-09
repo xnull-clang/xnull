@@ -1255,7 +1255,7 @@ static String exprType(N x, SC sc) {
         }
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
-        if isClass(bt) || isStruct(bt) || isSingle(bt) { return fieldType((isSingle(bt) ? bt : fieldOwner(bt, f)), f) }
+        if isClass(bt) || isStruct(bt) || isSingle(bt) || isDataEnum(bt) { return fieldType((isSingle(bt) ? bt : fieldOwner(bt, f)), f) }
         return "Int"
     }
     if x.nm == "Index" {
@@ -4301,6 +4301,12 @@ static void emitDataEnum(N de, EM e) {
     csc.hasResult = false
     csc.rootMark = rt
     csc.rootPrelude = ["xn_root_add(o);"]
+    Int ro0 = 0
+    while ro0 < fld(ctor, "Params").el.length() {
+        N rp0 = fld(ctor, "Params").el.get(ro0)
+        if isGCRootType(typeKey(fld(rp0, "Type"))) { csc.rootPrelude.push("xn_root_add(xn_p_" + unq(txt(fld(rp0, "Name"))) + ");") }
+        ro0 = ro0 + 1
+    }
     csc.params = []
     csc.paramTypes = []
     N cps0 = fld(ctor, "Params")
@@ -4366,21 +4372,31 @@ static void emitDataEnumMethods(N de, EM e) {
     }
 }
 
-static String dataEnumInit() {
+static String dataEnumInit(EM ge) {
     String b = ""
+    EM die = new EM()
+    die.tmp = ge.tmp
+    die.ind = 4
+    SC dsc = new SC()
     Int i = 0
     while i < DATA_ENUM_DECLS.length() {
         N de = DATA_ENUM_DECLS.get(i)
         String en = unq(txt(fld(de, "Name")))
         N its = fld(de, "Items")
-        String pa = ctorArgs(de)
         Int j = 0
         while j < its.el.length() {
             String item = unq(txt(fld(its.el.get(j), "Name")))
             String args = ""
             N ia = fld(its.el.get(j), "Args")
             Int k = 0
-            while k < ia.el.length() { if k > 0 { args = args + ", " }; args = args + expr(ia.el.get(k), new EM(), new SC()); k = k + 1 }
+            while k < ia.el.length() {
+                if k > 0 { args = args + ", " }
+                if exprType(ia.el.get(k), dsc) == "String" { args = args + emitStr(ia.el.get(k), die, dsc) }
+                else { args = args + expr(ia.el.get(k), die, dsc) }
+                k = k + 1
+            }
+            b = b + joinLines(die.ls)
+            die.ls = []
             b = b + "    xn_enum_" + en + "_" + item + " = xn_Enum_" + en + "_new(" + args + ");\n"
             b = b + "    xn_root_hold(xn_enum_" + en + "_" + item + ");\n"
             j = j + 1
@@ -5943,7 +5959,17 @@ static String emitUnit(N unit, String path) {
             ENUM_NAMES.push(en)
             N its = fld(d, "Items")
             Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
-            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            if data {
+                DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d)
+                N efs0 = fld(d, "Fields")
+                Int efi0 = 0
+                while efi0 < efs0.el.length() {
+                    FLD_OWNER.push(en)
+                    FLD_NAME.push(unq(txt(fld(efs0.el.get(efi0), "Name"))))
+                    FLD_TYPE.push(typeKey(fld(efs0.el.get(efi0), "Type")))
+                    efi0 = efi0 + 1
+                }
+            }
             Int ij = 0
             while ij < its.el.length() {
                 ENUM_ITEM_OWNER.push(en)
@@ -6236,7 +6262,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + "\n" + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -6345,7 +6371,17 @@ static String emitUnit(N unit, String path) {
             ENUM_NAMES.push(en)
             N its = fld(d, "Items")
             Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
-            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            if data {
+                DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d)
+                N efs0 = fld(d, "Fields")
+                Int efi0 = 0
+                while efi0 < efs0.el.length() {
+                    FLD_OWNER.push(en)
+                    FLD_NAME.push(unq(txt(fld(efs0.el.get(efi0), "Name"))))
+                    FLD_TYPE.push(typeKey(fld(efs0.el.get(efi0), "Type")))
+                    efi0 = efi0 + 1
+                }
+            }
             Int ij = 0
             while ij < its.el.length() {
                 ENUM_ITEM_OWNER.push(en)
@@ -6427,7 +6463,17 @@ static String emitUnit(N unit, String path) {
             ENUM_NAMES.push(en)
             N its = fld(d, "Items")
             Bool data = fld(d, "Fields").el.length() > 0 || fld(d, "Methods").el.length() > 0 || fld(d, "Ctors").el.length() > 0
-            if data { DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d) }
+            if data {
+                DATA_ENUM_NAMES.push(en); DATA_ENUM_DECLS.push(d)
+                N efs0 = fld(d, "Fields")
+                Int efi0 = 0
+                while efi0 < efs0.el.length() {
+                    FLD_OWNER.push(en)
+                    FLD_NAME.push(unq(txt(fld(efs0.el.get(efi0), "Name"))))
+                    FLD_TYPE.push(typeKey(fld(efs0.el.get(efi0), "Type")))
+                    efi0 = efi0 + 1
+                }
+            }
             Int ij = 0
             while ij < its.el.length() {
                 ENUM_ITEM_OWNER.push(en)
