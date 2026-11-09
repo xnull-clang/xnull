@@ -1,4 +1,5 @@
 import xdk.sys
+import xdk.runtime
 
 // B3-03：xnullc Result/try/defer（XNull 版 AST -> C）。
 //
@@ -6145,6 +6146,10 @@ static Int main(String[] args) {
         return 0
     }
     if ast.indexOf("(xnast v1 ") == 0 && ast.length() > 11 { ast = ast.substring(10, ast.length() - 11) }
+    if ast.indexOf("(Line (depth-limit))") >= 0 {
+        diagnose("xnullc: AST 含 depth-limit 截断，拒绝生成（K-07 门禁）")
+        return 3
+    }
     AP ap = new AP(ast)
     N unit = ap.val()
     print(emitUnit(unit, path))
