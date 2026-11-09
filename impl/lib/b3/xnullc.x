@@ -685,6 +685,7 @@ static String FFI_CANARY = "#define XN_FFI_CANARY 16\n\nstatic uint8_t *xn_ffi_c
 static Bool SKIP_LINE = false
 static Bool IN_PAREN = false
 static Bool NO_OP_WRAP = false
+static Bool PREPASS = false
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -1292,7 +1293,11 @@ static String argExpr(N a, EM e, SC sc) {
             }
         }
     }
-    return expr(a, e, sc)
+    Bool nwq = NO_OP_WRAP
+    NO_OP_WRAP = true
+    String rvq = expr(a, e, sc)
+    NO_OP_WRAP = nwq
+    return rvq
 }
 
 static String methodParamType(String cls, String mn, Int idx) {
@@ -2341,7 +2346,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 String sdh = e.nt()
                 e.add("rt_string *" + nm + " = xn_concat(" + lb + ", " + rb + ");")
             } else if init.nm == "Index" {
-                e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+                String ivx = expr(init, e, sc)
+                if !PREPASS { e.tmp = e.tmp + 1 }
+                e.add("rt_string *" + nm + " = rt_retain(" + ivx + ");")
             } else if init.nm == "Call" {
                 N ic0 = fld(init, "Callee")
                 N as0 = fld(init, "Args")
@@ -2383,7 +2390,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String t = e.nt()
             e.add("xn_arr_u16 *" + t + " = xn_arr_u16_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw("xn_arr_u16_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            while i < elems.el.length() { e.add("xn_arr_u16_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
             e.add("xn_arr_u16 * " + nm + " = " + t + ";")
             finishLocalRoot(sc, e, nm, ty)
             return
@@ -2396,7 +2403,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            while i < elems.el.length() { e.add(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
             e.add(an + " * " + nm + " = " + t + ";")
             finishLocalRoot(sc, e, nm, ty)
             return
@@ -2408,7 +2415,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            while i < elems.el.length() { e.add(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
             e.add(an + " * " + nm + " = " + t + ";")
             finishLocalRoot(sc, e, nm, ty)
             return
@@ -2423,7 +2430,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             while i < elems.el.length() {
                 String ev = expr(elems.el.get(i), e, sc)
                 if cType(arrElem(ty)) == "rt_string *" { ev = emitStr(elems.el.get(i), e, sc) }
-                e.raw(an + "_push(" + t + ", " + ev + ");")
+                e.add(an + "_push(" + t + ", " + ev + ");")
                 i = i + 1
             }
             e.add(an + " * " + nm + " = " + t + ";")
@@ -2436,7 +2443,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String ta = e.nt()
             e.add("xn_arr_i *" + ta + " = xn_arr_i_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw("xn_arr_i_push(" + ta + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            while i < elems.el.length() { e.add("xn_arr_i_push(" + ta + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
             String ts = e.nt()
             e.add("xn_set_i *" + ts + " = xn_set_i_new();")
             e.raw("for (size_t i = 0; i < " + ta + "->len; i++) { xn_set_i_add(" + ts + ", " + ta + "->data[i]); }")
@@ -2454,7 +2461,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             while i < keys.el.length() {
                 String kt = emitStr(keys.el.get(i), e, sc)
                 String tv = expr(vals.el.get(i), e, sc)
-                e.raw("xn_map_s_i_put(" + tm + ", " + kt + ", " + tv + ");")
+                e.add("xn_map_s_i_put(" + tm + ", " + kt + ", " + tv + ");")
                 i = i + 1
             }
             e.add("xn_map_s_i * " + nm + " = " + tm + ";")
@@ -3069,7 +3076,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             while wi < e.ls.length() {
                 String wl = e.ls.get(wi)
                 String wt = wl.trim()
-                if wt.indexOf("rt_string *") == 0 || wt.indexOf("xrt_bytes_obj *") == 0 || wt.indexOf("xn_arr_") == 0 { cl.push(sp(8) + wl) } else { cl.push(wl) }
+                cl.push(sp(e.ind + 8) + wt)
                 wi = wi + 1
             }
             while e.ls.length() > wstart { e.ls.remove(e.ls.length() - 1) }
@@ -5728,6 +5735,7 @@ static String emitUnit(N unit, String path) {
         }
         sci = sci + 1
     }
+    PREPASS = true
     i = 0
     while i < decls.el.length() {
         N d = decls.el.get(i)
@@ -5744,6 +5752,7 @@ static String emitUnit(N unit, String path) {
         i = i + 1
     }
     emitInstances(e, sc)
+    PREPASS = false
     prewarmContainers(decls)
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
