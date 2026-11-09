@@ -77,6 +77,19 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 		return s.arrayLit(n, wantC)
 	case *xfront.MapLit:
 		return s.mapLit(n, wantC)
+	case *xfront.Member:
+		// 容器字段（self.items / a.b.c）作为值：借用字段本身；接收者需要
+		// 物化（调用结果）时由 recvCName 写入 pending，这里一并返回。
+		name, c, err := recvCName(n, s)
+		if err != nil {
+			return nil, "", err
+		}
+		if !isContainerC(c) {
+			return nil, "", fmt.Errorf("codegen：容器表达式成员 %s 的类型是 %s，不是容器（M4.4a 范围）", n.Name, c)
+		}
+		lines := append([]string{}, s.pending...)
+		s.pending = nil
+		return lines, name, nil
 	case *xfront.Call:
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
@@ -110,8 +123,10 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 		}
 		switch mem.Name {
 		case "keys", "values":
+			// wantC/recvC 是实例化指针类型（xn_arr_s * / xn_map_s_i *），
+			// C 函数名只用基名。
 			t := s.tmp()
-			return []string{fmt.Sprintf("%s %s = %s_%s(%s);", wantC, t, recvC, mem.Name, recvName)}, t, nil
+			return []string{fmt.Sprintf("%s *%s = %s_%s(%s);", contBase(wantC), t, contBase(recvC), mem.Name, recvName)}, t, nil
 		}
 		return nil, "", fmt.Errorf("codegen：容器成员 %s 不返回值（M6-B0-05 范围）", mem.Name)
 	}
