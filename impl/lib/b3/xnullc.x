@@ -2324,7 +2324,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            while i < elems.el.length() {
+                String ev = expr(elems.el.get(i), e, sc)
+                if cType(arrElem(ty)) == "rt_string *" { ev = emitStr(elems.el.get(i), e, sc) }
+                e.raw(an + "_push(" + t + ", " + ev + ");")
+                i = i + 1
+            }
             e.add(an + " * " + nm + " = " + t + ";")
             finishLocalRoot(sc, e, nm, ty)
             return
