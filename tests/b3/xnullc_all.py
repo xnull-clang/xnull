@@ -187,12 +187,24 @@ def limit_row(row, kind, nf, note):
     return dict(row, kind=kind, files=nf, go_exit=0, raw="", content="",
                 status="K07-LIMIT", cause="K-07-LIMIT", note=note)
 
+def git_rev(root):
+    try:
+        r = subprocess.run(["git", "-C", root, "rev-parse", "--short=12", "HEAD"],
+                           capture_output=True, text=True, timeout=5)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:
+        pass
+    return "work"
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.getcwd())
     ap.add_argument("--baseline", default="")
-    ap.add_argument("--go-bin", default="/tmp/xnull-b3-all")
-    ap.add_argument("--xnast-bin", default="/tmp/xnast-b3-all")
+    ap.add_argument("--go-bin", default=None,
+                    help="Go oracle 二进制；默认 /tmp/xnull-b3-all-<HEAD>")
+    ap.add_argument("--xnast-bin", default=None,
+                    help="xnast 二进制；默认 /tmp/xnast-b3-all-<HEAD>")
     ap.add_argument("--xnullc", default="impl/lib/b3/xnullc.x")
     ap.add_argument("--shard", default="1/1")
     ap.add_argument("--parallel", type=int, default=4)
@@ -202,6 +214,11 @@ def main():
     ap.add_argument("--aggregate", action="store_true")
     args = ap.parse_args()
     root = os.path.abspath(args.root)
+    rev = git_rev(root)
+    if args.go_bin is None:
+        args.go_bin = f"/tmp/xnull-b3-all-{rev}"
+    if args.xnast_bin is None:
+        args.xnast_bin = f"/tmp/xnast-b3-all-{rev}"
     out = args.out or os.path.join(root, "tests/b3/out")
     os.makedirs(out, exist_ok=True)
     if not os.path.exists(os.path.join(root, args.xnullc)):
