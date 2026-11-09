@@ -1228,6 +1228,20 @@ static String argExpr(N a, EM e, SC sc) {
         String at = emitStr(a, e, sc)
         return at
     }
+    if a.nm == "Call" {
+        N c0 = fld(a, "Callee")
+        if c0.nm == "Member" && unq(txt(fld(c0, "Name"))) == "get" {
+            N mx0 = fld(c0, "X")
+            String mt0 = exprType(mx0, sc)
+            N as0 = fld(a, "Args")
+            if isObjArr(mt0) && as0.el.length() > 0 {
+                return classArrName(mt0) + "_get(" + expr(mx0, e, sc) + ", " + expr(as0.el.get(0), e, sc) + ")"
+            }
+            if isTupList(mt0) && as0.el.length() > 0 {
+                return arrTupName(mt0) + "_get(" + expr(mx0, e, sc) + ", " + expr(as0.el.get(0), e, sc) + ")"
+            }
+        }
+    }
     return expr(a, e, sc)
 }
 
@@ -1536,11 +1550,14 @@ static String expr(N x, EM e, SC sc) {
                 if mx.nm == "Member" { rb = emitStr(mx, e, sc) }
                 return "xn_str_substr(" + rb + ", " + a0 + ", " + a1 + ")"
             }
+            if mt2 == "String" && mn == "toLower" { return "xn_str_lower(" + expr(mx, e, sc) + ")" }
+            if mt2 == "String" && mn == "toUpper" { return "xn_str_upper(" + expr(mx, e, sc) + ")" }
+            if mt2 == "String" && mn == "trim" { return "xn_str_trim(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && (mn == "indexOf" || mn == "indexOfByte") {
-                String a0 = "0"
-                if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                 String rb = expr(mx, e, sc)
                 if mx.nm == "StrLitExpr" || mx.nm == "Member" { rb = emitStr(mx, e, sc) }
+                String a0 = "0"
+                if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                 return "xn_str_indexof(" + rb + ", " + a0 + ")"
             }
             if mn == "length" {
@@ -2677,7 +2694,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             e.addAt(e.ind + 4, "while (1) {")
             wi = 0
             while wi < cl.length() { e.ls.push(cl.get(wi)); wi = wi + 1 }
-            e.addAt(e.ind + 8, "if (!(" + cexprRaw + ")) { break; }")
+            if cond.nm == "Binary" && (unq(txt(fld(cond, "Op"))) == "&&" || unq(txt(fld(cond, "Op"))) == "||") {
+                e.addAt(e.ind + 8, "if (!(" + cexprRaw + ")) { break; }")
+            } else {
+                e.addAt(e.ind + 8, "if (!((" + cexprRaw + "))) { break; }")
+            }
             SC bodySc = newChild(sc, e)
             bodySc.kind = "loop"
             e.terminated = false
@@ -5192,7 +5213,6 @@ static String emitUnit(N unit, String path) {
         i = i + 1
     }
     emitInstances(e, sc)
-    Int funcEnd = e.ls.length()
     e.add("int main(void) {")
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
