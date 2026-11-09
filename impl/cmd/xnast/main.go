@@ -13,6 +13,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"xnull.dev/xnull/internal/xfront"
 )
@@ -20,20 +21,33 @@ import (
 func main() {
 	mode := ""
 	path := ""
+	dumpDepth := xfront.DefaultDumpDepth
 	args := os.Args[1:]
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--tokens", "--ast", "--diags":
 			mode = args[i]
+		case "--dump-depth":
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "xnast: --dump-depth 需要整数参数")
+				os.Exit(2)
+			}
+			i++
+			n, err := strconv.Atoi(args[i])
+			if err != nil || n <= 0 {
+				fmt.Fprintf(os.Stderr, "xnast: --dump-depth 非法：%s\n", args[i])
+				os.Exit(2)
+			}
+			dumpDepth = n
 		case "-h", "--help":
-			fmt.Fprintln(os.Stderr, "用法：xnast --tokens|--ast|--diags <file.x>")
+			fmt.Fprintln(os.Stderr, "用法：xnast [--dump-depth N] --tokens|--ast|--diags <file.x>")
 			return
 		default:
 			path = args[i]
 		}
 	}
 	if mode == "" || path == "" {
-		fmt.Fprintln(os.Stderr, "用法：xnast --tokens|--ast|--diags <file.x>")
+		fmt.Fprintln(os.Stderr, "用法：xnast [--dump-depth N] --tokens|--ast|--diags <file.x>")
 		os.Exit(2)
 	}
 	src, err := os.ReadFile(path)
@@ -47,7 +61,7 @@ func main() {
 		fmt.Print(xfront.PrintTokens(toks))
 	case "--ast":
 		u, _ := xfront.ParseUnit(path, string(src))
-		fmt.Println(xfront.PrintUnitPos(u))
+		fmt.Println(xfront.PrintUnitPosDepth(u, dumpDepth))
 	case "--diags":
 		_, ds := xfront.ParseUnit(path, string(src))
 		fmt.Print(xfront.PrintDiags(ds))
