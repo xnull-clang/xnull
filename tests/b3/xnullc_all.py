@@ -17,7 +17,16 @@ def is_excluded(path):
     p = (path or "").replace("\\", "/").lstrip("./")
     return p in EXCLUDED
 
-def run(cmd, cwd, timeout=300):
+# 长用例：生成耗时高，避免在高并发下资源竞争超时（B3-09）。
+LONG_CASES = {
+    "impl/lib/b2/xparser.x",
+}
+
+def is_long_case(path):
+    p = (path or "").replace("\\", "/").lstrip("./")
+    return p in LONG_CASES
+
+def run(cmd, cwd, timeout=900):
     try:
         p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
@@ -144,7 +153,7 @@ def process(row, args):
         paths.append(bundle_path)
         if nf > 1:
             base += ["--bundle-file", bundle_path]
-    code, xn_c, xn_err = run(base, root)
+    code, xn_c, xn_err = run(base, root, timeout=getattr(args, "timeout", 900))
     if code != 0:
         lines = (xn_err or "").strip().splitlines()
         first = lines[0] if lines else ""
@@ -224,6 +233,8 @@ def main():
     ap.add_argument("--xnullc", default="impl/lib/b3/xnullc.x")
     ap.add_argument("--shard", default="1/1")
     ap.add_argument("--parallel", type=int, default=4)
+    ap.add_argument("--timeout", type=int, default=900,
+                    help="xnullc 生成子进程超时秒数（默认 900；长用例需更高上限）")
     ap.add_argument("--inline-args", action="store_true",
                     help="兼容旧位置参数形态（合同 1.1；默认走 AST/bundle 临时文件）")
     ap.add_argument("--out", default="")
@@ -272,8 +283,14 @@ def main():
     if not (1 <= k <= n):
         print("--shard k/n 非法", file=sys.stderr); return 2
     sel = [r for r in rows if shard_of(r["path"], n) == k]
-    with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
-        results = list(ex.map(lambda r: process(r, args), sel))
+    normal = [r for r in sel if not is_long_case(r["path"])]
+    longc = [r for r in sel if is_long_case(r["path"])]
+    results = []
+    if normal:
+        with ThreadPoolExecutor(max_workers=max(1, args.parallel)) as ex:
+            results.extend(list(ex.map(lambda r: process(r, args), normal)))
+    for r in longc:
+        results.append(process(r, args))
     cols = ["path", "group", "kind", "files", "shard", "go_exit", "raw", "content", "status", "cause", "note"]
     path = os.path.join(out, f"results.shard-{k}-of-{n}.tsv") if n > 1 or args.shard != "1/1" else os.path.join(out, "results.tsv")
     with open(path, "w", newline="") as fh:
