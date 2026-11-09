@@ -139,9 +139,63 @@ static Int dec(String s) {
     }
     return v
 }
+static String joinLinear(List<String> xs) {
+    List<String> cur = xs
+    while cur.length() > 1 {
+        List<String> nxt = []
+        Int i = 0
+        while i + 1 < cur.length() {
+            nxt.push(cur.get(i) + cur.get(i + 1))
+            i = i + 2
+        }
+        if i < cur.length() { nxt.push(cur.get(i)) }
+        cur = nxt
+    }
+    if cur.length() == 1 { return cur.get(0) }
+    return ""
+}
+static String unqBig(String s) {
+    List<String> parts = s.split("\\")
+    List<String> vals = []
+    vals.push(parts.get(0))
+    Int k = 1
+    while k < parts.length() {
+        String seg = parts.get(k)
+        if seg.length() == 0 {
+            if k + 1 < parts.length() { vals.push("\\") }
+        } else {
+            String e = seg.substring(0, 1)
+            String rest = seg.substring(1, seg.length() - 1)
+            if e == "n" { vals.push("\n"); vals.push(rest) }
+            else if e == "t" { vals.push("\t"); vals.push(rest) }
+            else if e == "r" { vals.push("\r"); vals.push(rest) }
+            else if e == "0" { vals.push("\0"); vals.push(rest) }
+            else if e == "x" && seg.length() >= 3 {
+                String h1 = seg.substring(1, 1)
+                String h2 = seg.substring(2, 1)
+                Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
+                if v == 0 { vals.push("\0") } else { vals.push("\\x" + h1 + h2) }
+                vals.push(seg.substring(3, seg.length() - 3))
+            }
+            else if e == "u" && seg.length() >= 5 {
+                Int v = jsonHex4(seg, 1)
+                String hs = seg.substring(1, 4)
+                if v == 0 { vals.push("\0") } else { vals.push("\\u" + hs) }
+                vals.push(seg.substring(5, seg.length() - 5))
+            }
+            else { vals.push(e); vals.push(rest) }
+        }
+        k = k + 1
+    }
+    return joinLinear(vals)
+}
 static String unq(String raw) {
     if raw.length() < 2 { return raw }
     String s = raw.substring(1, raw.length() - 2)
+    if s.length() > 4096 {
+        if s.indexOf("\\") < 0 { return s }
+        return unqBig(s)
+    }
     String b = ""
     Int i = 0
     while i < s.length() {
@@ -174,7 +228,32 @@ static String unq(String raw) {
     }
     return b
 }
+static String qBig(String s) {
+    List<String> vals = []
+    Int st = 0
+    Int i = 0
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        String e = ""
+        if c == "\"" { e = "\\\"" }
+        else if c == "\\" { e = "\\\\" }
+        else if c == "\n" { e = "\\n" }
+        else if c == "\t" { e = "\\t" }
+        else if c == "\r" { e = "\\r" }
+        else if c == "\0" { e = "\\000" }
+        else if c == "\u007f" { e = "\\177" }
+        if e != "" {
+            vals.push(s.substring(st, i - st))
+            vals.push(e)
+            st = i + 1
+        }
+        i = i + 1
+    }
+    vals.push(s.substring(st, s.length() - st))
+    return joinLinear(vals)
+}
 static String q(String s) {
+    if s.length() > 4096 { return "\"" + qBig(s) + "\"" }
     String b = s
     b = b.replace("\\", "\\\\")
     b = b.replace("\"", "\\\"")
