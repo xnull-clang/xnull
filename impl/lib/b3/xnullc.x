@@ -3000,6 +3000,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         N val0 = fld(st, "Value")
         if tgt.nm == "Member" && op0 == "=" {
             String mtt = exprType(tgt, sc)
+            if mtt == "Int?" || mtt == "Bool?" || mtt == "String?" {
+                String mnm = expr(tgt, e, sc)
+                String oc = cType(mtt)
+                if val0.nm == "NullLit" || val0.nm == "nil" {
+                    e.add(mnm + " = (" + oc + "){0, 0};")
+                } else if val0.nm == "IdentExpr" && exprType(val0, sc) == mtt {
+                    e.add(mnm + " = " + expr(val0, e, sc) + ";")
+                } else {
+                    e.add(mnm + " = (" + oc + "){1, " + expr(val0, e, sc) + "};")
+                }
+                return
+            }
             if isProtoType(stripQ(mtt)) {
                 String mnm = expr(tgt, e, sc)
                 String pt0 = e.nt()
@@ -6531,7 +6543,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + "\n" + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -6766,7 +6778,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? "\n" : "") + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? "\n\n" : "") + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
