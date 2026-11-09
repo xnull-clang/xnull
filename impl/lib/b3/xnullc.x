@@ -686,6 +686,10 @@ static Bool SKIP_LINE = false
 static Bool IN_PAREN = false
 static Bool NO_OP_WRAP = false
 static Bool PREPASS = false
+static Bool STR_INIT = false
+static List<String> ROOT_ONCE = []
+static Int PRE_HID = 0
+static Int PRE_CGET = 0
 static String CLS_OVERRIDE = ""
 static List<String> ENUM_NAMES = []
 static List<String> ENUM_ITEM_OWNER = []
@@ -2347,7 +2351,8 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 e.add("rt_string *" + nm + " = xn_concat(" + lb + ", " + rb + ");")
             } else if init.nm == "Index" {
                 String ivx = expr(init, e, sc)
-                if !PREPASS { e.tmp = e.tmp + 1 }
+                e.tmp = e.tmp + 1
+                if PREPASS { PRE_HID = PRE_HID + 1 }
                 e.add("rt_string *" + nm + " = rt_retain(" + ivx + ");")
             } else if init.nm == "Call" {
                 N ic0 = fld(init, "Callee")
@@ -2581,7 +2586,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     }
                 }
             }
-            if !civIn { civ = expr(init, e, sc) } else { if sc.curClass == "" { String hd0 = e.nt() } }
+            if !civIn { civ = expr(init, e, sc) } else { if PREPASS { PRE_CGET = PRE_CGET + 1 } }
             e.add("xn_Cls_" + ty + " * " + nm + " = " + civ + ";")
             finishLocalRoot(sc, e, nm, ty)
             if !isGC { addNamedRelease(sc, nm, "rt_release(" + nm + ");") }
@@ -5752,6 +5757,9 @@ static String emitUnit(N unit, String path) {
         i = i + 1
     }
     emitInstances(e, sc)
+    e.tmp = e.tmp - PRE_HID + PRE_CGET
+    PRE_HID = 0
+    PRE_CGET = 0
     PREPASS = false
     prewarmContainers(decls)
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
