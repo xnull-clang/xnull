@@ -1864,8 +1864,9 @@ static String emitStr(N x, EM e, SC sc) {
         return t
     }
     if x.nm == "IdentExpr" || x.nm == "Member" {
+        String v0 = expr(x, e, sc)
         String t = e.nt()
-        e.add("rt_string *" + t + " = rt_retain(" + expr(x, e, sc) + ");")
+        e.add("rt_string *" + t + " = rt_retain(" + v0 + ");")
         rootStr(e, sc, t)
         return t
     }
