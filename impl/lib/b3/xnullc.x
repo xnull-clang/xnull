@@ -2456,7 +2456,6 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             String an = arrNameC(ec)
             String nt = e.nt()
             e.add(an + " *" + nt + " = " + an + "_new((size_t)(" + nsz + "));")
-            e.raw("xn_root_add(" + nt + ");")
             e.add(nt + "->len = (size_t)(" + nsz + ");")
             e.add("memset(" + nt + "->data, 0, sizeof(" + ec + ") * (size_t)(" + nsz + "));")
             e.add(an + " * " + nm + " = " + nt + ";")
@@ -2518,6 +2517,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if ty == "Int?" || ty == "Bool?" || ty == "String?" {
+            if init.nm == "Call" && !(fld(init, "Callee").nm == "IdentExpr" && unq(txt(fld(fld(init, "Callee"), "Name"))) == "env") {
+                String optv = e.nt()
+                e.add(cType(ty) + " " + optv + " = " + expr(init, e, sc) + ";")
+                e.add(cType(ty) + " " + nm + " = " + optv + ";")
+                return
+            }
             if init.nm == "Call" {
                 N ic = fld(init, "Callee")
                 if ic.nm == "IdentExpr" && unq(txt(fld(ic, "Name"))) == "env" {
@@ -3057,6 +3062,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             N cv2 = fld(v, "Callee")
             if cv2.nm == "IdentExpr" {
                 emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
+        if v.nm == "IdentExpr" {
+            String ivt0 = exprType(v, sc)
+            if (ivt0 == "Int?" || ivt0 == "Bool?" || ivt0 == "String?") && sc.retKind != ivt0 {
+                String ipv0 = expr(v, e, sc)
+                emitReturnClose(sc, e, "(" + cType(sc.retKind) + ")((" + ipv0 + ").v)")
                 return
             }
         }
