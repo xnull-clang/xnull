@@ -2563,8 +2563,22 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             e.add(nm + " = " + t + ";")
             return
         }
+        if tgt.nm == "Member" && exprType(tgt, sc) == "Bytes" && op == "=" {
+            N bc0 = fld(val0, "Callee")
+            if bc0.nm == "Member" && unq(txt(fld(bc0, "Name"))) == "fromString" && fld(val0, "Args").el.length() == 1 {
+                String sv = emitStr(fld(val0, "Args").el.get(0), e, sc)
+                String t = e.nt()
+                e.add("xrt_bytes_obj *" + t + " = xrt_bytes_from_string(" + sv + "->bytes, " + sv + "->len);")
+                rootStr(e, sc, t)
+                e.add("rt_release(" + sv + ");")
+                e.add("rt_release(" + nm + ");")
+                e.add(nm + " = " + t + ";")
+                return
+            }
+        }
         v0 = expr(fld(st, "Value"), e, sc)
         v = v0
+        if tgt.nm == "Member" && exprType(tgt, sc) == "Bool" && op == "=" { v = "(int64_t)((int)(" + v0 + "))" }
         if op == "+=" { e.add(nm + " = " + nm + " + (" + v + ");") }
         else if op == "-=" { e.add(nm + " = " + nm + " - (" + v + ");") }
         else { e.add(nm + " = " + v + ";") }
@@ -3340,6 +3354,7 @@ static void emitClassSection(N cls, EM ce) {
         String dft = typeKey(fld(fs.el.get(i), "Type"))
         String dfn = fieldCName(fs.el.get(i))
         if dft == "String" { ce.add("    rt_release(o->" + dfn + ");") }
+        else if dft == "Bytes" { ce.add("    rt_release(o->" + dfn + ");") }
         else if baseCls(dft) != "" && classPolicy(baseCls(dft)) == "arc" { ce.add("    rt_release(o->" + dfn + ");") }
         i = i + 1
     }
@@ -3447,10 +3462,14 @@ static void emitClassSection(N cls, EM ce) {
             Int ei = 0
             while ei < elems.el.length() { ce.add("    " + an + "_push(" + t + ", " + expr(elems.el.get(ei), ce, new SC()) + ");"); ei = ei + 1 }
             ce.add("    o->" + fn + " = " + t + ";")
+        } else if isClass(ft) && init.nm == "New" {
+            ce.add("    rt_release((void *)o->" + fn + ");")
+            ce.add("    o->" + fn + " = " + expr(init, ce, new SC()) + ";")
         } else {
             String dv = "0"
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
             else if init.nm == "BoolLit" { dv = expr(init, ce, new SC()) }
+            if ft == "Bool" { dv = "(int64_t)((int)(" + dv + "))" }
             ce.add("    o->" + fn + " = " + dv + ";")
         }
         i = i + 1
