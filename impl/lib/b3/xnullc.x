@@ -2449,6 +2449,20 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             finishLocalRoot(sc, e, nm, ty)
             return
         }
+        if init.nm == "NewArray" && isArr(ty) {
+            e.usesList = true
+            String nsz = expr(fld(init, "Count"), e, sc)
+            String ec = cType(arrElem(ty))
+            String an = arrNameC(ec)
+            String nt = e.nt()
+            e.add(an + " *" + nt + " = " + an + "_new((size_t)(" + nsz + "));")
+            e.raw("xn_root_add(" + nt + ");")
+            e.add(nt + "->len = (size_t)(" + nsz + ");")
+            e.add("memset(" + nt + "->data, 0, sizeof(" + ec + ") * (size_t)(" + nsz + "));")
+            e.add(an + " * " + nm + " = " + nt + ";")
+            finishLocalRoot(sc, e, nm, ty)
+            return
+        }
         if init.nm == "ArrayLit" && isArr(ty) {
             e.usesList = true
             N elems = fld(init, "Elems")
