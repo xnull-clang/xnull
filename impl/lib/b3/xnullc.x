@@ -2934,6 +2934,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
         }
+        if v.nm == "IdentExpr" && (isArr(sc.retKind) || isMap(sc.retKind) || isSet(sc.retKind) || isU16List(sc.retKind) || isObjArr(sc.retKind) || isTupList(sc.retKind) || sc.retKind == "Any") {
+            emitReturnClose(sc, e, expr(v, e, sc))
+            return
+        }
         if v.nm == "Call" {
             N cg0 = fld(v, "Callee")
             String gvt = exprType(v, sc)
