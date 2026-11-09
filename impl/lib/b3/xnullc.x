@@ -1317,6 +1317,20 @@ static String argExpr(N a, EM e, SC sc) {
             }
         }
     }
+    if a.nm == "Call" {
+        String atq = exprType(a, sc)
+        if baseCls(atq) != "" && classPolicy(baseCls(atq)) == "gc" {
+            N cq0 = fld(a, "Callee")
+            Bool gq0 = false
+            if cq0.nm == "Member" && unq(txt(fld(cq0, "Name"))) == "get" { gq0 = true }
+            if !gq0 {
+                String av0 = expr(a, e, sc)
+                String tq0 = e.nt()
+                e.add(cType(atq) + " " + tq0 + " = " + av0 + ";")
+                return tq0
+            }
+        }
+    }
     Bool nwq = NO_OP_WRAP
     NO_OP_WRAP = true
     String rvq = expr(a, e, sc)
@@ -3289,12 +3303,21 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "ForStmt" {
         String vname = unq(txt(fld(st, "Var")))
+        String cty0 = exprType(fld(st, "Src"), sc)
+        String ev0 = "int64_t"
+        String ekey0 = "Int"
+        if isObjArr(cty0) { ev0 = cType(objArrElem(cty0)); ekey0 = objArrElem(cty0) }
+        else if isU16List(cty0) { ev0 = "uint16_t"; ekey0 = "UInt16" }
+        else if isTupList(cty0) { ev0 = cType(tupleListElem(cty0)); ekey0 = tupleListElem(cty0) }
+        else if isArr(cty0) { ev0 = cType(arrElem(cty0)); ekey0 = arrElem(cty0) }
+        else if isSet(cty0) { ev0 = cType(setElem(cty0)); ekey0 = setElem(cty0) }
         String coll = expr(fld(st, "Src"), e, sc)
         SC bodySc3 = newChild(sc, e)
         bodySc3.kind = "loop"
+        bodySc3.def(vname, ekey0)
         String loop = e.nt()
         e.addAt(e.ind, "for (size_t " + loop + " = 0; " + loop + " < " + coll + "->len; " + loop + "++) {")
-        e.addAt(e.ind + 4, "int64_t " + vname + " = " + coll + "->data[" + loop + "];")
+        e.addAt(e.ind + 4, ev0 + " " + vname + " = " + coll + "->data[" + loop + "];")
         e.terminated = false
         emitBlock(fld(st, "Body"), e, bodySc3, e.ind + 4, true)
         e.addAt(e.ind + 4, "xn_gc_safepoint();")
