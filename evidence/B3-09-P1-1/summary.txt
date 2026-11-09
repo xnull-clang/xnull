@@ -1,0 +1,1 @@
+P1-1: (1) ReturnStmt 兜底对 Int 返回的顶层 Ident call 直接 return f(...)（类返回前卡已内联；Bool/String 等保持物化，否则 bundle_text 回归）；(2) Result 函数 return 普通 Call 非 Ok/Err 时 xn_ret = <expr>。parser-seed 0、text 0、f2 raw 275（connectAsync 已 xn_ret = xn_connect(...)），collections_basic 1431/nonnull 1409（本轮未降，首因仍是类前向排序/List<T>/物化）。ffi/bundle/obj/containers/err/mem 全绿。
