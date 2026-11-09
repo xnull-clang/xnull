@@ -3960,6 +3960,12 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     dst.push("")
 }
 
+static String structTailBlanks() {
+    String b = ""
+    Int i = 0
+    while i < STRUCT_NAMES.length() { b = b + "\n"; i = i + 1 }
+    return b
+}
 static String retKey(N fn) {
     if txt(fld(fn, "Void")) == "true" { return "void" }
     return typeKey(fld(fn, "Ret"))
@@ -6783,7 +6789,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? "\n\n" : "") + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? structTailBlanks() : "") + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
