@@ -30,6 +30,13 @@ func containerElem(c string) (string, bool) {
 	default:
 		return "", false
 	}
+	// 嵌套容器元素：a_<suffix> / st_<suffix> 直接重建 C 类型。
+	if strings.HasPrefix(elem, "a_") {
+		return "xn_arr_" + strings.TrimPrefix(elem, "a_") + " *", true
+	}
+	if strings.HasPrefix(elem, "st_") {
+		return "xn_set_" + strings.TrimPrefix(elem, "st_") + " *", true
+	}
 	switch elem {
 	case "i":
 		return "int64_t", true
@@ -243,6 +250,11 @@ func (s *scope) mapLit(n *xfront.MapLit, wantC string) ([]string, string, error)
 func (s *scope) elemValue(e xfront.Expr, elemC string) (string, []string, error) {
 	if s.g.isTupleC(elemC) {
 		lines, v, err := s.tupleExpr(e, elemC)
+		return v, lines, err
+	}
+	if isContainerC(elemC) {
+		// 嵌套容器元素（List<List<T>>）：递归生成内层容器值。
+		lines, v, err := s.valExpr(e, elemC)
 		return v, lines, err
 	}
 	if elemC == "rt_string *" {

@@ -67,6 +67,9 @@ func elemZero(c string) string {
 
 // isRef 判断元素类型是否引用（需 retain/release；ARC 对象与字符串同一纪律）。
 func isRef(c string) bool {
+	if isContainerC(c) {
+		return true // 嵌套容器：元素是 GC 引用（scan 跟踪，不计数）
+	}
 	return c == "rt_string *" || c == "xrt_bytes_obj *" || c == "xrt_text *" || c == "xrt_sb *" || isClassPtr(c)
 }
 
@@ -82,8 +85,40 @@ func newContainers() *containers {
 	return &containers{arr: map[string]bool{}, set: map[string]bool{}, mp: map[string][2]string{}, declared: map[string]bool{}}
 }
 
+// mangleArrElem 是数组/List 元素的后缀编码：容器元素递归编码为 a_/st_，
+// 标量/类/元组沿用 mangle。Map 的键/值仍走 mangle（嵌套 Map 不在本批范围）。
+func mangleArrElem(c string) (string, error) {
+	if isContainerC(c) {
+		base := contBase(c)
+		switch {
+		case strings.HasPrefix(base, "xn_arr_"):
+			inner, ok := containerElem(c)
+			if !ok {
+				return "", fmt.Errorf("codegen：容器元素类型推不出（%s）", c)
+			}
+			m, err := mangleArrElem(inner)
+			if err != nil {
+				return "", err
+			}
+			return "a_" + m, nil
+		case strings.HasPrefix(base, "xn_set_"):
+			inner, ok := containerElem(c)
+			if !ok {
+				return "", fmt.Errorf("codegen：容器元素类型推不出（%s）", c)
+			}
+			m, err := mangleArrElem(inner)
+			if err != nil {
+				return "", err
+			}
+			return "st_" + m, nil
+		}
+		return "", fmt.Errorf("codegen：嵌套容器元素暂支持 List/Set（M4.4a 范围），got %s", c)
+	}
+	return mangle(c)
+}
+
 func (cs *containers) needArr(elem string) error {
-	if _, err := mangle(elem); err != nil {
+	if _, err := mangleArrElem(elem); err != nil {
 		return err
 	}
 	cs.arr[elem] = true
@@ -111,8 +146,33 @@ func (cs *containers) needMap(k, v string) error {
 	return nil
 }
 
+// elemNestDepth 计算容器元素类型的嵌套层数（标量 0，List<T> 1，List<List<T>> 2…）。
+func elemNestDepth(c string) int {
+	d := 0
+	for isContainerC(c) {
+		d++
+		inner, ok := containerElem(c)
+		if !ok {
+			break
+		}
+		c = inner
+	}
+	return d
+}
+
+// sortElemTypes 先按嵌套深度、再按类型名排序，保证内层 typedef 先于外层。
+func sortElemTypes(xs []string) {
+	sort.Slice(xs, func(i, j int) bool {
+		di, dj := elemNestDepth(xs[i]), elemNestDepth(xs[j])
+		if di != dj {
+			return di < dj
+		}
+		return xs[i] < xs[j]
+	})
+}
+
 func arrName(elem string) string {
-	m, _ := mangle(elem)
+	m, _ := mangleArrElem(elem)
 	return "xn_arr_" + m
 }
 
@@ -134,7 +194,7 @@ func optName(c string) (string, error) {
 }
 
 func setName(elem string) string {
-	m, _ := mangle(elem)
+	m, _ := mangleArrElem(elem)
 	return "xn_set_" + m
 }
 
@@ -155,7 +215,7 @@ func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) 
 			kinds = append(kinds, e)
 		}
 	}
-	sort.Strings(kinds)
+	sortElemTypes(kinds)
 	for _, e := range kinds {
 		n := arrName(e)
 		if cs.declared[n] {
@@ -170,7 +230,7 @@ func (cs *containers) emitTypeDecls(b *strings.Builder, needed map[string]bool) 
 			skeys = append(skeys, k)
 		}
 	}
-	sort.Strings(skeys)
+	sortElemTypes(skeys)
 	for _, e := range skeys {
 		n := setName(e)
 		if cs.declared[n] {
@@ -204,7 +264,7 @@ func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	for e := range cs.arr {
 		kinds = append(kinds, e)
 	}
-	sort.Strings(kinds)
+	sortElemTypes(kinds)
 	for _, e := range kinds {
 		emitArrHelpers(b, e, isGC(e), cs.declared[arrName(e)])
 	}
@@ -212,7 +272,7 @@ func (cs *containers) emit(b *strings.Builder, isGC func(string) bool) {
 	for k := range cs.set {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	sortElemTypes(keys)
 	for _, e := range keys {
 		emitSetHelpers(b, e, isGC(e), cs.declared[setName(e)])
 	}
