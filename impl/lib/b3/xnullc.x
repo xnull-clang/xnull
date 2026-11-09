@@ -461,7 +461,6 @@ static String cType(String k) {
     if k == "String?" { return "xn_opt_s" }
     if k == "String" { return "rt_string *" }
     if k == "Bytes" { return "xrt_bytes_obj *" }
-    if k == "List<Int>" || k == "Int[]" { return "xn_arr_i *" }
     if k == "List<UInt16>" || k == "UInt16[]" { return "xn_arr_u16 *" }
     if isObjArr(k) { return classArrName(k) + " *" }
     if isTupList(k) { return arrTupName(k) + " *" }
@@ -488,7 +487,11 @@ static String cType(String k) {
     return "int64_t"
 }
 static Bool isResult(String k) { return k.indexOf("Result<") == 0 }
-static Bool isArr(String k) { return k == "List<Int>" || k == "Int[]" }
+static Bool isArr(String k) {
+    if k == "List<Int>" || k == "Int[]" { return true }
+    if k.indexOf("List<") == 0 && !isU16List(k) && !isObjArr(k) && !isTupList(k) { return true }
+    return false
+}
 static Bool isU16List(String k) { return k == "List<UInt16>" || k == "UInt16[]" }
 static Bool isMap(String k) { return k.indexOf("Map<") == 0 }
 static Bool isSet(String k) { return k.indexOf("Set<") == 0 }
@@ -926,6 +929,12 @@ static String mapKey(String k) {
     Int l = k.indexOf("<"); Int c = k.indexOf(",")
     if l < 0 || c < 0 { return "String" }
     return k.substring(l + 1, c - l - 1).trim()
+}
+static String arrElem(String k) {
+    if k.length() > 2 && k.substring(k.length() - 2, 2) == "[]" { return k.substring(0, k.length() - 2) }
+    Int l = k.indexOf("<"); Int r = k.indexOf(">")
+    if l < 0 || r < 0 { return "Int" }
+    return k.substring(l + 1, r - l - 1).trim()
 }
 
 class DF {
@@ -1580,7 +1589,7 @@ static String expr(N x, EM e, SC sc) {
                     return t
                 }
                 if isTupList(mt2) { return arrTupName(mt2) + "_get(" + xb + ", " + a0 + ")" }
-                return "xn_arr_i_get(" + xb + ", " + a0 + ")"
+                return arrNameC(cType(arrElem(mt2))) + "_get(" + xb + ", " + a0 + ")"
             }
             if mn == "getOr" {
                 e.hasGetOr = true
@@ -1598,20 +1607,20 @@ static String expr(N x, EM e, SC sc) {
                     if isMap(mt2) && exprType(args.el.get(0), sc) == "String" { a0 = emitStr(args.el.get(0), e, sc) }
                     else { a0 = expr(args.el.get(0), e, sc) }
                 }
-                if isSet(mt2) { return "xn_set_i_has(" + xb + ", " + a0 + ")" }
+                if isSet(mt2) { return setNameC(cType(setElem(mt2))) + "_has(" + xb + ", " + a0 + ")" }
                 return mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_has(" + xb + ", " + a0 + ")"
             }
             if mn == "add" {
                 String xb = expr(mx, e, sc)
                 String a0 = "0"
                 if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
-                return "xn_set_i_add(" + xb + ", " + a0 + ")"
+                return setNameC(cType(setElem(mt2))) + "_add(" + xb + ", " + a0 + ")"
             }
             if mn == "remove" {
                 String xb = expr(mx, e, sc)
                 String a0 = "0"
                 if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
-                return "xn_arr_i_remove(" + xb + ", " + a0 + ")"
+                return arrNameC(cType(arrElem(mt2))) + "_remove(" + xb + ", " + a0 + ")"
             }
         }
         // 普通函数调用
@@ -2216,14 +2225,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             finishLocalRoot(sc, e, nm, ty)
             return
         }
-        if isArr(ty) {
+        if init.nm == "ArrayLit" && isArr(ty) {
             e.usesList = true
             N elems = fld(init, "Elems")
+            String an = arrNameC(cType(arrElem(ty)))
             String t = e.nt()
-            e.add("xn_arr_i *" + t + " = xn_arr_i_new(" + str(elems.el.length()) + ");")
+            e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
             Int i = 0
-            while i < elems.el.length() { e.raw("xn_arr_i_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
-            e.add("xn_arr_i * " + nm + " = " + t + ";")
+            while i < elems.el.length() { e.raw(an + "_push(" + t + ", " + expr(elems.el.get(i), e, sc) + ");"); i = i + 1 }
+            e.add(an + " * " + nm + " = " + t + ";")
             finishLocalRoot(sc, e, nm, ty)
             return
         }
@@ -2427,7 +2437,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         if tgt.nm == "Index" {
             String xb = expr(fld(tgt, "X"), e, sc)
             String ix = expr(fld(tgt, "Idx"), e, sc)
-            e.add("xn_arr_i_set(" + xb + ", " + ix + ", " + v0 + ");")
+            e.add(arrNameC(cType(arrElem(exprType(fld(tgt, "X"), sc)))) + "_set(" + xb + ", " + ix + ", " + v0 + ");")
             return
         }
         String nm = expr(tgt, e, sc)
@@ -2477,38 +2487,39 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     return
                 }
                 String xb = expr(mx, e, sc)
-                if mn == "push" {
+                String rt0 = exprType(mx, sc)
+                if mn == "push" && (rt0 == "Bytes" || isU16List(rt0) || isObjArr(rt0) || isArr(rt0)) {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
-                    String rt0 = exprType(mx, sc)
                     if rt0 == "Bytes" { e.add("xrt_bytes_push(" + xb + ", (int32_t)(" + a0 + "));") }
                     else if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
-                    else { e.add("xn_arr_i_push(" + xb + ", " + a0 + ");") }
+                    else { e.add(arrNameC(cType(arrElem(rt0))) + "_push(" + xb + ", " + a0 + ");") }
                     return
                 }
-                if mn == "clear" {
-                    String mt = exprType(mx, sc)
-                    if isSet(mt) { e.add("xn_set_i_clear(" + xb + ");") }
-                    else if isU16List(mt) { e.add("xn_arr_u16_clear(" + xb + ");") }
-                    else if isObjArr(mt) { e.add(classArrName(mt) + "_clear(" + xb + ");") }
-                    else { e.add("xn_arr_i_clear(" + xb + ");") }
+                if mn == "clear" && (isSet(rt0) || isU16List(rt0) || isObjArr(rt0) || isArr(rt0)) {
+                    if isSet(rt0) { e.add("xn_set_i_clear(" + xb + ");") }
+                    else if isU16List(rt0) { e.add("xn_arr_u16_clear(" + xb + ");") }
+                    else if isObjArr(rt0) { e.add(classArrName(rt0) + "_clear(" + xb + ");") }
+                    else { e.add(arrNameC(cType(arrElem(rt0))) + "_clear(" + xb + ");") }
                     return
                 }
-                if mn == "put" {
+                if mn == "put" && isMap(rt0) {
                     String a0 = "0"
                     String a1 = "0"
                     if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
-                    e.add("xn_map_s_i_put(" + xb + ", " + a0 + ", " + a1 + ");")
+                    e.add(mapNameC(cType(mapKey(rt0)), cType(mapVal(rt0))) + "_put(" + xb + ", " + a0 + ", " + a1 + ");")
                     return
                 }
-                if mn == "set" {
+                if mn == "set" && (isArr(rt0) || isU16List(rt0) || isObjArr(rt0)) {
                     String a0 = "0"
                     String a1 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
-                    e.add("xn_arr_i_set(" + xb + ", " + a0 + ", " + a1 + ");")
+                    if isU16List(rt0) { e.add("xn_arr_u16_set(" + xb + ", " + a0 + ", " + a1 + ");") }
+                    else if isObjArr(rt0) { e.add(classArrName(rt0) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
+                    else { e.add(arrNameC(cType(arrElem(rt0))) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
                     return
                 }
             }
@@ -3322,7 +3333,7 @@ static void emitClassSection(N cls, EM ce) {
             N elems = fld(init, "Elems")
             String t = ce.nt()
             String an = classArrName(ft)
-            if isArr(ft) { an = "xn_arr_i" }
+            if isArr(ft) { an = arrNameC(cType(arrElem(ft))) }
             ce.add("    " + cType(ft) + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
             Int ei = 0
             while ei < elems.el.length() { ce.add("    " + an + "_push(" + t + ", " + expr(elems.el.get(ei), ce, new SC()) + ");"); ei = ei + 1 }
