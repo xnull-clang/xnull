@@ -1,0 +1,1 @@
+K-06-01c: parser-seed raw 28→19（corpus 副本同）。Member String 赋值遇简单字面量改为 emitStr 的临时直接赋值（不额外占 temp），修复 main 的 rt_retain(0)。text 0，全组不回归。剩余 19：curText 1 处未发射 temp（substring 接收者 Member 时 sdum 与 retain 二选一，需按 Go 的接收者求值位置精确绑定）。
