@@ -1622,6 +1622,14 @@ static String expr(N x, EM e, SC sc) {
                 if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                 return arrNameC(cType(arrElem(mt2))) + "_remove(" + xb + ", " + a0 + ")"
             }
+            if mn == "insert" {
+                String xb = expr(mx, e, sc)
+                String a0 = "0"
+                String a1 = "0"
+                if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
+                if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
+                return arrNameC(cType(arrElem(mt2))) + "_insert(" + xb + ", " + a0 + ", " + a1 + ")"
+            }
         }
         // 普通函数调用
         N cl = fld(x, "Callee")
