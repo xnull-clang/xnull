@@ -1,0 +1,1 @@
+B3-09-06 K-04/K-08 验证：非 ASCII 字面量已在 q/unq/emitStr 路径原样保留——examples/defer-cleanup.x 0、tests/b2/corpus/examples/defer-cleanup.x 0、bundle_text 0（含 text.x 中文错误串）。K-08 t04_bytes_surface 两处入口（tests/ 与 tests/b2/corpus/）经 --emit-ast-bundle 多文件通道 raw=0。无代码改动；回归 text 0/ffi 5/obj 4/containers 5/err 5/mem 11/bundle 4。
