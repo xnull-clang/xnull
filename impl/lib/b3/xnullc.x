@@ -3446,7 +3446,7 @@ static void emitClassSection(N cls, EM ce) {
         msc.rootDeclared = true
         ce.add("size_t " + mr + " = xn_root_mark();")
         addDefer(msc, ["xn_root_restore(" + mr + ");"], false)
-        if ref && !stat { ce.raw("xn_root_add(self);") }
+        if ref && !stat && !inNames(GEN_INST_NAME, cn) { ce.raw("xn_root_add(self);") }
         mj = 0
         while mj < mps.el.length() {
             String pt0 = typeKey(fld(mps.el.get(mj), "Type"))
