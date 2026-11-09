@@ -2258,6 +2258,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     if isArr(grt0) && cType(arrElem(grt0)) == "rt_string *" { strGet0 = true }
                 }
                 if strGet0 {
+                    String sdGt = e.nt()
                     e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
                 } else {
                 Bool subM = false
