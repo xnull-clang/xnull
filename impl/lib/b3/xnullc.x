@@ -4182,6 +4182,7 @@ static void emitClassSection(N cls, EM ce) {
             String dv = "0"
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
             else if init.nm == "BoolLit" { dv = expr(init, ce, new SC()) }
+            else if init.nm == "Member" { dv = expr(init, ce, new SC()) }
             if ft == "Bool" { dv = "(int64_t)((int)(" + dv + "))" }
             ce.add("    o->" + fn + " = " + dv + ";")
         }
