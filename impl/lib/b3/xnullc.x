@@ -687,6 +687,10 @@ static Bool IN_PAREN = false
 static Bool NO_OP_WRAP = false
 static Bool PREPASS = false
 static Bool STR_INIT = false
+static Bool IN_RETURN = false
+static List<String> ROOT_ONCE = []
+static Bool STR_INIT = false
+static Bool IN_RETURN = false
 static List<String> ROOT_ONCE = []
 static Int PRE_HID = 0
 static Int PRE_CGET = 0
@@ -1530,6 +1534,7 @@ static String expr(N x, EM e, SC sc) {
         if baseCls(bt) != "" && mb.nm == "Call" && !rg0 {
             String rvt = e.nt()
             e.add(cType(bt) + " " + rvt + " = " + expr(mb, e, sc) + ";")
+            if IN_RETURN { e.add("xn_root_add(" + rvt + ");"); ROOT_ONCE.push(rvt) }
             String rown = fieldOwner(baseCls(bt), f)
             String rfc = f
             if rown != "" && fieldPrivate(rown, f) { rfc = "_" + f }
@@ -2200,8 +2205,10 @@ static void rootTempDecls(SC sc, EM e, Int start, Int ind) {
                     if ind == 0 && nm.indexOf("xn_t") != 0 {
                         while at < e.ls.length() && e.ls.get(at).trim().indexOf("xn_root_add(" + nm + ");") == 0 { at = at + 1 }
                     }
-                    pendAt = at
-                    pendNm = nm
+                    if !inNames(ROOT_ONCE, nm) {
+                        pendAt = at
+                        pendNm = nm
+                    }
                     if ind > 0 || nm.indexOf("xn_t") == 0 { pendLead = ind } else { pendLead = lead }
                 }
             }
@@ -2341,7 +2348,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.add("rt_string *" + nm + " = " + sv + ";")
                 }
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
+                STR_INIT = true
                 String iv1 = expr(init, e, sc)
+                STR_INIT = false
                 String sdum1 = e.nt()
                 e.add("rt_string *" + nm + " = rt_retain(" + iv1 + ");")
             } else if init.nm == "Binary" && unq(txt(fld(init, "Op"))) == "+" {
@@ -2949,7 +2958,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 emitReturnClose(sc, e, sc.ret)
                 return
             }
+            IN_RETURN = true
             String t = emitStr(v, e, sc)
+            IN_RETURN = false
             sc.ret = t
             emitReturnClose(sc, e, sc.ret)
             return
