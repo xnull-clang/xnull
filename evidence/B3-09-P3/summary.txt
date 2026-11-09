@@ -1,0 +1,1 @@
+P3 部分：substKey 支持 T?→V?（为泛型 Opt 返回铺路）；Opt 方法 fallback 注释按 Go 缩短为 /* sema 保证不可达 */。collections_basic 1283→1280、nonnull 562→531。Lambda/函数指针字段与 BTreeMap V 值替换、Opt .has/.v 接收者落临时尚未完成。text 0，全组绿。
