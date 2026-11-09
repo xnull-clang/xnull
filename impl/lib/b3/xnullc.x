@@ -238,6 +238,8 @@ static String lastQual(N t) {
     if ql.el.length() == 0 { return "" }
     return unq(txt(ql.el.get(ql.el.length() - 1)))
 }
+static List<String> SUB_FROM = []
+static List<String> SUB_TO = []
 static String substKey(String k) {
     Int i = 0
     while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
@@ -651,6 +653,9 @@ static Bool classStackOK(String cn) {
     }
     return true
 }
+static List<String> GLOB_NAMES = []
+static List<String> GLOB_TYPES = []
+static List<N> GLOB_INITS = []
 static List<String> CLS_NAMES = []
 static List<String> PRIMARY_NAMES = []
 static List<String> SINGLE_NAMES = []
@@ -667,8 +672,6 @@ static List<String> INST_FN = []
 static List<String> INST_NAME = []
 static List<String> INST_ARGS = []
 static List<String> INST_KEYS = []
-static List<String> SUB_FROM = []
-static List<String> SUB_TO = []
 static String FN_SUFFIX = ""
 static Bool IN_GEN = false
 static List<String> GEN_CLS_NAMES = []
@@ -698,9 +701,6 @@ static Bool IN_PAREN = false
 static Bool NO_OP_WRAP = false
 static Bool PREPASS = false
 static Bool STRUCT_NEW_ONLY = false
-static Bool STR_INIT = false
-static Bool IN_RETURN = false
-static List<String> ROOT_ONCE = []
 static Bool STR_INIT = false
 static Bool IN_RETURN = false
 static List<String> ROOT_ONCE = []
@@ -1199,6 +1199,7 @@ static String exprType(N x, SC sc) {
             String fo0 = fieldOwner(sc.curClass, idn0)
             if fo0 != "" { return fieldType(fo0, idn0) }
         }
+        if isGlobal(idn0) { return globType(idn0) }
         return sc.typeOf(idn0)
     }
     if x.nm == "TupleMember" {
@@ -1672,6 +1673,7 @@ static String expr(N x, EM e, SC sc) {
                 if fieldOwner(sc.curClass, bn) != "" { return sc.selfName + "->" + idn }
             }
         }
+        if isGlobal(idn) { return "xn_g_" + idn }
         return sc.nameOf(idn)
     }
     if x.nm == "Unary" {
@@ -5647,10 +5649,17 @@ static Int ffiIdx(String name) {
 }
 static Bool isFFI(String name) { return ffiIdx(name) >= 0 }
 static Bool ffiIsErr(Int idx) { return FFI_E_ERRP.get(idx) != "" || FFI_E_ERRRET.get(idx) == 1 }
+static Bool ffiRetVoid(Int idx) {
+    String k = FFI_E_RETK.get(idx)
+    if k == "void" { return true }
+    if k == "scalar" && FFI_E_RETN.get(idx) == "Void" { return true }
+    return false
+}
 static String ffiRetType(String name) {
     Int idx = ffiIdx(name)
     if idx < 0 { return "Int" }
     String k = FFI_E_RETK.get(idx)
+    if ffiRetVoid(idx) { return "void" }
     if k == "string" { return "String" }
     if k == "text" { return "Text" }
     if k == "bytes" { return "Bytes" }
@@ -5731,7 +5740,8 @@ static String ffiNativeProto(Int idx) {
     String cname = FFI_E_CNAME.get(idx)
     String errp = FFI_E_ERRP.get(idx)
     String ret = "void"
-    if retk == "scalar" { ret = ffiScalarC(retn) }
+    if ffiRetVoid(idx) { ret = "void" }
+    else if retk == "scalar" { ret = ffiScalarC(retn) }
     else if retk == "string" || retk == "text" { ret = "const char *" }
     else if retk == "bytes" { ret = "xrt_bytes_obj *" }
     else if retk == "handle" { ret = "void *" }
@@ -5817,7 +5827,8 @@ static String ffiWrapper(Int idx) {
     String nativeC = ""
     String postOut = ""
     if !codeRet {
-        if retk == "scalar" {
+        if ffiRetVoid(idx) {
+        } else if retk == "scalar" {
             hasOut = true
             retC = ffiScalarC(retn)
             if retn == "Bool" { postOut = "*xn_out = (uint8_t)xn_ffi_bool_from_native((uint8_t)xn_v);" }
@@ -6014,7 +6025,7 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
         argi = argi + 1
         ai = ai + 1
     }
-    Bool hasOut = retk != "void"
+    Bool hasOut = !ffiRetVoid(idx)
     String outC = "int64_t"
     String zero = "0"
     if retk == "scalar" { outC = ffiScalarC(retn) }
@@ -6113,6 +6124,80 @@ static void prewarmN(N n) {
     i = 0
     while i < n.el.length() { prewarmN(n.el.get(i)); i = i + 1 }
 }
+static Bool isGlobal(String n) {
+    Int i = 0
+    while i < GLOB_NAMES.length() { if GLOB_NAMES.get(i) == n { return true }; i = i + 1 }
+    return false
+}
+static String globType(String n) {
+    Int i = 0
+    while i < GLOB_NAMES.length() { if GLOB_NAMES.get(i) == n { return GLOB_TYPES.get(i) }; i = i + 1 }
+    return "Int"
+}
+static String globListName(String gt) {
+    if isU16List(gt) { return "xn_arr_u16" }
+    if isObjArr(gt) { return classArrName(gt) }
+    if isTupList(gt) { return arrTupName(gt) }
+    return arrNameC(cType(arrElem(gt)))
+}
+static void prepareGlobals(EM e) {
+    Int i = 0
+    while i < GLOB_NAMES.length() {
+        String gt = GLOB_TYPES.get(i)
+        String jc = cType(gt)
+        if isObjArr(gt) { needArr(cType(objArrElem(gt))); e.usesList = true }
+        if isU16List(gt) { needArr("uint16_t"); e.usesList = true }
+        if isTupList(gt) { e.usesTArr = true }
+        if isArr(gt) { e.usesList = true }
+        if isMap(gt) { e.hasMap = true }
+        if isSet(gt) { e.hasSet = true }
+        i = i + 1
+    }
+}
+static String globDeclsText() {
+    String b = ""
+    Int i = 0
+    while i < GLOB_NAMES.length() {
+        b = b + "static " + cType(GLOB_TYPES.get(i)) + " xn_g_" + GLOB_NAMES.get(i) + ";\n"
+        i = i + 1
+    }
+    if b != "" { b = b + "\n" }
+    return b
+}
+static String globInitText() {
+    if GLOB_NAMES.length() == 0 { return "" }
+    String b = "static void xn_init_globals(void) {\n"
+    Int i = 0
+    while i < GLOB_NAMES.length() {
+        String nm = GLOB_NAMES.get(i)
+        String gt = GLOB_TYPES.get(i)
+        N init = GLOB_INITS.get(i)
+        String tg = "xn_g_" + nm
+        if isArr(gt) || isU16List(gt) || isObjArr(gt) || isTupList(gt) {
+            String an = globListName(gt)
+            b = b + "    " + tg + " = " + an + "_new(0);\n"
+            b = b + "    xn_root_hold(" + tg + ");\n"
+        } else if gt == "String" {
+            if init.nm == "StrLitExpr" { b = b + "    " + tg + " = rt_string_from_c(" + q(liteText(init)) + ");\n" }
+            else { b = b + "    " + tg + " = NULL;\n" }
+            b = b + "    xn_root_hold(" + tg + ");\n"
+        } else if gt == "Bool" {
+            String bv = "0"
+            if init.nm == "BoolLit" { if txt(fld(init, "V")) == "true" { bv = "1" } }
+            b = b + "    " + tg + " = " + bv + ";\n"
+        } else if gt == "Double" || gt == "Float" {
+            String dv = "0.0"
+            if init.nm == "FloatLitExpr" { dv = unq(txt(fld(init, "Text"))) }
+            b = b + "    " + tg + " = " + dv + ";\n"
+        } else {
+            String iv = "0"
+            if init.nm == "IntLitExpr" { iv = unq(txt(fld(init, "Text"))) }
+            b = b + "    " + tg + " = " + iv + ";\n"
+        }
+        i = i + 1
+    }
+    return b + "}\n\n"
+}
 static void prewarmContainers(N decls) {
     Int i = 0
     while i < decls.el.length() { prewarmN(decls.el.get(i)); i = i + 1 }
@@ -6144,6 +6229,9 @@ static String emitUnit(N unit, String path) {
         if hasGenericListType(decls.el.get(glc)) { e.usesList = true; glc = decls.el.length() }
         else { glc = glc + 1 }
     }
+    GLOB_NAMES = []
+    GLOB_TYPES = []
+    GLOB_INITS = []
     CLS_NAMES = []
     CLS_DECLS = []
     SINGLE_DECLS = []
@@ -6312,6 +6400,11 @@ static String emitUnit(N unit, String path) {
                 sfi = sfi + 1
             }
         }
+        if d.nm == "TopField" {
+            GLOB_NAMES.push(unq(txt(fld(d, "Name"))))
+            GLOB_TYPES.push(typeKey(fld(d, "Type")))
+            GLOB_INITS.push(fld(d, "Init"))
+        }
         if d.nm == "TopFunc" {
             if fld(d, "TypePars").el.length() > 0 {
                 GEN_FN_DECLS.push(d)
@@ -6359,10 +6452,12 @@ static String emitUnit(N unit, String path) {
     PRE_CGET = 0
     PREPASS = false
     prewarmContainers(decls)
+    prepareGlobals(e)
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
     e.add("    xn_init_enums();")
+    if GLOB_NAMES.length() > 0 { e.add("    xn_init_globals();") }
     if SINGLE_NAMES.length() > 0 { e.add("    xn_init_singletons();") }
     if mainArgv {
         e.add("    xn_arr_s *xn_args = xn_arr_s_new((size_t)(argc > 1 ? argc - 1 : 0));")
@@ -6842,11 +6937,15 @@ static String emitUnit(N unit, String path) {
         res = res + genProtos()
         res = res + PRELUDE_TAIL
     }
+    if GLOB_NAMES.length() > 0 {
+        Int gmp = res.indexOf(mainProto)
+        if gmp >= 0 { res = res.substring(0, gmp) + globDeclsText() + res.substring(gmp, res.length() - gmp) }
+    }
     e.add("}")
     res = res + lambdaProtos()
     Int j = 0
     while j < e.ls.length() {
-        if e.ls.get(j).indexOf("int main(") == 0 { res = res + lambdaDefs() }
+        if e.ls.get(j).indexOf("int main(") == 0 { res = res + lambdaDefs() + globInitText() }
         res = res + e.ls.get(j) + "\n"
         j = j + 1
     }
