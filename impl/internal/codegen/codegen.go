@@ -3471,6 +3471,16 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 				out = append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");")
 				return out, nil
 			}
+			if isContainerC(tc) {
+				lines, v, err := s.valExpr(n.Value, tc)
+				if err != nil {
+					return nil, err
+				}
+				out := append([]string{}, lines...)
+				out = append(out, s.pending...)
+				s.pending = nil
+				return append(out, "xn_root_release("+tgt+");", tgt+" = "+v+";", "xn_root_hold("+tgt+");"), nil
+			}
 			v, err := s.intExpr(n.Value)
 			if err != nil {
 				return nil, err
@@ -3582,11 +3592,32 @@ func (s *scope) emitAssign(n *xfront.AssignStmt) ([]string, error) {
 		}
 		return out, nil
 	}
-	v, err := s.intExpr(n.Value)
-	if err != nil {
-		return nil, err
+	// 容器赋值：RHS 走容器值表达式（字面量/字段/keys 等），旧值根登记按
+	// 局部/全局规则替换（S3 §10：容器是 GC 引用）。
+	assignC := ""
+	if tc, ok := s.localCType(id.Name); ok && isContainerC(tc) {
+		assignC = tc
+	} else if tc, ok := s.g.globals[id.Name]; ok && isContainerC(tc) {
+		assignC = tc
 	}
-	out := append([]string{}, s.pending...)
+	var v string
+	var lines []string
+	if assignC != "" {
+		vl, ev, err := s.valExpr(n.Value, assignC)
+		if err != nil {
+			return nil, err
+		}
+		lines = vl
+		v = ev
+	} else {
+		ev, err := s.intExpr(n.Value)
+		if err != nil {
+			return nil, err
+		}
+		v = ev
+	}
+	out := append([]string{}, lines...)
+	out = append(out, s.pending...)
 	s.pending = nil
 	// S3-02：GC 引用局部赋值后登记栈根（旧值保留登记到块退出）。
 	if tc, ok := s.localCType(id.Name); ok && s.g.isGCRootC(tc) {
