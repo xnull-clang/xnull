@@ -4121,6 +4121,35 @@ static String containerTypedef(String key) {
     if key == "List<UInt16>" || key == "UInt16[]" { return "typedef struct { rt_header hdr; size_t len; size_t cap; uint16_t *data; } xn_arr_u16;" }
     return ""
 }
+static String mapSITypedef() {
+    return "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;"
+}
+static String arrSBlock() {
+    String a = "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *data; } xn_arr_s;"
+    String b = "static void xn_set_i_scan"
+    Int i0 = PRELUDE_MAPSET.indexOf(a)
+    Int j0 = PRELUDE_MAPSET.indexOf(b)
+    if i0 < 0 || j0 < 0 { return "" }
+    return PRELUDE_MAPSET.substring(i0, j0 - i0)
+}
+static String mapSIBlock() {
+    String a = "static void xn_map_s_i_scan"
+    String b = "static xn_arr_s *xn_str_split"
+    Int i0 = PRELUDE_MAPSET.indexOf(a)
+    Int j0 = PRELUDE_MAPSET.indexOf(b)
+    if i0 < 0 || j0 < 0 { return "" }
+    return PRELUDE_MAPSET.substring(i0, j0 - i0)
+}
+static String strSplitBlock() {
+    String a = "static xn_arr_s *xn_str_split"
+    String b = "static int64_t xn_main"
+    Int i0 = PRELUDE_MAPSET.indexOf(a)
+    Int j0 = PRELUDE_MAPSET.indexOf(b)
+    if i0 < 0 || j0 < 0 { return "" }
+    String r0 = PRELUDE_MAPSET.substring(i0, j0 - i0)
+    if r0.length() > 0 && r0.substring(r0.length() - 1, 1) == "\n" { r0 = r0.substring(0, r0.length() - 1) }
+    return r0
+}
 static String u16ArrHelperText() {
     String b = ""
     b = b + "static void xn_arr_u16_deinit(void *p) {\n"
@@ -5040,6 +5069,10 @@ static String emitUnit(N unit, String path) {
             else if isU16List(cbKey) { cbHelp = u16ArrHelperText() }
             else { cbHelp = arrIHelperText() }
         }
+        Bool mapSI = e.hasMap
+        Int msi = 0
+        while msi < FLD_TYPE.length() { if FLD_TYPE.get(msi) == "Map<String, Int>" { mapSI = true }; msi = msi + 1 }
+        if mapSI { cbHelp = cbHelp + "\n" + arrSBlock() + mapSIBlock() + strSplitBlock() }
         String tfp = topFuncProtos(decls)
         List<String> fw = []
         Int pass = 0
@@ -5054,6 +5087,7 @@ static String emitUnit(N unit, String path) {
             while gti < GEN_INST_NAME.length() { fw.push("typedef struct xn_Cls_" + GEN_INST_NAME.get(gti) + " xn_Cls_" + GEN_INST_NAME.get(gti) + ";"); gti = gti + 1 }
             fw.push("")
             if pass == 0 && cbType != "" { fw.push(cbType); fw.push("") }
+            if pass == 0 && mapSI { fw.push(mapSITypedef()); fw.push("") }
             pass = pass + 1
         }
         ci = 0

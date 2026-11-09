@@ -1,0 +1,1 @@
+B3-09-03 K-02 WIP: examples/classes.x raw=0（补 map_s_i typedef + arr_s/map_s_i/str_split 块）。阻塞：f2.x/bundle 需要 map_s_s 及任意 K/V 容器 helper，xnullc 仅有 arr_i/arr_u16/objArr 与 prelude 中的 map_s_i/arr_s 固定文本，尚无通用 needArr/needSet/needMap 注册+helper 生成器，故 f2 raw 1412。不回归 text 0/ffi 5/obj 4/containers 5/err 5/mem 11/bundle 4。
