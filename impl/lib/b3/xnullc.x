@@ -153,6 +153,20 @@ static String unq(String raw) {
                 if e == "n" { b = b + "\n" }
                 else if e == "t" { b = b + "\t" }
                 else if e == "r" { b = b + "\r" }
+                else if e == "0" { b = b + "\0" }
+                else if e == "x" && i + 2 < s.length() {
+                    String h1 = s.substring(i + 1, 1)
+                    String h2 = s.substring(i + 2, 1)
+                    Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
+                    if v == 0 { b = b + "\0" } else { b = b + "\\x" + h1 + h2 }
+                    i = i + 2
+                }
+                else if e == "u" && i + 4 < s.length() {
+                    Int v = jsonHex4(s, i + 1)
+                    String hs = s.substring(i + 1, 4)
+                    if v == 0 { b = b + "\0" } else { b = b + "\\u" + hs }
+                    i = i + 4
+                }
                 else { b = b + e }
             }
         } else { b = b + c }
@@ -170,6 +184,8 @@ static String q(String s) {
         else if c == "\n" { b = b + "\\n" }
         else if c == "\t" { b = b + "\\t" }
         else if c == "\r" { b = b + "\\r" }
+        else if c == "\0" { b = b + "\\000" }
+        else if c == "\u007f" { b = b + "\\177" }
         else { b = b + c }
         i = i + 1
     }
