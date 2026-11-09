@@ -1324,7 +1324,7 @@ static String expr(N x, EM e, SC sc) {
     }
     if x.nm == "IdentExpr" {
         String idn = unq(txt(fld(x, "Name")))
-        if idn == "self" { return sc.selfName }
+        if idn == "self" { if sc.selfName != "" { return sc.selfName }; return "self" }
         if sc.curClass != "" && (isClass(sc.curClass) || isStruct(sc.curClass)) {
             if fieldOwner(sc.curClass, idn) != "" { return sc.selfName + "->" + idn }
             if idn.length() > 1 && idn.substring(0, 1) == "_" {
