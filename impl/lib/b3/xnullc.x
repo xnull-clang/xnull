@@ -2591,8 +2591,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
             String vv0 = expr(fld(st, "Value"), e, sc)
+            Bool fresh0 = val0.nm == "Call" || val0.nm == "Binary"
+            if val0.nm == "Call" {
+                N fc0 = fld(val0, "Callee")
+                if fc0.nm == "Member" && unq(txt(fld(fc0, "Name"))) == "get" { fresh0 = false }
+            }
             String t = e.nt()
-            e.add("rt_string *" + t + " = rt_retain(" + vv0 + ");")
+            if fresh0 { e.add("rt_string *" + t + " = " + vv0 + ";") }
+            else { e.add("rt_string *" + t + " = rt_retain(" + vv0 + ");") }
             rootStr(e, sc, t)
             e.add("rt_release(" + nm + ");")
             e.add(nm + " = " + t + ";")
@@ -2646,6 +2652,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                         if baseCls(eo0) != "" && classPolicy(baseCls(eo0)) == "gc" && (ag0.nm == "Call" || ag0.nm == "Index" || ag0.nm == "Member") {
                             String tg0 = e.nt()
                             e.add(cType(eo0) + " " + tg0 + " = " + expr(ag0, e, sc) + ";")
+                            e.add("xn_root_add(" + tg0 + ");")
                             a0 = tg0
                         }
                     }
@@ -2673,6 +2680,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                         if ag2.nm == "Call" || ag2.nm == "Index" || ag2.nm == "Member" {
                             String tg2 = e.nt()
                             e.add(cType(mapVal(rt0)) + " " + tg2 + " = " + expr(ag2, e, sc) + ";")
+                            e.add("xn_root_add(" + tg2 + ");")
                             a1 = tg2
                         }
                     }
@@ -2691,6 +2699,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                         if baseCls(eo1) != "" && classPolicy(baseCls(eo1)) == "gc" && (ag1.nm == "Call" || ag1.nm == "Index" || ag1.nm == "Member") {
                             String tg1 = e.nt()
                             e.add(cType(eo1) + " " + tg1 + " = " + expr(ag1, e, sc) + ";")
+                            e.add("xn_root_add(" + tg1 + ");")
                             a1 = tg1
                         }
                     }
