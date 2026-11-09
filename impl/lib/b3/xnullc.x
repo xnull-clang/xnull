@@ -426,9 +426,12 @@ static String cType(String k) {
     if k.length() > 6 && k.indexOf("List<") == 0 { needArr(cType(k.substring(5, k.length() - 6))) }
     if k.length() > 5 && k.indexOf("Set<") == 0 { needSet(cType(k.substring(4, k.length() - 5))) }
     if k.length() > 5 && k.indexOf("Map<") == 0 {
-        String mi = k.substring(4, k.length() - 5)
-        Int mc = topComma(mi)
-        if mc >= 0 { needMap(cType(mi.substring(0, mc).trim()), cType(mi.substring(mc + 1, mi.length() - mc - 1).trim())) }
+        Int mc = topComma(k)
+        if mc >= 0 {
+            String kc = cType(k.substring(4, mc - 4).trim())
+            String vc = cType(k.substring(mc + 1, k.length() - mc - 2).trim())
+            needMap(kc, vc)
+        }
     }
     if k.length() > 2 && k.substring(k.length() - 2, 2) == "[]" { needArr(cType(k.substring(0, k.length() - 2))) }
     if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
@@ -2054,6 +2057,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         N init = fld(st, "Init")
         sc.def(nm, ty)
         sc.useResult(ty)
+        String regTy0 = cType(ty)
         if init.nm == "Unary" && unq(txt(fld(init, "Op"))) == "try" {
             String rk = exprType(fld(init, "X"), sc)
             sc.useResult(rk)
@@ -4243,6 +4247,84 @@ static String containerTypedef(String key) {
     if key == "List<UInt16>" || key == "UInt16[]" { return "typedef struct { rt_header hdr; size_t len; size_t cap; uint16_t *data; } xn_arr_u16;" }
     return ""
 }
+static String mangleC(String ct) {
+    if ct == "int64_t" { return "i" }
+    if ct == "int" { return "b" }
+    if ct == "uint8_t" { return "u8" }
+    if ct == "uint16_t" { return "u16" }
+    if ct == "uint32_t" { return "u32" }
+    if ct == "uint64_t" { return "u64" }
+    if ct == "int8_t" { return "i8" }
+    if ct == "int16_t" { return "i16" }
+    if ct == "int32_t" { return "i32" }
+    if ct == "double" { return "f64" }
+    if ct == "float" { return "f32" }
+    if ct == "rt_string *" { return "s" }
+    if ct.indexOf("xn_Cls_") == 0 && ct.length() > 4 && ct.substring(ct.length() - 2, 2) == " *" { return "o_" + ct.substring(7, ct.length() - 9) }
+    if ct.indexOf("xn_tup_") == 0 { return "t_" + ct.substring(7, ct.length() - 7) }
+    return sanitizeCName(ct)
+}
+static String arrNameC(String ec) { return "xn_arr_" + mangleC(ec) }
+static String setNameC(String ec) { return "xn_set_" + mangleC(ec) }
+static String mapNameC(String kc, String vc) { return "xn_map_" + mangleC(kc) + "_" + mangleC(vc) }
+static void sortStrs(List<String> xs) {
+    Int a = 1
+    while a < xs.length() {
+        String x = xs.get(a)
+        Int b = a
+        while b > 0 && strLess(x, xs.get(b - 1)) { xs.set(b, xs.get(b - 1)); b = b - 1 }
+        xs.set(b, x)
+        a = a + 1
+    }
+}
+static String dynContainerTypedefs() {
+    List<String> arrs = []
+    Int i = 0
+    while i < C_ARR.length() { if !hasStr(arrs, C_ARR.get(i)) { arrs.push(C_ARR.get(i)) }; i = i + 1 }
+    sortStrs(arrs)
+    String s = ""
+    i = 0
+    while i < arrs.length() {
+        String ec = arrs.get(i)
+        s = s + "typedef struct { rt_header hdr; size_t len; size_t cap; " + ec + " *data; } " + arrNameC(ec) + ";\n\n"
+        i = i + 1
+    }
+    List<String> sets = []
+    i = 0
+    while i < C_SET.length() { if !hasStr(sets, C_SET.get(i)) { sets.push(C_SET.get(i)) }; i = i + 1 }
+    sortStrs(sets)
+    i = 0
+    while i < sets.length() {
+        String ec = sets.get(i)
+        s = s + "typedef struct { rt_header hdr; " + arrNameC(ec) + " *a; } " + setNameC(ec) + ";\n\n"
+        i = i + 1
+    }
+    List<String> mkeys = []
+    i = 0
+    while i < C_MAPK.length() {
+        String mk = mangleC(C_MAPK.get(i)) + "|" + mangleC(C_MAPV.get(i))
+        if !hasStr(mkeys, mk) { mkeys.push(mk) }
+        i = i + 1
+    }
+    sortStrs(mkeys)
+    i = 0
+    while i < mkeys.length() {
+        String mk = mkeys.get(i)
+        Int bar = mk.indexOf("|")
+        String km = mk.substring(0, bar)
+        String vm = mk.substring(bar + 1, mk.length() - bar - 1)
+        Int j = 0
+        while j < C_MAPK.length() {
+            if mangleC(C_MAPK.get(j)) == km && mangleC(C_MAPV.get(j)) == vm {
+                s = s + "typedef struct { rt_header hdr; size_t len; size_t cap; " + C_MAPK.get(j) + " *keys; " + C_MAPV.get(j) + " *vals; } xn_map_" + km + "_" + vm + ";\n\n"
+                j = C_MAPK.length()
+            } else { j = j + 1 }
+        }
+        i = i + 1
+    }
+    if s.length() > 0 && s.substring(s.length() - 1, 1) == "\n" { s = s.substring(0, s.length() - 1) }
+    return s
+}
 static String mapSITypedef() {
     return "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;"
 }
@@ -5208,8 +5290,6 @@ static String emitUnit(N unit, String path) {
             Int gti = 0
             while gti < GEN_INST_NAME.length() { fw.push("typedef struct xn_Cls_" + GEN_INST_NAME.get(gti) + " xn_Cls_" + GEN_INST_NAME.get(gti) + ";"); gti = gti + 1 }
             fw.push("")
-            if pass == 0 && cbType != "" { fw.push(cbType); fw.push("") }
-            if pass == 0 && mapSI { fw.push(mapSITypedef()); fw.push("") }
             pass = pass + 1
         }
         ci = 0
@@ -5260,7 +5340,18 @@ static String emitUnit(N unit, String path) {
         }
         fw.push("")
         fw.push("")
-        String fwj = joinLines(fw)
+        String fwj = ""
+        Bool fwi2 = false
+        Int fwk = 0
+        while fwk < fw.length() {
+            fwj = fwj + fw.get(fwk) + "\n"
+            if !fwi2 && fw.get(fwk) == "" {
+                String dts0 = dynContainerTypedefs()
+                if dts0 != "" { fwj = fwj + dts0 + "\n" }
+                fwi2 = true
+            }
+            fwk = fwk + 1
+        }
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
         res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B

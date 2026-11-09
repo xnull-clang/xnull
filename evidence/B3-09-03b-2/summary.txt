@@ -1,0 +1,1 @@
+K-02b-2: 动态容器 typedef（mangle/arrName/setName/mapName/排序/declared 等价）替换 class 路径 cbType/mapSI 固定插入；typedef 在 class 前向第一段之后、第二段之前输出；不再把 map K/V 数组提前到主 typedef（留待 helper 晚注册）。classes 0、bundle_text 0、f2 raw 1412→1401（map_s_s typedef 已对齐，剩 arr_s 晚注册/helper）；obj 4、mem 11、containers 5、tuple 5、bundle 4、err 5、ffi 5。
