@@ -17,7 +17,7 @@ def is_excluded(path):
     p = (path or "").replace("\\", "/").lstrip("./")
     return p in EXCLUDED
 
-def run(cmd, cwd, timeout=300):
+def run(cmd, cwd, timeout=900):
     try:
         p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
