@@ -1285,9 +1285,12 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "FloatLitExpr" { return unq(txt(fld(x, "Text"))) }
     if x.nm == "Paren" {
         Bool op0 = IN_PAREN
+        Bool nw0 = NO_OP_WRAP
         IN_PAREN = true
+        NO_OP_WRAP = true
         String pv0 = expr(fld(x, "X"), e, sc)
         IN_PAREN = op0
+        NO_OP_WRAP = nw0
         return pv0
     }
     if x.nm == "New" {
@@ -1414,15 +1417,12 @@ static String expr(N x, EM e, SC sc) {
             N rb = fld(x, "R")
             String lv = expr(lb, e, sc)
             String rv = expr(rb, e, sc)
-            if !IN_PAREN && !NO_OP_WRAP && lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) != "&&" && unq(txt(fld(lb, "Op"))) != "||") { lv = "(" + lv + ")" }
-            if !NO_OP_WRAP && lb.nm == "Binary" { String lop = unq(txt(fld(lb, "Op"))); if (lop == "&&" || lop == "||") && lop != op { lv = "(" + lv + ")" } }
-            if !NO_OP_WRAP && lb.nm == "Paren" { N lp2 = fld(lb, "X"); if lp2.nm == "Binary" { String lop = unq(txt(fld(lp2, "Op"))); if (lop == "&&" || lop == "||") && lop != op { lv = "(" + lv + ")" } } }
-            if !IN_PAREN && !NO_OP_WRAP && (lb.nm == "Unary" || lb.nm == "Call") { lv = "(" + lv + ")" }
-            if !IN_PAREN && !NO_OP_WRAP && rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) != "&&" && unq(txt(fld(rb, "Op"))) != "||") { rv = "(" + rv + ")" }
-            if !NO_OP_WRAP && rb.nm == "Binary" { String rop = unq(txt(fld(rb, "Op"))); if (rop == "&&" || rop == "||") && rop != op { rv = "(" + rv + ")" } }
-            if !NO_OP_WRAP && rb.nm == "Paren" { N rp2 = fld(rb, "X"); if rp2.nm == "Binary" { String rop = unq(txt(fld(rp2, "Op"))); if (rop == "&&" || rop == "||") && rop != op { rv = "(" + rv + ")" } } }
-            if !IN_PAREN && !NO_OP_WRAP && (rb.nm == "Unary" || rb.nm == "Call") { rv = "(" + rv + ")" }
-
+            if !NO_OP_WRAP {
+                Bool lbo = lb.nm == "Binary" && (unq(txt(fld(lb, "Op"))) == "&&" || unq(txt(fld(lb, "Op"))) == "||")
+                Bool rbo = rb.nm == "Binary" && (unq(txt(fld(rb, "Op"))) == "&&" || unq(txt(fld(rb, "Op"))) == "||")
+                if !lbo && lb.nm != "BoolLit" { lv = "(" + lv + ")" }
+                if !rbo && rb.nm != "BoolLit" { rv = "(" + rv + ")" }
+            }
             return "(" + lv + " " + op + " " + rv + ")"
         }
         if op == "/" { return "xn_div_i64((int64_t)(" + expr(fld(x, "L"), e, sc) + "), (int64_t)(" + expr(fld(x, "R"), e, sc) + "))" }
@@ -1909,7 +1909,12 @@ static void emitPrint(N arg, EM e, SC sc) {
         e.add("rt_release(" + t + ");")
         return
     }
-    if ty == "Bool" { e.add("xn_print_bool((" + expr(arg, e, sc) + "));"); return }
+    if ty == "Bool" {
+        String bv = expr(arg, e, sc)
+        Bool bare = arg.nm == "BoolLit" || (arg.nm == "Binary" && (unq(txt(fld(arg, "Op"))) == "&&" || unq(txt(fld(arg, "Op"))) == "||"))
+        if bare { e.add("xn_print_bool(" + bv + ");") } else { e.add("xn_print_bool((" + bv + "));") }
+        return
+    }
     if ty == "Double" || ty == "Float" { e.add("xn_print_double(" + expr(arg, e, sc) + ");"); return }
     e.add("xn_print_int((int64_t)(" + expr(arg, e, sc) + "));")
 }
@@ -2576,7 +2581,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
         }
+        Bool nwA = NO_OP_WRAP
+        NO_OP_WRAP = true
         v0 = expr(fld(st, "Value"), e, sc)
+        NO_OP_WRAP = nwA
         v = v0
         if tgt.nm == "Member" && exprType(tgt, sc) == "Bool" && op == "=" { v = "(int64_t)((int)(" + v0 + "))" }
         if op == "+=" { e.add(nm + " = " + nm + " + (" + v + ");") }
@@ -2814,7 +2822,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
         }
+        Bool nwR = NO_OP_WRAP
+        NO_OP_WRAP = true
         String rv0 = expr(v, e, sc)
+        NO_OP_WRAP = nwR
         String t = e.nt()
         e.add(cType(sc.retKind) + " " + t + " = " + rv0 + ";")
         sc.ret = t
