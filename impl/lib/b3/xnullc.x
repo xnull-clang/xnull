@@ -497,6 +497,10 @@ static String cType(String k) {
     if k == "Int?" { return "xn_opt_i" }
     if k == "Bool?" { return "xn_opt_b" }
     if k == "String?" { return "xn_opt_s" }
+    if k.indexOf("Mutex<") == 0 { return "xrt_mutex *" }
+    if k.indexOf("Channel<") == 0 { return "xrt_channel *" }
+    if k == "AtomicInt" { return "xrt_atomic_int *" }
+    if k == "AtomicBool" { return "xrt_atomic_bool *" }
     if k == "String" { return "rt_string *" }
     if k == "Bytes" { return "xrt_bytes_obj *" }
     if k == "List<UInt16>" || k == "UInt16[]" { return "xn_arr_u16 *" }
@@ -1891,6 +1895,18 @@ static String expr(N x, EM e, SC sc) {
         if cl.nm == "IdentExpr" {
             String cn = unq(txt(fld(cl, "Name")))
             if isFFI(cn) { return ffiCallExpr(cn, x, e, sc) }
+            N sta = fld(x, "TypeArgs")
+            N saa = fld(x, "Args")
+            if cn == "Mutex" || cn == "Channel" || cn == "AtomicInt" || cn == "AtomicBool" {
+                String se = "Int"
+                if sta.el.length() > 0 { se = typeKey(sta.el.get(0)) }
+                String sv = "0"
+                if saa.el.length() > 0 { sv = expr(saa.el.get(0), e, sc) }
+                if cn == "Mutex" { return "xrt_mutex_new(((void *)(intptr_t)(" + sv + ")), NULL)" }
+                if cn == "Channel" { return "xrt_channel_new((size_t)(" + sv + "), NULL)" }
+                if cn == "AtomicInt" { return "xrt_atomic_int_new((int64_t)(" + sv + "))" }
+                return "xrt_atomic_bool_new((int)(" + sv + "))"
+            }
             if cn == "nowMono" { return "xdkc_now_mono_ms()" }
             if cn == "nowWall" { return "xdkc_now_wall_ms()" }
             if cn == "env" {
