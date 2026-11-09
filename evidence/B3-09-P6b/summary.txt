@@ -1,0 +1,1 @@
+P6b: 类 Bool 字段 C 类型改 int64_t（Tok gen/ternary/unary/postfix），xnfmt 6869→6849；classes 0、text 0、全组绿。bundle/app 仍 98：首条差异仍是缺 xn_arr_i typedef/helper；bundle 源码无 List<Int>/Int[]，Go 的 arr_i 来自未发射依赖的第一遍/预扫描登记，xnullc 当前 registry 只看实际发射路径，需要额外的全 bundle 预扫描（字段/签名/Result 成员/局部）才能复刻。
