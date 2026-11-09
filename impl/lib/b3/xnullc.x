@@ -2655,16 +2655,23 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 String rt0 = exprType(mx, sc)
                 if mn == "push" && (rt0 == "Bytes" || isU16List(rt0) || isObjArr(rt0) || isArr(rt0)) {
                     String a0 = "0"
-                    if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
-                    if args.el.length() > 0 && isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" { a0 = emitStr(args.el.get(0), e, sc) }
-                    if args.el.length() > 0 && isObjArr(rt0) {
-                        String eo0 = objArrElem(rt0)
+                    if args.el.length() > 0 {
                         N ag0 = args.el.get(0)
-                        if baseCls(eo0) != "" && classPolicy(baseCls(eo0)) == "gc" && (ag0.nm == "Call" || ag0.nm == "Index" || ag0.nm == "Member") {
-                            String tg0 = e.nt()
-                            e.add(cType(eo0) + " " + tg0 + " = " + expr(ag0, e, sc) + ";")
-                            e.add("xn_root_add(" + tg0 + ");")
-                            a0 = tg0
+                        if isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" {
+                            a0 = emitStr(ag0, e, sc)
+                        } else {
+                            a0 = expr(ag0, e, sc)
+                            if isObjArr(rt0) {
+                                String eo0 = objArrElem(rt0)
+                                Bool aget0 = false
+                                if ag0.nm == "Call" { N cgx = fld(ag0, "Callee"); if cgx.nm == "Member" && unq(txt(fld(cgx, "Name"))) == "get" { aget0 = true } }
+                                if baseCls(eo0) != "" && classPolicy(baseCls(eo0)) == "gc" && !aget0 && (ag0.nm == "Call" || ag0.nm == "Index" || ag0.nm == "Member") {
+                                    String tg0 = e.nt()
+                                    e.add(cType(eo0) + " " + tg0 + " = " + a0 + ";")
+                                    e.add("xn_root_add(" + tg0 + ");")
+                                    a0 = tg0
+                                }
+                            }
                         }
                     }
                     if rt0 == "Bytes" { e.add("xrt_bytes_push(" + xb + ", (int32_t)(" + a0 + "));") }
