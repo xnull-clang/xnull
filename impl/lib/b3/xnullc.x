@@ -2433,6 +2433,12 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if tgt.nm == "Member" && exprType(tgt, sc) == "String" && op == "=" {
+            if val0.nm == "StrLitExpr" {
+                String svl = emitStr(val0, e, sc)
+                e.add("rt_release(" + nm + ");")
+                e.add(nm + " = " + svl + ";")
+                return
+            }
             String t = e.nt()
             e.add("rt_string *" + t + " = rt_retain(" + v + ");")
             rootStr(e, sc, t)
