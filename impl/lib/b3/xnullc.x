@@ -2158,8 +2158,21 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 String sdum1 = e.nt()
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
             } else if init.nm == "Call" {
-                String sdum = e.nt()
-                e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
+                N ic0 = fld(init, "Callee")
+                N as0 = fld(init, "Args")
+                Bool subM = false
+                if ic0.nm == "Member" && unq(txt(fld(ic0, "Name"))) == "substring" {
+                    if fld(ic0, "X").nm == "Member" && as0.el.length() >= 2 { subM = true }
+                }
+                if subM {
+                    String sd0 = e.nt()
+                    e.add("rt_string *" + sd0 + " = rt_retain(" + expr(fld(ic0, "X"), e, sc) + ");")
+                    String sd1 = e.nt()
+                    e.add("rt_string *" + nm + " = xn_str_substr(" + sd0 + ", " + expr(as0.el.get(0), e, sc) + ", " + expr(as0.el.get(1), e, sc) + ");")
+                } else {
+                    String sdum = e.nt()
+                    e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
+                }
             } else {
                 String sv = emitStr(init, e, sc)
                 e.add("rt_string *" + nm + " = " + sv + ";")

@@ -1,0 +1,1 @@
+K-06-01d: parser-seed 两个入口 raw=0。curText substring 接收者为 Member 时按 Go 顺序：先占接收者 retain temp、再占一个未发射 temp、最后声明子串，使 temp 计数与位置同时对齐。text 0，全组不回归。
