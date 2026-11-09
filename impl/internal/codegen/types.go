@@ -69,6 +69,29 @@ func (s *scope) exprType(e xfront.Expr) (string, error) {
 			return "", fmt.Errorf("codegen：未定义的类 %s", name)
 		}
 		return "xn_Cls_" + name + " *", nil
+	case *xfront.ArrayLit:
+		// 非空数组字面量：按元素统一 C 类型推断 List<T>/T[]。
+		// 空字面量没有上下文（目标类型由 valExpr/形参提供），保持明确报错。
+		if len(n.Elems) == 0 {
+			return "", fmt.Errorf("codegen：空数组字面量需要目标类型（M4.4a 范围）")
+		}
+		elemC, err := s.exprType(n.Elems[0])
+		if err != nil {
+			return "", err
+		}
+		for _, el := range n.Elems[1:] {
+			c, err := s.exprType(el)
+			if err != nil {
+				return "", err
+			}
+			if c != elemC {
+				return "", fmt.Errorf("codegen：数组字面量元素类型不一致（%s vs %s，M4.4a 范围）", elemC, c)
+			}
+		}
+		if err := s.g.cs.needArr(elemC); err != nil {
+			return "", err
+		}
+		return arrName(elemC) + " *", nil
 	case *xfront.Tuple:
 		elems := make([]string, 0, len(n.Elems))
 		for _, el := range n.Elems {

@@ -30,6 +30,13 @@ func containerElem(c string) (string, bool) {
 	default:
 		return "", false
 	}
+	// 嵌套容器元素：a_<suffix> / st_<suffix> 直接重建 C 类型。
+	if strings.HasPrefix(elem, "a_") {
+		return "xn_arr_" + strings.TrimPrefix(elem, "a_") + " *", true
+	}
+	if strings.HasPrefix(elem, "st_") {
+		return "xn_set_" + strings.TrimPrefix(elem, "st_") + " *", true
+	}
 	switch elem {
 	case "i":
 		return "int64_t", true
@@ -77,10 +84,47 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 		return s.arrayLit(n, wantC)
 	case *xfront.MapLit:
 		return s.mapLit(n, wantC)
+	case *xfront.Member:
+		// 容器字段（self.items / a.b.c）作为值：借用字段本身；接收者需要
+		// 物化（调用结果）时由 recvCName 写入 pending，这里一并返回。
+		name, c, err := recvCName(n, s)
+		if err != nil {
+			return nil, "", err
+		}
+		if !isContainerC(c) {
+			return nil, "", fmt.Errorf("codegen：容器表达式成员 %s 的类型是 %s，不是容器（M4.4a 范围）", n.Name, c)
+		}
+		lines := append([]string{}, s.pending...)
+		s.pending = nil
+		return lines, name, nil
 	case *xfront.Call:
 		mem, ok := n.Callee.(*xfront.Member)
 		if !ok {
-			return nil, "", fmt.Errorf("codegen：容器表达式调用 %T 未支持（M6-B0-05 范围）", n.Callee)
+			// 顶层函数返回容器：调用结果直接作容器值（借用；GC 根由消费方登记）。
+			id, isID := n.Callee.(*xfront.IdentExpr)
+			if !isID {
+				return nil, "", fmt.Errorf("codegen：容器表达式调用 %T 未支持（M6-B0-05 范围）", n.Callee)
+			}
+			retC, err := s.exprType(n)
+			if err != nil {
+				return nil, "", err
+			}
+			if !isContainerC(retC) {
+				return nil, "", fmt.Errorf("codegen：容器表达式调用 %s 返回 %s，不是容器", id.Name, retC)
+			}
+			args, err := s.callArgs(n.Args)
+			if err != nil {
+				return nil, "", err
+			}
+			cn, err := s.g.callName(id.Name, n.TypeArgs, len(n.Args))
+			if err != nil {
+				return nil, "", err
+			}
+			lines := append([]string{}, s.pending...)
+			s.pending = nil
+			t := s.tmp()
+			lines = append(lines, fmt.Sprintf("%s *%s = %s(%s);", contBase(wantC), t, cn, strings.Join(args, ", ")))
+			return lines, t, nil
 		}
 		rt, terr := s.exprType(mem.X)
 		if terr == nil && rt == "rt_string *" && mem.Name == "split" {
@@ -110,8 +154,10 @@ func (s *scope) valExpr(e xfront.Expr, wantC string) ([]string, string, error) {
 		}
 		switch mem.Name {
 		case "keys", "values":
+			// wantC/recvC 是实例化指针类型（xn_arr_s * / xn_map_s_i *），
+			// C 函数名只用基名。
 			t := s.tmp()
-			return []string{fmt.Sprintf("%s %s = %s_%s(%s);", wantC, t, recvC, mem.Name, recvName)}, t, nil
+			return []string{fmt.Sprintf("%s *%s = %s_%s(%s);", contBase(wantC), t, contBase(recvC), mem.Name, recvName)}, t, nil
 		}
 		return nil, "", fmt.Errorf("codegen：容器成员 %s 不返回值（M6-B0-05 范围）", mem.Name)
 	}
@@ -204,6 +250,11 @@ func (s *scope) mapLit(n *xfront.MapLit, wantC string) ([]string, string, error)
 func (s *scope) elemValue(e xfront.Expr, elemC string) (string, []string, error) {
 	if s.g.isTupleC(elemC) {
 		lines, v, err := s.tupleExpr(e, elemC)
+		return v, lines, err
+	}
+	if isContainerC(elemC) {
+		// 嵌套容器元素（List<List<T>>）：递归生成内层容器值。
+		lines, v, err := s.valExpr(e, elemC)
 		return v, lines, err
 	}
 	if elemC == "rt_string *" {
