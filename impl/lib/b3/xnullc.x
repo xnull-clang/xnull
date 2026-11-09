@@ -689,6 +689,7 @@ static Bool SKIP_LINE = false
 static Bool IN_PAREN = false
 static Bool NO_OP_WRAP = false
 static Bool PREPASS = false
+static Bool STRUCT_NEW_ONLY = false
 static Bool STR_INIT = false
 static Bool IN_RETURN = false
 static List<String> ROOT_ONCE = []
@@ -2999,6 +3000,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             if callee.nm == "IdentExpr" {
                 String bn2 = unq(txt(fld(callee, "Name")))
                 if bn2 == "print" && args.el.length() > 0 { emitPrint(args.el.get(0), e, sc); return }
+                if bn2 == "super" { return }
                 if isFFI(bn2) { expr(call, e, sc); return }
             }
             e.add(expr(call, e, sc) + ";")
@@ -3131,6 +3133,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             IN_RETURN = false
             sc.ret = t
             emitReturnClose(sc, e, sc.ret)
+            return
+        }
+        if isStruct(sc.retKind) && v.nm == "IdentExpr" {
+            emitReturnClose(sc, e, expr(v, e, sc))
             return
         }
         if (v.nm == "IdentExpr" || v.nm == "Member") && (sc.retKind == "Bytes" || sc.retKind == "Text" || sc.retKind == "StringBuilder") {
@@ -3794,7 +3800,39 @@ static void emitClassSection(N cls, EM ce) {
     // new_init
     ce.add("static void xn_Cls_" + cn + "_new" + sfx + "_init" + "(xn_Cls_" + cn + " *o" + (ctorParams(cls) == "" ? "" : ", " + ctorParams(cls)) + ") {")
     String bcn = baseOf(cn)
-    if bcn != "" && !primary { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
+    if bcn != "" && !primary {
+        String sargs0 = ""
+        Bool hs0 = false
+        N ctor0 = ctorOf(cls)
+        SC ssc0 = new SC()
+        N cps0 = fld(ctor0, "Params")
+        Int cpi0 = 0
+        while cpi0 < cps0.el.length() { ssc0.params.push(unq(txt(fld(cps0.el.get(cpi0), "Name")))); ssc0.def(unq(txt(fld(cps0.el.get(cpi0), "Name"))), typeKey(fld(cps0.el.get(cpi0), "Type"))); cpi0 = cpi0 + 1 }
+        N stmts0 = fld(fld(ctor0, "Body"), "Stmts")
+        Int si0 = 0
+        while si0 < stmts0.el.length() {
+            N st0 = stmts0.el.get(si0)
+            if st0.nm == "ExprStmt" {
+                N cx0 = fld(st0, "X")
+                if cx0.nm == "Call" {
+                    N cc0 = fld(cx0, "Callee")
+                    if cc0.nm == "IdentExpr" && unq(txt(fld(cc0, "Name"))) == "super" {
+                        N sa0 = fld(cx0, "Args")
+                        Int sai = 0
+                        while sai < sa0.el.length() {
+                            if sai > 0 { sargs0 = sargs0 + ", " }
+                            sargs0 = sargs0 + expr(sa0.el.get(sai), ce, ssc0)
+                            sai = sai + 1
+                        }
+                        hs0 = true
+                    }
+                }
+            }
+            si0 = si0 + 1
+        }
+        if hs0 { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o, " + sargs0 + ");") }
+        else { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
+    }
     if primary {
         N pps = fld(ctorOf(cls), "Params")
         Int pi2 = 0
@@ -4034,24 +4072,22 @@ static void emitStructEarly(N st, EM ce) {
     String sn = unq(txt(fld(st, "Name")))
     N fs = fld(st, "Fields")
     N ctor = ctorOf(st)
-    ce.add("typedef struct xn_Struct_" + sn + " {")
-    Int i = 0
-    while i < fs.el.length() {
-        ce.add("    " + cType(typeKey(fld(fs.el.get(i), "Type"))) + " " + unq(txt(fld(fs.el.get(i), "Name"))) + ";")
-        i = i + 1
+    if !STRUCT_NEW_ONLY {
+        ce.add("typedef struct xn_Struct_" + sn + " {")
+        Int ti = 0
+        while ti < fs.el.length() {
+            ce.add("    " + cType(typeKey(fld(fs.el.get(ti), "Type"))) + " " + unq(txt(fld(fs.el.get(ti), "Name"))) + ";")
+            ti = ti + 1
+        }
+        ce.add("} xn_Struct_" + sn + ";")
+        ce.raw("")
+        return
     }
-    ce.add("} xn_Struct_" + sn + ";")
-    ce.raw("")
+    Int i = 0
     String sp0 = ctorParams(st)
     if sp0 == "" { sp0 = "void" }
     ce.add("static xn_Struct_" + sn + " xn_Struct_" + sn + "_new(" + sp0 + ") {")
     ce.add("    xn_Struct_" + sn + " self = (xn_Struct_" + sn + "){0};")
-    i = 0
-    while i < fs.el.length() {
-        String fn = unq(txt(fld(fs.el.get(i), "Name")))
-        ce.add("    self." + fn + " = 0;")
-        i = i + 1
-    }
     SC csc = new SC()
     csc.selfName = "self"
     csc.selfPtr = false
@@ -4060,6 +4096,26 @@ static void emitStructEarly(N st, EM ce) {
     N cps = fld(ctor, "Params")
     Int cpj = 0
     while cpj < cps.el.length() { csc.params.push(unq(txt(fld(cps.el.get(cpj), "Name")))); cpj = cpj + 1 }
+    i = 0
+    while i < fs.el.length() {
+        String fn = unq(txt(fld(fs.el.get(i), "Name")))
+        String fty = typeKey(fld(fs.el.get(i), "Type"))
+        N finit = fld(fs.el.get(i), "Init")
+        if finit.nm == "" || finit.nm == "nil" { ce.add("    self." + fn + " = 0;") }
+        else if fty == "Int?" || fty == "Bool?" || fty == "String?" {
+            if finit.nm == "NullLit" { ce.add("    self." + fn + " = (" + cType(fty) + "){0, 0};") }
+            else { ce.add("    self." + fn + " = (" + cType(fty) + "){1, " + expr(finit, ce, csc) + "};") }
+        }
+        else if isStruct(fty) && finit.nm == "New" {
+            N nargs0 = fld(finit, "Args")
+            String nb0 = "xn_Struct_" + fty + "_new("
+            Int nai0 = 0
+            while nai0 < nargs0.el.length() { if nai0 > 0 { nb0 = nb0 + ", " }; nb0 = nb0 + expr(nargs0.el.get(nai0), ce, csc); nai0 = nai0 + 1 }
+            ce.add("    self." + fn + " = " + nb0 + ");")
+        }
+        else { ce.add("    self." + fn + " = " + expr(finit, ce, csc) + ";") }
+        i = i + 1
+    }
     if ctor.nm == "CtorDecl" { emitBlock(fld(ctor, "Body"), ce, csc, 0, false) }
     ce.add("    return self;")
     ce.add("}")
@@ -6312,6 +6368,14 @@ static String emitUnit(N unit, String path) {
         if d.nm == "StructDecl" { emitStructEarly(d, ee) }
             ci = ci + 1
         }
+        STRUCT_NEW_ONLY = true
+        ci = 0
+        while ci < decls.el.length() {
+            N d = decls.el.get(ci)
+            if d.nm == "StructDecl" { emitStructEarly(d, ee) }
+            ci = ci + 1
+        }
+        STRUCT_NEW_ONLY = false
         EM me = new EM()
         me.tmp = ee.tmp
         me.path = e.path
@@ -6387,7 +6451,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? "\n" : "") + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
