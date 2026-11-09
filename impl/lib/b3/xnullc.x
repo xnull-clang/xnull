@@ -1295,6 +1295,44 @@ static String argExpr(N a, EM e, SC sc) {
     return expr(a, e, sc)
 }
 
+static String methodParamType(String cls, String mn, Int idx) {
+    N c = classByName(cls)
+    if c.nm == "" { return "" }
+    N ms = fld(c, "Methods")
+    Int i = 0
+    while i < ms.el.length() {
+        N m = ms.el.get(i)
+        if unq(txt(fld(m, "Name"))) == mn {
+            N ps = fld(m, "Params")
+            if idx < ps.el.length() { return typeKey(fld(ps.el.get(idx), "Type")) }
+            return ""
+        }
+        i = i + 1
+    }
+    return ""
+}
+
+static String arrayLitArg(N a, String expect, EM e, SC sc) {
+    if expect == "" || isMap(expect) { return "" }
+    if !(isArr(expect) || isObjArr(expect) || isU16List(expect) || isTupList(expect)) { return "" }
+    N elems = fld(a, "Elems")
+    String an = arrNameC(cType(arrElem(expect)))
+    if isObjArr(expect) { an = classArrName(expect) }
+    else if isU16List(expect) { an = "xn_arr_u16" }
+    else if isTupList(expect) { an = arrTupName(expect) }
+    String t = e.nt()
+    e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
+    Int i = 0
+    while i < elems.el.length() {
+        N el = elems.el.get(i)
+        String ev = ""
+        if cType(arrElem(expect)) == "rt_string *" { ev = emitStr(el, e, sc) } else { ev = expr(el, e, sc) }
+        e.add(an + "_push(" + t + ", " + ev + ");")
+        i = i + 1
+    }
+    return t
+}
+
 static String expr(N x, EM e, SC sc) {
     if x.nm == "IntLitExpr" {
         String it = unq(txt(fld(x, "Text")))
@@ -1577,7 +1615,10 @@ static String expr(N x, EM e, SC sc) {
                 else { call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0 }
                 Int ai = 0
                 while ai < args.el.length() {
-                    call = call + ", " + argExpr(args.el.get(ai), e, sc)
+                    N av0 = args.el.get(ai)
+                    String avs = ""
+                    if av0.nm == "ArrayLit" { avs = arrayLitArg(av0, methodParamType(owner, mn, ai), e, sc) }
+                    if avs != "" { call = call + ", " + avs } else { call = call + ", " + argExpr(av0, e, sc) }
                     ai = ai + 1
                 }
                 return call + ")"
@@ -1751,7 +1792,13 @@ static String expr(N x, EM e, SC sc) {
                 if own != sc.curClass { cast = "(xn_Cls_" + own + " *)" + sc.selfName }
                 String bb = "xn_Cls_" + own + "_" + cn + "(" + cast
                 Int ai = 0
-                while ai < args.el.length() { bb = bb + ", " + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
+                while ai < args.el.length() {
+                    N av1 = args.el.get(ai)
+                    String avs1 = ""
+                    if av1.nm == "ArrayLit" { avs1 = arrayLitArg(av1, methodParamType(own, cn, ai), e, sc) }
+                    if avs1 != "" { bb = bb + ", " + avs1 } else { bb = bb + ", " + argExpr(av1, e, sc) }
+                    ai = ai + 1
+                }
                 return bb + ")"
             }
             if cn != "str" && cn != "print" && cn != "Ok" && cn != "Err" { cal = "xn_" + cn }
