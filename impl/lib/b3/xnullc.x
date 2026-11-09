@@ -1217,6 +1217,9 @@ static String exprType(N x, SC sc) {
             if mt == "Bytes" && mn == "slice" { return "Bytes" }
             if mn == "length" { return "Int" }
             if mn == "substring" { return "String" }
+            if mn == "trim" || mn == "toUpper" || mn == "toLower" || mn == "replace" { return "String" }
+            if mn == "startsWith" || mn == "endsWith" { return "Bool" }
+            if mn == "split" { return "List<String>" }
             if mn == "indexOf" || mn == "indexOfByte" { return "Int" }
             if mn == "charAt" { return "Char" }
             if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; if isArr(mt) { return arrElem(mt) }; return "Int" }
@@ -5900,7 +5903,7 @@ static String emitUnit(N unit, String path) {
         i = i + 1
     }
     emitInstances(e, sc)
-    e.tmp = e.tmp - PRE_HID + PRE_CGET
+    e.tmp = e.tmp
     PRE_HID = 0
     PRE_CGET = 0
     PREPASS = false
