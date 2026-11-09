@@ -1,0 +1,1 @@
+K-06-01b: parser-seed raw 239→28（corpus 副本同）。规则：ReturnStmt 且返回类型为类指针、被调为 Ident 函数时，return 外层 call 内联、内层 Call 实参先物化、String 实参走 emitStr；callee 为 Member（self.method()）时同样内联返回。text 保持 0，全组不回归。剩余 28：curText 10（循环体前 1 个未发射 temp，t161→t163）、main 2（Member String 赋值对字面量用 rt_retain(0)，应为 rt_string_from_c）。全局改字面量赋值会回归 parser-seed 到 955，需更精确的上下文判断。
