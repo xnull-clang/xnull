@@ -202,7 +202,83 @@ static String typeKey(N t) {
     String rr = typeKey0(t)
     return substKey(rr)
 }
+List<String> FN_NAMES = []
+List<String> FN_SIGS = []
+
+static Bool asciiAlnum(String c) {
+    return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".indexOf(c) >= 0
+}
+static String sanitizeCName(String s) {
+    String b = ""
+    Int i = 0
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        if asciiAlnum(c) { b = b + c } else { b = b + "_" }
+        i = i + 1
+    }
+    return b
+}
+static String funcTypeC(N ft) {
+    String ret = cType(typeKey(fld(ft, "Ret")))
+    N ps = fld(ft, "Params")
+    String pj = ""
+    String pn = ""
+    Int i = 0
+    while i < ps.el.length() {
+        if i > 0 { pj = pj + ", "; pn = pn + "_" }
+        String pc = cType(typeKey(ps.el.get(i)))
+        pj = pj + pc
+        pn = pn + pc
+        i = i + 1
+    }
+    String nm = "xn_fn_" + sanitizeCName(ret + "_" + pn)
+    Bool seen = false
+    Int k = 0
+    while k < FN_NAMES.length() { if FN_NAMES.get(k) == nm { seen = true }; k = k + 1 }
+    if !seen { FN_NAMES.push(nm); FN_SIGS.push(ret + "|" + pj) }
+    return nm
+}
+static Int asciiOrd(String c) {
+    return " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~".indexOf(c)
+}
+static Bool strLess(String a, String b) {
+    Int i = 0
+    Int n = a.length()
+    if b.length() < n { n = b.length() }
+    while i < n {
+        Int oa = asciiOrd(a.substring(i, 1))
+        Int ob = asciiOrd(b.substring(i, 1))
+        if oa < ob { return true }
+        if oa > ob { return false }
+        i = i + 1
+    }
+    return a.length() < b.length()
+}
+static String fnTypedefs() {
+    List<String> ns = []
+    Int i = 0
+    while i < FN_NAMES.length() { ns.push(FN_NAMES.get(i)); i = i + 1 }
+    Int a = 1
+    while a < ns.length() {
+        String x = ns.get(a)
+        Int b = a
+        while b > 0 && strLess(x, ns.get(b - 1)) { ns.set(b, ns.get(b - 1)); b = b - 1 }
+        ns.set(b, x)
+        a = a + 1
+    }
+    String fx = ""
+    i = 0
+    while i < ns.length() {
+        String nm = ns.get(i)
+        Int sigi = 0
+        while sigi < FN_NAMES.length() { if FN_NAMES.get(sigi) == nm { String sg = FN_SIGS.get(sigi); Int bar = sg.indexOf("|"); String ret = sg.substring(0, bar); String prm = sg.substring(bar + 1, sg.length() - bar - 1); fx = fx + "typedef " + ret + " (*" + nm + ")(" + prm + ");\n"; sigi = FN_NAMES.length() } else { sigi = sigi + 1 } }
+        i = i + 1
+    }
+    if fx != "" { fx = fx + "\n" }
+    return fx
+}
 static String typeKey0(N t) {
+    if t.nm == "FuncTypeRef" { return funcTypeC(t) }
     if t.nm == "NamedType" {
         String last = lastQual(t)
         N args = fld(t, "Args")
@@ -309,6 +385,7 @@ static String resultErr(String k) {
 
 static String cType(String k) {
     if k == "void" { return "void" }
+    if k.indexOf("xn_fn_") == 0 { return k }
     if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
     if k == "Int" { return "int64_t" }
     if k == "Int8" { return "int8_t" }
@@ -5141,7 +5218,7 @@ static String emitUnit(N unit, String path) {
         String fwj = joinLines(fw)
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + "static int64_t xn_main();\n\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
@@ -5154,7 +5231,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit() + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -5203,9 +5280,9 @@ static String emitUnit(N unit, String path) {
             sinit = sinit + "    xn_Single_" + unq(txt(fld(SINGLE_DECLS.get(si), "Name"))) + "_init();\n"
             si = si + 1
         }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
     } else if ENUM_NAMES.length() > 0 {
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_TAIL
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_TAIL
     } else if STRUCT_NAMES.length() > 0 {
         EM ce = new EM()
         ce.tmp = e.tmp
@@ -5361,7 +5438,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + "static int64_t xn_main();\n" + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {

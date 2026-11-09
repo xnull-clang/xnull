@@ -1,0 +1,1 @@
+B3-09-04 K-03: typeKey0 处理 FuncTypeRef → funcTypeC；命名 xn_fn_<sanitize(ret_params)>，按 ret + params 去重，签名排序输出在 vtable 之后、枚举 typedef 之前。collections_basic/collections_nonnull 均输出与 Go 一致的 `typedef int (*xn_fn_int_int64_t_int64_t)(int64_t, int64_t);`，K-03 类差异=0（剩余整文件差异归 K-02/K-06）。不回归 text 0/ffi 5/obj 4/containers 5/err 5/mem 11/bundle 4。
