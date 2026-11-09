@@ -4613,6 +4613,7 @@ static String dynContainerHelpers() {
         s = s + strSplitBlock()
     }
     if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
+    while s.length() > 0 && s.substring(0, 1) == "\n" { s = s.substring(1, s.length() - 1) }
     return s
 }
 static String arrSBlock() {
