@@ -1996,6 +1996,11 @@ static void emitPrint(N arg, EM e, SC sc) {
     }
     if ty == "Int?" || ty == "Bool?" || ty == "String?" {
         String base = expr(arg, e, sc)
+        if arg.nm == "Call" {
+            String ot = e.nt()
+            e.add(cType(ty) + " " + ot + " = " + base + ";")
+            base = ot
+        }
         String inner = ""
         if ty == "Int?" { inner = "xn_print_int(" + base + ".v);" }
         else if ty == "Bool?" { inner = "xn_print_bool(" + base + ".v);" }
