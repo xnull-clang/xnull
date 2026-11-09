@@ -2484,6 +2484,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.add("rt_string *" + nm + " = xn_str_substr(" + sd0 + ", " + expr(as0.el.get(0), e, sc) + ", " + expr(as0.el.get(1), e, sc) + ");")
                 } else {
                     String cv1 = expr(init, e, sc)
+                    if ic0.nm == "IdentExpr" && isFFI(unq(txt(fld(ic0, "Name")))) {
+                        Int fidx = ffiIdx(unq(txt(fld(ic0, "Name"))))
+                        String frk = FFI_E_RETK.get(fidx)
+                        if frk == "string" || frk == "text" { cv1 = "(rt_string *)" + cv1 }
+                    }
                     String sdum = e.nt()
                     e.add("rt_string *" + nm + " = " + cv1 + ";")
                 }
@@ -2971,6 +2976,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             if callee.nm == "IdentExpr" {
                 String bn2 = unq(txt(fld(callee, "Name")))
                 if bn2 == "print" && args.el.length() > 0 { emitPrint(args.el.get(0), e, sc); return }
+                if isFFI(bn2) { expr(call, e, sc); return }
             }
             e.add(expr(call, e, sc) + ";")
         }
@@ -5557,6 +5563,7 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
     List<String> parts = []
     List<String> segs = ffiSegs(idx)
     String errp0 = FFI_E_ERRP.get(idx)
+    List<String> rels0 = []
     Int ai = 0
     Int argi = 0
     while ai < segs.length() {
@@ -5567,7 +5574,7 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
         String av = expr(args.el.get(argi), e, sc)
         if kind == "string" || kind == "text" {
             String sv = av
-            if args.el.get(argi).nm != "IdentExpr" { sv = emitStr(args.el.get(argi), e, sc) }
+            if args.el.get(argi).nm != "IdentExpr" { sv = emitStr(args.el.get(argi), e, sc); rels0.push(sv) }
             parts.push(sv + "->bytes")
             parts.push(sv + "->len")
         } else if kind == "scalar" && pt == "Bool" {
@@ -5587,7 +5594,8 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
     String outv = ""
     if hasOut {
         outv = e.nt()
-        e.add(outC + " " + outv + " = " + zero + ";")
+        if outC.length() > 0 && outC.substring(outC.length() - 1, 1) == "*" { e.add(outC + outv + " = " + zero + ";") }
+        else { e.add(outC + " " + outv + " = " + zero + ";") }
     }
     if FFI_E_COMP.get(idx) == 1 {
         List<String> fields = []
@@ -5619,6 +5627,8 @@ static String ffiCallExpr(String name, N x, EM e, SC sc) {
     if hasOut { parts.push("&" + outv) }
     String rc = e.nt()
     e.add("int32_t " + rc + " = xn_ffi_" + name + "(" + joinList(parts, ", ") + ");")
+    Int rri = 0
+    while rri < rels0.length() { e.add("rt_release(" + rels0.get(rri) + ");"); rri = rri + 1 }
     if ffiIsErr(idx) && FFI_E_ERRRET.get(idx) == 0 {
         String rt = "Result<" + retn + ", ErrorKind>"
         String resT = e.nt()
