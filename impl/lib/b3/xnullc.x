@@ -2265,6 +2265,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
                 String sdum1 = e.nt()
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+            } else if init.nm == "Binary" && unq(txt(fld(init, "Op"))) == "+" {
+                String lb = emitStr(fld(init, "L"), e, sc)
+                String rb = emitStr(fld(init, "R"), e, sc)
+                String sdh = e.nt()
+                e.add("rt_string *" + nm + " = xn_concat(" + lb + ", " + rb + ");")
             } else if init.nm == "Index" {
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
             } else if init.nm == "Call" {
