@@ -221,6 +221,9 @@ List<String> C_SET = []
 List<String> C_MAPK = []
 List<String> C_MAPV = []
 List<String> C_DECL = []
+Bool USES_ARR_S = false
+Bool USES_MAP_S_I = false
+Bool USES_MAP_S_S = false
 
 static Bool hasStr(List<String> xs, String v) {
     Int i = 0
@@ -229,6 +232,7 @@ static Bool hasStr(List<String> xs, String v) {
 }
 static void needArr(String ec) {
     if !hasStr(C_ARR, ec) { C_ARR.push(ec) }
+    if ec == "rt_string *" { USES_ARR_S = true }
 }
 static void needSet(String ec) {
     needArr(ec)
@@ -240,6 +244,8 @@ static void needMap(String kc, String vc) {
     while i < C_MAPK.length() { if C_MAPK.get(i) + "|" + C_MAPV.get(i) == key { return }; i = i + 1 }
     C_MAPK.push(kc)
     C_MAPV.push(vc)
+    if kc == "rt_string *" && vc == "int64_t" { USES_MAP_S_I = true }
+    if kc == "rt_string *" && vc == "rt_string *" { USES_MAP_S_S = true }
 }
 
 static Bool asciiAlnum(String c) {
@@ -446,6 +452,7 @@ static String cType(String k) {
     if k == "UInt32" { return "uint32_t" }
     if k == "ErrorKind" { return "xn_Enum_ErrorKind" }
     if k == "Bool" { return "int" }
+    if k == "Context" || k == "xrt_context" { return "xrt_context *" }
     if k == "Char" { return "xn_char" }
     if k == "Float" || k == "Double" { return "double" }
     if k == "Any" { return "xn_Any *" }
@@ -467,6 +474,17 @@ static String cType(String k) {
     if isProtoType(k) { return "xn_proto_" + k }
     if isClass(k) { return "xn_Cls_" + k + " *" }
     if isStruct(k) { return "xn_Struct_" + k }
+    if k.length() > 5 && k.indexOf("Map<") == 0 {
+        Int mc2 = topComma(k)
+        if mc2 >= 0 {
+            String kc2 = cType(k.substring(4, mc2 - 4).trim())
+            String vc2 = cType(k.substring(mc2 + 1, k.length() - mc2 - 2).trim())
+            return mapNameC(kc2, vc2) + " *"
+        }
+    }
+    if k.length() > 5 && k.indexOf("Set<") == 0 { return setNameC(cType(k.substring(4, k.length() - 5))) + " *" }
+    if k.length() > 6 && k.indexOf("List<") == 0 { return arrNameC(cType(k.substring(5, k.length() - 6))) + " *" }
+    if k.length() > 2 && k.substring(k.length() - 2, 2) == "[]" { return arrNameC(cType(k.substring(0, k.length() - 2))) + " *" }
     return "int64_t"
 }
 static Bool isResult(String k) { return k.indexOf("Result<") == 0 }
@@ -903,6 +921,11 @@ static String mapVal(String k) {
     Int c = k.indexOf(","); Int r = k.indexOf(">")
     if c < 0 || r < 0 { return "Int" }
     return k.substring(c + 1, r - c - 1).trim()
+}
+static String mapKey(String k) {
+    Int l = k.indexOf("<"); Int c = k.indexOf(",")
+    if l < 0 || c < 0 { return "String" }
+    return k.substring(l + 1, c - l - 1).trim()
 }
 
 class DF {
@@ -1531,7 +1554,7 @@ static String expr(N x, EM e, SC sc) {
                     if isMap(mt2) && exprType(args.el.get(0), sc) == "String" { a0 = emitStr(args.el.get(0), e, sc) }
                     else { a0 = expr(args.el.get(0), e, sc) }
                 }
-                if isMap(mt2) { return "(xn_map_s_i_get(" + xb + ", " + a0 + ").v)" }
+                if isMap(mt2) { return "(" + mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_get(" + xb + ", " + a0 + ").v)" }
                 if isU16List(mt2) { return "xn_arr_u16_get(" + xb + ", " + a0 + ")" }
                 if isObjArr(mt2) {
                     String an = classArrName(mt2)
@@ -1549,7 +1572,7 @@ static String expr(N x, EM e, SC sc) {
                 String a1 = "0"
                 if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                 if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
-                return "xn_map_s_i_get_or(" + xb + ", " + a0 + ", " + a1 + ")"
+                return mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_get_or(" + xb + ", " + a0 + ", " + a1 + ")"
             }
             if mn == "has" {
                 String xb = expr(mx, e, sc)
@@ -1559,7 +1582,7 @@ static String expr(N x, EM e, SC sc) {
                     else { a0 = expr(args.el.get(0), e, sc) }
                 }
                 if isSet(mt2) { return "xn_set_i_has(" + xb + ", " + a0 + ")" }
-                return "xn_map_s_i_has(" + xb + ", " + a0 + ")"
+                return mapNameC(cType(mapKey(mt2)), cType(mapVal(mt2))) + "_has(" + xb + ", " + a0 + ")"
             }
             if mn == "add" {
                 String xb = expr(mx, e, sc)
@@ -4325,6 +4348,9 @@ static String dynContainerTypedefs() {
     if s.length() > 0 && s.substring(s.length() - 1, 1) == "\n" { s = s.substring(0, s.length() - 1) }
     return s
 }
+static String MAP_SS_HELP = "static void xn_map_s_s_scan(void *p, void (*visit)(void *)) {\n    xn_map_s_s *m = (xn_map_s_s *)p;\n    if (m->keys != NULL) { for (size_t i = 0; i < m->len; i++) { visit(m->keys[i]); } }\n    if (m->vals != NULL) { for (size_t i = 0; i < m->len; i++) { visit(m->vals[i]); } }\n}\n\nstatic void xn_map_s_s_deinit(void *p) {\n    xn_map_s_s *m = (xn_map_s_s *)p;\n    if (m->keys != NULL) {\n        free(m->keys);\n        m->keys = NULL;\n    }\n    if (m->vals != NULL) {\n        free(m->vals);\n        m->vals = NULL;\n    }\n    m->len = 0;\n    m->cap = 0;\n}\n\nstatic const rt_type RT_TYPE_xn_map_s_s = { \"Map\", sizeof(xn_map_s_s), xn_map_s_s_deinit, xn_map_s_s_scan };\n\nstatic xn_map_s_s *xn_map_s_s_new(size_t cap) {\n    xn_map_s_s *m = (xn_map_s_s *)xn_gc_new(&RT_TYPE_xn_map_s_s);\n    memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_s_s) - sizeof(rt_header));\n    m->cap = cap ? cap : 4;\n    m->keys = malloc(sizeof(rt_string *) * m->cap);\n    m->vals = malloc(sizeof(rt_string *) * m->cap);\n    if (m->keys == NULL || m->vals == NULL) { abort(); }\n    return m;\n}\n\nstatic long xn_map_s_s_find(const xn_map_s_s *m, rt_string * key) {\n    for (size_t i = 0; i < m->len; i++) {\n        if (m->keys[i]->len == key->len && memcmp(m->keys[i]->bytes, key->bytes, key->len) == 0) { return (long)i; }\n    }\n    return -1;\n}\n\nstatic void xn_map_s_s_put(xn_map_s_s *m, rt_string * key, rt_string * val) {\n    long i = xn_map_s_s_find(m, key);\n    if (i >= 0) {\n        m->vals[i] = val;\n        return;\n    }\n    if (m->len == m->cap) {\n        m->cap *= 2;\n        m->keys = realloc(m->keys, sizeof(rt_string *) * m->cap);\n        m->vals = realloc(m->vals, sizeof(rt_string *) * m->cap);\n        if (m->keys == NULL || m->vals == NULL) { abort(); }\n    }\n    m->keys[m->len] = key;\n    m->vals[m->len] = val;\n    m->len++;\n}\n\nstatic int xn_map_s_s_has(const xn_map_s_s *m, rt_string * key) { return xn_map_s_s_find(m, key) >= 0; }\n\nstatic rt_string * xn_map_s_s_get_or(const xn_map_s_s *m, rt_string * key, rt_string * dflt) {\n    long i = xn_map_s_s_find(m, key);\n    return i >= 0 ? m->vals[i] : dflt;\n}\n\nstatic int xn_map_s_s_remove(xn_map_s_s *m, rt_string * key) {\n    long i = xn_map_s_s_find(m, key);\n    if (i < 0) { return 0; }\n    for (size_t j = (size_t)i; j + 1 < m->len; j++) {\n        m->keys[j] = m->keys[j + 1];\n        m->vals[j] = m->vals[j + 1];\n    }\n    m->len--;\n    return 1;\n}\n\nstatic void xn_map_s_s_clear(xn_map_s_s *m) {\n    m->len = 0;\n}\n\nstatic int xn_map_s_s_cmp_key(rt_string * a, rt_string * b) {\n    size_t n = a->len < b->len ? a->len : b->len;\n    int c = memcmp(a->bytes, b->bytes, n);\n    if (c != 0) { return c; }\n    return (a->len > b->len) - (a->len < b->len);\n}\n\nstatic void xn_map_s_s_sort_idx(const xn_map_s_s *m, size_t *idx) {\n    for (size_t i = 1; i < m->len; i++) {\n        size_t x = idx[i];\n        size_t j = i;\n        while (j > 0 && xn_map_s_s_cmp_key(m->keys[idx[j - 1]], m->keys[x]) > 0) {\n            idx[j] = idx[j - 1];\n            j--;\n        }\n        idx[j] = x;\n    }\n}\n\nstatic xn_arr_s *xn_map_s_s_keys(const xn_map_s_s *m) {\n    xn_arr_s *out = xn_arr_s_new(m->len);\n    if (m->len == 0) { return out; }\n    size_t *idx = malloc(sizeof(size_t) * m->len);\n    if (idx == NULL) { abort(); }\n    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }\n    xn_map_s_s_sort_idx(m, idx);\n    for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[idx[i]]); }\n    free(idx);\n    return out;\n}\n\nstatic xn_arr_s *xn_map_s_s_values(const xn_map_s_s *m) {\n    xn_arr_s *out = xn_arr_s_new(m->len);\n    if (m->len == 0) { return out; }\n    size_t *idx = malloc(sizeof(size_t) * m->len);\n    if (idx == NULL) { abort(); }\n    for (size_t i = 0; i < m->len; i++) { idx[i] = i; }\n    xn_map_s_s_sort_idx(m, idx);\n    for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->vals[idx[i]]); }\n    free(idx);\n    return out;\n}\n\nstatic xn_opt_s xn_map_s_s_get(const xn_map_s_s *m, rt_string * key) {\n    xn_opt_s r;\n    long i = xn_map_s_s_find(m, key);\n    if (i < 0) { r.has = 0; r.v = NULL; return r; }\n    r.has = 1;\n    r.v = m->vals[i];\n    return r;\n}"
+static String mapSSBlock() { return MAP_SS_HELP }
+
 static String mapSITypedef() {
     return "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;"
 }
@@ -5273,10 +5299,17 @@ static String emitUnit(N unit, String path) {
             else if isU16List(cbKey) { cbHelp = u16ArrHelperText() }
             else { cbHelp = arrIHelperText() }
         }
-        Bool mapSI = e.hasMap
-        Int msi = 0
-        while msi < FLD_TYPE.length() { if FLD_TYPE.get(msi) == "Map<String, Int>" { mapSI = true }; msi = msi + 1 }
-        if mapSI { cbHelp = cbHelp + "\n" + arrSBlock() + mapSIBlock() + strSplitBlock() }
+        Bool arrSAdded = false
+        if USES_MAP_S_I {
+            cbHelp = cbHelp + "\n" + arrSBlock() + mapSIBlock() + strSplitBlock()
+            arrSAdded = true
+        }
+        if USES_MAP_S_S {
+            if !arrSAdded { cbHelp = cbHelp + "\n" + arrSBlock() }
+            cbHelp = cbHelp + mapSSBlock() + "\n\n\n" + strSplitBlock()
+            arrSAdded = true
+        }
+        if cbHelp.length() > 0 && cbHelp.substring(0, 1) == "\n" { cbHelp = cbHelp.substring(1, cbHelp.length() - 1) }
         String tfp = topFuncProtos(decls)
         List<String> fw = []
         Int pass = 0
