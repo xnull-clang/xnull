@@ -4207,6 +4207,7 @@ static void emitClassSection(N cls, EM ce) {
     N ctor = ctorOf(cls)
     SC csc = new SC()
     csc.selfName = "o"
+    csc.curClass = cn
     csc.def("self", cn)
     csc.retKind = "Int"
     csc.isCtor = true
