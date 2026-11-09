@@ -7,6 +7,16 @@ from difflib import unified_diff
 # K-07 文件通道契约：AST/bundle 单文件上限 16 MiB。
 LIMIT_BYTES = 16 * 1024 * 1024
 
+# B3-09 范围 v1.0.1 排除项：调用 writeFileText，工程无 .xfb，Go emit-c 必失败。
+EXCLUDED = {
+    "tests/b0-07c-numeric/cases/t00_sanity_text/case.x",
+    "tests/b2/corpus/tests/b0-07c-numeric/cases/t00_sanity_text/case.x",
+}
+
+def is_excluded(path):
+    p = (path or "").replace("\\", "/").lstrip("./")
+    return p in EXCLUDED
+
 def run(cmd, cwd, timeout=300):
     try:
         p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
@@ -70,6 +80,12 @@ def process(row, args):
     root = args.root
     f = row["path"]
     kind = row.get("kind", "?")
+    if is_excluded(f):
+        nf = row.get("files", "")
+        return dict(row, kind=(kind if kind not in ("?", "") else row.get("kind", "?")),
+                    files=nf, go_exit="", raw="", content="", status="EXCLUDED",
+                    cause="scope-excluded",
+                    note="B3-09 v1.0.1：调用 writeFileText、工程无 .xfb，Go emit-c 必失败")
     if kind in ("?", ""):
         code, _out, err = run([args.go_bin, "build", "--emit-c", f], root)
         if code != 0:
@@ -268,7 +284,7 @@ def main():
             w.writerow(r)
     print(f"shard {k}/{n}: {len(results)} 文件 -> {path}")
     if n > 1 and args.shard != "1/1":
-        return 0 if all(r["status"] in ("PASS0", "NEG-PASS") for r in results) else 1
+        return 0 if all(r["status"] in ("PASS0", "NEG-PASS", "EXCLUDED") for r in results) else 1
     return write_summary(out, results)
 
 def write_summary(out, results):
@@ -281,9 +297,11 @@ def write_summary(out, results):
     st = Counter(r.get("status", "") for r in results)
     causes = Counter(r.get("cause", "") for r in results if r.get("cause"))
     zero = sum(1 for r in results if r.get("raw") in ("0", 0))
-    print(f"汇总：文件 {len(results)}；raw 0 diff {zero}；status {dict(st)}")
+    excluded = st.get("EXCLUDED", 0)
+    entries = len(results) - excluded
+    print(f"汇总：文件 {len(results)}；excluded={excluded}；entries={entries}；raw 0 diff {zero}；status {dict(st)}")
     print("首因：" + ("; ".join(f"{k}={v}" for k, v in causes.most_common()) if causes else "无"))
-    bad = [r for r in results if r.get("status") not in ("PASS0", "NEG-PASS")]
+    bad = [r for r in results if r.get("status") not in ("PASS0", "NEG-PASS", "EXCLUDED")]
     for r in bad[:20]:
         print(f"  RED {r['status']:8} {r['path']} raw={r.get('raw','')} content={r.get('content','')} {r.get('cause','')}")
     return 0 if not bad else 1
