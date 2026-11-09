@@ -1,0 +1,21 @@
+P7 收口（B3-09 代码面完成）：xnullc 生成的 C 与 Go `--emit-c` 全量对齐。
+
+- 基线：974c5e1（`pod/e2-sema`，工作树 `wt/e2-sema`）
+- 唯一改动文件：`impl/lib/b3/xnullc.x`（P7-46..P7-55），未改测试/oracle/脚本
+- 全量 harness（文件通道，4 shard × parallel 8）：
+  - PASS0=140、DIFF=0、NEG=98、EXCLUDED=2
+  - 唯一 FAIL：`impl/lib/b2/xparser.x` 300s 超时；手动运行 xparser 的 xnullc C 与 Go `--emit-c` **逐字节一致 diff=0**，已在 PASS0 中计入
+- 逐文件收口：
+  - `difftest/s2/bnd05/a02_inherited_impl.x` 5→0：vptr 沿继承链传播、槽位填方法 owner、全局协议槽号
+  - `difftest/s2/bnd06/a03_data_enum.x`、`a02c_identity.x`：data-enum 前置空行
+  - `difftest/s2/struct01/a02_nested_nullable.x` 3→0：可空字段赋值 `{has=1,v}` / null `{0,0}`
+  - `difftest/s2/bnd04/a01_copy.x` 1→0：struct 尾部空行按 struct 数（修复 P7-49 回归）
+  - `difftest/s2/pctor01/a04_ctor_order.x` 4→0：构造器体内无前缀字段引用解析为 `o->field`
+  - `examples/classes.x`（及 corpus 副本）2→0：map/set 预置与 `xn_str_split` 间空行归一
+  - `difftest/s2/int01/a03_enum_switch_object.x` 2→0：枚举成员作字段默认值
+  - `difftest/s2/bnd03/a04_ctor_dispatch.x` 2→0：空 `super()` 无悬空逗号
+  - `difftest/s2/pctor01/a01_primary.x` 1→0：无方法 primary 类的 vtable 前空行
+  - `difftest/s2/int01/a02_factory_result.x` 6→0（raw 90→0）：无前缀字段类型解析（String 字段返回 retain + 直返）；map/set 与 str_split 间空行
+  - `tests/s6/xdk05/sync_basic.x` 98→0（P7-46/47）：Mutex/Channel/Atomic 降级、withLock lock-body、send/receive Result 包装
+- 回归保持 0：`impl/lib/b2/xparser.x`、`impl/lib/b2/xlex.x`、`impl/xnfmt/xnfmt.x`、`tests/s6/xdk07/collections_basic.x`、`collections_nonnull.x`、`difftest/anchors/cases/pkg/f2.x`、`examples/ast-seed.x`、`examples/objlist.x`、`tests/s6/xdk05/sync_basic.x`
+- 门禁组：containers 5/5、ffi 5/5、obj 4/4、obj2 5/5、obj3 5/5、err 5/5、mem 11/11、bundle 4/4；`bundle_text` PASS0（text 0）
