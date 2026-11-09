@@ -2470,29 +2470,35 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
         }
-        String v0 = expr(fld(st, "Value"), e, sc)
+        String v0 = ""
         if tgt.nm == "TupleMember" {
-            e.add(expr(fld(tgt, "X"), e, sc) + ".f" + txt(fld(tgt, "Index")) + " = " + v0 + ";")
+            e.add(expr(fld(tgt, "X"), e, sc) + ".f" + txt(fld(tgt, "Index")) + " = " + expr(fld(st, "Value"), e, sc) + ";")
             return
         }
         if tgt.nm == "Index" {
             String xb = expr(fld(tgt, "X"), e, sc)
             String ix = expr(fld(tgt, "Idx"), e, sc)
-            e.add(arrNameC(cType(arrElem(exprType(fld(tgt, "X"), sc)))) + "_set(" + xb + ", " + ix + ", " + v0 + ");")
+            e.add(arrNameC(cType(arrElem(exprType(fld(tgt, "X"), sc)))) + "_set(" + xb + ", " + ix + ", " + expr(fld(st, "Value"), e, sc) + ");")
             return
         }
         String nm = expr(tgt, e, sc)
         String op = unq(txt(fld(st, "Op")))
-        String v = v0
+        String v = ""
         if tgt.nm == "IdentExpr" && exprType(tgt, sc) == "String" && op == "=" {
             String sv = emitStr(fld(st, "Value"), e, sc)
             SC owner = sc
             while owner.parentId >= 0 && !inNames(owner.own, nm) { owner = parentOf(owner) }
-            if owner != sc && !inNames(owner.blockHeld, nm) { owner.blockHeld.push(nm) }
-            e.add("xn_root_release(" + nm + ");")
-            e.add("rt_release(" + nm + ");")
-            e.add(nm + " = " + sv + ";")
-            e.add("xn_root_hold(" + nm + ");")
+            if owner == sc {
+                e.add("rt_release(" + nm + ");")
+                e.add(nm + " = " + sv + ";")
+                e.add("xn_root_add(" + nm + ");")
+            } else {
+                if !inNames(owner.blockHeld, nm) { owner.blockHeld.push(nm) }
+                e.add("xn_root_release(" + nm + ");")
+                e.add("rt_release(" + nm + ");")
+                e.add(nm + " = " + sv + ";")
+                e.add("xn_root_hold(" + nm + ");")
+            }
             e.add("xn_gc_safepoint();")
             return
         }
@@ -2503,13 +2509,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 e.add(nm + " = " + svl + ";")
                 return
             }
+            String vv0 = expr(fld(st, "Value"), e, sc)
             String t = e.nt()
-            e.add("rt_string *" + t + " = rt_retain(" + v + ");")
+            e.add("rt_string *" + t + " = rt_retain(" + vv0 + ");")
             rootStr(e, sc, t)
             e.add("rt_release(" + nm + ");")
             e.add(nm + " = " + t + ";")
             return
         }
+        v0 = expr(fld(st, "Value"), e, sc)
+        v = v0
         if op == "+=" { e.add(nm + " = " + nm + " + (" + v + ");") }
         else if op == "-=" { e.add(nm + " = " + nm + " - (" + v + ");") }
         else { e.add(nm + " = " + v + ";") }
@@ -3095,6 +3104,7 @@ static void emitFunc(N fn, EM e, SC sc) {
     Int pi = 0
     while pi < ps.el.length() {
         sc.params.push(unq(txt(fld(ps.el.get(pi), "Name"))))
+        if !inNames(sc.own, unq(txt(fld(ps.el.get(pi), "Name")))) { sc.own.push(unq(txt(fld(ps.el.get(pi), "Name")))) }
         sc.paramTypes.push(typeKey(fld(ps.el.get(pi), "Type")))
         pi = pi + 1
     }
@@ -3481,6 +3491,7 @@ static void emitClassSection(N cls, EM ce) {
         mj = 0
         while mj < mps.el.length() {
             msc.params.push(unq(txt(fld(mps.el.get(mj), "Name"))))
+            if !inNames(msc.own, unq(txt(fld(mps.el.get(mj), "Name")))) { msc.own.push(unq(txt(fld(mps.el.get(mj), "Name")))) }
             msc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
             mj = mj + 1
         }
@@ -3602,6 +3613,7 @@ static void emitStructMethods(N st, EM ce) {
         mj = 0
         while mj < mps.el.length() {
             msc.params.push(unq(txt(fld(mps.el.get(mj), "Name"))))
+            if !inNames(msc.own, unq(txt(fld(mps.el.get(mj), "Name")))) { msc.own.push(unq(txt(fld(mps.el.get(mj), "Name")))) }
             msc.paramTypes.push(typeKey(fld(mps.el.get(mj), "Type")))
             mj = mj + 1
         }
