@@ -2572,7 +2572,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     }
                 }
             }
-            if !civIn { civ = expr(init, e, sc) } else { String hd0 = e.nt() }
+            if !civIn { civ = expr(init, e, sc) } else { if sc.curClass == "" { String hd0 = e.nt() } }
             e.add("xn_Cls_" + ty + " * " + nm + " = " + civ + ";")
             finishLocalRoot(sc, e, nm, ty)
             if !isGC { addNamedRelease(sc, nm, "rt_release(" + nm + ");") }
