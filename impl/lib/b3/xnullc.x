@@ -875,6 +875,67 @@ static Int protoSlots(String cls) {
     }
     return n
 }
+static Int protoSlotsAll() {
+    Int n = 0
+    Int j = 0
+    while j < PROTO_OWNER.length() {
+        if PROTO_OWNER.get(j) != "Error" { n = n + 1 }
+        j = j + 1
+    }
+    return n
+}
+static Int protoSlotOf(String pn, String mn) {
+    Int j = 0
+    while j < PROTO_OWNER.length() {
+        if PROTO_OWNER.get(j) == pn && PROTO_MNAME.get(j) == mn { return j }
+        j = j + 1
+    }
+    return 0
+}
+static Bool chainHasProto(String cn) {
+    String cur = cn
+    while cur != "" {
+        if hasProto(cur) { return true }
+        cur = baseOf(cur)
+    }
+    return false
+}
+static Bool descHasProto(String cn) {
+    Int i = 0
+    while i < CLS_NAMES.length() {
+        String x = CLS_NAMES.get(i)
+        String cur = baseOf(x)
+        while cur != "" {
+            if cur == cn && hasProto(x) { return true }
+            cur = baseOf(cur)
+        }
+        i = i + 1
+    }
+    return false
+}
+static Bool classVptr(String cn) {
+    if chainHasProto(cn) { return true }
+    return descHasProto(cn)
+}
+static List<String> classChainProtos(String cn) {
+    List<String> ps = []
+    String cur = cn
+    while cur != "" {
+        Int i = 0
+        while i < CLS_PROTO_OWNER.length() {
+            if CLS_PROTO_OWNER.get(i) == cur {
+                String pn = CLS_PROTO_NAME.get(i)
+                Bool have = false
+                Int j = 0
+                while j < ps.length() { if ps.get(j) == pn { have = true }; j = j + 1 }
+                if !have { ps.push(pn) }
+            }
+            i = i + 1
+        }
+        cur = baseOf(cur)
+    }
+    return ps
+}
 static List<String> genTypePars(String base) {
     List<String> ps = []
     N gd = genClsDecl(base)
@@ -1131,7 +1192,15 @@ static String exprType(N x, SC sc) {
         while i < els.el.length() { if i > 0 { b = b + ", " }; b = b + exprType(els.el.get(i), sc); i = i + 1 }
         return b + ">"
     }
-    if x.nm == "IdentExpr" { return sc.typeOf(unq(txt(fld(x, "Name")))) }
+    if x.nm == "IdentExpr" {
+        String idn0 = unq(txt(fld(x, "Name")))
+        if inNames(sc.params, idn0) || inNames(sc.names, idn0) { return sc.typeOf(idn0) }
+        if sc.curClass != "" {
+            String fo0 = fieldOwner(sc.curClass, idn0)
+            if fo0 != "" { return fieldType(fo0, idn0) }
+        }
+        return sc.typeOf(idn0)
+    }
     if x.nm == "TupleMember" {
         String bt = exprType(fld(x, "X"), sc)
         String es = tupleInnerKeys(bt)
@@ -2939,6 +3008,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         N val0 = fld(st, "Value")
         if tgt.nm == "Member" && op0 == "=" {
             String mtt = exprType(tgt, sc)
+            if mtt == "Int?" || mtt == "Bool?" || mtt == "String?" {
+                String mnm = expr(tgt, e, sc)
+                String oc = cType(mtt)
+                if val0.nm == "NullLit" || val0.nm == "nil" {
+                    e.add(mnm + " = (" + oc + "){0, 0};")
+                } else if val0.nm == "IdentExpr" && exprType(val0, sc) == mtt {
+                    e.add(mnm + " = " + expr(val0, e, sc) + ";")
+                } else {
+                    e.add(mnm + " = (" + oc + "){1, " + expr(val0, e, sc) + "};")
+                }
+                return
+            }
             if isProtoType(stripQ(mtt)) {
                 String mnm = expr(tgt, e, sc)
                 String pt0 = e.nt()
@@ -3882,11 +3963,17 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     dst.push("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + sfx + "(" + np + ");")
     dst.push("static void xn_Cls_" + cn + "_new" + sfx + "_init" + "(xn_Cls_" + cn + " *o" + (ctorParams(cls) == "" ? "" : ", " + ctorParams(cls)) + ");")
     if hasDeinit(cn) { dst.push("static void xn_Cls_" + cn + "_deinit(xn_Cls_" + cn + " *self);") }
-    if hasProto(cn) { dst.push("static void *xn_vt_" + cn + "[" + str(protoSlots(cn) + 2) + "];") }
+    if classVptr(cn) { dst.push("static void *xn_vt_" + cn + "[" + str(protoSlotsAll() + 2) + "];") }
     dst.push("")
     dst.push("")
 }
 
+static String structTailBlanks() {
+    String b = ""
+    Int i = 0
+    while i < STRUCT_NAMES.length() { b = b + "\n"; i = i + 1 }
+    return b
+}
 static String retKey(N fn) {
     if txt(fld(fn, "Void")) == "true" { return "void" }
     return typeKey(fld(fn, "Ret"))
@@ -3923,7 +4010,7 @@ static void emitClassSection(N cls, EM ce) {
     ce.add("/* 类 " + unq(txt(fld(cls, "Name"))) + "（M4.4b） */")
     ce.add("typedef struct xn_Cls_" + cn + " {")
     ce.add("    rt_header hdr;")
-    if hasProto(cn) { ce.add("    void **__vtable; /* 协议 vtable 槽（S2 §5.7；派发批次填充） */") }
+    if classVptr(cn) { ce.add("    void **__vtable; /* 协议 vtable 槽（S2 §5.7；派发批次填充） */") }
     Int i = 0
     if primary {
         N pps = fld(ctorOf(cls), "Params")
@@ -4013,7 +4100,10 @@ static void emitClassSection(N cls, EM ce) {
             }
             si0 = si0 + 1
         }
-        if hs0 { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o, " + sargs0 + ");") }
+        if hs0 {
+            if sargs0 == "" { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
+            else { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o, " + sargs0 + ");") }
+        }
         else { ce.add("    xn_Cls_" + bcn + "_new_init((xn_Cls_" + bcn + " *)o);") }
     }
     if primary {
@@ -4029,12 +4119,13 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new_1(" + ctorParams(cls) + ") {")
         ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + ((ref && !isGenInstCls(cn)) ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
         ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
-        if hasProto(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
+        if classVptr(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
         String pa = ctorArgs(cls)
         if pa == "" { ce.add("    xn_Cls_" + cn + "_new_1_init(o);") } else { ce.add("    xn_Cls_" + cn + "_new_1_init(o, " + pa + ");") }
         ce.add("    return o;")
         ce.add("}")
         ce.raw("")
+        if ms.el.length() == 0 { ce.raw("") }
         ce.tmp = ce.tmp + 1
         // methods below
         i = 0
@@ -4109,6 +4200,7 @@ static void emitClassSection(N cls, EM ce) {
             String dv = "0"
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
             else if init.nm == "BoolLit" { dv = expr(init, ce, new SC()) }
+            else if init.nm == "Member" { dv = expr(init, ce, new SC()) }
             if ft == "Bool" { dv = "(int64_t)((int)(" + dv + "))" }
             ce.add("    o->" + fn + " = " + dv + ";")
         }
@@ -4134,6 +4226,7 @@ static void emitClassSection(N cls, EM ce) {
     N ctor = ctorOf(cls)
     SC csc = new SC()
     csc.selfName = "o"
+    csc.curClass = cn
     csc.def("self", cn)
     csc.retKind = "Int"
     csc.isCtor = true
@@ -4159,7 +4252,7 @@ static void emitClassSection(N cls, EM ce) {
     ce.add("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + sfx + "(" + np2 + ") {")
     ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + ((ref && !isGenInstCls(cn)) ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
     ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
-    if hasProto(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
+    if classVptr(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
     String cargs = ctorArgs(cls)
     if cargs == "" { ce.add("    xn_Cls_" + cn + "_new" + sfx + "_init" + "(o);") }
     else { ce.add("    xn_Cls_" + cn + "_new_init(o, " + cargs + ");") }
@@ -4740,26 +4833,53 @@ static String vtableInit(N unit) {
         if d.nm == "ClassDecl" {
             String cn = unq(txt(fld(d, "Name")))
             N bse = fld(d, "Base")
-            if bse.nm != "" && bse.nm != "nil" {
+            if bse.nm != "" && bse.nm != "nil" && baseOf(cn) == "" {
                 CLS_BASE_OWNER.push(cn)
                 CLS_BASE_NAME.push(unq(txt(fld(bse, "Qual").el.get(0))))
             }
-            N prs = fld(d, "Protocols")
-            Int slot = 0
+        }
+        i = i + 1
+    }
+    List<String> names = []
+    i = 0
+    while i < CLS_NAMES.length() { names.push(CLS_NAMES.get(i)); i = i + 1 }
+    i = 0
+    while i < names.length() {
+        String cn = names.get(i)
+        if classVptr(cn) {
+            List<String> protos = classChainProtos(cn)
+            List<Int> slots = []
+            List<String> owners = []
             Int pj = 0
-            while pj < prs.el.length() {
-                N ql = fld(prs.el.get(pj), "Qual")
-                String pn = ""
-                if ql.el.length() > 0 { pn = unq(txt(ql.el.get(ql.el.length() - 1))) }
+            while pj < protos.length() {
+                String pn = protos.get(pj)
                 Int k = 0
                 while k < PROTO_OWNER.length() {
                     if PROTO_OWNER.get(k) == pn {
-                        b = b + "    xn_vt_" + cn + "[" + str(slot) + "] = (void *)&xn_Cls_" + cn + "_" + PROTO_MNAME.get(k) + ";\n"
-                        slot = slot + 1
+                        String mn = PROTO_MNAME.get(k)
+                        Int sl = protoSlotOf(pn, mn)
+                        String ow = methodOwner(cn, mn)
+                        Int f = -1
+                        Int q = 0
+                        while q < slots.length() { if slots.get(q) == sl { f = q }; q = q + 1 }
+                        if f >= 0 { owners.set(f, ow) }
+                        else {
+                            Int ip = 0
+                            while ip < slots.length() { if slots.get(ip) > sl { break }; ip = ip + 1 }
+                            if ip >= slots.length() { slots.push(sl); owners.push(ow) }
+                            else { slots.insert(ip, sl); owners.insert(ip, ow) }
+                        }
                     }
                     k = k + 1
                 }
                 pj = pj + 1
+            }
+            Int q = 0
+            while q < slots.length() {
+                if owners.get(q) != "" {
+                    b = b + "    xn_vt_" + cn + "[" + str(slots.get(q)) + "] = (void *)&xn_Cls_" + owners.get(q) + "_" + PROTO_MNAME.get(slots.get(q)) + ";\n"
+                }
+                q = q + 1
             }
         }
         i = i + 1
@@ -5344,8 +5464,8 @@ static String dynContainerHelpers() {
     s = s.replace("}\nstatic", "}\n\nstatic")
     while s.indexOf("}\n\n\nstatic") >= 0 { s = s.replace("}\n\n\nstatic", "}\n\nstatic") }
     if mapUsesS || hasStr(C_ARR, "rt_string *") {
-        if s != "" && s.substring(s.length() - 1, 1) != "\n" { s = s + "\n" }
-        s = s + "\n\n"
+        while s.length() > 0 && s.substring(s.length() - 1, 1) == "\n" { s = s.substring(0, s.length() - 1) }
+        if s != "" { s = s + "\n\n\n" }
         s = s + strSplitBlock()
     }
     if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
@@ -6375,7 +6495,7 @@ static String emitUnit(N unit, String path) {
             fw.push("static xn_Cls_" + ccn + " *xn_Cls_" + ccn + "_new" + csx + "(" + cnp + ");")
             fw.push("static void xn_Cls_" + ccn + "_new" + csx + "_init(xn_Cls_" + ccn + " *o" + (ctorParams(d) == "" ? "" : ", " + ctorParams(d)) + ");")
             if hasDeinit(ccn) { fw.push("static void xn_Cls_" + ccn + "_deinit(xn_Cls_" + ccn + " *self);") }
-            if hasProto(ccn) { fw.push("static void *xn_vt_" + ccn + "[" + str(protoSlots(ccn) + 2) + "];") }
+            if classVptr(ccn) { fw.push("static void *xn_vt_" + ccn + "[" + str(protoSlotsAll() + 2) + "];") }
             ci = ci + 1
         }
         Int gpi = 0
@@ -6443,7 +6563,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + (dme.ls.length() == 0 ? "\n" : "") + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -6678,7 +6798,7 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? "\n" : "") + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? structTailBlanks() : "") + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
