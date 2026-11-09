@@ -1468,6 +1468,16 @@ static String expr(N x, EM e, SC sc) {
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
         String fc = f
+        Bool rg0 = false
+        if mb.nm == "Call" { N rc0 = fld(mb, "Callee"); if rc0.nm == "Member" && unq(txt(fld(rc0, "Name"))) == "get" { rg0 = true } }
+        if baseCls(bt) != "" && mb.nm == "Call" && !rg0 {
+            String rvt = e.nt()
+            e.add(cType(bt) + " " + rvt + " = " + expr(mb, e, sc) + ";")
+            String rown = fieldOwner(baseCls(bt), f)
+            String rfc = f
+            if rown != "" && fieldPrivate(rown, f) { rfc = "_" + f }
+            return rvt + "->" + rfc
+        }
         if baseCls(bt) != "" { String own = fieldOwner(baseCls(bt), f); if own != "" && fieldPrivate(own, f) { fc = "_" + f } }
         else if isClass(bt) { if fieldPrivate(bt, f) { fc = "_" + f } }
         if baseCls(bt) != "" { String mv0 = expr(fld(x, "X"), e, sc) + "->" + fc; if exprType(x, sc) == "Bool" { return "((int)(" + mv0 + "))" }; return mv0 }
