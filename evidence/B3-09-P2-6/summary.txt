@@ -1,0 +1,1 @@
+P2-6: 泛型实例分配策略：仍按 clsHasGC 决定 gc_scan/ref，但分配统一 rt_arc_new（Go 同），且构造器不对泛型实例 root_add(o)。collections_basic 1318→1294、nonnull 1190→1157。首条差异转为 Opt 字面量物化：Go `return (xn_opt_i){0,0}`，xnullc `xn_opt_i t=0; return t`。text 0，全组绿。

@@ -3274,7 +3274,7 @@ static void emitClassSection(N cls, EM ce) {
         ce.add("}")
         ce.raw("")
         ce.add("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new_1(" + ctorParams(cls) + ") {")
-        ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + (ref ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
+        ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + ((ref && !isGenInstCls(cn)) ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
         ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
         if hasProto(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
         String pa = ctorArgs(cls)
@@ -3359,7 +3359,7 @@ static void emitClassSection(N cls, EM ce) {
     if hasCtor {
         root = ce.nt()
         ce.add("size_t " + root + " = xn_root_mark();")
-        if ref { ce.raw("xn_root_add(o);") }
+        if ref && !isGenInstCls(cn) { ce.raw("xn_root_add(o);") }
     }
     N ps = fld(cls, "Params")
     N cps = fld(ctorOf(cls), "Params")
@@ -3397,7 +3397,7 @@ static void emitClassSection(N cls, EM ce) {
     // new
     String np2 = newParamDecls(cls)
     ce.add("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + sfx + "(" + np2 + ") {")
-    ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + (ref ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
+    ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + ((ref && !isGenInstCls(cn)) ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
     ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
     if hasProto(cn) { ce.add("    o->__vtable = xn_vt_" + cn + ";") }
     String cargs = ctorArgs(cls)
