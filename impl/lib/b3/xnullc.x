@@ -198,6 +198,15 @@ static String sp(Int n) {
     while i < n { b = b + " "; i = i + 1 }
     return b
 }
+static Bool isCReserved(String n) {
+    if n == "auto" || n == "break" || n == "case" || n == "char" || n == "const" || n == "continue" { return true }
+    if n == "default" || n == "do" || n == "double" || n == "else" || n == "enum" || n == "extern" { return true }
+    if n == "float" || n == "for" || n == "goto" || n == "if" || n == "inline" || n == "int" { return true }
+    if n == "long" || n == "register" || n == "restrict" || n == "return" || n == "short" || n == "signed" { return true }
+    if n == "sizeof" || n == "static" || n == "struct" || n == "switch" || n == "typedef" || n == "union" { return true }
+    if n == "unsigned" || n == "void" || n == "volatile" || n == "while" || n == "bool" { return true }
+    return false
+}
 static String paramDecl(String cty, String name) { return cty + " " + name }
 static String resultErrC(String et) {
     if et == "TaskError" || et == "CancelledError" { return "xrt_error_kind" }
@@ -1025,6 +1034,7 @@ class SC {
             if self.params.get(i) == n { return "xn_p_" + n }
             i = i + 1
         }
+        if isCReserved(n) { return "xn_v_" + n }
         return n
     }
     void defFn(String n, String r) { self.fnNames.push(n); self.fnRets.push(r) }
@@ -2213,6 +2223,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     if st.nm == "LocalDeclStmt" {
         String ty = typeKey(fld(st, "Type"))
         String nm = unq(txt(fld(st, "Name")))
+        if isCReserved(nm) { nm = "xn_v_" + nm }
         N init = fld(st, "Init")
         sc.def(nm, ty)
         sc.useResult(ty)
@@ -2274,8 +2285,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.add("rt_string *" + nm + " = " + sv + ";")
                 }
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
+                String iv1 = expr(init, e, sc)
                 String sdum1 = e.nt()
-                e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+                e.add("rt_string *" + nm + " = rt_retain(" + iv1 + ");")
             } else if init.nm == "Binary" && unq(txt(fld(init, "Op"))) == "+" {
                 String lb = emitStr(fld(init, "L"), e, sc)
                 String rb = emitStr(fld(init, "R"), e, sc)
@@ -2528,6 +2540,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         String genv = expr(init, e, sc)
         NO_OP_WRAP = now0
         e.add(cType(ty) + " " + nm + " = " + genv + ";")
+        finishLocalRoot(sc, e, nm, ty)
         return
     }
     if st.nm == "AssignStmt" {
