@@ -180,6 +180,16 @@ static String sp(Int n) {
     return b
 }
 static String paramDecl(String cty, String name) { return cty + " " + name }
+static String resultErrC(String et) {
+    if et == "TaskError" || et == "CancelledError" { return "xrt_error_kind" }
+    if et == "ErrorKind" { return "xn_Enum_ErrorKind" }
+    if et == "Error" { return "xn_proto_Error" }
+    return cType(et)
+}
+static String resultValC(String vt) {
+    if vt == "void" { return "int64_t" }
+    return cType(vt)
+}
 static String errMember(String cty) {
     if cty.length() > 0 && cty.substring(cty.length() - 1, 1) == "*" { return cty + "err" }
     return cty + " err"
@@ -2425,7 +2435,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 String bn2 = unq(txt(fld(callee, "Name")))
                 if bn2 == "print" && args.el.length() > 0 { emitPrint(args.el.get(0), e, sc); return }
             }
-            if exprType(call, sc) == "void" { e.add(expr(call, e, sc) + ";") }
+            e.add(expr(call, e, sc) + ";")
         }
         return
     }
@@ -4821,7 +4831,7 @@ static String resultTypedefsSorted(SC sc) {
         String rk = rs.get(i)
         String vt = resultVal(rk)
         String et = resultErr(rk)
-        resT = resT + "typedef struct { int ok; " + cType(vt) + " v; " + errMember(cType(et)) + "; } " + cType(rk) + ";\n"
+        resT = resT + "typedef struct { int ok; " + resultValC(vt) + " v; " + errMember(resultErrC(et)) + "; } " + cType(rk) + ";\n"
         i = i + 1
     }
     return resT + "\n"
@@ -5461,7 +5471,7 @@ static String emitUnit(N unit, String path) {
                 String rk = sc.resultTypes.get(k)
                 String vt = resultVal(rk)
                 String et = resultErr(rk)
-                res = res + "typedef struct { int ok; " + decl(cType(vt), "v") + "; " + errMember(cType(et)) + "; } " + cType(rk) + ";\n"
+                res = res + "typedef struct { int ok; " + decl(resultValC(vt), "v") + "; " + errMember(resultErrC(et)) + "; } " + cType(rk) + ";\n"
                 k = k + 1
             }
             res = res + "\n"
