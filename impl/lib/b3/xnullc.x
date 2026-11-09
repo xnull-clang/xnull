@@ -1635,6 +1635,21 @@ static String expr(N x, EM e, SC sc) {
                 if isStruct(cbt) { b0 = "(&" + b0 + ")" }
                 else if owner != cbt { b0 = "(xn_Cls_" + owner + " *)" + b0 }
                 String call = ""
+                if isClass(cbt) {
+                    String fo0 = methodOwner(cbt, mn)
+                    if fo0 == "" { fo0 = cbt }
+                    String fdt0 = fieldType(fo0, mn)
+                    if fieldExists(fo0, mn) && cType(fdt0).indexOf("xn_fn_") == 0 {
+                        String fcall = expr(mx, e, sc) + "->" + mn + "("
+                        Int fai = 0
+                        while fai < args.el.length() {
+                            if fai > 0 { fcall = fcall + ", " }
+                            fcall = fcall + argExpr(args.el.get(fai), e, sc)
+                            fai = fai + 1
+                        }
+                        return fcall + ")"
+                    }
+                }
                 if isClass(cbt) && isExtMethod(cbt, mn) { call = extCName(cbt, mn) + "(" + b0 }
                 else { call = "xn_" + (isClass(cbt) ? "Cls_" : "Struct_") + owner + "_" + mn + "(" + b0 }
                 Int ai = 0
