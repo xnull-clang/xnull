@@ -29,6 +29,8 @@ Go helper 可用环境变量 `XNULL_BIN` / `XNAST_BIN` 或 `--go-bin` / `--xnast
 门禁**不得复用无版本的旧 `/tmp` 二进制**；显式传入 `--go-bin/--xnast-bin` 或设置
 `XNULL_BIN/XNAST_BIN` 时，由调用方保证二进制与当前 main/工作树一致。
 
+**超时与长用例**：`xnullc_all.py` 的子进程超时默认 **900s**（`--timeout` 可调）；xnullc 生成步骤显式使用该超时。`LONG_CASES`（当前含 `impl/lib/b2/xparser.x`）在 shard 内串行执行（低并发），避免高并发资源竞争导致假超时。
+
 ### K-07 文件通道（`handoff/B3-K07-cli-contract.md`）
 
 - 默认形态（合同 1.2）：
