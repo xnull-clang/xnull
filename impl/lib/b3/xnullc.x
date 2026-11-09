@@ -1192,7 +1192,15 @@ static String exprType(N x, SC sc) {
         while i < els.el.length() { if i > 0 { b = b + ", " }; b = b + exprType(els.el.get(i), sc); i = i + 1 }
         return b + ">"
     }
-    if x.nm == "IdentExpr" { return sc.typeOf(unq(txt(fld(x, "Name")))) }
+    if x.nm == "IdentExpr" {
+        String idn0 = unq(txt(fld(x, "Name")))
+        if inNames(sc.params, idn0) || inNames(sc.names, idn0) { return sc.typeOf(idn0) }
+        if sc.curClass != "" {
+            String fo0 = fieldOwner(sc.curClass, idn0)
+            if fo0 != "" { return fieldType(fo0, idn0) }
+        }
+        return sc.typeOf(idn0)
+    }
     if x.nm == "TupleMember" {
         String bt = exprType(fld(x, "X"), sc)
         String es = tupleInnerKeys(bt)
@@ -5456,7 +5464,8 @@ static String dynContainerHelpers() {
     s = s.replace("}\nstatic", "}\n\nstatic")
     while s.indexOf("}\n\n\nstatic") >= 0 { s = s.replace("}\n\n\nstatic", "}\n\nstatic") }
     if mapUsesS || hasStr(C_ARR, "rt_string *") {
-        if s != "" && s.substring(s.length() - 1, 1) != "\n" { s = s + "\n" }
+        while s.length() > 0 && s.substring(s.length() - 1, 1) == "\n" { s = s.substring(0, s.length() - 1) }
+        if s != "" { s = s + "\n\n\n" }
         s = s + strSplitBlock()
     }
     if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
