@@ -1,0 +1,1 @@
+B3-09-05 K-05: Result 成员类型 resultValC/resultErrC：void→int64_t，TaskError/CancelledError→xrt_error_kind，ErrorKind→xn_Enum_ErrorKind，Error→xn_proto_Error，String/类走 cType；两处 typedef 发射统一。sync_basic 三个 Result typedef 与 Go 文本一致（K-05 类差异=0，剩余 160 行为 K-06 调用/临时）。examples/result-try 0、defer-cleanup 0（顺带修 ExprStmt 丢弃非 void 调用）。不回归 text 0/ffi 5/obj 4/containers 5/err 5/mem 11/bundle 4。
