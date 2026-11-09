@@ -1479,6 +1479,8 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "IdentExpr" {
         String idn = unq(txt(fld(x, "Name")))
         if idn == "self" { if sc.selfName != "" { return sc.selfName }; return "self" }
+        if inNames(sc.params, idn) { return "xn_p_" + idn }
+        if inNames(sc.names, idn) { return idn }
         if sc.curClass != "" && (isClass(sc.curClass) || isStruct(sc.curClass)) {
             if fieldOwner(sc.curClass, idn) != "" { return sc.selfName + "->" + idn }
             if idn.length() > 1 && idn.substring(0, 1) == "_" {
@@ -2847,6 +2849,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 e.add(nm + " = " + t + ";")
                 return
             }
+            String bv0 = expr(fld(st, "Value"), e, sc)
+            String bt0 = e.nt()
+            e.add("xrt_bytes_obj *" + bt0 + " = rt_retain(" + bv0 + ");")
+            rootStr(e, sc, bt0)
+            e.add("rt_release(" + nm + ");")
+            e.add(nm + " = " + bt0 + ";")
+            return
         }
         Bool nwA = NO_OP_WRAP
         NO_OP_WRAP = true
@@ -3081,6 +3090,20 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             emitReturnClose(sc, e, sc.ret)
             return
         }
+        if (sc.retKind == "Int?" || sc.retKind == "Bool?" || sc.retKind == "String?") && v.nm == "Call" {
+            N oc0 = fld(v, "Callee")
+            if oc0.nm == "Member" && unq(txt(fld(oc0, "Name"))) == "get" {
+                String orcv = exprType(fld(oc0, "X"), sc)
+                if isMap(orcv) {
+                    N oa0 = fld(v, "Args")
+                    String okx = expr(fld(oc0, "X"), e, sc)
+                    String oix = "0"
+                    if oa0.el.length() > 0 { oix = emitStr(oa0.el.get(0), e, sc) }
+                    emitReturnClose(sc, e, mapNameC(cType(mapKey(orcv)), cType(mapVal(orcv))) + "_get(" + okx + ", " + oix + ")")
+                    return
+                }
+            }
+        }
         if exprType(v, sc) == "String" {
             if v.nm == "IdentExpr" {
                 String pv = expr(v, e, sc)
@@ -3094,6 +3117,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             IN_RETURN = false
             sc.ret = t
             emitReturnClose(sc, e, sc.ret)
+            return
+        }
+        if (v.nm == "IdentExpr" || v.nm == "Member") && (sc.retKind == "Bytes" || sc.retKind == "Text" || sc.retKind == "StringBuilder") {
+            emitReturnClose(sc, e, expr(v, e, sc))
             return
         }
         if isEnumType(sc.retKind) && (v.nm == "Member" || v.nm == "IdentExpr") {
@@ -3565,6 +3592,7 @@ static void emitFunc(N fn, EM e, SC sc) {
         String pct = cType(pty)
         if pct.length() > 0 && pct.substring(pct.length() - 1, 1) == "*" {
             Bool needRoot = true
+            if pty == "Context" || pct == "xrt_context *" { needRoot = false }
             if baseCls(pty) != "" && classPolicy(baseCls(pty)) != "gc" { needRoot = false }
             if needRoot { e.raw("xn_root_add(xn_p_" + pnm + ");") }
         }
@@ -3937,6 +3965,7 @@ static void emitClassSection(N cls, EM ce) {
         while mj < mps.el.length() {
             String pt0 = typeKey(fld(mps.el.get(mj), "Type"))
             Bool proot0 = (cType(pt0).length() > 0 && cType(pt0).substring(cType(pt0).length() - 1, 1) == "*")
+            if pt0 == "Context" || cType(pt0) == "xrt_context *" { proot0 = false }
             if isProtoType(stripQ(pt0)) { proot0 = true }
             if proot0 { ce.raw("xn_root_add(xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))) + ");") }
             mj = mj + 1
@@ -4134,7 +4163,7 @@ static void emitFactoryMethods(N fac, EM ce) {
         mj = 0
         while mj < mps.el.length() {
             String pt = typeKey(fld(mps.el.get(mj), "Type"))
-            if cType(pt).length() > 0 && cType(pt).substring(cType(pt).length() - 1, 1) == "*" { fsc.rootPrelude.push("xn_root_add(xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))) + ");") }
+            if cType(pt).length() > 0 && cType(pt).substring(cType(pt).length() - 1, 1) == "*" && !(pt == "Context" || cType(pt) == "xrt_context *") { fsc.rootPrelude.push("xn_root_add(xn_p_" + unq(txt(fld(mps.el.get(mj), "Name"))) + ");") }
             mj = mj + 1
         }
         String r = ce.nt()
@@ -5034,7 +5063,8 @@ static String dynContainerHelpers() {
     s = s.replace("}\nstatic", "}\n\nstatic")
     while s.indexOf("}\n\n\nstatic") >= 0 { s = s.replace("}\n\n\nstatic", "}\n\nstatic") }
     if mapUsesS || hasStr(C_ARR, "rt_string *") {
-        if !mapUsesS { s = s + "\n\n" }
+        if s != "" && s.substring(s.length() - 1, 1) != "\n" { s = s + "\n" }
+        s = s + "\n\n"
         s = s + strSplitBlock()
     }
     if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
