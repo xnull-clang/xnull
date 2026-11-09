@@ -180,6 +180,10 @@ static String sp(Int n) {
     return b
 }
 static String paramDecl(String cty, String name) { return cty + " " + name }
+static String errMember(String cty) {
+    if cty.length() > 0 && cty.substring(cty.length() - 1, 1) == "*" { return cty + "err" }
+    return cty + " err"
+}
 static String decl(String cty, String name) {
     if cty.length() > 0 && cty.substring(cty.length() - 1, 1) == "*" { return cty + name }
     return cty + " " + name
@@ -703,6 +707,24 @@ static String fieldOwner(String cn, String fn) {
     }
     return ""
 }
+static Bool fieldPrivate(String cn, String fn) {
+    N cls = classByName(cn)
+    N fs = fld(cls, "Fields")
+    Int i = 0
+    while i < fs.el.length() {
+        N f = fs.el.get(i)
+        if unq(txt(fld(f, "Name"))) == fn {
+            return unq(txt(fld(fld(f, "Mod"), "Vis"))) == "private"
+        }
+        i = i + 1
+    }
+    return false
+}
+static String fieldCName(N f) {
+    String fn = unq(txt(fld(f, "Name")))
+    if unq(txt(fld(fld(f, "Mod"), "Vis"))) == "private" { return "_" + fn }
+    return fn
+}
 static String methodOwner(String cn, String mn) {
     String cur = cn
     while cur != "" {
@@ -1117,6 +1139,10 @@ static String expr(N x, EM e, SC sc) {
         if idn == "self" { return sc.selfName }
         if sc.curClass != "" && (isClass(sc.curClass) || isStruct(sc.curClass)) {
             if fieldOwner(sc.curClass, idn) != "" { return sc.selfName + "->" + idn }
+            if idn.length() > 1 && idn.substring(0, 1) == "_" {
+                String bn = idn.substring(1, idn.length() - 1)
+                if fieldOwner(sc.curClass, bn) != "" { return sc.selfName + "->" + idn }
+            }
         }
         return sc.nameOf(idn)
     }
@@ -1237,8 +1263,11 @@ static String expr(N x, EM e, SC sc) {
         }
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
-        if baseCls(bt) != "" { return expr(fld(x, "X"), e, sc) + "->" + f }
-        if isClass(bt) || isSingle(bt) || isDataEnum(bt) { return expr(fld(x, "X"), e, sc) + "->" + f }
+        String fc = f
+        if baseCls(bt) != "" { String own = fieldOwner(baseCls(bt), f); if own != "" && fieldPrivate(own, f) { fc = "_" + f } }
+        else if isClass(bt) { if fieldPrivate(bt, f) { fc = "_" + f } }
+        if baseCls(bt) != "" { return expr(fld(x, "X"), e, sc) + "->" + fc }
+        if isClass(bt) || isSingle(bt) || isDataEnum(bt) { return expr(fld(x, "X"), e, sc) + "->" + fc }
         if isStruct(bt) {
             String bx = expr(fld(x, "X"), e, sc)
             if bx == "self" && sc.selfPtr { return "self->" + f }
@@ -1446,7 +1475,8 @@ static String expr(N x, EM e, SC sc) {
             }
             if sc.curClass != "" && methodOwner(sc.curClass, cn) != "" {
                 String own = methodOwner(sc.curClass, cn)
-                String cast = "(xn_Cls_" + own + " *)" + sc.selfName
+                String cast = sc.selfName
+                if own != sc.curClass { cast = "(xn_Cls_" + own + " *)" + sc.selfName }
                 String bb = "xn_Cls_" + own + "_" + cn + "(" + cast
                 Int ai = 0
                 while ai < args.el.length() { bb = bb + ", " + argExpr(args.el.get(ai), e, sc); ai = ai + 1 }
@@ -1843,8 +1873,16 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
 
 static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "BreakStmt" || st.nm == "ContinueStmt" || st.nm == "ThrowStmt"
+    Bool isSuperStmt = false
+    if st.nm == "ExprStmt" {
+        N sx0 = fld(st, "X")
+        if sx0.nm == "Call" {
+            N sc0 = fld(sx0, "Callee")
+            if sc0.nm == "IdentExpr" && unq(txt(fld(sc0, "Name"))) == "super" { isSuperStmt = true }
+        }
+    }
     if SKIP_LINE { SKIP_LINE = false }
-    else if lineStmt { e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"") }
+    else if lineStmt && !isSuperStmt { e.add("#line " + str(lineOf(st)) + " \"" + e.path + "\"") }
     if st.nm == "DeferStmt" {
         Bool err = txt(fld(st, "Errdefer")) == "true"
         N inner = fld(st, "Stmt")
@@ -2819,7 +2857,10 @@ static void emitFunc(N fn, EM e, SC sc) {
         String vz = "0"
         String vct = cType(resultVal(rk))
         if vct.length() > 0 && vct.substring(vct.length() - 1, 1) == "*" { vz = "NULL" }
-        e.add("return (" + cType(rk) + "){0, " + vz + ", 0};")
+        String ez0 = "0"
+        String ect0 = cType(resultErr(rk))
+        if ect0.length() > 0 && ect0.substring(ect0.length() - 1, 1) == "*" { ez0 = "NULL" }
+        e.add("return (" + cType(rk) + "){0, " + vz + ", " + ez0 + "};")
     }
     e.add("}")
     e.add("")
@@ -2847,6 +2888,12 @@ static String stripOuter(String x) {
 }
 
 static String ctorParams(N cls) { return paramsOf(ctorOf(cls)) }
+static String newParamDecls(N cls) {
+    String cp = ctorParams(cls)
+    if cp != "" { return cp }
+    if fld(cls, "Ctors").el.length() > 0 { return "" }
+    return "void"
+}
 static String ctorArgs(N cls) {
     N d = ctorOf(cls)
     N ps = fld(d, "Params")
@@ -2869,8 +2916,7 @@ static void emitClassForwards(N cls, List<String> dst, Int dummy) {
     dst.push("")
     String sfx = ""
     if isPrimary(cls) { sfx = "_1" }
-    String np = ctorParams(cls)
-    if np == "" { np = "void" }
+    String np = newParamDecls(cls)
     dst.push("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + sfx + "(" + np + ");")
     dst.push("static void xn_Cls_" + cn + "_new" + sfx + "_init" + "(xn_Cls_" + cn + " *o" + (ctorParams(cls) == "" ? "" : ", " + ctorParams(cls)) + ");")
     if hasDeinit(cn) { dst.push("static void xn_Cls_" + cn + "_deinit(xn_Cls_" + cn + " *self);") }
@@ -2934,7 +2980,7 @@ static void emitClassSection(N cls, EM ce) {
             N ofs = fld(classByName(own), "Fields")
             Int oi = 0
             while oi < ofs.el.length() {
-                ce.add("    " + cType(typeKey(fld(ofs.el.get(oi), "Type"))) + " " + unq(txt(fld(ofs.el.get(oi), "Name"))) + ";")
+                ce.add("    " + cType(typeKey(fld(ofs.el.get(oi), "Type"))) + " " + fieldCName(ofs.el.get(oi)) + ";")
                 oi = oi + 1
             }
             ci2 = ci2 + 1
@@ -2948,7 +2994,7 @@ static void emitClassSection(N cls, EM ce) {
     i = 0
     while i < fs.el.length() {
         String dft = typeKey(fld(fs.el.get(i), "Type"))
-        String dfn = unq(txt(fld(fs.el.get(i), "Name")))
+        String dfn = fieldCName(fs.el.get(i))
         if dft == "String" { ce.add("    rt_release(o->" + dfn + ");") }
         else if baseCls(dft) != "" && classPolicy(baseCls(dft)) == "arc" { ce.add("    rt_release(o->" + dfn + ");") }
         i = i + 1
@@ -2961,7 +3007,7 @@ static void emitClassSection(N cls, EM ce) {
         i = 0
         while i < fs.el.length() {
             String sft = typeKey(fld(fs.el.get(i), "Type"))
-            String sfn = unq(txt(fld(fs.el.get(i), "Name")))
+            String sfn = fieldCName(fs.el.get(i))
             if sft == "String" || fieldIsGC(sft) || baseCls(sft) != "" { ce.add("    if (o->" + sfn + ") { visit(o->" + sfn + "); }") }
             i = i + 1
         }
@@ -3035,7 +3081,7 @@ static void emitClassSection(N cls, EM ce) {
     i = 0
     while i < fs.el.length() {
         String ft = typeKey(fld(fs.el.get(i), "Type"))
-        String fn = unq(txt(fld(fs.el.get(i), "Name")))
+        String fn = fieldCName(fs.el.get(i))
         N init = fld(fs.el.get(i), "Init")
         if init.nm == "" || init.nm == "nil" { i = i + 1; continue }
         if ft == "String" {
@@ -3106,8 +3152,7 @@ static void emitClassSection(N cls, EM ce) {
     ce.add("}")
     ce.raw("")
     // new
-    String np2 = ctorParams(cls)
-    if np2 == "" { np2 = "void" }
+    String np2 = newParamDecls(cls)
     ce.add("static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + sfx + "(" + np2 + ") {")
     ce.add("    xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)" + (ref ? "xn_gc_new" : "rt_arc_new") + "(&RT_TYPE_XN_" + cn + ");")
     ce.add("    memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
@@ -3213,7 +3258,9 @@ static void emitStructEarly(N st, EM ce) {
     }
     ce.add("} xn_Struct_" + sn + ";")
     ce.raw("")
-    ce.add("static xn_Struct_" + sn + " xn_Struct_" + sn + "_new(" + ctorParams(st) + ") {")
+    String sp0 = ctorParams(st)
+    if sp0 == "" { sp0 = "void" }
+    ce.add("static xn_Struct_" + sn + " xn_Struct_" + sn + "_new(" + sp0 + ") {")
     ce.add("    xn_Struct_" + sn + " self = (xn_Struct_" + sn + "){0};")
     i = 0
     while i < fs.el.length() {
@@ -3578,7 +3625,7 @@ static void emitSingletonSection(N sg, EM ce) {
     i = 0
     while i < fs.el.length() {
         String ft = typeKey(fld(fs.el.get(i), "Type"))
-        String fn = unq(txt(fld(fs.el.get(i), "Name")))
+        String fn = fieldCName(fs.el.get(i))
         N init = fld(fs.el.get(i), "Init")
         if init.nm == "" || init.nm == "nil" { i = i + 1; continue }
         if ft == "String" {
@@ -4668,7 +4715,7 @@ static String resultTypedefsSorted(SC sc) {
         String rk = rs.get(i)
         String vt = resultVal(rk)
         String et = resultErr(rk)
-        resT = resT + "typedef struct { int ok; " + cType(vt) + " v; " + cType(et) + " err; } " + cType(rk) + ";\n"
+        resT = resT + "typedef struct { int ok; " + cType(vt) + " v; " + errMember(cType(et)) + "; } " + cType(rk) + ";\n"
         i = i + 1
     }
     return resT + "\n"
@@ -5015,8 +5062,7 @@ static String emitUnit(N unit, String path) {
             String ccn = unq(txt(fld(d, "Name")))
             String csx = ""
             if isPrimary(d) { csx = "_1" }
-            String cnp = ctorParams(d)
-            if cnp == "" { cnp = "void" }
+            String cnp = newParamDecls(d)
             fw.push("static xn_Cls_" + ccn + " *xn_Cls_" + ccn + "_new" + csx + "(" + cnp + ");")
             fw.push("static void xn_Cls_" + ccn + "_new" + csx + "_init(xn_Cls_" + ccn + " *o" + (ctorParams(d) == "" ? "" : ", " + ctorParams(d)) + ");")
             if hasDeinit(ccn) { fw.push("static void xn_Cls_" + ccn + "_deinit(xn_Cls_" + ccn + " *self);") }
@@ -5304,7 +5350,7 @@ static String emitUnit(N unit, String path) {
                 String rk = sc.resultTypes.get(k)
                 String vt = resultVal(rk)
                 String et = resultErr(rk)
-                res = res + "typedef struct { int ok; " + decl(cType(vt), "v") + "; " + decl(cType(et), "err") + "; } " + cType(rk) + ";\n"
+                res = res + "typedef struct { int ok; " + decl(cType(vt), "v") + "; " + errMember(cType(et)) + "; } " + cType(rk) + ";\n"
                 k = k + 1
             }
             res = res + "\n"

@@ -1,0 +1,1 @@
+B3-09-02 K-09/K-10/K-11: 类 new 参数按隐式/显式 ctor 分 (void)/()；struct new 空参 void；私有字段 C 名加 `_`（布局/初始化/deinit/gc_scan/成员访问/裸字段引用）；Result typedef 错误成员指针无空格、零值槽按类型 NULL/0。代表：a02_explicit_noarg 0、a04_ctor_dispatch 0、struct01/a01_copy 0、a01_member_visibility 0、int01/a01_result_object 0；text 0（109514B）；ffi/bundle/obj/containers/err/mem/expr-stmt/gen/obj2/obj3/tuple/type 全绿。
