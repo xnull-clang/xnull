@@ -3279,7 +3279,8 @@ static void emitClassSection(N cls, EM ce) {
             N ofs = fld(classByName(own), "Fields")
             Int oi = 0
             while oi < ofs.el.length() {
-                ce.add("    " + cType(typeKey(fld(ofs.el.get(oi), "Type"))) + " " + fieldCName(ofs.el.get(oi)) + ";")
+                String fty0 = typeKey(fld(ofs.el.get(oi), "Type"))
+                ce.add("    " + (fty0 == "Bool" ? "int64_t" : cType(fty0)) + " " + fieldCName(ofs.el.get(oi)) + ";")
                 oi = oi + 1
             }
             ci2 = ci2 + 1
