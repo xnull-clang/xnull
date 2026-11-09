@@ -2557,7 +2557,23 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 addNamedRelease(sc, nm, "rt_release(" + nm + ");")
                 return
             }
-            e.add("xn_Cls_" + ty + " * " + nm + " = " + expr(init, e, sc) + ";")
+            String civ = ""
+            Bool civIn = false
+            if init.nm == "Call" {
+                N cc0 = fld(init, "Callee")
+                if cc0.nm == "Member" && unq(txt(fld(cc0, "Name"))) == "get" {
+                    String cbt0 = exprType(fld(cc0, "X"), sc)
+                    if isObjArr(cbt0) {
+                        N cargs0 = fld(init, "Args")
+                        String cix = "0"
+                        if cargs0.el.length() > 0 { cix = expr(cargs0.el.get(0), e, sc) }
+                        civ = classArrName(cbt0) + "_get(" + expr(fld(cc0, "X"), e, sc) + ", " + cix + ")"
+                        civIn = true
+                    }
+                }
+            }
+            if !civIn { civ = expr(init, e, sc) } else { String hd0 = e.nt() }
+            e.add("xn_Cls_" + ty + " * " + nm + " = " + civ + ";")
             finishLocalRoot(sc, e, nm, ty)
             if !isGC { addNamedRelease(sc, nm, "rt_release(" + nm + ");") }
             return
