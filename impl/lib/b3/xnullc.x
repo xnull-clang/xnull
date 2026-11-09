@@ -208,6 +208,11 @@ static String lastQual(N t) {
 static String substKey(String k) {
     Int i = 0
     while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
+    if k.length() > 1 && k.substring(k.length() - 1, 1) == "?" {
+        String b = k.substring(0, k.length() - 1)
+        i = 0
+        while i < SUB_FROM.length() { if SUB_FROM.get(i) == b && i < SUB_TO.length() { return SUB_TO.get(i) + "?" }; i = i + 1 }
+    }
     return k
 }
 static String typeKey(N t) {
@@ -3124,6 +3129,10 @@ static String joinLines(List<String> xs) {
     return b
 }
 
+static String fbComment(String rt) {
+    if rt.length() > 0 && rt.substring(rt.length() - 1, 1) == "?" { return " /* sema 保证不可达 */" }
+    return " /* sema 保证不可达（函数体全路径 return） */"
+}
 static String zeroOf(String cty) {
     if cty.length() > 0 && cty.substring(cty.length() - 1, 1) == "*" { return "(" + cty + ")0" }
     if cty == "int64_t" || cty == "int32_t" || cty == "int" || cty == "double" || cty == "float" { return "(" + cty + ")0" }
@@ -3321,7 +3330,7 @@ static void emitClassSection(N cls, EM ce) {
             ce.add("size_t " + mr + " = xn_root_mark();")
             addDefer(msc, ["xn_root_restore(" + mr + ");"], false)
             emitBlock(fld(m, "Body"), ce, msc, 0, false)
-            if rt != "void" && !isResult(rt) { ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+            if rt != "void" && !isResult(rt) { ce.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
             ce.add("}")
             ce.raw("")
             i = i + 1
@@ -3463,7 +3472,7 @@ static void emitClassSection(N cls, EM ce) {
             mj = mj + 1
         }
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
-        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
         ce.add("}")
         ce.raw("")
         i = i + 1
@@ -3571,7 +3580,7 @@ static void emitStructMethods(N st, EM ce) {
         String mr = ce.nt()
         msc.rootMark = mr
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
-        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
         ce.add("}")
         ce.raw("")
         i = i + 1
@@ -3613,7 +3622,7 @@ static void emitExtensionMethods(N ext, EM ce) {
         msc.rootMark = mr
         msc.rootPrelude = ["xn_root_add(self);"]
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
-        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
         ce.add("}")
         ce.raw("")
         i = i + 1
@@ -3768,7 +3777,7 @@ static void emitDataEnumMethods(N de, EM e) {
         msc.rootMark = r
         msc.rootPrelude = ["xn_root_add(self);"]
         emitBlock(fld(m, "Body"), e, msc, 0, false)
-        if rt != "void" && !msc.hasResult { e.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" && !msc.hasResult { e.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
         e.add("}")
         e.raw("")
         i = i + 1
@@ -3863,7 +3872,7 @@ static void emitSingletonSection(N sg, EM ce) {
         msc.rootPrelude = []
         if ref { msc.rootPrelude.push("xn_root_add(self);") }
         emitBlock(fld(m, "Body"), ce, msc, 0, false)
-        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + "; /* sema 保证不可达（函数体全路径 return） */") }
+        if rt != "void" && !msc.hasResult { ce.add("    return " + zeroOf(cType(rt)) + ";" + fbComment(rt)) }
         ce.add("}")
         ce.raw("")
         i = i + 1
