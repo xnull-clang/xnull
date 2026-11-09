@@ -1,3 +1,5 @@
+import xdk.sys
+
 // B3-03：xnullc Result/try/defer（XNull 版 AST -> C）。
 //
 // 输入：<entryPath> <xnast v1 AST dump>
@@ -5582,15 +5584,38 @@ static N parseBundle(String text) {
 }
 
 static Int main(String[] args) {
-    if args.length() < 2 {
-        print("xnullc: 用法：xnullc <entryPath> <xnast-v1-ast>")
+    if args.length() < 1 {
+        print("xnullc: 用法：xnullc <entryPath> [--ast-file <p>] [--project <text>] [--bundle-file <p>] | <entryPath> <ast> [project] [bundle]")
         return 2
     }
-    String path = args[0]
-    String ast = args[1]
-    if args.length() >= 3 { parseRegistry(args[2]) }
-    if args.length() >= 4 {
-        N bunit = parseBundle(args[3])
+    String path = args.get(0)
+    String astFile = ""
+    String bundleFile = ""
+    String project = ""
+    List<String> pos = []
+    Int ai = 1
+    while ai < args.length() {
+        String a = args.get(ai)
+        if a == "--ast-file" && ai + 1 < args.length() { astFile = args.get(ai + 1); ai = ai + 2 }
+        else if a == "--bundle-file" && ai + 1 < args.length() { bundleFile = args.get(ai + 1); ai = ai + 2 }
+        else if a == "--project" && ai + 1 < args.length() { project = args.get(ai + 1); ai = ai + 2 }
+        else { pos.push(a); ai = ai + 1 }
+    }
+    String ast = ""
+    if astFile != "" { ast = readFileText(astFile) }
+    else if pos.length() > 0 { ast = pos.get(0) }
+    if ast == "" {
+        print("xnullc: 缺少 AST：请提供 --ast-file 或位置参数 <ast>")
+        return 2
+    }
+    String proj = project
+    if proj == "" && pos.length() > 1 { proj = pos.get(1) }
+    if proj != "" { parseRegistry(proj) }
+    String bundle = ""
+    if bundleFile != "" { bundle = readFileText(bundleFile) }
+    else if pos.length() > 2 { bundle = pos.get(2) }
+    if bundle != "" {
+        N bunit = parseBundle(bundle)
         print(emitUnit(bunit, path))
         return 0
     }
