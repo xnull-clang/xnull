@@ -229,6 +229,7 @@ List<String> C_DECL = []
 Bool USES_ARR_S = false
 Bool USES_MAP_S_I = false
 Bool USES_MAP_S_S = false
+Bool USES_STR_REPLACE = false
 
 static Bool hasStr(List<String> xs, String v) {
     Int i = 0
@@ -1568,6 +1569,7 @@ static String expr(N x, EM e, SC sc) {
             if mt2 == "String" && mn == "toUpper" { return "xn_str_upper(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && mn == "trim" { return "xn_str_trim(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && mn == "replace" {
+                USES_STR_REPLACE = true
                 String rb0 = expr(mx, e, sc)
                 String a00 = "0"
                 String a01 = "0"
@@ -4530,6 +4532,83 @@ static String mapSSBlock() { return MAP_SS_HELP }
 static String mapSITypedef() {
     return "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;"
 }
+static String STR_REPLACE_HELP = "static rt_string *xn_str_replace(rt_string *s, rt_string *from, rt_string *to) {\n    if (from->len == 0) { return rt_retain(s); }\n    rt_string *res = rt_string_from_c(\"\");\n    size_t start = 0, i = 0;\n    while (i + from->len <= s->len) {\n        if (memcmp(s->bytes + i, from->bytes, from->len) == 0) {\n            res = xn_concat(res, rt_string_new(s->bytes + start, i - start));\n            res = xn_concat(res, rt_string_new(to->bytes, to->len));\n            i += from->len;\n            start = i;\n        } else {\n            i++;\n        }\n    }\n    res = xn_concat(res, rt_string_new(s->bytes + start, s->len - start));\n    return res;\n}"
+static String strReplaceBlock() { return STR_REPLACE_HELP }
+
+static String arrSHelperOnly() {
+    String a = "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *data; } xn_arr_s;"
+    String b = "static void xn_set_i_scan"
+    Int i0 = PRELUDE_MAPSET.indexOf(a)
+    Int j0 = PRELUDE_MAPSET.indexOf(b)
+    if i0 < 0 || j0 < 0 { return "" }
+    Int st = i0 + a.length()
+    String r1 = PRELUDE_MAPSET.substring(st, j0 - st)
+    while r1.length() > 0 && r1.substring(0, 1) == "\n" { r1 = r1.substring(1, r1.length() - 1) }
+    return "\n" + r1
+}
+static String setIBlock() {
+    String a = "typedef struct { rt_header hdr; xn_arr_i *a; } xn_set_i;"
+    String b = "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *keys; int64_t *vals; } xn_map_s_i;"
+    Int i0 = PRELUDE_MAPSET.indexOf(a)
+    Int j0 = PRELUDE_MAPSET.indexOf(b)
+    if i0 < 0 || j0 < 0 { return "" }
+    Int st = i0 + a.length()
+    return PRELUDE_MAPSET.substring(st, j0 - st)
+}
+static String dynContainerHelpers() {
+    List<String> arrs = []
+    Int i = 0
+    while i < C_ARR.length() { if !hasStr(arrs, C_ARR.get(i)) { arrs.push(C_ARR.get(i)) }; i = i + 1 }
+    sortStrs(arrs)
+    String s = ""
+    i = 0
+    while i < arrs.length() {
+        String ec = arrs.get(i)
+        if ec == "int64_t" { s = s + arrIHelperText() }
+        else if ec == "rt_string *" { s = s + arrSHelperOnly() }
+        else if ec == "uint16_t" { s = s + u16ArrHelperText() }
+        else if ec.indexOf("xn_Cls_") == 0 && ec.length() > 9 && ec.substring(ec.length() - 2, 2) == " *" {
+            s = s + classArrHelperText("List<" + ec.substring(7, ec.length() - 9) + ">")
+        }
+        i = i + 1
+    }
+    List<String> sets = []
+    i = 0
+    while i < C_SET.length() { if !hasStr(sets, C_SET.get(i)) { sets.push(C_SET.get(i)) }; i = i + 1 }
+    sortStrs(sets)
+    i = 0
+    while i < sets.length() {
+        if sets.get(i) == "int64_t" { s = s + setIBlock() }
+        i = i + 1
+    }
+    List<String> mks = []
+    i = 0
+    while i < C_MAPK.length() {
+        String mk = mangleC(C_MAPK.get(i)) + "|" + mangleC(C_MAPV.get(i))
+        if !hasStr(mks, mk) { mks.push(mk) }
+        i = i + 1
+    }
+    sortStrs(mks)
+    Bool mapUsesS = false
+    i = 0
+    while i < mks.length() { if mks.get(i).indexOf("s|") == 0 || mks.get(i).indexOf("|s") >= 0 { mapUsesS = true }; i = i + 1 }
+    if mapUsesS {
+        s = s + "\n"
+        if hasStr(C_ARR, "rt_string *") { s = s + arrSHelperOnly() } else { s = s + arrSBlock() }
+    }
+    i = 0
+    while i < mks.length() {
+        if mks.get(i) == "s|i" { s = s + mapSIBlock() }
+        else if mks.get(i) == "s|s" { s = s + mapSSBlock() }
+        i = i + 1
+    }
+    if mapUsesS || hasStr(C_ARR, "rt_string *") {
+        if !mapUsesS { s = s + "\n\n" }
+        s = s + strSplitBlock()
+    }
+    if USES_STR_REPLACE { s = s + "\n" + strReplaceBlock() }
+    return s
+}
 static String arrSBlock() {
     String a = "typedef struct { rt_header hdr; size_t len; size_t cap; rt_string * *data; } xn_arr_s;"
     String b = "static void xn_set_i_scan"
@@ -5467,24 +5546,7 @@ static String emitUnit(N unit, String path) {
             }
         }
         String cbType = ""
-        String cbHelp = ""
-        if cbKey != "" {
-            cbType = containerTypedef(cbKey)
-            if isObjArr(cbKey) { cbHelp = classArrHelperText(cbKey) }
-            else if isU16List(cbKey) { cbHelp = u16ArrHelperText() }
-            else { cbHelp = arrIHelperText() }
-        }
-        Bool arrSAdded = false
-        if USES_MAP_S_I {
-            cbHelp = cbHelp + "\n" + arrSBlock() + mapSIBlock() + strSplitBlock()
-            arrSAdded = true
-        }
-        if USES_MAP_S_S {
-            if !arrSAdded { cbHelp = cbHelp + "\n" + arrSBlock() }
-            cbHelp = cbHelp + mapSSBlock() + "\n\n\n" + strSplitBlock()
-            arrSAdded = true
-        }
-        if cbHelp.length() > 0 && cbHelp.substring(0, 1) == "\n" { cbHelp = cbHelp.substring(1, cbHelp.length() - 1) }
+        String cbHelp = dynContainerHelpers()
         String tfp = topFuncProtos(decls)
         List<String> fw = []
         Int pass = 0
