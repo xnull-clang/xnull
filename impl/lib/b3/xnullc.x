@@ -175,21 +175,15 @@ static String unq(String raw) {
     return b
 }
 static String q(String s) {
-    String b = "\""
-    Int i = 0
-    while i < s.length() {
-        String c = s.substring(i, 1)
-        if c == "\"" { b = b + "\\\"" }
-        else if c == "\\" { b = b + "\\\\" }
-        else if c == "\n" { b = b + "\\n" }
-        else if c == "\t" { b = b + "\\t" }
-        else if c == "\r" { b = b + "\\r" }
-        else if c == "\0" { b = b + "\\000" }
-        else if c == "\u007f" { b = b + "\\177" }
-        else { b = b + c }
-        i = i + 1
-    }
-    return b + "\""
+    String b = s
+    b = b.replace("\\", "\\\\")
+    b = b.replace("\"", "\\\"")
+    b = b.replace("\n", "\\n")
+    b = b.replace("\t", "\\t")
+    b = b.replace("\r", "\\r")
+    b = b.replace("\0", "\\000")
+    b = b.replace("\u007f", "\\177")
+    return "\"" + b + "\""
 }
 static Int lineOf(N n) { return dec(txt(fld(fld(n, "P"), "Line"))) }
 static Int colOf(N n) { return dec(txt(fld(fld(n, "P"), "Col"))) }
