@@ -2698,6 +2698,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
         }
+        if sc.retKind == "Int?" || sc.retKind == "Bool?" || sc.retKind == "String?" {
+            String oz = "0"
+            if sc.retKind == "String?" { oz = "NULL" }
+            if v.nm == "NullLit" { emitReturnClose(sc, e, "(" + cType(sc.retKind) + "){0, " + oz + "}") }
+            else { emitReturnClose(sc, e, "(" + cType(sc.retKind) + "){1, " + expr(v, e, sc) + "}") }
+            return
+        }
         if v.nm == "Call" && sc.retKind == "Int" {
             N cv2 = fld(v, "Callee")
             if cv2.nm == "IdentExpr" {
