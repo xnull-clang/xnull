@@ -2819,6 +2819,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     e.add(mapNameC(cType(mapKey(rt0)), cType(mapVal(rt0))) + "_put(" + xb + ", " + a0 + ", " + a1 + ");")
                     return
                 }
+                if mn == "remove" && (isArr(rt0) || isU16List(rt0) || isObjArr(rt0)) {
+                    String et = "int64_t"
+                    if isU16List(rt0) { et = "uint16_t" }
+                    else if isObjArr(rt0) { et = cType(objArrElem(rt0)) }
+                    else { et = cType(arrElem(rt0)) }
+                    String rt0t = e.nt()
+                    e.add(et + " " + rt0t + " = " + expr(call, e, sc) + ";")
+                    return
+                }
                 if mn == "set" && (isArr(rt0) || isU16List(rt0) || isObjArr(rt0)) {
                     String a0 = "0"
                     String a1 = "0"
