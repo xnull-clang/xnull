@@ -2546,6 +2546,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         if isResult(sc.retKind) {
             String rk = sc.retKind
+            Bool okerr = false
             if v.nm == "Call" {
                 N callee = fld(v, "Callee")
                 String cn = ""
@@ -2559,6 +2560,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String ect = cType(resultErr(rk))
                     if ect.length() > 0 && ect.substring(ect.length() - 1, 1) == "*" { ez = "NULL" }
                     e.add("xn_ret = (" + cType(rk) + "){1, " + rvz + ", " + ez + "};")
+                    okerr = true
                 } else if cn == "Err" {
                     N ea = args.el.get(0)
                     String et = exprType(ea, sc)
@@ -2581,9 +2583,10 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String vct = cType(resultVal(rk))
                     if vct.length() > 0 && vct.substring(vct.length() - 1, 1) == "*" { evz = "NULL" }
                     e.add("xn_ret = (" + cType(rk) + "){0, " + evz + ", " + ev + "};")
+                    okerr = true
                 }
             }
-            if v.nm != "Call" && v.nm != "" && v.nm != "nil" { e.add("xn_ret = " + expr(v, e, sc) + ";") }
+            if !okerr && v.nm != "" && v.nm != "nil" { e.add("xn_ret = " + expr(v, e, sc) + ";") }
             emitReturnClose(sc, e, "xn_ret")
             return
         }
@@ -2672,6 +2675,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
             if cv1.nm == "Member" {
+                emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
+        if v.nm == "Call" && sc.retKind == "Int" {
+            N cv2 = fld(v, "Callee")
+            if cv2.nm == "IdentExpr" {
                 emitReturnClose(sc, e, expr(v, e, sc))
                 return
             }
