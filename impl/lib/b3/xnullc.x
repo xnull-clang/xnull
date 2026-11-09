@@ -1468,6 +1468,16 @@ static String expr(N x, EM e, SC sc) {
         String bt = exprType(mb, sc)
         String f = unq(txt(fld(x, "Name")))
         String fc = f
+        Bool rg0 = false
+        if mb.nm == "Call" { N rc0 = fld(mb, "Callee"); if rc0.nm == "Member" && unq(txt(fld(rc0, "Name"))) == "get" { rg0 = true } }
+        if baseCls(bt) != "" && mb.nm == "Call" && !rg0 {
+            String rvt = e.nt()
+            e.add(cType(bt) + " " + rvt + " = " + expr(mb, e, sc) + ";")
+            String rown = fieldOwner(baseCls(bt), f)
+            String rfc = f
+            if rown != "" && fieldPrivate(rown, f) { rfc = "_" + f }
+            return rvt + "->" + rfc
+        }
         if baseCls(bt) != "" { String own = fieldOwner(baseCls(bt), f); if own != "" && fieldPrivate(own, f) { fc = "_" + f } }
         else if isClass(bt) { if fieldPrivate(bt, f) { fc = "_" + f } }
         if baseCls(bt) != "" { String mv0 = expr(fld(x, "X"), e, sc) + "->" + fc; if exprType(x, sc) == "Bool" { return "((int)(" + mv0 + "))" }; return mv0 }
@@ -2054,7 +2064,7 @@ static void emitReturnClose(SC sc, EM e, String expr) {
     sc.returned = true
     e.raw("")
     if expr == "" { e.add("return;") } else { e.add("return " + expr + ";") }
-    if e.ind > 0 { e.raw("") }
+    if e.ind > 0 && sc.blockHeld.length() == 0 { e.raw("") }
 }
 
 static List<String> rootRestoresOf(SC s, String kind) {
@@ -2851,7 +2861,8 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             emitReturnClose(sc, e, sc.ret)
             return
         }
-        if v.nm == "Call" && isClass(sc.retKind) {
+        if (v.nm == "Call" || v.nm == "Index") && isClass(sc.retKind) {
+            if v.nm == "Index" { emitReturnClose(sc, e, expr(v, e, sc)); return }
             N cv1 = fld(v, "Callee")
             if cv1.nm == "IdentExpr" {
                 N av1 = fld(v, "Args")
@@ -2872,6 +2883,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 return
             }
             if cv1.nm == "Member" {
+                String mn1 = unq(txt(fld(cv1, "Name")))
+                if mn1 == "get" {
+                    String rxt = exprType(fld(cv1, "X"), sc)
+                    if isObjArr(rxt) {
+                        String rxb = expr(fld(cv1, "X"), e, sc)
+                        N rag = fld(v, "Args")
+                        String rix = "0"
+                        if rag.el.length() > 0 { rix = expr(rag.el.get(0), e, sc) }
+                        emitReturnClose(sc, e, classArrName(rxt) + "_get(" + rxb + ", " + rix + ")")
+                        return
+                    }
+                }
                 emitReturnClose(sc, e, expr(v, e, sc))
                 return
             }
@@ -2886,6 +2909,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         if v.nm == "Call" && sc.retKind == "Int" {
             N cv2 = fld(v, "Callee")
             if cv2.nm == "IdentExpr" {
+                emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
+        if v.nm == "Call" {
+            N cg0 = fld(v, "Callee")
+            String gvt = exprType(v, sc)
+            if cg0.nm == "Member" && unq(txt(fld(cg0, "Name"))) == "get" && (isClass(gvt) || isProtoType(gvt) || isDataEnum(gvt)) {
                 emitReturnClose(sc, e, expr(v, e, sc))
                 return
             }
@@ -3221,7 +3252,10 @@ static void emitBlockExit(SC sc, EM e, Int ind) {
         e.addAt(ind, "xn_root_release(" + sc.blockHeld.get(hi) + ");")
         hi = hi + 1
     }
-    if sc.returned { return }
+    if sc.returned {
+        if sc.blockHeld.length() > 0 && sc.parentId >= 0 { e.raw("") }
+        return
+    }
     Int i = sc.defers.length() - 1
     while i >= 0 {
         DF d = sc.defers.get(i)
