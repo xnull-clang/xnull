@@ -5446,7 +5446,6 @@ static String dynContainerHelpers() {
     while s.indexOf("}\n\n\nstatic") >= 0 { s = s.replace("}\n\n\nstatic", "}\n\nstatic") }
     if mapUsesS || hasStr(C_ARR, "rt_string *") {
         if s != "" && s.substring(s.length() - 1, 1) != "\n" { s = s + "\n" }
-        s = s + "\n\n"
         s = s + strSplitBlock()
     }
     if USES_STR_REPLACE { s = s + "\n\n" + strReplaceBlock() }
@@ -6544,7 +6543,7 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + "\n" + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + (dme.ls.length() == 0 ? "\n" : "") + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
