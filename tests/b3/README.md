@@ -8,7 +8,10 @@
 # 默认：文件形态——AST/bundle 先写临时文件，再调 xnullc
 tests/b3/xnullc-all.sh --shard 1/1 --parallel 8
 
-# 跑全部分片并聚合（任一 shard 红则整体红）
+# 强制重建默认二进制（当前 HEAD）
+tests/b3/xnullc-all.sh --rebuild --shard 1/1 --parallel 8
+
+# 跑全部分片并聚合（任一 shard 红则整体红；分片前统一构建一次）
 tests/b3/xnullc-all.sh --all-shards 4 --parallel 8
 
 # 聚合已有 shard
@@ -19,6 +22,12 @@ tests/b3/xnullc-all.sh --inline-args --shard 1/1 --parallel 8
 ```
 
 Go helper 可用环境变量 `XNULL_BIN` / `XNAST_BIN` 或 `--go-bin` / `--xnast-bin` 指定。
+
+**二进制新鲜度（门禁硬规则）**：`xnullc-all.sh` 默认使用带 git HEAD 短 SHA 的版本化二进制路径
+（`/tmp/xnull-b3-all-<HEAD>`、`/tmp/xnast-b3-all-<HEAD>`），不存在才构建；`--rebuild` 强制重建。
+`--all-shards` 在全部分片前构建一次，并把同一对二进制路径传给每个 shard 与 aggregate。
+门禁**不得复用无版本的旧 `/tmp` 二进制**；显式传入 `--go-bin/--xnast-bin` 或设置
+`XNULL_BIN/XNAST_BIN` 时，由调用方保证二进制与当前 main/工作树一致。
 
 ### K-07 文件通道（`handoff/B3-K07-cli-contract.md`）
 
