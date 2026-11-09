@@ -2632,6 +2632,31 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             emitReturnClose(sc, e, sc.ret)
             return
         }
+        if v.nm == "Call" && isClass(sc.retKind) {
+            N cv1 = fld(v, "Callee")
+            if cv1.nm == "IdentExpr" {
+                N av1 = fld(v, "Args")
+                String cb1 = "xn_" + unq(txt(fld(cv1, "Name"))) + "("
+                Int ci1 = 0
+                while ci1 < av1.el.length() {
+                    if ci1 > 0 { cb1 = cb1 + ", " }
+                    N aa1 = av1.el.get(ci1)
+                    if aa1.nm == "Call" {
+                        String at1 = e.nt()
+                        e.add(cType(exprType(aa1, sc)) + " " + at1 + " = " + expr(aa1, e, sc) + ";")
+                        cb1 = cb1 + at1
+                    } else if exprType(aa1, sc) == "String" { cb1 = cb1 + emitStr(aa1, e, sc) }
+                    else { cb1 = cb1 + expr(aa1, e, sc) }
+                    ci1 = ci1 + 1
+                }
+                emitReturnClose(sc, e, cb1 + ")")
+                return
+            }
+            if cv1.nm == "Member" {
+                emitReturnClose(sc, e, expr(v, e, sc))
+                return
+            }
+        }
         String rv0 = expr(v, e, sc)
         String t = e.nt()
         e.add(cType(sc.retKind) + " " + t + " = " + rv0 + ";")
