@@ -1567,6 +1567,34 @@ static String expr(N x, EM e, SC sc) {
             if mt2 == "String" && mn == "toLower" { return "xn_str_lower(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && mn == "toUpper" { return "xn_str_upper(" + expr(mx, e, sc) + ")" }
             if mt2 == "String" && mn == "trim" { return "xn_str_trim(" + expr(mx, e, sc) + ")" }
+            if mt2 == "String" && mn == "replace" {
+                String rb0 = expr(mx, e, sc)
+                String a00 = "0"
+                String a01 = "0"
+                if args.el.length() > 0 { a00 = emitStr(args.el.get(0), e, sc) }
+                if args.el.length() > 1 { a01 = emitStr(args.el.get(1), e, sc) }
+                return "xn_str_replace(" + rb0 + ", " + a00 + ", " + a01 + ")"
+            }
+            if mt2 == "String" && mn == "startsWith" {
+                String a00 = "0"
+                if args.el.length() > 0 { a00 = emitStr(args.el.get(0), e, sc) }
+                return "xn_str_startswith(" + expr(mx, e, sc) + ", " + a00 + ")"
+            }
+            if mt2 == "String" && mn == "endsWith" {
+                String a00 = "0"
+                if args.el.length() > 0 { a00 = emitStr(args.el.get(0), e, sc) }
+                return "xn_str_endswith(" + expr(mx, e, sc) + ", " + a00 + ")"
+            }
+            if mt2 == "String" && mn == "split" {
+                String a00 = "0"
+                if args.el.length() > 0 { a00 = emitStr(args.el.get(0), e, sc) }
+                return "xn_str_split(" + expr(mx, e, sc) + ", " + a00 + ")"
+            }
+            if mt2 == "String" && mn == "charAt" {
+                String a00 = "0"
+                if args.el.length() > 0 { a00 = expr(args.el.get(0), e, sc) }
+                return "xn_str_substr(" + expr(mx, e, sc) + ", " + a00 + ", 1)"
+            }
             if mt2 == "String" && (mn == "indexOf" || mn == "indexOfByte") {
                 String rb = expr(mx, e, sc)
                 if mx.nm == "StrLitExpr" || mx.nm == "Member" { rb = emitStr(mx, e, sc) }
