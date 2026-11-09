@@ -2064,6 +2064,7 @@ static List<String> copyStrs(List<String> xs) {
     return r
 }
 static Bool isGCRootType(String t) {
+    if isGenInstCls(t) { return false }
     if t == "String" || t == "Bytes" || t == "Text" || t == "StringBuilder" || t == "Any" { return true }
     if t.indexOf("List<") == 0 || t.indexOf("Set<") == 0 || t.indexOf("Map<") == 0 { return true }
     if isArr(t) || isSet(t) || isMap(t) || isTupList(t) || isU16List(t) || isObjArr(t) { return true }
@@ -2594,7 +2595,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if isClass(ty) {
-            Bool isGC = classPolicy(ty) == "gc"
+            Bool isGC = classPolicy(ty) == "gc" && !isGenInstCls(ty)
             if init.nm == "New" {
                 N args = fld(init, "Args")
                 if classStackOK(ty) && !isEscaped(sc, nm) {
