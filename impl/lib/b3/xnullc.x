@@ -192,6 +192,9 @@ static String q(String s) {
     return b + "\""
 }
 static Int lineOf(N n) { return dec(txt(fld(fld(n, "P"), "Line"))) }
+static Int colOf(N n) { return dec(txt(fld(fld(n, "P"), "Col"))) }
+static List<String> LAM_KEYS = []
+static List<N> LAM_NODES = []
 static String sp(Int n) {
     String b = ""
     Int i = 0
@@ -1356,7 +1359,67 @@ static String arrayLitArg(N a, String expect, EM e, SC sc) {
     return t
 }
 
+static Int lambdaId(N x) {
+    String k = str(lineOf(x)) + ":" + str(colOf(x))
+    Int i = 0
+    while i < LAM_KEYS.length() {
+        if LAM_KEYS.get(i) == k { return i + 1 }
+        i = i + 1
+    }
+    LAM_KEYS.push(k)
+    LAM_NODES.push(x)
+    return LAM_KEYS.length()
+}
+static String lambdaParamDecl(N x) {
+    N ps = fld(x, "Params")
+    String b = ""
+    Int i = 0
+    while i < ps.el.length() {
+        N p = ps.el.get(i)
+        if i > 0 { b = b + ", " }
+        b = b + cType(typeKey(fld(p, "Type"))) + " " + unq(txt(fld(p, "Name")))
+        i = i + 1
+    }
+    return b
+}
+static SC lambdaScope(N x) {
+    SC ls = new SC()
+    N ps = fld(x, "Params")
+    Int i = 0
+    while i < ps.el.length() { N p = ps.el.get(i); ls.def(unq(txt(fld(p, "Name"))), typeKey(fld(p, "Type"))); i = i + 1 }
+    return ls
+}
+static String lambdaRetC(N x) {
+    N eb = fld(x, "ExprB")
+    if eb.nm == "" || eb.nm == "nil" { return "void" }
+    return cType(exprType(eb, lambdaScope(x)))
+}
+static String lambdaDefText(N x, Int id) {
+    EM le = new EM()
+    le.ind = 4
+    SC ls = lambdaScope(x)
+    N eb = fld(x, "ExprB")
+    if eb.nm != "" && eb.nm != "nil" {
+        le.add("(void)0;")
+        String bv = expr(eb, le, ls)
+        le.add("return " + bv + ";")
+    }
+    return "static " + lambdaRetC(x) + " xn_fn_lit_" + str(id) + "(" + lambdaParamDecl(x) + ") {\n" + joinLines(le.ls) + "\n}\n\n"
+}
+static String lambdaProtos() {
+    String b = ""
+    Int i = 0
+    while i < LAM_NODES.length() {
+        N x = LAM_NODES.get(i)
+        b = b + "static " + lambdaRetC(x) + " xn_fn_lit_" + str(i + 1) + "(" + lambdaParamDecl(x) + ");\n"
+        i = i + 1
+    }
+    if b != "" { b = b + "\n" }
+    return b
+}
+
 static String expr(N x, EM e, SC sc) {
+    if x.nm == "Lambda" { return "xn_fn_lit_" + str(lambdaId(x)) }
     if x.nm == "IntLitExpr" {
         String it = unq(txt(fld(x, "Text")))
         if it.indexOf("0x") == 0 || it.indexOf("0X") == 0 {
@@ -5818,6 +5881,8 @@ static String emitUnit(N unit, String path) {
         }
         sci = sci + 1
     }
+    LAM_KEYS = []
+    LAM_NODES = []
     PREPASS = true
     i = 0
     while i < decls.el.length() {
@@ -5840,6 +5905,8 @@ static String emitUnit(N unit, String path) {
     PRE_CGET = 0
     PREPASS = false
     prewarmContainers(decls)
+    Int lamd = 0
+    while lamd < LAM_NODES.length() { e.raw(lambdaDefText(LAM_NODES.get(lamd), lamd + 1)); lamd = lamd + 1 }
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
@@ -6031,7 +6098,7 @@ static String emitUnit(N unit, String path) {
         }
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B + lambdaProtos()
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
