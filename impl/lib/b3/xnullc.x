@@ -194,6 +194,10 @@ static String q(String s) {
 static Int lineOf(N n) { return dec(txt(fld(fld(n, "P"), "Line"))) }
 static Int colOf(N n) { return dec(txt(fld(fld(n, "P"), "Col"))) }
 static List<String> LAM_KEYS = []
+static List<String> LOCK_KEYS = []
+static List<N> LOCK_NODES = []
+static List<String> LOCK_TEXTS = []
+static Bool LOCK_BODY = false
 static List<N> LAM_NODES = []
 static String sp(Int n) {
     String b = ""
@@ -497,8 +501,8 @@ static String cType(String k) {
     if k == "Int?" { return "xn_opt_i" }
     if k == "Bool?" { return "xn_opt_b" }
     if k == "String?" { return "xn_opt_s" }
-    if k.indexOf("Mutex<") == 0 { return "xrt_mutex *" }
-    if k.indexOf("Channel<") == 0 { return "xrt_channel *" }
+    if k == "Mutex" || k.indexOf("Mutex<") == 0 { return "xrt_mutex *" }
+    if k == "Channel" || k.indexOf("Channel<") == 0 { return "xrt_channel *" }
     if k == "AtomicInt" { return "xrt_atomic_int *" }
     if k == "AtomicBool" { return "xrt_atomic_bool *" }
     if k == "String" { return "rt_string *" }
@@ -1220,6 +1224,16 @@ static String exprType(N x, SC sc) {
             if mt == "Bytes" && mn == "get" { return "Int" }
             if mt == "Bytes" && mn == "toString" { return "String" }
             if mt == "Bytes" && mn == "slice" { return "Bytes" }
+            if mt == "Channel" || mt.indexOf("Channel<") == 0 {
+                if mn == "send" { return "Result<void, CancelledError>" }
+                if mn == "receive" { return "Result<Int, CancelledError>" }
+            }
+            if (mt == "Mutex" || mt.indexOf("Mutex<") == 0) && mn == "withLock" { return "Result<void, TaskError>" }
+            if mt == "AtomicInt" || mt == "AtomicBool" {
+                if mn == "load" { if mt == "AtomicBool" { return "Bool" }; return "Int" }
+                if mn == "compareExchange" { return "Bool" }
+                if mn == "store" { return "void" }
+            }
             if mn == "length" { return "Int" }
             if mn == "substring" { return "String" }
             if mn == "trim" || mn == "toUpper" || mn == "toLower" || mn == "replace" { return "String" }
@@ -1426,7 +1440,76 @@ static String lambdaDefText(N x, Int id) {
         String bv = expr(eb, le, ls)
         le.add("return " + bv + ";")
     }
-    return "static " + lambdaRetC(x) + " xn_fn_lit_" + str(id) + "(" + lambdaParamDecl(x) + ") {\n" + joinLines(le.ls) + "\n}\n\n"
+    return "static " + lambdaRetC(x) + " xn_fn_lit_" + str(id) + "(" + lambdaParamDecl(x) + ") {\n" + joinLines(le.ls) + "\n}\n\n\n"
+}
+static String syncBox(String elem, String v) {
+    if elem == "Bool" { return "((void *)(intptr_t)((int)(" + v + ")))" }
+    return "((void *)(intptr_t)(" + v + "))"
+}
+static String syncUnbox(String elem, String v) { return "((int64_t)(intptr_t)" + v + ")" }
+static String lockBodyName(N lam, EM e) {
+    String k = str(lineOf(lam)) + ":" + str(colOf(lam))
+    Int i = 0
+    while i < LOCK_KEYS.length() {
+        if LOCK_KEYS.get(i) == k { return "xn_lock_body_" + str(i + 1) }
+        i = i + 1
+    }
+    LOCK_KEYS.push(k)
+    LOCK_NODES.push(lam)
+    Int id = LOCK_KEYS.length()
+    EM le = new EM()
+    le.tmp = e.tmp
+    le.path = e.path
+    le.ind = 0
+    SC ls = new SC()
+    ls.retKind = "void"
+    ls.hasResult = false
+    N ps = fld(lam, "Params")
+    String pn = "x"
+    String pt = "Int"
+    if ps.el.length() > 0 { pn = unq(txt(fld(ps.el.get(0), "Name"))); pt = typeKey(fld(ps.el.get(0), "Type")) }
+    ls.def(pn, pt)
+    Bool oldLB = LOCK_BODY
+    LOCK_BODY = true
+    N blk = fld(lam, "Block")
+    if blk.nm == "Block" {
+        N sts = fld(blk, "Stmts")
+        Int si = 0
+        while si < sts.el.length() { emitStmt(sts.el.get(si), le, ls, false); si = si + 1 }
+    }
+    LOCK_BODY = oldLB
+    e.tmp = le.tmp
+    String text = "static int32_t xn_lock_body_" + str(id) + "(void *data, void *env, xrt_context *ctx) {\n" +
+        "    (void)env; (void)ctx;\n" +
+        "    " + cType(pt) + " " + pn + " = (" + cType(pt) + ")(intptr_t)data;\n" +
+        joinLines(le.ls) + "\n    return 0;\n}\n\n\n"
+    LOCK_TEXTS.push(text)
+    return "xn_lock_body_" + str(id)
+}
+static String lockBodyText(N lam, Int id) {
+    EM le = new EM()
+    le.ind = 4
+    SC ls = new SC()
+    ls.retKind = "void"
+    ls.hasResult = false
+    N ps = fld(lam, "Params")
+    String pn = "x"
+    String pt = "Int"
+    if ps.el.length() > 0 { pn = unq(txt(fld(ps.el.get(0), "Name"))); pt = typeKey(fld(ps.el.get(0), "Type")) }
+    ls.def(pn, pt)
+    Bool oldLB = LOCK_BODY
+    LOCK_BODY = true
+    N blk = fld(lam, "Block")
+    if blk.nm == "Block" {
+        N sts = fld(blk, "Stmts")
+        Int i = 0
+        while i < sts.el.length() { emitStmt(sts.el.get(i), le, ls, false); i = i + 1 }
+    }
+    LOCK_BODY = oldLB
+    return "static int32_t xn_lock_body_" + str(id) + "(void *data, void *env, xrt_context *ctx) {\n" +
+        "    (void)env; (void)ctx;\n" +
+        "    " + cType(pt) + " " + pn + " = (" + cType(pt) + ")(intptr_t)data;\n" +
+        joinLines(le.ls) + "\n    return 0;\n}\n\n\n"
 }
 static String lambdaProtos() {
     String b = ""
@@ -1436,7 +1519,20 @@ static String lambdaProtos() {
         b = b + "static " + lambdaRetC(x) + " xn_fn_lit_" + str(i + 1) + "(" + lambdaParamDecl(x) + ");\n"
         i = i + 1
     }
+    Int lk = 0
+    while lk < LOCK_NODES.length() {
+        b = b + "static int32_t xn_lock_body_" + str(lk + 1) + "(void *data, void *env, xrt_context *ctx);\n"
+        lk = lk + 1
+    }
     if b != "" { b = b + "\n" }
+    return b
+}
+static String lambdaDefs() {
+    String b = ""
+    Int i = 0
+    while i < LAM_NODES.length() { b = b + lambdaDefText(LAM_NODES.get(i), i + 1); i = i + 1 }
+    i = 0
+    while i < LOCK_TEXTS.length() { b = b + LOCK_TEXTS.get(i); i = i + 1 }
     return b
 }
 
@@ -1695,6 +1791,53 @@ static String expr(N x, EM e, SC sc) {
                 return bb2 + ")"
             }
             String cbt = exprType(mx, sc)
+            if cbt == "Mutex" || cbt.indexOf("Mutex<") == 0 || cbt == "Channel" || cbt.indexOf("Channel<") == 0 || cbt == "AtomicInt" || cbt == "AtomicBool" {
+                String rcv0 = expr(mx, e, sc)
+                if cbt == "AtomicInt" || cbt == "AtomicBool" {
+                    String ab = "xrt_atomic_int"
+                    if cbt == "AtomicBool" { ab = "xrt_atomic_bool" }
+                    if mn == "load" { return "((int64_t)" + ab + "_load(" + rcv0 + "))" }
+                    if mn == "compareExchange" {
+                        String a0s = "0"; String a1s = "0"
+                        if args.el.length() > 0 { a0s = expr(args.el.get(0), e, sc) }
+                        if args.el.length() > 1 { a1s = expr(args.el.get(1), e, sc) }
+                        return "((int64_t)" + ab + "_cas(" + rcv0 + ", (int64_t)(" + a0s + "), (int64_t)(" + a1s + ")))"
+                    }
+                }
+                if cbt == "Channel" || cbt.indexOf("Channel<") == 0 {
+                    String el0 = "Int"
+                    if cbt.indexOf("Channel<") == 0 { el0 = arrElem(cbt) }
+                    if mn == "send" {
+                        String sv0 = "0"
+                        if args.el.length() > 0 { sv0 = expr(args.el.get(0), e, sc) }
+                        String rc0 = e.nt(); String dst0 = e.nt()
+                        e.add("int32_t " + rc0 + " = xrt_channel_send(" + rcv0 + ", " + syncBox(el0, sv0) + ", NULL);")
+                        e.add("xn_Result_void_CancelledError " + dst0 + ";")
+                        e.add("if (" + rc0 + " != 0) { " + dst0 + ".ok = 0; " + dst0 + ".v = 0; " + dst0 + ".err = (xrt_error_kind)" + rc0 + "; }")
+                        e.add("else { " + dst0 + ".ok = 1; " + dst0 + ".v = 0; " + dst0 + ".err = 0; }")
+                        return dst0
+                    }
+                    if mn == "receive" {
+                        String rc1 = e.nt(); String dst1 = e.nt(); String vv0 = e.nt()
+                        e.add("void *" + vv0 + " = NULL;")
+                        e.add("int32_t " + rc1 + " = xrt_channel_receive(" + rcv0 + ", &" + vv0 + ", NULL);")
+                        e.add("xn_Result_Int_CancelledError " + dst1 + ";")
+                        e.add("if (" + rc1 + " != 0) { " + dst1 + ".ok = 0; " + dst1 + ".v = 0; " + dst1 + ".err = (xrt_error_kind)" + rc1 + "; }")
+                        e.add("else { " + dst1 + ".ok = 1; " + dst1 + ".v = " + syncUnbox(el0, vv0) + "; " + dst1 + ".err = 0; }")
+                        return dst1
+                    }
+                }
+                if (cbt == "Mutex" || cbt.indexOf("Mutex<") == 0) && mn == "withLock" {
+                    N lam0 = args.el.get(0)
+                    String rc2 = e.nt(); String dst2 = e.nt()
+                    String lf0 = lockBodyName(lam0, e)
+                    e.add("int32_t " + rc2 + " = xrt_mutex_with_lock(" + rcv0 + ", " + lf0 + ", NULL, NULL);")
+                    e.add("xn_Result_void_TaskError " + dst2 + ";")
+                    e.add("if (" + rc2 + " != 0) { " + dst2 + ".ok = 0; " + dst2 + ".v = 0; " + dst2 + ".err = (xrt_error_kind)" + rc2 + "; }")
+                    e.add("else { " + dst2 + ".ok = 1; " + dst2 + ".v = 0; " + dst2 + ".err = 0; }")
+                    return dst2
+                }
+            }
             if isSingle(cbt) {
                 String b0 = "xn_single_" + cbt
                 String call = "xn_Single_" + cbt + "_" + mn + "(" + b0
@@ -2772,6 +2915,13 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         if isResult(ty) {
+            if init.nm == "Call" {
+                N okc = fld(init, "Callee")
+                if okc.nm == "IdentExpr" && unq(txt(fld(okc, "Name"))) == "Ok" {
+                    e.add(cType(ty) + " " + nm + " = (" + cType(ty) + "){1, 0, 0};")
+                    return
+                }
+            }
             e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
             return
         }
@@ -2913,6 +3063,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 }
                 String xb = expr(mx, e, sc)
                 String rt0 = exprType(mx, sc)
+                if (rt0 == "AtomicInt" || rt0 == "AtomicBool") && mn == "store" {
+                    String ab0 = "xrt_atomic_int"
+                    if rt0 == "AtomicBool" { ab0 = "xrt_atomic_bool" }
+                    String stv0 = "0"
+                    if args.el.length() > 0 { stv0 = expr(args.el.get(0), e, sc) }
+                    e.add(ab0 + "_store(" + xb + ", (int64_t)(" + stv0 + "));")
+                    return
+                }
+                if (rt0 == "Channel" || rt0.indexOf("Channel<") == 0) && mn == "close" { e.add("xrt_channel_close(" + xb + ");"); return }
                 if mn == "push" && (rt0 == "Bytes" || isU16List(rt0) || isObjArr(rt0) || isArr(rt0)) {
                     String a0 = "0"
                     if args.el.length() > 0 {
@@ -3026,6 +3185,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     if st.nm == "ReturnStmt" {
         e.terminated = false
         N v = fld(st, "Value")
+        if LOCK_BODY && v.nm != "" && v.nm != "nil" && isResult(exprType(v, sc)) {
+            String lrt = exprType(v, sc)
+            String lt0 = e.nt()
+            e.add(cType(lrt) + " " + lt0 + " = (" + expr(v, e, sc) + ");")
+            e.add("if (!" + lt0 + ".ok) { return (int32_t)" + lt0 + ".err; }")
+            e.add("return 0;")
+            return
+        }
         if sc.isCtor || sc.retKind == "void" {
             emitReturnClose(sc, e, "")
             return
@@ -6072,8 +6239,6 @@ static String emitUnit(N unit, String path) {
     PRE_CGET = 0
     PREPASS = false
     prewarmContainers(decls)
-    Int lamd = 0
-    while lamd < LAM_NODES.length() { e.raw(lambdaDefText(LAM_NODES.get(lamd), lamd + 1)); lamd = lamd + 1 }
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
@@ -6265,7 +6430,7 @@ static String emitUnit(N unit, String path) {
         }
         String rtd = resultTypedefsSorted(sc)
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B + lambdaProtos()
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_B1 + fnTypedefs() + enumTypedefs() + PRELUDE_B2 + enumNameDefs() + PRELUDE_B3 + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + joinLines(ce.ls).substring(0, joinLines(ce.ls).length() - 1) + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
@@ -6558,9 +6723,10 @@ static String emitUnit(N unit, String path) {
         res = res + PRELUDE_TAIL
     }
     e.add("}")
-    res = res + ""
+    res = res + lambdaProtos()
     Int j = 0
     while j < e.ls.length() {
+        if e.ls.get(j).indexOf("int main(") == 0 { res = res + lambdaDefs() }
         res = res + e.ls.get(j) + "\n"
         j = j + 1
     }
