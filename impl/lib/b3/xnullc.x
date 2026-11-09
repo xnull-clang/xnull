@@ -216,6 +216,31 @@ static String typeKey(N t) {
 }
 List<String> FN_NAMES = []
 List<String> FN_SIGS = []
+List<String> C_ARR = []
+List<String> C_SET = []
+List<String> C_MAPK = []
+List<String> C_MAPV = []
+List<String> C_DECL = []
+
+static Bool hasStr(List<String> xs, String v) {
+    Int i = 0
+    while i < xs.length() { if xs.get(i) == v { return true }; i = i + 1 }
+    return false
+}
+static void needArr(String ec) {
+    if !hasStr(C_ARR, ec) { C_ARR.push(ec) }
+}
+static void needSet(String ec) {
+    needArr(ec)
+    if !hasStr(C_SET, ec) { C_SET.push(ec) }
+}
+static void needMap(String kc, String vc) {
+    String key = kc + "|" + vc
+    Int i = 0
+    while i < C_MAPK.length() { if C_MAPK.get(i) + "|" + C_MAPV.get(i) == key { return }; i = i + 1 }
+    C_MAPK.push(kc)
+    C_MAPV.push(vc)
+}
 
 static Bool asciiAlnum(String c) {
     return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".indexOf(c) >= 0
@@ -398,6 +423,14 @@ static String resultErr(String k) {
 static String cType(String k) {
     if k == "void" { return "void" }
     if k.indexOf("xn_fn_") == 0 { return k }
+    if k.length() > 6 && k.indexOf("List<") == 0 { needArr(cType(k.substring(5, k.length() - 6))) }
+    if k.length() > 5 && k.indexOf("Set<") == 0 { needSet(cType(k.substring(4, k.length() - 5))) }
+    if k.length() > 5 && k.indexOf("Map<") == 0 {
+        String mi = k.substring(4, k.length() - 5)
+        Int mc = topComma(mi)
+        if mc >= 0 { needMap(cType(mi.substring(0, mc).trim()), cType(mi.substring(mc + 1, mi.length() - mc - 1).trim())) }
+    }
+    if k.length() > 2 && k.substring(k.length() - 2, 2) == "[]" { needArr(cType(k.substring(0, k.length() - 2))) }
     if isTupleKey(k) { return tupleCName(tupleInnerKeys(k)) }
     if k == "Int" { return "int64_t" }
     if k == "Int8" { return "int8_t" }
