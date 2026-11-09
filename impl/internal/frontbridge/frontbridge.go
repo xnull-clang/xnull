@@ -71,9 +71,9 @@ func ParseUnit(file, src string) (*xfront.CompilationUnit, []diag.Diagnostic) {
 	dump, err := parserAST(src, mode)
 	if err == nil {
 		if strings.Contains(dump, "(depth-limit)") {
-			// dumpReflect 的 64 层截断会丢失深层子树，不能作为工具链 AST；
-			// 按传输失败处理，auto 回退 Go oracle，行为与旧路径一致。
-			err = fmt.Errorf("AST dump 触发 64 层 depth-limit，回退 Go oracle")
+			// dumpReflect 深度截断会丢失深层子树，不能作为工具链 AST；
+			// 按传输失败处理，auto 回退 Go oracle；真实超限仍报错回退。
+			err = fmt.Errorf("AST dump 触发 depth-limit，回退 Go oracle")
 		} else if u, derr := Deserialize(dump); derr == nil {
 			return u, nil
 		} else {
