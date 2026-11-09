@@ -1453,8 +1453,8 @@ static String expr(N x, EM e, SC sc) {
         String fc = f
         if baseCls(bt) != "" { String own = fieldOwner(baseCls(bt), f); if own != "" && fieldPrivate(own, f) { fc = "_" + f } }
         else if isClass(bt) { if fieldPrivate(bt, f) { fc = "_" + f } }
-        if baseCls(bt) != "" { return expr(fld(x, "X"), e, sc) + "->" + fc }
-        if isClass(bt) || isSingle(bt) || isDataEnum(bt) { return expr(fld(x, "X"), e, sc) + "->" + fc }
+        if baseCls(bt) != "" { String mv0 = expr(fld(x, "X"), e, sc) + "->" + fc; if exprType(x, sc) == "Bool" { return "((int)(" + mv0 + "))" }; return mv0 }
+        if isClass(bt) || isSingle(bt) || isDataEnum(bt) { String mv1 = expr(fld(x, "X"), e, sc) + "->" + fc; if exprType(x, sc) == "Bool" { return "((int)(" + mv1 + "))" }; return mv1 }
         if isStruct(bt) {
             String bx = expr(fld(x, "X"), e, sc)
             if bx == "self" && sc.selfPtr { return "self->" + f }
@@ -2533,6 +2533,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         String nm = expr(tgt, e, sc)
+        if tgt.nm == "Member" && exprType(tgt, sc) == "Bool" && nm.indexOf("((int)(") == 0 && nm.substring(nm.length() - 2, 2) == "))" { nm = nm.substring(7, nm.length() - 9) }
         String op = unq(txt(fld(st, "Op")))
         String v = ""
         if tgt.nm == "IdentExpr" && exprType(tgt, sc) == "String" && op == "=" {
@@ -2744,7 +2745,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             emitReturnClose(sc, e, sc.ret)
             return
         }
-        if baseCls(sc.retKind) != "" && v.nm == "IdentExpr" {
+        if baseCls(sc.retKind) != "" && (v.nm == "IdentExpr" || v.nm == "Member") {
             String pv = expr(v, e, sc)
             if classPolicy(baseCls(sc.retKind)) == "arc" { e.add("rt_retain(" + pv + ");") }
             sc.ret = pv
