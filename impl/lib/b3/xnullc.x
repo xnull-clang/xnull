@@ -2640,6 +2640,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     String a0 = "0"
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     if args.el.length() > 0 && isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" { a0 = emitStr(args.el.get(0), e, sc) }
+                    if args.el.length() > 0 && isObjArr(rt0) {
+                        String eo0 = objArrElem(rt0)
+                        N ag0 = args.el.get(0)
+                        if baseCls(eo0) != "" && classPolicy(baseCls(eo0)) == "gc" && (ag0.nm == "Call" || ag0.nm == "Index" || ag0.nm == "Member") {
+                            String tg0 = e.nt()
+                            e.add(cType(eo0) + " " + tg0 + " = " + expr(ag0, e, sc) + ";")
+                            a0 = tg0
+                        }
+                    }
                     if rt0 == "Bytes" { e.add("xrt_bytes_push(" + xb + ", (int32_t)(" + a0 + "));") }
                     else if isU16List(rt0) { e.add("xn_arr_u16_push(" + xb + ", " + a0 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_push(" + xb + ", " + a0 + ");") }
@@ -2659,6 +2668,14 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     if args.el.length() > 0 { a0 = emitStr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
                     if args.el.length() > 1 && cType(mapVal(rt0)) == "rt_string *" { a1 = emitStr(args.el.get(1), e, sc) }
+                    if args.el.length() > 1 && baseCls(mapVal(rt0)) != "" && classPolicy(baseCls(mapVal(rt0))) == "gc" {
+                        N ag2 = args.el.get(1)
+                        if ag2.nm == "Call" || ag2.nm == "Index" || ag2.nm == "Member" {
+                            String tg2 = e.nt()
+                            e.add(cType(mapVal(rt0)) + " " + tg2 + " = " + expr(ag2, e, sc) + ";")
+                            a1 = tg2
+                        }
+                    }
                     e.add(mapNameC(cType(mapKey(rt0)), cType(mapVal(rt0))) + "_put(" + xb + ", " + a0 + ", " + a1 + ");")
                     return
                 }
@@ -2668,6 +2685,15 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                     if args.el.length() > 0 { a0 = expr(args.el.get(0), e, sc) }
                     if args.el.length() > 1 { a1 = expr(args.el.get(1), e, sc) }
                     if args.el.length() > 1 && isArr(rt0) && cType(arrElem(rt0)) == "rt_string *" { a1 = emitStr(args.el.get(1), e, sc) }
+                    if args.el.length() > 1 && isObjArr(rt0) {
+                        String eo1 = objArrElem(rt0)
+                        N ag1 = args.el.get(1)
+                        if baseCls(eo1) != "" && classPolicy(baseCls(eo1)) == "gc" && (ag1.nm == "Call" || ag1.nm == "Index" || ag1.nm == "Member") {
+                            String tg1 = e.nt()
+                            e.add(cType(eo1) + " " + tg1 + " = " + expr(ag1, e, sc) + ";")
+                            a1 = tg1
+                        }
+                    }
                     if isU16List(rt0) { e.add("xn_arr_u16_set(" + xb + ", " + a0 + ", " + a1 + ");") }
                     else if isObjArr(rt0) { e.add(classArrName(rt0) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
                     else { e.add(arrNameC(cType(arrElem(rt0))) + "_set(" + xb + ", " + a0 + ", " + a1 + ");") }
