@@ -1170,7 +1170,7 @@ static String exprType(N x, SC sc) {
             if mn == "substring" { return "String" }
             if mn == "indexOf" || mn == "indexOfByte" { return "Int" }
             if mn == "charAt" { return "Char" }
-            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; return "Int" }
+            if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; if isArr(mt) { return arrElem(mt) }; return "Int" }
             if mn == "getOr" { return mapVal(mt) }
             if mn == "has" { return "Bool" }
             if mn == "add" { return "Bool" }
@@ -1208,6 +1208,11 @@ static String exprType(N x, SC sc) {
     if x.nm == "Index" {
         String bt = exprType(fld(x, "X"), sc)
         if isMap(bt) { return mapVal(bt) }
+        if isU16List(bt) { return "UInt16" }
+        if isObjArr(bt) { return objArrElem(bt) }
+        if isTupList(bt) { return tupleListElem(bt) }
+        if isSet(bt) { return setElem(bt) }
+        if isArr(bt) { return arrElem(bt) }
         return "Int"
     }
     if x.nm == "Binary" {
@@ -1458,7 +1463,14 @@ static String expr(N x, EM e, SC sc) {
         return expr(fld(x, "X"), e, sc) + "." + f
     }
     if x.nm == "Index" {
-        return "xn_arr_i_get(" + expr(fld(x, "X"), e, sc) + ", " + expr(fld(x, "Idx"), e, sc) + ")"
+        String bt = exprType(fld(x, "X"), sc)
+        String xb = expr(fld(x, "X"), e, sc)
+        String ix = expr(fld(x, "Idx"), e, sc)
+        if isMap(bt) { return "(" + mapNameC(cType(mapKey(bt)), cType(mapVal(bt))) + "_get(" + xb + ", " + ix + ").v)" }
+        if isU16List(bt) { return "xn_arr_u16_get(" + xb + ", " + ix + ")" }
+        if isObjArr(bt) { return classArrName(bt) + "_get(" + xb + ", " + ix + ")" }
+        if isTupList(bt) { return arrTupName(bt) + "_get(" + xb + ", " + ix + ")" }
+        return arrNameC(cType(arrElem(bt))) + "_get(" + xb + ", " + ix + ")"
     }
     if x.nm == "Call" {
         N callee = fld(x, "Callee")
@@ -1817,6 +1829,12 @@ static String emitStr(N x, EM e, SC sc) {
         rootStr(e, sc, t)
         return t
     }
+    if x.nm == "Index" {
+        String t = e.nt()
+        e.add("rt_string *" + t + " = rt_retain(" + expr(x, e, sc) + ");")
+        rootStr(e, sc, t)
+        return t
+    }
     if x.nm == "IdentExpr" || x.nm == "Member" {
         String t = e.nt()
         e.add("rt_string *" + t + " = rt_retain(" + expr(x, e, sc) + ");")
@@ -1833,6 +1851,16 @@ static String emitStr(N x, EM e, SC sc) {
                 e.add("rt_string *" + t + " = xn_result_error_copy_rt(" + expr(mx, e, sc) + ".err);")
                 rootStr(e, sc, t)
                 return t
+            }
+            if mn == "get" {
+                String grt = exprType(fld(callee, "X"), sc)
+                if isArr(grt) && cType(arrElem(grt)) == "rt_string *" {
+                    String gv = expr(x, e, sc)
+                    String gt = e.nt()
+                    e.add("rt_string *" + gt + " = rt_retain(" + gv + ");")
+                    rootStr(e, sc, gt)
+                    return gt
+                }
             }
         }
         String val0 = expr(x, e, sc)
@@ -2214,9 +2242,19 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             } else if init.nm == "IdentExpr" || init.nm == "Member" {
                 String sdum1 = e.nt()
                 e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+            } else if init.nm == "Index" {
+                e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
             } else if init.nm == "Call" {
                 N ic0 = fld(init, "Callee")
                 N as0 = fld(init, "Args")
+                Bool strGet0 = false
+                if ic0.nm == "Member" && unq(txt(fld(ic0, "Name"))) == "get" {
+                    String grt0 = exprType(fld(ic0, "X"), sc)
+                    if isArr(grt0) && cType(arrElem(grt0)) == "rt_string *" { strGet0 = true }
+                }
+                if strGet0 {
+                    e.add("rt_string *" + nm + " = rt_retain(" + expr(init, e, sc) + ");")
+                } else {
                 Bool subM = false
                 if ic0.nm == "Member" && unq(txt(fld(ic0, "Name"))) == "substring" {
                     if fld(ic0, "X").nm == "Member" && as0.el.length() >= 2 { subM = true }
@@ -2229,6 +2267,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 } else {
                     String sdum = e.nt()
                     e.add("rt_string *" + nm + " = " + expr(init, e, sc) + ";")
+                }
                 }
             } else {
                 String sv = emitStr(init, e, sc)
