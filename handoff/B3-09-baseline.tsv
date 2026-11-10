@@ -223,7 +223,7 @@ tests/b3/fixtures/xdk/runtime.x	tests	多文件	2	OK	OK	0
 tests/b3/neg/compound_mul.x	tests	非入口/负例		FAIL	skip		xnull: 代码生成失败：codegen：复合赋值 *= 未支持（M4.1 范围）	
 tests/b3/neg/do_while.x	tests	非入口/负例		FAIL	skip		xnull: 代码生成失败：codegen：语句 *xfront.DoWhileStmt 未支持（M4.1 范围）	
 tests/b3/neg/incdec.x	tests	非入口/负例		FAIL	skip		xnull: 代码生成失败：codegen：语句 *xfront.IncDecStmt 未支持（M4.1 范围）	
-tests/b3/neg/ternary.x	tests	非入口/负例		FAIL	skip		xnull: 代码生成失败：codegen：Int 表达式 *xfront.Ternary 未支持（M4.1 范围）	
+tests/b3/neg/ternary.x	tests	单文件	1	OK	OK	0		
 tests/s3/mem03/container_cycle.x	tests	单文件	1	OK	OK	0		
 tests/s3/mem03/cycle.x	tests	单文件	1	OK	OK	0		
 tests/s3/mem03/identity.x	tests	单文件	1	OK	OK	0		
