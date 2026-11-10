@@ -1329,6 +1329,7 @@ static String exprType(N x, SC sc) {
         if isProtoType(bt) { return "Int" }
         return "Int"
     }
+    if x.nm == "Ternary" { return exprType(fld(x, "Then"), sc) }
     if x.nm == "Unary" {
         String op = unq(txt(fld(x, "Op")))
         if op == "!" { return "Bool" }
@@ -1775,6 +1776,38 @@ static String expr(N x, EM e, SC sc) {
         String op = unq(txt(fld(x, "Op")))
         if op == "try" { return expr(fld(x, "X"), e, sc) }
         return "(" + op + "(" + expr(fld(x, "X"), e, sc) + "))"
+    }
+    if x.nm == "Ternary" {
+        N cnd0 = fld(x, "Cond")
+        N thn0 = fld(x, "Then")
+        N els0 = fld(x, "Else")
+        String tc0 = exprType(x, sc)
+        String cv0 = expr(cnd0, e, sc)
+        String tsc0 = e.nt()
+        String esc0 = e.nt()
+        String tv0 = e.nt()
+        if tc0 == "String" { e.add("rt_string *" + tv0 + " = NULL;") }
+        else { e.add(cType(tc0) + " " + tv0 + ";") }
+        e.add("if ((" + cv0 + ")) {")
+        e.ind = e.ind + 4
+        if tc0 == "String" {
+            String ste0 = emitStr(thn0, e, sc)
+            e.add(tv0 + " = " + ste0 + ";")
+        } else {
+            e.add(tv0 + " = " + expr(thn0, e, sc) + ";")
+        }
+        e.ind = e.ind - 4
+        e.add("} else {")
+        e.ind = e.ind + 4
+        if tc0 == "String" {
+            String see0 = emitStr(els0, e, sc)
+            e.add(tv0 + " = " + see0 + ";")
+        } else {
+            e.add(tv0 + " = " + expr(els0, e, sc) + ";")
+        }
+        e.ind = e.ind - 4
+        e.add("}")
+        return tv0
     }
     if x.nm == "Binary" {
         String op = unq(txt(fld(x, "Op")))
