@@ -156,6 +156,12 @@ static String joinLinear(List<String> xs) {
     return ""
 }
 static Bool STAGE_LOG = false
+static Int ESC_EXPR_N = 0
+static Int ESC_STMT_N = 0
+static Int ESC_BLOCK_N = 0
+static Int ESC_MARK_N = 0
+static Int INN_ITERS = 0
+static Int FN_EMIT_N = 0
 static Int STAGE_T = 0
 static void slog(String s) { if STAGE_LOG { diagnose(s) } }
 static void stage(String name) {
@@ -202,6 +208,7 @@ static String unqBig(String s) {
 }
 static String unq(String raw) {
     if raw.length() < 2 { return raw }
+    if raw.length() < 80 && UNQ_CACHE.has(raw) { return UNQ_CACHE.get(raw) }
     String s = raw.substring(1, raw.length() - 2)
     if s.length() > 4096 {
         if s.indexOf("\\") < 0 { return s }
@@ -237,6 +244,7 @@ static String unq(String raw) {
         } else { b = b + c }
         i = i + 1
     }
+    if raw.length() < 80 { UNQ_CACHE.put(raw, b) }
     return b
 }
 static String qBig(String s) {
@@ -324,6 +332,7 @@ static String lastQual(N t) {
 }
 static List<String> SUB_FROM = []
 static List<String> SUB_TO = []
+static Map<String, String> UNQ_CACHE = [:]
 static String substKey(String k) {
     Int i = 0
     while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
@@ -1174,7 +1183,7 @@ class SC {
     String curFn = ""
     List<String> params = []
     List<String> paramTypes = []
-    List<String> escaped = []
+    Map<String, Int> escaped = [:]
     List<String> fnNames = []
     List<String> fnRets = []
     List<String> resultTypes = []
@@ -3158,6 +3167,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 }
                 return
             }
+            if isMap(mtt) || isSet(mtt) {
+                String mnm1 = expr(tgt, e, sc)
+                if val0.nm == "MapLit" || val0.nm == "SetLit" {
+                    if isMap(mtt) { e.add(mnm1 + " = " + mapNameC(cType(mapKey(mtt)), cType(mapVal(mtt))) + "_new(0);") }
+                    else { e.add(mnm1 + " = " + setNameC(cType(setElem(mtt))) + "_new();") }
+                } else {
+                    e.add(mnm1 + " = " + expr(val0, e, sc) + ";")
+                }
+                return
+            }
             if isArr(mtt) || isObjArr(mtt) || isU16List(mtt) || isTupList(mtt) {
                 String mnm0 = expr(tgt, e, sc)
                 if val0.nm == "ArrayLit" {
@@ -3207,6 +3226,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         String nm = expr(tgt, e, sc)
         if tgt.nm == "IdentExpr" && nm.indexOf("xn_g_") == 0 && op0 == "=" {
             String gt = exprType(tgt, sc)
+            if isMap(gt) || isSet(gt) {
+                if val0.nm == "MapLit" || val0.nm == "SetLit" {
+                    if isMap(gt) { e.add(nm + " = " + mapNameC(cType(mapKey(gt)), cType(mapVal(gt))) + "_new(0);") }
+                    else { e.add(nm + " = " + setNameC(cType(setElem(gt))) + "_new();") }
+                } else {
+                    e.add(nm + " = " + expr(val0, e, sc) + ";")
+                }
+                e.add("xn_root_hold(" + nm + ");")
+                return
+            }
             if isArr(gt) || isObjArr(gt) || isU16List(gt) || isTupList(gt) {
                 if val0.nm == "ArrayLit" {
                     String lv = arrayLitArg(val0, gt, e, sc)
@@ -3835,12 +3864,13 @@ static String paramsOf(N fn) {
 
 static Bool inNames(List<String> xs, String v) {
     Int i = 0
-    while i < xs.length() { if xs.get(i) == v { return true }; i = i + 1 }
+    while i < xs.length() { INN_ITERS = INN_ITERS + 1; if xs.get(i) == v { return true }; i = i + 1 }
     return false
 }
 static void escMark(SC sc, String n) {
+    ESC_MARK_N = ESC_MARK_N + 1
     if n == "" || n == "self" || n == "super" { return }
-    if !inNames(sc.escaped, n) { sc.escaped.push(n) }
+    if !sc.escaped.has(n) { sc.escaped.put(n, 1) }
 }
 static void escAll(N n, SC sc) {
     if n.nm == "" || n.nm == "nil" { return }
@@ -3851,6 +3881,7 @@ static void escAll(N n, SC sc) {
     while i < n.el.length() { escAll(n.el.get(i), sc); i = i + 1 }
 }
 static void escExpr(N x, Bool mark, SC sc) {
+    ESC_EXPR_N = ESC_EXPR_N + 1
     if x.nm == "" || x.nm == "nil" { return }
     if x.nm == "IdentExpr" { if mark { escMark(sc, unq(txt(fld(x, "Name")))) }; return }
     if x.nm == "StrLitExpr" {
@@ -3916,6 +3947,7 @@ static void escExpr(N x, Bool mark, SC sc) {
     escAll(x, sc)
 }
 static void escStmt(N st, SC sc) {
+    ESC_STMT_N = ESC_STMT_N + 1
     if st.nm == "ReturnStmt" || st.nm == "ThrowStmt" { escExpr(fld(st, "Value"), true, sc); return }
     if st.nm == "ExprStmt" { escExpr(fld(st, "X"), true, sc); return }
     if st.nm == "LocalDeclStmt" { escExpr(fld(st, "Init"), true, sc); return }
@@ -3972,12 +4004,13 @@ static void escStmt(N st, SC sc) {
     if st.nm == "LabeledStmt" { escStmt(fld(st, "Stmt"), sc); return }
 }
 static void escBlock(N b, SC sc) {
+    ESC_BLOCK_N = ESC_BLOCK_N + 1
     if b.nm != "Block" { return }
     N stmts = fld(b, "Stmts")
     Int i = 0
     while i < stmts.el.length() { escStmt(stmts.el.get(i), sc); i = i + 1 }
 }
-static Bool isEscaped(SC sc, String n) { return inNames(sc.escaped, n) }
+static Bool isEscaped(SC sc, String n) { return sc.escaped.has(n) }
 
 static void emitBlockExit(SC sc, EM e, Int ind) {
     Int hi = 0
@@ -4015,7 +4048,7 @@ static void emitFunc(N fn, EM e, SC sc) {
         pi = pi + 1
     }
     sc.defers = []
-    sc.escaped = []
+    sc.escaped = [:]
     sc.names = []
     sc.types = []
     sc.own = []
@@ -4024,6 +4057,8 @@ static void emitFunc(N fn, EM e, SC sc) {
     sc.sid = -1
     sc.parentId = -1
     escBlock(fld(fn, "Body"), sc)
+    FN_EMIT_N = FN_EMIT_N + 1
+    if STAGE_LOG && FN_EMIT_N % 500 == 0 { slog("esc fns=" + str(FN_EMIT_N) + " expr=" + str(ESC_EXPR_N) + " stmt=" + str(ESC_STMT_N) + " mark=" + str(ESC_MARK_N) + " inn=" + str(INN_ITERS)) }
     String outName = "xn_" + fname + FN_SUFFIX
     sc.curFn = fname
     e.add(cType(rk) + " " + outName + "(" + paramsOf(fn) + ") {")
@@ -4348,6 +4383,10 @@ static void emitClassSection(N cls, EM ce) {
             ce.addAt(4, "rt_string *" + t + " = rt_string_from_c(" + q(text) + ");")
             ce.addAt(4, "rt_release((void *)o->" + fn + ");")
             ce.addAt(4, "o->" + fn + " = " + t + ";")
+        } else if isMap(ft) || isSet(ft) {
+            String mt0 = ft
+            if isMap(mt0) { ce.add("    o->" + fn + " = " + mapNameC(cType(mapKey(mt0)), cType(mapVal(mt0))) + "_new(0);") }
+            else { ce.add("    o->" + fn + " = " + setNameC(cType(setElem(mt0))) + "_new();") }
         } else if isArr(ft) || isObjArr(ft) {
             N elems = fld(init, "Elems")
             String t = ce.nt()
@@ -5621,7 +5660,7 @@ static String dynContainerHelpers() {
     while i < mks.length() { if mks.get(i).indexOf("s|") == 0 || mks.get(i).indexOf("|s") >= 0 { mapUsesS = true }; i = i + 1 }
     if mapUsesS {
         s = s + "\n"
-        if hasStr(C_ARR, "rt_string *") { s = s + arrSHelperOnly() } else { s = s + arrSBlock() }
+        if !hasStr(C_ARR, "rt_string *") { s = s + arrSBlock() }
     }
     i = 0
     while i < mks.length() {
@@ -6343,7 +6382,11 @@ static String globInitText() {
         String gt = GLOB_TYPES.get(i)
         N init = GLOB_INITS.get(i)
         String tg = "xn_g_" + nm
-        if isArr(gt) || isU16List(gt) || isObjArr(gt) || isTupList(gt) {
+        if isMap(gt) || isSet(gt) {
+            if isMap(gt) { b = b + "    " + tg + " = " + mapNameC(cType(mapKey(gt)), cType(mapVal(gt))) + "_new(0);\n" }
+            else { b = b + "    " + tg + " = " + setNameC(cType(setElem(gt))) + "_new();\n" }
+            b = b + "    xn_root_hold(" + tg + ");\n"
+        } else if isArr(gt) || isU16List(gt) || isObjArr(gt) || isTupList(gt) {
             String an = globListName(gt)
             b = b + "    " + tg + " = " + an + "_new(0);\n"
             b = b + "    xn_root_hold(" + tg + ");\n"
@@ -6600,6 +6643,7 @@ static String emitUnit(N unit, String path) {
         }
         i = i + 1
     }
+    stage("collect")
     Int sci = 0
     while sci < decls.el.length() {
         N d = decls.el.get(sci)
@@ -6614,6 +6658,7 @@ static String emitUnit(N unit, String path) {
     LAM_KEYS = []
     LAM_NODES = []
     PREPASS = true
+    stage("scan-cls")
     i = 0
     while i < decls.el.length() {
         N d = decls.el.get(i)
@@ -6623,17 +6668,21 @@ static String emitUnit(N unit, String path) {
         }
         i = i + 1
     }
+    stage("emit-funcs")
     i = 0
     while i < decls.el.length() {
         N d = decls.el.get(i)
         if d.nm == "TopFunc" && unq(txt(fld(d, "Name"))) == "main" { emitFunc(d, e, sc) }
         i = i + 1
     }
+    stage("emit-main")
     emitInstances(e, sc)
+    stage("instances")
     e.tmp = e.tmp
     PRE_HID = 0
     PRE_CGET = 0
     PREPASS = false
+    slog("esc total expr=" + str(ESC_EXPR_N) + " stmt=" + str(ESC_STMT_N) + " block=" + str(ESC_BLOCK_N) + " mark=" + str(ESC_MARK_N) + " inn=" + str(INN_ITERS))
     stage("emit-functions")
     prewarmContainers(decls)
     prepareGlobals(e)
