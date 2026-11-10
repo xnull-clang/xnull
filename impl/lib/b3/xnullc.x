@@ -156,6 +156,7 @@ static String joinLinear(List<String> xs) {
     return ""
 }
 static Bool STAGE_LOG = false
+static Bool FAST_ROOTS = false
 static Int ESC_EXPR_N = 0
 static Int ESC_STMT_N = 0
 static Int ESC_BLOCK_N = 0
@@ -6520,6 +6521,23 @@ static void prewarmContainers(N decls) {
     Int i = 0
     while i < decls.el.length() { prewarmN(decls.el.get(i)); i = i + 1 }
 }
+static Int indexFrom(String s, String sub, Int from) {
+    String rest = s.substring(from, s.length() - from)
+    Int k = rest.indexOf(sub)
+    if k < 0 { return -1 }
+    return from + k
+}
+static String fastRootsPatch(String s) {
+    Int a0 = s.indexOf("static void xn_root_hold(void *obj) {")
+    if a0 < 0 { return s }
+    Int b0 = indexFrom(s, "\n}\n", a0) + 3
+    String holdNew = "typedef struct { rt_header hdr; void **data; size_t len; size_t cap; } xn_rootbox;\n" + "static void xn_root_box_scan(void *p, void (*visit)(void *)) {\n" + "    xn_rootbox *b = (xn_rootbox *)p;\n" + "    for (size_t i = 0; i < b->len; i++) { visit(b->data[i]); }\n" + "}\n" + "static const rt_type RT_TYPE_XN_ROOTBOX = { \"RootBox\", sizeof(xn_rootbox), NULL, xn_root_box_scan };\n" + "static xn_rootbox *xn_root_box = NULL;\n" + "typedef struct { void *obj; size_t count; size_t pos; } xn_he;\n" + "static xn_he *xn_root_hash = NULL;\n" + "static size_t xn_root_hcap = 0;\n" + "static size_t xn_root_hused = 0;\n" + "static size_t xn_root_htomb = 0;\n" + "#define XN_ROOT_TOMB ((void *)(intptr_t)1)\n" + "static void xn_root_box_init(void) {\n" + "    if (xn_root_box != NULL) { return; }\n" + "    xn_root_box = (xn_rootbox *)rt_gc_new(&RT_TYPE_XN_ROOTBOX);\n" + "    memset((char *)xn_root_box + sizeof(rt_header), 0, sizeof(xn_rootbox) - sizeof(rt_header));\n" + "    rt_gc_root_add(xn_root_box);\n" + "}\n" + "static void xn_root_box_push(void *obj) {\n" + "    xn_root_box_init();\n" + "    if (xn_root_box->len == xn_root_box->cap) {\n" + "        xn_root_box->cap = xn_root_box->cap ? xn_root_box->cap * 2 : 1024;\n" + "        xn_root_box->data = realloc(xn_root_box->data, sizeof(void *) * xn_root_box->cap);\n" + "        if (xn_root_box->data == NULL) { abort(); }\n" + "    }\n" + "    xn_root_box->data[xn_root_box->len++] = obj;\n" + "}\n" + "static size_t xn_root_hslot(void *obj, size_t cap) {\n" + "    uintptr_t h = (uintptr_t)obj;\n" + "    h = (h >> 4) * (uintptr_t)2654435761u;\n" + "    return (size_t)(h % cap);\n" + "}\n" + "static void xn_root_hrehash(size_t nc) {\n" + "    xn_he *nt = (xn_he *)calloc(nc, sizeof(xn_he));\n" + "    if (nt == NULL) { abort(); }\n" + "    if (xn_root_hash != NULL) {\n" + "        for (size_t i = 0; i < xn_root_hcap; i++) {\n" + "            void *o = xn_root_hash[i].obj;\n" + "            if (o == NULL || o == XN_ROOT_TOMB) { continue; }\n" + "            size_t j = xn_root_hslot(o, nc);\n" + "            while (nt[j].obj != NULL) { j = (j + 1) % nc; }\n" + "            nt[j] = xn_root_hash[i];\n" + "        }\n" + "        free(xn_root_hash);\n" + "    }\n" + "    xn_root_hash = nt;\n" + "    xn_root_hcap = nc;\n" + "    xn_root_htomb = 0;\n" + "}\n" + "static xn_he *xn_root_find(void *obj) {\n" + "    if (xn_root_hcap == 0) { return NULL; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL) {\n" + "        if (xn_root_hash[i].obj == obj) { return &xn_root_hash[i]; }\n" + "        i = (i + 1) % xn_root_hcap;\n" + "    }\n" + "    return NULL;\n" + "}\n" + "static void xn_root_hold(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    if (xn_root_hcap == 0 || (xn_root_hused + xn_root_htomb + 1) * 10 >= xn_root_hcap * 7) {\n" + "        xn_root_hrehash(xn_root_hcap == 0 ? 1024 : xn_root_hcap * 2);\n" + "    }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e != NULL) { e->count++; return; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL && xn_root_hash[i].obj != XN_ROOT_TOMB) { i = (i + 1) % xn_root_hcap; }\n" + "    xn_root_box_push(obj);\n" + "    xn_root_hash[i].obj = obj;\n" + "    xn_root_hash[i].count = 1;\n" + "    xn_root_hash[i].pos = xn_root_box->len - 1;\n" + "    xn_root_hused++;\n" + "}\n"
+    Int a1 = s.indexOf("static void xn_root_release(void *obj) {")
+    if a1 < 0 { return s }
+    Int b1 = indexFrom(s, "\n}\n", a1) + 3
+    String relNew = "static void xn_root_release(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e == NULL) { return; }\n" + "    if (e->count > 1) { e->count--; return; }\n" + "    size_t pos = e->pos;\n" + "    size_t last = xn_root_box->len - 1;\n" + "    if (pos != last) {\n" + "        xn_root_box->data[pos] = xn_root_box->data[last];\n" + "        xn_he *m = xn_root_find(xn_root_box->data[pos]);\n" + "        if (m != NULL) { m->pos = pos; }\n" + "    }\n" + "    xn_root_box->len = last;\n" + "    e->obj = XN_ROOT_TOMB;\n" + "    e->count = 0;\n" + "    xn_root_hused--;\n" + "    xn_root_htomb++;\n" + "    if (xn_root_htomb > 4096 && xn_root_htomb * 2 > xn_root_hcap) {\n" + "        size_t nc = xn_root_hcap;\n" + "        xn_root_hrehash(nc);\n" + "    }\n" + "}\n"
+    return s.substring(0, a0) + holdNew + s.substring(b0, a1 - b0) + relNew + s.substring(b1, s.length() - b1)
+}
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -7296,6 +7314,7 @@ static String emitUnit(N unit, String path) {
         Int fp = res.indexOf("static void xn_fatal_oob(void);")
         if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
     }
+    if FAST_ROOTS { res = fastRootsPatch(res) }
     return res.substring(0, res.length() - 1)
 }
 
@@ -7401,6 +7420,7 @@ static Int main(String[] args) {
         else if a == "--bundle-file" && ai + 1 < args.length() { bundleFile = args.get(ai + 1); ai = ai + 2 }
         else if a == "--project" && ai + 1 < args.length() { project = args.get(ai + 1); ai = ai + 2 }
         else if a == "--stage-log" { STAGE_LOG = true; ai = ai + 1 }
+        else if a == "--fast-roots" { FAST_ROOTS = true; ai = ai + 1 }
         else { pos.push(a); ai = ai + 1 }
     }
     STAGE_T = nowMono()
