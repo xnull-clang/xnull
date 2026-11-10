@@ -206,9 +206,110 @@ static String unqBig(String s) {
     vals.push(s.substring(st, s.length() - st))
     return joinLinear(vals)
 }
+static Int hsHash(String s) {
+    Int h = 2166136261
+    Int i = 0
+    while i < s.length() {
+        Int c = asciiOrd(s.substring(i, 1))
+        h = (h ^ ((c + 256) & 255)) * 16777619
+        i = i + 1
+    }
+    if h < 0 { h = 0 - h }
+    return h % 4096
+}
+static void escInit() {
+    if ESC_BUCKETS.length() == 0 {
+        Int i = 0
+        while i < 4096 { ESC_BUCKETS.push(-1); i = i + 1 }
+    }
+}
+static void escReset() {
+    escInit()
+    ESC_KEYS = []
+    ESC_COUNTS = []
+    Int i = 0
+    while i < 4096 { ESC_BUCKETS.set(i, -1); i = i + 1 }
+}
+static void escAdd(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 {
+            ESC_KEYS.push(n)
+            ESC_COUNTS.push(1)
+            ESC_BUCKETS.set(b, ESC_KEYS.length())
+            return
+        }
+        if ESC_KEYS.get(v - 1) == n { ESC_COUNTS.set(v - 1, ESC_COUNTS.get(v - 1) + 1); return }
+        i = i + 1
+    }
+}
+static Bool escHas(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 { return false }
+        if ESC_KEYS.get(v - 1) == n { return true }
+        i = i + 1
+    }
+    return false
+}
+static void escDel(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 { return }
+        if ESC_KEYS.get(v - 1) == n { ESC_BUCKETS.set(b, -1); return }
+        i = i + 1
+    }
+}
+static Int unqFind(String raw, String b) {
+    if UNQ_BUCKETS.length() == 0 {
+        Int j = 0
+        while j < 4096 { UNQ_BUCKETS.push(-1); j = j + 1 }
+    }
+    Int h = hsHash(raw)
+    Int i = 0
+    while i < 4096 {
+        Int k = (h + i) % 4096
+        Int v = UNQ_BUCKETS.get(k)
+        if v == -1 { return -1 }
+        if UNQ_KEYS.get(v - 1) == raw { return v - 1 }
+        i = i + 1
+    }
+    return -1
+}
+static void unqPut(String raw, String b) {
+    Int f = unqFind(raw, b)
+    if f >= 0 { UNQ_VALS.set(f, b); return }
+    Int h = hsHash(raw)
+    Int i = 0
+    while i < 4096 {
+        Int k = (h + i) % 4096
+        if UNQ_BUCKETS.get(k) == -1 {
+            UNQ_KEYS.push(raw)
+            UNQ_VALS.push(b)
+            UNQ_BUCKETS.set(k, UNQ_KEYS.length())
+            return
+        }
+        i = i + 1
+    }
+}
 static String unq(String raw) {
     if raw.length() < 2 { return raw }
-    if raw.length() < 80 && UNQ_CACHE.has(raw) { return UNQ_CACHE.get(raw) }
+    if raw.length() < 80 {
+        Int uq0 = unqFind(raw, "")
+        if uq0 >= 0 { return UNQ_VALS.get(uq0) }
+    }
     String s = raw.substring(1, raw.length() - 2)
     if s.length() > 4096 {
         if s.indexOf("\\") < 0 { return s }
@@ -244,7 +345,7 @@ static String unq(String raw) {
         } else { b = b + c }
         i = i + 1
     }
-    if raw.length() < 80 { UNQ_CACHE.put(raw, b) }
+    if raw.length() < 80 { unqPut(raw, b) }
     return b
 }
 static String qBig(String s) {
@@ -332,7 +433,12 @@ static String lastQual(N t) {
 }
 static List<String> SUB_FROM = []
 static List<String> SUB_TO = []
-static Map<String, String> UNQ_CACHE = [:]
+static List<Int> ESC_BUCKETS = []
+static List<String> ESC_KEYS = []
+static List<Int> ESC_COUNTS = []
+static List<Int> UNQ_BUCKETS = []
+static List<String> UNQ_KEYS = []
+static List<String> UNQ_VALS = []
 static String substKey(String k) {
     Int i = 0
     while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
@@ -1183,7 +1289,7 @@ class SC {
     String curFn = ""
     List<String> params = []
     List<String> paramTypes = []
-    Map<String, Int> escaped = [:]
+    Int escDummy = 0
     List<String> fnNames = []
     List<String> fnRets = []
     List<String> resultTypes = []
@@ -2557,7 +2663,6 @@ static SC newChild(SC parent, EM e) {
     s.fnNames = parent.fnNames
     s.fnRets = parent.fnRets
     s.resultTypes = parent.resultTypes
-    s.escaped = parent.escaped
     s.names = copyStrs(parent.names)
     s.types = copyStrs(parent.types)
     s.defers = []
@@ -3870,7 +3975,7 @@ static Bool inNames(List<String> xs, String v) {
 static void escMark(SC sc, String n) {
     ESC_MARK_N = ESC_MARK_N + 1
     if n == "" || n == "self" || n == "super" { return }
-    if !sc.escaped.has(n) { sc.escaped.put(n, 1) }
+    if !escHas(n) { escAdd(n) }
 }
 static void escAll(N n, SC sc) {
     if n.nm == "" || n.nm == "nil" { return }
@@ -4010,7 +4115,7 @@ static void escBlock(N b, SC sc) {
     Int i = 0
     while i < stmts.el.length() { escStmt(stmts.el.get(i), sc); i = i + 1 }
 }
-static Bool isEscaped(SC sc, String n) { return sc.escaped.has(n) }
+static Bool isEscaped(SC sc, String n) { return escHas(n) }
 
 static void emitBlockExit(SC sc, EM e, Int ind) {
     Int hi = 0
@@ -4048,7 +4153,7 @@ static void emitFunc(N fn, EM e, SC sc) {
         pi = pi + 1
     }
     sc.defers = []
-    sc.escaped = [:]
+    escReset()
     sc.names = []
     sc.types = []
     sc.own = []
