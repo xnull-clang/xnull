@@ -2497,6 +2497,30 @@ static String emitStr(N x, EM e, SC sc) {
         }
         return cur
     }
+    if x.nm == "Paren" { return emitStr(fld(x, "X"), e, sc) }
+    if x.nm == "Ternary" {
+        N cnd9 = fld(x, "Cond")
+        N th9 = fld(x, "Then")
+        N el9 = fld(x, "Else")
+        String cv9 = expr(cnd9, e, sc)
+        String d19 = e.nt()
+        String d29 = e.nt()
+        String t9 = e.nt()
+        e.add("rt_string *" + t9 + " = NULL;")
+        e.add("if ((" + cv9 + ")) {")
+        e.ind = e.ind + 4
+        String te9 = emitStr(th9, e, sc)
+        e.add(t9 + " = " + te9 + ";")
+        e.ind = e.ind - 4
+        e.add("} else {")
+        e.ind = e.ind + 4
+        String ee9 = emitStr(el9, e, sc)
+        e.add(t9 + " = " + ee9 + ";")
+        e.ind = e.ind - 4
+        e.add("}")
+        rootStr(e, sc, t9)
+        return t9
+    }
     if x.nm == "Binary" {
         String bop = unq(txt(fld(x, "Op")))
         if bop == "as" || bop == "as?" {
