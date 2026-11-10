@@ -156,6 +156,8 @@ static String joinLinear(List<String> xs) {
     return ""
 }
 static Bool STAGE_LOG = false
+static Bool FAST_ROOTS = false
+static Bool FAST_SP = false
 static Int ESC_EXPR_N = 0
 static Int ESC_STMT_N = 0
 static Int ESC_BLOCK_N = 0
@@ -189,13 +191,19 @@ static String unqBig(String s) {
                     String h1 = s.substring(i + 1, 1)
                     String h2 = s.substring(i + 2, 1)
                     Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
-                    if v == 0 { vals.push("\0") } else { vals.push("\\x" + h1 + h2) }
+                    if v == 0 { vals.push("\0") }
+                    else if v == 127 { vals.push("\u007f") }
+                    else { vals.push("\\x" + h1 + h2) }
                     i = i + 3
                 }
                 else if e == "u" && i + 4 < s.length() {
                     Int v = jsonHex4(s, i + 1)
                     String hs = s.substring(i + 1, 4)
-                    if v == 0 { vals.push("\0") } else { vals.push("\\u" + hs) }
+                    if v == 0 { vals.push("\0") }
+                    else if v == 127 { vals.push("\u007f") }
+                    else if v == 11 { vals.push("\u000b") }
+                    else if v == 12 { vals.push("\u000c") }
+                    else { vals.push("\\u" + hs) }
                     i = i + 5
                 }
                 else { vals.push(e); i = i + 1 }
@@ -206,9 +214,110 @@ static String unqBig(String s) {
     vals.push(s.substring(st, s.length() - st))
     return joinLinear(vals)
 }
+static Int hsHash(String s) {
+    Int h = 2166136261
+    Int i = 0
+    while i < s.length() {
+        Int c = asciiOrd(s.substring(i, 1))
+        h = (h ^ ((c + 256) & 255)) * 16777619
+        i = i + 1
+    }
+    if h < 0 { h = 0 - h }
+    return h % 4096
+}
+static void escInit() {
+    if ESC_BUCKETS.length() == 0 {
+        Int i = 0
+        while i < 4096 { ESC_BUCKETS.push(-1); i = i + 1 }
+    }
+}
+static void escReset() {
+    escInit()
+    ESC_KEYS = []
+    ESC_COUNTS = []
+    Int i = 0
+    while i < 4096 { ESC_BUCKETS.set(i, -1); i = i + 1 }
+}
+static void escAdd(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 {
+            ESC_KEYS.push(n)
+            ESC_COUNTS.push(1)
+            ESC_BUCKETS.set(b, ESC_KEYS.length())
+            return
+        }
+        if ESC_KEYS.get(v - 1) == n { ESC_COUNTS.set(v - 1, ESC_COUNTS.get(v - 1) + 1); return }
+        i = i + 1
+    }
+}
+static Bool escHas(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 { return false }
+        if ESC_KEYS.get(v - 1) == n { return true }
+        i = i + 1
+    }
+    return false
+}
+static void escDel(String n) {
+    escInit()
+    Int h = hsHash(n)
+    Int i = 0
+    while i < 4096 {
+        Int b = (h + i) % 4096
+        Int v = ESC_BUCKETS.get(b)
+        if v == -1 { return }
+        if ESC_KEYS.get(v - 1) == n { ESC_BUCKETS.set(b, -1); return }
+        i = i + 1
+    }
+}
+static Int unqFind(String raw, String b) {
+    if UNQ_BUCKETS.length() == 0 {
+        Int j = 0
+        while j < 4096 { UNQ_BUCKETS.push(-1); j = j + 1 }
+    }
+    Int h = hsHash(raw)
+    Int i = 0
+    while i < 4096 {
+        Int k = (h + i) % 4096
+        Int v = UNQ_BUCKETS.get(k)
+        if v == -1 { return -1 }
+        if UNQ_KEYS.get(v - 1) == raw { return v - 1 }
+        i = i + 1
+    }
+    return -1
+}
+static void unqPut(String raw, String b) {
+    Int f = unqFind(raw, b)
+    if f >= 0 { UNQ_VALS.set(f, b); return }
+    Int h = hsHash(raw)
+    Int i = 0
+    while i < 4096 {
+        Int k = (h + i) % 4096
+        if UNQ_BUCKETS.get(k) == -1 {
+            UNQ_KEYS.push(raw)
+            UNQ_VALS.push(b)
+            UNQ_BUCKETS.set(k, UNQ_KEYS.length())
+            return
+        }
+        i = i + 1
+    }
+}
 static String unq(String raw) {
     if raw.length() < 2 { return raw }
-    if raw.length() < 80 && UNQ_CACHE.has(raw) { return UNQ_CACHE.get(raw) }
+    if raw.length() < 80 {
+        Int uq0 = unqFind(raw, "")
+        if uq0 >= 0 { return UNQ_VALS.get(uq0) }
+    }
     String s = raw.substring(1, raw.length() - 2)
     if s.length() > 4096 {
         if s.indexOf("\\") < 0 { return s }
@@ -230,13 +339,19 @@ static String unq(String raw) {
                     String h1 = s.substring(i + 1, 1)
                     String h2 = s.substring(i + 2, 1)
                     Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
-                    if v == 0 { b = b + "\0" } else { b = b + "\\x" + h1 + h2 }
+                    if v == 0 { b = b + "\0" }
+                    else if v == 127 { b = b + "\u007f" }
+                    else { b = b + "\\x" + h1 + h2 }
                     i = i + 2
                 }
                 else if e == "u" && i + 4 < s.length() {
                     Int v = jsonHex4(s, i + 1)
                     String hs = s.substring(i + 1, 4)
-                    if v == 0 { b = b + "\0" } else { b = b + "\\u" + hs }
+                    if v == 0 { b = b + "\0" }
+                    else if v == 127 { b = b + "\u007f" }
+                    else if v == 11 { b = b + "\u000b" }
+                    else if v == 12 { b = b + "\u000c" }
+                    else { b = b + "\\u" + hs }
                     i = i + 4
                 }
                 else { b = b + e }
@@ -244,7 +359,7 @@ static String unq(String raw) {
         } else { b = b + c }
         i = i + 1
     }
-    if raw.length() < 80 { UNQ_CACHE.put(raw, b) }
+    if raw.length() < 80 { unqPut(raw, b) }
     return b
 }
 static String qBig(String s) {
@@ -332,7 +447,12 @@ static String lastQual(N t) {
 }
 static List<String> SUB_FROM = []
 static List<String> SUB_TO = []
-static Map<String, String> UNQ_CACHE = [:]
+static List<Int> ESC_BUCKETS = []
+static List<String> ESC_KEYS = []
+static List<Int> ESC_COUNTS = []
+static List<Int> UNQ_BUCKETS = []
+static List<String> UNQ_KEYS = []
+static List<String> UNQ_VALS = []
 static String substKey(String k) {
     Int i = 0
     while i < SUB_FROM.length() { if SUB_FROM.get(i) == k && i < SUB_TO.length() { return SUB_TO.get(i) }; i = i + 1 }
@@ -453,7 +573,11 @@ static String fnTypedefs() {
     while a < ns.length() {
         String x = ns.get(a)
         Int b = a
-        while b > 0 && strLess(x, ns.get(b - 1)) { ns.set(b, ns.get(b - 1)); b = b - 1 }
+        while b > 0 {
+            if !strLess(x, ns.get(b - 1)) { break }
+            ns.set(b, ns.get(b - 1))
+            b = b - 1
+        }
         ns.set(b, x)
         a = a + 1
     }
@@ -1183,7 +1307,7 @@ class SC {
     String curFn = ""
     List<String> params = []
     List<String> paramTypes = []
-    Map<String, Int> escaped = [:]
+    Int escDummy = 0
     List<String> fnNames = []
     List<String> fnRets = []
     List<String> resultTypes = []
@@ -2386,6 +2510,30 @@ static String emitStr(N x, EM e, SC sc) {
         }
         return cur
     }
+    if x.nm == "Paren" { return emitStr(fld(x, "X"), e, sc) }
+    if x.nm == "Ternary" {
+        N cnd9 = fld(x, "Cond")
+        N th9 = fld(x, "Then")
+        N el9 = fld(x, "Else")
+        String cv9 = expr(cnd9, e, sc)
+        String d19 = e.nt()
+        String d29 = e.nt()
+        String t9 = e.nt()
+        e.add("rt_string *" + t9 + " = NULL;")
+        e.add("if ((" + cv9 + ")) {")
+        e.ind = e.ind + 4
+        String te9 = emitStr(th9, e, sc)
+        e.add(t9 + " = " + te9 + ";")
+        e.ind = e.ind - 4
+        e.add("} else {")
+        e.ind = e.ind + 4
+        String ee9 = emitStr(el9, e, sc)
+        e.add(t9 + " = " + ee9 + ";")
+        e.ind = e.ind - 4
+        e.add("}")
+        rootStr(e, sc, t9)
+        return t9
+    }
     if x.nm == "Binary" {
         String bop = unq(txt(fld(x, "Op")))
         if bop == "as" || bop == "as?" {
@@ -2557,7 +2705,6 @@ static SC newChild(SC parent, EM e) {
     s.fnNames = parent.fnNames
     s.fnRets = parent.fnRets
     s.resultTypes = parent.resultTypes
-    s.escaped = parent.escaped
     s.names = copyStrs(parent.names)
     s.types = copyStrs(parent.types)
     s.defers = []
@@ -2907,6 +3054,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             e.usesObjArr = true
             e.objArrKey = ty
             String an = classArrName(ty)
+            if init.nm != "ArrayLit" {
+                e.add(an + " *" + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
@@ -2919,6 +3071,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         if isTupList(ty) {
             e.usesTArr = true
             String an = arrTupName(ty)
+            if init.nm != "ArrayLit" {
+                e.add(an + " *" + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
@@ -2960,6 +3117,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         if isSet(ty) {
             e.hasSet = true
+            if init.nm != "ArrayLit" && init.nm != "SetLit" {
+                e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String ta = e.nt()
             e.add("xn_arr_i *" + ta + " = xn_arr_i_new(" + str(elems.el.length()) + ");")
@@ -2974,6 +3136,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         if isMap(ty) {
             e.hasMap = true
+            if init.nm != "MapLit" {
+                e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N keys = fld(init, "Keys")
             N vals = fld(init, "Vals")
             String tm = e.nt()
@@ -3870,7 +4037,7 @@ static Bool inNames(List<String> xs, String v) {
 static void escMark(SC sc, String n) {
     ESC_MARK_N = ESC_MARK_N + 1
     if n == "" || n == "self" || n == "super" { return }
-    if !sc.escaped.has(n) { sc.escaped.put(n, 1) }
+    if !escHas(n) { escAdd(n) }
 }
 static void escAll(N n, SC sc) {
     if n.nm == "" || n.nm == "nil" { return }
@@ -4010,7 +4177,7 @@ static void escBlock(N b, SC sc) {
     Int i = 0
     while i < stmts.el.length() { escStmt(stmts.el.get(i), sc); i = i + 1 }
 }
-static Bool isEscaped(SC sc, String n) { return sc.escaped.has(n) }
+static Bool isEscaped(SC sc, String n) { return escHas(n) }
 
 static void emitBlockExit(SC sc, EM e, Int ind) {
     Int hi = 0
@@ -4048,7 +4215,7 @@ static void emitFunc(N fn, EM e, SC sc) {
         pi = pi + 1
     }
     sc.defers = []
-    sc.escaped = [:]
+    escReset()
     sc.names = []
     sc.types = []
     sc.own = []
@@ -5337,7 +5504,8 @@ static void sortGenInsts() {
         String xk = GEN_INST_KEY.get(a)
         String xb = GEN_INST_BASE.get(a)
         Int b = a
-        while b > 0 && strLess(xn, GEN_INST_NAME.get(b - 1)) {
+        while b > 0 {
+            if !strLess(xn, GEN_INST_NAME.get(b - 1)) { break }
             GEN_INST_NAME.set(b, GEN_INST_NAME.get(b - 1))
             GEN_INST_KEY.set(b, GEN_INST_KEY.get(b - 1))
             GEN_INST_BASE.set(b, GEN_INST_BASE.get(b - 1))
@@ -5487,6 +5655,7 @@ static List<N> sortedClassDecls(N decls) {
         if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 { xs.push(d) }
         i = i + 1
     }
+    if STAGE_LOG { slog("sortedClassDecls xs=" + str(xs.length()) + " decls=" + str(decls.el.length())) }
     List<N> resL = []
     List<String> used = []
     while resL.length() < xs.length() {
@@ -5539,7 +5708,11 @@ static void sortStrs(List<String> xs) {
     while a < xs.length() {
         String x = xs.get(a)
         Int b = a
-        while b > 0 && strLess(x, xs.get(b - 1)) { xs.set(b, xs.get(b - 1)); b = b - 1 }
+        while b > 0 {
+            if !strLess(x, xs.get(b - 1)) { break }
+            xs.set(b, xs.get(b - 1))
+            b = b - 1
+        }
         xs.set(b, x)
         a = a + 1
     }
@@ -6415,6 +6588,23 @@ static void prewarmContainers(N decls) {
     Int i = 0
     while i < decls.el.length() { prewarmN(decls.el.get(i)); i = i + 1 }
 }
+static Int indexFrom(String s, String sub, Int from) {
+    String rest = s.substring(from, s.length() - from)
+    Int k = rest.indexOf(sub)
+    if k < 0 { return -1 }
+    return from + k
+}
+static String fastRootsPatch(String s) {
+    Int a0 = s.indexOf("static void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }")
+    if a0 < 0 { return s }
+    Int b0 = indexFrom(s, "\n}\n", a0) + 3
+    String holdNew = "typedef struct { rt_header hdr; void **data; size_t len; size_t cap; } xn_rootbox;\n" + "static void xn_root_box_scan(void *p, void (*visit)(void *)) {\n" + "    xn_rootbox *b = (xn_rootbox *)p;\n" + "    for (size_t i = 0; i < b->len; i++) { visit(b->data[i]); }\n" + "}\n" + "static const rt_type RT_TYPE_XN_ROOTBOX = { \"RootBox\", sizeof(xn_rootbox), NULL, xn_root_box_scan };\n" + "static xn_rootbox *xn_root_box = NULL;\n" + "typedef struct { void *obj; size_t count; size_t pos; } xn_he;\n" + "static xn_he *xn_root_hash = NULL;\n" + "static size_t xn_root_hcap = 0;\n" + "static size_t xn_root_hused = 0;\n" + "static size_t xn_root_htomb = 0;\n" + "#define XN_ROOT_TOMB ((void *)(intptr_t)1)\n" + "static void xn_root_box_init(void) {\n" + "    if (xn_root_box != NULL) { return; }\n" + "    xn_root_box = (xn_rootbox *)rt_gc_new(&RT_TYPE_XN_ROOTBOX);\n" + "    memset((char *)xn_root_box + sizeof(rt_header), 0, sizeof(xn_rootbox) - sizeof(rt_header));\n" + "    rt_gc_root_add(xn_root_box);\n" + "}\n" + "static void xn_root_box_push(void *obj) {\n" + "    xn_root_box_init();\n" + "    if (xn_root_box->len == xn_root_box->cap) {\n" + "        xn_root_box->cap = xn_root_box->cap ? xn_root_box->cap * 2 : 1024;\n" + "        xn_root_box->data = realloc(xn_root_box->data, sizeof(void *) * xn_root_box->cap);\n" + "        if (xn_root_box->data == NULL) { abort(); }\n" + "    }\n" + "    xn_root_box->data[xn_root_box->len++] = obj;\n" + "}\n" + "static size_t xn_root_hslot(void *obj, size_t cap) {\n" + "    uintptr_t h = (uintptr_t)obj;\n" + "    h = (h >> 4) * (uintptr_t)2654435761u;\n" + "    return (size_t)(h % cap);\n" + "}\n" + "static void xn_root_hrehash(size_t nc) {\n" + "    xn_he *nt = (xn_he *)calloc(nc, sizeof(xn_he));\n" + "    if (nt == NULL) { abort(); }\n" + "    if (xn_root_hash != NULL) {\n" + "        for (size_t i = 0; i < xn_root_hcap; i++) {\n" + "            void *o = xn_root_hash[i].obj;\n" + "            if (o == NULL || o == XN_ROOT_TOMB) { continue; }\n" + "            size_t j = xn_root_hslot(o, nc);\n" + "            while (nt[j].obj != NULL) { j = (j + 1) % nc; }\n" + "            nt[j] = xn_root_hash[i];\n" + "        }\n" + "        free(xn_root_hash);\n" + "    }\n" + "    xn_root_hash = nt;\n" + "    xn_root_hcap = nc;\n" + "    xn_root_htomb = 0;\n" + "}\n" + "static xn_he *xn_root_find(void *obj) {\n" + "    if (xn_root_hcap == 0) { return NULL; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL) {\n" + "        if (xn_root_hash[i].obj == obj) { return &xn_root_hash[i]; }\n" + "        i = (i + 1) % xn_root_hcap;\n" + "    }\n" + "    return NULL;\n" + "}\n" + "static void xn_root_hold(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    if (xn_root_hcap == 0 || (xn_root_hused + xn_root_htomb + 1) * 10 >= xn_root_hcap * 7) {\n" + "        xn_root_hrehash(xn_root_hcap == 0 ? 1024 : xn_root_hcap * 2);\n" + "    }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e != NULL) { e->count++; return; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL && xn_root_hash[i].obj != XN_ROOT_TOMB) { i = (i + 1) % xn_root_hcap; }\n" + "    xn_root_box_push(obj);\n" + "    xn_root_hash[i].obj = obj;\n" + "    xn_root_hash[i].count = 1;\n" + "    xn_root_hash[i].pos = xn_root_box->len - 1;\n" + "    xn_root_hused++;\n" + "}\n"
+    Int a1 = s.indexOf("static void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }")
+    if a1 < 0 { return s }
+    Int b1 = indexFrom(s, "\n}\n", a1) + 3
+    String relNew = "static void xn_root_release(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e == NULL) { return; }\n" + "    if (e->count > 1) { e->count--; return; }\n" + "    size_t pos = e->pos;\n" + "    size_t last = xn_root_box->len - 1;\n" + "    if (pos != last) {\n" + "        xn_root_box->data[pos] = xn_root_box->data[last];\n" + "        xn_he *m = xn_root_find(xn_root_box->data[pos]);\n" + "        if (m != NULL) { m->pos = pos; }\n" + "    }\n" + "    xn_root_box->len = last;\n" + "    e->obj = XN_ROOT_TOMB;\n" + "    e->count = 0;\n" + "    xn_root_hused--;\n" + "    xn_root_htomb++;\n" + "    if (xn_root_htomb > 4096 && xn_root_htomb * 2 > xn_root_hcap) {\n" + "        size_t nc = xn_root_hcap;\n" + "        xn_root_hrehash(nc);\n" + "    }\n" + "}\n"
+    return s.substring(0, a0) + holdNew + s.substring(b0, a1 - b0) + relNew + s.substring(b1, s.length() - b1)
+}
 static String emitUnit(N unit, String path) {
     EM e = new EM()
     SC sc = new SC()
@@ -7191,6 +7381,8 @@ static String emitUnit(N unit, String path) {
         Int fp = res.indexOf("static void xn_fatal_oob(void);")
         if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
     }
+    if FAST_ROOTS { res = fastRootsPatch(res) }
+    if FAST_SP { res = res.replace("#define XN_GC_SAFEPOINT_THRESHOLD 1024", "#define XN_GC_SAFEPOINT_THRESHOLD (4 * 1024 * 1024)") }
     return res.substring(0, res.length() - 1)
 }
 
@@ -7296,6 +7488,8 @@ static Int main(String[] args) {
         else if a == "--bundle-file" && ai + 1 < args.length() { bundleFile = args.get(ai + 1); ai = ai + 2 }
         else if a == "--project" && ai + 1 < args.length() { project = args.get(ai + 1); ai = ai + 2 }
         else if a == "--stage-log" { STAGE_LOG = true; ai = ai + 1 }
+        else if a == "--fast-roots" { FAST_ROOTS = true; ai = ai + 1 }
+        else if a == "--fast-safepoint" { FAST_SP = true; ai = ai + 1 }
         else { pos.push(a); ai = ai + 1 }
     }
     STAGE_T = nowMono()
