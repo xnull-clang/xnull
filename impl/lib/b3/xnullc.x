@@ -39,27 +39,28 @@ class N {
 
 class AP {
     String s = ""
+    Bytes b
     Int p = 0
     Int n = 0
-    AP(String t) { self.s = t; self.n = t.length() }
-    String ch(Int i) {
-        if i < 0 { return "" }
-        if i >= self.n { return "" }
-        return self.s.substring(i, 1)
+    AP(String t) { self.s = t; self.b = Bytes.fromString(t); self.n = t.length() }
+    Int ch(Int i) {
+        if i < 0 { return -1 }
+        if i >= self.n { return -1 }
+        return self.b.get(i)
     }
-    void ws() { while self.p < self.n && self.ch(self.p) == " " { self.p = self.p + 1 } }
+    void ws() { while self.p < self.n && self.ch(self.p) == 32 { self.p = self.p + 1 } }
     String bare() {
         Int st = self.p
         while self.p < self.n {
-            String c = self.ch(self.p)
-            if c == " " || c == "(" || c == ")" { break }
+            Int c = self.ch(self.p)
+            if c == 32 || c == 40 || c == 41 { break }
             self.p = self.p + 1
         }
         return self.s.substring(st, self.p - st)
     }
     N val() {
         self.ws()
-        if self.ch(self.p) == "(" {
+        if self.ch(self.p) == 40 {
             self.p = self.p + 1
             String name = self.bare()
             N r = new N()
@@ -67,7 +68,7 @@ class AP {
                 r.nm = "slice"
                 while true {
                     self.ws()
-                    if self.ch(self.p) == ")" { self.p = self.p + 1; break }
+                    if self.ch(self.p) == 41 { self.p = self.p + 1; break }
                     r.el.push(self.val())
                 }
                 return r
@@ -75,7 +76,7 @@ class AP {
             r.nm = name
             while true {
                 self.ws()
-                if self.ch(self.p) == ")" { self.p = self.p + 1; break }
+                if self.ch(self.p) == 41 { self.p = self.p + 1; break }
                 self.p = self.p + 1
                 String f = self.bare()
                 N v = self.val()
@@ -88,13 +89,13 @@ class AP {
         }
         N r = new N()
         r.sc = true
-        if self.ch(self.p) == "\"" {
+        if self.ch(self.p) == 34 {
             Int st = self.p
             self.p = self.p + 1
             while true {
-                String c = self.ch(self.p)
-                if c == "\\" { self.p = self.p + 2; continue }
-                if c == "\"" { self.p = self.p + 1; break }
+                Int c = self.ch(self.p)
+                if c == 92 { self.p = self.p + 2; continue }
+                if c == 34 { self.p = self.p + 1; break }
                 self.p = self.p + 1
             }
             r.raw = self.s.substring(st, self.p - st)
@@ -102,8 +103,8 @@ class AP {
         }
         Int st = self.p
         while self.p < self.n {
-            String c = self.ch(self.p)
-            if c == " " || c == "(" || c == ")" { break }
+            Int c = self.ch(self.p)
+            if c == 32 || c == 40 || c == 41 { break }
             self.p = self.p + 1
         }
         r.raw = self.s.substring(st, self.p - st)
@@ -139,9 +140,73 @@ static Int dec(String s) {
     }
     return v
 }
+static String joinLinear(List<String> xs) {
+    List<String> cur = xs
+    while cur.length() > 1 {
+        List<String> nxt = []
+        Int i = 0
+        while i + 1 < cur.length() {
+            nxt.push(cur.get(i) + cur.get(i + 1))
+            i = i + 2
+        }
+        if i < cur.length() { nxt.push(cur.get(i)) }
+        cur = nxt
+    }
+    if cur.length() == 1 { return cur.get(0) }
+    return ""
+}
+static Bool STAGE_LOG = false
+static Int STAGE_T = 0
+static void slog(String s) { if STAGE_LOG { diagnose(s) } }
+static void stage(String name) {
+    if !STAGE_LOG { return }
+    Int t = nowMono()
+    diagnose("stage " + name + " ms=" + str(t - STAGE_T))
+    STAGE_T = t
+}
+static String unqBig(String s) {
+    List<String> vals = []
+    Int st = 0
+    Int i = 0
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        if c == "\\" {
+            vals.push(s.substring(st, i - st))
+            i = i + 1
+            if i < s.length() {
+                String e = s.substring(i, 1)
+                if e == "n" { vals.push("\n"); i = i + 1 }
+                else if e == "t" { vals.push("\t"); i = i + 1 }
+                else if e == "r" { vals.push("\r"); i = i + 1 }
+                else if e == "0" { vals.push("\0"); i = i + 1 }
+                else if e == "x" && i + 2 < s.length() {
+                    String h1 = s.substring(i + 1, 1)
+                    String h2 = s.substring(i + 2, 1)
+                    Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
+                    if v == 0 { vals.push("\0") } else { vals.push("\\x" + h1 + h2) }
+                    i = i + 3
+                }
+                else if e == "u" && i + 4 < s.length() {
+                    Int v = jsonHex4(s, i + 1)
+                    String hs = s.substring(i + 1, 4)
+                    if v == 0 { vals.push("\0") } else { vals.push("\\u" + hs) }
+                    i = i + 5
+                }
+                else { vals.push(e); i = i + 1 }
+            }
+            st = i
+        } else { i = i + 1 }
+    }
+    vals.push(s.substring(st, s.length() - st))
+    return joinLinear(vals)
+}
 static String unq(String raw) {
     if raw.length() < 2 { return raw }
     String s = raw.substring(1, raw.length() - 2)
+    if s.length() > 4096 {
+        if s.indexOf("\\") < 0 { return s }
+        return unqBig(s)
+    }
     String b = ""
     Int i = 0
     while i < s.length() {
@@ -174,7 +239,32 @@ static String unq(String raw) {
     }
     return b
 }
+static String qBig(String s) {
+    List<String> vals = []
+    Int st = 0
+    Int i = 0
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        String e = ""
+        if c == "\"" { e = "\\\"" }
+        else if c == "\\" { e = "\\\\" }
+        else if c == "\n" { e = "\\n" }
+        else if c == "\t" { e = "\\t" }
+        else if c == "\r" { e = "\\r" }
+        else if c == "\0" { e = "\\000" }
+        else if c == "\u007f" { e = "\\177" }
+        if e != "" {
+            vals.push(s.substring(st, i - st))
+            vals.push(e)
+            st = i + 1
+        }
+        i = i + 1
+    }
+    vals.push(s.substring(st, s.length() - st))
+    return joinLinear(vals)
+}
 static String q(String s) {
+    if s.length() > 4096 { return "\"" + qBig(s) + "\"" }
     String b = s
     b = b.replace("\\", "\\\\")
     b = b.replace("\"", "\\\"")
@@ -250,6 +340,9 @@ static String typeKey(N t) {
 }
 List<String> FN_NAMES = []
 List<String> FN_SIGS = []
+static List<String> FN_P_OWN = []
+static List<Int> FN_P_IDX = []
+static List<String> FN_P_TYPE = []
 List<String> C_ARR = []
 List<String> C_SET = []
 List<String> C_MAPK = []
@@ -334,6 +427,14 @@ static Bool strLess(String a, String b) {
         i = i + 1
     }
     return a.length() < b.length()
+}
+static String fnParamType(String fn, Int ai) {
+    Int i = 0
+    while i < FN_P_OWN.length() {
+        if FN_P_OWN.get(i) == fn && FN_P_IDX.get(i) == ai { return FN_P_TYPE.get(i) }
+        i = i + 1
+    }
+    return ""
 }
 static String fnTypedefs() {
     List<String> ns = []
@@ -1228,6 +1329,7 @@ static String exprType(N x, SC sc) {
         if isProtoType(bt) { return "Int" }
         return "Int"
     }
+    if x.nm == "Ternary" { return exprType(fld(x, "Then"), sc) }
     if x.nm == "Unary" {
         String op = unq(txt(fld(x, "Op")))
         if op == "!" { return "Bool" }
@@ -1592,12 +1694,12 @@ static String lambdaProtos() {
     return b
 }
 static String lambdaDefs() {
-    String b = ""
+    List<String> xs = []
     Int i = 0
-    while i < LAM_NODES.length() { b = b + lambdaDefText(LAM_NODES.get(i), i + 1); i = i + 1 }
+    while i < LAM_NODES.length() { xs.push(lambdaDefText(LAM_NODES.get(i), i + 1)); i = i + 1 }
     i = 0
-    while i < LOCK_TEXTS.length() { b = b + LOCK_TEXTS.get(i); i = i + 1 }
-    return b
+    while i < LOCK_TEXTS.length() { xs.push(LOCK_TEXTS.get(i)); i = i + 1 }
+    return joinLinear(xs)
 }
 
 static String expr(N x, EM e, SC sc) {
@@ -1674,6 +1776,38 @@ static String expr(N x, EM e, SC sc) {
         String op = unq(txt(fld(x, "Op")))
         if op == "try" { return expr(fld(x, "X"), e, sc) }
         return "(" + op + "(" + expr(fld(x, "X"), e, sc) + "))"
+    }
+    if x.nm == "Ternary" {
+        N cnd0 = fld(x, "Cond")
+        N thn0 = fld(x, "Then")
+        N els0 = fld(x, "Else")
+        String tc0 = exprType(x, sc)
+        String cv0 = expr(cnd0, e, sc)
+        String tsc0 = e.nt()
+        String esc0 = e.nt()
+        String tv0 = e.nt()
+        if tc0 == "String" { e.add("rt_string *" + tv0 + " = NULL;") }
+        else { e.add(cType(tc0) + " " + tv0 + ";") }
+        e.add("if ((" + cv0 + ")) {")
+        e.ind = e.ind + 4
+        if tc0 == "String" {
+            String ste0 = emitStr(thn0, e, sc)
+            e.add(tv0 + " = " + ste0 + ";")
+        } else {
+            e.add(tv0 + " = " + expr(thn0, e, sc) + ";")
+        }
+        e.ind = e.ind - 4
+        e.add("} else {")
+        e.ind = e.ind + 4
+        if tc0 == "String" {
+            String see0 = emitStr(els0, e, sc)
+            e.add(tv0 + " = " + see0 + ";")
+        } else {
+            e.add(tv0 + " = " + expr(els0, e, sc) + ";")
+        }
+        e.ind = e.ind - 4
+        e.add("}")
+        return tv0
     }
     if x.nm == "Binary" {
         String op = unq(txt(fld(x, "Op")))
@@ -2150,10 +2284,18 @@ static String expr(N x, EM e, SC sc) {
             if cn != "str" && cn != "print" && cn != "Ok" && cn != "Err" { cal = "xn_" + cn }
         }
         String b = cal + "("
+        String can0 = ""
+        if cl.nm == "IdentExpr" { can0 = unq(txt(fld(cl, "Name"))) }
         Int i = 0
         while i < args.el.length() {
             if i > 0 { b = b + ", " }
-            b = b + argExpr(args.el.get(i), e, sc)
+            N avx = args.el.get(i)
+            if can0 != "" && avx.nm == "ArrayLit" {
+                String alv0 = arrayLitArg(avx, fnParamType(can0, i), e, sc)
+                if alv0 != "" { b = b + alv0 } else { b = b + argExpr(avx, e, sc) }
+            } else {
+                b = b + argExpr(avx, e, sc)
+            }
             i = i + 1
         }
         return b + ")"
@@ -3016,6 +3158,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 }
                 return
             }
+            if isArr(mtt) || isObjArr(mtt) || isU16List(mtt) || isTupList(mtt) {
+                String mnm0 = expr(tgt, e, sc)
+                if val0.nm == "ArrayLit" {
+                    String lv0 = arrayLitArg(val0, mtt, e, sc)
+                    e.add(mnm0 + " = " + lv0 + ";")
+                } else {
+                    e.add(mnm0 + " = " + expr(val0, e, sc) + ";")
+                }
+                return
+            }
             if isProtoType(stripQ(mtt)) {
                 String mnm = expr(tgt, e, sc)
                 String pt0 = e.nt()
@@ -3053,6 +3205,19 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             return
         }
         String nm = expr(tgt, e, sc)
+        if tgt.nm == "IdentExpr" && nm.indexOf("xn_g_") == 0 && op0 == "=" {
+            String gt = exprType(tgt, sc)
+            if isArr(gt) || isObjArr(gt) || isU16List(gt) || isTupList(gt) {
+                if val0.nm == "ArrayLit" {
+                    String lv = arrayLitArg(val0, gt, e, sc)
+                    e.add(nm + " = " + lv + ";")
+                } else {
+                    e.add(nm + " = " + expr(val0, e, sc) + ";")
+                }
+                e.add("xn_root_hold(" + nm + ");")
+                return
+            }
+        }
         if tgt.nm == "Member" && exprType(tgt, sc) == "Bool" && nm.indexOf("((int)(") == 0 && nm.substring(nm.length() - 2, 2) == "))" { nm = nm.substring(7, nm.length() - 9) }
         String op = unq(txt(fld(st, "Op")))
         String v = ""
@@ -3903,10 +4068,16 @@ static void emitFunc(N fn, EM e, SC sc) {
 
 
 static String joinLines(List<String> xs) {
-    String b = ""
+    if STAGE_LOG && xs.length() > 1000 {
+        Int tl = 0
+        Int ti = 0
+        while ti < xs.length() { tl = tl + xs.get(ti).length(); ti = ti + 1 }
+        diagnose("joinLines n=" + str(xs.length()) + " chars=" + str(tl) + " ms=" + str(nowMono()))
+    }
+    List<String> cur = []
     Int i = 0
-    while i < xs.length() { b = b + xs.get(i) + "\n"; i = i + 1 }
-    return b
+    while i < xs.length() { cur.push(xs.get(i) + "\n"); i = i + 1 }
+    return joinLinear(cur)
 }
 
 static String fbComment(String rt) {
@@ -4197,6 +4368,7 @@ static void emitClassSection(N cls, EM ce) {
             if init.nm == "IntLitExpr" { dv = expr(init, ce, new SC()) }
             else if init.nm == "BoolLit" { dv = expr(init, ce, new SC()) }
             else if init.nm == "Member" { dv = expr(init, ce, new SC()) }
+            else if init.nm == "Unary" { dv = expr(init, ce, new SC()) }
             if ft == "Bool" { dv = "(int64_t)((int)(" + dv + "))" }
             ce.add("    o->" + fn + " = " + dv + ";")
         }
@@ -5614,7 +5786,7 @@ static String classArrHelperText(String key) {
     return b
 }
 static String topFuncProtos(N decls) {
-    String b = ""
+    List<String> xs = []
     Int i = 0
     while i < decls.el.length() {
         N d = decls.el.get(i)
@@ -5622,19 +5794,23 @@ static String topFuncProtos(N decls) {
             String nm = unq(txt(fld(d, "Name")))
             if nm != "main" && fld(d, "TypePars").el.length() == 0 {
                 String rk = retKey(d)
-                b = b + "static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n"
+                xs.push("static " + cType(rk) + " xn_" + nm + "(" + paramsOf(d) + ");\n")
             }
         }
         i = i + 1
     }
-    return b
+    return joinLinear(xs)
 }
 
 static String joinList(List<String> xs, String sep) {
-    String b = ""
+    List<String> ys = []
     Int i = 0
-    while i < xs.length() { if i > 0 { b = b + sep }; b = b + xs.get(i); i = i + 1 }
-    return b
+    while i < xs.length() {
+        if i > 0 { ys.push(sep) }
+        ys.push(xs.get(i))
+        i = i + 1
+    }
+    return joinLinear(ys)
 }
 static Int ffiIdx(String name) {
     Int i = 0
@@ -6223,9 +6399,13 @@ static String emitUnit(N unit, String path) {
         if hasGenericListType(decls.el.get(glc)) { e.usesList = true; glc = decls.el.length() }
         else { glc = glc + 1 }
     }
+    FN_P_OWN = []
+    FN_P_IDX = []
+    FN_P_TYPE = []
     GLOB_NAMES = []
     GLOB_TYPES = []
     GLOB_INITS = []
+    slog("emitUnit collect start")
     CLS_NAMES = []
     CLS_DECLS = []
     SINGLE_DECLS = []
@@ -6403,6 +6583,15 @@ static String emitUnit(N unit, String path) {
             if fld(d, "TypePars").el.length() > 0 {
                 GEN_FN_DECLS.push(d)
             } else {
+                String tfn0 = unq(txt(fld(d, "Name")))
+                N tps0 = fld(d, "Params")
+                Int tpi0 = 0
+                while tpi0 < tps0.el.length() {
+                    FN_P_OWN.push(tfn0)
+                    FN_P_IDX.push(tpi0)
+                    FN_P_TYPE.push(typeKey(fld(tps0.el.get(tpi0), "Type")))
+                    tpi0 = tpi0 + 1
+                }
                 String rk = retKey(d)
                 sc.useResult(rk)
                 sc.defFn(unq(txt(fld(d, "Name"))), rk)
@@ -6445,8 +6634,10 @@ static String emitUnit(N unit, String path) {
     PRE_HID = 0
     PRE_CGET = 0
     PREPASS = false
+    stage("emit-functions")
     prewarmContainers(decls)
     prepareGlobals(e)
+    stage("prewarm-globals")
     if mainArgv { e.add("int main(int argc, char **argv) {") } else { e.add("int main(void) {") }
     e.add("    xrt_runtime_init();")
     e.add("    xn_init_vtables();")
@@ -6931,6 +7122,7 @@ static String emitUnit(N unit, String path) {
         res = res + genProtos()
         res = res + PRELUDE_TAIL
     }
+    stage("prelude-built")
     if GLOB_NAMES.length() > 0 {
         Int gmp = res.indexOf(mainProto)
         if gmp >= 0 { res = res.substring(0, gmp) + globDeclsText() + res.substring(gmp, res.length() - gmp) }
@@ -6938,11 +7130,14 @@ static String emitUnit(N unit, String path) {
     e.add("}")
     res = res + lambdaProtos()
     Int j = 0
+    List<String> tail = []
     while j < e.ls.length() {
-        if e.ls.get(j).indexOf("int main(") == 0 { res = res + lambdaDefs() + globInitText() }
-        res = res + e.ls.get(j) + "\n"
+        if e.ls.get(j).indexOf("int main(") == 0 { tail.push(lambdaDefs() + globInitText()) }
+        tail.push(e.ls.get(j) + "\n")
         j = j + 1
     }
+    res = res + joinLinear(tail)
+    stage("join-output")
     if FFI_E_NAME.length() > 0 {
         Int fp = res.indexOf("static void xn_fatal_oob(void);")
         if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
@@ -6974,25 +7169,35 @@ static String jsonChr(Int code) {
     return ""
 }
 static String jsonStr(String s, Int p) {
-    String b = ""
+    List<String> vals = []
+    Int st = p
     Int i = p
+    Bool esc = false
     while i < s.length() {
         String c = s.substring(i, 1)
-        if c == "\"" { JSON_I = i + 1; return b }
         if c == "\\" {
+            esc = true
+            vals.push(s.substring(st, i - st))
             String e = s.substring(i + 1, 1)
-            if e == "n" { b = b + "\n"; i = i + 2 }
-            else if e == "r" { b = b + "\r"; i = i + 2 }
-            else if e == "t" { b = b + "\t"; i = i + 2 }
-            else if e == "\"" { b = b + "\""; i = i + 2 }
-            else if e == "\\" { b = b + "\\"; i = i + 2 }
-            else if e == "/" { b = b + "/"; i = i + 2 }
-            else if e == "u" { b = b + jsonChr(jsonHex4(s, i + 2)); i = i + 6 }
-            else { b = b + e; i = i + 2 }
-        } else { b = b + c; i = i + 1 }
+            if e == "n" { vals.push("\n"); i = i + 2 }
+            else if e == "r" { vals.push("\r"); i = i + 2 }
+            else if e == "t" { vals.push("\t"); i = i + 2 }
+            else if e == "\"" { vals.push("\""); i = i + 2 }
+            else if e == "\\" { vals.push("\\"); i = i + 2 }
+            else if e == "/" { vals.push("/"); i = i + 2 }
+            else if e == "u" { vals.push(jsonChr(jsonHex4(s, i + 2))); i = i + 6 }
+            else { vals.push(e); i = i + 2 }
+            st = i
+        } else if c == "\"" {
+            JSON_I = i + 1
+            if !esc { return s.substring(p, i - p) }
+            vals.push(s.substring(st, i - st))
+            return joinLinear(vals)
+        } else { i = i + 1 }
     }
     JSON_I = i
-    return b
+    vals.push(s.substring(st, i - st))
+    return joinLinear(vals)
 }
 static N parseBundle(String text) {
     List<N> units = []
@@ -7041,8 +7246,10 @@ static Int main(String[] args) {
         if a == "--ast-file" && ai + 1 < args.length() { astFile = args.get(ai + 1); ai = ai + 2 }
         else if a == "--bundle-file" && ai + 1 < args.length() { bundleFile = args.get(ai + 1); ai = ai + 2 }
         else if a == "--project" && ai + 1 < args.length() { project = args.get(ai + 1); ai = ai + 2 }
+        else if a == "--stage-log" { STAGE_LOG = true; ai = ai + 1 }
         else { pos.push(a); ai = ai + 1 }
     }
+    STAGE_T = nowMono()
     String ast = ""
     if astFile != "" { ast = readFileText(astFile) }
     else if pos.length() > 0 { ast = pos.get(0) }
@@ -7050,6 +7257,7 @@ static Int main(String[] args) {
         print("xnullc: 缺少 AST：请提供 --ast-file 或位置参数 <ast>")
         return 2
     }
+    stage("read-ast len=" + str(ast.length()))
     String proj = project
     if proj == "" && pos.length() > 1 { proj = pos.get(1) }
     if proj != "" { parseRegistry(proj) }
@@ -7058,7 +7266,11 @@ static Int main(String[] args) {
     else if pos.length() > 2 { bundle = pos.get(2) }
     if bundle != "" {
         N bunit = parseBundle(bundle)
-        print(emitUnit(bunit, path))
+        stage("parse-bundle")
+        String outc = emitUnit(bunit, path)
+        stage("emit-unit")
+        print(outc)
+        stage("print")
         return 0
     }
     if ast.indexOf("(xnast v1 ") == 0 && ast.length() > 11 { ast = ast.substring(10, ast.length() - 11) }
