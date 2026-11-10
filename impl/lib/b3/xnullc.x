@@ -3167,6 +3167,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
                 }
                 return
             }
+            if isMap(mtt) || isSet(mtt) {
+                String mnm1 = expr(tgt, e, sc)
+                if val0.nm == "MapLit" || val0.nm == "SetLit" {
+                    if isMap(mtt) { e.add(mnm1 + " = " + mapNameC(cType(mapKey(mtt)), cType(mapVal(mtt))) + "_new(0);") }
+                    else { e.add(mnm1 + " = " + setNameC(cType(setElem(mtt))) + "_new();") }
+                } else {
+                    e.add(mnm1 + " = " + expr(val0, e, sc) + ";")
+                }
+                return
+            }
             if isArr(mtt) || isObjArr(mtt) || isU16List(mtt) || isTupList(mtt) {
                 String mnm0 = expr(tgt, e, sc)
                 if val0.nm == "ArrayLit" {
@@ -3216,6 +3226,16 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         String nm = expr(tgt, e, sc)
         if tgt.nm == "IdentExpr" && nm.indexOf("xn_g_") == 0 && op0 == "=" {
             String gt = exprType(tgt, sc)
+            if isMap(gt) || isSet(gt) {
+                if val0.nm == "MapLit" || val0.nm == "SetLit" {
+                    if isMap(gt) { e.add(nm + " = " + mapNameC(cType(mapKey(gt)), cType(mapVal(gt))) + "_new(0);") }
+                    else { e.add(nm + " = " + setNameC(cType(setElem(gt))) + "_new();") }
+                } else {
+                    e.add(nm + " = " + expr(val0, e, sc) + ";")
+                }
+                e.add("xn_root_hold(" + nm + ");")
+                return
+            }
             if isArr(gt) || isObjArr(gt) || isU16List(gt) || isTupList(gt) {
                 if val0.nm == "ArrayLit" {
                     String lv = arrayLitArg(val0, gt, e, sc)
