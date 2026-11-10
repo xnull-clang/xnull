@@ -157,6 +157,7 @@ static String joinLinear(List<String> xs) {
 }
 static Bool STAGE_LOG = false
 static Bool FAST_ROOTS = false
+static Bool FAST_SP = false
 static Int ESC_EXPR_N = 0
 static Int ESC_STMT_N = 0
 static Int ESC_BLOCK_N = 0
@@ -7369,6 +7370,7 @@ static String emitUnit(N unit, String path) {
         if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
     }
     if FAST_ROOTS { res = fastRootsPatch(res) }
+    if FAST_SP { res = res.replace("#define XN_GC_SAFEPOINT_THRESHOLD 1024", "#define XN_GC_SAFEPOINT_THRESHOLD 4194304") }
     return res.substring(0, res.length() - 1)
 }
 
@@ -7475,6 +7477,7 @@ static Int main(String[] args) {
         else if a == "--project" && ai + 1 < args.length() { project = args.get(ai + 1); ai = ai + 2 }
         else if a == "--stage-log" { STAGE_LOG = true; ai = ai + 1 }
         else if a == "--fast-roots" { FAST_ROOTS = true; ai = ai + 1 }
+        else if a == "--fast-safepoint" { FAST_SP = true; ai = ai + 1 }
         else { pos.push(a); ai = ai + 1 }
     }
     STAGE_T = nowMono()
