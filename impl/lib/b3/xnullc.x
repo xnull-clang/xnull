@@ -191,13 +191,19 @@ static String unqBig(String s) {
                     String h1 = s.substring(i + 1, 1)
                     String h2 = s.substring(i + 2, 1)
                     Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
-                    if v == 0 { vals.push("\0") } else { vals.push("\\x" + h1 + h2) }
+                    if v == 0 { vals.push("\0") }
+                    else if v == 127 { vals.push("\u007f") }
+                    else { vals.push("\\x" + h1 + h2) }
                     i = i + 3
                 }
                 else if e == "u" && i + 4 < s.length() {
                     Int v = jsonHex4(s, i + 1)
                     String hs = s.substring(i + 1, 4)
-                    if v == 0 { vals.push("\0") } else { vals.push("\\u" + hs) }
+                    if v == 0 { vals.push("\0") }
+                    else if v == 127 { vals.push("\u007f") }
+                    else if v == 11 { vals.push("\u000b") }
+                    else if v == 12 { vals.push("\u000c") }
+                    else { vals.push("\\u" + hs) }
                     i = i + 5
                 }
                 else { vals.push(e); i = i + 1 }
@@ -333,13 +339,19 @@ static String unq(String raw) {
                     String h1 = s.substring(i + 1, 1)
                     String h2 = s.substring(i + 2, 1)
                     Int v = jsonHex1(h1) * 16 + jsonHex1(h2)
-                    if v == 0 { b = b + "\0" } else { b = b + "\\x" + h1 + h2 }
+                    if v == 0 { b = b + "\0" }
+                    else if v == 127 { b = b + "\u007f" }
+                    else { b = b + "\\x" + h1 + h2 }
                     i = i + 2
                 }
                 else if e == "u" && i + 4 < s.length() {
                     Int v = jsonHex4(s, i + 1)
                     String hs = s.substring(i + 1, 4)
-                    if v == 0 { b = b + "\0" } else { b = b + "\\u" + hs }
+                    if v == 0 { b = b + "\0" }
+                    else if v == 127 { b = b + "\u007f" }
+                    else if v == 11 { b = b + "\u000b" }
+                    else if v == 12 { b = b + "\u000c" }
+                    else { b = b + "\\u" + hs }
                     i = i + 4
                 }
                 else { b = b + e }
@@ -362,8 +374,6 @@ static String qBig(String s) {
         else if c == "\n" { e = "\\n" }
         else if c == "\t" { e = "\\t" }
         else if c == "\r" { e = "\\r" }
-        else if c == "\u000b" { e = "\\v" }
-        else if c == "\u000c" { e = "\\f" }
         else if c == "\0" { e = "\\000" }
         else if c == "\u007f" { e = "\\177" }
         if e != "" {
@@ -384,8 +394,6 @@ static String q(String s) {
     b = b.replace("\n", "\\n")
     b = b.replace("\t", "\\t")
     b = b.replace("\r", "\\r")
-    b = b.replace("\u000b", "\\v")
-    b = b.replace("\u000c", "\\f")
     b = b.replace("\0", "\\000")
     b = b.replace("\u007f", "\\177")
     return "\"" + b + "\""
