@@ -560,7 +560,11 @@ static String fnTypedefs() {
     while a < ns.length() {
         String x = ns.get(a)
         Int b = a
-        while b > 0 && strLess(x, ns.get(b - 1)) { ns.set(b, ns.get(b - 1)); b = b - 1 }
+        while b > 0 {
+            if !strLess(x, ns.get(b - 1)) { break }
+            ns.set(b, ns.get(b - 1))
+            b = b - 1
+        }
         ns.set(b, x)
         a = a + 1
     }
@@ -3013,6 +3017,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             e.usesObjArr = true
             e.objArrKey = ty
             String an = classArrName(ty)
+            if init.nm != "ArrayLit" {
+                e.add(an + " *" + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
@@ -3025,6 +3034,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         if isTupList(ty) {
             e.usesTArr = true
             String an = arrTupName(ty)
+            if init.nm != "ArrayLit" {
+                e.add(an + " *" + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String t = e.nt()
             e.add(an + " *" + t + " = " + an + "_new(" + str(elems.el.length()) + ");")
@@ -3066,6 +3080,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         if isSet(ty) {
             e.hasSet = true
+            if init.nm != "ArrayLit" && init.nm != "SetLit" {
+                e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N elems = fld(init, "Elems")
             String ta = e.nt()
             e.add("xn_arr_i *" + ta + " = xn_arr_i_new(" + str(elems.el.length()) + ");")
@@ -3080,6 +3099,11 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         if isMap(ty) {
             e.hasMap = true
+            if init.nm != "MapLit" {
+                e.add(cType(ty) + " " + nm + " = " + expr(init, e, sc) + ";")
+                finishLocalRoot(sc, e, nm, ty)
+                return
+            }
             N keys = fld(init, "Keys")
             N vals = fld(init, "Vals")
             String tm = e.nt()
@@ -5443,7 +5467,8 @@ static void sortGenInsts() {
         String xk = GEN_INST_KEY.get(a)
         String xb = GEN_INST_BASE.get(a)
         Int b = a
-        while b > 0 && strLess(xn, GEN_INST_NAME.get(b - 1)) {
+        while b > 0 {
+            if !strLess(xn, GEN_INST_NAME.get(b - 1)) { break }
             GEN_INST_NAME.set(b, GEN_INST_NAME.get(b - 1))
             GEN_INST_KEY.set(b, GEN_INST_KEY.get(b - 1))
             GEN_INST_BASE.set(b, GEN_INST_BASE.get(b - 1))
@@ -5593,6 +5618,7 @@ static List<N> sortedClassDecls(N decls) {
         if d.nm == "ClassDecl" && fld(d, "TypePars").el.length() == 0 { xs.push(d) }
         i = i + 1
     }
+    if STAGE_LOG { slog("sortedClassDecls xs=" + str(xs.length()) + " decls=" + str(decls.el.length())) }
     List<N> resL = []
     List<String> used = []
     while resL.length() < xs.length() {
@@ -5645,7 +5671,11 @@ static void sortStrs(List<String> xs) {
     while a < xs.length() {
         String x = xs.get(a)
         Int b = a
-        while b > 0 && strLess(x, xs.get(b - 1)) { xs.set(b, xs.get(b - 1)); b = b - 1 }
+        while b > 0 {
+            if !strLess(x, xs.get(b - 1)) { break }
+            xs.set(b, xs.get(b - 1))
+            b = b - 1
+        }
         xs.set(b, x)
         a = a + 1
     }
@@ -6528,11 +6558,11 @@ static Int indexFrom(String s, String sub, Int from) {
     return from + k
 }
 static String fastRootsPatch(String s) {
-    Int a0 = s.indexOf("static void xn_root_hold(void *obj) {")
+    Int a0 = s.indexOf("static void xn_root_hold(void *obj) {\n    if (obj == NULL) { return; }")
     if a0 < 0 { return s }
     Int b0 = indexFrom(s, "\n}\n", a0) + 3
     String holdNew = "typedef struct { rt_header hdr; void **data; size_t len; size_t cap; } xn_rootbox;\n" + "static void xn_root_box_scan(void *p, void (*visit)(void *)) {\n" + "    xn_rootbox *b = (xn_rootbox *)p;\n" + "    for (size_t i = 0; i < b->len; i++) { visit(b->data[i]); }\n" + "}\n" + "static const rt_type RT_TYPE_XN_ROOTBOX = { \"RootBox\", sizeof(xn_rootbox), NULL, xn_root_box_scan };\n" + "static xn_rootbox *xn_root_box = NULL;\n" + "typedef struct { void *obj; size_t count; size_t pos; } xn_he;\n" + "static xn_he *xn_root_hash = NULL;\n" + "static size_t xn_root_hcap = 0;\n" + "static size_t xn_root_hused = 0;\n" + "static size_t xn_root_htomb = 0;\n" + "#define XN_ROOT_TOMB ((void *)(intptr_t)1)\n" + "static void xn_root_box_init(void) {\n" + "    if (xn_root_box != NULL) { return; }\n" + "    xn_root_box = (xn_rootbox *)rt_gc_new(&RT_TYPE_XN_ROOTBOX);\n" + "    memset((char *)xn_root_box + sizeof(rt_header), 0, sizeof(xn_rootbox) - sizeof(rt_header));\n" + "    rt_gc_root_add(xn_root_box);\n" + "}\n" + "static void xn_root_box_push(void *obj) {\n" + "    xn_root_box_init();\n" + "    if (xn_root_box->len == xn_root_box->cap) {\n" + "        xn_root_box->cap = xn_root_box->cap ? xn_root_box->cap * 2 : 1024;\n" + "        xn_root_box->data = realloc(xn_root_box->data, sizeof(void *) * xn_root_box->cap);\n" + "        if (xn_root_box->data == NULL) { abort(); }\n" + "    }\n" + "    xn_root_box->data[xn_root_box->len++] = obj;\n" + "}\n" + "static size_t xn_root_hslot(void *obj, size_t cap) {\n" + "    uintptr_t h = (uintptr_t)obj;\n" + "    h = (h >> 4) * (uintptr_t)2654435761u;\n" + "    return (size_t)(h % cap);\n" + "}\n" + "static void xn_root_hrehash(size_t nc) {\n" + "    xn_he *nt = (xn_he *)calloc(nc, sizeof(xn_he));\n" + "    if (nt == NULL) { abort(); }\n" + "    if (xn_root_hash != NULL) {\n" + "        for (size_t i = 0; i < xn_root_hcap; i++) {\n" + "            void *o = xn_root_hash[i].obj;\n" + "            if (o == NULL || o == XN_ROOT_TOMB) { continue; }\n" + "            size_t j = xn_root_hslot(o, nc);\n" + "            while (nt[j].obj != NULL) { j = (j + 1) % nc; }\n" + "            nt[j] = xn_root_hash[i];\n" + "        }\n" + "        free(xn_root_hash);\n" + "    }\n" + "    xn_root_hash = nt;\n" + "    xn_root_hcap = nc;\n" + "    xn_root_htomb = 0;\n" + "}\n" + "static xn_he *xn_root_find(void *obj) {\n" + "    if (xn_root_hcap == 0) { return NULL; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL) {\n" + "        if (xn_root_hash[i].obj == obj) { return &xn_root_hash[i]; }\n" + "        i = (i + 1) % xn_root_hcap;\n" + "    }\n" + "    return NULL;\n" + "}\n" + "static void xn_root_hold(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    if (xn_root_hcap == 0 || (xn_root_hused + xn_root_htomb + 1) * 10 >= xn_root_hcap * 7) {\n" + "        xn_root_hrehash(xn_root_hcap == 0 ? 1024 : xn_root_hcap * 2);\n" + "    }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e != NULL) { e->count++; return; }\n" + "    size_t i = xn_root_hslot(obj, xn_root_hcap);\n" + "    while (xn_root_hash[i].obj != NULL && xn_root_hash[i].obj != XN_ROOT_TOMB) { i = (i + 1) % xn_root_hcap; }\n" + "    xn_root_box_push(obj);\n" + "    xn_root_hash[i].obj = obj;\n" + "    xn_root_hash[i].count = 1;\n" + "    xn_root_hash[i].pos = xn_root_box->len - 1;\n" + "    xn_root_hused++;\n" + "}\n"
-    Int a1 = s.indexOf("static void xn_root_release(void *obj) {")
+    Int a1 = s.indexOf("static void xn_root_release(void *obj) {\n    if (obj == NULL) { return; }")
     if a1 < 0 { return s }
     Int b1 = indexFrom(s, "\n}\n", a1) + 3
     String relNew = "static void xn_root_release(void *obj) {\n" + "    if (obj == NULL) { return; }\n" + "    xn_he *e = xn_root_find(obj);\n" + "    if (e == NULL) { return; }\n" + "    if (e->count > 1) { e->count--; return; }\n" + "    size_t pos = e->pos;\n" + "    size_t last = xn_root_box->len - 1;\n" + "    if (pos != last) {\n" + "        xn_root_box->data[pos] = xn_root_box->data[last];\n" + "        xn_he *m = xn_root_find(xn_root_box->data[pos]);\n" + "        if (m != NULL) { m->pos = pos; }\n" + "    }\n" + "    xn_root_box->len = last;\n" + "    e->obj = XN_ROOT_TOMB;\n" + "    e->count = 0;\n" + "    xn_root_hused--;\n" + "    xn_root_htomb++;\n" + "    if (xn_root_htomb > 4096 && xn_root_htomb * 2 > xn_root_hcap) {\n" + "        size_t nc = xn_root_hcap;\n" + "        xn_root_hrehash(nc);\n" + "    }\n" + "}\n"

@@ -1,0 +1,54 @@
+B4a-03b-2 停止点：fast-roots 把时间打到 24.5s，但产出 C 有 GC 生命周期损坏
+
+## 已修（源码）
+1. **prelude OOB 根因**：`sortStrs` 等 3 处 `while b > 0 && strLess(x, xs.get(b-1))`，
+   xnullc 在 Call 实参里的 `.get` 会被提前求值，b==0 时越界。改为嵌套
+   `while b > 0 { if !strLess(...) break; ... }`（sortStrs、fnTypedefs、sortGenInsts）。
+2. **List<N> 局部初始化 bug**：`List<N> x = call()` 被 isObjArr/isTupList 分支
+   当成数组字面量（`fld(init,"Elems")` 为空）发成 `x = arr_new(0)`，导致
+   native 下 `sortedClassDecls` 结果恒空、类前向声明缺失。已补非字面量 init 走
+   `expr(init)`；isSet/isMap 同理。修复后 gmany 的
+   `typedef struct xn_Cls_Box xn_Cls_Box;` 恢复（2 条）。
+
+## fast-roots + safepoint=4M 自编译阶段（xn-s1n）
+| 阶段 | 时间 |
+|---|---|
+| parse-bundle | 5.5s |
+| collect | 1.4s |
+| scan-cls | 0.31s |
+| emit-funcs | 10.2s |
+| emit-main | 0.06s |
+| prewarm-globals | 0.77s |
+| prelude-built | 0.51s |
+| join-output | 1.8s |
+| **total** | **24.5s** |
+| 峰值 | **4.32GB** |
+
+产出 `/tmp/xn-s2.c` 114,545 行（完整写完），但 **cc 失败 20 处**：
+类结构体字段类型为空：
+```c
+typedef struct xn_Cls_N {
+    rt_header hdr;
+     sc;
+     raw;
+     nm;
+     fn;
+     fv;
+     el;
+} xn_Cls_N;
+```
+xnullc 的解释器路径生成同样代码字段类型正常，说明是 **fast-roots 下 GC 把
+字段类型拼接的临时字符串回收/清空**（`"    " + (ternary) + " " + name + ";"`），
+不是 codegen 文本规则问题。默认 safepoint 的 fast-roots 版本同样复现（字段为空），
+并非 4M 特有。
+
+## no-GC / 根扫描结论（延续 B4a-03b）
+- xparser 代理：no-GC（safepoint=4M）prelude-built 411s vs 默认 416s，**无显著加速**。
+- 去 root 实验：xparser 总 7.09s（prelude 0.72s），证明 root 登记是主因。
+- fast-roots 把 xnullc emit-funcs >24min→10s，但引入 GC 正确性问题（如上）。
+
+## 未完成 / 下一步
+- xn-s2 未通过 cc，未跑 hello；<500MB 未达成（4.3GB，需降 safepoint 阈值）。
+- 下一步：修 `xn_rootbox` 的 GC 生命周期（确认 box scan 能 visit 所有
+  `rt_string_from_c` 临时；或字段/拼接临时显式 root），再测 cc；
+  也可先用解释器生成正确 xn-s2 作为可用基线，native 仅作性能证据。
