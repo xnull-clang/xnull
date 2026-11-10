@@ -362,6 +362,8 @@ static String qBig(String s) {
         else if c == "\n" { e = "\\n" }
         else if c == "\t" { e = "\\t" }
         else if c == "\r" { e = "\\r" }
+        else if c == "\u000b" { e = "\\v" }
+        else if c == "\u000c" { e = "\\f" }
         else if c == "\0" { e = "\\000" }
         else if c == "\u007f" { e = "\\177" }
         if e != "" {
@@ -382,6 +384,8 @@ static String q(String s) {
     b = b.replace("\n", "\\n")
     b = b.replace("\t", "\\t")
     b = b.replace("\r", "\\r")
+    b = b.replace("\u000b", "\\v")
+    b = b.replace("\u000c", "\\f")
     b = b.replace("\0", "\\000")
     b = b.replace("\u007f", "\\177")
     return "\"" + b + "\""
@@ -7370,7 +7374,7 @@ static String emitUnit(N unit, String path) {
         if fp >= 0 { res = res.substring(0, fp) + ffiSupportText() + "\n" + res.substring(fp, res.length() - fp) }
     }
     if FAST_ROOTS { res = fastRootsPatch(res) }
-    if FAST_SP { res = res.replace("#define XN_GC_SAFEPOINT_THRESHOLD 1024", "#define XN_GC_SAFEPOINT_THRESHOLD 4194304") }
+    if FAST_SP { res = res.replace("#define XN_GC_SAFEPOINT_THRESHOLD 1024", "#define XN_GC_SAFEPOINT_THRESHOLD (4 * 1024 * 1024)") }
     return res.substring(0, res.length() - 1)
 }
 
