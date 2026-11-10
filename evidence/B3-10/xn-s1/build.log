@@ -1,0 +1,221 @@
+xnullc.x:177:65: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  177 |                                                         if (((v == 0))) {
+      |                                                               ~~^~~~
+xnullc.x:177:65: note: remove extraneous parentheses around the comparison to silence this warning
+  177 |                                                         if (((v == 0))) {
+      |                                                             ~   ^    ~
+xnullc.x:177:65: note: use '=' to turn this equality comparison into an assignment
+  177 |                                                         if (((v == 0))) {
+      |                                                                 ^~
+      |                                                                 =
+xnullc.x:183:73: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  183 |                                                                 if (((v == 0))) {
+      |                                                                       ~~^~~~
+xnullc.x:183:73: note: remove extraneous parentheses around the comparison to silence this warning
+  183 |                                                                 if (((v == 0))) {
+      |                                                                     ~   ^    ~
+xnullc.x:183:73: note: use '=' to turn this equality comparison into an assignment
+  183 |                                                                 if (((v == 0))) {
+      |                                                                         ^~
+      |                                                                         =
+xnullc.x:215:73: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  215 |                                                                 if (((v == 0))) {
+      |                                                                       ~~^~~~
+xnullc.x:215:73: note: remove extraneous parentheses around the comparison to silence this warning
+  215 |                                                                 if (((v == 0))) {
+      |                                                                     ~   ^    ~
+xnullc.x:215:73: note: use '=' to turn this equality comparison into an assignment
+  215 |                                                                 if (((v == 0))) {
+      |                                                                         ^~
+      |                                                                         =
+xnullc.x:221:81: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  221 |                                                                         if (((v == 0))) {
+      |                                                                               ~~^~~~
+xnullc.x:221:81: note: remove extraneous parentheses around the comparison to silence this warning
+  221 |                                                                         if (((v == 0))) {
+      |                                                                             ~   ^    ~
+xnullc.x:221:81: note: use '=' to turn this equality comparison into an assignment
+  221 |                                                                         if (((v == 0))) {
+      |                                                                                 ^~
+      |                                                                                 =
+xnullc.x:518:25: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+  518 |                 if (((d == 0))) {
+      |                       ~~^~~~
+xnullc.x:518:25: note: remove extraneous parentheses around the comparison to silence this warning
+  518 |                 if (((d == 0))) {
+      |                     ~   ^    ~
+xnullc.x:518:25: note: use '=' to turn this equality comparison into an assignment
+  518 |                 if (((d == 0))) {
+      |                         ^~
+      |                         =
+xnullc.x:1283:35: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 1283 |                         if (((idx == 0))) {
+      |                               ~~~~^~~~
+xnullc.x:1283:35: note: remove extraneous parentheses around the comparison to silence this warning
+ 1283 |                         if (((idx == 0))) {
+      |                             ~     ^    ~
+xnullc.x:1283:35: note: use '=' to turn this equality comparison into an assignment
+ 1283 |                         if (((idx == 0))) {
+      |                                   ^~
+      |                                   =
+xnullc.x:1400:35: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 1400 |                         if (((idx == 0))) {
+      |                               ~~~~^~~~
+xnullc.x:1400:35: note: remove extraneous parentheses around the comparison to silence this warning
+ 1400 |                         if (((idx == 0))) {
+      |                             ~     ^    ~
+xnullc.x:1400:35: note: use '=' to turn this equality comparison into an assignment
+ 1400 |                         if (((idx == 0))) {
+      |                                   ^~
+      |                                   =
+xnullc.x:2600:17: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 2600 |         if (((i == pendAt))) {
+      |               ~~^~~~~~~~~
+xnullc.x:2600:17: note: remove extraneous parentheses around the comparison to silence this warning
+ 2600 |         if (((i == pendAt))) {
+      |             ~   ^         ~
+xnullc.x:2600:17: note: use '=' to turn this equality comparison into an assignment
+ 2600 |         if (((i == pendAt))) {
+      |                 ^~
+      |                 =
+xnullc.x:3142:33: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 3142 |                     if (((owner == xn_p_sc))) {
+      |                           ~~~~~~^~~~~~~~~~
+xnullc.x:3142:33: note: remove extraneous parentheses around the comparison to silence this warning
+ 3142 |                     if (((owner == xn_p_sc))) {
+      |                         ~       ^          ~
+xnullc.x:3142:33: note: use '=' to turn this equality comparison into an assignment
+ 3142 |                     if (((owner == xn_p_sc))) {
+      |                                 ^~
+      |                                 =
+xnullc.x:3686:25: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 3686 |                 if (((i == 0))) {
+      |                       ~~^~~~
+xnullc.x:3686:25: note: remove extraneous parentheses around the comparison to silence this warning
+ 3686 |                 if (((i == 0))) {
+      |                     ~   ^    ~
+xnullc.x:3686:25: note: use '=' to turn this equality comparison into an assignment
+ 3686 |                 if (((i == 0))) {
+      |                         ^~
+      |                         =
+xnullc.x:5150:32: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 5150 |                 if (((xn_p_idx == 0))) {
+      |                       ~~~~~~~~~^~~~
+xnullc.x:5150:32: note: remove extraneous parentheses around the comparison to silence this warning
+ 5150 |                 if (((xn_p_idx == 0))) {
+      |                     ~          ^    ~
+xnullc.x:5150:32: note: use '=' to turn this equality comparison into an assignment
+ 5150 |                 if (((xn_p_idx == 0))) {
+      |                                ^~
+      |                                =
+xnullc.x:5166:27: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 5166 |                 if (((dep == 0))) {
+      |                       ~~~~^~~~
+xnullc.x:5166:27: note: remove extraneous parentheses around the comparison to silence this warning
+ 5166 |                 if (((dep == 0))) {
+      |                     ~     ^    ~
+xnullc.x:5166:27: note: use '=' to turn this equality comparison into an assignment
+ 5166 |                 if (((dep == 0))) {
+      |                           ^~
+      |                           =
+xnullc.x:7042:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7042 |     if (((xn_p_code == 34))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7042:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7042 |     if (((xn_p_code == 34))) {
+      |         ~           ^     ~
+xnullc.x:7042:21: note: use '=' to turn this equality comparison into an assignment
+ 7042 |     if (((xn_p_code == 34))) {
+      |                     ^~
+      |                     =
+xnullc.x:7043:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7043 |     if (((xn_p_code == 38))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7043:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7043 |     if (((xn_p_code == 38))) {
+      |         ~           ^     ~
+xnullc.x:7043:21: note: use '=' to turn this equality comparison into an assignment
+ 7043 |     if (((xn_p_code == 38))) {
+      |                     ^~
+      |                     =
+xnullc.x:7044:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7044 |     if (((xn_p_code == 39))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7044:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7044 |     if (((xn_p_code == 39))) {
+      |         ~           ^     ~
+xnullc.x:7044:21: note: use '=' to turn this equality comparison into an assignment
+ 7044 |     if (((xn_p_code == 39))) {
+      |                     ^~
+      |                     =
+xnullc.x:7045:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7045 |     if (((xn_p_code == 47))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7045:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7045 |     if (((xn_p_code == 47))) {
+      |         ~           ^     ~
+xnullc.x:7045:21: note: use '=' to turn this equality comparison into an assignment
+ 7045 |     if (((xn_p_code == 47))) {
+      |                     ^~
+      |                     =
+xnullc.x:7046:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7046 |     if (((xn_p_code == 60))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7046:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7046 |     if (((xn_p_code == 60))) {
+      |         ~           ^     ~
+xnullc.x:7046:21: note: use '=' to turn this equality comparison into an assignment
+ 7046 |     if (((xn_p_code == 60))) {
+      |                     ^~
+      |                     =
+xnullc.x:7047:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7047 |     if (((xn_p_code == 62))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7047:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7047 |     if (((xn_p_code == 62))) {
+      |         ~           ^     ~
+xnullc.x:7047:21: note: use '=' to turn this equality comparison into an assignment
+ 7047 |     if (((xn_p_code == 62))) {
+      |                     ^~
+      |                     =
+xnullc.x:7048:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7048 |     if (((xn_p_code == 92))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7048:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7048 |     if (((xn_p_code == 92))) {
+      |         ~           ^     ~
+xnullc.x:7048:21: note: use '=' to turn this equality comparison into an assignment
+ 7048 |     if (((xn_p_code == 92))) {
+      |                     ^~
+      |                     =
+xnullc.x:7049:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7049 |     if (((xn_p_code == 9))) {
+      |           ~~~~~~~~~~^~~~
+xnullc.x:7049:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7049 |     if (((xn_p_code == 9))) {
+      |         ~           ^    ~
+xnullc.x:7049:21: note: use '=' to turn this equality comparison into an assignment
+ 7049 |     if (((xn_p_code == 9))) {
+      |                     ^~
+      |                     =
+xnullc.x:7050:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7050 |     if (((xn_p_code == 10))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7050:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7050 |     if (((xn_p_code == 10))) {
+      |         ~           ^     ~
+xnullc.x:7050:21: note: use '=' to turn this equality comparison into an assignment
+ 7050 |     if (((xn_p_code == 10))) {
+      |                     ^~
+      |                     =
+xnullc.x:7051:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
+ 7051 |     if (((xn_p_code == 13))) {
+      |           ~~~~~~~~~~^~~~~
+xnullc.x:7051:21: note: remove extraneous parentheses around the comparison to silence this warning
+ 7051 |     if (((xn_p_code == 13))) {
+      |         ~           ^     ~
+xnullc.x:7051:21: note: use '=' to turn this equality comparison into an assignment
+ 7051 |     if (((xn_p_code == 13))) {
+      |                     ^~
+      |                     =
+22 warnings generated.

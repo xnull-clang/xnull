@@ -74,11 +74,18 @@ ffi xdkc_sys {
   Int utf8Valid(String text);
 
   // B0-06 文本变体（M6-B0-07b）：整文件读/写，避开句柄/Bytes/错误码通道。
-  // readFileText 失败返回 null；writeFileText 返回 0 成功、非 0 失败。
+  // K-07：readFileTextRaw 是原始读取入口（失败返回 null 并置错误码）；
+  // xdk.sys 源码层 readFileText 读取错误码后 throw，不静默返回空串。
+  // 不用 @errorCode：String 载荷经 Result 取出的代码生成面尚未落地，
+  // 故以 readFileTextError 旁路表达失败（同线程、无 companion 路由）。
   @ffiEntry(cName = "xdkc_read_file_text")
   @lease(path = .borrow)
   @blocking(.unaware)
-  String readFileText(String path);
+  String readFileTextRaw(String path);
+
+  @ffiEntry(cName = "xdkc_read_file_text_error")
+  @blocking(.aware)
+  Int32 readFileTextError();
 
   @ffiEntry(cName = "xdkc_write_file_text")
   @lease(path = .borrow, text = .borrow)

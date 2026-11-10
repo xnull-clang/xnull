@@ -70,9 +70,12 @@ func (g *gen) classIsStack(c string) bool {
 
 // isGCTypeC 判断类/数据枚举/单例 C 类型是否 GC 管理（BND-10b）。
 func (g *gen) isGCTypeC(c string) bool {
-	// S3-04 / ADR-007：String/Text/Bytes/SB 全部 GC 化。
+	// S3-04 / ADR-007：String/Text/Bytes/SB 全部 GC 化；容器（含嵌套）也是 GC 对象。
 	switch c {
 	case "rt_string *", "xrt_bytes_obj *", "xrt_text *", "xrt_sb *":
+		return true
+	}
+	if isContainerC(c) {
 		return true
 	}
 	if g.classIsGC(c) {

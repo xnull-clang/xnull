@@ -60,7 +60,8 @@ var xdkPackages = map[string]map[string]bool{
 		// 文件/目录/存在性（当前绑定面）
 		"fileOpenRead": true, "fileOpenWrite": true, "fileRead": true, "fileWrite": true,
 		"fileClose": true, "dirOpen": true, "dirRead": true, "dirClose": true,
-		"pathExists": true, "utf8Valid": true, "readFileText": true, "writeFileText": true,
+		"pathExists": true, "utf8Valid": true, "readFileText": true,
+		"readFileTextRaw": true, "readFileTextError": true, "writeFileText": true,
 		"procStatus": true,
 		// 资源读取（S6 §4.8）
 		"resourceExists": true, "readResource": true, "readResourceText": true,

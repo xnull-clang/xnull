@@ -1,0 +1,7 @@
+fixture: tests/b3/fixtures/bundle_text/app.x
+go_bytes:   109514
+xn_bytes:   109514
+diff_lines: 0
+determinism: SAME
+go_sha256: 8040680868f54df07992ec1e2e90effd7b84f06d66254035235806c745d3884b
+xn_sha256: 8040680868f54df07992ec1e2e90effd7b84f06d66254035235806c745d3884b

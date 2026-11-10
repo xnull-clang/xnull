@@ -8,15 +8,16 @@ import (
 	"testing"
 )
 
-// M6-B0-07b：文本变体 API —— readFileText/writeFileText（B0-06 文本变体签名）。
+// M6-B0-07b / K-07：文本变体 API —— readFileTextRaw/writeFileText（B0-06 原始层签名）。
+// 用户面 readFileText 由 impl/lib/xdk/sys.x 包装（失败 throw），这里验证原始绑定仍为 NULL 语义。
 func TestXDKTextFileAPI(t *testing.T) {
 	reg, diags, err := Load(repoBindingsDir(t))
 	if err != nil || len(diags) != 0 {
 		t.Fatalf("Load 失败：%v %v", err, codeList(diags))
 	}
 	for name, cname := range map[string]string{
-		"readFileText":  "xdkc_read_file_text",
-		"writeFileText": "xdkc_write_file_text",
+		"readFileTextRaw": "xdkc_read_file_text",
+		"writeFileText":   "xdkc_write_file_text",
 	} {
 		e, ok := reg.Entry(name)
 		if !ok {
@@ -31,7 +32,7 @@ func TestXDKTextFileAPI(t *testing.T) {
 	if len(sup.Problems) != 0 {
 		t.Fatalf("Problems=%v", sup.Problems)
 	}
-	for _, sym := range []string{"xn_ffi_readFileText", "xn_ffi_writeFileText"} {
+	for _, sym := range []string{"xn_ffi_readFileTextRaw", "xn_ffi_writeFileText"} {
 		if !strings.Contains(sup.Text, sym) {
 			t.Fatalf("支撑代码缺少 %s", sym)
 		}
@@ -52,7 +53,7 @@ int main(void) {
     printf("write wr=%d rc=%lld\n", wr, (long long)rc);
 
     xrt_string *s = NULL;
-    int32_t r = xn_ffi_readFileText(path, strlen(path), &s);
+    int32_t r = xn_ffi_readFileTextRaw(path, strlen(path), &s);
     printf("read r=%d null=%d\n", r, s == NULL);
     if (s != NULL) {
         printf("text len=%zu body=%.*s\n", xrt_string_len(s), (int)xrt_string_len(s), xrt_string_bytes(s));
@@ -62,7 +63,7 @@ int main(void) {
     const char *missing = "/tmp/xnull_b007b_missing.txt";
     remove(missing);
     s = NULL;
-    r = xn_ffi_readFileText(missing, strlen(missing), &s);
+    r = xn_ffi_readFileTextRaw(missing, strlen(missing), &s);
     printf("missing r=%d null=%d\n", r, s == NULL);
     remove(path);
     return 0;
