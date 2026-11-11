@@ -1,0 +1,4 @@
+io.xnull:app-main@1.0.0
+  io.xnull:lib-codec@1.0.0
+    io.xnull:lib-util@1.0.0
+  io.xnull:lib-core@1.0.0

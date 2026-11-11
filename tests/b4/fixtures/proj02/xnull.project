@@ -7,6 +7,7 @@ project {
   modules {
     module lib-core
     module lib-codec
+    module lib-util
     module app-main
   }
 

@@ -18,7 +18,7 @@ else
   diff <(printf '%s\n' "$want") <(printf '%s\n' "$got") | head -10
 fi
 
-for o in lib_core.o lib_codec.o; do
+for o in lib_core.o lib_codec.o lib_util.o; do
   if [ -f "$OUT/$o" ]; then ok "库对象存在 $o"; else bad "缺少库对象 $o"; fi
 done
 if [ -x "$OUT/app" ]; then ok "app 产物可执行"; else bad "缺少 app 产物"; fi
