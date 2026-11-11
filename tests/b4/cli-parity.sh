@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# B4b-05：XNull CLI（tests/b4/xnull-build.sh 原型）与 Go CLI 的逐命令对拍矩阵。
+# B4b-05/06：XNull 统一 CLI（bin/xnull）与 Go CLI 的逐命令对拍矩阵。
 #
 # 结论只有三档：
 #   PASS  两路输出/行为一致（逐字节或运行结果一致；差异已在 note 说明且不影响合同）
@@ -10,7 +10,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
-S="$HERE/xnull-build.sh"
+S="$ROOT/bin/xnull"
 P="$HERE/fixtures/proj02"
 W=${XNULL_PARITY_DIR:-/tmp/b4-parity}
 QUICK=0
