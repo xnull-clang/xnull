@@ -670,6 +670,14 @@ cmd_ast_check() {
   [ "$failn" -eq 0 ]
 }
 
+# 版本信息（B4b-05 对拍用；格式仿 Go `-v`，无 specs 行）
+cmd_version() {
+  echo "xnull 0.1.0-dev"
+  echo "commit: dev"
+  echo "build date: unknown"
+  echo "abi: v1"
+}
+
 cmd_info() {
   echo "root=$ROOT"
   echo "rev=$REV"
@@ -702,6 +710,7 @@ case "$sub" in
   validate) cmd_validate "$@" ;;
   ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
+  version) cmd_version ;;
   -h|--help|help) usage ;;
   *) die "未知子命令：$sub" ;;
 esac
