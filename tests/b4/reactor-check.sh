@@ -23,5 +23,22 @@ for o in lib_core.o lib_codec.o; do
 done
 if [ -x "$OUT/app" ]; then ok "app 产物可执行"; else bad "缺少 app 产物"; fi
 
-echo "B4b-03b-1 聚合构建自检：PASS=$pass FAIL=$fail"
+# B4b-03b-2：资源表与产物落盘
+if [ -f "$OUT/res.c" ] && grep -q 'app.txt' "$OUT/res.c" && grep -q 'settings.ini' "$OUT/res.c"; then
+  ok "资源表包含 app.txt / settings.ini"
+else
+  bad "资源表缺少资源条目"
+fi
+if nm "$OUT/app" 2>/dev/null | grep -q '_xrt_resource_get'; then
+  ok "app 链接了资源表符号"
+else
+  bad "app 未链接资源表"
+fi
+if [ -f "$HERE/fixtures/proj02/target/app-main-1.0.0" ]; then
+  ok "产物已落盘 target/app-main-1.0.0"
+else
+  bad "缺少 target/app-main-1.0.0"
+fi
+
+echo "B4b-03b-2 聚合构建自检：PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

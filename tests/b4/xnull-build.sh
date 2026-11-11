@@ -95,9 +95,10 @@ ast_dump() {
   local entry=$1 out=$2
   local xp=""
   if xp=$(xparser_bin); then
-    ( cd "$ROOT" && "$xp" --file "$entry" ) > "$out" 2>"$out.err"
-    if [ $? -eq 0 ] && [ -s "$out" ]; then return 0; fi
-    echo "xnull-build: 原生 xparser 失败（$(wc -c < "$out") 字节），回退 xnast：$entry" >&2
+    # 原生 xparser 对个别输入会挂起/输出非 AST：限时 60s 且校验首行，否则回退 oracle。
+    ( cd "$ROOT" && perl -e 'alarm 60; exec @ARGV' "$xp" --file "$entry" ) > "$out" 2>"$out.err"
+    if [ $? -eq 0 ] && [ -s "$out" ] && [ "$(head -c 9 "$out")" = "(xnast v1" ]; then return 0; fi
+    echo "xnull-build: 原生 xparser 失败或无输出（$(wc -c < "$out") 字节），回退 xnast：$entry" >&2
   fi
   local xnast; xnast=$(xnast_bin) || exit 1
   ( cd "$ROOT" && "$xnast" --ast --dump-depth 100000 "$entry" ) > "$out" \
@@ -120,7 +121,7 @@ oracle_inputs() {
   #   - 入口 import xdk.*：用 repo 的 canonical bindings/（否则 xn_ffi_* 未定义）；
   #   - 其余：按入口目录投影，与 Go `--emit-c` 的差分口径一致（不多发未用 FFI 包装）。
   if [ -z "$projdir" ]; then
-    if grep -q '^import xdk\.' "$ROOT/$entry" 2>/dev/null; then
+    if grep -q '^import xdk\.' "$ROOT/$entry" 2>/dev/null || grep -q '^import xdk\.' "$entry" 2>/dev/null; then
       projdir="$ROOT/bindings"
     else
       projdir=$(dirname "$ROOT/$entry")
@@ -294,6 +295,35 @@ cmd_bootstrap() {
   echo "$out"
 }
 
+# 用 Go interp 跑 xnullc.x 生成 C（native xnullc 对部分模式不稳定时的可靠回退）。
+# 用法：emit_c_interp <entry.x> <out.c> [投影目录]
+emit_c_interp() {
+  local entry=$1 out=$2 projdir=${3:-$ROOT/bindings}
+  local w; w=$(workdir) || exit 1
+  local nf; nf=$(oracle_inputs "$entry" "$w" "$projdir") || exit 1
+  local go; go=$(go_bin) || exit 1
+  local args=("$entry" --ast-file "$w/ast.txt" --project "$(cat "$w/project.txt")")
+  if [ "$nf" -gt 1 ]; then args+=(--bundle-file "$w/bundle.json"); fi
+  ( cd "$ROOT" && "$go" run --interp "$ROOT/impl/lib/b3/xnullc.x" -- "${args[@]}" ) > "$out" 2> "$w/interp.err" \
+    || { sed -n 1,5p "$w/interp.err" >&2; fail "interp 生成 C 失败：$entry"; }
+  write_empty_res "$w/res.c"
+  echo "$w/res.c"
+}
+
+# 自举 resman/config/artifact（B4b-03b-2）：统一走 interp 路径，避开 native xnullc 的模式缺陷
+cmd_bootstrap_tools() {
+  local dir=/tmp
+  if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
+  local t entry res
+  for t in resman artifact config; do
+    entry="impl/lib/b4/$t.x"
+    [ -f "$ROOT/$entry" ] || continue
+    res=$(emit_c_interp "$entry" "$dir/$t.c") || exit 1
+    cc_link "$dir/$t.c" "$dir/$t" "$res" || exit 1
+    echo "$dir/$t"
+  done
+}
+
 # 自举 reactor（B4b-03b-1）：聚合构建驱动
 cmd_bootstrap_reactor() {
   local dir=/tmp
@@ -316,11 +346,19 @@ cmd_build_project() {
   local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest} rct=${REACTOR_BIN:-/tmp/reactor}
   if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then cmd_bootstrap_model -o /tmp > /dev/null || exit 1; fi
   [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
+  local toolArgs=()
+  local t
+  for t in resman artifact config; do
+    if [ ! -x "/tmp/$t" ]; then cmd_bootstrap_tools -o /tmp > /dev/null || exit 1; break; fi
+  done
+  [ -x /tmp/resman ] && toolArgs+=(--resman /tmp/resman)
+  [ -x /tmp/artifact ] && toolArgs+=(--artifact /tmp/artifact)
+  [ -x /tmp/config ] && toolArgs+=(--config /tmp/config)
   local xc; xc=$(xnullc_bin) || exit 1
   local xnast; xnast=$(xnast_bin) || exit 1
   "$rct" build-project "$proj" \
     --xpd "$xpd" --xmanifest "$xmf" --xnullc "$xc" --xnast "$xnast" \
-    --runtime "$ROOT/impl/runtime" --out "$out"
+    --runtime "$ROOT/impl/runtime" --out "$out" "${toolArgs[@]}"
 }
 
 # 聚合工程构建并运行：run-project <dir> [-- 程序参数]
@@ -453,6 +491,7 @@ case "$sub" in
   bootstrap-xparser) cmd_bootstrap_xparser "$@" ;;
   bootstrap-model) cmd_bootstrap_model "$@" ;;
   bootstrap-reactor) cmd_bootstrap_reactor "$@" ;;
+  bootstrap-tools) cmd_bootstrap_tools "$@" ;;
   build-project) cmd_build_project "$@" ;;
   run-project) cmd_run_project "$@" ;;
   validate) cmd_validate "$@" ;;

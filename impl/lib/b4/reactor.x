@@ -33,6 +33,9 @@ class Args {
     String xnast = "/tmp/xnast"
     String runtime = ""
     String outdir = ""
+    String resman = ""
+    String artifact = ""
+    String config = ""
 }
 
 // 文件名/符号名安全化：非字母数字一律换成下划线（`lib-core` → `lib_core`）。
@@ -155,7 +158,27 @@ class Reactor {
                 i = i + 1
             }
         }
-        writeFileText(a.outdir + "/res.c", resTable())
+        String resC = a.outdir + "/res.c"
+        writeFileText(resC, resTable())
+        if a.resman != "" {
+            // 约定：app 模块的资源目录（单层）；由 shell 展开文件列表
+            Int k = 0
+            String resDir = ""
+            while k < mods.length() {
+                if mods.get(k).packaging == "app" { resDir = a.dir + "/" + mods.get(k).rel + "/src/main/resources" }
+                k = k + 1
+            }
+            if resDir != "" && pathExists(resDir) {
+                String rcmd = "\"" + a.resman + "\" \"" + resC + "\" \"" + resDir + "\" \"" + resDir + "\"/* > \"" + a.outdir + "/resources.log\" 2>/dev/null"
+                Int32 rrc = procStatus(rcmd)
+                if rrc != 0 {
+                    writeFileText(resC, resTable())
+                    print("resource\t（空表：resman 未找到文件）")
+                } else {
+                    print("resource\t\"" + resC + "\"")
+                }
+            }
+        }
         // 逐模块：emit-c → library 出对象 / app 留 C
         i = 0
         while i < seq.length() {
@@ -165,13 +188,29 @@ class Reactor {
                 if mods.get(k).rel == seq.get(i) { m = mods.get(k) }
                 k = k + 1
             }
-            String entryPath = a.dir + "/" + m.rel + "/src/main/x/main.x"
+            String id = safe(m.rel)
+            String relEntry = "src/main/x/main.x"
+            if a.config != "" {
+                String cfgOut = a.outdir + "/cfg-" + id + ".tsv"
+                Int32 crc = procStatus("\"" + a.config + "\" \"" + a.dir + "/" + m.rel + "/xnull.project\" > \"" + cfgOut + "\"")
+                if crc == 0 {
+                    String cfgText = readFileText(cfgOut)
+                    String[] cl = cfgText.split("\n")
+                    Int ci = 0
+                    while ci < cl.length() {
+                        String cline = cl[ci]
+                        String[] cp = cline.split("\t")
+                        if cp.length() >= 2 && cp.get(0) == "build.entryFile" { relEntry = cp.get(1) }
+                        ci = ci + 1
+                    }
+                }
+            }
+            String entryPath = a.dir + "/" + m.rel + "/" + relEntry
             m.entry = entryPath
             if !pathExists(m.entry) {
                 print("reactor: 模块缺少入口 " + m.entry)
                 return 1
             }
-            String id = safe(m.rel)
             String cfPath = a.outdir + "/" + id + ".c"
             m.cf = cfPath
             st = procStatus("\"" + a.xnast + "\" --ast \"" + m.entry + "\" > \"" + a.outdir + "/" + id + ".ast\"")
@@ -217,6 +256,26 @@ class Reactor {
         st = procStatus(cmd2)
         if st != 0 { print("reactor: 链接失败"); return 1 }
         print("bin\t" + bin)
+        if a.artifact != "" {
+            Int k = 0
+            String aname = ""
+            while k < mods.length() {
+                if mods.get(k).packaging == "app" {
+                    aname = mods.get(k).coord
+                    Int c = 0
+                    String base = aname
+                    while c < aname.length() {
+                        if aname.substring(c, 1) == ":" { base = aname.substring(c + 1, aname.length() - c - 1) }
+                        c = c + 1
+                    }
+                    aname = base + "-" + mods.get(k).ver
+                }
+                k = k + 1
+            }
+            if aname != "" {
+                procStatus("\"" + a.artifact + "\" \"" + bin + "\" \"" + a.dir + "/target\" \"" + aname + "\"")
+            }
+        }
         return 0
     }
 }
@@ -239,6 +298,9 @@ static Int main(String[] args) {
         else if k == "--xnast" { a.xnast = v }
         else if k == "--runtime" { a.runtime = v }
         else if k == "--out" { a.outdir = v }
+        else if k == "--resman" { a.resman = v }
+        else if k == "--artifact" { a.artifact = v }
+        else if k == "--config" { a.config = v }
         i = i + 2
     }
     Reactor r = new Reactor()
