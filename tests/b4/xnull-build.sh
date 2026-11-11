@@ -41,6 +41,14 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 RUNTIME="$ROOT/impl/runtime"
 REV=$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo work)
+# B4c-02b：Go 已删除——没有 go 时自动使用 bootstrap/bin 的原生工具
+if ! command -v go >/dev/null 2>&1; then
+  if [ -x "$ROOT/bootstrap/bin/xn-s4" ] && [ -x "$ROOT/bootstrap/bin/xparser" ]; then
+    export XNULL_BOOTSTRAP=1
+    export XNULLC_BIN=${XNULLC_BIN:-$ROOT/bootstrap/bin/xn-s4}
+    export XPARSER_BIN=${XPARSER_BIN:-$ROOT/bootstrap/bin/xparser}
+  fi
+fi
 export XNULL_FRONTEND=${XNULL_FRONTEND:-go}
 
 # 与 Go codegen 保持一致的运行时 C 源顺序（impl/internal/codegen/build.go:36）。
@@ -75,7 +83,7 @@ xnast_bin() {
 # 原生 xnullc：显式指定优先，其次 /tmp/xn-s4、/tmp/xn-s1。
 xnullc_bin() {
   local c=""
-  for c in "${XNULLC_BIN:-}" /tmp/xn-s4 /tmp/xn-s1; do
+  for c in "${XNULLC_BIN:-}" "$ROOT/bootstrap/bin/xn-s4" /tmp/xn-s4 /tmp/xn-s1; do
     [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
   done
   cat >&2 <<'EOF'
@@ -89,7 +97,7 @@ EOF
 # 原生 xparser（B4b-02）：显式指定优先，其次 /tmp/xparser-native（bootstrap-xparser 产出）。
 xparser_bin() {
   local c=""
-  for c in "${XPARSER_BIN:-}" /tmp/xparser-native; do
+  for c in "${XPARSER_BIN:-}" "$ROOT/bootstrap/bin/xparser" /tmp/xparser-native; do
     [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
   done
   return 1

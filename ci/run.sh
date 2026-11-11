@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# ci/run.sh — XNull CI 唯一入口
+# ci/run.sh — XNull CI 唯一入口（无 Go 版，B4c-02b）
 #
 # 用法：
-#   bash ci/run.sh              顺序执行 11 项
-#   bash ci/run.sh --list       只列 11 项
-#   bash ci/run.sh --only 02    只跑第 02 项
+#   bash ci/run.sh              执行全部步骤
+#   bash ci/run.sh --list       只列步骤
+#   bash ci/run.sh --only 02    只跑第 02 步
 #
 # 退出码：全部 PASS=0；任一 FAIL=1；无 PASS 且只有 SKIP=2。
 #
-# 本轮实现范围：01–03 真实现，04 条件实现（B2 差分），05–09 为 SKIP 桩（不伪装 PASS），10 文件名扫描（S0-04b/S1-22 门禁）真实现，11 xnfmt 全仓校验（B1-01）。
+# 说明：Go 构建/测试已随 B4c-02b 删除；依赖 Go oracle 的旧步骤保留为 SKIP（不伪装 PASS），
+# 对应的 legacy 脚本在 tests/b3（仅存档，不作门禁）。
 
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-IMPL="$ROOT/impl"
 . "$ROOT/ci/lib.sh"
 
 CI_OUT_DIR=${CI_OUT_DIR:-"$ROOT/ci/.out"}
@@ -21,219 +21,68 @@ mkdir -p "$CI_OUT_DIR"
 : > "$CI_OUT_DIR/steps.jsonl"
 ci_color_init
 
-# ---------- 步骤表 ----------
-STEP_IDS="01 02 03 04 05 06 07 08 09 10 11"
+STEP_IDS="01 02 03 04 05 06 07 08 09"
 step_name() {
   case "$1" in
-    01) echo "gofmt+vet" ;;
-    02) echo "go test -timeout 120s ./..." ;;
-    03) echo "C 运行时构建" ;;
-    04) echo "B2 双路径差分" ;;
-    05) echo "check_specs 六检" ;;
-    06) echo "台账再生成 diff" ;;
-    07) echo "泄漏扫描" ;;
-    08) echo "产物与 sha" ;;
-    09) echo "汇总 JSON" ;;
-    10) echo "文件名扫描（禁旧扩展名）" ;;
-    11) echo "xnfmt 全仓校验" ;;
+    01) echo "xnfmt 格式检查（定向）" ;;
+    02) echo "golden 验证（142/97/9）" ;;
+    03) echo "C 运行时构建与测试" ;;
+    04) echo "9 示例（bootstrap 路径）" ;;
+    05) echo "文件名扫描（禁旧扩展名）" ;;
+    06) echo "B2 双路径差分（legacy）" ;;
+    07) echo "check_specs（legacy）" ;;
+    08) echo "台账/汇总 JSON（legacy）" ;;
+    09) echo "发布产物构建" ;;
     *)  echo "unknown" ;;
   esac
 }
 
-do_list() {
-  for _id in $STEP_IDS; do
-    printf '%s %s\n' "$_id" "$(step_name "$_id")"
-  done
+if [ "${1:-}" = "--list" ]; then
+  for id in $STEP_IDS; do printf '%s  %s\n' "$id" "$(step_name "$id")"; done
+  exit 0
+fi
+ONLY=""
+if [ "${1:-}" = "--only" ]; then ONLY=${2:-}; fi
+
+run() { # id cmd
+  local id=$1 cmd=$2
+  [ -n "$ONLY" ] && [ "$ONLY" != "$id" ] && return 0
+  run_step "$id" "$(step_name "$id")" "$ROOT" "$cmd"
+}
+skip() { # id reason
+  local id=$1 reason=$2
+  [ -n "$ONLY" ] && [ "$ONLY" != "$id" ] && return 0
+  skip_step "$id" "$(step_name "$id")" "$reason"
 }
 
-# ---------- 01 gofmt + go vet ----------
-step_01() {
-  run_step 01 "gofmt+vet" "$IMPL" '
-    unformatted=$(gofmt -l .) || exit 1
-    if [ -n "$unformatted" ]; then
-      echo "gofmt 未通过的 Go 文件："
-      echo "$unformatted"
-      exit 1
-    fi
-    go vet ./...
-  '
-}
+START=$(ci_now_ms)
 
-# ---------- 02 go test ----------
-step_02() {
-  run_step 02 "go test -timeout 120s ./..." "$IMPL" 'go test -timeout 120s ./...'
-}
+# 01 xnfmt 格式检查：只查 XNull 工具链源码（impl/lib/b4），格式化器即 xnfmt 原生实现
+run 01 '"$ROOT/bin/xnull" fmt --check impl/lib/b4/*.x'
 
-# ---------- 03 C 运行时构建 ----------
-step_03() {
-  run_step 03 "C 运行时构建" "$IMPL" 'sh ./runtime/build_rt.sh'
-}
+# 02 golden：142 入口 C / 97 负例 / 9 示例
+if [ -x "$ROOT/tests/b4/verify-golden.sh" ]; then
+  run 02 '"$ROOT/tests/b4/verify-golden.sh"'
+else
+  skip 02 "verify-golden.sh 尚未就绪（B4c-03）"
+fi
 
-# ---------- 04 B2 双路径差分 ----------
-step_04() {
-  _bin=${XNULL_SELFHOST_BIN:-${XNULL_BIN:-}}
-  if [ -z "$_bin" ] || [ ! -x "$_bin" ]; then
-    skip_step 04 "B2 双路径差分" "未设置可执行的 XNULL_SELFHOST_BIN/XNULL_BIN，跳过全语料三层差分"
-    return 0
-  fi
-  run_step 04 "B2 双路径差分" "$IMPL" "XNULL_B2_DIFF=1 XNULL_SELFHOST_BIN='$_bin' go test ./internal/frontbridge -run TestB2Differential -count=1"
-}
-step_05() {
-  skip_step 05 "check_specs 六检" "S0-04 桩：本轮只实现 01–03，未实现"
-}
-step_06() {
-  skip_step 06 "台账再生成 diff" "S0-04 桩：本轮只实现 01–03，未实现"
-}
-step_07() {
-  skip_step 07 "泄漏扫描" "S0-04 桩：本轮只实现 01–03，未实现"
-}
-step_08() {
-  skip_step 08 "产物与 sha" "S0-04 桩：本轮只实现 01–03，未实现"
-}
-step_09() {
-  skip_step 09 "汇总 JSON" "S0-04 桩：汇总由 run.sh 自身输出，第 09 项待实现"
-}
+# 03 C 运行时（cc 全量测试）
+run 03 'sh impl/runtime/build_rt.sh'
 
-# ---------- 10 文件名扫描（S1-22 门禁） ----------
-# 判据（董事会令 S1-22 第 3 条第 1、3 项）：
-#   1) 仓库根递归不得存在旧扩展名文件（排除 .git、wt/、xnull/）；
-#   2) 活引用 git grep '点 x n + 词边界'（即旧扩展名正则）排除 日志/收件箱/evidence 后必须为 0。
-# 注意：旧扩展名在本文件里**不写成字面量**——否则本项会匹配到自身的规则定义。
-# 下面用相邻引号拼接出「点 x n」与「点 x n + 词边界」。
-step_10() {
-  OLD_EXT='.x''n'
-  REF_RE='\.x''n\b'
-  export OLD_EXT REF_RE
-  run_step 10 "文件名扫描（禁旧扩展名）" "$ROOT" '
-    hits=$(find . -path ./.git -prune -o -path ./wt -prune -o -path ./xnull -prune -o -name "*$OLD_EXT" -print)
-    if [ -n "$hits" ]; then
-      echo "发现旧扩展名文件（S1-22 后应为 0）："
-      echo "$hits"
-      exit 1
-    fi
-    refs=$(git grep -n "$REF_RE" -- ":!日志/**" ":!收件箱/**" ":!evidence/**" || true)
-    if [ -n "$refs" ]; then
-      echo "发现旧扩展名活引用（S1-22 后应为 0）："
-      echo "$refs"
-      exit 1
-    fi
-    echo "旧扩展名文件 0，活引用 0"
-  '
-}
+# 04 9 示例（引导路径，不依赖 Go）
+run 04 'env XNULL_USE_BOOTSTRAP=1 "$ROOT/bin/xnull" examples'
 
-# ---------- 11 xnfmt 全仓校验（B1-01 oracle 纳入 CI） ----------
-# 判据：
-#   a) 每个 .x 格式化两次结果相同（幂等，全仓强制）；
-#   b) 已规范文件不得回退；未规范文件必须在 ci/xnfmt-baseline.txt（存量冻结，只减不增）；
-#   c) baseline 中已规范的文件只提示移除，不判红。
-step_11() {
-  run_step 11 "xnfmt 全仓校验" "$ROOT" '
-    tmp=$(mktemp -d) || exit 1
-    trap "rm -rf $tmp" EXIT
-    ( cd impl && go build -o "$tmp/xnfmt" ./cmd/xnfmt ) || exit 1
-    baseline=ci/xnfmt-baseline.txt
-    fail=0
-    stale=0
-    git ls-files "*.x" | sort > "$tmp/files"
-    while IFS= read -r f; do
-      cp "$f" "$tmp/a.x" || exit 1
-      "$tmp/xnfmt" "$tmp/a.x" || exit 1
-      cp "$tmp/a.x" "$tmp/b.x" || exit 1
-      "$tmp/xnfmt" "$tmp/b.x" || exit 1
-      if ! cmp -s "$tmp/a.x" "$tmp/b.x"; then
-        echo "不幂等：$f"
-        fail=1
-      fi
-      if ! cmp -s "$f" "$tmp/a.x"; then
-        if ! grep -qxF "$f" "$baseline"; then
-          echo "未格式化且不在 baseline：$f"
-          fail=1
-        fi
-      else
-        if grep -qxF "$f" "$baseline"; then
-          echo "baseline 已过期（现已规范，可移除）：$f"
-          stale=$((stale + 1))
-        fi
-      fi
-    done < "$tmp/files"
-    [ "$stale" -gt 0 ] && echo "提示：ci/xnfmt-baseline.txt 有 $stale 行可移除"
-    exit $fail
-  '
-}
+# 05 文件名扫描：仓库内禁止旧扩展名（.pyc/.o/.a 等构建残留；.c/.x/.md 允许）
+run 05 'bash -c "! find . -path ./bootstrap/bin -prune -o -path ./.git -prune -o \
+  \( -name \"*.pyc\" -o -name \"*.o\" -o -name \"*.a\" \) -print | grep -q ."'
 
-run_one() {
-  case "$1" in
-    01) step_01 ;;
-    02) step_02 ;;
-    03) step_03 ;;
-    04) step_04 ;;
-    05) step_05 ;;
-    06) step_06 ;;
-    07) step_07 ;;
-    08) step_08 ;;
-    09) step_09 ;;
-    10) step_10 ;;
-    11) step_11 ;;
-    *)  printf '未知步骤：%s\n' "$1" >&2; return 64 ;;
-  esac
-}
+# 06–08：依赖被删除的 Go 工具链（oracle/devtool/台账），保留 SKIP 不伪装通过
+skip 06 "B2 差分需要 Go oracle（已删除）；legacy 脚本在 tests/b3/b2-*"
+skip 07 "check_specs 由 internal/devtool 实现（Go 已删除）"
+skip 08 "台账/SSOT 汇总由董事会脚本维护，不在本仓库 CI 范围"
 
-usage() {
-  cat <<'EOF'
-用法：bash ci/run.sh [--list] [--only NN]
+# 09 发布产物（bootstrap + 统一 CLI）
+run 09 '"$ROOT/scripts/build_release.sh"'
 
-  --list      只列 11 项，不执行
-  --only NN   只执行第 NN 项（01–11）
-
-退出码：全部 PASS=0；任一 FAIL=1；无 PASS 且只有 SKIP=2。
-EOF
-}
-
-main() {
-  _main_start=$(ci_now_ms)
-  _only=""
-  _mode="run"
-
-  while [ $# -gt 0 ]; do
-    case "$1" in
-      --list) _mode="list"; shift ;;
-      --only)
-        shift
-        if [ $# -eq 0 ]; then printf -- '--only 缺少步骤号\n' >&2; return 64; fi
-        _only=$1; shift
-        ;;
-      --only=*) _only=${1#--only=}; shift ;;
-      -h|--help) usage; return 0 ;;
-      *) printf '未知参数：%s\n' "$1" >&2; usage >&2; return 64 ;;
-    esac
-  done
-
-  if [ "$_mode" = "list" ]; then
-    do_list
-    return 0
-  fi
-
-  if [ -n "$_only" ]; then
-    case "$_only" in
-      [0-9]) _only="0$_only" ;;
-    esac
-    case "$_only" in
-      01|02|03|04|05|06|07|08|09|10|11) ;;
-      *) printf '未知步骤：%s（应为 01–11）\n' "$_only" >&2; return 64 ;;
-    esac
-    printf 'XNull CI（单步 %s）  工作树=%s\n\n' "$_only" "$ROOT"
-    run_one "$_only"
-    ci_summary "$_main_start"
-    return $?
-  fi
-
-  printf 'XNull CI  工作树=%s\n' "$ROOT"
-  printf '日志目录=%s\n\n' "$CI_OUT_DIR"
-  for _id in $STEP_IDS; do
-    run_one "$_id"
-  done
-  ci_summary "$_main_start"
-  return $?
-}
-
-main "$@"
+ci_summary "$START"
