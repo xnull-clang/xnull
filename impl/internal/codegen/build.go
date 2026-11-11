@@ -3,12 +3,74 @@ package codegen
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"xnull.dev/xnull/internal/sema"
 )
+
+// resolveFFIRoot 决定构建时加载 .xfb 的根目录（P-09）：
+//  1. 入口目录（含子目录）有 .xfb：保持原行为，返回入口目录；
+//  2. 否则自入口目录向上逐级查找 bindings，找到即停：
+//     bindings 下有 .xfb 则返回 bindings（仓库级 canonical 绑定，
+//     供 impl/lib/* 下 import xdk.* 的入口使用）；没有则返回入口目录；
+//  3. 到仓库根（存在 .git）或文件系统根仍未找到 bindings：返回入口目录。
+//
+// 绑定查找只影响 Go 侧 sema/codegen 的声明注入，不改变无绑定工程的既有行为。
+func resolveFFIRoot(start string) (root string, ascended bool) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return start, false
+	}
+	if hasXfbFiles(dir) {
+		return start, false
+	}
+	for cur := dir; ; {
+		b := filepath.Join(cur, "bindings")
+		if st, err := os.Stat(b); err == nil && st.IsDir() {
+			if hasXfbFiles(b) {
+				return b, true
+			}
+			return start, false
+		}
+		if _, err := os.Stat(filepath.Join(cur, ".git")); err == nil {
+			return start, false
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return start, false
+		}
+		cur = parent
+	}
+}
+
+// hasXfbFiles 报告 root 下是否存在 .xfb（跳过隐藏目录与 target，与 ffi.Load 一致）。
+func hasXfbFiles(root string) bool {
+	found := false
+	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if path != root {
+				name := d.Name()
+				if strings.HasPrefix(name, ".") || name == "target" {
+					return fs.SkipDir
+				}
+			}
+			return nil
+		}
+		if strings.HasSuffix(d.Name(), ".xfb") {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found
+}
 
 // Options 是构建可选参数。
 type Options struct {
@@ -93,8 +155,24 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 		}
 		return 1
 	}
-	// FFI 绑定（P-09）：工程根（入口文件所在目录）的 .xfb 入口注入为包级声明。
-	reg, fdiags, ferr := LoadFFI(filepath.Dir(srcPath))
+	// FFI 绑定（P-09）：入口目录优先；入口目录无 .xfb 时向上找仓库 bindings/
+	// （B4b：impl/lib/* 入口 import xdk.*，绑定在仓库根 bindings/xdk/*.xfb）。
+	// 向上找到的绑定只保留编译单元实际引用的入口，避免给无关入口注入全量 XDK
+	// 绑定而改变既有 C 输出（入口目录本地 .xfb 仍全量加载，保持原行为）。
+	ffiRoot, ascended := resolveFFIRoot(filepath.Dir(srcPath))
+	reg, fdiags, ferr := LoadFFI(ffiRoot)
+	if ferr == nil && ascended {
+		// 仓库级绑定只用于“纯 FFI”入口。若编译单元同时依赖 codegen 内建
+		// 降级的 xdk 入口（env/nowMono/diagnose/S6-03/S6-04/S6-09），canonical
+		// .xfb 签名与语言面内建签名可能冲突（例：nowMono Int64 vs Int），
+		// 回退入口目录的空绑定，保持内建路径与既有输出不变。
+		if usesBuiltinXDK(u, reg) {
+			reg, fdiags, ferr = LoadFFI(filepath.Dir(srcPath))
+			ascended = false
+		} else {
+			reg = FilterFFIRegistryByUse(u, reg)
+		}
+	}
 	if ferr != nil {
 		fmt.Fprintf(stderr, "xnull: 读取 .xfb 绑定失败：%v\n", ferr)
 		return 1
@@ -125,9 +203,15 @@ func BuildWithOptions(srcPath, outPath, runtimeDir string, opts Options, stderr 
 			opts.LinkArgs = mergeLinkArgs(opts.LinkArgs, libs)
 		}
 	}
-	if err := InjectFFI(u, reg); err != nil {
-		fmt.Fprintf(stderr, "xnull: %v\n", err)
-		return 1
+	// 向上找到的绑定只用于 codegen 的 FFI 发射（g.ffiEntries）；不再注入声明，
+	// 语言面签名继续由 sema 的 xdk 内建表提供。否则 canonical .xfb 的签名
+	// （如 fileClose/fileOpenRead 的 Int32 形态）会覆盖语言面签名，改变既有
+	// sema 判定与 C 输出（B3-09 负例会被意外放行）。
+	if !ascended {
+		if err := InjectFFI(u, reg); err != nil {
+			fmt.Fprintf(stderr, "xnull: %v\n", err)
+			return 1
+		}
 	}
 	// 句柄类型（File/Dir…）由绑定层注入，不在源码中声明；
 	// 登记后再做 sema 的签名类型可见性检查。

@@ -26,6 +26,56 @@ def is_long_case(path):
     p = (path or "").replace("\\", "/").lstrip("./")
     return p in LONG_CASES
 
+# 与 Go codegen ffiHasBuiltinLowering 对齐（impl/internal/codegen/ffi_gen.go）：
+# 这些 xdk 入口由 codegen 内建降级，不依赖 .xfb 包装；仓库级绑定按需过滤时排除。
+BUILTIN_FFI = {
+    "diagnose", "exit", "nowMono", "nowWall", "env", "dumpTasks",
+    "fileOpenReadAsync", "fileOpenWriteAsync", "fileReadAsync", "fileWriteAsync",
+    "fileCloseAsync", "dirOpenAsync", "dirReadAsync", "dirCloseAsync",
+    "procSpawn", "procWait", "procKill", "procClose", "procRunAsync", "procStatusAsync",
+    "resourceExists", "resourceSize", "readResource", "readResourceText", "listResources",
+    "socketConnectAsync", "socketSendAsync", "socketRecvAsync", "httpRequestAsync",
+}
+
+def has_xfb(root):
+    if not os.path.isdir(root):
+        return False
+    for dirpath, dirs, files in os.walk(root):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "target"]
+        if any(f.endswith(".xfb") for f in files):
+            return True
+    return False
+
+def find_bindings_root(start):
+    """入口目录无 .xfb 时向上找 bindings（与 Go resolveFFIRoot 同规则）。"""
+    d = os.path.abspath(start)
+    while True:
+        b = os.path.join(d, "bindings")
+        if os.path.isdir(b) and has_xfb(b):
+            return b
+        if os.path.exists(os.path.join(d, ".git")):
+            return ""
+        parent = os.path.dirname(d)
+        if parent == d:
+            return ""
+        d = parent
+
+def filter_projection(proj, names):
+    """只保留编译单元引用的入口；无错误码通道的入口不保留 M 行。"""
+    lines = [ln for ln in proj.splitlines() if ln]
+    kept, regions = [], set()
+    for ln in lines:
+        p = ln.split("|")
+        if p[0] != "E" or len(p) < 9:
+            continue
+        if p[2] in names and p[2] not in BUILTIN_FFI:
+            kept.append(ln)
+            if p[6] != "" or p[7] not in ("", "0"):
+                regions.add(p[1])
+    out = [ln for ln in lines if ln.startswith("M|") and ln.split("|")[1] in regions]
+    out.extend(kept)
+    return "\n".join(out) + ("\n" if out else "")
+
 def run(cmd, cwd, timeout=900):
     try:
         p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
@@ -128,6 +178,16 @@ def process(row, args):
                     cause="AST 失败", note=ast_err[:120])
     proj_code, proj, _ = run(["python3", os.path.join(root, "tests/b3/xfb-projection.py"),
                               os.path.dirname(f) or "."], root)
+    # 入口目录无绑定：向上找仓库 bindings，并按 bundle AST 的实际引用过滤
+    # （B4b：impl/lib/* 入口 import xdk.*；Go build 侧同规则加载）。
+    if proj_code == 0 and not proj.strip():
+        broot = find_bindings_root(os.path.join(root, os.path.dirname(f) or "."))
+        if broot:
+            pcode, pfull, _ = run(["python3", os.path.join(root, "tests/b3/xfb-projection.py"), broot], root)
+            if pcode == 0 and pfull.strip():
+                all_ast = "\n".join(x.get("ast", "") for x in bundle.get("files", []))
+                names = set(re.findall(r'\(Name "([^"]+)"\)', all_ast))
+                proj = filter_projection(pfull, names)
     bundle_json = json.dumps(bundle, ensure_ascii=False)
     tmpdir = ""
     paths = []
