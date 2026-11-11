@@ -18,6 +18,8 @@
 #   tests/b4/xnull-build.sh ast-check [入口...]        # 原生 xparser AST vs xnast AST（全量深度）
 #   tests/b4/xnull-build.sh bootstrap-model [-o dir]   # 自举 xpd / xmanifest（B4b-03a）
 #   tests/b4/xnull-build.sh validate <project>         # 清单校验：模块/依赖边/拓扑（不编译）
+#   tests/b4/xnull-build.sh build-project <dir> [-o d] # 聚合构建（library→对象，app→链接）
+#   tests/b4/xnull-build.sh run-project <dir> [-- args] # 聚合构建并运行
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -292,6 +294,51 @@ cmd_bootstrap() {
   echo "$out"
 }
 
+# 自举 reactor（B4b-03b-1）：聚合构建驱动
+cmd_bootstrap_reactor() {
+  local dir=/tmp
+  if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
+  emit_c impl/lib/b4/reactor.x "$dir/.reactor" "$dir/.reactor/reactor.c" > /dev/null || exit 1
+  write_empty_res "$dir/.reactor/res.c"
+  cc_link "$dir/.reactor/reactor.c" "$dir/reactor" "$dir/.reactor/res.c" || exit 1
+  echo "$dir/reactor"
+}
+
+# 聚合工程构建（B4b-03b-1）：拓扑序 → 每模块 emit-c → library 出对象 → app 链接。
+# 用法：build-project <dir> [-o 输出目录]
+cmd_build_project() {
+  local proj=${1:-} out=""
+  [ -n "$proj" ] || usage
+  shift || true
+  if [ "${1:-}" = "-o" ]; then out=${2:-}; fi
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  [ -n "$out" ] || out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
+  local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest} rct=${REACTOR_BIN:-/tmp/reactor}
+  if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then cmd_bootstrap_model -o /tmp > /dev/null || exit 1; fi
+  [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
+  local xc; xc=$(xnullc_bin) || exit 1
+  local xnast; xnast=$(xnast_bin) || exit 1
+  "$rct" build-project "$proj" \
+    --xpd "$xpd" --xmanifest "$xmf" --xnullc "$xc" --xnast "$xnast" \
+    --runtime "$ROOT/impl/runtime" --out "$out"
+}
+
+# 聚合工程构建并运行：run-project <dir> [-- 程序参数]
+cmd_run_project() {
+  local proj="" extra=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --) shift; extra=("$@"); break ;;
+      *) proj=$1; shift ;;
+    esac
+  done
+  [ -n "$proj" ] || usage
+  local out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
+  cmd_build_project "$proj" >&2 || exit 1
+  [ -x "$out/app" ] || fail "没有 app 产物：$out/app"
+  if [ ${#extra[@]} -gt 0 ]; then "$out/app" "${extra[@]}"; else "$out/app"; fi
+}
+
 # 自举工程模型工具（B4b-03a）：xpd（清单→TSV）+ xmanifest（TSV→模块/依赖/拓扑）
 cmd_bootstrap_model() {
   local dir=/tmp
@@ -405,6 +452,9 @@ case "$sub" in
   bootstrap-xnullc) cmd_bootstrap "$@" ;;
   bootstrap-xparser) cmd_bootstrap_xparser "$@" ;;
   bootstrap-model) cmd_bootstrap_model "$@" ;;
+  bootstrap-reactor) cmd_bootstrap_reactor "$@" ;;
+  build-project) cmd_build_project "$@" ;;
+  run-project) cmd_run_project "$@" ;;
   validate) cmd_validate "$@" ;;
   ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
