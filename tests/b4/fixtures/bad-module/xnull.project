@@ -1,0 +1,10 @@
+project {
+  groupId    = io.xnull
+  artifactId = bad-module
+  version    = 1.0.0
+  packaging  = pom
+
+  modules {
+    module ghost
+  }
+}

@@ -1,0 +1,17 @@
+project {
+  groupId    = io.xnull
+  artifactId = app-main
+  version    = 1.0.0
+  packaging  = app
+
+  dependencies {
+    dependency io.xnull:lib-core {
+    }
+    dependency io.xnull:lib-codec {
+    }
+  }
+
+  build {
+    entryFile = src/main/x/main.x
+  }
+}
