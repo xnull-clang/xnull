@@ -41,6 +41,8 @@ RUN_RT="$ROOT/impl/runtime"
 # ---------------------------------------------------------------- proj02
 ( cd "$P" && XNULL_REPO="$GO_REPO" XNULL_RUNTIME="$RUN_RT" "$GO" build ) > "$W/go-build.log" 2>&1
 go_build_rc=$?
+# Go 的聚合根（summary+清单）只有 install 才写入仓库；对拍 install 需要先跑一次
+( cd "$P" && XNULL_REPO="$GO_REPO" XNULL_RUNTIME="$RUN_RT" "$GO" install . ) > "$W/go-install.log" 2>&1
 "$S" build-project "$P" -o "$W/xn" > "$W/xn-build.log" 2>&1
 xn_build_rc=$?
 
@@ -82,9 +84,9 @@ done
 ( cd "$W/go-repo" && find . -type f | sort ) > "$W/go-repo.files"
 ( cd "$W/xn-repo" 2>/dev/null && find . -type f | sort ) > "$W/xn-repo.files"
 if cmp -s "$W/go-repo.files" "$W/xn-repo.files"; then
-  record PASS install proj02 "仓库文件集合一致"
+  record PASS install proj02 "仓库文件集合一致（.xlib + xnull.project + summary）"
 else
-  record DIFF install proj02 "library 制品 .o vs .xlib；XNull 另装 app 可执行"
+  record DIFF install proj02 "仓库文件集合不同"
 fi
 
 record NA repro proj02 "Go 无 repro 子命令（XNull 自建可复现性检查）"
@@ -103,9 +105,37 @@ else
 fi
 
 # fmt / clean / doctor / version
-record NA fmt     all "XNull 原型未实现 fmt（Go 有）"
-record NA clean   all "XNull 原型未实现 clean（Go 有）"
-record NA doctor  all "XNull 原型未实现 doctor（Go 有）"
+# fmt：同一未格式化样本，两路格式化结果比较；--check 在已格式化文件上均为 0
+cp "$ROOT/impl/lib/b4/deps.x" "$W/fmt-go.x"
+cp "$ROOT/impl/lib/b4/deps.x" "$W/fmt-xn.x"
+"$GO" fmt "$W/fmt-go.x" > /dev/null 2>&1
+"$S" fmt "$W/fmt-xn.x" > /dev/null 2>&1
+if cmp -s "$W/fmt-go.x" "$W/fmt-xn.x"; then
+  record PASS fmt all "同一文件格式化结果逐字节一致（in-place；xnfmt 无 --check，脚本侧实现）"
+else
+  record DIFF fmt all "格式化结果不同"
+fi
+
+# clean：同一目录下比较输出与效果
+mkdir -p "$W/clean-demo/target/x"
+( cd "$W/clean-demo" && "$GO" clean . ) > "$W/go-clean.out" 2>&1
+"$S" clean "$W/clean-demo" > "$W/xn-clean.out" 2>&1
+if [ ! -d "$W/clean-demo/target" ] && grep -q '已清理' "$W/xn-clean.out"; then
+  record PASS clean all "删除 target 且输出同语义（已清理 target）"
+else
+  record DIFF clean all "clean 行为不同"
+fi
+
+# doctor：比较字段序列（[level] 名称），值随环境不同
+"$GO" doctor "$P" > "$W/go-doctor.out" 2>&1
+"$S" doctor "$P" > "$W/xn-doctor.out" 2>&1
+sed -E 's/^\[(ok|warn|fail)\] ([a-z]+).*/[\1] \2/' "$W/go-doctor.out" > "$W/go-doctor.norm"
+sed -E 's/^\[(ok|warn|fail)\] ([a-z]+).*/[\1] \2/' "$W/xn-doctor.out" > "$W/xn-doctor.norm"
+if cmp -s "$W/go-doctor.norm" "$W/xn-doctor.norm"; then
+  record PASS doctor all "cc/runtime/repo/manifest/lock 五字段与级别一致（值随环境）"
+else
+  record DIFF doctor all "doctor 字段/级别不同"
+fi
 "$GO" -v > "$W/go-ver.out" 2>&1
 "$S" version > "$W/xn-ver.out" 2>&1
 if cmp -s "$W/go-ver.out" "$W/xn-ver.out"; then

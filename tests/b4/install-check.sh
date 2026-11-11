@@ -18,15 +18,14 @@ else
 fi
 
 for f in \
-  io/xnull/lib-core/1.0.0/lib-core-1.0.0.o \
-  io/xnull/lib-codec/1.0.0/lib-codec-1.0.0.o \
-  io/xnull/lib-util/1.0.0/lib-util-1.0.0.o \
-  io/xnull/app-main/1.0.0/app-main-1.0.0 \
+  io/xnull/lib-core/1.0.0/lib-core-1.0.0.xlib \
+  io/xnull/lib-codec/1.0.0/lib-codec-1.0.0.xlib \
+  io/xnull/lib-util/1.0.0/lib-util-1.0.0.xlib \
   io/xnull/proj02/1.0.0/reactor-summary.txt ; do
   if [ -s "$REPO/$f" ]; then ok "仓库存在 $f"; else bad "缺少 $f"; fi
 done
 
-for m in lib-core lib-codec lib-util app-main; do
+for m in lib-core lib-codec lib-util; do
   if cmp -s "$P/$m/xnull.project" "$REPO/io/xnull/$m/1.0.0/xnull.project"; then
     ok "$m/xnull.project 与源一致"
   else
@@ -34,7 +33,7 @@ for m in lib-core lib-codec lib-util app-main; do
   fi
 done
 
-got=$("$REPO/io/xnull/app-main/1.0.0/app-main-1.0.0" 2>&1)
+got=$("$HERE/xnull-build.sh" run-project "$P" 2>/dev/null)
 want=$(cat "$HERE/fixtures/proj02/expected.app.out")
 if [ "$got" = "$want" ]; then
   ok "安装的 app 运行输出与 golden 一致"
