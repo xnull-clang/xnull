@@ -20,6 +20,8 @@
 #   tests/b4/xnull-build.sh validate <project>         # 清单校验：模块/依赖边/拓扑（不编译）
 #   tests/b4/xnull-build.sh build-project <dir> [-o d] # 聚合构建（library→对象，app→链接）
 #   tests/b4/xnull-build.sh run-project <dir> [-- args] # 聚合构建并运行
+#   tests/b4/xnull-build.sh tree <dir>                 # 依赖树（对齐 Go xnull tree）
+#   tests/b4/xnull-build.sh why <dir> <coord>          # 依赖理由（对齐 Go xnull why）
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -315,7 +317,7 @@ cmd_bootstrap_tools() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
   local t entry res
-  for t in resman artifact config; do
+  for t in resman artifact config deps; do
     entry="impl/lib/b4/$t.x"
     [ -f "$ROOT/$entry" ] || continue
     res=$(emit_c_interp "$entry" "$dir/$t.c") || exit 1
@@ -334,6 +336,82 @@ cmd_bootstrap_reactor() {
   echo "$dir/reactor"
 }
 
+# 准备清单 TSV（root.tsv + m/*.tsv），失败返回 1
+prepare_model() {
+  local proj=$1 w=$2
+  local xpd=${XPD_BIN:-/tmp/xpd}
+  mkdir -p "$w/m"
+  "$xpd" "$proj/xnull.project" > "$w/root.tsv" || return 1
+  local rel
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    if [ ! -f "$proj/$rel/xnull.project" ]; then
+      echo "xnull-build: error XPD-201 模块缺少 xnull.project：$rel" >&2
+      return 1
+    fi
+    "$xpd" "$proj/$rel/xnull.project" > "$w/m/$(printf '%s' "$rel" | tr '/' '_').tsv" || return 1
+  done < <(awk -F'\t' '$1=="module"{print $2}' "$w/root.tsv")
+}
+
+# 准备依赖图 TSV：目标工程 + 其所属聚合的所有模块（近似 Go 从本地仓库读传递清单）
+prepare_graph() {
+  local proj=$1 w=$2
+  local xpd=${XPD_BIN:-/tmp/xpd}
+  mkdir -p "$w"
+  "$xpd" "$proj/xnull.project" > "$w/target.tsv" || return 1
+  local target_coord
+  target_coord=$(awk -F'\t' '$1=="field" && $2=="groupId"{g=$3} $1=="field" && $2=="artifactId"{a=$3} END{print g":"a}' "$w/target.tsv")
+  # 向上找聚合根（packaging = pom 且含 modules）
+  local dir=$proj root=""
+  while [ "$dir" != "/" ]; do
+    dir=$(dirname "$dir")
+    if [ -f "$dir/xnull.project" ] && awk -F'=' '/^[[:space:]]*packaging[[:space:]]*=/{v=$2; gsub(/^[[:space:]]+|[[:space:]]+$/,"",v); print v; exit}' "$dir/xnull.project" | grep -qx pom; then
+      root=$dir
+    fi
+    [ "$dir" = "$ROOT" ] && break
+  done
+  [ -n "$root" ] || return 0
+  "$xpd" "$root/xnull.project" > "$w/agg-root.tsv" || return 1
+  local rel
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    [ -f "$root/$rel/xnull.project" ] || continue
+    "$xpd" "$root/$rel/xnull.project" > "$w/agg-$(printf '%s' "$rel" | tr '/' '_').tsv" || return 1
+  done < <(awk -F'\t' '$1=="module"{print $2}' "$w/agg-root.tsv")
+  # 若目标本身不是聚合根，仍以目标作为根输出（其坐标已写入 target.tsv）
+  return 0
+}
+
+# 依赖树（B4b-04a）：tree <project>
+cmd_tree() {
+  local proj=${1:-}; [ -n "$proj" ] || usage
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  [ -f "$proj/xnull.project" ] || fail "缺少 xnull.project：$proj"
+  local xpd=${XPD_BIN:-/tmp/xpd} deps=${DEPS_BIN:-/tmp/deps}
+  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
+  [ -x "$deps" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local w; w=$(workdir) || exit 1
+  prepare_graph "$proj" "$w" || exit 1
+  local files=("$w/target.tsv") f
+  for f in "$w"/agg-*.tsv; do [ -e "$f" ] && files+=("$f"); done
+  "$deps" tree "${files[@]}"
+}
+
+# 依赖理由（B4b-04a）：why <project> <groupId:artifactId>
+cmd_why() {
+  local proj=${1:-} coord=${2:-}
+  [ -n "$proj" ] && [ -n "$coord" ] || usage
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  local xpd=${XPD_BIN:-/tmp/xpd} deps=${DEPS_BIN:-/tmp/deps}
+  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
+  [ -x "$deps" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local w; w=$(workdir) || exit 1
+  prepare_graph "$proj" "$w" || exit 1
+  local files=("$w/target.tsv") f
+  for f in "$w"/agg-*.tsv; do [ -e "$f" ] && files+=("$f"); done
+  "$deps" why "$coord" "${files[@]}"
+}
+
 # 聚合工程构建（B4b-03b-1）：拓扑序 → 每模块 emit-c → library 出对象 → app 链接。
 # 用法：build-project <dir> [-o 输出目录]
 cmd_build_project() {
@@ -348,7 +426,7 @@ cmd_build_project() {
   [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
   local toolArgs=()
   local t
-  for t in resman artifact config; do
+  for t in resman artifact config deps; do
     if [ ! -x "/tmp/$t" ]; then cmd_bootstrap_tools -o /tmp > /dev/null || exit 1; break; fi
   done
   [ -x /tmp/resman ] && toolArgs+=(--resman /tmp/resman)
@@ -493,6 +571,8 @@ case "$sub" in
   bootstrap-reactor) cmd_bootstrap_reactor "$@" ;;
   bootstrap-tools) cmd_bootstrap_tools "$@" ;;
   build-project) cmd_build_project "$@" ;;
+  tree) cmd_tree "$@" ;;
+  why) cmd_why "$@" ;;
   run-project) cmd_run_project "$@" ;;
   validate) cmd_validate "$@" ;;
   ast-check) cmd_ast_check "$@" ;;

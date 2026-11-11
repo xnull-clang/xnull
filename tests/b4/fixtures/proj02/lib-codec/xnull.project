@@ -6,6 +6,10 @@ project {
 
   dependencies {
     dependency io.xnull:lib-core {
+      version = 1.0.0
+    }
+    dependency io.xnull:lib-util {
+      version = 1.0.0
     }
   }
 }

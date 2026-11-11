@@ -1,0 +1,5 @@
+坐标：io.xnull:lib-util
+版本：1.0.0
+路径：io.xnull:lib-codec@1.0.0 -> io.xnull:lib-util@1.0.0
+来源：最近优先（路径最短）
+深度：2
