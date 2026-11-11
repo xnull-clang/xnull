@@ -19,6 +19,100 @@ func LoadFFI(root string) (*ffi.Registry, []diag.Diagnostic, error) {
 	return ffi.Load(root)
 }
 
+// FilterFFIRegistryByUse 只保留编译单元实际引用（以 `(ident name)` 出现）的绑定
+// 入口，以及这些入口参数/返回值引用的句柄、layout、callback。
+//
+// 用于“入口目录无 .xfb、向上找到仓库 bindings”的场景：避免把全量 XDK 绑定
+// 注入到无关入口（例如只 import xdk.runtime 的工程），保持既有 C 输出稳定。
+// 入口目录自身带 .xfb 时不做过滤，维持原行为。
+func FilterFFIRegistryByUse(u *xfront.CompilationUnit, reg *ffi.Registry) *ffi.Registry {
+	if reg == nil || reg.Empty() {
+		return reg
+	}
+	src := xfront.PrintUnit(u)
+	out := &ffi.Registry{}
+	for _, e := range reg.Entries {
+		if strings.Contains(src, "(ident "+e.Name+")") && !ffiHasBuiltinLowering(e.Name) {
+			// 无错误码通道的入口不参与 errorMap 翻译；清空可避免为整段
+			// region 生成未被调用的错误码助手（与 native 投影保持一致）。
+			if e.ErrorCode == "" && !e.ErrorCodeRet {
+				e.ErrorMap = nil
+			}
+			out.Entries = append(out.Entries, e)
+		}
+	}
+	if len(out.Entries) == 0 {
+		return &ffi.Registry{}
+	}
+	needType := map[string]bool{}
+	var addBound func(t ffi.BoundType)
+	addBound = func(t ffi.BoundType) {
+		switch t.Kind {
+		case ffi.KindHandle, ffi.KindLayout, ffi.KindCallback:
+			if t.Name != "" {
+				needType[t.Name] = true
+			}
+		case ffi.KindArray:
+			if t.Elem != nil {
+				addBound(*t.Elem)
+			}
+		}
+	}
+	for _, e := range out.Entries {
+		addBound(e.Ret)
+		for _, p := range e.Params {
+			addBound(p.Type)
+		}
+	}
+	for _, h := range reg.Handles {
+		if needType[h.Name] {
+			out.Handles = append(out.Handles, h)
+		}
+	}
+	for _, l := range reg.Layouts {
+		if needType[l.Name] {
+			out.Layouts = append(out.Layouts, l)
+		}
+	}
+	for _, c := range reg.Callbacks {
+		if needType[c.Name] {
+			out.Callbacks = append(out.Callbacks, c)
+		}
+	}
+	return out
+}
+
+// usesBuiltinXDK 报告编译单元是否引用 codegen 内建降级的 xdk 入口。
+func usesBuiltinXDK(u *xfront.CompilationUnit, reg *ffi.Registry) bool {
+	if u == nil || reg == nil {
+		return false
+	}
+	src := xfront.PrintUnit(u)
+	for _, e := range reg.Entries {
+		if ffiHasBuiltinLowering(e.Name) && strings.Contains(src, "(ident "+e.Name+")") {
+			return true
+		}
+	}
+	return false
+}
+
+// ffiHasBuiltinLowering 报告 codegen 已内建降级的 xdk 入口（不依赖 .xfb 包装）：
+// xdk.runtime 的对称入口、S6-03 sys Async/Process、S6-04 资源、S6-09 net Async。
+// 这些名字即使出现在源码中也不应因“向上找到 bindings”而注入 FFI 包装。
+func ffiHasBuiltinLowering(name string) bool {
+	switch name {
+	case "diagnose", "exit", "nowMono", "nowWall", "env", "dumpTasks":
+		return true
+	}
+	if _, ok := sys603Kinds[name]; ok {
+		return true
+	}
+	if _, ok := net609Kinds[name]; ok {
+		return true
+	}
+	return s604Names[name]
+}
+
 // InjectFFI 把注册表入口作为包级函数声明追加到编译单元（P-09）。
 //
 // 仅注入可安全映射到当前语言面的形态；其余跳过并由 UnsupportedFFIEntries

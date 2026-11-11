@@ -559,12 +559,12 @@ class Lexer {
                 else if e == 34 { val = val + "\"" }
                 else if e == 92 { val = val + "\\" }
                 else if e == 39 { val = val + "'" }
-                else if e == 48 { val = val + str('\0') }
+                else if e == 48 { val = val + $"{'\0'}" }
                 else if e == 117 && self.b(self.pos) == 48 && self.b(self.pos + 1) == 48 &&
                         self.b(self.pos + 2) == 48 && self.b(self.pos + 3) == 48 {
                     // B4b 大文件：\u0000 → 真实 NUL（String 按长度可含 NUL）。
                     self.adv(); self.adv(); self.adv(); self.adv()
-                    val = val + str('\0')
+                    val = val + $"{'\0'}"
                 }
                 else { self.err("LEX-103", el, ec, "未知转义") ; val = val + self.one(self.pos - 1) }
             } else {
@@ -593,7 +593,7 @@ class Lexer {
 
 String q(String s) {
     String b = "\""
-    String nul = str('\0')
+    String nul = $"{'\0'}"
     Int i = 0
     while i < s.length() {
         String c = s.substring(i, 1)
@@ -1795,7 +1795,8 @@ class Parser {
         if lvl > 11 { return self.parseUnary() }
         // B4b 大文件：native codegen 对类局部变量重新赋值不补根，跨安全点的
         // `l = be` 会被 GC 回收（UAF → xn_concat NULL）。用 List<E> 容器生根。
-        List<E> lh = [self.parseBin(lvl + 1)]
+        List<E> lh = []
+        lh.push(self.parseBin(lvl + 1))
         while (self.cur().kind == 9 || self.cur().kind == 3) && self.prec(self.cur().text) == lvl {
             E l = lh.get(0)
             Tok op = self.next()
@@ -1831,7 +1832,8 @@ class Parser {
 
     E parsePostfix() {
         // B4b 大文件：同 parseBin，`e` 跨循环迭代被重新赋值，需容器生根。
-        List<E> eh = [self.parsePrimary()]
+        List<E> eh = []
+        eh.push(self.parsePrimary())
         Bool go = true
         while go {
             E e = eh.get(0)
@@ -2093,7 +2095,8 @@ static Int main(String[] args) {
     if args[ai] == "--file" {
         if ai + 1 >= args.length() { return 2 }
         // readFileText 读失败即 throw（解释器与 native 一致），退出码非 0。
-        src = readFileText(args[ai + 1])
+        String path = args[ai + 1]
+        src = readFileText(path)
     } else {
         src = args[ai]
     }
