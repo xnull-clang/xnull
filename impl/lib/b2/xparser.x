@@ -1,7 +1,8 @@
 // B2-01：XNull 版词法器（Go xfront.Lex 的 L1 token dump 对照实现）。
 // 只输出 token/AST 层数据，不依赖 Go xfront；lex 诊断以 code/line/col 输出。
 // 覆盖：注释/BOM/CRLF、自动分号、数字/字符/字符串/插值（基础）、关键字、运算符。
-import xdk.text
+// B4b-02：新增 --file <path> 文件输入模式（import xdk.sys 提供 readFileText）。
+import xdk.sys
 
 static Bool inList(List<String> xs, String w) {
     Int i = 0
@@ -752,7 +753,7 @@ class TP {
     }
 
     String render(TN v, Int dep) {
-        if dep > 64 { return "(depth-limit)" }
+        if dep > 100000 { return "(depth-limit)" }
         if v.sc { return v.raw }
         if v.nm == "nil" { return "(nil)" }
         if v.nm == "slice" {
@@ -775,7 +776,7 @@ class TP {
     }
 
     String renderField(TN v, Int cd, String cat) {
-        if cd > 64 { return "(depth-limit)" }
+        if cd > 100000 { return "(depth-limit)" }
         if cat == "s" || cat == "v" { return self.render(v, cd) }
         if cat == "p" { return self.render(v, cd + 1) }
         if cat == "i" { return self.render(v, cd + 2) }
@@ -2057,17 +2058,30 @@ class Parser {
     }
 }
 
+// B4b-02：参数形态
+//   xparser <源码字符串>            （B2 兼容）
+//   xparser --diags <源码字符串>     （B2 兼容）
+//   xparser --file <path>           （按文件读入，替代 oracle 的 argv 传参）
+//   xparser --diags --file <path>
 static Int main(String[] args) {
     if args.length() == 0 {
-        print("xparser: 需要源码字符串")
+        print("xparser: 需要源码字符串或 --file <path>")
         return 2
     }
-    String src = args[0]
     Bool diagMode = false
-    if src == "--diags" {
-        if args.length() < 2 { return 2 }
+    Int ai = 0
+    if args[ai] == "--diags" {
         diagMode = true
-        src = args[1]
+        ai = ai + 1
+        if ai >= args.length() { return 2 }
+    }
+    String src = ""
+    if args[ai] == "--file" {
+        if ai + 1 >= args.length() { return 2 }
+        // readFileText 读失败即 throw（解释器与 native 一致），退出码非 0。
+        src = readFileText(args[ai + 1])
+    } else {
+        src = args[ai]
     }
     Lexer l = new Lexer(src)
     List<Tok> ts = []

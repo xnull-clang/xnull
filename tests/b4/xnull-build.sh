@@ -14,6 +14,8 @@
 #   tests/b4/xnull-build.sh verify <entry.x>     # C 与 Go --emit-c 逐字节对比 + 双路径运行一致
 #   tests/b4/xnull-build.sh examples             # 9 个示例全量验收
 #   tests/b4/xnull-build.sh bootstrap-xnullc [-o out]   # 用解释器自举原生 xnullc（xn-s1）
+#   tests/b4/xnull-build.sh bootstrap-xparser [-o out]  # 用 native xnullc 自举原生 xparser
+#   tests/b4/xnull-build.sh ast-check [入口...]        # 原生 xparser AST vs xnast AST（全量深度）
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -75,6 +77,29 @@ EOF
   return 1
 }
 
+# 原生 xparser（B4b-02）：显式指定优先，其次 /tmp/xparser-native（bootstrap-xparser 产出）。
+xparser_bin() {
+  local c=""
+  for c in "${XPARSER_BIN:-}" /tmp/xparser-native; do
+    [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
+  done
+  return 1
+}
+
+# AST 来源：优先原生 xparser --file；失败（崩溃/空输出）回退 Go oracle（B4c 前允许）。
+ast_dump() {
+  local entry=$1 out=$2
+  local xp=""
+  if xp=$(xparser_bin); then
+    ( cd "$ROOT" && "$xp" --file "$entry" ) > "$out" 2>"$out.err"
+    if [ $? -eq 0 ] && [ -s "$out" ]; then return 0; fi
+    echo "xnull-build: 原生 xparser 失败（$(wc -c < "$out") 字节），回退 xnast：$entry" >&2
+  fi
+  local xnast; xnast=$(xnast_bin) || exit 1
+  ( cd "$ROOT" && "$xnast" --ast --dump-depth 100000 "$entry" ) > "$out" \
+    || fail "AST 生成失败：$entry"
+}
+
 workdir() {
   if [ -n "${XNULL_B4_WORK:-}" ]; then mkdir -p "$XNULL_B4_WORK"; echo "$XNULL_B4_WORK"; return; fi
   mktemp -d "${TMPDIR:-/tmp}/b4b01.XXXXXX"
@@ -84,11 +109,19 @@ workdir() {
 oracle_inputs() {
   local entry=$1 outdir=$2 projdir=${3:-}
   local go; go=$(go_bin) || exit 1
-  local xnast; xnast=$(xnast_bin) || exit 1
-  ( cd "$ROOT" && "$xnast" --ast "$entry" ) > "$outdir/ast.txt" || fail "AST 生成失败：$entry"
+  ast_dump "$entry" "$outdir/ast.txt" || exit 1
   ( cd "$ROOT" && "$go" --emit-ast-bundle "$entry" ) > "$outdir/bundle.json" || fail "bundle 生成失败：$entry"
-  # 默认按入口目录投影（与 Go emit-c 的差分口径一致）；xnullc 自举需 repo root（含 bindings/xdk/sys.xfb）。
-  [ -n "$projdir" ] || projdir=$(dirname "$ROOT/$entry")
+  # 投影目录选择：
+  #   - 显式传入优先（自举 xnullc 用 $ROOT/bindings）；
+  #   - 入口 import xdk.*：用 repo 的 canonical bindings/（否则 xn_ffi_* 未定义）；
+  #   - 其余：按入口目录投影，与 Go `--emit-c` 的差分口径一致（不多发未用 FFI 包装）。
+  if [ -z "$projdir" ]; then
+    if grep -q '^import xdk\.' "$ROOT/$entry" 2>/dev/null; then
+      projdir="$ROOT/bindings"
+    else
+      projdir=$(dirname "$ROOT/$entry")
+    fi
+  fi
   python3 "$ROOT/tests/b3/xfb-projection.py" "$projdir" > "$outdir/project.txt" \
     || fail "FFI 投影失败：$entry"
   python3 - "$outdir/bundle.json" <<'PY' || fail "bundle 解析失败：$entry"
@@ -113,7 +146,7 @@ emit_c() {
   local rc=$?
   if [ $rc -ne 0 ]; then
     sed -n 1,5p "$outdir/xnullc.err" >&2
-    fail "原生 xnullc 生成 C 失败：$entry（exit $rc）"
+    fail "原生 xnullc 生成 C 失败：${entry}（exit ${rc}）"
   fi
   echo "$nf"
 }
@@ -218,10 +251,10 @@ cmd_verify() {
   local ic=""
   ( cd "$ROOT" && "$go" run --interp "$ROOT/$entry" > "$w/interp.out" 2>"$w/interp.err" ); ic=$?
   if [ "$nc" != "$gc" ] || ! cmp -s "$w/native.out" "$w/go.out"; then
-    fail "native/Go 两路运行不一致：$entry（exit $nc/$gc）"
+    fail "native/Go 两路运行不一致：${entry}（exit $nc/${gc}）"
   fi
   if [ "$nc" != "$ic" ] || ! cmp -s "$w/native.out" "$w/interp.out"; then
-    fail "interp/native 双路径不一致：$entry（exit $ic/$nc）"
+    fail "interp/native 双路径不一致：${entry}（exit $ic/${nc}）"
   fi
   echo "PASS $entry sha256=$(shasum -a 256 "$w/native.c" | awk '{print $1}')"
 }
@@ -257,11 +290,47 @@ cmd_bootstrap() {
   echo "$out"
 }
 
+# 自举原生 xparser（B4b-02）：用当前 native xnullc 把 xparser.x 编成可执行文件
+cmd_bootstrap_xparser() {
+  local out=/tmp/xparser-native
+  if [ "${1:-}" = "-o" ]; then out=${2:-}; [ -n "$out" ] || die "-o 缺少路径"; fi
+  local w; w=$(workdir) || exit 1
+  emit_c impl/lib/b2/xparser.x "$w" "$w/xparser.c" > /dev/null || exit 1
+  write_empty_res "$w/res.c"
+  cc_link "$w/xparser.c" "$out" "$w/res.c" || exit 1
+  echo "$out"
+}
+
+# AST 一致性验收：原生 xparser --file 与 xnast --ast（全量深度）逐字节比较
+cmd_ast_check() {
+  local entries=("$@")
+  if [ ${#entries[@]} -eq 0 ]; then
+    for f in "$ROOT"/tests/b2/corpus/examples/*.x; do [ -f "$f" ] && entries+=("${f#"$ROOT/"}"); done
+    entries+=(impl/lib/b2/xparser.x impl/lib/b2/xlex.x impl/xnfmt/xnfmt.x)
+  fi
+  local xp; xp=$(xparser_bin) || { echo "xnull-build: 没有原生 xparser（先跑 bootstrap-xparser）" >&2; exit 2; }
+  local xnast; xnast=$(xnast_bin) || exit 1
+  local w; w=$(workdir) || exit 1
+  local pass=0 failn=0 e
+  for e in "${entries[@]}"; do
+    ( cd "$ROOT" && "$xnast" --ast --dump-depth 100000 "$e" ) > "$w/go.ast" 2>/dev/null
+    ( cd "$ROOT" && "$xp" --file "$e" ) > "$w/xp.ast" 2>"$w/xp.err"; local rc=$?
+    if [ $rc -eq 0 ] && cmp -s "$w/go.ast" "$w/xp.ast"; then
+      pass=$((pass+1)); echo "PASS $e"
+    else
+      failn=$((failn+1)); echo "DIFF ${e}（rc=${rc}，oracle=$(wc -c < "$w/go.ast") 字节，xparser=$(wc -c < "$w/xp.ast") 字节）"
+    fi
+  done
+  echo "AST 一致性：PASS=$pass DIFF=$failn"
+  [ "$failn" -eq 0 ]
+}
+
 cmd_info() {
   echo "root=$ROOT"
   echo "rev=$REV"
   local xc; xc=$(xnullc_bin) && echo "xnullc=$xc ($(shasum -a 256 "$xc" | awk '{print $1}'))" || echo "xnullc=（未找到）"
   echo "xnull=$(go_bin)"; echo "xnast=$(xnast_bin)"
+  local xp; xp=$(xparser_bin) && echo "xparser=$xp" || echo "xparser=（未找到，AST 走 xnast）"
   echo "runtime=${RUNTIME}（${#RUNTIME_SRCS[@]} 个 C 源）"
   echo "frontend=$XNULL_FRONTEND"
 }
@@ -274,6 +343,8 @@ case "$sub" in
   verify) [ $# -ge 1 ] || usage; cmd_verify "$1" ;;
   examples) cmd_examples ;;
   bootstrap-xnullc) cmd_bootstrap "$@" ;;
+  bootstrap-xparser) cmd_bootstrap_xparser "$@" ;;
+  ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
   -h|--help|help) usage ;;
   *) die "未知子命令：$sub" ;;
