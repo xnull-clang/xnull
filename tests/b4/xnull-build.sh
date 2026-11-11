@@ -118,6 +118,17 @@ workdir() {
 # oracle 三件套：ast / bundle 文件数 / 投影
 oracle_inputs() {
   local entry=$1 outdir=$2 projdir=${3:-}
+  # B4c-02a：无 Go 引导模式——AST 用 bootstrap/bin/xparser，投影为空，单文件入口。
+  if [ "${XNULL_BOOTSTRAP:-}" = "1" ]; then
+    mkdir -p "$outdir"
+    local xp=${XPARSER_BIN:-$ROOT/bootstrap/bin/xparser}
+    [ -x "$xp" ] || fail "引导模式缺少 xparser：$xp"
+    ( cd "$ROOT" && "$xp" --file "$entry" ) > "$outdir/ast.txt" 2>"$outdir/ast.err" \
+      || { sed -n 1,3p "$outdir/ast.err" >&2; fail "xparser 生成 AST 失败：$entry"; }
+    : > "$outdir/project.txt"
+    echo 1
+    return 0
+  fi
   local go; go=$(go_bin) || exit 1
   ast_dump "$entry" "$outdir/ast.txt" || exit 1
   ( cd "$ROOT" && "$go" --emit-ast-bundle "$entry" ) > "$outdir/bundle.json" || fail "bundle 生成失败：$entry"
@@ -272,6 +283,33 @@ cmd_verify() {
 # 9 示例全量验收（tests/b2/corpus/examples/*.x，不含 multi/ 目录）
 cmd_examples() {
   local pass=0 failn=0 f name
+  # B4c-02a：无 Go 模式——用 bootstrap 工具构建并运行，C 与冻结 golden 哈希比对
+  if [ "${XNULL_BOOTSTRAP:-}" = "1" ]; then
+    local golden="$ROOT/evidence/B4c/golden/examples.tsv" w
+    w=$(workdir) || exit 1
+    for f in "$ROOT"/tests/b2/corpus/examples/*.x; do
+      [ -f "$f" ] || continue
+      name=$(basename "$f")
+      rel=${f#"$ROOT/"}
+      local bin="$w/$name.bin"
+      if ! cmd_build "$rel" -o "$bin" > /dev/null 2>&1; then echo "FAIL build ${name}"; failn=$((failn+1)); continue; fi
+      local out rc
+      out=$("$bin" 2>&1); rc=$?
+      local want="" got
+      [ -f "$golden" ] && want=$(awk -F'\t' -v n="$name" '$1==n{print $2}' "$golden")
+      got=$(shasum -a 256 "$bin.c" | cut -d' ' -f1)
+      if [ $rc -eq 0 ] && [ -n "$want" ] && [ "$got" = "$want" ]; then
+        echo "PASS ${name}（C 与 golden 一致）"; pass=$((pass+1))
+      elif [ $rc -eq 0 ] && [ -z "$want" ]; then
+        echo "PASS ${name}（运行 ok；无 golden 比对）"; pass=$((pass+1))
+      else
+        echo "FAIL ${name}（rc=${rc}，C=${got}）"; failn=$((failn+1))
+      fi
+    done
+    echo "B4c-02a bootstrap examples：PASS=$pass FAIL=$failn"
+    [ "$failn" -eq 0 ]
+    return
+  fi
   for f in "$ROOT"/tests/b2/corpus/examples/*.x; do
     [ -f "$f" ] || continue
     name=${f#"$ROOT/"}
