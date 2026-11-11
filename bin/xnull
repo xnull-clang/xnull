@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# B4b-06：XNull 统一 CLI 入口（原型，不依赖 Go CLI）。
+#
+# 本脚本只是 `tests/b4/xnull-build.sh` 的入口层：
+#   - 统一命令名（build/run/validate/tree/why/install/repro/xmeta/fmt/clean/version/doctor/examples）；
+#   - `build <dir>` / `run <dir>` 自动分发到工程模式（build-project / run-project），
+#     传入文件时保持单文件语义；
+#   - 其余子命令原样转发（保留 build-project/run-project/bootstrap-* 等内部命令）。
+#
+# 仓库根按脚本自身位置推导（bin/xnull → ../），与调用者的当前目录无关。
+set -uo pipefail
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$HERE/.." && pwd)
+IMPL="$ROOT/tests/b4/xnull-build.sh"
+[ -x "$IMPL" ] || { echo "xnull: 找不到 $IMPL" >&2; exit 2; }
+
+is_project() { [ -n "${1:-}" ] && [ -d "$1" ] && [ -f "$1/xnull.project" ]; }
+
+case "${1:-}" in
+  ""|-h|--help|help)
+    cat >&2 <<'EOF'
+用法：xnull <命令> [参数…]
+  build <entry.x | 工程目录> [-o out]     单文件构建 / 聚合工程构建
+  run   <entry.x | 工程目录> [-- 参数…]   构建并运行
+  validate <工程目录>                     清单校验（模块/依赖边/拓扑）
+  tree <工程目录>                         依赖树
+  why  <工程目录> <groupId:artifactId>    依赖理由
+  install <工程目录> [--repo 目录]         构建并安装到本地仓库（.xlib）
+  repro <工程目录>                        连续两次构建，比较 C/对象/app 的 SHA-256
+  xmeta <工程目录>                        生成模块 .xmeta
+  fmt [--check] <文件…>                   格式化（xnfmt）
+  clean [目录] [--all]                    清理 target（--all 另清仓库缓存）
+  version                                 版本信息
+  doctor [目录]                           环境自检
+  examples                                9 个示例全量验收
+  bootstrap-model|bootstrap-tools|bootstrap-reactor   自举内置工具
+EOF
+    exit 2
+    ;;
+  -v|--version|version)
+    exec "$IMPL" version
+    ;;
+  build)
+    shift
+    if is_project "${1:-}"; then exec "$IMPL" build-project "$@"; fi
+    exec "$IMPL" build "$@"
+    ;;
+  run)
+    shift
+    if is_project "${1:-}"; then exec "$IMPL" run-project "$@"; fi
+    exec "$IMPL" run "$@"
+    ;;
+  *)
+    exec "$IMPL" "$@"
+    ;;
+esac
