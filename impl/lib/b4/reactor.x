@@ -33,6 +33,7 @@ class Args {
     String xnast = "/tmp/xnast"
     String runtime = ""
     String outdir = ""
+    String repo = ""
     String resman = ""
     String artifact = ""
     String config = ""
@@ -74,6 +75,45 @@ static String resTable() {
         + "}\n"
 }
 
+static String groupOf(String coord) {
+    Int i = 0
+    while i < coord.length() {
+        if coord.substring(i, 1) == ":" { return coord.substring(0, i) }
+        i = i + 1
+    }
+    return coord
+}
+
+static String artifactOf(String coord) {
+    Int i = 0
+    while i < coord.length() {
+        if coord.substring(i, 1) == ":" { return coord.substring(i + 1, coord.length() - i - 1) }
+        i = i + 1
+    }
+    return coord
+}
+
+static String slashDots(String g) {
+    String r = ""
+    Int i = 0
+    while i < g.length() {
+        String c = g.substring(i, 1)
+        if c == "." { r = r + "/" } else { r = r + c }
+        i = i + 1
+    }
+    return r
+}
+
+// 读回 sha256（shasum 输出重定向到文件，procStatus 无法取 stdout）
+static String shaOf(String path, String tmp) {
+    Int32 rc = procStatus("shasum -a 256 \"" + path + "\" > \"" + tmp + "\"")
+    if rc != 0 { return "" }
+    String t = readFileText(tmp)
+    String[] ps = t.split(" ")
+    if ps.length() < 1 { return "" }
+    return ps[0]
+}
+
 static String runtimeSrcs(String rt) {
     List<String> names = ["rt.c", "rt_gc.c", "rt_policy.c", "rt_weak.c", "xrt_abi.c",
         "rt_std_runtime.c", "rt_std_text.c", "rt_std_sys.c", "rt_std_bytes.c",
@@ -88,6 +128,72 @@ static String runtimeSrcs(String rt) {
 }
 
 class Reactor {
+    // 安装到本地仓库：<repo>/<group 斜杠>/<artifact>/<version>/
+    //   library → <a>-<v>.o + xnull.project
+    //   app     → <a>-<v>（可执行）+ xnull.project
+    //   聚合根  → xnull.project + reactor-summary.txt
+    void installAll(Args a, List<Mod> mods, List<String> seq, String bin) {
+        if a.repo == "" { return }
+        Int i = 0
+        String tmpSum = a.outdir + "/.sha";
+        String summary = a.outdir + "/reactor-summary.txt"
+        String body = "# reactor 聚合摘要（脚本生成，手改即作废）\n"
+        while i < seq.length() {
+            Mod m = new Mod()
+            Int kk = 0
+            while kk < mods.length() {
+                if mods.get(kk).rel == seq.get(i) { m = mods.get(kk) }
+                kk = kk + 1
+            }
+            String g = groupOf(m.coord)
+            String art = artifactOf(m.coord)
+            String dir = a.repo + "/" + slashDots(g) + "/" + art + "/" + m.ver
+            procStatus("mkdir -p \"" + dir + "\"")
+            String srcf = m.obj
+            String name = art + "-" + m.ver + ".o"
+            if m.packaging == "app" {
+                srcf = bin
+                name = art + "-" + m.ver
+            }
+            if srcf != "" {
+                procStatus("cp -f \"" + srcf + "\" \"" + dir + "/" + name + "\"")
+                print("install\t" + dir + "/" + name)
+            }
+            procStatus("cp -f \"" + a.dir + "/" + m.rel + "/xnull.project\" \"" + dir + "/xnull.project\"")
+            String sh = shaOf(dir + "/" + name, tmpSum)
+            body = body + "module " + m.rel + " " + dir + "/" + name + " " + sh + "\n"
+            i = i + 1
+        }
+        // 聚合根：坐标从根 TSV 的 field 行读取
+        String rootTsv = a.outdir + "/root.tsv"
+        String group = ""
+        String art = ""
+        String ver = ""
+        String rt = readFileText(rootTsv)
+        String[] rl = rt.split("\n")
+        Int k = 0
+        while k < rl.length() {
+            if rl[k] != "" {
+                String rline = rl[k]
+                String[] ps = rline.split("\t")
+                if ps.length() >= 3 && ps.get(0) == "field" {
+                    if ps.get(1) == "groupId" { group = ps.get(2) }
+                    else if ps.get(1) == "artifactId" { art = ps.get(2) }
+                    else if ps.get(1) == "version" { ver = ps.get(2) }
+                }
+            }
+            k = k + 1
+        }
+        if group != "" && art != "" {
+            writeFileText(summary, body)
+            String dir = a.repo + "/" + slashDots(group) + "/" + art + "/" + ver
+            procStatus("mkdir -p \"" + dir + "\"")
+            procStatus("cp -f \"" + a.dir + "/xnull.project\" \"" + dir + "/xnull.project\"")
+            procStatus("cp -f \"" + summary + "\" \"" + dir + "/reactor-summary.txt\"")
+            print("install\t" + dir + "/reactor-summary.txt")
+        }
+    }
+
     Int run(Args a) {
         if a.dir == "" || a.outdir == "" || a.runtime == "" {
             print("reactor: 需要 <dir>、--runtime、--out")
@@ -248,6 +354,7 @@ class Reactor {
         }
         if appCf == "" {
             print("reactor: 没有 app 模块，跳过链接")
+            installAll(a, mods, seq, "")
             return 0
         }
         String bin = a.outdir + "/app"
@@ -256,6 +363,7 @@ class Reactor {
         st = procStatus(cmd2)
         if st != 0 { print("reactor: 链接失败"); return 1 }
         print("bin\t" + bin)
+        installAll(a, mods, seq, bin)
         if a.artifact != "" {
             Int k = 0
             String aname = ""
@@ -301,6 +409,7 @@ static Int main(String[] args) {
         else if k == "--resman" { a.resman = v }
         else if k == "--artifact" { a.artifact = v }
         else if k == "--config" { a.config = v }
+        else if k == "--repo" { a.repo = v }
         i = i + 2
     }
     Reactor r = new Reactor()

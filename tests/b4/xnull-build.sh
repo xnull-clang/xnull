@@ -22,6 +22,7 @@
 #   tests/b4/xnull-build.sh run-project <dir> [-- args] # 聚合构建并运行
 #   tests/b4/xnull-build.sh tree <dir>                 # 依赖树（对齐 Go xnull tree）
 #   tests/b4/xnull-build.sh why <dir> <coord>          # 依赖理由（对齐 Go xnull why）
+#   tests/b4/xnull-build.sh install <dir> [--repo d]  # 聚合构建 + 安装到本地仓库
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -414,13 +415,9 @@ cmd_why() {
 
 # 聚合工程构建（B4b-03b-1）：拓扑序 → 每模块 emit-c → library 出对象 → app 链接。
 # 用法：build-project <dir> [-o 输出目录]
-cmd_build_project() {
-  local proj=${1:-} out=""
-  [ -n "$proj" ] || usage
-  shift || true
-  if [ "${1:-}" = "-o" ]; then out=${2:-}; fi
-  proj=$(cd "$proj" && pwd) || die "目录不存在"
-  [ -n "$out" ] || out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
+# 统一的 reactor 调用：确保工具就绪后执行 build-project
+run_reactor() {
+  local proj=$1 out=$2 repo=${3:-}
   local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest} rct=${REACTOR_BIN:-/tmp/reactor}
   if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then cmd_bootstrap_model -o /tmp > /dev/null || exit 1; fi
   [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
@@ -434,9 +431,36 @@ cmd_build_project() {
   [ -x /tmp/config ] && toolArgs+=(--config /tmp/config)
   local xc; xc=$(xnullc_bin) || exit 1
   local xnast; xnast=$(xnast_bin) || exit 1
+  local extra=()
+  [ -n "$repo" ] && extra+=(--repo "$repo")
+  # bash 3.2 + set -u：空数组展开需显式保护
   "$rct" build-project "$proj" \
     --xpd "$xpd" --xmanifest "$xmf" --xnullc "$xc" --xnast "$xnast" \
-    --runtime "$ROOT/impl/runtime" --out "$out" "${toolArgs[@]}"
+    --runtime "$ROOT/impl/runtime" --out "$out" \
+    ${extra[@]+"${extra[@]}"} ${toolArgs[@]+"${toolArgs[@]}"}
+}
+
+cmd_build_project() {
+  local proj=${1:-} out=""
+  [ -n "$proj" ] || usage
+  shift || true
+  if [ "${1:-}" = "-o" ]; then out=${2:-}; fi
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  [ -n "$out" ] || out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
+  run_reactor "$proj" "$out"
+}
+
+# 安装（B4b-04b-1）：build-project + 每模块落本地仓库
+# 用法：install <project> [--repo <dir>]（默认 $XNULL_REPO 或 /tmp/b4-install-repo）
+cmd_install() {
+  local proj=${1:-} repo=""
+  [ -n "$proj" ] || usage
+  shift || true
+  if [ "${1:-}" = "--repo" ]; then repo=${2:-}; fi
+  [ -n "$repo" ] || repo=${XNULL_REPO:-/tmp/b4-install-repo}
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  local out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
+  run_reactor "$proj" "$out" "$repo"
 }
 
 # 聚合工程构建并运行：run-project <dir> [-- 程序参数]
@@ -572,6 +596,7 @@ case "$sub" in
   bootstrap-tools) cmd_bootstrap_tools "$@" ;;
   build-project) cmd_build_project "$@" ;;
   tree) cmd_tree "$@" ;;
+  install) cmd_install "$@" ;;
   why) cmd_why "$@" ;;
   run-project) cmd_run_project "$@" ;;
   validate) cmd_validate "$@" ;;
