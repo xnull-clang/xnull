@@ -558,7 +558,57 @@ cmd_install() {
   [ -n "$repo" ] || repo=${XNULL_REPO:-/tmp/b4-install-repo}
   proj=$(cd "$proj" && pwd) || die "目录不存在"
   local out=${XNULL_B4_OUT:-/tmp/b4-proj-$(basename "$proj")}
-  run_reactor "$proj" "$out" "$repo"
+  run_reactor "$proj" "$out" || exit 1
+  [ -f "$out/model.tsv" ] || fail "缺少模型：$out/model.tsv"
+  python3 - "$proj" "$out" "$repo" "$HERE/pack_xlib.py" <<'PY'
+import hashlib, os, shutil, subprocess, sys
+proj, out, repo, packer = sys.argv[1:5]
+modules, edges, order, root = [], [], [], {}
+for line in open(os.path.join(out, "model.tsv"), encoding="utf-8"):
+    ps = line.rstrip("\n").split("\t")
+    if ps[0] == "project":
+        root = {"coord": ps[1], "ver": ps[2], "pack": ps[3]}
+    elif ps[0] == "module" and len(ps) >= 5:
+        modules.append({"rel": ps[1], "coord": ps[2], "ver": ps[3], "pack": ps[4]})
+    elif ps[0] == "edge" and len(ps) >= 4:
+        edges.append({"from": ps[1], "coord": ps[2], "ver": ps[3]})
+    elif ps[0] == "order":
+        order = [x for x in ps[1].split(",") if x]
+seq = order or [m["rel"] for m in modules]
+byrel = {m["rel"]: m for m in modules}
+def gav(coord, ver):
+    g, a = coord.split(":", 1)
+    return g.replace(".", "/"), a, ver
+def sha(path):
+    h = hashlib.sha256(); h.update(open(path, "rb").read()); return h.hexdigest()
+lines = []
+for rel in seq:
+    m = byrel.get(rel)
+    if not m or m["pack"] != "library":
+        continue
+    gp, art, ver = gav(m["coord"], m["ver"])
+    d = os.path.join(repo, gp, art, ver)
+    os.makedirs(d, exist_ok=True)
+    moddir = os.path.join(proj, rel)
+    deps = []
+    for e in edges:
+        if e["from"] == art:
+            deps += [e["coord"], e["ver"]]
+    xlib = os.path.join(d, "%s-%s.xlib" % (art, ver))
+    subprocess.run([sys.executable, packer, xlib, moddir] + list(gav(m["coord"], m["ver"])) + [m["pack"]] + deps,
+                   check=True, stdout=subprocess.DEVNULL)
+    shutil.copy2(os.path.join(moddir, "xnull.project"), os.path.join(d, "xnull.project"))
+    lines.append("module %s %s %s" % (rel, xlib, sha(xlib)))
+    print("install\t" + xlib)
+gp, art, ver = gav(root["coord"], root["ver"])
+d = os.path.join(repo, gp, art, ver)
+os.makedirs(d, exist_ok=True)
+summary = os.path.join(d, "reactor-summary.txt")
+with open(summary, "w", encoding="utf-8") as f:
+    f.write("# reactor 聚合摘要（脚本生成，手改即作废）\n" + "\n".join(lines) + "\n")
+shutil.copy2(os.path.join(proj, "xnull.project"), os.path.join(d, "xnull.project"))
+print("install\t" + summary)
+PY
 }
 
 # 聚合工程构建并运行：run-project <dir> [-- 程序参数]
@@ -678,6 +728,99 @@ cmd_version() {
   echo "abi: v1"
 }
 
+
+# 版本信息（B4b-05a）：specs 行从仓库根规范文件名推导（与 Go version.SpecSet 一致）
+cmd_version() {
+  local specs
+  specs=$(ls "$ROOT"/XNull解决方案-第[1-8]部分-*.md 2>/dev/null \
+    | sed -E 's#.*第([1-8])部分.*-(v[0-9]+\.[0-9]+\.[0-9]+)\.md#S\1 \2#' \
+    | grep -E '^S[1-8] ' | sort -V | paste -sd',' - | sed 's/,/, /g')
+  echo "xnull 0.1.0-dev"
+  echo "commit: dev"
+  echo "build date: unknown"
+  echo "specs: ${specs}"
+  echo "abi: v1"
+}
+
+# 清理（B4b-05a）：与 Go `xnull clean` 同语义——删除 <dir>/target（--all 另清本地仓库）
+cmd_clean() {
+  local root="." all=0 a
+  for a in "$@"; do
+    if [ "$a" = "--all" ]; then all=1; elif [ "${a#-}" = "$a" ]; then root=$a; fi
+  done
+  local target="$root/target"
+  [ "$root" = "." ] && target="target"
+  rm -rf "$target" || { echo "xnull: 清理 $target 失败" >&2; return 1; }
+  echo "已清理 $target"
+  if [ "$all" = 1 ]; then
+    local repo=${XNULL_REPO:-$HOME/.xnull/repository}
+    [ -n "$repo" ] && rm -rf "$repo" && echo "已清理本地仓库缓存 $repo"
+  fi
+  return 0
+}
+
+# 环境自检（B4b-05a）：字段与 Go `xnull doctor` 一致（cc/runtime/repo/manifest/lock）
+cmd_doctor() {
+  local root="." a failed=0
+  for a in "$@"; do [ "${a#-}" = "$a" ] && root=$a; done
+  local lvl
+  if ccbin=$(command -v cc 2>/dev/null); then echo "[ok] cc：$ccbin"
+  else echo "[fail] cc：未找到 C 编译器（cc）"; failed=1; fi
+  local rt="$ROOT/impl/runtime"
+  if [ -f "$rt/rt.h" ]; then echo "[ok] runtime：$rt"
+  else echo "[fail] runtime：找不到运行时源码目录（rt.h）"; failed=1; fi
+  local repo=${XNULL_REPO:-$HOME/.xnull/repository}
+  if [ -z "$repo" ]; then echo "[warn] repo：未设置本地仓库"
+  elif [ -d "$repo" ]; then echo "[ok] repo：$repo"
+  else echo "[warn] repo：本地仓库尚未创建：$repo"; fi
+  local dir=$root proj=""
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/xnull.project" ]; then proj=$dir; break; fi
+    dir=$(dirname "$dir")
+  done
+  if [ -z "$proj" ]; then echo "[warn] manifest：当前目录不在工程内（无 xnull.project）"
+  else echo "[ok] manifest：$proj"; fi
+  local lockdir=$root
+  [ -n "$proj" ] && lockdir=$proj
+  if [ -f "$lockdir/xnull.lock" ]; then
+    local n; n=$(grep -c '^  entry ' "$lockdir/xnull.lock" 2>/dev/null || echo 0)
+    echo "[ok] lock：$lockdir/xnull.lock（$n 条）"
+  else
+    echo "[warn] lock：未找到 xnull.lock（首次构建后可生成）"
+  fi
+  [ "$failed" = 1 ] && return 1
+  return 0
+}
+
+# 格式化（B4b-05a）：包装 impl/xnfmt/xnfmt.x；--check 不改文件，只报告
+cmd_fmt() {
+  local check=0 files=() a
+  for a in "$@"; do
+    if [ "$a" = "--check" ]; then check=1; else files+=("$a"); fi
+  done
+  [ ${#files[@]} -gt 0 ] || { echo "xnull: fmt 需要文件" >&2; return 2; }
+  local xnfmt=${XNFMT_BIN:-/tmp/xnfmt}
+  if [ ! -x "$xnfmt" ]; then
+    emit_c impl/xnfmt/xnfmt.x "$(workdir)/xnfmt" >/dev/null 2>&1 || { echo "xnull: 构建 xnfmt 失败" >&2; return 1; }
+    xnfmt="$XNULL_B4_WORK/xnfmt"
+    [ -x "$xnfmt" ] || xnfmt=/tmp/xnfmt
+  fi
+  local f rc=0 tmp
+  for f in "${files[@]}"; do
+    [ -f "$f" ] || { echo "xnull: fmt 需要可读文件：$f" >&2; return 2; }
+    if [ "$check" = 1 ]; then
+      tmp=$(mktemp "${TMPDIR:-/tmp}/fmt.XXXXXX")
+      cp "$f" "$tmp"
+      "$xnfmt" "$tmp" >/dev/null 2>&1 || { rm -f "$tmp"; return 1; }
+      if ! cmp -s "$f" "$tmp"; then echo "xnull: 需要格式化 $f"; rc=1; fi
+      rm -f "$tmp"
+    else
+      "$xnfmt" "$f" >/dev/null 2>&1 || rc=1
+    fi
+  done
+  return $rc
+}
+
 cmd_info() {
   echo "root=$ROOT"
   echo "rev=$REV"
@@ -711,6 +854,9 @@ case "$sub" in
   ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
   version) cmd_version ;;
+  clean) cmd_clean "$@" ;;
+  doctor) cmd_doctor "$@" ;;
+  fmt) cmd_fmt "$@" ;;
   -h|--help|help) usage ;;
   *) die "未知子命令：$sub" ;;
 esac
