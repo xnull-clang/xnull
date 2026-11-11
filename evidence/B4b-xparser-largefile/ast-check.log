@@ -1,0 +1,14 @@
+PASS tests/b2/corpus/examples/ast-seed.x
+PASS tests/b2/corpus/examples/classes.x
+PASS tests/b2/corpus/examples/containers.x
+PASS tests/b2/corpus/examples/defer-cleanup.x
+PASS tests/b2/corpus/examples/hello.x
+PASS tests/b2/corpus/examples/lexer-seed.x
+PASS tests/b2/corpus/examples/objlist.x
+PASS tests/b2/corpus/examples/parser-seed.x
+PASS tests/b2/corpus/examples/result-try.x
+PASS impl/lib/b2/xparser.x
+PASS impl/lib/b2/xlex.x
+PASS impl/xnfmt/xnfmt.x
+AST 一致性：PASS=12 DIFF=0
+exit=0

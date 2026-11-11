@@ -1,0 +1,11 @@
+PASS tests/b2/corpus/examples/ast-seed.x sha256=4f822cd09ece2aca617cc124d87d3d452ce29be60b08b427e0e9bbff175e40a6
+PASS tests/b2/corpus/examples/classes.x sha256=db4782aa719dcfa63adde5b310ba390b2329d35f0cd0d0a1db86feba17c808fe
+PASS tests/b2/corpus/examples/containers.x sha256=55f9d388c5aac8a14fc0e22e524db1584b773b2daf2f1d4bce0fd8988500d766
+PASS tests/b2/corpus/examples/defer-cleanup.x sha256=a039570511a05ef8153f8434a96b9003e4c81ef3c8c15c9f0da4a48bf724ad8c
+PASS tests/b2/corpus/examples/hello.x sha256=3362e71c1891e55b9ca2e50c85a718daf30a8ff9658f28529311bb0ffbc45c4f
+PASS tests/b2/corpus/examples/lexer-seed.x sha256=cde505ec2b4bc1245668ef643fa00790acf3b4f67830f31fccc2c4e5eb064e5e
+PASS tests/b2/corpus/examples/objlist.x sha256=e5cfe948bde883d1ef825ef437987b1585c0d347d1a71ac3f8009893caf28ea6
+PASS tests/b2/corpus/examples/parser-seed.x sha256=e1ac4a3efd694fc2faee263b1ddc84cf8610286648ed3754dd9794e8f812007f
+PASS tests/b2/corpus/examples/result-try.x sha256=a7834e0977d3228ebb76c89612be4cdea1b7687e02aa1018af87b05a80fdb301
+B4b-01 examples：PASS=9 FAIL=0
+exit=0
