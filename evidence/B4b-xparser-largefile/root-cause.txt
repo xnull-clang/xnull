@@ -1,0 +1,20 @@
+repro: /tmp/xparser-native --file impl/lib/b2/xlex.x
+rc=139 (SIGSEGV), stdout=0 bytes, stderr=0 bytes
+
+instrumented xn_concat (a/b null check):
+XNCONCAT-NULL a=0x... b=0x0
+caller: xn_Cls_Parser_parsePostfix (second arg comes from rt_retain(e->d))
+
+320-line prefix under UBSan:
+/tmp/e4b4b-xp/a.out.c:121:47: runtime error: member access within null pointer of type 'rt_string' (aka 'struct rt_string')
+SUMMARY: UndefinedBehaviorSanitizer: undefined-behavior /tmp/e4b4b-xp/a.out.c:121:47 
+UndefinedBehaviorSanitizer:DEADLYSIGNAL
+==8464==ERROR: UndefinedBehaviorSanitizer: SEGV on unknown address 0x000000000040 (pc 0x000109d82ed6 bp 0x7ff7b617a810 sp 0x7ff7b617a710 T12264684)
+==8464==The signal is caused by a READ memory access.
+==8464==Hint: address points to the zero page.
+    #0 0x000109d82ed6 in xn_concat a.out.c:121
+    #1 0x000109dbec8c in xn_Cls_Parser_parsePostfix xparser.x:1911
+    #2 0x000109dba68c in xn_Cls_Parser_parseUnary xparser.x:1821
+    #3 0x000109db7867 in xn_Cls_Parser_parseBin xparser.x:1793
+    #4 0x000109db78c4 in xn_Cls_Parser_parseBin xparser.x:1787
+    #5 0x000109db78c4 in xn_Cls_Parser_parseBin xparser.x:1787

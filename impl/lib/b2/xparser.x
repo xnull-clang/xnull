@@ -437,7 +437,8 @@ class Lexer {
                 self.adv()
                 if e == 110 { val = 10 } else if e == 116 { val = 9 }
                 else if e == 114 { val = 13 } else if e == 92 { val = 92 }
-                else if e == 39 { val = 39 } else if e == 34 { val = 34 } else { self.err("LEX-103", l, c, "未知转义") ; val = e }
+                else if e == 39 { val = 39 } else if e == 34 { val = 34 }
+                else if e == 48 { val = 0 } else { self.err("LEX-103", l, c, "未知转义") ; val = e }
                 count = 1
             }
         } else {
@@ -558,7 +559,13 @@ class Lexer {
                 else if e == 34 { val = val + "\"" }
                 else if e == 92 { val = val + "\\" }
                 else if e == 39 { val = val + "'" }
-                else if e == 48 { val = val + "\u0000" }
+                else if e == 48 { val = val + str('\0') }
+                else if e == 117 && self.b(self.pos) == 48 && self.b(self.pos + 1) == 48 &&
+                        self.b(self.pos + 2) == 48 && self.b(self.pos + 3) == 48 {
+                    // B4b 大文件：\u0000 → 真实 NUL（String 按长度可含 NUL）。
+                    self.adv(); self.adv(); self.adv(); self.adv()
+                    val = val + str('\0')
+                }
                 else { self.err("LEX-103", el, ec, "未知转义") ; val = val + self.one(self.pos - 1) }
             } else {
                 val = val + self.one(self.pos)
@@ -586,6 +593,7 @@ class Lexer {
 
 String q(String s) {
     String b = "\""
+    String nul = str('\0')
     Int i = 0
     while i < s.length() {
         String c = s.substring(i, 1)
@@ -594,6 +602,7 @@ String q(String s) {
         else if c == "\n" { b = b + "\\n" }
         else if c == "\t" { b = b + "\\t" }
         else if c == "\r" { b = b + "\\r" }
+        else if c == nul { b = b + "\\x00" }
         else { b = b + c }
         i = i + 1
     }
@@ -1137,9 +1146,9 @@ class Parser {
             ds.push(self.parseTop())
         }
         String body = "(CompilationUnit " + P(sl, sc) + " (Package " + pkg + ") (Imports " + SL(imps) + ") (Decls " + SL(ds) + "))"
-        TP tpn = new TP(body)
-        TN tn = tpn.val()
-        return "(xnast v1 " + tpn.render(tn, 1) + ")"
+        // B4b 大文件：parseTop 产出的文本已是规范 S 表达式；直接输出，避免
+        // TP 重新建树 + render 的深递归与重复拼接（大文件下为 O(n²)）。
+        return "(xnast v1 " + body + ")"
     }
 
     String parseTop() {
@@ -1784,8 +1793,11 @@ class Parser {
 
     E parseBin(Int lvl) {
         if lvl > 11 { return self.parseUnary() }
-        E l = self.parseBin(lvl + 1)
+        // B4b 大文件：native codegen 对类局部变量重新赋值不补根，跨安全点的
+        // `l = be` 会被 GC 回收（UAF → xn_concat NULL）。用 List<E> 容器生根。
+        List<E> lh = [self.parseBin(lvl + 1)]
         while (self.cur().kind == 9 || self.cur().kind == 3) && self.prec(self.cur().text) == lvl {
+            E l = lh.get(0)
             Tok op = self.next()
             if (op.text == "<" || op.text == ">" || op.text == "<=" || op.text == ">=") && l.d.indexOf("(Binary ") == 0 && l.d.indexOf("(Op \"") > 0 {
                 self.err("SYN-102", op.line, op.col, "比较运算不可链式使用")
@@ -1802,9 +1814,9 @@ class Parser {
             E be = self.mk("(Binary " + P(op.line, op.col) + " (Op " + q(op.text) + ") (L " + l.d + ") (R " + r.d + "))", op.line, op.col)
             be.sl = l.sl
             be.sc = l.sc
-            l = be
+            lh.set(0, be)
         }
-        return l
+        return lh.get(0)
     }
 
     E parseUnary() {
@@ -1818,9 +1830,11 @@ class Parser {
     }
 
     E parsePostfix() {
-        E e = self.parsePrimary()
+        // B4b 大文件：同 parseBin，`e` 跨循环迭代被重新赋值，需容器生根。
+        List<E> eh = [self.parsePrimary()]
         Bool go = true
         while go {
+            E e = eh.get(0)
             if self.genericCallAhead() && e.d.indexOf("(IdentExpr ") == 0 {
                 self.next()
                 List<String> tas2 = []
@@ -1840,7 +1854,7 @@ class Parser {
                     if self.at(11) { self.next() }
                 }
                 E ne = self.mk("(Call " + P(e.l, e.c) + " (Callee " + e.d + ") (TypeArgs " + SL(tas2) + ") (Args " + SL(cas) + "))", e.l, e.c)
-                ne.sl = e.sl; ne.sc = e.sc; e = ne
+                ne.sl = e.sl; ne.sc = e.sc; eh.set(0, ne)
             } else if self.atOp(".") || self.atOp("?.") {
                 Bool ns = self.cur().text == "?."
                 Tok dot = self.next()
@@ -1848,11 +1862,11 @@ class Parser {
                 if n.kind == 2 {
                     self.next()
                     String d = "(Member " + P(dot.line, dot.col) + " (X " + e.d + ") (Name " + q(n.text) + ") (NullSafe " + B(ns) + "))"
-                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; e = ne
+                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; eh.set(0, ne)
                 } else if n.kind == 5 {
                     self.next()
                     String d = "(TupleMember " + P(dot.line, dot.col) + " (X " + e.d + ") (Index " + n.text + ") (NullSafe " + B(ns) + "))"
-                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; e = ne
+                    E ne = self.mk(d, dot.line, dot.col); ne.sl = e.sl; ne.sc = e.sc; eh.set(0, ne)
                 } else { self.next() }
             } else if self.at(10) {
                 self.next()
@@ -1873,16 +1887,16 @@ class Parser {
                     self.err("SYN-101", ce.line, ce.col, "期望`)`")
                 }
                 E ne = self.mk("(Call " + P(e.l, e.c) + " (Callee " + e.d + ") (TypeArgs (slice)) (Args " + SL(tas) + "))", e.l, e.c)
-                ne.sl = e.sl; ne.sc = e.sc; e = ne
+                ne.sl = e.sl; ne.sc = e.sc; eh.set(0, ne)
             } else if self.at(14) {
                 self.next()
                 E idx = self.parseExpr()
                 if self.at(15) { self.next() }
                 E ne = self.mk("(Index " + P(e.l, e.c) + " (X " + e.d + ") (Idx " + idx.d + "))", e.l, e.c)
-                ne.sl = e.sl; ne.sc = e.sc; e = ne
+                ne.sl = e.sl; ne.sc = e.sc; eh.set(0, ne)
             } else { go = false }
         }
-        return e
+        return eh.get(0)
     }
 
     Bool genericCallAhead() {
