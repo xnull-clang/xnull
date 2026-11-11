@@ -23,6 +23,8 @@
 #   tests/b4/xnull-build.sh tree <dir>                 # 依赖树（对齐 Go xnull tree）
 #   tests/b4/xnull-build.sh why <dir> <coord>          # 依赖理由（对齐 Go xnull why）
 #   tests/b4/xnull-build.sh install <dir> [--repo d]  # 聚合构建 + 安装到本地仓库
+#   tests/b4/xnull-build.sh repro <dir>               # 连建两次，比较 C/对象/app 的 SHA-256
+#   tests/b4/xnull-build.sh xmeta <dir>               # 生成模块 .xmeta（字段对齐 Go）
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -318,7 +320,7 @@ cmd_bootstrap_tools() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
   local t entry res
-  for t in resman artifact config deps; do
+  for t in resman artifact config deps xmeta; do
     entry="impl/lib/b4/$t.x"
     [ -f "$ROOT/$entry" ] || continue
     res=$(emit_c_interp "$entry" "$dir/$t.c") || exit 1
@@ -365,11 +367,11 @@ prepare_graph() {
   # 向上找聚合根（packaging = pom 且含 modules）
   local dir=$proj root=""
   while [ "$dir" != "/" ]; do
-    dir=$(dirname "$dir")
     if [ -f "$dir/xnull.project" ] && awk -F'=' '/^[[:space:]]*packaging[[:space:]]*=/{v=$2; gsub(/^[[:space:]]+|[[:space:]]+$/,"",v); print v; exit}' "$dir/xnull.project" | grep -qx pom; then
       root=$dir
     fi
     [ "$dir" = "$ROOT" ] && break
+    dir=$(dirname "$dir")
   done
   [ -n "$root" ] || return 0
   "$xpd" "$root/xnull.project" > "$w/agg-root.tsv" || return 1
@@ -381,6 +383,102 @@ prepare_graph() {
   done < <(awk -F'\t' '$1=="module"{print $2}' "$w/agg-root.tsv")
   # 若目标本身不是聚合根，仍以目标作为根输出（其坐标已写入 target.tsv）
   return 0
+}
+
+# 元数据输入（B4b-04b-2）：按 Go projectManifest.xmeta 的口径计算摘要
+gen_meta() {
+  local proj=$1 out=$2
+  python3 - "$proj" "$out" <<'PY'
+import hashlib, os, sys, glob
+proj, out = sys.argv[1], sys.argv[2]
+def sha(b): return hashlib.sha256(b).hexdigest()
+empty = sha(b"")
+# 找 app 模块（packaging = app）
+app = ""
+for d in sorted(glob.glob(os.path.join(proj, "*", "xnull.project"))):
+    txt = open(d, encoding="utf-8").read()
+    if "packaging" in txt and "app" in txt:
+        app = os.path.dirname(d)
+res_dir = os.path.join(app, "src", "main", "resources") if app else ""
+lines = []
+if res_dir and os.path.isdir(res_dir):
+    for name in sorted(os.listdir(res_dir)):
+        p = os.path.join(res_dir, name)
+        if os.path.isfile(p):
+            data = open(p, "rb").read()
+            lines.append("resources/" + name + "\x00" + sha(data))
+ressha = sha("\n".join(lines).encode()) if lines else empty
+lock = os.path.join(proj, "xnull.lock")
+lockbytes = open(lock, "rb").read() if os.path.isfile(lock) else b""
+locksha = sha(lockbytes) if lockbytes else empty
+cfgsha = empty
+pluginsha = empty
+toolchain = "0.1.0-dev"
+# Go 口径：参与 inputs 的是 **app 模块** 的清单原文（不是聚合根）
+mpath = os.path.join(app, "xnull.project") if app else os.path.join(proj, "xnull.project")
+manifest = open(mpath, "rb").read()
+entry = b""
+if app:
+    ep = os.path.join(app, "src", "main", "x", "main.x")
+    if os.path.isfile(ep):
+        entry = open(ep, "rb").read()
+h = hashlib.sha256()
+for part in [manifest, entry, lockbytes, toolchain.encode(), (ressha + cfgsha + pluginsha).encode()]:
+    h.update(part); h.update(b"\x00")
+platform = "macos" if os.uname().sysname == "Darwin" else os.uname().sysname.lower()
+with open(out, "w", encoding="utf-8") as f:
+    f.write("platform\t%s\n" % platform)
+    f.write("toolchainVersion\t%s\n" % toolchain)
+    f.write("resourcesSha256\t%s\n" % ressha)
+    f.write("lockSha256\t%s\n" % locksha)
+    f.write("configSha256\t%s\n" % cfgsha)
+    f.write("pluginsSha256\t%s\n" % pluginsha)
+    f.write("inputs\t%s\n" % h.hexdigest())
+PY
+}
+
+# 模块元数据（B4b-04b-2）：xmeta <project>
+cmd_xmeta() {
+  local proj=${1:-}; [ -n "$proj" ] || usage
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  local xpd=${XPD_BIN:-/tmp/xpd} xm=${XMETA_BIN:-/tmp/xmeta}
+  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
+  [ -x "$xm" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local w; w=$(workdir) || exit 1
+  prepare_graph "$proj" "$w" || exit 1
+  gen_meta "$proj" "$w/meta.tsv" || exit 1
+  local files=("$w/target.tsv") f
+  for f in "$w"/agg-*.tsv; do
+    [ -e "$f" ] || continue
+    [ "$f" = "$w/agg-root.tsv" ] && continue
+    files+=("$f")
+  done
+  "$xm" "$w/xmeta" "$w/meta.tsv" ${files[@]+"${files[@]}"}
+  echo "$w/xmeta"
+}
+
+# 可复现性（B4b-04b-2）：连续两次构建，比较 C/对象/app 的 SHA-256
+cmd_repro() {
+  local proj=${1:-}; [ -n "$proj" ] || usage
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  local base=${XNULL_B4_OUT:-/tmp/b4-repro-$(basename "$proj")}
+  rm -rf "$base"; mkdir -p "$base"
+  local d
+  for d in a b; do
+    run_reactor "$proj" "$base/$d" > "$base/$d.log" 2>&1 || { echo "repro: 第 $d 次构建失败" >&2; tail -5 "$base/$d.log" >&2; return 1; }
+  done
+  local pass=0 failn=0 name sa sb
+  for name in $(cd "$base/a" && ls *.c *.o app 2>/dev/null); do
+    sa=$(shasum -a 256 "$base/a/$name" 2>/dev/null | cut -d' ' -f1)
+    sb=$(shasum -a 256 "$base/b/$name" 2>/dev/null | cut -d' ' -f1)
+    if [ "$sa" = "$sb" ] && [ -n "$sa" ]; then
+      echo "same	$name	$sa"; pass=$((pass+1))
+    else
+      echo "diff	$name	$sa	$sb"; failn=$((failn+1))
+    fi
+  done
+  echo "repro: same=${pass} diff=${failn}（${proj}）"
+  [ "$failn" -eq 0 ]
 }
 
 # 依赖树（B4b-04a）：tree <project>
@@ -423,7 +521,7 @@ run_reactor() {
   [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
   local toolArgs=()
   local t
-  for t in resman artifact config deps; do
+  for t in resman artifact config deps xmeta; do
     if [ ! -x "/tmp/$t" ]; then cmd_bootstrap_tools -o /tmp > /dev/null || exit 1; break; fi
   done
   [ -x /tmp/resman ] && toolArgs+=(--resman /tmp/resman)
@@ -597,6 +695,8 @@ case "$sub" in
   build-project) cmd_build_project "$@" ;;
   tree) cmd_tree "$@" ;;
   install) cmd_install "$@" ;;
+  xmeta) cmd_xmeta "$@" ;;
+  repro) cmd_repro "$@" ;;
   why) cmd_why "$@" ;;
   run-project) cmd_run_project "$@" ;;
   validate) cmd_validate "$@" ;;
