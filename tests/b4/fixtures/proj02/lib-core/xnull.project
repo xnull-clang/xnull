@@ -1,0 +1,6 @@
+project {
+  groupId    = io.xnull
+  artifactId = lib-core
+  version    = 1.0.0
+  packaging  = library
+}

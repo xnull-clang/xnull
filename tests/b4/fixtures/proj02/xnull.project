@@ -1,0 +1,23 @@
+project {
+  groupId    = io.xnull
+  artifactId = proj02
+  version    = 1.0.0
+  packaging  = pom
+
+  modules {
+    module lib-core
+    module lib-codec
+    module app-main
+  }
+
+  dependencyManagement {
+    dependencies {
+      dependency io.xnull:lib-core {
+        version = 1.0.0
+      }
+      dependency io.xnull:lib-codec {
+        version = 1.0.0
+      }
+    }
+  }
+}

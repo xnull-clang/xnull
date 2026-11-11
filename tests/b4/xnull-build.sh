@@ -16,6 +16,8 @@
 #   tests/b4/xnull-build.sh bootstrap-xnullc [-o out]   # 用解释器自举原生 xnullc（xn-s1）
 #   tests/b4/xnull-build.sh bootstrap-xparser [-o out]  # 用 native xnullc 自举原生 xparser
 #   tests/b4/xnull-build.sh ast-check [入口...]        # 原生 xparser AST vs xnast AST（全量深度）
+#   tests/b4/xnull-build.sh bootstrap-model [-o dir]   # 自举 xpd / xmanifest（B4b-03a）
+#   tests/b4/xnull-build.sh validate <project>         # 清单校验：模块/依赖边/拓扑（不编译）
 #   tests/b4/xnull-build.sh info
 #
 # 环境变量：
@@ -290,6 +292,64 @@ cmd_bootstrap() {
   echo "$out"
 }
 
+# 自举工程模型工具（B4b-03a）：xpd（清单→TSV）+ xmanifest（TSV→模块/依赖/拓扑）
+cmd_bootstrap_model() {
+  local dir=/tmp
+  if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
+  emit_c impl/lib/b4/xpd.x "$dir/.xpd" "$dir/.xpd/xpd.c" > /dev/null || exit 1
+  write_empty_res "$dir/.xpd/res.c"
+  cc_link "$dir/.xpd/xpd.c" "$dir/xpd" "$dir/.xpd/res.c" || exit 1
+  emit_c impl/lib/b4/manifest.x "$dir/.xm" "$dir/.xm/manifest.c" > /dev/null || exit 1
+  write_empty_res "$dir/.xm/res.c"
+  cc_link "$dir/.xm/manifest.c" "$dir/xmanifest" "$dir/.xm/res.c" || exit 1
+  echo "$dir/xpd"
+  echo "$dir/xmanifest"
+}
+
+# 清单校验（B4b-03a）：只跑清单解析与工程模型，不编译、不碰 xnullc 之外的产物。
+# 用法：validate <project 目录或 xnull.project 路径>
+cmd_validate() {
+  local proj=${1:-}
+  [ -n "$proj" ] || usage
+  if [ -f "$proj" ]; then proj=$(cd "$(dirname "$proj")" && pwd); else proj=$(cd "$proj" && pwd) || die "目录不存在"; fi
+  [ -f "$proj/xnull.project" ] || fail "缺少 xnull.project：$proj"
+  local xpd=${XPD_BIN:-/tmp/xpd}
+  local xmf=${XMANIFEST_BIN:-/tmp/xmanifest}
+  if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then
+    cmd_bootstrap_model -o "${XNULL_B4_MODEL_DIR:-/tmp}" > /dev/null || exit 1
+  fi
+  local w; w=$(workdir) || exit 1
+  "$xpd" "$proj/xnull.project" > "$w/root.tsv" || fail "清单解析失败：$proj/xnull.project"
+  local files=("$w/root.tsv") seen=() rel
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    if [ ! -d "$proj/$rel" ]; then
+      echo "validate: error XPD-201 模块目录不存在：$rel" >&2
+      return 1
+    fi
+    if [ ! -f "$proj/$rel/xnull.project" ]; then
+      echo "validate: error XPD-201 模块缺少 xnull.project：$rel" >&2
+      return 1
+    fi
+    "$xpd" "$proj/$rel/xnull.project" > "$w/m-${rel//\//_}.tsv" || fail "清单解析失败：$rel/xnull.project"
+    files+=("$w/m-${rel//\//_}.tsv")
+  done < <(awk -F'\t' '$1=="module"{print $2}' "$w/root.tsv")
+  local out rc
+  out=$("$xmf" "${files[@]}" 2>&1); rc=$?
+  echo "$out"
+  if [ $rc -ne 0 ]; then
+    echo "validate: FAIL（${proj}）" >&2
+    return 1
+  fi
+  local mods
+  mods=$(awk -F'\t' '$1=="module"' "$w/root.tsv" | wc -l | tr -d ' ')
+  if [ "$mods" -gt 0 ] && ! awk -F'\t' '$1=="project" && $4!="pom"{exit 1}' <<<"$out"; then
+    echo "validate: error XPD-201 含 modules 的聚合根必须 packaging = pom" >&2
+    return 1
+  fi
+  echo "validate: OK（${proj}，模块 ${mods} 个）"
+}
+
 # 自举原生 xparser（B4b-02）：用当前 native xnullc 把 xparser.x 编成可执行文件
 cmd_bootstrap_xparser() {
   local out=/tmp/xparser-native
@@ -344,6 +404,8 @@ case "$sub" in
   examples) cmd_examples ;;
   bootstrap-xnullc) cmd_bootstrap "$@" ;;
   bootstrap-xparser) cmd_bootstrap_xparser "$@" ;;
+  bootstrap-model) cmd_bootstrap_model "$@" ;;
+  validate) cmd_validate "$@" ;;
   ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
   -h|--help|help) usage ;;

@@ -1,0 +1,11 @@
+project {
+  groupId    = io.xnull
+  artifactId = bad-dep
+  version    = 1.0.0
+  packaging  = app
+
+  dependencies {
+    dependency io.xnull:nowhere {
+    }
+  }
+}
