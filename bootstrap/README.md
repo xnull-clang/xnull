@@ -5,7 +5,7 @@
 
 | 文件 | 来源 | sha256（前 12 位） |
 |---|---|---|
-| `xn-s4.c` | B3-10 固定点（xnullc 自举第四代），116,085 行 | `347908a93865` |
+| `xn-s4.c` | B4c-03 编译器工件：当前 `xnullc.x` + 2 处 C 级修复，115,751 行 | `27ae5245452a` |
 | `xparser.c` | B4c-03 原生自举：`tests/b4/rebuild-xparser.sh`（xn-s4 + 原生 bundle + proj B） | `8de76400ee44` |
 
 产物（`bootstrap/bin/`，**不入库**，由 `.gitignore` 忽略）：
@@ -54,6 +54,9 @@ bin/xnull --bootstrap examples        # 9/9
 
 - `xparser.c` 由 B4c-03 原生工具链生成；`tests/b4/rebuild-xparser.sh` 可复现（需已有
   `bootstrap/bin/{xparser,xn-s4}`），不调用 Go。
-- `xn-s4.c` 是固定点产物（`xn-s2.c == xn-s3.c == xn-s4.c`），sha256 见上表。
+- `xn-s4.c` 是 B4c-03 编译器工件，**不是** B3-10 固定点：当前 `xnullc.x` 自编译仍会挂起
+  （E4 债务）；B3-10 历史固定点 sha256 为 `347908a93865…`、116,085 行，保存在 git 历史。
+- 工件相对 Go 解释器有两处 C 级修复：proto 返回的 `b + ")"` 拼接、NUL 字符串
+  `rt_string_from_c("\000")` → `rt_string_new("\000", 1)`；源级修复留给 E4。
 - 资源表固定为空表；资源/FFI 投影、`.xlib` 打包等仍由 `tests/b4/` 的原型 CLI 处理。
 - `bootstrap/bin/` 不入库；更新 C 源后必须重跑 `tests/b4/verify-golden.sh` 并单独评审。
