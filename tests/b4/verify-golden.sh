@@ -2,14 +2,13 @@
 # B4c-03：无 Go 验证（冻结 golden vs bootstrap 原生工具链）。
 #
 # 依赖：bootstrap/bin/{xparser,xn-s4}（缺失时自动 bootstrap/build.sh）、python3、cc。
-# 比对基准：evidence/B4c/golden/{hashes.tsv,negatives.tsv,examples.tsv}
+# 比对基准：evidence/B4c/golden/{hashes-b4c03.tsv,negatives.tsv,examples.tsv}
 #
 # 口径：
 #   入口 C：单文件全量 + 多文件（tests/b4/native-bundle.py 生成 AST bundle）；
 #           投影按 golden 的 proj 列复现（A = 入口目录 .xfb；B = 入口 + 直接 xdk 依赖）；
-#           via=interp 的 6 条为冻结时 Go 解释器生成，原生编译器自编译仍段错误 → BLOCKED；
-#           impl/lib/b2/xparser.x 用冻结的 B4c-03 前源（xparser-pre-b4c03.x）比对旧 golden，
-#           该文件已被 B4c-03 修复，当前源的 C 单独验证。
+#           via=interp 的 6 条用新 bootstrap 编译器尝试；若仍不一致才记 BLOCKED；
+#           xparser.x 的 golden 已更新为 B4c-03 修复后源码的 C（8de76400…）。
 #   负例：  原生无 sema/entry 诊断实现（Go 前端已删除）→ 全部 BLOCKED，不伪装 PASS；
 #   示例：  9/9 构建 + 运行 + C 哈希。
 #
@@ -18,29 +17,16 @@ set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 G="$ROOT/evidence/B4c/golden"
+H="$G/hashes-b4c03.tsv"
 BIN="$ROOT/bootstrap/bin"
 W=$(mktemp -d "${TMPDIR:-/tmp}/b4c03.XXXXXX")
-FROZEN_XP=0
-restore_frozen_xp() {
-  if [ "$FROZEN_XP" = "1" ] && [ -f "$W/xparser.current" ]; then
-    cp "$W/xparser.current" "$ROOT/impl/lib/b2/xparser.x"
-  fi
-  rm -rf "$W"
-}
-trap restore_frozen_xp EXIT
+trap 'rm -rf "$W"' EXIT
 
 [ -x "$BIN/xn-s4" ] && [ -x "$BIN/xparser" ] || "$ROOT/bootstrap/build.sh" >/dev/null || {
   echo "verify: bootstrap 构建失败" >&2; exit 1;
 }
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-
-# 固定点源：xparser.x 在 B4c-03 被修复，旧 golden 对应旧源。
-if grep -q '^impl/lib/b2/xparser\.x	' "$G/hashes.tsv"; then
-  cp "$ROOT/impl/lib/b2/xparser.x" "$W/xparser.current"
-  cp "$G/xparser-pre-b4c03.x" "$ROOT/impl/lib/b2/xparser.x"
-  FROZEN_XP=1
-fi
 
 proj_A() { # rel
   local dir; dir=$(dirname "$1")
@@ -53,11 +39,6 @@ printf 'entry\tkind\tstatus\tsha\tvia\tproj\n' > "$W/entries.tsv"
 entry_pass=0; entry_fail=0; entry_block=0
 while IFS=$'\t' read -r rel kind want via proj; do
   [ -n "${rel:-}" ] || continue
-  if [ "$via" = "interp" ]; then
-    entry_block=$((entry_block+1))
-    printf 'entry\t%s\tBLOCKED\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
-    continue
-  fi
   if [ "$proj" = "B" ]; then
     projtext=$(python3 "$ROOT/tests/b4/proj-b.py" "$ROOT" "$rel")
   else
@@ -86,12 +67,16 @@ while IFS=$'\t' read -r rel kind want via proj; do
   if [ "$got" = "$want" ]; then
     entry_pass=$((entry_pass+1))
     printf 'entry\t%s\tPASS\t%s\t%s\t%s\n' "$rel" "$got" "$via" "$proj" >> "$W/entries.tsv"
+  elif [ "$via" = "interp" ]; then
+    entry_block=$((entry_block+1))
+    printf 'entry\t%s\tBLOCKED\t%s\t%s\t%s\n' "$rel" "$got" "$via" "$proj" >> "$W/entries.tsv"
+    echo "BLOCKED entry ${rel}（via=interp，sha $got != ${want}）"
   else
     entry_fail=$((entry_fail+1))
     printf 'entry\t%s\tFAIL(sha)\t%s\t%s\t%s\n' "$rel" "$got" "$via" "$proj" >> "$W/entries.tsv"
-    echo "FAIL entry ${rel}（sha $got != $want）"
+    echo "FAIL entry ${rel}（sha $got != ${want}）"
   fi
-done < <(python3 - "$G/hashes.tsv" "$ROOT/evidence/B3-09/final-v3/results.tsv" <<'PY'
+done < <(python3 - "$H" "$ROOT/evidence/B3-09/final-v3/results.tsv" <<'PY'
 import sys
 kind = {}
 for line in open(sys.argv[2], encoding="utf-8"):
@@ -135,7 +120,7 @@ while IFS=$'\t' read -r name want; do
   if [ "$got" = "$want" ] && [ $rc -eq 0 ]; then
     ex_pass=$((ex_pass+1))
   else
-    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（rc=$rc sha=$got）"
+    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（rc=$rc sha=${got}）"
   fi
 done < <(awk -F'\t' 'NR>1{print $1"\t"$3}' "$G/examples.tsv")
 
@@ -143,10 +128,9 @@ done < <(awk -F'\t' 'NR>1{print $1"\t"$3}' "$G/examples.tsv")
 cp "$W/entries.tsv" "$G/verify-entries.tsv" 2>/dev/null || true
 {
   echo "verify-golden（无 Go）："
-  echo "  入口 C：PASS=$entry_pass FAIL=$entry_fail BLOCKED=${entry_block}（via=interp：原生自编译段错误）"
+  echo "  入口 C：PASS=$entry_pass FAIL=$entry_fail BLOCKED=${entry_block}（新 bootstrap 工件已复现）"
   echo "  负例：  PASS=0 FAIL=0 BLOCKED=${neg_block}（sema/entry/codegen 诊断未移植）"
   echo "  示例：  PASS=$ex_pass FAIL=$ex_fail"
-  echo "  特殊：  impl/lib/b2/xparser.x 使用冻结旧源 xparser-pre-b4c03.x 比对旧 golden"
 } | tee "$G/verify-summary.txt"
 TOTAL_FAIL=$((entry_fail+ex_fail))
 echo "  合计：FAIL=$TOTAL_FAIL"

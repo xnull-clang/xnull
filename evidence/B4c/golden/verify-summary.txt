@@ -1,5 +1,4 @@
 verify-golden（无 Go）：
-  入口 C：PASS=136 FAIL=0 BLOCKED=6（via=interp：原生自编译段错误）
+  入口 C：PASS=142 FAIL=0 BLOCKED=0（新 bootstrap 工件已复现）
   负例：  PASS=0 FAIL=0 BLOCKED=97（sema/entry/codegen 诊断未移植）
   示例：  PASS=9 FAIL=0
-  特殊：  impl/lib/b2/xparser.x 使用冻结旧源 xparser-pre-b4c03.x 比对旧 golden
