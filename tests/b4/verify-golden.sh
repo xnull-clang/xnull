@@ -9,7 +9,7 @@
 #           投影按 golden 的 proj 列复现（A = 入口目录 .xfb；B = 入口 + 直接 xdk 依赖）；
 #           via=interp 的 6 条用新 bootstrap 编译器尝试；若仍不一致才记 BLOCKED；
 #           xparser.x 的 golden 已更新为 B4c-03 修复后源码的 C（8de76400…）。
-#   负例：  LEX/SYN 由原生 parser 对齐；ENTRY/TY-204/212/213/218 由 sema-lite 检查；其余 BLOCKED；
+#   负例：  LEX/SYN 由原生 parser 对齐；ENTRY/TY-204/207/208/209/212/213/218 由 sema-lite 检查；其余 BLOCKED；
 #   示例：  9/9 构建 + 运行 + C 哈希。
 #
 # 退出码：仅 FAIL>0 非零；BLOCKED 计入汇总并写入 verify-summary.txt。
@@ -107,9 +107,9 @@ while IFS=$'\t' read -r rel go_exit code first; do
         echo "FAIL neg ${rel}（want=$code got=${got:-none}）"
       fi
       ;;
-    ENTRY-*|TY-204|TY-212|TY-213|TY-218)
+    ENTRY-*|TY-204|TY-207|TY-208|TY-209|TY-212|TY-213|TY-218)
       if "$BIN/xparser" --file "$rel" > "$W/n.ast" 2>/dev/null; then
-        out=$(python3 "$ROOT/tests/b4/neg-check.py" "$rel" "$W/n.ast" 2>/dev/null)
+        out=$(python3 "$ROOT/tests/b4/neg-check.py" "$rel" "$W/n.ast" "$code" 2>/dev/null)
       else
         out=""
       fi
