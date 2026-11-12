@@ -13,6 +13,7 @@
 //   edge     <fromArtifact> <coord> <version|?>
 //   order    <rel,rel,…>
 //   error    <文本>
+
 import xdk.sys
 
 class Proj {
@@ -64,7 +65,7 @@ class Loader {
             i = i + 1
         }
         return p
-}
+    }
 }
 
 static String coordOf(Proj p) {

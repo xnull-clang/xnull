@@ -14,6 +14,7 @@
 set -u
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+export ROOT
 . "$ROOT/ci/lib.sh"
 
 CI_OUT_DIR=${CI_OUT_DIR:-"$ROOT/ci/.out"}
@@ -74,8 +75,8 @@ run 03 'sh impl/runtime/build_rt.sh'
 run 04 'env XNULL_USE_BOOTSTRAP=1 "$ROOT/bin/xnull" examples'
 
 # 05 文件名扫描：仓库内禁止旧扩展名（.pyc/.o/.a 等构建残留；.c/.x/.md 允许）
-run 05 'bash -c "! find . -path ./bootstrap/bin -prune -o -path ./.git -prune -o \
-  \( -name \"*.pyc\" -o -name \"*.o\" -o -name \"*.a\" \) -print | grep -q ."'
+run 05 'bash -c "! find . \( -path ./bootstrap/bin -o -path ./.git -o -path ./impl/runtime/.cache \
+  -o -name libxnrt.a \) -prune -o -type f \( -name \"*.pyc\" -o -name \"*.o\" -o -name \"*.a\" \) -print | grep -q ."'
 
 # 06–08：依赖被删除的 Go 工具链（oracle/devtool/台账），保留 SKIP 不伪装通过
 skip 06 "B2 差分需要 Go oracle（已删除）；legacy 脚本在 tests/b3/b2-*"

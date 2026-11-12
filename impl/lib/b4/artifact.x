@@ -4,6 +4,7 @@
 // 输出：`artifact\t<目标路径>`
 //
 // 未支持（B4b-03c）：.xlib 打包、.xmeta、本地仓库布局（<repo>/<g>/<a>/<v>）。
+
 import xdk.sys
 
 // 触发器：Go codegen 在没有任何 class 时会漏发部分预置（xn_arr_s）；保留最小类。

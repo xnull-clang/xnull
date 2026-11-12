@@ -8,6 +8,7 @@
 // 输出与 Go `impl/internal/devtool` 的 renderResources 逐字节一致（空表/单文件/多文件）。
 //
 // 未支持（B4b-03c）：子目录递归、符号链接校验、glob includes/excludes、二进制资源。
+
 import xdk.sys
 
 class Acc {

@@ -13,6 +13,7 @@
 //
 // 支持子集：project 顶层四字段、modules{module …}、dependencies{dependency c { version = v }}、
 // dependencyManagement{dependencies{…}}。其余块跳过（不报错）。
+
 import xdk.sys
 
 class Tok {

@@ -13,6 +13,7 @@
 //
 // 未支持（B4b-03b-2/03c）：build.entryFile、sourceRoot、跨模块 import、资源表（resman）、配置。
 // 模块入口固定为 <dir>/<rel>/src/main/x/main.x。
+
 import xdk.sys
 
 class Mod {
@@ -58,21 +59,21 @@ static String safe(String rel) {
 
 static String resTable() {
     return "/* 由 xnull-build 生成：零资源工程空表（S8 §5.6） */\n"
-        + "#include <stddef.h>\n"
-        + "#include <string.h>\n"
-        + "size_t xrt_resource_count(void) { return 0; }\n"
-        + "int xrt_resource_get(const char *name, size_t nlen,\n"
-        + "                     const unsigned char **out, size_t *out_len) {\n"
-        + "    (void)name; (void)nlen;\n"
-        + "    *out = 0; *out_len = 0;\n"
-        + "    return 1;\n"
-        + "}\n"
-        + "int xrt_resource_at(size_t i, const char **name, size_t *nlen,\n"
-        + "                    const unsigned char **out, size_t *out_len) {\n"
-        + "    (void)i;\n"
-        + "    *name = 0; *nlen = 0; *out = 0; *out_len = 0;\n"
-        + "    return 1;\n"
-        + "}\n"
+    +"#include <stddef.h>\n"
+    +"#include <string.h>\n"
+    +"size_t xrt_resource_count(void) { return 0; }\n"
+    +"int xrt_resource_get(const char *name, size_t nlen,\n"
+    +"                     const unsigned char **out, size_t *out_len) {\n"
+    +"    (void)name; (void)nlen;\n"
+    +"    *out = 0; *out_len = 0;\n"
+    +"    return 1;\n"
+    +"}\n"
+    +"int xrt_resource_at(size_t i, const char **name, size_t *nlen,\n"
+    +"                    const unsigned char **out, size_t *out_len) {\n"
+    +"    (void)i;\n"
+    +"    *name = 0; *nlen = 0; *out = 0; *out_len = 0;\n"
+    +"    return 1;\n"
+    +"}\n"
 }
 
 static String groupOf(String coord) {
