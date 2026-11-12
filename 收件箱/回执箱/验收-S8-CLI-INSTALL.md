@@ -16,7 +16,7 @@
 |---|---|
 | library 安装 `.xlib` + 清单到本地仓库 | **PASS**：`repo/g/lib/1.0.0/{lib-1.0.0.xlib,xnull.project}` |
 | app 安装可执行体 + `.xmeta` + 清单 | **PASS**：`repo/g/app/1.0.0/{app-1.0.0,app-1.0.0.xmeta,xnull.project}` |
-| stdout sha256 与产物一致 | **PASS**：lib `c285e6f7…`、app `2e15e09d…`，与 `shasum -a 256` 一致 |
+| stdout sha256 与产物一致 | **PASS**：lib `c285e6f7…`、app `3cdae6f8…`，与 `shasum -a 256` 一致 |
 | 构建失败不安装 | **PASS**：源码错误 exit 1，仓库为空 |
 | **pom 聚合根 install** | **FAIL**：把 `target/reactor-summary.txt` 当产物安装到根 GAV；app 模块产物未安装 |
 
@@ -43,7 +43,7 @@ xnull: 已安装 …/g/lib/1.0.0/lib-1.0.0.xlib（sha256 c285e6f7…）
 已安装 …/target/lib-1.0.0.xlib（sha256 c285e6f7…）      # exit 0
 
 $ XNULL_REPO=/tmp/s817-repo-app xnull install     # app
-已安装 …/target/app-1.0.0（sha256 2e15e09d…）           # exit 0
+已安装 …/target/app-1.0.0（sha256 3cdae6f8…）           # exit 0
 # repo: app-1.0.0 / app-1.0.0.xmeta / xnull.project
 
 $ 源码错误 → exit 1，仓库为空
@@ -73,3 +73,17 @@ module core … / module codec … / module app …
 - `evidence/S8-17-E2E/install-reactor.log`、`reactor-repo.txt`（FAIL）
 - `evidence/S8-17-E2E/matrix-INSTALL.tsv`
 - 夹具：`tests/s8/s817/{install-lib,install-app}/`、`tests/s8/s814/topo/`
+
+---
+
+## 六、二次执行记录（2026-11-08 19:31，同 main `d963b02`）
+
+- 重建二进制 `/tmp/xnull-s817b` 后重跑全部用例，结论不变：library/app 安装 PASS，pom 根误装摘要 FAIL。
+- 本轮 app 实测 sha `3cdae6f8…`（与 stdout 一致）。
+- **外部发现（不改变本卡结论）**：同一源码、同一路径连续两次构建，可执行体字节不同（`3f9cf214…` vs `25848758…`）；`install` 的 stdout sha 始终与当次产物一致，但可复现性问题（S8 §5 / PROJ-09）另案报告。
+- 证据：`evidence/S8-17-E2E/{install-*.log,sha.txt,reactor-repo.txt}`（已按本轮更新）。
+
+## 七、三次抽检（main `6307f7e`）
+
+- 重建二进制后重跑：library/app 安装 exit 0；pom 根仍把 `reactor-summary.txt` 装入 `sdk-suite/1.0.0/`，FAIL 结论不变。
+- 证据：`evidence/S8-17-E2E/LATEST-install-{lib,app,reactor}.log`。

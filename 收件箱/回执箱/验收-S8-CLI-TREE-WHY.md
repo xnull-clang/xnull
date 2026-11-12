@@ -72,3 +72,16 @@ $ why g:nope → exit 2；why 无参数 → exit 2
 - `evidence/S8-17-E2E/why-unknown.log`、`why-noarg.log`
 - `evidence/S8-17-E2E/matrix-TREE-WHY.tsv`
 - 夹具：`tests/s8/s817/{tree,direct,managed,conflict}/`、`tests/s8/s817/repo/`
+
+---
+
+## 五、二次执行记录（2026-11-08 19:31，同 main `d963b02`）
+
+- 重建二进制 `/tmp/xnull-s817b` 后重跑：tree 树形/冲突负例、why 四类来源与两个错误路径均与首轮一致。
+- 结论不变：tree PASS、why PASS（P2 路径标签备注保留）。
+- 证据：`evidence/S8-17-E2E/{tree*,why-*}.log`（已按本轮更新）。
+
+## 六、三次抽检（main `6307f7e`）
+
+- `tree` 输出 `g:app@1.0.0 → a/c → x`；`why g:x` 路径 `g:c@1.0.0 -> g:x@1.0.0`、来源最近优先、深度 2。PASS 结论不变。
+- 证据：`evidence/S8-17-E2E/LATEST-tree.log`、`LATEST-why.log`。
