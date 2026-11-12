@@ -266,3 +266,117 @@ int32_t xdkc_list_resources(xrt_context *ctx, const char *prefix, size_t len,
 void xdkc_list_resources_free(const char **items) {
     free((void *)items);
 }
+
+
+/* ---- XDK 源码层资源桥（bindings/xdk/sys_raw.xfb）----
+ * 只暴露 String/Int 形态：读取结果 hex 编码（二进制安全），错误码经
+ * resourceErrorRaw 读取。错误码：0 成功；1 NotFound；2 InvalidArgument；
+ * 3 DataCorrupted；其余 Internal（与 S5 附录 A 对齐）。 */
+static int32_t xdk_res_last_error = 0;
+static char   *xdk_res_hex = NULL;
+static size_t  xdk_res_hex_cap = 0;
+
+int32_t xdkc_p_resource_exists(const char *path, size_t len) {
+    return xdkc_resource_exists(path, len);
+}
+
+int64_t xdkc_p_resource_size(const char *path, size_t len) {
+    int64_t n = 0;
+    if (xdkc_resource_size(path, len, &n) == 0) {
+        return -1;
+    }
+    return n;
+}
+
+const char *xdkc_p_read_resource_hex(const char *path, size_t len) {
+    static const char hex[] = "0123456789abcdef";
+    xrt_bytes_obj *b = NULL;
+    int32_t kind = 0;
+    xdk_res_last_error = 0;
+    if (xdkc_read_resource(NULL, path, len, &b, &kind) != 1 || b == NULL) {
+        xdk_res_last_error = (kind == XRT_ERR_NOT_FOUND) ? 1
+                           : (kind == XRT_ERR_INVALID_ARGUMENT) ? 2
+                           : (kind == XRT_ERR_DATA_CORRUPTED) ? 3
+                           : 4;
+        return "";
+    }
+    size_t n = xrt_bytes_len(b);
+    if (n * 2 + 1 > xdk_res_hex_cap) {
+        size_t cap = n * 2 + 1;
+        char *p = realloc(xdk_res_hex, cap);
+        if (p == NULL) {
+            xrt_release(b);
+            xdk_res_last_error = 4;
+            return "";
+        }
+        xdk_res_hex = p;
+        xdk_res_hex_cap = cap;
+    }
+    const unsigned char *d = xrt_bytes_data(b);
+    for (size_t i = 0; i < n; i++) {
+        xdk_res_hex[i * 2] = hex[(d[i] >> 4) & 0xF];
+        xdk_res_hex[i * 2 + 1] = hex[d[i] & 0xF];
+    }
+    xdk_res_hex[n * 2] = 0;
+    xrt_release(b);
+    return xdk_res_hex;
+}
+
+int32_t xdkc_p_resource_error(void) {
+    return xdk_res_last_error;
+}
+
+int64_t xdkc_p_resource_count(void) {
+    return (int64_t)xrt_resource_count();
+}
+
+const char *xdkc_p_resource_at(int64_t index) {
+    const char *name = NULL;
+    size_t nlen = 0;
+    const unsigned char *d = NULL;
+    size_t dn = 0;
+    if (index < 0) {
+        return "";
+    }
+    if (xrt_resource_at((size_t)index, &name, &nlen, &d, &dn) != 0) {
+        return "";
+    }
+    return name == NULL ? "" : name;
+}
+
+/* 资源文本桥：xrt_text 转 UTF-8 拷贝到静态缓冲（包装层随后复制为 XNull String）。 */
+const char *xdkc_p_read_resource_text(const char *path, size_t len) {
+    static char *buf = NULL;
+    static size_t cap = 0;
+    xrt_text *t = NULL;
+    int32_t kind = 0;
+    xdk_res_last_error = 0;
+    if (xdkc_read_resource_text(NULL, path, len, &t, &kind) != 1 || t == NULL) {
+        xdk_res_last_error = (kind == XRT_ERR_NOT_FOUND) ? 1
+                           : (kind == XRT_ERR_INVALID_ARGUMENT) ? 2
+                           : (kind == XRT_ERR_DATA_CORRUPTED) ? 3
+                           : 4;
+        return "";
+    }
+    xrt_string *s = xrt_text_to_string(t);
+    size_t n = s == NULL ? 0 : xrt_string_len(s);
+    if (n + 1 > cap) {
+        size_t ncap = n + 1;
+        char *p = realloc(buf, ncap);
+        if (p == NULL) {
+            if (s != NULL) { xrt_release(s); }
+            xrt_release(t);
+            xdk_res_last_error = 4;
+            return "";
+        }
+        buf = p;
+        cap = ncap;
+    }
+    if (n > 0) {
+        memcpy(buf, xrt_string_bytes(s), n);
+    }
+    buf[n] = 0;
+    if (s != NULL) { xrt_release(s); }
+    xrt_release(t);
+    return buf;
+}

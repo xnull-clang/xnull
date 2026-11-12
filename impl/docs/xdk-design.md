@@ -157,3 +157,23 @@ impl/lib/xdk/net.x           Socket / listener（M4.6d）
 2. P-10：`xnull build` 的 C 编译清单纳入 `xrt_abi.c` 与 `rt_std_*.c`，并注入 `link.libraries`（`LinkArgs`）；
 3. 标量出参当前用"返回值为值 + 错误码出参"形态表达；完整 out 参数形态待 M4.6c 提案。
 
+
+## 7. 源码层实现追加（2026-11-13，XDK-SRC-01）
+
+`impl/lib/xdk/{text,sys,net}.x` 已从骨架推进到可用实现，并通过
+`tests/s6/xdk-source/run.sh` 四组 E2E（见 `evidence/XDK-SRC-01/`）：
+
+- **text**：`Format`、`parseInt/parseFloat`、`Regex`、UTF-8↔UTF-16；补顶层工厂
+  `formatInt/formatFloat/formatString/formatBool/regexCompile`（类静态方法调用
+  在冻结编译器上不可用）。
+- **sys**：`File`（整文件文本）、`Dir`、`Process`、资源 5 API；FFI 经
+  `bindings/xdk/sys_raw.xfb` 的 Int64 句柄/hex 桥（Bytes 借出面待 B5）。
+- **net**：`Socket`（文本收发）、`Request/Response`、`httpGet/httpPost`；
+  `Listener.accept` 显式 Unsupported（运行时 listen/accept 未接入）。
+
+接入方式：`XNULL_XDK_SOURCE=1 bin/xnull --bootstrap run <entry.x>`；
+`tests/b4/xdk-bundle.py` 固定 bundle 布局（编译器 FFI 原型发射对文件数敏感）。
+默认路径不变，B4c golden 9/9 保持 PASS。
+
+剩余：`TaskGroup`、`AtomicRef<T>` 需编译器发射面（B5）；二进制流与取消/挂起
+随调度器切片。

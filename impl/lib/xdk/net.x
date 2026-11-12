@@ -1,245 +1,301 @@
-// xdk.net —— S6-09 源码单元（socket plain/Async + xdk.net.http 入口）
+// xdk.net —— S6-09 源码单元：Socket plain 形态 + 最小 HTTP 入口
 //
-// 依赖矩阵（S6 §2）：net → errors, tasks, sync；不反向依赖 sys/collections。
-// 运行时服务：handle（socket/Listener 句柄）、scheduler（*Async 挂起）。
-// 跨 FFI 边界：-（rt_std_net.c / net.xfb 由 E4/E5 接入；本单元先冻结语言面）。
+// 依赖矩阵（S6 §2）：net → errors；不反向依赖 sys/collections。
+// 运行时服务：handle（socket）、scheduler（*Async 挂起；首版随调度器切片）。
+// 跨 FFI 边界：xdkc_net_raw（bindings/xdk/net_raw.xfb 的标量句柄桥）。
 // 稳定性：@preview
 //
-// 合同（S6 §3/§4.7、XDK-09）：
+// 合同（S6 §3/§4.7）：
 //   - 可失败操作一律返回 Result；不使用 panic 表达可恢复失败。
-//   - 资源类型 Socket/Listener 必须提供 close()；close 幂等，不以 deinit 作为唯一关闭路径。
-//   - 默认异步形态 `*Async` 首参 Context；plain 形态无后缀并声明为阻塞。
-//   - net.http 是 `xdk.net` 的子包入口（S1 §3.2 多级包），符号由本单元导出。
-//
-// 边界：OS socket 原语尚未链接。地址/URL 校验是真实行为；需要内核的
-// connect/bind/accept/read/write 与 HTTP 传输在运行时接入前返回
-// ErrorKind.Unsupported，避免静默给出假成功。
+//   - 资源类型 Socket/Listener 提供 close()；close 幂等。
+//   - 首版为文本形态（产品编译器 Bytes 借出面待 B5）；二进制传输随 FFI 修复补齐。
+//   - 类静态方法调用当前不可用（B5 编译器），工厂以顶层函数提供：
+//     connectSocket / httpGet / httpPost。
 
 import xdk.errors
-import xdk.tasks
 
-// ---------- 内部错误构造 ----------
+// ---------- 错误映射 ----------
 
-// NetError：本单元自带的 Error 实现，避免依赖 errors.x 的非公开构造器。
-class NetError implements Error {
-    final ErrorKind errorKind;
-    final String message;
-
-    NetError(ErrorKind kind, String message) {
-        self.errorKind = kind
-        self.message = message
-    }
-
-    ErrorKind kind() { return self.errorKind }
-
-    String describe() { return self.message }
+static Error netError(ErrorKind kind, String message) {
+    return new CauseError(kind, message, null)
 }
 
-static Error netErr(ErrorKind kind, String message) {
-    return new NetError(kind, message)
+static ErrorKind netKind(Int code) {
+    if code == 1 {
+        return ErrorKind.InvalidArgument
+    }
+    if code == 2 {
+        return ErrorKind.Io
+    }
+    if code == 3 {
+        return ErrorKind.Cancelled
+    }
+    if code == 4 {
+        return ErrorKind.Timeout
+    }
+    if code == 5 {
+        return ErrorKind.Unavailable
+    }
+    return ErrorKind.Network
 }
 
-static Bool isValidAddress(String host, Int port) {
-    if host.length() == 0 {
-        return false
-    }
+static Bool validPort(Int port) {
     return port > 0 && port <= 65535
 }
 
-static Bool isHttpUrl(String url) {
-    if url.length() > 7 && url.substring(0, 7) == "http://" {
-        return true
-    }
-    if url.length() > 8 && url.substring(0, 8) == "https://" {
-        return true
-    }
-    return false
-}
+// ---------- Socket ----------
 
-// ---------- Socket（客户端句柄） ----------
-
-// Socket：plain/Async 双形态；close 幂等。
+// Socket：客户端连接句柄。send/recv 为文本形态；close 幂等。
 class Socket {
-    final String host;
-    final Int port;
-    Bool _closed = false
+    Int64 handle
+    Bool opened
 
-    Socket(String host, Int port) {
-        self.host = host
-        self.port = port
+    Socket(Int64 h) {
+        self.handle = h
+        self.opened = true
     }
 
-    // plain 形态：显式阻塞，无 Context（S6 §4.7 定案 3-g-2）。
-    Result<Socket, Error> connect(String host, Int port) {
-        if !isValidAddress(host, port) {
-            return Err(netErr(ErrorKind.InvalidArgument, "connect: 非法 host/port"))
+    Bool isOpen() {
+        return self.opened
+    }
+
+    // 发送文本；返回发送字节数。
+    Result<Int, Error> send(String data) {
+        if !self.opened {
+            return Err(netError(ErrorKind.Unavailable, "Socket.send: socket 已关闭"))
         }
-        if _closed {
-            return Err(netErr(ErrorKind.Unavailable, "connect: socket 已关闭"))
+        Int64 n = socketSendRaw(self.handle, data)
+        if n < 0 {
+            return Err(netError(netKind(socketErrorRaw()), "Socket.send: 发送失败"))
         }
-        return Err(netErr(ErrorKind.Unsupported, "connect: socket 运行时未链接"))
+        return Ok(n)
     }
 
-    // 默认异步形态：首参 Context。
-    Result<Socket, Error> connectAsync(Context context, String host, Int port) {
-        return self.connect(host, port)
-    }
-
-    Result<Int, Error> read(Bytes buffer) {
-        if _closed {
-            return Err(netErr(ErrorKind.Unavailable, "read: socket 已关闭"))
+    // 接收至多 maxBytes 字节并返回文本；对端关闭 → 空串。
+    Result<String, Error> recv(Int maxBytes) {
+        if !self.opened {
+            return Err(netError(ErrorKind.Unavailable, "Socket.recv: socket 已关闭"))
         }
-        if buffer.length() == 0 {
-            return Ok(0)
+        String data = socketRecvRaw(self.handle, maxBytes)
+        Int code = socketErrorRaw()
+        if code != 0 {
+            return Err(netError(netKind(code), "Socket.recv: 接收失败"))
         }
-        return Err(netErr(ErrorKind.Unsupported, "read: socket 运行时未链接"))
+        return Ok(data)
     }
 
-    Result<Int, Error> readAsync(Context context, Bytes buffer) {
-        return self.read(buffer)
-    }
-
-    Result<Int, Error> write(Bytes buffer) {
-        if _closed {
-            return Err(netErr(ErrorKind.Unavailable, "write: socket 已关闭"))
-        }
-        return Err(netErr(ErrorKind.Unsupported, "write: socket 运行时未链接"))
-    }
-
-    Result<Int, Error> writeAsync(Context context, Bytes buffer) {
-        return self.write(buffer)
-    }
-
-    // close 幂等：重复关闭仍返回成功。
+    // close 幂等；句柄立即失效。
     Result<void, Error> close() {
-        _closed = true
+        if !self.opened {
+            return Ok()
+        }
+        self.opened = false
+        Int rc = socketCloseRaw(self.handle)
+        if rc != 0 {
+            return Err(netError(ErrorKind.Io, "Socket.close: 关闭失败"))
+        }
         return Ok()
     }
 }
 
-// ---------- Listener（服务端句柄） ----------
+// connectSocket：建立 TCP 连接（plain 形态，阻塞分类 .unaware）。
+Result<Socket, Error> connectSocket(String host, Int port) {
+    if host.length() == 0 || !validPort(port) {
+        return Err(netError(ErrorKind.InvalidArgument, "connectSocket: 非法 host/port"))
+    }
+    Int64 h = socketConnectRaw(host, port)
+    if h == 0 {
+        return Err(netError(netKind(socketErrorRaw()), $"connectSocket: 无法连接 {host}:{port}"))
+    }
+    return Ok(new Socket(h))
+}
+
+// ---------- Listener（运行时 listen/accept 未接入，显式 Unsupported） ----------
 
 class Listener {
-    final String host;
-    final Int port;
-    Bool _closed = false
+    final String host
+    final Int port
+    Bool opened
 
-    Listener(String host, Int port) {
-        self.host = host
-        self.port = port
+    Listener(String h, Int p) {
+        self.host = h
+        self.port = p
+        self.opened = false
     }
 
-    Result<Listener, Error> bind(String host, Int port) {
-        if !isValidAddress(host, port) {
-            return Err(netErr(ErrorKind.InvalidArgument, "bind: 非法 host/port"))
-        }
-        if _closed {
-            return Err(netErr(ErrorKind.Unavailable, "bind: listener 已关闭"))
-        }
-        return Err(netErr(ErrorKind.Unsupported, "bind: socket 运行时未链接"))
-    }
-
-    Result<Listener, Error> bindAsync(Context context, String host, Int port) {
-        return self.bind(host, port)
-    }
-
-    Result<Socket, Error> accept() {
-        if _closed {
-            return Err(netErr(ErrorKind.Unavailable, "accept: listener 已关闭"))
-        }
-        return Err(netErr(ErrorKind.Unsupported, "accept: socket 运行时未链接"))
-    }
-
-    Result<Socket, Error> acceptAsync(Context context) {
-        return self.accept()
+    Bool isOpen() {
+        return self.opened
     }
 
     Result<void, Error> close() {
-        _closed = true
+        self.opened = false
         return Ok()
     }
-}
 
-// ---------- 顶层 plain/Async 入口 ----------
-
-// connect：阻塞形态；成功返回已连接句柄，失败为可恢复错误。
-Result<Socket, Error> connect(String host, Int port) {
-    if !isValidAddress(host, port) {
-        return Err(netErr(ErrorKind.InvalidArgument, "connect: 非法 host/port"))
+    // 首版运行时未提供 listen/accept；显式 Unsupported，不伪造成功。
+    Result<Socket, Error> accept() {
+        return Err(netError(ErrorKind.Unsupported, "Listener.accept: 运行时 listen/accept 未接入"))
     }
-    return Err(netErr(ErrorKind.Unsupported, "connect: socket 运行时未链接"))
 }
 
-Result<Socket, Error> connectAsync(Context context, String host, Int port) {
-    return connect(host, port)
-}
-
-// bind：阻塞形态；返回监听句柄。
-Result<Listener, Error> bind(String host, Int port) {
-    if !isValidAddress(host, port) {
-        return Err(netErr(ErrorKind.InvalidArgument, "bind: 非法 host/port"))
+Result<Listener, Error> bindListener(String host, Int port) {
+    if host.length() == 0 || !validPort(port) {
+        return Err(netError(ErrorKind.InvalidArgument, "bindListener: 非法 host/port"))
     }
-    return Err(netErr(ErrorKind.Unsupported, "bind: socket 运行时未链接"))
+    return Err(netError(ErrorKind.Unsupported, "bindListener: 运行时 listen/accept 未接入"))
 }
 
-Result<Listener, Error> bindAsync(Context context, String host, Int port) {
-    return bind(host, port)
+// ---------- HTTP ----------
+
+// Url：解析结果（无效时 valid=false）。
+class Url {
+    String host
+    Int port
+    String path
+    Bool valid
+
+    Url(String h, Int p, String pa, Bool v) {
+        self.host = h
+        self.port = p
+        self.path = pa
+        self.valid = v
+    }
 }
 
-// ---------- xdk.net.http 子包入口 ----------
+static Url parseUrl(String url) {
+    if url.length() <= 7 {
+        return new Url("", 0, "", false)
+    }
+    if url.substring(0, 7) != "http://" {
+        return new Url("", 0, "", false)
+    }
+    String rest = url.substring(7, url.length() - 7)
+    Int slash = rest.indexOf("/")
+    String authority = rest
+    String path = "/"
+    if slash >= 0 {
+        authority = rest.substring(0, slash)
+        path = rest.substring(slash, rest.length() - slash)
+    }
+    Int colon = authority.indexOf(":")
+    String host = authority
+    Int port = 80
+    if colon > 0 {
+        host = authority.substring(0, colon)
+        String ps = authority.substring(colon + 1, authority.length() - colon - 1)
+        Result<Int, Error> pr = parseIntLocal(ps)
+        if pr.isErr() {
+            return new Url("", 0, "", false)
+        }
+        port = pr.value()
+    }
+    if host.length() == 0 || !validPort(port) {
+        return new Url("", 0, "", false)
+    }
+    return new Url(host, port, path, true)
+}
 
-// Request：HTTP 请求值（方法、URL、头、体）。
+// 本地十进制解析（避免 net 依赖 xdk.text 的包方向）。
+static Result<Int, Error> parseIntLocal(String s) {
+    if s.length() == 0 {
+        return Err(netError(ErrorKind.InvalidArgument, "parseIntLocal: 空串"))
+    }
+    Int v = 0
+    Int i = 0
+    while i < s.length() {
+        String ch = s.substring(i, 1)
+        Int d = -1
+        if ch == "0" { d = 0 }
+        if ch == "1" { d = 1 }
+        if ch == "2" { d = 2 }
+        if ch == "3" { d = 3 }
+        if ch == "4" { d = 4 }
+        if ch == "5" { d = 5 }
+        if ch == "6" { d = 6 }
+        if ch == "7" { d = 7 }
+        if ch == "8" { d = 8 }
+        if ch == "9" { d = 9 }
+        if d < 0 {
+            return Err(netError(ErrorKind.InvalidArgument, "parseIntLocal: 非法字符"))
+        }
+        v = v * 10 + d
+        i = i + 1
+    }
+    return Ok(v)
+}
+
+// Request：出站请求（方法 + URL + 头 + 文本体）。
 class Request {
-    final String method;
-    final String url;
-    final Map<String, String> headers;
-    final Bytes body;
+    String method
+    String url
+    List<String> headers
+    String body
 
-    Request(String method, String url, Map<String, String> headers, Bytes body) {
-        self.method = method
-        self.url = url
-        self.headers = headers
-        self.body = body
+    Request(String m, String u, List<String> h, String b) {
+        self.method = m
+        self.url = u
+        self.headers = h
+        self.body = b
     }
 }
 
-// Response：HTTP 响应值；header 只读、缺失返回 null。
+// Response：入站响应（状态码 + 文本体 + 头）。
 class Response {
-    final Int code;
-    final Bytes payload;
-    final Map<String, String> headers;
+    Int code
+    String payload
+    List<String> headers
 
-    Response(Int code, Bytes payload, Map<String, String> headers) {
-        self.code = code
-        self.payload = payload
-        self.headers = headers
+    Response(Int c, String p, List<String> h) {
+        self.code = c
+        self.payload = p
+        self.headers = h
     }
 
-    Int status() { return self.code }
-
-    Bytes body() { return self.payload }
-
-    String? header(String name) { return self.headers.get(name) }
-}
-
-Result<Response, Error> get(String url) {
-    if !isHttpUrl(url) {
-        return Err(netErr(ErrorKind.InvalidArgument, "get: 仅支持 http/https URL"))
+    Int status() {
+        return self.code
     }
-    return Err(netErr(ErrorKind.Unsupported, "get: HTTP 传输未链接"))
-}
 
-Result<Response, Error> post(String url, Bytes body) {
-    if !isHttpUrl(url) {
-        return Err(netErr(ErrorKind.InvalidArgument, "post: 仅支持 http/https URL"))
+    String body() {
+        return self.payload
     }
-    return Err(netErr(ErrorKind.Unsupported, "post: HTTP 传输未链接"))
+
+    // 头以 `name: value` 行保存；未命中返回空串。
+    String header(String name) {
+        String prefix = $"{name}:"
+        Int i = 0
+        while i < self.headers.length() {
+            String line = self.headers.get(i)
+            if line.length() >= prefix.length() {
+                if line.substring(0, prefix.length()) == prefix {
+                    return line.substring(prefix.length(), line.length() - prefix.length())
+                }
+            }
+            i = i + 1
+        }
+        return ""
+    }
 }
 
-Result<Response, Error> getAsync(Context context, String url) {
-    return get(url)
+// httpRequest：发送请求并返回响应；首版忽略自定义头（运行时未接入）。
+Result<Response, Error> httpRequest(String method, String url, String body) {
+    Url u = parseUrl(url)
+    if !u.valid {
+        return Err(netError(ErrorKind.InvalidArgument, $"httpRequest: 非法 URL {url}"))
+    }
+    String payload = httpRequestRaw(method, u.host, u.port, u.path, body)
+    Int code = httpErrorRaw()
+    if code != 0 {
+        return Err(netError(netKind(code), $"httpRequest: {method} {url} 失败"))
+    }
+    Int status = httpStatusRaw()
+    List<String> h = []
+    return Ok(new Response(status, payload, h))
 }
 
-Result<Response, Error> postAsync(Context context, String url, Bytes body) {
-    return post(url, body)
+Result<Response, Error> httpGet(String url) {
+    return httpRequest("GET", url, "")
+}
+
+Result<Response, Error> httpPost(String url, String body) {
+    return httpRequest("POST", url, body)
 }

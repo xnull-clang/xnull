@@ -1,0 +1,102 @@
+// bindings/xdk/sys_raw.xfb —— xdk.sys 源码层（impl/lib/xdk/sys.x）的原语桥
+//
+// 约束：产品编译器（impl/lib/b3/xnullc.x）的 FFI 调用面当前只稳定支持
+// String/标量参数与返回值；Bytes 借出与 errorCode 出参在调用点尚未接通
+// （B5 切片）。因此本文件只暴露 String/Int 形态的原语，句柄/表索引均为 Int64：
+//   - File 采用整文件文本模型（readFileTextRaw 已有；写入走 xdkc_p_write_file_text）；
+//   - Dir 用小型句柄表索引（Int32 id，0=失败）；
+//   - Process 直接透传 rt_std_sys.c 的 fork/wait 原语；
+//   - 资源读取返回 hex 串，保证二进制不被 NUL 截断。
+// 原生实现全部在 impl/runtime/rt_std_sys.c / rt_std_res.c，不新增 OS 能力。
+ffi xdkc_sys_raw {
+  // ---- File（整文件文本）----
+  // 复用 sys.xfb 的原生符号，但投影只保留 raw 文件，避免冻结编译器在混合
+  // 绑定集下的 FFI 包装参数错位（B5 发射面缺陷）。
+  @ffiEntry(cName = "xdkc_read_file_text")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readFileTextRaw(String path);
+
+  @ffiEntry(cName = "xdkc_read_file_text_error")
+  @blocking(.aware)
+  Int32 readFileTextError();
+
+  @ffiEntry(cName = "xdkc_p_write_file_text")
+  @lease(path = .borrow, text = .borrow)
+  @blocking(.unaware)
+  Int32 writeFileTextRaw(String path, String text);
+
+  // ---- Dir（句柄表索引）----
+  @ffiEntry(cName = "xdkc_p_dir_open_id")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 dirOpenIdRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_dir_next_id")
+  @blocking(.aware)
+  String dirNextIdRaw(Int32 id);
+
+  @ffiEntry(cName = "xdkc_p_dir_close_id")
+  @blocking(.aware)
+  Int32 dirCloseIdRaw(Int32 id);
+
+  // ---- Process ----
+  @ffiEntry(cName = "xdkc_p_proc_spawn_simple")
+  @lease(cmd = .borrow)
+  @blocking(.unaware)
+  Int64 procSpawnRaw(String cmd);
+
+  @ffiEntry(cName = "xdkc_p_proc_wait_simple")
+  @blocking(.aware)
+  Int64 procWaitRaw(Int64 proc);
+
+  @ffiEntry(cName = "xdkc_p_proc_kill_simple")
+  @blocking(.aware)
+  Int32 procKillRaw(Int64 proc, Int32 sig);
+
+  @ffiEntry(cName = "xdkc_p_proc_close_simple")
+  @blocking(.aware)
+  Int32 procCloseRaw(Int64 proc);
+
+  @ffiEntry(cName = "xdkc_p_proc_status")
+  @lease(cmd = .borrow)
+  @blocking(.unaware)
+  Int64 procStatusRaw(String cmd);
+
+  // ---- 内嵌资源（S6 §4.8）----
+  @ffiEntry(cName = "xdkc_p_resource_exists")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 resourceExistsRaw(String path);
+
+  // 字节数；缺失/非法路径返回 -1。
+  @ffiEntry(cName = "xdkc_p_resource_size")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int64 resourceSizeRaw(String path);
+
+  // 资源文本（UTF-8 解码后）；失败返回空串，错误码见 resourceErrorRaw。
+  @ffiEntry(cName = "xdkc_p_read_resource_text")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readResourceTextRaw(String path);
+
+  // 资源字节的 hex 编码（偶数长度）；失败返回空串，错误码见 resourceErrorRaw。
+  @ffiEntry(cName = "xdkc_p_read_resource_hex")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readResourceHexRaw(String path);
+
+  // 0=成功；1=NotFound；2=InvalidArgument；3=DataCorrupted；其余=Internal。
+  @ffiEntry(cName = "xdkc_p_resource_error")
+  @blocking(.aware)
+  Int32 resourceErrorRaw();
+
+  @ffiEntry(cName = "xdkc_p_resource_count")
+  @blocking(.aware)
+  Int64 resourceCountRaw();
+
+  @ffiEntry(cName = "xdkc_p_resource_at")
+  @blocking(.aware)
+  String resourceAtRaw(Int64 index);
+}

@@ -58,6 +58,26 @@ class Format {
     }
 }
 
+// 顶层工厂（当前产品编译器尚不支持类静态方法调用；`Format.int(...)` 由 B5 修复）。
+Format formatInt(Int v) {
+    return new Format(str(v), 0, ' ')
+}
+
+Format formatFloat(Double v) {
+    return new Format($"{v}", 0, ' ')
+}
+
+Format formatString(String v) {
+    return new Format(v, 0, ' ')
+}
+
+Format formatBool(Bool v) {
+    if v {
+        return new Format("true", 0, ' ')
+    }
+    return new Format("false", 0, ' ')
+}
+
 // ---------- 解析 ----------
 
 static Int digitOf(String ch) {
@@ -179,8 +199,25 @@ Result<Double, Error> parseFloat(String s) {
 
 // ---------- UTF-8 ↔ UTF-16 ----------
 
+// Utf16：UTF-16 码元序列包装（避开产品编译器 Result<List<...>> 类型名折叠）。
+class Utf16 {
+    List<UInt16> units
+
+    Utf16(List<UInt16> xs) {
+        self.units = xs
+    }
+
+    Int length() {
+        return self.units.length()
+    }
+
+    UInt16 get(Int i) {
+        return self.units.get(i)
+    }
+}
+
 // utf8ToUtf16：把 UTF-8 字节解码为 UTF-16 码元序列；非法序列返回 Err。
-Result<List<UInt16>, Error> utf8ToUtf16(Bytes b) {
+Result<Utf16, Error> utf8ToUtf16(Bytes b) {
     List<UInt16> res = []
     Int i = 0
     while i < b.length() {
@@ -218,7 +255,7 @@ Result<List<UInt16>, Error> utf8ToUtf16(Bytes b) {
             return Err(textErr("utf8ToUtf16: 不支持的 UTF-8 序列"))
         }
     }
-    return Ok(res)
+    return Ok(new Utf16(res))
 }
 
 // utf16ToUtf8：把 UTF-16 码元编码为 UTF-8 字节；代理对按 BMP 外字符处理，孤立代理返回 Err。
@@ -295,6 +332,25 @@ class Regex {
         }
         return false
     }
+}
+
+// 顶层工厂（静态方法调用待 B5 编译器修复）。
+Result<Regex, Error> regexCompile(String pattern) {
+    Int i = 0
+    while i < pattern.length() {
+        String ch = pattern.substring(i, 1)
+        if ch == "(" || ch == ")" || ch == "[" || ch == "]" || ch == "|" || ch == "\\" {
+            return Err(textErr("regexCompile: 暂不支持该 ERE 构造"))
+        }
+        if (ch == "*" || ch == "+" || ch == "?") && i == 0 {
+            return Err(textErr("regexCompile: 量词缺少原子"))
+        }
+        if ch == "$" && i != pattern.length() - 1 {
+            return Err(textErr("regexCompile: $ 只能在末尾"))
+        }
+        i = i + 1
+    }
+    return Ok(new Regex(pattern))
 }
 
 static Bool regexAtomMatch(String atom, String ch) {

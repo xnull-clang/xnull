@@ -654,3 +654,108 @@ xrt_bytes_buf *xdkc_http_post(const char *url, size_t ulen, const void *body, si
     free(path);
     return http_response_bytes(resp, code);
 }
+
+
+/* ---- XDK 源码层桥（bindings/xdk/net_raw.xfb）----
+ * 文本形态 socket/HTTP；句柄以 Int64 流转，错误码经 socketErrorRaw/httpErrorRaw 读取。 */
+static int32_t xdk_net_last_error = 0;
+static int32_t xdk_http_last_status = 0;
+static char   *xdk_net_buf = NULL;
+static size_t  xdk_net_buf_cap = 0;
+
+static char *xdk_net_buf_ensure(size_t need) {
+    if (need + 1 > xdk_net_buf_cap) {
+        size_t cap = need + 1;
+        char *p = realloc(xdk_net_buf, cap);
+        if (p == NULL) {
+            return NULL;
+        }
+        xdk_net_buf = p;
+        xdk_net_buf_cap = cap;
+    }
+    return xdk_net_buf;
+}
+
+int64_t xdkc_p_socket_connect_simple(const char *host, size_t hlen, int32_t port) {
+    int32_t code = 0;
+    void *s = xdkc_socket_connect(host, hlen, port, &code);
+    xdk_net_last_error = code;
+    if (code != 0 || s == NULL) {
+        return 0;
+    }
+    return (int64_t)(intptr_t)s;
+}
+
+int32_t xdkc_p_socket_error(void) {
+    return xdk_net_last_error;
+}
+
+int64_t xdkc_p_socket_send_text(int64_t sock, const char *data, size_t len) {
+    int32_t code = 0;
+    int64_t n = xdkc_socket_send((void *)(intptr_t)sock, data, len, &code);
+    xdk_net_last_error = code;
+    return code == 0 ? n : -1;
+}
+
+const char *xdkc_p_socket_recv_text(int64_t sock, int32_t max_bytes) {
+    if (max_bytes <= 0) {
+        xdk_net_last_error = 1;
+        return "";
+    }
+    char *buf = xdk_net_buf_ensure((size_t)max_bytes);
+    if (buf == NULL) {
+        xdk_net_last_error = 5;
+        return "";
+    }
+    int32_t code = 0;
+    int64_t n = xdkc_socket_recv((void *)(intptr_t)sock, buf, (size_t)max_bytes, &code);
+    xdk_net_last_error = code;
+    if (code != 0 || n < 0) {
+        return "";
+    }
+    buf[n] = 0;
+    return buf;
+}
+
+int32_t xdkc_p_socket_close_simple(int64_t sock) {
+    return xdkc_socket_close((void *)(intptr_t)sock);
+}
+
+const char *xdkc_p_http_request_text(const char *method, size_t mlen,
+                                     const char *host, size_t hlen, int32_t port,
+                                     const char *path, size_t plen,
+                                     const char *body, size_t blen) {
+    int32_t code = 0;
+    xdk_http_last_status = 0;
+    void *resp = xdkc_http_request(method, mlen, host, hlen, port, path, plen,
+                                   body, blen, &code);
+    xdk_net_last_error = code;
+    if (resp == NULL) {
+        return "";
+    }
+    xdk_http_last_status = xdkc_http_status(resp);
+    const char *text = xdkc_http_body_text(resp);
+    size_t n = 0;
+    const char *raw = xdkc_http_body(resp, &n);
+    char *buf = xdk_net_buf_ensure(n);
+    if (buf == NULL) {
+        xdkc_http_response_close(resp);
+        xdk_net_last_error = 5;
+        return "";
+    }
+    if (n > 0 && raw != NULL) {
+        memcpy(buf, raw, n);
+    }
+    buf[n] = 0;
+    (void)text;
+    xdkc_http_response_close(resp);
+    return buf;
+}
+
+int32_t xdkc_p_http_status(void) {
+    return xdk_http_last_status;
+}
+
+int32_t xdkc_p_http_error(void) {
+    return xdk_net_last_error;
+}

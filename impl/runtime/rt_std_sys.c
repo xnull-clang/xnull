@@ -691,3 +691,77 @@ int32_t xdkc_proc_status_async(xrt_context *ctx, const char *cmd, size_t len) {
     int32_t rc = xdkc_proc_run_async(ctx, cmd, len, &st);
     return rc == XRT_ERR_CANCELLED ? -1 : st;
 }
+
+
+/* ---- XDK 源码层桥（bindings/xdk/sys_raw.xfb）----
+ * 只用 String/标量形态，避开产品编译器尚未接通的 Bytes 借出/errorCode 出参。
+ * 语义复用上方原语；Dir 用固定句柄表把 void* 收敛为 Int32 id（0=失败）。 */
+
+int32_t xdkc_p_write_file_text(const char *path, size_t plen,
+                               const char *text, size_t tlen) {
+    return (int32_t)xdkc_write_file_text(path, plen, text, tlen);
+}
+
+#define XDK_DIR_SLOTS 16
+static void *xdk_dir_slots[XDK_DIR_SLOTS];
+
+int32_t xdkc_p_dir_open_id(const char *path, size_t len) {
+    void *d = xdkc_dir_open(path, len);
+    if (d == NULL) {
+        return 0;
+    }
+    for (int32_t i = 0; i < XDK_DIR_SLOTS; i++) {
+        if (xdk_dir_slots[i] == NULL) {
+            xdk_dir_slots[i] = d;
+            return i + 1;
+        }
+    }
+    (void)xdkc_dir_close(d);
+    return 0;
+}
+
+const char *xdkc_p_dir_next_id(int32_t id) {
+    if (id < 1 || id > XDK_DIR_SLOTS || xdk_dir_slots[id - 1] == NULL) {
+        return "";
+    }
+    const char *s = xdkc_dir_read(xdk_dir_slots[id - 1]);
+    return s == NULL ? "" : s;
+}
+
+int32_t xdkc_p_dir_close_id(int32_t id) {
+    if (id < 1 || id > XDK_DIR_SLOTS || xdk_dir_slots[id - 1] == NULL) {
+        return 0; /* 幂等 */
+    }
+    void *d = xdk_dir_slots[id - 1];
+    xdk_dir_slots[id - 1] = NULL;
+    return xdkc_dir_close(d);
+}
+
+int64_t xdkc_p_proc_spawn_simple(const char *cmd, size_t len) {
+    int32_t code = 0;
+    void *p = xdkc_proc_spawn(cmd, len, &code);
+    if (code != 0 || p == NULL) {
+        return 0;
+    }
+    return (int64_t)(intptr_t)p;
+}
+
+int64_t xdkc_p_proc_wait_simple(int64_t proc) {
+    int32_t st = 0;
+    if (xdkc_proc_wait((void *)(intptr_t)proc, &st) != 0) {
+        return -1;
+    }
+    return (int64_t)st;
+}
+
+int32_t xdkc_p_proc_kill_simple(int64_t proc, int32_t sig) {
+    return xdkc_proc_kill((void *)(intptr_t)proc, sig);
+}
+
+int32_t xdkc_p_proc_close_simple(int64_t proc) {
+    return xdkc_proc_close((void *)(intptr_t)proc);
+}
+
+int64_t xdkc_p_proc_status(const char *cmd, size_t len) {
+    return (int64_t)xdkc_proc_status(cmd, len);
+}

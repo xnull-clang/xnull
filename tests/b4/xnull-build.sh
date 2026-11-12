@@ -126,6 +126,32 @@ workdir() {
 # oracle 三件套：ast / bundle 文件数 / 投影
 oracle_inputs() {
   local entry=$1 outdir=$2 projdir=${3:-}
+  # B5 过渡：XDK 源码层按需编译（XNULL_XDK_SOURCE=1）。
+  # 入口 import xdk.* 时，把 impl/lib/xdk/{errors,text,sys,net}.x 的 AST 一并打包，
+  # 并用 bridges（sys_raw/net_raw）投影 FFI；不改变默认 golden 路径。
+  if [ "${XNULL_XDK_SOURCE:-0}" = "1" ]; then
+    local xdk_entry="$entry"
+    [ -f "$xdk_entry" ] || xdk_entry="$ROOT/$entry"
+    if grep -q '^import xdk\.' "$xdk_entry" 2>/dev/null; then
+      mkdir -p "$outdir"
+      local nf
+      nf=$(python3 "$ROOT/tests/b4/xdk-bundle.py" "$ROOT" "$xdk_entry" "$outdir") \
+        || fail "XDK 源码 bundle 失败：$entry"
+      python3 - "$outdir/bundle.json" "$entry" "$outdir/ast.txt" <<'PY' || fail "入口 AST 提取失败：$entry"
+import json, sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+want = sys.argv[2]
+for f in d["files"]:
+    if f["path"].endswith(want):
+        open(sys.argv[3], "w", encoding="utf-8").write(f["ast"])
+        sys.exit(0)
+sys.exit(1)
+PY
+      echo "$nf"
+      return 0
+    fi
+  fi
+
   # B4c-02a：无 Go 引导模式——AST 用 bootstrap/bin/xparser，投影为空，单文件入口。
   if [ "${XNULL_BOOTSTRAP:-}" = "1" ]; then
     mkdir -p "$outdir"
@@ -240,7 +266,12 @@ cmd_build() {
   mkdir -p "$(dirname "$base")"
   emit_c "$entry" "$w" "$base.c" > /dev/null || exit 1
   if [ "$emit_only" = 1 ]; then echo "$base.c"; return 0; fi
-  write_empty_res "$base.res.c"
+  if [ -n "${XNULL_RESOURCES:-}" ] && [ -d "${XNULL_RESOURCES}" ]; then
+    python3 "$ROOT/tests/b4/gen_res_table.py" "$XNULL_RESOURCES" "$base.res.c" \
+      || fail "资源表生成失败：$XNULL_RESOURCES"
+  else
+    write_empty_res "$base.res.c"
+  fi
   cc_link "$base.c" "$base" "$base.res.c" || exit 1
   echo "$base"
 }
