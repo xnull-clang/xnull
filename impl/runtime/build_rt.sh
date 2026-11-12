@@ -72,7 +72,7 @@ XNULL_RES_DIR=$(mktemp -d)
 printf 'hello' > "$XNULL_RES_DIR/a.txt"
 printf '\x01\x02\xff' > "$XNULL_RES_DIR/b.bin"
 XNULL_RES_C=$(mktemp -d)/res_table.c
-(cd .. && go run ./cmd/xnull dev res "$XNULL_RES_DIR" "$XNULL_RES_C") || exit 1
+python3 ../../tests/b4/gen_res_table.py "$XNULL_RES_DIR" "$XNULL_RES_C" || exit 1
 rm -rf "$XNULL_RES_DIR"
 cc -std=c11 -Wall -Wextra -Werror -O2 -I. -o /tmp/xnull_test_res test_res.c "$XNULL_RES_C"
 /tmp/xnull_test_res
@@ -87,7 +87,7 @@ printf 'yy' > "$XNULL_RES_API_DIR/dir1/y.txt"
 printf 'zzz' > "$XNULL_RES_API_DIR/dir2/z.txt"
 printf 'R' > "$XNULL_RES_API_DIR/xres_only.txt"
 XNULL_RES_API_C=$(mktemp -d)/res_api_table.c
-(cd .. && go run ./cmd/xnull dev res "$XNULL_RES_API_DIR" "$XNULL_RES_API_C") || exit 1
+python3 ../../tests/b4/gen_res_table.py "$XNULL_RES_API_DIR" "$XNULL_RES_API_C" || exit 1
 rm -rf "$XNULL_RES_API_DIR"
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -I. -o /tmp/xnull_test_res_api \
   test_res_api.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c \

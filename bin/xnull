@@ -14,12 +14,26 @@ ROOT=$(cd "$HERE/.." && pwd)
 IMPL="$ROOT/tests/b4/xnull-build.sh"
 [ -x "$IMPL" ] || { echo "xnull: 找不到 $IMPL" >&2; exit 2; }
 
+# B4c-02a：无 Go 引导模式（--bootstrap 或 XNULL_USE_BOOTSTRAP=1）
+BOOT=${XNULL_USE_BOOTSTRAP:-0}
+if [ "${1:-}" = "--bootstrap" ]; then BOOT=1; shift; fi
+if [ "$BOOT" = 1 ]; then
+  export XNULL_BOOTSTRAP=1
+  export XNULLC_BIN="$ROOT/bootstrap/bin/xn-s4"
+  export XPARSER_BIN="$ROOT/bootstrap/bin/xparser"
+  if [ ! -x "$XNULLC_BIN" ] || [ ! -x "$XPARSER_BIN" ]; then
+    echo "xnull: 引导工具缺失，请先运行 bootstrap/build.sh" >&2
+    exit 2
+  fi
+fi
+
 is_project() { [ -n "${1:-}" ] && [ -d "$1" ] && [ -f "$1/xnull.project" ]; }
 
 case "${1:-}" in
   ""|-h|--help|help)
     cat >&2 <<'EOF'
-用法：xnull <命令> [参数…]
+用法：xnull [--bootstrap] <命令> [参数…]
+  --bootstrap                             使用 bootstrap/bin 里的原生工具（不依赖 Go）
   build <entry.x | 工程目录> [-o out]     单文件构建 / 聚合工程构建
   run   <entry.x | 工程目录> [-- 参数…]   构建并运行
   validate <工程目录>                     清单校验（模块/依赖边/拓扑）

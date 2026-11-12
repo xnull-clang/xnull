@@ -8,6 +8,7 @@
 //
 // 每个清单 TSV 生成 `<artifactId>-<version>.xmeta`；字段顺序与 Go 一致，
 // 末尾追加两个扩展字段：`entryFile`（固定 src/main/x/main.x）与 `dependencies`（逗号分隔）。
+
 import xdk.sys
 
 class M {
