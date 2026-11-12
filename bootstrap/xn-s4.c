@@ -197,100 +197,29 @@ static void  **xn_root_track = NULL;
 static size_t  xn_root_depth = 0;
 static size_t  xn_root_cap   = 0;
 
-typedef struct { rt_header hdr; void **data; size_t len; size_t cap; } xn_rootbox;
-static void xn_root_box_scan(void *p, void (*visit)(void *)) {
-    xn_rootbox *b = (xn_rootbox *)p;
-    for (size_t i = 0; i < b->len; i++) { visit(b->data[i]); }
-}
-static const rt_type RT_TYPE_XN_ROOTBOX = { "RootBox", sizeof(xn_rootbox), NULL, xn_root_box_scan };
-static xn_rootbox *xn_root_box = NULL;
-typedef struct { void *obj; size_t count; size_t pos; } xn_he;
-static xn_he *xn_root_hash = NULL;
-static size_t xn_root_hcap = 0;
-static size_t xn_root_hused = 0;
-static size_t xn_root_htomb = 0;
-#define XN_ROOT_TOMB ((void *)(intptr_t)1)
-static void xn_root_box_init(void) {
-    if (xn_root_box != NULL) { return; }
-    xn_root_box = (xn_rootbox *)rt_gc_new(&RT_TYPE_XN_ROOTBOX);
-    memset((char *)xn_root_box + sizeof(rt_header), 0, sizeof(xn_rootbox) - sizeof(rt_header));
-    rt_gc_root_add(xn_root_box);
-}
-static void xn_root_box_push(void *obj) {
-    xn_root_box_init();
-    if (xn_root_box->len == xn_root_box->cap) {
-        xn_root_box->cap = xn_root_box->cap ? xn_root_box->cap * 2 : 1024;
-        xn_root_box->data = realloc(xn_root_box->data, sizeof(void *) * xn_root_box->cap);
-        if (xn_root_box->data == NULL) { abort(); }
-    }
-    xn_root_box->data[xn_root_box->len++] = obj;
-}
-static size_t xn_root_hslot(void *obj, size_t cap) {
-    uintptr_t h = (uintptr_t)obj;
-    h = (h >> 4) * (uintptr_t)2654435761u;
-    return (size_t)(h % cap);
-}
-static void xn_root_hrehash(size_t nc) {
-    xn_he *nt = (xn_he *)calloc(nc, sizeof(xn_he));
-    if (nt == NULL) { abort(); }
-    if (xn_root_hash != NULL) {
-        for (size_t i = 0; i < xn_root_hcap; i++) {
-            void *o = xn_root_hash[i].obj;
-            if (o == NULL || o == XN_ROOT_TOMB) { continue; }
-            size_t j = xn_root_hslot(o, nc);
-            while (nt[j].obj != NULL) { j = (j + 1) % nc; }
-            nt[j] = xn_root_hash[i];
-        }
-        free(xn_root_hash);
-    }
-    xn_root_hash = nt;
-    xn_root_hcap = nc;
-    xn_root_htomb = 0;
-}
-static xn_he *xn_root_find(void *obj) {
-    if (xn_root_hcap == 0) { return NULL; }
-    size_t i = xn_root_hslot(obj, xn_root_hcap);
-    while (xn_root_hash[i].obj != NULL) {
-        if (xn_root_hash[i].obj == obj) { return &xn_root_hash[i]; }
-        i = (i + 1) % xn_root_hcap;
-    }
-    return NULL;
-}
 static void xn_root_hold(void *obj) {
     if (obj == NULL) { return; }
-    if (xn_root_hcap == 0 || (xn_root_hused + xn_root_htomb + 1) * 10 >= xn_root_hcap * 7) {
-        xn_root_hrehash(xn_root_hcap == 0 ? 1024 : xn_root_hcap * 2);
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj == obj) { xn_root_refs[i].count++; return; }
     }
-    xn_he *e = xn_root_find(obj);
-    if (e != NULL) { e->count++; return; }
-    size_t i = xn_root_hslot(obj, xn_root_hcap);
-    while (xn_root_hash[i].obj != NULL && xn_root_hash[i].obj != XN_ROOT_TOMB) { i = (i + 1) % xn_root_hcap; }
-    xn_root_box_push(obj);
-    xn_root_hash[i].obj = obj;
-    xn_root_hash[i].count = 1;
-    xn_root_hash[i].pos = xn_root_box->len - 1;
-    xn_root_hused++;
+    if (xn_root_ref_n == xn_root_ref_cap) {
+        xn_root_ref_cap = xn_root_ref_cap ? xn_root_ref_cap * 2 : 16;
+        xn_root_refs = (xn_root_ref *)realloc(xn_root_refs, xn_root_ref_cap * sizeof(xn_root_ref));
+        if (xn_root_refs == NULL) { abort(); }
+    }
+    xn_root_refs[xn_root_ref_n].obj = obj;
+    xn_root_refs[xn_root_ref_n].count = 1;
+    xn_root_ref_n++;
+    rt_gc_root_add(obj);
 }
 static void xn_root_release(void *obj) {
     if (obj == NULL) { return; }
-    xn_he *e = xn_root_find(obj);
-    if (e == NULL) { return; }
-    if (e->count > 1) { e->count--; return; }
-    size_t pos = e->pos;
-    size_t last = xn_root_box->len - 1;
-    if (pos != last) {
-        xn_root_box->data[pos] = xn_root_box->data[last];
-        xn_he *m = xn_root_find(xn_root_box->data[pos]);
-        if (m != NULL) { m->pos = pos; }
-    }
-    xn_root_box->len = last;
-    e->obj = XN_ROOT_TOMB;
-    e->count = 0;
-    xn_root_hused--;
-    xn_root_htomb++;
-    if (xn_root_htomb > 4096 && xn_root_htomb * 2 > xn_root_hcap) {
-        size_t nc = xn_root_hcap;
-        xn_root_hrehash(nc);
+    for (size_t i = 0; i < xn_root_ref_n; i++) {
+        if (xn_root_refs[i].obj != obj) { continue; }
+        if (xn_root_refs[i].count > 1) { xn_root_refs[i].count--; return; }
+        rt_gc_root_remove(obj);
+        xn_root_refs[i] = xn_root_refs[--xn_root_ref_n];
+        return;
     }
 }
 static size_t xn_root_mark(void) { return xn_root_depth; }
@@ -499,28 +428,6 @@ static int xn_ffi_bool_from_native(uint8_t v) {
     return (int)v;
 }
 
-static const char *xn_ffi_xdkc_net_error_kind(int32_t code) {
-    switch (code) {
-    case 1: return "InvalidArgument";
-    case 2: return "Io";
-    case 3: return "Cancelled";
-    case 4: return "Timeout";
-    case 5: return "Unavailable";
-    default: return "Internal";
-    }
-}
-
-static xrt_error_kind xn_ffi_xdkc_net_error_kind_id(int32_t code) {
-    switch (code) {
-    case 1: return XRT_ERR_INVALID_ARGUMENT;
-    case 2: return XRT_ERR_IO;
-    case 3: return XRT_ERR_CANCELLED;
-    case 4: return XRT_ERR_TIMEOUT;
-    case 5: return XRT_ERR_UNAVAILABLE;
-    default: return XRT_ERR_INTERNAL;
-    }
-}
-
 static const char *xn_ffi_xdkc_runtime_error_kind(int32_t code) {
     switch (code) {
     default: return "Internal";
@@ -535,27 +442,11 @@ static xrt_error_kind xn_ffi_xdkc_runtime_error_kind_id(int32_t code) {
 
 static const char *xn_ffi_xdkc_sys_error_kind(int32_t code) {
     switch (code) {
-    case 1: return "Invalid";
-    case 2: return "Internal";
     default: return "Internal";
     }
 }
 
 static xrt_error_kind xn_ffi_xdkc_sys_error_kind_id(int32_t code) {
-    switch (code) {
-    case 1: return XRT_ERR_INTERNAL;
-    case 2: return XRT_ERR_INTERNAL;
-    default: return XRT_ERR_INTERNAL;
-    }
-}
-
-static const char *xn_ffi_xdkc_text_error_kind(int32_t code) {
-    switch (code) {
-    default: return "Internal";
-    }
-}
-
-static xrt_error_kind xn_ffi_xdkc_text_error_kind_id(int32_t code) {
     switch (code) {
     default: return XRT_ERR_INTERNAL;
     }
@@ -565,75 +456,15 @@ static xrt_error_kind xn_ffi_xdkc_text_error_kind_id(int32_t code) {
    定义 XN_FFI_NATIVE_DECLS 关闭本节（S7 §3.2）。 */
 #ifndef XN_FFI_NATIVE_DECLS
 void xdkc_diagnose(const char *msg_bytes, size_t msg_len);
-int32_t xdkc_dir_close(void *d);
-void * xdkc_dir_open(const char *path_bytes, size_t path_len);
-const char * xdkc_dir_read(void *d);
-void xdkc_dump_tasks();
-const char * xdkc_env_lookup(const char *name_bytes, size_t name_len);
 void xdkc_exit(int64_t code);
-int32_t xdkc_file_close(void *f);
-void * xdkc_file_open_read(const char *path_bytes, size_t path_len);
-void * xdkc_file_open_write(const char *path_bytes, size_t path_len);
-int64_t xdkc_file_read(void *f, void *buf, size_t buf_len, int32_t *code);
-int32_t xdkc_file_write(void *f, void *buf, size_t buf_len);
-const char * xdkc_http_body_text(void *resp);
-void * xdkc_http_request(const char *method_bytes, size_t method_len, const char *host_bytes, size_t host_len, int32_t port, const char *path_bytes, size_t path_len, void *body, size_t body_len, int32_t *code);
-int32_t xdkc_http_response_close(void *resp);
-int32_t xdkc_http_status(void *resp);
 int64_t xdkc_now_mono_ms();
-int64_t xdkc_now_wall_ms();
-uint8_t xdkc_path_exists(const char *path_bytes, size_t path_len);
-int32_t xdkc_proc_status(const char *cmd_bytes, size_t cmd_len);
 int32_t xdkc_read_file_text_error();
 const char * xdkc_read_file_text(const char *path_bytes, size_t path_len);
-int64_t xdkc_regex_match(const char *pat_bytes, size_t pat_len, const char *sub_bytes, size_t sub_len);
-int32_t xdkc_socket_close(void *sock);
-void * xdkc_socket_connect(const char *host_bytes, size_t host_len, int32_t port, int32_t *code);
-int64_t xdkc_socket_recv(void *sock, void *buf, size_t buf_len, int32_t *code);
-int64_t xdkc_socket_send(void *sock, void *buf, size_t buf_len, int32_t *code);
-int64_t xdkc_utf8_valid(const char *text_bytes, size_t text_len);
-int64_t xdkc_write_file_text(const char *path_bytes, size_t path_len, const char *text_bytes, size_t text_len);
 #endif
 
 /* 绑定入口 diagnose（原生 xdkc_diagnose） */
 static int32_t xn_ffi_diagnose(const char *msg_bytes, size_t msg_len) {
     xdkc_diagnose(msg_bytes, msg_len);
-    return 0;
-}
-
-/* 绑定入口 dirClose（原生 xdkc_dir_close） */
-static int32_t xn_ffi_dirClose(xrt_handle *d) {
-    void *xn_h_d = xrt_handle_native(d);
-    if (xn_h_d == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：dirClose"); }
-    return (int32_t)xdkc_dir_close(xn_h_d);
-}
-
-/* 绑定入口 dirOpen（原生 xdkc_dir_open） */
-static int32_t xn_ffi_dirOpen(const char *path_bytes, size_t path_len, xrt_handle * *xn_out) {
-    xrt_handle * xn_v = xdkc_dir_open(path_bytes, path_len);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, "dirOpen");
-    return 0;
-}
-
-/* 绑定入口 dirRead（原生 xdkc_dir_read） */
-static int32_t xn_ffi_dirRead(xrt_handle *d, xrt_string * *xn_out) {
-    void *xn_h_d = xrt_handle_native(d);
-    if (xn_h_d == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：dirRead"); }
-    const char * xn_v = xdkc_dir_read(xn_h_d);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);
-    return 0;
-}
-
-/* 绑定入口 dumpTasks（原生 xdkc_dump_tasks） */
-static int32_t xn_ffi_dumpTasks(void) {
-    xdkc_dump_tasks();
-    return 0;
-}
-
-/* 绑定入口 env（原生 xdkc_env_lookup） */
-static int32_t xn_ffi_env(const char *name_bytes, size_t name_len, xrt_string * *xn_out) {
-    const char * xn_v = xdkc_env_lookup(name_bytes, name_len);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);
     return 0;
 }
 
@@ -643,109 +474,10 @@ static int32_t xn_ffi_exit(int64_t code) {
     return 0;
 }
 
-/* 绑定入口 fileClose（原生 xdkc_file_close） */
-static int32_t xn_ffi_fileClose(xrt_handle *f) {
-    void *xn_h_f = xrt_handle_native(f);
-    if (xn_h_f == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：fileClose"); }
-    return (int32_t)xdkc_file_close(xn_h_f);
-}
-
-/* 绑定入口 fileOpenRead（原生 xdkc_file_open_read） */
-static int32_t xn_ffi_fileOpenRead(const char *path_bytes, size_t path_len, xrt_handle * *xn_out) {
-    xrt_handle * xn_v = xdkc_file_open_read(path_bytes, path_len);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, "fileOpenRead");
-    return 0;
-}
-
-/* 绑定入口 fileOpenWrite（原生 xdkc_file_open_write） */
-static int32_t xn_ffi_fileOpenWrite(const char *path_bytes, size_t path_len, xrt_handle * *xn_out) {
-    xrt_handle * xn_v = xdkc_file_open_write(path_bytes, path_len);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, "fileOpenWrite");
-    return 0;
-}
-
-/* 绑定入口 fileRead（原生 xdkc_file_read） */
-static int32_t xn_ffi_fileRead(xrt_handle *f, void *buf, size_t buf_len, int64_t *xn_out) {
-    void *xn_h_f = xrt_handle_native(f);
-    if (xn_h_f == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：fileRead"); }
-    uint8_t *xn_buf_buf = xn_ffi_canary_enter((const uint8_t *)buf, buf_len);
-    int32_t xn_code = 0;
-    int64_t xn_v = xdkc_file_read(xn_h_f, (void *)(xn_buf_buf + XN_FFI_CANARY), buf_len, &xn_code);
-    if (xn_code != 0) { return xn_code; }
-    xn_ffi_canary_leave(xn_buf_buf, (uint8_t *)buf, buf_len);
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 fileWrite（原生 xdkc_file_write） */
-static int32_t xn_ffi_fileWrite(xrt_handle *f, void *buf, size_t buf_len) {
-    void *xn_h_f = xrt_handle_native(f);
-    if (xn_h_f == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：fileWrite"); }
-    uint8_t *xn_buf_buf = xn_ffi_canary_enter((const uint8_t *)buf, buf_len);
-    return (int32_t)xdkc_file_write(xn_h_f, (void *)(xn_buf_buf + XN_FFI_CANARY), buf_len);
-}
-
-/* 绑定入口 httpBodyText（原生 xdkc_http_body_text） */
-static int32_t xn_ffi_httpBodyText(xrt_handle *resp, xrt_string * *xn_out) {
-    void *xn_h_resp = xrt_handle_native(resp);
-    if (xn_h_resp == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：httpBodyText"); }
-    const char * xn_v = xdkc_http_body_text(xn_h_resp);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);
-    return 0;
-}
-
-/* 绑定入口 httpRequest（原生 xdkc_http_request） */
-static int32_t xn_ffi_httpRequest(const char *method_bytes, size_t method_len, const char *host_bytes, size_t host_len, int32_t port, const char *path_bytes, size_t path_len, void *body, size_t body_len, xrt_handle * *xn_out) {
-    uint8_t *xn_buf_body = xn_ffi_canary_enter((const uint8_t *)body, body_len);
-    int32_t xn_code = 0;
-    xrt_handle * xn_v = xdkc_http_request(method_bytes, method_len, host_bytes, host_len, port, path_bytes, path_len, (void *)(xn_buf_body + XN_FFI_CANARY), body_len, &xn_code);
-    if (xn_code != 0) { return xn_code; }
-    xn_ffi_canary_leave(xn_buf_body, (uint8_t *)body, body_len);
-    *xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, "httpRequest");
-    return 0;
-}
-
-/* 绑定入口 httpResponseClose（原生 xdkc_http_response_close） */
-static int32_t xn_ffi_httpResponseClose(xrt_handle *resp) {
-    void *xn_h_resp = xrt_handle_native(resp);
-    if (xn_h_resp == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：httpResponseClose"); }
-    return (int32_t)xdkc_http_response_close(xn_h_resp);
-}
-
-/* 绑定入口 httpStatus（原生 xdkc_http_status） */
-static int32_t xn_ffi_httpStatus(xrt_handle *resp, int32_t *xn_out) {
-    void *xn_h_resp = xrt_handle_native(resp);
-    if (xn_h_resp == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：httpStatus"); }
-    int32_t xn_v = xdkc_http_status(xn_h_resp);
-    *xn_out = (int32_t)xn_v;
-    return 0;
-}
-
 /* 绑定入口 nowMono（原生 xdkc_now_mono_ms） */
 static int32_t xn_ffi_nowMono(int64_t *xn_out) {
     int64_t xn_v = xdkc_now_mono_ms();
     *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 nowWall（原生 xdkc_now_wall_ms） */
-static int32_t xn_ffi_nowWall(int64_t *xn_out) {
-    int64_t xn_v = xdkc_now_wall_ms();
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 pathExists（原生 xdkc_path_exists） */
-static int32_t xn_ffi_pathExists(const char *path_bytes, size_t path_len, uint8_t *xn_out) {
-    uint8_t xn_v = xdkc_path_exists(path_bytes, path_len);
-    *xn_out = (uint8_t)xn_ffi_bool_from_native((uint8_t)xn_v);
-    return 0;
-}
-
-/* 绑定入口 procStatus（原生 xdkc_proc_status） */
-static int32_t xn_ffi_procStatus(const char *cmd_bytes, size_t cmd_len, int32_t *xn_out) {
-    int32_t xn_v = xdkc_proc_status(cmd_bytes, cmd_len);
-    *xn_out = (int32_t)xn_v;
     return 0;
 }
 
@@ -760,69 +492,6 @@ static int32_t xn_ffi_readFileTextError(int32_t *xn_out) {
 static int32_t xn_ffi_readFileTextRaw(const char *path_bytes, size_t path_len, xrt_string * *xn_out) {
     const char * xn_v = xdkc_read_file_text(path_bytes, path_len);
     *xn_out = (xn_v == NULL) ? NULL : xrt_string_from_c(xn_v);
-    return 0;
-}
-
-/* 绑定入口 regexMatch（原生 xdkc_regex_match） */
-static int32_t xn_ffi_regexMatch(const char *pat_bytes, size_t pat_len, const char *sub_bytes, size_t sub_len, int64_t *xn_out) {
-    int64_t xn_v = xdkc_regex_match(pat_bytes, pat_len, sub_bytes, sub_len);
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 socketClose（原生 xdkc_socket_close） */
-static int32_t xn_ffi_socketClose(xrt_handle *sock) {
-    void *xn_h_sock = xrt_handle_native(sock);
-    if (xn_h_sock == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：socketClose"); }
-    return (int32_t)xdkc_socket_close(xn_h_sock);
-}
-
-/* 绑定入口 socketConnect（原生 xdkc_socket_connect） */
-static int32_t xn_ffi_socketConnect(const char *host_bytes, size_t host_len, int32_t port, xrt_handle * *xn_out) {
-    int32_t xn_code = 0;
-    xrt_handle * xn_v = xdkc_socket_connect(host_bytes, host_len, port, &xn_code);
-    if (xn_code != 0) { return xn_code; }
-    *xn_out = (xn_v == NULL) ? NULL : xrt_handle_new(xn_v, NULL, "socketConnect");
-    return 0;
-}
-
-/* 绑定入口 socketRecv（原生 xdkc_socket_recv） */
-static int32_t xn_ffi_socketRecv(xrt_handle *sock, void *buf, size_t buf_len, int64_t *xn_out) {
-    void *xn_h_sock = xrt_handle_native(sock);
-    if (xn_h_sock == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：socketRecv"); }
-    uint8_t *xn_buf_buf = xn_ffi_canary_enter((const uint8_t *)buf, buf_len);
-    int32_t xn_code = 0;
-    int64_t xn_v = xdkc_socket_recv(xn_h_sock, (void *)(xn_buf_buf + XN_FFI_CANARY), buf_len, &xn_code);
-    if (xn_code != 0) { return xn_code; }
-    xn_ffi_canary_leave(xn_buf_buf, (uint8_t *)buf, buf_len);
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 socketSend（原生 xdkc_socket_send） */
-static int32_t xn_ffi_socketSend(xrt_handle *sock, void *buf, size_t buf_len, int64_t *xn_out) {
-    void *xn_h_sock = xrt_handle_native(sock);
-    if (xn_h_sock == NULL) { xrt_fatal("FFI 句柄已关闭或为空（S7 §4.3）：socketSend"); }
-    uint8_t *xn_buf_buf = xn_ffi_canary_enter((const uint8_t *)buf, buf_len);
-    int32_t xn_code = 0;
-    int64_t xn_v = xdkc_socket_send(xn_h_sock, (void *)(xn_buf_buf + XN_FFI_CANARY), buf_len, &xn_code);
-    if (xn_code != 0) { return xn_code; }
-    xn_ffi_canary_leave(xn_buf_buf, (uint8_t *)buf, buf_len);
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 utf8Valid（原生 xdkc_utf8_valid） */
-static int32_t xn_ffi_utf8Valid(const char *text_bytes, size_t text_len, int64_t *xn_out) {
-    int64_t xn_v = xdkc_utf8_valid(text_bytes, text_len);
-    *xn_out = (int64_t)xn_v;
-    return 0;
-}
-
-/* 绑定入口 writeFileText（原生 xdkc_write_file_text） */
-static int32_t xn_ffi_writeFileText(const char *path_bytes, size_t path_len, const char *text_bytes, size_t text_len, int64_t *xn_out) {
-    int64_t xn_v = xdkc_write_file_text(path_bytes, path_len, text_bytes, text_len);
-    *xn_out = (int64_t)xn_v;
     return 0;
 }
 
@@ -866,9 +535,6 @@ static void xn_Cls_N_new_init(xn_Cls_N *o);
 static xn_Cls_SC *xn_Cls_SC_new(void);
 static void xn_Cls_SC_new_init(xn_Cls_SC *o);
 
-typedef struct { int ok; int64_t v; xn_Enum_ErrorKind err; } xn_Result_HttpResponse_ErrorKind;
-typedef struct { int ok; int64_t v; xn_Enum_ErrorKind err; } xn_Result_Int64_ErrorKind;
-typedef struct { int ok; int64_t v; xn_Enum_ErrorKind err; } xn_Result_Socket_ErrorKind;
 
 static void xn_arr_i_deinit(void *p) {
     xn_arr_i *a = (xn_arr_i *)p;
@@ -3677,7 +3343,7 @@ xn_root_add(xn_t114);
                                                 if ((xn_str_eq(xn_t113, xn_t114))) {
                                                     size_t xn_t115 = xn_root_mark();
                                                     #line 189 "impl/lib/b3/xnullc.x"
-                                                    rt_string *xn_t116 = rt_string_from_c("");
+                                                    rt_string *xn_t116 = rt_string_new("\000", 1);
 xn_root_add(xn_t116);
     xn_root_add(xn_t116);
             xn_root_add(xn_t116);
@@ -3766,7 +3432,7 @@ xn_root_add(xn_t124);
                                                                 if (((v == 0))) {
                                                                     size_t xn_t125 = xn_root_mark();
                                                                     #line 194 "impl/lib/b3/xnullc.x"
-                                                                    rt_string *xn_t126 = rt_string_from_c("");
+                                                                    rt_string *xn_t126 = rt_string_new("\000", 1);
 xn_root_add(xn_t126);
     xn_root_add(xn_t126);
             xn_root_add(xn_t126);
@@ -3939,7 +3605,7 @@ xn_root_add(hs);
                                                                         if (((v == 0))) {
                                                                             size_t xn_t142 = xn_root_mark();
                                                                             #line 202 "impl/lib/b3/xnullc.x"
-                                                                            rt_string *xn_t143 = rt_string_from_c("");
+                                                                            rt_string *xn_t143 = rt_string_new("\000", 1);
 xn_root_add(xn_t143);
     xn_root_add(xn_t143);
             xn_root_add(xn_t143);
@@ -5004,7 +4670,7 @@ xn_root_add(xn_t266);
                                     xn_root_add(xn_t266);
                                             xn_root_add(xn_t266);
                                                     xn_root_add(xn_t266);
-                                                    rt_string *xn_t267 = rt_string_from_c("");
+                                                    rt_string *xn_t267 = rt_string_new("\000", 1);
 xn_root_add(xn_t267);
     xn_root_add(xn_t267);
             xn_root_add(xn_t267);
@@ -5115,7 +4781,7 @@ xn_root_add(xn_t278);
                                                     xn_root_add(xn_t278);
                                                             xn_root_add(xn_t278);
                                                                     xn_root_add(xn_t278);
-                                                                    rt_string *xn_t279 = rt_string_from_c("");
+                                                                    rt_string *xn_t279 = rt_string_new("\000", 1);
 xn_root_add(xn_t279);
     xn_root_add(xn_t279);
             xn_root_add(xn_t279);
@@ -5371,7 +5037,7 @@ xn_root_add(xn_t301);
                                                             xn_root_add(xn_t301);
                                                                     xn_root_add(xn_t301);
                                                                             xn_root_add(xn_t301);
-                                                                            rt_string *xn_t302 = rt_string_from_c("");
+                                                                            rt_string *xn_t302 = rt_string_new("\000", 1);
 xn_root_add(xn_t302);
     xn_root_add(xn_t302);
             xn_root_add(xn_t302);
@@ -5983,7 +5649,7 @@ xn_root_add(xn_t366);
                             xn_root_add(xn_t366);
                                     xn_root_add(xn_t366);
                                             xn_root_add(xn_t366);
-                                            rt_string *xn_t367 = rt_string_from_c("");
+                                            rt_string *xn_t367 = rt_string_new("\000", 1);
 xn_root_add(xn_t367);
     xn_root_add(xn_t367);
             xn_root_add(xn_t367);
@@ -6220,7 +5886,7 @@ b = xn_t405;
 xn_root_add(b);
 xn_gc_safepoint();
 #line 397 "impl/lib/b3/xnullc.x"
-rt_string *xn_t406 = rt_string_from_c("");
+rt_string *xn_t406 = rt_string_new("\000", 1);
 xn_root_add(xn_t406);
 rt_string *xn_t407 = rt_string_from_c("\\000");
 xn_root_add(xn_t407);
@@ -64731,7 +64397,7 @@ xn_root_add(xn_t9279);
                     if ((xn_isProtoType(xn_t9279))) {
                         size_t xn_t9280 = xn_root_mark();
                         #line 3700 "impl/lib/b3/xnullc.x"
-                        rt_string *xn_t9281 = (b + 0);
+                        rt_string *xn_t9281 = xn_concat(rt_retain(b), rt_string_from_c(")"));
 xn_root_add(xn_t9281);
         xn_root_add(xn_t9281);
                 xn_root_add(xn_t9281);
