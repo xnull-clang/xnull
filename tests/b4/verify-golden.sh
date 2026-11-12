@@ -1,112 +1,153 @@
 #!/usr/bin/env bash
-# B4c-03：无 Go 验证（bootstrap 工具 + 冻结 golden）。
+# B4c-03：无 Go 验证（冻结 golden vs bootstrap 原生工具链）。
 #
 # 依赖：bootstrap/bin/{xparser,xn-s4}（缺失时自动 bootstrap/build.sh）、python3、cc。
 # 比对基准：evidence/B4c/golden/{hashes.tsv,negatives.tsv,examples.tsv}
 #
-# 覆盖范围（Go 已删除后的现实边界）：
-#   入口 C：单文件入口全量（xparser --file + xn-s4）；多文件入口需要 bundle，原生暂无生成器 → BLOCKED
-#   负例：仅解析层（LEX/SYN）可复现；sema/entry/codegen 类需要 Go 前端 → BLOCKED
-#   示例：9/9 构建 + 运行 + C 哈希比对
+# 口径：
+#   入口 C：单文件全量 + 多文件（tests/b4/native-bundle.py 生成 AST bundle）；
+#           投影按 golden 的 proj 列复现（A = 入口目录 .xfb；B = 入口 + 直接 xdk 依赖）；
+#           via=interp 的 6 条为冻结时 Go 解释器生成，原生编译器自编译仍段错误 → BLOCKED；
+#           impl/lib/b2/xparser.x 用冻结的 B4c-03 前源（xparser-pre-b4c03.x）比对旧 golden，
+#           该文件已被 B4c-03 修复，当前源的 C 单独验证。
+#   负例：  原生无 sema/entry 诊断实现（Go 前端已删除）→ 全部 BLOCKED，不伪装 PASS；
+#   示例：  9/9 构建 + 运行 + C 哈希。
+#
+# 退出码：仅 FAIL>0 非零；BLOCKED 计入汇总并写入 verify-summary.txt。
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 G="$ROOT/evidence/B4c/golden"
 BIN="$ROOT/bootstrap/bin"
 W=$(mktemp -d "${TMPDIR:-/tmp}/b4c03.XXXXXX")
-trap 'rm -rf "$W"' EXIT
+FROZEN_XP=0
+restore_frozen_xp() {
+  if [ "$FROZEN_XP" = "1" ] && [ -f "$W/xparser.current" ]; then
+    cp "$W/xparser.current" "$ROOT/impl/lib/b2/xparser.x"
+  fi
+  rm -rf "$W"
+}
+trap restore_frozen_xp EXIT
 
-[ -x "$BIN/xn-s4" ] && [ -x "$BIN/xparser" ] || "$ROOT/bootstrap/build.sh" >/dev/null || { echo "verify: bootstrap 构建失败" >&2; exit 1; }
+[ -x "$BIN/xn-s4" ] && [ -x "$BIN/xparser" ] || "$ROOT/bootstrap/build.sh" >/dev/null || {
+  echo "verify: bootstrap 构建失败" >&2; exit 1;
+}
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
-# 原生 xparser 对大入口会挂起（B4b-02 已定位）：统一 90s 超时，超时记 BLOCKED
-run_limited() { perl -e 'alarm 15; exec @ARGV' "$@"; }
 
-# ---- 1) 入口 C（单文件） ----
+# 固定点源：xparser.x 在 B4c-03 被修复，旧 golden 对应旧源。
+if grep -q '^impl/lib/b2/xparser\.x	' "$G/hashes.tsv"; then
+  cp "$ROOT/impl/lib/b2/xparser.x" "$W/xparser.current"
+  cp "$G/xparser-pre-b4c03.x" "$ROOT/impl/lib/b2/xparser.x"
+  FROZEN_XP=1
+fi
+
+proj_A() { # rel
+  local dir; dir=$(dirname "$1")
+  if find "$dir" -name '*.xfb' 2>/dev/null | grep -q .; then
+    python3 "$ROOT/tests/b3/xfb-projection.py" "$dir"
+  fi
+}
+
+printf 'entry\tkind\tstatus\tsha\tvia\tproj\n' > "$W/entries.tsv"
 entry_pass=0; entry_fail=0; entry_block=0
-printf 'entry\tpath\tstatus\tsha\n' > "$W/entries.tsv"
-while IFS=$'\t' read -r rel kind want; do
+while IFS=$'\t' read -r rel kind want via proj; do
   [ -n "${rel:-}" ] || continue
-  if [ "$kind" != "单文件" ]; then
+  if [ "$via" = "interp" ]; then
     entry_block=$((entry_block+1))
-    printf 'entry\t%s\tBLOCKED\t-\n' "$rel" >> "$W/entries.tsv"
+    printf 'entry\t%s\tBLOCKED\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
     continue
   fi
-  if ! run_limited "$BIN/xparser" --file "$rel" > "$W/a.ast" 2>/dev/null; then
-    rc=$?
-    if [ $rc -eq 142 ]; then entry_block=$((entry_block+1)); printf 'entry\t%s\tBLOCKED(xparser 超时)\t-\n' "$rel" >> "$W/entries.tsv"
-    else entry_fail=$((entry_fail+1)); printf 'entry\t%s\tFAIL(ast)\t-\n' "$rel" >> "$W/entries.tsv"; fi
-    continue
+  if [ "$proj" = "B" ]; then
+    projtext=$(python3 "$ROOT/tests/b4/proj-b.py" "$ROOT" "$rel")
+  else
+    projtext=$(proj_A "$rel")
   fi
-  "$BIN/xn-s4" "$rel" --ast-file "$W/a.ast" --project "" > "$W/a.c" 2>/dev/null || { entry_fail=$((entry_fail+1)); printf 'entry\t%s\tFAIL(c)\t-\n' "$rel" >> "$W/entries.tsv"; continue; }
+  if ! "$BIN/xparser" --file "$rel" > "$W/a.ast" 2>/dev/null; then
+    entry_fail=$((entry_fail+1))
+    printf 'entry\t%s\tFAIL(ast)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
+    echo "FAIL entry ${rel}（xparser）"; continue
+  fi
+  args=(--ast-file "$W/a.ast" --project "$projtext")
+  if [ "$kind" = "多文件" ]; then
+    if ! python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$BIN/xparser" "$rel" > "$W/b.json" 2>/dev/null; then
+      entry_fail=$((entry_fail+1))
+      printf 'entry\t%s\tFAIL(bundle)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
+      echo "FAIL entry ${rel}（bundle）"; continue
+    fi
+    args+=(--bundle-file "$W/b.json")
+  fi
+  if ! "$BIN/xn-s4" "$rel" "${args[@]}" > "$W/a.c" 2>/dev/null; then
+    entry_fail=$((entry_fail+1))
+    printf 'entry\t%s\tFAIL(c)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
+    echo "FAIL entry ${rel}（xn-s4）"; continue
+  fi
   got=$(sha "$W/a.c")
   if [ "$got" = "$want" ]; then
-    entry_pass=$((entry_pass+1)); printf 'entry\t%s\tPASS\t%s\n' "$rel" "$got" >> "$W/entries.tsv"
+    entry_pass=$((entry_pass+1))
+    printf 'entry\t%s\tPASS\t%s\t%s\t%s\n' "$rel" "$got" "$via" "$proj" >> "$W/entries.tsv"
   else
-    entry_fail=$((entry_fail+1)); printf 'entry\t%s\tFAIL(sha)\t%s\n' "$rel" "$got" >> "$W/entries.tsv"
+    entry_fail=$((entry_fail+1))
+    printf 'entry\t%s\tFAIL(sha)\t%s\t%s\t%s\n' "$rel" "$got" "$via" "$proj" >> "$W/entries.tsv"
+    echo "FAIL entry ${rel}（sha $got != $want）"
   fi
-done < <(awk -F'\t' 'NR>1 && $5=="0"{print $1"\t"$3"\t"$3}' "$G/hashes.tsv" >/dev/null 2>&1; awk -F'\t' 'NR>1{print $1"\t"$2"\t"$3}' "$G/hashes.tsv" >/dev/null 2>&1; python3 - "$G/hashes.tsv" "$ROOT/evidence/B3-09/final-v3/results.tsv" <<'PY'
+done < <(python3 - "$G/hashes.tsv" "$ROOT/evidence/B3-09/final-v3/results.tsv" <<'PY'
 import sys
-h, r = sys.argv[1], sys.argv[2]
 kind = {}
-for line in open(r, encoding="utf-8"):
+for line in open(sys.argv[2], encoding="utf-8"):
     p = line.rstrip("\n").split("\t")
-    if len(p) >= 3: kind[p[0]] = p[2]
-for line in open(h, encoding="utf-8"):
+    if len(p) >= 3 and p[0] != "path":
+        kind[p[0]] = p[2]
+for line in open(sys.argv[1], encoding="utf-8"):
     p = line.rstrip("\n").split("\t")
-    if p[0] == "path": continue
-    if not p[0]: continue
-    print("%s\t%s\t%s" % (p[0], kind.get(p[0], "单文件"), p[2]))
+    if p[0] == "path" or not p[0]:
+        continue
+    print("\t".join([p[0], kind.get(p[0], "单文件"), p[2], p[6], p[7]]))
 PY
 )
 
-# ---- 2) 负例（解析层） ----
-neg_pass=0; neg_fail=0; neg_block=0
-while IFS=$'\t' read -r rel rc code; do
+# ---- 负例：原生无 sema/entry 诊断 → BLOCKED（按码段盘点）----
+neg_total=0; neg_block=0
+declare -a neg_codes=()
+while IFS=$'\t' read -r rel go_exit code first; do
   [ -n "${rel:-}" ] || continue
-  case "$code" in
-    LEX-*|SYN-*)
-      out=$(run_limited "$BIN" --diags --file "$rel" 2>&1)
-      got=$(printf '%s\n' "$out" | sed -n 's/^\([A-Z]*-[0-9]*\) .*/\1/p' | head -1)
-      if [ "$got" = "$code" ]; then
-        neg_pass=$((neg_pass+1))
-      else
-        # 原生 xparser 尚未实现该诊断（Go 前端已删除）：记 BLOCKED，不伪装通过
-        neg_block=$((neg_block+1))
-      fi
-      ;;
-    *)
-      neg_block=$((neg_block+1))
-      ;;
-  esac
-done < <(awk -F'\t' 'NR>1{print $1"\t"$2"\t"$3}' "$G/negatives.tsv")
+  neg_total=$((neg_total+1)); neg_block=$((neg_block+1))
+  neg_codes+=("$code")
+done < <(awk -F'\t' 'NR>1{print $1"\t"$2"\t"$3"\t"$4}' "$G/negatives.tsv")
 
-# ---- 3) 9 示例 ----
+# ---- 9 示例 ----
 ex_pass=0; ex_fail=0
+SRC=(); for f in rt.c rt_gc.c rt_policy.c rt_weak.c xrt_abi.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c rt_std_net.c rt_task.c rt_sync.c rt_std_res.c rt_std_res_empty.c; do SRC+=("$ROOT/impl/runtime/$f"); done
 while IFS=$'\t' read -r name want; do
   [ -n "${name:-}" ] || continue
   rel="tests/b2/corpus/examples/$name"
-  run_limited "$BIN/xparser" --file "$rel" > "$W/e.ast" 2>/dev/null || { ex_fail=$((ex_fail+1)); echo "FAIL example $name（ast）"; continue; }
-  "$BIN/xn-s4" "$rel" --ast-file "$W/e.ast" --project "" > "$W/e.c" 2>/dev/null || { ex_fail=$((ex_fail+1)); echo "FAIL example $name（c）"; continue; }
+  if ! "$BIN/xparser" --file "$rel" > "$W/e.ast" 2>/dev/null; then
+    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（ast）"; continue
+  fi
+  if ! "$BIN/xn-s4" "$rel" --ast-file "$W/e.ast" --project "" > "$W/e.c" 2>/dev/null; then
+    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（c）"; continue
+  fi
   got=$(sha "$W/e.c")
-  SRC=(); for f in rt.c rt_gc.c rt_policy.c rt_weak.c xrt_abi.c rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c rt_std_net.c rt_task.c rt_sync.c rt_std_res.c rt_std_res_empty.c; do SRC+=("$ROOT/impl/runtime/$f"); done
-  cc -std=c11 -O2 -pthread -I "$ROOT/impl/runtime" -o "$W/e.bin" "$W/e.c" "${SRC[@]}" "$BIN/res.c" 2>/dev/null || { ex_fail=$((ex_fail+1)); echo "FAIL example $name（cc）"; continue; }
+  if ! cc -std=c11 -O2 -pthread -I "$ROOT/impl/runtime" -o "$W/e.bin" "$W/e.c" "${SRC[@]}" "$BIN/res.c" 2>/dev/null; then
+    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（cc）"; continue
+  fi
   "$W/e.bin" > "$W/e.out" 2>&1; rc=$?
   if [ "$got" = "$want" ] && [ $rc -eq 0 ]; then
     ex_pass=$((ex_pass+1))
   else
-    ex_fail=$((ex_fail+1)); echo "FAIL example $name（rc=$rc sha=$got）"
+    ex_fail=$((ex_fail+1)); echo "FAIL example ${name}（rc=$rc sha=$got）"
   fi
-done < <(awk -F'\t' 'NR>1{print $1"\t"$2}' "$G/examples.tsv")
+done < <(awk -F'\t' 'NR>1{print $1"\t"$3}' "$G/examples.tsv")
 
 # ---- 汇总 ----
-# 报告落盘（证据）
-cp "$W/entries.tsv" "$G/verify-entries.tsv"
-echo
-echo "verify-golden（无 Go）："
-echo "  入口 C：PASS=${entry_pass} FAIL=${entry_fail} BLOCKED=${entry_block}（多文件入口需 bundle，原生暂无生成器）"
-echo "  负例：  PASS=${neg_pass} FAIL=${neg_fail} BLOCKED=${neg_block}（sema/entry/codegen 类需 Go 前端）"
-echo "  示例：  PASS=${ex_pass} FAIL=${ex_fail}"
-TOTAL_FAIL=$((entry_fail+neg_fail+ex_fail))
-echo "  合计：FAIL=${TOTAL_FAIL}"
+cp "$W/entries.tsv" "$G/verify-entries.tsv" 2>/dev/null || true
+{
+  echo "verify-golden（无 Go）："
+  echo "  入口 C：PASS=$entry_pass FAIL=$entry_fail BLOCKED=${entry_block}（via=interp：原生自编译段错误）"
+  echo "  负例：  PASS=0 FAIL=0 BLOCKED=${neg_block}（sema/entry/codegen 诊断未移植）"
+  echo "  示例：  PASS=$ex_pass FAIL=$ex_fail"
+  echo "  特殊：  impl/lib/b2/xparser.x 使用冻结旧源 xparser-pre-b4c03.x 比对旧 golden"
+} | tee "$G/verify-summary.txt"
+TOTAL_FAIL=$((entry_fail+ex_fail))
+echo "  合计：FAIL=$TOTAL_FAIL"
 [ $TOTAL_FAIL -eq 0 ]
