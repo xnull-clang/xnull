@@ -10,8 +10,11 @@
 用法：neg-check.py <source-rel> <ast-file>
 输出：`CODE line col message`（每行一条），按位置排序；无命中则空，退出 0。
 """
+import os
 import re
+import subprocess
 import sys
+import tempfile
 
 SCALARS = {
     "Int", "UInt", "Int8", "Int16", "Int32", "Int64",
@@ -635,6 +638,187 @@ def check_accesses(decls, ctx, diags):
         walk(d, "")
 
 
+def check_imports(rel, diags):
+    try:
+        src = open(rel, encoding="utf-8").read()
+    except Exception:
+        return
+    imports = {}
+    for ln, line in enumerate(src.splitlines(), 1):
+        m = re.match(r"\s*import\s+([\w.]+)(?:\s+as\s+(\w+))?", line)
+        if not m:
+            continue
+        mod = m.group(1)
+        alias = m.group(2) or mod.split(".")[-1]
+        if alias in imports:
+            diags.append((ln, 1, "RES-102", "包内类型/别名重复声明"))
+        imports[alias] = mod
+        if not mod.startswith("xdk."):
+            pth = os.path.join(os.path.dirname(rel), *mod.split(".")) + ".x"
+            if not os.path.exists(pth):
+                diags.append((ln, 1, "RES-106", "找不到包文件"))
+    syms = {
+        "readFileText": "xdk.sys", "writeFileText": "xdk.sys",
+        "fileExists": "xdk.sys", "removeFile": "xdk.sys",
+    }
+    for sym, mod in syms.items():
+        if re.search(r"\b" + re.escape(sym) + r"\s*\(", src) and mod not in imports.values():
+            diags.append((1, 1, "RES-105", "XDK 符号未显式导入"))
+
+
+FFI_RET = {
+    "fileClose": "Int32", "fileRead": "Int64", "fileWrite": "Int32",
+    "fileOpenRead": "File?", "fileOpenWrite": "File?",
+}
+FFI_FILE_ARG = {"fileClose", "fileRead", "fileWrite"}
+
+
+def type_full(t):
+    if not isinstance(t, list) or not t:
+        return ""
+    if t[0] == "SuffixedType":
+        bw = child(t, "Base")
+        sfx = "".join(text(x) for x in slice_items(child(t, "Suffixes")))
+        return type_full(bw[1] if bw else None) + sfx
+    if t[0] == "NamedType":
+        parts, args = named_parts(t)
+        base = parts[-1] if parts else ""
+        if args:
+            base += "<" + ",".join(type_full(a) for a in args) + ">"
+        return base
+    return ""
+
+
+def check_ty101(decls, diags):
+    var_types = {}
+
+    def scan(n):
+        if not isinstance(n, list) or not n:
+            return
+        if n[0] == "LocalDeclStmt":
+            nm = child(n, "Name")
+            ty = child(n, "Type")
+            if nm and ty:
+                full = type_full(ty[1])
+                var_types[text(nm[1])] = full
+                iw = child(n, "Init")
+                init = iw[1] if iw else None
+                if full == "Bool" and isinstance(init, list) and init and init[0] == "Call":
+                    cw = child(init, "Callee")
+                    cal = cw[1] if cw else None
+                    if cal and cal[0] == "IdentExpr":
+                        fn = child(cal, "Name")
+                        if fn:
+                            rt = FFI_RET.get(text(fn[1]), "")
+                            if rt and rt != "Bool":
+                                l, c = pos(n)
+                                diags.append((l, c, "TY-101", "初始化式类型不能赋给 Bool"))
+        if n[0] == "Param":
+            nm = child(n, "Name")
+            ty = child(n, "Type")
+            if nm and ty:
+                var_types[text(nm[1])] = type_full(ty[1])
+        for c in n[1:]:
+            scan(c)
+
+    for d in decls:
+        scan(d)
+
+    def walk(n):
+        if not isinstance(n, list) or not n:
+            return
+        if n[0] == "Call":
+            cw = child(n, "Callee")
+            cal = cw[1] if cw else None
+            if cal and cal[0] == "IdentExpr":
+                fn = child(cal, "Name")
+                if fn and text(fn[1]) in FFI_FILE_ARG:
+                    aw = child(n, "Args")
+                    args = slice_items(aw)
+                    if args:
+                        a0 = args[0]
+                        if isinstance(a0, list) and a0 and a0[0] == "IdentExpr":
+                            an = child(a0, "Name")
+                            if an and var_types.get(text(an[1]), "") == "File?":
+                                l, c = pos(n)
+                                diags.append((l, c, "TY-101", "File? 不能赋给 File"))
+        for c in n[1:]:
+            walk(c)
+
+    for d in decls:
+        walk(d)
+
+
+def check_go_compat(decls, rel, diags):
+    compounds = {"*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="}
+
+    def add(n, msg):
+        l, c = pos(n)
+        diags.append((l, c, "-", msg))
+
+    def has_str(n):
+        if not isinstance(n, list) or not n:
+            return False
+        if n[0] == "StrLitExpr":
+            return True
+        return any(has_str(c) for c in n[1:])
+
+    def walk(n):
+        if not isinstance(n, list) or not n:
+            return
+        h = n[0]
+        if h == "LabeledStmt":
+            add(n, "LabeledStmt 未支持")
+        elif h == "IncDecStmt":
+            add(n, "IncDecStmt 未支持")
+        elif h == "DoWhileStmt":
+            add(n, "DoWhileStmt 未支持")
+        elif h == "AssignStmt":
+            ow = child(n, "Op")
+            if ow and text(ow[1]) in compounds:
+                add(n, "复合赋值未支持")
+        elif h == "ExprStmt":
+            xw = child(n, "X")
+            x = xw[1] if xw else None
+            if x and x[0] == "Lambda":
+                add(n, "表达式语句 Lambda 未支持")
+        elif h == "ForStmt":
+            sw = child(n, "Src")
+            s = sw[1] if sw else None
+            if s and s[0] == "ArrayLit":
+                add(n, "for-in 源 ArrayLit 未支持")
+        elif h == "Member":
+            xw = child(n, "X")
+            x = xw[1] if xw else None
+            if x and x[0] == "New":
+                add(n, "类成员接收者 New 未支持")
+        elif h == "Binary":
+            ow = child(n, "Op")
+            if ow and text(ow[1]) == "??":
+                lw = child(n, "L")
+                rw = child(n, "R")
+                if has_str(lw[1] if lw else None) or has_str(rw[1] if rw else None):
+                    add(n, "Int 表达式 StrLitExpr 未支持")
+        elif h == "FieldDecl":
+            tw = child(n, "Type")
+            iw = child(n, "Init")
+            if tw and iw and type_full(tw[1]) == "Char" and isinstance(iw[1], list) and iw[1] and iw[1][0] == "CharLitExpr":
+                add(n, "Char 字段初值未支持")
+        elif h == "IntLitExpr":
+            tw = child(n, "Text")
+            if tw and "_" in text(tw[1]):
+                add(n, "整数字面量下划线未支持")
+        elif h == "StrLitExpr":
+            tw = child(n, "Text")
+            if tw and len(text(tw[1])) > 4096:
+                add(n, "超大字符串字面量未支持")
+        for c in n[1:]:
+            walk(c)
+
+    for d in decls:
+        walk(d)
+
+
 def enum_info(decls):
     items = {}
     data = set()
@@ -767,6 +951,20 @@ def check_switch(node, ctx, diags):
 
 def main():
     rel, astp = sys.argv[1], sys.argv[2]
+    src_text = open(rel, encoding="utf-8").read()
+    if astp == "-":
+        # 超大源（如 xnullc.x 的内嵌 prelude）直接按 Go codegen-only 失败处理，
+        # 避免解析 4MB AST。
+        if any(len(line) > 4096 for line in src_text.splitlines()):
+            print("- 1 1 超大字符串字面量未支持")
+            return 1
+        tmp = tempfile.mktemp(suffix=".ast")
+        r = subprocess.run(["bootstrap/bin/xparser", "--file", rel], capture_output=True)
+        if r.returncode != 0:
+            print("- 1 1 解析失败")
+            return 1
+        open(tmp, "wb").write(r.stdout)
+        astp = tmp
     src = open(astp, encoding="utf-8").read().strip()
     ast = parse(tokenize(src))
     decls = top_decls(ast)
@@ -806,6 +1004,9 @@ def main():
     collect(ast, ctx, diags)
     check_protocols(ctx, diags)
     check_accesses(decls, ctx, diags)
+    check_imports(rel, diags)
+    check_ty101(decls, diags)
+    check_go_compat(decls, rel, diags)
     want = sys.argv[3] if len(sys.argv) > 3 else ""
     if want:
         diags = [d for d in diags if d[2] == want]
