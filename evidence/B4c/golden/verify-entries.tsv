@@ -14,7 +14,7 @@ entry	tests/b3/fixtures/obj/struct_point.x	PASS	02df44ef31fd29b4a7e761c5c2f18b9d
 entry	tests/b3/fixtures/obj2/dispatch.x	PASS	1c1dc9e92ce8bdb42a3261e96579614ca3e7590524d6e0c81ea97e5cf1846bf6	native	A
 entry	tests/b3/fixtures/tuple/param_ret.x	PASS	0770875df48972dcee392f356a8c547bcf943a0e38d4ef9bc46f55136cf0f46e	native	A
 entry	tests/s3/mem05/other.x	PASS	815bebe5739a147536cd831d1a6008b0affa60c74a2452131734f65f086f2eed	native	A
-entry	impl/lib/b2/xparser.x	PASS	8de76400ee44788771e5ec8c7863255342aa7fd7d5b9cc37a2b9ae4bd879510b	native	B
+entry	impl/lib/b2/xparser.x	PASS	391ec8465bb95396f80e84a6c29ebeaf20c2802bdc7ed51da52363f33d514470	native	B
 entry	difftest/s2/bnd03/a02_dynamic.x	PASS	7f3ed85ada53d4978507303630b07e4af031792d96bf5578f1276974614730b4	native	A
 entry	difftest/s2/bnd05/a01_impl_ok.x	PASS	11a9924386fe1519be591b5e314333e3c3e0c27ec7d64bea620025697dca314e	native	A
 entry	examples/parser-seed.x	PASS	4ff6444bf6853683f1f6cb7b6da45b11e833c3b214527ece5e5336b16de6c1f4	native	A
