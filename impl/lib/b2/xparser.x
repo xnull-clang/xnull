@@ -1095,6 +1095,7 @@ class TP {
 class Parser {
     List<Tok> toks = []
     Int i = 0
+    Int inNew = 0
     List<Diag> diags = []
 
     Parser(List<Tok> ts) { self.toks = ts }
@@ -1278,7 +1279,13 @@ class Parser {
             if self.atOp(">") { self.next() }
         }
         String primary = "(nil)"
-        if self.at(10) { primary = self.parseCtor(sl, sc, []) }
+        if self.at(10) {
+            // 主构造器只有参数列表，没有独立函数体；`{` 属于类体。
+            Int pl = self.cur().line
+            Int pc = self.cur().col
+            List<String> pps = self.parseParams()
+            primary = "(CtorDecl " + P(pl, pc) + " (Annos (slice)) (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Params " + SL(pps) + ") (Body (nil)))"
+        }
         String base = "(nil)"
         if self.atOp(":") { self.next(); base = self.parseType() }
         List<String> protos = []
@@ -1343,6 +1350,9 @@ class Parser {
             }
         } else if kw == "factory" || kw == "extension" {
             if self.atKw("for") { self.next(); base = self.parseType() }
+            if kw == "extension" && base == "(nil)" {
+                base = "(NamedType " + P(nl, nc) + " (Qual (slice " + q(name) + ")) (Args (slice)))"
+            }
             // factory 的 `{` 在 target 之后（`factory F for T {`）；通用位置在 target 之前检查不到。
             if self.at(12) { self.next() }
             while !self.at(13) && !self.eof() {
@@ -1511,7 +1521,15 @@ class Parser {
                 while !self.atOp(">") && !self.eof() {
                     if self.at(16) { self.next(); continue }
                     if self.at(9) && self.cur().text == ">>" {
-                        self.next()
+                        // 嵌套泛型右括号被词法器合并为 ">>"：拆成两个 ">"，
+                        // 当前层消费一个，插入的一个留给外层 parseType。
+                        self.cur().text = ">"
+                        Tok extra = new Tok()
+                        extra.kind = 9
+                        extra.text = ">"
+                        extra.line = self.cur().line
+                        extra.col = self.cur().col
+                        self.toks.insert(self.i + 1, extra)
                         break
                     }
                     tas.push(self.parseType())
@@ -1519,6 +1537,18 @@ class Parser {
                 if self.atOp(">") { self.next() }
             }
             base = "(NamedType " + P(t.line, t.col) + " (Qual " + SLS(qn) + ") (Args " + SL(tas) + "))"
+            // 函数类型：Ret(Param, ...)，如 Bool(T, T)。new 表达式里的
+            // `new Point(2, 3)` 是构造调用，不能按函数类型解析。
+            if self.inNew == 0 && self.at(10) {
+                self.next()
+                List<String> ps = []
+                while !self.at(11) && !self.eof() {
+                    if self.at(16) { self.next(); continue }
+                    ps.push(self.parseType())
+                }
+                if self.at(11) { self.next() }
+                base = "(FuncTypeRef " + P(t.line, t.col) + " (Ret " + base + ") (Params " + SL(ps) + "))"
+            }
         }
         List<String> sufs = []
         while true {
@@ -1572,24 +1602,29 @@ class Parser {
                 n == "Map" || n == "List" || n == "Set" || n == "Result" || n == "Object" || n == "Any" {
                 return true
             }
-            if self.toks.get(self.i + 1).kind == 2 && (self.toks.get(self.i + 2).kind == 9 || self.toks.get(self.i + 2).kind == 1) {
-                return true
-            }
-            if self.toks.get(self.i + 1).kind == 9 && self.toks.get(self.i + 1).text == "?" && self.toks.get(self.i + 2).kind == 2 {
-                return true
-            }
-            if self.toks.get(self.i + 1).kind == 9 && self.toks.get(self.i + 1).text == "<" {
-                Int j = self.i + 2
+            Int j = self.i + 1
+            if self.toks.get(j).kind == 9 && self.toks.get(j).text == "<" {
                 Int dep = 1
+                j = j + 1
                 while j < self.toks.length() && dep > 0 {
                     Tok x = self.toks.get(j)
                     if x.kind == 9 && x.text == "<" { dep = dep + 1 }
+                    else if x.kind == 9 && x.text == ">>" { dep = dep - 2 }
                     else if x.kind == 9 && x.text == ">" { dep = dep - 1 }
                     j = j + 1
                 }
-                if dep == 0 && j < self.toks.length() && self.toks.get(j).kind == 2 {
-                    return true
-                }
+                if dep > 0 { return false }
+            }
+            while j + 1 < self.toks.length() && self.toks.get(j).kind == 14 && self.toks.get(j + 1).kind == 15 {
+                j = j + 2
+            }
+            if j + 1 < self.toks.length() && self.toks.get(j).kind == 2 &&
+                (self.toks.get(j + 1).kind == 9 || self.toks.get(j + 1).kind == 1) {
+                return true
+            }
+            if j + 1 < self.toks.length() && self.toks.get(j).kind == 9 && self.toks.get(j).text == "?" &&
+                self.toks.get(j + 1).kind == 2 {
+                return true
             }
         }
         return false
@@ -1762,7 +1797,7 @@ class Parser {
     E parseExpr() { return self.parseTernary() }
 
     E parseTernary() {
-        E c = self.parseBin(1)
+        E c = self.parseCoalesce()
         if self.atOp("?") {
             Tok t = self.next()
             E a = self.parseExpr()
@@ -1776,13 +1811,26 @@ class Parser {
         return c
     }
 
+    E parseCoalesce() {
+        E l = self.parseBin(1)
+        if self.atOp("??") {
+            Tok op = self.next()
+            E r = self.parseCoalesce()
+            E be = self.mk("(Binary " + P(op.line, op.col) + " (Op \"??\") (L " + l.d + ") (R " + r.d + "))", op.line, op.col)
+            be.sl = l.sl
+            be.sc = l.sc
+            return be
+        }
+        return l
+    }
+
     Int prec(String op) {
         if op == "||" { return 1 }
         if op == "&&" { return 2 }
         if op == "|" { return 3 }
         if op == "^" { return 4 }
         if op == "&" { return 5 }
-        if op == "==" || op == "!=" || op == "===" { return 6 }
+        if op == "==" || op == "!=" || op == "===" || op == "!==" { return 6 }
         if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "is" || op == "as" || op == "as?" { return 7 }
         if op == "..<" || op == "..." { return 8 }
         if op == "<<" || op == ">>" { return 9 }
@@ -1805,6 +1853,7 @@ class Parser {
                 self.err("SYN-108", op.line, op.col, "语句未终止（同一行的下一条语句前缺少 `;`）")
             }
             E r = self.mk("(nil)", 0, 0)
+            if op.text == "as" && self.atOp("?") { self.next(); op.text = "as?" }
             if op.text == "is" || op.text == "as" || op.text == "as?" {
                 String ty = self.parseType()
                 String ta = "(TypeAsExpr " + P(0, 0) + " (Type " + ty + ") (Is " + B(op.text == "is") + ") (NullSafe " + B(op.text == "as?") + "))"
@@ -1975,7 +2024,10 @@ class Parser {
             } else {
                 Int j = 0
                 while j < t.interps.length() {
-                    parts.push("(StrPart (Text " + q(t.segs.get(j)) + ") (Expr " + self.parseSubExpr(t.interps.get(j)) + "))")
+                    if t.segs.get(j) != "" {
+                        parts.push("(StrPart (Text " + q(t.segs.get(j)) + ") (Expr (nil)))")
+                    }
+                    parts.push("(StrPart (Text \"\") (Expr " + self.parseSubExpr(t.interps.get(j)) + "))")
                     j = j + 1
                 }
                 String tail = t.segs.get(t.segs.length() - 1)
@@ -2026,6 +2078,11 @@ class Parser {
         if t.kind == 14 {
             self.next()
             if self.at(15) { self.next(); return self.mk("(ArrayLit " + P(t.line, t.col) + " (Elems (slice)))", t.line, t.col) }
+            if self.atOp(":") {
+                self.next()
+                if self.at(15) { self.next() }
+                return self.mk("(MapLit " + P(t.line, t.col) + " (Keys (slice)) (Vals (slice)))", t.line, t.col)
+            }
             E first = self.parseExpr()
             if self.atOp(":") {
                 self.next()
@@ -2051,7 +2108,9 @@ class Parser {
         }
         if t.kind == 3 && t.text == "new" {
             self.next()
+            self.inNew = self.inNew + 1
             String ty = self.parseType()
+            self.inNew = self.inNew - 1
             if self.at(14) {
                 self.next()
                 E cnt = self.parseExpr()

@@ -6,7 +6,7 @@
 | 文件 | 来源 | sha256（前 12 位） |
 |---|---|---|
 | `xn-s4.c` | B3-10 固定点（xnullc 自举第四代），116,085 行 | `347908a93865` |
-| `xparser.c` | Go oracle：`XNULL_FRONTEND=go xnull build --emit-c impl/lib/b2/xparser.x` | `ff721a9c7dac` |
+| `xparser.c` | B4c-03 原生自举：`tests/b4/rebuild-xparser.sh`（xn-s4 + 原生 bundle + proj B） | `8de76400ee44` |
 
 产物（`bootstrap/bin/`，**不入库**，由 `.gitignore` 忽略）：
 
@@ -52,7 +52,8 @@ bin/xnull --bootstrap examples        # 9/9
 
 ## 边界
 
-- `xparser.c` 由 Go oracle 生成一次后冻结；本目录不再需要 Go。
+- `xparser.c` 由 B4c-03 原生工具链生成；`tests/b4/rebuild-xparser.sh` 可复现（需已有
+  `bootstrap/bin/{xparser,xn-s4}`），不调用 Go。
 - `xn-s4.c` 是固定点产物（`xn-s2.c == xn-s3.c == xn-s4.c`），sha256 见上表。
 - 资源表固定为空表；资源/FFI 投影、`.xlib` 打包等仍由 `tests/b4/` 的原型 CLI 处理。
-- `bootstrap/bin/` 不入库；如需更新 C 源，必须在有 Go 的环境重新生成并单独评审。
+- `bootstrap/bin/` 不入库；更新 C 源后必须重跑 `tests/b4/verify-golden.sh` 并单独评审。

@@ -13164,6 +13164,7 @@ typedef struct xn_Cls_Parser {
     rt_header hdr;
     xn_arr_o_Tok * toks;
     int64_t i;
+    int64_t inNew;
     xn_arr_o_Diag * diags;
 } xn_Cls_Parser;
 
@@ -13183,12 +13184,13 @@ static void xn_Cls_Parser_new_init(xn_Cls_Parser *o, xn_arr_o_Tok * xn_p_ts) {
     xn_arr_o_Tok *xn_t2067 = xn_arr_o_Tok_new(0);
     o->toks = xn_t2067;
     o->i = 0;
+    o->inNew = 0;
     xn_arr_o_Diag *xn_t2068 = xn_arr_o_Diag_new(0);
     o->diags = xn_t2068;
 size_t xn_t2069 = xn_root_mark();
 xn_root_add(o);
 xn_root_add(xn_p_ts);
-#line 1100 "impl/lib/b2/xparser.x"
+#line 1101 "impl/lib/b2/xparser.x"
 o->toks = xn_p_ts;
     {
     xn_root_restore(xn_t2069);
@@ -13237,6 +13239,7 @@ static rt_string * xn_Cls_Parser_parseDefer(xn_Cls_Parser *self);
 static xn_Cls_E * xn_Cls_Parser_mk(xn_Cls_Parser *self, rt_string * xn_p_d, int64_t xn_p_l, int64_t xn_p_c);
 static xn_Cls_E * xn_Cls_Parser_parseExpr(xn_Cls_Parser *self);
 static xn_Cls_E * xn_Cls_Parser_parseTernary(xn_Cls_Parser *self);
+static xn_Cls_E * xn_Cls_Parser_parseCoalesce(xn_Cls_Parser *self);
 static int64_t xn_Cls_Parser_prec(xn_Cls_Parser *self, rt_string * xn_p_op);
 static xn_Cls_E * xn_Cls_Parser_parseBin(xn_Cls_Parser *self, int64_t xn_p_lvl);
 static xn_Cls_E * xn_Cls_Parser_parseUnary(xn_Cls_Parser *self);
@@ -13251,26 +13254,26 @@ size_t xn_t2070 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_code);
 xn_root_add(xn_p_msg);
-#line 1103 "impl/lib/b2/xparser.x"
+#line 1104 "impl/lib/b2/xparser.x"
 xn_Cls_Diag * d = xn_Cls_Diag_new();
 xn_root_add(d);
 xn_root_add(d);
 xn_gc_safepoint();
-#line 1104 "impl/lib/b2/xparser.x"
+#line 1105 "impl/lib/b2/xparser.x"
 rt_string *xn_t2071 = rt_retain(xn_p_code);
 xn_root_add(xn_t2071);
 rt_release(d->code);
 d->code = xn_t2071;
-#line 1105 "impl/lib/b2/xparser.x"
-d->line = xn_p_l;
 #line 1106 "impl/lib/b2/xparser.x"
-d->col = xn_p_c;
+d->line = xn_p_l;
 #line 1107 "impl/lib/b2/xparser.x"
+d->col = xn_p_c;
+#line 1108 "impl/lib/b2/xparser.x"
 rt_string *xn_t2072 = rt_retain(xn_p_msg);
 xn_root_add(xn_t2072);
 rt_release(d->msg);
 d->msg = xn_t2072;
-#line 1108 "impl/lib/b2/xparser.x"
+#line 1109 "impl/lib/b2/xparser.x"
 xn_arr_o_Diag_push(self->diags, d);
     {
     xn_root_restore(xn_t2070);
@@ -13280,7 +13283,7 @@ xn_arr_o_Diag_push(self->diags, d);
 static xn_Cls_Tok * xn_Cls_Parser_cur(xn_Cls_Parser *self) {
 size_t xn_t2073 = xn_root_mark();
 xn_root_add(self);
-#line 1111 "impl/lib/b2/xparser.x"
+#line 1112 "impl/lib/b2/xparser.x"
     {
 xn_root_restore(xn_t2073);
     }
@@ -13292,7 +13295,7 @@ return xn_arr_o_Tok_get(self->toks, self->i);
 static int xn_Cls_Parser_at(xn_Cls_Parser *self, int64_t xn_p_k) {
 size_t xn_t2074 = xn_root_mark();
 xn_root_add(self);
-#line 1112 "impl/lib/b2/xparser.x"
+#line 1113 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2075 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2075);
 xn_root_add(xn_t2075);
@@ -13309,7 +13312,7 @@ static int xn_Cls_Parser_atOp(xn_Cls_Parser *self, rt_string * xn_p_s) {
 size_t xn_t2077 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_s);
-#line 1113 "impl/lib/b2/xparser.x"
+#line 1114 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2078 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2078);
 xn_root_add(xn_t2078);
@@ -13335,7 +13338,7 @@ static int xn_Cls_Parser_atKw(xn_Cls_Parser *self, rt_string * xn_p_s) {
 size_t xn_t2083 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_s);
-#line 1114 "impl/lib/b2/xparser.x"
+#line 1115 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2084 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2084);
 xn_root_add(xn_t2084);
@@ -13360,14 +13363,14 @@ return xn_t2088;
 static xn_Cls_Tok * xn_Cls_Parser_next(xn_Cls_Parser *self) {
 size_t xn_t2089 = xn_root_mark();
 xn_root_add(self);
-#line 1115 "impl/lib/b2/xparser.x"
+#line 1116 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1115 "impl/lib/b2/xparser.x"
+#line 1116 "impl/lib/b2/xparser.x"
 self->i = (self->i + 1);
-#line 1115 "impl/lib/b2/xparser.x"
+#line 1116 "impl/lib/b2/xparser.x"
     {
 xn_root_restore(xn_t2089);
     }
@@ -13379,7 +13382,7 @@ return t;
 static int xn_Cls_Parser_eof(xn_Cls_Parser *self) {
 size_t xn_t2090 = xn_root_mark();
 xn_root_add(self);
-#line 1116 "impl/lib/b2/xparser.x"
+#line 1117 "impl/lib/b2/xparser.x"
 int xn_t2091 = xn_Cls_Parser_at(self, 0);
     {
 xn_root_restore(xn_t2090);
@@ -13392,42 +13395,42 @@ return xn_t2091;
 static rt_string * xn_Cls_Parser_parseUnit(xn_Cls_Parser *self) {
 size_t xn_t2092 = xn_root_mark();
 xn_root_add(self);
-#line 1119 "impl/lib/b2/xparser.x"
+#line 1120 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2093 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2093);
 int64_t sl = xn_t2093->line;
-#line 1120 "impl/lib/b2/xparser.x"
+#line 1121 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2094 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2094);
 int64_t sc = xn_t2094->col;
-#line 1121 "impl/lib/b2/xparser.x"
+#line 1122 "impl/lib/b2/xparser.x"
 rt_string *pkg = rt_string_from_c("(nil)");
 xn_root_add(pkg);
 xn_root_add(pkg);
 xn_gc_safepoint();
-#line 1122 "impl/lib/b2/xparser.x"
+#line 1123 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2096 = xn_arr_s_new(0);
 xn_root_add(xn_t2096);
 xn_arr_s * imps = xn_t2096;
 xn_root_add(imps);
 xn_root_add(imps);
 xn_gc_safepoint();
-#line 1123 "impl/lib/b2/xparser.x"
+#line 1124 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2097 = xn_arr_s_new(0);
 xn_root_add(xn_t2097);
 xn_arr_s * ds = xn_t2097;
 xn_root_add(ds);
 xn_root_add(ds);
 xn_gc_safepoint();
-#line 1124 "impl/lib/b2/xparser.x"
+#line 1125 "impl/lib/b2/xparser.x"
     while (((!(xn_Cls_Parser_eof(self))))) {
     size_t xn_t2098 = xn_root_mark();
-    #line 1125 "impl/lib/b2/xparser.x"
+    #line 1126 "impl/lib/b2/xparser.x"
         if ((xn_Cls_Parser_at(self, 1))) {
             size_t xn_t2099 = xn_root_mark();
-            #line 1125 "impl/lib/b2/xparser.x"
+            #line 1126 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
-            #line 1125 "impl/lib/b2/xparser.x"
+            #line 1126 "impl/lib/b2/xparser.x"
             xn_root_restore(xn_t2099);
             xn_root_restore(xn_t2098);
             continue;
@@ -13436,20 +13439,20 @@ xn_gc_safepoint();
                 }
 
         }
-    #line 1126 "impl/lib/b2/xparser.x"
+    #line 1127 "impl/lib/b2/xparser.x"
     rt_string *xn_t2100 = rt_string_from_c("package");
 xn_root_add(xn_t2100);
     xn_root_add(xn_t2100);
         if ((xn_Cls_Parser_atKw(self, xn_t2100))) {
             size_t xn_t2101 = xn_root_mark();
-            #line 1127 "impl/lib/b2/xparser.x"
+            #line 1128 "impl/lib/b2/xparser.x"
             xn_Cls_Tok * pt = xn_Cls_Parser_next(self);
 xn_root_add(pt);
     xn_root_add(pt);
             xn_root_add(pt);
             xn_root_add(pt);
             xn_gc_safepoint();
-            #line 1128 "impl/lib/b2/xparser.x"
+            #line 1129 "impl/lib/b2/xparser.x"
             xn_arr_s *xn_t2102 = xn_arr_s_new(0);
 xn_root_add(xn_t2102);
     xn_root_add(xn_t2102);
@@ -13460,10 +13463,10 @@ xn_root_add(qn);
             xn_root_add(qn);
             xn_root_add(qn);
             xn_gc_safepoint();
-            #line 1129 "impl/lib/b2/xparser.x"
+            #line 1130 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 2))) {
                     size_t xn_t2103 = xn_root_mark();
-                    #line 1129 "impl/lib/b2/xparser.x"
+                    #line 1130 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * xn_t2104 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2104);
     xn_root_add(xn_t2104);
@@ -13480,7 +13483,7 @@ xn_root_add(xn_t2105);
                         }
 
                 }
-            #line 1130 "impl/lib/b2/xparser.x"
+            #line 1131 "impl/lib/b2/xparser.x"
                 while (1) {
                     rt_string *xn_t2106 = rt_string_from_c(".");
 xn_root_add(xn_t2106);
@@ -13488,12 +13491,12 @@ xn_root_add(xn_t2106);
             xn_root_add(xn_t2106);
                     if (!((xn_Cls_Parser_atOp(self, xn_t2106)))) { break; }
                     size_t xn_t2107 = xn_root_mark();
-                    #line 1130 "impl/lib/b2/xparser.x"
+                    #line 1131 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1130 "impl/lib/b2/xparser.x"
+                    #line 1131 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 2))) {
                             size_t xn_t2108 = xn_root_mark();
-                            #line 1130 "impl/lib/b2/xparser.x"
+                            #line 1131 "impl/lib/b2/xparser.x"
                             xn_Cls_Tok * xn_t2109 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2109);
     xn_root_add(xn_t2109);
@@ -13518,17 +13521,17 @@ xn_root_add(xn_t2110);
 
                     xn_gc_safepoint();
                 }
-            #line 1131 "impl/lib/b2/xparser.x"
+            #line 1132 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 1))) {
                     size_t xn_t2111 = xn_root_mark();
-                    #line 1131 "impl/lib/b2/xparser.x"
+                    #line 1132 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
                         xn_root_restore(xn_t2111);
                         }
 
                 }
-            #line 1132 "impl/lib/b2/xparser.x"
+            #line 1133 "impl/lib/b2/xparser.x"
             rt_string *xn_t2112 = rt_string_from_c("(PackageDecl ");
 xn_root_add(xn_t2112);
     xn_root_add(xn_t2112);
@@ -13570,7 +13573,7 @@ xn_root_add(xn_t2120);
             pkg = xn_t2120;
             xn_root_hold(pkg);
             xn_gc_safepoint();
-            #line 1133 "impl/lib/b2/xparser.x"
+            #line 1134 "impl/lib/b2/xparser.x"
             xn_root_restore(xn_t2101);
             xn_root_restore(xn_t2098);
             continue;
@@ -13579,20 +13582,20 @@ xn_root_add(xn_t2120);
                 }
 
         }
-    #line 1135 "impl/lib/b2/xparser.x"
+    #line 1136 "impl/lib/b2/xparser.x"
     rt_string *xn_t2121 = rt_string_from_c("import");
 xn_root_add(xn_t2121);
     xn_root_add(xn_t2121);
         if ((xn_Cls_Parser_atKw(self, xn_t2121))) {
             size_t xn_t2122 = xn_root_mark();
-            #line 1136 "impl/lib/b2/xparser.x"
+            #line 1137 "impl/lib/b2/xparser.x"
             xn_Cls_Tok * it = xn_Cls_Parser_next(self);
 xn_root_add(it);
     xn_root_add(it);
             xn_root_add(it);
             xn_root_add(it);
             xn_gc_safepoint();
-            #line 1137 "impl/lib/b2/xparser.x"
+            #line 1138 "impl/lib/b2/xparser.x"
             xn_arr_s *xn_t2123 = xn_arr_s_new(0);
 xn_root_add(xn_t2123);
     xn_root_add(xn_t2123);
@@ -13603,10 +13606,10 @@ xn_root_add(qn);
             xn_root_add(qn);
             xn_root_add(qn);
             xn_gc_safepoint();
-            #line 1138 "impl/lib/b2/xparser.x"
+            #line 1139 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 2))) {
                     size_t xn_t2124 = xn_root_mark();
-                    #line 1138 "impl/lib/b2/xparser.x"
+                    #line 1139 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * xn_t2125 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2125);
     xn_root_add(xn_t2125);
@@ -13623,7 +13626,7 @@ xn_root_add(xn_t2126);
                         }
 
                 }
-            #line 1139 "impl/lib/b2/xparser.x"
+            #line 1140 "impl/lib/b2/xparser.x"
                 while (1) {
                     rt_string *xn_t2127 = rt_string_from_c(".");
 xn_root_add(xn_t2127);
@@ -13631,12 +13634,12 @@ xn_root_add(xn_t2127);
             xn_root_add(xn_t2127);
                     if (!((xn_Cls_Parser_atOp(self, xn_t2127)))) { break; }
                     size_t xn_t2128 = xn_root_mark();
-                    #line 1139 "impl/lib/b2/xparser.x"
+                    #line 1140 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1139 "impl/lib/b2/xparser.x"
+                    #line 1140 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 2))) {
                             size_t xn_t2129 = xn_root_mark();
-                            #line 1139 "impl/lib/b2/xparser.x"
+                            #line 1140 "impl/lib/b2/xparser.x"
                             xn_Cls_Tok * xn_t2130 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2130);
     xn_root_add(xn_t2130);
@@ -13661,26 +13664,26 @@ xn_root_add(xn_t2131);
 
                     xn_gc_safepoint();
                 }
-            #line 1140 "impl/lib/b2/xparser.x"
+            #line 1141 "impl/lib/b2/xparser.x"
             rt_string *al = rt_string_from_c("");
 xn_root_add(al);
     xn_root_add(al);
             xn_root_add(al);
             xn_root_add(al);
             xn_gc_safepoint();
-            #line 1141 "impl/lib/b2/xparser.x"
+            #line 1142 "impl/lib/b2/xparser.x"
             rt_string *xn_t2133 = rt_string_from_c("as");
 xn_root_add(xn_t2133);
     xn_root_add(xn_t2133);
             xn_root_add(xn_t2133);
                 if ((xn_Cls_Parser_atKw(self, xn_t2133))) {
                     size_t xn_t2134 = xn_root_mark();
-                    #line 1141 "impl/lib/b2/xparser.x"
+                    #line 1142 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1141 "impl/lib/b2/xparser.x"
+                    #line 1142 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 2))) {
                             size_t xn_t2135 = xn_root_mark();
-                            #line 1141 "impl/lib/b2/xparser.x"
+                            #line 1142 "impl/lib/b2/xparser.x"
                             xn_Cls_Tok * xn_t2136 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2136);
     xn_root_add(xn_t2136);
@@ -13708,17 +13711,17 @@ xn_root_add(xn_t2137);
                         }
 
                 }
-            #line 1142 "impl/lib/b2/xparser.x"
+            #line 1143 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 1))) {
                     size_t xn_t2138 = xn_root_mark();
-                    #line 1142 "impl/lib/b2/xparser.x"
+                    #line 1143 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
                         xn_root_restore(xn_t2138);
                         }
 
                 }
-            #line 1143 "impl/lib/b2/xparser.x"
+            #line 1144 "impl/lib/b2/xparser.x"
             rt_string *xn_t2139 = rt_string_from_c("(ImportDecl ");
 xn_root_add(xn_t2139);
     xn_root_add(xn_t2139);
@@ -13776,7 +13779,7 @@ xn_root_add(xn_t2152);
     xn_root_add(xn_t2152);
             xn_root_add(xn_t2152);
             xn_arr_s_push(imps, xn_t2152);
-            #line 1144 "impl/lib/b2/xparser.x"
+            #line 1145 "impl/lib/b2/xparser.x"
             xn_root_restore(xn_t2122);
             xn_root_restore(xn_t2098);
             continue;
@@ -13789,7 +13792,7 @@ xn_root_add(xn_t2152);
                 }
 
         }
-    #line 1146 "impl/lib/b2/xparser.x"
+    #line 1147 "impl/lib/b2/xparser.x"
     rt_string *xn_t2153 = xn_Cls_Parser_parseTop(self);
 xn_root_add(xn_t2153);
     xn_root_add(xn_t2153);
@@ -13800,7 +13803,7 @@ xn_root_add(xn_t2153);
 
     xn_gc_safepoint();
     }
-#line 1148 "impl/lib/b2/xparser.x"
+#line 1149 "impl/lib/b2/xparser.x"
 rt_string *xn_t2154 = rt_string_from_c("(CompilationUnit ");
 xn_root_add(xn_t2154);
 rt_string *xn_t2155 = xn_P(sl, sc);
@@ -13837,7 +13840,7 @@ rt_string *body = xn_concat(xn_t2168, xn_t2169);
 xn_root_add(body);
 xn_root_add(body);
 xn_gc_safepoint();
-#line 1151 "impl/lib/b2/xparser.x"
+#line 1152 "impl/lib/b2/xparser.x"
 rt_string *xn_t2171 = rt_string_from_c("(xnast v1 ");
 xn_root_add(xn_t2171);
 xn_root_add(xn_t2171);
@@ -13871,20 +13874,20 @@ xn_root_release(pkg);
 static rt_string * xn_Cls_Parser_parseTop(xn_Cls_Parser *self) {
 size_t xn_t2176 = xn_root_mark();
 xn_root_add(self);
-#line 1155 "impl/lib/b2/xparser.x"
+#line 1156 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2177 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2177);
 int64_t sl = xn_t2177->line;
-#line 1156 "impl/lib/b2/xparser.x"
+#line 1157 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2178 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2178);
 int64_t sc = xn_t2178->col;
-#line 1157 "impl/lib/b2/xparser.x"
+#line 1158 "impl/lib/b2/xparser.x"
 xn_arr_s * annos = xn_Cls_Parser_parseAnnos(self);
 xn_root_add(annos);
 xn_root_add(annos);
 xn_gc_safepoint();
-#line 1158 "impl/lib/b2/xparser.x"
+#line 1159 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2179 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2179);
 rt_string *xn_t2180 = rt_retain(xn_t2179->text);
@@ -13893,7 +13896,7 @@ rt_string *xn_t2181 = rt_string_from_c("annotation");
 xn_root_add(xn_t2181);
     if (((xn_Cls_Parser_at(self, 4)) && (xn_str_eq(xn_t2180, xn_t2181)))) {
         size_t xn_t2182 = xn_root_mark();
-        #line 1159 "impl/lib/b2/xparser.x"
+        #line 1160 "impl/lib/b2/xparser.x"
         rt_string *xn_t2183 = xn_Cls_Parser_parseAnnotationDecl(self, sl, sc, annos);
 xn_root_add(xn_t2183);
         xn_root_add(xn_t2183);
@@ -13908,22 +13911,22 @@ xn_root_add(xn_t2183);
         return xn_t2183;
 
     }
-#line 1161 "impl/lib/b2/xparser.x"
+#line 1162 "impl/lib/b2/xparser.x"
 xn_Cls_M * m = xn_Cls_Parser_parseMods(self);
 xn_root_add(m);
 xn_root_add(m);
 xn_gc_safepoint();
-#line 1162 "impl/lib/b2/xparser.x"
+#line 1163 "impl/lib/b2/xparser.x"
 rt_string *kw = rt_string_from_c("");
 xn_root_add(kw);
 xn_root_add(kw);
 xn_gc_safepoint();
-#line 1163 "impl/lib/b2/xparser.x"
+#line 1164 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2185 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2185);
     if (((xn_t2185->kind == 3))) {
         size_t xn_t2186 = xn_root_mark();
-        #line 1164 "impl/lib/b2/xparser.x"
+        #line 1165 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * xn_t2187 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2187);
         xn_root_add(xn_t2187);
@@ -13932,7 +13935,7 @@ xn_root_add(k);
         xn_root_add(k);
         xn_root_add(k);
         xn_gc_safepoint();
-        #line 1165 "impl/lib/b2/xparser.x"
+        #line 1166 "impl/lib/b2/xparser.x"
         rt_string *xn_t2189 = rt_retain(k);
 xn_root_add(xn_t2189);
         xn_root_add(xn_t2189);
@@ -13977,7 +13980,7 @@ xn_root_add(xn_t2202);
         xn_root_add(xn_t2202);
             if ((((((((xn_str_eq(xn_t2189, xn_t2190)) || (xn_str_eq(xn_t2191, xn_t2192))) || (xn_str_eq(xn_t2193, xn_t2194))) || (xn_str_eq(xn_t2195, xn_t2196))) || (xn_str_eq(xn_t2197, xn_t2198))) || (xn_str_eq(xn_t2199, xn_t2200))) || (xn_str_eq(xn_t2201, xn_t2202)))) {
                 size_t xn_t2203 = xn_root_mark();
-                #line 1167 "impl/lib/b2/xparser.x"
+                #line 1168 "impl/lib/b2/xparser.x"
                 rt_string *xn_t2204 = rt_retain(k);
 xn_root_add(xn_t2204);
         xn_root_add(xn_t2204);
@@ -14000,16 +14003,16 @@ xn_root_add(xn_t2204);
             }
 
     }
-#line 1170 "impl/lib/b2/xparser.x"
+#line 1171 "impl/lib/b2/xparser.x"
 rt_string *xn_t2205 = rt_retain(kw);
 xn_root_add(xn_t2205);
 rt_string *xn_t2206 = rt_string_from_c("");
 xn_root_add(xn_t2206);
     if (((!(xn_str_eq(xn_t2205, xn_t2206))))) {
         size_t xn_t2207 = xn_root_mark();
-        #line 1171 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
         #line 1172 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1173 "impl/lib/b2/xparser.x"
         rt_string *xn_t2208 = rt_retain(kw);
 xn_root_add(xn_t2208);
         xn_root_add(xn_t2208);
@@ -14031,14 +14034,14 @@ xn_root_add(xn_t2209);
         return xn_t2209;
 
     }
-#line 1174 "impl/lib/b2/xparser.x"
-int xn_v_void = 0;
 #line 1175 "impl/lib/b2/xparser.x"
+int xn_v_void = 0;
+#line 1176 "impl/lib/b2/xparser.x"
 rt_string *ret = rt_string_from_c("");
 xn_root_add(ret);
 xn_root_add(ret);
 xn_gc_safepoint();
-#line 1176 "impl/lib/b2/xparser.x"
+#line 1177 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * xn_t2211 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2211);
 rt_string *xn_t2212 = rt_retain(xn_t2211->text);
@@ -14047,9 +14050,9 @@ rt_string *xn_t2213 = rt_string_from_c("void");
 xn_root_add(xn_t2213);
     if (((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2212, xn_t2213)))) {
         size_t xn_t2214 = xn_root_mark();
-        #line 1176 "impl/lib/b2/xparser.x"
+        #line 1177 "impl/lib/b2/xparser.x"
         xn_v_void = 1;
-        #line 1176 "impl/lib/b2/xparser.x"
+        #line 1177 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
             xn_root_restore(xn_t2214);
@@ -14057,7 +14060,7 @@ xn_root_add(xn_t2213);
 
     } else {
         size_t xn_t2215 = xn_root_mark();
-        #line 1177 "impl/lib/b2/xparser.x"
+        #line 1178 "impl/lib/b2/xparser.x"
         rt_string *xn_t2216 = xn_Cls_Parser_parseType(self);
 xn_root_add(xn_t2216);
         xn_root_add(xn_t2216);
@@ -14071,25 +14074,25 @@ xn_root_add(xn_t2216);
             }
 
     }
-#line 1178 "impl/lib/b2/xparser.x"
+#line 1179 "impl/lib/b2/xparser.x"
 rt_string *name = rt_string_from_c("");
 xn_root_add(name);
 xn_root_add(name);
 xn_gc_safepoint();
-#line 1179 "impl/lib/b2/xparser.x"
-int64_t nl = sl;
 #line 1180 "impl/lib/b2/xparser.x"
-int64_t nc = sc;
+int64_t nl = sl;
 #line 1181 "impl/lib/b2/xparser.x"
+int64_t nc = sc;
+#line 1182 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
         size_t xn_t2218 = xn_root_mark();
-        #line 1181 "impl/lib/b2/xparser.x"
+        #line 1182 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * nt = xn_Cls_Parser_next(self);
 xn_root_add(nt);
         xn_root_add(nt);
         xn_root_add(nt);
         xn_gc_safepoint();
-        #line 1181 "impl/lib/b2/xparser.x"
+        #line 1182 "impl/lib/b2/xparser.x"
         rt_string *xn_t2219 = rt_retain(nt->text);
 xn_root_add(xn_t2219);
         xn_root_add(xn_t2219);
@@ -14098,40 +14101,40 @@ xn_root_add(xn_t2219);
         name = xn_t2219;
         xn_root_hold(name);
         xn_gc_safepoint();
-        #line 1181 "impl/lib/b2/xparser.x"
+        #line 1182 "impl/lib/b2/xparser.x"
         nl = nt->line;
-        #line 1181 "impl/lib/b2/xparser.x"
+        #line 1182 "impl/lib/b2/xparser.x"
         nc = nt->col;
             {
             xn_root_restore(xn_t2218);
             }
 
     }
-#line 1182 "impl/lib/b2/xparser.x"
+#line 1183 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2220 = xn_arr_s_new(0);
 xn_root_add(xn_t2220);
 xn_arr_s * tps = xn_t2220;
 xn_root_add(tps);
 xn_root_add(tps);
 xn_gc_safepoint();
-#line 1183 "impl/lib/b2/xparser.x"
+#line 1184 "impl/lib/b2/xparser.x"
 rt_string *xn_t2221 = rt_string_from_c("<");
 xn_root_add(xn_t2221);
     if ((xn_Cls_Parser_atOp(self, xn_t2221))) {
         size_t xn_t2222 = xn_root_mark();
-        #line 1184 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
         #line 1185 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1186 "impl/lib/b2/xparser.x"
             while (1) {
                 rt_string *xn_t2223 = rt_string_from_c(">");
 xn_root_add(xn_t2223);
         xn_root_add(xn_t2223);
                 if (!((((!(xn_Cls_Parser_atOp(self, xn_t2223)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
                 size_t xn_t2224 = xn_root_mark();
-                #line 1186 "impl/lib/b2/xparser.x"
+                #line 1187 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 2))) {
                         size_t xn_t2225 = xn_root_mark();
-                        #line 1186 "impl/lib/b2/xparser.x"
+                        #line 1187 "impl/lib/b2/xparser.x"
                         xn_Cls_Tok * xn_t2226 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2226);
         xn_root_add(xn_t2226);
@@ -14149,7 +14152,7 @@ xn_root_add(xn_t2227);
 
                     } else {
                         size_t xn_t2228 = xn_root_mark();
-                        #line 1186 "impl/lib/b2/xparser.x"
+                        #line 1187 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
                             xn_root_restore(xn_t2228);
@@ -14162,13 +14165,13 @@ xn_root_add(xn_t2227);
 
                 xn_gc_safepoint();
             }
-        #line 1188 "impl/lib/b2/xparser.x"
+        #line 1189 "impl/lib/b2/xparser.x"
         rt_string *xn_t2229 = rt_string_from_c(">");
 xn_root_add(xn_t2229);
         xn_root_add(xn_t2229);
             if ((xn_Cls_Parser_atOp(self, xn_t2229))) {
                 size_t xn_t2230 = xn_root_mark();
-                #line 1188 "impl/lib/b2/xparser.x"
+                #line 1189 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
                     xn_root_restore(xn_t2230);
@@ -14180,31 +14183,31 @@ xn_root_add(xn_t2229);
             }
 
     }
-#line 1190 "impl/lib/b2/xparser.x"
+#line 1191 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
         size_t xn_t2231 = xn_root_mark();
-        #line 1191 "impl/lib/b2/xparser.x"
+        #line 1192 "impl/lib/b2/xparser.x"
         xn_arr_s * ps = xn_Cls_Parser_parseParams(self);
 xn_root_add(ps);
         xn_root_add(ps);
         xn_root_add(ps);
         xn_gc_safepoint();
-        #line 1192 "impl/lib/b2/xparser.x"
+        #line 1193 "impl/lib/b2/xparser.x"
         rt_string *body = xn_Cls_Parser_parseBlock(self);
 xn_root_add(body);
         xn_root_add(body);
         xn_root_add(body);
         xn_gc_safepoint();
-        #line 1193 "impl/lib/b2/xparser.x"
+        #line 1194 "impl/lib/b2/xparser.x"
         rt_string *retv = rt_string_from_c("(nil)");
 xn_root_add(retv);
         xn_root_add(retv);
         xn_root_add(retv);
         xn_gc_safepoint();
-        #line 1194 "impl/lib/b2/xparser.x"
+        #line 1195 "impl/lib/b2/xparser.x"
             if (((!(xn_v_void)))) {
                 size_t xn_t2234 = xn_root_mark();
-                #line 1194 "impl/lib/b2/xparser.x"
+                #line 1195 "impl/lib/b2/xparser.x"
                 rt_string *xn_t2235 = rt_retain(ret);
 xn_root_add(xn_t2235);
         xn_root_add(xn_t2235);
@@ -14219,7 +14222,7 @@ xn_root_add(xn_t2235);
                     }
 
             }
-        #line 1195 "impl/lib/b2/xparser.x"
+        #line 1196 "impl/lib/b2/xparser.x"
         rt_string *xn_t2236 = rt_string_from_c("(TopFunc ");
 xn_root_add(xn_t2236);
         xn_root_add(xn_t2236);
@@ -14470,19 +14473,19 @@ xn_root_add(xn_t2291);
         xn_root_release(retv);
 
     }
-#line 1200 "impl/lib/b2/xparser.x"
+#line 1201 "impl/lib/b2/xparser.x"
 rt_string *init = rt_string_from_c("(nil)");
 xn_root_add(init);
 xn_root_add(init);
 xn_gc_safepoint();
-#line 1201 "impl/lib/b2/xparser.x"
+#line 1202 "impl/lib/b2/xparser.x"
 rt_string *xn_t2293 = rt_string_from_c("=");
 xn_root_add(xn_t2293);
     if ((xn_Cls_Parser_atOp(self, xn_t2293))) {
         size_t xn_t2294 = xn_root_mark();
-        #line 1201 "impl/lib/b2/xparser.x"
+        #line 1202 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1201 "impl/lib/b2/xparser.x"
+        #line 1202 "impl/lib/b2/xparser.x"
         xn_Cls_E * xn_t2295 = xn_Cls_Parser_parseExpr(self);
 xn_root_add(xn_t2295);
         xn_root_add(xn_t2295);
@@ -14499,17 +14502,17 @@ xn_root_add(xn_t2296);
             }
 
     }
-#line 1202 "impl/lib/b2/xparser.x"
+#line 1203 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 1))) {
         size_t xn_t2297 = xn_root_mark();
-        #line 1202 "impl/lib/b2/xparser.x"
+        #line 1203 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
             xn_root_restore(xn_t2297);
             }
 
     }
-#line 1203 "impl/lib/b2/xparser.x"
+#line 1204 "impl/lib/b2/xparser.x"
 rt_string *xn_t2298 = rt_string_from_c("(TopField ");
 xn_root_add(xn_t2298);
 xn_root_add(xn_t2298);
@@ -14693,23 +14696,23 @@ xn_root_release(init);
 static xn_arr_s * xn_Cls_Parser_parseAnnos(xn_Cls_Parser *self) {
 size_t xn_t2350 = xn_root_mark();
 xn_root_add(self);
-#line 1210 "impl/lib/b2/xparser.x"
+#line 1211 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2351 = xn_arr_s_new(0);
 xn_root_add(xn_t2351);
 xn_arr_s * res = xn_t2351;
 xn_root_add(res);
 xn_root_add(res);
 xn_gc_safepoint();
-#line 1211 "impl/lib/b2/xparser.x"
+#line 1212 "impl/lib/b2/xparser.x"
     while ((xn_Cls_Parser_at(self, 4))) {
     size_t xn_t2352 = xn_root_mark();
-    #line 1212 "impl/lib/b2/xparser.x"
+    #line 1213 "impl/lib/b2/xparser.x"
     xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
     xn_root_add(t);
     xn_root_add(t);
     xn_gc_safepoint();
-    #line 1213 "impl/lib/b2/xparser.x"
+    #line 1214 "impl/lib/b2/xparser.x"
     xn_arr_s *xn_t2353 = xn_arr_s_new(0);
 xn_root_add(xn_t2353);
     xn_root_add(xn_t2353);
@@ -14718,20 +14721,20 @@ xn_root_add(args);
     xn_root_add(args);
     xn_root_add(args);
     xn_gc_safepoint();
-    #line 1214 "impl/lib/b2/xparser.x"
+    #line 1215 "impl/lib/b2/xparser.x"
         if ((xn_Cls_Parser_at(self, 10))) {
             size_t xn_t2354 = xn_root_mark();
-            #line 1215 "impl/lib/b2/xparser.x"
-            xn_Cls_Parser_next(self);
             #line 1216 "impl/lib/b2/xparser.x"
+            xn_Cls_Parser_next(self);
+            #line 1217 "impl/lib/b2/xparser.x"
                 while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
                 size_t xn_t2355 = xn_root_mark();
-                #line 1217 "impl/lib/b2/xparser.x"
+                #line 1218 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 16))) {
                         size_t xn_t2356 = xn_root_mark();
-                        #line 1217 "impl/lib/b2/xparser.x"
+                        #line 1218 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
-                        #line 1217 "impl/lib/b2/xparser.x"
+                        #line 1218 "impl/lib/b2/xparser.x"
                         xn_root_restore(xn_t2356);
                         xn_root_restore(xn_t2355);
                         continue;
@@ -14740,7 +14743,7 @@ xn_root_add(args);
                             }
 
                     }
-                #line 1218 "impl/lib/b2/xparser.x"
+                #line 1219 "impl/lib/b2/xparser.x"
                 xn_Cls_E * xn_t2357 = xn_Cls_Parser_parseExpr(self);
 xn_root_add(xn_t2357);
     xn_root_add(xn_t2357);
@@ -14758,10 +14761,10 @@ xn_root_add(xn_t2358);
 
                 xn_gc_safepoint();
                 }
-            #line 1220 "impl/lib/b2/xparser.x"
+            #line 1221 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 11))) {
                     size_t xn_t2359 = xn_root_mark();
-                    #line 1220 "impl/lib/b2/xparser.x"
+                    #line 1221 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
                         xn_root_restore(xn_t2359);
@@ -14773,7 +14776,7 @@ xn_root_add(xn_t2358);
                 }
 
         }
-    #line 1222 "impl/lib/b2/xparser.x"
+    #line 1223 "impl/lib/b2/xparser.x"
     rt_string *xn_t2360 = rt_string_from_c("(AnnotationNode ");
 xn_root_add(xn_t2360);
     xn_root_add(xn_t2360);
@@ -14817,10 +14820,10 @@ xn_root_add(xn_t2372);
 xn_root_add(xn_t2373);
     xn_root_add(xn_t2373);
     xn_arr_s_push(res, xn_t2373);
-    #line 1223 "impl/lib/b2/xparser.x"
+    #line 1224 "impl/lib/b2/xparser.x"
         if ((xn_Cls_Parser_at(self, 1))) {
             size_t xn_t2374 = xn_root_mark();
-            #line 1223 "impl/lib/b2/xparser.x"
+            #line 1224 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
                 {
                 xn_root_restore(xn_t2374);
@@ -14833,7 +14836,7 @@ xn_root_add(xn_t2373);
 
     xn_gc_safepoint();
     }
-#line 1225 "impl/lib/b2/xparser.x"
+#line 1226 "impl/lib/b2/xparser.x"
     {
 xn_root_restore(xn_t2350);
     }
@@ -14845,28 +14848,28 @@ return res;
 static xn_Cls_M * xn_Cls_Parser_parseMods(xn_Cls_Parser *self) {
 size_t xn_t2375 = xn_root_mark();
 xn_root_add(self);
-#line 1229 "impl/lib/b2/xparser.x"
+#line 1230 "impl/lib/b2/xparser.x"
 xn_Cls_M * m = xn_Cls_M_new();
 xn_root_add(m);
 xn_root_add(m);
 xn_gc_safepoint();
-#line 1230 "impl/lib/b2/xparser.x"
+#line 1231 "impl/lib/b2/xparser.x"
     while (1) {
     size_t xn_t2376 = xn_root_mark();
-    #line 1231 "impl/lib/b2/xparser.x"
+    #line 1232 "impl/lib/b2/xparser.x"
     rt_string *xn_t2377 = rt_string_from_c("public");
 xn_root_add(xn_t2377);
     xn_root_add(xn_t2377);
         if ((xn_Cls_Parser_atKw(self, xn_t2377))) {
             size_t xn_t2378 = xn_root_mark();
-            #line 1231 "impl/lib/b2/xparser.x"
+            #line 1232 "impl/lib/b2/xparser.x"
             rt_string *xn_t2379 = rt_string_from_c("public");
 xn_root_add(xn_t2379);
     xn_root_add(xn_t2379);
             xn_root_add(xn_t2379);
             rt_release(m->vis);
             m->vis = xn_t2379;
-            #line 1231 "impl/lib/b2/xparser.x"
+            #line 1232 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
                 {
                 xn_root_restore(xn_t2378);
@@ -14879,7 +14882,7 @@ xn_root_add(xn_t2381);
             xn_root_add(xn_t2381);
                 if ((xn_Cls_Parser_atKw(self, xn_t2381))) {
                     size_t xn_t2382 = xn_root_mark();
-                    #line 1232 "impl/lib/b2/xparser.x"
+                    #line 1233 "impl/lib/b2/xparser.x"
                     rt_string *xn_t2383 = rt_string_from_c("protected");
 xn_root_add(xn_t2383);
     xn_root_add(xn_t2383);
@@ -14887,7 +14890,7 @@ xn_root_add(xn_t2383);
                     xn_root_add(xn_t2383);
                     rt_release(m->vis);
                     m->vis = xn_t2383;
-                    #line 1232 "impl/lib/b2/xparser.x"
+                    #line 1233 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
                         xn_root_restore(xn_t2382);
@@ -14901,7 +14904,7 @@ xn_root_add(xn_t2385);
                     xn_root_add(xn_t2385);
                         if ((xn_Cls_Parser_atKw(self, xn_t2385))) {
                             size_t xn_t2386 = xn_root_mark();
-                            #line 1233 "impl/lib/b2/xparser.x"
+                            #line 1234 "impl/lib/b2/xparser.x"
                             rt_string *xn_t2387 = rt_string_from_c("private");
 xn_root_add(xn_t2387);
     xn_root_add(xn_t2387);
@@ -14910,7 +14913,7 @@ xn_root_add(xn_t2387);
                             xn_root_add(xn_t2387);
                             rt_release(m->vis);
                             m->vis = xn_t2387;
-                            #line 1233 "impl/lib/b2/xparser.x"
+                            #line 1234 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
                                 {
                                 xn_root_restore(xn_t2386);
@@ -14925,9 +14928,9 @@ xn_root_add(xn_t2389);
                             xn_root_add(xn_t2389);
                                 if ((xn_Cls_Parser_atKw(self, xn_t2389))) {
                                     size_t xn_t2390 = xn_root_mark();
-                                    #line 1234 "impl/lib/b2/xparser.x"
+                                    #line 1235 "impl/lib/b2/xparser.x"
                                     m->abs = (int64_t)((int)(1));
-                                    #line 1234 "impl/lib/b2/xparser.x"
+                                    #line 1235 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
                                         {
                                         xn_root_restore(xn_t2390);
@@ -14943,9 +14946,9 @@ xn_root_add(xn_t2392);
                                     xn_root_add(xn_t2392);
                                         if ((xn_Cls_Parser_atKw(self, xn_t2392))) {
                                             size_t xn_t2393 = xn_root_mark();
-                                            #line 1235 "impl/lib/b2/xparser.x"
+                                            #line 1236 "impl/lib/b2/xparser.x"
                                             m->fin = (int64_t)((int)(1));
-                                            #line 1235 "impl/lib/b2/xparser.x"
+                                            #line 1236 "impl/lib/b2/xparser.x"
                                             xn_Cls_Parser_next(self);
                                                 {
                                                 xn_root_restore(xn_t2393);
@@ -14962,9 +14965,9 @@ xn_root_add(xn_t2395);
                                             xn_root_add(xn_t2395);
                                                 if ((xn_Cls_Parser_atKw(self, xn_t2395))) {
                                                     size_t xn_t2396 = xn_root_mark();
-                                                    #line 1236 "impl/lib/b2/xparser.x"
+                                                    #line 1237 "impl/lib/b2/xparser.x"
                                                     m->stat = (int64_t)((int)(1));
-                                                    #line 1236 "impl/lib/b2/xparser.x"
+                                                    #line 1237 "impl/lib/b2/xparser.x"
                                                     xn_Cls_Parser_next(self);
                                                         {
                                                         xn_root_restore(xn_t2396);
@@ -14982,9 +14985,9 @@ xn_root_add(xn_t2398);
                                                     xn_root_add(xn_t2398);
                                                         if ((xn_Cls_Parser_atKw(self, xn_t2398))) {
                                                             size_t xn_t2399 = xn_root_mark();
-                                                            #line 1237 "impl/lib/b2/xparser.x"
+                                                            #line 1238 "impl/lib/b2/xparser.x"
                                                             m->cons = (int64_t)((int)(1));
-                                                            #line 1237 "impl/lib/b2/xparser.x"
+                                                            #line 1238 "impl/lib/b2/xparser.x"
                                                             xn_Cls_Parser_next(self);
                                                                 {
                                                                 xn_root_restore(xn_t2399);
@@ -14992,7 +14995,7 @@ xn_root_add(xn_t2398);
 
                                                         } else {
                                                             size_t xn_t2400 = xn_root_mark();
-                                                            #line 1238 "impl/lib/b2/xparser.x"
+                                                            #line 1239 "impl/lib/b2/xparser.x"
                                                             xn_root_restore(xn_t2400);
                                                             xn_root_restore(xn_t2376);
                                                             break;
@@ -15013,7 +15016,7 @@ xn_root_add(xn_t2398);
 
     xn_gc_safepoint();
     }
-#line 1240 "impl/lib/b2/xparser.x"
+#line 1241 "impl/lib/b2/xparser.x"
     {
 xn_root_restore(xn_t2375);
     }
@@ -15026,10 +15029,10 @@ static rt_string * xn_Cls_Parser_retv(xn_Cls_Parser *self, int xn_p_vd, rt_strin
 size_t xn_t2401 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_rt);
-#line 1244 "impl/lib/b2/xparser.x"
+#line 1245 "impl/lib/b2/xparser.x"
     if ((xn_p_vd)) {
         size_t xn_t2402 = xn_root_mark();
-        #line 1244 "impl/lib/b2/xparser.x"
+        #line 1245 "impl/lib/b2/xparser.x"
         rt_string *xn_t2403 = rt_string_from_c("(nil)");
 xn_root_add(xn_t2403);
         xn_root_add(xn_t2403);
@@ -15044,14 +15047,14 @@ xn_root_add(xn_t2403);
         return xn_t2403;
 
     }
-#line 1245 "impl/lib/b2/xparser.x"
+#line 1246 "impl/lib/b2/xparser.x"
 rt_string *xn_t2404 = rt_retain(xn_p_rt);
 xn_root_add(xn_t2404);
 rt_string *xn_t2405 = rt_string_from_c("");
 xn_root_add(xn_t2405);
     if ((xn_str_eq(xn_t2404, xn_t2405))) {
         size_t xn_t2406 = xn_root_mark();
-        #line 1245 "impl/lib/b2/xparser.x"
+        #line 1246 "impl/lib/b2/xparser.x"
         rt_string *xn_t2407 = rt_string_from_c("(nil)");
 xn_root_add(xn_t2407);
         xn_root_add(xn_t2407);
@@ -15066,7 +15069,7 @@ xn_root_add(xn_t2407);
         return xn_t2407;
 
     }
-#line 1246 "impl/lib/b2/xparser.x"
+#line 1247 "impl/lib/b2/xparser.x"
 rt_retain(xn_p_rt);
     {
 xn_root_restore(xn_t2401);
@@ -15080,7 +15083,7 @@ static rt_string * xn_Cls_Parser_modDump(xn_Cls_Parser *self, xn_Cls_M * xn_p_m)
 size_t xn_t2408 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_m);
-#line 1250 "impl/lib/b2/xparser.x"
+#line 1251 "impl/lib/b2/xparser.x"
 rt_string *xn_t2409 = rt_string_from_c("(TypeModifiers (Vis ");
 xn_root_add(xn_t2409);
 xn_root_add(xn_t2409);
@@ -15158,27 +15161,27 @@ return xn_t2430;
 static xn_arr_s * xn_Cls_Parser_parseParams(xn_Cls_Parser *self) {
 size_t xn_t2431 = xn_root_mark();
 xn_root_add(self);
-#line 1255 "impl/lib/b2/xparser.x"
+#line 1256 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2432 = xn_arr_s_new(0);
 xn_root_add(xn_t2432);
 xn_arr_s * ps = xn_t2432;
 xn_root_add(ps);
 xn_root_add(ps);
 xn_gc_safepoint();
-#line 1256 "impl/lib/b2/xparser.x"
+#line 1257 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
         size_t xn_t2433 = xn_root_mark();
-        #line 1257 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
         #line 1258 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1259 "impl/lib/b2/xparser.x"
             while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
             size_t xn_t2434 = xn_root_mark();
-            #line 1259 "impl/lib/b2/xparser.x"
+            #line 1260 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 16))) {
                     size_t xn_t2435 = xn_root_mark();
-                    #line 1259 "impl/lib/b2/xparser.x"
+                    #line 1260 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1259 "impl/lib/b2/xparser.x"
+                    #line 1260 "impl/lib/b2/xparser.x"
                     xn_root_restore(xn_t2435);
                     xn_root_restore(xn_t2434);
                     continue;
@@ -15187,7 +15190,7 @@ xn_gc_safepoint();
                         }
 
                 }
-            #line 1260 "impl/lib/b2/xparser.x"
+            #line 1261 "impl/lib/b2/xparser.x"
             rt_string *xn_t2436 = xn_Cls_Parser_parseParam(self);
 xn_root_add(xn_t2436);
         xn_root_add(xn_t2436);
@@ -15199,10 +15202,10 @@ xn_root_add(xn_t2436);
 
             xn_gc_safepoint();
             }
-        #line 1262 "impl/lib/b2/xparser.x"
+        #line 1263 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 11))) {
                 size_t xn_t2437 = xn_root_mark();
-                #line 1262 "impl/lib/b2/xparser.x"
+                #line 1263 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
                     xn_root_restore(xn_t2437);
@@ -15214,7 +15217,7 @@ xn_root_add(xn_t2436);
             }
 
     }
-#line 1264 "impl/lib/b2/xparser.x"
+#line 1265 "impl/lib/b2/xparser.x"
     {
 xn_root_restore(xn_t2431);
     }
@@ -15229,25 +15232,25 @@ xn_root_add(self);
 xn_root_add(xn_p_kw);
 xn_root_add(xn_p_annos);
 xn_root_add(xn_p_m);
-#line 1268 "impl/lib/b2/xparser.x"
+#line 1269 "impl/lib/b2/xparser.x"
 rt_string *name = rt_string_from_c("");
 xn_root_add(name);
 xn_root_add(name);
 xn_gc_safepoint();
-#line 1269 "impl/lib/b2/xparser.x"
-int64_t nl = xn_p_sl;
 #line 1270 "impl/lib/b2/xparser.x"
-int64_t nc = xn_p_sc;
+int64_t nl = xn_p_sl;
 #line 1271 "impl/lib/b2/xparser.x"
+int64_t nc = xn_p_sc;
+#line 1272 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
         size_t xn_t2440 = xn_root_mark();
-        #line 1271 "impl/lib/b2/xparser.x"
+        #line 1272 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * nt = xn_Cls_Parser_next(self);
 xn_root_add(nt);
         xn_root_add(nt);
         xn_root_add(nt);
         xn_gc_safepoint();
-        #line 1271 "impl/lib/b2/xparser.x"
+        #line 1272 "impl/lib/b2/xparser.x"
         rt_string *xn_t2441 = rt_retain(nt->text);
 xn_root_add(xn_t2441);
         xn_root_add(xn_t2441);
@@ -15256,40 +15259,40 @@ xn_root_add(xn_t2441);
         name = xn_t2441;
         xn_root_hold(name);
         xn_gc_safepoint();
-        #line 1271 "impl/lib/b2/xparser.x"
+        #line 1272 "impl/lib/b2/xparser.x"
         nl = nt->line;
-        #line 1271 "impl/lib/b2/xparser.x"
+        #line 1272 "impl/lib/b2/xparser.x"
         nc = nt->col;
             {
             xn_root_restore(xn_t2440);
             }
 
     }
-#line 1272 "impl/lib/b2/xparser.x"
+#line 1273 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2442 = xn_arr_s_new(0);
 xn_root_add(xn_t2442);
 xn_arr_s * tps = xn_t2442;
 xn_root_add(tps);
 xn_root_add(tps);
 xn_gc_safepoint();
-#line 1273 "impl/lib/b2/xparser.x"
+#line 1274 "impl/lib/b2/xparser.x"
 rt_string *xn_t2443 = rt_string_from_c("<");
 xn_root_add(xn_t2443);
     if ((xn_Cls_Parser_atOp(self, xn_t2443))) {
         size_t xn_t2444 = xn_root_mark();
-        #line 1274 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
         #line 1275 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1276 "impl/lib/b2/xparser.x"
             while (1) {
                 rt_string *xn_t2445 = rt_string_from_c(">");
 xn_root_add(xn_t2445);
         xn_root_add(xn_t2445);
                 if (!((((!(xn_Cls_Parser_atOp(self, xn_t2445)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
                 size_t xn_t2446 = xn_root_mark();
-                #line 1276 "impl/lib/b2/xparser.x"
+                #line 1277 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 2))) {
                         size_t xn_t2447 = xn_root_mark();
-                        #line 1276 "impl/lib/b2/xparser.x"
+                        #line 1277 "impl/lib/b2/xparser.x"
                         xn_Cls_Tok * xn_t2448 = xn_Cls_Parser_next(self);
 xn_root_add(xn_t2448);
         xn_root_add(xn_t2448);
@@ -15307,7 +15310,7 @@ xn_root_add(xn_t2449);
 
                     } else {
                         size_t xn_t2450 = xn_root_mark();
-                        #line 1276 "impl/lib/b2/xparser.x"
+                        #line 1277 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
                             xn_root_restore(xn_t2450);
@@ -15320,13 +15323,13 @@ xn_root_add(xn_t2449);
 
                 xn_gc_safepoint();
             }
-        #line 1278 "impl/lib/b2/xparser.x"
+        #line 1279 "impl/lib/b2/xparser.x"
         rt_string *xn_t2451 = rt_string_from_c(">");
 xn_root_add(xn_t2451);
         xn_root_add(xn_t2451);
             if ((xn_Cls_Parser_atOp(self, xn_t2451))) {
                 size_t xn_t2452 = xn_root_mark();
-                #line 1278 "impl/lib/b2/xparser.x"
+                #line 1279 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
                     xn_root_restore(xn_t2452);
@@ -15338,24 +15341,61 @@ xn_root_add(xn_t2451);
             }
 
     }
-#line 1280 "impl/lib/b2/xparser.x"
+#line 1281 "impl/lib/b2/xparser.x"
 rt_string *primary = rt_string_from_c("(nil)");
 xn_root_add(primary);
 xn_root_add(primary);
 xn_gc_safepoint();
-#line 1281 "impl/lib/b2/xparser.x"
+#line 1282 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
         size_t xn_t2454 = xn_root_mark();
-        #line 1281 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t2455 = xn_arr_s_new(0);
+        #line 1284 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t2455 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2455);
         xn_root_add(xn_t2455);
-        rt_string *xn_t2456 = xn_Cls_Parser_parseCtor(self, xn_p_sl, xn_p_sc, xn_t2455);
+        int64_t pl = xn_t2455->line;
+        #line 1285 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t2456 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t2456);
         xn_root_add(xn_t2456);
+        int64_t pc = xn_t2456->col;
+        #line 1286 "impl/lib/b2/xparser.x"
+        xn_arr_s * pps = xn_Cls_Parser_parseParams(self);
+xn_root_add(pps);
+        xn_root_add(pps);
+        xn_root_add(pps);
+        xn_gc_safepoint();
+        #line 1287 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2457 = rt_string_from_c("(CtorDecl ");
+xn_root_add(xn_t2457);
+        xn_root_add(xn_t2457);
+        rt_string *xn_t2458 = xn_P(pl, pc);
+xn_root_add(xn_t2458);
+        xn_root_add(xn_t2458);
+        rt_string *xn_t2459 = xn_concat(xn_t2457, xn_t2458);
+xn_root_add(xn_t2459);
+        xn_root_add(xn_t2459);
+        rt_string *xn_t2460 = rt_string_from_c(" (Annos (slice)) (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Params ");
+xn_root_add(xn_t2460);
+        xn_root_add(xn_t2460);
+        rt_string *xn_t2461 = xn_concat(xn_t2459, xn_t2460);
+xn_root_add(xn_t2461);
+        xn_root_add(xn_t2461);
+        rt_string *xn_t2462 = xn_SL(pps);
+xn_root_add(xn_t2462);
+        xn_root_add(xn_t2462);
+        rt_string *xn_t2463 = xn_concat(xn_t2461, xn_t2462);
+xn_root_add(xn_t2463);
+        xn_root_add(xn_t2463);
+        rt_string *xn_t2464 = rt_string_from_c(") (Body (nil)))");
+xn_root_add(xn_t2464);
+        xn_root_add(xn_t2464);
+        rt_string *xn_t2465 = xn_concat(xn_t2463, xn_t2464);
+xn_root_add(xn_t2465);
+        xn_root_add(xn_t2465);
         xn_root_release(primary);
         rt_release(primary);
-        primary = xn_t2456;
+        primary = xn_t2465;
         xn_root_hold(primary);
         xn_gc_safepoint();
             {
@@ -15363,310 +15403,274 @@ xn_root_add(xn_t2456);
             }
 
     }
-#line 1282 "impl/lib/b2/xparser.x"
+#line 1289 "impl/lib/b2/xparser.x"
 rt_string *base = rt_string_from_c("(nil)");
 xn_root_add(base);
 xn_root_add(base);
 xn_gc_safepoint();
-#line 1283 "impl/lib/b2/xparser.x"
-rt_string *xn_t2458 = rt_string_from_c(":");
-xn_root_add(xn_t2458);
-    if ((xn_Cls_Parser_atOp(self, xn_t2458))) {
-        size_t xn_t2459 = xn_root_mark();
-        #line 1283 "impl/lib/b2/xparser.x"
+#line 1290 "impl/lib/b2/xparser.x"
+rt_string *xn_t2467 = rt_string_from_c(":");
+xn_root_add(xn_t2467);
+    if ((xn_Cls_Parser_atOp(self, xn_t2467))) {
+        size_t xn_t2468 = xn_root_mark();
+        #line 1290 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1283 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2460 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t2460);
-        xn_root_add(xn_t2460);
+        #line 1290 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2469 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t2469);
+        xn_root_add(xn_t2469);
         xn_root_release(base);
         rt_release(base);
-        base = xn_t2460;
+        base = xn_t2469;
         xn_root_hold(base);
         xn_gc_safepoint();
-            {
-            xn_root_restore(xn_t2459);
-            }
-
-    }
-#line 1284 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2461 = xn_arr_s_new(0);
-xn_root_add(xn_t2461);
-xn_arr_s * protos = xn_t2461;
-xn_root_add(protos);
-xn_root_add(protos);
-xn_gc_safepoint();
-#line 1285 "impl/lib/b2/xparser.x"
-rt_string *xn_t2462 = rt_string_from_c("implements");
-xn_root_add(xn_t2462);
-    if ((xn_Cls_Parser_atKw(self, xn_t2462))) {
-        size_t xn_t2463 = xn_root_mark();
-        #line 1286 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1287 "impl/lib/b2/xparser.x"
-            while ((xn_Cls_Parser_at(self, 2))) {
-            size_t xn_t2464 = xn_root_mark();
-            #line 1287 "impl/lib/b2/xparser.x"
-            rt_string *xn_t2465 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t2465);
-        xn_root_add(xn_t2465);
-            xn_root_add(xn_t2465);
-            xn_arr_s_push(protos, xn_t2465);
-            #line 1287 "impl/lib/b2/xparser.x"
-                if ((xn_Cls_Parser_at(self, 16))) {
-                    size_t xn_t2466 = xn_root_mark();
-                    #line 1287 "impl/lib/b2/xparser.x"
-                    xn_Cls_Parser_next(self);
-                        {
-                        xn_root_restore(xn_t2466);
-                        }
-
-                } else {
-                    size_t xn_t2467 = xn_root_mark();
-                    #line 1287 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t2467);
-                    xn_root_restore(xn_t2464);
-                    break;
-                        {
-                        xn_root_restore(xn_t2467);
-                        }
-
-                }
-                {
-                xn_root_restore(xn_t2464);
-                }
-
-            xn_gc_safepoint();
-            }
-            {
-            xn_root_restore(xn_t2463);
-            }
-
-    }
-#line 1289 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t2468 = xn_root_mark();
-        #line 1289 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
             {
             xn_root_restore(xn_t2468);
             }
 
     }
-#line 1290 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2469 = xn_arr_s_new(0);
-xn_root_add(xn_t2469);
-xn_arr_s * fields = xn_t2469;
-xn_root_add(fields);
-xn_root_add(fields);
-xn_gc_safepoint();
 #line 1291 "impl/lib/b2/xparser.x"
 xn_arr_s *xn_t2470 = xn_arr_s_new(0);
 xn_root_add(xn_t2470);
-xn_arr_s * methods = xn_t2470;
-xn_root_add(methods);
-xn_root_add(methods);
+xn_arr_s * protos = xn_t2470;
+xn_root_add(protos);
+xn_root_add(protos);
 xn_gc_safepoint();
 #line 1292 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2471 = xn_arr_s_new(0);
+rt_string *xn_t2471 = rt_string_from_c("implements");
 xn_root_add(xn_t2471);
-xn_arr_s * ctors = xn_t2471;
-xn_root_add(ctors);
-xn_root_add(ctors);
-xn_gc_safepoint();
-#line 1293 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2472 = xn_arr_s_new(0);
-xn_root_add(xn_t2472);
-xn_arr_s * items = xn_t2472;
-xn_root_add(items);
-xn_root_add(items);
-xn_gc_safepoint();
-#line 1294 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2473 = xn_arr_s_new(0);
-xn_root_add(xn_t2473);
-xn_arr_s * sigs = xn_t2473;
-xn_root_add(sigs);
-xn_root_add(sigs);
-xn_gc_safepoint();
-#line 1295 "impl/lib/b2/xparser.x"
-rt_string *xn_t2474 = rt_retain(xn_p_kw);
+    if ((xn_Cls_Parser_atKw(self, xn_t2471))) {
+        size_t xn_t2472 = xn_root_mark();
+        #line 1293 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1294 "impl/lib/b2/xparser.x"
+            while ((xn_Cls_Parser_at(self, 2))) {
+            size_t xn_t2473 = xn_root_mark();
+            #line 1294 "impl/lib/b2/xparser.x"
+            rt_string *xn_t2474 = xn_Cls_Parser_parseType(self);
 xn_root_add(xn_t2474);
-rt_string *xn_t2475 = rt_string_from_c("protocol");
-xn_root_add(xn_t2475);
-    if ((xn_str_eq(xn_t2474, xn_t2475))) {
-        size_t xn_t2476 = xn_root_mark();
-        #line 1296 "impl/lib/b2/xparser.x"
-            while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-            size_t xn_t2477 = xn_root_mark();
-            #line 1297 "impl/lib/b2/xparser.x"
-                if ((xn_Cls_Parser_at(self, 1))) {
-                    size_t xn_t2478 = xn_root_mark();
-                    #line 1297 "impl/lib/b2/xparser.x"
+        xn_root_add(xn_t2474);
+            xn_root_add(xn_t2474);
+            xn_arr_s_push(protos, xn_t2474);
+            #line 1294 "impl/lib/b2/xparser.x"
+                if ((xn_Cls_Parser_at(self, 16))) {
+                    size_t xn_t2475 = xn_root_mark();
+                    #line 1294 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1297 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t2478);
-                    xn_root_restore(xn_t2477);
-                    continue;
                         {
-                        xn_root_restore(xn_t2478);
+                        xn_root_restore(xn_t2475);
+                        }
+
+                } else {
+                    size_t xn_t2476 = xn_root_mark();
+                    #line 1294 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t2476);
+                    xn_root_restore(xn_t2473);
+                    break;
+                        {
+                        xn_root_restore(xn_t2476);
                         }
 
                 }
-            #line 1298 "impl/lib/b2/xparser.x"
+                {
+                xn_root_restore(xn_t2473);
+                }
+
+            xn_gc_safepoint();
+            }
+            {
+            xn_root_restore(xn_t2472);
+            }
+
+    }
+#line 1296 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 12))) {
+        size_t xn_t2477 = xn_root_mark();
+        #line 1296 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t2477);
+            }
+
+    }
+#line 1297 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2478 = xn_arr_s_new(0);
+xn_root_add(xn_t2478);
+xn_arr_s * fields = xn_t2478;
+xn_root_add(fields);
+xn_root_add(fields);
+xn_gc_safepoint();
+#line 1298 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2479 = xn_arr_s_new(0);
+xn_root_add(xn_t2479);
+xn_arr_s * methods = xn_t2479;
+xn_root_add(methods);
+xn_root_add(methods);
+xn_gc_safepoint();
+#line 1299 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2480 = xn_arr_s_new(0);
+xn_root_add(xn_t2480);
+xn_arr_s * ctors = xn_t2480;
+xn_root_add(ctors);
+xn_root_add(ctors);
+xn_gc_safepoint();
+#line 1300 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2481 = xn_arr_s_new(0);
+xn_root_add(xn_t2481);
+xn_arr_s * items = xn_t2481;
+xn_root_add(items);
+xn_root_add(items);
+xn_gc_safepoint();
+#line 1301 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2482 = xn_arr_s_new(0);
+xn_root_add(xn_t2482);
+xn_arr_s * sigs = xn_t2482;
+xn_root_add(sigs);
+xn_root_add(sigs);
+xn_gc_safepoint();
+#line 1302 "impl/lib/b2/xparser.x"
+rt_string *xn_t2483 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2483);
+rt_string *xn_t2484 = rt_string_from_c("protocol");
+xn_root_add(xn_t2484);
+    if ((xn_str_eq(xn_t2483, xn_t2484))) {
+        size_t xn_t2485 = xn_root_mark();
+        #line 1303 "impl/lib/b2/xparser.x"
+            while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
+            size_t xn_t2486 = xn_root_mark();
+            #line 1304 "impl/lib/b2/xparser.x"
+                if ((xn_Cls_Parser_at(self, 1))) {
+                    size_t xn_t2487 = xn_root_mark();
+                    #line 1304 "impl/lib/b2/xparser.x"
+                    xn_Cls_Parser_next(self);
+                    #line 1304 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t2487);
+                    xn_root_restore(xn_t2486);
+                    continue;
+                        {
+                        xn_root_restore(xn_t2487);
+                        }
+
+                }
+            #line 1305 "impl/lib/b2/xparser.x"
             rt_string *ms = xn_Cls_Parser_parseModsDump(self);
 xn_root_add(ms);
         xn_root_add(ms);
             xn_root_add(ms);
             xn_root_add(ms);
             xn_gc_safepoint();
-            #line 1299 "impl/lib/b2/xparser.x"
+            #line 1306 "impl/lib/b2/xparser.x"
             int vd = 0;
-            #line 1300 "impl/lib/b2/xparser.x"
+            #line 1307 "impl/lib/b2/xparser.x"
             rt_string *rt = rt_string_from_c("");
 xn_root_add(rt);
         xn_root_add(rt);
             xn_root_add(rt);
             xn_root_add(rt);
             xn_gc_safepoint();
-            #line 1301 "impl/lib/b2/xparser.x"
-            xn_Cls_Tok * xn_t2481 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2481);
-        xn_root_add(xn_t2481);
-            xn_root_add(xn_t2481);
-            rt_string *xn_t2482 = rt_retain(xn_t2481->text);
-xn_root_add(xn_t2482);
-        xn_root_add(xn_t2482);
-            xn_root_add(xn_t2482);
-            rt_string *xn_t2483 = rt_string_from_c("void");
-xn_root_add(xn_t2483);
-        xn_root_add(xn_t2483);
-            xn_root_add(xn_t2483);
-                if (((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2482, xn_t2483)))) {
-                    size_t xn_t2484 = xn_root_mark();
-                    #line 1301 "impl/lib/b2/xparser.x"
+            #line 1308 "impl/lib/b2/xparser.x"
+            xn_Cls_Tok * xn_t2490 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2490);
+        xn_root_add(xn_t2490);
+            xn_root_add(xn_t2490);
+            rt_string *xn_t2491 = rt_retain(xn_t2490->text);
+xn_root_add(xn_t2491);
+        xn_root_add(xn_t2491);
+            xn_root_add(xn_t2491);
+            rt_string *xn_t2492 = rt_string_from_c("void");
+xn_root_add(xn_t2492);
+        xn_root_add(xn_t2492);
+            xn_root_add(xn_t2492);
+                if (((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2491, xn_t2492)))) {
+                    size_t xn_t2493 = xn_root_mark();
+                    #line 1308 "impl/lib/b2/xparser.x"
                     vd = 1;
-                    #line 1301 "impl/lib/b2/xparser.x"
+                    #line 1308 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t2484);
+                        xn_root_restore(xn_t2493);
                         }
 
                 } else {
-                    size_t xn_t2485 = xn_root_mark();
-                    #line 1301 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t2486 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t2486);
-        xn_root_add(xn_t2486);
-            xn_root_add(xn_t2486);
-                    xn_root_add(xn_t2486);
+                    size_t xn_t2494 = xn_root_mark();
+                    #line 1308 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t2495 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t2495);
+        xn_root_add(xn_t2495);
+            xn_root_add(xn_t2495);
+                    xn_root_add(xn_t2495);
                     xn_root_release(rt);
                     rt_release(rt);
-                    rt = xn_t2486;
+                    rt = xn_t2495;
                     xn_root_hold(rt);
                     xn_gc_safepoint();
                         {
-                        xn_root_restore(xn_t2485);
+                        xn_root_restore(xn_t2494);
                         }
 
                 }
-            #line 1302 "impl/lib/b2/xparser.x"
+            #line 1309 "impl/lib/b2/xparser.x"
             rt_string *mn = rt_string_from_c("");
 xn_root_add(mn);
         xn_root_add(mn);
             xn_root_add(mn);
             xn_root_add(mn);
             xn_gc_safepoint();
-            #line 1303 "impl/lib/b2/xparser.x"
+            #line 1310 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 2))) {
-                    size_t xn_t2488 = xn_root_mark();
-                    #line 1303 "impl/lib/b2/xparser.x"
-                    xn_Cls_Tok * xn_t2489 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t2489);
-        xn_root_add(xn_t2489);
-            xn_root_add(xn_t2489);
-                    xn_root_add(xn_t2489);
-                    rt_string *xn_t2490 = rt_retain(xn_t2489->text);
-xn_root_add(xn_t2490);
-        xn_root_add(xn_t2490);
-            xn_root_add(xn_t2490);
-                    xn_root_add(xn_t2490);
+                    size_t xn_t2497 = xn_root_mark();
+                    #line 1310 "impl/lib/b2/xparser.x"
+                    xn_Cls_Tok * xn_t2498 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t2498);
+        xn_root_add(xn_t2498);
+            xn_root_add(xn_t2498);
+                    xn_root_add(xn_t2498);
+                    rt_string *xn_t2499 = rt_retain(xn_t2498->text);
+xn_root_add(xn_t2499);
+        xn_root_add(xn_t2499);
+            xn_root_add(xn_t2499);
+                    xn_root_add(xn_t2499);
                     xn_root_release(mn);
                     rt_release(mn);
-                    mn = xn_t2490;
+                    mn = xn_t2499;
                     xn_root_hold(mn);
                     xn_gc_safepoint();
                         {
-                        xn_root_restore(xn_t2488);
+                        xn_root_restore(xn_t2497);
                         }
 
                 }
-            #line 1304 "impl/lib/b2/xparser.x"
+            #line 1311 "impl/lib/b2/xparser.x"
             xn_arr_s * ps = xn_Cls_Parser_parseParams(self);
 xn_root_add(ps);
         xn_root_add(ps);
             xn_root_add(ps);
             xn_root_add(ps);
             xn_gc_safepoint();
-            #line 1305 "impl/lib/b2/xparser.x"
+            #line 1312 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 1))) {
-                    size_t xn_t2491 = xn_root_mark();
-                    #line 1305 "impl/lib/b2/xparser.x"
+                    size_t xn_t2500 = xn_root_mark();
+                    #line 1312 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t2491);
+                        xn_root_restore(xn_t2500);
                         }
 
                 }
-            #line 1306 "impl/lib/b2/xparser.x"
-            rt_string *xn_t2492 = rt_string_from_c("(ProtocolSig ");
-xn_root_add(xn_t2492);
-        xn_root_add(xn_t2492);
-            xn_root_add(xn_t2492);
-            rt_string *xn_t2493 = xn_P(xn_p_sl, xn_p_sc);
-xn_root_add(xn_t2493);
-        xn_root_add(xn_t2493);
-            xn_root_add(xn_t2493);
-            rt_string *xn_t2494 = xn_concat(xn_t2492, xn_t2493);
-xn_root_add(xn_t2494);
-        xn_root_add(xn_t2494);
-            xn_root_add(xn_t2494);
-            rt_string *xn_t2495 = rt_string_from_c(" (Annos (slice)) (Mod ");
-xn_root_add(xn_t2495);
-        xn_root_add(xn_t2495);
-            xn_root_add(xn_t2495);
-            rt_string *xn_t2496 = xn_concat(xn_t2494, xn_t2495);
-xn_root_add(xn_t2496);
-        xn_root_add(xn_t2496);
-            xn_root_add(xn_t2496);
-            rt_string *xn_t2497 = rt_retain(ms);
-xn_root_add(xn_t2497);
-        xn_root_add(xn_t2497);
-            xn_root_add(xn_t2497);
-            rt_string *xn_t2498 = xn_concat(xn_t2496, xn_t2497);
-xn_root_add(xn_t2498);
-        xn_root_add(xn_t2498);
-            xn_root_add(xn_t2498);
-            rt_string *xn_t2499 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t2499);
-        xn_root_add(xn_t2499);
-            xn_root_add(xn_t2499);
-            rt_string *xn_t2500 = xn_concat(xn_t2498, xn_t2499);
-xn_root_add(xn_t2500);
-        xn_root_add(xn_t2500);
-            xn_root_add(xn_t2500);
-            rt_string *xn_t2501 = rt_retain(mn);
+            #line 1313 "impl/lib/b2/xparser.x"
+            rt_string *xn_t2501 = rt_string_from_c("(ProtocolSig ");
 xn_root_add(xn_t2501);
         xn_root_add(xn_t2501);
             xn_root_add(xn_t2501);
-            rt_string *xn_t2502 = xn_q(xn_t2501);
+            rt_string *xn_t2502 = xn_P(xn_p_sl, xn_p_sc);
 xn_root_add(xn_t2502);
         xn_root_add(xn_t2502);
             xn_root_add(xn_t2502);
-            rt_string *xn_t2503 = xn_concat(xn_t2500, xn_t2502);
+            rt_string *xn_t2503 = xn_concat(xn_t2501, xn_t2502);
 xn_root_add(xn_t2503);
         xn_root_add(xn_t2503);
             xn_root_add(xn_t2503);
-            rt_string *xn_t2504 = rt_string_from_c(") (Void ");
+            rt_string *xn_t2504 = rt_string_from_c(" (Annos (slice)) (Mod ");
 xn_root_add(xn_t2504);
         xn_root_add(xn_t2504);
             xn_root_add(xn_t2504);
@@ -15674,7 +15678,7 @@ xn_root_add(xn_t2504);
 xn_root_add(xn_t2505);
         xn_root_add(xn_t2505);
             xn_root_add(xn_t2505);
-            rt_string *xn_t2506 = xn_B(vd);
+            rt_string *xn_t2506 = rt_retain(ms);
 xn_root_add(xn_t2506);
         xn_root_add(xn_t2506);
             xn_root_add(xn_t2506);
@@ -15682,7 +15686,7 @@ xn_root_add(xn_t2506);
 xn_root_add(xn_t2507);
         xn_root_add(xn_t2507);
             xn_root_add(xn_t2507);
-            rt_string *xn_t2508 = rt_string_from_c(") (Ret ");
+            rt_string *xn_t2508 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2508);
         xn_root_add(xn_t2508);
             xn_root_add(xn_t2508);
@@ -15690,11 +15694,11 @@ xn_root_add(xn_t2508);
 xn_root_add(xn_t2509);
         xn_root_add(xn_t2509);
             xn_root_add(xn_t2509);
-            rt_string *xn_t2510 = rt_retain(rt);
+            rt_string *xn_t2510 = rt_retain(mn);
 xn_root_add(xn_t2510);
         xn_root_add(xn_t2510);
             xn_root_add(xn_t2510);
-            rt_string *xn_t2511 = xn_Cls_Parser_retv(self, vd, xn_t2510);
+            rt_string *xn_t2511 = xn_q(xn_t2510);
 xn_root_add(xn_t2511);
         xn_root_add(xn_t2511);
             xn_root_add(xn_t2511);
@@ -15702,7 +15706,7 @@ xn_root_add(xn_t2511);
 xn_root_add(xn_t2512);
         xn_root_add(xn_t2512);
             xn_root_add(xn_t2512);
-            rt_string *xn_t2513 = rt_string_from_c(") (Params ");
+            rt_string *xn_t2513 = rt_string_from_c(") (Void ");
 xn_root_add(xn_t2513);
         xn_root_add(xn_t2513);
             xn_root_add(xn_t2513);
@@ -15710,7 +15714,7 @@ xn_root_add(xn_t2513);
 xn_root_add(xn_t2514);
         xn_root_add(xn_t2514);
             xn_root_add(xn_t2514);
-            rt_string *xn_t2515 = xn_SL(ps);
+            rt_string *xn_t2515 = xn_B(vd);
 xn_root_add(xn_t2515);
         xn_root_add(xn_t2515);
             xn_root_add(xn_t2515);
@@ -15718,7 +15722,7 @@ xn_root_add(xn_t2515);
 xn_root_add(xn_t2516);
         xn_root_add(xn_t2516);
             xn_root_add(xn_t2516);
-            rt_string *xn_t2517 = rt_string_from_c("))");
+            rt_string *xn_t2517 = rt_string_from_c(") (Ret ");
 xn_root_add(xn_t2517);
         xn_root_add(xn_t2517);
             xn_root_add(xn_t2517);
@@ -15726,7 +15730,43 @@ xn_root_add(xn_t2517);
 xn_root_add(xn_t2518);
         xn_root_add(xn_t2518);
             xn_root_add(xn_t2518);
-            xn_arr_s_push(sigs, xn_t2518);
+            rt_string *xn_t2519 = rt_retain(rt);
+xn_root_add(xn_t2519);
+        xn_root_add(xn_t2519);
+            xn_root_add(xn_t2519);
+            rt_string *xn_t2520 = xn_Cls_Parser_retv(self, vd, xn_t2519);
+xn_root_add(xn_t2520);
+        xn_root_add(xn_t2520);
+            xn_root_add(xn_t2520);
+            rt_string *xn_t2521 = xn_concat(xn_t2518, xn_t2520);
+xn_root_add(xn_t2521);
+        xn_root_add(xn_t2521);
+            xn_root_add(xn_t2521);
+            rt_string *xn_t2522 = rt_string_from_c(") (Params ");
+xn_root_add(xn_t2522);
+        xn_root_add(xn_t2522);
+            xn_root_add(xn_t2522);
+            rt_string *xn_t2523 = xn_concat(xn_t2521, xn_t2522);
+xn_root_add(xn_t2523);
+        xn_root_add(xn_t2523);
+            xn_root_add(xn_t2523);
+            rt_string *xn_t2524 = xn_SL(ps);
+xn_root_add(xn_t2524);
+        xn_root_add(xn_t2524);
+            xn_root_add(xn_t2524);
+            rt_string *xn_t2525 = xn_concat(xn_t2523, xn_t2524);
+xn_root_add(xn_t2525);
+        xn_root_add(xn_t2525);
+            xn_root_add(xn_t2525);
+            rt_string *xn_t2526 = rt_string_from_c("))");
+xn_root_add(xn_t2526);
+        xn_root_add(xn_t2526);
+            xn_root_add(xn_t2526);
+            rt_string *xn_t2527 = xn_concat(xn_t2525, xn_t2526);
+xn_root_add(xn_t2527);
+        xn_root_add(xn_t2527);
+            xn_root_add(xn_t2527);
+            xn_arr_s_push(sigs, xn_t2527);
             xn_root_release(rt);
             xn_root_release(mn);
                 {
@@ -15739,45 +15779,45 @@ xn_root_add(xn_t2518);
                 rt_release(ms);
                 }
                 {
-                xn_root_restore(xn_t2477);
+                xn_root_restore(xn_t2486);
                 }
 
             xn_gc_safepoint();
             }
             {
-            xn_root_restore(xn_t2476);
+            xn_root_restore(xn_t2485);
             }
 
     } else {
-        rt_string *xn_t2520 = rt_retain(xn_p_kw);
-xn_root_add(xn_t2520);
-        xn_root_add(xn_t2520);
-        rt_string *xn_t2521 = rt_string_from_c("enum");
-xn_root_add(xn_t2521);
-        xn_root_add(xn_t2521);
-            if ((xn_str_eq(xn_t2520, xn_t2521))) {
-                size_t xn_t2522 = xn_root_mark();
-                #line 1310 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2529 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2529);
+        xn_root_add(xn_t2529);
+        rt_string *xn_t2530 = rt_string_from_c("enum");
+xn_root_add(xn_t2530);
+        xn_root_add(xn_t2530);
+            if ((xn_str_eq(xn_t2529, xn_t2530))) {
+                size_t xn_t2531 = xn_root_mark();
+                #line 1317 "impl/lib/b2/xparser.x"
                     while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                    size_t xn_t2523 = xn_root_mark();
-                    #line 1311 "impl/lib/b2/xparser.x"
+                    size_t xn_t2532 = xn_root_mark();
+                    #line 1318 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 1))) {
-                            size_t xn_t2524 = xn_root_mark();
-                            #line 1311 "impl/lib/b2/xparser.x"
+                            size_t xn_t2533 = xn_root_mark();
+                            #line 1318 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1311 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t2524);
-                            xn_root_restore(xn_t2523);
+                            #line 1318 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t2533);
+                            xn_root_restore(xn_t2532);
                             continue;
                                 {
-                                xn_root_restore(xn_t2524);
+                                xn_root_restore(xn_t2533);
                                 }
 
                         }
-                    #line 1312 "impl/lib/b2/xparser.x"
+                    #line 1319 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 2))) {
-                            size_t xn_t2525 = xn_root_mark();
-                            #line 1313 "impl/lib/b2/xparser.x"
+                            size_t xn_t2534 = xn_root_mark();
+                            #line 1320 "impl/lib/b2/xparser.x"
                             xn_Cls_Tok * it = xn_Cls_Parser_cur(self);
 xn_root_add(it);
         xn_root_add(it);
@@ -15786,16 +15826,16 @@ xn_root_add(it);
                             xn_root_add(it);
                             xn_root_add(it);
                             xn_gc_safepoint();
-                            #line 1315 "impl/lib/b2/xparser.x"
+                            #line 1322 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1316 "impl/lib/b2/xparser.x"
-                            xn_arr_s *xn_t2526 = xn_arr_s_new(0);
-xn_root_add(xn_t2526);
-        xn_root_add(xn_t2526);
-                xn_root_add(xn_t2526);
-                    xn_root_add(xn_t2526);
-                            xn_root_add(xn_t2526);
-                            xn_arr_s * args = xn_t2526;
+                            #line 1323 "impl/lib/b2/xparser.x"
+                            xn_arr_s *xn_t2535 = xn_arr_s_new(0);
+xn_root_add(xn_t2535);
+        xn_root_add(xn_t2535);
+                xn_root_add(xn_t2535);
+                    xn_root_add(xn_t2535);
+                            xn_root_add(xn_t2535);
+                            xn_arr_s * args = xn_t2535;
 xn_root_add(args);
         xn_root_add(args);
                 xn_root_add(args);
@@ -15803,68 +15843,68 @@ xn_root_add(args);
                             xn_root_add(args);
                             xn_root_add(args);
                             xn_gc_safepoint();
-                            #line 1317 "impl/lib/b2/xparser.x"
+                            #line 1324 "impl/lib/b2/xparser.x"
                                 if ((xn_Cls_Parser_at(self, 10))) {
-                                    size_t xn_t2527 = xn_root_mark();
-                                    #line 1318 "impl/lib/b2/xparser.x"
+                                    size_t xn_t2536 = xn_root_mark();
+                                    #line 1325 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
-                                    #line 1319 "impl/lib/b2/xparser.x"
+                                    #line 1326 "impl/lib/b2/xparser.x"
                                         while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                                        size_t xn_t2528 = xn_root_mark();
-                                        #line 1320 "impl/lib/b2/xparser.x"
+                                        size_t xn_t2537 = xn_root_mark();
+                                        #line 1327 "impl/lib/b2/xparser.x"
                                             if ((xn_Cls_Parser_at(self, 16))) {
-                                                size_t xn_t2529 = xn_root_mark();
-                                                #line 1320 "impl/lib/b2/xparser.x"
+                                                size_t xn_t2538 = xn_root_mark();
+                                                #line 1327 "impl/lib/b2/xparser.x"
                                                 xn_Cls_Parser_next(self);
-                                                #line 1320 "impl/lib/b2/xparser.x"
-                                                xn_root_restore(xn_t2529);
-                                                xn_root_restore(xn_t2528);
+                                                #line 1327 "impl/lib/b2/xparser.x"
+                                                xn_root_restore(xn_t2538);
+                                                xn_root_restore(xn_t2537);
                                                 continue;
                                                     {
-                                                    xn_root_restore(xn_t2529);
+                                                    xn_root_restore(xn_t2538);
                                                     }
 
                                             }
-                                        #line 1321 "impl/lib/b2/xparser.x"
-                                        xn_Cls_E * xn_t2530 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t2530);
-        xn_root_add(xn_t2530);
-                xn_root_add(xn_t2530);
-                    xn_root_add(xn_t2530);
-                            xn_root_add(xn_t2530);
-                                    xn_root_add(xn_t2530);
-                                        xn_root_add(xn_t2530);
-                                        rt_string *xn_t2531 = rt_retain(xn_t2530->d);
-xn_root_add(xn_t2531);
-        xn_root_add(xn_t2531);
-                xn_root_add(xn_t2531);
-                    xn_root_add(xn_t2531);
-                            xn_root_add(xn_t2531);
-                                    xn_root_add(xn_t2531);
-                                        xn_root_add(xn_t2531);
-                                        xn_arr_s_push(args, xn_t2531);
+                                        #line 1328 "impl/lib/b2/xparser.x"
+                                        xn_Cls_E * xn_t2539 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t2539);
+        xn_root_add(xn_t2539);
+                xn_root_add(xn_t2539);
+                    xn_root_add(xn_t2539);
+                            xn_root_add(xn_t2539);
+                                    xn_root_add(xn_t2539);
+                                        xn_root_add(xn_t2539);
+                                        rt_string *xn_t2540 = rt_retain(xn_t2539->d);
+xn_root_add(xn_t2540);
+        xn_root_add(xn_t2540);
+                xn_root_add(xn_t2540);
+                    xn_root_add(xn_t2540);
+                            xn_root_add(xn_t2540);
+                                    xn_root_add(xn_t2540);
+                                        xn_root_add(xn_t2540);
+                                        xn_arr_s_push(args, xn_t2540);
                                             {
-                                            xn_root_restore(xn_t2528);
+                                            xn_root_restore(xn_t2537);
                                             }
 
                                         xn_gc_safepoint();
                                         }
-                                    #line 1323 "impl/lib/b2/xparser.x"
+                                    #line 1330 "impl/lib/b2/xparser.x"
                                         if ((xn_Cls_Parser_at(self, 11))) {
-                                            size_t xn_t2532 = xn_root_mark();
-                                            #line 1323 "impl/lib/b2/xparser.x"
+                                            size_t xn_t2541 = xn_root_mark();
+                                            #line 1330 "impl/lib/b2/xparser.x"
                                             xn_Cls_Parser_next(self);
                                                 {
-                                                xn_root_restore(xn_t2532);
+                                                xn_root_restore(xn_t2541);
                                                 }
 
                                         }
                                         {
-                                        xn_root_restore(xn_t2527);
+                                        xn_root_restore(xn_t2536);
                                         }
 
                                 }
-                            #line 1325 "impl/lib/b2/xparser.x"
+                            #line 1332 "impl/lib/b2/xparser.x"
                             rt_string *val = rt_string_from_c("(nil)");
 xn_root_add(val);
         xn_root_add(val);
@@ -15873,104 +15913,50 @@ xn_root_add(val);
                             xn_root_add(val);
                             xn_root_add(val);
                             xn_gc_safepoint();
-                            #line 1326 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t2534 = rt_string_from_c("=");
-xn_root_add(xn_t2534);
-        xn_root_add(xn_t2534);
-                xn_root_add(xn_t2534);
-                    xn_root_add(xn_t2534);
-                            xn_root_add(xn_t2534);
-                                if ((xn_Cls_Parser_atOp(self, xn_t2534))) {
-                                    size_t xn_t2535 = xn_root_mark();
-                                    #line 1326 "impl/lib/b2/xparser.x"
-                                    xn_Cls_Parser_next(self);
-                                    #line 1326 "impl/lib/b2/xparser.x"
-                                    xn_Cls_E * xn_t2536 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t2536);
-        xn_root_add(xn_t2536);
-                xn_root_add(xn_t2536);
-                    xn_root_add(xn_t2536);
-                            xn_root_add(xn_t2536);
-                                    xn_root_add(xn_t2536);
-                                    rt_string *xn_t2537 = rt_retain(xn_t2536->d);
-xn_root_add(xn_t2537);
-        xn_root_add(xn_t2537);
-                xn_root_add(xn_t2537);
-                    xn_root_add(xn_t2537);
-                            xn_root_add(xn_t2537);
-                                    xn_root_add(xn_t2537);
-                                    xn_root_release(val);
-                                    rt_release(val);
-                                    val = xn_t2537;
-                                    xn_root_hold(val);
-                                    xn_gc_safepoint();
-                                        {
-                                        xn_root_restore(xn_t2535);
-                                        }
-
-                                }
-                            #line 1327 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t2538 = rt_string_from_c("(EnumItem ");
-xn_root_add(xn_t2538);
-        xn_root_add(xn_t2538);
-                xn_root_add(xn_t2538);
-                    xn_root_add(xn_t2538);
-                            xn_root_add(xn_t2538);
-                            rt_string *xn_t2539 = xn_P(it->line, it->col);
-xn_root_add(xn_t2539);
-        xn_root_add(xn_t2539);
-                xn_root_add(xn_t2539);
-                    xn_root_add(xn_t2539);
-                            xn_root_add(xn_t2539);
-                            rt_string *xn_t2540 = xn_concat(xn_t2538, xn_t2539);
-xn_root_add(xn_t2540);
-        xn_root_add(xn_t2540);
-                xn_root_add(xn_t2540);
-                    xn_root_add(xn_t2540);
-                            xn_root_add(xn_t2540);
-                            rt_string *xn_t2541 = rt_string_from_c(" (Annos (slice)) (Name ");
-xn_root_add(xn_t2541);
-        xn_root_add(xn_t2541);
-                xn_root_add(xn_t2541);
-                    xn_root_add(xn_t2541);
-                            xn_root_add(xn_t2541);
-                            rt_string *xn_t2542 = xn_concat(xn_t2540, xn_t2541);
-xn_root_add(xn_t2542);
-        xn_root_add(xn_t2542);
-                xn_root_add(xn_t2542);
-                    xn_root_add(xn_t2542);
-                            xn_root_add(xn_t2542);
-                            rt_string *xn_t2543 = rt_retain(it->text);
+                            #line 1333 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t2543 = rt_string_from_c("=");
 xn_root_add(xn_t2543);
         xn_root_add(xn_t2543);
                 xn_root_add(xn_t2543);
                     xn_root_add(xn_t2543);
                             xn_root_add(xn_t2543);
-                            rt_string *xn_t2544 = xn_q(xn_t2543);
-xn_root_add(xn_t2544);
-        xn_root_add(xn_t2544);
-                xn_root_add(xn_t2544);
-                    xn_root_add(xn_t2544);
-                            xn_root_add(xn_t2544);
-                            rt_string *xn_t2545 = xn_concat(xn_t2542, xn_t2544);
+                                if ((xn_Cls_Parser_atOp(self, xn_t2543))) {
+                                    size_t xn_t2544 = xn_root_mark();
+                                    #line 1333 "impl/lib/b2/xparser.x"
+                                    xn_Cls_Parser_next(self);
+                                    #line 1333 "impl/lib/b2/xparser.x"
+                                    xn_Cls_E * xn_t2545 = xn_Cls_Parser_parseExpr(self);
 xn_root_add(xn_t2545);
         xn_root_add(xn_t2545);
                 xn_root_add(xn_t2545);
                     xn_root_add(xn_t2545);
                             xn_root_add(xn_t2545);
-                            rt_string *xn_t2546 = rt_string_from_c(") (Value ");
+                                    xn_root_add(xn_t2545);
+                                    rt_string *xn_t2546 = rt_retain(xn_t2545->d);
 xn_root_add(xn_t2546);
         xn_root_add(xn_t2546);
                 xn_root_add(xn_t2546);
                     xn_root_add(xn_t2546);
                             xn_root_add(xn_t2546);
-                            rt_string *xn_t2547 = xn_concat(xn_t2545, xn_t2546);
+                                    xn_root_add(xn_t2546);
+                                    xn_root_release(val);
+                                    rt_release(val);
+                                    val = xn_t2546;
+                                    xn_root_hold(val);
+                                    xn_gc_safepoint();
+                                        {
+                                        xn_root_restore(xn_t2544);
+                                        }
+
+                                }
+                            #line 1334 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t2547 = rt_string_from_c("(EnumItem ");
 xn_root_add(xn_t2547);
         xn_root_add(xn_t2547);
                 xn_root_add(xn_t2547);
                     xn_root_add(xn_t2547);
                             xn_root_add(xn_t2547);
-                            rt_string *xn_t2548 = rt_retain(val);
+                            rt_string *xn_t2548 = xn_P(it->line, it->col);
 xn_root_add(xn_t2548);
         xn_root_add(xn_t2548);
                 xn_root_add(xn_t2548);
@@ -15982,7 +15968,7 @@ xn_root_add(xn_t2549);
                 xn_root_add(xn_t2549);
                     xn_root_add(xn_t2549);
                             xn_root_add(xn_t2549);
-                            rt_string *xn_t2550 = rt_string_from_c(") (Args ");
+                            rt_string *xn_t2550 = rt_string_from_c(" (Annos (slice)) (Name ");
 xn_root_add(xn_t2550);
         xn_root_add(xn_t2550);
                 xn_root_add(xn_t2550);
@@ -15994,116 +15980,170 @@ xn_root_add(xn_t2551);
                 xn_root_add(xn_t2551);
                     xn_root_add(xn_t2551);
                             xn_root_add(xn_t2551);
-                            rt_string *xn_t2552 = xn_SL(args);
+                            rt_string *xn_t2552 = rt_retain(it->text);
 xn_root_add(xn_t2552);
         xn_root_add(xn_t2552);
                 xn_root_add(xn_t2552);
                     xn_root_add(xn_t2552);
                             xn_root_add(xn_t2552);
-                            rt_string *xn_t2553 = xn_concat(xn_t2551, xn_t2552);
+                            rt_string *xn_t2553 = xn_q(xn_t2552);
 xn_root_add(xn_t2553);
         xn_root_add(xn_t2553);
                 xn_root_add(xn_t2553);
                     xn_root_add(xn_t2553);
                             xn_root_add(xn_t2553);
-                            rt_string *xn_t2554 = rt_string_from_c("))");
+                            rt_string *xn_t2554 = xn_concat(xn_t2551, xn_t2553);
 xn_root_add(xn_t2554);
         xn_root_add(xn_t2554);
                 xn_root_add(xn_t2554);
                     xn_root_add(xn_t2554);
                             xn_root_add(xn_t2554);
-                            rt_string *xn_t2555 = xn_concat(xn_t2553, xn_t2554);
+                            rt_string *xn_t2555 = rt_string_from_c(") (Value ");
 xn_root_add(xn_t2555);
         xn_root_add(xn_t2555);
                 xn_root_add(xn_t2555);
                     xn_root_add(xn_t2555);
                             xn_root_add(xn_t2555);
-                            xn_arr_s_push(items, xn_t2555);
-                            #line 1329 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t2556 = xn_concat(xn_t2554, xn_t2555);
+xn_root_add(xn_t2556);
+        xn_root_add(xn_t2556);
+                xn_root_add(xn_t2556);
+                    xn_root_add(xn_t2556);
+                            xn_root_add(xn_t2556);
+                            rt_string *xn_t2557 = rt_retain(val);
+xn_root_add(xn_t2557);
+        xn_root_add(xn_t2557);
+                xn_root_add(xn_t2557);
+                    xn_root_add(xn_t2557);
+                            xn_root_add(xn_t2557);
+                            rt_string *xn_t2558 = xn_concat(xn_t2556, xn_t2557);
+xn_root_add(xn_t2558);
+        xn_root_add(xn_t2558);
+                xn_root_add(xn_t2558);
+                    xn_root_add(xn_t2558);
+                            xn_root_add(xn_t2558);
+                            rt_string *xn_t2559 = rt_string_from_c(") (Args ");
+xn_root_add(xn_t2559);
+        xn_root_add(xn_t2559);
+                xn_root_add(xn_t2559);
+                    xn_root_add(xn_t2559);
+                            xn_root_add(xn_t2559);
+                            rt_string *xn_t2560 = xn_concat(xn_t2558, xn_t2559);
+xn_root_add(xn_t2560);
+        xn_root_add(xn_t2560);
+                xn_root_add(xn_t2560);
+                    xn_root_add(xn_t2560);
+                            xn_root_add(xn_t2560);
+                            rt_string *xn_t2561 = xn_SL(args);
+xn_root_add(xn_t2561);
+        xn_root_add(xn_t2561);
+                xn_root_add(xn_t2561);
+                    xn_root_add(xn_t2561);
+                            xn_root_add(xn_t2561);
+                            rt_string *xn_t2562 = xn_concat(xn_t2560, xn_t2561);
+xn_root_add(xn_t2562);
+        xn_root_add(xn_t2562);
+                xn_root_add(xn_t2562);
+                    xn_root_add(xn_t2562);
+                            xn_root_add(xn_t2562);
+                            rt_string *xn_t2563 = rt_string_from_c("))");
+xn_root_add(xn_t2563);
+        xn_root_add(xn_t2563);
+                xn_root_add(xn_t2563);
+                    xn_root_add(xn_t2563);
+                            xn_root_add(xn_t2563);
+                            rt_string *xn_t2564 = xn_concat(xn_t2562, xn_t2563);
+xn_root_add(xn_t2564);
+        xn_root_add(xn_t2564);
+                xn_root_add(xn_t2564);
+                    xn_root_add(xn_t2564);
+                            xn_root_add(xn_t2564);
+                            xn_arr_s_push(items, xn_t2564);
+                            #line 1336 "impl/lib/b2/xparser.x"
                                 if ((xn_Cls_Parser_at(self, 16))) {
-                                    size_t xn_t2556 = xn_root_mark();
-                                    #line 1329 "impl/lib/b2/xparser.x"
+                                    size_t xn_t2565 = xn_root_mark();
+                                    #line 1336 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
                                         {
-                                        xn_root_restore(xn_t2556);
+                                        xn_root_restore(xn_t2565);
                                         }
 
                                 }
-                            #line 1330 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t2525);
-                            xn_root_restore(xn_t2523);
+                            #line 1337 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t2534);
+                            xn_root_restore(xn_t2532);
                             continue;
                             xn_root_release(val);
                                 {
                                 rt_release(val);
                                 }
                                 {
-                                xn_root_restore(xn_t2525);
+                                xn_root_restore(xn_t2534);
                                 }
 
                         }
-                    #line 1332 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t2523);
+                    #line 1339 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t2532);
                     break;
                         {
-                        xn_root_restore(xn_t2523);
+                        xn_root_restore(xn_t2532);
                         }
 
                     xn_gc_safepoint();
                     }
-                #line 1334 "impl/lib/b2/xparser.x"
+                #line 1341 "impl/lib/b2/xparser.x"
                     while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                    size_t xn_t2557 = xn_root_mark();
-                    #line 1335 "impl/lib/b2/xparser.x"
+                    size_t xn_t2566 = xn_root_mark();
+                    #line 1342 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 1))) {
-                            size_t xn_t2558 = xn_root_mark();
-                            #line 1335 "impl/lib/b2/xparser.x"
+                            size_t xn_t2567 = xn_root_mark();
+                            #line 1342 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1335 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t2558);
-                            xn_root_restore(xn_t2557);
+                            #line 1342 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t2567);
+                            xn_root_restore(xn_t2566);
                             continue;
                                 {
-                                xn_root_restore(xn_t2558);
+                                xn_root_restore(xn_t2567);
                                 }
 
                         }
-                    #line 1336 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t2559 = rt_retain(name);
-xn_root_add(xn_t2559);
-        xn_root_add(xn_t2559);
-                xn_root_add(xn_t2559);
-                    xn_root_add(xn_t2559);
-                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2559, fields, methods, ctors);
+                    #line 1343 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t2568 = rt_retain(name);
+xn_root_add(xn_t2568);
+        xn_root_add(xn_t2568);
+                xn_root_add(xn_t2568);
+                    xn_root_add(xn_t2568);
+                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2568, fields, methods, ctors);
 xn_root_add(r);
         xn_root_add(r);
                 xn_root_add(r);
                     xn_root_add(r);
                     xn_root_add(r);
                     xn_gc_safepoint();
-                    #line 1337 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t2561 = rt_retain(r);
-xn_root_add(xn_t2561);
-        xn_root_add(xn_t2561);
-                xn_root_add(xn_t2561);
-                    xn_root_add(xn_t2561);
-                    rt_string *xn_t2562 = rt_string_from_c("");
-xn_root_add(xn_t2562);
-        xn_root_add(xn_t2562);
-                xn_root_add(xn_t2562);
-                    xn_root_add(xn_t2562);
-                        if (((!(xn_str_eq(xn_t2561, xn_t2562))))) {
-                            size_t xn_t2563 = xn_root_mark();
-                            #line 1337 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t2564 = rt_retain(r);
-xn_root_add(xn_t2564);
-        xn_root_add(xn_t2564);
-                xn_root_add(xn_t2564);
-                    xn_root_add(xn_t2564);
-                            xn_root_add(xn_t2564);
-                            xn_arr_s_push(methods, xn_t2564);
+                    #line 1344 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t2570 = rt_retain(r);
+xn_root_add(xn_t2570);
+        xn_root_add(xn_t2570);
+                xn_root_add(xn_t2570);
+                    xn_root_add(xn_t2570);
+                    rt_string *xn_t2571 = rt_string_from_c("");
+xn_root_add(xn_t2571);
+        xn_root_add(xn_t2571);
+                xn_root_add(xn_t2571);
+                    xn_root_add(xn_t2571);
+                        if (((!(xn_str_eq(xn_t2570, xn_t2571))))) {
+                            size_t xn_t2572 = xn_root_mark();
+                            #line 1344 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t2573 = rt_retain(r);
+xn_root_add(xn_t2573);
+        xn_root_add(xn_t2573);
+                xn_root_add(xn_t2573);
+                    xn_root_add(xn_t2573);
+                            xn_root_add(xn_t2573);
+                            xn_arr_s_push(methods, xn_t2573);
                                 {
-                                xn_root_restore(xn_t2563);
+                                xn_root_restore(xn_t2572);
                                 }
 
                         }
@@ -16111,230 +16151,257 @@ xn_root_add(xn_t2564);
                         rt_release(r);
                         }
                         {
-                        xn_root_restore(xn_t2557);
+                        xn_root_restore(xn_t2566);
                         }
 
                     xn_gc_safepoint();
                     }
                     {
-                    xn_root_restore(xn_t2522);
+                    xn_root_restore(xn_t2531);
                     }
 
             } else {
-                rt_string *xn_t2566 = rt_retain(xn_p_kw);
-xn_root_add(xn_t2566);
-        xn_root_add(xn_t2566);
-                xn_root_add(xn_t2566);
-                rt_string *xn_t2567 = rt_string_from_c("annotation");
-xn_root_add(xn_t2567);
-        xn_root_add(xn_t2567);
-                xn_root_add(xn_t2567);
-                    if ((xn_str_eq(xn_t2566, xn_t2567))) {
-                        size_t xn_t2568 = xn_root_mark();
-                        #line 1340 "impl/lib/b2/xparser.x"
+                rt_string *xn_t2575 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2575);
+        xn_root_add(xn_t2575);
+                xn_root_add(xn_t2575);
+                rt_string *xn_t2576 = rt_string_from_c("annotation");
+xn_root_add(xn_t2576);
+        xn_root_add(xn_t2576);
+                xn_root_add(xn_t2576);
+                    if ((xn_str_eq(xn_t2575, xn_t2576))) {
+                        size_t xn_t2577 = xn_root_mark();
+                        #line 1347 "impl/lib/b2/xparser.x"
                             while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                            size_t xn_t2569 = xn_root_mark();
-                            #line 1341 "impl/lib/b2/xparser.x"
+                            size_t xn_t2578 = xn_root_mark();
+                            #line 1348 "impl/lib/b2/xparser.x"
                                 if ((xn_Cls_Parser_at(self, 1))) {
-                                    size_t xn_t2570 = xn_root_mark();
-                                    #line 1341 "impl/lib/b2/xparser.x"
+                                    size_t xn_t2579 = xn_root_mark();
+                                    #line 1348 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
-                                    #line 1341 "impl/lib/b2/xparser.x"
-                                    xn_root_restore(xn_t2570);
-                                    xn_root_restore(xn_t2569);
+                                    #line 1348 "impl/lib/b2/xparser.x"
+                                    xn_root_restore(xn_t2579);
+                                    xn_root_restore(xn_t2578);
                                     continue;
                                         {
-                                        xn_root_restore(xn_t2570);
+                                        xn_root_restore(xn_t2579);
                                         }
 
                                 }
-                            #line 1342 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t2571 = xn_Cls_Parser_parseField(self);
-xn_root_add(xn_t2571);
-        xn_root_add(xn_t2571);
-                xn_root_add(xn_t2571);
-                        xn_root_add(xn_t2571);
-                            xn_root_add(xn_t2571);
-                            xn_arr_s_push(fields, xn_t2571);
+                            #line 1349 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t2580 = xn_Cls_Parser_parseField(self);
+xn_root_add(xn_t2580);
+        xn_root_add(xn_t2580);
+                xn_root_add(xn_t2580);
+                        xn_root_add(xn_t2580);
+                            xn_root_add(xn_t2580);
+                            xn_arr_s_push(fields, xn_t2580);
                                 {
-                                xn_root_restore(xn_t2569);
+                                xn_root_restore(xn_t2578);
                                 }
 
                             xn_gc_safepoint();
                             }
                             {
-                            xn_root_restore(xn_t2568);
+                            xn_root_restore(xn_t2577);
                             }
 
                     } else {
-                        rt_string *xn_t2573 = rt_retain(xn_p_kw);
-xn_root_add(xn_t2573);
-        xn_root_add(xn_t2573);
-                xn_root_add(xn_t2573);
-                        xn_root_add(xn_t2573);
-                        rt_string *xn_t2574 = rt_string_from_c("factory");
-xn_root_add(xn_t2574);
-        xn_root_add(xn_t2574);
-                xn_root_add(xn_t2574);
-                        xn_root_add(xn_t2574);
-                        rt_string *xn_t2575 = rt_retain(xn_p_kw);
-xn_root_add(xn_t2575);
-        xn_root_add(xn_t2575);
-                xn_root_add(xn_t2575);
-                        xn_root_add(xn_t2575);
-                        rt_string *xn_t2576 = rt_string_from_c("extension");
-xn_root_add(xn_t2576);
-        xn_root_add(xn_t2576);
-                xn_root_add(xn_t2576);
-                        xn_root_add(xn_t2576);
-                            if (((xn_str_eq(xn_t2573, xn_t2574)) || (xn_str_eq(xn_t2575, xn_t2576)))) {
-                                size_t xn_t2577 = xn_root_mark();
-                                #line 1345 "impl/lib/b2/xparser.x"
-                                rt_string *xn_t2578 = rt_string_from_c("for");
-xn_root_add(xn_t2578);
-        xn_root_add(xn_t2578);
-                xn_root_add(xn_t2578);
-                        xn_root_add(xn_t2578);
-                                xn_root_add(xn_t2578);
-                                    if ((xn_Cls_Parser_atKw(self, xn_t2578))) {
-                                        size_t xn_t2579 = xn_root_mark();
-                                        #line 1345 "impl/lib/b2/xparser.x"
-                                        xn_Cls_Parser_next(self);
-                                        #line 1345 "impl/lib/b2/xparser.x"
-                                        rt_string *xn_t2580 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t2580);
-        xn_root_add(xn_t2580);
-                xn_root_add(xn_t2580);
-                        xn_root_add(xn_t2580);
-                                xn_root_add(xn_t2580);
-                                        xn_root_add(xn_t2580);
-                                        xn_root_release(base);
-                                        rt_release(base);
-                                        base = xn_t2580;
-                                        xn_root_hold(base);
-                                        xn_gc_safepoint();
-                                            {
-                                            xn_root_restore(xn_t2579);
-                                            }
-
-                                    }
-                                #line 1347 "impl/lib/b2/xparser.x"
-                                    if ((xn_Cls_Parser_at(self, 12))) {
-                                        size_t xn_t2581 = xn_root_mark();
-                                        #line 1347 "impl/lib/b2/xparser.x"
-                                        xn_Cls_Parser_next(self);
-                                            {
-                                            xn_root_restore(xn_t2581);
-                                            }
-
-                                    }
-                                #line 1348 "impl/lib/b2/xparser.x"
-                                    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                                    size_t xn_t2582 = xn_root_mark();
-                                    #line 1349 "impl/lib/b2/xparser.x"
-                                        if ((xn_Cls_Parser_at(self, 1))) {
-                                            size_t xn_t2583 = xn_root_mark();
-                                            #line 1349 "impl/lib/b2/xparser.x"
-                                            xn_Cls_Parser_next(self);
-                                            #line 1349 "impl/lib/b2/xparser.x"
-                                            xn_root_restore(xn_t2583);
-                                            xn_root_restore(xn_t2582);
-                                            continue;
-                                                {
-                                                xn_root_restore(xn_t2583);
-                                                }
-
-                                        }
-                                    #line 1350 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t2584 = rt_retain(name);
+                        rt_string *xn_t2582 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2582);
+        xn_root_add(xn_t2582);
+                xn_root_add(xn_t2582);
+                        xn_root_add(xn_t2582);
+                        rt_string *xn_t2583 = rt_string_from_c("factory");
+xn_root_add(xn_t2583);
+        xn_root_add(xn_t2583);
+                xn_root_add(xn_t2583);
+                        xn_root_add(xn_t2583);
+                        rt_string *xn_t2584 = rt_retain(xn_p_kw);
 xn_root_add(xn_t2584);
         xn_root_add(xn_t2584);
                 xn_root_add(xn_t2584);
                         xn_root_add(xn_t2584);
-                                xn_root_add(xn_t2584);
-                                    xn_root_add(xn_t2584);
-                                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2584, fields, methods, ctors);
-xn_root_add(r);
-        xn_root_add(r);
-                xn_root_add(r);
-                        xn_root_add(r);
-                                xn_root_add(r);
-                                    xn_root_add(r);
-                                    xn_root_add(r);
-                                    xn_gc_safepoint();
-                                    #line 1351 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t2586 = rt_retain(r);
-xn_root_add(xn_t2586);
-        xn_root_add(xn_t2586);
-                xn_root_add(xn_t2586);
-                        xn_root_add(xn_t2586);
-                                xn_root_add(xn_t2586);
-                                    xn_root_add(xn_t2586);
-                                    rt_string *xn_t2587 = rt_string_from_c("");
+                        rt_string *xn_t2585 = rt_string_from_c("extension");
+xn_root_add(xn_t2585);
+        xn_root_add(xn_t2585);
+                xn_root_add(xn_t2585);
+                        xn_root_add(xn_t2585);
+                            if (((xn_str_eq(xn_t2582, xn_t2583)) || (xn_str_eq(xn_t2584, xn_t2585)))) {
+                                size_t xn_t2586 = xn_root_mark();
+                                #line 1352 "impl/lib/b2/xparser.x"
+                                rt_string *xn_t2587 = rt_string_from_c("for");
 xn_root_add(xn_t2587);
         xn_root_add(xn_t2587);
                 xn_root_add(xn_t2587);
                         xn_root_add(xn_t2587);
                                 xn_root_add(xn_t2587);
-                                    xn_root_add(xn_t2587);
-                                        if (((!(xn_str_eq(xn_t2586, xn_t2587))))) {
-                                            size_t xn_t2588 = xn_root_mark();
-                                            #line 1351 "impl/lib/b2/xparser.x"
-                                            rt_string *xn_t2589 = rt_retain(r);
+                                    if ((xn_Cls_Parser_atKw(self, xn_t2587))) {
+                                        size_t xn_t2588 = xn_root_mark();
+                                        #line 1352 "impl/lib/b2/xparser.x"
+                                        xn_Cls_Parser_next(self);
+                                        #line 1352 "impl/lib/b2/xparser.x"
+                                        rt_string *xn_t2589 = xn_Cls_Parser_parseType(self);
 xn_root_add(xn_t2589);
         xn_root_add(xn_t2589);
                 xn_root_add(xn_t2589);
                         xn_root_add(xn_t2589);
                                 xn_root_add(xn_t2589);
-                                    xn_root_add(xn_t2589);
-                                            xn_root_add(xn_t2589);
-                                            xn_arr_s_push(methods, xn_t2589);
-                                                {
-                                                xn_root_restore(xn_t2588);
-                                                }
+                                        xn_root_add(xn_t2589);
+                                        xn_root_release(base);
+                                        rt_release(base);
+                                        base = xn_t2589;
+                                        xn_root_hold(base);
+                                        xn_gc_safepoint();
+                                            {
+                                            xn_root_restore(xn_t2588);
+                                            }
 
-                                        }
-                                        {
-                                        rt_release(r);
-                                        }
-                                        {
-                                        xn_root_restore(xn_t2582);
-                                        }
-
-                                    xn_gc_safepoint();
                                     }
-                                    {
-                                    xn_root_restore(xn_t2577);
-                                    }
-
-                            } else {
-                                size_t xn_t2590 = xn_root_mark();
-                                #line 1354 "impl/lib/b2/xparser.x"
-                                    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                                    size_t xn_t2591 = xn_root_mark();
-                                    #line 1355 "impl/lib/b2/xparser.x"
-                                        if ((xn_Cls_Parser_at(self, 1))) {
-                                            size_t xn_t2592 = xn_root_mark();
-                                            #line 1355 "impl/lib/b2/xparser.x"
-                                            xn_Cls_Parser_next(self);
-                                            #line 1355 "impl/lib/b2/xparser.x"
-                                            xn_root_restore(xn_t2592);
-                                            xn_root_restore(xn_t2591);
-                                            continue;
-                                                {
-                                                xn_root_restore(xn_t2592);
-                                                }
-
-                                        }
-                                    #line 1356 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t2593 = rt_retain(name);
+                                #line 1353 "impl/lib/b2/xparser.x"
+                                rt_string *xn_t2590 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2590);
+        xn_root_add(xn_t2590);
+                xn_root_add(xn_t2590);
+                        xn_root_add(xn_t2590);
+                                xn_root_add(xn_t2590);
+                                rt_string *xn_t2591 = rt_string_from_c("extension");
+xn_root_add(xn_t2591);
+        xn_root_add(xn_t2591);
+                xn_root_add(xn_t2591);
+                        xn_root_add(xn_t2591);
+                                xn_root_add(xn_t2591);
+                                rt_string *xn_t2592 = rt_retain(base);
+xn_root_add(xn_t2592);
+        xn_root_add(xn_t2592);
+                xn_root_add(xn_t2592);
+                        xn_root_add(xn_t2592);
+                                xn_root_add(xn_t2592);
+                                rt_string *xn_t2593 = rt_string_from_c("(nil)");
 xn_root_add(xn_t2593);
         xn_root_add(xn_t2593);
                 xn_root_add(xn_t2593);
                         xn_root_add(xn_t2593);
                                 xn_root_add(xn_t2593);
-                                    xn_root_add(xn_t2593);
-                                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2593, fields, methods, ctors);
+                                    if (((xn_str_eq(xn_t2590, xn_t2591)) && (xn_str_eq(xn_t2592, xn_t2593)))) {
+                                        size_t xn_t2594 = xn_root_mark();
+                                        #line 1354 "impl/lib/b2/xparser.x"
+                                        rt_string *xn_t2595 = rt_string_from_c("(NamedType ");
+xn_root_add(xn_t2595);
+        xn_root_add(xn_t2595);
+                xn_root_add(xn_t2595);
+                        xn_root_add(xn_t2595);
+                                xn_root_add(xn_t2595);
+                                        xn_root_add(xn_t2595);
+                                        rt_string *xn_t2596 = xn_P(nl, nc);
+xn_root_add(xn_t2596);
+        xn_root_add(xn_t2596);
+                xn_root_add(xn_t2596);
+                        xn_root_add(xn_t2596);
+                                xn_root_add(xn_t2596);
+                                        xn_root_add(xn_t2596);
+                                        rt_string *xn_t2597 = xn_concat(xn_t2595, xn_t2596);
+xn_root_add(xn_t2597);
+        xn_root_add(xn_t2597);
+                xn_root_add(xn_t2597);
+                        xn_root_add(xn_t2597);
+                                xn_root_add(xn_t2597);
+                                        xn_root_add(xn_t2597);
+                                        rt_string *xn_t2598 = rt_string_from_c(" (Qual (slice ");
+xn_root_add(xn_t2598);
+        xn_root_add(xn_t2598);
+                xn_root_add(xn_t2598);
+                        xn_root_add(xn_t2598);
+                                xn_root_add(xn_t2598);
+                                        xn_root_add(xn_t2598);
+                                        rt_string *xn_t2599 = xn_concat(xn_t2597, xn_t2598);
+xn_root_add(xn_t2599);
+        xn_root_add(xn_t2599);
+                xn_root_add(xn_t2599);
+                        xn_root_add(xn_t2599);
+                                xn_root_add(xn_t2599);
+                                        xn_root_add(xn_t2599);
+                                        rt_string *xn_t2600 = rt_retain(name);
+xn_root_add(xn_t2600);
+        xn_root_add(xn_t2600);
+                xn_root_add(xn_t2600);
+                        xn_root_add(xn_t2600);
+                                xn_root_add(xn_t2600);
+                                        xn_root_add(xn_t2600);
+                                        rt_string *xn_t2601 = xn_q(xn_t2600);
+xn_root_add(xn_t2601);
+        xn_root_add(xn_t2601);
+                xn_root_add(xn_t2601);
+                        xn_root_add(xn_t2601);
+                                xn_root_add(xn_t2601);
+                                        xn_root_add(xn_t2601);
+                                        rt_string *xn_t2602 = xn_concat(xn_t2599, xn_t2601);
+xn_root_add(xn_t2602);
+        xn_root_add(xn_t2602);
+                xn_root_add(xn_t2602);
+                        xn_root_add(xn_t2602);
+                                xn_root_add(xn_t2602);
+                                        xn_root_add(xn_t2602);
+                                        rt_string *xn_t2603 = rt_string_from_c(")) (Args (slice)))");
+xn_root_add(xn_t2603);
+        xn_root_add(xn_t2603);
+                xn_root_add(xn_t2603);
+                        xn_root_add(xn_t2603);
+                                xn_root_add(xn_t2603);
+                                        xn_root_add(xn_t2603);
+                                        rt_string *xn_t2604 = xn_concat(xn_t2602, xn_t2603);
+xn_root_add(xn_t2604);
+        xn_root_add(xn_t2604);
+                xn_root_add(xn_t2604);
+                        xn_root_add(xn_t2604);
+                                xn_root_add(xn_t2604);
+                                        xn_root_add(xn_t2604);
+                                        xn_root_release(base);
+                                        rt_release(base);
+                                        base = xn_t2604;
+                                        xn_root_hold(base);
+                                        xn_gc_safepoint();
+                                            {
+                                            xn_root_restore(xn_t2594);
+                                            }
+
+                                    }
+                                #line 1357 "impl/lib/b2/xparser.x"
+                                    if ((xn_Cls_Parser_at(self, 12))) {
+                                        size_t xn_t2605 = xn_root_mark();
+                                        #line 1357 "impl/lib/b2/xparser.x"
+                                        xn_Cls_Parser_next(self);
+                                            {
+                                            xn_root_restore(xn_t2605);
+                                            }
+
+                                    }
+                                #line 1358 "impl/lib/b2/xparser.x"
+                                    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
+                                    size_t xn_t2606 = xn_root_mark();
+                                    #line 1359 "impl/lib/b2/xparser.x"
+                                        if ((xn_Cls_Parser_at(self, 1))) {
+                                            size_t xn_t2607 = xn_root_mark();
+                                            #line 1359 "impl/lib/b2/xparser.x"
+                                            xn_Cls_Parser_next(self);
+                                            #line 1359 "impl/lib/b2/xparser.x"
+                                            xn_root_restore(xn_t2607);
+                                            xn_root_restore(xn_t2606);
+                                            continue;
+                                                {
+                                                xn_root_restore(xn_t2607);
+                                                }
+
+                                        }
+                                    #line 1360 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t2608 = rt_retain(name);
+xn_root_add(xn_t2608);
+        xn_root_add(xn_t2608);
+                xn_root_add(xn_t2608);
+                        xn_root_add(xn_t2608);
+                                xn_root_add(xn_t2608);
+                                    xn_root_add(xn_t2608);
+                                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2608, fields, methods, ctors);
 xn_root_add(r);
         xn_root_add(r);
                 xn_root_add(r);
@@ -16343,35 +16410,35 @@ xn_root_add(r);
                                     xn_root_add(r);
                                     xn_root_add(r);
                                     xn_gc_safepoint();
-                                    #line 1357 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t2595 = rt_retain(r);
-xn_root_add(xn_t2595);
-        xn_root_add(xn_t2595);
-                xn_root_add(xn_t2595);
-                        xn_root_add(xn_t2595);
-                                xn_root_add(xn_t2595);
-                                    xn_root_add(xn_t2595);
-                                    rt_string *xn_t2596 = rt_string_from_c("");
-xn_root_add(xn_t2596);
-        xn_root_add(xn_t2596);
-                xn_root_add(xn_t2596);
-                        xn_root_add(xn_t2596);
-                                xn_root_add(xn_t2596);
-                                    xn_root_add(xn_t2596);
-                                        if (((!(xn_str_eq(xn_t2595, xn_t2596))))) {
-                                            size_t xn_t2597 = xn_root_mark();
-                                            #line 1357 "impl/lib/b2/xparser.x"
-                                            rt_string *xn_t2598 = rt_retain(r);
-xn_root_add(xn_t2598);
-        xn_root_add(xn_t2598);
-                xn_root_add(xn_t2598);
-                        xn_root_add(xn_t2598);
-                                xn_root_add(xn_t2598);
-                                    xn_root_add(xn_t2598);
-                                            xn_root_add(xn_t2598);
-                                            xn_arr_s_push(methods, xn_t2598);
+                                    #line 1361 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t2610 = rt_retain(r);
+xn_root_add(xn_t2610);
+        xn_root_add(xn_t2610);
+                xn_root_add(xn_t2610);
+                        xn_root_add(xn_t2610);
+                                xn_root_add(xn_t2610);
+                                    xn_root_add(xn_t2610);
+                                    rt_string *xn_t2611 = rt_string_from_c("");
+xn_root_add(xn_t2611);
+        xn_root_add(xn_t2611);
+                xn_root_add(xn_t2611);
+                        xn_root_add(xn_t2611);
+                                xn_root_add(xn_t2611);
+                                    xn_root_add(xn_t2611);
+                                        if (((!(xn_str_eq(xn_t2610, xn_t2611))))) {
+                                            size_t xn_t2612 = xn_root_mark();
+                                            #line 1361 "impl/lib/b2/xparser.x"
+                                            rt_string *xn_t2613 = rt_retain(r);
+xn_root_add(xn_t2613);
+        xn_root_add(xn_t2613);
+                xn_root_add(xn_t2613);
+                        xn_root_add(xn_t2613);
+                                xn_root_add(xn_t2613);
+                                    xn_root_add(xn_t2613);
+                                            xn_root_add(xn_t2613);
+                                            xn_arr_s_push(methods, xn_t2613);
                                                 {
-                                                xn_root_restore(xn_t2597);
+                                                xn_root_restore(xn_t2612);
                                                 }
 
                                         }
@@ -16379,198 +16446,183 @@ xn_root_add(xn_t2598);
                                         rt_release(r);
                                         }
                                         {
-                                        xn_root_restore(xn_t2591);
+                                        xn_root_restore(xn_t2606);
                                         }
 
                                     xn_gc_safepoint();
                                     }
                                     {
-                                    xn_root_restore(xn_t2590);
+                                    xn_root_restore(xn_t2586);
+                                    }
+
+                            } else {
+                                size_t xn_t2614 = xn_root_mark();
+                                #line 1364 "impl/lib/b2/xparser.x"
+                                    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
+                                    size_t xn_t2615 = xn_root_mark();
+                                    #line 1365 "impl/lib/b2/xparser.x"
+                                        if ((xn_Cls_Parser_at(self, 1))) {
+                                            size_t xn_t2616 = xn_root_mark();
+                                            #line 1365 "impl/lib/b2/xparser.x"
+                                            xn_Cls_Parser_next(self);
+                                            #line 1365 "impl/lib/b2/xparser.x"
+                                            xn_root_restore(xn_t2616);
+                                            xn_root_restore(xn_t2615);
+                                            continue;
+                                                {
+                                                xn_root_restore(xn_t2616);
+                                                }
+
+                                        }
+                                    #line 1366 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t2617 = rt_retain(name);
+xn_root_add(xn_t2617);
+        xn_root_add(xn_t2617);
+                xn_root_add(xn_t2617);
+                        xn_root_add(xn_t2617);
+                                xn_root_add(xn_t2617);
+                                    xn_root_add(xn_t2617);
+                                    rt_string *r = xn_Cls_Parser_parseMember(self, xn_t2617, fields, methods, ctors);
+xn_root_add(r);
+        xn_root_add(r);
+                xn_root_add(r);
+                        xn_root_add(r);
+                                xn_root_add(r);
+                                    xn_root_add(r);
+                                    xn_root_add(r);
+                                    xn_gc_safepoint();
+                                    #line 1367 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t2619 = rt_retain(r);
+xn_root_add(xn_t2619);
+        xn_root_add(xn_t2619);
+                xn_root_add(xn_t2619);
+                        xn_root_add(xn_t2619);
+                                xn_root_add(xn_t2619);
+                                    xn_root_add(xn_t2619);
+                                    rt_string *xn_t2620 = rt_string_from_c("");
+xn_root_add(xn_t2620);
+        xn_root_add(xn_t2620);
+                xn_root_add(xn_t2620);
+                        xn_root_add(xn_t2620);
+                                xn_root_add(xn_t2620);
+                                    xn_root_add(xn_t2620);
+                                        if (((!(xn_str_eq(xn_t2619, xn_t2620))))) {
+                                            size_t xn_t2621 = xn_root_mark();
+                                            #line 1367 "impl/lib/b2/xparser.x"
+                                            rt_string *xn_t2622 = rt_retain(r);
+xn_root_add(xn_t2622);
+        xn_root_add(xn_t2622);
+                xn_root_add(xn_t2622);
+                        xn_root_add(xn_t2622);
+                                xn_root_add(xn_t2622);
+                                    xn_root_add(xn_t2622);
+                                            xn_root_add(xn_t2622);
+                                            xn_arr_s_push(methods, xn_t2622);
+                                                {
+                                                xn_root_restore(xn_t2621);
+                                                }
+
+                                        }
+                                        {
+                                        rt_release(r);
+                                        }
+                                        {
+                                        xn_root_restore(xn_t2615);
+                                        }
+
+                                    xn_gc_safepoint();
+                                    }
+                                    {
+                                    xn_root_restore(xn_t2614);
                                     }
 
                             }
                     }
             }
     }
-#line 1360 "impl/lib/b2/xparser.x"
+#line 1370 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 13))) {
-        size_t xn_t2599 = xn_root_mark();
-        #line 1360 "impl/lib/b2/xparser.x"
+        size_t xn_t2623 = xn_root_mark();
+        #line 1370 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t2599);
+            xn_root_restore(xn_t2623);
             }
 
     }
-#line 1361 "impl/lib/b2/xparser.x"
-rt_string *xn_t2600 = rt_retain(xn_p_kw);
-xn_root_add(xn_t2600);
-rt_string *xn_t2601 = rt_string_from_c("class");
-xn_root_add(xn_t2601);
-    if ((xn_str_eq(xn_t2600, xn_t2601))) {
-        size_t xn_t2602 = xn_root_mark();
-        #line 1362 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2603 = rt_string_from_c("(ClassDecl ");
-xn_root_add(xn_t2603);
-        xn_root_add(xn_t2603);
-        xn_root_add(xn_t2603);
-        rt_string *xn_t2604 = xn_P(nl, nc);
-xn_root_add(xn_t2604);
-        xn_root_add(xn_t2604);
-        xn_root_add(xn_t2604);
-        rt_string *xn_t2605 = xn_concat(xn_t2603, xn_t2604);
-xn_root_add(xn_t2605);
-        xn_root_add(xn_t2605);
-        xn_root_add(xn_t2605);
-        rt_string *xn_t2606 = rt_string_from_c(" (Annos ");
-xn_root_add(xn_t2606);
-        xn_root_add(xn_t2606);
-        xn_root_add(xn_t2606);
-        rt_string *xn_t2607 = xn_concat(xn_t2605, xn_t2606);
-xn_root_add(xn_t2607);
-        xn_root_add(xn_t2607);
-        xn_root_add(xn_t2607);
-        rt_string *xn_t2608 = xn_SL(xn_p_annos);
-xn_root_add(xn_t2608);
-        xn_root_add(xn_t2608);
-        xn_root_add(xn_t2608);
-        rt_string *xn_t2609 = xn_concat(xn_t2607, xn_t2608);
-xn_root_add(xn_t2609);
-        xn_root_add(xn_t2609);
-        xn_root_add(xn_t2609);
-        rt_string *xn_t2610 = rt_string_from_c(") (Mod ");
-xn_root_add(xn_t2610);
-        xn_root_add(xn_t2610);
-        xn_root_add(xn_t2610);
-        rt_string *xn_t2611 = xn_concat(xn_t2609, xn_t2610);
-xn_root_add(xn_t2611);
-        xn_root_add(xn_t2611);
-        xn_root_add(xn_t2611);
-        rt_string *xn_t2612 = xn_Cls_Parser_modDump(self, xn_p_m);
-xn_root_add(xn_t2612);
-        xn_root_add(xn_t2612);
-        xn_root_add(xn_t2612);
-        rt_string *xn_t2613 = xn_concat(xn_t2611, xn_t2612);
-xn_root_add(xn_t2613);
-        xn_root_add(xn_t2613);
-        xn_root_add(xn_t2613);
-        rt_string *xn_t2614 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t2614);
-        xn_root_add(xn_t2614);
-        xn_root_add(xn_t2614);
-        rt_string *xn_t2615 = xn_concat(xn_t2613, xn_t2614);
-xn_root_add(xn_t2615);
-        xn_root_add(xn_t2615);
-        xn_root_add(xn_t2615);
-        rt_string *xn_t2616 = rt_retain(name);
-xn_root_add(xn_t2616);
-        xn_root_add(xn_t2616);
-        xn_root_add(xn_t2616);
-        rt_string *xn_t2617 = xn_q(xn_t2616);
-xn_root_add(xn_t2617);
-        xn_root_add(xn_t2617);
-        xn_root_add(xn_t2617);
-        rt_string *xn_t2618 = xn_concat(xn_t2615, xn_t2617);
-xn_root_add(xn_t2618);
-        xn_root_add(xn_t2618);
-        xn_root_add(xn_t2618);
-        rt_string *xn_t2619 = rt_string_from_c(") (TypePars ");
-xn_root_add(xn_t2619);
-        xn_root_add(xn_t2619);
-        xn_root_add(xn_t2619);
-        rt_string *xn_t2620 = xn_concat(xn_t2618, xn_t2619);
-xn_root_add(xn_t2620);
-        xn_root_add(xn_t2620);
-        xn_root_add(xn_t2620);
-        rt_string *xn_t2621 = xn_SLS(tps);
-xn_root_add(xn_t2621);
-        xn_root_add(xn_t2621);
-        xn_root_add(xn_t2621);
-        rt_string *xn_t2622 = xn_concat(xn_t2620, xn_t2621);
-xn_root_add(xn_t2622);
-        xn_root_add(xn_t2622);
-        xn_root_add(xn_t2622);
-        rt_string *xn_t2623 = rt_string_from_c(") (Primary ");
-xn_root_add(xn_t2623);
-        xn_root_add(xn_t2623);
-        xn_root_add(xn_t2623);
-        rt_string *xn_t2624 = xn_concat(xn_t2622, xn_t2623);
+#line 1371 "impl/lib/b2/xparser.x"
+rt_string *xn_t2624 = rt_retain(xn_p_kw);
 xn_root_add(xn_t2624);
-        xn_root_add(xn_t2624);
-        xn_root_add(xn_t2624);
-        rt_string *xn_t2625 = rt_retain(primary);
+rt_string *xn_t2625 = rt_string_from_c("class");
 xn_root_add(xn_t2625);
-        xn_root_add(xn_t2625);
-        xn_root_add(xn_t2625);
-        rt_string *xn_t2626 = xn_concat(xn_t2624, xn_t2625);
-xn_root_add(xn_t2626);
-        xn_root_add(xn_t2626);
-        xn_root_add(xn_t2626);
-        rt_string *xn_t2627 = rt_string_from_c(") (Base ");
+    if ((xn_str_eq(xn_t2624, xn_t2625))) {
+        size_t xn_t2626 = xn_root_mark();
+        #line 1372 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2627 = rt_string_from_c("(ClassDecl ");
 xn_root_add(xn_t2627);
         xn_root_add(xn_t2627);
         xn_root_add(xn_t2627);
-        rt_string *xn_t2628 = xn_concat(xn_t2626, xn_t2627);
+        rt_string *xn_t2628 = xn_P(nl, nc);
 xn_root_add(xn_t2628);
         xn_root_add(xn_t2628);
         xn_root_add(xn_t2628);
-        rt_string *xn_t2629 = rt_retain(base);
+        rt_string *xn_t2629 = xn_concat(xn_t2627, xn_t2628);
 xn_root_add(xn_t2629);
         xn_root_add(xn_t2629);
         xn_root_add(xn_t2629);
-        rt_string *xn_t2630 = xn_concat(xn_t2628, xn_t2629);
+        rt_string *xn_t2630 = rt_string_from_c(" (Annos ");
 xn_root_add(xn_t2630);
         xn_root_add(xn_t2630);
         xn_root_add(xn_t2630);
-        rt_string *xn_t2631 = rt_string_from_c(") (Protocols ");
+        rt_string *xn_t2631 = xn_concat(xn_t2629, xn_t2630);
 xn_root_add(xn_t2631);
         xn_root_add(xn_t2631);
         xn_root_add(xn_t2631);
-        rt_string *xn_t2632 = xn_concat(xn_t2630, xn_t2631);
+        rt_string *xn_t2632 = xn_SL(xn_p_annos);
 xn_root_add(xn_t2632);
         xn_root_add(xn_t2632);
         xn_root_add(xn_t2632);
-        rt_string *xn_t2633 = xn_SL(protos);
+        rt_string *xn_t2633 = xn_concat(xn_t2631, xn_t2632);
 xn_root_add(xn_t2633);
         xn_root_add(xn_t2633);
         xn_root_add(xn_t2633);
-        rt_string *xn_t2634 = xn_concat(xn_t2632, xn_t2633);
+        rt_string *xn_t2634 = rt_string_from_c(") (Mod ");
 xn_root_add(xn_t2634);
         xn_root_add(xn_t2634);
         xn_root_add(xn_t2634);
-        rt_string *xn_t2635 = rt_string_from_c(") (Fields ");
+        rt_string *xn_t2635 = xn_concat(xn_t2633, xn_t2634);
 xn_root_add(xn_t2635);
         xn_root_add(xn_t2635);
         xn_root_add(xn_t2635);
-        rt_string *xn_t2636 = xn_concat(xn_t2634, xn_t2635);
+        rt_string *xn_t2636 = xn_Cls_Parser_modDump(self, xn_p_m);
 xn_root_add(xn_t2636);
         xn_root_add(xn_t2636);
         xn_root_add(xn_t2636);
-        rt_string *xn_t2637 = xn_SL(fields);
+        rt_string *xn_t2637 = xn_concat(xn_t2635, xn_t2636);
 xn_root_add(xn_t2637);
         xn_root_add(xn_t2637);
         xn_root_add(xn_t2637);
-        rt_string *xn_t2638 = xn_concat(xn_t2636, xn_t2637);
+        rt_string *xn_t2638 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2638);
         xn_root_add(xn_t2638);
         xn_root_add(xn_t2638);
-        rt_string *xn_t2639 = rt_string_from_c(") (Methods ");
+        rt_string *xn_t2639 = xn_concat(xn_t2637, xn_t2638);
 xn_root_add(xn_t2639);
         xn_root_add(xn_t2639);
         xn_root_add(xn_t2639);
-        rt_string *xn_t2640 = xn_concat(xn_t2638, xn_t2639);
+        rt_string *xn_t2640 = rt_retain(name);
 xn_root_add(xn_t2640);
         xn_root_add(xn_t2640);
         xn_root_add(xn_t2640);
-        rt_string *xn_t2641 = xn_SL(methods);
+        rt_string *xn_t2641 = xn_q(xn_t2640);
 xn_root_add(xn_t2641);
         xn_root_add(xn_t2641);
         xn_root_add(xn_t2641);
-        rt_string *xn_t2642 = xn_concat(xn_t2640, xn_t2641);
+        rt_string *xn_t2642 = xn_concat(xn_t2639, xn_t2641);
 xn_root_add(xn_t2642);
         xn_root_add(xn_t2642);
         xn_root_add(xn_t2642);
-        rt_string *xn_t2643 = rt_string_from_c(") (Ctors ");
+        rt_string *xn_t2643 = rt_string_from_c(") (TypePars ");
 xn_root_add(xn_t2643);
         xn_root_add(xn_t2643);
         xn_root_add(xn_t2643);
@@ -16578,7 +16630,7 @@ xn_root_add(xn_t2643);
 xn_root_add(xn_t2644);
         xn_root_add(xn_t2644);
         xn_root_add(xn_t2644);
-        rt_string *xn_t2645 = xn_SL(ctors);
+        rt_string *xn_t2645 = xn_SLS(tps);
 xn_root_add(xn_t2645);
         xn_root_add(xn_t2645);
         xn_root_add(xn_t2645);
@@ -16586,7 +16638,7 @@ xn_root_add(xn_t2645);
 xn_root_add(xn_t2646);
         xn_root_add(xn_t2646);
         xn_root_add(xn_t2646);
-        rt_string *xn_t2647 = rt_string_from_c("))");
+        rt_string *xn_t2647 = rt_string_from_c(") (Primary ");
 xn_root_add(xn_t2647);
         xn_root_add(xn_t2647);
         xn_root_add(xn_t2647);
@@ -16594,38 +16646,23 @@ xn_root_add(xn_t2647);
 xn_root_add(xn_t2648);
         xn_root_add(xn_t2648);
         xn_root_add(xn_t2648);
-            {
-        xn_root_restore(xn_t2602);
-            }
-            {
-        rt_release(base);
-            }
-            {
-        rt_release(primary);
-            }
-            {
-        rt_release(name);
-            }
-            {
-        xn_root_restore(xn_t2438);
-            }
-
-        return xn_t2648;
-
-    }
-#line 1366 "impl/lib/b2/xparser.x"
-rt_string *xn_t2649 = rt_retain(xn_p_kw);
+        rt_string *xn_t2649 = rt_retain(primary);
 xn_root_add(xn_t2649);
-rt_string *xn_t2650 = rt_string_from_c("struct");
+        xn_root_add(xn_t2649);
+        xn_root_add(xn_t2649);
+        rt_string *xn_t2650 = xn_concat(xn_t2648, xn_t2649);
 xn_root_add(xn_t2650);
-    if ((xn_str_eq(xn_t2649, xn_t2650))) {
-        size_t xn_t2651 = xn_root_mark();
-        #line 1367 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2652 = rt_string_from_c("(StructDecl ");
+        xn_root_add(xn_t2650);
+        xn_root_add(xn_t2650);
+        rt_string *xn_t2651 = rt_string_from_c(") (Base ");
+xn_root_add(xn_t2651);
+        xn_root_add(xn_t2651);
+        xn_root_add(xn_t2651);
+        rt_string *xn_t2652 = xn_concat(xn_t2650, xn_t2651);
 xn_root_add(xn_t2652);
         xn_root_add(xn_t2652);
         xn_root_add(xn_t2652);
-        rt_string *xn_t2653 = xn_P(nl, nc);
+        rt_string *xn_t2653 = rt_retain(base);
 xn_root_add(xn_t2653);
         xn_root_add(xn_t2653);
         xn_root_add(xn_t2653);
@@ -16633,7 +16670,7 @@ xn_root_add(xn_t2653);
 xn_root_add(xn_t2654);
         xn_root_add(xn_t2654);
         xn_root_add(xn_t2654);
-        rt_string *xn_t2655 = rt_string_from_c(" (Annos ");
+        rt_string *xn_t2655 = rt_string_from_c(") (Protocols ");
 xn_root_add(xn_t2655);
         xn_root_add(xn_t2655);
         xn_root_add(xn_t2655);
@@ -16641,7 +16678,7 @@ xn_root_add(xn_t2655);
 xn_root_add(xn_t2656);
         xn_root_add(xn_t2656);
         xn_root_add(xn_t2656);
-        rt_string *xn_t2657 = xn_SL(xn_p_annos);
+        rt_string *xn_t2657 = xn_SL(protos);
 xn_root_add(xn_t2657);
         xn_root_add(xn_t2657);
         xn_root_add(xn_t2657);
@@ -16649,7 +16686,7 @@ xn_root_add(xn_t2657);
 xn_root_add(xn_t2658);
         xn_root_add(xn_t2658);
         xn_root_add(xn_t2658);
-        rt_string *xn_t2659 = rt_string_from_c(") (Mod ");
+        rt_string *xn_t2659 = rt_string_from_c(") (Fields ");
 xn_root_add(xn_t2659);
         xn_root_add(xn_t2659);
         xn_root_add(xn_t2659);
@@ -16657,7 +16694,7 @@ xn_root_add(xn_t2659);
 xn_root_add(xn_t2660);
         xn_root_add(xn_t2660);
         xn_root_add(xn_t2660);
-        rt_string *xn_t2661 = xn_Cls_Parser_modDump(self, xn_p_m);
+        rt_string *xn_t2661 = xn_SL(fields);
 xn_root_add(xn_t2661);
         xn_root_add(xn_t2661);
         xn_root_add(xn_t2661);
@@ -16665,7 +16702,7 @@ xn_root_add(xn_t2661);
 xn_root_add(xn_t2662);
         xn_root_add(xn_t2662);
         xn_root_add(xn_t2662);
-        rt_string *xn_t2663 = rt_string_from_c(") (Name ");
+        rt_string *xn_t2663 = rt_string_from_c(") (Methods ");
 xn_root_add(xn_t2663);
         xn_root_add(xn_t2663);
         xn_root_add(xn_t2663);
@@ -16673,108 +16710,40 @@ xn_root_add(xn_t2663);
 xn_root_add(xn_t2664);
         xn_root_add(xn_t2664);
         xn_root_add(xn_t2664);
-        rt_string *xn_t2665 = rt_retain(name);
+        rt_string *xn_t2665 = xn_SL(methods);
 xn_root_add(xn_t2665);
         xn_root_add(xn_t2665);
         xn_root_add(xn_t2665);
-        rt_string *xn_t2666 = xn_q(xn_t2665);
+        rt_string *xn_t2666 = xn_concat(xn_t2664, xn_t2665);
 xn_root_add(xn_t2666);
         xn_root_add(xn_t2666);
         xn_root_add(xn_t2666);
-        rt_string *xn_t2667 = xn_concat(xn_t2664, xn_t2666);
+        rt_string *xn_t2667 = rt_string_from_c(") (Ctors ");
 xn_root_add(xn_t2667);
         xn_root_add(xn_t2667);
         xn_root_add(xn_t2667);
-        rt_string *xn_t2668 = rt_string_from_c(") (TypePars ");
+        rt_string *xn_t2668 = xn_concat(xn_t2666, xn_t2667);
 xn_root_add(xn_t2668);
         xn_root_add(xn_t2668);
         xn_root_add(xn_t2668);
-        rt_string *xn_t2669 = xn_concat(xn_t2667, xn_t2668);
+        rt_string *xn_t2669 = xn_SL(ctors);
 xn_root_add(xn_t2669);
         xn_root_add(xn_t2669);
         xn_root_add(xn_t2669);
-        rt_string *xn_t2670 = xn_SLS(tps);
+        rt_string *xn_t2670 = xn_concat(xn_t2668, xn_t2669);
 xn_root_add(xn_t2670);
         xn_root_add(xn_t2670);
         xn_root_add(xn_t2670);
-        rt_string *xn_t2671 = xn_concat(xn_t2669, xn_t2670);
+        rt_string *xn_t2671 = rt_string_from_c("))");
 xn_root_add(xn_t2671);
         xn_root_add(xn_t2671);
         xn_root_add(xn_t2671);
-        rt_string *xn_t2672 = rt_string_from_c(") (Primary ");
+        rt_string *xn_t2672 = xn_concat(xn_t2670, xn_t2671);
 xn_root_add(xn_t2672);
         xn_root_add(xn_t2672);
         xn_root_add(xn_t2672);
-        rt_string *xn_t2673 = xn_concat(xn_t2671, xn_t2672);
-xn_root_add(xn_t2673);
-        xn_root_add(xn_t2673);
-        xn_root_add(xn_t2673);
-        rt_string *xn_t2674 = rt_retain(primary);
-xn_root_add(xn_t2674);
-        xn_root_add(xn_t2674);
-        xn_root_add(xn_t2674);
-        rt_string *xn_t2675 = xn_concat(xn_t2673, xn_t2674);
-xn_root_add(xn_t2675);
-        xn_root_add(xn_t2675);
-        xn_root_add(xn_t2675);
-        rt_string *xn_t2676 = rt_string_from_c(") (Fields ");
-xn_root_add(xn_t2676);
-        xn_root_add(xn_t2676);
-        xn_root_add(xn_t2676);
-        rt_string *xn_t2677 = xn_concat(xn_t2675, xn_t2676);
-xn_root_add(xn_t2677);
-        xn_root_add(xn_t2677);
-        xn_root_add(xn_t2677);
-        rt_string *xn_t2678 = xn_SL(fields);
-xn_root_add(xn_t2678);
-        xn_root_add(xn_t2678);
-        xn_root_add(xn_t2678);
-        rt_string *xn_t2679 = xn_concat(xn_t2677, xn_t2678);
-xn_root_add(xn_t2679);
-        xn_root_add(xn_t2679);
-        xn_root_add(xn_t2679);
-        rt_string *xn_t2680 = rt_string_from_c(") (Methods ");
-xn_root_add(xn_t2680);
-        xn_root_add(xn_t2680);
-        xn_root_add(xn_t2680);
-        rt_string *xn_t2681 = xn_concat(xn_t2679, xn_t2680);
-xn_root_add(xn_t2681);
-        xn_root_add(xn_t2681);
-        xn_root_add(xn_t2681);
-        rt_string *xn_t2682 = xn_SL(methods);
-xn_root_add(xn_t2682);
-        xn_root_add(xn_t2682);
-        xn_root_add(xn_t2682);
-        rt_string *xn_t2683 = xn_concat(xn_t2681, xn_t2682);
-xn_root_add(xn_t2683);
-        xn_root_add(xn_t2683);
-        xn_root_add(xn_t2683);
-        rt_string *xn_t2684 = rt_string_from_c(") (Ctors ");
-xn_root_add(xn_t2684);
-        xn_root_add(xn_t2684);
-        xn_root_add(xn_t2684);
-        rt_string *xn_t2685 = xn_concat(xn_t2683, xn_t2684);
-xn_root_add(xn_t2685);
-        xn_root_add(xn_t2685);
-        xn_root_add(xn_t2685);
-        rt_string *xn_t2686 = xn_SL(ctors);
-xn_root_add(xn_t2686);
-        xn_root_add(xn_t2686);
-        xn_root_add(xn_t2686);
-        rt_string *xn_t2687 = xn_concat(xn_t2685, xn_t2686);
-xn_root_add(xn_t2687);
-        xn_root_add(xn_t2687);
-        xn_root_add(xn_t2687);
-        rt_string *xn_t2688 = rt_string_from_c("))");
-xn_root_add(xn_t2688);
-        xn_root_add(xn_t2688);
-        xn_root_add(xn_t2688);
-        rt_string *xn_t2689 = xn_concat(xn_t2687, xn_t2688);
-xn_root_add(xn_t2689);
-        xn_root_add(xn_t2689);
-        xn_root_add(xn_t2689);
             {
-        xn_root_restore(xn_t2651);
+        xn_root_restore(xn_t2626);
             }
             {
         rt_release(base);
@@ -16789,22 +16758,90 @@ xn_root_add(xn_t2689);
         xn_root_restore(xn_t2438);
             }
 
-        return xn_t2689;
+        return xn_t2672;
 
     }
-#line 1371 "impl/lib/b2/xparser.x"
-rt_string *xn_t2690 = rt_retain(xn_p_kw);
+#line 1376 "impl/lib/b2/xparser.x"
+rt_string *xn_t2673 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2673);
+rt_string *xn_t2674 = rt_string_from_c("struct");
+xn_root_add(xn_t2674);
+    if ((xn_str_eq(xn_t2673, xn_t2674))) {
+        size_t xn_t2675 = xn_root_mark();
+        #line 1377 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2676 = rt_string_from_c("(StructDecl ");
+xn_root_add(xn_t2676);
+        xn_root_add(xn_t2676);
+        xn_root_add(xn_t2676);
+        rt_string *xn_t2677 = xn_P(nl, nc);
+xn_root_add(xn_t2677);
+        xn_root_add(xn_t2677);
+        xn_root_add(xn_t2677);
+        rt_string *xn_t2678 = xn_concat(xn_t2676, xn_t2677);
+xn_root_add(xn_t2678);
+        xn_root_add(xn_t2678);
+        xn_root_add(xn_t2678);
+        rt_string *xn_t2679 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2679);
+        xn_root_add(xn_t2679);
+        xn_root_add(xn_t2679);
+        rt_string *xn_t2680 = xn_concat(xn_t2678, xn_t2679);
+xn_root_add(xn_t2680);
+        xn_root_add(xn_t2680);
+        xn_root_add(xn_t2680);
+        rt_string *xn_t2681 = xn_SL(xn_p_annos);
+xn_root_add(xn_t2681);
+        xn_root_add(xn_t2681);
+        xn_root_add(xn_t2681);
+        rt_string *xn_t2682 = xn_concat(xn_t2680, xn_t2681);
+xn_root_add(xn_t2682);
+        xn_root_add(xn_t2682);
+        xn_root_add(xn_t2682);
+        rt_string *xn_t2683 = rt_string_from_c(") (Mod ");
+xn_root_add(xn_t2683);
+        xn_root_add(xn_t2683);
+        xn_root_add(xn_t2683);
+        rt_string *xn_t2684 = xn_concat(xn_t2682, xn_t2683);
+xn_root_add(xn_t2684);
+        xn_root_add(xn_t2684);
+        xn_root_add(xn_t2684);
+        rt_string *xn_t2685 = xn_Cls_Parser_modDump(self, xn_p_m);
+xn_root_add(xn_t2685);
+        xn_root_add(xn_t2685);
+        xn_root_add(xn_t2685);
+        rt_string *xn_t2686 = xn_concat(xn_t2684, xn_t2685);
+xn_root_add(xn_t2686);
+        xn_root_add(xn_t2686);
+        xn_root_add(xn_t2686);
+        rt_string *xn_t2687 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t2687);
+        xn_root_add(xn_t2687);
+        xn_root_add(xn_t2687);
+        rt_string *xn_t2688 = xn_concat(xn_t2686, xn_t2687);
+xn_root_add(xn_t2688);
+        xn_root_add(xn_t2688);
+        xn_root_add(xn_t2688);
+        rt_string *xn_t2689 = rt_retain(name);
+xn_root_add(xn_t2689);
+        xn_root_add(xn_t2689);
+        xn_root_add(xn_t2689);
+        rt_string *xn_t2690 = xn_q(xn_t2689);
 xn_root_add(xn_t2690);
-rt_string *xn_t2691 = rt_string_from_c("protocol");
+        xn_root_add(xn_t2690);
+        xn_root_add(xn_t2690);
+        rt_string *xn_t2691 = xn_concat(xn_t2688, xn_t2690);
 xn_root_add(xn_t2691);
-    if ((xn_str_eq(xn_t2690, xn_t2691))) {
-        size_t xn_t2692 = xn_root_mark();
-        #line 1372 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2693 = rt_string_from_c("(ProtocolDecl ");
+        xn_root_add(xn_t2691);
+        xn_root_add(xn_t2691);
+        rt_string *xn_t2692 = rt_string_from_c(") (TypePars ");
+xn_root_add(xn_t2692);
+        xn_root_add(xn_t2692);
+        xn_root_add(xn_t2692);
+        rt_string *xn_t2693 = xn_concat(xn_t2691, xn_t2692);
 xn_root_add(xn_t2693);
         xn_root_add(xn_t2693);
         xn_root_add(xn_t2693);
-        rt_string *xn_t2694 = xn_P(nl, nc);
+        rt_string *xn_t2694 = xn_SLS(tps);
 xn_root_add(xn_t2694);
         xn_root_add(xn_t2694);
         xn_root_add(xn_t2694);
@@ -16812,7 +16849,7 @@ xn_root_add(xn_t2694);
 xn_root_add(xn_t2695);
         xn_root_add(xn_t2695);
         xn_root_add(xn_t2695);
-        rt_string *xn_t2696 = rt_string_from_c(" (Annos ");
+        rt_string *xn_t2696 = rt_string_from_c(") (Primary ");
 xn_root_add(xn_t2696);
         xn_root_add(xn_t2696);
         xn_root_add(xn_t2696);
@@ -16820,7 +16857,7 @@ xn_root_add(xn_t2696);
 xn_root_add(xn_t2697);
         xn_root_add(xn_t2697);
         xn_root_add(xn_t2697);
-        rt_string *xn_t2698 = xn_SL(xn_p_annos);
+        rt_string *xn_t2698 = rt_retain(primary);
 xn_root_add(xn_t2698);
         xn_root_add(xn_t2698);
         xn_root_add(xn_t2698);
@@ -16828,7 +16865,7 @@ xn_root_add(xn_t2698);
 xn_root_add(xn_t2699);
         xn_root_add(xn_t2699);
         xn_root_add(xn_t2699);
-        rt_string *xn_t2700 = rt_string_from_c(") (Name ");
+        rt_string *xn_t2700 = rt_string_from_c(") (Fields ");
 xn_root_add(xn_t2700);
         xn_root_add(xn_t2700);
         xn_root_add(xn_t2700);
@@ -16836,60 +16873,56 @@ xn_root_add(xn_t2700);
 xn_root_add(xn_t2701);
         xn_root_add(xn_t2701);
         xn_root_add(xn_t2701);
-        rt_string *xn_t2702 = rt_retain(name);
+        rt_string *xn_t2702 = xn_SL(fields);
 xn_root_add(xn_t2702);
         xn_root_add(xn_t2702);
         xn_root_add(xn_t2702);
-        rt_string *xn_t2703 = xn_q(xn_t2702);
+        rt_string *xn_t2703 = xn_concat(xn_t2701, xn_t2702);
 xn_root_add(xn_t2703);
         xn_root_add(xn_t2703);
         xn_root_add(xn_t2703);
-        rt_string *xn_t2704 = xn_concat(xn_t2701, xn_t2703);
+        rt_string *xn_t2704 = rt_string_from_c(") (Methods ");
 xn_root_add(xn_t2704);
         xn_root_add(xn_t2704);
         xn_root_add(xn_t2704);
-        rt_string *xn_t2705 = rt_string_from_c(") (Extends ");
+        rt_string *xn_t2705 = xn_concat(xn_t2703, xn_t2704);
 xn_root_add(xn_t2705);
         xn_root_add(xn_t2705);
         xn_root_add(xn_t2705);
-        rt_string *xn_t2706 = xn_concat(xn_t2704, xn_t2705);
+        rt_string *xn_t2706 = xn_SL(methods);
 xn_root_add(xn_t2706);
         xn_root_add(xn_t2706);
         xn_root_add(xn_t2706);
-        rt_string *xn_t2707 = xn_SL(protos);
+        rt_string *xn_t2707 = xn_concat(xn_t2705, xn_t2706);
 xn_root_add(xn_t2707);
         xn_root_add(xn_t2707);
         xn_root_add(xn_t2707);
-        rt_string *xn_t2708 = xn_concat(xn_t2706, xn_t2707);
+        rt_string *xn_t2708 = rt_string_from_c(") (Ctors ");
 xn_root_add(xn_t2708);
         xn_root_add(xn_t2708);
         xn_root_add(xn_t2708);
-        rt_string *xn_t2709 = rt_string_from_c(") (Sigs ");
+        rt_string *xn_t2709 = xn_concat(xn_t2707, xn_t2708);
 xn_root_add(xn_t2709);
         xn_root_add(xn_t2709);
         xn_root_add(xn_t2709);
-        rt_string *xn_t2710 = xn_concat(xn_t2708, xn_t2709);
+        rt_string *xn_t2710 = xn_SL(ctors);
 xn_root_add(xn_t2710);
         xn_root_add(xn_t2710);
         xn_root_add(xn_t2710);
-        rt_string *xn_t2711 = xn_SL(sigs);
+        rt_string *xn_t2711 = xn_concat(xn_t2709, xn_t2710);
 xn_root_add(xn_t2711);
         xn_root_add(xn_t2711);
         xn_root_add(xn_t2711);
-        rt_string *xn_t2712 = xn_concat(xn_t2710, xn_t2711);
+        rt_string *xn_t2712 = rt_string_from_c("))");
 xn_root_add(xn_t2712);
         xn_root_add(xn_t2712);
         xn_root_add(xn_t2712);
-        rt_string *xn_t2713 = rt_string_from_c("))");
+        rt_string *xn_t2713 = xn_concat(xn_t2711, xn_t2712);
 xn_root_add(xn_t2713);
         xn_root_add(xn_t2713);
         xn_root_add(xn_t2713);
-        rt_string *xn_t2714 = xn_concat(xn_t2712, xn_t2713);
-xn_root_add(xn_t2714);
-        xn_root_add(xn_t2714);
-        xn_root_add(xn_t2714);
             {
-        xn_root_restore(xn_t2692);
+        xn_root_restore(xn_t2675);
             }
             {
         rt_release(base);
@@ -16904,62 +16937,66 @@ xn_root_add(xn_t2714);
         xn_root_restore(xn_t2438);
             }
 
-        return xn_t2714;
+        return xn_t2713;
 
     }
-#line 1375 "impl/lib/b2/xparser.x"
-rt_string *xn_t2715 = rt_retain(xn_p_kw);
+#line 1381 "impl/lib/b2/xparser.x"
+rt_string *xn_t2714 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2714);
+rt_string *xn_t2715 = rt_string_from_c("protocol");
 xn_root_add(xn_t2715);
-rt_string *xn_t2716 = rt_string_from_c("enum");
-xn_root_add(xn_t2716);
-    if ((xn_str_eq(xn_t2715, xn_t2716))) {
-        size_t xn_t2717 = xn_root_mark();
-        #line 1376 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2718 = rt_string_from_c("(EnumDecl ");
+    if ((xn_str_eq(xn_t2714, xn_t2715))) {
+        size_t xn_t2716 = xn_root_mark();
+        #line 1382 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2717 = rt_string_from_c("(ProtocolDecl ");
+xn_root_add(xn_t2717);
+        xn_root_add(xn_t2717);
+        xn_root_add(xn_t2717);
+        rt_string *xn_t2718 = xn_P(nl, nc);
 xn_root_add(xn_t2718);
         xn_root_add(xn_t2718);
         xn_root_add(xn_t2718);
-        rt_string *xn_t2719 = xn_P(nl, nc);
+        rt_string *xn_t2719 = xn_concat(xn_t2717, xn_t2718);
 xn_root_add(xn_t2719);
         xn_root_add(xn_t2719);
         xn_root_add(xn_t2719);
-        rt_string *xn_t2720 = xn_concat(xn_t2718, xn_t2719);
+        rt_string *xn_t2720 = rt_string_from_c(" (Annos ");
 xn_root_add(xn_t2720);
         xn_root_add(xn_t2720);
         xn_root_add(xn_t2720);
-        rt_string *xn_t2721 = rt_string_from_c(" (Annos ");
+        rt_string *xn_t2721 = xn_concat(xn_t2719, xn_t2720);
 xn_root_add(xn_t2721);
         xn_root_add(xn_t2721);
         xn_root_add(xn_t2721);
-        rt_string *xn_t2722 = xn_concat(xn_t2720, xn_t2721);
+        rt_string *xn_t2722 = xn_SL(xn_p_annos);
 xn_root_add(xn_t2722);
         xn_root_add(xn_t2722);
         xn_root_add(xn_t2722);
-        rt_string *xn_t2723 = xn_SL(xn_p_annos);
+        rt_string *xn_t2723 = xn_concat(xn_t2721, xn_t2722);
 xn_root_add(xn_t2723);
         xn_root_add(xn_t2723);
         xn_root_add(xn_t2723);
-        rt_string *xn_t2724 = xn_concat(xn_t2722, xn_t2723);
+        rt_string *xn_t2724 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2724);
         xn_root_add(xn_t2724);
         xn_root_add(xn_t2724);
-        rt_string *xn_t2725 = rt_string_from_c(") (Mod ");
+        rt_string *xn_t2725 = xn_concat(xn_t2723, xn_t2724);
 xn_root_add(xn_t2725);
         xn_root_add(xn_t2725);
         xn_root_add(xn_t2725);
-        rt_string *xn_t2726 = xn_concat(xn_t2724, xn_t2725);
+        rt_string *xn_t2726 = rt_retain(name);
 xn_root_add(xn_t2726);
         xn_root_add(xn_t2726);
         xn_root_add(xn_t2726);
-        rt_string *xn_t2727 = xn_Cls_Parser_modDump(self, xn_p_m);
+        rt_string *xn_t2727 = xn_q(xn_t2726);
 xn_root_add(xn_t2727);
         xn_root_add(xn_t2727);
         xn_root_add(xn_t2727);
-        rt_string *xn_t2728 = xn_concat(xn_t2726, xn_t2727);
+        rt_string *xn_t2728 = xn_concat(xn_t2725, xn_t2727);
 xn_root_add(xn_t2728);
         xn_root_add(xn_t2728);
         xn_root_add(xn_t2728);
-        rt_string *xn_t2729 = rt_string_from_c(") (Name ");
+        rt_string *xn_t2729 = rt_string_from_c(") (Extends ");
 xn_root_add(xn_t2729);
         xn_root_add(xn_t2729);
         xn_root_add(xn_t2729);
@@ -16967,108 +17004,40 @@ xn_root_add(xn_t2729);
 xn_root_add(xn_t2730);
         xn_root_add(xn_t2730);
         xn_root_add(xn_t2730);
-        rt_string *xn_t2731 = rt_retain(name);
+        rt_string *xn_t2731 = xn_SL(protos);
 xn_root_add(xn_t2731);
         xn_root_add(xn_t2731);
         xn_root_add(xn_t2731);
-        rt_string *xn_t2732 = xn_q(xn_t2731);
+        rt_string *xn_t2732 = xn_concat(xn_t2730, xn_t2731);
 xn_root_add(xn_t2732);
         xn_root_add(xn_t2732);
         xn_root_add(xn_t2732);
-        rt_string *xn_t2733 = xn_concat(xn_t2730, xn_t2732);
+        rt_string *xn_t2733 = rt_string_from_c(") (Sigs ");
 xn_root_add(xn_t2733);
         xn_root_add(xn_t2733);
         xn_root_add(xn_t2733);
-        rt_string *xn_t2734 = rt_string_from_c(") (Items ");
+        rt_string *xn_t2734 = xn_concat(xn_t2732, xn_t2733);
 xn_root_add(xn_t2734);
         xn_root_add(xn_t2734);
         xn_root_add(xn_t2734);
-        rt_string *xn_t2735 = xn_concat(xn_t2733, xn_t2734);
+        rt_string *xn_t2735 = xn_SL(sigs);
 xn_root_add(xn_t2735);
         xn_root_add(xn_t2735);
         xn_root_add(xn_t2735);
-        rt_string *xn_t2736 = xn_SL(items);
+        rt_string *xn_t2736 = xn_concat(xn_t2734, xn_t2735);
 xn_root_add(xn_t2736);
         xn_root_add(xn_t2736);
         xn_root_add(xn_t2736);
-        rt_string *xn_t2737 = xn_concat(xn_t2735, xn_t2736);
+        rt_string *xn_t2737 = rt_string_from_c("))");
 xn_root_add(xn_t2737);
         xn_root_add(xn_t2737);
         xn_root_add(xn_t2737);
-        rt_string *xn_t2738 = rt_string_from_c(") (IsData ");
+        rt_string *xn_t2738 = xn_concat(xn_t2736, xn_t2737);
 xn_root_add(xn_t2738);
         xn_root_add(xn_t2738);
         xn_root_add(xn_t2738);
-        rt_string *xn_t2739 = xn_concat(xn_t2737, xn_t2738);
-xn_root_add(xn_t2739);
-        xn_root_add(xn_t2739);
-        xn_root_add(xn_t2739);
-        rt_string *xn_t2740 = xn_B((((((int64_t)fields->len) > 0) || (((int64_t)methods->len) > 0)) || (((int64_t)ctors->len) > 0)));
-xn_root_add(xn_t2740);
-        xn_root_add(xn_t2740);
-        xn_root_add(xn_t2740);
-        rt_string *xn_t2741 = xn_concat(xn_t2739, xn_t2740);
-xn_root_add(xn_t2741);
-        xn_root_add(xn_t2741);
-        xn_root_add(xn_t2741);
-        rt_string *xn_t2742 = rt_string_from_c(") (Fields ");
-xn_root_add(xn_t2742);
-        xn_root_add(xn_t2742);
-        xn_root_add(xn_t2742);
-        rt_string *xn_t2743 = xn_concat(xn_t2741, xn_t2742);
-xn_root_add(xn_t2743);
-        xn_root_add(xn_t2743);
-        xn_root_add(xn_t2743);
-        rt_string *xn_t2744 = xn_SL(fields);
-xn_root_add(xn_t2744);
-        xn_root_add(xn_t2744);
-        xn_root_add(xn_t2744);
-        rt_string *xn_t2745 = xn_concat(xn_t2743, xn_t2744);
-xn_root_add(xn_t2745);
-        xn_root_add(xn_t2745);
-        xn_root_add(xn_t2745);
-        rt_string *xn_t2746 = rt_string_from_c(") (Methods ");
-xn_root_add(xn_t2746);
-        xn_root_add(xn_t2746);
-        xn_root_add(xn_t2746);
-        rt_string *xn_t2747 = xn_concat(xn_t2745, xn_t2746);
-xn_root_add(xn_t2747);
-        xn_root_add(xn_t2747);
-        xn_root_add(xn_t2747);
-        rt_string *xn_t2748 = xn_SL(methods);
-xn_root_add(xn_t2748);
-        xn_root_add(xn_t2748);
-        xn_root_add(xn_t2748);
-        rt_string *xn_t2749 = xn_concat(xn_t2747, xn_t2748);
-xn_root_add(xn_t2749);
-        xn_root_add(xn_t2749);
-        xn_root_add(xn_t2749);
-        rt_string *xn_t2750 = rt_string_from_c(") (Ctors ");
-xn_root_add(xn_t2750);
-        xn_root_add(xn_t2750);
-        xn_root_add(xn_t2750);
-        rt_string *xn_t2751 = xn_concat(xn_t2749, xn_t2750);
-xn_root_add(xn_t2751);
-        xn_root_add(xn_t2751);
-        xn_root_add(xn_t2751);
-        rt_string *xn_t2752 = xn_SL(ctors);
-xn_root_add(xn_t2752);
-        xn_root_add(xn_t2752);
-        xn_root_add(xn_t2752);
-        rt_string *xn_t2753 = xn_concat(xn_t2751, xn_t2752);
-xn_root_add(xn_t2753);
-        xn_root_add(xn_t2753);
-        xn_root_add(xn_t2753);
-        rt_string *xn_t2754 = rt_string_from_c("))");
-xn_root_add(xn_t2754);
-        xn_root_add(xn_t2754);
-        xn_root_add(xn_t2754);
-        rt_string *xn_t2755 = xn_concat(xn_t2753, xn_t2754);
-xn_root_add(xn_t2755);
-        xn_root_add(xn_t2755);
-        xn_root_add(xn_t2755);
             {
-        xn_root_restore(xn_t2717);
+        xn_root_restore(xn_t2716);
             }
             {
         rt_release(base);
@@ -17083,22 +17052,90 @@ xn_root_add(xn_t2755);
         xn_root_restore(xn_t2438);
             }
 
-        return xn_t2755;
+        return xn_t2738;
 
     }
-#line 1380 "impl/lib/b2/xparser.x"
-rt_string *xn_t2756 = rt_retain(xn_p_kw);
+#line 1385 "impl/lib/b2/xparser.x"
+rt_string *xn_t2739 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2739);
+rt_string *xn_t2740 = rt_string_from_c("enum");
+xn_root_add(xn_t2740);
+    if ((xn_str_eq(xn_t2739, xn_t2740))) {
+        size_t xn_t2741 = xn_root_mark();
+        #line 1386 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2742 = rt_string_from_c("(EnumDecl ");
+xn_root_add(xn_t2742);
+        xn_root_add(xn_t2742);
+        xn_root_add(xn_t2742);
+        rt_string *xn_t2743 = xn_P(nl, nc);
+xn_root_add(xn_t2743);
+        xn_root_add(xn_t2743);
+        xn_root_add(xn_t2743);
+        rt_string *xn_t2744 = xn_concat(xn_t2742, xn_t2743);
+xn_root_add(xn_t2744);
+        xn_root_add(xn_t2744);
+        xn_root_add(xn_t2744);
+        rt_string *xn_t2745 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2745);
+        xn_root_add(xn_t2745);
+        xn_root_add(xn_t2745);
+        rt_string *xn_t2746 = xn_concat(xn_t2744, xn_t2745);
+xn_root_add(xn_t2746);
+        xn_root_add(xn_t2746);
+        xn_root_add(xn_t2746);
+        rt_string *xn_t2747 = xn_SL(xn_p_annos);
+xn_root_add(xn_t2747);
+        xn_root_add(xn_t2747);
+        xn_root_add(xn_t2747);
+        rt_string *xn_t2748 = xn_concat(xn_t2746, xn_t2747);
+xn_root_add(xn_t2748);
+        xn_root_add(xn_t2748);
+        xn_root_add(xn_t2748);
+        rt_string *xn_t2749 = rt_string_from_c(") (Mod ");
+xn_root_add(xn_t2749);
+        xn_root_add(xn_t2749);
+        xn_root_add(xn_t2749);
+        rt_string *xn_t2750 = xn_concat(xn_t2748, xn_t2749);
+xn_root_add(xn_t2750);
+        xn_root_add(xn_t2750);
+        xn_root_add(xn_t2750);
+        rt_string *xn_t2751 = xn_Cls_Parser_modDump(self, xn_p_m);
+xn_root_add(xn_t2751);
+        xn_root_add(xn_t2751);
+        xn_root_add(xn_t2751);
+        rt_string *xn_t2752 = xn_concat(xn_t2750, xn_t2751);
+xn_root_add(xn_t2752);
+        xn_root_add(xn_t2752);
+        xn_root_add(xn_t2752);
+        rt_string *xn_t2753 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t2753);
+        xn_root_add(xn_t2753);
+        xn_root_add(xn_t2753);
+        rt_string *xn_t2754 = xn_concat(xn_t2752, xn_t2753);
+xn_root_add(xn_t2754);
+        xn_root_add(xn_t2754);
+        xn_root_add(xn_t2754);
+        rt_string *xn_t2755 = rt_retain(name);
+xn_root_add(xn_t2755);
+        xn_root_add(xn_t2755);
+        xn_root_add(xn_t2755);
+        rt_string *xn_t2756 = xn_q(xn_t2755);
 xn_root_add(xn_t2756);
-rt_string *xn_t2757 = rt_string_from_c("singleton");
+        xn_root_add(xn_t2756);
+        xn_root_add(xn_t2756);
+        rt_string *xn_t2757 = xn_concat(xn_t2754, xn_t2756);
 xn_root_add(xn_t2757);
-    if ((xn_str_eq(xn_t2756, xn_t2757))) {
-        size_t xn_t2758 = xn_root_mark();
-        #line 1381 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2759 = rt_string_from_c("(SingletonDecl ");
+        xn_root_add(xn_t2757);
+        xn_root_add(xn_t2757);
+        rt_string *xn_t2758 = rt_string_from_c(") (Items ");
+xn_root_add(xn_t2758);
+        xn_root_add(xn_t2758);
+        xn_root_add(xn_t2758);
+        rt_string *xn_t2759 = xn_concat(xn_t2757, xn_t2758);
 xn_root_add(xn_t2759);
         xn_root_add(xn_t2759);
         xn_root_add(xn_t2759);
-        rt_string *xn_t2760 = xn_P(nl, nc);
+        rt_string *xn_t2760 = xn_SL(items);
 xn_root_add(xn_t2760);
         xn_root_add(xn_t2760);
         xn_root_add(xn_t2760);
@@ -17106,7 +17143,7 @@ xn_root_add(xn_t2760);
 xn_root_add(xn_t2761);
         xn_root_add(xn_t2761);
         xn_root_add(xn_t2761);
-        rt_string *xn_t2762 = rt_string_from_c(" (Annos ");
+        rt_string *xn_t2762 = rt_string_from_c(") (IsData ");
 xn_root_add(xn_t2762);
         xn_root_add(xn_t2762);
         xn_root_add(xn_t2762);
@@ -17114,7 +17151,7 @@ xn_root_add(xn_t2762);
 xn_root_add(xn_t2763);
         xn_root_add(xn_t2763);
         xn_root_add(xn_t2763);
-        rt_string *xn_t2764 = xn_SL(xn_p_annos);
+        rt_string *xn_t2764 = xn_B((((((int64_t)fields->len) > 0) || (((int64_t)methods->len) > 0)) || (((int64_t)ctors->len) > 0)));
 xn_root_add(xn_t2764);
         xn_root_add(xn_t2764);
         xn_root_add(xn_t2764);
@@ -17122,7 +17159,7 @@ xn_root_add(xn_t2764);
 xn_root_add(xn_t2765);
         xn_root_add(xn_t2765);
         xn_root_add(xn_t2765);
-        rt_string *xn_t2766 = rt_string_from_c(") (Mod ");
+        rt_string *xn_t2766 = rt_string_from_c(") (Fields ");
 xn_root_add(xn_t2766);
         xn_root_add(xn_t2766);
         xn_root_add(xn_t2766);
@@ -17130,7 +17167,7 @@ xn_root_add(xn_t2766);
 xn_root_add(xn_t2767);
         xn_root_add(xn_t2767);
         xn_root_add(xn_t2767);
-        rt_string *xn_t2768 = xn_Cls_Parser_modDump(self, xn_p_m);
+        rt_string *xn_t2768 = xn_SL(fields);
 xn_root_add(xn_t2768);
         xn_root_add(xn_t2768);
         xn_root_add(xn_t2768);
@@ -17138,7 +17175,7 @@ xn_root_add(xn_t2768);
 xn_root_add(xn_t2769);
         xn_root_add(xn_t2769);
         xn_root_add(xn_t2769);
-        rt_string *xn_t2770 = rt_string_from_c(") (Name ");
+        rt_string *xn_t2770 = rt_string_from_c(") (Methods ");
 xn_root_add(xn_t2770);
         xn_root_add(xn_t2770);
         xn_root_add(xn_t2770);
@@ -17146,76 +17183,40 @@ xn_root_add(xn_t2770);
 xn_root_add(xn_t2771);
         xn_root_add(xn_t2771);
         xn_root_add(xn_t2771);
-        rt_string *xn_t2772 = rt_retain(name);
+        rt_string *xn_t2772 = xn_SL(methods);
 xn_root_add(xn_t2772);
         xn_root_add(xn_t2772);
         xn_root_add(xn_t2772);
-        rt_string *xn_t2773 = xn_q(xn_t2772);
+        rt_string *xn_t2773 = xn_concat(xn_t2771, xn_t2772);
 xn_root_add(xn_t2773);
         xn_root_add(xn_t2773);
         xn_root_add(xn_t2773);
-        rt_string *xn_t2774 = xn_concat(xn_t2771, xn_t2773);
+        rt_string *xn_t2774 = rt_string_from_c(") (Ctors ");
 xn_root_add(xn_t2774);
         xn_root_add(xn_t2774);
         xn_root_add(xn_t2774);
-        rt_string *xn_t2775 = rt_string_from_c(") (Fields ");
+        rt_string *xn_t2775 = xn_concat(xn_t2773, xn_t2774);
 xn_root_add(xn_t2775);
         xn_root_add(xn_t2775);
         xn_root_add(xn_t2775);
-        rt_string *xn_t2776 = xn_concat(xn_t2774, xn_t2775);
+        rt_string *xn_t2776 = xn_SL(ctors);
 xn_root_add(xn_t2776);
         xn_root_add(xn_t2776);
         xn_root_add(xn_t2776);
-        rt_string *xn_t2777 = xn_SL(fields);
+        rt_string *xn_t2777 = xn_concat(xn_t2775, xn_t2776);
 xn_root_add(xn_t2777);
         xn_root_add(xn_t2777);
         xn_root_add(xn_t2777);
-        rt_string *xn_t2778 = xn_concat(xn_t2776, xn_t2777);
+        rt_string *xn_t2778 = rt_string_from_c("))");
 xn_root_add(xn_t2778);
         xn_root_add(xn_t2778);
         xn_root_add(xn_t2778);
-        rt_string *xn_t2779 = rt_string_from_c(") (Methods ");
+        rt_string *xn_t2779 = xn_concat(xn_t2777, xn_t2778);
 xn_root_add(xn_t2779);
         xn_root_add(xn_t2779);
         xn_root_add(xn_t2779);
-        rt_string *xn_t2780 = xn_concat(xn_t2778, xn_t2779);
-xn_root_add(xn_t2780);
-        xn_root_add(xn_t2780);
-        xn_root_add(xn_t2780);
-        rt_string *xn_t2781 = xn_SL(methods);
-xn_root_add(xn_t2781);
-        xn_root_add(xn_t2781);
-        xn_root_add(xn_t2781);
-        rt_string *xn_t2782 = xn_concat(xn_t2780, xn_t2781);
-xn_root_add(xn_t2782);
-        xn_root_add(xn_t2782);
-        xn_root_add(xn_t2782);
-        rt_string *xn_t2783 = rt_string_from_c(") (Ctors ");
-xn_root_add(xn_t2783);
-        xn_root_add(xn_t2783);
-        xn_root_add(xn_t2783);
-        rt_string *xn_t2784 = xn_concat(xn_t2782, xn_t2783);
-xn_root_add(xn_t2784);
-        xn_root_add(xn_t2784);
-        xn_root_add(xn_t2784);
-        rt_string *xn_t2785 = xn_SL(ctors);
-xn_root_add(xn_t2785);
-        xn_root_add(xn_t2785);
-        xn_root_add(xn_t2785);
-        rt_string *xn_t2786 = xn_concat(xn_t2784, xn_t2785);
-xn_root_add(xn_t2786);
-        xn_root_add(xn_t2786);
-        xn_root_add(xn_t2786);
-        rt_string *xn_t2787 = rt_string_from_c("))");
-xn_root_add(xn_t2787);
-        xn_root_add(xn_t2787);
-        xn_root_add(xn_t2787);
-        rt_string *xn_t2788 = xn_concat(xn_t2786, xn_t2787);
-xn_root_add(xn_t2788);
-        xn_root_add(xn_t2788);
-        xn_root_add(xn_t2788);
             {
-        xn_root_restore(xn_t2758);
+        xn_root_restore(xn_t2741);
             }
             {
         rt_release(base);
@@ -17230,46 +17231,82 @@ xn_root_add(xn_t2788);
         xn_root_restore(xn_t2438);
             }
 
-        return xn_t2788;
+        return xn_t2779;
 
     }
-#line 1384 "impl/lib/b2/xparser.x"
-rt_string *xn_t2789 = rt_retain(xn_p_kw);
+#line 1390 "impl/lib/b2/xparser.x"
+rt_string *xn_t2780 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2780);
+rt_string *xn_t2781 = rt_string_from_c("singleton");
+xn_root_add(xn_t2781);
+    if ((xn_str_eq(xn_t2780, xn_t2781))) {
+        size_t xn_t2782 = xn_root_mark();
+        #line 1391 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2783 = rt_string_from_c("(SingletonDecl ");
+xn_root_add(xn_t2783);
+        xn_root_add(xn_t2783);
+        xn_root_add(xn_t2783);
+        rt_string *xn_t2784 = xn_P(nl, nc);
+xn_root_add(xn_t2784);
+        xn_root_add(xn_t2784);
+        xn_root_add(xn_t2784);
+        rt_string *xn_t2785 = xn_concat(xn_t2783, xn_t2784);
+xn_root_add(xn_t2785);
+        xn_root_add(xn_t2785);
+        xn_root_add(xn_t2785);
+        rt_string *xn_t2786 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2786);
+        xn_root_add(xn_t2786);
+        xn_root_add(xn_t2786);
+        rt_string *xn_t2787 = xn_concat(xn_t2785, xn_t2786);
+xn_root_add(xn_t2787);
+        xn_root_add(xn_t2787);
+        xn_root_add(xn_t2787);
+        rt_string *xn_t2788 = xn_SL(xn_p_annos);
+xn_root_add(xn_t2788);
+        xn_root_add(xn_t2788);
+        xn_root_add(xn_t2788);
+        rt_string *xn_t2789 = xn_concat(xn_t2787, xn_t2788);
 xn_root_add(xn_t2789);
-rt_string *xn_t2790 = rt_string_from_c("factory");
+        xn_root_add(xn_t2789);
+        xn_root_add(xn_t2789);
+        rt_string *xn_t2790 = rt_string_from_c(") (Mod ");
 xn_root_add(xn_t2790);
-    if ((xn_str_eq(xn_t2789, xn_t2790))) {
-        size_t xn_t2791 = xn_root_mark();
-        #line 1385 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2792 = rt_string_from_c("(FactoryDecl ");
+        xn_root_add(xn_t2790);
+        xn_root_add(xn_t2790);
+        rt_string *xn_t2791 = xn_concat(xn_t2789, xn_t2790);
+xn_root_add(xn_t2791);
+        xn_root_add(xn_t2791);
+        xn_root_add(xn_t2791);
+        rt_string *xn_t2792 = xn_Cls_Parser_modDump(self, xn_p_m);
 xn_root_add(xn_t2792);
         xn_root_add(xn_t2792);
         xn_root_add(xn_t2792);
-        rt_string *xn_t2793 = xn_P(nl, nc);
+        rt_string *xn_t2793 = xn_concat(xn_t2791, xn_t2792);
 xn_root_add(xn_t2793);
         xn_root_add(xn_t2793);
         xn_root_add(xn_t2793);
-        rt_string *xn_t2794 = xn_concat(xn_t2792, xn_t2793);
+        rt_string *xn_t2794 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2794);
         xn_root_add(xn_t2794);
         xn_root_add(xn_t2794);
-        rt_string *xn_t2795 = rt_string_from_c(" (Annos ");
+        rt_string *xn_t2795 = xn_concat(xn_t2793, xn_t2794);
 xn_root_add(xn_t2795);
         xn_root_add(xn_t2795);
         xn_root_add(xn_t2795);
-        rt_string *xn_t2796 = xn_concat(xn_t2794, xn_t2795);
+        rt_string *xn_t2796 = rt_retain(name);
 xn_root_add(xn_t2796);
         xn_root_add(xn_t2796);
         xn_root_add(xn_t2796);
-        rt_string *xn_t2797 = xn_SL(xn_p_annos);
+        rt_string *xn_t2797 = xn_q(xn_t2796);
 xn_root_add(xn_t2797);
         xn_root_add(xn_t2797);
         xn_root_add(xn_t2797);
-        rt_string *xn_t2798 = xn_concat(xn_t2796, xn_t2797);
+        rt_string *xn_t2798 = xn_concat(xn_t2795, xn_t2797);
 xn_root_add(xn_t2798);
         xn_root_add(xn_t2798);
         xn_root_add(xn_t2798);
-        rt_string *xn_t2799 = rt_string_from_c(") (Mod ");
+        rt_string *xn_t2799 = rt_string_from_c(") (Fields ");
 xn_root_add(xn_t2799);
         xn_root_add(xn_t2799);
         xn_root_add(xn_t2799);
@@ -17277,7 +17314,7 @@ xn_root_add(xn_t2799);
 xn_root_add(xn_t2800);
         xn_root_add(xn_t2800);
         xn_root_add(xn_t2800);
-        rt_string *xn_t2801 = xn_Cls_Parser_modDump(self, xn_p_m);
+        rt_string *xn_t2801 = xn_SL(fields);
 xn_root_add(xn_t2801);
         xn_root_add(xn_t2801);
         xn_root_add(xn_t2801);
@@ -17285,7 +17322,7 @@ xn_root_add(xn_t2801);
 xn_root_add(xn_t2802);
         xn_root_add(xn_t2802);
         xn_root_add(xn_t2802);
-        rt_string *xn_t2803 = rt_string_from_c(") (Name ");
+        rt_string *xn_t2803 = rt_string_from_c(") (Methods ");
 xn_root_add(xn_t2803);
         xn_root_add(xn_t2803);
         xn_root_add(xn_t2803);
@@ -17293,60 +17330,40 @@ xn_root_add(xn_t2803);
 xn_root_add(xn_t2804);
         xn_root_add(xn_t2804);
         xn_root_add(xn_t2804);
-        rt_string *xn_t2805 = rt_retain(name);
+        rt_string *xn_t2805 = xn_SL(methods);
 xn_root_add(xn_t2805);
         xn_root_add(xn_t2805);
         xn_root_add(xn_t2805);
-        rt_string *xn_t2806 = xn_q(xn_t2805);
+        rt_string *xn_t2806 = xn_concat(xn_t2804, xn_t2805);
 xn_root_add(xn_t2806);
         xn_root_add(xn_t2806);
         xn_root_add(xn_t2806);
-        rt_string *xn_t2807 = xn_concat(xn_t2804, xn_t2806);
+        rt_string *xn_t2807 = rt_string_from_c(") (Ctors ");
 xn_root_add(xn_t2807);
         xn_root_add(xn_t2807);
         xn_root_add(xn_t2807);
-        rt_string *xn_t2808 = rt_string_from_c(") (Target ");
+        rt_string *xn_t2808 = xn_concat(xn_t2806, xn_t2807);
 xn_root_add(xn_t2808);
         xn_root_add(xn_t2808);
         xn_root_add(xn_t2808);
-        rt_string *xn_t2809 = xn_concat(xn_t2807, xn_t2808);
+        rt_string *xn_t2809 = xn_SL(ctors);
 xn_root_add(xn_t2809);
         xn_root_add(xn_t2809);
         xn_root_add(xn_t2809);
-        rt_string *xn_t2810 = rt_retain(base);
+        rt_string *xn_t2810 = xn_concat(xn_t2808, xn_t2809);
 xn_root_add(xn_t2810);
         xn_root_add(xn_t2810);
         xn_root_add(xn_t2810);
-        rt_string *xn_t2811 = xn_concat(xn_t2809, xn_t2810);
+        rt_string *xn_t2811 = rt_string_from_c("))");
 xn_root_add(xn_t2811);
         xn_root_add(xn_t2811);
         xn_root_add(xn_t2811);
-        rt_string *xn_t2812 = rt_string_from_c(") (Methods ");
+        rt_string *xn_t2812 = xn_concat(xn_t2810, xn_t2811);
 xn_root_add(xn_t2812);
         xn_root_add(xn_t2812);
         xn_root_add(xn_t2812);
-        rt_string *xn_t2813 = xn_concat(xn_t2811, xn_t2812);
-xn_root_add(xn_t2813);
-        xn_root_add(xn_t2813);
-        xn_root_add(xn_t2813);
-        rt_string *xn_t2814 = xn_SL(methods);
-xn_root_add(xn_t2814);
-        xn_root_add(xn_t2814);
-        xn_root_add(xn_t2814);
-        rt_string *xn_t2815 = xn_concat(xn_t2813, xn_t2814);
-xn_root_add(xn_t2815);
-        xn_root_add(xn_t2815);
-        xn_root_add(xn_t2815);
-        rt_string *xn_t2816 = rt_string_from_c("))");
-xn_root_add(xn_t2816);
-        xn_root_add(xn_t2816);
-        xn_root_add(xn_t2816);
-        rt_string *xn_t2817 = xn_concat(xn_t2815, xn_t2816);
-xn_root_add(xn_t2817);
-        xn_root_add(xn_t2817);
-        xn_root_add(xn_t2817);
             {
-        xn_root_restore(xn_t2791);
+        xn_root_restore(xn_t2782);
             }
             {
         rt_release(base);
@@ -17361,73 +17378,204 @@ xn_root_add(xn_t2817);
         xn_root_restore(xn_t2438);
             }
 
-        return xn_t2817;
+        return xn_t2812;
 
     }
-#line 1388 "impl/lib/b2/xparser.x"
-rt_string *xn_t2818 = rt_string_from_c("(ExtensionDecl ");
+#line 1394 "impl/lib/b2/xparser.x"
+rt_string *xn_t2813 = rt_retain(xn_p_kw);
+xn_root_add(xn_t2813);
+rt_string *xn_t2814 = rt_string_from_c("factory");
+xn_root_add(xn_t2814);
+    if ((xn_str_eq(xn_t2813, xn_t2814))) {
+        size_t xn_t2815 = xn_root_mark();
+        #line 1395 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2816 = rt_string_from_c("(FactoryDecl ");
+xn_root_add(xn_t2816);
+        xn_root_add(xn_t2816);
+        xn_root_add(xn_t2816);
+        rt_string *xn_t2817 = xn_P(nl, nc);
+xn_root_add(xn_t2817);
+        xn_root_add(xn_t2817);
+        xn_root_add(xn_t2817);
+        rt_string *xn_t2818 = xn_concat(xn_t2816, xn_t2817);
 xn_root_add(xn_t2818);
-xn_root_add(xn_t2818);
-rt_string *xn_t2819 = xn_P(nl, nc);
+        xn_root_add(xn_t2818);
+        xn_root_add(xn_t2818);
+        rt_string *xn_t2819 = rt_string_from_c(" (Annos ");
 xn_root_add(xn_t2819);
-xn_root_add(xn_t2819);
-rt_string *xn_t2820 = xn_concat(xn_t2818, xn_t2819);
+        xn_root_add(xn_t2819);
+        xn_root_add(xn_t2819);
+        rt_string *xn_t2820 = xn_concat(xn_t2818, xn_t2819);
 xn_root_add(xn_t2820);
-xn_root_add(xn_t2820);
-rt_string *xn_t2821 = rt_string_from_c(" (Annos ");
+        xn_root_add(xn_t2820);
+        xn_root_add(xn_t2820);
+        rt_string *xn_t2821 = xn_SL(xn_p_annos);
 xn_root_add(xn_t2821);
-xn_root_add(xn_t2821);
-rt_string *xn_t2822 = xn_concat(xn_t2820, xn_t2821);
+        xn_root_add(xn_t2821);
+        xn_root_add(xn_t2821);
+        rt_string *xn_t2822 = xn_concat(xn_t2820, xn_t2821);
 xn_root_add(xn_t2822);
-xn_root_add(xn_t2822);
-rt_string *xn_t2823 = xn_SL(xn_p_annos);
+        xn_root_add(xn_t2822);
+        xn_root_add(xn_t2822);
+        rt_string *xn_t2823 = rt_string_from_c(") (Mod ");
 xn_root_add(xn_t2823);
-xn_root_add(xn_t2823);
-rt_string *xn_t2824 = xn_concat(xn_t2822, xn_t2823);
+        xn_root_add(xn_t2823);
+        xn_root_add(xn_t2823);
+        rt_string *xn_t2824 = xn_concat(xn_t2822, xn_t2823);
 xn_root_add(xn_t2824);
-xn_root_add(xn_t2824);
-rt_string *xn_t2825 = rt_string_from_c(") (Mod ");
+        xn_root_add(xn_t2824);
+        xn_root_add(xn_t2824);
+        rt_string *xn_t2825 = xn_Cls_Parser_modDump(self, xn_p_m);
 xn_root_add(xn_t2825);
-xn_root_add(xn_t2825);
-rt_string *xn_t2826 = xn_concat(xn_t2824, xn_t2825);
+        xn_root_add(xn_t2825);
+        xn_root_add(xn_t2825);
+        rt_string *xn_t2826 = xn_concat(xn_t2824, xn_t2825);
 xn_root_add(xn_t2826);
-xn_root_add(xn_t2826);
-rt_string *xn_t2827 = xn_Cls_Parser_modDump(self, xn_p_m);
+        xn_root_add(xn_t2826);
+        xn_root_add(xn_t2826);
+        rt_string *xn_t2827 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2827);
-xn_root_add(xn_t2827);
-rt_string *xn_t2828 = xn_concat(xn_t2826, xn_t2827);
+        xn_root_add(xn_t2827);
+        xn_root_add(xn_t2827);
+        rt_string *xn_t2828 = xn_concat(xn_t2826, xn_t2827);
 xn_root_add(xn_t2828);
-xn_root_add(xn_t2828);
-rt_string *xn_t2829 = rt_string_from_c(") (Target ");
+        xn_root_add(xn_t2828);
+        xn_root_add(xn_t2828);
+        rt_string *xn_t2829 = rt_retain(name);
 xn_root_add(xn_t2829);
-xn_root_add(xn_t2829);
-rt_string *xn_t2830 = xn_concat(xn_t2828, xn_t2829);
+        xn_root_add(xn_t2829);
+        xn_root_add(xn_t2829);
+        rt_string *xn_t2830 = xn_q(xn_t2829);
 xn_root_add(xn_t2830);
-xn_root_add(xn_t2830);
-rt_string *xn_t2831 = rt_retain(base);
+        xn_root_add(xn_t2830);
+        xn_root_add(xn_t2830);
+        rt_string *xn_t2831 = xn_concat(xn_t2828, xn_t2830);
 xn_root_add(xn_t2831);
-xn_root_add(xn_t2831);
-rt_string *xn_t2832 = xn_concat(xn_t2830, xn_t2831);
+        xn_root_add(xn_t2831);
+        xn_root_add(xn_t2831);
+        rt_string *xn_t2832 = rt_string_from_c(") (Target ");
 xn_root_add(xn_t2832);
-xn_root_add(xn_t2832);
-rt_string *xn_t2833 = rt_string_from_c(") (Methods ");
+        xn_root_add(xn_t2832);
+        xn_root_add(xn_t2832);
+        rt_string *xn_t2833 = xn_concat(xn_t2831, xn_t2832);
 xn_root_add(xn_t2833);
-xn_root_add(xn_t2833);
-rt_string *xn_t2834 = xn_concat(xn_t2832, xn_t2833);
+        xn_root_add(xn_t2833);
+        xn_root_add(xn_t2833);
+        rt_string *xn_t2834 = rt_retain(base);
 xn_root_add(xn_t2834);
-xn_root_add(xn_t2834);
-rt_string *xn_t2835 = xn_SL(methods);
+        xn_root_add(xn_t2834);
+        xn_root_add(xn_t2834);
+        rt_string *xn_t2835 = xn_concat(xn_t2833, xn_t2834);
 xn_root_add(xn_t2835);
-xn_root_add(xn_t2835);
-rt_string *xn_t2836 = xn_concat(xn_t2834, xn_t2835);
+        xn_root_add(xn_t2835);
+        xn_root_add(xn_t2835);
+        rt_string *xn_t2836 = rt_string_from_c(") (Methods ");
 xn_root_add(xn_t2836);
-xn_root_add(xn_t2836);
-rt_string *xn_t2837 = rt_string_from_c("))");
+        xn_root_add(xn_t2836);
+        xn_root_add(xn_t2836);
+        rt_string *xn_t2837 = xn_concat(xn_t2835, xn_t2836);
 xn_root_add(xn_t2837);
-xn_root_add(xn_t2837);
-rt_string *xn_t2838 = xn_concat(xn_t2836, xn_t2837);
+        xn_root_add(xn_t2837);
+        xn_root_add(xn_t2837);
+        rt_string *xn_t2838 = xn_SL(methods);
 xn_root_add(xn_t2838);
-xn_root_add(xn_t2838);
+        xn_root_add(xn_t2838);
+        xn_root_add(xn_t2838);
+        rt_string *xn_t2839 = xn_concat(xn_t2837, xn_t2838);
+xn_root_add(xn_t2839);
+        xn_root_add(xn_t2839);
+        xn_root_add(xn_t2839);
+        rt_string *xn_t2840 = rt_string_from_c("))");
+xn_root_add(xn_t2840);
+        xn_root_add(xn_t2840);
+        xn_root_add(xn_t2840);
+        rt_string *xn_t2841 = xn_concat(xn_t2839, xn_t2840);
+xn_root_add(xn_t2841);
+        xn_root_add(xn_t2841);
+        xn_root_add(xn_t2841);
+            {
+        xn_root_restore(xn_t2815);
+            }
+            {
+        rt_release(base);
+            }
+            {
+        rt_release(primary);
+            }
+            {
+        rt_release(name);
+            }
+            {
+        xn_root_restore(xn_t2438);
+            }
+
+        return xn_t2841;
+
+    }
+#line 1398 "impl/lib/b2/xparser.x"
+rt_string *xn_t2842 = rt_string_from_c("(ExtensionDecl ");
+xn_root_add(xn_t2842);
+xn_root_add(xn_t2842);
+rt_string *xn_t2843 = xn_P(nl, nc);
+xn_root_add(xn_t2843);
+xn_root_add(xn_t2843);
+rt_string *xn_t2844 = xn_concat(xn_t2842, xn_t2843);
+xn_root_add(xn_t2844);
+xn_root_add(xn_t2844);
+rt_string *xn_t2845 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2845);
+xn_root_add(xn_t2845);
+rt_string *xn_t2846 = xn_concat(xn_t2844, xn_t2845);
+xn_root_add(xn_t2846);
+xn_root_add(xn_t2846);
+rt_string *xn_t2847 = xn_SL(xn_p_annos);
+xn_root_add(xn_t2847);
+xn_root_add(xn_t2847);
+rt_string *xn_t2848 = xn_concat(xn_t2846, xn_t2847);
+xn_root_add(xn_t2848);
+xn_root_add(xn_t2848);
+rt_string *xn_t2849 = rt_string_from_c(") (Mod ");
+xn_root_add(xn_t2849);
+xn_root_add(xn_t2849);
+rt_string *xn_t2850 = xn_concat(xn_t2848, xn_t2849);
+xn_root_add(xn_t2850);
+xn_root_add(xn_t2850);
+rt_string *xn_t2851 = xn_Cls_Parser_modDump(self, xn_p_m);
+xn_root_add(xn_t2851);
+xn_root_add(xn_t2851);
+rt_string *xn_t2852 = xn_concat(xn_t2850, xn_t2851);
+xn_root_add(xn_t2852);
+xn_root_add(xn_t2852);
+rt_string *xn_t2853 = rt_string_from_c(") (Target ");
+xn_root_add(xn_t2853);
+xn_root_add(xn_t2853);
+rt_string *xn_t2854 = xn_concat(xn_t2852, xn_t2853);
+xn_root_add(xn_t2854);
+xn_root_add(xn_t2854);
+rt_string *xn_t2855 = rt_retain(base);
+xn_root_add(xn_t2855);
+xn_root_add(xn_t2855);
+rt_string *xn_t2856 = xn_concat(xn_t2854, xn_t2855);
+xn_root_add(xn_t2856);
+xn_root_add(xn_t2856);
+rt_string *xn_t2857 = rt_string_from_c(") (Methods ");
+xn_root_add(xn_t2857);
+xn_root_add(xn_t2857);
+rt_string *xn_t2858 = xn_concat(xn_t2856, xn_t2857);
+xn_root_add(xn_t2858);
+xn_root_add(xn_t2858);
+rt_string *xn_t2859 = xn_SL(methods);
+xn_root_add(xn_t2859);
+xn_root_add(xn_t2859);
+rt_string *xn_t2860 = xn_concat(xn_t2858, xn_t2859);
+xn_root_add(xn_t2860);
+xn_root_add(xn_t2860);
+rt_string *xn_t2861 = rt_string_from_c("))");
+xn_root_add(xn_t2861);
+xn_root_add(xn_t2861);
+rt_string *xn_t2862 = xn_concat(xn_t2860, xn_t2861);
+xn_root_add(xn_t2862);
+xn_root_add(xn_t2862);
     {
 rt_release(base);
     }
@@ -17441,7 +17589,7 @@ rt_release(name);
 xn_root_restore(xn_t2438);
     }
 
-return xn_t2838;
+return xn_t2862;
 xn_root_release(name);
 xn_root_release(primary);
 xn_root_release(base);
@@ -17449,403 +17597,403 @@ xn_root_release(base);
 }
 
 static rt_string * xn_Cls_Parser_parseModsDump(xn_Cls_Parser *self) {
-size_t xn_t2839 = xn_root_mark();
+size_t xn_t2863 = xn_root_mark();
 xn_root_add(self);
-#line 1393 "impl/lib/b2/xparser.x"
+#line 1403 "impl/lib/b2/xparser.x"
 xn_Cls_M * mm = xn_Cls_Parser_parseMods(self);
 xn_root_add(mm);
 xn_root_add(mm);
 xn_gc_safepoint();
-#line 1394 "impl/lib/b2/xparser.x"
-rt_string *xn_t2840 = xn_Cls_Parser_modDump(self, mm);
-xn_root_add(xn_t2840);
-xn_root_add(xn_t2840);
+#line 1404 "impl/lib/b2/xparser.x"
+rt_string *xn_t2864 = xn_Cls_Parser_modDump(self, mm);
+xn_root_add(xn_t2864);
+xn_root_add(xn_t2864);
     {
-xn_root_restore(xn_t2839);
+xn_root_restore(xn_t2863);
     }
 
-return xn_t2840;
+return xn_t2864;
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseMember(xn_Cls_Parser *self, rt_string * xn_p_cls, xn_arr_s * xn_p_fields, xn_arr_s * xn_p_methods, xn_arr_s * xn_p_ctors) {
-size_t xn_t2841 = xn_root_mark();
+size_t xn_t2865 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_cls);
 xn_root_add(xn_p_fields);
 xn_root_add(xn_p_methods);
 xn_root_add(xn_p_ctors);
-#line 1398 "impl/lib/b2/xparser.x"
+#line 1408 "impl/lib/b2/xparser.x"
 xn_arr_s * annos = xn_Cls_Parser_parseAnnos(self);
 xn_root_add(annos);
 xn_root_add(annos);
 xn_gc_safepoint();
-#line 1399 "impl/lib/b2/xparser.x"
+#line 1409 "impl/lib/b2/xparser.x"
 xn_Cls_M * m = xn_Cls_Parser_parseMods(self);
 xn_root_add(m);
 xn_root_add(m);
 xn_gc_safepoint();
-#line 1400 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2842 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2842);
-int64_t ml = xn_t2842->line;
-#line 1401 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2843 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2843);
-int64_t mc = xn_t2843->col;
-#line 1402 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2844 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2844);
-rt_string *xn_t2845 = rt_retain(xn_t2844->text);
-xn_root_add(xn_t2845);
-rt_string *xn_t2846 = rt_retain(xn_p_cls);
-xn_root_add(xn_t2846);
-xn_Cls_Tok * xn_t2847 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t2847);
-    if ((((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2845, xn_t2846))) && ((xn_t2847->kind == 10)))) {
-        size_t xn_t2848 = xn_root_mark();
-        #line 1403 "impl/lib/b2/xparser.x"
+#line 1410 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2866 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2866);
+int64_t ml = xn_t2866->line;
+#line 1411 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2867 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2867);
+int64_t mc = xn_t2867->col;
+#line 1412 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2868 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2868);
+rt_string *xn_t2869 = rt_retain(xn_t2868->text);
+xn_root_add(xn_t2869);
+rt_string *xn_t2870 = rt_retain(xn_p_cls);
+xn_root_add(xn_t2870);
+xn_Cls_Tok * xn_t2871 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
+xn_root_add(xn_t2871);
+    if ((((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2869, xn_t2870))) && ((xn_t2871->kind == 10)))) {
+        size_t xn_t2872 = xn_root_mark();
+        #line 1413 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1404 "impl/lib/b2/xparser.x"
+        #line 1414 "impl/lib/b2/xparser.x"
         rt_string *c = xn_Cls_Parser_parseCtor(self, ml, mc, annos);
 xn_root_add(c);
         xn_root_add(c);
         xn_root_add(c);
         xn_gc_safepoint();
-        #line 1405 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2850 = rt_retain(c);
-xn_root_add(xn_t2850);
-        xn_root_add(xn_t2850);
-        xn_arr_s_push(xn_p_ctors, xn_t2850);
-        #line 1406 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2851 = rt_string_from_c("");
-xn_root_add(xn_t2851);
-        xn_root_add(xn_t2851);
-        xn_root_add(xn_t2851);
+        #line 1415 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2874 = rt_retain(c);
+xn_root_add(xn_t2874);
+        xn_root_add(xn_t2874);
+        xn_arr_s_push(xn_p_ctors, xn_t2874);
+        #line 1416 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2875 = rt_string_from_c("");
+xn_root_add(xn_t2875);
+        xn_root_add(xn_t2875);
+        xn_root_add(xn_t2875);
             {
         rt_release(c);
             }
             {
-        xn_root_restore(xn_t2848);
+        xn_root_restore(xn_t2872);
             }
             {
-        xn_root_restore(xn_t2841);
+        xn_root_restore(xn_t2865);
             }
 
-        return xn_t2851;
+        return xn_t2875;
 
     }
-#line 1408 "impl/lib/b2/xparser.x"
+#line 1418 "impl/lib/b2/xparser.x"
 int vd = 0;
-#line 1409 "impl/lib/b2/xparser.x"
+#line 1419 "impl/lib/b2/xparser.x"
 rt_string *rt = rt_string_from_c("");
 xn_root_add(rt);
 xn_root_add(rt);
 xn_gc_safepoint();
-#line 1410 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2853 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2853);
-rt_string *xn_t2854 = rt_retain(xn_t2853->text);
-xn_root_add(xn_t2854);
-rt_string *xn_t2855 = rt_string_from_c("void");
-xn_root_add(xn_t2855);
-    if (((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2854, xn_t2855)))) {
-        size_t xn_t2856 = xn_root_mark();
-        #line 1410 "impl/lib/b2/xparser.x"
+#line 1420 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2877 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2877);
+rt_string *xn_t2878 = rt_retain(xn_t2877->text);
+xn_root_add(xn_t2878);
+rt_string *xn_t2879 = rt_string_from_c("void");
+xn_root_add(xn_t2879);
+    if (((xn_Cls_Parser_at(self, 2)) && (xn_str_eq(xn_t2878, xn_t2879)))) {
+        size_t xn_t2880 = xn_root_mark();
+        #line 1420 "impl/lib/b2/xparser.x"
         vd = 1;
-        #line 1410 "impl/lib/b2/xparser.x"
+        #line 1420 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t2856);
+            xn_root_restore(xn_t2880);
             }
 
     } else {
-        size_t xn_t2857 = xn_root_mark();
-        #line 1410 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2858 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t2858);
-        xn_root_add(xn_t2858);
+        size_t xn_t2881 = xn_root_mark();
+        #line 1420 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2882 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t2882);
+        xn_root_add(xn_t2882);
         xn_root_release(rt);
         rt_release(rt);
-        rt = xn_t2858;
+        rt = xn_t2882;
         xn_root_hold(rt);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t2857);
+            xn_root_restore(xn_t2881);
             }
 
     }
-#line 1411 "impl/lib/b2/xparser.x"
+#line 1421 "impl/lib/b2/xparser.x"
 rt_string *nm = rt_string_from_c("");
 xn_root_add(nm);
 xn_root_add(nm);
 xn_gc_safepoint();
-#line 1412 "impl/lib/b2/xparser.x"
+#line 1422 "impl/lib/b2/xparser.x"
 int64_t nml = ml;
-#line 1413 "impl/lib/b2/xparser.x"
+#line 1423 "impl/lib/b2/xparser.x"
 int64_t nmc = mc;
-#line 1414 "impl/lib/b2/xparser.x"
+#line 1424 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t2860 = xn_root_mark();
-        #line 1414 "impl/lib/b2/xparser.x"
+        size_t xn_t2884 = xn_root_mark();
+        #line 1424 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * nt = xn_Cls_Parser_next(self);
 xn_root_add(nt);
         xn_root_add(nt);
         xn_root_add(nt);
         xn_gc_safepoint();
-        #line 1414 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2861 = rt_retain(nt->text);
-xn_root_add(xn_t2861);
-        xn_root_add(xn_t2861);
+        #line 1424 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2885 = rt_retain(nt->text);
+xn_root_add(xn_t2885);
+        xn_root_add(xn_t2885);
         xn_root_release(nm);
         rt_release(nm);
-        nm = xn_t2861;
+        nm = xn_t2885;
         xn_root_hold(nm);
         xn_gc_safepoint();
-        #line 1414 "impl/lib/b2/xparser.x"
+        #line 1424 "impl/lib/b2/xparser.x"
         nml = nt->line;
-        #line 1414 "impl/lib/b2/xparser.x"
+        #line 1424 "impl/lib/b2/xparser.x"
         nmc = nt->col;
             {
-            xn_root_restore(xn_t2860);
+            xn_root_restore(xn_t2884);
             }
 
     }
-#line 1415 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t2862 = xn_arr_s_new(0);
-xn_root_add(xn_t2862);
-xn_arr_s * tps = xn_t2862;
+#line 1425 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t2886 = xn_arr_s_new(0);
+xn_root_add(xn_t2886);
+xn_arr_s * tps = xn_t2886;
 xn_root_add(tps);
 xn_root_add(tps);
 xn_gc_safepoint();
-#line 1416 "impl/lib/b2/xparser.x"
-rt_string *xn_t2863 = rt_string_from_c("<");
-xn_root_add(xn_t2863);
-    if ((xn_Cls_Parser_atOp(self, xn_t2863))) {
-        size_t xn_t2864 = xn_root_mark();
-        #line 1417 "impl/lib/b2/xparser.x"
+#line 1426 "impl/lib/b2/xparser.x"
+rt_string *xn_t2887 = rt_string_from_c("<");
+xn_root_add(xn_t2887);
+    if ((xn_Cls_Parser_atOp(self, xn_t2887))) {
+        size_t xn_t2888 = xn_root_mark();
+        #line 1427 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1418 "impl/lib/b2/xparser.x"
+        #line 1428 "impl/lib/b2/xparser.x"
             while (1) {
-                rt_string *xn_t2865 = rt_string_from_c(">");
-xn_root_add(xn_t2865);
-        xn_root_add(xn_t2865);
-                if (!((((!(xn_Cls_Parser_atOp(self, xn_t2865)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
-                size_t xn_t2866 = xn_root_mark();
-                #line 1418 "impl/lib/b2/xparser.x"
+                rt_string *xn_t2889 = rt_string_from_c(">");
+xn_root_add(xn_t2889);
+        xn_root_add(xn_t2889);
+                if (!((((!(xn_Cls_Parser_atOp(self, xn_t2889)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
+                size_t xn_t2890 = xn_root_mark();
+                #line 1428 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 2))) {
-                        size_t xn_t2867 = xn_root_mark();
-                        #line 1418 "impl/lib/b2/xparser.x"
-                        xn_Cls_Tok * xn_t2868 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t2868);
-        xn_root_add(xn_t2868);
-                xn_root_add(xn_t2868);
-                        xn_root_add(xn_t2868);
-                        rt_string *xn_t2869 = rt_retain(xn_t2868->text);
-xn_root_add(xn_t2869);
-        xn_root_add(xn_t2869);
-                xn_root_add(xn_t2869);
-                        xn_root_add(xn_t2869);
-                        xn_arr_s_push(tps, xn_t2869);
+                        size_t xn_t2891 = xn_root_mark();
+                        #line 1428 "impl/lib/b2/xparser.x"
+                        xn_Cls_Tok * xn_t2892 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t2892);
+        xn_root_add(xn_t2892);
+                xn_root_add(xn_t2892);
+                        xn_root_add(xn_t2892);
+                        rt_string *xn_t2893 = rt_retain(xn_t2892->text);
+xn_root_add(xn_t2893);
+        xn_root_add(xn_t2893);
+                xn_root_add(xn_t2893);
+                        xn_root_add(xn_t2893);
+                        xn_arr_s_push(tps, xn_t2893);
                             {
-                            xn_root_restore(xn_t2867);
+                            xn_root_restore(xn_t2891);
                             }
 
                     } else {
-                        size_t xn_t2870 = xn_root_mark();
-                        #line 1418 "impl/lib/b2/xparser.x"
+                        size_t xn_t2894 = xn_root_mark();
+                        #line 1428 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t2870);
+                            xn_root_restore(xn_t2894);
                             }
 
                     }
                     {
-                    xn_root_restore(xn_t2866);
+                    xn_root_restore(xn_t2890);
                     }
 
                 xn_gc_safepoint();
             }
-        #line 1419 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2871 = rt_string_from_c(">");
-xn_root_add(xn_t2871);
-        xn_root_add(xn_t2871);
-            if ((xn_Cls_Parser_atOp(self, xn_t2871))) {
-                size_t xn_t2872 = xn_root_mark();
-                #line 1419 "impl/lib/b2/xparser.x"
+        #line 1429 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2895 = rt_string_from_c(">");
+xn_root_add(xn_t2895);
+        xn_root_add(xn_t2895);
+            if ((xn_Cls_Parser_atOp(self, xn_t2895))) {
+                size_t xn_t2896 = xn_root_mark();
+                #line 1429 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t2872);
+                    xn_root_restore(xn_t2896);
                     }
 
             }
             {
-            xn_root_restore(xn_t2864);
+            xn_root_restore(xn_t2888);
             }
 
     }
-#line 1421 "impl/lib/b2/xparser.x"
+#line 1431 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
-        size_t xn_t2873 = xn_root_mark();
-        #line 1422 "impl/lib/b2/xparser.x"
+        size_t xn_t2897 = xn_root_mark();
+        #line 1432 "impl/lib/b2/xparser.x"
         xn_arr_s * ps = xn_Cls_Parser_parseParams(self);
 xn_root_add(ps);
         xn_root_add(ps);
         xn_root_add(ps);
         xn_gc_safepoint();
-        #line 1423 "impl/lib/b2/xparser.x"
+        #line 1433 "impl/lib/b2/xparser.x"
         rt_string *body = xn_Cls_Parser_parseBlock(self);
 xn_root_add(body);
         xn_root_add(body);
         xn_root_add(body);
         xn_gc_safepoint();
-        #line 1424 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2875 = rt_string_from_c("(MethodDecl ");
-xn_root_add(xn_t2875);
-        xn_root_add(xn_t2875);
-        rt_string *xn_t2876 = xn_P(nml, nmc);
-xn_root_add(xn_t2876);
-        xn_root_add(xn_t2876);
-        rt_string *xn_t2877 = xn_concat(xn_t2875, xn_t2876);
-xn_root_add(xn_t2877);
-        xn_root_add(xn_t2877);
-        rt_string *xn_t2878 = rt_string_from_c(" (Annos ");
-xn_root_add(xn_t2878);
-        xn_root_add(xn_t2878);
-        rt_string *xn_t2879 = xn_concat(xn_t2877, xn_t2878);
-xn_root_add(xn_t2879);
-        xn_root_add(xn_t2879);
-        rt_string *xn_t2880 = xn_SL(annos);
-xn_root_add(xn_t2880);
-        xn_root_add(xn_t2880);
-        rt_string *xn_t2881 = xn_concat(xn_t2879, xn_t2880);
-xn_root_add(xn_t2881);
-        xn_root_add(xn_t2881);
-        rt_string *xn_t2882 = rt_string_from_c(") (Mod ");
-xn_root_add(xn_t2882);
-        xn_root_add(xn_t2882);
-        rt_string *xn_t2883 = xn_concat(xn_t2881, xn_t2882);
-xn_root_add(xn_t2883);
-        xn_root_add(xn_t2883);
-        rt_string *xn_t2884 = xn_Cls_Parser_modDump(self, m);
-xn_root_add(xn_t2884);
-        xn_root_add(xn_t2884);
-        rt_string *xn_t2885 = xn_concat(xn_t2883, xn_t2884);
-xn_root_add(xn_t2885);
-        xn_root_add(xn_t2885);
-        rt_string *xn_t2886 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t2886);
-        xn_root_add(xn_t2886);
-        rt_string *xn_t2887 = xn_concat(xn_t2885, xn_t2886);
-xn_root_add(xn_t2887);
-        xn_root_add(xn_t2887);
-        rt_string *xn_t2888 = rt_retain(nm);
-xn_root_add(xn_t2888);
-        xn_root_add(xn_t2888);
-        rt_string *xn_t2889 = xn_q(xn_t2888);
-xn_root_add(xn_t2889);
-        xn_root_add(xn_t2889);
-        rt_string *xn_t2890 = xn_concat(xn_t2887, xn_t2889);
-xn_root_add(xn_t2890);
-        xn_root_add(xn_t2890);
-        rt_string *xn_t2891 = rt_string_from_c(") (TypePars ");
-xn_root_add(xn_t2891);
-        xn_root_add(xn_t2891);
-        rt_string *xn_t2892 = xn_concat(xn_t2890, xn_t2891);
-xn_root_add(xn_t2892);
-        xn_root_add(xn_t2892);
-        rt_string *xn_t2893 = xn_SLS(tps);
-xn_root_add(xn_t2893);
-        xn_root_add(xn_t2893);
-        rt_string *xn_t2894 = xn_concat(xn_t2892, xn_t2893);
-xn_root_add(xn_t2894);
-        xn_root_add(xn_t2894);
-        rt_string *xn_t2895 = rt_string_from_c(") (Void ");
-xn_root_add(xn_t2895);
-        xn_root_add(xn_t2895);
-        rt_string *xn_t2896 = xn_concat(xn_t2894, xn_t2895);
-xn_root_add(xn_t2896);
-        xn_root_add(xn_t2896);
-        rt_string *xn_t2897 = xn_B(vd);
-xn_root_add(xn_t2897);
-        xn_root_add(xn_t2897);
-        rt_string *xn_t2898 = xn_concat(xn_t2896, xn_t2897);
-xn_root_add(xn_t2898);
-        xn_root_add(xn_t2898);
-        rt_string *xn_t2899 = rt_string_from_c(") (Ret ");
+        #line 1434 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2899 = rt_string_from_c("(MethodDecl ");
 xn_root_add(xn_t2899);
         xn_root_add(xn_t2899);
-        rt_string *xn_t2900 = xn_concat(xn_t2898, xn_t2899);
+        rt_string *xn_t2900 = xn_P(nml, nmc);
 xn_root_add(xn_t2900);
         xn_root_add(xn_t2900);
-        rt_string *xn_t2901 = rt_retain(rt);
+        rt_string *xn_t2901 = xn_concat(xn_t2899, xn_t2900);
 xn_root_add(xn_t2901);
         xn_root_add(xn_t2901);
-        rt_string *xn_t2902 = xn_Cls_Parser_retv(self, vd, xn_t2901);
+        rt_string *xn_t2902 = rt_string_from_c(" (Annos ");
 xn_root_add(xn_t2902);
         xn_root_add(xn_t2902);
-        rt_string *xn_t2903 = xn_concat(xn_t2900, xn_t2902);
+        rt_string *xn_t2903 = xn_concat(xn_t2901, xn_t2902);
 xn_root_add(xn_t2903);
         xn_root_add(xn_t2903);
-        rt_string *xn_t2904 = rt_string_from_c(") (Params ");
+        rt_string *xn_t2904 = xn_SL(annos);
 xn_root_add(xn_t2904);
         xn_root_add(xn_t2904);
         rt_string *xn_t2905 = xn_concat(xn_t2903, xn_t2904);
 xn_root_add(xn_t2905);
         xn_root_add(xn_t2905);
-        rt_string *xn_t2906 = xn_SL(ps);
+        rt_string *xn_t2906 = rt_string_from_c(") (Mod ");
 xn_root_add(xn_t2906);
         xn_root_add(xn_t2906);
         rt_string *xn_t2907 = xn_concat(xn_t2905, xn_t2906);
 xn_root_add(xn_t2907);
         xn_root_add(xn_t2907);
-        rt_string *xn_t2908 = rt_string_from_c(") (Body ");
+        rt_string *xn_t2908 = xn_Cls_Parser_modDump(self, m);
 xn_root_add(xn_t2908);
         xn_root_add(xn_t2908);
         rt_string *xn_t2909 = xn_concat(xn_t2907, xn_t2908);
 xn_root_add(xn_t2909);
         xn_root_add(xn_t2909);
-        rt_string *xn_t2910 = rt_retain(body);
+        rt_string *xn_t2910 = rt_string_from_c(") (Name ");
 xn_root_add(xn_t2910);
         xn_root_add(xn_t2910);
         rt_string *xn_t2911 = xn_concat(xn_t2909, xn_t2910);
 xn_root_add(xn_t2911);
         xn_root_add(xn_t2911);
-        rt_string *xn_t2912 = rt_string_from_c(") (IsDeinit ");
+        rt_string *xn_t2912 = rt_retain(nm);
 xn_root_add(xn_t2912);
         xn_root_add(xn_t2912);
-        rt_string *xn_t2913 = xn_concat(xn_t2911, xn_t2912);
+        rt_string *xn_t2913 = xn_q(xn_t2912);
 xn_root_add(xn_t2913);
         xn_root_add(xn_t2913);
-        rt_string *xn_t2914 = rt_retain(nm);
+        rt_string *xn_t2914 = xn_concat(xn_t2911, xn_t2913);
 xn_root_add(xn_t2914);
         xn_root_add(xn_t2914);
-        rt_string *xn_t2915 = rt_string_from_c("deinit");
+        rt_string *xn_t2915 = rt_string_from_c(") (TypePars ");
 xn_root_add(xn_t2915);
         xn_root_add(xn_t2915);
-        rt_string *xn_t2916 = xn_B(xn_str_eq(xn_t2914, xn_t2915));
+        rt_string *xn_t2916 = xn_concat(xn_t2914, xn_t2915);
 xn_root_add(xn_t2916);
         xn_root_add(xn_t2916);
-        rt_string *xn_t2917 = xn_concat(xn_t2913, xn_t2916);
+        rt_string *xn_t2917 = xn_SLS(tps);
 xn_root_add(xn_t2917);
         xn_root_add(xn_t2917);
-        rt_string *xn_t2918 = rt_string_from_c("))");
+        rt_string *xn_t2918 = xn_concat(xn_t2916, xn_t2917);
 xn_root_add(xn_t2918);
         xn_root_add(xn_t2918);
-        rt_string *xn_t2919 = xn_concat(xn_t2917, xn_t2918);
+        rt_string *xn_t2919 = rt_string_from_c(") (Void ");
 xn_root_add(xn_t2919);
         xn_root_add(xn_t2919);
-        xn_arr_s_push(xn_p_methods, xn_t2919);
-        #line 1427 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2920 = rt_string_from_c("");
+        rt_string *xn_t2920 = xn_concat(xn_t2918, xn_t2919);
 xn_root_add(xn_t2920);
         xn_root_add(xn_t2920);
-        xn_root_add(xn_t2920);
+        rt_string *xn_t2921 = xn_B(vd);
+xn_root_add(xn_t2921);
+        xn_root_add(xn_t2921);
+        rt_string *xn_t2922 = xn_concat(xn_t2920, xn_t2921);
+xn_root_add(xn_t2922);
+        xn_root_add(xn_t2922);
+        rt_string *xn_t2923 = rt_string_from_c(") (Ret ");
+xn_root_add(xn_t2923);
+        xn_root_add(xn_t2923);
+        rt_string *xn_t2924 = xn_concat(xn_t2922, xn_t2923);
+xn_root_add(xn_t2924);
+        xn_root_add(xn_t2924);
+        rt_string *xn_t2925 = rt_retain(rt);
+xn_root_add(xn_t2925);
+        xn_root_add(xn_t2925);
+        rt_string *xn_t2926 = xn_Cls_Parser_retv(self, vd, xn_t2925);
+xn_root_add(xn_t2926);
+        xn_root_add(xn_t2926);
+        rt_string *xn_t2927 = xn_concat(xn_t2924, xn_t2926);
+xn_root_add(xn_t2927);
+        xn_root_add(xn_t2927);
+        rt_string *xn_t2928 = rt_string_from_c(") (Params ");
+xn_root_add(xn_t2928);
+        xn_root_add(xn_t2928);
+        rt_string *xn_t2929 = xn_concat(xn_t2927, xn_t2928);
+xn_root_add(xn_t2929);
+        xn_root_add(xn_t2929);
+        rt_string *xn_t2930 = xn_SL(ps);
+xn_root_add(xn_t2930);
+        xn_root_add(xn_t2930);
+        rt_string *xn_t2931 = xn_concat(xn_t2929, xn_t2930);
+xn_root_add(xn_t2931);
+        xn_root_add(xn_t2931);
+        rt_string *xn_t2932 = rt_string_from_c(") (Body ");
+xn_root_add(xn_t2932);
+        xn_root_add(xn_t2932);
+        rt_string *xn_t2933 = xn_concat(xn_t2931, xn_t2932);
+xn_root_add(xn_t2933);
+        xn_root_add(xn_t2933);
+        rt_string *xn_t2934 = rt_retain(body);
+xn_root_add(xn_t2934);
+        xn_root_add(xn_t2934);
+        rt_string *xn_t2935 = xn_concat(xn_t2933, xn_t2934);
+xn_root_add(xn_t2935);
+        xn_root_add(xn_t2935);
+        rt_string *xn_t2936 = rt_string_from_c(") (IsDeinit ");
+xn_root_add(xn_t2936);
+        xn_root_add(xn_t2936);
+        rt_string *xn_t2937 = xn_concat(xn_t2935, xn_t2936);
+xn_root_add(xn_t2937);
+        xn_root_add(xn_t2937);
+        rt_string *xn_t2938 = rt_retain(nm);
+xn_root_add(xn_t2938);
+        xn_root_add(xn_t2938);
+        rt_string *xn_t2939 = rt_string_from_c("deinit");
+xn_root_add(xn_t2939);
+        xn_root_add(xn_t2939);
+        rt_string *xn_t2940 = xn_B(xn_str_eq(xn_t2938, xn_t2939));
+xn_root_add(xn_t2940);
+        xn_root_add(xn_t2940);
+        rt_string *xn_t2941 = xn_concat(xn_t2937, xn_t2940);
+xn_root_add(xn_t2941);
+        xn_root_add(xn_t2941);
+        rt_string *xn_t2942 = rt_string_from_c("))");
+xn_root_add(xn_t2942);
+        xn_root_add(xn_t2942);
+        rt_string *xn_t2943 = xn_concat(xn_t2941, xn_t2942);
+xn_root_add(xn_t2943);
+        xn_root_add(xn_t2943);
+        xn_arr_s_push(xn_p_methods, xn_t2943);
+        #line 1437 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2944 = rt_string_from_c("");
+xn_root_add(xn_t2944);
+        xn_root_add(xn_t2944);
+        xn_root_add(xn_t2944);
             {
         rt_release(body);
             }
             {
-        xn_root_restore(xn_t2873);
+        xn_root_restore(xn_t2897);
             }
             {
         rt_release(nm);
@@ -17854,109 +18002,109 @@ xn_root_add(xn_t2920);
         rt_release(rt);
             }
             {
-        xn_root_restore(xn_t2841);
+        xn_root_restore(xn_t2865);
             }
 
-        return xn_t2920;
+        return xn_t2944;
 
     }
-#line 1429 "impl/lib/b2/xparser.x"
+#line 1439 "impl/lib/b2/xparser.x"
 rt_string *init = rt_string_from_c("(nil)");
 xn_root_add(init);
 xn_root_add(init);
 xn_gc_safepoint();
-#line 1430 "impl/lib/b2/xparser.x"
-rt_string *xn_t2922 = rt_string_from_c("=");
-xn_root_add(xn_t2922);
-    if ((xn_Cls_Parser_atOp(self, xn_t2922))) {
-        size_t xn_t2923 = xn_root_mark();
-        #line 1430 "impl/lib/b2/xparser.x"
+#line 1440 "impl/lib/b2/xparser.x"
+rt_string *xn_t2946 = rt_string_from_c("=");
+xn_root_add(xn_t2946);
+    if ((xn_Cls_Parser_atOp(self, xn_t2946))) {
+        size_t xn_t2947 = xn_root_mark();
+        #line 1440 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1430 "impl/lib/b2/xparser.x"
-        xn_Cls_E * xn_t2924 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t2924);
-        xn_root_add(xn_t2924);
-        rt_string *xn_t2925 = rt_retain(xn_t2924->d);
-xn_root_add(xn_t2925);
-        xn_root_add(xn_t2925);
+        #line 1440 "impl/lib/b2/xparser.x"
+        xn_Cls_E * xn_t2948 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t2948);
+        xn_root_add(xn_t2948);
+        rt_string *xn_t2949 = rt_retain(xn_t2948->d);
+xn_root_add(xn_t2949);
+        xn_root_add(xn_t2949);
         xn_root_release(init);
         rt_release(init);
-        init = xn_t2925;
+        init = xn_t2949;
         xn_root_hold(init);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t2923);
+            xn_root_restore(xn_t2947);
             }
 
     }
-#line 1431 "impl/lib/b2/xparser.x"
+#line 1441 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t2926 = xn_root_mark();
-        #line 1431 "impl/lib/b2/xparser.x"
+        size_t xn_t2950 = xn_root_mark();
+        #line 1441 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t2926);
+            xn_root_restore(xn_t2950);
             }
 
     }
-#line 1432 "impl/lib/b2/xparser.x"
-rt_string *xn_t2927 = rt_string_from_c("(FieldDecl ");
-xn_root_add(xn_t2927);
-rt_string *xn_t2928 = xn_P(nml, nmc);
-xn_root_add(xn_t2928);
-rt_string *xn_t2929 = xn_concat(xn_t2927, xn_t2928);
-xn_root_add(xn_t2929);
-rt_string *xn_t2930 = rt_string_from_c(" (Annos ");
-xn_root_add(xn_t2930);
-rt_string *xn_t2931 = xn_concat(xn_t2929, xn_t2930);
-xn_root_add(xn_t2931);
-rt_string *xn_t2932 = xn_SL(annos);
-xn_root_add(xn_t2932);
-rt_string *xn_t2933 = xn_concat(xn_t2931, xn_t2932);
-xn_root_add(xn_t2933);
-rt_string *xn_t2934 = rt_string_from_c(") (Mod ");
-xn_root_add(xn_t2934);
-rt_string *xn_t2935 = xn_concat(xn_t2933, xn_t2934);
-xn_root_add(xn_t2935);
-rt_string *xn_t2936 = xn_Cls_Parser_modDump(self, m);
-xn_root_add(xn_t2936);
-rt_string *xn_t2937 = xn_concat(xn_t2935, xn_t2936);
-xn_root_add(xn_t2937);
-rt_string *xn_t2938 = rt_string_from_c(") (Type ");
-xn_root_add(xn_t2938);
-rt_string *xn_t2939 = xn_concat(xn_t2937, xn_t2938);
-xn_root_add(xn_t2939);
-rt_string *xn_t2940 = rt_retain(rt);
-xn_root_add(xn_t2940);
-rt_string *xn_t2941 = xn_concat(xn_t2939, xn_t2940);
-xn_root_add(xn_t2941);
-rt_string *xn_t2942 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t2942);
-rt_string *xn_t2943 = xn_concat(xn_t2941, xn_t2942);
-xn_root_add(xn_t2943);
-rt_string *xn_t2944 = rt_retain(nm);
-xn_root_add(xn_t2944);
-rt_string *xn_t2945 = xn_q(xn_t2944);
-xn_root_add(xn_t2945);
-rt_string *xn_t2946 = xn_concat(xn_t2943, xn_t2945);
-xn_root_add(xn_t2946);
-rt_string *xn_t2947 = rt_string_from_c(") (Canonical \"\") (Init ");
-xn_root_add(xn_t2947);
-rt_string *xn_t2948 = xn_concat(xn_t2946, xn_t2947);
-xn_root_add(xn_t2948);
-rt_string *xn_t2949 = rt_retain(init);
-xn_root_add(xn_t2949);
-rt_string *xn_t2950 = xn_concat(xn_t2948, xn_t2949);
-xn_root_add(xn_t2950);
-rt_string *xn_t2951 = rt_string_from_c("))");
+#line 1442 "impl/lib/b2/xparser.x"
+rt_string *xn_t2951 = rt_string_from_c("(FieldDecl ");
 xn_root_add(xn_t2951);
-rt_string *xn_t2952 = xn_concat(xn_t2950, xn_t2951);
+rt_string *xn_t2952 = xn_P(nml, nmc);
 xn_root_add(xn_t2952);
-xn_arr_s_push(xn_p_fields, xn_t2952);
-#line 1434 "impl/lib/b2/xparser.x"
-rt_string *xn_t2953 = rt_string_from_c("");
+rt_string *xn_t2953 = xn_concat(xn_t2951, xn_t2952);
 xn_root_add(xn_t2953);
-xn_root_add(xn_t2953);
+rt_string *xn_t2954 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2954);
+rt_string *xn_t2955 = xn_concat(xn_t2953, xn_t2954);
+xn_root_add(xn_t2955);
+rt_string *xn_t2956 = xn_SL(annos);
+xn_root_add(xn_t2956);
+rt_string *xn_t2957 = xn_concat(xn_t2955, xn_t2956);
+xn_root_add(xn_t2957);
+rt_string *xn_t2958 = rt_string_from_c(") (Mod ");
+xn_root_add(xn_t2958);
+rt_string *xn_t2959 = xn_concat(xn_t2957, xn_t2958);
+xn_root_add(xn_t2959);
+rt_string *xn_t2960 = xn_Cls_Parser_modDump(self, m);
+xn_root_add(xn_t2960);
+rt_string *xn_t2961 = xn_concat(xn_t2959, xn_t2960);
+xn_root_add(xn_t2961);
+rt_string *xn_t2962 = rt_string_from_c(") (Type ");
+xn_root_add(xn_t2962);
+rt_string *xn_t2963 = xn_concat(xn_t2961, xn_t2962);
+xn_root_add(xn_t2963);
+rt_string *xn_t2964 = rt_retain(rt);
+xn_root_add(xn_t2964);
+rt_string *xn_t2965 = xn_concat(xn_t2963, xn_t2964);
+xn_root_add(xn_t2965);
+rt_string *xn_t2966 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t2966);
+rt_string *xn_t2967 = xn_concat(xn_t2965, xn_t2966);
+xn_root_add(xn_t2967);
+rt_string *xn_t2968 = rt_retain(nm);
+xn_root_add(xn_t2968);
+rt_string *xn_t2969 = xn_q(xn_t2968);
+xn_root_add(xn_t2969);
+rt_string *xn_t2970 = xn_concat(xn_t2967, xn_t2969);
+xn_root_add(xn_t2970);
+rt_string *xn_t2971 = rt_string_from_c(") (Canonical \"\") (Init ");
+xn_root_add(xn_t2971);
+rt_string *xn_t2972 = xn_concat(xn_t2970, xn_t2971);
+xn_root_add(xn_t2972);
+rt_string *xn_t2973 = rt_retain(init);
+xn_root_add(xn_t2973);
+rt_string *xn_t2974 = xn_concat(xn_t2972, xn_t2973);
+xn_root_add(xn_t2974);
+rt_string *xn_t2975 = rt_string_from_c("))");
+xn_root_add(xn_t2975);
+rt_string *xn_t2976 = xn_concat(xn_t2974, xn_t2975);
+xn_root_add(xn_t2976);
+xn_arr_s_push(xn_p_fields, xn_t2976);
+#line 1444 "impl/lib/b2/xparser.x"
+rt_string *xn_t2977 = rt_string_from_c("");
+xn_root_add(xn_t2977);
+xn_root_add(xn_t2977);
     {
 rt_release(init);
     }
@@ -17967,10 +18115,10 @@ rt_release(nm);
 rt_release(rt);
     }
     {
-xn_root_restore(xn_t2841);
+xn_root_restore(xn_t2865);
     }
 
-return xn_t2953;
+return xn_t2977;
 xn_root_release(rt);
 xn_root_release(nm);
 xn_root_release(init);
@@ -17978,185 +18126,185 @@ xn_root_release(init);
 }
 
 static rt_string * xn_Cls_Parser_parseField(xn_Cls_Parser *self) {
-size_t xn_t2954 = xn_root_mark();
+size_t xn_t2978 = xn_root_mark();
 xn_root_add(self);
-#line 1438 "impl/lib/b2/xparser.x"
+#line 1448 "impl/lib/b2/xparser.x"
 xn_arr_s * annos = xn_Cls_Parser_parseAnnos(self);
 xn_root_add(annos);
 xn_root_add(annos);
 xn_gc_safepoint();
-#line 1439 "impl/lib/b2/xparser.x"
+#line 1449 "impl/lib/b2/xparser.x"
 xn_Cls_M * m = xn_Cls_Parser_parseMods(self);
 xn_root_add(m);
 xn_root_add(m);
 xn_gc_safepoint();
-#line 1440 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2955 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2955);
-int64_t l = xn_t2955->line;
-#line 1441 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2956 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2956);
-int64_t c = xn_t2956->col;
-#line 1442 "impl/lib/b2/xparser.x"
+#line 1450 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2979 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2979);
+int64_t l = xn_t2979->line;
+#line 1451 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t2980 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t2980);
+int64_t c = xn_t2980->col;
+#line 1452 "impl/lib/b2/xparser.x"
 rt_string *ty = xn_Cls_Parser_parseType(self);
 xn_root_add(ty);
 xn_root_add(ty);
 xn_gc_safepoint();
-#line 1443 "impl/lib/b2/xparser.x"
+#line 1453 "impl/lib/b2/xparser.x"
 rt_string *nm = rt_string_from_c("");
 xn_root_add(nm);
 xn_root_add(nm);
 xn_gc_safepoint();
-#line 1444 "impl/lib/b2/xparser.x"
+#line 1454 "impl/lib/b2/xparser.x"
 int64_t nml = l;
-#line 1445 "impl/lib/b2/xparser.x"
+#line 1455 "impl/lib/b2/xparser.x"
 int64_t nmc = c;
-#line 1446 "impl/lib/b2/xparser.x"
+#line 1456 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t2959 = xn_root_mark();
-        #line 1446 "impl/lib/b2/xparser.x"
+        size_t xn_t2983 = xn_root_mark();
+        #line 1456 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * nt = xn_Cls_Parser_next(self);
 xn_root_add(nt);
         xn_root_add(nt);
         xn_root_add(nt);
         xn_gc_safepoint();
-        #line 1446 "impl/lib/b2/xparser.x"
-        rt_string *xn_t2960 = rt_retain(nt->text);
-xn_root_add(xn_t2960);
-        xn_root_add(xn_t2960);
+        #line 1456 "impl/lib/b2/xparser.x"
+        rt_string *xn_t2984 = rt_retain(nt->text);
+xn_root_add(xn_t2984);
+        xn_root_add(xn_t2984);
         xn_root_release(nm);
         rt_release(nm);
-        nm = xn_t2960;
+        nm = xn_t2984;
         xn_root_hold(nm);
         xn_gc_safepoint();
-        #line 1446 "impl/lib/b2/xparser.x"
+        #line 1456 "impl/lib/b2/xparser.x"
         nml = nt->line;
-        #line 1446 "impl/lib/b2/xparser.x"
+        #line 1456 "impl/lib/b2/xparser.x"
         nmc = nt->col;
             {
-            xn_root_restore(xn_t2959);
+            xn_root_restore(xn_t2983);
             }
 
     }
-#line 1447 "impl/lib/b2/xparser.x"
+#line 1457 "impl/lib/b2/xparser.x"
 rt_string *init = rt_string_from_c("(nil)");
 xn_root_add(init);
 xn_root_add(init);
 xn_gc_safepoint();
-#line 1448 "impl/lib/b2/xparser.x"
-rt_string *xn_t2962 = rt_string_from_c("=");
-xn_root_add(xn_t2962);
-    if ((xn_Cls_Parser_atOp(self, xn_t2962))) {
-        size_t xn_t2963 = xn_root_mark();
-        #line 1448 "impl/lib/b2/xparser.x"
+#line 1458 "impl/lib/b2/xparser.x"
+rt_string *xn_t2986 = rt_string_from_c("=");
+xn_root_add(xn_t2986);
+    if ((xn_Cls_Parser_atOp(self, xn_t2986))) {
+        size_t xn_t2987 = xn_root_mark();
+        #line 1458 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1448 "impl/lib/b2/xparser.x"
-        xn_Cls_E * xn_t2964 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t2964);
-        xn_root_add(xn_t2964);
-        rt_string *xn_t2965 = rt_retain(xn_t2964->d);
-xn_root_add(xn_t2965);
-        xn_root_add(xn_t2965);
+        #line 1458 "impl/lib/b2/xparser.x"
+        xn_Cls_E * xn_t2988 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t2988);
+        xn_root_add(xn_t2988);
+        rt_string *xn_t2989 = rt_retain(xn_t2988->d);
+xn_root_add(xn_t2989);
+        xn_root_add(xn_t2989);
         xn_root_release(init);
         rt_release(init);
-        init = xn_t2965;
+        init = xn_t2989;
         xn_root_hold(init);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t2963);
+            xn_root_restore(xn_t2987);
             }
 
     }
-#line 1449 "impl/lib/b2/xparser.x"
+#line 1459 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t2966 = xn_root_mark();
-        #line 1449 "impl/lib/b2/xparser.x"
+        size_t xn_t2990 = xn_root_mark();
+        #line 1459 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t2966);
+            xn_root_restore(xn_t2990);
             }
 
     }
-#line 1450 "impl/lib/b2/xparser.x"
-rt_string *xn_t2967 = rt_string_from_c("(FieldDecl ");
-xn_root_add(xn_t2967);
-xn_root_add(xn_t2967);
-rt_string *xn_t2968 = xn_P(nml, nmc);
-xn_root_add(xn_t2968);
-xn_root_add(xn_t2968);
-rt_string *xn_t2969 = xn_concat(xn_t2967, xn_t2968);
-xn_root_add(xn_t2969);
-xn_root_add(xn_t2969);
-rt_string *xn_t2970 = rt_string_from_c(" (Annos ");
-xn_root_add(xn_t2970);
-xn_root_add(xn_t2970);
-rt_string *xn_t2971 = xn_concat(xn_t2969, xn_t2970);
-xn_root_add(xn_t2971);
-xn_root_add(xn_t2971);
-rt_string *xn_t2972 = xn_SL(annos);
-xn_root_add(xn_t2972);
-xn_root_add(xn_t2972);
-rt_string *xn_t2973 = xn_concat(xn_t2971, xn_t2972);
-xn_root_add(xn_t2973);
-xn_root_add(xn_t2973);
-rt_string *xn_t2974 = rt_string_from_c(") (Mod ");
-xn_root_add(xn_t2974);
-xn_root_add(xn_t2974);
-rt_string *xn_t2975 = xn_concat(xn_t2973, xn_t2974);
-xn_root_add(xn_t2975);
-xn_root_add(xn_t2975);
-rt_string *xn_t2976 = xn_Cls_Parser_modDump(self, m);
-xn_root_add(xn_t2976);
-xn_root_add(xn_t2976);
-rt_string *xn_t2977 = xn_concat(xn_t2975, xn_t2976);
-xn_root_add(xn_t2977);
-xn_root_add(xn_t2977);
-rt_string *xn_t2978 = rt_string_from_c(") (Type ");
-xn_root_add(xn_t2978);
-xn_root_add(xn_t2978);
-rt_string *xn_t2979 = xn_concat(xn_t2977, xn_t2978);
-xn_root_add(xn_t2979);
-xn_root_add(xn_t2979);
-rt_string *xn_t2980 = rt_retain(ty);
-xn_root_add(xn_t2980);
-xn_root_add(xn_t2980);
-rt_string *xn_t2981 = xn_concat(xn_t2979, xn_t2980);
-xn_root_add(xn_t2981);
-xn_root_add(xn_t2981);
-rt_string *xn_t2982 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t2982);
-xn_root_add(xn_t2982);
-rt_string *xn_t2983 = xn_concat(xn_t2981, xn_t2982);
-xn_root_add(xn_t2983);
-xn_root_add(xn_t2983);
-rt_string *xn_t2984 = rt_retain(nm);
-xn_root_add(xn_t2984);
-xn_root_add(xn_t2984);
-rt_string *xn_t2985 = xn_q(xn_t2984);
-xn_root_add(xn_t2985);
-xn_root_add(xn_t2985);
-rt_string *xn_t2986 = xn_concat(xn_t2983, xn_t2985);
-xn_root_add(xn_t2986);
-xn_root_add(xn_t2986);
-rt_string *xn_t2987 = rt_string_from_c(") (Canonical \"\") (Init ");
-xn_root_add(xn_t2987);
-xn_root_add(xn_t2987);
-rt_string *xn_t2988 = xn_concat(xn_t2986, xn_t2987);
-xn_root_add(xn_t2988);
-xn_root_add(xn_t2988);
-rt_string *xn_t2989 = rt_retain(init);
-xn_root_add(xn_t2989);
-xn_root_add(xn_t2989);
-rt_string *xn_t2990 = xn_concat(xn_t2988, xn_t2989);
-xn_root_add(xn_t2990);
-xn_root_add(xn_t2990);
-rt_string *xn_t2991 = rt_string_from_c("))");
+#line 1460 "impl/lib/b2/xparser.x"
+rt_string *xn_t2991 = rt_string_from_c("(FieldDecl ");
 xn_root_add(xn_t2991);
 xn_root_add(xn_t2991);
-rt_string *xn_t2992 = xn_concat(xn_t2990, xn_t2991);
+rt_string *xn_t2992 = xn_P(nml, nmc);
 xn_root_add(xn_t2992);
 xn_root_add(xn_t2992);
+rt_string *xn_t2993 = xn_concat(xn_t2991, xn_t2992);
+xn_root_add(xn_t2993);
+xn_root_add(xn_t2993);
+rt_string *xn_t2994 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t2994);
+xn_root_add(xn_t2994);
+rt_string *xn_t2995 = xn_concat(xn_t2993, xn_t2994);
+xn_root_add(xn_t2995);
+xn_root_add(xn_t2995);
+rt_string *xn_t2996 = xn_SL(annos);
+xn_root_add(xn_t2996);
+xn_root_add(xn_t2996);
+rt_string *xn_t2997 = xn_concat(xn_t2995, xn_t2996);
+xn_root_add(xn_t2997);
+xn_root_add(xn_t2997);
+rt_string *xn_t2998 = rt_string_from_c(") (Mod ");
+xn_root_add(xn_t2998);
+xn_root_add(xn_t2998);
+rt_string *xn_t2999 = xn_concat(xn_t2997, xn_t2998);
+xn_root_add(xn_t2999);
+xn_root_add(xn_t2999);
+rt_string *xn_t3000 = xn_Cls_Parser_modDump(self, m);
+xn_root_add(xn_t3000);
+xn_root_add(xn_t3000);
+rt_string *xn_t3001 = xn_concat(xn_t2999, xn_t3000);
+xn_root_add(xn_t3001);
+xn_root_add(xn_t3001);
+rt_string *xn_t3002 = rt_string_from_c(") (Type ");
+xn_root_add(xn_t3002);
+xn_root_add(xn_t3002);
+rt_string *xn_t3003 = xn_concat(xn_t3001, xn_t3002);
+xn_root_add(xn_t3003);
+xn_root_add(xn_t3003);
+rt_string *xn_t3004 = rt_retain(ty);
+xn_root_add(xn_t3004);
+xn_root_add(xn_t3004);
+rt_string *xn_t3005 = xn_concat(xn_t3003, xn_t3004);
+xn_root_add(xn_t3005);
+xn_root_add(xn_t3005);
+rt_string *xn_t3006 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t3006);
+xn_root_add(xn_t3006);
+rt_string *xn_t3007 = xn_concat(xn_t3005, xn_t3006);
+xn_root_add(xn_t3007);
+xn_root_add(xn_t3007);
+rt_string *xn_t3008 = rt_retain(nm);
+xn_root_add(xn_t3008);
+xn_root_add(xn_t3008);
+rt_string *xn_t3009 = xn_q(xn_t3008);
+xn_root_add(xn_t3009);
+xn_root_add(xn_t3009);
+rt_string *xn_t3010 = xn_concat(xn_t3007, xn_t3009);
+xn_root_add(xn_t3010);
+xn_root_add(xn_t3010);
+rt_string *xn_t3011 = rt_string_from_c(") (Canonical \"\") (Init ");
+xn_root_add(xn_t3011);
+xn_root_add(xn_t3011);
+rt_string *xn_t3012 = xn_concat(xn_t3010, xn_t3011);
+xn_root_add(xn_t3012);
+xn_root_add(xn_t3012);
+rt_string *xn_t3013 = rt_retain(init);
+xn_root_add(xn_t3013);
+xn_root_add(xn_t3013);
+rt_string *xn_t3014 = xn_concat(xn_t3012, xn_t3013);
+xn_root_add(xn_t3014);
+xn_root_add(xn_t3014);
+rt_string *xn_t3015 = rt_string_from_c("))");
+xn_root_add(xn_t3015);
+xn_root_add(xn_t3015);
+rt_string *xn_t3016 = xn_concat(xn_t3014, xn_t3015);
+xn_root_add(xn_t3016);
+xn_root_add(xn_t3016);
     {
 rt_release(init);
     }
@@ -18167,365 +18315,365 @@ rt_release(nm);
 rt_release(ty);
     }
     {
-xn_root_restore(xn_t2954);
+xn_root_restore(xn_t2978);
     }
 
-return xn_t2992;
+return xn_t3016;
 xn_root_release(nm);
 xn_root_release(init);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseCtor(xn_Cls_Parser *self, int64_t xn_p_l, int64_t xn_p_c, xn_arr_s * xn_p_annos) {
-size_t xn_t2993 = xn_root_mark();
+size_t xn_t3017 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_annos);
-#line 1455 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2994 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2994);
-int64_t pl = xn_t2994->line;
-#line 1456 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t2995 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t2995);
-int64_t pc = xn_t2995->col;
-#line 1457 "impl/lib/b2/xparser.x"
+#line 1465 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3018 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3018);
+int64_t pl = xn_t3018->line;
+#line 1466 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3019 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3019);
+int64_t pc = xn_t3019->col;
+#line 1467 "impl/lib/b2/xparser.x"
 xn_arr_s * ps = xn_Cls_Parser_parseParams(self);
 xn_root_add(ps);
 xn_root_add(ps);
 xn_gc_safepoint();
-#line 1458 "impl/lib/b2/xparser.x"
+#line 1468 "impl/lib/b2/xparser.x"
 rt_string *body = xn_Cls_Parser_parseBlock(self);
 xn_root_add(body);
 xn_root_add(body);
 xn_gc_safepoint();
-#line 1459 "impl/lib/b2/xparser.x"
-rt_string *xn_t2997 = rt_string_from_c("(CtorDecl ");
-xn_root_add(xn_t2997);
-xn_root_add(xn_t2997);
-rt_string *xn_t2998 = xn_P(pl, pc);
-xn_root_add(xn_t2998);
-xn_root_add(xn_t2998);
-rt_string *xn_t2999 = xn_concat(xn_t2997, xn_t2998);
-xn_root_add(xn_t2999);
-xn_root_add(xn_t2999);
-rt_string *xn_t3000 = rt_string_from_c(" (Annos ");
-xn_root_add(xn_t3000);
-xn_root_add(xn_t3000);
-rt_string *xn_t3001 = xn_concat(xn_t2999, xn_t3000);
-xn_root_add(xn_t3001);
-xn_root_add(xn_t3001);
-rt_string *xn_t3002 = xn_SL(xn_p_annos);
-xn_root_add(xn_t3002);
-xn_root_add(xn_t3002);
-rt_string *xn_t3003 = xn_concat(xn_t3001, xn_t3002);
-xn_root_add(xn_t3003);
-xn_root_add(xn_t3003);
-rt_string *xn_t3004 = rt_string_from_c(") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Params ");
-xn_root_add(xn_t3004);
-xn_root_add(xn_t3004);
-rt_string *xn_t3005 = xn_concat(xn_t3003, xn_t3004);
-xn_root_add(xn_t3005);
-xn_root_add(xn_t3005);
-rt_string *xn_t3006 = xn_SL(ps);
-xn_root_add(xn_t3006);
-xn_root_add(xn_t3006);
-rt_string *xn_t3007 = xn_concat(xn_t3005, xn_t3006);
-xn_root_add(xn_t3007);
-xn_root_add(xn_t3007);
-rt_string *xn_t3008 = rt_string_from_c(") (Body ");
-xn_root_add(xn_t3008);
-xn_root_add(xn_t3008);
-rt_string *xn_t3009 = xn_concat(xn_t3007, xn_t3008);
-xn_root_add(xn_t3009);
-xn_root_add(xn_t3009);
-rt_string *xn_t3010 = rt_retain(body);
-xn_root_add(xn_t3010);
-xn_root_add(xn_t3010);
-rt_string *xn_t3011 = xn_concat(xn_t3009, xn_t3010);
-xn_root_add(xn_t3011);
-xn_root_add(xn_t3011);
-rt_string *xn_t3012 = rt_string_from_c("))");
-xn_root_add(xn_t3012);
-xn_root_add(xn_t3012);
-rt_string *xn_t3013 = xn_concat(xn_t3011, xn_t3012);
-xn_root_add(xn_t3013);
-xn_root_add(xn_t3013);
-    {
-rt_release(body);
-    }
-    {
-xn_root_restore(xn_t2993);
-    }
-
-return xn_t3013;
-    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
-}
-
-static rt_string * xn_Cls_Parser_parseAnnotationDecl(xn_Cls_Parser *self, int64_t xn_p_sl, int64_t xn_p_sc, xn_arr_s * xn_p_annos) {
-size_t xn_t3014 = xn_root_mark();
-xn_root_add(self);
-xn_root_add(xn_p_annos);
-#line 1463 "impl/lib/b2/xparser.x"
-xn_Cls_Parser_next(self);
-#line 1464 "impl/lib/b2/xparser.x"
-rt_string *name = rt_string_from_c("");
-xn_root_add(name);
-xn_root_add(name);
-xn_gc_safepoint();
-#line 1465 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t3016 = xn_root_mark();
-        #line 1465 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3017 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3017);
-        xn_root_add(xn_t3017);
-        rt_string *xn_t3018 = rt_retain(xn_t3017->text);
-xn_root_add(xn_t3018);
-        xn_root_add(xn_t3018);
-        xn_root_release(name);
-        rt_release(name);
-        name = xn_t3018;
-        xn_root_hold(name);
-        xn_gc_safepoint();
-            {
-            xn_root_restore(xn_t3016);
-            }
-
-    }
-#line 1466 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t3019 = xn_root_mark();
-        #line 1466 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3019);
-            }
-
-    }
-#line 1467 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t3020 = xn_arr_s_new(0);
-xn_root_add(xn_t3020);
-xn_arr_s * fs = xn_t3020;
-xn_root_add(fs);
-xn_root_add(fs);
-xn_gc_safepoint();
-#line 1468 "impl/lib/b2/xparser.x"
-    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-    size_t xn_t3021 = xn_root_mark();
-    #line 1469 "impl/lib/b2/xparser.x"
-        if ((xn_Cls_Parser_at(self, 1))) {
-            size_t xn_t3022 = xn_root_mark();
-            #line 1469 "impl/lib/b2/xparser.x"
-            xn_Cls_Parser_next(self);
-            #line 1469 "impl/lib/b2/xparser.x"
-            xn_root_restore(xn_t3022);
-            xn_root_restore(xn_t3021);
-            continue;
-                {
-                xn_root_restore(xn_t3022);
-                }
-
-        }
-    #line 1470 "impl/lib/b2/xparser.x"
-    rt_string *xn_t3023 = xn_Cls_Parser_parseField(self);
+#line 1469 "impl/lib/b2/xparser.x"
+rt_string *xn_t3021 = rt_string_from_c("(CtorDecl ");
+xn_root_add(xn_t3021);
+xn_root_add(xn_t3021);
+rt_string *xn_t3022 = xn_P(pl, pc);
+xn_root_add(xn_t3022);
+xn_root_add(xn_t3022);
+rt_string *xn_t3023 = xn_concat(xn_t3021, xn_t3022);
 xn_root_add(xn_t3023);
-    xn_root_add(xn_t3023);
-    xn_arr_s_push(fs, xn_t3023);
-        {
-        xn_root_restore(xn_t3021);
-        }
-
-    xn_gc_safepoint();
-    }
-#line 1472 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 13))) {
-        size_t xn_t3024 = xn_root_mark();
-        #line 1472 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3024);
-            }
-
-    }
-#line 1473 "impl/lib/b2/xparser.x"
-rt_string *xn_t3025 = rt_string_from_c("(AnnotationDecl ");
+xn_root_add(xn_t3023);
+rt_string *xn_t3024 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t3024);
+xn_root_add(xn_t3024);
+rt_string *xn_t3025 = xn_concat(xn_t3023, xn_t3024);
 xn_root_add(xn_t3025);
 xn_root_add(xn_t3025);
-rt_string *xn_t3026 = xn_P(xn_p_sl, xn_p_sc);
+rt_string *xn_t3026 = xn_SL(xn_p_annos);
 xn_root_add(xn_t3026);
 xn_root_add(xn_t3026);
 rt_string *xn_t3027 = xn_concat(xn_t3025, xn_t3026);
 xn_root_add(xn_t3027);
 xn_root_add(xn_t3027);
-rt_string *xn_t3028 = rt_string_from_c(" (Annos ");
+rt_string *xn_t3028 = rt_string_from_c(") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Params ");
 xn_root_add(xn_t3028);
 xn_root_add(xn_t3028);
 rt_string *xn_t3029 = xn_concat(xn_t3027, xn_t3028);
 xn_root_add(xn_t3029);
 xn_root_add(xn_t3029);
-rt_string *xn_t3030 = xn_SL(xn_p_annos);
+rt_string *xn_t3030 = xn_SL(ps);
 xn_root_add(xn_t3030);
 xn_root_add(xn_t3030);
 rt_string *xn_t3031 = xn_concat(xn_t3029, xn_t3030);
 xn_root_add(xn_t3031);
 xn_root_add(xn_t3031);
-rt_string *xn_t3032 = rt_string_from_c(") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Name ");
+rt_string *xn_t3032 = rt_string_from_c(") (Body ");
 xn_root_add(xn_t3032);
 xn_root_add(xn_t3032);
 rt_string *xn_t3033 = xn_concat(xn_t3031, xn_t3032);
 xn_root_add(xn_t3033);
 xn_root_add(xn_t3033);
-rt_string *xn_t3034 = rt_retain(name);
+rt_string *xn_t3034 = rt_retain(body);
 xn_root_add(xn_t3034);
 xn_root_add(xn_t3034);
-rt_string *xn_t3035 = xn_q(xn_t3034);
+rt_string *xn_t3035 = xn_concat(xn_t3033, xn_t3034);
 xn_root_add(xn_t3035);
 xn_root_add(xn_t3035);
-rt_string *xn_t3036 = xn_concat(xn_t3033, xn_t3035);
+rt_string *xn_t3036 = rt_string_from_c("))");
 xn_root_add(xn_t3036);
 xn_root_add(xn_t3036);
-rt_string *xn_t3037 = rt_string_from_c(") (Fields ");
+rt_string *xn_t3037 = xn_concat(xn_t3035, xn_t3036);
 xn_root_add(xn_t3037);
 xn_root_add(xn_t3037);
-rt_string *xn_t3038 = xn_concat(xn_t3036, xn_t3037);
-xn_root_add(xn_t3038);
-xn_root_add(xn_t3038);
-rt_string *xn_t3039 = xn_SL(fs);
-xn_root_add(xn_t3039);
-xn_root_add(xn_t3039);
-rt_string *xn_t3040 = xn_concat(xn_t3038, xn_t3039);
-xn_root_add(xn_t3040);
-xn_root_add(xn_t3040);
-rt_string *xn_t3041 = rt_string_from_c("))");
-xn_root_add(xn_t3041);
-xn_root_add(xn_t3041);
-rt_string *xn_t3042 = xn_concat(xn_t3040, xn_t3041);
-xn_root_add(xn_t3042);
-xn_root_add(xn_t3042);
     {
-rt_release(name);
+rt_release(body);
     }
     {
-xn_root_restore(xn_t3014);
+xn_root_restore(xn_t3017);
     }
 
-return xn_t3042;
-xn_root_release(name);
+return xn_t3037;
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
-static rt_string * xn_Cls_Parser_parseParam(xn_Cls_Parser *self) {
-size_t xn_t3043 = xn_root_mark();
+static rt_string * xn_Cls_Parser_parseAnnotationDecl(xn_Cls_Parser *self, int64_t xn_p_sl, int64_t xn_p_sc, xn_arr_s * xn_p_annos) {
+size_t xn_t3038 = xn_root_mark();
 xn_root_add(self);
-#line 1478 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t3044 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3044);
-int64_t sl = xn_t3044->line;
-#line 1479 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t3045 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3045);
-int64_t sc = xn_t3045->col;
-#line 1480 "impl/lib/b2/xparser.x"
-int fin = 0;
-#line 1481 "impl/lib/b2/xparser.x"
-rt_string *xn_t3046 = rt_string_from_c("final");
-xn_root_add(xn_t3046);
-    if ((xn_Cls_Parser_atKw(self, xn_t3046))) {
-        size_t xn_t3047 = xn_root_mark();
-        #line 1481 "impl/lib/b2/xparser.x"
-        fin = 1;
-        #line 1481 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3047);
-            }
-
-    }
-#line 1482 "impl/lib/b2/xparser.x"
-rt_string *ty = xn_Cls_Parser_parseType(self);
-xn_root_add(ty);
-xn_root_add(ty);
+xn_root_add(xn_p_annos);
+#line 1473 "impl/lib/b2/xparser.x"
+xn_Cls_Parser_next(self);
+#line 1474 "impl/lib/b2/xparser.x"
+rt_string *name = rt_string_from_c("");
+xn_root_add(name);
+xn_root_add(name);
 xn_gc_safepoint();
-#line 1483 "impl/lib/b2/xparser.x"
-rt_string *nm = rt_string_from_c("");
-xn_root_add(nm);
-xn_root_add(nm);
-xn_gc_safepoint();
-#line 1484 "impl/lib/b2/xparser.x"
+#line 1475 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t3050 = xn_root_mark();
-        #line 1484 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3051 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3051);
-        xn_root_add(xn_t3051);
-        rt_string *xn_t3052 = rt_retain(xn_t3051->text);
-xn_root_add(xn_t3052);
-        xn_root_add(xn_t3052);
-        xn_root_release(nm);
-        rt_release(nm);
-        nm = xn_t3052;
-        xn_root_hold(nm);
+        size_t xn_t3040 = xn_root_mark();
+        #line 1475 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3041 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3041);
+        xn_root_add(xn_t3041);
+        rt_string *xn_t3042 = rt_retain(xn_t3041->text);
+xn_root_add(xn_t3042);
+        xn_root_add(xn_t3042);
+        xn_root_release(name);
+        rt_release(name);
+        name = xn_t3042;
+        xn_root_hold(name);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3050);
+            xn_root_restore(xn_t3040);
             }
 
     }
-#line 1485 "impl/lib/b2/xparser.x"
-rt_string *xn_t3053 = rt_string_from_c("(Param ");
+#line 1476 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 12))) {
+        size_t xn_t3043 = xn_root_mark();
+        #line 1476 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3043);
+            }
+
+    }
+#line 1477 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t3044 = xn_arr_s_new(0);
+xn_root_add(xn_t3044);
+xn_arr_s * fs = xn_t3044;
+xn_root_add(fs);
+xn_root_add(fs);
+xn_gc_safepoint();
+#line 1478 "impl/lib/b2/xparser.x"
+    while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
+    size_t xn_t3045 = xn_root_mark();
+    #line 1479 "impl/lib/b2/xparser.x"
+        if ((xn_Cls_Parser_at(self, 1))) {
+            size_t xn_t3046 = xn_root_mark();
+            #line 1479 "impl/lib/b2/xparser.x"
+            xn_Cls_Parser_next(self);
+            #line 1479 "impl/lib/b2/xparser.x"
+            xn_root_restore(xn_t3046);
+            xn_root_restore(xn_t3045);
+            continue;
+                {
+                xn_root_restore(xn_t3046);
+                }
+
+        }
+    #line 1480 "impl/lib/b2/xparser.x"
+    rt_string *xn_t3047 = xn_Cls_Parser_parseField(self);
+xn_root_add(xn_t3047);
+    xn_root_add(xn_t3047);
+    xn_arr_s_push(fs, xn_t3047);
+        {
+        xn_root_restore(xn_t3045);
+        }
+
+    xn_gc_safepoint();
+    }
+#line 1482 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 13))) {
+        size_t xn_t3048 = xn_root_mark();
+        #line 1482 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3048);
+            }
+
+    }
+#line 1483 "impl/lib/b2/xparser.x"
+rt_string *xn_t3049 = rt_string_from_c("(AnnotationDecl ");
+xn_root_add(xn_t3049);
+xn_root_add(xn_t3049);
+rt_string *xn_t3050 = xn_P(xn_p_sl, xn_p_sc);
+xn_root_add(xn_t3050);
+xn_root_add(xn_t3050);
+rt_string *xn_t3051 = xn_concat(xn_t3049, xn_t3050);
+xn_root_add(xn_t3051);
+xn_root_add(xn_t3051);
+rt_string *xn_t3052 = rt_string_from_c(" (Annos ");
+xn_root_add(xn_t3052);
+xn_root_add(xn_t3052);
+rt_string *xn_t3053 = xn_concat(xn_t3051, xn_t3052);
 xn_root_add(xn_t3053);
 xn_root_add(xn_t3053);
-rt_string *xn_t3054 = xn_P(sl, sc);
+rt_string *xn_t3054 = xn_SL(xn_p_annos);
 xn_root_add(xn_t3054);
 xn_root_add(xn_t3054);
 rt_string *xn_t3055 = xn_concat(xn_t3053, xn_t3054);
 xn_root_add(xn_t3055);
 xn_root_add(xn_t3055);
-rt_string *xn_t3056 = rt_string_from_c(" (Annos (slice)) (Final ");
+rt_string *xn_t3056 = rt_string_from_c(") (Mod (TypeModifiers (Vis \"\") (Abstract false) (Final false) (Static false) (Const false))) (Name ");
 xn_root_add(xn_t3056);
 xn_root_add(xn_t3056);
 rt_string *xn_t3057 = xn_concat(xn_t3055, xn_t3056);
 xn_root_add(xn_t3057);
 xn_root_add(xn_t3057);
-rt_string *xn_t3058 = xn_B(fin);
+rt_string *xn_t3058 = rt_retain(name);
 xn_root_add(xn_t3058);
 xn_root_add(xn_t3058);
-rt_string *xn_t3059 = xn_concat(xn_t3057, xn_t3058);
+rt_string *xn_t3059 = xn_q(xn_t3058);
 xn_root_add(xn_t3059);
 xn_root_add(xn_t3059);
-rt_string *xn_t3060 = rt_string_from_c(") (Type ");
+rt_string *xn_t3060 = xn_concat(xn_t3057, xn_t3059);
 xn_root_add(xn_t3060);
 xn_root_add(xn_t3060);
-rt_string *xn_t3061 = xn_concat(xn_t3059, xn_t3060);
+rt_string *xn_t3061 = rt_string_from_c(") (Fields ");
 xn_root_add(xn_t3061);
 xn_root_add(xn_t3061);
-rt_string *xn_t3062 = rt_retain(ty);
+rt_string *xn_t3062 = xn_concat(xn_t3060, xn_t3061);
 xn_root_add(xn_t3062);
 xn_root_add(xn_t3062);
-rt_string *xn_t3063 = xn_concat(xn_t3061, xn_t3062);
+rt_string *xn_t3063 = xn_SL(fs);
 xn_root_add(xn_t3063);
 xn_root_add(xn_t3063);
-rt_string *xn_t3064 = rt_string_from_c(") (Name ");
+rt_string *xn_t3064 = xn_concat(xn_t3062, xn_t3063);
 xn_root_add(xn_t3064);
 xn_root_add(xn_t3064);
-rt_string *xn_t3065 = xn_concat(xn_t3063, xn_t3064);
+rt_string *xn_t3065 = rt_string_from_c("))");
 xn_root_add(xn_t3065);
 xn_root_add(xn_t3065);
-rt_string *xn_t3066 = rt_retain(nm);
+rt_string *xn_t3066 = xn_concat(xn_t3064, xn_t3065);
 xn_root_add(xn_t3066);
 xn_root_add(xn_t3066);
-rt_string *xn_t3067 = xn_q(xn_t3066);
-xn_root_add(xn_t3067);
-xn_root_add(xn_t3067);
-rt_string *xn_t3068 = xn_concat(xn_t3065, xn_t3067);
+    {
+rt_release(name);
+    }
+    {
+xn_root_restore(xn_t3038);
+    }
+
+return xn_t3066;
+xn_root_release(name);
+    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static rt_string * xn_Cls_Parser_parseParam(xn_Cls_Parser *self) {
+size_t xn_t3067 = xn_root_mark();
+xn_root_add(self);
+#line 1488 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3068 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t3068);
-xn_root_add(xn_t3068);
-rt_string *xn_t3069 = rt_string_from_c("))");
+int64_t sl = xn_t3068->line;
+#line 1489 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3069 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t3069);
-xn_root_add(xn_t3069);
-rt_string *xn_t3070 = xn_concat(xn_t3068, xn_t3069);
+int64_t sc = xn_t3069->col;
+#line 1490 "impl/lib/b2/xparser.x"
+int fin = 0;
+#line 1491 "impl/lib/b2/xparser.x"
+rt_string *xn_t3070 = rt_string_from_c("final");
 xn_root_add(xn_t3070);
-xn_root_add(xn_t3070);
+    if ((xn_Cls_Parser_atKw(self, xn_t3070))) {
+        size_t xn_t3071 = xn_root_mark();
+        #line 1491 "impl/lib/b2/xparser.x"
+        fin = 1;
+        #line 1491 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3071);
+            }
+
+    }
+#line 1492 "impl/lib/b2/xparser.x"
+rt_string *ty = xn_Cls_Parser_parseType(self);
+xn_root_add(ty);
+xn_root_add(ty);
+xn_gc_safepoint();
+#line 1493 "impl/lib/b2/xparser.x"
+rt_string *nm = rt_string_from_c("");
+xn_root_add(nm);
+xn_root_add(nm);
+xn_gc_safepoint();
+#line 1494 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 2))) {
+        size_t xn_t3074 = xn_root_mark();
+        #line 1494 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3075 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3075);
+        xn_root_add(xn_t3075);
+        rt_string *xn_t3076 = rt_retain(xn_t3075->text);
+xn_root_add(xn_t3076);
+        xn_root_add(xn_t3076);
+        xn_root_release(nm);
+        rt_release(nm);
+        nm = xn_t3076;
+        xn_root_hold(nm);
+        xn_gc_safepoint();
+            {
+            xn_root_restore(xn_t3074);
+            }
+
+    }
+#line 1495 "impl/lib/b2/xparser.x"
+rt_string *xn_t3077 = rt_string_from_c("(Param ");
+xn_root_add(xn_t3077);
+xn_root_add(xn_t3077);
+rt_string *xn_t3078 = xn_P(sl, sc);
+xn_root_add(xn_t3078);
+xn_root_add(xn_t3078);
+rt_string *xn_t3079 = xn_concat(xn_t3077, xn_t3078);
+xn_root_add(xn_t3079);
+xn_root_add(xn_t3079);
+rt_string *xn_t3080 = rt_string_from_c(" (Annos (slice)) (Final ");
+xn_root_add(xn_t3080);
+xn_root_add(xn_t3080);
+rt_string *xn_t3081 = xn_concat(xn_t3079, xn_t3080);
+xn_root_add(xn_t3081);
+xn_root_add(xn_t3081);
+rt_string *xn_t3082 = xn_B(fin);
+xn_root_add(xn_t3082);
+xn_root_add(xn_t3082);
+rt_string *xn_t3083 = xn_concat(xn_t3081, xn_t3082);
+xn_root_add(xn_t3083);
+xn_root_add(xn_t3083);
+rt_string *xn_t3084 = rt_string_from_c(") (Type ");
+xn_root_add(xn_t3084);
+xn_root_add(xn_t3084);
+rt_string *xn_t3085 = xn_concat(xn_t3083, xn_t3084);
+xn_root_add(xn_t3085);
+xn_root_add(xn_t3085);
+rt_string *xn_t3086 = rt_retain(ty);
+xn_root_add(xn_t3086);
+xn_root_add(xn_t3086);
+rt_string *xn_t3087 = xn_concat(xn_t3085, xn_t3086);
+xn_root_add(xn_t3087);
+xn_root_add(xn_t3087);
+rt_string *xn_t3088 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t3088);
+xn_root_add(xn_t3088);
+rt_string *xn_t3089 = xn_concat(xn_t3087, xn_t3088);
+xn_root_add(xn_t3089);
+xn_root_add(xn_t3089);
+rt_string *xn_t3090 = rt_retain(nm);
+xn_root_add(xn_t3090);
+xn_root_add(xn_t3090);
+rt_string *xn_t3091 = xn_q(xn_t3090);
+xn_root_add(xn_t3091);
+xn_root_add(xn_t3091);
+rt_string *xn_t3092 = xn_concat(xn_t3089, xn_t3091);
+xn_root_add(xn_t3092);
+xn_root_add(xn_t3092);
+rt_string *xn_t3093 = rt_string_from_c("))");
+xn_root_add(xn_t3093);
+xn_root_add(xn_t3093);
+rt_string *xn_t3094 = xn_concat(xn_t3092, xn_t3093);
+xn_root_add(xn_t3094);
+xn_root_add(xn_t3094);
     {
 rt_release(nm);
     }
@@ -18533,481 +18681,651 @@ rt_release(nm);
 rt_release(ty);
     }
     {
-xn_root_restore(xn_t3043);
+xn_root_restore(xn_t3067);
     }
 
-return xn_t3070;
+return xn_t3094;
 xn_root_release(nm);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseType(xn_Cls_Parser *self) {
-size_t xn_t3071 = xn_root_mark();
+size_t xn_t3095 = xn_root_mark();
 xn_root_add(self);
-#line 1489 "impl/lib/b2/xparser.x"
+#line 1499 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1490 "impl/lib/b2/xparser.x"
+#line 1500 "impl/lib/b2/xparser.x"
 rt_string *base = rt_string_from_c("");
 xn_root_add(base);
 xn_root_add(base);
 xn_gc_safepoint();
-#line 1491 "impl/lib/b2/xparser.x"
+#line 1501 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
-        size_t xn_t3073 = xn_root_mark();
-        #line 1492 "impl/lib/b2/xparser.x"
+        size_t xn_t3097 = xn_root_mark();
+        #line 1502 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1493 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t3074 = xn_arr_s_new(0);
-xn_root_add(xn_t3074);
-        xn_root_add(xn_t3074);
-        xn_arr_s * es = xn_t3074;
+        #line 1503 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t3098 = xn_arr_s_new(0);
+xn_root_add(xn_t3098);
+        xn_root_add(xn_t3098);
+        xn_arr_s * es = xn_t3098;
 xn_root_add(es);
         xn_root_add(es);
         xn_root_add(es);
         xn_gc_safepoint();
-        #line 1494 "impl/lib/b2/xparser.x"
+        #line 1504 "impl/lib/b2/xparser.x"
             while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-            size_t xn_t3075 = xn_root_mark();
-            #line 1495 "impl/lib/b2/xparser.x"
+            size_t xn_t3099 = xn_root_mark();
+            #line 1505 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 16))) {
-                    size_t xn_t3076 = xn_root_mark();
-                    #line 1495 "impl/lib/b2/xparser.x"
+                    size_t xn_t3100 = xn_root_mark();
+                    #line 1505 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1495 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t3076);
-                    xn_root_restore(xn_t3075);
+                    #line 1505 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t3100);
+                    xn_root_restore(xn_t3099);
                     continue;
                         {
-                        xn_root_restore(xn_t3076);
+                        xn_root_restore(xn_t3100);
                         }
 
                 }
-            #line 1496 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3077 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t3077);
-        xn_root_add(xn_t3077);
-            xn_root_add(xn_t3077);
-            xn_arr_s_push(es, xn_t3077);
+            #line 1506 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3101 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t3101);
+        xn_root_add(xn_t3101);
+            xn_root_add(xn_t3101);
+            xn_arr_s_push(es, xn_t3101);
                 {
-                xn_root_restore(xn_t3075);
+                xn_root_restore(xn_t3099);
                 }
 
             xn_gc_safepoint();
             }
-        #line 1498 "impl/lib/b2/xparser.x"
+        #line 1508 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 11))) {
-                size_t xn_t3078 = xn_root_mark();
-                #line 1498 "impl/lib/b2/xparser.x"
+                size_t xn_t3102 = xn_root_mark();
+                #line 1508 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3078);
+                    xn_root_restore(xn_t3102);
                     }
 
             }
-        #line 1499 "impl/lib/b2/xparser.x"
+        #line 1509 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * after = xn_Cls_Parser_cur(self);
 xn_root_add(after);
         xn_root_add(after);
         xn_root_add(after);
         xn_gc_safepoint();
-        #line 1500 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3079 = rt_string_from_c("(TupleTypeRef ");
-xn_root_add(xn_t3079);
-        xn_root_add(xn_t3079);
-        rt_string *xn_t3080 = xn_P(after->line, after->col);
-xn_root_add(xn_t3080);
-        xn_root_add(xn_t3080);
-        rt_string *xn_t3081 = xn_concat(xn_t3079, xn_t3080);
-xn_root_add(xn_t3081);
-        xn_root_add(xn_t3081);
-        rt_string *xn_t3082 = rt_string_from_c(" (Elems ");
-xn_root_add(xn_t3082);
-        xn_root_add(xn_t3082);
-        rt_string *xn_t3083 = xn_concat(xn_t3081, xn_t3082);
-xn_root_add(xn_t3083);
-        xn_root_add(xn_t3083);
-        rt_string *xn_t3084 = xn_SL(es);
-xn_root_add(xn_t3084);
-        xn_root_add(xn_t3084);
-        rt_string *xn_t3085 = xn_concat(xn_t3083, xn_t3084);
-xn_root_add(xn_t3085);
-        xn_root_add(xn_t3085);
-        rt_string *xn_t3086 = rt_string_from_c("))");
-xn_root_add(xn_t3086);
-        xn_root_add(xn_t3086);
-        rt_string *xn_t3087 = xn_concat(xn_t3085, xn_t3086);
-xn_root_add(xn_t3087);
-        xn_root_add(xn_t3087);
+        #line 1510 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3103 = rt_string_from_c("(TupleTypeRef ");
+xn_root_add(xn_t3103);
+        xn_root_add(xn_t3103);
+        rt_string *xn_t3104 = xn_P(after->line, after->col);
+xn_root_add(xn_t3104);
+        xn_root_add(xn_t3104);
+        rt_string *xn_t3105 = xn_concat(xn_t3103, xn_t3104);
+xn_root_add(xn_t3105);
+        xn_root_add(xn_t3105);
+        rt_string *xn_t3106 = rt_string_from_c(" (Elems ");
+xn_root_add(xn_t3106);
+        xn_root_add(xn_t3106);
+        rt_string *xn_t3107 = xn_concat(xn_t3105, xn_t3106);
+xn_root_add(xn_t3107);
+        xn_root_add(xn_t3107);
+        rt_string *xn_t3108 = xn_SL(es);
+xn_root_add(xn_t3108);
+        xn_root_add(xn_t3108);
+        rt_string *xn_t3109 = xn_concat(xn_t3107, xn_t3108);
+xn_root_add(xn_t3109);
+        xn_root_add(xn_t3109);
+        rt_string *xn_t3110 = rt_string_from_c("))");
+xn_root_add(xn_t3110);
+        xn_root_add(xn_t3110);
+        rt_string *xn_t3111 = xn_concat(xn_t3109, xn_t3110);
+xn_root_add(xn_t3111);
+        xn_root_add(xn_t3111);
         xn_root_release(base);
         rt_release(base);
-        base = xn_t3087;
+        base = xn_t3111;
         xn_root_hold(base);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3073);
+            xn_root_restore(xn_t3097);
             }
 
     } else {
-        size_t xn_t3088 = xn_root_mark();
-        #line 1502 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t3089 = xn_arr_s_new(0);
-xn_root_add(xn_t3089);
-        xn_root_add(xn_t3089);
-        xn_arr_s * qn = xn_t3089;
+        size_t xn_t3112 = xn_root_mark();
+        #line 1512 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t3113 = xn_arr_s_new(0);
+xn_root_add(xn_t3113);
+        xn_root_add(xn_t3113);
+        xn_arr_s * qn = xn_t3113;
 xn_root_add(qn);
         xn_root_add(qn);
         xn_root_add(qn);
         xn_gc_safepoint();
-        #line 1503 "impl/lib/b2/xparser.x"
+        #line 1513 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 2))) {
-                size_t xn_t3090 = xn_root_mark();
-                #line 1503 "impl/lib/b2/xparser.x"
-                xn_Cls_Tok * xn_t3091 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3091);
-        xn_root_add(xn_t3091);
-                xn_root_add(xn_t3091);
-                rt_string *xn_t3092 = rt_retain(xn_t3091->text);
-xn_root_add(xn_t3092);
-        xn_root_add(xn_t3092);
-                xn_root_add(xn_t3092);
-                xn_arr_s_push(qn, xn_t3092);
+                size_t xn_t3114 = xn_root_mark();
+                #line 1513 "impl/lib/b2/xparser.x"
+                xn_Cls_Tok * xn_t3115 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3115);
+        xn_root_add(xn_t3115);
+                xn_root_add(xn_t3115);
+                rt_string *xn_t3116 = rt_retain(xn_t3115->text);
+xn_root_add(xn_t3116);
+        xn_root_add(xn_t3116);
+                xn_root_add(xn_t3116);
+                xn_arr_s_push(qn, xn_t3116);
                     {
-                    xn_root_restore(xn_t3090);
+                    xn_root_restore(xn_t3114);
                     }
 
             }
-        #line 1504 "impl/lib/b2/xparser.x"
+        #line 1514 "impl/lib/b2/xparser.x"
             while (1) {
-                rt_string *xn_t3093 = rt_string_from_c(".");
-xn_root_add(xn_t3093);
-        xn_root_add(xn_t3093);
-                if (!((xn_Cls_Parser_atOp(self, xn_t3093)))) { break; }
-                size_t xn_t3094 = xn_root_mark();
-                #line 1505 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3117 = rt_string_from_c(".");
+xn_root_add(xn_t3117);
+        xn_root_add(xn_t3117);
+                if (!((xn_Cls_Parser_atOp(self, xn_t3117)))) { break; }
+                size_t xn_t3118 = xn_root_mark();
+                #line 1515 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 1506 "impl/lib/b2/xparser.x"
+                #line 1516 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 2))) {
-                        size_t xn_t3095 = xn_root_mark();
-                        #line 1506 "impl/lib/b2/xparser.x"
-                        xn_Cls_Tok * xn_t3096 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3096);
-        xn_root_add(xn_t3096);
-                xn_root_add(xn_t3096);
-                        xn_root_add(xn_t3096);
-                        rt_string *xn_t3097 = rt_retain(xn_t3096->text);
-xn_root_add(xn_t3097);
-        xn_root_add(xn_t3097);
-                xn_root_add(xn_t3097);
-                        xn_root_add(xn_t3097);
-                        xn_arr_s_push(qn, xn_t3097);
+                        size_t xn_t3119 = xn_root_mark();
+                        #line 1516 "impl/lib/b2/xparser.x"
+                        xn_Cls_Tok * xn_t3120 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3120);
+        xn_root_add(xn_t3120);
+                xn_root_add(xn_t3120);
+                        xn_root_add(xn_t3120);
+                        rt_string *xn_t3121 = rt_retain(xn_t3120->text);
+xn_root_add(xn_t3121);
+        xn_root_add(xn_t3121);
+                xn_root_add(xn_t3121);
+                        xn_root_add(xn_t3121);
+                        xn_arr_s_push(qn, xn_t3121);
                             {
-                            xn_root_restore(xn_t3095);
+                            xn_root_restore(xn_t3119);
                             }
 
                     }
                     {
-                    xn_root_restore(xn_t3094);
+                    xn_root_restore(xn_t3118);
                     }
 
                 xn_gc_safepoint();
             }
-        #line 1508 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t3098 = xn_arr_s_new(0);
-xn_root_add(xn_t3098);
-        xn_root_add(xn_t3098);
-        xn_arr_s * tas = xn_t3098;
+        #line 1518 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t3122 = xn_arr_s_new(0);
+xn_root_add(xn_t3122);
+        xn_root_add(xn_t3122);
+        xn_arr_s * tas = xn_t3122;
 xn_root_add(tas);
         xn_root_add(tas);
         xn_root_add(tas);
         xn_gc_safepoint();
-        #line 1509 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3099 = rt_string_from_c("<");
-xn_root_add(xn_t3099);
-        xn_root_add(xn_t3099);
-            if ((xn_Cls_Parser_atOp(self, xn_t3099))) {
-                size_t xn_t3100 = xn_root_mark();
-                #line 1510 "impl/lib/b2/xparser.x"
+        #line 1519 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3123 = rt_string_from_c("<");
+xn_root_add(xn_t3123);
+        xn_root_add(xn_t3123);
+            if ((xn_Cls_Parser_atOp(self, xn_t3123))) {
+                size_t xn_t3124 = xn_root_mark();
+                #line 1520 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 1511 "impl/lib/b2/xparser.x"
+                #line 1521 "impl/lib/b2/xparser.x"
                     while (1) {
-                        rt_string *xn_t3101 = rt_string_from_c(">");
-xn_root_add(xn_t3101);
-        xn_root_add(xn_t3101);
-                xn_root_add(xn_t3101);
-                        if (!((((!(xn_Cls_Parser_atOp(self, xn_t3101)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
-                        size_t xn_t3102 = xn_root_mark();
-                        #line 1512 "impl/lib/b2/xparser.x"
+                        rt_string *xn_t3125 = rt_string_from_c(">");
+xn_root_add(xn_t3125);
+        xn_root_add(xn_t3125);
+                xn_root_add(xn_t3125);
+                        if (!((((!(xn_Cls_Parser_atOp(self, xn_t3125)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
+                        size_t xn_t3126 = xn_root_mark();
+                        #line 1522 "impl/lib/b2/xparser.x"
                             if ((xn_Cls_Parser_at(self, 16))) {
-                                size_t xn_t3103 = xn_root_mark();
-                                #line 1512 "impl/lib/b2/xparser.x"
+                                size_t xn_t3127 = xn_root_mark();
+                                #line 1522 "impl/lib/b2/xparser.x"
                                 xn_Cls_Parser_next(self);
-                                #line 1512 "impl/lib/b2/xparser.x"
-                                xn_root_restore(xn_t3103);
-                                xn_root_restore(xn_t3102);
+                                #line 1522 "impl/lib/b2/xparser.x"
+                                xn_root_restore(xn_t3127);
+                                xn_root_restore(xn_t3126);
                                 continue;
                                     {
-                                    xn_root_restore(xn_t3103);
+                                    xn_root_restore(xn_t3127);
                                     }
 
                             }
-                        #line 1513 "impl/lib/b2/xparser.x"
-                        xn_Cls_Tok * xn_t3104 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3104);
-        xn_root_add(xn_t3104);
-                xn_root_add(xn_t3104);
-                        xn_root_add(xn_t3104);
-                        rt_string *xn_t3105 = rt_retain(xn_t3104->text);
-xn_root_add(xn_t3105);
-        xn_root_add(xn_t3105);
-                xn_root_add(xn_t3105);
-                        xn_root_add(xn_t3105);
-                        rt_string *xn_t3106 = rt_string_from_c(">>");
-xn_root_add(xn_t3106);
-        xn_root_add(xn_t3106);
-                xn_root_add(xn_t3106);
-                        xn_root_add(xn_t3106);
-                            if (((xn_Cls_Parser_at(self, 9)) && (xn_str_eq(xn_t3105, xn_t3106)))) {
-                                size_t xn_t3107 = xn_root_mark();
-                                #line 1514 "impl/lib/b2/xparser.x"
-                                xn_Cls_Parser_next(self);
-                                #line 1515 "impl/lib/b2/xparser.x"
-                                xn_root_restore(xn_t3107);
-                                xn_root_restore(xn_t3102);
+                        #line 1523 "impl/lib/b2/xparser.x"
+                        xn_Cls_Tok * xn_t3128 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3128);
+        xn_root_add(xn_t3128);
+                xn_root_add(xn_t3128);
+                        xn_root_add(xn_t3128);
+                        rt_string *xn_t3129 = rt_retain(xn_t3128->text);
+xn_root_add(xn_t3129);
+        xn_root_add(xn_t3129);
+                xn_root_add(xn_t3129);
+                        xn_root_add(xn_t3129);
+                        rt_string *xn_t3130 = rt_string_from_c(">>");
+xn_root_add(xn_t3130);
+        xn_root_add(xn_t3130);
+                xn_root_add(xn_t3130);
+                        xn_root_add(xn_t3130);
+                            if (((xn_Cls_Parser_at(self, 9)) && (xn_str_eq(xn_t3129, xn_t3130)))) {
+                                size_t xn_t3131 = xn_root_mark();
+                                #line 1526 "impl/lib/b2/xparser.x"
+                                xn_Cls_Tok * xn_t3132 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3132);
+        xn_root_add(xn_t3132);
+                xn_root_add(xn_t3132);
+                        xn_root_add(xn_t3132);
+                                xn_root_add(xn_t3132);
+                                rt_string *xn_t3133 = rt_string_from_c(">");
+xn_root_add(xn_t3133);
+        xn_root_add(xn_t3133);
+                xn_root_add(xn_t3133);
+                        xn_root_add(xn_t3133);
+                                xn_root_add(xn_t3133);
+                                rt_release(xn_t3132->text);
+                                xn_t3132->text = xn_t3133;
+                                #line 1527 "impl/lib/b2/xparser.x"
+                                xn_Cls_Tok * extra = xn_Cls_Tok_new();
+xn_root_add(extra);
+        xn_root_add(extra);
+                xn_root_add(extra);
+                        xn_root_add(extra);
+                                xn_root_add(extra);
+                                xn_root_add(extra);
+                                xn_gc_safepoint();
+                                #line 1528 "impl/lib/b2/xparser.x"
+                                extra->kind = 9;
+                                #line 1529 "impl/lib/b2/xparser.x"
+                                rt_string *xn_t3134 = rt_string_from_c(">");
+xn_root_add(xn_t3134);
+        xn_root_add(xn_t3134);
+                xn_root_add(xn_t3134);
+                        xn_root_add(xn_t3134);
+                                xn_root_add(xn_t3134);
+                                rt_release(extra->text);
+                                extra->text = xn_t3134;
+                                #line 1530 "impl/lib/b2/xparser.x"
+                                xn_Cls_Tok * xn_t3135 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3135);
+        xn_root_add(xn_t3135);
+                xn_root_add(xn_t3135);
+                        xn_root_add(xn_t3135);
+                                xn_root_add(xn_t3135);
+                                extra->line = xn_t3135->line;
+                                #line 1531 "impl/lib/b2/xparser.x"
+                                xn_Cls_Tok * xn_t3136 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3136);
+        xn_root_add(xn_t3136);
+                xn_root_add(xn_t3136);
+                        xn_root_add(xn_t3136);
+                                xn_root_add(xn_t3136);
+                                extra->col = xn_t3136->col;
+                                #line 1532 "impl/lib/b2/xparser.x"
+                                xn_arr_o_Tok_insert(self->toks, (self->i + 1), extra);
+                                #line 1533 "impl/lib/b2/xparser.x"
+                                xn_root_restore(xn_t3131);
+                                xn_root_restore(xn_t3126);
                                 break;
                                     {
-                                    xn_root_restore(xn_t3107);
+                                    xn_root_restore(xn_t3131);
                                     }
 
                             }
-                        #line 1517 "impl/lib/b2/xparser.x"
-                        rt_string *xn_t3108 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t3108);
-        xn_root_add(xn_t3108);
-                xn_root_add(xn_t3108);
-                        xn_root_add(xn_t3108);
-                        xn_arr_s_push(tas, xn_t3108);
+                        #line 1535 "impl/lib/b2/xparser.x"
+                        rt_string *xn_t3137 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t3137);
+        xn_root_add(xn_t3137);
+                xn_root_add(xn_t3137);
+                        xn_root_add(xn_t3137);
+                        xn_arr_s_push(tas, xn_t3137);
                             {
-                            xn_root_restore(xn_t3102);
+                            xn_root_restore(xn_t3126);
                             }
 
                         xn_gc_safepoint();
                     }
-                #line 1519 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3109 = rt_string_from_c(">");
-xn_root_add(xn_t3109);
-        xn_root_add(xn_t3109);
-                xn_root_add(xn_t3109);
-                    if ((xn_Cls_Parser_atOp(self, xn_t3109))) {
-                        size_t xn_t3110 = xn_root_mark();
-                        #line 1519 "impl/lib/b2/xparser.x"
+                #line 1537 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3138 = rt_string_from_c(">");
+xn_root_add(xn_t3138);
+        xn_root_add(xn_t3138);
+                xn_root_add(xn_t3138);
+                    if ((xn_Cls_Parser_atOp(self, xn_t3138))) {
+                        size_t xn_t3139 = xn_root_mark();
+                        #line 1537 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t3110);
+                            xn_root_restore(xn_t3139);
                             }
 
                     }
                     {
-                    xn_root_restore(xn_t3100);
+                    xn_root_restore(xn_t3124);
                     }
 
             }
-        #line 1521 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3111 = rt_string_from_c("(NamedType ");
-xn_root_add(xn_t3111);
-        xn_root_add(xn_t3111);
-        rt_string *xn_t3112 = xn_P(t->line, t->col);
-xn_root_add(xn_t3112);
-        xn_root_add(xn_t3112);
-        rt_string *xn_t3113 = xn_concat(xn_t3111, xn_t3112);
-xn_root_add(xn_t3113);
-        xn_root_add(xn_t3113);
-        rt_string *xn_t3114 = rt_string_from_c(" (Qual ");
-xn_root_add(xn_t3114);
-        xn_root_add(xn_t3114);
-        rt_string *xn_t3115 = xn_concat(xn_t3113, xn_t3114);
-xn_root_add(xn_t3115);
-        xn_root_add(xn_t3115);
-        rt_string *xn_t3116 = xn_SLS(qn);
-xn_root_add(xn_t3116);
-        xn_root_add(xn_t3116);
-        rt_string *xn_t3117 = xn_concat(xn_t3115, xn_t3116);
-xn_root_add(xn_t3117);
-        xn_root_add(xn_t3117);
-        rt_string *xn_t3118 = rt_string_from_c(") (Args ");
-xn_root_add(xn_t3118);
-        xn_root_add(xn_t3118);
-        rt_string *xn_t3119 = xn_concat(xn_t3117, xn_t3118);
-xn_root_add(xn_t3119);
-        xn_root_add(xn_t3119);
-        rt_string *xn_t3120 = xn_SL(tas);
-xn_root_add(xn_t3120);
-        xn_root_add(xn_t3120);
-        rt_string *xn_t3121 = xn_concat(xn_t3119, xn_t3120);
-xn_root_add(xn_t3121);
-        xn_root_add(xn_t3121);
-        rt_string *xn_t3122 = rt_string_from_c("))");
-xn_root_add(xn_t3122);
-        xn_root_add(xn_t3122);
-        rt_string *xn_t3123 = xn_concat(xn_t3121, xn_t3122);
-xn_root_add(xn_t3123);
-        xn_root_add(xn_t3123);
+        #line 1539 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3140 = rt_string_from_c("(NamedType ");
+xn_root_add(xn_t3140);
+        xn_root_add(xn_t3140);
+        rt_string *xn_t3141 = xn_P(t->line, t->col);
+xn_root_add(xn_t3141);
+        xn_root_add(xn_t3141);
+        rt_string *xn_t3142 = xn_concat(xn_t3140, xn_t3141);
+xn_root_add(xn_t3142);
+        xn_root_add(xn_t3142);
+        rt_string *xn_t3143 = rt_string_from_c(" (Qual ");
+xn_root_add(xn_t3143);
+        xn_root_add(xn_t3143);
+        rt_string *xn_t3144 = xn_concat(xn_t3142, xn_t3143);
+xn_root_add(xn_t3144);
+        xn_root_add(xn_t3144);
+        rt_string *xn_t3145 = xn_SLS(qn);
+xn_root_add(xn_t3145);
+        xn_root_add(xn_t3145);
+        rt_string *xn_t3146 = xn_concat(xn_t3144, xn_t3145);
+xn_root_add(xn_t3146);
+        xn_root_add(xn_t3146);
+        rt_string *xn_t3147 = rt_string_from_c(") (Args ");
+xn_root_add(xn_t3147);
+        xn_root_add(xn_t3147);
+        rt_string *xn_t3148 = xn_concat(xn_t3146, xn_t3147);
+xn_root_add(xn_t3148);
+        xn_root_add(xn_t3148);
+        rt_string *xn_t3149 = xn_SL(tas);
+xn_root_add(xn_t3149);
+        xn_root_add(xn_t3149);
+        rt_string *xn_t3150 = xn_concat(xn_t3148, xn_t3149);
+xn_root_add(xn_t3150);
+        xn_root_add(xn_t3150);
+        rt_string *xn_t3151 = rt_string_from_c("))");
+xn_root_add(xn_t3151);
+        xn_root_add(xn_t3151);
+        rt_string *xn_t3152 = xn_concat(xn_t3150, xn_t3151);
+xn_root_add(xn_t3152);
+        xn_root_add(xn_t3152);
         xn_root_release(base);
         rt_release(base);
-        base = xn_t3123;
+        base = xn_t3152;
         xn_root_hold(base);
         xn_gc_safepoint();
+        #line 1542 "impl/lib/b2/xparser.x"
+            if ((((self->inNew == 0)) && (xn_Cls_Parser_at(self, 10)))) {
+                size_t xn_t3153 = xn_root_mark();
+                #line 1543 "impl/lib/b2/xparser.x"
+                xn_Cls_Parser_next(self);
+                #line 1544 "impl/lib/b2/xparser.x"
+                xn_arr_s *xn_t3154 = xn_arr_s_new(0);
+xn_root_add(xn_t3154);
+        xn_root_add(xn_t3154);
+                xn_root_add(xn_t3154);
+                xn_arr_s * ps = xn_t3154;
+xn_root_add(ps);
+        xn_root_add(ps);
+                xn_root_add(ps);
+                xn_root_add(ps);
+                xn_gc_safepoint();
+                #line 1545 "impl/lib/b2/xparser.x"
+                    while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
+                    size_t xn_t3155 = xn_root_mark();
+                    #line 1546 "impl/lib/b2/xparser.x"
+                        if ((xn_Cls_Parser_at(self, 16))) {
+                            size_t xn_t3156 = xn_root_mark();
+                            #line 1546 "impl/lib/b2/xparser.x"
+                            xn_Cls_Parser_next(self);
+                            #line 1546 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t3156);
+                            xn_root_restore(xn_t3155);
+                            continue;
+                                {
+                                xn_root_restore(xn_t3156);
+                                }
+
+                        }
+                    #line 1547 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3157 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t3157);
+        xn_root_add(xn_t3157);
+                xn_root_add(xn_t3157);
+                    xn_root_add(xn_t3157);
+                    xn_arr_s_push(ps, xn_t3157);
+                        {
+                        xn_root_restore(xn_t3155);
+                        }
+
+                    xn_gc_safepoint();
+                    }
+                #line 1549 "impl/lib/b2/xparser.x"
+                    if ((xn_Cls_Parser_at(self, 11))) {
+                        size_t xn_t3158 = xn_root_mark();
+                        #line 1549 "impl/lib/b2/xparser.x"
+                        xn_Cls_Parser_next(self);
+                            {
+                            xn_root_restore(xn_t3158);
+                            }
+
+                    }
+                #line 1550 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3159 = rt_string_from_c("(FuncTypeRef ");
+xn_root_add(xn_t3159);
+        xn_root_add(xn_t3159);
+                xn_root_add(xn_t3159);
+                rt_string *xn_t3160 = xn_P(t->line, t->col);
+xn_root_add(xn_t3160);
+        xn_root_add(xn_t3160);
+                xn_root_add(xn_t3160);
+                rt_string *xn_t3161 = xn_concat(xn_t3159, xn_t3160);
+xn_root_add(xn_t3161);
+        xn_root_add(xn_t3161);
+                xn_root_add(xn_t3161);
+                rt_string *xn_t3162 = rt_string_from_c(" (Ret ");
+xn_root_add(xn_t3162);
+        xn_root_add(xn_t3162);
+                xn_root_add(xn_t3162);
+                rt_string *xn_t3163 = xn_concat(xn_t3161, xn_t3162);
+xn_root_add(xn_t3163);
+        xn_root_add(xn_t3163);
+                xn_root_add(xn_t3163);
+                rt_string *xn_t3164 = rt_retain(base);
+xn_root_add(xn_t3164);
+        xn_root_add(xn_t3164);
+                xn_root_add(xn_t3164);
+                rt_string *xn_t3165 = xn_concat(xn_t3163, xn_t3164);
+xn_root_add(xn_t3165);
+        xn_root_add(xn_t3165);
+                xn_root_add(xn_t3165);
+                rt_string *xn_t3166 = rt_string_from_c(") (Params ");
+xn_root_add(xn_t3166);
+        xn_root_add(xn_t3166);
+                xn_root_add(xn_t3166);
+                rt_string *xn_t3167 = xn_concat(xn_t3165, xn_t3166);
+xn_root_add(xn_t3167);
+        xn_root_add(xn_t3167);
+                xn_root_add(xn_t3167);
+                rt_string *xn_t3168 = xn_SL(ps);
+xn_root_add(xn_t3168);
+        xn_root_add(xn_t3168);
+                xn_root_add(xn_t3168);
+                rt_string *xn_t3169 = xn_concat(xn_t3167, xn_t3168);
+xn_root_add(xn_t3169);
+        xn_root_add(xn_t3169);
+                xn_root_add(xn_t3169);
+                rt_string *xn_t3170 = rt_string_from_c("))");
+xn_root_add(xn_t3170);
+        xn_root_add(xn_t3170);
+                xn_root_add(xn_t3170);
+                rt_string *xn_t3171 = xn_concat(xn_t3169, xn_t3170);
+xn_root_add(xn_t3171);
+        xn_root_add(xn_t3171);
+                xn_root_add(xn_t3171);
+                xn_root_release(base);
+                rt_release(base);
+                base = xn_t3171;
+                xn_root_hold(base);
+                xn_gc_safepoint();
+                    {
+                    xn_root_restore(xn_t3153);
+                    }
+
+            }
             {
-            xn_root_restore(xn_t3088);
+            xn_root_restore(xn_t3112);
             }
 
     }
-#line 1523 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t3124 = xn_arr_s_new(0);
-xn_root_add(xn_t3124);
-xn_arr_s * sufs = xn_t3124;
+#line 1553 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t3172 = xn_arr_s_new(0);
+xn_root_add(xn_t3172);
+xn_arr_s * sufs = xn_t3172;
 xn_root_add(sufs);
 xn_root_add(sufs);
 xn_gc_safepoint();
-#line 1524 "impl/lib/b2/xparser.x"
+#line 1554 "impl/lib/b2/xparser.x"
     while (1) {
-    size_t xn_t3125 = xn_root_mark();
-    #line 1525 "impl/lib/b2/xparser.x"
-    rt_string *xn_t3126 = rt_string_from_c("?");
-xn_root_add(xn_t3126);
-    xn_root_add(xn_t3126);
-        if ((xn_Cls_Parser_atOp(self, xn_t3126))) {
-            size_t xn_t3127 = xn_root_mark();
-            #line 1525 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3128 = rt_string_from_c("?");
-xn_root_add(xn_t3128);
-    xn_root_add(xn_t3128);
-            xn_root_add(xn_t3128);
-            xn_arr_s_push(sufs, xn_t3128);
-            #line 1525 "impl/lib/b2/xparser.x"
+    size_t xn_t3173 = xn_root_mark();
+    #line 1555 "impl/lib/b2/xparser.x"
+    rt_string *xn_t3174 = rt_string_from_c("?");
+xn_root_add(xn_t3174);
+    xn_root_add(xn_t3174);
+        if ((xn_Cls_Parser_atOp(self, xn_t3174))) {
+            size_t xn_t3175 = xn_root_mark();
+            #line 1555 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3176 = rt_string_from_c("?");
+xn_root_add(xn_t3176);
+    xn_root_add(xn_t3176);
+            xn_root_add(xn_t3176);
+            xn_arr_s_push(sufs, xn_t3176);
+            #line 1555 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
                 {
-                xn_root_restore(xn_t3127);
+                xn_root_restore(xn_t3175);
                 }
 
         } else {
-            xn_Cls_Tok * xn_t3130 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3130);
-    xn_root_add(xn_t3130);
-            xn_root_add(xn_t3130);
-                if (((xn_Cls_Parser_at(self, 14)) && ((xn_t3130->kind == 15)))) {
-                    size_t xn_t3131 = xn_root_mark();
-                    #line 1527 "impl/lib/b2/xparser.x"
+            xn_Cls_Tok * xn_t3178 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
+xn_root_add(xn_t3178);
+    xn_root_add(xn_t3178);
+            xn_root_add(xn_t3178);
+                if (((xn_Cls_Parser_at(self, 14)) && ((xn_t3178->kind == 15)))) {
+                    size_t xn_t3179 = xn_root_mark();
+                    #line 1557 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1528 "impl/lib/b2/xparser.x"
+                    #line 1558 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1529 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3132 = rt_string_from_c("[]");
-xn_root_add(xn_t3132);
-    xn_root_add(xn_t3132);
-            xn_root_add(xn_t3132);
-                    xn_root_add(xn_t3132);
-                    xn_arr_s_push(sufs, xn_t3132);
+                    #line 1559 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3180 = rt_string_from_c("[]");
+xn_root_add(xn_t3180);
+    xn_root_add(xn_t3180);
+            xn_root_add(xn_t3180);
+                    xn_root_add(xn_t3180);
+                    xn_arr_s_push(sufs, xn_t3180);
                         {
-                        xn_root_restore(xn_t3131);
+                        xn_root_restore(xn_t3179);
                         }
 
                 } else {
-                    size_t xn_t3133 = xn_root_mark();
-                    #line 1530 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t3133);
-                    xn_root_restore(xn_t3125);
+                    size_t xn_t3181 = xn_root_mark();
+                    #line 1560 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t3181);
+                    xn_root_restore(xn_t3173);
                     break;
                         {
-                        xn_root_restore(xn_t3133);
+                        xn_root_restore(xn_t3181);
                         }
 
                 }
         }
         {
-        xn_root_restore(xn_t3125);
+        xn_root_restore(xn_t3173);
         }
 
     xn_gc_safepoint();
     }
-#line 1532 "impl/lib/b2/xparser.x"
+#line 1562 "impl/lib/b2/xparser.x"
     if (((((int64_t)sufs->len) > 0))) {
-        size_t xn_t3134 = xn_root_mark();
-        #line 1533 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3135 = rt_string_from_c("(SuffixedType ");
-xn_root_add(xn_t3135);
-        xn_root_add(xn_t3135);
-        xn_root_add(xn_t3135);
-        rt_string *xn_t3136 = xn_P(t->line, t->col);
-xn_root_add(xn_t3136);
-        xn_root_add(xn_t3136);
-        xn_root_add(xn_t3136);
-        rt_string *xn_t3137 = xn_concat(xn_t3135, xn_t3136);
-xn_root_add(xn_t3137);
-        xn_root_add(xn_t3137);
-        xn_root_add(xn_t3137);
-        rt_string *xn_t3138 = rt_string_from_c(" (Base ");
-xn_root_add(xn_t3138);
-        xn_root_add(xn_t3138);
-        xn_root_add(xn_t3138);
-        rt_string *xn_t3139 = xn_concat(xn_t3137, xn_t3138);
-xn_root_add(xn_t3139);
-        xn_root_add(xn_t3139);
-        xn_root_add(xn_t3139);
-        rt_string *xn_t3140 = rt_retain(base);
-xn_root_add(xn_t3140);
-        xn_root_add(xn_t3140);
-        xn_root_add(xn_t3140);
-        rt_string *xn_t3141 = xn_concat(xn_t3139, xn_t3140);
-xn_root_add(xn_t3141);
-        xn_root_add(xn_t3141);
-        xn_root_add(xn_t3141);
-        rt_string *xn_t3142 = rt_string_from_c(") (Suffixes ");
-xn_root_add(xn_t3142);
-        xn_root_add(xn_t3142);
-        xn_root_add(xn_t3142);
-        rt_string *xn_t3143 = xn_concat(xn_t3141, xn_t3142);
-xn_root_add(xn_t3143);
-        xn_root_add(xn_t3143);
-        xn_root_add(xn_t3143);
-        rt_string *xn_t3144 = xn_SLS(sufs);
-xn_root_add(xn_t3144);
-        xn_root_add(xn_t3144);
-        xn_root_add(xn_t3144);
-        rt_string *xn_t3145 = xn_concat(xn_t3143, xn_t3144);
-xn_root_add(xn_t3145);
-        xn_root_add(xn_t3145);
-        xn_root_add(xn_t3145);
-        rt_string *xn_t3146 = rt_string_from_c("))");
-xn_root_add(xn_t3146);
-        xn_root_add(xn_t3146);
-        xn_root_add(xn_t3146);
-        rt_string *xn_t3147 = xn_concat(xn_t3145, xn_t3146);
-xn_root_add(xn_t3147);
-        xn_root_add(xn_t3147);
-        xn_root_add(xn_t3147);
+        size_t xn_t3182 = xn_root_mark();
+        #line 1563 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3183 = rt_string_from_c("(SuffixedType ");
+xn_root_add(xn_t3183);
+        xn_root_add(xn_t3183);
+        xn_root_add(xn_t3183);
+        rt_string *xn_t3184 = xn_P(t->line, t->col);
+xn_root_add(xn_t3184);
+        xn_root_add(xn_t3184);
+        xn_root_add(xn_t3184);
+        rt_string *xn_t3185 = xn_concat(xn_t3183, xn_t3184);
+xn_root_add(xn_t3185);
+        xn_root_add(xn_t3185);
+        xn_root_add(xn_t3185);
+        rt_string *xn_t3186 = rt_string_from_c(" (Base ");
+xn_root_add(xn_t3186);
+        xn_root_add(xn_t3186);
+        xn_root_add(xn_t3186);
+        rt_string *xn_t3187 = xn_concat(xn_t3185, xn_t3186);
+xn_root_add(xn_t3187);
+        xn_root_add(xn_t3187);
+        xn_root_add(xn_t3187);
+        rt_string *xn_t3188 = rt_retain(base);
+xn_root_add(xn_t3188);
+        xn_root_add(xn_t3188);
+        xn_root_add(xn_t3188);
+        rt_string *xn_t3189 = xn_concat(xn_t3187, xn_t3188);
+xn_root_add(xn_t3189);
+        xn_root_add(xn_t3189);
+        xn_root_add(xn_t3189);
+        rt_string *xn_t3190 = rt_string_from_c(") (Suffixes ");
+xn_root_add(xn_t3190);
+        xn_root_add(xn_t3190);
+        xn_root_add(xn_t3190);
+        rt_string *xn_t3191 = xn_concat(xn_t3189, xn_t3190);
+xn_root_add(xn_t3191);
+        xn_root_add(xn_t3191);
+        xn_root_add(xn_t3191);
+        rt_string *xn_t3192 = xn_SLS(sufs);
+xn_root_add(xn_t3192);
+        xn_root_add(xn_t3192);
+        xn_root_add(xn_t3192);
+        rt_string *xn_t3193 = xn_concat(xn_t3191, xn_t3192);
+xn_root_add(xn_t3193);
+        xn_root_add(xn_t3193);
+        xn_root_add(xn_t3193);
+        rt_string *xn_t3194 = rt_string_from_c("))");
+xn_root_add(xn_t3194);
+        xn_root_add(xn_t3194);
+        xn_root_add(xn_t3194);
+        rt_string *xn_t3195 = xn_concat(xn_t3193, xn_t3194);
+xn_root_add(xn_t3195);
+        xn_root_add(xn_t3195);
+        xn_root_add(xn_t3195);
             {
-        xn_root_restore(xn_t3134);
+        xn_root_restore(xn_t3182);
             }
             {
         rt_release(base);
             }
             {
-        xn_root_restore(xn_t3071);
+        xn_root_restore(xn_t3095);
             }
 
-        return xn_t3147;
+        return xn_t3195;
 
     }
-#line 1535 "impl/lib/b2/xparser.x"
+#line 1565 "impl/lib/b2/xparser.x"
 rt_retain(base);
     {
 rt_release(base);
     }
     {
-xn_root_restore(xn_t3071);
+xn_root_restore(xn_t3095);
     }
 
 return base;
@@ -19016,446 +19334,382 @@ xn_root_release(base);
 }
 
 static rt_string * xn_Cls_Parser_parseBlock(xn_Cls_Parser *self) {
-size_t xn_t3148 = xn_root_mark();
+size_t xn_t3196 = xn_root_mark();
 xn_root_add(self);
-#line 1539 "impl/lib/b2/xparser.x"
+#line 1569 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * o = xn_Cls_Parser_cur(self);
 xn_root_add(o);
 xn_root_add(o);
 xn_gc_safepoint();
-#line 1540 "impl/lib/b2/xparser.x"
+#line 1570 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t3149 = xn_root_mark();
-        #line 1540 "impl/lib/b2/xparser.x"
+        size_t xn_t3197 = xn_root_mark();
+        #line 1570 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t3149);
+            xn_root_restore(xn_t3197);
             }
 
     }
-#line 1541 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t3150 = xn_arr_s_new(0);
-xn_root_add(xn_t3150);
-xn_arr_s * ss = xn_t3150;
+#line 1571 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t3198 = xn_arr_s_new(0);
+xn_root_add(xn_t3198);
+xn_arr_s * ss = xn_t3198;
 xn_root_add(ss);
 xn_root_add(ss);
 xn_gc_safepoint();
-#line 1542 "impl/lib/b2/xparser.x"
+#line 1572 "impl/lib/b2/xparser.x"
     while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-    size_t xn_t3151 = xn_root_mark();
-    #line 1543 "impl/lib/b2/xparser.x"
+    size_t xn_t3199 = xn_root_mark();
+    #line 1573 "impl/lib/b2/xparser.x"
         if ((xn_Cls_Parser_at(self, 1))) {
-            size_t xn_t3152 = xn_root_mark();
-            #line 1543 "impl/lib/b2/xparser.x"
+            size_t xn_t3200 = xn_root_mark();
+            #line 1573 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
-            #line 1543 "impl/lib/b2/xparser.x"
-            xn_root_restore(xn_t3152);
-            xn_root_restore(xn_t3151);
+            #line 1573 "impl/lib/b2/xparser.x"
+            xn_root_restore(xn_t3200);
+            xn_root_restore(xn_t3199);
             continue;
                 {
-                xn_root_restore(xn_t3152);
+                xn_root_restore(xn_t3200);
                 }
 
         }
-    #line 1544 "impl/lib/b2/xparser.x"
-    rt_string *xn_t3153 = xn_Cls_Parser_parseStmt(self);
-xn_root_add(xn_t3153);
-    xn_root_add(xn_t3153);
-    xn_arr_s_push(ss, xn_t3153);
+    #line 1574 "impl/lib/b2/xparser.x"
+    rt_string *xn_t3201 = xn_Cls_Parser_parseStmt(self);
+xn_root_add(xn_t3201);
+    xn_root_add(xn_t3201);
+    xn_arr_s_push(ss, xn_t3201);
         {
-        xn_root_restore(xn_t3151);
+        xn_root_restore(xn_t3199);
         }
 
     xn_gc_safepoint();
     }
-#line 1546 "impl/lib/b2/xparser.x"
+#line 1576 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 13))) {
-        size_t xn_t3154 = xn_root_mark();
-        #line 1546 "impl/lib/b2/xparser.x"
+        size_t xn_t3202 = xn_root_mark();
+        #line 1576 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t3154);
+            xn_root_restore(xn_t3202);
             }
 
     } else {
-        size_t xn_t3155 = xn_root_mark();
-        #line 1547 "impl/lib/b2/xparser.x"
+        size_t xn_t3203 = xn_root_mark();
+        #line 1577 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * e = xn_Cls_Parser_cur(self);
 xn_root_add(e);
         xn_root_add(e);
         xn_root_add(e);
         xn_gc_safepoint();
-        #line 1548 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3156 = rt_string_from_c("SYN-101");
-xn_root_add(xn_t3156);
-        xn_root_add(xn_t3156);
-        rt_string *xn_t3157 = rt_string_from_c("期望`}`");
-xn_root_add(xn_t3157);
-        xn_root_add(xn_t3157);
-        xn_Cls_Parser_err(self, xn_t3156, e->line, e->col, xn_t3157);
+        #line 1578 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3204 = rt_string_from_c("SYN-101");
+xn_root_add(xn_t3204);
+        xn_root_add(xn_t3204);
+        rt_string *xn_t3205 = rt_string_from_c("期望`}`");
+xn_root_add(xn_t3205);
+        xn_root_add(xn_t3205);
+        xn_Cls_Parser_err(self, xn_t3204, e->line, e->col, xn_t3205);
             {
-            xn_root_restore(xn_t3155);
+            xn_root_restore(xn_t3203);
             }
 
     }
-#line 1550 "impl/lib/b2/xparser.x"
-rt_string *xn_t3158 = rt_string_from_c("(Block ");
-xn_root_add(xn_t3158);
-xn_root_add(xn_t3158);
-rt_string *xn_t3159 = xn_P(o->line, o->col);
-xn_root_add(xn_t3159);
-xn_root_add(xn_t3159);
-rt_string *xn_t3160 = xn_concat(xn_t3158, xn_t3159);
-xn_root_add(xn_t3160);
-xn_root_add(xn_t3160);
-rt_string *xn_t3161 = rt_string_from_c(" (Stmts ");
-xn_root_add(xn_t3161);
-xn_root_add(xn_t3161);
-rt_string *xn_t3162 = xn_concat(xn_t3160, xn_t3161);
-xn_root_add(xn_t3162);
-xn_root_add(xn_t3162);
-rt_string *xn_t3163 = xn_SL(ss);
-xn_root_add(xn_t3163);
-xn_root_add(xn_t3163);
-rt_string *xn_t3164 = xn_concat(xn_t3162, xn_t3163);
-xn_root_add(xn_t3164);
-xn_root_add(xn_t3164);
-rt_string *xn_t3165 = rt_string_from_c("))");
-xn_root_add(xn_t3165);
-xn_root_add(xn_t3165);
-rt_string *xn_t3166 = xn_concat(xn_t3164, xn_t3165);
-xn_root_add(xn_t3166);
-xn_root_add(xn_t3166);
+#line 1580 "impl/lib/b2/xparser.x"
+rt_string *xn_t3206 = rt_string_from_c("(Block ");
+xn_root_add(xn_t3206);
+xn_root_add(xn_t3206);
+rt_string *xn_t3207 = xn_P(o->line, o->col);
+xn_root_add(xn_t3207);
+xn_root_add(xn_t3207);
+rt_string *xn_t3208 = xn_concat(xn_t3206, xn_t3207);
+xn_root_add(xn_t3208);
+xn_root_add(xn_t3208);
+rt_string *xn_t3209 = rt_string_from_c(" (Stmts ");
+xn_root_add(xn_t3209);
+xn_root_add(xn_t3209);
+rt_string *xn_t3210 = xn_concat(xn_t3208, xn_t3209);
+xn_root_add(xn_t3210);
+xn_root_add(xn_t3210);
+rt_string *xn_t3211 = xn_SL(ss);
+xn_root_add(xn_t3211);
+xn_root_add(xn_t3211);
+rt_string *xn_t3212 = xn_concat(xn_t3210, xn_t3211);
+xn_root_add(xn_t3212);
+xn_root_add(xn_t3212);
+rt_string *xn_t3213 = rt_string_from_c("))");
+xn_root_add(xn_t3213);
+xn_root_add(xn_t3213);
+rt_string *xn_t3214 = xn_concat(xn_t3212, xn_t3213);
+xn_root_add(xn_t3214);
+xn_root_add(xn_t3214);
     {
-xn_root_restore(xn_t3148);
+xn_root_restore(xn_t3196);
     }
 
-return xn_t3166;
+return xn_t3214;
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static int xn_Cls_Parser_isTypeStart(xn_Cls_Parser *self) {
-size_t xn_t3167 = xn_root_mark();
+size_t xn_t3215 = xn_root_mark();
 xn_root_add(self);
-#line 1554 "impl/lib/b2/xparser.x"
+#line 1584 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 10))) {
-        size_t xn_t3168 = xn_root_mark();
-        #line 1555 "impl/lib/b2/xparser.x"
+        size_t xn_t3216 = xn_root_mark();
+        #line 1585 "impl/lib/b2/xparser.x"
         int64_t j = (self->i + 1);
-        #line 1556 "impl/lib/b2/xparser.x"
+        #line 1586 "impl/lib/b2/xparser.x"
         int64_t dep = 1;
-        #line 1557 "impl/lib/b2/xparser.x"
+        #line 1587 "impl/lib/b2/xparser.x"
         int comma = 0;
-        #line 1558 "impl/lib/b2/xparser.x"
+        #line 1588 "impl/lib/b2/xparser.x"
             while ((((j < ((int64_t)self->toks->len))) && ((dep > 0)))) {
-            size_t xn_t3169 = xn_root_mark();
-            #line 1559 "impl/lib/b2/xparser.x"
+            size_t xn_t3217 = xn_root_mark();
+            #line 1589 "impl/lib/b2/xparser.x"
             xn_Cls_Tok * x = xn_arr_o_Tok_get(self->toks, j);
 xn_root_add(x);
         xn_root_add(x);
             xn_root_add(x);
             xn_root_add(x);
             xn_gc_safepoint();
-            #line 1560 "impl/lib/b2/xparser.x"
+            #line 1590 "impl/lib/b2/xparser.x"
                 if (((x->kind == 10))) {
-                    size_t xn_t3170 = xn_root_mark();
-                    #line 1560 "impl/lib/b2/xparser.x"
+                    size_t xn_t3218 = xn_root_mark();
+                    #line 1590 "impl/lib/b2/xparser.x"
                     dep = (dep + 1);
                         {
-                        xn_root_restore(xn_t3170);
+                        xn_root_restore(xn_t3218);
                         }
 
                 } else {
                         if (((x->kind == 11))) {
-                            size_t xn_t3172 = xn_root_mark();
-                            #line 1561 "impl/lib/b2/xparser.x"
+                            size_t xn_t3220 = xn_root_mark();
+                            #line 1591 "impl/lib/b2/xparser.x"
                             dep = (dep - 1);
                                 {
-                                xn_root_restore(xn_t3172);
+                                xn_root_restore(xn_t3220);
                                 }
 
                         } else {
                                 if ((((x->kind == 16)) && ((dep == 1)))) {
-                                    size_t xn_t3174 = xn_root_mark();
-                                    #line 1562 "impl/lib/b2/xparser.x"
+                                    size_t xn_t3222 = xn_root_mark();
+                                    #line 1592 "impl/lib/b2/xparser.x"
                                     comma = 1;
                                         {
-                                        xn_root_restore(xn_t3174);
+                                        xn_root_restore(xn_t3222);
                                         }
 
                                 }
                         }
                 }
-            #line 1563 "impl/lib/b2/xparser.x"
+            #line 1593 "impl/lib/b2/xparser.x"
             j = (j + 1);
                 {
-                xn_root_restore(xn_t3169);
+                xn_root_restore(xn_t3217);
                 }
 
             xn_gc_safepoint();
             }
-        #line 1565 "impl/lib/b2/xparser.x"
+        #line 1595 "impl/lib/b2/xparser.x"
             if ((comma)) {
-                size_t xn_t3175 = xn_root_mark();
-                #line 1565 "impl/lib/b2/xparser.x"
-                int xn_t3176 = 1;
+                size_t xn_t3223 = xn_root_mark();
+                #line 1595 "impl/lib/b2/xparser.x"
+                int xn_t3224 = 1;
                     {
-                xn_root_restore(xn_t3175);
+                xn_root_restore(xn_t3223);
                     }
                     {
-                xn_root_restore(xn_t3168);
+                xn_root_restore(xn_t3216);
                     }
                     {
-                xn_root_restore(xn_t3167);
+                xn_root_restore(xn_t3215);
                     }
 
-                return xn_t3176;
+                return xn_t3224;
 
             }
             {
-            xn_root_restore(xn_t3168);
+            xn_root_restore(xn_t3216);
             }
 
     }
-#line 1567 "impl/lib/b2/xparser.x"
-rt_string *xn_t3177 = rt_string_from_c("final");
-xn_root_add(xn_t3177);
-rt_string *xn_t3178 = rt_string_from_c("const");
-xn_root_add(xn_t3178);
-rt_string *xn_t3179 = rt_string_from_c("var");
-xn_root_add(xn_t3179);
-    if ((((xn_Cls_Parser_atKw(self, xn_t3177)) || (xn_Cls_Parser_atKw(self, xn_t3178))) || (xn_Cls_Parser_atKw(self, xn_t3179)))) {
-        size_t xn_t3180 = xn_root_mark();
-        #line 1567 "impl/lib/b2/xparser.x"
-        int xn_t3181 = 1;
+#line 1597 "impl/lib/b2/xparser.x"
+rt_string *xn_t3225 = rt_string_from_c("final");
+xn_root_add(xn_t3225);
+rt_string *xn_t3226 = rt_string_from_c("const");
+xn_root_add(xn_t3226);
+rt_string *xn_t3227 = rt_string_from_c("var");
+xn_root_add(xn_t3227);
+    if ((((xn_Cls_Parser_atKw(self, xn_t3225)) || (xn_Cls_Parser_atKw(self, xn_t3226))) || (xn_Cls_Parser_atKw(self, xn_t3227)))) {
+        size_t xn_t3228 = xn_root_mark();
+        #line 1597 "impl/lib/b2/xparser.x"
+        int xn_t3229 = 1;
             {
-        xn_root_restore(xn_t3180);
+        xn_root_restore(xn_t3228);
             }
             {
-        xn_root_restore(xn_t3167);
+        xn_root_restore(xn_t3215);
             }
 
-        return xn_t3181;
+        return xn_t3229;
 
     }
-#line 1568 "impl/lib/b2/xparser.x"
+#line 1598 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t3182 = xn_root_mark();
-        #line 1569 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3183 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3183);
-        xn_root_add(xn_t3183);
-        rt_string *n = rt_retain(xn_t3183->text);
+        size_t xn_t3230 = xn_root_mark();
+        #line 1599 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3231 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3231);
+        xn_root_add(xn_t3231);
+        rt_string *n = rt_retain(xn_t3231->text);
 xn_root_add(n);
         xn_root_add(n);
         xn_root_add(n);
         xn_gc_safepoint();
-        #line 1570 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3185 = rt_retain(n);
-xn_root_add(xn_t3185);
-        xn_root_add(xn_t3185);
-        rt_string *xn_t3186 = rt_string_from_c("Int");
-xn_root_add(xn_t3186);
-        xn_root_add(xn_t3186);
-        rt_string *xn_t3187 = rt_retain(n);
-xn_root_add(xn_t3187);
-        xn_root_add(xn_t3187);
-        rt_string *xn_t3188 = rt_string_from_c("String");
-xn_root_add(xn_t3188);
-        xn_root_add(xn_t3188);
-        rt_string *xn_t3189 = rt_retain(n);
-xn_root_add(xn_t3189);
-        xn_root_add(xn_t3189);
-        rt_string *xn_t3190 = rt_string_from_c("Bool");
-xn_root_add(xn_t3190);
-        xn_root_add(xn_t3190);
-        rt_string *xn_t3191 = rt_retain(n);
-xn_root_add(xn_t3191);
-        xn_root_add(xn_t3191);
-        rt_string *xn_t3192 = rt_string_from_c("Char");
-xn_root_add(xn_t3192);
-        xn_root_add(xn_t3192);
-        rt_string *xn_t3193 = rt_retain(n);
-xn_root_add(xn_t3193);
-        xn_root_add(xn_t3193);
-        rt_string *xn_t3194 = rt_string_from_c("Float");
-xn_root_add(xn_t3194);
-        xn_root_add(xn_t3194);
-        rt_string *xn_t3195 = rt_retain(n);
-xn_root_add(xn_t3195);
-        xn_root_add(xn_t3195);
-        rt_string *xn_t3196 = rt_string_from_c("Double");
-xn_root_add(xn_t3196);
-        xn_root_add(xn_t3196);
-        rt_string *xn_t3197 = rt_retain(n);
-xn_root_add(xn_t3197);
-        xn_root_add(xn_t3197);
-        rt_string *xn_t3198 = rt_string_from_c("Long");
-xn_root_add(xn_t3198);
-        xn_root_add(xn_t3198);
-        rt_string *xn_t3199 = rt_retain(n);
-xn_root_add(xn_t3199);
-        xn_root_add(xn_t3199);
-        rt_string *xn_t3200 = rt_string_from_c("UInt");
-xn_root_add(xn_t3200);
-        xn_root_add(xn_t3200);
-        rt_string *xn_t3201 = rt_retain(n);
-xn_root_add(xn_t3201);
-        xn_root_add(xn_t3201);
-        rt_string *xn_t3202 = rt_string_from_c("Text");
-xn_root_add(xn_t3202);
-        xn_root_add(xn_t3202);
-        rt_string *xn_t3203 = rt_retain(n);
-xn_root_add(xn_t3203);
-        xn_root_add(xn_t3203);
-        rt_string *xn_t3204 = rt_string_from_c("Bytes");
-xn_root_add(xn_t3204);
-        xn_root_add(xn_t3204);
-        rt_string *xn_t3205 = rt_retain(n);
-xn_root_add(xn_t3205);
-        xn_root_add(xn_t3205);
-        rt_string *xn_t3206 = rt_string_from_c("Map");
-xn_root_add(xn_t3206);
-        xn_root_add(xn_t3206);
-        rt_string *xn_t3207 = rt_retain(n);
-xn_root_add(xn_t3207);
-        xn_root_add(xn_t3207);
-        rt_string *xn_t3208 = rt_string_from_c("List");
-xn_root_add(xn_t3208);
-        xn_root_add(xn_t3208);
-        rt_string *xn_t3209 = rt_retain(n);
-xn_root_add(xn_t3209);
-        xn_root_add(xn_t3209);
-        rt_string *xn_t3210 = rt_string_from_c("Set");
-xn_root_add(xn_t3210);
-        xn_root_add(xn_t3210);
-        rt_string *xn_t3211 = rt_retain(n);
-xn_root_add(xn_t3211);
-        xn_root_add(xn_t3211);
-        rt_string *xn_t3212 = rt_string_from_c("Result");
-xn_root_add(xn_t3212);
-        xn_root_add(xn_t3212);
-        rt_string *xn_t3213 = rt_retain(n);
-xn_root_add(xn_t3213);
-        xn_root_add(xn_t3213);
-        rt_string *xn_t3214 = rt_string_from_c("Object");
-xn_root_add(xn_t3214);
-        xn_root_add(xn_t3214);
-        rt_string *xn_t3215 = rt_retain(n);
-xn_root_add(xn_t3215);
-        xn_root_add(xn_t3215);
-        rt_string *xn_t3216 = rt_string_from_c("Any");
-xn_root_add(xn_t3216);
-        xn_root_add(xn_t3216);
-            if (((((((((((((((((xn_str_eq(xn_t3185, xn_t3186)) || (xn_str_eq(xn_t3187, xn_t3188))) || (xn_str_eq(xn_t3189, xn_t3190))) || (xn_str_eq(xn_t3191, xn_t3192))) || (xn_str_eq(xn_t3193, xn_t3194))) || (xn_str_eq(xn_t3195, xn_t3196))) || (xn_str_eq(xn_t3197, xn_t3198))) || (xn_str_eq(xn_t3199, xn_t3200))) || (xn_str_eq(xn_t3201, xn_t3202))) || (xn_str_eq(xn_t3203, xn_t3204))) || (xn_str_eq(xn_t3205, xn_t3206))) || (xn_str_eq(xn_t3207, xn_t3208))) || (xn_str_eq(xn_t3209, xn_t3210))) || (xn_str_eq(xn_t3211, xn_t3212))) || (xn_str_eq(xn_t3213, xn_t3214))) || (xn_str_eq(xn_t3215, xn_t3216)))) {
-                size_t xn_t3217 = xn_root_mark();
-                #line 1573 "impl/lib/b2/xparser.x"
-                int xn_t3218 = 1;
-                    {
-                xn_root_restore(xn_t3217);
-                    }
-                    {
-                rt_release(n);
-                    }
-                    {
-                xn_root_restore(xn_t3182);
-                    }
-                    {
-                xn_root_restore(xn_t3167);
-                    }
-
-                return xn_t3218;
-
-            }
-        #line 1575 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3219 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3219);
-        xn_root_add(xn_t3219);
-        xn_Cls_Tok * xn_t3220 = xn_arr_o_Tok_get(self->toks, (self->i + 2));
-xn_root_add(xn_t3220);
-        xn_root_add(xn_t3220);
-        xn_Cls_Tok * xn_t3221 = xn_arr_o_Tok_get(self->toks, (self->i + 2));
-xn_root_add(xn_t3221);
-        xn_root_add(xn_t3221);
-            if ((((xn_t3219->kind == 2)) && (((xn_t3220->kind == 9) || (xn_t3221->kind == 1))))) {
-                size_t xn_t3222 = xn_root_mark();
-                #line 1576 "impl/lib/b2/xparser.x"
-                int xn_t3223 = 1;
-                    {
-                xn_root_restore(xn_t3222);
-                    }
-                    {
-                rt_release(n);
-                    }
-                    {
-                xn_root_restore(xn_t3182);
-                    }
-                    {
-                xn_root_restore(xn_t3167);
-                    }
-
-                return xn_t3223;
-
-            }
-        #line 1578 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3224 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3224);
-        xn_root_add(xn_t3224);
-        xn_Cls_Tok * xn_t3225 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3225);
-        xn_root_add(xn_t3225);
-        rt_string *xn_t3226 = rt_retain(xn_t3225->text);
-xn_root_add(xn_t3226);
-        xn_root_add(xn_t3226);
-        rt_string *xn_t3227 = rt_string_from_c("?");
-xn_root_add(xn_t3227);
-        xn_root_add(xn_t3227);
-        xn_Cls_Tok * xn_t3228 = xn_arr_o_Tok_get(self->toks, (self->i + 2));
-xn_root_add(xn_t3228);
-        xn_root_add(xn_t3228);
-            if (((((xn_t3224->kind == 9)) && (xn_str_eq(xn_t3226, xn_t3227))) && ((xn_t3228->kind == 2)))) {
-                size_t xn_t3229 = xn_root_mark();
-                #line 1579 "impl/lib/b2/xparser.x"
-                int xn_t3230 = 1;
-                    {
-                xn_root_restore(xn_t3229);
-                    }
-                    {
-                rt_release(n);
-                    }
-                    {
-                xn_root_restore(xn_t3182);
-                    }
-                    {
-                xn_root_restore(xn_t3167);
-                    }
-
-                return xn_t3230;
-
-            }
-        #line 1581 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3231 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3231);
-        xn_root_add(xn_t3231);
-        xn_Cls_Tok * xn_t3232 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3232);
-        xn_root_add(xn_t3232);
-        rt_string *xn_t3233 = rt_retain(xn_t3232->text);
+        #line 1600 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3233 = rt_retain(n);
 xn_root_add(xn_t3233);
         xn_root_add(xn_t3233);
-        rt_string *xn_t3234 = rt_string_from_c("<");
+        rt_string *xn_t3234 = rt_string_from_c("Int");
 xn_root_add(xn_t3234);
         xn_root_add(xn_t3234);
-            if ((((xn_t3231->kind == 9)) && (xn_str_eq(xn_t3233, xn_t3234)))) {
-                size_t xn_t3235 = xn_root_mark();
-                #line 1582 "impl/lib/b2/xparser.x"
-                int64_t j = (self->i + 2);
-                #line 1583 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3235 = rt_retain(n);
+xn_root_add(xn_t3235);
+        xn_root_add(xn_t3235);
+        rt_string *xn_t3236 = rt_string_from_c("String");
+xn_root_add(xn_t3236);
+        xn_root_add(xn_t3236);
+        rt_string *xn_t3237 = rt_retain(n);
+xn_root_add(xn_t3237);
+        xn_root_add(xn_t3237);
+        rt_string *xn_t3238 = rt_string_from_c("Bool");
+xn_root_add(xn_t3238);
+        xn_root_add(xn_t3238);
+        rt_string *xn_t3239 = rt_retain(n);
+xn_root_add(xn_t3239);
+        xn_root_add(xn_t3239);
+        rt_string *xn_t3240 = rt_string_from_c("Char");
+xn_root_add(xn_t3240);
+        xn_root_add(xn_t3240);
+        rt_string *xn_t3241 = rt_retain(n);
+xn_root_add(xn_t3241);
+        xn_root_add(xn_t3241);
+        rt_string *xn_t3242 = rt_string_from_c("Float");
+xn_root_add(xn_t3242);
+        xn_root_add(xn_t3242);
+        rt_string *xn_t3243 = rt_retain(n);
+xn_root_add(xn_t3243);
+        xn_root_add(xn_t3243);
+        rt_string *xn_t3244 = rt_string_from_c("Double");
+xn_root_add(xn_t3244);
+        xn_root_add(xn_t3244);
+        rt_string *xn_t3245 = rt_retain(n);
+xn_root_add(xn_t3245);
+        xn_root_add(xn_t3245);
+        rt_string *xn_t3246 = rt_string_from_c("Long");
+xn_root_add(xn_t3246);
+        xn_root_add(xn_t3246);
+        rt_string *xn_t3247 = rt_retain(n);
+xn_root_add(xn_t3247);
+        xn_root_add(xn_t3247);
+        rt_string *xn_t3248 = rt_string_from_c("UInt");
+xn_root_add(xn_t3248);
+        xn_root_add(xn_t3248);
+        rt_string *xn_t3249 = rt_retain(n);
+xn_root_add(xn_t3249);
+        xn_root_add(xn_t3249);
+        rt_string *xn_t3250 = rt_string_from_c("Text");
+xn_root_add(xn_t3250);
+        xn_root_add(xn_t3250);
+        rt_string *xn_t3251 = rt_retain(n);
+xn_root_add(xn_t3251);
+        xn_root_add(xn_t3251);
+        rt_string *xn_t3252 = rt_string_from_c("Bytes");
+xn_root_add(xn_t3252);
+        xn_root_add(xn_t3252);
+        rt_string *xn_t3253 = rt_retain(n);
+xn_root_add(xn_t3253);
+        xn_root_add(xn_t3253);
+        rt_string *xn_t3254 = rt_string_from_c("Map");
+xn_root_add(xn_t3254);
+        xn_root_add(xn_t3254);
+        rt_string *xn_t3255 = rt_retain(n);
+xn_root_add(xn_t3255);
+        xn_root_add(xn_t3255);
+        rt_string *xn_t3256 = rt_string_from_c("List");
+xn_root_add(xn_t3256);
+        xn_root_add(xn_t3256);
+        rt_string *xn_t3257 = rt_retain(n);
+xn_root_add(xn_t3257);
+        xn_root_add(xn_t3257);
+        rt_string *xn_t3258 = rt_string_from_c("Set");
+xn_root_add(xn_t3258);
+        xn_root_add(xn_t3258);
+        rt_string *xn_t3259 = rt_retain(n);
+xn_root_add(xn_t3259);
+        xn_root_add(xn_t3259);
+        rt_string *xn_t3260 = rt_string_from_c("Result");
+xn_root_add(xn_t3260);
+        xn_root_add(xn_t3260);
+        rt_string *xn_t3261 = rt_retain(n);
+xn_root_add(xn_t3261);
+        xn_root_add(xn_t3261);
+        rt_string *xn_t3262 = rt_string_from_c("Object");
+xn_root_add(xn_t3262);
+        xn_root_add(xn_t3262);
+        rt_string *xn_t3263 = rt_retain(n);
+xn_root_add(xn_t3263);
+        xn_root_add(xn_t3263);
+        rt_string *xn_t3264 = rt_string_from_c("Any");
+xn_root_add(xn_t3264);
+        xn_root_add(xn_t3264);
+            if (((((((((((((((((xn_str_eq(xn_t3233, xn_t3234)) || (xn_str_eq(xn_t3235, xn_t3236))) || (xn_str_eq(xn_t3237, xn_t3238))) || (xn_str_eq(xn_t3239, xn_t3240))) || (xn_str_eq(xn_t3241, xn_t3242))) || (xn_str_eq(xn_t3243, xn_t3244))) || (xn_str_eq(xn_t3245, xn_t3246))) || (xn_str_eq(xn_t3247, xn_t3248))) || (xn_str_eq(xn_t3249, xn_t3250))) || (xn_str_eq(xn_t3251, xn_t3252))) || (xn_str_eq(xn_t3253, xn_t3254))) || (xn_str_eq(xn_t3255, xn_t3256))) || (xn_str_eq(xn_t3257, xn_t3258))) || (xn_str_eq(xn_t3259, xn_t3260))) || (xn_str_eq(xn_t3261, xn_t3262))) || (xn_str_eq(xn_t3263, xn_t3264)))) {
+                size_t xn_t3265 = xn_root_mark();
+                #line 1603 "impl/lib/b2/xparser.x"
+                int xn_t3266 = 1;
+                    {
+                xn_root_restore(xn_t3265);
+                    }
+                    {
+                rt_release(n);
+                    }
+                    {
+                xn_root_restore(xn_t3230);
+                    }
+                    {
+                xn_root_restore(xn_t3215);
+                    }
+
+                return xn_t3266;
+
+            }
+        #line 1605 "impl/lib/b2/xparser.x"
+        int64_t j = (self->i + 1);
+        #line 1606 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3267 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3267);
+        xn_root_add(xn_t3267);
+        xn_Cls_Tok * xn_t3268 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3268);
+        xn_root_add(xn_t3268);
+        rt_string *xn_t3269 = rt_retain(xn_t3268->text);
+xn_root_add(xn_t3269);
+        xn_root_add(xn_t3269);
+        rt_string *xn_t3270 = rt_string_from_c("<");
+xn_root_add(xn_t3270);
+        xn_root_add(xn_t3270);
+            if ((((xn_t3267->kind == 9)) && (xn_str_eq(xn_t3269, xn_t3270)))) {
+                size_t xn_t3271 = xn_root_mark();
+                #line 1607 "impl/lib/b2/xparser.x"
                 int64_t dep = 1;
-                #line 1584 "impl/lib/b2/xparser.x"
+                #line 1608 "impl/lib/b2/xparser.x"
+                j = (j + 1);
+                #line 1609 "impl/lib/b2/xparser.x"
                     while ((((j < ((int64_t)self->toks->len))) && ((dep > 0)))) {
-                    size_t xn_t3236 = xn_root_mark();
-                    #line 1585 "impl/lib/b2/xparser.x"
+                    size_t xn_t3272 = xn_root_mark();
+                    #line 1610 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * x = xn_arr_o_Tok_get(self->toks, j);
 xn_root_add(x);
         xn_root_add(x);
@@ -19463,612 +19717,716 @@ xn_root_add(x);
                     xn_root_add(x);
                     xn_root_add(x);
                     xn_gc_safepoint();
-                    #line 1586 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3237 = rt_retain(x->text);
-xn_root_add(xn_t3237);
-        xn_root_add(xn_t3237);
-                xn_root_add(xn_t3237);
-                    xn_root_add(xn_t3237);
-                    rt_string *xn_t3238 = rt_string_from_c("<");
-xn_root_add(xn_t3238);
-        xn_root_add(xn_t3238);
-                xn_root_add(xn_t3238);
-                    xn_root_add(xn_t3238);
-                        if ((((x->kind == 9)) && (xn_str_eq(xn_t3237, xn_t3238)))) {
-                            size_t xn_t3239 = xn_root_mark();
-                            #line 1586 "impl/lib/b2/xparser.x"
+                    #line 1611 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3273 = rt_retain(x->text);
+xn_root_add(xn_t3273);
+        xn_root_add(xn_t3273);
+                xn_root_add(xn_t3273);
+                    xn_root_add(xn_t3273);
+                    rt_string *xn_t3274 = rt_string_from_c("<");
+xn_root_add(xn_t3274);
+        xn_root_add(xn_t3274);
+                xn_root_add(xn_t3274);
+                    xn_root_add(xn_t3274);
+                        if ((((x->kind == 9)) && (xn_str_eq(xn_t3273, xn_t3274)))) {
+                            size_t xn_t3275 = xn_root_mark();
+                            #line 1611 "impl/lib/b2/xparser.x"
                             dep = (dep + 1);
                                 {
-                                xn_root_restore(xn_t3239);
+                                xn_root_restore(xn_t3275);
                                 }
 
                         } else {
-                            rt_string *xn_t3241 = rt_retain(x->text);
-xn_root_add(xn_t3241);
-        xn_root_add(xn_t3241);
-                xn_root_add(xn_t3241);
-                    xn_root_add(xn_t3241);
-                            xn_root_add(xn_t3241);
-                            rt_string *xn_t3242 = rt_string_from_c(">");
-xn_root_add(xn_t3242);
-        xn_root_add(xn_t3242);
-                xn_root_add(xn_t3242);
-                    xn_root_add(xn_t3242);
-                            xn_root_add(xn_t3242);
-                                if ((((x->kind == 9)) && (xn_str_eq(xn_t3241, xn_t3242)))) {
-                                    size_t xn_t3243 = xn_root_mark();
-                                    #line 1587 "impl/lib/b2/xparser.x"
-                                    dep = (dep - 1);
+                            rt_string *xn_t3277 = rt_retain(x->text);
+xn_root_add(xn_t3277);
+        xn_root_add(xn_t3277);
+                xn_root_add(xn_t3277);
+                    xn_root_add(xn_t3277);
+                            xn_root_add(xn_t3277);
+                            rt_string *xn_t3278 = rt_string_from_c(">>");
+xn_root_add(xn_t3278);
+        xn_root_add(xn_t3278);
+                xn_root_add(xn_t3278);
+                    xn_root_add(xn_t3278);
+                            xn_root_add(xn_t3278);
+                                if ((((x->kind == 9)) && (xn_str_eq(xn_t3277, xn_t3278)))) {
+                                    size_t xn_t3279 = xn_root_mark();
+                                    #line 1612 "impl/lib/b2/xparser.x"
+                                    dep = (dep - 2);
                                         {
-                                        xn_root_restore(xn_t3243);
+                                        xn_root_restore(xn_t3279);
                                         }
 
+                                } else {
+                                    rt_string *xn_t3281 = rt_retain(x->text);
+xn_root_add(xn_t3281);
+        xn_root_add(xn_t3281);
+                xn_root_add(xn_t3281);
+                    xn_root_add(xn_t3281);
+                            xn_root_add(xn_t3281);
+                                    xn_root_add(xn_t3281);
+                                    rt_string *xn_t3282 = rt_string_from_c(">");
+xn_root_add(xn_t3282);
+        xn_root_add(xn_t3282);
+                xn_root_add(xn_t3282);
+                    xn_root_add(xn_t3282);
+                            xn_root_add(xn_t3282);
+                                    xn_root_add(xn_t3282);
+                                        if ((((x->kind == 9)) && (xn_str_eq(xn_t3281, xn_t3282)))) {
+                                            size_t xn_t3283 = xn_root_mark();
+                                            #line 1613 "impl/lib/b2/xparser.x"
+                                            dep = (dep - 1);
+                                                {
+                                                xn_root_restore(xn_t3283);
+                                                }
+
+                                        }
                                 }
                         }
-                    #line 1588 "impl/lib/b2/xparser.x"
+                    #line 1614 "impl/lib/b2/xparser.x"
                     j = (j + 1);
                         {
-                        xn_root_restore(xn_t3236);
+                        xn_root_restore(xn_t3272);
                         }
 
                     xn_gc_safepoint();
                     }
-                #line 1590 "impl/lib/b2/xparser.x"
-                xn_Cls_Tok * xn_t3244 = xn_arr_o_Tok_get(self->toks, j);
-xn_root_add(xn_t3244);
-        xn_root_add(xn_t3244);
-                xn_root_add(xn_t3244);
-                    if (((((dep == 0)) && ((j < ((int64_t)self->toks->len)))) && ((xn_t3244->kind == 2)))) {
-                        size_t xn_t3245 = xn_root_mark();
-                        #line 1591 "impl/lib/b2/xparser.x"
-                        int xn_t3246 = 1;
+                #line 1616 "impl/lib/b2/xparser.x"
+                    if (((dep > 0))) {
+                        size_t xn_t3284 = xn_root_mark();
+                        #line 1616 "impl/lib/b2/xparser.x"
+                        int xn_t3285 = 0;
                             {
-                        xn_root_restore(xn_t3245);
+                        xn_root_restore(xn_t3284);
                             }
                             {
-                        xn_root_restore(xn_t3235);
+                        xn_root_restore(xn_t3271);
                             }
                             {
                         rt_release(n);
                             }
                             {
-                        xn_root_restore(xn_t3182);
+                        xn_root_restore(xn_t3230);
                             }
                             {
-                        xn_root_restore(xn_t3167);
+                        xn_root_restore(xn_t3215);
                             }
 
-                        return xn_t3246;
+                        return xn_t3285;
 
                     }
                     {
-                    xn_root_restore(xn_t3235);
+                    xn_root_restore(xn_t3271);
                     }
+
+            }
+        #line 1618 "impl/lib/b2/xparser.x"
+            while (1) {
+                xn_Cls_Tok * xn_t3286 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3286);
+        xn_root_add(xn_t3286);
+                xn_Cls_Tok * xn_t3287 = xn_arr_o_Tok_get(self->toks, (j + 1));
+xn_root_add(xn_t3287);
+        xn_root_add(xn_t3287);
+                if (!((((((j + 1) < ((int64_t)self->toks->len))) && ((xn_t3286->kind == 14))) && ((xn_t3287->kind == 15))))) { break; }
+                size_t xn_t3288 = xn_root_mark();
+                #line 1619 "impl/lib/b2/xparser.x"
+                j = (j + 2);
+                    {
+                    xn_root_restore(xn_t3288);
+                    }
+
+                xn_gc_safepoint();
+            }
+        #line 1621 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3289 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3289);
+        xn_root_add(xn_t3289);
+        xn_Cls_Tok * xn_t3290 = xn_arr_o_Tok_get(self->toks, (j + 1));
+xn_root_add(xn_t3290);
+        xn_root_add(xn_t3290);
+        xn_Cls_Tok * xn_t3291 = xn_arr_o_Tok_get(self->toks, (j + 1));
+xn_root_add(xn_t3291);
+        xn_root_add(xn_t3291);
+            if ((((((j + 1) < ((int64_t)self->toks->len))) && ((xn_t3289->kind == 2))) && (((xn_t3290->kind == 9) || (xn_t3291->kind == 1))))) {
+                size_t xn_t3292 = xn_root_mark();
+                #line 1623 "impl/lib/b2/xparser.x"
+                int xn_t3293 = 1;
+                    {
+                xn_root_restore(xn_t3292);
+                    }
+                    {
+                rt_release(n);
+                    }
+                    {
+                xn_root_restore(xn_t3230);
+                    }
+                    {
+                xn_root_restore(xn_t3215);
+                    }
+
+                return xn_t3293;
+
+            }
+        #line 1625 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3294 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3294);
+        xn_root_add(xn_t3294);
+        xn_Cls_Tok * xn_t3295 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t3295);
+        xn_root_add(xn_t3295);
+        rt_string *xn_t3296 = rt_retain(xn_t3295->text);
+xn_root_add(xn_t3296);
+        xn_root_add(xn_t3296);
+        rt_string *xn_t3297 = rt_string_from_c("?");
+xn_root_add(xn_t3297);
+        xn_root_add(xn_t3297);
+        xn_Cls_Tok * xn_t3298 = xn_arr_o_Tok_get(self->toks, (j + 1));
+xn_root_add(xn_t3298);
+        xn_root_add(xn_t3298);
+            if (((((((j + 1) < ((int64_t)self->toks->len))) && ((xn_t3294->kind == 9))) && (xn_str_eq(xn_t3296, xn_t3297))) && ((xn_t3298->kind == 2)))) {
+                size_t xn_t3299 = xn_root_mark();
+                #line 1627 "impl/lib/b2/xparser.x"
+                int xn_t3300 = 1;
+                    {
+                xn_root_restore(xn_t3299);
+                    }
+                    {
+                rt_release(n);
+                    }
+                    {
+                xn_root_restore(xn_t3230);
+                    }
+                    {
+                xn_root_restore(xn_t3215);
+                    }
+
+                return xn_t3300;
 
             }
             {
             rt_release(n);
             }
             {
-            xn_root_restore(xn_t3182);
+            xn_root_restore(xn_t3230);
             }
 
     }
-#line 1595 "impl/lib/b2/xparser.x"
-int xn_t3247 = 0;
+#line 1630 "impl/lib/b2/xparser.x"
+int xn_t3301 = 0;
     {
-xn_root_restore(xn_t3167);
+xn_root_restore(xn_t3215);
     }
 
-return xn_t3247;
+return xn_t3301;
     return (int)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseStmt(xn_Cls_Parser *self) {
-size_t xn_t3248 = xn_root_mark();
+size_t xn_t3302 = xn_root_mark();
 xn_root_add(self);
-#line 1599 "impl/lib/b2/xparser.x"
+#line 1634 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1600 "impl/lib/b2/xparser.x"
+#line 1635 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t3249 = xn_root_mark();
-        #line 1600 "impl/lib/b2/xparser.x"
+        size_t xn_t3303 = xn_root_mark();
+        #line 1635 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1600 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3250 = rt_string_from_c("(EmptyStmt ");
-xn_root_add(xn_t3250);
-        xn_root_add(xn_t3250);
-        xn_root_add(xn_t3250);
-        rt_string *xn_t3251 = xn_P(t->line, t->col);
-xn_root_add(xn_t3251);
-        xn_root_add(xn_t3251);
-        xn_root_add(xn_t3251);
-        rt_string *xn_t3252 = xn_concat(xn_t3250, xn_t3251);
-xn_root_add(xn_t3252);
-        xn_root_add(xn_t3252);
-        xn_root_add(xn_t3252);
-        rt_string *xn_t3253 = rt_string_from_c(")");
-xn_root_add(xn_t3253);
-        xn_root_add(xn_t3253);
-        xn_root_add(xn_t3253);
-        rt_string *xn_t3254 = xn_concat(xn_t3252, xn_t3253);
-xn_root_add(xn_t3254);
-        xn_root_add(xn_t3254);
-        xn_root_add(xn_t3254);
+        #line 1635 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3304 = rt_string_from_c("(EmptyStmt ");
+xn_root_add(xn_t3304);
+        xn_root_add(xn_t3304);
+        xn_root_add(xn_t3304);
+        rt_string *xn_t3305 = xn_P(t->line, t->col);
+xn_root_add(xn_t3305);
+        xn_root_add(xn_t3305);
+        xn_root_add(xn_t3305);
+        rt_string *xn_t3306 = xn_concat(xn_t3304, xn_t3305);
+xn_root_add(xn_t3306);
+        xn_root_add(xn_t3306);
+        xn_root_add(xn_t3306);
+        rt_string *xn_t3307 = rt_string_from_c(")");
+xn_root_add(xn_t3307);
+        xn_root_add(xn_t3307);
+        xn_root_add(xn_t3307);
+        rt_string *xn_t3308 = xn_concat(xn_t3306, xn_t3307);
+xn_root_add(xn_t3308);
+        xn_root_add(xn_t3308);
+        xn_root_add(xn_t3308);
             {
-        xn_root_restore(xn_t3249);
+        xn_root_restore(xn_t3303);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3254;
+        return xn_t3308;
 
     }
-#line 1601 "impl/lib/b2/xparser.x"
-rt_string *xn_t3255 = rt_string_from_c("return");
-xn_root_add(xn_t3255);
-    if ((xn_Cls_Parser_atKw(self, xn_t3255))) {
-        size_t xn_t3256 = xn_root_mark();
-        #line 1602 "impl/lib/b2/xparser.x"
+#line 1636 "impl/lib/b2/xparser.x"
+rt_string *xn_t3309 = rt_string_from_c("return");
+xn_root_add(xn_t3309);
+    if ((xn_Cls_Parser_atKw(self, xn_t3309))) {
+        size_t xn_t3310 = xn_root_mark();
+        #line 1637 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1603 "impl/lib/b2/xparser.x"
+        #line 1638 "impl/lib/b2/xparser.x"
         rt_string *v = rt_string_from_c("(nil)");
 xn_root_add(v);
         xn_root_add(v);
         xn_root_add(v);
         xn_gc_safepoint();
-        #line 1604 "impl/lib/b2/xparser.x"
+        #line 1639 "impl/lib/b2/xparser.x"
             if (((((!(xn_Cls_Parser_at(self, 1)))) && ((!(xn_Cls_Parser_at(self, 13))))) && ((!(xn_Cls_Parser_at(self, 0)))))) {
-                size_t xn_t3258 = xn_root_mark();
-                #line 1604 "impl/lib/b2/xparser.x"
-                xn_Cls_E * xn_t3259 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t3259);
-        xn_root_add(xn_t3259);
-                xn_root_add(xn_t3259);
-                rt_string *xn_t3260 = rt_retain(xn_t3259->d);
-xn_root_add(xn_t3260);
-        xn_root_add(xn_t3260);
-                xn_root_add(xn_t3260);
+                size_t xn_t3312 = xn_root_mark();
+                #line 1639 "impl/lib/b2/xparser.x"
+                xn_Cls_E * xn_t3313 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t3313);
+        xn_root_add(xn_t3313);
+                xn_root_add(xn_t3313);
+                rt_string *xn_t3314 = rt_retain(xn_t3313->d);
+xn_root_add(xn_t3314);
+        xn_root_add(xn_t3314);
+                xn_root_add(xn_t3314);
                 xn_root_release(v);
                 rt_release(v);
-                v = xn_t3260;
+                v = xn_t3314;
                 xn_root_hold(v);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3258);
+                    xn_root_restore(xn_t3312);
                     }
 
             }
-        #line 1605 "impl/lib/b2/xparser.x"
+        #line 1640 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3261 = xn_root_mark();
-                #line 1605 "impl/lib/b2/xparser.x"
+                size_t xn_t3315 = xn_root_mark();
+                #line 1640 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3261);
+                    xn_root_restore(xn_t3315);
                     }
 
             }
-        #line 1606 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3262 = rt_string_from_c("(ReturnStmt ");
-xn_root_add(xn_t3262);
-        xn_root_add(xn_t3262);
-        xn_root_add(xn_t3262);
-        rt_string *xn_t3263 = xn_P(t->line, t->col);
-xn_root_add(xn_t3263);
-        xn_root_add(xn_t3263);
-        xn_root_add(xn_t3263);
-        rt_string *xn_t3264 = xn_concat(xn_t3262, xn_t3263);
-xn_root_add(xn_t3264);
-        xn_root_add(xn_t3264);
-        xn_root_add(xn_t3264);
-        rt_string *xn_t3265 = rt_string_from_c(" (Value ");
-xn_root_add(xn_t3265);
-        xn_root_add(xn_t3265);
-        xn_root_add(xn_t3265);
-        rt_string *xn_t3266 = xn_concat(xn_t3264, xn_t3265);
-xn_root_add(xn_t3266);
-        xn_root_add(xn_t3266);
-        xn_root_add(xn_t3266);
-        rt_string *xn_t3267 = rt_retain(v);
-xn_root_add(xn_t3267);
-        xn_root_add(xn_t3267);
-        xn_root_add(xn_t3267);
-        rt_string *xn_t3268 = xn_concat(xn_t3266, xn_t3267);
-xn_root_add(xn_t3268);
-        xn_root_add(xn_t3268);
-        xn_root_add(xn_t3268);
-        rt_string *xn_t3269 = rt_string_from_c("))");
-xn_root_add(xn_t3269);
-        xn_root_add(xn_t3269);
-        xn_root_add(xn_t3269);
-        rt_string *xn_t3270 = xn_concat(xn_t3268, xn_t3269);
-xn_root_add(xn_t3270);
-        xn_root_add(xn_t3270);
-        xn_root_add(xn_t3270);
+        #line 1641 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3316 = rt_string_from_c("(ReturnStmt ");
+xn_root_add(xn_t3316);
+        xn_root_add(xn_t3316);
+        xn_root_add(xn_t3316);
+        rt_string *xn_t3317 = xn_P(t->line, t->col);
+xn_root_add(xn_t3317);
+        xn_root_add(xn_t3317);
+        xn_root_add(xn_t3317);
+        rt_string *xn_t3318 = xn_concat(xn_t3316, xn_t3317);
+xn_root_add(xn_t3318);
+        xn_root_add(xn_t3318);
+        xn_root_add(xn_t3318);
+        rt_string *xn_t3319 = rt_string_from_c(" (Value ");
+xn_root_add(xn_t3319);
+        xn_root_add(xn_t3319);
+        xn_root_add(xn_t3319);
+        rt_string *xn_t3320 = xn_concat(xn_t3318, xn_t3319);
+xn_root_add(xn_t3320);
+        xn_root_add(xn_t3320);
+        xn_root_add(xn_t3320);
+        rt_string *xn_t3321 = rt_retain(v);
+xn_root_add(xn_t3321);
+        xn_root_add(xn_t3321);
+        xn_root_add(xn_t3321);
+        rt_string *xn_t3322 = xn_concat(xn_t3320, xn_t3321);
+xn_root_add(xn_t3322);
+        xn_root_add(xn_t3322);
+        xn_root_add(xn_t3322);
+        rt_string *xn_t3323 = rt_string_from_c("))");
+xn_root_add(xn_t3323);
+        xn_root_add(xn_t3323);
+        xn_root_add(xn_t3323);
+        rt_string *xn_t3324 = xn_concat(xn_t3322, xn_t3323);
+xn_root_add(xn_t3324);
+        xn_root_add(xn_t3324);
+        xn_root_add(xn_t3324);
             {
         rt_release(v);
             }
             {
-        xn_root_restore(xn_t3256);
+        xn_root_restore(xn_t3310);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3270;
+        return xn_t3324;
         xn_root_release(v);
 
     }
-#line 1608 "impl/lib/b2/xparser.x"
-rt_string *xn_t3271 = rt_string_from_c("if");
-xn_root_add(xn_t3271);
-    if ((xn_Cls_Parser_atKw(self, xn_t3271))) {
-        size_t xn_t3272 = xn_root_mark();
-        #line 1608 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3273 = xn_Cls_Parser_parseIf(self);
-xn_root_add(xn_t3273);
-        xn_root_add(xn_t3273);
-        xn_root_add(xn_t3273);
+#line 1643 "impl/lib/b2/xparser.x"
+rt_string *xn_t3325 = rt_string_from_c("if");
+xn_root_add(xn_t3325);
+    if ((xn_Cls_Parser_atKw(self, xn_t3325))) {
+        size_t xn_t3326 = xn_root_mark();
+        #line 1643 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3327 = xn_Cls_Parser_parseIf(self);
+xn_root_add(xn_t3327);
+        xn_root_add(xn_t3327);
+        xn_root_add(xn_t3327);
             {
-        xn_root_restore(xn_t3272);
+        xn_root_restore(xn_t3326);
             }
             {
-        xn_root_restore(xn_t3248);
-            }
-
-        return xn_t3273;
-
-    }
-#line 1609 "impl/lib/b2/xparser.x"
-rt_string *xn_t3274 = rt_string_from_c("while");
-xn_root_add(xn_t3274);
-    if ((xn_Cls_Parser_atKw(self, xn_t3274))) {
-        size_t xn_t3275 = xn_root_mark();
-        #line 1609 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3276 = xn_Cls_Parser_parseWhile(self);
-xn_root_add(xn_t3276);
-        xn_root_add(xn_t3276);
-        xn_root_add(xn_t3276);
-            {
-        xn_root_restore(xn_t3275);
-            }
-            {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3276;
+        return xn_t3327;
 
     }
-#line 1610 "impl/lib/b2/xparser.x"
-rt_string *xn_t3277 = rt_string_from_c("do");
-xn_root_add(xn_t3277);
-    if ((xn_Cls_Parser_atKw(self, xn_t3277))) {
-        size_t xn_t3278 = xn_root_mark();
-        #line 1610 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3279 = xn_Cls_Parser_parseDo(self);
-xn_root_add(xn_t3279);
-        xn_root_add(xn_t3279);
-        xn_root_add(xn_t3279);
+#line 1644 "impl/lib/b2/xparser.x"
+rt_string *xn_t3328 = rt_string_from_c("while");
+xn_root_add(xn_t3328);
+    if ((xn_Cls_Parser_atKw(self, xn_t3328))) {
+        size_t xn_t3329 = xn_root_mark();
+        #line 1644 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3330 = xn_Cls_Parser_parseWhile(self);
+xn_root_add(xn_t3330);
+        xn_root_add(xn_t3330);
+        xn_root_add(xn_t3330);
             {
-        xn_root_restore(xn_t3278);
+        xn_root_restore(xn_t3329);
             }
             {
-        xn_root_restore(xn_t3248);
-            }
-
-        return xn_t3279;
-
-    }
-#line 1611 "impl/lib/b2/xparser.x"
-rt_string *xn_t3280 = rt_string_from_c("for");
-xn_root_add(xn_t3280);
-    if ((xn_Cls_Parser_atKw(self, xn_t3280))) {
-        size_t xn_t3281 = xn_root_mark();
-        #line 1611 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3282 = xn_Cls_Parser_parseFor(self);
-xn_root_add(xn_t3282);
-        xn_root_add(xn_t3282);
-        xn_root_add(xn_t3282);
-            {
-        xn_root_restore(xn_t3281);
-            }
-            {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3282;
+        return xn_t3330;
 
     }
-#line 1612 "impl/lib/b2/xparser.x"
-rt_string *xn_t3283 = rt_string_from_c("switch");
-xn_root_add(xn_t3283);
-    if ((xn_Cls_Parser_atKw(self, xn_t3283))) {
-        size_t xn_t3284 = xn_root_mark();
-        #line 1612 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3285 = xn_Cls_Parser_parseSwitch(self);
-xn_root_add(xn_t3285);
-        xn_root_add(xn_t3285);
-        xn_root_add(xn_t3285);
+#line 1645 "impl/lib/b2/xparser.x"
+rt_string *xn_t3331 = rt_string_from_c("do");
+xn_root_add(xn_t3331);
+    if ((xn_Cls_Parser_atKw(self, xn_t3331))) {
+        size_t xn_t3332 = xn_root_mark();
+        #line 1645 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3333 = xn_Cls_Parser_parseDo(self);
+xn_root_add(xn_t3333);
+        xn_root_add(xn_t3333);
+        xn_root_add(xn_t3333);
             {
-        xn_root_restore(xn_t3284);
+        xn_root_restore(xn_t3332);
             }
             {
-        xn_root_restore(xn_t3248);
-            }
-
-        return xn_t3285;
-
-    }
-#line 1613 "impl/lib/b2/xparser.x"
-rt_string *xn_t3286 = rt_string_from_c("defer");
-xn_root_add(xn_t3286);
-rt_string *xn_t3287 = rt_string_from_c("errdefer");
-xn_root_add(xn_t3287);
-    if (((xn_Cls_Parser_atKw(self, xn_t3286)) || (xn_Cls_Parser_atKw(self, xn_t3287)))) {
-        size_t xn_t3288 = xn_root_mark();
-        #line 1613 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3289 = xn_Cls_Parser_parseDefer(self);
-xn_root_add(xn_t3289);
-        xn_root_add(xn_t3289);
-        xn_root_add(xn_t3289);
-            {
-        xn_root_restore(xn_t3288);
-            }
-            {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3289;
+        return xn_t3333;
 
     }
-#line 1614 "impl/lib/b2/xparser.x"
-rt_string *xn_t3290 = rt_string_from_c("throw");
-xn_root_add(xn_t3290);
-    if ((xn_Cls_Parser_atKw(self, xn_t3290))) {
-        size_t xn_t3291 = xn_root_mark();
-        #line 1615 "impl/lib/b2/xparser.x"
+#line 1646 "impl/lib/b2/xparser.x"
+rt_string *xn_t3334 = rt_string_from_c("for");
+xn_root_add(xn_t3334);
+    if ((xn_Cls_Parser_atKw(self, xn_t3334))) {
+        size_t xn_t3335 = xn_root_mark();
+        #line 1646 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3336 = xn_Cls_Parser_parseFor(self);
+xn_root_add(xn_t3336);
+        xn_root_add(xn_t3336);
+        xn_root_add(xn_t3336);
+            {
+        xn_root_restore(xn_t3335);
+            }
+            {
+        xn_root_restore(xn_t3302);
+            }
+
+        return xn_t3336;
+
+    }
+#line 1647 "impl/lib/b2/xparser.x"
+rt_string *xn_t3337 = rt_string_from_c("switch");
+xn_root_add(xn_t3337);
+    if ((xn_Cls_Parser_atKw(self, xn_t3337))) {
+        size_t xn_t3338 = xn_root_mark();
+        #line 1647 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3339 = xn_Cls_Parser_parseSwitch(self);
+xn_root_add(xn_t3339);
+        xn_root_add(xn_t3339);
+        xn_root_add(xn_t3339);
+            {
+        xn_root_restore(xn_t3338);
+            }
+            {
+        xn_root_restore(xn_t3302);
+            }
+
+        return xn_t3339;
+
+    }
+#line 1648 "impl/lib/b2/xparser.x"
+rt_string *xn_t3340 = rt_string_from_c("defer");
+xn_root_add(xn_t3340);
+rt_string *xn_t3341 = rt_string_from_c("errdefer");
+xn_root_add(xn_t3341);
+    if (((xn_Cls_Parser_atKw(self, xn_t3340)) || (xn_Cls_Parser_atKw(self, xn_t3341)))) {
+        size_t xn_t3342 = xn_root_mark();
+        #line 1648 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3343 = xn_Cls_Parser_parseDefer(self);
+xn_root_add(xn_t3343);
+        xn_root_add(xn_t3343);
+        xn_root_add(xn_t3343);
+            {
+        xn_root_restore(xn_t3342);
+            }
+            {
+        xn_root_restore(xn_t3302);
+            }
+
+        return xn_t3343;
+
+    }
+#line 1649 "impl/lib/b2/xparser.x"
+rt_string *xn_t3344 = rt_string_from_c("throw");
+xn_root_add(xn_t3344);
+    if ((xn_Cls_Parser_atKw(self, xn_t3344))) {
+        size_t xn_t3345 = xn_root_mark();
+        #line 1650 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1616 "impl/lib/b2/xparser.x"
-        xn_Cls_E * xn_t3292 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t3292);
-        xn_root_add(xn_t3292);
-        rt_string *v = rt_retain(xn_t3292->d);
+        #line 1651 "impl/lib/b2/xparser.x"
+        xn_Cls_E * xn_t3346 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t3346);
+        xn_root_add(xn_t3346);
+        rt_string *v = rt_retain(xn_t3346->d);
 xn_root_add(v);
         xn_root_add(v);
         xn_root_add(v);
         xn_gc_safepoint();
-        #line 1617 "impl/lib/b2/xparser.x"
+        #line 1652 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3294 = xn_root_mark();
-                #line 1617 "impl/lib/b2/xparser.x"
+                size_t xn_t3348 = xn_root_mark();
+                #line 1652 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3294);
+                    xn_root_restore(xn_t3348);
                     }
 
             }
-        #line 1618 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3295 = rt_string_from_c("(ThrowStmt ");
-xn_root_add(xn_t3295);
-        xn_root_add(xn_t3295);
-        xn_root_add(xn_t3295);
-        rt_string *xn_t3296 = xn_P(t->line, t->col);
-xn_root_add(xn_t3296);
-        xn_root_add(xn_t3296);
-        xn_root_add(xn_t3296);
-        rt_string *xn_t3297 = xn_concat(xn_t3295, xn_t3296);
-xn_root_add(xn_t3297);
-        xn_root_add(xn_t3297);
-        xn_root_add(xn_t3297);
-        rt_string *xn_t3298 = rt_string_from_c(" (Value ");
-xn_root_add(xn_t3298);
-        xn_root_add(xn_t3298);
-        xn_root_add(xn_t3298);
-        rt_string *xn_t3299 = xn_concat(xn_t3297, xn_t3298);
-xn_root_add(xn_t3299);
-        xn_root_add(xn_t3299);
-        xn_root_add(xn_t3299);
-        rt_string *xn_t3300 = rt_retain(v);
-xn_root_add(xn_t3300);
-        xn_root_add(xn_t3300);
-        xn_root_add(xn_t3300);
-        rt_string *xn_t3301 = xn_concat(xn_t3299, xn_t3300);
-xn_root_add(xn_t3301);
-        xn_root_add(xn_t3301);
-        xn_root_add(xn_t3301);
-        rt_string *xn_t3302 = rt_string_from_c("))");
-xn_root_add(xn_t3302);
-        xn_root_add(xn_t3302);
-        xn_root_add(xn_t3302);
-        rt_string *xn_t3303 = xn_concat(xn_t3301, xn_t3302);
-xn_root_add(xn_t3303);
-        xn_root_add(xn_t3303);
-        xn_root_add(xn_t3303);
+        #line 1653 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3349 = rt_string_from_c("(ThrowStmt ");
+xn_root_add(xn_t3349);
+        xn_root_add(xn_t3349);
+        xn_root_add(xn_t3349);
+        rt_string *xn_t3350 = xn_P(t->line, t->col);
+xn_root_add(xn_t3350);
+        xn_root_add(xn_t3350);
+        xn_root_add(xn_t3350);
+        rt_string *xn_t3351 = xn_concat(xn_t3349, xn_t3350);
+xn_root_add(xn_t3351);
+        xn_root_add(xn_t3351);
+        xn_root_add(xn_t3351);
+        rt_string *xn_t3352 = rt_string_from_c(" (Value ");
+xn_root_add(xn_t3352);
+        xn_root_add(xn_t3352);
+        xn_root_add(xn_t3352);
+        rt_string *xn_t3353 = xn_concat(xn_t3351, xn_t3352);
+xn_root_add(xn_t3353);
+        xn_root_add(xn_t3353);
+        xn_root_add(xn_t3353);
+        rt_string *xn_t3354 = rt_retain(v);
+xn_root_add(xn_t3354);
+        xn_root_add(xn_t3354);
+        xn_root_add(xn_t3354);
+        rt_string *xn_t3355 = xn_concat(xn_t3353, xn_t3354);
+xn_root_add(xn_t3355);
+        xn_root_add(xn_t3355);
+        xn_root_add(xn_t3355);
+        rt_string *xn_t3356 = rt_string_from_c("))");
+xn_root_add(xn_t3356);
+        xn_root_add(xn_t3356);
+        xn_root_add(xn_t3356);
+        rt_string *xn_t3357 = xn_concat(xn_t3355, xn_t3356);
+xn_root_add(xn_t3357);
+        xn_root_add(xn_t3357);
+        xn_root_add(xn_t3357);
             {
         rt_release(v);
             }
             {
-        xn_root_restore(xn_t3291);
+        xn_root_restore(xn_t3345);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3303;
+        return xn_t3357;
 
     }
-#line 1620 "impl/lib/b2/xparser.x"
-rt_string *xn_t3304 = rt_string_from_c("break");
-xn_root_add(xn_t3304);
-rt_string *xn_t3305 = rt_string_from_c("continue");
-xn_root_add(xn_t3305);
-rt_string *xn_t3306 = rt_string_from_c("goto");
-xn_root_add(xn_t3306);
-    if ((((xn_Cls_Parser_atKw(self, xn_t3304)) || (xn_Cls_Parser_atKw(self, xn_t3305))) || (xn_Cls_Parser_atKw(self, xn_t3306)))) {
-        size_t xn_t3307 = xn_root_mark();
-        #line 1621 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3308 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3308);
-        xn_root_add(xn_t3308);
-        rt_string *kw = rt_retain(xn_t3308->text);
+#line 1655 "impl/lib/b2/xparser.x"
+rt_string *xn_t3358 = rt_string_from_c("break");
+xn_root_add(xn_t3358);
+rt_string *xn_t3359 = rt_string_from_c("continue");
+xn_root_add(xn_t3359);
+rt_string *xn_t3360 = rt_string_from_c("goto");
+xn_root_add(xn_t3360);
+    if ((((xn_Cls_Parser_atKw(self, xn_t3358)) || (xn_Cls_Parser_atKw(self, xn_t3359))) || (xn_Cls_Parser_atKw(self, xn_t3360)))) {
+        size_t xn_t3361 = xn_root_mark();
+        #line 1656 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3362 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3362);
+        xn_root_add(xn_t3362);
+        rt_string *kw = rt_retain(xn_t3362->text);
 xn_root_add(kw);
         xn_root_add(kw);
         xn_root_add(kw);
         xn_gc_safepoint();
-        #line 1622 "impl/lib/b2/xparser.x"
+        #line 1657 "impl/lib/b2/xparser.x"
         rt_string *lab = rt_string_from_c("");
 xn_root_add(lab);
         xn_root_add(lab);
         xn_root_add(lab);
         xn_gc_safepoint();
-        #line 1623 "impl/lib/b2/xparser.x"
+        #line 1658 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 2))) {
-                size_t xn_t3311 = xn_root_mark();
-                #line 1623 "impl/lib/b2/xparser.x"
-                xn_Cls_Tok * xn_t3312 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3312);
-        xn_root_add(xn_t3312);
-                xn_root_add(xn_t3312);
-                rt_string *xn_t3313 = rt_retain(xn_t3312->text);
-xn_root_add(xn_t3313);
-        xn_root_add(xn_t3313);
-                xn_root_add(xn_t3313);
+                size_t xn_t3365 = xn_root_mark();
+                #line 1658 "impl/lib/b2/xparser.x"
+                xn_Cls_Tok * xn_t3366 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3366);
+        xn_root_add(xn_t3366);
+                xn_root_add(xn_t3366);
+                rt_string *xn_t3367 = rt_retain(xn_t3366->text);
+xn_root_add(xn_t3367);
+        xn_root_add(xn_t3367);
+                xn_root_add(xn_t3367);
                 xn_root_release(lab);
                 rt_release(lab);
-                lab = xn_t3313;
+                lab = xn_t3367;
                 xn_root_hold(lab);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3311);
+                    xn_root_restore(xn_t3365);
                     }
 
             }
-        #line 1624 "impl/lib/b2/xparser.x"
+        #line 1659 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3314 = xn_root_mark();
-                #line 1624 "impl/lib/b2/xparser.x"
+                size_t xn_t3368 = xn_root_mark();
+                #line 1659 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3314);
+                    xn_root_restore(xn_t3368);
                     }
 
             }
-        #line 1625 "impl/lib/b2/xparser.x"
+        #line 1660 "impl/lib/b2/xparser.x"
         rt_string *type = rt_string_from_c("BreakStmt");
 xn_root_add(type);
         xn_root_add(type);
         xn_root_add(type);
         xn_gc_safepoint();
-        #line 1626 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3316 = rt_retain(kw);
-xn_root_add(xn_t3316);
-        xn_root_add(xn_t3316);
-        rt_string *xn_t3317 = rt_string_from_c("continue");
-xn_root_add(xn_t3317);
-        xn_root_add(xn_t3317);
-            if ((xn_str_eq(xn_t3316, xn_t3317))) {
-                size_t xn_t3318 = xn_root_mark();
-                #line 1626 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3319 = rt_string_from_c("ContinueStmt");
-xn_root_add(xn_t3319);
-        xn_root_add(xn_t3319);
-                xn_root_add(xn_t3319);
+        #line 1661 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3370 = rt_retain(kw);
+xn_root_add(xn_t3370);
+        xn_root_add(xn_t3370);
+        rt_string *xn_t3371 = rt_string_from_c("continue");
+xn_root_add(xn_t3371);
+        xn_root_add(xn_t3371);
+            if ((xn_str_eq(xn_t3370, xn_t3371))) {
+                size_t xn_t3372 = xn_root_mark();
+                #line 1661 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3373 = rt_string_from_c("ContinueStmt");
+xn_root_add(xn_t3373);
+        xn_root_add(xn_t3373);
+                xn_root_add(xn_t3373);
                 xn_root_release(type);
                 rt_release(type);
-                type = xn_t3319;
+                type = xn_t3373;
                 xn_root_hold(type);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3318);
+                    xn_root_restore(xn_t3372);
                     }
 
             }
-        #line 1627 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3320 = rt_retain(kw);
-xn_root_add(xn_t3320);
-        xn_root_add(xn_t3320);
-        rt_string *xn_t3321 = rt_string_from_c("goto");
-xn_root_add(xn_t3321);
-        xn_root_add(xn_t3321);
-            if ((xn_str_eq(xn_t3320, xn_t3321))) {
-                size_t xn_t3322 = xn_root_mark();
-                #line 1627 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3323 = rt_string_from_c("GotoStmt");
-xn_root_add(xn_t3323);
-        xn_root_add(xn_t3323);
-                xn_root_add(xn_t3323);
+        #line 1662 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3374 = rt_retain(kw);
+xn_root_add(xn_t3374);
+        xn_root_add(xn_t3374);
+        rt_string *xn_t3375 = rt_string_from_c("goto");
+xn_root_add(xn_t3375);
+        xn_root_add(xn_t3375);
+            if ((xn_str_eq(xn_t3374, xn_t3375))) {
+                size_t xn_t3376 = xn_root_mark();
+                #line 1662 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3377 = rt_string_from_c("GotoStmt");
+xn_root_add(xn_t3377);
+        xn_root_add(xn_t3377);
+                xn_root_add(xn_t3377);
                 xn_root_release(type);
                 rt_release(type);
-                type = xn_t3323;
+                type = xn_t3377;
                 xn_root_hold(type);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3322);
+                    xn_root_restore(xn_t3376);
                     }
 
             }
-        #line 1628 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3324 = rt_string_from_c("(");
-xn_root_add(xn_t3324);
-        xn_root_add(xn_t3324);
-        xn_root_add(xn_t3324);
-        rt_string *xn_t3325 = rt_retain(type);
-xn_root_add(xn_t3325);
-        xn_root_add(xn_t3325);
-        xn_root_add(xn_t3325);
-        rt_string *xn_t3326 = xn_concat(xn_t3324, xn_t3325);
-xn_root_add(xn_t3326);
-        xn_root_add(xn_t3326);
-        xn_root_add(xn_t3326);
-        rt_string *xn_t3327 = rt_string_from_c(" ");
-xn_root_add(xn_t3327);
-        xn_root_add(xn_t3327);
-        xn_root_add(xn_t3327);
-        rt_string *xn_t3328 = xn_concat(xn_t3326, xn_t3327);
-xn_root_add(xn_t3328);
-        xn_root_add(xn_t3328);
-        xn_root_add(xn_t3328);
-        rt_string *xn_t3329 = xn_P(t->line, t->col);
-xn_root_add(xn_t3329);
-        xn_root_add(xn_t3329);
-        xn_root_add(xn_t3329);
-        rt_string *xn_t3330 = xn_concat(xn_t3328, xn_t3329);
-xn_root_add(xn_t3330);
-        xn_root_add(xn_t3330);
-        xn_root_add(xn_t3330);
-        rt_string *xn_t3331 = rt_string_from_c(" (Label ");
-xn_root_add(xn_t3331);
-        xn_root_add(xn_t3331);
-        xn_root_add(xn_t3331);
-        rt_string *xn_t3332 = xn_concat(xn_t3330, xn_t3331);
-xn_root_add(xn_t3332);
-        xn_root_add(xn_t3332);
-        xn_root_add(xn_t3332);
-        rt_string *xn_t3333 = rt_retain(lab);
-xn_root_add(xn_t3333);
-        xn_root_add(xn_t3333);
-        xn_root_add(xn_t3333);
-        rt_string *xn_t3334 = xn_q(xn_t3333);
-xn_root_add(xn_t3334);
-        xn_root_add(xn_t3334);
-        xn_root_add(xn_t3334);
-        rt_string *xn_t3335 = xn_concat(xn_t3332, xn_t3334);
-xn_root_add(xn_t3335);
-        xn_root_add(xn_t3335);
-        xn_root_add(xn_t3335);
-        rt_string *xn_t3336 = rt_string_from_c("))");
-xn_root_add(xn_t3336);
-        xn_root_add(xn_t3336);
-        xn_root_add(xn_t3336);
-        rt_string *xn_t3337 = xn_concat(xn_t3335, xn_t3336);
-xn_root_add(xn_t3337);
-        xn_root_add(xn_t3337);
-        xn_root_add(xn_t3337);
+        #line 1663 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3378 = rt_string_from_c("(");
+xn_root_add(xn_t3378);
+        xn_root_add(xn_t3378);
+        xn_root_add(xn_t3378);
+        rt_string *xn_t3379 = rt_retain(type);
+xn_root_add(xn_t3379);
+        xn_root_add(xn_t3379);
+        xn_root_add(xn_t3379);
+        rt_string *xn_t3380 = xn_concat(xn_t3378, xn_t3379);
+xn_root_add(xn_t3380);
+        xn_root_add(xn_t3380);
+        xn_root_add(xn_t3380);
+        rt_string *xn_t3381 = rt_string_from_c(" ");
+xn_root_add(xn_t3381);
+        xn_root_add(xn_t3381);
+        xn_root_add(xn_t3381);
+        rt_string *xn_t3382 = xn_concat(xn_t3380, xn_t3381);
+xn_root_add(xn_t3382);
+        xn_root_add(xn_t3382);
+        xn_root_add(xn_t3382);
+        rt_string *xn_t3383 = xn_P(t->line, t->col);
+xn_root_add(xn_t3383);
+        xn_root_add(xn_t3383);
+        xn_root_add(xn_t3383);
+        rt_string *xn_t3384 = xn_concat(xn_t3382, xn_t3383);
+xn_root_add(xn_t3384);
+        xn_root_add(xn_t3384);
+        xn_root_add(xn_t3384);
+        rt_string *xn_t3385 = rt_string_from_c(" (Label ");
+xn_root_add(xn_t3385);
+        xn_root_add(xn_t3385);
+        xn_root_add(xn_t3385);
+        rt_string *xn_t3386 = xn_concat(xn_t3384, xn_t3385);
+xn_root_add(xn_t3386);
+        xn_root_add(xn_t3386);
+        xn_root_add(xn_t3386);
+        rt_string *xn_t3387 = rt_retain(lab);
+xn_root_add(xn_t3387);
+        xn_root_add(xn_t3387);
+        xn_root_add(xn_t3387);
+        rt_string *xn_t3388 = xn_q(xn_t3387);
+xn_root_add(xn_t3388);
+        xn_root_add(xn_t3388);
+        xn_root_add(xn_t3388);
+        rt_string *xn_t3389 = xn_concat(xn_t3386, xn_t3388);
+xn_root_add(xn_t3389);
+        xn_root_add(xn_t3389);
+        xn_root_add(xn_t3389);
+        rt_string *xn_t3390 = rt_string_from_c("))");
+xn_root_add(xn_t3390);
+        xn_root_add(xn_t3390);
+        xn_root_add(xn_t3390);
+        rt_string *xn_t3391 = xn_concat(xn_t3389, xn_t3390);
+xn_root_add(xn_t3391);
+        xn_root_add(xn_t3391);
+        xn_root_add(xn_t3391);
             {
         rt_release(type);
             }
@@ -20079,345 +20437,154 @@ xn_root_add(xn_t3337);
         rt_release(kw);
             }
             {
-        xn_root_restore(xn_t3307);
+        xn_root_restore(xn_t3361);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3337;
+        return xn_t3391;
         xn_root_release(lab);
         xn_root_release(type);
 
     }
-#line 1630 "impl/lib/b2/xparser.x"
+#line 1665 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t3338 = xn_root_mark();
-        #line 1630 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3339 = xn_Cls_Parser_parseBlock(self);
-xn_root_add(xn_t3339);
-        xn_root_add(xn_t3339);
-        xn_root_add(xn_t3339);
+        size_t xn_t3392 = xn_root_mark();
+        #line 1665 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3393 = xn_Cls_Parser_parseBlock(self);
+xn_root_add(xn_t3393);
+        xn_root_add(xn_t3393);
+        xn_root_add(xn_t3393);
             {
-        xn_root_restore(xn_t3338);
+        xn_root_restore(xn_t3392);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3339;
+        return xn_t3393;
 
     }
-#line 1631 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t3340 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3340);
-xn_Cls_Tok * xn_t3341 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
-xn_root_add(xn_t3341);
-rt_string *xn_t3342 = rt_retain(xn_t3341->text);
-xn_root_add(xn_t3342);
-rt_string *xn_t3343 = rt_string_from_c(":");
-xn_root_add(xn_t3343);
-    if ((((xn_Cls_Parser_at(self, 2)) && ((xn_t3340->kind == 9))) && (xn_str_eq(xn_t3342, xn_t3343)))) {
-        size_t xn_t3344 = xn_root_mark();
-        #line 1632 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3345 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3345);
-        xn_root_add(xn_t3345);
-        rt_string *lab = rt_retain(xn_t3345->text);
+#line 1666 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3394 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
+xn_root_add(xn_t3394);
+xn_Cls_Tok * xn_t3395 = xn_arr_o_Tok_get(self->toks, (self->i + 1));
+xn_root_add(xn_t3395);
+rt_string *xn_t3396 = rt_retain(xn_t3395->text);
+xn_root_add(xn_t3396);
+rt_string *xn_t3397 = rt_string_from_c(":");
+xn_root_add(xn_t3397);
+    if ((((xn_Cls_Parser_at(self, 2)) && ((xn_t3394->kind == 9))) && (xn_str_eq(xn_t3396, xn_t3397)))) {
+        size_t xn_t3398 = xn_root_mark();
+        #line 1667 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3399 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3399);
+        xn_root_add(xn_t3399);
+        rt_string *lab = rt_retain(xn_t3399->text);
 xn_root_add(lab);
         xn_root_add(lab);
         xn_root_add(lab);
         xn_gc_safepoint();
-        #line 1633 "impl/lib/b2/xparser.x"
+        #line 1668 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1634 "impl/lib/b2/xparser.x"
+        #line 1669 "impl/lib/b2/xparser.x"
         rt_string *st = rt_string_from_c("");
 xn_root_add(st);
         xn_root_add(st);
         xn_root_add(st);
         xn_gc_safepoint();
-        #line 1635 "impl/lib/b2/xparser.x"
+        #line 1670 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3348 = xn_root_mark();
-                #line 1635 "impl/lib/b2/xparser.x"
+                size_t xn_t3402 = xn_root_mark();
+                #line 1670 "impl/lib/b2/xparser.x"
                 xn_Cls_Tok * s = xn_Cls_Parser_next(self);
 xn_root_add(s);
         xn_root_add(s);
                 xn_root_add(s);
                 xn_root_add(s);
                 xn_gc_safepoint();
-                #line 1635 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3349 = rt_string_from_c("(EmptyStmt ");
-xn_root_add(xn_t3349);
-        xn_root_add(xn_t3349);
-                xn_root_add(xn_t3349);
-                rt_string *xn_t3350 = xn_P(s->line, s->col);
-xn_root_add(xn_t3350);
-        xn_root_add(xn_t3350);
-                xn_root_add(xn_t3350);
-                rt_string *xn_t3351 = xn_concat(xn_t3349, xn_t3350);
-xn_root_add(xn_t3351);
-        xn_root_add(xn_t3351);
-                xn_root_add(xn_t3351);
-                rt_string *xn_t3352 = rt_string_from_c(")");
-xn_root_add(xn_t3352);
-        xn_root_add(xn_t3352);
-                xn_root_add(xn_t3352);
-                rt_string *xn_t3353 = xn_concat(xn_t3351, xn_t3352);
-xn_root_add(xn_t3353);
-        xn_root_add(xn_t3353);
-                xn_root_add(xn_t3353);
+                #line 1670 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3403 = rt_string_from_c("(EmptyStmt ");
+xn_root_add(xn_t3403);
+        xn_root_add(xn_t3403);
+                xn_root_add(xn_t3403);
+                rt_string *xn_t3404 = xn_P(s->line, s->col);
+xn_root_add(xn_t3404);
+        xn_root_add(xn_t3404);
+                xn_root_add(xn_t3404);
+                rt_string *xn_t3405 = xn_concat(xn_t3403, xn_t3404);
+xn_root_add(xn_t3405);
+        xn_root_add(xn_t3405);
+                xn_root_add(xn_t3405);
+                rt_string *xn_t3406 = rt_string_from_c(")");
+xn_root_add(xn_t3406);
+        xn_root_add(xn_t3406);
+                xn_root_add(xn_t3406);
+                rt_string *xn_t3407 = xn_concat(xn_t3405, xn_t3406);
+xn_root_add(xn_t3407);
+        xn_root_add(xn_t3407);
+                xn_root_add(xn_t3407);
                 xn_root_release(st);
                 rt_release(st);
-                st = xn_t3353;
+                st = xn_t3407;
                 xn_root_hold(st);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3348);
+                    xn_root_restore(xn_t3402);
                     }
 
             } else {
-                size_t xn_t3354 = xn_root_mark();
-                #line 1636 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3355 = xn_Cls_Parser_parseStmt(self);
-xn_root_add(xn_t3355);
-        xn_root_add(xn_t3355);
-                xn_root_add(xn_t3355);
+                size_t xn_t3408 = xn_root_mark();
+                #line 1671 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3409 = xn_Cls_Parser_parseStmt(self);
+xn_root_add(xn_t3409);
+        xn_root_add(xn_t3409);
+                xn_root_add(xn_t3409);
                 xn_root_release(st);
                 rt_release(st);
-                st = xn_t3355;
+                st = xn_t3409;
                 xn_root_hold(st);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3354);
+                    xn_root_restore(xn_t3408);
                     }
 
             }
-        #line 1637 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3356 = rt_string_from_c("(LabeledStmt ");
-xn_root_add(xn_t3356);
-        xn_root_add(xn_t3356);
-        xn_root_add(xn_t3356);
-        rt_string *xn_t3357 = xn_P(t->line, t->col);
-xn_root_add(xn_t3357);
-        xn_root_add(xn_t3357);
-        xn_root_add(xn_t3357);
-        rt_string *xn_t3358 = xn_concat(xn_t3356, xn_t3357);
-xn_root_add(xn_t3358);
-        xn_root_add(xn_t3358);
-        xn_root_add(xn_t3358);
-        rt_string *xn_t3359 = rt_string_from_c(" (Label ");
-xn_root_add(xn_t3359);
-        xn_root_add(xn_t3359);
-        xn_root_add(xn_t3359);
-        rt_string *xn_t3360 = xn_concat(xn_t3358, xn_t3359);
-xn_root_add(xn_t3360);
-        xn_root_add(xn_t3360);
-        xn_root_add(xn_t3360);
-        rt_string *xn_t3361 = rt_retain(lab);
-xn_root_add(xn_t3361);
-        xn_root_add(xn_t3361);
-        xn_root_add(xn_t3361);
-        rt_string *xn_t3362 = xn_q(xn_t3361);
-xn_root_add(xn_t3362);
-        xn_root_add(xn_t3362);
-        xn_root_add(xn_t3362);
-        rt_string *xn_t3363 = xn_concat(xn_t3360, xn_t3362);
-xn_root_add(xn_t3363);
-        xn_root_add(xn_t3363);
-        xn_root_add(xn_t3363);
-        rt_string *xn_t3364 = rt_string_from_c(") (Stmt ");
-xn_root_add(xn_t3364);
-        xn_root_add(xn_t3364);
-        xn_root_add(xn_t3364);
-        rt_string *xn_t3365 = xn_concat(xn_t3363, xn_t3364);
-xn_root_add(xn_t3365);
-        xn_root_add(xn_t3365);
-        xn_root_add(xn_t3365);
-        rt_string *xn_t3366 = rt_retain(st);
-xn_root_add(xn_t3366);
-        xn_root_add(xn_t3366);
-        xn_root_add(xn_t3366);
-        rt_string *xn_t3367 = xn_concat(xn_t3365, xn_t3366);
-xn_root_add(xn_t3367);
-        xn_root_add(xn_t3367);
-        xn_root_add(xn_t3367);
-        rt_string *xn_t3368 = rt_string_from_c("))");
-xn_root_add(xn_t3368);
-        xn_root_add(xn_t3368);
-        xn_root_add(xn_t3368);
-        rt_string *xn_t3369 = xn_concat(xn_t3367, xn_t3368);
-xn_root_add(xn_t3369);
-        xn_root_add(xn_t3369);
-        xn_root_add(xn_t3369);
-            {
-        rt_release(st);
-            }
-            {
-        rt_release(lab);
-            }
-            {
-        xn_root_restore(xn_t3344);
-            }
-            {
-        xn_root_restore(xn_t3248);
-            }
-
-        return xn_t3369;
-        xn_root_release(st);
-
-    }
-#line 1639 "impl/lib/b2/xparser.x"
-rt_string *xn_t3370 = rt_string_from_c("var");
-xn_root_add(xn_t3370);
-    if (((xn_Cls_Parser_isTypeStart(self)) || (xn_Cls_Parser_atKw(self, xn_t3370)))) {
-        size_t xn_t3371 = xn_root_mark();
-        #line 1640 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3372 = xn_Cls_Parser_parseLocal(self);
-xn_root_add(xn_t3372);
-        xn_root_add(xn_t3372);
-        xn_root_add(xn_t3372);
-            {
-        xn_root_restore(xn_t3371);
-            }
-            {
-        xn_root_restore(xn_t3248);
-            }
-
-        return xn_t3372;
-
-    }
-#line 1642 "impl/lib/b2/xparser.x"
-xn_Cls_E * e = xn_Cls_Parser_parseExpr(self);
-xn_root_add(e);
-xn_root_add(e);
-xn_gc_safepoint();
-#line 1643 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t3373 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3373);
-xn_Cls_Tok * xn_t3374 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3374);
-rt_string *xn_t3375 = rt_retain(xn_t3374->text);
-xn_root_add(xn_t3375);
-rt_string *xn_t3376 = rt_string_from_c("=");
-xn_root_add(xn_t3376);
-xn_Cls_Tok * xn_t3377 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3377);
-rt_string *xn_t3378 = rt_retain(xn_t3377->text);
-xn_root_add(xn_t3378);
-rt_string *xn_t3379 = rt_string_from_c("+=");
-xn_root_add(xn_t3379);
-xn_Cls_Tok * xn_t3380 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3380);
-rt_string *xn_t3381 = rt_retain(xn_t3380->text);
-xn_root_add(xn_t3381);
-rt_string *xn_t3382 = rt_string_from_c("-=");
-xn_root_add(xn_t3382);
-xn_Cls_Tok * xn_t3383 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3383);
-rt_string *xn_t3384 = rt_retain(xn_t3383->text);
-xn_root_add(xn_t3384);
-rt_string *xn_t3385 = rt_string_from_c("*=");
-xn_root_add(xn_t3385);
-xn_Cls_Tok * xn_t3386 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3386);
-rt_string *xn_t3387 = rt_retain(xn_t3386->text);
-xn_root_add(xn_t3387);
-rt_string *xn_t3388 = rt_string_from_c("/=");
-xn_root_add(xn_t3388);
-xn_Cls_Tok * xn_t3389 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3389);
-rt_string *xn_t3390 = rt_retain(xn_t3389->text);
-xn_root_add(xn_t3390);
-rt_string *xn_t3391 = rt_string_from_c("%=");
-xn_root_add(xn_t3391);
-xn_Cls_Tok * xn_t3392 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3392);
-rt_string *xn_t3393 = rt_retain(xn_t3392->text);
-xn_root_add(xn_t3393);
-rt_string *xn_t3394 = rt_string_from_c("&=");
-xn_root_add(xn_t3394);
-xn_Cls_Tok * xn_t3395 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3395);
-rt_string *xn_t3396 = rt_retain(xn_t3395->text);
-xn_root_add(xn_t3396);
-rt_string *xn_t3397 = rt_string_from_c("|=");
-xn_root_add(xn_t3397);
-xn_Cls_Tok * xn_t3398 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3398);
-rt_string *xn_t3399 = rt_retain(xn_t3398->text);
-xn_root_add(xn_t3399);
-rt_string *xn_t3400 = rt_string_from_c("^=");
-xn_root_add(xn_t3400);
-xn_Cls_Tok * xn_t3401 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3401);
-rt_string *xn_t3402 = rt_retain(xn_t3401->text);
-xn_root_add(xn_t3402);
-rt_string *xn_t3403 = rt_string_from_c("<<=");
-xn_root_add(xn_t3403);
-xn_Cls_Tok * xn_t3404 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3404);
-rt_string *xn_t3405 = rt_retain(xn_t3404->text);
-xn_root_add(xn_t3405);
-rt_string *xn_t3406 = rt_string_from_c(">>=");
-xn_root_add(xn_t3406);
-    if ((((xn_t3373->kind == 9)) && (((((((((((xn_str_eq(xn_t3375, xn_t3376) || xn_str_eq(xn_t3378, xn_t3379)) || xn_str_eq(xn_t3381, xn_t3382)) || xn_str_eq(xn_t3384, xn_t3385)) || xn_str_eq(xn_t3387, xn_t3388)) || xn_str_eq(xn_t3390, xn_t3391)) || xn_str_eq(xn_t3393, xn_t3394)) || xn_str_eq(xn_t3396, xn_t3397)) || xn_str_eq(xn_t3399, xn_t3400)) || xn_str_eq(xn_t3402, xn_t3403)) || xn_str_eq(xn_t3405, xn_t3406))))) {
-        size_t xn_t3407 = xn_root_mark();
-        #line 1646 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3408 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3408);
-        xn_root_add(xn_t3408);
-        rt_string *op = rt_retain(xn_t3408->text);
-xn_root_add(op);
-        xn_root_add(op);
-        xn_root_add(op);
-        xn_gc_safepoint();
-        #line 1647 "impl/lib/b2/xparser.x"
-        xn_Cls_E * v = xn_Cls_Parser_parseExpr(self);
-xn_root_add(v);
-        xn_root_add(v);
-        xn_root_add(v);
-        xn_gc_safepoint();
-        #line 1648 "impl/lib/b2/xparser.x"
-            if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3410 = xn_root_mark();
-                #line 1648 "impl/lib/b2/xparser.x"
-                xn_Cls_Parser_next(self);
-                    {
-                    xn_root_restore(xn_t3410);
-                    }
-
-            }
-        #line 1649 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3411 = rt_string_from_c("(AssignStmt ");
+        #line 1672 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3410 = rt_string_from_c("(LabeledStmt ");
+xn_root_add(xn_t3410);
+        xn_root_add(xn_t3410);
+        xn_root_add(xn_t3410);
+        rt_string *xn_t3411 = xn_P(t->line, t->col);
 xn_root_add(xn_t3411);
         xn_root_add(xn_t3411);
         xn_root_add(xn_t3411);
-        rt_string *xn_t3412 = xn_P(e->l, e->c);
+        rt_string *xn_t3412 = xn_concat(xn_t3410, xn_t3411);
 xn_root_add(xn_t3412);
         xn_root_add(xn_t3412);
         xn_root_add(xn_t3412);
-        rt_string *xn_t3413 = xn_concat(xn_t3411, xn_t3412);
+        rt_string *xn_t3413 = rt_string_from_c(" (Label ");
 xn_root_add(xn_t3413);
         xn_root_add(xn_t3413);
         xn_root_add(xn_t3413);
-        rt_string *xn_t3414 = rt_string_from_c(" (Target ");
+        rt_string *xn_t3414 = xn_concat(xn_t3412, xn_t3413);
 xn_root_add(xn_t3414);
         xn_root_add(xn_t3414);
         xn_root_add(xn_t3414);
-        rt_string *xn_t3415 = xn_concat(xn_t3413, xn_t3414);
+        rt_string *xn_t3415 = rt_retain(lab);
 xn_root_add(xn_t3415);
         xn_root_add(xn_t3415);
         xn_root_add(xn_t3415);
-        rt_string *xn_t3416 = rt_retain(e->d);
+        rt_string *xn_t3416 = xn_q(xn_t3415);
 xn_root_add(xn_t3416);
         xn_root_add(xn_t3416);
         xn_root_add(xn_t3416);
-        rt_string *xn_t3417 = xn_concat(xn_t3415, xn_t3416);
+        rt_string *xn_t3417 = xn_concat(xn_t3414, xn_t3416);
 xn_root_add(xn_t3417);
         xn_root_add(xn_t3417);
         xn_root_add(xn_t3417);
-        rt_string *xn_t3418 = rt_string_from_c(") (Op ");
+        rt_string *xn_t3418 = rt_string_from_c(") (Stmt ");
 xn_root_add(xn_t3418);
         xn_root_add(xn_t3418);
         xn_root_add(xn_t3418);
@@ -20425,443 +20592,634 @@ xn_root_add(xn_t3418);
 xn_root_add(xn_t3419);
         xn_root_add(xn_t3419);
         xn_root_add(xn_t3419);
-        rt_string *xn_t3420 = rt_retain(op);
+        rt_string *xn_t3420 = rt_retain(st);
 xn_root_add(xn_t3420);
         xn_root_add(xn_t3420);
         xn_root_add(xn_t3420);
-        rt_string *xn_t3421 = xn_q(xn_t3420);
+        rt_string *xn_t3421 = xn_concat(xn_t3419, xn_t3420);
 xn_root_add(xn_t3421);
         xn_root_add(xn_t3421);
         xn_root_add(xn_t3421);
-        rt_string *xn_t3422 = xn_concat(xn_t3419, xn_t3421);
+        rt_string *xn_t3422 = rt_string_from_c("))");
 xn_root_add(xn_t3422);
         xn_root_add(xn_t3422);
         xn_root_add(xn_t3422);
-        rt_string *xn_t3423 = rt_string_from_c(") (Value ");
+        rt_string *xn_t3423 = xn_concat(xn_t3421, xn_t3422);
 xn_root_add(xn_t3423);
         xn_root_add(xn_t3423);
         xn_root_add(xn_t3423);
-        rt_string *xn_t3424 = xn_concat(xn_t3422, xn_t3423);
+            {
+        rt_release(st);
+            }
+            {
+        rt_release(lab);
+            }
+            {
+        xn_root_restore(xn_t3398);
+            }
+            {
+        xn_root_restore(xn_t3302);
+            }
+
+        return xn_t3423;
+        xn_root_release(st);
+
+    }
+#line 1674 "impl/lib/b2/xparser.x"
+rt_string *xn_t3424 = rt_string_from_c("var");
 xn_root_add(xn_t3424);
-        xn_root_add(xn_t3424);
-        xn_root_add(xn_t3424);
-        rt_string *xn_t3425 = rt_retain(v->d);
-xn_root_add(xn_t3425);
-        xn_root_add(xn_t3425);
-        xn_root_add(xn_t3425);
-        rt_string *xn_t3426 = xn_concat(xn_t3424, xn_t3425);
+    if (((xn_Cls_Parser_isTypeStart(self)) || (xn_Cls_Parser_atKw(self, xn_t3424)))) {
+        size_t xn_t3425 = xn_root_mark();
+        #line 1675 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3426 = xn_Cls_Parser_parseLocal(self);
 xn_root_add(xn_t3426);
         xn_root_add(xn_t3426);
         xn_root_add(xn_t3426);
-        rt_string *xn_t3427 = rt_string_from_c("))");
-xn_root_add(xn_t3427);
-        xn_root_add(xn_t3427);
-        xn_root_add(xn_t3427);
-        rt_string *xn_t3428 = xn_concat(xn_t3426, xn_t3427);
-xn_root_add(xn_t3428);
-        xn_root_add(xn_t3428);
-        xn_root_add(xn_t3428);
             {
-        rt_release(op);
+        xn_root_restore(xn_t3425);
             }
             {
-        xn_root_restore(xn_t3407);
-            }
-            {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3428;
+        return xn_t3426;
 
     }
-#line 1651 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t3429 = xn_Cls_Parser_cur(self);
+#line 1677 "impl/lib/b2/xparser.x"
+xn_Cls_E * e = xn_Cls_Parser_parseExpr(self);
+xn_root_add(e);
+xn_root_add(e);
+xn_gc_safepoint();
+#line 1678 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3427 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3427);
+xn_Cls_Tok * xn_t3428 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3428);
+rt_string *xn_t3429 = rt_retain(xn_t3428->text);
 xn_root_add(xn_t3429);
-xn_Cls_Tok * xn_t3430 = xn_Cls_Parser_cur(self);
+rt_string *xn_t3430 = rt_string_from_c("=");
 xn_root_add(xn_t3430);
-rt_string *xn_t3431 = rt_retain(xn_t3430->text);
+xn_Cls_Tok * xn_t3431 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t3431);
-rt_string *xn_t3432 = rt_string_from_c("++");
+rt_string *xn_t3432 = rt_retain(xn_t3431->text);
 xn_root_add(xn_t3432);
-xn_Cls_Tok * xn_t3433 = xn_Cls_Parser_cur(self);
+rt_string *xn_t3433 = rt_string_from_c("+=");
 xn_root_add(xn_t3433);
-rt_string *xn_t3434 = rt_retain(xn_t3433->text);
+xn_Cls_Tok * xn_t3434 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t3434);
-rt_string *xn_t3435 = rt_string_from_c("--");
+rt_string *xn_t3435 = rt_retain(xn_t3434->text);
 xn_root_add(xn_t3435);
-    if ((((xn_t3429->kind == 9)) && ((xn_str_eq(xn_t3431, xn_t3432) || xn_str_eq(xn_t3434, xn_t3435))))) {
-        size_t xn_t3436 = xn_root_mark();
-        #line 1652 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3437 = xn_Cls_Parser_next(self);
+rt_string *xn_t3436 = rt_string_from_c("-=");
+xn_root_add(xn_t3436);
+xn_Cls_Tok * xn_t3437 = xn_Cls_Parser_cur(self);
 xn_root_add(xn_t3437);
-        xn_root_add(xn_t3437);
-        rt_string *op = rt_retain(xn_t3437->text);
+rt_string *xn_t3438 = rt_retain(xn_t3437->text);
+xn_root_add(xn_t3438);
+rt_string *xn_t3439 = rt_string_from_c("*=");
+xn_root_add(xn_t3439);
+xn_Cls_Tok * xn_t3440 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3440);
+rt_string *xn_t3441 = rt_retain(xn_t3440->text);
+xn_root_add(xn_t3441);
+rt_string *xn_t3442 = rt_string_from_c("/=");
+xn_root_add(xn_t3442);
+xn_Cls_Tok * xn_t3443 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3443);
+rt_string *xn_t3444 = rt_retain(xn_t3443->text);
+xn_root_add(xn_t3444);
+rt_string *xn_t3445 = rt_string_from_c("%=");
+xn_root_add(xn_t3445);
+xn_Cls_Tok * xn_t3446 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3446);
+rt_string *xn_t3447 = rt_retain(xn_t3446->text);
+xn_root_add(xn_t3447);
+rt_string *xn_t3448 = rt_string_from_c("&=");
+xn_root_add(xn_t3448);
+xn_Cls_Tok * xn_t3449 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3449);
+rt_string *xn_t3450 = rt_retain(xn_t3449->text);
+xn_root_add(xn_t3450);
+rt_string *xn_t3451 = rt_string_from_c("|=");
+xn_root_add(xn_t3451);
+xn_Cls_Tok * xn_t3452 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3452);
+rt_string *xn_t3453 = rt_retain(xn_t3452->text);
+xn_root_add(xn_t3453);
+rt_string *xn_t3454 = rt_string_from_c("^=");
+xn_root_add(xn_t3454);
+xn_Cls_Tok * xn_t3455 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3455);
+rt_string *xn_t3456 = rt_retain(xn_t3455->text);
+xn_root_add(xn_t3456);
+rt_string *xn_t3457 = rt_string_from_c("<<=");
+xn_root_add(xn_t3457);
+xn_Cls_Tok * xn_t3458 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3458);
+rt_string *xn_t3459 = rt_retain(xn_t3458->text);
+xn_root_add(xn_t3459);
+rt_string *xn_t3460 = rt_string_from_c(">>=");
+xn_root_add(xn_t3460);
+    if ((((xn_t3427->kind == 9)) && (((((((((((xn_str_eq(xn_t3429, xn_t3430) || xn_str_eq(xn_t3432, xn_t3433)) || xn_str_eq(xn_t3435, xn_t3436)) || xn_str_eq(xn_t3438, xn_t3439)) || xn_str_eq(xn_t3441, xn_t3442)) || xn_str_eq(xn_t3444, xn_t3445)) || xn_str_eq(xn_t3447, xn_t3448)) || xn_str_eq(xn_t3450, xn_t3451)) || xn_str_eq(xn_t3453, xn_t3454)) || xn_str_eq(xn_t3456, xn_t3457)) || xn_str_eq(xn_t3459, xn_t3460))))) {
+        size_t xn_t3461 = xn_root_mark();
+        #line 1681 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3462 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3462);
+        xn_root_add(xn_t3462);
+        rt_string *op = rt_retain(xn_t3462->text);
 xn_root_add(op);
         xn_root_add(op);
         xn_root_add(op);
         xn_gc_safepoint();
-        #line 1653 "impl/lib/b2/xparser.x"
+        #line 1682 "impl/lib/b2/xparser.x"
+        xn_Cls_E * v = xn_Cls_Parser_parseExpr(self);
+xn_root_add(v);
+        xn_root_add(v);
+        xn_root_add(v);
+        xn_gc_safepoint();
+        #line 1683 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 1))) {
-                size_t xn_t3439 = xn_root_mark();
-                #line 1653 "impl/lib/b2/xparser.x"
+                size_t xn_t3464 = xn_root_mark();
+                #line 1683 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3439);
+                    xn_root_restore(xn_t3464);
                     }
 
             }
-        #line 1654 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3440 = rt_string_from_c("(IncDecStmt ");
-xn_root_add(xn_t3440);
-        xn_root_add(xn_t3440);
-        xn_root_add(xn_t3440);
-        rt_string *xn_t3441 = xn_P(e->l, e->c);
-xn_root_add(xn_t3441);
-        xn_root_add(xn_t3441);
-        xn_root_add(xn_t3441);
-        rt_string *xn_t3442 = xn_concat(xn_t3440, xn_t3441);
-xn_root_add(xn_t3442);
-        xn_root_add(xn_t3442);
-        xn_root_add(xn_t3442);
-        rt_string *xn_t3443 = rt_string_from_c(" (Target ");
-xn_root_add(xn_t3443);
-        xn_root_add(xn_t3443);
-        xn_root_add(xn_t3443);
-        rt_string *xn_t3444 = xn_concat(xn_t3442, xn_t3443);
-xn_root_add(xn_t3444);
-        xn_root_add(xn_t3444);
-        xn_root_add(xn_t3444);
-        rt_string *xn_t3445 = rt_retain(e->d);
-xn_root_add(xn_t3445);
-        xn_root_add(xn_t3445);
-        xn_root_add(xn_t3445);
-        rt_string *xn_t3446 = xn_concat(xn_t3444, xn_t3445);
-xn_root_add(xn_t3446);
-        xn_root_add(xn_t3446);
-        xn_root_add(xn_t3446);
-        rt_string *xn_t3447 = rt_string_from_c(") (Op ");
-xn_root_add(xn_t3447);
-        xn_root_add(xn_t3447);
-        xn_root_add(xn_t3447);
-        rt_string *xn_t3448 = xn_concat(xn_t3446, xn_t3447);
-xn_root_add(xn_t3448);
-        xn_root_add(xn_t3448);
-        xn_root_add(xn_t3448);
-        rt_string *xn_t3449 = rt_retain(op);
-xn_root_add(xn_t3449);
-        xn_root_add(xn_t3449);
-        xn_root_add(xn_t3449);
-        rt_string *xn_t3450 = xn_q(xn_t3449);
-xn_root_add(xn_t3450);
-        xn_root_add(xn_t3450);
-        xn_root_add(xn_t3450);
-        rt_string *xn_t3451 = xn_concat(xn_t3448, xn_t3450);
-xn_root_add(xn_t3451);
-        xn_root_add(xn_t3451);
-        xn_root_add(xn_t3451);
-        rt_string *xn_t3452 = rt_string_from_c(") (Prefix false))");
-xn_root_add(xn_t3452);
-        xn_root_add(xn_t3452);
-        xn_root_add(xn_t3452);
-        rt_string *xn_t3453 = xn_concat(xn_t3451, xn_t3452);
-xn_root_add(xn_t3453);
-        xn_root_add(xn_t3453);
-        xn_root_add(xn_t3453);
+        #line 1684 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3465 = rt_string_from_c("(AssignStmt ");
+xn_root_add(xn_t3465);
+        xn_root_add(xn_t3465);
+        xn_root_add(xn_t3465);
+        rt_string *xn_t3466 = xn_P(e->l, e->c);
+xn_root_add(xn_t3466);
+        xn_root_add(xn_t3466);
+        xn_root_add(xn_t3466);
+        rt_string *xn_t3467 = xn_concat(xn_t3465, xn_t3466);
+xn_root_add(xn_t3467);
+        xn_root_add(xn_t3467);
+        xn_root_add(xn_t3467);
+        rt_string *xn_t3468 = rt_string_from_c(" (Target ");
+xn_root_add(xn_t3468);
+        xn_root_add(xn_t3468);
+        xn_root_add(xn_t3468);
+        rt_string *xn_t3469 = xn_concat(xn_t3467, xn_t3468);
+xn_root_add(xn_t3469);
+        xn_root_add(xn_t3469);
+        xn_root_add(xn_t3469);
+        rt_string *xn_t3470 = rt_retain(e->d);
+xn_root_add(xn_t3470);
+        xn_root_add(xn_t3470);
+        xn_root_add(xn_t3470);
+        rt_string *xn_t3471 = xn_concat(xn_t3469, xn_t3470);
+xn_root_add(xn_t3471);
+        xn_root_add(xn_t3471);
+        xn_root_add(xn_t3471);
+        rt_string *xn_t3472 = rt_string_from_c(") (Op ");
+xn_root_add(xn_t3472);
+        xn_root_add(xn_t3472);
+        xn_root_add(xn_t3472);
+        rt_string *xn_t3473 = xn_concat(xn_t3471, xn_t3472);
+xn_root_add(xn_t3473);
+        xn_root_add(xn_t3473);
+        xn_root_add(xn_t3473);
+        rt_string *xn_t3474 = rt_retain(op);
+xn_root_add(xn_t3474);
+        xn_root_add(xn_t3474);
+        xn_root_add(xn_t3474);
+        rt_string *xn_t3475 = xn_q(xn_t3474);
+xn_root_add(xn_t3475);
+        xn_root_add(xn_t3475);
+        xn_root_add(xn_t3475);
+        rt_string *xn_t3476 = xn_concat(xn_t3473, xn_t3475);
+xn_root_add(xn_t3476);
+        xn_root_add(xn_t3476);
+        xn_root_add(xn_t3476);
+        rt_string *xn_t3477 = rt_string_from_c(") (Value ");
+xn_root_add(xn_t3477);
+        xn_root_add(xn_t3477);
+        xn_root_add(xn_t3477);
+        rt_string *xn_t3478 = xn_concat(xn_t3476, xn_t3477);
+xn_root_add(xn_t3478);
+        xn_root_add(xn_t3478);
+        xn_root_add(xn_t3478);
+        rt_string *xn_t3479 = rt_retain(v->d);
+xn_root_add(xn_t3479);
+        xn_root_add(xn_t3479);
+        xn_root_add(xn_t3479);
+        rt_string *xn_t3480 = xn_concat(xn_t3478, xn_t3479);
+xn_root_add(xn_t3480);
+        xn_root_add(xn_t3480);
+        xn_root_add(xn_t3480);
+        rt_string *xn_t3481 = rt_string_from_c("))");
+xn_root_add(xn_t3481);
+        xn_root_add(xn_t3481);
+        xn_root_add(xn_t3481);
+        rt_string *xn_t3482 = xn_concat(xn_t3480, xn_t3481);
+xn_root_add(xn_t3482);
+        xn_root_add(xn_t3482);
+        xn_root_add(xn_t3482);
             {
         rt_release(op);
             }
             {
-        xn_root_restore(xn_t3436);
+        xn_root_restore(xn_t3461);
             }
             {
-        xn_root_restore(xn_t3248);
+        xn_root_restore(xn_t3302);
             }
 
-        return xn_t3453;
+        return xn_t3482;
 
     }
-#line 1656 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t3454 = xn_root_mark();
-        #line 1656 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3454);
-            }
-
-    }
-#line 1657 "impl/lib/b2/xparser.x"
-rt_string *xn_t3455 = rt_string_from_c("(ExprStmt ");
-xn_root_add(xn_t3455);
-xn_root_add(xn_t3455);
-rt_string *xn_t3456 = xn_P(e->sl, e->sc);
-xn_root_add(xn_t3456);
-xn_root_add(xn_t3456);
-rt_string *xn_t3457 = xn_concat(xn_t3455, xn_t3456);
-xn_root_add(xn_t3457);
-xn_root_add(xn_t3457);
-rt_string *xn_t3458 = rt_string_from_c(" (X ");
-xn_root_add(xn_t3458);
-xn_root_add(xn_t3458);
-rt_string *xn_t3459 = xn_concat(xn_t3457, xn_t3458);
-xn_root_add(xn_t3459);
-xn_root_add(xn_t3459);
-rt_string *xn_t3460 = rt_retain(e->d);
-xn_root_add(xn_t3460);
-xn_root_add(xn_t3460);
-rt_string *xn_t3461 = xn_concat(xn_t3459, xn_t3460);
-xn_root_add(xn_t3461);
-xn_root_add(xn_t3461);
-rt_string *xn_t3462 = rt_string_from_c("))");
-xn_root_add(xn_t3462);
-xn_root_add(xn_t3462);
-rt_string *xn_t3463 = xn_concat(xn_t3461, xn_t3462);
-xn_root_add(xn_t3463);
-xn_root_add(xn_t3463);
-    {
-xn_root_restore(xn_t3248);
-    }
-
-return xn_t3463;
-    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
-}
-
-static rt_string * xn_Cls_Parser_parseLocal(xn_Cls_Parser *self) {
-size_t xn_t3464 = xn_root_mark();
-xn_root_add(self);
-#line 1661 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
-xn_root_add(t);
-xn_root_add(t);
-xn_gc_safepoint();
-#line 1662 "impl/lib/b2/xparser.x"
-int fin = 0;
-#line 1663 "impl/lib/b2/xparser.x"
-int cons = 0;
-#line 1664 "impl/lib/b2/xparser.x"
-int vr = 0;
-#line 1665 "impl/lib/b2/xparser.x"
-rt_string *xn_t3465 = rt_string_from_c("final");
-xn_root_add(xn_t3465);
-    if ((xn_Cls_Parser_atKw(self, xn_t3465))) {
-        size_t xn_t3466 = xn_root_mark();
-        #line 1665 "impl/lib/b2/xparser.x"
-        fin = 1;
-        #line 1665 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3466);
-            }
-
-    } else {
-        rt_string *xn_t3468 = rt_string_from_c("const");
-xn_root_add(xn_t3468);
-        xn_root_add(xn_t3468);
-            if ((xn_Cls_Parser_atKw(self, xn_t3468))) {
-                size_t xn_t3469 = xn_root_mark();
-                #line 1666 "impl/lib/b2/xparser.x"
-                cons = 1;
-                #line 1666 "impl/lib/b2/xparser.x"
+#line 1686 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t3483 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3483);
+xn_Cls_Tok * xn_t3484 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3484);
+rt_string *xn_t3485 = rt_retain(xn_t3484->text);
+xn_root_add(xn_t3485);
+rt_string *xn_t3486 = rt_string_from_c("++");
+xn_root_add(xn_t3486);
+xn_Cls_Tok * xn_t3487 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3487);
+rt_string *xn_t3488 = rt_retain(xn_t3487->text);
+xn_root_add(xn_t3488);
+rt_string *xn_t3489 = rt_string_from_c("--");
+xn_root_add(xn_t3489);
+    if ((((xn_t3483->kind == 9)) && ((xn_str_eq(xn_t3485, xn_t3486) || xn_str_eq(xn_t3488, xn_t3489))))) {
+        size_t xn_t3490 = xn_root_mark();
+        #line 1687 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3491 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3491);
+        xn_root_add(xn_t3491);
+        rt_string *op = rt_retain(xn_t3491->text);
+xn_root_add(op);
+        xn_root_add(op);
+        xn_root_add(op);
+        xn_gc_safepoint();
+        #line 1688 "impl/lib/b2/xparser.x"
+            if ((xn_Cls_Parser_at(self, 1))) {
+                size_t xn_t3493 = xn_root_mark();
+                #line 1688 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3469);
+                    xn_root_restore(xn_t3493);
                     }
 
-            } else {
-                rt_string *xn_t3471 = rt_string_from_c("var");
-xn_root_add(xn_t3471);
-        xn_root_add(xn_t3471);
-                xn_root_add(xn_t3471);
-                    if ((xn_Cls_Parser_atKw(self, xn_t3471))) {
-                        size_t xn_t3472 = xn_root_mark();
-                        #line 1667 "impl/lib/b2/xparser.x"
-                        vr = 1;
-                        #line 1667 "impl/lib/b2/xparser.x"
-                        xn_Cls_Parser_next(self);
-                            {
-                            xn_root_restore(xn_t3472);
-                            }
-
-                    }
             }
-    }
-#line 1668 "impl/lib/b2/xparser.x"
-rt_string *ty = rt_string_from_c("(nil)");
-xn_root_add(ty);
-xn_root_add(ty);
-xn_gc_safepoint();
-#line 1669 "impl/lib/b2/xparser.x"
-    if (((!(vr)))) {
-        size_t xn_t3474 = xn_root_mark();
-        #line 1669 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3475 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t3475);
-        xn_root_add(xn_t3475);
-        xn_root_release(ty);
-        rt_release(ty);
-        ty = xn_t3475;
-        xn_root_hold(ty);
-        xn_gc_safepoint();
+        #line 1689 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3494 = rt_string_from_c("(IncDecStmt ");
+xn_root_add(xn_t3494);
+        xn_root_add(xn_t3494);
+        xn_root_add(xn_t3494);
+        rt_string *xn_t3495 = xn_P(e->l, e->c);
+xn_root_add(xn_t3495);
+        xn_root_add(xn_t3495);
+        xn_root_add(xn_t3495);
+        rt_string *xn_t3496 = xn_concat(xn_t3494, xn_t3495);
+xn_root_add(xn_t3496);
+        xn_root_add(xn_t3496);
+        xn_root_add(xn_t3496);
+        rt_string *xn_t3497 = rt_string_from_c(" (Target ");
+xn_root_add(xn_t3497);
+        xn_root_add(xn_t3497);
+        xn_root_add(xn_t3497);
+        rt_string *xn_t3498 = xn_concat(xn_t3496, xn_t3497);
+xn_root_add(xn_t3498);
+        xn_root_add(xn_t3498);
+        xn_root_add(xn_t3498);
+        rt_string *xn_t3499 = rt_retain(e->d);
+xn_root_add(xn_t3499);
+        xn_root_add(xn_t3499);
+        xn_root_add(xn_t3499);
+        rt_string *xn_t3500 = xn_concat(xn_t3498, xn_t3499);
+xn_root_add(xn_t3500);
+        xn_root_add(xn_t3500);
+        xn_root_add(xn_t3500);
+        rt_string *xn_t3501 = rt_string_from_c(") (Op ");
+xn_root_add(xn_t3501);
+        xn_root_add(xn_t3501);
+        xn_root_add(xn_t3501);
+        rt_string *xn_t3502 = xn_concat(xn_t3500, xn_t3501);
+xn_root_add(xn_t3502);
+        xn_root_add(xn_t3502);
+        xn_root_add(xn_t3502);
+        rt_string *xn_t3503 = rt_retain(op);
+xn_root_add(xn_t3503);
+        xn_root_add(xn_t3503);
+        xn_root_add(xn_t3503);
+        rt_string *xn_t3504 = xn_q(xn_t3503);
+xn_root_add(xn_t3504);
+        xn_root_add(xn_t3504);
+        xn_root_add(xn_t3504);
+        rt_string *xn_t3505 = xn_concat(xn_t3502, xn_t3504);
+xn_root_add(xn_t3505);
+        xn_root_add(xn_t3505);
+        xn_root_add(xn_t3505);
+        rt_string *xn_t3506 = rt_string_from_c(") (Prefix false))");
+xn_root_add(xn_t3506);
+        xn_root_add(xn_t3506);
+        xn_root_add(xn_t3506);
+        rt_string *xn_t3507 = xn_concat(xn_t3505, xn_t3506);
+xn_root_add(xn_t3507);
+        xn_root_add(xn_t3507);
+        xn_root_add(xn_t3507);
             {
-            xn_root_restore(xn_t3474);
+        rt_release(op);
             }
-
-    }
-#line 1670 "impl/lib/b2/xparser.x"
-rt_string *nm = rt_string_from_c("");
-xn_root_add(nm);
-xn_root_add(nm);
-xn_gc_safepoint();
-#line 1671 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t3477 = xn_root_mark();
-        #line 1671 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3478 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3478);
-        xn_root_add(xn_t3478);
-        rt_string *xn_t3479 = rt_retain(xn_t3478->text);
-xn_root_add(xn_t3479);
-        xn_root_add(xn_t3479);
-        xn_root_release(nm);
-        rt_release(nm);
-        nm = xn_t3479;
-        xn_root_hold(nm);
-        xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3477);
+        xn_root_restore(xn_t3490);
             }
-
-    }
-#line 1672 "impl/lib/b2/xparser.x"
-rt_string *init = rt_string_from_c("(nil)");
-xn_root_add(init);
-xn_root_add(init);
-xn_gc_safepoint();
-#line 1673 "impl/lib/b2/xparser.x"
-rt_string *xn_t3481 = rt_string_from_c("=");
-xn_root_add(xn_t3481);
-    if ((xn_Cls_Parser_atOp(self, xn_t3481))) {
-        size_t xn_t3482 = xn_root_mark();
-        #line 1673 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1673 "impl/lib/b2/xparser.x"
-        xn_Cls_E * xn_t3483 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t3483);
-        xn_root_add(xn_t3483);
-        rt_string *xn_t3484 = rt_retain(xn_t3483->d);
-xn_root_add(xn_t3484);
-        xn_root_add(xn_t3484);
-        xn_root_release(init);
-        rt_release(init);
-        init = xn_t3484;
-        xn_root_hold(init);
-        xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3482);
+        xn_root_restore(xn_t3302);
             }
 
+        return xn_t3507;
+
     }
-#line 1674 "impl/lib/b2/xparser.x"
+#line 1691 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t3485 = xn_root_mark();
-        #line 1674 "impl/lib/b2/xparser.x"
+        size_t xn_t3508 = xn_root_mark();
+        #line 1691 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t3485);
+            xn_root_restore(xn_t3508);
             }
 
     }
-#line 1675 "impl/lib/b2/xparser.x"
-rt_string *xn_t3486 = rt_string_from_c("(LocalDeclStmt ");
-xn_root_add(xn_t3486);
-xn_root_add(xn_t3486);
-rt_string *xn_t3487 = xn_P(t->line, t->col);
-xn_root_add(xn_t3487);
-xn_root_add(xn_t3487);
-rt_string *xn_t3488 = xn_concat(xn_t3486, xn_t3487);
-xn_root_add(xn_t3488);
-xn_root_add(xn_t3488);
-rt_string *xn_t3489 = rt_string_from_c(" (Final ");
-xn_root_add(xn_t3489);
-xn_root_add(xn_t3489);
-rt_string *xn_t3490 = xn_concat(xn_t3488, xn_t3489);
-xn_root_add(xn_t3490);
-xn_root_add(xn_t3490);
-rt_string *xn_t3491 = xn_B(fin);
-xn_root_add(xn_t3491);
-xn_root_add(xn_t3491);
-rt_string *xn_t3492 = xn_concat(xn_t3490, xn_t3491);
-xn_root_add(xn_t3492);
-xn_root_add(xn_t3492);
-rt_string *xn_t3493 = rt_string_from_c(") (Const ");
-xn_root_add(xn_t3493);
-xn_root_add(xn_t3493);
-rt_string *xn_t3494 = xn_concat(xn_t3492, xn_t3493);
-xn_root_add(xn_t3494);
-xn_root_add(xn_t3494);
-rt_string *xn_t3495 = xn_B(cons);
-xn_root_add(xn_t3495);
-xn_root_add(xn_t3495);
-rt_string *xn_t3496 = xn_concat(xn_t3494, xn_t3495);
-xn_root_add(xn_t3496);
-xn_root_add(xn_t3496);
-rt_string *xn_t3497 = rt_string_from_c(") (Var ");
-xn_root_add(xn_t3497);
-xn_root_add(xn_t3497);
-rt_string *xn_t3498 = xn_concat(xn_t3496, xn_t3497);
-xn_root_add(xn_t3498);
-xn_root_add(xn_t3498);
-rt_string *xn_t3499 = xn_B(vr);
-xn_root_add(xn_t3499);
-xn_root_add(xn_t3499);
-rt_string *xn_t3500 = xn_concat(xn_t3498, xn_t3499);
-xn_root_add(xn_t3500);
-xn_root_add(xn_t3500);
-rt_string *xn_t3501 = rt_string_from_c(") (Type ");
-xn_root_add(xn_t3501);
-xn_root_add(xn_t3501);
-rt_string *xn_t3502 = xn_concat(xn_t3500, xn_t3501);
-xn_root_add(xn_t3502);
-xn_root_add(xn_t3502);
-rt_string *xn_t3503 = rt_retain(ty);
-xn_root_add(xn_t3503);
-xn_root_add(xn_t3503);
-rt_string *xn_t3504 = xn_concat(xn_t3502, xn_t3503);
-xn_root_add(xn_t3504);
-xn_root_add(xn_t3504);
-rt_string *xn_t3505 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t3505);
-xn_root_add(xn_t3505);
-rt_string *xn_t3506 = xn_concat(xn_t3504, xn_t3505);
-xn_root_add(xn_t3506);
-xn_root_add(xn_t3506);
-rt_string *xn_t3507 = rt_retain(nm);
-xn_root_add(xn_t3507);
-xn_root_add(xn_t3507);
-rt_string *xn_t3508 = xn_q(xn_t3507);
-xn_root_add(xn_t3508);
-xn_root_add(xn_t3508);
-rt_string *xn_t3509 = xn_concat(xn_t3506, xn_t3508);
+#line 1692 "impl/lib/b2/xparser.x"
+rt_string *xn_t3509 = rt_string_from_c("(ExprStmt ");
 xn_root_add(xn_t3509);
 xn_root_add(xn_t3509);
-rt_string *xn_t3510 = rt_string_from_c(") (Init ");
+rt_string *xn_t3510 = xn_P(e->sl, e->sc);
 xn_root_add(xn_t3510);
 xn_root_add(xn_t3510);
 rt_string *xn_t3511 = xn_concat(xn_t3509, xn_t3510);
 xn_root_add(xn_t3511);
 xn_root_add(xn_t3511);
-rt_string *xn_t3512 = rt_retain(init);
+rt_string *xn_t3512 = rt_string_from_c(" (X ");
 xn_root_add(xn_t3512);
 xn_root_add(xn_t3512);
 rt_string *xn_t3513 = xn_concat(xn_t3511, xn_t3512);
 xn_root_add(xn_t3513);
 xn_root_add(xn_t3513);
-rt_string *xn_t3514 = rt_string_from_c("))");
+rt_string *xn_t3514 = rt_retain(e->d);
 xn_root_add(xn_t3514);
 xn_root_add(xn_t3514);
 rt_string *xn_t3515 = xn_concat(xn_t3513, xn_t3514);
 xn_root_add(xn_t3515);
 xn_root_add(xn_t3515);
+rt_string *xn_t3516 = rt_string_from_c("))");
+xn_root_add(xn_t3516);
+xn_root_add(xn_t3516);
+rt_string *xn_t3517 = xn_concat(xn_t3515, xn_t3516);
+xn_root_add(xn_t3517);
+xn_root_add(xn_t3517);
+    {
+xn_root_restore(xn_t3302);
+    }
+
+return xn_t3517;
+    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static rt_string * xn_Cls_Parser_parseLocal(xn_Cls_Parser *self) {
+size_t xn_t3518 = xn_root_mark();
+xn_root_add(self);
+#line 1696 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
+xn_root_add(t);
+xn_root_add(t);
+xn_gc_safepoint();
+#line 1697 "impl/lib/b2/xparser.x"
+int fin = 0;
+#line 1698 "impl/lib/b2/xparser.x"
+int cons = 0;
+#line 1699 "impl/lib/b2/xparser.x"
+int vr = 0;
+#line 1700 "impl/lib/b2/xparser.x"
+rt_string *xn_t3519 = rt_string_from_c("final");
+xn_root_add(xn_t3519);
+    if ((xn_Cls_Parser_atKw(self, xn_t3519))) {
+        size_t xn_t3520 = xn_root_mark();
+        #line 1700 "impl/lib/b2/xparser.x"
+        fin = 1;
+        #line 1700 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3520);
+            }
+
+    } else {
+        rt_string *xn_t3522 = rt_string_from_c("const");
+xn_root_add(xn_t3522);
+        xn_root_add(xn_t3522);
+            if ((xn_Cls_Parser_atKw(self, xn_t3522))) {
+                size_t xn_t3523 = xn_root_mark();
+                #line 1701 "impl/lib/b2/xparser.x"
+                cons = 1;
+                #line 1701 "impl/lib/b2/xparser.x"
+                xn_Cls_Parser_next(self);
+                    {
+                    xn_root_restore(xn_t3523);
+                    }
+
+            } else {
+                rt_string *xn_t3525 = rt_string_from_c("var");
+xn_root_add(xn_t3525);
+        xn_root_add(xn_t3525);
+                xn_root_add(xn_t3525);
+                    if ((xn_Cls_Parser_atKw(self, xn_t3525))) {
+                        size_t xn_t3526 = xn_root_mark();
+                        #line 1702 "impl/lib/b2/xparser.x"
+                        vr = 1;
+                        #line 1702 "impl/lib/b2/xparser.x"
+                        xn_Cls_Parser_next(self);
+                            {
+                            xn_root_restore(xn_t3526);
+                            }
+
+                    }
+            }
+    }
+#line 1703 "impl/lib/b2/xparser.x"
+rt_string *ty = rt_string_from_c("(nil)");
+xn_root_add(ty);
+xn_root_add(ty);
+xn_gc_safepoint();
+#line 1704 "impl/lib/b2/xparser.x"
+    if (((!(vr)))) {
+        size_t xn_t3528 = xn_root_mark();
+        #line 1704 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3529 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t3529);
+        xn_root_add(xn_t3529);
+        xn_root_release(ty);
+        rt_release(ty);
+        ty = xn_t3529;
+        xn_root_hold(ty);
+        xn_gc_safepoint();
+            {
+            xn_root_restore(xn_t3528);
+            }
+
+    }
+#line 1705 "impl/lib/b2/xparser.x"
+rt_string *nm = rt_string_from_c("");
+xn_root_add(nm);
+xn_root_add(nm);
+xn_gc_safepoint();
+#line 1706 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 2))) {
+        size_t xn_t3531 = xn_root_mark();
+        #line 1706 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3532 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3532);
+        xn_root_add(xn_t3532);
+        rt_string *xn_t3533 = rt_retain(xn_t3532->text);
+xn_root_add(xn_t3533);
+        xn_root_add(xn_t3533);
+        xn_root_release(nm);
+        rt_release(nm);
+        nm = xn_t3533;
+        xn_root_hold(nm);
+        xn_gc_safepoint();
+            {
+            xn_root_restore(xn_t3531);
+            }
+
+    }
+#line 1707 "impl/lib/b2/xparser.x"
+rt_string *init = rt_string_from_c("(nil)");
+xn_root_add(init);
+xn_root_add(init);
+xn_gc_safepoint();
+#line 1708 "impl/lib/b2/xparser.x"
+rt_string *xn_t3535 = rt_string_from_c("=");
+xn_root_add(xn_t3535);
+    if ((xn_Cls_Parser_atOp(self, xn_t3535))) {
+        size_t xn_t3536 = xn_root_mark();
+        #line 1708 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 1708 "impl/lib/b2/xparser.x"
+        xn_Cls_E * xn_t3537 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t3537);
+        xn_root_add(xn_t3537);
+        rt_string *xn_t3538 = rt_retain(xn_t3537->d);
+xn_root_add(xn_t3538);
+        xn_root_add(xn_t3538);
+        xn_root_release(init);
+        rt_release(init);
+        init = xn_t3538;
+        xn_root_hold(init);
+        xn_gc_safepoint();
+            {
+            xn_root_restore(xn_t3536);
+            }
+
+    }
+#line 1709 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 1))) {
+        size_t xn_t3539 = xn_root_mark();
+        #line 1709 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3539);
+            }
+
+    }
+#line 1710 "impl/lib/b2/xparser.x"
+rt_string *xn_t3540 = rt_string_from_c("(LocalDeclStmt ");
+xn_root_add(xn_t3540);
+xn_root_add(xn_t3540);
+rt_string *xn_t3541 = xn_P(t->line, t->col);
+xn_root_add(xn_t3541);
+xn_root_add(xn_t3541);
+rt_string *xn_t3542 = xn_concat(xn_t3540, xn_t3541);
+xn_root_add(xn_t3542);
+xn_root_add(xn_t3542);
+rt_string *xn_t3543 = rt_string_from_c(" (Final ");
+xn_root_add(xn_t3543);
+xn_root_add(xn_t3543);
+rt_string *xn_t3544 = xn_concat(xn_t3542, xn_t3543);
+xn_root_add(xn_t3544);
+xn_root_add(xn_t3544);
+rt_string *xn_t3545 = xn_B(fin);
+xn_root_add(xn_t3545);
+xn_root_add(xn_t3545);
+rt_string *xn_t3546 = xn_concat(xn_t3544, xn_t3545);
+xn_root_add(xn_t3546);
+xn_root_add(xn_t3546);
+rt_string *xn_t3547 = rt_string_from_c(") (Const ");
+xn_root_add(xn_t3547);
+xn_root_add(xn_t3547);
+rt_string *xn_t3548 = xn_concat(xn_t3546, xn_t3547);
+xn_root_add(xn_t3548);
+xn_root_add(xn_t3548);
+rt_string *xn_t3549 = xn_B(cons);
+xn_root_add(xn_t3549);
+xn_root_add(xn_t3549);
+rt_string *xn_t3550 = xn_concat(xn_t3548, xn_t3549);
+xn_root_add(xn_t3550);
+xn_root_add(xn_t3550);
+rt_string *xn_t3551 = rt_string_from_c(") (Var ");
+xn_root_add(xn_t3551);
+xn_root_add(xn_t3551);
+rt_string *xn_t3552 = xn_concat(xn_t3550, xn_t3551);
+xn_root_add(xn_t3552);
+xn_root_add(xn_t3552);
+rt_string *xn_t3553 = xn_B(vr);
+xn_root_add(xn_t3553);
+xn_root_add(xn_t3553);
+rt_string *xn_t3554 = xn_concat(xn_t3552, xn_t3553);
+xn_root_add(xn_t3554);
+xn_root_add(xn_t3554);
+rt_string *xn_t3555 = rt_string_from_c(") (Type ");
+xn_root_add(xn_t3555);
+xn_root_add(xn_t3555);
+rt_string *xn_t3556 = xn_concat(xn_t3554, xn_t3555);
+xn_root_add(xn_t3556);
+xn_root_add(xn_t3556);
+rt_string *xn_t3557 = rt_retain(ty);
+xn_root_add(xn_t3557);
+xn_root_add(xn_t3557);
+rt_string *xn_t3558 = xn_concat(xn_t3556, xn_t3557);
+xn_root_add(xn_t3558);
+xn_root_add(xn_t3558);
+rt_string *xn_t3559 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t3559);
+xn_root_add(xn_t3559);
+rt_string *xn_t3560 = xn_concat(xn_t3558, xn_t3559);
+xn_root_add(xn_t3560);
+xn_root_add(xn_t3560);
+rt_string *xn_t3561 = rt_retain(nm);
+xn_root_add(xn_t3561);
+xn_root_add(xn_t3561);
+rt_string *xn_t3562 = xn_q(xn_t3561);
+xn_root_add(xn_t3562);
+xn_root_add(xn_t3562);
+rt_string *xn_t3563 = xn_concat(xn_t3560, xn_t3562);
+xn_root_add(xn_t3563);
+xn_root_add(xn_t3563);
+rt_string *xn_t3564 = rt_string_from_c(") (Init ");
+xn_root_add(xn_t3564);
+xn_root_add(xn_t3564);
+rt_string *xn_t3565 = xn_concat(xn_t3563, xn_t3564);
+xn_root_add(xn_t3565);
+xn_root_add(xn_t3565);
+rt_string *xn_t3566 = rt_retain(init);
+xn_root_add(xn_t3566);
+xn_root_add(xn_t3566);
+rt_string *xn_t3567 = xn_concat(xn_t3565, xn_t3566);
+xn_root_add(xn_t3567);
+xn_root_add(xn_t3567);
+rt_string *xn_t3568 = rt_string_from_c("))");
+xn_root_add(xn_t3568);
+xn_root_add(xn_t3568);
+rt_string *xn_t3569 = xn_concat(xn_t3567, xn_t3568);
+xn_root_add(xn_t3569);
+xn_root_add(xn_t3569);
     {
 rt_release(init);
     }
@@ -20872,10 +21230,10 @@ rt_release(nm);
 rt_release(ty);
     }
     {
-xn_root_restore(xn_t3464);
+xn_root_restore(xn_t3518);
     }
 
-return xn_t3515;
+return xn_t3569;
 xn_root_release(ty);
 xn_root_release(nm);
 xn_root_release(init);
@@ -20883,129 +21241,129 @@ xn_root_release(init);
 }
 
 static rt_string * xn_Cls_Parser_parseIf(xn_Cls_Parser *self) {
-size_t xn_t3516 = xn_root_mark();
+size_t xn_t3570 = xn_root_mark();
 xn_root_add(self);
-#line 1680 "impl/lib/b2/xparser.x"
+#line 1715 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1681 "impl/lib/b2/xparser.x"
+#line 1716 "impl/lib/b2/xparser.x"
 xn_Cls_E * c = xn_Cls_Parser_parseExpr(self);
 xn_root_add(c);
 xn_root_add(c);
 xn_gc_safepoint();
-#line 1682 "impl/lib/b2/xparser.x"
+#line 1717 "impl/lib/b2/xparser.x"
 rt_string *th = xn_Cls_Parser_parseBlock(self);
 xn_root_add(th);
 xn_root_add(th);
 xn_gc_safepoint();
-#line 1683 "impl/lib/b2/xparser.x"
+#line 1718 "impl/lib/b2/xparser.x"
 rt_string *el = rt_string_from_c("(nil)");
 xn_root_add(el);
 xn_root_add(el);
 xn_gc_safepoint();
-#line 1684 "impl/lib/b2/xparser.x"
-rt_string *xn_t3519 = rt_string_from_c("else");
-xn_root_add(xn_t3519);
-    if ((xn_Cls_Parser_atKw(self, xn_t3519))) {
-        size_t xn_t3520 = xn_root_mark();
-        #line 1685 "impl/lib/b2/xparser.x"
+#line 1719 "impl/lib/b2/xparser.x"
+rt_string *xn_t3573 = rt_string_from_c("else");
+xn_root_add(xn_t3573);
+    if ((xn_Cls_Parser_atKw(self, xn_t3573))) {
+        size_t xn_t3574 = xn_root_mark();
+        #line 1720 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1686 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3521 = rt_string_from_c("if");
-xn_root_add(xn_t3521);
-        xn_root_add(xn_t3521);
-            if ((xn_Cls_Parser_atKw(self, xn_t3521))) {
-                size_t xn_t3522 = xn_root_mark();
-                #line 1686 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3523 = xn_Cls_Parser_parseIf(self);
-xn_root_add(xn_t3523);
-        xn_root_add(xn_t3523);
-                xn_root_add(xn_t3523);
+        #line 1721 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3575 = rt_string_from_c("if");
+xn_root_add(xn_t3575);
+        xn_root_add(xn_t3575);
+            if ((xn_Cls_Parser_atKw(self, xn_t3575))) {
+                size_t xn_t3576 = xn_root_mark();
+                #line 1721 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3577 = xn_Cls_Parser_parseIf(self);
+xn_root_add(xn_t3577);
+        xn_root_add(xn_t3577);
+                xn_root_add(xn_t3577);
                 xn_root_release(el);
                 rt_release(el);
-                el = xn_t3523;
+                el = xn_t3577;
                 xn_root_hold(el);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3522);
+                    xn_root_restore(xn_t3576);
                     }
 
             } else {
-                size_t xn_t3524 = xn_root_mark();
-                #line 1686 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3525 = xn_Cls_Parser_parseBlock(self);
-xn_root_add(xn_t3525);
-        xn_root_add(xn_t3525);
-                xn_root_add(xn_t3525);
+                size_t xn_t3578 = xn_root_mark();
+                #line 1721 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3579 = xn_Cls_Parser_parseBlock(self);
+xn_root_add(xn_t3579);
+        xn_root_add(xn_t3579);
+                xn_root_add(xn_t3579);
                 xn_root_release(el);
                 rt_release(el);
-                el = xn_t3525;
+                el = xn_t3579;
                 xn_root_hold(el);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t3524);
+                    xn_root_restore(xn_t3578);
                     }
 
             }
             {
-            xn_root_restore(xn_t3520);
+            xn_root_restore(xn_t3574);
             }
 
     }
-#line 1688 "impl/lib/b2/xparser.x"
-rt_string *xn_t3526 = rt_string_from_c("(IfStmt ");
-xn_root_add(xn_t3526);
-xn_root_add(xn_t3526);
-rt_string *xn_t3527 = xn_P(t->line, t->col);
-xn_root_add(xn_t3527);
-xn_root_add(xn_t3527);
-rt_string *xn_t3528 = xn_concat(xn_t3526, xn_t3527);
-xn_root_add(xn_t3528);
-xn_root_add(xn_t3528);
-rt_string *xn_t3529 = rt_string_from_c(" (Cond ");
-xn_root_add(xn_t3529);
-xn_root_add(xn_t3529);
-rt_string *xn_t3530 = xn_concat(xn_t3528, xn_t3529);
-xn_root_add(xn_t3530);
-xn_root_add(xn_t3530);
-rt_string *xn_t3531 = rt_retain(c->d);
-xn_root_add(xn_t3531);
-xn_root_add(xn_t3531);
-rt_string *xn_t3532 = xn_concat(xn_t3530, xn_t3531);
-xn_root_add(xn_t3532);
-xn_root_add(xn_t3532);
-rt_string *xn_t3533 = rt_string_from_c(") (Then ");
-xn_root_add(xn_t3533);
-xn_root_add(xn_t3533);
-rt_string *xn_t3534 = xn_concat(xn_t3532, xn_t3533);
-xn_root_add(xn_t3534);
-xn_root_add(xn_t3534);
-rt_string *xn_t3535 = rt_retain(th);
-xn_root_add(xn_t3535);
-xn_root_add(xn_t3535);
-rt_string *xn_t3536 = xn_concat(xn_t3534, xn_t3535);
-xn_root_add(xn_t3536);
-xn_root_add(xn_t3536);
-rt_string *xn_t3537 = rt_string_from_c(") (Else ");
-xn_root_add(xn_t3537);
-xn_root_add(xn_t3537);
-rt_string *xn_t3538 = xn_concat(xn_t3536, xn_t3537);
-xn_root_add(xn_t3538);
-xn_root_add(xn_t3538);
-rt_string *xn_t3539 = rt_retain(el);
-xn_root_add(xn_t3539);
-xn_root_add(xn_t3539);
-rt_string *xn_t3540 = xn_concat(xn_t3538, xn_t3539);
-xn_root_add(xn_t3540);
-xn_root_add(xn_t3540);
-rt_string *xn_t3541 = rt_string_from_c("))");
-xn_root_add(xn_t3541);
-xn_root_add(xn_t3541);
-rt_string *xn_t3542 = xn_concat(xn_t3540, xn_t3541);
-xn_root_add(xn_t3542);
-xn_root_add(xn_t3542);
+#line 1723 "impl/lib/b2/xparser.x"
+rt_string *xn_t3580 = rt_string_from_c("(IfStmt ");
+xn_root_add(xn_t3580);
+xn_root_add(xn_t3580);
+rt_string *xn_t3581 = xn_P(t->line, t->col);
+xn_root_add(xn_t3581);
+xn_root_add(xn_t3581);
+rt_string *xn_t3582 = xn_concat(xn_t3580, xn_t3581);
+xn_root_add(xn_t3582);
+xn_root_add(xn_t3582);
+rt_string *xn_t3583 = rt_string_from_c(" (Cond ");
+xn_root_add(xn_t3583);
+xn_root_add(xn_t3583);
+rt_string *xn_t3584 = xn_concat(xn_t3582, xn_t3583);
+xn_root_add(xn_t3584);
+xn_root_add(xn_t3584);
+rt_string *xn_t3585 = rt_retain(c->d);
+xn_root_add(xn_t3585);
+xn_root_add(xn_t3585);
+rt_string *xn_t3586 = xn_concat(xn_t3584, xn_t3585);
+xn_root_add(xn_t3586);
+xn_root_add(xn_t3586);
+rt_string *xn_t3587 = rt_string_from_c(") (Then ");
+xn_root_add(xn_t3587);
+xn_root_add(xn_t3587);
+rt_string *xn_t3588 = xn_concat(xn_t3586, xn_t3587);
+xn_root_add(xn_t3588);
+xn_root_add(xn_t3588);
+rt_string *xn_t3589 = rt_retain(th);
+xn_root_add(xn_t3589);
+xn_root_add(xn_t3589);
+rt_string *xn_t3590 = xn_concat(xn_t3588, xn_t3589);
+xn_root_add(xn_t3590);
+xn_root_add(xn_t3590);
+rt_string *xn_t3591 = rt_string_from_c(") (Else ");
+xn_root_add(xn_t3591);
+xn_root_add(xn_t3591);
+rt_string *xn_t3592 = xn_concat(xn_t3590, xn_t3591);
+xn_root_add(xn_t3592);
+xn_root_add(xn_t3592);
+rt_string *xn_t3593 = rt_retain(el);
+xn_root_add(xn_t3593);
+xn_root_add(xn_t3593);
+rt_string *xn_t3594 = xn_concat(xn_t3592, xn_t3593);
+xn_root_add(xn_t3594);
+xn_root_add(xn_t3594);
+rt_string *xn_t3595 = rt_string_from_c("))");
+xn_root_add(xn_t3595);
+xn_root_add(xn_t3595);
+rt_string *xn_t3596 = xn_concat(xn_t3594, xn_t3595);
+xn_root_add(xn_t3596);
+xn_root_add(xn_t3596);
     {
 rt_release(el);
     }
@@ -21013,284 +21371,284 @@ rt_release(el);
 rt_release(th);
     }
     {
-xn_root_restore(xn_t3516);
+xn_root_restore(xn_t3570);
     }
 
-return xn_t3542;
+return xn_t3596;
 xn_root_release(el);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseWhile(xn_Cls_Parser *self) {
-size_t xn_t3543 = xn_root_mark();
+size_t xn_t3597 = xn_root_mark();
 xn_root_add(self);
-#line 1692 "impl/lib/b2/xparser.x"
+#line 1727 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1693 "impl/lib/b2/xparser.x"
+#line 1728 "impl/lib/b2/xparser.x"
 xn_Cls_E * c = xn_Cls_Parser_parseExpr(self);
 xn_root_add(c);
 xn_root_add(c);
 xn_gc_safepoint();
-#line 1694 "impl/lib/b2/xparser.x"
+#line 1729 "impl/lib/b2/xparser.x"
 rt_string *b = xn_Cls_Parser_parseBlock(self);
 xn_root_add(b);
 xn_root_add(b);
 xn_gc_safepoint();
-#line 1695 "impl/lib/b2/xparser.x"
-rt_string *xn_t3545 = rt_string_from_c("(WhileStmt ");
-xn_root_add(xn_t3545);
-xn_root_add(xn_t3545);
-rt_string *xn_t3546 = xn_P(t->line, t->col);
-xn_root_add(xn_t3546);
-xn_root_add(xn_t3546);
-rt_string *xn_t3547 = xn_concat(xn_t3545, xn_t3546);
-xn_root_add(xn_t3547);
-xn_root_add(xn_t3547);
-rt_string *xn_t3548 = rt_string_from_c(" (Cond ");
-xn_root_add(xn_t3548);
-xn_root_add(xn_t3548);
-rt_string *xn_t3549 = xn_concat(xn_t3547, xn_t3548);
-xn_root_add(xn_t3549);
-xn_root_add(xn_t3549);
-rt_string *xn_t3550 = rt_retain(c->d);
-xn_root_add(xn_t3550);
-xn_root_add(xn_t3550);
-rt_string *xn_t3551 = xn_concat(xn_t3549, xn_t3550);
-xn_root_add(xn_t3551);
-xn_root_add(xn_t3551);
-rt_string *xn_t3552 = rt_string_from_c(") (Body ");
-xn_root_add(xn_t3552);
-xn_root_add(xn_t3552);
-rt_string *xn_t3553 = xn_concat(xn_t3551, xn_t3552);
-xn_root_add(xn_t3553);
-xn_root_add(xn_t3553);
-rt_string *xn_t3554 = rt_retain(b);
-xn_root_add(xn_t3554);
-xn_root_add(xn_t3554);
-rt_string *xn_t3555 = xn_concat(xn_t3553, xn_t3554);
-xn_root_add(xn_t3555);
-xn_root_add(xn_t3555);
-rt_string *xn_t3556 = rt_string_from_c("))");
-xn_root_add(xn_t3556);
-xn_root_add(xn_t3556);
-rt_string *xn_t3557 = xn_concat(xn_t3555, xn_t3556);
-xn_root_add(xn_t3557);
-xn_root_add(xn_t3557);
-    {
-rt_release(b);
-    }
-    {
-xn_root_restore(xn_t3543);
-    }
-
-return xn_t3557;
-    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
-}
-
-static rt_string * xn_Cls_Parser_parseDo(xn_Cls_Parser *self) {
-size_t xn_t3558 = xn_root_mark();
-xn_root_add(self);
-#line 1699 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * t = xn_Cls_Parser_next(self);
-xn_root_add(t);
-xn_root_add(t);
-xn_gc_safepoint();
-#line 1700 "impl/lib/b2/xparser.x"
-rt_string *b = xn_Cls_Parser_parseBlock(self);
-xn_root_add(b);
-xn_root_add(b);
-xn_gc_safepoint();
-#line 1701 "impl/lib/b2/xparser.x"
-rt_string *xn_t3560 = rt_string_from_c("while");
-xn_root_add(xn_t3560);
-    if ((xn_Cls_Parser_atKw(self, xn_t3560))) {
-        size_t xn_t3561 = xn_root_mark();
-        #line 1701 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3561);
-            }
-
-    }
-#line 1702 "impl/lib/b2/xparser.x"
-xn_Cls_E * c = xn_Cls_Parser_parseExpr(self);
-xn_root_add(c);
-xn_root_add(c);
-xn_gc_safepoint();
-#line 1703 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 1))) {
-        size_t xn_t3562 = xn_root_mark();
-        #line 1703 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3562);
-            }
-
-    }
-#line 1704 "impl/lib/b2/xparser.x"
-rt_string *xn_t3563 = rt_string_from_c("(DoWhileStmt ");
-xn_root_add(xn_t3563);
-xn_root_add(xn_t3563);
-rt_string *xn_t3564 = xn_P(t->line, t->col);
-xn_root_add(xn_t3564);
-xn_root_add(xn_t3564);
-rt_string *xn_t3565 = xn_concat(xn_t3563, xn_t3564);
-xn_root_add(xn_t3565);
-xn_root_add(xn_t3565);
-rt_string *xn_t3566 = rt_string_from_c(" (Body ");
-xn_root_add(xn_t3566);
-xn_root_add(xn_t3566);
-rt_string *xn_t3567 = xn_concat(xn_t3565, xn_t3566);
-xn_root_add(xn_t3567);
-xn_root_add(xn_t3567);
-rt_string *xn_t3568 = rt_retain(b);
-xn_root_add(xn_t3568);
-xn_root_add(xn_t3568);
-rt_string *xn_t3569 = xn_concat(xn_t3567, xn_t3568);
-xn_root_add(xn_t3569);
-xn_root_add(xn_t3569);
-rt_string *xn_t3570 = rt_string_from_c(") (Cond ");
-xn_root_add(xn_t3570);
-xn_root_add(xn_t3570);
-rt_string *xn_t3571 = xn_concat(xn_t3569, xn_t3570);
-xn_root_add(xn_t3571);
-xn_root_add(xn_t3571);
-rt_string *xn_t3572 = rt_retain(c->d);
-xn_root_add(xn_t3572);
-xn_root_add(xn_t3572);
-rt_string *xn_t3573 = xn_concat(xn_t3571, xn_t3572);
-xn_root_add(xn_t3573);
-xn_root_add(xn_t3573);
-rt_string *xn_t3574 = rt_string_from_c("))");
-xn_root_add(xn_t3574);
-xn_root_add(xn_t3574);
-rt_string *xn_t3575 = xn_concat(xn_t3573, xn_t3574);
-xn_root_add(xn_t3575);
-xn_root_add(xn_t3575);
-    {
-rt_release(b);
-    }
-    {
-xn_root_restore(xn_t3558);
-    }
-
-return xn_t3575;
-    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
-}
-
-static rt_string * xn_Cls_Parser_parseFor(xn_Cls_Parser *self) {
-size_t xn_t3576 = xn_root_mark();
-xn_root_add(self);
-#line 1708 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * t = xn_Cls_Parser_next(self);
-xn_root_add(t);
-xn_root_add(t);
-xn_gc_safepoint();
-#line 1709 "impl/lib/b2/xparser.x"
-rt_string *v = rt_string_from_c("");
-xn_root_add(v);
-xn_root_add(v);
-xn_gc_safepoint();
-#line 1710 "impl/lib/b2/xparser.x"
-    if ((xn_Cls_Parser_at(self, 2))) {
-        size_t xn_t3578 = xn_root_mark();
-        #line 1710 "impl/lib/b2/xparser.x"
-        xn_Cls_Tok * xn_t3579 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t3579);
-        xn_root_add(xn_t3579);
-        rt_string *xn_t3580 = rt_retain(xn_t3579->text);
-xn_root_add(xn_t3580);
-        xn_root_add(xn_t3580);
-        xn_root_release(v);
-        rt_release(v);
-        v = xn_t3580;
-        xn_root_hold(v);
-        xn_gc_safepoint();
-            {
-            xn_root_restore(xn_t3578);
-            }
-
-    }
-#line 1711 "impl/lib/b2/xparser.x"
-rt_string *xn_t3581 = rt_string_from_c("in");
-xn_root_add(xn_t3581);
-    if ((xn_Cls_Parser_atKw(self, xn_t3581))) {
-        size_t xn_t3582 = xn_root_mark();
-        #line 1711 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-            {
-            xn_root_restore(xn_t3582);
-            }
-
-    }
-#line 1712 "impl/lib/b2/xparser.x"
-xn_Cls_E * src = xn_Cls_Parser_parseExpr(self);
-xn_root_add(src);
-xn_root_add(src);
-xn_gc_safepoint();
-#line 1713 "impl/lib/b2/xparser.x"
-rt_string *b = xn_Cls_Parser_parseBlock(self);
-xn_root_add(b);
-xn_root_add(b);
-xn_gc_safepoint();
-#line 1714 "impl/lib/b2/xparser.x"
-rt_string *xn_t3584 = rt_string_from_c("(ForStmt ");
-xn_root_add(xn_t3584);
-xn_root_add(xn_t3584);
-rt_string *xn_t3585 = xn_P(t->line, t->col);
-xn_root_add(xn_t3585);
-xn_root_add(xn_t3585);
-rt_string *xn_t3586 = xn_concat(xn_t3584, xn_t3585);
-xn_root_add(xn_t3586);
-xn_root_add(xn_t3586);
-rt_string *xn_t3587 = rt_string_from_c(" (Var ");
-xn_root_add(xn_t3587);
-xn_root_add(xn_t3587);
-rt_string *xn_t3588 = xn_concat(xn_t3586, xn_t3587);
-xn_root_add(xn_t3588);
-xn_root_add(xn_t3588);
-rt_string *xn_t3589 = rt_retain(v);
-xn_root_add(xn_t3589);
-xn_root_add(xn_t3589);
-rt_string *xn_t3590 = xn_q(xn_t3589);
-xn_root_add(xn_t3590);
-xn_root_add(xn_t3590);
-rt_string *xn_t3591 = xn_concat(xn_t3588, xn_t3590);
-xn_root_add(xn_t3591);
-xn_root_add(xn_t3591);
-rt_string *xn_t3592 = rt_string_from_c(") (Src ");
-xn_root_add(xn_t3592);
-xn_root_add(xn_t3592);
-rt_string *xn_t3593 = xn_concat(xn_t3591, xn_t3592);
-xn_root_add(xn_t3593);
-xn_root_add(xn_t3593);
-rt_string *xn_t3594 = rt_retain(src->d);
-xn_root_add(xn_t3594);
-xn_root_add(xn_t3594);
-rt_string *xn_t3595 = xn_concat(xn_t3593, xn_t3594);
-xn_root_add(xn_t3595);
-xn_root_add(xn_t3595);
-rt_string *xn_t3596 = rt_string_from_c(") (Body ");
-xn_root_add(xn_t3596);
-xn_root_add(xn_t3596);
-rt_string *xn_t3597 = xn_concat(xn_t3595, xn_t3596);
-xn_root_add(xn_t3597);
-xn_root_add(xn_t3597);
-rt_string *xn_t3598 = rt_retain(b);
-xn_root_add(xn_t3598);
-xn_root_add(xn_t3598);
-rt_string *xn_t3599 = xn_concat(xn_t3597, xn_t3598);
+#line 1730 "impl/lib/b2/xparser.x"
+rt_string *xn_t3599 = rt_string_from_c("(WhileStmt ");
 xn_root_add(xn_t3599);
 xn_root_add(xn_t3599);
-rt_string *xn_t3600 = rt_string_from_c("))");
+rt_string *xn_t3600 = xn_P(t->line, t->col);
 xn_root_add(xn_t3600);
 xn_root_add(xn_t3600);
 rt_string *xn_t3601 = xn_concat(xn_t3599, xn_t3600);
 xn_root_add(xn_t3601);
 xn_root_add(xn_t3601);
+rt_string *xn_t3602 = rt_string_from_c(" (Cond ");
+xn_root_add(xn_t3602);
+xn_root_add(xn_t3602);
+rt_string *xn_t3603 = xn_concat(xn_t3601, xn_t3602);
+xn_root_add(xn_t3603);
+xn_root_add(xn_t3603);
+rt_string *xn_t3604 = rt_retain(c->d);
+xn_root_add(xn_t3604);
+xn_root_add(xn_t3604);
+rt_string *xn_t3605 = xn_concat(xn_t3603, xn_t3604);
+xn_root_add(xn_t3605);
+xn_root_add(xn_t3605);
+rt_string *xn_t3606 = rt_string_from_c(") (Body ");
+xn_root_add(xn_t3606);
+xn_root_add(xn_t3606);
+rt_string *xn_t3607 = xn_concat(xn_t3605, xn_t3606);
+xn_root_add(xn_t3607);
+xn_root_add(xn_t3607);
+rt_string *xn_t3608 = rt_retain(b);
+xn_root_add(xn_t3608);
+xn_root_add(xn_t3608);
+rt_string *xn_t3609 = xn_concat(xn_t3607, xn_t3608);
+xn_root_add(xn_t3609);
+xn_root_add(xn_t3609);
+rt_string *xn_t3610 = rt_string_from_c("))");
+xn_root_add(xn_t3610);
+xn_root_add(xn_t3610);
+rt_string *xn_t3611 = xn_concat(xn_t3609, xn_t3610);
+xn_root_add(xn_t3611);
+xn_root_add(xn_t3611);
+    {
+rt_release(b);
+    }
+    {
+xn_root_restore(xn_t3597);
+    }
+
+return xn_t3611;
+    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static rt_string * xn_Cls_Parser_parseDo(xn_Cls_Parser *self) {
+size_t xn_t3612 = xn_root_mark();
+xn_root_add(self);
+#line 1734 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * t = xn_Cls_Parser_next(self);
+xn_root_add(t);
+xn_root_add(t);
+xn_gc_safepoint();
+#line 1735 "impl/lib/b2/xparser.x"
+rt_string *b = xn_Cls_Parser_parseBlock(self);
+xn_root_add(b);
+xn_root_add(b);
+xn_gc_safepoint();
+#line 1736 "impl/lib/b2/xparser.x"
+rt_string *xn_t3614 = rt_string_from_c("while");
+xn_root_add(xn_t3614);
+    if ((xn_Cls_Parser_atKw(self, xn_t3614))) {
+        size_t xn_t3615 = xn_root_mark();
+        #line 1736 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3615);
+            }
+
+    }
+#line 1737 "impl/lib/b2/xparser.x"
+xn_Cls_E * c = xn_Cls_Parser_parseExpr(self);
+xn_root_add(c);
+xn_root_add(c);
+xn_gc_safepoint();
+#line 1738 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 1))) {
+        size_t xn_t3616 = xn_root_mark();
+        #line 1738 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3616);
+            }
+
+    }
+#line 1739 "impl/lib/b2/xparser.x"
+rt_string *xn_t3617 = rt_string_from_c("(DoWhileStmt ");
+xn_root_add(xn_t3617);
+xn_root_add(xn_t3617);
+rt_string *xn_t3618 = xn_P(t->line, t->col);
+xn_root_add(xn_t3618);
+xn_root_add(xn_t3618);
+rt_string *xn_t3619 = xn_concat(xn_t3617, xn_t3618);
+xn_root_add(xn_t3619);
+xn_root_add(xn_t3619);
+rt_string *xn_t3620 = rt_string_from_c(" (Body ");
+xn_root_add(xn_t3620);
+xn_root_add(xn_t3620);
+rt_string *xn_t3621 = xn_concat(xn_t3619, xn_t3620);
+xn_root_add(xn_t3621);
+xn_root_add(xn_t3621);
+rt_string *xn_t3622 = rt_retain(b);
+xn_root_add(xn_t3622);
+xn_root_add(xn_t3622);
+rt_string *xn_t3623 = xn_concat(xn_t3621, xn_t3622);
+xn_root_add(xn_t3623);
+xn_root_add(xn_t3623);
+rt_string *xn_t3624 = rt_string_from_c(") (Cond ");
+xn_root_add(xn_t3624);
+xn_root_add(xn_t3624);
+rt_string *xn_t3625 = xn_concat(xn_t3623, xn_t3624);
+xn_root_add(xn_t3625);
+xn_root_add(xn_t3625);
+rt_string *xn_t3626 = rt_retain(c->d);
+xn_root_add(xn_t3626);
+xn_root_add(xn_t3626);
+rt_string *xn_t3627 = xn_concat(xn_t3625, xn_t3626);
+xn_root_add(xn_t3627);
+xn_root_add(xn_t3627);
+rt_string *xn_t3628 = rt_string_from_c("))");
+xn_root_add(xn_t3628);
+xn_root_add(xn_t3628);
+rt_string *xn_t3629 = xn_concat(xn_t3627, xn_t3628);
+xn_root_add(xn_t3629);
+xn_root_add(xn_t3629);
+    {
+rt_release(b);
+    }
+    {
+xn_root_restore(xn_t3612);
+    }
+
+return xn_t3629;
+    return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static rt_string * xn_Cls_Parser_parseFor(xn_Cls_Parser *self) {
+size_t xn_t3630 = xn_root_mark();
+xn_root_add(self);
+#line 1743 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * t = xn_Cls_Parser_next(self);
+xn_root_add(t);
+xn_root_add(t);
+xn_gc_safepoint();
+#line 1744 "impl/lib/b2/xparser.x"
+rt_string *v = rt_string_from_c("");
+xn_root_add(v);
+xn_root_add(v);
+xn_gc_safepoint();
+#line 1745 "impl/lib/b2/xparser.x"
+    if ((xn_Cls_Parser_at(self, 2))) {
+        size_t xn_t3632 = xn_root_mark();
+        #line 1745 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * xn_t3633 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t3633);
+        xn_root_add(xn_t3633);
+        rt_string *xn_t3634 = rt_retain(xn_t3633->text);
+xn_root_add(xn_t3634);
+        xn_root_add(xn_t3634);
+        xn_root_release(v);
+        rt_release(v);
+        v = xn_t3634;
+        xn_root_hold(v);
+        xn_gc_safepoint();
+            {
+            xn_root_restore(xn_t3632);
+            }
+
+    }
+#line 1746 "impl/lib/b2/xparser.x"
+rt_string *xn_t3635 = rt_string_from_c("in");
+xn_root_add(xn_t3635);
+    if ((xn_Cls_Parser_atKw(self, xn_t3635))) {
+        size_t xn_t3636 = xn_root_mark();
+        #line 1746 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+            {
+            xn_root_restore(xn_t3636);
+            }
+
+    }
+#line 1747 "impl/lib/b2/xparser.x"
+xn_Cls_E * src = xn_Cls_Parser_parseExpr(self);
+xn_root_add(src);
+xn_root_add(src);
+xn_gc_safepoint();
+#line 1748 "impl/lib/b2/xparser.x"
+rt_string *b = xn_Cls_Parser_parseBlock(self);
+xn_root_add(b);
+xn_root_add(b);
+xn_gc_safepoint();
+#line 1749 "impl/lib/b2/xparser.x"
+rt_string *xn_t3638 = rt_string_from_c("(ForStmt ");
+xn_root_add(xn_t3638);
+xn_root_add(xn_t3638);
+rt_string *xn_t3639 = xn_P(t->line, t->col);
+xn_root_add(xn_t3639);
+xn_root_add(xn_t3639);
+rt_string *xn_t3640 = xn_concat(xn_t3638, xn_t3639);
+xn_root_add(xn_t3640);
+xn_root_add(xn_t3640);
+rt_string *xn_t3641 = rt_string_from_c(" (Var ");
+xn_root_add(xn_t3641);
+xn_root_add(xn_t3641);
+rt_string *xn_t3642 = xn_concat(xn_t3640, xn_t3641);
+xn_root_add(xn_t3642);
+xn_root_add(xn_t3642);
+rt_string *xn_t3643 = rt_retain(v);
+xn_root_add(xn_t3643);
+xn_root_add(xn_t3643);
+rt_string *xn_t3644 = xn_q(xn_t3643);
+xn_root_add(xn_t3644);
+xn_root_add(xn_t3644);
+rt_string *xn_t3645 = xn_concat(xn_t3642, xn_t3644);
+xn_root_add(xn_t3645);
+xn_root_add(xn_t3645);
+rt_string *xn_t3646 = rt_string_from_c(") (Src ");
+xn_root_add(xn_t3646);
+xn_root_add(xn_t3646);
+rt_string *xn_t3647 = xn_concat(xn_t3645, xn_t3646);
+xn_root_add(xn_t3647);
+xn_root_add(xn_t3647);
+rt_string *xn_t3648 = rt_retain(src->d);
+xn_root_add(xn_t3648);
+xn_root_add(xn_t3648);
+rt_string *xn_t3649 = xn_concat(xn_t3647, xn_t3648);
+xn_root_add(xn_t3649);
+xn_root_add(xn_t3649);
+rt_string *xn_t3650 = rt_string_from_c(") (Body ");
+xn_root_add(xn_t3650);
+xn_root_add(xn_t3650);
+rt_string *xn_t3651 = xn_concat(xn_t3649, xn_t3650);
+xn_root_add(xn_t3651);
+xn_root_add(xn_t3651);
+rt_string *xn_t3652 = rt_retain(b);
+xn_root_add(xn_t3652);
+xn_root_add(xn_t3652);
+rt_string *xn_t3653 = xn_concat(xn_t3651, xn_t3652);
+xn_root_add(xn_t3653);
+xn_root_add(xn_t3653);
+rt_string *xn_t3654 = rt_string_from_c("))");
+xn_root_add(xn_t3654);
+xn_root_add(xn_t3654);
+rt_string *xn_t3655 = xn_concat(xn_t3653, xn_t3654);
+xn_root_add(xn_t3655);
+xn_root_add(xn_t3655);
     {
 rt_release(b);
     }
@@ -21298,216 +21656,216 @@ rt_release(b);
 rt_release(v);
     }
     {
-xn_root_restore(xn_t3576);
+xn_root_restore(xn_t3630);
     }
 
-return xn_t3601;
+return xn_t3655;
 xn_root_release(v);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseSwitch(xn_Cls_Parser *self) {
-size_t xn_t3602 = xn_root_mark();
+size_t xn_t3656 = xn_root_mark();
 xn_root_add(self);
-#line 1718 "impl/lib/b2/xparser.x"
+#line 1753 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1719 "impl/lib/b2/xparser.x"
+#line 1754 "impl/lib/b2/xparser.x"
 xn_Cls_E * v = xn_Cls_Parser_parseExpr(self);
 xn_root_add(v);
 xn_root_add(v);
 xn_gc_safepoint();
-#line 1720 "impl/lib/b2/xparser.x"
-xn_arr_s *xn_t3603 = xn_arr_s_new(0);
-xn_root_add(xn_t3603);
-xn_arr_s * cs = xn_t3603;
+#line 1755 "impl/lib/b2/xparser.x"
+xn_arr_s *xn_t3657 = xn_arr_s_new(0);
+xn_root_add(xn_t3657);
+xn_arr_s * cs = xn_t3657;
 xn_root_add(cs);
 xn_root_add(cs);
 xn_gc_safepoint();
-#line 1721 "impl/lib/b2/xparser.x"
+#line 1756 "impl/lib/b2/xparser.x"
 rt_string *def = rt_string_from_c("(nil)");
 xn_root_add(def);
 xn_root_add(def);
 xn_gc_safepoint();
-#line 1722 "impl/lib/b2/xparser.x"
+#line 1757 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t3605 = xn_root_mark();
-        #line 1722 "impl/lib/b2/xparser.x"
+        size_t xn_t3659 = xn_root_mark();
+        #line 1757 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t3605);
+            xn_root_restore(xn_t3659);
             }
 
     }
-#line 1723 "impl/lib/b2/xparser.x"
+#line 1758 "impl/lib/b2/xparser.x"
     while ((((!(xn_Cls_Parser_at(self, 13)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-    size_t xn_t3606 = xn_root_mark();
-    #line 1724 "impl/lib/b2/xparser.x"
+    size_t xn_t3660 = xn_root_mark();
+    #line 1759 "impl/lib/b2/xparser.x"
         if ((xn_Cls_Parser_at(self, 1))) {
-            size_t xn_t3607 = xn_root_mark();
-            #line 1724 "impl/lib/b2/xparser.x"
+            size_t xn_t3661 = xn_root_mark();
+            #line 1759 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
-            #line 1724 "impl/lib/b2/xparser.x"
-            xn_root_restore(xn_t3607);
-            xn_root_restore(xn_t3606);
+            #line 1759 "impl/lib/b2/xparser.x"
+            xn_root_restore(xn_t3661);
+            xn_root_restore(xn_t3660);
             continue;
                 {
-                xn_root_restore(xn_t3607);
+                xn_root_restore(xn_t3661);
                 }
 
         }
-    #line 1725 "impl/lib/b2/xparser.x"
-    rt_string *xn_t3608 = rt_string_from_c("case");
-xn_root_add(xn_t3608);
-    xn_root_add(xn_t3608);
-        if ((xn_Cls_Parser_atKw(self, xn_t3608))) {
-            size_t xn_t3609 = xn_root_mark();
-            #line 1726 "impl/lib/b2/xparser.x"
+    #line 1760 "impl/lib/b2/xparser.x"
+    rt_string *xn_t3662 = rt_string_from_c("case");
+xn_root_add(xn_t3662);
+    xn_root_add(xn_t3662);
+        if ((xn_Cls_Parser_atKw(self, xn_t3662))) {
+            size_t xn_t3663 = xn_root_mark();
+            #line 1761 "impl/lib/b2/xparser.x"
             xn_Cls_Tok * c = xn_Cls_Parser_next(self);
 xn_root_add(c);
     xn_root_add(c);
             xn_root_add(c);
             xn_root_add(c);
             xn_gc_safepoint();
-            #line 1727 "impl/lib/b2/xparser.x"
+            #line 1762 "impl/lib/b2/xparser.x"
             xn_Cls_E * ex = xn_Cls_Parser_parseExpr(self);
 xn_root_add(ex);
     xn_root_add(ex);
             xn_root_add(ex);
             xn_root_add(ex);
             xn_gc_safepoint();
-            #line 1728 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3610 = rt_string_from_c(":");
-xn_root_add(xn_t3610);
-    xn_root_add(xn_t3610);
-            xn_root_add(xn_t3610);
-                if ((xn_Cls_Parser_atOp(self, xn_t3610))) {
-                    size_t xn_t3611 = xn_root_mark();
-                    #line 1728 "impl/lib/b2/xparser.x"
+            #line 1763 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3664 = rt_string_from_c(":");
+xn_root_add(xn_t3664);
+    xn_root_add(xn_t3664);
+            xn_root_add(xn_t3664);
+                if ((xn_Cls_Parser_atOp(self, xn_t3664))) {
+                    size_t xn_t3665 = xn_root_mark();
+                    #line 1763 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t3611);
+                        xn_root_restore(xn_t3665);
                         }
 
                 }
-            #line 1729 "impl/lib/b2/xparser.x"
-            xn_arr_s *xn_t3612 = xn_arr_s_new(0);
-xn_root_add(xn_t3612);
-    xn_root_add(xn_t3612);
-            xn_root_add(xn_t3612);
-            xn_arr_s * ss = xn_t3612;
+            #line 1764 "impl/lib/b2/xparser.x"
+            xn_arr_s *xn_t3666 = xn_arr_s_new(0);
+xn_root_add(xn_t3666);
+    xn_root_add(xn_t3666);
+            xn_root_add(xn_t3666);
+            xn_arr_s * ss = xn_t3666;
 xn_root_add(ss);
     xn_root_add(ss);
             xn_root_add(ss);
             xn_root_add(ss);
             xn_gc_safepoint();
-            #line 1730 "impl/lib/b2/xparser.x"
+            #line 1765 "impl/lib/b2/xparser.x"
                 while (1) {
-                    rt_string *xn_t3613 = rt_string_from_c("case");
-xn_root_add(xn_t3613);
-    xn_root_add(xn_t3613);
-            xn_root_add(xn_t3613);
-                    rt_string *xn_t3614 = rt_string_from_c("default");
-xn_root_add(xn_t3614);
-    xn_root_add(xn_t3614);
-            xn_root_add(xn_t3614);
-                    if (!((((((!(xn_Cls_Parser_atKw(self, xn_t3613)))) && ((!(xn_Cls_Parser_atKw(self, xn_t3614))))) && ((!(xn_Cls_Parser_at(self, 13))))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
-                    size_t xn_t3615 = xn_root_mark();
-                    #line 1731 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3667 = rt_string_from_c("case");
+xn_root_add(xn_t3667);
+    xn_root_add(xn_t3667);
+            xn_root_add(xn_t3667);
+                    rt_string *xn_t3668 = rt_string_from_c("default");
+xn_root_add(xn_t3668);
+    xn_root_add(xn_t3668);
+            xn_root_add(xn_t3668);
+                    if (!((((((!(xn_Cls_Parser_atKw(self, xn_t3667)))) && ((!(xn_Cls_Parser_atKw(self, xn_t3668))))) && ((!(xn_Cls_Parser_at(self, 13))))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
+                    size_t xn_t3669 = xn_root_mark();
+                    #line 1766 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 1))) {
-                            size_t xn_t3616 = xn_root_mark();
-                            #line 1731 "impl/lib/b2/xparser.x"
+                            size_t xn_t3670 = xn_root_mark();
+                            #line 1766 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1731 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t3616);
-                            xn_root_restore(xn_t3615);
+                            #line 1766 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t3670);
+                            xn_root_restore(xn_t3669);
                             continue;
                                 {
-                                xn_root_restore(xn_t3616);
+                                xn_root_restore(xn_t3670);
                                 }
 
                         }
-                    #line 1732 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3617 = xn_Cls_Parser_parseStmt(self);
-xn_root_add(xn_t3617);
-    xn_root_add(xn_t3617);
-            xn_root_add(xn_t3617);
-                    xn_root_add(xn_t3617);
-                    xn_arr_s_push(ss, xn_t3617);
+                    #line 1767 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3671 = xn_Cls_Parser_parseStmt(self);
+xn_root_add(xn_t3671);
+    xn_root_add(xn_t3671);
+            xn_root_add(xn_t3671);
+                    xn_root_add(xn_t3671);
+                    xn_arr_s_push(ss, xn_t3671);
                         {
-                        xn_root_restore(xn_t3615);
+                        xn_root_restore(xn_t3669);
                         }
 
                     xn_gc_safepoint();
                 }
-            #line 1734 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3618 = rt_string_from_c("(SwitchCase ");
-xn_root_add(xn_t3618);
-    xn_root_add(xn_t3618);
-            xn_root_add(xn_t3618);
-            rt_string *xn_t3619 = xn_P(c->line, c->col);
-xn_root_add(xn_t3619);
-    xn_root_add(xn_t3619);
-            xn_root_add(xn_t3619);
-            rt_string *xn_t3620 = xn_concat(xn_t3618, xn_t3619);
-xn_root_add(xn_t3620);
-    xn_root_add(xn_t3620);
-            xn_root_add(xn_t3620);
-            rt_string *xn_t3621 = rt_string_from_c(" (Expr ");
-xn_root_add(xn_t3621);
-    xn_root_add(xn_t3621);
-            xn_root_add(xn_t3621);
-            rt_string *xn_t3622 = xn_concat(xn_t3620, xn_t3621);
-xn_root_add(xn_t3622);
-    xn_root_add(xn_t3622);
-            xn_root_add(xn_t3622);
-            rt_string *xn_t3623 = rt_retain(ex->d);
-xn_root_add(xn_t3623);
-    xn_root_add(xn_t3623);
-            xn_root_add(xn_t3623);
-            rt_string *xn_t3624 = xn_concat(xn_t3622, xn_t3623);
-xn_root_add(xn_t3624);
-    xn_root_add(xn_t3624);
-            xn_root_add(xn_t3624);
-            rt_string *xn_t3625 = rt_string_from_c(") (Stmts ");
-xn_root_add(xn_t3625);
-    xn_root_add(xn_t3625);
-            xn_root_add(xn_t3625);
-            rt_string *xn_t3626 = xn_concat(xn_t3624, xn_t3625);
-xn_root_add(xn_t3626);
-    xn_root_add(xn_t3626);
-            xn_root_add(xn_t3626);
-            rt_string *xn_t3627 = xn_SL(ss);
-xn_root_add(xn_t3627);
-    xn_root_add(xn_t3627);
-            xn_root_add(xn_t3627);
-            rt_string *xn_t3628 = xn_concat(xn_t3626, xn_t3627);
-xn_root_add(xn_t3628);
-    xn_root_add(xn_t3628);
-            xn_root_add(xn_t3628);
-            rt_string *xn_t3629 = rt_string_from_c(") (Default false))");
-xn_root_add(xn_t3629);
-    xn_root_add(xn_t3629);
-            xn_root_add(xn_t3629);
-            rt_string *xn_t3630 = xn_concat(xn_t3628, xn_t3629);
-xn_root_add(xn_t3630);
-    xn_root_add(xn_t3630);
-            xn_root_add(xn_t3630);
-            xn_arr_s_push(cs, xn_t3630);
+            #line 1769 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3672 = rt_string_from_c("(SwitchCase ");
+xn_root_add(xn_t3672);
+    xn_root_add(xn_t3672);
+            xn_root_add(xn_t3672);
+            rt_string *xn_t3673 = xn_P(c->line, c->col);
+xn_root_add(xn_t3673);
+    xn_root_add(xn_t3673);
+            xn_root_add(xn_t3673);
+            rt_string *xn_t3674 = xn_concat(xn_t3672, xn_t3673);
+xn_root_add(xn_t3674);
+    xn_root_add(xn_t3674);
+            xn_root_add(xn_t3674);
+            rt_string *xn_t3675 = rt_string_from_c(" (Expr ");
+xn_root_add(xn_t3675);
+    xn_root_add(xn_t3675);
+            xn_root_add(xn_t3675);
+            rt_string *xn_t3676 = xn_concat(xn_t3674, xn_t3675);
+xn_root_add(xn_t3676);
+    xn_root_add(xn_t3676);
+            xn_root_add(xn_t3676);
+            rt_string *xn_t3677 = rt_retain(ex->d);
+xn_root_add(xn_t3677);
+    xn_root_add(xn_t3677);
+            xn_root_add(xn_t3677);
+            rt_string *xn_t3678 = xn_concat(xn_t3676, xn_t3677);
+xn_root_add(xn_t3678);
+    xn_root_add(xn_t3678);
+            xn_root_add(xn_t3678);
+            rt_string *xn_t3679 = rt_string_from_c(") (Stmts ");
+xn_root_add(xn_t3679);
+    xn_root_add(xn_t3679);
+            xn_root_add(xn_t3679);
+            rt_string *xn_t3680 = xn_concat(xn_t3678, xn_t3679);
+xn_root_add(xn_t3680);
+    xn_root_add(xn_t3680);
+            xn_root_add(xn_t3680);
+            rt_string *xn_t3681 = xn_SL(ss);
+xn_root_add(xn_t3681);
+    xn_root_add(xn_t3681);
+            xn_root_add(xn_t3681);
+            rt_string *xn_t3682 = xn_concat(xn_t3680, xn_t3681);
+xn_root_add(xn_t3682);
+    xn_root_add(xn_t3682);
+            xn_root_add(xn_t3682);
+            rt_string *xn_t3683 = rt_string_from_c(") (Default false))");
+xn_root_add(xn_t3683);
+    xn_root_add(xn_t3683);
+            xn_root_add(xn_t3683);
+            rt_string *xn_t3684 = xn_concat(xn_t3682, xn_t3683);
+xn_root_add(xn_t3684);
+    xn_root_add(xn_t3684);
+            xn_root_add(xn_t3684);
+            xn_arr_s_push(cs, xn_t3684);
                 {
-                xn_root_restore(xn_t3609);
+                xn_root_restore(xn_t3663);
                 }
 
         } else {
-            rt_string *xn_t3632 = rt_string_from_c("default");
-xn_root_add(xn_t3632);
-    xn_root_add(xn_t3632);
-            xn_root_add(xn_t3632);
-                if ((xn_Cls_Parser_atKw(self, xn_t3632))) {
-                    size_t xn_t3633 = xn_root_mark();
-                    #line 1736 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3686 = rt_string_from_c("default");
+xn_root_add(xn_t3686);
+    xn_root_add(xn_t3686);
+            xn_root_add(xn_t3686);
+                if ((xn_Cls_Parser_atKw(self, xn_t3686))) {
+                    size_t xn_t3687 = xn_root_mark();
+                    #line 1771 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * c = xn_Cls_Parser_next(self);
 xn_root_add(c);
     xn_root_add(c);
@@ -21515,324 +21873,324 @@ xn_root_add(c);
                     xn_root_add(c);
                     xn_root_add(c);
                     xn_gc_safepoint();
-                    #line 1737 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3634 = rt_string_from_c(":");
-xn_root_add(xn_t3634);
-    xn_root_add(xn_t3634);
-            xn_root_add(xn_t3634);
-                    xn_root_add(xn_t3634);
-                        if ((xn_Cls_Parser_atOp(self, xn_t3634))) {
-                            size_t xn_t3635 = xn_root_mark();
-                            #line 1737 "impl/lib/b2/xparser.x"
+                    #line 1772 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3688 = rt_string_from_c(":");
+xn_root_add(xn_t3688);
+    xn_root_add(xn_t3688);
+            xn_root_add(xn_t3688);
+                    xn_root_add(xn_t3688);
+                        if ((xn_Cls_Parser_atOp(self, xn_t3688))) {
+                            size_t xn_t3689 = xn_root_mark();
+                            #line 1772 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
                                 {
-                                xn_root_restore(xn_t3635);
+                                xn_root_restore(xn_t3689);
                                 }
 
                         }
-                    #line 1738 "impl/lib/b2/xparser.x"
-                    xn_arr_s *xn_t3636 = xn_arr_s_new(0);
-xn_root_add(xn_t3636);
-    xn_root_add(xn_t3636);
-            xn_root_add(xn_t3636);
-                    xn_root_add(xn_t3636);
-                    xn_arr_s * ss = xn_t3636;
+                    #line 1773 "impl/lib/b2/xparser.x"
+                    xn_arr_s *xn_t3690 = xn_arr_s_new(0);
+xn_root_add(xn_t3690);
+    xn_root_add(xn_t3690);
+            xn_root_add(xn_t3690);
+                    xn_root_add(xn_t3690);
+                    xn_arr_s * ss = xn_t3690;
 xn_root_add(ss);
     xn_root_add(ss);
             xn_root_add(ss);
                     xn_root_add(ss);
                     xn_root_add(ss);
                     xn_gc_safepoint();
-                    #line 1739 "impl/lib/b2/xparser.x"
+                    #line 1774 "impl/lib/b2/xparser.x"
                         while (1) {
-                            rt_string *xn_t3637 = rt_string_from_c("case");
-xn_root_add(xn_t3637);
-    xn_root_add(xn_t3637);
-            xn_root_add(xn_t3637);
-                    xn_root_add(xn_t3637);
-                            if (!(((((!(xn_Cls_Parser_atKw(self, xn_t3637)))) && ((!(xn_Cls_Parser_at(self, 13))))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
-                            size_t xn_t3638 = xn_root_mark();
-                            #line 1740 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t3691 = rt_string_from_c("case");
+xn_root_add(xn_t3691);
+    xn_root_add(xn_t3691);
+            xn_root_add(xn_t3691);
+                    xn_root_add(xn_t3691);
+                            if (!(((((!(xn_Cls_Parser_atKw(self, xn_t3691)))) && ((!(xn_Cls_Parser_at(self, 13))))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
+                            size_t xn_t3692 = xn_root_mark();
+                            #line 1775 "impl/lib/b2/xparser.x"
                                 if ((xn_Cls_Parser_at(self, 1))) {
-                                    size_t xn_t3639 = xn_root_mark();
-                                    #line 1740 "impl/lib/b2/xparser.x"
+                                    size_t xn_t3693 = xn_root_mark();
+                                    #line 1775 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
-                                    #line 1740 "impl/lib/b2/xparser.x"
-                                    xn_root_restore(xn_t3639);
-                                    xn_root_restore(xn_t3638);
+                                    #line 1775 "impl/lib/b2/xparser.x"
+                                    xn_root_restore(xn_t3693);
+                                    xn_root_restore(xn_t3692);
                                     continue;
                                         {
-                                        xn_root_restore(xn_t3639);
+                                        xn_root_restore(xn_t3693);
                                         }
 
                                 }
-                            #line 1741 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t3640 = xn_Cls_Parser_parseStmt(self);
-xn_root_add(xn_t3640);
-    xn_root_add(xn_t3640);
-            xn_root_add(xn_t3640);
-                    xn_root_add(xn_t3640);
-                            xn_root_add(xn_t3640);
-                            xn_arr_s_push(ss, xn_t3640);
+                            #line 1776 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t3694 = xn_Cls_Parser_parseStmt(self);
+xn_root_add(xn_t3694);
+    xn_root_add(xn_t3694);
+            xn_root_add(xn_t3694);
+                    xn_root_add(xn_t3694);
+                            xn_root_add(xn_t3694);
+                            xn_arr_s_push(ss, xn_t3694);
                                 {
-                                xn_root_restore(xn_t3638);
+                                xn_root_restore(xn_t3692);
                                 }
 
                             xn_gc_safepoint();
                         }
-                    #line 1743 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3641 = rt_string_from_c("(SwitchCase ");
-xn_root_add(xn_t3641);
-    xn_root_add(xn_t3641);
-            xn_root_add(xn_t3641);
-                    xn_root_add(xn_t3641);
-                    rt_string *xn_t3642 = xn_P(c->line, c->col);
-xn_root_add(xn_t3642);
-    xn_root_add(xn_t3642);
-            xn_root_add(xn_t3642);
-                    xn_root_add(xn_t3642);
-                    rt_string *xn_t3643 = xn_concat(xn_t3641, xn_t3642);
-xn_root_add(xn_t3643);
-    xn_root_add(xn_t3643);
-            xn_root_add(xn_t3643);
-                    xn_root_add(xn_t3643);
-                    rt_string *xn_t3644 = rt_string_from_c(" (Expr (nil)) (Stmts ");
-xn_root_add(xn_t3644);
-    xn_root_add(xn_t3644);
-            xn_root_add(xn_t3644);
-                    xn_root_add(xn_t3644);
-                    rt_string *xn_t3645 = xn_concat(xn_t3643, xn_t3644);
-xn_root_add(xn_t3645);
-    xn_root_add(xn_t3645);
-            xn_root_add(xn_t3645);
-                    xn_root_add(xn_t3645);
-                    rt_string *xn_t3646 = xn_SL(ss);
-xn_root_add(xn_t3646);
-    xn_root_add(xn_t3646);
-            xn_root_add(xn_t3646);
-                    xn_root_add(xn_t3646);
-                    rt_string *xn_t3647 = xn_concat(xn_t3645, xn_t3646);
-xn_root_add(xn_t3647);
-    xn_root_add(xn_t3647);
-            xn_root_add(xn_t3647);
-                    xn_root_add(xn_t3647);
-                    rt_string *xn_t3648 = rt_string_from_c(") (Default true))");
-xn_root_add(xn_t3648);
-    xn_root_add(xn_t3648);
-            xn_root_add(xn_t3648);
-                    xn_root_add(xn_t3648);
-                    rt_string *xn_t3649 = xn_concat(xn_t3647, xn_t3648);
-xn_root_add(xn_t3649);
-    xn_root_add(xn_t3649);
-            xn_root_add(xn_t3649);
-                    xn_root_add(xn_t3649);
+                    #line 1778 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3695 = rt_string_from_c("(SwitchCase ");
+xn_root_add(xn_t3695);
+    xn_root_add(xn_t3695);
+            xn_root_add(xn_t3695);
+                    xn_root_add(xn_t3695);
+                    rt_string *xn_t3696 = xn_P(c->line, c->col);
+xn_root_add(xn_t3696);
+    xn_root_add(xn_t3696);
+            xn_root_add(xn_t3696);
+                    xn_root_add(xn_t3696);
+                    rt_string *xn_t3697 = xn_concat(xn_t3695, xn_t3696);
+xn_root_add(xn_t3697);
+    xn_root_add(xn_t3697);
+            xn_root_add(xn_t3697);
+                    xn_root_add(xn_t3697);
+                    rt_string *xn_t3698 = rt_string_from_c(" (Expr (nil)) (Stmts ");
+xn_root_add(xn_t3698);
+    xn_root_add(xn_t3698);
+            xn_root_add(xn_t3698);
+                    xn_root_add(xn_t3698);
+                    rt_string *xn_t3699 = xn_concat(xn_t3697, xn_t3698);
+xn_root_add(xn_t3699);
+    xn_root_add(xn_t3699);
+            xn_root_add(xn_t3699);
+                    xn_root_add(xn_t3699);
+                    rt_string *xn_t3700 = xn_SL(ss);
+xn_root_add(xn_t3700);
+    xn_root_add(xn_t3700);
+            xn_root_add(xn_t3700);
+                    xn_root_add(xn_t3700);
+                    rt_string *xn_t3701 = xn_concat(xn_t3699, xn_t3700);
+xn_root_add(xn_t3701);
+    xn_root_add(xn_t3701);
+            xn_root_add(xn_t3701);
+                    xn_root_add(xn_t3701);
+                    rt_string *xn_t3702 = rt_string_from_c(") (Default true))");
+xn_root_add(xn_t3702);
+    xn_root_add(xn_t3702);
+            xn_root_add(xn_t3702);
+                    xn_root_add(xn_t3702);
+                    rt_string *xn_t3703 = xn_concat(xn_t3701, xn_t3702);
+xn_root_add(xn_t3703);
+    xn_root_add(xn_t3703);
+            xn_root_add(xn_t3703);
+                    xn_root_add(xn_t3703);
                     xn_root_release(def);
                     rt_release(def);
-                    def = xn_t3649;
+                    def = xn_t3703;
                     xn_root_hold(def);
                     xn_gc_safepoint();
                         {
-                        xn_root_restore(xn_t3633);
+                        xn_root_restore(xn_t3687);
                         }
 
                 } else {
-                    size_t xn_t3650 = xn_root_mark();
-                    #line 1744 "impl/lib/b2/xparser.x"
+                    size_t xn_t3704 = xn_root_mark();
+                    #line 1779 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t3650);
+                        xn_root_restore(xn_t3704);
                         }
 
                 }
         }
         {
-        xn_root_restore(xn_t3606);
+        xn_root_restore(xn_t3660);
         }
 
     xn_gc_safepoint();
     }
-#line 1746 "impl/lib/b2/xparser.x"
+#line 1781 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 13))) {
-        size_t xn_t3651 = xn_root_mark();
-        #line 1746 "impl/lib/b2/xparser.x"
+        size_t xn_t3705 = xn_root_mark();
+        #line 1781 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
             {
-            xn_root_restore(xn_t3651);
+            xn_root_restore(xn_t3705);
             }
 
     }
-#line 1747 "impl/lib/b2/xparser.x"
-rt_string *xn_t3652 = rt_string_from_c("(SwitchStmt ");
-xn_root_add(xn_t3652);
-xn_root_add(xn_t3652);
-rt_string *xn_t3653 = xn_P(t->line, t->col);
-xn_root_add(xn_t3653);
-xn_root_add(xn_t3653);
-rt_string *xn_t3654 = xn_concat(xn_t3652, xn_t3653);
-xn_root_add(xn_t3654);
-xn_root_add(xn_t3654);
-rt_string *xn_t3655 = rt_string_from_c(" (Value ");
-xn_root_add(xn_t3655);
-xn_root_add(xn_t3655);
-rt_string *xn_t3656 = xn_concat(xn_t3654, xn_t3655);
-xn_root_add(xn_t3656);
-xn_root_add(xn_t3656);
-rt_string *xn_t3657 = rt_retain(v->d);
-xn_root_add(xn_t3657);
-xn_root_add(xn_t3657);
-rt_string *xn_t3658 = xn_concat(xn_t3656, xn_t3657);
-xn_root_add(xn_t3658);
-xn_root_add(xn_t3658);
-rt_string *xn_t3659 = rt_string_from_c(") (Cases ");
-xn_root_add(xn_t3659);
-xn_root_add(xn_t3659);
-rt_string *xn_t3660 = xn_concat(xn_t3658, xn_t3659);
-xn_root_add(xn_t3660);
-xn_root_add(xn_t3660);
-rt_string *xn_t3661 = xn_SL(cs);
-xn_root_add(xn_t3661);
-xn_root_add(xn_t3661);
-rt_string *xn_t3662 = xn_concat(xn_t3660, xn_t3661);
-xn_root_add(xn_t3662);
-xn_root_add(xn_t3662);
-rt_string *xn_t3663 = rt_string_from_c(") (Default ");
-xn_root_add(xn_t3663);
-xn_root_add(xn_t3663);
-rt_string *xn_t3664 = xn_concat(xn_t3662, xn_t3663);
-xn_root_add(xn_t3664);
-xn_root_add(xn_t3664);
-rt_string *xn_t3665 = rt_retain(def);
-xn_root_add(xn_t3665);
-xn_root_add(xn_t3665);
-rt_string *xn_t3666 = xn_concat(xn_t3664, xn_t3665);
-xn_root_add(xn_t3666);
-xn_root_add(xn_t3666);
-rt_string *xn_t3667 = rt_string_from_c("))");
-xn_root_add(xn_t3667);
-xn_root_add(xn_t3667);
-rt_string *xn_t3668 = xn_concat(xn_t3666, xn_t3667);
-xn_root_add(xn_t3668);
-xn_root_add(xn_t3668);
+#line 1782 "impl/lib/b2/xparser.x"
+rt_string *xn_t3706 = rt_string_from_c("(SwitchStmt ");
+xn_root_add(xn_t3706);
+xn_root_add(xn_t3706);
+rt_string *xn_t3707 = xn_P(t->line, t->col);
+xn_root_add(xn_t3707);
+xn_root_add(xn_t3707);
+rt_string *xn_t3708 = xn_concat(xn_t3706, xn_t3707);
+xn_root_add(xn_t3708);
+xn_root_add(xn_t3708);
+rt_string *xn_t3709 = rt_string_from_c(" (Value ");
+xn_root_add(xn_t3709);
+xn_root_add(xn_t3709);
+rt_string *xn_t3710 = xn_concat(xn_t3708, xn_t3709);
+xn_root_add(xn_t3710);
+xn_root_add(xn_t3710);
+rt_string *xn_t3711 = rt_retain(v->d);
+xn_root_add(xn_t3711);
+xn_root_add(xn_t3711);
+rt_string *xn_t3712 = xn_concat(xn_t3710, xn_t3711);
+xn_root_add(xn_t3712);
+xn_root_add(xn_t3712);
+rt_string *xn_t3713 = rt_string_from_c(") (Cases ");
+xn_root_add(xn_t3713);
+xn_root_add(xn_t3713);
+rt_string *xn_t3714 = xn_concat(xn_t3712, xn_t3713);
+xn_root_add(xn_t3714);
+xn_root_add(xn_t3714);
+rt_string *xn_t3715 = xn_SL(cs);
+xn_root_add(xn_t3715);
+xn_root_add(xn_t3715);
+rt_string *xn_t3716 = xn_concat(xn_t3714, xn_t3715);
+xn_root_add(xn_t3716);
+xn_root_add(xn_t3716);
+rt_string *xn_t3717 = rt_string_from_c(") (Default ");
+xn_root_add(xn_t3717);
+xn_root_add(xn_t3717);
+rt_string *xn_t3718 = xn_concat(xn_t3716, xn_t3717);
+xn_root_add(xn_t3718);
+xn_root_add(xn_t3718);
+rt_string *xn_t3719 = rt_retain(def);
+xn_root_add(xn_t3719);
+xn_root_add(xn_t3719);
+rt_string *xn_t3720 = xn_concat(xn_t3718, xn_t3719);
+xn_root_add(xn_t3720);
+xn_root_add(xn_t3720);
+rt_string *xn_t3721 = rt_string_from_c("))");
+xn_root_add(xn_t3721);
+xn_root_add(xn_t3721);
+rt_string *xn_t3722 = xn_concat(xn_t3720, xn_t3721);
+xn_root_add(xn_t3722);
+xn_root_add(xn_t3722);
     {
 rt_release(def);
     }
     {
-xn_root_restore(xn_t3602);
+xn_root_restore(xn_t3656);
     }
 
-return xn_t3668;
+return xn_t3722;
 xn_root_release(def);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseDefer(xn_Cls_Parser *self) {
-size_t xn_t3669 = xn_root_mark();
+size_t xn_t3723 = xn_root_mark();
 xn_root_add(self);
-#line 1751 "impl/lib/b2/xparser.x"
+#line 1786 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1752 "impl/lib/b2/xparser.x"
-rt_string *xn_t3670 = rt_retain(t->text);
-xn_root_add(xn_t3670);
-rt_string *xn_t3671 = rt_string_from_c("errdefer");
-xn_root_add(xn_t3671);
-int er = xn_str_eq(xn_t3670, xn_t3671);
-#line 1753 "impl/lib/b2/xparser.x"
+#line 1787 "impl/lib/b2/xparser.x"
+rt_string *xn_t3724 = rt_retain(t->text);
+xn_root_add(xn_t3724);
+rt_string *xn_t3725 = rt_string_from_c("errdefer");
+xn_root_add(xn_t3725);
+int er = xn_str_eq(xn_t3724, xn_t3725);
+#line 1788 "impl/lib/b2/xparser.x"
 rt_string *blk = rt_string_from_c("(nil)");
 xn_root_add(blk);
 xn_root_add(blk);
 xn_gc_safepoint();
-#line 1754 "impl/lib/b2/xparser.x"
+#line 1789 "impl/lib/b2/xparser.x"
 rt_string *st = rt_string_from_c("(nil)");
 xn_root_add(st);
 xn_root_add(st);
 xn_gc_safepoint();
-#line 1755 "impl/lib/b2/xparser.x"
+#line 1790 "impl/lib/b2/xparser.x"
     if ((xn_Cls_Parser_at(self, 12))) {
-        size_t xn_t3674 = xn_root_mark();
-        #line 1755 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3675 = xn_Cls_Parser_parseBlock(self);
-xn_root_add(xn_t3675);
-        xn_root_add(xn_t3675);
+        size_t xn_t3728 = xn_root_mark();
+        #line 1790 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3729 = xn_Cls_Parser_parseBlock(self);
+xn_root_add(xn_t3729);
+        xn_root_add(xn_t3729);
         xn_root_release(blk);
         rt_release(blk);
-        blk = xn_t3675;
+        blk = xn_t3729;
         xn_root_hold(blk);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3674);
+            xn_root_restore(xn_t3728);
             }
 
     } else {
-        size_t xn_t3676 = xn_root_mark();
-        #line 1756 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3677 = xn_Cls_Parser_parseStmt(self);
-xn_root_add(xn_t3677);
-        xn_root_add(xn_t3677);
+        size_t xn_t3730 = xn_root_mark();
+        #line 1791 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3731 = xn_Cls_Parser_parseStmt(self);
+xn_root_add(xn_t3731);
+        xn_root_add(xn_t3731);
         xn_root_release(st);
         rt_release(st);
-        st = xn_t3677;
+        st = xn_t3731;
         xn_root_hold(st);
         xn_gc_safepoint();
             {
-            xn_root_restore(xn_t3676);
+            xn_root_restore(xn_t3730);
             }
 
     }
-#line 1757 "impl/lib/b2/xparser.x"
-rt_string *xn_t3678 = rt_string_from_c("(DeferStmt ");
-xn_root_add(xn_t3678);
-xn_root_add(xn_t3678);
-rt_string *xn_t3679 = xn_P(t->line, t->col);
-xn_root_add(xn_t3679);
-xn_root_add(xn_t3679);
-rt_string *xn_t3680 = xn_concat(xn_t3678, xn_t3679);
-xn_root_add(xn_t3680);
-xn_root_add(xn_t3680);
-rt_string *xn_t3681 = rt_string_from_c(" (Errdefer ");
-xn_root_add(xn_t3681);
-xn_root_add(xn_t3681);
-rt_string *xn_t3682 = xn_concat(xn_t3680, xn_t3681);
-xn_root_add(xn_t3682);
-xn_root_add(xn_t3682);
-rt_string *xn_t3683 = xn_B(er);
-xn_root_add(xn_t3683);
-xn_root_add(xn_t3683);
-rt_string *xn_t3684 = xn_concat(xn_t3682, xn_t3683);
-xn_root_add(xn_t3684);
-xn_root_add(xn_t3684);
-rt_string *xn_t3685 = rt_string_from_c(") (Block ");
-xn_root_add(xn_t3685);
-xn_root_add(xn_t3685);
-rt_string *xn_t3686 = xn_concat(xn_t3684, xn_t3685);
-xn_root_add(xn_t3686);
-xn_root_add(xn_t3686);
-rt_string *xn_t3687 = rt_retain(blk);
-xn_root_add(xn_t3687);
-xn_root_add(xn_t3687);
-rt_string *xn_t3688 = xn_concat(xn_t3686, xn_t3687);
-xn_root_add(xn_t3688);
-xn_root_add(xn_t3688);
-rt_string *xn_t3689 = rt_string_from_c(") (Stmt ");
-xn_root_add(xn_t3689);
-xn_root_add(xn_t3689);
-rt_string *xn_t3690 = xn_concat(xn_t3688, xn_t3689);
-xn_root_add(xn_t3690);
-xn_root_add(xn_t3690);
-rt_string *xn_t3691 = rt_retain(st);
-xn_root_add(xn_t3691);
-xn_root_add(xn_t3691);
-rt_string *xn_t3692 = xn_concat(xn_t3690, xn_t3691);
-xn_root_add(xn_t3692);
-xn_root_add(xn_t3692);
-rt_string *xn_t3693 = rt_string_from_c("))");
-xn_root_add(xn_t3693);
-xn_root_add(xn_t3693);
-rt_string *xn_t3694 = xn_concat(xn_t3692, xn_t3693);
-xn_root_add(xn_t3694);
-xn_root_add(xn_t3694);
+#line 1792 "impl/lib/b2/xparser.x"
+rt_string *xn_t3732 = rt_string_from_c("(DeferStmt ");
+xn_root_add(xn_t3732);
+xn_root_add(xn_t3732);
+rt_string *xn_t3733 = xn_P(t->line, t->col);
+xn_root_add(xn_t3733);
+xn_root_add(xn_t3733);
+rt_string *xn_t3734 = xn_concat(xn_t3732, xn_t3733);
+xn_root_add(xn_t3734);
+xn_root_add(xn_t3734);
+rt_string *xn_t3735 = rt_string_from_c(" (Errdefer ");
+xn_root_add(xn_t3735);
+xn_root_add(xn_t3735);
+rt_string *xn_t3736 = xn_concat(xn_t3734, xn_t3735);
+xn_root_add(xn_t3736);
+xn_root_add(xn_t3736);
+rt_string *xn_t3737 = xn_B(er);
+xn_root_add(xn_t3737);
+xn_root_add(xn_t3737);
+rt_string *xn_t3738 = xn_concat(xn_t3736, xn_t3737);
+xn_root_add(xn_t3738);
+xn_root_add(xn_t3738);
+rt_string *xn_t3739 = rt_string_from_c(") (Block ");
+xn_root_add(xn_t3739);
+xn_root_add(xn_t3739);
+rt_string *xn_t3740 = xn_concat(xn_t3738, xn_t3739);
+xn_root_add(xn_t3740);
+xn_root_add(xn_t3740);
+rt_string *xn_t3741 = rt_retain(blk);
+xn_root_add(xn_t3741);
+xn_root_add(xn_t3741);
+rt_string *xn_t3742 = xn_concat(xn_t3740, xn_t3741);
+xn_root_add(xn_t3742);
+xn_root_add(xn_t3742);
+rt_string *xn_t3743 = rt_string_from_c(") (Stmt ");
+xn_root_add(xn_t3743);
+xn_root_add(xn_t3743);
+rt_string *xn_t3744 = xn_concat(xn_t3742, xn_t3743);
+xn_root_add(xn_t3744);
+xn_root_add(xn_t3744);
+rt_string *xn_t3745 = rt_retain(st);
+xn_root_add(xn_t3745);
+xn_root_add(xn_t3745);
+rt_string *xn_t3746 = xn_concat(xn_t3744, xn_t3745);
+xn_root_add(xn_t3746);
+xn_root_add(xn_t3746);
+rt_string *xn_t3747 = rt_string_from_c("))");
+xn_root_add(xn_t3747);
+xn_root_add(xn_t3747);
+rt_string *xn_t3748 = xn_concat(xn_t3746, xn_t3747);
+xn_root_add(xn_t3748);
+xn_root_add(xn_t3748);
     {
 rt_release(st);
     }
@@ -21840,40 +22198,40 @@ rt_release(st);
 rt_release(blk);
     }
     {
-xn_root_restore(xn_t3669);
+xn_root_restore(xn_t3723);
     }
 
-return xn_t3694;
+return xn_t3748;
 xn_root_release(blk);
 xn_root_release(st);
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static xn_Cls_E * xn_Cls_Parser_mk(xn_Cls_Parser *self, rt_string * xn_p_d, int64_t xn_p_l, int64_t xn_p_c) {
-size_t xn_t3695 = xn_root_mark();
+size_t xn_t3749 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_d);
-#line 1760 "impl/lib/b2/xparser.x"
+#line 1795 "impl/lib/b2/xparser.x"
 xn_Cls_E * e = xn_Cls_E_new();
 xn_root_add(e);
 xn_root_add(e);
 xn_gc_safepoint();
-#line 1760 "impl/lib/b2/xparser.x"
-rt_string *xn_t3696 = rt_retain(xn_p_d);
-xn_root_add(xn_t3696);
+#line 1795 "impl/lib/b2/xparser.x"
+rt_string *xn_t3750 = rt_retain(xn_p_d);
+xn_root_add(xn_t3750);
 rt_release(e->d);
-e->d = xn_t3696;
-#line 1760 "impl/lib/b2/xparser.x"
+e->d = xn_t3750;
+#line 1795 "impl/lib/b2/xparser.x"
 e->l = xn_p_l;
-#line 1760 "impl/lib/b2/xparser.x"
+#line 1795 "impl/lib/b2/xparser.x"
 e->c = xn_p_c;
-#line 1760 "impl/lib/b2/xparser.x"
+#line 1795 "impl/lib/b2/xparser.x"
 e->sl = xn_p_l;
-#line 1760 "impl/lib/b2/xparser.x"
+#line 1795 "impl/lib/b2/xparser.x"
 e->sc = xn_p_c;
-#line 1760 "impl/lib/b2/xparser.x"
+#line 1795 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3695);
+xn_root_restore(xn_t3749);
     }
 
 return e;
@@ -21881,11 +22239,11 @@ return e;
 }
 
 static xn_Cls_E * xn_Cls_Parser_parseExpr(xn_Cls_Parser *self) {
-size_t xn_t3697 = xn_root_mark();
+size_t xn_t3751 = xn_root_mark();
 xn_root_add(self);
-#line 1762 "impl/lib/b2/xparser.x"
+#line 1797 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3697);
+xn_root_restore(xn_t3751);
     }
 
 return xn_Cls_Parser_parseTernary(self);
@@ -21893,652 +22251,776 @@ return xn_Cls_Parser_parseTernary(self);
 }
 
 static xn_Cls_E * xn_Cls_Parser_parseTernary(xn_Cls_Parser *self) {
-size_t xn_t3698 = xn_root_mark();
+size_t xn_t3752 = xn_root_mark();
 xn_root_add(self);
-#line 1765 "impl/lib/b2/xparser.x"
-xn_Cls_E * c = xn_Cls_Parser_parseBin(self, 1);
+#line 1800 "impl/lib/b2/xparser.x"
+xn_Cls_E * c = xn_Cls_Parser_parseCoalesce(self);
 xn_root_add(c);
 xn_root_add(c);
 xn_gc_safepoint();
-#line 1766 "impl/lib/b2/xparser.x"
-rt_string *xn_t3699 = rt_string_from_c("?");
-xn_root_add(xn_t3699);
-    if ((xn_Cls_Parser_atOp(self, xn_t3699))) {
-        size_t xn_t3700 = xn_root_mark();
-        #line 1767 "impl/lib/b2/xparser.x"
+#line 1801 "impl/lib/b2/xparser.x"
+rt_string *xn_t3753 = rt_string_from_c("?");
+xn_root_add(xn_t3753);
+    if ((xn_Cls_Parser_atOp(self, xn_t3753))) {
+        size_t xn_t3754 = xn_root_mark();
+        #line 1802 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * t = xn_Cls_Parser_next(self);
 xn_root_add(t);
         xn_root_add(t);
         xn_root_add(t);
         xn_gc_safepoint();
-        #line 1768 "impl/lib/b2/xparser.x"
+        #line 1803 "impl/lib/b2/xparser.x"
         xn_Cls_E * a = xn_Cls_Parser_parseExpr(self);
 xn_root_add(a);
         xn_root_add(a);
         xn_root_add(a);
         xn_gc_safepoint();
-        #line 1769 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3701 = rt_string_from_c(":");
-xn_root_add(xn_t3701);
-        xn_root_add(xn_t3701);
-            if ((xn_Cls_Parser_atOp(self, xn_t3701))) {
-                size_t xn_t3702 = xn_root_mark();
-                #line 1769 "impl/lib/b2/xparser.x"
+        #line 1804 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3755 = rt_string_from_c(":");
+xn_root_add(xn_t3755);
+        xn_root_add(xn_t3755);
+            if ((xn_Cls_Parser_atOp(self, xn_t3755))) {
+                size_t xn_t3756 = xn_root_mark();
+                #line 1804 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t3702);
+                    xn_root_restore(xn_t3756);
                     }
 
             }
-        #line 1770 "impl/lib/b2/xparser.x"
+        #line 1805 "impl/lib/b2/xparser.x"
         xn_Cls_E * b = xn_Cls_Parser_parseTernary(self);
 xn_root_add(b);
         xn_root_add(b);
         xn_root_add(b);
         xn_gc_safepoint();
-        #line 1771 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3703 = rt_string_from_c("(Ternary ");
-xn_root_add(xn_t3703);
-        xn_root_add(xn_t3703);
-        rt_string *xn_t3704 = xn_P(t->line, t->col);
-xn_root_add(xn_t3704);
-        xn_root_add(xn_t3704);
-        rt_string *xn_t3705 = xn_concat(xn_t3703, xn_t3704);
-xn_root_add(xn_t3705);
-        xn_root_add(xn_t3705);
-        rt_string *xn_t3706 = rt_string_from_c(" (Cond ");
-xn_root_add(xn_t3706);
-        xn_root_add(xn_t3706);
-        rt_string *xn_t3707 = xn_concat(xn_t3705, xn_t3706);
-xn_root_add(xn_t3707);
-        xn_root_add(xn_t3707);
-        rt_string *xn_t3708 = rt_retain(c->d);
-xn_root_add(xn_t3708);
-        xn_root_add(xn_t3708);
-        rt_string *xn_t3709 = xn_concat(xn_t3707, xn_t3708);
-xn_root_add(xn_t3709);
-        xn_root_add(xn_t3709);
-        rt_string *xn_t3710 = rt_string_from_c(") (Then ");
-xn_root_add(xn_t3710);
-        xn_root_add(xn_t3710);
-        rt_string *xn_t3711 = xn_concat(xn_t3709, xn_t3710);
-xn_root_add(xn_t3711);
-        xn_root_add(xn_t3711);
-        rt_string *xn_t3712 = rt_retain(a->d);
-xn_root_add(xn_t3712);
-        xn_root_add(xn_t3712);
-        rt_string *xn_t3713 = xn_concat(xn_t3711, xn_t3712);
-xn_root_add(xn_t3713);
-        xn_root_add(xn_t3713);
-        rt_string *xn_t3714 = rt_string_from_c(") (Else ");
-xn_root_add(xn_t3714);
-        xn_root_add(xn_t3714);
-        rt_string *xn_t3715 = xn_concat(xn_t3713, xn_t3714);
-xn_root_add(xn_t3715);
-        xn_root_add(xn_t3715);
-        rt_string *xn_t3716 = rt_retain(b->d);
-xn_root_add(xn_t3716);
-        xn_root_add(xn_t3716);
-        rt_string *xn_t3717 = xn_concat(xn_t3715, xn_t3716);
-xn_root_add(xn_t3717);
-        xn_root_add(xn_t3717);
-        rt_string *xn_t3718 = rt_string_from_c("))");
-xn_root_add(xn_t3718);
-        xn_root_add(xn_t3718);
-        rt_string *xn_t3719 = xn_concat(xn_t3717, xn_t3718);
-xn_root_add(xn_t3719);
-        xn_root_add(xn_t3719);
-        xn_Cls_E * te = xn_Cls_Parser_mk(self, xn_t3719, t->line, t->col);
+        #line 1806 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3757 = rt_string_from_c("(Ternary ");
+xn_root_add(xn_t3757);
+        xn_root_add(xn_t3757);
+        rt_string *xn_t3758 = xn_P(t->line, t->col);
+xn_root_add(xn_t3758);
+        xn_root_add(xn_t3758);
+        rt_string *xn_t3759 = xn_concat(xn_t3757, xn_t3758);
+xn_root_add(xn_t3759);
+        xn_root_add(xn_t3759);
+        rt_string *xn_t3760 = rt_string_from_c(" (Cond ");
+xn_root_add(xn_t3760);
+        xn_root_add(xn_t3760);
+        rt_string *xn_t3761 = xn_concat(xn_t3759, xn_t3760);
+xn_root_add(xn_t3761);
+        xn_root_add(xn_t3761);
+        rt_string *xn_t3762 = rt_retain(c->d);
+xn_root_add(xn_t3762);
+        xn_root_add(xn_t3762);
+        rt_string *xn_t3763 = xn_concat(xn_t3761, xn_t3762);
+xn_root_add(xn_t3763);
+        xn_root_add(xn_t3763);
+        rt_string *xn_t3764 = rt_string_from_c(") (Then ");
+xn_root_add(xn_t3764);
+        xn_root_add(xn_t3764);
+        rt_string *xn_t3765 = xn_concat(xn_t3763, xn_t3764);
+xn_root_add(xn_t3765);
+        xn_root_add(xn_t3765);
+        rt_string *xn_t3766 = rt_retain(a->d);
+xn_root_add(xn_t3766);
+        xn_root_add(xn_t3766);
+        rt_string *xn_t3767 = xn_concat(xn_t3765, xn_t3766);
+xn_root_add(xn_t3767);
+        xn_root_add(xn_t3767);
+        rt_string *xn_t3768 = rt_string_from_c(") (Else ");
+xn_root_add(xn_t3768);
+        xn_root_add(xn_t3768);
+        rt_string *xn_t3769 = xn_concat(xn_t3767, xn_t3768);
+xn_root_add(xn_t3769);
+        xn_root_add(xn_t3769);
+        rt_string *xn_t3770 = rt_retain(b->d);
+xn_root_add(xn_t3770);
+        xn_root_add(xn_t3770);
+        rt_string *xn_t3771 = xn_concat(xn_t3769, xn_t3770);
+xn_root_add(xn_t3771);
+        xn_root_add(xn_t3771);
+        rt_string *xn_t3772 = rt_string_from_c("))");
+xn_root_add(xn_t3772);
+        xn_root_add(xn_t3772);
+        rt_string *xn_t3773 = xn_concat(xn_t3771, xn_t3772);
+xn_root_add(xn_t3773);
+        xn_root_add(xn_t3773);
+        xn_Cls_E * te = xn_Cls_Parser_mk(self, xn_t3773, t->line, t->col);
 xn_root_add(te);
         xn_root_add(te);
         xn_root_add(te);
         xn_gc_safepoint();
-        #line 1772 "impl/lib/b2/xparser.x"
+        #line 1807 "impl/lib/b2/xparser.x"
         te->sl = c->sl;
-        #line 1773 "impl/lib/b2/xparser.x"
+        #line 1808 "impl/lib/b2/xparser.x"
         te->sc = c->sc;
-        #line 1774 "impl/lib/b2/xparser.x"
+        #line 1809 "impl/lib/b2/xparser.x"
             {
-        xn_root_restore(xn_t3700);
+        xn_root_restore(xn_t3754);
             }
             {
-        xn_root_restore(xn_t3698);
+        xn_root_restore(xn_t3752);
             }
 
         return te;
 
     }
-#line 1776 "impl/lib/b2/xparser.x"
+#line 1811 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3698);
+xn_root_restore(xn_t3752);
     }
 
 return c;
     return (xn_Cls_E *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
-static int64_t xn_Cls_Parser_prec(xn_Cls_Parser *self, rt_string * xn_p_op) {
-size_t xn_t3720 = xn_root_mark();
+static xn_Cls_E * xn_Cls_Parser_parseCoalesce(xn_Cls_Parser *self) {
+size_t xn_t3774 = xn_root_mark();
 xn_root_add(self);
-xn_root_add(xn_p_op);
-#line 1780 "impl/lib/b2/xparser.x"
-rt_string *xn_t3721 = rt_retain(xn_p_op);
-xn_root_add(xn_t3721);
-rt_string *xn_t3722 = rt_string_from_c("||");
-xn_root_add(xn_t3722);
-    if ((xn_str_eq(xn_t3721, xn_t3722))) {
-        size_t xn_t3723 = xn_root_mark();
-        #line 1780 "impl/lib/b2/xparser.x"
-        int64_t xn_t3724 = 1;
-            {
-        xn_root_restore(xn_t3723);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3724;
-
-    }
-#line 1781 "impl/lib/b2/xparser.x"
-rt_string *xn_t3725 = rt_retain(xn_p_op);
-xn_root_add(xn_t3725);
-rt_string *xn_t3726 = rt_string_from_c("&&");
-xn_root_add(xn_t3726);
-    if ((xn_str_eq(xn_t3725, xn_t3726))) {
-        size_t xn_t3727 = xn_root_mark();
-        #line 1781 "impl/lib/b2/xparser.x"
-        int64_t xn_t3728 = 2;
-            {
-        xn_root_restore(xn_t3727);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3728;
-
-    }
-#line 1782 "impl/lib/b2/xparser.x"
-rt_string *xn_t3729 = rt_retain(xn_p_op);
-xn_root_add(xn_t3729);
-rt_string *xn_t3730 = rt_string_from_c("|");
-xn_root_add(xn_t3730);
-    if ((xn_str_eq(xn_t3729, xn_t3730))) {
-        size_t xn_t3731 = xn_root_mark();
-        #line 1782 "impl/lib/b2/xparser.x"
-        int64_t xn_t3732 = 3;
-            {
-        xn_root_restore(xn_t3731);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3732;
-
-    }
-#line 1783 "impl/lib/b2/xparser.x"
-rt_string *xn_t3733 = rt_retain(xn_p_op);
-xn_root_add(xn_t3733);
-rt_string *xn_t3734 = rt_string_from_c("^");
-xn_root_add(xn_t3734);
-    if ((xn_str_eq(xn_t3733, xn_t3734))) {
-        size_t xn_t3735 = xn_root_mark();
-        #line 1783 "impl/lib/b2/xparser.x"
-        int64_t xn_t3736 = 4;
-            {
-        xn_root_restore(xn_t3735);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3736;
-
-    }
-#line 1784 "impl/lib/b2/xparser.x"
-rt_string *xn_t3737 = rt_retain(xn_p_op);
-xn_root_add(xn_t3737);
-rt_string *xn_t3738 = rt_string_from_c("&");
-xn_root_add(xn_t3738);
-    if ((xn_str_eq(xn_t3737, xn_t3738))) {
-        size_t xn_t3739 = xn_root_mark();
-        #line 1784 "impl/lib/b2/xparser.x"
-        int64_t xn_t3740 = 5;
-            {
-        xn_root_restore(xn_t3739);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3740;
-
-    }
-#line 1785 "impl/lib/b2/xparser.x"
-rt_string *xn_t3741 = rt_retain(xn_p_op);
-xn_root_add(xn_t3741);
-rt_string *xn_t3742 = rt_string_from_c("==");
-xn_root_add(xn_t3742);
-rt_string *xn_t3743 = rt_retain(xn_p_op);
-xn_root_add(xn_t3743);
-rt_string *xn_t3744 = rt_string_from_c("!=");
-xn_root_add(xn_t3744);
-rt_string *xn_t3745 = rt_retain(xn_p_op);
-xn_root_add(xn_t3745);
-rt_string *xn_t3746 = rt_string_from_c("===");
-xn_root_add(xn_t3746);
-    if ((((xn_str_eq(xn_t3741, xn_t3742)) || (xn_str_eq(xn_t3743, xn_t3744))) || (xn_str_eq(xn_t3745, xn_t3746)))) {
-        size_t xn_t3747 = xn_root_mark();
-        #line 1785 "impl/lib/b2/xparser.x"
-        int64_t xn_t3748 = 6;
-            {
-        xn_root_restore(xn_t3747);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3748;
-
-    }
-#line 1786 "impl/lib/b2/xparser.x"
-rt_string *xn_t3749 = rt_retain(xn_p_op);
-xn_root_add(xn_t3749);
-rt_string *xn_t3750 = rt_string_from_c("<");
-xn_root_add(xn_t3750);
-rt_string *xn_t3751 = rt_retain(xn_p_op);
-xn_root_add(xn_t3751);
-rt_string *xn_t3752 = rt_string_from_c(">");
-xn_root_add(xn_t3752);
-rt_string *xn_t3753 = rt_retain(xn_p_op);
-xn_root_add(xn_t3753);
-rt_string *xn_t3754 = rt_string_from_c("<=");
-xn_root_add(xn_t3754);
-rt_string *xn_t3755 = rt_retain(xn_p_op);
-xn_root_add(xn_t3755);
-rt_string *xn_t3756 = rt_string_from_c(">=");
-xn_root_add(xn_t3756);
-rt_string *xn_t3757 = rt_retain(xn_p_op);
-xn_root_add(xn_t3757);
-rt_string *xn_t3758 = rt_string_from_c("is");
-xn_root_add(xn_t3758);
-rt_string *xn_t3759 = rt_retain(xn_p_op);
-xn_root_add(xn_t3759);
-rt_string *xn_t3760 = rt_string_from_c("as");
-xn_root_add(xn_t3760);
-rt_string *xn_t3761 = rt_retain(xn_p_op);
-xn_root_add(xn_t3761);
-rt_string *xn_t3762 = rt_string_from_c("as?");
-xn_root_add(xn_t3762);
-    if ((((((((xn_str_eq(xn_t3749, xn_t3750)) || (xn_str_eq(xn_t3751, xn_t3752))) || (xn_str_eq(xn_t3753, xn_t3754))) || (xn_str_eq(xn_t3755, xn_t3756))) || (xn_str_eq(xn_t3757, xn_t3758))) || (xn_str_eq(xn_t3759, xn_t3760))) || (xn_str_eq(xn_t3761, xn_t3762)))) {
-        size_t xn_t3763 = xn_root_mark();
-        #line 1786 "impl/lib/b2/xparser.x"
-        int64_t xn_t3764 = 7;
-            {
-        xn_root_restore(xn_t3763);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3764;
-
-    }
-#line 1787 "impl/lib/b2/xparser.x"
-rt_string *xn_t3765 = rt_retain(xn_p_op);
-xn_root_add(xn_t3765);
-rt_string *xn_t3766 = rt_string_from_c("..<");
-xn_root_add(xn_t3766);
-rt_string *xn_t3767 = rt_retain(xn_p_op);
-xn_root_add(xn_t3767);
-rt_string *xn_t3768 = rt_string_from_c("...");
-xn_root_add(xn_t3768);
-    if (((xn_str_eq(xn_t3765, xn_t3766)) || (xn_str_eq(xn_t3767, xn_t3768)))) {
-        size_t xn_t3769 = xn_root_mark();
-        #line 1787 "impl/lib/b2/xparser.x"
-        int64_t xn_t3770 = 8;
-            {
-        xn_root_restore(xn_t3769);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3770;
-
-    }
-#line 1788 "impl/lib/b2/xparser.x"
-rt_string *xn_t3771 = rt_retain(xn_p_op);
-xn_root_add(xn_t3771);
-rt_string *xn_t3772 = rt_string_from_c("<<");
-xn_root_add(xn_t3772);
-rt_string *xn_t3773 = rt_retain(xn_p_op);
-xn_root_add(xn_t3773);
-rt_string *xn_t3774 = rt_string_from_c(">>");
-xn_root_add(xn_t3774);
-    if (((xn_str_eq(xn_t3771, xn_t3772)) || (xn_str_eq(xn_t3773, xn_t3774)))) {
-        size_t xn_t3775 = xn_root_mark();
-        #line 1788 "impl/lib/b2/xparser.x"
-        int64_t xn_t3776 = 9;
-            {
-        xn_root_restore(xn_t3775);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3776;
-
-    }
-#line 1789 "impl/lib/b2/xparser.x"
-rt_string *xn_t3777 = rt_retain(xn_p_op);
-xn_root_add(xn_t3777);
-rt_string *xn_t3778 = rt_string_from_c("+");
-xn_root_add(xn_t3778);
-rt_string *xn_t3779 = rt_retain(xn_p_op);
-xn_root_add(xn_t3779);
-rt_string *xn_t3780 = rt_string_from_c("-");
-xn_root_add(xn_t3780);
-    if (((xn_str_eq(xn_t3777, xn_t3778)) || (xn_str_eq(xn_t3779, xn_t3780)))) {
-        size_t xn_t3781 = xn_root_mark();
-        #line 1789 "impl/lib/b2/xparser.x"
-        int64_t xn_t3782 = 10;
-            {
-        xn_root_restore(xn_t3781);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3782;
-
-    }
-#line 1790 "impl/lib/b2/xparser.x"
-rt_string *xn_t3783 = rt_retain(xn_p_op);
-xn_root_add(xn_t3783);
-rt_string *xn_t3784 = rt_string_from_c("*");
-xn_root_add(xn_t3784);
-rt_string *xn_t3785 = rt_retain(xn_p_op);
-xn_root_add(xn_t3785);
-rt_string *xn_t3786 = rt_string_from_c("/");
-xn_root_add(xn_t3786);
-rt_string *xn_t3787 = rt_retain(xn_p_op);
-xn_root_add(xn_t3787);
-rt_string *xn_t3788 = rt_string_from_c("%");
-xn_root_add(xn_t3788);
-    if ((((xn_str_eq(xn_t3783, xn_t3784)) || (xn_str_eq(xn_t3785, xn_t3786))) || (xn_str_eq(xn_t3787, xn_t3788)))) {
-        size_t xn_t3789 = xn_root_mark();
-        #line 1790 "impl/lib/b2/xparser.x"
-        int64_t xn_t3790 = 11;
-            {
-        xn_root_restore(xn_t3789);
-            }
-            {
-        xn_root_restore(xn_t3720);
-            }
-
-        return xn_t3790;
-
-    }
-#line 1791 "impl/lib/b2/xparser.x"
-int64_t xn_t3791 = 0;
-    {
-xn_root_restore(xn_t3720);
-    }
-
-return xn_t3791;
-    return (int64_t)0; /* sema 保证不可达（函数体全路径 return） */
-}
-
-static xn_Cls_E * xn_Cls_Parser_parseBin(xn_Cls_Parser *self, int64_t xn_p_lvl) {
-size_t xn_t3792 = xn_root_mark();
-xn_root_add(self);
-#line 1795 "impl/lib/b2/xparser.x"
-    if (((xn_p_lvl > 11))) {
-        size_t xn_t3793 = xn_root_mark();
-        #line 1795 "impl/lib/b2/xparser.x"
-            {
-        xn_root_restore(xn_t3793);
-            }
-            {
-        xn_root_restore(xn_t3792);
-            }
-
-        return xn_Cls_Parser_parseUnary(self);
-
-    }
-#line 1798 "impl/lib/b2/xparser.x"
-xn_arr_o_E *xn_t3794 = xn_arr_o_E_new(0);
-xn_root_add(xn_t3794);
-xn_arr_o_E * lh = xn_t3794;
-xn_root_add(lh);
-xn_root_add(lh);
-xn_gc_safepoint();
-#line 1799 "impl/lib/b2/xparser.x"
-xn_Cls_E * xn_t3795 = xn_Cls_Parser_parseBin(self, (xn_p_lvl + 1));
-xn_root_add(xn_t3795);
-xn_root_add(xn_t3795);
-xn_arr_o_E_push(lh, xn_t3795);
-#line 1800 "impl/lib/b2/xparser.x"
-    while (1) {
-        xn_Cls_Tok * xn_t3796 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3796);
-        xn_Cls_Tok * xn_t3797 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3797);
-        xn_Cls_Tok * xn_t3798 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3798);
-        rt_string *xn_t3799 = rt_retain(xn_t3798->text);
-xn_root_add(xn_t3799);
-        if (!(((((xn_t3796->kind == 9) || (xn_t3797->kind == 3))) && ((xn_Cls_Parser_prec(self, xn_t3799) == xn_p_lvl))))) { break; }
-        size_t xn_t3800 = xn_root_mark();
-        #line 1801 "impl/lib/b2/xparser.x"
-        xn_Cls_E * l = xn_arr_o_E_get(lh, 0);
+#line 1815 "impl/lib/b2/xparser.x"
+xn_Cls_E * l = xn_Cls_Parser_parseBin(self, 1);
 xn_root_add(l);
-        xn_root_add(l);
-        xn_root_add(l);
-        xn_gc_safepoint();
-        #line 1802 "impl/lib/b2/xparser.x"
+xn_root_add(l);
+xn_gc_safepoint();
+#line 1816 "impl/lib/b2/xparser.x"
+rt_string *xn_t3775 = rt_string_from_c("??");
+xn_root_add(xn_t3775);
+    if ((xn_Cls_Parser_atOp(self, xn_t3775))) {
+        size_t xn_t3776 = xn_root_mark();
+        #line 1817 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * op = xn_Cls_Parser_next(self);
 xn_root_add(op);
         xn_root_add(op);
         xn_root_add(op);
         xn_gc_safepoint();
-        #line 1803 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3801 = rt_retain(op->text);
-xn_root_add(xn_t3801);
-        xn_root_add(xn_t3801);
-        rt_string *xn_t3802 = rt_string_from_c("<");
-xn_root_add(xn_t3802);
-        xn_root_add(xn_t3802);
-        rt_string *xn_t3803 = rt_retain(op->text);
-xn_root_add(xn_t3803);
-        xn_root_add(xn_t3803);
-        rt_string *xn_t3804 = rt_string_from_c(">");
-xn_root_add(xn_t3804);
-        xn_root_add(xn_t3804);
-        rt_string *xn_t3805 = rt_retain(op->text);
-xn_root_add(xn_t3805);
-        xn_root_add(xn_t3805);
-        rt_string *xn_t3806 = rt_string_from_c("<=");
-xn_root_add(xn_t3806);
-        xn_root_add(xn_t3806);
-        rt_string *xn_t3807 = rt_retain(op->text);
-xn_root_add(xn_t3807);
-        xn_root_add(xn_t3807);
-        rt_string *xn_t3808 = rt_string_from_c(">=");
-xn_root_add(xn_t3808);
-        xn_root_add(xn_t3808);
-        rt_string *xn_t3809 = rt_retain(l->d);
-xn_root_add(xn_t3809);
-        xn_root_add(xn_t3809);
-        rt_string *xn_t3810 = rt_string_from_c("(Binary ");
-xn_root_add(xn_t3810);
-        xn_root_add(xn_t3810);
-        rt_string *xn_t3811 = rt_retain(l->d);
-xn_root_add(xn_t3811);
-        xn_root_add(xn_t3811);
-        rt_string *xn_t3812 = rt_string_from_c("(Op \"");
-xn_root_add(xn_t3812);
-        xn_root_add(xn_t3812);
-            if (((((((xn_str_eq(xn_t3801, xn_t3802) || xn_str_eq(xn_t3803, xn_t3804)) || xn_str_eq(xn_t3805, xn_t3806)) || xn_str_eq(xn_t3807, xn_t3808))) && ((xn_str_indexof(xn_t3809, xn_t3810) == 0))) && ((xn_str_indexof(xn_t3811, xn_t3812) > 0)))) {
-                size_t xn_t3813 = xn_root_mark();
-                #line 1804 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3814 = rt_string_from_c("SYN-102");
-xn_root_add(xn_t3814);
-        xn_root_add(xn_t3814);
-                xn_root_add(xn_t3814);
-                rt_string *xn_t3815 = rt_string_from_c("比较运算不可链式使用");
-xn_root_add(xn_t3815);
-        xn_root_add(xn_t3815);
-                xn_root_add(xn_t3815);
-                xn_Cls_Parser_err(self, xn_t3814, op->line, op->col, xn_t3815);
-                #line 1805 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3816 = rt_string_from_c("SYN-108");
-xn_root_add(xn_t3816);
-        xn_root_add(xn_t3816);
-                xn_root_add(xn_t3816);
-                rt_string *xn_t3817 = rt_string_from_c("语句未终止（同一行的下一条语句前缺少 `;`）");
-xn_root_add(xn_t3817);
-        xn_root_add(xn_t3817);
-                xn_root_add(xn_t3817);
-                xn_Cls_Parser_err(self, xn_t3816, op->line, op->col, xn_t3817);
-                    {
-                    xn_root_restore(xn_t3813);
-                    }
-
-            }
-        #line 1807 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3818 = rt_string_from_c("(nil)");
-xn_root_add(xn_t3818);
-        xn_root_add(xn_t3818);
-        xn_Cls_E * r = xn_Cls_Parser_mk(self, xn_t3818, 0, 0);
+        #line 1818 "impl/lib/b2/xparser.x"
+        xn_Cls_E * r = xn_Cls_Parser_parseCoalesce(self);
 xn_root_add(r);
         xn_root_add(r);
         xn_root_add(r);
         xn_gc_safepoint();
-        #line 1808 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3819 = rt_retain(op->text);
-xn_root_add(xn_t3819);
-        xn_root_add(xn_t3819);
-        rt_string *xn_t3820 = rt_string_from_c("is");
-xn_root_add(xn_t3820);
-        xn_root_add(xn_t3820);
-        rt_string *xn_t3821 = rt_retain(op->text);
+        #line 1819 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3777 = rt_string_from_c("(Binary ");
+xn_root_add(xn_t3777);
+        xn_root_add(xn_t3777);
+        rt_string *xn_t3778 = xn_P(op->line, op->col);
+xn_root_add(xn_t3778);
+        xn_root_add(xn_t3778);
+        rt_string *xn_t3779 = xn_concat(xn_t3777, xn_t3778);
+xn_root_add(xn_t3779);
+        xn_root_add(xn_t3779);
+        rt_string *xn_t3780 = rt_string_from_c(" (Op \"??\") (L ");
+xn_root_add(xn_t3780);
+        xn_root_add(xn_t3780);
+        rt_string *xn_t3781 = xn_concat(xn_t3779, xn_t3780);
+xn_root_add(xn_t3781);
+        xn_root_add(xn_t3781);
+        rt_string *xn_t3782 = rt_retain(l->d);
+xn_root_add(xn_t3782);
+        xn_root_add(xn_t3782);
+        rt_string *xn_t3783 = xn_concat(xn_t3781, xn_t3782);
+xn_root_add(xn_t3783);
+        xn_root_add(xn_t3783);
+        rt_string *xn_t3784 = rt_string_from_c(") (R ");
+xn_root_add(xn_t3784);
+        xn_root_add(xn_t3784);
+        rt_string *xn_t3785 = xn_concat(xn_t3783, xn_t3784);
+xn_root_add(xn_t3785);
+        xn_root_add(xn_t3785);
+        rt_string *xn_t3786 = rt_retain(r->d);
+xn_root_add(xn_t3786);
+        xn_root_add(xn_t3786);
+        rt_string *xn_t3787 = xn_concat(xn_t3785, xn_t3786);
+xn_root_add(xn_t3787);
+        xn_root_add(xn_t3787);
+        rt_string *xn_t3788 = rt_string_from_c("))");
+xn_root_add(xn_t3788);
+        xn_root_add(xn_t3788);
+        rt_string *xn_t3789 = xn_concat(xn_t3787, xn_t3788);
+xn_root_add(xn_t3789);
+        xn_root_add(xn_t3789);
+        xn_Cls_E * be = xn_Cls_Parser_mk(self, xn_t3789, op->line, op->col);
+xn_root_add(be);
+        xn_root_add(be);
+        xn_root_add(be);
+        xn_gc_safepoint();
+        #line 1820 "impl/lib/b2/xparser.x"
+        be->sl = l->sl;
+        #line 1821 "impl/lib/b2/xparser.x"
+        be->sc = l->sc;
+        #line 1822 "impl/lib/b2/xparser.x"
+            {
+        xn_root_restore(xn_t3776);
+            }
+            {
+        xn_root_restore(xn_t3774);
+            }
+
+        return be;
+
+    }
+#line 1824 "impl/lib/b2/xparser.x"
+    {
+xn_root_restore(xn_t3774);
+    }
+
+return l;
+    return (xn_Cls_E *)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static int64_t xn_Cls_Parser_prec(xn_Cls_Parser *self, rt_string * xn_p_op) {
+size_t xn_t3790 = xn_root_mark();
+xn_root_add(self);
+xn_root_add(xn_p_op);
+#line 1828 "impl/lib/b2/xparser.x"
+rt_string *xn_t3791 = rt_retain(xn_p_op);
+xn_root_add(xn_t3791);
+rt_string *xn_t3792 = rt_string_from_c("||");
+xn_root_add(xn_t3792);
+    if ((xn_str_eq(xn_t3791, xn_t3792))) {
+        size_t xn_t3793 = xn_root_mark();
+        #line 1828 "impl/lib/b2/xparser.x"
+        int64_t xn_t3794 = 1;
+            {
+        xn_root_restore(xn_t3793);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3794;
+
+    }
+#line 1829 "impl/lib/b2/xparser.x"
+rt_string *xn_t3795 = rt_retain(xn_p_op);
+xn_root_add(xn_t3795);
+rt_string *xn_t3796 = rt_string_from_c("&&");
+xn_root_add(xn_t3796);
+    if ((xn_str_eq(xn_t3795, xn_t3796))) {
+        size_t xn_t3797 = xn_root_mark();
+        #line 1829 "impl/lib/b2/xparser.x"
+        int64_t xn_t3798 = 2;
+            {
+        xn_root_restore(xn_t3797);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3798;
+
+    }
+#line 1830 "impl/lib/b2/xparser.x"
+rt_string *xn_t3799 = rt_retain(xn_p_op);
+xn_root_add(xn_t3799);
+rt_string *xn_t3800 = rt_string_from_c("|");
+xn_root_add(xn_t3800);
+    if ((xn_str_eq(xn_t3799, xn_t3800))) {
+        size_t xn_t3801 = xn_root_mark();
+        #line 1830 "impl/lib/b2/xparser.x"
+        int64_t xn_t3802 = 3;
+            {
+        xn_root_restore(xn_t3801);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3802;
+
+    }
+#line 1831 "impl/lib/b2/xparser.x"
+rt_string *xn_t3803 = rt_retain(xn_p_op);
+xn_root_add(xn_t3803);
+rt_string *xn_t3804 = rt_string_from_c("^");
+xn_root_add(xn_t3804);
+    if ((xn_str_eq(xn_t3803, xn_t3804))) {
+        size_t xn_t3805 = xn_root_mark();
+        #line 1831 "impl/lib/b2/xparser.x"
+        int64_t xn_t3806 = 4;
+            {
+        xn_root_restore(xn_t3805);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3806;
+
+    }
+#line 1832 "impl/lib/b2/xparser.x"
+rt_string *xn_t3807 = rt_retain(xn_p_op);
+xn_root_add(xn_t3807);
+rt_string *xn_t3808 = rt_string_from_c("&");
+xn_root_add(xn_t3808);
+    if ((xn_str_eq(xn_t3807, xn_t3808))) {
+        size_t xn_t3809 = xn_root_mark();
+        #line 1832 "impl/lib/b2/xparser.x"
+        int64_t xn_t3810 = 5;
+            {
+        xn_root_restore(xn_t3809);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3810;
+
+    }
+#line 1833 "impl/lib/b2/xparser.x"
+rt_string *xn_t3811 = rt_retain(xn_p_op);
+xn_root_add(xn_t3811);
+rt_string *xn_t3812 = rt_string_from_c("==");
+xn_root_add(xn_t3812);
+rt_string *xn_t3813 = rt_retain(xn_p_op);
+xn_root_add(xn_t3813);
+rt_string *xn_t3814 = rt_string_from_c("!=");
+xn_root_add(xn_t3814);
+rt_string *xn_t3815 = rt_retain(xn_p_op);
+xn_root_add(xn_t3815);
+rt_string *xn_t3816 = rt_string_from_c("===");
+xn_root_add(xn_t3816);
+rt_string *xn_t3817 = rt_retain(xn_p_op);
+xn_root_add(xn_t3817);
+rt_string *xn_t3818 = rt_string_from_c("!==");
+xn_root_add(xn_t3818);
+    if (((((xn_str_eq(xn_t3811, xn_t3812)) || (xn_str_eq(xn_t3813, xn_t3814))) || (xn_str_eq(xn_t3815, xn_t3816))) || (xn_str_eq(xn_t3817, xn_t3818)))) {
+        size_t xn_t3819 = xn_root_mark();
+        #line 1833 "impl/lib/b2/xparser.x"
+        int64_t xn_t3820 = 6;
+            {
+        xn_root_restore(xn_t3819);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3820;
+
+    }
+#line 1834 "impl/lib/b2/xparser.x"
+rt_string *xn_t3821 = rt_retain(xn_p_op);
 xn_root_add(xn_t3821);
-        xn_root_add(xn_t3821);
-        rt_string *xn_t3822 = rt_string_from_c("as");
+rt_string *xn_t3822 = rt_string_from_c("<");
 xn_root_add(xn_t3822);
-        xn_root_add(xn_t3822);
-        rt_string *xn_t3823 = rt_retain(op->text);
+rt_string *xn_t3823 = rt_retain(xn_p_op);
 xn_root_add(xn_t3823);
-        xn_root_add(xn_t3823);
-        rt_string *xn_t3824 = rt_string_from_c("as?");
+rt_string *xn_t3824 = rt_string_from_c(">");
 xn_root_add(xn_t3824);
-        xn_root_add(xn_t3824);
-            if ((((xn_str_eq(xn_t3819, xn_t3820)) || (xn_str_eq(xn_t3821, xn_t3822))) || (xn_str_eq(xn_t3823, xn_t3824)))) {
-                size_t xn_t3825 = xn_root_mark();
-                #line 1809 "impl/lib/b2/xparser.x"
+rt_string *xn_t3825 = rt_retain(xn_p_op);
+xn_root_add(xn_t3825);
+rt_string *xn_t3826 = rt_string_from_c("<=");
+xn_root_add(xn_t3826);
+rt_string *xn_t3827 = rt_retain(xn_p_op);
+xn_root_add(xn_t3827);
+rt_string *xn_t3828 = rt_string_from_c(">=");
+xn_root_add(xn_t3828);
+rt_string *xn_t3829 = rt_retain(xn_p_op);
+xn_root_add(xn_t3829);
+rt_string *xn_t3830 = rt_string_from_c("is");
+xn_root_add(xn_t3830);
+rt_string *xn_t3831 = rt_retain(xn_p_op);
+xn_root_add(xn_t3831);
+rt_string *xn_t3832 = rt_string_from_c("as");
+xn_root_add(xn_t3832);
+rt_string *xn_t3833 = rt_retain(xn_p_op);
+xn_root_add(xn_t3833);
+rt_string *xn_t3834 = rt_string_from_c("as?");
+xn_root_add(xn_t3834);
+    if ((((((((xn_str_eq(xn_t3821, xn_t3822)) || (xn_str_eq(xn_t3823, xn_t3824))) || (xn_str_eq(xn_t3825, xn_t3826))) || (xn_str_eq(xn_t3827, xn_t3828))) || (xn_str_eq(xn_t3829, xn_t3830))) || (xn_str_eq(xn_t3831, xn_t3832))) || (xn_str_eq(xn_t3833, xn_t3834)))) {
+        size_t xn_t3835 = xn_root_mark();
+        #line 1834 "impl/lib/b2/xparser.x"
+        int64_t xn_t3836 = 7;
+            {
+        xn_root_restore(xn_t3835);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3836;
+
+    }
+#line 1835 "impl/lib/b2/xparser.x"
+rt_string *xn_t3837 = rt_retain(xn_p_op);
+xn_root_add(xn_t3837);
+rt_string *xn_t3838 = rt_string_from_c("..<");
+xn_root_add(xn_t3838);
+rt_string *xn_t3839 = rt_retain(xn_p_op);
+xn_root_add(xn_t3839);
+rt_string *xn_t3840 = rt_string_from_c("...");
+xn_root_add(xn_t3840);
+    if (((xn_str_eq(xn_t3837, xn_t3838)) || (xn_str_eq(xn_t3839, xn_t3840)))) {
+        size_t xn_t3841 = xn_root_mark();
+        #line 1835 "impl/lib/b2/xparser.x"
+        int64_t xn_t3842 = 8;
+            {
+        xn_root_restore(xn_t3841);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3842;
+
+    }
+#line 1836 "impl/lib/b2/xparser.x"
+rt_string *xn_t3843 = rt_retain(xn_p_op);
+xn_root_add(xn_t3843);
+rt_string *xn_t3844 = rt_string_from_c("<<");
+xn_root_add(xn_t3844);
+rt_string *xn_t3845 = rt_retain(xn_p_op);
+xn_root_add(xn_t3845);
+rt_string *xn_t3846 = rt_string_from_c(">>");
+xn_root_add(xn_t3846);
+    if (((xn_str_eq(xn_t3843, xn_t3844)) || (xn_str_eq(xn_t3845, xn_t3846)))) {
+        size_t xn_t3847 = xn_root_mark();
+        #line 1836 "impl/lib/b2/xparser.x"
+        int64_t xn_t3848 = 9;
+            {
+        xn_root_restore(xn_t3847);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3848;
+
+    }
+#line 1837 "impl/lib/b2/xparser.x"
+rt_string *xn_t3849 = rt_retain(xn_p_op);
+xn_root_add(xn_t3849);
+rt_string *xn_t3850 = rt_string_from_c("+");
+xn_root_add(xn_t3850);
+rt_string *xn_t3851 = rt_retain(xn_p_op);
+xn_root_add(xn_t3851);
+rt_string *xn_t3852 = rt_string_from_c("-");
+xn_root_add(xn_t3852);
+    if (((xn_str_eq(xn_t3849, xn_t3850)) || (xn_str_eq(xn_t3851, xn_t3852)))) {
+        size_t xn_t3853 = xn_root_mark();
+        #line 1837 "impl/lib/b2/xparser.x"
+        int64_t xn_t3854 = 10;
+            {
+        xn_root_restore(xn_t3853);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3854;
+
+    }
+#line 1838 "impl/lib/b2/xparser.x"
+rt_string *xn_t3855 = rt_retain(xn_p_op);
+xn_root_add(xn_t3855);
+rt_string *xn_t3856 = rt_string_from_c("*");
+xn_root_add(xn_t3856);
+rt_string *xn_t3857 = rt_retain(xn_p_op);
+xn_root_add(xn_t3857);
+rt_string *xn_t3858 = rt_string_from_c("/");
+xn_root_add(xn_t3858);
+rt_string *xn_t3859 = rt_retain(xn_p_op);
+xn_root_add(xn_t3859);
+rt_string *xn_t3860 = rt_string_from_c("%");
+xn_root_add(xn_t3860);
+    if ((((xn_str_eq(xn_t3855, xn_t3856)) || (xn_str_eq(xn_t3857, xn_t3858))) || (xn_str_eq(xn_t3859, xn_t3860)))) {
+        size_t xn_t3861 = xn_root_mark();
+        #line 1838 "impl/lib/b2/xparser.x"
+        int64_t xn_t3862 = 11;
+            {
+        xn_root_restore(xn_t3861);
+            }
+            {
+        xn_root_restore(xn_t3790);
+            }
+
+        return xn_t3862;
+
+    }
+#line 1839 "impl/lib/b2/xparser.x"
+int64_t xn_t3863 = 0;
+    {
+xn_root_restore(xn_t3790);
+    }
+
+return xn_t3863;
+    return (int64_t)0; /* sema 保证不可达（函数体全路径 return） */
+}
+
+static xn_Cls_E * xn_Cls_Parser_parseBin(xn_Cls_Parser *self, int64_t xn_p_lvl) {
+size_t xn_t3864 = xn_root_mark();
+xn_root_add(self);
+#line 1843 "impl/lib/b2/xparser.x"
+    if (((xn_p_lvl > 11))) {
+        size_t xn_t3865 = xn_root_mark();
+        #line 1843 "impl/lib/b2/xparser.x"
+            {
+        xn_root_restore(xn_t3865);
+            }
+            {
+        xn_root_restore(xn_t3864);
+            }
+
+        return xn_Cls_Parser_parseUnary(self);
+
+    }
+#line 1846 "impl/lib/b2/xparser.x"
+xn_arr_o_E *xn_t3866 = xn_arr_o_E_new(0);
+xn_root_add(xn_t3866);
+xn_arr_o_E * lh = xn_t3866;
+xn_root_add(lh);
+xn_root_add(lh);
+xn_gc_safepoint();
+#line 1847 "impl/lib/b2/xparser.x"
+xn_Cls_E * xn_t3867 = xn_Cls_Parser_parseBin(self, (xn_p_lvl + 1));
+xn_root_add(xn_t3867);
+xn_root_add(xn_t3867);
+xn_arr_o_E_push(lh, xn_t3867);
+#line 1848 "impl/lib/b2/xparser.x"
+    while (1) {
+        xn_Cls_Tok * xn_t3868 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3868);
+        xn_Cls_Tok * xn_t3869 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3869);
+        xn_Cls_Tok * xn_t3870 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t3870);
+        rt_string *xn_t3871 = rt_retain(xn_t3870->text);
+xn_root_add(xn_t3871);
+        if (!(((((xn_t3868->kind == 9) || (xn_t3869->kind == 3))) && ((xn_Cls_Parser_prec(self, xn_t3871) == xn_p_lvl))))) { break; }
+        size_t xn_t3872 = xn_root_mark();
+        #line 1849 "impl/lib/b2/xparser.x"
+        xn_Cls_E * l = xn_arr_o_E_get(lh, 0);
+xn_root_add(l);
+        xn_root_add(l);
+        xn_root_add(l);
+        xn_gc_safepoint();
+        #line 1850 "impl/lib/b2/xparser.x"
+        xn_Cls_Tok * op = xn_Cls_Parser_next(self);
+xn_root_add(op);
+        xn_root_add(op);
+        xn_root_add(op);
+        xn_gc_safepoint();
+        #line 1851 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3873 = rt_retain(op->text);
+xn_root_add(xn_t3873);
+        xn_root_add(xn_t3873);
+        rt_string *xn_t3874 = rt_string_from_c("<");
+xn_root_add(xn_t3874);
+        xn_root_add(xn_t3874);
+        rt_string *xn_t3875 = rt_retain(op->text);
+xn_root_add(xn_t3875);
+        xn_root_add(xn_t3875);
+        rt_string *xn_t3876 = rt_string_from_c(">");
+xn_root_add(xn_t3876);
+        xn_root_add(xn_t3876);
+        rt_string *xn_t3877 = rt_retain(op->text);
+xn_root_add(xn_t3877);
+        xn_root_add(xn_t3877);
+        rt_string *xn_t3878 = rt_string_from_c("<=");
+xn_root_add(xn_t3878);
+        xn_root_add(xn_t3878);
+        rt_string *xn_t3879 = rt_retain(op->text);
+xn_root_add(xn_t3879);
+        xn_root_add(xn_t3879);
+        rt_string *xn_t3880 = rt_string_from_c(">=");
+xn_root_add(xn_t3880);
+        xn_root_add(xn_t3880);
+        rt_string *xn_t3881 = rt_retain(l->d);
+xn_root_add(xn_t3881);
+        xn_root_add(xn_t3881);
+        rt_string *xn_t3882 = rt_string_from_c("(Binary ");
+xn_root_add(xn_t3882);
+        xn_root_add(xn_t3882);
+        rt_string *xn_t3883 = rt_retain(l->d);
+xn_root_add(xn_t3883);
+        xn_root_add(xn_t3883);
+        rt_string *xn_t3884 = rt_string_from_c("(Op \"");
+xn_root_add(xn_t3884);
+        xn_root_add(xn_t3884);
+            if (((((((xn_str_eq(xn_t3873, xn_t3874) || xn_str_eq(xn_t3875, xn_t3876)) || xn_str_eq(xn_t3877, xn_t3878)) || xn_str_eq(xn_t3879, xn_t3880))) && ((xn_str_indexof(xn_t3881, xn_t3882) == 0))) && ((xn_str_indexof(xn_t3883, xn_t3884) > 0)))) {
+                size_t xn_t3885 = xn_root_mark();
+                #line 1852 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3886 = rt_string_from_c("SYN-102");
+xn_root_add(xn_t3886);
+        xn_root_add(xn_t3886);
+                xn_root_add(xn_t3886);
+                rt_string *xn_t3887 = rt_string_from_c("比较运算不可链式使用");
+xn_root_add(xn_t3887);
+        xn_root_add(xn_t3887);
+                xn_root_add(xn_t3887);
+                xn_Cls_Parser_err(self, xn_t3886, op->line, op->col, xn_t3887);
+                #line 1853 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3888 = rt_string_from_c("SYN-108");
+xn_root_add(xn_t3888);
+        xn_root_add(xn_t3888);
+                xn_root_add(xn_t3888);
+                rt_string *xn_t3889 = rt_string_from_c("语句未终止（同一行的下一条语句前缺少 `;`）");
+xn_root_add(xn_t3889);
+        xn_root_add(xn_t3889);
+                xn_root_add(xn_t3889);
+                xn_Cls_Parser_err(self, xn_t3888, op->line, op->col, xn_t3889);
+                    {
+                    xn_root_restore(xn_t3885);
+                    }
+
+            }
+        #line 1855 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3890 = rt_string_from_c("(nil)");
+xn_root_add(xn_t3890);
+        xn_root_add(xn_t3890);
+        xn_Cls_E * r = xn_Cls_Parser_mk(self, xn_t3890, 0, 0);
+xn_root_add(r);
+        xn_root_add(r);
+        xn_root_add(r);
+        xn_gc_safepoint();
+        #line 1856 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3891 = rt_retain(op->text);
+xn_root_add(xn_t3891);
+        xn_root_add(xn_t3891);
+        rt_string *xn_t3892 = rt_string_from_c("as");
+xn_root_add(xn_t3892);
+        xn_root_add(xn_t3892);
+        rt_string *xn_t3893 = rt_string_from_c("?");
+xn_root_add(xn_t3893);
+        xn_root_add(xn_t3893);
+            if (((xn_str_eq(xn_t3891, xn_t3892)) && (xn_Cls_Parser_atOp(self, xn_t3893)))) {
+                size_t xn_t3894 = xn_root_mark();
+                #line 1856 "impl/lib/b2/xparser.x"
+                xn_Cls_Parser_next(self);
+                #line 1856 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3895 = rt_string_from_c("as?");
+xn_root_add(xn_t3895);
+        xn_root_add(xn_t3895);
+                xn_root_add(xn_t3895);
+                rt_release(op->text);
+                op->text = xn_t3895;
+                    {
+                    xn_root_restore(xn_t3894);
+                    }
+
+            }
+        #line 1857 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3896 = rt_retain(op->text);
+xn_root_add(xn_t3896);
+        xn_root_add(xn_t3896);
+        rt_string *xn_t3897 = rt_string_from_c("is");
+xn_root_add(xn_t3897);
+        xn_root_add(xn_t3897);
+        rt_string *xn_t3898 = rt_retain(op->text);
+xn_root_add(xn_t3898);
+        xn_root_add(xn_t3898);
+        rt_string *xn_t3899 = rt_string_from_c("as");
+xn_root_add(xn_t3899);
+        xn_root_add(xn_t3899);
+        rt_string *xn_t3900 = rt_retain(op->text);
+xn_root_add(xn_t3900);
+        xn_root_add(xn_t3900);
+        rt_string *xn_t3901 = rt_string_from_c("as?");
+xn_root_add(xn_t3901);
+        xn_root_add(xn_t3901);
+            if ((((xn_str_eq(xn_t3896, xn_t3897)) || (xn_str_eq(xn_t3898, xn_t3899))) || (xn_str_eq(xn_t3900, xn_t3901)))) {
+                size_t xn_t3902 = xn_root_mark();
+                #line 1858 "impl/lib/b2/xparser.x"
                 rt_string *ty = xn_Cls_Parser_parseType(self);
 xn_root_add(ty);
         xn_root_add(ty);
                 xn_root_add(ty);
                 xn_root_add(ty);
                 xn_gc_safepoint();
-                #line 1810 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3827 = rt_string_from_c("(TypeAsExpr ");
-xn_root_add(xn_t3827);
-        xn_root_add(xn_t3827);
-                xn_root_add(xn_t3827);
-                rt_string *xn_t3828 = xn_P(0, 0);
-xn_root_add(xn_t3828);
-        xn_root_add(xn_t3828);
-                xn_root_add(xn_t3828);
-                rt_string *xn_t3829 = xn_concat(xn_t3827, xn_t3828);
-xn_root_add(xn_t3829);
-        xn_root_add(xn_t3829);
-                xn_root_add(xn_t3829);
-                rt_string *xn_t3830 = rt_string_from_c(" (Type ");
-xn_root_add(xn_t3830);
-        xn_root_add(xn_t3830);
-                xn_root_add(xn_t3830);
-                rt_string *xn_t3831 = xn_concat(xn_t3829, xn_t3830);
-xn_root_add(xn_t3831);
-        xn_root_add(xn_t3831);
-                xn_root_add(xn_t3831);
-                rt_string *xn_t3832 = rt_retain(ty);
-xn_root_add(xn_t3832);
-        xn_root_add(xn_t3832);
-                xn_root_add(xn_t3832);
-                rt_string *xn_t3833 = xn_concat(xn_t3831, xn_t3832);
-xn_root_add(xn_t3833);
-        xn_root_add(xn_t3833);
-                xn_root_add(xn_t3833);
-                rt_string *xn_t3834 = rt_string_from_c(") (Is ");
-xn_root_add(xn_t3834);
-        xn_root_add(xn_t3834);
-                xn_root_add(xn_t3834);
-                rt_string *xn_t3835 = xn_concat(xn_t3833, xn_t3834);
-xn_root_add(xn_t3835);
-        xn_root_add(xn_t3835);
-                xn_root_add(xn_t3835);
-                rt_string *xn_t3836 = rt_retain(op->text);
-xn_root_add(xn_t3836);
-        xn_root_add(xn_t3836);
-                xn_root_add(xn_t3836);
-                rt_string *xn_t3837 = rt_string_from_c("is");
-xn_root_add(xn_t3837);
-        xn_root_add(xn_t3837);
-                xn_root_add(xn_t3837);
-                rt_string *xn_t3838 = xn_B(xn_str_eq(xn_t3836, xn_t3837));
-xn_root_add(xn_t3838);
-        xn_root_add(xn_t3838);
-                xn_root_add(xn_t3838);
-                rt_string *xn_t3839 = xn_concat(xn_t3835, xn_t3838);
-xn_root_add(xn_t3839);
-        xn_root_add(xn_t3839);
-                xn_root_add(xn_t3839);
-                rt_string *xn_t3840 = rt_string_from_c(") (NullSafe ");
-xn_root_add(xn_t3840);
-        xn_root_add(xn_t3840);
-                xn_root_add(xn_t3840);
-                rt_string *xn_t3841 = xn_concat(xn_t3839, xn_t3840);
-xn_root_add(xn_t3841);
-        xn_root_add(xn_t3841);
-                xn_root_add(xn_t3841);
-                rt_string *xn_t3842 = rt_retain(op->text);
-xn_root_add(xn_t3842);
-        xn_root_add(xn_t3842);
-                xn_root_add(xn_t3842);
-                rt_string *xn_t3843 = rt_string_from_c("as?");
-xn_root_add(xn_t3843);
-        xn_root_add(xn_t3843);
-                xn_root_add(xn_t3843);
-                rt_string *xn_t3844 = xn_B(xn_str_eq(xn_t3842, xn_t3843));
-xn_root_add(xn_t3844);
-        xn_root_add(xn_t3844);
-                xn_root_add(xn_t3844);
-                rt_string *xn_t3845 = xn_concat(xn_t3841, xn_t3844);
-xn_root_add(xn_t3845);
-        xn_root_add(xn_t3845);
-                xn_root_add(xn_t3845);
-                rt_string *xn_t3846 = rt_string_from_c("))");
-xn_root_add(xn_t3846);
-        xn_root_add(xn_t3846);
-                xn_root_add(xn_t3846);
-                rt_string *ta = xn_concat(xn_t3845, xn_t3846);
+                #line 1859 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3904 = rt_string_from_c("(TypeAsExpr ");
+xn_root_add(xn_t3904);
+        xn_root_add(xn_t3904);
+                xn_root_add(xn_t3904);
+                rt_string *xn_t3905 = xn_P(0, 0);
+xn_root_add(xn_t3905);
+        xn_root_add(xn_t3905);
+                xn_root_add(xn_t3905);
+                rt_string *xn_t3906 = xn_concat(xn_t3904, xn_t3905);
+xn_root_add(xn_t3906);
+        xn_root_add(xn_t3906);
+                xn_root_add(xn_t3906);
+                rt_string *xn_t3907 = rt_string_from_c(" (Type ");
+xn_root_add(xn_t3907);
+        xn_root_add(xn_t3907);
+                xn_root_add(xn_t3907);
+                rt_string *xn_t3908 = xn_concat(xn_t3906, xn_t3907);
+xn_root_add(xn_t3908);
+        xn_root_add(xn_t3908);
+                xn_root_add(xn_t3908);
+                rt_string *xn_t3909 = rt_retain(ty);
+xn_root_add(xn_t3909);
+        xn_root_add(xn_t3909);
+                xn_root_add(xn_t3909);
+                rt_string *xn_t3910 = xn_concat(xn_t3908, xn_t3909);
+xn_root_add(xn_t3910);
+        xn_root_add(xn_t3910);
+                xn_root_add(xn_t3910);
+                rt_string *xn_t3911 = rt_string_from_c(") (Is ");
+xn_root_add(xn_t3911);
+        xn_root_add(xn_t3911);
+                xn_root_add(xn_t3911);
+                rt_string *xn_t3912 = xn_concat(xn_t3910, xn_t3911);
+xn_root_add(xn_t3912);
+        xn_root_add(xn_t3912);
+                xn_root_add(xn_t3912);
+                rt_string *xn_t3913 = rt_retain(op->text);
+xn_root_add(xn_t3913);
+        xn_root_add(xn_t3913);
+                xn_root_add(xn_t3913);
+                rt_string *xn_t3914 = rt_string_from_c("is");
+xn_root_add(xn_t3914);
+        xn_root_add(xn_t3914);
+                xn_root_add(xn_t3914);
+                rt_string *xn_t3915 = xn_B(xn_str_eq(xn_t3913, xn_t3914));
+xn_root_add(xn_t3915);
+        xn_root_add(xn_t3915);
+                xn_root_add(xn_t3915);
+                rt_string *xn_t3916 = xn_concat(xn_t3912, xn_t3915);
+xn_root_add(xn_t3916);
+        xn_root_add(xn_t3916);
+                xn_root_add(xn_t3916);
+                rt_string *xn_t3917 = rt_string_from_c(") (NullSafe ");
+xn_root_add(xn_t3917);
+        xn_root_add(xn_t3917);
+                xn_root_add(xn_t3917);
+                rt_string *xn_t3918 = xn_concat(xn_t3916, xn_t3917);
+xn_root_add(xn_t3918);
+        xn_root_add(xn_t3918);
+                xn_root_add(xn_t3918);
+                rt_string *xn_t3919 = rt_retain(op->text);
+xn_root_add(xn_t3919);
+        xn_root_add(xn_t3919);
+                xn_root_add(xn_t3919);
+                rt_string *xn_t3920 = rt_string_from_c("as?");
+xn_root_add(xn_t3920);
+        xn_root_add(xn_t3920);
+                xn_root_add(xn_t3920);
+                rt_string *xn_t3921 = xn_B(xn_str_eq(xn_t3919, xn_t3920));
+xn_root_add(xn_t3921);
+        xn_root_add(xn_t3921);
+                xn_root_add(xn_t3921);
+                rt_string *xn_t3922 = xn_concat(xn_t3918, xn_t3921);
+xn_root_add(xn_t3922);
+        xn_root_add(xn_t3922);
+                xn_root_add(xn_t3922);
+                rt_string *xn_t3923 = rt_string_from_c("))");
+xn_root_add(xn_t3923);
+        xn_root_add(xn_t3923);
+                xn_root_add(xn_t3923);
+                rt_string *ta = xn_concat(xn_t3922, xn_t3923);
 xn_root_add(ta);
         xn_root_add(ta);
                 xn_root_add(ta);
                 xn_root_add(ta);
                 xn_gc_safepoint();
-                #line 1811 "impl/lib/b2/xparser.x"
-                rt_string *xn_t3848 = rt_retain(ta);
-xn_root_add(xn_t3848);
-        xn_root_add(xn_t3848);
-                xn_root_add(xn_t3848);
-                r = xn_Cls_Parser_mk(self, xn_t3848, 0, 0);
+                #line 1860 "impl/lib/b2/xparser.x"
+                rt_string *xn_t3925 = rt_retain(ta);
+xn_root_add(xn_t3925);
+        xn_root_add(xn_t3925);
+                xn_root_add(xn_t3925);
+                r = xn_Cls_Parser_mk(self, xn_t3925, 0, 0);
                     {
                     rt_release(ta);
                     }
@@ -22546,93 +23028,93 @@ xn_root_add(xn_t3848);
                     rt_release(ty);
                     }
                     {
-                    xn_root_restore(xn_t3825);
+                    xn_root_restore(xn_t3902);
                     }
 
             } else {
-                size_t xn_t3849 = xn_root_mark();
-                #line 1813 "impl/lib/b2/xparser.x"
+                size_t xn_t3926 = xn_root_mark();
+                #line 1862 "impl/lib/b2/xparser.x"
                 r = xn_Cls_Parser_parseBin(self, (xn_p_lvl + 1));
                     {
-                    xn_root_restore(xn_t3849);
+                    xn_root_restore(xn_t3926);
                     }
 
             }
-        #line 1815 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3850 = rt_string_from_c("(Binary ");
-xn_root_add(xn_t3850);
-        xn_root_add(xn_t3850);
-        rt_string *xn_t3851 = xn_P(op->line, op->col);
-xn_root_add(xn_t3851);
-        xn_root_add(xn_t3851);
-        rt_string *xn_t3852 = xn_concat(xn_t3850, xn_t3851);
-xn_root_add(xn_t3852);
-        xn_root_add(xn_t3852);
-        rt_string *xn_t3853 = rt_string_from_c(" (Op ");
-xn_root_add(xn_t3853);
-        xn_root_add(xn_t3853);
-        rt_string *xn_t3854 = xn_concat(xn_t3852, xn_t3853);
-xn_root_add(xn_t3854);
-        xn_root_add(xn_t3854);
-        rt_string *xn_t3855 = rt_retain(op->text);
-xn_root_add(xn_t3855);
-        xn_root_add(xn_t3855);
-        rt_string *xn_t3856 = xn_q(xn_t3855);
-xn_root_add(xn_t3856);
-        xn_root_add(xn_t3856);
-        rt_string *xn_t3857 = xn_concat(xn_t3854, xn_t3856);
-xn_root_add(xn_t3857);
-        xn_root_add(xn_t3857);
-        rt_string *xn_t3858 = rt_string_from_c(") (L ");
-xn_root_add(xn_t3858);
-        xn_root_add(xn_t3858);
-        rt_string *xn_t3859 = xn_concat(xn_t3857, xn_t3858);
-xn_root_add(xn_t3859);
-        xn_root_add(xn_t3859);
-        rt_string *xn_t3860 = rt_retain(l->d);
-xn_root_add(xn_t3860);
-        xn_root_add(xn_t3860);
-        rt_string *xn_t3861 = xn_concat(xn_t3859, xn_t3860);
-xn_root_add(xn_t3861);
-        xn_root_add(xn_t3861);
-        rt_string *xn_t3862 = rt_string_from_c(") (R ");
-xn_root_add(xn_t3862);
-        xn_root_add(xn_t3862);
-        rt_string *xn_t3863 = xn_concat(xn_t3861, xn_t3862);
-xn_root_add(xn_t3863);
-        xn_root_add(xn_t3863);
-        rt_string *xn_t3864 = rt_retain(r->d);
-xn_root_add(xn_t3864);
-        xn_root_add(xn_t3864);
-        rt_string *xn_t3865 = xn_concat(xn_t3863, xn_t3864);
-xn_root_add(xn_t3865);
-        xn_root_add(xn_t3865);
-        rt_string *xn_t3866 = rt_string_from_c("))");
-xn_root_add(xn_t3866);
-        xn_root_add(xn_t3866);
-        rt_string *xn_t3867 = xn_concat(xn_t3865, xn_t3866);
-xn_root_add(xn_t3867);
-        xn_root_add(xn_t3867);
-        xn_Cls_E * be = xn_Cls_Parser_mk(self, xn_t3867, op->line, op->col);
+        #line 1864 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3927 = rt_string_from_c("(Binary ");
+xn_root_add(xn_t3927);
+        xn_root_add(xn_t3927);
+        rt_string *xn_t3928 = xn_P(op->line, op->col);
+xn_root_add(xn_t3928);
+        xn_root_add(xn_t3928);
+        rt_string *xn_t3929 = xn_concat(xn_t3927, xn_t3928);
+xn_root_add(xn_t3929);
+        xn_root_add(xn_t3929);
+        rt_string *xn_t3930 = rt_string_from_c(" (Op ");
+xn_root_add(xn_t3930);
+        xn_root_add(xn_t3930);
+        rt_string *xn_t3931 = xn_concat(xn_t3929, xn_t3930);
+xn_root_add(xn_t3931);
+        xn_root_add(xn_t3931);
+        rt_string *xn_t3932 = rt_retain(op->text);
+xn_root_add(xn_t3932);
+        xn_root_add(xn_t3932);
+        rt_string *xn_t3933 = xn_q(xn_t3932);
+xn_root_add(xn_t3933);
+        xn_root_add(xn_t3933);
+        rt_string *xn_t3934 = xn_concat(xn_t3931, xn_t3933);
+xn_root_add(xn_t3934);
+        xn_root_add(xn_t3934);
+        rt_string *xn_t3935 = rt_string_from_c(") (L ");
+xn_root_add(xn_t3935);
+        xn_root_add(xn_t3935);
+        rt_string *xn_t3936 = xn_concat(xn_t3934, xn_t3935);
+xn_root_add(xn_t3936);
+        xn_root_add(xn_t3936);
+        rt_string *xn_t3937 = rt_retain(l->d);
+xn_root_add(xn_t3937);
+        xn_root_add(xn_t3937);
+        rt_string *xn_t3938 = xn_concat(xn_t3936, xn_t3937);
+xn_root_add(xn_t3938);
+        xn_root_add(xn_t3938);
+        rt_string *xn_t3939 = rt_string_from_c(") (R ");
+xn_root_add(xn_t3939);
+        xn_root_add(xn_t3939);
+        rt_string *xn_t3940 = xn_concat(xn_t3938, xn_t3939);
+xn_root_add(xn_t3940);
+        xn_root_add(xn_t3940);
+        rt_string *xn_t3941 = rt_retain(r->d);
+xn_root_add(xn_t3941);
+        xn_root_add(xn_t3941);
+        rt_string *xn_t3942 = xn_concat(xn_t3940, xn_t3941);
+xn_root_add(xn_t3942);
+        xn_root_add(xn_t3942);
+        rt_string *xn_t3943 = rt_string_from_c("))");
+xn_root_add(xn_t3943);
+        xn_root_add(xn_t3943);
+        rt_string *xn_t3944 = xn_concat(xn_t3942, xn_t3943);
+xn_root_add(xn_t3944);
+        xn_root_add(xn_t3944);
+        xn_Cls_E * be = xn_Cls_Parser_mk(self, xn_t3944, op->line, op->col);
 xn_root_add(be);
         xn_root_add(be);
         xn_root_add(be);
         xn_gc_safepoint();
-        #line 1816 "impl/lib/b2/xparser.x"
+        #line 1865 "impl/lib/b2/xparser.x"
         be->sl = l->sl;
-        #line 1817 "impl/lib/b2/xparser.x"
+        #line 1866 "impl/lib/b2/xparser.x"
         be->sc = l->sc;
-        #line 1818 "impl/lib/b2/xparser.x"
+        #line 1867 "impl/lib/b2/xparser.x"
         xn_arr_o_E_set(lh, 0, be);
             {
-            xn_root_restore(xn_t3800);
+            xn_root_restore(xn_t3872);
             }
 
         xn_gc_safepoint();
     }
-#line 1820 "impl/lib/b2/xparser.x"
+#line 1869 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3792);
+xn_root_restore(xn_t3864);
     }
 
 return xn_arr_o_E_get(lh, 0);
@@ -22640,114 +23122,114 @@ return xn_arr_o_E_get(lh, 0);
 }
 
 static xn_Cls_E * xn_Cls_Parser_parseUnary(xn_Cls_Parser *self) {
-size_t xn_t3868 = xn_root_mark();
+size_t xn_t3945 = xn_root_mark();
 xn_root_add(self);
-#line 1824 "impl/lib/b2/xparser.x"
+#line 1873 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1825 "impl/lib/b2/xparser.x"
-rt_string *xn_t3869 = rt_retain(t->text);
-xn_root_add(xn_t3869);
-rt_string *xn_t3870 = rt_string_from_c("!");
-xn_root_add(xn_t3870);
-rt_string *xn_t3871 = rt_retain(t->text);
-xn_root_add(xn_t3871);
-rt_string *xn_t3872 = rt_string_from_c("-");
-xn_root_add(xn_t3872);
-rt_string *xn_t3873 = rt_retain(t->text);
-xn_root_add(xn_t3873);
-rt_string *xn_t3874 = rt_string_from_c("+");
-xn_root_add(xn_t3874);
-rt_string *xn_t3875 = rt_retain(t->text);
-xn_root_add(xn_t3875);
-rt_string *xn_t3876 = rt_string_from_c("~");
-xn_root_add(xn_t3876);
-rt_string *xn_t3877 = rt_retain(t->text);
-xn_root_add(xn_t3877);
-rt_string *xn_t3878 = rt_string_from_c("try");
-xn_root_add(xn_t3878);
-    if (((((t->kind == 9) && (((xn_str_eq(xn_t3869, xn_t3870) || xn_str_eq(xn_t3871, xn_t3872)) || xn_str_eq(xn_t3873, xn_t3874)) || xn_str_eq(xn_t3875, xn_t3876)))) || (((t->kind == 3) && xn_str_eq(xn_t3877, xn_t3878))))) {
-        size_t xn_t3879 = xn_root_mark();
-        #line 1826 "impl/lib/b2/xparser.x"
+#line 1874 "impl/lib/b2/xparser.x"
+rt_string *xn_t3946 = rt_retain(t->text);
+xn_root_add(xn_t3946);
+rt_string *xn_t3947 = rt_string_from_c("!");
+xn_root_add(xn_t3947);
+rt_string *xn_t3948 = rt_retain(t->text);
+xn_root_add(xn_t3948);
+rt_string *xn_t3949 = rt_string_from_c("-");
+xn_root_add(xn_t3949);
+rt_string *xn_t3950 = rt_retain(t->text);
+xn_root_add(xn_t3950);
+rt_string *xn_t3951 = rt_string_from_c("+");
+xn_root_add(xn_t3951);
+rt_string *xn_t3952 = rt_retain(t->text);
+xn_root_add(xn_t3952);
+rt_string *xn_t3953 = rt_string_from_c("~");
+xn_root_add(xn_t3953);
+rt_string *xn_t3954 = rt_retain(t->text);
+xn_root_add(xn_t3954);
+rt_string *xn_t3955 = rt_string_from_c("try");
+xn_root_add(xn_t3955);
+    if (((((t->kind == 9) && (((xn_str_eq(xn_t3946, xn_t3947) || xn_str_eq(xn_t3948, xn_t3949)) || xn_str_eq(xn_t3950, xn_t3951)) || xn_str_eq(xn_t3952, xn_t3953)))) || (((t->kind == 3) && xn_str_eq(xn_t3954, xn_t3955))))) {
+        size_t xn_t3956 = xn_root_mark();
+        #line 1875 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1827 "impl/lib/b2/xparser.x"
+        #line 1876 "impl/lib/b2/xparser.x"
         xn_Cls_E * x = xn_Cls_Parser_parseUnary(self);
 xn_root_add(x);
         xn_root_add(x);
         xn_root_add(x);
         xn_gc_safepoint();
-        #line 1828 "impl/lib/b2/xparser.x"
-        rt_string *xn_t3880 = rt_string_from_c("(Unary ");
-xn_root_add(xn_t3880);
-        xn_root_add(xn_t3880);
-        xn_root_add(xn_t3880);
-        rt_string *xn_t3881 = xn_P(t->line, t->col);
-xn_root_add(xn_t3881);
-        xn_root_add(xn_t3881);
-        xn_root_add(xn_t3881);
-        rt_string *xn_t3882 = xn_concat(xn_t3880, xn_t3881);
-xn_root_add(xn_t3882);
-        xn_root_add(xn_t3882);
-        xn_root_add(xn_t3882);
-        rt_string *xn_t3883 = rt_string_from_c(" (Op ");
-xn_root_add(xn_t3883);
-        xn_root_add(xn_t3883);
-        xn_root_add(xn_t3883);
-        rt_string *xn_t3884 = xn_concat(xn_t3882, xn_t3883);
-xn_root_add(xn_t3884);
-        xn_root_add(xn_t3884);
-        xn_root_add(xn_t3884);
-        rt_string *xn_t3885 = rt_retain(t->text);
-xn_root_add(xn_t3885);
-        xn_root_add(xn_t3885);
-        xn_root_add(xn_t3885);
-        rt_string *xn_t3886 = xn_q(xn_t3885);
-xn_root_add(xn_t3886);
-        xn_root_add(xn_t3886);
-        xn_root_add(xn_t3886);
-        rt_string *xn_t3887 = xn_concat(xn_t3884, xn_t3886);
-xn_root_add(xn_t3887);
-        xn_root_add(xn_t3887);
-        xn_root_add(xn_t3887);
-        rt_string *xn_t3888 = rt_string_from_c(") (X ");
-xn_root_add(xn_t3888);
-        xn_root_add(xn_t3888);
-        xn_root_add(xn_t3888);
-        rt_string *xn_t3889 = xn_concat(xn_t3887, xn_t3888);
-xn_root_add(xn_t3889);
-        xn_root_add(xn_t3889);
-        xn_root_add(xn_t3889);
-        rt_string *xn_t3890 = rt_retain(x->d);
-xn_root_add(xn_t3890);
-        xn_root_add(xn_t3890);
-        xn_root_add(xn_t3890);
-        rt_string *xn_t3891 = xn_concat(xn_t3889, xn_t3890);
-xn_root_add(xn_t3891);
-        xn_root_add(xn_t3891);
-        xn_root_add(xn_t3891);
-        rt_string *xn_t3892 = rt_string_from_c("))");
-xn_root_add(xn_t3892);
-        xn_root_add(xn_t3892);
-        xn_root_add(xn_t3892);
-        rt_string *xn_t3893 = xn_concat(xn_t3891, xn_t3892);
-xn_root_add(xn_t3893);
-        xn_root_add(xn_t3893);
-        xn_root_add(xn_t3893);
+        #line 1877 "impl/lib/b2/xparser.x"
+        rt_string *xn_t3957 = rt_string_from_c("(Unary ");
+xn_root_add(xn_t3957);
+        xn_root_add(xn_t3957);
+        xn_root_add(xn_t3957);
+        rt_string *xn_t3958 = xn_P(t->line, t->col);
+xn_root_add(xn_t3958);
+        xn_root_add(xn_t3958);
+        xn_root_add(xn_t3958);
+        rt_string *xn_t3959 = xn_concat(xn_t3957, xn_t3958);
+xn_root_add(xn_t3959);
+        xn_root_add(xn_t3959);
+        xn_root_add(xn_t3959);
+        rt_string *xn_t3960 = rt_string_from_c(" (Op ");
+xn_root_add(xn_t3960);
+        xn_root_add(xn_t3960);
+        xn_root_add(xn_t3960);
+        rt_string *xn_t3961 = xn_concat(xn_t3959, xn_t3960);
+xn_root_add(xn_t3961);
+        xn_root_add(xn_t3961);
+        xn_root_add(xn_t3961);
+        rt_string *xn_t3962 = rt_retain(t->text);
+xn_root_add(xn_t3962);
+        xn_root_add(xn_t3962);
+        xn_root_add(xn_t3962);
+        rt_string *xn_t3963 = xn_q(xn_t3962);
+xn_root_add(xn_t3963);
+        xn_root_add(xn_t3963);
+        xn_root_add(xn_t3963);
+        rt_string *xn_t3964 = xn_concat(xn_t3961, xn_t3963);
+xn_root_add(xn_t3964);
+        xn_root_add(xn_t3964);
+        xn_root_add(xn_t3964);
+        rt_string *xn_t3965 = rt_string_from_c(") (X ");
+xn_root_add(xn_t3965);
+        xn_root_add(xn_t3965);
+        xn_root_add(xn_t3965);
+        rt_string *xn_t3966 = xn_concat(xn_t3964, xn_t3965);
+xn_root_add(xn_t3966);
+        xn_root_add(xn_t3966);
+        xn_root_add(xn_t3966);
+        rt_string *xn_t3967 = rt_retain(x->d);
+xn_root_add(xn_t3967);
+        xn_root_add(xn_t3967);
+        xn_root_add(xn_t3967);
+        rt_string *xn_t3968 = xn_concat(xn_t3966, xn_t3967);
+xn_root_add(xn_t3968);
+        xn_root_add(xn_t3968);
+        xn_root_add(xn_t3968);
+        rt_string *xn_t3969 = rt_string_from_c("))");
+xn_root_add(xn_t3969);
+        xn_root_add(xn_t3969);
+        xn_root_add(xn_t3969);
+        rt_string *xn_t3970 = xn_concat(xn_t3968, xn_t3969);
+xn_root_add(xn_t3970);
+        xn_root_add(xn_t3970);
+        xn_root_add(xn_t3970);
             {
-        xn_root_restore(xn_t3879);
+        xn_root_restore(xn_t3956);
             }
             {
-        xn_root_restore(xn_t3868);
+        xn_root_restore(xn_t3945);
             }
 
-        return xn_Cls_Parser_mk(self, xn_t3893, t->line, t->col);
+        return xn_Cls_Parser_mk(self, xn_t3970, t->line, t->col);
 
     }
-#line 1830 "impl/lib/b2/xparser.x"
+#line 1879 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3868);
+xn_root_restore(xn_t3945);
     }
 
 return xn_Cls_Parser_parsePostfix(self);
@@ -22755,296 +23237,296 @@ return xn_Cls_Parser_parsePostfix(self);
 }
 
 static xn_Cls_E * xn_Cls_Parser_parsePostfix(xn_Cls_Parser *self) {
-size_t xn_t3894 = xn_root_mark();
+size_t xn_t3971 = xn_root_mark();
 xn_root_add(self);
-#line 1835 "impl/lib/b2/xparser.x"
-xn_arr_o_E *xn_t3895 = xn_arr_o_E_new(0);
-xn_root_add(xn_t3895);
-xn_arr_o_E * eh = xn_t3895;
+#line 1884 "impl/lib/b2/xparser.x"
+xn_arr_o_E *xn_t3972 = xn_arr_o_E_new(0);
+xn_root_add(xn_t3972);
+xn_arr_o_E * eh = xn_t3972;
 xn_root_add(eh);
 xn_root_add(eh);
 xn_gc_safepoint();
-#line 1836 "impl/lib/b2/xparser.x"
-xn_Cls_E * xn_t3896 = xn_Cls_Parser_parsePrimary(self);
-xn_root_add(xn_t3896);
-xn_root_add(xn_t3896);
-xn_arr_o_E_push(eh, xn_t3896);
-#line 1837 "impl/lib/b2/xparser.x"
+#line 1885 "impl/lib/b2/xparser.x"
+xn_Cls_E * xn_t3973 = xn_Cls_Parser_parsePrimary(self);
+xn_root_add(xn_t3973);
+xn_root_add(xn_t3973);
+xn_arr_o_E_push(eh, xn_t3973);
+#line 1886 "impl/lib/b2/xparser.x"
 int go = 1;
-#line 1838 "impl/lib/b2/xparser.x"
+#line 1887 "impl/lib/b2/xparser.x"
     while ((go)) {
-    size_t xn_t3897 = xn_root_mark();
-    #line 1839 "impl/lib/b2/xparser.x"
+    size_t xn_t3974 = xn_root_mark();
+    #line 1888 "impl/lib/b2/xparser.x"
     xn_Cls_E * e = xn_arr_o_E_get(eh, 0);
 xn_root_add(e);
     xn_root_add(e);
     xn_root_add(e);
     xn_gc_safepoint();
-    #line 1840 "impl/lib/b2/xparser.x"
-    rt_string *xn_t3898 = rt_retain(e->d);
-xn_root_add(xn_t3898);
-    xn_root_add(xn_t3898);
-    rt_string *xn_t3899 = rt_string_from_c("(IdentExpr ");
-xn_root_add(xn_t3899);
-    xn_root_add(xn_t3899);
-        if (((xn_Cls_Parser_genericCallAhead(self)) && ((xn_str_indexof(xn_t3898, xn_t3899) == 0)))) {
-            size_t xn_t3900 = xn_root_mark();
-            #line 1841 "impl/lib/b2/xparser.x"
+    #line 1889 "impl/lib/b2/xparser.x"
+    rt_string *xn_t3975 = rt_retain(e->d);
+xn_root_add(xn_t3975);
+    xn_root_add(xn_t3975);
+    rt_string *xn_t3976 = rt_string_from_c("(IdentExpr ");
+xn_root_add(xn_t3976);
+    xn_root_add(xn_t3976);
+        if (((xn_Cls_Parser_genericCallAhead(self)) && ((xn_str_indexof(xn_t3975, xn_t3976) == 0)))) {
+            size_t xn_t3977 = xn_root_mark();
+            #line 1890 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
-            #line 1842 "impl/lib/b2/xparser.x"
-            xn_arr_s *xn_t3901 = xn_arr_s_new(0);
-xn_root_add(xn_t3901);
-    xn_root_add(xn_t3901);
-            xn_root_add(xn_t3901);
-            xn_arr_s * tas2 = xn_t3901;
+            #line 1891 "impl/lib/b2/xparser.x"
+            xn_arr_s *xn_t3978 = xn_arr_s_new(0);
+xn_root_add(xn_t3978);
+    xn_root_add(xn_t3978);
+            xn_root_add(xn_t3978);
+            xn_arr_s * tas2 = xn_t3978;
 xn_root_add(tas2);
     xn_root_add(tas2);
             xn_root_add(tas2);
             xn_root_add(tas2);
             xn_gc_safepoint();
-            #line 1843 "impl/lib/b2/xparser.x"
+            #line 1892 "impl/lib/b2/xparser.x"
                 while (1) {
-                    rt_string *xn_t3902 = rt_string_from_c(">");
-xn_root_add(xn_t3902);
-    xn_root_add(xn_t3902);
-            xn_root_add(xn_t3902);
-                    if (!((((!(xn_Cls_Parser_atOp(self, xn_t3902)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
-                    size_t xn_t3903 = xn_root_mark();
-                    #line 1844 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3979 = rt_string_from_c(">");
+xn_root_add(xn_t3979);
+    xn_root_add(xn_t3979);
+            xn_root_add(xn_t3979);
+                    if (!((((!(xn_Cls_Parser_atOp(self, xn_t3979)))) && ((!(xn_Cls_Parser_eof(self))))))) { break; }
+                    size_t xn_t3980 = xn_root_mark();
+                    #line 1893 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 16))) {
-                            size_t xn_t3904 = xn_root_mark();
-                            #line 1844 "impl/lib/b2/xparser.x"
+                            size_t xn_t3981 = xn_root_mark();
+                            #line 1893 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1844 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t3904);
-                            xn_root_restore(xn_t3903);
+                            #line 1893 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t3981);
+                            xn_root_restore(xn_t3980);
                             continue;
                                 {
-                                xn_root_restore(xn_t3904);
+                                xn_root_restore(xn_t3981);
                                 }
 
                         }
-                    #line 1845 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t3905 = xn_Cls_Parser_parseType(self);
-xn_root_add(xn_t3905);
-    xn_root_add(xn_t3905);
-            xn_root_add(xn_t3905);
-                    xn_root_add(xn_t3905);
-                    xn_arr_s_push(tas2, xn_t3905);
+                    #line 1894 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t3982 = xn_Cls_Parser_parseType(self);
+xn_root_add(xn_t3982);
+    xn_root_add(xn_t3982);
+            xn_root_add(xn_t3982);
+                    xn_root_add(xn_t3982);
+                    xn_arr_s_push(tas2, xn_t3982);
                         {
-                        xn_root_restore(xn_t3903);
+                        xn_root_restore(xn_t3980);
                         }
 
                     xn_gc_safepoint();
                 }
-            #line 1847 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3906 = rt_string_from_c(">");
-xn_root_add(xn_t3906);
-    xn_root_add(xn_t3906);
-            xn_root_add(xn_t3906);
-                if ((xn_Cls_Parser_atOp(self, xn_t3906))) {
-                    size_t xn_t3907 = xn_root_mark();
-                    #line 1847 "impl/lib/b2/xparser.x"
+            #line 1896 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3983 = rt_string_from_c(">");
+xn_root_add(xn_t3983);
+    xn_root_add(xn_t3983);
+            xn_root_add(xn_t3983);
+                if ((xn_Cls_Parser_atOp(self, xn_t3983))) {
+                    size_t xn_t3984 = xn_root_mark();
+                    #line 1896 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t3907);
+                        xn_root_restore(xn_t3984);
                         }
 
                 }
-            #line 1848 "impl/lib/b2/xparser.x"
-            xn_arr_s *xn_t3908 = xn_arr_s_new(0);
-xn_root_add(xn_t3908);
-    xn_root_add(xn_t3908);
-            xn_root_add(xn_t3908);
-            xn_arr_s * cas = xn_t3908;
+            #line 1897 "impl/lib/b2/xparser.x"
+            xn_arr_s *xn_t3985 = xn_arr_s_new(0);
+xn_root_add(xn_t3985);
+    xn_root_add(xn_t3985);
+            xn_root_add(xn_t3985);
+            xn_arr_s * cas = xn_t3985;
 xn_root_add(cas);
     xn_root_add(cas);
             xn_root_add(cas);
             xn_root_add(cas);
             xn_gc_safepoint();
-            #line 1849 "impl/lib/b2/xparser.x"
+            #line 1898 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 10))) {
-                    size_t xn_t3909 = xn_root_mark();
-                    #line 1850 "impl/lib/b2/xparser.x"
+                    size_t xn_t3986 = xn_root_mark();
+                    #line 1899 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1851 "impl/lib/b2/xparser.x"
+                    #line 1900 "impl/lib/b2/xparser.x"
                         while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                        size_t xn_t3910 = xn_root_mark();
-                        #line 1852 "impl/lib/b2/xparser.x"
+                        size_t xn_t3987 = xn_root_mark();
+                        #line 1901 "impl/lib/b2/xparser.x"
                             if ((xn_Cls_Parser_at(self, 1))) {
-                                size_t xn_t3911 = xn_root_mark();
-                                #line 1852 "impl/lib/b2/xparser.x"
-                                xn_root_restore(xn_t3911);
-                                xn_root_restore(xn_t3910);
+                                size_t xn_t3988 = xn_root_mark();
+                                #line 1901 "impl/lib/b2/xparser.x"
+                                xn_root_restore(xn_t3988);
+                                xn_root_restore(xn_t3987);
                                 break;
                                     {
-                                    xn_root_restore(xn_t3911);
+                                    xn_root_restore(xn_t3988);
                                     }
 
                             }
-                        #line 1853 "impl/lib/b2/xparser.x"
+                        #line 1902 "impl/lib/b2/xparser.x"
                             if ((xn_Cls_Parser_at(self, 16))) {
-                                size_t xn_t3912 = xn_root_mark();
-                                #line 1853 "impl/lib/b2/xparser.x"
+                                size_t xn_t3989 = xn_root_mark();
+                                #line 1902 "impl/lib/b2/xparser.x"
                                 xn_Cls_Parser_next(self);
-                                #line 1853 "impl/lib/b2/xparser.x"
-                                xn_root_restore(xn_t3912);
-                                xn_root_restore(xn_t3910);
+                                #line 1902 "impl/lib/b2/xparser.x"
+                                xn_root_restore(xn_t3989);
+                                xn_root_restore(xn_t3987);
                                 continue;
                                     {
-                                    xn_root_restore(xn_t3912);
+                                    xn_root_restore(xn_t3989);
                                     }
 
                             }
-                        #line 1854 "impl/lib/b2/xparser.x"
-                        xn_Cls_E * xn_t3913 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t3913);
-    xn_root_add(xn_t3913);
-            xn_root_add(xn_t3913);
-                    xn_root_add(xn_t3913);
-                        xn_root_add(xn_t3913);
-                        rt_string *xn_t3914 = rt_retain(xn_t3913->d);
-xn_root_add(xn_t3914);
-    xn_root_add(xn_t3914);
-            xn_root_add(xn_t3914);
-                    xn_root_add(xn_t3914);
-                        xn_root_add(xn_t3914);
-                        xn_arr_s_push(cas, xn_t3914);
+                        #line 1903 "impl/lib/b2/xparser.x"
+                        xn_Cls_E * xn_t3990 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t3990);
+    xn_root_add(xn_t3990);
+            xn_root_add(xn_t3990);
+                    xn_root_add(xn_t3990);
+                        xn_root_add(xn_t3990);
+                        rt_string *xn_t3991 = rt_retain(xn_t3990->d);
+xn_root_add(xn_t3991);
+    xn_root_add(xn_t3991);
+            xn_root_add(xn_t3991);
+                    xn_root_add(xn_t3991);
+                        xn_root_add(xn_t3991);
+                        xn_arr_s_push(cas, xn_t3991);
                             {
-                            xn_root_restore(xn_t3910);
+                            xn_root_restore(xn_t3987);
                             }
 
                         xn_gc_safepoint();
                         }
-                    #line 1856 "impl/lib/b2/xparser.x"
+                    #line 1905 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 11))) {
-                            size_t xn_t3915 = xn_root_mark();
-                            #line 1856 "impl/lib/b2/xparser.x"
+                            size_t xn_t3992 = xn_root_mark();
+                            #line 1905 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
                                 {
-                                xn_root_restore(xn_t3915);
+                                xn_root_restore(xn_t3992);
                                 }
 
                         }
                         {
-                        xn_root_restore(xn_t3909);
+                        xn_root_restore(xn_t3986);
                         }
 
                 }
-            #line 1858 "impl/lib/b2/xparser.x"
-            rt_string *xn_t3916 = rt_string_from_c("(Call ");
-xn_root_add(xn_t3916);
-    xn_root_add(xn_t3916);
-            xn_root_add(xn_t3916);
-            rt_string *xn_t3917 = xn_P(e->l, e->c);
-xn_root_add(xn_t3917);
-    xn_root_add(xn_t3917);
-            xn_root_add(xn_t3917);
-            rt_string *xn_t3918 = xn_concat(xn_t3916, xn_t3917);
-xn_root_add(xn_t3918);
-    xn_root_add(xn_t3918);
-            xn_root_add(xn_t3918);
-            rt_string *xn_t3919 = rt_string_from_c(" (Callee ");
-xn_root_add(xn_t3919);
-    xn_root_add(xn_t3919);
-            xn_root_add(xn_t3919);
-            rt_string *xn_t3920 = xn_concat(xn_t3918, xn_t3919);
-xn_root_add(xn_t3920);
-    xn_root_add(xn_t3920);
-            xn_root_add(xn_t3920);
-            rt_string *xn_t3921 = rt_retain(e->d);
-xn_root_add(xn_t3921);
-    xn_root_add(xn_t3921);
-            xn_root_add(xn_t3921);
-            rt_string *xn_t3922 = xn_concat(xn_t3920, xn_t3921);
-xn_root_add(xn_t3922);
-    xn_root_add(xn_t3922);
-            xn_root_add(xn_t3922);
-            rt_string *xn_t3923 = rt_string_from_c(") (TypeArgs ");
-xn_root_add(xn_t3923);
-    xn_root_add(xn_t3923);
-            xn_root_add(xn_t3923);
-            rt_string *xn_t3924 = xn_concat(xn_t3922, xn_t3923);
-xn_root_add(xn_t3924);
-    xn_root_add(xn_t3924);
-            xn_root_add(xn_t3924);
-            rt_string *xn_t3925 = xn_SL(tas2);
-xn_root_add(xn_t3925);
-    xn_root_add(xn_t3925);
-            xn_root_add(xn_t3925);
-            rt_string *xn_t3926 = xn_concat(xn_t3924, xn_t3925);
-xn_root_add(xn_t3926);
-    xn_root_add(xn_t3926);
-            xn_root_add(xn_t3926);
-            rt_string *xn_t3927 = rt_string_from_c(") (Args ");
-xn_root_add(xn_t3927);
-    xn_root_add(xn_t3927);
-            xn_root_add(xn_t3927);
-            rt_string *xn_t3928 = xn_concat(xn_t3926, xn_t3927);
-xn_root_add(xn_t3928);
-    xn_root_add(xn_t3928);
-            xn_root_add(xn_t3928);
-            rt_string *xn_t3929 = xn_SL(cas);
-xn_root_add(xn_t3929);
-    xn_root_add(xn_t3929);
-            xn_root_add(xn_t3929);
-            rt_string *xn_t3930 = xn_concat(xn_t3928, xn_t3929);
-xn_root_add(xn_t3930);
-    xn_root_add(xn_t3930);
-            xn_root_add(xn_t3930);
-            rt_string *xn_t3931 = rt_string_from_c("))");
-xn_root_add(xn_t3931);
-    xn_root_add(xn_t3931);
-            xn_root_add(xn_t3931);
-            rt_string *xn_t3932 = xn_concat(xn_t3930, xn_t3931);
-xn_root_add(xn_t3932);
-    xn_root_add(xn_t3932);
-            xn_root_add(xn_t3932);
-            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t3932, e->l, e->c);
+            #line 1907 "impl/lib/b2/xparser.x"
+            rt_string *xn_t3993 = rt_string_from_c("(Call ");
+xn_root_add(xn_t3993);
+    xn_root_add(xn_t3993);
+            xn_root_add(xn_t3993);
+            rt_string *xn_t3994 = xn_P(e->l, e->c);
+xn_root_add(xn_t3994);
+    xn_root_add(xn_t3994);
+            xn_root_add(xn_t3994);
+            rt_string *xn_t3995 = xn_concat(xn_t3993, xn_t3994);
+xn_root_add(xn_t3995);
+    xn_root_add(xn_t3995);
+            xn_root_add(xn_t3995);
+            rt_string *xn_t3996 = rt_string_from_c(" (Callee ");
+xn_root_add(xn_t3996);
+    xn_root_add(xn_t3996);
+            xn_root_add(xn_t3996);
+            rt_string *xn_t3997 = xn_concat(xn_t3995, xn_t3996);
+xn_root_add(xn_t3997);
+    xn_root_add(xn_t3997);
+            xn_root_add(xn_t3997);
+            rt_string *xn_t3998 = rt_retain(e->d);
+xn_root_add(xn_t3998);
+    xn_root_add(xn_t3998);
+            xn_root_add(xn_t3998);
+            rt_string *xn_t3999 = xn_concat(xn_t3997, xn_t3998);
+xn_root_add(xn_t3999);
+    xn_root_add(xn_t3999);
+            xn_root_add(xn_t3999);
+            rt_string *xn_t4000 = rt_string_from_c(") (TypeArgs ");
+xn_root_add(xn_t4000);
+    xn_root_add(xn_t4000);
+            xn_root_add(xn_t4000);
+            rt_string *xn_t4001 = xn_concat(xn_t3999, xn_t4000);
+xn_root_add(xn_t4001);
+    xn_root_add(xn_t4001);
+            xn_root_add(xn_t4001);
+            rt_string *xn_t4002 = xn_SL(tas2);
+xn_root_add(xn_t4002);
+    xn_root_add(xn_t4002);
+            xn_root_add(xn_t4002);
+            rt_string *xn_t4003 = xn_concat(xn_t4001, xn_t4002);
+xn_root_add(xn_t4003);
+    xn_root_add(xn_t4003);
+            xn_root_add(xn_t4003);
+            rt_string *xn_t4004 = rt_string_from_c(") (Args ");
+xn_root_add(xn_t4004);
+    xn_root_add(xn_t4004);
+            xn_root_add(xn_t4004);
+            rt_string *xn_t4005 = xn_concat(xn_t4003, xn_t4004);
+xn_root_add(xn_t4005);
+    xn_root_add(xn_t4005);
+            xn_root_add(xn_t4005);
+            rt_string *xn_t4006 = xn_SL(cas);
+xn_root_add(xn_t4006);
+    xn_root_add(xn_t4006);
+            xn_root_add(xn_t4006);
+            rt_string *xn_t4007 = xn_concat(xn_t4005, xn_t4006);
+xn_root_add(xn_t4007);
+    xn_root_add(xn_t4007);
+            xn_root_add(xn_t4007);
+            rt_string *xn_t4008 = rt_string_from_c("))");
+xn_root_add(xn_t4008);
+    xn_root_add(xn_t4008);
+            xn_root_add(xn_t4008);
+            rt_string *xn_t4009 = xn_concat(xn_t4007, xn_t4008);
+xn_root_add(xn_t4009);
+    xn_root_add(xn_t4009);
+            xn_root_add(xn_t4009);
+            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4009, e->l, e->c);
 xn_root_add(ne);
     xn_root_add(ne);
             xn_root_add(ne);
             xn_root_add(ne);
             xn_gc_safepoint();
-            #line 1859 "impl/lib/b2/xparser.x"
+            #line 1908 "impl/lib/b2/xparser.x"
             ne->sl = e->sl;
-            #line 1859 "impl/lib/b2/xparser.x"
+            #line 1908 "impl/lib/b2/xparser.x"
             ne->sc = e->sc;
-            #line 1859 "impl/lib/b2/xparser.x"
+            #line 1908 "impl/lib/b2/xparser.x"
             xn_arr_o_E_set(eh, 0, ne);
                 {
-                xn_root_restore(xn_t3900);
+                xn_root_restore(xn_t3977);
                 }
 
         } else {
-            rt_string *xn_t3934 = rt_string_from_c(".");
-xn_root_add(xn_t3934);
-    xn_root_add(xn_t3934);
-            xn_root_add(xn_t3934);
-            rt_string *xn_t3935 = rt_string_from_c("?.");
-xn_root_add(xn_t3935);
-    xn_root_add(xn_t3935);
-            xn_root_add(xn_t3935);
-                if (((xn_Cls_Parser_atOp(self, xn_t3934)) || (xn_Cls_Parser_atOp(self, xn_t3935)))) {
-                    size_t xn_t3936 = xn_root_mark();
-                    #line 1861 "impl/lib/b2/xparser.x"
-                    xn_Cls_Tok * xn_t3937 = xn_Cls_Parser_cur(self);
-xn_root_add(xn_t3937);
-    xn_root_add(xn_t3937);
-            xn_root_add(xn_t3937);
-                    xn_root_add(xn_t3937);
-                    rt_string *xn_t3938 = rt_retain(xn_t3937->text);
-xn_root_add(xn_t3938);
-    xn_root_add(xn_t3938);
-            xn_root_add(xn_t3938);
-                    xn_root_add(xn_t3938);
-                    rt_string *xn_t3939 = rt_string_from_c("?.");
-xn_root_add(xn_t3939);
-    xn_root_add(xn_t3939);
-            xn_root_add(xn_t3939);
-                    xn_root_add(xn_t3939);
-                    int ns = xn_str_eq(xn_t3938, xn_t3939);
-                    #line 1862 "impl/lib/b2/xparser.x"
+            rt_string *xn_t4011 = rt_string_from_c(".");
+xn_root_add(xn_t4011);
+    xn_root_add(xn_t4011);
+            xn_root_add(xn_t4011);
+            rt_string *xn_t4012 = rt_string_from_c("?.");
+xn_root_add(xn_t4012);
+    xn_root_add(xn_t4012);
+            xn_root_add(xn_t4012);
+                if (((xn_Cls_Parser_atOp(self, xn_t4011)) || (xn_Cls_Parser_atOp(self, xn_t4012)))) {
+                    size_t xn_t4013 = xn_root_mark();
+                    #line 1910 "impl/lib/b2/xparser.x"
+                    xn_Cls_Tok * xn_t4014 = xn_Cls_Parser_cur(self);
+xn_root_add(xn_t4014);
+    xn_root_add(xn_t4014);
+            xn_root_add(xn_t4014);
+                    xn_root_add(xn_t4014);
+                    rt_string *xn_t4015 = rt_retain(xn_t4014->text);
+xn_root_add(xn_t4015);
+    xn_root_add(xn_t4015);
+            xn_root_add(xn_t4015);
+                    xn_root_add(xn_t4015);
+                    rt_string *xn_t4016 = rt_string_from_c("?.");
+xn_root_add(xn_t4016);
+    xn_root_add(xn_t4016);
+            xn_root_add(xn_t4016);
+                    xn_root_add(xn_t4016);
+                    int ns = xn_str_eq(xn_t4015, xn_t4016);
+                    #line 1911 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * dot = xn_Cls_Parser_next(self);
 xn_root_add(dot);
     xn_root_add(dot);
@@ -23052,7 +23534,7 @@ xn_root_add(dot);
                     xn_root_add(dot);
                     xn_root_add(dot);
                     xn_gc_safepoint();
-                    #line 1863 "impl/lib/b2/xparser.x"
+                    #line 1912 "impl/lib/b2/xparser.x"
                     xn_Cls_Tok * n = xn_Cls_Parser_cur(self);
 xn_root_add(n);
     xn_root_add(n);
@@ -23060,115 +23542,115 @@ xn_root_add(n);
                     xn_root_add(n);
                     xn_root_add(n);
                     xn_gc_safepoint();
-                    #line 1864 "impl/lib/b2/xparser.x"
+                    #line 1913 "impl/lib/b2/xparser.x"
                         if (((n->kind == 2))) {
-                            size_t xn_t3940 = xn_root_mark();
-                            #line 1865 "impl/lib/b2/xparser.x"
+                            size_t xn_t4017 = xn_root_mark();
+                            #line 1914 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1866 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t3941 = rt_string_from_c("(Member ");
-xn_root_add(xn_t3941);
-    xn_root_add(xn_t3941);
-            xn_root_add(xn_t3941);
-                    xn_root_add(xn_t3941);
-                            xn_root_add(xn_t3941);
-                            rt_string *xn_t3942 = xn_P(dot->line, dot->col);
-xn_root_add(xn_t3942);
-    xn_root_add(xn_t3942);
-            xn_root_add(xn_t3942);
-                    xn_root_add(xn_t3942);
-                            xn_root_add(xn_t3942);
-                            rt_string *xn_t3943 = xn_concat(xn_t3941, xn_t3942);
-xn_root_add(xn_t3943);
-    xn_root_add(xn_t3943);
-            xn_root_add(xn_t3943);
-                    xn_root_add(xn_t3943);
-                            xn_root_add(xn_t3943);
-                            rt_string *xn_t3944 = rt_string_from_c(" (X ");
-xn_root_add(xn_t3944);
-    xn_root_add(xn_t3944);
-            xn_root_add(xn_t3944);
-                    xn_root_add(xn_t3944);
-                            xn_root_add(xn_t3944);
-                            rt_string *xn_t3945 = xn_concat(xn_t3943, xn_t3944);
-xn_root_add(xn_t3945);
-    xn_root_add(xn_t3945);
-            xn_root_add(xn_t3945);
-                    xn_root_add(xn_t3945);
-                            xn_root_add(xn_t3945);
-                            rt_string *xn_t3946 = rt_retain(e->d);
-xn_root_add(xn_t3946);
-    xn_root_add(xn_t3946);
-            xn_root_add(xn_t3946);
-                    xn_root_add(xn_t3946);
-                            xn_root_add(xn_t3946);
-                            rt_string *xn_t3947 = xn_concat(xn_t3945, xn_t3946);
-xn_root_add(xn_t3947);
-    xn_root_add(xn_t3947);
-            xn_root_add(xn_t3947);
-                    xn_root_add(xn_t3947);
-                            xn_root_add(xn_t3947);
-                            rt_string *xn_t3948 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t3948);
-    xn_root_add(xn_t3948);
-            xn_root_add(xn_t3948);
-                    xn_root_add(xn_t3948);
-                            xn_root_add(xn_t3948);
-                            rt_string *xn_t3949 = xn_concat(xn_t3947, xn_t3948);
-xn_root_add(xn_t3949);
-    xn_root_add(xn_t3949);
-            xn_root_add(xn_t3949);
-                    xn_root_add(xn_t3949);
-                            xn_root_add(xn_t3949);
-                            rt_string *xn_t3950 = rt_retain(n->text);
-xn_root_add(xn_t3950);
-    xn_root_add(xn_t3950);
-            xn_root_add(xn_t3950);
-                    xn_root_add(xn_t3950);
-                            xn_root_add(xn_t3950);
-                            rt_string *xn_t3951 = xn_q(xn_t3950);
-xn_root_add(xn_t3951);
-    xn_root_add(xn_t3951);
-            xn_root_add(xn_t3951);
-                    xn_root_add(xn_t3951);
-                            xn_root_add(xn_t3951);
-                            rt_string *xn_t3952 = xn_concat(xn_t3949, xn_t3951);
-xn_root_add(xn_t3952);
-    xn_root_add(xn_t3952);
-            xn_root_add(xn_t3952);
-                    xn_root_add(xn_t3952);
-                            xn_root_add(xn_t3952);
-                            rt_string *xn_t3953 = rt_string_from_c(") (NullSafe ");
-xn_root_add(xn_t3953);
-    xn_root_add(xn_t3953);
-            xn_root_add(xn_t3953);
-                    xn_root_add(xn_t3953);
-                            xn_root_add(xn_t3953);
-                            rt_string *xn_t3954 = xn_concat(xn_t3952, xn_t3953);
-xn_root_add(xn_t3954);
-    xn_root_add(xn_t3954);
-            xn_root_add(xn_t3954);
-                    xn_root_add(xn_t3954);
-                            xn_root_add(xn_t3954);
-                            rt_string *xn_t3955 = xn_B(ns);
-xn_root_add(xn_t3955);
-    xn_root_add(xn_t3955);
-            xn_root_add(xn_t3955);
-                    xn_root_add(xn_t3955);
-                            xn_root_add(xn_t3955);
-                            rt_string *xn_t3956 = xn_concat(xn_t3954, xn_t3955);
-xn_root_add(xn_t3956);
-    xn_root_add(xn_t3956);
-            xn_root_add(xn_t3956);
-                    xn_root_add(xn_t3956);
-                            xn_root_add(xn_t3956);
-                            rt_string *xn_t3957 = rt_string_from_c("))");
-xn_root_add(xn_t3957);
-    xn_root_add(xn_t3957);
-            xn_root_add(xn_t3957);
-                    xn_root_add(xn_t3957);
-                            xn_root_add(xn_t3957);
-                            rt_string *d = xn_concat(xn_t3956, xn_t3957);
+                            #line 1915 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t4018 = rt_string_from_c("(Member ");
+xn_root_add(xn_t4018);
+    xn_root_add(xn_t4018);
+            xn_root_add(xn_t4018);
+                    xn_root_add(xn_t4018);
+                            xn_root_add(xn_t4018);
+                            rt_string *xn_t4019 = xn_P(dot->line, dot->col);
+xn_root_add(xn_t4019);
+    xn_root_add(xn_t4019);
+            xn_root_add(xn_t4019);
+                    xn_root_add(xn_t4019);
+                            xn_root_add(xn_t4019);
+                            rt_string *xn_t4020 = xn_concat(xn_t4018, xn_t4019);
+xn_root_add(xn_t4020);
+    xn_root_add(xn_t4020);
+            xn_root_add(xn_t4020);
+                    xn_root_add(xn_t4020);
+                            xn_root_add(xn_t4020);
+                            rt_string *xn_t4021 = rt_string_from_c(" (X ");
+xn_root_add(xn_t4021);
+    xn_root_add(xn_t4021);
+            xn_root_add(xn_t4021);
+                    xn_root_add(xn_t4021);
+                            xn_root_add(xn_t4021);
+                            rt_string *xn_t4022 = xn_concat(xn_t4020, xn_t4021);
+xn_root_add(xn_t4022);
+    xn_root_add(xn_t4022);
+            xn_root_add(xn_t4022);
+                    xn_root_add(xn_t4022);
+                            xn_root_add(xn_t4022);
+                            rt_string *xn_t4023 = rt_retain(e->d);
+xn_root_add(xn_t4023);
+    xn_root_add(xn_t4023);
+            xn_root_add(xn_t4023);
+                    xn_root_add(xn_t4023);
+                            xn_root_add(xn_t4023);
+                            rt_string *xn_t4024 = xn_concat(xn_t4022, xn_t4023);
+xn_root_add(xn_t4024);
+    xn_root_add(xn_t4024);
+            xn_root_add(xn_t4024);
+                    xn_root_add(xn_t4024);
+                            xn_root_add(xn_t4024);
+                            rt_string *xn_t4025 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t4025);
+    xn_root_add(xn_t4025);
+            xn_root_add(xn_t4025);
+                    xn_root_add(xn_t4025);
+                            xn_root_add(xn_t4025);
+                            rt_string *xn_t4026 = xn_concat(xn_t4024, xn_t4025);
+xn_root_add(xn_t4026);
+    xn_root_add(xn_t4026);
+            xn_root_add(xn_t4026);
+                    xn_root_add(xn_t4026);
+                            xn_root_add(xn_t4026);
+                            rt_string *xn_t4027 = rt_retain(n->text);
+xn_root_add(xn_t4027);
+    xn_root_add(xn_t4027);
+            xn_root_add(xn_t4027);
+                    xn_root_add(xn_t4027);
+                            xn_root_add(xn_t4027);
+                            rt_string *xn_t4028 = xn_q(xn_t4027);
+xn_root_add(xn_t4028);
+    xn_root_add(xn_t4028);
+            xn_root_add(xn_t4028);
+                    xn_root_add(xn_t4028);
+                            xn_root_add(xn_t4028);
+                            rt_string *xn_t4029 = xn_concat(xn_t4026, xn_t4028);
+xn_root_add(xn_t4029);
+    xn_root_add(xn_t4029);
+            xn_root_add(xn_t4029);
+                    xn_root_add(xn_t4029);
+                            xn_root_add(xn_t4029);
+                            rt_string *xn_t4030 = rt_string_from_c(") (NullSafe ");
+xn_root_add(xn_t4030);
+    xn_root_add(xn_t4030);
+            xn_root_add(xn_t4030);
+                    xn_root_add(xn_t4030);
+                            xn_root_add(xn_t4030);
+                            rt_string *xn_t4031 = xn_concat(xn_t4029, xn_t4030);
+xn_root_add(xn_t4031);
+    xn_root_add(xn_t4031);
+            xn_root_add(xn_t4031);
+                    xn_root_add(xn_t4031);
+                            xn_root_add(xn_t4031);
+                            rt_string *xn_t4032 = xn_B(ns);
+xn_root_add(xn_t4032);
+    xn_root_add(xn_t4032);
+            xn_root_add(xn_t4032);
+                    xn_root_add(xn_t4032);
+                            xn_root_add(xn_t4032);
+                            rt_string *xn_t4033 = xn_concat(xn_t4031, xn_t4032);
+xn_root_add(xn_t4033);
+    xn_root_add(xn_t4033);
+            xn_root_add(xn_t4033);
+                    xn_root_add(xn_t4033);
+                            xn_root_add(xn_t4033);
+                            rt_string *xn_t4034 = rt_string_from_c("))");
+xn_root_add(xn_t4034);
+    xn_root_add(xn_t4034);
+            xn_root_add(xn_t4034);
+                    xn_root_add(xn_t4034);
+                            xn_root_add(xn_t4034);
+                            rt_string *d = xn_concat(xn_t4033, xn_t4034);
 xn_root_add(d);
     xn_root_add(d);
             xn_root_add(d);
@@ -23176,14 +23658,14 @@ xn_root_add(d);
                             xn_root_add(d);
                             xn_root_add(d);
                             xn_gc_safepoint();
-                            #line 1867 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t3959 = rt_retain(d);
-xn_root_add(xn_t3959);
-    xn_root_add(xn_t3959);
-            xn_root_add(xn_t3959);
-                    xn_root_add(xn_t3959);
-                            xn_root_add(xn_t3959);
-                            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t3959, dot->line, dot->col);
+                            #line 1916 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t4036 = rt_retain(d);
+xn_root_add(xn_t4036);
+    xn_root_add(xn_t4036);
+            xn_root_add(xn_t4036);
+                    xn_root_add(xn_t4036);
+                            xn_root_add(xn_t4036);
+                            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4036, dot->line, dot->col);
 xn_root_add(ne);
     xn_root_add(ne);
             xn_root_add(ne);
@@ -23191,138 +23673,138 @@ xn_root_add(ne);
                             xn_root_add(ne);
                             xn_root_add(ne);
                             xn_gc_safepoint();
-                            #line 1867 "impl/lib/b2/xparser.x"
+                            #line 1916 "impl/lib/b2/xparser.x"
                             ne->sl = e->sl;
-                            #line 1867 "impl/lib/b2/xparser.x"
+                            #line 1916 "impl/lib/b2/xparser.x"
                             ne->sc = e->sc;
-                            #line 1867 "impl/lib/b2/xparser.x"
+                            #line 1916 "impl/lib/b2/xparser.x"
                             xn_arr_o_E_set(eh, 0, ne);
                                 {
                                 rt_release(d);
                                 }
                                 {
-                                xn_root_restore(xn_t3940);
+                                xn_root_restore(xn_t4017);
                                 }
 
                         } else {
                                 if (((n->kind == 5))) {
-                                    size_t xn_t3961 = xn_root_mark();
-                                    #line 1869 "impl/lib/b2/xparser.x"
+                                    size_t xn_t4038 = xn_root_mark();
+                                    #line 1918 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
-                                    #line 1870 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t3962 = rt_string_from_c("(TupleMember ");
-xn_root_add(xn_t3962);
-    xn_root_add(xn_t3962);
-            xn_root_add(xn_t3962);
-                    xn_root_add(xn_t3962);
-                            xn_root_add(xn_t3962);
-                                    xn_root_add(xn_t3962);
-                                    rt_string *xn_t3963 = xn_P(dot->line, dot->col);
-xn_root_add(xn_t3963);
-    xn_root_add(xn_t3963);
-            xn_root_add(xn_t3963);
-                    xn_root_add(xn_t3963);
-                            xn_root_add(xn_t3963);
-                                    xn_root_add(xn_t3963);
-                                    rt_string *xn_t3964 = xn_concat(xn_t3962, xn_t3963);
-xn_root_add(xn_t3964);
-    xn_root_add(xn_t3964);
-            xn_root_add(xn_t3964);
-                    xn_root_add(xn_t3964);
-                            xn_root_add(xn_t3964);
-                                    xn_root_add(xn_t3964);
-                                    rt_string *xn_t3965 = rt_string_from_c(" (X ");
-xn_root_add(xn_t3965);
-    xn_root_add(xn_t3965);
-            xn_root_add(xn_t3965);
-                    xn_root_add(xn_t3965);
-                            xn_root_add(xn_t3965);
-                                    xn_root_add(xn_t3965);
-                                    rt_string *xn_t3966 = xn_concat(xn_t3964, xn_t3965);
-xn_root_add(xn_t3966);
-    xn_root_add(xn_t3966);
-            xn_root_add(xn_t3966);
-                    xn_root_add(xn_t3966);
-                            xn_root_add(xn_t3966);
-                                    xn_root_add(xn_t3966);
-                                    rt_string *xn_t3967 = rt_retain(e->d);
-xn_root_add(xn_t3967);
-    xn_root_add(xn_t3967);
-            xn_root_add(xn_t3967);
-                    xn_root_add(xn_t3967);
-                            xn_root_add(xn_t3967);
-                                    xn_root_add(xn_t3967);
-                                    rt_string *xn_t3968 = xn_concat(xn_t3966, xn_t3967);
-xn_root_add(xn_t3968);
-    xn_root_add(xn_t3968);
-            xn_root_add(xn_t3968);
-                    xn_root_add(xn_t3968);
-                            xn_root_add(xn_t3968);
-                                    xn_root_add(xn_t3968);
-                                    rt_string *xn_t3969 = rt_string_from_c(") (Index ");
-xn_root_add(xn_t3969);
-    xn_root_add(xn_t3969);
-            xn_root_add(xn_t3969);
-                    xn_root_add(xn_t3969);
-                            xn_root_add(xn_t3969);
-                                    xn_root_add(xn_t3969);
-                                    rt_string *xn_t3970 = xn_concat(xn_t3968, xn_t3969);
-xn_root_add(xn_t3970);
-    xn_root_add(xn_t3970);
-            xn_root_add(xn_t3970);
-                    xn_root_add(xn_t3970);
-                            xn_root_add(xn_t3970);
-                                    xn_root_add(xn_t3970);
-                                    rt_string *xn_t3971 = rt_retain(n->text);
-xn_root_add(xn_t3971);
-    xn_root_add(xn_t3971);
-            xn_root_add(xn_t3971);
-                    xn_root_add(xn_t3971);
-                            xn_root_add(xn_t3971);
-                                    xn_root_add(xn_t3971);
-                                    rt_string *xn_t3972 = xn_concat(xn_t3970, xn_t3971);
-xn_root_add(xn_t3972);
-    xn_root_add(xn_t3972);
-            xn_root_add(xn_t3972);
-                    xn_root_add(xn_t3972);
-                            xn_root_add(xn_t3972);
-                                    xn_root_add(xn_t3972);
-                                    rt_string *xn_t3973 = rt_string_from_c(") (NullSafe ");
-xn_root_add(xn_t3973);
-    xn_root_add(xn_t3973);
-            xn_root_add(xn_t3973);
-                    xn_root_add(xn_t3973);
-                            xn_root_add(xn_t3973);
-                                    xn_root_add(xn_t3973);
-                                    rt_string *xn_t3974 = xn_concat(xn_t3972, xn_t3973);
-xn_root_add(xn_t3974);
-    xn_root_add(xn_t3974);
-            xn_root_add(xn_t3974);
-                    xn_root_add(xn_t3974);
-                            xn_root_add(xn_t3974);
-                                    xn_root_add(xn_t3974);
-                                    rt_string *xn_t3975 = xn_B(ns);
-xn_root_add(xn_t3975);
-    xn_root_add(xn_t3975);
-            xn_root_add(xn_t3975);
-                    xn_root_add(xn_t3975);
-                            xn_root_add(xn_t3975);
-                                    xn_root_add(xn_t3975);
-                                    rt_string *xn_t3976 = xn_concat(xn_t3974, xn_t3975);
-xn_root_add(xn_t3976);
-    xn_root_add(xn_t3976);
-            xn_root_add(xn_t3976);
-                    xn_root_add(xn_t3976);
-                            xn_root_add(xn_t3976);
-                                    xn_root_add(xn_t3976);
-                                    rt_string *xn_t3977 = rt_string_from_c("))");
-xn_root_add(xn_t3977);
-    xn_root_add(xn_t3977);
-            xn_root_add(xn_t3977);
-                    xn_root_add(xn_t3977);
-                            xn_root_add(xn_t3977);
-                                    xn_root_add(xn_t3977);
-                                    rt_string *d = xn_concat(xn_t3976, xn_t3977);
+                                    #line 1919 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t4039 = rt_string_from_c("(TupleMember ");
+xn_root_add(xn_t4039);
+    xn_root_add(xn_t4039);
+            xn_root_add(xn_t4039);
+                    xn_root_add(xn_t4039);
+                            xn_root_add(xn_t4039);
+                                    xn_root_add(xn_t4039);
+                                    rt_string *xn_t4040 = xn_P(dot->line, dot->col);
+xn_root_add(xn_t4040);
+    xn_root_add(xn_t4040);
+            xn_root_add(xn_t4040);
+                    xn_root_add(xn_t4040);
+                            xn_root_add(xn_t4040);
+                                    xn_root_add(xn_t4040);
+                                    rt_string *xn_t4041 = xn_concat(xn_t4039, xn_t4040);
+xn_root_add(xn_t4041);
+    xn_root_add(xn_t4041);
+            xn_root_add(xn_t4041);
+                    xn_root_add(xn_t4041);
+                            xn_root_add(xn_t4041);
+                                    xn_root_add(xn_t4041);
+                                    rt_string *xn_t4042 = rt_string_from_c(" (X ");
+xn_root_add(xn_t4042);
+    xn_root_add(xn_t4042);
+            xn_root_add(xn_t4042);
+                    xn_root_add(xn_t4042);
+                            xn_root_add(xn_t4042);
+                                    xn_root_add(xn_t4042);
+                                    rt_string *xn_t4043 = xn_concat(xn_t4041, xn_t4042);
+xn_root_add(xn_t4043);
+    xn_root_add(xn_t4043);
+            xn_root_add(xn_t4043);
+                    xn_root_add(xn_t4043);
+                            xn_root_add(xn_t4043);
+                                    xn_root_add(xn_t4043);
+                                    rt_string *xn_t4044 = rt_retain(e->d);
+xn_root_add(xn_t4044);
+    xn_root_add(xn_t4044);
+            xn_root_add(xn_t4044);
+                    xn_root_add(xn_t4044);
+                            xn_root_add(xn_t4044);
+                                    xn_root_add(xn_t4044);
+                                    rt_string *xn_t4045 = xn_concat(xn_t4043, xn_t4044);
+xn_root_add(xn_t4045);
+    xn_root_add(xn_t4045);
+            xn_root_add(xn_t4045);
+                    xn_root_add(xn_t4045);
+                            xn_root_add(xn_t4045);
+                                    xn_root_add(xn_t4045);
+                                    rt_string *xn_t4046 = rt_string_from_c(") (Index ");
+xn_root_add(xn_t4046);
+    xn_root_add(xn_t4046);
+            xn_root_add(xn_t4046);
+                    xn_root_add(xn_t4046);
+                            xn_root_add(xn_t4046);
+                                    xn_root_add(xn_t4046);
+                                    rt_string *xn_t4047 = xn_concat(xn_t4045, xn_t4046);
+xn_root_add(xn_t4047);
+    xn_root_add(xn_t4047);
+            xn_root_add(xn_t4047);
+                    xn_root_add(xn_t4047);
+                            xn_root_add(xn_t4047);
+                                    xn_root_add(xn_t4047);
+                                    rt_string *xn_t4048 = rt_retain(n->text);
+xn_root_add(xn_t4048);
+    xn_root_add(xn_t4048);
+            xn_root_add(xn_t4048);
+                    xn_root_add(xn_t4048);
+                            xn_root_add(xn_t4048);
+                                    xn_root_add(xn_t4048);
+                                    rt_string *xn_t4049 = xn_concat(xn_t4047, xn_t4048);
+xn_root_add(xn_t4049);
+    xn_root_add(xn_t4049);
+            xn_root_add(xn_t4049);
+                    xn_root_add(xn_t4049);
+                            xn_root_add(xn_t4049);
+                                    xn_root_add(xn_t4049);
+                                    rt_string *xn_t4050 = rt_string_from_c(") (NullSafe ");
+xn_root_add(xn_t4050);
+    xn_root_add(xn_t4050);
+            xn_root_add(xn_t4050);
+                    xn_root_add(xn_t4050);
+                            xn_root_add(xn_t4050);
+                                    xn_root_add(xn_t4050);
+                                    rt_string *xn_t4051 = xn_concat(xn_t4049, xn_t4050);
+xn_root_add(xn_t4051);
+    xn_root_add(xn_t4051);
+            xn_root_add(xn_t4051);
+                    xn_root_add(xn_t4051);
+                            xn_root_add(xn_t4051);
+                                    xn_root_add(xn_t4051);
+                                    rt_string *xn_t4052 = xn_B(ns);
+xn_root_add(xn_t4052);
+    xn_root_add(xn_t4052);
+            xn_root_add(xn_t4052);
+                    xn_root_add(xn_t4052);
+                            xn_root_add(xn_t4052);
+                                    xn_root_add(xn_t4052);
+                                    rt_string *xn_t4053 = xn_concat(xn_t4051, xn_t4052);
+xn_root_add(xn_t4053);
+    xn_root_add(xn_t4053);
+            xn_root_add(xn_t4053);
+                    xn_root_add(xn_t4053);
+                            xn_root_add(xn_t4053);
+                                    xn_root_add(xn_t4053);
+                                    rt_string *xn_t4054 = rt_string_from_c("))");
+xn_root_add(xn_t4054);
+    xn_root_add(xn_t4054);
+            xn_root_add(xn_t4054);
+                    xn_root_add(xn_t4054);
+                            xn_root_add(xn_t4054);
+                                    xn_root_add(xn_t4054);
+                                    rt_string *d = xn_concat(xn_t4053, xn_t4054);
 xn_root_add(d);
     xn_root_add(d);
             xn_root_add(d);
@@ -23331,15 +23813,15 @@ xn_root_add(d);
                                     xn_root_add(d);
                                     xn_root_add(d);
                                     xn_gc_safepoint();
-                                    #line 1871 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t3979 = rt_retain(d);
-xn_root_add(xn_t3979);
-    xn_root_add(xn_t3979);
-            xn_root_add(xn_t3979);
-                    xn_root_add(xn_t3979);
-                            xn_root_add(xn_t3979);
-                                    xn_root_add(xn_t3979);
-                                    xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t3979, dot->line, dot->col);
+                                    #line 1920 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t4056 = rt_retain(d);
+xn_root_add(xn_t4056);
+    xn_root_add(xn_t4056);
+            xn_root_add(xn_t4056);
+                    xn_root_add(xn_t4056);
+                            xn_root_add(xn_t4056);
+                                    xn_root_add(xn_t4056);
+                                    xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4056, dot->line, dot->col);
 xn_root_add(ne);
     xn_root_add(ne);
             xn_root_add(ne);
@@ -23348,46 +23830,46 @@ xn_root_add(ne);
                                     xn_root_add(ne);
                                     xn_root_add(ne);
                                     xn_gc_safepoint();
-                                    #line 1871 "impl/lib/b2/xparser.x"
+                                    #line 1920 "impl/lib/b2/xparser.x"
                                     ne->sl = e->sl;
-                                    #line 1871 "impl/lib/b2/xparser.x"
+                                    #line 1920 "impl/lib/b2/xparser.x"
                                     ne->sc = e->sc;
-                                    #line 1871 "impl/lib/b2/xparser.x"
+                                    #line 1920 "impl/lib/b2/xparser.x"
                                     xn_arr_o_E_set(eh, 0, ne);
                                         {
                                         rt_release(d);
                                         }
                                         {
-                                        xn_root_restore(xn_t3961);
+                                        xn_root_restore(xn_t4038);
                                         }
 
                                 } else {
-                                    size_t xn_t3980 = xn_root_mark();
-                                    #line 1872 "impl/lib/b2/xparser.x"
+                                    size_t xn_t4057 = xn_root_mark();
+                                    #line 1921 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
                                         {
-                                        xn_root_restore(xn_t3980);
+                                        xn_root_restore(xn_t4057);
                                         }
 
                                 }
                         }
                         {
-                        xn_root_restore(xn_t3936);
+                        xn_root_restore(xn_t4013);
                         }
 
                 } else {
                         if ((xn_Cls_Parser_at(self, 10))) {
-                            size_t xn_t3982 = xn_root_mark();
-                            #line 1874 "impl/lib/b2/xparser.x"
+                            size_t xn_t4059 = xn_root_mark();
+                            #line 1923 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 1875 "impl/lib/b2/xparser.x"
-                            xn_arr_s *xn_t3983 = xn_arr_s_new(0);
-xn_root_add(xn_t3983);
-    xn_root_add(xn_t3983);
-            xn_root_add(xn_t3983);
-                    xn_root_add(xn_t3983);
-                            xn_root_add(xn_t3983);
-                            xn_arr_s * tas = xn_t3983;
+                            #line 1924 "impl/lib/b2/xparser.x"
+                            xn_arr_s *xn_t4060 = xn_arr_s_new(0);
+xn_root_add(xn_t4060);
+    xn_root_add(xn_t4060);
+            xn_root_add(xn_t4060);
+                    xn_root_add(xn_t4060);
+                            xn_root_add(xn_t4060);
+                            xn_arr_s * tas = xn_t4060;
 xn_root_add(tas);
     xn_root_add(tas);
             xn_root_add(tas);
@@ -23395,15 +23877,15 @@ xn_root_add(tas);
                             xn_root_add(tas);
                             xn_root_add(tas);
                             xn_gc_safepoint();
-                            #line 1876 "impl/lib/b2/xparser.x"
+                            #line 1925 "impl/lib/b2/xparser.x"
                             int argBad = 0;
-                            #line 1877 "impl/lib/b2/xparser.x"
+                            #line 1926 "impl/lib/b2/xparser.x"
                                 while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                                size_t xn_t3984 = xn_root_mark();
-                                #line 1878 "impl/lib/b2/xparser.x"
+                                size_t xn_t4061 = xn_root_mark();
+                                #line 1927 "impl/lib/b2/xparser.x"
                                     if ((xn_Cls_Parser_at(self, 1))) {
-                                        size_t xn_t3985 = xn_root_mark();
-                                        #line 1879 "impl/lib/b2/xparser.x"
+                                        size_t xn_t4062 = xn_root_mark();
+                                        #line 1928 "impl/lib/b2/xparser.x"
                                         xn_Cls_Tok * ce = xn_Cls_Parser_cur(self);
 xn_root_add(ce);
     xn_root_add(ce);
@@ -23414,84 +23896,84 @@ xn_root_add(ce);
                                         xn_root_add(ce);
                                         xn_root_add(ce);
                                         xn_gc_safepoint();
-                                        #line 1880 "impl/lib/b2/xparser.x"
-                                        rt_string *xn_t3986 = rt_string_from_c("SYN-101");
-xn_root_add(xn_t3986);
-    xn_root_add(xn_t3986);
-            xn_root_add(xn_t3986);
-                    xn_root_add(xn_t3986);
-                            xn_root_add(xn_t3986);
-                                xn_root_add(xn_t3986);
-                                        xn_root_add(xn_t3986);
-                                        rt_string *xn_t3987 = rt_string_from_c("期望`)`");
-xn_root_add(xn_t3987);
-    xn_root_add(xn_t3987);
-            xn_root_add(xn_t3987);
-                    xn_root_add(xn_t3987);
-                            xn_root_add(xn_t3987);
-                                xn_root_add(xn_t3987);
-                                        xn_root_add(xn_t3987);
-                                        xn_Cls_Parser_err(self, xn_t3986, ce->line, ce->col, xn_t3987);
-                                        #line 1881 "impl/lib/b2/xparser.x"
+                                        #line 1929 "impl/lib/b2/xparser.x"
+                                        rt_string *xn_t4063 = rt_string_from_c("SYN-101");
+xn_root_add(xn_t4063);
+    xn_root_add(xn_t4063);
+            xn_root_add(xn_t4063);
+                    xn_root_add(xn_t4063);
+                            xn_root_add(xn_t4063);
+                                xn_root_add(xn_t4063);
+                                        xn_root_add(xn_t4063);
+                                        rt_string *xn_t4064 = rt_string_from_c("期望`)`");
+xn_root_add(xn_t4064);
+    xn_root_add(xn_t4064);
+            xn_root_add(xn_t4064);
+                    xn_root_add(xn_t4064);
+                            xn_root_add(xn_t4064);
+                                xn_root_add(xn_t4064);
+                                        xn_root_add(xn_t4064);
+                                        xn_Cls_Parser_err(self, xn_t4063, ce->line, ce->col, xn_t4064);
+                                        #line 1930 "impl/lib/b2/xparser.x"
                                         argBad = 1;
-                                        #line 1882 "impl/lib/b2/xparser.x"
-                                        xn_root_restore(xn_t3985);
-                                        xn_root_restore(xn_t3984);
+                                        #line 1931 "impl/lib/b2/xparser.x"
+                                        xn_root_restore(xn_t4062);
+                                        xn_root_restore(xn_t4061);
                                         break;
                                             {
-                                            xn_root_restore(xn_t3985);
+                                            xn_root_restore(xn_t4062);
                                             }
 
                                     }
-                                #line 1884 "impl/lib/b2/xparser.x"
+                                #line 1933 "impl/lib/b2/xparser.x"
                                     if ((xn_Cls_Parser_at(self, 16))) {
-                                        size_t xn_t3988 = xn_root_mark();
-                                        #line 1884 "impl/lib/b2/xparser.x"
+                                        size_t xn_t4065 = xn_root_mark();
+                                        #line 1933 "impl/lib/b2/xparser.x"
                                         xn_Cls_Parser_next(self);
-                                        #line 1884 "impl/lib/b2/xparser.x"
-                                        xn_root_restore(xn_t3988);
-                                        xn_root_restore(xn_t3984);
+                                        #line 1933 "impl/lib/b2/xparser.x"
+                                        xn_root_restore(xn_t4065);
+                                        xn_root_restore(xn_t4061);
                                         continue;
                                             {
-                                            xn_root_restore(xn_t3988);
+                                            xn_root_restore(xn_t4065);
                                             }
 
                                     }
-                                #line 1885 "impl/lib/b2/xparser.x"
-                                xn_Cls_E * xn_t3989 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t3989);
-    xn_root_add(xn_t3989);
-            xn_root_add(xn_t3989);
-                    xn_root_add(xn_t3989);
-                            xn_root_add(xn_t3989);
-                                xn_root_add(xn_t3989);
-                                rt_string *xn_t3990 = rt_retain(xn_t3989->d);
-xn_root_add(xn_t3990);
-    xn_root_add(xn_t3990);
-            xn_root_add(xn_t3990);
-                    xn_root_add(xn_t3990);
-                            xn_root_add(xn_t3990);
-                                xn_root_add(xn_t3990);
-                                xn_arr_s_push(tas, xn_t3990);
+                                #line 1934 "impl/lib/b2/xparser.x"
+                                xn_Cls_E * xn_t4066 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4066);
+    xn_root_add(xn_t4066);
+            xn_root_add(xn_t4066);
+                    xn_root_add(xn_t4066);
+                            xn_root_add(xn_t4066);
+                                xn_root_add(xn_t4066);
+                                rt_string *xn_t4067 = rt_retain(xn_t4066->d);
+xn_root_add(xn_t4067);
+    xn_root_add(xn_t4067);
+            xn_root_add(xn_t4067);
+                    xn_root_add(xn_t4067);
+                            xn_root_add(xn_t4067);
+                                xn_root_add(xn_t4067);
+                                xn_arr_s_push(tas, xn_t4067);
                                     {
-                                    xn_root_restore(xn_t3984);
+                                    xn_root_restore(xn_t4061);
                                     }
 
                                 xn_gc_safepoint();
                                 }
-                            #line 1887 "impl/lib/b2/xparser.x"
+                            #line 1936 "impl/lib/b2/xparser.x"
                                 if ((xn_Cls_Parser_at(self, 11))) {
-                                    size_t xn_t3991 = xn_root_mark();
-                                    #line 1887 "impl/lib/b2/xparser.x"
+                                    size_t xn_t4068 = xn_root_mark();
+                                    #line 1936 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
                                         {
-                                        xn_root_restore(xn_t3991);
+                                        xn_root_restore(xn_t4068);
                                         }
 
                                 } else {
                                         if (((!(argBad)))) {
-                                            size_t xn_t3993 = xn_root_mark();
-                                            #line 1888 "impl/lib/b2/xparser.x"
+                                            size_t xn_t4070 = xn_root_mark();
+                                            #line 1937 "impl/lib/b2/xparser.x"
                                             xn_Cls_Tok * ce = xn_Cls_Parser_cur(self);
 xn_root_add(ce);
     xn_root_add(ce);
@@ -23502,110 +23984,110 @@ xn_root_add(ce);
                                             xn_root_add(ce);
                                             xn_root_add(ce);
                                             xn_gc_safepoint();
-                                            #line 1889 "impl/lib/b2/xparser.x"
-                                            rt_string *xn_t3994 = rt_string_from_c("SYN-101");
-xn_root_add(xn_t3994);
-    xn_root_add(xn_t3994);
-            xn_root_add(xn_t3994);
-                    xn_root_add(xn_t3994);
-                            xn_root_add(xn_t3994);
-                                    xn_root_add(xn_t3994);
-                                            xn_root_add(xn_t3994);
-                                            rt_string *xn_t3995 = rt_string_from_c("期望`)`");
-xn_root_add(xn_t3995);
-    xn_root_add(xn_t3995);
-            xn_root_add(xn_t3995);
-                    xn_root_add(xn_t3995);
-                            xn_root_add(xn_t3995);
-                                    xn_root_add(xn_t3995);
-                                            xn_root_add(xn_t3995);
-                                            xn_Cls_Parser_err(self, xn_t3994, ce->line, ce->col, xn_t3995);
+                                            #line 1938 "impl/lib/b2/xparser.x"
+                                            rt_string *xn_t4071 = rt_string_from_c("SYN-101");
+xn_root_add(xn_t4071);
+    xn_root_add(xn_t4071);
+            xn_root_add(xn_t4071);
+                    xn_root_add(xn_t4071);
+                            xn_root_add(xn_t4071);
+                                    xn_root_add(xn_t4071);
+                                            xn_root_add(xn_t4071);
+                                            rt_string *xn_t4072 = rt_string_from_c("期望`)`");
+xn_root_add(xn_t4072);
+    xn_root_add(xn_t4072);
+            xn_root_add(xn_t4072);
+                    xn_root_add(xn_t4072);
+                            xn_root_add(xn_t4072);
+                                    xn_root_add(xn_t4072);
+                                            xn_root_add(xn_t4072);
+                                            xn_Cls_Parser_err(self, xn_t4071, ce->line, ce->col, xn_t4072);
                                                 {
-                                                xn_root_restore(xn_t3993);
+                                                xn_root_restore(xn_t4070);
                                                 }
 
                                         }
                                 }
-                            #line 1891 "impl/lib/b2/xparser.x"
-                            rt_string *xn_t3996 = rt_string_from_c("(Call ");
-xn_root_add(xn_t3996);
-    xn_root_add(xn_t3996);
-            xn_root_add(xn_t3996);
-                    xn_root_add(xn_t3996);
-                            xn_root_add(xn_t3996);
-                            rt_string *xn_t3997 = xn_P(e->l, e->c);
-xn_root_add(xn_t3997);
-    xn_root_add(xn_t3997);
-            xn_root_add(xn_t3997);
-                    xn_root_add(xn_t3997);
-                            xn_root_add(xn_t3997);
-                            rt_string *xn_t3998 = xn_concat(xn_t3996, xn_t3997);
-xn_root_add(xn_t3998);
-    xn_root_add(xn_t3998);
-            xn_root_add(xn_t3998);
-                    xn_root_add(xn_t3998);
-                            xn_root_add(xn_t3998);
-                            rt_string *xn_t3999 = rt_string_from_c(" (Callee ");
-xn_root_add(xn_t3999);
-    xn_root_add(xn_t3999);
-            xn_root_add(xn_t3999);
-                    xn_root_add(xn_t3999);
-                            xn_root_add(xn_t3999);
-                            rt_string *xn_t4000 = xn_concat(xn_t3998, xn_t3999);
-xn_root_add(xn_t4000);
-    xn_root_add(xn_t4000);
-            xn_root_add(xn_t4000);
-                    xn_root_add(xn_t4000);
-                            xn_root_add(xn_t4000);
-                            rt_string *xn_t4001 = rt_retain(e->d);
-xn_root_add(xn_t4001);
-    xn_root_add(xn_t4001);
-            xn_root_add(xn_t4001);
-                    xn_root_add(xn_t4001);
-                            xn_root_add(xn_t4001);
-                            rt_string *xn_t4002 = xn_concat(xn_t4000, xn_t4001);
-xn_root_add(xn_t4002);
-    xn_root_add(xn_t4002);
-            xn_root_add(xn_t4002);
-                    xn_root_add(xn_t4002);
-                            xn_root_add(xn_t4002);
-                            rt_string *xn_t4003 = rt_string_from_c(") (TypeArgs (slice)) (Args ");
-xn_root_add(xn_t4003);
-    xn_root_add(xn_t4003);
-            xn_root_add(xn_t4003);
-                    xn_root_add(xn_t4003);
-                            xn_root_add(xn_t4003);
-                            rt_string *xn_t4004 = xn_concat(xn_t4002, xn_t4003);
-xn_root_add(xn_t4004);
-    xn_root_add(xn_t4004);
-            xn_root_add(xn_t4004);
-                    xn_root_add(xn_t4004);
-                            xn_root_add(xn_t4004);
-                            rt_string *xn_t4005 = xn_SL(tas);
-xn_root_add(xn_t4005);
-    xn_root_add(xn_t4005);
-            xn_root_add(xn_t4005);
-                    xn_root_add(xn_t4005);
-                            xn_root_add(xn_t4005);
-                            rt_string *xn_t4006 = xn_concat(xn_t4004, xn_t4005);
-xn_root_add(xn_t4006);
-    xn_root_add(xn_t4006);
-            xn_root_add(xn_t4006);
-                    xn_root_add(xn_t4006);
-                            xn_root_add(xn_t4006);
-                            rt_string *xn_t4007 = rt_string_from_c("))");
-xn_root_add(xn_t4007);
-    xn_root_add(xn_t4007);
-            xn_root_add(xn_t4007);
-                    xn_root_add(xn_t4007);
-                            xn_root_add(xn_t4007);
-                            rt_string *xn_t4008 = xn_concat(xn_t4006, xn_t4007);
-xn_root_add(xn_t4008);
-    xn_root_add(xn_t4008);
-            xn_root_add(xn_t4008);
-                    xn_root_add(xn_t4008);
-                            xn_root_add(xn_t4008);
-                            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4008, e->l, e->c);
+                            #line 1940 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t4073 = rt_string_from_c("(Call ");
+xn_root_add(xn_t4073);
+    xn_root_add(xn_t4073);
+            xn_root_add(xn_t4073);
+                    xn_root_add(xn_t4073);
+                            xn_root_add(xn_t4073);
+                            rt_string *xn_t4074 = xn_P(e->l, e->c);
+xn_root_add(xn_t4074);
+    xn_root_add(xn_t4074);
+            xn_root_add(xn_t4074);
+                    xn_root_add(xn_t4074);
+                            xn_root_add(xn_t4074);
+                            rt_string *xn_t4075 = xn_concat(xn_t4073, xn_t4074);
+xn_root_add(xn_t4075);
+    xn_root_add(xn_t4075);
+            xn_root_add(xn_t4075);
+                    xn_root_add(xn_t4075);
+                            xn_root_add(xn_t4075);
+                            rt_string *xn_t4076 = rt_string_from_c(" (Callee ");
+xn_root_add(xn_t4076);
+    xn_root_add(xn_t4076);
+            xn_root_add(xn_t4076);
+                    xn_root_add(xn_t4076);
+                            xn_root_add(xn_t4076);
+                            rt_string *xn_t4077 = xn_concat(xn_t4075, xn_t4076);
+xn_root_add(xn_t4077);
+    xn_root_add(xn_t4077);
+            xn_root_add(xn_t4077);
+                    xn_root_add(xn_t4077);
+                            xn_root_add(xn_t4077);
+                            rt_string *xn_t4078 = rt_retain(e->d);
+xn_root_add(xn_t4078);
+    xn_root_add(xn_t4078);
+            xn_root_add(xn_t4078);
+                    xn_root_add(xn_t4078);
+                            xn_root_add(xn_t4078);
+                            rt_string *xn_t4079 = xn_concat(xn_t4077, xn_t4078);
+xn_root_add(xn_t4079);
+    xn_root_add(xn_t4079);
+            xn_root_add(xn_t4079);
+                    xn_root_add(xn_t4079);
+                            xn_root_add(xn_t4079);
+                            rt_string *xn_t4080 = rt_string_from_c(") (TypeArgs (slice)) (Args ");
+xn_root_add(xn_t4080);
+    xn_root_add(xn_t4080);
+            xn_root_add(xn_t4080);
+                    xn_root_add(xn_t4080);
+                            xn_root_add(xn_t4080);
+                            rt_string *xn_t4081 = xn_concat(xn_t4079, xn_t4080);
+xn_root_add(xn_t4081);
+    xn_root_add(xn_t4081);
+            xn_root_add(xn_t4081);
+                    xn_root_add(xn_t4081);
+                            xn_root_add(xn_t4081);
+                            rt_string *xn_t4082 = xn_SL(tas);
+xn_root_add(xn_t4082);
+    xn_root_add(xn_t4082);
+            xn_root_add(xn_t4082);
+                    xn_root_add(xn_t4082);
+                            xn_root_add(xn_t4082);
+                            rt_string *xn_t4083 = xn_concat(xn_t4081, xn_t4082);
+xn_root_add(xn_t4083);
+    xn_root_add(xn_t4083);
+            xn_root_add(xn_t4083);
+                    xn_root_add(xn_t4083);
+                            xn_root_add(xn_t4083);
+                            rt_string *xn_t4084 = rt_string_from_c("))");
+xn_root_add(xn_t4084);
+    xn_root_add(xn_t4084);
+            xn_root_add(xn_t4084);
+                    xn_root_add(xn_t4084);
+                            xn_root_add(xn_t4084);
+                            rt_string *xn_t4085 = xn_concat(xn_t4083, xn_t4084);
+xn_root_add(xn_t4085);
+    xn_root_add(xn_t4085);
+            xn_root_add(xn_t4085);
+                    xn_root_add(xn_t4085);
+                            xn_root_add(xn_t4085);
+                            xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4085, e->l, e->c);
 xn_root_add(ne);
     xn_root_add(ne);
             xn_root_add(ne);
@@ -23613,22 +24095,22 @@ xn_root_add(ne);
                             xn_root_add(ne);
                             xn_root_add(ne);
                             xn_gc_safepoint();
-                            #line 1892 "impl/lib/b2/xparser.x"
+                            #line 1941 "impl/lib/b2/xparser.x"
                             ne->sl = e->sl;
-                            #line 1892 "impl/lib/b2/xparser.x"
+                            #line 1941 "impl/lib/b2/xparser.x"
                             ne->sc = e->sc;
-                            #line 1892 "impl/lib/b2/xparser.x"
+                            #line 1941 "impl/lib/b2/xparser.x"
                             xn_arr_o_E_set(eh, 0, ne);
                                 {
-                                xn_root_restore(xn_t3982);
+                                xn_root_restore(xn_t4059);
                                 }
 
                         } else {
                                 if ((xn_Cls_Parser_at(self, 14))) {
-                                    size_t xn_t4010 = xn_root_mark();
-                                    #line 1894 "impl/lib/b2/xparser.x"
+                                    size_t xn_t4087 = xn_root_mark();
+                                    #line 1943 "impl/lib/b2/xparser.x"
                                     xn_Cls_Parser_next(self);
-                                    #line 1895 "impl/lib/b2/xparser.x"
+                                    #line 1944 "impl/lib/b2/xparser.x"
                                     xn_Cls_E * idx = xn_Cls_Parser_parseExpr(self);
 xn_root_add(idx);
     xn_root_add(idx);
@@ -23638,109 +24120,109 @@ xn_root_add(idx);
                                     xn_root_add(idx);
                                     xn_root_add(idx);
                                     xn_gc_safepoint();
-                                    #line 1896 "impl/lib/b2/xparser.x"
+                                    #line 1945 "impl/lib/b2/xparser.x"
                                         if ((xn_Cls_Parser_at(self, 15))) {
-                                            size_t xn_t4011 = xn_root_mark();
-                                            #line 1896 "impl/lib/b2/xparser.x"
+                                            size_t xn_t4088 = xn_root_mark();
+                                            #line 1945 "impl/lib/b2/xparser.x"
                                             xn_Cls_Parser_next(self);
                                                 {
-                                                xn_root_restore(xn_t4011);
+                                                xn_root_restore(xn_t4088);
                                                 }
 
                                         }
-                                    #line 1897 "impl/lib/b2/xparser.x"
-                                    rt_string *xn_t4012 = rt_string_from_c("(Index ");
-xn_root_add(xn_t4012);
-    xn_root_add(xn_t4012);
-            xn_root_add(xn_t4012);
-                    xn_root_add(xn_t4012);
-                            xn_root_add(xn_t4012);
-                                    xn_root_add(xn_t4012);
-                                    rt_string *xn_t4013 = xn_P(e->l, e->c);
-xn_root_add(xn_t4013);
-    xn_root_add(xn_t4013);
-            xn_root_add(xn_t4013);
-                    xn_root_add(xn_t4013);
-                            xn_root_add(xn_t4013);
-                                    xn_root_add(xn_t4013);
-                                    rt_string *xn_t4014 = xn_concat(xn_t4012, xn_t4013);
-xn_root_add(xn_t4014);
-    xn_root_add(xn_t4014);
-            xn_root_add(xn_t4014);
-                    xn_root_add(xn_t4014);
-                            xn_root_add(xn_t4014);
-                                    xn_root_add(xn_t4014);
-                                    rt_string *xn_t4015 = rt_string_from_c(" (X ");
-xn_root_add(xn_t4015);
-    xn_root_add(xn_t4015);
-            xn_root_add(xn_t4015);
-                    xn_root_add(xn_t4015);
-                            xn_root_add(xn_t4015);
-                                    xn_root_add(xn_t4015);
-                                    rt_string *xn_t4016 = xn_concat(xn_t4014, xn_t4015);
-xn_root_add(xn_t4016);
-    xn_root_add(xn_t4016);
-            xn_root_add(xn_t4016);
-                    xn_root_add(xn_t4016);
-                            xn_root_add(xn_t4016);
-                                    xn_root_add(xn_t4016);
-                                    rt_string *xn_t4017 = rt_retain(e->d);
-xn_root_add(xn_t4017);
-    xn_root_add(xn_t4017);
-            xn_root_add(xn_t4017);
-                    xn_root_add(xn_t4017);
-                            xn_root_add(xn_t4017);
-                                    xn_root_add(xn_t4017);
-                                    rt_string *xn_t4018 = xn_concat(xn_t4016, xn_t4017);
-xn_root_add(xn_t4018);
-    xn_root_add(xn_t4018);
-            xn_root_add(xn_t4018);
-                    xn_root_add(xn_t4018);
-                            xn_root_add(xn_t4018);
-                                    xn_root_add(xn_t4018);
-                                    rt_string *xn_t4019 = rt_string_from_c(") (Idx ");
-xn_root_add(xn_t4019);
-    xn_root_add(xn_t4019);
-            xn_root_add(xn_t4019);
-                    xn_root_add(xn_t4019);
-                            xn_root_add(xn_t4019);
-                                    xn_root_add(xn_t4019);
-                                    rt_string *xn_t4020 = xn_concat(xn_t4018, xn_t4019);
-xn_root_add(xn_t4020);
-    xn_root_add(xn_t4020);
-            xn_root_add(xn_t4020);
-                    xn_root_add(xn_t4020);
-                            xn_root_add(xn_t4020);
-                                    xn_root_add(xn_t4020);
-                                    rt_string *xn_t4021 = rt_retain(idx->d);
-xn_root_add(xn_t4021);
-    xn_root_add(xn_t4021);
-            xn_root_add(xn_t4021);
-                    xn_root_add(xn_t4021);
-                            xn_root_add(xn_t4021);
-                                    xn_root_add(xn_t4021);
-                                    rt_string *xn_t4022 = xn_concat(xn_t4020, xn_t4021);
-xn_root_add(xn_t4022);
-    xn_root_add(xn_t4022);
-            xn_root_add(xn_t4022);
-                    xn_root_add(xn_t4022);
-                            xn_root_add(xn_t4022);
-                                    xn_root_add(xn_t4022);
-                                    rt_string *xn_t4023 = rt_string_from_c("))");
-xn_root_add(xn_t4023);
-    xn_root_add(xn_t4023);
-            xn_root_add(xn_t4023);
-                    xn_root_add(xn_t4023);
-                            xn_root_add(xn_t4023);
-                                    xn_root_add(xn_t4023);
-                                    rt_string *xn_t4024 = xn_concat(xn_t4022, xn_t4023);
-xn_root_add(xn_t4024);
-    xn_root_add(xn_t4024);
-            xn_root_add(xn_t4024);
-                    xn_root_add(xn_t4024);
-                            xn_root_add(xn_t4024);
-                                    xn_root_add(xn_t4024);
-                                    xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4024, e->l, e->c);
+                                    #line 1946 "impl/lib/b2/xparser.x"
+                                    rt_string *xn_t4089 = rt_string_from_c("(Index ");
+xn_root_add(xn_t4089);
+    xn_root_add(xn_t4089);
+            xn_root_add(xn_t4089);
+                    xn_root_add(xn_t4089);
+                            xn_root_add(xn_t4089);
+                                    xn_root_add(xn_t4089);
+                                    rt_string *xn_t4090 = xn_P(e->l, e->c);
+xn_root_add(xn_t4090);
+    xn_root_add(xn_t4090);
+            xn_root_add(xn_t4090);
+                    xn_root_add(xn_t4090);
+                            xn_root_add(xn_t4090);
+                                    xn_root_add(xn_t4090);
+                                    rt_string *xn_t4091 = xn_concat(xn_t4089, xn_t4090);
+xn_root_add(xn_t4091);
+    xn_root_add(xn_t4091);
+            xn_root_add(xn_t4091);
+                    xn_root_add(xn_t4091);
+                            xn_root_add(xn_t4091);
+                                    xn_root_add(xn_t4091);
+                                    rt_string *xn_t4092 = rt_string_from_c(" (X ");
+xn_root_add(xn_t4092);
+    xn_root_add(xn_t4092);
+            xn_root_add(xn_t4092);
+                    xn_root_add(xn_t4092);
+                            xn_root_add(xn_t4092);
+                                    xn_root_add(xn_t4092);
+                                    rt_string *xn_t4093 = xn_concat(xn_t4091, xn_t4092);
+xn_root_add(xn_t4093);
+    xn_root_add(xn_t4093);
+            xn_root_add(xn_t4093);
+                    xn_root_add(xn_t4093);
+                            xn_root_add(xn_t4093);
+                                    xn_root_add(xn_t4093);
+                                    rt_string *xn_t4094 = rt_retain(e->d);
+xn_root_add(xn_t4094);
+    xn_root_add(xn_t4094);
+            xn_root_add(xn_t4094);
+                    xn_root_add(xn_t4094);
+                            xn_root_add(xn_t4094);
+                                    xn_root_add(xn_t4094);
+                                    rt_string *xn_t4095 = xn_concat(xn_t4093, xn_t4094);
+xn_root_add(xn_t4095);
+    xn_root_add(xn_t4095);
+            xn_root_add(xn_t4095);
+                    xn_root_add(xn_t4095);
+                            xn_root_add(xn_t4095);
+                                    xn_root_add(xn_t4095);
+                                    rt_string *xn_t4096 = rt_string_from_c(") (Idx ");
+xn_root_add(xn_t4096);
+    xn_root_add(xn_t4096);
+            xn_root_add(xn_t4096);
+                    xn_root_add(xn_t4096);
+                            xn_root_add(xn_t4096);
+                                    xn_root_add(xn_t4096);
+                                    rt_string *xn_t4097 = xn_concat(xn_t4095, xn_t4096);
+xn_root_add(xn_t4097);
+    xn_root_add(xn_t4097);
+            xn_root_add(xn_t4097);
+                    xn_root_add(xn_t4097);
+                            xn_root_add(xn_t4097);
+                                    xn_root_add(xn_t4097);
+                                    rt_string *xn_t4098 = rt_retain(idx->d);
+xn_root_add(xn_t4098);
+    xn_root_add(xn_t4098);
+            xn_root_add(xn_t4098);
+                    xn_root_add(xn_t4098);
+                            xn_root_add(xn_t4098);
+                                    xn_root_add(xn_t4098);
+                                    rt_string *xn_t4099 = xn_concat(xn_t4097, xn_t4098);
+xn_root_add(xn_t4099);
+    xn_root_add(xn_t4099);
+            xn_root_add(xn_t4099);
+                    xn_root_add(xn_t4099);
+                            xn_root_add(xn_t4099);
+                                    xn_root_add(xn_t4099);
+                                    rt_string *xn_t4100 = rt_string_from_c("))");
+xn_root_add(xn_t4100);
+    xn_root_add(xn_t4100);
+            xn_root_add(xn_t4100);
+                    xn_root_add(xn_t4100);
+                            xn_root_add(xn_t4100);
+                                    xn_root_add(xn_t4100);
+                                    rt_string *xn_t4101 = xn_concat(xn_t4099, xn_t4100);
+xn_root_add(xn_t4101);
+    xn_root_add(xn_t4101);
+            xn_root_add(xn_t4101);
+                    xn_root_add(xn_t4101);
+                            xn_root_add(xn_t4101);
+                                    xn_root_add(xn_t4101);
+                                    xn_Cls_E * ne = xn_Cls_Parser_mk(self, xn_t4101, e->l, e->c);
 xn_root_add(ne);
     xn_root_add(ne);
             xn_root_add(ne);
@@ -23749,22 +24231,22 @@ xn_root_add(ne);
                                     xn_root_add(ne);
                                     xn_root_add(ne);
                                     xn_gc_safepoint();
-                                    #line 1898 "impl/lib/b2/xparser.x"
+                                    #line 1947 "impl/lib/b2/xparser.x"
                                     ne->sl = e->sl;
-                                    #line 1898 "impl/lib/b2/xparser.x"
+                                    #line 1947 "impl/lib/b2/xparser.x"
                                     ne->sc = e->sc;
-                                    #line 1898 "impl/lib/b2/xparser.x"
+                                    #line 1947 "impl/lib/b2/xparser.x"
                                     xn_arr_o_E_set(eh, 0, ne);
                                         {
-                                        xn_root_restore(xn_t4010);
+                                        xn_root_restore(xn_t4087);
                                         }
 
                                 } else {
-                                    size_t xn_t4025 = xn_root_mark();
-                                    #line 1899 "impl/lib/b2/xparser.x"
+                                    size_t xn_t4102 = xn_root_mark();
+                                    #line 1948 "impl/lib/b2/xparser.x"
                                     go = 0;
                                         {
-                                        xn_root_restore(xn_t4025);
+                                        xn_root_restore(xn_t4102);
                                         }
 
                                 }
@@ -23772,14 +24254,14 @@ xn_root_add(ne);
                 }
         }
         {
-        xn_root_restore(xn_t3897);
+        xn_root_restore(xn_t3974);
         }
 
     xn_gc_safepoint();
     }
-#line 1901 "impl/lib/b2/xparser.x"
+#line 1950 "impl/lib/b2/xparser.x"
     {
-xn_root_restore(xn_t3894);
+xn_root_restore(xn_t3971);
     }
 
 return xn_arr_o_E_get(eh, 0);
@@ -23787,897 +24269,500 @@ return xn_arr_o_E_get(eh, 0);
 }
 
 static int xn_Cls_Parser_genericCallAhead(xn_Cls_Parser *self) {
-size_t xn_t4026 = xn_root_mark();
+size_t xn_t4103 = xn_root_mark();
 xn_root_add(self);
-#line 1905 "impl/lib/b2/xparser.x"
-rt_string *xn_t4027 = rt_string_from_c("<");
-xn_root_add(xn_t4027);
-    if (((!(xn_Cls_Parser_atOp(self, xn_t4027))))) {
-        size_t xn_t4028 = xn_root_mark();
-        #line 1905 "impl/lib/b2/xparser.x"
-        int xn_t4029 = 0;
+#line 1954 "impl/lib/b2/xparser.x"
+rt_string *xn_t4104 = rt_string_from_c("<");
+xn_root_add(xn_t4104);
+    if (((!(xn_Cls_Parser_atOp(self, xn_t4104))))) {
+        size_t xn_t4105 = xn_root_mark();
+        #line 1954 "impl/lib/b2/xparser.x"
+        int xn_t4106 = 0;
             {
-        xn_root_restore(xn_t4028);
+        xn_root_restore(xn_t4105);
             }
             {
-        xn_root_restore(xn_t4026);
+        xn_root_restore(xn_t4103);
             }
 
-        return xn_t4029;
+        return xn_t4106;
 
     }
-#line 1906 "impl/lib/b2/xparser.x"
+#line 1955 "impl/lib/b2/xparser.x"
 int64_t dep = 0;
-#line 1907 "impl/lib/b2/xparser.x"
+#line 1956 "impl/lib/b2/xparser.x"
 int64_t j = self->i;
-#line 1908 "impl/lib/b2/xparser.x"
+#line 1957 "impl/lib/b2/xparser.x"
     while (((j < ((int64_t)self->toks->len)))) {
-    size_t xn_t4030 = xn_root_mark();
-    #line 1909 "impl/lib/b2/xparser.x"
+    size_t xn_t4107 = xn_root_mark();
+    #line 1958 "impl/lib/b2/xparser.x"
     xn_Cls_Tok * x = xn_arr_o_Tok_get(self->toks, j);
 xn_root_add(x);
     xn_root_add(x);
     xn_root_add(x);
     xn_gc_safepoint();
-    #line 1910 "impl/lib/b2/xparser.x"
-    rt_string *xn_t4031 = rt_retain(x->text);
-xn_root_add(xn_t4031);
-    xn_root_add(xn_t4031);
-    rt_string *xn_t4032 = rt_string_from_c("<");
-xn_root_add(xn_t4032);
-    xn_root_add(xn_t4032);
-        if ((((x->kind == 9)) && (xn_str_eq(xn_t4031, xn_t4032)))) {
-            size_t xn_t4033 = xn_root_mark();
-            #line 1910 "impl/lib/b2/xparser.x"
+    #line 1959 "impl/lib/b2/xparser.x"
+    rt_string *xn_t4108 = rt_retain(x->text);
+xn_root_add(xn_t4108);
+    xn_root_add(xn_t4108);
+    rt_string *xn_t4109 = rt_string_from_c("<");
+xn_root_add(xn_t4109);
+    xn_root_add(xn_t4109);
+        if ((((x->kind == 9)) && (xn_str_eq(xn_t4108, xn_t4109)))) {
+            size_t xn_t4110 = xn_root_mark();
+            #line 1959 "impl/lib/b2/xparser.x"
             dep = (dep + 1);
                 {
-                xn_root_restore(xn_t4033);
+                xn_root_restore(xn_t4110);
                 }
 
         } else {
-            rt_string *xn_t4035 = rt_retain(x->text);
-xn_root_add(xn_t4035);
-    xn_root_add(xn_t4035);
-            xn_root_add(xn_t4035);
-            rt_string *xn_t4036 = rt_string_from_c(">");
-xn_root_add(xn_t4036);
-    xn_root_add(xn_t4036);
-            xn_root_add(xn_t4036);
-                if ((((x->kind == 9)) && (xn_str_eq(xn_t4035, xn_t4036)))) {
-                    size_t xn_t4037 = xn_root_mark();
-                    #line 1912 "impl/lib/b2/xparser.x"
+            rt_string *xn_t4112 = rt_retain(x->text);
+xn_root_add(xn_t4112);
+    xn_root_add(xn_t4112);
+            xn_root_add(xn_t4112);
+            rt_string *xn_t4113 = rt_string_from_c(">");
+xn_root_add(xn_t4113);
+    xn_root_add(xn_t4113);
+            xn_root_add(xn_t4113);
+                if ((((x->kind == 9)) && (xn_str_eq(xn_t4112, xn_t4113)))) {
+                    size_t xn_t4114 = xn_root_mark();
+                    #line 1961 "impl/lib/b2/xparser.x"
                     dep = (dep - 1);
-                    #line 1913 "impl/lib/b2/xparser.x"
+                    #line 1962 "impl/lib/b2/xparser.x"
                         if (((dep == 0))) {
-                            size_t xn_t4038 = xn_root_mark();
-                            #line 1913 "impl/lib/b2/xparser.x"
-                            xn_Cls_Tok * xn_t4039 = xn_arr_o_Tok_get(self->toks, (j + 1));
-xn_root_add(xn_t4039);
-    xn_root_add(xn_t4039);
-            xn_root_add(xn_t4039);
-                    xn_root_add(xn_t4039);
-                            xn_root_add(xn_t4039);
-                            xn_root_add(xn_t4039);
-                            int xn_t4040 = (((j + 1) < ((int64_t)self->toks->len)) && (xn_t4039->kind == 10));
+                            size_t xn_t4115 = xn_root_mark();
+                            #line 1962 "impl/lib/b2/xparser.x"
+                            xn_Cls_Tok * xn_t4116 = xn_arr_o_Tok_get(self->toks, (j + 1));
+xn_root_add(xn_t4116);
+    xn_root_add(xn_t4116);
+            xn_root_add(xn_t4116);
+                    xn_root_add(xn_t4116);
+                            xn_root_add(xn_t4116);
+                            xn_root_add(xn_t4116);
+                            int xn_t4117 = (((j + 1) < ((int64_t)self->toks->len)) && (xn_t4116->kind == 10));
                                 {
-                            xn_root_restore(xn_t4038);
+                            xn_root_restore(xn_t4115);
                                 }
                                 {
-                            xn_root_restore(xn_t4037);
+                            xn_root_restore(xn_t4114);
                                 }
                                 {
-                            xn_root_restore(xn_t4030);
+                            xn_root_restore(xn_t4107);
                                 }
                                 {
-                            xn_root_restore(xn_t4026);
+                            xn_root_restore(xn_t4103);
                                 }
 
-                            return xn_t4040;
+                            return xn_t4117;
 
                         }
                         {
-                        xn_root_restore(xn_t4037);
+                        xn_root_restore(xn_t4114);
                         }
 
                 }
         }
-    #line 1915 "impl/lib/b2/xparser.x"
+    #line 1964 "impl/lib/b2/xparser.x"
     j = (j + 1);
         {
-        xn_root_restore(xn_t4030);
+        xn_root_restore(xn_t4107);
         }
 
     xn_gc_safepoint();
     }
-#line 1917 "impl/lib/b2/xparser.x"
-int xn_t4041 = 0;
+#line 1966 "impl/lib/b2/xparser.x"
+int xn_t4118 = 0;
     {
-xn_root_restore(xn_t4026);
+xn_root_restore(xn_t4103);
     }
 
-return xn_t4041;
+return xn_t4118;
     return (int)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static int xn_Cls_Parser_lambdaAhead(xn_Cls_Parser *self) {
-size_t xn_t4042 = xn_root_mark();
+size_t xn_t4119 = xn_root_mark();
 xn_root_add(self);
-#line 1921 "impl/lib/b2/xparser.x"
+#line 1970 "impl/lib/b2/xparser.x"
     if (((!(xn_Cls_Parser_at(self, 10))))) {
-        size_t xn_t4043 = xn_root_mark();
-        #line 1921 "impl/lib/b2/xparser.x"
-        int xn_t4044 = 0;
+        size_t xn_t4120 = xn_root_mark();
+        #line 1970 "impl/lib/b2/xparser.x"
+        int xn_t4121 = 0;
             {
-        xn_root_restore(xn_t4043);
+        xn_root_restore(xn_t4120);
             }
             {
-        xn_root_restore(xn_t4042);
+        xn_root_restore(xn_t4119);
             }
 
-        return xn_t4044;
+        return xn_t4121;
 
     }
-#line 1922 "impl/lib/b2/xparser.x"
+#line 1971 "impl/lib/b2/xparser.x"
 int64_t dep = 1;
-#line 1923 "impl/lib/b2/xparser.x"
+#line 1972 "impl/lib/b2/xparser.x"
 int64_t j = (self->i + 1);
-#line 1924 "impl/lib/b2/xparser.x"
+#line 1973 "impl/lib/b2/xparser.x"
     while ((((j < ((int64_t)self->toks->len))) && ((dep > 0)))) {
-    size_t xn_t4045 = xn_root_mark();
-    #line 1925 "impl/lib/b2/xparser.x"
+    size_t xn_t4122 = xn_root_mark();
+    #line 1974 "impl/lib/b2/xparser.x"
     xn_Cls_Tok * x = xn_arr_o_Tok_get(self->toks, j);
 xn_root_add(x);
     xn_root_add(x);
     xn_root_add(x);
     xn_gc_safepoint();
-    #line 1926 "impl/lib/b2/xparser.x"
+    #line 1975 "impl/lib/b2/xparser.x"
         if (((x->kind == 10))) {
-            size_t xn_t4046 = xn_root_mark();
-            #line 1926 "impl/lib/b2/xparser.x"
+            size_t xn_t4123 = xn_root_mark();
+            #line 1975 "impl/lib/b2/xparser.x"
             dep = (dep + 1);
                 {
-                xn_root_restore(xn_t4046);
+                xn_root_restore(xn_t4123);
                 }
 
         } else {
                 if (((x->kind == 11))) {
-                    size_t xn_t4048 = xn_root_mark();
-                    #line 1927 "impl/lib/b2/xparser.x"
+                    size_t xn_t4125 = xn_root_mark();
+                    #line 1976 "impl/lib/b2/xparser.x"
                     dep = (dep - 1);
                         {
-                        xn_root_restore(xn_t4048);
+                        xn_root_restore(xn_t4125);
                         }
 
                 }
         }
-    #line 1928 "impl/lib/b2/xparser.x"
+    #line 1977 "impl/lib/b2/xparser.x"
     j = (j + 1);
         {
-        xn_root_restore(xn_t4045);
+        xn_root_restore(xn_t4122);
         }
 
     xn_gc_safepoint();
     }
-#line 1930 "impl/lib/b2/xparser.x"
-xn_Cls_Tok * xn_t4049 = xn_arr_o_Tok_get(self->toks, j);
-xn_root_add(xn_t4049);
-xn_root_add(xn_t4049);
-xn_Cls_Tok * xn_t4050 = xn_arr_o_Tok_get(self->toks, j);
-xn_root_add(xn_t4050);
-xn_root_add(xn_t4050);
-rt_string *xn_t4051 = rt_retain(xn_t4050->text);
-xn_root_add(xn_t4051);
-xn_root_add(xn_t4051);
-rt_string *xn_t4052 = rt_string_from_c("->");
-xn_root_add(xn_t4052);
-xn_root_add(xn_t4052);
-int xn_t4053 = (((j < ((int64_t)self->toks->len)) && (xn_t4049->kind == 9)) && xn_str_eq(xn_t4051, xn_t4052));
+#line 1979 "impl/lib/b2/xparser.x"
+xn_Cls_Tok * xn_t4126 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t4126);
+xn_root_add(xn_t4126);
+xn_Cls_Tok * xn_t4127 = xn_arr_o_Tok_get(self->toks, j);
+xn_root_add(xn_t4127);
+xn_root_add(xn_t4127);
+rt_string *xn_t4128 = rt_retain(xn_t4127->text);
+xn_root_add(xn_t4128);
+xn_root_add(xn_t4128);
+rt_string *xn_t4129 = rt_string_from_c("->");
+xn_root_add(xn_t4129);
+xn_root_add(xn_t4129);
+int xn_t4130 = (((j < ((int64_t)self->toks->len)) && (xn_t4126->kind == 9)) && xn_str_eq(xn_t4128, xn_t4129));
     {
-xn_root_restore(xn_t4042);
+xn_root_restore(xn_t4119);
     }
 
-return xn_t4053;
+return xn_t4130;
     return (int)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static rt_string * xn_Cls_Parser_parseSubExpr(xn_Cls_Parser *self, rt_string * xn_p_text) {
-size_t xn_t4054 = xn_root_mark();
+size_t xn_t4131 = xn_root_mark();
 xn_root_add(self);
 xn_root_add(xn_p_text);
-#line 1934 "impl/lib/b2/xparser.x"
-rt_string *xn_t4055 = rt_retain(xn_p_text);
-xn_root_add(xn_t4055);
-xn_Cls_Lexer * sl = xn_Cls_Lexer_new(xn_t4055);
+#line 1983 "impl/lib/b2/xparser.x"
+rt_string *xn_t4132 = rt_retain(xn_p_text);
+xn_root_add(xn_t4132);
+xn_Cls_Lexer * sl = xn_Cls_Lexer_new(xn_t4132);
 xn_root_add(sl);
 xn_root_add(sl);
 xn_gc_safepoint();
-#line 1935 "impl/lib/b2/xparser.x"
-xn_arr_o_Tok *xn_t4056 = xn_arr_o_Tok_new(0);
-xn_root_add(xn_t4056);
-xn_arr_o_Tok * ts = xn_t4056;
+#line 1984 "impl/lib/b2/xparser.x"
+xn_arr_o_Tok *xn_t4133 = xn_arr_o_Tok_new(0);
+xn_root_add(xn_t4133);
+xn_arr_o_Tok * ts = xn_t4133;
 xn_root_add(ts);
 xn_root_add(ts);
 xn_gc_safepoint();
-#line 1936 "impl/lib/b2/xparser.x"
+#line 1985 "impl/lib/b2/xparser.x"
 int go = 1;
-#line 1937 "impl/lib/b2/xparser.x"
+#line 1986 "impl/lib/b2/xparser.x"
     while ((go)) {
-    size_t xn_t4057 = xn_root_mark();
-    #line 1938 "impl/lib/b2/xparser.x"
+    size_t xn_t4134 = xn_root_mark();
+    #line 1987 "impl/lib/b2/xparser.x"
     xn_Cls_Tok * x = xn_Cls_Lexer_next(sl);
 xn_root_add(x);
     xn_root_add(x);
     xn_root_add(x);
     xn_gc_safepoint();
-    #line 1939 "impl/lib/b2/xparser.x"
+    #line 1988 "impl/lib/b2/xparser.x"
     xn_arr_o_Tok_push(ts, x);
-    #line 1940 "impl/lib/b2/xparser.x"
+    #line 1989 "impl/lib/b2/xparser.x"
         if (((x->kind == 0))) {
-            size_t xn_t4058 = xn_root_mark();
-            #line 1940 "impl/lib/b2/xparser.x"
+            size_t xn_t4135 = xn_root_mark();
+            #line 1989 "impl/lib/b2/xparser.x"
             go = 0;
                 {
-                xn_root_restore(xn_t4058);
+                xn_root_restore(xn_t4135);
                 }
 
         }
         {
-        xn_root_restore(xn_t4057);
+        xn_root_restore(xn_t4134);
         }
 
     xn_gc_safepoint();
     }
-#line 1942 "impl/lib/b2/xparser.x"
+#line 1991 "impl/lib/b2/xparser.x"
 xn_Cls_Parser * sp = xn_Cls_Parser_new(ts);
 xn_root_add(sp);
 xn_root_add(sp);
 xn_gc_safepoint();
-#line 1943 "impl/lib/b2/xparser.x"
-xn_Cls_E * xn_t4059 = xn_Cls_Parser_parseExpr(sp);
-xn_root_add(xn_t4059);
-rt_string *xn_t4060 = rt_retain(xn_t4059->d);
-xn_root_add(xn_t4060);
-xn_root_add(xn_t4060);
+#line 1992 "impl/lib/b2/xparser.x"
+xn_Cls_E * xn_t4136 = xn_Cls_Parser_parseExpr(sp);
+xn_root_add(xn_t4136);
+rt_string *xn_t4137 = rt_retain(xn_t4136->d);
+xn_root_add(xn_t4137);
+xn_root_add(xn_t4137);
     {
-xn_root_restore(xn_t4054);
+xn_root_restore(xn_t4131);
     }
 
-return xn_t4060;
+return xn_t4137;
     return (rt_string *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
 static xn_Cls_E * xn_Cls_Parser_parsePrimary(xn_Cls_Parser *self) {
-size_t xn_t4061 = xn_root_mark();
+size_t xn_t4138 = xn_root_mark();
 xn_root_add(self);
-#line 1947 "impl/lib/b2/xparser.x"
+#line 1996 "impl/lib/b2/xparser.x"
 xn_Cls_Tok * t = xn_Cls_Parser_cur(self);
 xn_root_add(t);
 xn_root_add(t);
 xn_gc_safepoint();
-#line 1948 "impl/lib/b2/xparser.x"
+#line 1997 "impl/lib/b2/xparser.x"
     if (((t->kind == 2))) {
-        size_t xn_t4062 = xn_root_mark();
-        #line 1949 "impl/lib/b2/xparser.x"
+        size_t xn_t4139 = xn_root_mark();
+        #line 1998 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 1950 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4063 = rt_retain(t->text);
-xn_root_add(xn_t4063);
-        xn_root_add(xn_t4063);
-        rt_string *xn_t4064 = rt_string_from_c("true");
-xn_root_add(xn_t4064);
-        xn_root_add(xn_t4064);
-        rt_string *xn_t4065 = rt_retain(t->text);
-xn_root_add(xn_t4065);
-        xn_root_add(xn_t4065);
-        rt_string *xn_t4066 = rt_string_from_c("false");
-xn_root_add(xn_t4066);
-        xn_root_add(xn_t4066);
-            if (((xn_str_eq(xn_t4063, xn_t4064)) || (xn_str_eq(xn_t4065, xn_t4066)))) {
-                size_t xn_t4067 = xn_root_mark();
-                #line 1951 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4068 = rt_string_from_c("(BoolLit ");
-xn_root_add(xn_t4068);
-        xn_root_add(xn_t4068);
-                xn_root_add(xn_t4068);
-                xn_root_add(xn_t4068);
-                rt_string *xn_t4069 = xn_P(t->line, t->col);
-xn_root_add(xn_t4069);
-        xn_root_add(xn_t4069);
-                xn_root_add(xn_t4069);
-                xn_root_add(xn_t4069);
-                rt_string *xn_t4070 = xn_concat(xn_t4068, xn_t4069);
-xn_root_add(xn_t4070);
-        xn_root_add(xn_t4070);
-                xn_root_add(xn_t4070);
-                xn_root_add(xn_t4070);
-                rt_string *xn_t4071 = rt_string_from_c(" (V ");
-xn_root_add(xn_t4071);
-        xn_root_add(xn_t4071);
-                xn_root_add(xn_t4071);
-                xn_root_add(xn_t4071);
-                rt_string *xn_t4072 = xn_concat(xn_t4070, xn_t4071);
-xn_root_add(xn_t4072);
-        xn_root_add(xn_t4072);
-                xn_root_add(xn_t4072);
-                xn_root_add(xn_t4072);
-                rt_string *xn_t4073 = rt_retain(t->text);
-xn_root_add(xn_t4073);
-        xn_root_add(xn_t4073);
-                xn_root_add(xn_t4073);
-                xn_root_add(xn_t4073);
-                rt_string *xn_t4074 = rt_string_from_c("true");
-xn_root_add(xn_t4074);
-        xn_root_add(xn_t4074);
-                xn_root_add(xn_t4074);
-                xn_root_add(xn_t4074);
-                rt_string *xn_t4075 = xn_B(xn_str_eq(xn_t4073, xn_t4074));
-xn_root_add(xn_t4075);
-        xn_root_add(xn_t4075);
-                xn_root_add(xn_t4075);
-                xn_root_add(xn_t4075);
-                rt_string *xn_t4076 = xn_concat(xn_t4072, xn_t4075);
-xn_root_add(xn_t4076);
-        xn_root_add(xn_t4076);
-                xn_root_add(xn_t4076);
-                xn_root_add(xn_t4076);
-                rt_string *xn_t4077 = rt_string_from_c("))");
-xn_root_add(xn_t4077);
-        xn_root_add(xn_t4077);
-                xn_root_add(xn_t4077);
-                xn_root_add(xn_t4077);
-                rt_string *xn_t4078 = xn_concat(xn_t4076, xn_t4077);
-xn_root_add(xn_t4078);
-        xn_root_add(xn_t4078);
-                xn_root_add(xn_t4078);
-                xn_root_add(xn_t4078);
-                    {
-                xn_root_restore(xn_t4067);
-                    }
-                    {
-                xn_root_restore(xn_t4062);
-                    }
-                    {
-                xn_root_restore(xn_t4061);
-                    }
-
-                return xn_Cls_Parser_mk(self, xn_t4078, t->line, t->col);
-
-            }
-        #line 1953 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4079 = rt_retain(t->text);
-xn_root_add(xn_t4079);
-        xn_root_add(xn_t4079);
-        rt_string *xn_t4080 = rt_string_from_c("null");
-xn_root_add(xn_t4080);
-        xn_root_add(xn_t4080);
-            if ((xn_str_eq(xn_t4079, xn_t4080))) {
-                size_t xn_t4081 = xn_root_mark();
-                #line 1954 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4082 = rt_string_from_c("(NullLit ");
-xn_root_add(xn_t4082);
-        xn_root_add(xn_t4082);
-                xn_root_add(xn_t4082);
-                xn_root_add(xn_t4082);
-                rt_string *xn_t4083 = xn_P(t->line, t->col);
-xn_root_add(xn_t4083);
-        xn_root_add(xn_t4083);
-                xn_root_add(xn_t4083);
-                xn_root_add(xn_t4083);
-                rt_string *xn_t4084 = xn_concat(xn_t4082, xn_t4083);
-xn_root_add(xn_t4084);
-        xn_root_add(xn_t4084);
-                xn_root_add(xn_t4084);
-                xn_root_add(xn_t4084);
-                rt_string *xn_t4085 = rt_string_from_c(")");
-xn_root_add(xn_t4085);
-        xn_root_add(xn_t4085);
-                xn_root_add(xn_t4085);
-                xn_root_add(xn_t4085);
-                rt_string *xn_t4086 = xn_concat(xn_t4084, xn_t4085);
-xn_root_add(xn_t4086);
-        xn_root_add(xn_t4086);
-                xn_root_add(xn_t4086);
-                xn_root_add(xn_t4086);
-                    {
-                xn_root_restore(xn_t4081);
-                    }
-                    {
-                xn_root_restore(xn_t4062);
-                    }
-                    {
-                xn_root_restore(xn_t4061);
-                    }
-
-                return xn_Cls_Parser_mk(self, xn_t4086, t->line, t->col);
-
-            }
-        #line 1956 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4087 = rt_string_from_c("(IdentExpr ");
-xn_root_add(xn_t4087);
-        xn_root_add(xn_t4087);
-        xn_root_add(xn_t4087);
-        rt_string *xn_t4088 = xn_P(t->line, t->col);
-xn_root_add(xn_t4088);
-        xn_root_add(xn_t4088);
-        xn_root_add(xn_t4088);
-        rt_string *xn_t4089 = xn_concat(xn_t4087, xn_t4088);
-xn_root_add(xn_t4089);
-        xn_root_add(xn_t4089);
-        xn_root_add(xn_t4089);
-        rt_string *xn_t4090 = rt_string_from_c(" (Name ");
-xn_root_add(xn_t4090);
-        xn_root_add(xn_t4090);
-        xn_root_add(xn_t4090);
-        rt_string *xn_t4091 = xn_concat(xn_t4089, xn_t4090);
-xn_root_add(xn_t4091);
-        xn_root_add(xn_t4091);
-        xn_root_add(xn_t4091);
-        rt_string *xn_t4092 = rt_retain(t->text);
-xn_root_add(xn_t4092);
-        xn_root_add(xn_t4092);
-        xn_root_add(xn_t4092);
-        rt_string *xn_t4093 = xn_q(xn_t4092);
-xn_root_add(xn_t4093);
-        xn_root_add(xn_t4093);
-        xn_root_add(xn_t4093);
-        rt_string *xn_t4094 = xn_concat(xn_t4091, xn_t4093);
-xn_root_add(xn_t4094);
-        xn_root_add(xn_t4094);
-        xn_root_add(xn_t4094);
-        rt_string *xn_t4095 = rt_string_from_c("))");
-xn_root_add(xn_t4095);
-        xn_root_add(xn_t4095);
-        xn_root_add(xn_t4095);
-        rt_string *xn_t4096 = xn_concat(xn_t4094, xn_t4095);
-xn_root_add(xn_t4096);
-        xn_root_add(xn_t4096);
-        xn_root_add(xn_t4096);
-            {
-        xn_root_restore(xn_t4062);
-            }
-            {
-        xn_root_restore(xn_t4061);
-            }
-
-        return xn_Cls_Parser_mk(self, xn_t4096, t->line, t->col);
-
-    }
-#line 1958 "impl/lib/b2/xparser.x"
-    if (((t->kind == 5))) {
-        size_t xn_t4097 = xn_root_mark();
-        #line 1959 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1960 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4098 = rt_string_from_c("(IntLitExpr ");
-xn_root_add(xn_t4098);
-        xn_root_add(xn_t4098);
-        xn_root_add(xn_t4098);
-        rt_string *xn_t4099 = xn_P(t->line, t->col);
-xn_root_add(xn_t4099);
-        xn_root_add(xn_t4099);
-        xn_root_add(xn_t4099);
-        rt_string *xn_t4100 = xn_concat(xn_t4098, xn_t4099);
-xn_root_add(xn_t4100);
-        xn_root_add(xn_t4100);
-        xn_root_add(xn_t4100);
-        rt_string *xn_t4101 = rt_string_from_c(" (Text ");
-xn_root_add(xn_t4101);
-        xn_root_add(xn_t4101);
-        xn_root_add(xn_t4101);
-        rt_string *xn_t4102 = xn_concat(xn_t4100, xn_t4101);
-xn_root_add(xn_t4102);
-        xn_root_add(xn_t4102);
-        xn_root_add(xn_t4102);
-        rt_string *xn_t4103 = rt_retain(t->text);
-xn_root_add(xn_t4103);
-        xn_root_add(xn_t4103);
-        xn_root_add(xn_t4103);
-        rt_string *xn_t4104 = xn_q(xn_t4103);
-xn_root_add(xn_t4104);
-        xn_root_add(xn_t4104);
-        xn_root_add(xn_t4104);
-        rt_string *xn_t4105 = xn_concat(xn_t4102, xn_t4104);
-xn_root_add(xn_t4105);
-        xn_root_add(xn_t4105);
-        xn_root_add(xn_t4105);
-        rt_string *xn_t4106 = rt_string_from_c(") (Base ");
-xn_root_add(xn_t4106);
-        xn_root_add(xn_t4106);
-        xn_root_add(xn_t4106);
-        rt_string *xn_t4107 = xn_concat(xn_t4105, xn_t4106);
-xn_root_add(xn_t4107);
-        xn_root_add(xn_t4107);
-        xn_root_add(xn_t4107);
-        rt_string *xn_t4108 = xn_str_int(t->base);
-xn_root_add(xn_t4108);
-        xn_root_add(xn_t4108);
-        xn_root_add(xn_t4108);
-        rt_string *xn_t4109 = xn_concat(xn_t4107, xn_t4108);
-xn_root_add(xn_t4109);
-        xn_root_add(xn_t4109);
-        xn_root_add(xn_t4109);
-        rt_string *xn_t4110 = rt_string_from_c(") (Suffix ");
-xn_root_add(xn_t4110);
-        xn_root_add(xn_t4110);
-        xn_root_add(xn_t4110);
-        rt_string *xn_t4111 = xn_concat(xn_t4109, xn_t4110);
-xn_root_add(xn_t4111);
-        xn_root_add(xn_t4111);
-        xn_root_add(xn_t4111);
-        rt_string *xn_t4112 = rt_retain(t->suffix);
-xn_root_add(xn_t4112);
-        xn_root_add(xn_t4112);
-        xn_root_add(xn_t4112);
-        rt_string *xn_t4113 = xn_q(xn_t4112);
-xn_root_add(xn_t4113);
-        xn_root_add(xn_t4113);
-        xn_root_add(xn_t4113);
-        rt_string *xn_t4114 = xn_concat(xn_t4111, xn_t4113);
-xn_root_add(xn_t4114);
-        xn_root_add(xn_t4114);
-        xn_root_add(xn_t4114);
-        rt_string *xn_t4115 = rt_string_from_c("))");
-xn_root_add(xn_t4115);
-        xn_root_add(xn_t4115);
-        xn_root_add(xn_t4115);
-        rt_string *xn_t4116 = xn_concat(xn_t4114, xn_t4115);
-xn_root_add(xn_t4116);
-        xn_root_add(xn_t4116);
-        xn_root_add(xn_t4116);
-            {
-        xn_root_restore(xn_t4097);
-            }
-            {
-        xn_root_restore(xn_t4061);
-            }
-
-        return xn_Cls_Parser_mk(self, xn_t4116, t->line, t->col);
-
-    }
-#line 1962 "impl/lib/b2/xparser.x"
-    if (((t->kind == 6))) {
-        size_t xn_t4117 = xn_root_mark();
-        #line 1963 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1964 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4118 = rt_string_from_c("(FloatLitExpr ");
-xn_root_add(xn_t4118);
-        xn_root_add(xn_t4118);
-        xn_root_add(xn_t4118);
-        rt_string *xn_t4119 = xn_P(t->line, t->col);
-xn_root_add(xn_t4119);
-        xn_root_add(xn_t4119);
-        xn_root_add(xn_t4119);
-        rt_string *xn_t4120 = xn_concat(xn_t4118, xn_t4119);
-xn_root_add(xn_t4120);
-        xn_root_add(xn_t4120);
-        xn_root_add(xn_t4120);
-        rt_string *xn_t4121 = rt_string_from_c(" (Text ");
-xn_root_add(xn_t4121);
-        xn_root_add(xn_t4121);
-        xn_root_add(xn_t4121);
-        rt_string *xn_t4122 = xn_concat(xn_t4120, xn_t4121);
-xn_root_add(xn_t4122);
-        xn_root_add(xn_t4122);
-        xn_root_add(xn_t4122);
-        rt_string *xn_t4123 = rt_retain(t->text);
-xn_root_add(xn_t4123);
-        xn_root_add(xn_t4123);
-        xn_root_add(xn_t4123);
-        rt_string *xn_t4124 = xn_q(xn_t4123);
-xn_root_add(xn_t4124);
-        xn_root_add(xn_t4124);
-        xn_root_add(xn_t4124);
-        rt_string *xn_t4125 = xn_concat(xn_t4122, xn_t4124);
-xn_root_add(xn_t4125);
-        xn_root_add(xn_t4125);
-        xn_root_add(xn_t4125);
-        rt_string *xn_t4126 = rt_string_from_c(") (HasSuffixF ");
-xn_root_add(xn_t4126);
-        xn_root_add(xn_t4126);
-        xn_root_add(xn_t4126);
-        rt_string *xn_t4127 = xn_concat(xn_t4125, xn_t4126);
-xn_root_add(xn_t4127);
-        xn_root_add(xn_t4127);
-        xn_root_add(xn_t4127);
-        rt_string *xn_t4128 = xn_B(((int)(t->hasSuffixF)));
-xn_root_add(xn_t4128);
-        xn_root_add(xn_t4128);
-        xn_root_add(xn_t4128);
-        rt_string *xn_t4129 = xn_concat(xn_t4127, xn_t4128);
-xn_root_add(xn_t4129);
-        xn_root_add(xn_t4129);
-        xn_root_add(xn_t4129);
-        rt_string *xn_t4130 = rt_string_from_c("))");
-xn_root_add(xn_t4130);
-        xn_root_add(xn_t4130);
-        xn_root_add(xn_t4130);
-        rt_string *xn_t4131 = xn_concat(xn_t4129, xn_t4130);
-xn_root_add(xn_t4131);
-        xn_root_add(xn_t4131);
-        xn_root_add(xn_t4131);
-            {
-        xn_root_restore(xn_t4117);
-            }
-            {
-        xn_root_restore(xn_t4061);
-            }
-
-        return xn_Cls_Parser_mk(self, xn_t4131, t->line, t->col);
-
-    }
-#line 1966 "impl/lib/b2/xparser.x"
-    if (((t->kind == 7))) {
-        size_t xn_t4132 = xn_root_mark();
-        #line 1967 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1968 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4133 = rt_string_from_c("(CharLitExpr ");
-xn_root_add(xn_t4133);
-        xn_root_add(xn_t4133);
-        xn_root_add(xn_t4133);
-        rt_string *xn_t4134 = xn_P(t->line, t->col);
-xn_root_add(xn_t4134);
-        xn_root_add(xn_t4134);
-        xn_root_add(xn_t4134);
-        rt_string *xn_t4135 = xn_concat(xn_t4133, xn_t4134);
-xn_root_add(xn_t4135);
-        xn_root_add(xn_t4135);
-        xn_root_add(xn_t4135);
-        rt_string *xn_t4136 = rt_string_from_c(" (Rune ");
-xn_root_add(xn_t4136);
-        xn_root_add(xn_t4136);
-        xn_root_add(xn_t4136);
-        rt_string *xn_t4137 = xn_concat(xn_t4135, xn_t4136);
-xn_root_add(xn_t4137);
-        xn_root_add(xn_t4137);
-        xn_root_add(xn_t4137);
-        rt_string *xn_t4138 = xn_str_int(t->ch);
-xn_root_add(xn_t4138);
-        xn_root_add(xn_t4138);
-        xn_root_add(xn_t4138);
-        rt_string *xn_t4139 = xn_concat(xn_t4137, xn_t4138);
-xn_root_add(xn_t4139);
-        xn_root_add(xn_t4139);
-        xn_root_add(xn_t4139);
-        rt_string *xn_t4140 = rt_string_from_c("))");
+        #line 1999 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4140 = rt_retain(t->text);
 xn_root_add(xn_t4140);
         xn_root_add(xn_t4140);
-        xn_root_add(xn_t4140);
-        rt_string *xn_t4141 = xn_concat(xn_t4139, xn_t4140);
+        rt_string *xn_t4141 = rt_string_from_c("true");
 xn_root_add(xn_t4141);
         xn_root_add(xn_t4141);
-        xn_root_add(xn_t4141);
-            {
-        xn_root_restore(xn_t4132);
-            }
-            {
-        xn_root_restore(xn_t4061);
-            }
-
-        return xn_Cls_Parser_mk(self, xn_t4141, t->line, t->col);
-
-    }
-#line 1970 "impl/lib/b2/xparser.x"
-    if (((t->kind == 8))) {
-        size_t xn_t4142 = xn_root_mark();
-        #line 1971 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1972 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t4143 = xn_arr_s_new(0);
+        rt_string *xn_t4142 = rt_retain(t->text);
+xn_root_add(xn_t4142);
+        xn_root_add(xn_t4142);
+        rt_string *xn_t4143 = rt_string_from_c("false");
 xn_root_add(xn_t4143);
         xn_root_add(xn_t4143);
-        xn_arr_s * parts = xn_t4143;
-xn_root_add(parts);
-        xn_root_add(parts);
-        xn_root_add(parts);
-        xn_gc_safepoint();
-        #line 1973 "impl/lib/b2/xparser.x"
-            if (((((int64_t)t->interps->len) == 0))) {
+            if (((xn_str_eq(xn_t4140, xn_t4141)) || (xn_str_eq(xn_t4142, xn_t4143)))) {
                 size_t xn_t4144 = xn_root_mark();
-                #line 1974 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4145 = rt_string_from_c("(StrPart (Text ");
+                #line 2000 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4145 = rt_string_from_c("(BoolLit ");
 xn_root_add(xn_t4145);
         xn_root_add(xn_t4145);
                 xn_root_add(xn_t4145);
-                rt_string *xn_t4146 = rt_retain(t->value);
+                xn_root_add(xn_t4145);
+                rt_string *xn_t4146 = xn_P(t->line, t->col);
 xn_root_add(xn_t4146);
         xn_root_add(xn_t4146);
                 xn_root_add(xn_t4146);
-                rt_string *xn_t4147 = xn_q(xn_t4146);
+                xn_root_add(xn_t4146);
+                rt_string *xn_t4147 = xn_concat(xn_t4145, xn_t4146);
 xn_root_add(xn_t4147);
         xn_root_add(xn_t4147);
                 xn_root_add(xn_t4147);
-                rt_string *xn_t4148 = xn_concat(xn_t4145, xn_t4147);
+                xn_root_add(xn_t4147);
+                rt_string *xn_t4148 = rt_string_from_c(" (V ");
 xn_root_add(xn_t4148);
         xn_root_add(xn_t4148);
                 xn_root_add(xn_t4148);
-                rt_string *xn_t4149 = rt_string_from_c(") (Expr (nil)))");
+                xn_root_add(xn_t4148);
+                rt_string *xn_t4149 = xn_concat(xn_t4147, xn_t4148);
 xn_root_add(xn_t4149);
         xn_root_add(xn_t4149);
                 xn_root_add(xn_t4149);
-                rt_string *xn_t4150 = xn_concat(xn_t4148, xn_t4149);
+                xn_root_add(xn_t4149);
+                rt_string *xn_t4150 = rt_retain(t->text);
 xn_root_add(xn_t4150);
         xn_root_add(xn_t4150);
                 xn_root_add(xn_t4150);
-                xn_arr_s_push(parts, xn_t4150);
-                    {
-                    xn_root_restore(xn_t4144);
-                    }
-
-            } else {
-                size_t xn_t4151 = xn_root_mark();
-                #line 1976 "impl/lib/b2/xparser.x"
-                int64_t j = 0;
-                #line 1977 "impl/lib/b2/xparser.x"
-                    while (((j < ((int64_t)t->interps->len)))) {
-                    size_t xn_t4152 = xn_root_mark();
-                    #line 1978 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t4153 = rt_string_from_c("(StrPart (Text ");
+                xn_root_add(xn_t4150);
+                rt_string *xn_t4151 = rt_string_from_c("true");
+xn_root_add(xn_t4151);
+        xn_root_add(xn_t4151);
+                xn_root_add(xn_t4151);
+                xn_root_add(xn_t4151);
+                rt_string *xn_t4152 = xn_B(xn_str_eq(xn_t4150, xn_t4151));
+xn_root_add(xn_t4152);
+        xn_root_add(xn_t4152);
+                xn_root_add(xn_t4152);
+                xn_root_add(xn_t4152);
+                rt_string *xn_t4153 = xn_concat(xn_t4149, xn_t4152);
 xn_root_add(xn_t4153);
         xn_root_add(xn_t4153);
                 xn_root_add(xn_t4153);
-                    xn_root_add(xn_t4153);
-                    rt_string *xn_t4154 = rt_retain(xn_arr_s_get(t->segs, j));
+                xn_root_add(xn_t4153);
+                rt_string *xn_t4154 = rt_string_from_c("))");
 xn_root_add(xn_t4154);
         xn_root_add(xn_t4154);
                 xn_root_add(xn_t4154);
-                    xn_root_add(xn_t4154);
-                    rt_string *xn_t4155 = xn_q(xn_t4154);
+                xn_root_add(xn_t4154);
+                rt_string *xn_t4155 = xn_concat(xn_t4153, xn_t4154);
 xn_root_add(xn_t4155);
         xn_root_add(xn_t4155);
                 xn_root_add(xn_t4155);
-                    xn_root_add(xn_t4155);
-                    rt_string *xn_t4156 = xn_concat(xn_t4153, xn_t4155);
+                xn_root_add(xn_t4155);
+                    {
+                xn_root_restore(xn_t4144);
+                    }
+                    {
+                xn_root_restore(xn_t4139);
+                    }
+                    {
+                xn_root_restore(xn_t4138);
+                    }
+
+                return xn_Cls_Parser_mk(self, xn_t4155, t->line, t->col);
+
+            }
+        #line 2002 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4156 = rt_retain(t->text);
 xn_root_add(xn_t4156);
         xn_root_add(xn_t4156);
-                xn_root_add(xn_t4156);
-                    xn_root_add(xn_t4156);
-                    rt_string *xn_t4157 = rt_string_from_c(") (Expr ");
+        rt_string *xn_t4157 = rt_string_from_c("null");
 xn_root_add(xn_t4157);
         xn_root_add(xn_t4157);
-                xn_root_add(xn_t4157);
-                    xn_root_add(xn_t4157);
-                    rt_string *xn_t4158 = xn_concat(xn_t4156, xn_t4157);
-xn_root_add(xn_t4158);
-        xn_root_add(xn_t4158);
-                xn_root_add(xn_t4158);
-                    xn_root_add(xn_t4158);
-                    rt_string *xn_t4159 = rt_retain(xn_arr_s_get(t->interps, j));
+            if ((xn_str_eq(xn_t4156, xn_t4157))) {
+                size_t xn_t4158 = xn_root_mark();
+                #line 2003 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4159 = rt_string_from_c("(NullLit ");
 xn_root_add(xn_t4159);
         xn_root_add(xn_t4159);
                 xn_root_add(xn_t4159);
-                    xn_root_add(xn_t4159);
-                    rt_string *xn_t4160 = xn_Cls_Parser_parseSubExpr(self, xn_t4159);
+                xn_root_add(xn_t4159);
+                rt_string *xn_t4160 = xn_P(t->line, t->col);
 xn_root_add(xn_t4160);
         xn_root_add(xn_t4160);
                 xn_root_add(xn_t4160);
-                    xn_root_add(xn_t4160);
-                    rt_string *xn_t4161 = xn_concat(xn_t4158, xn_t4160);
+                xn_root_add(xn_t4160);
+                rt_string *xn_t4161 = xn_concat(xn_t4159, xn_t4160);
 xn_root_add(xn_t4161);
         xn_root_add(xn_t4161);
                 xn_root_add(xn_t4161);
-                    xn_root_add(xn_t4161);
-                    rt_string *xn_t4162 = rt_string_from_c("))");
+                xn_root_add(xn_t4161);
+                rt_string *xn_t4162 = rt_string_from_c(")");
 xn_root_add(xn_t4162);
         xn_root_add(xn_t4162);
                 xn_root_add(xn_t4162);
-                    xn_root_add(xn_t4162);
-                    rt_string *xn_t4163 = xn_concat(xn_t4161, xn_t4162);
+                xn_root_add(xn_t4162);
+                rt_string *xn_t4163 = xn_concat(xn_t4161, xn_t4162);
 xn_root_add(xn_t4163);
         xn_root_add(xn_t4163);
                 xn_root_add(xn_t4163);
-                    xn_root_add(xn_t4163);
-                    xn_arr_s_push(parts, xn_t4163);
-                    #line 1979 "impl/lib/b2/xparser.x"
-                    j = (j + 1);
-                        {
-                        xn_root_restore(xn_t4152);
-                        }
-
-                    xn_gc_safepoint();
-                    }
-                #line 1981 "impl/lib/b2/xparser.x"
-                rt_string *tail = rt_retain(xn_arr_s_get(t->segs, (((int64_t)t->segs->len) - 1)));
-xn_root_add(tail);
-        xn_root_add(tail);
-                xn_root_add(tail);
-                xn_root_add(tail);
-                xn_gc_safepoint();
-                #line 1982 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4165 = rt_retain(tail);
-xn_root_add(xn_t4165);
-        xn_root_add(xn_t4165);
-                xn_root_add(xn_t4165);
-                rt_string *xn_t4166 = rt_string_from_c("");
-xn_root_add(xn_t4166);
-        xn_root_add(xn_t4166);
-                xn_root_add(xn_t4166);
-                    if (((!(xn_str_eq(xn_t4165, xn_t4166))))) {
-                        size_t xn_t4167 = xn_root_mark();
-                        #line 1983 "impl/lib/b2/xparser.x"
-                        rt_string *xn_t4168 = rt_string_from_c("(StrPart (Text ");
-xn_root_add(xn_t4168);
-        xn_root_add(xn_t4168);
-                xn_root_add(xn_t4168);
-                        xn_root_add(xn_t4168);
-                        rt_string *xn_t4169 = rt_retain(tail);
-xn_root_add(xn_t4169);
-        xn_root_add(xn_t4169);
-                xn_root_add(xn_t4169);
-                        xn_root_add(xn_t4169);
-                        rt_string *xn_t4170 = xn_q(xn_t4169);
-xn_root_add(xn_t4170);
-        xn_root_add(xn_t4170);
-                xn_root_add(xn_t4170);
-                        xn_root_add(xn_t4170);
-                        rt_string *xn_t4171 = xn_concat(xn_t4168, xn_t4170);
-xn_root_add(xn_t4171);
-        xn_root_add(xn_t4171);
-                xn_root_add(xn_t4171);
-                        xn_root_add(xn_t4171);
-                        rt_string *xn_t4172 = rt_string_from_c(") (Expr (nil)))");
-xn_root_add(xn_t4172);
-        xn_root_add(xn_t4172);
-                xn_root_add(xn_t4172);
-                        xn_root_add(xn_t4172);
-                        rt_string *xn_t4173 = xn_concat(xn_t4171, xn_t4172);
-xn_root_add(xn_t4173);
-        xn_root_add(xn_t4173);
-                xn_root_add(xn_t4173);
-                        xn_root_add(xn_t4173);
-                        xn_arr_s_push(parts, xn_t4173);
-                            {
-                            xn_root_restore(xn_t4167);
-                            }
-
+                xn_root_add(xn_t4163);
+                    {
+                xn_root_restore(xn_t4158);
                     }
                     {
-                    rt_release(tail);
+                xn_root_restore(xn_t4139);
                     }
                     {
-                    xn_root_restore(xn_t4151);
+                xn_root_restore(xn_t4138);
                     }
+
+                return xn_Cls_Parser_mk(self, xn_t4163, t->line, t->col);
 
             }
-        #line 1986 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4174 = rt_string_from_c("(StrLitExpr ");
-xn_root_add(xn_t4174);
-        xn_root_add(xn_t4174);
-        xn_root_add(xn_t4174);
-        rt_string *xn_t4175 = xn_P(t->line, t->col);
+        #line 2005 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4164 = rt_string_from_c("(IdentExpr ");
+xn_root_add(xn_t4164);
+        xn_root_add(xn_t4164);
+        xn_root_add(xn_t4164);
+        rt_string *xn_t4165 = xn_P(t->line, t->col);
+xn_root_add(xn_t4165);
+        xn_root_add(xn_t4165);
+        xn_root_add(xn_t4165);
+        rt_string *xn_t4166 = xn_concat(xn_t4164, xn_t4165);
+xn_root_add(xn_t4166);
+        xn_root_add(xn_t4166);
+        xn_root_add(xn_t4166);
+        rt_string *xn_t4167 = rt_string_from_c(" (Name ");
+xn_root_add(xn_t4167);
+        xn_root_add(xn_t4167);
+        xn_root_add(xn_t4167);
+        rt_string *xn_t4168 = xn_concat(xn_t4166, xn_t4167);
+xn_root_add(xn_t4168);
+        xn_root_add(xn_t4168);
+        xn_root_add(xn_t4168);
+        rt_string *xn_t4169 = rt_retain(t->text);
+xn_root_add(xn_t4169);
+        xn_root_add(xn_t4169);
+        xn_root_add(xn_t4169);
+        rt_string *xn_t4170 = xn_q(xn_t4169);
+xn_root_add(xn_t4170);
+        xn_root_add(xn_t4170);
+        xn_root_add(xn_t4170);
+        rt_string *xn_t4171 = xn_concat(xn_t4168, xn_t4170);
+xn_root_add(xn_t4171);
+        xn_root_add(xn_t4171);
+        xn_root_add(xn_t4171);
+        rt_string *xn_t4172 = rt_string_from_c("))");
+xn_root_add(xn_t4172);
+        xn_root_add(xn_t4172);
+        xn_root_add(xn_t4172);
+        rt_string *xn_t4173 = xn_concat(xn_t4171, xn_t4172);
+xn_root_add(xn_t4173);
+        xn_root_add(xn_t4173);
+        xn_root_add(xn_t4173);
+            {
+        xn_root_restore(xn_t4139);
+            }
+            {
+        xn_root_restore(xn_t4138);
+            }
+
+        return xn_Cls_Parser_mk(self, xn_t4173, t->line, t->col);
+
+    }
+#line 2007 "impl/lib/b2/xparser.x"
+    if (((t->kind == 5))) {
+        size_t xn_t4174 = xn_root_mark();
+        #line 2008 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 2009 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4175 = rt_string_from_c("(IntLitExpr ");
 xn_root_add(xn_t4175);
         xn_root_add(xn_t4175);
         xn_root_add(xn_t4175);
-        rt_string *xn_t4176 = xn_concat(xn_t4174, xn_t4175);
+        rt_string *xn_t4176 = xn_P(t->line, t->col);
 xn_root_add(xn_t4176);
         xn_root_add(xn_t4176);
         xn_root_add(xn_t4176);
-        rt_string *xn_t4177 = rt_string_from_c(" (Kind ");
+        rt_string *xn_t4177 = xn_concat(xn_t4175, xn_t4176);
 xn_root_add(xn_t4177);
         xn_root_add(xn_t4177);
         xn_root_add(xn_t4177);
-        rt_string *xn_t4178 = xn_concat(xn_t4176, xn_t4177);
+        rt_string *xn_t4178 = rt_string_from_c(" (Text ");
 xn_root_add(xn_t4178);
         xn_root_add(xn_t4178);
         xn_root_add(xn_t4178);
-        rt_string *xn_t4179 = xn_str_int(t->str);
+        rt_string *xn_t4179 = xn_concat(xn_t4177, xn_t4178);
 xn_root_add(xn_t4179);
         xn_root_add(xn_t4179);
         xn_root_add(xn_t4179);
-        rt_string *xn_t4180 = xn_concat(xn_t4178, xn_t4179);
+        rt_string *xn_t4180 = rt_retain(t->text);
 xn_root_add(xn_t4180);
         xn_root_add(xn_t4180);
         xn_root_add(xn_t4180);
-        rt_string *xn_t4181 = rt_string_from_c(") (Parts ");
+        rt_string *xn_t4181 = xn_q(xn_t4180);
 xn_root_add(xn_t4181);
         xn_root_add(xn_t4181);
         xn_root_add(xn_t4181);
-        rt_string *xn_t4182 = xn_concat(xn_t4180, xn_t4181);
+        rt_string *xn_t4182 = xn_concat(xn_t4179, xn_t4181);
 xn_root_add(xn_t4182);
         xn_root_add(xn_t4182);
         xn_root_add(xn_t4182);
-        rt_string *xn_t4183 = xn_SL(parts);
+        rt_string *xn_t4183 = rt_string_from_c(") (Base ");
 xn_root_add(xn_t4183);
         xn_root_add(xn_t4183);
         xn_root_add(xn_t4183);
@@ -24685,7 +24770,7 @@ xn_root_add(xn_t4183);
 xn_root_add(xn_t4184);
         xn_root_add(xn_t4184);
         xn_root_add(xn_t4184);
-        rt_string *xn_t4185 = rt_string_from_c("))");
+        rt_string *xn_t4185 = xn_str_int(t->base);
 xn_root_add(xn_t4185);
         xn_root_add(xn_t4185);
         xn_root_add(xn_t4185);
@@ -24693,184 +24778,612 @@ xn_root_add(xn_t4185);
 xn_root_add(xn_t4186);
         xn_root_add(xn_t4186);
         xn_root_add(xn_t4186);
-            {
-        xn_root_restore(xn_t4142);
-            }
-            {
-        xn_root_restore(xn_t4061);
-            }
-
-        return xn_Cls_Parser_mk(self, xn_t4186, t->line, t->col);
-
-    }
-#line 1988 "impl/lib/b2/xparser.x"
-    if ((((t->kind == 10)) && (xn_Cls_Parser_lambdaAhead(self)))) {
-        size_t xn_t4187 = xn_root_mark();
-        #line 1989 "impl/lib/b2/xparser.x"
-        xn_Cls_Parser_next(self);
-        #line 1990 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t4188 = xn_arr_s_new(0);
+        rt_string *xn_t4187 = rt_string_from_c(") (Suffix ");
+xn_root_add(xn_t4187);
+        xn_root_add(xn_t4187);
+        xn_root_add(xn_t4187);
+        rt_string *xn_t4188 = xn_concat(xn_t4186, xn_t4187);
 xn_root_add(xn_t4188);
         xn_root_add(xn_t4188);
-        xn_arr_s * lps = xn_t4188;
+        xn_root_add(xn_t4188);
+        rt_string *xn_t4189 = rt_retain(t->suffix);
+xn_root_add(xn_t4189);
+        xn_root_add(xn_t4189);
+        xn_root_add(xn_t4189);
+        rt_string *xn_t4190 = xn_q(xn_t4189);
+xn_root_add(xn_t4190);
+        xn_root_add(xn_t4190);
+        xn_root_add(xn_t4190);
+        rt_string *xn_t4191 = xn_concat(xn_t4188, xn_t4190);
+xn_root_add(xn_t4191);
+        xn_root_add(xn_t4191);
+        xn_root_add(xn_t4191);
+        rt_string *xn_t4192 = rt_string_from_c("))");
+xn_root_add(xn_t4192);
+        xn_root_add(xn_t4192);
+        xn_root_add(xn_t4192);
+        rt_string *xn_t4193 = xn_concat(xn_t4191, xn_t4192);
+xn_root_add(xn_t4193);
+        xn_root_add(xn_t4193);
+        xn_root_add(xn_t4193);
+            {
+        xn_root_restore(xn_t4174);
+            }
+            {
+        xn_root_restore(xn_t4138);
+            }
+
+        return xn_Cls_Parser_mk(self, xn_t4193, t->line, t->col);
+
+    }
+#line 2011 "impl/lib/b2/xparser.x"
+    if (((t->kind == 6))) {
+        size_t xn_t4194 = xn_root_mark();
+        #line 2012 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 2013 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4195 = rt_string_from_c("(FloatLitExpr ");
+xn_root_add(xn_t4195);
+        xn_root_add(xn_t4195);
+        xn_root_add(xn_t4195);
+        rt_string *xn_t4196 = xn_P(t->line, t->col);
+xn_root_add(xn_t4196);
+        xn_root_add(xn_t4196);
+        xn_root_add(xn_t4196);
+        rt_string *xn_t4197 = xn_concat(xn_t4195, xn_t4196);
+xn_root_add(xn_t4197);
+        xn_root_add(xn_t4197);
+        xn_root_add(xn_t4197);
+        rt_string *xn_t4198 = rt_string_from_c(" (Text ");
+xn_root_add(xn_t4198);
+        xn_root_add(xn_t4198);
+        xn_root_add(xn_t4198);
+        rt_string *xn_t4199 = xn_concat(xn_t4197, xn_t4198);
+xn_root_add(xn_t4199);
+        xn_root_add(xn_t4199);
+        xn_root_add(xn_t4199);
+        rt_string *xn_t4200 = rt_retain(t->text);
+xn_root_add(xn_t4200);
+        xn_root_add(xn_t4200);
+        xn_root_add(xn_t4200);
+        rt_string *xn_t4201 = xn_q(xn_t4200);
+xn_root_add(xn_t4201);
+        xn_root_add(xn_t4201);
+        xn_root_add(xn_t4201);
+        rt_string *xn_t4202 = xn_concat(xn_t4199, xn_t4201);
+xn_root_add(xn_t4202);
+        xn_root_add(xn_t4202);
+        xn_root_add(xn_t4202);
+        rt_string *xn_t4203 = rt_string_from_c(") (HasSuffixF ");
+xn_root_add(xn_t4203);
+        xn_root_add(xn_t4203);
+        xn_root_add(xn_t4203);
+        rt_string *xn_t4204 = xn_concat(xn_t4202, xn_t4203);
+xn_root_add(xn_t4204);
+        xn_root_add(xn_t4204);
+        xn_root_add(xn_t4204);
+        rt_string *xn_t4205 = xn_B(((int)(t->hasSuffixF)));
+xn_root_add(xn_t4205);
+        xn_root_add(xn_t4205);
+        xn_root_add(xn_t4205);
+        rt_string *xn_t4206 = xn_concat(xn_t4204, xn_t4205);
+xn_root_add(xn_t4206);
+        xn_root_add(xn_t4206);
+        xn_root_add(xn_t4206);
+        rt_string *xn_t4207 = rt_string_from_c("))");
+xn_root_add(xn_t4207);
+        xn_root_add(xn_t4207);
+        xn_root_add(xn_t4207);
+        rt_string *xn_t4208 = xn_concat(xn_t4206, xn_t4207);
+xn_root_add(xn_t4208);
+        xn_root_add(xn_t4208);
+        xn_root_add(xn_t4208);
+            {
+        xn_root_restore(xn_t4194);
+            }
+            {
+        xn_root_restore(xn_t4138);
+            }
+
+        return xn_Cls_Parser_mk(self, xn_t4208, t->line, t->col);
+
+    }
+#line 2015 "impl/lib/b2/xparser.x"
+    if (((t->kind == 7))) {
+        size_t xn_t4209 = xn_root_mark();
+        #line 2016 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 2017 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4210 = rt_string_from_c("(CharLitExpr ");
+xn_root_add(xn_t4210);
+        xn_root_add(xn_t4210);
+        xn_root_add(xn_t4210);
+        rt_string *xn_t4211 = xn_P(t->line, t->col);
+xn_root_add(xn_t4211);
+        xn_root_add(xn_t4211);
+        xn_root_add(xn_t4211);
+        rt_string *xn_t4212 = xn_concat(xn_t4210, xn_t4211);
+xn_root_add(xn_t4212);
+        xn_root_add(xn_t4212);
+        xn_root_add(xn_t4212);
+        rt_string *xn_t4213 = rt_string_from_c(" (Rune ");
+xn_root_add(xn_t4213);
+        xn_root_add(xn_t4213);
+        xn_root_add(xn_t4213);
+        rt_string *xn_t4214 = xn_concat(xn_t4212, xn_t4213);
+xn_root_add(xn_t4214);
+        xn_root_add(xn_t4214);
+        xn_root_add(xn_t4214);
+        rt_string *xn_t4215 = xn_str_int(t->ch);
+xn_root_add(xn_t4215);
+        xn_root_add(xn_t4215);
+        xn_root_add(xn_t4215);
+        rt_string *xn_t4216 = xn_concat(xn_t4214, xn_t4215);
+xn_root_add(xn_t4216);
+        xn_root_add(xn_t4216);
+        xn_root_add(xn_t4216);
+        rt_string *xn_t4217 = rt_string_from_c("))");
+xn_root_add(xn_t4217);
+        xn_root_add(xn_t4217);
+        xn_root_add(xn_t4217);
+        rt_string *xn_t4218 = xn_concat(xn_t4216, xn_t4217);
+xn_root_add(xn_t4218);
+        xn_root_add(xn_t4218);
+        xn_root_add(xn_t4218);
+            {
+        xn_root_restore(xn_t4209);
+            }
+            {
+        xn_root_restore(xn_t4138);
+            }
+
+        return xn_Cls_Parser_mk(self, xn_t4218, t->line, t->col);
+
+    }
+#line 2019 "impl/lib/b2/xparser.x"
+    if (((t->kind == 8))) {
+        size_t xn_t4219 = xn_root_mark();
+        #line 2020 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 2021 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t4220 = xn_arr_s_new(0);
+xn_root_add(xn_t4220);
+        xn_root_add(xn_t4220);
+        xn_arr_s * parts = xn_t4220;
+xn_root_add(parts);
+        xn_root_add(parts);
+        xn_root_add(parts);
+        xn_gc_safepoint();
+        #line 2022 "impl/lib/b2/xparser.x"
+            if (((((int64_t)t->interps->len) == 0))) {
+                size_t xn_t4221 = xn_root_mark();
+                #line 2023 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4222 = rt_string_from_c("(StrPart (Text ");
+xn_root_add(xn_t4222);
+        xn_root_add(xn_t4222);
+                xn_root_add(xn_t4222);
+                rt_string *xn_t4223 = rt_retain(t->value);
+xn_root_add(xn_t4223);
+        xn_root_add(xn_t4223);
+                xn_root_add(xn_t4223);
+                rt_string *xn_t4224 = xn_q(xn_t4223);
+xn_root_add(xn_t4224);
+        xn_root_add(xn_t4224);
+                xn_root_add(xn_t4224);
+                rt_string *xn_t4225 = xn_concat(xn_t4222, xn_t4224);
+xn_root_add(xn_t4225);
+        xn_root_add(xn_t4225);
+                xn_root_add(xn_t4225);
+                rt_string *xn_t4226 = rt_string_from_c(") (Expr (nil)))");
+xn_root_add(xn_t4226);
+        xn_root_add(xn_t4226);
+                xn_root_add(xn_t4226);
+                rt_string *xn_t4227 = xn_concat(xn_t4225, xn_t4226);
+xn_root_add(xn_t4227);
+        xn_root_add(xn_t4227);
+                xn_root_add(xn_t4227);
+                xn_arr_s_push(parts, xn_t4227);
+                    {
+                    xn_root_restore(xn_t4221);
+                    }
+
+            } else {
+                size_t xn_t4228 = xn_root_mark();
+                #line 2025 "impl/lib/b2/xparser.x"
+                int64_t j = 0;
+                #line 2026 "impl/lib/b2/xparser.x"
+                    while (((j < ((int64_t)t->interps->len)))) {
+                    size_t xn_t4229 = xn_root_mark();
+                    #line 2027 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t4230 = rt_retain(xn_arr_s_get(t->segs, j));
+xn_root_add(xn_t4230);
+        xn_root_add(xn_t4230);
+                xn_root_add(xn_t4230);
+                    xn_root_add(xn_t4230);
+                    rt_string *xn_t4231 = rt_string_from_c("");
+xn_root_add(xn_t4231);
+        xn_root_add(xn_t4231);
+                xn_root_add(xn_t4231);
+                    xn_root_add(xn_t4231);
+                        if (((!(xn_str_eq(xn_t4230, xn_t4231))))) {
+                            size_t xn_t4232 = xn_root_mark();
+                            #line 2028 "impl/lib/b2/xparser.x"
+                            rt_string *xn_t4233 = rt_string_from_c("(StrPart (Text ");
+xn_root_add(xn_t4233);
+        xn_root_add(xn_t4233);
+                xn_root_add(xn_t4233);
+                    xn_root_add(xn_t4233);
+                            xn_root_add(xn_t4233);
+                            rt_string *xn_t4234 = rt_retain(xn_arr_s_get(t->segs, j));
+xn_root_add(xn_t4234);
+        xn_root_add(xn_t4234);
+                xn_root_add(xn_t4234);
+                    xn_root_add(xn_t4234);
+                            xn_root_add(xn_t4234);
+                            rt_string *xn_t4235 = xn_q(xn_t4234);
+xn_root_add(xn_t4235);
+        xn_root_add(xn_t4235);
+                xn_root_add(xn_t4235);
+                    xn_root_add(xn_t4235);
+                            xn_root_add(xn_t4235);
+                            rt_string *xn_t4236 = xn_concat(xn_t4233, xn_t4235);
+xn_root_add(xn_t4236);
+        xn_root_add(xn_t4236);
+                xn_root_add(xn_t4236);
+                    xn_root_add(xn_t4236);
+                            xn_root_add(xn_t4236);
+                            rt_string *xn_t4237 = rt_string_from_c(") (Expr (nil)))");
+xn_root_add(xn_t4237);
+        xn_root_add(xn_t4237);
+                xn_root_add(xn_t4237);
+                    xn_root_add(xn_t4237);
+                            xn_root_add(xn_t4237);
+                            rt_string *xn_t4238 = xn_concat(xn_t4236, xn_t4237);
+xn_root_add(xn_t4238);
+        xn_root_add(xn_t4238);
+                xn_root_add(xn_t4238);
+                    xn_root_add(xn_t4238);
+                            xn_root_add(xn_t4238);
+                            xn_arr_s_push(parts, xn_t4238);
+                                {
+                                xn_root_restore(xn_t4232);
+                                }
+
+                        }
+                    #line 2030 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t4239 = rt_string_from_c("(StrPart (Text \"\") (Expr ");
+xn_root_add(xn_t4239);
+        xn_root_add(xn_t4239);
+                xn_root_add(xn_t4239);
+                    xn_root_add(xn_t4239);
+                    rt_string *xn_t4240 = rt_retain(xn_arr_s_get(t->interps, j));
+xn_root_add(xn_t4240);
+        xn_root_add(xn_t4240);
+                xn_root_add(xn_t4240);
+                    xn_root_add(xn_t4240);
+                    rt_string *xn_t4241 = xn_Cls_Parser_parseSubExpr(self, xn_t4240);
+xn_root_add(xn_t4241);
+        xn_root_add(xn_t4241);
+                xn_root_add(xn_t4241);
+                    xn_root_add(xn_t4241);
+                    rt_string *xn_t4242 = xn_concat(xn_t4239, xn_t4241);
+xn_root_add(xn_t4242);
+        xn_root_add(xn_t4242);
+                xn_root_add(xn_t4242);
+                    xn_root_add(xn_t4242);
+                    rt_string *xn_t4243 = rt_string_from_c("))");
+xn_root_add(xn_t4243);
+        xn_root_add(xn_t4243);
+                xn_root_add(xn_t4243);
+                    xn_root_add(xn_t4243);
+                    rt_string *xn_t4244 = xn_concat(xn_t4242, xn_t4243);
+xn_root_add(xn_t4244);
+        xn_root_add(xn_t4244);
+                xn_root_add(xn_t4244);
+                    xn_root_add(xn_t4244);
+                    xn_arr_s_push(parts, xn_t4244);
+                    #line 2031 "impl/lib/b2/xparser.x"
+                    j = (j + 1);
+                        {
+                        xn_root_restore(xn_t4229);
+                        }
+
+                    xn_gc_safepoint();
+                    }
+                #line 2033 "impl/lib/b2/xparser.x"
+                rt_string *tail = rt_retain(xn_arr_s_get(t->segs, (((int64_t)t->segs->len) - 1)));
+xn_root_add(tail);
+        xn_root_add(tail);
+                xn_root_add(tail);
+                xn_root_add(tail);
+                xn_gc_safepoint();
+                #line 2034 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4246 = rt_retain(tail);
+xn_root_add(xn_t4246);
+        xn_root_add(xn_t4246);
+                xn_root_add(xn_t4246);
+                rt_string *xn_t4247 = rt_string_from_c("");
+xn_root_add(xn_t4247);
+        xn_root_add(xn_t4247);
+                xn_root_add(xn_t4247);
+                    if (((!(xn_str_eq(xn_t4246, xn_t4247))))) {
+                        size_t xn_t4248 = xn_root_mark();
+                        #line 2035 "impl/lib/b2/xparser.x"
+                        rt_string *xn_t4249 = rt_string_from_c("(StrPart (Text ");
+xn_root_add(xn_t4249);
+        xn_root_add(xn_t4249);
+                xn_root_add(xn_t4249);
+                        xn_root_add(xn_t4249);
+                        rt_string *xn_t4250 = rt_retain(tail);
+xn_root_add(xn_t4250);
+        xn_root_add(xn_t4250);
+                xn_root_add(xn_t4250);
+                        xn_root_add(xn_t4250);
+                        rt_string *xn_t4251 = xn_q(xn_t4250);
+xn_root_add(xn_t4251);
+        xn_root_add(xn_t4251);
+                xn_root_add(xn_t4251);
+                        xn_root_add(xn_t4251);
+                        rt_string *xn_t4252 = xn_concat(xn_t4249, xn_t4251);
+xn_root_add(xn_t4252);
+        xn_root_add(xn_t4252);
+                xn_root_add(xn_t4252);
+                        xn_root_add(xn_t4252);
+                        rt_string *xn_t4253 = rt_string_from_c(") (Expr (nil)))");
+xn_root_add(xn_t4253);
+        xn_root_add(xn_t4253);
+                xn_root_add(xn_t4253);
+                        xn_root_add(xn_t4253);
+                        rt_string *xn_t4254 = xn_concat(xn_t4252, xn_t4253);
+xn_root_add(xn_t4254);
+        xn_root_add(xn_t4254);
+                xn_root_add(xn_t4254);
+                        xn_root_add(xn_t4254);
+                        xn_arr_s_push(parts, xn_t4254);
+                            {
+                            xn_root_restore(xn_t4248);
+                            }
+
+                    }
+                    {
+                    rt_release(tail);
+                    }
+                    {
+                    xn_root_restore(xn_t4228);
+                    }
+
+            }
+        #line 2038 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4255 = rt_string_from_c("(StrLitExpr ");
+xn_root_add(xn_t4255);
+        xn_root_add(xn_t4255);
+        xn_root_add(xn_t4255);
+        rt_string *xn_t4256 = xn_P(t->line, t->col);
+xn_root_add(xn_t4256);
+        xn_root_add(xn_t4256);
+        xn_root_add(xn_t4256);
+        rt_string *xn_t4257 = xn_concat(xn_t4255, xn_t4256);
+xn_root_add(xn_t4257);
+        xn_root_add(xn_t4257);
+        xn_root_add(xn_t4257);
+        rt_string *xn_t4258 = rt_string_from_c(" (Kind ");
+xn_root_add(xn_t4258);
+        xn_root_add(xn_t4258);
+        xn_root_add(xn_t4258);
+        rt_string *xn_t4259 = xn_concat(xn_t4257, xn_t4258);
+xn_root_add(xn_t4259);
+        xn_root_add(xn_t4259);
+        xn_root_add(xn_t4259);
+        rt_string *xn_t4260 = xn_str_int(t->str);
+xn_root_add(xn_t4260);
+        xn_root_add(xn_t4260);
+        xn_root_add(xn_t4260);
+        rt_string *xn_t4261 = xn_concat(xn_t4259, xn_t4260);
+xn_root_add(xn_t4261);
+        xn_root_add(xn_t4261);
+        xn_root_add(xn_t4261);
+        rt_string *xn_t4262 = rt_string_from_c(") (Parts ");
+xn_root_add(xn_t4262);
+        xn_root_add(xn_t4262);
+        xn_root_add(xn_t4262);
+        rt_string *xn_t4263 = xn_concat(xn_t4261, xn_t4262);
+xn_root_add(xn_t4263);
+        xn_root_add(xn_t4263);
+        xn_root_add(xn_t4263);
+        rt_string *xn_t4264 = xn_SL(parts);
+xn_root_add(xn_t4264);
+        xn_root_add(xn_t4264);
+        xn_root_add(xn_t4264);
+        rt_string *xn_t4265 = xn_concat(xn_t4263, xn_t4264);
+xn_root_add(xn_t4265);
+        xn_root_add(xn_t4265);
+        xn_root_add(xn_t4265);
+        rt_string *xn_t4266 = rt_string_from_c("))");
+xn_root_add(xn_t4266);
+        xn_root_add(xn_t4266);
+        xn_root_add(xn_t4266);
+        rt_string *xn_t4267 = xn_concat(xn_t4265, xn_t4266);
+xn_root_add(xn_t4267);
+        xn_root_add(xn_t4267);
+        xn_root_add(xn_t4267);
+            {
+        xn_root_restore(xn_t4219);
+            }
+            {
+        xn_root_restore(xn_t4138);
+            }
+
+        return xn_Cls_Parser_mk(self, xn_t4267, t->line, t->col);
+
+    }
+#line 2040 "impl/lib/b2/xparser.x"
+    if ((((t->kind == 10)) && (xn_Cls_Parser_lambdaAhead(self)))) {
+        size_t xn_t4268 = xn_root_mark();
+        #line 2041 "impl/lib/b2/xparser.x"
+        xn_Cls_Parser_next(self);
+        #line 2042 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t4269 = xn_arr_s_new(0);
+xn_root_add(xn_t4269);
+        xn_root_add(xn_t4269);
+        xn_arr_s * lps = xn_t4269;
 xn_root_add(lps);
         xn_root_add(lps);
         xn_root_add(lps);
         xn_gc_safepoint();
-        #line 1991 "impl/lib/b2/xparser.x"
+        #line 2043 "impl/lib/b2/xparser.x"
             while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-            size_t xn_t4189 = xn_root_mark();
-            #line 1992 "impl/lib/b2/xparser.x"
+            size_t xn_t4270 = xn_root_mark();
+            #line 2044 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 16))) {
-                    size_t xn_t4190 = xn_root_mark();
-                    #line 1992 "impl/lib/b2/xparser.x"
+                    size_t xn_t4271 = xn_root_mark();
+                    #line 2044 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 1992 "impl/lib/b2/xparser.x"
-                    xn_root_restore(xn_t4190);
-                    xn_root_restore(xn_t4189);
+                    #line 2044 "impl/lib/b2/xparser.x"
+                    xn_root_restore(xn_t4271);
+                    xn_root_restore(xn_t4270);
                     continue;
                         {
-                        xn_root_restore(xn_t4190);
+                        xn_root_restore(xn_t4271);
                         }
 
                 }
-            #line 1993 "impl/lib/b2/xparser.x"
+            #line 2045 "impl/lib/b2/xparser.x"
             xn_Cls_Tok * lp = xn_Cls_Parser_cur(self);
 xn_root_add(lp);
         xn_root_add(lp);
             xn_root_add(lp);
             xn_root_add(lp);
             xn_gc_safepoint();
-            #line 1994 "impl/lib/b2/xparser.x"
+            #line 2046 "impl/lib/b2/xparser.x"
             int lf = 0;
-            #line 1995 "impl/lib/b2/xparser.x"
-            rt_string *xn_t4191 = rt_string_from_c("final");
-xn_root_add(xn_t4191);
-        xn_root_add(xn_t4191);
-            xn_root_add(xn_t4191);
-                if ((xn_Cls_Parser_atKw(self, xn_t4191))) {
-                    size_t xn_t4192 = xn_root_mark();
-                    #line 1995 "impl/lib/b2/xparser.x"
+            #line 2047 "impl/lib/b2/xparser.x"
+            rt_string *xn_t4272 = rt_string_from_c("final");
+xn_root_add(xn_t4272);
+        xn_root_add(xn_t4272);
+            xn_root_add(xn_t4272);
+                if ((xn_Cls_Parser_atKw(self, xn_t4272))) {
+                    size_t xn_t4273 = xn_root_mark();
+                    #line 2047 "impl/lib/b2/xparser.x"
                     lf = 1;
-                    #line 1995 "impl/lib/b2/xparser.x"
+                    #line 2047 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
                         {
-                        xn_root_restore(xn_t4192);
+                        xn_root_restore(xn_t4273);
                         }
 
                 }
-            #line 1996 "impl/lib/b2/xparser.x"
+            #line 2048 "impl/lib/b2/xparser.x"
             rt_string *lt = xn_Cls_Parser_parseType(self);
 xn_root_add(lt);
         xn_root_add(lt);
             xn_root_add(lt);
             xn_root_add(lt);
             xn_gc_safepoint();
-            #line 1997 "impl/lib/b2/xparser.x"
+            #line 2049 "impl/lib/b2/xparser.x"
             rt_string *ln = rt_string_from_c("");
 xn_root_add(ln);
         xn_root_add(ln);
             xn_root_add(ln);
             xn_root_add(ln);
             xn_gc_safepoint();
-            #line 1998 "impl/lib/b2/xparser.x"
+            #line 2050 "impl/lib/b2/xparser.x"
                 if ((xn_Cls_Parser_at(self, 2))) {
-                    size_t xn_t4195 = xn_root_mark();
-                    #line 1998 "impl/lib/b2/xparser.x"
-                    xn_Cls_Tok * xn_t4196 = xn_Cls_Parser_next(self);
-xn_root_add(xn_t4196);
-        xn_root_add(xn_t4196);
-            xn_root_add(xn_t4196);
-                    xn_root_add(xn_t4196);
-                    rt_string *xn_t4197 = rt_retain(xn_t4196->text);
-xn_root_add(xn_t4197);
-        xn_root_add(xn_t4197);
-            xn_root_add(xn_t4197);
-                    xn_root_add(xn_t4197);
+                    size_t xn_t4276 = xn_root_mark();
+                    #line 2050 "impl/lib/b2/xparser.x"
+                    xn_Cls_Tok * xn_t4277 = xn_Cls_Parser_next(self);
+xn_root_add(xn_t4277);
+        xn_root_add(xn_t4277);
+            xn_root_add(xn_t4277);
+                    xn_root_add(xn_t4277);
+                    rt_string *xn_t4278 = rt_retain(xn_t4277->text);
+xn_root_add(xn_t4278);
+        xn_root_add(xn_t4278);
+            xn_root_add(xn_t4278);
+                    xn_root_add(xn_t4278);
                     xn_root_release(ln);
                     rt_release(ln);
-                    ln = xn_t4197;
+                    ln = xn_t4278;
                     xn_root_hold(ln);
                     xn_gc_safepoint();
                         {
-                        xn_root_restore(xn_t4195);
+                        xn_root_restore(xn_t4276);
                         }
 
                 }
-            #line 1999 "impl/lib/b2/xparser.x"
-            rt_string *xn_t4198 = rt_string_from_c("(LambdaParam ");
-xn_root_add(xn_t4198);
-        xn_root_add(xn_t4198);
-            xn_root_add(xn_t4198);
-            rt_string *xn_t4199 = xn_P(lp->line, lp->col);
-xn_root_add(xn_t4199);
-        xn_root_add(xn_t4199);
-            xn_root_add(xn_t4199);
-            rt_string *xn_t4200 = xn_concat(xn_t4198, xn_t4199);
-xn_root_add(xn_t4200);
-        xn_root_add(xn_t4200);
-            xn_root_add(xn_t4200);
-            rt_string *xn_t4201 = rt_string_from_c(" (Type ");
-xn_root_add(xn_t4201);
-        xn_root_add(xn_t4201);
-            xn_root_add(xn_t4201);
-            rt_string *xn_t4202 = xn_concat(xn_t4200, xn_t4201);
-xn_root_add(xn_t4202);
-        xn_root_add(xn_t4202);
-            xn_root_add(xn_t4202);
-            rt_string *xn_t4203 = rt_retain(lt);
-xn_root_add(xn_t4203);
-        xn_root_add(xn_t4203);
-            xn_root_add(xn_t4203);
-            rt_string *xn_t4204 = xn_concat(xn_t4202, xn_t4203);
-xn_root_add(xn_t4204);
-        xn_root_add(xn_t4204);
-            xn_root_add(xn_t4204);
-            rt_string *xn_t4205 = rt_string_from_c(") (Name ");
-xn_root_add(xn_t4205);
-        xn_root_add(xn_t4205);
-            xn_root_add(xn_t4205);
-            rt_string *xn_t4206 = xn_concat(xn_t4204, xn_t4205);
-xn_root_add(xn_t4206);
-        xn_root_add(xn_t4206);
-            xn_root_add(xn_t4206);
-            rt_string *xn_t4207 = rt_retain(ln);
-xn_root_add(xn_t4207);
-        xn_root_add(xn_t4207);
-            xn_root_add(xn_t4207);
-            rt_string *xn_t4208 = xn_q(xn_t4207);
-xn_root_add(xn_t4208);
-        xn_root_add(xn_t4208);
-            xn_root_add(xn_t4208);
-            rt_string *xn_t4209 = xn_concat(xn_t4206, xn_t4208);
-xn_root_add(xn_t4209);
-        xn_root_add(xn_t4209);
-            xn_root_add(xn_t4209);
-            rt_string *xn_t4210 = rt_string_from_c(") (Final ");
-xn_root_add(xn_t4210);
-        xn_root_add(xn_t4210);
-            xn_root_add(xn_t4210);
-            rt_string *xn_t4211 = xn_concat(xn_t4209, xn_t4210);
-xn_root_add(xn_t4211);
-        xn_root_add(xn_t4211);
-            xn_root_add(xn_t4211);
-            rt_string *xn_t4212 = xn_B(lf);
-xn_root_add(xn_t4212);
-        xn_root_add(xn_t4212);
-            xn_root_add(xn_t4212);
-            rt_string *xn_t4213 = xn_concat(xn_t4211, xn_t4212);
-xn_root_add(xn_t4213);
-        xn_root_add(xn_t4213);
-            xn_root_add(xn_t4213);
-            rt_string *xn_t4214 = rt_string_from_c("))");
-xn_root_add(xn_t4214);
-        xn_root_add(xn_t4214);
-            xn_root_add(xn_t4214);
-            rt_string *xn_t4215 = xn_concat(xn_t4213, xn_t4214);
-xn_root_add(xn_t4215);
-        xn_root_add(xn_t4215);
-            xn_root_add(xn_t4215);
-            xn_arr_s_push(lps, xn_t4215);
+            #line 2051 "impl/lib/b2/xparser.x"
+            rt_string *xn_t4279 = rt_string_from_c("(LambdaParam ");
+xn_root_add(xn_t4279);
+        xn_root_add(xn_t4279);
+            xn_root_add(xn_t4279);
+            rt_string *xn_t4280 = xn_P(lp->line, lp->col);
+xn_root_add(xn_t4280);
+        xn_root_add(xn_t4280);
+            xn_root_add(xn_t4280);
+            rt_string *xn_t4281 = xn_concat(xn_t4279, xn_t4280);
+xn_root_add(xn_t4281);
+        xn_root_add(xn_t4281);
+            xn_root_add(xn_t4281);
+            rt_string *xn_t4282 = rt_string_from_c(" (Type ");
+xn_root_add(xn_t4282);
+        xn_root_add(xn_t4282);
+            xn_root_add(xn_t4282);
+            rt_string *xn_t4283 = xn_concat(xn_t4281, xn_t4282);
+xn_root_add(xn_t4283);
+        xn_root_add(xn_t4283);
+            xn_root_add(xn_t4283);
+            rt_string *xn_t4284 = rt_retain(lt);
+xn_root_add(xn_t4284);
+        xn_root_add(xn_t4284);
+            xn_root_add(xn_t4284);
+            rt_string *xn_t4285 = xn_concat(xn_t4283, xn_t4284);
+xn_root_add(xn_t4285);
+        xn_root_add(xn_t4285);
+            xn_root_add(xn_t4285);
+            rt_string *xn_t4286 = rt_string_from_c(") (Name ");
+xn_root_add(xn_t4286);
+        xn_root_add(xn_t4286);
+            xn_root_add(xn_t4286);
+            rt_string *xn_t4287 = xn_concat(xn_t4285, xn_t4286);
+xn_root_add(xn_t4287);
+        xn_root_add(xn_t4287);
+            xn_root_add(xn_t4287);
+            rt_string *xn_t4288 = rt_retain(ln);
+xn_root_add(xn_t4288);
+        xn_root_add(xn_t4288);
+            xn_root_add(xn_t4288);
+            rt_string *xn_t4289 = xn_q(xn_t4288);
+xn_root_add(xn_t4289);
+        xn_root_add(xn_t4289);
+            xn_root_add(xn_t4289);
+            rt_string *xn_t4290 = xn_concat(xn_t4287, xn_t4289);
+xn_root_add(xn_t4290);
+        xn_root_add(xn_t4290);
+            xn_root_add(xn_t4290);
+            rt_string *xn_t4291 = rt_string_from_c(") (Final ");
+xn_root_add(xn_t4291);
+        xn_root_add(xn_t4291);
+            xn_root_add(xn_t4291);
+            rt_string *xn_t4292 = xn_concat(xn_t4290, xn_t4291);
+xn_root_add(xn_t4292);
+        xn_root_add(xn_t4292);
+            xn_root_add(xn_t4292);
+            rt_string *xn_t4293 = xn_B(lf);
+xn_root_add(xn_t4293);
+        xn_root_add(xn_t4293);
+            xn_root_add(xn_t4293);
+            rt_string *xn_t4294 = xn_concat(xn_t4292, xn_t4293);
+xn_root_add(xn_t4294);
+        xn_root_add(xn_t4294);
+            xn_root_add(xn_t4294);
+            rt_string *xn_t4295 = rt_string_from_c("))");
+xn_root_add(xn_t4295);
+        xn_root_add(xn_t4295);
+            xn_root_add(xn_t4295);
+            rt_string *xn_t4296 = xn_concat(xn_t4294, xn_t4295);
+xn_root_add(xn_t4296);
+        xn_root_add(xn_t4296);
+            xn_root_add(xn_t4296);
+            xn_arr_s_push(lps, xn_t4296);
             xn_root_release(ln);
                 {
                 rt_release(ln);
@@ -24879,179 +25392,179 @@ xn_root_add(xn_t4215);
                 rt_release(lt);
                 }
                 {
-                xn_root_restore(xn_t4189);
+                xn_root_restore(xn_t4270);
                 }
 
             xn_gc_safepoint();
             }
-        #line 2001 "impl/lib/b2/xparser.x"
+        #line 2053 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 11))) {
-                size_t xn_t4216 = xn_root_mark();
-                #line 2001 "impl/lib/b2/xparser.x"
+                size_t xn_t4297 = xn_root_mark();
+                #line 2053 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t4216);
+                    xn_root_restore(xn_t4297);
                     }
 
             }
-        #line 2002 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4217 = rt_string_from_c("->");
-xn_root_add(xn_t4217);
-        xn_root_add(xn_t4217);
-            if ((xn_Cls_Parser_atOp(self, xn_t4217))) {
-                size_t xn_t4218 = xn_root_mark();
-                #line 2002 "impl/lib/b2/xparser.x"
+        #line 2054 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4298 = rt_string_from_c("->");
+xn_root_add(xn_t4298);
+        xn_root_add(xn_t4298);
+            if ((xn_Cls_Parser_atOp(self, xn_t4298))) {
+                size_t xn_t4299 = xn_root_mark();
+                #line 2054 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t4218);
+                    xn_root_restore(xn_t4299);
                     }
 
             }
-        #line 2003 "impl/lib/b2/xparser.x"
+        #line 2055 "impl/lib/b2/xparser.x"
         rt_string *lb = rt_string_from_c("(nil)");
 xn_root_add(lb);
         xn_root_add(lb);
         xn_root_add(lb);
         xn_gc_safepoint();
-        #line 2004 "impl/lib/b2/xparser.x"
+        #line 2056 "impl/lib/b2/xparser.x"
         rt_string *le = rt_string_from_c("(nil)");
 xn_root_add(le);
         xn_root_add(le);
         xn_root_add(le);
         xn_gc_safepoint();
-        #line 2005 "impl/lib/b2/xparser.x"
+        #line 2057 "impl/lib/b2/xparser.x"
         int single = 1;
-        #line 2006 "impl/lib/b2/xparser.x"
+        #line 2058 "impl/lib/b2/xparser.x"
         xn_Cls_Tok * bodyTok = xn_Cls_Parser_cur(self);
 xn_root_add(bodyTok);
         xn_root_add(bodyTok);
         xn_root_add(bodyTok);
         xn_gc_safepoint();
-        #line 2007 "impl/lib/b2/xparser.x"
+        #line 2059 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 12))) {
-                size_t xn_t4221 = xn_root_mark();
-                #line 2007 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4222 = xn_Cls_Parser_parseBlock(self);
-xn_root_add(xn_t4222);
-        xn_root_add(xn_t4222);
-                xn_root_add(xn_t4222);
+                size_t xn_t4302 = xn_root_mark();
+                #line 2059 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4303 = xn_Cls_Parser_parseBlock(self);
+xn_root_add(xn_t4303);
+        xn_root_add(xn_t4303);
+                xn_root_add(xn_t4303);
                 xn_root_release(lb);
                 rt_release(lb);
-                lb = xn_t4222;
+                lb = xn_t4303;
                 xn_root_hold(lb);
                 xn_gc_safepoint();
-                #line 2007 "impl/lib/b2/xparser.x"
+                #line 2059 "impl/lib/b2/xparser.x"
                 single = 0;
                     {
-                    xn_root_restore(xn_t4221);
+                    xn_root_restore(xn_t4302);
                     }
 
             } else {
-                size_t xn_t4223 = xn_root_mark();
-                #line 2008 "impl/lib/b2/xparser.x"
-                xn_Cls_E * xn_t4224 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4224);
-        xn_root_add(xn_t4224);
-                xn_root_add(xn_t4224);
-                rt_string *xn_t4225 = rt_retain(xn_t4224->d);
-xn_root_add(xn_t4225);
-        xn_root_add(xn_t4225);
-                xn_root_add(xn_t4225);
+                size_t xn_t4304 = xn_root_mark();
+                #line 2060 "impl/lib/b2/xparser.x"
+                xn_Cls_E * xn_t4305 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4305);
+        xn_root_add(xn_t4305);
+                xn_root_add(xn_t4305);
+                rt_string *xn_t4306 = rt_retain(xn_t4305->d);
+xn_root_add(xn_t4306);
+        xn_root_add(xn_t4306);
+                xn_root_add(xn_t4306);
                 xn_root_release(le);
                 rt_release(le);
-                le = xn_t4225;
+                le = xn_t4306;
                 xn_root_hold(le);
                 xn_gc_safepoint();
                     {
-                    xn_root_restore(xn_t4223);
+                    xn_root_restore(xn_t4304);
                     }
 
             }
-        #line 2009 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4226 = rt_string_from_c("(Lambda ");
-xn_root_add(xn_t4226);
-        xn_root_add(xn_t4226);
-        xn_root_add(xn_t4226);
-        rt_string *xn_t4227 = xn_P(t->line, t->col);
-xn_root_add(xn_t4227);
-        xn_root_add(xn_t4227);
-        xn_root_add(xn_t4227);
-        rt_string *xn_t4228 = xn_concat(xn_t4226, xn_t4227);
-xn_root_add(xn_t4228);
-        xn_root_add(xn_t4228);
-        xn_root_add(xn_t4228);
-        rt_string *xn_t4229 = rt_string_from_c(" (Params ");
-xn_root_add(xn_t4229);
-        xn_root_add(xn_t4229);
-        xn_root_add(xn_t4229);
-        rt_string *xn_t4230 = xn_concat(xn_t4228, xn_t4229);
-xn_root_add(xn_t4230);
-        xn_root_add(xn_t4230);
-        xn_root_add(xn_t4230);
-        rt_string *xn_t4231 = xn_SL(lps);
-xn_root_add(xn_t4231);
-        xn_root_add(xn_t4231);
-        xn_root_add(xn_t4231);
-        rt_string *xn_t4232 = xn_concat(xn_t4230, xn_t4231);
-xn_root_add(xn_t4232);
-        xn_root_add(xn_t4232);
-        xn_root_add(xn_t4232);
-        rt_string *xn_t4233 = rt_string_from_c(") (Block ");
-xn_root_add(xn_t4233);
-        xn_root_add(xn_t4233);
-        xn_root_add(xn_t4233);
-        rt_string *xn_t4234 = xn_concat(xn_t4232, xn_t4233);
-xn_root_add(xn_t4234);
-        xn_root_add(xn_t4234);
-        xn_root_add(xn_t4234);
-        rt_string *xn_t4235 = rt_retain(lb);
-xn_root_add(xn_t4235);
-        xn_root_add(xn_t4235);
-        xn_root_add(xn_t4235);
-        rt_string *xn_t4236 = xn_concat(xn_t4234, xn_t4235);
-xn_root_add(xn_t4236);
-        xn_root_add(xn_t4236);
-        xn_root_add(xn_t4236);
-        rt_string *xn_t4237 = rt_string_from_c(") (ExprB ");
-xn_root_add(xn_t4237);
-        xn_root_add(xn_t4237);
-        xn_root_add(xn_t4237);
-        rt_string *xn_t4238 = xn_concat(xn_t4236, xn_t4237);
-xn_root_add(xn_t4238);
-        xn_root_add(xn_t4238);
-        xn_root_add(xn_t4238);
-        rt_string *xn_t4239 = rt_retain(le);
-xn_root_add(xn_t4239);
-        xn_root_add(xn_t4239);
-        xn_root_add(xn_t4239);
-        rt_string *xn_t4240 = xn_concat(xn_t4238, xn_t4239);
-xn_root_add(xn_t4240);
-        xn_root_add(xn_t4240);
-        xn_root_add(xn_t4240);
-        rt_string *xn_t4241 = rt_string_from_c(") (Single ");
-xn_root_add(xn_t4241);
-        xn_root_add(xn_t4241);
-        xn_root_add(xn_t4241);
-        rt_string *xn_t4242 = xn_concat(xn_t4240, xn_t4241);
-xn_root_add(xn_t4242);
-        xn_root_add(xn_t4242);
-        xn_root_add(xn_t4242);
-        rt_string *xn_t4243 = xn_B(single);
-xn_root_add(xn_t4243);
-        xn_root_add(xn_t4243);
-        xn_root_add(xn_t4243);
-        rt_string *xn_t4244 = xn_concat(xn_t4242, xn_t4243);
-xn_root_add(xn_t4244);
-        xn_root_add(xn_t4244);
-        xn_root_add(xn_t4244);
-        rt_string *xn_t4245 = rt_string_from_c("))");
-xn_root_add(xn_t4245);
-        xn_root_add(xn_t4245);
-        xn_root_add(xn_t4245);
-        rt_string *xn_t4246 = xn_concat(xn_t4244, xn_t4245);
-xn_root_add(xn_t4246);
-        xn_root_add(xn_t4246);
-        xn_root_add(xn_t4246);
+        #line 2061 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4307 = rt_string_from_c("(Lambda ");
+xn_root_add(xn_t4307);
+        xn_root_add(xn_t4307);
+        xn_root_add(xn_t4307);
+        rt_string *xn_t4308 = xn_P(t->line, t->col);
+xn_root_add(xn_t4308);
+        xn_root_add(xn_t4308);
+        xn_root_add(xn_t4308);
+        rt_string *xn_t4309 = xn_concat(xn_t4307, xn_t4308);
+xn_root_add(xn_t4309);
+        xn_root_add(xn_t4309);
+        xn_root_add(xn_t4309);
+        rt_string *xn_t4310 = rt_string_from_c(" (Params ");
+xn_root_add(xn_t4310);
+        xn_root_add(xn_t4310);
+        xn_root_add(xn_t4310);
+        rt_string *xn_t4311 = xn_concat(xn_t4309, xn_t4310);
+xn_root_add(xn_t4311);
+        xn_root_add(xn_t4311);
+        xn_root_add(xn_t4311);
+        rt_string *xn_t4312 = xn_SL(lps);
+xn_root_add(xn_t4312);
+        xn_root_add(xn_t4312);
+        xn_root_add(xn_t4312);
+        rt_string *xn_t4313 = xn_concat(xn_t4311, xn_t4312);
+xn_root_add(xn_t4313);
+        xn_root_add(xn_t4313);
+        xn_root_add(xn_t4313);
+        rt_string *xn_t4314 = rt_string_from_c(") (Block ");
+xn_root_add(xn_t4314);
+        xn_root_add(xn_t4314);
+        xn_root_add(xn_t4314);
+        rt_string *xn_t4315 = xn_concat(xn_t4313, xn_t4314);
+xn_root_add(xn_t4315);
+        xn_root_add(xn_t4315);
+        xn_root_add(xn_t4315);
+        rt_string *xn_t4316 = rt_retain(lb);
+xn_root_add(xn_t4316);
+        xn_root_add(xn_t4316);
+        xn_root_add(xn_t4316);
+        rt_string *xn_t4317 = xn_concat(xn_t4315, xn_t4316);
+xn_root_add(xn_t4317);
+        xn_root_add(xn_t4317);
+        xn_root_add(xn_t4317);
+        rt_string *xn_t4318 = rt_string_from_c(") (ExprB ");
+xn_root_add(xn_t4318);
+        xn_root_add(xn_t4318);
+        xn_root_add(xn_t4318);
+        rt_string *xn_t4319 = xn_concat(xn_t4317, xn_t4318);
+xn_root_add(xn_t4319);
+        xn_root_add(xn_t4319);
+        xn_root_add(xn_t4319);
+        rt_string *xn_t4320 = rt_retain(le);
+xn_root_add(xn_t4320);
+        xn_root_add(xn_t4320);
+        xn_root_add(xn_t4320);
+        rt_string *xn_t4321 = xn_concat(xn_t4319, xn_t4320);
+xn_root_add(xn_t4321);
+        xn_root_add(xn_t4321);
+        xn_root_add(xn_t4321);
+        rt_string *xn_t4322 = rt_string_from_c(") (Single ");
+xn_root_add(xn_t4322);
+        xn_root_add(xn_t4322);
+        xn_root_add(xn_t4322);
+        rt_string *xn_t4323 = xn_concat(xn_t4321, xn_t4322);
+xn_root_add(xn_t4323);
+        xn_root_add(xn_t4323);
+        xn_root_add(xn_t4323);
+        rt_string *xn_t4324 = xn_B(single);
+xn_root_add(xn_t4324);
+        xn_root_add(xn_t4324);
+        xn_root_add(xn_t4324);
+        rt_string *xn_t4325 = xn_concat(xn_t4323, xn_t4324);
+xn_root_add(xn_t4325);
+        xn_root_add(xn_t4325);
+        xn_root_add(xn_t4325);
+        rt_string *xn_t4326 = rt_string_from_c("))");
+xn_root_add(xn_t4326);
+        xn_root_add(xn_t4326);
+        xn_root_add(xn_t4326);
+        rt_string *xn_t4327 = xn_concat(xn_t4325, xn_t4326);
+xn_root_add(xn_t4327);
+        xn_root_add(xn_t4327);
+        xn_root_add(xn_t4327);
             {
         rt_release(le);
             }
@@ -25059,815 +25572,876 @@ xn_root_add(xn_t4246);
         rt_release(lb);
             }
             {
-        xn_root_restore(xn_t4187);
+        xn_root_restore(xn_t4268);
             }
             {
-        xn_root_restore(xn_t4061);
+        xn_root_restore(xn_t4138);
             }
 
-        return xn_Cls_Parser_mk(self, xn_t4246, t->line, t->col);
+        return xn_Cls_Parser_mk(self, xn_t4327, t->line, t->col);
         xn_root_release(lb);
         xn_root_release(le);
 
     }
-#line 2011 "impl/lib/b2/xparser.x"
+#line 2063 "impl/lib/b2/xparser.x"
     if (((t->kind == 10))) {
-        size_t xn_t4247 = xn_root_mark();
-        #line 2012 "impl/lib/b2/xparser.x"
+        size_t xn_t4328 = xn_root_mark();
+        #line 2064 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 2013 "impl/lib/b2/xparser.x"
+        #line 2065 "impl/lib/b2/xparser.x"
         xn_Cls_E * x = xn_Cls_Parser_parseExpr(self);
 xn_root_add(x);
         xn_root_add(x);
         xn_root_add(x);
         xn_gc_safepoint();
-        #line 2014 "impl/lib/b2/xparser.x"
+        #line 2066 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 16))) {
-                size_t xn_t4248 = xn_root_mark();
-                #line 2015 "impl/lib/b2/xparser.x"
-                xn_arr_s *xn_t4249 = xn_arr_s_new(1);
-xn_root_add(xn_t4249);
-        xn_root_add(xn_t4249);
-                xn_root_add(xn_t4249);
-                rt_string *xn_t4250 = rt_retain(x->d);
-xn_root_add(xn_t4250);
-        xn_root_add(xn_t4250);
-                xn_root_add(xn_t4250);
-                xn_arr_s_push(xn_t4249, xn_t4250);
-                xn_arr_s * es = xn_t4249;
+                size_t xn_t4329 = xn_root_mark();
+                #line 2067 "impl/lib/b2/xparser.x"
+                xn_arr_s *xn_t4330 = xn_arr_s_new(1);
+xn_root_add(xn_t4330);
+        xn_root_add(xn_t4330);
+                xn_root_add(xn_t4330);
+                rt_string *xn_t4331 = rt_retain(x->d);
+xn_root_add(xn_t4331);
+        xn_root_add(xn_t4331);
+                xn_root_add(xn_t4331);
+                xn_arr_s_push(xn_t4330, xn_t4331);
+                xn_arr_s * es = xn_t4330;
 xn_root_add(es);
         xn_root_add(es);
                 xn_root_add(es);
                 xn_root_add(es);
                 xn_gc_safepoint();
-                #line 2016 "impl/lib/b2/xparser.x"
+                #line 2068 "impl/lib/b2/xparser.x"
                     while ((xn_Cls_Parser_at(self, 16))) {
-                    size_t xn_t4251 = xn_root_mark();
-                    #line 2017 "impl/lib/b2/xparser.x"
+                    size_t xn_t4332 = xn_root_mark();
+                    #line 2069 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 2018 "impl/lib/b2/xparser.x"
-                    xn_Cls_E * xn_t4252 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4252);
-        xn_root_add(xn_t4252);
-                xn_root_add(xn_t4252);
-                    xn_root_add(xn_t4252);
-                    rt_string *xn_t4253 = rt_retain(xn_t4252->d);
-xn_root_add(xn_t4253);
-        xn_root_add(xn_t4253);
-                xn_root_add(xn_t4253);
-                    xn_root_add(xn_t4253);
-                    xn_arr_s_push(es, xn_t4253);
+                    #line 2070 "impl/lib/b2/xparser.x"
+                    xn_Cls_E * xn_t4333 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4333);
+        xn_root_add(xn_t4333);
+                xn_root_add(xn_t4333);
+                    xn_root_add(xn_t4333);
+                    rt_string *xn_t4334 = rt_retain(xn_t4333->d);
+xn_root_add(xn_t4334);
+        xn_root_add(xn_t4334);
+                xn_root_add(xn_t4334);
+                    xn_root_add(xn_t4334);
+                    xn_arr_s_push(es, xn_t4334);
                         {
-                        xn_root_restore(xn_t4251);
+                        xn_root_restore(xn_t4332);
                         }
 
                     xn_gc_safepoint();
                     }
-                #line 2020 "impl/lib/b2/xparser.x"
+                #line 2072 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 11))) {
-                        size_t xn_t4254 = xn_root_mark();
-                        #line 2020 "impl/lib/b2/xparser.x"
+                        size_t xn_t4335 = xn_root_mark();
+                        #line 2072 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t4254);
+                            xn_root_restore(xn_t4335);
                             }
 
                     }
-                #line 2021 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4255 = rt_string_from_c("(Tuple ");
-xn_root_add(xn_t4255);
-        xn_root_add(xn_t4255);
-                xn_root_add(xn_t4255);
-                xn_root_add(xn_t4255);
-                rt_string *xn_t4256 = xn_P(t->line, t->col);
-xn_root_add(xn_t4256);
-        xn_root_add(xn_t4256);
-                xn_root_add(xn_t4256);
-                xn_root_add(xn_t4256);
-                rt_string *xn_t4257 = xn_concat(xn_t4255, xn_t4256);
-xn_root_add(xn_t4257);
-        xn_root_add(xn_t4257);
-                xn_root_add(xn_t4257);
-                xn_root_add(xn_t4257);
-                rt_string *xn_t4258 = rt_string_from_c(" (Elems ");
-xn_root_add(xn_t4258);
-        xn_root_add(xn_t4258);
-                xn_root_add(xn_t4258);
-                xn_root_add(xn_t4258);
-                rt_string *xn_t4259 = xn_concat(xn_t4257, xn_t4258);
-xn_root_add(xn_t4259);
-        xn_root_add(xn_t4259);
-                xn_root_add(xn_t4259);
-                xn_root_add(xn_t4259);
-                rt_string *xn_t4260 = xn_SL(es);
-xn_root_add(xn_t4260);
-        xn_root_add(xn_t4260);
-                xn_root_add(xn_t4260);
-                xn_root_add(xn_t4260);
-                rt_string *xn_t4261 = xn_concat(xn_t4259, xn_t4260);
-xn_root_add(xn_t4261);
-        xn_root_add(xn_t4261);
-                xn_root_add(xn_t4261);
-                xn_root_add(xn_t4261);
-                rt_string *xn_t4262 = rt_string_from_c("))");
-xn_root_add(xn_t4262);
-        xn_root_add(xn_t4262);
-                xn_root_add(xn_t4262);
-                xn_root_add(xn_t4262);
-                rt_string *xn_t4263 = xn_concat(xn_t4261, xn_t4262);
-xn_root_add(xn_t4263);
-        xn_root_add(xn_t4263);
-                xn_root_add(xn_t4263);
-                xn_root_add(xn_t4263);
+                #line 2073 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4336 = rt_string_from_c("(Tuple ");
+xn_root_add(xn_t4336);
+        xn_root_add(xn_t4336);
+                xn_root_add(xn_t4336);
+                xn_root_add(xn_t4336);
+                rt_string *xn_t4337 = xn_P(t->line, t->col);
+xn_root_add(xn_t4337);
+        xn_root_add(xn_t4337);
+                xn_root_add(xn_t4337);
+                xn_root_add(xn_t4337);
+                rt_string *xn_t4338 = xn_concat(xn_t4336, xn_t4337);
+xn_root_add(xn_t4338);
+        xn_root_add(xn_t4338);
+                xn_root_add(xn_t4338);
+                xn_root_add(xn_t4338);
+                rt_string *xn_t4339 = rt_string_from_c(" (Elems ");
+xn_root_add(xn_t4339);
+        xn_root_add(xn_t4339);
+                xn_root_add(xn_t4339);
+                xn_root_add(xn_t4339);
+                rt_string *xn_t4340 = xn_concat(xn_t4338, xn_t4339);
+xn_root_add(xn_t4340);
+        xn_root_add(xn_t4340);
+                xn_root_add(xn_t4340);
+                xn_root_add(xn_t4340);
+                rt_string *xn_t4341 = xn_SL(es);
+xn_root_add(xn_t4341);
+        xn_root_add(xn_t4341);
+                xn_root_add(xn_t4341);
+                xn_root_add(xn_t4341);
+                rt_string *xn_t4342 = xn_concat(xn_t4340, xn_t4341);
+xn_root_add(xn_t4342);
+        xn_root_add(xn_t4342);
+                xn_root_add(xn_t4342);
+                xn_root_add(xn_t4342);
+                rt_string *xn_t4343 = rt_string_from_c("))");
+xn_root_add(xn_t4343);
+        xn_root_add(xn_t4343);
+                xn_root_add(xn_t4343);
+                xn_root_add(xn_t4343);
+                rt_string *xn_t4344 = xn_concat(xn_t4342, xn_t4343);
+xn_root_add(xn_t4344);
+        xn_root_add(xn_t4344);
+                xn_root_add(xn_t4344);
+                xn_root_add(xn_t4344);
                     {
-                xn_root_restore(xn_t4248);
+                xn_root_restore(xn_t4329);
                     }
                     {
-                xn_root_restore(xn_t4247);
+                xn_root_restore(xn_t4328);
                     }
                     {
-                xn_root_restore(xn_t4061);
+                xn_root_restore(xn_t4138);
                     }
 
-                return xn_Cls_Parser_mk(self, xn_t4263, t->line, t->col);
+                return xn_Cls_Parser_mk(self, xn_t4344, t->line, t->col);
 
             }
-        #line 2023 "impl/lib/b2/xparser.x"
+        #line 2075 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 11))) {
-                size_t xn_t4264 = xn_root_mark();
-                #line 2023 "impl/lib/b2/xparser.x"
+                size_t xn_t4345 = xn_root_mark();
+                #line 2075 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t4264);
+                    xn_root_restore(xn_t4345);
                     }
 
             }
-        #line 2024 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4265 = rt_string_from_c("(Paren ");
-xn_root_add(xn_t4265);
-        xn_root_add(xn_t4265);
-        xn_root_add(xn_t4265);
-        rt_string *xn_t4266 = xn_P(t->line, t->col);
-xn_root_add(xn_t4266);
-        xn_root_add(xn_t4266);
-        xn_root_add(xn_t4266);
-        rt_string *xn_t4267 = xn_concat(xn_t4265, xn_t4266);
-xn_root_add(xn_t4267);
-        xn_root_add(xn_t4267);
-        xn_root_add(xn_t4267);
-        rt_string *xn_t4268 = rt_string_from_c(" (X ");
-xn_root_add(xn_t4268);
-        xn_root_add(xn_t4268);
-        xn_root_add(xn_t4268);
-        rt_string *xn_t4269 = xn_concat(xn_t4267, xn_t4268);
-xn_root_add(xn_t4269);
-        xn_root_add(xn_t4269);
-        xn_root_add(xn_t4269);
-        rt_string *xn_t4270 = rt_retain(x->d);
-xn_root_add(xn_t4270);
-        xn_root_add(xn_t4270);
-        xn_root_add(xn_t4270);
-        rt_string *xn_t4271 = xn_concat(xn_t4269, xn_t4270);
-xn_root_add(xn_t4271);
-        xn_root_add(xn_t4271);
-        xn_root_add(xn_t4271);
-        rt_string *xn_t4272 = rt_string_from_c("))");
-xn_root_add(xn_t4272);
-        xn_root_add(xn_t4272);
-        xn_root_add(xn_t4272);
-        rt_string *xn_t4273 = xn_concat(xn_t4271, xn_t4272);
-xn_root_add(xn_t4273);
-        xn_root_add(xn_t4273);
-        xn_root_add(xn_t4273);
+        #line 2076 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4346 = rt_string_from_c("(Paren ");
+xn_root_add(xn_t4346);
+        xn_root_add(xn_t4346);
+        xn_root_add(xn_t4346);
+        rt_string *xn_t4347 = xn_P(t->line, t->col);
+xn_root_add(xn_t4347);
+        xn_root_add(xn_t4347);
+        xn_root_add(xn_t4347);
+        rt_string *xn_t4348 = xn_concat(xn_t4346, xn_t4347);
+xn_root_add(xn_t4348);
+        xn_root_add(xn_t4348);
+        xn_root_add(xn_t4348);
+        rt_string *xn_t4349 = rt_string_from_c(" (X ");
+xn_root_add(xn_t4349);
+        xn_root_add(xn_t4349);
+        xn_root_add(xn_t4349);
+        rt_string *xn_t4350 = xn_concat(xn_t4348, xn_t4349);
+xn_root_add(xn_t4350);
+        xn_root_add(xn_t4350);
+        xn_root_add(xn_t4350);
+        rt_string *xn_t4351 = rt_retain(x->d);
+xn_root_add(xn_t4351);
+        xn_root_add(xn_t4351);
+        xn_root_add(xn_t4351);
+        rt_string *xn_t4352 = xn_concat(xn_t4350, xn_t4351);
+xn_root_add(xn_t4352);
+        xn_root_add(xn_t4352);
+        xn_root_add(xn_t4352);
+        rt_string *xn_t4353 = rt_string_from_c("))");
+xn_root_add(xn_t4353);
+        xn_root_add(xn_t4353);
+        xn_root_add(xn_t4353);
+        rt_string *xn_t4354 = xn_concat(xn_t4352, xn_t4353);
+xn_root_add(xn_t4354);
+        xn_root_add(xn_t4354);
+        xn_root_add(xn_t4354);
             {
-        xn_root_restore(xn_t4247);
+        xn_root_restore(xn_t4328);
             }
             {
-        xn_root_restore(xn_t4061);
+        xn_root_restore(xn_t4138);
             }
 
-        return xn_Cls_Parser_mk(self, xn_t4273, t->line, t->col);
+        return xn_Cls_Parser_mk(self, xn_t4354, t->line, t->col);
 
     }
-#line 2026 "impl/lib/b2/xparser.x"
+#line 2078 "impl/lib/b2/xparser.x"
     if (((t->kind == 14))) {
-        size_t xn_t4274 = xn_root_mark();
-        #line 2027 "impl/lib/b2/xparser.x"
+        size_t xn_t4355 = xn_root_mark();
+        #line 2079 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 2028 "impl/lib/b2/xparser.x"
+        #line 2080 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 15))) {
-                size_t xn_t4275 = xn_root_mark();
-                #line 2028 "impl/lib/b2/xparser.x"
+                size_t xn_t4356 = xn_root_mark();
+                #line 2080 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 2028 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4276 = rt_string_from_c("(ArrayLit ");
-xn_root_add(xn_t4276);
-        xn_root_add(xn_t4276);
-                xn_root_add(xn_t4276);
-                xn_root_add(xn_t4276);
-                rt_string *xn_t4277 = xn_P(t->line, t->col);
-xn_root_add(xn_t4277);
-        xn_root_add(xn_t4277);
-                xn_root_add(xn_t4277);
-                xn_root_add(xn_t4277);
-                rt_string *xn_t4278 = xn_concat(xn_t4276, xn_t4277);
-xn_root_add(xn_t4278);
-        xn_root_add(xn_t4278);
-                xn_root_add(xn_t4278);
-                xn_root_add(xn_t4278);
-                rt_string *xn_t4279 = rt_string_from_c(" (Elems (slice)))");
-xn_root_add(xn_t4279);
-        xn_root_add(xn_t4279);
-                xn_root_add(xn_t4279);
-                xn_root_add(xn_t4279);
-                rt_string *xn_t4280 = xn_concat(xn_t4278, xn_t4279);
-xn_root_add(xn_t4280);
-        xn_root_add(xn_t4280);
-                xn_root_add(xn_t4280);
-                xn_root_add(xn_t4280);
+                #line 2080 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4357 = rt_string_from_c("(ArrayLit ");
+xn_root_add(xn_t4357);
+        xn_root_add(xn_t4357);
+                xn_root_add(xn_t4357);
+                xn_root_add(xn_t4357);
+                rt_string *xn_t4358 = xn_P(t->line, t->col);
+xn_root_add(xn_t4358);
+        xn_root_add(xn_t4358);
+                xn_root_add(xn_t4358);
+                xn_root_add(xn_t4358);
+                rt_string *xn_t4359 = xn_concat(xn_t4357, xn_t4358);
+xn_root_add(xn_t4359);
+        xn_root_add(xn_t4359);
+                xn_root_add(xn_t4359);
+                xn_root_add(xn_t4359);
+                rt_string *xn_t4360 = rt_string_from_c(" (Elems (slice)))");
+xn_root_add(xn_t4360);
+        xn_root_add(xn_t4360);
+                xn_root_add(xn_t4360);
+                xn_root_add(xn_t4360);
+                rt_string *xn_t4361 = xn_concat(xn_t4359, xn_t4360);
+xn_root_add(xn_t4361);
+        xn_root_add(xn_t4361);
+                xn_root_add(xn_t4361);
+                xn_root_add(xn_t4361);
                     {
-                xn_root_restore(xn_t4275);
+                xn_root_restore(xn_t4356);
                     }
                     {
-                xn_root_restore(xn_t4274);
+                xn_root_restore(xn_t4355);
                     }
                     {
-                xn_root_restore(xn_t4061);
+                xn_root_restore(xn_t4138);
                     }
 
-                return xn_Cls_Parser_mk(self, xn_t4280, t->line, t->col);
+                return xn_Cls_Parser_mk(self, xn_t4361, t->line, t->col);
 
             }
-        #line 2029 "impl/lib/b2/xparser.x"
+        #line 2081 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4362 = rt_string_from_c(":");
+xn_root_add(xn_t4362);
+        xn_root_add(xn_t4362);
+            if ((xn_Cls_Parser_atOp(self, xn_t4362))) {
+                size_t xn_t4363 = xn_root_mark();
+                #line 2082 "impl/lib/b2/xparser.x"
+                xn_Cls_Parser_next(self);
+                #line 2083 "impl/lib/b2/xparser.x"
+                    if ((xn_Cls_Parser_at(self, 15))) {
+                        size_t xn_t4364 = xn_root_mark();
+                        #line 2083 "impl/lib/b2/xparser.x"
+                        xn_Cls_Parser_next(self);
+                            {
+                            xn_root_restore(xn_t4364);
+                            }
+
+                    }
+                #line 2084 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4365 = rt_string_from_c("(MapLit ");
+xn_root_add(xn_t4365);
+        xn_root_add(xn_t4365);
+                xn_root_add(xn_t4365);
+                xn_root_add(xn_t4365);
+                rt_string *xn_t4366 = xn_P(t->line, t->col);
+xn_root_add(xn_t4366);
+        xn_root_add(xn_t4366);
+                xn_root_add(xn_t4366);
+                xn_root_add(xn_t4366);
+                rt_string *xn_t4367 = xn_concat(xn_t4365, xn_t4366);
+xn_root_add(xn_t4367);
+        xn_root_add(xn_t4367);
+                xn_root_add(xn_t4367);
+                xn_root_add(xn_t4367);
+                rt_string *xn_t4368 = rt_string_from_c(" (Keys (slice)) (Vals (slice)))");
+xn_root_add(xn_t4368);
+        xn_root_add(xn_t4368);
+                xn_root_add(xn_t4368);
+                xn_root_add(xn_t4368);
+                rt_string *xn_t4369 = xn_concat(xn_t4367, xn_t4368);
+xn_root_add(xn_t4369);
+        xn_root_add(xn_t4369);
+                xn_root_add(xn_t4369);
+                xn_root_add(xn_t4369);
+                    {
+                xn_root_restore(xn_t4363);
+                    }
+                    {
+                xn_root_restore(xn_t4355);
+                    }
+                    {
+                xn_root_restore(xn_t4138);
+                    }
+
+                return xn_Cls_Parser_mk(self, xn_t4369, t->line, t->col);
+
+            }
+        #line 2086 "impl/lib/b2/xparser.x"
         xn_Cls_E * first = xn_Cls_Parser_parseExpr(self);
 xn_root_add(first);
         xn_root_add(first);
         xn_root_add(first);
         xn_gc_safepoint();
-        #line 2030 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4281 = rt_string_from_c(":");
-xn_root_add(xn_t4281);
-        xn_root_add(xn_t4281);
-            if ((xn_Cls_Parser_atOp(self, xn_t4281))) {
-                size_t xn_t4282 = xn_root_mark();
-                #line 2031 "impl/lib/b2/xparser.x"
+        #line 2087 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4370 = rt_string_from_c(":");
+xn_root_add(xn_t4370);
+        xn_root_add(xn_t4370);
+            if ((xn_Cls_Parser_atOp(self, xn_t4370))) {
+                size_t xn_t4371 = xn_root_mark();
+                #line 2088 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 2032 "impl/lib/b2/xparser.x"
+                #line 2089 "impl/lib/b2/xparser.x"
                 xn_Cls_E * v = xn_Cls_Parser_parseExpr(self);
 xn_root_add(v);
         xn_root_add(v);
                 xn_root_add(v);
                 xn_root_add(v);
                 xn_gc_safepoint();
-                #line 2033 "impl/lib/b2/xparser.x"
-                xn_arr_s *xn_t4283 = xn_arr_s_new(1);
-xn_root_add(xn_t4283);
-        xn_root_add(xn_t4283);
-                xn_root_add(xn_t4283);
-                rt_string *xn_t4284 = rt_retain(first->d);
-xn_root_add(xn_t4284);
-        xn_root_add(xn_t4284);
-                xn_root_add(xn_t4284);
-                xn_arr_s_push(xn_t4283, xn_t4284);
-                xn_arr_s * ks = xn_t4283;
+                #line 2090 "impl/lib/b2/xparser.x"
+                xn_arr_s *xn_t4372 = xn_arr_s_new(1);
+xn_root_add(xn_t4372);
+        xn_root_add(xn_t4372);
+                xn_root_add(xn_t4372);
+                rt_string *xn_t4373 = rt_retain(first->d);
+xn_root_add(xn_t4373);
+        xn_root_add(xn_t4373);
+                xn_root_add(xn_t4373);
+                xn_arr_s_push(xn_t4372, xn_t4373);
+                xn_arr_s * ks = xn_t4372;
 xn_root_add(ks);
         xn_root_add(ks);
                 xn_root_add(ks);
                 xn_root_add(ks);
                 xn_gc_safepoint();
-                #line 2034 "impl/lib/b2/xparser.x"
-                xn_arr_s *xn_t4285 = xn_arr_s_new(1);
-xn_root_add(xn_t4285);
-        xn_root_add(xn_t4285);
-                xn_root_add(xn_t4285);
-                rt_string *xn_t4286 = rt_retain(v->d);
-xn_root_add(xn_t4286);
-        xn_root_add(xn_t4286);
-                xn_root_add(xn_t4286);
-                xn_arr_s_push(xn_t4285, xn_t4286);
-                xn_arr_s * vs = xn_t4285;
+                #line 2091 "impl/lib/b2/xparser.x"
+                xn_arr_s *xn_t4374 = xn_arr_s_new(1);
+xn_root_add(xn_t4374);
+        xn_root_add(xn_t4374);
+                xn_root_add(xn_t4374);
+                rt_string *xn_t4375 = rt_retain(v->d);
+xn_root_add(xn_t4375);
+        xn_root_add(xn_t4375);
+                xn_root_add(xn_t4375);
+                xn_arr_s_push(xn_t4374, xn_t4375);
+                xn_arr_s * vs = xn_t4374;
 xn_root_add(vs);
         xn_root_add(vs);
                 xn_root_add(vs);
                 xn_root_add(vs);
                 xn_gc_safepoint();
-                #line 2035 "impl/lib/b2/xparser.x"
+                #line 2092 "impl/lib/b2/xparser.x"
                     while ((xn_Cls_Parser_at(self, 16))) {
-                    size_t xn_t4287 = xn_root_mark();
-                    #line 2036 "impl/lib/b2/xparser.x"
+                    size_t xn_t4376 = xn_root_mark();
+                    #line 2093 "impl/lib/b2/xparser.x"
                     xn_Cls_Parser_next(self);
-                    #line 2037 "impl/lib/b2/xparser.x"
-                    xn_Cls_E * xn_t4288 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4288);
-        xn_root_add(xn_t4288);
-                xn_root_add(xn_t4288);
-                    xn_root_add(xn_t4288);
-                    rt_string *xn_t4289 = rt_retain(xn_t4288->d);
-xn_root_add(xn_t4289);
-        xn_root_add(xn_t4289);
-                xn_root_add(xn_t4289);
-                    xn_root_add(xn_t4289);
-                    xn_arr_s_push(ks, xn_t4289);
-                    #line 2038 "impl/lib/b2/xparser.x"
-                    rt_string *xn_t4290 = rt_string_from_c(":");
-xn_root_add(xn_t4290);
-        xn_root_add(xn_t4290);
-                xn_root_add(xn_t4290);
-                    xn_root_add(xn_t4290);
-                        if ((xn_Cls_Parser_atOp(self, xn_t4290))) {
-                            size_t xn_t4291 = xn_root_mark();
-                            #line 2038 "impl/lib/b2/xparser.x"
+                    #line 2094 "impl/lib/b2/xparser.x"
+                    xn_Cls_E * xn_t4377 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4377);
+        xn_root_add(xn_t4377);
+                xn_root_add(xn_t4377);
+                    xn_root_add(xn_t4377);
+                    rt_string *xn_t4378 = rt_retain(xn_t4377->d);
+xn_root_add(xn_t4378);
+        xn_root_add(xn_t4378);
+                xn_root_add(xn_t4378);
+                    xn_root_add(xn_t4378);
+                    xn_arr_s_push(ks, xn_t4378);
+                    #line 2095 "impl/lib/b2/xparser.x"
+                    rt_string *xn_t4379 = rt_string_from_c(":");
+xn_root_add(xn_t4379);
+        xn_root_add(xn_t4379);
+                xn_root_add(xn_t4379);
+                    xn_root_add(xn_t4379);
+                        if ((xn_Cls_Parser_atOp(self, xn_t4379))) {
+                            size_t xn_t4380 = xn_root_mark();
+                            #line 2095 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
                                 {
-                                xn_root_restore(xn_t4291);
+                                xn_root_restore(xn_t4380);
                                 }
 
                         }
-                    #line 2039 "impl/lib/b2/xparser.x"
-                    xn_Cls_E * xn_t4292 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4292);
-        xn_root_add(xn_t4292);
-                xn_root_add(xn_t4292);
-                    xn_root_add(xn_t4292);
-                    rt_string *xn_t4293 = rt_retain(xn_t4292->d);
-xn_root_add(xn_t4293);
-        xn_root_add(xn_t4293);
-                xn_root_add(xn_t4293);
-                    xn_root_add(xn_t4293);
-                    xn_arr_s_push(vs, xn_t4293);
+                    #line 2096 "impl/lib/b2/xparser.x"
+                    xn_Cls_E * xn_t4381 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4381);
+        xn_root_add(xn_t4381);
+                xn_root_add(xn_t4381);
+                    xn_root_add(xn_t4381);
+                    rt_string *xn_t4382 = rt_retain(xn_t4381->d);
+xn_root_add(xn_t4382);
+        xn_root_add(xn_t4382);
+                xn_root_add(xn_t4382);
+                    xn_root_add(xn_t4382);
+                    xn_arr_s_push(vs, xn_t4382);
                         {
-                        xn_root_restore(xn_t4287);
+                        xn_root_restore(xn_t4376);
                         }
 
                     xn_gc_safepoint();
                     }
-                #line 2041 "impl/lib/b2/xparser.x"
+                #line 2098 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 15))) {
-                        size_t xn_t4294 = xn_root_mark();
-                        #line 2041 "impl/lib/b2/xparser.x"
+                        size_t xn_t4383 = xn_root_mark();
+                        #line 2098 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t4294);
+                            xn_root_restore(xn_t4383);
                             }
 
                     }
-                #line 2042 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4295 = rt_string_from_c("(MapLit ");
-xn_root_add(xn_t4295);
-        xn_root_add(xn_t4295);
-                xn_root_add(xn_t4295);
-                xn_root_add(xn_t4295);
-                rt_string *xn_t4296 = xn_P(t->line, t->col);
-xn_root_add(xn_t4296);
-        xn_root_add(xn_t4296);
-                xn_root_add(xn_t4296);
-                xn_root_add(xn_t4296);
-                rt_string *xn_t4297 = xn_concat(xn_t4295, xn_t4296);
-xn_root_add(xn_t4297);
-        xn_root_add(xn_t4297);
-                xn_root_add(xn_t4297);
-                xn_root_add(xn_t4297);
-                rt_string *xn_t4298 = rt_string_from_c(" (Keys ");
-xn_root_add(xn_t4298);
-        xn_root_add(xn_t4298);
-                xn_root_add(xn_t4298);
-                xn_root_add(xn_t4298);
-                rt_string *xn_t4299 = xn_concat(xn_t4297, xn_t4298);
-xn_root_add(xn_t4299);
-        xn_root_add(xn_t4299);
-                xn_root_add(xn_t4299);
-                xn_root_add(xn_t4299);
-                rt_string *xn_t4300 = xn_SL(ks);
-xn_root_add(xn_t4300);
-        xn_root_add(xn_t4300);
-                xn_root_add(xn_t4300);
-                xn_root_add(xn_t4300);
-                rt_string *xn_t4301 = xn_concat(xn_t4299, xn_t4300);
-xn_root_add(xn_t4301);
-        xn_root_add(xn_t4301);
-                xn_root_add(xn_t4301);
-                xn_root_add(xn_t4301);
-                rt_string *xn_t4302 = rt_string_from_c(") (Vals ");
-xn_root_add(xn_t4302);
-        xn_root_add(xn_t4302);
-                xn_root_add(xn_t4302);
-                xn_root_add(xn_t4302);
-                rt_string *xn_t4303 = xn_concat(xn_t4301, xn_t4302);
-xn_root_add(xn_t4303);
-        xn_root_add(xn_t4303);
-                xn_root_add(xn_t4303);
-                xn_root_add(xn_t4303);
-                rt_string *xn_t4304 = xn_SL(vs);
-xn_root_add(xn_t4304);
-        xn_root_add(xn_t4304);
-                xn_root_add(xn_t4304);
-                xn_root_add(xn_t4304);
-                rt_string *xn_t4305 = xn_concat(xn_t4303, xn_t4304);
-xn_root_add(xn_t4305);
-        xn_root_add(xn_t4305);
-                xn_root_add(xn_t4305);
-                xn_root_add(xn_t4305);
-                rt_string *xn_t4306 = rt_string_from_c("))");
-xn_root_add(xn_t4306);
-        xn_root_add(xn_t4306);
-                xn_root_add(xn_t4306);
-                xn_root_add(xn_t4306);
-                rt_string *xn_t4307 = xn_concat(xn_t4305, xn_t4306);
-xn_root_add(xn_t4307);
-        xn_root_add(xn_t4307);
-                xn_root_add(xn_t4307);
-                xn_root_add(xn_t4307);
+                #line 2099 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4384 = rt_string_from_c("(MapLit ");
+xn_root_add(xn_t4384);
+        xn_root_add(xn_t4384);
+                xn_root_add(xn_t4384);
+                xn_root_add(xn_t4384);
+                rt_string *xn_t4385 = xn_P(t->line, t->col);
+xn_root_add(xn_t4385);
+        xn_root_add(xn_t4385);
+                xn_root_add(xn_t4385);
+                xn_root_add(xn_t4385);
+                rt_string *xn_t4386 = xn_concat(xn_t4384, xn_t4385);
+xn_root_add(xn_t4386);
+        xn_root_add(xn_t4386);
+                xn_root_add(xn_t4386);
+                xn_root_add(xn_t4386);
+                rt_string *xn_t4387 = rt_string_from_c(" (Keys ");
+xn_root_add(xn_t4387);
+        xn_root_add(xn_t4387);
+                xn_root_add(xn_t4387);
+                xn_root_add(xn_t4387);
+                rt_string *xn_t4388 = xn_concat(xn_t4386, xn_t4387);
+xn_root_add(xn_t4388);
+        xn_root_add(xn_t4388);
+                xn_root_add(xn_t4388);
+                xn_root_add(xn_t4388);
+                rt_string *xn_t4389 = xn_SL(ks);
+xn_root_add(xn_t4389);
+        xn_root_add(xn_t4389);
+                xn_root_add(xn_t4389);
+                xn_root_add(xn_t4389);
+                rt_string *xn_t4390 = xn_concat(xn_t4388, xn_t4389);
+xn_root_add(xn_t4390);
+        xn_root_add(xn_t4390);
+                xn_root_add(xn_t4390);
+                xn_root_add(xn_t4390);
+                rt_string *xn_t4391 = rt_string_from_c(") (Vals ");
+xn_root_add(xn_t4391);
+        xn_root_add(xn_t4391);
+                xn_root_add(xn_t4391);
+                xn_root_add(xn_t4391);
+                rt_string *xn_t4392 = xn_concat(xn_t4390, xn_t4391);
+xn_root_add(xn_t4392);
+        xn_root_add(xn_t4392);
+                xn_root_add(xn_t4392);
+                xn_root_add(xn_t4392);
+                rt_string *xn_t4393 = xn_SL(vs);
+xn_root_add(xn_t4393);
+        xn_root_add(xn_t4393);
+                xn_root_add(xn_t4393);
+                xn_root_add(xn_t4393);
+                rt_string *xn_t4394 = xn_concat(xn_t4392, xn_t4393);
+xn_root_add(xn_t4394);
+        xn_root_add(xn_t4394);
+                xn_root_add(xn_t4394);
+                xn_root_add(xn_t4394);
+                rt_string *xn_t4395 = rt_string_from_c("))");
+xn_root_add(xn_t4395);
+        xn_root_add(xn_t4395);
+                xn_root_add(xn_t4395);
+                xn_root_add(xn_t4395);
+                rt_string *xn_t4396 = xn_concat(xn_t4394, xn_t4395);
+xn_root_add(xn_t4396);
+        xn_root_add(xn_t4396);
+                xn_root_add(xn_t4396);
+                xn_root_add(xn_t4396);
                     {
-                xn_root_restore(xn_t4282);
+                xn_root_restore(xn_t4371);
                     }
                     {
-                xn_root_restore(xn_t4274);
+                xn_root_restore(xn_t4355);
                     }
                     {
-                xn_root_restore(xn_t4061);
+                xn_root_restore(xn_t4138);
                     }
 
-                return xn_Cls_Parser_mk(self, xn_t4307, t->line, t->col);
+                return xn_Cls_Parser_mk(self, xn_t4396, t->line, t->col);
 
             }
-        #line 2044 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t4308 = xn_arr_s_new(1);
-xn_root_add(xn_t4308);
-        xn_root_add(xn_t4308);
-        rt_string *xn_t4309 = rt_retain(first->d);
-xn_root_add(xn_t4309);
-        xn_root_add(xn_t4309);
-        xn_arr_s_push(xn_t4308, xn_t4309);
-        xn_arr_s * es = xn_t4308;
+        #line 2101 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t4397 = xn_arr_s_new(1);
+xn_root_add(xn_t4397);
+        xn_root_add(xn_t4397);
+        rt_string *xn_t4398 = rt_retain(first->d);
+xn_root_add(xn_t4398);
+        xn_root_add(xn_t4398);
+        xn_arr_s_push(xn_t4397, xn_t4398);
+        xn_arr_s * es = xn_t4397;
 xn_root_add(es);
         xn_root_add(es);
         xn_root_add(es);
         xn_gc_safepoint();
-        #line 2045 "impl/lib/b2/xparser.x"
+        #line 2102 "impl/lib/b2/xparser.x"
             while ((xn_Cls_Parser_at(self, 16))) {
-            size_t xn_t4310 = xn_root_mark();
-            #line 2046 "impl/lib/b2/xparser.x"
+            size_t xn_t4399 = xn_root_mark();
+            #line 2103 "impl/lib/b2/xparser.x"
             xn_Cls_Parser_next(self);
-            #line 2047 "impl/lib/b2/xparser.x"
-            xn_Cls_E * xn_t4311 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4311);
-        xn_root_add(xn_t4311);
-            xn_root_add(xn_t4311);
-            rt_string *xn_t4312 = rt_retain(xn_t4311->d);
-xn_root_add(xn_t4312);
-        xn_root_add(xn_t4312);
-            xn_root_add(xn_t4312);
-            xn_arr_s_push(es, xn_t4312);
+            #line 2104 "impl/lib/b2/xparser.x"
+            xn_Cls_E * xn_t4400 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4400);
+        xn_root_add(xn_t4400);
+            xn_root_add(xn_t4400);
+            rt_string *xn_t4401 = rt_retain(xn_t4400->d);
+xn_root_add(xn_t4401);
+        xn_root_add(xn_t4401);
+            xn_root_add(xn_t4401);
+            xn_arr_s_push(es, xn_t4401);
                 {
-                xn_root_restore(xn_t4310);
+                xn_root_restore(xn_t4399);
                 }
 
             xn_gc_safepoint();
             }
-        #line 2049 "impl/lib/b2/xparser.x"
+        #line 2106 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 15))) {
-                size_t xn_t4313 = xn_root_mark();
-                #line 2049 "impl/lib/b2/xparser.x"
+                size_t xn_t4402 = xn_root_mark();
+                #line 2106 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
                     {
-                    xn_root_restore(xn_t4313);
+                    xn_root_restore(xn_t4402);
                     }
 
             }
-        #line 2050 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4314 = rt_string_from_c("(ArrayLit ");
-xn_root_add(xn_t4314);
-        xn_root_add(xn_t4314);
-        xn_root_add(xn_t4314);
-        rt_string *xn_t4315 = xn_P(t->line, t->col);
-xn_root_add(xn_t4315);
-        xn_root_add(xn_t4315);
-        xn_root_add(xn_t4315);
-        rt_string *xn_t4316 = xn_concat(xn_t4314, xn_t4315);
-xn_root_add(xn_t4316);
-        xn_root_add(xn_t4316);
-        xn_root_add(xn_t4316);
-        rt_string *xn_t4317 = rt_string_from_c(" (Elems ");
-xn_root_add(xn_t4317);
-        xn_root_add(xn_t4317);
-        xn_root_add(xn_t4317);
-        rt_string *xn_t4318 = xn_concat(xn_t4316, xn_t4317);
-xn_root_add(xn_t4318);
-        xn_root_add(xn_t4318);
-        xn_root_add(xn_t4318);
-        rt_string *xn_t4319 = xn_SL(es);
-xn_root_add(xn_t4319);
-        xn_root_add(xn_t4319);
-        xn_root_add(xn_t4319);
-        rt_string *xn_t4320 = xn_concat(xn_t4318, xn_t4319);
-xn_root_add(xn_t4320);
-        xn_root_add(xn_t4320);
-        xn_root_add(xn_t4320);
-        rt_string *xn_t4321 = rt_string_from_c("))");
-xn_root_add(xn_t4321);
-        xn_root_add(xn_t4321);
-        xn_root_add(xn_t4321);
-        rt_string *xn_t4322 = xn_concat(xn_t4320, xn_t4321);
-xn_root_add(xn_t4322);
-        xn_root_add(xn_t4322);
-        xn_root_add(xn_t4322);
+        #line 2107 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4403 = rt_string_from_c("(ArrayLit ");
+xn_root_add(xn_t4403);
+        xn_root_add(xn_t4403);
+        xn_root_add(xn_t4403);
+        rt_string *xn_t4404 = xn_P(t->line, t->col);
+xn_root_add(xn_t4404);
+        xn_root_add(xn_t4404);
+        xn_root_add(xn_t4404);
+        rt_string *xn_t4405 = xn_concat(xn_t4403, xn_t4404);
+xn_root_add(xn_t4405);
+        xn_root_add(xn_t4405);
+        xn_root_add(xn_t4405);
+        rt_string *xn_t4406 = rt_string_from_c(" (Elems ");
+xn_root_add(xn_t4406);
+        xn_root_add(xn_t4406);
+        xn_root_add(xn_t4406);
+        rt_string *xn_t4407 = xn_concat(xn_t4405, xn_t4406);
+xn_root_add(xn_t4407);
+        xn_root_add(xn_t4407);
+        xn_root_add(xn_t4407);
+        rt_string *xn_t4408 = xn_SL(es);
+xn_root_add(xn_t4408);
+        xn_root_add(xn_t4408);
+        xn_root_add(xn_t4408);
+        rt_string *xn_t4409 = xn_concat(xn_t4407, xn_t4408);
+xn_root_add(xn_t4409);
+        xn_root_add(xn_t4409);
+        xn_root_add(xn_t4409);
+        rt_string *xn_t4410 = rt_string_from_c("))");
+xn_root_add(xn_t4410);
+        xn_root_add(xn_t4410);
+        xn_root_add(xn_t4410);
+        rt_string *xn_t4411 = xn_concat(xn_t4409, xn_t4410);
+xn_root_add(xn_t4411);
+        xn_root_add(xn_t4411);
+        xn_root_add(xn_t4411);
             {
-        xn_root_restore(xn_t4274);
+        xn_root_restore(xn_t4355);
             }
             {
-        xn_root_restore(xn_t4061);
+        xn_root_restore(xn_t4138);
             }
 
-        return xn_Cls_Parser_mk(self, xn_t4322, t->line, t->col);
+        return xn_Cls_Parser_mk(self, xn_t4411, t->line, t->col);
 
     }
-#line 2052 "impl/lib/b2/xparser.x"
-rt_string *xn_t4323 = rt_retain(t->text);
-xn_root_add(xn_t4323);
-rt_string *xn_t4324 = rt_string_from_c("new");
-xn_root_add(xn_t4324);
-    if ((((t->kind == 3)) && (xn_str_eq(xn_t4323, xn_t4324)))) {
-        size_t xn_t4325 = xn_root_mark();
-        #line 2053 "impl/lib/b2/xparser.x"
+#line 2109 "impl/lib/b2/xparser.x"
+rt_string *xn_t4412 = rt_retain(t->text);
+xn_root_add(xn_t4412);
+rt_string *xn_t4413 = rt_string_from_c("new");
+xn_root_add(xn_t4413);
+    if ((((t->kind == 3)) && (xn_str_eq(xn_t4412, xn_t4413)))) {
+        size_t xn_t4414 = xn_root_mark();
+        #line 2110 "impl/lib/b2/xparser.x"
         xn_Cls_Parser_next(self);
-        #line 2054 "impl/lib/b2/xparser.x"
+        #line 2111 "impl/lib/b2/xparser.x"
+        self->inNew = (self->inNew + 1);
+        #line 2112 "impl/lib/b2/xparser.x"
         rt_string *ty = xn_Cls_Parser_parseType(self);
 xn_root_add(ty);
         xn_root_add(ty);
         xn_root_add(ty);
         xn_gc_safepoint();
-        #line 2055 "impl/lib/b2/xparser.x"
+        #line 2113 "impl/lib/b2/xparser.x"
+        self->inNew = (self->inNew - 1);
+        #line 2114 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 14))) {
-                size_t xn_t4327 = xn_root_mark();
-                #line 2056 "impl/lib/b2/xparser.x"
+                size_t xn_t4416 = xn_root_mark();
+                #line 2115 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 2057 "impl/lib/b2/xparser.x"
+                #line 2116 "impl/lib/b2/xparser.x"
                 xn_Cls_E * cnt = xn_Cls_Parser_parseExpr(self);
 xn_root_add(cnt);
         xn_root_add(cnt);
                 xn_root_add(cnt);
                 xn_root_add(cnt);
                 xn_gc_safepoint();
-                #line 2058 "impl/lib/b2/xparser.x"
+                #line 2117 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 15))) {
-                        size_t xn_t4328 = xn_root_mark();
-                        #line 2058 "impl/lib/b2/xparser.x"
+                        size_t xn_t4417 = xn_root_mark();
+                        #line 2117 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t4328);
+                            xn_root_restore(xn_t4417);
                             }
 
                     }
-                #line 2059 "impl/lib/b2/xparser.x"
-                rt_string *xn_t4329 = rt_string_from_c("(NewArray ");
-xn_root_add(xn_t4329);
-        xn_root_add(xn_t4329);
-                xn_root_add(xn_t4329);
-                xn_root_add(xn_t4329);
-                rt_string *xn_t4330 = xn_P(t->line, t->col);
-xn_root_add(xn_t4330);
-        xn_root_add(xn_t4330);
-                xn_root_add(xn_t4330);
-                xn_root_add(xn_t4330);
-                rt_string *xn_t4331 = xn_concat(xn_t4329, xn_t4330);
-xn_root_add(xn_t4331);
-        xn_root_add(xn_t4331);
-                xn_root_add(xn_t4331);
-                xn_root_add(xn_t4331);
-                rt_string *xn_t4332 = rt_string_from_c(" (Type ");
-xn_root_add(xn_t4332);
-        xn_root_add(xn_t4332);
-                xn_root_add(xn_t4332);
-                xn_root_add(xn_t4332);
-                rt_string *xn_t4333 = xn_concat(xn_t4331, xn_t4332);
-xn_root_add(xn_t4333);
-        xn_root_add(xn_t4333);
-                xn_root_add(xn_t4333);
-                xn_root_add(xn_t4333);
-                rt_string *xn_t4334 = rt_retain(ty);
-xn_root_add(xn_t4334);
-        xn_root_add(xn_t4334);
-                xn_root_add(xn_t4334);
-                xn_root_add(xn_t4334);
-                rt_string *xn_t4335 = xn_concat(xn_t4333, xn_t4334);
-xn_root_add(xn_t4335);
-        xn_root_add(xn_t4335);
-                xn_root_add(xn_t4335);
-                xn_root_add(xn_t4335);
-                rt_string *xn_t4336 = rt_string_from_c(") (Count ");
-xn_root_add(xn_t4336);
-        xn_root_add(xn_t4336);
-                xn_root_add(xn_t4336);
-                xn_root_add(xn_t4336);
-                rt_string *xn_t4337 = xn_concat(xn_t4335, xn_t4336);
-xn_root_add(xn_t4337);
-        xn_root_add(xn_t4337);
-                xn_root_add(xn_t4337);
-                xn_root_add(xn_t4337);
-                rt_string *xn_t4338 = rt_retain(cnt->d);
-xn_root_add(xn_t4338);
-        xn_root_add(xn_t4338);
-                xn_root_add(xn_t4338);
-                xn_root_add(xn_t4338);
-                rt_string *xn_t4339 = xn_concat(xn_t4337, xn_t4338);
-xn_root_add(xn_t4339);
-        xn_root_add(xn_t4339);
-                xn_root_add(xn_t4339);
-                xn_root_add(xn_t4339);
-                rt_string *xn_t4340 = rt_string_from_c("))");
-xn_root_add(xn_t4340);
-        xn_root_add(xn_t4340);
-                xn_root_add(xn_t4340);
-                xn_root_add(xn_t4340);
-                rt_string *xn_t4341 = xn_concat(xn_t4339, xn_t4340);
-xn_root_add(xn_t4341);
-        xn_root_add(xn_t4341);
-                xn_root_add(xn_t4341);
-                xn_root_add(xn_t4341);
+                #line 2118 "impl/lib/b2/xparser.x"
+                rt_string *xn_t4418 = rt_string_from_c("(NewArray ");
+xn_root_add(xn_t4418);
+        xn_root_add(xn_t4418);
+                xn_root_add(xn_t4418);
+                xn_root_add(xn_t4418);
+                rt_string *xn_t4419 = xn_P(t->line, t->col);
+xn_root_add(xn_t4419);
+        xn_root_add(xn_t4419);
+                xn_root_add(xn_t4419);
+                xn_root_add(xn_t4419);
+                rt_string *xn_t4420 = xn_concat(xn_t4418, xn_t4419);
+xn_root_add(xn_t4420);
+        xn_root_add(xn_t4420);
+                xn_root_add(xn_t4420);
+                xn_root_add(xn_t4420);
+                rt_string *xn_t4421 = rt_string_from_c(" (Type ");
+xn_root_add(xn_t4421);
+        xn_root_add(xn_t4421);
+                xn_root_add(xn_t4421);
+                xn_root_add(xn_t4421);
+                rt_string *xn_t4422 = xn_concat(xn_t4420, xn_t4421);
+xn_root_add(xn_t4422);
+        xn_root_add(xn_t4422);
+                xn_root_add(xn_t4422);
+                xn_root_add(xn_t4422);
+                rt_string *xn_t4423 = rt_retain(ty);
+xn_root_add(xn_t4423);
+        xn_root_add(xn_t4423);
+                xn_root_add(xn_t4423);
+                xn_root_add(xn_t4423);
+                rt_string *xn_t4424 = xn_concat(xn_t4422, xn_t4423);
+xn_root_add(xn_t4424);
+        xn_root_add(xn_t4424);
+                xn_root_add(xn_t4424);
+                xn_root_add(xn_t4424);
+                rt_string *xn_t4425 = rt_string_from_c(") (Count ");
+xn_root_add(xn_t4425);
+        xn_root_add(xn_t4425);
+                xn_root_add(xn_t4425);
+                xn_root_add(xn_t4425);
+                rt_string *xn_t4426 = xn_concat(xn_t4424, xn_t4425);
+xn_root_add(xn_t4426);
+        xn_root_add(xn_t4426);
+                xn_root_add(xn_t4426);
+                xn_root_add(xn_t4426);
+                rt_string *xn_t4427 = rt_retain(cnt->d);
+xn_root_add(xn_t4427);
+        xn_root_add(xn_t4427);
+                xn_root_add(xn_t4427);
+                xn_root_add(xn_t4427);
+                rt_string *xn_t4428 = xn_concat(xn_t4426, xn_t4427);
+xn_root_add(xn_t4428);
+        xn_root_add(xn_t4428);
+                xn_root_add(xn_t4428);
+                xn_root_add(xn_t4428);
+                rt_string *xn_t4429 = rt_string_from_c("))");
+xn_root_add(xn_t4429);
+        xn_root_add(xn_t4429);
+                xn_root_add(xn_t4429);
+                xn_root_add(xn_t4429);
+                rt_string *xn_t4430 = xn_concat(xn_t4428, xn_t4429);
+xn_root_add(xn_t4430);
+        xn_root_add(xn_t4430);
+                xn_root_add(xn_t4430);
+                xn_root_add(xn_t4430);
                     {
-                xn_root_restore(xn_t4327);
+                xn_root_restore(xn_t4416);
                     }
                     {
                 rt_release(ty);
                     }
                     {
-                xn_root_restore(xn_t4325);
+                xn_root_restore(xn_t4414);
                     }
                     {
-                xn_root_restore(xn_t4061);
+                xn_root_restore(xn_t4138);
                     }
 
-                return xn_Cls_Parser_mk(self, xn_t4341, t->line, t->col);
+                return xn_Cls_Parser_mk(self, xn_t4430, t->line, t->col);
 
             }
-        #line 2061 "impl/lib/b2/xparser.x"
-        xn_arr_s *xn_t4342 = xn_arr_s_new(0);
-xn_root_add(xn_t4342);
-        xn_root_add(xn_t4342);
-        xn_arr_s * tas = xn_t4342;
+        #line 2120 "impl/lib/b2/xparser.x"
+        xn_arr_s *xn_t4431 = xn_arr_s_new(0);
+xn_root_add(xn_t4431);
+        xn_root_add(xn_t4431);
+        xn_arr_s * tas = xn_t4431;
 xn_root_add(tas);
         xn_root_add(tas);
         xn_root_add(tas);
         xn_gc_safepoint();
-        #line 2062 "impl/lib/b2/xparser.x"
+        #line 2121 "impl/lib/b2/xparser.x"
             if ((xn_Cls_Parser_at(self, 10))) {
-                size_t xn_t4343 = xn_root_mark();
-                #line 2063 "impl/lib/b2/xparser.x"
+                size_t xn_t4432 = xn_root_mark();
+                #line 2122 "impl/lib/b2/xparser.x"
                 xn_Cls_Parser_next(self);
-                #line 2064 "impl/lib/b2/xparser.x"
+                #line 2123 "impl/lib/b2/xparser.x"
                     while ((((!(xn_Cls_Parser_at(self, 11)))) && ((!(xn_Cls_Parser_eof(self)))))) {
-                    size_t xn_t4344 = xn_root_mark();
-                    #line 2065 "impl/lib/b2/xparser.x"
+                    size_t xn_t4433 = xn_root_mark();
+                    #line 2124 "impl/lib/b2/xparser.x"
                         if ((xn_Cls_Parser_at(self, 16))) {
-                            size_t xn_t4345 = xn_root_mark();
-                            #line 2065 "impl/lib/b2/xparser.x"
+                            size_t xn_t4434 = xn_root_mark();
+                            #line 2124 "impl/lib/b2/xparser.x"
                             xn_Cls_Parser_next(self);
-                            #line 2065 "impl/lib/b2/xparser.x"
-                            xn_root_restore(xn_t4345);
-                            xn_root_restore(xn_t4344);
+                            #line 2124 "impl/lib/b2/xparser.x"
+                            xn_root_restore(xn_t4434);
+                            xn_root_restore(xn_t4433);
                             continue;
                                 {
-                                xn_root_restore(xn_t4345);
+                                xn_root_restore(xn_t4434);
                                 }
 
                         }
-                    #line 2066 "impl/lib/b2/xparser.x"
-                    xn_Cls_E * xn_t4346 = xn_Cls_Parser_parseExpr(self);
-xn_root_add(xn_t4346);
-        xn_root_add(xn_t4346);
-                xn_root_add(xn_t4346);
-                    xn_root_add(xn_t4346);
-                    rt_string *xn_t4347 = rt_retain(xn_t4346->d);
-xn_root_add(xn_t4347);
-        xn_root_add(xn_t4347);
-                xn_root_add(xn_t4347);
-                    xn_root_add(xn_t4347);
-                    xn_arr_s_push(tas, xn_t4347);
+                    #line 2125 "impl/lib/b2/xparser.x"
+                    xn_Cls_E * xn_t4435 = xn_Cls_Parser_parseExpr(self);
+xn_root_add(xn_t4435);
+        xn_root_add(xn_t4435);
+                xn_root_add(xn_t4435);
+                    xn_root_add(xn_t4435);
+                    rt_string *xn_t4436 = rt_retain(xn_t4435->d);
+xn_root_add(xn_t4436);
+        xn_root_add(xn_t4436);
+                xn_root_add(xn_t4436);
+                    xn_root_add(xn_t4436);
+                    xn_arr_s_push(tas, xn_t4436);
                         {
-                        xn_root_restore(xn_t4344);
+                        xn_root_restore(xn_t4433);
                         }
 
                     xn_gc_safepoint();
                     }
-                #line 2068 "impl/lib/b2/xparser.x"
+                #line 2127 "impl/lib/b2/xparser.x"
                     if ((xn_Cls_Parser_at(self, 11))) {
-                        size_t xn_t4348 = xn_root_mark();
-                        #line 2068 "impl/lib/b2/xparser.x"
+                        size_t xn_t4437 = xn_root_mark();
+                        #line 2127 "impl/lib/b2/xparser.x"
                         xn_Cls_Parser_next(self);
                             {
-                            xn_root_restore(xn_t4348);
+                            xn_root_restore(xn_t4437);
                             }
 
                     }
                     {
-                    xn_root_restore(xn_t4343);
+                    xn_root_restore(xn_t4432);
                     }
 
             }
-        #line 2070 "impl/lib/b2/xparser.x"
-        rt_string *xn_t4349 = rt_string_from_c("(New ");
-xn_root_add(xn_t4349);
-        xn_root_add(xn_t4349);
-        xn_root_add(xn_t4349);
-        rt_string *xn_t4350 = xn_P(t->line, t->col);
-xn_root_add(xn_t4350);
-        xn_root_add(xn_t4350);
-        xn_root_add(xn_t4350);
-        rt_string *xn_t4351 = xn_concat(xn_t4349, xn_t4350);
-xn_root_add(xn_t4351);
-        xn_root_add(xn_t4351);
-        xn_root_add(xn_t4351);
-        rt_string *xn_t4352 = rt_string_from_c(" (Type ");
-xn_root_add(xn_t4352);
-        xn_root_add(xn_t4352);
-        xn_root_add(xn_t4352);
-        rt_string *xn_t4353 = xn_concat(xn_t4351, xn_t4352);
-xn_root_add(xn_t4353);
-        xn_root_add(xn_t4353);
-        xn_root_add(xn_t4353);
-        rt_string *xn_t4354 = rt_retain(ty);
-xn_root_add(xn_t4354);
-        xn_root_add(xn_t4354);
-        xn_root_add(xn_t4354);
-        rt_string *xn_t4355 = xn_concat(xn_t4353, xn_t4354);
-xn_root_add(xn_t4355);
-        xn_root_add(xn_t4355);
-        xn_root_add(xn_t4355);
-        rt_string *xn_t4356 = rt_string_from_c(") (Args ");
-xn_root_add(xn_t4356);
-        xn_root_add(xn_t4356);
-        xn_root_add(xn_t4356);
-        rt_string *xn_t4357 = xn_concat(xn_t4355, xn_t4356);
-xn_root_add(xn_t4357);
-        xn_root_add(xn_t4357);
-        xn_root_add(xn_t4357);
-        rt_string *xn_t4358 = xn_SL(tas);
-xn_root_add(xn_t4358);
-        xn_root_add(xn_t4358);
-        xn_root_add(xn_t4358);
-        rt_string *xn_t4359 = xn_concat(xn_t4357, xn_t4358);
-xn_root_add(xn_t4359);
-        xn_root_add(xn_t4359);
-        xn_root_add(xn_t4359);
-        rt_string *xn_t4360 = rt_string_from_c("))");
-xn_root_add(xn_t4360);
-        xn_root_add(xn_t4360);
-        xn_root_add(xn_t4360);
-        rt_string *xn_t4361 = xn_concat(xn_t4359, xn_t4360);
-xn_root_add(xn_t4361);
-        xn_root_add(xn_t4361);
-        xn_root_add(xn_t4361);
+        #line 2129 "impl/lib/b2/xparser.x"
+        rt_string *xn_t4438 = rt_string_from_c("(New ");
+xn_root_add(xn_t4438);
+        xn_root_add(xn_t4438);
+        xn_root_add(xn_t4438);
+        rt_string *xn_t4439 = xn_P(t->line, t->col);
+xn_root_add(xn_t4439);
+        xn_root_add(xn_t4439);
+        xn_root_add(xn_t4439);
+        rt_string *xn_t4440 = xn_concat(xn_t4438, xn_t4439);
+xn_root_add(xn_t4440);
+        xn_root_add(xn_t4440);
+        xn_root_add(xn_t4440);
+        rt_string *xn_t4441 = rt_string_from_c(" (Type ");
+xn_root_add(xn_t4441);
+        xn_root_add(xn_t4441);
+        xn_root_add(xn_t4441);
+        rt_string *xn_t4442 = xn_concat(xn_t4440, xn_t4441);
+xn_root_add(xn_t4442);
+        xn_root_add(xn_t4442);
+        xn_root_add(xn_t4442);
+        rt_string *xn_t4443 = rt_retain(ty);
+xn_root_add(xn_t4443);
+        xn_root_add(xn_t4443);
+        xn_root_add(xn_t4443);
+        rt_string *xn_t4444 = xn_concat(xn_t4442, xn_t4443);
+xn_root_add(xn_t4444);
+        xn_root_add(xn_t4444);
+        xn_root_add(xn_t4444);
+        rt_string *xn_t4445 = rt_string_from_c(") (Args ");
+xn_root_add(xn_t4445);
+        xn_root_add(xn_t4445);
+        xn_root_add(xn_t4445);
+        rt_string *xn_t4446 = xn_concat(xn_t4444, xn_t4445);
+xn_root_add(xn_t4446);
+        xn_root_add(xn_t4446);
+        xn_root_add(xn_t4446);
+        rt_string *xn_t4447 = xn_SL(tas);
+xn_root_add(xn_t4447);
+        xn_root_add(xn_t4447);
+        xn_root_add(xn_t4447);
+        rt_string *xn_t4448 = xn_concat(xn_t4446, xn_t4447);
+xn_root_add(xn_t4448);
+        xn_root_add(xn_t4448);
+        xn_root_add(xn_t4448);
+        rt_string *xn_t4449 = rt_string_from_c("))");
+xn_root_add(xn_t4449);
+        xn_root_add(xn_t4449);
+        xn_root_add(xn_t4449);
+        rt_string *xn_t4450 = xn_concat(xn_t4448, xn_t4449);
+xn_root_add(xn_t4450);
+        xn_root_add(xn_t4450);
+        xn_root_add(xn_t4450);
             {
         rt_release(ty);
             }
             {
-        xn_root_restore(xn_t4325);
+        xn_root_restore(xn_t4414);
             }
             {
-        xn_root_restore(xn_t4061);
+        xn_root_restore(xn_t4138);
             }
 
-        return xn_Cls_Parser_mk(self, xn_t4361, t->line, t->col);
+        return xn_Cls_Parser_mk(self, xn_t4450, t->line, t->col);
 
     }
-#line 2072 "impl/lib/b2/xparser.x"
+#line 2131 "impl/lib/b2/xparser.x"
 xn_Cls_Parser_next(self);
-#line 2073 "impl/lib/b2/xparser.x"
-rt_string *xn_t4362 = rt_string_from_c("(IdentExpr ");
-xn_root_add(xn_t4362);
-xn_root_add(xn_t4362);
-rt_string *xn_t4363 = xn_P(t->line, t->col);
-xn_root_add(xn_t4363);
-xn_root_add(xn_t4363);
-rt_string *xn_t4364 = xn_concat(xn_t4362, xn_t4363);
-xn_root_add(xn_t4364);
-xn_root_add(xn_t4364);
-rt_string *xn_t4365 = rt_string_from_c(" (Name ");
-xn_root_add(xn_t4365);
-xn_root_add(xn_t4365);
-rt_string *xn_t4366 = xn_concat(xn_t4364, xn_t4365);
-xn_root_add(xn_t4366);
-xn_root_add(xn_t4366);
-rt_string *xn_t4367 = rt_retain(t->text);
-xn_root_add(xn_t4367);
-xn_root_add(xn_t4367);
-rt_string *xn_t4368 = xn_q(xn_t4367);
-xn_root_add(xn_t4368);
-xn_root_add(xn_t4368);
-rt_string *xn_t4369 = xn_concat(xn_t4366, xn_t4368);
-xn_root_add(xn_t4369);
-xn_root_add(xn_t4369);
-rt_string *xn_t4370 = rt_string_from_c("))");
-xn_root_add(xn_t4370);
-xn_root_add(xn_t4370);
-rt_string *xn_t4371 = xn_concat(xn_t4369, xn_t4370);
-xn_root_add(xn_t4371);
-xn_root_add(xn_t4371);
+#line 2132 "impl/lib/b2/xparser.x"
+rt_string *xn_t4451 = rt_string_from_c("(IdentExpr ");
+xn_root_add(xn_t4451);
+xn_root_add(xn_t4451);
+rt_string *xn_t4452 = xn_P(t->line, t->col);
+xn_root_add(xn_t4452);
+xn_root_add(xn_t4452);
+rt_string *xn_t4453 = xn_concat(xn_t4451, xn_t4452);
+xn_root_add(xn_t4453);
+xn_root_add(xn_t4453);
+rt_string *xn_t4454 = rt_string_from_c(" (Name ");
+xn_root_add(xn_t4454);
+xn_root_add(xn_t4454);
+rt_string *xn_t4455 = xn_concat(xn_t4453, xn_t4454);
+xn_root_add(xn_t4455);
+xn_root_add(xn_t4455);
+rt_string *xn_t4456 = rt_retain(t->text);
+xn_root_add(xn_t4456);
+xn_root_add(xn_t4456);
+rt_string *xn_t4457 = xn_q(xn_t4456);
+xn_root_add(xn_t4457);
+xn_root_add(xn_t4457);
+rt_string *xn_t4458 = xn_concat(xn_t4455, xn_t4457);
+xn_root_add(xn_t4458);
+xn_root_add(xn_t4458);
+rt_string *xn_t4459 = rt_string_from_c("))");
+xn_root_add(xn_t4459);
+xn_root_add(xn_t4459);
+rt_string *xn_t4460 = xn_concat(xn_t4458, xn_t4459);
+xn_root_add(xn_t4460);
+xn_root_add(xn_t4460);
     {
-xn_root_restore(xn_t4061);
+xn_root_restore(xn_t4138);
     }
 
-return xn_Cls_Parser_mk(self, xn_t4371, t->line, t->col);
+return xn_Cls_Parser_mk(self, xn_t4460, t->line, t->col);
     return (xn_Cls_E *)0; /* sema 保证不可达（函数体全路径 return） */
 }
 
@@ -26875,16 +27449,16 @@ return xn_t195;
 int64_t xn_main(xn_arr_s * xn_p_args) {
 size_t xn_t196 = xn_root_mark();
 xn_root_add(xn_p_args);
-#line 2083 "impl/lib/b2/xparser.x"
+#line 2142 "impl/lib/b2/xparser.x"
     if (((((int64_t)xn_p_args->len) == 0))) {
         size_t xn_t197 = xn_root_mark();
-        #line 2084 "impl/lib/b2/xparser.x"
+        #line 2143 "impl/lib/b2/xparser.x"
         rt_string *xn_t198 = rt_string_from_c("xparser: 需要源码字符串或 --file <path>");
 xn_root_add(xn_t198);
         xn_root_add(xn_t198);
         xn_print_str(xn_t198);
         rt_release(xn_t198);
-        #line 2085 "impl/lib/b2/xparser.x"
+        #line 2144 "impl/lib/b2/xparser.x"
         int64_t xn_t199 = 2;
             {
         xn_root_restore(xn_t197);
@@ -26896,25 +27470,25 @@ xn_root_add(xn_t198);
         return xn_t199;
 
     }
-#line 2087 "impl/lib/b2/xparser.x"
+#line 2146 "impl/lib/b2/xparser.x"
 int diagMode = 0;
-#line 2088 "impl/lib/b2/xparser.x"
+#line 2147 "impl/lib/b2/xparser.x"
 int64_t ai = 0;
-#line 2089 "impl/lib/b2/xparser.x"
+#line 2148 "impl/lib/b2/xparser.x"
 rt_string *xn_t200 = rt_retain(xn_arr_s_get(xn_p_args, ai));
 xn_root_add(xn_t200);
 rt_string *xn_t201 = rt_string_from_c("--diags");
 xn_root_add(xn_t201);
     if ((xn_str_eq(xn_t200, xn_t201))) {
         size_t xn_t202 = xn_root_mark();
-        #line 2090 "impl/lib/b2/xparser.x"
+        #line 2149 "impl/lib/b2/xparser.x"
         diagMode = 1;
-        #line 2091 "impl/lib/b2/xparser.x"
+        #line 2150 "impl/lib/b2/xparser.x"
         ai = (ai + 1);
-        #line 2092 "impl/lib/b2/xparser.x"
+        #line 2151 "impl/lib/b2/xparser.x"
             if (((ai >= ((int64_t)xn_p_args->len)))) {
                 size_t xn_t203 = xn_root_mark();
-                #line 2092 "impl/lib/b2/xparser.x"
+                #line 2151 "impl/lib/b2/xparser.x"
                 int64_t xn_t204 = 2;
                     {
                 xn_root_restore(xn_t203);
@@ -26934,22 +27508,22 @@ xn_root_add(xn_t201);
             }
 
     }
-#line 2094 "impl/lib/b2/xparser.x"
+#line 2153 "impl/lib/b2/xparser.x"
 rt_string *src = rt_string_from_c("");
 xn_root_add(src);
 xn_root_add(src);
 xn_gc_safepoint();
-#line 2095 "impl/lib/b2/xparser.x"
+#line 2154 "impl/lib/b2/xparser.x"
 rt_string *xn_t206 = rt_retain(xn_arr_s_get(xn_p_args, ai));
 xn_root_add(xn_t206);
 rt_string *xn_t207 = rt_string_from_c("--file");
 xn_root_add(xn_t207);
     if ((xn_str_eq(xn_t206, xn_t207))) {
         size_t xn_t208 = xn_root_mark();
-        #line 2096 "impl/lib/b2/xparser.x"
+        #line 2155 "impl/lib/b2/xparser.x"
             if ((((ai + 1) >= ((int64_t)xn_p_args->len)))) {
                 size_t xn_t209 = xn_root_mark();
-                #line 2096 "impl/lib/b2/xparser.x"
+                #line 2155 "impl/lib/b2/xparser.x"
                 int64_t xn_t210 = 2;
                     {
                 xn_root_restore(xn_t209);
@@ -26967,13 +27541,13 @@ xn_root_add(xn_t207);
                 return xn_t210;
 
             }
-        #line 2098 "impl/lib/b2/xparser.x"
+        #line 2157 "impl/lib/b2/xparser.x"
         rt_string *path = rt_retain(xn_arr_s_get(xn_p_args, (ai + 1)));
 xn_root_add(path);
         xn_root_add(path);
         xn_root_add(path);
         xn_gc_safepoint();
-        #line 2099 "impl/lib/b2/xparser.x"
+        #line 2158 "impl/lib/b2/xparser.x"
         rt_string *xn_t212 = rt_retain(path);
 xn_root_add(xn_t212);
         xn_root_add(xn_t212);
@@ -26994,7 +27568,7 @@ xn_root_add(xn_t213);
 
     } else {
         size_t xn_t214 = xn_root_mark();
-        #line 2101 "impl/lib/b2/xparser.x"
+        #line 2160 "impl/lib/b2/xparser.x"
         rt_string *xn_t215 = rt_retain(xn_arr_s_get(xn_p_args, ai));
 xn_root_add(xn_t215);
         xn_root_add(xn_t215);
@@ -27008,37 +27582,37 @@ xn_root_add(xn_t215);
             }
 
     }
-#line 2103 "impl/lib/b2/xparser.x"
+#line 2162 "impl/lib/b2/xparser.x"
 rt_string *xn_t216 = rt_retain(src);
 xn_root_add(xn_t216);
 xn_Cls_Lexer * l = xn_Cls_Lexer_new(xn_t216);
 xn_root_add(l);
 xn_root_add(l);
 xn_gc_safepoint();
-#line 2104 "impl/lib/b2/xparser.x"
+#line 2163 "impl/lib/b2/xparser.x"
 xn_arr_o_Tok *xn_t217 = xn_arr_o_Tok_new(0);
 xn_root_add(xn_t217);
 xn_arr_o_Tok * ts = xn_t217;
 xn_root_add(ts);
 xn_root_add(ts);
 xn_gc_safepoint();
-#line 2105 "impl/lib/b2/xparser.x"
+#line 2164 "impl/lib/b2/xparser.x"
 int go = 1;
-#line 2106 "impl/lib/b2/xparser.x"
+#line 2165 "impl/lib/b2/xparser.x"
     while ((go)) {
     size_t xn_t218 = xn_root_mark();
-    #line 2107 "impl/lib/b2/xparser.x"
+    #line 2166 "impl/lib/b2/xparser.x"
     xn_Cls_Tok * t = xn_Cls_Lexer_next(l);
 xn_root_add(t);
     xn_root_add(t);
     xn_root_add(t);
     xn_gc_safepoint();
-    #line 2108 "impl/lib/b2/xparser.x"
+    #line 2167 "impl/lib/b2/xparser.x"
     xn_arr_o_Tok_push(ts, t);
-    #line 2109 "impl/lib/b2/xparser.x"
+    #line 2168 "impl/lib/b2/xparser.x"
         if (((t->kind == 0))) {
             size_t xn_t219 = xn_root_mark();
-            #line 2109 "impl/lib/b2/xparser.x"
+            #line 2168 "impl/lib/b2/xparser.x"
             go = 0;
                 {
                 xn_root_restore(xn_t219);
@@ -27051,38 +27625,38 @@ xn_root_add(t);
 
     xn_gc_safepoint();
     }
-#line 2111 "impl/lib/b2/xparser.x"
+#line 2170 "impl/lib/b2/xparser.x"
 xn_Cls_Parser * p = xn_Cls_Parser_new(ts);
 xn_root_add(p);
 xn_root_add(p);
 xn_gc_safepoint();
-#line 2112 "impl/lib/b2/xparser.x"
+#line 2171 "impl/lib/b2/xparser.x"
 rt_string *res = xn_Cls_Parser_parseUnit(p);
 xn_root_add(res);
 xn_root_add(res);
 xn_gc_safepoint();
-#line 2113 "impl/lib/b2/xparser.x"
+#line 2172 "impl/lib/b2/xparser.x"
     if ((diagMode)) {
         size_t xn_t221 = xn_root_mark();
-        #line 2114 "impl/lib/b2/xparser.x"
+        #line 2173 "impl/lib/b2/xparser.x"
         rt_string *xn_t222 = rt_string_from_c("xnast-diags-simple v1");
 xn_root_add(xn_t222);
         xn_root_add(xn_t222);
         xn_print_str(xn_t222);
         rt_release(xn_t222);
-        #line 2115 "impl/lib/b2/xparser.x"
+        #line 2174 "impl/lib/b2/xparser.x"
         int64_t i = 0;
-        #line 2116 "impl/lib/b2/xparser.x"
+        #line 2175 "impl/lib/b2/xparser.x"
             while (((i < ((int64_t)p->diags->len)))) {
             size_t xn_t223 = xn_root_mark();
-            #line 2117 "impl/lib/b2/xparser.x"
+            #line 2176 "impl/lib/b2/xparser.x"
             xn_Cls_Diag * d = xn_arr_o_Diag_get(p->diags, i);
 xn_root_add(d);
         xn_root_add(d);
             xn_root_add(d);
             xn_root_add(d);
             xn_gc_safepoint();
-            #line 2118 "impl/lib/b2/xparser.x"
+            #line 2177 "impl/lib/b2/xparser.x"
             rt_string *xn_t224 = rt_retain(d->code);
 xn_root_add(xn_t224);
         xn_root_add(xn_t224);
@@ -27121,7 +27695,7 @@ xn_root_add(xn_t232);
             xn_root_add(xn_t232);
             xn_print_str(xn_t232);
             rt_release(xn_t232);
-            #line 2119 "impl/lib/b2/xparser.x"
+            #line 2178 "impl/lib/b2/xparser.x"
             i = (i + 1);
                 {
                 xn_root_restore(xn_t223);
@@ -27129,7 +27703,7 @@ xn_root_add(xn_t232);
 
             xn_gc_safepoint();
             }
-        #line 2121 "impl/lib/b2/xparser.x"
+        #line 2180 "impl/lib/b2/xparser.x"
         int64_t xn_t233 = 0;
             {
         xn_root_restore(xn_t221);
@@ -27147,12 +27721,12 @@ xn_root_add(xn_t232);
         return xn_t233;
 
     }
-#line 2123 "impl/lib/b2/xparser.x"
+#line 2182 "impl/lib/b2/xparser.x"
 rt_string *xn_t234 = rt_retain(res);
 xn_root_add(xn_t234);
 xn_print_str(xn_t234);
 rt_release(xn_t234);
-#line 2124 "impl/lib/b2/xparser.x"
+#line 2183 "impl/lib/b2/xparser.x"
 int64_t xn_t235 = 0;
     {
 rt_release(res);
