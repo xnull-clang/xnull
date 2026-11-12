@@ -4,7 +4,7 @@
 # 产物（bootstrap/bin/，不入库）：
 #   xn-s4    —— 原生 xnullc（B4c-03 工件：当前 xnullc.x + 2 处 C 级修复，
 #               sha256 27ae5245…，115,751 行；不是自举固定点，E4 债务）
-#   xparser  —— 原生 xparser（B4c-03 由原生 xn-s4 重新生成，sha256 8de76400…）
+#   xparser  —— 原生 xparser（B4c-03 由原生 xn-s4 重新生成，sha256 391ec846…）
 #
 # 用法：bootstrap/build.sh            # 幂等重建
 # 环境：CC（默认 cc）、XNULL_RUNTIME（默认 <repo>/impl/runtime）

@@ -1272,6 +1272,9 @@ class Parser {
         if self.at(2) { Tok nt = self.next(); name = nt.text; nl = nt.line; nc = nt.col }
         List<String> tps = []
         if self.atOp("<") {
+            if kw == "protocol" {
+                self.err("SYN-101", self.cur().line, self.cur().col, "协议不支持类型参数")
+            }
             self.next()
             while !self.atOp(">") && !self.eof() {
                 if self.at(2) { tps.push(self.next().text) } else { self.next() }
@@ -1290,6 +1293,9 @@ class Parser {
         if self.atOp(":") { self.next(); base = self.parseType() }
         List<String> protos = []
         if self.atKw("implements") {
+            if kw == "enum" {
+                self.err("SYN-101", self.cur().line, self.cur().col, "enum 不支持 implements")
+            }
             self.next()
             while self.at(2) { protos.push(self.parseType()); if self.at(16) { self.next() } else { break } }
         }
@@ -1308,8 +1314,16 @@ class Parser {
                 if self.at(2) && self.cur().text == "void" { vd = true; self.next() } else { rt = self.parseType() }
                 String mn = ""
                 if self.at(2) { mn = self.next().text }
+                Bool hadParen = self.at(10)
                 List<String> ps = self.parseParams()
+                if !hadParen {
+                    self.err("SYN-101", self.cur().line, self.cur().col, "协议不能声明字段（缺少 `()`）")
+                }
                 if self.at(1) { self.next() }
+                if self.at(12) {
+                    self.err("SYN-101", self.cur().line, self.cur().col, "协议方法不能有函数体")
+                    self.parseBlock()
+                }
                 sigs.push("(ProtocolSig " + P(sl, sc) + " (Annos (slice)) (Mod " + ms + ") (Name " + q(mn) +
                     ") (Void " + B(vd) + ") (Ret " + self.retv(vd, rt) + ") (Params " + SL(ps) + "))")
             }
@@ -1754,6 +1768,7 @@ class Parser {
         E v = self.parseExpr()
         List<String> cs = []
         String def = "(nil)"
+        Bool sawDef = false
         if self.at(12) { self.next() }
         while !self.at(13) && !self.eof() {
             if self.at(1) { self.next(); continue }
@@ -1769,9 +1784,13 @@ class Parser {
                 cs.push("(SwitchCase " + P(c.line, c.col) + " (Expr " + ex.d + ") (Stmts " + SL(ss) + ") (Default false))")
             } else if self.atKw("default") {
                 Tok c = self.next()
+                if sawDef {
+                    self.err("SYN-101", c.line, c.col, "switch 重复 default")
+                }
+                sawDef = true
                 if self.atOp(":") { self.next() }
                 List<String> ss = []
-                while !self.atKw("case") && !self.at(13) && !self.eof() {
+                while !self.atKw("case") && !self.atKw("default") && !self.at(13) && !self.eof() {
                     if self.at(1) { self.next(); continue }
                     ss.push(self.parseStmt())
                 }
@@ -2168,6 +2187,9 @@ static Int main(String[] args) {
         if t.kind == 0 { go = false }
     }
     Parser p = new Parser(ts)
+    // 词法诊断先于语法诊断输出（LEX-xxx 优先）。
+    Int ldi = 0
+    while ldi < l.diags.length() { p.diags.push(l.diags.get(ldi)); ldi = ldi + 1 }
     String res = p.parseUnit()
     if diagMode {
         print("xnast-diags-simple v1")

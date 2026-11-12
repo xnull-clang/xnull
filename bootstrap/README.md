@@ -6,7 +6,7 @@
 | 文件 | 来源 | sha256（前 12 位） |
 |---|---|---|
 | `xn-s4.c` | B4c-03 编译器工件：当前 `xnullc.x` + 2 处 C 级修复，115,751 行 | `27ae5245452a` |
-| `xparser.c` | B4c-03 原生自举：`tests/b4/rebuild-xparser.sh`（xn-s4 + 原生 bundle + proj B） | `8de76400ee44` |
+| `xparser.c` | B4c-03 原生自举：`tests/b4/rebuild-xparser.sh`（xn-s4 + 原生 bundle + proj B） | `391ec8465bb9` |
 
 产物（`bootstrap/bin/`，**不入库**，由 `.gitignore` 忽略）：
 
