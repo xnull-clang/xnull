@@ -1,0 +1,15 @@
+id	anchor	mode	expect	actual	verdict	evidence
+P03-graph	PROJ-03	e2e	传递依赖图入锁	2 条：g:lib 2.0.0、g:top 1.0.0	PASS	f2/F2-lock-generate.log
+P03-validate	PROJ-03	e2e	锁校验通过	锁有效（2 条），exit 0	PASS	f2/F2-lock-validate.log
+P03-meta	PROJ-03	e2e	.xmeta.lockSha256 = 锁字节 SHA-256	33fb9b4c… 与 shasum 一致	PASS	f2/F2-meta.log / f2/F2-lock-sha.log
+P03-repro	PROJ-03	e2e	锁可复现	两次 --update-lock 字节一致（cmp）	PASS	f2/F2-repro.txt
+P03-managed	PROJ-03	e2e	管理版本优先	app-managed 选中 g:lib 1.0.0（传递为 2.0.0）	PASS	f2/F2-managed.log
+P03-N1	PROJ-03	e2e	锁缺条目 → XPD-404	XPD-404 g:lib 2.0.0	PASS	f2-neg/F2-N1.log
+P03-N2	PROJ-03	e2e	锁多余坐标 → XPD-405	XPD-405 g:extra	PASS	f2-neg/F2-N2.log
+P03-N3	PROJ-03	e2e	摘要不符 → XPD-406	XPD-406 g:lib 2.0.0	PASS	f2-neg/F2-N3.log
+P03-N4	PROJ-03	e2e	锁与清单版本不一致 → XPD-404	XPD-404 g:top 锁 1.0.0 / 解析 2.0.0	PASS	f2-neg/F2-N4.log
+P03-N5	PROJ-03	e2e	同深度冲突 → XPD-403 且列出全部路径	含 g:a@1.0.0 / g:b@1.0.0 / g:x@2.0.0 / g:x@3.0.0	PASS	f2-neg/F2-N5.log
+P03-N6	PROJ-03	e2e	依赖环 → XPD-409	XPD-409 g:c → g:d → g:c	PASS	f2-neg/F2-N6.log
+P03-N7	PROJ-03	e2e	依赖缺版本 → XPD-401	XPD-401 g:lib	PASS	f2-neg/F2-N7.log
+P03-N8	PROJ-03	e2e	范围版本 → XPD-402	XPD-402 "[1.0,2.0)"	PASS	f2-neg/F2-N8.log
+P03-N9	PROJ-03	e2e	显式覆盖管理版本告警且管理版本仍生效	警告 + 锁 g:lib 1.0.0	PASS	f2-neg/F2-N9.log

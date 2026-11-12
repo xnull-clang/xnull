@@ -1,0 +1,3 @@
+$ XNULL_REPO=/Users/vjs/Desktop/XNull-Lang/tests/s8/s817/repo /tmp/xnull-s817 why g:x
+xnull.graph:1:1: error[XPD-403]: 同深度依赖冲突（不取第一个，S8 §4.2）：g:x@1.0.0 <- g:a@1.0.0 -> g:x@1.0.0；g:x@2.0.0 <- g:b@1.0.0 -> g:x@2.0.0
+EXIT=1

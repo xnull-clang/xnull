@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 lock --update-lock
+xnull.graph:1:1: error[XPD-409]: 依赖环：g:c@1.0.0 -> g:d@1.0.0 -> g:c@1.0.0（S8 §4.5）
+EXIT=1

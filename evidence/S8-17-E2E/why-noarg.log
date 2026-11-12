@@ -1,0 +1,3 @@
+$ XNULL_REPO=/Users/vjs/Desktop/XNull-Lang/tests/s8/s817/repo /tmp/xnull-s817b why
+xnull: why 需要坐标（groupId:artifactId）
+EXIT=2

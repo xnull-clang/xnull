@@ -1,0 +1,2 @@
+cc -std=c11 -O2 -pthread -I impl/runtime -o /tmp/mem09_probe evidence/S3-QA/MEM-09/probe.c rt.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c
+./probe

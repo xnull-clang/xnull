@@ -1,0 +1,19 @@
+$ cat target/app-1.0.0.xmeta
+xmeta {
+  groupId          = s812
+  artifactId       = app
+  version          = 1.0.0
+  packaging        = app
+  platform         = macos
+  xdkVersion       = 1.2.3
+  languageVersion  = 9.9.9
+  toolchainVersion = 0.1.0-dev
+  profiles         = [dev]
+  plugins          = []
+  configSha256     = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  resourcesSha256  = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  pluginsSha256    = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  lockSha256       = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  inputs           = 14fadc35353aa10fbcdfe87b69e1227ea68db9df10f95638e945fa05c363b750
+}
+EXIT=0

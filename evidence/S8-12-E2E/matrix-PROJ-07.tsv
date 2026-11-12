@@ -1,0 +1,6 @@
+id	anchor	mode	expect	actual	verdict	evidence
+P07-layer2	PROJ-07	e2e	application.properties 覆盖清单 configuration	configSha256=e960…，与期望值逐字节一致（app.env=file、app.name=from-file）	PASS	f3/F3-meta.log / f3/F3-config-digest-proof.txt
+P07-layer3	PROJ-07	e2e	application-dev.properties 覆盖 application	--profile dev：configSha256=b5a3…，与期望值一致（app.env=dev-file）	PASS	f3/F3-meta-profile.log / f3/F3-config-digest-proof.txt
+P07-profile	PROJ-07	e2e	profile 激活入 .xmeta	profiles=[dev]	PASS	f3/F3-meta-profile.log
+P07-subst	PROJ-07	e2e	profile properties 参与 layer0 替换且被高层覆盖	app.name 仍为 from-file（layer2 覆盖 layer0 的 demo-dev）	PASS	f3/F3-config-digest-proof.txt
+P07-boundary	PROJ-07	code	builtin/env/CLI 三层	`xnull build` 只注入 configuration/application/profile；1/4/5 层沿用 config 单元证据	BOUNDARY	f3/F3-config-digest-proof.txt

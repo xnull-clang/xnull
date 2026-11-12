@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+xnull.lock:1:1: error[XPD-404]: 锁缺少依赖 g:lib 2.0.0（请 --update-lock，S8 §4.4）
+EXIT=1

@@ -1,0 +1,9 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S814-topo	PROJ-03/05	e2e	逆序声明 app,codec,core → 拓扑 core,codec,app	摘要顺序 core→codec→app；core/codec 产 `.xlib`，app 产可执行体	PASS	topo.log / topo-reactor-summary.txt
+S814-install	PROJ-03	e2e	library 安装本地仓库	repo 含 io/xnull/{core,codec}/1.0.0/*.xlib + xnull.project	PASS	topo-repo-install.txt
+S814-app	PROJ-05	e2e	app 产物可执行	`./target/app-1.0.0` → S814-TOPO-APP-OK	PASS	topo-app-run.log
+S814-managed	PROJ-03	e2e	聚合根 dependencyManagement 注入模块（模块省略版本）	模块构建通过，未报 XPD-401	PASS	topo.log
+S814-failfast	PROJ-05	e2e	模块失败即停	core 已建/已装；codec 资源错误 XPD-801 → XPD-201；app 与根 target 不存在；无摘要	PASS	failfast.log / failfast-artifacts.txt
+S814-starter-src	PROJ-05	e2e	starter 含 src → XPD-201	XPD-201，exit 1	PASS	starter-src.log
+S814-starter-mismatch	PROJ-03	e2e	starter 依赖并入使用者并做版本一致性	bundle 与 app 均报 XPD-403（9.9.9 ≠ 1.0.0）	PASS	starter-mismatch.log
+S814-starter-build	PROJ-03/05	e2e	starter 模块可参与聚合构建	FAIL：bundle 以空入口进入 compile，`RES-106 找不到包文件 .`；reactor 报 XPD-201；app 未构建、无摘要	FAIL	with-starter.log

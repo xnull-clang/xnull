@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+/tmp/s812-run/f3n/n11/src/dup/templates/a.txt:1:1: error[XPD-803]: 制品内同路径冲突：resources/templates/a.txt（/tmp/s812-run/f3n/n11/src/main/resources/templates/a.txt 与 /tmp/s812-run/f3n/n11/src/dup/templates/a.txt）
+EXIT=1

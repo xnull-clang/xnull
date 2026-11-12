@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+xnull.project:1:1: error[XPD-201]: build.sourceRoot 不得等于或包含 target/
+EXIT=2

@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build --skip test
+/tmp/s812-run/p05/skip-test/app/target/app-1.0.0
+EXIT=0

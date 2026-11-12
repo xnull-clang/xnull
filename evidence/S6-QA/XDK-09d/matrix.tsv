@@ -1,0 +1,14 @@
+id	anchor	mode	expect	actual	verdict	evidence
+XDK09-build	XDK-09	runtime	`build_rt.sh` exit 0；net 测试通过	main ba60c61：exit 0，`net tests passed (socket plain/close + http get/post/status)`	PASS	build_rt.log
+XDK09-sema	XDK-09	sema	socket plain/Async、net.http 签名/负例/HttpResponse 导入	TestS609NetSignatures/NetNegative/HttpResponseImport/HttpResponseHint PASS	PASS	sema.log
+XDK09-unit	XDK-09	gotest	net.x 类型/入口/合同/loader	TestS609NetUnitSurface/Contracts/Loader PASS	PASS	codegen-s609.log
+XDK09-e2e-socket	XDK-09	e2e	compiled socket plain/Async close	TestS609SocketPlainAndAsyncClose PASS（生成 `xdkc_socket_connect_async(`、`xn_ffi_socketClose(`；stdout true/true）	PASS	codegen-s609.log
+XDK09-e2e-http	XDK-09	e2e	compiled net.http getAsync/status/body/close	TestS609HTTPGetAsync PASS（stdout true/200/hello/true）	PASS	codegen-s609.log
+XDK09-e2e-result	XDK-09	e2e	Result<HttpResponse, ErrorKind> 成员类型/解包	TestS609HttpResponseResultMember PASS（生成 `xn_Result_HttpResponse_ErrorKind`）	PASS	codegen-s609.log
+XDK09-runtime-plain	XDK-09	runtime	plain connect/write/read/close	`test_plain_socket` PASS；句柄 close 幂等	PASS	build_rt.log
+XDK09-runtime-http	XDK-09	runtime	http get/post/404	`test_http_get/post/not_found` PASS；404 → code=3	PASS	build_rt.log
+XDK09-runtime-error	XDK-09	runtime	错误映射不静默	connect 失败 code!=0；read(NULL) code=1	PASS	build_rt.log
+XDK09-cancel	XDK-09	runtime	deadline 到期 → Cancelled(3)	QA 夹具：connect_async/recv_async 均 -1 + code=3	PASS	qa-cancel.log
+XDK09-close	XDK-09	runtime	资源关闭幂等	xrt_handle_close 两次 0；native 置 NULL	PASS	qa-cancel.log
+XDK09-fixtures	XDK-09	e2e	`tests/s6/xdk09/NET-01..05` + `.expect`	main 上仍无该目录/文件	BLOCKED	-
+XDK09-interp	XDK-09	interp	NET-01..05 解释路径与 compiled 一致	解释路径未接，无法执行	BLOCKED	收件箱/门/S6-09验收用例-E2.md

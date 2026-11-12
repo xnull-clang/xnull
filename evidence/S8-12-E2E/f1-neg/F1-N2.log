@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+/tmp/s812-run/f1/n2/parent/xnull.project:1:1: error[XPD-306]: parent 必须是 packaging = pom（S8 §3.3）
+EXIT=2

@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+/tmp/s812-run/f3n/n6/src/main/resources/conf/application.properties:1:1: error[XPD-608]: 配置文件必须位于资源根顶层，不得放在子目录：/tmp/s812-run/f3n/n6/src/main/resources/conf/application.properties
+EXIT=1

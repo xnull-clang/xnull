@@ -1,0 +1,11 @@
+id	anchor	mode	expect	actual	verdict	evidence
+P05-lifecycle	PROJ-05	e2e	validate→compile→test→package 全跑	build exit 0；测试阶段输出 F1-TEST-OK；产物生成	PASS	f1/F1-build.log
+P05-run	PROJ-05	e2e	入口可执行	run → F1-TEST-OK + F1-MAIN-OK	PASS	f1/F1-run.log
+P05-skip-test	PROJ-05	e2e	--skip test 不跑测试	无 F1-TEST-OK，exit 0	PASS	p05/P05-skip-test.log
+P05-skip-package	PROJ-05	e2e	--skip package 不出产物	target 为空，exit 0	PASS	p05/P05-skip-package.log / p05/P05-skip-package-target.txt
+P05-xmeta	PROJ-05	e2e	.xmeta 字段齐全（含 lockSha256/三摘要）	字段齐全，lockSha256 与锁一致	PASS	f2/F2-meta.log / f3/F3-meta.log
+P05-deterministic	PROJ-05	e2e	连续两次构建 .xmeta 字节一致	cmp identical	PASS	p05/P05-deterministic.txt / f3/F3-deterministic.txt
+P05-N1	PROJ-05	e2e	入口缺失 → XPD-202	XPD-202 alt/src/main.x，exit 2	PASS	p05/P05-entry-missing.log
+P05-N2	PROJ-05	e2e	entryPackage 不符 → XPD-202	XPD-202 com.acme vs com.other，exit 2	PASS	p05/P05-entrypackage-mismatch.log
+P05-N3	PROJ-05	e2e	sourceRoot 含 target/ → XPD-201	XPD-201，exit 2	PASS	p05/P05-badsource.log
+P05-N4	PROJ-05	e2e	build.mode 非法 → XPD-201	XPD-201 fast，exit 2	PASS	p05/P05-badmode.log

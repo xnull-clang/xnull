@@ -1,0 +1,7 @@
+$ XNULL_REPO=/tmp/s814-repo-with-starter /tmp/xnull-s814 build
+xnull: 已安装 /tmp/s814-repo-with-starter/io/xnull/core/1.0.0/core-1.0.0.xlib（sha256 5d6965e92ef575f19e4f889d8331a35d42bd7b037b20c517a7f5c0e5975f38a5）
+xnull: 已安装 /tmp/s814-repo-with-starter/io/xnull/codec/1.0.0/codec-1.0.0.xlib（sha256 cf099f7a3673342c8761a2daaf850f0f9c1cd5358199e70c544338ea87a5a4d3）
+:1:1: error[RES-106]: 找不到包文件 .（import 点分路径映射为同目录相对路径 .x）
+  确认文件名与 import 路径一致，或改用已存在的包
+/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/with-starter/bundle:1:1: error[XPD-201]: 模块 bundle 构建失败：模块 bundle 构建失败（exit=1）（失败即停，S8 §5.1）
+EXIT=1

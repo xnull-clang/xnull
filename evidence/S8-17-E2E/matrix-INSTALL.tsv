@@ -1,0 +1,6 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S817-install-lib	CLI-INSTALL	cli	library 安装 `.xlib` + 清单到本地仓库	repo `g/lib/1.0.0/{lib-1.0.0.xlib,xnull.project}`；stdout sha 与文件一致	PASS	install-lib.log
+S817-install-app	CLI-INSTALL	cli	app 安装可执行体 + `.xmeta` + 清单	repo `g/app/1.0.0/{app-1.0.0,app-1.0.0.xmeta,xnull.project}`	PASS	install-app.log / repo-app.txt
+S817-install-sha	CLI-INSTALL	cli	stdout sha256 = 产物实际摘要	c285e6f7… / 2e15e09d… 与 shasum 一致	PASS	install-lib.log / install-app.log / sha.txt
+S817-install-fail	CLI-INSTALL	cli	构建失败不安装	源码错误 → exit 1；仓库为空	PASS	install-fail.log
+S817-install-reactor	CLI-INSTALL	cli	pom 聚合根 install 安装模块/应用产物	FAIL：把 `target/reactor-summary.txt` 当产物安装到根 GAV；app 模块产物未安装	FAIL	install-reactor.log / reactor-repo.txt

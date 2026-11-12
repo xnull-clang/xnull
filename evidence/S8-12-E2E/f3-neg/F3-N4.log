@@ -1,0 +1,4 @@
+$ /tmp/xnull-s812 build
+/tmp/s812-run/f3n/n4/src/main/resources/application.properties:3:1: error[XPD-603]: 未知配置键：db.password（层 application，来源 /tmp/s812-run/f3n/n4/src/main/resources/application.properties）
+/tmp/s812-run/f3n/n4/src/main/resources/application.properties:3:1: error[XPD-606]: 疑似密钥键 db.password 不得写入配置（层 application，来源 /tmp/s812-run/f3n/n4/src/main/resources/application.properties）；请走白名单环境变量
+EXIT=1

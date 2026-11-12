@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+/tmp/s812-run/f3n/n8/src/main/resources/application.properties:1:1: error[XPD-600]: 配置文件不是合法 UTF-8
+EXIT=1

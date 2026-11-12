@@ -1,32 +1,31 @@
-# HEAD（E2 基线）
 L2	tests/b2/corpus/examples/ast-seed.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 6) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
-L3	tests/b2/corpus/examples/ast-seed.x	0		[exit 139] 
+L3	tests/b2/corpus/examples/ast-seed.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/classes.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 4) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
 L3	tests/b2/corpus/examples/classes.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/containers.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 4) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (TopFunc (P (Pos (	[exit 134] 
 L3	tests/b2/corpus/examples/containers.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/defer-cleanup.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 18) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (TopFunc (P (Pos 	[exit 139] 
-L3	tests/b2/corpus/examples/defer-cleanup.x	0		[exit 139] 
+L3	tests/b2/corpus/examples/defer-cleanup.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/hello.x	287	e) (Ret (NamedType (P (Pos (Line 6) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 6) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 6) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 6) (Col 19))) (Stmts (
 L3	tests/b2/corpus/examples/hello.x	0		SYN-101 7 25\nSYN-101 9 12\n
-L1	tests/b2/corpus/examples/lexer-seed.x	40960	 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))\n(Token (Kind 11) (Text ")") (Pos (Pos (Line 50) (Col 28))) (Str 0) (Value "") (Seg	[exit 139]  0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Ba
-L2	tests/b2/corpus/examples/lexer-seed.x	377	ls (slice)) (Fields (slice (FieldDecl (P (Pos (Line 9) (Col 12))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (	ls (slice)) (Fields (slice (FieldDecl (P (Pos (Line 9) (Col 5))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N
-L3	tests/b2/corpus/examples/lexer-seed.x	0		[exit 139] 
+L2	tests/b2/corpus/examples/lexer-seed.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 8) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 139] 
+L3	tests/b2/corpus/examples/lexer-seed.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/multi/lib/shapes.x	378	ls (slice)) (Fields (slice (FieldDecl (P (Pos (Line 3) (Col 9))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N	ls (slice)) (Fields (slice (FieldDecl (P (Pos (Line 3) (Col 5))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N
-L2	tests/b2/corpus/examples/multi/lib/text.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 2) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 2) (Col 	[exit 134] 
+L2	tests/b2/corpus/examples/multi/lib/text.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 2) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 2) (Col 	[exit 139] 
 L3	tests/b2/corpus/examples/multi/lib/text.x	0		[exit 134] 
 L2	tests/b2/corpus/examples/multi/main.x	139	(slice (ImportDecl (P (Pos (Line 3) (Col 1))) (Path (slice "lib" "text")) (Alias "")) (ImportDecl (P (Pos (Line 4) (Col 1))) (Path (slice "lib" "shapes")) (Alias "")))) (Decls (sli	(slice (ImportDecl (P (Pos (Line 3) (Col 1))) (Path (slice ".")) (Alias "")) (ImportDecl (P (Pos (Line 4) (Col 1))) (Path (slice ".")) (Alias "")))) (Decls (slice (TopField (P (Pos
 L3	tests/b2/corpus/examples/multi/main.x	0		SYN-101 11 21\nSYN-101 13 13\nSYN-101 15 1\nSYN-101 15 1\n
-L2	tests/b2/corpus/examples/objlist.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
+L2	tests/b2/corpus/examples/objlist.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 139] 
 L3	tests/b2/corpus/examples/objlist.x	0		[exit 134] 
-L2	tests/b2/corpus/examples/parser-seed.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 11) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Po	[exit 139] 
+L2	tests/b2/corpus/examples/parser-seed.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 11) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Po	[exit 134] 
 L3	tests/b2/corpus/examples/parser-seed.x	0		[exit 139] 
-L2	tests/b2/corpus/examples/result-try.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 9) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (TopFunc (P (Pos (	[exit 139] 
+L2	tests/b2/corpus/examples/result-try.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 9) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (TopFunc (P (Pos (	[exit 134] 
 L3	tests/b2/corpus/examples/result-try.x	0		[exit 139] 
+L1	tests/b2/corpus/impl/lib/xdk/text.x	385024	) (Suffix "") (HasSuffixF false))\n(Token (Kind 2) (Text "start") (Pos (Pos (Line 293) (Col 52))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (	[exit 139] ) (Suffix "") (HasSuffixF false))\n(Token (Kind 2) (Text "sta
 L2	tests/b2/corpus/impl/lib/xdk/text.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 8) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 8) (Col 	[exit 134] 
 L3	tests/b2/corpus/impl/lib/xdk/text.x	0		[exit 134] 
-L1	tests/b2/corpus/impl/xnfmt/xnfmt.x	385024	) (HasSuffixF false))\n(Token (Kind 5) (Text "1") (Pos (Pos (Line 352) (Col 21))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 10) (Suffix "") (HasSuffixF fals	[exit 139] ) (HasSuffixF false))\n(Token (Kind 5) (Text "1") (Pos (Pos (
-L2	tests/b2/corpus/impl/xnfmt/xnfmt.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 8) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 139] 
+L1	tests/b2/corpus/impl/xnfmt/xnfmt.x	126976	Col 84))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))\n(Token (Kind 9) (Text ">") (Pos (Pos (Line 133) (Col 86))) (Str 0) (	[exit 139] Col 84))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)
+L2	tests/b2/corpus/impl/xnfmt/xnfmt.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 8) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
 L3	tests/b2/corpus/impl/xnfmt/xnfmt.x	0		[exit 134] 
 L2	tests/b2/corpus/tests/b0-07c-numeric/cases/t00_sanity_text/case.x	139	(slice (ImportDecl (P (Pos (Line 3) (Col 1))) (Path (slice "xdk" "sys")) (Alias "")))) (Decls (slice (TopFunc (P (Pos (Line 5) (Col 1))) (Annos (slice)) (Public false) (Protected f	(slice (ImportDecl (P (Pos (Line 3) (Col 1))) (Path (slice ".")) (Alias "")))) (Decls (slice (TopField (P (Pos (Line 3) (Col 12))) (Annos (slice)) (Public false) (Protected false) 
 L3	tests/b2/corpus/tests/b0-07c-numeric/cases/t00_sanity_text/case.x	0		SYN-101 8 40\n
@@ -42,7 +41,7 @@ L3	tests/b2/corpus/tests/b0-07c-numeric/cases/t05_file_read/case.x	0		SYN-101 9 
 L2	tests/b2/corpus/tests/b0-07c-numeric/cases/t06_file_write/case.x	139	(slice (ImportDecl (P (Pos (Line 4) (Col 1))) (Path (slice "xdk" "sys")) (Alias "")) (ImportDecl (P (Pos (Line 5) (Col 1))) (Path (slice "xdk" "text")) (Alias "")))) (Decls (slice 	(slice (ImportDecl (P (Pos (Line 4) (Col 1))) (Path (slice ".")) (Alias "")) (ImportDecl (P (Pos (Line 5) (Col 1))) (Path (slice ".")) (Alias "")))) (Decls (slice (TopField (P (Pos
 L3	tests/b2/corpus/tests/b0-07c-numeric/cases/t06_file_write/case.x	0		SYN-101 9 30\nSYN-101 14 35\nSYN-101 15 13\nSYN-101 16 14\nSYN-101 18 30\nSYN-101 19 26\n
 L2	tests/b2/corpus/tests/s3/mem03/container_cycle.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
-L3	tests/b2/corpus/tests/s3/mem03/container_cycle.x	0		[exit 139] 
+L3	tests/b2/corpus/tests/s3/mem03/container_cycle.x	0		[exit 134] 
 L2	tests/b2/corpus/tests/s3/mem03/cycle.x	494	 false) (Final false) (Static false) (Const false))) (Type (SuffixedType (P (Pos (Line 1) (Col 11))) (Base (NamedType (P (Pos (Line 1) (Col 11))) (Qual (slice "N")) (Args (slice)))	 false) (Final false) (Static false) (Const false))) (Type (NamedType (P (Pos (Line 1) (Col 11))) (Qual (slice "?")) (Args (slice)))) (Name "next") (Canonical "") (Init (nil))) (Fi
 L3	tests/b2/corpus/tests/s3/mem03/cycle.x	0		SYN-101 8 24\n
 L2	tests/b2/corpus/tests/s3/mem03/identity.x	375	s (slice)) (Fields (slice (FieldDecl (P (Pos (Line 1) (Col 15))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N	s (slice)) (Fields (slice (FieldDecl (P (Pos (Line 1) (Col 11))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N
@@ -58,19 +57,17 @@ L3	tests/b2/corpus/tests/s3/mem06/array.x	0		SYN-101 4 29\n
 L2	tests/b2/corpus/tests/s3/mem06/gc_elem.x	375	s (slice)) (Fields (slice (FieldDecl (P (Pos (Line 1) (Col 15))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N	s (slice)) (Fields (slice (FieldDecl (P (Pos (Line 1) (Col 11))) (Annos (slice)) (Mod (TypeModifiers (Vis "") (Abstract false) (Final false) (Static false) (Const false))) (Type (N
 L3	tests/b2/corpus/tests/s3/mem06/gc_elem.x	0		SYN-101 6 14\nSYN-101 8 12\n
 L2	tests/b2/corpus/tests/s3/mem06/holder.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (ClassDecl (P (Pos	[exit 134] 
-L3	tests/b2/corpus/tests/s3/mem06/holder.x	0		[exit 139] 
+L3	tests/b2/corpus/tests/s3/mem06/holder.x	0		[exit 134] 
 L2	tests/b2/corpus/tests/s3/mem06/list.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
 L3	tests/b2/corpus/tests/s3/mem06/list.x	0		SYN-101 3 30\nSYN-101 6 36\n
 L2	tests/b2/corpus/tests/s3/mem06/mapset.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
 L3	tests/b2/corpus/tests/s3/mem06/mapset.x	0		SYN-101 4 47\nSYN-101 5 12\n
 L2	tests/b2/corpus/tests/s6/xdk05/sync_basic.x	139	(slice (ImportDecl (P (Pos (Line 1) (Col 1))) (Path (slice "xdk" "sync")) (Alias "")) (ImportDecl (P (Pos (Line 2) (Col 1))) (Path (slice "xdk" "tasks")) (Alias "")) (ImportDecl (P	(slice (ImportDecl (P (Pos (Line 1) (Col 1))) (Path (slice ".")) (Alias "")) (ImportDecl (P (Pos (Line 2) (Col 1))) (Path (slice ".")) (Alias "")) (ImportDecl (P (Pos (Line 3) (Col
 L3	tests/b2/corpus/tests/s6/xdk05/sync_basic.x	0		SYN-101 9 16\nSYN-101 12 6\nSYN-101 14 50\nSYN-101 16 22\nSYN-101 18 30\nSYN-101 19 14\nSYN-101 20 38\nSYN-101 21 19\nSYN-101 22
-L1	tests/b2/corpus/tests/s6/xdk07/collections_basic.x	40960	)\n(Token (Kind 2) (Text "Int") (Pos (Pos (Line 31) (Col 19))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))\n(Token (Kind 9) 	[exit 139] )\n(Token (Kind 2) (Text "Int") (Pos (Pos (Line 31) (Col 19))
 L2	tests/b2/corpus/tests/s6/xdk07/collections_basic.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 1) (Col 	[exit 134] 
 L3	tests/b2/corpus/tests/s6/xdk07/collections_basic.x	0		[exit 134] 
-L1	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	40960	ffixF false))\n(Token (Kind 2) (Text "Int") (Pos (Pos (Line 30) (Col 47))) (Str 0) (Value "") (Segs (slice)) (Interps (slice)) (Char 0) (Base 0) (Suffix "") (HasSuffixF false))\n(Tok	[exit 139] ffixF false))\n(Token (Kind 2) (Text "Int") (Pos (Pos (Line 3
-L2	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 1) (Col 	[exit 139] 
-L3	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	0		[exit 134] 
+L2	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice (ImportDecl (P (Pos (Line 1) (Col 	[exit 134] 
+L3	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	0		[exit 139] 
 L2	tests/b2/parser_cases/basic.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
 L2	tests/b2/parser_cases/expr.x	0	(xnast v1 (CompilationUnit (P (Pos (Line 1) (Col 1))) (Package (nil)) (Imports (slice)) (Decls (slice (TopFunc (P (Pos (	[exit 139] 
 L2	tests/b2/parser_cases/lambda.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
@@ -85,43 +82,3 @@ L2	tests/b2/parser_neg/chain_cmp.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 
 L2	tests/b2/parser_neg/missing_brace.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
 L2	tests/b2/parser_neg/missing_paren.x	287	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "Int")) (Args (slice)))) (Name "main") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmt	e) (Ret (NamedType (P (Pos (Line 1) (Col 8))) (Qual (slice "main")) (Args (slice)))) (Name "") (TypePars (slice)) (Params (slice)) (Body (Block (P (Pos (Line 1) (Col 19))) (Stmts (
 L3	tests/b2/parser_neg/missing_paren.x	8	SYN-101 2 11\n	SYN-101 3 12\n
-# pod/e4-codegen（E4 差异修复后）
-PASS	tests/b2/parser_cases/basic.x
-PASS	tests/b2/parser_cases/expr.x
-PASS	tests/b2/parser_cases/lambda.x
-PASS	tests/b2/parser_cases/stmt.x
-PASS	tests/b2/corpus/examples/ast-seed.x
-PASS	tests/b2/corpus/examples/classes.x
-PASS	tests/b2/corpus/examples/containers.x
-PASS	tests/b2/corpus/examples/defer-cleanup.x
-PASS	tests/b2/corpus/examples/hello.x
-PASS	tests/b2/corpus/examples/lexer-seed.x
-PASS	tests/b2/corpus/examples/multi/lib/shapes.x
-PASS	tests/b2/corpus/examples/multi/lib/text.x
-PASS	tests/b2/corpus/examples/multi/main.x
-PASS	tests/b2/corpus/examples/objlist.x
-PASS	tests/b2/corpus/examples/parser-seed.x
-PASS	tests/b2/corpus/examples/result-try.x
-FAIL	tests/b2/corpus/impl/lib/xdk/text.x
-FAIL	tests/b2/corpus/impl/xnfmt/xnfmt.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t00_sanity_text/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t01_handle_open_close/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t02_option_handle/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t03_scalars/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t04_bytes_surface/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t05_file_read/case.x
-PASS	tests/b2/corpus/tests/b0-07c-numeric/cases/t06_file_write/case.x
-PASS	tests/b2/corpus/tests/s3/mem03/container_cycle.x
-PASS	tests/b2/corpus/tests/s3/mem03/cycle.x
-PASS	tests/b2/corpus/tests/s3/mem03/identity.x
-PASS	tests/b2/corpus/tests/s3/mem05/none.x
-PASS	tests/b2/corpus/tests/s3/mem05/other.x
-PASS	tests/b2/corpus/tests/s3/mem05/return.x
-PASS	tests/b2/corpus/tests/s3/mem06/array.x
-PASS	tests/b2/corpus/tests/s3/mem06/gc_elem.x
-PASS	tests/b2/corpus/tests/s3/mem06/holder.x
-PASS	tests/b2/corpus/tests/s3/mem06/list.x
-PASS	tests/b2/corpus/tests/s3/mem06/mapset.x
-PASS	tests/b2/corpus/tests/s6/xdk05/sync_basic.x
-PASS	tests/b2/corpus/tests/s6/xdk07/collections_basic.x
-PASS	tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x

@@ -1,0 +1,3 @@
+$ shasum -a 256 xnull.lock
+33fb9b4c253417230c28ce22485c670681ccd1bc1014c6787d1b795ddb58933e  xnull.lock
+EXIT=0

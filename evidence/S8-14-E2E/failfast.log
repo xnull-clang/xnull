@@ -1,0 +1,5 @@
+$ XNULL_REPO=/tmp/s814-repo-failfast /tmp/xnull-s814 build
+xnull: 已安装 /tmp/s814-repo-failfast/io/xnull/core/1.0.0/core-1.0.0.xlib（sha256 5d6965e92ef575f19e4f889d8331a35d42bd7b037b20c517a7f5c0e5975f38a5）
+/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/failfast/codec/nosuch:1:1: error[XPD-801]: 资源根不存在或不是目录：/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/failfast/codec/nosuch（S8 §5.6）
+/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/failfast/codec:1:1: error[XPD-201]: 模块 codec 构建失败：模块 codec 构建失败（exit=1）（失败即停，S8 §5.1）
+EXIT=1

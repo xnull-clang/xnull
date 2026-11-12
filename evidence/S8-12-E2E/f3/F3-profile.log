@@ -1,0 +1,4 @@
+$ /tmp/xnull-s812 build --profile dev
+F3-TEST-OK
+/tmp/s812-run/f3/b/target/app-1.0.0
+EXIT=0

@@ -1,0 +1,2 @@
+alive=1 joinB=0 ok=1 value=42
+shared_env_alive_during_slow_task=1 collected_after_both=1

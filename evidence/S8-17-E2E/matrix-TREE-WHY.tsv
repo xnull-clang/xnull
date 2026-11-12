@@ -1,0 +1,11 @@
+id	anchor	mode	expect	actual	verdict	evidence
+S817-tree-root	CLI-TREE	cli	根 GAV + 直接依赖	`g:app@1.0.0` + `g:a@1.0.0` / `g:c@1.0.0`	PASS	tree.log
+S817-tree-nest	CLI-TREE	cli	传递依赖缩进	`    g:x@1.0.0` 位于 `g:c@1.0.0` 下两层缩进	PASS	tree.log
+S817-tree-sort	CLI-TREE	cli	同级按坐标排序	a 在 c 前	PASS	tree.log
+S817-tree-conflict	CLI-TREE	cli	同深度冲突直接报错	`XPD-403`，exit 1	PASS	tree-conflict.log
+S817-tree-direct	CLI-TREE	cli	无传递依赖仅根+子	`g:app@1.0.0` / `  g:x@1.0.0`	PASS	tree-direct.log
+S817-why-trans	CLI-WHY	cli	传递依赖路径/来源/深度	版本 1.0.0；路径 `g:c@1.0.0 -> g:x@1.0.0`；来源最近优先；深度 2	PASS	why-transitive.log
+S817-why-direct	CLI-WHY	cli	直接依赖来源	版本 1.0.0；路径 `g:x@1.0.0`；来源直接依赖；深度 1	PASS	why-direct.log
+S817-why-managed	CLI-WHY	cli	management 固定	版本 2.0.0；来源 dependencyManagement 固定；路径节点仍为声明候选 `g:x@1.0.0`	PASS（P2 备注）	why-managed.log
+S817-why-unknown	CLI-WHY	cli	未解析坐标 exit 2	提示未被解析，exit 2	PASS	why-unknown.log
+S817-why-noarg	CLI-WHY	cli	缺坐标 exit 2	提示需要坐标，exit 2	PASS	why-noarg.log

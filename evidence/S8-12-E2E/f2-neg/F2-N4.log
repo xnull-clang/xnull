@@ -1,0 +1,3 @@
+$ /tmp/xnull-s812 build
+xnull.lock:1:1: error[XPD-404]: 锁与依赖图不一致：g:top 锁 1.0.0，解析 2.0.0（S8 §4.4）
+EXIT=1

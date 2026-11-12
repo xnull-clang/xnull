@@ -1,0 +1,3 @@
+$ XNULL_REPO=/tmp/s817b-app /tmp/xnull-s817b install
+已安装 /Users/vjs/Desktop/XNull-Lang/tests/s8/s817/install-app/target/app-1.0.0（sha256 3cdae6f89ea41bfc5949d222c3c03ae153b04f5acde0c0dcbd7768a5e7ef4737）
+EXIT=0
