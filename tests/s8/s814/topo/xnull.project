@@ -1,0 +1,21 @@
+project {
+  groupId = io.xnull
+  artifactId = sdk-suite
+  version = 1.0.0
+  packaging = pom
+  modules {
+    module app
+    module codec
+    module core
+  }
+  dependencyManagement {
+    dependencies {
+      dependency io.xnull:core {
+        version = 1.0.0
+      }
+      dependency io.xnull:codec {
+        version = 1.0.0
+      }
+    }
+  }
+}

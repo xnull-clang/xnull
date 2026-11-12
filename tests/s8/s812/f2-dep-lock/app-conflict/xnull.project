@@ -1,0 +1,14 @@
+project {
+  groupId = s812
+  artifactId = app
+  version = 1.0.0
+  packaging = app
+  dependencies {
+    dependency g:a {
+      version = 1.0.0
+    }
+    dependency g:b {
+      version = 1.0.0
+    }
+  }
+}

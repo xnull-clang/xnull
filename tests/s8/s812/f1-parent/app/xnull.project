@@ -1,0 +1,22 @@
+project {
+  groupId = s812
+  artifactId = app
+  version = 1.0.0
+  packaging = app
+  parent {
+    groupId = s812
+    artifactId = parent
+    version = 1.0.0
+    relativePath = ../parent/xnull.project
+  }
+  properties {
+    language-version = 3.4.0
+  }
+  profiles {
+    profile dev {
+      properties {
+        language-version = 9.9.9
+      }
+    }
+  }
+}

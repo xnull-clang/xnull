@@ -1,0 +1,14 @@
+project {
+  groupId = g
+  artifactId = app
+  version = 1.0.0
+  packaging = app
+  dependencies {
+    dependency g:x {
+      version = 1.0.0
+    }
+  }
+  build {
+    entryFile = src/main/x/main.x
+  }
+}

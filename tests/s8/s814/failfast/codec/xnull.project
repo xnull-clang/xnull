@@ -1,0 +1,17 @@
+project {
+  groupId = io.xnull
+  artifactId = codec
+  version = 1.0.0
+  packaging = library
+  dependencies {
+    dependency io.xnull:core {
+    }
+  }
+  build {
+    resources {
+      resource nosuch {
+        includes = [**]
+      }
+    }
+  }
+}

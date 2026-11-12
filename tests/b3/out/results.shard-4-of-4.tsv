@@ -1,0 +1,63 @@
+path	group	kind	files	shard	go_exit	raw	content	status	cause	note
+difftest/anchors/cases/pkg/f1.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/anchors/cases/pkg/f1.x:1:7: error[RES-102]: 类型 `X` 在包内重复声明（已有 class，§1.1）
+difftest/anchors/cases/pkg/lib/b/Y.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/anchors/cases/pkg/lib/b/Y.x:1:1: error[ENTRY-001]: 找不到入口 main
+difftest/s2/bnd01/r01_private_outside.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd01/r01_private_outside.x:6:12: error[TY-207]: 外部访问私有字段 `x`（规范名 `_x`）：私有访问错误（§7.4）
+difftest/s2/bnd01/xpkg/main_priv.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd01/xpkg/main_priv.x:4:12: error[TY-209]: 私有方法 `priv` 不可访问（§7.3：仅声明类内部）
+difftest/s2/bnd03/a01_static.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/bnd04/r01_result.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd04/r01_result.x:1:32: error[TY-204]: 结构体 `S` 的字段 `r` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）
+difftest/s2/bnd05/a02_inherited_impl.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/bnd05/r01_missing.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd05/r01_missing.x:4:7: error[TY-208]: 类 `C` 未实现协议 `Ready` 的方法 `ready`（§4.3）
+difftest/s2/bnd05/r06_multi_conflict.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd05/r06_multi_conflict.x:7:7: error[TY-208]: 协议方法 `f` 的返回类型冲突（A vs B，§4.3）
+difftest/s2/bnd06/a02c_identity.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/bnd06/r02_dup_case.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd06/r02_dup_case.x:7:19: error[TY-213]: 枚举项 `Red` 在 switch 中重复（§8.5）
+difftest/s2/bnd06/r03_default_first.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd06/r03_default_first.x:5:9: error[TY-213]: default 子句必须位于 switch 最后（§8.5）
+difftest/s2/bnd06/r05_data_enum_write.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/bnd06/r05_data_enum_write.x:7:17: error[TY-218]: 数据枚举项字段不可变（§8.3）
+difftest/s2/bnd11/a01_struct_copy.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/pctor01/a01_primary.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/pctor01/a02_explicit_noarg.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/pctor01/a04_ctor_order.x	difftest	单文件	1	4/4	0	0	0	PASS0		
+difftest/s2/pctor01/r03_nonclass.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/pctor01/r03_nonclass.x:1:9: error[TY-212]: 结构体不能使用主构造器（§3.5/§6.3）
+difftest/s2/struct01/r01_array.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/struct01/r01_array.x:2:11: error[TY-204]: 结构体 `S` 的字段 `xs` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）
+difftest/s2/struct01/r02_recursive.x	difftest	非入口/负例		4/4	1			NEG-PASS		difftest/s2/struct01/r02_recursive.x:2:7: error[TY-204]: 结构体 `S` 的字段 `s` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）
+examples/ast-seed.x	examples	单文件	1	4/4	0	0	0	PASS0		
+examples/classes.x	examples	单文件	1	4/4	0	0	0	PASS0		
+examples/containers.x	examples	单文件	1	4/4	0	0	0	PASS0		
+impl/lib/b2/xlex.x	impl	多文件	4	4/4	0	0	0	PASS0		
+impl/lib/xdk/errors.x	impl	非入口/负例		4/4	1			NEG-PASS		impl/lib/xdk/errors.x:1:1: error[ENTRY-001]: 找不到入口 main
+impl/lib/xdk/net.x	impl	非入口/负例		4/4	1			NEG-PASS		impl/lib/xdk/net.x:1:1: error[ENTRY-001]: 找不到入口 main
+tests/b0-07c-numeric/cases/t01_handle_open_close/case.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b0-07c-numeric/cases/t01_handle_open_close/case.x:8:15: error[TY-101]: 变量 `ok` 的初始化式类型 Int32 不能赋给 Bool（§2.6）
+tests/b0-07c-numeric/cases/t03_scalars/case.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/examples/ast-seed.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/examples/classes.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/examples/defer-cleanup.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/examples/parser-seed.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/tests/b0-07c-numeric/cases/t03_scalars/case.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/tests/s3/mem05/none.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/tests/s3/mem05/return.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b2/corpus/tests/s6/xdk07/collections_basic.x	tests	多文件	2	4/4	0	0	0	PASS0		
+tests/b2/corpus/tests/s6/xdk07/collections_nonnull.x	tests	多文件	2	4/4	0	0	0	PASS0		
+tests/b2/lex_neg/bad_escape.x	tests	非入口/负例		4/4	1			NEG-PASS		"tests/b2/lex_neg/bad_escape.x:1:34: error[LEX-103]: 未知转义 ""\\q"""
+tests/b2/lex_neg/bad_underscore.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/lex_neg/bad_underscore.x:1:30: error[LEX-104]: 下划线位置错误
+tests/b2/lex_neg/empty_char.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/lex_neg/empty_char.x:1:30: error[LEX-106]: 空字符字面量
+tests/b2/lex_neg/unclosed_comment.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/lex_neg/unclosed_comment.x:1:21: error[LEX-102]: 块注释未闭合
+tests/b2/lex_neg/unclosed_string.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/lex_neg/unclosed_string.x:1:32: error[LEX-102]: 字符串未闭合
+tests/b2/parser_cases/factory.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/parser_cases/factory.x:1:1: error[ENTRY-001]: 找不到入口 main
+tests/b2/parser_cases/lambda.x	tests	非入口/负例		4/4	1			NEG-PASS		xnull: 代码生成失败：codegen：表达式语句 *xfront.Lambda 未支持（M4.1 范围）
+tests/b2/parser_cases/stmt.x	tests	非入口/负例		4/4	1			NEG-PASS		xnull: 代码生成失败：codegen：语句 *xfront.IncDecStmt 未支持（M4.1 范围）
+tests/b2/parser_neg/missing_brace.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/parser_neg/missing_brace.x:3:1: error[SYN-101]: 期望`}`，遇到 文件结束
+tests/b2/parser_neg/missing_paren.x	tests	非入口/负例		4/4	1			NEG-PASS		tests/b2/parser_neg/missing_paren.x:2:11: error[SYN-101]: 期望`)`，遇到 `;`
+tests/b3/fixtures/bundle_tasks/app.x	tests	多文件	2	4/4	0	0	0	PASS0		
+tests/b3/fixtures/container/array.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/container/list.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/container/mapset.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/empty_main.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/err/errdefer.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/err/result_try.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/obj/class_string.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/obj2/deinit.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/obj2/proto.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/fixtures/obj3/enum_data.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/b3/neg/compound_mul.x	tests	非入口/负例		4/4	1			NEG-PASS		xnull: 代码生成失败：codegen：复合赋值 *= 未支持（M4.1 范围）
+tests/s3/mem06/gc_elem.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/s3/mem06/mapset.x	tests	单文件	1	4/4	0	0	0	PASS0		
+tests/s6/xdk05/sync_basic.x	tests	多文件	5	4/4	0	0	0	PASS0		

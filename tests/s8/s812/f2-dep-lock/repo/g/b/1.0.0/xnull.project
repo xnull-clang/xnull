@@ -1,0 +1,11 @@
+project {
+  groupId = g
+  artifactId = b
+  version = 1.0.0
+  packaging = library
+  dependencies {
+    dependency g:x {
+      version = 3.0.0
+    }
+  }
+}

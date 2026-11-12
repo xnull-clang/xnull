@@ -1,0 +1,15 @@
+project {
+  groupId = s812
+  artifactId = parent
+  version = 1.0.0
+  packaging = pom
+  properties {
+    xdk-version = 1.2.3
+    language-version = 3.3.0
+    sourceEntry = alt/src/main.x
+  }
+  build {
+    sourceRoot = alt/src
+    warnings = strict
+  }
+}

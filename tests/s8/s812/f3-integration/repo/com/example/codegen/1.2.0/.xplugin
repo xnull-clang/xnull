@@ -1,0 +1,12 @@
+plugin {
+  groupId          = com.example
+  artifactId       = codegen
+  version          = 1.2.0
+  toolchainVersion = 0.1.0
+  goals {
+    goal check {
+      phase      = validate
+      configKeys = [output]
+    }
+  }
+}
