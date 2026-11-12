@@ -1,4 +1,4 @@
 verify-golden（无 Go）：
   入口 C：PASS=142 FAIL=0 BLOCKED=0（新 bootstrap 工件已复现）
-  负例：  PASS=13 FAIL=0 BLOCKED=84（sema/entry/codegen 诊断未移植）
+  负例：  PASS=59 FAIL=0 BLOCKED=38（其余 sema/entry/codegen 诊断未移植）
   示例：  PASS=9 FAIL=0

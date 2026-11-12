@@ -9,7 +9,7 @@
 #           投影按 golden 的 proj 列复现（A = 入口目录 .xfb；B = 入口 + 直接 xdk 依赖）；
 #           via=interp 的 6 条用新 bootstrap 编译器尝试；若仍不一致才记 BLOCKED；
 #           xparser.x 的 golden 已更新为 B4c-03 修复后源码的 C（8de76400…）。
-#   负例：  LEX/SYN 由原生 parser 对齐；sema/entry/codegen 仍 BLOCKED，不伪装 PASS；
+#   负例：  LEX/SYN 由原生 parser 对齐；ENTRY/TY-204/212/213/218 由 sema-lite 检查；其余 BLOCKED；
 #   示例：  9/9 构建 + 运行 + C 哈希。
 #
 # 退出码：仅 FAIL>0 非零；BLOCKED 计入汇总并写入 verify-summary.txt。
@@ -107,6 +107,20 @@ while IFS=$'\t' read -r rel go_exit code first; do
         echo "FAIL neg ${rel}（want=$code got=${got:-none}）"
       fi
       ;;
+    ENTRY-*|TY-204|TY-212|TY-213|TY-218)
+      if "$BIN/xparser" --file "$rel" > "$W/n.ast" 2>/dev/null; then
+        out=$(python3 "$ROOT/tests/b4/neg-check.py" "$rel" "$W/n.ast" 2>/dev/null)
+      else
+        out=""
+      fi
+      got=$(printf '%s\n' "$out" | sed -n 's/^\([A-Z]*-[0-9]*\) .*/\1/p' | head -1)
+      if [ "$got" = "$code" ]; then
+        neg_pass=$((neg_pass+1))
+      else
+        neg_fail=$((neg_fail+1))
+        echo "FAIL neg ${rel}（want=$code got=${got:-none}）"
+      fi
+      ;;
     *) neg_block=$((neg_block+1)) ;;
   esac
 done < <(awk -F'\t' 'NR>1{print $1"\t"$2"\t"$3"\t"$4}' "$G/negatives.tsv")
@@ -140,7 +154,7 @@ cp "$W/entries.tsv" "$G/verify-entries.tsv" 2>/dev/null || true
 {
   echo "verify-golden（无 Go）："
   echo "  入口 C：PASS=$entry_pass FAIL=$entry_fail BLOCKED=${entry_block}（新 bootstrap 工件已复现）"
-  echo "  负例：  PASS=$neg_pass FAIL=$neg_fail BLOCKED=${neg_block}（sema/entry/codegen 诊断未移植）"
+  echo "  负例：  PASS=$neg_pass FAIL=$neg_fail BLOCKED=${neg_block}（其余 sema/entry/codegen 诊断未移植）"
   echo "  示例：  PASS=$ex_pass FAIL=$ex_fail"
 } | tee "$G/verify-summary.txt"
 TOTAL_FAIL=$((entry_fail+ex_fail+neg_fail))
