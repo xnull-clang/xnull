@@ -203,6 +203,10 @@ emit_c() {
     sed -n 1,5p "$outdir/xnullc.err" >&2
     fail "原生 xnullc 生成 C 失败：${entry}（exit ${rc}）"
   fi
+  if [ "${XNULL_XDK_SOURCE:-0}" = "1" ]; then
+    python3 "$ROOT/tests/b4/xdk-ffi-fix.py" "$outdir/project.txt" "$out" \
+      >> "$outdir/ffi-fix.log" 2>&1 || fail "FFI 包装器修复失败：$entry"
+  fi
   echo "$nf"
 }
 

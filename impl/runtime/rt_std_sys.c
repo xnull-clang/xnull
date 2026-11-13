@@ -765,3 +765,197 @@ int32_t xdkc_p_proc_close_simple(int64_t proc) {
 int64_t xdkc_p_proc_status(const char *cmd, size_t len) {
     return (int64_t)xdkc_proc_status(cmd, len);
 }
+
+/* ---- XDK 源码层 IO 桥（二进制/文件操作；hex 形态避开 Bytes 借出面）---- */
+static char *xdk_io_hex = NULL;
+static size_t xdk_io_hex_cap = 0;
+
+static int xdk_hex_val(int c) {
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+    return -1;
+}
+
+/* 读整文件为 hex；失败返回空串（调用方以 fileExists 判别缺失）。 */
+const char *xdkc_p_read_file_hex(const char *path, size_t len) {
+    static const char hex[] = "0123456789abcdef";
+    if (path == NULL || len == 0) { return ""; }
+    char *p = path_dup(path, len);
+    FILE *f = fopen(p, "rb");
+    free(p);
+    if (f == NULL) { return ""; }
+    size_t cap = 4096, n = 0;
+    unsigned char *buf = malloc(cap);
+    if (buf == NULL) { fclose(f); return ""; }
+    for (;;) {
+        if (n == cap) {
+            cap *= 2;
+            unsigned char *nb = realloc(buf, cap);
+            if (nb == NULL) { free(buf); fclose(f); return ""; }
+            buf = nb;
+        }
+        size_t got = fread(buf + n, 1, cap - n, f);
+        n += got;
+        if (got == 0) { break; }
+    }
+    int bad = ferror(f);
+    fclose(f);
+    if (bad) { free(buf); return ""; }
+    if (n * 2 + 1 > xdk_io_hex_cap) {
+        char *nb = realloc(xdk_io_hex, n * 2 + 1);
+        if (nb == NULL) { free(buf); return ""; }
+        xdk_io_hex = nb;
+        xdk_io_hex_cap = n * 2 + 1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        xdk_io_hex[i * 2] = hex[(buf[i] >> 4) & 0xF];
+        xdk_io_hex[i * 2 + 1] = hex[buf[i] & 0xF];
+    }
+    xdk_io_hex[n * 2] = 0;
+    free(buf);
+    return xdk_io_hex;
+}
+
+/* 写/追加 hex 内容；append=1 追加，否则截断。0=成功。 */
+int32_t xdkc_p_write_file_hex(const char *path, size_t plen,
+                              const char *hex, size_t hlen, int32_t append) {
+    if (path == NULL || plen == 0 || hex == NULL) { return 1; }
+    if (hlen % 2 != 0) { return 1; }
+    char *p = path_dup(path, plen);
+    FILE *f = fopen(p, append ? "ab" : "wb");
+    free(p);
+    if (f == NULL) { return 1; }
+    unsigned char stackbuf[1024];
+    unsigned char *buf = stackbuf;
+    size_t cap = sizeof(stackbuf);
+    size_t n = hlen / 2;
+    if (n > cap) {
+        buf = malloc(n);
+        if (buf == NULL) { fclose(f); return 1; }
+        cap = n;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = xdk_hex_val((unsigned char)hex[i * 2]);
+        int lo = xdk_hex_val((unsigned char)hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            if (buf != stackbuf) { free(buf); }
+            fclose(f);
+            return 1;
+        }
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    int rc = 0;
+    if (n > 0 && fwrite(buf, 1, n, f) != n) { rc = 1; }
+    if (buf != stackbuf) { free(buf); }
+    if (fclose(f) != 0) { rc = 1; }
+    return rc;
+}
+
+int64_t xdkc_p_file_size(const char *path, size_t len) {
+    if (path == NULL || len == 0) { return -1; }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int ok = stat(p, &st) == 0 && S_ISREG(st.st_mode);
+    free(p);
+    return ok ? (int64_t)st.st_size : -1;
+}
+
+int32_t xdkc_p_file_exists(const char *path, size_t len) {
+    return xdkc_path_exists(path, len);
+}
+
+int32_t xdkc_p_file_remove(const char *path, size_t len) {
+    if (path == NULL || len == 0) { return 1; }
+    char *p = path_dup(path, len);
+    int rc = remove(p);
+    free(p);
+    return rc == 0 ? 0 : 1;
+}
+
+int32_t xdkc_p_file_rename(const char *from, size_t flen,
+                           const char *to, size_t tlen) {
+    if (from == NULL || to == NULL || flen == 0 || tlen == 0) { return 1; }
+    char *a = path_dup(from, flen);
+    char *b = path_dup(to, tlen);
+    int rc = rename(a, b);
+    free(a);
+    free(b);
+    return rc == 0 ? 0 : 1;
+}
+
+int32_t xdkc_p_dir_make(const char *path, size_t len) {
+    if (path == NULL || len == 0) { return 1; }
+    char *p = path_dup(path, len);
+    int rc = mkdir(p, 0777);
+    free(p);
+    return rc == 0 ? 0 : 1;
+}
+
+int32_t xdkc_p_dir_remove(const char *path, size_t len) {
+    if (path == NULL || len == 0) { return 1; }
+    char *p = path_dup(path, len);
+    int rc = rmdir(p);
+    free(p);
+    return rc == 0 ? 0 : 1;
+}
+
+int32_t xdkc_p_append_file_text(const char *path, size_t plen,
+                                const char *text, size_t tlen) {
+    if (path == NULL || plen == 0) { return 1; }
+    char *p = path_dup(path, plen);
+    FILE *f = fopen(p, "ab");
+    free(p);
+    if (f == NULL) { return 1; }
+    int rc = 0;
+    if (tlen > 0 && fwrite(text, 1, tlen, f) != tlen) { rc = 1; }
+    if (fclose(f) != 0) { rc = 1; }
+    return rc;
+}
+
+/* runProcessResult：捕获子进程 stdout（shell 语义，stderr 不捕获）。 */
+static char   *xdk_proc_out = NULL;
+static size_t  xdk_proc_out_cap = 0;
+static int32_t xdk_proc_last_status = -1;
+
+const char *xdkc_p_proc_output(const char *cmd, size_t len) {
+    static const char empty[] = "";
+    xdk_proc_last_status = -1;
+    if (cmd == NULL || len == 0) { return empty; }
+    char *c = path_dup(cmd, len);
+    FILE *p = popen(c, "r");
+    free(c);
+    if (p == NULL) { return empty; }
+    size_t cap = 4096, n = 0;
+    char *buf = malloc(cap);
+    if (buf == NULL) { pclose(p); return empty; }
+    for (;;) {
+        if (n + 1 >= cap) {
+            cap *= 2;
+            char *nb = realloc(buf, cap);
+            if (nb == NULL) { free(buf); pclose(p); return empty; }
+            buf = nb;
+        }
+        size_t got = fread(buf + n, 1, cap - n - 1, p);
+        n += got;
+        if (got == 0) { break; }
+    }
+    int st = pclose(p);
+    buf[n] = 0;
+    if (n + 1 > xdk_proc_out_cap) {
+        char *nb = realloc(xdk_proc_out, n + 1);
+        if (nb == NULL) { free(buf); return empty; }
+        xdk_proc_out = nb;
+        xdk_proc_out_cap = n + 1;
+    }
+    memcpy(xdk_proc_out, buf, n + 1);
+    free(buf);
+    if (st != -1 && WIFEXITED(st)) {
+        xdk_proc_last_status = (int32_t)WEXITSTATUS(st);
+    }
+    return xdk_proc_out;
+}
+
+int32_t xdkc_p_proc_last_status(void) {
+    return xdk_proc_last_status;
+}

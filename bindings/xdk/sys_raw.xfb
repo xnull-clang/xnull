@@ -26,6 +26,52 @@ ffi xdkc_sys_raw {
   @blocking(.unaware)
   Int32 writeFileTextRaw(String path, String text);
 
+  // 二进制 IO：整文件 hex 形态（字节不被 NUL 截断）。
+  @ffiEntry(cName = "xdkc_p_append_file_text")
+  @lease(path = .borrow, text = .borrow)
+  @blocking(.unaware)
+  Int32 appendFileTextRaw(String path, String text);
+
+  @ffiEntry(cName = "xdkc_p_read_file_hex")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readFileHexRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_write_file_hex")
+  @lease(path = .borrow, hex = .borrow)
+  @blocking(.unaware)
+  Int32 writeFileHexRaw(String path, String hex, Bool append);
+
+  @ffiEntry(cName = "xdkc_p_file_size")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int fileSizeRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_file_exists")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 fileExistsRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_file_remove")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 fileRemoveRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_file_rename")
+  @lease(from = .borrow, to = .borrow)
+  @blocking(.unaware)
+  Int32 fileRenameRaw(String from, String to);
+
+  @ffiEntry(cName = "xdkc_p_dir_make")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 dirMakeRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_dir_remove")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 dirRemoveRaw(String path);
+
   // ---- Dir（句柄表索引）----
   @ffiEntry(cName = "xdkc_p_dir_open_id")
   @lease(path = .borrow)
@@ -61,7 +107,17 @@ ffi xdkc_sys_raw {
   @ffiEntry(cName = "xdkc_p_proc_status")
   @lease(cmd = .borrow)
   @blocking(.unaware)
-  Int64 procStatusRaw(String cmd);
+  Int64 procExitCodeRaw(String cmd);
+
+  // 捕获 stdout（shell 语义）；状态码经 procLastStatusRaw 读取。
+  @ffiEntry(cName = "xdkc_p_proc_output")
+  @lease(cmd = .borrow)
+  @blocking(.unaware)
+  String procOutputRaw(String cmd);
+
+  @ffiEntry(cName = "xdkc_p_proc_last_status")
+  @blocking(.aware)
+  Int32 procLastStatusRaw();
 
   // ---- 内嵌资源（S6 §4.8）----
   @ffiEntry(cName = "xdkc_p_resource_exists")

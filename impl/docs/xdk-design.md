@@ -177,3 +177,15 @@ impl/lib/xdk/net.x           Socket / listener（M4.6d）
 
 剩余：`TaskGroup`、`AtomicRef<T>` 需编译器发射面（B5）；二进制流与取消/挂起
 随调度器切片。
+
+### 7.1 IO 收口（2026-11-13）
+
+- File 改为直接落盘：文本走 append 原语，二进制走 hex 桥（单次 1 MiB 上限）；
+  `seek/position/size/read/readAll` 可用。
+- 新增文件系统操作、`Path`、`Dir.entries`、`runProcessResult`（stdout+退出码）、
+  `Socket.sendBytes/recvBytes`。
+- `sys.x` 的资源段拆到同包单元 `sys_res.x`：原生 xparser 对深嵌套资源函数存在
+  解析退化（指数级变慢），拆分后恢复秒级解析。
+- 冻结编译器在部分 bundle 组合下清空 FFI 参数；`tests/b4/xdk-ffi-fix.py`
+  按投影重建原型/签名/调用参数，作为 B5 修复前的编译桥。
+- E2E：`tests/s6/xdk-source/run.sh` 6/6 PASS；默认 golden 9/9 不变。

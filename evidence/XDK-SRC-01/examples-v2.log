@@ -1,0 +1,10 @@
+PASS ast-seed.x（C 与 golden 一致）
+PASS classes.x（C 与 golden 一致）
+PASS containers.x（C 与 golden 一致）
+PASS defer-cleanup.x（C 与 golden 一致）
+PASS hello.x（C 与 golden 一致）
+PASS lexer-seed.x（C 与 golden 一致）
+PASS objlist.x（C 与 golden 一致）
+PASS parser-seed.x（C 与 golden 一致）
+PASS result-try.x（C 与 golden 一致）
+B4c-02a bootstrap examples：PASS=9 FAIL=0

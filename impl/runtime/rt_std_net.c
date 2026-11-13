@@ -759,3 +759,73 @@ int32_t xdkc_p_http_status(void) {
 int32_t xdkc_p_http_error(void) {
     return xdk_net_last_error;
 }
+
+/* 二进制 socket：hex 形态（避开 Bytes 借出面）。 */
+static int xdk_hexv(int c) {
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+    return -1;
+}
+
+int64_t xdkc_p_socket_send_hex(int64_t sock, const char *hex, size_t hlen) {
+    if (hex == NULL || hlen % 2 != 0) {
+        xdk_net_last_error = 1;
+        return -1;
+    }
+    size_t n = hlen / 2;
+    unsigned char *buf = malloc(n == 0 ? 1 : n);
+    if (buf == NULL) {
+        xdk_net_last_error = 5;
+        return -1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = xdk_hexv((unsigned char)hex[i * 2]);
+        int lo = xdk_hexv((unsigned char)hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            free(buf);
+            xdk_net_last_error = 1;
+            return -1;
+        }
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    int32_t code = 0;
+    int64_t sent = xdkc_socket_send((void *)(intptr_t)sock, buf, n, &code);
+    free(buf);
+    xdk_net_last_error = code;
+    return code == 0 ? sent : -1;
+}
+
+const char *xdkc_p_socket_recv_hex(int64_t sock, int32_t max_bytes) {
+    static const char hexdig[] = "0123456789abcdef";
+    if (max_bytes <= 0) {
+        xdk_net_last_error = 1;
+        return "";
+    }
+    unsigned char *buf = malloc((size_t)max_bytes);
+    if (buf == NULL) {
+        xdk_net_last_error = 5;
+        return "";
+    }
+    int32_t code = 0;
+    int64_t n = xdkc_socket_recv((void *)(intptr_t)sock, buf, (size_t)max_bytes, &code);
+    xdk_net_last_error = code;
+    if (code != 0 || n < 0) {
+        free(buf);
+        return "";
+    }
+    size_t need = (size_t)n * 2 + 1;
+    char *out = xdk_net_buf_ensure(need);
+    if (out == NULL) {
+        free(buf);
+        xdk_net_last_error = 5;
+        return "";
+    }
+    for (int64_t i = 0; i < n; i++) {
+        out[i * 2] = hexdig[(buf[i] >> 4) & 0xF];
+        out[i * 2 + 1] = hexdig[buf[i] & 0xF];
+    }
+    out[(size_t)n * 2] = 0;
+    free(buf);
+    return out;
+}

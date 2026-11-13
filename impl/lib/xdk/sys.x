@@ -3,16 +3,14 @@
 // 依赖矩阵（S6 §2）：sys → errors；运行时服务：handle、ffi-contract。
 // 稳定性：@preview。
 //
-// 首版实现口径（B5 之前的编译面约束）：
-//   - 文件按**整文件文本**处理（读入内存、close 时落盘）；不提供二进制流句柄。
-//     运行时限额 64 MiB（K-07 同口径），超限 → Err。
-//   - 目录用运行时句柄表索引迭代；顺序依文件系统，不排序。
-//   - 资源读取按 S6 §4.8：合法路径/只读/不回退 FS/缺失 NotFound；
-//     字节经 hex 桥传输，保证二进制不被 NUL 截断。
+// 实现口径（B5 之前的编译面约束）：
+//   - File 为**直接落盘**模型：write 立即写，不缓冲；二进制经 hex 桥传输，
+//     文本经 append 原语传输；read 每次按 offset 重新读取。
+//   - Dir 用运行时句柄表索引迭代；顺序依文件系统，不排序。
+//   - 资源读取按 S6 §4.8：合法路径/只读/不回退 FS/缺失 NotFound。
 //   - Context 首参为 S6 §3 惯例；单线程运行时无挂起点，取消面随调度器切片补齐。
-//   - 当前产品编译器不支持类静态方法调用（`File.openRead(...)` 会原样发射），
-//     因此工厂函数以顶层形式提供：openFileRead/openFileWrite/openDir/spawnProcess；
-//     类保留同名 static 方法，待 B5 编译器修复后作为首选入口。
+//   - 当前产品编译器不支持类静态方法调用，工厂以顶层函数提供：
+//     openFileRead/openFileWrite/openFileAppend/openDir/spawnProcess。
 
 import xdk.errors
 
@@ -35,109 +33,392 @@ static ErrorKind resourceKind(Int code) {
     return ErrorKind.Io
 }
 
-// ---------- File（整文件文本） ----------
+// ---------- 字节/hex ----------
 
-// File：打开/读/写/关闭。close 幂等；关闭后再用返回 Unavailable，不 panic。
+static String hexChar(Int v) {
+    String table = "0123456789abcdef"
+    return table.substring(v, 1)
+}
+
+static String hexEncode(Bytes b) {
+    // 逐字节拼接（编译器暂无 StringBuilder/List.join 发射面）；大文件写入
+    // 受此实现限制，首版以 1 MiB 为上限，超过返回 Unsupported。
+    String res = ""
+    Int i = 0
+    while i < b.length() {
+        Int v = b.get(i)
+        res = $"{res}{hexChar(v / 16)}{hexChar(v % 16)}"
+        i = i + 1
+    }
+    return res
+}
+
+static Int lastIndexOfChar(String s, String ch) {
+    Int i = 0
+    Int last = -1
+    while i < s.length() {
+        if s.substring(i, 1) == ch {
+            last = i
+        }
+        i = i + 1
+    }
+    return last
+}
+
+static Int hexValueAt(String text, Int i) {
+    String ch = text.substring(i, 1)
+    if ch == "0" { return 0 }
+    if ch == "1" { return 1 }
+    if ch == "2" { return 2 }
+    if ch == "3" { return 3 }
+    if ch == "4" { return 4 }
+    if ch == "5" { return 5 }
+    if ch == "6" { return 6 }
+    if ch == "7" { return 7 }
+    if ch == "8" { return 8 }
+    if ch == "9" { return 9 }
+    if ch == "a" { return 10 }
+    if ch == "b" { return 11 }
+    if ch == "c" { return 12 }
+    if ch == "d" { return 13 }
+    if ch == "e" { return 14 }
+    if ch == "f" { return 15 }
+    return 0
+}
+
+static Bytes hexDecode(String hex) {
+    Bytes res = Bytes.fromString("")
+    Int i = 0
+    while i + 1 < hex.length() {
+        Int hi = hexValueAt(hex, i)
+        Int lo = hexValueAt(hex, i + 1)
+        res.push(hi * 16 + lo)
+        i = i + 2
+    }
+    return res
+}
+
+// ---------- File ----------
+
+// File：直接落盘的读写句柄。close 幂等；关闭后读写返回 Unavailable。
 class File {
     final String path
-    String content
-    Bool writeMode
+    Int pos
+    Bool writable
     Bool opened
 
-    File(String p, String c, Bool w, Bool o) {
+    File(String p, Bool w) {
         self.path = p
-        self.content = c
-        self.writeMode = w
-        self.opened = o
+        self.pos = 0
+        self.writable = w
+        self.opened = true
     }
 
     Bool isOpen() {
         return self.opened
     }
 
-    Bool isWriteMode() {
-        return self.writeMode
+    Bool isWritable() {
+        return self.writable
     }
 
-    // 全部内容（读模式）。文本按 UTF-8 字节转为 Bytes。
+    Int position() {
+        return self.pos
+    }
+
+    // 定位（只影响后续 read；write 总是追加到文件尾）。
+    Result<void, Error> seek(Int offset) {
+        if offset < 0 {
+            return Err(sysError(ErrorKind.InvalidArgument, "File.seek: 偏移为负"))
+        }
+        self.pos = offset
+        return Ok()
+    }
+
+    // 文件字节数（磁盘当前值；缺失返回 -1 经 Err 报告）。
+    Result<Int, Error> size() {
+        String p = self.path
+        Int n = fileSizeRaw(p)
+        if n < 0 {
+            return Err(sysError(ErrorKind.NotFound, $"File.size: 无法读取 {self.path}"))
+        }
+        return Ok(n)
+    }
+
+    // 从当前位置读全部剩余字节。
     Result<Bytes, Error> readAll() {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "File.readAll: 文件未打开"))
         }
-        if self.writeMode {
-            return Err(sysError(ErrorKind.InvalidArgument, "File.readAll: 写模式不可读"))
+        String p = self.path
+        if fileExistsRaw(p) == 0 {
+            return Err(sysError(ErrorKind.NotFound, $"File.readAll: 文件不存在 {self.path}"))
         }
-        Bytes b = Bytes.fromString(self.content)
-        return Ok(b)
+        Bytes all = hexDecode(readFileHexRaw(p))
+        if self.pos >= all.length() {
+            Bytes empty = Bytes.fromString("")
+            return Ok(empty)
+        }
+        Bytes res = all.slice(self.pos, all.length())
+        self.pos = all.length()
+        return Ok(res)
     }
 
-    // 全部内容（读模式，文本形态）。
+    // 从当前位置读至多 maxBytes 字节。
+    Result<Bytes, Error> read(Int maxBytes) {
+        if maxBytes < 0 {
+            return Err(sysError(ErrorKind.InvalidArgument, "File.read: maxBytes 为负"))
+        }
+        if !self.opened {
+            return Err(sysError(ErrorKind.Unavailable, "File.read: 文件未打开"))
+        }
+        String p = self.path
+        if fileExistsRaw(p) == 0 {
+            return Err(sysError(ErrorKind.NotFound, $"File.read: 文件不存在 {self.path}"))
+        }
+        Bytes all = hexDecode(readFileHexRaw(p))
+        if self.pos >= all.length() {
+            Bytes empty = Bytes.fromString("")
+            return Ok(empty)
+        }
+        Int n = all.length() - self.pos
+        if maxBytes < n {
+            n = maxBytes
+        }
+        Int end = self.pos + n
+        Bytes res = all.slice(self.pos, end)
+        self.pos = end
+        return Ok(res)
+    }
+
+    // 读取全部文本（UTF-8；独立于 offset）。
     Result<String, Error> readText() {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "File.readText: 文件未打开"))
         }
-        if self.writeMode {
-            return Err(sysError(ErrorKind.InvalidArgument, "File.readText: 写模式不可读"))
-        }
-        return Ok(self.content)
+        String text = readFileTextImpl(self.path)
+        return Ok(text)
     }
 
-    // 追加文本（写模式）；返回追加后总字节数。
-    Result<Int, Error> write(String text) {
+    // 追加二进制内容；返回追加字节数。
+    Result<Int, Error> write(Bytes data) {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "File.write: 文件未打开"))
         }
-        if !self.writeMode {
+        if !self.writable {
             return Err(sysError(ErrorKind.InvalidArgument, "File.write: 只读模式不可写"))
         }
-        self.content = $"{self.content}{text}"
-        return Ok(self.content.length())
+        if data.length() > 1048576 {
+            return Err(sysError(ErrorKind.Unsupported, "File.write: 首版二进制写入上限 1 MiB"))
+        }
+        String p = self.path
+        Int rc = writeFileHexRaw(p, hexEncode(data), true)
+        if rc != 0 {
+            return Err(sysError(ErrorKind.Io, $"File.write: 无法写入 {self.path}"))
+        }
+        return Ok(data.length())
+    }
+
+    // 追加文本；返回追加字节数。
+    Result<Int, Error> writeText(String text) {
+        if !self.opened {
+            return Err(sysError(ErrorKind.Unavailable, "File.writeText: 文件未打开"))
+        }
+        if !self.writable {
+            return Err(sysError(ErrorKind.InvalidArgument, "File.writeText: 只读模式不可写"))
+        }
+        String p = self.path
+        Int rc = appendFileTextRaw(p, text)
+        if rc != 0 {
+            return Err(sysError(ErrorKind.Io, $"File.writeText: 无法写入 {self.path}"))
+        }
+        return Ok(text.length())
     }
 
     // 追加一行。
     Result<Int, Error> writeLine(String line) {
-        return self.write($"{line}\n")
+        return self.writeText($"{line}\n")
     }
 
-    // 关闭：写模式落盘；幂等；句柄立即失效。
+    // 关闭（写已直接落盘，无缓冲需要 flush）；幂等。
     Result<void, Error> close() {
-        if !self.opened {
-            return Ok()
-        }
         self.opened = false
-        if self.writeMode {
-            Int rc = writeFileTextRaw(self.path, self.content)
-            if rc != 0 {
-                return Err(sysError(ErrorKind.Io, $"File.close: 无法写入 {self.path}"))
-            }
-        }
         return Ok()
     }
 }
 
-// openFileRead：只读打开（整文件读入）。失败（缺失/IO/超 64 MiB）→ Err。
+// openFileRead：只读打开；文件不存在 → NotFound。
 Result<File, Error> openFileRead(String path) {
     if path.length() == 0 {
         return Err(sysError(ErrorKind.InvalidArgument, "openFileRead: 路径为空"))
     }
-    String text = readFileTextRaw(path)
-    if readFileTextError() != 0 {
-        return Err(sysError(ErrorKind.NotFound, $"openFileRead: 无法读取 {path}"))
+    if fileExistsRaw(path) == 0 {
+        return Err(sysError(ErrorKind.NotFound, $"openFileRead: 文件不存在 {path}"))
     }
-    return Ok(new File(path, text, false, true))
+    return Ok(new File(path, false))
 }
 
-// openFileWrite：写模式（内容先缓冲，close 时一次性覆盖落盘）。
+// openFileWrite：写模式（立即截断）。
 Result<File, Error> openFileWrite(String path) {
     if path.length() == 0 {
         return Err(sysError(ErrorKind.InvalidArgument, "openFileWrite: 路径为空"))
     }
-    return Ok(new File(path, "", true, true))
+    Int rc = writeFileTextRaw(path, "")
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"openFileWrite: 无法创建 {path}"))
+    }
+    return Ok(new File(path, true))
+}
+
+// openFileAppend：追加模式（不截断）。
+Result<File, Error> openFileAppend(String path) {
+    if path.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "openFileAppend: 路径为空"))
+    }
+    return Ok(new File(path, true))
+}
+
+// ---------- 文件系统操作 ----------
+
+Bool fileExists(String path) {
+    if path.length() == 0 {
+        return false
+    }
+    return fileExistsRaw(path) != 0
+}
+
+Result<void, Error> removeFile(String path) {
+    if fileExistsRaw(path) == 0 {
+        return Err(sysError(ErrorKind.NotFound, $"removeFile: 文件不存在 {path}"))
+    }
+    Int rc = fileRemoveRaw(path)
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"removeFile: 删除失败 {path}"))
+    }
+    return Ok()
+}
+
+Result<void, Error> renameFile(String from, String to) {
+    if from.length() == 0 || to.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "renameFile: 路径为空"))
+    }
+    Int rc = fileRenameRaw(from, to)
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"renameFile: {from} -> {to} 失败"))
+    }
+    return Ok()
+}
+
+// copyFile：整文件复制（二进制安全）；覆盖目标。
+Result<void, Error> copyFile(String from, String to) {
+    if fileExistsRaw(from) == 0 {
+        return Err(sysError(ErrorKind.NotFound, $"copyFile: 源不存在 {from}"))
+    }
+    String hex = readFileHexRaw(from)
+    Int rc = writeFileHexRaw(to, hex, false)
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"copyFile: 无法写入 {to}"))
+    }
+    return Ok()
+}
+
+Result<void, Error> makeDir(String path) {
+    if path.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "makeDir: 路径为空"))
+    }
+    Int rc = dirMakeRaw(path)
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"makeDir: 无法创建 {path}"))
+    }
+    return Ok()
+}
+
+Result<void, Error> removeDir(String path) {
+    if path.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "removeDir: 路径为空"))
+    }
+    Int rc = dirRemoveRaw(path)
+    if rc != 0 {
+        return Err(sysError(ErrorKind.Io, $"removeDir: 无法删除 {path}"))
+    }
+    return Ok()
+}
+
+// ---------- Path ----------
+
+// Path：路径字符串的轻量视图（不访问文件系统）。
+class Path {
+    final String raw
+
+    Path(String p) {
+        self.raw = p
+    }
+
+    String toString() {
+        return self.raw
+    }
+
+    Bool isAbsolute() {
+        return self.raw.length() > 0 && self.raw.substring(0, 1) == "/"
+    }
+
+    // 最后一段；以 / 结尾时去掉尾部分隔符。
+    String name() {
+        String s = self.raw
+        while s.length() > 1 && s.substring(s.length() - 1, 1) == "/" {
+            s = s.substring(0, s.length() - 1)
+        }
+        Int i = lastIndexOfChar(s, "/")
+        if i < 0 {
+            return s
+        }
+        return s.substring(i + 1, s.length() - i - 1)
+    }
+
+    // 父目录（无分隔符时返回 "."）。
+    String parent() {
+        String s = self.raw
+        while s.length() > 1 && s.substring(s.length() - 1, 1) == "/" {
+            s = s.substring(0, s.length() - 1)
+        }
+        Int i = lastIndexOfChar(s, "/")
+        if i <= 0 {
+            if i == 0 {
+                return "/"
+            }
+            return "."
+        }
+        return s.substring(0, i)
+    }
+
+    // 扩展名（不含点）；无扩展名返回空串。
+    String ext() {
+        String n = self.name()
+        Int i = lastIndexOfChar(n, ".")
+        if i <= 0 {
+            return ""
+        }
+        return n.substring(i + 1, n.length() - i - 1)
+    }
+}
+
+// pathJoin：连接两段路径，处理重复分隔符。
+String pathJoin(String a, String b) {
+    if a.length() == 0 {
+        return b
+    }
+    if b.length() == 0 {
+        return a
+    }
+    if a.substring(a.length() - 1, 1) == "/" {
+        return $"{a}{b}"
+    }
+    return $"{a}/{b}"
 }
 
 // ---------- Dir ----------
 
-// Dir：目录迭代。next() 返回空串表示结束。
+// Dir：目录迭代。next() 返回空串表示结束；entries() 消费剩余全部条目。
 class Dir {
     Int id
     Bool opened
@@ -156,7 +437,22 @@ class Dir {
         if !self.opened {
             return ""
         }
-        return dirNextIdRaw(self.id)
+        Int d = self.id
+        return dirNextIdRaw(d)
+    }
+
+    // 读取剩余全部条目（含 "." 与 ".."，与运行时一致）。
+    Result<List<String>, Error> entries() {
+        if !self.opened {
+            return Err(sysError(ErrorKind.Unavailable, "Dir.entries: 目录未打开"))
+        }
+        List<String> res = []
+        String name = self.next()
+        while name.length() > 0 {
+            res.push(name)
+            name = self.next()
+        }
+        return Ok(res)
     }
 
     Result<void, Error> close() {
@@ -164,7 +460,8 @@ class Dir {
             return Ok()
         }
         self.opened = false
-        Int rc = dirCloseIdRaw(self.id)
+        Int d = self.id
+        Int rc = dirCloseIdRaw(d)
         if rc != 0 {
             return Err(sysError(ErrorKind.Io, "Dir.close: 关闭失败"))
         }
@@ -204,7 +501,8 @@ class Process {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "Process.wait: 句柄已关闭"))
         }
-        Int64 st = procWaitRaw(self.handle)
+        Int64 h = self.handle
+        Int64 st = procWaitRaw(h)
         if st < 0 {
             return Err(sysError(ErrorKind.Io, "Process.wait: 等待失败"))
         }
@@ -215,7 +513,8 @@ class Process {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "Process.kill: 句柄已关闭"))
         }
-        Int rc = procKillRaw(self.handle, sig)
+        Int64 h = self.handle
+        Int rc = procKillRaw(h, sig)
         if rc != 0 {
             return Err(sysError(ErrorKind.Io, "Process.kill: 发送信号失败"))
         }
@@ -227,7 +526,8 @@ class Process {
             return Ok()
         }
         self.opened = false
-        Int rc = procCloseRaw(self.handle)
+        Int64 h = self.handle
+        Int rc = procCloseRaw(h)
         if rc != 0 {
             return Err(sysError(ErrorKind.Io, "Process.close: 回收失败"))
         }
@@ -248,165 +548,46 @@ Result<Process, Error> spawnProcess(String command) {
 
 // runProcess：便捷同步形态，运行 shell 命令并返回退出码。
 Int runProcess(String command) {
-    return procStatusRaw(command)
+    Int64 code = procExitCodeRaw(command)
+    return code
 }
 
-// ---------- 内嵌资源（S6 §4.8） ----------
+// ProcessResult：命令输出与退出码。
+class ProcessResult {
+    Int code
+    String output
 
-// 路径规则：相对 `resources/` 根、`/` 分隔；绝对/`..`/空段/反斜杠非法。
-static Bool resourcePathOk(String path, Bool allowEmpty) {
-    Int n = path.length()
-    if n == 0 {
-        return allowEmpty
+    ProcessResult(Int c, String o) {
+        self.code = c
+        self.output = o
     }
-    if path.substring(0, 1) == "/" {
-        return false
+
+    Int status() {
+        return self.code
     }
-    if path.substring(n - 1, 1) == "/" {
-        return false
+
+    String stdout() {
+        return self.output
     }
-    if n >= 2 {
-        if path.substring(0, 2) == ".." {
-            return false
-        }
-    }
-    Int i = 0
-    while i < n {
-        String ch = path.substring(i, 1)
-        if ch == "\\" {
-            return false
-        }
-        if ch == "/" {
-            if i == 0 {
-                return false
-            }
-            if path.substring(i - 1, 1) == "/" {
-                return false
-            }
-            if i + 2 < n {
-                if path.substring(i + 1, 2) == ".." {
-                    return false
-                }
-            }
-            if i + 2 == n {
-                if path.substring(i + 1, 2) == ".." {
-                    return false
-                }
-            }
-        }
-        i = i + 1
-    }
-    return true
 }
 
-// resourceExists：路径合法且资源存在；不存在/非法 → false（不报错）。
-Bool resourceExists(String path) {
-    if !resourcePathOk(path, false) {
-        return false
+// runProcessResult：运行命令并捕获 stdout（stderr 不捕获）。
+Result<ProcessResult, Error> runProcessResult(String command) {
+    if command.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "runProcessResult: 命令为空"))
     }
-    return resourceExistsRaw(path) != 0
-}
-
-// resourceSize：字节数；缺失/非法返回 null。
-Int? resourceSize(String path) {
-    if !resourcePathOk(path, false) {
-        return null
+    String text = procOutputRaw(command)
+    Int code = procLastStatusRaw()
+    if code < 0 {
+        return Err(sysError(ErrorKind.Io, "runProcessResult: 无法执行命令"))
     }
-    Int64 n = resourceSizeRaw(path)
-    if n < 0 {
-        return null
-    }
-    return n
-}
-
-static Int hexValueAt(String text, Int i) {
-    String ch = text.substring(i, 1)
-    if ch == "0" { return 0 }
-    if ch == "1" { return 1 }
-    if ch == "2" { return 2 }
-    if ch == "3" { return 3 }
-    if ch == "4" { return 4 }
-    if ch == "5" { return 5 }
-    if ch == "6" { return 6 }
-    if ch == "7" { return 7 }
-    if ch == "8" { return 8 }
-    if ch == "9" { return 9 }
-    if ch == "a" { return 10 }
-    if ch == "b" { return 11 }
-    if ch == "c" { return 12 }
-    if ch == "d" { return 13 }
-    if ch == "e" { return 14 }
-    if ch == "f" { return 15 }
-    return 0
-}
-
-// readResource：取全部字节。缺失 → NotFound；路径非法 → InvalidArgument。
-Result<Bytes, Error> readResource(Context context, String path) {
-    if !resourcePathOk(path, false) {
-        return Err(sysError(ErrorKind.InvalidArgument, "readResource: 非法资源路径"))
-    }
-    String hex = readResourceHexRaw(path)
-    Int code = resourceErrorRaw()
-    if code != 0 {
-        return Err(sysError(resourceKind(code), $"readResource: 无法读取 {path}"))
-    }
-    Bytes res = Bytes.fromString("")
-    Int i = 0
-    while i + 1 < hex.length() {
-        Int hi = hexValueAt(hex, i)
-        Int lo = hexValueAt(hex, i + 1)
-        res.push(hi * 16 + lo)
-        i = i + 2
-    }
-    return Ok(res)
-}
-
-// readResourceText：UTF-8 解码后返回文本。非法字节 → DataCorrupted。
-Result<String, Error> readResourceText(Context context, String path) {
-    if !resourcePathOk(path, false) {
-        return Err(sysError(ErrorKind.InvalidArgument, "readResourceText: 非法资源路径"))
-    }
-    String text = readResourceTextRaw(path)
-    Int code = resourceErrorRaw()
-    if code != 0 {
-        return Err(sysError(resourceKind(code), $"readResourceText: 无法读取 {path}"))
-    }
-    return Ok(text)
-}
-
-// listResources：列出前缀下的全部资源路径（`/` 分隔、字典序升序）。
-// 空前缀 = 根；前缀不是目录 → 空列表；非法路径 → InvalidArgument。
-Result<List<String>, Error> listResources(Context context, String prefix) {
-    if !resourcePathOk(prefix, true) {
-        return Err(sysError(ErrorKind.InvalidArgument, "listResources: 非法资源前缀"))
-    }
-    Int total = resourceCountRaw()
-    List<String> res = []
-    Int i = 0
-    while i < total {
-        String name = resourceAtRaw(i)
-        if name.length() > 0 {
-            if prefix.length() == 0 {
-                res.push(name)
-            } else if name.length() > (prefix.length() + 1) {
-                if name.substring(0, prefix.length()) == prefix {
-                    if name.substring(prefix.length(), 1) == "/" {
-                        res.push(name)
-                    }
-                }
-            }
-        }
-        i = i + 1
-    }
-    // 资源表由构建期按路径升序生成；此处不再二次排序（S6 §4.8 保证）。
-    return Ok(res)
+    return Ok(new ProcessResult(code, text))
 }
 
 // ---------- 旧兼容入口（K-07：编译器读源文件） ----------
 
 // readFileTextImpl：读取失败（缺失/IO/超过 64 MiB）→ throw 明确诊断，不返回空串。
-// 与 readFileText 分开命名：产品编译器对 readFileText 有 K-07 专用发射（调用点丢参），
-// 该名字保留给编译器自举面，实现走本函数。
+// 与 readFileText 分开命名：产品编译器对 readFileText 有 K-07 专用发射（调用点丢参）。
 String readFileTextImpl(String path) {
     String raw = readFileTextRaw(path)
     if readFileTextError() != 0 {

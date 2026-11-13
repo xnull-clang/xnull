@@ -4,7 +4,7 @@ import xdk.sys
 static Int main() {
     Result<File, Error> w = openFileWrite("/tmp/xdk-src-file.txt")
     File f = w.value()
-    f.write("hello\n")
+    f.writeText("hello\n")
     f.writeLine("world")
     f.close()
     print(f.isOpen())

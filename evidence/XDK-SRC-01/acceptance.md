@@ -66,3 +66,53 @@ PASS=9 FAIL=0（C 与 golden 一致）
 - `tests/b4/xdk-bundle.py`（新增编译桥）
 - `tests/b4/xnull-build.sh`（`XNULL_XDK_SOURCE` / `XNULL_RESOURCES`）
 - `tests/s6/xdk-source/`（4 组 E2E + README）
+
+## 5. IO 收口（2026-11-13 追加）
+
+用户追问“IO 写完了吗”后补齐：
+
+| 能力 | 实现 |
+| --- | --- |
+| 二进制文件读 | `File.read/readAll`（hex 桥解码，NUL 安全） |
+| 二进制文件写 | `File.write(Bytes)`、`openFileAppend`（上限 1 MiB/次） |
+| 文本文件 | `readText/writeText/writeLine` |
+| 定位/尺寸 | `seek/position/size` |
+| 文件系统 | `fileExists/removeFile/renameFile/copyFile/makeDir/removeDir` |
+| 目录 | `Dir.entries()` |
+| 进制 | `Path`（isAbsolute/name/parent/ext）+ `pathJoin` |
+| 进程输出 | `runProcessResult`（stdout + 退出码） |
+| 二进制 socket | `Socket.sendBytes/recvBytes` |
+
+验证（`e2e-v2.log`）：
+
+```text
+PASS text
+PASS sys_file
+PASS io_binary
+PASS resources
+PASS net_http
+PASS net_socket
+XDK 源码层：PASS=6 FAIL=0
+B4c-02a bootstrap examples：PASS=9 FAIL=0（examples-v2.log）
+```
+
+新增/修改：
+
+- `impl/lib/xdk/sys.x`：File 直接落盘模型、文件系统操作、`Path`、`ProcessResult`。
+- `impl/lib/xdk/sys_res.x`（新）：资源 API 子单元（规避原生 xparser 深嵌套解析退化）。
+- `impl/lib/xdk/net.x`：`sendBytes/recvBytes` + hex 辅助。
+- `bindings/xdk/{sys_raw,net_raw}.xfb`：二进制/文件/进程输出条目。
+- `impl/runtime/{rt_std_sys,rt_std_net}.c`：hex 编解码、文件操作、popen 输出、二进制 socket。
+- `tests/b4/xdk-ffi-fix.py`（新）：修复冻结编译器 FFI 参数错位（按投影重建签名的
+  原生原型/包装器/调用参数）。
+- `tests/s6/xdk-source/`：新增 `io_binary`、`net_socket`。
+
+限制：单次二进制写/发送 1 MiB；`Listener.accept` 未接入；`TaskGroup`/`AtomicRef`
+仍待 B5 编译面。
+
+## 6. 集成注意（B4c golden）
+
+`impl/lib/xdk/{sys,net,text}.x` 变化会改变 `import xdk.*` 入口的生成 C，因此
+`verify-golden` 的 `xparser.x` / bundle 入口哈希需要 **INTEG 重新冻结**
+（本卡不回写 golden，遵守 SSOT/ADR-006）。默认 `bin/xnull --bootstrap examples`
+9/9 不受影响；`tests/s6/xdk-source` 6/6 为新增验收面。

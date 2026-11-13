@@ -22,6 +22,15 @@ ffi xdkc_net_raw {
   @blocking(.unaware)
   String socketRecvRaw(Int64 sock, Int32 maxBytes);
 
+  @ffiEntry(cName = "xdkc_p_socket_send_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  Int64 socketSendHexRaw(Int64 sock, String hex);
+
+  @ffiEntry(cName = "xdkc_p_socket_recv_hex")
+  @blocking(.unaware)
+  String socketRecvHexRaw(Int64 sock, Int32 maxBytes);
+
   @ffiEntry(cName = "xdkc_p_socket_close_simple")
   @blocking(.aware)
   Int32 socketCloseRaw(Int64 sock);

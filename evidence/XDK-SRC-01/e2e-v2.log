@@ -1,0 +1,7 @@
+PASS text
+PASS sys_file
+PASS io_binary
+PASS resources
+PASS net_http
+PASS net_socket
+XDK 源码层：PASS=6 FAIL=0

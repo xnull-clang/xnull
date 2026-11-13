@@ -60,6 +60,8 @@ def closure(root, entry):
         rel = UNITS.get(pkg)
         if rel:
             order.append(os.path.join(root, rel))
+    # sys 资源子单元（与 sys.x 同包，不单独 import）。
+    order.append(os.path.join(root, "impl/lib/xdk/sys_res.x"))
     order.append(entry)
     return order
 

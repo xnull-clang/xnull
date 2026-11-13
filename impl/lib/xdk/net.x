@@ -43,6 +43,56 @@ static Bool validPort(Int port) {
     return port > 0 && port <= 65535
 }
 
+// ---------- 二进制 hex 辅助（避开 Bytes 借出面） ----------
+
+static String netHexChar(Int v) {
+    String table = "0123456789abcdef"
+    return table.substring(v, 1)
+}
+
+static String netHexEncode(Bytes b) {
+    String res = ""
+    Int i = 0
+    while i < b.length() {
+        Int v = b.get(i)
+        res = $"{res}{netHexChar(v / 16)}{netHexChar(v % 16)}"
+        i = i + 1
+    }
+    return res
+}
+
+static Int netHexVal(String ch) {
+    if ch == "0" { return 0 }
+    if ch == "1" { return 1 }
+    if ch == "2" { return 2 }
+    if ch == "3" { return 3 }
+    if ch == "4" { return 4 }
+    if ch == "5" { return 5 }
+    if ch == "6" { return 6 }
+    if ch == "7" { return 7 }
+    if ch == "8" { return 8 }
+    if ch == "9" { return 9 }
+    if ch == "a" { return 10 }
+    if ch == "b" { return 11 }
+    if ch == "c" { return 12 }
+    if ch == "d" { return 13 }
+    if ch == "e" { return 14 }
+    if ch == "f" { return 15 }
+    return 0
+}
+
+static Bytes netHexDecode(String hex) {
+    Bytes res = Bytes.fromString("")
+    Int i = 0
+    while i + 1 < hex.length() {
+        Int hi = netHexVal(hex.substring(i, 1))
+        Int lo = netHexVal(hex.substring(i + 1, 1))
+        res.push(hi * 16 + lo)
+        i = i + 2
+    }
+    return res
+}
+
 // ---------- Socket ----------
 
 // Socket：客户端连接句柄。send/recv 为文本形态；close 幂等。
@@ -69,6 +119,35 @@ class Socket {
             return Err(netError(netKind(socketErrorRaw()), "Socket.send: 发送失败"))
         }
         return Ok(n)
+    }
+
+    // 发送二进制（首版上限 1 MiB）。
+    Result<Int, Error> sendBytes(Bytes data) {
+        if !self.opened {
+            return Err(netError(ErrorKind.Unavailable, "Socket.sendBytes: socket 已关闭"))
+        }
+        if data.length() > 1048576 {
+            return Err(netError(ErrorKind.Unsupported, "Socket.sendBytes: 首版上限 1 MiB"))
+        }
+        Int64 n = socketSendHexRaw(self.handle, netHexEncode(data))
+        if n < 0 {
+            return Err(netError(netKind(socketErrorRaw()), "Socket.sendBytes: 发送失败"))
+        }
+        return Ok(n)
+    }
+
+    // 接收至多 maxBytes 字节并返回二进制；对端关闭 → 空缓冲。
+    Result<Bytes, Error> recvBytes(Int maxBytes) {
+        if !self.opened {
+            return Err(netError(ErrorKind.Unavailable, "Socket.recvBytes: socket 已关闭"))
+        }
+        String hex = socketRecvHexRaw(self.handle, maxBytes)
+        Int code = socketErrorRaw()
+        if code != 0 {
+            return Err(netError(netKind(code), "Socket.recvBytes: 接收失败"))
+        }
+        Bytes res = netHexDecode(hex)
+        return Ok(res)
     }
 
     // 接收至多 maxBytes 字节并返回文本；对端关闭 → 空串。
