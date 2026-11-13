@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XNull-Lang 功能进度思维导图 · 2026-11-13</title>
+<style>
+  :root{
+    --bg:#0f1420; --panel:#161d2e; --panel2:#1c2438; --line:#2a3450;
+    --txt:#e6ebf5; --sub:#93a0b8; --accent:#5b9cf5;
+    --done:#34c98e; --doing:#f5b942; --todo:#8a94a8;
+    --done-bg:rgba(52,201,142,.12); --doing-bg:rgba(245,185,66,.12); --todo-bg:rgba(138,148,168,.12);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;padding:28px 32px 60px}
+  header{margin-bottom:22px}
+  h1{font-size:22px;font-weight:700}
+  .meta{color:var(--sub);font-size:13px;margin-top:6px}
+  .legend{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap}
+  .legend span{font-size:12px;padding:4px 10px;border-radius:20px}
+  .l-done{background:var(--done-bg);color:var(--done)}
+  .l-doing{background:var(--doing-bg);color:var(--doing)}
+  .l-todo{background:var(--todo-bg);color:var(--todo)}
+  .stats{display:flex;gap:12px;margin-top:14px;flex-wrap:wrap}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-size:12px;color:var(--sub)}
+  .stat b{color:var(--txt);font-size:15px;margin-right:6px}
+  .map{margin-top:8px}
+  .node{margin:6px 0 6px 22px;position:relative;padding-left:20px}
+  .node::before{content:"";position:absolute;left:0;top:0;bottom:0;border-left:1px solid var(--line)}
+  .node::after{content:"";position:absolute;left:0;top:17px;width:14px;border-top:1px solid var(--line)}
+  .row{display:flex;align-items:flex-start;gap:8px;cursor:default}
+  .row.parent{cursor:pointer}
+  .caret{flex:none;width:16px;height:16px;margin-top:5px;border-radius:4px;background:var(--panel2);color:var(--sub);
+    display:flex;align-items:center;justify-content:center;font-size:10px;transition:transform .15s}
+  .caret.collapsed{transform:rotate(-90deg)}
+  .caret.leaf{visibility:hidden}
+  .label{padding:4px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);font-size:13.5px;line-height:1.5}
+  .row.root .label{background:linear-gradient(135deg,#2b4c8c,#1e355f);border-color:#3d6ab8;font-size:15px;font-weight:700;padding:7px 14px}
+  .row:hover .label{border-color:var(--accent)}
+  .desc{color:var(--sub);font-size:12px;line-height:1.55;margin-top:3px;max-width:640px}
+  .tag{flex:none;font-size:11px;font-weight:600;padding:2px 8px;border-radius:12px;margin-top:6px}
+  .t-done{background:var(--done-bg);color:var(--done)}
+  .t-doing{background:var(--doing-bg);color:var(--doing)}
+  .t-todo{background:var(--todo-bg);color:var(--todo)}
+  .t-lock{background:rgba(148,163,184,.15);color:#9fb0c9}
+  .children.collapsed{display:none}
+  .toolbar{margin-top:10px}
+  .toolbar button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:8px;
+    padding:5px 14px;font-size:12px;cursor:pointer;margin-right:8px}
+  .toolbar button:hover{border-color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1>XNull 系统能力全景图</h1>
+  <div class="meta">数据快照：2026-11-14 · 全部条目依据 impl 源码逐项实测（文件行数 / 方法分派点 / API 面），只讲功能、能力、完整性</div>
+  <div class="legend">
+    <span class="l-done">✅ 可用</span>
+    <span class="l-doing">🟡 部分可用</span>
+    <span class="l-todo">❌ 缺失</span>
+    <span class="l-todo">🔒 设计不做（同灰色系）</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>✅</b>语言核心：OO/泛型/错误处理/内存模型</div>
+    <div class="stat"><b>❌</b>Object 根 / 基本类型方法 / StringBuilder</div>
+    <div class="stat"><b>🟡</b>标准库 5/8 包部分可用，3 包空心</div>
+    <div class="stat"><b>❌</b>math / time / json 整包缺失</div>
+    <div class="stat"><b>❌</b>编译器无 IR/优化/调试信息/增量编译</div>
+    <div class="stat"><b>❌</b>IDE 无 LSP/调试；发行无渠道</div>
+  </div>
+  <div class="toolbar">
+    <button onclick="setAll(false)">全部展开</button>
+    <button onclick="setAll(true)">全部收起</button>
+  </div>
+</header>
+<div class="map" id="map"></div>
+
+<script>
+// s: done | doing | todo
+const DATA = {t:"XNull 系统能力全景",s:"doing",root:true,d:"显式、可预测、拒绝隐式的静态类型语言 · 每项能力逐条源码实测：✅ 可用 / 🟡 部分可用 / ❌ 缺失 / 🔒 设计上不做",c:[
+ {t:"1. 语言能力（语言能表达什么）",s:"doing",c:[
+   {t:"类型系统",s:"doing",c:[
+     {t:"基本值类型：Int / Double / Float / Bool / Char / String",s:"done",d:"四进制整数与后缀、浮点指数、字符九种转义、五种字符串形态含插值"},
+     {t:"Any 动态类型",s:"doing",d:"有底层表示（xn_Any*），零方法面"},
+     {t:"Object 根类型 / 继承体系",s:"todo",d:"无统一根类型，无 str()/equals/hashCode 通用协议（原 toString 已改名为更短的 str()）"},
+     {t:"泛型（单态化）",s:"done",d:"编译期完全展开，静态派发下完全确定"},
+     {t:"泛型约束 / 关联类型 / 特化",s:"todo",d:"仅有单态化，无 where 约束系统"},
+     {t:"is / as 类型运算",s:"doing",d:"as? 词法已定，语义支持面待核实"}
+   ]},
+   {t:"面向对象",s:"done",c:[
+     {t:"class / struct / enum / protocol / extension / singleton",s:"done",d:"六种声明全量"},
+     {t:"主构造器 / 字段 / 方法 / static 成员",s:"done"},
+     {t:"全静态派发（无虚方法）",s:"done",d:"设计决策：可预测优先"},
+     {t:"通用对象协议（str() / equals / hashCode，原 toString 改名）",s:"todo",d:"全缺——影响打印、比较、容器键"}
+   ]},
+   {t:"函数与控制流",s:"done",c:[
+     {t:"一等函数 / 闭包 / 插值串",s:"done"},
+     {t:"if / while / for-in / switch 穷尽检查",s:"done"},
+     {t:"高阶组合工具（map / filter / reduce）",s:"todo",d:"闭包能写，组合子库没有"},
+     {t:"宏 / 反射 / 运算符重载",s:"noplanned",d:"静态派发与可预测气质下设计上不做"}
+   ]},
+   {t:"错误处理",s:"done",c:[
+     {t:"Result<T,E> / Ok / Err / try / defer",s:"done",d:"可失败操作返回 Result，不 panic"},
+     {t:"ErrorKind 分类 / 错误链",s:"doing",d:"雏形已建，规范全集未铺满"},
+     {t:"取消 / 超时 / fatal 退出码",s:"done"}
+   ]},
+   {t:"并发能力",s:"doing",c:[
+     {t:"运行时：结构化并发 / 任务组 / 载体池 / Mutex / Channel / Atomic",s:"done",d:"C 侧完整实现并经压力测试"},
+     {t:"语言调用入口：xdk.tasks / xdk.sync / @tasks 注解",s:"todo",d:"三个包均为空骨架——能力在运行时里，语言层拿不到"}
+   ]},
+   {t:"内存模型",s:"done",d:"ARC/GC 混合：编译器判定表自动决策，源码零内存语法；deinit 清扫时序、防复活、防双释放全部强制"}
+ ]},
+ {t:"2. 编译器能力",s:"doing",c:[
+   {t:"前端：词法 / 语法 / 语义 / 名称解析",s:"done",d:"四级文法全量、13 层优先级、错误恢复一次报多条"},
+   {t:"诊断体系",s:"doing",d:"诊断码段位化（LEX/SYN/RES/XPD…）；语义诊断尚未完全就位"},
+   {t:"代码生成：C11 源（确定性输出）",s:"done",d:"逐字节确定——可审计、可差分、可做行号映射"},
+   {t:"中端 IR / 优化 pass",s:"todo",d:"无内联/常量折叠/死代码消除——性能完全依赖 C 编译器 -O2"},
+   {t:"后端：机器码 / 寄存器分配",s:"todo",d:"寄生于 C 编译器，无独立目标码能力"},
+   {t:"调试信息（#line / DWARF）",s:"todo",d:"产物不可断点调试"},
+   {t:"增量编译 / 编译缓存",s:"todo",d:"全量重编"},
+   {t:"自举：XNull 编译 XNull",s:"doing",d:"编译器与工具链源码 100% XNull，仅依赖系统 C 编译器与自带 C 运行时"}
+ ]},
+ {t:"3. 运行时能力（C 实现，ABI 冻结）",s:"done",c:[
+   {t:"ARC/GC 混合执行",s:"done",d:"判定表决策、deinit 清扫时序强制"},
+   {t:"调度器：载体池 + 伴生执行器",s:"done",d:"结构化并发调度与任务组生命周期"},
+   {t:"同步原语",s:"done",d:"Mutex / Channel / Atomic（C 面，经压力测试）"},
+   {t:"标准原语 C 面",s:"done",d:"文本/字节/正则/文件/子进程/网络/资源表，14 个源文件"},
+   {t:"稳定 ABI xrt_*",s:"done",d:"FFI 边界冻结承诺，绑定层直接消费"}
+ ]},
+ {t:"4. 标准库能力（XDK 8 包 · 函数级清单）",s:"doing",c:[
+   {t:"xdk.text（文本）",s:"doing",c:[
+     {t:"Format 类（链式格式化）",s:"done",c:[
+       {t:"静态构造",s:"done",c:[
+         {t:"Format.int(v: Int) → Format",s:"done"},
+         {t:"Format.float(v: Double) → Format",s:"done"},
+         {t:"Format.string(v: String) → Format",s:"done"},
+         {t:"Format.bool(v: Bool) → Format",s:"done"}
+       ]},
+       {t:"实例方法",s:"done",c:[
+         {t:"width(w: Int) → Format",s:"done"},
+         {t:"pad(c: Char) → Format",s:"done"},
+         {t:"build() → String",s:"done",d:"左补齐到指定宽度"}
+       ]}
+     ]},
+     {t:"数字解析（全串消费，Err 不 panic）",s:"done",c:[
+       {t:"parseInt(s) → Result<Int, Error>",s:"done",d:"十进制、可选正负号、溢出检测"},
+       {t:"parseFloat(s) → Result<Double, Error>",s:"done",d:"小数/指数；进制参数缺失"}
+     ]},
+     {t:"编码转换",s:"done",c:[
+       {t:"utf8ToUtf16(b: Bytes) → Result<List<UInt16>, Error>",s:"done",d:"非法序列返回 Err"},
+       {t:"utf16ToUtf8(xs: List<UInt16>) → Result<Bytes, Error>",s:"done",d:"孤立代理返回 Err"}
+     ]},
+     {t:"Regex 类（ERE 起步子集）",s:"doing",c:[
+       {t:"Regex.compile(pattern) → Result<Regex, Error>",s:"done",d:"分组/字符类/|/转义不支持"},
+       {t:"isMatch(text) → Bool",s:"done",d:"仅字面量 . * + ? ^ $；无 find/replace"}
+     ]},
+     {t:"兼容辅助函数",s:"done",c:[
+       {t:"repeatText(unit, times) → String",s:"done"},
+       {t:"repeatJoined(unit, sep, times) → String",s:"done"},
+       {t:"isPositive(n) → Bool",s:"done"}
+     ]}
+   ]},
+   {t:"xdk.collections（集合）",s:"doing",c:[
+     {t:"算法函数",s:"done",c:[
+       {t:"sortBy<T>(xs, less) → List<T>",s:"done",d:"插入排序 O(n²)"},
+       {t:"dedup<T>(xs, eq) → List<T>",s:"done",d:"保留首次出现顺序"},
+       {t:"find<T>(xs, pred) → T?",s:"done"},
+       {t:"groupByInt<T>(xs, key) → Map<Int, List<T>>",s:"done"}
+     ]},
+     {t:"RingBuffer<T>（固定容量环形缓冲）",s:"done",c:[
+       {t:"push(v) → Bool（满返回 false）",s:"done"},
+       {t:"pop() → T? / peek() → T?",s:"done"},
+       {t:"length() / isEmpty() / isFull()",s:"done"},
+       {t:"clear()",s:"done"}
+     ]},
+     {t:"OrderedMap<V>（Int 键，插入序）",s:"done",c:[
+       {t:"put(k, v) / get(k) → V? / getOr(k, fallback)",s:"done"},
+       {t:"has(k) / indexOf(k) / remove(k) → Bool",s:"done"},
+       {t:"keysArray() → Int[] / valuesArray() → V[]",s:"done"},
+       {t:"length() / clear()",s:"done"}
+     ]},
+     {t:"BTreeMap<V>（Int 键，键升序）",s:"done",c:[
+       {t:"lowerBound(k) → Int（二分）",s:"done"},
+       {t:"put(k, v) / get(k) → V? / getOr(k, fallback)",s:"done"},
+       {t:"has(k) / remove(k) → Bool",s:"done"},
+       {t:"keysArray() → Int[] / length() / clear()",s:"done"}
+     ]},
+     {t:"PriorityQueue<T>（less 回调最小堆）",s:"done",c:[
+       {t:"push(v) / pop() → T? / peek() → T?",s:"done"},
+       {t:"length() / isEmpty() / clear()",s:"done"},
+       {t:"内部：swap / siftUp / siftDown",s:"done"}
+     ]}
+   ]},
+   {t:"xdk.errors（错误）",s:"doing",c:[
+     {t:"ErrorKind 枚举（14 项，跨版本稳定只追加）",s:"done",d:"InvalidArgument/NotFound/AlreadyExists/PermissionDenied/Io/Network/Timeout/Cancelled/Busy/Unavailable/DataCorrupted/Unsupported/OutOfMemory/Internal"},
+     {t:"Error 协议",s:"done",c:[
+       {t:"kind() → ErrorKind",s:"done"},
+       {t:"describe() → String（单行无控制字符）",s:"done"}
+     ]},
+     {t:"CauseError 类（带原因链）",s:"done",c:[
+       {t:"构造 CauseError(kind, message, cause?)",s:"done"},
+       {t:"kind() / describe() 实现",s:"done"}
+     ]},
+     {t:"Result 工具函数",s:"done",c:[
+       {t:"wrap(r, err)：失败丢弃原错误换新",s:"done"},
+       {t:"mapErr(r, f)：失败按函数映射错误",s:"done"},
+       {t:"report(r)：失败输出 [Kind] describe",s:"done"}
+     ]}
+   ]},
+   {t:"xdk.sys（系统）",s:"doing",c:[
+     {t:"文件",s:"doing",c:[
+       {t:"readFileText(path) → String",s:"done",d:"失败 throw 诊断；>64MiB 拒绝"},
+       {t:"writeFileText / appendFile / 目录遍历 / Path 处理 / stdin 读行",s:"todo"}
+     ]},
+     {t:"内嵌资源（只读，构建期打包）",s:"done",c:[
+       {t:"resourceExists(path) → Bool",s:"done"},
+       {t:"resourceSize(path) → Int?",s:"done"},
+       {t:"readResource(ctx, path) → Result<Bytes, Error>",s:"done"},
+       {t:"readResourceText(ctx, path) → Result<String, Error>",s:"done"},
+       {t:"listResources(ctx, prefix) → Result<List<String>, Error>",s:"done"}
+     ]},
+     {t:"进程与环境",s:"todo",c:[
+       {t:"args() 命令行参数",s:"todo"},
+       {t:"子进程 spawn / 信号 / 环境变量完整面",s:"todo",d:"env() 有；C 侧原语已备"}
+     ]}
+   ]},
+   {t:"xdk.net（网络 · 语言面已冻结，内核行为全 Unsupported 桩）",s:"doing",c:[
+     {t:"Socket 类",s:"doing",c:[
+       {t:"connect(host, port) / connectAsync(ctx, …)",s:"doing",d:"地址校验真实；连接返回 Unsupported"},
+       {t:"read(buf) / readAsync(ctx, buf)",s:"todo",d:"Unsupported 桩"},
+       {t:"write(buf) / writeAsync(ctx, buf)",s:"todo",d:"Unsupported 桩"},
+       {t:"close() → Result<void, Error>（幂等）",s:"done"}
+     ]},
+     {t:"Listener 类",s:"doing",c:[
+       {t:"bind(host, port) / bindAsync(ctx, …)",s:"doing",d:"校验真实；绑定 Unsupported"},
+       {t:"accept() / acceptAsync(ctx)",s:"todo",d:"Unsupported 桩"},
+       {t:"close()（幂等）",s:"done"}
+     ]},
+     {t:"顶层函数",s:"doing",c:[
+       {t:"connect(host, port) / bind(host, port) + Async 变体",s:"doing",d:"Unsupported 桩"}
+     ]},
+     {t:"xdk.net.http 子包",s:"doing",c:[
+       {t:"Request / Response（status() / body() / header(name)）",s:"done",d:"值类型可用"},
+       {t:"get(url) / post(url, body) + Async 变体",s:"todo",d:"URL 校验真实；传输 Unsupported"}
+     ]}
+   ]},
+   {t:"xdk.tasks / xdk.sync / xdk.runtime（空骨架）",s:"todo",c:[
+     {t:"任务组 spawn/join/取消入口",s:"todo",d:"运行时已有，语言面零函数"},
+     {t:"Mutex.lock/unlock、Channel.send/recv、Atomic 读写",s:"todo",d:"C 原语已备，语言面零函数"},
+     {t:"diagnose / exit / nowMono / nowWall / env",s:"doing",d:"errors.x 已 import runtime.diagnose；其余面未清点"}
+   ]},
+   {t:"缺失包（整包不存在）",s:"todo",c:[
+     {t:"xdk.math",s:"todo",d:"abs/min/max/pow/sqrt/floor/ceil/round/三角/对数/随机数/PI·E"},
+     {t:"xdk.time",s:"todo",d:"DateTime/格式化/时区/Duration/定时器"},
+     {t:"xdk.json",s:"todo",d:"parse/stringify/值类型"},
+     {t:"加密/哈希/压缩/日志/断言",s:"todo"}
+   ]}
+ ]},
+ {t:"5. 基础 API 完整性（内置方法 · 函数级对照）",s:"doing",c:[
+   {t:"String 内置方法（12 个可用）",s:"doing",c:[
+     {t:"length() → Int",s:"done"},
+     {t:"substring(start, len) → String",s:"done"},
+     {t:"trim() → String",s:"done"},
+     {t:"toUpper() / toLower() → String",s:"done"},
+     {t:"replace(old, new) → String",s:"done"},
+     {t:"startsWith(p) / endsWith(p) → Bool",s:"done"},
+     {t:"split(sep) → List<String>",s:"done"},
+     {t:"indexOf(sub) / indexOfByte(b) → Int",s:"done"},
+     {t:"charAt(i) → Char",s:"done"},
+     {t:"缺失：join / contains / lastIndexOf / isEmpty / reverse / compare / repeat / String↔Bytes / Char 分类",s:"todo"}
+   ]},
+   {t:"List<T> / Array T[]（可变容器）",s:"doing",c:[
+     {t:"length() / get(i) / set(i, v) / push(v)",s:"done"},
+     {t:"insert(i, v) / remove(i) / clear()",s:"done",d:"源码实证（BTreeMap/RingBuffer 使用）"},
+     {t:"for-in 遍历 / 字面量 [] / new T[n]",s:"done"},
+     {t:"缺失：sort / indexOf / slice / reverse / copy / join",s:"todo"}
+   ]},
+   {t:"Map<K,V>（可变字典）",s:"doing",c:[
+     {t:"get(k) / put(k, v) / getOr(k, fallback)",s:"done"},
+     {t:"has(k) / remove(k) / length() / 字面量 [:]",s:"done"},
+     {t:"缺失：keys() / values() / entries() 键值遍历",s:"todo",d:"无法遍历是最大短板"}
+   ]},
+   {t:"Set<T>",s:"doing",c:[
+     {t:"add(v) → Bool / has(v) / remove(v) / length()",s:"done"}
+   ]},
+   {t:"Bytes（可变字节串）",s:"doing",c:[
+     {t:"Bytes.fromString(s) / length() / get(i) / push(b)",s:"done"},
+     {t:"缺失：decode() 解码 / slice / 十六进制与 Base64 编解码",s:"todo"}
+   ]},
+   {t:"对象协议（toString 已改名为 str()，与内置 str() 一致）",s:"todo",c:[
+     {t:"str() → String（原 toString，更短、与内置 str(v) 统一）",s:"todo"},
+     {t:"equals(other) → Bool",s:"todo"},
+     {t:"hashCode() → Int",s:"todo"},
+     {t:"Comparable 比较协议",s:"todo"},
+     {t:"Object 根类型本身",s:"todo"}
+   ]},
+   {t:"StringBuilder（可变字符串）",s:"todo",d:"编译器认识名字，实现空壳；append/insert/str() 全无"},
+   {t:"迭代器协议（自定义 for-in）",s:"todo"},
+   {t:"函数式组合：map / filter / reduce / zip / any / all",s:"todo"},
+   {t:"数学：abs/pow/sqrt/round/三角/随机数/常量",s:"todo"},
+   {t:"时间日期：DateTime/格式化/时区/Duration",s:"todo"},
+   {t:"序列化：JSON / CSV / 二进制",s:"todo"},
+   {t:"命令行参数：args()",s:"todo"}
+ ]},
+ {t:"6. 工具链能力（xnull CLI）",s:"doing",c:[
+   {t:"build / run / check",s:"done",d:"退出码合同 0/1/2/130；--json 机器接口"},
+   {t:"fmt 格式化（幂等，全仓强制）",s:"done"},
+   {t:"test（切片并发 --shard k/n）",s:"done",d:"全分片聚合；断言库/覆盖率/benchmark 缺"},
+   {t:"lock 锁文件",s:"done",d:"排序/摘要/重生成；依赖解析与远程仓库缺"},
+   {t:"工程配置 XPD / 资源打包 / 受控插件",s:"done"},
+   {t:"dev 维护面（规范守门 / 台账 / 资源表）",s:"done"},
+   {t:"doctor / upgrade / 安装器",s:"todo"},
+   {t:"交叉编译 / 目标三元组管理",s:"todo"}
+ ]},
+ {t:"7. IDE 能力（VS Code 扩展）",s:"doing",c:[
+   {t:"语法高亮 / snippets / 工程命令",s:"done",d:"New Project / Check / Build / Run / Package Binary / 标准库浏览 / Doctor"},
+   {t:"保存时检查诊断",s:"doing",d:"整文件报错，非实时波浪线"},
+   {t:"LSP：实时诊断 / 补全 / 悬停 / 跳转 / 重命名 / 语义高亮",s:"todo"},
+   {t:"调试（DAP 断点 / 单步 / 变量）",s:"todo"},
+   {t:"测试资源管理器",s:"todo"}
+ ]},
+ {t:"8. 发行能力",s:"doing",c:[
+   {t:"单文件静态二进制",s:"done",d:"xnull + C 运行时源随包"},
+   {t:"brew / apt / winget 安装器",s:"todo"},
+   {t:"版本渠道 stable / nightly + 升级",s:"todo"},
+   {t:"VS Code Marketplace / Open VSX 上架",s:"todo"},
+   {t:"环境自检 doctor（cc 探测 / 修复指引）",s:"doing"}
+ ]},
+ {t:"9. XDK 扩展包设计（对标 Go/Python/Rust/Java 标准库 · 函数级规划，全部待实现）",s:"todo",c:[
+   {t:"xdk.math（对标 Go math + Python math/statistics/random）",s:"todo",c:[
+     {t:"基础运算",s:"todo",c:[
+       {t:"abs(x) / sign(x) / min(a,b) / max(a,b) / clamp(x,lo,hi)",s:"todo"},
+       {t:"floor(x) / ceil(x) / round(x) / trunc(x) / mod(a,b)",s:"todo"}
+     ]},
+     {t:"幂指对与三角",s:"todo",c:[
+       {t:"pow(x,y) / sqrt(x) / cbrt(x) / exp(x)",s:"todo"},
+       {t:"log(x) / log2(x) / log10(x)",s:"todo"},
+       {t:"sin/cos/tan/asin/acos/atan/atan2(y,x)",s:"todo"},
+       {t:"sinh/cosh/tanh；deg2rad/rad2deg",s:"todo"}
+     ]},
+     {t:"常量与随机",s:"todo",c:[
+       {t:"PI / E / TAU / Inf / NaN / isNaN(x) / isInf(x)",s:"todo"},
+       {t:"Random.nextInt(bound) / nextDouble() / nextBool()",s:"todo"},
+       {t:"Random.seed(n) / shuffle(list) / choice(list)",s:"todo"}
+     ]},
+     {t:"统计",s:"todo",c:[
+       {t:"sum(xs) / mean(xs) / median(xs)",s:"todo"},
+       {t:"variance(xs) / stddev(xs) / quantile(xs,q)",s:"todo"}
+     ]},
+     {t:"插值与数论",s:"todo",c:[
+       {t:"lerp(a,b,t) / mapRange(x,a,b,c,d)",s:"todo"},
+       {t:"gcd(a,b) / lcm(a,b) / isPrime(n) / factorial(n)",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.time（对标 Go time + Python datetime）",s:"todo",c:[
+     {t:"时钟",s:"todo",c:[
+       {t:"now() → DateTime / nowMono() / nowWall() / millis() / micros()",s:"todo"}
+     ]},
+     {t:"DateTime 类",s:"todo",c:[
+       {t:"DateTime.of(y,mo,d,h,mi,s) / fromTimestamp(ms)",s:"todo"},
+       {t:"year()/month()/day()/hour()/minute()/second()/millis()",s:"todo"},
+       {t:"weekday()/dayOfYear()/timestamp()/toUTC()/toLocal()",s:"todo"},
+       {t:"add(d)/diff(other)→Duration/before/after/compare",s:"todo"}
+     ]},
+     {t:"格式化与解析",s:"todo",c:[
+       {t:"format(layout) → String（yyyy-MM-dd HH:mm:ss）",s:"todo"},
+       {t:"parse(layout,s) → Result<DateTime,Error>",s:"todo"},
+       {t:"iso8601() / rfc3339()",s:"todo"}
+     ]},
+     {t:"Duration 类",s:"todo",c:[
+       {t:"ofSeconds/ofMillis/ofMinutes/ofHours/ofDays",s:"todo"},
+       {t:"seconds()/millis()/micros()/plus()/minus()",s:"todo"}
+     ]},
+     {t:"定时器",s:"todo",c:[
+       {t:"sleep(d)/after(d,f)/every(d,f)→Timer/Timer.cancel()",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.codec（编解码 · 对标 Python base64/json/struct + Go encoding/*）",s:"todo",c:[
+     {t:"Hex / Base64",s:"todo",c:[
+       {t:"hexEncode(b)/hexDecode(s)→Result<Bytes,Error>",s:"todo"},
+       {t:"base64Encode(b)/base64Decode(s)→Result<Bytes,Error>",s:"todo"},
+       {t:"base64UrlEncode/base64UrlDecode（无填充）",s:"todo"}
+     ]},
+     {t:"URL 编码",s:"todo",c:[
+       {t:"urlEncode(s)/urlDecode(s)",s:"todo"},
+       {t:"queryEscape/queryUnescape/buildQuery(map)",s:"todo"}
+     ]},
+     {t:"JSON",s:"todo",c:[
+       {t:"jsonParse(s)→Result<JsonValue,Error>/jsonStringify(v)→String",s:"todo"},
+       {t:"JsonValue.get(key)/at(i)/asInt/asDouble/asBool/asString/asList/asMap",s:"todo"},
+       {t:"JsonValue.str()（str 改名体系）/pretty(indent)",s:"todo"}
+     ]},
+     {t:"CSV",s:"todo",c:[
+       {t:"csvParse(s)→Result<List<List<String>>,Error>",s:"todo"},
+       {t:"csvEncode(rows,sep)→String",s:"todo"}
+     ]},
+     {t:"二进制（对标 struct）",s:"todo",c:[
+       {t:"BinaryReader.readU8/U16/U32/U64/I32/F32/F64（LE/BE）",s:"todo"},
+       {t:"BinaryWriter.writeU8/…/writeString/writeBytes",s:"todo"},
+       {t:"BinaryReader.seek/tell/remaining/eof",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.text 扩展（对标 Java StringUtils + Go strings）",s:"todo",c:[
+     {t:"Strings 工具函数",s:"todo",c:[
+       {t:"join(xs,sep)/contains(s,sub)/count(s,sub)/repeat(s,n)",s:"todo"},
+       {t:"padLeft(s,n,ch)/padRight(s,n,ch)/reverse(s)",s:"todo"},
+       {t:"isEmpty(s)/isBlank(s)/equalsIgnoreCase(a,b)",s:"todo"},
+       {t:"levenshtein(a,b)/truncate(s,n)/capitalize(s)",s:"todo"}
+     ]},
+     {t:"StringBuilder（可变字符串）",s:"todo",c:[
+       {t:"append(v)/appendLine(v)/insert(i,v)/delete(i,n)",s:"todo"},
+       {t:"length()/clear()/charAt(i)/str()（输出）",s:"todo"}
+     ]},
+     {t:"Char 分类与 Unicode",s:"todo",c:[
+       {t:"isDigit/isAlpha/isSpace/isUpper/isLower/isHexDigit",s:"todo"},
+       {t:"codePoints(s)→List<Int>/fromCodePoint(cp)→String",s:"todo"}
+     ]},
+     {t:"Regex 完整面",s:"todo",c:[
+       {t:"find(s)→Match?/findAll(s)→List<Match>",s:"todo"},
+       {t:"replaceAll(s,repl)/split(s)/group(i)/namedGroup(name)",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.sys 扩展（对标 Python os/pathlib/subprocess + Go os）",s:"todo",c:[
+     {t:"文件操作",s:"todo",c:[
+       {t:"readFileText/writeFileText/appendFile/readBytes/writeBytes",s:"todo"},
+       {t:"fileExists/remove/rename/copy/fileSize/mtime",s:"todo"}
+     ]},
+     {t:"目录操作",s:"todo",c:[
+       {t:"listDir(path)→List<String>/mkdir/mkdirAll/removeDir",s:"todo"},
+       {t:"walk(path)→List<String>/cwd()/chdir(path)",s:"todo"}
+     ]},
+     {t:"Path 类（路径处理）",s:"todo",c:[
+       {t:"Path.join(parts)/dirname/basename/ext/stem",s:"todo"},
+       {t:"absolute()/clean()/isAbsolute()/relativeTo(base)",s:"todo"}
+     ]},
+     {t:"标准流",s:"todo",c:[
+       {t:"stdin.readLine()→String?/stdin.readAll()",s:"todo"},
+       {t:"stdout.write(s)/stderr.write(s)/flush()",s:"todo"}
+     ]},
+     {t:"进程",s:"todo",c:[
+       {t:"run(cmd,args)→Result<ExitStatus,Error>（捕获输出）",s:"todo"},
+       {t:"spawn(cmd,args)→Process/kill/wait/pipe",s:"todo"}
+     ]},
+     {t:"环境与参数",s:"todo",c:[
+       {t:"args()→List<String>/env(name)/setEnv/hasEnv",s:"todo"},
+       {t:"hostname()/platform()/arch()/pid()",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.util（常用工具 · 对标 Python uuid/hashlib/argparse/logging + Go log）",s:"todo",c:[
+     {t:"UUID",s:"todo",c:[
+       {t:"uuid4()→String/uuid7()/uuidParse(s)→Result<UUID,Error>",s:"todo"},
+       {t:"UUID.str()/UUID.bytes()/isNil()",s:"todo"}
+     ]},
+     {t:"哈希与校验",s:"todo",c:[
+       {t:"md5(b)/sha1(b)/sha256(b)/sha512(b)→Bytes",s:"todo"},
+       {t:"crc32(b)/hmacSha256(key,b)/constantTimeEquals(a,b)",s:"todo"}
+     ]},
+     {t:"压缩",s:"todo",c:[
+       {t:"gzipCompress(b)/gzipDecompress(b)",s:"todo"},
+       {t:"zipCreate(entries)/zipExtract(b,dir)",s:"todo"}
+     ]},
+     {t:"日志 Logger",s:"todo",c:[
+       {t:"log.debug/info/warn/error(msg)",s:"todo"},
+       {t:"Logger.withField(k,v)/setLevel(level)/setOutput(w)",s:"todo"}
+     ]},
+     {t:"断言与测试",s:"todo",c:[
+       {t:"assertTrue(cond,msg)/assertEq(a,b)/assertNotNull(v)",s:"todo"},
+       {t:"fail(msg)/assertThrows(f)/approxEq(a,b,eps)",s:"todo"}
+     ]},
+     {t:"命令行参数解析 ArgsParser",s:"todo",c:[
+       {t:"flag(name,default)/option(name,default)/positional(name)",s:"todo"},
+       {t:"parse(args)→Result<Args,Error>/help()→String",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.net 扩展（对标 Go net/http + Python requests/socket）",s:"todo",c:[
+     {t:"HTTP 完整面",s:"todo",c:[
+       {t:"get/post/put/delete/head/patch(url,…)→Result<Response,Error>",s:"todo"},
+       {t:"Request.withHeader/withTimeout/withBody/withQuery",s:"todo"},
+       {t:"Response.text()/json()/bytes()/status()/header(name)",s:"todo"},
+       {t:"重定向策略/cookie jar/连接池",s:"todo"}
+     ]},
+     {t:"HTTP 服务端",s:"todo",c:[
+       {t:"listenAndServe(addr,router)/Router.get/post(path,handler)",s:"todo"},
+       {t:"Request.param/query/formValue/Context 取消传播",s:"todo"}
+     ]},
+     {t:"UDP / DNS / URL",s:"todo",c:[
+       {t:"UdpSocket.bind/sendTo/recvFrom",s:"todo"},
+       {t:"resolve(host)→Result<List<IpAddr>,Error>/lookupIP",s:"todo"},
+       {t:"URL.parse(url)→URL/host/path/query/fragment",s:"todo"}
+     ]},
+     {t:"WebSocket / TLS",s:"todo",c:[
+       {t:"wsConnect(url)/send/recv/close",s:"todo"},
+       {t:"tlsConfig(cert,key)/httpsServer/tlsDial",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.embedded（嵌入式 · 对标 Arduino/mbed + Rust embedded-hal）",s:"todo",c:[
+     {t:"GPIO",s:"todo",c:[
+       {t:"pinMode(pin,mode)/digitalRead(pin)/digitalWrite(pin,v)",s:"todo"},
+       {t:"analogRead(pin)/analogWrite(pin,v)（PWM）",s:"todo"},
+       {t:"attachInterrupt(pin,mode,handler)",s:"todo"}
+     ]},
+     {t:"串口 UART",s:"todo",c:[
+       {t:"Uart.open(port,baud)/read/write/readLine",s:"todo"},
+       {t:"Uart.close()/available()",s:"todo"}
+     ]},
+     {t:"I2C / SPI",s:"todo",c:[
+       {t:"I2c.open(bus)/writeReg(addr,reg,v)/readReg(addr,reg)",s:"todo"},
+       {t:"Spi.open(dev)/transfer(tx)→Bytes/setMode/setSpeed",s:"todo"}
+     ]},
+     {t:"寄存器与板级",s:"todo",c:[
+       {t:"readReg(addr)/writeReg(addr,v)/bitSet/bitClear",s:"todo"},
+       {t:"delay(ms)/delayMicros(us)/millis()/micros()",s:"todo"},
+       {t:"watchdogEnable/reset/boardInfo()",s:"todo"}
+     ]},
+     {t:"FFI 绑定面",s:"todo",c:[
+       {t:"hal.bind(driver)/layout(c) 寄存器布局验证",s:"todo",d:"复用 FFI 租约与布局合同"}
+     ]}
+   ]},
+   {t:"xdk.image（图片处理 · 对标 Python Pillow + Go image）",s:"todo",c:[
+     {t:"编解码",s:"todo",c:[
+       {t:"decodePng(b)/decodeJpeg(b)/decodeGif(b)/decodeBmp(b)→Result<Image,Error>",s:"todo"},
+       {t:"encodePng(img)/encodeJpeg(img,quality)→Bytes",s:"todo"},
+       {t:"Image.open(path)/save(path)",s:"todo"}
+     ]},
+     {t:"像素访问",s:"todo",c:[
+       {t:"width()/height()/format()/channels()",s:"todo"},
+       {t:"getPixel(x,y)→Rgba/setPixel(x,y,c)",s:"todo"},
+       {t:"Rgba.r/g/b/a；Rgba.fromHex(s)",s:"todo"}
+     ]},
+     {t:"几何变换",s:"todo",c:[
+       {t:"resize(w,h)/thumbnail(size)/crop(rect)",s:"todo"},
+       {t:"rotate90/rotate180/rotate(deg)/flipH/flipV",s:"todo"}
+     ]},
+     {t:"颜色与滤镜",s:"todo",c:[
+       {t:"grayscale()/brightness(k)/contrast(k)/saturation(k)",s:"todo"},
+       {t:"blur(radius)/sharpen()/invert()/sepia()",s:"todo"}
+     ]},
+     {t:"绘制",s:"todo",c:[
+       {t:"fillRect(rect,color)/drawLine/drawCircle/drawText",s:"todo"},
+       {t:"histogram()→通道直方图",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.vision（基础视觉 · 对标 OpenCV 基础面）",s:"todo",c:[
+     {t:"灰度与二值化",s:"todo",c:[
+       {t:"rgb2gray(img)/threshold(img,t)/adaptiveThreshold(img)",s:"todo"},
+       {t:"otsuThreshold(img)→Int",s:"todo"}
+     ]},
+     {t:"滤波",s:"todo",c:[
+       {t:"gaussianBlur(img,ksize)/medianBlur/boxBlur",s:"todo"},
+       {t:"bilateralFilter(img)/sharpenKernel",s:"todo"}
+     ]},
+     {t:"边缘与形态学",s:"todo",c:[
+       {t:"sobel(img,dx,dy)/canny(img,lo,hi)/laplacian(img)",s:"todo"},
+       {t:"erode(img,k)/dilate(img,k)/morphOpen/morphClose",s:"todo"}
+     ]},
+     {t:"连通域与轮廓",s:"todo",c:[
+       {t:"connectedComponents(img)→labels/stats/centroids",s:"todo"},
+       {t:"findContours(img)→List<Contour>",s:"todo"},
+       {t:"contourArea(c)/boundingRect(c)/arcLength(c)",s:"todo"}
+     ]},
+     {t:"颜色空间与匹配",s:"todo",c:[
+       {t:"rgb2hsv/hsv2rgb/inRange(img,lo,hi)",s:"todo"},
+       {t:"matchTemplate(img,tpl)→Result/归一化相关系数",s:"todo"},
+       {t:"houghLines(img)/houghCircles(img)",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.physics（物理 · 对标 Python pint/sympy 物理面）",s:"todo",c:[
+     {t:"物理常量",s:"todo",c:[
+       {t:"G 重力加速度 / C 光速 / G_CONST 万有引力",s:"todo"},
+       {t:"KB 玻尔兹曼 / H 普朗克 / NA 阿伏伽德罗 / E_CHARGE 元电荷",s:"todo"}
+     ]},
+     {t:"运动学与力学",s:"todo",c:[
+       {t:"displacement(v0,a,t)/finalVelocity(v0,a,t)",s:"todo"},
+       {t:"force(m,a)/work(f,d)/kineticEnergy(m,v)/potentialEnergy(m,h)",s:"todo"},
+       {t:"momentum(m,v)/impulse(f,t)/projectileRange(v,angle)",s:"todo"}
+     ]},
+     {t:"电路",s:"todo",c:[
+       {t:"ohmsLaw(v?,i?,r?)/electricPower(v,i)",s:"todo"},
+       {t:"seriesResistance(rs)/parallelResistance(rs)",s:"todo"}
+     ]},
+     {t:"热学与波动",s:"todo",c:[
+       {t:"heatQ(m,c,dT)/idealGas(n,r,t)",s:"todo"},
+       {t:"waveSpeed(freq,wavelength)/doppler(f,v,vs)",s:"todo"}
+     ]},
+     {t:"单位换算",s:"todo",c:[
+       {t:"m2ft/ft2m/kg2lb/lb2kg/celsius2fahrenheit/kmh2ms",s:"todo"},
+       {t:"Unit.parse('9.8 m/s^2')→Quantity",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.chem（化学 · 对标 periodictable/mendeleev + 化学计算）",s:"todo",c:[
+     {t:"元素周期表",s:"todo",c:[
+       {t:"Element.bySymbol('Fe')/byNumber(26)",s:"todo"},
+       {t:"name()/symbol()/atomicNumber()/atomicMass()",s:"todo"},
+       {t:"group()/period()/electronegativity()/electronConfig()",s:"todo"},
+       {t:"allElements()→List<Element>/searchByName(name)",s:"todo"}
+     ]},
+     {t:"化学式与摩尔",s:"todo",c:[
+       {t:"parseFormula('H2SO4')→Map<Element,Int>",s:"todo"},
+       {t:"molarMass(formula)→Double",s:"todo"},
+       {t:"moles(mass,formula)/massFromMoles(n,formula)",s:"todo"},
+       {t:"moleculesFromMoles(n)/avogadroCount",s:"todo"}
+     ]},
+     {t:"溶液与浓度",s:"todo",c:[
+       {t:"molarity(moles,volumeL)/dilution(c1,v1,c2)→v2",s:"todo"},
+       {t:"massPercent(solute,solution)/ppm(mass,volume)",s:"todo"}
+     ]},
+     {t:"气体与酸碱",s:"todo",c:[
+       {t:"idealGasLaw(p?,v?,n?,t?)（PV=nRT 缺省求解）",s:"todo"},
+       {t:"pH(hConcentration)/pOH/pHFromH(h)",s:"todo"}
+     ]},
+     {t:"方程式",s:"todo",c:[
+       {t:"balanceEquation(reactants,products)→系数（远期）",s:"todo"},
+       {t:"stoichiometry(equation,given)→需求/产量",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.ml（机器学习 · 对标 numpy/scikit-learn 最小面）",s:"todo",c:[
+     {t:"Tensor / 矩阵",s:"todo",c:[
+       {t:"Tensor.of(rows)/shape()/reshape()/transpose()",s:"todo"},
+       {t:"matmul(a,b)/matvec(a,x)/dot(a,b)/add/sub/mulScalar",s:"todo"},
+       {t:"inverse(a)/determinant(a)/identity(n)/zeros/ones",s:"todo"}
+     ]},
+     {t:"经典模型",s:"todo",c:[
+       {t:"LinearRegression.fit(X,y)/predict(X)/coefficients",s:"todo"},
+       {t:"LogisticRegression.fit(X,y)/predict/predictProba",s:"todo"},
+       {t:"KMeans.fit(X,k)/predict/centroids/inertia",s:"todo"},
+       {t:"KNN(k).fit(X,y)/predict；DecisionTree.fit/predict",s:"todo"},
+       {t:"NaiveBayes.fit/predict（高斯/多项式）",s:"todo"}
+     ]},
+     {t:"预处理",s:"todo",c:[
+       {t:"normalize(X)/standardize(X)/minMaxScale(X)",s:"todo"},
+       {t:"trainTestSplit(X,y,ratio,seed)",s:"todo"},
+       {t:"oneHotEncode(labels)/labelEncode(labels)",s:"todo"}
+     ]},
+     {t:"评估指标",s:"todo",c:[
+       {t:"accuracy/precision/recall/f1Score",s:"todo"},
+       {t:"mse/mae/r2Score/confusionMatrix",s:"todo"},
+       {t:"crossValidate(model,X,y,folds)",s:"todo"}
+     ]},
+     {t:"激活与损失",s:"todo",c:[
+       {t:"sigmoid/relu/tanh/softmax/leakyRelu",s:"todo"},
+       {t:"crossEntropy/mseLoss/梯度下降 step",s:"todo"}
+     ]},
+     {t:"神经网络最小面（远期）",s:"todo",c:[
+       {t:"Dense(in,out)/forward/backward",s:"todo"},
+       {t:"Sequential.add(layer)/fit/predict/save/load",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.net 底层通讯库补充（socket 原语 / 地址 / TCP / UDP / DNS / ICMP · 对标 BSD socket + Go net + Python socket）",s:"todo",c:[
+     {t:"地址与端点",s:"todo",c:[
+       {t:"IpAddr.parse('192.168.1.1')→Result/Ipv4/Ipv6 类型",s:"todo"},
+       {t:"Ipv4.octets()/isLoopback()/isPrivate()/isMulticast()",s:"todo"},
+       {t:"SocketAddr.new(ip,port)/ip()/port()/str()",s:"todo"},
+       {t:"cidrParse('10.0.0.0/8')→Cidr/contains(ip)/network()/broadcast()",s:"todo"},
+       {t:"macParse(s)→MacAddr/format()（冒号/点分）",s:"todo"}
+     ]},
+     {t:"Socket 原语层（对标 socket(2)）",s:"todo",c:[
+       {t:"Socket.open(domain,type)→Result/FD 句柄",s:"todo"},
+       {t:"bind(addr)/listen(backlog)/accept()→Socket/connect(addr)",s:"todo"},
+       {t:"send(buf)/recv(buf)/sendTo(addr,buf)/recvFrom(buf)",s:"todo"},
+       {t:"shutdown(how)/close()/dup()",s:"todo"}
+     ]},
+     {t:"Socket 选项与多路复用",s:"todo",c:[
+       {t:"setsockopt(level,opt,value)/getsockopt(level,opt)",s:"todo"},
+       {t:"setReuseAddr/setKeepAlive/setNoDelay/setTimeout/setNonBlocking",s:"todo"},
+       {t:"select(readers,writers,timeout)/poll(fds,timeout)",s:"todo"}
+     ]},
+     {t:"TcpStream（TCP 客户端流）",s:"todo",c:[
+       {t:"connect(addr)→Result<TcpStream,Error>/connectTimeout(addr,d)",s:"todo"},
+       {t:"read(buf)→Result<Int,Error>/readExact(buf)/readAll()",s:"todo"},
+       {t:"write(buf)/writeAll(buf)/flush()",s:"todo"},
+       {t:"shutdownWrite()/setNoDelay(b)/setKeepAlive(d)/setReadTimeout(d)",s:"todo"},
+       {t:"peerAddr()/localAddr()/close()",s:"todo"}
+     ]},
+     {t:"TcpListener（TCP 服务端）",s:"todo",c:[
+       {t:"bind(addr,backlog)→Result<TcpListener,Error>",s:"todo"},
+       {t:"accept()→Result<(TcpStream,SocketAddr),Error>",s:"todo"},
+       {t:"localAddr()/close()",s:"todo"}
+     ]},
+     {t:"UdpSocket（UDP）",s:"todo",c:[
+       {t:"bind(addr)→Result<UdpSocket,Error>",s:"todo"},
+       {t:"sendTo(addr,buf)→Result<Int,Error>/recvFrom(buf)→Result<(Int,SocketAddr),Error>",s:"todo"},
+       {t:"setBroadcast(b)/setTtl(n)/joinMulticast(group)/leaveMulticast",s:"todo"},
+       {t:"localAddr()/close()",s:"todo"}
+     ]},
+     {t:"DNS（域名解析）",s:"todo",c:[
+       {t:"resolve(host)→Result<List<IpAddr>,Error>（A/AAAA）",s:"todo"},
+       {t:"lookupCname(host)/lookupMx(domain)/lookupTxt(domain)",s:"todo"},
+       {t:"reverseLookup(ip)→Result<String,Error>",s:"todo"},
+       {t:"Resolver.withServer(dns)/withTimeout(d)",s:"todo"}
+     ]},
+     {t:"Unix 域套接字",s:"todo",c:[
+       {t:"UnixStream.connect(path)/UnixListener.bind(path,backlog)",s:"todo"},
+       {t:"UnixDatagram.bind/sendTo/recvFrom",s:"todo"}
+     ]},
+     {t:"ICMP 与网络接口",s:"todo",c:[
+       {t:"ping(host,timeout)→Result<(Int 延迟,Int ttl),Error>",s:"todo"},
+       {t:"traceroute(host)→List<hop>",s:"todo"},
+       {t:"interfaces()→List<NetIf>（name/index/ips/mac/up）",s:"todo"},
+       {t:"defaultGateway()→Result<IpAddr,Error>",s:"todo"}
+     ]}
+   ]},
+   {t:"xdk.net 协议层补充（TLS / WebSocket / HTTP 完整 / RTP / RTSP · 对标 OpenSSL+libwebsockets+Go net/http + pion/rtp）",s:"todo",c:[
+     {t:"TLS（对标 OpenSSL/mbedTLS 绑定）",s:"todo",c:[
+       {t:"tlsClient(stream,config)→TlsStream/handshake()→Result",s:"todo"},
+       {t:"TlsStream.read/write/close（解密透明）",s:"todo"},
+       {t:"TlsConfig.caCert/clientCert/clientKey/alpn(list)/verifyPeer(b)",s:"todo"},
+       {t:"tlsServer(stream,config)（SNI/alpn 协商）",s:"todo"},
+       {t:"peerCertificate()/tlsVersion()/cipher()",s:"todo"}
+     ]},
+     {t:"WebSocket（RFC 6455 客户端+服务端）",s:"todo",c:[
+       {t:"wsConnect(url)→Result<WsConn,Error>（含握手+Upgrade 校验）",s:"todo"},
+       {t:"sendText(s)/sendBinary(b)（自动分帧）",s:"todo"},
+       {t:"recv()→Result<WsMessage,Error>（合并分片）",s:"todo"},
+       {t:"ping(payload)/pong(payload)/close(code,reason)",s:"todo"},
+       {t:"WsServer.accept(stream)→WsConn（服务端握手）",s:"todo"},
+       {t:"掩码处理（客户端必须）/关闭码 1000-1015/子协议协商",s:"todo"}
+     ]},
+     {t:"HTTP/1.1 完整面",s:"todo",c:[
+       {t:"request(method,url,headers,body)→Result<Response,Error>（统一入口）",s:"todo"},
+       {t:"chunked 传输编码 / keep-alive 连接复用 / 100-continue",s:"todo"},
+       {t:"代理（http/socks5）/Basic、Bearer 认证",s:"todo"},
+       {t:"HttpServer：handle(stream)→解析请求/组装响应/流式响应",s:"todo"}
+     ]},
+     {t:"HTTP/2（远期）",s:"todo",c:[
+       {t:"h2 多路复用/头部压缩 HPACK/服务端推送",s:"todo"}
+     ]},
+     {t:"RTP（实时传输 RFC 3550 · 对标 pion/rtp）",s:"todo",c:[
+       {t:"RtpPacket：version/payloadType/seq/timestamp/ssrc/mark",s:"todo"},
+       {t:"packetize(payload,mtu)→List<RtpPacket>/depacketize",s:"todo"},
+       {t:"RtpSession.open(local,remote)/send(pkt)/recv()→RtpPacket",s:"todo"},
+       {t:"序列号乱序重排（jitter buffer）/丢包统计",s:"todo"},
+       {t:"RtcpPacket：SR 发送报告/RR 接收报告/SDES/BYE",s:"todo"},
+       {t:"rtcp 发送周期报告/NTP 时间戳/抖动计算",s:"todo"}
+     ]},
+     {t:"RTSP / SDP（流媒体控制）",s:"todo",c:[
+       {t:"RtspClient.options/describe/setup/play/pause/teardown",s:"todo"},
+       {t:"SDP.parse(s)→Sdp/media 描述/端口协商",s:"todo"},
+       {t:"RtspSession.rtp 通道绑定（TCP interleave / UDP）",s:"todo"}
+     ]},
+     {t:"远期协议",s:"todo",c:[
+       {t:"QUIC/HTTP3（0-RTT/多路复用）",s:"todo"},
+       {t:"SCTP/WebRTC 数据通道/DTLS",s:"todo"},
+       {t:"gRPC（基于 HTTP/2 + proto 编解码）",s:"todo"}
+     ]}
+   ]}
+ ]}
+ ]};
+
+const TAG = {done:["✅ 可用","t-done"],doing:["🟡 部分可用","t-doing"],todo:["❌ 缺失","t-todo"],noplanned:["🔒 设计不做","t-lock"]};
+let idSeq = 0;
+function render(node, container){
+  const has = node.c && node.c.length;
+  const id = "n" + (++idSeq);
+  const [txt, cls] = TAG[node.s] || TAG.todo;
+  const wrap = document.createElement("div");
+  wrap.className = "node";
+  wrap.innerHTML =
+    `<div class="row ${node.root?'root':''} ${has?'parent':''}" ${has?`data-t="${id}"`:''}>`+
+      `<span class="caret ${has?'':'leaf'}" ${has?`id="c${id}"`:''}>▼</span>`+
+      `<span class="tag ${cls}">${txt}</span>`+
+      `<div><div class="label">${node.t}</div>`+
+      (node.d?`<div class="desc">${node.d}</div>`:"")+
+      `</div></div><div class="children" ${has?`id="${id}"`:''}></div>`;
+  container.appendChild(wrap);
+  if(has){
+    const kids = wrap.querySelector(".children");
+    node.c.forEach(ch => render(ch, kids));
+    wrap.querySelector(".row").addEventListener("click", () => toggle(id));
+  }
+}
+function toggle(id, force){
+  const kids = document.getElementById(id);
+  const caret = document.getElementById("c"+id);
+  const collapse = force !== undefined ? force : !kids.classList.contains("collapsed");
+  kids.classList.toggle("collapsed", collapse);
+  caret.classList.toggle("collapsed", collapse);
+}
+function setAll(collapse){
+  document.querySelectorAll(".children").forEach(k => k.classList.toggle("collapsed", collapse));
+  document.querySelectorAll(".caret:not(.leaf)").forEach(c => c.classList.toggle("collapsed", collapse));
+}
+render(DATA, document.getElementById("map"));
+</script>
+</body>
+</html>

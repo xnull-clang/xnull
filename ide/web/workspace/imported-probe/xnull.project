@@ -1,0 +1,9 @@
+project {
+  groupId    = io.xnull
+  artifactId = demo
+  version    = 1.0.0
+  packaging  = app
+  build {
+    entryFile = src/main/x/main.x
+  }
+}

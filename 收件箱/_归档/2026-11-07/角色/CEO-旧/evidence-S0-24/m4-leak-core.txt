@@ -1,9 +1,0 @@
-## 治理角色词：4 命中
-spec/XNull解决方案-第1部分-基础语法-v3.3.0.md:1474: - 外层函数或闭包必须返回 `Result<_, E2>`；`E` 必须可赋给 `E2`；否则编译错误。禁止隐式字符串化。
-spec/XNull解决方案-第4部分-错误处理-v1.0.0.md:73: | `mapErr` | `<E1,E2>(Result<T,E1>, (E1) -> E2) -> Result<T,E2>` | 失败时用调用方提供的转换函数映射错误；成功原样通过 |
-spec/en/S1-Core-Syntax-v3.3.0.md:1478: - The enclosing function or closure must return `Result<_, E2>`; `E` must be assignable to `E2`; otherwise a compile error. Implicit stringification i
-spec/en/S4-Error-Handling-v1.0.0.md:77: | `mapErr` | `<E1,E2>(Result<T,E1>, (E1) -> E2) -> Result<T,E2>` | On failure, maps the error with the caller-supplied function; success passes throug
-## 本地绝对路径：0 命中
-## 内部编号：0 命中
-## 收件箱/日志/证据引用：0 命中
-## 跳过（二进制）：1 个 -> assets/social-preview.png

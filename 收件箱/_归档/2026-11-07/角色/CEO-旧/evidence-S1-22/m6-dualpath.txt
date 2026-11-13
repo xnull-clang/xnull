@@ -1,9 +1,0 @@
-ast-seed       exit 0/0  interp=35B compile=35B  MATCH
-classes        exit 0/0  interp=28B compile=28B  MATCH
-containers     exit 0/0  interp=52B compile=52B  MATCH
-defer-cleanup  exit 0/0  interp=131B compile=131B  MATCH
-hello          exit 0/0  interp=23B compile=23B  MATCH
-lexer-seed     exit 0/0  interp=52B compile=52B  MATCH
-objlist        exit 0/0  interp=5B compile=5B  MATCH
-parser-seed    exit 0/0  interp=4B compile=4B  MATCH
-result-try     exit 0/0  interp=28B compile=28B  MATCH

@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XNull Web IDE</title>
+<!-- 本地内嵌 CodeMirror 5（离线可用） -->
+<link rel="stylesheet" href="vendor/codemirror.min.css">
+<link rel="stylesheet" href="vendor/show-hint.min.css">
+<link rel="stylesheet" href="vendor/dialog.min.css">
+<style>
+  :root {
+    --bg0: #0d1117; --bg1: #161b22; --bg2: #1c2129; --bg3: #21262d;
+    --border: #2d333b; --text: #c9d1d9; --text-dim: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --purple: #bc8cff; --mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Segoe UI", sans-serif;
+    background: var(--bg0); color: var(--text); font-size: 13px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .spacer { flex: 1; }
+  button { font-family: inherit; }
+
+  /* ===== 标题栏 ===== */
+  #titlebar {
+    display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    height: 42px; background: var(--bg1); border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  #logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+  #logo .xn { color: var(--accent); }
+  #logo .badge {
+    font-size: 10px; font-weight: 500; color: var(--text-dim);
+    border: 1px solid var(--border); border-radius: 10px; padding: 1px 8px;
+  }
+  #projSelect {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; font-size: 12px; outline: none; max-width: 200px;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px;
+    border-radius: 6px; border: 1px solid var(--border); background: var(--bg2);
+    color: var(--text); font-size: 12px; cursor: pointer; transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: #1f6feb; border-color: #1f6feb; color: #fff; }
+  .btn.primary:hover { background: #388bfd; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .kbd {
+    font-family: var(--mono); font-size: 10px; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; color: var(--text-dim);
+  }
+
+  /* ===== 主体 ===== */
+  #mainRow { flex: 1; display: flex; min-height: 0; }
+  #activityBar {
+    width: 48px; background: var(--bg1); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; padding-top: 8px; flex-shrink: 0;
+  }
+  .act-btn {
+    width: 48px; height: 46px; display: flex; align-items: center; justify-content: center;
+    font-size: 19px; color: var(--text-dim); cursor: pointer; position: relative;
+    border-left: 2px solid transparent; background: none; border-top: none;
+    border-right: none; border-bottom: none;
+  }
+  .act-btn:hover { color: var(--text); }
+  .act-btn.active { color: var(--accent); border-left-color: var(--accent); }
+  .act-btn .cnt {
+    position: absolute; top: 6px; right: 6px; background: var(--red); color: #fff;
+    border-radius: 9px; font-size: 9px; padding: 1px 5px; display: none; min-width: 16px;
+  }
+  .act-btn .cnt.show { display: block; }
+
+  #sidebar { width: 264px; background: var(--bg1); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .side-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
+  .side-view.active { display: flex; }
+  .side-head {
+    padding: 10px 12px 6px; font-size: 11px; letter-spacing: .08em; color: var(--text-dim);
+    text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+  }
+  .side-head .mini { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+
+  /* 文件树 */
+  #projList { padding: 0 0 6px; border-bottom: 1px solid var(--border); flex-shrink: 0; max-height: 30%; overflow-y: auto; }
+  .proj-item {
+    padding: 5px 12px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+    color: var(--text-dim); border-left: 2px solid transparent; font-size: 12.5px;
+  }
+  .proj-item:hover { background: var(--bg2); }
+  .proj-item.active { background: var(--bg2); color: var(--text); border-left-color: var(--accent); }
+  .proj-item .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+  #fileTree { flex: 1; overflow: auto; padding: 4px 0 20px; }
+  .tree-row {
+    display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer;
+    font-size: 12.5px; color: var(--text-dim); white-space: nowrap; position: relative; user-select: none;
+  }
+  .tree-row:hover { background: var(--bg2); color: var(--text); }
+  .tree-row.active { color: var(--accent); background: rgba(88,166,255,.1); }
+  .tree-row .tw { width: 12px; text-align: center; font-size: 10px; color: var(--text-dim); flex-shrink: 0; }
+  .tree-row .fic { flex-shrink: 0; font-size: 12px; }
+  .tree-row .acts { margin-left: auto; display: none; gap: 2px; }
+  .tree-row:hover .acts { display: inline-flex; }
+  .tree-row .acts button {
+    background: none; border: none; cursor: pointer; font-size: 12px; color: var(--text-dim);
+    padding: 1px 4px; border-radius: 4px;
+  }
+  .tree-row .acts button:hover { color: var(--text); background: var(--bg3); }
+  .tree-children { }
+  .tree-children.collapsed { display: none; }
+  .tree-empty { padding: 14px; color: var(--text-dim); font-size: 12px; text-align: center; }
+
+  /* 搜索视图 */
+  #searchBody { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+  #searchInput {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; color: var(--text); font-size: 13px; outline: none; width: 100%;
+  }
+  #searchInput:focus { border-color: var(--accent); }
+  #searchMeta { font-size: 11px; color: var(--text-dim); }
+  #searchResults { overflow: auto; flex: 1; }
+  .sr-file { font-size: 12px; color: var(--accent); margin: 8px 0 3px; font-family: var(--mono); }
+  .sr-line {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim); padding: 2px 6px;
+    border-radius: 4px; cursor: pointer; white-space: pre-wrap; word-break: break-all;
+  }
+  .sr-line:hover { background: var(--bg2); color: var(--text); }
+  .sr-line mark { background: rgba(210,153,34,.35); color: var(--text); border-radius: 2px; padding: 0 1px; }
+
+  /* 运行视图 */
+  #runBody { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .run-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+  .run-card h4 { font-size: 12px; color: var(--text-dim); margin-bottom: 8px; font-weight: 600; }
+  .run-card .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+  /* 设置视图 */
+  #settingsBody { padding: 12px; display: flex; flex-direction: column; gap: 14px; overflow: auto; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .set-row label { font-size: 12.5px; }
+  .set-row input[type=number], .set-row select {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 8px; color: var(--text); font-size: 12px; outline: none; width: 90px;
+  }
+  .toggle { width: 36px; height: 20px; border-radius: 10px; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; position: relative; }
+  .toggle.on { background: #1f6feb; border-color: #1f6feb; }
+  .toggle::after {
+    content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+    border-radius: 50%; background: #fff; transition: all .15s;
+  }
+  .toggle.on::after { left: 18px; }
+
+  /* ===== 编辑器列 ===== */
+  #editorCol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #tabs {
+    display: flex; background: var(--bg1); border-bottom: 1px solid var(--border);
+    overflow-x: auto; flex-shrink: 0; scrollbar-width: none;
+  }
+  #tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    display: flex; align-items: center; gap: 7px; padding: 7px 12px; cursor: pointer;
+    color: var(--text-dim); border-right: 1px solid var(--border); font-family: var(--mono);
+    font-size: 12px; white-space: nowrap; border-top: 2px solid transparent;
+  }
+  .tab.active { color: var(--text); background: var(--bg0); border-top-color: var(--accent); }
+  .tab .mod { color: var(--yellow); display: none; }
+  .tab.dirty .mod { display: inline; }
+  .tab .close { opacity: .5; font-size: 13px; padding: 0 2px; }
+  .tab .close:hover { opacity: 1; color: var(--red); }
+  #cmHost { flex: 1; min-height: 0; position: relative; }
+  #cmHost .CodeMirror { height: 100%; font-family: var(--mono); }
+  #welcome {
+    position: absolute; inset: 0; display: flex; flex-direction: column; gap: 14px;
+    align-items: center; justify-content: center; color: var(--text-dim); background: var(--bg0);
+  }
+  #welcome .big { font-size: 44px; opacity: .35; }
+  #welcome h2 { font-size: 22px; color: var(--text); font-weight: 600; }
+  #welcome .shortcuts { display: flex; gap: 16px; font-size: 12px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+
+  /* 底部面板 */
+  #panel { height: 230px; flex-shrink: 0; background: var(--bg1); border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+  #panel.min { height: 34px; }
+  #panelHead {
+    display: flex; align-items: center; gap: 4px; padding: 0 10px; height: 34px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .panel-tab {
+    padding: 4px 12px; font-size: 11.5px; color: var(--text-dim); cursor: pointer;
+    border-radius: 5px; letter-spacing: .04em;
+  }
+  .panel-tab.active { color: var(--text); background: var(--bg3); }
+  #panelToggle { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 12px; padding: 4px 8px; }
+  #panelBody { flex: 1; min-height: 0; position: relative; }
+  .panel-view { position: absolute; inset: 0; overflow: auto; display: none; }
+  .panel-view.active { display: block; }
+  #consoleOut { padding: 8px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+  #consoleOut .lbl { color: var(--text-dim); }
+  #consoleOut .okline { color: var(--green); }
+  #consoleOut .errline { color: var(--red); }
+  #consoleOut .warnline { color: var(--yellow); }
+  #consoleOut .empty { color: var(--text-dim); font-style: italic; }
+  #problemsList { padding: 6px 0; }
+  .prob-row {
+    display: flex; gap: 8px; padding: 4px 12px; cursor: pointer; font-size: 12px; align-items: baseline;
+  }
+  .prob-row:hover { background: var(--bg2); }
+  .prob-row .ic { color: var(--red); flex-shrink: 0; }
+  .prob-row .msg { color: var(--text); }
+  .prob-row .loc { color: var(--text-dim); font-family: var(--mono); font-size: 11px; margin-left: auto; white-space: nowrap; }
+  .prob-empty { padding: 14px; color: var(--text-dim); font-size: 12px; font-style: italic; }
+
+  /* ===== 状态栏 ===== */
+  #statusbar {
+    height: 24px; flex-shrink: 0; background: var(--bg1); border-top: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 12px; gap: 14px; font-size: 11px; color: var(--text-dim);
+  }
+  #statusbar .st { display: flex; gap: 5px; align-items: center; cursor: default; }
+  #statusbar .st.click { cursor: pointer; }
+  #statusbar .st.click:hover { color: var(--text); }
+
+  /* ===== 浮层：面板/快速打开 ===== */
+  .overlay-mask { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; z-index: 90; justify-content: center; }
+  .overlay-mask.show { display: flex; }
+  #palette {
+    margin-top: 60px; width: 520px; max-height: 420px; background: var(--bg1);
+    border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+    display: flex; flex-direction: column; align-self: flex-start; box-shadow: 0 16px 48px rgba(0,0,0,.5);
+  }
+  #paletteInput {
+    background: var(--bg2); border: none; border-bottom: 1px solid var(--border);
+    padding: 12px 14px; color: var(--text); font-size: 14px; outline: none;
+  }
+  #paletteList { overflow: auto; padding: 4px 0; }
+  .pal-item { padding: 7px 16px; cursor: pointer; font-size: 13px; display: flex; gap: 10px; align-items: center; }
+  .pal-item:hover, .pal-item.sel { background: var(--bg2); }
+  .pal-item .pal-ic { color: var(--text-dim); width: 18px; }
+  .pal-item .pal-hint { margin-left: auto; color: var(--text-dim); font-size: 11px; }
+  .pal-group { padding: 5px 16px 2px; font-size: 10px; color: var(--text-dim); letter-spacing: .1em; text-transform: uppercase; }
+
+  /* ===== 弹窗 ===== */
+  .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-mask.show { display: flex; }
+  .modal { width: 430px; max-height: 84vh; overflow: auto; background: var(--bg1); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; box-shadow: 0 16px 48px rgba(0,0,0,.5); }
+  .modal h3 { font-size: 15px; margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 10px; color: var(--text); font-size: 13px; outline: none;
+  }
+  .field input:focus { border-color: var(--accent); }
+  .tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tpl-card {
+    border: 1px solid var(--border); border-radius: 8px; padding: 10px 6px; text-align: center;
+    cursor: pointer; font-size: 11.5px; transition: all .15s;
+  }
+  .tpl-card:hover { border-color: var(--text-dim); }
+  .tpl-card.sel { border-color: var(--accent); background: rgba(88,166,255,.08); }
+  .tpl-card .t-ic { font-size: 17px; margin-bottom: 4px; }
+  .check-row { display: flex; gap: 16px; font-size: 12.5px; margin: 4px 0 8px; }
+  .check-row label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+
+  /* ===== CodeMirror 主题 ===== */
+  .cm-s-xnull.CodeMirror { background: var(--bg0); color: var(--text); }
+  .cm-s-xnull .CodeMirror-gutters { background: var(--bg0); border-right: 1px solid var(--border); }
+  .cm-s-xnull .CodeMirror-linenumber { color: #4d5866; }
+  .cm-s-xnull .CodeMirror-cursor { border-left: 2px solid var(--accent); }
+  .cm-s-xnull .CodeMirror-selected { background: rgba(88,166,255,.18); }
+  .cm-s-xnull .CodeMirror-activeline-background { background: rgba(33,38,45,.6); }
+  .cm-s-xnull span.cm-comment { color: #6e7681; font-style: italic; }
+  .cm-s-xnull span.cm-string { color: #a5d6ff; }
+  .cm-s-xnull span.cm-number { color: #79c0ff; }
+  .cm-s-xnull span.cm-keyword { color: #ff7b72; }
+  .cm-s-xnull span.cm-type { color: #ffa657; }
+  .cm-s-xnull span.cm-builtin { color: #d2a8ff; }
+  .cm-s-xnull span.cm-variable { color: var(--text); }
+  .cm-s-xnull span.cm-operator { color: #ff7b72; }
+  .cm-s-xnull .cm-matchhighlight { background: rgba(188,140,255,.2); }
+  .CodeMirror-matchingbracket { color: var(--yellow) !important; outline: 1px solid var(--yellow); }
+  .err-gutter { color: var(--red) !important; font-weight: 700; }
+  .err-line { background: rgba(248,81,73,.12) !important; }
+  .jump-line { background: rgba(210,153,34,.18) !important; transition: background 1.2s; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #30363d; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+
+<div id="titlebar">
+  <div id="logo"><span class="xn">◆ XNull</span> Web IDE <span class="badge">v2.0</span></div>
+  <select id="projSelect" title="切换工程"><option value="">— 选择工程 —</option></select>
+  <button class="btn" id="btnNewProj" title="新建工程">＋ 新建工程</button>
+  <button class="btn" id="btnImport" title="导入本机已有工程目录">⤓ 导入工程</button>
+  <div class="spacer"></div>
+  <span class="kbd">⌘S</span><span style="color:var(--text-dim);font-size:11px">保存</span>
+  <span class="kbd">⌘B</span><span style="color:var(--text-dim);font-size:11px">构建</span>
+  <span class="kbd">⌘↩</span><span style="color:var(--text-dim);font-size:11px">运行</span>
+  <button class="btn" id="btnBuild" title="构建（⌘B）">⚙ 构建</button>
+  <button class="btn primary" id="btnRun" title="构建并运行（⌘↩）">▶ 运行</button>
+</div>
+
+<div id="mainRow">
+  <div id="activityBar">
+    <button class="act-btn active" data-view="explorer" title="资源管理器">🗂</button>
+    <button class="act-btn" data-view="search" title="搜索（⌘⇧F）">🔍</button>
+    <button class="act-btn" data-view="run" title="运行">▶</button>
+    <button class="act-btn" data-view="settings" title="设置">⚙</button>
+    <div class="spacer"></div>
+    <button class="act-btn" id="actPalette" title="命令面板（⌘⇧P）">⌘</button>
+  </div>
+
+  <div id="sidebar">
+    <!-- 资源管理器 -->
+    <div class="side-view active" id="view-explorer">
+      <div class="side-head">工程<span class="mini" id="btnRefreshProj">刷新</span></div>
+      <div id="projList"></div>
+      <div class="side-head">
+        <span id="treeTitle">文件</span>
+        <span>
+          <button class="mini" id="btnNewFile" title="新建文件">＋文档</button>
+          <button class="mini" id="btnNewFolder" title="新建文件夹">＋夹</button>
+        </span>
+      </div>
+      <div id="fileTree"><div class="tree-empty">选择左侧工程</div></div>
+    </div>
+    <!-- 搜索 -->
+    <div class="side-view" id="view-search">
+      <div class="side-head">全局搜索</div>
+      <div id="searchBody">
+        <input id="searchInput" placeholder="在工程中搜索…（回车执行）">
+        <div id="searchMeta"></div>
+        <div id="searchResults"></div>
+      </div>
+    </div>
+    <!-- 运行 -->
+    <div class="side-view" id="view-run">
+      <div class="side-head">运行</div>
+      <div id="runBody">
+        <div class="run-card">
+          <h4>工程操作</h4>
+          <div style="font-size:12px;color:var(--text-dim)" id="runProjInfo">未选择工程</div>
+          <div class="row">
+            <button class="btn primary" id="btnRun2">▶ 运行</button>
+            <button class="btn" id="btnBuild2">⚙ 构建</button>
+          </div>
+        </div>
+        <div class="run-card">
+          <h4>清单与依赖</h4>
+          <div class="row">
+            <button class="btn" id="btnValidate2">✓ 校验</button>
+            <button class="btn" id="btnTree2">⑃ 依赖树</button>
+          </div>
+        </div>
+        <div class="run-card">
+          <h4>当前文件</h4>
+          <div class="row">
+            <button class="btn" id="btnFmt2">✎ 格式化</button>
+            <button class="btn" id="btnSave2">💾 保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 设置 -->
+    <div class="side-view" id="view-settings">
+      <div class="side-head">设置</div>
+      <div id="settingsBody">
+        <div class="set-row"><label>编辑器字号</label><input type="number" id="setFontSize" min="10" max="24" value="13"></div>
+        <div class="set-row"><label>自动保存</label><div class="toggle on" id="setAutoSave"></div></div>
+        <div class="set-row"><label>自动换行</label><div class="toggle" id="setWordWrap"></div></div>
+        <div class="set-row"><label>显示行内补全</label><div class="toggle on" id="setAutoHint"></div></div>
+        <div style="font-size:11px;color:var(--text-dim)">设置保存在浏览器本地，即时生效。</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editorCol">
+    <div id="tabs"></div>
+    <div id="cmHost">
+      <textarea id="cmSrc"></textarea>
+      <div id="welcome">
+        <div class="big">⌘</div>
+        <h2>XNull Web IDE</h2>
+        <div>新建工程、导入本机工程，或从左侧打开文件</div>
+        <div class="shortcuts">
+          <span><span class="kbd">⌘P</span> 快速打开</span>
+          <span><span class="kbd">⌘⇧P</span> 命令面板</span>
+          <span><span class="kbd">⌘⇧F</span> 全局搜索</span>
+          <span><span class="kbd">⌃Space</span> 补全</span>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn primary" onclick="openNewProj()">＋ 新建工程</button>
+          <button class="btn" onclick="openImport()">⤓ 导入工程</button>
+        </div>
+      </div>
+    </div>
+    <div id="panel">
+      <div id="panelHead">
+        <span class="panel-tab active" data-pv="console">输出</span>
+        <span class="panel-tab" data-pv="problems">问题 <span id="probCount"></span></span>
+        <div class="spacer"></div>
+        <button id="panelToggle" title="收起/展开">▾</button>
+      </div>
+      <div id="panelBody">
+        <div class="panel-view active" id="pv-console"><div id="consoleOut"><span class="empty">输出将显示在这里。快捷键：⌘S 保存 · ⌘B 构建 · ⌘↩ 运行 · ⌘P 快速打开 · ⌘⇧P 命令面板</span></div></div>
+        <div class="panel-view" id="pv-problems"><div id="problemsList"><div class="prob-empty">暂无问题。构建或运行后，编译错误将集中显示在这里（可点击跳转）。</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span class="st">◆ XNull（bootstrap 模式）</span>
+  <span class="st" id="stProj">未选择工程</span>
+  <span class="st click" id="stFile"></span>
+  <div class="spacer"></div>
+  <span class="st click" id="stProblems" title="问题面板"></span>
+  <span class="st" id="stPos"></span>
+  <span class="st">XNull</span>
+  <span class="st" id="stSave"></span>
+</div>
+
+<!-- 命令面板 / 快速打开 -->
+<div class="overlay-mask" id="paletteMask">
+  <div id="palette">
+    <input id="paletteInput" placeholder="输入命令（>）或文件名…">
+    <div id="paletteList"></div>
+  </div>
+</div>
+
+<!-- 新建工程 -->
+<div class="modal-mask" id="maskNewProj">
+  <div class="modal">
+    <h3>新建 XNull 工程</h3>
+    <div class="field"><label>工程名（artifactId）</label><input id="npName" placeholder="my-app" autocomplete="off"></div>
+    <div class="field"><label>groupId</label><input id="npGroup" value="io.xnull" autocomplete="off"></div>
+    <div class="field"><label>版本</label><input id="npVer" value="1.0.0" autocomplete="off"></div>
+    <div class="field">
+      <label>模板</label>
+      <div class="tpl-grid" id="tplGrid">
+        <div class="tpl-card sel" data-tpl="hello"><div class="t-ic">👋</div>最小程序</div>
+        <div class="tpl-card" data-tpl="classes"><div class="t-ic">🧩</div>类与对象</div>
+        <div class="tpl-card" data-tpl="containers"><div class="t-ic">📦</div>容器遍历</div>
+        <div class="tpl-card" data-tpl="loops"><div class="t-ic">🔁</div>控制流</div>
+        <div class="tpl-card" data-tpl="errors"><div class="t-ic">🛡</div>错误处理</div>
+        <div class="tpl-card" data-tpl="algo"><div class="t-ic">🧮</div>递归算法</div>
+      </div>
+    </div>
+    <div class="check-row">
+      <label><input type="checkbox" id="npReadme" checked> 生成 README.md</label>
+      <label><input type="checkbox" id="npGitignore" checked> 生成 .gitignore</label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="npCancel">取消</button>
+      <button class="btn primary" id="npCreate">创建工程</button>
+    </div>
+  </div>
+</div>
+
+<!-- 导入工程 -->
+<div class="modal-mask" id="maskImport">
+  <div class="modal">
+    <h3>导入本机 XNull 工程</h3>
+    <div class="field"><label>本机工程目录（须含 xnull.project）</label><input id="impPath" placeholder="/Users/you/path/to/project" autocomplete="off"></div>
+    <div class="field"><label>导入后工程名（可选，默认取目录名）</label><input id="impName" placeholder="留空自动命名" autocomplete="off"></div>
+    <div style="font-size:11px;color:var(--text-dim)">将复制目录到 IDE 工作区（自动跳过 target/.git）。</div>
+    <div class="modal-foot">
+      <button class="btn" id="impCancel">取消</button>
+      <button class="btn primary" id="impConfirm">导入</button>
+    </div>
+  </div>
+</div>
+
+<script src="vendor/codemirror.min.js"></script>
+<script src="vendor/simple.min.js"></script>
+<script src="vendor/show-hint.min.js"></script>
+<script src="vendor/anyword-hint.min.js"></script>
+<script src="vendor/closebrackets.min.js"></script>
+<script src="vendor/matchbrackets.min.js"></script>
+<script src="vendor/active-line.min.js"></script>
+<script src="vendor/searchcursor.min.js"></script>
+<script src="vendor/search.min.js"></script>
+<script src="vendor/dialog.min.js"></script>
+<script>
+"use strict";
+
+// ================= 全局状态 =================
+const S = {
+  projects: [],
+  current: null,
+  tree: null,
+  docs: {},          // path -> CodeMirror.Doc
+  tabs: [],          // path 列表（当前工程）
+  active: null,
+  tpl: "hello",
+  busy: false,
+  problems: [],
+  marks: [],         // 编辑器错误标记
+  collapsed: {},     // 目录折叠状态
+  searchResults: [],
+  settings: { fontSize: 13, autoSave: true, wordWrap: false, autoHint: true },
+};
+try { Object.assign(S.settings, JSON.parse(localStorage.getItem("xnull-ide-settings") || "{}")); } catch (e) {}
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  const j = await r.json().catch(() => ({ error: "响应解析失败" }));
+  if (!r.ok || j.error) throw new Error(j.error || r.status);
+  return j;
+}
+const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+
+// ================= CodeMirror：XNull 模式 =================
+CodeMirror.defineSimpleMode("xnull", {
+  start: [
+    { regex: /\/\/.*/, token: "comment" },
+    { regex: /"(?:[^"\\]|\\.)*?"/, token: "string" },
+    { regex: /\b\d[\d._]*\b/, token: "number" },
+    { regex: /\b(static|class|new|self|return|for|in|if|else|while|defer|try|catch|throw|import|match|case|break|continue|null|true|false|fn|var|const)\b/, token: "keyword" },
+    { regex: /\b(Int|String|Bool|Float|List|Map|Set|Array|Result|Option|Void|Str|Err|Ok)\b/, token: "type" },
+    { regex: /\b(print|str|int|len|push|pop|get|set|length|keys|values|has|remove|clear|err|ok|unwrap|unwrapOr|isOk|isErr)\b(?=\s*\()/, token: "builtin" },
+    { regex: /[+\-*\/%=<>!&|?:]+/, token: "operator" },
+    { regex: /[A-Za-z_][\w]*/, token: "variable" },
+  ],
+  meta: { lineComment: "//" },
+});
+
+// ================= 补全 =================
+const SNIPPETS = [
+  { text: 'static Int main() {\n    \n    return 0\n}', displayText: "main —— main 函数（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'class Name {\n    \n}', displayText: "class —— 类定义（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'static Ret name(Args) {\n    \n}', displayText: "fn —— 函数定义（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'for v in xs {\n    \n}', displayText: "forin —— for-in 遍历（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'while cond {\n    \n}', displayText: "while —— while 循环（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'if cond {\n    \n}', displayText: "if —— 条件分支（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'if cond {\n    \n} else {\n    \n}', displayText: "ifelse —— if/else（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'defer {\n    \n}', displayText: "defer —— 延迟执行（模板）", cursorLine: 1, cursorCol: 4 },
+  { text: 'print()', displayText: "print —— 打印输出", cursorLine: 0, cursorCol: 6 },
+];
+const KEYWORDS = ["static", "class", "new", "self", "return", "for", "in", "if", "else", "while", "defer", "try", "catch", "throw", "import", "match", "case", "break", "continue", "null", "true", "false"];
+const TYPES = ["Int", "String", "Bool", "Float", "List", "Map", "Set", "Array", "Result", "Option", "Void", "Err", "Ok"];
+const BUILTINS = ["print", "str", "int", "length", "push", "pop", "get", "set", "keys", "values", "has", "remove", "isOk", "isErr", "unwrap", "unwrapOr"];
+
+function xnullHint(cm) {
+  const cur = cm.getCursor();
+  const line = cm.getLine(cur.line).slice(0, cur.ch);
+  const m = line.match(/[A-Za-z_]\w*$/);
+  const word = m ? m[0] : "";
+  const start = word ? cur.ch - word.length : cur.ch;
+  const list = [];
+  // 1) 片段：首字母触发
+  if (word.length >= 1) {
+    SNIPPETS.forEach((s) => {
+      const head = s.displayText.split(" ")[0];
+      if (head.startsWith(word)) list.push({
+        text: s.text, displayText: s.displayText, score: 0,
+        hint: (cm2, self, data) => {
+          const base = new CodeMirror.Pos(cur.line, start);
+          cm2.replaceRange(s.text, base, cur);
+          cm2.setCursor({ line: base.line + s.cursorLine, ch: s.cursorCol });
+        },
+      });
+    });
+    KEYWORDS.forEach((k) => { if (k.startsWith(word)) list.push({ text: k, displayText: k + "  ⟨关键字⟩", score: 1 }); });
+    TYPES.forEach((k) => { if (k.startsWith(word)) list.push({ text: k, displayText: k + "  ⟨类型⟩", score: 1 }); });
+    BUILTINS.forEach((k) => { if (k.startsWith(word)) list.push({ text: k + "(", displayText: k + "  ⟨函数⟩", score: 2 }); });
+  }
+  // 2) 文档词补全（收集当前文档中的标识符）
+  const seen = {};
+  list.forEach((x) => { seen[x.text] = 1; });
+  const words = {};
+  cm.getDoc().getValue().replace(/[A-Za-z_]\w*/g, (w) => { words[w] = 1; return w; });
+  Object.keys(words).forEach((t) => {
+    if (!seen[t] && word.length >= 2 && t.startsWith(word) && t !== word) list.push({ text: t, displayText: t, score: 3 });
+    seen[t] = 1;
+  });
+  list.sort((a, b) => a.score - b.score);
+  return { list: list.map(({ text, displayText, hint }) => ({ text, displayText, hint })),
+           from: new CodeMirror.Pos(cur.line, start), to: cur };
+}
+CodeMirror.registerHelper("hint", "xnull", xnullHint);
+
+// ================= 编辑器 =================
+const cm = CodeMirror.fromTextArea($("cmSrc"), {
+  mode: "xnull", theme: "xnull", lineNumbers: true, gutters: ["CodeMirror-linenumbers", "err-gutter"],
+  indentUnit: 4, tabSize: 4,
+  indentWithTabs: false, smartIndent: true, autoCloseBrackets: true, matchBrackets: true,
+  styleActiveLine: true, hintOptions: { completeSingle: false },
+  extraKeys: {
+    "Ctrl-Space": (c) => c.showHint({ hint: xnullHint, completeSingle: false }),
+    "Cmd-S": () => saveActive(), "Ctrl-S": () => saveActive(),
+    "Cmd-B": () => cli("build"), "Ctrl-B": () => cli("build"),
+    "Cmd-Enter": () => cli("run"), "Ctrl-Enter": () => cli("run"),
+    "Cmd-P": () => openPalette(""), "Ctrl-P": () => openPalette(""),
+    "Cmd-Shift-P": () => openPalette(">"), "Ctrl-Shift-P": () => openPalette(">"),
+  },
+});
+cm.on("change", () => {
+  if (S.active && !S._loading) {
+    markDirty(S.active, !cm.getDoc().isClean());
+    if (S.settings.autoSave) scheduleSave();
+  }
+});
+cm.on("cursorActivity", () => {
+  const c = cm.getCursor();
+  $("stPos").textContent = (c.line + 1) + ":" + (c.ch + 1);
+  if (S.settings.autoHint) {
+    clearTimeout(S._hintTimer);
+    const tok = cm.getTokenAt(c);
+    if (!/comment|string/.test(tok.type || "") && /[A-Za-z_]$/.test(cm.getLine(c.line).slice(0, c.ch))) {
+      S._hintTimer = setTimeout(() => {
+        if (S.settings.autoHint && !cm.state.completionActive) cm.showHint({ hint: xnullHint, completeSingle: false });
+      }, 500);
+    }
+  }
+});
+
+function applySettings() {
+  cm.setOption("lineWrapping", S.settings.wordWrap);
+  cm.getWrapperElement().style.fontSize = S.settings.fontSize + "px";
+  cm.refresh();
+  $("setFontSize").value = S.settings.fontSize;
+  $("setAutoSave").classList.toggle("on", S.settings.autoSave);
+  $("setWordWrap").classList.toggle("on", S.settings.wordWrap);
+  $("setAutoHint").classList.toggle("on", S.settings.autoHint);
+  localStorage.setItem("xnull-ide-settings", JSON.stringify(S.settings));
+}
+$("setFontSize").onchange = (e) => { S.settings.fontSize = +e.target.value || 13; applySettings(); };
+$("setAutoSave").onclick = () => { S.settings.autoSave = !S.settings.autoSave; applySettings(); };
+$("setWordWrap").onclick = () => { S.settings.wordWrap = !S.settings.wordWrap; applySettings(); };
+$("setAutoHint").onclick = () => { S.settings.autoHint = !S.settings.autoHint; applySettings(); };
+
+// ================= 标签页 =================
+function markDirty(path, dirty) {
+  const el = document.querySelector('.tab[data-path="' + CSS.escape(path) + '"]');
+  if (el) el.classList.toggle("dirty", dirty);
+  const t = S.tabs.find((x) => x.path === path);
+  if (t) t.dirty = dirty;
+  updateSaveStatus();
+}
+
+function updateSaveStatus() {
+  const anyDirty = S.tabs.some((t) => t.dirty);
+  $("stSave").textContent = anyDirty ? "● 未保存" : "";
+}
+
+async function openFile(path, focusLine, focusCol) {
+  if (!S.current) return;
+  if (!S.docs[path]) {
+    const r = await api("/api/file?name=" + encodeURIComponent(S.current) + "&path=" + encodeURIComponent(path));
+    S.docs[path] = CodeMirror.Doc(r.content, "xnull");
+    S.docs[path]._orig = r.content;
+    S.tabs.push({ path, dirty: false });
+  }
+  S._loading = true;
+  cm.swapDoc(S.docs[path]);
+  S._loading = false;
+  S.active = path;
+  if (focusLine !== undefined) {
+    const pos = { line: focusLine - 1, ch: (focusCol || 1) - 1 };
+    cm.setCursor(pos);
+    cm.scrollIntoView({ line: focusLine - 1 }, 80);
+    flashLine(focusLine - 1);
+  }
+  renderTabs(); renderTree();
+  $("welcome").style.display = "none";
+  $("stFile").textContent = path;
+}
+
+function flashLine(line) {
+  cm.addLineClass(line, "background", "jump-line");
+  setTimeout(() => cm.removeLineClass(line, "background", "jump-line"), 1200);
+}
+
+function renderTabs() {
+  const el = $("tabs"); el.innerHTML = "";
+  S.tabs.forEach((t) => {
+    const d = document.createElement("div");
+    d.className = "tab" + (t.path === S.active ? " active" : "") + (t.dirty ? " dirty" : "");
+    d.dataset.path = t.path;
+    d.innerHTML = '<span class="mod">●</span><span>' + esc(t.path.split("/").pop()) + '</span><span class="close">✕</span>';
+    d.onclick = (e) => {
+      if (e.target.className === "close") { closeTab(t.path); return; }
+      openFile(t.path);
+    };
+    el.appendChild(d);
+  });
+}
+
+async function closeTab(path) {
+  const t = S.tabs.find((x) => x.path === path);
+  if (t && t.dirty && !confirm("文件未保存，确定关闭？")) return;
+  const idx = S.tabs.indexOf(t);
+  S.tabs.splice(idx, 1);
+  delete S.docs[path];
+  if (S.active === path) {
+    if (S.tabs.length) {
+      const next = S.tabs[Math.max(0, idx - 1)].path;
+      await openFile(next);
+    } else {
+      S.active = null; cm.swapDoc(CodeMirror.Doc("", "xnull"));
+      $("welcome").style.display = "flex"; $("stFile").textContent = "";
+    }
+  }
+  renderTabs(); renderTree();
+}
+
+// ================= 保存 =================
+let _saveTimer = null;
+function scheduleSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => saveActive(true), 800);
+}
+
+async function saveActive(silent) {
+  if (!S.active || !S.current) return;
+  const doc = cm.getDoc();
+  const content = doc.getValue();
+  try {
+    await post("/api/file", { project: S.current, path: S.active, content });
+    doc.markClean();
+    markDirty(S.active, false);
+    if (!silent) $("stSave").textContent = "已保存 " + S.active.split("/").pop();
+    setTimeout(() => { if ($("stSave").textContent.startsWith("已保存")) $("stSave").textContent = ""; }, 1500);
+    updateSaveStatus();
+  } catch (e) {
+    logLine("保存失败：" + e.message, "errline");
+    showPanel("console");
+  }
+}
+
+// ================= 文件树 =================
+function renderTree() {
+  const el = $("fileTree");
+  el.innerHTML = "";
+  $("treeTitle").textContent = S.current ? "文件 · " + S.current : "文件";
+  if (!S.current || !S.tree) { el.innerHTML = '<div class="tree-empty">选择左侧工程</div>'; return; }
+  const mk = (name, path, isDir, depth, childrenEl) => {
+    const row = document.createElement("div");
+    row.className = "tree-row" + (!isDir && S.active === path ? " active" : "");
+    row.style.paddingLeft = (8 + depth * 14) + "px";
+    const icon = isDir ? "📁" : (path.endsWith(".project") ? "📋" : path.endsWith(".md") ? "📘" : "📄");
+    const collapsed = S.collapsed[path];
+    row.innerHTML = '<span class="tw">' + (isDir ? (collapsed ? "▶" : "▼") : "") + "</span>" +
+      '<span class="fic">' + icon + "</span><span>" + esc(name) + "</span>" +
+      '<span class="acts">' +
+      (isDir ? '<button data-a="newfile" title="新建文件">＋</button><button data-a="newfolder" title="新建文件夹">🗀</button>' : "") +
+      '<button data-a="rename" title="重命名">✏</button>' +
+      (path !== "xnull.project" ? '<button data-a="delete" title="删除">🗑</button>' : "") +
+      "</span>";
+    row.onclick = async (e) => {
+      const a = e.target.dataset && e.target.dataset.a;
+      if (a) { e.stopPropagation(); await treeAction(a, path, isDir); return; }
+      if (isDir) { S.collapsed[path] = !collapsed; renderTree(); }
+      else openFile(path);
+    };
+    return row;
+  };
+  const walk = (node, prefix, depth, container) => {
+    node.dirs.forEach((d) => {
+      const path = prefix + d.name;
+      container.appendChild(mk(d.name, path, true, depth));
+      const kids = document.createElement("div");
+      kids.className = "tree-children" + (S.collapsed[path] ? " collapsed" : "");
+      container.appendChild(kids);
+      walk(d.children, path + "/", depth + 1, kids);
+    });
+    node.files.forEach((f) => {
+      container.appendChild(mk(f.name, prefix + f.name, false, depth));
+    });
+  };
+  walk(S.tree, "", 0, el);
+}
+
+async function treeAction(action, path, isDir) {
+  if (!S.current) return;
+  if (action === "newfile") {
+    const dir = isDir ? path : path.split("/").slice(0, -1).join("/");
+    let name = prompt("新建文件（相对工程根，回车创建）：", dir ? dir + "/" : "");
+    if (!name) return;
+    name = name.replace(/^\/+/, "");
+    if (!/\.[a-z]+$/i.test(name)) { alert("文件名需要扩展名（如 .x）"); return; }
+    try { await post("/api/fs", { op: "touch", project: S.current, path: name, content: "// " + name + "\n" }); }
+    catch (e) { alert(e.message); return; }
+    await loadProjectTree();
+    openFile(name);
+  } else if (action === "newfolder") {
+    const dir = isDir ? path : path.split("/").slice(0, -1).join("/");
+    let name = prompt("新建文件夹（相对工程根）：", dir ? dir + "/" : "");
+    if (!name) return;
+    try { await post("/api/fs", { op: "mkdir", project: S.current, path: name.replace(/^\/+/, "") }); }
+    catch (e) { alert(e.message); return; }
+    loadProjectTree();
+  } else if (action === "rename") {
+    let name = prompt("重命名 / 移动到：", path);
+    if (!name || name === path) return;
+    try { await post("/api/fs", { op: "rename", project: S.current, path, newPath: name }); }
+    catch (e) { alert(e.message); return; }
+    if (S.docs[path]) {
+      const doc = S.docs[path], t = S.tabs.find((x) => x.path === path);
+      S.docs[name] = doc;
+      if (t) t.path = name;
+      delete S.docs[path];
+      if (S.active === path) S.active = name;
+    }
+    await loadProjectTree(); renderTabs();
+    if (S.active === name) $("stFile").textContent = name;
+  } else if (action === "delete") {
+    if (!confirm("删除 " + path + "？")) return;
+    try { await post("/api/fs", { op: "delete", project: S.current, path }); }
+    catch (e) { alert(e.message); return; }
+    if (S.docs[path]) closeTab(path);
+    loadProjectTree();
+  }
+}
+
+$("btnNewFile").onclick = () => treeAction("newfile", "", false);
+$("btnNewFolder").onclick = () => treeAction("newfolder", "", false);
+
+// ================= 工程列表 =================
+async function loadProjects() {
+  const r = await api("/api/projects");
+  S.projects = r.projects || [];
+  const sel = $("projSelect"), list = $("projList");
+  sel.innerHTML = '<option value="">— 选择工程 —</option>';
+  list.innerHTML = "";
+  S.projects.forEach((p) => {
+    const o = document.createElement("option");
+    o.value = p.name; o.textContent = p.name + (p.version ? " · " + p.version : "");
+    sel.appendChild(o);
+    const d = document.createElement("div");
+    d.className = "proj-item" + (p.name === S.current ? " active" : "");
+    d.innerHTML = '<span class="dot"></span><span>' + esc(p.name) +
+      '</span><span style="margin-left:auto;font-size:10px">' + (p.fileCount || 0) + " 文件</span>";
+    d.onclick = () => selectProject(p.name);
+    list.appendChild(d);
+  });
+  if (S.current && S.projects.some((p) => p.name === S.current)) { sel.value = S.current; await loadProjectTree(); }
+  else if (S.projects.length) selectProject(S.projects[0].name);
+  else {
+    S.current = null; S.tree = null;
+    $("stProj").textContent = "未选择工程";
+    $("fileTree").innerHTML = '<div class="tree-empty">尚无工程，点击「新建工程」</div>';
+    $("runProjInfo").textContent = "未选择工程";
+  }
+}
+
+async function selectProject(name) {
+  S.current = name;
+  S.tabs = []; S.docs = {}; S.active = null; S.problems = []; renderProblems();
+  cm.swapDoc(CodeMirror.Doc("", "xnull"));
+  $("welcome").style.display = "flex";
+  $("projSelect").value = name;
+  $("stProj").textContent = "工程：" + name;
+  $("runProjInfo").textContent = "当前工程：" + name + "　（运行 = 编译入口并执行）";
+  localStorage.setItem("xnull-ide-project", name);
+  await loadProjects();
+}
+
+async function loadProjectTree() {
+  if (!S.current) return;
+  const r = await api("/api/project?name=" + encodeURIComponent(S.current));
+  S.tree = r.tree;
+  renderTree();
+}
+
+// ================= CLI =================
+function setBusy(b) {
+  S.busy = b;
+  ["btnRun", "btnBuild", "btnRun2", "btnBuild2", "btnValidate2", "btnTree2", "btnFmt2", "btnSave2"].forEach((id) => { $(id).disabled = b; });
+}
+
+async function cli(cmd) {
+  if (!S.current) { logLine("请先选择工程", "errline"); showPanel("console"); return; }
+  if (S.busy) { logLine("已有任务在执行中…", "warnline"); return; }
+  if (S.active) await saveActive(true);
+  setBusy(true);
+  const names = { run: "运行", build: "构建", validate: "校验", tree: "依赖树" };
+  logLine("───── " + names[cmd] + " · " + S.current + " ─────", "lbl");
+  showPanel("console");
+  const t0 = performance.now();
+  try {
+    const r = await post("/api/cli", { project: S.current, cmd });
+    logBlock(r.output);
+    logLine("───── 退出码 " + r.exit + " · " + (r.mode || "") + " · " + r.ms + "ms ─────", r.exit === 0 ? "okline" : "errline");
+    S.problems = r.problems || [];
+    renderProblems();
+    if (S.problems.length) {
+      showPanel("problems");
+      const p = S.problems[0];
+      if (S.docs[p.file] || p.file === S.active) await openFile(p.file, p.line, p.col);
+      else { try { await openFile(p.file, p.line, p.col); } catch (e) {} }
+    }
+  } catch (e) {
+    logLine("请求失败：" + e.message, "errline");
+  }
+  setBusy(false);
+}
+
+// ================= 问题面板与编辑器标记 =================
+function renderProblems() {
+  const el = $("problemsList");
+  $("probCount").textContent = S.problems.length ? "(" + S.problems.length + ")" : "";
+  if (!S.problems.length) {
+    el.innerHTML = '<div class="prob-empty">暂无问题。构建或运行后，编译错误将集中显示在这里（可点击跳转）。</div>';
+    $("stProblems").textContent = "";
+  } else {
+    el.innerHTML = "";
+    S.problems.forEach((p) => {
+      const d = document.createElement("div");
+      d.className = "prob-row";
+      d.innerHTML = '<span class="ic">✖</span><span class="msg">' + esc(p.msg) +
+        '</span><span class="loc">' + esc(p.file) + ":" + p.line + ":" + p.col + "</span>";
+      d.onclick = () => openFile(p.file, p.line, p.col);
+      el.appendChild(d);
+    });
+    $("stProblems").textContent = "✖ " + S.problems.length + " 个问题";
+  }
+  refreshEditorMarks();
+}
+
+function refreshEditorMarks() {
+  S.marks.forEach((m) => { try { m.clear(); } catch (e) {} });
+  S.marks = [];
+  if (!S.active || !S.current) return;
+  S.problems.filter((p) => p.file === S.active).forEach((p) => {
+    const doc = cm.getDoc();
+    if (p.line - 1 < doc.lineCount()) {
+      cm.addLineClass(p.line - 1, "background", "err-line");
+      const dot = document.createElement("div");
+      dot.className = "err-gutter";
+      dot.textContent = "●";
+      cm.setGutterMarker(p.line - 1, "err-gutter", dot);
+      S.marks.push({
+        clear: () => {
+          cm.removeLineClass(p.line - 1, "background", "err-line");
+          cm.setGutterMarker(p.line - 1, "err-gutter", null);
+        },
+      });
+    }
+  });
+}
+
+// ================= 控制台 =================
+function logLine(text, cls) {
+  const out = $("consoleOut");
+  const empty = out.querySelector(".empty"); if (empty) empty.remove();
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = text;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+function logBlock(text) {
+  String(text || "").split("\n").forEach((l) => {
+    let cls = "";
+    if (/error|错误|失败|FAIL|panic/i.test(l)) cls = "errline";
+    else if (/warn|警告/i.test(l)) cls = "warnline";
+    else if (/OK|PASS|成功/i.test(l)) cls = "okline";
+    logLine(l, cls);
+  });
+}
+
+function showPanel(view) {
+  document.querySelectorAll(".panel-tab").forEach((t) => t.classList.toggle("active", t.dataset.pv === view));
+  document.querySelectorAll(".panel-view").forEach((v) => v.classList.toggle("active", v.id === "pv-" + view));
+  $("panel").classList.remove("min");
+}
+document.querySelectorAll(".panel-tab").forEach((t) => { t.onclick = () => showPanel(t.dataset.pv); });
+$("panelToggle").onclick = () => $("panel").classList.toggle("min");
+
+// ================= 全局搜索 =================
+$("searchInput").addEventListener("keydown", async (e) => {
+  if (e.key !== "Enter" || !S.current) return;
+  const q = $("searchInput").value.trim();
+  if (!q) return;
+  $("searchMeta").textContent = "搜索中…";
+  const r = await api("/api/search?name=" + encodeURIComponent(S.current) + "&q=" + encodeURIComponent(q));
+  S.searchResults = r.results || [];
+  $("searchMeta").textContent = S.searchResults.length + " 个命中" + (r.truncated ? "（已截断）" : "");
+  const el = $("searchResults"); el.innerHTML = "";
+  let lastFile = "";
+  S.searchResults.forEach((hit) => {
+    if (hit.file !== lastFile) {
+      lastFile = hit.file;
+      const f = document.createElement("div");
+      f.className = "sr-file"; f.textContent = hit.file;
+      el.appendChild(f);
+    }
+    const d = document.createElement("div");
+    d.className = "sr-line";
+    const before = esc(hit.text.slice(0, hit.col - 1));
+    const word = esc(hit.text.slice(hit.col - 1, hit.col - 1 + q.length));
+    const after = esc(hit.text.slice(hit.col - 1 + q.length));
+    d.innerHTML = before + "<mark>" + word + "</mark>" + after;
+    d.onclick = () => openFile(hit.file, hit.line, hit.col);
+    el.appendChild(d);
+  });
+});
+
+// ================= 命令面板 / 快速打开 =================
+const COMMANDS = [
+  { ic: "＋", name: "新建工程", fn: openNewProj, k: "" },
+  { ic: "⤓", name: "导入本机工程", fn: openImport, k: "" },
+  { ic: "＋", name: "新建文件", fn: () => treeAction("newfile", "", false), k: "" },
+  { ic: "🗀", name: "新建文件夹", fn: () => treeAction("newfolder", "", false), k: "" },
+  { ic: "▶", name: "运行工程", fn: () => cli("run"), k: "⌘↩" },
+  { ic: "⚙", name: "构建工程", fn: () => cli("build"), k: "⌘B" },
+  { ic: "✓", name: "校验清单", fn: () => cli("validate"), k: "" },
+  { ic: "⑃", name: "查看依赖树", fn: () => cli("tree"), k: "" },
+  { ic: "✎", name: "格式化当前文件", fn: fmtActive, k: "" },
+  { ic: "💾", name: "保存当前文件", fn: () => saveActive(), k: "⌘S" },
+  { ic: "🔍", name: "全局搜索", fn: () => switchView("search"), k: "⌘⇧F" },
+  { ic: "⚙", name: "打开设置", fn: () => switchView("settings"), k: "" },
+  { ic: "🗂", name: "切换到资源管理器", fn: () => switchView("explorer"), k: "" },
+];
+
+function openPalette(mode) {
+  $("paletteMask").classList.add("show");
+  const inp = $("paletteInput");
+  inp.value = mode;
+  renderPalette();
+  inp.focus();
+  inp.oninput = renderPalette;
+}
+function closePalette() { $("paletteMask").classList.remove("show"); }
+
+function renderPalette() {
+  const inp = $("paletteInput");
+  const isCmd = inp.value.startsWith(">");
+  const q = (isCmd ? inp.value.slice(1) : inp.value).trim().toLowerCase();
+  const el = $("paletteList");
+  el.innerHTML = "";
+  if (isCmd) {
+    const items = COMMANDS.filter((c) => c.name.toLowerCase().includes(q));
+    if (items.length) { const g = document.createElement("div"); g.className = "pal-group"; g.textContent = "命令"; el.appendChild(g); }
+    items.forEach((c, i) => {
+      const d = document.createElement("div");
+      d.className = "pal-item" + (i === 0 ? " sel" : "");
+      d.innerHTML = '<span class="pal-ic">' + c.ic + "</span><span>" + esc(c.name) +
+        (c.k ? '</span><span class="pal-hint">' + c.k + "</span>" : "</span>");
+      d.onclick = () => { closePalette(); c.fn(); };
+      el.appendChild(d);
+    });
+    if (!items.length) el.innerHTML = '<div class="pal-item">无匹配命令</div>';
+  } else if (S.current && S.tree) {
+    const files = [];
+    (function walk(node, prefix) {
+      node.files.forEach((f) => files.push(prefix + f.name));
+      node.dirs.forEach((d) => walk(d.children, prefix + d.name + "/"));
+    })(S.tree, "");
+    const hits = files.filter((f) => f.toLowerCase().includes(q)).slice(0, 40);
+    if (hits.length) { const g = document.createElement("div"); g.className = "pal-group"; g.textContent = "文件（" + S.current + "）"; el.appendChild(g); }
+    hits.forEach((f, i) => {
+      const d = document.createElement("div");
+      d.className = "pal-item" + (i === 0 ? " sel" : "");
+      d.innerHTML = '<span class="pal-ic">📄</span><span>' + esc(f) + "</span>";
+      d.onclick = () => { closePalette(); openFile(f); };
+      el.appendChild(d);
+    });
+    if (!hits.length) el.innerHTML = '<div class="pal-item">无匹配文件</div>';
+  } else {
+    el.innerHTML = '<div class="pal-item">先选择或创建一个工程</div>';
+  }
+}
+$("paletteInput").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closePalette();
+  if (e.key === "Enter") {
+    const first = $("paletteList").querySelector(".pal-item");
+    if (first) first.click();
+  }
+});
+$("paletteMask").onclick = (e) => { if (e.target === $("paletteMask")) closePalette(); };
+$("actPalette").onclick = () => openPalette(">");
+
+// ================= 视图切换 =================
+function switchView(name) {
+  document.querySelectorAll(".act-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === name));
+  document.querySelectorAll(".side-view").forEach((v) => v.classList.toggle("active", v.id === "view-" + name));
+  if (name === "search") $("searchInput").focus();
+}
+document.querySelectorAll(".act-btn[data-view]").forEach((b) => { b.onclick = () => switchView(b.dataset.view); });
+
+// ================= 格式化 =================
+async function fmtActive() {
+  if (!S.active) { logLine("请先打开文件", "warnline"); return; }
+  await saveActive(true);
+  setBusy(true);
+  try {
+    const r = await post("/api/fmt", { project: S.current, path: S.active });
+    if (r.ok) {
+      S._loading = true;
+      S.docs[S.active] = CodeMirror.Doc(r.content, "xnull");
+      S.docs[S.active]._orig = r.content;
+      cm.swapDoc(S.docs[S.active]);
+      S._loading = false;
+      $("stSave").textContent = "已格式化";
+      setTimeout(() => { if ($("stSave").textContent === "已格式化") $("stSave").textContent = ""; }, 1500);
+    } else {
+      logBlock(r.output || ""); showPanel("console");
+    }
+  } catch (e) { logLine("格式化失败：" + e.message, "errline"); showPanel("console"); }
+  setBusy(false);
+}
+
+// ================= 新建工程 =================
+function openNewProj() { $("maskNewProj").classList.add("show"); $("npName").focus(); }
+function closeNewProj() { $("maskNewProj").classList.remove("show"); }
+$("btnNewProj").onclick = openNewProj;
+$("npCancel").onclick = closeNewProj;
+$("maskNewProj").onclick = (e) => { if (e.target === $("maskNewProj")) closeNewProj(); };
+$("tplGrid").onclick = (e) => {
+  const c = e.target.closest(".tpl-card"); if (!c) return;
+  S.tpl = c.dataset.tpl;
+  document.querySelectorAll(".tpl-card").forEach((x) => x.classList.toggle("sel", x === c));
+};
+$("npCreate").onclick = async () => {
+  const name = $("npName").value.trim();
+  if (!name) { $("npName").focus(); return; }
+  try {
+    await post("/api/projects", {
+      name, groupId: $("npGroup").value.trim(), version: $("npVer").value.trim(),
+      template: S.tpl, readme: $("npReadme").checked, gitignore: $("npGitignore").checked,
+    });
+    closeNewProj();
+    $("npName").value = "";
+    await selectProject(name);
+    await loadProjectTree();
+    await openFile("src/main/x/main.x");
+    logLine("✔ 工程已创建：" + name, "okline");
+    logLine("  点击「运行」（⌘↩）即可编译并执行入口文件", "lbl");
+  } catch (e) { alert(e.message); }
+};
+$("maskNewProj").addEventListener("keydown", (e) => { if (e.key === "Enter") $("npCreate").click(); });
+
+// ================= 导入工程 =================
+function openImport() { $("maskImport").classList.add("show"); $("impPath").focus(); }
+$("btnImport").onclick = openImport;
+$("impCancel").onclick = () => $("maskImport").classList.remove("show");
+$("maskImport").onclick = (e) => { if (e.target === $("maskImport")) $("maskImport").classList.remove("show"); };
+$("impConfirm").onclick = async () => {
+  try {
+    const r = await post("/api/import", { path: $("impPath").value.trim(), name: $("impName").value.trim() });
+    $("maskImport").classList.remove("show");
+    $("impPath").value = ""; $("impName").value = "";
+    await selectProject(r.name);
+    await loadProjectTree();
+    logLine("✔ 已导入工程：" + r.name, "okline");
+  } catch (e) { alert(e.message); }
+};
+
+// ================= 顶栏与运行视图按钮 =================
+$("projSelect").onchange = (e) => selectProject(e.target.value);
+$("btnRefreshProj").onclick = () => loadProjects();
+$("btnRun").onclick = () => cli("run");
+$("btnBuild").onclick = () => cli("build");
+$("btnRun2").onclick = () => cli("run");
+$("btnBuild2").onclick = () => cli("build");
+$("btnValidate2").onclick = () => cli("validate");
+$("btnTree2").onclick = () => cli("tree");
+$("btnFmt2").onclick = () => fmtActive();
+$("btnSave2").onclick = () => saveActive();
+$("stProblems").onclick = () => { showPanel("problems"); };
+
+// ================= 全局快捷键 =================
+document.addEventListener("keydown", (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && e.shiftKey && e.key.toLowerCase() === "f") { e.preventDefault(); switchView("search"); $("searchInput").focus(); }
+  else if (mod && e.shiftKey && e.key.toLowerCase() === "p") { e.preventDefault(); openPalette(">"); }
+  else if (mod && e.key.toLowerCase() === "p") { e.preventDefault(); openPalette(""); }
+  else if (mod && e.key.toLowerCase() === "s") { e.preventDefault(); saveActive(); }
+  else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); cli("build"); }
+  else if (mod && e.key === "Enter") { e.preventDefault(); cli("run"); }
+  else if (e.key === "Escape") { closePalette(); closeNewProj(); $("maskImport").classList.remove("show"); }
+});
+
+// ================= 启动 =================
+cm.swapDoc(CodeMirror.Doc("", "xnull"));
+applySettings();
+loadProjects().then(() => {
+  const last = localStorage.getItem("xnull-ide-project");
+  if (last && S.projects.some((p) => p.name === last)) selectProject(last);
+});
+</script>
+</body>
+</html>
