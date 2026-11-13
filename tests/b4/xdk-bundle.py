@@ -21,9 +21,9 @@ import sys
 # 有源码层实现的包 → 单元路径
 UNITS = {
     "errors": "impl/lib/xdk/errors.x",
-    "text": "impl/lib/xdk/text.x",
-    "sys": "impl/lib/xdk/sys.x",
-    "net": "impl/lib/xdk/net.x",
+    "text": "impl/lib/xdk/text_full.x",
+    "sys": "impl/lib/xdk/sys_full.x",
+    "net": "impl/lib/xdk/net_full.x",
     "runtime": "impl/lib/xdk/runtime.x",
     "tasks": "impl/lib/xdk/tasks.x",
     "sync": "impl/lib/xdk/sync.x",
@@ -95,7 +95,7 @@ def main():
     pdir = os.path.join(outdir, "xfb")
     os.makedirs(pdir, exist_ok=True)
     for name in XFB:
-        src = os.path.join(root, "bindings/xdk", name)
+        src = os.path.join(root, "xdk-raw", name)
         if os.path.isfile(src):
             shutil.copyfile(src, os.path.join(pdir, name))
     proj = subprocess.run([sys.executable, os.path.join(root, "tests/b3/xfb-projection.py"), pdir],

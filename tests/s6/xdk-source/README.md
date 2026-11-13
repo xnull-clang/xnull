@@ -1,8 +1,9 @@
 # XDK 源码层 E2E（B5 过渡）
 
-`impl/lib/xdk/*.x` 是 XDK 的公开 API 源码层。当前产品编译器把部分 XDK 类型硬编码在
-发射面，源码单元默认不参与用户程序编译；`XNULL_XDK_SOURCE=1` 打开"按需编译源码层"
-过渡模式（B5 之前的桥），让单元真正进入 AST bundle。
+`impl/lib/xdk/*_full.x` 是 XDK 的完整源码层实现（过渡单元）。当前产品编译器把部分
+XDK 类型硬编码在发射面，默认构建不加载这些单元；`XNULL_XDK_SOURCE=1` 才把它们编入
+AST bundle。默认构建继续使用 `text.x/sys.x/net.x` 的冻结面，B4c golden 不受影响
+（142 入口/97 负例/9 示例全绿）。
 
 ## 运行
 
@@ -45,7 +46,8 @@ bash tests/s6/xdk-source/run.sh    # 6 组用例
   （`File.openRead(...)` 会原样发射），类内保留的 `static` 方法待 B5 修复后启用。
 - `readFileText` 保留给编译器 K-07 自举入口；实现走 `readFileTextImpl`
   （编译器对该名字有专用发射，直接写 FFI 调用会丢参）。
-- **FFI 只用 raw 桥**：`bindings/xdk/sys_raw.xfb` / `net_raw.xfb`。
+- **FFI 只用 raw 桥**：`xdk-raw/sys_raw.xfb` / `net_raw.xfb`（不放在 `bindings/`，
+  避免改变默认投影与 golden）。
   冻结编译器在部分 bundle 组合下会清空 FFI 参数；`tests/b4/xdk-ffi-fix.py`
   按投影重建签名/原型/调用参数（只作用于 raw 包装器）。
 - **bundle 布局固定**：`tests/b4/xdk-bundle.py` 恒定包含

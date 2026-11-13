@@ -188,4 +188,6 @@ impl/lib/xdk/net.x           Socket / listener（M4.6d）
   解析退化（指数级变慢），拆分后恢复秒级解析。
 - 冻结编译器在部分 bundle 组合下清空 FFI 参数；`tests/b4/xdk-ffi-fix.py`
   按投影重建原型/签名/调用参数，作为 B5 修复前的编译桥。
-- E2E：`tests/s6/xdk-source/run.sh` 6/6 PASS；默认 golden 9/9 不变。
+- 完整实现位于 `impl/lib/xdk/{sys,net,text}_full.x` + `sys_res.x`，默认构建仍用
+  `sys.x/net.x/text.x` 冻结面；`xdk-raw/` 承载 raw 绑定，避免改变默认投影。
+- E2E：`tests/s6/xdk-source/run.sh` 6/6 PASS；`verify-golden` 142/97/9 全绿。

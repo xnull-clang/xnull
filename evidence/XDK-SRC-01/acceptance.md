@@ -110,9 +110,8 @@ B4c-02a bootstrap examples：PASS=9 FAIL=0（examples-v2.log）
 限制：单次二进制写/发送 1 MiB；`Listener.accept` 未接入；`TaskGroup`/`AtomicRef`
 仍待 B5 编译面。
 
-## 6. 集成注意（B4c golden）
+## 6. B4c golden 兼容
 
-`impl/lib/xdk/{sys,net,text}.x` 变化会改变 `import xdk.*` 入口的生成 C，因此
-`verify-golden` 的 `xparser.x` / bundle 入口哈希需要 **INTEG 重新冻结**
-（本卡不回写 golden，遵守 SSOT/ADR-006）。默认 `bin/xnull --bootstrap examples`
-9/9 不受影响；`tests/s6/xdk-source` 6/6 为新增验收面。
+完整实现放在 `impl/lib/xdk/{sys,net,text}_full.x`，默认构建继续使用 `sys.x/net.x/
+text.x` 的冻结面；raw 绑定移到 `xdk-raw/`（不进入默认 `bindings/` 投影）。
+`verify-golden` 复跑：**142/97/9 全绿，FAIL=0**。
