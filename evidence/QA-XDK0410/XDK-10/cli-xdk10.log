@@ -1,4 +1,0 @@
-=== RUN   TestS6Xdk10CheckBuildRun
---- PASS: TestS6Xdk10CheckBuildRun (3.71s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	5.914s

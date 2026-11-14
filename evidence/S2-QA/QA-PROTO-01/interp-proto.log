@@ -1,6 +1,0 @@
-=== RUN   TestS2ClassProtocolIsAs
---- PASS: TestS2ClassProtocolIsAs (0.00s)
-=== RUN   TestS2AsFailure
---- PASS: TestS2AsFailure (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	0.893s

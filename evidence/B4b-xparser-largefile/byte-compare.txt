@@ -1,4 +1,0 @@
-files (native xparser fix5 vs xnast oracle)
-impl/lib/b2/xlex.x           rc=0 IDENTICAL bytes=240916 sha256=2c783fe3d5356ae94bf5ebcd64155aeb330fe40b6e06321f3bd0e12db98fce0d oracle_sha256=2c783fe3d5356ae94bf5ebcd64155aeb330fe40b6e06321f3bd0e12db98fce0d secs=5
-impl/lib/b2/xparser.x        rc=0 IDENTICAL bytes=1007946 sha256=4fd480c3f0ed0ea461684d03b39d20f0a1658c510c72966beac4f6e749717a4b oracle_sha256=4fd480c3f0ed0ea461684d03b39d20f0a1658c510c72966beac4f6e749717a4b secs=88
-impl/xnfmt/xnfmt.x           rc=0 IDENTICAL bytes=272310 sha256=a6001762817640ec059065e1454c5a7553bf769034c8cee0815ae879fbe25107 oracle_sha256=a6001762817640ec059065e1454c5a7553bf769034c8cee0815ae879fbe25107 secs=7

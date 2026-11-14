@@ -1,1 +1,0 @@
-cd impl && go test ./internal/codegen -run TestS2InheritanceLayout -count=1 -v

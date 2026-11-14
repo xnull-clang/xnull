@@ -1,5 +1,0 @@
-# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
-internal/sema/s2_bnd12_test.go:11:34: undefined: TyStaticGen
-internal/sema/s2_bnd12_test.go:17:34: undefined: TyStaticGen
-FAIL	xnull.dev/xnull/internal/sema [build failed]
-FAIL

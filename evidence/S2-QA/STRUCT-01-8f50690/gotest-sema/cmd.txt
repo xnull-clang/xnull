@@ -1,1 +1,0 @@
-cd impl && go test ./internal/sema -run 'TestStructValueRules|TestS2BND04StructValueRules' -count=1 -v

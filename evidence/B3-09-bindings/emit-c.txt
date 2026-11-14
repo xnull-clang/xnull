@@ -1,5 +1,0 @@
-xnull build --emit-c impl/lib/b2/xparser.x
-default_frontend_rc=0
-go_frontend_rc=0
-frontend_independent=yes
-lines=27185 sha256=ff721a9c7daca34f0043954760f8073d9078a3f7ea9e190b2112b6359f6b9d6d

@@ -1,3 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-CANCEL02-cleanup-queued	CANCEL-02	runtime	取消后清理完整执行，close 等待完成	test_cleanup_queued：started=1, done=1, elapsed>=40ms	PASS	runtime-build.log,source-contract.txt
-CANCEL02-result	CANCEL-02	runtime	清理任务最终 Cancelled	r.ok=0, kind=XRT_ERR_CANCELLED	PASS	runtime-build.log

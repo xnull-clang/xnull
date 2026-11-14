@@ -1,7 +1,0 @@
-m-err
-m-defer
-dR
-outer-defer
-outer-err
-caught:bad
-rc=0

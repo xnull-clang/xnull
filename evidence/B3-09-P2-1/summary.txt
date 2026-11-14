@@ -1,1 +1,0 @@
-P2-1/P2-2: List<T> 通用化——isArr 覆盖所有 List<T>（U16/obj/tuple 除外）、arrElem/arrNameC、局部 ArrayLit 按元素 helper（先判 init.nm=="ArrayLit"，keysArray() 不再当空数组）、字段初始化 List<String>，get/push/clear/set/remove/Index 赋值按元素类型选 helper；ExprStmt 只在接收者是内建容器时才走 push/put/clear/set 硬编码，类方法 pub 走类方法（OrderedMap.put/PriorityQueue.push 已正确）。collections_basic 1431→1393、nonnull 1409→1298；text 0；classes/f2 不回归；全组绿。

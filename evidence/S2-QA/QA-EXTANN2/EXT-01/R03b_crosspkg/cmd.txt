@@ -1,3 +1,0 @@
-# cross-package negative: xnull check (expected rc=1)
-X=/tmp/qa-extann2-main
-file=evidence/S2-QA/QA-EXTANN2/EXT-01/R03b_crosspkg/main.x

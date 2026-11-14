@@ -1,5 +1,0 @@
---- FAIL: TestXDK07CollectionsMembers (0.00s)
-    s6_xdk07_test.go:9: 不应有语义诊断：[TY-229@XDK 类型 `PriorityQueue` 的成员 `less` 尚未支持（S6-01）]
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.453s
-FAIL

@@ -1,9 +1,0 @@
-=== RUN   TestS2INT01ResultTryObject
---- PASS: TestS2INT01ResultTryObject (0.00s)
-=== RUN   TestS2INT01FactoryResult
---- PASS: TestS2INT01FactoryResult (0.00s)
-=== RUN   TestS2INT01EnumSwitchObject
---- PASS: TestS2INT01EnumSwitchObject (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	0.768s
-exit=0

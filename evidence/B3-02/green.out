@@ -1,7 +1,0 @@
-PASS expr/int_ops.x
-PASS expr/interp.x
-PASS expr/scalars.x
-PASS stmt/for_in.x
-PASS stmt/if_while.x
-PASS stmt/switch.x
-xnullc-expr-stmt 汇总：PASS=6 FAIL=0

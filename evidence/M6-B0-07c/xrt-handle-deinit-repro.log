@@ -1,4 +1,0 @@
-closed_before=0
-closed_after=1
-xrt: 句柄泄漏：未显式 close（S7 §4.3）
-done

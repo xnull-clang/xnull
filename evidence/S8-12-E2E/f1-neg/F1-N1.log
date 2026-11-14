@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 build
-/tmp/s812-run/f1/n1/app/xnull.project:6:3: error[XPD-305]: parent 缺失：/tmp/s812-run/f1/n1/nope/xnull.project（S8 §3.3）
-EXIT=2

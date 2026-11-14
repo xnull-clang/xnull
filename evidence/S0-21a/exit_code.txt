@@ -1,8 +1,0 @@
-check.wt.run1..3 = 1/1/1
-check.main.run1..3 = 1/1/1
-ledger.run1..3 = 0/0/0
-res.run1..3 = 0/0/0
-res.neg.sub = 2
-res.neg.bad = 2
-res.neg.missing = 2
-res.neg.empty = 0

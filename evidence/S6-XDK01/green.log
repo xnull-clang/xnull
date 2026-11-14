@@ -1,7 +1,0 @@
-=== RUN   TestXdkCollectionsUnitSurface
---- PASS: TestXdkCollectionsUnitSurface (0.00s)
-=== RUN   TestXdkCollectionsMemberSignatures
---- PASS: TestXdkCollectionsMemberSignatures (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	1.119s
-exit=0

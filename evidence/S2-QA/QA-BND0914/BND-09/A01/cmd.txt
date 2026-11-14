@@ -1,3 +1,0 @@
-# positive: check + interp + compiled
-X=/tmp/qa-bnd0914-main
-file=evidence/S2-QA/QA-BND0914/BND-09/A01/source.x

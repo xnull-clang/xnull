@@ -1,9 +1,0 @@
-# NEG-01 main 复核（E3，只读）
-# 被测：main @ 3174618（含 pod/e2-sema：NEG 60/60 3749bd3、G9 c55dd81、PKG F1/F2）
-# 用例：wt/e2-sema/impl/Tests/neg_test.go（与 wt/c3-rd3 版本逐字节相同）
-# 命令：
-#   mkdir -p impl/Tests && cp wt/e2-sema/impl/Tests/neg_test.go impl/Tests/
-#   cd impl && go test ./Tests -run '^TestDiagMatrixS1$' -count=1 -v
-#   rm -rf impl/Tests
-# 结果：exit 0；TestDiagMatrixS1 60 个子测试全部 PASS，0 FAIL
-# 未改代码、未改期望。

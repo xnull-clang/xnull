@@ -1,4 +1,0 @@
-=== RUN   TestReactorAggregateBuild
---- PASS: TestReactorAggregateBuild (3.02s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	5.077s

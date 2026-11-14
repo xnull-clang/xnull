@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK09-sema	XDK-09	sema	socket plain/Async、net.http 签名	TestS609NetSignatures/NetNegative PASS	PASS	sema.log
-XDK09-unit	XDK-09	gotest	net.x 类型/入口/合同/loader	TestS609NetUnitSurface/Contracts/Loader PASS	PASS	codegen-unit.log
-XDK09-plain	XDK-09	e2e	socket connect/close Async	TestS609SocketPlainAndAsyncClose FAIL：返回表达式 *xfront.Member 未支持	FAIL	codegen-s609.log
-XDK09-http	XDK-09	e2e	httpGet(ctx,url) → Bytes	TestS609HTTPGetAsync FAIL：返回表达式 *xfront.Member 未支持	FAIL	codegen-s609.log
-XDK09-runtime	XDK-09	runtime	net runtime 链接	xdkc_socket_* / xrt_bytes_from_c undefined; build_rt exit 1	FAIL	runtime-build.log
-XDK09-e2e-fixtures	XDK-09	e2e	S6-09 NET-01..05 双路径	tests/s6/xdk09 未落盘；无法执行	BLOCKED	-

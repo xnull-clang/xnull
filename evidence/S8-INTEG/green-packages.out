@@ -1,8 +1,0 @@
-ok  	xnull.dev/xnull/internal/cli	53.287s
-ok  	xnull.dev/xnull/internal/manifest	4.010s
-ok  	xnull.dev/xnull/internal/resman	3.081s
-ok  	xnull.dev/xnull/internal/plugin	1.578s
-ok  	xnull.dev/xnull/internal/repro	0.711s
-ok  	xnull.dev/xnull/internal/config	5.257s
-ok  	xnull.dev/xnull/internal/devtool	6.700s
-exit=0

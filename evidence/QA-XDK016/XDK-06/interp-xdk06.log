@@ -1,8 +1,0 @@
-=== RUN   TestS6XDK06RuntimeBuiltins
---- PASS: TestS6XDK06RuntimeBuiltins (0.00s)
-=== RUN   TestS6XDK06ExitSkipsDefer
---- PASS: TestS6XDK06ExitSkipsDefer (0.00s)
-=== RUN   TestS6XDK06EnvSnapshot
---- PASS: TestS6XDK06EnvSnapshot (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	1.097s

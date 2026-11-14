@@ -1,7 +1,0 @@
-基线 commit: 7df123d776c53683c3bcee60890e8ca09b94f0e0
-合并 commit: 5dbf0d930da5465fa0eccbb1405ea2826abea30a
-分支: pod/c3-rd1
-生成时间: 2026-11-07 12:37:46 +0800
-
-cea6bc05334993ce554b3ded542ff0b622f713fbc72fbfe182462c36a64a6202  impl/internal/cli/cli.go
-2e05d939985a7be08e2c7e8723a2cb30dafd52e0f0d49e0266263067de3948e6  impl/internal/cli/cli_test.go

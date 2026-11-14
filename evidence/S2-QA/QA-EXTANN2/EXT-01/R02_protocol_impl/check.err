@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/EXT-01/R02_protocol_impl/source.x:2:7: error[TY-208]: 类 `C` 未实现协议 `P` 的方法 `f`（§4.3）
-  补充同签名公开实例方法

@@ -1,3 +1,0 @@
-$ XNULL_REPO=/tmp/s814-repo-starter-src /tmp/xnull-s814 build
-/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/starter-src/bundle/xnull.project:1:1: error[XPD-201]: starter 模块 bundle 不得含源码目录 src/（S8 §2.1）
-EXIT=1

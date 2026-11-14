@@ -1,4 +1,0 @@
-$ /tmp/xnull-s812 lock --update-lock
-已生成 /tmp/s812-run/f2/n9/xnull.lock：2 条
-xnull: 警告：依赖 g:lib 显式版本 2.0.0 覆盖管理版本 1.0.0（S8 §3.5）
-EXIT=0

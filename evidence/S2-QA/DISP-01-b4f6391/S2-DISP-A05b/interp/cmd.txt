@@ -1,1 +1,0 @@
-/tmp/xnull-s2-b4f63919b7c15df573834317bb455654df839ca9 run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/disp01/a05b_is_proto.x 

@@ -1,2 +1,0 @@
-extras_total=6
-extras_pass=6

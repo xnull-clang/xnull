@@ -1,4 +1,0 @@
-=== RUN   TestS2BND07SingletonRules
---- PASS: TestS2BND07SingletonRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.087s

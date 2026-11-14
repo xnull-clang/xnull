@@ -1,4 +1,0 @@
-=== RUN   TestS2EnumDefaultLast
---- PASS: TestS2EnumDefaultLast (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.584s

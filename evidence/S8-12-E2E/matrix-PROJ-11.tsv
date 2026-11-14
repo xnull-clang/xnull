@@ -1,9 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-P11-prefix	PROJ-11	e2e	制品内路径为 resources/<相对路径>	产物含 templates/a.txt、conf/app.conf	PASS	f3/F3-resources.txt
-P11-excludes	PROJ-11	e2e	excludes 生效	skip.psd 未进入产物	PASS	f3/F3-resources.txt
-P11-default	PROJ-11	e2e	缺省资源根 src/main/resources 自动收录	无 resources 段时产物含 templates/a.txt、skip.psd	PASS	f3/F3-default-resources.txt
-P11-N9	PROJ-11	e2e	资源根不存在 → XPD-801	XPD-801 nosuch，exit 1	PASS	f3-neg/F3-N9.log
-P11-N10	PROJ-11	e2e	字符类 glob → XPD-802	XPD-802 "[ab].txt"，exit 1	PASS	f3-neg/F3-N10.log
-P11-N11	PROJ-11	e2e	同路径冲突 → XPD-803 点名双来源	XPD-803 resources/templates/a.txt（两绝对路径）	PASS	f3-neg/F3-N11.log
-P11-N12	PROJ-11	e2e	断链 symlink → XPD-805	XPD-805 broken.txt，exit 1	PASS	f3-neg/F3-N12.log
-P11-boundary	PROJ-11	code	pom 资源 XPD-804 / 依赖资源合并 / starter	pom 在入口阶段先报 XPD-201；依赖未接 .xlib（S8-13）	BOUNDARY	收件箱/门/S8-12验收用例-QA.md §4.6

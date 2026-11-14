@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 build
-xnull.lock:1:1: error[XPD-406]: 制品摘要不符：g:lib 2.0.0（S8 §4.4）
-EXIT=1

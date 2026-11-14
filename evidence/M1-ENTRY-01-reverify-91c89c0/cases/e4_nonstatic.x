@@ -1,3 +1,0 @@
-Int main() {
-    return 0
-}

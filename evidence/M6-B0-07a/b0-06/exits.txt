@@ -1,3 +1,0 @@
-p6_interp_exit=0
-p6_compiled_exit=1
-main_interp_exit=1

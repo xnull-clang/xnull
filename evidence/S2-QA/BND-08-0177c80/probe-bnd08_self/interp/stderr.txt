@@ -1,2 +1,0 @@
-/tmp/qa-d-probes/bnd08_self.x:3:14: error[TY-221]: factory 方法不能使用 self / super（§10.2）
-  改用参数和局部变量

@@ -1,6 +1,0 @@
-BND-10	direct_cycle	check=0	interp=0	compiled=0	interp_out=main|	compiled_out=main|node-deinit|node-deinit|
-BND-10	mixed	check=0	interp=0	compiled=0	interp_out=main|	compiled_out=main|node-deinit helper|helper-deinit|node-deinit helper|helper-deinit|
-BND-10	plain	check=0	interp=0	compiled=0	interp_out=1|	compiled_out=1|
-BND-10	dataenum_root	check=0	interp=0	compiled=0	interp_out=0|	compiled_out=0|
-BND-10	singleton_root	check=0	interp=0	compiled=0	interp_out=3|	compiled_out=3|
-BND-10	direct_cycle	policy_rc=0

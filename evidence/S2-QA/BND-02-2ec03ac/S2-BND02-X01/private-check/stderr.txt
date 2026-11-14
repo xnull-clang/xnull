@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/xpkg/main_priv.x:3:26: error[TY-209]: 私有方法 `priv` 不可访问（§7.3：仅声明类内部）

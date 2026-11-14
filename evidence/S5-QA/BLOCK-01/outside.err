@@ -1,2 +1,0 @@
-evidence/S5-QA/BLOCK-01/outside.x:3:24: error[TY-227]: 任务 API `background` 只能在 @tasks 方法/块内使用（S5 §2.3）
-  给所在方法加 @tasks

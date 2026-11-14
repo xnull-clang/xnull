@@ -1,8 +1,0 @@
-=== RUN   TestS2INT01TryMemberCall
---- PASS: TestS2INT01TryMemberCall (2.70s)
-=== RUN   TestS2INT01bResultClassAndMemberTarget
---- PASS: TestS2INT01bResultClassAndMemberTarget (3.28s)
-=== RUN   TestS2INT01bEnumFieldInit
---- PASS: TestS2INT01bEnumFieldInit (1.89s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	10.835s

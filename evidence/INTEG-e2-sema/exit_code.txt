@@ -1,8 +1,0 @@
-ancestor_check: TRUE
-tip_check: TRUE
-go_test: exit 0, 10 packages ok
-build_rt: exit 0
-focused_tuple_sema: 16 PASS
-focused_tuple_interp: 9 PASS
-numeric_focus: 3 PASS (existing)
-independent_probe: FAIL - Int64 negative overflow silently accepted

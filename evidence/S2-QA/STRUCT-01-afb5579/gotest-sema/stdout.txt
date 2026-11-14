@@ -1,6 +1,0 @@
-=== RUN   TestS2BND04StructValueRules
---- PASS: TestS2BND04StructValueRules (0.00s)
-=== RUN   TestStructValueRules
---- PASS: TestStructValueRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.548s

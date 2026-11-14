@@ -1,1 +1,0 @@
-/tmp/xnull-s2-single run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/single01/r02_implements.x

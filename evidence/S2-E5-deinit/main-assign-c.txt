@@ -1,4 +1,0 @@
-# main f975810: generated field assignment (no retain/release)
-403:h->a = a1;
-408:h->a = a2;
-412:h->a = h->a;

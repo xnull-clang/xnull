@@ -1,6 +1,0 @@
-=== RUN   TestERR205CleanupLocalDeclPosition
---- PASS: TestERR205CleanupLocalDeclPosition (0.00s)
-=== RUN   TestAllDiagPositionsNonZero
---- PASS: TestAllDiagPositionsNonZero (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.693s

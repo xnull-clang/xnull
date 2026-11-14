@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-09/R02f/source.x:3:13: error[TY-207]: 参数 `_name` 与类私有字段规范名冲突（§7.4：局部变量、参数不能声明为 _name）

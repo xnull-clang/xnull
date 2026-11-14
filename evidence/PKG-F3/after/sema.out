@@ -1,4 +1,0 @@
-=== RUN   TestPKGF3AliasVsBareSameName
---- PASS: TestPKGF3AliasVsBareSameName (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.609s

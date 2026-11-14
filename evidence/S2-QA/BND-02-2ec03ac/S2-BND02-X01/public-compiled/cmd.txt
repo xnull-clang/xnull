@@ -1,1 +1,0 @@
-/tmp/xnull-s2-2ec03ac run --runtime /tmp/xnull-main-2ec03ac/impl/runtime /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/xpkg/main.x 

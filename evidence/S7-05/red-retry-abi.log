@@ -1,8 +1,0 @@
-test_abi_v1.c:17:16: error: use of undeclared identifier 'XRT_ABI_VERSION'
-   17 | _Static_assert(XRT_ABI_VERSION == 1, "S7-05: xrt.h 必须是稳定 ABI v1");
-      |                ^
-test_abi_v1.c:71:70: error: use of undeclared identifier 'XRT_ABI_VERSION'
-   71 |     printf("abi v1 tests passed (XRT_ABI_VERSION=%d, init order)\n", XRT_ABI_VERSION);
-      |                                                                      ^
-2 errors generated.
-EXIT=1

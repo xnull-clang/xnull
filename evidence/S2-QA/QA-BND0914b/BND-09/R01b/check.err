@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-09/R01b/source.x:1:22: error[TY-207]: `public`/`protected` 与 `_name` 同时出现是编译错误（§7.4）
-  去掉可见性修饰符或改用 private name 形式

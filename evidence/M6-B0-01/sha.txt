@@ -1,3 +1,0 @@
-branch: pod/e4-codegen
-tested_commit: fa6c065
-note: 引入 P-09 实现、样例与证据的提交；后续仅补录本文件。

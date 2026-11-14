@@ -1,3 +1,0 @@
-/tmp/s817-repo-app/g/app/1.0.0/app-1.0.0
-/tmp/s817-repo-app/g/app/1.0.0/app-1.0.0.xmeta
-/tmp/s817-repo-app/g/app/1.0.0/xnull.project

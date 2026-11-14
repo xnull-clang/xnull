@@ -1,2 +1,0 @@
-skip.psd
-templates/a.txt

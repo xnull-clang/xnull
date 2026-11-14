@@ -1,6 +1,0 @@
-# ENTRY-01 C-10/C-13 re-verify on main (2026-11-07)
-git -C /Users/vjs/Desktop/XNull-Lang worktree add --detach /private/tmp/qa-m1-main 4a741a6
-cd /private/tmp/qa-m1-main/impl && go build -o /tmp/xnull-entry-qa ./cmd/xnull
-export XNULL_RUNTIME=/private/tmp/qa-m1-main/impl/runtime
-cd /Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07 && ./run.sh
-cd /private/tmp/qa-m1-main/impl && go test ./internal/cli -run 'TestEntry|TestRunEntry|TestRunMain' -count=1 -v

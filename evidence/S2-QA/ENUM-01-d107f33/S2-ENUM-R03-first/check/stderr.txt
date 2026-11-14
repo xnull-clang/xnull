@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/r03_default_first.x:5:9: error[TY-213]: default 子句必须位于 switch 最后（§8.5）
-  把 default 移到所有 case 之后

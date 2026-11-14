@@ -1,1 +1,0 @@
-cd impl && go test ./internal/sema -run 'TestInheritanceRules|TestS2BND02InheritanceForbidden' -count=1 -v

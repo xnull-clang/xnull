@@ -1,1 +1,0 @@
-/tmp/qa-d-probes/bnd08_target_protocol.x:2:9: error[TY-217]: factory Target 必须是 class 或 struct（得到 protocol，§10.1）

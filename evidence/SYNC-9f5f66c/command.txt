@@ -1,8 +1,0 @@
-# SYNC 9f5f66c 采集命令
-cd wt/c1-rd1 && git merge --no-ff main
-# 冲突仅 evidence/SYNC-7df123d/{command.txt,summary.md}（add/add），按内容并集解决
-cd impl && go test ./... -count=1 -timeout 300s
-cd impl && go test ./internal/sema -run 'TestPkgImport|TestSymbolImport|TestAliasDisambiguation|TestNeedlessAliasRejected|TestAmbiguousSimpleName|TestXdkNotImportedStrict|TestImportCycle|TestImportTargetRules' -count=1 -v
-# NEG：临时放入 wt/c3-rd3/impl/Tests/neg_test.go 后 go test ./Tests/ -run '^TestDiagMatrixS1$' -count=1 -v
-cd impl && go run ./cmd/xnull build ../examples/multi/main.x -o /tmp/sync9-multi && /tmp/sync9-multi
-cd impl && go run ./cmd/xnull run ../examples/multi/main.x --interp

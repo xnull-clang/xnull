@@ -1,9 +1,0 @@
-# 退出码
-merge_conflicts_resolved = 0
-go_vet_all = 0
-go_test_all = 0
-build_rt = 0
-anchor_pkg01 = 0
-neg_matrix = 1（51/60；剩余 sema 域）
-build/run/interp = 0/0/0
-dualpath_diff = 0

@@ -1,6 +1,0 @@
-=== RUN   TestS5TasksSemaSurface
---- PASS: TestS5TasksSemaSurface (0.00s)
-=== RUN   TestS5SyncTypesVisible
---- PASS: TestS5SyncTypesVisible (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.767s

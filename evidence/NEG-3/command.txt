@@ -1,3 +1,0 @@
-mkdir -p impl/Tests && cp wt/c3-rd3/impl/Tests/neg_test.go impl/Tests/
-cd impl && go test ./Tests -run '^TestDiagMatrixS1$' -count=1 -v
-go test ./internal/sema/ ./internal/xfront/ -count=1

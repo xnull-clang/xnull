@@ -1,7 +1,0 @@
-=== RUN   TestBND10GCMixedARCFieldValid
-    mem_bnd10_test.go:122: 退出码 -1，stderr 见上
---- FAIL: TestBND10GCMixedARCFieldValid (1.33s)
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	2.069s
-FAIL
-EXIT=1

@@ -1,3 +1,0 @@
-# cross-package negative: xnull check (expected rc=1)
-X=/tmp/qa-bnd0914b-main
-file=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-09/X01a/main_name.x

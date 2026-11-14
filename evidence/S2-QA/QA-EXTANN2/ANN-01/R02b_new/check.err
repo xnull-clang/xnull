@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R02b_new/source.x:3:5: error[TY-223]: 注解 `A` 不是类型，不能用于类型位置（§12.1）
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R02b_new/source.x:3:11: error[TY-223]: 注解 `A` 不能 new（§12.1）

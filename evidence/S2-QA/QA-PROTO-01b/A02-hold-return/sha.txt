@@ -1,6 +1,0 @@
-main=b18e6da (user-declared; no git command run)
-binary=/tmp/qa-proto2-main
-binary_sha256=caf8355f8f91b8a74b8788f9abd91f34cb7d1e872d6732fcad0a0ef7ced75028
-runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
-go=go version go1.27.3 darwin/amd64
-date=2026-11-07 22:59:37 +0800

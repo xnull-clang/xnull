@@ -1,1 +1,0 @@
-/tmp/xnull-s2-2ec03ac run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd02/xpkg/main.x 

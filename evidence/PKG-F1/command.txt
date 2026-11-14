@@ -1,3 +1,0 @@
-cd impl
-go test ./internal/sema/ -run TestPKGF1SameSourceAliasConflict -v -count=1
-go test ./internal/sema/ -count=1

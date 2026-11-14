@@ -1,3 +1,0 @@
-# negative: xnull check (expected rc=1)
-X=/tmp/qa-bnd0914-main
-file=evidence/S2-QA/QA-BND0914/BND-14/08_bnd09_private_field_external/source.x

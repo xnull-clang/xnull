@@ -1,6 +1,0 @@
-main_sha=47fedb8ad1659925af04a677a9e82b861c2dffcd
-binary=/private/tmp/qa-a-47fedb8
-binary_sha256=46a22fee8a5523ef1a6061be2a4c73d3adb8c474762a930efa69850c56d14150
-runtime=/private/tmp/xnull-main-47fedb8/impl/runtime
-go=go version go1.27.3 darwin/amd64
-date=2026-11-07 18:50:52 +0800

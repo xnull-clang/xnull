@@ -1,3 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/xpkg/main_private.x:2:17: error[TY-207]: `private` 与 `_` 前缀不能同时使用：`Device._secret`（§7.4）
-  写 `private secret` 或裸 `_name`
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/xpkg/main_private.x:4:12: error[TY-207]: 外部访问私有字段 `_secret`：`Device` 的私有字段只能类内裸写（§7.4）

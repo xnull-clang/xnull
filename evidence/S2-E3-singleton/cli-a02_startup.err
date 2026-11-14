@@ -1,4 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd07/a02_startup.x:6:11: error[RES-101]: 未定义的名称 `Config`（§3.3 四级顺序解析后不可见）
-  局部/参数/顶层声明、导入符号或完全限定名之一
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd07/a02_startup.x:7:11: error[RES-101]: 未定义的名称 `Config`（§3.3 四级顺序解析后不可见）
-  局部/参数/顶层声明、导入符号或完全限定名之一

@@ -1,3 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r04_arc.x:1:1: error[TY-201]: 源码不得使用 @arc（§15.1.2：实现内部策略注解，不是语言特性）
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r04_arc.x:1:1: error[TY-223]: 未知注解 `@arc`（§12.2）
-  先声明 @annotation，或使用内建注解

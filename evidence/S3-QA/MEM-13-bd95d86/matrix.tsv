@@ -1,5 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-S3-MEM13-optimizations	MEM-13	gotest	容器/栈/String/Any/Tuple/字段槽/Result 内联回归	ok internal/codegen	PASS	gotest.out
-S3-MEM13-result-repro	MEM-13	compiled	Result 内联值复制/字段初始化	repro-copy/field compiled 5/5，rc=0	PASS	../MEM-07-bd95d86/repro-*.compiled.out
-S3-MEM13-policy	MEM-13	policy	策略判定可用	policy=gc, rule=5	PASS	policy.out
-S3-MEM13-s3-suite	MEM-13	compiled	tests/s3 --compiled 11/11	PASS=11 FAIL=0	PASS	tests-s3-compiled.log

@@ -1,2 +1,0 @@
-evidence/S2-QA/INT-01/probe-factory-min/source.x:9:16: error[RES-101]: 未定义的名称 `DeviceFactory`（§3.3 四级顺序解析后不可见）
-  局部/参数/顶层声明、导入符号或完全限定名之一

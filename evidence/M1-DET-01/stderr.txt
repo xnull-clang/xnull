@@ -1,6 +1,0 @@
-== go test（红阶段）==
-（空：go test 的失败信息写 stdout，stderr 无输出；原文见 before/full-test.txt 与 stdout.txt）
-
-== CLI 探针 stderr（INIT-1/INIT-2，不属 DET-01，转交 ENTRY-01）==
-xnull: 未定义的函数：peek
-main.x:2:15: error[RES-101]: 未定义的名称 `extra`（§3.3 四级顺序解析后不可见）

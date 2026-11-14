@@ -1,3 +1,0 @@
-# positive: check + interp + compiled
-X=/tmp/qa-ext2-main
-file=evidence/S2-QA/QA-EXT2/EXT-01/A01_overloads/source.x

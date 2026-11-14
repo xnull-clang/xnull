@@ -1,9 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ11-glob	PROJ-11	gotest	includes/excludes + glob 语义	TestCollectGlobAndPrefix/TestGlobSemantics PASS	PASS	resman-tests.log
-PROJ11-prefix	PROJ-11	gotest	制品内 `resources/<相对路径>`	`resources/a.txt` 等 PASS	PASS	resman-tests.log
-PROJ11-conflict	PROJ-11	gotest	同路径冲突点名双来源	XPD-803，含 d1/d2	PASS	resman-tests.log
-PROJ11-dep-merge	PROJ-11	gotest	依赖资源合并；starter 不合并	TestMergeDependency PASS	PASS	resman-tests.log
-PROJ11-pom	PROJ-11	gotest	pom 声明资源失败	XPD-804	PASS	resman-tests.log
-PROJ11-symlink	PROJ-11	gotest	symlink 跟随；断链失败	XPD-805	PASS	resman-tests.log
-PROJ11-phase	PROJ-11	gotest	测试资源隔离	CollectForPhase PASS	PASS	resman-tests.log
-PROJ11-build	PROJ-11	e2e	缺省资源根/.x 数据/无过滤/build 接线	未接 build；本卡为清单侧收割器	BOUNDARY	回执-S8-08.md

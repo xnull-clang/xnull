@@ -1,6 +1,0 @@
-main=user-declared: 4b463a7 merged (no git command run)
-binary=/tmp/qa-bnd0914b-main
-binary_sha256=ffefc02a49fc056c8f09618ad9ee27fee3f4921a72a7b87e8dd1385334bcd759
-runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
-go=go version go1.27.3 darwin/amd64
-date=2026-11-07 22:56:41 +0800

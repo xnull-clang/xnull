@@ -1,7 +1,0 @@
-=== RUN   TestAllDiagPositionsNonZero
---- PASS: TestAllDiagPositionsNonZero (0.00s)
-=== RUN   TestS601UnsupportedExplicit
---- PASS: TestS601UnsupportedExplicit (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.043s
-EXIT=0

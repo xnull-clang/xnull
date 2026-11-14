@@ -1,3 +1,0 @@
-sigint_rc=130
-
-xnull: 已中断

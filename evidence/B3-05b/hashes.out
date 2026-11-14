@@ -1,5 +1,0 @@
-tests/b3/fixtures/obj2/deinit.x          go=54155c93743d8f648a49efe3a5c03723a0df0767d093aaaff94fab6b21e6fe70 xn=54155c93743d8f648a49efe3a5c03723a0df0767d093aaaff94fab6b21e6fe70
-tests/b3/fixtures/obj2/dispatch.x        go=1c1dc9e92ce8bdb42a3261e96579614ca3e7590524d6e0c81ea97e5cf1846bf6 xn=1c1dc9e92ce8bdb42a3261e96579614ca3e7590524d6e0c81ea97e5cf1846bf6
-tests/b3/fixtures/obj2/inherit.x         go=25d3cde629563b130bd85df609461dbff07b30ef9dd85f91e68bb9a82a37445a xn=25d3cde629563b130bd85df609461dbff07b30ef9dd85f91e68bb9a82a37445a
-tests/b3/fixtures/obj2/proto.x           go=ad9b435b51bc8d5a85ca8a0bbcc7eadd9fbedcdb075cfc77c6a03c1726c8ac81 xn=ad9b435b51bc8d5a85ca8a0bbcc7eadd9fbedcdb075cfc77c6a03c1726c8ac81
-tests/b3/fixtures/obj2/super_deinit.x    go=b1b18782a4f259c1d211bf8a1bb9ee9b73f3fc27c23d515270d030ffcd34b535 xn=b1b18782a4f259c1d211bf8a1bb9ee9b73f3fc27c23d515270d030ffcd34b535

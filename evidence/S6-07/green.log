@@ -1,9 +1,0 @@
-=== RUN   TestXdkCollectionsUnitSurface
---- PASS: TestXdkCollectionsUnitSurface (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	2.514s
-=== RUN   TestXdkCollectionsRuntime
---- PASS: TestXdkCollectionsRuntime (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	2.907s
-exit=0

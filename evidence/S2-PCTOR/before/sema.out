@@ -1,6 +1,0 @@
-# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
-internal/sema/s2_pctor_test.go:13:34: undefined: TyPCTOR
-internal/sema/s2_pctor_test.go:20:34: undefined: TyPCTOR
-internal/sema/s2_pctor_test.go:26:34: undefined: TyPCTOR
-FAIL	xnull.dev/xnull/internal/sema [build failed]
-FAIL

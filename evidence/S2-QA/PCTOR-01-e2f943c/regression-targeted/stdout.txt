@@ -1,5 +1,0 @@
-ok  	xnull.dev/xnull/internal/sema	0.592s
-ok  	xnull.dev/xnull/internal/codegen	67.483s
-ok  	xnull.dev/xnull/internal/xfront	1.589s
-ok  	xnull.dev/xnull/internal/cli	18.669s
-ok  	xnull.dev/xnull/internal/interp	2.642s

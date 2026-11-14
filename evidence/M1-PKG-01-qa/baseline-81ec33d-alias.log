@@ -1,4 +1,0 @@
-=== RUN   TestQA2BaselineSameSourceAlias
---- PASS: TestQA2BaselineSameSourceAlias (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	12.901s

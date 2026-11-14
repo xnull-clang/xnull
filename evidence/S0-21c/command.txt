@@ -1,6 +1,0 @@
-# S0-21c 切换构建与删除 Python
-git rm impl/tools/check_specs.py impl/tools/gen_ledger.py impl/tools/gen_resources.py
-# build_rt.sh: python3 ../tools/gen_resources.py → (cd .. && go run ./cmd/xnull dev res ...)
-sh impl/runtime/build_rt.sh
-find impl -name '*.py'
-git grep -n 'impl/tools/.*\.py' -- ':!*.md'

@@ -1,5 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R02a/source.x:1:11: error[SYN-101]: 期望协议体 `{`（必须与头部同一行，§1.1），遇到 `<`
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R02a/source.x:1:11: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `<`
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R02a/source.x:1:12: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `T`
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R02a/source.x:1:13: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `>`
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R02a/source.x:1:15: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `{`

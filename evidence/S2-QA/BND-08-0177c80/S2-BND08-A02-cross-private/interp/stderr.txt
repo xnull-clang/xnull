@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/xpkg/factory_cross.x:3:19: error[TY-219]: 跨包 factory 不能调用 Target `Device` 的非公开构造器（§10.3）
-  改用公开静态工厂/公开构造器

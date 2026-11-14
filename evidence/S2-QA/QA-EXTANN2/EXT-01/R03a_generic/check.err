@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/EXT-01/R03a_generic/source.x:2:11: error[TY-225]: extension Target 不能写泛型实参（§11.1）
-  写裸类型名

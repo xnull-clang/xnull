@@ -1,8 +1,0 @@
-=== RUN   TestS2BND08Factory
---- PASS: TestS2BND08Factory (6.48s)
-=== RUN   TestS2BND08FactoryGeneric
---- PASS: TestS2BND08FactoryGeneric (3.09s)
-=== RUN   TestS2BND08FactoryRejectsSelf
---- PASS: TestS2BND08FactoryRejectsSelf (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	12.179s

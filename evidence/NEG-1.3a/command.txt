@@ -1,3 +1,0 @@
-cd impl
-go test ./internal/xfront/ -run TestReservedNamesRejected -v -count=1
-go test ./internal/xfront/ ./internal/sema/ -count=1

@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK06-core	XDK-06	compiled	diagnose/nowMono/nowWall/env 可用	rc=0，stdout true/true/true，stderr `s6 runtime` 单行	PASS	core.compiled.out,core.compiled.err
-XDK06-core	XDK-06	interp	同源解释路径	rc=1（解释器 XDK 桥接缺失）	FAIL	core.interp.err
-XDK06-dumptasks	XDK-06	check	dumpTasks 可用	rc=1 TY-229 未支持	FAIL	codegen-s602.log
-XDK06-exit	XDK-06	compiled	exit 不执行 defer，退出码 7	compiled rc=7，stdout 无 defer	PASS	-
-XDK06-exit	XDK-06	interp	同源解释路径	interp rc=1	FAIL	-
-XDK06-gotest	XDK-06	gotest	TestS6_02 3/3	FAIL（dumpTasks/TY-229；exit 链接缺资源符号）	FAIL	codegen-s602.log

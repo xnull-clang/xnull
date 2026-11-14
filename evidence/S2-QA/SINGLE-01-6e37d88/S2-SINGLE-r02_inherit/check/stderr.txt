@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/single01/r02_inherit.x:2:7: error[TY-202]: 父类 `AppInfo` 必须是 class（得到 singleton，§2.5）

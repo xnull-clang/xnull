@@ -1,1 +1,0 @@
-evidence/S2-QA/QA-BND0914b/BND-09/R02j/source.x:2:39: error[TY-207]: `super._x` 不能访问父类 `B` 的私有字段（§7.4）

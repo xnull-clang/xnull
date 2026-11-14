@@ -1,3 +1,0 @@
-# strong-hold isolation: interp + compiled
-X=/tmp/qa-proto-main
-file=evidence/S2-QA/QA-PROTO-01/A02-hold-field/source.x

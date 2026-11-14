@@ -1,1 +1,0 @@
-xnull: 入口 main 的签名必须是 static void main(...) 或 static Int main(...)（§11.2）

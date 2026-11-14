@@ -1,6 +1,0 @@
-PASS obj2/deinit.x
-PASS obj2/dispatch.x
-PASS obj2/inherit.x
-PASS obj2/proto.x
-PASS obj2/super_deinit.x
-xnullc-obj2 汇总：PASS=5 FAIL=0

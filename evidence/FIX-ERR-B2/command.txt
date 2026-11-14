@@ -1,4 +1,0 @@
-cd impl
-go test ./internal/sema/ -run 'TestAllDiagPositionsNonZero|TestERR205CleanupLocalDeclPosition' -v -count=1
-go test ./internal/sema/ -count=1
-go test ./... -count=1 -timeout 300s

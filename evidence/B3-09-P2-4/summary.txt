@@ -1,1 +1,0 @@
-P2-4: 泛型实例（GEN_INST_NAME）方法不再 root_add(self)，对齐 Go isGCRootC：只有非泛型 GC 类指针才 root self。collections_basic 1389→1354、nonnull 1293→1226。top5 basic：siftDown 44、main 43、lowerBound 30、pop 26、remove/indexOf 24；nonnull 类似。当前首条差异为泛型类前向 typedef/原型顺序（RingBuffer/OrderedMap/BTreeMap/PriorityQueue vs 字母序），随后是方法内 -1 temp 基线与表达式物化。text 0，全组绿。

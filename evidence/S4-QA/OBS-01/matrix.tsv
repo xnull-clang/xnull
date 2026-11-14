@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-OBS01-report-stmt	OBS-01	interp	失败单行 kind+describe；Ok 零输出	Io: disk（单行）+ true, rc=0	PASS	report.interp.err,report.interp.out
-OBS01-report-stmt	OBS-01	compiled	同上	[Io] disk（单行）+ true, rc=0	PASS	report.compiled.err,report.compiled.out
-OBS01-no-heap	OBS-01	code	report 无 malloc，write+栈缓冲	xn_report_line/write(STDERR_FILENO)，无 malloc	PASS	codegen.go:148-177
-OBS01-interp-compiled-format	OBS-01	dual	诊断格式一致	interp `Io: disk` vs compiled `[Io] disk`	FAIL	report.interp.err,report.compiled.err
-OBS01-mapErr-conv	OBS-01	gotest	mapErr 接受顶层转换函数	sema ERR-207：第二个参数必须是错误转换函数	FAIL	codegen-s402.out
-OBS01-report-chain	OBS-01	gotest	report 返回原 Result	TY-101：报告返回 void 不能赋给 Result	FAIL	codegen-s402.out
-OBS01-gotest	OBS-01	gotest	TestS4_02 3/3	FAIL 2/3	FAIL	codegen-s402.out

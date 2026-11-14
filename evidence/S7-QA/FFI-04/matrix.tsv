@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-FFI04-gate-off	FFI-04	build	`link.unsafe` 未开启构建失败	无清单/false/缺省/非法值/重复字段 → exit 1	PASS	codegen-s704.log
-FFI04-gate-on	FFI-04	build	`link.unsafe=true` 构建成功并记录	PASS，stderr `link.unsafe=true` + 受控入口	PASS	codegen-s704.log
-FFI04-bindings-only	FFI-04	ffi	仅 bindings/ 可声明 `@unsafe`	`src/evil.xfb` → FFI-110	PASS	codegen-s704.log
-FFI04-contract	FFI-04	ffi	合同文本必填	`@unsafe` 无 contract → FFI-110	PASS	codegen-s704.log
-FFI04-app-create	FFI-04	language	应用代码不可创建 `@unsafe`	语言层无 @unsafe 语法；src .xfb 负例	PASS	codegen-s704.log
-FFI04-run	FFI-04	e2e	启用后可调用受控入口	输出 42	PASS	codegen-s704.log

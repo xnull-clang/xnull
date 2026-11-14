@@ -1,7 +1,0 @@
---- FAIL: TestS5_04TaskSpawnJoin (0.00s)
-    s5_04_test.go:23: 代码生成失败：codegen：类型 Context 未支持（M4.1 范围）
---- FAIL: TestS5_04TaskEnvScan (0.00s)
-    s5_04_test.go:65: 代码生成失败：codegen：Result 成员类型 TaskError 未支持（S4-02）
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	1.300s
-FAIL

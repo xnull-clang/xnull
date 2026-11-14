@@ -1,2 +1,0 @@
-/tmp/qa-d-probes/bnd07_generic.x:1:12: error[SYN-101]: 单例头部不能带参数或继承（§9.1、§6.3）
-  写 `singleton Name {`

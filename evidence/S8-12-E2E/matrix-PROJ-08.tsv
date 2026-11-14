@@ -1,9 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-P08-N1	PROJ-08	e2e	非法键名 → XPD-601	XPD-601 App.Name，exit 1	PASS	f3-neg/F3-N1.log
-P08-N2	PROJ-08	e2e	同层重复键 → XPD-602	XPD-602 app.name，exit 1	PASS	f3-neg/F3-N2.log
-P08-N3	PROJ-08	e2e	未知键 → XPD-603	XPD-603 unknown.setting，exit 1	PASS	f3-neg/F3-N3.log
-P08-N4	PROJ-08	e2e	疑似密钥字面量 → XPD-606	XPD-606 db.password（未声明时并存 XPD-603），exit 1	PASS	f3-neg/F3-N4.log
-P08-N5	PROJ-08	e2e	profile 文件名不符 → XPD-607	XPD-607 application-staging，exit 1	PASS	f3-neg/F3-N5.log
-P08-N6	PROJ-08	e2e	配置文件不在资源根顶层 → XPD-608	XPD-608 conf/application.properties，exit 1	PASS	f3-neg/F3-N6.log
-P08-N7	PROJ-08	e2e	非 UTF-8 → XPD-600	XPD-600，exit 1	PASS	f3-neg/F3-N8.log
-P08-notapp	PROJ-08	e2e	缺失必需键 XPD-604 / 类型不符 XPD-605	build 将 configuration 全按 KindString，无 Required/类型规格，E2E 不可达	BOUNDARY	internal/config 单元证据（PROJ-08 原验收）

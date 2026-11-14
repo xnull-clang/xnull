@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ01-skeleton	PROJ-01	check	骨架/四字段 GAV+packaging 语义校验	仅文法解析；无语义校验器	FAIL	gap.txt
-PROJ01-unknown	PROJ-01	check	未知段落/字段失败	无 schema；未知段落可通过	FAIL	gap.txt
-PROJ01-duplicate	PROJ-01	check	单次段落重复失败	无重复检测	FAIL	gap.txt
-PROJ01-container	PROJ-01	check	容器段落只含规定条目	无容器条目语义校验	FAIL	gap.txt
-PROJ01-coord	PROJ-01	check	坐标重复失败	无坐标重复检测	FAIL	gap.txt
-PROJ01-codes	PROJ-01	check	XPD-2xx/3xx 诊断	仅 XPD-0xx/1xx	FAIL	xpd-codes.txt
-PROJ01-e6	PROJ-01	doc	E6 S8-01 验证文档对应 PROJ-01	文档实为 link.unsafe（S8 §7）	FAIL	e6-acceptance.md

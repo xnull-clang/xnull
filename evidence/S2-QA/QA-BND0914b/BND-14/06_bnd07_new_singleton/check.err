@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/06_bnd07_new_singleton/source.x:2:27: error[TY-216]: `S` 不是可实例化类型（singleton/factory，§9.4/§10.5）
-  使用 instance 或工厂方法

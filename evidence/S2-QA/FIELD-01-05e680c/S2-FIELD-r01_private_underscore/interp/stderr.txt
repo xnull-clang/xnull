@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r01_private_underscore.x:1:23: error[TY-207]: `private` 与 `_` 前缀不能同时使用：`W._name`（§7.4）
-  写 `private name` 或裸 `_name`

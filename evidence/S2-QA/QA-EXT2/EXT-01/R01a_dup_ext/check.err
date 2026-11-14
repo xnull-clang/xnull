@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/R01a_dup_ext/source.x:3:11: error[TY-225]: 同一类型 `C` 存在重复 extension 声明（§11.1）
-  合并到一个 extension

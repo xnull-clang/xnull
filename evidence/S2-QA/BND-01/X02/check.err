@@ -1,1 +1,0 @@
-difftest/s2/bnd01/xpkg/main_prot.x:4:12: error[TY-209]: 受保护方法 `prot` 不可访问（§7.3：仅声明类/子类经 self 或当前类/子类静态类型访问）

@@ -1,4 +1,0 @@
-main_ref=0177c8077670eaa618b3052544ec475a775abf72
-binary=/tmp/xnull-s2-0177c80
-binary_sha256=44a6b9f31a0bec34115f91b43673a3442ca9c6e0b85e7dc5d58e8429be9fe6d4
-go=go version go1.27.3 darwin/amd64

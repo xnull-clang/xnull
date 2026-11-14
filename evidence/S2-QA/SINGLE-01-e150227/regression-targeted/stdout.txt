@@ -1,9 +1,0 @@
-ok  	xnull.dev/xnull/internal/sema	1.323s
---- FAIL: TestS2MEM01StructNotInARCGC (0.00s)
-    mem01_test.go:93: codegen 应显式拒绝 struct（不得分配），err=<nil>
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	209.686s
-ok  	xnull.dev/xnull/internal/xfront	2.497s
-ok  	xnull.dev/xnull/internal/cli	31.452s
-ok  	xnull.dev/xnull/internal/interp	3.657s
-FAIL

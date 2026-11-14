@@ -1,3 +1,0 @@
-$ cc abi_uninit.c ... && run
-xnull runtime fatal: xrt_alloc：运行时未初始化（S7 §6.3：先调 xrt_runtime_init）
-EXIT=134

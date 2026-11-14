@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ04-exact	PROJ-04	gotest	精确版本；范围/SNAPSHOT/LATEST 拒绝	XPD-402；预发布精确版允许	PASS	manifest.log
-PROJ04-lock-sort	PROJ-04	gotest	锁条目坐标升序	TestLockSortOrder PASS	PASS	manifest.log
-PROJ04-lock-validate	PROJ-04	gotest	缺条目/多余坐标/摘要不符/版本不一致	XPD-404/405/406/404	PASS	manifest.log
-PROJ04-update-lock	PROJ-04	cli	`--update-lock` 唯一重生成入口	TestLockCommand PASS	PASS	lock-cli.log
-PROJ04-lock-bytes	PROJ-04	gotest	摘要 + 稳定字节	Generate/Validate/WriteLock PASS	PASS	manifest.log
-PROJ04-plugin	PROJ-04	code	插件版本规则（范围/SNAPSHOT/LATEST）	kind=plugin 未生成；插件未接入（S8-05）	BOUNDARY	回执-S8-03-E6.md

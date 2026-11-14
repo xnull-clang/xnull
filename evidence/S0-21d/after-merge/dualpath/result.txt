@@ -1,9 +1,0 @@
-ast-seed         stdout=same stderr=DIFF(cc-warnings)
-classes          stdout=same stderr=same
-containers       stdout=same stderr=same
-defer-cleanup    stdout=same stderr=same
-hello            stdout=same stderr=same
-lexer-seed       stdout=same stderr=same
-objlist          stdout=same stderr=same
-parser-seed      stdout=same stderr=DIFF(cc-warnings)
-result-try       stdout=same stderr=same

@@ -1,7 +1,0 @@
-=== RUN   TestManifestIntegrationEndToEnd
---- PASS: TestManifestIntegrationEndToEnd (0.88s)
-=== RUN   TestManifestIntegrationMissingPluginMeta
---- PASS: TestManifestIntegrationMissingPluginMeta (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	1.361s
-exit=0

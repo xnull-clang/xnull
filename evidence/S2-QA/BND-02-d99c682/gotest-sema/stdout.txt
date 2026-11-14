@@ -1,6 +1,0 @@
-=== RUN   TestS2BND02InheritanceForbidden
---- PASS: TestS2BND02InheritanceForbidden (0.00s)
-=== RUN   TestInheritanceRules
---- PASS: TestInheritanceRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.256s

@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R04e_param_unknown/source.x:1:14: error[TY-223]: 未知注解 `@Nope`（§12.2）
-  先声明 @annotation，或使用内建注解

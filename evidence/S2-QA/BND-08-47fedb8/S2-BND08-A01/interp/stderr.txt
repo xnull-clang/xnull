@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/a01_same_pkg.x:11:16: error[RES-101]: 未定义的名称 `DeviceFactory`（§3.3 四级顺序解析后不可见）
-  局部/参数/顶层声明、导入符号或完全限定名之一

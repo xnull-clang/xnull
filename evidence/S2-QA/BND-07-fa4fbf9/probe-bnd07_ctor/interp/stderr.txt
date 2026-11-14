@@ -1,2 +1,0 @@
-/tmp/qa-d-probes/bnd07_ctor.x:3:6: error[TY-201]: 单例不能声明构造器（§9.4）
-  改为字段初始化式

@@ -1,8 +1,0 @@
-=== RUN   TestS2BND07Singleton
---- PASS: TestS2BND07Singleton (1.35s)
-=== RUN   TestS2SINGLE01StaticAndPrevRef
---- PASS: TestS2SINGLE01StaticAndPrevRef (1.38s)
-=== RUN   TestS2SINGLE01InstanceReadonlyAndNew
---- PASS: TestS2SINGLE01InstanceReadonlyAndNew (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	3.583s

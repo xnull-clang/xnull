@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/QA1-anchors-2026-11-07/pkg/f2.x:1:1: error[RES-106]: XDK 包 `xdk.net` 没有导出符号 `http`（§3.5）
-  检查符号名或改用包导入

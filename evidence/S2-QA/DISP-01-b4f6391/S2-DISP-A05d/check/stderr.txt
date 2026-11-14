@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/disp01/a05d_upcast_var.x:9:11: error[TY-101]: 变量 `p` 的初始化式类型 C 不能赋给 P（§2.6）
-  检查类型声明与初始化式是否一致

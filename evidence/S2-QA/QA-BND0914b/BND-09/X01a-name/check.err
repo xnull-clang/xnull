@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-09/X01a/main_name.x:4:12: error[TY-207]: 外部访问私有字段 `x`（规范名 `_x`）：私有访问错误（§7.4）

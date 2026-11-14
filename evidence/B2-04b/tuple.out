@@ -1,3 +1,0 @@
-# 元组回归：默认 go 与 auto+原生路径（fake native 转发 xparser）
-ok  	xnull.dev/xnull/internal/codegen	1.430s
-ok  	xnull.dev/xnull/internal/codegen	1.426s

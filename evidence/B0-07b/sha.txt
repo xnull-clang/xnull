@@ -1,6 +1,0 @@
-基线 main = 7d5651a（本卡前快进合并）
-分支 = pod/e6-toolchain
-验证二进制 = 5b2dae92df637f7cf530dd9a7718b2e46b454b62d5ed42bf2c840e0882ba1c4d
-in1 产物 = 610855eb669b5cd613b35eee1aa6c5b19e3b83a981bfc4e4047ecdb5af1d1e18
-in2 产物 = 9b10db97c43759f8dcfe8775f003f51079a5101a048c50272e44260da4ab2299
-go 版本 = go1.27.3 darwin/amd64

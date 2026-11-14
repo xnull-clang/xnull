@@ -1,3 +1,0 @@
-# xnull.dev/xnull/internal/cli
-internal/cli/manifest.go:47:6: findManifestRoot redeclared in this block
-	internal/cli/lock.go:100:6: other declaration of findManifestRoot

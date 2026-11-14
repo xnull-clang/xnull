@@ -1,1 +1,0 @@
-C.3b: if/while/for/switch newChild+emitBlock；块尾统一 per-scope defers；局部释放 addRelease；raw=2094；bundle 运行，生成 C 语法 0 error（return 清理仍旧路径，待 C.4）

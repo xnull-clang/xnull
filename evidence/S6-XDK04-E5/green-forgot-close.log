@@ -1,3 +1,0 @@
-$ xnull run forgot-close.x
-xnull runtime fatal: 任务组在未关闭时释放（S5 §3.2 合同错误）
-EXIT=255

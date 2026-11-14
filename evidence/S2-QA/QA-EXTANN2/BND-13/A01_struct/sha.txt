@@ -1,6 +1,0 @@
-main=10941d7 (user-declared; no git command run)
-binary=/tmp/qa-extann2-main
-binary_sha256=f459d59e8ff772a4959bf479f9ccc417ff35055f93cd88489b264c3240649513
-runtime=/Users/vjs/Desktop/XNull-Lang/impl/runtime
-go=go version go1.27.3 darwin/amd64
-date=2026-11-07 23:27:06 +0800

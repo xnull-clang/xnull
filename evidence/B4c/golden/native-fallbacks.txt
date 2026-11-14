@@ -1,6 +1,0 @@
-tests/b2/corpus/tests/b0-07c-numeric/cases/t04_bytes_surface/case.x
-tests/b3/fixtures/bundle/app.x
-difftest/anchors/cases/pkg/f2.x
-impl/lib/b2/xlex.x
-tests/b3/fixtures/bundle_text/app.x
-tests/b0-07c-numeric/cases/t04_bytes_surface/case.x

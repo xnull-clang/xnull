@@ -1,1 +1,0 @@
-/tmp/xnull-s2-d99c68227502babbd58f24b8204a22b2bb773367 run --interp /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/disp01/a01_class_static.x 

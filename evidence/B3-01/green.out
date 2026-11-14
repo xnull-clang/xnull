@@ -1,3 +1,0 @@
-PASS skel tests/b3/fixtures/empty_main.x
-PASS skel examples/hello.x
-xnullc-skeleton 汇总：PASS=2 FAIL=0

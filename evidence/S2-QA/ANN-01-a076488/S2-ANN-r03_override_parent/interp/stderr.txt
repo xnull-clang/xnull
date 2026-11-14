@@ -1,6 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r03_override_parent.x:2:32: error[TY-203]: 方法 `f` 与祖先类 `Base` 的实例方法同签名：子类覆写被拒绝（§2.5）
-  改用不同参数列表构成重载
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r03_override_parent.x:2:32: error[TY-208]: @Override 不能标记父类方法 `f`：类继承只复用，不存在覆写（§5.3）
-  删除注解
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r03_override_parent.x:2:32: error[TY-208]: @Override 没有对应的协议方法（§4.3）
-  删除注解，或声明 implements 并提供同签名方法

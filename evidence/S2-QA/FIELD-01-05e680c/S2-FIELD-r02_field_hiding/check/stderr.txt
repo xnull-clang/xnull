@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r02_field_hiding.x:2:7: error[TY-203]: 字段基名 `id` 在父类 `Base` 中已声明：字段隐藏被拒绝（§2.5/§7.4）

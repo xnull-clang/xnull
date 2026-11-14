@@ -1,6 +1,0 @@
-=== RUN   TestS6_XDK04GroupMustClose
---- PASS: TestS6_XDK04GroupMustClose (2.94s)
-=== RUN   TestS6_XDK04GroupCloseOK
---- PASS: TestS6_XDK04GroupCloseOK (3.33s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	7.441s

@@ -1,1 +1,0 @@
-/tmp/xnull-s2-28910eb check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r06_method.x

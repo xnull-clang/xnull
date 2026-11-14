@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/duplicate.x:4:1: error[ENTRY-002]: 重复入口 main：发现 2 个 main 声明
-  一个程序只能有一个入口；删除多余 main 或改名（S1 §11.2）

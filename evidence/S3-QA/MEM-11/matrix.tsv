@@ -1,2 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-S3-MEM11-ffi	MEM-11	gotest	句柄/缓冲区/租约矩阵 PASS	ok internal/codegen/ffi（含缺租约/移交/裸指针负例）	PASS	gotest.out

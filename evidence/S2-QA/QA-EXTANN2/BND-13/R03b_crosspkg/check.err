@@ -1,2 +1,0 @@
-main.x:2:11: error[TY-225]: extension 不能跨包扩展 `Device`（§11.4）
-  在目标所在包内声明 extension

@@ -1,6 +1,0 @@
---- FAIL: TestS810bCodeCoverage (0.01s)
-    coverage_test.go:55: 校验器使用未登记码位 XPD-408
-    coverage_test.go:55: 校验器使用未登记码位 XPD-409
-FAIL
-FAIL	xnull.dev/xnull/internal/xpd	0.531s
-FAIL

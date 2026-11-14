@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/18_factory_self/source.x:2:28: error[TY-221]: factory 方法不能使用 self / super（§10.2）
-  改用参数和局部变量

@@ -1,8 +1,0 @@
-base_expected=e960456917350f2b80c03bbcbec0d9d158d6a72cdb3c3220b40b105dfca756eb
-base_actual  =e960456917350f2b80c03bbcbec0d9d158d6a72cdb3c3220b40b105dfca756eb
-base_values  =app.env=file(layer2) / app.name=from-file(layer2) / feature.flag=true / net.port=8080
-profile_expected=b5a374d34e50150a2469dcd4444cce6b27feb219401426ded847a51fa0069746
-profile_actual  =b5a374d34e50150a2469dcd4444cce6b27feb219401426ded847a51fa0069746
-profile_values  =app.env=dev-file(layer3) / app.name=from-file(layer2) / feature.flag=true / net.port=8080
-备注：profile dev 的 properties(appName=demo-dev) 只影响 layer0 替换值；application.properties 的 layer2 仍覆盖，故 app.name=from-file。
-结论：摘要与期望值逐字节一致，证明层 2 > 层 0、层 3 > 层 2。

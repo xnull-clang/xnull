@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/r01_implements_class.x:2:7: error[TY-202]: implements 目标 `C` 必须是 protocol（§2.1）

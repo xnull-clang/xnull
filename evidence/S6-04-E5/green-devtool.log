@@ -1,3 +1,0 @@
-$ go test ./internal/devtool/ -run "TestGenerateResources|TestValidateResourceName"
-ok  	xnull.dev/xnull/internal/devtool	0.590s
-EXIT=0

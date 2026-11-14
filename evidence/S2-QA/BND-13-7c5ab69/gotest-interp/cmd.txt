@@ -1,1 +1,0 @@
-sh -c cd /Users/vjs/Desktop/XNull-Lang/impl && go test ./internal/interp -count=1

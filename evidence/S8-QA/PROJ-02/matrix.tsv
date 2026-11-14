@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ02-single-parent	PROJ-02	gotest	单父合并 properties 子覆盖父	TestParentChainRules/单父合并 PASS	PASS	manifest.log
-PROJ02-depth	PROJ-02	gotest	深度 >8 失败	XPD-303	PASS	manifest.log
-PROJ02-cycle	PROJ-02	gotest	环/self-parent 失败	XPD-304	PASS	manifest.log
-PROJ02-missing	PROJ-02	gotest	parent 缺失/非 pom 失败	XPD-305 / XPD-306	PASS	manifest.log
-PROJ02-coords	PROJ-02	gotest	坐标不从父继承	子 artifactId=child	PASS	manifest.log
-PROJ02-merge	PROJ-02	gotest	properties/dependencies/configuration 合并	TestParentChainRules/TestPropertySubstitution PASS	PASS	manifest.log

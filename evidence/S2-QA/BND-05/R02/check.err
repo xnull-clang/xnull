@@ -1,1 +1,0 @@
-difftest/s2/bnd05/r02_sig_mismatch.x:5:9: error[TY-208]: 协议方法 `ready` 返回类型不符：期望 Bool，实际 Int（§4.3）

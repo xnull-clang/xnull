@@ -1,3 +1,0 @@
-* thread #1, queue = 'com.apple.main-thread', stop reason = EXC_BAD_ACCESS (code=EXC_I386_GPFLT)
-    frame #0: 0x0000000100000965 m`rt_retain + 5
-m`rt_retain:

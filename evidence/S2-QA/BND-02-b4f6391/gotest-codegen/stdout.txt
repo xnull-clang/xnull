@@ -1,4 +1,0 @@
-=== RUN   TestS2InheritanceLayout
---- PASS: TestS2InheritanceLayout (1.27s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	2.303s

@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXT2/EXT-01/A01_singleton/source.x:2:11: error[TY-225]: extension Target 必须是同包 class/struct（得到 singleton，§11.1）

@@ -1,4 +1,0 @@
-=== RUN   TestS2EnumImmutable
---- PASS: TestS2EnumImmutable (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.695s

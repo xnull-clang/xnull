@@ -1,4 +1,0 @@
-=== RUN   TestS2Singleton
---- PASS: TestS2Singleton (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/xfront	37.175s

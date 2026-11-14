@@ -1,7 +1,0 @@
-$ cc weak_app.c -c   # 应失败
-EXPECTED-FAIL
-/tmp/weak_app.c:2:25: error: call to undeclared function 'xrt_weak_bind'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
-    2 | int main(void) { return xrt_weak_bind(0) != 0; }
-      |                         ^
-$ cc weak_bind.c -c   # 应成功
-EXIT=0

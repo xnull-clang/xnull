@@ -1,2 +1,0 @@
-difftest/s2/bnd06/r02_unknown.x:12:19: error[TY-213]: 枚举 switch 的 case 必须是 `Color.<项>` 项常量（§8.5）
-  改用该枚举的项

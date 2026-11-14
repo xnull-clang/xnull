@@ -1,6 +1,0 @@
-PASS container/array.x
-PASS container/containers.x
-PASS container/list.x
-PASS container/mapset.x
-PASS container/oob.x
-xnullc-containers 汇总：PASS=5 FAIL=0

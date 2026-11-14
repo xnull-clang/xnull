@@ -1,2 +1,0 @@
-difftest/s2/bnd05/r04_private_impl.x:5:18: error[TY-208]: 协议方法 `ready` 的实现必须公开（§4.3）
-  去掉 private/protected

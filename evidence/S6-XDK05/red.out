@@ -1,5 +1,0 @@
---- FAIL: TestXDK05SyncConstructors (0.00s)
-    s6_xdk05_test.go:9: 不应有语义诊断：[TY-229@XDK API `Mutex` 尚未支持（S6-01） TY-229@XDK API `Channel` 尚未支持（S6-01） TY-229@XDK API `AtomicInt` 尚未支持（S6-01） TY-229@XDK API `AtomicBool` 尚未支持（S6-01）]
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.585s
-FAIL

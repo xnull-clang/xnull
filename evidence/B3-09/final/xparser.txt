@@ -1,6 +1,0 @@
-xparser:
-  go_lines:    29553
-  xn_lines:    29553
-  cmp: SAME
-  go_sha256: a88a3e074729a6630a62914831913e7aa0d14b715aebe4a7d60d836780aa0bb9
-  xn_sha256: a88a3e074729a6630a62914831913e7aa0d14b715aebe4a7d60d836780aa0bb9

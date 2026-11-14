@@ -1,8 +1,0 @@
-=== RUN   TestS3_EXPRMemberArg
---- PASS: TestS3_EXPRMemberArg (1.37s)
-=== RUN   TestS3_EXPRCallReceiver
---- PASS: TestS3_EXPRCallReceiver (1.31s)
-=== RUN   TestS3_EXPRMapGetArithmetic
---- PASS: TestS3_EXPRMapGetArithmetic (1.37s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	4.544s

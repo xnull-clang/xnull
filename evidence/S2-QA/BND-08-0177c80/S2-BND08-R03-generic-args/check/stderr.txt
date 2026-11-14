@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd08/r03_generic_args.x:5:9: error[TY-217]: factory Target 不能写泛型实参（§10.1）
-  写裸名，实参由工厂方法决定

@@ -1,4 +1,0 @@
-=== RUN   TestS6XDK08TextXfbRegex
---- PASS: TestS6XDK08TextXfbRegex (3.38s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	4.988s

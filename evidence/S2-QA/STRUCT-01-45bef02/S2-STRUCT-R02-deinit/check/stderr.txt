@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/struct01/r02_deinit.x:3:10: error[TY-204]: 结构体不能声明 deinit（§3.1）
-  需要终结动作时使用 class

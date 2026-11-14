@@ -1,2 +1,0 @@
-    xn_Enum_Status *o = (xn_Enum_Status *)rt_gc_new(&RT_TYPE_XN_ENUM_Status);
-    rt_gc_root_add(xn_enum_Status_Ready);

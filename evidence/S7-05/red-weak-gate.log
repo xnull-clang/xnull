@@ -1,2 +1,0 @@
-$ cc weak_app.c -c
-EXIT=0

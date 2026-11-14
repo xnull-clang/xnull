@@ -1,4 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK07-interp	XDK-07	gotest	算法 + 4 特化容器解释执行	TestXdkCollectionsRuntime PASS	PASS	interp.log
-XDK07-builtin	XDK-07	gotest	内建容器语义回归	TestList/TestMap/TestSet PASS（既有）	PASS	-
-XDK07-codegen	XDK-07	gotest	编译端到端	TestXdkCollectionsUnitSurface FAIL：isFull/isEmpty/indexOf/lowerBound/get/less/swap/sift* TY-229	BLOCKED/P2	codegen.log

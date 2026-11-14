@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01/R04/source.x:2:7: error[TY-208]: 类 `C` 未实现协议 `Ready` 的方法 `ready`（§4.3）
-  补充同签名公开实例方法

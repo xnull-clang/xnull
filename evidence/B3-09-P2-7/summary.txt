@@ -1,1 +1,0 @@
-P2-7: ReturnStmt 对 Opt（Int?/Bool?/String?）字面量直接内联复合字面量：null→(T){0,0/NULL}，值→(T){1, expr}，不占 temp。collections_basic 1294→1283、nonnull 1157→562（Opt pop/peek 全部对齐）。text 0，全组绿。

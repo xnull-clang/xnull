@@ -1,2 +1,0 @@
-alternatives_total=12
-alternatives_pass=12

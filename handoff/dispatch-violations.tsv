@@ -1,4 +1,0 @@
-编号	时间	根因	涉及卡	冲突文件/证据	处置	状态
-P1-D001	2026-11-08 02:20	main 多写者 + 红即回滚	INTEG-BATCH4/E2-P1-10	main reset 回滚 35fe43b/019a05b	改“红只报告不回滚”；恢复合并	已关闭
-P1-D002	2026-11-08 07:58	同文件多 owner 无接口	S8-01/S8-03/S8-04	internal/cli/manifest.go:47 与 lock.go:100 重复定义	E4 去重 3756faf；S8 后续串行核对边界	已关闭
-P1-D003	2026-11-07 19:12	main 多写者	E4-INT01/INTEG-BATCH3	main a5a635f 被回退到 cf3e084	ADR-003 恢复；禁止产线自行合 main	已关闭

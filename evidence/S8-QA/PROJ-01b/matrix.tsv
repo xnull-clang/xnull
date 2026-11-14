@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ01-skeleton	PROJ-01	gotest	骨架/四字段 GAV+packaging	缺 version → XPD-301；manifest 校验四字段	PASS	manifest-tests.log
-PROJ01-unknown	PROJ-01	gotest	未知段落/字段失败	XPD-201（未知段落/字段/顶层块）	PASS	manifest-tests.log
-PROJ01-duplicate	PROJ-01	gotest	段落/字段/project 重复失败	XPD-202 三例	PASS	manifest-tests.log
-PROJ01-container	PROJ-01	gotest	容器段落只含规定条目	XPD-203：非法条目/非法块	PASS	manifest-tests.log
-PROJ01-coord-dup	PROJ-01	gotest	依赖坐标重复失败	XPD-302	PASS	manifest-tests.log
-PROJ01-position	PROJ-01	gotest	诊断带 xpd 位置	TestSchemaPositions：xnull.project:6	PASS	manifest-tests.log
-PROJ01-codes	PROJ-01	code	XPD-2xx/3xx 落地	XPD-201/202/203、XPD-301/302 | 301/303..309	PASS	impl/internal/manifest/validate.go

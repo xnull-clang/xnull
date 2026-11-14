@@ -1,8 +1,0 @@
-=== RUN   TestS6_02RuntimeSurface
---- PASS: TestS6_02RuntimeSurface (3.00s)
-=== RUN   TestS6_02ExitSkipsDefer
---- PASS: TestS6_02ExitSkipsDefer (2.12s)
-=== RUN   TestS6_02DumpTasksCounts
---- PASS: TestS6_02DumpTasksCounts (2.85s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	10.665s

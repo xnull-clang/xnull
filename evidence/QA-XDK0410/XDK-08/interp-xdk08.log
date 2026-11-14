@@ -1,4 +1,0 @@
-=== RUN   TestXdkTextRuntime
---- PASS: TestXdkTextRuntime (0.01s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	0.938s

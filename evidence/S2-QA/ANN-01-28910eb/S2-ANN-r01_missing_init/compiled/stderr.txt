@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r01_missing_init.x:1:19: error[SYN-101]: 注解字段必须有编译期常量初始化式（§12.1）

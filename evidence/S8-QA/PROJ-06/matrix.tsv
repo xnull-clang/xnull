@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ06-meta	PROJ-06	gotest	`.xplugin` 缺失/字段不符/phase 非法/configKeys 形态	TestLoadMetadata：XPD-504/501	PASS	plugin-tests.log
-PROJ06-decl	PROJ-06	gotest	版本精确/phase 合法/goal 已声明/configKeys/坐标版本/toolchain	TestValidateDeclaration 8 子用例 PASS	PASS	plugin-tests.log
-PROJ06-sandbox	PROJ-06	gotest	target 内写通过，target 外写 XPD-502	TestRunPolicy PASS	PASS	plugin-tests.log
-PROJ06-net	PROJ-06	gotest	禁网；无沙箱拒绝执行	XPD-505；sandbox-exec deny network	PASS	plugin-tests.log
-PROJ06-exit	PROJ-06	gotest	非零退出 XPD-503	TestRunPolicy/非零退出 PASS	PASS	plugin-tests.log
-PROJ06-classpath	PROJ-06	code	插件依赖不进编译类路径	独立 `internal/plugin`；未接构建类路径	PASS（结构隔离）	impl/internal/plugin
-PROJ06-build	PROJ-06	e2e	构建期阶段接线	S8-04 未接；插件包未在 build 阶段执行	BOUNDARY	-

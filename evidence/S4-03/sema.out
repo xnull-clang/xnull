@@ -1,4 +1,0 @@
-=== RUN   TestS4EAndMustUse
---- PASS: TestS4EAndMustUse (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.841s

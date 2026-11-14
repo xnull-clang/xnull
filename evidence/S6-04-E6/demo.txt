@@ -1,9 +1,0 @@
-== CLI: 带工程资源 ==
-exit=0
-== 产物内资源名 ==
-templates/a.txt
-== 无资源（空表）==
-exit=0
-== 运行 ==
-hello, XNull
-1 + 2 = 3

@@ -1,6 +1,0 @@
-XNull CI（单步 01）  工作树=/Users/vjs/Desktop/XNull-Lang/wt/e6-toolchain
-
-PASS 01 gofmt+vet                   469ms
-
-—— 汇总：PASS=1 FAIL=0 SKIP=0，用时 646ms ——
-退出码：0

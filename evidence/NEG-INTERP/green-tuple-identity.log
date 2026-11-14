@@ -1,7 +1,0 @@
-=== RUN   TestTupleReferenceElementEquality
---- PASS: TestTupleReferenceElementEquality (0.00s)
-=== RUN   TestTupleStringIdentity
---- PASS: TestTupleStringIdentity (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	0.722s
-exit=0

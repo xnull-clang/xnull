@@ -1,4 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-S3-MEM12-gotest	MEM-12	gotest	TestPolicyDeterministic PASS	ok internal/sema	PASS	gotest.out
-S3-MEM12-policy	MEM-12	determinism	两次 policy JSON 相同	byte-identical (cmp 0)	PASS	policy-a.out,policy-b.out
-S3-MEM12-run	MEM-12	determinism	两次运行输出相同	byte-identical (cmp 0)	PASS	run-a.out,run-b.out

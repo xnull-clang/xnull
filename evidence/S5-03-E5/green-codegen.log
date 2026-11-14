@@ -1,9 +1,0 @@
-$ go test ./internal/codegen/ -count=1
---- FAIL: TestS4_02WrapMapErrReport (0.00s)
-    s4_02_test.go:88: 语义诊断：[t.x:20:39: error[ERR-207]: mapErr 转换函数 `conv` 签名必须是 (E2)->E2（S4 §2.3）]
---- FAIL: TestS4_02ReportContract (0.00s)
-    s4_02_test.go:116: 语义诊断：[t.x:10:28: error[TY-101]: 变量 `again` 的初始化式类型 void 不能赋给 Result<Int,E>（§2.6）
-          检查类型声明与初始化式是否一致]
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	189.884s
-FAIL

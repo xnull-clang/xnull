@@ -1,6 +1,0 @@
-===== go-vet.out =====
-(空即无诊断)
-
-===== 编译路径 cc 警告（仅 ast-seed/parser-seed，已知噪声） =====
-1520 evidence/S1-22/dualpath/ast-seed.compiled.err
-5916 evidence/S1-22/dualpath/parser-seed.compiled.err

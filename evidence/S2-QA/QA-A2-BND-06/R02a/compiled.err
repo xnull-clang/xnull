@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-A2-BND-06/R02a/source.x:7:19: error[TY-213]: 枚举项 `Red` 在 switch 中重复（§8.5）
-  删除重复 case

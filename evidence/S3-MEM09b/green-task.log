@@ -1,7 +1,0 @@
-$ /tmp/xnull_test_task_mem09
-xnull runtime fatal: task_join：重复 join（S5 §3.1 合同错误）
-xnull runtime fatal: 任务内 panic（S5 §8：进程级终止）
-xnull runtime fatal: 任务组在未关闭时释放（S5 §3.2 合同错误）
-xnull runtime fatal: 任务组在未关闭时释放（S5 §3.2 合同错误）
-task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/group-must-close/dump/pool/companion)
-EXIT=0

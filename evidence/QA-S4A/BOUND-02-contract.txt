@@ -1,6 +1,0 @@
---- FFI Result ban (check.go)
-22:	"Result":   "Result 不跨语言边界（S7 §3.6 / INV-FFI-2）：错误经错误码出参交付",
---- FFI error kind mapping (emit.go)
-330:	b.WriteString("    default: return XRT_ERR_INTERNAL;\n")
---- contract test expected
-impl/internal/codegen/ffi/emit_test.go:267:		"unknown=Internal",

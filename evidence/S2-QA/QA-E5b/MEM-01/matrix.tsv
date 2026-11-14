@@ -1,5 +1,0 @@
-MEM-01	deinit_base	check=0	interp=0	compiled=0	interp_out=main|base-deinit|	compiled_out=main|base-deinit|
-MEM-01	deinit_derived	check=0	interp=0	compiled=0	interp_out=main|dD|dB|	compiled_out=main|dD|dB|
-MEM-01	stack_policy	policy_rc=0
-MEM-01	struct_no_arcgc	check=0	interp=0	compiled=0	interp_out=1|	compiled_out=1|
-MEM-01	arc_reject	check=1	first=/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-E5b/MEM-01/arc_reject/source.x:1:1: error[TY-201]: 源码不得使用 @arc（§15.1.2：实现内部策略注解，不是语言特性）

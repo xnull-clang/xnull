@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/20_final_field_write/source.x:4:6: error[TY-224]: final 字段 `x` 只能在声明类构造器中赋值一次（§6.1）

@@ -1,1 +1,0 @@
-/tmp/xnull-s2-0177c80 run /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd07/r02_fwd.x

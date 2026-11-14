@@ -1,1 +1,0 @@
-/tmp/xnull-s2-a076488 check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r03_override_parent.x

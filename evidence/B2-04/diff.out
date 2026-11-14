@@ -1,5 +1,0 @@
-=== RUN   TestB2Differential
-    diff_test.go:152: B2 差分 PASS=83
---- PASS: TestB2Differential (112.55s)
-PASS
-ok  	xnull.dev/xnull/internal/frontbridge	116.406s

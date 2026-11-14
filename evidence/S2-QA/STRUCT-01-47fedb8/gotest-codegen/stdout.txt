@@ -1,4 +1,0 @@
-=== RUN   TestS2StructValueCopy
---- PASS: TestS2StructValueCopy (0.83s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	1.618s

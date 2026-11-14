@@ -1,1 +1,0 @@
-C.4+C.5: ReturnStmt/try 统一 emitCleanup（scope 链 LIFO）；删 emitEarlyRet/入口尾旧清理；顶层仅 hasResult 零值返回，方法保 fallback，构造器 return 特判；Break/Continue 改 rootRestoresOf，删 blockRoots/blockInds。raw=707；bundle 运行，生成 C 语法 0 error；stmt/if_while、stmt/for_in 与 Go 0 差异。

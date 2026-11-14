@@ -1,8 +1,0 @@
-=== RUN   TestXDK05SemaSurface
---- PASS: TestXDK05SemaSurface (0.00s)
-=== RUN   TestXDK05InterpE2E
---- PASS: TestXDK05InterpE2E (0.00s)
-=== RUN   TestXDK05CompiledE2E
---- PASS: TestXDK05CompiledE2E (2.14s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	2.682s

@@ -1,4 +1,0 @@
-main_sha=d620ea55a919869a8419e810cd3773491957c013
-err_fix=95e1f41 (已并入 main)
-date=2026-11-07
-go=go1.27.3 darwin/amd64

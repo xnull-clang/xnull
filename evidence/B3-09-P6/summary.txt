@@ -1,1 +1,0 @@
-P6: dynContainerHelpers 按 C_ARR/C_SET/C_MAP 生成 helper：arr_i、arr_s、arr_u16、obj array（classArrHelperText）、set_i、map_s_i、map_s_s，并补 str_split / str_replace（按使用标志）。xnfmt 7078→6869（arr_i/arr_o 172 行段对齐，剩 Tok Bool 字段缺失与 temp 基线）；classes 0、text 0、全组绿。bundle/app 98：仍缺 arr_i typedef/helper，说明该 bundle 的 List<Int> 未进入 registry（prewarm 未覆盖该路径）。剩余：registry 预扫描补全 + Tok Bool 字段。

@@ -1,7 +1,0 @@
-main=9f5f66c (9f5f66c0e132953646ae4213218629dbaa3be0e8)
-pod/e2-sema tip=5cfc248 (5cfc248ce7b0ecfdbf33a6059254f7ccfb697d0a)
-5cfc248_ancestor_of_9f5f66c=TRUE
-pod_tip_ancestor_of_main=TRUE
-numeric defect introduced by: 90be44e (M6-B0-07a sema)
-go version: go version go1.27.3 darwin/amd64
-cc: Apple clang version 17.0.0 (clang-1700.6.3.2)

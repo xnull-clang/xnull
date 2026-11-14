@@ -1,4 +1,0 @@
-=== RUN   TestS6XDK08CompiledE2E
---- PASS: TestS6XDK08CompiledE2E (2.92s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	4.046s

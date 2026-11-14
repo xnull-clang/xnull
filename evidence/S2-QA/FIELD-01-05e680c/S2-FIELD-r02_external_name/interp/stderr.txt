@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r02_external_name.x:4:12: error[TY-207]: 外部访问私有字段 `name`（规范名 `_name`）：私有访问错误（§7.4）

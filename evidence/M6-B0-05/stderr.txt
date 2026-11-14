@@ -1,5 +1,0 @@
-# 原始 stderr
-
-- 先红：矩阵 13 个编译侧失败的原因逐条记录在 `before/matrix.tsv` 的 `compiled_note` 列（如 `String 成员 replace 未支持`、`类型后缀 [?] 未支持`、`容器表达式 *xfront.Call 未支持` 等）。
-- 后绿：矩阵/附带/替代脚本运行无 stderr；`go test` 无失败输出；`gofmt -l internal` 无输出。
-- 本分支当前 2 个失败单元均为 `List.remove` / `Map.getMissing` 的解释器旧实现（`interp` 侧，E3 域），编译路径均 PASS；合并后 78/78（见 stdout.txt）。

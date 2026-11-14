@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-FFI02-text	FFI-02	e2e	Text 参数/返回	`1+2+3=6`? S701 输出 `3`（Text bytes/len）	PASS	codegen-s701.log
-FFI02-layout	FFI-02	e2e	layout(c) 字段布局与 C 一致	Pair {Int64,Int32} native 7+2=9；sizeof 16 `_Static_assert`	PASS	codegen-s701.log
-FFI02-array	FFI-02	e2e	标量数组 Int[] data/len	`[1,2,3]` → 6	PASS	codegen-s701.log
-FFI02-scalars	FFI-02	e2e	Float/Char/UInt/定宽整型	1.5→3；'a'→'b'；UInt 2→5	PASS	codegen-s701.log
-FFI02-size	FFI-02	sema	layout 尺寸非法拒绝	TestS701LayoutSize PASS	PASS	sema-s701.log
-FFI02-unsupported	FFI-02	sema	未投射类型仅句柄/封送	TestS701FFICallTypes PASS	PASS	sema-s701.log

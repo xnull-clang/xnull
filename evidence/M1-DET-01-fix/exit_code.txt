@@ -1,2 +1,0 @@
-before: 1 (TestDET01DiagIndependentOfMapOrder FAIL)
-after:  0 (TestDET01DiagStableAcrossRuns + TestDET01DiagIndependentOfMapOrder PASS; sema 全量 rc=0)

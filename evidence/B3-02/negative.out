@@ -1,8 +1,0 @@
-PASS neg ../b2/parser_neg/chain_cmp.x exit=1
-PASS neg ../b2/parser_neg/missing_brace.x exit=1
-PASS neg ../b2/parser_neg/missing_paren.x exit=1
-PASS neg neg/ternary.x exit=1
-PASS neg neg/do_while.x exit=1
-PASS neg neg/incdec.x exit=1
-PASS neg neg/compound_mul.x exit=1
-negative 汇总：PASS=7 FAIL=0

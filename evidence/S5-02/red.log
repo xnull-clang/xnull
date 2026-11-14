@@ -1,9 +1,0 @@
-test_task.c:166:27: error: call to undeclared function 'xrt_cancel_token_cancelled'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
-  166 |     assert(tok != NULL && xrt_cancel_token_cancelled(tok) == 0);
-      |                           ^
-test_task.c:166:27: note: did you mean 'xrt_context_cancelled'?
-./xrt.h:233:14: note: 'xrt_context_cancelled' declared here
-  233 | int32_t      xrt_context_cancelled(const xrt_context *ctx);
-      |              ^
-1 error generated.
-EXIT=1

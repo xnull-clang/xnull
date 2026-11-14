@@ -1,5 +1,0 @@
-# 原始 stderr
-
-- 先红：`RES-109 跨包导入暂不支持：子文件包名必须与入口一致`（见 `before/red.log`）。
-- 后绿：测试与样例均无 stderr；`go test ./...` 无失败输出。
-- 跨包同名顶层函数：`EmitC` 显式报错（`重载未支持`），不静默合并（`TestMultiPackageNameClashExplicit`）。

@@ -1,1 +1,0 @@
-K-02b-1: 容器登记层 C_ARR/C_SET/C_MAPK/C_MAPV/C_DECL + needArr/needSet/needMap；cType 对 List/Set/Map/T[] 登记元素/键值 C 类型。零输出变化：classes 0、bundle_text 0。

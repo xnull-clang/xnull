@@ -1,1 +1,0 @@
-P2-3: 新增 List<T>.insert 分派；collections_basic 1393→1389、nonnull 1298→1293。函数级 top5（basic）：PriorityQueue.siftDown 45、main 43、BTreeMap.lowerBound 31、PriorityQueue.pop 27、OrderedMap.remove/indexOf 25；nonnull：siftDown 29、pop 25、indexOf 25、main 24、siftUp/remove 23。首因不是类前向排序，而是泛型实例方法的 self root 策略（Go 对 PriorityQueue_i.length 不 root_add(self)，xnullc 加）导致 temp/root 偏移；随后是表达式物化。text 0，全组绿。

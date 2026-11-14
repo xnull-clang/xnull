@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/03_bnd04_struct_ref_field/source.x:1:19: error[TY-204]: 结构体 `S` 的字段 `name` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）

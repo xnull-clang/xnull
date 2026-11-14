@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-09/R02d/source.x:4:12: error[TY-207]: 外部访问私有字段 `_name`：`W` 的私有字段只能类内裸写（§7.4）

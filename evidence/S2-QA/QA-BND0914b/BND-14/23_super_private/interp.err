@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/23_super_private/source.x:2:39: error[TY-207]: `super._x` 不能访问父类 `B` 的私有字段（§7.4）

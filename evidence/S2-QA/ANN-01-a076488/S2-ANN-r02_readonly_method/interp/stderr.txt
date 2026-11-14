@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r02_readonly_method.x:1:11: error[TY-223]: @ReadOnly 只能用于字段（§12.3）

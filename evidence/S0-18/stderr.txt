@@ -1,7 +1,0 @@
-Preparing worktree (new branch 'pod/e1-front')
-Preparing worktree (new branch 'pod/e2-sema')
-Preparing worktree (new branch 'pod/e3-interp')
-Preparing worktree (new branch 'pod/e4-codegen')
-Preparing worktree (new branch 'pod/e5-runtime')
-Preparing worktree (new branch 'pod/e6-toolchain')
-Preparing worktree (new branch 'pod/qa-1')

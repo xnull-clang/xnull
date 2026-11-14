@@ -1,6 +1,0 @@
-# S8-03：依赖管理/版本仲裁/锁文件
-cd impl && go test ./internal/manifest -count=1 -v
-cd impl && go test ./internal/cli -count=1 -run TestLockCommand -v
-# CLI 手工：
-#   XNULL_REPO=<本地仓库> /tmp/xnull lock --update-lock <工程目录>
-#   /tmp/xnull lock <工程目录>

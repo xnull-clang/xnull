@@ -1,6 +1,0 @@
-=== RUN   TestS2BND04StructValueRules
-    s2_bnd04_test.go:8: 不应有语义诊断：[TY-204@结构体 `Pair` 的字段 `a` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式） TY-204@结构体 `Pair` 的字段 `b` 不是值字段类型（§3.2：只允许标量/简单枚举/结构体/值元组及其可空形式）]
---- FAIL: TestS2BND04StructValueRules (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	1.090s
-FAIL

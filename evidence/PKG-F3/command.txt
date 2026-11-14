@@ -1,6 +1,0 @@
-cd impl
-go test ./internal/sema/ -run TestPKGF3AliasVsBareSameName -v -count=1
-# 独立 49 项
-cp /Users/vjs/Desktop/XNull-Lang/evidence/M1-PKG-01-qa/qa2_independent_test.go internal/sema/zz_qa2_test.go
-go test ./internal/sema/ -run TestQA2 -count=1 -v
-rm internal/sema/zz_qa2_test.go

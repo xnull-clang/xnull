@@ -1,5 +1,0 @@
-# negative
-X=/tmp/qa-a2-e2f943c
-XNULL_RUNTIME=/Users/vjs/Desktop/XNull-Lang/impl/runtime
-file=evidence/S2-QA/QA-A2-BND-06/R02b/source.x
-main_sha=e2f943c

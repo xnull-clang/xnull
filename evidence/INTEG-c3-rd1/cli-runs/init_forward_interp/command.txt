@@ -1,1 +1,0 @@
-# command: /tmp/xnull-integ run --interp /Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/init_forward.x

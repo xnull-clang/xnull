@@ -1,3 +1,0 @@
-$ /tmp/xnull_test_net
-net tests passed (socket plain/async/cancel/close + http status/body)
-EXIT=0

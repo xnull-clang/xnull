@@ -1,7 +1,0 @@
-FAIL while_direct: 超时（30s，break 未传播）
-FAIL while_nested_if: exit=0 got=$'10\n9' want=$'4\n3'
-FAIL do_while: exit=0 got=10 want=3
-FAIL for_in: exit=0 got=42 want=3
-----
-S1-02 repro: 0/4 PASS, 4 FAIL
-exit=1

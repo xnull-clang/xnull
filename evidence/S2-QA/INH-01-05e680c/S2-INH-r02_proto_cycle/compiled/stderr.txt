@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/r02_proto_cycle.x:1:10: error[TY-202]: 协议继承环：`P`（§4.1）
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/r02_proto_cycle.x:2:10: error[TY-202]: 协议继承环：`Q`（§4.1）

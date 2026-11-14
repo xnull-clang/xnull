@@ -1,7 +1,0 @@
-=== RUN   TestTrampolineGenerated
-    emit_test.go:318: trampoline 应可生成：ffi: 回调（trampoline）形态预留中——回调根登记需要调度器的栈 pin 语义（S7 §5.1），随调度器切片落地
---- FAIL: TestTrampolineGenerated (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen/ffi	1.132s
-FAIL
-EXIT=1

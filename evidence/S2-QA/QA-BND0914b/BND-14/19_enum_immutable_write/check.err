@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/19_enum_immutable_write/source.x:2:24: error[TY-218]: 数据枚举项字段不可变（§8.3）
-  数据枚举项只读

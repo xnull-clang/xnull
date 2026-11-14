@@ -1,4 +1,0 @@
-py-check-wt=1  go-check-wt=1
-py-res=0  go-res=0
-py-ledger=0  go-ledger=0
-go test ./internal/devtool ./internal/cli = 0

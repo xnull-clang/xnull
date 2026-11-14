@@ -1,2 +1,0 @@
-xnull build source.x --resources . -o /tmp/qa-s6/xdk10_prog
-strings ... | grep a.txt

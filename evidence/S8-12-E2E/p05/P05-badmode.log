@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 build
-xnull.project:1:1: error[XPD-201]: build.mode 非法：fast（限 debug/release/size）
-EXIT=2

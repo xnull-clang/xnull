@@ -1,3 +1,0 @@
-ok  resurrection detection terminates (fatal handler)
-ok  weak slots (invariant 4, cleared before deinit, reusable)
-hard-semantics tests passed

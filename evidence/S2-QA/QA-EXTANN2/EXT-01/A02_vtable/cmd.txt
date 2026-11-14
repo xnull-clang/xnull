@@ -1,3 +1,0 @@
-# positive: check + interp + compiled
-X=/tmp/qa-extann2-main
-file=evidence/S2-QA/QA-EXTANN2/EXT-01/A02_vtable/source.x

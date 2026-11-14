@@ -1,1 +1,0 @@
-/tmp/xnull-s2-0177c80 check /tmp/qa-d-probes/bnd07_ctor.x

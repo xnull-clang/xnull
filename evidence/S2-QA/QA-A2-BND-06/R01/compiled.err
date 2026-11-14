@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-A2-BND-06/R01/source.x:4:5: error[TY-213]: 枚举 switch 未覆盖全部项（§8.5）：遗漏 Green、Blue
-  补 case，或加 default

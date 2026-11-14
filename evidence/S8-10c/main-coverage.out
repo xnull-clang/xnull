@@ -1,4 +1,0 @@
-=== RUN   TestS810bCodeCoverage
---- PASS: TestS810bCodeCoverage (0.01s)
-PASS
-ok  	xnull.dev/xnull/internal/xpd	0.437s

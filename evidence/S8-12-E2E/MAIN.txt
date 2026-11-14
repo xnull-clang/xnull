@@ -1,8 +1,0 @@
-main=68d29f40924573507cbfb2cd8ca9511247abccb8
-date=2026-11-08 17:59:38
-executed_main=9c4f51e0d864c378f0e148aad0c6f643ed8ffbb0
-recheck_main=68d29f40924573507cbfb2cd8ca9511247abccb8
-recheck_f1_f2_f3=0/0/0
-binary=/tmp/xnull-s812 (9c4f51e) ; /tmp/xnull-s812-latest (68d29f4)
-recheck2_main=9de80eb2c295a74d09ab6fe23e17410533b1296c
-recheck2_f1_f2_f3=0/0/0

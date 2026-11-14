@@ -1,1 +1,0 @@
-xnull: fatal: 数组长度必须是非负 Int（§9.3：负数即 panic）

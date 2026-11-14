@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-09/R01a/source.x:1:23: error[TY-207]: `private` 与 `_` 前缀不能同时使用：`W._name`（§7.4）
-  写 `private name` 或裸 `_name`

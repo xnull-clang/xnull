@@ -1,4 +1,0 @@
-=== RUN   TestPKGF2XdkMultilevelPackage
---- PASS: TestPKGF2XdkMultilevelPackage (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.289s

@@ -1,6 +1,0 @@
-# mixed.x @ BND-10 codegen（GC 持 ARC）
-main
-node-deinit
-node-deinit
-helper-deinit
-exit=0

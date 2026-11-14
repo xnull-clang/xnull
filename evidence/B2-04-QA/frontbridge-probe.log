@@ -1,8 +1,0 @@
-=== RUN   TestQAB204DefaultUsesXNull
---- PASS: TestQAB204DefaultUsesXNull (0.58s)
-=== RUN   TestQAB204TimeoutRecordsB2002ThenNoFalsePositive
---- PASS: TestQAB204TimeoutRecordsB2002ThenNoFalsePositive (1.23s)
-=== RUN   TestQAB204NonTimeoutFailureIsB2001
---- PASS: TestQAB204NonTimeoutFailureIsB2001 (0.37s)
-PASS
-ok  	xnull.dev/xnull/internal/frontbridge	2.622s

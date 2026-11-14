@@ -1,5 +1,0 @@
-QA sema:   0 (B2 修复：2:11，不再 0:0)
-QA interp: 1 (B1 主修复通过；剩 1 条为 QA 期望顺序错误，见 acceptance.md 第 3 节)
-closure-try2: 0，stdout=closure-err:bad / after-call / outer-ok
-cleanup: 1，位置 2:11
-sema/interp/examples/go-all/vet/gofmt: 0

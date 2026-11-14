@@ -1,2 +1,0 @@
-difftest/s2/bnd05/r05_override_unknown.x:7:10: error[TY-208]: @Override 未对应任何协议方法（§4.3）
-  删除注解，或改为正确的协议方法签名

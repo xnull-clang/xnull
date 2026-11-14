@@ -1,1 +1,0 @@
-/tmp/xnull-s2-0c2e04a check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r07_enum_item_unknown.x

@@ -1,4 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-S3-MEM13-optimizations	MEM-13	gotest	容器 GC/栈分配/String/Any/Tuple/字段槽/Result try 语义回归	ok internal/codegen	PASS	gotest.out
-S3-MEM13-result-inline	MEM-13	compiled	Result 内联值语义（复制/字段）	rc=1 codegen：Result 表达式 *xfront.IdentExpr 未支持；Result 字段初始化 rc=1	FAIL	../MEM-07/probe1.run.err,../MEM-07/probe2.run.err
-S3-MEM13-policy	MEM-13	policy	策略判定可用	policy=gc, rule=5	PASS	policy.out

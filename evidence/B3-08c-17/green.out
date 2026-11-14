@@ -1,5 +1,0 @@
-PASS bundle_sync
-PASS bundle_tasks
-PASS bundle_collections
-KNOWN-DIFF bundle_text (     394 lines; String/Text/Bytes emission gap)
-xnullc-bundle 汇总：PASS=3 FAIL=0 (text=KNOWN-DIFF)

@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK03-unit	XDK-03	gotest	errors.x 解析/语义 + 14 项/协议 2 成员/CauseError cause	TestXdkErrorsUnitSurface PASS	PASS	gotest-codegen.out
-XDK03-report-void	XDK-03	check	report -> void；不能赋值	`Result x = report(r)` TY-101	PASS	report_assign.check.err
-XDK03-report-stmt	XDK-03	interp	report 语句可执行	rc=0	PASS	report_void.interp.err
-XDK03-report-format	XDK-03	source	`[Kind] describe`	errors.x 使用 `$"[{r.error().kind()}] {r.error().describe()}"`	PASS	impl/lib/xdk/errors.x
-XDK03-wrap-maperr	XDK-03	interp	wrap 丢弃换新；mapErr 转换	TestS4WrapMapErr/TestS4Report PASS	PASS	gotest-interp.out
-XDK03-compiled	XDK-03	compiled	report compiled 端到端	rc=1 codegen：report 不支持错误类型 xrt_error_kind（E4）	BOUNDARY	report_void.compiled.err

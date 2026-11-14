@@ -1,6 +1,0 @@
-=== RUN   TestS2BND12GenericClassBasic
---- PASS: TestS2BND12GenericClassBasic (0.82s)
-=== RUN   TestS2BND12GenericClassNested
---- PASS: TestS2BND12GenericClassNested (0.86s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	2.236s

@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/02_bnd02_new_abstract/source.x:2:27: error[TY-210]: 抽象类 `A` 不能实例化（§2.6）
-  由具体子类实例化，或去掉 abstract

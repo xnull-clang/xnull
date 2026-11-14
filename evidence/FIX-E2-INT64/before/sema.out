@@ -1,6 +1,0 @@
-=== RUN   TestNumericVariantOutOfRange
-    numeric_variant_test.go:34: 期望诊断 TY-101，实际：[]
---- FAIL: TestNumericVariantOutOfRange (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.894s
-FAIL

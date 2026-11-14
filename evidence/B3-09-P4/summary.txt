@@ -1,1 +1,0 @@
-P4: String 成员补齐 replace/trim/startsWith/endsWith/toUpper/toLower/split/charAt；indexOf 已 receiver 先于实参。xnfmt（impl/xnfmt/xnfmt.x）无 .replace/.trim 漏出，raw 7792；top5: Fmt.sep 1282、Fmt.format 809、Fmt.tokenize 634、main 349、keywordNoEnd 296。expr(StrLitExpr) 全局走 emitStr 会回归 parser-seed 0→1040，已回退；仅保留 Member String 字面量赋值走 emitStr。collections basic 1280/nonnull 531 不变；text 0，全组绿。

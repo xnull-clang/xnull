@@ -1,8 +1,0 @@
-# BEFORE HEAD=335f77b (B2-04)，8 语料 × 30 次
-cpu: Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz
-BenchmarkParseUnitCorpus/go-12 	      30	   2686958 ns/op	 2563644 B/op	   10372 allocs/op
-BenchmarkParseUnitCorpus/go-12 	      30	   2718988 ns/op	 2563267 B/op	   10371 allocs/op
-BenchmarkParseUnitCorpus/go-12 	      30	   2699743 ns/op	 2563286 B/op	   10371 allocs/op
-BenchmarkParseUnitCorpus/auto-12         	      30	   5144304 ns/op	 3263277 B/op	   10691 allocs/op
-BenchmarkParseUnitCorpus/auto-12         	      30	   7888280 ns/op	 3263349 B/op	   10693 allocs/op
-BenchmarkParseUnitCorpus/auto-12         	      30	   5506707 ns/op	 3263294 B/op	   10692 allocs/op

@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/10_bnd12_static_type_param/source.x:1:25: error[TY-214]: 静态字段 `value` 不得使用类类型参数（§13.4）
-  改用实例字段，或实例化具体类型

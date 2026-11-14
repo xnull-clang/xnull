@@ -1,7 +1,0 @@
-$ XNULL_REPO=/tmp/s817-repo-fail /tmp/xnull-s817 install
-/tmp/s817-install-fail/src/main/x/main.x:1:18: error[SYN-101]: 期望类型，遇到 `{`
-/tmp/s817-install-fail/src/main/x/main.x:2:1: error[SYN-101]: 期望参数名，遇到 文件结束
-/tmp/s817-install-fail/src/main/x/main.x:2:1: error[SYN-101]: 期望`)`，遇到 文件结束
-/tmp/s817-install-fail/src/main/x/main.x:2:1: error[SYN-101]: 期望`{`，遇到 文件结束
-/tmp/s817-install-fail/src/main/x/main.x:2:1: error[SYN-101]: 期望`}`，遇到 文件结束
-EXIT=1

@@ -1,8 +1,0 @@
---- FAIL: TestS8K07ReadFileText (0.01s)
-    sys_xdk_test.go:27: code=1 err=未定义的函数：readFileText out=""
---- FAIL: TestS8K07ReadFileTextMissing (0.00s)
-    sys_xdk_test.go:48: 错误未点名 readFileText/path：未定义的函数：readFileText
-FAIL
-FAIL	xnull.dev/xnull/internal/interp	0.823s
-FAIL
-EXIT=1

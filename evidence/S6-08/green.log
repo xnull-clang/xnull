@@ -1,7 +1,0 @@
-=== RUN   TestXdkPackageSkeletons
---- PASS: TestXdkPackageSkeletons (0.00s)
-=== RUN   TestXdkLoaderByImport
---- PASS: TestXdkLoaderByImport (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	0.710s
-exit=0

@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-A2-BND-06/R03a/source.x:5:9: error[TY-213]: default 子句必须位于 switch 最后（§8.5）
-  把 default 移到所有 case 之后

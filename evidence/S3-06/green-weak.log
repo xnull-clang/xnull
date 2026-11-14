@@ -1,3 +1,0 @@
-$ /tmp/xnull_test_weak
-weak/barrier tests passed (atomic pool + safepoint-only barrier)
-EXIT=0

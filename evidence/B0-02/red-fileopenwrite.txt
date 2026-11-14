@@ -1,6 +1,0 @@
-=== RUN   TestXDKSysFileOpenWrite
-    xdk_write_test.go:20: 绑定缺少 fileOpenWrite（B0-06 阻塞 #3）
---- FAIL: TestXDKSysFileOpenWrite (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen/ffi	1.134s
-FAIL

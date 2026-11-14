@@ -1,9 +1,0 @@
-testing: warning: no tests to run
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.767s [no tests to run]
-testing: warning: no tests to run
-PASS
-ok  	xnull.dev/xnull/internal/interp	1.066s [no tests to run]
-testing: warning: no tests to run
-PASS
-ok  	xnull.dev/xnull/internal/codegen	1.406s [no tests to run]

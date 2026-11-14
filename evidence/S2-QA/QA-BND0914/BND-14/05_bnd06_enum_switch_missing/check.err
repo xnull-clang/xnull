@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/05_bnd06_enum_switch_missing/source.x:4:5: error[TY-213]: 枚举 switch 未覆盖全部项（§8.5）：遗漏 B
-  补 case，或加 default

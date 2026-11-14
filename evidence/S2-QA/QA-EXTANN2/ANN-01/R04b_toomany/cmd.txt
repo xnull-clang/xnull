@@ -1,3 +1,0 @@
-# negative: xnull check (expected rc=1)
-X=/tmp/qa-extann2-main
-file=evidence/S2-QA/QA-EXTANN2/ANN-01/R04b_toomany/source.x

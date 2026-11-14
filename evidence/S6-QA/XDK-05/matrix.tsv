@@ -1,5 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK05-sema	XDK-05	sema	Mutex/Channel/Atomic 构造与类型规则	TestXDK05SyncConstructors + TestS5SyncTypeRules/ChannelAndMutexFlow PASS	PASS	sema.log
-XDK05-runtime	XDK-05	runtime	Mutex/Channel/Atomic 运行时	sync tests passed (channel/mutex/atomic/cancel)	PASS	runtime-build.log
-XDK05-interp	XDK-05	e2e	解释路径双路径	SKIP：未定义的函数 Mutex	BLOCKED/P2	cli-e2e.log
-XDK05-compiled	XDK-05	e2e	编译路径双路径	SKIP：codegen 类型 Mutex 未支持（M4.1）	BLOCKED/P2	cli-e2e.log

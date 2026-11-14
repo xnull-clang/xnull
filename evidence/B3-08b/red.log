@@ -1,2 +1,0 @@
-# 红：--emit-ast-bundle 未实现
-xnull:1:1: error[CLI-001]: unknown command "--emit-ast-bundle"

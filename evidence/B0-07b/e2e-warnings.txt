@@ -1,3 +1,0 @@
-prog.bin.c:562:24: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
-prog.bin.c:605:21: warning: equality comparison with extraneous parentheses [-Wparentheses-equality]
-prog.bin.c:640:66: warning: incompatible pointer types passing 'rt_string **' (aka 'struct rt_string **') to parameter of type 'xrt_string **' (aka 'struct xrt_string **') [-Wincompatible-pointer-types]

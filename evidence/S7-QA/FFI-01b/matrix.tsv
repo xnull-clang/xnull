@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-FFI01-sync-result	FFI-01	e2e	同步 FFI 返回 `Result<T, ErrorKind>`	`Result<Int64, ErrorKind> ffiRead(...)`、`Result<void, ErrorKind> ffiWrite(...)`	PASS	codegen-s702.log,source-contract.txt
-FFI01-known	FFI-01	e2e	已知码 5 → Err(NotFound)	`Err(NotFound)`；`isErr=true`	PASS	codegen-s702.log
-FFI01-unknown	FFI-01	e2e	未知码 99 → Err(Internal)	`Err(Internal)`	PASS	codegen-s702.log
-FFI01-cancel-timeout	FFI-01	e2e	14→Cancelled、15→Timeout 不降级	`Err(Cancelled)` / `Err(Timeout)`	PASS	codegen-s702.log
-FFI01-ok	FFI-01	e2e	rc=0 → Ok(value)	Ok 分支 PASS	PASS	codegen-s702.log
-FFI01-no-fatal	FFI-01	e2e	无 `exit(134)`	生成 C 无 FFI exit(134)；调用点返回 Result	PASS	codegen-s702.log
-FFI01-runtime-map	FFI-01	runtime	映射 helper 正确	TestS7_02ErrorKindMappingRuntime PASS	PASS	ffi-s702.log

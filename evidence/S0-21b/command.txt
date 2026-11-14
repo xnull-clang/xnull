@@ -1,6 +1,0 @@
-bash: go build -o /tmp/xnull-s021 ./cmd/xnull            # impl/
-bash: /tmp/xnull-s021 dev check                            # cwd=wt/e6-toolchain，对比 golden-check/wt.run1.out
-bash: /tmp/xnull-s021 dev check /Users/vjs/Desktop/XNull-Lang   # 主树只读，对比 golden-check/main.run1.out
-bash: /tmp/xnull-s021 dev ledger                           # 对比 golden-ledger/run1.md（仅头部生成器名一行）
-bash: /tmp/xnull-s021 dev res <fixture> <out.c>            # 对比 golden-res/run1.c
-bash: go test ./internal/devtool ./internal/cli -count=1

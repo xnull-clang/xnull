@@ -1,4 +1,0 @@
-./io/xnull/codec/1.0.0/codec-1.0.0.xlib
-./io/xnull/codec/1.0.0/xnull.project
-./io/xnull/core/1.0.0/core-1.0.0.xlib
-./io/xnull/core/1.0.0/xnull.project

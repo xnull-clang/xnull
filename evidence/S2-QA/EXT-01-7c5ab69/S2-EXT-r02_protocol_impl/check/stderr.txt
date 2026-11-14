@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd13/r02_protocol_impl.x:2:7: error[TY-208]: 类 `C` 未实现协议 `P` 的方法 `f`（§4.3）
-  补充同签名公开实例方法

@@ -1,4 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-TIMEOUT01-join-deadline	TIMEOUT-01	runtime	joinDeadline 超时返回 Timeout，非 panic	rc=XRT_ERR_TIMEOUT；随后 join 得 value=7	PASS	runtime-build.log,source-contract.txt
-TIMEOUT01-deadline-cancel	TIMEOUT-01	runtime	deadline 到期等效 Cancelled	past deadline -> XRT_ERR_CANCELLED	PASS	runtime-build.log
-TIMEOUT01-ffi	TIMEOUT-01	gotest	Timeout ErrorKind 映射不降级	TestS4_04FFIErrorKindRuntime/Timeout PASS	PASS	ffi-timeout.log

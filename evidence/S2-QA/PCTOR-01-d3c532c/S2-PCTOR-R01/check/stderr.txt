@@ -1,4 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r01_mix.x:1:8: error[TY-212]: 主构造器不能与普通构造器混用（§6.3）
-  删除主构造器或普通构造器其一
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r01_mix.x:2:6: error[TY-212]: final 字段 `id` 必须在构造器中恰好赋值一次（实际 0 次，§6.1）
-  删除重复赋值，或补上缺失赋值

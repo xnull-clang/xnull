@@ -1,4 +1,0 @@
-=== RUN   TestMultiFileExampleCompileMatchesInterp
---- PASS: TestMultiFileExampleCompileMatchesInterp (1.51s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	2.489s

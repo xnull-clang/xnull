@@ -1,3 +1,0 @@
-before: 1 (失败测试，见 before/exit_code.txt)
-after:  0 (ERR-01 用例、sema/interp 全量、codegen 示例双路径、go test ./...、vet、gofmt 全部通过)
-probe:  illegal-value=134, illegal-error=134 (§10.1 运行期 panic)

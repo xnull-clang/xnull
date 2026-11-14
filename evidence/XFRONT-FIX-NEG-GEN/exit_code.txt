@@ -1,7 +1,0 @@
-# XFRONT-FIX 退出码（0=通过）
-neg_before = 1（13 FAIL，预期）
-neg_after = 1（12 FAIL，剩余 sema 域）
-gen_before = 1（22 FAIL，预期）
-gen_after = 1（22 FAIL，剩余 sema/interp 域）
-xfront_new_tests = 0
-go_test_all = 0

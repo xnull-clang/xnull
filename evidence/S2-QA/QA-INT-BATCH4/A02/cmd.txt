@@ -1,7 +1,0 @@
-# positive
-X=/tmp/qa-int-e2f943c
-XNULL_RUNTIME=/Users/vjs/Desktop/XNull-Lang/impl/runtime
-file=evidence/S2-QA/QA-INT-BATCH4/A02/source.x
-main_sha=e2f943c (user-declared; no git command run)
-binary_sha256=f922c66346f62cbfaaa607f6ddbda1ab2508f30e314dd29039c63732bc14c748
-go=go version go1.27.3 darwin/amd64

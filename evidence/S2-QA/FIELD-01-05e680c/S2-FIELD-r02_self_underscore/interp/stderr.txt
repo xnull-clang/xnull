@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/field01/r02_self_underscore.x:3:28: error[TY-207]: `self._name` 非法：类内引用私有字段只能写裸 `_name`（§7.4）

@@ -1,5 +1,0 @@
-tests/b3/fixtures/container/array.x        go=1a74c9269c46bb420ec18323904aaadc11d0a52dfd53b5f2bba59ecd60c6e7f5 xn=1a74c9269c46bb420ec18323904aaadc11d0a52dfd53b5f2bba59ecd60c6e7f5
-tests/b3/fixtures/container/containers.x   go=32e01578c853f4f0bfb42c017c1e8a33224105d1a43fabdcc13506fdc37f6697 xn=32e01578c853f4f0bfb42c017c1e8a33224105d1a43fabdcc13506fdc37f6697
-tests/b3/fixtures/container/list.x         go=941179607a29eb91b8dc0cfc3cc08dec2cca518daee8b6b18e63e9ea19171a82 xn=941179607a29eb91b8dc0cfc3cc08dec2cca518daee8b6b18e63e9ea19171a82
-tests/b3/fixtures/container/mapset.x       go=6157aedbeae1cbba93aa8b526462751b4612d8cdd14648fc6cefcedd941b7c83 xn=6157aedbeae1cbba93aa8b526462751b4612d8cdd14648fc6cefcedd941b7c83
-tests/b3/fixtures/container/oob.x          go=41a1c4bdbe17ad1962791194f82d18cc65017c4cf1a0dccee9e2c25c7ff0f930 xn=41a1c4bdbe17ad1962791194f82d18cc65017c4cf1a0dccee9e2c25c7ff0f930

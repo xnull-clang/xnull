@@ -1,4 +1,0 @@
-$ XNULL_REPO=/tmp/s814-repo-starter-mismatch /tmp/xnull-s814 build
-/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/starter-mismatch/app:1:1: error[XPD-403]: 模块 app 依赖 io.xnull:codec 版本 9.9.9 ≠ 模块版本 1.0.0（S8 §4.2）
-/Users/vjs/Desktop/XNull-Lang/tests/s8/s814/starter-mismatch/bundle:1:1: error[XPD-403]: 模块 bundle 依赖 io.xnull:codec 版本 9.9.9 ≠ 模块版本 1.0.0（S8 §4.2）
-EXIT=1

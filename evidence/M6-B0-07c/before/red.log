@@ -1,6 +1,0 @@
-=== RUN   TestFFIHandleOpenClose
-    ffi_handle_test.go:48: EmitCWithFFI: codegen：类型 File 未支持（M4.1 范围）
---- FAIL: TestFFIHandleOpenClose (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	2.007s
-FAIL

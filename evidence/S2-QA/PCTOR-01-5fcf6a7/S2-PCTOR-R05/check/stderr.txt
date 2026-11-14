@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r05_final_twice.x:3:6: error[TY-212]: final 字段 `x` 必须在构造器中恰好赋值一次（实际 2 次，§6.1）
-  删除重复赋值，或补上缺失赋值

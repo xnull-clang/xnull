@@ -1,7 +1,0 @@
-xn-s1: /tmp/xnullc-go2
-bytes= 1669664
-sha256=3adc100e4cbe89d6844ee4c641c1df22db8b313c5a5f0673cd6609388c983c2d
-hello_c_lines=     440
-hello_output:
-hello, XNull
-1 + 2 = 3

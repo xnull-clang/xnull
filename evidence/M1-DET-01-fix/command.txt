@@ -1,7 +1,0 @@
-# 工作目录：wt/c1-rd2/impl（pod/c1-rd2）
-# 红：先放入 DET-01 用例（取自 pod/c3-rd2@4b94fee），未打补丁
-cp ../c3-rd2/impl/internal/sema/det01_test.go internal/sema/det01_test.go
-go test ./internal/sema -run 'TestDET01Diag' -count=1 -v
-# 绿：应用 fix-proposal.diff 的 3 处 sort.Strings + 排序循环
-go test ./internal/sema -run 'TestDET01Diag' -count=1 -v
-go test ./internal/sema -count=1

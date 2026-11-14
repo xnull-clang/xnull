@@ -1,1 +1,0 @@
-/tmp/xnull-s2-d3c532c run /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/a01_primary.x 

@@ -1,8 +1,0 @@
-cd /tmp/integ-final   # git archive f63fcba
-cd impl && go vet ./...
-go test ./... -count=1 -timeout 300s
-cd /tmp/integ-final && bash impl/runtime/build_rt.sh
-cd impl && go test ./internal/sema -run 'TestTuple|TestNumericVariant|TestInt64' -count=1 -v
-go test ./internal/interp -run TestTuple -count=1 -v
-go test ./internal/sema -run 'TestQA2Int64NegativeOverflowProbe|TestQA2NumericVariantBoundaries|TestQA2NumericVariantCompareBoundaries|TestQA2TupleIndependent' -count=1 -v
-go test ./internal/interp -run TestQA2TupleRuntimeProbe -count=1 -v

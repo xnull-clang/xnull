@@ -1,4 +1,0 @@
-=== RUN   TestFFIHandleOpenClose
---- PASS: TestFFIHandleOpenClose (1.67s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	2.239s

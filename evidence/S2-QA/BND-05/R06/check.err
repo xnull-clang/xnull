@@ -1,2 +1,0 @@
-difftest/s2/bnd05/r06_multi_conflict.x:7:7: error[TY-208]: 协议方法 `f` 的返回类型冲突（A vs B，§4.3）
-  统一返回类型或拆分协议

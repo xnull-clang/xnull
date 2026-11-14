@@ -1,4 +1,0 @@
-=== RUN   TestS3TextTypesMethods
---- PASS: TestS3TextTypesMethods (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.628s

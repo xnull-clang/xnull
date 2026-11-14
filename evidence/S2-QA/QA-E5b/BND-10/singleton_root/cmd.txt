@@ -1,3 +1,0 @@
-# positive: check + interp + compiled
-X=/tmp/qa-e5b-main
-file=evidence/S2-QA/QA-E5b/BND-10/singleton_root/source.x

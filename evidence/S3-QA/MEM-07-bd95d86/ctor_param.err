@@ -1,8 +1,0 @@
-/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2431616673/prog.c:285:31: error: unknown type name 'xn_Result_Int_String'
-  285 | static xn_Cls_C *xn_Cls_C_new(xn_Result_Int_String xn_p_x);
-      |                               ^
-/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-2431616673/prog.c:286:44: error: unknown type name 'xn_Result_Int_String'
-  286 | static void xn_Cls_C_new_init(xn_Cls_C *o, xn_Result_Int_String xn_p_x);
-      |                                            ^
-2 errors generated.
-xnull: C 编译失败：exit status 1

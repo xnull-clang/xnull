@@ -1,7 +1,0 @@
-# xnull.dev/xnull/internal/sema [xnull.dev/xnull/internal/sema.test]
-internal/sema/s2_bnd06_test.go:31:5: undefined: TyEnumSwitch
-internal/sema/s2_bnd06_test.go:47:5: undefined: TyEnumSwitch
-internal/sema/s2_bnd06_test.go:63:5: undefined: TyEnumSwitch
-internal/sema/s2_bnd06_test.go:103:5: undefined: TyEnumSwitch
-FAIL	xnull.dev/xnull/internal/sema [build failed]
-FAIL

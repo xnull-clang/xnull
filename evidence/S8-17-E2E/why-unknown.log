@@ -1,3 +1,0 @@
-$ XNULL_REPO=/Users/vjs/Desktop/XNull-Lang/tests/s8/s817/repo /tmp/xnull-s817b why g:nope
-xnull: 依赖 g:nope 未被解析（不在依赖图中）
-EXIT=2

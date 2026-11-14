@@ -1,4 +1,0 @@
-$ /tmp/xnull-s812 build --skip package
-F1-TEST-OK
-/tmp/s812-run/p05/skip-pkg/app/target/app-1.0.0
-EXIT=0

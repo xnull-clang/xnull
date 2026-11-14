@@ -1,6 +1,0 @@
-f-defer
-ok
-false
-f-err
-f-defer
-boom

@@ -1,4 +1,0 @@
-/tmp/qa-d-probes/bnd08_new_factory.x:6:5: error[TY-217]: factory `F` 不是类型，不能用于类型位置（§10.4）
-  改用 Target 类型或工厂方法返回类型
-/tmp/qa-d-probes/bnd08_new_factory.x:6:11: error[TY-216]: `F` 不是可实例化类型（singleton/factory，§9.4/§10.5）
-  使用 instance 或工厂方法

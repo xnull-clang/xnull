@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-INT-BATCH4/R01/source.x:8:32: error[TY-220]: factory 方法 `open` 返回类型 `Result<Int,String>` 不能归到 Target `Device`（§10.2）
-  返回 Target/父类/协议/Object 或 Result 包装

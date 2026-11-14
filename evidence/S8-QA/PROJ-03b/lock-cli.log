@@ -1,4 +1,0 @@
-=== RUN   TestLockCommand
---- PASS: TestLockCommand (0.01s)
-PASS
-ok  	xnull.dev/xnull/internal/cli	0.643s

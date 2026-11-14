@@ -1,6 +1,0 @@
-=== RUN   TestS2EnumDefaultLast
-    s2_enum_default_test.go:7: 期望诊断 TY-213，实际：[]
---- FAIL: TestS2EnumDefaultLast (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.752s
-FAIL

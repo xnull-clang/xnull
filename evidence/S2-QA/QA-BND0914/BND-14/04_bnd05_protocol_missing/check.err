@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-14/04_bnd05_protocol_missing/source.x:2:7: error[TY-208]: 类 `C` 未实现协议 `P` 的方法 `go`（§4.3）
-  补充同签名公开实例方法

@@ -1,8 +1,0 @@
----- 分片 1/4（43 例）：绿 ----
-ok  	xnull.dev/xnull/internal/codegen	70.052s
----- 分片 2/4（50 例）：绿 ----
-ok  	xnull.dev/xnull/internal/codegen	92.346s
----- 分片 3/4（48 例）：绿 ----
-ok  	xnull.dev/xnull/internal/codegen	99.459s
----- 分片 4/4（51 例）：绿 ----
-ok  	xnull.dev/xnull/internal/codegen	90.724s

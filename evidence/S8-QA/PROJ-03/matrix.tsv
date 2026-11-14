@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ03-managed	PROJ-03	gotest	管理表就近提供版本	TestDependencyManagement/管理版本生效 PASS	PASS	manifest.log
-PROJ03-missing	PROJ-03	gotest	缺版本失败	XPD-401	PASS	manifest.log
-PROJ03-version	PROJ-03	gotest	范围/SNAPSHOT/LATEST 拒绝	XPD-402（依赖）	PASS	manifest.log
-PROJ03-override	PROJ-03	gotest	显式覆盖管理版本告警	Warnings 非空	PASS	manifest.log
-PROJ03-scope	PROJ-03	gotest	管理表 scope/optional 失败	XPD-407（scope）	PASS	manifest.log
-PROJ03-graph	PROJ-03	code	传递依赖/同深度冲突仲裁	无依赖图；S8-03 回执明确未做	FAIL	回执-S8-03-E6.md

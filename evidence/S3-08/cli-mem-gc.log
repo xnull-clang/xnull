@@ -1,4 +1,0 @@
-$ build plain.x --mem=gc --stats
-gc_new=1
-xrt stats: allocs=1 frees=1 live=0 bytes=136 gc_collections=1 gc_freed=1
-1

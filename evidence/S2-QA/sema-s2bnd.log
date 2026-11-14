@@ -1,6 +1,0 @@
-=== RUN   TestS2BND01VisibilityMatrix
---- PASS: TestS2BND01VisibilityMatrix (0.00s)
-=== RUN   TestS2BND05ProtocolImplementation
---- PASS: TestS2BND05ProtocolImplementation (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.786s

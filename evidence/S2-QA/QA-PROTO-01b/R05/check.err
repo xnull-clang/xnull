@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-PROTO-01b/R05/source.x:2:32: error[TY-208]: 协议方法 `ready` 返回类型不符：期望 Bool，实际 Int（§4.3）

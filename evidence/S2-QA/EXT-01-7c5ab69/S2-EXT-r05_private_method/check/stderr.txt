@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/bnd13/r05_private_method.x:2:15: error[SYN-101]: 扩展方法不能写可见性/static/final 修饰符（§11.1、附录 A ExtensionMember）

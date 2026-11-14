@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 build --profile dev
-/tmp/s812-run/f1/n5/app/xnull.project:1:1: error[XPD-309]: -P 指定的 profile "dev" 未在清单中声明（S8 §3.8）
-EXIT=2

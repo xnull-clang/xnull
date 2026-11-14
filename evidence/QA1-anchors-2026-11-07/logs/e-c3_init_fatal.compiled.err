@@ -1,4 +1,0 @@
-/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/xnull-run-3704476246/prog.c:144:17: warning: division by zero is undefined [-Wdivision-by-zero]
-  144 |     xn_g_a = (1 / 0);
-      |                 ^ ~
-1 warning generated.

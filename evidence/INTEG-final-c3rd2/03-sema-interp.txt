@@ -1,3 +1,0 @@
-ok  	xnull.dev/xnull/internal/sema	10.886s
-ok  	xnull.dev/xnull/internal/interp	11.499s
-RC=0

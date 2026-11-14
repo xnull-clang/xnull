@@ -1,9 +1,0 @@
-=== RUN   TestClosureTryReturnsFromClosure
-=== RUN   TestClosureTryReturnsFromClosure/NoPenetration
-=== RUN   TestClosureTryReturnsFromClosure/OuterErrdeferNotTriggered
---- PASS: TestClosureTryReturnsFromClosure (0.00s)
-    --- PASS: TestClosureTryReturnsFromClosure/NoPenetration (0.00s)
-    --- PASS: TestClosureTryReturnsFromClosure/OuterErrdeferNotTriggered (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/interp	30.963s
-exit=0

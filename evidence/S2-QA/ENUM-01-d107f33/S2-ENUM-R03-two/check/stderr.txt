@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/r03_two_default.x:4:5: error[SYN-101]: default 子句最多一个

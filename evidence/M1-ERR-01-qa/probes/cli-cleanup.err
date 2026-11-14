@@ -1,3 +1,0 @@
-/private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/qa-m1-err01-main/probes/cleanup-localdecl.x:0:0: error[ERR-205]: defer/errdefer 的单条语句体不得是局部声明（§10.3）
-  需要局部变量时改用花括号体
-exit status 1

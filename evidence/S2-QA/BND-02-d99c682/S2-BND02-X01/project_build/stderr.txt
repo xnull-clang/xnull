@@ -1,2 +1,0 @@
-xnull:1:1: error[CLI-003]: 找不到 xnull.project
-  在进程内向上查找清单；确认当前目录属于某个工程

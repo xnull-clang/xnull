@@ -1,8 +1,0 @@
-=== RUN   TestS7_02ErrorCodeNoFatal
---- PASS: TestS7_02ErrorCodeNoFatal (1.03s)
-=== RUN   TestS7_02ErrorKindExpr
---- PASS: TestS7_02ErrorKindExpr (0.00s)
-=== RUN   TestS7_02ErrorCodeReturnNoFatal
---- PASS: TestS7_02ErrorCodeReturnNoFatal (1.43s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	3.532s

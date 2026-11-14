@@ -1,5 +1,0 @@
-$ /tmp/xnull_test_abi_link
-xnull runtime fatal: xrt_alloc：运行时未初始化（S7 §6.3：先调 xrt_runtime_init）
-xnull runtime fatal: trampoline：已注销的 env 被调用（S7 §5.2 合同违规）
-abi link tests passed (xrt.h only, init order, weak gate, handle/callback)
-EXIT=0

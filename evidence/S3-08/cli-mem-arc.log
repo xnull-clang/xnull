@@ -1,4 +1,0 @@
-$ build cycle.x --mem=arc --stats
-arc_new=1
-xrt stats: allocs=3 frees=1 live=2 bytes=349 gc_collections=1 gc_freed=0
-main

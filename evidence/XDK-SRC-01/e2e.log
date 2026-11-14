@@ -1,5 +1,0 @@
-PASS text
-PASS sys_file
-PASS resources
-PASS net_http
-XDK 源码层：PASS=4 FAIL=0

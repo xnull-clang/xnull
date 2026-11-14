@@ -1,5 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK09-sysasync	XDK-09	runtime	File/Dir/Process Async + close + cancel	build_rt：sysasync tests passed	PASS	runtime-build.log
-XDK09-emit	XDK-09	gotest	Async/Process 发射形态	TestS6_03AsyncAndProcessSurface PASS	PASS	codegen-s603.log
-XDK09-proc	XDK-09	gotest	procStatus + file/dir close 幂等	FAIL：链接缺 xrt_resource_* 符号（测试 harness 未接空资源表）	BLOCKED/P2	codegen-s603.log
-XDK09-net	XDK-09	sema	net 独立包可导入	`xdk.net` 仅骨架；socket API 未冻结	BLOCKED/P2	impl/lib/xdk/net.x

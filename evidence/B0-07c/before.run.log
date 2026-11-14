@@ -1,4 +1,0 @@
-FAIL test_abi.c:129: stderr_bytes_during(release_handle_under_test) == 0
-FAIL test_abi.c:135: stderr_bytes_during(release_handle_under_test) == 0
-abi 测试失败 2 项
-BEFORE_EXIT=1

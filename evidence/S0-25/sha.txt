@@ -1,6 +1,0 @@
-基线 HEAD = b7be5133e4eff1d493f7c70b0c5ed1dffe4e98ca
-生成器二进制 = d8fd580db727539392f68ccf4a99741eb4ad48bd792fbd49b310c2765ff74c62
-新基线 golden/res-with-subdir.c = 9ff1c21d122c9a56c2d38c30dbdb52deb48248dd3572e58b720c3eee91312a43
-旧 fixture 重生成 golden/res-no-subdir.c = 2f88b9314adf77fc9a731202627d042242f7ebfe71e76c244afa9326b3c95949
-Python golden evidence/S0-21a/golden-res/run1.c = 2f88b9314adf77fc9a731202627d042242f7ebfe71e76c244afa9326b3c95949
-go 版本 = go1.27.3 darwin/amd64

@@ -1,1 +1,0 @@
-difftest/s2/bnd06/r03_two_default.x:4:5: error[SYN-101]: default 子句最多一个

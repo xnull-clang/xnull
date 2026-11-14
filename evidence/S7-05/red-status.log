@@ -1,4 +1,0 @@
-$ grep -n "候选冻结" impl/runtime/xrt.h
-3: * 状态：**ABI v1 候选冻结**（EXP-012，2026-11-07）。符号与签名冻结为候选消费面，
-$ grep -n "xrt_runtime_init" impl/internal/codegen/codegen.go
-NOT FOUND

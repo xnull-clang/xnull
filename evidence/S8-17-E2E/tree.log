@@ -1,6 +1,0 @@
-$ XNULL_REPO=/Users/vjs/Desktop/XNull-Lang/tests/s8/s817/repo /tmp/xnull-s817b tree
-g:app@1.0.0
-  g:a@1.0.0
-  g:c@1.0.0
-    g:x@1.0.0
-EXIT=0

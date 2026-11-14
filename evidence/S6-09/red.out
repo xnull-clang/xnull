@@ -1,7 +1,0 @@
---- FAIL: TestS609NetSignatures (0.00s)
-    s6_09_test.go:7: 不应有语义诊断：[RES-101@未定义的名称 `connect`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `connectAsync`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `bind`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `getAsync`（§3.3 四级顺序解析后不可见） RES-101@未定义的名称 `post`（§3.3 四级顺序解析后不可见） TY-229@XDK 类型 `Socket` 的成员 `readAsync` 尚未支持（S6-01） TY-229@XDK 类型 `Socket` 的成员 `close` 尚未支持（S6-01） TY-229@XDK 类型 `Listener` 的成员 `acceptAsync` 尚未支持（S6-01） TY-229@XDK 类型 `Listener` 的成员 `close` 尚未支持（S6-01） RES-101@未定义的类型 `Response`（§3.3/§8.1） RES-101@未定义的类型 `Response`（§3.3/§8.1）]
---- FAIL: TestS609NetNegative (0.00s)
-    s6_09_test.go:55: 期望诊断 TY-101，实际：[RES-105@XDK 符号 `Error` 未显式导入（定义于 xdk.errors）（§3.5） RES-101@未定义的名称 `connect`（§3.3 四级顺序解析后不可见）]
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.804s
-FAIL

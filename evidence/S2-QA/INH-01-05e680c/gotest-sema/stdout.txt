@@ -1,4 +1,0 @@
-=== RUN   TestInheritanceRules
---- PASS: TestInheritanceRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.012s

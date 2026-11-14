@@ -1,1 +1,0 @@
-/tmp/xnull-s2-base run /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/inh01/a02_multilevel.x

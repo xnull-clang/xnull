@@ -1,6 +1,0 @@
-=== RUN   TestS2BND0708SingletonFactory
---- PASS: TestS2BND0708SingletonFactory (0.00s)
-=== RUN   TestS2BND07SingletonRules
---- PASS: TestS2BND07SingletonRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	1.259s

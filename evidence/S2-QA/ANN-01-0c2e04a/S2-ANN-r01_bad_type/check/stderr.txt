@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/ann01/r01_bad_type.x:2:19: error[TY-223]: 注解字段类型 `C` 不是编译期常量类型（§12.1）

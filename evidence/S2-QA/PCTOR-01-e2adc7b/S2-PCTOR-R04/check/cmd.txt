@@ -1,1 +1,0 @@
-/tmp/xnull-s2-e2adc7b check /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/pctor01/r04_super_not_first.x 

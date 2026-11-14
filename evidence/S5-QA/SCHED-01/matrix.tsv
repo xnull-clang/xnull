@@ -1,5 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-SCHED01-basic	S5-SCHED-01	runtime	spawn/join/close/取消/超时基础调度	task tests PASS	PASS	runtime-build.log
-SCHED01-blocking-decl	S5-SCHED-01	gotest	阻塞分类清单覆盖绑定层入口	TestBlockingClassificationDocInSync PASS	PASS	blocking-manifest.log
-SCHED01-carrier	S5-SCHED-01	runtime	任务感知阻塞不占载体线程	单载体线程：长阻塞/挂起占住唯一 worker，其他任务饥饿	FAIL	runtime-build.log,impl/runtime/rt_task.c
-SCHED01-unaware	S5-SCHED-01	runtime	`.unaware` 长阻塞有伴生执行器	无 M:N/伴生执行器；BlockingManifest 仅声明	FAIL	收件箱/门/S5盘点-E5.md P0-6,回执-S5-03-E5.md

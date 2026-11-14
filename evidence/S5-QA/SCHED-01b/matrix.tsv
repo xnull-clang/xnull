@@ -1,6 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-SCHED01-carrier-pool	S5-SCHED-01	runtime	任务感知阻塞不占载体：3 个阻塞任务 + flag 任务	flag 在 150ms 内执行，r.ok=1	PASS	runtime-build.log,source-contract.txt
-SCHED01-companion	S5-SCHED-01	runtime	`.unaware` 伴生执行器不阻塞载体	2×150ms companion 提交期间 flag 任务 <80ms 完成	PASS	runtime-build.log,source-contract.txt
-SCHED01-cancel	S5-SCHED-01	runtime	取消/超时可打断等待	companion_wait(deadline 10ms) 返回 XRT_ERR_CANCELLED；随后可完成	PASS	runtime-build.log
-SCHED01-basic	S5-SCHED-01	runtime	spawn/join/close/cancel/timeout	task tests PASS	PASS	runtime-build.log
-SCHED01-blocking-decl	S5-SCHED-01	gotest	阻塞分类清单一致	TestBlockingClassificationDocInSync PASS	PASS	../SCHED-01/blocking-manifest.log

@@ -1,7 +1,0 @@
-# pod/e4-codegen 70f4385: generated field assignment (retain new / release old)
-387:rt_retain(a1);
-388:rt_release(h->a);
-389:h->a = a1;
-394:rt_retain(a2);
-395:rt_release(h->a);
-396:h->a = a2;

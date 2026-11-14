@@ -1,5 +1,0 @@
-tree_commit=f63fcba (f63fcba52a763eb6176c2fabe7aedd80352f72a2)
-e2_sema_merge=49cbb27
-fix_commit=92ef021 (fix(sema): Int64 负向越界禁止补码回绕)
-ancestor_92ef021=TRUE
-go version: go version go1.27.3 darwin/amd64

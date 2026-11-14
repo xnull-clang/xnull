@@ -1,3 +1,0 @@
-cd impl
-go test ./internal/sema/ -run TestTupleOptionalDeclaration -v -count=1
-go test ./internal/sema/ ./internal/xfront/ -count=1

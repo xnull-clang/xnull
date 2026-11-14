@@ -1,7 +1,0 @@
-PASS while_direct: 3
-PASS while_nested_if: 4
-3
-PASS do_while: 3
-PASS for_in: 3
-----
-S1-02 repro: 4/4 PASS, 0 FAIL

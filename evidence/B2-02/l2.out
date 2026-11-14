@@ -1,8 +1,0 @@
-PASS L2 tests/b2/parser_cases/basic.x
-PASS L2 tests/b2/parser_cases/expr.x
-PASS L2 tests/b2/parser_cases/lambda.x
-PASS L2 tests/b2/parser_cases/stmt.x
-PASS NEG chain_cmp.x
-PASS NEG missing_brace.x
-PASS NEG missing_paren.x
-汇总：PASS=7 FAIL=0

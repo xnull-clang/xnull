@@ -1,1 +1,0 @@
-# command: /private/var/folders/zr/vyzqhmcn20ggrvrkdpblvchm0000gn/T/opencode/integ-final/xnull run /Users/vjs/Desktop/XNull-Lang/evidence/INTEG-c3-rd1/cases/void_args.x alpha beta

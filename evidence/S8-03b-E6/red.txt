@@ -1,7 +1,0 @@
-# xnull.dev/xnull/internal/manifest [xnull.dev/xnull/internal/manifest.test]
-internal/manifest/graph_test.go:48:65: undefined: Graph
-internal/manifest/graph_test.go:55:12: undefined: ResolveGraph
-internal/manifest/graph_test.go:90:15: undefined: GenerateLockForGraph
-internal/manifest/graph_test.go:179:12: undefined: ResolveGraph
-FAIL	xnull.dev/xnull/internal/manifest [build failed]
-FAIL

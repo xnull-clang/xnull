@@ -1,6 +1,0 @@
-red_test=1
-after_ffi_tests=0
-go_test_all=0
-sample_build=0
-sample_run=0
-runtime_repro=0   # 复现脚本本身成功（输出泄漏告警属运行时缺陷）

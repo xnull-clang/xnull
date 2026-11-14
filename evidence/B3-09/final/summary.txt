@@ -1,5 +1,0 @@
-harness: PASS0=141 DIFF=0 NEG-PASS=98 EXCLUDED=2 FAIL=0
-xparser: 29553 lines cmp SAME sha256 a88a3e074729a6630a62914831913e7aa0d14b715aebe4a7d60d836780aa0bb9
-examples: 9/9 dual-path + determinism
-fulltest: PKG_EXIT=0
-codegen shards: CG_EXIT=0（4/4 绿）

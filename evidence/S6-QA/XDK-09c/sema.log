@@ -1,6 +1,0 @@
-=== RUN   TestS609NetSignatures
---- PASS: TestS609NetSignatures (0.00s)
-=== RUN   TestS609NetNegative
---- PASS: TestS609NetNegative (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	2.153s

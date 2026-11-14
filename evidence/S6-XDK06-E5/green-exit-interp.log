@@ -1,3 +1,0 @@
-$ xnull run --interp exit.x
-before
-EXIT=7

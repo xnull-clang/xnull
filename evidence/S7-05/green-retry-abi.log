@@ -1,3 +1,0 @@
-xnull runtime fatal: xrt_alloc：运行时未初始化（S7 §6.3：先调 xrt_runtime_init）
-abi v1 tests passed (XRT_ABI_VERSION=1, init order)
-EXIT=0

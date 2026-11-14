@@ -1,1 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914/BND-09/X01b/main.x:2:7: error[TY-203]: 字段基名 `x` 在父类 `B` 中已声明：字段隐藏被拒绝（§2.5/§7.4）

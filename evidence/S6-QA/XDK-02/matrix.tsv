@@ -1,8 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-XDK02-result	XDK-02	sema	可失败操作返回 Result	TestS601XDK02Clause1Result PASS	PASS	sema.log
-XDK02-context	XDK-02	sema	默认异步/可阻塞 API 首参 Context	TestS601XDK02Clause3ContextFirst PASS	PASS	sema.log
-XDK02-deps	XDK-02	check	依赖方向/环/命名/稳定性	TestXDKContractsDependencyViolation/Cycle/Naming/StabilityMismatch PASS	PASS	contracts.log
-XDK02-implicit	XDK-02	check	无隐藏全局可变状态	TestXDKContractsImplicitGlobal PASS	PASS	contracts.log
-XDK02-resource	XDK-02	check	资源 close 合同	TestXDKContractsResourceClose PASS	PASS	contracts.log
-XDK02-repo	XDK-02	check	真仓库 8 单元核验	TestXDKContractsRepo PASS	PASS	contracts.log
-XDK02-blocking	XDK-02	check	阻塞分类清单	TestBlockingClassificationDocInSync PASS	PASS	blocking.log

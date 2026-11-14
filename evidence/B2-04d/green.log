@@ -1,6 +1,0 @@
-# 修复后
-TOK/DIAG：0 差异
-AST：37/39（parser_cases+corpus）
-FAIL：tests/b2/corpus/impl/lib/xdk/text.x
-FAIL：tests/b2/corpus/impl/xnfmt/xnfmt.x（GC 开启时段错误；关闭 safepoint 后字节一致）
-最小复现：evidence/B2-04d/min-repro/RESULTS.md

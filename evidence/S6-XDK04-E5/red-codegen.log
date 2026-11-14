@@ -1,9 +1,0 @@
-=== RUN   TestS6_XDK04GroupMustClose
-    s6_xdk04_test.go:20: 未 close 的任务组应触发合同诊断；stderr=""
---- FAIL: TestS6_XDK04GroupMustClose (1.83s)
-=== RUN   TestS6_XDK04GroupCloseOK
---- PASS: TestS6_XDK04GroupCloseOK (1.86s)
-FAIL
-FAIL	xnull.dev/xnull/internal/codegen	4.403s
-FAIL
-EXIT=1

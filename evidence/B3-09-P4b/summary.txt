@@ -1,1 +1,0 @@
-P4b: AssignStmt 去除重复求值（String 赋值先 expr 又 emitStr），Fmt.format 的 replace 字面量不再各发两遍；String 参数纳入 own，同作用域 String 赋值改 rt_release→assign→xn_root_add（Go 同），不再 xn_root_release/hold。xnfmt 7792→7763；Fmt.format 首因现为 temp 基线 -13（Go t69 vs 136 t56），来自前面 Fmt.sep/tokenize 的 temp 消耗；text 0，collections/全组不回归。

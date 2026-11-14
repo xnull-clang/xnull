@@ -1,4 +1,0 @@
-=== RUN   TestPrivateFieldRules
---- PASS: TestPrivateFieldRules (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.685s

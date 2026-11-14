@@ -1,4 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-SYNC02-channel	S5-SYNC-02	runtime	Channel 收发/关闭幂等/close 唤醒/剩余元素释放	test_channel_basic/cancel_and_close_wake/task_exchange PASS	PASS	runtime-build.log
-SYNC02-cancel	S5-SYNC-02	runtime	send/receive 可取消	阻塞 receive 被取消 → kind=Cancelled	PASS	runtime-build.log
-SYNC02-rules	S5-SYNC-02	sema	Channel 关闭后 send 拒绝；类型检查	TestS5ChannelAndMutexFlow PASS	PASS	sema.log

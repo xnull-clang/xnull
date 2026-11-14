@@ -1,1 +1,0 @@
-/tmp/xnull-s2-afb5579 run --runtime /tmp/xnull-main-afb55797c18aeaa4e9c6cf7f8a887abe0f3a6ca7/impl/runtime /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/enum01/a01_simple.x 

@@ -1,7 +1,0 @@
-# 原始 stderr
-
-- 先红（构建失败）：见 `before/ffi-before.log`。
-- 后绿：`go test` 无 stderr；`gofmt -l`、`go vet` 无输出。
-- 样例 `xnull build`：C 编译通过，链接阶段缺原生符号（P-10 归 E6）：
-  `Undefined symbols: _native_add / _native_strlen2`，exit 1 —— 见 `sample/build-cli.out`。
-- 手工链接原生符号（P-09 验收面）：`sample/cc-manual.out` 为空，运行无 stderr。

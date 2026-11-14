@@ -1,1 +1,0 @@
-C.9: bundle_text raw=0（109514 bytes 逐字节一致）；附录 E &&/|| 括号已修；defer 体 root_add 层间缩进修正（外层 wrapper 0，体自身 8/12/16）。xnullc-ffi=5/5、bundle=4/4（text 已转 pass）、obj=4/4、containers=5/5、expr-stmt=6/6、gen=3/3、obj2=5/5、obj3=5/5、tuple=5/5、type=2/2、err=5/5；mem=8/3（历史缺口，非本轮回归）。

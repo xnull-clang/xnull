@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 lock --update-lock
-/tmp/s812-run/f2/n7/xnull.project:1:1: error[XPD-401]: 依赖 g:lib 无版本：自身未写且 management 未提供（S8 §3.5）
-EXIT=1

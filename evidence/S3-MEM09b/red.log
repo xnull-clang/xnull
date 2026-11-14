@@ -1,2 +1,0 @@
-Assertion failed: (xrt_weak_read(w) == env), function test_shared_env_root, file test_task.c, line 200.
-EXIT=134

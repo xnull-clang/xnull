@@ -1,6 +1,0 @@
-=== RUN   TestPKGF2XdkMultilevelPackage
-    pkg_xdk_f2_test.go:7: 不应有语义诊断：[RES-106@XDK 包 `xdk.net` 没有导出符号 `http`（§3.5）]
---- FAIL: TestPKGF2XdkMultilevelPackage (0.00s)
-FAIL
-FAIL	xnull.dev/xnull/internal/sema	0.864s
-FAIL

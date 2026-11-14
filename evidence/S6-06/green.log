@@ -1,6 +1,0 @@
-=== RUN   TestXdkErrorsUnitSurface
-    xdk_errors_test.go:35: codegen 限制（E4 范围，暂不阻塞源码单元）：codegen：Result 错误类型暂仅支持 String（M4.1 范围）
---- PASS: TestXdkErrorsUnitSurface (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/codegen	1.120s
-exit=0

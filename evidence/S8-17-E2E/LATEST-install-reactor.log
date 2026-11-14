@@ -1,6 +1,0 @@
-xnull: 已安装 /tmp/s817c-reactor/io/xnull/core/1.0.0/core-1.0.0.xlib（sha256 5d6965e92ef575f19e4f889d8331a35d42bd7b037b20c517a7f5c0e5975f38a5）
-xnull: 已安装 /tmp/s817c-reactor/io/xnull/codec/1.0.0/codec-1.0.0.xlib（sha256 cf099f7a3673342c8761a2daaf850f0f9c1cd5358199e70c544338ea87a5a4d3）
-module core /Users/vjs/Desktop/XNull-Lang/tests/s8/s814/topo/core/target/core-1.0.0.xlib 5d6965e92ef575f19e4f889d8331a35d42bd7b037b20c517a7f5c0e5975f38a5
-module codec /Users/vjs/Desktop/XNull-Lang/tests/s8/s814/topo/codec/target/codec-1.0.0.xlib cf099f7a3673342c8761a2daaf850f0f9c1cd5358199e70c544338ea87a5a4d3
-module app /Users/vjs/Desktop/XNull-Lang/tests/s8/s814/topo/app/target/app-1.0.0 92fcbf39bf262403f119dc507b5fdeb10dda7f9c2073d379d38234bc0bbe2199
-已安装 /Users/vjs/Desktop/XNull-Lang/tests/s8/s814/topo/target/reactor-summary.txt（sha256 15303d79829db0ce13113cd7643db4384a58100e8ef9ae44fbcfdd7f65b182a0）

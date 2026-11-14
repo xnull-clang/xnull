@@ -1,7 +1,0 @@
-$ grep -n "稳定 v1\|XRT_ABI_VERSION\|XRT_BINDINGS_LAYER" impl/runtime/xrt.h
-3: * 状态：**稳定 v1**（2026-11-08 转正；S7-05）。符号与签名冻结为跨 FFI ABI 承诺，
-22:#define XRT_ABI_VERSION 1
-59: * 必须在包含本头前定义 XRT_BINDINGS_LAYER=1。构建检查见 impl/runtime/build_rt.sh。
-61:#if defined(XRT_BINDINGS_LAYER) && XRT_BINDINGS_LAYER
-$ grep -n "xrt_runtime_init" impl/internal/codegen/codegen.go
-910:		b.WriteString("    xrt_runtime_init();\n")

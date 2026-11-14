@@ -1,5 +1,0 @@
-main_sha=d3c532cf344a4d309991ee3a1116b4b26183e00b
-tested_sha=d3c532cf344a4d309991ee3a1116b4b26183e00b
-binary=/tmp/xnull-s2-d3c532c
-binary_sha256=a8d1756fb3f39ca9813afffc3aea82ed0269f54fbadcc086717a944240b43ef2
-go=go version go1.27.3 darwin/amd64

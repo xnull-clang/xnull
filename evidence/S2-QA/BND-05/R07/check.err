@@ -1,1 +1,0 @@
-difftest/s2/bnd05/r07_field.x:2:14: error[SYN-101]: 协议不能声明字段（§4.2）

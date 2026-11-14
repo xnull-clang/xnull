@@ -1,1 +1,0 @@
-/tmp/xnull-s2-single run /Users/vjs/Desktop/XNull-Lang/wt/qa-1/difftest/s2/single01/a01_instance_ro.x

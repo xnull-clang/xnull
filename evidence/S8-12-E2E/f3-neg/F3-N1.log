@@ -1,3 +1,0 @@
-$ /tmp/xnull-s812 build
-/tmp/s812-run/f3n/n1/src/main/resources/application.properties:3:1: error[XPD-601]: 配置键名非法（小写字母/数字/点/连字符，≤128，无连续/首尾点）：App.Name
-EXIT=1

@@ -1,2 +1,0 @@
-difftest/s2/bnd05/r03_parent_missing.x:7:7: error[TY-208]: 类 `C` 未实现协议 `Base` 的方法 `base`（§4.3）
-  补充同签名公开实例方法

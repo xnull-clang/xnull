@@ -1,1 +1,0 @@
-cd impl && go test ./internal/interp -run 'TestS2EnumSimpleRuntime|TestS2EnumDataRuntime|TestS2EnumUnknownItemRejected' -count=1 -v

@@ -1,2 +1,0 @@
-difftest/s2/bnd05/r08_method_body.x:2:15: error[SYN-101]: 协议方法不能有方法体（§4.2：只写签名）
-difftest/s2/bnd05/r08_method_body.x:3:5: error[SYN-101]: 协议体只能声明方法签名（§4.1：没有字段/方法体/构造器），遇到 `;`

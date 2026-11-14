@@ -1,2 +1,0 @@
-evidence/S4-QA/OBS-01b/report_chain_obsolete.x:5:28: error[TY-101]: 变量 `again` 的初始化式类型 void 不能赋给 Result<Int,E>（§2.6）
-  检查类型声明与初始化式是否一致

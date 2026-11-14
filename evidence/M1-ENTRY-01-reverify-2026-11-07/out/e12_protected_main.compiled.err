@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/wt/qa-1/evidence/M1-ENTRY-01-reverify-2026-11-07/cases/e12_protected_main.x:1:1: error[ENTRY-003]: 入口 main 的签名不合法：必须是公开的
-  入口签名：main() 或 main(String[] args)，返回 void 或 Int（S1 §11.2）

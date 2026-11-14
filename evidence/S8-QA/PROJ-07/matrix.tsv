@@ -1,7 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-PROJ07-five-layers	PROJ-07	gotest	configuration<builtin<application<profile<env<CLI	TestLoadFiveLayers PASS；来源层/审计正确	PASS	config-tests.log
-PROJ07-env-whitelist	PROJ-07	gotest	白名单外环境变量忽略	TestEnvWhitelistIgnoresNonWhitelisted PASS	PASS	config-tests.log
-PROJ07-profile-file	PROJ-07	gotest	profile 文件名与清单 id 不符失败	TestProfileMismatch PASS（XPD-6xx）	PASS	config-tests.log
-PROJ07-profile-merge	PROJ-07	gotest	-P/platform 激活与合并	TestProfiles/-P、platform PASS	PASS	manifest-profiles.log
-PROJ07-profile-conflict	PROJ-07	gotest	同键冲突/未知 profile/不可覆盖段失败	XPD-309	PASS	manifest-profiles.log
-PROJ07-cli-audit	PROJ-07	gotest	命令行覆盖写审计（key/层/来源，不记值）	TestLoadFiveLayers 审计 PASS	PASS	config-tests.log

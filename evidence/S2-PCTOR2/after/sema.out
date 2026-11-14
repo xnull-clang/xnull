@@ -1,4 +1,0 @@
-=== RUN   TestS2PCTORStructAndSuper
---- PASS: TestS2PCTORStructAndSuper (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.559s

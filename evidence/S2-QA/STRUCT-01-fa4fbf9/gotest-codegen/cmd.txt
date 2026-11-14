@@ -1,1 +1,0 @@
-sh -c cd /private/tmp/xnull-main-fa4fbf9/impl && go test ./internal/codegen -run 'TestS2STRUCT01|TestS2StructValueCopy|TestS2BND11StructSretCopy' -count=1 -v

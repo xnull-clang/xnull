@@ -1,8 +1,0 @@
-=== RUN   TestXDK06DumpTasksSignature
---- PASS: TestXDK06DumpTasksSignature (0.00s)
-=== RUN   TestXDK06CollectionsMethods
---- PASS: TestXDK06CollectionsMethods (0.00s)
-=== RUN   TestXDK07CollectionsMembers
---- PASS: TestXDK07CollectionsMembers (0.00s)
-PASS
-ok  	xnull.dev/xnull/internal/sema	0.648s

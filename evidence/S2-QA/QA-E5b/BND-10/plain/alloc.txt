@@ -1,1 +1,0 @@
-    xn_Cls_Plain *o = (xn_Cls_Plain *)rt_arc_new(&RT_TYPE_XN_Plain);

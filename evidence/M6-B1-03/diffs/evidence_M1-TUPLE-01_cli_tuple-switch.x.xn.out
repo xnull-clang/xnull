@@ -1,8 +1,0 @@
-static Int main() {
-    (Int, Int) p = (1, 2)
-    switch (p) {
-        case(1, 2):
-            print("x")
-    }
-    return 0
-}

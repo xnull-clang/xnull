@@ -1,4 +1,0 @@
-main_sha=f975810a6756feee021db118ae8382554a353c9c
-commits=4f3e7f9 (E2 BND-01/05), 81e146e (E4 ctor/deinit/inheritance/vtable), f975810 (devtool golden)
-date=2026-11-07
-go=go1.27.3 darwin/amd64

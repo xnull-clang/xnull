@@ -1,5 +1,0 @@
-卡	owner	文件/包边界	在途
-S6-09-E1	E1	impl/lib/xdk/net.x	是
-S6-09-E2	E2	internal/sema（net 签名/用例）	已交
-S6-09-E4	E4	internal/codegen + bindings/*.xfb（net）	是
-S6-09-E5	E5	impl/runtime/rt_net*	是

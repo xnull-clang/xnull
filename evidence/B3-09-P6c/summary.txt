@@ -1,1 +1,0 @@
-P6c: 全 bundle prewarmContainers（遍历全部 Decls 的字段/参数/返回/结果/局部/元组类型，调 cType 登记）；needArr/needMap 跳过嵌套容器（Go mangle 不支持）；arr_i/arr_u16 helper 间补空行。bundle/app 98→0；classes 0/text 0/全组绿；xnfmt 6849 不变。全量 harness（文件形态，8 shard）：PASS0=110、DIFF=31、FAIL=0、K07-LIMIT=0、NEG-PASS=98、EXCLUDED=2（上基线 108/33/2/0）。

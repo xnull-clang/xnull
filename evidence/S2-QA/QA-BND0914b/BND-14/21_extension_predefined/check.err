@@ -1,2 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-BND0914b/BND-14/21_extension_predefined/source.x:1:11: error[TY-225]: extension 不能扩展预定义类型 `Int`（§11.1）
-  改为同包 class/struct

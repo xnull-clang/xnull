@@ -1,3 +1,0 @@
-id	anchor	mode	expect	actual	verdict	evidence
-OBS02-global-handler	OBS-02	check	全局错误通知中心不可用	rc=1 RES-101 未定义 setGlobalErrorHandler	PASS	global_handler.err
-OBS02-last-error	OBS-02	check	隐式当前错误不可用	rc=1 RES-101 未定义 lastError	PASS	last_error.err

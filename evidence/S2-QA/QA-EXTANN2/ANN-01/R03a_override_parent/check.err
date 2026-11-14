@@ -1,6 +1,0 @@
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03a_override_parent/source.x:4:10: error[TY-203]: 方法 `go` 与祖先类 `B` 的实例方法同签名：子类覆写被拒绝（§2.5）
-  改用不同参数列表构成重载
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03a_override_parent/source.x:4:10: error[TY-208]: @Override 不能标记父类方法 `go`：类继承只复用，不存在覆写（§5.3）
-  删除注解
-/Users/vjs/Desktop/XNull-Lang/evidence/S2-QA/QA-EXTANN2/ANN-01/R03a_override_parent/source.x:4:10: error[TY-208]: @Override 没有对应的协议方法（§4.3）
-  删除注解，或声明 implements 并提供同签名方法

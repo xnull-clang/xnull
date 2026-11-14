@@ -1,5 +1,0 @@
-list=0
-only10=0
-only01=0
-only02=0
-full=0
