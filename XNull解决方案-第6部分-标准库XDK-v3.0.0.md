@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 文档编号 | 第 6 部分（S6） |
-| 文档版本 | 3.1.0 |
+| 文档版本 | 3.0.0 |
 | 规范状态 | 草案（包目录与分层合同；符号级 API 随实现追加） |
 | 发布日期 | 2026-11-15 |
 | 适用对象 | XNull 语言实现与标准库作者 |
@@ -87,70 +87,124 @@ XDK 是应用代码与运行时之间的**唯一公共接口**。本部分规定
 6. **稳定性行**：每个 API 标注 `stable` / `preview` / `internal`；preview 可在次版本变更，internal 非承诺。
 7. **架构知情**：每个包必须声明能力、层级、依赖、稳定性；实现不得隐藏对 L2/L3 的依赖。
 
-## 4. 包目录（当前只定义 T0 核心层）
+## 4. 包目录
 
-T1 应用层、T2 平台/计算层在对应层实现时再定义；当前版本不列出、不承诺。先做 T0，避免编译器在实现核心前被大量未实现包拖垮。
+包目录是库的公开结构。`T0` 核心、`T1` 应用、`T2` 平台/计算；`生态` 不属于 XDK。
 
-### 4.1 T0-A 基础层
+### 4.1 T0 核心包
+
+任何程序都可依赖；稳定优先。
 
 | 包 | 职责 | 关键类型 / API | 依赖 |
 | --- | --- | --- | --- |
-| `xdk.errors` | 错误协议、分类、基础错误、观测 | `Error`、`ErrorKind`、`BasicError`、`wrap` / `mapErr` / `report`、`isRetryable` | L2 诊断 |
+| `xdk.errors` | 错误协议、分类、观测 | `Error`、`ErrorKind`、`wrap` / `mapErr` / `report` | L2 诊断 |
 | `xdk.runtime` | 诊断、退出、时钟 | `diagnose`、`exit`、`nowMono`、`nowWall` | L2 |
 | `xdk.meta` | 语言/XDK 版本、构建信息、目标平台 | `languageVersion`、`xdkVersion`、`targetPlatform` | 无 |
-
-### 4.2 T0-B 数据层
-
-| 包 | 职责 | 关键类型 / API | 依赖 |
-| --- | --- | --- | --- |
-| `xdk.bytes` | 字节缓冲区与位操作 | `Bytes`、`ByteBuffer`、端序、位运算 | `errors` |
+| `xdk.log` | 结构化日志 | `Logger`、`Level`、字段、sink | `errors`、`runtime`、`text`、`time` |
+| `xdk.config` | 配置快照与覆盖 | `Config`、profile、环境变量白名单 | `fs`、`text`、`codec` |
 | `xdk.text` | 文本、编码、格式化、解析 | `Text`、`StringBuilder`、UTF 转换、`formatInt`、`parseInt` | `errors`、`bytes` |
+| `xdk.bytes` | 字节缓冲区与位操作 | `Bytes`、`ByteBuffer`、端序、位运算 | `errors` |
 | `xdk.collections` | 容器与算法 | `List`、`Map`、`Set`、`Iterator`、`sort` / `groupBy` / `dedup` | `errors` |
 | `xdk.math` | 数值函数与常量 | 三角/指数/对数/取整、`Int128` 运算 | `errors` |
-
-### 4.3 T0-C 系统层
-
-| 包 | 职责 | 关键类型 / API | 依赖 |
-| --- | --- | --- | --- |
 | `xdk.time` | 时间与日期 | `Instant`、`Duration`、`DateTime`、`TimeZone` | `runtime`、`errors` |
 | `xdk.io` | 流与缓冲区 | `Reader`、`Writer`、`Stream`、`Buffered*` | `bytes`、`errors` |
 | `xdk.fs` | 文件、目录、路径 | `File`、`Dir`、`Path`、临时文件、原子写 | `io`、`errors` |
 | `xdk.sys` | 进程、环境、平台、信号 | `Process`、`Env`、`platform`、`signal` | `runtime`、`errors` |
-| `xdk.resource` | 内嵌资源 | `resourceExists`、`readResource`、`listResources` | `bytes`、`errors` |
-
-### 4.4 T0-D 并发层
-
-| 包 | 职责 | 关键类型 / API | 依赖 |
-| --- | --- | --- | --- |
 | `xdk.tasks` | 任务与结构化并发 | `Task`、`TaskGroup`、`Context` | `errors`、`runtime` |
 | `xdk.sync` | 互斥、通道、原子 | `Mutex`、`Channel`、`AtomicInt` / `AtomicBool` / `AtomicRef` | `errors`、`tasks` |
+| `xdk.cli` | 命令行解析与用法 | `Args`、`Command`、`usage`、退出码映射 | `text`、`sys` |
 
-### 4.5 T0-E 应用核心层
+### 4.2 T1 应用包
+
+服务、工具、网络与数据应用使用；按需引入。
 
 | 包 | 职责 | 关键类型 / API | 依赖 |
 | --- | --- | --- | --- |
-| `xdk.log` | 结构化日志 | `Logger`、`Level`、字段、sink | `errors`、`runtime`、`text`、`time` |
-| `xdk.config` | 配置快照与覆盖 | `Config`、profile、环境变量白名单 | `fs`、`text` |
-| `xdk.cli` | 命令行解析与用法 | `Args`、`Command`、`usage`、退出码映射 | `text`、`sys` |
+| `xdk.regex` | 正则表达式 | `Regex`、编译、匹配、替换 | `text`、`errors` |
+| `xdk.codec` | 数据编码 | JSON、CSV、Base64、Hex、URL 编码 | `text`、`bytes`、`collections` |
+| `xdk.random` | 伪随机与种子 | `Random`、`nextInt`、`nextDouble` | `math`、`time` |
+| `xdk.stats` | 统计 | 均值、中位数、分位数、直方图 | `collections`、`math` |
+| `xdk.crypto` | 密码学 | SHA-1/256/512、HMAC、AES、KDF、常量时间比较 | `bytes`、`errors` |
+| `xdk.compress` | 压缩 | gzip、zlib、zip | `bytes`、`io` |
+| `xdk.uuid` | 唯一标识 | UUID v4/v7、ULID | `random`、`time` |
+| `xdk.i18n` | 国际化 | 消息目录、复数、locale | `text`、`codec` |
+| `xdk.validate` | 校验 | 字段规则、schema、错误聚合 | `text`、`collections` |
+| `xdk.resource` | 内嵌资源 | `resourceExists`、`readResource`、`listResources` | `bytes`、`errors` |
+| `xdk.terminal` | 终端 | TTY、ANSI、进度、提示 | `io`、`sys` |
+| `xdk.test` | 测试 | 断言、测试注册、runner 钩子 | `errors`、`text` |
+| `xdk.net` | 网络基础 | 地址、Socket、DNS | `io`、`bytes`、`tasks` |
+| `xdk.net.uri` | URI/URL | 解析、构造、编码 | `text` |
+| `xdk.net.http` | HTTP | 客户端、服务端、头部、Cookie、multipart | `net`、`text`、`codec`、`tasks` |
+| `xdk.net.tls` | TLS | 证书、配置、握手 | `net`、`crypto` |
+| `xdk.net.websocket` | WebSocket | 握手、帧、关闭 | `net.http`、`bytes` |
+| `xdk.net.mime` | MIME | 媒体类型、扩展名映射 | `text` |
+| `xdk.executor` | 执行器 | 专用执行器、线程归属 | `tasks`、`sync` |
+| `xdk.timer` | 定时器 | 定时、周期、截止 | `tasks`、`time` |
+| `xdk.metrics` | 指标 | Counter、Gauge、Histogram | `sync`、`time` |
+| `xdk.trace` | 链路追踪 | Span、上下文传播 | `tasks`、`time` |
+| `xdk.health` | 健康检查 | readiness、liveness | `time`、`metrics` |
+| `xdk.audit` | 审计 | 事件、字段、脱敏 | `log`、`time` |
+| `xdk.schedule` | 调度 | cron、周期任务 | `time`、`tasks` |
+| `xdk.sql` | SQL 接口 | 连接、语句、参数、事务 | `net`、`io`、`codec` |
+| `xdk.cache` | 进程内缓存 | LRU、TTL | `collections`、`time` |
+| `xdk.queue` | 进程内队列 | 有界队列、批量、关闭 | `sync`、`tasks` |
 
-### 4.6 生态（不属于 XDK）
+### 4.3 T2 平台与计算包
 
-数据库驱动、协议栈（MQTT/SIP/Modbus/OPC-UA/GB28181）、Web/RPC 框架、ML 训练框架、GPU 算子、包管理器、IDE 插件、领域库。
+平台相关或重计算；按目标平台稳定。
 
-## 5. 当前层覆盖范围
+| 包 | 职责 | 关键类型 / API | 依赖 |
+| --- | --- | --- | --- |
+| `xdk.ui` | 窗口与应用生命周期 | `Window`、`App`、`onAttach` / `onDetach` / `dispose` | `gfx`、`input`、`tasks` |
+| `xdk.gfx` | 2D 图形 | 画布、颜色、几何、路径 | `math`、`image` |
+| `xdk.image` | 图像 | PNG/JPEG 解码与编码、像素缓冲 | `bytes`、`io` |
+| `xdk.font` | 字体与排版 | 字体加载、字形、文本布局 | `bytes`、`gfx` |
+| `xdk.input` | 输入 | 键盘、鼠标、触摸、快捷键 | 无（事件源） |
+| `xdk.clipboard` | 剪贴板 | 文本/二进制读写 | `ui` |
+| `xdk.serial` | 串口 | 打开、读写、超时 | `io`、`sys` |
+| `xdk.device` | 设备与传感器 | GPIO、I2C、SPI、摄像头 | `sys`、`tasks` |
+| `xdk.geo` | 地理 | 坐标、距离、投影、路径 | `math`、`collections` |
+| `xdk.tensor` | CPU 张量 | 形状、步长、逐元素、矩阵乘 | `math`、`bytes` |
+| `xdk.linalg` | 线性代数 | 分解、求解、特征值 | `tensor`、`math` |
 
-T0 覆盖所有应用共同需要的基础能力：错误、运行时、元数据、字节/文本/容器/数学、时间、IO/文件/系统、任务/同步、日志/配置/CLI。
+### 4.4 生态（不属于 XDK）
 
-网络、数据库、缓存、消息、桌面、图形、设备、张量等能力属于 T1/T2，在当前层实现并通过合同测试后再定义。当前版本不对这些包作承诺。
+以下能力由第三方库或应用提供，不进入 XDK：
+
+- 数据库驱动（PostgreSQL/MySQL/SQLite 等具体驱动；`xdk.sql` 只提供通用接口）；
+- 协议栈（MQTT、SIP、Modbus、OPC-UA、GB28181 等）；
+- Web 框架、RPC 框架、模板引擎；
+- ML 训练框架、GPU 算子、模型运行时；
+- 包管理器、构建插件、IDE 插件生态；
+- 领域库（量化因子库、机器人 SLAM、图像识别模型等）。
+
+## 5. 应用边界映射
+
+S0 的应用方向与包目录一一对应；不是每个程序都要引入全部包。
+
+| 应用方向 | 主要包 |
+| --- | --- |
+| 企业业务系统 | `errors`、`runtime`、`log`、`config`、`collections`、`text`、`codec`、`time`、`uuid`、`validate`、`i18n`、`metrics`、`trace`、`health`、`audit`、`sql`、`cache`、`queue` |
+| 网络服务与网关 | `net`、`net.uri`、`net.http`、`net.tls`、`net.mime`、`net.websocket`、`tasks`、`sync`、`executor`、`timer`、`metrics`、`trace`、`health` |
+| 物联网与设备接入 | `net`、`serial`、`device`、`codec`、`time`、`tasks`、`log` |
+| 数据处理与量化 | `collections`、`math`、`stats`、`random`、`codec`、`time`、`tensor`、`linalg` |
+| 规则、流程与领域引擎 | `collections`、`text`、`validate`、`schedule`、`log`、`metrics` |
+| 数据库、缓存与消息 | `sql`、`cache`、`queue`、`codec`、`crypto`、`net` |
+| CPU 算法与仿真 | `math`、`linalg`、`tensor`、`stats`、`random`、`time` |
+| AI 应用与智能体 | `net.http`、`codec`、`tensor`、`linalg`、`tasks`、`log`、`trace`、`crypto` |
+| 桌面与图形程序 | `ui`、`gfx`、`image`、`font`、`input`、`clipboard`、`fs`、`config` |
+| 机器人与边缘应用 | `device`、`serial`、`geo`、`tasks`、`time`、`math`、`log` |
+| 语言与编译器工具 | `fs`、`io`、`text`、`codec`、`cli`、`terminal`、`log`、`test` |
+| 本地工具与运维程序 | `cli`、`terminal`、`fs`、`io`、`sys`、`config`、`log`、`codec` |
 
 ## 6. 依赖规则
 
-1. **子层方向**：T0-A 只依赖 L2；T0-B 依赖 A；T0-C 依赖 A/B；T0-D 依赖 A；T0-E 依赖 A/B/C/D。
-2. **禁止反向**：低子层不得依赖高子层；任何包不得依赖 T1/T2（当前未定义）。
+1. **分层方向**：T0 只能依赖 T0 与 L2；T1 只能依赖 T0/T1 与 L2；T2 只能依赖 T0/T1/T2 与 L2。
+2. **禁止反向**：T0 不得依赖 T1/T2；T1 不得依赖 T2。
 3. **禁止环**：包依赖图必须无环；环是规范错误。
 4. **禁止 util 包**：不得新增 `util`、`common`、`misc`、`helpers`、`base` 这类无单一职责的包。
-5. **依赖声明**：每个包的文档头必须列出能力、子层、依赖、稳定性；未登记的依赖视为合同违规。
-6. **内部包**：`xdk.internal.*` 不是公共 API，应用不得导入。
+5. **依赖声明**：每个包的文档头必须列出能力、Tier、依赖、稳定性；未登记的依赖视为合同违规。
+6. **内部包**：`xdk.internal.*` 不是公共 API，应用不得导入；内部包不受稳定性承诺。
 
 ## 7. 命名与粒度
 
@@ -161,8 +215,7 @@ T0 覆盖所有应用共同需要的基础能力：错误、运行时、元数�
 
 ## 8. 版本与稳定性
 
-- 当前版本只定义 T0；T1/T2 追加为库次版本，并先补充分层与依赖合同。
-- 新增 T0 包：库次版本；删除、改名、合并：库主版本。
-- T0 包优先 `stable`；新包可先 `preview`。
+- 新增包：库次版本；新增能力：库次版本；删除、改名、合并包：库主版本。
+- T0 包优先稳定；T1 包可以 `preview`；T2 包按平台标注。
 - 包改名不影响编译器：编译器只按 `import` 路径解析源码；包名变更属于库版本变更。
 - 每个公开符号必须有稳定性标记；`preview` 可在次版本变更，`internal` 不承诺。
