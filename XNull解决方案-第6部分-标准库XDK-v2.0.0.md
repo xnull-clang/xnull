@@ -100,6 +100,12 @@ XDK 是应用代码与运行时之间的**唯一公共接口**。本部分规定
 | 资源读取 | 内嵌资源的只读访问（5 个 API） | 构建期资源表 | stable |
 | 时间与环境 | 单调时钟、UTC 时间、环境快照 | 时钟原语 | stable |
 
+数据能力的构造与迭代约定：
+
+- `List.of` / `Set.of` / `Map.of` 是库构造函数，供容器字面量脱糖使用。
+- `List` / `Set` 提供 `iterator(): Iterator<T>`，用于 `for-in`；`Map` 不提供，遍历用 `keys()` / `values()`。
+- `Iterator<T>` 提供 `hasNext(): Bool` 与 `next(): T`；无元素时 `next()` 是编程错误。
+
 约束：
 
 - 新增能力 = 规范次版本；新增一层 = 主版本。
