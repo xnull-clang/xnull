@@ -116,6 +116,7 @@ T1 应用层、T2 平台/计算层在对应层实现时再定义；当前版本�
 | `xdk.io` | 流与缓冲区 | `Reader`、`Writer`、`Stream`、`Buffered*` | `bytes`、`errors` |
 | `xdk.fs` | 文件、目录、路径 | `File`、`Dir`、`Path`、临时文件、原子写 | `io`、`errors` |
 | `xdk.sys` | 进程、环境、平台、信号 | `Process`、`Env`、`platform`、`signal` | `runtime`、`errors` |
+| `xdk.resource` | 内嵌资源 | `resourceExists`、`readResource`、`listResources` | `bytes`、`errors` |
 
 ### 4.4 T0-D 并发层
 
