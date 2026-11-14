@@ -62,7 +62,8 @@ protocol Error {
 
 - `describe()` 必须稳定：同一错误值在同一进程内多次调用返回相同内容；错误类型字段不可变。
 - `describe()` 是单行文本，不含换行、制表符或 NUL；违反是错误类型声明方的 bug。
-- 实现 `Error` 协议的类型同时必须满足 §2.1 的合法形态。
+- 只有 `class` 可以实现 `Error` 协议（S2 §4.3）；枚举/结构体可以作为错误类型 `E`，但不实现协议，不能直接 `report`。
+- `report` 只接受错误类型为 `Error` 的 `Result`；具体错误在边界用 `mapErr` 转成 `Error`，或用基础错误类包装。
 - 协议不包含 `cause` 成员；原因链用约定字段 `cause: Error?` 表达（§2.3）。
 - 语言内建 `panic` 诊断不经过 `Error` 协议；fatal 路径由运行时直接打印。
 
@@ -79,6 +80,7 @@ protocol Error {
 - `wrap` 丢弃原错误是显式决定；需要保留原因链时，错误类型自带 `cause` 字段并用 `mapErr` 组装。
 - 原因链是约定字段，不是协议成员；读取方通过具体错误类型访问 `cause`，不得要求所有错误都有原因。
 - `mapErr` 的转换函数必须纯净：不得产生日志、I/O、全局状态修改。
+- 库提供基础错误类 `BasicError`（`kind` / `message` / `cause`）与粗粒度 `isRetryable(ErrorKind): Bool`；具体签名属于第 6 部分的库 API 面。
 - 不提供隐式错误字符串化；`describe()` 是唯一的文本出口。
 - 语言方法集（`isOk` / `isErr` / `value` / `error` / `unwrapOr`）以 S1 §10.1 为准，本文档不扩展语言方法。
 
@@ -119,6 +121,7 @@ enum ErrorKind {
 - 用户错误类型的 `kind()` 返回值在错误值生命周期内不变。
 - `OutOfMemory` 特殊：分配失败路径的观测不保证能完成复杂工作；观测实现不得分配内存。
 - `Internal` 表示“不该发生”的兜底分类；不得用它表示已知的可恢复失败。
+- `isRetryable(kind)` 是粗粒度建议：`Network` / `Timeout` / `Busy` / `Unavailable` 为可重试，其余不可；具体策略由调用方决定。
 - 未知原生错误码必须映射为 `Internal`，不得静默映射为 `Ok`。
 
 ### 3.3 分类稳定性

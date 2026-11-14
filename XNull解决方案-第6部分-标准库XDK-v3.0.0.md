@@ -97,7 +97,7 @@ XDK 是应用代码与运行时之间的**唯一公共接口**。本部分规定
 
 | 包 | 职责 | 关键类型 / API | 依赖 |
 | --- | --- | --- | --- |
-| `xdk.errors` | 错误协议、分类、观测 | `Error`、`ErrorKind`、`wrap` / `mapErr` / `report` | L2 诊断 |
+| `xdk.errors` | 错误协议、分类、基础错误、观测 | `Error`、`ErrorKind`、`BasicError`、`wrap` / `mapErr` / `report`、`isRetryable` | L2 诊断 |
 | `xdk.runtime` | 诊断、退出、时钟 | `diagnose`、`exit`、`nowMono`、`nowWall` | L2 |
 | `xdk.meta` | 语言/XDK 版本、构建信息、目标平台 | `languageVersion`、`xdkVersion`、`targetPlatform` | 无 |
 | `xdk.log` | 结构化日志 | `Logger`、`Level`、字段、sink | `errors`、`runtime`、`text`、`time` |

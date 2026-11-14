@@ -1,0 +1,8 @@
+package	symbol	kind	signature	stability	notes
+xdk.errors	Error	protocol	kind(): ErrorKind; describe(): String	stable	only class can implement
+xdk.errors	ErrorKind	enum	InvalidArgument | NotFound | AlreadyExists | PermissionDenied | Io | Network | Timeout | Cancelled | Busy | Unavailable | DataCorrupted | Unsupported | OutOfMemory | Internal	stable	append-only
+xdk.errors	BasicError	class	BasicError(ErrorKind, String); BasicError(ErrorKind, String, Error); kind(): ErrorKind; describe(): String; cause: Error?	stable	final class implementing Error
+xdk.errors	wrap	function	<T,E>(Result<T,E>, E) -> Result<T,E>	stable	discards original error
+xdk.errors	mapErr	function	<T,E1,E2>(Result<T,E1>, (E1) -> E2) -> Result<T,E2>	stable	mapper must be pure
+xdk.errors	report	function	<T>(Result<T, Error>) -> Result<T, Error>	stable	one line to diagnostics; returns input
+xdk.errors	isRetryable	function	(ErrorKind) -> Bool	stable	coarse hint: Network/Timeout/Busy/Unavailable
