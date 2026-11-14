@@ -130,16 +130,38 @@ FFI 双向流       XNull ──租约+错误码（Result 不跨界）──▶ 
 - **定案 3-a-1**：`report` 返回原 `Result`（以支持 `return report(r)` 链式写法），观测输出作为副作用。
 - **定案 3-a-2**：原因链用**约定字段**——错误结构体自带 `cause: Error?` 字段；协议不增成员（保持 `Error` 协议最小面）。
 
-### 4.2 `xdk.tasks`（来源 S6）
+### 4.2 `xdk.tasks`（来源 S5）
 
 - 类型：`Task<T>`、`TaskGroup`、`Context`。
-- 合同：结构化并发（组是唯一 spawn 入口）、组关闭唯一终结路径、取消/超时错误面（S5 第 5、6 节）。
-- **定案 3-b-1**：`Context` 传递按"首参数惯例"（规范惯例，非编译器强制）；编译器强制检查**本版本否决**，如需引入走次版本提案并附误用证据。
+- API 合同：
 
-### 4.3 `xdk.sync`（来源 S6）
+| API | 合同 |
+| --- | --- |
+| `TaskGroup.create(ctx)` | 创建任务组；资源，必须 `close` |
+| `group.spawn(closure)` | 提交任务；唯一创建方式 |
+| `group.cancel()` | 取消全部子任务（不等待） |
+| `group.close()` | 取消 + 等待全部终结；返回首个非取消错误 |
+| `Task<T>.join()` | 等待终结并交付 `Result<T, TaskError>`；只能成功一次 |
+| `Task<T>.joinDeadline(d)` | 带截止等待；超时返回 `Err(Timeout)`，任务继续 |
+| `Context.background()` | 根上下文（仅 `main` 与测试入口） |
+| `ctx.checkCancel()` | 协作式取消检查点；返回 `Result<void, CancelledError>` |
+| `ctx.withDeadline(d)` | 派生带截止时间的子上下文 |
 
-- 类型：`Mutex<T>`（`withLock` 作用域化）、`Channel<T>`（有界、挂起点可取消）、`AtomicInt` / `AtomicBool` / `AtomicRef<T>`。
-- **定案 3-c-1**：`AtomicRef<T>` 的 `T` 限定为引用类型（对象引用）；首版原子类型为 `AtomicInt` / `AtomicBool` / `AtomicRef<T>`，值类型原子（`AtomicU64` 等）随用例追加（次版本）。
+- 语义见第 5 部分 §2—§5。
+- **定案 3-b-1**：`Context` 传递按"首参数惯例"（规范惯例，非编译器强制）；编译器强制检查本版本否决。
+
+### 4.3 `xdk.sync`（来源 S5）
+
+- 类型与 API：
+
+| API | 合同 |
+| --- | --- |
+| `Mutex<T>.withLock((T) -> Result<R,E>)` | 作用域化互斥访问；不提供裸 lock/unlock |
+| `Channel<T>(capacity)` | 有界通道；`send` / `receive` 可取消；`close` 后 `receive` 确定终态 |
+| `AtomicInt` / `AtomicBool` / `AtomicRef<T>` | `load` / `store` / `compareExchange`；顺序一致 |
+
+- 语义见第 5 部分 §6。
+- **定案 3-c-1**：`AtomicRef<T>` 的 `T` 限定为引用类型；首版原子类型为 `AtomicInt` / `AtomicBool` / `AtomicRef<T>`，值类型原子随用例追加（次版本）。
 
 ### 4.4 `xdk.runtime`
 
@@ -240,3 +262,29 @@ FFI 双向流       XNull ──租约+错误码（Result 不跨界）──▶ 
 | XDK-08 | text | builder 式格式化；编码转换与整数/浮点解析；`Regex` 动态编译形态可用且编译失败为可恢复错误 |
 | XDK-09 | sys/net | 文件/目录/子进程遵守 S3 §18 句柄合同（`close()` 必达）；双形态 I/O：异步默认（携 `Context`）+ plain 同步显式；网络独立成包 |
 | XDK-10 | 资源读取 | §4.8 五 API 与七条强制约束逐条有对应用例：路径非法（绝对路径/`..`/空段/反斜杠）→ `InvalidArgument`；缺失 → `NotFound` 可恢复；`listResources` 字典序；返回值非句柄无需 `close()`；挂起点可取消；不回退文件系统；文件 API 读不到内嵌资源 |
+
+## 9. 实现布局修订（2026-11-15）
+
+本节只约束 XDK 源码的物理布局与命名，不改变 §2—§4 的 API 语义。
+
+1. **两级目录**：`impl/lib/xdk/<layer>/<domain>/`。第一层 `layer` 是分层，
+   第二层 `domain` 是域；两层目录名都必须是**单个小写英文单词**，禁止词组、
+   下划线、驼峰或 `_full`/`_res` 这类后缀。
+2. **文件名**：XDK 下所有 `.x` 文件首字母必须大写。类文件仍使用与类同名的
+   PascalCase；包主单元文件也可首字母大写（如 `Errors.x`、`Time.x`），用于承载
+   包级函数、导入和包声明。
+3. **分层清单**：`build`、`compiler`、`concurrent`、`core`、`data`、`io`、
+   `net`、`text`、`util`。域按功能划分，例如 `core/errors`、`core/time`、
+   `compiler/lexer`、`compiler/parser`、`compiler/codegen`、`build/manifest`。
+4. **包名**：既有运行时包名保持 `xdk.errors`、`xdk.text` 等冻结名称；编译器与
+   构建包使用 `xdk.compiler.*`、`xdk.build.*`。包名与物理路径的映射由实现侧
+   布局表维护。
+5. **兼容面**：同一包的默认冻结面与完整实现分别放在 `base` / `full` 域；
+   `io/base/Sys.x` 为保持既有 AST/golden 兼容，允许暂不声明 `package`；
+   完整实现 `io/system/Sys.x` 声明 `package xdk.sys`。
+6. **内建类型边界**：`String`、`Object`、`Any`、`T[]`、`List<T>`、`Set<T>`、
+   `Map<K,V>`、`Text`、`Bytes`、`StringBuilder` 仍属语言/编译器内建类型，
+   不在 XDK 源码目录中定义。`xdk.core.collections` 只提供算法与特化容器，
+   `xdk.text` 只提供格式化、编码、解析与正则；这与 §4.5 定案 3-e 一致。
+7. **标签**：XDK 源码、源码注释与 XDK 设计文档不得使用 B2/B3/B4/B5、Q3 这类
+   阶段/门编号；需要说明限制时使用“当前编译器”“已知缺口”“后续修复”等描述。

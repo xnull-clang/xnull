@@ -498,4 +498,4 @@ CLI 自身诊断码：
 - `impl/internal/exitcode/exitcode.go`
 - `impl/internal/diag/diag.go`
 - `XNull解决方案-第8部分-工程配置-v5.2.0.md` §5.1
-- `XNull解决方案-第4部分-错误处理-v1.0.0.md` §7.2
+- `XNull解决方案-第4部分-错误处理-v1.1.0.md` §5.2
