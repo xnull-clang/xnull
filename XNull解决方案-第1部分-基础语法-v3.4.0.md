@@ -24,24 +24,25 @@
 - 函数统一规则：顶层函数、方法、构造器与 Lambda 遵循同一套显式函数规则（7.10）——显式类型、无默认参数、无命名实参、无可变参数；花括号体（Lambda 例外，允许单表达式体）；重载按 4.4 与第 2 部分 6.8。
 - 顶层函数默认静态，`static` 可写可省（4.1）。
 - `Map` / `Set` 键限 `String`、整数、简单枚举；`Map.get` 缺失键返回 `null`，`getOr` 提供默认值。
-- 泛型函数单态化；不支持约束、默认类型实参或泛型闭包。
-- 本版保留 `switch`、`Result` / `try` 错误处理、`defer` / `errdefer`、`new` 对象构造和标签控制；不支持项在 0.6 明确列出。
+- 泛型函数按类型实参实例化；不支持约束、默认类型实参或泛型闭包。
+- 支持 `switch`、`Result` / `try`、`defer` / `errdefer`、`new` 对象构造和标签控制；不支持项见 0.6。
 - 通用 `switch` 不检查穷尽性；枚举 `switch` 的穷尽性由第 2 部分 8.5 规定。
 
 ## 0. 规范基础
 
 ### 0.1 范围
 
-本方案规定 XNull 的基础语法与语义：词法、类型系统、包与导入、顶层声明、局部变量、语句与控制流、表达式与运算符、闭包、泛型函数、内置类型、错误处理核心、对象构造表达式、XDK 导入和程序入口。
+本方案规定 XNull 的基础语法与语义：词法、类型系统、包与导入、顶层声明、局部变量、语句与控制流、表达式与运算符、闭包、泛型函数、内置类型、错误处理核心、对象构造表达式和程序入口。
 
 本方案不规定：
 
-- 类型声明、继承、协议、枚举、单例、扩展和对象内存布局；见第 2 部分。
+- 类型声明、继承、协议、枚举、单例和扩展；见第 2 部分。
+- 对象的内存布局与回收；见第 3 部分。
 - 错误的观测、取消、超时和 `ErrorKind` 策略；核心语法见第 10 节，完整模型见错误处理规范。
 - FFI、C ABI、`unsafe` 边界和跨语言所有权；见第 7 部分与第 6 部分。
-- 并发、异步和任务的运行时语义；语言不提供 `async` / `await` 语法，使用 `xdk.tasks`。
-- XDK 包的完整 API；见第 6 部分。
-- 工程清单、构建系统和包管理；本方案只规定入口解析。
+- 并发、异步和任务的运行时语义；语言不提供 `async` / `await` 语法，使用库提供的任务 API（第 6 部分）。
+- 库类型（`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder`）与标准库包的完整 API；见第 6 部分。
+- 工程清单、构建系统和包管理；本方案只规定入口函数签名与启动顺序。
 
 ### 0.2 规范用语
 
@@ -85,7 +86,7 @@
 | C 风格 `for (init; cond; step)` | 已有 `while`、`do-while`、`for-in`、区间循环 | 用 `while` + 显式状态，或区间循环 |
 | `catch` / `finally`、跨帧异常 | 错误必须显式传播，禁止隐式 unwind；`try` 只用于 `Result` 传播 | `Result` + `try` + `defer` / `errdefer`；致命错误用 `throw` |
 | 运算符重载、用户定义隐式转换 | 类型行为保持可预测 | 命名方法；显式 `as` / `as?` |
-| 地址符、指针、智能指针、弱引用修饰符、内存策略注解（`@arc` / `@gc`） | 内存管理能力由编译器与运行时全权负责，源码不得表达引用强度或回收策略 | 策略由编译器按第 2 部分 15.1 判定；运行时执行管理；FFI 走合同（内存管理方案 §19） |
+| 地址符、指针、智能指针、弱引用修饰符、内存策略注解（`@arc` / `@gc`） | 源码不得表达引用强度、地址或回收策略 | 内存管理见第 3 部分；FFI 走合同（第 7 部分） |
 | 自定义访问器属性（property get/set 语法） | XNull 默认公有字段直接读写，不需要 getter/setter | 公有字段直接访问；计算、校验、私有状态用方法 |
 | 用户定义索引器 | 容器接口已提供 | `get` / `set` / `at` |
 | 事件 | 不引入事件语法 | 闭包回调或显式观察者列表 |
@@ -96,9 +97,9 @@
 | `??=` | 不引入空值赋值语法 | `if x == null { x = ... }` |
 | `?.()` / `?.[]` | 点语法只保留可空成员访问 | `if` 判断后调用/下标 |
 | 函数类型箭头 `(P) -> R` | 保留 `R(P...)` 形式 | `R(P...)` |
-| `async` / `await`、生成器、`yield` | 并发由运行时库负责，不引入函数着色 | `xdk.tasks` + 显式 `TaskGroup` / `Context` |
-| `unsafe` 块、裸指针、内联汇编、宏 | XNull 源码没有地址符、指针或智能指针语法；安全边界在 XDK / FFI | `xdk.sys` 的 `@unsafe` API（第 7 部分 §8）；FFI 合同（第 7 部分） |
-| 条件编译、宏展开、运行时反射 | 构建与元编程不属于语言核心 | 工程清单、代码生成、XDK 反射包 |
+| `async` / `await`、生成器、`yield` | 并发由库负责，不引入函数着色 | 库提供的任务 API（第 6 部分） |
+| `unsafe` 块、裸指针、内联汇编、宏 | XNull 源码没有地址符、指针或智能指针语法；安全边界在库与 FFI | 库 API 与 FFI 合同（第 6、7 部分） |
+| 条件编译、宏展开、运行时反射 | 构建与元编程不属于语言核心 | 构建配置、代码生成或库 API |
 | 包重导出、显式 export 列表 | 避免包表面膨胀和隐式依赖 | 公开 wrapper 类型 / 函数，或直接导入 |
 | 嵌套类型、局部类型 | 类型声明保持包顶层，便于跨包解析 | 顶层类型 + 限定名 |
 | 静态初始化块、实例初始化块 | 初始化顺序保持可预测 | 字段初始化式 + 构造器 |
@@ -112,17 +113,17 @@
 | 泛型约束、`where` 子句、默认类型实参 | 类型参数保持简单，避免约束求解 | 协议 + 重载 + 运行时检查 |
 | 类型别名 / newtype | XNull 类型身份由声明直接决定，不引入别名层 | 直接写目标类型；需要独立身份时声明 `class` / `struct` |
 | 包级私有 / `internal` 可见性 | 可见性模型保持三种修饰符 | `private` / `protected` + 包拆分 |
-| 隐式数值提升、`Bool` 与整数互转 | 避免跨类型静默行为 | 显式字面量类型、XDK 数值转换 |
+| 隐式数值提升、`Bool` 与整数互转 | 避免跨类型静默行为 | 显式字面量类型、显式转换函数 |
 
 ### 0.7 点语法与无指针模型
 
 - 成员访问、调用和可空访问统一使用点语法：`value.member`、`value.method()`、`value?.member`、`value?.method()`。`->` 只用于 lambda，不用于成员访问或指针解引用。
 - 没有地址符 `&`（`&` 只作按位与）、指针类型 `T*`、解引用 `*p`、显式引用类型语法 `&T` / `ref T`、`ref` / `out` 参数修饰符、指针算术或手动 `free`。
 - `out` / `in` 只用于泛型型变，不是引用传递修饰符。
-- 没有智能指针类型：`Box<T>`、`Rc<T>`、`Arc<T>`、`Ref<T>`、`Weak<T>` 等都不存在。ARC、GC、stack 是编译器和运行时的内存策略，不是源码类型；源码不写 `retain` / `release`。
+- 没有智能指针类型：`Box<T>`、`Rc<T>`、`Arc<T>`、`Ref<T>`、`Weak<T>` 等都不存在。内存策略不是源码类型；源码不写 `retain` / `release`。
 - 源码没有弱引用概念；引用强度与回收策略由编译器与运行时全权管理，源码不得表达，见第 2 部分第 15 节。
 - 类、协议、数组、容器、`String`、闭包在语义上是对象句柄/引用语义；不能取地址、转成整数、做指针算术或手动释放。
-- FFI、裸指针和 `unsafe` 块不属于 XNull 语言语法；它们由第 7 部分（FFI）与第 6 部分（XDK）定义。XNull 源码不出现指针声明或解引用。
+- FFI、裸指针和 `unsafe` 块不属于 XNull 语言语法；它们由第 7 部分（FFI）与第 6 部分（标准库）定义。XNull 源码不出现指针声明或解引用。
 
 ## 1. 词法
 
@@ -188,7 +189,7 @@ Float Double Char void
 String Object Any List Set Map Result Text StringBuilder Bytes
 ```
 
-`Array` 是 `T[]` 的内部表示名，禁止在源码中作为类型名使用。
+`Array` 不是源码类型名；数组类型只写作 `T[]`。
 
 ### 1.4 字面量
 
@@ -221,7 +222,7 @@ String Object Any List Set Map Result Text StringBuilder Bytes
 - 无后缀浮点字面量是目标类型字面量：有期望类型时取期望类型，否则取 `Double`。
 - `f` 后缀固定为 `Float`；`Float` 期望类型与 `f` 后缀必须一致。
 - 浮点采用 IEEE 754 二进制32（`Float`）或二进制64（`Double`）；编译期按就近偶数舍入。
-- 不提供十六进制浮点、NaN 字面量或无穷大字面量；这些值由 XDK 数值 API 产生。
+- 不提供十六进制浮点、NaN 字面量或无穷大字面量；这些值由库提供的数值 API 产生。
 
 #### 1.4.3 字符
 
@@ -231,7 +232,7 @@ String Object Any List Set Map Result Text StringBuilder Bytes
 
 字符字面量使用单引号，内容必须恰好是一个 Unicode 标量值或一个转义序列。空字符字面量、多字符字面量和跨行字符字面量都是词法错误。
 
-`Char` 是 32 位值类型，表示 `0..0x10FFFF` 范围内、排除代理区 `0xD800..0xDFFF` 的 Unicode 标量值。`Char` 不参与算术运算，只支持相等和按码点顺序比较；与整数的转换由 XDK 提供。
+`Char` 是 32 位值类型，表示 `0..0x10FFFF` 范围内、排除代理区 `0xD800..0xDFFF` 的 Unicode 标量值。`Char` 不参与算术运算，只支持相等和按码点顺序比较；与整数的转换由库函数提供。
 
 转义序列：
 
@@ -339,7 +340,8 @@ Int g = -b
 | 类别 | 类型 | 传递语义 |
 | --- | --- | --- |
 | 值类型 | `Bool` `Byte` `Short` `Int` `Long` `UByte` `UShort` `UInt` `ULong` `Int128` `UInt128` `Float` `Double` `Char` | 按值复制 |
-| 引用类型 | `String` `Object` `Any` `T[]` `List<T>` `Set<T>` `Map<K,V>` `Text` `StringBuilder` `Bytes` | 按对象句柄传递 |
+| 引用类型 | `String` `Object` `Any` `T[]` | 按对象句柄传递 |
+| 库类型 | 第 6 部分定义（`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder` 等） | 均为引用类型；按对象句柄传递 |
 | 语言级错误类型 | `Result<T,E>` | 值类型；见第 10 节 |
 | 元组 | `(T1, T2, ...)` | 按值复制；见 2.11 |
 | 用户类型 | 第 2 部分的 `class`、`protocol`、`enum`、`singleton`、`struct` | 第 2 部分规定 |
@@ -350,7 +352,7 @@ Int g = -b
 
 `Object` 是引用类型根；所有引用类型和 `Any` 都可以赋给 `Object`。值类型必须显式装箱为 `Any` 后才能作为 `Object` 使用。
 
-`Any` 是显式装箱类型；值类型和引用类型都可以通过 `as Any` 装箱。`Any` 的装箱值是 GC 对象，拆箱必须使用 `is` / `as` / `as?`。
+`Any` 是显式装箱类型；值类型和引用类型都可以通过 `as Any` 装箱。`Any` 的装箱值拆箱必须使用 `is` / `as` / `as?`。
 
 ### 2.2 值类型与数值语义
 
@@ -380,24 +382,22 @@ Int g = -b
 
 - `Float` / `Double` 遵循 IEEE 754；溢出产生无穷大，下溢产生 0 或次正规数，除零产生无穷大或 NaN，不触发 panic。
 - NaN 与任何值（包括自身）的 `==` 为 `false`，`!=` 为 `true`。
-- 不提供语言级浮点到整数的转换；转换必须使用 XDK 数值 API。
+- 不提供语言级浮点到整数的转换；需要时使用显式转换函数。
 - 浮点字面量和运算按就近偶数舍入。
 
 `Char` 规则：
 
 - `Char` 是独立值类型，不参与算术运算。
 - `Char` 支持 `==`、`!=`、`<`、`<=`、`>`、`>=`，按 Unicode 码点比较。
-- `Char` 与整数之间的转换由 XDK 提供。
+- `Char` 与整数之间的转换由库函数提供。
 
 ### 2.3 引用类型与容器
 
 `String` 是不可变 UTF-8 字节序列，按对象句柄传递；`String` 字面量、`+` 拼接和插值都产生新的 `String`。`String.length()` 返回字节数。
 
-`T[]` 是固定长度一维数组，按对象句柄传递，GC 管理。多维数组写作连续追加 `[]`，语义是嵌套数组：`T[][]` 等价于 `Array<Array<T>>`。语言不提供矩形矩阵或 `Tensor` 类型。
+`T[]` 是固定长度一维数组，按对象句柄传递。多维数组写作连续追加 `[]`，语义是嵌套数组：`T[][]` 等价于 `Array<Array<T>>`。语言不提供矩形矩阵或 `Tensor` 类型。
 
-`List<T>`、`Set<T>`、`Map<K,V>` 来自 `xdk.collections`，是可增长容器，使用前必须 `import xdk.collections`。三者都是引用类型，GC 管理，类型参数不变。
-
-`Text`、`Bytes`、`StringBuilder` 来自 `xdk.text`，使用前必须 `import xdk.text`。`Text` 是不可变 UTF-8 文本；`Bytes` 是可变字节缓冲区；`StringBuilder` 是可变字符串构建器。
+`List<T>`、`Set<T>`、`Map<K,V>` 等库容器类型由第 6 部分定义。语言只规定：它们是引用类型，类型参数不变；成员、构造与键类型限制由第 6 部分规定。
 
 `Result<T,E>` 是语言级错误类型；`Ok` / `Err` 是构造器。`Result` 是值类型，可以出现在变量、参数、返回值、字段、容器和闭包中。核心传播与处理见第 10 节；错误观测、取消和超时由错误处理规范规定。
 
@@ -503,7 +503,7 @@ void()
 - `as` / `as?` 不支持数值类型转换，不支持 `void` 目标。
 - 向上转换是身份转换；向下转换在运行时检查类型描述符；协议转换检查实现关系。
 - `Any` 拆箱到具体类型时检查装箱类型；`Any` 拆箱到协议时检查实现关系。
-- `x as Any` 对值类型创建装箱对象；对引用类型包装引用；装箱对象由 GC 管理。
+- `x as Any` 对值类型创建装箱值；对引用类型包装引用。
 - `is` / `as` / `as?` 的目标必须是类型，不能是表达式。
 
 ```x
@@ -516,10 +516,9 @@ Int? maybe = boxed as? Int;
 
 ### 2.10 Any 装箱
 
-- 值类型进入 `Any` 必须装箱；装箱产生 GC 对象，包含类型描述符和值。
+- 值类型进入 `Any` 必须装箱；装箱保留原值和类型信息。
 - 引用类型进入 `Any` 也产生装箱对象；拆箱得到原引用。
 - `Any` 的 `==` / `===` 比较装箱对象身份，不自动拆箱。需要值比较时先 `as` 到具体类型。
-- 装箱值由 GC 回收；装箱不改变原值的生命周期。
 - 装箱后的值不能直接参与算术、比较或成员访问；必须先拆箱。
 
 ### 2.11 元组类型
@@ -543,13 +542,13 @@ String second = pair.1;
 - 元组可以作为变量、参数、返回值、字段、容器元素、闭包捕获值和泛型类型实参。
 - 元组不能作为 `switch` 值、`Map` / `Set` 键、`const` 类型或常量表达式。
 - 元组不参与 `is` / `as` 的有意义转换；同型 `as` 是恒等操作，异型是编译错误。
-- 结构体字段对元组的限制、元组字段的内存布局见第 2 部分。
+- 结构体字段对元组的限制见第 2 部分。
 
 值语义：
 
 - 赋值、传参、返回、存入容器都复制整个元组；副本与原值独立。
 - 值元素按值复制；引用元素复制对象句柄。
-- 元组不分配对象；全值元素元组不进入 ARC/GC。含引用元素的元组按第 2 部分的规则参与内存分析。
+- 元组不产生对象身份；全值元素元组可作结构体字段，含引用元素的元组不能作结构体字段。
 
 成员访问：
 
@@ -580,14 +579,12 @@ package com.acme.order
 - 分号可选。
 - 包名是点分隔的标识符序列，不得为空段。
 - 省略 `package` 时，文件属于默认包。默认包不能被其他包 `import`，只用于单文件程序或入口。
-- 用户包名不得以 `xdk` 开头；`xdk.` 是保留命名空间。
 - 包名区分大小写；命名规范不参与语义。
 
 ### 3.2 import
 
 ```x
-import xdk.text
-import xdk.net.http
+import com.acme.common.Thing
 import com.acme.common.Thing as AcmeThing
 import com.other.Thing as OtherThing
 ```
@@ -600,9 +597,8 @@ import com.other.Thing as OtherThing
 - 包导入无法为其中单个符号建别名；两个包有同名符号时，改用 `import P.S as A` 选择性导入。
 - 重复导入同一包或同一符号是允许的，不产生新绑定；不同来源的同一简单名是冲突。
 - 禁止通配符导入；禁止 `import P as Q` 包别名。
-- XDK 包必须显式导入；未导入即使用 XDK 类型或静态入口是编译错误。
-- 导入不得执行用户代码、注册全局状态或修改进程状态。XDK 导入的初始化必须无副作用，或由调用方显式触发。
-- 非 XDK 导入必须解析到本次编译中的包；不得依赖未声明的二进制包。
+- 导入不得执行用户代码、注册全局状态或修改进程状态。包初始化必须无副作用，或由调用方显式触发。
+- 导入必须解析到本次编译中的包；不得依赖未声明的二进制包。
 - 完全限定名始终可用：`com.acme.common.helper(value)`。
 
 ### 3.3 名称解析
@@ -614,7 +610,7 @@ import com.other.Thing as OtherThing
 3. 导入的符号；
 4. 完全限定名。
 
-类型成员的解析见第 2 部分 5.8；实例字段可以非限定访问，局部变量或参数优先遮蔽字段，`self` / `super` 用于消歧。
+类型成员的解析见第 2 部分 5.7；实例字段可以非限定访问，局部变量或参数优先遮蔽字段，`self` / `super` 用于消歧。
 
 - 当前包顶层声明遮蔽同名导入。
 - 两个导入提供同一简单名且当前包没有同名声明时，必须对新导入使用 `as` 消歧，或使用完全限定名；不得让两个未消歧的简单名同时存在。
@@ -626,7 +622,7 @@ import com.other.Thing as OtherThing
 ### 3.4 多包编译
 
 - 多包编译时，类型和顶层函数在内部带包前缀；不同包的同名类型可以共存。
-- 跨包引用必须通过 `import` 或完全限定名；编译器不得依赖文件顺序解析跨包符号。
+- 跨包引用必须通过 `import` 或完全限定名；跨包符号解析不得依赖文件顺序。
 - 包导入图必须无环；检测到环时是编译错误。
 - 包内的声明顺序不影响可见性；函数、类型和顶层字段可以相互前向引用（初始化顺序见 4.3）。
 
@@ -636,13 +632,11 @@ import com.other.Thing as OtherThing
 
 - 包或符号不存在；
 - 使用通配符；
-- XDK 包未显式导入；
 - 导入其他包的 `private` / `protected` 顶层符号；
 - 默认包符号被跨包导入；
 - 非冲突场景使用 `as` 别名；
 - 导入别名冲突或未消歧的简单名；
 - 包导入环；
-- 用户包使用 `xdk` 前缀。
 
 ## 4. 顶层声明与静态
 
@@ -685,14 +679,14 @@ const Int limit = 10;
 - `final` 顶层字段必须在声明处初始化一次；语言不提供顶层赋值语句，因此不支持后置赋值。
 - `const` 字段必须有编译期常量初始化式，且隐式 `static`。
 - 顶层字段属于当前包；跨包访问通过导入或完全限定名。
-- 顶层引用字段是全局根；ARC 对象被 retain，GC 对象被追踪。
+- 顶层引用字段在程序启动时初始化，并保持到进程结束。
 
 ### 4.3 初始化顺序
 
 程序启动时按以下顺序初始化：
 
 1. 所有顶层字段和静态字段先置零值。
-2. 按包依赖拓扑顺序初始化包；同包内按工程清单给出的文件顺序，缺省按路径字典序；文件内按声明顺序。
+2. 按包依赖拓扑顺序初始化包；同包内按路径字典序；文件内按声明顺序。
 3. 执行顶层字段、静态字段和单例的初始化式。
 4. 所有初始化完成后调用 `main`。
 
@@ -717,7 +711,7 @@ const Int limit = 10;
 
 - 顶层声明默认公开。
 - `public` 显式公开；`private` 只允许同包访问；`protected` 在顶层与 `private` 相同，不提供额外语义。
-- 可见性只做编译期检查，不改变布局、内存或运行期行为。
+- 可见性只做编译期检查，不改变字段存储或对象身份。
 - 其他包的 `private` / `protected` 顶层符号不能被导入，也不能通过完全限定名访问。
 
 ## 5. 局部变量
@@ -1079,11 +1073,11 @@ cond ? a : b
 ### 7.4 数值与比较
 
 - 二元算术、位运算要求两侧类型相同；整数字面量可以适配到另一侧类型。
-- `+ - * /` 对整数和浮点适用；`%` 只适用于整数类型；浮点余数使用 XDK。
+- `+ - * /` 对整数和浮点适用；`%` 只适用于整数类型；浮点余数由库函数提供。
 - `& | ^ ~ << >>` 只适用于整数类型。
 - `<<` / `>>` 的右操作数必须是 `Int`；结果是左操作数类型。
 - 比较运算要求两侧类型相同；`null` 只能与引用类型/`T?` 比较。
-- `String` 只支持 `==` / `!=` / `===` / `!==`；顺序比较使用 `Text.compareTo` 或 XDK。
+- `String` 只支持 `==` / `!=` / `===` / `!==`；不提供顺序比较。
 - 引用类型只支持 `==` / `!=` / `===` / `!==`；不提供 `<` 等顺序比较。
 - `Bool` 只支持 `==` / `!=` / `===` / `!==`；不参与大小比较。
 
@@ -1151,7 +1145,7 @@ Int result = apply(add, 1);
 - 嵌套闭包共享外层 cell。
 - 不支持按值捕获语法；语言不提供弱引用，不存在弱捕获。
 - 捕获变量不需要是 `final`。
-- 闭包值是 GC 对象；闭包、环境和 cell 都由 GC 管理。内存细节见第 2 部分。
+- 闭包是一等函数值；捕获变量的存储由闭包持有，生命周期见第 2 部分。
 - 闭包可以嵌套、作为参数传递、作为返回值、存入容器和字段。
 - 闭包可以返回 `Result`；返回 `Result` 时可以使用 `try`、`defer`、`errdefer`，错误只从闭包返回，不穿透外层函数。
 - 闭包内 `try` 要求闭包的目标返回类型是 `Result<_, E>`；没有目标类型且推断不出 `Result` 时是编译错误。
@@ -1165,7 +1159,7 @@ Int result = apply(add, 1);
 - 插值表达式不能是 `void`；不能包含未配对的 `}`。
 - 插值表达式可以包含嵌套括号、闭包和泛型调用。
 - `Result` 不直接插值；先检查、解包或调用显式格式化 API。
-- 不支持格式说明符，例如 `{value:X}`；需要格式化时显式调用 XDK 格式化 API。
+- 不支持格式说明符，例如 `{value:X}`。
 - 插值结果是新的 `String`，不是常量表达式。
 
 ### 7.9 常量表达式
@@ -1180,7 +1174,7 @@ Int result = apply(add, 1);
 - 体形式统一：函数、方法与构造器必须是花括号体，不提供表达式体；Lambda 例外，允许单表达式体（7.7）。必须有函数体，不提供无体声明。
 - 类型标注统一：函数、方法与构造器的参数和返回类型必须显式；Lambda 参数类型必须显式，返回类型按 7.7 推断或按目标类型检查，不提供 `var` 式的形参省略。
 - 调用统一：总是按位置传参；重载按 4.4 与第 2 部分 6.8 解析；`Result` 与 `@mustUse` 规则对所有函数形式一致适用。
-- 派发方式是唯一差异：方法有接收者，按第 2 部分 5.6 静态派发或 vtable 派发；Lambda 是一等的函数值。
+- 派发方式是唯一差异：方法有接收者，按第 2 部分 5.6 静态派发或动态派发；Lambda 是一等的函数值。
 
 ## 8. 泛型函数
 
@@ -1208,7 +1202,7 @@ static T first<T>(T[] values) {
 - 显式类型实参：`identity<Int>(1)`；数量必须与类型参数数量一致。
 - 省略类型实参时，按实参类型对参数类型做合一：
   - 类型参数直接匹配实参类型；
-  - 嵌套类型逐层匹配，例如 `List<T>` 匹配 `List<Int>` 得到 `T = Int`；
+  - 嵌套类型逐层匹配，例如 `Box<T>` 匹配 `Box<Int>` 得到 `T = Int`；
   - 同一个类型参数得到冲突绑定时报错；
   - 结束时仍有未绑定类型参数时报错。
 - 无后缀整数/浮点实参在没有其他约束时分别绑定 `Int` / `Double`；如果同一类型参数已由其他实参绑定，则字面量适配该类型。
@@ -1240,15 +1234,11 @@ static T first<T>(T[] values) {
 | 类型 | 来源 | 类别 | 关键成员 |
 | --- | --- | --- | --- |
 | `String` | 语言 | 引用、不可变 UTF-8 | `length` `substring` `indexOf` `trim` `split` `replace` `toUpper` `toLower` |
-| `T[]` | 语言 | 引用、固定长度、GC | 下标、`length`、`join` |
-| `List<T>` | `xdk.collections` | 引用、可增长、GC | `push` `insert` `set` `get` `remove` `clear` `length` |
-| `Map<K,V>` | `xdk.collections` | 引用、哈希表、GC | `put` `get` `getOr` `has` `remove` `clear` `length` `keys` `values` |
-| `Set<T>` | `xdk.collections` | 引用、哈希集合、GC | `add` `has` `at` `remove` `clear` `length` |
-| `StringBuilder` | `xdk.text` | 引用、可变、GC | `append` `toString` `length` |
-| `Text` | `xdk.text` | 引用、不可变 UTF-8 | `fromString` `length` `codePointCount` `toString` |
-| `Bytes` | `xdk.text` | 引用、可变字节缓冲 | `fromString` `get` `set` `push` `append` `slice` `length` |
+| `T[]` | 语言 | 引用、固定长度 | 下标、`length`、`join` |
 | `(T1, T2, ...)` | 语言 | 值类型 | `.0` `.1`…；见 2.11 |
 | `Result<T,E>` | 语言 | 值类型、`@mustUse` | `isOk` `isErr` `value` `error` `unwrapOr`；见 10.1 |
+
+`List<T>`、`Map<K,V>`、`Set<T>`、`StringBuilder`、`Text`、`Bytes` 是库类型，由第 6 部分定义；语言只规定它们都是引用类型、类型参数不变。
 
 ### 9.2 String
 
@@ -1274,8 +1264,8 @@ String joined = parts.join("-");
 - `startsWith` / `endsWith` 按字节前缀/后缀比较。
 - `split(separator)` 按非空分隔符拆分；保留空段；分隔符为空时返回只含原字符串的一元素数组。
 - `replace(from, to)` 替换全部非重叠匹配；`from` 为空时返回原字符串。
-- `toUpper()` / `toLower()` 只转换 ASCII 字母；Unicode 大小写转换使用 `xdk.text`。
-- `String` 不支持下标、`length` 属性或原地修改；需要按码点操作时使用 `Text` / `Rune`。
+- `toUpper()` / `toLower()` 只转换 ASCII 字母。
+- `String` 不支持下标、`length` 属性或原地修改。
 - `String + String` 产生新字符串；`String` 与数值不能直接 `+`。
 
 ### 9.3 T[]
@@ -1295,112 +1285,26 @@ String text = values.join(",");
 - `length()` 返回元素数量。
 - `join(separator)` 把元素格式化为字符串并用分隔符连接；元素必须可格式化。
 - 多维数组是嵌套数组；不提供矩形矩阵或 `Tensor`。
-- 不能 `push` 或改变长度；需要可增长容器时使用 `List<T>`。
+- 不能 `push` 或改变长度；需要可增长容器时使用库容器（第 6 部分）。
 - `T[]` 是引用类型；变量赋值复制对象句柄，不复制数组。元素为 `struct` 时，写入和读取按值复制；元素为引用类型时复制对象句柄。
 - 数组元素类型不变；`String[]` 不能赋给 `Object[]`。
 
-### 9.4 List
+### 9.4 容器字面量
 
 ```x
-List<Int> list = [1, 2];
-list.push(3);
-list.insert(1, 9);
-list.set(0, 7);
-Int first = list.get(0);
-Int removed = list.remove(0);
-list.clear();
-Int length = list.length();
+Int[] values = [1, 2, 3];
+Map<String, Int> counts = ["a": 1, "b": 2];
+Map<String, Int> empty = [:];
 ```
 
-- `List<T>` 是可增长数组；保持插入顺序。
-- `push(value)` 追加到尾部，均摊 O(1)。
-- `insert(index, value)` 在 `0..length` 位置插入；越界 panic。
-- `set(index, value)` 替换；越界 panic。
-- `get(index)` 读取；越界 panic。
-- `remove(index)` 删除并返回元素；越界 panic；后续元素前移。
-- `clear()` 清空；`length()` 返回元素数量。
-- `list[index]` 读取等价于 `get(index)`；`list[index] = value` 等价于 `set(index, value)`。
-- `List<T>` 是引用类型，GC 管理；类型参数不变。
+- `[...]` 是序列字面量；目标类型为 `T[]` 时构造数组。目标类型为库容器（`List` / `Set`）时，按第 6 部分规定的构造规则处理。
+- `[key: value, ...]` 是键值字面量，构造 `Map<K,V>`；`[:]` 是空 Map。
+- 每个元素或键值对从左到右求值；键值对先求值键、再求值值。
+- 重复键以后出现的值为准。
+- 空字面量 `[]` / `[:]` 必须由目标类型确定，不能用于 `var`（见 2.7）。
+- 键类型限制由第 6 部分规定。
 
-### 9.5 Map
-
-```x
-Map<String, Int> table = ["a": 1];
-table.put("b", 2);
-Bool has = table.has("a");
-Int? value = table.get("a");
-Int fallback = table.getOr("missing", 0);
-table.remove("a");
-table.clear();
-Int length = table.length();
-String[] keys = table.keys();
-Int[] values = table.values();
-```
-
-- `Map<K,V>` 是哈希表；键唯一。
-- v3.0.0 的键类型只支持 `String`、整数类型和简单枚举；其他键类型是编译错误。整数和简单枚举按 `Int` 编码。
-- 空 Map 写 `[:]`；非空字面量写 `[key: value, ...]`；重复键后者覆盖前者。
-- `put(key, value)` 插入或覆盖；不返回旧值。
-- `get(key)` 返回 `V?`；键不存在时返回 `null`，不 panic。
-- `getOr(key, fallback)` 返回 `V`；键不存在时返回 `fallback`。
-- `has(key)` 返回键是否存在。
-- `remove(key)` 删除键；键不存在时无操作。
-- `clear()` 清空；`length()` 返回键值对数量。
-- `keys()` / `values()` 返回当前键/值数组；顺序在容器未发生结构性修改时稳定，但语言不规定具体顺序。需要确定顺序时由调用方排序。
-- `Map` 不能直接 `for-in`；先取 `keys()` 或 `values()`。
-- `Map` 是引用类型，GC 管理；类型参数不变。
-
-### 9.6 Set
-
-```x
-Set<String> tags = ["x", "y"];
-tags.add("z");
-Bool has = tags.has("y");
-String first = tags.at(0);
-tags.remove("x");
-tags.clear();
-Int length = tags.length();
-```
-
-- `Set<T>` 是哈希集合；元素唯一；保持插入顺序不作为语言保证。
-- 元素类型限制与 `Map` 键相同：`String`、整数类型、简单枚举。
-- 字面量 `[...]` 创建 Set；重复元素去重。
-- `add(value)` 插入；已存在时无操作。
-- `has(value)` 判断存在。
-- `at(index)` 返回当前迭代顺序中的第 `index` 个元素；越界 panic；顺序不保证稳定。
-- `remove(value)` 删除；不存在时无操作。
-- `clear()` 清空；`length()` 返回元素数量。
-- `Set` 可以 `for-in`；顺序不保证稳定。
-- `Set` 是引用类型，GC 管理；类型参数不变。
-
-### 9.7 StringBuilder / Text / Bytes
-
-```x
-import xdk.text;
-
-StringBuilder builder = StringBuilder();
-builder.append("count=");
-builder.append(1);
-String text = builder.toString();
-
-Text immutable = Text.fromString("hello");
-Int byteLength = immutable.length();
-Int codePoints = immutable.codePointCount();
-String plain = immutable.toString();
-
-Bytes bytes = Bytes.fromString("abc");
-bytes.set(1, 90);
-Int first = bytes.get(0);
-Int byteCount = bytes.length();
-```
-
-- `StringBuilder()` 创建空构建器；`append` 接受 `String`、`Bool`、整数、`Float`、`Double`、`Char`，返回构建器自身；`toString()` 返回新 `String`；`length()` 返回当前字节长度。
-- `StringBuilder` 是可变引用类型；适合循环拼接，均摊 O(1) 追加。
-- `Text` 是不可变 UTF-8 文本；`fromString` 复制 `String` 内容；`length()` 返回字节数；`codePointCount()` 返回码点数；`toString()` 返回等值 `String`。完整 API 见第 6 部分 §4.6。
-- `Bytes` 是可变字节缓冲区；`fromString` 复制字节；`get` / `set` 按字节索引，越界 panic；`push` 追加一个字节；`append` 追加 `Bytes` 或 `Byte[]`；`slice(start, end)` 返回新 `Bytes`；`length()` 返回字节数。
-- `Text` / `Bytes` / `StringBuilder` 都由 GC 管理；`Text` 与 `String` 之间转换会复制内容。
-
-### 9.8 复杂度
+### 9.5 复杂度
 
 | 操作 | 复杂度 |
 | --- | --- |
@@ -1408,26 +1312,18 @@ Int byteCount = bytes.length();
 | `String.substring` | O(n) |
 | `String.indexOf` | 最坏 O(n·m) |
 | `String.split` / `replace` | O(n) |
-| `StringBuilder.append` | 均摊 O(1) |
-| `StringBuilder.toString` | O(n) |
 | `new T[count]` 创建 | O(n)（零初始化） |
 | `T[]` 下标 / `length` | O(1) |
 | `T[].join` | O(n) |
 | `Result.isOk` / `isErr` / `value` / `error` / `unwrapOr` | O(1) |
-| `List.push` | 均摊 O(1) |
-| `List.insert` / `remove` | O(n) |
-| `List.get` / `set` | O(1) |
-| `Map` / `Set` 查找、插入、删除 | 平均 O(1)，最坏 O(n) |
-| `Map.keys` / `values` | O(n) |
-| `Set.at` | O(n) |
 
-### 9.9 成员解析规则
+### 9.6 成员解析规则
 
 - 内建类型成员是语言预定义成员，不能被用户扩展方法覆盖。
 - 内建成员按静态接收者类型解析；`null` 接收者调用非 `?.` 成员时 panic。
-- `length()` 在不同类型上含义不同：`String` 按字节，`T[]` / `List` / `Set` / `Map` 按元素/键值对数量，`Text` 按字节。
+- `length()` 在 `String` 上按字节，在 `T[]` 上按元素数量。
 - `Result` 的 `isOk` / `isErr` / `value` / `error` / `unwrapOr` 是内建成员，见 10.1。
-- 容器方法不返回可空值，除非签名明确写出 `?`；越界通过 panic 报告；`Map.get` 是缺失键返回 `null` 的例外。
+- 数组越界通过 panic 报告；库类型成员的行为见第 6 部分。
 
 ## 10. 错误处理
 
@@ -1464,7 +1360,7 @@ T unwrapOr(T fallback) // 仅 T 非 void
 
 ```x
 Result<Config, AppError> load(String path) {
-    String text = try File.read(path);
+    String text = try readText(path);
     Config config = try parse(text);
     return Ok(config);
 }
@@ -1514,7 +1410,7 @@ Result<void, IoError> copy(String from, String to) {
 - `defer` / `errdefer` 只能出现在函数体、控制体或闭包体中；不得作为 `if` / `while` / `for` 的单条语句体。顶层和类型体不允许。
 - `defer` / `errdefer` 的单条语句体不得是局部声明；需要局部变量时使用花括号体。
 - 循环体内注册的清理在每轮迭代结束时执行；`break` / `continue` 退出当前迭代时执行当前迭代已注册的清理。
-- `defer` 不能替代对象生命周期管理；ARC/GC 负责对象，`defer` 负责文件、锁、事务、socket 等外部资源。
+- `defer` 只管理文件、锁、事务、socket 等外部资源；对象生命周期见第 3 部分。
 
 ### 10.4 throw 与 fatal
 
@@ -1529,27 +1425,11 @@ Result<void, IoError> copy(String from, String to) {
 - 日志、诊断、取消、超时、`ErrorKind` 和边界转换由错误处理规范规定。
 - 错误观测是边界行为，不是控制流；不得引入全局通知中心或隐式恢复。
 - 错误类型 `E` 可以是枚举、结构体、类或 `Error` 协议实现；`E` 不能是 `void`。
-- 未处理的 `Result` 必须产生编译诊断；边界处必须显式转换（CLI 退出码、HTTP 状态码、任务失败等）。
+- 未处理的 `Result` 必须产生编译诊断。
 
-## 11. XDK 与入口
+## 11. 程序入口
 
-### 11.1 XDK 导入
-
-```x
-import xdk.text;
-import xdk.collections;
-import xdk.net.http;
-```
-
-- `xdk.` 是保留命名空间；用户包不得使用该前缀。
-- XDK 包路径可以多级；包名取路径末段，例如 `xdk.net.http` 的包名是 `http`。包名只用于包身份和诊断，不绑定命名空间别名。
-- 未导入即使用 XDK 类型或静态入口必须编译失败。
-- `T[]` 属于语言自带语法，不要求导入 `xdk.collections`。
-- `List` / `Set` / `Map` 必须导入 `xdk.collections`；`Text` / `Bytes` / `StringBuilder` 必须导入 `xdk.text`。
-- XDK 包版本和 `min_runtime_abi` 必须与运行时兼容；不兼容时编译失败，不得静默降级。
-- XDK 包目录、能力边界和完整 API 见第 6 部分。
-
-### 11.2 入口
+### 11.1 入口
 
 ```x
 static void main(final String[] args) {
@@ -1571,23 +1451,17 @@ static Int main(final String[] args) {
 - 入口必须是公开的（默认公开或显式 `public`）。
 - 入口不能是泛型函数，不能有额外参数，不能有默认参数或可变参数。
 - 一个程序只能有一个匹配签名的入口；其他 `main` 重载是普通函数。
-- 入口可以在默认包或工程清单指定的包中；其他包的 `main` 不能作为入口。
+- 入口可以在默认包或构建配置指定的包中；其他包的 `main` 不能作为入口。
+- 入口文件由构建配置指定；本方案只规定入口函数签名与启动顺序。
 - `args` 是运行时创建的新数组，元素是参数字符串；修改数组元素不影响进程原始参数。
 
-### 11.3 启动顺序
+### 11.2 启动顺序
 
 1. 按 4.3 初始化顶层字段、静态字段和单例。
 2. 调用入口。
 3. 入口返回后，进程按退出码终止；不保证执行全局 `deinit`。
 
 初始化阶段 panic 时，进程终止，入口不会被调用。入口内 panic 时，进程终止，不展开栈。
-
-### 11.4 工程入口解析
-
-- 工程清单可以指定入口文件和入口包。
-- 没有工程清单时，入口文件是当前目录的 `main.x`。
-- 入口文件必须包含匹配签名的 `main`；缺失或重复时是编译错误。
-- 工程清单不属于本方案；清单格式和字段由工程配置规范规定。
 
 ## 附录 A：基础语法文法
 
@@ -1604,8 +1478,8 @@ TopLevelDecl      = { Annotation } { TopLevelModifier }
 TopLevelModifier  = "public" | "protected" | "private" | "static" ;
 TopLevelFunction  = "static" Type Identifier [ GenericParams ]
                     "(" [ ParamList ] ")" Block ;
-TopLevelField     = [ "static" ] [ "final" | "const" ] Type Identifier
-                    [ "=" Expression ] [ ";" ] ;
+TopLevelField     = [ "static" ] ( "const" Type Identifier "=" Expression
+                                  | [ "final" ] Type Identifier [ "=" Expression ] ) [ ";" ] ;
 TypeDecl          = { Annotation } { TypeModifier } TypeDeclBody ;
 TypeModifier      = "public" | "protected" | "private" | "abstract" | "final" ;
 TypeDeclBody      = ClassDecl | StructDecl | ProtocolDecl | EnumDecl
@@ -1645,7 +1519,8 @@ Statement         = LocalDecl
                   | GotoStatement
                   | EmptyStatement ;
 
-LocalDecl         = ( "final" | "const" ) Type Identifier [ "=" Expression ] [ ";" ]
+LocalDecl         = "final" Type Identifier [ "=" Expression ] [ ";" ]
+                  | "const" Type Identifier "=" Expression [ ";" ]
                   | "var" Identifier "=" Expression [ ";" ]
                   | Type Identifier [ "=" Expression ] [ ";" ] ;
 ExprStatement     = Expression [ ";" ] ;
