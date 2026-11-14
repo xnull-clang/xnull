@@ -341,7 +341,7 @@ Int g = -b
 | --- | --- | --- |
 | 值类型 | `Bool` `Unit` `Byte` `Short` `Int` `Long` `UByte` `UShort` `UInt` `ULong` `Int128` `UInt128` `Float` `Double` `Char` | 按值复制 |
 | 引用类型 | `String` `Object` `Any` `T[]` | 按对象句柄传递 |
-| 库类型 | 第 6 部分定义（`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder` 等） | 均为引用类型；按对象句柄传递 |
+| 库类型 | 第 6 部分的能力合同（当前实现映射为 `List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder` 等） | 均为引用类型；按对象句柄传递 |
 | 语言级错误类型 | `Result<T,E>` | 值类型；见第 10 节 |
 | 元组 | `(T1, T2, ...)` | 按值复制；见 2.11 |
 | 用户类型 | 第 2 部分的 `class`、`protocol`、`enum`、`singleton`、`struct` | 第 2 部分规定 |
@@ -397,7 +397,7 @@ Int g = -b
 
 `T[]` 是固定长度一维数组，按对象句柄传递。多维数组写作连续追加 `[]`，语义是嵌套数组：`T[][]` 等价于 `Array<Array<T>>`。语言不提供矩形矩阵或 `Tensor` 类型。
 
-`List<T>`、`Set<T>`、`Map<K,V>` 等库容器类型由第 6 部分定义。语言只规定：它们是引用类型，类型参数不变；成员、构造与键类型限制由第 6 部分规定。
+`List<T>`、`Set<T>`、`Map<K,V>` 等库容器类型属于第 6 部分的数据与文本能力。语言只规定：它们是引用类型，类型参数不变；成员、构造与键类型限制由库 API 规定（第 6 部分）。
 
 `Result<T,E>` 是语言级错误类型；`Ok` / `Err` 是构造器。`Result` 是值类型，可以出现在变量、参数、返回值、字段、容器和闭包中。核心传播与处理见第 10 节；错误观测、取消和超时由错误处理规范规定。
 
@@ -1241,7 +1241,7 @@ static T first<T>(T[] values) {
 
 `Unit` 是内建空值类型：唯一值是 `unit`，零大小、无身份、按值复制；用于 `Result<Unit,E>` 表示没有成功值的操作。`unit == unit` 为 `true`，`str(unit)` 为 `"unit"`。
 
-`List<T>`、`Map<K,V>`、`Set<T>`、`StringBuilder`、`Text`、`Bytes` 是库类型，由第 6 部分定义；语言只规定它们都是引用类型、类型参数不变。
+`List<T>`、`Map<K,V>`、`Set<T>`、`StringBuilder`、`Text`、`Bytes` 是库类型，属于第 6 部分的 XDK 能力；语言只规定它们都是引用类型、类型参数不变。
 
 ### 9.2 String
 
