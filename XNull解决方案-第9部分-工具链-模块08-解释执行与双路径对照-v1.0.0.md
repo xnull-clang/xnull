@@ -604,5 +604,5 @@ func Run(u *xfront.CompilationUnit, out io.Writer, progArgs []string) (code int,
 - `impl/internal/interp/hard_test.go`
 - `impl/internal/interp/interp_test.go`
 - `impl/internal/interp/values_test.go`
-- `XNull解决方案-第1部分-基础语法-v3.3.0.md` §10
+- `XNull解决方案-第1部分-基础语法-v3.4.0.md` §10
 - `XNull解决方案-第4部分-错误处理-v1.0.0.md` §7.2

@@ -760,7 +760,7 @@ func EmitC(u *xfront.CompilationUnit) (string, error)
 
 ## 10. 参考
 
-- `XNull解决方案-第1部分-基础语法-v3.3.0.md`
+- `XNull解决方案-第1部分-基础语法-v3.4.0.md`
 - `XNull解决方案-第2部分-对象编程-v3.3.0.md`
 - `XNull解决方案-第3部分-内存管理-v3.0.0.md`
 - `XNull解决方案-第4部分-错误处理-v1.0.0.md`
