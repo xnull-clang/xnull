@@ -396,4 +396,4 @@ void xrt_fatal(const char *reason);
 - `impl/runtime/rt_gc.h`
 - `impl/runtime/test_abi.c`
 - `XNull解决方案-第7部分-FFI-v1.0.0.md` §6
-- `XNull解决方案-第3部分-内存管理-v3.0.0.md` §22
+- `XNull解决方案-第3部分-内存管理-v3.1.0.md` §20

@@ -543,5 +543,5 @@ func (r *Registry) EmitSupport() Snippet
 - `bindings/xdk/runtime.xfb`
 - `bindings/xdk/sys.xfb`
 - `XNull解决方案-第7部分-FFI-v1.0.0.md`
-- `XNull解决方案-第3部分-内存管理-v3.0.0.md` §19/§22
+- `XNull解决方案-第3部分-内存管理-v3.1.0.md` §19
 - `XNull解决方案-第4部分-错误处理-v1.0.0.md` §7

@@ -540,6 +540,6 @@ cc -std=c11 -Wall -Wextra -Werror -O2 ...
 - `impl/runtime/rt_std_text.c`
 - `impl/runtime/rt_std_sys.c`
 - `impl/runtime/build_rt.sh`
-- `XNull解决方案-第3部分-内存管理-v3.0.0.md`
+- `XNull解决方案-第3部分-内存管理-v3.1.0.md`
 - `XNull解决方案-第4部分-错误处理-v1.0.0.md`
 - `XNull解决方案-第5部分-运行时任务与并发-v1.0.0.md`
