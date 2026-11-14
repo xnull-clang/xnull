@@ -1,5 +1,7 @@
 # XNull 解决方案 第 9 部分：工具链（模块 05：FFI 绑定合同与包装生成）
 
+> **2026-11-15**：本文档是内部实现基线，不属于语言规范序列；实现细节（含 `.xfb` 等格式）可按实现需要修正。
+
 > 本文是第 9 部分模块 05，只落实第 3 部分 §19、第 4 部分 §7、第 5 部分 §2.2/§9、第 7 部分与第 8 部分 §7 已定义的 FFI 合同；内部实现选择不构成语言语义；与第 1—8 部分冲突时以母本为准。
 
 | 项 | 值 |
@@ -542,6 +544,6 @@ func (r *Registry) EmitSupport() Snippet
 - `impl/docs/blocking-classification.md`
 - `bindings/xdk/runtime.xfb`
 - `bindings/xdk/sys.xfb`
-- `XNull解决方案-第7部分-FFI-v1.0.0.md`
+- `XNull解决方案-第7部分-FFI-v1.1.0.md`
 - `XNull解决方案-第3部分-内存管理-v3.1.0.md` §19
 - `XNull解决方案-第4部分-错误处理-v1.1.0.md` §5
