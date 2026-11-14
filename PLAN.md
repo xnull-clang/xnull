@@ -5,6 +5,8 @@
 最小的 XNull 端到端跑通：**一个文件、一个类、一次 XDK 调用、一条命令、精确输出**。
 之后每级只加一个概念，按开发者第一小时的顺序向上长。
 
+规范：`XNull规范-逆向版-v0.1.0.md`（施工依据）；装载与布局按该文件 §2，XDK 模型按 §3。
+
 ## 边界
 
 | 进 | 不进 |
@@ -25,7 +27,7 @@
 |---|---|---|---|
 | L0 | `print("hello")` | 编译 → 链接 → 运行 | 绿（3.0s） |
 | L1 | 用户 class + 方法 | 对象模型 | 绿（2.1–2.4s） |
-| L2 | `import xdk.errors` + `ErrorKind.NotFound` | 包隔离、命名空间（零原语） | 红 |
+| L2 | `import xdk.errors` + `ErrorKind.NotFound`（`impl/lib/xdk/errors.x`） | 包隔离、命名空间（零原语） | 红 |
 | L3 | `xdk.text.Format` builder | 库类与用户类走同一条编译路径 | 红 |
 | L4 | `sys.fileExists(path)` | 第一个原语：绑定 / 租约 / 错误码 | 红 |
 | L5 | `parseInt("x")` | 第一条可读的错误路径 | 红 |
@@ -49,10 +51,14 @@
 
 ## 下一刀
 
-**包级导入隔离**：`import xdk.x` 只解析 `x` 一个包单元。
+按规范 §2/§3 把 XDK 收成 **8 个平铺文件**：
 
-- 包内死代码也要裁：`Math.x` 的随机数把 `ext_raw` 拖进链接。
-- 包从 30 行起步、按需追加；不从 1,500 行的 `Text.x` 往下删。
+1. `impl/lib/xdk/{errors,tasks,sync,runtime,collections,text,sys,net}.x`，一包一文件、全小写；
+2. 装载规则改成 `import xdk.<pkg>` → `<标准库根>/xdk/<pkg>.x`（默认标准库根 `impl/lib`），不再 bundle；
+3. 先只把 `errors.x` 填到能过 L2 的最小面，其余文件延后；
+4. 现有 `impl/lib/xdk/{core,text,io,net,data,util,concurrent}` 按映射迁入 8 个文件；`build` / `compiler` 移出 XDK。
+
+不保留 layer/domain、`base`/`full`、`*_full`、`xdk-raw`。
 
 ## 不做
 
