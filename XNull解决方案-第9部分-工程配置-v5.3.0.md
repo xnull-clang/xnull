@@ -663,7 +663,7 @@ feature.new-checkout=false
 | 前缀 | 归属 | 示例 |
 | --- | --- | --- |
 | `xnull.` | 工具链保留 | `xnull.profile` |
-| `xdk.` | XDK 包（第 6 部分） | `xdk.log.level` |
+| `xdk.` | XDK 配置命名空间（第 6 部分） | `xdk.log.level` |
 | `app.` | 服务自身 | `app.name` |
 | 自定义（小写点分，段内连字符） | 服务内部 | `net.http.listen-port` |
 
