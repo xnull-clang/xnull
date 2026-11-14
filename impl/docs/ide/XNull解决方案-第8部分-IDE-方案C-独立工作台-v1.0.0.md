@@ -297,7 +297,7 @@ ide/desktop/
 
 ## 参考
 
-- `XNull解决方案-第8部分-IDE-v1.0.0.md`
+- `XNull解决方案-第8部分-IDE-v2.0.0.md`
 - `XNull解决方案-第8部分-IDE-方案A-VSCode扩展-v1.0.0.md`
 - `XNull解决方案-第8部分-IDE-方案B-XNull语言服务-v1.0.0.md`
 - `XNull解决方案-第7部分-工具链-v1.0.0.md`

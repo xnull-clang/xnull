@@ -525,5 +525,5 @@ xnull dev res <资源目录> <输出.c>
 - `impl/docs/conformance/status.tsv`
 - `impl/docs/conformance/en-source.sha256`
 - `impl/docs/conformance/ledger-restructure.md`
-- `XNull解决方案-第9部分-工程配置-v5.2.0.md` §5.6
+- `XNull解决方案-第9部分-工程配置-v5.3.0.md` §5.6
 - `XNull解决方案-第6部分-标准库XDK-v1.1.0.md` §4.8

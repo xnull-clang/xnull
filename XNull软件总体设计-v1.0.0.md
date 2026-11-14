@@ -963,7 +963,7 @@ go build -o xnull ./cmd/xnull
 - `XNull解决方案-第5部分-运行时任务与并发-v1.1.0.md`
 - `XNull解决方案-第6部分-标准库XDK-v1.1.0.md`
 - `XNull解决方案-第7部分-FFI-v1.1.0.md`
-- `XNull解决方案-第9部分-工程配置-v5.2.0.md`
+- `XNull解决方案-第9部分-工程配置-v5.3.0.md`
 - `XNull规范索引-v1.0.0.md`
 - `XNull一致性用例台账-v1.0.0.md`
 - `XNull开发任务规划.md`

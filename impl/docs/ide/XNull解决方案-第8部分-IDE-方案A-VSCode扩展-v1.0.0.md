@@ -517,6 +517,6 @@ save/check command
 - `XNull解决方案-第7部分-工具链-v1.0.0.md`
 - `XNull解决方案-第7部分-工具链-模块02-命令行工具-v1.0.0.md`
 - `XNull解决方案-第7部分-工具链-模块07-诊断与错误呈现-v1.0.0.md`
-- `XNull解决方案-第9部分-工程配置-v5.2.0.md`
+- `XNull解决方案-第9部分-工程配置-v5.3.0.md`
 - `XNull解决方案-第6部分-标准库XDK-v1.1.0.md`
 - `impl/internal/cli/cli.go`
