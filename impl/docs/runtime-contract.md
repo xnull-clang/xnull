@@ -8,13 +8,13 @@
 ## A0. ABI v1 状态：稳定 v1（2026-11-08 转正）
 
 **稳定 v1（stable v1）**：`xrt.h` / `xrt_abi.c` 的符号与签名冻结为跨 FFI ABI 承诺
-（S7 附录 B §B.6.1、附录 B）；变更走主版本。
+（S7 附录 A §A.6.1、附录 B）；变更走主版本。
 
 - **转正依据**：numeric 变体（句柄 + Bytes + `@errorCode`）与资源/任务/同步面已随 S6
   端到端通过；`xrt.h` 头注释与本文件同步改为“稳定 v1”（S7-05）。
 - **S7-05 转正动作**：生成代码的 `main` 首行调用 `xrt_runtime_init()`；
-  `xrt_alloc` 在未初始化时 fatal（S7 附录 B §B.6.3 顺序合同）；弱表声明由 `XRT_BINDINGS_LAYER`
-  门禁（应用层引用编译失败，S7 附录 B §B.6.2）；新增 `test_abi_link.c`（只 include `xrt.h` 的原生链接测试）。
+  `xrt_alloc` 在未初始化时 fatal（S7 附录 A §A.6.3 顺序合同）；弱表声明由 `XRT_BINDINGS_LAYER`
+  门禁（应用层引用编译失败，S7 附录 A §A.6.2）；新增 `test_abi_link.c`（只 include `xrt.h` 的原生链接测试）。
 - **历史记录**：以下“候选期增补/更正”为转正前记录，保留追溯；自转正日起新增变更按主版本流程。
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
@@ -129,7 +129,7 @@
 | P-05 | escape 回填：codegen 对象级逃逸分类（none/return/other）写入 `rt_policy_input.escape` | 条件采纳（需 A 段增补 + 挂 M4.4b） |
 | P-06 | 入口垫片：`main` → `xn_main`，Int 退出码直通（S1 ENTRY-01 / S9 §5.1 退出码合同） | 采纳（已落地，冻结为事实） |
 | P-07 | 构建缓存：libxrt.a 内容哈希键控；cc 探测 CC→cc→clang→gcc；旗标 `-std=c11 -O2 -Wall` | 部分采纳（键与旗标要求见 C 段） |
-| P-08 | 新增 `impl/runtime/xrt.h` + `xrt_abi.c` 薄封装层：S7 附录 B §B.6.1 冻结的 `xrt_*` 前缀映射到内部 `rt_*`（内部实现不改名，零回归）；`xrt.h` 为唯一对外 ABI 头，`rt.h` 降级为内部头；含 FFI 增补 `xrt_handle`、`xrt_task_root_bind/unbind`（见 ffi-design.md §5.4） | 采纳（codegen 迁移挂 M4.4a，清单见 C 段） |
+| P-08 | 新增 `impl/runtime/xrt.h` + `xrt_abi.c` 薄封装层：S7 附录 A §A.6.1 冻结的 `xrt_*` 前缀映射到内部 `rt_*`（内部实现不改名，零回归）；`xrt.h` 为唯一对外 ABI 头，`rt.h` 降级为内部头；含 FFI 增补 `xrt_handle`、`xrt_task_root_bind/unbind`（见 ffi-design.md §5.4） | 采纳（codegen 迁移挂 M4.4a，清单见 C 段） |
 | P-09 | codegen 把 `.xfb` 入口作为包级可调用声明注入，调用点使用 `xn_ffi_<entry>`（包装 ABI v1，ffi-contract §5.1） | 采纳（附三条条件，见 C 段 2026-11-06 编译器侧·P-09/P-10） |
 | P-10 | `xnull build` 的 C 编译清单纳入 `xrt_abi.c` 与 `rt_std_*.c`，并注入 `link.libraries`（LinkArgs） | 采纳（附四条条件，见 C 段 2026-11-06 编译器侧·P-09/P-10） |
 
@@ -164,5 +164,5 @@
   - **P-06 采纳（已落地，冻结为事实）**：已生成 `int main(void){ int64_t xn_r = xn_main(); rt_quarantine_flush(); return (int)xn_r; }`；补充两点：void main 形态返回 0；fatal（`xn_throw`）exit(134) 直通不经 main 返回。要求 `rt_quarantine_flush` 幂等（现状满足）。
   - **P-07 部分采纳**：①cc 探测链采纳，另需显式 `--cc` 覆盖与探测失败诊断（现状硬编码 `cc`）；②旗标：产物构建 `-std=c11 -O2 -Wall -Wextra`，测试/CI 加 `-Werror`（现状运行时测试已 -Werror，codegen 产物仅 -O2，建议统一到产物侧 -Wall -Wextra）；③libxrt.a 缓存键必须含「运行时源文件内容哈希 + 编译旗标 + cc 版本串」，否则跨机器/跨工具链误命中；④缓存只落目标目录（`target/`/输出目录），不写全局状态（PROJ-09 可复现精神）。
   - **P-08 采纳（开工无异议）**：两个落地要求——①`xrt.h` 必须覆盖 codegen 现有消费面：`rt_string_from_c`（或等价构造）、`rt_release`、`rt_string_new`、`rt_quarantine_flush`、`RT_TYPE_STRING`、`rt_fatal`、分配头初始化面（`RT_KIND_ARC`/atomic），并给出**逐符号迁移清单**；②迁移由编译器侧在 **M4.4a** 一次性执行（避免两端同时改），迁移前 `rt.h` 保持可用；③`xrt_task_root_bind/unbind` 无异议，编译器侧暂不消费（无并发域）。
-- 2026-11-06 运行时侧：新增 P-08（`xrt_*` ABI 封装层），来源 ffi-design.md §5.4——S7 附录 B 冻结 `xrt_*` 为 ABI 承诺，而运行时内部符号为 `rt_*`；封装层方案保 M3 零回归。
+- 2026-11-06 运行时侧：新增 P-08（`xrt_*` ABI 封装层），来源 ffi-design.md §5.4——S7 附录 A 冻结 `xrt_*` 为 ABI 承诺，而运行时内部符号为 `rt_*`；封装层方案保 M3 零回归。
 - 2026-11-06 运行时侧：本文件建立；A 段摘自 M3 已落地合同（无改动）；B 段 P-01—P-07 随 m4-codegen-design.md 提交评审。

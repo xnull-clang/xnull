@@ -6,7 +6,7 @@
 
 > 编制：运行时侧（C）　日期：2026-11-06
 > 性质：**阶段 A 纯设计**。阶段 B 实现（M4.6）开工条件：M4 收口过门或书面放行。
-> 规范依据：S6 v1.1.0（§1.4 架构、§2 包结构、§3 合同原则七条、§4 逐包合同、§8 验收矩阵）、S3 §18/§19、S5、S9 §5.6/§7、S7 附录 B §B.8（`@unsafe`）。
+> 规范依据：S6 v1.1.0（§1.4 架构、§2 包结构、§3 合同原则七条、§4 逐包合同、§8 验收矩阵）、S3 §18/§19、S5、S9 §5.6/§7、S7 附录 A §A.8（`@unsafe`）。
 > 配套：`impl/docs/runtime-contract.md`（运行时 ABI）、`impl/docs/ffi-contract.md`（绑定声明与校验）、`impl/docs/ffi-design.md`（三形态+租约+错误码）。
 
 ## 0. 立场
@@ -28,7 +28,7 @@
 | XDK-06 | §4.4 | `diagnose` 单行无分配；`exit` 不执行 defer；`nowMono` 单调；`nowWall` UTC 毫秒可回拨；`env` 不可变快照 | `core/runtime/Runtime.x` → C 原语：`diagnose`（`write(2)` 单次、无格式化分配）、`exit`（`_Exit(code)` 不经 defer/终结链）、`nowMono`（`clock_gettime(CLOCK_MONOTONIC)`）、`nowWall`（`time()` × 1000，允许回拨）、`env`（首次读取即快照进不可变表，重复调用返回同一快照） | M4.6a |
 | XDK-07 | §4.5 | 内建容器语义不变；算法函数 + 4 特化容器 | `core/collections/Collections.x` 只做算法（`sort/groupBy/dedup/find`，稳定排序，键函数为闭包）与 4 特化容器（`RingBuffer`/`PriorityQueue` 先行，`OrderedMap`/`BTreeMap` 随后）；内建 `T[]/List/Map/Set/StringBuilder` 不动（否决方案 C 不复议） | M4.6c |
 | XDK-08 | §4.6 | builder 式格式化；编码转换与解析；`Regex` 动态编译可恢复错误 | `text/full/Text.x` + `rt_std_text.c`：`Format` 链式构造器（`Format.int(x).width(4).pad('0').build()`）；UTF-8↔UTF-16 转换（C 层无状态函数）；`parseInt/parseFloat` 严格化（全串消费、溢出报错）；`Regex` 动态编译（POSIX ERE 起步，编译失败 → `Result` 错误，不 panic） | M4.6a（格式化/解析）/ M4.6c（Regex） |
-| XDK-09 | §4.7 | sys/net 句柄合同；双形态 I/O；net 独立 | `io/system/Sys.x`：`File`/`Dir`/`Process` 均包 `xrt_handle`（close 幂等、不以 deinit 为唯一路径，S7 附录 B §B.4.3 同款）；异步形态命名带 `Async`，首参 `Context`；plain 形态为无后缀基础函数并声明阻塞分类；`net/network/Net.x` 独立包（socket 句柄 + 异步形态） | M4.6b（sys）/ M4.6d（net） |
+| XDK-09 | §4.7 | sys/net 句柄合同；双形态 I/O；net 独立 | `io/system/Sys.x`：`File`/`Dir`/`Process` 均包 `xrt_handle`（close 幂等、不以 deinit 为唯一路径，S7 附录 A §A.4.3 同款）；异步形态命名带 `Async`，首参 `Context`；plain 形态为无后缀基础函数并声明阻塞分类；`net/network/Net.x` 独立包（socket 句柄 + 异步形态） | M4.6b（sys）/ M4.6d（net） |
 | XDK-10 | §4.8 资源读取 | 5 API + 7 条强制约束 | `io/system/Sys.x` 内 `resourceExists/readResource/readResourceText/listResources/resourceSize`；资源表由构建期从 `src/main/resources` 生成 C 常量表（`rt_resource_table.c`，只读、无句柄、字典序索引）；路径规则在 `xdk-resource` 单一实现（绝对路径/`..`/空段/反斜杠 → `InvalidArgument`）；不回退文件系统（表内未命中即 `NotFound`） | M4.6b |
 | （矩阵外） | §1.4 架构知情 | 依赖矩阵可审计 | 每个包文档头列"依赖的运行时服务 + 跨 FFI 边界条目"；`tools/check_xdk.py` 比对 §1.4.3 矩阵，未登记依赖即失败 | M4.6a |
 
@@ -45,7 +45,7 @@ bindings/xdk/*.xfb        绑定声明（FFI 合同：三形态/租约/错误码
         ▼
 impl/runtime/rt_std_*.c   C 原语层：OS 与内核服务（不对外导出公共 API 名）
         ▼
-impl/runtime/xrt*.c       稳定 ABI（S7 附录 B §B.6.1）：分配/计数/根/弱表/句柄
+impl/runtime/xrt*.c       稳定 ABI（S7 附录 A §A.6.1）：分配/计数/根/弱表/句柄
 ```
 
 理由：

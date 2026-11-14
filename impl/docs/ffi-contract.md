@@ -14,7 +14,7 @@ internal/codegen           （编译器侧：AST→C 生成核心）
 internal/codegen/ffi       （运行时侧：声明解析、合同校验、注册表、包装/trampoline 生成）
         │  生成文本只 include xrt.h
         ▼
-impl/runtime/xrt.h         （S7 附录 B §B.6.1 冻结 ABI；内部映射 rt_*）
+impl/runtime/xrt.h         （S7 附录 A §A.6.1 冻结 ABI；内部映射 rt_*）
 ```
 
 - 依赖单向：codegen → ffi，ffi 不反向依赖 codegen（避免循环）；
@@ -93,14 +93,14 @@ ffi <region> {
 | `FFI-100` | 声明语法错误（词法/语法层） |
 | `FFI-101` | 入口合同声明缺失或不完整：缺 `@ffiEntry`/`cName`、缺 `@lease`、租约与参数不匹配、未知注解 |
 | `FFI-102` | `.transfer` 无对称 `.reclaim`（句柄类型以 close 合同替代、或 `neverReclaim = "理由"`） |
-| `FFI-103` | `String`/`Text` 声明移交或归还（S7 附录 B §B.3.4） |
-| `FFI-104` | 嵌套数组或数组元素类型非法（S7 附录 B §B.3.5） |
+| `FFI-103` | `String`/`Text` 声明移交或归还（S7 附录 A §A.3.4） |
+| `FFI-104` | 嵌套数组或数组元素类型非法（S7 附录 A §A.3.5） |
 | `FFI-105` | 类型不跨边界（未知类型、可选、容器/闭包/Result、未声明句柄或结构、close 签名不符） |
 | `FFI-106` | 错误码声明非法（`@errorCode` 形参缺失/非 `Int32`、`errorMap` 分类名非法） |
-| `FFI-107` | 缺阻塞分类/分类值非法/长阻塞缺 `submit<Entry>` 伴生入口（S7 附录 B §B.7.3） |
-| `FFI-108` | 裸指针类型或指针/长度合同违规（S7 附录 B §B.3.2） |
+| `FFI-107` | 缺阻塞分类/分类值非法/长阻塞缺 `submit<Entry>` 伴生入口（S7 附录 A §A.7.3） |
+| `FFI-108` | 裸指针类型或指针/长度合同违规（S7 附录 A §A.3.2） |
 | `FFI-109` | `layout(c)` 违规（字段类型、递归包含、重名、空结构） |
-| `FFI-110` | `@unsafe` 缺 `contract` 文本或不在 `bindings/` 下（S7 附录 B §B.8） |
+| `FFI-110` | `@unsafe` 缺 `contract` 文本或不在 `bindings/` 下（S7 附录 A §A.8） |
 | `FFI-111` | 重复声明（入口/结构/句柄同名，含跨声明块） |
 
 ## 5. 实现状态
@@ -155,7 +155,7 @@ static void              xn_tramp_<entry>_destroy(xrt_callback_env *env);
 static int32_t           xn_tramp_<entry>(void *env, const void *args, size_t n, void *result);
 ```
 
-- 创建：`xrt_callback_env_new` 把 env 登记为运行时根（S7 附录 B §B.5.2）；销毁：注销根（幂等）。
+- 创建：`xrt_callback_env_new` 把 env 登记为运行时根（S7 附录 A §A.5.2）；销毁：注销根（幂等）。
 - 已注销 env 再调用 → `xrt_fatal`（原生侧合同违规）；回调内 panic 走既有 fatal 路径（§5.3）。
 - 目标 ABI 的具体参数/返回编组由绑定层提供 `xrt_callback_fn`；闭包引用的生命周期由绑定层管理。
 
