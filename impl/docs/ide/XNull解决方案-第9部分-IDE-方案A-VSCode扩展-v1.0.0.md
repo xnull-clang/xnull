@@ -1,12 +1,12 @@
-# XNull 解决方案 第 10 部分：IDE（方案 A：VS Code 扩展）
+# XNull 解决方案 第 9 部分：IDE（方案 A：VS Code 扩展）
 
 > **2026-11-15**：本文档是内部实现基线，不属于语言规范序列；实现细节（含 `.xfb` 等格式）可按实现需要修正。
 
-> 本文是第 10 部分方案 A，只落实第 1—9 部分已定义的编辑、工程、标准库、构建与诊断行为；IDE 交互属于实现选择；与第 1—9 部分冲突时以母本为准。
+> 本文是第 9 部分方案 A，只落实第 1—9 部分已定义的编辑、工程、标准库、构建与诊断行为；IDE 交互属于实现选择；与第 1—9 部分冲突时以母本为准。
 
 | 项 | 值 |
 | --- | --- |
-| 文档编号 | 第 10 部分（T10） |
+| 文档编号 | 第 9 部分（T9） |
 | 方案 | A：VS Code 扩展 |
 | 文档版本 | 1.0.0 |
 | 规范状态 | 工程实现基线（受第 1—9 部分约束） |
@@ -14,7 +14,7 @@
 | 编制日期 | 2026-11-07 |
 | 代码基线 | `f63fcba`（编制时点；工作区可能继续前进） |
 | 实现语言 | TypeScript（VS Code 扩展） |
-| 依赖 | 第 9 部分 `xnull` CLI、第 8 部分 XPD、第 6 部分 XDK 索引 |
+| 依赖 | 第 8 部分 `xnull` CLI、第 10 部分 XPD、第 6 部分 XDK 索引 |
 | 明确不含 | 独立桌面 IDE、LSP、编译器/构建实现 |
 
 ## 修订记录
@@ -50,7 +50,7 @@
 - VS Code 扩展 API 原生是 TypeScript/JavaScript；
 - 语法高亮、命令、诊断、任务、Webview 生态成熟；
 - 不需要把 UI 逻辑塞进 XNull 编译器；
-- 不与第 9 部分工具链语言冲突；IDE 不是编译器的自举对象。
+- 不与第 8 部分工具链语言冲突；IDE 不是编译器的自举对象。
 
 ---
 
@@ -63,7 +63,7 @@ VS Code
   ├─ 语法高亮 / snippets / 语言配置
   │
   └─ child_process.spawn
-        └─ xnull CLI（第 9 部分）
+        └─ xnull CLI（第 8 部分）
              ├─ new --json
              ├─ check --json
              ├─ build --json
@@ -98,7 +98,7 @@ ide/vscode/
 
 ---
 
-## 2. 第 9 部分机器接口
+## 2. 第 8 部分机器接口
 
 ### 2.1 `xnull new`
 
@@ -218,9 +218,9 @@ xnull run <file.x> [--interp] [-- <程序参数>...]
 
 ### 2.5 边界
 
-- 第 9 部分未提供 `package --json` 前，方案 A 的 “Package Binary” 使用 `build -o target/<name>`；
+- 第 8 部分未提供 `package --json` 前，方案 A 的 “Package Binary” 使用 `build -o target/<name>`；
 - 不伪造完整工程 packaging；
-- JSON 字段变更需先改第 9 部分文档/测试。
+- JSON 字段变更需先改第 8 部分文档/测试。
 
 ---
 
@@ -387,7 +387,7 @@ save/check command
 | `hint` | 追加到 message 或 relatedInformation |
 | `snippet`/`width` | 用于范围；缺省 1 字符 |
 
-- Severity 固定 Error（第 9 部分当前只有 error）；
+- Severity 固定 Error（第 8 部分当前只有 error）；
 - `source = "xnull"`；
 - 每次检查先清空旧诊断；
 - 构建返回的诊断也发布。
@@ -423,7 +423,7 @@ save/check command
 - 方案 A 的边界：单文件二进制；
 - 输出 `target/<name>`；
 - 文案必须写“单文件二进制”，不得宣称完整工程 packaging；
-- 完整 packaging 由第 9 部分模块 06 后续接入。
+- 完整 packaging 由第 8 部分模块 06 后续接入。
 
 ---
 
@@ -484,7 +484,7 @@ save/check command
 1. 先固化 `check --json` / `build --json` 字段，再扩展 UI。
 2. 诊断输出增加 `severity` 字段时，IDE 映射表同步。
 3. 标准库索引后续由第 6 部分生成，避免手工维护。
-4. 工程模板只保留最小可用，不复制第 8 部分全部示例。
+4. 工程模板只保留最小可用，不复制第 10 部分全部示例。
 5. 方案 A 稳定后再启动方案 B，避免同时维护两套语言服务。
 
 ---
@@ -497,8 +497,8 @@ save/check command
 | --- | --- |
 | 第 1 部分 §1—§11 | 语法高亮、snippets、入口/错误提示 |
 | 第 6 部分 §2、§4 | XDK 包/能力索引 |
-| 第 8 部分 §2—§6 | 工程模板、配置展示、profile/资源 |
-| 第 9 部分 §2—§6 | new/check/build/run 机器接口、诊断、构建 |
+| 第 10 部分 §2—§6 | 工程模板、配置展示、profile/资源 |
+| 第 8 部分 §2—§6 | new/check/build/run 机器接口、诊断、构建 |
 
 ### 实现选择
 
@@ -514,9 +514,9 @@ save/check command
 
 ## 参考
 
-- `XNull解决方案-第9部分-工具链-v1.0.0.md`
-- `XNull解决方案-第9部分-工具链-模块02-命令行工具-v1.0.0.md`
-- `XNull解决方案-第9部分-工具链-模块07-诊断与错误呈现-v1.0.0.md`
-- `XNull解决方案-第8部分-工程配置-v5.2.0.md`
+- `XNull解决方案-第8部分-工具链-v1.0.0.md`
+- `XNull解决方案-第8部分-工具链-模块02-命令行工具-v1.0.0.md`
+- `XNull解决方案-第8部分-工具链-模块07-诊断与错误呈现-v1.0.0.md`
+- `XNull解决方案-第10部分-工程配置-v5.2.0.md`
 - `XNull解决方案-第6部分-标准库XDK-v1.1.0.md`
 - `impl/internal/cli/cli.go`

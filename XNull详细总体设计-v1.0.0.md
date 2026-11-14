@@ -1,20 +1,20 @@
 # XNull 详细总体设计
 
 > **2026-11-15 更正**：本文第 7 节（XDK 三层结构、`<layer>/<domain>` 目录）与 Go `internal/*` 实现架构均已作废。
-> 规范原文：S9-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」。
+> 规范原文：S8-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」。
 > 现行约定见 `死命令.md` / `PLAN.md`；本文只作历史参考。
 
 | 项 | 值 |
 | --- | --- |
 | 文档编号 | XNULL-DESIGN-002 |
 | 文档版本 | 1.0.0 |
-| 文档性质 | 工程设计文档（非规范性；规范冲突时以 S1—S8 母本为准） |
+| 文档性质 | 工程设计文档（非规范性；规范冲突时以 S1—S10 母本为准） |
 | 编制日期 | 2026-11-07 |
 | 代码基线 | `ea6fdf3`（2026-11-07，M6-B0 进行中） |
 | 适用工具链 | `xnull 0.1.0-dev` |
-| 适用规范 | S1 v3.3.0、S2 v3.3.0、S3 v3.0.0、S4 v1.0.0、S5 v1.0.0、S6 v1.1.0、S7 v1.0.0、S8 v5.2.0 |
+| 适用规范 | S1 v3.3.0、S2 v3.3.0、S3 v3.0.0、S4 v1.0.0、S5 v1.0.0、S6 v1.1.0、S7 v1.0.0、S10 v5.2.0 |
 | 配套文档 | 《XNull 软件总体设计》`XNull软件总体设计-v1.0.0.md` |
-| 别名说明 | 本文 S4/S5/S6/S7/S8 分别指第 4/5/6/7/8 部分；与索引历史别名不一致时，以部分号为准 |
+| 别名说明 | 本文 S4/S5/S6/S7/S10 分别指第 4/5/6/7/8 部分；与索引历史别名不一致时，以部分号为准 |
 
 ## 修订记录
 
@@ -30,7 +30,7 @@
 
 《XNull 软件总体设计》回答“系统由什么组成、为什么这样分层、外部接口是什么”。本文回答“每个模块内部怎么组织、关键数据怎么表示、算法怎么走、接口签名是什么、当前实现到哪一步”。
 
-本文不替代规范母本。涉及语言语义的最终解释以 S1—S8 为准；涉及实现行为以当前代码为基线。若本文与代码不一致，先按代码核实，再回写本文，避免“文档成为第二套实现”。
+本文不替代规范母本。涉及语言语义的最终解释以 S1—S10 为准；涉及实现行为以当前代码为基线。若本文与代码不一致，先按代码核实，再回写本文，避免“文档成为第二套实现”。
 
 ### 0.2 标记约定
 
@@ -1506,10 +1506,10 @@ type Value struct { Kind ValueKind; Text string; Elems []Value; LoIncl, HiIncl b
 ### 8.4 语义约束
 
 - 根层只允许一个 `project`/`lock`/`plugin`/`settings`；
-- 段落嵌套与字段合法组合由 S8 表规定；
+- 段落嵌套与字段合法组合由 S10 表规定；
 - 不可重复段落重复 → 错误；
 - 键名只允许出现在 `configuration`；
-- 块体可省略的条目按 S8 表；
+- 块体可省略的条目按 S10 表；
 - 值一律字符串；列表字段必须给列表；
 - 范围只用于 `language-version`；
 - 列表/范围不得跨行；字段/条目未以换行或 `}` 收尾 → 错误；
@@ -1623,7 +1623,7 @@ func Run(env Env) int
 | 函数 | 作用 |
 | --- | --- |
 | `CheckSpecs(root, out)` | 规范守门：头部一致、零待定、§ 引用、二进制拦截、EN 快照 |
-| `GenerateLedger(root, out)` | 从 S1—S8 抽取锚点，连接 `status.tsv` 生成台账 |
+| `GenerateLedger(root, out)` | 从 S1—S10 抽取锚点，连接 `status.tsv` 生成台账 |
 | `GenerateResources(srcDir, outPath)` | 资源根 → 只读 C 表 |
 
 `check` 的 EN 同步判据是“文件名版本 + 母本内容 SHA-256”，不是 mtime；清单在 `impl/docs/conformance/en-source.sha256`。
@@ -1708,7 +1708,7 @@ SKIP 不等于 PASS；CI 输出 `steps.jsonl` 记录每步状态与日志。
 
 ### 10.6 一致性台账
 
-- 台账 = 规范锚点（S1—S8） × 实现证据；
+- 台账 = 规范锚点（S1—S10） × 实现证据；
 - `status.tsv` = 有证据子集；
 - 未登记 = 未实现；
 - `ledger-restructure.md` 记录 101 锚点 → 30 行证据旁表的映射；
@@ -1941,7 +1941,7 @@ func GenerateResources(srcDir, outPath string) error
 | S5 任务/并发 | XDK/runtime（未来） | `tasks.x`/`sync.x` | 未开工 |
 | S6 XDK | lib/xdk、bindings、rt_std_* | 8 包 | `test_std.c`、`ffi/xdk_test.go`、`xdk_seed_test.go` |
 | S7 FFI | ffi/runtime | `Load`/`EmitSupport` | `ffi_test.go`、`emit_test.go`、`test_abi.c` |
-| S8 工程 | xpd/cli/devtool | `Parse`/CLI | `parser_test.go`、`cli_test.go`、`devtool/*_test.go` |
+| S10 工程 | xpd/cli/devtool | `Parse`/CLI | `parser_test.go`、`cli_test.go`、`devtool/*_test.go` |
 
 ### 13.2 B0 硬依赖与代码落点
 
@@ -1990,7 +1990,7 @@ func GenerateResources(srcDir, outPath string) error
 | O-03 | 类继承/协议/带参构造未生成 | 对象模型不完整 | M4.4b/M5 后续切片 |
 | O-04 | `escape` 对象级回填未完成 | 栈分配/ARC 决策不完整 | 与 M4.4b 逃逸分析一起落地 |
 | O-05 | 全局根/扫描钩子生成不完整 | GC 混合图在生成代码中不完整 | 与 GC 代码生成切片一起补 |
-| O-06 | XPD 生命周期未接入 | 工程模式不可用 | 按 S8 五阶段接入 |
+| O-06 | XPD 生命周期未接入 | 工程模式不可用 | 按 S10 五阶段接入 |
 | O-07 | CI 04—09 为 SKIP | 质量门不完整 | 逐步实装；不得把 SKIP 当 PASS |
 | O-08 | FFI trampoline 预留 | 回调面不完整 | 随调度器栈 pin/根登记 |
 | O-09 | 并发/调度器未开工 | S5/XDK tasks/sync 无法完整验收 | 单独立项 |

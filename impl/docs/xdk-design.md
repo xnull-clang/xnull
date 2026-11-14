@@ -1,12 +1,12 @@
 # XDK 前置设计（impl/docs/xdk-design.md）
 
 > **2026-11-15 作废**：§2.1/§2.3 的 `<layer>/<domain>` 物理布局、`base`/`full` 双面、`*_full.x`、`xdk-raw` 桥均无规范依据，全部作废。
-> 规范原文：S9-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」；S6 §2 只定义 8 个平铺包。
-> 按规范，XDK 不在文件装载路径上；源码化布局须先修订规范（S9-01/S6）。本文只作历史参考。
+> 规范原文：S8-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」；S6 §2 只定义 8 个平铺包。
+> 按规范，XDK 不在文件装载路径上；源码化布局须先修订规范（S8-01/S6）。本文只作历史参考。
 
 > 编制：运行时侧（C）　日期：2026-11-06
 > 性质：**阶段 A 纯设计**。阶段 B 实现（M4.6）开工条件：M4 收口过门或书面放行。
-> 规范依据：S6 v1.1.0（§1.4 架构、§2 包结构、§3 合同原则七条、§4 逐包合同、§8 验收矩阵）、S3 §18/§19、S5、S8 §5.6/§7、S7 §8（`@unsafe`）。
+> 规范依据：S6 v1.1.0（§1.4 架构、§2 包结构、§3 合同原则七条、§4 逐包合同、§8 验收矩阵）、S3 §18/§19、S5、S10 §5.6/§7、S7 §8（`@unsafe`）。
 > 配套：`impl/docs/runtime-contract.md`（运行时 ABI）、`impl/docs/ffi-contract.md`（绑定声明与校验）、`impl/docs/ffi-design.md`（三形态+租约+错误码）。
 
 ## 0. 立场
@@ -147,11 +147,11 @@ impl/lib/xdk/
 
 ## 3. 与 M4 集成点
 
-1. **编译产物链接**：`libxrt.a` 扩为包含 `rt.c/rt_gc.c/rt_weak.c/rt_policy.c/xrt_abi.c/rt_std_*.c/rt_resource_table.c`（内容哈希键控缓存，P-07 不变）；XDK 的 `.xfb` 绑定声明映射到 `xdkc_*` 符号，属工具链内部库，**不需要用户在 `link.libraries` 声明**（S8 §7：运行时 ABI 符号自动链接，同款规则）；
+1. **编译产物链接**：`libxrt.a` 扩为包含 `rt.c/rt_gc.c/rt_weak.c/rt_policy.c/xrt_abi.c/rt_std_*.c/rt_resource_table.c`（内容哈希键控缓存，P-07 不变）；XDK 的 `.xfb` 绑定声明映射到 `xdkc_*` 符号，属工具链内部库，**不需要用户在 `link.libraries` 声明**（S10 §7：运行时 ABI 符号自动链接，同款规则）；
 2. **codegen 头文件**：生成代码与 XDK 绑定代码只 include `xrt.h`（P-08）。当前 M4.1 生成代码 include `rt.h`，M4.5b 切换时一次性迁移（编译器侧负责，不改语义）；
 3. **入口垫片**：`main` 由用户单元提供（P-06）；XDK 不提供入口；`runtime.exit` 直接终止进程（不经 defer），与垫片返回值路径互斥但语义清晰；
-4. **资源打包**：构建期按 S8 §5.6 收集 `src/main/resources`，生成 `rt_resource_table.c`（只读、字典序、`/` 分隔）；单文件产物因此可携带资源，且文件 API 与资源 API 的路径空间隔离（S6 §4.8 约束 5/7）；
-5. **诊断通道**：`diagnose` 输出为单行 stderr（与编译器诊断同流不同格式），不参与退出码；`exit` 退出码由用户传入，遵守 S8 §5.1 约定（0/1/2/130 为工具链保留值，用户程序可自由取值）。
+4. **资源打包**：构建期按 S10 §5.6 收集 `src/main/resources`，生成 `rt_resource_table.c`（只读、字典序、`/` 分隔）；单文件产物因此可携带资源，且文件 API 与资源 API 的路径空间隔离（S6 §4.8 约束 5/7）；
+5. **诊断通道**：`diagnose` 输出为单行 stderr（与编译器诊断同流不同格式），不参与退出码；`exit` 退出码由用户传入，遵守 S10 §5.1 约定（0/1/2/130 为工具链保留值，用户程序可自由取值）。
 
 ## 4. 切片建议（阶段 B = M4.6）
 
@@ -182,7 +182,7 @@ impl/lib/xdk/
 3. **资源表规模**：单文件产物携带全部资源，大资源（模型/视频）不适用——首版声明上限（建议单资源 ≤ 8 MiB、总量 ≤ 64 MiB），超限构建期报错；
 4. **Windows 平台**：`rt_std_sys.c` 首版按 POSIX（`open/read/write/posix_spawn`）实现，Windows 后端后置（接口不变，实现分支）；
 5. **`Regex` 实现选择**：POSIX ERE 起步（无外部依赖）；若验收需要回溯/命名组，走次版本提案，不引第三方库（禁网纪律）；
-6. **XDK 版本与语言版本解耦**（S6 §5）：XDK 单元头声明所需语言版本，编译器按 S8 声明机制校验，版本不足即构建失败。
+6. **XDK 版本与语言版本解耦**（S6 §5）：XDK 单元头声明所需语言版本，编译器按 S10 声明机制校验，版本不足即构建失败。
 
 ## 6. 实施状态与顺序调整（2026-11-06 追加）
 
@@ -196,9 +196,9 @@ impl/lib/xdk/
 | 绑定声明 `bindings/xdk/runtime.xfb`、`sys.xfb` | 完成 | 合同校验 + 包装生成 + 与 C 层联合编译运行（`internal/codegen/ffi/xdk_test.go`） |
 | XNull 源码层（`impl/lib/xdk/`） | 种子 | `text/full/Text.x`（repeatText/repeatJoined/isPositive 纯函数）：可解析、可语义检查、可生成 C（`internal/codegen/xdk_seed_test.go`）；完整 API 面待 extern 钩子与类/枚举面稳定 |
 | C 层目录/存在性/子进程（M4.6b-2） | 完成 | `rt_std_sys.c`：dirOpen/dirRead（内部缓冲、下次调用前有效）/dirClose 幂等/pathExists/procStatus（退出码，信号/失败 -1）；`test_std.c` 覆盖 |
-| 资源表（S8 §5.6） | 完成（生成器+样例验证） | `xnull dev res`（升序、重名报错、空表零成本）+ `test_res.c`；接入 build 清单按 P-10 条件 1（import 闭包）执行 |
+| 资源表（S10 §5.6） | 完成（生成器+样例验证） | `xnull dev res`（升序、重名报错、空表零成本）+ `test_res.c`；接入 build 清单按 P-10 条件 1（import 闭包）执行 |
 | Regex（POSIX ERE 子集）+ Format 追加族 | 完成（C 层） | `rt_std_text.c`：`xdkc_regex_match`（0/1/2 显式区分语法错误）、`fmt_append_raw/int`（调用方游标，失败不推进）；XNull API 面随 P-09 后的包装层 |
-| `rt_std_sync.c` / `rt_std_net.c` | 未开工 | 依赖调度器切片（S6 §5 / S8 §5） |
+| `rt_std_sync.c` / `rt_std_net.c` | 未开工 | 依赖调度器切片（S6 §5 / S10 §5） |
 
 **接口缺口（已记入 runtime-contract 提案）**：
 

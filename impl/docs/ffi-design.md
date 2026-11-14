@@ -3,7 +3,7 @@
 > 编制：运行时侧（C 侧，域：codegen/ffi 子模块 + S7 台账行）　日期：2026-11-06
 > 任务来源：FFI 切片实施授权（2026-11-06，用户提议批准）
 > 性质：**阶段 A 纯设计**。阶段 B 实现（M4.5）开工条件：codegen 核心的 M4.1a 落地且 emit 基建可用，或书面放行。
-> 规范依据：S7 v1.0.0（§0—§11、附录 A/B）、S3 §18/§19/§22、S4 §7.3/附录 A、S5 §2.2/§9、S8 §7、S1 §0.6/§0.7。
+> 规范依据：S7 v1.0.0（§0—§11、附录 A/B）、S3 §18/§19/§22、S4 §7.3/附录 A、S5 §2.2/§9、S10 §7、S1 §0.6/§0.7。
 > 配套协调界面：`impl/docs/runtime-contract.md`（运行时 ABI）、`impl/docs/ffi-contract.md`（codegen ↔ ffi 子模块的 Go 接口 + `.xfb` 声明格式）。
 
 ## 0. 立场
@@ -36,7 +36,7 @@
 | §7.1 错误码 | `Int32` 出参 `0=ok`；已知码分类映射；未知码→`Internal` | 生成包装：`int32_t code` 出参 + 返回槽；映射表（§5.2）；未知码 → `ErrorKind.Internal`（`FFI-106` 仅在映射表缺失时触发内部断言，不静默 Ok） | FFI-01、FFI-05 | M4.5b |
 | §7.2 取消/超时 | 必须映射 `Cancelled`/`Timeout`，不降级 `Internal` | 保留码段 `E_CANCELLED`/`E_TIMEOUT` 优先判定，映射到分类而非 Internal | FFI-05 | M4.5b |
 | §7.3 阻塞分类 | 逐入口 `.aware/.unaware`；长阻塞须专用执行器伴生 | `.xfb` 每入口必带 `@blocking`，缺失 → `FFI-107`；生成伴生 `submit*` 形态的声明校验（有 `.unaware` + `longRunning = true` 时必须存在伴生入口） | FFI-07 | M4.5a（校验）/ M4.5b（形态） |
-| §8 `@unsafe` | 仅绑定层；合同文本；应用不可创建 | `.xfb` 中 `@unsafe` 入口需附 `contract = "..."` 文本，且仅允许出现在 `bindings/` 目录（工程根校验）；S8 `link.unsafe = true` 才放行，否则构建失败并记录 | FFI-04 | M4.5a |
+| §8 `@unsafe` | 仅绑定层；合同文本；应用不可创建 | `.xfb` 中 `@unsafe` 入口需附 `contract = "..."` 文本，且仅允许出现在 `bindings/` 目录（工程根校验）；S10 `link.unsafe = true` 才放行，否则构建失败并记录 | FFI-04 | M4.5a |
 | §9 不变量 1—9 | 见 §5.1 对照 | 逐条落到校验器/生成器/运行时三层（§5.1 表） | 全部 | 全程 |
 | §10 验收矩阵 | FFI-01—07 | 台账 7 行按 §6 切片分配；设计阶段不改状态（仍为未实现） | FFI-01—07 | — |
 | §11 实现边界 | 合同可机械核验；pin 属实现细节 | 校验器对 `.xfb` 做全量机械核验；不可核验即拒绝（等同无租约） | FFI-01 | M4.5a |
@@ -193,22 +193,22 @@ S7 §6.1 + 附录 B 冻结 `xrt_*` 前缀为 ABI 承诺；现有运行时内部�
 | 切片 | 内容 | 依赖 | 验收锚点 | 台账 |
 | --- | --- | --- | --- | --- |
 | **M4.5a** 声明与校验 | `.xfb` 词法/解析、注解模型、合同校验（租约/三形态/布局/分类/`@unsafe`/`Result` 拒绝）、注册表、`xrt.h` 封装层骨架 | 无（可先于 codegen 实现） | 校验器负例全拒、正例全过；诊断码 FFI-101—110 各一条用例；注册表两次运行一致（DET-01） | FFI-01 部分、FFI-02 部分、FFI-04 部分、FFI-07 部分 |
-| **M4.5b** 标量/字符串/缓冲区编组 + 错误码 | 包装函数生成（§3.3 三步）、标量/String/Bytes/数组编组、错误码→Result、链接集成（S8 §7 `link.libraries`） | M4.1a（emit 基建） | 调 `libc`（`strlen`/`snprintf` 一类）+ 自建小型 C 库：标量往返、String 借出只读、Bytes 往返、未知码→Internal、取消码不降级；无 FFI 工程空路径不回归 | FFI-01、FFI-02、FFI-03 部分、FFI-06 部分 |
+| **M4.5b** 标量/字符串/缓冲区编组 + 错误码 | 包装函数生成（§3.3 三步）、标量/String/Bytes/数组编组、错误码→Result、链接集成（S10 §7 `link.libraries`） | M4.1a（emit 基建） | 调 `libc`（`strlen`/`snprintf` 一类）+ 自建小型 C 库：标量往返、String 借出只读、Bytes 往返、未知码→Internal、取消码不降级；无 FFI 工程空路径不回归 | FFI-01、FFI-02、FFI-03 部分、FFI-06 部分 |
 | **M4.5c** 句柄/trampoline/pin | `xrt_handle` 与 close 幂等、`.transfer/.reclaim`、canary pin、trampoline + root 登记、注销后调用检测、回调 panic fatal | M4.5b | 句柄生命周期（打开/关闭/重复关闭）；移交后 XNull 不释放；canary 越界终止；回调注册/注销/注销后调用终止；panic→进程终止 | FFI-03、FFI-05、FFI-06（完整）、FFI-07（伴生形态） |
 | **M4.5d** 文档与分类清单 | 逐 API 阻塞分类清单发布形态（S5 §9）、`xdk.sys` 绑定层文档 | M4.5c | 清单与入口注册表逐条一致（机械核验） | FFI-07 |
 
 阶段 B 全程红线：不改 `impl/internal/**` 中 xfront/sema；codegen 核心改动只经 ffi-contract.md 约定的钩子。
 
-## 7. 链接故事（S8 §7）
+## 7. 链接故事（S10 §7）
 
 ### 7.1 有 FFI 时
 
-- 工程清单 `link { libraries { library sqlite3 { kind = dynamic; system = true } } }`（S8 §7）——**未声明的库不得链接**，FFI 绑定引用未声明库 → 构建失败（可审计）；
+- 工程清单 `link { libraries { library sqlite3 { kind = dynamic; system = true } } }`（S10 §7）——**未声明的库不得链接**，FFI 绑定引用未声明库 → 构建失败（可审计）；
 - `kind = static` → `-l<name>` + `-L<搜索路径>`；`kind = dynamic` → `-l<name>`（或 `-l:lib<name>.so`）；`system = true` → 不打包、不复制到产物目录；
-- 搜索路径来源：工程相对 `libs/`（S8 约定目录）优先、`XNULL_LINK_PATH` 环境变量**否决**（禁环境读取纪律，S8 §5.5 同构）——只认清单与约定目录；跨平台扩展名差异由工具链探测（`.a/.lib`、`.so/.dylib/.dll`）；
+- 搜索路径来源：工程相对 `libs/`（S10 约定目录）优先、`XNULL_LINK_PATH` 环境变量**否决**（禁环境读取纪律，S10 §5.5 同构）——只认清单与约定目录；跨平台扩展名差异由工具链探测（`.a/.lib`、`.so/.dylib/.dll`）；
 - 链接顺序：`main.o + 单元 .o + libxrt.a + -l<libraries 声明序>`；静态库环形依赖以 `--start-group/--end-group`（GNU）或两次链接收敛（macOS `ld` 需要则显式重复）；
-- 运行时 ABI 符号（`xrt_*`）由工具链自动链接，不需声明、不允许改写（S8 §7 末条）；
-- 构建日志记录 `link.unsafe = true` 的启用（S8 §7）。
+- 运行时 ABI 符号（`xrt_*`）由工具链自动链接，不需声明、不允许改写（S10 §7 末条）；
+- 构建日志记录 `link.unsafe = true` 的启用（S10 §7）。
 
 ### 7.2 无 FFI 时（空路径）
 

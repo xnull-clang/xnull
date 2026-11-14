@@ -1,6 +1,6 @@
-# XNull IDE（第 10 部分）
+# XNull IDE（第 9 部分）
 
-本目录是第 10 部分 IDE 的实现区。
+本目录是第 9 部分 IDE 的实现区。
 
 ```
 ide/
@@ -32,8 +32,8 @@ ide/
 
 ## 依赖
 
-- 第 9 部分 `xnull` CLI：`new` / `check --json` / `build --json` / `run`；
-- 第 8 部分 XPD：工程文件；
+- 第 8 部分 `xnull` CLI：`new` / `check --json` / `build --json` / `run`；
+- 第 10 部分 XPD：工程文件；
 - 第 6 部分 XDK：`ide/xdk/index.json` 的上游。
 
 IDE 不实现编译器、构建系统或第二套语言服务。
