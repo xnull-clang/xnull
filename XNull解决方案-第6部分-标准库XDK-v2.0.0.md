@@ -102,7 +102,7 @@ XDK 是应用代码与运行时之间的**唯一公共接口**。本部分规定
 
 ## 5. 实现映射（非规范）
 
-当前实现把 L1 能力映射到以下包名：
+L1 能力在实现上映射到以下包名：
 
 ```text
 xdk.errors      xdk.tasks      xdk.sync      xdk.runtime
