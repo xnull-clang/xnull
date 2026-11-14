@@ -288,6 +288,11 @@ xrt_atomic_ref *xrt_atomic_ref_new(void *v, const xrt_channel_ops *ops) {
     return a;
 }
 
+xrt_atomic_ref *xdkc_atomic_ref_new(void *v) {
+    static const xrt_channel_ops ops = { rt_retain, rt_release };
+    return xrt_atomic_ref_new(v, &ops);
+}
+
 void *xrt_atomic_ref_load(const xrt_atomic_ref *a) {
     return atomic_load(&((xrt_atomic_ref *)a)->v);
 }

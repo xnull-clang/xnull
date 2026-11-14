@@ -366,6 +366,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, self.api_search(q.get("name", [""])[0], q.get("q", [""])[0]))
             elif u.path == "/api/health":
                 self._send(200, {"ok": True, "root": ROOT, "time": time.strftime("%Y-%m-%d %H:%M:%S")})
+            elif u.path.startswith("/vendor/"):
+                self._serve_vendor(u.path)
             else:
                 self._send(404, {"error": "not found"})
         except (ValueError, FileNotFoundError) as e:
@@ -397,6 +399,20 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
             self._send(500, {"error": "服务器错误：%s" % e})
+
+    def _serve_vendor(self, path):
+        """托管 ide/web/vendor 下的静态资源（仅白名单扩展名）。"""
+        name = os.path.basename(path)
+        if not name.endswith((".js", ".css")) or ".." in path:
+            self._send(404, {"error": "not found"})
+            return
+        full = os.path.join(WEB_DIR, "vendor", name)
+        if not os.path.isfile(full):
+            self._send(404, {"error": "not found"})
+            return
+        ctype = "application/javascript" if name.endswith(".js") else "text/css"
+        with open(full, "rb") as f:
+            self._send(200, f.read(), ctype + "; charset=utf-8")
 
     # ---------- API 实现 ----------
     def api_projects(self):

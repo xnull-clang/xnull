@@ -1,0 +1,10 @@
+project {
+  groupId    = io.xnull
+  artifactId = wizard-test
+  version    = 1.0.0
+  packaging  = app
+
+  build {
+    entryFile = src/main/x/main.x
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/build/reactor/Reactor.x",
+  "role": "entry",
+  "package": "xdk.build.reactor",
+  "unit_pos": {
+    "line": 16,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 16) (Col 1))) (Name (slice \"xdk\" \"build\" \"reactor\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 17) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Mod",
+      "file": "Mod.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 19,
+        "col": 7
+      },
+      "source": {
+        "start_line": 19,
+        "end_line": 27,
+        "external": false
+      }
+    },
+    {
+      "name": "Args",
+      "file": "Args.x",
+      "decl_index": 1,
+      "origin": {
+        "line": 29,
+        "col": 7
+      },
+      "source": {
+        "start_line": 29,
+        "end_line": 41,
+        "external": false
+      }
+    },
+    {
+      "name": "Reactor",
+      "file": "Reactor.x",
+      "decl_index": 9,
+      "origin": {
+        "line": 131,
+        "col": 7
+      },
+      "source": {
+        "start_line": 131,
+        "end_line": 390,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "60e60558e293800d76e8846478d7619bd24581156d65668efd68482774fa9ee8",
+  "baseline_ast_sha256": "c672bd6857b9ac17029d9a30b348cd67009ce4cdfd7331a61aa21b9336720f57"
+}

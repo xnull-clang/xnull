@@ -28,12 +28,12 @@ if [ -z "$ORACLE" ]; then
 fi
 if [ ! -x "$XLEX" ]; then
   echo "native-diff: 缺少可执行的原生 xlex：$XLEX" >&2
-  echo "  xnull build impl/lib/b2/xlex.x -o /tmp/native-xlex" >&2
+  echo "  xnull build impl/lib/xdk/compiler/lexer/Lexer.x -o /tmp/native-xlex" >&2
   exit 2
 fi
 if [ ! -x "$XPARSE" ]; then
   echo "native-diff: 缺少可执行的原生 xparser：$XPARSE" >&2
-  echo "  xnull build impl/lib/b2/xparser.x -o /tmp/native-xparser" >&2
+  echo "  xnull build impl/lib/xdk/compiler/parser/Parser.x -o /tmp/native-xparser" >&2
   exit 2
 fi
 

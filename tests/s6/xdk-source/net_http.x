@@ -1,8 +1,9 @@
 // XDK 源码层：net HTTP（本地 http.server）
 import xdk.net
 
-static Int main() {
-    Result<Response, Error> r = httpGet("http://127.0.0.1:18081/")
+static Int main(String[] args) {
+    if args.length() != 1 { return 2 }
+    Result<Response, Error> r = httpGet("http://127.0.0.1:" + args.get(0) + "/")
     if r.isErr() {
         return 2
     }

@@ -1,4 +1,4 @@
 static Int main() {
-    print("ide-probe ok")
+    print("imported-probe ok")
     return 0
 }

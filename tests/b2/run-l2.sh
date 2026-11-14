@@ -12,7 +12,7 @@ BIN=${XNULL_BIN:-}
 ORACLE=${XNAST_BIN:-}
 if [ -z "$BIN" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnull-b2 ./cmd/xnull ) || exit 1; BIN=/tmp/xnull-b2; fi
 if [ -z "$ORACLE" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnast-b2 ./cmd/xnast ) || exit 1; ORACLE=/tmp/xnast-b2; fi
-XPARSE=${XPARSE:-$ROOT/impl/lib/b2/xparser.x}
+XPARSE=${XPARSE:-}; [ -n "$XPARSE" ] || XPARSE=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/parser/Parser.x") || exit 1
 pass=0 fail=0
 
 l2_case() {

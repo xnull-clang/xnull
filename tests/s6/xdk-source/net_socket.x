@@ -1,8 +1,10 @@
 // XDK 源码层：net Socket 二进制收发（本地 echo 服务）
 import xdk.net
 
-static Int main() {
-    Result<Socket, Error> c = connectSocket("127.0.0.1", 18082)
+static Int main(String[] args) {
+    if args.length() != 1 { return 2 }
+    Int port = parseInt(args.get(0)).value()
+    Result<Socket, Error> c = connectSocket("127.0.0.1", port)
     if c.isErr() {
         return 2
     }

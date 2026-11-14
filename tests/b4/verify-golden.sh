@@ -17,7 +17,8 @@ set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 G="$ROOT/evidence/B4c/golden"
-H="$G/hashes-b4c03.tsv"
+H="$G/hashes-layered.tsv"
+[ -f "$H" ] || H="$G/hashes-b4c03.tsv"
 BIN="$ROOT/bootstrap/bin"
 W=$(mktemp -d "${TMPDIR:-/tmp}/b4c03.XXXXXX")
 trap 'rm -rf "$W"' EXIT
@@ -27,6 +28,41 @@ trap 'rm -rf "$W"' EXIT
 }
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
+
+# 旧证据中的扁平 XDK 路径 → 新的分层/域物理路径。
+xdk_rel() {
+  python3 - "$ROOT" "$1" <<'PY'
+import os, sys
+root, rel = sys.argv[1], sys.argv[2]
+b234 = {
+    "impl/lib/b2/xlex.x": "impl/lib/xdk/compiler/lexer/Lexer.x",
+    "impl/lib/b2/xparser.x": "impl/lib/xdk/compiler/parser/Parser.x",
+    "impl/lib/b3/xnullc.x": "impl/lib/xdk/compiler/codegen/Codegen.x",
+    "impl/lib/b4/artifact.x": "impl/lib/xdk/build/artifact/Artifact.x",
+    "impl/lib/b4/config.x": "impl/lib/xdk/build/config/Config.x",
+    "impl/lib/b4/deps.x": "impl/lib/xdk/build/deps/Deps.x",
+    "impl/lib/b4/manifest.x": "impl/lib/xdk/build/manifest/Manifest.x",
+    "impl/lib/b4/reactor.x": "impl/lib/xdk/build/reactor/Reactor.x",
+    "impl/lib/b4/resman.x": "impl/lib/xdk/build/resource/Resource.x",
+    "impl/lib/b4/xmeta.x": "impl/lib/xdk/build/meta/Meta.x",
+    "impl/lib/b4/xpd.x": "impl/lib/xdk/build/project/Project.x",
+}
+if rel in b234:
+    print(b234[rel])
+    raise SystemExit
+if not rel.startswith("impl/lib/xdk/"):
+    print(rel)
+    raise SystemExit
+sys.path.insert(0, os.path.join(root, "tests/b4"))
+from package_resolver import XDK_LAYOUT
+rest = rel[len("impl/lib/xdk/"):]
+for package, variants in XDK_LAYOUT.items():
+    if rest == package + ".x":
+        print(os.path.join("impl/lib/xdk", variants["default"]))
+        raise SystemExit
+print(rel)
+PY
+}
 
 proj_A() { # rel
   local dir; dir=$(dirname "$1")
@@ -39,13 +75,28 @@ printf 'entry\tkind\tstatus\tsha\tvia\tproj\n' > "$W/entries.tsv"
 entry_pass=0; entry_fail=0; entry_block=0
 while IFS=$'\t' read -r rel kind want via proj; do
   [ -n "${rel:-}" ] || continue
+  rel=$(xdk_rel "$rel")
   if [ "$proj" = "B" ]; then
     projtext=$(python3 "$ROOT/tests/b4/proj-b.py" "$ROOT" "$rel")
   else
     projtext=$(proj_A "$rel")
   fi
-  if ! "$BIN/xparser" --file "$rel" > "$W/a.ast" 2>/dev/null; then
-    # 原生 parser 偶发大文件失败：重试一次（E4 稳定性债务）。
+  managed=0
+  { [ -f "${rel%.x}/.xsplit.json" ] || [ -f "$(dirname "$rel")/.xsplit.json" ]; } && managed=1
+  if [ "$kind" = "多文件" ] || [ "$managed" = "1" ]; then
+    if ! python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$BIN/xparser" "$rel" > "$W/b.json" 2>/dev/null; then
+      if ! python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$BIN/xparser" "$rel" > "$W/b.json" 2>/dev/null; then
+        entry_fail=$((entry_fail+1))
+        printf 'entry\t%s\tFAIL(bundle)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
+        echo "FAIL entry ${rel}（bundle）"; continue
+      fi
+    fi
+    python3 - "$W/b.json" "$W/a.ast" <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1], encoding="utf-8"))
+open(sys.argv[2], "w", encoding="utf-8").write(bundle["files"][-1]["ast"])
+PY
+  elif ! "$BIN/xparser" --file "$rel" > "$W/a.ast" 2>/dev/null; then
     if ! "$BIN/xparser" --file "$rel" > "$W/a.ast" 2>/dev/null; then
       entry_fail=$((entry_fail+1))
       printf 'entry\t%s\tFAIL(ast)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
@@ -53,15 +104,7 @@ while IFS=$'\t' read -r rel kind want via proj; do
     fi
   fi
   args=(--ast-file "$W/a.ast" --project "$projtext")
-  if [ "$kind" = "多文件" ]; then
-    if ! python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$BIN/xparser" "$rel" > "$W/b.json" 2>/dev/null; then
-      # 同上：bundle 依赖 parser，偶发失败重试一次。
-      if ! python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$BIN/xparser" "$rel" > "$W/b.json" 2>/dev/null; then
-        entry_fail=$((entry_fail+1))
-        printf 'entry\t%s\tFAIL(bundle)\t-\t%s\t%s\n' "$rel" "$via" "$proj" >> "$W/entries.tsv"
-        echo "FAIL entry ${rel}（bundle）"; continue
-      fi
-    fi
+  if [ "$kind" = "多文件" ] || [ "$managed" = "1" ]; then
     args+=(--bundle-file "$W/b.json")
   fi
   if ! "$BIN/xn-s4" "$rel" "${args[@]}" > "$W/a.c" 2>/dev/null; then
@@ -101,6 +144,7 @@ PY
 neg_total=0; neg_pass=0; neg_fail=0; neg_block=0
 while IFS=$'\t' read -r rel go_exit code first; do
   [ -n "${rel:-}" ] || continue
+  rel=$(xdk_rel "$rel")
   neg_total=$((neg_total+1))
   case "$code" in
     LEX-*|SYN-*)

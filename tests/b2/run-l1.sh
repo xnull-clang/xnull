@@ -11,7 +11,7 @@ ORACLE=${XNAST_BIN:-}
 if [ -z "$BIN" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnull-b2 ./cmd/xnull ) || exit 1; BIN=/tmp/xnull-b2; fi
 if [ -z "$ORACLE" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnast-b2 ./cmd/xnast ) || exit 1; ORACLE=/tmp/xnast-b2; fi
 CORPUS=${B2_CORPUS:-$HERE/corpus.tsv}
-XLEX="$ROOT/impl/lib/b2/xlex.x"
+XLEX=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/lexer/Lexer.x") || exit 1
 pass=0 fail=0
 while IFS=$'\t' read -r h p; do
   case "$h" in \#*|"") continue;; esac

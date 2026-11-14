@@ -55,7 +55,15 @@ proj_B() { # rel out
   src="$W/srcs.txt"
   cat "$ROOT/$rel" > "$src"
   while IFS= read -r mod; do
-    [ -f "$ROOT/impl/lib/xdk/$mod.x" ] && cat "$ROOT/impl/lib/xdk/$mod.x" >> "$src"
+    dep=$(python3 - "$ROOT" "$mod" <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[1], "tests/b4"))
+from package_resolver import xdk_primary
+rel = xdk_primary(sys.argv[2])
+print(os.path.join(sys.argv[1], "impl/lib/xdk", rel) if rel else "")
+PY
+)
+    [ -n "$dep" ] && [ -f "$dep" ] && cat "$dep" >> "$src"
   done < <(sed -nE 's/^import xdk\.([a-z]+).*/\1/p' "$ROOT/$rel")
   python3 "$ROOT/tests/b3/xfb-projection.py" "$ROOT/bindings" > "$W/proj.all"
   awk -F'|' -v src="$src" 'BEGIN{while((getline l < src)>0) t=t"\n"l} $1=="E"{ if(index(t,$3"(")>0) print }' "$W/proj.all" > "$out"
@@ -63,25 +71,38 @@ proj_B() { # rel out
 
 # 用「oracle AST + 原生 xnullc」生成 C（与 Go --emit-c 同口径）；
 # 原生失败或与 Go 不一致时，用 interp 跑同一 xnullc.x 重试（B3-09 的口径），并记录 via。
+is_split() { [ -f "${1%.x}/.xsplit.json" ] || [ -f "$(dirname "$1")/.xsplit.json" ]; }
+
 emit_xn_c() { # entry out.c projfile
-  local rel=$1 out=$2 projfile=$3 ast bundle nf
-  ( cd "$ROOT" && "$XNAST" --ast --dump-depth 100000 "$rel" ) > "$W/ast.txt" 2>/dev/null || return 1
-  ( cd "$ROOT" && "$GO" --emit-ast-bundle "$rel" ) > "$W/bundle.json" 2>/dev/null || return 1
+  local rel=$1 out=$2 projfile=$3 ast bundle nf source
+  source=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$rel") || return 1
+  ( cd "$ROOT" && "$XNAST" --ast --dump-depth 100000 "$source" ) > "$W/ast.txt" 2>/dev/null || return 1
+  if is_split "$rel"; then
+    python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$ROOT/bootstrap/bin/xparser" "$rel" > "$W/bundle.json" 2>/dev/null || return 1
+  else
+    ( cd "$ROOT" && "$GO" --emit-ast-bundle "$rel" ) > "$W/bundle.json" 2>/dev/null || return 1
+  fi
   nf=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["files"]))' "$W/bundle.json")
   local args=("$rel" --ast-file "$W/ast.txt" --project "$(cat "$projfile")")
-  [ "$nf" -gt 1 ] && args+=(--bundle-file "$W/bundle.json")
+  { [ "$nf" -gt 1 ] || is_split "$rel"; } && args+=(--bundle-file "$W/bundle.json")
   ( cd "$ROOT" && "$XN" "${args[@]}" ) > "$out" 2>"$W/xn.err" || return 1
   return 0
 }
 
 emit_interp_c() { # entry out.c projfile
-  local rel=$1 out=$2 projfile=$3 ast bundle nf
-  ( cd "$ROOT" && "$XNAST" --ast --dump-depth 100000 "$rel" ) > "$W/ast.txt" 2>/dev/null || return 1
-  ( cd "$ROOT" && "$GO" --emit-ast-bundle "$rel" ) > "$W/bundle.json" 2>/dev/null || return 1
+  local rel=$1 out=$2 projfile=$3 ast bundle nf source compiler
+  source=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$rel") || return 1
+  compiler=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/codegen/Codegen.x") || return 1
+  ( cd "$ROOT" && "$XNAST" --ast --dump-depth 100000 "$source" ) > "$W/ast.txt" 2>/dev/null || return 1
+  if is_split "$rel"; then
+    python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$ROOT/bootstrap/bin/xparser" "$rel" > "$W/bundle.json" 2>/dev/null || return 1
+  else
+    ( cd "$ROOT" && "$GO" --emit-ast-bundle "$rel" ) > "$W/bundle.json" 2>/dev/null || return 1
+  fi
   nf=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["files"]))' "$W/bundle.json")
   local args=("$rel" --ast-file "$W/ast.txt" --project "$(cat "$projfile")")
-  [ "$nf" -gt 1 ] && args+=(--bundle-file "$W/bundle.json")
-  ( cd "$ROOT" && "$GO" run --interp "$ROOT/impl/lib/b3/xnullc.x" -- "${args[@]}" ) > "$out" 2>"$W/interp.err" || return 1
+  { [ "$nf" -gt 1 ] || is_split "$rel"; } && args+=(--bundle-file "$W/bundle.json")
+  ( cd "$ROOT" && "$GO" run --interp "$compiler" -- "${args[@]}" ) > "$out" 2>"$W/interp.err" || return 1
   return 0
 }
 

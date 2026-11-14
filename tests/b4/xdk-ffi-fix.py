@@ -15,12 +15,14 @@ SCALAR = {
     "Int": "int64_t", "Int64": "int64_t", "UInt": "uint64_t", "UInt64": "uint64_t",
     "Int8": "int8_t", "Int16": "int16_t", "Int32": "int32_t",
     "UInt8": "uint8_t", "UInt16": "uint16_t", "UInt32": "uint32_t",
-    "Float": "double", "Float64": "double", "Float32": "float",
-    "Bool": "uint8_t", "Char": "uint32_t",
+    "Float": "double", "Float64": "double", "Double": "double", "Float32": "float",
+    "Bool": "uint8_t", "Char": "uint32_t", "Context": "xrt_context *",
 }
 OUT = {
     ("scalar", "Int"): "int64_t *", ("scalar", "Int64"): "int64_t *",
     ("scalar", "Int32"): "int32_t *", ("scalar", "Bool"): "uint8_t *",
+    ("scalar", "Double"): "double *", ("scalar", "Float"): "double *",
+    ("scalar", "Float64"): "double *", ("scalar", "Float32"): "float *",
     ("string", "String"): "xrt_string **", ("text", "Text"): "xrt_text **",
     ("bytes", "Bytes"): "xrt_bytes_obj **", ("handle", ""): "xrt_handle **",
 }

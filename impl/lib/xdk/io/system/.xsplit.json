@@ -1,0 +1,90 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/io/system/Sys.x",
+  "role": "xdk-full",
+  "package": "xdk.sys",
+  "unit_pos": {
+    "line": 18,
+    "col": 1
+  },
+  "package_ast": "(Package (nil))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 18) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "File",
+      "file": "File.x",
+      "decl_index": 7,
+      "origin": {
+        "line": 107,
+        "col": 7
+      },
+      "source": {
+        "start_line": 106,
+        "end_line": 251,
+        "external": false
+      }
+    },
+    {
+      "name": "Path",
+      "file": "Path.x",
+      "decl_index": 17,
+      "origin": {
+        "line": 353,
+        "col": 7
+      },
+      "source": {
+        "start_line": 352,
+        "end_line": 406,
+        "external": false
+      }
+    },
+    {
+      "name": "Dir",
+      "file": "Dir.x",
+      "decl_index": 19,
+      "origin": {
+        "line": 425,
+        "col": 7
+      },
+      "source": {
+        "start_line": 424,
+        "end_line": 473,
+        "external": false
+      }
+    },
+    {
+      "name": "Process",
+      "file": "Process.x",
+      "decl_index": 21,
+      "origin": {
+        "line": 489,
+        "col": 7
+      },
+      "source": {
+        "start_line": 488,
+        "end_line": 539,
+        "external": false
+      }
+    },
+    {
+      "name": "ProcessResult",
+      "file": "ProcessResult.x",
+      "decl_index": 24,
+      "origin": {
+        "line": 559,
+        "col": 7
+      },
+      "source": {
+        "start_line": 558,
+        "end_line": 575,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "30183df932ae6a57db7acc49b9f98118d9b907076c1cbb484bf23ddbd4569799",
+  "baseline_ast_sha256": "df217bd2c731118f9e213b0156dd86465c978bbe35801dc0117ebadde893a29e",
+  "synthetic_package": {
+    "line": 17,
+    "original": "\n"
+  }
+}

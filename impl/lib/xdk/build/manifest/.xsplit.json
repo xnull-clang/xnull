@@ -1,0 +1,44 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/build/manifest/Manifest.x",
+  "role": "entry",
+  "package": "xdk.build.manifest",
+  "unit_pos": {
+    "line": 16,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 16) (Col 1))) (Name (slice \"xdk\" \"build\" \"manifest\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 17) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Proj",
+      "file": "Proj.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 19,
+        "col": 7
+      },
+      "source": {
+        "start_line": 19,
+        "end_line": 27,
+        "external": false
+      }
+    },
+    {
+      "name": "Loader",
+      "file": "Loader.x",
+      "decl_index": 3,
+      "origin": {
+        "line": 38,
+        "col": 7
+      },
+      "source": {
+        "start_line": 38,
+        "end_line": 69,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "fe31bfbb92b8cf22d477a116b33f20b668a068f4c1136e156ab5675416e435c1",
+  "baseline_ast_sha256": "ba336d8fa7aa8ee7e8bbfa704ce686521f758675bc9b40204d7a9ca34972ebda"
+}

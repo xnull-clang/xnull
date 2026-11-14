@@ -5,7 +5,7 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
 BIN=${XNULL_BIN:-}
 XNAST=${XNAST_BIN:-}
-XNULLC=${XNULLC_FILE:-"$ROOT/impl/lib/b3/xnullc.x"}
+XNULLC=${XNULLC_FILE:-}; [ -n "$XNULLC" ] || XNULLC=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/codegen/Codegen.x") || exit 1
 RUNTIME=${XNULL_RUNTIME:-"$ROOT/impl/runtime"}
 if [ -z "$BIN" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnull-b3-es ./cmd/xnull ) || exit 1; BIN=/tmp/xnull-b3-es; fi
 if [ -z "$XNAST" ]; then ( cd "$ROOT/impl" && go build -o /tmp/xnast-b3-es ./cmd/xnast ) || exit 1; XNAST=/tmp/xnast-b3-es; fi

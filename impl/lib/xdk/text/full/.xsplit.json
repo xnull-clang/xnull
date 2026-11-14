@@ -1,0 +1,132 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/text/full/Text.x",
+  "role": "xdk-full",
+  "package": "xdk.text",
+  "unit_pos": {
+    "line": 11,
+    "col": 1
+  },
+  "package_ast": "(Package (nil))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 11) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Format",
+      "file": "Format.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 16,
+        "col": 7
+      },
+      "source": {
+        "start_line": 15,
+        "end_line": 62,
+        "external": false
+      }
+    },
+    {
+      "name": "Utf16",
+      "file": "Utf16.x",
+      "decl_index": 10,
+      "origin": {
+        "line": 206,
+        "col": 7
+      },
+      "source": {
+        "start_line": 205,
+        "end_line": 220,
+        "external": false
+      }
+    },
+    {
+      "name": "RegexTree",
+      "file": "RegexTree.x",
+      "decl_index": 13,
+      "origin": {
+        "line": 306,
+        "col": 7
+      },
+      "source": {
+        "start_line": 306,
+        "end_line": 350,
+        "external": false
+      }
+    },
+    {
+      "name": "RegexMatchState",
+      "file": "RegexMatchState.x",
+      "decl_index": 14,
+      "origin": {
+        "line": 353,
+        "col": 7
+      },
+      "source": {
+        "start_line": 352,
+        "end_line": 405,
+        "external": false
+      }
+    },
+    {
+      "name": "RegexParser",
+      "file": "RegexParser.x",
+      "decl_index": 17,
+      "origin": {
+        "line": 440,
+        "col": 7
+      },
+      "source": {
+        "start_line": 440,
+        "end_line": 794,
+        "external": false
+      }
+    },
+    {
+      "name": "RegexMatcher",
+      "file": "RegexMatcher.x",
+      "decl_index": 18,
+      "origin": {
+        "line": 796,
+        "col": 7
+      },
+      "source": {
+        "start_line": 796,
+        "end_line": 1043,
+        "external": false
+      }
+    },
+    {
+      "name": "Match",
+      "file": "Match.x",
+      "decl_index": 19,
+      "origin": {
+        "line": 1045,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1045,
+        "end_line": 1070,
+        "external": false
+      }
+    },
+    {
+      "name": "Regex",
+      "file": "Regex.x",
+      "decl_index": 20,
+      "origin": {
+        "line": 1072,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1072,
+        "end_line": 1181,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "73b9ba8b3d1472b9c87dac05a0938a71d66908197e6134d92e4b0029a960703a",
+  "baseline_ast_sha256": "f3d28657e9e50513030d80174d173e54f2b80a298d29ef02c0e4c031bcac7002",
+  "synthetic_package": {
+    "line": 10,
+    "original": "\n"
+  }
+}

@@ -55,7 +55,7 @@ export XNULL_FRONTEND=${XNULL_FRONTEND:-go}
 RUNTIME_SRCS=(
   rt.c rt_gc.c rt_policy.c rt_weak.c xrt_abi.c
   rt_std_runtime.c rt_std_text.c rt_std_sys.c rt_std_bytes.c rt_std_net.c
-  rt_task.c rt_sync.c rt_std_res.c rt_std_res_empty.c
+  rt_task.c rt_sync.c rt_std_res.c rt_std_res_empty.c rt_std_ext.c
 )
 
 die() { echo "xnull-build: $*" >&2; exit 2; }
@@ -123,13 +123,17 @@ workdir() {
   mktemp -d "${TMPDIR:-/tmp}/b4b01.XXXXXX"
 }
 
+has_split() {
+  [ -f "${1%.x}/.xsplit.json" ] || [ -f "$(dirname "$1")/.xsplit.json" ]
+}
+
 # oracle 三件套：ast / bundle 文件数 / 投影
 oracle_inputs() {
   local entry=$1 outdir=$2 projdir=${3:-}
-  # B5 过渡：XDK 源码层按需编译（XNULL_XDK_SOURCE=1）。
-  # 入口 import xdk.* 时，把 impl/lib/xdk/{errors,text,sys,net}.x 的 AST 一并打包，
-  # 并用 bridges（sys_raw/net_raw）投影 FFI；不改变默认 golden 路径。
-  if [ "${XNULL_XDK_SOURCE:-0}" = "1" ]; then
+  # XDK 完整源码层默认编译；XNULL_XDK_SOURCE=0 可显式回到冻结兼容面。
+  # 入口 import xdk.* 时，把完整 errors/text/sys/net AST 一并打包，
+  # 并用 bridges（sys_raw/net_raw）投影 FFI；verify-golden 的独立路径不受影响。
+  if [ "${XNULL_XDK_SOURCE:-1}" = "1" ]; then
     local xdk_entry="$entry"
     [ -f "$xdk_entry" ] || xdk_entry="$ROOT/$entry"
     if grep -q '^import xdk\.' "$xdk_entry" 2>/dev/null; then
@@ -152,7 +156,8 @@ PY
     fi
   fi
 
-  # B4c-02a：无 Go 引导模式——AST 用 bootstrap/bin/xparser，投影为空，单文件入口。
+  # B4c-02a：无 Go 引导模式——AST 用 bootstrap/bin/xparser。
+  # 普通包 import 走统一包解析器；XDK 源码模式在上面单独处理。
   if [ "${XNULL_BOOTSTRAP:-}" = "1" ]; then
     mkdir -p "$outdir"
     local xp=${XPARSER_BIN:-$ROOT/bootstrap/bin/xparser}
@@ -160,6 +165,21 @@ PY
     ( cd "$ROOT" && "$xp" --file "$entry" ) > "$outdir/ast.txt" 2>"$outdir/ast.err" \
       || { sed -n 1,3p "$outdir/ast.err" >&2; fail "xparser 生成 AST 失败：$entry"; }
     : > "$outdir/project.txt"
+    if has_split "$entry" || { grep -qE '^[[:space:]]*import[[:space:]]' "$entry" 2>/dev/null \
+        && ! grep -qE '^[[:space:]]*import[[:space:]]+xdk\.' "$entry" 2>/dev/null; }; then
+      python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$xp" "$entry" > "$outdir/bundle.json" \
+        || fail "包 bundle 生成失败：$entry"
+      if has_split "$entry"; then
+        python3 - "$outdir/bundle.json" "$outdir/ast.txt" <<'PY' || fail "受管入口 AST 提取失败：$entry"
+import json, sys
+b = json.load(open(sys.argv[1], encoding="utf-8"))
+open(sys.argv[2], "w", encoding="utf-8").write(b["files"][-1]["ast"])
+PY
+      fi
+      python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1],encoding="utf-8")).get("files",[])))' \
+        "$outdir/bundle.json"
+      return 0
+    fi
     echo 1
     return 0
   fi
@@ -194,7 +214,7 @@ emit_c() {
   local nf; nf=$(oracle_inputs "$entry" "$outdir") || exit 1
   local xc; xc=$(xnullc_bin) || exit 1
   local args=("$entry" --ast-file "$outdir/ast.txt" --project "$(cat "$outdir/project.txt")")
-  if [ "$nf" -gt 1 ]; then
+  if [ "$nf" -gt 1 ] || has_split "$entry"; then
     args+=(--bundle-file "$outdir/bundle.json")
   fi
   ( cd "$ROOT" && "$xc" "${args[@]}" ) > "$out" 2> "$outdir/xnullc.err"
@@ -203,7 +223,7 @@ emit_c() {
     sed -n 1,5p "$outdir/xnullc.err" >&2
     fail "原生 xnullc 生成 C 失败：${entry}（exit ${rc}）"
   fi
-  if [ "${XNULL_XDK_SOURCE:-0}" = "1" ]; then
+  if [ "${XNULL_XDK_SOURCE:-1}" = "1" ]; then
     python3 "$ROOT/tests/b4/xdk-ffi-fix.py" "$outdir/project.txt" "$out" \
       >> "$outdir/ffi-fix.log" 2>&1 || fail "FFI 包装器修复失败：$entry"
   fi
@@ -241,11 +261,12 @@ cc_link() {
   local srcs=()
   local s
   for s in "${RUNTIME_SRCS[@]}"; do srcs+=("$RUNTIME/$s"); done
-  if ! cc -std=c11 -O2 -pthread -I "$RUNTIME" -o "$out" "$cfile" "${srcs[@]}" "$res" 2> "${out}.cc.log"; then
+  if ! cc -std=c11 -O2 -pthread -I "$RUNTIME" -o "$out" "$cfile" "${srcs[@]}" "$res" -lz 2> "${out}.cc.log"; then
     sed -n 1,10p "${out}.cc.log" >&2
     fail "cc 链接失败：$cfile"
   fi
 }
+# 注：rt_std_ext.c 需要 -lz（gzip/zip 后端）；zlib 为平台标准库。
 
 cmd_build() {
   local entry="" out="" emit_only=0
@@ -367,14 +388,15 @@ cmd_bootstrap() {
   local out=/tmp/xn-s1
   if [ "${1:-}" = "-o" ]; then out=${2:-}; [ -n "$out" ] || die "-o 缺少路径"; fi
   local w; w=$(workdir) || exit 1
-  local entry=impl/lib/b3/xnullc.x
+  local entry=impl/lib/xdk/compiler/codegen/Codegen.x
   # 自举 xnullc 用 repo 的 canonical bindings 目录投影：整仓投影会撞上 impl/xnfmt、evidence 下的
   # 同名 .xfb，导致 xn_ffi_<name> 重复定义。
   local nf; nf=$(oracle_inputs "$entry" "$w" "$ROOT/bindings") || exit 1
   local go; go=$(go_bin) || exit 1
+  local compiler; compiler=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/$entry") || exit 1
   local args=("$ROOT/$entry" --ast-file "$w/ast.txt" --project "$(cat "$w/project.txt")")
-  [ "$nf" -gt 1 ] && args+=(--bundle-file "$w/bundle.json")
-  ( cd "$ROOT" && "$go" run --interp "$ROOT/$entry" -- "${args[@]}" ) > "$w/xnullc.c" 2> "$w/self.err" \
+  { [ "$nf" -gt 1 ] || has_split "$entry"; } && args+=(--bundle-file "$w/bundle.json")
+  ( cd "$ROOT" && "$go" run --interp "$compiler" -- "${args[@]}" ) > "$w/xnullc.c" 2> "$w/self.err" \
     || { sed -n 1,5p "$w/self.err" >&2; fail "自举生成 C 失败"; }
   write_empty_res "$w/res.c"
   cc_link "$w/xnullc.c" "$out" "$w/res.c" || exit 1
@@ -388,9 +410,10 @@ emit_c_interp() {
   local w; w=$(workdir) || exit 1
   local nf; nf=$(oracle_inputs "$entry" "$w" "$projdir") || exit 1
   local go; go=$(go_bin) || exit 1
+  local compiler; compiler=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/codegen/Codegen.x") || exit 1
   local args=("$entry" --ast-file "$w/ast.txt" --project "$(cat "$w/project.txt")")
-  if [ "$nf" -gt 1 ]; then args+=(--bundle-file "$w/bundle.json"); fi
-  ( cd "$ROOT" && "$go" run --interp "$ROOT/impl/lib/b3/xnullc.x" -- "${args[@]}" ) > "$out" 2> "$w/interp.err" \
+  if [ "$nf" -gt 1 ] || has_split "$entry"; then args+=(--bundle-file "$w/bundle.json"); fi
+  ( cd "$ROOT" && "$go" run --interp "$compiler" -- "${args[@]}" ) > "$out" 2> "$w/interp.err" \
     || { sed -n 1,5p "$w/interp.err" >&2; fail "interp 生成 C 失败：$entry"; }
   write_empty_res "$w/res.c"
   echo "$w/res.c"
@@ -402,7 +425,11 @@ cmd_bootstrap_tools() {
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
   local t entry res
   for t in resman artifact config deps xmeta; do
-    entry="impl/lib/b4/$t.x"
+    case "$t" in
+      resman) entry="impl/lib/xdk/build/resource/Resource.x" ;;
+      xmeta) entry="impl/lib/xdk/build/meta/Meta.x" ;;
+      *) entry="impl/lib/xdk/build/$t/$t.x" ;;
+    esac
     [ -f "$ROOT/$entry" ] || continue
     res=$(emit_c_interp "$entry" "$dir/$t.c") || exit 1
     cc_link "$dir/$t.c" "$dir/$t" "$res" || exit 1
@@ -414,7 +441,7 @@ cmd_bootstrap_tools() {
 cmd_bootstrap_reactor() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
-  emit_c impl/lib/b4/reactor.x "$dir/.reactor" "$dir/.reactor/reactor.c" > /dev/null || exit 1
+  emit_c impl/lib/xdk/build/reactor/Reactor.x "$dir/.reactor" "$dir/.reactor/reactor.c" > /dev/null || exit 1
   write_empty_res "$dir/.reactor/res.c"
   cc_link "$dir/.reactor/reactor.c" "$dir/reactor" "$dir/.reactor/res.c" || exit 1
   echo "$dir/reactor"
@@ -712,10 +739,10 @@ cmd_run_project() {
 cmd_bootstrap_model() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
-  emit_c impl/lib/b4/xpd.x "$dir/.xpd" "$dir/.xpd/xpd.c" > /dev/null || exit 1
+  emit_c impl/lib/xdk/build/project/Project.x "$dir/.xpd" "$dir/.xpd/xpd.c" > /dev/null || exit 1
   write_empty_res "$dir/.xpd/res.c"
   cc_link "$dir/.xpd/xpd.c" "$dir/xpd" "$dir/.xpd/res.c" || exit 1
-  emit_c impl/lib/b4/manifest.x "$dir/.xm" "$dir/.xm/manifest.c" > /dev/null || exit 1
+  emit_c impl/lib/xdk/build/manifest/Manifest.x "$dir/.xm" "$dir/.xm/manifest.c" > /dev/null || exit 1
   write_empty_res "$dir/.xm/res.c"
   cc_link "$dir/.xm/manifest.c" "$dir/xmanifest" "$dir/.xm/res.c" || exit 1
   echo "$dir/xpd"
@@ -771,7 +798,7 @@ cmd_bootstrap_xparser() {
   local out=/tmp/xparser-native
   if [ "${1:-}" = "-o" ]; then out=${2:-}; [ -n "$out" ] || die "-o 缺少路径"; fi
   local w; w=$(workdir) || exit 1
-  emit_c impl/lib/b2/xparser.x "$w" "$w/xparser.c" > /dev/null || exit 1
+  emit_c impl/lib/xdk/compiler/parser/Parser.x "$w" "$w/xparser.c" > /dev/null || exit 1
   write_empty_res "$w/res.c"
   cc_link "$w/xparser.c" "$out" "$w/res.c" || exit 1
   echo "$out"
@@ -782,15 +809,28 @@ cmd_ast_check() {
   local entries=("$@")
   if [ ${#entries[@]} -eq 0 ]; then
     for f in "$ROOT"/tests/b2/corpus/examples/*.x; do [ -f "$f" ] && entries+=("${f#"$ROOT/"}"); done
-    entries+=(impl/lib/b2/xparser.x impl/lib/b2/xlex.x impl/xnfmt/xnfmt.x)
+    entries+=(impl/lib/xdk/compiler/parser/Parser.x impl/lib/xdk/compiler/lexer/Lexer.x impl/xnfmt/xnfmt.x)
   fi
   local xp; xp=$(xparser_bin) || { echo "xnull-build: 没有原生 xparser（先跑 bootstrap-xparser）" >&2; exit 2; }
   local xnast; xnast=$(xnast_bin) || exit 1
   local w; w=$(workdir) || exit 1
   local pass=0 failn=0 e
   for e in "${entries[@]}"; do
-    ( cd "$ROOT" && "$xnast" --ast --dump-depth 100000 "$e" ) > "$w/go.ast" 2>/dev/null
-    ( cd "$ROOT" && "$xp" --file "$e" ) > "$w/xp.ast" 2>"$w/xp.err"; local rc=$?
+    local source=$e
+    if has_split "$e"; then
+      source=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/$e") || exit 1
+    fi
+    ( cd "$ROOT" && "$xnast" --ast --dump-depth 100000 "$source" ) > "$w/go.ast" 2>/dev/null
+    if has_split "$e"; then
+      python3 "$ROOT/tests/b4/native-bundle.py" "$ROOT" "$xp" "$e" > "$w/b.json" 2>"$w/xp.err"; local rc=$?
+      python3 - "$w/b.json" "$w/xp.ast" <<'PY'
+import json, sys
+bundle = json.load(open(sys.argv[1], encoding="utf-8"))
+open(sys.argv[2], "w", encoding="utf-8").write(bundle["files"][-1]["ast"])
+PY
+    else
+      ( cd "$ROOT" && "$xp" --file "$e" ) > "$w/xp.ast" 2>"$w/xp.err"; local rc=$?
+    fi
     if [ $rc -eq 0 ] && cmp -s "$w/go.ast" "$w/xp.ast"; then
       pass=$((pass+1)); echo "PASS $e"
     else

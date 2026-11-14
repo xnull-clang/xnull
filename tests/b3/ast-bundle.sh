@@ -28,6 +28,6 @@ PY
 }
 check "$ROOT/tests/b2/corpus/examples/multi/main.x" shapes.x text.x main.x
 check "$ROOT/tests/b3/fixtures/bundle/app.x" \
-  impl/lib/xdk/text.x impl/lib/xdk/sync.x impl/lib/xdk/tasks.x impl/lib/xdk/collections.x app.x
+  impl/lib/xdk/text/base/Text.x impl/lib/xdk/concurrent/sync/Sync.x impl/lib/xdk/concurrent/tasks/Tasks.x impl/lib/xdk/core/collections/Collections.x app.x
 echo "ast-bundle 汇总：PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

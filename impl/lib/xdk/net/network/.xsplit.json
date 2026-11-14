@@ -1,0 +1,90 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/net/network/Net.x",
+  "role": "xdk-full",
+  "package": "xdk.net",
+  "unit_pos": {
+    "line": 17,
+    "col": 1
+  },
+  "package_ast": "(Package (nil))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 17) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Socket",
+      "file": "Socket.x",
+      "decl_index": 7,
+      "origin": {
+        "line": 101,
+        "col": 7
+      },
+      "source": {
+        "start_line": 100,
+        "end_line": 180,
+        "external": false
+      }
+    },
+    {
+      "name": "Listener",
+      "file": "Listener.x",
+      "decl_index": 9,
+      "origin": {
+        "line": 196,
+        "col": 7
+      },
+      "source": {
+        "start_line": 196,
+        "end_line": 236,
+        "external": false
+      }
+    },
+    {
+      "name": "Url",
+      "file": "Url.x",
+      "decl_index": 11,
+      "origin": {
+        "line": 252,
+        "col": 7
+      },
+      "source": {
+        "start_line": 251,
+        "end_line": 264,
+        "external": false
+      }
+    },
+    {
+      "name": "Request",
+      "file": "Request.x",
+      "decl_index": 14,
+      "origin": {
+        "line": 329,
+        "col": 7
+      },
+      "source": {
+        "start_line": 328,
+        "end_line": 341,
+        "external": false
+      }
+    },
+    {
+      "name": "Response",
+      "file": "Response.x",
+      "decl_index": 15,
+      "origin": {
+        "line": 344,
+        "col": 7
+      },
+      "source": {
+        "start_line": 343,
+        "end_line": 378,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "9cdb1388e7858047ba9d63f8a2a0cbc8cd3ab1bece692f1cc576432f66c7621a",
+  "baseline_ast_sha256": "e5038b0a33e811d627e4fbd97d8cbe79e2865bf7b98b81f4c6934e3f02810fd1",
+  "synthetic_package": {
+    "line": 16,
+    "original": "\n"
+  }
+}

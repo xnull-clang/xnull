@@ -35,6 +35,15 @@ ffi xdkc_net_raw {
   @blocking(.aware)
   Int32 socketCloseRaw(Int64 sock);
 
+  @ffiEntry(cName = "xdkc_p_listener_bind_simple")
+  @lease(host = .borrow)
+  @blocking(.unaware)
+  Int64 listenerBindRaw(String host, Int32 port);
+
+  @ffiEntry(cName = "xdkc_p_listener_accept_simple")
+  @blocking(.unaware)
+  Int64 listenerAcceptRaw(Int64 listener);
+
   @ffiEntry(cName = "xdkc_p_http_request_text")
   @lease(method = .borrow, host = .borrow, path = .borrow, body = .borrow)
   @blocking(.unaware)

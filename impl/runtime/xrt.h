@@ -335,6 +335,7 @@ int32_t          xrt_atomic_bool_load(const xrt_atomic_bool *a);
 void             xrt_atomic_bool_store(xrt_atomic_bool *a, int v);
 int32_t          xrt_atomic_bool_cas(xrt_atomic_bool *a, int expect, int desired);
 xrt_atomic_ref  *xrt_atomic_ref_new(void *v, const xrt_channel_ops *ops);
+xrt_atomic_ref  *xdkc_atomic_ref_new(void *v);
 void            *xrt_atomic_ref_load(const xrt_atomic_ref *a);
 void             xrt_atomic_ref_store(xrt_atomic_ref *a, void *v);
 int32_t          xrt_atomic_ref_cas(xrt_atomic_ref *a, void *expect, void *desired);

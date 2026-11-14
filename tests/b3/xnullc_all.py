@@ -19,7 +19,7 @@ def is_excluded(path):
 
 # 长用例：生成耗时高，避免在高并发下资源竞争超时（B3-09）。
 LONG_CASES = {
-    "impl/lib/b2/xparser.x",
+    "impl/lib/xdk/compiler/parser/Parser.x",
 }
 
 def is_long_case(path):
@@ -290,7 +290,7 @@ def main():
                     help="Go oracle 二进制；默认 /tmp/xnull-b3-all-<HEAD>")
     ap.add_argument("--xnast-bin", default=None,
                     help="xnast 二进制；默认 /tmp/xnast-b3-all-<HEAD>")
-    ap.add_argument("--xnullc", default="impl/lib/b3/xnullc.x")
+    ap.add_argument("--xnullc", default="impl/lib/xdk/compiler/codegen/Codegen.x")
     ap.add_argument("--shard", default="1/1")
     ap.add_argument("--parallel", type=int, default=4)
     ap.add_argument("--timeout", type=int, default=900,
@@ -306,6 +306,10 @@ def main():
         args.go_bin = f"/tmp/xnull-b3-all-{rev}"
     if args.xnast_bin is None:
         args.xnast_bin = f"/tmp/xnast-b3-all-{rev}"
+    if args.xnullc == "impl/lib/xdk/compiler/codegen/Codegen.x":
+        args.xnullc = subprocess.check_output([
+            sys.executable, os.path.join(root, "tests/b4/materialize_legacy.py"),
+            root, os.path.join(root, args.xnullc)], text=True).strip()
     out = args.out or os.path.join(root, "tests/b3/out")
     os.makedirs(out, exist_ok=True)
     if not os.path.exists(os.path.join(root, args.xnullc)):

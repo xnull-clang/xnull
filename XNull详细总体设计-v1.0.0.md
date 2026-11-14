@@ -1391,7 +1391,8 @@ trampoline：
 ### 7.1 分层
 
 ```
-impl/lib/xdk/*.x          XNull 源码层：公开 API（类型/函数/合同文档）
+impl/lib/xdk/<layer>/<domain>/*.x
+                          XNull 源码层：公开 API（类型/函数/合同文档）
         │  import xdk.*
         ▼
 bindings/xdk/*.xfb        绑定声明：三形态/租约/错误码/阻塞分类
@@ -1400,6 +1401,10 @@ impl/runtime/rt_std_*.c   C 原语层：OS/内核服务（xdkc_* 内部符号）
         ▼
 impl/runtime/xrt*.c       稳定 ABI（分配/计数/根/弱表/句柄）
 ```
+
+> 物理目录按“分层/域”两级组织（`build`、`compiler`、`core`、`text`、`data`、
+> `io`、`net`、`concurrent`、`util`），包名保持 `xdk.errors`、`xdk.text` 等冻结名称；
+> 解析器用 `tests/b4/package_resolver.py` 的 `XDK_LAYOUT` 做映射。
 
 理由：
 

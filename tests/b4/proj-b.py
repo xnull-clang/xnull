@@ -1,29 +1,36 @@
 #!/usr/bin/env python3
-"""B4c-03：复现冻结 golden 的投影 B（入口 + 直接 xdk 依赖 → 过滤绑定 E 行）。
-
-与 tests/b4/freeze-golden.sh 的 proj_B 同口径：
-- 仅当入口含 `import xdk.*` 时生成；
-- 投影源 = 入口源码 + 每个直接 xdk 模块源码；
-- 从 bindings 注册表只保留 `E|...` 中 `name(` 出现在上述源码里的条目。
-"""
+"""复现 golden 投影 B；受管分片先物化，保持原源码文本并集。"""
 import os
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from package_resolver import xdk_primary
+
+
+def source_text(root, path):
+    materializer = os.path.join(root, "tests/b4/materialize_legacy.py")
+    result = subprocess.run([sys.executable, materializer, root, path],
+                            cwd=root, capture_output=True, text=True, check=True)
+    materialized = result.stdout.strip()
+    with open(materialized, encoding="utf-8") as f:
+        return f.read()
 
 
 def main():
     root = os.path.abspath(sys.argv[1])
     rel = sys.argv[2]
     os.chdir(root)
-    src = open(rel, encoding="utf-8").read()
+    src = source_text(root, rel)
     if not any(line.startswith("import xdk.") for line in src.splitlines()):
         return
     for line in src.splitlines():
         if line.startswith("import xdk."):
             mod = line[len("import xdk."):].split()[0].rstrip(";")
-            dep = os.path.join("impl/lib/xdk", mod + ".x")
-            if os.path.exists(dep):
-                src += open(dep, encoding="utf-8").read()
+            rel = xdk_primary(mod)
+            dep = os.path.join("impl/lib/xdk", rel) if rel else ""
+            if dep and os.path.exists(dep):
+                src += source_text(root, dep)
     allp = subprocess.run(
         [sys.executable, "tests/b3/xfb-projection.py", "bindings"],
         capture_output=True, check=True,

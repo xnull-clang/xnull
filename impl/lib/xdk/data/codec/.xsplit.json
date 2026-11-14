@@ -1,0 +1,100 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/data/codec/Codec.x",
+  "role": "package",
+  "package": "xdk.codec",
+  "unit_pos": {
+    "line": 7,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 7) (Col 1))) (Name (slice \"xdk\" \"codec\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 8) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\")) (ImportDecl (P (Pos (Line 9) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\")) (ImportDecl (P (Pos (Line 10) (Col 1))) (Path (slice \"xdk\" \"math\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "JsonValue",
+      "file": "JsonValue.x",
+      "decl_index": 17,
+      "origin": {
+        "line": 230,
+        "col": 7
+      },
+      "source": {
+        "start_line": 229,
+        "end_line": 312,
+        "external": false
+      }
+    },
+    {
+      "name": "JsonParser",
+      "file": "JsonParser.x",
+      "decl_index": 27,
+      "origin": {
+        "line": 454,
+        "col": 7
+      },
+      "source": {
+        "start_line": 453,
+        "end_line": 659,
+        "external": false
+      }
+    },
+    {
+      "name": "CsvRow",
+      "file": "CsvRow.x",
+      "decl_index": 30,
+      "origin": {
+        "line": 758,
+        "col": 7
+      },
+      "source": {
+        "start_line": 758,
+        "end_line": 780,
+        "external": false
+      }
+    },
+    {
+      "name": "CsvTable",
+      "file": "CsvTable.x",
+      "decl_index": 31,
+      "origin": {
+        "line": 782,
+        "col": 7
+      },
+      "source": {
+        "start_line": 782,
+        "end_line": 804,
+        "external": false
+      }
+    },
+    {
+      "name": "BinaryReader",
+      "file": "BinaryReader.x",
+      "decl_index": 35,
+      "origin": {
+        "line": 899,
+        "col": 7
+      },
+      "source": {
+        "start_line": 898,
+        "end_line": 1018,
+        "external": false
+      }
+    },
+    {
+      "name": "BinaryWriter",
+      "file": "BinaryWriter.x",
+      "decl_index": 37,
+      "origin": {
+        "line": 1030,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1030,
+        "end_line": 1120,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "d27b604ff0f2c5fd276a882928c839b23472225d9b4e9db380b5cb4a304bc7fc",
+  "baseline_ast_sha256": "7b062cfd4305766bfc00a2a82fa93b8018a7c9b51e1e7c59a0230247ea354193"
+}

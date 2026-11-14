@@ -1,0 +1,72 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/build/project/Project.x",
+  "role": "entry",
+  "package": "xdk.build.project",
+  "unit_pos": {
+    "line": 16,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 16) (Col 1))) (Name (slice \"xdk\" \"build\" \"project\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 17) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Tok",
+      "file": "Tok.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 19,
+        "col": 7
+      },
+      "source": {
+        "start_line": 19,
+        "end_line": 22,
+        "external": false
+      }
+    },
+    {
+      "name": "Frame",
+      "file": "Frame.x",
+      "decl_index": 1,
+      "origin": {
+        "line": 24,
+        "col": 7
+      },
+      "source": {
+        "start_line": 24,
+        "end_line": 29,
+        "external": false
+      }
+    },
+    {
+      "name": "Model",
+      "file": "Model.x",
+      "decl_index": 2,
+      "origin": {
+        "line": 31,
+        "col": 7
+      },
+      "source": {
+        "start_line": 31,
+        "end_line": 39,
+        "external": false
+      }
+    },
+    {
+      "name": "Ctx",
+      "file": "Ctx.x",
+      "decl_index": 4,
+      "origin": {
+        "line": 50,
+        "col": 7
+      },
+      "source": {
+        "start_line": 49,
+        "end_line": 241,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "bf61d0c9444e4f83dda8421aa9460ba6fd5e2b6092d395905ef14e8ba606d1c6",
+  "baseline_ast_sha256": "ae0a571f3f1a61a044c67f9750ca9195b516e98ae983ec383dc925bafe75042d"
+}

@@ -3,7 +3,7 @@
 set -uo pipefail
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
-BIN=${XNULL_BIN:-}; XNAST=${XNAST_BIN:-}; XNULLC=${XNULLC_FILE:-"$ROOT/impl/lib/b3/xnullc.x"}
+BIN=${XNULL_BIN:-}; XNAST=${XNAST_BIN:-}; XNULLC=${XNULLC_FILE:-}; [ -n "$XNULLC" ] || XNULLC=$(python3 "$ROOT/tests/b4/materialize_legacy.py" "$ROOT" "$ROOT/impl/lib/xdk/compiler/codegen/Codegen.x") || exit 1
 [ -n "$BIN" ] || ( cd "$ROOT/impl" && go build -o /tmp/xnull-b3-tp ./cmd/xnull >/dev/null 2>&1 ) || exit 1
 [ -n "$BIN" ] || BIN=/tmp/xnull-b3-tp
 [ -n "$XNAST" ] || ( cd "$ROOT/impl" && go build -o /tmp/xnast-b3-tp ./cmd/xnast >/dev/null 2>&1 ) || exit 1

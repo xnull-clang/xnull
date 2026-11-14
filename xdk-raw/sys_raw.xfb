@@ -148,6 +148,10 @@ ffi xdkc_sys_raw {
   @blocking(.aware)
   Int32 resourceErrorRaw();
 
+  @ffiEntry(cName = "xdkc_p_context_cancelled")
+  @blocking(.aware)
+  Int32 contextCancelledRaw(Context context);
+
   @ffiEntry(cName = "xdkc_p_resource_count")
   @blocking(.aware)
   Int64 resourceCountRaw();

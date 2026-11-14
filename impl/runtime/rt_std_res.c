@@ -326,6 +326,13 @@ int32_t xdkc_p_resource_error(void) {
     return xdk_res_last_error;
 }
 
+int32_t xdkc_p_context_cancelled(xrt_context *context) {
+    if (context == NULL) {
+        return 0;
+    }
+    return xrt_context_cancelled(context) != 0;
+}
+
 int64_t xdkc_p_resource_count(void) {
     return (int64_t)xrt_resource_count();
 }

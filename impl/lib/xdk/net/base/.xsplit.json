@@ -1,0 +1,90 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/net/base/Net.x",
+  "role": "package",
+  "package": "xdk.net",
+  "unit_pos": {
+    "line": 18,
+    "col": 1
+  },
+  "package_ast": "(Package (nil))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 18) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\")) (ImportDecl (P (Pos (Line 19) (Col 1))) (Path (slice \"xdk\" \"tasks\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "NetError",
+      "file": "NetError.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 24,
+        "col": 7
+      },
+      "source": {
+        "start_line": 23,
+        "end_line": 36,
+        "external": false
+      }
+    },
+    {
+      "name": "Socket",
+      "file": "Socket.x",
+      "decl_index": 4,
+      "origin": {
+        "line": 62,
+        "col": 7
+      },
+      "source": {
+        "start_line": 61,
+        "end_line": 118,
+        "external": false
+      }
+    },
+    {
+      "name": "Listener",
+      "file": "Listener.x",
+      "decl_index": 5,
+      "origin": {
+        "line": 122,
+        "col": 7
+      },
+      "source": {
+        "start_line": 122,
+        "end_line": 161,
+        "external": false
+      }
+    },
+    {
+      "name": "Request",
+      "file": "Request.x",
+      "decl_index": 10,
+      "origin": {
+        "line": 192,
+        "col": 7
+      },
+      "source": {
+        "start_line": 191,
+        "end_line": 204,
+        "external": false
+      }
+    },
+    {
+      "name": "Response",
+      "file": "Response.x",
+      "decl_index": 11,
+      "origin": {
+        "line": 207,
+        "col": 7
+      },
+      "source": {
+        "start_line": 206,
+        "end_line": 223,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "f77b7df391393a36f94538422d7367bea95938d1aabd065294d18a6002180218",
+  "baseline_ast_sha256": "713a230977cf17545e86efdedf34663f610fb2d6d1628056d6f88d2baf4ffedf",
+  "synthetic_package": {
+    "line": 17,
+    "original": "\n"
+  }
+}

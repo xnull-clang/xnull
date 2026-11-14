@@ -721,6 +721,92 @@ int32_t xdkc_p_socket_close_simple(int64_t sock) {
     return xdkc_socket_close((void *)(intptr_t)sock);
 }
 
+int64_t xdkc_p_listener_bind_simple(const char *host, size_t hlen, int32_t port) {
+    xdk_net_last_error = NET_OK;
+    if (host == NULL || hlen == 0 || port <= 0 || port > 65535) {
+        xdk_net_last_error = NET_INVALID;
+        return 0;
+    }
+    char *h = malloc(hlen + 1);
+    if (h == NULL) {
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    memcpy(h, host, hlen);
+    h[hlen] = 0;
+    char service[16];
+    snprintf(service, sizeof(service), "%d", (int)port);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    struct addrinfo *addresses = NULL;
+    int gai = getaddrinfo(h, service, &hints, &addresses);
+    free(h);
+    if (gai != 0) {
+        xdk_net_last_error = NET_UNAVAILABLE;
+        return 0;
+    }
+    int fd = -1;
+    for (struct addrinfo *ai = addresses; ai != NULL; ai = ai->ai_next) {
+        fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+        if (fd < 0) {
+            continue;
+        }
+        int yes = 1;
+        (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) == 0 && listen(fd, 16) == 0) {
+            break;
+        }
+        close(fd);
+        fd = -1;
+    }
+    freeaddrinfo(addresses);
+    if (fd < 0) {
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    net_socket *listener = malloc(sizeof(*listener));
+    if (listener == NULL) {
+        close(fd);
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    listener->fd = fd;
+    listener->closed = 0;
+    return (int64_t)(intptr_t)listener;
+}
+
+int64_t xdkc_p_listener_accept_simple(int64_t sock) {
+    xdk_net_last_error = NET_OK;
+    net_socket *listener = (net_socket *)(intptr_t)sock;
+    if (listener == NULL || listener->closed) {
+        xdk_net_last_error = NET_INVALID;
+        return 0;
+    }
+    int fd;
+    for (;;) {
+        fd = accept(listener->fd, NULL, NULL);
+        if (fd >= 0 || errno != EINTR) {
+            break;
+        }
+    }
+    if (fd < 0) {
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    net_socket *client = malloc(sizeof(*client));
+    if (client == NULL) {
+        close(fd);
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    client->fd = fd;
+    client->closed = 0;
+    return (int64_t)(intptr_t)client;
+}
+
 const char *xdkc_p_http_request_text(const char *method, size_t mlen,
                                      const char *host, size_t hlen, int32_t port,
                                      const char *path, size_t plen,

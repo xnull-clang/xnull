@@ -106,8 +106,8 @@ fi
 
 # fmt / clean / doctor / version
 # fmt：同一未格式化样本，两路格式化结果比较；--check 在已格式化文件上均为 0
-cp "$ROOT/impl/lib/b4/deps.x" "$W/fmt-go.x"
-cp "$ROOT/impl/lib/b4/deps.x" "$W/fmt-xn.x"
+cp "$ROOT/impl/lib/xdk/build/deps/Deps.x" "$W/fmt-go.x"
+cp "$ROOT/impl/lib/xdk/build/deps/Deps.x" "$W/fmt-xn.x"
 "$GO" fmt "$W/fmt-go.x" > /dev/null 2>&1
 "$S" fmt "$W/fmt-xn.x" > /dev/null 2>&1
 if cmp -s "$W/fmt-go.x" "$W/fmt-xn.x"; then

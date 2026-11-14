@@ -1,0 +1,30 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/build/deps/Deps.x",
+  "role": "entry",
+  "package": "xdk.build.deps",
+  "unit_pos": {
+    "line": 10,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 10) (Col 1))) (Name (slice \"xdk\" \"build\" \"deps\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 11) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Ctx",
+      "file": "Ctx.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 13,
+        "col": 7
+      },
+      "source": {
+        "start_line": 13,
+        "end_line": 79,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "a712e0107a63d9877925cdf84aa4da4398d2bedec469d3bcf63213668ddc2c91",
+  "baseline_ast_sha256": "b4da3d7f3f698dad895974a28f5924fce703dc6c96d80f4bd2c9ba9fcb1e1eaa"
+}

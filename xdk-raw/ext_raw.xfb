@@ -1,0 +1,243 @@
+// bindings/xdk/ext_raw.xfb —— xdk.math / xdk.time / xdk.util / xdk.codec 原语桥
+//
+// 约定（与 sys_raw.xfb 一致）：
+//   - 只暴露 String/标量形态参数与返回值；二进制统一走 hex 字符串；
+//   - String 返回不返回 NULL（缺失映射空串）；
+//   - 原生实现在 impl/runtime/rt_std_ext.c，依赖 libc/libm/libz。
+ffi xdkc_ext_raw {
+  // ---- math：超越函数（libm）----
+  @ffiEntry(cName = "xdkc_math_sqrt")
+  @blocking(.unaware)
+  Double mathSqrtRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_cbrt")
+  @blocking(.unaware)
+  Double mathCbrtRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_pow")
+  @blocking(.unaware)
+  Double mathPowRaw(Double x, Double y);
+
+  @ffiEntry(cName = "xdkc_math_exp")
+  @blocking(.unaware)
+  Double mathExpRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_log")
+  @blocking(.unaware)
+  Double mathLogRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_log2")
+  @blocking(.unaware)
+  Double mathLog2Raw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_log10")
+  @blocking(.unaware)
+  Double mathLog10Raw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_sin")
+  @blocking(.unaware)
+  Double mathSinRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_cos")
+  @blocking(.unaware)
+  Double mathCosRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_tan")
+  @blocking(.unaware)
+  Double mathTanRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_asin")
+  @blocking(.unaware)
+  Double mathAsinRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_acos")
+  @blocking(.unaware)
+  Double mathAcosRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_atan")
+  @blocking(.unaware)
+  Double mathAtanRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_atan2")
+  @blocking(.unaware)
+  Double mathAtan2Raw(Double y, Double x);
+
+  @ffiEntry(cName = "xdkc_math_sinh")
+  @blocking(.unaware)
+  Double mathSinhRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_cosh")
+  @blocking(.unaware)
+  Double mathCoshRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_tanh")
+  @blocking(.unaware)
+  Double mathTanhRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_fmod")
+  @blocking(.unaware)
+  Double mathModRaw(Double a, Double b);
+
+  @ffiEntry(cName = "xdkc_math_floor")
+  @blocking(.unaware)
+  Double mathFloorRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_ceil")
+  @blocking(.unaware)
+  Double mathCeilRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_round")
+  @blocking(.unaware)
+  Double mathRoundRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_trunc")
+  @blocking(.unaware)
+  Double mathTruncRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_nan")
+  @blocking(.unaware)
+  Double mathNanRaw();
+
+  @ffiEntry(cName = "xdkc_math_inf")
+  @blocking(.unaware)
+  Double mathInfRaw();
+
+  @ffiEntry(cName = "xdkc_math_isnan")
+  @blocking(.unaware)
+  Int32 mathIsNanRaw(Double x);
+
+  @ffiEntry(cName = "xdkc_math_isinf")
+  @blocking(.unaware)
+  Int32 mathIsInfRaw(Double x);
+
+  // ---- random（xorshift64* 全局实例）----
+  @ffiEntry(cName = "xdkc_rand_seed")
+  @blocking(.unaware)
+  void randSeedRaw(Int64 seed);
+
+  @ffiEntry(cName = "xdkc_rand_next")
+  @blocking(.unaware)
+  Int64 randNextRaw();
+
+  @ffiEntry(cName = "xdkc_rand_double")
+  @blocking(.unaware)
+  Double randDoubleRaw();
+
+  // ---- time ----
+  @ffiEntry(cName = "xdkc_now_micros")
+  @blocking(.unaware)
+  Int64 nowMicrosRaw();
+
+  @ffiEntry(cName = "xdkc_sleep_ms")
+  @blocking(.unaware)
+  void sleepMsRaw(Int64 ms);
+
+  // ---- env / system ----
+  @ffiEntry(cName = "xdkc_env_lookup2")
+  @lease(name = .borrow)
+  @blocking(.unaware)
+  String envRaw(String name);
+
+  @ffiEntry(cName = "xdkc_env_has")
+  @lease(name = .borrow)
+  @blocking(.unaware)
+  Int32 envHasRaw(String name);
+
+  @ffiEntry(cName = "xdkc_hostname")
+  @blocking(.unaware)
+  String hostnameRaw();
+
+  @ffiEntry(cName = "xdkc_platform")
+  @blocking(.unaware)
+  String platformRaw();
+
+  @ffiEntry(cName = "xdkc_arch")
+  @blocking(.unaware)
+  String archRaw();
+
+  @ffiEntry(cName = "xdkc_pid")
+  @blocking(.unaware)
+  Int64 pidRaw();
+
+  @ffiEntry(cName = "xdkc_cwd")
+  @blocking(.unaware)
+  String cwdRaw();
+
+  @ffiEntry(cName = "xdkc_chdir")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 chdirRaw(String path);
+
+  @ffiEntry(cName = "xdkc_file_mtime")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int64 fileMtimeRaw(String path);
+
+  @ffiEntry(cName = "xdkc_stdin_line")
+  @blocking(.aware)
+  String stdinLineRaw();
+
+  // ---- 哈希与校验（hex 进出；返回静态缓冲字符串）----
+  @ffiEntry(cName = "xdkc_sha256_hex")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  String sha256HexRaw(String dataHex);
+
+  @ffiEntry(cName = "xdkc_sha1_hex")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  String sha1HexRaw(String dataHex);
+
+  @ffiEntry(cName = "xdkc_md5_hex")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  String md5HexRaw(String dataHex);
+
+  @ffiEntry(cName = "xdkc_sha512_hex")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  String sha512HexRaw(String dataHex);
+
+  @ffiEntry(cName = "xdkc_crc32")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  Int64 crc32HexRaw(String dataHex);
+
+  @ffiEntry(cName = "xdkc_hmac_sha256_hex")
+  @lease(key = .borrow, data = .borrow)
+  @blocking(.unaware)
+  String hmacSha256HexRaw(String keyHex, String dataHex);
+
+  // ---- UUID ----
+  @ffiEntry(cName = "xdkc_uuid4")
+  @blocking(.unaware)
+  String uuid4Raw();
+
+  // ---- gzip（hex 进出）----
+  @ffiEntry(cName = "xdkc_gzip_compress_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String gzipCompressHexRaw(String hex);
+
+  @ffiEntry(cName = "xdkc_gzip_decompress_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String gzipDecompressHexRaw(String hex);
+
+  // ---- 浮点位模式（BinaryWriter/Reader）----
+  @ffiEntry(cName = "xdkc_f64_bits")
+  @blocking(.unaware)
+  Int64 f64BitsRaw(Double v);
+
+  @ffiEntry(cName = "xdkc_f64_from_bits")
+  @blocking(.unaware)
+  Double f64FromBitsRaw(Int64 bits);
+
+  @ffiEntry(cName = "xdkc_f32_bits")
+  @blocking(.unaware)
+  Int64 f32BitsRaw(Float v);
+
+  @ffiEntry(cName = "xdkc_f32_from_bits")
+  @blocking(.unaware)
+  Double f32FromBitsRaw(Int64 bits);
+}

@@ -14,7 +14,7 @@ entry	tests/b3/fixtures/obj/struct_point.x	PASS	02df44ef31fd29b4a7e761c5c2f18b9d
 entry	tests/b3/fixtures/obj2/dispatch.x	PASS	1c1dc9e92ce8bdb42a3261e96579614ca3e7590524d6e0c81ea97e5cf1846bf6	native	A
 entry	tests/b3/fixtures/tuple/param_ret.x	PASS	0770875df48972dcee392f356a8c547bcf943a0e38d4ef9bc46f55136cf0f46e	native	A
 entry	tests/s3/mem05/other.x	PASS	815bebe5739a147536cd831d1a6008b0affa60c74a2452131734f65f086f2eed	native	A
-entry	impl/lib/b2/xparser.x	PASS	391ec8465bb95396f80e84a6c29ebeaf20c2802bdc7ed51da52363f33d514470	native	B
+entry	impl/lib/xdk/compiler/parser/Parser.x	PASS	5458c6a33b924bfa653bba5561ae39f97d4d52365fe471b68b72fb5abbb6ba8d	native	B
 entry	difftest/s2/bnd03/a02_dynamic.x	PASS	7f3ed85ada53d4978507303630b07e4af031792d96bf5578f1276974614730b4	native	A
 entry	difftest/s2/bnd05/a01_impl_ok.x	PASS	11a9924386fe1519be591b5e314333e3c3e0c27ec7d64bea620025697dca314e	native	A
 entry	examples/parser-seed.x	PASS	4ff6444bf6853683f1f6cb7b6da45b11e833c3b214527ece5e5336b16de6c1f4	native	A
@@ -50,7 +50,7 @@ entry	tests/s3/mem05/none.x	PASS	bff89244aff80efe0c6c3a499391d1b63426ca0fac145a3
 entry	difftest/s2/bnd11/a01_struct_copy.x	PASS	b9f2eeab80aa54fd3cb7ee26c90050a252415ae1a4af92c5331ecff7773d741e	native	A
 entry	difftest/s2/pctor01/a02_explicit_noarg.x	PASS	080d2de6070feaf2a243c5191580008e153a827b991ddedee2e3483ac01a0b4a	native	A
 entry	examples/ast-seed.x	PASS	8ecba98f104f9b5b939a88dcb6a9656998bd9222724e2eff8898af127c87ca99	native	A
-entry	impl/lib/b2/xlex.x	PASS	32a4cbbd74ec5e4210610c754e8dbad9df0c8c7b50b358dc0916482068ed1ca9	interp	A
+entry	impl/lib/xdk/compiler/lexer/Lexer.x	PASS	fc06566bd92dc00f4988f31da5a2b758da0c2820172831f523096c4956017d11	native	A
 entry	tests/b2/corpus/examples/defer-cleanup.x	PASS	a039570511a05ef8153f8434a96b9003e4c81ef3c8c15c9f0da4a48bf724ad8c	native	A
 entry	tests/b2/corpus/examples/parser-seed.x	PASS	e1ac4a3efd694fc2faee263b1ddc84cf8610286648ed3754dd9794e8f812007f	native	A
 entry	tests/b2/corpus/tests/s3/mem05/return.x	PASS	b4739e291a6619bf06b8295d4fcc366ced712c43bd69119a48373e8cdb7e14fb	native	A

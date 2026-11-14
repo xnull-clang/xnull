@@ -1,0 +1,30 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/build/config/Config.x",
+  "role": "entry",
+  "package": "xdk.build.config",
+  "unit_pos": {
+    "line": 7,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 7) (Col 1))) (Name (slice \"xdk\" \"build\" \"config\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 8) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "ConfigCtx",
+      "file": "ConfigCtx.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 11,
+        "col": 7
+      },
+      "source": {
+        "start_line": 10,
+        "end_line": 13,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "60918e397ab7b6c38ecee78b226431034e3b8d96d0fb7b45d8c0cd83f209957c",
+  "baseline_ast_sha256": "559c087c450c1ce4f9b48240ba382de28a6f14227c08f8d17e493002dbfcfd83"
+}
