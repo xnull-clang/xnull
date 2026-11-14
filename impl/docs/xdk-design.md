@@ -1,5 +1,9 @@
 # XDK 前置设计（impl/docs/xdk-design.md）
 
+> **2026-11-15 作废**：§2.1/§2.3 的 `<layer>/<domain>` 物理布局、`base`/`full` 双面、`*_full.x`、`xdk-raw` 桥均无规范依据，全部作废。
+> 规范原文：S9-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」；S6 §2 只定义 8 个平铺包。
+> 按规范，XDK 不在文件装载路径上；源码化布局须先修订规范（S9-01/S6）。本文只作历史参考。
+
 > 编制：运行时侧（C）　日期：2026-11-06
 > 性质：**阶段 A 纯设计**。阶段 B 实现（M4.6）开工条件：M4 收口过门或书面放行。
 > 规范依据：S6 v1.1.0（§1.4 架构、§2 包结构、§3 合同原则七条、§4 逐包合同、§8 验收矩阵）、S3 §18/§19、S5、S8 §5.6/§7、S7 §8（`@unsafe`）。
@@ -68,7 +72,7 @@ impl/runtime/xrt*.c       稳定 ABI（S7 §6.1）：分配/计数/根/弱表/�
 
 物理目录按**分层/域**两级组织；运行时包名保持 S6 定案的 `xdk.errors`、`xdk.text`
 等冻结名称，编译器/构建包使用 `xdk.compiler.*`、`xdk.build.*`。解析器
-（`tests/b4/package_resolver.py` 的 `XDK_LAYOUT`）负责包名到物理路径的映射。
+（`tests/toolchain/package_resolver.py` 的 `XDK_LAYOUT`）负责包名到物理路径的映射。
 同一包有默认冻结面与完整实现两套源码时，用 `base` / `full` 域区分。
 
 ```
@@ -206,7 +210,7 @@ impl/lib/xdk/
 ## 7. 源码层实现追加（2026-11-13，XDK-SRC-01）
 
 `impl/lib/xdk/{text,sys,net}.x` 已从骨架推进到可用实现，并通过
-`tests/s6/xdk-source/run.sh` 四组 E2E（见 `evidence/XDK-SRC-01/`）：
+`tests/xdk/source/run.sh` 四组 E2E（见 `evidence/XDK-SRC-01/`）：
 
 - **text**：`Format`、`parseInt/parseFloat`、`Regex`、UTF-8↔UTF-16；补顶层工厂
   `formatInt/formatFloat/formatString/formatBool/regexCompile`（类静态方法调用
@@ -217,7 +221,7 @@ impl/lib/xdk/
   `Listener.accept` 显式 Unsupported（运行时 listen/accept 未接入）。
 
 接入方式：`XNULL_XDK_SOURCE=1 bin/xnull --bootstrap run <entry.x>`；
-`tests/b4/xdk-bundle.py` 固定 bundle 布局（编译器 FFI 原型发射对文件数敏感）。
+`tests/toolchain/xdk-bundle.py` 固定 bundle 布局（编译器 FFI 原型发射对文件数敏感）。
 默认路径不变，冻结 golden 9/9 保持 PASS。
 
 剩余：`TaskGroup`、`AtomicRef<T>` 需编译器发射面（编译器发射面）；二进制流与取消/挂起
@@ -231,8 +235,8 @@ impl/lib/xdk/
   `Socket.sendBytes/recvBytes`。
 - `io/system/Sys.x` 的资源段拆到同包单元 `io/resource/Resource.x`：原生 xparser 对深嵌套资源函数存在
   解析退化（指数级变慢），拆分后恢复秒级解析。
-- 冻结编译器在部分 bundle 组合下清空 FFI 参数；`tests/b4/xdk-ffi-fix.py`
+- 冻结编译器在部分 bundle 组合下清空 FFI 参数；`tests/toolchain/xdk-ffi-fix.py`
   按投影重建原型/签名/调用参数，作为 编译器修复前的编译桥。
 - 完整实现位于 `impl/lib/xdk/{sys,net,text}_full.x` + `io/resource/Resource.x`，默认构建仍用
   `io/system/Sys.x、net/network/Net.x、text/full/Text.x` 冻结面；`xdk-raw/` 承载 raw 绑定，避免改变默认投影。
-- E2E：`tests/s6/xdk-source/run.sh` 6/6 PASS；`verify-golden` 142/97/9 全绿。
+- E2E：`tests/xdk/source/run.sh` 6/6 PASS；`verify-golden` 142/97/9 全绿。

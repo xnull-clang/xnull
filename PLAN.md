@@ -14,6 +14,9 @@
 | `Int` / `String` / `Bool`、拼接、`print` | 并发、net、资源、构建系统、包管理、IDE |
 | `import xdk.*` + 一次调用 | 第二个包（等当前级绿了再加） |
 
+只用 S6 §2 的 8 个包：`errors` / `tasks` / `sync` / `runtime` / `collections` / `text` / `sys` / `net`。
+`math` / `time` / `codec` / `util` / `compiler` / `build` 不是规范包，不许进 L0—L6。
+
 ## 梯子
 
 以下为 2026-11-15 实测快照；状态以命令输出为准，不在文档里维护。
@@ -22,7 +25,7 @@
 |---|---|---|---|
 | L0 | `print("hello")` | 编译 → 链接 → 运行 | 绿（3.0s） |
 | L1 | 用户 class + 方法 | 对象模型 | 绿（2.1–2.4s） |
-| L2 | `import xdk.math` + `PI()` | 包隔离、命名空间 | 红 |
+| L2 | `import xdk.errors` + `ErrorKind.NotFound` | 包隔离、命名空间（零原语） | 红 |
 | L3 | `xdk.text.Format` builder | 库类与用户类走同一条编译路径 | 红 |
 | L4 | `sys.fileExists(path)` | 第一个原语：绑定 / 租约 / 错误码 | 红 |
 | L5 | `parseInt("x")` | 第一条可读的错误路径 | 红 |
@@ -36,6 +39,8 @@
 4. 全程无 `fatal:`，无 Go。
 
 ## 当前红在哪（2026-11-15 实测）
+
+探针用的是 `import xdk.math`——它不是 S6 包，只用来测工具链；机制与 L2 相同：任何 `xdk.*` 都会触发全量打包。
 
 - `import xdk.math` + `PI()`：120 秒不返回。
 - bundle 把 12 个包单元、14 个文件全部打包，解析 13.7 秒。

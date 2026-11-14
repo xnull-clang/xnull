@@ -1,5 +1,9 @@
 # XNull 详细总体设计
 
+> **2026-11-15 更正**：本文第 7 节（XDK 三层结构、`<layer>/<domain>` 目录）与 Go `internal/*` 实现架构均已作废。
+> 规范原文：S9-01 §2.1「`xdk.*` 不按文件装载；由语义阶段的 XDK 符号表处理」、§2.3「`xdk.*` 不落文件系统」。
+> 现行约定见 `死命令.md` / `PLAN.md`；本文只作历史参考。
+
 | 项 | 值 |
 | --- | --- |
 | 文档编号 | XNULL-DESIGN-002 |
@@ -1404,7 +1408,7 @@ impl/runtime/xrt*.c       稳定 ABI（分配/计数/根/弱表/句柄）
 
 > 物理目录按“分层/域”两级组织（`build`、`compiler`、`core`、`text`、`data`、
 > `io`、`net`、`concurrent`、`util`），包名保持 `xdk.errors`、`xdk.text` 等冻结名称；
-> 解析器用 `tests/b4/package_resolver.py` 的 `XDK_LAYOUT` 做映射。
+> 解析器用 `tests/toolchain/package_resolver.py` 的 `XDK_LAYOUT` 做映射。
 
 理由：
 
