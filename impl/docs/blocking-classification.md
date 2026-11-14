@@ -1,6 +1,6 @@
 # 阻塞分类清单（impl/docs/blocking-classification.md）
 
-> 依据：S6 §9（阻塞分类与调用面）、S5 §9（逐 API 分类清单）、S7 §7.3（`@blocking` + 长阻塞伴生形态）。
+> 依据：S6 §9（阻塞分类与调用面）、S5 §9（逐 API 分类清单）、S7 附录 B §B.7.3（`@blocking` + 长阻塞伴生形态）。
 > 生成源：仓库内 `bindings/**/*.xfb` 的注册表。清单与注册表的一致性由自动化用例
 > （`internal/codegen/ffi` 的 `TestBlockingClassificationDocInSync`）机械核验——改绑定必须同步本表，否则测试失败。
 
@@ -9,7 +9,7 @@
 | 分类 | 含义 | 调用面要求 |
 | --- | --- | --- |
 | `.aware` | 不会长时间占用执行器；快速返回或只做内存/系统调用 | 可在任务内直接调用 |
-| `.unaware` | 可能阻塞执行器（文件/网络/同步系统调用） | 长阻塞必须提供专用执行器伴生入口 `submit<Entry>`（S7 §7.3） |
+| `.unaware` | 可能阻塞执行器（文件/网络/同步系统调用） | 长阻塞必须提供专用执行器伴生入口 `submit<Entry>`（S7 附录 B §B.7.3） |
 
 长阻塞（`@longRunning`）且 `.unaware` 的入口，注册表要求同区域存在 `submit<Entry>`，否则构建失败（`FFI-107`）。
 

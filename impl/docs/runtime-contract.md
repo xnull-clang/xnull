@@ -8,13 +8,13 @@
 ## A0. ABI v1 状态：稳定 v1（2026-11-08 转正）
 
 **稳定 v1（stable v1）**：`xrt.h` / `xrt_abi.c` 的符号与签名冻结为跨 FFI ABI 承诺
-（S7 §6.1、附录 B）；变更走主版本。
+（S7 附录 B §B.6.1、附录 B）；变更走主版本。
 
 - **转正依据**：numeric 变体（句柄 + Bytes + `@errorCode`）与资源/任务/同步面已随 S6
   端到端通过；`xrt.h` 头注释与本文件同步改为“稳定 v1”（S7-05）。
 - **S7-05 转正动作**：生成代码的 `main` 首行调用 `xrt_runtime_init()`；
-  `xrt_alloc` 在未初始化时 fatal（S7 §6.3 顺序合同）；弱表声明由 `XRT_BINDINGS_LAYER`
-  门禁（应用层引用编译失败，S7 §6.2）；新增 `test_abi_link.c`（只 include `xrt.h` 的原生链接测试）。
+  `xrt_alloc` 在未初始化时 fatal（S7 附录 B §B.6.3 顺序合同）；弱表声明由 `XRT_BINDINGS_LAYER`
+  门禁（应用层引用编译失败，S7 附录 B §B.6.2）；新增 `test_abi_link.c`（只 include `xrt.h` 的原生链接测试）。
 - **历史记录**：以下“候选期增补/更正”为转正前记录，保留追溯；自转正日起新增变更按主版本流程。
 - **候选期增补（S6-02 runtime 面，2026-11-08）**：`xdk.runtime` 六签名落地——
   `env`（`xdkc_env_lookup`，缺失返回 NULL → XNull 侧 String?）、`dumpTasks`
@@ -127,9 +127,9 @@
 | P-03 | 新增 rt API：`rt_array_new/get/set`（元素描述符进 rt_type）、`rt_closure_new` | 采纳（描述符形态要求见 C 段） |
 | P-04 | Result 表示：tag + union 由 codegen 生成，构造/析构内联，不进运行时 | 修改后采纳（结构体形态，原则不变） |
 | P-05 | escape 回填：codegen 对象级逃逸分类（none/return/other）写入 `rt_policy_input.escape` | 条件采纳（需 A 段增补 + 挂 M4.4b） |
-| P-06 | 入口垫片：`main` → `xn_main`，Int 退出码直通（S1 ENTRY-01 / S10 §5.1 退出码合同） | 采纳（已落地，冻结为事实） |
+| P-06 | 入口垫片：`main` → `xn_main`，Int 退出码直通（S1 ENTRY-01 / S9 §5.1 退出码合同） | 采纳（已落地，冻结为事实） |
 | P-07 | 构建缓存：libxrt.a 内容哈希键控；cc 探测 CC→cc→clang→gcc；旗标 `-std=c11 -O2 -Wall` | 部分采纳（键与旗标要求见 C 段） |
-| P-08 | 新增 `impl/runtime/xrt.h` + `xrt_abi.c` 薄封装层：S7 §6.1 冻结的 `xrt_*` 前缀映射到内部 `rt_*`（内部实现不改名，零回归）；`xrt.h` 为唯一对外 ABI 头，`rt.h` 降级为内部头；含 FFI 增补 `xrt_handle`、`xrt_task_root_bind/unbind`（见 ffi-design.md §5.4） | 采纳（codegen 迁移挂 M4.4a，清单见 C 段） |
+| P-08 | 新增 `impl/runtime/xrt.h` + `xrt_abi.c` 薄封装层：S7 附录 B §B.6.1 冻结的 `xrt_*` 前缀映射到内部 `rt_*`（内部实现不改名，零回归）；`xrt.h` 为唯一对外 ABI 头，`rt.h` 降级为内部头；含 FFI 增补 `xrt_handle`、`xrt_task_root_bind/unbind`（见 ffi-design.md §5.4） | 采纳（codegen 迁移挂 M4.4a，清单见 C 段） |
 | P-09 | codegen 把 `.xfb` 入口作为包级可调用声明注入，调用点使用 `xn_ffi_<entry>`（包装 ABI v1，ffi-contract §5.1） | 采纳（附三条条件，见 C 段 2026-11-06 编译器侧·P-09/P-10） |
 | P-10 | `xnull build` 的 C 编译清单纳入 `xrt_abi.c` 与 `rt_std_*.c`，并注入 `link.libraries`（LinkArgs） | 采纳（附四条条件，见 C 段 2026-11-06 编译器侧·P-09/P-10） |
 

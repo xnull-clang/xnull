@@ -1,8 +1,8 @@
 # XNull IDE（方案 A：VS Code 扩展）
 
-这是第 9 部分方案 A 的实现：一个 VS Code 扩展，负责编辑体验、工程创建、标准库浏览、Build/Run/Package Binary 与诊断展示。
+这是第 8 部分方案 A 的实现：一个 VS Code 扩展，负责编辑体验、工程创建、标准库浏览、Build/Run/Package Binary 与诊断展示。
 
-它不实现编译器、构建系统或语言服务；所有实际编译/检查/运行都调用第 8 部分 `xnull` CLI。
+它不实现编译器、构建系统或语言服务；所有实际编译/检查/运行都调用第 7 部分 `xnull` CLI。
 
 ## 构建
 
@@ -48,7 +48,7 @@ xnull run <file.x>
 
 ## 边界
 
-- 只输出单文件二进制；完整工程 packaging 由第 8 部分模块 06 后续提供。
+- 只输出单文件二进制；完整工程 packaging 由第 7 部分模块 06 后续提供。
 - 不做 LSP/语义补全；方案 B 后续接入。
 - 不解析 stderr 作为诊断；诊断来自 `--json`。
 - 不把 VS Code 扩展 API 当作 XNull 语言 API。
