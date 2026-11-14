@@ -171,7 +171,7 @@
 | 控制流 | `if` `else` `while` `do` `for` `switch` `case` `default` `break` `continue` `return` `throw` `try` `goto` `defer` `errdefer` |
 | 类型运算 | `is` |
 
-`true`、`false`、`null` 是字面量常量，不是关键字，但禁止用作声明名。
+`true`、`false`、`null`、`unit` 是预定义常量，不是关键字，但禁止用作声明名。
 
 以下名称保留给 0.6 列出的未支持能力和未来版本，禁止用作标识符：
 
@@ -185,7 +185,7 @@ async await yield unsafe extern macro
 
 ```text
 Bool Byte Short Int Long UByte UShort UInt ULong Int128 UInt128
-Float Double Char void
+Float Double Char void Unit
 String Object Any List Set Map Result Text StringBuilder Bytes
 ```
 
@@ -266,7 +266,7 @@ String Object Any List Set Map Result Text StringBuilder Bytes
 - 多行字符串的内容原样保存，不去除缩进、不去除首尾换行。非原始多行字符串仍处理转义。
 - 字符串字面量类型为 `String`。`String` 是不可变 UTF-8 字节序列；`length()` 按字节计。
 - 插值字符串中，`{expression}` 是表达式；`{{` 产生字面量 `{`；不在插值中的 `}` 按字面量处理。插值表达式必须完整，括号可以嵌套；未闭合的插值是词法错误。
-- 插值表达式不得为 `void`。允许的格式化值：`String`、`Bool`、整数、`Float`、`Double`、`Char`、`null`、简单枚举、元素均可格式化的元组（格式为 `(a, b)`，元素递归应用本规则），以及声明了 `String toString()` 的类型。`Bool` 格式化为 `true` / `false`，整数为十进制，浮点为可往返的最短表示，简单枚举按项名格式化，`null` 为 `null`。
+- 插值表达式不得为 `void`。允许的格式化值：`String`、`Bool`、整数、`Float`、`Double`、`Char`、`null`、`Unit`（格式化为 `unit`）、简单枚举、元素均可格式化的元组（格式为 `(a, b)`，元素递归应用本规则），以及声明了 `String toString()` 的类型。`Bool` 格式化为 `true` / `false`，整数为十进制，浮点为可往返的最短表示，简单枚举按项名格式化，`null` 为 `null`。
 - 插值按源码顺序从左到右求值；所有插值部分求值后拼接为一个新的 `String`。插值字符串不是常量表达式。
 - 相邻字符串字面量不会自动拼接；必须使用 `+` 或插值。
 
@@ -339,7 +339,7 @@ Int g = -b
 
 | 类别 | 类型 | 传递语义 |
 | --- | --- | --- |
-| 值类型 | `Bool` `Byte` `Short` `Int` `Long` `UByte` `UShort` `UInt` `ULong` `Int128` `UInt128` `Float` `Double` `Char` | 按值复制 |
+| 值类型 | `Bool` `Unit` `Byte` `Short` `Int` `Long` `UByte` `UShort` `UInt` `ULong` `Int128` `UInt128` `Float` `Double` `Char` | 按值复制 |
 | 引用类型 | `String` `Object` `Any` `T[]` | 按对象句柄传递 |
 | 库类型 | 第 6 部分定义（`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder` 等） | 均为引用类型；按对象句柄传递 |
 | 语言级错误类型 | `Result<T,E>` | 值类型；见第 10 节 |
@@ -348,7 +348,7 @@ Int g = -b
 | 函数类型 | `R(P1, P2, ...)` | 引用类型；值是闭包 |
 | 空类型 | `void` | 只能作为返回类型或函数类型的返回类型 |
 
-`void` 不能作为变量、参数、字段、容器元素或其他泛型的类型实参。唯一例外是 `Result<void,E>`：`void` 只能作为 `Result` 的第一个类型实参；该形式是内建特化，不是用户泛型实例化。`void()` 是合法的函数类型。
+`void` 不能作为变量、参数、字段、容器元素或类型实参。`void()` 是合法的函数类型。没有成功值的 `Result` 使用 `Unit` 作为成功类型（§9.1、§10.1）。
 
 `Object` 是引用类型根；所有引用类型和 `Any` 都可以赋给 `Object`。值类型必须显式装箱为 `Any` 后才能作为 `Object` 使用。
 
@@ -1236,7 +1236,10 @@ static T first<T>(T[] values) {
 | `String` | 语言 | 引用、不可变 UTF-8 | `length` `substring` `indexOf` `trim` `split` `replace` `toUpper` `toLower` |
 | `T[]` | 语言 | 引用、固定长度 | 下标、`length`、`join` |
 | `(T1, T2, ...)` | 语言 | 值类型 | `.0` `.1`…；见 2.11 |
+| `Unit` | 语言 | 值类型、零大小 | 唯一值 `unit` |
 | `Result<T,E>` | 语言 | 值类型、`@mustUse` | `isOk` `isErr` `value` `error` `unwrapOr`；见 10.1 |
+
+`Unit` 是内建空值类型：唯一值是 `unit`，零大小、无身份、按值复制；用于 `Result<Unit,E>` 表示没有成功值的操作。`unit == unit` 为 `true`，`str(unit)` 为 `"unit"`。
 
 `List<T>`、`Map<K,V>`、`Set<T>`、`StringBuilder`、`Text`、`Bytes` 是库类型，由第 6 部分定义；语言只规定它们都是引用类型、类型参数不变。
 
@@ -1335,8 +1338,8 @@ Result<Int, String> fail = Err("missing");
 ```
 
 - `Result<T,E>` 是值类型；`T` 是成功值类型，`E` 是错误值类型。
-- `T` 可以是 `void`，表示没有成功值；`E` 不能是 `void`。
-- `Ok(value)` 构造成功值；`Ok()` 用于 `Result<void,E>`；`Err(error)` 构造失败值。
+- `T` 可以是 `Unit`，表示没有成功值；`E` 不能是 `void`。
+- `Ok(value)` 构造成功值；`Ok(unit)` 用于 `Result<Unit,E>`；`Err(error)` 构造失败值。
 - 构造器按目标类型推断；没有目标类型时，`Ok(1)` 或 `Err("x")` 无法确定另一侧类型，必须显式写类型或由上下文提供。
 - `Result` 是 `@mustUse`：`Result` 值必须被返回、赋给变量/字段/容器、用 `try` 传播，或调用其成员；作为裸表达式语句丢弃是编译错误。
 - `Result` 不提供 `==` / `===`；使用成员检查。
@@ -1347,22 +1350,14 @@ Result<Int, String> fail = Err("missing");
 ```x
 Bool isOk()
 Bool isErr()
-T value()          // 仅 T 非 void；Err 时 panic
+T value()          // Err 时 panic
 E error()          // 仅 E 非 void；Ok 时 panic
-T unwrapOr(T fallback) // 仅 T 非 void
+T unwrapOr(T fallback)
 ```
 
 - `isOk()` / `isErr()` 总是安全。
 - `value()` / `error()` 只在已确认分支调用；错误分支读取成功值或成功分支读取错误值是程序错误，运行时 panic。
 - 需要安全解包时使用 `try` 或先检查 `isOk` / `isErr`。
-
-`Result<void,E>` 是唯一允许 `void` 作为类型实参的形式：
-
-- 它是内建特化，不是用户泛型实例化；用户泛型不能把类型参数绑定为 `void`。
-- 成员只有 `isOk()` / `isErr()` / `error()`；没有 `value()` 与 `unwrapOr()`。
-- `Ok()` 构造成功；`Err(error)` 构造失败。
-- `try` 用于 `Result<void,E>` 时只能作为表达式语句，不产生值（§10.2）。
-- 它可以作为变量、参数、返回值、字段或容器元素；`void` 本身仍不能出现在其他位置。
 
 ### 10.2 try 传播
 
@@ -1377,7 +1372,7 @@ Result<Config, AppError> load(String path) {
 - `try expr` 只用于 `Result`。
 - 成功时解包为 `T` 并继续；失败时执行当前作用域的 `defer` / `errdefer`，然后从当前函数或闭包返回 `Err`。
 - 外层函数或闭包必须返回 `Result<_, E2>`；`E` 必须可赋给 `E2`；否则编译错误。禁止隐式字符串化。
-- `Result<void,E>` 的 `try` 作为表达式语句使用；它不产生值。
+- `Result<Unit,E>` 的 `try` 产生 `Unit`；作为表达式语句时值被丢弃。
 - `try` 是前缀运算，作用于紧邻的前缀表达式；优先级见 7.2。
 - `try` 不能用于构造器、`deinit`、`main` 或 `defer` / `errdefer` 体。
 - 闭包内使用 `try` 时，错误从闭包返回，不穿透到外层函数；闭包的目标返回类型必须是 `Result`。
@@ -1387,7 +1382,7 @@ Result<Config, AppError> load(String path) {
 ### 10.3 defer / errdefer
 
 ```x
-Result<void, IoError> copy(String from, String to) {
+Result<Unit, IoError> copy(String from, String to) {
     File input = try File.open(from);
     defer input.close();
 
@@ -1403,7 +1398,7 @@ Result<void, IoError> copy(String from, String to) {
         }
         try output.write(buffer, n);
     }
-    return Ok();
+    return Ok(unit);
 }
 ```
 

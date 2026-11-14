@@ -424,20 +424,20 @@ XNull 的内存管理对源码使用者呈现为**三种策略**：
 打开/关闭模式：
 
 ```x
-static Result<void, IoError> process(final String path) {
+static Result<Unit, IoError> process(final String path) {
     final Result<File, IoError> opened = File.open(path);
     if (opened.isErr()) {
         return Err(opened.error()!);
     }
     final File input = opened.value()!;
     defer {
-        final Result<void, IoError> r = input.close();
+        final Result<Unit, IoError> r = input.close();
         if (r.isErr()) {
             xdk.errors.report(r);
         }
     }
     // ...
-    return Ok(void);
+    return Ok(unit);
 }
 ```
 
@@ -600,7 +600,7 @@ static Result<void, IoError> process(final String path) {
 
 1. 向所有未终结子任务上下文发出取消；
 2. 等待全部子任务终结，含清理路径完成；
-3. 返回 `Result<void, TaskError>`：首个非取消类子任务错误。
+3. 返回 `Result<Unit, TaskError>`：首个非取消类子任务错误。
 
 ### 3.6 `Context`
 
