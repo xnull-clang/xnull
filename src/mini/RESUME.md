@@ -15,12 +15,17 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+6fc430f6 test(mini): force cold bootstrap in m8
+aa490f68 fix(toolchain): make M8 bootstrap reproducible without Go oracle
+f8435f79 docs(mini): align recovery plan with current dev baseline
 61eb86c9 docs(mini): add restart and next-work recovery plan
 04c4d1a3 fix(mini): handle zero-argument Ok in semantic check
-cac3564d docs(mini): add Mini 1.0 seven-day execution plan
-14137442 refactor(mini): remove XDK shims and use base sys surface
-51a7666a refactor(mini): remove unused shims and switch text to full XDK
 ```
+
+P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
+`XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`，即使 `/tmp` 里残留旧的
+xpd/reactor/tools 也不会掩盖冷启动失败。冷缓存 m8 约 42s；完整
+21 回归约 95s。
 
 ## 工作安排速览
 
@@ -64,7 +69,9 @@ for t in lex parser sema codegen class flow array containers result defer m6_4 x
 done
 ```
 
-当前 21 个回归全部 PASS，`selfhost` 固定点 PASS。
+当前 21 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
+在测试临时目录内从头构建 xpd/xmanifest/reactor 和构建工具，不依赖
+`/tmp` 旧缓存。
 
 ## 当前范围
 
@@ -236,6 +243,7 @@ main 默认仍是 legacy
 
 ## 已知阻塞/边界
 
+- P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
 - `io/system/Sys.x` 的完整 raw FFI 还没有做参数/句柄/返回值完整映射；当前 `xdk.sys` 使用 `io/base`。
 - `io/system/Sys.x` 的 sema 已能通过，但 emit C 仍有 raw FFI 原型/句柄错误。
 - 完整 M9-C4：switch、data enum、继承、lambda、do/for-range、标签控制未完成。

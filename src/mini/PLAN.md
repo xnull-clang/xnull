@@ -320,6 +320,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 ### 9.4 当前激活
 
+- P0 自举可复现性已完成：`cmd_bootstrap_model`/tools/reactor 不再依赖 Go oracle；`m8.sh` 用测试私有目录强制冷启动。
 - M8-P1/P2/P3 已完成 workspace 场景；M8-P4/P5 部分完成，外部仓库/插件依赖和完整诊断码仍待补。
 - M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
 - M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
@@ -333,7 +334,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | 优先级 | 工作项 | 具体切片 | 完成判定 |
 | --- | --- | --- | --- |
-| P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移 |
+| P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
 | P1 | M8-P4 | 外部依赖/本地仓库 lock；`install` 归档可复现；`repro` 两次 SHA 一致 | 外部依赖 fixture + 失败负例 |
 | P1 | M8-P5 | 统一 `CLI-*`/`SEM-*`/`PROJ-*` 诊断码；退出码 0/1/2/130/134 矩阵 | JSON 与 stderr 字段一致 |
 | P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
