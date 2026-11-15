@@ -43,4 +43,15 @@ diff -u "$TMP.exp" "$TMP"
 printf 'true\nfalse\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_integration.x" > "$TMP" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '[Hello]\nhello\n007\n42\ntrue\nfalse\nerrors-ok\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP"
+
+diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
+    echo "src/xdk and xdk/lib/xdk differ" >&2
+    exit 1
+}
+
 echo "mini xdk: PASS"

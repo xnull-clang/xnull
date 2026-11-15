@@ -34,12 +34,12 @@ D1  M8-P4 完成
 D2  M8-P5 完成
 D3  M9-C2 完成
 D4  M9-C3 完成
-D5  XDK 集成
-D6  选定 M9-PAR
-D7  Mini 1.0 收口
+D5  XDK 集成 完成
+D6  选定 M9-PAR 完成
+D7  Mini 1.0 收口 完成
 ```
 
-D1–D4 已完成，下一步从 D5 开始，不重排计划。
+D1–D7 已完成，Mini 1.0 收口完成；下一步进入后续 M9/M7 工作，不重排已完成计划。
 
 ## 重启恢复命令
 
@@ -64,12 +64,12 @@ XNULL_MINI_BOOTSTRAP=legacy ./src/mini/build.sh
 每次提交前至少执行：
 
 ```sh
-for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi resources object_list selfhost generics c4 m8; do
+for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi resources object_list selfhost generics c4 m8 parity; do
   ./src/mini/tests/$t.sh || exit 1
 done
 ```
 
-当前 21 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
+当前 22 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
 在测试临时目录内从头构建 xpd/xmanifest/reactor 和构建工具，不依赖
 `/tmp` 旧缓存。
 
@@ -218,6 +218,7 @@ src/mini/tests/generics.sh
 - selfhost 固定点不漂移。
 
 ### D5：XDK 集成
+状态：完成。`xdk_integration.x` 覆盖 text/sys/errors 组合；`xdk.sh` 同时校验 `src/xdk` 与 `xdk/lib/xdk`；resources/errors 场景通过。
 
 目标：
 
@@ -234,6 +235,7 @@ diff -qr src/xdk xdk/lib/xdk
 ```
 
 ### D6：选定 M9-PAR
+状态：完成。`parity.sh` 覆盖 14 个代表性场景，legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
 
 目标：
 
@@ -244,11 +246,12 @@ diff -qr src/xdk xdk/lib/xdk
 - 不追求全量 legacy 差分。
 
 ### D7：Mini 1.0 收口
+状态：完成。22 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
 
 必须全部满足：
 
 ```text
-21 个 mini 回归全绿
+22 个 mini 回归全绿
 mini selfhost 固定点 PASS
 m8.sh PASS
 选定 M9-PAR PASS
@@ -267,7 +270,7 @@ main 默认仍是 legacy
 ## 工作量口径
 
 ```text
-Mini 1.0 剩余:     3–5 dev-day（D1–D4 已完成）
+Mini 1.0 剩余:     0 dev-day（D1–D7 已完成）
 当前到完整 M9:     30–50 dev-day（M9-FULL）
 从 0 到完整 M9:    60–90 dev-day
 ```

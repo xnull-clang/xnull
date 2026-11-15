@@ -304,7 +304,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 项 | 冻结内容 | 验收命令 |
 | --- | --- | --- |
 | 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
-| 回归 | 21 个 mini 回归 + 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 回归 | 22 个 mini 回归（21 + parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
 | 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
 | 默认引擎 | 仍为 `legacy`；M9-PAR/M9-CUT 通过前不切换 | `src/cli/xnull --help` |
 | 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
@@ -334,7 +334,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | 优先级 | 工作项 | 具体切片 | 完成判定 |
 | --- | --- | --- | --- |
-| P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
+| P0 | 回归冻结 | 每次改动后跑 22 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
 | P1 | M8-P4 | workspace lock 条目；`install` 生成确定性 `.xlib`；外部依赖只做 LOCK-002 负例 | workspace lock 正例 + 外部依赖负例；`repro` SHA 一致 |
 | P1 | M8-P5 | 统一 `CLI-*`/`SEM-*` 诊断码；JSON 与 stderr 一致；退出码 0/1/2/130/134 矩阵 | 外部 lock 仍用临时 `LOCK-002`，XPD-4xx 映射待规范 |
 | P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
@@ -378,7 +378,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | **合计** | **M9-MIN 从当前基线** | **7–12** |
 
 这里的 7–12 是 D1–D4 开始前的**当前剩余量**，不是从零做 mini 的总量。
-D1–D4 完成后，剩余 D5–D7 估算为 **3–5 dev-day**。当前自举和文本/基础 sys
+D1–D7 完成后，Mini 1.0 剩余为 **0 dev-day**。当前自举和文本/基础 sys
 已经完成，不能再用从零估算的 28–43 天计算当前排期。
 
 ### 9.6.2 完整 M9 估算
@@ -413,7 +413,7 @@ D1–D4 完成后，剩余 D5–D7 估算为 **3–5 dev-day**。当前自举和
 - `xdk.text` 使用 `text/full`；
 - `xdk.sys` 使用 `io/base`；
 - errors/runtime/meta 基础面；
-- 21 个现有回归 + 选定场景差分。
+- 22 个现有回归 + 选定场景差分。
 
 明确不在本阶段：完整 `io/system/Sys.x` raw FFI、全部 T0 XDK、完整 M9-C4、
 全量 M9-PAR、默认切换。
@@ -424,9 +424,11 @@ D1–D4 完成后，剩余 D5–D7 估算为 **3–5 dev-day**。当前自举和
 | D2 | M8-P5 + 工程边界 | 完成：JSON 字段、CLI/SEM 诊断、退出码 0/1/2/130/134；modules 边界负例 |
 | D3 | M9-C2 | 完成：String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
 | D4 | M9-C3 | 完成：泛型推断、嵌套实例化、函数类型参数负例 |
-| D5 | XDK 集成 | `text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
-| D6 | 选定 M9-PAR | 10–20 个代表性场景的 stdout/stderr/退出码新旧差分 |
-| D7 | 收口 | 21 回归 + selfhost + M8 回归全绿；更新 README/PLAN；提交 dev |
+| D5 | XDK 集成 | 完成：`text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
+| D6 | 选定 M9-PAR | 完成：14 个代表性场景的 stdout/stderr/退出码差分 |
+| D7 | 收口 | 完成：22 回归 + selfhost + M8 冷缓存全绿；文档与提交完成 |
+
+Mini 1.0 已完成：D1–D7 全部通过，默认引擎仍是 `legacy`，`main` 未切换。
 
 #### D1 单一工作包（已完成，2026-11-16）
 
@@ -457,12 +459,12 @@ D1 锁定口径：
 - `LOCK-002` 作为 D1 的临时内部码保留；D2 保留该临时码，XPD-4xx 具体映射
   等规范定义后补，不在 Mini 1.0 发明新的具体码。
 - 默认 CLI 修复属于 D1；不带 `--bootstrap` 是交付门禁。
-- Mini 1.0 原估算 7–12 dev-day；D1–D4 完成后剩余 **3–5 dev-day**；计时区分热 C 缓存与全新 C 缓存。
+- Mini 1.0 原估算 7–12 dev-day；D1–D7 已完成，剩余 **0 dev-day**；计时区分热 C 缓存与全新 C 缓存。
 
 阶段门：
 
 ```text
-21 个 mini 回归全绿
+22 个 mini 回归全绿
 mini selfhost 固定点不漂移
 m8.sh 全绿（冷缓存）
 默认 legacy build/run 不带 --bootstrap 可用
