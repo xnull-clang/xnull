@@ -2331,6 +2331,8 @@ class Checker {
                 return
             }
             Int si = 1
+            Bool hasDefault = false
+            List<String> covered = []
             while si < st.kids.length() && !self.hasError() {
                 AstNode clause = st.kids.get(si)
                 if clause.kind == "Case" {
@@ -2343,13 +2345,39 @@ class Checker {
                         self.fail("SEM-003", "case type " + ct + " does not match switch " + vt, clause)
                         return
                     }
+                    String item = self.enumCaseItem(clause.kids.get(0), vt)
+                    if item != "" {
+                        covered.push(item)
+                    }
                     self.checkBlock(clause.kids.get(1))
                 } else if clause.kind == "Default" {
+                    hasDefault = true
                     if clause.kids.length() > 0 {
                         self.checkBlock(clause.kids.get(0))
                     }
                 }
                 si = si + 1
+            }
+            if !hasDefault && vt != "Error" {
+                List<String> all = self.enumItems(vt)
+                if all.length() > 0 {
+                    Int ei = 0
+                    while ei < all.length() {
+                        Bool found = false
+                        Int ci = 0
+                        while ci < covered.length() {
+                            if covered.get(ci) == all.get(ei) {
+                                found = true
+                            }
+                            ci = ci + 1
+                        }
+                        if !found {
+                            self.fail("SEM-003", "non-exhaustive enum switch: missing " + all.get(ei), st)
+                            return
+                        }
+                        ei = ei + 1
+                    }
+                }
             }
             return
         }
@@ -2469,6 +2497,36 @@ class Checker {
             i = i + 1
         }
         return false
+    }
+
+    List<String> enumItems(String name) {
+        List<String> res = []
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode it = n.kids.get(j)
+                    if it.kind == "EnumItem" {
+                        res.push(it.text)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String enumCaseItem(AstNode n, String enumName) {
+        if n.kind != "Member" || n.kids.length() == 0 {
+            return ""
+        }
+        if self.typeOf(n) != enumName {
+            return ""
+        }
+        return n.text
     }
 
     AstNode classNode(String name) {
@@ -3595,6 +3653,36 @@ class CGen {
             i = i + 1
         }
         return 0
+    }
+
+    List<String> enumItems(String name) {
+        List<String> res = []
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode it = n.kids.get(j)
+                    if it.kind == "EnumItem" {
+                        res.push(it.text)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String enumCaseItem(AstNode n, String enumName) {
+        if n.kind != "Member" || n.kids.length() == 0 {
+            return ""
+        }
+        if self.typeOf(n) != enumName {
+            return ""
+        }
+        return n.text
     }
 
     Bool isClass(String name) {

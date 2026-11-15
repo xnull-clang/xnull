@@ -1,3 +1,5 @@
+enum SwColor { Red, Blue }
+
 static Int main() {
     Double x = 1.5
     Int bits = (0x0F << 4) | 3
@@ -47,6 +49,13 @@ static Int main() {
     }
     for k in 1...2 {
         print("closed " + str(k))
+    }
+    SwColor sc = SwColor.Blue
+    switch sc {
+        case SwColor.Red:
+            print("enum-red")
+        case SwColor.Blue:
+            print("enum-blue")
     }
     Int gi = 0
 again:
