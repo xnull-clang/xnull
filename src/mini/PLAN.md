@@ -394,3 +394,43 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - 工作包内不新增待办，不因局部完成停下来改计划；
 - 每个工作包完成后才更新状态、估算和下一包入口；
 - 任何没有场景的需求保持“等待”，不进入当前工作包。
+
+### 9.7 Mini 1.0 七日执行计划（dev）
+
+目标：在 `dev` 上完成一个可交付的 Mini 1.0；**不切换默认引擎**，`main` 仍保持
+`legacy` 为默认。计划单位为 dev-day，按一个熟悉本仓库的全职开发者估算。
+
+本阶段范围：
+
+- current self-host fixed point；
+- M8 工程接口收口；
+- `xdk.text` 使用 `text/full`；
+- `xdk.sys` 使用 `io/base`；
+- errors/runtime/meta 基础面；
+- 21 个现有回归 + 选定场景差分。
+
+明确不在本阶段：完整 `io/system/Sys.x` raw FFI、全部 T0 XDK、完整 M9-C4、
+全量 M9-PAR、默认切换。
+
+| Day | 工作 | 产出/验收 |
+| --- | --- | --- |
+| D1 | 基线冻结 + M8-P4 | 记录当前 21 回归；外部依赖 fixture；lock/install/repro 可重复 |
+| D2 | M8-P5 + 工程边界 | JSON 字段、诊断码、退出码 0/1/2/130/134；modules 边界负例 |
+| D3 | M9-C2 | String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
+| D4 | M9-C3 | 泛型推断、嵌套实例化、函数类型参数；不支持项负例 |
+| D5 | XDK 集成 | `text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
+| D6 | 选定 M9-PAR | 10–20 个代表性场景的 stdout/stderr/退出码新旧差分 |
+| D7 | 收口 | 21 回归 + selfhost + M8 回归全绿；更新 README/PLAN；提交 dev |
+
+阶段门：
+
+```text
+21 个 mini 回归全绿
+mini selfhost 固定点不漂移
+m8.sh 全绿
+选定 M9-PAR 场景全绿
+main 默认仍是 legacy
+```
+
+如果 D1–D7 中发现必须扩大范围，不能静默加塞；必须登记到 §9.5 的下一个工作包，
+保持 Mini 1.0 的范围不变。
