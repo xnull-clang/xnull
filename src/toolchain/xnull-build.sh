@@ -179,6 +179,7 @@ for f in d["files"]:
         sys.exit(0)
 sys.exit(1)
 PY
+      python3 "$ROOT/src/toolchain/xfb-projection.py" "$ROOT/src/ffi" > "$outdir/project.txt" 2>/dev/null || : > "$outdir/project.txt"
       echo "$nf"
       return 0
     fi
@@ -215,6 +216,9 @@ PY
     else
       : > "$outdir/project.txt"
     fi
+    if [ -d "$ROOT/src/ffi" ] && [ "$(cd "$pdir" && pwd)" != "$(cd "$ROOT/src/ffi" && pwd)" ]; then
+      python3 "$ROOT/src/toolchain/xfb-projection.py" "$ROOT/src/ffi" >> "$outdir/project.txt" 2>/dev/null || true
+    fi
     if has_split "$entry" || { grep -qE '^[[:space:]]*import[[:space:]]' "$entry" 2>/dev/null \
         && ! grep -qE '^[[:space:]]*import[[:space:]]+xdk\.' "$entry" 2>/dev/null; }; then
       python3 "$ROOT/src/toolchain/native-bundle.py" "$ROOT" "$xp" "$entry" > "$outdir/bundle.json" \
@@ -249,6 +253,9 @@ PY
   fi
   python3 "$ROOT/src/toolchain/xfb-projection.py" "$projdir" > "$outdir/project.txt" \
     || fail "FFI 投影失败：$entry"
+  if [ -d "$ROOT/src/ffi" ] && [ "$(cd "$projdir" && pwd)" != "$(cd "$ROOT/src/ffi" && pwd)" ]; then
+    python3 "$ROOT/src/toolchain/xfb-projection.py" "$ROOT/src/ffi" >> "$outdir/project.txt" 2>/dev/null || true
+  fi
   python3 - "$outdir/bundle.json" <<'PY' || fail "bundle 解析失败：$entry"
 import json, sys
 b = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -700,20 +707,30 @@ emit_c_interp() {
   echo "$w/res.c"
 }
 
-# 自举 resman/config/artifact（当前）：统一走 interp 路径，避开 native xnullc 的模式缺陷
+# 自举 resman/config/artifact（当前）：原生 xnullc 编译；deps 走冻结兼容面。
 cmd_bootstrap_tools() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
-  local t entry res
+  local t entry res w
   for t in resman artifact config deps xmeta; do
     case "$t" in
       resman) entry="src/build/resource/Resource.x" ;;
+      artifact) entry="src/build/artifact/Artifact.x" ;;
+      config) entry="src/build/config/Config.x" ;;
+      deps) entry="src/build/deps/Deps.x" ;;
       xmeta) entry="src/build/meta/Meta.x" ;;
-      *) entry="src/build/$t/$t.x" ;;
     esac
     [ -f "$ROOT/$entry" ] || continue
-    res=$(emit_c_interp "$entry" "$dir/$t.c") || exit 1
-    cc_link "$dir/$t.c" "$dir/$t" "$res" || exit 1
+    w=$(workdir) || exit 1
+    # deps 的类方法 walk 与完整 Sys.walk 在原生 CGen 下同名；该工具只需读文件，
+    # 用冻结兼容面（base Sys）编译，避免引入完整 Sys 的 walk。
+    if [ "$t" = "deps" ]; then
+      XNULL_XDK_SOURCE=0 emit_c "$entry" "$w/$t" "$dir/$t.c" > /dev/null || exit 1
+    else
+      XNULL_XDK_SOURCE=1 emit_c "$entry" "$w/$t" "$dir/$t.c" > /dev/null || exit 1
+    fi
+    write_empty_res "$dir/$t.res.c"
+    cc_link "$dir/$t.c" "$dir/$t" "$dir/$t.res.c" || exit 1
     echo "$dir/$t"
   done
 }
@@ -722,7 +739,7 @@ cmd_bootstrap_tools() {
 cmd_bootstrap_reactor() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
-  emit_c src/build/reactor/Reactor.x "$dir/.reactor" "$dir/.reactor/reactor.c" > /dev/null || exit 1
+  XNULL_XDK_SOURCE=1 emit_c src/build/reactor/Reactor.x "$dir/.reactor" "$dir/.reactor/reactor.c" > /dev/null || exit 1
   write_empty_res "$dir/.reactor/res.c"
   cc_link "$dir/.reactor/reactor.c" "$dir/reactor" "$dir/.reactor/res.c" || exit 1
   echo "$dir/reactor"
@@ -1111,10 +1128,10 @@ PYLOCK
 cmd_bootstrap_model() {
   local dir=/tmp
   if [ "${1:-}" = "-o" ]; then dir=${2:-}; [ -n "$dir" ] || die "-o 缺少目录"; mkdir -p "$dir"; fi
-  emit_c src/build/project/Project.x "$dir/.xpd" "$dir/.xpd/xpd.c" > /dev/null || exit 1
+  XNULL_XDK_SOURCE=0 emit_c src/build/project/Project.x "$dir/.xpd" "$dir/.xpd/xpd.c" > /dev/null || exit 1
   write_empty_res "$dir/.xpd/res.c"
   cc_link "$dir/.xpd/xpd.c" "$dir/xpd" "$dir/.xpd/res.c" || exit 1
-  emit_c src/build/manifest/Manifest.x "$dir/.xm" "$dir/.xm/manifest.c" > /dev/null || exit 1
+  XNULL_XDK_SOURCE=0 emit_c src/build/manifest/Manifest.x "$dir/.xm" "$dir/.xm/manifest.c" > /dev/null || exit 1
   write_empty_res "$dir/.xm/res.c"
   cc_link "$dir/.xm/manifest.c" "$dir/xmanifest" "$dir/.xm/res.c" || exit 1
   echo "$dir/xpd"

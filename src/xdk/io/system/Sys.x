@@ -606,6 +606,19 @@ String readFileText(String path) {
     return readFileTextImpl(path)
 }
 
+// 兼容聚合构建工具使用的 sys 面。
+Bool pathExists(String path) {
+    return fileExists(path)
+}
+
+Int32 writeFileText(String path, String text) {
+    return writeFileTextRaw(path, text)
+}
+
+Int32 procStatus(String command) {
+    return runProcess(command)
+}
+
 // ---------- 系统信息与环境（ext_raw 桥）----------
 
 String env(String name) {
@@ -667,7 +680,7 @@ Bool isDir(String path) {
 
 // 递归收集 root 下的全部文件路径（深度优先；"." 与 ".." 跳过）。
 Result<List<String>, Error> walk(String root) {
-    List<String> out = []
+    List<String> res = []
     Result<Dir, Error> d = openDir(root)
     if d.isErr() {
         Error derr = d.error()
@@ -687,11 +700,11 @@ Result<List<String>, Error> walk(String root) {
                 }
                 Int i = 0
                 while i < sub.value().length() {
-                    out.push(sub.value().get(i))
+                    res.push(sub.value().get(i))
                     i = i + 1
                 }
             } else {
-                out.push(child)
+                res.push(child)
             }
         }
         name = dir.next()
@@ -701,7 +714,7 @@ Result<List<String>, Error> walk(String root) {
         Error cerr = closed.error()
         return Err(cerr)
     }
-    return Ok(out)
+    return Ok(res)
 }
 
 // 多级建目录（逐级 mkdir，已存在视为成功）。
