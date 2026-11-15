@@ -1,3 +1,19 @@
+enum DStatus {
+    Ready(0, "ready"),
+    Failed(1, "failed");
+
+    final Int code;
+    final String label;
+
+    DStatus(Int code, String label) {
+        self.code = code
+        self.label = label
+    }
+
+    Int getCode() { return self.code }
+    String getLabel() { return self.label }
+}
+
 class InheritBase {
     Int x = 2
     Int getX() { return self.x }
@@ -62,6 +78,17 @@ static Int main() {
     }
     InheritChild ic = new InheritChild()
     print("inherit " + str(ic.sum()))
+    DStatus ds = DStatus.Ready
+    print("dataenum " + str(ds.getCode()) + " " + ds.getLabel())
+    if ds == DStatus.Ready {
+        print("dataenum-ready")
+    }
+    switch ds {
+        case DStatus.Ready:
+            print("dataenum-switch")
+        case DStatus.Failed:
+            print("dataenum-failed")
+    }
     SwColor sc = SwColor.Blue
     switch sc {
         case SwColor.Red:

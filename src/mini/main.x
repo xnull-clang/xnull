@@ -388,6 +388,7 @@ class Parser {
         Token nt = self.advance()
         AstNode e = self.node("Enum", nt.text, t)
         self.expect("{")
+        Bool data = false
         while !self.hasError() && !self.at("}") && !self.eof() {
             if !self.kind("ident") {
                 self.fail("expected enum item")
@@ -395,12 +396,97 @@ class Parser {
             }
             Token it = self.advance()
             AstNode item = self.node("EnumItem", it.text, it)
-            if self.eat("=") {
+            if self.eat("(") {
+                if !data {
+                    e.add(new AstNode("Data", "", it.line, it.col))
+                }
+                data = true
+                if !self.at(")") {
+                    while !self.hasError() {
+                        item.add(self.parseExpr())
+                        if !self.eat(",") {
+                            break
+                        }
+                    }
+                }
+                self.expect(")")
+            } else if self.eat("=") {
                 item.add(self.parseExpr())
             }
             e.add(item)
-            if !self.eat(",") {
+            if self.eat(",") {
+                continue
+            }
+            if self.eat(";") {
                 break
+            }
+            break
+        }
+        if !self.at("}") {
+            data = true
+            while !self.hasError() && !self.at("}") && !self.eof() {
+                while self.at("static") || self.at("final") || self.at("public") ||
+                      self.at("private") || self.at("protected") {
+                    self.advance()
+                }
+                String ty = self.parseType()
+                if self.at("(") && ty == e.text {
+                    Token ct = self.peek()
+                    AstNode ctor = self.node("Ctor", e.text, ct)
+                    self.expect("(")
+                    if !self.at(")") {
+                        while !self.hasError() {
+                            String pt = self.parseType()
+                            if !self.kind("ident") {
+                                self.fail("expected constructor parameter name")
+                                break
+                            }
+                            Token pn = self.advance()
+                            ctor.add(new AstNode("Param", pt + " " + pn.text, ct.line, ct.col))
+                            if !self.eat(",") {
+                                break
+                            }
+                        }
+                    }
+                    self.expect(")")
+                    ctor.add(self.parseBlock())
+                    e.add(ctor)
+                    continue
+                }
+                if !self.kind("ident") {
+                    self.fail("expected enum member")
+                    break
+                }
+                Token mt = self.advance()
+                if self.at("(") {
+                    AstNode m = self.node("Method", mt.text, mt)
+                    m.add(new AstNode("Ret", ty, mt.line, mt.col))
+                    self.advance()
+                    if !self.at(")") {
+                        while !self.hasError() {
+                            String pt = self.parseType()
+                            if !self.kind("ident") {
+                                self.fail("expected parameter name")
+                                break
+                            }
+                            Token pn = self.advance()
+                            m.add(new AstNode("Param", pt + " " + pn.text, mt.line, mt.col))
+                            if !self.eat(",") {
+                                break
+                            }
+                        }
+                    }
+                    self.expect(")")
+                    m.add(self.parseBlock())
+                    e.add(m)
+                } else {
+                    AstNode f = self.node("Field", ty + " " + mt.text, mt)
+                    if self.eat("=") {
+                        f.add(self.parseExpr())
+                    }
+                    self.eat(";")
+                    e.add(f)
+                }
             }
         }
         self.expect("}")
@@ -1438,11 +1524,30 @@ class Mono {
         return res
     }
 
+    Bool isDataEnum(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    if n.kids.get(j).kind == "Data" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     AstNode findClass(String name) {
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
-            if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
+            if ((n.kind == "Class" || n.kind == "Struct") && n.text == name) ||
+               (n.kind == "Enum" && n.text == name && self.isDataEnum(name)) {
                 return n
             }
             i = i + 1
@@ -2209,6 +2314,30 @@ class Checker {
             }
             if n.kind == "Enum" {
                 self.enumNames.push(n.text)
+                if self.isDataEnum(n.text) {
+                    if self.findClass(n.text) < 0 {
+                        self.classNames.push(n.text)
+                    }
+                    Int dj = 0
+                    while dj < n.kids.length() {
+                        AstNode dk = n.kids.get(dj)
+                        if dk.kind == "Field" {
+                            List<String> dparts = dk.text.split(" ")
+                            if dparts.length() >= 2 {
+                                self.fieldOwners.push(n.text)
+                                self.fieldNames.push(dparts.get(1))
+                                self.fieldTypes.push(dparts.get(0))
+                            }
+                        }
+                        if dk.kind == "Method" {
+                            self.methodOwners.push(n.text)
+                            self.methodNames.push(dk.text)
+                            self.methodRets.push(self.retOf(dk))
+                            self.methodParams.push(self.paramTypes(dk))
+                        }
+                        dj = dj + 1
+                    }
+                }
             }
             if n.kind == "Protocol" {
                 self.protocolNames.push(n.text)
@@ -2276,7 +2405,8 @@ class Checker {
             if n.kind == "Func" {
                 self.checkFunc(n)
             }
-            if (n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n) {
+            if ((n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n)) ||
+               (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.checkClass(n)
             }
             i = i + 1
@@ -2584,6 +2714,33 @@ class Checker {
             if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
                 return true
             }
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    if n.kids.get(j).kind == "Data" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isDataEnum(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    if n.kids.get(j).kind == "Data" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
             i = i + 1
         }
         return false
@@ -2623,7 +2780,8 @@ class Checker {
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
-            if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
+            if ((n.kind == "Class" || n.kind == "Struct") && n.text == name) ||
+               (n.kind == "Enum" && n.text == name && self.isDataEnum(name)) {
                 return n
             }
             i = i + 1
@@ -2864,6 +3022,10 @@ class Checker {
                 self.fail("SEM-005", "unknown class: " + n.text, n)
                 return "Error"
             }
+            if self.isDataEnum(n.text) {
+                self.fail("SEM-005", "new is not allowed for data enum: " + n.text, n)
+                return "Error"
+            }
             return n.text
         }
         if n.kind == "Name" {
@@ -2940,16 +3102,16 @@ class Checker {
             if bt == "Error" {
                 return "Error"
             }
+            Int fi = self.findField(bt, n.text)
+            if fi >= 0 {
+                return self.fieldTypes.get(fi)
+            }
             Int ei = 0
             while ei < self.enumNames.length() {
                 if self.enumNames.get(ei) == bt {
                     return bt
                 }
                 ei = ei + 1
-            }
-            Int fi = self.findField(bt, n.text)
-            if fi >= 0 {
-                return self.fieldTypes.get(fi)
             }
             return "Any"
         }
@@ -3499,6 +3661,9 @@ class CGen {
         if self.isClass(ty) {
             return "xn_Cls_" + ty + " *"
         }
+        if self.isDataEnum(ty) {
+            return "xn_Cls_" + ty + " *"
+        }
         if self.isEnumName(ty) {
             return "int64_t"
         }
@@ -3782,6 +3947,33 @@ class CGen {
             if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
                 return true
             }
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    if n.kids.get(j).kind == "Data" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isDataEnum(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    if n.kids.get(j).kind == "Data" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
             i = i + 1
         }
         return false
@@ -3791,7 +3983,8 @@ class CGen {
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
-            if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
+            if ((n.kind == "Class" || n.kind == "Struct") && n.text == name) ||
+               (n.kind == "Enum" && n.text == name && self.isDataEnum(name)) {
                 return n
             }
             i = i + 1
@@ -4835,6 +5028,9 @@ class CGen {
                 return "0"
             }
             AstNode mb = n.kids.get(0)
+            if mb.kind == "Name" && self.isDataEnum(mb.text) {
+                return "xn_enum_" + mb.text + "_" + n.text
+            }
             if mb.kind == "Name" && self.isEnumName(mb.text) {
                 return "xn_enum_" + mb.text + "_" + n.text
             }
@@ -5542,7 +5738,7 @@ class CGen {
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
-            if n.kind == "Class" || n.kind == "Struct" {
+            if n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
             }
             i = i + 1
@@ -5565,12 +5761,16 @@ class CGen {
                 while j < n.kids.length() {
                     AstNode it = n.kids.get(j)
                     if it.kind == "EnumItem" {
-                        self.emit("static const int64_t xn_enum_" + n.text + "_" + it.text + " = " + str(self.enumValue(n.text, it.text)) + ";")
+                        if self.isDataEnum(n.text) {
+                            self.emit("static xn_Cls_" + n.text + " *xn_enum_" + n.text + "_" + it.text + ";")
+                        } else {
+                            self.emit("static const int64_t xn_enum_" + n.text + "_" + it.text + " = " + str(self.enumValue(n.text, it.text)) + ";")
+                        }
                     }
                     j = j + 1
                 }
             }
-            if (n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n) {
+            if (n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text))) && !hasTypeParams(n) {
                 self.genClass(n)
             }
             i = i + 1
@@ -5612,6 +5812,30 @@ class CGen {
                         }
                     }
                     self.emit("  " + name + " = " + init + ";")
+                }
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && self.isDataEnum(n.text) {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode it = n.kids.get(j)
+                    if it.kind == "EnumItem" {
+                        String args = ""
+                        Int ai = 0
+                        while ai < it.kids.length() {
+                            if ai > 0 {
+                                args = args + ", "
+                            }
+                            args = args + self.expr(it.kids.get(ai))
+                            ai = ai + 1
+                        }
+                        self.emit("  xn_enum_" + n.text + "_" + it.text + " = xn_Cls_" + n.text + "_new(" + args + ");")
+                    }
+                    j = j + 1
                 }
             }
             i = i + 1
