@@ -50,6 +50,7 @@ r=json.load(open(sys.argv[1]))
 assert r["ok"] is False and r["exitCode"] == 1
 assert any(d["code"] == "SEM-001" for d in r["diagnostics"])
 PY
+grep -q 'SEM-001' "$D/bad.err"
 
 # 3. exit-code matrix
 printf 'static Int main() { return 7 }\n' >"$D/exit7.x"
@@ -73,6 +74,60 @@ import json, sys
 r=json.load(open(sys.argv[1]))
 assert r["ok"] is False and r["exitCode"] == 2
 PYCHECK
+
+# 3a. CLI usage errors in --json mode: stdout is JSON, stderr keeps the diagnostic.
+set +e
+"$XNULL" --bootstrap --engine=mini build --json >"$D/usage.json" 2>"$D/usage.err"
+rc=$?
+set -e
+[ "$rc" -eq 2 ] || { echo "expected CLI usage exit 2, got $rc" >&2; cat "$D/usage.err" >&2; exit 1; }
+python3 - "$D/usage.json" <<'PY'
+import json, sys
+r=json.load(open(sys.argv[1]))
+assert r["ok"] is False and r["exitCode"] == 2
+assert any(d["code"] == "CLI-002" for d in r["diagnostics"])
+PY
+grep -q 'CLI-002' "$D/usage.err"
+
+# 3b. Fatal program maps to 134; JSON remains the only stdout payload.
+cat >"$D/fatal.x" <<'X'
+static Int main() {
+    throw "fatal probe"
+}
+X
+set +e
+"$XNULL" --bootstrap --engine=mini run --json "$D/fatal.x" >"$D/fatal.json" 2>"$D/fatal.err"
+rc=$?
+set -e
+[ "$rc" -eq 134 ] || { echo "expected fatal exit 134, got $rc" >&2; cat "$D/fatal.err" >&2; exit 1; }
+python3 - "$D/fatal.json" <<'PY'
+import json, sys
+r=json.load(open(sys.argv[1]))
+assert r["ok"] is False and r["exitCode"] == 134
+PY
+grep -q 'runtime fatal' "$D/fatal.err"
+
+# 3c. SIGINT maps to 130.
+cat >"$D/loop.x" <<'X'
+static Int main() {
+    while true {
+    }
+    return 0
+}
+X
+python3 - "$XNULL" "$D/loop.x" <<'PY'
+import os, signal, subprocess, sys, time
+xnull, script = sys.argv[1:3]
+p = subprocess.Popen([xnull, "--bootstrap", "--engine=mini", "run", script],
+                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                     start_new_session=True, text=True)
+time.sleep(1.0)
+os.killpg(p.pid, signal.SIGINT)
+out, err = p.communicate(timeout=10)
+if p.returncode != 130:
+    sys.stderr.write("expected SIGINT exit 130, got %s\n%s\n" % (p.returncode, err))
+    sys.exit(1)
+PY
 
 # 4. modules/dependencies/topology + lock/install/repro
 "$XNULL" --bootstrap --engine=legacy validate "$HERE/modules" >"$D/validate.txt"

@@ -39,6 +39,7 @@
 #
 # 退出码：0 成功；1 构建/运行/比对失败；2 参数或环境错误。
 set -uo pipefail
+trap 'exit 130' INT
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=${XNULL_ROOT:-$(cd "$HERE/../.." && pwd)}
@@ -381,7 +382,20 @@ json_has_flag() {
 
 json_emit() {
   local ok=$1 file=$2 output=$3 code=$4 diag=$5 log=$6
+  if [ "$ok" != "0" ] && [ -s "$diag" ]; then
+    cat "$diag" >&2
+  fi
   python3 "$ROOT/src/toolchain/json_result.py" "$ok" "$file" "$output" "$code" "$diag" "$log"
+}
+
+json_usage() {
+  local file=$1 code=$2 msg=$3
+  local t
+  t=$(mktemp)
+  printf 'xnull: [%s] %s\n' "$code" "$msg" >"$t"
+  json_emit 1 "$file" "" 2 "$t" "$t"
+  rm -f "$t"
+  return 2
 }
 
 cmd_build_json() {
@@ -390,14 +404,18 @@ cmd_build_json() {
     case "$1" in
       --json) shift ;;
       -o|--output) out=${2:-}; shift 2 ;;
-      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      -*) json_usage "xnull" "CLI-002" "未知参数：$1"; return 2 ;;
       *) entry=$1; shift ;;
     esac
   done
-  [ -n "$entry" ] || { echo "xnull: build 缺少入口" >&2; return 2; }
-  if [ -d "$entry" ] && [ -f "$entry/xnull.project" ]; then
-    if [ -n "$out" ]; then cmd_build_project_json "$entry" -o "$out"; else cmd_build_project_json "$entry"; fi
-    return $?
+  [ -n "$entry" ] || { json_usage "xnull" "CLI-002" "build 缺少入口"; return 2; }
+  if [ -d "$entry" ]; then
+    if [ -f "$entry/xnull.project" ]; then
+      if [ -n "$out" ]; then cmd_build_project_json "$entry" -o "$out"; else cmd_build_project_json "$entry"; fi
+      return $?
+    fi
+    json_usage "$entry" "CLI-003" "找不到 xnull.project"
+    return 2
   fi
   local so se
   so=$(mktemp); se=$(mktemp)
@@ -425,10 +443,14 @@ cmd_run_json() {
       *) entry=$1; shift ;;
     esac
   done
-  [ -n "$entry" ] || { echo "xnull: run 缺少入口" >&2; return 2; }
-  if [ -d "$entry" ] && [ -f "$entry/xnull.project" ]; then
-    if [ ${#extra[@]} -gt 0 ]; then cmd_run_project_json "$entry" -- "${extra[@]}"; else cmd_run_project_json "$entry"; fi
-    return $?
+  [ -n "$entry" ] || { json_usage "xnull" "CLI-002" "run 缺少入口"; return 2; }
+  if [ -d "$entry" ]; then
+    if [ -f "$entry/xnull.project" ]; then
+      if [ ${#extra[@]} -gt 0 ]; then cmd_run_project_json "$entry" -- "${extra[@]}"; else cmd_run_project_json "$entry"; fi
+      return $?
+    fi
+    json_usage "$entry" "CLI-003" "找不到 xnull.project"
+    return 2
   fi
   local bo be po pe bin rc=0 arc=0
   bo=$(mktemp); be=$(mktemp); po=$(mktemp); pe=$(mktemp)
@@ -449,7 +471,7 @@ cmd_run_json() {
     arc=$rc
   fi
   cat "$be" "$pe" > "$be.log" 2>/dev/null || true
-  json_emit "$arc" "$entry" "$(cat "$po")" "$arc" "$be" "$be.log"
+  json_emit "$arc" "$entry" "$(cat "$po")" "$arc" "$be.log" "$be.log"
   rm -f "$bo" "$be" "$po" "$pe" "$be.log"
   return "$arc"
 }
@@ -464,7 +486,7 @@ cmd_build_project_json() {
       *) proj=$1; shift ;;
     esac
   done
-  [ -n "$proj" ] || { echo "xnull: build-project 缺少工程目录" >&2; return 2; }
+  [ -n "$proj" ] || { json_usage "xnull" "CLI-003" "build-project 缺少工程目录"; return 2; }
   [ -n "$out" ] || out=${XNULL_OUT:-/tmp/xnull-proj-$(basename "$proj")}
   local se rc=0
   se=$(mktemp)
@@ -490,7 +512,7 @@ cmd_run_project_json() {
       *) proj=$1; shift ;;
     esac
   done
-  [ -n "$proj" ] || { echo "xnull: run-project 缺少工程目录" >&2; return 2; }
+  [ -n "$proj" ] || { json_usage "xnull" "CLI-003" "run-project 缺少工程目录"; return 2; }
   local so se rc=0
   so=$(mktemp); se=$(mktemp)
   if [ ${#extra[@]} -gt 0 ]; then
@@ -542,11 +564,11 @@ cmd_check_json() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --json) shift ;;
-      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      -*) json_usage "xnull" "CLI-002" "未知参数：$1"; return 2 ;;
       *) entry=$1; shift ;;
     esac
   done
-  [ -n "$entry" ] || { echo "xnull: check 缺少入口" >&2; return 2; }
+  [ -n "$entry" ] || { json_usage "xnull" "CLI-002" "check 缺少入口"; return 2; }
   local so se rc=0
   so=$(mktemp); se=$(mktemp)
   ( cmd_check "$entry" ) >"$so" 2>"$se" || rc=$?
@@ -1454,5 +1476,11 @@ case "$sub" in
   doctor) cmd_doctor "$@" ;;
   fmt) cmd_fmt "$@" ;;
   -h|--help|help) usage ;;
-  *) die "未知子命令：$sub" ;;
+  *)
+    if json_has_flag --json "$@"; then
+      json_usage "xnull" "CLI-001" "未知子命令：$sub"
+    else
+      echo "xnull: [CLI-001] 未知子命令：$sub" >&2
+    fi
+    exit 2 ;;
 esac

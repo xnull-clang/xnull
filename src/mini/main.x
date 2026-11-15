@@ -916,9 +916,18 @@ class Parser {
 
     AstNode parseShift() {
         AstNode left = self.parseAdd()
-        while !self.hasError() && (self.at("<<") || self.at(">>")) {
+        while !self.hasError() {
+            Bool right = self.at(">") && self.look(1).text == ">"
+            if !self.at("<<") && !right {
+                break
+            }
             Token op = self.advance()
-            AstNode n = self.node("Binary", op.text, op)
+            String opt = op.text
+            if right {
+                self.advance()
+                opt = ">>"
+            }
+            AstNode n = self.node("Binary", opt, op)
             n.add(left)
             n.add(self.parseAdd())
             left = n
@@ -1528,6 +1537,9 @@ class Mono {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Double" {
+            return "Double"
+        }
         if n.kind == "String" {
             return "String"
         }
@@ -1555,14 +1567,58 @@ class Mono {
             return ""
         }
         List<String> names = self.typeParams(fn)
-        if names.length() != 1 || call.kids.length() == 0 {
+        if names.length() == 0 {
             return ""
         }
-        String at = self.argType(call.kids.get(0))
-        if at != "Any" {
-            return at
+        List<String> actual = []
+        Int ai = 0
+        while ai < call.kids.length() {
+            actual.push(self.argType(call.kids.get(ai)))
+            ai = ai + 1
         }
-        return ""
+        List<String> inferred = []
+        Int ni = 0
+        while ni < names.length() {
+            inferred.push("")
+            ni = ni + 1
+        }
+        Int pi = 0
+        Int argi = 0
+        while pi < fn.kids.length() {
+            AstNode p = fn.kids.get(pi)
+            if p.kind == "Param" {
+                List<String> pp = p.text.split(" ")
+                if pp.length() >= 1 && argi < actual.length() {
+                    String pty = pp.get(0)
+                    Int ii = 0
+                    while ii < names.length() {
+                        if pty == names.get(ii) && actual.get(argi) != "Any" {
+                            if inferred.get(ii) == "" {
+                                inferred.set(ii, actual.get(argi))
+                            } else if inferred.get(ii) != actual.get(argi) {
+                                return ""
+                            }
+                        }
+                        ii = ii + 1
+                    }
+                }
+                argi = argi + 1
+            }
+            pi = pi + 1
+        }
+        String res = ""
+        Int i = 0
+        while i < inferred.length() {
+            if inferred.get(i) == "" {
+                return ""
+            }
+            if res != "" {
+                res = res + ","
+            }
+            res = res + inferred.get(i)
+            i = i + 1
+        }
+        return res
     }
 
     AstNode walk(AstNode n) {
@@ -4991,7 +5047,7 @@ class CGen {
         self.emit("static void xn_arr_o_set(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
         self.emit("static void xn_arr_o_insert(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (void **)realloc(a->data, sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("static int xn_str_startswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes, p->bytes, p->len) == 0 ? 1 : 0; }")
-        self.emit("static rt_string *xn_str_trim(rt_string *s) { size_t a = 0, b = s->len; while (a < b && (s->bytes[a] == ' ' || s->bytes[a] == '\\t' || s->bytes[a] == '\\n' || s->bytes[a] == '\\r')) { a++; } while (b > a && (s->bytes[b-1] == ' ' || s->bytes[b-1] == '\\t' || s->bytes[b-1] == '\\n' || s->bytes[b-1] == '\\r')) { b--; } rt_string *r = rt_string_alloc(b - a); if (b > a) { memcpy(r->bytes, s->bytes + a, b - a); } r->bytes[b-a] = 0; return r; }")
+        self.emit("static rt_string *xn_str_trim(rt_string *s) { size_t a = 0, b = s->len; while (a < b && (s->bytes[a] == ' ' || s->bytes[a] == '\\t' || s->bytes[a] == '\\n' || s->bytes[a] == '\\r' || s->bytes[a] == '\\v' || s->bytes[a] == '\\f')) { a++; } while (b > a && (s->bytes[b-1] == ' ' || s->bytes[b-1] == '\\t' || s->bytes[b-1] == '\\n' || s->bytes[b-1] == '\\r' || s->bytes[b-1] == '\\v' || s->bytes[b-1] == '\\f')) { b--; } rt_string *r = rt_string_alloc(b - a); if (b > a) { memcpy(r->bytes, s->bytes + a, b - a); } r->bytes[b-a] = 0; return r; }")
         self.emit("static rt_string *xn_str_case(rt_string *s, int upper) { rt_string *r = rt_string_alloc(s->len); for (size_t i = 0; i < s->len; i++) { unsigned char c = (unsigned char)s->bytes[i]; if (upper && c >= 'a' && c <= 'z') { c = (unsigned char)(c - 32); } else if (!upper && c >= 'A' && c <= 'Z') { c = (unsigned char)(c + 32); } r->bytes[i] = (char)c; } r->bytes[s->len] = 0; return r; }")
         self.emit("static rt_string *xn_str_replace(rt_string *s, rt_string *from, rt_string *to) { if (from->len == 0) { return s; } size_t cap = s->len + 8, n = 0; char *buf = (char *)malloc(cap); if (buf == NULL) { abort(); } for (size_t i = 0; i < s->len; ) { if (i + from->len <= s->len && memcmp(s->bytes + i, from->bytes, from->len) == 0) { while (n + to->len + 1 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } memcpy(buf + n, to->bytes, to->len); n += to->len; i += from->len; } else { while (n + 2 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } buf[n++] = s->bytes[i++]; } } buf[n] = 0; rt_string *r = rt_string_from_c(buf); free(buf); return r; }")
         self.emit("static xn_arr_s *xn_str_split(rt_string *s, rt_string *sep) { xn_arr_s *out = xn_arr_s_new(4); if (sep->len == 0) { xn_arr_s_push(out, s); return out; } size_t start = 0; size_t i = 0; while (i + sep->len <= s->len) { if (memcmp(s->bytes + i, sep->bytes, sep->len) == 0) { size_t n = i - start; rt_string *p = rt_string_alloc(n); if (n > 0) { memcpy(p->bytes, s->bytes + start, n); } p->bytes[n] = 0; xn_arr_s_push(out, p); i = i + sep->len; start = i; } else { i++; } } { size_t n = s->len - start; rt_string *p = rt_string_alloc(n); if (n > 0) { memcpy(p->bytes, s->bytes + start, n); } p->bytes[n] = 0; xn_arr_s_push(out, p); } return out; }")
@@ -5402,7 +5458,7 @@ static List<Token> lex(String src) {
         String op = c
         if starts(src, i, "==") || starts(src, i, "!=") ||
             starts(src, i, "<=") || starts(src, i, ">=") ||
-            starts(src, i, "<<") || starts(src, i, ">>") ||
+            starts(src, i, "<<") ||
             starts(src, i, "&&") || starts(src, i, "||") ||
             starts(src, i, "->") || starts(src, i, "=>") ||
             starts(src, i, "::") || starts(src, i, "..") ||

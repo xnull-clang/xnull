@@ -283,10 +283,10 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8.2 | 资源读取/缺失负例 | 完成（resources.sh） |
 | M8-P3 | `build/run --json` | S：IDE/CI 场景传 `--json`；D：M8.1 | M8.1 | JSON 正例 + 失败负例 | 完成（file/project build/run/check；m8.sh） |
 | M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 完成（workspace lock/install/repro；外部仓库解析不在 Mini 1.0） |
-| M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | 部分（SEM-001/JSON、退出 1/2/程序返回码已覆盖；完整码表未做） |
+| M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | D2 完成（CLI-001/002/003、SEM、JSON、0/1/2/130/134；XPD/PROJ 全表后续） |
 | M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 完成（object_list.sh；自源码 List<AstNode>/List<Token>） |
-| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | 部分（length/indexOf/substring/startsWith/split 已通；trim/replace/UTF 等未做） |
-| M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | 部分（泛型函数/类、显式/字面量推断、嵌套类；约束/函数类型未做；generics.sh） |
+| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | D3 完成（trim/replace/case/UTF/空串/parse tests） |
+| M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | D4 完成（多参数推断、嵌套泛型；函数类型参数明确负例，支持仍不在 Mini 1.0） |
 | M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 部分（throw/插值/nullable/Double/位运算/三元/静态方法；高级项未做；c4.sh） |
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
 | M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
@@ -321,8 +321,8 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 ### 9.4 当前激活
 
 - P0 自举可复现性已完成：`cmd_bootstrap_model`/tools/reactor 不再依赖 Go oracle；`m8.sh` 用测试私有目录强制冷启动。
-- M8-P1/P2/P3/P4 已完成 workspace 场景；M8-P5 部分完成，完整诊断码矩阵仍待补。
-- M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
+- M8-P1/P2/P3/P4 已完成 workspace 场景；M8-P5 的 CLI/SEM/JSON/退出码矩阵已完成（D2）。
+- M9-C1 完成，M9-C2/C3 的 D3/D4 切片完成；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
 - M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
 - M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C；`text/mini` 与 `io/mini` shim 均已删除，mini 当前走 `text/full` 与 `io/base`；完整 `io/system` raw FFI 仍未接入。
 
@@ -336,7 +336,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | --- | --- | --- | --- |
 | P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
 | P1 | M8-P4 | workspace lock 条目；`install` 生成确定性 `.xlib`；外部依赖只做 LOCK-002 负例 | workspace lock 正例 + 外部依赖负例；`repro` SHA 一致 |
-| P1 | M8-P5 | 统一 `CLI-*`/`SEM-*`/`PROJ-*` 诊断码；退出码 0/1/2/130/134 矩阵 | JSON 与 stderr 字段一致 |
+| P1 | M8-P5 | 统一 `CLI-*`/`SEM-*` 诊断码；JSON 与 stderr 一致；退出码 0/1/2/130/134 矩阵 | 外部 lock 仍用临时 `LOCK-002`，XPD-4xx 映射待规范 |
 | P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
 | P2 | M9-C3 | 泛型函数/类推断、嵌套实例化、函数类型参数；明确不支持项的负例 | `generics.sh` 扩展并通过 |
 | P3 | M9-C4 | 按场景逐项：switch、data enum、继承/协议分派、lambda、do/for-range、标签控制 | 每特性正例 + 负例，不一次性伪造全部能力 |
@@ -377,7 +377,8 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | D. 集成门 | 选定 M9-PAR、回归、默认 `legacy` 保持不变 | 1–2 |
 | **合计** | **M9-MIN 从当前基线** | **7–12** |
 
-这里的 7–12 是**当前剩余量**，不是从零做 mini 的总量。当前自举和文本/基础 sys
+这里的 7–12 是 D1–D4 开始前的**当前剩余量**，不是从零做 mini 的总量。
+D1–D4 完成后，剩余 D5–D7 估算为 **3–5 dev-day**。当前自举和文本/基础 sys
 已经完成，不能再用从零估算的 28–43 天计算当前排期。
 
 ### 9.6.2 完整 M9 估算
@@ -420,9 +421,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | Day | 工作 | 产出/验收 |
 | --- | --- | --- |
 | D1 | 基线冻结 + M8-P4 | 完成：默认 CLI、fixture、workspace lock、install/repro、m8/回归 |
-| D2 | M8-P5 + 工程边界 | JSON 字段、诊断码、退出码 0/1/2/130/134；modules 边界负例 |
-| D3 | M9-C2 | String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
-| D4 | M9-C3 | 泛型推断、嵌套实例化、函数类型参数；不支持项负例 |
+| D2 | M8-P5 + 工程边界 | 完成：JSON 字段、CLI/SEM 诊断、退出码 0/1/2/130/134；modules 边界负例 |
+| D3 | M9-C2 | 完成：String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
+| D4 | M9-C3 | 完成：泛型推断、嵌套实例化、函数类型参数负例 |
 | D5 | XDK 集成 | `text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
 | D6 | 选定 M9-PAR | 10–20 个代表性场景的 stdout/stderr/退出码新旧差分 |
 | D7 | 收口 | 21 回归 + selfhost + M8 回归全绿；更新 README/PLAN；提交 dev |
@@ -453,10 +454,10 @@ D1 锁定口径：
   `install` 产物和摘要校验。
 - workspace 锁条目采用 `repository = workspace`，`sha256` 取确定性 `.xlib`
   的 SHA-256；该约定未写入现有规范，必须先补一页规范再改代码。
-- `LOCK-002` 作为 D1 的临时内部码保留；D2 统一到规范 `XPD-4xx` 时补映射，
-  不在 D1 发明新的 `XPD-4xx` 具体码。
+- `LOCK-002` 作为 D1 的临时内部码保留；D2 保留该临时码，XPD-4xx 具体映射
+  等规范定义后补，不在 Mini 1.0 发明新的具体码。
 - 默认 CLI 修复属于 D1；不带 `--bootstrap` 是交付门禁。
-- Mini 1.0 剩余估算统一为 **7–12 dev-day**；计时区分热 C 缓存与全新 C 缓存。
+- Mini 1.0 原估算 7–12 dev-day；D1–D4 完成后剩余 **3–5 dev-day**；计时区分热 C 缓存与全新 C 缓存。
 
 阶段门：
 

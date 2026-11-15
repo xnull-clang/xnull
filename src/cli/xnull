@@ -9,6 +9,7 @@
 #
 # 仓库根按脚本自身位置推导（src/cli/xnull → ../../），与调用者的当前目录无关。
 set -uo pipefail
+trap 'exit 130' INT
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
 IMPL="$ROOT/src/toolchain/xnull-build.sh"
@@ -22,14 +23,14 @@ while [ $# -gt 0 ]; do
     --bootstrap) BOOT=1; shift ;;
     --engine=*) ENGINE=${1#--engine=}; shift ;;
     --engine)
-      [ $# -ge 2 ] || { echo "xnull: --engine 缺参数" >&2; exit 2; }
+      [ $# -ge 2 ] || { echo "xnull: [CLI-002] --engine 缺参数" >&2; exit 2; }
       ENGINE=$2; shift 2 ;;
     *) break ;;
   esac
 done
 case "$ENGINE" in
   legacy|mini|auto) ;;
-  *) echo "xnull: 未知引擎：$ENGINE（legacy|mini|auto）" >&2; exit 2 ;;
+  *) echo "xnull: [CLI-002] 未知引擎：${ENGINE}（legacy|mini|auto）" >&2; exit 2 ;;
 esac
 export XNULL_ENGINE="$ENGINE"
 

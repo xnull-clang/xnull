@@ -26,8 +26,9 @@ for line in lines:
             "width": 1,
         })
     else:
+        cm = re.search(r"\[([A-Za-z]+-\d+)\]", line)
         diags.append({"file": target, "line": 0, "column": 0,
-                      "code": "", "message": line, "hint": "",
+                      "code": cm.group(1) if cm else "", "message": line, "hint": "",
                       "snippet": "", "width": 1})
 try:
     log = open(log_path, encoding="utf-8", errors="replace").read()

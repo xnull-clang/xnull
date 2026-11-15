@@ -34,7 +34,7 @@ grep -q '^runtime ok$' "$TMP.rt.err"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_text.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '007\nabab\ntrue\n' > "$TMP.exp"
+printf '007\nabab\ntrue\n42\ntrue\n-1.25\n[x]\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {

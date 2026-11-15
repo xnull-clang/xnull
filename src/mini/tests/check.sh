@@ -20,6 +20,12 @@ if "$ROOT/src/cli/xnull" --bootstrap --engine=mini check /tmp/mini-check-bad.x -
     echo "expected json check failure" >&2
     exit 1
 fi
-grep -q '"ok":false' /tmp/mini-check.out
+python3 - <<'PY'
+import json
+r=json.load(open('/tmp/mini-check.out'))
+assert r["ok"] is False and r["exitCode"] == 1
+assert any(d["code"] == "SEM-001" for d in r["diagnostics"])
+PY
+grep -q 'SEM-001' /tmp/mini-check.err
 
 echo "mini check: PASS"
