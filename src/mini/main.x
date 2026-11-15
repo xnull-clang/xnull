@@ -2,6 +2,7 @@
 package mini
 
 List<String> loadedFiles = []
+String loadRoot = ""
 List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
@@ -1338,18 +1339,6 @@ class Mono {
         return res
     }
 
-    Bool isGenericClass(String name) {
-        Int i = 0
-        while i < self.program.kids.length() {
-            AstNode n = self.program.kids.get(i)
-            if (n.kind == "Class" || n.kind == "Struct") && n.text == name && self.hasTypeParams(n) {
-                return true
-            }
-            i = i + 1
-        }
-        return false
-    }
-
     AstNode findClass(String name) {
         Int i = 0
         while i < self.program.kids.length() {
@@ -1790,13 +1779,6 @@ class Checker {
 
     Bool isResultType(String ty) {
         return ty.length() > 8 && ty.substring(0, 7) == "Result<"
-    }
-
-    String resultInner(String ty) {
-        if self.isResultType(ty) {
-            return ty.substring(7, ty.length() - 8)
-        }
-        return ""
     }
 
     String resultValueType(String ty) {
@@ -4072,7 +4054,11 @@ class CGen {
         }
         if n.kind == "Call" {
             Int ffi = ffiIndex(n.text)
-            if ffi >= 0 {
+            if ffi >= 0 && n.text != "diagnoseRaw" && n.text != "exitRaw" &&
+               n.text != "nowMonoRaw" && n.text != "nowWallRaw" &&
+               n.text != "resourceExistsRaw" && n.text != "resourceCountRaw" &&
+               n.text != "readResourceTextRaw" && n.text != "fileExistsRaw" &&
+               n.text != "readFile" && n.text != "listFiles" && n.text != "platformRaw" {
                 String b = ffiCName(n.text) + "("
                 Int fi = 0
                 while fi < n.kids.length() {
@@ -5517,7 +5503,7 @@ static String xdkFile(String pkg) {
         return "core/runtime/Runtime.x"
     }
     if pkg == "xdk.text" || pkg.startsWith("xdk.text.") {
-        return "text/mini/Text.x"
+        return "text/full/Text.x"
     }
     if pkg == "xdk.sys" || pkg.startsWith("xdk.sys.") {
         return "io/mini/Sys.x"
@@ -5576,6 +5562,17 @@ static Void loadUnit(String path, AstNode program) {
     if ip.hasError() {
         return
     }
+    Int ii = 0
+    while ii < iprogram.kids.length() {
+        AstNode idep = iprogram.kids.get(ii)
+        if idep.kind == "Import" {
+            String drel = xdkFile(idep.text)
+            if drel != "" {
+                loadUnit(loadRoot + "/" + drel, program)
+            }
+        }
+        ii = ii + 1
+    }
     mergeDecls(program, iprogram)
     String dir = dirName(path)
     String names = listFiles(dir)
@@ -5623,6 +5620,7 @@ static AstNode loadProgram(String entry, String root) {
         return program
     }
     loadedFiles.push(entry)
+    loadRoot = root
     if entry.indexOf("/xdk/") >= 0 {
         loadSiblings(entry, program)
     }

@@ -276,7 +276,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | ID | 工作项 | 触发条件 | 前置 | 验收证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 .xfb 无参标量已通；租约/错误码未全） |
-| M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 部分（仅 padLeft/repeatText/contains） |
+| M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 部分（已切到 full/Text.x；mini text shim 已删除；完整 API/差分未做） |
 | M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（仅 fileExists） |
 | M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 未做 |
 | M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |
@@ -323,7 +323,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - M8-P1/P2/P3 已完成 workspace 场景；M8-P4/P5 部分完成，外部仓库/插件依赖和完整诊断码仍待补。
 - M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
 - M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
-- M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C，`io/system/Sys.x` 仍有 CGen 崩溃。
+- M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C，`text/mini` shim 已删除；`io/system/Sys.x` 仍有 raw FFI/接入缺口，`io/mini` shim 暂时保留。
 
 ### 9.5 下一阶段执行清单（dev 分支）
 
