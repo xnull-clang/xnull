@@ -6,8 +6,8 @@
 
 ```text
 分支:          dev
-HEAD:          04c4d1a3
-远端 dev:      04c4d1a3
+HEAD:          以 `git rev-parse dev` 为准
+远端 dev:      与本地 dev 同步
 main:          1a0a5041（稳定基线，暂不接收日常改动）
 reset/minimal: 1a0a5041
 ```
@@ -15,11 +15,26 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+61eb86c9 docs(mini): add restart and next-work recovery plan
 04c4d1a3 fix(mini): handle zero-argument Ok in semantic check
 cac3564d docs(mini): add Mini 1.0 seven-day execution plan
 14137442 refactor(mini): remove XDK shims and use base sys surface
 51a7666a refactor(mini): remove unused shims and switch text to full XDK
 ```
+
+## 工作安排速览
+
+```text
+D1  M8-P4 外部依赖/lock/install/repro
+D2  M8-P5 诊断/退出码矩阵
+D3  M9-C2 String 面
+D4  M9-C3 泛型面
+D5  XDK 集成
+D6  选定 M9-PAR
+D7  Mini 1.0 收口
+```
+
+当前从 D1 开始，不重排计划。
 
 ## 重启恢复命令
 
