@@ -2814,7 +2814,9 @@ class Checker {
                 self.fail("SEM-004", n.text + " expects 0 or 1 argument, got " + str(argc), n)
                 return "Error"
             }
-            self.typeOf(n.kids.get(0))
+            if argc > 0 {
+                self.typeOf(n.kids.get(0))
+            }
             return self.curRet
         }
         Int dot = lastDot(n.text)
