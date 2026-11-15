@@ -15,11 +15,11 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+6ea9f3bd feat(mini): complete D1 M8 workspace lock and default CLI
+86300afb docs(mini): revise D1 for bootstrap, lock and isolation gaps
+e312f8da docs(mini): record P0 cold-bootstrap closure
 6fc430f6 test(mini): force cold bootstrap in m8
 aa490f68 fix(toolchain): make M8 bootstrap reproducible without Go oracle
-f8435f79 docs(mini): align recovery plan with current dev baseline
-61eb86c9 docs(mini): add restart and next-work recovery plan
-04c4d1a3 fix(mini): handle zero-argument Ok in semantic check
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
