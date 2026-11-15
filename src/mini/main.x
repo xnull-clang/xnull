@@ -1741,8 +1741,73 @@ class Mono {
         return n
     }
 
+    AstNode cloneAst(AstNode n) {
+        AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        Int i = 0
+        while i < n.kids.length() {
+            c.add(self.cloneAst(n.kids.get(i)))
+            i = i + 1
+        }
+        return c
+    }
+
+    Bool hasMember(AstNode cls, AstNode member) {
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == member.kind && k.text == member.text {
+                return true
+            }
+            if k.kind == "Field" && member.kind == "Field" {
+                List<String> a = k.text.split(" ")
+                List<String> b = member.text.split(" ")
+                if a.length() >= 2 && b.length() >= 2 && a.get(1) == b.get(1) {
+                    return true
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void flattenClass(AstNode cls) {
+        String baseName = ""
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "Base" {
+                baseName = k.text
+            }
+            i = i + 1
+        }
+        if baseName == "" {
+            return
+        }
+        AstNode base = self.findClass(baseName)
+        if base.kind == "None" {
+            return
+        }
+        self.flattenClass(base)
+        i = 0
+        while i < base.kids.length() {
+            AstNode k = base.kids.get(i)
+            if (k.kind == "Field" || k.kind == "Method") && !self.hasMember(cls, k) {
+                cls.add(self.cloneAst(k))
+            }
+            i = i + 1
+        }
+    }
+
     AstNode run() {
         Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Class" || n.kind == "Struct") && !self.hasTypeParams(n) {
+                self.flattenClass(n)
+            }
+            i = i + 1
+        }
+        i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Func" && !self.hasTypeParams(n) {
@@ -1971,6 +2036,28 @@ class Checker {
         return false
     }
 
+    Bool classIsA(String actual, String target) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode c = self.program.kids.get(i)
+            if (c.kind == "Class" || c.kind == "Struct") && c.text == actual {
+                Int j = 0
+                while j < c.kids.length() {
+                    AstNode k = c.kids.get(j)
+                    if k.kind == "Base" {
+                        if k.text == target {
+                            return true
+                        }
+                        return self.classIsA(k.text, target)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     Bool isAssignable(String target, String actual) {
         if self.sameType(target, actual) {
             return true
@@ -1986,6 +2073,9 @@ class Checker {
         }
         Int ci = self.findClass(actual)
         if ci >= 0 {
+            if self.classIsA(actual, target) {
+                return true
+            }
             Int i = 0
             while i < self.program.kids.length() {
                 AstNode c = self.program.kids.get(i)
@@ -2430,7 +2520,7 @@ class Checker {
             self.addVar(ty, name, st)
             if st.kids.length() > 0 {
                 String it = self.typeOf(st.kids.get(0))
-                if it != "Error" && !self.sameType(it, ty) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) {
+                if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) {
                     self.fail("SEM-003", "cannot initialize " + ty + " with " + it, st)
                 }
             }

@@ -1,3 +1,13 @@
+class InheritBase {
+    Int x = 2
+    Int getX() { return self.x }
+}
+
+class InheritChild : InheritBase {
+    Int y = 3
+    Int sum() { return self.getX() + self.y }
+}
+
 enum SwColor { Red, Blue }
 
 static Int main() {
@@ -50,6 +60,8 @@ static Int main() {
     for k in 1...2 {
         print("closed " + str(k))
     }
+    InheritChild ic = new InheritChild()
+    print("inherit " + str(ic.sum()))
     SwColor sc = SwColor.Blue
     switch sc {
         case SwColor.Red:
