@@ -15,17 +15,17 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+d23daab5 feat(mini): complete D2-D4 diagnostics, String and generics
+ee2fe0c3 docs(mini): record D1 completion commit
 6ea9f3bd feat(mini): complete D1 M8 workspace lock and default CLI
 86300afb docs(mini): revise D1 for bootstrap, lock and isolation gaps
 e312f8da docs(mini): record P0 cold-bootstrap closure
-6fc430f6 test(mini): force cold bootstrap in m8
-aa490f68 fix(toolchain): make M8 bootstrap reproducible without Go oracle
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`，即使 `/tmp` 里残留旧的
 xpd/reactor/tools 也不会掩盖冷启动失败。计时口径：热 C 缓存/冷工具
-m8 约 42s，全新 C 缓存约 124s；完整 21 回归约 95s。
+m8 约 43s，全新 C 缓存约 127s；完整 21 回归约 100s。
 
 ## 工作安排速览
 
