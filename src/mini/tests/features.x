@@ -1,3 +1,15 @@
+protocol Greeter {
+    String greet();
+}
+
+class Hello implements Greeter {
+    String greet() { return "hello" }
+}
+
+class Bye implements Greeter {
+    String greet() { return "bye" }
+}
+
 enum DStatus {
     Ready(0, "ready"),
     Failed(1, "failed");
@@ -78,6 +90,10 @@ static Int main() {
     }
     InheritChild ic = new InheritChild()
     print("inherit " + str(ic.sum()))
+    Greeter pg = new Hello()
+    print("protocol " + pg.greet())
+    pg = new Bye()
+    print("protocol " + pg.greet())
     DStatus ds = DStatus.Ready
     print("dataenum " + str(ds.getCode()) + " " + ds.getLabel())
     if ds == DStatus.Ready {

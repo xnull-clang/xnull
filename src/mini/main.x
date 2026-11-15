@@ -2746,6 +2746,76 @@ class Checker {
         return false
     }
 
+    String protocolRet(String pname, String mname) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" && p.text == pname {
+                Int j = 0
+                while j < p.kids.length() {
+                    AstNode sig = p.kids.get(j)
+                    if sig.kind == "Sig" && sig.text == mname {
+                        Int k = 0
+                        while k < sig.kids.length() {
+                            if sig.kids.get(k).kind == "Ret" {
+                                return sig.kids.get(k).text
+                            }
+                            k = k + 1
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return "Any"
+    }
+
+    String protocolParams(String pname, String mname) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" && p.text == pname {
+                Int j = 0
+                while j < p.kids.length() {
+                    AstNode sig = p.kids.get(j)
+                    if sig.kind == "Sig" && sig.text == mname {
+                        String res = ""
+                        Int k = 0
+                        while k < sig.kids.length() {
+                            AstNode q = sig.kids.get(k)
+                            if q.kind == "Param" {
+                                List<String> ps = q.text.split(" ")
+                                if ps.length() > 0 {
+                                    if res != "" {
+                                        res = res + ","
+                                    }
+                                    res = res + ps.get(0)
+                                }
+                            }
+                            k = k + 1
+                        }
+                        return res
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    Bool isProtocolName(String name) {
+        Int i = 0
+        while i < self.protocolNames.length() {
+            if self.protocolNames.get(i) == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     List<String> enumItems(String name) {
         List<String> res = []
         Int i = 0
@@ -3221,6 +3291,29 @@ class Checker {
                 return self.mapValueType(bt)
             }
         }
+        if self.isProtocolName(bt) {
+            String pr = self.protocolRet(bt, mth)
+            if pr != "Any" {
+                String pps = self.protocolParams(bt, mth)
+                List<String> pwant = []
+                if pps != "" {
+                    pwant = pps.split(",")
+                }
+                if pwant.length() != argc {
+                    self.fail("SEM-004", mth + " expects " + str(pwant.length()) + " arguments, got " + str(argc), n)
+                    return "Error"
+                }
+                Int pai = 0
+                while pai < argc && !self.hasError() {
+                    String pat = self.typeOf(n.kids.get(pai + 1))
+                    if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
+                        self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
+                    }
+                    pai = pai + 1
+                }
+                return pr
+            }
+        }
         Int mi = self.findMethod(bt, mth)
         if mi < 0 {
             self.fail("SEM-001", "undefined method: " + bt + "." + mth, n)
@@ -3450,6 +3543,29 @@ class Checker {
                     return "Unit"
                 }
             }
+            if self.isProtocolName(bt) {
+                String pr = self.protocolRet(bt, mth)
+                if pr != "Any" {
+                    String pps = self.protocolParams(bt, mth)
+                    List<String> pwant = []
+                    if pps != "" {
+                        pwant = pps.split(",")
+                    }
+                    if pwant.length() != argc {
+                        self.fail("SEM-004", mth + " expects " + str(pwant.length()) + " arguments, got " + str(argc), n)
+                        return "Error"
+                    }
+                    Int pai = 0
+                    while pai < argc && !self.hasError() {
+                        String pat = self.typeOf(n.kids.get(pai))
+                        if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
+                            self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
+                        }
+                        pai = pai + 1
+                    }
+                    return pr
+                }
+            }
             Int mi = self.findMethod(bt, mth)
             if mi < 0 {
                 self.fail("SEM-001", "undefined method: " + bt + "." + mth, n)
@@ -3610,6 +3726,57 @@ class CGen {
             i = i + 1
         }
         return false
+    }
+
+    String protoRet(String pname, String mname) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" && p.text == pname {
+                Int j = 0
+                while j < p.kids.length() {
+                    AstNode sig = p.kids.get(j)
+                    if sig.kind == "Sig" && sig.text == mname {
+                        Int k = 0
+                        while k < sig.kids.length() {
+                            if sig.kids.get(k).kind == "Ret" {
+                                return sig.kids.get(k).text
+                            }
+                            k = k + 1
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return "Unit"
+    }
+
+    List<AstNode> protoParams(String pname, String mname) {
+        List<AstNode> res = []
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" && p.text == pname {
+                Int j = 0
+                while j < p.kids.length() {
+                    AstNode sig = p.kids.get(j)
+                    if sig.kind == "Sig" && sig.text == mname {
+                        Int k = 0
+                        while k < sig.kids.length() {
+                            if sig.kids.get(k).kind == "Param" {
+                                res.push(sig.kids.get(k))
+                            }
+                            k = k + 1
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return res
     }
 
     String ctype(String ty) {
@@ -4129,6 +4296,9 @@ class CGen {
                 return self.mapValue(bt)
             }
         }
+        if self.isProtocol(bt) {
+            return self.protoRet(bt, mth)
+        }
         return self.methodRet(bt, mth)
     }
 
@@ -4302,6 +4472,15 @@ class CGen {
             if mth == "getOr" && n.kids.length() > off + 1 {
                 return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
             }
+        }
+        if self.isProtocol(bt) {
+            String pb = "xn_proto_" + bt + "_" + mth + "(" + bv
+            Int pi = off
+            while pi < n.kids.length() {
+                pb = pb + ", " + self.expr(n.kids.get(pi))
+                pi = pi + 1
+            }
+            return pb + ")"
         }
         String b = "xn_Cls_" + bt + "_" + mth + "(" + bv
         Int i = off
@@ -4538,6 +4717,9 @@ class CGen {
                     if mth == "getOr" {
                         return self.mapValue(bt)
                     }
+                }
+                if self.isProtocol(bt) {
+                    return self.protoRet(bt, mth)
                 }
                 String mr = self.methodRet(bt, mth)
                 if mr != "Any" {
@@ -4991,6 +5173,15 @@ class CGen {
                         }
                         return "0"
                     }
+                }
+                if self.isProtocol(bt) {
+                    String pb = "xn_proto_" + bt + "_" + mth + "(" + bv
+                    Int pi = 0
+                    while pi < n.kids.length() {
+                        pb = pb + ", " + self.expr(n.kids.get(pi))
+                        pi = pi + 1
+                    }
+                    return pb + ")"
                 }
                 String b = "xn_Cls_" + bt + "_" + mth + "("
                 if self.isClass(bt) && !self.isStaticMethod(bt, mth) {
@@ -5772,6 +5963,69 @@ class CGen {
             }
             if (n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text))) && !hasTypeParams(n) {
                 self.genClass(n)
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" {
+                Int si = 0
+                while si < p.kids.length() {
+                    AstNode sig = p.kids.get(si)
+                    if sig.kind == "Sig" {
+                        String rt = self.protoRet(p.text, sig.text)
+                        List<AstNode> pps = self.protoParams(p.text, sig.text)
+                        String fsig = "static " + self.ctype(rt) + " xn_proto_" + p.text + "_" + sig.text + "(void *xn_obj"
+                        Int pi = 0
+                        while pi < pps.length() {
+                            List<String> pp = pps.get(pi).text.split(" ")
+                            if pp.length() >= 2 {
+                                fsig = fsig + ", " + self.ctype(pp.get(0)) + " " + pp.get(1)
+                            }
+                            pi = pi + 1
+                        }
+                        fsig = fsig + ") {"
+                        self.emit(fsig)
+                        Int ci = 0
+                        while ci < self.program.kids.length() {
+                            AstNode c = self.program.kids.get(ci)
+                            if (c.kind == "Class" || c.kind == "Struct") && !hasTypeParams(c) {
+                                Bool impl = false
+                                Int ck = 0
+                                while ck < c.kids.length() {
+                                    if c.kids.get(ck).kind == "Implements" && c.kids.get(ck).text == p.text {
+                                        impl = true
+                                    }
+                                    ck = ck + 1
+                                }
+                                if impl {
+                                    String call = "return xn_Cls_" + c.text + "_" + sig.text + "((xn_Cls_" + c.text + " *)xn_obj"
+                                    Int ai = 0
+                                    while ai < pps.length() {
+                                        List<String> pp = pps.get(ai).text.split(" ")
+                                        if pp.length() >= 2 {
+                                            call = call + ", " + pp.get(1)
+                                        }
+                                        ai = ai + 1
+                                    }
+                                    call = call + ");"
+                                    self.emit("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_" + c.text + ") " + call)
+                                }
+                            }
+                            ci = ci + 1
+                        }
+                        self.emit("  rt_fatal(\"protocol dispatch failed: " + p.text + "." + sig.text + "\");")
+                        if rt == "Unit" || rt == "void" || rt == "Void" {
+                            self.emit("  return;")
+                        } else {
+                            self.emit("  return 0;")
+                        }
+                        self.emit("}")
+                        self.emit("")
+                    }
+                    si = si + 1
+                }
             }
             i = i + 1
         }
