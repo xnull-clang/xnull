@@ -1,0 +1,7 @@
+#!/bin/sh
+# M0 mini compiler launcher.
+set -eu
+HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CORE="$HERE/bin/mini"
+[ -x "$CORE" ] || { echo "mini: core not built (run ./build.sh)" >&2; exit 2; }
+exec "$CORE" "$@"

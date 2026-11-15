@@ -1,0 +1,58 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/core/time/Time.x",
+  "role": "package",
+  "package": "xdk.time",
+  "unit_pos": {
+    "line": 2,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 2) (Col 1))) (Name (slice \"xdk\" \"time\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 10) (Col 1))) (Path (slice \"xdk\" \"errors\")) (Alias \"\")) (ImportDecl (P (Pos (Line 11) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "Duration",
+      "file": "Duration.x",
+      "decl_index": 0,
+      "origin": {
+        "line": 4,
+        "col": 7
+      },
+      "source": {
+        "start_line": 4,
+        "end_line": 30,
+        "external": true
+      }
+    },
+    {
+      "name": "Civil",
+      "file": "Civil.x",
+      "decl_index": 15,
+      "origin": {
+        "line": 85,
+        "col": 7
+      },
+      "source": {
+        "start_line": 85,
+        "end_line": 95,
+        "external": false
+      }
+    },
+    {
+      "name": "DateTime",
+      "file": "DateTime.x",
+      "decl_index": 19,
+      "origin": {
+        "line": 132,
+        "col": 7
+      },
+      "source": {
+        "start_line": 132,
+        "end_line": 246,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "096bb3ec88bfc9c713d77c11347a43fc8c55e94078d676d4d41678f699f023a9",
+  "baseline_ast_sha256": "412df8e58ba75515d61fc7947b396396abac75be5f056b02327678448e43482b"
+}

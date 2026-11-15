@@ -1,6 +1,0 @@
-project {
-  groupId = g
-  artifactId = x
-  version = 2.0.0
-  packaging = library
-}

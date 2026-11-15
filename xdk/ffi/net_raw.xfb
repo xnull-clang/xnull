@@ -1,0 +1,59 @@
+// bindings/xdk/net_raw.xfb —— xdk.net 源码层（impl/lib/xdk/net.x）的原语桥
+//
+// 约束同 sys_raw.xfb：只走 String/标量形态（Bytes 借出与 errorCode 出参待 B5 接通）。
+// socket 收发按文本处理（首版）；HTTP 返回 body 文本，状态码经 httpStatusRaw 读取。
+// 错误码：0=成功；1=InvalidArgument，2=Io，3=Cancelled，4=Timeout，5=Unavailable。
+ffi xdkc_net_raw {
+  @ffiEntry(cName = "xdkc_p_socket_connect_simple")
+  @lease(host = .borrow)
+  @blocking(.unaware)
+  Int64 socketConnectRaw(String host, Int32 port);
+
+  @ffiEntry(cName = "xdkc_p_socket_error")
+  @blocking(.aware)
+  Int32 socketErrorRaw();
+
+  @ffiEntry(cName = "xdkc_p_socket_send_text")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  Int64 socketSendRaw(Int64 sock, String data);
+
+  @ffiEntry(cName = "xdkc_p_socket_recv_text")
+  @blocking(.unaware)
+  String socketRecvRaw(Int64 sock, Int32 maxBytes);
+
+  @ffiEntry(cName = "xdkc_p_socket_send_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  Int64 socketSendHexRaw(Int64 sock, String hex);
+
+  @ffiEntry(cName = "xdkc_p_socket_recv_hex")
+  @blocking(.unaware)
+  String socketRecvHexRaw(Int64 sock, Int32 maxBytes);
+
+  @ffiEntry(cName = "xdkc_p_socket_close_simple")
+  @blocking(.aware)
+  Int32 socketCloseRaw(Int64 sock);
+
+  @ffiEntry(cName = "xdkc_p_listener_bind_simple")
+  @lease(host = .borrow)
+  @blocking(.unaware)
+  Int64 listenerBindRaw(String host, Int32 port);
+
+  @ffiEntry(cName = "xdkc_p_listener_accept_simple")
+  @blocking(.unaware)
+  Int64 listenerAcceptRaw(Int64 listener);
+
+  @ffiEntry(cName = "xdkc_p_http_request_text")
+  @lease(method = .borrow, host = .borrow, path = .borrow, body = .borrow)
+  @blocking(.unaware)
+  String httpRequestRaw(String method, String host, Int32 port, String path, String body);
+
+  @ffiEntry(cName = "xdkc_p_http_status")
+  @blocking(.aware)
+  Int32 httpStatusRaw();
+
+  @ffiEntry(cName = "xdkc_p_http_error")
+  @blocking(.aware)
+  Int32 httpErrorRaw();
+}

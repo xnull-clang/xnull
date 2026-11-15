@@ -1,6 +1,0 @@
-project {
-  groupId    = io.xnull
-  artifactId = lib-util
-  version    = 1.0.0
-  packaging  = library
-}

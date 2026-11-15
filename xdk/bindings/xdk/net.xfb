@@ -1,0 +1,64 @@
+// bindings/xdk/net.xfb —— xdk.net 的 C 层绑定（S6 §4.7 / ADR-009）
+//
+// 句柄合同（S3 §18）：Socket/HttpResponse 由 xrt_handle 包装，close 显式且幂等。
+// 错误码：0 ok / 1 InvalidArgument / 2 Io / 3 Cancelled / 4 Timeout / 5 Unavailable。
+// Async 形态（Context 首参）无法在 .xfb 表达，由 codegen 内建发射面调用
+// xdkc_socket_{connect,send,recv}_async / xdkc_http_request_async（运行时已就绪）。
+ffi xdkc_net {
+  handle Socket { close = socketClose }
+  handle HttpResponse { close = httpResponseClose }
+
+  errorMap {
+    1 = InvalidArgument
+    2 = Io
+    3 = Cancelled
+    4 = Timeout
+    5 = Unavailable
+  }
+
+  @ffiEntry(cName = "xdkc_socket_connect")
+  @lease(host = .borrow, port = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Socket socketConnect(String host, Int32 port, Int32 code);
+
+  @ffiEntry(cName = "xdkc_socket_send")
+  @lease(sock = .borrow, buf = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 socketSend(Socket sock, Bytes buf, Int32 code);
+
+  @ffiEntry(cName = "xdkc_socket_recv")
+  @lease(sock = .borrow, buf = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 socketRecv(Socket sock, Bytes buf, Int32 code);
+
+  @ffiEntry(cName = "xdkc_socket_close")
+  @lease(sock = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 socketClose(Socket sock);
+
+  @ffiEntry(cName = "xdkc_http_request")
+  @lease(method = .borrow, host = .borrow, port = .borrow, path = .borrow, body = .borrow, code = .borrow)
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  HttpResponse httpRequest(String method, String host, Int32 port, String path, Bytes body, Int32 code);
+
+  @ffiEntry(cName = "xdkc_http_status")
+  @lease(resp = .borrow)
+  @blocking(.aware)
+  Int32 httpStatus(HttpResponse resp);
+
+  @ffiEntry(cName = "xdkc_http_body_text")
+  @lease(resp = .borrow)
+  @blocking(.aware)
+  String httpBodyText(HttpResponse resp);
+
+  @ffiEntry(cName = "xdkc_http_response_close")
+  @lease(resp = .borrow)
+  @errorCode(codeParam = .result)
+  @blocking(.aware)
+  Int32 httpResponseClose(HttpResponse resp);
+}

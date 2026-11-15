@@ -1,0 +1,23 @@
+// xdk-raw/runtime_raw.xfb —— xdk.runtime 源码层的原语桥（raw-only 投影）
+//
+// 冻结编译器在混合绑定集下会错位部分 FFI 包装参数；这里只暴露
+// diagnose / exit / nowMono / nowWall 四个无结构原语，命名带 Raw 后缀。
+ffi xdkc_runtime_raw {
+  @ffiEntry(cName = "xdkc_diagnose_rc")
+  @lease(msg = .borrow)
+  @blocking(.unaware)
+  Int32 diagnoseRaw(String msg);
+
+  @ffiEntry(cName = "xdkc_exit_rc")
+  @lease(code = .borrow)
+  @blocking(.unaware)
+  Int32 exitRaw(Int32 code);
+
+  @ffiEntry(cName = "xdkc_now_mono_ms")
+  @blocking(.unaware)
+  Int64 nowMonoRaw();
+
+  @ffiEntry(cName = "xdkc_now_wall_ms")
+  @blocking(.unaware)
+  Int64 nowWallRaw();
+}

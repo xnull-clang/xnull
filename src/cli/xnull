@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# XNull 统一 CLI 入口（原型，不依赖 Go CLI）。
+#
+# 本脚本只是 `src/toolchain/xnull-build.sh` 的入口层：
+#   - 统一命令名（build/run/validate/tree/why/install/repro/xmeta/fmt/clean/version/doctor/examples）；
+#   - `build <dir>` / `run <dir>` 自动分发到工程模式（build-project / run-project），
+#     传入文件时保持单文件语义；
+#   - 其余子命令原样转发（保留 build-project/run-project/bootstrap-* 等内部命令）。
+#
+# 仓库根按脚本自身位置推导（src/cli/xnull → ../../），与调用者的当前目录无关。
+set -uo pipefail
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+ROOT=$(cd "$HERE/../.." && pwd)
+IMPL="$ROOT/src/toolchain/xnull-build.sh"
+[ -x "$IMPL" ] || { echo "xnull: 找不到 $IMPL" >&2; exit 2; }
+
+# 全局开关：--bootstrap / --engine=legacy|mini|auto
+BOOT=${XNULL_USE_BOOTSTRAP:-0}
+ENGINE=${XNULL_ENGINE:-legacy}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --bootstrap) BOOT=1; shift ;;
+    --engine=*) ENGINE=${1#--engine=}; shift ;;
+    --engine)
+      [ $# -ge 2 ] || { echo "xnull: --engine 缺参数" >&2; exit 2; }
+      ENGINE=$2; shift 2 ;;
+    *) break ;;
+  esac
+done
+case "$ENGINE" in
+  legacy|mini|auto) ;;
+  *) echo "xnull: 未知引擎：$ENGINE（legacy|mini|auto）" >&2; exit 2 ;;
+esac
+export XNULL_ENGINE="$ENGINE"
+
+if [ "$BOOT" = 1 ]; then
+  export XNULL_BOOTSTRAP=1
+  export XNULLC_BIN="$ROOT/src/bootstrap/bin/xn-s4"
+  export XPARSER_BIN="$ROOT/src/bootstrap/bin/xparser"
+  if [ ! -x "$XNULLC_BIN" ] || [ ! -x "$XPARSER_BIN" ]; then
+    echo "xnull: 引导工具缺失，请先运行 src/bootstrap/build.sh" >&2
+    exit 2
+  fi
+fi
+
+is_project() { [ -n "${1:-}" ] && [ -d "$1" ] && [ -f "$1/xnull.project" ]; }
+
+case "${1:-}" in
+  ""|-h|--help|help)
+    cat >&2 <<'EOF'
+用法：xnull [--bootstrap] [--engine=legacy|mini|auto] <命令> [参数…]
+  --bootstrap                             使用 src/bootstrap/bin 里的原生工具（不依赖 Go）
+  --engine=legacy|mini|auto               选择编译器引擎（默认 legacy）
+  build <entry.x | 工程目录> [-o out]     单文件构建 / 聚合工程构建
+  run   <entry.x | 工程目录> [-- 参数…]   构建并运行
+  validate <工程目录>                     清单校验（模块/依赖边/拓扑）
+  tree <工程目录>                         依赖树
+  why  <工程目录> <groupId:artifactId>    依赖理由
+  install <工程目录> [--repo 目录]         构建并安装到本地仓库（.xlib）
+  repro <工程目录>                        连续两次构建，比较 C/对象/app 的 SHA-256
+  xmeta <工程目录>                        生成模块 .xmeta
+  fmt [--check] <文件…>                   格式化（xnfmt）
+  clean [目录] [--all]                    清理 target（--all 另清仓库缓存）
+  check <entry.x> [--json]                 语法/类型检查（引擎选择同 build）
+  version                                 版本信息
+  doctor [目录]                           环境自检
+  examples                                9 个示例全量验收
+  bootstrap-model|bootstrap-tools|bootstrap-reactor   自举内置工具
+EOF
+    exit 2
+    ;;
+  -v|--version|version)
+    exec "$IMPL" version
+    ;;
+  check)
+    shift
+    exec "$IMPL" check "$@"
+    ;;
+  build)
+    shift
+    if is_project "${1:-}"; then exec "$IMPL" build-project "$@"; fi
+    exec "$IMPL" build "$@"
+    ;;
+  run)
+    shift
+    if is_project "${1:-}"; then exec "$IMPL" run-project "$@"; fi
+    exec "$IMPL" run "$@"
+    ;;
+  *)
+    exec "$IMPL" "$@"
+    ;;
+esac

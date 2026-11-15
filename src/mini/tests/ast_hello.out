@@ -1,0 +1,9 @@
+Program
+  Func: main
+    Ret: Int
+    Block
+      ExprStmt
+        Call: print
+          String: "ok"
+      Return
+        Int: 0

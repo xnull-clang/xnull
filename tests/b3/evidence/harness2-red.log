@@ -1,2 +1,0 @@
-xnullc 尚未实现 --ast-file/--bundle-file/--project（K-07 合同 1.2）；
-当前请加 --inline-args 走兼容形态保持绿，待 E2 合入文件通道后去掉该开关。

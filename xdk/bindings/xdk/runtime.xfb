@@ -1,0 +1,37 @@
+// bindings/xdk/runtime.xfb —— xdk.runtime 的 C 层绑定（S6 §4.4）
+//
+// 公开 API（diagnose/exit/nowMono/nowWall/env/dumpTasks）以 XNull 源码层的
+// xdk.runtime 单元呈现；本文件声明可由 FFI 合同表达的 4 项原语。
+// env(String)->String? 与 dumpTasks() 由 codegen 内建发射（S6-02）：Optional 不得
+// 跨 FFI（BOUND-02），因此不经 .xfb 包装，直接绑定 xdkc_env_get / 生成侧计数。
+// 原语实现：impl/runtime/rt_std_runtime.c（工具链内部库，随产物静态编入）。
+ffi xdkc_runtime {
+  @ffiEntry(cName = "xdkc_diagnose")
+  @lease(msg = .borrow)
+  @blocking(.aware)
+  Void diagnose(String msg);
+
+  @ffiEntry(cName = "xdkc_exit")
+  @lease(code = .borrow)
+  @blocking(.aware)
+  Void exit(Int64 code);
+
+  @ffiEntry(cName = "xdkc_now_mono_ms")
+  @blocking(.aware)
+  Int64 nowMono();
+
+  @ffiEntry(cName = "xdkc_now_wall_ms")
+  @blocking(.aware)
+  Int64 nowWall();
+
+  // S6-02：环境变量不可变快照；缺失返回 NULL（XNull 侧映射 String?）。
+  @ffiEntry(cName = "xdkc_env_lookup")
+  @lease(name = .borrow)
+  @blocking(.aware)
+  String env(String name);
+
+  // S6-02：任务转储（实现侧诊断，输出格式非承诺；无堆分配单行）。
+  @ffiEntry(cName = "xdkc_dump_tasks")
+  @blocking(.aware)
+  Void dumpTasks();
+}

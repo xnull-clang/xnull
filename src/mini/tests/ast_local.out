@@ -1,0 +1,13 @@
+Program
+  Func: main
+    Ret: Int
+    Block
+      Local: Int x
+        Int: 1
+      Local: String s
+        String: "ok"
+      ExprStmt
+        Call: print
+          Name: s
+      Return
+        Name: x

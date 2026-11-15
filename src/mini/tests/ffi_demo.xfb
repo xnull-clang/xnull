@@ -1,0 +1,5 @@
+ffi mini_demo {
+  @ffiEntry(cName = "xdkc_p_resource_count")
+  @blocking(.unaware)
+  Int64 now();
+}

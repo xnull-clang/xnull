@@ -1,0 +1,87 @@
+{
+  "version": "xsplit-v1",
+  "legacy": "impl/lib/xdk/compiler/codegen/Codegen.x",
+  "role": "entry",
+  "package": "xdk.compiler.codegen",
+  "unit_pos": {
+    "line": 1,
+    "col": 1
+  },
+  "package_ast": "(Package (PackageDecl (P (Pos (Line 1) (Col 1))) (Name (slice \"xdk\" \"compiler\" \"codegen\"))))",
+  "imports_ast": "(Imports (slice (ImportDecl (P (Pos (Line 1) (Col 1))) (Path (slice \"xdk\" \"sys\")) (Alias \"\")) (ImportDecl (P (Pos (Line 2) (Col 1))) (Path (slice \"xdk\" \"runtime\")) (Alias \"\"))))",
+  "classes": [
+    {
+      "name": "N",
+      "file": "N.x",
+      "decl_index": 20,
+      "origin": {
+        "line": 31,
+        "col": 7
+      },
+      "source": {
+        "start_line": 31,
+        "end_line": 38,
+        "external": false
+      }
+    },
+    {
+      "name": "AP",
+      "file": "AP.x",
+      "decl_index": 21,
+      "origin": {
+        "line": 40,
+        "col": 7
+      },
+      "source": {
+        "start_line": 40,
+        "end_line": 113,
+        "external": false
+      }
+    },
+    {
+      "name": "DF",
+      "file": "DF.x",
+      "decl_index": 248,
+      "origin": {
+        "line": 1305,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1305,
+        "end_line": 1311,
+        "external": false
+      }
+    },
+    {
+      "name": "SC",
+      "file": "SC.x",
+      "decl_index": 249,
+      "origin": {
+        "line": 1313,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1313,
+        "end_line": 1388,
+        "external": false
+      }
+    },
+    {
+      "name": "EM",
+      "file": "EM.x",
+      "decl_index": 252,
+      "origin": {
+        "line": 1397,
+        "col": 7
+      },
+      "source": {
+        "start_line": 1397,
+        "end_line": 1415,
+        "external": false
+      }
+    }
+  ],
+  "source_sha256": "9a96eaa060f11fd770a08142fb8ca2956caa1e9a841252388c1924b5a6aab5ce",
+  "baseline_ast_sha256": "a059b690c0736e9e0f9d25125bb06e505eb608fa2ba1729565fe059fead9623c",
+  "baseline_blocked": "xparser timeout on full xnullc source"
+}

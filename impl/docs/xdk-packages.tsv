@@ -1,9 +1,0 @@
-# package	stability	deps	runtime_services	ffi_boundary
-errors	preview	runtime	diagnose	xdkc_runtime
-tasks	preview	errors,runtime	scheduler,safepoint,gc-root	-
-sync	preview	errors,runtime	scheduler,atomic-count	-
-runtime	preview	-	diagnose,process-control	xdkc_runtime
-collections	preview	-	memory	-
-text	preview	errors	memory	xdkc_text
-sys	preview	errors	handle,ffi-contract	xdkc_sys
-net	preview	errors,tasks,sync	handle,scheduler	-

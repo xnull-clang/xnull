@@ -1,0 +1,30 @@
+// Mini compiler host I/O bridge.
+ffi mini_io {
+  @ffiEntry(cName = "mini_read_file")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readFile(String path);
+
+  @ffiEntry(cName = "mini_platform")
+  @blocking(.unaware)
+  String platformRaw();
+
+  @ffiEntry(cName = "mini_file_exists")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 fileExistsRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_resource_exists")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 resourceExistsRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_read_resource_text")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String readResourceTextRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_resource_count")
+  @blocking(.unaware)
+  Int64 resourceCountRaw();
+}

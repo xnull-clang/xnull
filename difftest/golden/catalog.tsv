@@ -1,7 +1,0 @@
-# anchor	case	note
-LEX-01	LEX-01	字面量矩阵（进制/下划线/浮点/Char/字符串转义）
-STMT-01	STMT-01	ASI 换行终止
-TYPE-01	TYPE-01	可空/?? 赋值性
-TYPE-02	TYPE-02	可空字段与 ?? 默认
-EXPR-01	EXPR-01	优先级/括号/一元/算术/逻辑
-CTRL-01	CTRL-01	标签 break/continue + switch

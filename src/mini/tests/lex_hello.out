@@ -1,0 +1,14 @@
+kw	static	1:1
+ident	Int	1:8
+ident	main	1:12
+punct	(	1:16
+punct	)	1:17
+punct	{	1:19
+ident	print	2:5
+punct	(	2:10
+string	"ok"	2:11
+punct	)	2:15
+kw	return	3:5
+int	0	3:12
+punct	}	4:1
+eof		5:1

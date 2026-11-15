@@ -1,0 +1,7 @@
+// Tier: T0；依赖：xdk.errors、xdk.runtime；稳定性：preview。
+// xdk.tasks —— S6-08 包骨架
+//
+// 说明：任务、任务组、上下文契约（实现由 S5 运行时与解释器/编译器桥接承担）。
+// 依赖矩阵：本骨架不导入其他 xdk 单元（依赖方向由 S6 §2 冻结后再追加）。
+// 稳定性：@preview（API 冻结前不承诺）。
+package xdk.tasks

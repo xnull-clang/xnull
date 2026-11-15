@@ -1,2 +1,0 @@
-static Int main() { /* x
-}

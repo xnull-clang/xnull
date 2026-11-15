@@ -1,21 +1,22 @@
-# 规范与工程文档一律 Markdown（单一事实源）；Office 二进制不入库
+# 系统元数据
+.DS_Store
+Thumbs.db
+
+# Office 二进制；规范与工程文档以 Markdown 为单一事实源
 *.docx
 *.doc
 *.pptx
 *.xlsx
 *.pdf
 
-# 系统杂物
-.DS_Store
-Thumbs.db
+# 本地缓存
+/.cache/
+__pycache__/
 
-# 公开仓库为独立嵌套仓库，不在内部库跟踪
-/xnull/
+# 构建产物
+/src/bootstrap/bin/
+/src/mini/bin/
 
-# 图像生成临时目录
-generated-images/
-
-# 发布产物
-dist/
-# bootstrap 产物（不入库）
-bootstrap/bin/
+# 本地保留、不提交
+/docs/zh/
+/LOCAL_RULES.md
