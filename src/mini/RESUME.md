@@ -15,11 +15,11 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+e65f8670 feat(mini): add basic data enum support
+4d0ec330 docs(mini): reorder M9-FULL execution plan
 1cb85ed2 feat(mini): add static class inheritance
 b675f154 feat(mini): enforce enum switch exhaustiveness
 1d0d39c4 docs(mini): record label/goto slice
-e41708d5 feat(mini): add labels and goto
-ee320e5d feat(mini): add do-while and range loops
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
