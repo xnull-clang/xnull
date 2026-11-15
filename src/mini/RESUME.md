@@ -15,17 +15,17 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+823f35eb feat(mini): close M8-P5 diagnostics and switch edges
+5b1be135 docs(mini): record M9-C4 switch slice
 88ac3b51 feat(mini): add basic switch statement
 5085c264 docs(mini): distinguish Mini 1.0 from full M9
 3971ff89 feat(mini): complete D5-D7 XDK integration and parity
-d23daab5 feat(mini): complete D2-D4 diagnostics, String and generics
-ee2fe0c3 docs(mini): record D1 completion commit
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`，即使 `/tmp` 里残留旧的
 xpd/reactor/tools 也不会掩盖冷启动失败。计时口径：热 C 缓存/冷工具
-m8 约 43s，全新 C 缓存约 127s；21 回归约 100s，加入 parity 后 22 项约 152s。
+m8 约 43s，全新 C 缓存约 127s；21 回归约 100s，加入 parity 后 22 项约 159s。
 
 ## 工作安排速览
 
