@@ -335,7 +335,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 优先级 | 工作项 | 具体切片 | 完成判定 |
 | --- | --- | --- | --- |
 | P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
-| P1 | M8-P4 | 外部依赖/本地仓库 lock；`install` 归档可复现；`repro` 两次 SHA 一致 | 外部依赖 fixture + 失败负例 |
+| P1 | M8-P4 | workspace lock 条目；`install` 生成确定性 `.xlib`；外部依赖只做 LOCK-002 负例 | workspace lock 正例 + 外部依赖负例；`repro` SHA 一致 |
 | P1 | M8-P5 | 统一 `CLI-*`/`SEM-*`/`PROJ-*` 诊断码；退出码 0/1/2/130/134 矩阵 | JSON 与 stderr 字段一致 |
 | P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
 | P2 | M9-C3 | 泛型函数/类推断、嵌套实例化、函数类型参数；明确不支持项的负例 | `generics.sh` 扩展并通过 |
@@ -419,7 +419,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | Day | 工作 | 产出/验收 |
 | --- | --- | --- |
-| D1 | 基线冻结 + M8-P4 | 记录当前 21 回归；外部依赖 fixture；lock/install/repro 可重复 |
+| D1 | 基线冻结 + M8-P4 | D1.0 默认 CLI bootstrap/工具目录隔离；D1.1 fixture；D1.2 lock 规范/实现；D1.3 install/repro；D1.4 m8/回归 |
 | D2 | M8-P5 + 工程边界 | JSON 字段、诊断码、退出码 0/1/2/130/134；modules 边界负例 |
 | D3 | M9-C2 | String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
 | D4 | M9-C3 | 泛型推断、嵌套实例化、函数类型参数；不支持项负例 |
@@ -427,12 +427,38 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | D6 | 选定 M9-PAR | 10–20 个代表性场景的 stdout/stderr/退出码新旧差分 |
 | D7 | 收口 | 21 回归 + selfhost + M8 回归全绿；更新 README/PLAN；提交 dev |
 
+#### D1 细化（2026-11-16 修订）
+
+当前基线 `e312f8da` 已关闭 P0 自举可复现性；默认 CLI、工具目录隔离和
+workspace lock 仍是 D1 的真实缺口。D1 按以下切片执行，不扩大 Mini 1.0 范围：
+
+| 切片 | 内容 | 验收 |
+| --- | --- | --- |
+| D1.0 | 默认 CLI 在缺少 `impl/` 时自动走 bootstrap；统一 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR` | 不带 `--bootstrap` 的 legacy build/run 可用；21 回归不退化 |
+| D1.1 | workspace 依赖 fixture、外部依赖负例、缺版本/缺坐标负例 | 正例和失败路径都能复现 |
+| D1.2 | 先补 workspace lock 规范页，再实现 `entry`/排序/`repository=workspace`/`.xlib` SHA-256/`--check`/`--update` | 锁文件字节稳定；外部依赖 `LOCK-002` 且不写锁 |
+| D1.3 | `install` 产出确定性 `.xlib`；两次 SHA 一致；lock 摘要与安装产物一致 | `install` + `repro` 正例 |
+| D1.4 | 扩展 m8；记录热/冷缓存；跑 21 回归 + selfhost；更新 PLAN/RESUME | 全绿、文档与估算对齐 |
+
+D1 锁定口径：
+
+- 外部仓库依赖**不做成功解析**，只验证 `LOCK-002` 负例；本地仓库只用于
+  `install` 产物和摘要校验。
+- workspace 锁条目采用 `repository = workspace`，`sha256` 取确定性 `.xlib`
+  的 SHA-256；该约定未写入现有规范，必须先补一页规范再改代码。
+- `LOCK-002` 作为 D1 的临时内部码保留；D2 统一到规范 `XPD-4xx` 时补映射，
+  不在 D1 发明新的 `XPD-4xx` 具体码。
+- 默认 CLI 修复属于 D1.0，不属于 D2；不带 `--bootstrap` 是交付门禁。
+- Mini 1.0 剩余估算统一为 **7–12 dev-day**；计时区分热 C 缓存与全新 C 缓存。
+
 阶段门：
 
 ```text
 21 个 mini 回归全绿
 mini selfhost 固定点不漂移
-m8.sh 全绿
+m8.sh 全绿（冷缓存）
+默认 legacy build/run 不带 --bootstrap 可用
+workspace lock 字节稳定；外部依赖不产生伪造锁
 选定 M9-PAR 场景全绿
 main 默认仍是 legacy
 ```

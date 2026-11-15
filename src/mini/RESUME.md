@@ -24,8 +24,8 @@ f8435f79 docs(mini): align recovery plan with current dev baseline
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`，即使 `/tmp` 里残留旧的
-xpd/reactor/tools 也不会掩盖冷启动失败。冷缓存 m8 约 42s；完整
-21 回归约 95s。
+xpd/reactor/tools 也不会掩盖冷启动失败。计时口径：热 C 缓存/冷工具
+m8 约 42s，全新 C 缓存约 124s；完整 21 回归约 95s。
 
 ## 工作安排速览
 
@@ -94,31 +94,52 @@ done
 
 ## 下一阶段执行顺序
 
-### D1：M8-P4 外部依赖/本地仓库/lock/install/repro
+### D1：M8-P4 收口（D1.0–D1.4）
 
-目标：
+目标：先修交付口径，再实现 workspace lock；外部依赖只做负例，不扩大
+Mini 1.0 的包管理范围。
 
-- 增加一个**外部依赖 fixture**，使用本地仓库，不访问网络。
-- 验证 `lock` 记录依赖坐标与摘要。
-- 验证 `install` 从本地仓库生成可用 `.xlib`。
-- 验证 `repro` 连续两次构建 SHA 一致。
+#### D1.0 默认 CLI 与工具目录
 
-重点文件：
+- 修 `xnull-build.sh`：没有 `impl/` 或没有 go 时都自动走 bootstrap，
+  不再要求默认命令额外加 `--bootstrap`。
+- 把 `prepare_model`、`prepare_graph`、`cmd_xmeta`、`cmd_tree`、`cmd_why`
+  的 `/tmp` 默认统一到 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`。
+- 回归：不带 `--bootstrap` 的 legacy `build`/`run`；21 回归不退化。
 
-```text
-src/toolchain/xnull-build.sh
-src/toolchain/pack_xlib.py
-src/toolchain/json_result.py
-src/mini/tests/m8.sh
-新增 fixture 目录
-```
+#### D1.1 fixture
+
+- workspace 依赖 fixture：可解析、可构建、可安装。
+- 外部仓库依赖 fixture：只验证 `LOCK-002`，不联网、不写锁。
+- 缺版本、缺坐标、锁文件不一致负例。
+
+#### D1.2 workspace lock
+
+- 先补一页规范：`repository = workspace` 为保留 id；entry 按坐标升序；
+  `sha256` 取确定性 `.xlib` 的 SHA-256；`--check` 不写，`--update` 才重写。
+- 再实现 `xnull.lock` 的 `entry` 输出、排序、一致性检查。
+- 外部依赖返回 `LOCK-002` 且不能留下半成品锁文件。
+- D1 保留 `LOCK-002` 作为临时内部码；D2 负责映射到规范 `XPD-4xx`。
+
+#### D1.3 install/repro
+
+- `install` 产出确定性 `.xlib`；连续两次 SHA 一致。
+- `lock` 记录的摘要与 `install` 产物一致。
+- `repro` 两次构建 SHA 一致。
+
+#### D1.4 回归与文档
+
+- 扩展 `m8.sh`：默认 CLI、workspace lock、外部依赖负例、install/repro。
+- 记录热 C 缓存与全新 C 缓存两种时间。
+- 跑 21 回归 + selfhost；更新 PLAN/RESUME；提交 `dev`。
 
 验收：
 
 ```sh
+./src/cli/xnull --engine=legacy build src/examples/hello.x   # 不带 --bootstrap
 ./src/mini/tests/m8.sh
-./src/cli/xnull --bootstrap --engine=legacy lock --check <fixture>
-./src/cli/xnull --bootstrap --engine=legacy repro <fixture>
+./src/cli/xnull --bootstrap --engine=legacy lock --check <workspace-fixture>
+./src/cli/xnull --bootstrap --engine=legacy repro <workspace-fixture>
 ```
 
 失败负例：
@@ -126,6 +147,13 @@ src/mini/tests/m8.sh
 - 依赖版本不存在
 - 坐标缺失
 - 锁文件与清单不一致
+- 外部仓库依赖：`LOCK-002`，且不写锁
+
+边界：
+
+- 不做“从本地仓库成功解析外部依赖”；那是新的包管理工作包。
+- 本地仓库只用于 `install` 产物和摘要校验。
+- 默认引擎仍是 `legacy`；`main` 不接收未过门的改动。
 
 ### D2：M8-P5 诊断与退出码矩阵
 
@@ -252,7 +280,7 @@ main 默认仍是 legacy
 ## 工作量口径
 
 ```text
-Mini 1.0 剩余:     6–10 dev-day
+Mini 1.0 剩余:     7–12 dev-day
 当前到完整 M9:     30–50 dev-day（M9-FULL）
 从 0 到完整 M9:    60–90 dev-day
 ```
@@ -262,6 +290,8 @@ Mini 1.0 剩余:     6–10 dev-day
 ## 执行纪律
 
 - 每个切片必须同时有代码、场景、回归、提交。
+- 多个会话不要同时写同一个 `dev` 工作区；并行时各自使用独立 worktree，
+  合并前必须重新跑冷启动 m8 和 21 回归。
 - 不在工作包内临时扩大范围。
 - 发现新缺口登记到 `PLAN.md` 后续包，不阻塞当前 D1–D7。
 - 每个工作包完成后更新本文件和 `PLAN.md` 的状态，再进入下一包。
