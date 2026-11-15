@@ -332,26 +332,29 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 `reset/minimal-xnull` 为稳定基线 `1a0a5041`，`dev` 已在其上增加清理和恢复文档；
 未通过冻结回归前不得改变默认引擎。
 
-| 优先级 | 工作项 | 具体切片 | 完成判定 |
+| 顺序 | 工作项 | 当前状态 | 下一验收 |
 | --- | --- | --- | --- |
-| P0 | 回归冻结 | 每次改动后跑 22 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移；m8 使用独立自举目录，冷启动可复现 |
-| P1 | M8-P4 | workspace lock 条目；`install` 生成确定性 `.xlib`；外部依赖只做 LOCK-002 负例 | workspace lock 正例 + 外部依赖负例；`repro` SHA 一致 |
-| P1 | M8-P5 | 统一 `CLI-*`/`SEM-*`/XPD-* 诊断码；JSON 与 stderr 一致；退出码 0/1/2/130/134 矩阵 | XPD-401/402 已接入；外部 lock 保留兼容别名 `LOCK-002` |
-| P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
-| P2 | M9-C3 | 泛型函数/类推断、嵌套实例化、函数类型参数；明确不支持项的负例 | `generics.sh` 扩展并通过 |
-| P3 | M9-C4 | 按场景逐项：switch、data enum、继承/协议分派、lambda、do/for-range、标签控制 | 每特性正例 + 负例，不一次性伪造全部能力 |
-| P3 | M7-F3 | 先修 `io/system/Sys.x` CGen 崩溃；再补 raw handle/Bytes/Result 类型 | `--sema` + `--emit-c` + C 编译通过 |
-| P3 | M7-F1 | 通用 `.xfb` 参数/返回值、租约、错误码映射；替换硬编码桥 | 自定义 `.xfb` 正例 + 错误负例 |
-| P4 | M7-F2/F4 | 完整 text/sys 及 T0 包按实际 import 场景接入；不再新增 mini 专用重复 API | 每包场景 + 旧引擎差分 |
-| P5 | M9-PAR | 全量 stdout/stderr/退出码差分 | 差分矩阵全绿 |
-| Gate | M9-CUT | 仅在 M9-PAR 全绿且用户批准后切换默认引擎 | 默认命令全绿；legacy 退居 oracle |
+| 0 | 回归冻结 | 22 回归 + selfhost + m8 冷缓存 | 每次改动后全绿 |
+| 1 | M9-C4 收口 | 基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承已完成 | data enum、protocol 动态派发、lambda；每项正例 + 负例 |
+| 2 | M9-C2/C3 完整余量 | 文本/泛型切片完成 | 完整 String API、泛型约束边界和负例 |
+| 3 | M7-F3 | 未完成 | 完整 `io/system` raw FFI、handle/Bytes/Result C 编译 |
+| 4 | M7-F1 | 未完成 | 通用 `.xfb` 参数/返回值、租约、错误码 |
+| 5 | M7-F2/F4 | 未完成 | `text/full` 余量、其他 T0 包按 import 场景接入 |
+| 6 | M9-PAR | 仅 16 个选定场景 | 全量 stdout/stderr/退出码差分 |
+| Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
 
-立即开始顺序：
+M8-P4/P5 已完成；M9-MIN/Mini 1.0 已完成，但 M9-FULL 仍未完成。
+M9-C4 必须先完成，不能把 M7、PAR、CUT 与它合并成一个包。
 
-1. `M8-P4/P5`：先把工程生命周期和机器接口收口。
-2. `M9-C2/C3/C4`：优先满足自举与真实 XDK 源码。
-3. `M7-F3/F1/F2/F4`：完成 Sys、FFI、文本和其他 T0。
-4. `M9-PAR/M9-CUT`：最后做差分和默认切换。
+立即开始顺序（M9-FULL）：
+
+1. `M9-C4`：data enum → protocol 动态派发 → lambda。
+2. `M9-C2/C3`：完整 String/泛型余量与边界负例。
+3. `M7-F3 → M7-F1 → M7-F2/F4`：Sys raw FFI、通用 FFI、T0 包。
+4. `M9-PAR`：全量新旧引擎差分。
+5. `M9-CUT`：全量 PAR 全绿后再切默认引擎。
+
+M9-C4 未全绿前，不进入 M7；M7/PAR 未全绿前，不进入 CUT。
 
 每条工作项必须绑定一个可运行场景或负例；没有场景的能力登记为“等待”，不得以空实现宣称完成。
 

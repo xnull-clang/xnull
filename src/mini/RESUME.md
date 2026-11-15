@@ -39,9 +39,9 @@ D6  选定 M9-PAR 完成
 D7  Mini 1.0 收口 完成
 ```
 
-D1–D7 已完成，Mini 1.0 / M9-MIN 收口完成。**这不等于 M1–M9 或 M9-FULL 完成**；
-下一步按顺序处理完整 M8-P5 诊断、M9-C4/M9-C2/C3 余量、M7 全量 XDK、
-M9-PAR 全量差分和 M9-CUT 默认切换。
+D1–D7 已完成，Mini 1.0 / M9-MIN 收口完成。**这不等于 M1–M9 或 M9-FULL 完成**。
+M8-P4/P5 已完成；M9-FULL 从 M9-C4 余量开始，按
+**M9-C4 → M9-C2/C3 → M7-F3 → M7-F1 → M7-F2/F4 → M9-PAR → M9-CUT** 顺序执行。
 
 ## 重启恢复命令
 
@@ -101,8 +101,8 @@ done
 目标：先修交付口径，再实现 workspace lock；外部依赖只做负例，不扩大
 Mini 1.0 的包管理范围。状态：完成。验证：默认 CLI 不带 `--bootstrap`
 可用；workspace lock/`--check`/`--update` 通过；外部依赖 `LOCK-002` 且不写锁；
-install 两次 `.xlib` SHA 一致且与 lock 摘要一致；21 回归 + selfhost 全绿；
-m8 热 C 缓存约 43s、全新 C 缓存约 124s。以下保留执行记录，不设独立审批门：
+install 两次 `.xlib` SHA 一致且与 lock 摘要一致；22 回归 + selfhost 全绿；
+m8 热 C 缓存约 43s、全新 C 缓存约 127s。以下保留执行记录，不设独立审批门：
 
 1. **默认 CLI 与工具目录**：没有 `impl/` 或没有 go 时自动 bootstrap；
    `prepare_model`/`prepare_graph`/`xmeta`/`tree`/`why` 统一使用
@@ -262,12 +262,17 @@ main 默认仍是 legacy
 
 ## 下一阶段（M9-FULL）
 
-Mini 1.0 / M9-MIN 已完成，后续按 PLAN §9.5 继续：
+Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序执行：
 
-1. M8-P5 已完成；XPD-401/402 和 `LOCK-002` 兼容别名已接入。
-2. M9-C4 余量：data enum、继承/协议分派、lambda、do/for-range、标签控制。
-3. M7-F1/F2/F3/F4：完整 XDK、raw FFI、租约/错误码和 T0 包。
-4. M9-PAR 全量差分与 M9-CUT 默认切换。
+1. **M9-C4 收口**：data enum → protocol 动态派发 → lambda。
+2. **M9-C2/C3 余量**：完整 String API、泛型约束和边界负例。
+3. **M7-F3**：完整 `io/system` raw FFI、handle/Bytes/Result C 编译。
+4. **M7-F1**：通用 `.xfb` 参数/返回值、租约、错误码。
+5. **M7-F2/F4**：`text/full` 余量和 T0 包按 import 场景接入。
+6. **M9-PAR**：全量 stdout/stderr/退出码差分。
+7. **M9-CUT**：仅 M9-PAR 全绿且用户批准后切换默认引擎。
+
+每步必须全绿后再进入下一步；M9-C4/M7/PAR 未完成前不切默认引擎。
 
 ## 已知阻塞/边界
 
