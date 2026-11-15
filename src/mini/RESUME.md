@@ -15,11 +15,11 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+88ac3b51 feat(mini): add basic switch statement
+5085c264 docs(mini): distinguish Mini 1.0 from full M9
 3971ff89 feat(mini): complete D5-D7 XDK integration and parity
 d23daab5 feat(mini): complete D2-D4 diagnostics, String and generics
 ee2fe0c3 docs(mini): record D1 completion commit
-6ea9f3bd feat(mini): complete D1 M8 workspace lock and default CLI
-86300afb docs(mini): revise D1 for bootstrap, lock and isolation gaps
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
