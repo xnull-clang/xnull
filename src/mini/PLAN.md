@@ -235,7 +235,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M8.1 | check 单文件命令、stderr 诊断 | 完成 | check.sh | 仅单文件；无完整诊断码 |
 | M8.2 | 简单工程模式、check --json、资源表 | 部分 | project.sh、check.sh、resources.sh | 仅 entryFile 工程；资源目录已接入；无模块/依赖/拓扑；build/run --json 缺失 |
 | M8.3 | 资源表、可复现构建、安装/锁 | 部分 | resources.sh | 资源表已完成；lock/install/repro 未做 |
-| M9 | mini 编译自身、固定点、覆盖旧能力 | 部分 | self-host 固定点、17+1 回归 | mini1/mini2 生成 C 一致；全场景差分和默认切换未做 |
+| M9 | mini 编译自身、固定点、覆盖旧能力 | 部分 | M9-MIN / Mini 1.0；M9-FULL 未完成 | mini1/mini2 生成 C 一致；全场景差分和默认切换未做 |
 
 ### 明确跳过的能力
 
@@ -362,8 +362,11 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 口径 | 含义 | 当前 |
 | --- | --- | --- |
 | M9-SELFHOST | mini 编译 mini，mini1/mini2 固定点 | 已完成 |
-| M9-MIN | mini 自举 + M8 工程接口 + 核心 XDK（errors/runtime/meta/text/sys）+ 选定场景差分 | 未完成 |
-| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 未完成 |
+| M9-MIN | mini 自举 + M8 工程接口 + 核心 XDK（errors/runtime/meta/text/sys）+ 选定场景差分 | 已完成（Mini 1.0 D1–D7） |
+| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 未完成（下一阶段） |
+
+**M9-MIN 完成不等于 M1–M9 或 M9-FULL 完成。** Mini 1.0 只覆盖选定场景；
+完整 T0 XDK、完整 M9-C4、全量 M9-PAR 和 M9-CUT 仍属于后续工作。
 
 ### 9.6.1 M9-MIN 估算（从当前基线）
 
