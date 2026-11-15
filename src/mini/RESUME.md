@@ -261,12 +261,21 @@ main 默认仍是 legacy
 工作区 clean
 ```
 
+## 下一阶段（M9-FULL）
+
+Mini 1.0 / M9-MIN 已完成，后续按 PLAN §9.5 继续：
+
+1. M8-P5 的项目诊断码补充与 XPD/PROJ 映射。
+2. M9-C4 余量：data enum、继承/协议分派、lambda、do/for-range、标签控制。
+3. M7-F1/F2/F3/F4：完整 XDK、raw FFI、租约/错误码和 T0 包。
+4. M9-PAR 全量差分与 M9-CUT 默认切换。
+
 ## 已知阻塞/边界
 
 - P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
 - `io/system/Sys.x` 的完整 raw FFI 还没有做参数/句柄/返回值完整映射；当前 `xdk.sys` 使用 `io/base`。
 - `io/system/Sys.x` 的 sema 已能通过，但 emit C 仍有 raw FFI 原型/句柄错误。
-- 完整 M9-C4：switch、data enum、继承、lambda、do/for-range、标签控制未完成。
+- M9-C4：基础 `switch`（Int/String/Bool）已接入；data enum、继承/协议分派、lambda、do/for-range、标签控制未完成。
 - 全量 T0 XDK 和全量 M9-PAR 不属于 Mini 1.0 当前范围。
 
 ## 工作量口径

@@ -672,6 +672,16 @@ class Parser {
         return block
     }
 
+    AstNode parseCaseBody() {
+        Token t = self.peek()
+        AstNode block = self.node("Block", "", t)
+        while !self.hasError() && !self.at("case") && !self.at("default") &&
+              !self.at("}") && !self.eof() {
+            block.add(self.parseStmt())
+        }
+        return block
+    }
+
     Token look(Int n) {
         Int i = self.pos + n
         if i >= 0 && i < self.ts.length() {
@@ -787,6 +797,40 @@ class Parser {
             AstNode n = self.node("While", "", t)
             n.add(self.parseExpr())
             n.add(self.parseBlock())
+            return n
+        }
+        if self.eat("switch") {
+            AstNode n = self.node("Switch", "", t)
+            n.add(self.parseExpr())
+            self.expect("{")
+            Bool seenDefault = false
+            while !self.hasError() && !self.at("}") && !self.eof() {
+                if self.eat("case") {
+                    if seenDefault {
+                        self.fail("case after default")
+                        break
+                    }
+                    AstNode c = self.node("Case", "", t)
+                    c.add(self.parseExpr())
+                    self.expect(":")
+                    c.add(self.parseCaseBody())
+                    n.add(c)
+                } else if self.eat("default") {
+                    if seenDefault {
+                        self.fail("duplicate default")
+                        break
+                    }
+                    seenDefault = true
+                    self.expect(":")
+                    AstNode d = self.node("Default", "", t)
+                    d.add(self.parseCaseBody())
+                    n.add(d)
+                } else {
+                    self.fail("expected case or default")
+                    break
+                }
+            }
+            self.expect("}")
             return n
         }
         if self.eat("throw") {
@@ -2219,6 +2263,42 @@ class Checker {
             self.addVar(self.elementType(at), st.text, st)
             self.checkBlock(st.kids.get(1))
             self.popTo(mark)
+            return
+        }
+        if st.kind == "Switch" {
+            if st.kids.length() < 2 {
+                self.fail("SEM-005", "malformed switch", st)
+                return
+            }
+            String vt = self.typeOf(st.kids.get(0))
+            if vt == "Error" {
+                return
+            }
+            if vt == "Double" || self.isResultType(vt) {
+                self.fail("SEM-003", "unsupported switch value type: " + vt, st)
+                return
+            }
+            Int si = 1
+            while si < st.kids.length() && !self.hasError() {
+                AstNode clause = st.kids.get(si)
+                if clause.kind == "Case" {
+                    if clause.kids.length() < 2 {
+                        self.fail("SEM-005", "malformed case", clause)
+                        return
+                    }
+                    String ct = self.typeOf(clause.kids.get(0))
+                    if ct != "Error" && !self.sameType(vt, ct) {
+                        self.fail("SEM-003", "case type " + ct + " does not match switch " + vt, clause)
+                        return
+                    }
+                    self.checkBlock(clause.kids.get(1))
+                } else if clause.kind == "Default" {
+                    if clause.kids.length() > 0 {
+                        self.checkBlock(clause.kids.get(0))
+                    }
+                }
+                si = si + 1
+            }
             return
         }
         if st.kind == "Local" {
@@ -4606,6 +4686,53 @@ class CGen {
                 }
                 self.emit(indent + lhs + " = " + self.expr(rv) + ";")
             }
+            return
+        }
+        if st.kind == "Switch" {
+            if st.kids.length() < 2 {
+                self.fail("malformed switch")
+                return
+            }
+            String vt = self.typeOf(st.kids.get(0))
+            String sv = self.temp()
+            self.emit(indent + "{")
+            self.emit(indent + "  " + self.ctype(vt) + " " + sv + " = " + self.expr(st.kids.get(0)) + ";")
+            Int si = 1
+            Bool hasDefault = false
+            Bool first = true
+            while si < st.kids.length() {
+                AstNode clause = st.kids.get(si)
+                if clause.kind == "Case" && clause.kids.length() >= 2 {
+                    String cond = sv + " == " + self.expr(clause.kids.get(0))
+                    if vt == "String" {
+                        cond = "xn_str_eq(" + sv + ", " + self.expr(clause.kids.get(0)) + ")"
+                    }
+                    if first {
+                        self.emit(indent + "  if (" + cond + ") {")
+                        first = false
+                    } else {
+                        self.emit(indent + "  else if (" + cond + ") {")
+                    }
+                    self.blockBody(clause.kids.get(1), indent + "    ")
+                    self.emit(indent + "  }")
+                } else if clause.kind == "Default" {
+                    hasDefault = true
+                    if first {
+                        self.emit(indent + "  if (1) {")
+                    } else {
+                        self.emit(indent + "  else {")
+                    }
+                    if clause.kids.length() > 0 {
+                        self.blockBody(clause.kids.get(0), indent + "    ")
+                    }
+                    self.emit(indent + "  }")
+                }
+                si = si + 1
+            }
+            if !hasDefault && first {
+                self.emit(indent + "  {}")
+            }
+            self.emit(indent + "}")
             return
         }
         if st.kind == "ForIn" {
