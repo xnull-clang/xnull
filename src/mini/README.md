@@ -7,14 +7,25 @@
 ./mini --version
 ```
 
-当前为 M7.3/M8.2：errors/meta/runtime/text/sys 最小面、check、简单工程模式已接通；
-资源表与项目 `.xfb` 无参标量已接通；`check --json` 已可用。
+当前为 M9 自举固定点阶段：
 
-## 构建缓存
+- 自身源码已能被 mini 编译，`mini1` 与 `mini2` 生成的 C 完全一致。
+- 泛型函数/泛型类、插值字符串、nullable、throw、Double、位运算和静态类方法已进入最小面。
+- `build.sh` 优先用已有 `bin/mini` 自编译；没有种子二进制时回退 legacy bootstrap。
+- 资源表、项目 `.xfb` 无参标量、`check --json`、简单工程模式已接通。
+- M9-PAR 全场景差分、默认切换、完整语言面仍未完成；M7 全量 XDK 仍需 package/FFI/Bytes/Result 面。
 
-`build.sh` 使用 `.cache/xnull/` 缓存：
+## 回归
 
-- `xparser` AST（未改源文件时跳过解析）
-- mini 生成的 C（源文件、FFI、运行时、编译器未变时跳过旧代码生成）
+```sh
+for t in src/mini/tests/*.sh; do "$t"; done
+```
 
-源码不变时 warm build 可降到几秒；源码改动仍会全量重编。
+当前 21 个回归覆盖 lex、parser、sema、codegen、class、flow、array、containers、
+result、defer、m6_4、xdk、check、project、ffi、resources、object_list、selfhost、
+generics、c4、m8。
+
+## 构建
+
+`build.sh` 的 bootstrap 路径仍保留 legacy 回退；自举路径使用 `.cache/xnull/` 的运行时库缓存，
+但编译器 C 由当前 mini 直接生成。源码不变时自举构建约数秒。

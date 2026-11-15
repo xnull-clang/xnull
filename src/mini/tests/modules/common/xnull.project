@@ -1,0 +1,6 @@
+project {
+  groupId    = demo
+  artifactId = common
+  version    = 1.0.0
+  packaging  = library
+}

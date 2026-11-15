@@ -1,6 +1,7 @@
 // XNull mini compiler —— M1 loader + lexer
 package mini
 
+List<String> loadedFiles = []
 List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
@@ -38,6 +39,27 @@ class AstNode {
 
     Void add(AstNode kid) {
         kids.push(kid)
+    }
+
+    Void setKid(Int idx, AstNode v) {
+        List<AstNode> tmp = []
+        Int i = 0
+        while i < kids.length() {
+            if i == idx {
+                tmp.push(v)
+            } else {
+                tmp.push(kids.get(i))
+            }
+            i = i + 1
+        }
+        while kids.length() > 0 {
+            kids.remove(kids.length() - 1)
+        }
+        i = 0
+        while i < tmp.length() {
+            kids.push(tmp.get(i))
+            i = i + 1
+        }
     }
 
     Void dump(Int depth) {
@@ -193,6 +215,10 @@ class Parser {
             self.eat(";")
             return n
         }
+        if self.at("final") || self.at("abstract") || self.at("public") {
+            self.advance()
+            return self.parseTop()
+        }
         if self.at("class") {
             return self.parseClassDecl("Class")
         }
@@ -206,6 +232,9 @@ class Parser {
             return self.parseProtocol()
         }
         if self.at("static") {
+            return self.parseFunc()
+        }
+        if self.kind("kw") {
             return self.parseFunc()
         }
         if self.kind("ident") {
@@ -240,6 +269,22 @@ class Parser {
         Token nt = self.advance()
         String name = nt.text
         AstNode cls = self.node(kindName, name, t)
+        if self.eat("<") {
+            AstNode tp = self.node("TypeParams", "", t)
+            while !self.hasError() && !self.at(">") {
+                if !self.kind("ident") {
+                    self.fail("expected type parameter")
+                    break
+                }
+                Token pn = self.advance()
+                tp.add(new AstNode("TypeParam", pn.text, pn.line, pn.col))
+                if !self.eat(",") {
+                    break
+                }
+            }
+            self.expect(">")
+            cls.add(tp)
+        }
         if self.eat(":") {
             String base = self.parseType()
             cls.add(new AstNode("Base", base, t.line, t.col))
@@ -255,6 +300,13 @@ class Parser {
         }
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
+            Bool isStatic = false
+            while self.at("static") || self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
+                if self.at("static") {
+                    isStatic = true
+                }
+                self.advance()
+            }
             String ty = self.parseType()
             if self.at("(") && ty == name {
                 Token ct = self.peek()
@@ -287,6 +339,9 @@ class Parser {
             String mn = mt.text
             if self.at("(") {
                 AstNode m = self.node("Method", mn, mt)
+                if isStatic {
+                    m.add(new AstNode("Static", "", mt.line, mt.col))
+                }
                 m.add(new AstNode("Ret", ty, mt.line, mt.col))
                 self.advance()
                 if !self.at(")") {
@@ -308,6 +363,9 @@ class Parser {
                 cls.add(m)
             } else {
                 AstNode f = self.node("Field", ty + " " + mn, mt)
+                if isStatic {
+                    f.add(new AstNode("Static", "", mt.line, mt.col))
+                }
                 if self.eat("=") {
                     f.add(self.parseExpr())
                 }
@@ -414,18 +472,19 @@ class Parser {
         AstNode fn = self.node("Func", name, t)
         fn.add(new AstNode("Ret", rt, t.line, t.col))
         if self.eat("<") {
-            fn.add(new AstNode("TypeParams", "", t.line, t.col))
-            Int depth = 1
-            while !self.hasError() && depth > 0 {
-                if self.at("<") {
-                    depth = depth + 1
-                } else if self.at(">") {
-                    depth = depth - 1
+            AstNode tp = new AstNode("TypeParams", "", t.line, t.col)
+            while !self.hasError() && !self.at(">") {
+                if !self.kind("ident") {
+                    self.fail("expected type parameter")
+                    break
                 }
-                if depth > 0 {
-                    self.advance()
+                Token pn = self.advance()
+                tp.add(new AstNode("TypeParam", pn.text, pn.line, pn.col))
+                if !self.eat(",") {
+                    break
                 }
             }
+            fn.add(tp)
             self.expect(">")
         }
         self.expect("(")
@@ -447,6 +506,46 @@ class Parser {
         self.expect(")")
         fn.add(self.parseBlock())
         return fn
+    }
+
+    Bool looksLikeTypeArgs() {
+        if !self.at("<") {
+            return false
+        }
+        Int depth = 0
+        Int j = 0
+        while true {
+            Token t = self.look(j)
+            if t.kind == "eof" {
+                return false
+            }
+            if t.text == "<" {
+                depth = depth + 1
+            } else if t.text == ">" {
+                depth = depth - 1
+                if depth == 0 {
+                    return self.look(j + 1).text == "("
+                }
+            }
+            j = j + 1
+        }
+        return false
+    }
+
+    String parseTypeArgsText() {
+        self.expect("<")
+        String res = ""
+        while !self.hasError() && !self.at(">") {
+            if res != "" {
+                res = res + ","
+            }
+            res = res + self.parseType()
+            if !self.eat(",") {
+                break
+            }
+        }
+        self.expect(">")
+        return res
     }
 
     Bool typeHasFuncSuffix() {
@@ -524,6 +623,9 @@ class Parser {
             self.expect("]")
             ty = ty + "[]"
         }
+        if self.eat("?") {
+            ty = ty + "?"
+        }
         return ty
     }
 
@@ -586,6 +688,9 @@ class Parser {
         }
         if b.kind == "ident" {
             return c.text == "="
+        }
+        if b.text == "?" {
+            return self.look(3).text == "=" || self.look(3).text == ";"
         }
         if b.text == "[" {
             Token d = self.look(2)
@@ -683,6 +788,12 @@ class Parser {
             n.add(self.parseBlock())
             return n
         }
+        if self.eat("throw") {
+            AstNode n = self.node("Throw", "", t)
+            n.add(self.parseExpr())
+            self.eat(";")
+            return n
+        }
         if self.eat("break") {
             self.eat(";")
             return self.node("Break", "", t)
@@ -706,7 +817,16 @@ class Parser {
     }
 
     AstNode parseExpr() {
-        return self.parseOr()
+        AstNode cond = self.parseOr()
+        if self.eat("?") {
+            AstNode n = new AstNode("Ternary", "", cond.line, cond.col)
+            n.add(cond)
+            n.add(self.parseExpr())
+            self.expect(":")
+            n.add(self.parseExpr())
+            return n
+        }
+        return cond
     }
 
     AstNode parseOr() {
@@ -746,8 +866,56 @@ class Parser {
     }
 
     AstNode parseRel() {
-        AstNode left = self.parseAdd()
+        AstNode left = self.parseBitOr()
         while !self.hasError() && (self.at("<") || self.at("<=") || self.at(">") || self.at(">=")) {
+            Token op = self.advance()
+            AstNode n = self.node("Binary", op.text, op)
+            n.add(left)
+            n.add(self.parseBitOr())
+            left = n
+        }
+        return left
+    }
+
+    AstNode parseBitOr() {
+        AstNode left = self.parseBitXor()
+        while !self.hasError() && self.at("|") {
+            Token op = self.advance()
+            AstNode n = self.node("Binary", op.text, op)
+            n.add(left)
+            n.add(self.parseBitXor())
+            left = n
+        }
+        return left
+    }
+
+    AstNode parseBitXor() {
+        AstNode left = self.parseBitAnd()
+        while !self.hasError() && self.at("^") {
+            Token op = self.advance()
+            AstNode n = self.node("Binary", op.text, op)
+            n.add(left)
+            n.add(self.parseBitAnd())
+            left = n
+        }
+        return left
+    }
+
+    AstNode parseBitAnd() {
+        AstNode left = self.parseShift()
+        while !self.hasError() && self.at("&") {
+            Token op = self.advance()
+            AstNode n = self.node("Binary", op.text, op)
+            n.add(left)
+            n.add(self.parseShift())
+            left = n
+        }
+        return left
+    }
+
+    AstNode parseShift() {
+        AstNode left = self.parseAdd()
+        while !self.hasError() && (self.at("<<") || self.at(">>")) {
             Token op = self.advance()
             AstNode n = self.node("Binary", op.text, op)
             n.add(left)
@@ -770,15 +938,40 @@ class Parser {
     }
 
     AstNode parseMul() {
-        AstNode left = self.parsePrimary()
+        AstNode left = self.parseCast()
         while !self.hasError() && (self.at("*") || self.at("/") || self.at("%")) {
             Token op = self.advance()
             AstNode n = self.node("Binary", op.text, op)
             n.add(left)
-            n.add(self.parsePrimary())
+            n.add(self.parseCast())
             left = n
         }
         return left
+    }
+
+    AstNode parseCast() {
+        AstNode left = self.parsePrimary()
+        while !self.hasError() && (self.at("as") || self.at("is")) {
+            Token op = self.advance()
+            String ty = self.parseType()
+            AstNode n = self.node("Cast", ty, op)
+            if op.text == "is" {
+                n.kind = "Is"
+            }
+            n.add(left)
+            left = n
+        }
+        return left
+    }
+
+    Bool hasCall(AstNode n) {
+        if n.kind == "Call" || n.kind == "MethodCall" {
+            return true
+        }
+        if n.kind == "Member" && n.kids.length() > 0 {
+            return self.hasCall(n.kids.get(0))
+        }
+        return false
     }
 
     String memberPath(AstNode n) {
@@ -791,15 +984,90 @@ class Parser {
         return n.text
     }
 
+    String quoted(String s) {
+        return "\"" + s + "\""
+    }
+
+    AstNode parseInterpolation(Token t) {
+        String raw = t.text
+        if raw.length() >= 2 && raw.substring(0, 1) == "\"" && raw.substring(raw.length() - 1, 1) == "\"" {
+            raw = raw.substring(1, raw.length() - 2)
+        }
+        AstNode result = new AstNode("String", self.quoted(""), t.line, t.col)
+        String seg = ""
+        Int i = 0
+        while i < raw.length() {
+            String c = raw.substring(i, 1)
+            if c == "{" {
+                if seg != "" {
+                    AstNode lit = new AstNode("String", self.quoted(seg), t.line, t.col)
+                    AstNode bin = new AstNode("Binary", "+", t.line, t.col)
+                    bin.add(result)
+                    bin.add(lit)
+                    result = bin
+                    seg = ""
+                }
+                Int depth = 1
+                Int j = i + 1
+                while j < raw.length() && depth > 0 {
+                    String d = raw.substring(j, 1)
+                    if d == "{" {
+                        depth = depth + 1
+                    } else if d == "}" {
+                        depth = depth - 1
+                    }
+                    if depth > 0 {
+                        j = j + 1
+                    }
+                }
+                if j < raw.length() {
+                    String exprText = raw.substring(i + 1, j - i - 1)
+                    Parser ep = new Parser(lex(exprText))
+                    AstNode ex = ep.parseExpr()
+                    AstNode strCall = new AstNode("Call", "str", t.line, t.col)
+                    strCall.add(ex)
+                    AstNode bin = new AstNode("Binary", "+", t.line, t.col)
+                    bin.add(result)
+                    bin.add(strCall)
+                    result = bin
+                    i = j
+                }
+            } else {
+                seg = seg + c
+            }
+            i = i + 1
+        }
+        if seg != "" {
+            AstNode lit = new AstNode("String", self.quoted(seg), t.line, t.col)
+            AstNode bin = new AstNode("Binary", "+", t.line, t.col)
+            bin.add(result)
+            bin.add(lit)
+            result = bin
+        }
+        return result
+    }
+
     AstNode parsePrimary() {
         Token t = self.peek()
         if self.kind("int") {
             self.advance()
             return self.node("Int", t.text, t)
         }
+        if self.kind("double") {
+            self.advance()
+            return self.node("Double", t.text, t)
+        }
         if self.kind("string") {
             self.advance()
             return self.node("String", t.text, t)
+        }
+        if self.kind("interp") {
+            self.advance()
+            return self.parseInterpolation(t)
+        }
+        if self.kind("kw") && t.text == "null" {
+            self.advance()
+            return self.node("Null", "", t)
         }
         if self.kind("char") {
             self.advance()
@@ -883,12 +1151,12 @@ class Parser {
             self.advance()
             AstNode n = self.node("Name", t.text, t)
             while !self.hasError() {
-                if self.eat("(") {
-                    String cname = t.text
-                    if n.kind == "Member" {
-                        cname = self.memberPath(n)
-                    }
-                    AstNode call = self.node("Call", cname, t)
+                if self.at("<") && self.looksLikeTypeArgs() {
+                    Token gt = self.peek()
+                    String targs = self.parseTypeArgsText()
+                    AstNode call = self.node("GenericCall", n.text, t)
+                    call.add(self.node("TypeArgs", targs, gt))
+                    self.expect("(")
                     if !self.at(")") {
                         while !self.hasError() {
                             call.add(self.parseExpr())
@@ -899,6 +1167,49 @@ class Parser {
                     }
                     self.expect(")")
                     n = call
+                } else if self.eat("(") {
+                    if n.kind == "Member" {
+                        AstNode recv = n.kids.get(0)
+                        if self.hasCall(recv) {
+                            AstNode call = self.node("MethodCall", n.text, t)
+                            call.add(recv)
+                            if !self.at(")") {
+                                while !self.hasError() {
+                                    call.add(self.parseExpr())
+                                    if !self.eat(",") {
+                                        break
+                                    }
+                                }
+                            }
+                            self.expect(")")
+                            n = call
+                        } else {
+                            String cname = self.memberPath(n)
+                            AstNode call = self.node("Call", cname, t)
+                            if !self.at(")") {
+                                while !self.hasError() {
+                                    call.add(self.parseExpr())
+                                    if !self.eat(",") {
+                                        break
+                                    }
+                                }
+                            }
+                            self.expect(")")
+                            n = call
+                        }
+                    } else {
+                        AstNode call = self.node("Call", t.text, t)
+                        if !self.at(")") {
+                            while !self.hasError() {
+                                call.add(self.parseExpr())
+                                if !self.eat(",") {
+                                    break
+                                }
+                            }
+                        }
+                        self.expect(")")
+                        n = call
+                    }
                 } else if self.eat(".") {
                     if !self.kind("ident") && !self.kind("kw") {
                         self.fail("expected member name")
@@ -925,6 +1236,391 @@ class Parser {
     }
 }
 
+
+class Mono {
+    final AstNode program
+
+    Mono(AstNode p) {
+        self.program = p
+    }
+
+    Bool hasTypeParams(AstNode n) {
+        Int i = 0
+        while i < n.kids.length() {
+            if n.kids.get(i).kind == "TypeParams" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    List<String> typeParams(AstNode fn) {
+        List<String> res = []
+        Int i = 0
+        while i < fn.kids.length() {
+            AstNode k = fn.kids.get(i)
+            if k.kind == "TypeParams" {
+                Int j = 0
+                while j < k.kids.length() {
+                    if k.kids.get(j).kind == "TypeParam" {
+                        res.push(k.kids.get(j).text)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    Bool identChar(String c) {
+        String alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+        return alphabet.indexOf(c) >= 0
+    }
+
+    String subst(String text, String from, String to) {
+        String res = ""
+        Int i = 0
+        while i < text.length() {
+            if i + from.length() <= text.length() && text.substring(i, from.length()) == from {
+                Bool leftOk = true
+                Bool rightOk = true
+                if i > 0 {
+                    String ch = text.substring(i - 1, 1)
+                    if self.identChar(ch) {
+                        leftOk = false
+                    }
+                }
+                if i + from.length() < text.length() {
+                    String ch = text.substring(i + from.length(), 1)
+                    if self.identChar(ch) {
+                        rightOk = false
+                    }
+                }
+                if leftOk && rightOk {
+                    res = res + to
+                    i = i + from.length()
+                } else {
+                    res = res + text.substring(i, 1)
+                    i = i + 1
+                }
+            } else {
+                res = res + text.substring(i, 1)
+                i = i + 1
+            }
+        }
+        return res
+    }
+
+    String substAll(String text, List<String> names, List<String> args) {
+        String res = text
+        Int i = 0
+        while i < names.length() {
+            res = self.subst(res, names.get(i), args.get(i))
+            i = i + 1
+        }
+        return res
+    }
+
+    String mangle(String ty) {
+        String res = ""
+        Int i = 0
+        while i < ty.length() {
+            String c = ty.substring(i, 1)
+            if self.identChar(c) {
+                res = res + c
+            } else {
+                res = res + "_"
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    Bool isGenericClass(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Class" || n.kind == "Struct") && n.text == name && self.hasTypeParams(n) {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    AstNode findClass(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Class" || n.kind == "Struct") && n.text == name {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    List<String> splitArgs(String text) {
+        List<String> res = []
+        String cur = ""
+        Int depth = 0
+        Int i = 0
+        while i < text.length() {
+            String c = text.substring(i, 1)
+            if c == "<" {
+                depth = depth + 1
+            } else if c == ">" {
+                depth = depth - 1
+            }
+            if c == "," && depth == 0 {
+                res.push(cur)
+                cur = ""
+            } else {
+                cur = cur + c
+            }
+            i = i + 1
+        }
+        if cur != "" {
+            res.push(cur)
+        }
+        return res
+    }
+
+    String instantiateClass(String cname, List<String> args) {
+        AstNode cls = self.findClass(cname)
+        if cls.kind == "None" || !self.hasTypeParams(cls) {
+            return cname
+        }
+        List<String> names = self.typeParams(cls)
+        if names.length() != args.length() {
+            return cname
+        }
+        String suffix = ""
+        Int i = 0
+        while i < args.length() {
+            if suffix != "" {
+                suffix = suffix + "_"
+            }
+            suffix = suffix + self.mangle(args.get(i))
+            i = i + 1
+        }
+        String sname = cname + "__" + suffix
+        if self.findClass(sname).kind != "None" {
+            return sname
+        }
+        AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
+        i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind != "TypeParams" {
+                clone.add(self.cloneSubst(cls.kids.get(i), names, args))
+            }
+            i = i + 1
+        }
+        self.program.add(clone)
+        return sname
+    }
+
+    String rewriteType(String ty) {
+        String res = ty
+        Bool changed = true
+        while changed {
+            changed = false
+            Int ci = 0
+            while ci < self.program.kids.length() {
+                AstNode cls = self.program.kids.get(ci)
+                if (cls.kind == "Class" || cls.kind == "Struct") && self.hasTypeParams(cls) && self.typeParams(cls).length() > 0 {
+                    String needle = cls.text + "<"
+                    Int p = res.indexOf(needle)
+                    if p >= 0 {
+                        Int depth = 0
+                        Int j = p + cls.text.length()
+                        Int end = -1
+                        while j < res.length() {
+                            String c = res.substring(j, 1)
+                            if c == "<" {
+                                depth = depth + 1
+                            } else if c == ">" {
+                                depth = depth - 1
+                                if depth == 0 {
+                                    end = j
+                                    break
+                                }
+                            }
+                            j = j + 1
+                        }
+                        if end > p {
+                            String inner = res.substring(p + needle.length(), end - p - needle.length())
+                            String sname = self.instantiateClass(cls.text, self.splitArgs(inner))
+                            res = res.substring(0, p) + sname + res.substring(end + 1, res.length() - end - 1)
+                            changed = true
+                        }
+                    }
+                }
+                ci = ci + 1
+            }
+        }
+        return res
+    }
+
+    AstNode cloneSubst(AstNode n, List<String> names, List<String> args) {
+        String text = n.text
+        if n.kind == "Ret" || n.kind == "Param" || n.kind == "Field" || n.kind == "Local" ||
+           n.kind == "New" || n.kind == "TypeArgs" || n.kind == "Base" || n.kind == "Implements" {
+            text = self.substAll(text, names, args)
+        }
+        AstNode c = new AstNode(n.kind, text, n.line, n.col)
+        Int i = 0
+        while i < n.kids.length() {
+            if n.kids.get(i).kind != "TypeParams" {
+                c.add(self.cloneSubst(n.kids.get(i), names, args))
+            }
+            i = i + 1
+        }
+        return c
+    }
+
+    AstNode findGeneric(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && n.text == name && self.hasTypeParams(n) {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    Bool hasFunc(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && n.text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    String specialize(AstNode fn, List<String> args) {
+        List<String> names = self.typeParams(fn)
+        if names.length() != args.length() {
+            return ""
+        }
+        String suffix = ""
+        Int i = 0
+        while i < args.length() {
+            if suffix != "" {
+                suffix = suffix + "_"
+            }
+            suffix = suffix + self.mangle(args.get(i))
+            i = i + 1
+        }
+        String sname = fn.text + "__" + suffix
+        if self.hasFunc(sname) {
+            return sname
+        }
+        AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
+        i = 0
+        while i < fn.kids.length() {
+            if fn.kids.get(i).kind != "TypeParams" {
+                clone.add(self.cloneSubst(fn.kids.get(i), names, args))
+            }
+            i = i + 1
+        }
+        self.program.add(clone)
+        return sname
+    }
+
+    String argType(AstNode n) {
+        if n.kind == "Int" {
+            return "Int"
+        }
+        if n.kind == "String" {
+            return "String"
+        }
+        if n.kind == "Null" {
+            return "Null"
+        }
+        if n.kind == "Bool" {
+            return "Bool"
+        }
+        if n.kind == "Char" {
+            return "Char"
+        }
+        if n.kind == "New" {
+            return n.text
+        }
+        return "Any"
+    }
+
+    String typeArgsFor(AstNode call) {
+        if call.kind == "GenericCall" && call.kids.length() > 0 {
+            return call.kids.get(0).text
+        }
+        AstNode fn = self.findGeneric(call.text)
+        if fn.kind != "Func" {
+            return ""
+        }
+        List<String> names = self.typeParams(fn)
+        if names.length() != 1 || call.kids.length() == 0 {
+            return ""
+        }
+        String at = self.argType(call.kids.get(0))
+        if at != "Any" {
+            return at
+        }
+        return ""
+    }
+
+    AstNode walk(AstNode n) {
+        if n.kind == "Ret" || n.kind == "Param" || n.kind == "Field" || n.kind == "Local" ||
+           n.kind == "New" || n.kind == "TypeArgs" || n.kind == "Base" || n.kind == "Implements" {
+            n.text = self.rewriteType(n.text)
+        }
+        if n.kind == "GenericCall" || (n.kind == "Call" && self.findGeneric(n.text).kind == "Func") {
+            AstNode fn = self.findGeneric(n.text)
+            if fn.kind == "Func" {
+                String tas = self.typeArgsFor(n)
+                if tas != "" {
+                    List<String> args = tas.split(",")
+                    String sname = self.specialize(fn, args)
+                    if sname != "" {
+                        n.kind = "Call"
+                        n.text = sname
+                        if n.kids.length() > 0 && n.kids.get(0).kind == "TypeArgs" {
+                            n.kids.remove(0)
+                        }
+                    }
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            n.setKid(i, self.walk(n.kids.get(i)))
+            i = i + 1
+        }
+        return n
+    }
+
+    AstNode run() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && !self.hasTypeParams(n) {
+                self.program.setKid(i, self.walk(n))
+            }
+            if (n.kind == "Class" || n.kind == "Struct") && !self.hasTypeParams(n) {
+                self.program.setKid(i, self.walk(n))
+            }
+            i = i + 1
+        }
+        return self.program
+    }
+}
 
 class Checker {
     final String file
@@ -990,9 +1686,15 @@ class Checker {
     }
 
     Bool knownType(String ty) {
+        if ty.length() > 1 && ty.substring(ty.length() - 1, 1) == "?" {
+            return self.knownType(ty.substring(0, ty.length() - 1))
+        }
+        if ty == "Bytes" {
+            return true
+        }
         if ty == "Int" || ty == "String" || ty == "Bool" ||
             ty == "Unit" || ty == "Char" || ty == "Double" ||
-            ty == "Long" || ty == "Int64" {
+            ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "void" {
             return true
         }
         if self.isListType(ty) {
@@ -1098,7 +1800,11 @@ class Checker {
     }
 
     String resultValueType(String ty) {
-        List<String> parts = self.resultInner(ty).split(",")
+        String inner = ""
+        if self.isResultType(ty) {
+            inner = ty.substring(7, ty.length() - 8)
+        }
+        List<String> parts = inner.split(",")
         if parts.length() >= 1 {
             return parts.get(0)
         }
@@ -1106,7 +1812,11 @@ class Checker {
     }
 
     String resultErrorType(String ty) {
-        List<String> parts = self.resultInner(ty).split(",")
+        String inner = ""
+        if self.isResultType(ty) {
+            inner = ty.substring(7, ty.length() - 8)
+        }
+        List<String> parts = inner.split(",")
         if parts.length() >= 2 {
             return parts.get(1)
         }
@@ -1117,8 +1827,52 @@ class Checker {
         if a == b {
             return true
         }
+        if b == "Null" && (a == "Any" || (a.length() > 1 && a.substring(a.length() - 1, 1) == "?")) {
+            return true
+        }
+        if a == "Null" && (b == "Any" || (b.length() > 1 && b.substring(b.length() - 1, 1) == "?")) {
+            return true
+        }
         if self.isListType(a) && self.isListType(b) {
             return self.elementType(a) == self.elementType(b)
+        }
+        if (a == "Int" || a == "Int32" || a == "Int64" || a == "Long") &&
+           (b == "Int" || b == "Int32" || b == "Int64" || b == "Long") {
+            return true
+        }
+        return false
+    }
+
+    Bool isAssignable(String target, String actual) {
+        if self.sameType(target, actual) {
+            return true
+        }
+        if target == "Any" || actual == "Any" || target == "Error" || actual == "Error" {
+            return true
+        }
+        if target.length() > 1 && target.substring(target.length() - 1, 1) == "?" {
+            String base = target.substring(0, target.length() - 1)
+            if actual == "Null" || self.isAssignable(base, actual) {
+                return true
+            }
+        }
+        Int ci = self.findClass(actual)
+        if ci >= 0 {
+            Int i = 0
+            while i < self.program.kids.length() {
+                AstNode c = self.program.kids.get(i)
+                if (c.kind == "Class" || c.kind == "Struct") && c.text == actual {
+                    Int j = 0
+                    while j < c.kids.length() {
+                        AstNode k = c.kids.get(j)
+                        if k.kind == "Implements" && k.text == target {
+                            return true
+                        }
+                        j = j + 1
+                    }
+                }
+                i = i + 1
+            }
         }
         return false
     }
@@ -1241,7 +1995,7 @@ class Checker {
             if n.kind == "Protocol" {
                 self.protocolNames.push(n.text)
             }
-            if n.kind == "Class" || n.kind == "Struct" {
+            if (n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n) {
                 if self.findClass(n.text) >= 0 {
                     self.fail("SEM-002", "duplicate class: " + n.text, n)
                 } else {
@@ -1304,7 +2058,7 @@ class Checker {
             if n.kind == "Func" {
                 self.checkFunc(n)
             }
-            if n.kind == "Class" || n.kind == "Struct" {
+            if (n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n) {
                 self.checkClass(n)
             }
             i = i + 1
@@ -1389,6 +2143,12 @@ class Checker {
         if st.kind == "Break" || st.kind == "Continue" {
             return
         }
+        if st.kind == "Throw" {
+            if st.kids.length() > 0 {
+                self.typeOf(st.kids.get(0))
+            }
+            return
+        }
         if st.kind == "Assign" {
             if st.kids.length() < 2 {
                 self.fail("SEM-005", "malformed assignment", st)
@@ -1396,7 +2156,7 @@ class Checker {
             }
             String lt = self.typeOf(st.kids.get(0))
             String rt = self.typeOf(st.kids.get(1))
-            if lt != "Error" && rt != "Error" && lt != rt && !(self.isEmptyArray(st.kids.get(1)) && self.isListType(lt)) {
+            if lt != "Error" && rt != "Error" && !self.isAssignable(lt, rt) && !(self.isEmptyArray(st.kids.get(1)) && self.isListType(lt)) {
                 self.fail("SEM-003", "assignment " + lt + " = " + rt, st)
             }
             return
@@ -1446,12 +2206,12 @@ class Checker {
         }
         if st.kind == "Return" {
             if st.kids.length() == 0 {
-                if self.curRet != "Unit" {
+                if self.curRet != "Unit" && self.curRet != "Void" && self.curRet != "void" {
                     self.fail("SEM-003", "return value required, got Unit", st)
                 }
             } else {
                 String t = self.typeOf(st.kids.get(0))
-                if t != "Error" && t != self.curRet {
+                if t != "Error" && !self.isAssignable(self.curRet, t) {
                     self.fail("SEM-003", "return type " + self.curRet + ", got " + t, st)
                 }
             }
@@ -1536,6 +2296,12 @@ class Checker {
             if path == "self" {
                 return self.curClass
             }
+            if path == "Bytes" {
+                return "Bytes"
+            }
+            if self.findClass(path) >= 0 {
+                return path
+            }
             Int vi = self.findVar(path)
             if vi >= 0 {
                 return self.varTypes.get(vi)
@@ -1580,6 +2346,36 @@ class Checker {
         return "Any"
     }
 
+    Bool isStaticMethod(String cls, String mname) {
+        AstNode c = self.classNode(cls)
+        Int i = 0
+        while i < c.kids.length() {
+            AstNode k = c.kids.get(i)
+            if k.kind == "Method" && k.text == mname {
+                Int j = 0
+                while j < k.kids.length() {
+                    if k.kids.get(j).kind == "Static" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool methodStatic(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Static" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     String methodRet(String cls, String mname) {
         AstNode c = self.classNode(cls)
         Int i = 0
@@ -1592,6 +2388,38 @@ class Checker {
             i = i + 1
         }
         return "Any"
+    }
+
+    Bool isGenericResult(String ty) {
+        return self.isResult(ty) && ty != "Result<Int,String>"
+    }
+
+    String resultInitField(String ty, String val) {
+        String vt = self.resultValue(ty)
+        if vt == "Int" || vt == "Int32" || vt == "Int64" || vt == "Long" || vt == "Bool" || vt == "Char" {
+            return ".i = (int64_t)(" + val + ")"
+        }
+        if vt == "Double" {
+            return ".d = (double)(" + val + ")"
+        }
+        if vt == "String" {
+            return ".s = (rt_string *)(" + val + ")"
+        }
+        return ".p = (void *)(" + val + ")"
+    }
+
+    String resultValueExpr(String ty, String bv) {
+        String vt = self.resultValue(ty)
+        if vt == "Int" || vt == "Int32" || vt == "Int64" || vt == "Long" || vt == "Bool" || vt == "Char" {
+            return "(" + bv + ").i"
+        }
+        if vt == "Double" {
+            return "(" + bv + ").d"
+        }
+        if vt == "String" {
+            return "(" + bv + ").s"
+        }
+        return "(" + bv + ").p"
     }
 
     Bool isResult(String ty) {
@@ -1611,13 +2439,31 @@ class Checker {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Double" {
+            return "Double"
+        }
         if n.kind == "String" {
             return "String"
+        }
+        if n.kind == "Null" {
+            return "Null"
         }
         if n.kind == "Char" {
             return "Char"
         }
         if n.kind == "Bool" {
+            return "Bool"
+        }
+        if n.kind == "Ternary" {
+            if n.kids.length() < 3 {
+                return "Any"
+            }
+            return self.typeOf(n.kids.get(1))
+        }
+        if n.kind == "Cast" {
+            return n.text
+        }
+        if n.kind == "Is" {
             return "Bool"
         }
         if n.kind == "Unary" {
@@ -1704,11 +2550,32 @@ class Checker {
             if n.text == "+" && lt == "String" && rt == "String" {
                 return "String"
             }
+            if (lt == "Double" || rt == "Double") && n.text != "%" {
+                if (lt == "Double" || lt == "Int") && (rt == "Double" || rt == "Int") {
+                    return "Double"
+                }
+            }
+            if n.text == "&" || n.text == "|" || n.text == "^" || n.text == "<<" || n.text == ">>" {
+                if lt != "Int" || rt != "Int" {
+                    self.fail("SEM-003", "operator " + n.text + " needs Int, got " + lt + "/" + rt, n)
+                    return "Error"
+                }
+                return "Int"
+            }
+            if (lt == "Int64" || lt == "Int32" || lt == "Long") && (rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long") {
+                return lt
+            }
+            if (rt == "Int64" || rt == "Int32" || rt == "Long") && (lt == "Int" || lt == "Int32" || lt == "Int64" || lt == "Long") {
+                return rt
+            }
             if lt != "Int" || rt != "Int" {
                 self.fail("SEM-003", "operator " + n.text + " needs Int, got " + lt + "/" + rt, n)
                 return "Error"
             }
             return "Int"
+        }
+        if n.kind == "MethodCall" {
+            return self.checkMethodCall(n)
         }
         if n.kind == "Call" {
             return self.checkCall(n)
@@ -1738,6 +2605,137 @@ class Checker {
         return "Error"
     }
 
+    String checkMethodCall(AstNode n) {
+        if n.kids.length() < 1 {
+            return "Error"
+        }
+        String bt = self.typeOf(n.kids.get(0))
+        if bt == "Any" || bt == "Error" {
+            return bt
+        }
+        String mth = n.text
+        Int argc = n.kids.length() - 1
+        if bt == "Bytes" {
+            if mth == "length" || mth == "get" {
+                return "Int"
+            }
+            if mth == "slice" {
+                return "Bytes"
+            }
+            if mth == "toString" {
+                return "String"
+            }
+            if mth == "set" || mth == "append" || mth == "push" {
+                return "Unit"
+            }
+        }
+        if bt == "Bytes" {
+            if mth == "length" || mth == "get" {
+                return "Int"
+            }
+            if mth == "slice" {
+                return "Bytes"
+            }
+            if mth == "toString" {
+                return "String"
+            }
+            if mth == "set" || mth == "append" || mth == "push" {
+                return "Unit"
+            }
+        }
+        if bt == "String" {
+            if mth == "length" || mth == "indexOf" || mth == "get" {
+                return "Int"
+            }
+            if mth == "substring" {
+                return "String"
+            }
+            if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
+                return "String"
+            }
+            if mth == "startsWith" {
+                return "Bool"
+            }
+            if mth == "split" {
+                return "List<String>"
+            }
+        }
+        if self.isSetType(bt) {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "has" {
+                return "Bool"
+            }
+            if mth == "add" {
+                return "Unit"
+            }
+        }
+        if self.isResultType(bt) {
+            if mth == "isOk" || mth == "isErr" {
+                return "Bool"
+            }
+            if mth == "value" || mth == "unwrapOr" {
+                return self.resultValueType(bt)
+            }
+            if mth == "error" {
+                return self.resultErrorType(bt)
+            }
+        }
+        if self.elementType(bt) != "Any" {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "get" {
+                return self.elementType(bt)
+            }
+            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" {
+                return "Unit"
+            }
+            if mth == "join" {
+                return "String"
+            }
+        }
+        if self.isMapType(bt) {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "put" {
+                return "Unit"
+            }
+            if mth == "getOr" {
+                return self.mapValueType(bt)
+            }
+        }
+        Int mi = self.findMethod(bt, mth)
+        if mi < 0 {
+            self.fail("SEM-001", "undefined method: " + bt + "." + mth, n)
+            return "Error"
+        }
+        String ps = self.methodParams.get(mi)
+        if ps == "" {
+            if argc != 0 {
+                self.fail("SEM-004", mth + " expects 0 arguments, got " + str(argc), n)
+                return "Error"
+            }
+            return self.methodRets.get(mi)
+        }
+        List<String> want = ps.split(",")
+        if want.length() != argc {
+            self.fail("SEM-004", mth + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
+            return "Error"
+        }
+        Int ai = 0
+        while ai < argc && !self.hasError() {
+            String at = self.typeOf(n.kids.get(ai + 1))
+            if at != "Error" && !self.sameType(at, want.get(ai)) {
+                self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
+            }
+            ai = ai + 1
+        }
+        return self.methodRets.get(mi)
+    }
+
     String checkCall(AstNode n) {
         Int argc = n.kids.length()
         if n.text == "diagnoseRaw" {
@@ -1755,6 +2753,22 @@ class Checker {
                 self.typeOf(n.kids.get(0))
             }
             return "Int"
+        }
+        if n.text == "listFiles" {
+            if argc != 1 {
+                self.fail("SEM-004", "listFiles expects 1 argument", n)
+            } else {
+                self.typeOf(n.kids.get(0))
+            }
+            return "String"
+        }
+        if n.text == "readFile" {
+            if argc != 1 {
+                self.fail("SEM-004", "readFile expects 1 argument", n)
+            } else {
+                self.typeOf(n.kids.get(0))
+            }
+            return "String"
         }
         if n.text == "nowMonoRaw" || n.text == "nowWallRaw" {
             if argc != 0 {
@@ -1803,8 +2817,8 @@ class Checker {
                 self.fail("SEM-003", n.text + " requires Result return type", n)
                 return "Error"
             }
-            if argc != 1 {
-                self.fail("SEM-004", n.text + " expects 1 argument, got " + str(argc), n)
+            if argc > 1 {
+                self.fail("SEM-004", n.text + " expects 0 or 1 argument, got " + str(argc), n)
                 return "Error"
             }
             self.typeOf(n.kids.get(0))
@@ -1819,14 +2833,34 @@ class Checker {
                 self.fail("SEM-001", "undefined symbol: " + base, n)
                 return "Error"
             }
+            if bt == "Bytes" {
+                if mth == "fromString" {
+                    return "Bytes"
+                }
+                if mth == "length" || mth == "get" {
+                    return "Int"
+                }
+                if mth == "slice" {
+                    return "Bytes"
+                }
+                if mth == "toString" {
+                    return "String"
+                }
+                if mth == "set" || mth == "append" || mth == "push" {
+                    return "Unit"
+                }
+            }
             if bt == "String" {
-                if mth == "length" {
+                if mth == "length" || mth == "get" {
                     return "Int"
                 }
                 if mth == "indexOf" {
                     return "Int"
                 }
                 if mth == "substring" {
+                    return "String"
+                }
+                if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                     return "String"
                 }
                 if mth == "startsWith" {
@@ -1868,10 +2902,10 @@ class Checker {
                 if mth == "get" {
                     return self.elementType(bt)
                 }
-                if mth == "push" {
+                if mth == "push" || mth == "set" || mth == "insert" {
                     return "Unit"
                 }
-                if mth == "remove" {
+                if mth == "remove" || mth == "insert" {
                     return "Unit"
                 }
                 if mth == "join" {
@@ -1958,7 +2992,7 @@ class Checker {
         Int i = 0
         while i < argc && !self.hasError() {
             String at = self.typeOf(n.kids.get(i))
-            if at != "Error" && at != want.get(i) {
+            if at != "Error" && !self.sameType(at, want.get(i)) {
                 self.fail("SEM-003", "argument " + str(i + 1) + " of " + n.text + ": expected " + want.get(i) + ", got " + at, n)
             }
             i = i + 1
@@ -2037,12 +3071,30 @@ class CGen {
         return ps
     }
 
+    Bool isProtocol(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Protocol" && n.text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     String ctype(String ty) {
+        if ty.length() > 1 && ty.substring(ty.length() - 1, 1) == "?" {
+            return self.ctype(ty.substring(0, ty.length() - 1))
+        }
         if ty == "Int" {
             return "int64_t"
         }
         if ty == "String" {
             return "rt_string *"
+        }
+        if ty == "Bytes" {
+            return "xrt_bytes_obj *"
         }
         if ty == "Bool" {
             return "int"
@@ -2053,11 +3105,14 @@ class CGen {
         if ty == "Double" {
             return "double"
         }
-        if ty == "Long" || ty == "Int64" {
+        if ty == "Long" || ty == "Int64" || ty == "Int32" {
             return "int64_t"
         }
-        if ty == "Void" {
+        if ty == "Void" || ty == "void" {
             return "void"
+        }
+        if ty == "UInt16" {
+            return "int64_t"
         }
         if self.isArray(ty) || ty == "List<Int>" {
             return self.arrayCName(ty) + " *"
@@ -2071,14 +3126,52 @@ class CGen {
         if ty == "Result<Int,String>" {
             return "xn_Result_Int_String"
         }
+        if self.isResult(ty) {
+            return "xn_Result"
+        }
         if self.isClass(ty) {
             return "xn_Cls_" + ty + " *"
         }
         if self.isEnumName(ty) {
             return "int64_t"
         }
+        if self.isProtocol(ty) {
+            return "void *"
+        }
         self.fail("unsupported type: " + ty)
         return "int64_t"
+    }
+
+    Bool isGenericResult(String ty) {
+        return self.isResult(ty) && ty != "Result<Int,String>"
+    }
+
+    String resultInitField(String ty, String val) {
+        String vt = self.resultValue(ty)
+        if vt == "Int" || vt == "Int32" || vt == "Int64" || vt == "Long" || vt == "Bool" || vt == "Char" {
+            return ".i = (int64_t)(" + val + ")"
+        }
+        if vt == "Double" {
+            return ".d = (double)(" + val + ")"
+        }
+        if vt == "String" {
+            return ".s = (rt_string *)(" + val + ")"
+        }
+        return ".p = (void *)(" + val + ")"
+    }
+
+    String resultValueExpr(String ty, String bv) {
+        String vt = self.resultValue(ty)
+        if vt == "Int" || vt == "Int32" || vt == "Int64" || vt == "Long" || vt == "Bool" || vt == "Char" {
+            return "(" + bv + ").i"
+        }
+        if vt == "Double" {
+            return "(" + bv + ").d"
+        }
+        if vt == "String" {
+            return "(" + bv + ").s"
+        }
+        return "(" + bv + ").p"
     }
 
     Bool isResult(String ty) {
@@ -2137,6 +3230,12 @@ class CGen {
             if path == "self" {
                 return self.curClass
             }
+            if path == "Bytes" {
+                return "Bytes"
+            }
+            if self.isClass(path) {
+                return path
+            }
             String vt = self.findVar(path)
             if vt != "Any" {
                 return vt
@@ -2189,8 +3288,11 @@ class CGen {
 
     String arrayCName(String ty) {
         String et = self.elementType(ty)
-        if et == "Int" || et == "Long" || et == "Int64" || self.isEnumName(et) {
+        if et == "Int" || et == "Long" || et == "Int64" || et == "UInt16" || self.isEnumName(et) {
             return "xn_arr_i"
+        }
+        if et == "Double" {
+            return "xn_arr_d"
         }
         if et == "String" {
             return "xn_arr_s"
@@ -2207,7 +3309,12 @@ class CGen {
     }
 
     String arrayGet(String ty, String arr, String idx) {
-        return self.arrayCName(ty) + "_get(" + arr + ", " + idx + ")"
+        String ac = self.arrayCName(ty)
+        String call = ac + "_get(" + arr + ", " + idx + ")"
+        if ac == "xn_arr_o" {
+            return "((xn_Cls_" + self.elementType(ty) + " *)" + call + ")"
+        }
+        return call
     }
 
     String nameExpr(String name) {
@@ -2311,6 +3418,25 @@ class CGen {
         return "Any"
     }
 
+    Bool isStaticMethod(String cls, String mname) {
+        AstNode c = self.classNode(cls)
+        Int i = 0
+        while i < c.kids.length() {
+            AstNode k = c.kids.get(i)
+            if k.kind == "Method" && k.text == mname {
+                Int j = 0
+                while j < k.kids.length() {
+                    if k.kids.get(j).kind == "Static" {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     String methodRet(String cls, String mname) {
         AstNode c = self.classNode(cls)
         Int i = 0
@@ -2348,18 +3474,296 @@ class CGen {
         }
     }
 
+    String methodType(String bt, String mth, AstNode n) {
+        if bt == "String" {
+            if mth == "length" || mth == "indexOf" || mth == "get" {
+                return "Int"
+            }
+            if mth == "substring" {
+                return "String"
+            }
+            if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
+                return "String"
+            }
+            if mth == "startsWith" {
+                return "Bool"
+            }
+            if mth == "split" {
+                return "List<String>"
+            }
+        }
+        if self.isSet(bt) {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "has" {
+                return "Bool"
+            }
+            if mth == "add" {
+                return "Unit"
+            }
+        }
+        if self.isResult(bt) {
+            if mth == "isOk" || mth == "isErr" {
+                return "Bool"
+            }
+            if mth == "value" || mth == "unwrapOr" {
+                return self.resultValue(bt)
+            }
+            if mth == "error" {
+                return "String"
+            }
+        }
+        if self.isArray(bt) {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "get" {
+                return self.elementType(bt)
+            }
+            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" {
+                return "Unit"
+            }
+            if mth == "join" {
+                return "String"
+            }
+        }
+        if self.isMap(bt) {
+            if mth == "length" {
+                return "Int"
+            }
+            if mth == "put" {
+                return "Unit"
+            }
+            if mth == "getOr" {
+                return self.mapValue(bt)
+            }
+        }
+        return self.methodRet(bt, mth)
+    }
+
+    String methodExpr(String bv, String bt, String mth, AstNode n, Int off) {
+        if bt == "Bytes" {
+            if mth == "length" {
+                return "((int64_t)xrt_bytes_len(" + bv + "))"
+            }
+            if mth == "get" {
+                return "((int64_t)xrt_bytes_get(" + bv + ", " + self.expr(n.kids.get(off)) + "))"
+            }
+            if mth == "slice" {
+                return "xrt_bytes_slice(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "set" {
+                return "xrt_bytes_set(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "append" {
+                return "xrt_bytes_append(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+            }
+            if mth == "push" {
+                return "xrt_bytes_push(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+            }
+            if mth == "toString" {
+                return "rt_string_from_c((const char *)xrt_bytes_data(" + bv + "))"
+            }
+        }
+        if bt == "String" {
+            if mth == "length" {
+                return "((int64_t)" + bv + "->len)"
+            }
+            if mth == "get" {
+                if n.kids.length() > off {
+                    return "((int64_t)(unsigned char)" + bv + "->bytes[" + self.expr(n.kids.get(off)) + "])"
+                }
+                return "0"
+            }
+            if mth == "indexOf" {
+                if n.kids.length() > off {
+                    return "xn_str_indexof(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "-1"
+            }
+            if mth == "substring" {
+                if n.kids.length() > off + 1 {
+                    return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+                }
+                return "rt_string_from_c(\"\")"
+            }
+            if mth == "trim" {
+                return "xn_str_trim(" + bv + ")"
+            }
+            if mth == "toUpper" || mth == "toLower" {
+                String up = "0"
+                if mth == "toUpper" {
+                    up = "1"
+                }
+                return "xn_str_case(" + bv + ", " + up + ")"
+            }
+            if mth == "replace" && n.kids.length() > off + 1 {
+                return "xn_str_replace(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "startsWith" {
+                if n.kids.length() > off {
+                    return "xn_str_startswith(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+            if mth == "split" {
+                if n.kids.length() > off {
+                    return "xn_str_split(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "xn_arr_s_new(4)"
+            }
+        }
+        if self.isSet(bt) {
+            if mth == "length" {
+                return "((int64_t)" + bv + "->len)"
+            }
+            if mth == "has" {
+                if n.kids.length() > off {
+                    return "xn_set_i_has(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+            if mth == "add" {
+                if n.kids.length() > off {
+                    return "xn_set_i_add(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+        }
+        if self.isResult(bt) {
+            if mth == "isOk" {
+                return "((" + bv + ").ok != 0)"
+            }
+            if mth == "isErr" {
+                return "((" + bv + ").ok == 0)"
+            }
+            if mth == "value" {
+                if self.isGenericResult(bt) {
+                    return self.resultValueExpr(bt, bv)
+                }
+                return "((" + bv + ").value)"
+            }
+            if mth == "error" {
+                if self.isGenericResult(bt) {
+                    return "((" + bv + ").err)"
+                }
+                return "((" + bv + ").error)"
+            }
+            if mth == "unwrapOr" {
+                String d = "0"
+                if n.kids.length() > off {
+                    d = self.expr(n.kids.get(off))
+                }
+                if self.isGenericResult(bt) {
+                    return "((" + bv + ").ok ? " + self.resultValueExpr(bt, bv) + " : " + d + ")"
+                }
+                return "((" + bv + ").ok ? (" + bv + ").value : " + d + ")"
+            }
+        }
+        if self.isArray(bt) {
+            if mth == "length" {
+                return "((int64_t)" + bv + "->len)"
+            }
+            if mth == "get" {
+                if n.kids.length() > off {
+                    return self.arrayGet(bt, bv, self.expr(n.kids.get(off)))
+                }
+                return "0"
+            }
+            if mth == "push" {
+                if n.kids.length() > off {
+                    return self.arrayPush(bt, bv, self.expr(n.kids.get(off)))
+                }
+                return "0"
+            }
+            if mth == "set" {
+                if n.kids.length() > off + 1 {
+                    return self.arrayCName(bt) + "_set(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+                }
+                return "0"
+            }
+            if mth == "insert" {
+                if n.kids.length() > off + 1 {
+                    return self.arrayCName(bt) + "_insert(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+                }
+                return "0"
+            }
+            if mth == "remove" {
+                if n.kids.length() > off {
+                    return self.arrayCName(bt) + "_remove(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+            if mth == "join" {
+                if n.kids.length() > off {
+                    return "xn_arr_s_join(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "rt_string_from_c(\"\")"
+            }
+        }
+        if self.isMap(bt) {
+            if mth == "length" {
+                return "((int64_t)" + bv + "->len)"
+            }
+            if mth == "put" && n.kids.length() > off + 1 {
+                return "xn_map_s_i_put(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "getOr" && n.kids.length() > off + 1 {
+                return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+        }
+        String b = "xn_Cls_" + bt + "_" + mth + "(" + bv
+        Int i = off
+        while i < n.kids.length() {
+            b = b + ", " + self.expr(n.kids.get(i))
+            i = i + 1
+        }
+        return b + ")"
+    }
+
+    String fnRet(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && n.text == name {
+                return self.retNode(n).text
+            }
+            i = i + 1
+        }
+        return "Any"
+    }
+
     String typeOf(AstNode n) {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Double" {
+            return "Double"
+        }
         if n.kind == "String" {
             return "String"
+        }
+        if n.kind == "Null" {
+            return "Null"
         }
         if n.kind == "Bool" {
             return "Bool"
         }
         if n.kind == "Char" {
             return "Char"
+        }
+        if n.kind == "Ternary" {
+            if n.kids.length() < 3 {
+                return "Any"
+            }
+            return self.typeOf(n.kids.get(1))
+        }
+        if n.kind == "Cast" {
+            return n.text
+        }
+        if n.kind == "Is" {
+            return "Bool"
         }
         if n.kind == "Unary" {
             if n.kids.length() == 0 {
@@ -2417,6 +3821,9 @@ class CGen {
             if n.text == "+" && self.typeOf(n.kids.get(0)) == "String" {
                 return "String"
             }
+            if self.typeOf(n.kids.get(0)) == "Double" || self.typeOf(n.kids.get(1)) == "Double" {
+                return "Double"
+            }
             return "Int"
         }
         if n.kind == "Try" {
@@ -2425,7 +3832,16 @@ class CGen {
             }
             return self.resultValue(self.typeOf(n.kids.get(0)))
         }
+        if n.kind == "MethodCall" {
+            if n.kids.length() < 1 {
+                return "Any"
+            }
+            return self.methodType(self.typeOf(n.kids.get(0)), n.text, n)
+        }
         if n.kind == "Call" {
+            if n.text == "readFile" || n.text == "listFiles" {
+                return "String"
+            }
             if n.text == "diagnoseRaw" || n.text == "exitRaw" || n.text == "resourceExistsRaw" || n.text == "resourceCountRaw" || n.text == "fileExistsRaw" {
                 return "Int"
             }
@@ -2452,11 +3868,31 @@ class CGen {
                 String base = n.text.substring(0, dot)
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
                 String bt = self.pathType(base)
+                if bt == "Bytes" {
+                    if mth == "fromString" {
+                        return "Bytes"
+                    }
+                    if mth == "length" || mth == "get" {
+                        return "Int"
+                    }
+                    if mth == "slice" || mth == "toString" {
+                        return "Bytes"
+                    }
+                    if mth == "set" || mth == "append" || mth == "push" {
+                        return "Unit"
+                    }
+                }
                 if bt == "String" {
-                    if mth == "length" || mth == "indexOf" {
+                    if mth == "length" || mth == "indexOf" || mth == "get" {
                         return "Int"
                     }
                     if mth == "substring" {
+                        return "String"
+                    }
+                    if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
+                        return "String"
+                    }
+                    if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                         return "String"
                     }
                     if mth == "startsWith" {
@@ -2518,6 +3954,10 @@ class CGen {
                     return mr
                 }
             }
+            String fr = self.fnRet(n.text)
+            if fr != "Any" {
+                return fr
+            }
             return "Any"
         }
         if n.kind == "Member" {
@@ -2540,8 +3980,14 @@ class CGen {
         if n.kind == "Int" {
             return n.text
         }
+        if n.kind == "Double" {
+            return n.text
+        }
         if n.kind == "String" {
             return "rt_string_from_c(" + n.text + ")"
+        }
+        if n.kind == "Null" {
+            return "0"
         }
         if n.kind == "Bool" {
             if n.text == "true" {
@@ -2551,6 +3997,24 @@ class CGen {
         }
         if n.kind == "Char" {
             return n.text
+        }
+        if n.kind == "Ternary" {
+            if n.kids.length() < 3 {
+                return "0"
+            }
+            return "((" + self.expr(n.kids.get(0)) + ") ? (" + self.expr(n.kids.get(1)) + ") : (" + self.expr(n.kids.get(2)) + "))"
+        }
+        if n.kind == "Cast" {
+            if n.kids.length() == 0 {
+                return "0"
+            }
+            return "((" + self.ctype(n.text) + ")" + self.expr(n.kids.get(0)) + ")"
+        }
+        if n.kind == "Is" {
+            if n.kids.length() == 0 {
+                return "0"
+            }
+            return "1"
         }
         if n.kind == "Unary" {
             if n.kids.length() == 0 {
@@ -2588,7 +4052,23 @@ class CGen {
             if n.text == "+" && lt == "String" && rt == "String" {
                 return "xn_concat(" + a + ", " + b + ")"
             }
+            if lt == "String" && rt == "String" {
+                if n.text == "==" {
+                    return "xn_str_eq(" + a + ", " + b + ")"
+                }
+                if n.text == "!=" {
+                    return "(!xn_str_eq(" + a + ", " + b + "))"
+                }
+            }
             return "(" + a + " " + n.text + " " + b + ")"
+        }
+        if n.kind == "MethodCall" {
+            if n.kids.length() < 1 {
+                return "0"
+            }
+            String bv = self.expr(n.kids.get(0))
+            String bt = self.typeOf(n.kids.get(0))
+            return self.methodExpr(bv, bt, n.text, n, 1)
         }
         if n.kind == "Call" {
             Int ffi = ffiIndex(n.text)
@@ -2603,6 +4083,20 @@ class CGen {
                     fi = fi + 1
                 }
                 return b + ")"
+            }
+            if n.text == "listFiles" {
+                String a = "rt_string_from_c(\"\")"
+                if n.kids.length() > 0 {
+                    a = self.expr(n.kids.get(0))
+                }
+                return "rt_string_from_c(mini_list_x(" + a + "->bytes, " + a + "->len))"
+            }
+            if n.text == "readFile" {
+                String a = "rt_string_from_c(\"\")"
+                if n.kids.length() > 0 {
+                    a = self.expr(n.kids.get(0))
+                }
+                return "rt_string_from_c(mini_read_file(" + a + "->bytes, " + a + "->len))"
             }
             if n.text == "diagnoseRaw" {
                 String a = "rt_string_from_c(\"\")"
@@ -2656,12 +4150,18 @@ class CGen {
                 if n.kids.length() > 0 {
                     a = self.expr(n.kids.get(0))
                 }
+                if self.isGenericResult(self.curRet) {
+                    return "(xn_Result){ .ok = 1, " + self.resultInitField(self.curRet, a) + " }"
+                }
                 return "(" + self.ctype(self.curRet) + "){1, " + a + ", 0}"
             }
             if n.text == "Err" {
                 String a = "rt_string_from_c(\"\")"
                 if n.kids.length() > 0 {
                     a = self.expr(n.kids.get(0))
+                }
+                if self.isGenericResult(self.curRet) {
+                    return "(xn_Result){ .ok = 0, .err = (void *)(" + a + ") }"
                 }
                 return "(" + self.ctype(self.curRet) + "){0, 0, " + a + "}"
             }
@@ -2677,6 +4177,9 @@ class CGen {
                 if at == "Int" || at == "Long" || at == "Int64" {
                     return "xn_print_int(" + av + ")"
                 }
+                if at == "Double" {
+                    return "xn_print_double(" + av + ")"
+                }
                 if at == "Bool" {
                     return "xn_print_bool(" + av + ")"
                 }
@@ -2691,6 +4194,9 @@ class CGen {
                 if at == "String" {
                     return av
                 }
+                if at == "Double" {
+                    return "xn_str_double(" + av + ")"
+                }
                 return "xn_str_int(" + av + ")"
             }
             Int dot = lastDot(n.text)
@@ -2699,9 +4205,44 @@ class CGen {
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
                 String bv = self.pathExpr(base)
                 String bt = self.pathType(base)
+                if bt == "Bytes" {
+                    if mth == "fromString" {
+                        if n.kids.length() > 0 {
+                            return "xrt_bytes_from_string(" + self.expr(n.kids.get(0)) + "->bytes, " + self.expr(n.kids.get(0)) + "->len)"
+                        }
+                        return "xrt_bytes_new()"
+                    }
+                    if mth == "length" {
+                        return "((int64_t)xrt_bytes_len(" + bv + "))"
+                    }
+                    if mth == "get" {
+                        return "((int64_t)xrt_bytes_get(" + bv + ", " + self.expr(n.kids.get(0)) + "))"
+                    }
+                    if mth == "slice" {
+                        return "xrt_bytes_slice(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                    }
+                    if mth == "set" {
+                        return "xrt_bytes_set(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                    }
+                    if mth == "append" {
+                        return "xrt_bytes_append(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                    }
+                    if mth == "push" {
+                        return "xrt_bytes_push(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                    }
+                    if mth == "toString" {
+                        return "rt_string_from_c((const char *)xrt_bytes_data(" + bv + "))"
+                    }
+                }
                 if bt == "String" {
                     if mth == "length" {
                         return "((int64_t)" + bv + "->len)"
+                    }
+                    if mth == "get" {
+                        if n.kids.length() > 0 {
+                            return "((int64_t)(unsigned char)" + bv + "->bytes[" + self.expr(n.kids.get(0)) + "])"
+                        }
+                        return "0"
                     }
                     if mth == "indexOf" {
                         if n.kids.length() > 0 {
@@ -2714,6 +4255,19 @@ class CGen {
                             return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "rt_string_from_c(\"\")"
+                    }
+                    if mth == "trim" {
+                        return "xn_str_trim(" + bv + ")"
+                    }
+                    if mth == "toUpper" || mth == "toLower" {
+                        String up = "0"
+                        if mth == "toUpper" {
+                            up = "1"
+                        }
+                        return "xn_str_case(" + bv + ", " + up + ")"
+                    }
+                    if mth == "replace" && n.kids.length() > 1 {
+                        return "xn_str_replace(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                     }
                     if mth == "startsWith" {
                         if n.kids.length() > 0 {
@@ -2753,15 +4307,24 @@ class CGen {
                         return "((" + bv + ").ok == 0)"
                     }
                     if mth == "value" {
+                        if self.isGenericResult(bt) {
+                            return self.resultValueExpr(bt, bv)
+                        }
                         return "((" + bv + ").value)"
                     }
                     if mth == "error" {
+                        if self.isGenericResult(bt) {
+                            return "((" + bv + ").err)"
+                        }
                         return "((" + bv + ").error)"
                     }
                     if mth == "unwrapOr" {
                         String d = "0"
                         if n.kids.length() > 0 {
                             d = self.expr(n.kids.get(0))
+                        }
+                        if self.isGenericResult(bt) {
+                            return "((" + bv + ").ok ? " + self.resultValueExpr(bt, bv) + " : " + d + ")"
                         }
                         return "((" + bv + ").ok ? (" + bv + ").value : " + d + ")"
                     }
@@ -2779,6 +4342,18 @@ class CGen {
                     if mth == "push" {
                         if n.kids.length() > 0 {
                             return self.arrayPush(bt, bv, self.expr(n.kids.get(0)))
+                        }
+                        return "0"
+                    }
+                    if mth == "set" {
+                        if n.kids.length() > 1 {
+                            return self.arrayCName(bt) + "_set(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "insert" {
+                        if n.kids.length() > 1 {
+                            return self.arrayCName(bt) + "_insert(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "0"
                     }
@@ -2812,10 +4387,22 @@ class CGen {
                         return "0"
                     }
                 }
-                String b = "xn_Cls_" + bt + "_" + mth + "(" + bv
+                String b = "xn_Cls_" + bt + "_" + mth + "("
+                if self.isClass(bt) && !self.isStaticMethod(bt, mth) {
+                    b = b + bv
+                }
                 Int di = 0
+                Bool firstArg = !(self.isClass(bt) && !self.isStaticMethod(bt, mth))
+                if self.isClass(bt) && self.isStaticMethod(bt, mth) {
+                    firstArg = true
+                }
                 while di < n.kids.length() {
-                    b = b + ", " + self.expr(n.kids.get(di))
+                    if firstArg {
+                        firstArg = false
+                    } else {
+                        b = b + ", "
+                    }
+                    b = b + self.expr(n.kids.get(di))
                     di = di + 1
                 }
                 return b + ")"
@@ -2922,6 +4509,16 @@ class CGen {
         }
         if st.kind == "Continue" {
             self.emit(indent + "continue;")
+            return
+        }
+        if st.kind == "Throw" {
+            if st.kids.length() > 0 {
+                String v = self.expr(st.kids.get(0))
+                self.emit(indent + "rt_fatal(" + v + "->bytes);")
+            } else {
+                self.emit(indent + "rt_fatal(\"throw\");")
+            }
+            self.emit(indent + "abort();")
             return
         }
         if st.kind == "Assign" {
@@ -3070,15 +4667,37 @@ class CGen {
         self.popTo(mark)
     }
 
+    Bool methodStatic(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Static" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
     String methodSig(AstNode m, String cls) {
         String ret = self.ctype(self.retNode(m).text)
-        String sig = "static " + ret + " xn_Cls_" + cls + "_" + m.text + "(xn_Cls_" + cls + " *self"
+        Bool st = self.methodStatic(m)
+        String sig = "static " + ret + " xn_Cls_" + cls + "_" + m.text + "("
         List<AstNode> ps = self.paramsOf(m)
+        if st {
+            if ps.length() == 0 {
+                sig = sig + "void"
+            }
+        } else {
+            sig = sig + "xn_Cls_" + cls + " *self"
+        }
         Int i = 0
         while i < ps.length() {
             List<String> parts = ps.get(i).text.split(" ")
             if parts.length() >= 2 {
-                sig = sig + ", " + self.ctype(parts.get(0)) + " " + parts.get(1)
+                if !st || i > 0 {
+                    sig = sig + ", "
+                }
+                sig = sig + self.ctype(parts.get(0)) + " " + parts.get(1)
             }
             i = i + 1
         }
@@ -3128,7 +4747,7 @@ class CGen {
 
     Void genClass(AstNode cls) {
         String cn = cls.text
-        self.emit("typedef struct xn_Cls_" + cn + " {")
+        self.emit("struct xn_Cls_" + cn + " {")
         self.emit("  rt_header hdr;")
         Int i = 0
         while i < cls.kids.length() {
@@ -3141,7 +4760,7 @@ class CGen {
             }
             i = i + 1
         }
-        self.emit("} xn_Cls_" + cn + ";")
+        self.emit("};")
         self.emit("")
         self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), NULL, NULL };")
         self.emit("")
@@ -3197,6 +4816,7 @@ class CGen {
         }
         if ctor.kind == "Ctor" {
             self.curClass = cn
+            self.emit("  xn_Cls_" + cn + " *self = o;")
             self.popTo(0)
             Int pi = 0
             while pi < cps.length() {
@@ -3319,10 +4939,13 @@ class CGen {
         self.emit("")
         self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }")
         self.emit("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }")
+        self.emit("static void xn_print_double(double v) { printf(\"%g\\n\", v); }")
         self.emit("static void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }")
         self.emit("static rt_string *xn_str_int(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)v); return rt_string_from_c(buf); }")
+        self.emit("static rt_string *xn_str_double(double v) { char buf[64]; snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) { if (start < 0) { start = 0; } if (n < 0) { n = 0; } if ((size_t)start > s->len) { start = (int64_t)s->len; } if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; } rt_string *out = rt_string_alloc((size_t)n); if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); } out->bytes[n] = 0; return out; }")
         self.emit("static int64_t xn_str_indexof(rt_string *s, rt_string *sub) { if (sub->len == 0) { return 0; } if (sub->len > s->len) { return -1; } for (size_t i = 0; i + sub->len <= s->len; i++) { if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; } } return -1; }")
+        self.emit("static int xn_str_eq(rt_string *a, rt_string *b) { return (a->len == b->len && memcmp(a->bytes, b->bytes, a->len) == 0) ? 1 : 0; }")
         self.emit("static rt_string *xn_concat(rt_string *a, rt_string *b) { size_t n = a->len + b->len; rt_string *r = rt_string_alloc(n); memcpy(r->bytes, a->bytes, a->len); memcpy(r->bytes + a->len, b->bytes, b->len); r->bytes[n] = 0; return r; }")
         self.emit("")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_arr_i;")
@@ -3331,19 +4954,36 @@ class CGen {
         self.emit("static void xn_arr_i_push(xn_arr_i *a, int64_t v) { if (a->len == a->cap) { a->cap *= 2; a->data = (int64_t *)realloc(a->data, sizeof(int64_t) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }")
         self.emit("static int64_t xn_arr_i_get(const xn_arr_i *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }")
         self.emit("static void xn_arr_i_remove(xn_arr_i *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
+        self.emit("static void xn_arr_i_set(xn_arr_i *a, int64_t i, int64_t v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
+        self.emit("static void xn_arr_i_insert(xn_arr_i *a, int64_t i, int64_t v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (int64_t *)realloc(a->data, sizeof(int64_t) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
+        self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; double *data; } xn_arr_d;")
+        self.emit("static const rt_type RT_TYPE_XN_ARR_D = { \"List\", sizeof(xn_arr_d), NULL, NULL };")
+        self.emit("static xn_arr_d *xn_arr_d_new(size_t cap) { xn_arr_d *a = (xn_arr_d *)rt_gc_new(&RT_TYPE_XN_ARR_D); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_d) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (double *)malloc(sizeof(double) * a->cap); if (a->data == NULL) { abort(); } return a; }")
+        self.emit("static void xn_arr_d_push(xn_arr_d *a, double v) { if (a->len == a->cap) { a->cap *= 2; a->data = (double *)realloc(a->data, sizeof(double) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }")
+        self.emit("static double xn_arr_d_get(const xn_arr_d *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }")
+        self.emit("static void xn_arr_d_remove(xn_arr_d *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
+        self.emit("static void xn_arr_d_set(xn_arr_d *a, int64_t i, double v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
+        self.emit("static void xn_arr_d_insert(xn_arr_d *a, int64_t i, double v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (double *)realloc(a->data, sizeof(double) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; rt_string **data; } xn_arr_s;")
         self.emit("static const rt_type RT_TYPE_XN_ARR_S = { \"List\", sizeof(xn_arr_s), NULL, NULL };")
         self.emit("static xn_arr_s *xn_arr_s_new(size_t cap) { xn_arr_s *a = (xn_arr_s *)rt_gc_new(&RT_TYPE_XN_ARR_S); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_s) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (rt_string **)malloc(sizeof(rt_string *) * a->cap); if (a->data == NULL) { abort(); } return a; }")
         self.emit("static void xn_arr_s_push(xn_arr_s *a, rt_string *v) { if (a->len == a->cap) { a->cap *= 2; a->data = (rt_string **)realloc(a->data, sizeof(rt_string *) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }")
         self.emit("static rt_string *xn_arr_s_get(const xn_arr_s *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }")
         self.emit("static void xn_arr_s_remove(xn_arr_s *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
+        self.emit("static void xn_arr_s_set(xn_arr_s *a, int64_t i, rt_string *v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
+        self.emit("static void xn_arr_s_insert(xn_arr_s *a, int64_t i, rt_string *v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (rt_string **)realloc(a->data, sizeof(rt_string *) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; void **data; } xn_arr_o;")
         self.emit("static const rt_type RT_TYPE_XN_ARR_O = { \"List\", sizeof(xn_arr_o), NULL, NULL };")
         self.emit("static xn_arr_o *xn_arr_o_new(size_t cap) { xn_arr_o *a = (xn_arr_o *)rt_gc_new(&RT_TYPE_XN_ARR_O); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_o) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (void **)malloc(sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } return a; }")
         self.emit("static void xn_arr_o_push(xn_arr_o *a, void *v) { if (a->len == a->cap) { a->cap *= 2; a->data = (void **)realloc(a->data, sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }")
         self.emit("static void *xn_arr_o_get(const xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }")
         self.emit("static void xn_arr_o_remove(xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
+        self.emit("static void xn_arr_o_set(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
+        self.emit("static void xn_arr_o_insert(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (void **)realloc(a->data, sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("static int xn_str_startswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes, p->bytes, p->len) == 0 ? 1 : 0; }")
+        self.emit("static rt_string *xn_str_trim(rt_string *s) { size_t a = 0, b = s->len; while (a < b && (s->bytes[a] == ' ' || s->bytes[a] == '\\t' || s->bytes[a] == '\\n' || s->bytes[a] == '\\r')) { a++; } while (b > a && (s->bytes[b-1] == ' ' || s->bytes[b-1] == '\\t' || s->bytes[b-1] == '\\n' || s->bytes[b-1] == '\\r')) { b--; } rt_string *r = rt_string_alloc(b - a); if (b > a) { memcpy(r->bytes, s->bytes + a, b - a); } r->bytes[b-a] = 0; return r; }")
+        self.emit("static rt_string *xn_str_case(rt_string *s, int upper) { rt_string *r = rt_string_alloc(s->len); for (size_t i = 0; i < s->len; i++) { unsigned char c = (unsigned char)s->bytes[i]; if (upper && c >= 'a' && c <= 'z') { c = (unsigned char)(c - 32); } else if (!upper && c >= 'A' && c <= 'Z') { c = (unsigned char)(c + 32); } r->bytes[i] = (char)c; } r->bytes[s->len] = 0; return r; }")
+        self.emit("static rt_string *xn_str_replace(rt_string *s, rt_string *from, rt_string *to) { if (from->len == 0) { return s; } size_t cap = s->len + 8, n = 0; char *buf = (char *)malloc(cap); if (buf == NULL) { abort(); } for (size_t i = 0; i < s->len; ) { if (i + from->len <= s->len && memcmp(s->bytes + i, from->bytes, from->len) == 0) { while (n + to->len + 1 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } memcpy(buf + n, to->bytes, to->len); n += to->len; i += from->len; } else { while (n + 2 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } buf[n++] = s->bytes[i++]; } } buf[n] = 0; rt_string *r = rt_string_from_c(buf); free(buf); return r; }")
         self.emit("static xn_arr_s *xn_str_split(rt_string *s, rt_string *sep) { xn_arr_s *out = xn_arr_s_new(4); if (sep->len == 0) { xn_arr_s_push(out, s); return out; } size_t start = 0; size_t i = 0; while (i + sep->len <= s->len) { if (memcmp(s->bytes + i, sep->bytes, sep->len) == 0) { size_t n = i - start; rt_string *p = rt_string_alloc(n); if (n > 0) { memcpy(p->bytes, s->bytes + start, n); } p->bytes[n] = 0; xn_arr_s_push(out, p); i = i + sep->len; start = i; } else { i++; } } { size_t n = s->len - start; rt_string *p = rt_string_alloc(n); if (n > 0) { memcpy(p->bytes, s->bytes + start, n); } p->bytes[n] = 0; xn_arr_s_push(out, p); } return out; }")
         self.emit("static rt_string *xn_arr_s_join(xn_arr_s *a, rt_string *sep) { size_t n = 0; for (size_t i = 0; i < a->len; i++) { n += a->data[i]->len; if (i > 0) { n += sep->len; } } rt_string *r = rt_string_alloc(n); size_t off = 0; for (size_t i = 0; i < a->len; i++) { if (i > 0) { memcpy(r->bytes + off, sep->bytes, sep->len); off += sep->len; } memcpy(r->bytes + off, a->data[i]->bytes, a->data[i]->len); off += a->data[i]->len; } r->bytes[n] = 0; return r; }")
         self.emit("")
@@ -3360,6 +5000,8 @@ class CGen {
         self.emit("static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }")
         self.emit("static void xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; }")
         self.emit("")
+        self.emit("const char *mini_read_file(const char *path, size_t len);")
+        self.emit("const char *mini_list_x(const char *path, size_t len);")
         self.emit("static const char *mini_platform(void) { return \"darwin\"; }")
         self.emit("static int32_t mini_file_exists(const char *path_bytes, size_t path_len) { char *p = (char *)malloc(path_len + 1); if (p == NULL) { return 0; } memcpy(p, path_bytes, path_len); p[path_len] = 0; int ok = access(p, F_OK) == 0; free(p); return ok ? 1 : 0; }")
         self.emit("int32_t xdkc_p_resource_exists(const char *path, size_t len);")
@@ -3370,8 +5012,27 @@ class CGen {
         self.emit("int64_t xdkc_now_mono_ms(void);")
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
+        self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
         self.emit("")
         Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" || n.kind == "Struct" {
+                self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
+            }
+            i = i + 1
+        }
+        self.emit("")
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && !hasTypeParams(n) {
+                self.emit(self.funcProto(n))
+            }
+            i = i + 1
+        }
+        self.emit("")
+        i = 0
         while i < self.program.kids.length() && !self.hasError() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Enum" {
@@ -3384,7 +5045,7 @@ class CGen {
                     j = j + 1
                 }
             }
-            if n.kind == "Class" || n.kind == "Struct" {
+            if (n.kind == "Class" || n.kind == "Struct") && !hasTypeParams(n) {
                 self.genClass(n)
             }
             i = i + 1
@@ -3433,15 +5094,6 @@ class CGen {
         self.emit("}")
         self.emit("")
         i = 0
-        while i < self.program.kids.length() {
-            AstNode n = self.program.kids.get(i)
-            if n.kind == "Func" && !hasTypeParams(n) {
-                self.emit(self.funcProto(n))
-            }
-            i = i + 1
-        }
-        self.emit("")
-        i = 0
         while i < self.program.kids.length() && !self.hasError() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Func" && !hasTypeParams(n) {
@@ -3449,10 +5101,29 @@ class CGen {
             }
             i = i + 1
         }
-        self.emit("int main(void) {")
+        Bool mainArgs = false
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && n.text == "main" && self.paramsOf(n).length() > 0 {
+                mainArgs = true
+            }
+            i = i + 1
+        }
+        if mainArgs {
+            self.emit("int main(int argc, char **argv) {")
+        } else {
+            self.emit("int main(void) {")
+        }
         self.emit("  xrt_runtime_init();")
         self.emit("  xn_init_globals();")
-        self.emit("  int64_t xn_result = xn_main();")
+        if mainArgs {
+            self.emit("  xn_arr_s *args = xn_arr_s_new(argc > 1 ? (size_t)(argc - 1) : 1);")
+            self.emit("  for (int ai = 1; ai < argc; ai++) { xn_arr_s_push(args, rt_string_from_c(argv[ai])); }")
+            self.emit("  int64_t xn_result = xn_main(args);")
+        } else {
+            self.emit("  int64_t xn_result = xn_main();")
+        }
         self.emit("  rt_gc_collect();")
         self.emit("  return (int)xn_result;")
         self.emit("}")
@@ -3485,6 +5156,10 @@ static Bool starts(String s, Int i, String lit) {
 static Bool isDigit(String c) {
     return c == "0" || c == "1" || c == "2" || c == "3" || c == "4" ||
         c == "5" || c == "6" || c == "7" || c == "8" || c == "9"
+}
+static Bool isHex(String c) {
+    return isDigit(c) || c == "a" || c == "b" || c == "c" || c == "d" || c == "e" || c == "f" ||
+        c == "A" || c == "B" || c == "C" || c == "D" || c == "E" || c == "F"
 }
 
 static Bool isLower(String c) {
@@ -3600,17 +5275,43 @@ static List<Token> lex(String src) {
         }
 
         if isDigit(c) {
+            if c == "0" && i + 1 < src.length() && (at(src, i + 1) == "x" || at(src, i + 1) == "X") {
+                i = i + 2
+                col = col + 2
+                while i < src.length() && isHex(at(src, i)) {
+                    i = i + 1
+                    col = col + 1
+                }
+                tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+                continue
+            }
             i = i + 1
             col = col + 1
             while i < src.length() && isDigit(at(src, i)) {
                 i = i + 1
                 col = col + 1
             }
-            tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+            Bool isDouble = false
+            if i < src.length() && at(src, i) == "." && i + 1 < src.length() && isDigit(at(src, i + 1)) {
+                isDouble = true
+                i = i + 1
+                col = col + 1
+                while i < src.length() && isDigit(at(src, i)) {
+                    i = i + 1
+                    col = col + 1
+                }
+            }
+            if isDouble {
+                tokens.push(new Token("double", src.substring(start, i - start), startLine, startCol))
+            } else {
+                tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+            }
             continue
         }
 
+        Bool interp = false
         if c == "$" && next == "\"" {
+            interp = true
             i = i + 1
             col = col + 1
             c = "\""
@@ -3645,7 +5346,11 @@ static List<Token> lex(String src) {
                 tokens.push(new Token("error", "unterminated string", startLine, startCol))
                 return tokens
             }
-            tokens.push(new Token("string", src.substring(start, i - start), startLine, startCol))
+            if interp {
+                tokens.push(new Token("interp", src.substring(start, i - start), startLine, startCol))
+            } else {
+                tokens.push(new Token("string", src.substring(start, i - start), startLine, startCol))
+            }
             continue
         }
 
@@ -3685,6 +5390,7 @@ static List<Token> lex(String src) {
         String op = c
         if starts(src, i, "==") || starts(src, i, "!=") ||
             starts(src, i, "<=") || starts(src, i, ">=") ||
+            starts(src, i, "<<") || starts(src, i, ">>") ||
             starts(src, i, "&&") || starts(src, i, "||") ||
             starts(src, i, "->") || starts(src, i, "=>") ||
             starts(src, i, "::") || starts(src, i, "..") ||
@@ -3698,7 +5404,7 @@ static List<Token> lex(String src) {
             c == "[" || c == "]" || c == "," || c == ";" || c == ":" ||
             c == "." || c == "+" || c == "-" || c == "*" || c == "/" ||
             c == "%" || c == "=" || c == "<" || c == ">" || c == "!" ||
-            c == "&" || c == "|" || c == "?" || c == "@" {
+            c == "&" || c == "|" || c == "^" || c == "?" || c == "@" {
             i = i + 1
             col = col + 1
         } else {
@@ -3819,6 +5525,91 @@ static String xdkFile(String pkg) {
     return ""
 }
 
+static Bool endsWithX(String s) {
+    return s.length() >= 2 && s.substring(s.length() - 2, 2) == ".x"
+}
+
+static String dirName(String path) {
+    Int i = path.length() - 1
+    while i >= 0 {
+        if path.substring(i, 1) == "/" {
+            return path.substring(0, i)
+        }
+        i = i - 1
+    }
+    return "."
+}
+
+static Bool loaded(String path) {
+    Int i = 0
+    while i < loadedFiles.length() {
+        if loadedFiles.get(i) == path {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
+static Void mergeDecls(AstNode program, AstNode parsed) {
+    Int i = 0
+    while i < parsed.kids.length() {
+        AstNode d = parsed.kids.get(i)
+        if d.kind != "Package" && d.kind != "Import" {
+            program.add(d)
+        }
+        i = i + 1
+    }
+}
+
+static Void loadUnit(String path, AstNode program) {
+    if loaded(path) {
+        return
+    }
+    loadedFiles.push(path)
+    String isrc = readFile(path)
+    if isrc.length() == 0 {
+        return
+    }
+    Parser ip = new Parser(lex(isrc))
+    AstNode iprogram = ip.parse()
+    if ip.hasError() {
+        return
+    }
+    mergeDecls(program, iprogram)
+    String dir = dirName(path)
+    String names = listFiles(dir)
+    List<String> files = names.split("\n")
+    Int i = 0
+    while i < files.length() {
+        String name = files.get(i)
+        if name != "" && endsWithX(name) {
+            String p2 = dir + "/" + name
+            if !loaded(p2) && p2 != path {
+                loadUnit(p2, program)
+            }
+        }
+        i = i + 1
+    }
+}
+
+static Void loadSiblings(String path, AstNode program) {
+    String dir = dirName(path)
+    String names = listFiles(dir)
+    List<String> files = names.split("\n")
+    Int i = 0
+    while i < files.length() {
+        String name = files.get(i)
+        if name != "" && endsWithX(name) {
+            String p2 = dir + "/" + name
+            if p2 != path && !loaded(p2) {
+                loadUnit(p2, program)
+            }
+        }
+        i = i + 1
+    }
+}
+
 static AstNode loadProgram(String entry, String root) {
     String src = readFile(entry)
     if src.length() == 0 {
@@ -3831,6 +5622,10 @@ static AstNode loadProgram(String entry, String root) {
         print(entry + ":" + str(p.errorLine) + ":" + str(p.errorCol) + ": " + p.error)
         return program
     }
+    loadedFiles.push(entry)
+    if entry.indexOf("/xdk/") >= 0 {
+        loadSiblings(entry, program)
+    }
     Int i = 0
     while i < program.kids.length() {
         AstNode imp = program.kids.get(i)
@@ -3841,32 +5636,19 @@ static AstNode loadProgram(String entry, String root) {
                 return program
             }
             String path = root + "/" + rel
-            String isrc = readFile(path)
-            if isrc.length() == 0 {
-                print("mini: cannot read package: " + imp.text)
-                return program
+            if loaded(path) {
+                i = i + 1
+                continue
             }
-            Parser ip = new Parser(lex(isrc))
-            AstNode iprogram = ip.parse()
-            if ip.hasError() {
-                print(path + ":" + str(ip.errorLine) + ":" + str(ip.errorCol) + ": " + ip.error)
-                return program
-            }
-            Int j = 0
-            while j < iprogram.kids.length() {
-                AstNode d = iprogram.kids.get(j)
-                if d.kind != "Package" && d.kind != "Import" {
-                    program.add(d)
-                }
-                j = j + 1
-            }
+            loadUnit(path, program)
         }
         i = i + 1
     }
-    return program
+    Mono mono = new Mono(program)
+    return mono.run()
 }
 
-static String argAfter(List<String> args, String flag) {
+static String argAfter(String[] args, String flag) {
     Int i = 0
     while i + 1 < args.length() {
         if args.get(i) == flag {

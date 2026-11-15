@@ -147,25 +147,32 @@ The CLI supports three engines:
 ```
 
 - `legacy` — the current native C toolchain (default).
-- `mini` — the new minimal compiler.
+- `mini` — the new minimal compiler; it can already compile itself and has passed the mini1/mini2 fixed-point check.
 - `auto` — prefers `mini` when it explicitly supports the program, otherwise falls back to `legacy`.
+
+The default remains `legacy` until the full M9 differential suite and default-switch approval are complete. See `src/mini/PLAN.md` for the current self-host status.
 
 No Go is required for the bootstrap path. `src/bootstrap/build.sh` builds the native parser and compiler with a C compiler.
 
 ## Repository layout
 
 ```text
-spec/                 language specifications (Chinese originals; English translations)
+assets/               logo and project assets
+docs/                 architecture, language, and design documents
+README/               translated README files
+ide/                  VS Code extension and web IDE
 src/                  development tree
+  build/              project, dependency, resource, and reactor model
   cli/xnull           unified CLI
   compiler/           legacy compiler
-  mini/               minimal compiler
+  mini/               self-hosting minimal compiler
   runtime/            C runtime sources and headers
   xdk/                XDK sources
   bindings/           typed FFI contracts (.xfb)
   ffi/                raw FFI bridges (.xfb)
   bootstrap/          native xparser and xn-s4
   toolchain/          build and packaging scripts
+  xnfmt/              formatter
   examples/           runnable examples
 
 xdk/                  XDK delivery package
@@ -258,4 +265,4 @@ Contact: vjsplus@163.com · [GitHub Issues](https://github.com/xnull-clang/xnull
 
 ## License
 
-Code (`src/`, `xdk/`, `src/examples/`) is licensed under Apache-2.0; see [LICENSE](LICENSE). Specifications and documentation (`spec/`, `README*.md`) are licensed under CC BY 4.0; see [LICENSE-docs.md](LICENSE-docs.md). The XNull name and logo are not covered by either license.
+Code (`src/`, `xdk/`, `src/examples/`) is licensed under Apache-2.0; see [LICENSE](LICENSE). Specifications and documentation (`docs/`, `README*.md`) are licensed under CC BY 4.0; see [LICENSE-docs.md](LICENSE-docs.md). The XNull name and logo are not covered by either license.

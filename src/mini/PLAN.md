@@ -183,12 +183,13 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
   同一 `xdk.sh` 覆盖。
 - M7.3：`xdk.text` / `xdk.sys` 最小面完成：
   `padLeft` / `repeatText` / `contains`、`fileExists`；有 `xdk.sh` 覆盖。
-  通用 `.xfb` 仍只覆盖当前使用的桥接函数。
+  项目 `.xfb` 无参标量桥已通；租约/错误码完整映射仍未做。
 - M8.1：`check` 单文件命令完成，mini 引擎输出诊断到 stderr；
   `src/mini/tests/check.sh` 覆盖。
-- M8.2：简单工程模式和 `check --json` 完成，按 `entryFile` 构建/运行；
-  `src/mini/tests/project.sh` 与 `check.sh` 覆盖。资源表仍待补。
-- 下一里程碑：资源表，然后 M9 尝试 mini 编译自身。
+- M8.2：简单工程模式、资源表和 `check --json` 完成，按 `entryFile` 构建/运行；
+  `src/mini/tests/project.sh`、`resources.sh` 与 `check.sh` 覆盖。
+- M9 前置：`List<T>`、String 子集和顶层字段已支持；mini1/mini2 固定点通过。
+- 下一里程碑：M7/M8 剩余项、M9-PAR 全场景差分，最后才讨论默认切换。
 
 ## 6. 能力覆盖表
 
@@ -196,16 +197,16 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | --- | --- | --- | --- |
 | 装载 | package/import/单文件 | 单文件读取已做；包装载待 M7 | M1/M7 |
 | 词法 | 全 token 面 | 核心 token 已做 | M1 |
-| 语法 | 顶层/表达式/语句 | 核心已做；类/协议待后续 | M2/M5 |
+| 语法 | 顶层/表达式/语句 | 核心、类/构造器/控制流已做；高级语句待后续 | M2/M5 |
 | 类型 | 基础类型/类/协议/泛型 | 基础类型/类已做；协议/泛型待后续 | M3/M6 |
 | 对象 | class/struct/enum/protocol | class/struct/enum/protocol 最小场景已做 | M5/M6 |
 | 控制流 | if/while/for/switch/defer | if/while/比较/赋值已做；其余待后续 | M5/M6 |
-| 容器 | List/Map/Set/字面量/迭代 | List/Map/Set/Int[]/for-in 已做 | M6 |
+| 容器 | List/Map/Set/字面量/迭代 | List/Map/Set/Int[]/List<T>/for-in 已做 | M6/M9 |
 | 结果 | Result/try/throw/report | Result/try/defer 已做；report 待 XDK | M6/M7 |
 | XDK | errors/runtime/meta/text/sys | 五包最小面已做 | M7 |
-| FFI | .xfb/raw/错误码 | runtime 固定桥已做；通用 .xfb 待后续 | M7 |
+| FFI | .xfb/raw/错误码 | runtime 固定桥与项目无参标量 .xfb 已做；完整租约/错误码待后续 | M7 |
 | 工具链 | check/build/run/工程模式 | check/build/run + 简单工程模式已接通 | M8 |
-| 自举 | 旧编译新、新编译新 | 待做 | M9 |
+| 自举 | 旧编译新、新编译新 | mini1/mini2 固定点已完成 | M9 |
 
 ## 7. 不变量
 
@@ -232,9 +233,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M7.2 | xdk.runtime diagnose/nowMono/nowWall | 完成 | xdk.sh | 固定 FFI 桥，非通用 .xfb |
 | M7.3 | xdk.text/xdk.sys 最小面 | 部分 | xdk.sh | 使用 mini 专用最小文件；不是完整 XDK；无通用 .xfb/错误码 |
 | M8.1 | check 单文件命令、stderr 诊断 | 完成 | check.sh | 仅单文件；无完整诊断码 |
-| M8.2 | 简单工程模式、check --json | 部分 | project.sh、check.sh | 仅 entryFile 工程；无模块/依赖/拓扑；资源表缺失；build/run --json 缺失 |
-| M8.3 | 资源表、可复现构建、安装/锁 | 未做 | — | 需工程模式稳定后实现 |
-| M9 | mini 编译自身、固定点、覆盖旧能力 | 未做 | — | 需对象 List<T>、String 方法、完整语言面 |
+| M8.2 | 简单工程模式、check --json、资源表 | 部分 | project.sh、check.sh、resources.sh | 仅 entryFile 工程；资源目录已接入；无模块/依赖/拓扑；build/run --json 缺失 |
+| M8.3 | 资源表、可复现构建、安装/锁 | 部分 | resources.sh | 资源表已完成；lock/install/repro 未做 |
+| M9 | mini 编译自身、固定点、覆盖旧能力 | 部分 | self-host 固定点、17+1 回归 | mini1/mini2 生成 C 一致；全场景差分和默认切换未做 |
 
 ### 明确跳过的能力
 
@@ -278,17 +279,17 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 部分（仅 padLeft/repeatText/contains） |
 | M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（仅 fileExists） |
 | M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 未做 |
-| M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 未做 |
-| M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8-P1 | 资源读取/缺失负例 | 完成（resources.sh） |
-| M8-P3 | `build/run --json` | S：IDE/CI 场景传 `--json`；D：M8.1 | M8.1 | JSON 正例 + 失败负例 | 部分（check --json 已通；build/run 未） |
-| M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 未做 |
-| M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | 部分 |
-| M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 未做 |
-| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | 部分（substring/indexOf 已有） |
-| M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | 未做 |
-| M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 未做 |
-| M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2/C3 完成；U：用户明确启动 | M9-C1..C3 | mini1 产物可运行全部回归 | 未做（自源码仍有顶层字段/对象容器解析缺口） |
-| M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 未做 |
+| M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |
+| M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8.2 | 资源读取/缺失负例 | 完成（resources.sh） |
+| M8-P3 | `build/run --json` | S：IDE/CI 场景传 `--json`；D：M8.1 | M8.1 | JSON 正例 + 失败负例 | 完成（file/project build/run/check；m8.sh） |
+| M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 部分（workspace lock/install/repro 已通；外部仓库/插件依赖未做） |
+| M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | 部分（SEM-001/JSON、退出 1/2/程序返回码已覆盖；完整码表未做） |
+| M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 完成（object_list.sh；自源码 List<AstNode>/List<Token>） |
+| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | 部分（length/indexOf/substring/startsWith/split 已通；trim/replace/UTF 等未做） |
+| M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | 部分（泛型函数/类、显式/字面量推断、嵌套类；约束/函数类型未做；generics.sh） |
+| M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 部分（throw/插值/nullable/Double/位运算/三元/静态方法；高级项未做；c4.sh） |
+| M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
+| M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
 | M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 未做 |
 | M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 未做 |
 | LANG-1 | Float/Double 字面量、nullable、大整数 | S：场景使用；D：M2/M3 | M2/M3 | 对应场景 | 未做 |
@@ -296,8 +297,30 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | CACHE-1 | AST + C 结果缓存 | P：冷构建 >10 分钟或重复构建 | — | warm build <30 秒 | 完成（约 5 秒） |
 | SYNC-1 | `src/xdk` 与 `xdk/` 交付物同步 | 任何 src/xdk 变更；G：发布前 | — | `diff -qr` 为空 + 安装测试 | 每次变更执行 |
 
-### 9.3 当前激活
+### 9.3 冻结基线（2026-11-15）
 
-- 当前没有自动激活的 M7-F1/M8-P1 场景；相关项保持等待。
-- M9-C1/C2/C3 可以在用户提供/批准 `List<T>`、String、泛型场景后启动。
-- 在 M9-C1..C3 完成前，不执行 mini 自编译。
+以下成果冻结，后续 M8/M9/M7 工作不得无意回退：
+
+| 项 | 冻结内容 | 验收命令 |
+| --- | --- | --- |
+| 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
+| 回归 | 21 个 mini 回归 + 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
+| 默认引擎 | 仍为 `legacy`；M9-PAR/M9-CUT 通过前不切换 | `src/cli/xnull --help` |
+| 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
+
+冻结期的例外只有回归修复。任何语言面扩展必须保持上述命令全绿。
+
+后续顺序固定为：
+
+1. M8 工具链接口（M8-P1/P3/P4/P5）
+2. M9-C3 泛型、M9-C4 高级语言面
+3. M7 全量 XDK
+4. M9-PAR 全场景差分、M9-CUT 默认切换
+
+### 9.4 当前激活
+
+- M8-P1/P2/P3 已完成 workspace 场景；M8-P4/P5 部分完成，外部仓库/插件依赖和完整诊断码仍待补。
+- M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
+- M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
+- M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C，`io/system/Sys.x` 仍有 CGen 崩溃。

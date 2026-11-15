@@ -5,6 +5,11 @@ ffi mini_io {
   @blocking(.unaware)
   String readFile(String path);
 
+  @ffiEntry(cName = "mini_list_x")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String listFiles(String path);
+
   @ffiEntry(cName = "mini_platform")
   @blocking(.unaware)
   String platformRaw();

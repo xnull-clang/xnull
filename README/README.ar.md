@@ -87,17 +87,22 @@ hello, XNull
 ## بنية المستودع
 
 ```text
-spec/                 مواصفات اللغة (الأصول بالصينية؛ الترجمات الإنجليزية)
+assets/               الشعار وموارد المشروع
+docs/                 وثائق البنية واللغة والتصميم
+README/               ملفات README المترجمة
+ide/                  إضافة VS Code وبيئة الويب
 src/                  شجرة التطوير
+  build/              نموذج المشروع والتبعيات والموارد وreactor
   cli/xnull           واجهة CLI موحدة
   compiler/           المترجم القديم
-  mini/               المترجم الأدنى
+  mini/               المترجم الأدنى ذاتي الاستضافة
   runtime/            مصادر وترويسات وقت التشغيل C
   xdk/                مصادر XDK
   bindings/           عقود FFI typed ‏(.xfb)
   ffi/                جسور FFI الخام ‏(.xfb)
   bootstrap/          xparser وxn-s4 الأصليان
   toolchain/          سكربتات البناء والتغليف
+  xnfmt/              المنسق
   examples/           أمثلة قابلة للتشغيل
 
 xdk/                  حزمة تسليم XDK
@@ -190,6 +195,6 @@ WeChat Pay (الصين القارية):
 
 ## الترخيص
 
-الشيفرة (`src/`، `xdk/`، `src/examples/`) مرخّصة بموجب Apache-2.0؛ انظر [LICENSE](../LICENSE). المواصفات والوثائق (`spec/`، `README*.md`) مرخّصة بموجب CC BY 4.0؛ انظر [LICENSE-docs.md](../LICENSE-docs.md). اسم XNull والشعار غير مشمولين بأي من الترخيصين.
+الشيفرة (`src/`، `xdk/`، `src/examples/`) مرخّصة بموجب Apache-2.0؛ انظر [LICENSE](../LICENSE). المواصفات والوثائق (`docs/`، `README*.md`) مرخّصة بموجب CC BY 4.0؛ انظر [LICENSE-docs.md](../LICENSE-docs.md). اسم XNull والشعار غير مشمولين بأي من الترخيصين.
 
 </div>

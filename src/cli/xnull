@@ -57,6 +57,7 @@ case "${1:-}" in
   tree <工程目录>                         依赖树
   why  <工程目录> <groupId:artifactId>    依赖理由
   install <工程目录> [--repo 目录]         构建并安装到本地仓库（.xlib）
+  lock <工程目录> [--update|--check]      生成/校验 xnull.lock
   repro <工程目录>                        连续两次构建，比较 C/对象/app 的 SHA-256
   xmeta <工程目录>                        生成模块 .xmeta
   fmt [--check] <文件…>                   格式化（xnfmt）

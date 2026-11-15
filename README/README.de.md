@@ -77,17 +77,22 @@ Der Bootstrap-Pfad benötigt kein Go. `src/bootstrap/build.sh` baut den nativen 
 ## Repository-Struktur
 
 ```text
-spec/                 Sprachspezifikationen (chinesische Originale; englische Übersetzungen)
+assets/               Logo- und Projekt-Assets
+docs/                 Architektur-, Sprach- und Designdokumente
+README/               übersetzte README-Dateien
+ide/                  VS-Code-Erweiterung und Web-IDE
 src/                  Entwicklungsbaum
+  build/              Projekt-, Abhängigkeits-, Ressourcen- und Reactor-Modell
   cli/xnull           einheitliche CLI
   compiler/           Legacy-Compiler
-  mini/               minimaler Compiler
+  mini/               selbsthostender minimaler Compiler
   runtime/            C-Runtime-Quellen und Header
   xdk/                XDK-Quellen
   bindings/           typisierte FFI-Verträge (.xfb)
   ffi/                Raw-FFI-Bridges (.xfb)
   bootstrap/          native xparser und xn-s4
   toolchain/          Build- und Packaging-Skripte
+  xnfmt/              Formatierer
   examples/           ausführbare Beispiele
 
 xdk/                  XDK-Auslieferungspaket
@@ -180,4 +185,4 @@ Kontakt: vjsplus@163.com · [GitHub Issues](https://github.com/xnull-clang/xnull
 
 ## Lizenz
 
-Code (`src/`, `xdk/`, `src/examples/`) steht unter Apache-2.0; siehe [LICENSE](../LICENSE). Spezifikationen und Dokumentation (`spec/`, `README*.md`) stehen unter CC BY 4.0; siehe [LICENSE-docs.md](../LICENSE-docs.md). Der Name und das Logo von XNull sind von diesen Lizenzen nicht abgedeckt.
+Code (`src/`, `xdk/`, `src/examples/`) steht unter Apache-2.0; siehe [LICENSE](../LICENSE). Spezifikationen und Dokumentation (`docs/`, `README*.md`) stehen unter CC BY 4.0; siehe [LICENSE-docs.md](../LICENSE-docs.md). Der Name und das Logo von XNull sind von diesen Lizenzen nicht abgedeckt.

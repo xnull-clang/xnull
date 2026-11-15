@@ -155,17 +155,22 @@ CLI 支持三个引擎：
 ## 仓库结构
 
 ```text
-spec/                 语言规范（中文母本；英译）
+assets/               Logo 与项目资源
+docs/                 架构、语言与设计文档
+README/               多语言 README
+ide/                  VS Code 扩展与 Web IDE
 src/                  开发树
+  build/              工程、依赖、资源与 Reactor 模型
   cli/xnull           统一 CLI
   compiler/           旧编译器
-  mini/               最小编译器
+  mini/               自举最小编译器
   runtime/            C 运行时源码与头文件
   xdk/                XDK 源码
   bindings/           类型化 FFI 绑定（.xfb）
   ffi/                raw FFI 桥（.xfb）
   bootstrap/          原生 xparser 与 xn-s4
   toolchain/          构建与打包脚本
+  xnfmt/              格式化器
   examples/           可运行示例
 
 xdk/                  XDK 交付包
@@ -258,4 +263,4 @@ XNull 从一个人的设计项目起步。下一阶段需要编译器工程师�
 
 ## 许可
 
-代码（`src/`、`xdk/`、`src/examples/`）采用 Apache-2.0，见 [LICENSE](../LICENSE)。规范与文档（`spec/`、`README*.md`）采用 CC BY 4.0，见 [LICENSE-docs.md](../LICENSE-docs.md)。XNull 名称与 Logo 不在上述许可范围内。
+代码（`src/`、`xdk/`、`src/examples/`）采用 Apache-2.0，见 [LICENSE](../LICENSE)。规范与文档（`docs/`、`README*.md`）采用 CC BY 4.0，见 [LICENSE-docs.md](../LICENSE-docs.md)。XNull 名称与 Logo 不在上述许可范围内。

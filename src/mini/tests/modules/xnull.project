@@ -1,0 +1,11 @@
+project {
+  groupId    = demo
+  artifactId = root
+  version    = 1.0.0
+  packaging  = pom
+
+  modules {
+    module common
+    module app
+  }
+}

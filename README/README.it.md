@@ -77,17 +77,22 @@ Il percorso bootstrap non richiede Go. `src/bootstrap/build.sh` costruisce parse
 ## Struttura del repository
 
 ```text
-spec/                 specifiche del linguaggio (originali cinesi; traduzioni inglesi)
+assets/               logo e risorse del progetto
+docs/                 documenti di architettura, linguaggio e design
+README/               README tradotti
+ide/                  estensione VS Code e web IDE
 src/                  albero di sviluppo
+  build/              modello di progetto, dipendenze, risorse e reactor
   cli/xnull           CLI unificata
   compiler/           compilatore legacy
-  mini/               compilatore minimale
+  mini/               compilatore minimale self-hosting
   runtime/            sorgenti e header del runtime C
   xdk/                sorgenti XDK
   bindings/           contratti FFI tipizzati (.xfb)
   ffi/                bridge FFI raw (.xfb)
   bootstrap/          xparser e xn-s4 nativi
   toolchain/          script di build e packaging
+  xnfmt/              formatter
   examples/           esempi eseguibili
 
 xdk/                  pacchetto di distribuzione XDK
@@ -180,4 +185,4 @@ Contatto: vjsplus@163.com · [GitHub Issues](https://github.com/xnull-clang/xnul
 
 ## Licenza
 
-Il codice (`src/`, `xdk/`, `src/examples/`) è rilasciato con licenza Apache-2.0; vedi [LICENSE](../LICENSE). Specifiche e documentazione (`spec/`, `README*.md`) sono rilasciate con licenza CC BY 4.0; vedi [LICENSE-docs.md](../LICENSE-docs.md). Il nome e il logo XNull non sono coperti da queste licenze.
+Il codice (`src/`, `xdk/`, `src/examples/`) è rilasciato con licenza Apache-2.0; vedi [LICENSE](../LICENSE). Specifiche e documentazione (`docs/`, `README*.md`) sono rilasciate con licenza CC BY 4.0; vedi [LICENSE-docs.md](../LICENSE-docs.md). Il nome e il logo XNull non sono coperti da queste licenze.

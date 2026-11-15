@@ -19,6 +19,7 @@
 #   src/toolchain/xnull-build.sh bootstrap-model [-o dir]   # 自举 xpd / xmanifest（当前）
 #   src/toolchain/xnull-build.sh validate <project>         # 清单校验：模块/依赖边/拓扑（不编译）
 #   src/toolchain/xnull-build.sh build-project <dir> [-o d] # 聚合构建（library→对象，app→链接）
+#   src/toolchain/xnull-build.sh lock <dir> [--update|--check] # 生成/校验 xnull.lock
 #   src/toolchain/xnull-build.sh run-project <dir> [-- args] # 聚合构建并运行
 #   src/toolchain/xnull-build.sh tree <dir>                 # 依赖树（对齐 Go xnull tree）
 #   src/toolchain/xnull-build.sh why <dir> <coord>          # 依赖理由（对齐 Go xnull why）
@@ -85,6 +86,24 @@ go_bin() {
 xnast_bin() {
   if [ -n "${XNAST_BIN:-}" ]; then echo "$XNAST_BIN"; return; fi
   local p="/tmp/xnast-b4-$REV"
+  if [ -x "$p" ]; then echo "$p"; return; fi
+  # 没有 Go oracle 时，把原生 xparser 的 --file 接口适配成 reactor 需要的
+  # `xnast --ast <entry>` 接口；xparser 输出已经是 xnast v1 文本。
+  local xp
+  if xp=$(xparser_bin); then
+    p="/tmp/xnast-native-$REV"
+    cat > "$p" <<EOF
+#!/bin/sh
+if [ "\${1:-}" = "--ast" ]; then
+  shift
+  exec "$xp" --file "\$@"
+fi
+exec "$xp" "\$@"
+EOF
+    chmod +x "$p"
+    echo "$p"
+    return
+  fi
   [ -x "$p" ] || ( cd "$ROOT/impl" && go build -o "$p" ./cmd/xnast ) || fail "构建 oracle xnast 失败" >&2
   echo "$p"
 }
@@ -272,6 +291,8 @@ emit_c() {
       : # 明确不支持，回退旧引擎
     else
       sed -n 1,8p "$outdir/mini.err" >&2
+      # mini 的 CLI 诊断部分走 stdout；失败时保留它，避免 JSON 只看到通用错误。
+      sed -n 1,8p "$out" >&2
       fail "mini 生成 C 失败：${entry}（exit ${mrc}）"
     fi
   fi
@@ -342,6 +363,137 @@ cc_link() {
 }
 # 注：rt_std_ext.c 需要 -lz（gzip/zip 后端）；zlib 为平台标准库。
 
+json_has_flag() {
+  local flag=$1; shift
+  local a
+  for a in "$@"; do [ "$a" = "$flag" ] && return 0; done
+  return 1
+}
+
+json_emit() {
+  local ok=$1 file=$2 output=$3 code=$4 diag=$5 log=$6
+  python3 "$ROOT/src/toolchain/json_result.py" "$ok" "$file" "$output" "$code" "$diag" "$log"
+}
+
+cmd_build_json() {
+  local entry="" out="" a
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) shift ;;
+      -o|--output) out=${2:-}; shift 2 ;;
+      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      *) entry=$1; shift ;;
+    esac
+  done
+  [ -n "$entry" ] || { echo "xnull: build 缺少入口" >&2; return 2; }
+  if [ -d "$entry" ] && [ -f "$entry/xnull.project" ]; then
+    if [ -n "$out" ]; then cmd_build_project_json "$entry" -o "$out"; else cmd_build_project_json "$entry"; fi
+    return $?
+  fi
+  local so se
+  so=$(mktemp); se=$(mktemp)
+  local rc=0 path=""
+  if [ -n "$out" ]; then
+    ( cmd_build "$entry" -o "$out" ) >"$so" 2>"$se" || rc=$?
+  else
+    ( cmd_build "$entry" ) >"$so" 2>"$se" || rc=$?
+  fi
+  if [ "$rc" = 0 ]; then
+    path=$(tail -n 1 "$so")
+  fi
+  json_emit "$rc" "$entry" "$path" "$rc" "$se" "$se"
+  rm -f "$so" "$se"
+  return "$rc"
+}
+
+cmd_run_json() {
+  local entry="" a extra=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) shift ;;
+      --) shift; extra=("$@"); break ;;
+      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      *) entry=$1; shift ;;
+    esac
+  done
+  [ -n "$entry" ] || { echo "xnull: run 缺少入口" >&2; return 2; }
+  if [ -d "$entry" ] && [ -f "$entry/xnull.project" ]; then
+    if [ ${#extra[@]} -gt 0 ]; then cmd_run_project_json "$entry" -- "${extra[@]}"; else cmd_run_project_json "$entry"; fi
+    return $?
+  fi
+  local bo be po pe bin rc=0 arc=0
+  bo=$(mktemp); be=$(mktemp); po=$(mktemp); pe=$(mktemp)
+  ( cmd_build "$entry" ) >"$bo" 2>"$be" || rc=$?
+  if [ "$rc" = 0 ]; then
+    bin=$(tail -n 1 "$bo")
+    if [ -n "$bin" ] && [ -x "$bin" ]; then
+      if [ ${#extra[@]} -gt 0 ]; then
+        "$bin" "${extra[@]}" >"$po" 2>"$pe" || arc=$?
+      else
+        "$bin" >"$po" 2>"$pe" || arc=$?
+      fi
+    else
+      echo "xnull: 构建未产出可执行文件：$entry" >"$be"
+      arc=1
+    fi
+  else
+    arc=$rc
+  fi
+  cat "$be" "$pe" > "$be.log" 2>/dev/null || true
+  json_emit "$arc" "$entry" "$(cat "$po")" "$arc" "$be" "$be.log"
+  rm -f "$bo" "$be" "$po" "$pe" "$be.log"
+  return "$arc"
+}
+
+cmd_build_project_json() {
+  local proj="" out="" a
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) shift ;;
+      -o|--output) out=${2:-}; shift 2 ;;
+      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      *) proj=$1; shift ;;
+    esac
+  done
+  [ -n "$proj" ] || { echo "xnull: build-project 缺少工程目录" >&2; return 2; }
+  [ -n "$out" ] || out=${XNULL_OUT:-/tmp/xnull-proj-$(basename "$proj")}
+  local se rc=0
+  se=$(mktemp)
+  if [ -n "${out:-}" ]; then
+    ( cmd_build_project "$proj" -o "$out" ) > /dev/null 2>"$se" || rc=$?
+  else
+    ( cmd_build_project "$proj" ) > /dev/null 2>"$se" || rc=$?
+  fi
+  local bin=""
+  [ -x "$out/app" ] && bin="$out/app"
+  json_emit "$rc" "$proj" "$bin" "$rc" "$se" "$se"
+  rm -f "$se"
+  return "$rc"
+}
+
+cmd_run_project_json() {
+  local proj="" a extra=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) shift ;;
+      --) shift; extra=("$@"); break ;;
+      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      *) proj=$1; shift ;;
+    esac
+  done
+  [ -n "$proj" ] || { echo "xnull: run-project 缺少工程目录" >&2; return 2; }
+  local so se rc=0
+  so=$(mktemp); se=$(mktemp)
+  if [ ${#extra[@]} -gt 0 ]; then
+    ( cmd_run_project "$proj" -- "${extra[@]}" ) >"$so" 2>"$se" || rc=$?
+  else
+    ( cmd_run_project "$proj" ) >"$so" 2>"$se" || rc=$?
+  fi
+  json_emit "$rc" "$proj" "$(cat "$so")" "$rc" "$se" "$se"
+  rm -f "$so" "$se"
+  return "$rc"
+}
+
 cmd_build() {
   local entry="" out="" emit_only=0
   while [ $# -gt 0 ]; do
@@ -374,6 +526,24 @@ cmd_build() {
   fi
   cc_link "$base.c" "$base" "$base.res.c" || exit 1
   echo "$base"
+}
+
+cmd_check_json() {
+  local entry="" a
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --json) shift ;;
+      -*) echo "xnull: 未知参数：$1" >&2; return 2 ;;
+      *) entry=$1; shift ;;
+    esac
+  done
+  [ -n "$entry" ] || { echo "xnull: check 缺少入口" >&2; return 2; }
+  local so se rc=0
+  so=$(mktemp); se=$(mktemp)
+  ( cmd_check "$entry" ) >"$so" 2>"$se" || rc=$?
+  json_emit "$rc" "$entry" "" "$rc" "$se" "$se"
+  rm -f "$so" "$se"
+  return "$rc"
 }
 
 cmd_check() {
@@ -757,6 +927,15 @@ run_reactor() {
     ${extra[@]+"${extra[@]}"} ${toolArgs[@]+"${toolArgs[@]}"}
 }
 
+project_needs_reactor() {
+  local proj=$1
+  local f="$proj/xnull.project"
+  [ -f "$f" ] || return 1
+  grep -Eq '^[[:space:]]*(modules|dependencies)[[:space:]]*\{' "$f" && return 0
+  grep -Eq '^[[:space:]]*packaging[[:space:]]*=[[:space:]]*(pom|library|starter)' "$f" && return 0
+  return 1
+}
+
 cmd_build_project() {
   local proj=${1:-} out=""
   [ -n "$proj" ] || usage
@@ -768,7 +947,7 @@ cmd_build_project() {
   if [ -f "$proj/xnull.project" ]; then
     entry=$(sed -n 's/.*entryFile[[:space:]]*=[[:space:]]*//p' "$proj/xnull.project" | head -1 | tr -d '\r' | sed 's/}.*//; s/[[:space:]]*$//')
   fi
-  if [ -n "$entry" ] && [ -f "$proj/$entry" ]; then
+  if [ -n "$entry" ] && [ -f "$proj/$entry" ] && ! project_needs_reactor "$proj"; then
     mkdir -p "$out"
     if [ -d "$proj/src/main/resources" ]; then
       XNULL_RESOURCES="$proj/src/main/resources" cmd_build "$proj/$entry" -o "$out/app" >&2 || return 1
@@ -857,6 +1036,75 @@ cmd_run_project() {
   cmd_build_project "$proj" >&2 || exit 1
   [ -x "$out/app" ] || fail "没有 app 产物：$out/app"
   if [ ${#extra[@]} -gt 0 ]; then "$out/app" "${extra[@]}"; else "$out/app"; fi
+}
+
+# 锁文件：仅冻结当前可解析的 workspace 依赖；外部仓库依赖未接入时明确失败。
+cmd_lock() {
+  local proj="" update=0 check=0
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --update) update=1; shift ;;
+      --check) check=1; shift ;;
+      -*) die "lock: 未知参数：$1" ;;
+      *) proj=$1; shift ;;
+    esac
+  done
+  [ -n "$proj" ] || usage
+  proj=$(cd "$proj" && pwd) || die "目录不存在"
+  local root=$proj dir=$proj
+  while [ "$dir" != "/" ]; do
+    if [ -f "$dir/xnull.project" ] && grep -Eq '^[[:space:]]*packaging[[:space:]]*=[[:space:]]*pom' "$dir/xnull.project"; then
+      root=$dir
+    fi
+    [ "$dir" = "$ROOT" ] && break
+    dir=$(dirname "$dir")
+  done
+  local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest}
+  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
+  local w; w=$(workdir) || exit 1
+  prepare_model "$root" "$w" || exit 1
+  local files=("$w/root.tsv") f
+  for f in "$w"/m/*.tsv; do [ -e "$f" ] && files+=("$f"); done
+  "$xmf" "${files[@]}" > "$w/model.tsv" || die "lock: 工程模型解析失败"
+  local lock="$root/xnull.lock" tmp="$w/xnull.lock"
+  python3 - "$w/model.tsv" "$tmp" <<'PYLOCK'
+import sys
+model, out = sys.argv[1:3]
+mods = {}
+edges = []
+for line in open(model, encoding="utf-8"):
+    p = line.rstrip("\n").split("\t")
+    if p and p[0] == "module" and len(p) >= 5:
+        mods[p[2]] = p[1]
+    elif p and p[0] == "edge" and len(p) >= 4:
+        edges.append((p[1], p[2], p[3]))
+external = []
+for owner, coord, ver in edges:
+    if coord not in mods:
+        external.append((coord, ver))
+if external:
+    for coord, ver in sorted(external):
+        print("lock: error LOCK-002 外部依赖未接入仓库解析：%s %s" % (coord, ver), file=sys.stderr)
+    sys.exit(2)
+with open(out, "w", encoding="utf-8") as f:
+    f.write("lock {\n  version = 1\n}\n")
+PYLOCK
+  local rc=$?
+  [ "$rc" = 0 ] || return "$rc"
+  if [ "$check" = 1 ]; then
+    if [ ! -f "$lock" ] || ! cmp -s "$lock" "$tmp"; then
+      echo "lock: FAIL（需要更新：${lock}）" >&2
+      return 1
+    fi
+    echo "lock: OK（${lock}）"
+    return 0
+  fi
+  if [ -f "$lock" ] && ! cmp -s "$lock" "$tmp" && [ "$update" != 1 ]; then
+    echo "lock: FAIL（锁文件不一致；使用 --update 更新）" >&2
+    return 1
+  fi
+  cp "$tmp" "$lock"
+  echo "lock: OK（${lock}）"
 }
 
 # 自举工程模型工具（当前）：xpd（清单→TSV）+ xmanifest（TSV→模块/依赖/拓扑）
@@ -1079,9 +1327,12 @@ cmd_info() {
 [ $# -gt 0 ] || usage
 sub=$1; shift
 case "$sub" in
-  build) cmd_build "$@" ;;
-  run) cmd_run "$@" ;;
-  check) cmd_check "$@" ;;
+  build)
+    if json_has_flag --json "$@"; then cmd_build_json "$@"; else cmd_build "$@"; fi ;;
+  run)
+    if json_has_flag --json "$@"; then cmd_run_json "$@"; else cmd_run "$@"; fi ;;
+  check)
+    if json_has_flag --json "$@"; then cmd_check_json "$@"; else cmd_check "$@"; fi ;;
   verify) [ $# -ge 1 ] || usage; cmd_verify "$1" ;;
   examples) cmd_examples ;;
   bootstrap-xnullc) cmd_bootstrap "$@" ;;
@@ -1089,13 +1340,16 @@ case "$sub" in
   bootstrap-model) cmd_bootstrap_model "$@" ;;
   bootstrap-reactor) cmd_bootstrap_reactor "$@" ;;
   bootstrap-tools) cmd_bootstrap_tools "$@" ;;
-  build-project) cmd_build_project "$@" ;;
+  build-project)
+    if json_has_flag --json "$@"; then cmd_build_project_json "$@"; else cmd_build_project "$@"; fi ;;
+  lock) cmd_lock "$@" ;;
   tree) cmd_tree "$@" ;;
   install) cmd_install "$@" ;;
   xmeta) cmd_xmeta "$@" ;;
   repro) cmd_repro "$@" ;;
   why) cmd_why "$@" ;;
-  run-project) cmd_run_project "$@" ;;
+  run-project)
+    if json_has_flag --json "$@"; then cmd_run_project_json "$@"; else cmd_run_project "$@"; fi ;;
   validate) cmd_validate "$@" ;;
   ast-check) cmd_ast_check "$@" ;;
   info) cmd_info ;;
