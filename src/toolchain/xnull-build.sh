@@ -33,6 +33,8 @@
 #   XNULL_GO_BIN     Go oracle `xnull`（仅 AST/bundle/对比用；缺省按需 go build）
 #   XNAST_BIN        Go oracle `xnast`（缺省按需 go build）
 #   XNULL_WORK    工作目录（默认 mktemp -d）
+#   XNULL_MODEL_DIR  自举 xpd/xmanifest/reactor 目录（默认 /tmp；测试可隔离）
+#   XNULL_TOOL_DIR   自举 resman/artifact/config/deps/xmeta 目录（默认 /tmp）
 #   XNULL_FRONTEND   传给 oracle 的前端（默认 go，避免 auto 前端拖慢）
 #
 # 退出码：0 成功；1 构建/运行/比对失败；2 参数或环境错误。
@@ -922,17 +924,25 @@ cmd_why() {
 # 统一的 reactor 调用：确保工具就绪后执行 build-project
 run_reactor() {
   local proj=$1 out=$2 repo=${3:-}
-  local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest} rct=${REACTOR_BIN:-/tmp/reactor}
-  if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then cmd_bootstrap_model -o /tmp > /dev/null || exit 1; fi
-  [ -x "$rct" ] || cmd_bootstrap_reactor -o /tmp > /dev/null || exit 1
+  local mdir=${XNULL_MODEL_DIR:-/tmp} tdir=${XNULL_TOOL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd} xmf=${XMANIFEST_BIN:-$mdir/xmanifest} rct=${REACTOR_BIN:-$mdir/reactor}
+  if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+    [ -x "$xmf" ] || xmf="$mdir/xmanifest"
+  fi
+  if [ ! -x "$rct" ]; then
+    cmd_bootstrap_reactor -o "$mdir" > /dev/null || exit 1
+    [ -x "$rct" ] || rct="$mdir/reactor"
+  fi
   local toolArgs=()
   local t
   for t in resman artifact config deps xmeta; do
-    if [ ! -x "/tmp/$t" ]; then cmd_bootstrap_tools -o /tmp > /dev/null || exit 1; break; fi
+    if [ ! -x "$tdir/$t" ]; then cmd_bootstrap_tools -o "$tdir" > /dev/null || exit 1; break; fi
   done
-  [ -x /tmp/resman ] && toolArgs+=(--resman /tmp/resman)
-  [ -x /tmp/artifact ] && toolArgs+=(--artifact /tmp/artifact)
-  [ -x /tmp/config ] && toolArgs+=(--config /tmp/config)
+  [ -x "$tdir/resman" ] && toolArgs+=(--resman "$tdir/resman")
+  [ -x "$tdir/artifact" ] && toolArgs+=(--artifact "$tdir/artifact")
+  [ -x "$tdir/config" ] && toolArgs+=(--config "$tdir/config")
   local xc; xc=$(xnullc_bin) || exit 1
   local xnast; xnast=$(xnast_bin) || exit 1
   local extra=()
@@ -1076,8 +1086,13 @@ cmd_lock() {
     [ "$dir" = "$ROOT" ] && break
     dir=$(dirname "$dir")
   done
-  local xpd=${XPD_BIN:-/tmp/xpd} xmf=${XMANIFEST_BIN:-/tmp/xmanifest}
-  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
+  local mdir=${XNULL_MODEL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd} xmf=${XMANIFEST_BIN:-$mdir/xmanifest}
+  if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+    [ -x "$xmf" ] || xmf="$mdir/xmanifest"
+  fi
   local w; w=$(workdir) || exit 1
   prepare_model "$root" "$w" || exit 1
   local files=("$w/root.tsv") f
@@ -1145,10 +1160,13 @@ cmd_validate() {
   [ -n "$proj" ] || usage
   if [ -f "$proj" ]; then proj=$(cd "$(dirname "$proj")" && pwd); else proj=$(cd "$proj" && pwd) || die "目录不存在"; fi
   [ -f "$proj/xnull.project" ] || fail "缺少 xnull.project：$proj"
-  local xpd=${XPD_BIN:-/tmp/xpd}
-  local xmf=${XMANIFEST_BIN:-/tmp/xmanifest}
+  local mdir=${XNULL_MODEL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd}
+  local xmf=${XMANIFEST_BIN:-$mdir/xmanifest}
   if [ ! -x "$xpd" ] || [ ! -x "$xmf" ]; then
-    cmd_bootstrap_model -o "${XNULL_MODEL_DIR:-/tmp}" > /dev/null || exit 1
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+    [ -x "$xmf" ] || xmf="$mdir/xmanifest"
   fi
   local w; w=$(workdir) || exit 1
   "$xpd" "$proj/xnull.project" > "$w/root.tsv" || fail "清单解析失败：$proj/xnull.project"

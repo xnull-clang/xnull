@@ -7,6 +7,13 @@ D=$(mktemp -d)
 cleanup() { rm -rf "$D" "$HERE/modules/target"; }
 trap cleanup EXIT
 
+# 自举工具放在测试私有目录：避免 /tmp 里旧的 xpd/reactor/tools 掩盖冷启动失败。
+export XNULL_MODEL_DIR="$D/bootstrap"
+export XNULL_TOOL_DIR="$D/bootstrap"
+export XPD_BIN="$XNULL_MODEL_DIR/xpd"
+export XMANIFEST_BIN="$XNULL_MODEL_DIR/xmanifest"
+export REACTOR_BIN="$XNULL_MODEL_DIR/reactor"
+
 # 1. file build/run JSON
 "$XNULL" --bootstrap --engine=mini build --json "$HERE/project/src/main/x/main.x" >"$D/build.json"
 python3 -m json.tool "$D/build.json" >/dev/null
