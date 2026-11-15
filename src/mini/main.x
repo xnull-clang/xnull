@@ -765,8 +765,26 @@ class Parser {
             }
             Token v = self.advance()
             self.expect("in")
+            AstNode first = self.parseExpr()
+            if self.at("..") {
+                self.advance()
+                String op = ".."
+                if self.eat(".") {
+                    op = "..."
+                } else if self.eat("<") {
+                    op = "..<"
+                } else {
+                    self.fail("expected . or < after ..")
+                    return self.node("error", "", t)
+                }
+                AstNode n = self.node("ForRange", op + " " + v.text, t)
+                n.add(first)
+                n.add(self.parseExpr())
+                n.add(self.parseBlock())
+                return n
+            }
             AstNode n = self.node("ForIn", v.text, t)
-            n.add(self.parseExpr())
+            n.add(first)
             n.add(self.parseBlock())
             return n
         }
@@ -791,6 +809,14 @@ class Parser {
                     n.add(self.parseBlock())
                 }
             }
+            return n
+        }
+        if self.eat("do") {
+            AstNode n = self.node("DoWhile", "", t)
+            n.add(self.parseBlock())
+            self.expect("while")
+            n.add(self.parseExpr())
+            self.eat(";")
             return n
         }
         if self.eat("while") {
@@ -2298,6 +2324,40 @@ class Checker {
                     }
                 }
                 si = si + 1
+            }
+            return
+        }
+        if st.kind == "ForRange" {
+            if st.kids.length() < 3 {
+                self.fail("SEM-005", "malformed for-range", st)
+                return
+            }
+            String a = self.typeOf(st.kids.get(0))
+            String b = self.typeOf(st.kids.get(1))
+            if a != "Error" && a != "Int" {
+                self.fail("SEM-003", "for-range lower bound must be Int, got " + a, st)
+                return
+            }
+            if b != "Error" && b != "Int" {
+                self.fail("SEM-003", "for-range upper bound must be Int, got " + b, st)
+                return
+            }
+            Int mark = self.vars.length()
+            Int sp = st.text.indexOf(" ")
+            self.addVar("Int", st.text.substring(sp + 1, st.text.length() - sp - 1), st)
+            self.checkBlock(st.kids.get(2))
+            self.popTo(mark)
+            return
+        }
+        if st.kind == "DoWhile" {
+            if st.kids.length() < 2 {
+                self.fail("SEM-005", "malformed do-while", st)
+                return
+            }
+            self.checkBlock(st.kids.get(0))
+            String c = self.typeOf(st.kids.get(1))
+            if c != "Error" && c != "Bool" {
+                self.fail("SEM-003", "do-while condition must be Bool, got " + c, st)
             }
             return
         }
@@ -4750,6 +4810,30 @@ class CGen {
             self.breakTargets.remove(self.breakTargets.length() - 1)
             return
         }
+        if st.kind == "ForRange" {
+            if st.kids.length() < 3 {
+                self.fail("malformed for-range")
+                return
+            }
+            String sstart = self.temp()
+            String send = self.temp()
+            String svar = st.text.substring(st.text.indexOf(" ") + 1, st.text.length() - st.text.indexOf(" ") - 1)
+            Bool inclusive = st.text.startsWith("...")
+            self.emit(indent + "{")
+            self.emit(indent + "  int64_t " + sstart + " = " + self.expr(st.kids.get(0)) + ";")
+            self.emit(indent + "  int64_t " + send + " = " + self.expr(st.kids.get(1)) + ";")
+            String cmp = inclusive ? " <= " : " < "
+            self.emit(indent + "  for (int64_t " + svar + " = " + sstart + "; " + svar + cmp + send + "; " + svar + "++) {")
+            Int mark = self.vars.length()
+            self.addVar("Int", svar)
+            self.breakTargets.push("loop")
+            self.blockBody(st.kids.get(2), indent + "    ")
+            self.breakTargets.remove(self.breakTargets.length() - 1)
+            self.popTo(mark)
+            self.emit(indent + "  }")
+            self.emit(indent + "}")
+            return
+        }
         if st.kind == "ForIn" {
             if st.kids.length() < 2 {
                 self.fail("malformed for-in")
@@ -4818,6 +4902,18 @@ class CGen {
                 self.blockBody(st.kids.get(2), indent + "  ")
                 self.emit(indent + "}")
             }
+            return
+        }
+        if st.kind == "DoWhile" {
+            if st.kids.length() < 2 {
+                self.fail("malformed do-while")
+                return
+            }
+            self.emit(indent + "do {")
+            self.breakTargets.push("loop")
+            self.blockBody(st.kids.get(0), indent + "  ")
+            self.breakTargets.remove(self.breakTargets.length() - 1)
+            self.emit(indent + "} while (" + self.expr(st.kids.get(1)) + ");")
             return
         }
         if st.kind == "While" {

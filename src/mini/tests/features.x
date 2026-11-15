@@ -37,6 +37,17 @@ static Int main() {
         default:
             print("switch-bad")
     }
+    Int di = 0
+    do {
+        print("do " + str(di))
+        di = di + 1
+    } while di < 2
+    for j in 0..<2 {
+        print("range " + str(j))
+    }
+    for k in 1...2 {
+        print("closed " + str(k))
+    }
     print("[" + s.trim() + "]")
     print(r.replace("X", "-"))
     print(s.trim().toUpper())

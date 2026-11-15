@@ -274,7 +274,7 @@ Mini 1.0 / M9-MIN 已完成，后续按 PLAN §9.5 继续：
 - P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
 - `io/system/Sys.x` 的完整 raw FFI 还没有做参数/句柄/返回值完整映射；当前 `xdk.sys` 使用 `io/base`。
 - `io/system/Sys.x` 的 sema 已能通过，但 emit C 仍有 raw FFI 原型/句柄错误。
-- M9-C4：基础 `switch`（Int/String/Bool）已接入；data enum、继承/协议分派、lambda、do/for-range、标签控制未完成。
+- M9-C4：基础 `switch`（Int/String/Bool）、`do-while`、`..<`/`...` range 已接入；data enum、继承/协议分派、lambda、标签控制未完成。
 - 全量 T0 XDK 和全量 M9-PAR 不属于 Mini 1.0 当前范围。
 
 ## 工作量口径
