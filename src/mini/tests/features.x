@@ -48,6 +48,14 @@ static Int main() {
     for k in 1...2 {
         print("closed " + str(k))
     }
+    Int gi = 0
+again:
+    gi = gi + 1
+    if gi < 2 {
+        goto again
+    }
+    print("goto " + str(gi))
+    empty: ;
     print("[" + s.trim() + "]")
     print(r.replace("X", "-"))
     print(s.trim().toUpper())

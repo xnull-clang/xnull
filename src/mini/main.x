@@ -746,8 +746,28 @@ class Parser {
 
     AstNode parseStmt() {
         Token t = self.peek()
+        if self.kind("ident") && self.look(1).text == ":" {
+            Token name = self.advance()
+            self.advance()
+            AstNode n = self.node("Label", name.text, t)
+            if !self.at("}") && !self.at(";") && !self.eof() {
+                n.add(self.parseStmt())
+            } else {
+                self.eat(";")
+            }
+            return n
+        }
         if self.isLocalDecl() {
             return self.parseLocal()
+        }
+        if self.eat("goto") {
+            if !self.kind("ident") {
+                self.fail("expected goto label")
+                return self.node("error", "", t)
+            }
+            Token name = self.advance()
+            self.eat(";")
+            return self.node("Goto", name.text, t)
         }
         if self.eat("defer") || self.eat("errdefer") {
             Bool isErr = false
@@ -2248,7 +2268,13 @@ class Checker {
     }
 
     Void checkStmt(AstNode st) {
-        if st.kind == "Break" || st.kind == "Continue" {
+        if st.kind == "Break" || st.kind == "Continue" || st.kind == "Goto" {
+            return
+        }
+        if st.kind == "Label" {
+            if st.kids.length() > 0 {
+                self.checkStmt(st.kids.get(0))
+            }
             return
         }
         if st.kind == "Throw" {
@@ -4711,6 +4737,17 @@ class CGen {
     }
 
     Void stmt(AstNode st, String indent) {
+        if st.kind == "Goto" {
+            self.emit(indent + "goto " + st.text + ";")
+            return
+        }
+        if st.kind == "Label" {
+            self.emit(indent + st.text + ": ;")
+            if st.kids.length() > 0 {
+                self.stmt(st.kids.get(0), indent)
+            }
+            return
+        }
         if st.kind == "Break" {
             if self.breakTargets.length() > 0 {
                 String target = self.breakTargets.get(self.breakTargets.length() - 1)
@@ -5510,7 +5547,7 @@ static Bool isKeyword(String s) {
         s == "super" || s == "this" || s == "return" || s == "if" || s == "else" ||
         s == "while" || s == "do" || s == "for" || s == "in" || s == "switch" ||
         s == "case" || s == "default" || s == "break" || s == "continue" ||
-        s == "try" || s == "catch" || s == "throw" || s == "defer" ||
+        s == "goto" || s == "try" || s == "catch" || s == "throw" || s == "defer" ||
         s == "errdefer" || s == "true" || s == "false" || s == "null" ||
         s == "is" || s == "as" || s == "void" || s == "factory" || s == "deinit"
 }
