@@ -53,9 +53,9 @@ cache_hash() {
   fi
 }
 REV=$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo work)
-# Go 已删除——没有 go 时自动使用 bootstrap/bin 的原生工具
-if ! command -v go >/dev/null 2>&1; then
-  if [ -x "$ROOT/src/bootstrap/bin/xn-s4" ] && [ -x "$ROOT/src/bootstrap/bin/xparser" ]; then
+# Go oracle 已删除：没有 impl/ 或没有 go 时自动使用 bootstrap/bin 的原生工具。
+if [ -x "$ROOT/src/bootstrap/bin/xn-s4" ] && [ -x "$ROOT/src/bootstrap/bin/xparser" ]; then
+  if [ ! -d "$ROOT/impl" ] || ! command -v go >/dev/null 2>&1; then
     export XNULL_BOOTSTRAP=1
     export XNULLC_BIN=${XNULLC_BIN:-$ROOT/src/bootstrap/bin/xn-s4}
     export XPARSER_BIN=${XPARSER_BIN:-$ROOT/src/bootstrap/bin/xparser}
@@ -750,7 +750,8 @@ cmd_bootstrap_reactor() {
 # 准备清单 TSV（root.tsv + m/*.tsv），失败返回 1
 prepare_model() {
   local proj=$1 w=$2
-  local xpd=${XPD_BIN:-/tmp/xpd}
+  local mdir=${XNULL_MODEL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd}
   mkdir -p "$w/m"
   "$xpd" "$proj/xnull.project" > "$w/root.tsv" || return 1
   local rel
@@ -767,7 +768,8 @@ prepare_model() {
 # 准备依赖图 TSV：目标工程 + 其所属聚合的所有模块（近似 Go 从本地仓库读传递清单）
 prepare_graph() {
   local proj=$1 w=$2
-  local xpd=${XPD_BIN:-/tmp/xpd}
+  local mdir=${XNULL_MODEL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd}
   mkdir -p "$w"
   "$xpd" "$proj/xnull.project" > "$w/target.tsv" || return 1
   local target_coord
@@ -849,9 +851,16 @@ PY
 cmd_xmeta() {
   local proj=${1:-}; [ -n "$proj" ] || usage
   proj=$(cd "$proj" && pwd) || die "目录不存在"
-  local xpd=${XPD_BIN:-/tmp/xpd} xm=${XMETA_BIN:-/tmp/xmeta}
-  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
-  [ -x "$xm" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local mdir=${XNULL_MODEL_DIR:-/tmp} tdir=${XNULL_TOOL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd} xm=${XMETA_BIN:-$tdir/xmeta}
+  if [ ! -x "$xpd" ]; then
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+  fi
+  if [ ! -x "$xm" ]; then
+    cmd_bootstrap_tools -o "$tdir" > /dev/null || exit 1
+    [ -x "$xm" ] || xm="$tdir/xmeta"
+  fi
   local w; w=$(workdir) || exit 1
   prepare_graph "$proj" "$w" || exit 1
   gen_meta "$proj" "$w/meta.tsv" || exit 1
@@ -894,9 +903,16 @@ cmd_tree() {
   local proj=${1:-}; [ -n "$proj" ] || usage
   proj=$(cd "$proj" && pwd) || die "目录不存在"
   [ -f "$proj/xnull.project" ] || fail "缺少 xnull.project：$proj"
-  local xpd=${XPD_BIN:-/tmp/xpd} deps=${DEPS_BIN:-/tmp/deps}
-  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
-  [ -x "$deps" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local mdir=${XNULL_MODEL_DIR:-/tmp} tdir=${XNULL_TOOL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd} deps=${DEPS_BIN:-$tdir/deps}
+  if [ ! -x "$xpd" ]; then
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+  fi
+  if [ ! -x "$deps" ]; then
+    cmd_bootstrap_tools -o "$tdir" > /dev/null || exit 1
+    [ -x "$deps" ] || deps="$tdir/deps"
+  fi
   local w; w=$(workdir) || exit 1
   prepare_graph "$proj" "$w" || exit 1
   local files=("$w/target.tsv") f
@@ -909,9 +925,16 @@ cmd_why() {
   local proj=${1:-} coord=${2:-}
   [ -n "$proj" ] && [ -n "$coord" ] || usage
   proj=$(cd "$proj" && pwd) || die "目录不存在"
-  local xpd=${XPD_BIN:-/tmp/xpd} deps=${DEPS_BIN:-/tmp/deps}
-  [ -x "$xpd" ] || cmd_bootstrap_model -o /tmp > /dev/null || exit 1
-  [ -x "$deps" ] || cmd_bootstrap_tools -o /tmp > /dev/null || exit 1
+  local mdir=${XNULL_MODEL_DIR:-/tmp} tdir=${XNULL_TOOL_DIR:-/tmp}
+  local xpd=${XPD_BIN:-$mdir/xpd} deps=${DEPS_BIN:-$tdir/deps}
+  if [ ! -x "$xpd" ]; then
+    cmd_bootstrap_model -o "$mdir" > /dev/null || exit 1
+    [ -x "$xpd" ] || xpd="$mdir/xpd"
+  fi
+  if [ ! -x "$deps" ]; then
+    cmd_bootstrap_tools -o "$tdir" > /dev/null || exit 1
+    [ -x "$deps" ] || deps="$tdir/deps"
+  fi
   local w; w=$(workdir) || exit 1
   prepare_graph "$proj" "$w" || exit 1
   local files=("$w/target.tsv") f
@@ -1030,8 +1053,8 @@ for rel in seq:
     moddir = os.path.join(proj, rel)
     deps = []
     for e in edges:
-        if e["from"] == art:
-            deps += [e["coord"], e["ver"]]
+        if e["from"] == m["rel"]:
+            deps.append("%s:%s" % (e["coord"], e["ver"]))
     xlib = os.path.join(d, "%s-%s.xlib" % (art, ver))
     subprocess.run([sys.executable, packer, xlib, moddir] + list(gav(m["coord"], m["ver"])) + [m["pack"]] + deps,
                    check=True, stdout=subprocess.DEVNULL)
@@ -1095,31 +1118,69 @@ cmd_lock() {
   fi
   local w; w=$(workdir) || exit 1
   prepare_model "$root" "$w" || exit 1
-  local files=("$w/root.tsv") f
-  for f in "$w"/m/*.tsv; do [ -e "$f" ] && files+=("$f"); done
+  local files=("$w/root.tsv") f rel
+  while IFS= read -r rel; do
+    f="$w/m/$(printf '%s' "$rel" | tr '/' '_').tsv"
+    [ -f "$f" ] && files+=("$f")
+  done < <(awk -F'\t' '$1=="module"{print $2}' "$w/root.tsv")
   "$xmf" "${files[@]}" > "$w/model.tsv" || die "lock: 工程模型解析失败"
   local lock="$root/xnull.lock" tmp="$w/xnull.lock"
-  python3 - "$w/model.tsv" "$tmp" <<'PYLOCK'
+  python3 - "$w/model.tsv" "$root" "$tmp" "$HERE/pack_xlib.py" <<'PYLOCK'
+import hashlib
+import os
+import subprocess
 import sys
-model, out = sys.argv[1:3]
+
+model, root, out, packer = sys.argv[1:5]
 mods = {}
 edges = []
 for line in open(model, encoding="utf-8"):
     p = line.rstrip("\n").split("\t")
     if p and p[0] == "module" and len(p) >= 5:
-        mods[p[2]] = p[1]
+        mods[p[2]] = {"rel": p[1], "ver": p[3], "pack": p[4]}
     elif p and p[0] == "edge" and len(p) >= 4:
         edges.append((p[1], p[2], p[3]))
-external = []
-for owner, coord, ver in edges:
-    if coord not in mods:
-        external.append((coord, ver))
+
+external = sorted({(coord, ver) for _owner, coord, ver in edges if coord not in mods})
 if external:
-    for coord, ver in sorted(external):
+    for coord, ver in external:
         print("lock: error LOCK-002 外部依赖未接入仓库解析：%s %s" % (coord, ver), file=sys.stderr)
     sys.exit(2)
+
+# 只锁定作为 workspace 依赖目标的库模块；聚合根和未成为依赖的模块不入锁。
+targets = sorted({coord for _owner, coord, _ver in edges if coord in mods})
+entries = []
+for coord in targets:
+    m = mods[coord]
+    if m["pack"] != "library":
+        print("lock: error LOCK-002 workspace 依赖不是可安装的 library：%s" % coord, file=sys.stderr)
+        sys.exit(2)
+    group, artifact = coord.split(":", 1)
+    deps = []
+    for owner, dep_coord, dep_ver in edges:
+        if owner == m["rel"]:
+            deps.append("%s:%s" % (dep_coord, dep_ver))
+    xlib = os.path.join(os.path.dirname(os.path.abspath(out)), "lock-%s-%s.xlib" % (group.replace(".", "_"), artifact))
+    subprocess.run(
+        [sys.executable, packer, xlib, os.path.join(root, m["rel"]),
+         group.replace(".", "/"), artifact, m["ver"], m["pack"]] + sorted(deps),
+        check=True,
+    )
+    digest = hashlib.sha256(open(xlib, "rb").read()).hexdigest()
+    os.unlink(xlib)
+    entries.append((coord, m["ver"], digest))
+
+lines = ["lock {", "  version = 1"]
+for coord, ver, digest in entries:
+    lines.append("")
+    lines.append("  entry %s %s {" % (coord, ver))
+    lines.append("    kind       = dependency")
+    lines.append("    repository = workspace")
+    lines.append("    sha256     = %s" % digest)
+    lines.append("  }")
+lines.append("}")
 with open(out, "w", encoding="utf-8") as f:
-    f.write("lock {\n  version = 1\n}\n")
+    f.write("\n".join(lines) + "\n")
 PYLOCK
   local rc=$?
   [ "$rc" = 0 ] || return "$rc"

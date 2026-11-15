@@ -30,7 +30,7 @@ m8 约 42s，全新 C 缓存约 124s；完整 21 回归约 95s。
 ## 工作安排速览
 
 ```text
-D1  M8-P4 外部依赖/lock/install/repro
+D1  M8-P4 完成（默认 CLI/lock/install/repro）
 D2  M8-P5 诊断/退出码矩阵
 D3  M9-C2 String 面
 D4  M9-C3 泛型面
@@ -39,7 +39,7 @@ D6  选定 M9-PAR
 D7  Mini 1.0 收口
 ```
 
-当前从 D1 开始，不重排计划。
+D1 已完成，下一步从 D2 开始，不重排计划。
 
 ## 重启恢复命令
 
@@ -94,44 +94,26 @@ done
 
 ## 下一阶段执行顺序
 
-### D1：M8-P4 收口（D1.0–D1.4）
+### D1：M8-P4 收口（已完成）
 
 目标：先修交付口径，再实现 workspace lock；外部依赖只做负例，不扩大
-Mini 1.0 的包管理范围。
+Mini 1.0 的包管理范围。状态：完成。验证：默认 CLI 不带 `--bootstrap`
+可用；workspace lock/`--check`/`--update` 通过；外部依赖 `LOCK-002` 且不写锁；
+install 两次 `.xlib` SHA 一致且与 lock 摘要一致；21 回归 + selfhost 全绿；
+m8 热 C 缓存约 43s、全新 C 缓存约 124s。以下保留执行记录，不设独立审批门：
 
-#### D1.0 默认 CLI 与工具目录
-
-- 修 `xnull-build.sh`：没有 `impl/` 或没有 go 时都自动走 bootstrap，
-  不再要求默认命令额外加 `--bootstrap`。
-- 把 `prepare_model`、`prepare_graph`、`cmd_xmeta`、`cmd_tree`、`cmd_why`
-  的 `/tmp` 默认统一到 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`。
-- 回归：不带 `--bootstrap` 的 legacy `build`/`run`；21 回归不退化。
-
-#### D1.1 fixture
-
-- workspace 依赖 fixture：可解析、可构建、可安装。
-- 外部仓库依赖 fixture：只验证 `LOCK-002`，不联网、不写锁。
-- 缺版本、缺坐标、锁文件不一致负例。
-
-#### D1.2 workspace lock
-
-- 先补一页规范：`repository = workspace` 为保留 id；entry 按坐标升序；
-  `sha256` 取确定性 `.xlib` 的 SHA-256；`--check` 不写，`--update` 才重写。
-- 再实现 `xnull.lock` 的 `entry` 输出、排序、一致性检查。
-- 外部依赖返回 `LOCK-002` 且不能留下半成品锁文件。
-- D1 保留 `LOCK-002` 作为临时内部码；D2 负责映射到规范 `XPD-4xx`。
-
-#### D1.3 install/repro
-
-- `install` 产出确定性 `.xlib`；连续两次 SHA 一致。
-- `lock` 记录的摘要与 `install` 产物一致。
-- `repro` 两次构建 SHA 一致。
-
-#### D1.4 回归与文档
-
-- 扩展 `m8.sh`：默认 CLI、workspace lock、外部依赖负例、install/repro。
-- 记录热 C 缓存与全新 C 缓存两种时间。
-- 跑 21 回归 + selfhost；更新 PLAN/RESUME；提交 `dev`。
+1. **默认 CLI 与工具目录**：没有 `impl/` 或没有 go 时自动 bootstrap；
+   `prepare_model`/`prepare_graph`/`xmeta`/`tree`/`why` 统一使用
+   `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`；补不带 `--bootstrap` 的 build/run 回归。
+2. **fixture**：workspace 依赖可解析/构建/安装；外部仓库依赖只验证
+   `LOCK-002`；补缺版本、缺坐标、锁文件不一致负例。
+3. **workspace lock**：先补一页规范，定义 `repository = workspace`、entry
+   坐标升序、确定性 `.xlib` SHA-256、`--check` 不写和 `--update` 才重写；
+   再实现 lock 输出与一致性检查。外部依赖 `LOCK-002` 且不写锁。
+4. **install/repro**：`install` 产出确定性 `.xlib`，两次 SHA 一致；lock 摘要
+   与安装产物一致；`repro` 两次构建 SHA 一致。
+5. **回归与文档**：扩展 m8，记录热/冷缓存，跑 21 回归 + selfhost，更新
+   PLAN/RESUME，一次提交 `dev`。
 
 验收：
 
@@ -154,6 +136,7 @@ Mini 1.0 的包管理范围。
 - 不做“从本地仓库成功解析外部依赖”；那是新的包管理工作包。
 - 本地仓库只用于 `install` 产物和摘要校验。
 - 默认引擎仍是 `legacy`；`main` 不接收未过门的改动。
+- D1 保留 `LOCK-002` 作为临时内部码；D2 负责映射到规范 `XPD-4xx`。
 
 ### D2：M8-P5 诊断与退出码矩阵
 

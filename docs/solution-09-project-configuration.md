@@ -419,6 +419,10 @@ lock {
 | Generation | A first build without a lock generates it and warns to commit; `--update-lock` regenerates explicitly (the only regeneration entry point) |
 | Reading | The build is governed by the lock (lock before network); a coordinate in the lock that does not exist in the manifest → failure |
 
+Workspace dependency entries (`modules` aggregation) use the reserved
+`repository = workspace` value and the deterministic `.xlib` digest defined in
+[lock-workspace-v1.md](lock-workspace-v1.md).
+
 ### 4.5 Transitivity constraints
 
 - Cyclic dependencies → failure; `app` as a dependency → failure;

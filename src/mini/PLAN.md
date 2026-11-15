@@ -282,7 +282,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |
 | M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8.2 | 资源读取/缺失负例 | 完成（resources.sh） |
 | M8-P3 | `build/run --json` | S：IDE/CI 场景传 `--json`；D：M8.1 | M8.1 | JSON 正例 + 失败负例 | 完成（file/project build/run/check；m8.sh） |
-| M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 部分（workspace lock/install/repro 已通；外部仓库/插件依赖未做） |
+| M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 完成（workspace lock/install/repro；外部仓库解析不在 Mini 1.0） |
 | M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | 部分（SEM-001/JSON、退出 1/2/程序返回码已覆盖；完整码表未做） |
 | M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 完成（object_list.sh；自源码 List<AstNode>/List<Token>） |
 | M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | 部分（length/indexOf/substring/startsWith/split 已通；trim/replace/UTF 等未做） |
@@ -321,7 +321,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 ### 9.4 当前激活
 
 - P0 自举可复现性已完成：`cmd_bootstrap_model`/tools/reactor 不再依赖 Go oracle；`m8.sh` 用测试私有目录强制冷启动。
-- M8-P1/P2/P3 已完成 workspace 场景；M8-P4/P5 部分完成，外部仓库/插件依赖和完整诊断码仍待补。
+- M8-P1/P2/P3/P4 已完成 workspace 场景；M8-P5 部分完成，完整诊断码矩阵仍待补。
 - M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
 - M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
 - M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C；`text/mini` 与 `io/mini` shim 均已删除，mini 当前走 `text/full` 与 `io/base`；完整 `io/system` raw FFI 仍未接入。
@@ -371,7 +371,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | 工作包 | 内容 | 估算 |
 | --- | --- | ---: |
-| A. M8 收口 | M8-P4/P5：外部依赖 lock、install/repro、完整诊断/退出码矩阵 | 3–5 |
+| A. M8 收口 | M8-P4/P5：workspace lock、install/repro、外部依赖负例、完整诊断/退出码矩阵 | 3–5 |
 | B. M9 语言面 | M9-C2、M9-C3 当前缺口 | 2–3 |
 | C. 核心 XDK | `text/full`、`io/base`、errors/runtime/meta 组合场景 | 1–2 |
 | D. 集成门 | 选定 M9-PAR、回归、默认 `legacy` 保持不变 | 1–2 |
@@ -419,7 +419,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | Day | 工作 | 产出/验收 |
 | --- | --- | --- |
-| D1 | 基线冻结 + M8-P4 | D1.0 默认 CLI bootstrap/工具目录隔离；D1.1 fixture；D1.2 lock 规范/实现；D1.3 install/repro；D1.4 m8/回归 |
+| D1 | 基线冻结 + M8-P4 | 完成：默认 CLI、fixture、workspace lock、install/repro、m8/回归 |
 | D2 | M8-P5 + 工程边界 | JSON 字段、诊断码、退出码 0/1/2/130/134；modules 边界负例 |
 | D3 | M9-C2 | String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
 | D4 | M9-C3 | 泛型推断、嵌套实例化、函数类型参数；不支持项负例 |
@@ -427,18 +427,25 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | D6 | 选定 M9-PAR | 10–20 个代表性场景的 stdout/stderr/退出码新旧差分 |
 | D7 | 收口 | 21 回归 + selfhost + M8 回归全绿；更新 README/PLAN；提交 dev |
 
-#### D1 细化（2026-11-16 修订）
+#### D1 单一工作包（已完成，2026-11-16）
 
-当前基线 `e312f8da` 已关闭 P0 自举可复现性；默认 CLI、工具目录隔离和
-workspace lock 仍是 D1 的真实缺口。D1 按以下切片执行，不扩大 Mini 1.0 范围：
+状态：完成。验证：默认 legacy build/run 不带 `--bootstrap` 通过；
+workspace lock/`--check`/`--update` 通过；外部依赖 `LOCK-002` 且不写锁；
+install 两次 `.xlib` SHA 一致且与 lock 摘要一致；21 回归 + selfhost 全绿；
+m8 热 C 缓存约 43s、全新 C 缓存约 124s。
 
-| 切片 | 内容 | 验收 |
-| --- | --- | --- |
-| D1.0 | 默认 CLI 在缺少 `impl/` 时自动走 bootstrap；统一 `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR` | 不带 `--bootstrap` 的 legacy build/run 可用；21 回归不退化 |
-| D1.1 | workspace 依赖 fixture、外部依赖负例、缺版本/缺坐标负例 | 正例和失败路径都能复现 |
-| D1.2 | 先补 workspace lock 规范页，再实现 `entry`/排序/`repository=workspace`/`.xlib` SHA-256/`--check`/`--update` | 锁文件字节稳定；外部依赖 `LOCK-002` 且不写锁 |
-| D1.3 | `install` 产出确定性 `.xlib`；两次 SHA 一致；lock 摘要与安装产物一致 | `install` + `repro` 正例 |
-| D1.4 | 扩展 m8；记录热/冷缓存；跑 21 回归 + selfhost；更新 PLAN/RESUME | 全绿、文档与估算对齐 |
+当前基线 `e312f8da` 已关闭 P0 自举可复现性；D1 作为一个工作包一次完成，
+以下只是已执行的内部顺序，不设独立审批门，不拆成多次提交：
+
+1. 默认 CLI 在缺少 `impl/` 时自动走 bootstrap；统一
+   `XNULL_MODEL_DIR`/`XNULL_TOOL_DIR`，补齐 `prepare_model`/`prepare_graph`/
+   `xmeta`/`tree`/`why`；补不带 `--bootstrap` 的回归。
+2. 增加 workspace 依赖 fixture、外部依赖负例、缺版本/缺坐标/锁不一致负例。
+3. 先补 workspace lock 规范页，再实现 `entry`、坐标排序、
+   `repository=workspace`、确定性 `.xlib` 的 SHA-256、`--check`/`--update`。
+4. `install` 产出确定性 `.xlib`；连续两次 SHA 一致；lock 摘要与安装产物一致。
+5. 扩展 m8，记录热/冷缓存时间，跑 21 回归 + selfhost，更新 PLAN/RESUME，
+   一次提交 `dev`。
 
 D1 锁定口径：
 
@@ -448,7 +455,7 @@ D1 锁定口径：
   的 SHA-256；该约定未写入现有规范，必须先补一页规范再改代码。
 - `LOCK-002` 作为 D1 的临时内部码保留；D2 统一到规范 `XPD-4xx` 时补映射，
   不在 D1 发明新的 `XPD-4xx` 具体码。
-- 默认 CLI 修复属于 D1.0，不属于 D2；不带 `--bootstrap` 是交付门禁。
+- 默认 CLI 修复属于 D1；不带 `--bootstrap` 是交付门禁。
 - Mini 1.0 剩余估算统一为 **7–12 dev-day**；计时区分热 C 缓存与全新 C 缓存。
 
 阶段门：

@@ -1,0 +1,16 @@
+project {
+  groupId    = demo
+  artifactId = external-app
+  version    = 1.0.0
+  packaging  = app
+
+  dependencies {
+    dependency external:lib {
+      version = 1.0.0
+    }
+  }
+
+  build {
+    entryFile = src/main/x/main.x
+  }
+}
