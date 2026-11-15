@@ -22,6 +22,8 @@ src/mini/tests/object_list.x
 src/mini/tests/xdk_errors.x
 src/mini/tests/xdk_sys.x
 src/mini/tests/xdk_meta.x
+src/mini/tests/xdk_runtime.x
+src/mini/tests/codegen_hello.x
 src/mini/tests/project/src/main/x/main.x
 '
 

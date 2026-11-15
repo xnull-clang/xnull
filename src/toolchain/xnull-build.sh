@@ -1166,7 +1166,7 @@ for line in open(model, encoding="utf-8"):
 external = sorted({(coord, ver) for _owner, coord, ver in edges if coord not in mods})
 if external:
     for coord, ver in external:
-        print("lock: error LOCK-002 外部依赖未接入仓库解析：%s %s" % (coord, ver), file=sys.stderr)
+        print("lock: error XPD-401（LOCK-002）外部依赖未接入仓库解析：%s %s" % (coord, ver), file=sys.stderr)
     sys.exit(2)
 
 # 只锁定作为 workspace 依赖目标的库模块；聚合根和未成为依赖的模块不入锁。
@@ -1175,7 +1175,7 @@ entries = []
 for coord in targets:
     m = mods[coord]
     if m["pack"] != "library":
-        print("lock: error LOCK-002 workspace 依赖不是可安装的 library：%s" % coord, file=sys.stderr)
+        print("lock: error XPD-401（LOCK-002）workspace 依赖不是可安装的 library：%s" % coord, file=sys.stderr)
         sys.exit(2)
     group, artifact = coord.split(":", 1)
     deps = []
@@ -1208,14 +1208,14 @@ PYLOCK
   [ "$rc" = 0 ] || return "$rc"
   if [ "$check" = 1 ]; then
     if [ ! -f "$lock" ] || ! cmp -s "$lock" "$tmp"; then
-      echo "lock: FAIL（需要更新：${lock}）" >&2
+      echo "lock: error XPD-402 锁文件缺失或与清单不一致（需要更新：${lock}）" >&2
       return 1
     fi
     echo "lock: OK（${lock}）"
     return 0
   fi
   if [ -f "$lock" ] && ! cmp -s "$lock" "$tmp" && [ "$update" != 1 ]; then
-    echo "lock: FAIL（锁文件不一致；使用 --update 更新）" >&2
+    echo "lock: error XPD-402 锁文件不一致（使用 --update 更新）" >&2
     return 1
   fi
   cp "$tmp" "$lock"

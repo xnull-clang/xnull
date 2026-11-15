@@ -152,7 +152,7 @@ set +e
 rc=$?
 set -e
 [ "$rc" -eq 2 ] || { echo "external lock expected 2, got $rc" >&2; cat "$D/ext.err" >&2; exit 1; }
-grep -q 'LOCK-002' "$D/ext.err"
+grep -q 'XPD-401' "$D/ext.err"
 [ ! -e "$D/external/xnull.lock" ] || { echo "external lock must not be written" >&2; exit 1; }
 
 # 4c. missing dependency version must fail without writing a lock.
@@ -205,6 +205,7 @@ rc=$?
 set -e
 [ "$rc" -eq 1 ] || { echo "lock mismatch expected 1, got $rc" >&2; cat "$D/lm.err" >&2; exit 1; }
 [ "$(sha "$D/lock-mismatch/xnull.lock")" = "$before" ] || { echo "lock --check mutated the lock" >&2; exit 1; }
+grep -q 'XPD-402' "$D/lm.err"
 
 # 4f. install is deterministic and agrees with the lock digest.
 XNULL_OUT="$D/install-a" XNULL_REPO="$D/repo-a" \

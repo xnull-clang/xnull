@@ -36,13 +36,15 @@ lock {
 6. Entries are sorted by ascending `groupId:artifactId`; duplicate coordinates
    and unresolved versions are errors.
 7. A coordinate that is not a workspace module is unresolved in Mini 1.0:
-   the lock command reports `LOCK-002` (temporary code) and must not create or
-   modify the lock file.
-8. `--check` only verifies: a missing or different lock returns non-zero and
+   the lock command reports `XPD-401` (legacy alias `LOCK-002`) and must not
+   create or modify the lock file.
+8. A missing or byte-different lock file under `--check`, or a conflicting
+   lock without `--update`, reports `XPD-402` and leaves the file untouched.
+9. `--check` only verifies: a missing or different lock returns non-zero and
    leaves the file untouched. `--update` is the only explicit rewrite path.
    A first successful generation without a lock writes the file once.
-9. The lock is located at the aggregation root and its bytes are stable for the
-   same manifest/source tree.
+10. The lock is located at the aggregation root and its bytes are stable for the
+    same manifest/source tree.
 
 ## Consequences
 

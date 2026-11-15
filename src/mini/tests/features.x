@@ -28,6 +28,15 @@ static Int main() {
         default:
             print("sw-other-string")
     }
+    Int sb = 1
+    switch sb {
+        case 1:
+            print("switch-break")
+            break
+            print("switch-unreachable")
+        default:
+            print("switch-bad")
+    }
     print("[" + s.trim() + "]")
     print(r.replace("X", "-"))
     print(s.trim().toUpper())

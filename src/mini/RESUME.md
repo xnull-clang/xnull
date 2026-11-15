@@ -141,12 +141,11 @@ m8 热 C 缓存约 43s、全新 C 缓存约 124s。以下保留执行记录，�
 - D1 保留 `LOCK-002` 作为临时内部码；XPD-4xx 具体映射留后续规范。
 
 ### D2：M8-P5 诊断与退出码矩阵
-状态：完成（CLI/SEM/JSON/退出码矩阵；XPD/PROJ 全表留后续规范）。
+状态：完成（CLI/SEM/JSON/退出码矩阵；外部 lock `XPD-401`、锁不一致 `XPD-402`，保留 `LOCK-002` 兼容别名）。
 
 目标：
 
-- 统一 `CLI-*`、`SEM-*` 诊断输出；项目错误继续使用 `CLI-003`/`XPD-*`/
-  临时 `LOCK-002`。
+- 统一 `CLI-*`、`SEM-*`、`XPD-*` 诊断输出；外部 lock 保留 `LOCK-002` 别名。
 - 覆盖退出码：
 
 ```text
@@ -237,7 +236,7 @@ diff -qr src/xdk xdk/lib/xdk
 ```
 
 ### D6：选定 M9-PAR
-状态：完成。`parity.sh` 覆盖 14 个代表性场景，legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
+状态：完成。`parity.sh` 覆盖 16 个代表性场景，legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
 
 目标：
 
@@ -265,7 +264,7 @@ main 默认仍是 legacy
 
 Mini 1.0 / M9-MIN 已完成，后续按 PLAN §9.5 继续：
 
-1. M8-P5 的项目诊断码补充与 XPD/PROJ 映射。
+1. M8-P5 已完成；XPD-401/402 和 `LOCK-002` 兼容别名已接入。
 2. M9-C4 余量：data enum、继承/协议分派、lambda、do/for-range、标签控制。
 3. M7-F1/F2/F3/F4：完整 XDK、raw FFI、租约/错误码和 T0 包。
 4. M9-PAR 全量差分与 M9-CUT 默认切换。

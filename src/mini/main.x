@@ -3144,6 +3144,7 @@ class CGen {
     String curRet
     final List<AstNode> defers
     final List<String> deferErrs
+    final List<String> breakTargets
 
     CGen(AstNode program) {
         self.program = program
@@ -3156,6 +3157,7 @@ class CGen {
         self.curRet = "Int"
         self.defers = []
         self.deferErrs = []
+        self.breakTargets = []
     }
 
     Bool hasError() {
@@ -4650,7 +4652,16 @@ class CGen {
 
     Void stmt(AstNode st, String indent) {
         if st.kind == "Break" {
-            self.emit(indent + "break;")
+            if self.breakTargets.length() > 0 {
+                String target = self.breakTargets.get(self.breakTargets.length() - 1)
+                if target == "loop" {
+                    self.emit(indent + "break;")
+                } else {
+                    self.emit(indent + "goto " + target + ";")
+                }
+            } else {
+                self.emit(indent + "break;")
+            }
             return
         }
         if st.kind == "Continue" {
@@ -4695,6 +4706,8 @@ class CGen {
             }
             String vt = self.typeOf(st.kids.get(0))
             String sv = self.temp()
+            String swEnd = self.temp()
+            self.breakTargets.push(swEnd)
             self.emit(indent + "{")
             self.emit(indent + "  " + self.ctype(vt) + " " + sv + " = " + self.expr(st.kids.get(0)) + ";")
             Int si = 1
@@ -4732,7 +4745,9 @@ class CGen {
             if !hasDefault && first {
                 self.emit(indent + "  {}")
             }
+            self.emit(indent + "  " + swEnd + ": ;")
             self.emit(indent + "}")
+            self.breakTargets.remove(self.breakTargets.length() - 1)
             return
         }
         if st.kind == "ForIn" {
@@ -4756,7 +4771,9 @@ class CGen {
             self.emit(indent + "    " + self.ctype(et) + " " + st.text + " = " + self.arrayGet(aty, it, ix) + ";")
             Int mark = self.vars.length()
             self.addVar(et, st.text)
+            self.breakTargets.push("loop")
             self.blockBody(st.kids.get(1), indent + "    ")
+            self.breakTargets.remove(self.breakTargets.length() - 1)
             self.popTo(mark)
             self.emit(indent + "  }")
             self.emit(indent + "}")
@@ -4809,7 +4826,9 @@ class CGen {
                 return
             }
             self.emit(indent + "while (" + self.expr(st.kids.get(0)) + ") {")
+            self.breakTargets.push("loop")
             self.blockBody(st.kids.get(1), indent + "  ")
+            self.breakTargets.remove(self.breakTargets.length() - 1)
             self.emit(indent + "}")
             return
         }
