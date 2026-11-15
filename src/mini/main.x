@@ -2769,6 +2769,17 @@ class Checker {
         if n.text == "resourceCountRaw" {
             return "Int"
         }
+        if n.text == "readFileTextRaw" {
+            if argc != 1 {
+                self.fail("SEM-004", "readFileTextRaw expects 1 argument", n)
+            } else {
+                self.typeOf(n.kids.get(0))
+            }
+            return "String"
+        }
+        if n.text == "readFileTextError" {
+            return "Int"
+        }
         if n.text == "fileExistsRaw" {
             if argc != 1 {
                 self.fail("SEM-004", "fileExistsRaw expects 1 argument", n)
@@ -4058,7 +4069,8 @@ class CGen {
                n.text != "nowMonoRaw" && n.text != "nowWallRaw" &&
                n.text != "resourceExistsRaw" && n.text != "resourceCountRaw" &&
                n.text != "readResourceTextRaw" && n.text != "fileExistsRaw" &&
-               n.text != "readFile" && n.text != "listFiles" && n.text != "platformRaw" {
+               n.text != "readFile" && n.text != "listFiles" && n.text != "platformRaw" &&
+               n.text != "readFileTextRaw" && n.text != "readFileTextError" {
                 String b = ffiCName(n.text) + "("
                 Int fi = 0
                 while fi < n.kids.length() {
@@ -4120,6 +4132,16 @@ class CGen {
             }
             if n.text == "resourceCountRaw" {
                 return "xdkc_p_resource_count()"
+            }
+            if n.text == "readFileTextRaw" {
+                String a = "rt_string_from_c(\"\")"
+                if n.kids.length() > 0 {
+                    a = self.expr(n.kids.get(0))
+                }
+                return "rt_string_from_c(xdkc_read_file_text(" + a + "->bytes, " + a + "->len))"
+            }
+            if n.text == "readFileTextError" {
+                return "xdkc_read_file_text_error()"
             }
             if n.text == "fileExistsRaw" {
                 String a = "rt_string_from_c(\"\")"
@@ -4993,6 +5015,8 @@ class CGen {
         self.emit("int32_t xdkc_p_resource_exists(const char *path, size_t len);")
         self.emit("const char *xdkc_p_read_resource_text(const char *path, size_t len);")
         self.emit("int64_t xdkc_p_resource_count(void);")
+        self.emit("const char *xdkc_read_file_text(const char *bytes, size_t len);")
+        self.emit("int32_t xdkc_read_file_text_error(void);")
         self.emit("int32_t xdkc_diagnose_rc(const char *bytes, size_t len);")
         self.emit("int32_t xdkc_exit_rc(int32_t code);")
         self.emit("int64_t xdkc_now_mono_ms(void);")
@@ -5506,7 +5530,7 @@ static String xdkFile(String pkg) {
         return "text/full/Text.x"
     }
     if pkg == "xdk.sys" || pkg.startsWith("xdk.sys.") {
-        return "io/mini/Sys.x"
+        return "io/base/Sys.x"
     }
     return ""
 }

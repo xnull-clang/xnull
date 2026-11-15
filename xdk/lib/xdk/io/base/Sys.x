@@ -14,3 +14,19 @@ String readFileText(String path) {
     }
     return raw
 }
+
+Bool fileExists(String path) {
+    return fileExistsRaw(path) != 0
+}
+
+Bool resourceExists(String path) {
+    return resourceExistsRaw(path) != 0
+}
+
+String readResourceText(String path) {
+    return readResourceTextRaw(path)
+}
+
+Int resourceCount() {
+    return resourceCountRaw()
+}
