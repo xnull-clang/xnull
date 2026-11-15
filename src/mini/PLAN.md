@@ -324,3 +324,31 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - M9-C1 完成，M9-C3/C4 进入部分实现；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
 - M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
 - M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C，`io/system/Sys.x` 仍有 CGen 崩溃。
+
+### 9.5 下一阶段执行清单（dev 分支）
+
+`dev` 为日常开发分支；`main` 只接收通过门禁的合并。当前 `dev`、`main` 和
+`reset/minimal-xnull` 均指向 `1a0a5041`，不得在未通过冻结回归前改变默认引擎。
+
+| 优先级 | 工作项 | 具体切片 | 完成判定 |
+| --- | --- | --- | --- |
+| P0 | 回归冻结 | 每次改动后跑 21 个 `src/mini/tests/*.sh`；先补失败场景再改实现 | 全绿且 selfhost 固定点不漂移 |
+| P1 | M8-P4 | 外部依赖/本地仓库 lock；`install` 归档可复现；`repro` 两次 SHA 一致 | 外部依赖 fixture + 失败负例 |
+| P1 | M8-P5 | 统一 `CLI-*`/`SEM-*`/`PROJ-*` 诊断码；退出码 0/1/2/130/134 矩阵 | JSON 与 stderr 字段一致 |
+| P2 | M9-C2 | String `trim`/`replace`/大小写/UTF 边界；补齐 `parseInt`/`parseFloat` 场景 | 文本场景 + 旧引擎差分 |
+| P2 | M9-C3 | 泛型函数/类推断、嵌套实例化、函数类型参数；明确不支持项的负例 | `generics.sh` 扩展并通过 |
+| P3 | M9-C4 | 按场景逐项：switch、data enum、继承/协议分派、lambda、do/for-range、标签控制 | 每特性正例 + 负例，不一次性伪造全部能力 |
+| P3 | M7-F3 | 先修 `io/system/Sys.x` CGen 崩溃；再补 raw handle/Bytes/Result 类型 | `--sema` + `--emit-c` + C 编译通过 |
+| P3 | M7-F1 | 通用 `.xfb` 参数/返回值、租约、错误码映射；替换硬编码桥 | 自定义 `.xfb` 正例 + 错误负例 |
+| P4 | M7-F2/F4 | 完整 text/sys 及 T0 包按实际 import 场景接入；不再新增 mini 专用重复 API | 每包场景 + 旧引擎差分 |
+| P5 | M9-PAR | 全量 stdout/stderr/退出码差分 | 差分矩阵全绿 |
+| Gate | M9-CUT | 仅在 M9-PAR 全绿且用户批准后切换默认引擎 | 默认命令全绿；legacy 退居 oracle |
+
+立即开始顺序：
+
+1. `M8-P4/P5`：先把工程生命周期和机器接口收口。
+2. `M9-C2/C3/C4`：优先满足自举与真实 XDK 源码。
+3. `M7-F3/F1/F2/F4`：完成 Sys、FFI、文本和其他 T0。
+4. `M9-PAR/M9-CUT`：最后做差分和默认切换。
+
+每条工作项必须绑定一个可运行场景或负例；没有场景的能力登记为“等待”，不得以空实现宣称完成。
