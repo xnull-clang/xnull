@@ -15,11 +15,11 @@ reset/minimal: 1a0a5041
 当前工作区应当干净。最近提交：
 
 ```text
+e41708d5 feat(mini): add labels and goto
 ee320e5d feat(mini): add do-while and range loops
 d70c1aa9 docs(mini): record M8-P5 and switch edge closure
 823f35eb feat(mini): close M8-P5 diagnostics and switch edges
 5b1be135 docs(mini): record M9-C4 switch slice
-88ac3b51 feat(mini): add basic switch statement
 ```
 
 P0 自举可复现性已关闭：`m8.sh` 使用测试私有的
