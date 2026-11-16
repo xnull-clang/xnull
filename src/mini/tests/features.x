@@ -90,6 +90,12 @@ static Int main() {
     }
     InheritChild ic = new InheritChild()
     print("inherit " + str(ic.sum()))
+    Int(Int) inc = (Int v) -> v + 1
+    print("lambda " + str(inc(4)))
+    Int(Int) twice = (Int v) -> { return v * 2 }
+    print("lambda-block " + str(twice(3)))
+    Int() zero = () -> 42
+    print("lambda0 " + str(zero()))
     Greeter pg = new Hello()
     print("protocol " + pg.greet())
     pg = new Bye()

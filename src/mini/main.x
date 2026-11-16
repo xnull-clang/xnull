@@ -815,6 +815,23 @@ class Parser {
             Token name = self.look(j)
             return name.kind == "ident"
         }
+        if b.text == "(" {
+            Int depth = 1
+            Int j = 2
+            while depth > 0 {
+                Token t = self.look(j)
+                if t.kind == "eof" {
+                    return false
+                }
+                if t.text == "(" {
+                    depth = depth + 1
+                } else if t.text == ")" {
+                    depth = depth - 1
+                }
+                j = j + 1
+            }
+            return self.look(j).kind == "ident" && self.look(j).line == a.line
+        }
         return false
     }
 
@@ -1233,6 +1250,65 @@ class Parser {
         return result
     }
 
+    Bool looksLikeLambda() {
+        if !self.at("(") {
+            return false
+        }
+        Int depth = 0
+        Int j = 0
+        while true {
+            Token t = self.look(j)
+            if t.kind == "eof" {
+                return false
+            }
+            if t.text == "(" {
+                depth = depth + 1
+            } else if t.text == ")" {
+                depth = depth - 1
+                if depth == 0 {
+                    return self.look(j + 1).text == "->"
+                }
+            }
+            j = j + 1
+        }
+        return false
+    }
+
+    AstNode parseLambda() {
+        Token t = self.peek()
+        AstNode n = self.node("Lambda", "", t)
+        self.expect("(")
+        if !self.at(")") {
+            while !self.hasError() {
+                if self.at("final") {
+                    self.advance()
+                }
+                String pt = self.parseType()
+                if !self.kind("ident") {
+                    self.fail("expected lambda parameter name")
+                    break
+                }
+                Token pn = self.advance()
+                n.add(new AstNode("Param", pt + " " + pn.text, pn.line, pn.col))
+                if !self.eat(",") {
+                    break
+                }
+            }
+        }
+        self.expect(")")
+        self.expect("->")
+        if self.at("{") {
+            n.add(self.parseBlock())
+        } else {
+            AstNode b = self.node("Block", "", self.peek())
+            AstNode r = self.node("Return", "", self.peek())
+            r.add(self.parseExpr())
+            b.add(r)
+            n.add(b)
+        }
+        return n
+    }
+
     AstNode parsePrimary() {
         Token t = self.peek()
         if self.kind("int") {
@@ -1262,6 +1338,9 @@ class Parser {
         if self.kind("kw") && (t.text == "true" || t.text == "false") {
             self.advance()
             return self.node("Bool", t.text, t)
+        }
+        if self.at("(") && self.looksLikeLambda() {
+            return self.parseLambda()
         }
         if self.at("(") {
             self.advance()
@@ -1951,6 +2030,7 @@ class Checker {
     Int errorCol
     String curRet
     String curClass
+    String expectedLambda
 
     Checker(String file, AstNode program) {
         self.file = file
@@ -1990,11 +2070,46 @@ class Checker {
         }
     }
 
+    Bool isFunctionType(String ty) {
+        Int p = ty.indexOf("(")
+        return p > 0 && ty.length() > p + 1 && ty.substring(ty.length() - 1, 1) == ")"
+    }
+
+    String fnRetType(String ty) {
+        Int p = ty.indexOf("(")
+        if p > 0 {
+            return ty.substring(0, p)
+        }
+        return "Any"
+    }
+
+    List<String> fnParams(String ty) {
+        List<String> res = []
+        Int p = ty.indexOf("(")
+        if p <= 0 || ty.substring(ty.length() - 1, 1) != ")" {
+            return res
+        }
+        String inner = ty.substring(p + 1, ty.length() - p - 2)
+        if inner.trim() == "" {
+            return res
+        }
+        List<String> raw = inner.split(",")
+        Int i = 0
+        while i < raw.length() {
+            res.push(raw.get(i).trim())
+            i = i + 1
+        }
+        return res
+    }
+
     Bool knownType(String ty) {
         if ty.length() > 1 && ty.substring(ty.length() - 1, 1) == "?" {
             return self.knownType(ty.substring(0, ty.length() - 1))
         }
         if ty == "Bytes" {
+            return true
+        }
+        if self.isFunctionType(ty) {
             return true
         }
         if ty == "Int" || ty == "String" || ty == "Bool" ||
@@ -2649,7 +2764,15 @@ class Checker {
             }
             self.addVar(ty, name, st)
             if st.kids.length() > 0 {
-                String it = self.typeOf(st.kids.get(0))
+                String it = ""
+                if st.kids.get(0).kind == "Lambda" {
+                    String oldExp = self.expectedLambda
+                    self.expectedLambda = ty
+                    it = self.typeOf(st.kids.get(0))
+                    self.expectedLambda = oldExp
+                } else {
+                    it = self.typeOf(st.kids.get(0))
+                }
                 if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) {
                     self.fail("SEM-003", "cannot initialize " + ty + " with " + it, st)
                 }
@@ -3086,6 +3209,36 @@ class Checker {
                 return self.mapValueType(bt)
             }
             return self.elementType(bt)
+        }
+        if n.kind == "Lambda" {
+            String ft = self.expectedLambda
+            if ft == "" {
+                return "Any"
+            }
+            Int mark = self.vars.length()
+            Int i = 0
+            while i < n.kids.length() {
+                AstNode p = n.kids.get(i)
+                if p.kind == "Param" {
+                    List<String> pp = p.text.split(" ")
+                    if pp.length() >= 2 {
+                        self.addVar(pp.get(0), pp.get(1), p)
+                    }
+                }
+                i = i + 1
+            }
+            String oldRet = self.curRet
+            self.curRet = self.fnRetType(ft)
+            i = 0
+            while i < n.kids.length() {
+                if n.kids.get(i).kind == "Block" {
+                    self.checkBlock(n.kids.get(i))
+                }
+                i = i + 1
+            }
+            self.curRet = oldRet
+            self.popTo(mark)
+            return ft
         }
         if n.kind == "New" {
             if !self.knownType(n.text) {
@@ -3614,6 +3767,24 @@ class Checker {
             }
             return "String"
         }
+        Int fvi = self.findVar(n.text)
+        if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
+            String ft = self.varTypes.get(fvi)
+            List<String> want = self.fnParams(ft)
+            if want.length() != argc {
+                self.fail("SEM-004", n.text + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
+                return "Error"
+            }
+            Int ai = 0
+            while ai < argc && !self.hasError() {
+                String at = self.typeOf(n.kids.get(ai))
+                if at != "Error" && !self.sameType(at, want.get(ai)) {
+                    self.fail("SEM-003", "argument " + str(ai + 1) + " of " + n.text + ": expected " + want.get(ai) + ", got " + at, n)
+                }
+                ai = ai + 1
+            }
+            return self.fnRetType(ft)
+        }
         Int idx = self.findFn(n.text)
         if idx < 0 {
             self.fail("SEM-001", "undefined function: " + n.text, n)
@@ -3657,6 +3828,8 @@ class CGen {
     final List<AstNode> defers
     final List<String> deferErrs
     final List<String> breakTargets
+    final List<AstNode> lambdas
+    final List<String> lambdaTypes
 
     CGen(AstNode program) {
         self.program = program
@@ -3670,6 +3843,8 @@ class CGen {
         self.defers = []
         self.deferErrs = []
         self.breakTargets = []
+        self.lambdas = []
+        self.lambdaTypes = []
     }
 
     Bool hasError() {
@@ -4046,6 +4221,92 @@ class CGen {
         return "Any"
     }
 
+    Bool isFunctionType(String ty) {
+        Int p = ty.indexOf("(")
+        return p > 0 && ty.length() > p + 1 && ty.substring(ty.length() - 1, 1) == ")"
+    }
+
+    String fnRetType(String ty) {
+        Int p = ty.indexOf("(")
+        if p > 0 {
+            return ty.substring(0, p)
+        }
+        return "Any"
+    }
+
+    List<String> fnParams(String ty) {
+        List<String> res = []
+        Int p = ty.indexOf("(")
+        if p <= 0 || ty.substring(ty.length() - 1, 1) != ")" {
+            return res
+        }
+        String inner = ty.substring(p + 1, ty.length() - p - 2)
+        if inner.trim() == "" {
+            return res
+        }
+        List<String> raw = inner.split(",")
+        Int i = 0
+        while i < raw.length() {
+            res.push(raw.get(i).trim())
+            i = i + 1
+        }
+        return res
+    }
+
+    Int lambdaIndex(AstNode n) {
+        Int i = 0
+        while i < self.lambdas.length() {
+            if self.lambdas.get(i) == n {
+                return i
+            }
+            i = i + 1
+        }
+        return -1
+    }
+
+    Void collectLambdas(AstNode n) {
+        if n.kind == "Local" {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 && self.isFunctionType(parts.get(0)) && n.kids.length() > 0 && n.kids.get(0).kind == "Lambda" {
+                if self.lambdaIndex(n.kids.get(0)) < 0 {
+                    self.lambdas.push(n.kids.get(0))
+                    self.lambdaTypes.push(parts.get(0))
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectLambdas(n.kids.get(i))
+            i = i + 1
+        }
+    }
+
+    String lambdaName(AstNode n) {
+        Int i = self.lambdaIndex(n)
+        if i < 0 {
+            return "xn_lambda_missing"
+        }
+        return "xn_lambda_" + str(i)
+    }
+
+    String fnPtrDecl(String ty, String name) {
+        String ret = self.ctype(self.fnRetType(ty))
+        List<String> ps = self.fnParams(ty)
+        String sig = ret + " (*" + name + ")("
+        Int i = 0
+        while i < ps.length() {
+            if i > 0 {
+                sig = sig + ", "
+            }
+            sig = sig + self.ctype(ps.get(i))
+            i = i + 1
+        }
+        if ps.length() == 0 {
+            sig = sig + "void"
+        }
+        return sig + ")"
+    }
+
     Bool isEnumName(String name) {
         Int i = 0
         while i < self.program.kids.length() {
@@ -4206,6 +4467,17 @@ class CGen {
             i = i + 1
         }
         return "Any"
+    }
+
+    Int varIndex(String name) {
+        Int i = self.vars.length() - 1
+        while i >= 0 {
+            if self.vars.get(i) == name {
+                return i
+            }
+            i = i - 1
+        }
+        return -1
     }
 
     String findVar(String name) {
@@ -4522,6 +4794,13 @@ class CGen {
         if n.kind == "Char" {
             return "Char"
         }
+        if n.kind == "Lambda" {
+            Int li = self.lambdaIndex(n)
+            if li >= 0 {
+                return self.lambdaTypes.get(li)
+            }
+            return "Any"
+        }
         if n.kind == "Ternary" {
             if n.kids.length() < 3 {
                 return "Any"
@@ -4631,6 +4910,10 @@ class CGen {
             }
             if n.text == "print" {
                 return "Unit"
+            }
+            Int fvi = self.varIndex(n.text)
+            if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
+                return self.fnRetType(self.varTypes.get(fvi))
             }
             Int dot = lastDot(n.text)
             if dot >= 0 {
@@ -4770,6 +5053,9 @@ class CGen {
         if n.kind == "Char" {
             return n.text
         }
+        if n.kind == "Lambda" {
+            return self.lambdaName(n)
+        }
         if n.kind == "Ternary" {
             if n.kids.length() < 3 {
                 return "0"
@@ -4843,6 +5129,19 @@ class CGen {
             return self.methodExpr(bv, bt, n.text, n, 1)
         }
         if n.kind == "Call" {
+            Int fvi = self.varIndex(n.text)
+            if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
+                String fb = n.text + "("
+                Int fi = 0
+                while fi < n.kids.length() {
+                    if fi > 0 {
+                        fb = fb + ", "
+                    }
+                    fb = fb + self.expr(n.kids.get(fi))
+                    fi = fi + 1
+                }
+                return fb + ")"
+            }
             Int ffi = ffiIndex(n.text)
             if ffi >= 0 && n.text != "diagnoseRaw" && n.text != "exitRaw" &&
                n.text != "nowMonoRaw" && n.text != "nowWallRaw" &&
@@ -5244,6 +5543,15 @@ class CGen {
         }
         String ty = parts.get(0)
         String name = parts.get(1)
+        if self.isFunctionType(ty) {
+            String init = "0"
+            if st.kids.length() > 0 {
+                init = self.expr(st.kids.get(0))
+            }
+            self.emit(indent + self.fnPtrDecl(ty, name) + " = " + init + ";")
+            self.addVar(ty, name)
+            return
+        }
         if self.isSet(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "Call" && st.kids.get(0).text == "Set.of" {
             AstNode call = st.kids.get(0)
             self.emit(indent + "xn_set_i *" + name + " = xn_set_i_new();")
@@ -5838,6 +6146,11 @@ class CGen {
     }
 
     Void gen() {
+        Int lci = 0
+        while lci < self.program.kids.length() {
+            self.collectLambdas(self.program.kids.get(lci))
+            lci = lci + 1
+        }
         self.emit("#include \"rt.h\"")
         self.emit("#include \"rt_gc.h\"")
         self.emit("#include \"xrt.h\"")
@@ -6096,6 +6409,56 @@ class CGen {
         }
         self.emit("}")
         self.emit("")
+        i = 0
+        while i < self.lambdas.length() {
+            AstNode lam = self.lambdas.get(i)
+            String ft = self.lambdaTypes.get(i)
+            String sig = "static " + self.ctype(self.fnRetType(ft)) + " xn_lambda_" + str(i) + "("
+            Int pi = 0
+            Bool firstp = true
+            while pi < lam.kids.length() {
+                AstNode p = lam.kids.get(pi)
+                if p.kind == "Param" {
+                    List<String> pp = p.text.split(" ")
+                    if pp.length() >= 2 {
+                        if !firstp {
+                            sig = sig + ", "
+                        }
+                        sig = sig + self.ctype(pp.get(0)) + " " + pp.get(1)
+                        firstp = false
+                    }
+                }
+                pi = pi + 1
+            }
+            if firstp {
+                sig = sig + "void"
+            }
+            sig = sig + ") {"
+            self.emit(sig)
+            self.curRet = self.fnRetType(ft)
+            self.popTo(0)
+            pi = 0
+            while pi < lam.kids.length() {
+                AstNode p = lam.kids.get(pi)
+                if p.kind == "Param" {
+                    List<String> pp = p.text.split(" ")
+                    if pp.length() >= 2 {
+                        self.addVar(pp.get(0), pp.get(1))
+                    }
+                }
+                pi = pi + 1
+            }
+            pi = 0
+            while pi < lam.kids.length() {
+                if lam.kids.get(pi).kind == "Block" {
+                    self.blockBody(lam.kids.get(pi), "  ")
+                }
+                pi = pi + 1
+            }
+            self.emit("}")
+            self.emit("")
+            i = i + 1
+        }
         i = 0
         while i < self.program.kids.length() && !self.hasError() {
             AstNode n = self.program.kids.get(i)
