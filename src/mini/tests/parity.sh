@@ -23,6 +23,10 @@ src/mini/tests/array.x
 src/mini/tests/flow.x
 src/mini/tests/class_basic.x
 src/mini/tests/object_list.x
+src/mini/tests/ast_local.x
+src/mini/tests/lex_hello.x
+src/mini/tests/sema_good.x
+src/mini/tests/ffi_demo.x
 src/mini/tests/xdk_errors.x
 src/mini/tests/xdk_sys.x
 src/mini/tests/xdk_meta.x

@@ -49,6 +49,12 @@ diff -u "$TMP.exp" "$TMP"
 printf '3\n7\n3\n10\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_time.x" > "$TMP" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '2000\ntrue\ntrue\ntrue\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }

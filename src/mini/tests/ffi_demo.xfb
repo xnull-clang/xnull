@@ -1,7 +1,7 @@
 ffi mini_demo {
   @ffiEntry(cName = "xdkc_p_resource_count")
   @blocking(.unaware)
-  Int64 now();
+  Int64 demoNow();
 
   @ffiEntry(cName = "xdkc_p_file_size")
   @lease(path = .borrow)

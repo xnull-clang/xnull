@@ -278,7 +278,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 `.xfb` 的 String 借出、标量/Bool/Double/String 返回、通用包装和 errorCode 出参已通，xfb_error.sh；Result/companion 未全） |
 | M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 当前切片完成（pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex 基础；xdk_text_full.x）；完整旧/新差分随 M9-PAR |
 | M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（`--xdk-full` 下 File/Dir/Process raw FFI 可编译运行，m7_sys.sh；资源 Resource.x/Context 未接入，默认仍 base） |
-| M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 部分（xdk.math 已接入，xdk_math.x）；其余 T0 包按 import 场景推进 |
+| M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 部分（xdk.math、xdk.time 已接入，xdk_math.x/xdk_time.x）；其余 T0 包按 import 场景推进 |
 | M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |
 | M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8.2 | 资源读取/缺失负例 | 完成（resources.sh） |
 | M8-P3 | `build/run --json` | S：IDE/CI 场景传 `--json`；D：M8.1 | M8.1 | JSON 正例 + 失败负例 | 完成（file/project build/run/check；m8.sh） |
@@ -339,8 +339,8 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 2 | M9-C2/C3 完整余量 | 当前切片完成：String 边界、泛型实参/嵌套/未知类型负例，c4/generics 通过 | 更大 String/泛型矩阵随 M9-PAR 扩展 |
 | 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
 | 4 | M7-F1 | 部分：通用 String/标量包装、errorCode 出参已通 | Result/companion 语义与更多自定义 `.xfb` 负例 |
-| 5 | M7-F2/F4 | 未完成 | `text/full` 余量、其他 T0 包按 import 场景接入 |
-| 6 | M9-PAR | 20 个选定场景（完整 Sys、容器、lexer/parser seed） | 全量 stdout/stderr/退出码差分 |
+| 5 | M7-F2/F4 | 当前切片完成：text/full、math、time | 其他 T0 包按 import 场景接入 |
+| 6 | M9-PAR | 24 个选定场景（完整 Sys、容器、lexer/parser seed、基础测试面） | 全量 stdout/stderr/退出码差分 |
 | Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
 
 M8-P4/P5 已完成；M9-MIN/Mini 1.0 已完成，但 M9-FULL 仍未完成。
@@ -431,7 +431,7 @@ D1–D7 完成后，Mini 1.0 剩余为 **0 dev-day**。当前自举和文本/基
 | D3 | M9-C2 | 完成：String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
 | D4 | M9-C3 | 完成：泛型推断、嵌套实例化、函数类型参数负例 |
 | D5 | XDK 集成 | 完成：`text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
-| D6 | 选定 M9-PAR | 完成：20 个代表性场景（完整 Sys、容器、lexer/parser seed）的 stdout/stderr/退出码差分 |
+| D6 | 选定 M9-PAR | 完成：24 个代表性场景（完整 Sys、容器、lexer/parser seed、基础测试面）的 stdout/stderr/退出码差分 |
 | D7 | 收口 | 完成：22 回归 + selfhost + M8 冷缓存全绿；文档与提交完成 |
 
 Mini 1.0 已完成：D1–D7 全部通过，默认引擎仍是 `legacy`，`main` 未切换。
