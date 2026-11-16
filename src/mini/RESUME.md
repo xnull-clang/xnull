@@ -243,7 +243,7 @@ diff -qr src/xdk xdk/lib/xdk
 ```
 
 ### D6：选定 M9-PAR
-状态：完成。`parity.sh` 覆盖 18 个代表性场景（含完整 Sys 文件/目录/进程和容器 Map.has/Set 字面量），legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
+状态：完成。`parity.sh` 覆盖 20 个代表性场景（完整 Sys 文件/目录/进程、容器 Map.has/Set 字面量、lexer/parser seed），legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
 
 目标：
 

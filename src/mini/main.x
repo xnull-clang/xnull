@@ -1325,7 +1325,26 @@ class Parser {
         }
         if self.kind("string") {
             self.advance()
-            return self.node("String", t.text, t)
+            AstNode n = self.node("String", t.text, t)
+            while self.at(".") && (self.look(1).kind == "ident" || self.look(1).kind == "kw") {
+                self.advance()
+                Token m = self.advance()
+                AstNode mc = self.node("MethodCall", m.text, t)
+                mc.add(n)
+                if self.eat("(") {
+                    if !self.at(")") {
+                        while !self.hasError() {
+                            mc.add(self.parseExpr())
+                            if !self.eat(",") {
+                                break
+                            }
+                        }
+                    }
+                    self.expect(")")
+                }
+                n = mc
+            }
+            return n
         }
         if self.kind("interp") {
             self.advance()
