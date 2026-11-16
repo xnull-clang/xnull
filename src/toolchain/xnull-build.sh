@@ -291,7 +291,12 @@ emit_c() {
     local mpdir
     mpdir=$(dirname "$ROOT/$entry")
     python3 "$ROOT/src/toolchain/xfb-projection.py" "$mpdir" > "$outdir/project.txt" 2>/dev/null || true
-    ( cd "$ROOT" && "$mini" --emit-c "$entry" --xdk-root "$ROOT/src/xdk" --project-file "$outdir/project.txt" ) > "$out" 2> "$outdir/mini.err"
+    python3 "$ROOT/src/toolchain/xfb-projection.py" "$ROOT/src/ffi" >> "$outdir/project.txt" 2>/dev/null || true
+    local mini_extra=()
+    if [ "${XNULL_MINI_XDK_FULL:-0}" = "1" ]; then
+      mini_extra+=(--xdk-full)
+    fi
+    ( cd "$ROOT" && "$mini" --emit-c "$entry" --xdk-root "$ROOT/src/xdk" --project-file "$outdir/project.txt" ${mini_extra[@]+"${mini_extra[@]}"} ) > "$out" 2> "$outdir/mini.err"
     local mrc=$?
     if [ $mrc -eq 0 ]; then
       echo 1

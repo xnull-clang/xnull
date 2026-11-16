@@ -167,5 +167,9 @@ again:
     print(u.replace("é", "e"))
     print(empty.trim() == "")
     print(abc.replace("", "X"))
+    print(abc.endsWith("bc"))
+    print(abc.endsWith("x"))
+    print(abc.charAt(1))
+    print(abc.indexOfByte("b"))
     return 0
 }

@@ -3,9 +3,11 @@ package mini
 
 List<String> loadedFiles = []
 String loadRoot = ""
+Bool xdkFullSource = false
 List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
+List<String> ffiParamSpecs = []
 
 class Token {
     final String kind
@@ -3381,16 +3383,16 @@ class Checker {
             }
         }
         if bt == "String" {
-            if mth == "length" || mth == "indexOf" || mth == "get" {
+            if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                 return "Int"
             }
-            if mth == "substring" {
+            if mth == "substring" || mth == "charAt" {
                 return "String"
             }
             if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                 return "String"
             }
-            if mth == "startsWith" {
+            if mth == "startsWith" || mth == "endsWith" {
                 return "Bool"
             }
             if mth == "split" {
@@ -3627,16 +3629,16 @@ class Checker {
                 if mth == "length" || mth == "get" {
                     return "Int"
                 }
-                if mth == "indexOf" {
+                if mth == "indexOf" || mth == "indexOfByte" {
                     return "Int"
                 }
-                if mth == "substring" {
+                if mth == "substring" || mth == "charAt" {
                     return "String"
                 }
                 if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                     return "String"
                 }
-                if mth == "startsWith" {
+                if mth == "startsWith" || mth == "endsWith" {
                     return "Bool"
                 }
                 if mth == "split" {
@@ -3834,8 +3836,12 @@ class CGen {
     final List<String> lambdaCaptureTypes
     final List<String> lambdaCaptureScanned
     final List<String> lambdaOwners
+    final List<String> ffiCallNames
+    final List<String> ffiCallCNames
+    final List<String> ffiCallRets
+    final List<String> ffiCallSpecs
 
-    CGen(AstNode program) {
+    CGen(AstNode program, List<String> callNames, List<String> callCNames, List<String> callRets, List<String> callSpecs) {
         self.program = program
         self.lines = []
         self.vars = []
@@ -3853,6 +3859,10 @@ class CGen {
         self.lambdaCaptureTypes = []
         self.lambdaCaptureScanned = []
         self.lambdaOwners = []
+        self.ffiCallNames = callNames
+        self.ffiCallCNames = callCNames
+        self.ffiCallRets = callRets
+        self.ffiCallSpecs = callSpecs
     }
 
     Bool hasError() {
@@ -4215,6 +4225,17 @@ class CGen {
         return name
     }
 
+    String resultValueCExpr(String ty, String bv) {
+        String vt = self.resultValue(ty)
+        String base = self.resultValueExpr(ty, bv)
+        if self.isArray(vt) || self.isMap(vt) || self.isSet(vt) ||
+           self.isClass(vt) || self.isDataEnum(vt) || self.isProtocol(vt) ||
+           vt == "Bytes" {
+            return "((" + self.ctype(vt) + ")" + base + ")"
+        }
+        return base
+    }
+
     Bool isGcRefType(String ty) {
         if ty == "String" || ty == "Bytes" || ty == "Any" {
             return true
@@ -4434,6 +4455,237 @@ class CGen {
 
     String fnPtrDecl(String ty, String name) {
         return "xn_closure " + name
+    }
+
+    Bool ffiSpecial(String name) {
+        return name == "diagnoseRaw" || name == "exitRaw" ||
+            name == "nowMonoRaw" || name == "nowWallRaw" ||
+            name == "resourceExistsRaw" || name == "resourceCountRaw" ||
+            name == "readResourceTextRaw" || name == "fileExistsRaw" ||
+            name == "readFile" || name == "listFiles" || name == "platformRaw" ||
+            name == "readFileTextRaw" || name == "readFileTextError"
+    }
+
+    Bool ffiHardProto(String cname) {
+        return cname == "xdkc_p_resource_exists" ||
+            cname == "xdkc_p_read_resource_text" ||
+            cname == "xdkc_p_resource_count" ||
+            cname == "xdkc_read_file_text" ||
+            cname == "xdkc_read_file_text_error" ||
+            cname == "xdkc_diagnose_rc" ||
+            cname == "xdkc_exit_rc" ||
+            cname == "xdkc_now_mono_ms" ||
+            cname == "xdkc_now_wall_ms"
+    }
+
+    Bool ffiTypeOk(String ty) {
+        return ty == "Int" || ty == "Int32" || ty == "Int64" || ty == "Long" ||
+            ty == "UInt16" || ty == "Bool" || ty == "Double" || ty == "Float" ||
+            ty == "String" || ty == "Bytes" || ty == "Context" ||
+            ty == "void" || ty == "Void" || ty == "Unit"
+    }
+
+    String ffiMiniType(String ty) {
+        if ty == "Context" {
+            return "void *"
+        }
+        if ty == "Bytes" {
+            return "xrt_bytes_obj *"
+        }
+        if ty == "String" {
+            return "rt_string *"
+        }
+        if ty == "Double" {
+            return "double"
+        }
+        if ty == "Float" {
+            return "double"
+        }
+        if ty == "Bool" {
+            return "int"
+        }
+        if ty == "void" || ty == "Void" || ty == "Unit" {
+            return "void"
+        }
+        return "int64_t"
+    }
+
+    String ffiAbiType(String ty) {
+        if ty == "String" {
+            return "const char *"
+        }
+        if ty == "Bytes" {
+            return "const unsigned char *"
+        }
+        if ty == "Context" {
+            return "void *"
+        }
+        if ty == "Int32" || ty == "Bool" {
+            return "int32_t"
+        }
+        if ty == "Double" {
+            return "double"
+        }
+        if ty == "Float" {
+            return "float"
+        }
+        if ty == "void" || ty == "Void" || ty == "Unit" {
+            return "void"
+        }
+        return "int64_t"
+    }
+
+    Int ffiParamCount(Int idx) {
+        if idx < 0 || idx >= self.ffiCallSpecs.length() || self.ffiCallSpecs.get(idx) == "" {
+            return 0
+        }
+        return self.ffiCallSpecs.get(idx).split(";").length()
+    }
+
+    String ffiParamType(Int idx, Int p) {
+        if idx < 0 || idx >= self.ffiCallSpecs.length() || self.ffiCallSpecs.get(idx) == "" {
+            return ""
+        }
+        List<String> segs = self.ffiCallSpecs.get(idx).split(";")
+        if p < 0 || p >= segs.length() {
+            return ""
+        }
+        List<String> parts = segs.get(p).split(":")
+        if parts.length() >= 3 {
+            return parts.get(2)
+        }
+        return ""
+    }
+
+    Bool ffiEntryOk(Int idx) {
+        if idx < 0 || idx >= self.ffiCallNames.length() {
+            return false
+        }
+        if !self.ffiTypeOk(self.ffiCallRets.get(idx)) {
+            return false
+        }
+        Int n = self.ffiParamCount(idx)
+        Int p = 0
+        while p < n {
+            if !self.ffiTypeOk(self.ffiParamType(idx, p)) {
+                return false
+            }
+            p = p + 1
+        }
+        return true
+    }
+
+    String ffiAbiProto(Int idx) {
+        String cname = self.ffiCallCNames.get(idx)
+        String ret = self.ffiAbiType(self.ffiCallRets.get(idx))
+        String sig = "extern " + ret + " " + cname + "("
+        Int n = self.ffiParamCount(idx)
+        if n == 0 {
+            sig = sig + "void"
+        }
+        Int p = 0
+        while p < n {
+            if p > 0 {
+                sig = sig + ", "
+            }
+            String ty = self.ffiParamType(idx, p)
+            if ty == "String" {
+                sig = sig + "const char *a" + str(p) + "_bytes, size_t a" + str(p) + "_len"
+            } else if ty == "Bytes" {
+                sig = sig + "const unsigned char *a" + str(p) + "_data, size_t a" + str(p) + "_len"
+            } else {
+                sig = sig + self.ffiAbiType(ty) + " a" + str(p)
+            }
+            p = p + 1
+        }
+        return sig + ");"
+    }
+
+    String ffiWrapperSig(Int idx) {
+        String name = self.ffiCallNames.get(idx)
+        String ret = self.ffiMiniType(self.ffiCallRets.get(idx))
+        String sig = "static " + ret + " xn_ffi_" + name + "("
+        Int n = self.ffiParamCount(idx)
+        if n == 0 {
+            sig = sig + "void"
+        }
+        Int p = 0
+        while p < n {
+            if p > 0 {
+                sig = sig + ", "
+            }
+            sig = sig + self.ffiMiniType(self.ffiParamType(idx, p)) + " a" + str(p)
+            p = p + 1
+        }
+        return sig + ")"
+    }
+
+    String ffiWrapperArgs(Int idx) {
+        String args = ""
+        Int n = self.ffiParamCount(idx)
+        Int p = 0
+        while p < n {
+            if p > 0 {
+                args = args + ", "
+            }
+            String ty = self.ffiParamType(idx, p)
+            if ty == "String" {
+                args = args + "a" + str(p) + "->bytes, a" + str(p) + "->len"
+            } else if ty == "Bytes" {
+                args = args + "xrt_bytes_data(a" + str(p) + "), xrt_bytes_len(a" + str(p) + ")"
+            } else if ty == "Int32" || ty == "Bool" {
+                args = args + "(int32_t)a" + str(p)
+            } else if ty == "Context" {
+                args = args + "(xrt_context *)a" + str(p)
+            } else {
+                args = args + "a" + str(p)
+            }
+            p = p + 1
+        }
+        return args
+    }
+
+    String ffiWrapperDef(Int idx) {
+        String name = self.ffiCallNames.get(idx)
+        String cname = self.ffiCallCNames.get(idx)
+        String rt = self.ffiCallRets.get(idx)
+        String call = cname + "(" + self.ffiWrapperArgs(idx) + ")"
+        String body = self.ffiWrapperSig(idx) + " {\n"
+        if rt == "void" || rt == "Void" || rt == "Unit" {
+            body = body + "  " + call + ";\n"
+        } else if rt == "String" {
+            body = body + "  return rt_string_from_c((const char *)" + call + ");\n"
+        } else if rt == "Bool" {
+            body = body + "  return (" + call + ") ? 1 : 0;\n"
+        } else if rt == "Double" || rt == "Float" {
+            body = body + "  return " + call + ";\n"
+        } else {
+            body = body + "  return (int64_t)(" + call + ");\n"
+        }
+        return body + "}"
+    }
+
+    Void emitFfiDecls() {
+        Int i = 0
+        while i < self.ffiCallNames.length() {
+            if !self.ffiSpecial(self.ffiCallNames.get(i)) && self.ffiEntryOk(i) && !self.ffiHardProto(self.ffiCallCNames.get(i)) {
+                self.emit(self.ffiAbiProto(i))
+            }
+            i = i + 1
+        }
+        if self.ffiCallNames.length() > 0 {
+            self.emit("")
+        }
+        i = 0
+        while i < self.ffiCallNames.length() {
+            if !self.ffiSpecial(self.ffiCallNames.get(i)) && self.ffiEntryOk(i) {
+                self.emit(self.ffiWrapperDef(i))
+            }
+            i = i + 1
+        }
+        if self.ffiCallNames.length() > 0 {
+            self.emit("")
+        }
     }
 
     String closureCast(String ty) {
@@ -4721,16 +4973,16 @@ class CGen {
 
     String methodType(String bt, String mth, AstNode n) {
         if bt == "String" {
-            if mth == "length" || mth == "indexOf" || mth == "get" {
+            if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                 return "Int"
             }
-            if mth == "substring" {
+            if mth == "substring" || mth == "charAt" {
                 return "String"
             }
             if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                 return "String"
             }
-            if mth == "startsWith" {
+            if mth == "startsWith" || mth == "endsWith" {
                 return "Bool"
             }
             if mth == "split" {
@@ -4824,7 +5076,7 @@ class CGen {
                 }
                 return "0"
             }
-            if mth == "indexOf" {
+            if mth == "indexOf" || mth == "indexOfByte" {
                 if n.kids.length() > off {
                     return "xn_str_indexof(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
                 }
@@ -4833,6 +5085,12 @@ class CGen {
             if mth == "substring" {
                 if n.kids.length() > off + 1 {
                     return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+                }
+                return "rt_string_from_c(\"\")"
+            }
+            if mth == "charAt" {
+                if n.kids.length() > off {
+                    return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(off)) + ", 1)"
                 }
                 return "rt_string_from_c(\"\")"
             }
@@ -4852,6 +5110,12 @@ class CGen {
             if mth == "startsWith" {
                 if n.kids.length() > off {
                     return "xn_str_startswith(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+            if mth == "endsWith" {
+                if n.kids.length() > off {
+                    return "xn_str_endswith(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
                 }
                 return "0"
             }
@@ -4888,7 +5152,7 @@ class CGen {
             }
             if mth == "value" {
                 if self.isGenericResult(bt) {
-                    return self.resultValueExpr(bt, bv)
+                    return self.resultValueCExpr(bt, bv)
                 }
                 return "((" + bv + ").value)"
             }
@@ -5151,19 +5415,16 @@ class CGen {
                     }
                 }
                 if bt == "String" {
-                    if mth == "length" || mth == "indexOf" || mth == "get" {
+                    if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                         return "Int"
                     }
-                    if mth == "substring" {
+                    if mth == "substring" || mth == "charAt" {
                         return "String"
                     }
                     if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
                         return "String"
                     }
-                    if mth == "trim" || mth == "replace" || mth == "toUpper" || mth == "toLower" {
-                        return "String"
-                    }
-                    if mth == "startsWith" {
+                    if mth == "startsWith" || mth == "endsWith" {
                         return "Bool"
                     }
                     if mth == "split" {
@@ -5361,6 +5622,18 @@ class CGen {
                n.text != "readResourceTextRaw" && n.text != "fileExistsRaw" &&
                n.text != "readFile" && n.text != "listFiles" && n.text != "platformRaw" &&
                n.text != "readFileTextRaw" && n.text != "readFileTextError" {
+                if self.ffiEntryOk(ffi) {
+                    String wb = "xn_ffi_" + n.text + "("
+                    Int fi = 0
+                    while fi < n.kids.length() {
+                        if fi > 0 {
+                            wb = wb + ", "
+                        }
+                        wb = wb + self.expr(n.kids.get(fi))
+                        fi = fi + 1
+                    }
+                    return wb + ")"
+                }
                 String b = ffiCName(n.text) + "("
                 Int fi = 0
                 while fi < n.kids.length() {
@@ -5542,7 +5815,7 @@ class CGen {
                         }
                         return "0"
                     }
-                    if mth == "indexOf" {
+                    if mth == "indexOf" || mth == "indexOfByte" {
                         if n.kids.length() > 0 {
                             return "xn_str_indexof(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
                         }
@@ -5551,6 +5824,12 @@ class CGen {
                     if mth == "substring" {
                         if n.kids.length() >= 2 {
                             return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                        }
+                        return "rt_string_from_c(\"\")"
+                    }
+                    if mth == "charAt" {
+                        if n.kids.length() > 0 {
+                            return "xn_str_substr(" + bv + ", " + self.expr(n.kids.get(0)) + ", 1)"
                         }
                         return "rt_string_from_c(\"\")"
                     }
@@ -5570,6 +5849,12 @@ class CGen {
                     if mth == "startsWith" {
                         if n.kids.length() > 0 {
                             return "xn_str_startswith(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "endsWith" {
+                        if n.kids.length() > 0 {
+                            return "xn_str_endswith(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
                         }
                         return "0"
                     }
@@ -5606,7 +5891,7 @@ class CGen {
                     }
                     if mth == "value" {
                         if self.isGenericResult(bt) {
-                            return self.resultValueExpr(bt, bv)
+                            return self.resultValueCExpr(bt, bv)
                         }
                         return "((" + bv + ").value)"
                     }
@@ -6298,8 +6583,8 @@ class CGen {
             }
         }
         self.emit(csig + ") {")
-        self.emit("  xn_Cls_" + cn + " *o = (xn_Cls_" + cn + " *)rt_gc_new(&RT_TYPE_XN_" + cn + ");")
-        self.emit("  memset((char *)o + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
+        self.emit("  xn_Cls_" + cn + " *xn_obj = (xn_Cls_" + cn + " *)rt_gc_new(&RT_TYPE_XN_" + cn + ");")
+        self.emit("  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
         self.curClass = cn
         i = 0
         while i < cls.kids.length() {
@@ -6324,14 +6609,14 @@ class CGen {
                             init = self.expr(k.kids.get(0))
                         }
                     }
-                    self.emit("  o->" + fn + " = " + init + ";")
+                    self.emit("  xn_obj->" + fn + " = " + init + ";")
                 }
             }
             i = i + 1
         }
         if ctor.kind == "Ctor" {
             self.curClass = cn
-            self.emit("  xn_Cls_" + cn + " *self = o;")
+            self.emit("  xn_Cls_" + cn + " *self = xn_obj;")
             self.popTo(0)
             self.addVar(cn, "self")
             Int pi = 0
@@ -6353,7 +6638,7 @@ class CGen {
             self.popTo(0)
         }
         self.curClass = ""
-        self.emit("  return o;")
+        self.emit("  return xn_obj;")
         self.emit("}")
         self.emit("")
         i = 0
@@ -6504,6 +6789,7 @@ class CGen {
         self.emit("static void xn_arr_o_set(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
         self.emit("static void xn_arr_o_insert(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (void **)realloc(a->data, sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("static int xn_str_startswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes, p->bytes, p->len) == 0 ? 1 : 0; }")
+        self.emit("static int xn_str_endswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0 ? 1 : 0; }")
         self.emit("static rt_string *xn_str_trim(rt_string *s) { size_t a = 0, b = s->len; while (a < b && (s->bytes[a] == ' ' || s->bytes[a] == '\\t' || s->bytes[a] == '\\n' || s->bytes[a] == '\\r' || s->bytes[a] == '\\v' || s->bytes[a] == '\\f')) { a++; } while (b > a && (s->bytes[b-1] == ' ' || s->bytes[b-1] == '\\t' || s->bytes[b-1] == '\\n' || s->bytes[b-1] == '\\r' || s->bytes[b-1] == '\\v' || s->bytes[b-1] == '\\f')) { b--; } rt_string *r = rt_string_alloc(b - a); if (b > a) { memcpy(r->bytes, s->bytes + a, b - a); } r->bytes[b-a] = 0; return r; }")
         self.emit("static rt_string *xn_str_case(rt_string *s, int upper) { rt_string *r = rt_string_alloc(s->len); for (size_t i = 0; i < s->len; i++) { unsigned char c = (unsigned char)s->bytes[i]; if (upper && c >= 'a' && c <= 'z') { c = (unsigned char)(c - 32); } else if (!upper && c >= 'A' && c <= 'Z') { c = (unsigned char)(c + 32); } r->bytes[i] = (char)c; } r->bytes[s->len] = 0; return r; }")
         self.emit("static rt_string *xn_str_replace(rt_string *s, rt_string *from, rt_string *to) { if (from->len == 0) { return s; } size_t cap = s->len + 8, n = 0; char *buf = (char *)malloc(cap); if (buf == NULL) { abort(); } for (size_t i = 0; i < s->len; ) { if (i + from->len <= s->len && memcmp(s->bytes + i, from->bytes, from->len) == 0) { while (n + to->len + 1 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } memcpy(buf + n, to->bytes, to->len); n += to->len; i += from->len; } else { while (n + 2 > cap) { cap *= 2; buf = (char *)realloc(buf, cap); if (buf == NULL) { abort(); } } buf[n++] = s->bytes[i++]; } } buf[n] = 0; rt_string *r = rt_string_from_c(buf); free(buf); return r; }")
@@ -6539,11 +6825,23 @@ class CGen {
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
         self.emit("")
+        self.emitFfiDecls()
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "TopField" {
+                List<String> parts = n.text.split(" ")
+                if parts.length() >= 2 {
+                    self.emit("static " + self.ctype(parts.get(0)) + " " + parts.get(1) + ";")
+                }
             }
             i = i + 1
         }
@@ -7111,10 +7409,15 @@ static Void loadProject(String path) {
         String line = lines.get(i)
         if line.length() > 2 && line.substring(0, 2) == "E|" {
             List<String> f = line.split("|")
-            if f.length() >= 6 {
+            if f.length() >= 6 && ffiIndex(f.get(2)) < 0 {
                 ffiNames.push(f.get(2))
                 ffiCNames.push(f.get(3))
                 ffiRets.push(f.get(5))
+                if f.length() >= 10 {
+                    ffiParamSpecs.push(f.get(9))
+                } else {
+                    ffiParamSpecs.push("")
+                }
             }
         }
         i = i + 1
@@ -7147,6 +7450,9 @@ static String xdkFile(String pkg) {
         return "text/full/Text.x"
     }
     if pkg == "xdk.sys" || pkg.startsWith("xdk.sys.") {
+        if xdkFullSource {
+            return "io/system/Sys.x"
+        }
         return "io/base/Sys.x"
     }
     return ""
@@ -7298,6 +7604,17 @@ static String argAfter(String[] args, String flag) {
     return ""
 }
 
+static Bool hasArg(String[] args, String flag) {
+    Int i = 0
+    while i < args.length() {
+        if args.get(i) == flag {
+            return true
+        }
+        i = i + 1
+    }
+    return false
+}
+
 static Int main(String[] args) {
     if args.length() == 0 {
         return usage()
@@ -7308,6 +7625,7 @@ static Int main(String[] args) {
         xdkRoot = "src/xdk"
     }
     loadProject(argAfter(args, "--project-file"))
+    xdkFullSource = hasArg(args, "--xdk-full")
     if cmd == "--version" {
         print("mini 0.1.0")
         return 0
@@ -7380,7 +7698,7 @@ static Int main(String[] args) {
             print(args[1] + ":" + str(c.errorLine) + ":" + str(c.errorCol) + ": [" + c.errorCode + "] " + c.error)
             return 1
         }
-        CGen g = new CGen(program)
+        CGen g = new CGen(program, ffiNames, ffiCNames, ffiRets, ffiParamSpecs)
         g.gen()
         if g.hasError() {
             print(args[1] + ": " + g.err)

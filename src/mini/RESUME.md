@@ -71,12 +71,12 @@ XNULL_MINI_BOOTSTRAP=legacy ./src/mini/build.sh
 每次提交前至少执行：
 
 ```sh
-for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi resources object_list selfhost generics c4 m8 parity; do
+for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi resources object_list selfhost generics c4 m7_sys m8 parity; do
   ./src/mini/tests/$t.sh || exit 1
 done
 ```
 
-当前 22 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
+当前 23 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
 在测试临时目录内从头构建 xpd/xmanifest/reactor 和构建工具，不依赖
 `/tmp` 旧缓存。
 
@@ -254,7 +254,7 @@ diff -qr src/xdk xdk/lib/xdk
 - 不追求全量 legacy 差分。
 
 ### D7：Mini 1.0 收口
-状态：完成。22 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
+状态：完成。23 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
 
 必须全部满足：
 
@@ -272,8 +272,8 @@ main 默认仍是 legacy
 Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序执行：
 
 1. **M9-C4 收口**：data enum → protocol 动态派发 → lambda/闭包捕获（已完成当前切片）。
-2. **M9-C2/C3 余量**：完整 String API、泛型约束和边界负例。
-3. **M7-F3**：完整 `io/system` raw FFI、handle/Bytes/Result C 编译。
+2. **M9-C2/C3 余量**：`endsWith`/`charAt`/`indexOfByte`、String 边界；泛型实参数目、嵌套泛型不匹配、未知类型实参负例已完成。
+3. **M7-F3**：`io/system/Sys.x` 的 File/Dir/Process raw FFI 已可通过 `--xdk-full` 编译和运行（`m7_sys.sh`）；Resource.x/Context 子单元仍未接入。
 4. **M7-F1**：通用 `.xfb` 参数/返回值、租约、错误码。
 5. **M7-F2/F4**：`text/full` 余量和 T0 包按 import 场景接入。
 6. **M9-PAR**：全量 stdout/stderr/退出码差分。
@@ -284,8 +284,8 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 ## 已知阻塞/边界
 
 - P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
-- `io/system/Sys.x` 的完整 raw FFI 还没有做参数/句柄/返回值完整映射；当前 `xdk.sys` 使用 `io/base`。
-- `io/system/Sys.x` 的 sema 已能通过，但 emit C 仍有 raw FFI 原型/句柄错误。
+- `xdk.sys` 默认仍映射 `io/base`。设置 `XNULL_MINI_XDK_FULL=1` 或给 mini 传 `--xdk-full` 时使用 `io/system/Sys.x`；通用 raw FFI 桥已支持 String 借出、Int/Int32/Int64/Bool/Double/String 返回值。
+- 完整 Sys 的 Resource.x/Context 子单元尚未随 `xdk.sys` 载入；resource API 仍走 `io/base` 兼容面。
 - M9-C4：基础 `switch`（Int/String/Bool/枚举穷尽性）、`do-while`、`..<`/`...` range、label/goto、静态类继承、基础 data enum、protocol 动态派发、lambda 已接入。闭包捕获当前支持按值捕获、嵌套 lambda、自递归、方法 `self`/字段捕获和多实例独立环境；c4 场景覆盖。已知边界：直接作为实参的捕获 lambda 仍需要期望类型推断，函数值字段调用和闭包环境回收留后续切片。
 - 全量 T0 XDK 和全量 M9-PAR 不属于 Mini 1.0 当前范围。
 
@@ -303,7 +303,7 @@ Mini 1.0 剩余:     0 dev-day（D1–D7 已完成）
 
 - 每个切片必须同时有代码、场景、回归、提交。
 - 多个会话不要同时写同一个 `dev` 工作区；并行时各自使用独立 worktree，
-  合并前必须重新跑冷启动 m8 和 22 回归。
+  合并前必须重新跑冷启动 m8 和 23 回归。
 - 不在工作包内临时扩大范围。
 - 发现新缺口登记到 `PLAN.md` 后续包，不阻塞当前 D1–D7。
 - 每个工作包完成后更新本文件和 `PLAN.md` 的状态，再进入下一包。

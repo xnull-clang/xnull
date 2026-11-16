@@ -275,9 +275,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | ID | 工作项 | 触发条件 | 前置 | 验收证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 .xfb 无参标量已通；租约/错误码未全） |
+| M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 `.xfb` 的 String 借出、标量/Bool/Double/String 返回和通用包装已通；errorCode/Result/companion 未全） |
 | M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 部分（已切到 full/Text.x；mini text shim 已删除；完整 API/差分未做） |
-| M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（已切 `io/base/Sys.x`，文件/资源基础面通过；完整 `io/system` raw FFI 未接入） |
+| M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（`--xdk-full` 下 File/Dir/Process raw FFI 可编译运行，m7_sys.sh；资源 Resource.x/Context 未接入，默认仍 base） |
 | M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 未做 |
 | M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |
 | M8-P2 | 资源表（`src/main/resources`） | S：工程含资源目录或调用资源 API | M8.2 | 资源读取/缺失负例 | 完成（resources.sh） |
@@ -285,7 +285,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M8-P4 | lock/install/repro | S：依赖工程或发布场景；D：M8-P1 | M8-P1 | lock/install/repro 测试 | 完成（workspace lock/install/repro；外部仓库解析不在 Mini 1.0） |
 | M8-P5 | 完整诊断码/退出码矩阵 | R：任一负例格式/退出码错误；D：M8.1 | M8.1 | 负例矩阵 | 完成（CLI-001/002/003、SEM、JSON、0/1/2/130/134；XPD-401/402） |
 | M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 完成（object_list.sh；自源码 List<AstNode>/List<Token>） |
-| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | D3 完成（trim/replace/case/UTF/空串/parse tests） |
+| M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | 完成当前切片（trim/replace/case/UTF/空串/parse；endsWith/charAt/indexOfByte 已加，c4 覆盖） |
 | M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | D4 完成（多参数推断、嵌套泛型；函数类型参数明确负例，支持仍不在 Mini 1.0） |
 | M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 当前切片完成（基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承/基础 data enum/protocol 动态派发/lambda 闭包捕获/throw/插值/nullable/Double/位运算/三元/静态方法；c4.sh）。闭包支持按值捕获、嵌套、自递归、方法 self/字段捕获；直接按实参捕获 lambda、函数值字段调用和环境回收留后续 |
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
@@ -304,7 +304,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 项 | 冻结内容 | 验收命令 |
 | --- | --- | --- |
 | 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
-| 回归 | 22 个 mini 回归（21 + parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 回归 | 23 个 mini 回归（21 + m7_sys + parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
 | 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
 | 默认引擎 | 仍为 `legacy`；M9-PAR/M9-CUT 通过前不切换 | `src/cli/xnull --help` |
 | 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
@@ -336,9 +336,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | --- | --- | --- | --- |
 | 0 | 回归冻结 | 22 回归 + selfhost + m8 冷缓存 | 每次改动后全绿 |
 | 1 | M9-C4 收口 | 已完成当前切片：data enum、protocol 动态派发、lambda/闭包捕获、控制流、静态继承；c4 正/负例通过 | 直接按实参捕获 lambda、函数值字段调用、闭包环境回收（后续切片） |
-| 2 | M9-C2/C3 完整余量 | 文本/泛型切片完成 | 完整 String API、泛型约束边界和负例 |
-| 3 | M7-F3 | 未完成 | 完整 `io/system` raw FFI、handle/Bytes/Result C 编译 |
-| 4 | M7-F1 | 未完成 | 通用 `.xfb` 参数/返回值、租约、错误码 |
+| 2 | M9-C2/C3 完整余量 | 当前切片完成：String 边界、泛型实参/嵌套/未知类型负例，c4/generics 通过 | 更大 String/泛型矩阵随 M9-PAR 扩展 |
+| 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
+| 4 | M7-F1 | 部分：通用 String/标量包装已通 | errorCode/Result/companion 与自定义 `.xfb` 负例 |
 | 5 | M7-F2/F4 | 未完成 | `text/full` 余量、其他 T0 包按 import 场景接入 |
 | 6 | M9-PAR | 仅 16 个选定场景 | 全量 stdout/stderr/退出码差分 |
 | Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
