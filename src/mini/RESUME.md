@@ -95,9 +95,11 @@ done
 
 - 完整 `io/system/Sys.x` raw FFI
 - 全部 T0 XDK
-- 完整 M9-C4
 - 全量 M9-PAR
 - 默认引擎切换
+
+M9-C4 的闭包捕获已完成当前切片；M9-C2/C3 余量、M7 和全量
+M9-PAR 仍按顺序推进。
 
 ## 下一阶段执行顺序
 
@@ -269,7 +271,7 @@ main 默认仍是 legacy
 
 Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序执行：
 
-1. **M9-C4 收口**：data enum → protocol 动态派发 → lambda。
+1. **M9-C4 收口**：data enum → protocol 动态派发 → lambda/闭包捕获（已完成当前切片）。
 2. **M9-C2/C3 余量**：完整 String API、泛型约束和边界负例。
 3. **M7-F3**：完整 `io/system` raw FFI、handle/Bytes/Result C 编译。
 4. **M7-F1**：通用 `.xfb` 参数/返回值、租约、错误码。
@@ -284,7 +286,7 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 - P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
 - `io/system/Sys.x` 的完整 raw FFI 还没有做参数/句柄/返回值完整映射；当前 `xdk.sys` 使用 `io/base`。
 - `io/system/Sys.x` 的 sema 已能通过，但 emit C 仍有 raw FFI 原型/句柄错误。
-- M9-C4：基础 `switch`（Int/String/Bool/枚举穷尽性）、`do-while`、`..<`/`...` range、label/goto、静态类继承、基础 data enum、protocol 动态派发、无捕获 lambda 已接入；闭包捕获尚未完成。
+- M9-C4：基础 `switch`（Int/String/Bool/枚举穷尽性）、`do-while`、`..<`/`...` range、label/goto、静态类继承、基础 data enum、protocol 动态派发、lambda 已接入。闭包捕获当前支持按值捕获、嵌套 lambda、自递归、方法 `self`/字段捕获和多实例独立环境；c4 场景覆盖。已知边界：直接作为实参的捕获 lambda 仍需要期望类型推断，函数值字段调用和闭包环境回收留后续切片。
 - 全量 T0 XDK 和全量 M9-PAR 不属于 Mini 1.0 当前范围。
 
 ## 工作量口径

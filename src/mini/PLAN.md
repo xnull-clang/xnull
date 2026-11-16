@@ -287,7 +287,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M9-C1 | 对象元素容器 `List<T>` / `T[]` | S：`List<Node>`/`List<String>` 场景；D：M6.2 | M6.2 | 容器场景 + mini 自编译门 | 完成（object_list.sh；自源码 List<AstNode>/List<Token>） |
 | M9-C2 | String 方法完整面（split/startsWith/substring/indexOf/...） | S：mini 源码或用户场景用到；D：M6.2 | M6.2 | String 场景 | D3 完成（trim/replace/case/UTF/空串/parse tests） |
 | M9-C3 | 泛型函数/泛型类型实例化 | S：自身源码或用户场景需要；D：M6.4/M7 | M6.4/M7 | 泛型正例/负例 | D4 完成（多参数推断、嵌套泛型；函数类型参数明确负例，支持仍不在 Mini 1.0） |
-| M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 部分（基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承/基础 data enum/protocol 动态派发/基础无捕获 lambda/throw/插值/nullable/Double/位运算/三元/静态方法；闭包捕获未做；c4.sh） |
+| M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 当前切片完成（基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承/基础 data enum/protocol 动态派发/lambda 闭包捕获/throw/插值/nullable/Double/位运算/三元/静态方法；c4.sh）。闭包支持按值捕获、嵌套、自递归、方法 self/字段捕获；直接按实参捕获 lambda、函数值字段调用和环境回收留后续 |
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
 | M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
 | M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 未做 |
@@ -335,7 +335,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 顺序 | 工作项 | 当前状态 | 下一验收 |
 | --- | --- | --- | --- |
 | 0 | 回归冻结 | 22 回归 + selfhost + m8 冷缓存 | 每次改动后全绿 |
-| 1 | M9-C4 收口 | 基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承已完成 | data enum、protocol 动态派发、lambda；每项正例 + 负例 |
+| 1 | M9-C4 收口 | 已完成当前切片：data enum、protocol 动态派发、lambda/闭包捕获、控制流、静态继承；c4 正/负例通过 | 直接按实参捕获 lambda、函数值字段调用、闭包环境回收（后续切片） |
 | 2 | M9-C2/C3 完整余量 | 文本/泛型切片完成 | 完整 String API、泛型约束边界和负例 |
 | 3 | M7-F3 | 未完成 | 完整 `io/system` raw FFI、handle/Bytes/Result C 编译 |
 | 4 | M7-F1 | 未完成 | 通用 `.xfb` 参数/返回值、租约、错误码 |

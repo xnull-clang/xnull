@@ -3830,6 +3830,10 @@ class CGen {
     final List<String> breakTargets
     final List<AstNode> lambdas
     final List<String> lambdaTypes
+    final List<String> lambdaCaptures
+    final List<String> lambdaCaptureTypes
+    final List<String> lambdaCaptureScanned
+    final List<String> lambdaOwners
 
     CGen(AstNode program) {
         self.program = program
@@ -3845,6 +3849,10 @@ class CGen {
         self.breakTargets = []
         self.lambdas = []
         self.lambdaTypes = []
+        self.lambdaCaptures = []
+        self.lambdaCaptureTypes = []
+        self.lambdaCaptureScanned = []
+        self.lambdaOwners = []
     }
 
     Bool hasError() {
@@ -3979,11 +3987,14 @@ class CGen {
         if ty == "Long" || ty == "Int64" || ty == "Int32" {
             return "int64_t"
         }
-        if ty == "Void" || ty == "void" {
+        if ty == "Void" || ty == "void" || ty == "Unit" {
             return "void"
         }
         if ty == "UInt16" {
             return "int64_t"
+        }
+        if self.isFunctionType(ty) {
+            return "xn_closure"
         }
         if self.isArray(ty) || ty == "List<Int>" {
             return self.arrayCName(ty) + " *"
@@ -4204,6 +4215,19 @@ class CGen {
         return name
     }
 
+    Bool isGcRefType(String ty) {
+        if ty == "String" || ty == "Bytes" || ty == "Any" {
+            return true
+        }
+        if self.isArray(ty) || self.isMap(ty) || self.isSet(ty) {
+            return true
+        }
+        if self.isClass(ty) || self.isDataEnum(ty) || self.isProtocol(ty) {
+            return true
+        }
+        return false
+    }
+
     Bool isMap(String ty) {
         return ty.length() > 5 && ty.substring(0, 4) == "Map<"
     }
@@ -4271,6 +4295,10 @@ class CGen {
                 if self.lambdaIndex(n.kids.get(0)) < 0 {
                     self.lambdas.push(n.kids.get(0))
                     self.lambdaTypes.push(parts.get(0))
+                    self.lambdaCaptures.push("")
+                    self.lambdaCaptureTypes.push("")
+                    self.lambdaCaptureScanned.push("0")
+                    self.lambdaOwners.push("")
                 }
             }
         }
@@ -4279,6 +4307,121 @@ class CGen {
             self.collectLambdas(n.kids.get(i))
             i = i + 1
         }
+    }
+
+    List<String> splitCaps(String s) {
+        if s == "" {
+            List<String> empty = []
+            return empty
+        }
+        return s.split("|")
+    }
+
+    String joinCaps(List<String> xs) {
+        String s = ""
+        Int i = 0
+        while i < xs.length() {
+            if i > 0 {
+                s = s + "|"
+            }
+            s = s + xs.get(i)
+            i = i + 1
+        }
+        return s
+    }
+
+    Bool listHas(List<String> xs, String v) {
+        Int i = 0
+        while i < xs.length() {
+            if xs.get(i) == v {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void collectShadows(AstNode n, List<String> out) {
+        if n.kind == "Local" {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 && !self.listHas(out, parts.get(1)) {
+                out.push(parts.get(1))
+            }
+        }
+        if n.kind == "ForIn" || n.kind == "ForRange" {
+            if n.text.trim() != "" {
+                List<String> parts = n.text.trim().split(" ")
+                if parts.length() >= 1 && !self.listHas(out, parts.get(parts.length() - 1)) {
+                    out.push(parts.get(parts.length() - 1))
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectShadows(n.kids.get(i), out)
+            i = i + 1
+        }
+    }
+
+    Bool containsVarUse(AstNode n, String name) {
+        if n.kind == "Name" && n.text == name {
+            return true
+        }
+        if n.kind == "Call" && (n.text == name || n.text.startsWith(name + ".")) {
+            return true
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            if self.containsVarUse(n.kids.get(i), name) {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void ensureLambdaCaptures(Int li, AstNode lam) {
+        if li < 0 || li >= self.lambdaCaptures.length() {
+            return
+        }
+        if self.lambdaCaptureScanned.get(li) == "1" {
+            return
+        }
+        List<String> params = []
+        Int i = 0
+        while i < lam.kids.length() {
+            AstNode k = lam.kids.get(i)
+            if k.kind == "Param" {
+                List<String> pp = k.text.split(" ")
+                if pp.length() >= 2 {
+                    params.push(pp.get(1))
+                }
+            }
+            i = i + 1
+        }
+        List<String> shadows = []
+        i = 0
+        while i < lam.kids.length() {
+            if lam.kids.get(i).kind == "Block" {
+                self.collectShadows(lam.kids.get(i), shadows)
+            }
+            i = i + 1
+        }
+        List<String> names = self.splitCaps(self.lambdaCaptures.get(li))
+        List<String> types = self.splitCaps(self.lambdaCaptureTypes.get(li))
+        i = self.vars.length() - 1
+        while i >= 0 {
+            String vn = self.vars.get(i)
+            if !self.listHas(params, vn) && !self.listHas(shadows, vn) &&
+               !self.listHas(names, vn) && self.containsVarUse(lam, vn) {
+                names.push(vn)
+                types.push(self.varTypes.get(i))
+            }
+            i = i - 1
+        }
+        self.lambdaCaptures.set(li, self.joinCaps(names))
+        self.lambdaCaptureTypes.set(li, self.joinCaps(types))
+        self.lambdaCaptureScanned.set(li, "1")
     }
 
     String lambdaName(AstNode n) {
@@ -4290,21 +4433,94 @@ class CGen {
     }
 
     String fnPtrDecl(String ty, String name) {
+        return "xn_closure " + name
+    }
+
+    String closureCast(String ty) {
         String ret = self.ctype(self.fnRetType(ty))
         List<String> ps = self.fnParams(ty)
-        String sig = ret + " (*" + name + ")("
+        String sig = ret + " (*)(void *"
         Int i = 0
         while i < ps.length() {
-            if i > 0 {
-                sig = sig + ", "
-            }
-            sig = sig + self.ctype(ps.get(i))
+            sig = sig + ", " + self.ctype(ps.get(i))
             i = i + 1
         }
-        if ps.length() == 0 {
-            sig = sig + "void"
-        }
         return sig + ")"
+    }
+
+    String closureCall(String ty, String target, AstNode call) {
+        String b = "((" + self.closureCast(ty) + ")" + target + ".fn)(" + target + ".env"
+        Int i = 0
+        while i < call.kids.length() {
+            b = b + ", " + self.expr(call.kids.get(i))
+            i = i + 1
+        }
+        return b + ")"
+    }
+
+    String lambdaProto(Int i) {
+        AstNode lam = self.lambdas.get(i)
+        String ft = self.lambdaTypes.get(i)
+        String sig = "static " + self.ctype(self.fnRetType(ft)) + " xn_lambda_" + str(i) + "(void *xn_env"
+        Int pi = 0
+        while pi < lam.kids.length() {
+            AstNode p = lam.kids.get(pi)
+            if p.kind == "Param" {
+                List<String> pp = p.text.split(" ")
+                if pp.length() >= 2 {
+                    sig = sig + ", " + self.ctype(pp.get(0)) + " " + pp.get(1)
+                }
+            }
+            pi = pi + 1
+        }
+        return sig + ");"
+    }
+
+    Void emitLambdaDef(Int i) {
+        AstNode lam = self.lambdas.get(i)
+        String ft = self.lambdaTypes.get(i)
+        self.emit(self.lambdaProto(i).substring(0, self.lambdaProto(i).length() - 1) + " {")
+        self.curRet = self.fnRetType(ft)
+        String oldClass = self.curClass
+        String owner = self.lambdaOwners.get(i)
+        if owner != "" {
+            self.curClass = owner
+        }
+        self.popTo(0)
+        List<String> caps = self.splitCaps(self.lambdaCaptures.get(i))
+        List<String> capTypes = self.splitCaps(self.lambdaCaptureTypes.get(i))
+        if caps.length() > 0 {
+            self.emit("  void **xn_caps = (void **)xn_env;")
+        }
+        Int ci = 0
+        while ci < caps.length() {
+            String ct = self.ctype(capTypes.get(ci))
+            self.emit("  " + ct + " " + caps.get(ci) + " = *(" + ct + " *)xn_caps[" + str(ci) + "];")
+            self.addVar(capTypes.get(ci), caps.get(ci))
+            ci = ci + 1
+        }
+        Int pi = 0
+        while pi < lam.kids.length() {
+            AstNode p = lam.kids.get(pi)
+            if p.kind == "Param" {
+                List<String> pp = p.text.split(" ")
+                if pp.length() >= 2 {
+                    self.addVar(pp.get(0), pp.get(1))
+                }
+            }
+            pi = pi + 1
+        }
+        pi = 0
+        while pi < lam.kids.length() {
+            if lam.kids.get(pi).kind == "Block" {
+                self.blockBody(lam.kids.get(pi), "  ")
+            }
+            pi = pi + 1
+        }
+        self.popTo(0)
+        self.curClass = oldClass
+        self.emit("}")
+        self.emit("")
     }
 
     Bool isEnumName(String name) {
@@ -5054,7 +5270,12 @@ class CGen {
             return n.text
         }
         if n.kind == "Lambda" {
-            return self.lambdaName(n)
+            Int li = self.lambdaIndex(n)
+            if li >= 0 && self.lambdaCaptures.get(li).length() > 0 {
+                self.fail("capturing lambda must be bound to a function-typed local")
+                return "0"
+            }
+            return "((xn_closure){0, (void*)" + self.lambdaName(n) + "})"
         }
         if n.kind == "Ternary" {
             if n.kids.length() < 3 {
@@ -5131,16 +5352,7 @@ class CGen {
         if n.kind == "Call" {
             Int fvi = self.varIndex(n.text)
             if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
-                String fb = n.text + "("
-                Int fi = 0
-                while fi < n.kids.length() {
-                    if fi > 0 {
-                        fb = fb + ", "
-                    }
-                    fb = fb + self.expr(n.kids.get(fi))
-                    fi = fi + 1
-                }
-                return fb + ")"
+                return self.closureCall(self.varTypes.get(fvi), self.nameExpr(n.text), n)
             }
             Int ffi = ffiIndex(n.text)
             if ffi >= 0 && n.text != "diagnoseRaw" && n.text != "exitRaw" &&
@@ -5544,11 +5756,93 @@ class CGen {
         String ty = parts.get(0)
         String name = parts.get(1)
         if self.isFunctionType(ty) {
-            String init = "0"
+            AstNode initNode = new AstNode("None", "", st.line, st.col)
             if st.kids.length() > 0 {
-                init = self.expr(st.kids.get(0))
+                initNode = st.kids.get(0)
             }
-            self.emit(indent + self.fnPtrDecl(ty, name) + " = " + init + ";")
+            if initNode.kind == "Lambda" {
+                Int li = self.lambdaIndex(initNode)
+                self.ensureLambdaCaptures(li, initNode)
+                List<String> caps = []
+                List<String> capTypes = []
+                if li >= 0 {
+                    caps = self.splitCaps(self.lambdaCaptures.get(li))
+                    capTypes = self.splitCaps(self.lambdaCaptureTypes.get(li))
+                    if self.lambdaOwners.get(li) == "" && self.curClass != "" {
+                        self.lambdaOwners.set(li, self.curClass)
+                    }
+                }
+                String selfTy = self.findVar("self")
+                if self.curClass != "" && selfTy != "Any" && !self.listHas(caps, "self") {
+                    caps.push("self")
+                    capTypes.push(selfTy)
+                    if li >= 0 {
+                        self.lambdaCaptures.set(li, self.joinCaps(caps))
+                        self.lambdaCaptureTypes.set(li, self.joinCaps(capTypes))
+                    }
+                }
+                Bool selfCap = self.containsVarUse(initNode, name)
+                if selfCap {
+                    List<String> keepNames = []
+                    List<String> keepTypes = []
+                    Int ki = 0
+                    while ki < caps.length() {
+                        if caps.get(ki) != name {
+                            keepNames.push(caps.get(ki))
+                            keepTypes.push(capTypes.get(ki))
+                        }
+                        ki = ki + 1
+                    }
+                    caps = keepNames
+                    capTypes = keepTypes
+                    caps.push(name)
+                    capTypes.push(ty)
+                    if li >= 0 {
+                        self.lambdaCaptures.set(li, self.joinCaps(caps))
+                        self.lambdaCaptureTypes.set(li, self.joinCaps(capTypes))
+                    }
+                }
+                Int selfIdx = -1
+                Int sci = 0
+                while sci < caps.length() {
+                    if caps.get(sci) == name {
+                        selfIdx = sci
+                    }
+                    sci = sci + 1
+                }
+                self.emit(indent + self.fnPtrDecl(ty, name) + ";")
+                String env = name + "_env"
+                if caps.length() > 0 {
+                    self.emit(indent + "void **" + env + " = (void **)malloc(sizeof(void *) * " + str(caps.length()) + ");")
+                    Int ci = 0
+                    while ci < caps.length() {
+                        if ci != selfIdx {
+                            String box = self.temp()
+                            String ct = self.ctype(capTypes.get(ci))
+                            self.emit(indent + "{ " + ct + " *" + box + " = (" + ct + " *)malloc(sizeof(" + ct + ")); *" + box + " = " + caps.get(ci) + "; " + env + "[" + str(ci) + "] = " + box + "; }")
+                            if self.isGcRefType(capTypes.get(ci)) {
+                                self.emit(indent + "rt_gc_root_add((void *)" + caps.get(ci) + ");")
+                            }
+                        }
+                        ci = ci + 1
+                    }
+                    self.emit(indent + name + ".env = (void *)" + env + ";")
+                } else {
+                    self.emit(indent + name + ".env = 0;")
+                }
+                self.emit(indent + name + ".fn = (void *)" + self.lambdaName(initNode) + ";")
+                if selfIdx >= 0 {
+                    String selfBox = self.temp()
+                    String selfCt = self.ctype(ty)
+                    self.emit(indent + "{ " + selfCt + " *" + selfBox + " = (" + selfCt + " *)malloc(sizeof(" + selfCt + ")); *" + selfBox + " = " + name + "; " + env + "[" + str(selfIdx) + "] = " + selfBox + "; }")
+                }
+            } else {
+                String init = "{0, 0}"
+                if st.kids.length() > 0 {
+                    init = self.expr(initNode)
+                }
+                self.emit(indent + self.fnPtrDecl(ty, name) + " = " + init + ";")
+            }
             self.addVar(ty, name)
             return
         }
@@ -5928,6 +6222,9 @@ class CGen {
         String sig = self.methodSig(m, cls) + " {"
         self.emit(sig)
         self.popTo(0)
+        if !self.methodStatic(m) {
+            self.addVar(cls, "self")
+        }
         List<AstNode> ps = self.paramsOf(m)
         Int pi = 0
         while pi < ps.length() {
@@ -6036,6 +6333,7 @@ class CGen {
             self.curClass = cn
             self.emit("  xn_Cls_" + cn + " *self = o;")
             self.popTo(0)
+            self.addVar(cn, "self")
             Int pi = 0
             while pi < cps.length() {
                 List<String> cpp = cps.get(pi).text.split(" ")
@@ -6160,6 +6458,8 @@ class CGen {
         self.emit("#include <unistd.h>")
         self.emit("#include <string.h>")
         self.emit("")
+        self.emit("typedef struct { void *env; void *fn; } xn_closure;")
+        self.emit("")
         self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }")
         self.emit("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }")
         self.emit("static void xn_print_double(double v) { printf(\"%g\\n\", v); }")
@@ -6245,6 +6545,12 @@ class CGen {
             if n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
             }
+            i = i + 1
+        }
+        self.emit("")
+        i = 0
+        while i < self.lambdas.length() {
+            self.emit(self.lambdaProto(i))
             i = i + 1
         }
         self.emit("")
@@ -6410,61 +6716,16 @@ class CGen {
         self.emit("}")
         self.emit("")
         i = 0
-        while i < self.lambdas.length() {
-            AstNode lam = self.lambdas.get(i)
-            String ft = self.lambdaTypes.get(i)
-            String sig = "static " + self.ctype(self.fnRetType(ft)) + " xn_lambda_" + str(i) + "("
-            Int pi = 0
-            Bool firstp = true
-            while pi < lam.kids.length() {
-                AstNode p = lam.kids.get(pi)
-                if p.kind == "Param" {
-                    List<String> pp = p.text.split(" ")
-                    if pp.length() >= 2 {
-                        if !firstp {
-                            sig = sig + ", "
-                        }
-                        sig = sig + self.ctype(pp.get(0)) + " " + pp.get(1)
-                        firstp = false
-                    }
-                }
-                pi = pi + 1
-            }
-            if firstp {
-                sig = sig + "void"
-            }
-            sig = sig + ") {"
-            self.emit(sig)
-            self.curRet = self.fnRetType(ft)
-            self.popTo(0)
-            pi = 0
-            while pi < lam.kids.length() {
-                AstNode p = lam.kids.get(pi)
-                if p.kind == "Param" {
-                    List<String> pp = p.text.split(" ")
-                    if pp.length() >= 2 {
-                        self.addVar(pp.get(0), pp.get(1))
-                    }
-                }
-                pi = pi + 1
-            }
-            pi = 0
-            while pi < lam.kids.length() {
-                if lam.kids.get(pi).kind == "Block" {
-                    self.blockBody(lam.kids.get(pi), "  ")
-                }
-                pi = pi + 1
-            }
-            self.emit("}")
-            self.emit("")
-            i = i + 1
-        }
-        i = 0
         while i < self.program.kids.length() && !self.hasError() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Func" && !hasTypeParams(n) {
                 self.func(n)
             }
+            i = i + 1
+        }
+        i = 0
+        while i < self.lambdas.length() && !self.hasError() {
+            self.emitLambdaDef(i)
             i = i + 1
         }
         Bool mainArgs = false

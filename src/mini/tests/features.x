@@ -26,6 +26,14 @@ enum DStatus {
     String getLabel() { return self.label }
 }
 
+class ClosureBox {
+    Int base = 10;
+    Int(Int) adder() {
+        Int(Int) f = (Int x) -> x + base
+        return f
+    }
+}
+
 class InheritBase {
     Int x = 2
     Int getX() { return self.x }
@@ -96,6 +104,30 @@ static Int main() {
     print("lambda-block " + str(twice(3)))
     Int() zero = () -> 42
     print("lambda0 " + str(zero()))
+    Int base = 10
+    Int(Int) addBase = (Int v) -> v + base
+    print("lambda-capture " + str(addBase(5)))
+    base = 100
+    print("lambda-capture-value " + str(addBase(5)))
+    Int(Int) fact = (Int m) -> {
+        if m < 2 {
+            return 1
+        }
+        return m * fact(m - 1)
+    }
+    print("lambda-rec " + str(fact(5)))
+    Int offset = 3
+    Int(Int) nested = (Int v) -> {
+        Int(Int) inner = (Int w) -> w + offset + v
+        return inner(1)
+    }
+    print("lambda-nested " + str(nested(2)))
+    InheritChild capObj = new InheritChild()
+    Int() objCap = () -> capObj.sum()
+    print("lambda-object " + str(objCap()))
+    ClosureBox cb = new ClosureBox()
+    Int(Int) methodCap = cb.adder()
+    print("lambda-method " + str(methodCap(7)))
     Greeter pg = new Hello()
     print("protocol " + pg.greet())
     pg = new Bye()
