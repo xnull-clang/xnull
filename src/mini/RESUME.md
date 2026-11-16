@@ -71,12 +71,12 @@ XNULL_MINI_BOOTSTRAP=legacy ./src/mini/build.sh
 每次提交前至少执行：
 
 ```sh
-for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi resources object_list selfhost generics c4 m7_sys m8 parity; do
+for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi xfb_error resources object_list selfhost generics c4 m7_sys m8 parity; do
   ./src/mini/tests/$t.sh || exit 1
 done
 ```
 
-当前 23 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
+当前 24 个回归全部 PASS，`selfhost` 固定点 PASS。`m8.sh` 现在会
 在测试临时目录内从头构建 xpd/xmanifest/reactor 和构建工具，不依赖
 `/tmp` 旧缓存。
 
@@ -254,7 +254,7 @@ diff -qr src/xdk xdk/lib/xdk
 - 不追求全量 legacy 差分。
 
 ### D7：Mini 1.0 收口
-状态：完成。23 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
+状态：完成。24 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
 
 必须全部满足：
 
@@ -274,7 +274,7 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 1. **M9-C4 收口**：data enum → protocol 动态派发 → lambda/闭包捕获（已完成当前切片）。
 2. **M9-C2/C3 余量**：`endsWith`/`charAt`/`indexOfByte`、String 边界；泛型实参数目、嵌套泛型不匹配、未知类型实参负例已完成。
 3. **M7-F3**：`io/system/Sys.x` 的 File/Dir/Process raw FFI 已可通过 `--xdk-full` 编译和运行（`m7_sys.sh`）；Resource.x/Context 子单元仍未接入。
-4. **M7-F1**：通用 `.xfb` 参数/返回值、租约、错误码。
+4. **M7-F1**：通用 `.xfb` 参数/返回值、租约已通；errorCode 出参已由 `xfb_error.sh` 覆盖，Result/companion 待继续。
 5. **M7-F2/F4**：`text/full` 已覆盖 pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex 基础场景；`xdk.math` 已接入并通过 sqrt/abs/clamp/NaN 场景。其余 T0 包仍按 import 场景推进。
 6. **M9-PAR**：全量 stdout/stderr/退出码差分。
 7. **M9-CUT**：仅 M9-PAR 全绿且用户批准后切换默认引擎。
@@ -303,7 +303,7 @@ Mini 1.0 剩余:     0 dev-day（D1–D7 已完成）
 
 - 每个切片必须同时有代码、场景、回归、提交。
 - 多个会话不要同时写同一个 `dev` 工作区；并行时各自使用独立 worktree，
-  合并前必须重新跑冷启动 m8 和 23 回归。
+  合并前必须重新跑冷启动 m8 和 24 回归。
 - 不在工作包内临时扩大范围。
 - 发现新缺口登记到 `PLAN.md` 后续包，不阻塞当前 D1–D7。
 - 每个工作包完成后更新本文件和 `PLAN.md` 的状态，再进入下一包。

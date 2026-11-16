@@ -1,0 +1,6 @@
+ffi demo_error_raw {
+  @ffiEntry(cName = "demo_div")
+  @errorCode(codeParam = .code)
+  @blocking(.unaware)
+  Int64 div(Int64 a, Int64 b, Int32 code);
+}

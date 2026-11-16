@@ -8,6 +8,8 @@ List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
 List<String> ffiParamSpecs = []
+List<String> ffiErrParams = []
+List<String> ffiErrRets = []
 
 class Token {
     final String kind
@@ -3840,8 +3842,10 @@ class CGen {
     final List<String> ffiCallCNames
     final List<String> ffiCallRets
     final List<String> ffiCallSpecs
+    final List<String> ffiCallErrParams
+    final List<String> ffiCallErrRets
 
-    CGen(AstNode program, List<String> callNames, List<String> callCNames, List<String> callRets, List<String> callSpecs) {
+    CGen(AstNode program, List<String> callNames, List<String> callCNames, List<String> callRets, List<String> callSpecs, List<String> callErrParams, List<String> callErrRets) {
         self.program = program
         self.lines = []
         self.vars = []
@@ -3863,6 +3867,8 @@ class CGen {
         self.ffiCallCNames = callCNames
         self.ffiCallRets = callRets
         self.ffiCallSpecs = callSpecs
+        self.ffiCallErrParams = callErrParams
+        self.ffiCallErrRets = callErrRets
     }
 
     Bool hasError() {
@@ -4557,6 +4563,44 @@ class CGen {
         return ""
     }
 
+    String ffiParamName(Int idx, Int p) {
+        if idx < 0 || idx >= self.ffiCallSpecs.length() || self.ffiCallSpecs.get(idx) == "" {
+            return ""
+        }
+        List<String> segs = self.ffiCallSpecs.get(idx).split(";")
+        if p < 0 || p >= segs.length() {
+            return ""
+        }
+        List<String> parts = segs.get(p).split(":")
+        if parts.length() >= 1 {
+            return parts.get(0)
+        }
+        return ""
+    }
+
+    String ffiErrParam(Int idx) {
+        if idx < 0 || idx >= self.ffiCallErrParams.length() {
+            return ""
+        }
+        return self.ffiCallErrParams.get(idx)
+    }
+
+    Int ffiErrParamIndex(Int idx) {
+        String ep = self.ffiErrParam(idx)
+        if ep == "" {
+            return -1
+        }
+        Int n = self.ffiParamCount(idx)
+        Int p = 0
+        while p < n {
+            if self.ffiParamName(idx, p) == ep {
+                return p
+            }
+            p = p + 1
+        }
+        return -1
+    }
+
     Bool ffiEntryOk(Int idx) {
         if idx < 0 || idx >= self.ffiCallNames.length() {
             return false
@@ -4580,6 +4624,7 @@ class CGen {
         String ret = self.ffiAbiType(self.ffiCallRets.get(idx))
         String sig = "extern " + ret + " " + cname + "("
         Int n = self.ffiParamCount(idx)
+        Int epi = self.ffiErrParamIndex(idx)
         if n == 0 {
             sig = sig + "void"
         }
@@ -4589,7 +4634,9 @@ class CGen {
                 sig = sig + ", "
             }
             String ty = self.ffiParamType(idx, p)
-            if ty == "String" {
+            if p == epi {
+                sig = sig + "int32_t *a" + str(p)
+            } else if ty == "String" {
                 sig = sig + "const char *a" + str(p) + "_bytes, size_t a" + str(p) + "_len"
             } else if ty == "Bytes" {
                 sig = sig + "const unsigned char *a" + str(p) + "_data, size_t a" + str(p) + "_len"
@@ -4606,6 +4653,7 @@ class CGen {
         String ret = self.ffiMiniType(self.ffiCallRets.get(idx))
         String sig = "static " + ret + " xn_ffi_" + name + "("
         Int n = self.ffiParamCount(idx)
+        Int epi = self.ffiErrParamIndex(idx)
         if n == 0 {
             sig = sig + "void"
         }
@@ -4614,7 +4662,11 @@ class CGen {
             if p > 0 {
                 sig = sig + ", "
             }
-            sig = sig + self.ffiMiniType(self.ffiParamType(idx, p)) + " a" + str(p)
+            if p == epi {
+                sig = sig + "int64_t *a" + str(p)
+            } else {
+                sig = sig + self.ffiMiniType(self.ffiParamType(idx, p)) + " a" + str(p)
+            }
             p = p + 1
         }
         return sig + ")"
@@ -4623,13 +4675,16 @@ class CGen {
     String ffiWrapperArgs(Int idx) {
         String args = ""
         Int n = self.ffiParamCount(idx)
+        Int epi = self.ffiErrParamIndex(idx)
         Int p = 0
         while p < n {
             if p > 0 {
                 args = args + ", "
             }
             String ty = self.ffiParamType(idx, p)
-            if ty == "String" {
+            if p == epi {
+                args = args + "&xn_err"
+            } else if ty == "String" {
                 args = args + "a" + str(p) + "->bytes, a" + str(p) + "->len"
             } else if ty == "Bytes" {
                 args = args + "xrt_bytes_data(a" + str(p) + "), xrt_bytes_len(a" + str(p) + ")"
@@ -4649,18 +4704,33 @@ class CGen {
         String name = self.ffiCallNames.get(idx)
         String cname = self.ffiCallCNames.get(idx)
         String rt = self.ffiCallRets.get(idx)
+        Int epi = self.ffiErrParamIndex(idx)
         String call = cname + "(" + self.ffiWrapperArgs(idx) + ")"
         String body = self.ffiWrapperSig(idx) + " {\n"
+        if epi >= 0 {
+            body = body + "  int32_t xn_err = 0;\n"
+        }
         if rt == "void" || rt == "Void" || rt == "Unit" {
             body = body + "  " + call + ";\n"
-        } else if rt == "String" {
-            body = body + "  return rt_string_from_c((const char *)" + call + ");\n"
-        } else if rt == "Bool" {
-            body = body + "  return (" + call + ") ? 1 : 0;\n"
-        } else if rt == "Double" || rt == "Float" {
-            body = body + "  return " + call + ";\n"
         } else {
-            body = body + "  return (int64_t)(" + call + ");\n"
+            String miniRet = self.ffiMiniType(rt)
+            String out = call
+            if rt == "String" {
+                out = "rt_string_from_c((const char *)" + call + ")"
+            } else if rt == "Bool" {
+                out = "(" + call + ") ? 1 : 0"
+            } else if rt != "Double" && rt != "Float" {
+                out = "(int64_t)(" + call + ")"
+            }
+            body = body + "  " + miniRet + " xn_out = " + out + ";\n"
+        }
+        if epi >= 0 {
+            body = body + "  *a" + str(epi) + " = (int64_t)xn_err;\n"
+        }
+        if rt == "void" || rt == "Void" || rt == "Unit" {
+            body = body + "  return;\n"
+        } else {
+            body = body + "  return xn_out;\n"
         }
         return body + "}"
     }
@@ -5624,12 +5694,17 @@ class CGen {
                n.text != "readFileTextRaw" && n.text != "readFileTextError" {
                 if self.ffiEntryOk(ffi) {
                     String wb = "xn_ffi_" + n.text + "("
+                    Int epi = self.ffiErrParamIndex(ffi)
                     Int fi = 0
                     while fi < n.kids.length() {
                         if fi > 0 {
                             wb = wb + ", "
                         }
-                        wb = wb + self.expr(n.kids.get(fi))
+                        String av = self.expr(n.kids.get(fi))
+                        if fi == epi {
+                            av = "&" + av
+                        }
+                        wb = wb + av
                         fi = fi + 1
                     }
                     return wb + ")"
@@ -7418,6 +7493,13 @@ static Void loadProject(String path) {
                 } else {
                     ffiParamSpecs.push("")
                 }
+                if f.length() >= 8 {
+                    ffiErrParams.push(f.get(6))
+                    ffiErrRets.push(f.get(7))
+                } else {
+                    ffiErrParams.push("")
+                    ffiErrRets.push("")
+                }
             }
         }
         i = i + 1
@@ -7701,7 +7783,7 @@ static Int main(String[] args) {
             print(args[1] + ":" + str(c.errorLine) + ":" + str(c.errorCol) + ": [" + c.errorCode + "] " + c.error)
             return 1
         }
-        CGen g = new CGen(program, ffiNames, ffiCNames, ffiRets, ffiParamSpecs)
+        CGen g = new CGen(program, ffiNames, ffiCNames, ffiRets, ffiParamSpecs, ffiErrParams, ffiErrRets)
         g.gen()
         if g.hasError() {
             print(args[1] + ": " + g.err)

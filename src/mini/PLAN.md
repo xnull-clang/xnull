@@ -275,7 +275,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | ID | 工作项 | 触发条件 | 前置 | 验收证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 `.xfb` 的 String 借出、标量/Bool/Double/String 返回和通用包装已通；errorCode/Result/companion 未全） |
+| M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 `.xfb` 的 String 借出、标量/Bool/Double/String 返回、通用包装和 errorCode 出参已通，xfb_error.sh；Result/companion 未全） |
 | M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 当前切片完成（pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex 基础；xdk_text_full.x）；完整旧/新差分随 M9-PAR |
 | M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（`--xdk-full` 下 File/Dir/Process raw FFI 可编译运行，m7_sys.sh；资源 Resource.x/Context 未接入，默认仍 base） |
 | M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 部分（xdk.math 已接入，xdk_math.x）；其余 T0 包按 import 场景推进 |
@@ -304,7 +304,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 项 | 冻结内容 | 验收命令 |
 | --- | --- | --- |
 | 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
-| 回归 | 23 个 mini 回归（21 + m7_sys + parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 回归 | 24 个 mini 回归（含 m7_sys、xfb_error、parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
 | 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
 | 默认引擎 | 仍为 `legacy`；M9-PAR/M9-CUT 通过前不切换 | `src/cli/xnull --help` |
 | 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
@@ -338,7 +338,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 1 | M9-C4 收口 | 已完成当前切片：data enum、protocol 动态派发、lambda/闭包捕获、控制流、静态继承；c4 正/负例通过 | 直接按实参捕获 lambda、函数值字段调用、闭包环境回收（后续切片） |
 | 2 | M9-C2/C3 完整余量 | 当前切片完成：String 边界、泛型实参/嵌套/未知类型负例，c4/generics 通过 | 更大 String/泛型矩阵随 M9-PAR 扩展 |
 | 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
-| 4 | M7-F1 | 部分：通用 String/标量包装已通 | errorCode/Result/companion 与自定义 `.xfb` 负例 |
+| 4 | M7-F1 | 部分：通用 String/标量包装、errorCode 出参已通 | Result/companion 语义与更多自定义 `.xfb` 负例 |
 | 5 | M7-F2/F4 | 未完成 | `text/full` 余量、其他 T0 包按 import 场景接入 |
 | 6 | M9-PAR | 17 个选定场景（含完整 Sys） | 全量 stdout/stderr/退出码差分 |
 | Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
