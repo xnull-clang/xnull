@@ -7446,6 +7446,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.runtime" || pkg.startsWith("xdk.runtime.") {
         return "core/runtime/Runtime.x"
     }
+    if pkg == "xdk.math" || pkg.startsWith("xdk.math.") {
+        return "core/math/Math.x"
+    }
     if pkg == "xdk.text" || pkg.startsWith("xdk.text.") {
         return "text/full/Text.x"
     }
