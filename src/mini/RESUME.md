@@ -286,7 +286,7 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 - P0 自举路径已修复并加入冷启动隔离；旧的 `61eb86c9` 基线不能直接作为 D1 起点。
 - `xdk.sys` 默认仍映射 `io/base`。设置 `XNULL_MINI_XDK_FULL=1` 或给 mini 传 `--xdk-full` 时使用 `io/system/Sys.x`；通用 raw FFI 桥已支持 String 借出、Int/Int32/Int64/Bool/Double/String 返回值。
 - 完整 Sys 的 Resource.x/Context 子单元尚未随 `xdk.sys` 载入；resource API 仍走 `io/base` 兼容面。
-- M9-C4：基础 `switch`（Int/String/Bool/枚举穷尽性）、`do-while`、`..<`/`...` range、label/goto、静态类继承、基础 data enum、protocol 动态派发、lambda 已接入。闭包捕获当前支持按值捕获、嵌套 lambda、自递归、方法 `self`/字段捕获和多实例独立环境；c4 场景覆盖。已知边界：直接作为实参的捕获 lambda 已支持（c4 的 `lambda-direct`）；返回位置/函数值字段调用和闭包环境回收留后续切片。
+- M9-C4：基础 `switch`（Int/String/Bool/枚举穷尽性）、`do-while`、`..<`/`...` range、label/goto、静态类继承、基础 data enum、protocol 动态派发、lambda 已接入。闭包捕获当前支持按值捕获、嵌套 lambda、自递归、方法 `self`/字段捕获和多实例独立环境；c4 场景覆盖。已知边界：直接作为实参的捕获 lambda（c4 `lambda-direct`）和返回位置 lambda（c4 `lambda-return`）已支持；函数值字段调用和闭包环境回收留后续切片。
 - 全量 T0 XDK 和全量 M9-PAR 不属于 Mini 1.0 当前范围。
 
 ## 工作量口径

@@ -2789,7 +2789,7 @@ class Checker {
                     self.fail("SEM-003", "return value required, got Unit", st)
                 }
             } else {
-                String t = self.typeOf(st.kids.get(0))
+                String t = self.argType(st.kids.get(0), self.curRet)
                 if t != "Error" && !self.isAssignable(self.curRet, t) {
                     self.fail("SEM-003", "return type " + self.curRet + ", got " + t, st)
                 }
@@ -4366,9 +4366,45 @@ class CGen {
         self.lambdaOwners.push("")
     }
 
+    Void collectReturnLambdas(AstNode n, String retTy) {
+        if n.kind == "Return" {
+            if n.kids.length() > 0 {
+                self.collectLambdas(n.kids.get(0), retTy)
+            }
+            return
+        }
+        if n.kind == "Lambda" {
+            return
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectReturnLambdas(n.kids.get(i), retTy)
+            i = i + 1
+        }
+    }
+
     Void collectLambdas(AstNode n, String expected) {
+        if n.kind == "Func" || n.kind == "Method" {
+            String retTy = self.retNode(n).text
+            Int ri = 0
+            while ri < n.kids.length() {
+                if n.kids.get(ri).kind == "Block" {
+                    self.collectReturnLambdas(n.kids.get(ri), retTy)
+                }
+                ri = ri + 1
+            }
+        }
         if n.kind == "Lambda" {
             self.registerLambda(n, expected)
+            if expected != "" {
+                Int ri = 0
+                while ri < n.kids.length() {
+                    if n.kids.get(ri).kind == "Block" {
+                        self.collectReturnLambdas(n.kids.get(ri), self.fnRetType(expected))
+                    }
+                    ri = ri + 1
+                }
+            }
             Int i = 0
             while i < n.kids.length() {
                 self.collectLambdas(n.kids.get(i), "")

@@ -50,6 +50,10 @@ static Int applyOne(Int(Int) fn, Int value) {
     return fn(value)
 }
 
+static Int(Int) makeAdder(Int base) {
+    return (Int x) -> x + base
+}
+
 static Int main() {
     Double x = 1.5
     Int bits = (0x0F << 4) | 3
@@ -134,6 +138,8 @@ static Int main() {
     print("lambda-method " + str(methodCap(7)))
     Int directBase = 5
     print("lambda-direct " + str(applyOne((Int v) -> v + directBase, 3)))
+    Int(Int) returnedCap = makeAdder(30)
+    print("lambda-return " + str(returnedCap(2)))
     Greeter pg = new Hello()
     print("protocol " + pg.greet())
     pg = new Bye()
