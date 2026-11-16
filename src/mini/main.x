@@ -3734,6 +3734,23 @@ class Checker {
                     return pr
                 }
             }
+            String fty = self.fieldType(bt, mth)
+            if self.isFunctionType(fty) {
+                List<String> want = self.fnParams(fty)
+                if want.length() != argc {
+                    self.fail("SEM-004", mth + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
+                    return "Error"
+                }
+                Int ai = 0
+                while ai < argc && !self.hasError() {
+                    String at = self.argType(n.kids.get(ai), want.get(ai))
+                    if at != "Error" && !self.sameType(at, want.get(ai)) {
+                        self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
+                    }
+                    ai = ai + 1
+                }
+                return self.fnRetType(fty)
+            }
             Int mi = self.findMethod(bt, mth)
             if mi < 0 {
                 self.fail("SEM-001", "undefined method: " + bt + "." + mth, n)
@@ -4354,6 +4371,26 @@ class CGen {
         return ""
     }
 
+    String ctorParamType(String cls, Int argIndex) {
+        AstNode c = self.classNode(cls)
+        if c.kind == "error" {
+            return ""
+        }
+        AstNode ctor = self.ctorOf(c)
+        if ctor.kind != "Ctor" {
+            return ""
+        }
+        List<AstNode> ps = self.paramsOf(ctor)
+        if argIndex < 0 || argIndex >= ps.length() {
+            return ""
+        }
+        List<String> parts = ps.get(argIndex).text.split(" ")
+        if parts.length() >= 2 {
+            return parts.get(0)
+        }
+        return ""
+    }
+
     Void registerLambda(AstNode lam, String ty) {
         if ty == "" || self.lambdaIndex(lam) >= 0 {
             return
@@ -4420,6 +4457,14 @@ class CGen {
             }
             if n.kids.length() > 0 {
                 self.collectLambdas(n.kids.get(0), exp)
+            }
+            return
+        }
+        if n.kind == "New" {
+            Int i = 0
+            while i < n.kids.length() {
+                self.collectLambdas(n.kids.get(i), self.ctorParamType(n.text, i))
+                i = i + 1
             }
             return
         }
@@ -5653,6 +5698,12 @@ class CGen {
                 if self.isProtocol(bt) {
                     return self.protoRet(bt, mth)
                 }
+                if self.isClass(bt) {
+                    String fty = self.fieldType(bt, mth)
+                    if self.isFunctionType(fty) {
+                        return self.fnRetType(fty)
+                    }
+                }
                 String mr = self.methodRet(bt, mth)
                 if mr != "Any" {
                     return mr
@@ -6175,6 +6226,12 @@ class CGen {
                             return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "0"
+                    }
+                }
+                if self.isClass(bt) {
+                    String fty = self.fieldType(bt, mth)
+                    if self.isFunctionType(fty) {
+                        return self.closureCall(fty, bv + "->" + mth, n)
                     }
                 }
                 if self.isProtocol(bt) {
@@ -6805,6 +6862,9 @@ class CGen {
                     if ty == "String" {
                         init = "rt_string_from_c(\"\")"
                     }
+                    if self.isFunctionType(ty) {
+                        init = "(xn_closure){0, 0}"
+                    }
                     if self.isArray(ty) {
                         init = self.arrayNew(ty, 4)
                     }
@@ -7177,6 +7237,9 @@ class CGen {
                     String init = "0"
                     if ty == "String" {
                         init = "rt_string_from_c(\"\")"
+                    }
+                    if self.isFunctionType(ty) {
+                        init = "(xn_closure){0, 0}"
                     }
                     if self.isArray(ty) {
                         init = self.arrayNew(ty, 4)

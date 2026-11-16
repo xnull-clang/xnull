@@ -34,6 +34,12 @@ class ClosureBox {
     }
 }
 
+class FunctionHolder {
+    Int(Int) f
+    FunctionHolder(Int(Int) fn) { self.f = fn }
+    Int apply(Int x) { return self.f(x) }
+}
+
 class InheritBase {
     Int x = 2
     Int getX() { return self.x }
@@ -140,6 +146,10 @@ static Int main() {
     print("lambda-direct " + str(applyOne((Int v) -> v + directBase, 3)))
     Int(Int) returnedCap = makeAdder(30)
     print("lambda-return " + str(returnedCap(2)))
+    FunctionHolder fh = new FunctionHolder((Int v) -> v + directBase)
+    print("lambda-field " + str(fh.apply(2)))
+    Int(Int) fieldCopy = fh.f
+    print("lambda-field-copy " + str(fieldCopy(1)))
     Greeter pg = new Hello()
     print("protocol " + pg.greet())
     pg = new Bye()
