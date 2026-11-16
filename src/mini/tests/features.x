@@ -46,6 +46,10 @@ class InheritChild : InheritBase {
 
 enum SwColor { Red, Blue }
 
+static Int applyOne(Int(Int) fn, Int value) {
+    return fn(value)
+}
+
 static Int main() {
     Double x = 1.5
     Int bits = (0x0F << 4) | 3
@@ -128,6 +132,8 @@ static Int main() {
     ClosureBox cb = new ClosureBox()
     Int(Int) methodCap = cb.adder()
     print("lambda-method " + str(methodCap(7)))
+    Int directBase = 5
+    print("lambda-direct " + str(applyOne((Int v) -> v + directBase, 3)))
     Greeter pg = new Hello()
     print("protocol " + pg.greet())
     pg = new Bye()

@@ -3462,7 +3462,7 @@ class Checker {
                 }
                 Int pai = 0
                 while pai < argc && !self.hasError() {
-                    String pat = self.typeOf(n.kids.get(pai + 1))
+                    String pat = self.argType(n.kids.get(pai + 1), pwant.get(pai))
                     if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
                         self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
                     }
@@ -3491,13 +3491,24 @@ class Checker {
         }
         Int ai = 0
         while ai < argc && !self.hasError() {
-            String at = self.typeOf(n.kids.get(ai + 1))
+            String at = self.argType(n.kids.get(ai + 1), want.get(ai))
             if at != "Error" && !self.sameType(at, want.get(ai)) {
                 self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
             }
             ai = ai + 1
         }
         return self.methodRets.get(mi)
+    }
+
+    String argType(AstNode arg, String want) {
+        if arg.kind == "Lambda" {
+            String oldExp = self.expectedLambda
+            self.expectedLambda = want
+            String t = self.typeOf(arg)
+            self.expectedLambda = oldExp
+            return t
+        }
+        return self.typeOf(arg)
     }
 
     String checkCall(AstNode n) {
@@ -3714,7 +3725,7 @@ class Checker {
                     }
                     Int pai = 0
                     while pai < argc && !self.hasError() {
-                        String pat = self.typeOf(n.kids.get(pai))
+                        String pat = self.argType(n.kids.get(pai), pwant.get(pai))
                         if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
                             self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
                         }
@@ -3743,7 +3754,7 @@ class Checker {
             }
             Int ai = 0
             while ai < argc && !self.hasError() {
-                String at = self.typeOf(n.kids.get(ai))
+                String at = self.argType(n.kids.get(ai), want.get(ai))
                 if at != "Error" && at != want.get(ai) {
                     self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
                 }
@@ -3781,7 +3792,7 @@ class Checker {
             }
             Int ai = 0
             while ai < argc && !self.hasError() {
-                String at = self.typeOf(n.kids.get(ai))
+                String at = self.argType(n.kids.get(ai), want.get(ai))
                 if at != "Error" && !self.sameType(at, want.get(ai)) {
                     self.fail("SEM-003", "argument " + str(ai + 1) + " of " + n.text + ": expected " + want.get(ai) + ", got " + at, n)
                 }
@@ -3809,7 +3820,7 @@ class Checker {
         }
         Int i = 0
         while i < argc && !self.hasError() {
-            String at = self.typeOf(n.kids.get(i))
+            String at = self.argType(n.kids.get(i), want.get(i))
             if at != "Error" && !self.sameType(at, want.get(i)) {
                 self.fail("SEM-003", "argument " + str(i + 1) + " of " + n.text + ": expected " + want.get(i) + ", got " + at, n)
             }
@@ -4315,23 +4326,78 @@ class CGen {
         return -1
     }
 
-    Void collectLambdas(AstNode n) {
+    AstNode findFunctionNode(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" && n.text == name {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    String callParamType(String name, Int argIndex) {
+        AstNode f = self.findFunctionNode(name)
+        if f.kind != "Func" {
+            return ""
+        }
+        List<AstNode> ps = self.paramsOf(f)
+        if argIndex < 0 || argIndex >= ps.length() {
+            return ""
+        }
+        List<String> parts = ps.get(argIndex).text.split(" ")
+        if parts.length() >= 2 {
+            return parts.get(0)
+        }
+        return ""
+    }
+
+    Void registerLambda(AstNode lam, String ty) {
+        if ty == "" || self.lambdaIndex(lam) >= 0 {
+            return
+        }
+        self.lambdas.push(lam)
+        self.lambdaTypes.push(ty)
+        self.lambdaCaptures.push("")
+        self.lambdaCaptureTypes.push("")
+        self.lambdaCaptureScanned.push("0")
+        self.lambdaOwners.push("")
+    }
+
+    Void collectLambdas(AstNode n, String expected) {
+        if n.kind == "Lambda" {
+            self.registerLambda(n, expected)
+            Int i = 0
+            while i < n.kids.length() {
+                self.collectLambdas(n.kids.get(i), "")
+                i = i + 1
+            }
+            return
+        }
         if n.kind == "Local" {
             List<String> parts = n.text.split(" ")
-            if parts.length() >= 2 && self.isFunctionType(parts.get(0)) && n.kids.length() > 0 && n.kids.get(0).kind == "Lambda" {
-                if self.lambdaIndex(n.kids.get(0)) < 0 {
-                    self.lambdas.push(n.kids.get(0))
-                    self.lambdaTypes.push(parts.get(0))
-                    self.lambdaCaptures.push("")
-                    self.lambdaCaptureTypes.push("")
-                    self.lambdaCaptureScanned.push("0")
-                    self.lambdaOwners.push("")
-                }
+            String exp = ""
+            if parts.length() >= 2 && self.isFunctionType(parts.get(0)) {
+                exp = parts.get(0)
             }
+            if n.kids.length() > 0 {
+                self.collectLambdas(n.kids.get(0), exp)
+            }
+            return
+        }
+        if n.kind == "Call" {
+            Int i = 0
+            while i < n.kids.length() {
+                self.collectLambdas(n.kids.get(i), self.callParamType(n.text, i))
+                i = i + 1
+            }
+            return
         }
         Int i = 0
         while i < n.kids.length() {
-            self.collectLambdas(n.kids.get(i))
+            self.collectLambdas(n.kids.get(i), "")
             i = i + 1
         }
     }
@@ -5602,11 +5668,41 @@ class CGen {
         }
         if n.kind == "Lambda" {
             Int li = self.lambdaIndex(n)
-            if li >= 0 && self.lambdaCaptures.get(li).length() > 0 {
-                self.fail("capturing lambda must be bound to a function-typed local")
-                return "0"
+            if li < 0 {
+                self.fail("lambda is missing a function type context")
+                return "((xn_closure){0, 0})"
             }
-            return "((xn_closure){0, (void*)" + self.lambdaName(n) + "})"
+            self.ensureLambdaCaptures(li, n)
+            if self.lambdaOwners.get(li) == "" && self.curClass != "" {
+                self.lambdaOwners.set(li, self.curClass)
+            }
+            List<String> caps = self.splitCaps(self.lambdaCaptures.get(li))
+            List<String> capTypes = self.splitCaps(self.lambdaCaptureTypes.get(li))
+            String selfTy = self.findVar("self")
+            if self.curClass != "" && selfTy != "Any" && !self.listHas(caps, "self") {
+                caps.push("self")
+                capTypes.push(selfTy)
+                self.lambdaCaptures.set(li, self.joinCaps(caps))
+                self.lambdaCaptureTypes.set(li, self.joinCaps(capTypes))
+            }
+            if caps.length() == 0 {
+                return "((xn_closure){0, (void*)" + self.lambdaName(n) + "})"
+            }
+            String env = self.temp()
+            String cl = self.temp()
+            String b = "(({ void **" + env + " = (void **)malloc(sizeof(void *) * " + str(caps.length()) + "); "
+            Int ci = 0
+            while ci < caps.length() {
+                String box = self.temp()
+                String ct = self.ctype(capTypes.get(ci))
+                b = b + "{ " + ct + " *" + box + " = (" + ct + " *)malloc(sizeof(" + ct + ")); *" + box + " = " + caps.get(ci) + "; " + env + "[" + str(ci) + "] = " + box + "; } "
+                if self.isGcRefType(capTypes.get(ci)) {
+                    b = b + "rt_gc_root_add((void *)" + caps.get(ci) + "); "
+                }
+                ci = ci + 1
+            }
+            b = b + "xn_closure " + cl + " = { (void *)" + env + ", (void *)" + self.lambdaName(n) + " }; " + cl + "; }))"
+            return b
         }
         if n.kind == "Ternary" {
             if n.kids.length() < 3 {
@@ -6806,7 +6902,7 @@ class CGen {
     Void gen() {
         Int lci = 0
         while lci < self.program.kids.length() {
-            self.collectLambdas(self.program.kids.get(lci))
+            self.collectLambdas(self.program.kids.get(lci), "")
             lci = lci + 1
         }
         self.emit("#include \"rt.h\"")
