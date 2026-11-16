@@ -15,4 +15,10 @@ diff -u "$HERE/classes.out" "$TMP"
 "$XNULL" --bootstrap --engine=legacy run "$ROOT/src/examples/classes.x" > "$TMP.legacy" 2>/dev/null
 diff -u "$HERE/classes.out" "$TMP.legacy"
 
+"$XNULL" --bootstrap --engine=mini run "$ROOT/src/examples/containers.x" > "$TMP.containers" 2>"$TMP.containers.err" || {
+    cat "$TMP.containers.err" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=legacy run "$ROOT/src/examples/containers.x" > "$TMP.containers.legacy" 2>/dev/null
+diff -u "$TMP.containers.legacy" "$TMP.containers"
+
 echo "mini containers: PASS"

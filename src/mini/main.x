@@ -2777,7 +2777,8 @@ class Checker {
                 } else {
                     it = self.typeOf(st.kids.get(0))
                 }
-                if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) {
+                Bool setLit = self.isSetType(ty) && st.kids.get(0).kind == "ArrayLit" && self.elementType(it) == "Int"
+                if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) && !setLit {
                     self.fail("SEM-003", "cannot initialize " + ty + " with " + it, st)
                 }
             }
@@ -3409,7 +3410,7 @@ class Checker {
                 return "Bool"
             }
             if mth == "add" {
-                return "Unit"
+                return "Bool"
             }
         }
         if self.isResultType(bt) {
@@ -3440,6 +3441,9 @@ class Checker {
         if self.isMapType(bt) {
             if mth == "length" {
                 return "Int"
+            }
+            if mth == "has" {
+                return "Bool"
             }
             if mth == "put" {
                 return "Unit"
@@ -3666,7 +3670,7 @@ class Checker {
                     return "Bool"
                 }
                 if mth == "add" {
-                    return "Unit"
+                    return "Bool"
                 }
             }
             if self.isResultType(bt) {
@@ -3703,6 +3707,9 @@ class Checker {
             if self.isMapType(bt) {
                 if mth == "length" {
                     return "Int"
+                }
+                if mth == "has" {
+                    return "Bool"
                 }
                 if mth == "getOr" {
                     return self.mapValueType(bt)
@@ -5214,7 +5221,7 @@ class CGen {
                 return "Bool"
             }
             if mth == "add" {
-                return "Unit"
+                return "Bool"
             }
         }
         if self.isResult(bt) {
@@ -5245,6 +5252,9 @@ class CGen {
         if self.isMap(bt) {
             if mth == "length" {
                 return "Int"
+            }
+            if mth == "has" {
+                return "Bool"
             }
             if mth == "put" {
                 return "Unit"
@@ -5434,6 +5444,9 @@ class CGen {
         if self.isMap(bt) {
             if mth == "length" {
                 return "((int64_t)" + bv + "->len)"
+            }
+            if mth == "has" && n.kids.length() > off {
+                return "xn_map_s_i_has(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
             }
             if mth == "put" && n.kids.length() > off + 1 {
                 return "xn_map_s_i_put(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
@@ -5656,7 +5669,7 @@ class CGen {
                         return "Bool"
                     }
                     if mth == "add" {
-                        return "Unit"
+                        return "Bool"
                     }
                 }
                 if self.isResult(bt) {
@@ -5687,6 +5700,9 @@ class CGen {
                 if self.isMap(bt) {
                     if mth == "length" {
                         return "Int"
+                    }
+                    if mth == "has" {
+                        return "Bool"
                     }
                     if mth == "put" {
                         return "Unit"
@@ -6215,6 +6231,12 @@ class CGen {
                     if mth == "length" {
                         return "((int64_t)" + bv + "->len)"
                     }
+                    if mth == "has" {
+                        if n.kids.length() > 0 {
+                            return "xn_map_s_i_has(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                        }
+                        return "0"
+                    }
                     if mth == "put" {
                         if n.kids.length() >= 2 {
                             return "xn_map_s_i_put(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
@@ -6395,6 +6417,17 @@ class CGen {
             self.addVar(ty, name)
             return
         }
+        if self.isSet(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "ArrayLit" {
+            AstNode lit = st.kids.get(0)
+            self.emit(indent + "xn_set_i *" + name + " = xn_set_i_new();")
+            Int si = 0
+            while si < lit.kids.length() {
+                self.emit(indent + "xn_set_i_add(" + name + ", " + self.expr(lit.kids.get(si)) + ");")
+                si = si + 1
+            }
+            self.addVar(ty, name)
+            return
+        }
         if self.isSet(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "Call" && st.kids.get(0).text == "Set.of" {
             AstNode call = st.kids.get(0)
             self.emit(indent + "xn_set_i *" + name + " = xn_set_i_new();")
@@ -6495,6 +6528,15 @@ class CGen {
             if st.kids.length() >= 2 {
                 String lhs = self.expr(st.kids.get(0))
                 AstNode rv = st.kids.get(1)
+                AstNode lv = st.kids.get(0)
+                if lv.kind == "Index" && lv.kids.length() >= 2 {
+                    String at = self.typeOf(lv.kids.get(0))
+                    if self.isArray(at) {
+                        String ac = self.arrayCName(at)
+                        self.emit(indent + ac + "_set(" + self.expr(lv.kids.get(0)) + ", " + self.expr(lv.kids.get(1)) + ", " + self.expr(rv) + ");")
+                        return
+                    }
+                }
                 if rv.kind == "ArrayLit" {
                     String lt = self.typeOf(st.kids.get(0))
                     if self.isArray(lt) {
@@ -7067,6 +7109,7 @@ class CGen {
         self.emit("static const rt_type RT_TYPE_XN_MAP_S_I = { \"Map\", sizeof(xn_map_s_i), NULL, NULL };")
         self.emit("static xn_map_s_i *xn_map_s_i_new(size_t cap) { xn_map_s_i *m = (xn_map_s_i *)rt_gc_new(&RT_TYPE_XN_MAP_S_I); memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_s_i) - sizeof(rt_header)); m->cap = cap ? cap : 4; m->keys = (rt_string **)malloc(sizeof(rt_string *) * m->cap); m->vals = (int64_t *)malloc(sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } return m; }")
         self.emit("static long xn_map_s_i_find(const xn_map_s_i *m, rt_string *key) { for (size_t i = 0; i < m->len; i++) { if (m->keys[i]->len == key->len && memcmp(m->keys[i]->bytes, key->bytes, key->len) == 0) { return (long)i; } } return -1; }")
+        self.emit("static int xn_map_s_i_has(const xn_map_s_i *m, rt_string *key) { return xn_map_s_i_find(m, key) >= 0 ? 1 : 0; }")
         self.emit("static void xn_map_s_i_put(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; }")
         self.emit("static int64_t xn_map_s_i_getOr(const xn_map_s_i *m, rt_string *key, int64_t dflt) { long i = xn_map_s_i_find(m, key); return i >= 0 ? m->vals[i] : dflt; }")
         self.emit("")
@@ -7074,7 +7117,7 @@ class CGen {
         self.emit("static const rt_type RT_TYPE_XN_SET_I = { \"Set\", sizeof(xn_set_i), NULL, NULL };")
         self.emit("static xn_set_i *xn_set_i_new(void) { xn_set_i *s = (xn_set_i *)rt_gc_new(&RT_TYPE_XN_SET_I); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_i) - sizeof(rt_header)); s->cap = 4; s->data = (int64_t *)malloc(sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } return s; }")
         self.emit("static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }")
-        self.emit("static void xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; }")
+        self.emit("static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }")
         self.emit("")
         self.emit("const char *mini_read_file(const char *path, size_t len);")
         self.emit("const char *mini_list_x(const char *path, size_t len);")

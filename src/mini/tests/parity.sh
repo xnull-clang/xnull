@@ -13,6 +13,7 @@ cases='
 src/examples/hello.x
 src/examples/ast-seed.x
 src/examples/classes.x
+src/examples/containers.x
 src/examples/defer-cleanup.x
 src/examples/objlist.x
 src/examples/result-try.x
