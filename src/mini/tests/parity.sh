@@ -7,6 +7,7 @@ XNULL="$ROOT/src/cli/xnull"
 D=$(mktemp -d)
 cleanup() { rm -rf "$D"; }
 trap cleanup EXIT
+export XNULL_MINI_XDK_FULL=1
 
 cases='
 src/examples/hello.x
@@ -23,6 +24,7 @@ src/mini/tests/xdk_errors.x
 src/mini/tests/xdk_sys.x
 src/mini/tests/xdk_meta.x
 src/mini/tests/xdk_runtime.x
+src/mini/tests/m7_sys.x
 src/mini/tests/codegen_hello.x
 src/mini/tests/project/src/main/x/main.x
 '

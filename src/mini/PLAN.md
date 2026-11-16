@@ -340,7 +340,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
 | 4 | M7-F1 | 部分：通用 String/标量包装已通 | errorCode/Result/companion 与自定义 `.xfb` 负例 |
 | 5 | M7-F2/F4 | 未完成 | `text/full` 余量、其他 T0 包按 import 场景接入 |
-| 6 | M9-PAR | 仅 16 个选定场景 | 全量 stdout/stderr/退出码差分 |
+| 6 | M9-PAR | 17 个选定场景（含完整 Sys） | 全量 stdout/stderr/退出码差分 |
 | Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
 
 M8-P4/P5 已完成；M9-MIN/Mini 1.0 已完成，但 M9-FULL 仍未完成。
@@ -431,7 +431,7 @@ D1–D7 完成后，Mini 1.0 剩余为 **0 dev-day**。当前自举和文本/基
 | D3 | M9-C2 | 完成：String trim/replace/toUpper/toLower/UTF 边界；文本场景回归 |
 | D4 | M9-C3 | 完成：泛型推断、嵌套实例化、函数类型参数负例 |
 | D5 | XDK 集成 | 完成：`text/full`、`io/base`、resources/errors 组合场景；`src/xdk`/`xdk` 同步 |
-| D6 | 选定 M9-PAR | 完成：16 个代表性场景的 stdout/stderr/退出码差分 |
+| D6 | 选定 M9-PAR | 完成：17 个代表性场景（含完整 Sys）的 stdout/stderr/退出码差分 |
 | D7 | 收口 | 完成：22 回归 + selfhost + M8 冷缓存全绿；文档与提交完成 |
 
 Mini 1.0 已完成：D1–D7 全部通过，默认引擎仍是 `legacy`，`main` 未切换。
