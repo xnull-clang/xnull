@@ -173,7 +173,7 @@ def main():
         return 1
     files.append({"path": entry, "ast": entry_ast})
     with open(os.path.join(outdir, "bundle.json"), "w", encoding="utf-8") as f:
-        json.dump({"version": "xnast-bundle v1", "files": files}, f)
+        json.dump({"version": "xnast-bundle v1", "files": files}, f, ensure_ascii=False)
 
     # 过滤投影：只保留源码层/桥接所需 .xfb
     pdir = os.path.join(outdir, "xfb")

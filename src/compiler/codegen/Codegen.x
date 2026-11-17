@@ -407,11 +407,6 @@ static List<String> TASK_TYPES = []
 static List<String> TASK_TEXTS = []
 static Bool LOCK_BODY = false
 static List<N> LAM_NODES = []
-static List<String> LAM_CAP_NAMES = []
-static List<String> LAM_CAP_TYPES = []
-static List<String> LAM_CAP_SCANNED = []
-static Int LAM_CUR = 0
-static String LAM_SELF = ""
 static String sp(Int n) {
     String b = ""
     Int i = 0
@@ -1419,6 +1414,12 @@ static SC parentOf(SC s) {
                                                                           
  
 
+static List<String> LAM_CAP_NAMES = []
+static List<String> LAM_CAP_TYPES = []
+static List<String> LAM_CAP_SCANNED = []
+static Int LAM_CUR = 0
+static String LAM_SELF = ""
+
 static String exprType(N x, SC sc) {
     if x.nm == "IntLitExpr" { return "Int" }
     if x.nm == "BoolLit" { return "Bool" }
@@ -1438,11 +1439,11 @@ static String exprType(N x, SC sc) {
     if x.nm == "IdentExpr" {
         String idn0 = unq(txt(fld(x, "Name")))
         if LAM_CUR > 0 {
-            List<String> cn0 = splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1))
+            List<String> cn0 = lamCaps(LAM_CUR)
             Int cni0 = 0
             while cni0 < cn0.length() {
                 if cn0.get(cni0) == idn0 {
-                    List<String> ct0 = splitPipes(LAM_CAP_TYPES.get(LAM_CUR - 1))
+                    List<String> ct0 = lamCapTypes(LAM_CUR)
                     if cni0 < ct0.length() { return ct0.get(cni0) }
                 }
                 cni0 = cni0 + 1
@@ -1616,7 +1617,7 @@ static String exprType(N x, SC sc) {
             if mn == "startsWith" || mn == "endsWith" { return "Bool" }
             if mn == "split" { return "List<String>" }
             if mn == "indexOf" || mn == "indexOfByte" { return "Int" }
-            if mn == "charAt" { return "Char" }
+            if mn == "charAt" { return "String" }
             if mn == "get" { if isMap(mt) { return mapVal(mt) }; if isU16List(mt) { return "UInt16" }; if isObjArr(mt) { return objArrElem(mt) }; if isTupList(mt) { return tupleListElem(mt) }; if isArr(mt) { return arrElem(mt) }; return "Int" }
             if mn == "getOr" { return mapVal(mt) }
             if mn == "has" { return "Bool" }
@@ -1804,6 +1805,18 @@ static Int lambdaId(N x) {
     LAM_CAP_SCANNED.push("0")
     return LAM_KEYS.length()
 }
+static List<String> lamCaps(Int id) {
+    if id <= 0 || id > LAM_CAP_NAMES.length() { return [] }
+    return splitPipes(LAM_CAP_NAMES.get(id - 1))
+}
+static List<String> lamCapTypes(Int id) {
+    if id <= 0 || id > LAM_CAP_TYPES.length() { return [] }
+    return splitPipes(LAM_CAP_TYPES.get(id - 1))
+}
+static Bool lamHasCap(Int id, String n) {
+    if id <= 0 || id > LAM_CAP_NAMES.length() { return false }
+    return inNames(splitPipes(LAM_CAP_NAMES.get(id - 1)), n)
+}
 static String lambdaParamDecl(N x) {
     N ps = fld(x, "Params")
     String b = ""
@@ -1843,16 +1856,18 @@ static Bool lambdaParamNamed(N x, String nm) {
     }
     return false
 }
-static Void collectLambdaRefs(N n, List<String> out) {
+static void collectLambdaRefs(N n, List<String> refs) {
     if n.nm == "IdentExpr" {
         String nm = unq(txt(fld(n, "Name")))
-        if nm != "" && nm != "self" && !inNames(out, nm) { out.push(nm) }
+        if nm != "" && nm != "self" && !inNames(refs, nm) { refs.push(nm) }
     }
     Int i = 0
-    while i < n.el.length() { collectLambdaRefs(n.el.get(i), out); i = i + 1 }
+    while i < n.fv.length() { collectLambdaRefs(n.fv.get(i), refs); i = i + 1 }
+    i = 0
+    while i < n.el.length() { collectLambdaRefs(n.el.get(i), refs); i = i + 1 }
 }
 static String capName(Int id, String n) { return "xn_cap_" + str(id) + "_" + n }
-static Void captureLambda(N x, Int id, SC sc, EM e) {
+static void captureLambda(N x, Int id, SC sc, EM e) {
     if id <= 0 || id > LAM_CAP_SCANNED.length() || LAM_CAP_SCANNED.get(id - 1) == "1" { return }
     LAM_CAP_SCANNED.set(id - 1, "1")
     List<String> refs = []
@@ -1866,7 +1881,9 @@ static Void captureLambda(N x, Int id, SC sc, EM e) {
             names.push(nm)
             types.push(sc.typeOf(nm))
             if nm != LAM_SELF {
-                e.add(capName(id, nm) + " = " + sc.nameOf(nm) + ";")
+                String src0 = sc.nameOf(nm)
+                if LAM_CUR > 0 && lamHasCap(LAM_CUR, nm) { src0 = capName(LAM_CUR, nm) }
+                e.add(capName(id, nm) + " = " + src0 + ";")
             }
         }
         i = i + 1
@@ -1878,7 +1895,9 @@ static Void captureLambda(N x, Int id, SC sc, EM e) {
             names.push(nm)
             types.push(sc.typeOf(nm))
             if nm != LAM_SELF {
-                e.add(capName(id, nm) + " = " + nm + ";")
+                String src1 = nm
+                if LAM_CUR > 0 && lamHasCap(LAM_CUR, nm) { src1 = capName(LAM_CUR, nm) }
+                e.add(capName(id, nm) + " = " + src1 + ";")
             }
         }
         i = i + 1
@@ -1901,6 +1920,12 @@ static Void captureLambda(N x, Int id, SC sc, EM e) {
 static N lambdaReturnNode(N n) {
     if n.nm == "" || n.nm == "nil" { return n }
     Int i = 0
+    while i < n.fv.length() {
+        N r = lambdaReturnNode(n.fv.get(i))
+        if r.nm == "ReturnStmt" { return r }
+        i = i + 1
+    }
+    i = 0
     while i < n.el.length() {
         N r = lambdaReturnNode(n.el.get(i))
         if r.nm == "ReturnStmt" { return r }
@@ -1931,8 +1956,8 @@ static String lambdaDefText(N x, Int id) {
     ls.retKind = lambdaRetKey(x)
     Int oldCur = LAM_CUR
     LAM_CUR = id
-    List<String> caps = splitPipes(LAM_CAP_NAMES.get(id - 1))
-    List<String> capTs = splitPipes(LAM_CAP_TYPES.get(id - 1))
+    List<String> caps = lamCaps(id)
+    List<String> capTs = lamCapTypes(id)
     Int ci = 0
     while ci < caps.length() {
         String ct = "Int"
@@ -2103,8 +2128,8 @@ static String lambdaProtos() {
     Int i = 0
     while i < LAM_NODES.length() {
         N x = LAM_NODES.get(i)
-        List<String> cn = splitPipes(LAM_CAP_NAMES.get(i))
-        List<String> ct = splitPipes(LAM_CAP_TYPES.get(i))
+        List<String> cn = lamCaps(i + 1)
+        List<String> ct = lamCapTypes(i + 1)
         Int ci = 0
         while ci < cn.length() {
             String cty = "int64_t"
@@ -2203,7 +2228,7 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "IdentExpr" {
         String idn = unq(txt(fld(x, "Name")))
         if idn == "self" { if sc.selfName != "" { return sc.selfName }; return "self" }
-        if LAM_CUR > 0 && inNames(splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1)), idn) { return capName(LAM_CUR, idn) }
+        if lamHasCap(LAM_CUR, idn) { return capName(LAM_CUR, idn) }
         if inNames(sc.params, idn) { return "xn_p_" + idn }
         if inNames(sc.names, idn) { return idn }
         if sc.curClass != "" && (isClass(sc.curClass) || isStruct(sc.curClass)) {
@@ -2812,7 +2837,7 @@ static String expr(N x, EM e, SC sc) {
         if cl.nm == "IdentExpr" {
             String cn = unq(txt(fld(cl, "Name")))
             Bool localFn = (inNames(sc.params, cn) || inNames(sc.names, cn)) && cType(sc.typeOf(cn)).indexOf("xn_fn_") == 0
-            Bool capFn = LAM_CUR > 0 && inNames(splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1)), cn)
+            Bool capFn = lamHasCap(LAM_CUR, cn)
             if localFn || capFn { cal = expr(cl, e, sc) }
             if isFFI(cn) { return ffiCallExpr(cn, x, e, sc) }
             N sta = fld(x, "TypeArgs")
@@ -3095,6 +3120,14 @@ static void emitPrint(N arg, EM e, SC sc) {
         e.add("rt_release(" + t + ");")
         return
     }
+    if ty == "Char" {
+        String t = e.nt()
+        e.add("rt_string *" + t + " = xn_str_char((int32_t)(" + expr(arg, e, sc) + "));")
+        rootStr(e, sc, t)
+        e.add("xn_print_str(" + t + ");")
+        e.add("rt_release(" + t + ");")
+        return
+    }
     if ty == "Bool" {
         String bv = expr(arg, e, sc)
         Bool bare = arg.nm == "BoolLit" || (arg.nm == "Binary" && (unq(txt(fld(arg, "Op"))) == "&&" || unq(txt(fld(arg, "Op"))) == "||"))
@@ -3315,7 +3348,7 @@ static void emitStmt(N st, EM e, SC sc, Bool early) {
 }
 
 static void emitStmtInner(N st, EM e, SC sc, Bool early) {
-    Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "BreakStmt" || st.nm == "ContinueStmt" || st.nm == "ThrowStmt"
+    Bool lineStmt = st.nm == "DeferStmt" || st.nm == "ReturnStmt" || st.nm == "LocalDeclStmt" || st.nm == "AssignStmt" || st.nm == "ExprStmt" || st.nm == "IfStmt" || st.nm == "WhileStmt" || st.nm == "DoWhileStmt" || st.nm == "ForStmt" || st.nm == "SwitchStmt" || st.nm == "BreakStmt" || st.nm == "ContinueStmt" || st.nm == "ThrowStmt"
     Bool isSuperStmt = false
     if st.nm == "ExprStmt" {
         N sx0 = fld(st, "X")
@@ -3792,7 +3825,7 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         e.add(cType(ty) + " " + nm + " = " + genv + ";")
         if init.nm == "Lambda" {
             Int lid = lambdaId(init)
-            if lid > 0 && lid <= LAM_CAP_NAMES.length() && inNames(splitPipes(LAM_CAP_NAMES.get(lid - 1)), nm) {
+            if lamHasCap(lid, nm) {
                 e.add(capName(lid, nm) + " = " + nm + ";")
             }
         }
@@ -4390,6 +4423,17 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         return
     }
+    if st.nm == "DoWhileStmt" {
+        Int dstart = e.ind
+        e.addAt(dstart, "do {")
+        e.ind = dstart + 4
+        SC dsc = newChild(sc, e)
+        emitBlock(fld(st, "Body"), e, dsc, e.ind, true)
+        e.ind = dstart
+        String dc = expr(fld(st, "Cond"), e, dsc)
+        e.addAt(dstart + 4, "} while (" + dc + ");")
+        return
+    }
     if st.nm == "WhileStmt" {
         N cond = fld(st, "Cond")
         Int wstart = e.ls.length()
@@ -4476,13 +4520,28 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         e.addAt(e.ind, "}")
         return
     }
+    if st.nm == "GotoStmt" {
+        e.add("goto " + unq(txt(fld(st, "Label"))) + ";")
+        return
+    }
+    if st.nm == "LabeledStmt" {
+        String lb = unq(txt(fld(st, "Label")))
+        e.add(lb + ": ;")
+        N inner = fld(st, "Stmt")
+        if inner.nm != "" && inner.nm != "nil" && inner.nm != "EmptyStmt" { emitStmt(inner, e, sc, false) }
+        return
+    }
     if st.nm == "SwitchStmt" {
-        String val = expr(fld(st, "Value"), e, sc)
+        N sv = fld(st, "Value")
+        String svt = exprType(sv, sc)
+        String val = expr(sv, e, sc)
         N cases = fld(st, "Cases")
         List<String> caseVals = []
         Int ci = 0
         while ci < cases.el.length() {
-            caseVals.push(expr(fld(cases.el.get(ci), "Expr"), e, sc))
+            N ce = fld(cases.el.get(ci), "Expr")
+            if svt == "String" { caseVals.push(emitStr(ce, e, sc)) }
+            else { caseVals.push(expr(ce, e, sc)) }
             ci = ci + 1
         }
         e.addAt(e.ind + 4, "do {")
@@ -4491,7 +4550,9 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
             N c = cases.el.get(i)
             String head = "else if "
             if i == 0 { head = "if " }
-            e.addAt(e.ind + 8, head + "(" + val + " == (" + caseVals.get(i) + ")) {")
+            String cond = val + " == (" + caseVals.get(i) + ")"
+            if svt == "String" { cond = "xn_str_eq(" + val + ", " + caseVals.get(i) + ")" }
+            e.addAt(e.ind + 8, head + "(" + cond + ") {")
             SC caseSc = newChild(sc, e)
             caseSc.kind = "switch"
             emitScopedStmts(caseSc, fld(c, "Stmts"), e, e.ind + 12, true)
@@ -7428,6 +7489,8 @@ static String emitUnit(N unit, String path) {
     e.add("    rt_quarantine_flush();")
     e.add("    return (int)xn_r;")
     scanTupleTypes(unit)
+    String ld = ""
+    String lp = ""
     String res = ""
     if CLS_NAMES.length() > 0 {
         EM ce = new EM()
@@ -7601,7 +7664,22 @@ static String emitUnit(N unit, String path) {
         if rtd != "" { fwj = fwj.substring(0, fwj.length() - 1) }
         String classBody = joinLines(ce.ls)
         String classBodyTrim = classBody.substring(0, classBody.length() - 1)
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + classBodyTrim + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(xe.ls) + joinLines(fe.ls) + PRELUDE_TAIL_B
+        EM de = new EM()
+        de.tmp = e.tmp
+        de.path = e.path
+        EM dme = new EM()
+        dme.tmp = e.tmp
+        dme.path = e.path
+        Int di = 0
+        while di < DATA_ENUM_DECLS.length() { emitDataEnum(DATA_ENUM_DECLS.get(di), de); di = di + 1 }
+        di = 0
+        while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
+        e.tmp = dme.tmp
+        ld = lambdaDefs()
+        lp = lambdaProtos()
+        String dtail = PRELUDE_TAIL_B
+        if DATA_ENUM_NAMES.length() > 0 { dtail = PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE }
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + joinLines(de.ls) + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + fwj + lp + rtd + (cbHelp != "" ? cbHelp + "\n" : "") + tfp + mainProto + "\n" + classBodyTrim + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + joinLines(xe.ls) + joinLines(fe.ls) + dtail
     } else if DATA_ENUM_NAMES.length() > 0 {
         EM de = new EM()
         de.tmp = e.tmp
@@ -7614,7 +7692,9 @@ static String emitUnit(N unit, String path) {
         di = 0
         while di < DATA_ENUM_DECLS.length() { emitDataEnumMethods(DATA_ENUM_DECLS.get(di), dme); di = di + 1 }
         e.tmp = dme.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + joinLines(de.ls) + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + (dme.ls.length() == 0 ? "\n" : "") + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
+        ld = lambdaDefs()
+        lp = lambdaProtos()
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + joinLines(de.ls) + lp + PRELUDE_FATAL_MID + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(dme.ls) + (dme.ls.length() == 0 ? "\n" : "") + PRELUDE_EN_OPEN + dataEnumInit(e) + PRELUDE_EN_CLOSE
     } else if SINGLE_NAMES.length() > 0 {
         List<String> fw = []
         Int si = 0
@@ -7663,7 +7743,9 @@ static String emitUnit(N unit, String path) {
             sinit = sinit + "    xn_Single_" + unq(txt(fld(SINGLE_DECLS.get(si), "Name"))) + "_init();\n"
             si = si + 1
         }
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
+        ld = lambdaDefs()
+        lp = lambdaProtos()
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + PRELUDE_FATAL_MID.substring(0, PRELUDE_FATAL_MID.length() - 1) + joinLines(fw) + lp + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(ce.ls) + "static void xn_init_singletons(void) {\n" + sinit + "}\n\n" + PRELUDE_TAIL_B
     } else if ENUM_NAMES.length() > 0 {
         res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + PRELUDE_FATAL_MID + mainProto + PRELUDE_TAIL
     } else if STRUCT_NAMES.length() > 0 {
@@ -7851,7 +7933,9 @@ static String emitUnit(N unit, String path) {
             ci = ci + 1
         }
         e.tmp = me.tmp
-        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + joinLines(ee.ls) + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? structTailBlanks() : "") + PRELUDE_TAIL_B
+        ld = lambdaDefs()
+        lp = lambdaProtos()
+        res = PRELUDE_PRE_A + protoTypedefs() + PRELUDE_VTABLE_TYPEDEF + fnTypedefs() + enumTypedefs() + PRELUDE_ENUM_TYPEDEF + enumNameDefs() + PRELUDE_ENUM_NAME + joinLines(ee.ls) + lp + PRELUDE_FATAL_MID + topFuncProtos(decls) + mainProto + PRELUDE_VT_OPEN + vtableInit(unit) + PRELUDE_VT_CLOSE + joinLines(me.ls) + (me.ls.length() == 0 ? structTailBlanks() : "") + PRELUDE_TAIL_B
     } else if e.usesAny {
         res = PRELUDE_ANY
     } else if e.usesTArr {
@@ -7904,15 +7988,14 @@ static String emitUnit(N unit, String path) {
         if gmp >= 0 { res = res.substring(0, gmp) + globDeclsText() + res.substring(gmp, res.length() - gmp) }
     }
     e.add("}")
-    String lp = lambdaProtos()
-    if lp != "" {
+    if lp != "" && CLS_NAMES.length() == 0 && DATA_ENUM_NAMES.length() == 0 && SINGLE_NAMES.length() == 0 {
         Int lpPos = res.indexOf("static ")
         if lpPos < 0 { res = res + lp } else { res = res.substring(0, lpPos) + lp + res.substring(lpPos, res.length() - lpPos) }
     }
     Int j = 0
     List<String> tail = []
     while j < e.ls.length() {
-        if e.ls.get(j).indexOf("int main(") == 0 { tail.push(lambdaDefs() + globInitText()) }
+        if e.ls.get(j).indexOf("int main(") == 0 { tail.push(ld + globInitText()) }
         tail.push(e.ls.get(j) + "\n")
         j = j + 1
     }

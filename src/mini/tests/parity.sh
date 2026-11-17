@@ -33,6 +33,7 @@ src/mini/tests/xdk_meta.x
 src/mini/tests/xdk_runtime.x
 src/mini/tests/m7_sys.x
 src/mini/tests/codegen_hello.x
+src/mini/tests/features.x
 src/mini/tests/project/src/main/x/main.x
 '
 

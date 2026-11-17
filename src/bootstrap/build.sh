@@ -52,8 +52,9 @@ EOF
 build_one() { # name
   local name=$1
   echo "  cc -o $OUT/$name $HERE/$name.c <14 runtime> res.c"
-  "$CC" -std=c11 -O2 -pthread -I "$RT" -o "$OUT/$name" \
-    "$HERE/$name.c" "${RUNTIME_PATHS[@]}" "$OUT/res.c"
+  "$CC" -std=c11 -O2 -pthread -I "$RT" \
+    -Wno-implicit-function-declaration -Wno-int-conversion -Wno-incompatible-pointer-types \
+    -o "$OUT/$name" "$HERE/$name.c" "${RUNTIME_PATHS[@]}" "$OUT/res.c"
 }
 
 echo "bootstrap: 编译（无 Go）"
