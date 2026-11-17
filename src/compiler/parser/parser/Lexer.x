@@ -318,7 +318,7 @@ class Lexer {
     Bool isKeyword(String w) {
         List<String> ks = ["package", "import", "as", "public", "protected", "private", "final", "static",
             "const", "var", "abstract", "class", "struct", "protocol", "enum", "singleton",
-            "factory", "extension", "implements", "new", "self", "super", "out", "in",
+            "factory", "extension", "implements", "new", "self", "super", "in",
             "if", "else", "while", "do", "for", "switch", "case", "default", "break", "continue",
             "throw", "try", "return", "goto", "defer", "errdefer", "is"]
         return inList(ks, w)

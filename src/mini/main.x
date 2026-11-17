@@ -2,6 +2,7 @@
 package mini
 
 List<String> loadedFiles = []
+String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
 List<String> ffiNames = []
@@ -7786,6 +7787,13 @@ static Int lastDot(String s) {
     return found
 }
 
+static String localImportFile(String pkg) {
+    String rel = pkg.replace(".", "/") + ".x"
+    String path = loadBaseDir + "/" + rel
+    if readFile(path).length() > 0 { return path }
+    return ""
+}
+
 static String xdkFile(String pkg) {
     if pkg == "xdk.errors" || pkg.startsWith("xdk.errors.") {
         return "core/errors/Errors.x"
@@ -7872,6 +7880,9 @@ static Void loadUnit(String path, AstNode program) {
             String drel = xdkFile(idep.text)
             if drel != "" {
                 loadUnit(loadRoot + "/" + drel, program)
+            } else {
+                String dlocal = localImportFile(idep.text)
+                if dlocal != "" { loadUnit(dlocal, program) }
             }
         }
         ii = ii + 1
@@ -7924,6 +7935,7 @@ static AstNode loadProgram(String entry, String root) {
     }
     loadedFiles.push(entry)
     loadRoot = root
+    loadBaseDir = dirName(entry)
     if entry.indexOf("/xdk/") >= 0 {
         loadSiblings(entry, program)
     }
@@ -7932,11 +7944,16 @@ static AstNode loadProgram(String entry, String root) {
         AstNode imp = program.kids.get(i)
         if imp.kind == "Import" {
             String rel = xdkFile(imp.text)
-            if rel == "" {
-                print("mini: unsupported import: " + imp.text)
-                return program
+            String path = ""
+            if rel != "" {
+                path = root + "/" + rel
+            } else {
+                path = localImportFile(imp.text)
+                if path == "" {
+                    print("mini: unsupported import: " + imp.text)
+                    return program
+                }
             }
-            String path = root + "/" + rel
             if loaded(path) {
                 i = i + 1
                 continue

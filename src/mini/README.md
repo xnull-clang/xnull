@@ -13,7 +13,7 @@
 - 泛型函数/泛型类、插值字符串、nullable、throw、Double、位运算和静态类方法已进入最小面。
 - `build.sh` 优先用已有 `bin/mini` 自编译；没有种子二进制时回退 legacy bootstrap。
 - 资源表、项目 `.xfb` 无参标量、`check --json`、简单工程模式已接通。
-- M9-PAR 全场景差分、默认切换、完整语言面仍未完成；M7 全量 XDK 仍需 package/FFI/Bytes/Result 面。
+- M9-PAR 正向场景差分已完成（47 个文件/工程场景，stdout/stderr/退出码全绿）；默认切换（M9-CUT）仍需明确批准，完整 T0 XDK 仍需 package/Resource/Context 面。
 
 ## 回归
 
@@ -21,9 +21,9 @@
 for t in src/mini/tests/*.sh; do "$t"; done
 ```
 
-当前 21 个回归覆盖 lex、parser、sema、codegen、class、flow、array、containers、
+当前 25 个回归覆盖 lex、parser、sema、codegen、class、flow、array、containers、
 result、defer、m6_4、xdk、check、project、ffi、resources、object_list、selfhost、
-generics、c4、m8。
+generics、c4、m7_sys、m8、parity、m9_parity 和 xfb_error。
 
 ## 构建
 

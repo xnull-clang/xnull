@@ -25,7 +25,12 @@ from package_resolver import (PackageResolver, Resolution, ResolveError,
 UNITS = {
     "errors": "src/xdk/core/errors/Errors.x",
     "text": "src/xdk/text/full/Text.x",
-    "sys": "src/xdk/io/system/Sys.x",
+    # Unset means legacy's historical full-Sys default; an explicit 0 selects
+    # the lightweight io/base compatibility surface (used by the CLI and by
+    # M9 parity's base mode).
+    "sys": ("src/xdk/io/base/Sys.x"
+            if os.environ.get("XNULL_MINI_XDK_FULL") == "0"
+            else "src/xdk/io/system/Sys.x"),
     "runtime": "src/xdk/core/runtime/Runtime.x",
     "tasks": "src/xdk/concurrent/tasks/Tasks.x",
     "sync": "src/xdk/concurrent/sync/Sync.x",
@@ -165,7 +170,9 @@ def main():
         validate_entry_imports(resolver, entry_ast)
         slots, seen = closure(root, resolver, entry_ast, xparser)
         files.extend(slots)
-        if "sys" in seen or "resource" in seen:
+        # Resource 子单元只在完整 Sys 模式或显式 resource 依赖时加入；
+        # io/base 提供同名基础资源函数，二者同时装载会产生符号冲突。
+        if "resource" in seen or ("sys" in seen and os.environ.get("XNULL_MINI_XDK_FULL") != "0"):
             sys_res = os.path.join(root, "src/xdk/io/resource/Resource.x")
             files.append({"path": sys_res, "ast": ast_of(xparser, root, sys_res)})
     except ResolveError as exc:

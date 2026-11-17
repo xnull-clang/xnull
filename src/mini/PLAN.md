@@ -189,7 +189,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - M8.2：简单工程模式、资源表和 `check --json` 完成，按 `entryFile` 构建/运行；
   `src/mini/tests/project.sh`、`resources.sh` 与 `check.sh` 覆盖。
 - M9 前置：`List<T>`、String 子集和顶层字段已支持；mini1/mini2 固定点通过。
-- 下一里程碑：M7/M8 剩余项、M9-PAR 全场景差分，最后才讨论默认切换。
+- M9-PAR 正向场景差分已完成；下一里程碑是 M9-CUT，等待用户明确批准。
 
 ## 6. 能力覆盖表
 
@@ -290,8 +290,8 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M9-C4 | 继承、数据 enum、lambda、switch、do/for-range、标签控制、throw | S：对应语言场景出现；D：M5/M6 | M5/M6 | 每特性场景 + 负例 | 当前切片完成（基础 switch/枚举穷尽性/do-while/range/label/goto/静态继承/基础 data enum/protocol 动态派发/lambda 闭包捕获/throw/插值/nullable/Double/位运算/三元/静态方法；c4.sh）。闭包支持按值捕获、嵌套、自递归、方法 self/字段捕获、直接按实参和返回位置 lambda、函数值字段调用；闭包环境回收留后续 |
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
 | M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
-| M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 未做 |
-| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 未做 |
+| M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 完成（m9_parity.sh：47 个正向文件/工程场景，base/full Sys，diff=0；编译负例由 M8-P5 覆盖） |
+| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 待用户批准；默认仍为 legacy |
 | LANG-1 | Float/Double 字面量、nullable、大整数 | S：场景使用；D：M2/M3 | M2/M3 | 对应场景 | 未做 |
 | LANG-2 | 空容器/类型推断/对象容器 | S：场景使用；D：M6.2 | M6.2 | 对应场景 | 未做 |
 | CACHE-1 | AST + C 结果缓存 | P：冷构建 >10 分钟或重复构建 | — | warm build <30 秒 | 完成（约 5 秒） |
@@ -304,9 +304,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 项 | 冻结内容 | 验收命令 |
 | --- | --- | --- |
 | 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
-| 回归 | 24 个 mini 回归（含 m7_sys、xfb_error、parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 回归 | 25 个 mini 回归（含 m7_sys、xfb_error、parity、m9_parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
 | 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
-| 默认引擎 | 仍为 `legacy`；M9-PAR/M9-CUT 通过前不切换 | `src/cli/xnull --help` |
+| 默认引擎 | 仍为 `legacy`；M9-CUT 获批前不切换 | `src/cli/xnull --help` |
 | 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
 
 冻结期的例外只有回归修复。任何语言面扩展必须保持上述命令全绿。
@@ -316,14 +316,15 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 1. M8 工具链接口（M8-P1/P3/P4/P5）
 2. M9-C3 泛型、M9-C4 高级语言面
 3. M7 全量 XDK
-4. M9-PAR 全场景差分、M9-CUT 默认切换
+4. M9-PAR 全场景差分（已完成）
+5. M9-CUT 默认切换（待批准）
 
 ### 9.4 当前激活
 
 - P0 自举可复现性已完成：`cmd_bootstrap_model`/tools/reactor 不再依赖 Go oracle；`m8.sh` 用测试私有目录强制冷启动。
 - M8-P1/P2/P3/P4 已完成 workspace 场景；M8-P5 的 CLI/SEM/JSON/退出码矩阵已完成（D2）。
 - M9-C1 完成，M9-C2/C3 的 D3/D4 切片完成；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
-- M9-PAR 全场景差分、M9-CUT 默认切换仍未完成。
+- M9-PAR 正向场景差分已完成（47 个场景，diff=0）；M9-CUT 默认切换待用户明确批准。
 - M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C；`text/mini` 与 `io/mini` shim 均已删除，mini 当前走 `text/full` 与 `io/base`；完整 `io/system` raw FFI 仍未接入。
 
 ### 9.5 下一阶段执行清单（dev 分支）
@@ -334,14 +335,14 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 
 | 顺序 | 工作项 | 当前状态 | 下一验收 |
 | --- | --- | --- | --- |
-| 0 | 回归冻结 | 22 回归 + selfhost + m8 冷缓存 | 每次改动后全绿 |
+| 0 | 回归冻结 | 25 回归 + selfhost + m8 冷缓存 + M9-PAR | 每次改动后全绿 |
 | 1 | M9-C4 收口 | 已完成当前切片：data enum、protocol 动态派发、lambda/闭包捕获（含直接按实参、返回位置、函数值字段）、控制流、静态继承；c4 正/负例通过 | 闭包环境回收/GC 生命周期（后续切片） |
 | 2 | M9-C2/C3 完整余量 | 当前切片完成：String 边界、泛型实参/嵌套/未知类型负例，c4/generics 通过 | 更大 String/泛型矩阵随 M9-PAR 扩展 |
 | 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
 | 4 | M7-F1 | 部分：通用 String/标量包装、errorCode 出参已通 | Result/companion 语义与更多自定义 `.xfb` 负例 |
 | 5 | M7-F2/F4 | 当前切片完成：text/full、math、time | 其他 T0 包按 import 场景接入 |
-| 6 | M9-PAR | 24 个选定场景（完整 Sys、容器、lexer/parser seed、基础测试面） | 全量 stdout/stderr/退出码差分 |
-| Gate | M9-CUT | 未开始 | 仅 M9-PAR 全绿且用户批准后切换默认引擎 |
+| 6 | M9-PAR | 完成：47 个正向文件/工程场景，base/full Sys 两种模式，stdout/stderr/退出码全绿 | M9-CUT（需用户批准） |
+| Gate | M9-CUT | 未执行（M9-PAR 已全绿） | 用户明确批准后切换默认引擎 |
 
 M8-P4/P5 已完成；M9-MIN/Mini 1.0 已完成，但 M9-FULL 仍未完成。
 M9-C4 必须先完成，不能把 M7、PAR、CUT 与它合并成一个包。
@@ -351,10 +352,10 @@ M9-C4 必须先完成，不能把 M7、PAR、CUT 与它合并成一个包。
 1. `M9-C4`：data enum → protocol 动态派发 → lambda。
 2. `M9-C2/C3`：完整 String/泛型余量与边界负例。
 3. `M7-F3 → M7-F1 → M7-F2/F4`：Sys raw FFI、通用 FFI、T0 包。
-4. `M9-PAR`：全量新旧引擎差分。
-5. `M9-CUT`：全量 PAR 全绿后再切默认引擎。
+4. `M9-PAR`：完成，47 个正向场景全绿。
+5. `M9-CUT`：M9-PAR 已全绿，等待用户明确批准后切默认引擎。
 
-M9-C4 未全绿前，不进入 M7；M7/PAR 未全绿前，不进入 CUT。
+M9-C4/M7/PAR 已完成；未获批准前不进入 CUT。
 
 每条工作项必须绑定一个可运行场景或负例；没有场景的能力登记为“等待”，不得以空实现宣称完成。
 
@@ -366,10 +367,10 @@ M9-C4 未全绿前，不进入 M7；M7/PAR 未全绿前，不进入 CUT。
 | --- | --- | --- |
 | M9-SELFHOST | mini 编译 mini，mini1/mini2 固定点 | 已完成 |
 | M9-MIN | mini 自举 + M8 工程接口 + 核心 XDK（errors/runtime/meta/text/sys）+ 选定场景差分 | 已完成（Mini 1.0 D1–D7） |
-| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 未完成（下一阶段） |
+| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 进行中（M9-PAR 已绿，待 M9-CUT） |
 
 **M9-MIN 完成不等于 M1–M9 或 M9-FULL 完成。** Mini 1.0 只覆盖选定场景；
-完整 T0 XDK、完整 M9-C4、全量 M9-PAR 和 M9-CUT 仍属于后续工作。
+完整 T0 XDK、完整 M9-C4 剩余边界和 M9-CUT 仍属于后续工作；M9-PAR 正向矩阵已完成。
 
 ### 9.6.1 M9-MIN 估算（从当前基线）
 
@@ -422,7 +423,7 @@ D1–D7 完成后，Mini 1.0 剩余为 **0 dev-day**。当前自举和文本/基
 - 22 个现有回归 + 选定场景差分。
 
 明确不在本阶段：完整 `io/system/Sys.x` raw FFI、全部 T0 XDK、完整 M9-C4、
-全量 M9-PAR、默认切换。
+M9-CUT 默认切换。
 
 | Day | 工作 | 产出/验收 |
 | --- | --- | --- |
