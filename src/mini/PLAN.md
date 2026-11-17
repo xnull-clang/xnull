@@ -276,7 +276,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | ID | 工作项 | 触发条件 | 前置 | 验收证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | M7-F1 | 通用 `.xfb` 解析、租约、错误码映射 | S：新增一个使用非当前硬编码桥的 `.xfb` 场景；D：M7.2 完成 | M7.2 | 自定义 `.xfb` 正例 + 错误码负例 | 部分（项目 `.xfb` 的 String/Bytes 借出、标量/Bool/Double/String 返回、通用包装和 errorCode 出参已通，xfb_error.sh；Result/companion 未全） |
-| M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 当前切片完成（pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex 基础；xdk_text_full.x）；完整旧/新差分随 M9-PAR |
+| M7-F2 | `xdk.text` 完整面（parse/format/UTF/Regex） | S：场景调用 mini text 子集之外的 API；D：M7-F1 | M7-F1 | 文本场景 + 旧引擎差分 | 当前切片完成（pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex/UTF-16 基础；xdk_text_full.x）；完整旧/新差分随 M9-PAR |
 | M7-F3 | `xdk.sys` 完整面（文件/目录/进程/资源） | S：场景调用 `fileExists` 之外的 sys API；D：M7-F1 | M7-F1 | sys 场景 + 负例 | 部分（`--xdk-full` 下 File/Dir/Process raw FFI 可编译运行，m7_sys.sh；资源 Resource.x/Context 未接入，默认仍 base） |
 | M7-F4 | 其他 T0 包（log/config/io/fs/...） | S：应用导入该包；D：M7-F1 | M7-F1 | 每包最小场景 | 部分（xdk.math、xdk.time 已接入，xdk_math.x/xdk_time.x）；其余 T0 包按 import 场景推进 |
 | M8-P1 | 模块/依赖/拓扑工程 | S：`xnull.project` 含 `modules` 或跨模块 import；D：M8.2 | M8.2 | validate/tree/build-project 测试 | 完成（modules fixture；validate/build/run/install/repro） |

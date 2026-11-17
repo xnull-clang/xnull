@@ -16,5 +16,12 @@ static Int main() {
     Regex re = r.value()
     print(re.isMatch("xxaabyy"))
     print(re.replaceAll("aab x aaab", "!"))
+
+    Bytes b = Bytes.fromString("é")
+    Result<Utf16, Error> u = utf8ToUtf16(b)
+    print(u.isOk())
+    if u.isOk() {
+        print(u.value().length())
+    }
     return 0
 }
