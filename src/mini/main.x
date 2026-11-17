@@ -1388,6 +1388,11 @@ class Parser {
             self.advance()
             Token after = self.look(0)
             Token colon = self.look(1)
+            if after.text == ":" && colon.text == "]" {
+                self.advance()
+                self.advance()
+                return self.node("MapLit", "", t)
+            }
             if after.kind == "string" && colon.text == ":" {
                 AstNode m = self.node("MapLit", "", t)
                 while !self.hasError() {
@@ -7806,6 +7811,9 @@ static String xdkFile(String pkg) {
     }
     if pkg == "xdk.math" || pkg.startsWith("xdk.math.") {
         return "core/math/Math.x"
+    }
+    if pkg == "xdk.collections" || pkg.startsWith("xdk.collections.") {
+        return "core/collections/Collections.x"
     }
     if pkg == "xdk.time" || pkg.startsWith("xdk.time.") {
         return "core/time/Time.x"

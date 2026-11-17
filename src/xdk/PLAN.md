@@ -62,7 +62,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
 | `xdk.tasks` | empty skeleton | TaskGroup/Context scenario |
 | `xdk.sync` | empty skeleton | AtomicInt/Mutex/Channel scenario |
-| `xdk.collections` | source exists; parser blocks `{}` | empty Map + Map/Set/List scenario |
+| `xdk.collections` | source exists; `[:]` + import now works; generic function types still block full source | Map/Set/List scenario; generic function values |
 | `xdk.log` | missing package source | Logger/Level/sink scenario |
 | `xdk.config` | missing package source | Config snapshot/env allowlist scenario |
 | `xdk.cli` | missing package source | Args/Command/exit-code scenario |
@@ -156,9 +156,10 @@ wave.
 - `xdk.sync` probe: mini says `unsupported import: xdk.sync` and
   `unknown type: AtomicInt`; legacy generates an invalid `AtomicInt_new` call.
   This is a real W2 target, not a completed API.
-- `xdk.collections` probe: empty `Map<String, Int> m = {}` is rejected by mini
-  at `expected expression`; legacy does not provide a fast usable oracle for
-  that probe. W4 must fix the feature before claiming collection support.
+- `xdk.collections` probe: `import xdk.collections` and
+  `Map<String, Int> m = [:]` now run in both mini and legacy; explicit map
+  literals also match. The package's generic function-value algorithms are
+  still not claimed until W4.
 - Full Sys resource/context is not yet loaded with `xdk.sys`.
 - M7-F1 Result/companion and closure lifetime remain open boundaries.
 

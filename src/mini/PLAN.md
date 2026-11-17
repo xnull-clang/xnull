@@ -12,7 +12,7 @@ package scenario and runtime contract.
 | --- | --- | --- |
 | 1 | `xdk.sync` Atomic/Mutex/Channel | intrinsic types, constructors, methods, dispatch |
 | 2 | `xdk.tasks` Task/TaskGroup/Context | task types, cancellation and result mapping |
-| 3 | `xdk.collections` empty Map | parser/checker/CGen for `{}` and contextual element types |
+| 3 | `xdk.collections` empty Map | `[:]` + import now working; generic function values/Map<Int,List<T>> still queued |
 | 4 | collections algorithms | typed function parameters/generic function values |
 | 5 | resource/context | Result/companion and Context bridge |
 | 6 | log/config/cli | package adapters only; avoid new language features unless blocked |
@@ -30,7 +30,7 @@ package scenario and runtime contract.
 
 - `xdk.sync` probe fails in mini at unsupported import/type; legacy CGen emits
   an invalid `AtomicInt_new` call.
-- Empty `Map<String, Int> m = {}` fails in mini at parser/codegen level.
+- `import xdk.collections` + `[:]` now works in mini/legacy; longer Collections algorithms still need W4.
 - Full Sys Resource/Context and M7-F1 Result/companion remain open.
 
 ## Archive
