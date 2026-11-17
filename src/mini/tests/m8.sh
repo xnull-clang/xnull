@@ -17,8 +17,8 @@ export REACTOR_BIN="$XNULL_MODEL_DIR/reactor"
 sha() { shasum -a 256 "$1" | awk '{print $1}'; }
 
 # 0. 默认 CLI：不显式传 --bootstrap 也必须可用。
-env -u XNULL_BOOTSTRAP -u XNULLC_BIN -u XPARSER_BIN \
-  XNULL_OUT="$D/default-out" "$XNULL" --engine=legacy run "$HERE/project" \
+env -u XNULL_BOOTSTRAP -u XNULLC_BIN -u XPARSER_BIN -u XNULL_ENGINE \
+  XNULL_OUT="$D/default-out" "$XNULL" run "$HERE/project" \
   >"$D/default-run.txt" 2>"$D/default-run.err"
 grep -qx 'project ok' "$D/default-run.txt"
 

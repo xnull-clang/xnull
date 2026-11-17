@@ -17,7 +17,7 @@ IMPL="$ROOT/src/toolchain/xnull-build.sh"
 
 # 全局开关：--bootstrap / --engine=legacy|mini|auto
 BOOT=${XNULL_USE_BOOTSTRAP:-0}
-ENGINE=${XNULL_ENGINE:-legacy}
+ENGINE=${XNULL_ENGINE:-mini}
 while [ $# -gt 0 ]; do
   case "$1" in
     --bootstrap) BOOT=1; shift ;;
@@ -51,7 +51,7 @@ case "${1:-}" in
     cat >&2 <<'EOF'
 用法：xnull [--bootstrap] [--engine=legacy|mini|auto] <命令> [参数…]
   --bootstrap                             使用 src/bootstrap/bin 里的原生工具（不依赖 Go）
-  --engine=legacy|mini|auto               选择编译器引擎（默认 legacy）
+  --engine=legacy|mini|auto               选择编译器引擎（默认 mini；legacy 保留）
   build <entry.x | 工程目录> [-o out]     单文件构建 / 聚合工程构建
   run   <entry.x | 工程目录> [-- 参数…]   构建并运行
   validate <工程目录>                     清单校验（模块/依赖边/拓扑）

@@ -278,7 +278,7 @@ mini_supports() {
 emit_c() {
   local entry=$1 outdir=$2 out=$3
   mkdir -p "$outdir"
-  local engine=${XNULL_ENGINE:-legacy}
+  local engine=${XNULL_ENGINE:-mini}
   local mini="$ROOT/src/mini/mini"
   local use_mini=0
   if [ "$engine" = "mini" ]; then
@@ -588,7 +588,7 @@ cmd_check() {
   [ "${2:-}" = "--json" ] && json=1
   [ -f "$ROOT/$entry" ] || [ -f "$entry" ] || die "入口不存在：$entry"
   [ -f "$entry" ] && entry=${entry#"$ROOT/"}
-  local engine=${XNULL_ENGINE:-legacy}
+  local engine=${XNULL_ENGINE:-mini}
   if [ "$engine" = "mini" ] || [ "$engine" = "auto" ]; then
     local out rc
     out=$("$ROOT/src/mini/mini" --sema "$entry" --xdk-root "$ROOT/src/xdk" 2>&1)
@@ -1354,6 +1354,7 @@ cmd_version() {
   echo "xnull 0.1.0-dev"
   echo "commit: dev"
   echo "build date: unknown"
+  echo "engine: ${XNULL_ENGINE:-mini}"
   echo "specs: ${specs}"
   echo "abi: v1"
 }

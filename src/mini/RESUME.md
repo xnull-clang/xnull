@@ -43,6 +43,7 @@ D5  XDK 集成 完成
 D6  选定 M9-PAR 完成
 D7  Mini 1.0 收口 完成
 D8  M9-PAR 全量正向场景完成
+D9  M9-CUT 默认切换完成（legacy 保留）
 ```
 
 D1–D7 已完成，Mini 1.0 / M9-MIN 收口完成。**这不等于 M1–M9 或 M9-FULL 完成**。
@@ -53,7 +54,8 @@ M9-PAR（2026-11-18）：`src/mini/tests/m9_parity.sh` 的 47 个正向场景全
 `diff=0`，覆盖全部 examples（含多文件 `multi`）、mini 正向测试、完整
 `text/full`/Regex/UTF、math/time、`io/base` 与 `io/system` 两种 Sys、工程
 resources 和 IDE workspace。编译诊断和 `xfb_error` 不作为该脚本的差分输入。
-M9-CUT 仍未执行，默认引擎仍为 `legacy`。
+M9-CUT 已执行（用户批准）：默认命令使用 `mini`，`legacy` 保留为
+`--engine=legacy` 可选的 oracle 引擎，不删除。
 
 ## 重启恢复命令
 
@@ -78,12 +80,12 @@ XNULL_MINI_BOOTSTRAP=legacy ./src/mini/build.sh
 每次提交前至少执行：
 
 ```sh
-for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi xfb_error resources object_list selfhost generics c4 m7_sys m8 parity m9_parity; do
+for t in lex parser sema codegen class flow array containers result defer m6_4 xdk check project ffi xfb_error resources object_list selfhost generics c4 m7_sys m8 parity m9_parity m9_cut; do
   ./src/mini/tests/$t.sh || exit 1
 done
 ```
 
-当前 25 个回归全部 PASS，`selfhost` 固定点 PASS；`m9_parity.sh` 的
+当前 26 个回归全部 PASS，`selfhost` 固定点 PASS；`m9_parity.sh` 的
 47 个正向文件/工程场景 stdout、stderr、退出码差分全绿。`m8.sh` 现在会在
 测试临时目录内从头构建 xpd/xmanifest/reactor 和构建工具，不依赖 `/tmp` 旧缓存。
 
@@ -98,9 +100,9 @@ done
 - errors/runtime/meta 基础面
 - 选定场景与 M9-PAR 正向场景的新旧差分
 
-M9-C4 的闭包捕获已完成当前切片；M9-C2/C3、M7 和 M9-PAR 已完成。
-仍不包含全部 T0 XDK、完整 Resource/Context 子单元和默认引擎切换；
-M9-CUT 还需用户明确批准。
+M9-C4 的闭包捕获已完成当前切片；M9-C2/C3、M7、M9-PAR 和 M9-CUT 已完成。
+默认引擎已切换为 `mini`，legacy 保留为 oracle。仍不包含全部 T0 XDK 和
+完整 Resource/Context 子单元。
 
 ## 下一阶段执行顺序
 
@@ -145,7 +147,7 @@ m8 热 C 缓存约 43s、全新 C 缓存约 127s。以下保留执行记录，�
 
 - 不做“从本地仓库成功解析外部依赖”；那是新的包管理工作包。
 - 本地仓库只用于 `install` 产物和摘要校验。
-- 默认引擎仍是 `legacy`；`main` 不接收未过门的改动。
+- D1 当时默认引擎仍是 `legacy`；D9 已切换为 `mini`，legacy 保留为 oracle。
 - D1 保留 `LOCK-002` 作为临时内部码；XPD-4xx 具体映射留后续规范。
 
 ### D2：M8-P5 诊断与退出码矩阵
@@ -255,7 +257,7 @@ diff -qr src/xdk xdk/lib/xdk
 - 不追求全量 legacy 差分。
 
 ### D7：Mini 1.0 收口
-状态：完成。24 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；默认引擎仍为 `legacy`。
+状态：完成。24 个回归、selfhost、m8 冷缓存（约 127s）、选定 parity 全绿；D7 当时默认引擎仍为 `legacy`，D9 已切换为 `mini`。
 
 必须全部满足：
 
@@ -264,7 +266,7 @@ diff -qr src/xdk xdk/lib/xdk
 mini selfhost 固定点 PASS
 m8.sh PASS
 选定 M9-PAR PASS
-main 默认仍是 legacy
+D7 验收时 main 默认仍是 legacy
 工作区 clean
 ```
 
@@ -279,9 +281,10 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 5. **M7-F2/F4**：`text/full` 已覆盖 pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex/UTF-16/Format/Char 格式化；`xdk.math` 和 `xdk.time` 已接入（sqrt/abs/clamp/NaN、Duration/DateTime/now）。其余 T0 包仍按 import 场景推进。
 6. **M9-PAR**：完成。`m9_parity.sh` 覆盖 47 个正向文件/工程场景，base/full
    Sys 两种模式，legacy/mini 的 stdout、stderr、退出码均为 `diff=0`。
-7. **M9-CUT**：未执行。仅在用户明确批准后切换默认引擎。
+7. **M9-CUT**：完成（用户批准）。默认引擎为 `mini`；`legacy` 保留为
+   显式可选 oracle，不删除。
 
-M9-C4/M7/PAR 已完成；M9-CUT 未获批准前默认引擎保持 `legacy`。
+M9-C4/M7/PAR/CUT 已完成；默认命令使用 mini。
 
 ## 已知阻塞/边界
 

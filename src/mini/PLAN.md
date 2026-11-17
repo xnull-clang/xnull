@@ -146,7 +146,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - 新旧引擎差分全绿。
 - 生成能力覆盖表，旧引擎仅保留 oracle 角色。
 
-达到 M9 后，新的全部能力覆盖旧能力，允许默认切换并申请删除旧引擎。
+达到 M9 后，新的全部能力覆盖旧能力，允许默认切换；旧引擎删除需另行批准，本次保留。
 
 ## 5. 当前进度
 
@@ -291,7 +291,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
 | M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
 | M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 完成（m9_parity.sh：47 个正向文件/工程场景，base/full Sys，diff=0；编译负例由 M8-P5 覆盖） |
-| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 待用户批准；默认仍为 legacy |
+| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 完成（用户已批准；默认 mini，legacy 保留为显式 oracle） |
 | LANG-1 | Float/Double 字面量、nullable、大整数 | S：场景使用；D：M2/M3 | M2/M3 | 对应场景 | 未做 |
 | LANG-2 | 空容器/类型推断/对象容器 | S：场景使用；D：M6.2 | M6.2 | 对应场景 | 未做 |
 | CACHE-1 | AST + C 结果缓存 | P：冷构建 >10 分钟或重复构建 | — | warm build <30 秒 | 完成（约 5 秒） |
@@ -304,9 +304,9 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | 项 | 冻结内容 | 验收命令 |
 | --- | --- | --- |
 | 自举 | `mini1` 编译 `mini2`，两者生成的 `main.x` C 完全一致 | `./src/mini/tests/selfhost.sh` |
-| 回归 | 25 个 mini 回归（含 m7_sys、xfb_error、parity、m9_parity）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
+| 回归 | 26 个 mini 回归（含 m7_sys、xfb_error、parity、m9_parity、m9_cut）+ 资源场景全部通过 | `for t in src/mini/tests/*.sh; do "$t"; done` |
 | 构建 | `src/mini/build.sh` 优先自编译，缺少种子时回退 legacy | `./src/mini/build.sh` |
-| 默认引擎 | 仍为 `legacy`；M9-CUT 获批前不切换 | `src/cli/xnull --help` |
+| 默认引擎 | 已切换为 `mini`；legacy 保留为 `--engine=legacy` oracle | `src/cli/xnull --help` |
 | 容器 | `List<T>` / `List<String>` / `List<Node>` 与 String 子集可用 | `./src/mini/tests/object_list.sh` |
 
 冻结期的例外只有回归修复。任何语言面扩展必须保持上述命令全绿。
@@ -324,25 +324,25 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - P0 自举可复现性已完成：`cmd_bootstrap_model`/tools/reactor 不再依赖 Go oracle；`m8.sh` 用测试私有目录强制冷启动。
 - M8-P1/P2/P3/P4 已完成 workspace 场景；M8-P5 的 CLI/SEM/JSON/退出码矩阵已完成（D2）。
 - M9-C1 完成，M9-C2/C3 的 D3/D4 切片完成；M9-S1/S2 已完成，`./src/mini/build.sh` 优先自编译。
-- M9-PAR 正向场景差分已完成（47 个场景，diff=0）；M9-CUT 默认切换待用户明确批准。
+- M9-PAR 正向场景差分已完成（47 个场景，diff=0）；M9-CUT 已完成，默认引擎为 mini，legacy 保留为 oracle。
 - M7 已开始向完整 XDK 推进：包内多文件加载、Bytes、静态类方法、Double、泛型 Result 和 XDK raw projection 已接入；`text/full/Text.x` 与 `core/math/Math.x` 可生成 C；`text/mini` 与 `io/mini` shim 均已删除，mini 当前走 `text/full` 与 `io/base`；完整 `io/system` raw FFI 仍未接入。
 
 ### 9.5 下一阶段执行清单（dev 分支）
 
 `dev` 为日常开发分支；`main` 只接收通过门禁的合并。当前 `main` 与
-`reset/minimal-xnull` 为稳定基线 `1a0a5041`，`dev` 已在其上增加清理和恢复文档；
-未通过冻结回归前不得改变默认引擎。
+`reset/minimal-xnull` 为稳定基线 `1a0a5041`，`dev` 已在其上增加清理和恢复文档。
+默认引擎切换已通过 M9-CUT 门禁；legacy 保留为 oracle。
 
 | 顺序 | 工作项 | 当前状态 | 下一验收 |
 | --- | --- | --- | --- |
-| 0 | 回归冻结 | 25 回归 + selfhost + m8 冷缓存 + M9-PAR | 每次改动后全绿 |
+| 0 | 回归冻结 | 26 回归 + selfhost + m8 冷缓存 + M9-PAR + M9-CUT | 每次改动后全绿 |
 | 1 | M9-C4 收口 | 已完成当前切片：data enum、protocol 动态派发、lambda/闭包捕获（含直接按实参、返回位置、函数值字段）、控制流、静态继承；c4 正/负例通过 | 闭包环境回收/GC 生命周期（后续切片） |
 | 2 | M9-C2/C3 完整余量 | 当前切片完成：String 边界、泛型实参/嵌套/未知类型负例，c4/generics 通过 | 更大 String/泛型矩阵随 M9-PAR 扩展 |
 | 3 | M7-F3 | 当前切片完成：`--xdk-full` 下 File/Dir/Process raw FFI，m7_sys 通过 | Resource.x/Context 子单元与默认切换 |
 | 4 | M7-F1 | 部分：通用 String/标量包装、errorCode 出参已通 | Result/companion 语义与更多自定义 `.xfb` 负例 |
 | 5 | M7-F2/F4 | 当前切片完成：text/full、math、time | 其他 T0 包按 import 场景接入 |
 | 6 | M9-PAR | 完成：47 个正向文件/工程场景，base/full Sys 两种模式，stdout/stderr/退出码全绿 | M9-CUT（需用户批准） |
-| Gate | M9-CUT | 未执行（M9-PAR 已全绿） | 用户明确批准后切换默认引擎 |
+| Gate | M9-CUT | 完成（用户批准；默认 mini，legacy 保留） | 默认命令全绿 |
 
 M8-P4/P5 已完成；M9-MIN/Mini 1.0 已完成，但 M9-FULL 仍未完成。
 M9-C4 必须先完成，不能把 M7、PAR、CUT 与它合并成一个包。
@@ -353,9 +353,9 @@ M9-C4 必须先完成，不能把 M7、PAR、CUT 与它合并成一个包。
 2. `M9-C2/C3`：完整 String/泛型余量与边界负例。
 3. `M7-F3 → M7-F1 → M7-F2/F4`：Sys raw FFI、通用 FFI、T0 包。
 4. `M9-PAR`：完成，47 个正向场景全绿。
-5. `M9-CUT`：M9-PAR 已全绿，等待用户明确批准后切默认引擎。
+5. `M9-CUT`：完成（用户批准）；默认 mini，legacy 保留为 oracle。
 
-M9-C4/M7/PAR 已完成；未获批准前不进入 CUT。
+M9-C4/M7/PAR/CUT 已完成。
 
 每条工作项必须绑定一个可运行场景或负例；没有场景的能力登记为“等待”，不得以空实现宣称完成。
 
@@ -367,10 +367,10 @@ M9-C4/M7/PAR 已完成；未获批准前不进入 CUT。
 | --- | --- | --- |
 | M9-SELFHOST | mini 编译 mini，mini1/mini2 固定点 | 已完成 |
 | M9-MIN | mini 自举 + M8 工程接口 + 核心 XDK（errors/runtime/meta/text/sys）+ 选定场景差分 | 已完成（Mini 1.0 D1–D7） |
-| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 进行中（M9-PAR 已绿，待 M9-CUT） |
+| M9-FULL | M9-MIN + 全部 T0 XDK、完整语言面、全量旧/新引擎差分、默认切换 | 进行中（M9-PAR/M9-CUT 已完成；完整 T0 XDK 仍待完成） |
 
 **M9-MIN 完成不等于 M1–M9 或 M9-FULL 完成。** Mini 1.0 只覆盖选定场景；
-完整 T0 XDK、完整 M9-C4 剩余边界和 M9-CUT 仍属于后续工作；M9-PAR 正向矩阵已完成。
+完整 T0 XDK 和完整 M9-C4 剩余边界仍属于后续工作；M9-PAR 与 M9-CUT 已完成。
 
 ### 9.6.1 M9-MIN 估算（从当前基线）
 
@@ -381,7 +381,7 @@ M9-C4/M7/PAR 已完成；未获批准前不进入 CUT。
 | A. M8 收口 | M8-P4/P5：workspace lock、install/repro、外部依赖负例、完整诊断/退出码矩阵 | 3–5 |
 | B. M9 语言面 | M9-C2、M9-C3 当前缺口 | 2–3 |
 | C. 核心 XDK | `text/full`、`io/base`、errors/runtime/meta 组合场景 | 1–2 |
-| D. 集成门 | 选定 M9-PAR、回归、默认 `legacy` 保持不变 | 1–2 |
+| D. 集成门 | 选定 M9-PAR、回归；D1–D7 时默认 `legacy` 保持不变 | 1–2 |
 | **合计** | **M9-MIN 从当前基线** | **7–12** |
 
 这里的 7–12 是 D1–D4 开始前的**当前剩余量**，不是从零做 mini 的总量。
@@ -408,10 +408,11 @@ D1–D7 完成后，Mini 1.0 剩余为 **0 dev-day**。当前自举和文本/基
 - 每个工作包完成后才更新状态、估算和下一包入口；
 - 任何没有场景的需求保持“等待”，不进入当前工作包。
 
-### 9.7 Mini 1.0 七日执行计划（dev）
+### 9.7 Mini 1.0 七日执行计划（历史）
 
-目标：在 `dev` 上完成一个可交付的 Mini 1.0；**不切换默认引擎**，`main` 仍保持
-`legacy` 为默认。计划单位为 dev-day，按一个熟悉本仓库的全职开发者估算。
+目标：在 `dev` 上完成一个可交付的 Mini 1.0。该阶段**当时不切换默认引擎**；
+M9-CUT 后默认引擎已切换为 mini，legacy 保留为 oracle。计划单位为 dev-day，
+按一个熟悉本仓库的全职开发者估算。
 
 本阶段范围：
 
@@ -435,11 +436,11 @@ M9-CUT 默认切换。
 | D6 | 选定 M9-PAR | 完成：24 个代表性场景（完整 Sys、容器、lexer/parser seed、基础测试面）的 stdout/stderr/退出码差分 |
 | D7 | 收口 | 完成：22 回归 + selfhost + M8 冷缓存全绿；文档与提交完成 |
 
-Mini 1.0 已完成：D1–D7 全部通过，默认引擎仍是 `legacy`，`main` 未切换。
+Mini 1.0 已完成：D1–D7 全部通过；D7 时默认引擎仍是 `legacy`，M9-CUT 后已切换为 mini。
 
 #### D1 单一工作包（已完成，2026-11-16）
 
-状态：完成。验证：默认 legacy build/run 不带 `--bootstrap` 通过；
+状态：完成（D1 历史验收）。验证：当时默认 legacy build/run 不带 `--bootstrap` 通过；
 workspace lock/`--check`/`--update` 通过；外部依赖 `LOCK-002` 且不写锁；
 install 两次 `.xlib` SHA 一致且与 lock 摘要一致；21 回归 + selfhost 全绿；
 m8 热 C 缓存约 43s、全新 C 缓存约 124s。
@@ -473,10 +474,10 @@ D1 锁定口径：
 22 个 mini 回归全绿
 mini selfhost 固定点不漂移
 m8.sh 全绿（冷缓存）
-默认 legacy build/run 不带 --bootstrap 可用
+D1 历史验收：默认 legacy build/run 不带 --bootstrap 可用
 workspace lock 字节稳定；外部依赖不产生伪造锁
 选定 M9-PAR 场景全绿
-main 默认仍是 legacy
+D7 历史验收：main 默认仍是 legacy
 ```
 
 如果 D1–D7 中发现必须扩大范围，不能静默加塞；必须登记到 §9.5 的下一个工作包，
