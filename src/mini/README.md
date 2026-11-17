@@ -1,13 +1,15 @@
 # XNull Mini Compiler
 
-新的最小 XNull 编译器。完整里程碑与能力覆盖表见 `PLAN.md`。
+新的最小 XNull 编译器。当前活动计划见 [`PLAN.md`](PLAN.md)，已完成的小里程碑
+记录见 [`MILESTONES.md`](MILESTONES.md)。
 
 ```sh
 ./build.sh
 ./mini --version
 ```
 
-当前为 M9 自举固定点阶段：
+当前进入 **Mini 0.3.0 / M10-T0** 阶段，目标是补齐全部 T0 XDK 和剩余语言/FFI 边界。
+`mini 0.2.0 / M9-CUT` 的自举固定点、默认切换和 47 个 M9-PAR 场景已完成并归档。
 
 - 自身源码已能被 mini 编译，`mini1` 与 `mini2` 生成的 C 完全一致。
 - 泛型函数/泛型类、插值字符串、nullable、throw、Double、位运算和静态类方法已进入最小面。
@@ -17,10 +19,13 @@
 
 ## 里程碑
 
+- **进行中：Mini 0.3.0 / M10-T0** — 补齐全部 T0 XDK 和剩余语言/FFI 边界；
+  计划见 [`PLAN.md`](PLAN.md)。
 - **2026-11-18 · `mini 0.2.0` / M9-CUT**：第一个完整跑通
   「语言源码 → mini 编译器 → C → 可执行程序」的 mini；自举固定点通过，
-  默认引擎切换到 mini，legacy 保留为 oracle。验收记录和曲线图见
+  默认引擎切换到 mini，legacy 保留为 oracle。验收记录和性能曲线见
   [`MILESTONES.md`](MILESTONES.md)。
+- 旧计划归档：[`archive/2026-11-18-m9cut/`](archive/2026-11-18-m9cut/)。
 
 ## 回归
 
