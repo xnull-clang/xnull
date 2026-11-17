@@ -146,11 +146,26 @@ CLI 支持三个引擎：
 ./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy`：当前原生 C 工具链，默认。
-- `mini`：新的最小编译器。
+- `mini`：新的最小编译器，`mini 0.2.0` / M9-CUT 后成为默认引擎。
+- `legacy`：冻结的原生 C 工具链与 oracle，保留并可用 `--engine=legacy` 显式选择。
 - `auto`：`mini` 明确支持时优先使用，否则回退 `legacy`。
 
+默认引擎已在 2026-11-18 切换到 `mini`；`legacy` 仍可通过
+`--engine=legacy` 或 `XNULL_ENGINE=legacy` 使用。
+
 引导路径不需要 Go。`src/bootstrap/build.sh` 只需要 C 编译器即可构建原生解析器和编译器。
+
+## Mini 0.2.0 里程碑
+
+第一个完整跑通「语言源码 → mini 编译器 → C → 可执行程序」的里程碑记录在
+[`src/mini/MILESTONES.md`](../src/mini/MILESTONES.md)。验收曲线与 C 生成性能曲线：
+
+[`docs/assets/mini-m9cut-20261118.svg`](../docs/assets/mini-m9cut-20261118.svg)
+
+![Mini 0.2.0 里程碑曲线](../docs/assets/mini-m9cut-20261118.svg)
+
+签名值 `2611180201` 逐字保存在 [`src/mini/GENESIS`](../src/mini/GENESIS)，
+并作为非语义注释嵌入 mini 生成的 C 文件。
 
 ## 仓库结构
 
@@ -187,7 +202,7 @@ xdk/                  XDK 交付包
 
 `src/` 是开发树，`xdk/` 是交付副本。修改 `src/xdk/` 后，需要同步到 `xdk/lib/xdk/`。
 
-CLI 入口与 `legacy` / `mini` / `auto` 引擎见「快速开始」。mini 的里程碑见 `src/mini/PLAN.md`。
+CLI 入口与 `mini` / `legacy` / `auto` 引擎见「快速开始」。mini 的里程碑见 `src/mini/MILESTONES.md` 和 `src/mini/PLAN.md`。
 
 ### 安装 XDK
 

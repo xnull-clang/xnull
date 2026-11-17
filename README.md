@@ -165,7 +165,9 @@ and C-emission performance curve are in:
 ![Mini 0.2.0 milestone curve](docs/assets/mini-m9cut-20261118.svg)
 
 The recorded signature `2611180201` is stored verbatim in
-[`src/mini/GENESIS`](src/mini/GENESIS); it is not read by the build or runtime.
+[`src/mini/GENESIS`](src/mini/GENESIS) and compiled into the mini compiler as
+`MINI_GENESIS`. Every mini-generated C file carries it as a non-semantic header
+comment; it is never used for language behavior or feature decisions.
 
 ## Repository layout
 
