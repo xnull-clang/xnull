@@ -17,7 +17,7 @@ mini；同时完成 mini 自举固定点，并把默认引擎切换为 mini。le
 
 `src/mini/GENESIS` 的 SHA-256：`66f30985d4d28f97090956c2b339e8c243188a73ae018abfb3899c484003b8e6`。
 
-![Mini 0.2.0 200M performance curve](../../docs/assets/mini-m9cut-20261118.svg)
+![Mini 0.2.0 200M performance curve](../../docs/assets/mini-200m-runtime-20261118.svg)
 
 ### 验收范围
 
