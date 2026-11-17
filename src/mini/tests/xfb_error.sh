@@ -17,7 +17,7 @@ cc -std=c11 -O2 -pthread \
     "$ROOT/src/mini/support/io.c" "$ROOT/src/runtime/libxnrt.a" -lz
 
 "$D/error" > "$D/out"
-printf '5\ntrue\n0\ntrue\n' > "$D/expected"
+printf '5\ntrue\n0\ntrue\ntrue\n' > "$D/expected"
 diff -u "$D/expected" "$D/out"
 
 echo "mini xfb-error: PASS"

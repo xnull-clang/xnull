@@ -8,5 +8,8 @@ static Int main() {
     Int64 z = div(1, 0, bad)
     print(z)
     print(bad == 2)
+
+    Bytes bytes = Bytes.fromString("abc")
+    print(byteAt(bytes, 1) == 98)
     return 0
 }

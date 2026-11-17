@@ -3,4 +3,9 @@ ffi demo_error_raw {
   @errorCode(codeParam = .code)
   @blocking(.unaware)
   Int64 div(Int64 a, Int64 b, Int32 code);
+
+  @ffiEntry(cName = "demo_byte_at")
+  @lease(data = .borrow)
+  @blocking(.unaware)
+  Int32 byteAt(Bytes data, Int32 index);
 }
