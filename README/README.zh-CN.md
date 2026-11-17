@@ -158,11 +158,11 @@ CLI 支持三个引擎：
 ## Mini 0.2.0 里程碑
 
 第一个完整跑通「语言源码 → mini 编译器 → C → 可执行程序」的里程碑记录在
-[`src/mini/MILESTONES.md`](../src/mini/MILESTONES.md)。验收曲线与 C 生成性能曲线：
+[`src/mini/MILESTONES.md`](../src/mini/MILESTONES.md)。2 亿次循环的运行时性能曲线：
 
 [`docs/assets/mini-m9cut-20261118.svg`](../docs/assets/mini-m9cut-20261118.svg)
 
-![Mini 0.2.0 里程碑曲线](../docs/assets/mini-m9cut-20261118.svg)
+![Mini 0.2.0 2 亿次性能曲线](../docs/assets/mini-m9cut-20261118.svg)
 
 签名值 `2611180201` 逐字保存在 [`src/mini/GENESIS`](../src/mini/GENESIS)，
 并以静态常量 `xn_mini_genesis` 存在于 `src/runtime/rt.c` 的运行时镜像中；它不被

@@ -1,117 +1,81 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="850" viewBox="0 0 1500 850" role="img" aria-labelledby="title desc">
-<title id="title">Mini 0.2.0 / M9-CUT milestone</title>
-<desc id="desc">Readiness curve and C emission performance curve for the Mini 0.2.0 milestone.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+<title id="title">Mini 0.2.0 · 200M runtime performance curve</title>
+<desc id="desc">Runtime in seconds for 25M, 50M, 100M, and 200M iterations using the same LCG loop, comparing mini and legacy.</desc>
 <defs>
-  <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#2563eb" stop-opacity="0.22"/>
-    <stop offset="100%" stop-color="#2563eb" stop-opacity="0.02"/>
-  </linearGradient>
   <style>
     .bg { fill: #ffffff; }
     .panel { fill: #f8fafc; stroke: #e2e8f0; stroke-width: 1; }
     .title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 30px; font-weight: 700; fill: #0f172a; }
     .subtitle { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; fill: #475569; }
-    .panel-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 17px; font-weight: 650; fill: #1e293b; }
+    .panel-title { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 18px; font-weight: 650; fill: #1e293b; }
     .axis { stroke: #cbd5e1; stroke-width: 1; }
     .grid { stroke: #e2e8f0; stroke-width: 1; }
-    .tick { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #64748b; }
-    .xlabel { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; fill: #334155; }
-    .value { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 650; fill: #1d4ed8; }
-    .metric { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #334155; }
-    .small { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #64748b; }
-    .badge { fill: #dcfce7; stroke: #86efac; stroke-width: 1; }
-    .badge-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; font-weight: 700; fill: #166534; }
-    .pass { stroke: #dc2626; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .tick { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #64748b; }
+    .xlabel { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #334155; }
+    .value { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; font-weight: 700; }
     .mini { stroke: #2563eb; stroke-width: 3; fill: none; }
-    .legacy { stroke: #ea580c; stroke-width: 2.5; fill: none; stroke-dasharray: 7 5; }
+    .legacy { stroke: #ea580c; stroke-width: 2.5; fill: none; stroke-dasharray: 8 5; }
+    .badge { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1; }
+    .badge-text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 16px; font-weight: 700; fill: #1d4ed8; }
+    .metric { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; fill: #334155; }
+    .small { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; fill: #64748b; }
+    .table { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #334155; }
+    .thead { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; font-weight: 700; fill: #475569; }
   </style>
 </defs>
-<rect class="bg" x="0" y="0" width="1500" height="850"/>
-<text class="title" x="60" y="58">Mini 0.2.0 · M9-CUT milestone</text>
-<text class="subtitle" x="60" y="85">2026-11-18 02:01 · record 2611180201 · first complete language → compiler → executable loop</text>
-<rect class="badge" x="1228" y="34" width="210" height="42" rx="21"/>
-<text class="badge-text" x="1333" y="61" text-anchor="middle">PASS · 100 / 100</text>
+<rect class="bg" x="0" y="0" width="1400" height="820"/>
+<text class="title" x="60" y="58">Mini 0.2.0 · 200M runtime performance</text>
+<text class="subtitle" x="60" y="86">LCG arithmetic loop · median of 5 warm runs · macOS · cc -O2 · record 2611180201</text>
+<rect class="badge" x="1090" y="32" width="240" height="44" rx="22"/>
+<text class="badge-text" x="1210" y="61" text-anchor="middle">200M · 0.733s vs 0.732s</text>
 
-<rect class="panel" x="60" y="150" width="650" height="500" rx="14"/>
-<text class="panel-title" x="84" y="184">Acceptance readiness</text>
-<text class="small" x="84" y="204">10 equal gates · pass line = 90%</text>
-<line class="grid" x1="125" y1="570.0" x2="685" y2="570.0"/>
-<text class="tick" x="113" y="574.0" text-anchor="end">0%</text>
-<line class="grid" x1="125" y1="481.2" x2="685" y2="481.2"/>
-<text class="tick" x="113" y="485.2" text-anchor="end">25%</text>
-<line class="grid" x1="125" y1="392.5" x2="685" y2="392.5"/>
-<text class="tick" x="113" y="396.5" text-anchor="end">50%</text>
-<line class="grid" x1="125" y1="303.8" x2="685" y2="303.8"/>
-<text class="tick" x="113" y="307.8" text-anchor="end">75%</text>
-<line class="grid" x1="125" y1="215.0" x2="685" y2="215.0"/>
-<text class="tick" x="113" y="219.0" text-anchor="end">100%</text>
-<line class="axis" x1="125" y1="215" x2="125" y2="570"/>
-<line class="axis" x1="125" y1="570" x2="685" y2="570"/>
-<line class="pass" x1="125" y1="250.5" x2="685" y2="250.5"/>
-<text class="tick" x="681" y="243.5" text-anchor="end" fill="#b91c1c">pass 90%</text>
-<polygon points="125,570 145.0,534.5 210.0,499.0 275.0,463.5 340.0,428.0 405.0,392.5 470.0,357.0 535.0,321.5 600.0,286.0 665.0,215.0 685,570" fill="url(#area)"/>
-<polyline class="mini" points="145.0,534.5 210.0,499.0 275.0,463.5 340.0,428.0 405.0,392.5 470.0,357.0 535.0,321.5 600.0,286.0 665.0,215.0"/>
-<circle cx="145.0" cy="534.5" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="145.0" y="594" text-anchor="middle">D1</text>
-<circle cx="210.0" cy="499.0" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="210.0" y="594" text-anchor="middle">D2</text>
-<circle cx="275.0" cy="463.5" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="275.0" y="594" text-anchor="middle">D3</text>
-<circle cx="340.0" cy="428.0" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="340.0" y="594" text-anchor="middle">D4</text>
-<circle cx="405.0" cy="392.5" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="405.0" y="594" text-anchor="middle">D5</text>
-<circle cx="470.0" cy="357.0" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="470.0" y="594" text-anchor="middle">D6</text>
-<circle cx="535.0" cy="321.5" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="535.0" y="594" text-anchor="middle">D7</text>
-<circle cx="600.0" cy="286.0" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="600.0" y="594" text-anchor="middle">D8</text>
-<circle cx="665.0" cy="215.0" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<text class="xlabel" x="665.0" y="594" text-anchor="middle">D9</text>
-<text class="value" x="657.0" y="201.0" text-anchor="end">100%</text>
-<text class="small" x="84" y="632">D1 → D9 cumulative gates. The final gate includes the performance/memory envelope.</text>
-<rect class="panel" x="750" y="150" width="690" height="500" rx="14"/>
-<text class="panel-title" x="774" y="184">C emission time</text>
-<text class="small" x="774" y="204">seconds · log scale · median of 3 runs</text>
-<line class="grid" x1="835" y1="570.0" x2="1405" y2="570.0"/>
-<text class="tick" x="823" y="574.0" text-anchor="end">0.1s</text>
-<line class="grid" x1="835" y1="481.2" x2="1405" y2="481.2"/>
-<text class="tick" x="823" y="485.2" text-anchor="end">1s</text>
-<line class="grid" x1="835" y1="392.5" x2="1405" y2="392.5"/>
-<text class="tick" x="823" y="396.5" text-anchor="end">10s</text>
-<line class="grid" x1="835" y1="303.8" x2="1405" y2="303.8"/>
-<text class="tick" x="823" y="307.8" text-anchor="end">100s</text>
-<line class="grid" x1="835" y1="215.0" x2="1405" y2="215.0"/>
-<text class="tick" x="823" y="219.0" text-anchor="end">1000s</text>
-<line class="axis" x1="835" y1="215" x2="835" y2="570"/>
-<line class="axis" x1="835" y1="570" x2="1405" y2="570"/>
-<text class="xlabel" x="905.0" y="594" text-anchor="middle">hello</text>
-<text class="xlabel" x="1048.3" y="594" text-anchor="middle">features</text>
-<text class="xlabel" x="1191.7" y="594" text-anchor="middle">multi</text>
-<text class="xlabel" x="1335.0" y="594" text-anchor="middle">self-host</text>
-<polyline class="mini" points="905.0,548.0 1048.3,540.0 1191.7,547.3 1335.0,417.8"/>
-<polyline class="legacy" points="905.0,515.1 1048.3,463.1 1191.7,499.1 1335.0,234.7"/>
-<circle cx="905.0" cy="548.0" r="5.5" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<circle cx="1048.3" cy="540.0" r="5.5" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<circle cx="1191.7" cy="547.3" r="5.5" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<circle cx="1335.0" cy="417.8" r="5.5" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
-<circle cx="905.0" cy="515.1" r="5.5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
-<circle cx="1048.3" cy="463.1" r="5.5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
-<circle cx="1191.7" cy="499.1" r="5.5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
-<circle cx="1335.0" cy="234.7" r="5.5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
-<text class="value" x="905.0" y="537.0" text-anchor="middle">0.18s</text>
-<text class="value" x="1048.3" y="529.0" text-anchor="middle">0.22s</text>
-<text class="value" x="1191.7" y="536.3" text-anchor="middle">0.18s</text>
-<text class="value" x="1335.0" y="406.8" text-anchor="middle">5.19s</text>
-<text class="tick" x="1335.0" y="220.7" text-anchor="middle" fill="#b45309">legacy &gt;600s timeout</text>
-<line class="mini" x1="853" y1="223" x2="885" y2="223"/>
-<text class="small" x="893" y="227">mini</text>
-<line class="legacy" x1="963" y1="223" x2="995" y2="223"/>
-<text class="small" x="1003" y="227">legacy</text>
-<text class="small" x="774" y="632">legacy self-host is shown at the 600s timeout boundary, not a completed run.</text>
-<line class="grid" x1="60" y1="690" x2="1440" y2="690"/>
-<text class="metric" x="60" y="718">M9-PAR 47/47 diff=0   ·   26/26 regressions   ·   selfhost fixed point PASS   ·   default mini   ·   legacy retained as oracle</text>
-<text class="small" x="60" y="744">Benchmark: macOS, cc -O2; compile times are wall-clock medians. Runtime loop 20,000,000 iterations: mini 0.0196s / legacy 0.0195s after warm-up.</text>
-<text class="small" x="60" y="768">The readiness curve is an internal milestone index, not an external benchmark ranking. Full T0 XDK and Resource/Context remain outside this milestone.</text>
+<rect class="panel" x="60" y="135" width="1280" height="500" rx="14"/>
+<text class="panel-title" x="84" y="169">Runtime by iteration count</text>
+<text class="small" x="84" y="189">same generated workload; both binaries 96120 bytes</text>
+<line class="grid" x1="140" y1="590.0" x2="1310" y2="590.0"/>
+<text class="tick" x="126" y="594.0" text-anchor="end">0.0s</text>
+<line class="grid" x1="140" y1="492.5" x2="1310" y2="492.5"/>
+<text class="tick" x="126" y="496.5" text-anchor="end">0.2s</text>
+<line class="grid" x1="140" y1="395.0" x2="1310" y2="395.0"/>
+<text class="tick" x="126" y="399.0" text-anchor="end">0.4s</text>
+<line class="grid" x1="140" y1="297.5" x2="1310" y2="297.5"/>
+<text class="tick" x="126" y="301.5" text-anchor="end">0.6s</text>
+<line class="grid" x1="140" y1="200.0" x2="1310" y2="200.0"/>
+<text class="tick" x="126" y="204.0" text-anchor="end">0.8s</text>
+<line class="axis" x1="140" y1="200" x2="140" y2="590"/>
+<line class="axis" x1="140" y1="590" x2="1310" y2="590"/>
+<line class="grid" x1="140.0" y1="200" x2="140.0" y2="590"/>
+<text class="xlabel" x="140.0" y="617" text-anchor="middle">0M</text>
+<line class="grid" x1="307.1" y1="200" x2="307.1" y2="590"/>
+<text class="xlabel" x="307.1" y="617" text-anchor="middle">0M</text>
+<line class="grid" x1="641.4" y1="200" x2="641.4" y2="590"/>
+<text class="xlabel" x="641.4" y="617" text-anchor="middle">0M</text>
+<line class="grid" x1="1310.0" y1="200" x2="1310.0" y2="590"/>
+<text class="xlabel" x="1310.0" y="617" text-anchor="middle">0M</text>
+<polyline class="mini" points="140.0,543.2 307.1,498.7 641.4,410.4 1310.0,232.9"/>
+<polyline class="legacy" points="140.0,543.2 307.1,497.4 641.4,410.5 1310.0,233.2"/>
+<circle cx="140.0" cy="543.2" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="140.0" cy="543.2" r="5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
+<circle cx="307.1" cy="498.7" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="307.1" cy="497.4" r="5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
+<circle cx="641.4" cy="410.4" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="641.4" cy="410.5" r="5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
+<circle cx="1310.0" cy="232.9" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
+<circle cx="1310.0" cy="233.2" r="5" fill="#ffffff" stroke="#ea580c" stroke-width="2.5"/>
+<text class="value" x="1296.0" y="214.9" text-anchor="end" fill="#1d4ed8">mini 0.733s</text>
+<text class="value" x="1296.0" y="263.2" text-anchor="end" fill="#b45309">legacy 0.732s</text>
+<line class="mini" x1="160" y1="216" x2="194" y2="216"/>
+<text class="small" x="202" y="220">mini</text>
+<line class="legacy" x1="275" y1="216" x2="309" y2="216"/>
+<text class="small" x="317" y="220">legacy</text>
+<text class="small" x="84" y="615">At 200M: mini/legacy ratio = 1.001x; both outputs identical (236899843).</text>
+<rect class="panel" x="60" y="660" width="1280" height="85" rx="14"/>
+<text class="thead" x="84" y="691">iterations</text>
+<text class="thead" x="310" y="691">mini (s)</text>
+<text class="thead" x="560" y="691">legacy (s)</text>
+<text class="thead" x="840" y="691">mini / legacy</text>
+<text class="thead" x="1090" y="691">binary size</text>
+<text class="table" x="84" y="718">0M: 0.096 / 0.096   ·   0M: 0.187 / 0.190   ·   0M: 0.368 / 0.368   ·   0M: 0.733 / 0.732</text>
+<text class="table" x="84" y="739">ratio 200M = 1.001x   ·   both binaries 96,120 bytes   ·   output 236899843</text>
+<text class="small" x="60" y="795">This is a microbenchmark, not a general performance promise. Command: mini/legacy build of the same LCG loop with cc -O2; first run discarded, median of five warm runs.</text>
 </svg>

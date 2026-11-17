@@ -157,12 +157,12 @@ No Go is required for the bootstrap path. `src/bootstrap/build.sh` builds the na
 ## Mini 0.2.0 milestone
 
 The first complete **language source → mini compiler → C → executable** milestone is
-recorded in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md). The acceptance curve
-and C-emission performance curve are in:
+recorded in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md). The 200M-iteration
+runtime performance curve is in:
 
 [`docs/assets/mini-m9cut-20261118.svg`](docs/assets/mini-m9cut-20261118.svg)
 
-![Mini 0.2.0 milestone curve](docs/assets/mini-m9cut-20261118.svg)
+![Mini 0.2.0 200M performance curve](docs/assets/mini-m9cut-20261118.svg)
 
 The recorded signature `2611180201` is stored verbatim in
 [`src/mini/GENESIS`](src/mini/GENESIS) and as the static runtime constant
