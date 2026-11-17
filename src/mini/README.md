@@ -1,7 +1,7 @@
 # XNull Mini Compiler
 
-新的最小 XNull 编译器。当前活动计划见 [`PLAN.md`](PLAN.md)，已完成的小里程碑
-记录见 [`MILESTONES.md`](MILESTONES.md)。
+新的最小 XNull 编译器。当前 XDK-first 产品计划见 [`../xdk/PLAN.md`](../xdk/PLAN.md)，
+编译器支持队列见 [`PLAN.md`](PLAN.md)，已完成的小里程碑记录见 [`MILESTONES.md`](MILESTONES.md)。
 
 ```sh
 ./build.sh
@@ -19,8 +19,8 @@
 
 ## 里程碑
 
-- **进行中：Mini 0.3.0 / M10-T0** — 补齐全部 T0 XDK 和剩余语言/FFI 边界；
-  计划见 [`PLAN.md`](PLAN.md)。
+- **进行中：Mini 0.3.0 / M10-T0** — 全速补齐 T0 XDK 和 runtime 能力；
+  XDK-first 计划见 [`../xdk/PLAN.md`](../xdk/PLAN.md)，编译器依赖队列见 [`PLAN.md`](PLAN.md)。
 - **2026-11-18 · `mini 0.2.0` / M9-CUT**：第一个完整跑通
   「语言源码 → mini 编译器 → C → 可执行程序」的 mini；自举固定点通过，
   默认引擎切换到 mini，legacy 保留为 oracle。验收记录和性能曲线见

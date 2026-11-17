@@ -102,5 +102,5 @@ record: 2611180201
 ## 归档
 
 Mini 1.0 / M9-CUT 的旧计划已归档到
-[`archive/2026-11-18-m9cut/`](archive/2026-11-18-m9cut/)；当前新里程碑计划见
-[`PLAN.md`](PLAN.md)。
+[`archive/2026-11-18-m9cut/`](archive/2026-11-18-m9cut/)；当前 XDK-first 产品计划见
+[`../xdk/PLAN.md`](../xdk/PLAN.md)，编译器支持队列见 [`PLAN.md`](PLAN.md)。

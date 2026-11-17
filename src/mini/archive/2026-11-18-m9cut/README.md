@@ -10,7 +10,8 @@ They are historical records only. Do not update them for new work.
 
 Current entry points:
 
-- Active plan: [`../../PLAN.md`](../../PLAN.md)
+- Active product plan: [`../../../xdk/PLAN.md`](../../../xdk/PLAN.md)
+- Compiler support queue: [`../../PLAN.md`](../../PLAN.md)
 - Milestone record: [`../../MILESTONES.md`](../../MILESTONES.md)
 - Restart guide: [`../../RESUME.md`](../../RESUME.md)
 

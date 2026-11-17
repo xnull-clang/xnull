@@ -1,7 +1,8 @@
 # Mini 恢复入口
 
 > 小里程碑 0.2.0 / M9-CUT 已结束并归档。
-> 当前活动计划：`src/mini/PLAN.md`（Mini 0.3.0 / M10-T0）。
+> 当前产品计划：`src/xdk/PLAN.md`（XDK-first / Mini 0.3.0 / M10-T0）。
+> 编译器支持队列：`src/mini/PLAN.md`。
 
 ## 当前基线
 
@@ -35,16 +36,13 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**M10-P0：T0 清单、场景与边界。**
+**XDK-W0：从底层 XDK 建立第一批 probe。**
 
-在 P0 完成前不要直接把空包补成空实现。先确认：
+先锁定 bytes/IO/FS 的运行时与 XDK 契约，并保留 tasks/sync、空 Map 的失败证据。
+随后按 `src/xdk/PLAN.md` 的 XDK-W1 → W7 顺序推进。
 
-1. 每个 T0 包的真实源码位置和依赖。
-2. 每个包的最小可运行场景和负例。
-3. `m10_parity.sh` 的包→场景映射。
-4. 缺源码/缺运行时能力的明确阻塞列表。
-
-P0 产出后，按 `PLAN.md` 的 P1–P8 顺序推进。
+不要先做编译器功能；只有当 XDK 场景明确指出需要时，才进入
+`src/mini/PLAN.md` 的编译器支持队列。
 
 ## 重启命令
 

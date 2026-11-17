@@ -204,7 +204,7 @@ Modify `src/`; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it t
 
 `src/` is the development tree; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it to `xdk/lib/xdk/`.
 
-The CLI entry point and the `mini` / `legacy` / `auto` engines are described in Quick start. The mini compiler milestones are in `src/mini/MILESTONES.md` and `src/mini/PLAN.md`.
+The CLI entry point and the `mini` / `legacy` / `auto` engines are described in Quick start. The active XDK-first plan is in `src/xdk/PLAN.md`; the compiler support queue is in `src/mini/PLAN.md`, and the completed milestone record is in `src/mini/MILESTONES.md`.
 
 ### Install XDK
 
