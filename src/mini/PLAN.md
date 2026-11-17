@@ -189,7 +189,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 - M8.2：简单工程模式、资源表和 `check --json` 完成，按 `entryFile` 构建/运行；
   `src/mini/tests/project.sh`、`resources.sh` 与 `check.sh` 覆盖。
 - M9 前置：`List<T>`、String 子集和顶层字段已支持；mini1/mini2 固定点通过。
-- M9-PAR 正向场景差分已完成；下一里程碑是 M9-CUT，等待用户明确批准。
+- M9-PAR 正向场景差分和 M9-CUT 已完成；下一阶段是完整 T0 XDK 与语言边界收口。
 
 ## 6. 能力覆盖表
 
@@ -291,7 +291,7 @@ C 代码输出必须能被现有 `src/runtime/` 编译链接；诊断格式与�
 | M9-S1 | mini 编译 mini（第一代） | D：M9-C1/C2 可用；U：用户明确启动 | M9-C1/C2 | mini1 产物可运行全部回归 | 完成（self-host 构建；21 回归通过） |
 | M9-S2 | 固定点：mini1 编译 mini2 | D：M9-S1；R：mini1 回归 | M9-S1 | mini1/mini2 行为一致 | 完成（selfhost.sh：mini1/mini2 生成的 main.x C 完全一致） |
 | M9-PAR | 新旧引擎覆盖差分 | D：M9-S2；S：全量场景 | M9-S2 | 全场景 stdout/stderr/退出码差分 | 完成（m9_parity.sh：47 个正向文件/工程场景，base/full Sys，diff=0；编译负例由 M8-P5 覆盖） |
-| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 完成（用户已批准；默认 mini，legacy 保留为显式 oracle） |
+| M9-CUT | 默认切换/旧引擎退居 oracle | G：M9-PAR 全绿 + 用户批准 | M9-PAR | 默认命令全绿；旧引擎仅 oracle | 完成（mini 0.2.0，2026-11-18；默认 mini，legacy 保留为显式 oracle） |
 | LANG-1 | Float/Double 字面量、nullable、大整数 | S：场景使用；D：M2/M3 | M2/M3 | 对应场景 | 未做 |
 | LANG-2 | 空容器/类型推断/对象容器 | S：场景使用；D：M6.2 | M6.2 | 对应场景 | 未做 |
 | CACHE-1 | AST + C 结果缓存 | P：冷构建 >10 分钟或重复构建 | — | warm build <30 秒 | 完成（约 5 秒） |

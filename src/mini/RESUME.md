@@ -8,8 +8,9 @@
 分支:          dev
 HEAD:          以 `git rev-parse dev` 为准
 远端 dev:      与本地 dev 同步
-main:          1a0a5041（稳定基线，暂不接收日常改动）
+main:          以 `git rev-parse main` 为准
 reset/minimal: 1a0a5041
+Mini 版本:     0.2.0（M9-CUT，2026-11-18）
 ```
 
 当前工作区应当干净。最近提交：
@@ -55,7 +56,8 @@ M9-PAR（2026-11-18）：`src/mini/tests/m9_parity.sh` 的 47 个正向场景全
 `text/full`/Regex/UTF、math/time、`io/base` 与 `io/system` 两种 Sys、工程
 resources 和 IDE workspace。编译诊断和 `xfb_error` 不作为该脚本的差分输入。
 M9-CUT 已执行（用户批准）：默认命令使用 `mini`，`legacy` 保留为
-`--engine=legacy` 可选的 oracle 引擎，不删除。
+`--engine=legacy` 可选的 oracle 引擎，不删除。里程碑 `mini 0.2.0` 的验收标准、实测和曲线图见
+`src/mini/MILESTONES.md`。
 
 ## 重启恢复命令
 

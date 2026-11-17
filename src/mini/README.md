@@ -15,6 +15,13 @@
 - 资源表、项目 `.xfb` 无参标量、`check --json`、简单工程模式已接通。
 - M9-PAR 正向场景差分已完成（47 个文件/工程场景，stdout/stderr/退出码全绿）；M9-CUT 已切换默认命令到 mini，legacy 保留为 `--engine=legacy` oracle；完整 T0 XDK 仍需 package/Resource/Context 面。
 
+## 里程碑
+
+- **2026-11-18 · `mini 0.2.0` / M9-CUT**：第一个完整跑通
+  「语言源码 → mini 编译器 → C → 可执行程序」的 mini；自举固定点通过，
+  默认引擎切换到 mini，legacy 保留为 oracle。验收记录和曲线图见
+  [`MILESTONES.md`](MILESTONES.md)。
+
 ## 回归
 
 ```sh
