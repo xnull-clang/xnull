@@ -130,7 +130,7 @@ def ast_of(xparser, root, path):
     for _ in range(3):
         try:
             p = subprocess.run([xparser, "--file", path], cwd=root,
-                               capture_output=True, text=True, timeout=60)
+                               capture_output=True, text=True, timeout=1800)
         except subprocess.TimeoutExpired:
             last_error = "xparser 超过 60 秒"
             continue
