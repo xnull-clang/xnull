@@ -407,6 +407,11 @@ static List<String> TASK_TYPES = []
 static List<String> TASK_TEXTS = []
 static Bool LOCK_BODY = false
 static List<N> LAM_NODES = []
+static List<String> LAM_CAP_NAMES = []
+static List<String> LAM_CAP_TYPES = []
+static List<String> LAM_CAP_SCANNED = []
+static Int LAM_CUR = 0
+static String LAM_SELF = ""
 static String sp(Int n) {
     String b = ""
     Int i = 0
@@ -1432,6 +1437,17 @@ static String exprType(N x, SC sc) {
     }
     if x.nm == "IdentExpr" {
         String idn0 = unq(txt(fld(x, "Name")))
+        if LAM_CUR > 0 {
+            List<String> cn0 = splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1))
+            Int cni0 = 0
+            while cni0 < cn0.length() {
+                if cn0.get(cni0) == idn0 {
+                    List<String> ct0 = splitPipes(LAM_CAP_TYPES.get(LAM_CUR - 1))
+                    if cni0 < ct0.length() { return ct0.get(cni0) }
+                }
+                cni0 = cni0 + 1
+            }
+        }
         if inNames(sc.params, idn0) || inNames(sc.names, idn0) { return sc.typeOf(idn0) }
         if sc.curClass != "" {
             String fo0 = fieldOwner(sc.curClass, idn0)
@@ -1783,6 +1799,9 @@ static Int lambdaId(N x) {
     }
     LAM_KEYS.push(k)
     LAM_NODES.push(x)
+    LAM_CAP_NAMES.push("")
+    LAM_CAP_TYPES.push("")
+    LAM_CAP_SCANNED.push("0")
     return LAM_KEYS.length()
 }
 static String lambdaParamDecl(N x) {
@@ -1804,21 +1823,141 @@ static SC lambdaScope(N x) {
     while i < ps.el.length() { N p = ps.el.get(i); ls.def(unq(txt(fld(p, "Name"))), typeKey(fld(p, "Type"))); i = i + 1 }
     return ls
 }
-static String lambdaRetC(N x) {
-    N eb = fld(x, "ExprB")
-    if eb.nm == "" || eb.nm == "nil" { return "void" }
-    return cType(exprType(eb, lambdaScope(x)))
+static List<String> splitPipes(String s) {
+    List<String> r = []
+    if s == "" { return r }
+    return s.split("|")
 }
+static String joinPipes(List<String> xs) {
+    String s = ""
+    Int i = 0
+    while i < xs.length() { if i > 0 { s = s + "|" }; s = s + xs.get(i); i = i + 1 }
+    return s
+}
+static Bool lambdaParamNamed(N x, String nm) {
+    N ps = fld(x, "Params")
+    Int i = 0
+    while i < ps.el.length() {
+        if unq(txt(fld(ps.el.get(i), "Name"))) == nm { return true }
+        i = i + 1
+    }
+    return false
+}
+static Void collectLambdaRefs(N n, List<String> out) {
+    if n.nm == "IdentExpr" {
+        String nm = unq(txt(fld(n, "Name")))
+        if nm != "" && nm != "self" && !inNames(out, nm) { out.push(nm) }
+    }
+    Int i = 0
+    while i < n.el.length() { collectLambdaRefs(n.el.get(i), out); i = i + 1 }
+    i = 0
+    while i < n.fv.length() { collectLambdaRefs(n.fv.get(i), out); i = i + 1 }
+}
+static String capName(Int id, String n) { return "xn_cap_" + str(id) + "_" + n }
+static Void captureLambda(N x, Int id, SC sc, EM e) {
+    if id <= 0 || id > LAM_CAP_SCANNED.length() || LAM_CAP_SCANNED.get(id - 1) == "1" { return }
+    LAM_CAP_SCANNED.set(id - 1, "1")
+    List<String> refs = []
+    collectLambdaRefs(x, refs)
+    List<String> names = []
+    List<String> types = []
+    Int i = 0
+    while i < sc.params.length() {
+        String nm = sc.params.get(i)
+        if !lambdaParamNamed(x, nm) && inNames(refs, nm) && !inNames(names, nm) {
+            names.push(nm)
+            types.push(sc.typeOf(nm))
+            if nm != LAM_SELF {
+                e.add(capName(id, nm) + " = " + sc.nameOf(nm) + ";")
+            }
+        }
+        i = i + 1
+    }
+    i = 0
+    while i < sc.names.length() {
+        String nm = sc.names.get(i)
+        if !lambdaParamNamed(x, nm) && inNames(refs, nm) && !inNames(names, nm) {
+            names.push(nm)
+            types.push(sc.typeOf(nm))
+            if nm != LAM_SELF {
+                e.add(capName(id, nm) + " = " + nm + ";")
+            }
+        }
+        i = i + 1
+    }
+    if sc.curClass != "" {
+        i = 0
+        while i < refs.length() {
+            String nm = refs.get(i)
+            if !inNames(names, nm) && fieldOwner(sc.curClass, nm) != "" {
+                names.push(nm)
+                types.push(fieldType(fieldOwner(sc.curClass, nm), nm))
+                e.add(capName(id, nm) + " = " + sc.selfName + "->" + nm + ";")
+            }
+            i = i + 1
+        }
+    }
+    LAM_CAP_NAMES.set(id - 1, joinPipes(names))
+    LAM_CAP_TYPES.set(id - 1, joinPipes(types))
+}
+static N lambdaReturnNode(N n) {
+    if n.nm == "" || n.nm == "nil" { return n }
+    Int i = 0
+    while i < n.el.length() {
+        N r = lambdaReturnNode(n.el.get(i))
+        if r.nm == "ReturnStmt" { return r }
+        i = i + 1
+    }
+    i = 0
+    while i < n.fv.length() {
+        N r = lambdaReturnNode(n.fv.get(i))
+        if r.nm == "ReturnStmt" { return r }
+        i = i + 1
+    }
+    return n
+}
+static String lambdaRetKey(N x) {
+    N eb = fld(x, "ExprB")
+    if eb.nm != "" && eb.nm != "nil" {
+        return exprType(eb, lambdaScope(x))
+    }
+    N blk = fld(x, "Block")
+    if blk.nm == "Block" {
+        N r = lambdaReturnNode(blk)
+        if r.nm == "ReturnStmt" {
+            N v = fld(r, "Value")
+            if v.nm != "" && v.nm != "nil" { return exprType(v, lambdaScope(x)) }
+        }
+    }
+    return "Int"
+}
+static String lambdaRetC(N x) { return cType(lambdaRetKey(x)) }
 static String lambdaDefText(N x, Int id) {
     EM le = new EM()
     le.ind = 4
     SC ls = lambdaScope(x)
+    ls.retKind = lambdaRetKey(x)
+    Int oldCur = LAM_CUR
+    LAM_CUR = id
+    List<String> caps = splitPipes(LAM_CAP_NAMES.get(id - 1))
+    List<String> capTs = splitPipes(LAM_CAP_TYPES.get(id - 1))
+    Int ci = 0
+    while ci < caps.length() {
+        String ct = "Int"
+        if ci < capTs.length() { ct = capTs.get(ci) }
+        ls.def(caps.get(ci), ct)
+        ci = ci + 1
+    }
     N eb = fld(x, "ExprB")
+    N blk = fld(x, "Block")
     if eb.nm != "" && eb.nm != "nil" {
         le.add("(void)0;")
         String bv = expr(eb, le, ls)
         le.add("return " + bv + ";")
+    } else if blk.nm == "Block" {
+        emitBlock(blk, le, ls, 4, false)
     }
+    LAM_CUR = oldCur
     return "static " + lambdaRetC(x) + " xn_fn_lit_" + str(id) + "(" + lambdaParamDecl(x) + ") {\n" + joinLines(le.ls) + "\n}\n\n\n"
 }
 static String syncBox(String elem, String v) {
@@ -1972,6 +2111,15 @@ static String lambdaProtos() {
     Int i = 0
     while i < LAM_NODES.length() {
         N x = LAM_NODES.get(i)
+        List<String> cn = splitPipes(LAM_CAP_NAMES.get(i))
+        List<String> ct = splitPipes(LAM_CAP_TYPES.get(i))
+        Int ci = 0
+        while ci < cn.length() {
+            String cty = "int64_t"
+            if ci < ct.length() { cty = cType(ct.get(ci)) }
+            b = b + "static " + cty + " " + capName(i + 1, cn.get(ci)) + ";\n"
+            ci = ci + 1
+        }
         b = b + "static " + lambdaRetC(x) + " xn_fn_lit_" + str(i + 1) + "(" + lambdaParamDecl(x) + ");\n"
         i = i + 1
     }
@@ -2002,7 +2150,11 @@ static String lambdaDefs() {
 }
 
 static String expr(N x, EM e, SC sc) {
-    if x.nm == "Lambda" { return "xn_fn_lit_" + str(lambdaId(x)) }
+    if x.nm == "Lambda" {
+        Int lid = lambdaId(x)
+        captureLambda(x, lid, sc, e)
+        return "xn_fn_lit_" + str(lid)
+    }
     if x.nm == "IntLitExpr" {
         String it = unq(txt(fld(x, "Text")))
         if it.indexOf("0x") == 0 || it.indexOf("0X") == 0 {
@@ -2059,6 +2211,7 @@ static String expr(N x, EM e, SC sc) {
     if x.nm == "IdentExpr" {
         String idn = unq(txt(fld(x, "Name")))
         if idn == "self" { if sc.selfName != "" { return sc.selfName }; return "self" }
+        if LAM_CUR > 0 && inNames(splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1)), idn) { return capName(LAM_CUR, idn) }
         if inNames(sc.params, idn) { return "xn_p_" + idn }
         if inNames(sc.names, idn) { return idn }
         if sc.curClass != "" && (isClass(sc.curClass) || isStruct(sc.curClass)) {
@@ -2666,6 +2819,9 @@ static String expr(N x, EM e, SC sc) {
         N args = fld(x, "Args")
         if cl.nm == "IdentExpr" {
             String cn = unq(txt(fld(cl, "Name")))
+            Bool localFn = (inNames(sc.params, cn) || inNames(sc.names, cn)) && cType(sc.typeOf(cn)).indexOf("xn_fn_") == 0
+            Bool capFn = LAM_CUR > 0 && inNames(splitPipes(LAM_CAP_NAMES.get(LAM_CUR - 1)), cn)
+            if localFn || capFn { cal = expr(cl, e, sc) }
             if isFFI(cn) { return ffiCallExpr(cn, x, e, sc) }
             N sta = fld(x, "TypeArgs")
             N saa = fld(x, "Args")
@@ -2716,7 +2872,7 @@ static String expr(N x, EM e, SC sc) {
                 }
                 return bb + ")"
             }
-            if cn != "str" && cn != "print" && cn != "Ok" && cn != "Err" { cal = "xn_" + cn }
+            if cn != "str" && cn != "print" && cn != "Ok" && cn != "Err" && !localFn { cal = "xn_" + cn }
         }
         String b = cal + "("
         String can0 = ""
@@ -3636,9 +3792,18 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
         }
         Bool now0 = NO_OP_WRAP
         if init.nm == "Binary" && (unq(txt(fld(init, "Op"))) == "&&" || unq(txt(fld(init, "Op"))) == "||") { NO_OP_WRAP = true }
+        String oldSelf = LAM_SELF
+        if init.nm == "Lambda" { LAM_SELF = nm }
         String genv = expr(init, e, sc)
+        LAM_SELF = oldSelf
         NO_OP_WRAP = now0
         e.add(cType(ty) + " " + nm + " = " + genv + ";")
+        if init.nm == "Lambda" {
+            Int lid = lambdaId(init)
+            if lid > 0 && lid <= LAM_CAP_NAMES.length() && inNames(splitPipes(LAM_CAP_NAMES.get(lid - 1)), nm) {
+                e.add(capName(lid, nm) + " = " + nm + ";")
+            }
+        }
         finishLocalRoot(sc, e, nm, ty)
         return
     }
@@ -4277,6 +4442,27 @@ static void emitStmtInner(N st, EM e, SC sc, Bool early) {
     }
     if st.nm == "ForStmt" {
         String vname = unq(txt(fld(st, "Var")))
+        N srcN = fld(st, "Src")
+        if srcN.nm == "Binary" {
+            String rop = unq(txt(fld(srcN, "Op")))
+            if rop == "..<" || rop == "..." {
+                String lo = expr(fld(srcN, "L"), e, sc)
+                String hi = expr(fld(srcN, "R"), e, sc)
+                String loop = e.nt()
+                String cmp = " < "
+                if rop == "..." { cmp = " <= " }
+                e.addAt(e.ind, "for (int64_t " + loop + " = " + lo + "; " + loop + cmp + hi + "; " + loop + "++) {")
+                e.addAt(e.ind + 4, "int64_t " + vname + " = " + loop + ";")
+                SC bodyScR = newChild(sc, e)
+                bodyScR.kind = "loop"
+                bodyScR.def(vname, "Int")
+                e.terminated = false
+                emitBlock(fld(st, "Body"), e, bodyScR, e.ind + 4, true)
+                e.addAt(e.ind + 4, "xn_gc_safepoint();")
+                e.addAt(e.ind, "}")
+                return
+            }
+        }
         String cty0 = exprType(fld(st, "Src"), sc)
         String ev0 = "int64_t"
         String ekey0 = "Int"
@@ -7195,6 +7381,10 @@ static String emitUnit(N unit, String path) {
     }
     LAM_KEYS = []
     LAM_NODES = []
+    LAM_CAP_NAMES = []
+    LAM_CAP_TYPES = []
+    LAM_CAP_SCANNED = []
+    LAM_CUR = 0
     PREPASS = true
     stage("scan-cls")
     i = 0
@@ -7722,7 +7912,11 @@ static String emitUnit(N unit, String path) {
         if gmp >= 0 { res = res.substring(0, gmp) + globDeclsText() + res.substring(gmp, res.length() - gmp) }
     }
     e.add("}")
-    res = res + lambdaProtos()
+    String lp = lambdaProtos()
+    if lp != "" {
+        Int lpPos = res.indexOf("static ")
+        if lpPos < 0 { res = res + lp } else { res = res.substring(0, lpPos) + lp + res.substring(lpPos, res.length() - lpPos) }
+    }
     Int j = 0
     List<String> tail = []
     while j < e.ls.length() {
