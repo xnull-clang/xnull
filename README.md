@@ -146,13 +146,26 @@ The CLI supports three engines:
 ./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy` — the current native C toolchain (default).
-- `mini` — the new minimal compiler; it can already compile itself and has passed the mini1/mini2 fixed-point check.
+- `mini` — the new minimal compiler and the default engine since `mini 0.2.0` / M9-CUT. It can compile itself and has passed the mini1/mini2 fixed-point check.
+- `legacy` — the frozen native C toolchain and oracle; retained and explicitly selectable.
 - `auto` — prefers `mini` when it explicitly supports the program, otherwise falls back to `legacy`.
 
-The default remains `legacy` until the full M9 differential suite and default-switch approval are complete. See `src/mini/PLAN.md` for the current self-host status.
+The default switched to `mini` on 2026-11-18 after M9-PAR passed and M9-CUT was approved. `legacy` remains available via `--engine=legacy` or `XNULL_ENGINE=legacy`.
 
 No Go is required for the bootstrap path. `src/bootstrap/build.sh` builds the native parser and compiler with a C compiler.
+
+## Mini 0.2.0 milestone
+
+The first complete **language source → mini compiler → C → executable** milestone is
+recorded in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md). The acceptance curve
+and C-emission performance curve are in:
+
+[`docs/assets/mini-m9cut-20261118.svg`](docs/assets/mini-m9cut-20261118.svg)
+
+![Mini 0.2.0 milestone curve](docs/assets/mini-m9cut-20261118.svg)
+
+The recorded signature `2611180201` is stored verbatim in
+[`src/mini/GENESIS`](src/mini/GENESIS); it is not read by the build or runtime.
 
 ## Repository layout
 
@@ -189,7 +202,7 @@ Modify `src/`; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it t
 
 `src/` is the development tree; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it to `xdk/lib/xdk/`.
 
-The CLI entry point and the `legacy` / `mini` / `auto` engines are described in Quick start. The mini compiler milestones are in `src/mini/PLAN.md`.
+The CLI entry point and the `mini` / `legacy` / `auto` engines are described in Quick start. The mini compiler milestones are in `src/mini/MILESTONES.md` and `src/mini/PLAN.md`.
 
 ### Install XDK
 
