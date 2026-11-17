@@ -1850,8 +1850,6 @@ static Void collectLambdaRefs(N n, List<String> out) {
     }
     Int i = 0
     while i < n.el.length() { collectLambdaRefs(n.el.get(i), out); i = i + 1 }
-    i = 0
-    while i < n.fv.length() { collectLambdaRefs(n.fv.get(i), out); i = i + 1 }
 }
 static String capName(Int id, String n) { return "xn_cap_" + str(id) + "_" + n }
 static Void captureLambda(N x, Int id, SC sc, EM e) {
@@ -1905,12 +1903,6 @@ static N lambdaReturnNode(N n) {
     Int i = 0
     while i < n.el.length() {
         N r = lambdaReturnNode(n.el.get(i))
-        if r.nm == "ReturnStmt" { return r }
-        i = i + 1
-    }
-    i = 0
-    while i < n.fv.length() {
-        N r = lambdaReturnNode(n.fv.get(i))
         if r.nm == "ReturnStmt" { return r }
         i = i + 1
     }
