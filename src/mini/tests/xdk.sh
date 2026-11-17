@@ -40,7 +40,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_text_full.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '007\n7..\ncba\ntrue\ntrue\ntrue\nAbc\nabcd...\n3\n233\ntrue\n!b x !b\ntrue\n1\n' > "$TMP.exp"
+printf '007\n7..\ncba\ntrue\ntrue\ntrue\nAbc\nabcd...\n3\n233\n0007\n..x\ntrue\n!b x !b\ntrue\n1\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_math.x" > "$TMP" 2>"$TMP.err" || {

@@ -12,6 +12,9 @@ static Int main() {
     print(levenshtein("kitten", "sitting"))
     print(codePointAt("éA", 0))
 
+    print(formatInt(7).width(4).pad('0').build())
+    print(formatString("x").width(3).pad('.').build())
+
     Result<Regex, Error> r = regexCompile("a+b")
     Regex re = r.value()
     print(re.isMatch("xxaabyy"))

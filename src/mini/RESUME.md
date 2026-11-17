@@ -275,7 +275,7 @@ Mini 1.0 / M9-MIN 已完成，M8-P4/P5 已完成。M9-FULL 严格按以下顺序
 2. **M9-C2/C3 余量**：`endsWith`/`charAt`/`indexOfByte`、String 边界；泛型实参数目、嵌套泛型不匹配、未知类型实参负例已完成。
 3. **M7-F3**：`io/system/Sys.x` 的 File/Dir/Process raw FFI 已可通过 `--xdk-full` 编译和运行（`m7_sys.sh`）；Resource.x/Context 子单元仍未接入。
 4. **M7-F1**：通用 `.xfb` 参数/返回值、String/Bytes 借出、errorCode 出参已由 `xfb_error.sh` 覆盖；Result/companion 待继续。
-5. **M7-F2/F4**：`text/full` 已覆盖 pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex/UTF-16 基础场景；`xdk.math` 和 `xdk.time` 已接入（sqrt/abs/clamp/NaN、Duration/DateTime/now）。其余 T0 包仍按 import 场景推进。
+5. **M7-F2/F4**：`text/full` 已覆盖 pad/reverse/isEmpty/isBlank/equalsIgnoreCase/capitalize/truncate/levenshtein/codePointAt/Regex/UTF-16/Format/Char 格式化；`xdk.math` 和 `xdk.time` 已接入（sqrt/abs/clamp/NaN、Duration/DateTime/now）。其余 T0 包仍按 import 场景推进。
 6. **M9-PAR**：全量 stdout/stderr/退出码差分。
 7. **M9-CUT**：仅 M9-PAR 全绿且用户批准后切换默认引擎。
 
