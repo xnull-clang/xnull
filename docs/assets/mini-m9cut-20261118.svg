@@ -45,13 +45,13 @@
 <line class="axis" x1="140" y1="200" x2="140" y2="590"/>
 <line class="axis" x1="140" y1="590" x2="1310" y2="590"/>
 <line class="grid" x1="140.0" y1="200" x2="140.0" y2="590"/>
-<text class="xlabel" x="140.0" y="617" text-anchor="middle">0M</text>
+<text class="xlabel" x="140.0" y="617" text-anchor="middle">25M</text>
 <line class="grid" x1="307.1" y1="200" x2="307.1" y2="590"/>
-<text class="xlabel" x="307.1" y="617" text-anchor="middle">0M</text>
+<text class="xlabel" x="307.1" y="617" text-anchor="middle">50M</text>
 <line class="grid" x1="641.4" y1="200" x2="641.4" y2="590"/>
-<text class="xlabel" x="641.4" y="617" text-anchor="middle">0M</text>
+<text class="xlabel" x="641.4" y="617" text-anchor="middle">100M</text>
 <line class="grid" x1="1310.0" y1="200" x2="1310.0" y2="590"/>
-<text class="xlabel" x="1310.0" y="617" text-anchor="middle">0M</text>
+<text class="xlabel" x="1310.0" y="617" text-anchor="middle">200M</text>
 <polyline class="mini" points="140.0,543.2 307.1,498.7 641.4,410.4 1310.0,232.9"/>
 <polyline class="legacy" points="140.0,543.2 307.1,497.4 641.4,410.5 1310.0,233.2"/>
 <circle cx="140.0" cy="543.2" r="6" fill="#ffffff" stroke="#2563eb" stroke-width="2.5"/>
@@ -68,14 +68,10 @@
 <text class="small" x="202" y="220">mini</text>
 <line class="legacy" x1="275" y1="216" x2="309" y2="216"/>
 <text class="small" x="317" y="220">legacy</text>
-<text class="small" x="84" y="615">At 200M: mini/legacy ratio = 1.001x; both outputs identical (236899843).</text>
+<text class="small" x="84" y="646">At 200M: mini/legacy ratio = 1.001x; both outputs identical (236899843).</text>
 <rect class="panel" x="60" y="660" width="1280" height="85" rx="14"/>
-<text class="thead" x="84" y="691">iterations</text>
-<text class="thead" x="310" y="691">mini (s)</text>
-<text class="thead" x="560" y="691">legacy (s)</text>
-<text class="thead" x="840" y="691">mini / legacy</text>
-<text class="thead" x="1090" y="691">binary size</text>
-<text class="table" x="84" y="718">0M: 0.096 / 0.096   ·   0M: 0.187 / 0.190   ·   0M: 0.368 / 0.368   ·   0M: 0.733 / 0.732</text>
-<text class="table" x="84" y="739">ratio 200M = 1.001x   ·   both binaries 96,120 bytes   ·   output 236899843</text>
+<text class="thead" x="84" y="691">iterations: 25M · 50M · 100M · 200M</text>
+<text class="table" x="84" y="717">mini / legacy seconds: 0.096 / 0.096 · 0.187 / 0.190 · 0.368 / 0.368 · 0.733 / 0.732</text>
+<text class="table" x="84" y="739">200M ratio 1.001x · both binaries 96,120 bytes · output 236899843</text>
 <text class="small" x="60" y="795">This is a microbenchmark, not a general performance promise. Command: mini/legacy build of the same LCG loop with cc -O2; first run discarded, median of five warm runs.</text>
 </svg>
