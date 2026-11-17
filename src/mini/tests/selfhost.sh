@@ -11,7 +11,5 @@ cc -std=c11 -O2 -pthread -I "$ROOT/src/runtime" -I "$HERE/../support" \
 cmp "$D/a.c" "$D/b.c"
 cc -std=c11 -O2 -pthread -I "$ROOT/src/runtime" -I "$HERE/../support" \
   -o "$D/mini2" "$D/b.c" "$HERE/../support/io.c" "$ROOT/src/runtime/libxnrt.a" -lz 2>"$D/cc2.err"
-version=$("$D/mini2" --version)
-printf '%s\n' "$version" | grep -qx 'mini 0.2.0'
-printf '%s\n' "$version" | grep -qx 'genesis: 2611180201'
+[ "$("$D/mini2" --version)" = "mini 0.2.0" ]
 echo "mini selfhost: PASS"

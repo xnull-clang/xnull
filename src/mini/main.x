@@ -1,8 +1,6 @@
 // XNull mini compiler —— M1 loader + lexer
 package mini
 
-String MINI_GENESIS = "2611180201"
-
 List<String> loadedFiles = []
 String loadBaseDir = ""
 String loadRoot = ""
@@ -7074,7 +7072,6 @@ class CGen {
             self.collectLambdas(self.program.kids.get(lci), "")
             lci = lci + 1
         }
-        self.emit("/* XNull mini genesis signature: " + MINI_GENESIS + " */")
         self.emit("#include \"rt.h\"")
         self.emit("#include \"rt_gc.h\"")
         self.emit("#include \"xrt.h\"")
@@ -8004,7 +8001,6 @@ static Int main(String[] args) {
     xdkFullSource = hasArg(args, "--xdk-full")
     if cmd == "--version" {
         print("mini 0.2.0")
-        print("genesis: " + MINI_GENESIS)
         return 0
     }
     if cmd == "--supports" {

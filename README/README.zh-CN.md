@@ -165,7 +165,8 @@ CLI 支持三个引擎：
 ![Mini 0.2.0 里程碑曲线](../docs/assets/mini-m9cut-20261118.svg)
 
 签名值 `2611180201` 逐字保存在 [`src/mini/GENESIS`](../src/mini/GENESIS)，
-并作为非语义注释嵌入 mini 生成的 C 文件。
+并以静态常量 `xn_mini_genesis` 存在于 `src/runtime/rt.c` 的运行时镜像中；它不被
+任何逻辑读取，只作为永久标记占用极小的只读内存。
 
 ## 仓库结构
 

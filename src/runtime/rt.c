@@ -14,6 +14,16 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Permanent genesis marker. This is deliberately never read by runtime logic;
+ * it only keeps the signature in the runtime image. */
+#if defined(__GNUC__) || defined(__clang__)
+#define XN_GENESIS_KEEP __attribute__((used))
+#else
+#define XN_GENESIS_KEEP
+#endif
+static const char xn_mini_genesis[] XN_GENESIS_KEEP = "2611180201";
+#undef XN_GENESIS_KEEP
+
 /* ---- 分配/GC 统计（S3 §21/§23） ---- */
 
 static rt_stats g_stats;
