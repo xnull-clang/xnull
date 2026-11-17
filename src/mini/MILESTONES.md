@@ -8,6 +8,14 @@
 mini；同时完成 mini 自举固定点，并把默认引擎切换为 mini。legacy 保留为显式
 可选引擎和 oracle。
 
+### Genesis signature
+
+`2611180201` 的原始值逐字保存在 `src/mini/GENESIS`，不经过转换、不作为版本号、
+不参与构建/编译/运行/CLI/测试判定。它是这个起点的永久签名：后续功能可以继续
+扩展，但不得把这个值重新解释为开关、兼容面或行为参数。
+
+`src/mini/GENESIS` 的 SHA-256：`66f30985d4d28f97090956c2b339e8c243188a73ae018abfb3899c484003b8e6`。
+
 ![Mini 0.2.0 milestone curve](../../docs/assets/mini-m9cut-20261118.svg)
 
 ### 验收范围
