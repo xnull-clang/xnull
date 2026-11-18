@@ -61,7 +61,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.fs` | minimal text exists/read/write added over base Sys; path/atomic-write/full File/Dir pending | path/atomic-write scenario |
 | `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
 | `xdk.tasks` | empty skeleton | TaskGroup/Context scenario |
-| `xdk.sync` | AtomicInt/AtomicBool load/store/cas and AtomicRef load/store added; Mutex/Channel pending | Mutex/Channel scenario |
+| `xdk.sync` | AtomicInt/Bool load/store/cas, AtomicRef, Channel<Int> mini path added; legacy Channel Result gap; Mutex/tasks pending | Mutex/tasks scenario |
 | `xdk.collections` | source exists; `[:]` + import now works; generic function types still block full source | Map/Set/List scenario; generic function values |
 | `xdk.log` | missing package source | Logger/Level/sink scenario |
 | `xdk.config` | missing package source | Config snapshot/env allowlist scenario |

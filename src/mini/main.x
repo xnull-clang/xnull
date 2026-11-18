@@ -2144,6 +2144,9 @@ class Checker {
         if ty == "AtomicRef" || ty.indexOf("AtomicRef<") == 0 {
             return true
         }
+        if ty == "Channel" || ty.indexOf("Channel<") == 0 {
+            return true
+        }
         if self.isFunctionType(ty) {
             return true
         }
@@ -3418,6 +3421,13 @@ class Checker {
             self.fail("SEM-001", "undefined method: AtomicRef." + mth, n)
             return "Error"
         }
+        if bt.indexOf("Channel<") == 0 {
+            if mth == "send" { return "Result<Int, CancelledError>" }
+            if mth == "receive" { return "Result<Int, CancelledError>" }
+            if mth == "close" { return "Unit" }
+            self.fail("SEM-001", "undefined method: Channel." + mth, n)
+            return "Error"
+        }
         if bt == "Bytes" {
             if mth == "length" || mth == "get" {
                 return "Int"
@@ -3606,6 +3616,14 @@ class Checker {
             }
             return "AtomicRef<" + inner + ">"
         }
+        if n.text == "Channel" {
+            if argc != 1 {
+                self.fail("SEM-004", "Channel expects 1 argument", n)
+                return "Error"
+            }
+            self.typeOf(n.kids.get(0))
+            return "Channel<Int>"
+        }
         if n.text == "diagnoseRaw" {
             if argc != 1 {
                 self.fail("SEM-004", "diagnoseRaw expects 1 argument", n)
@@ -3742,6 +3760,13 @@ class Checker {
                 }
                 if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 self.fail("SEM-001", "undefined method: AtomicRef." + mth, n)
+                return "Error"
+            }
+            if bt.indexOf("Channel<") == 0 {
+                if mth == "send" { return "Result<Int, CancelledError>" }
+                if mth == "receive" { return "Result<Int, CancelledError>" }
+                if mth == "close" { return "Unit" }
+                self.fail("SEM-001", "undefined method: Channel." + mth, n)
                 return "Error"
             }
             if bt == "Bytes" {
@@ -4153,6 +4178,9 @@ class CGen {
         }
         if ty == "AtomicRef" || ty.indexOf("AtomicRef<") == 0 {
             return "xrt_atomic_ref *"
+        }
+        if ty == "Channel" || ty.indexOf("Channel<") == 0 {
+            return "xrt_channel *"
         }
         if ty == "Bool" {
             return "int"
@@ -5339,6 +5367,11 @@ class CGen {
             if mth == "store" { return "Unit" }
             if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
+        if bt.indexOf("Channel<") == 0 {
+            if mth == "send" { return "Result<Int, CancelledError>" }
+            if mth == "receive" { return "Result<Int, CancelledError>" }
+            if mth == "close" { return "Unit" }
+        }
         if bt == "String" {
             if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                 return "Int"
@@ -5439,6 +5472,11 @@ class CGen {
             if mth == "cas" || mth == "compareExchange" {
                 return "((xrt_atomic_ref_cas(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "), (void *)(" + self.expr(n.kids.get(off + 1)) + ")) != 0) ? 1 : 0)"
             }
+        }
+        if bt.indexOf("Channel<") == 0 {
+            if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ")" }
+            if mth == "receive" { return "xn_channel_recv_int(" + bv + ")" }
+            if mth == "close" { return "xrt_channel_close(" + bv + ")" }
         }
         if bt == "Bytes" {
             if mth == "length" {
@@ -5815,6 +5853,11 @@ class CGen {
                     if mth == "store" { return "Unit" }
                     if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
+                if bt.indexOf("Channel<") == 0 {
+                    if mth == "send" { return "Result<Int, CancelledError>" }
+                    if mth == "receive" { return "Result<Int, CancelledError>" }
+                    if mth == "close" { return "Unit" }
+                }
                 if bt == "Bytes" {
                     if mth == "fromString" {
                         return "Bytes"
@@ -6115,6 +6158,11 @@ class CGen {
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
                 return "xdkc_atomic_ref_new((void *)(" + av + "))"
             }
+            if n.text == "Channel" {
+                String av = "1"
+                if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
+                return "xrt_channel_new((size_t)(" + av + "), NULL)"
+            }
             if n.text == "listFiles" {
                 String a = "rt_string_from_c(\"\")"
                 if n.kids.length() > 0 {
@@ -6281,6 +6329,11 @@ class CGen {
                     if mth == "cas" || mth == "compareExchange" {
                         return "((xrt_atomic_ref_cas(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "), (void *)(" + self.expr(n.kids.get(1)) + ")) != 0) ? 1 : 0)"
                     }
+                }
+                if bt.indexOf("Channel<") == 0 {
+                    if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ")" }
+                    if mth == "receive" { return "xn_channel_recv_int(" + bv + ")" }
+                    if mth == "close" { return "xrt_channel_close(" + bv + ")" }
                 }
                 if bt == "Bytes" {
                     if mth == "fromString" {
@@ -7368,6 +7421,8 @@ class CGen {
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
+        self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, NULL); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = NULL; return r; }")
+        self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, NULL); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = NULL; r.p = NULL; r.err = NULL; return r; }")
         self.emit("")
         self.emitFfiDecls()
         Int i = 0

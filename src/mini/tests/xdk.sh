@@ -122,6 +122,14 @@ diff -u "$TMP.exp" "$TMP.mini"
 diff -u "$TMP.exp" "$TMP.legacy"
 diff -u "$TMP.mini" "$TMP.legacy"
 
+# Channel currently runs on mini; the legacy oracle has a Result<void, ...>
+# codegen gap, so it is not part of the cross-engine comparison yet.
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_channel.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'true\n7\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
