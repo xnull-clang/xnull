@@ -2141,6 +2141,9 @@ class Checker {
         if ty == "AtomicInt" || ty == "AtomicBool" {
             return true
         }
+        if ty == "AtomicRef" || ty.indexOf("AtomicRef<") == 0 {
+            return true
+        }
         if self.isFunctionType(ty) {
             return true
         }
@@ -3405,6 +3408,16 @@ class Checker {
             self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
             return "Error"
         }
+        if bt.indexOf("AtomicRef<") == 0 {
+            if mth == "load" { return bt.substring(10, bt.length() - 11) }
+            if mth == "store" {
+                if argc != 1 { self.fail("SEM-004", "AtomicRef.store expects 1 argument", n) }
+                return "Unit"
+            }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
+            self.fail("SEM-001", "undefined method: AtomicRef." + mth, n)
+            return "Error"
+        }
         if bt == "Bytes" {
             if mth == "length" || mth == "get" {
                 return "Int"
@@ -3581,6 +3594,18 @@ class Checker {
             }
             return n.text
         }
+        if n.text == "AtomicRef" {
+            if argc > 1 {
+                self.fail("SEM-004", "AtomicRef expects 0 or 1 argument", n)
+                return "Error"
+            }
+            String inner = "String"
+            if argc == 1 {
+                inner = self.typeOf(n.kids.get(0))
+                if inner == "Error" { return "Error" }
+            }
+            return "AtomicRef<" + inner + ">"
+        }
         if n.text == "diagnoseRaw" {
             if argc != 1 {
                 self.fail("SEM-004", "diagnoseRaw expects 1 argument", n)
@@ -3707,6 +3732,16 @@ class Checker {
                 }
                 if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
+                return "Error"
+            }
+            if bt.indexOf("AtomicRef<") == 0 {
+                if mth == "load" { return bt.substring(10, bt.length() - 11) }
+                if mth == "store" {
+                    if argc != 1 { self.fail("SEM-004", "AtomicRef.store expects 1 argument", n) }
+                    return "Unit"
+                }
+                if mth == "cas" || mth == "compareExchange" { return "Bool" }
+                self.fail("SEM-001", "undefined method: AtomicRef." + mth, n)
                 return "Error"
             }
             if bt == "Bytes" {
@@ -4115,6 +4150,9 @@ class CGen {
         }
         if ty == "AtomicBool" {
             return "xrt_atomic_bool *"
+        }
+        if ty == "AtomicRef" || ty.indexOf("AtomicRef<") == 0 {
+            return "xrt_atomic_ref *"
         }
         if ty == "Bool" {
             return "int"
@@ -5296,6 +5334,11 @@ class CGen {
             if mth == "store" { return "Unit" }
             if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
+        if bt.indexOf("AtomicRef<") == 0 {
+            if mth == "load" { return bt.substring(10, bt.length() - 11) }
+            if mth == "store" { return "Unit" }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
+        }
         if bt == "String" {
             if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                 return "Int"
@@ -5375,7 +5418,7 @@ class CGen {
             if mth == "store" {
                 return "xrt_atomic_int_store(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
             }
-            if mth == "cas" {
+            if mth == "cas" || mth == "compareExchange" {
                 return "((xrt_atomic_int_cas(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ") != 0) ? 1 : 0)"
             }
         }
@@ -5384,8 +5427,17 @@ class CGen {
             if mth == "store" {
                 return "xrt_atomic_bool_store(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
             }
-            if mth == "cas" {
+            if mth == "cas" || mth == "compareExchange" {
                 return "((xrt_atomic_bool_cas(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ") != 0) ? 1 : 0)"
+            }
+        }
+        if bt.indexOf("AtomicRef<") == 0 {
+            if mth == "load" { return "((rt_string *)xrt_atomic_ref_load(" + bv + "))" }
+            if mth == "store" {
+                return "xrt_atomic_ref_store(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "))"
+            }
+            if mth == "cas" || mth == "compareExchange" {
+                return "((xrt_atomic_ref_cas(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "), (void *)(" + self.expr(n.kids.get(off + 1)) + ")) != 0) ? 1 : 0)"
             }
         }
         if bt == "Bytes" {
@@ -5758,6 +5810,11 @@ class CGen {
                     if mth == "store" { return "Unit" }
                     if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
+                if bt.indexOf("AtomicRef<") == 0 {
+                    if mth == "load" { return bt.substring(10, bt.length() - 11) }
+                    if mth == "store" { return "Unit" }
+                    if mth == "cas" || mth == "compareExchange" { return "Bool" }
+                }
                 if bt == "Bytes" {
                     if mth == "fromString" {
                         return "Bytes"
@@ -6053,6 +6110,11 @@ class CGen {
                 if n.text == "AtomicInt" { return "xrt_atomic_int_new((int64_t)(" + av + "))" }
                 return "xrt_atomic_bool_new((int)(" + av + "))"
             }
+            if n.text == "AtomicRef" {
+                String av = "NULL"
+                if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
+                return "xdkc_atomic_ref_new((void *)(" + av + "))"
+            }
             if n.text == "listFiles" {
                 String a = "rt_string_from_c(\"\")"
                 if n.kids.length() > 0 {
@@ -6209,6 +6271,15 @@ class CGen {
                     }
                     if mth == "cas" || mth == "compareExchange" {
                         return "((xrt_atomic_bool_cas(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ") != 0) ? 1 : 0)"
+                    }
+                }
+                if bt.indexOf("AtomicRef<") == 0 {
+                    if mth == "load" { return "((rt_string *)xrt_atomic_ref_load(" + bv + "))" }
+                    if mth == "store" {
+                        return "xrt_atomic_ref_store(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "))"
+                    }
+                    if mth == "cas" || mth == "compareExchange" {
+                        return "((xrt_atomic_ref_cas(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "), (void *)(" + self.expr(n.kids.get(1)) + ")) != 0) ? 1 : 0)"
                     }
                 }
                 if bt == "Bytes" {

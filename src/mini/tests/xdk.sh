@@ -111,6 +111,17 @@ diff -u "$TMP.exp" "$TMP.mini"
 diff -u "$TMP.exp" "$TMP.legacy"
 diff -u "$TMP.mini" "$TMP.legacy"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sync_ref.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=legacy run "$HERE/xdk_sync_ref.x" > "$TMP.legacy" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'a\nb\nfalse\nb\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+diff -u "$TMP.exp" "$TMP.legacy"
+diff -u "$TMP.mini" "$TMP.legacy"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
