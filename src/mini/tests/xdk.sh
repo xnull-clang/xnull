@@ -78,6 +78,17 @@ diff -u "$TMP.exp" "$TMP.mini"
 diff -u "$TMP.exp" "$TMP.legacy"
 diff -u "$TMP.mini" "$TMP.legacy"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_bytes.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=legacy run "$HERE/xdk_bytes.x" > "$TMP.legacy" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '4142\n2\nAB\n6869\ntrue\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+diff -u "$TMP.exp" "$TMP.legacy"
+diff -u "$TMP.mini" "$TMP.legacy"
+
 diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
     echo "src/xdk and xdk/lib/xdk differ" >&2
     exit 1

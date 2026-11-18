@@ -24,6 +24,7 @@ from package_resolver import (PackageResolver, Resolution, ResolveError,
 # 有源码层实现的包 → legacy 主单元；同名包目录作为该单元的物理分片。
 UNITS = {
     "errors": "src/xdk/core/errors/Errors.x",
+    "bytes": "src/xdk/core/bytes/Bytes.x",
     "text": "src/xdk/text/full/Text.x",
     # Unset means legacy's historical full-Sys default; an explicit 0 selects
     # the lightweight io/base compatibility surface (used by the CLI and by

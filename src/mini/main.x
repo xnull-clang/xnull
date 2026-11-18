@@ -7815,6 +7815,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.collections" || pkg.startsWith("xdk.collections.") {
         return "core/collections/Collections.x"
     }
+    if pkg == "xdk.bytes" || pkg.startsWith("xdk.bytes.") {
+        return "core/bytes/Bytes.x"
+    }
     if pkg == "xdk.time" || pkg.startsWith("xdk.time.") {
         return "core/time/Time.x"
     }
