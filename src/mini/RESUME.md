@@ -24,6 +24,7 @@ Mini 版本:     0.2.0（M9-CUT）
 - XDK-W0：T0 包矩阵每行都有 owner 和场景名
 - XDK-W1：bytes / in-memory io / fs 文本面通过 `tests/xdk.sh`（mini + legacy）
 - XDK-W2：Mutex/tasks/Channel close/取消与超时，四个场景进入 `tests/xdk.sh`
+- XDK-W3：完整 Resource.x 装载；base/full 资源工程与取消路径通过 `tests/resources.sh`
 
 验收记录：
 
@@ -39,12 +40,12 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**XDK-W3：`Sys Resource.x` + `Context`。**
+**XDK-W4：`xdk.collections` 算法与泛型边界。**
 
-W2 已关闭：`tests/xdk_mutex.x` 走 mini + legacy 差分；
-`tests/xdk_tasks.x`、`tests/xdk_cancel.x`、`tests/xdk_channel.x` 在 mini
-通过，legacy 缺口记录在 `src/xdk/PLAN.md`。下一步按 W3 接入完整 Sys
-Resource/Context，并补 base/full 两种模式资源场景。
+W2/W3 已关闭：`tests/resources.sh` 覆盖 base、full（mini + legacy 差分）和
+取消上下文三种资源工程；`src/xdk/PLAN.md` 记录 legacy 无
+`Context.background` 的取消路径边界。下一步从 `tests/xdk_collections.x`
+和 `xdk.collections` 源码出发，补 Map/Set/List 算法与泛型函数值。
 
 不要先做编译器功能；只有当 XDK 场景明确指出需要时，才进入
 `src/mini/PLAN.md` 的编译器支持队列。
@@ -88,11 +89,12 @@ done
 - W1 已关闭：bytes、in-memory io、fs 文本面有 mini/legacy 差分证据。
 - W2 已关闭：`Mutex<T>`/`withLock` 有 mini + legacy 差分；tasks、取消/超时、
   Channel close 有 mini 场景。`xdk.tasks`、`xdk.sync` 不再是空骨架。
+- W3 已关闭：full Sys 装载完整 `Resource.x`；base/full 资源工程与取消路径
+  在 `tests/resources.sh` 通过。legacy 无 `Context.background`，取消路径仅 mini。
 - `xdk.sync` 的 Channel<Int> 仅 mini；legacy 有 `Result<void, ...>` codegen 缺口
   （`xn_Result_void_CancelledError` 未定义）。
 - tasks 的 legacy 缺口：生成的 `xn_task_body_*` 缺少适配器原型声明。
 - `xdk.collections` 仍受泛型函数类型参数阻塞；空 Map 字面量已通。
-- 完整 Sys 的 `Resource.x` / `Context` 尚未接入。
 - M7-F1 的 Result/companion 仍未完成。
 - 闭包环境回收/生命周期仍未完成。
 - legacy 对完整 `src/mini/main.x` 的 xparser 仍有超时边界；不影响默认 mini。

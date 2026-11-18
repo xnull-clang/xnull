@@ -59,7 +59,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.time` | base scenario verified (`tests/xdk_time.x`) | Instant/DateTime/timezone scenario |
 | `xdk.io` | in-memory Reader/Writer verified mini + legacy (`tests/xdk_io.x`); legacy `readBytes` return gap remains | file/network/terminal streams |
 | `xdk.fs` | text exists/read/write verified mini + legacy (`tests/xdk_fs.x`) | Path/atomic write/full File/Dir |
-| `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
+| `xdk.sys` | File/Dir/Process plus complete `Resource.x` (exists/size/read/text/list + Context cancellation) verified in base and full modes (`tests/resources*.sh`); remaining File/Dir edges pending | resource-context parity in `m10_parity`; dir/path edges |
 | `xdk.tasks` | Task/TaskGroup/Context spawn/join/close/cancel and join deadline verified mini only (`tests/xdk_tasks.x`, `tests/xdk_cancel.x`); legacy task adapter prototype gap | result propagation into group errors; legacy parity |
 | `xdk.sync` | AtomicInt/Bool load/store/cas and AtomicRef verified mini + legacy; Mutex<T> + withLock verified mini + legacy; Channel<Int> send/receive/close verified mini only | typed channel elements; Channel legacy parity |
 | `xdk.collections` | `import xdk.collections` + `[:]` verified mini + legacy (`tests/xdk_collections.x`); generic function types still block full source | Map/Set/List algorithms; generic function values |
@@ -126,11 +126,26 @@ Ordered slices; each slice is code + scenario + regression + commit:
   `xdk_mutex.x` is differential, `xdk_tasks.x`/`xdk_cancel.x`/
   `xdk_channel.x` are mini-only against recorded legacy gaps.
 
-### XDK-W3 — Sys resource and context
+### XDK-W3 — Sys resource and context — DONE (2026-11-19)
 
 - Load complete `Resource.x` and Context subunits with `xdk.sys`.
 - Resource exists/read/count + missing/context-cancel paths.
 - Exit: resource project and base/full parity tests.
+- **Done**: full Sys mode now loads `io/resource/Resource.x`; base mode keeps
+  the lightweight `resourceExists`/`readResourceText`/`resourceCount`
+  compatibility surface. `tests/resources.sh` covers the base project, the
+  complete full project (mini + legacy differential), and a mini-only
+  cancelled-context project.
+- Complete surface: `resourceExists`, `resourceSize` (`Int?`),
+  `readResource(Context, String)`, `readResourceText(Context, String)`,
+  `listResources(Context, String)`. Missing paths, invalid paths (`..`,
+  absolute), corrupt UTF-8, and cancelled contexts return the specified
+  `ErrorKind`.
+- `readResourceText` returns `String`; the obsolete `Text` class no longer
+  exists, so the subunit was aligned with the runtime/bridge contract.
+- Compiler deltas required by the scenario: full-mode Resource loading,
+  `null` assignability for handle/reference parameters, `Int?` printing, and
+  `Bytes` method typing in the CGen method table.
 
 ### XDK-W4 — collections and generic boundaries
 
@@ -200,23 +215,26 @@ wave.
   operation and `joinDeadline` timeout without consuming the result. The
   legacy oracle emits `xn_task_body_*` without adapter prototypes, so the
   task differential stays open.
+- `xdk.sys` probe: base mode keeps the compatibility resource surface; full
+  mode now loads `io/resource/Resource.x` so the complete resource API
+  (exists/size/read/text/list) runs in mini and legacy with the same output.
+  Context cancellation is verified on mini with `Context.background()` and
+  `cancel()`; legacy has no `Context.background` builtin and is not claimed
+  for the cancelled path.
 - `xdk.collections` probe: `import xdk.collections` and
   `Map<String, Int> m = [:]` now run in both mini and legacy; explicit map
   literals also match. The package's generic function-value algorithms are
   still not claimed until W4.
 - `xdk.io` probe: the legacy `readBytes` return path still differs from the
   mini path and is recorded as an open gap, not silently excluded.
-- Full Sys resource/context is not yet loaded with `xdk.sys`.
 - M7-F1 Result/companion and closure lifetime remain open boundaries.
 
 ## 8. Current next action
 
-XDK-W2 is closed. `tests/xdk_mutex.x`, `tests/xdk_tasks.x`,
-`tests/xdk_channel.x`, and `tests/xdk_cancel.x` are wired into
-`src/mini/tests/xdk.sh`; the 26 regressions, `m9_parity` (47/47),
-`selfhost`, and `m8` are green. Legacy gaps for tasks/channels are recorded,
-not hidden. Start **XDK-W3**: load the complete `Sys Resource.x` and
-`Context` subunits through `xdk.sys` and add the resource/context scenario.
+XDK-W3 is closed. `tests/resources.sh` passes base, full (mini + legacy),
+and cancelled-context projects; the W2 scenarios and the 26 regressions stay
+green. Start **XDK-W4**: collections algorithms and generic boundaries,
+starting from `tests/xdk_collections.x` and the `xdk.collections` source.
 
 Baseline to preserve on every W2 commit:
 

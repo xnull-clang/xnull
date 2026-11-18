@@ -14,7 +14,7 @@ package scenario and runtime contract.
 | 2 | `xdk.tasks` Task/TaskGroup/Context (W2 / S2-2, S2-4) | DONE: task types, spawn/join/cancel, result mapping, join deadline, context threaded into channel ops |
 | 3 | `xdk.sync` Channel completion (W2 / S2-3) | DONE: close/cancel semantics; legacy `Result<void, ...>` gap recorded |
 | 4 | `xdk.collections` algorithms (W4) | typed function parameters/generic function values |
-| 5 | resource/context (W3) | Result/companion and Context bridge |
+| 5 | resource/context (W3) | DONE: full Sys loads Resource.x; null handle args, `Int?` print, Bytes method typing |
 | 6 | log/config/cli (W5) | package adapters only; avoid new language features unless blocked |
 
 ## Rules
@@ -40,7 +40,9 @@ package scenario and runtime contract.
   adapters and is recorded as an open differential gap.
 - `import xdk.collections` + `[:]` now works in mini/legacy; longer Collections
   algorithms still need W4.
-- Full Sys Resource/Context and M7-F1 Result/companion remain open.
+- W3 is closed: full Sys loads `io/resource/Resource.x`; base/full resource
+  projects and the cancelled-context path pass in `tests/resources.sh`.
+- M7-F1 Result/companion and closure lifetime remain open.
 
 ## Archive
 

@@ -2357,6 +2357,15 @@ class Checker {
         if target == "Any" || actual == "Any" || target == "Error" || actual == "Error" {
             return true
         }
+        if actual == "Null" {
+            // 句柄/引用型 API 允许显式 null（例如无取消上下文 readResource(null, ...)）。
+            if target == "Context" || target == "Bytes" || target == "String" ||
+               target == "TaskGroup" || self.isMutexType(target) || self.isTaskType(target) ||
+               target.indexOf("Channel<") == 0 || self.findClass(target) >= 0 ||
+               self.isProtocolName(target) || self.isListType(target) || self.isMapType(target) || self.isSetType(target) {
+                return true
+            }
+        }
         if target.length() > 1 && target.substring(target.length() - 1, 1) == "?" {
             String base = target.substring(0, target.length() - 1)
             if actual == "Null" || self.isAssignable(base, actual) {
@@ -4212,7 +4221,7 @@ class Checker {
         Int i = 0
         while i < argc && !self.hasError() {
             String at = self.argType(n.kids.get(i), want.get(i))
-            if at != "Error" && !self.sameType(at, want.get(i)) {
+            if at != "Error" && !self.isAssignable(want.get(i), at) {
                 self.fail("SEM-003", "argument " + str(i + 1) + " of " + n.text + ": expected " + want.get(i) + ", got " + at, n)
             }
             i = i + 1
@@ -5840,6 +5849,20 @@ class CGen {
                 return "List<String>"
             }
         }
+        if bt == "Bytes" {
+            if mth == "fromString" {
+                return "Bytes"
+            }
+            if mth == "length" || mth == "get" {
+                return "Int"
+            }
+            if mth == "slice" || mth == "toString" {
+                return "Bytes"
+            }
+            if mth == "set" || mth == "append" || mth == "push" {
+                return "Unit"
+            }
+        }
         if self.isSet(bt) {
             if mth == "length" {
                 return "Int"
@@ -6786,20 +6809,24 @@ class CGen {
                 if n.kids.length() > 0 {
                     at = self.typeOf(n.kids.get(0))
                 }
+                String pat = at
+                if pat.length() > 1 && pat.substring(pat.length() - 1, 1) == "?" {
+                    pat = pat.substring(0, pat.length() - 1)
+                }
                 String av = "0"
                 if n.kids.length() > 0 {
                     av = self.expr(n.kids.get(0))
                 }
-                if at == "Int" || at == "Long" || at == "Int64" {
+                if pat == "Int" || pat == "Long" || pat == "Int64" {
                     return "xn_print_int(" + av + ")"
                 }
-                if at == "Double" {
+                if pat == "Double" {
                     return "xn_print_double(" + av + ")"
                 }
-                if at == "Bool" {
+                if pat == "Bool" {
                     return "xn_print_bool(" + av + ")"
                 }
-                if at == "Char" {
+                if pat == "Char" {
                     return "xn_print_str(xn_str_char(" + av + "))"
                 }
                 return "xn_print_str(" + av + ")"
@@ -6809,17 +6836,21 @@ class CGen {
                     return "rt_string_from_c(\"\")"
                 }
                 String at = self.typeOf(n.kids.get(0))
+                String pat = at
+                if pat.length() > 1 && pat.substring(pat.length() - 1, 1) == "?" {
+                    pat = pat.substring(0, pat.length() - 1)
+                }
                 String av = self.expr(n.kids.get(0))
-                if at == "String" {
+                if pat == "String" {
                     return av
                 }
-                if at == "Double" {
+                if pat == "Double" {
                     return "xn_str_double(" + av + ")"
                 }
-                if at == "Bool" {
+                if pat == "Bool" {
                     return "xn_str_bool(" + av + ")"
                 }
-                if at == "Char" {
+                if pat == "Char" {
                     return "xn_str_char(" + av + ")"
                 }
                 return "xn_str_int(" + av + ")"
@@ -8804,6 +8835,10 @@ static AstNode loadProgram(String entry, String root) {
                     print("mini: unsupported import: " + imp.text)
                     return program
                 }
+            }
+            // 完整 Sys 模式把 Resource.x 子单元一并装载；base 模式保留同名精简面。
+            if xdkFullSource && (imp.text == "xdk.sys" || imp.text.startsWith("xdk.sys.")) {
+                loadUnit(root + "/io/resource/Resource.x", program)
             }
             if loaded(path) {
                 i = i + 1

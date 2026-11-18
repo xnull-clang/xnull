@@ -109,7 +109,7 @@ Result<Bytes, Error> readResource(Context context, String path) {
 }
 
 // readResourceText：UTF-8 解码后返回文本。非法字节 → DataCorrupted。
-Result<Text, Error> readResourceText(Context context, String path) {
+Result<String, Error> readResourceText(Context context, String path) {
     if resourceCancelled(context) {
         return Err(resourceCancelError("readResourceText"))
     }
@@ -124,7 +124,7 @@ Result<Text, Error> readResourceText(Context context, String path) {
     if resourceCancelled(context) {
         return Err(resourceCancelError("readResourceText"))
     }
-    return Ok(Text.fromString(text))
+    return Ok(text)
 }
 
 // listResources：列出前缀下的全部资源路径（`/` 分隔、字典序升序）。
