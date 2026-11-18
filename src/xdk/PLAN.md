@@ -53,7 +53,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.errors` | base surface | error/wrap/mapErr scenario |
 | `xdk.runtime` | base surface | diagnose/exit/clock scenario |
 | `xdk.meta` | base surface | version/platform/build scenario |
-| `xdk.bytes` | minimal `fromUtf8`/`toUtf8`/hex surface added; ByteBuffer/endian missing | ByteBuffer/endian/bit scenario |
+| `xdk.bytes` | UTF-8/hex/concat/slice/compare/endian + minimal ByteBuffer added; bit ops/reader/writer pending | bit ops/reader/writer scenario |
 | `xdk.text` | `text/full` | UTF/format/regex/parse scenario |
 | `xdk.math` | base surface | numeric/Int128 scenario |
 | `xdk.time` | base surface | Instant/DateTime/timezone scenario |

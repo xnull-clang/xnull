@@ -1,8 +1,8 @@
 // Tier: T0；依赖：xdk.errors；稳定性：preview。
 // xdk.bytes —— 字节缓冲区基础面。
 //
-// 当前切片先公开运行时可验证的最小接口：UTF-8 构造/还原和 hex 编解码。
-// 后续 ByteBuffer、端序和位操作继续按 XDK 场景推进。
+// 已落地的逆向切片：UTF-8 构造/还原、hex、拼接、比较、端序读写和最小
+// ByteBuffer。ByteBuffer 仍是最小实现，后续按 XDK 场景继续扩展。
 package xdk.bytes
 
 Bytes fromUtf8(String text) {
@@ -42,6 +42,129 @@ Int byteLength(Bytes data) {
 
 Bool isEmpty(Bytes data) {
     return data.length() == 0
+}
+
+Bytes concatBytes(Bytes first, Bytes second) {
+    Bytes result = Bytes.fromString("")
+    Int i = 0
+    while i < first.length() {
+        result.push(first.get(i))
+        i = i + 1
+    }
+    i = 0
+    while i < second.length() {
+        result.push(second.get(i))
+        i = i + 1
+    }
+    return result
+}
+
+Bytes slice(Bytes data, Int start, Int end) {
+    if start < 0 { start = 0 }
+    if end > data.length() { end = data.length() }
+    Bytes result = Bytes.fromString("")
+    Int i = start
+    while i < end {
+        result.push(data.get(i))
+        i = i + 1
+    }
+    return result
+}
+
+Int compare(Bytes first, Bytes second) {
+    Int n = first.length()
+    if second.length() < n { n = second.length() }
+    Int i = 0
+    while i < n {
+        Int a = first.get(i)
+        Int b = second.get(i)
+        if a < b { return -1 }
+        if a > b { return 1 }
+        i = i + 1
+    }
+    if first.length() < second.length() { return -1 }
+    if first.length() > second.length() { return 1 }
+    return 0
+}
+
+Bytes u16BE(Int value) {
+    Bytes result = Bytes.fromString("")
+    result.push((value / 256) % 256)
+    result.push(value % 256)
+    return result
+}
+
+Bytes u16LE(Int value) {
+    Bytes result = Bytes.fromString("")
+    result.push(value % 256)
+    result.push((value / 256) % 256)
+    return result
+}
+
+Bytes u32BE(Int value) {
+    Bytes result = Bytes.fromString("")
+    result.push((value / 16777216) % 256)
+    result.push((value / 65536) % 256)
+    result.push((value / 256) % 256)
+    result.push(value % 256)
+    return result
+}
+
+Bytes u32LE(Int value) {
+    Bytes result = Bytes.fromString("")
+    result.push(value % 256)
+    result.push((value / 256) % 256)
+    result.push((value / 65536) % 256)
+    result.push((value / 16777216) % 256)
+    return result
+}
+
+Int readU16BE(Bytes data, Int offset) {
+    return data.get(offset) * 256 + data.get(offset + 1)
+}
+
+Int readU16LE(Bytes data, Int offset) {
+    return data.get(offset + 1) * 256 + data.get(offset)
+}
+
+Int readU32BE(Bytes data, Int offset) {
+    return data.get(offset) * 16777216 + data.get(offset + 1) * 65536 + data.get(offset + 2) * 256 + data.get(offset + 3)
+}
+
+Int readU32LE(Bytes data, Int offset) {
+    return data.get(offset + 3) * 16777216 + data.get(offset + 2) * 65536 + data.get(offset + 1) * 256 + data.get(offset)
+}
+
+class ByteBuffer {
+    Bytes data
+
+    ByteBuffer() {
+        self.data = Bytes.fromString("")
+    }
+
+    ByteBuffer(Bytes initial) {
+        self.data = initial
+    }
+
+    Int length() {
+        return self.data.length()
+    }
+
+    Bytes toBytes() {
+        return self.data
+    }
+
+    Void push(Int value) {
+        self.data.push(value % 256)
+    }
+
+    Void append(Bytes more) {
+        Int i = 0
+        while i < more.length() {
+            self.data.push(more.get(i))
+            i = i + 1
+        }
+    }
 }
 
 static Int hexValue(String ch) {
