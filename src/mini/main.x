@@ -1533,9 +1533,13 @@ class Parser {
 
 class Mono {
     final AstNode program
+    final List<String> scopeNames
+    final List<String> scopeTypes
 
     Mono(AstNode p) {
         self.program = p
+        self.scopeNames = []
+        self.scopeTypes = []
     }
 
     Bool hasTypeParams(AstNode n) {
@@ -1855,10 +1859,44 @@ class Mono {
         if n.kind == "Char" {
             return "Char"
         }
+        if n.kind == "Name" {
+            Int i = self.scopeNames.length() - 1
+            while i >= 0 {
+                if self.scopeNames.get(i) == n.text {
+                    return self.scopeTypes.get(i)
+                }
+                i = i - 1
+            }
+        }
+        if n.kind == "ArrayLit" && n.kids.length() > 0 {
+            String et = self.argType(n.kids.get(0))
+            if et != "Any" {
+                return "List<" + et + ">"
+            }
+        }
         if n.kind == "New" {
             return n.text
         }
         return "Any"
+    }
+
+    Void addScope(String name, String ty) {
+        self.scopeNames.push(name)
+        self.scopeTypes.push(ty)
+    }
+
+    Void collectScope(AstNode n) {
+        if n.kind == "Param" || n.kind == "Local" {
+            List<String> pp = n.text.split(" ")
+            if pp.length() >= 2 {
+                self.addScope(pp.get(1), pp.get(0))
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectScope(n.kids.get(i))
+            i = i + 1
+        }
     }
 
     String typeArgsFor(AstNode call) {
@@ -1893,12 +1931,23 @@ class Mono {
                 List<String> pp = p.text.split(" ")
                 if pp.length() >= 1 && argi < actual.length() {
                     String pty = pp.get(0)
+                    String aty = actual.get(argi)
                     Int ii = 0
                     while ii < names.length() {
-                        if pty == names.get(ii) && actual.get(argi) != "Any" {
+                        String nm = names.get(ii)
+                        if pty == nm && aty != "Any" {
                             if inferred.get(ii) == "" {
-                                inferred.set(ii, actual.get(argi))
-                            } else if inferred.get(ii) != actual.get(argi) {
+                                inferred.set(ii, aty)
+                            } else if inferred.get(ii) != aty {
+                                return ""
+                            }
+                        }
+                        if pty == "List<" + nm + ">" && aty.length() > 6 &&
+                           aty.substring(0, 5) == "List<" && aty.substring(aty.length() - 1, 1) == ">" {
+                            String et = aty.substring(5, aty.length() - 6)
+                            if inferred.get(ii) == "" {
+                                inferred.set(ii, et)
+                            } else if inferred.get(ii) != et {
                                 return ""
                             }
                         }
@@ -1925,6 +1974,10 @@ class Mono {
     }
 
     AstNode walk(AstNode n) {
+        Bool isFn = n.kind == "Func"
+        if isFn {
+            self.collectScope(n)
+        }
         if n.kind == "Ret" || n.kind == "Param" || n.kind == "Field" || n.kind == "Local" ||
            n.kind == "New" || n.kind == "TypeArgs" || n.kind == "Base" || n.kind == "Implements" {
             n.text = self.rewriteType(n.text)
@@ -1934,7 +1987,7 @@ class Mono {
             if fn.kind == "Func" {
                 String tas = self.typeArgsFor(n)
                 if tas != "" {
-                    List<String> args = tas.split(",")
+                    List<String> args = splitTop(tas)
                     String sname = self.specialize(fn, args)
                     if sname != "" {
                         n.kind = "Call"
@@ -2122,7 +2175,7 @@ class Checker {
         if inner.trim() == "" {
             return res
         }
-        List<String> raw = inner.split(",")
+        List<String> raw = splitTop(inner)
         Int i = 0
         while i < raw.length() {
             res.push(raw.get(i).trim())
@@ -3709,7 +3762,7 @@ class Checker {
             }
             return self.methodRets.get(mi)
         }
-        List<String> want = ps.split(",")
+        List<String> want = splitTop(ps)
         if want.length() != argc {
             self.fail("SEM-004", mth + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
             return "Error"
@@ -4147,7 +4200,7 @@ class Checker {
                 }
                 return self.methodRets.get(mi)
             }
-            List<String> want = ps.split(",")
+            List<String> want = splitTop(ps)
             if want.length() != argc {
                 self.fail("SEM-004", mth + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
                 return "Error"
@@ -4213,7 +4266,7 @@ class Checker {
             }
             return self.fnRets.get(idx)
         }
-        List<String> want = ps.split(",")
+        List<String> want = splitTop(ps)
         if want.length() != argc {
             self.fail("SEM-004", n.text + " expects " + str(want.length()) + " arguments, got " + str(argc), n)
             return "Error"
@@ -4737,7 +4790,7 @@ class CGen {
         if inner.trim() == "" {
             return res
         }
-        List<String> raw = inner.split(",")
+        List<String> raw = splitTop(inner)
         Int i = 0
         while i < raw.length() {
             res.push(raw.get(i).trim())
@@ -8560,6 +8613,33 @@ static Bool hasTypeParams(AstNode fn) {
         i = i + 1
     }
     return false
+}
+
+// 类型列表按顶层逗号拆分：`List<Int>,Bool(Int,Int)` → 两段，而非四段。
+static List<String> splitTop(String s) {
+    List<String> res = []
+    String cur = ""
+    Int depth = 0
+    Int i = 0
+    while i < s.length() {
+        String c = s.substring(i, 1)
+        if c == "<" || c == "(" || c == "[" || c == "{" {
+            depth = depth + 1
+        } else if c == ">" || c == ")" || c == "]" || c == "}" {
+            depth = depth - 1
+        }
+        if c == "," && depth == 0 {
+            res.push(cur)
+            cur = ""
+        } else {
+            cur = cur + c
+        }
+        i = i + 1
+    }
+    if cur != "" {
+        res.push(cur)
+    }
+    return res
 }
 
 static Int dumpTokens(List<Token> ts, String path) {

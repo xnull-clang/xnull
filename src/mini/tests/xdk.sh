@@ -78,6 +78,15 @@ diff -u "$TMP.exp" "$TMP.mini"
 diff -u "$TMP.exp" "$TMP.legacy"
 diff -u "$TMP.mini" "$TMP.legacy"
 
+# Collections algorithms run on mini through generic specialization. The legacy
+# oracle emits function-type typedefs for generic parameters but never declares
+# them (xn_fn_int_int64_t_int64_t), so the algorithm differential is open.
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_collections_algo.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\nb\na\nc\n3\nfalse\ny\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_bytes.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }

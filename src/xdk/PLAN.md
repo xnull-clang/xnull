@@ -62,7 +62,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.sys` | File/Dir/Process plus complete `Resource.x` (exists/size/read/text/list + Context cancellation) verified in base and full modes (`tests/resources*.sh`); remaining File/Dir edges pending | resource-context parity in `m10_parity`; dir/path edges |
 | `xdk.tasks` | Task/TaskGroup/Context spawn/join/close/cancel and join deadline verified mini only (`tests/xdk_tasks.x`, `tests/xdk_cancel.x`); legacy task adapter prototype gap | result propagation into group errors; legacy parity |
 | `xdk.sync` | AtomicInt/Bool load/store/cas and AtomicRef verified mini + legacy; Mutex<T> + withLock verified mini + legacy; Channel<Int> send/receive/close verified mini only | typed channel elements; Channel legacy parity |
-| `xdk.collections` | `import xdk.collections` + `[:]` verified mini + legacy (`tests/xdk_collections.x`); generic function types still block full source | Map/Set/List algorithms; generic function values |
+| `xdk.collections` | `[:]` map literals verified mini + legacy (`tests/xdk_collections.x`); generic algorithms `sortBy`/`dedup`/`find` verified mini over Int/String (`tests/xdk_collections_algo.x`); `groupByInt` still blocked on `Map<Int, ...>` runtime | Map/Set runtime + groupByInt; legacy generic function typedefs |
 | `xdk.log` | missing package source | Logger/Level/sink scenario |
 | `xdk.config` | missing package source | Config snapshot/env allowlist scenario |
 | `xdk.cli` | missing package source | Args/Command/exit-code scenario |
@@ -147,12 +147,23 @@ Ordered slices; each slice is code + scenario + regression + commit:
   `null` assignability for handle/reference parameters, `Int?` printing, and
   `Bytes` method typing in the CGen method table.
 
-### XDK-W4 — collections and generic boundaries
+### XDK-W4 — collections and generic boundaries — DONE (2026-11-19)
 
 - Empty Map/container literal and contextual type inference (XDK need).
 - Generic function-type parameters only where collections require them.
 - Collections algorithms and legacy differential.
 - Exit: `xdk.collections` scenario compiles and runs on mini.
+- **Done (mini)**: generic specialization infers type parameters from
+  `List<T>` arguments, monomorphizes `sortBy`/`dedup`/`find`, and clones
+  typed function parameters (`Bool(T,T)`, `Bool(T)`, `Int(T)`). Scenarios
+  cover Int and String lists in `tests/xdk_collections_algo.x`.
+- Compiler deltas: scope-aware inference of local/parameter types in Mono,
+  `List<T>` element extraction, top-level comma splitting for parameter
+  type lists (`Bool(Int,Int)`), and generic call rewriting.
+- Open gaps: `groupByInt` needs `Map<Int,List<T>>` runtime support; legacy
+  emits `xn_fn_*` typedefs without declaring them and is therefore not
+  differential for generic algorithms. Array literals must still bind to a
+  local before use (no expression-level `ArrayLit`).
 
 ### XDK-W5 — higher T0: log, config, CLI
 
@@ -222,19 +233,21 @@ wave.
   `cancel()`; legacy has no `Context.background` builtin and is not claimed
   for the cancelled path.
 - `xdk.collections` probe: `import xdk.collections` and
-  `Map<String, Int> m = [:]` now run in both mini and legacy; explicit map
-  literals also match. The package's generic function-value algorithms are
-  still not claimed until W4.
+  `Map<String, Int> m = [:]` run in both mini and legacy. Generic algorithms
+  now monomorphize on mini (`sortBy`, `dedup`, `find` over Int and String);
+  `groupByInt` is blocked by the missing `Map<Int, ...>` runtime, and legacy
+  generic algorithms miss `xn_fn_*` typedefs. Both gaps are recorded.
 - `xdk.io` probe: the legacy `readBytes` return path still differs from the
   mini path and is recorded as an open gap, not silently excluded.
 - M7-F1 Result/companion and closure lifetime remain open boundaries.
 
 ## 8. Current next action
 
-XDK-W3 is closed. `tests/resources.sh` passes base, full (mini + legacy),
-and cancelled-context projects; the W2 scenarios and the 26 regressions stay
-green. Start **XDK-W4**: collections algorithms and generic boundaries,
-starting from `tests/xdk_collections.x` and the `xdk.collections` source.
+XDK-W4 is closed for the mini algorithm surface. `tests/xdk_collections.x`
+stays differential; `tests/xdk_collections_algo.x` covers generic
+specialization. The 26 regressions, `m9_parity` (47/47), `selfhost`, and `m8`
+are green. Start **XDK-W5**: implement `xdk.log`, `xdk.config`, and `xdk.cli`
+against the already-proven runtime primitives.
 
 Baseline to preserve on every W2 commit:
 
