@@ -58,7 +58,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.math` | base surface | numeric/Int128 scenario |
 | `xdk.time` | base surface | Instant/DateTime/timezone scenario |
 | `xdk.io` | minimal in-memory Reader/Writer added; legacy `readBytes` return gap; file/network/terminal streams pending | stream + legacy gap scenario |
-| `xdk.fs` | partial `File`/`Dir` under Sys | path/file/atomic-write scenario |
+| `xdk.fs` | minimal text exists/read/write added over base Sys; path/atomic-write/full File/Dir pending | path/atomic-write scenario |
 | `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
 | `xdk.tasks` | empty skeleton | TaskGroup/Context scenario |
 | `xdk.sync` | AtomicInt/AtomicBool load/store intrinsic path added; Mutex/Channel/AtomicRef pending | Mutex/Channel scenario |

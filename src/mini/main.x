@@ -7948,6 +7948,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.io" || pkg.startsWith("xdk.io.") {
         return "io/IO.x"
     }
+    if pkg == "xdk.fs" || pkg.startsWith("xdk.fs.") {
+        return "fs/FS.x"
+    }
     if pkg == "xdk.sync" || pkg.startsWith("xdk.sync.") {
         return "concurrent/sync/Sync.x"
     }

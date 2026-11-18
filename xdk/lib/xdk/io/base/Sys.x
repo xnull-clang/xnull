@@ -26,6 +26,10 @@ Bool fileExists(String path) {
     return fileExistsRaw(path) != 0
 }
 
+Int32 writeFileText(String path, String text) {
+    return writeFileTextRaw(path, text)
+}
+
 Bool resourceExists(String path) {
     return resourceExistsRaw(path) != 0
 }
