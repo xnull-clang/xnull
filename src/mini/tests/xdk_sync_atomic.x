@@ -5,7 +5,6 @@ static Int main() {
     print(a.load())
     a.store(2)
     print(a.load())
-    print(a.load())
 
     AtomicBool b = AtomicBool(false)
     print(b.load())

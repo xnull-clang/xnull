@@ -3391,7 +3391,7 @@ class Checker {
                 if argc != 1 { self.fail("SEM-004", "AtomicInt.store expects 1 argument", n) }
                 return "Unit"
             }
-            if mth == "cas" { return "Bool" }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
             self.fail("SEM-001", "undefined method: AtomicInt." + mth, n)
             return "Error"
         }
@@ -3401,7 +3401,7 @@ class Checker {
                 if argc != 1 { self.fail("SEM-004", "AtomicBool.store expects 1 argument", n) }
                 return "Unit"
             }
-            if mth == "cas" { return "Bool" }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
             self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
             return "Error"
         }
@@ -3695,7 +3695,7 @@ class Checker {
                     if argc != 1 { self.fail("SEM-004", "AtomicInt.store expects 1 argument", n) }
                     return "Unit"
                 }
-                if mth == "cas" { return "Bool" }
+                if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 self.fail("SEM-001", "undefined method: AtomicInt." + mth, n)
                 return "Error"
             }
@@ -3705,7 +3705,7 @@ class Checker {
                     if argc != 1 { self.fail("SEM-004", "AtomicBool.store expects 1 argument", n) }
                     return "Unit"
                 }
-                if mth == "cas" { return "Bool" }
+                if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
                 return "Error"
             }
@@ -5289,12 +5289,12 @@ class CGen {
         if bt == "AtomicInt" {
             if mth == "load" { return "Int" }
             if mth == "store" { return "Unit" }
-            if mth == "cas" { return "Bool" }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
         if bt == "AtomicBool" {
             if mth == "load" { return "Bool" }
             if mth == "store" { return "Unit" }
-            if mth == "cas" { return "Bool" }
+            if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
         if bt == "String" {
             if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
@@ -5751,12 +5751,12 @@ class CGen {
                 if bt == "AtomicInt" {
                     if mth == "load" { return "Int" }
                     if mth == "store" { return "Unit" }
-                    if mth == "cas" { return "Bool" }
+                    if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
                 if bt == "AtomicBool" {
                     if mth == "load" { return "Bool" }
                     if mth == "store" { return "Unit" }
-                    if mth == "cas" { return "Bool" }
+                    if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
                 if bt == "Bytes" {
                     if mth == "fromString" {
@@ -6198,7 +6198,7 @@ class CGen {
                     if mth == "store" {
                         return "xrt_atomic_int_store(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
                     }
-                    if mth == "cas" {
+                    if mth == "cas" || mth == "compareExchange" {
                         return "((xrt_atomic_int_cas(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ") != 0) ? 1 : 0)"
                     }
                 }
@@ -6207,7 +6207,7 @@ class CGen {
                     if mth == "store" {
                         return "xrt_atomic_bool_store(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
                     }
-                    if mth == "cas" {
+                    if mth == "cas" || mth == "compareExchange" {
                         return "((xrt_atomic_bool_cas(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ") != 0) ? 1 : 0)"
                     }
                 }
@@ -7944,6 +7944,9 @@ static String xdkFile(String pkg) {
     }
     if pkg == "xdk.bytes" || pkg.startsWith("xdk.bytes.") {
         return "core/bytes/Bytes.x"
+    }
+    if pkg == "xdk.io" || pkg.startsWith("xdk.io.") {
+        return "io/IO.x"
     }
     if pkg == "xdk.sync" || pkg.startsWith("xdk.sync.") {
         return "concurrent/sync/Sync.x"

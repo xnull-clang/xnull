@@ -57,7 +57,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.text` | `text/full` | UTF/format/regex/parse scenario |
 | `xdk.math` | base surface | numeric/Int128 scenario |
 | `xdk.time` | base surface | Instant/DateTime/timezone scenario |
-| `xdk.io` | missing package source | Reader/Writer/stream scenario |
+| `xdk.io` | minimal in-memory Reader/Writer added; legacy `readBytes` return gap; file/network/terminal streams pending | stream + legacy gap scenario |
 | `xdk.fs` | partial `File`/`Dir` under Sys | path/file/atomic-write scenario |
 | `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
 | `xdk.tasks` | empty skeleton | TaskGroup/Context scenario |

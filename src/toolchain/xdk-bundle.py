@@ -25,6 +25,7 @@ from package_resolver import (PackageResolver, Resolution, ResolveError,
 UNITS = {
     "errors": "src/xdk/core/errors/Errors.x",
     "bytes": "src/xdk/core/bytes/Bytes.x",
+    "io": "src/xdk/io/IO.x",
     "text": "src/xdk/text/full/Text.x",
     # Unset means legacy's historical full-Sys default; an explicit 0 selects
     # the lightweight io/base compatibility surface (used by the CLI and by
