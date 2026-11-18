@@ -119,20 +119,141 @@ Bytes u32LE(Int value) {
     return result
 }
 
-Int readU16BE(Bytes data, Int offset) {
+Int readShortBE(Bytes data, Int offset) {
     return data.get(offset) * 256 + data.get(offset + 1)
 }
 
-Int readU16LE(Bytes data, Int offset) {
+Int readShortLE(Bytes data, Int offset) {
     return data.get(offset + 1) * 256 + data.get(offset)
 }
 
-Int readU32BE(Bytes data, Int offset) {
+Int readIntBE(Bytes data, Int offset) {
     return data.get(offset) * 16777216 + data.get(offset + 1) * 65536 + data.get(offset + 2) * 256 + data.get(offset + 3)
 }
 
-Int readU32LE(Bytes data, Int offset) {
+Int readIntLE(Bytes data, Int offset) {
     return data.get(offset + 3) * 16777216 + data.get(offset + 2) * 65536 + data.get(offset + 1) * 256 + data.get(offset)
+}
+
+Int bitAnd(Int a, Int b) {
+    return a & b
+}
+
+Int bitOr(Int a, Int b) {
+    return a | b
+}
+
+Int bitXor(Int a, Int b) {
+    return a ^ b
+}
+
+Int shiftLeft(Int value, Int bits) {
+    return value << bits
+}
+
+Int shiftRight(Int value, Int bits) {
+    return value >> bits
+}
+
+class ByteReader {
+    Bytes data
+    Int position
+
+    ByteReader(Bytes source) {
+        self.data = source
+        self.position = 0
+    }
+
+    Int remaining() {
+        return self.data.length() - self.position
+    }
+
+    Bool hasRemaining() {
+        return self.position < self.data.length()
+    }
+
+    Int readU8() {
+        if self.position >= self.data.length() { return 0 }
+        Int value = self.data.get(self.position)
+        self.position = self.position + 1
+        return value
+    }
+
+    Int shortBE() {
+        Int value = readShortBE(self.data, self.position)
+        self.position = self.position + 2
+        return value
+    }
+
+    Int shortLE() {
+        Int value = readShortLE(self.data, self.position)
+        self.position = self.position + 2
+        return value
+    }
+
+    Int intBE() {
+        Int value = readIntBE(self.data, self.position)
+        self.position = self.position + 4
+        return value
+    }
+
+    Int intLE() {
+        Int value = readIntLE(self.data, self.position)
+        self.position = self.position + 4
+        return value
+    }
+
+    Bytes readBytes(Int count) {
+        Int end = self.position + count
+        if end > self.data.length() { end = self.data.length() }
+        Bytes value = slice(self.data, self.position, end)
+        self.position = end
+        return value
+    }
+}
+
+class ByteWriter {
+    Bytes data
+
+    ByteWriter() {
+        self.data = Bytes.fromString("")
+    }
+
+    Int length() {
+        return self.data.length()
+    }
+
+    Bytes toBytes() {
+        return self.data
+    }
+
+    Void writeU8(Int value) {
+        self.data.push(value % 256)
+    }
+
+    Void writeBytes(Bytes value) {
+        Int i = 0
+        while i < value.length() {
+            self.data.push(value.get(i))
+            i = i + 1
+        }
+    }
+
+    Void writeU16BE(Int value) {
+        self.writeBytes(u16BE(value))
+    }
+
+    Void writeU16LE(Int value) {
+        self.writeBytes(u16LE(value))
+    }
+
+    Void writeU32BE(Int value) {
+        self.writeBytes(u32BE(value))
+    }
+
+    Void writeU32LE(Int value) {
+        self.writeBytes(u32LE(value))
+    }
 }
 
 class ByteBuffer {
