@@ -2138,6 +2138,9 @@ class Checker {
         if ty == "Bytes" {
             return true
         }
+        if ty == "AtomicInt" || ty == "AtomicBool" {
+            return true
+        }
         if self.isFunctionType(ty) {
             return true
         }
@@ -3382,6 +3385,26 @@ class Checker {
         }
         String mth = n.text
         Int argc = n.kids.length() - 1
+        if bt == "AtomicInt" {
+            if mth == "load" { return "Int" }
+            if mth == "store" {
+                if argc != 1 { self.fail("SEM-004", "AtomicInt.store expects 1 argument", n) }
+                return "Unit"
+            }
+            if mth == "cas" { return "Bool" }
+            self.fail("SEM-001", "undefined method: AtomicInt." + mth, n)
+            return "Error"
+        }
+        if bt == "AtomicBool" {
+            if mth == "load" { return "Bool" }
+            if mth == "store" {
+                if argc != 1 { self.fail("SEM-004", "AtomicBool.store expects 1 argument", n) }
+                return "Unit"
+            }
+            if mth == "cas" { return "Bool" }
+            self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
+            return "Error"
+        }
         if bt == "Bytes" {
             if mth == "length" || mth == "get" {
                 return "Int"
@@ -3542,6 +3565,22 @@ class Checker {
 
     String checkCall(AstNode n) {
         Int argc = n.kids.length()
+        if n.text == "AtomicInt" || n.text == "AtomicBool" {
+            if argc > 1 {
+                self.fail("SEM-004", n.text + " expects 0 or 1 argument", n)
+                return "Error"
+            }
+            if argc == 1 {
+                String at = self.typeOf(n.kids.get(0))
+                String want = "Int"
+                if n.text == "AtomicBool" { want = "Bool" }
+                if at != "Error" && !self.sameType(at, want) {
+                    self.fail("SEM-003", n.text + " expects " + want + ", got " + at, n)
+                    return "Error"
+                }
+            }
+            return n.text
+        }
         if n.text == "diagnoseRaw" {
             if argc != 1 {
                 self.fail("SEM-004", "diagnoseRaw expects 1 argument", n)
@@ -3648,6 +3687,26 @@ class Checker {
             String bt = self.pathType(base)
             if bt == "Any" {
                 self.fail("SEM-001", "undefined symbol: " + base, n)
+                return "Error"
+            }
+            if bt == "AtomicInt" {
+                if mth == "load" { return "Int" }
+                if mth == "store" {
+                    if argc != 1 { self.fail("SEM-004", "AtomicInt.store expects 1 argument", n) }
+                    return "Unit"
+                }
+                if mth == "cas" { return "Bool" }
+                self.fail("SEM-001", "undefined method: AtomicInt." + mth, n)
+                return "Error"
+            }
+            if bt == "AtomicBool" {
+                if mth == "load" { return "Bool" }
+                if mth == "store" {
+                    if argc != 1 { self.fail("SEM-004", "AtomicBool.store expects 1 argument", n) }
+                    return "Unit"
+                }
+                if mth == "cas" { return "Bool" }
+                self.fail("SEM-001", "undefined method: AtomicBool." + mth, n)
                 return "Error"
             }
             if bt == "Bytes" {
@@ -4050,6 +4109,12 @@ class CGen {
         }
         if ty == "Bytes" {
             return "xrt_bytes_obj *"
+        }
+        if ty == "AtomicInt" {
+            return "xrt_atomic_int *"
+        }
+        if ty == "AtomicBool" {
+            return "xrt_atomic_bool *"
         }
         if ty == "Bool" {
             return "int"
@@ -5221,6 +5286,16 @@ class CGen {
     }
 
     String methodType(String bt, String mth, AstNode n) {
+        if bt == "AtomicInt" {
+            if mth == "load" { return "Int" }
+            if mth == "store" { return "Unit" }
+            if mth == "cas" { return "Bool" }
+        }
+        if bt == "AtomicBool" {
+            if mth == "load" { return "Bool" }
+            if mth == "store" { return "Unit" }
+            if mth == "cas" { return "Bool" }
+        }
         if bt == "String" {
             if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
                 return "Int"
@@ -5295,6 +5370,24 @@ class CGen {
     }
 
     String methodExpr(String bv, String bt, String mth, AstNode n, Int off) {
+        if bt == "AtomicInt" {
+            if mth == "load" { return "xrt_atomic_int_load(" + bv + ")" }
+            if mth == "store" {
+                return "xrt_atomic_int_store(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+            }
+            if mth == "cas" {
+                return "((xrt_atomic_int_cas(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ") != 0) ? 1 : 0)"
+            }
+        }
+        if bt == "AtomicBool" {
+            if mth == "load" { return "xrt_atomic_bool_load(" + bv + ")" }
+            if mth == "store" {
+                return "xrt_atomic_bool_store(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+            }
+            if mth == "cas" {
+                return "((xrt_atomic_bool_cas(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ") != 0) ? 1 : 0)"
+            }
+        }
         if bt == "Bytes" {
             if mth == "length" {
                 return "((int64_t)xrt_bytes_len(" + bv + "))"
@@ -5655,6 +5748,16 @@ class CGen {
                 String base = n.text.substring(0, dot)
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
                 String bt = self.pathType(base)
+                if bt == "AtomicInt" {
+                    if mth == "load" { return "Int" }
+                    if mth == "store" { return "Unit" }
+                    if mth == "cas" { return "Bool" }
+                }
+                if bt == "AtomicBool" {
+                    if mth == "load" { return "Bool" }
+                    if mth == "store" { return "Unit" }
+                    if mth == "cas" { return "Bool" }
+                }
                 if bt == "Bytes" {
                     if mth == "fromString" {
                         return "Bytes"
@@ -5944,6 +6047,12 @@ class CGen {
                 }
                 return b + ")"
             }
+            if n.text == "AtomicInt" || n.text == "AtomicBool" {
+                String av = "0"
+                if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
+                if n.text == "AtomicInt" { return "xrt_atomic_int_new((int64_t)(" + av + "))" }
+                return "xrt_atomic_bool_new((int)(" + av + "))"
+            }
             if n.text == "listFiles" {
                 String a = "rt_string_from_c(\"\")"
                 if n.kids.length() > 0 {
@@ -6084,6 +6193,24 @@ class CGen {
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
                 String bv = self.pathExpr(base)
                 String bt = self.pathType(base)
+                if bt == "AtomicInt" {
+                    if mth == "load" { return "xrt_atomic_int_load(" + bv + ")" }
+                    if mth == "store" {
+                        return "xrt_atomic_int_store(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                    }
+                    if mth == "cas" {
+                        return "((xrt_atomic_int_cas(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ") != 0) ? 1 : 0)"
+                    }
+                }
+                if bt == "AtomicBool" {
+                    if mth == "load" { return "xrt_atomic_bool_load(" + bv + ")" }
+                    if mth == "store" {
+                        return "xrt_atomic_bool_store(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                    }
+                    if mth == "cas" {
+                        return "((xrt_atomic_bool_cas(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ") != 0) ? 1 : 0)"
+                    }
+                }
                 if bt == "Bytes" {
                     if mth == "fromString" {
                         if n.kids.length() > 0 {
@@ -7817,6 +7944,12 @@ static String xdkFile(String pkg) {
     }
     if pkg == "xdk.bytes" || pkg.startsWith("xdk.bytes.") {
         return "core/bytes/Bytes.x"
+    }
+    if pkg == "xdk.sync" || pkg.startsWith("xdk.sync.") {
+        return "concurrent/sync/Sync.x"
+    }
+    if pkg == "xdk.tasks" || pkg.startsWith("xdk.tasks.") {
+        return "concurrent/tasks/Tasks.x"
     }
     if pkg == "xdk.time" || pkg.startsWith("xdk.time.") {
         return "core/time/Time.x"

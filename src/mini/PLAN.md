@@ -10,7 +10,7 @@ package scenario and runtime contract.
 
 | Order | XDK trigger | Compiler work |
 | --- | --- | --- |
-| 1 | `xdk.sync` Atomic/Mutex/Channel | intrinsic types, constructors, methods, dispatch |
+| 1 | `xdk.sync` Atomic/Mutex/Channel | AtomicInt/Bool load/store done; Mutex/Channel/AtomicRef and cas queued |
 | 2 | `xdk.tasks` Task/TaskGroup/Context | task types, cancellation and result mapping |
 | 3 | `xdk.collections` empty Map | `[:]` + import now working; generic function values/Map<Int,List<T>> still queued |
 | 4 | collections algorithms | typed function parameters/generic function values |
@@ -28,8 +28,8 @@ package scenario and runtime contract.
 
 ## Current evidence
 
-- `xdk.sync` probe fails in mini at unsupported import/type; legacy CGen emits
-  an invalid `AtomicInt_new` call.
+- `xdk.sync` AtomicInt/AtomicBool load/store now runs in mini and legacy;
+  Mutex/Channel/AtomicRef and cas remain.
 - `import xdk.collections` + `[:]` now works in mini/legacy; longer Collections algorithms still need W4.
 - Full Sys Resource/Context and M7-F1 Result/companion remain open.
 

@@ -61,7 +61,7 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.fs` | partial `File`/`Dir` under Sys | path/file/atomic-write scenario |
 | `xdk.sys` | partial File/Dir/Process | Env/platform/resource/context scenario |
 | `xdk.tasks` | empty skeleton | TaskGroup/Context scenario |
-| `xdk.sync` | empty skeleton | AtomicInt/Mutex/Channel scenario |
+| `xdk.sync` | AtomicInt/AtomicBool load/store intrinsic path added; Mutex/Channel/AtomicRef pending | Mutex/Channel scenario |
 | `xdk.collections` | source exists; `[:]` + import now works; generic function types still block full source | Map/Set/List scenario; generic function values |
 | `xdk.log` | missing package source | Logger/Level/sink scenario |
 | `xdk.config` | missing package source | Config snapshot/env allowlist scenario |
@@ -153,9 +153,9 @@ wave.
 
 ## 7. Known reverse findings
 
-- `xdk.sync` probe: mini says `unsupported import: xdk.sync` and
-  `unknown type: AtomicInt`; legacy generates an invalid `AtomicInt_new` call.
-  This is a real W2 target, not a completed API.
+- `xdk.sync` probe: AtomicInt/AtomicBool construction, `load` and `store`
+  now run in both mini and legacy. Mutex/Channel/AtomicRef and the `cas`
+  path remain W2 targets; the XDK package is not complete yet.
 - `xdk.collections` probe: `import xdk.collections` and
   `Map<String, Int> m = [:]` now run in both mini and legacy; explicit map
   literals also match. The package's generic function-value algorithms are
