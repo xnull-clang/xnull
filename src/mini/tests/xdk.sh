@@ -122,12 +122,38 @@ diff -u "$TMP.exp" "$TMP.mini"
 diff -u "$TMP.exp" "$TMP.legacy"
 diff -u "$TMP.mini" "$TMP.legacy"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_mutex.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=legacy run "$HERE/xdk_mutex.x" > "$TMP.legacy" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'true\ntrue\n3\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+diff -u "$TMP.exp" "$TMP.legacy"
+diff -u "$TMP.mini" "$TMP.legacy"
+
+# Tasks currently run on mini only; the legacy oracle emits xn_task_body_* calls
+# without the adapter prototypes, so it is not part of the comparison yet.
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_tasks.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'false\ntrue\n42\nfalse\ntrue\nfalse\ntrue\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
+# Cancellation and join deadline: same legacy adapter gap as tasks.
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_cancel.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'true\n21\ntrue\ntrue\ntrue\n33\ntrue\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
 # Channel currently runs on mini; the legacy oracle has a Result<void, ...>
 # codegen gap, so it is not part of the cross-engine comparison yet.
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_channel.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\n7\n' > "$TMP.exp"
+printf 'true\n7\ntrue\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {

@@ -2147,6 +2147,18 @@ class Checker {
         if ty == "Channel" || ty.indexOf("Channel<") == 0 {
             return true
         }
+        if ty == "Mutex" || ty.indexOf("Mutex<") == 0 {
+            return true
+        }
+        if ty == "Task" || ty.indexOf("Task<") == 0 {
+            return true
+        }
+        if ty == "TaskGroup" || ty == "Context" {
+            return true
+        }
+        if ty == "TaskError" || ty == "CancelledError" {
+            return true
+        }
         if self.isFunctionType(ty) {
             return true
         }
@@ -2248,6 +2260,28 @@ class Checker {
 
     Bool isResultType(String ty) {
         return ty.length() > 8 && ty.substring(0, 7) == "Result<"
+    }
+
+    Bool isMutexType(String ty) {
+        return ty == "Mutex" || ty.indexOf("Mutex<") == 0
+    }
+
+    String mutexElement(String ty) {
+        if ty.length() > 7 && ty.indexOf("Mutex<") == 0 {
+            return ty.substring(6, ty.length() - 7)
+        }
+        return "Int"
+    }
+
+    Bool isTaskType(String ty) {
+        return ty == "Task" || ty.indexOf("Task<") == 0
+    }
+
+    String taskElement(String ty) {
+        if ty.length() > 6 && ty.indexOf("Task<") == 0 {
+            return ty.substring(5, ty.length() - 6)
+        }
+        return "Int"
     }
 
     String resultValueType(String ty) {
@@ -3381,6 +3415,56 @@ class Checker {
         return "Error"
     }
 
+    String syntacticType(AstNode n) {
+        if n.kind == "Int" { return "Int" }
+        if n.kind == "Double" { return "Double" }
+        if n.kind == "Bool" { return "Bool" }
+        if n.kind == "Char" { return "Char" }
+        if n.kind == "String" { return "String" }
+        if n.kind == "Cast" { return n.text }
+        if n.kind == "Unary" && n.kids.length() > 0 { return self.syntacticType(n.kids.get(0)) }
+        if n.kind == "Binary" && n.kids.length() > 1 {
+            if n.text == "==" || n.text == "!=" || n.text == "<" || n.text == "<=" ||
+               n.text == ">" || n.text == ">=" || n.text == "&&" || n.text == "||" {
+                return "Bool"
+            }
+            if self.syntacticType(n.kids.get(0)) == "Double" || self.syntacticType(n.kids.get(1)) == "Double" {
+                return "Double"
+            }
+            return "Int"
+        }
+        if n.kind == "Call" && n.text == "Ok" && n.kids.length() > 0 {
+            return self.syntacticType(n.kids.get(0))
+        }
+        return "Int"
+    }
+
+    String spawnReturnType(AstNode n) {
+        if n.kind == "Return" && n.kids.length() > 0 {
+            AstNode v = n.kids.get(0)
+            if v.kind == "Call" && v.text == "Ok" && v.kids.length() > 0 {
+                return self.syntacticType(v.kids.get(0))
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            String r = self.spawnReturnType(n.kids.get(i))
+            if r != "" {
+                return r
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    String spawnLambdaType(AstNode lam) {
+        String vt = self.spawnReturnType(lam)
+        if vt == "" {
+            vt = "Int"
+        }
+        return "Result<" + vt + ",TaskError>()"
+    }
+
     String checkMethodCall(AstNode n) {
         if n.kids.length() < 1 {
             return "Error"
@@ -3422,10 +3506,67 @@ class Checker {
             return "Error"
         }
         if bt.indexOf("Channel<") == 0 {
-            if mth == "send" { return "Result<Int, CancelledError>" }
-            if mth == "receive" { return "Result<Int, CancelledError>" }
+            if mth == "send" { return "Result<void,CancelledError>" }
+            if mth == "receive" { return "Result<Int,CancelledError>" }
             if mth == "close" { return "Unit" }
             self.fail("SEM-001", "undefined method: Channel." + mth, n)
+            return "Error"
+        }
+        if self.isMutexType(bt) {
+            if mth == "withLock" {
+                if argc != 1 {
+                    self.fail("SEM-004", "Mutex.withLock expects 1 argument", n)
+                    return "Error"
+                }
+                String elem = self.mutexElement(bt)
+                self.argType(n.kids.get(1), "Unit(" + elem + ")")
+                return "Result<void,TaskError>"
+            }
+            self.fail("SEM-001", "undefined method: Mutex." + mth, n)
+            return "Error"
+        }
+        if bt == "Context" {
+            if mth == "isCancelled" {
+                if argc != 0 { self.fail("SEM-004", "Context.isCancelled expects 0 arguments", n) }
+                return "Bool"
+            }
+            if mth == "cancel" {
+                if argc != 0 { self.fail("SEM-004", "Context.cancel expects 0 arguments", n) }
+                return "Unit"
+            }
+            self.fail("SEM-001", "undefined method: Context." + mth, n)
+            return "Error"
+        }
+        if bt == "TaskGroup" {
+            if mth == "spawn" {
+                if argc != 1 { self.fail("SEM-004", "TaskGroup.spawn expects 1 argument", n) }
+                String exp = "Result<Int,TaskError>()"
+                if argc == 1 { exp = self.spawnLambdaType(n.kids.get(1)) }
+                self.argType(n.kids.get(1), exp)
+                return "Task<" + self.resultValueType(self.fnRetType(exp)) + ">"
+            }
+            if mth == "cancel" {
+                if argc != 0 { self.fail("SEM-004", "TaskGroup.cancel expects 0 arguments", n) }
+                return "Unit"
+            }
+            if mth == "close" {
+                if argc != 0 { self.fail("SEM-004", "TaskGroup.close expects 0 arguments", n) }
+                return "Result<void,TaskError>"
+            }
+            self.fail("SEM-001", "undefined method: TaskGroup." + mth, n)
+            return "Error"
+        }
+        if self.isTaskType(bt) {
+            if mth == "join" || mth == "joinDeadline" {
+                if mth == "joinDeadline" && argc != 1 {
+                    self.fail("SEM-004", "Task.joinDeadline expects 1 argument", n)
+                }
+                if mth == "join" && argc != 0 {
+                    self.fail("SEM-004", "Task.join expects 0 arguments", n)
+                }
+                return "Result<" + self.taskElement(bt) + ",TaskError>"
+            }
+            self.fail("SEM-001", "undefined method: Task." + mth, n)
             return "Error"
         }
         if bt == "Bytes" {
@@ -3624,6 +3765,32 @@ class Checker {
             self.typeOf(n.kids.get(0))
             return "Channel<Int>"
         }
+        if n.text == "Mutex" {
+            if argc != 1 {
+                self.fail("SEM-004", "Mutex expects 1 argument", n)
+                return "Error"
+            }
+            String it = self.typeOf(n.kids.get(0))
+            if it == "Error" { return "Error" }
+            return "Mutex<" + it + ">"
+        }
+        if n.text == "Context.background" {
+            if argc != 0 {
+                self.fail("SEM-004", "Context.background expects 0 arguments", n)
+            }
+            return "Context"
+        }
+        if n.text == "TaskGroup.create" {
+            if argc != 1 {
+                self.fail("SEM-004", "TaskGroup.create expects 1 argument", n)
+                return "Error"
+            }
+            String ct = self.typeOf(n.kids.get(0))
+            if ct != "Error" && ct != "Context" {
+                self.fail("SEM-003", "TaskGroup.create expects Context, got " + ct, n)
+            }
+            return "TaskGroup"
+        }
         if n.text == "diagnoseRaw" {
             if argc != 1 {
                 self.fail("SEM-004", "diagnoseRaw expects 1 argument", n)
@@ -3763,10 +3930,66 @@ class Checker {
                 return "Error"
             }
             if bt.indexOf("Channel<") == 0 {
-                if mth == "send" { return "Result<Int, CancelledError>" }
-                if mth == "receive" { return "Result<Int, CancelledError>" }
+                if mth == "send" { return "Result<void,CancelledError>" }
+                if mth == "receive" { return "Result<Int,CancelledError>" }
                 if mth == "close" { return "Unit" }
                 self.fail("SEM-001", "undefined method: Channel." + mth, n)
+                return "Error"
+            }
+            if self.isMutexType(bt) {
+                if mth == "withLock" {
+                    if argc != 1 {
+                        self.fail("SEM-004", "Mutex.withLock expects 1 argument", n)
+                        return "Error"
+                    }
+                    self.argType(n.kids.get(0), "Unit(" + self.mutexElement(bt) + ")")
+                    return "Result<void,TaskError>"
+                }
+                self.fail("SEM-001", "undefined method: Mutex." + mth, n)
+                return "Error"
+            }
+            if bt == "Context" {
+                if mth == "isCancelled" {
+                    if argc != 0 { self.fail("SEM-004", "Context.isCancelled expects 0 arguments", n) }
+                    return "Bool"
+                }
+                if mth == "cancel" {
+                    if argc != 0 { self.fail("SEM-004", "Context.cancel expects 0 arguments", n) }
+                    return "Unit"
+                }
+                self.fail("SEM-001", "undefined method: Context." + mth, n)
+                return "Error"
+            }
+            if bt == "TaskGroup" {
+                if mth == "spawn" {
+                    if argc != 1 { self.fail("SEM-004", "TaskGroup.spawn expects 1 argument", n) }
+                    String exp = "Result<Int,TaskError>()"
+                    if argc == 1 { exp = self.spawnLambdaType(n.kids.get(0)) }
+                    self.argType(n.kids.get(0), exp)
+                    return "Task<" + self.resultValueType(self.fnRetType(exp)) + ">"
+                }
+                if mth == "cancel" {
+                    if argc != 0 { self.fail("SEM-004", "TaskGroup.cancel expects 0 arguments", n) }
+                    return "Unit"
+                }
+                if mth == "close" {
+                    if argc != 0 { self.fail("SEM-004", "TaskGroup.close expects 0 arguments", n) }
+                    return "Result<void,TaskError>"
+                }
+                self.fail("SEM-001", "undefined method: TaskGroup." + mth, n)
+                return "Error"
+            }
+            if self.isTaskType(bt) {
+                if mth == "join" || mth == "joinDeadline" {
+                    if mth == "joinDeadline" && argc != 1 {
+                        self.fail("SEM-004", "Task.joinDeadline expects 1 argument", n)
+                    }
+                    if mth == "join" && argc != 0 {
+                        self.fail("SEM-004", "Task.join expects 0 arguments", n)
+                    }
+                    return "Result<" + self.taskElement(bt) + ",TaskError>"
+                }
+                self.fail("SEM-001", "undefined method: Task." + mth, n)
                 return "Error"
             }
             if bt == "Bytes" {
@@ -4008,6 +4231,7 @@ class CGen {
     String err
     String curClass
     String curRet
+    String curCtxExpr
     final List<AstNode> defers
     final List<String> deferErrs
     final List<String> breakTargets
@@ -4017,6 +4241,7 @@ class CGen {
     final List<String> lambdaCaptureTypes
     final List<String> lambdaCaptureScanned
     final List<String> lambdaOwners
+    final List<String> lambdaModes
     final List<String> ffiCallNames
     final List<String> ffiCallCNames
     final List<String> ffiCallRets
@@ -4033,6 +4258,7 @@ class CGen {
         self.err = ""
         self.curClass = ""
         self.curRet = "Int"
+        self.curCtxExpr = "NULL"
         self.defers = []
         self.deferErrs = []
         self.breakTargets = []
@@ -4042,6 +4268,7 @@ class CGen {
         self.lambdaCaptureTypes = []
         self.lambdaCaptureScanned = []
         self.lambdaOwners = []
+        self.lambdaModes = []
         self.ffiCallNames = callNames
         self.ffiCallCNames = callCNames
         self.ffiCallRets = callRets
@@ -4181,6 +4408,21 @@ class CGen {
         }
         if ty == "Channel" || ty.indexOf("Channel<") == 0 {
             return "xrt_channel *"
+        }
+        if ty == "Mutex" || ty.indexOf("Mutex<") == 0 {
+            return "xrt_mutex *"
+        }
+        if ty == "Task" || ty.indexOf("Task<") == 0 {
+            return "xrt_task *"
+        }
+        if ty == "TaskGroup" {
+            return "xrt_task_group *"
+        }
+        if ty == "Context" {
+            return "xrt_context *"
+        }
+        if ty == "TaskError" || ty == "CancelledError" {
+            return "int64_t"
         }
         if ty == "Bool" {
             return "int"
@@ -4564,6 +4806,7 @@ class CGen {
         self.lambdaCaptureTypes.push("")
         self.lambdaCaptureScanned.push("0")
         self.lambdaOwners.push("")
+        self.lambdaModes.push("")
     }
 
     Void collectReturnLambdas(AstNode n, String retTy) {
@@ -4580,6 +4823,89 @@ class CGen {
         while i < n.kids.length() {
             self.collectReturnLambdas(n.kids.get(i), retTy)
             i = i + 1
+        }
+    }
+
+    String syntacticType(AstNode n) {
+        if n.kind == "Int" { return "Int" }
+        if n.kind == "Double" { return "Double" }
+        if n.kind == "Bool" { return "Bool" }
+        if n.kind == "Char" { return "Char" }
+        if n.kind == "String" { return "String" }
+        if n.kind == "Cast" { return n.text }
+        if n.kind == "Unary" && n.kids.length() > 0 { return self.syntacticType(n.kids.get(0)) }
+        if n.kind == "Binary" && n.kids.length() > 1 {
+            if n.text == "==" || n.text == "!=" || n.text == "<" || n.text == "<=" ||
+               n.text == ">" || n.text == ">=" || n.text == "&&" || n.text == "||" {
+                return "Bool"
+            }
+            if self.syntacticType(n.kids.get(0)) == "Double" || self.syntacticType(n.kids.get(1)) == "Double" {
+                return "Double"
+            }
+            return "Int"
+        }
+        if n.kind == "Call" && n.text == "Ok" && n.kids.length() > 0 {
+            return self.syntacticType(n.kids.get(0))
+        }
+        return "Int"
+    }
+
+    String spawnReturnType(AstNode n) {
+        if n.kind == "Return" && n.kids.length() > 0 {
+            AstNode v = n.kids.get(0)
+            if v.kind == "Call" && v.text == "Ok" && v.kids.length() > 0 {
+                return self.syntacticType(v.kids.get(0))
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            String r = self.spawnReturnType(n.kids.get(i))
+            if r != "" {
+                return r
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    String spawnLambdaType(AstNode lam) {
+        String vt = self.spawnReturnType(lam)
+        if vt == "" {
+            vt = "Int"
+        }
+        return "Result<" + vt + ",TaskError>()"
+    }
+
+    String lambdaFirstParamType(AstNode lam) {
+        Int i = 0
+        while i < lam.kids.length() {
+            AstNode p = lam.kids.get(i)
+            if p.kind == "Param" {
+                List<String> pp = p.text.split(" ")
+                if pp.length() >= 2 {
+                    return pp.get(0)
+                }
+            }
+            i = i + 1
+        }
+        return "Int"
+    }
+
+    Bool lambdaHasParams(AstNode lam) {
+        Int i = 0
+        while i < lam.kids.length() {
+            if lam.kids.get(i).kind == "Param" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void setLambdaMode(AstNode lam, String mode) {
+        Int li = self.lambdaIndex(lam)
+        if li >= 0 {
+            self.lambdaModes.set(li, mode)
         }
     }
 
@@ -4612,6 +4938,23 @@ class CGen {
             }
             return
         }
+        if n.kind == "MethodCall" {
+            if n.text == "withLock" && n.kids.length() > 1 {
+                AstNode lam = n.kids.get(1)
+                String exp = "Unit(" + self.lambdaFirstParamType(lam) + ")"
+                self.collectLambdas(lam, exp)
+                self.setLambdaMode(lam, "lock")
+                self.collectLambdas(n.kids.get(0), "")
+                return
+            }
+            if n.text == "spawn" && n.kids.length() > 1 {
+                AstNode lam = n.kids.get(1)
+                self.collectLambdas(lam, self.spawnLambdaType(lam))
+                self.setLambdaMode(lam, "task")
+                self.collectLambdas(n.kids.get(0), "")
+                return
+            }
+        }
         if n.kind == "Local" {
             List<String> parts = n.text.split(" ")
             String exp = ""
@@ -4632,6 +4975,22 @@ class CGen {
             return
         }
         if n.kind == "Call" {
+            Int dn = lastDot(n.text)
+            if dn >= 0 {
+                String dm = n.text.substring(dn + 1, n.text.length() - dn - 1)
+                if dm == "withLock" && n.kids.length() > 0 {
+                    AstNode lam = n.kids.get(0)
+                    self.collectLambdas(lam, "Unit(" + self.lambdaFirstParamType(lam) + ")")
+                    self.setLambdaMode(lam, "lock")
+                    return
+                }
+                if dm == "spawn" && n.kids.length() > 0 {
+                    AstNode lam = n.kids.get(0)
+                    self.collectLambdas(lam, self.spawnLambdaType(lam))
+                    self.setLambdaMode(lam, "task")
+                    return
+                }
+            }
             Int i = 0
             while i < n.kids.length() {
                 self.collectLambdas(n.kids.get(i), self.callParamType(n.text, i))
@@ -5105,7 +5464,71 @@ class CGen {
             }
             pi = pi + 1
         }
+        if self.lambdaMode(i) == "task" && !self.lambdaHasParams(lam) {
+            sig = sig + ", xrt_context *xn_task_ctx"
+        }
         return sig + ");"
+    }
+
+    String lockAdapterProto(Int i) {
+        return "static int32_t xn_lock_body_" + str(i) + "(void *data, void *env, xrt_context *ctx);"
+    }
+
+    String lambdaMode(Int i) {
+        if i >= 0 && i < self.lambdaModes.length() {
+            return self.lambdaModes.get(i)
+        }
+        return ""
+    }
+
+    String taskAdapterProto(Int i) {
+        return "static int32_t xn_task_body_" + str(i) + "(void *env, xrt_context *ctx, xrt_task_result *out);"
+    }
+
+    Void emitLockAdapter(Int i) {
+        AstNode lam = self.lambdas.get(i)
+        String pt = self.lambdaFirstParamType(lam)
+        self.emit("static int32_t xn_lock_body_" + str(i) + "(void *data, void *env, xrt_context *ctx) {")
+        self.emit("  (void)ctx;")
+        self.emit("  xn_closure *xn_cl = (xn_closure *)env;")
+        if self.lambdaHasParams(lam) {
+            self.emit("  ((void (*)(void *, " + self.ctype(pt) + "))xn_cl->fn)(xn_cl->env, (" + self.ctype(pt) + ")(intptr_t)data);")
+        } else {
+            self.emit("  ((void (*)(void *))xn_cl->fn)(xn_cl->env);")
+        }
+        self.emit("  return 0;")
+        self.emit("}")
+        self.emit("")
+    }
+
+    Void emitTaskAdapter(Int i) {
+        String rt = self.lambdaTypes.get(i)
+        String vt = self.resultValue(self.fnRetType(rt))
+        String mapv = "(void *)(intptr_t)(r.i)"
+        if vt == "String" {
+            mapv = "(void *)(r.s)"
+        } else if vt != "Int" && vt != "Int32" && vt != "Int64" && vt != "Long" &&
+                  vt != "Bool" && vt != "Char" {
+            mapv = "(void *)(r.p)"
+        }
+        self.emit("static int32_t xn_task_body_" + str(i) + "(void *env, xrt_context *ctx, xrt_task_result *out) {")
+        self.emit("  xn_closure *xn_cl = (xn_closure *)env;")
+        if self.lambdaHasParams(self.lambdas.get(i)) {
+            self.emit("  (void)ctx;")
+            self.emit("  xn_Result r = ((xn_Result (*)(void *))xn_cl->fn)(xn_cl->env);")
+        } else if self.lambdaMode(i) == "task" {
+            self.emit("  xn_Result r = ((xn_Result (*)(void *, xrt_context *))xn_cl->fn)(xn_cl->env, ctx);")
+        } else {
+            self.emit("  (void)ctx;")
+            self.emit("  xn_Result r = ((xn_Result (*)(void *))xn_cl->fn)(xn_cl->env);")
+        }
+        self.emit("  out->ok = r.ok;")
+        self.emit("  out->value = r.ok ? " + mapv + " : NULL;")
+        self.emit("  out->kind = r.ok ? (xrt_error_kind)0 : (xrt_error_kind)(intptr_t)r.err;")
+        self.emit("  out->error = NULL;")
+        self.emit("  return 0;")
+        self.emit("}")
+        self.emit("")
     }
 
     Void emitLambdaDef(Int i) {
@@ -5114,6 +5537,10 @@ class CGen {
         self.emit(self.lambdaProto(i).substring(0, self.lambdaProto(i).length() - 1) + " {")
         self.curRet = self.fnRetType(ft)
         String oldClass = self.curClass
+        String oldCtx = self.curCtxExpr
+        if self.lambdaMode(i) == "task" && !self.lambdaHasParams(lam) {
+            self.curCtxExpr = "xn_task_ctx"
+        }
         String owner = self.lambdaOwners.get(i)
         if owner != "" {
             self.curClass = owner
@@ -5151,6 +5578,7 @@ class CGen {
         }
         self.popTo(0)
         self.curClass = oldClass
+        self.curCtxExpr = oldCtx
         self.emit("}")
         self.emit("")
     }
@@ -5368,9 +5796,32 @@ class CGen {
             if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
         if bt.indexOf("Channel<") == 0 {
-            if mth == "send" { return "Result<Int, CancelledError>" }
-            if mth == "receive" { return "Result<Int, CancelledError>" }
+            if mth == "send" { return "Result<void,CancelledError>" }
+            if mth == "receive" { return "Result<Int,CancelledError>" }
             if mth == "close" { return "Unit" }
+        }
+        if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
+            if mth == "withLock" { return "Result<void,TaskError>" }
+        }
+        if bt == "Context" {
+            if mth == "isCancelled" { return "Bool" }
+            if mth == "cancel" { return "Unit" }
+        }
+        if bt == "TaskGroup" {
+            if mth == "spawn" {
+                String exp = "Result<Int,TaskError>()"
+                if n.kids.length() > 1 { exp = self.spawnLambdaType(n.kids.get(1)) }
+                return "Task<" + self.resultValue(self.fnRetType(exp)) + ">"
+            }
+            if mth == "cancel" { return "Unit" }
+            if mth == "close" { return "Result<void,TaskError>" }
+        }
+        if bt == "Task" || bt.indexOf("Task<") == 0 {
+            if mth == "join" || mth == "joinDeadline" {
+                String et = "Int"
+                if bt.indexOf("Task<") == 0 { et = bt.substring(5, bt.length() - 6) }
+                return "Result<" + et + ",TaskError>"
+            }
         }
         if bt == "String" {
             if mth == "length" || mth == "indexOf" || mth == "indexOfByte" || mth == "get" {
@@ -5474,9 +5925,37 @@ class CGen {
             }
         }
         if bt.indexOf("Channel<") == 0 {
-            if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ")" }
-            if mth == "receive" { return "xn_channel_recv_int(" + bv + ")" }
+            if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+            if mth == "receive" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
             if mth == "close" { return "xrt_channel_close(" + bv + ")" }
+        }
+        if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
+            if mth == "withLock" && n.kids.length() > off {
+                AstNode lam = n.kids.get(off)
+                Int li = self.lambdaIndex(lam)
+                return "xn_mutex_lock(" + bv + ", " + self.expr(lam) + ", xn_lock_body_" + str(li) + ")"
+            }
+        }
+        if bt == "Context" {
+            if mth == "isCancelled" { return "xrt_context_cancelled(" + bv + ")" }
+            if mth == "cancel" { return "xrt_context_cancel(" + bv + ")" }
+        }
+        if bt == "TaskGroup" {
+            if mth == "spawn" && n.kids.length() > off {
+                AstNode lam = n.kids.get(off)
+                Int li = self.lambdaIndex(lam)
+                return "xn_task_spawn(" + bv + ", " + self.expr(lam) + ", xn_task_body_" + str(li) + ")"
+            }
+            if mth == "cancel" { return "xrt_task_group_cancel(" + bv + ")" }
+            if mth == "close" { return "xn_task_group_close(" + bv + ")" }
+        }
+        if bt == "Task" || bt.indexOf("Task<") == 0 {
+            if mth == "join" { return "xn_task_join(" + bv + ")" }
+            if mth == "joinDeadline" {
+                String dl = "0"
+                if n.kids.length() > off { dl = self.expr(n.kids.get(off)) }
+                return "xn_task_join_deadline(" + bv + ", " + dl + ")"
+            }
         }
         if bt == "Bytes" {
             if mth == "length" {
@@ -5820,6 +6299,18 @@ class CGen {
             if n.text == "Set.of" {
                 return "Set<Int>"
             }
+            if n.text == "Mutex" {
+                if n.kids.length() > 0 {
+                    return "Mutex<" + self.typeOf(n.kids.get(0)) + ">"
+                }
+                return "Mutex<Int>"
+            }
+            if n.text == "Context.background" {
+                return "Context"
+            }
+            if n.text == "TaskGroup.create" {
+                return "TaskGroup"
+            }
             if ffiIndex(n.text) >= 0 {
                 return ffiRet(n.text)
             }
@@ -5854,9 +6345,32 @@ class CGen {
                     if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
                 if bt.indexOf("Channel<") == 0 {
-                    if mth == "send" { return "Result<Int, CancelledError>" }
-                    if mth == "receive" { return "Result<Int, CancelledError>" }
+                    if mth == "send" { return "Result<void,CancelledError>" }
+                    if mth == "receive" { return "Result<Int,CancelledError>" }
                     if mth == "close" { return "Unit" }
+                }
+                if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
+                    if mth == "withLock" { return "Result<void,TaskError>" }
+                }
+                if bt == "Context" {
+                    if mth == "isCancelled" { return "Bool" }
+                    if mth == "cancel" { return "Unit" }
+                }
+                if bt == "TaskGroup" {
+                    if mth == "spawn" {
+                        String exp = "Result<Int,TaskError>()"
+                        if n.kids.length() > 0 { exp = self.spawnLambdaType(n.kids.get(0)) }
+                        return "Task<" + self.resultValue(self.fnRetType(exp)) + ">"
+                    }
+                    if mth == "cancel" { return "Unit" }
+                    if mth == "close" { return "Result<void,TaskError>" }
+                }
+                if bt == "Task" || bt.indexOf("Task<") == 0 {
+                    if mth == "join" || mth == "joinDeadline" {
+                        String et = "Int"
+                        if bt.indexOf("Task<") == 0 { et = bt.substring(5, bt.length() - 6) }
+                        return "Result<" + et + ",TaskError>"
+                    }
                 }
                 if bt == "Bytes" {
                     if mth == "fromString" {
@@ -6163,6 +6677,19 @@ class CGen {
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
                 return "xrt_channel_new((size_t)(" + av + "), NULL)"
             }
+            if n.text == "Mutex" {
+                String av = "NULL"
+                if n.kids.length() > 0 { av = "((void *)(intptr_t)(" + self.expr(n.kids.get(0)) + "))" }
+                return "xrt_mutex_new(" + av + ", NULL)"
+            }
+            if n.text == "Context.background" {
+                return "xrt_context_background()"
+            }
+            if n.text == "TaskGroup.create" {
+                String av = "NULL"
+                if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
+                return "xrt_task_group_new(" + av + ")"
+            }
             if n.text == "listFiles" {
                 String a = "rt_string_from_c(\"\")"
                 if n.kids.length() > 0 {
@@ -6331,9 +6858,37 @@ class CGen {
                     }
                 }
                 if bt.indexOf("Channel<") == 0 {
-                    if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ")" }
-                    if mth == "receive" { return "xn_channel_recv_int(" + bv + ")" }
+                    if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                    if mth == "receive" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
                     if mth == "close" { return "xrt_channel_close(" + bv + ")" }
+                }
+                if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
+                    if mth == "withLock" && n.kids.length() > 0 {
+                        AstNode lam = n.kids.get(0)
+                        Int li = self.lambdaIndex(lam)
+                        return "xn_mutex_lock(" + bv + ", " + self.expr(lam) + ", xn_lock_body_" + str(li) + ")"
+                    }
+                }
+                if bt == "Context" {
+                    if mth == "isCancelled" { return "xrt_context_cancelled(" + bv + ")" }
+                    if mth == "cancel" { return "xrt_context_cancel(" + bv + ")" }
+                }
+                if bt == "TaskGroup" {
+                    if mth == "spawn" && n.kids.length() > 0 {
+                        AstNode lam = n.kids.get(0)
+                        Int li = self.lambdaIndex(lam)
+                        return "xn_task_spawn(" + bv + ", " + self.expr(lam) + ", xn_task_body_" + str(li) + ")"
+                    }
+                    if mth == "cancel" { return "xrt_task_group_cancel(" + bv + ")" }
+                    if mth == "close" { return "xn_task_group_close(" + bv + ")" }
+                }
+                if bt == "Task" || bt.indexOf("Task<") == 0 {
+                    if mth == "join" { return "xn_task_join(" + bv + ")" }
+                    if mth == "joinDeadline" {
+                        String dl = "0"
+                        if n.kids.length() > 0 { dl = self.expr(n.kids.get(0)) }
+                        return "xn_task_join_deadline(" + bv + ", " + dl + ")"
+                    }
                 }
                 if bt == "Bytes" {
                     if mth == "fromString" {
@@ -7421,8 +7976,14 @@ class CGen {
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
-        self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, NULL); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = NULL; return r; }")
-        self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, NULL); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = NULL; r.p = NULL; r.err = NULL; return r; }")
+        self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }")
+        self.emit("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }")
+        self.emit("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }")
+        self.emit("static xn_Result xn_task_join(xrt_task *t) { xrt_task_result tr; memset(&tr, 0, sizeof(tr)); int32_t rc = xrt_task_join(t, &tr); if (rc != 0) { xn_Result r; memset(&r, 0, sizeof(r)); r.err = (void *)(intptr_t)rc; return r; } return xn_task_result_map(&tr); }")
+        self.emit("static xn_Result xn_task_join_deadline(xrt_task *t, int64_t dl) { xrt_task_result tr; memset(&tr, 0, sizeof(tr)); int32_t rc = xrt_task_join_deadline(t, dl, &tr); if (rc != 0) { xn_Result r; memset(&r, 0, sizeof(r)); r.err = (void *)(intptr_t)rc; return r; } return xn_task_result_map(&tr); }")
+        self.emit("static xn_Result xn_task_group_close(xrt_task_group *g) { xrt_task_result tr; memset(&tr, 0, sizeof(tr)); int32_t rc = xrt_task_group_close(g, &tr); xn_Result r; memset(&r, 0, sizeof(r)); if (rc != 0) { r.err = (void *)(intptr_t)rc; return r; } if (!tr.ok) { r.err = (void *)(intptr_t)tr.kind; return r; } r.ok = 1; return r; }")
         self.emit("")
         self.emitFfiDecls()
         Int i = 0
@@ -7448,6 +8009,13 @@ class CGen {
         i = 0
         while i < self.lambdas.length() {
             self.emit(self.lambdaProto(i))
+            if i < self.lambdaModes.length() {
+                if self.lambdaModes.get(i) == "lock" {
+                    self.emit(self.lockAdapterProto(i))
+                } else if self.lambdaModes.get(i) == "task" {
+                    self.emit(self.taskAdapterProto(i))
+                }
+            }
             i = i + 1
         }
         self.emit("")
@@ -7626,6 +8194,13 @@ class CGen {
         i = 0
         while i < self.lambdas.length() && !self.hasError() {
             self.emitLambdaDef(i)
+            if i < self.lambdaModes.length() {
+                if self.lambdaModes.get(i) == "lock" {
+                    self.emitLockAdapter(i)
+                } else if self.lambdaModes.get(i) == "task" {
+                    self.emitTaskAdapter(i)
+                }
+            }
             i = i + 1
         }
         Bool mainArgs = false

@@ -10,12 +10,12 @@ package scenario and runtime contract.
 
 | Order | XDK trigger | Compiler work |
 | --- | --- | --- |
-| 1 | `xdk.sync` Atomic/Mutex/Channel | AtomicInt/Bool load/store done; Mutex/Channel/AtomicRef and cas queued |
-| 2 | `xdk.tasks` Task/TaskGroup/Context | task types, cancellation and result mapping |
-| 3 | `xdk.collections` empty Map | `[:]` + import now working; generic function values/Map<Int,List<T>> still queued |
-| 4 | collections algorithms | typed function parameters/generic function values |
-| 5 | resource/context | Result/companion and Context bridge |
-| 6 | log/config/cli | package adapters only; avoid new language features unless blocked |
+| 1 | `xdk.sync` Mutex<T> (W2 / S2-1) | DONE: Mutex type, scoped `withLock` lowering, runtime bridge |
+| 2 | `xdk.tasks` Task/TaskGroup/Context (W2 / S2-2, S2-4) | DONE: task types, spawn/join/cancel, result mapping, join deadline, context threaded into channel ops |
+| 3 | `xdk.sync` Channel completion (W2 / S2-3) | DONE: close/cancel semantics; legacy `Result<void, ...>` gap recorded |
+| 4 | `xdk.collections` algorithms (W4) | typed function parameters/generic function values |
+| 5 | resource/context (W3) | Result/companion and Context bridge |
+| 6 | log/config/cli (W5) | package adapters only; avoid new language features unless blocked |
 
 ## Rules
 
@@ -28,9 +28,18 @@ package scenario and runtime contract.
 
 ## Current evidence
 
-- `xdk.sync` AtomicInt/AtomicBool load/store now runs in mini and legacy;
-  Mutex/Channel/AtomicRef and cas remain.
-- `import xdk.collections` + `[:]` now works in mini/legacy; longer Collections algorithms still need W4.
+- W1 is closed: `tests/xdk_bytes*.x`, `tests/xdk_io.x`, `tests/xdk_fs.x` pass
+  through mini and legacy in `src/mini/tests/xdk.sh`.
+- W2 is closed. `tests/xdk_mutex.x` passes mini + legacy; `tests/xdk_tasks.x`,
+  `tests/xdk_cancel.x`, and `tests/xdk_channel.x` pass on mini. `xdk.sync`
+  AtomicInt/AtomicBool/AtomicRef/Mutex pass in mini and legacy; `Channel<Int>`
+  is mini-only with the legacy `Result<void, ...>` typedef gap recorded.
+- `xdk.tasks` now has a working mini surface: `Context`, `TaskGroup`,
+  `Task<T>`, spawn/join/joinDeadline/cancel/close, and cancellation of
+  blocked channel operations. Legacy fails on undeclared `xn_task_body_*`
+  adapters and is recorded as an open differential gap.
+- `import xdk.collections` + `[:]` now works in mini/legacy; longer Collections
+  algorithms still need W4.
 - Full Sys Resource/Context and M7-F1 Result/companion remain open.
 
 ## Archive

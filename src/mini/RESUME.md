@@ -21,6 +21,9 @@ Mini 版本:     0.2.0（M9-CUT）
 - M9-PAR：47 个正向文件/工程场景，stdout/stderr/退出码 `diff=0`
 - M9-CUT：默认引擎切换为 mini
 - 26 个回归、selfhost 固定点、m8 冷启动路径
+- XDK-W0：T0 包矩阵每行都有 owner 和场景名
+- XDK-W1：bytes / in-memory io / fs 文本面通过 `tests/xdk.sh`（mini + legacy）
+- XDK-W2：Mutex/tasks/Channel close/取消与超时，四个场景进入 `tests/xdk.sh`
 
 验收记录：
 
@@ -36,10 +39,12 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**XDK-W0：从底层 XDK 建立第一批 probe。**
+**XDK-W3：`Sys Resource.x` + `Context`。**
 
-先锁定 bytes/IO/FS 的运行时与 XDK 契约，并保留 tasks/sync、空 Map 的失败证据。
-随后按 `src/xdk/PLAN.md` 的 XDK-W1 → W7 顺序推进。
+W2 已关闭：`tests/xdk_mutex.x` 走 mini + legacy 差分；
+`tests/xdk_tasks.x`、`tests/xdk_cancel.x`、`tests/xdk_channel.x` 在 mini
+通过，legacy 缺口记录在 `src/xdk/PLAN.md`。下一步按 W3 接入完整 Sys
+Resource/Context，并补 base/full 两种模式资源场景。
 
 不要先做编译器功能；只有当 XDK 场景明确指出需要时，才进入
 `src/mini/PLAN.md` 的编译器支持队列。
@@ -80,13 +85,26 @@ done
 
 ## 当前边界
 
-- 完整 T0 XDK 仍未完成；见 `PLAN.md` 的包矩阵。
-- `xdk.collections` 仍受泛型函数类型参数、空 Map 字面量阻塞。
-- `xdk.tasks` / `xdk.sync` 仍是空骨架。
+- W1 已关闭：bytes、in-memory io、fs 文本面有 mini/legacy 差分证据。
+- W2 已关闭：`Mutex<T>`/`withLock` 有 mini + legacy 差分；tasks、取消/超时、
+  Channel close 有 mini 场景。`xdk.tasks`、`xdk.sync` 不再是空骨架。
+- `xdk.sync` 的 Channel<Int> 仅 mini；legacy 有 `Result<void, ...>` codegen 缺口
+  （`xn_Result_void_CancelledError` 未定义）。
+- tasks 的 legacy 缺口：生成的 `xn_task_body_*` 缺少适配器原型声明。
+- `xdk.collections` 仍受泛型函数类型参数阻塞；空 Map 字面量已通。
 - 完整 Sys 的 `Resource.x` / `Context` 尚未接入。
 - M7-F1 的 Result/companion 仍未完成。
 - 闭包环境回收/生命周期仍未完成。
 - legacy 对完整 `src/mini/main.x` 的 xparser 仍有超时边界；不影响默认 mini。
+
+## 基线（2026-11-19 复核）
+
+```text
+src/mini/tests/xdk.sh        PASS
+26 个回归                    全部 PASS
+m9_parity（47 个场景）       PASS
+selfhost                    PASS
+```
 
 ## 纪律
 
