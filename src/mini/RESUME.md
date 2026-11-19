@@ -27,6 +27,7 @@ Mini 版本:     0.2.0（M9-CUT）
 - XDK-W3：完整 Resource.x 装载；base/full 资源工程与取消路径通过 `tests/resources.sh`
 - XDK-W4：泛型函数特化；`sortBy`/`dedup`/`find` 在 Int/String 列表上通过 `tests/xdk_collections_algo.x`
 - XDK-W5：`xdk.log`/`xdk.config`/`xdk.cli` 三个可运行场景进入 `tests/xdk.sh`
+- XDK-W6：`tests/m10_parity.sh` 覆盖 T0 base/full；`tests/m10_perf.sh` 守住 200M 门禁
 
 验收记录：
 
@@ -42,15 +43,11 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**XDK-W6：T0 一致性与性能。**
+**XDK-W7：发布 `mini 0.3.0`。**
 
-W2–W5 已关闭：资源、泛型集合、log/config/cli 都有可运行回归。下一步新增
-`src/mini/tests/m10_parity.sh`，覆盖全部 T0 包的 base/full 模式；保持
-M9-PAR 47/47、26 项回归、selfhost、m8；刷新 200M 性能证据，拒绝超过 20%
-的回退。
-
-不要先做编译器功能；只有当 XDK 场景明确指出需要时，才进入
-`src/mini/PLAN.md` 的编译器支持队列。
+W0–W6 已关闭：T0 矩阵、并发/资源/集合/高层包、base/full 一致性与 200M
+性能证据齐全。下一步更新版本号、README/RESUME 和里程碑记录，并打
+`mini-v0.3.0` 标签。legacy 保留；删除旧引擎或再次改变默认引擎必须单独批准。
 
 ## 重启命令
 
@@ -74,7 +71,7 @@ XNULL_MINI_BOOTSTRAP=legacy ./src/mini/build.sh
 ```sh
 for t in lex parser sema codegen class flow array containers result defer m6_4 \
          xdk check project ffi xfb_error resources object_list selfhost generics \
-         c4 m7_sys m8 parity m9_parity m9_cut; do
+         c4 m7_sys m8 parity m9_parity m9_cut m10_parity m10_perf; do
   ./src/mini/tests/$t.sh || exit 1
 done
 ```
@@ -82,6 +79,8 @@ done
 其中：
 
 - `m9_parity.sh`：当前 47 个正向场景，不能回退。
+- `m10_parity.sh`：T0 包 base/full 矩阵。
+- `m10_perf.sh`：200M 性能门禁（>20% 回退失败）。
 - `m9_cut.sh`：默认 mini，legacy 仍可显式选择。
 - `m8.sh`：工程/工具链冷路径。
 - `selfhost.sh`：mini1/mini2 固定点。
@@ -98,6 +97,8 @@ done
   运行时；legacy 泛型算法缺 `xn_fn_*` typedef。
 - W5 已关闭：log/config 差分通过；CLI 在 mini 通过，legacy 读
   `List<String>.get` 的 String 元素仍有错，差分保持开放。
+- W6 已关闭：`tests/m10_parity.sh` 覆盖 T0 base/full；`tests/m10_perf.sh`
+  200M 实测 0.727s（0.2.0 基线 0.733s，0.992x）。
 - `xdk.sync` 的 Channel<Int> 仅 mini；legacy 有 `Result<void, ...>` codegen 缺口
   （`xn_Result_void_CancelledError` 未定义）。
 - tasks 的 legacy 缺口：生成的 `xn_task_body_*` 缺少适配器原型声明。
@@ -110,6 +111,9 @@ done
 
 ```text
 src/mini/tests/xdk.sh        PASS
+src/mini/tests/resources.sh  PASS
+src/mini/tests/m10_parity.sh PASS
+src/mini/tests/m10_perf.sh   PASS（200M 0.727s / 基线 0.733s）
 26 个回归                    全部 PASS
 m9_parity（47 个场景）       PASS
 selfhost                    PASS

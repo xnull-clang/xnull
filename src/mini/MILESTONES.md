@@ -1,5 +1,27 @@
 # Mini 里程碑
 
+## 2026-11-19 · Mini 0.3.0 / M10-T0
+
+XDK-first 里程碑：T0 包从矩阵声明推进到可运行场景与 base/full 回归。
+
+![Mini 0.3.0 200M performance curve](../../docs/assets/mini-200m-runtime-20261119.svg)
+
+### 验收范围
+
+- XDK-W2：`Mutex<T>`、Task/TaskGroup/Context、Channel close、取消与超时。
+- XDK-W3：完整 `Resource.x` 与 Context 取消路径，base/full 资源工程。
+- XDK-W4：集合泛型算法单态化（`sortBy`/`dedup`/`find`，Int/String）。
+- XDK-W5：`xdk.log`、`xdk.config`、`xdk.cli` 三个可运行 T1 面。
+- XDK-W6：`m10_parity.sh` 覆盖 T0 base/full 矩阵；`m10_perf.sh` 做 200M 门禁。
+- 保持 M9-PAR 47/47、26 项回归、selfhost、m8 全绿。
+
+### 性能
+
+- 200M 实测：mini 0.727s，legacy 0.726s，比例 1.001x；相对 0.2.0 的
+  0.733s 为 0.992x，未超过 20% 回退门禁。
+- 本次曲线点：25M 0.097s、50M 0.188s、100M 0.372s、200M 0.727s。
+- 每点取 3 次预热后运行的最快值；仍是微基准，不代表通用性能承诺。
+
 ## 2026-11-18 02:01 · Mini 0.2.0 / M9-CUT
 
 记录号：`2611180201`

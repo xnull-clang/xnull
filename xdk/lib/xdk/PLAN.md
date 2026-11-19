@@ -183,12 +183,21 @@ Ordered slices; each slice is code + scenario + regression + commit:
 - Open gap: the legacy oracle miscompiles String element reads through
   `Args.value`; the CLI differential is therefore open and recorded.
 
-### XDK-W6 — T0 conformance and performance
+### XDK-W6 — T0 conformance and performance — DONE (2026-11-19)
 
 - Add `m10_parity.sh`: all T0 packages, base/full modes.
 - Keep M9-PAR 47/47 and 26 regressions green.
 - Update the 200M performance curve; reject >20% regressions.
 - Exit: full T0 matrix diff=0, performance evidence recorded.
+- **Done**: `tests/m10_parity.sh` covers 19 differential file scenarios
+  (mini vs legacy in base and full), 5 mini-only scenarios with base/full
+  parity, the CLI argv scenario, and the resource base/full/cancel projects.
+- `tests/m10_perf.sh` measures 25M/50M/100M/200M. Current 200M is 0.727s
+  against the 0.2.0 baseline of 0.733s (0.992x); the 1.2x gate rejects
+  regressions above 0.880s.
+- The 0.3.0 curve is recorded at
+  `docs/assets/mini-200m-runtime-20261119.svg`; mini and legacy stay within
+  1.001x at 200M.
 
 ### XDK-W7 — release
 
@@ -258,10 +267,11 @@ wave.
 
 ## 8. Current next action
 
-XDK-W5 is closed. `tests/xdk_log.x`, `tests/xdk_config.x`, and
-`tests/xdk_cli.x` are wired into `src/mini/tests/xdk.sh`. Start **XDK-W6**:
-add `m10_parity.sh` for all T0 packages in base/full modes and refresh the
-200M performance evidence against the 0.2.0 baseline.
+XDK-W0 through XDK-W6 are closed. `tests/m10_parity.sh` covers the T0
+matrix in base/full modes and `tests/m10_perf.sh` holds the 200M gate at
+0.727s (baseline 0.733s, 0.992x). Start **XDK-W7**: release `mini 0.3.0`
+with milestone record, README/RESUME updates, and the tag. Legacy remains
+selectable; deletion or default changes require separate approval.
 
 Baseline to preserve on every W2 commit:
 

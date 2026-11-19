@@ -47,6 +47,8 @@ package scenario and runtime contract.
   typedefs (`xn_fn_*`) remain an open differential gap.
 - W5 is closed: log/config are differential; CLI runs on mini and the legacy
   String element read gap is recorded.
+- W6 is closed: `m10_parity.sh` covers T0 base/full; `m10_perf.sh` records
+  200M at 0.727s vs the 0.733s 0.2.0 baseline (0.992x).
 - M7-F1 Result/companion and closure lifetime remain open.
 
 ## Archive
