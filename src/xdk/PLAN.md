@@ -26,6 +26,11 @@ No compiler-only feature is added without an XDK package scenario that needs
 it. No XDK source package is filled with an empty implementation. No runtime
 primitive is "completed" without a consumer and a test.
 
+The T0 package/file/API design baseline is
+[`../../docs/设计08-T0核心包详细设计方案-v1.0.0.md`](../../docs/设计08-T0核心包详细设计方案-v1.0.0.md):
+one package per stage, with per-file interfaces, contracts, scenarios, and
+recorded gaps.
+
 The `legacy` engine is used as an oracle wherever it has the capability. When
 legacy itself is incomplete, the specification and runtime ABI are the oracle,
 and the gap is recorded explicitly.
@@ -270,12 +275,16 @@ wave.
 
 ## 8. Current next action
 
-XDK-W0 through XDK-W7 are closed. `mini 0.3.0` is released with the T0
-matrix in base/full modes and the 200M gate holding at 0.727s (baseline
-0.733s, 0.992x). The next milestone is the T1 package set; each slice
-follows the same rule: scenario first, base/full regression, recorded
-legacy gaps. Legacy remains selectable; deletion or default changes require
-separate approval.
+XDK-W0 through XDK-W7 are closed and `mini 0.3.0` is released. The next
+work is the T0 package-by-package hardening defined in
+[`../../docs/设计08-T0核心包详细设计方案-v1.0.0.md`](../../docs/设计08-T0核心包详细设计方案-v1.0.0.md):
+execute stages T0-01 … T0-16 in dependency order, one package per stage.
+
+Each stage must land the package file layout/API, a runnable scenario, a
+regression, and an explicit mini/legacy differential or recorded gap. The
+existing W6 matrix (`m10_parity.sh`) and performance gate remain the floor.
+Legacy stays selectable; deletion or default changes require separate
+approval.
 
 Release baseline:
 
