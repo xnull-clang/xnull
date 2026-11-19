@@ -26,6 +26,7 @@ Mini 版本:     0.2.0（M9-CUT）
 - XDK-W2：Mutex/tasks/Channel close/取消与超时，四个场景进入 `tests/xdk.sh`
 - XDK-W3：完整 Resource.x 装载；base/full 资源工程与取消路径通过 `tests/resources.sh`
 - XDK-W4：泛型函数特化；`sortBy`/`dedup`/`find` 在 Int/String 列表上通过 `tests/xdk_collections_algo.x`
+- XDK-W5：`xdk.log`/`xdk.config`/`xdk.cli` 三个可运行场景进入 `tests/xdk.sh`
 
 验收记录：
 
@@ -41,12 +42,12 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**XDK-W5：`xdk.log` / `xdk.config` / `xdk.cli`。**
+**XDK-W6：T0 一致性与性能。**
 
-W2–W4 已关闭：资源工程（base/full/取消）与集合泛型算法都有回归；
-`src/xdk/PLAN.md` 记录 `groupByInt` 的 `Map<Int, ...>` 缺口和 legacy
-`xn_fn_*` typedef 缺口。下一步只用已证明的运行时原语实现三个高层 T0 包，
-每个包一个可运行场景。
+W2–W5 已关闭：资源、泛型集合、log/config/cli 都有可运行回归。下一步新增
+`src/mini/tests/m10_parity.sh`，覆盖全部 T0 包的 base/full 模式；保持
+M9-PAR 47/47、26 项回归、selfhost、m8；刷新 200M 性能证据，拒绝超过 20%
+的回退。
 
 不要先做编译器功能；只有当 XDK 场景明确指出需要时，才进入
 `src/mini/PLAN.md` 的编译器支持队列。
@@ -95,6 +96,8 @@ done
 - W4 已关闭（mini 算法面）：泛型函数按 `List<T>` 实参推断并单态化；
   `sortBy`/`dedup`/`find` 覆盖 Int/String。`groupByInt` 仍缺 `Map<Int,...>`
   运行时；legacy 泛型算法缺 `xn_fn_*` typedef。
+- W5 已关闭：log/config 差分通过；CLI 在 mini 通过，legacy 读
+  `List<String>.get` 的 String 元素仍有错，差分保持开放。
 - `xdk.sync` 的 Channel<Int> 仅 mini；legacy 有 `Result<void, ...>` codegen 缺口
   （`xn_Result_void_CancelledError` 未定义）。
 - tasks 的 legacy 缺口：生成的 `xn_task_body_*` 缺少适配器原型声明。

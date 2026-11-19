@@ -29,6 +29,9 @@ XDK_LAYOUT = {
     "net": {"default": "net/base/Net.x", "full": "net/network/Net.x"},
     "tasks": {"default": "concurrent/tasks/Tasks.x"},
     "sync": {"default": "concurrent/sync/Sync.x"},
+    "log": {"default": "log/Log.x"},
+    "config": {"default": "config/Config.x"},
+    "cli": {"default": "cli/Cli.x"},
     "util": {"default": "util/tool/Util.x"},
     "compiler.lexer": {"default": "compiler/lexer/Lexer.x"},
     "compiler.parser": {"default": "compiler/parser/Parser.x"},
@@ -56,6 +59,9 @@ XDK_SLOT = {
     "net": "net.x",
     "tasks": "tasks.x",
     "sync": "sync.x",
+    "log": "log.x",
+    "config": "config.x",
+    "cli": "cli.x",
     "util": "util.x",
 }
 

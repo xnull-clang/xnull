@@ -37,6 +37,9 @@ UNITS = {
     "runtime": "src/xdk/core/runtime/Runtime.x",
     "tasks": "src/xdk/concurrent/tasks/Tasks.x",
     "sync": "src/xdk/concurrent/sync/Sync.x",
+    "log": "src/xdk/log/Log.x",
+    "config": "src/xdk/config/Config.x",
+    "cli": "src/xdk/cli/Cli.x",
     "math": "src/xdk/core/math/Math.x",
     "time": "src/xdk/core/time/Time.x",
     "collections": "src/xdk/core/collections/Collections.x",
@@ -49,7 +52,7 @@ def xfb_for(seen):
     out = []
     if "runtime" in seen:
         out.append("runtime_raw.xfb")
-    if seen & {"meta", "math", "text", "time"}:
+    if seen & {"meta", "math", "text", "time", "config"}:
         out.append("ext_raw.xfb")
     if seen & {"sys", "resource"}:
         out.append("sys_raw.xfb")

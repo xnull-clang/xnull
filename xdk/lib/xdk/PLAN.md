@@ -63,9 +63,9 @@ Status is deliberately explicit; `missing` means no claim of support.
 | `xdk.tasks` | Task/TaskGroup/Context spawn/join/close/cancel and join deadline verified mini only (`tests/xdk_tasks.x`, `tests/xdk_cancel.x`); legacy task adapter prototype gap | result propagation into group errors; legacy parity |
 | `xdk.sync` | AtomicInt/Bool load/store/cas and AtomicRef verified mini + legacy; Mutex<T> + withLock verified mini + legacy; Channel<Int> send/receive/close verified mini only | typed channel elements; Channel legacy parity |
 | `xdk.collections` | `[:]` map literals verified mini + legacy (`tests/xdk_collections.x`); generic algorithms `sortBy`/`dedup`/`find` verified mini over Int/String (`tests/xdk_collections_algo.x`); `groupByInt` still blocked on `Map<Int, ...>` runtime | Map/Set runtime + groupByInt; legacy generic function typedefs |
-| `xdk.log` | missing package source | Logger/Level/sink scenario |
-| `xdk.config` | missing package source | Config snapshot/env allowlist scenario |
-| `xdk.cli` | missing package source | Args/Command/exit-code scenario |
+| `xdk.log` | Level thresholds, Logger names, debug/info/warn/error, stdout sink verified mini + legacy (`tests/xdk_log.x`) | fields and pluggable sinks |
+| `xdk.config` | profile/key snapshot, overrides, env allowlist verified mini + legacy (`tests/xdk_config.x`) | file/codec loading, profiles |
+| `xdk.cli` | Args length/flag/value/positionals, usage and exit-code mapping verified mini (`tests/xdk_cli.x`); legacy String element read gap | subcommands and help rendering |
 
 Cross-cutting XDK slice: complete `Sys Resource.x` + `Context` with
 `xdk.io.resource`/`xdk.resource`, tested in both base and full Sys modes.
@@ -165,11 +165,23 @@ Ordered slices; each slice is code + scenario + regression + commit:
   differential for generic algorithms. Array literals must still bind to a
   local before use (no expression-level `ArrayLit`).
 
-### XDK-W5 — higher T0: log, config, CLI
+### XDK-W5 — higher T0: log, config, CLI — DONE (2026-11-19)
 
 - Implement each package against already-proven XDK/runtime primitives.
 - No new compiler feature unless its XDK scenario requires one.
 - Exit: one runnable package scenario each.
+- **Done**: `xdk.log` (`Level`, `Logger`, thresholded
+  debug/info/warn/error), `xdk.config` (`Config` profile/key snapshot,
+  overrides, env allowlist), and `xdk.cli` (`Args` length/flag/value/
+  positionals, `usage`, `exitCodeFor`).
+- Scenarios: `tests/xdk_log.x` and `tests/xdk_config.x` are differential
+  (mini + legacy); `tests/xdk_cli.x` builds a binary and runs it with
+  arguments on mini.
+- No new compiler features were required; the packages use existing
+  String/List/class/FFI primitives. Package paths were registered in the
+  mini loader, package resolver, and legacy bundle.
+- Open gap: the legacy oracle miscompiles String element reads through
+  `Args.value`; the CLI differential is therefore open and recorded.
 
 ### XDK-W6 — T0 conformance and performance
 
@@ -239,15 +251,17 @@ wave.
   generic algorithms miss `xn_fn_*` typedefs. Both gaps are recorded.
 - `xdk.io` probe: the legacy `readBytes` return path still differs from the
   mini path and is recorded as an open gap, not silently excluded.
+- `xdk.log`/`xdk.config`/`xdk.cli` probe: log and config are differential;
+  CLI argument values compile on mini, while legacy misreads String elements
+  from `List<String>.get` in this path.
 - M7-F1 Result/companion and closure lifetime remain open boundaries.
 
 ## 8. Current next action
 
-XDK-W4 is closed for the mini algorithm surface. `tests/xdk_collections.x`
-stays differential; `tests/xdk_collections_algo.x` covers generic
-specialization. The 26 regressions, `m9_parity` (47/47), `selfhost`, and `m8`
-are green. Start **XDK-W5**: implement `xdk.log`, `xdk.config`, and `xdk.cli`
-against the already-proven runtime primitives.
+XDK-W5 is closed. `tests/xdk_log.x`, `tests/xdk_config.x`, and
+`tests/xdk_cli.x` are wired into `src/mini/tests/xdk.sh`. Start **XDK-W6**:
+add `m10_parity.sh` for all T0 packages in base/full modes and refresh the
+200M performance evidence against the 0.2.0 baseline.
 
 Baseline to preserve on every W2 commit:
 

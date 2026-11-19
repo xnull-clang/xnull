@@ -8769,6 +8769,15 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.tasks" || pkg.startsWith("xdk.tasks.") {
         return "concurrent/tasks/Tasks.x"
     }
+    if pkg == "xdk.log" || pkg.startsWith("xdk.log.") {
+        return "log/Log.x"
+    }
+    if pkg == "xdk.config" || pkg.startsWith("xdk.config.") {
+        return "config/Config.x"
+    }
+    if pkg == "xdk.cli" || pkg.startsWith("xdk.cli.") {
+        return "cli/Cli.x"
+    }
     if pkg == "xdk.time" || pkg.startsWith("xdk.time.") {
         return "core/time/Time.x"
     }

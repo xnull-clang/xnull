@@ -15,7 +15,7 @@ package scenario and runtime contract.
 | 3 | `xdk.sync` Channel completion (W2 / S2-3) | DONE: close/cancel semantics; legacy `Result<void, ...>` gap recorded |
 | 4 | `xdk.collections` algorithms (W4) | DONE: scope-aware generic inference, `List<T>` extraction, top-level param splitting, monomorphization |
 | 5 | resource/context (W3) | DONE: full Sys loads Resource.x; null handle args, `Int?` print, Bytes method typing |
-| 6 | log/config/cli (W5) | package adapters only; avoid new language features unless blocked |
+| 6 | log/config/cli (W5) | DONE: package source/adapters over existing text/time/sys primitives; no new language feature |
 
 ## Rules
 
@@ -45,6 +45,8 @@ package scenario and runtime contract.
   projects and the cancelled-context path pass in `tests/resources.sh`.
 - W4 is closed for the mini algorithm surface; legacy generic function
   typedefs (`xn_fn_*`) remain an open differential gap.
+- W5 is closed: log/config are differential; CLI runs on mini and the legacy
+  String element read gap is recorded.
 - M7-F1 Result/companion and closure lifetime remain open.
 
 ## Archive

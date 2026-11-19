@@ -4,7 +4,7 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
 XNULL="$ROOT/src/cli/xnull"
 TMP=$(mktemp)
-trap 'rm -f "$TMP"' EXIT
+trap 'rm -f "$TMP" "$TMP.cli"' EXIT
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_errors.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
@@ -85,6 +85,39 @@ diff -u "$TMP.mini" "$TMP.legacy"
     cat "$TMP.err" >&2; exit 1
 }
 printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\nb\na\nc\n3\nfalse\ny\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=legacy run "$HERE/xdk_log.x" > "$TMP.legacy" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '[INFO] app: started\n[WARN] app: careful\n[ERROR] app: bad\n[DEBUG] dbg: visible\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+diff -u "$TMP.exp" "$TMP.legacy"
+diff -u "$TMP.mini" "$TMP.legacy"
+
+XDK_W5_NAME=from-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_config.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+XDK_W5_NAME=from-env "$XNULL" --bootstrap --engine=legacy run "$HERE/xdk_config.x" > "$TMP.legacy" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf 'demo\n9090\nfalse\n2\nfrom-env\nfalse\ndev:app.name=demo,app.port=9090,XDK_W5_NAME=from-env\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+diff -u "$TMP.exp" "$TMP.legacy"
+diff -u "$TMP.mini" "$TMP.legacy"
+
+# CLI currently runs on mini; the legacy oracle miscompiles String element
+# reads through Args.value, so the argument differential stays open.
+"$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$TMP.cli" >"$TMP.err" 2>&1 || {
+    cat "$TMP.err" >&2; exit 1
+}
+"$TMP.cli" --name Alpha pos1 -v > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_bytes.x" > "$TMP.mini" 2>"$TMP.err" || {
