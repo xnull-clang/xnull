@@ -40,6 +40,55 @@
 
 ---
 
+## 1.1 参数命名规则（强制）
+
+**公开 API 的参数必须写全名，禁止单字母/缩写。** 方法名不是接口，参数名也不是
+占位符；调用方在 IDE/补全里看到的是 `text`，不是 `s`。
+
+规则：
+
+- 值参数用完整英文 `lowerCamelCase`：`text`、`prefix`、`separator`、`value`、
+  `index`、`length`、`count`、`context`、`maximumBytes`。
+- 单字母只允许用于**类型参数**（`T`、`K`、`V`、`E`、`A`、`B`）和实现代码里
+  的循环下标；公开签名里的值参数不允许 `i/j/n/s/e/r/f/v/c`。
+- 禁止缩写表：
+
+| 禁止 | 改用 |
+| --- | --- |
+| `s`, `str` | `text`, `sourceText` |
+| `e`, `err` | `error` |
+| `r`, `res` | `result`, `response` |
+| `f`, `fn` | `function`, `callback`, `transform`, `predicate` |
+| `v`, `val` | `value` |
+| `c`, `ch` | `character`, `codePoint` |
+| `n`, `len` | `count`, `length`, `maximumCount` |
+| `i`, `j`, `idx` | `index`, `offset`, `position` |
+| `xs` | `items`, `values` |
+| `m`, `msg` | `map`, `message` |
+| `ctx` | `context` |
+| `args` | `arguments` |
+| `cmp` | `compare`, `comparator` |
+| `eq` | `equals`, `equality` |
+| `pred` | `predicate` |
+| `sep` | `separator` |
+| `pad` | `padding` |
+| `ms` | `milliseconds` |
+| `buf` | `buffer` |
+| `num` | `number`, `amount` |
+| `obj` | `object` |
+| `tmp` | `temporary` |
+| `init` | `initial`, `initialValue` |
+| `max`/`min` | `maximum`/`minimum` |
+
+- 时间参数写单位：`milliseconds`、`deadlineMillis`、`timeoutMillis`；不要 `ms`。
+- 回调参数按角色命名：`predicate`、`comparator`、`transform`、`combine`、
+  `equals`、`keySelector`；不要统一叫 `f`。
+- 布尔参数以 `is/has/can/should` 开头：`isAppend`、`hasHeader`。
+- 参数名必须出现在签名里，不能只写类型（如 `fromUtf8(String)` 不合格，
+  必须 `fromUtf8(String text)`）。
+- 例外：FFI/ABI 声明可按 C 约定使用短名，但必须标 `internal`，且不得出现在
+  XDK 公开 API。
+
 ## 2. 能力模型
 
 T0 的设计单位是**能力**，不是文件：

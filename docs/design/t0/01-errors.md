@@ -82,7 +82,7 @@
 | 方法/函数 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
 | `errorKindName` | `String errorKindName(ErrorKind)` | 无 | 返回稳定小写名（`invalid_argument` 等） | 无 | O(1) |
-| `errorKindFromName` | `Result<ErrorKind, Error> errorKindFromName(String)` | 无 | 大小写不敏感匹配；未知 → `InvalidArgument` | `InvalidArgument` | O(1) |
+| `errorKindFromName` | `Result<ErrorKind, Error> errorKindFromName(String name)` | 无 | 大小写不敏感匹配；未知 → `InvalidArgument` | `InvalidArgument` | O(1) |
 | `errorKindCode` | `Int32 errorKindCode(ErrorKind)` | 无 | 返回稳定 FFI 码 | 无 | O(1) |
 | `errorKindFromCode` | `ErrorKind errorKindFromCode(Int32)` | 无 | 未知码 → `Internal`，不 panic | 无 | O(1) |
 
@@ -217,12 +217,12 @@ class BasicError implements Error {
 ### 6.5 示例
 
 ```text
-Error e = new BasicError(ErrorKind.NotFound, "config file missing")
+Error error = new BasicError(ErrorKind.NotFound, "config file missing")
     .withCode("config.missing")
     .withDetail("path", "app.conf")
-print(e.kind())        // NotFound
-print(e.code())        // config.missing
-print(e.describe())    // [config.missing] NOT_FOUND: config file missing
+print(error.kind())        // NotFound
+print(error.code())        // config.missing
+print(error.describe())    // [config.missing] NOT_FOUND: config file missing
 ```
 
 ### 6.6 反例
@@ -275,10 +275,10 @@ class ErrorReport implements Error {
 ### 7.4 示例
 
 ```text
-Result<Int, Error> r = parseInt(raw)
-if r.isErr() {
-    ErrorReport rep = report(r.error()).wrap("parse port").wrap("load config")
-    print(rep.describe())   // load config -> parse port -> INVALID_ARGUMENT: ...
+Result<Int, Error> parseResult = parseInt(rawText)
+if parseResult.isErr() {
+    ErrorReport errorReport = report(parseResult.error()).wrap("parse port").wrap("load config")
+    print(errorReport.describe())   // load config -> parse port -> INVALID_ARGUMENT: ...
 }
 ```
 
@@ -293,7 +293,7 @@ if r.isErr() {
 ```text
 class ErrorGroup implements Error {
     ErrorGroup()
-    Void add(Error e)
+    Void add(Error error)
     Int length()
     Bool isEmpty()
     Error? first()
@@ -322,7 +322,7 @@ class ErrorGroup implements Error {
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 | 并发 |
 | --- | --- | --- | --- | --- | --- |
-| `add(e)` | e 非 null | 追加；长度 +1 | null → 忽略或 `InvalidArgument`（固定为忽略并记录） | O(1) | 非线程安全 |
+| `add(error)` | error 非 null | 追加；长度 +1 | null → 忽略或 `InvalidArgument`（固定为忽略并记录） | O(1) | 非线程安全 |
 | `kind()` | 无 | 按聚合规则 | 无 | O(n) 首次 | 非线程安全 |
 | `details()` | 无 | 新列表；不改内部 | 无 | O(total) | 非线程安全 |
 
@@ -332,10 +332,10 @@ class ErrorGroup implements Error {
 ### 8.4 示例
 
 ```text
-ErrorGroup g = new ErrorGroup()
-g.add(new BasicError(ErrorKind.InvalidArgument, "name is empty"))
-g.add(new BasicError(ErrorKind.InvalidArgument, "age < 0"))
-Err(g)   // 调用方只看到 kind=InvalidArgument + 两条细节
+ErrorGroup errorGroup = new ErrorGroup()
+errorGroup.add(new BasicError(ErrorKind.InvalidArgument, "name is empty"))
+errorGroup.add(new BasicError(ErrorKind.InvalidArgument, "age < 0"))
+Err(errorGroup)   // 调用方只看到 kind=InvalidArgument + 两条细节
 ```
 
 ---
@@ -346,13 +346,13 @@ Err(g)   // 调用方只看到 kind=InvalidArgument + 两条细节
 
 | 函数 | 签名 | 前置 | 后置 | 失败 |
 | --- | --- | --- | --- | --- |
-| `mapResult` | `Result<U,E> mapResult<T,U,E>(Result<T,E> r, U(T) f)` | f 纯函数（建议） | Ok → Ok(f(v))；Err → 原样 | f 抛错由语言边界处理 |
-| `mapError` | `Result<T,F> mapError<T,E,F>(Result<T,E> r, F(E) f)` | f 不返回 null | Ok → 原样；Err → Err(f(e)) | f 抛错由语言边界处理 |
-| `andThen` | `Result<U,E> andThen<T,U,E>(Result<T,E> r, Result<U,E>(T) f)` | f 不返回 null | Ok → f(v)；Err → 原样 | 同左 |
-| `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> r, T fallback)` | 无 | Ok → value；Err → fallback | 无 |
-| `collectOk` | `Result<List<T>, ErrorGroup> collectOk<T,E>(List<Result<T,E>> rs)` | 无 | 全部 Ok → Ok(list)；否则 Err(所有错误) | 无 |
-| `flatten` | `Result<T,E> flatten<T,E>(Result<Result<T,E>,E> r)` | 无 | 外层 Ok 取内层；外层 Err 原样 | 无 |
-| `check` | `Result<Unit,Error> check(Bool cond, ErrorKind kind, String message)` | kind 合法 | true → Ok；false → Err(BasicError) | 无 |
+| `mapResult` | `Result<U,E> mapResult<T,U,E>(Result<T,E> result, U(T) transform)` | transform 纯函数（建议） | Ok → Ok(transform(value))；Err → 原样 | transform 抛错由语言边界处理 |
+| `mapError` | `Result<T,F> mapError<T,E,F>(Result<T,E> result, F(E) transformError)` | transformError 不返回 null | Ok → 原样；Err → Err(transformError(error)) | transformError 抛错由语言边界处理 |
+| `andThen` | `Result<U,E> andThen<T,U,E>(Result<T,E> result, Result<U,E>(T) next)` | next 不返回 null | Ok → next(value)；Err → 原样 | 同左 |
+| `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> result, T fallback)` | 无 | Ok → value；Err → fallback | 无 |
+| `collectOk` | `Result<List<T>, ErrorGroup> collectOk<T,E>(List<Result<T,E>> results)` | 无 | 全部 Ok → Ok(list)；否则 Err(所有错误) | 无 |
+| `flatten` | `Result<T,E> flatten<T,E>(Result<Result<T,E>,E> nestedResult)` | 无 | 外层 Ok 取内层；外层 Err 原样 | 无 |
+| `check` | `Result<Unit,Error> check(Bool condition, ErrorKind kind, String message)` | kind 合法 | true → Ok；false → Err(BasicError) | 无 |
 
 ### 9.2 设计说明
 
@@ -364,9 +364,9 @@ Err(g)   // 调用方只看到 kind=InvalidArgument + 两条细节
 ### 9.3 示例
 
 ```text
-Result<Int, Error> a = parseInt("42")
-Result<Int, Error> b = mapResult(a, (Int v) -> v + 1)
-Int n = unwrapOr(b, 0)
+Result<Int, Error> parsedResult = parseInt("42")
+Result<Int, Error> mappedResult = mapResult(parsedResult, (Int value) -> value + 1)
+Int number = unwrapOr(mappedResult, 0)
 ```
 
 ---
@@ -377,7 +377,7 @@ Int n = unwrapOr(b, 0)
 
 ```text
 Bool isRetryable(ErrorKind kind)
-Bool isRetryable(Error e)
+Bool isRetryable(Error error)
 ```
 
 - 规则见 §3.2；`Io` 返回 false（条件重试由调用方判断），避免库替业务做决定。

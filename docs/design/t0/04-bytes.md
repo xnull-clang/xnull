@@ -64,7 +64,7 @@
 | 函数参数 `Bytes` | 默认**借用**；函数不得保留引用，除非名称/文档声明 |
 | 返回 `Bytes` | 返回新序列（`returnOwned`）；调用方拥有 |
 | `slice` | 返回**副本**（不是视图）；修改副本不影响原序列 |
-| `ByteReader(Bytes)` | 读取器持有借用；读取期间调用方不得修改源 |
+| `ByteReader(Bytes source)` | 读取器持有 source 借用；读取期间调用方不得修改源 |
 | `ByteWriter.toBytes()` | 返回副本；`takeBytes()` 转移内部序列（X） |
 | 跨任务共享 | 非线程安全；需外部同步，且禁止一边读一边写 |
 
@@ -72,30 +72,30 @@
 
 | 函数 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
-| `fromUtf8` | `Bytes fromUtf8(String)` | 无 | UTF-8 编码；非法码点按语言规则替换 | 无 | O(n) |
-| `toUtf8` | `String toUtf8(Bytes)` | 无 | 非法字节替换为 U+FFFD（固定） | 无 | O(n) |
-| `fromHex` | `Bytes fromHex(String)` | 无 | 小写/大写 hex；奇数长度丢弃末尾半字节 | 无 | O(n) |
-| `fromHexChecked` | `Result<Bytes, Error> fromHexChecked(String)` | 无 | 严格：非法字符/奇数长度 → `InvalidArgument` | `InvalidArgument` | O(n) |
-| `toHex` | `String toHex(Bytes)` | 无 | 小写 hex，长度 = 2×字节数 | 无 | O(n) |
-| `byteLength` | `Int byteLength(Bytes)` | 无 | 返回字节数 | 无 | O(1) |
-| `isEmpty` | `Bool isEmpty(Bytes)` | 无 | length == 0 | 无 | O(1) |
-| `concatBytes` | `Bytes concatBytes(Bytes, Bytes)` | 无 | 新序列 = a + b；不修改入参 | 无 | O(a+b) |
-| `copy` | `Bytes copy(Bytes)` | 无 | 返回独立副本 | 无 | O(n) |
-| `slice` | `Bytes slice(Bytes, Int start, Int end)` | 无 | 钳制到 `[0,len]`；`start>end` 归一为空 | 无 | O(n) |
-| `sliceChecked` | `Result<Bytes, Error> sliceChecked(Bytes, Int start, Int end)` | 无 | 严格范围检查 | `InvalidArgument` | O(n) |
-| `equals` | `Bool equals(Bytes a, Bytes b)` | 无 | 长度与逐字节相等 | 无 | O(n) |
-| `compare` | `Int compare(Bytes a, Bytes b)` | 无 | 字典序：<0/0/>0 | 无 | O(n) |
+| `fromUtf8` | `Bytes fromUtf8(String text)` | 无 | UTF-8 编码；非法码点按语言规则替换 | 无 | O(n) |
+| `toUtf8` | `String toUtf8(Bytes source)` | 无 | 非法字节替换为 U+FFFD（固定） | 无 | O(n) |
+| `fromHex` | `Bytes fromHex(String hexadecimal)` | 无 | 小写/大写 hex；奇数长度丢弃末尾半字节 | 无 | O(n) |
+| `fromHexChecked` | `Result<Bytes, Error> fromHexChecked(String hexadecimal)` | 无 | 严格：非法字符/奇数长度 → `InvalidArgument` | `InvalidArgument` | O(n) |
+| `toHex` | `String toHex(Bytes source)` | 无 | 小写 hex，长度 = 2×字节数 | 无 | O(n) |
+| `byteLength` | `Int byteLength(Bytes source)` | 无 | 返回字节数 | 无 | O(1) |
+| `isEmpty` | `Bool isEmpty(Bytes source)` | 无 | length == 0 | 无 | O(1) |
+| `concatBytes` | `Bytes concatBytes(Bytes first, Bytes second)` | 无 | 新序列 = first + second；不修改入参 | 无 | O(a+b) |
+| `copy` | `Bytes copy(Bytes source)` | 无 | 返回独立副本 | 无 | O(n) |
+| `slice` | `Bytes slice(Bytes source, Int startIndex, Int endIndex)` | 无 | 钳制到 `[0,length]`；`startIndex > endIndex` 归一为空 | 无 | O(n) |
+| `sliceChecked` | `Result<Bytes, Error> sliceChecked(Bytes source, Int startIndex, Int endIndex)` | 无 | 严格范围检查 | `InvalidArgument` | O(n) |
+| `equals` | `Bool equals(Bytes left, Bytes right)` | 无 | 长度与逐字节相等 | 无 | O(n) |
+| `compare` | `Int compare(Bytes left, Bytes right)` | 无 | 字典序：<0/0/>0 | 无 | O(n) |
 
 ### 3.4 内建方法契约（语言/runtime 提供）
 
 | 方法 | 签名 | 前置 | 后置 | 越界行为 |
 | --- | --- | --- | --- | --- |
 | `length` | `Int length()` | 无 | 字节数 | 无 |
-| `get` | `Int get(Int i)` | `0 <= i < len` | 返回 0..255 | 合同错误（fatal）；严格用 `tryGet` |
-| `set` | `Void set(Int i, Int v)` | `0 <= i < len`；v 取低 8 位 | 修改该字节 | 合同错误 |
-| `push` | `Void push(Int v)` | 无 | 追加低 8 位；容量按摊还增长 | 无 |
-| `tryGet` | `Result<Int, Error> tryGet(Int i)` | 无 | 越界 → `InvalidArgument` | 返回 Err |
-| `trySet` | `Result<Unit, Error> trySet(Int i, Int v)` | 无 | 越界 → `InvalidArgument` | 返回 Err |
+| `get` | `Int get(Int index)` | `0 <= index < length` | 返回 0..255 | 合同错误（fatal）；严格用 `tryGet` |
+| `set` | `Void set(Int index, Int value)` | `0 <= index < length`；value 取低 8 位 | 修改该字节 | 合同错误 |
+| `push` | `Void push(Int value)` | 无 | 追加低 8 位；容量按摊还增长 | 无 |
+| `tryGet` | `Result<Int, Error> tryGet(Int index)` | 无 | 越界 → `InvalidArgument` | 返回 Err |
+| `trySet` | `Result<Unit, Error> trySet(Int index, Int value)` | 无 | 越界 → `InvalidArgument` | 返回 Err |
 
 > 设计原则：索引越界是调用方 bug，内建 `get/set` 可以 fatal；但只要输入来自
 > 外部/不可信数据，必须使用 `tryGet/trySet` 或先检查 `length`。
@@ -103,13 +103,13 @@
 ### 3.5 示例与反例
 
 ```text
-Bytes b = Bytes.fromUtf8("AB")
-print(b.length())          // 2
-b.set(0, 65)
-print(toUtf8(b))           // AB
-Bytes c = slice(b, 0, 1)   // 副本
-c.set(0, 67)
-print(toUtf8(b))           // AB（原序列未变）
+Bytes bytes = Bytes.fromUtf8("AB")
+print(bytes.length())              // 2
+bytes.set(0, 65)
+print(toUtf8(bytes))               // AB
+Bytes copiedBytes = slice(bytes, 0, 1)   // 副本
+copiedBytes.set(0, 67)
+print(toUtf8(bytes))               // AB（原序列未变）
 ```
 
 反例：
@@ -128,7 +128,7 @@ print(toUtf8(b))           // AB（原序列未变）
 
 ```text
 class ByteReader {
-    Bytes data        // 借用
+    Bytes source      // 借用
     Int position
     ByteReader(Bytes source)
     Int remaining()
@@ -148,8 +148,8 @@ class ByteReader {
 
 ### 4.2 不变量与所有权
 
-- `0 <= position <= data.length()`。
-- 读取器持有 `data` 借用；调用方在读取期间不得修改源。
+- `0 <= position <= source.length()`。
+- 读取器持有 `source` 借用；调用方在读取期间不得修改源。
 - 读取器无资源，无 `close()`；不复位，需要重置则新建。
 - 线程安全：否。
 
@@ -157,16 +157,16 @@ class ByteReader {
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `remaining` | 无 | `len - position` | 无 | O(1) |
-| `hasRemaining` | 无 | position < len | 无 | O(1) |
-| `seek(offset)` | 无 | `offset` 钳制到 `[0,len]`？**不**：严格，越界 Err | `InvalidArgument` | O(1) |
-| `readU8` | 无 | 有字节则返回并前进；否则返回 0 且不前进 | 无（宽松） | O(1) |
-| `readU8Checked` | 无 | 无字节 → Err | `DataCorrupted` | O(1) |
-| `shortBE/LE` | 至少 2 字节 | 读 2 字节并前进 2 | 不足时宽松返回 0 或按实现；**严格版 `readShort` 待加** | O(1) |
-| `intBE/LE` | 至少 4 字节 | 读 4 字节并前进 4 | 同上 | O(1) |
-| `longBE/LE` | 至少 8 字节 | 读 8 字节并前进 8 | 同上 | O(1) |
-| `readBytes(count)` | count ≥ 0 | 读到末尾；返回副本；前进实际读取数 | count<0 → 空 | O(count) |
-| `readExact(count)` | count ≥ 0 | 恰好 count 字节；不足 → Err 且 position 不变 | `DataCorrupted` | O(count) |
+| `remaining()` | 无 | `source.length() - position` | 无 | O(1) |
+| `hasRemaining()` | 无 | `position < source.length()` | 无 | O(1) |
+| `seek(Int offset)` | 无 | 严格：越界 Err，不钳制；成功则 position = offset | `InvalidArgument` | O(1) |
+| `readU8()` | 无 | 有字节则返回并前进；否则返回 0 且不前进 | 无（宽松） | O(1) |
+| `readU8Checked()` | 无 | 无字节 → Err | `DataCorrupted` | O(1) |
+| `shortBE()` / `shortLE()` | 至少 2 字节 | 读 2 字节并前进 2 | 不足时宽松返回 0；**严格版 `readShort` 待加** | O(1) |
+| `intBE()` / `intLE()` | 至少 4 字节 | 读 4 字节并前进 4 | 同上 | O(1) |
+| `longBE()` / `longLE()` | 至少 8 字节 | 读 8 字节并前进 8 | 同上 | O(1) |
+| `readBytes(Int count)` | count ≥ 0 | 读到末尾；返回副本；前进实际读取数 | count < 0 → 空 | O(count) |
+| `readExact(Int count)` | count ≥ 0 | 恰好 count 字节；不足 → Err 且 position 不变 | `DataCorrupted` | O(count) |
 
 > 宽松方法保留是为了兼容现有场景；**新协议解析代码必须使用 `Checked/Exact`**。
 > 严格版在 T0-04 补齐后，宽松版标为 legacy 兼容。
@@ -175,10 +175,10 @@ class ByteReader {
 
 ```text
 Bytes frame = Bytes.fromHex("00010203")
-ByteReader r = new ByteReader(frame)
-Int magic = r.shortBE()
-Result<Bytes, Error> body = r.readExact(2)
-if body.isErr() { ... }
+ByteReader reader = new ByteReader(frame)
+Int magicNumber = reader.shortBE()
+Result<Bytes, Error> payloadResult = reader.readExact(2)
+if payloadResult.isErr() { ... }
 ```
 
 ---
@@ -191,16 +191,16 @@ if body.isErr() { ... }
 
 ```text
 class ByteWriter {
-    Bytes data
+    Bytes buffer
     ByteWriter()
     Int length()
     Bytes toBytes()          // 副本
     Bytes takeBytes()        // X：转移内部序列，writer 清空
-    Void writeU8(Int)
-    Void writeBytes(Bytes)
-    Void writeU16BE/LE(Int)
-    Void writeU32BE/LE(Int)
-    Void writeU64BE/LE(Long) // X
+    Void writeU8(Int value)
+    Void writeBytes(Bytes source)
+    Void writeU16BE(Int value) / writeU16LE(Int value)
+    Void writeU32BE(Int value) / writeU32LE(Int value)
+    Void writeU64BE(Long value) / writeU64LE(Long value) // X
     Void clear()
 }
 ```
@@ -209,9 +209,9 @@ class ByteWriter {
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `writeU8(v)` | 无 | 追加 `v & 0xFF`；负数按二补码低 8 位 | 无 | 摊还 O(1) |
-| `writeBytes(b)` | b 非 null | 追加副本；不保留 b 引用 | 无 | O(n) |
-| `writeU16/32/64` | 无 | 按指定端序追加 | 无 | O(1) |
+| `writeU8(Int value)` | 无 | 追加 `value & 0xFF`；负数按二补码低 8 位 | 无 | 摊还 O(1) |
+| `writeBytes(Bytes source)` | source 非 null | 追加副本；不保留 source 引用 | 无 | O(n) |
+| `writeU16BE/LE`、`writeU32BE/LE`、`writeU64BE/LE` | 无 | 按指定端序追加 | 无 | O(1) |
 | `toBytes()` | 无 | 返回当前内容副本 | 无 | O(n) |
 | `takeBytes()` | 无 | 返回内部序列所有权；writer 长度归零 | 无 | O(1) |
 | `clear()` | 无 | 长度归零；容量保留 | 无 | O(1) |
@@ -231,16 +231,16 @@ class ByteWriter {
 ```text
 class ByteBuffer {
     ByteBuffer()
-    ByteBuffer(Bytes initial)
+    ByteBuffer(Bytes initialContent)
     Int length()
     Int capacity()
     Bytes toBytes()          // 副本
-    Void push(Int)
-    Void append(Bytes)
+    Void push(Int value)
+    Void append(Bytes source)
     Result<Unit, Error> put(Int index, Int value)
     Result<Int, Error> get(Int index)
     Void clear()
-    Void reserve(Int minCapacity)
+    Void reserve(Int minimumCapacity)
 }
 ```
 
@@ -248,11 +248,11 @@ class ByteBuffer {
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `push(v)` | 无 | 追加低 8 位 | 无 | 摊还 O(1) |
-| `append(b)` | b 非 null | 追加副本 | 无 | O(n) |
-| `put(i,v)` | 无 | 越界 → Err；合法则写入 | `InvalidArgument` | O(1) |
-| `get(i)` | 无 | 越界 → Err | `InvalidArgument` | O(1) |
-| `reserve(n)` | n ≥ 0 | 容量至少 n；不清空内容 | `InvalidArgument` | O(n) |
+| `push(Int value)` | 无 | 追加低 8 位 | 无 | 摊还 O(1) |
+| `append(Bytes source)` | source 非 null | 追加副本 | 无 | O(n) |
+| `put(Int index, Int value)` | 无 | 越界 → Err；合法则写入 | `InvalidArgument` | O(1) |
+| `get(Int index)` | 无 | 越界 → Err | `InvalidArgument` | O(1) |
+| `reserve(Int minimumCapacity)` | minimumCapacity ≥ 0 | 容量至少 minimumCapacity；不清空内容 | `InvalidArgument` | O(n) |
 | `clear()` | 无 | 长度 0；容量保留 | 无 | O(1) |
 
 > `position/limit/flip/compact` 是 T0-X 的后续扩展；在加入前不承诺 NIO 全套语义。
@@ -263,15 +263,15 @@ class ByteBuffer {
 
 | 函数 | 签名 | 前置 | 后置 | 失败 |
 | --- | --- | --- | --- | --- |
-| `bitAnd` | `Int bitAnd(Int,Int)` | 无 | 按位与 | 无 |
-| `bitOr` | `Int bitOr(Int,Int)` | 无 | 按位或 | 无 |
-| `bitXor` | `Int bitXor(Int,Int)` | 无 | 按位异或 | 无 |
-| `bitNot` | `Int bitNot(Int)` | 无 | 按位取反 | 无 |
-| `shiftLeft` | `Int shiftLeft(Int,Int)` | `0 <= bits < 64` | 左移；越界为合同错误 | fatal/`InvalidArgument`（严格版） |
-| `shiftRight` | `Int shiftRight(Int,Int)` | 同上 | 算术右移 | 同上 |
-| `popCount` | `Int popCount(Int)` | 无 | 1 的个数 | 无 |
-| `leadingZeros` | `Int leadingZeros(Int)` | 无 | 前导 0 数；0 → 64 | 无 |
-| `trailingZeros` | `Int trailingZeros(Int)` | 无 | 末尾 0 数；0 → 64 | 无 |
+| `bitAnd` | `Int bitAnd(Int left, Int right)` | 无 | 按位与 | 无 |
+| `bitOr` | `Int bitOr(Int left, Int right)` | 无 | 按位或 | 无 |
+| `bitXor` | `Int bitXor(Int left, Int right)` | 无 | 按位异或 | 无 |
+| `bitNot` | `Int bitNot(Int value)` | 无 | 按位取反 | 无 |
+| `shiftLeft` | `Int shiftLeft(Int value, Int bitCount)` | `0 <= bitCount < 64` | 左移；越界为合同错误 | fatal/`InvalidArgument`（严格版） |
+| `shiftRight` | `Int shiftRight(Int value, Int bitCount)` | 同上 | 算术右移 | 同上 |
+| `popCount` | `Int popCount(Int value)` | 无 | 1 的个数 | 无 |
+| `leadingZeros` | `Int leadingZeros(Int value)` | 无 | 前导 0 数；0 → 64 | 无 |
+| `trailingZeros` | `Int trailingZeros(Int value)` | 无 | 末尾 0 数；0 → 64 | 无 |
 
 - 位操作只对 64 位有符号 `Int` 定义；不隐式提升到 `Long`。
 - 移位量来自外部时，调用方必须先校验；严格版返回 `Result`。
@@ -282,12 +282,12 @@ class ByteBuffer {
 
 | 函数 | 签名 | 前置 | 后置 |
 | --- | --- | --- | --- |
-| `u16BE/LE` | `Bytes u16BE(Int v)` | `0 <= v <= 0xFFFF` | 2 字节 |
-| `u32BE/LE` | `Bytes u32BE(Int v)` | `0 <= v <= 0xFFFFFFFF` | 4 字节 |
-| `u64BE/LE` | `Bytes u64BE(Long v)` | 无 | 8 字节 |
-| `readShortBE/LE` | `Int readShortBE(Bytes, Int off)` | `off+2 <= len` | 返回无符号 16 位 |
-| `readIntBE/LE` | `Int readIntBE(Bytes, Int off)` | `off+4 <= len` | 返回无符号 32 位 |
-| `readLongBE/LE` | `Long readLongBE(Bytes, Int off)` | `off+8 <= len` | 返回 64 位 |
+| `u16BE/LE` | `Bytes u16BE(Int value)` | `0 <= value <= 0xFFFF` | 2 字节 |
+| `u32BE/LE` | `Bytes u32BE(Int value)` | `0 <= value <= 0xFFFFFFFF` | 4 字节 |
+| `u64BE/LE` | `Bytes u64BE(Long value)` | 无 | 8 字节 |
+| `readShortBE/LE` | `Int readShortBE(Bytes source, Int offset)` | `offset + 2 <= source.length()` | 返回无符号 16 位 |
+| `readIntBE/LE` | `Int readIntBE(Bytes source, Int offset)` | `offset + 4 <= source.length()` | 返回无符号 32 位 |
+| `readLongBE/LE` | `Long readLongBE(Bytes source, Int offset)` | `offset + 8 <= source.length()` | 返回 64 位 |
 
 - 越界是合同错误；严格版 `tryReadShort` 等返回 `Result`（X）。
 - 不提供“宿主端序”隐式默认；必须显式选择 BE/LE。
@@ -313,13 +313,13 @@ class ByteBuffer {
 
 ```text
 Bytes payload = Bytes.fromUtf8("hi")
-ByteWriter w = new ByteWriter()
-w.writeU16BE(2)
-w.writeBytes(payload)
-Bytes frame = w.toBytes()
-ByteReader r = new ByteReader(frame)
-Int n = r.shortBE()
-Result<Bytes, Error> body = r.readExact(n)
+ByteWriter writer = new ByteWriter()
+writer.writeU16BE(2)
+writer.writeBytes(payload)
+Bytes frame = writer.toBytes()
+ByteReader reader = new ByteReader(frame)
+Int payloadLength = reader.shortBE()
+Result<Bytes, Error> payloadResult = reader.readExact(payloadLength)
 ```
 
 ### 10.2 反例

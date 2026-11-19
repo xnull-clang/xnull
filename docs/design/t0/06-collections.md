@@ -88,13 +88,13 @@ protocol Iterable<T> {
 
 | 适配器 | 签名 | 语义 | 失败 |
 | --- | --- | --- | --- |
-| `map` | `Iterator<U> map<T,U>(Iterator<T>, U(T))` | 惰性映射 | f 抛错由语言边界处理 |
-| `filter` | `Iterator<T> filter<T>(Iterator<T>, Bool(T))` | 惰性过滤 | 无 |
-| `take` | `Iterator<T> take<T>(Iterator<T>, Int n)` | 最多 n 个；n<0 → 空 | 无 |
-| `drop` | `Iterator<T> drop<T>(Iterator<T>, Int n)` | 跳过 n 个 | 无 |
-| `chain` | `Iterator<T> chain<T>(Iterator<T>, Iterator<T>)` | 顺序连接 | 无 |
-| `zip` | `Iterator<Pair<A,B>> zip<A,B>(Iterator<A>, Iterator<B>)` | 取到较短者结束 | 无 |
-| `enumerate` | `Iterator<Indexed<T>> enumerate<T>(Iterator<T>)` | 附带下标 | 无 |
+| `map` | `Iterator<U> map<T,U>(Iterator<T> source, U(T) transform)` | 惰性映射 | transform 抛错由语言边界处理 |
+| `filter` | `Iterator<T> filter<T>(Iterator<T> source, Bool(T) predicate)` | 惰性过滤 | 无 |
+| `take` | `Iterator<T> take<T>(Iterator<T> source, Int maximumCount)` | 最多 maximumCount 个；maximumCount < 0 → 空 | 无 |
+| `drop` | `Iterator<T> drop<T>(Iterator<T> source, Int count)` | 跳过 count 个 | 无 |
+| `chain` | `Iterator<T> chain<T>(Iterator<T> first, Iterator<T> second)` | 顺序连接 | 无 |
+| `zip` | `Iterator<Pair<A,B>> zip<A,B>(Iterator<A> left, Iterator<B> right)` | 取到较短者结束 | 无 |
+| `enumerate` | `Iterator<Indexed<T>> enumerate<T>(Iterator<T> source)` | 附带下标 | 无 |
 
 - 适配器不缓存整个序列；`take/drop` 只消费必要元素。
 - 适配器返回的迭代器持有上游引用；上游生命周期由调用方保证。
@@ -103,10 +103,10 @@ protocol Iterable<T> {
 ### 3.4 示例
 
 ```text
-List<Int> xs = [1, 2, 3]
-Iterator<Int> it = xs.iterator()
-while it.hasNext() {
-    print(it.next())
+List<Int> values = [1, 2, 3]
+Iterator<Int> iterator = values.iterator()
+while iterator.hasNext() {
+    print(iterator.next())
 }
 ```
 
@@ -128,17 +128,17 @@ while it.hasNext() {
 | 方法 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
 | `length` | `Int length()` | 无 | 元素数 | 无 | O(1) |
-| `get` | `T get(Int i)` | `0<=i<len` | 返回元素借用 | 越界合同错误 | O(1) |
-| `tryGet` | `Result<T, Error> tryGet(Int i)` | 无 | 越界 `InvalidArgument` | `InvalidArgument` | O(1) |
-| `set` | `Void set(Int i, T v)` | `0<=i<len` | 替换；旧值引用释放 | 越界合同错误 | O(1) |
-| `push` | `Void push(T v)` | 无 | 末尾追加；长度 +1 | 无 | 摊还 O(1) |
-| `insert` | `Void insert(Int i, T v)` | `0<=i<=len` | 插入；后续右移 | 越界 `InvalidArgument` | O(n) |
-| `remove` | `T remove(Int i)` | `0<=i<len` | 删除并返回元素；长度 -1 | 越界合同错误 | O(n) |
+| `get` | `T get(Int index)` | `0 <= index < length` | 返回元素借用 | 越界合同错误 | O(1) |
+| `tryGet` | `Result<T, Error> tryGet(Int index)` | 无 | 越界 `InvalidArgument` | `InvalidArgument` | O(1) |
+| `set` | `Void set(Int index, T value)` | `0 <= index < length` | 替换；旧值引用释放 | 越界合同错误 | O(1) |
+| `push` | `Void push(T value)` | 无 | 末尾追加；长度 +1 | 无 | 摊还 O(1) |
+| `insert` | `Void insert(Int index, T value)` | `0 <= index <= length` | 插入；后续右移 | 越界 `InvalidArgument` | O(n) |
+| `remove` | `T remove(Int index)` | `0 <= index < length` | 删除并返回元素；长度 -1 | 越界合同错误 | O(n) |
 | `clear` | `Void clear()` | 无 | 长度 0；容量可保留 | 无 | O(n) |
-| `join` | `String join(String sep)` | 元素可转文本 | 拼接 | 无 | O(n) |
+| `join` | `String join(String separator)` | 元素可转文本 | 拼接 | 无 | O(n) |
 
 > `List<T>` 是引用语义；`==` 不定义值相等。需要比较时用 `equals` 算法
-> （逐元素 eq）。
+> （逐元素 equals）。
 
 ---
 
@@ -155,11 +155,11 @@ while it.hasNext() {
 | 方法 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
 | `length` | `Int length()` | 无 | 键数 | 无 | O(1) |
-| `has` | `Bool has(K)` | K 可哈希/相等 | 是否存在 | 无 | 均摊 O(1) |
-| `getOr` | `V getOr(K, V fallback)` | 同上 | 存在 → 值；否则 fallback；**不插入** | 无 | 均摊 O(1) |
-| `tryGet` | `Result<V, Error> tryGet(K)` | 同上 | 缺失 → `NotFound` | `NotFound` | 均摊 O(1) |
-| `put` | `V? put(K, V)` | 同上 | 插入/替换；返回旧值（无则 null） | 无 | 均摊 O(1) |
-| `remove` | `V? remove(K)` | 同上 | 删除并返回旧值 | 无 | 均摊 O(1) |
+| `has` | `Bool has(K key)` | key 可哈希/相等 | 是否存在 | 无 | 均摊 O(1) |
+| `getOr` | `V getOr(K key, V fallback)` | 同上 | 存在 → 值；否则 fallback；**不插入** | 无 | 均摊 O(1) |
+| `tryGet` | `Result<V, Error> tryGet(K key)` | 同上 | 缺失 → `NotFound` | `NotFound` | 均摊 O(1) |
+| `put` | `V? put(K key, V value)` | 同上 | 插入/替换；返回旧值（无则 null） | 无 | 均摊 O(1) |
+| `remove` | `V? remove(K key)` | 同上 | 删除并返回旧值 | 无 | 均摊 O(1) |
 | `keys` | `List<K> keys()` | 无 | 快照；顺序不承诺 | 无 | O(n) |
 | `values` | `List<V> values()` | 无 | 快照 | 无 | O(n) |
 | `entries` | `List<Pair<K,V>> entries()` | 无 | 快照 | 无 | O(n) |
@@ -182,9 +182,9 @@ while it.hasNext() {
 | 方法 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
 | `length` | `Int length()` | 无 | 元素数 | 无 | O(1) |
-| `has` | `Bool has(T)` | T 可哈希/相等 | 是否存在 | 无 | 均摊 O(1) |
-| `add` | `Bool add(T)` | 同上 | 新增 → true；已存在 → false | 无 | 均摊 O(1) |
-| `remove` | `Bool remove(T)` | 同上 | 删除 → true；不存在 → false | 无 | 均摊 O(1) |
+| `has` | `Bool has(T value)` | value 可哈希/相等 | 是否存在 | 无 | 均摊 O(1) |
+| `add` | `Bool add(T value)` | 同上 | 新增 → true；已存在 → false | 无 | 均摊 O(1) |
+| `remove` | `Bool remove(T value)` | 同上 | 删除 → true；不存在 → false | 无 | 均摊 O(1) |
 | `clear` | `Void clear()` | 无 | 清空 | 无 | O(n) |
 
 - 迭代顺序不承诺；需要顺序用有序结构或先排序。
@@ -198,10 +198,10 @@ while it.hasNext() {
 
 | 函数 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
-| `sortBy` | `List<T> sortBy<T>(List<T>, Bool(T,T) less)` | less 为严格弱序 | 返回新列表；稳定 | 无 | O(n²) 首版 |
-| `sortInPlaceBy` | `List<T> sortInPlaceBy<T>(List<T>, Bool(T,T) less)` | 同上 | 原地排序；返回同一列表 | 无 | O(n²) 首版 |
-| `isSortedBy` | `Bool isSortedBy<T>(List<T>, Bool(T,T) less)` | 同上 | 是否已排序 | 无 | O(n) |
-| `binarySearchBy` | `Int binarySearchBy<T>(List<T>, T value, Int(T,T) cmp)` | 列表已按 cmp 排序 | 找到返回索引；否则返回 `-(插入点+1)` | 无 | O(log n) |
+| `sortBy` | `List<T> sortBy<T>(List<T> items, Bool(T,T) lessThan)` | lessThan 为严格弱序 | 返回新列表；稳定 | 无 | O(n²) 首版 |
+| `sortInPlaceBy` | `List<T> sortInPlaceBy<T>(List<T> items, Bool(T,T) lessThan)` | 同上 | 原地排序；返回同一列表 | 无 | O(n²) 首版 |
+| `isSortedBy` | `Bool isSortedBy<T>(List<T> items, Bool(T,T) lessThan)` | 同上 | 是否已排序 | 无 | O(n) |
+| `binarySearchBy` | `Int binarySearchBy<T>(List<T> items, T target, Int(T,T) compare)` | 列表已按 compare 排序 | 找到返回索引；否则返回 `-(插入点+1)` | 无 | O(log n) |
 
 - 比较器必须是纯函数且满足严格弱序；违反导致未定义顺序（文档警告）。
 - 稳定性：`sortBy` 稳定；`sortInPlaceBy` 也稳定（首版插入排序天然稳定）。
@@ -210,20 +210,20 @@ while it.hasNext() {
 
 | 函数 | 签名 | 语义 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `find` | `T? find<T>(List<T>, Bool(T))` | 首个满足；无则 null | 无 | O(n) |
-| `findIndex` | `Int? findIndex<T>(List<T>, Bool(T))` | 首个下标；无则 null | 无 | O(n) |
-| `dedup` | `List<T> dedup<T>(List<T>, Bool(T,T) eq)` | 保序去重 | 无 | O(n²) |
-| `any` | `Bool any<T>(List<T>, Bool(T))` | 任一满足 | 无 | O(n) |
-| `all` | `Bool all<T>(List<T>, Bool(T))` | 全部满足 | 无 | O(n) |
-| `count` | `Int count<T>(List<T>, Bool(T))` | 满足个数 | 无 | O(n) |
-| `reduce` | `T reduce<T>(List<T>, T init, T(T,T) f)` | 左折叠 | f 抛错由语言边界 | O(n) |
-| `partition` | `Pair<List<T>,List<T>> partition<T>(List<T>, Bool(T))` | 满足/不满足两组，保序 | 无 | O(n) |
-| `chunks` | `List<List<T>> chunks<T>(List<T>, Int size)` | 每块 size；末块可短 | size<=0 → `InvalidArgument` | O(n) |
-| `windows` | `List<List<T>> windows<T>(List<T>, Int size)` | 滑动窗口 | size<=0 → `InvalidArgument` | O(n) |
-| `zip` | `List<Pair<A,B>> zip<A,B>(List<A>, List<B>)` | 取较短长度 | 无 | O(min) |
-| `flatten` | `List<T> flatten<T>(List<List<T>>)` | 展平一层 | 无 | O(n) |
-| `groupByInt` | `Map<Int,List<T>> groupByInt<T>(List<T>, Int(T))` | 按 Int 键分组，保序 | 依赖 Map<Int,...> | O(n) |
-| `groupBy` | `Map<K,List<T>> groupBy<T,K>(List<T>, K(T) key)` | 泛型键分组 | 依赖 Map<K,...> | O(n) |
+| `find` | `T? find<T>(List<T> items, Bool(T) predicate)` | 首个满足；无则 null | 无 | O(n) |
+| `findIndex` | `Int? findIndex<T>(List<T> items, Bool(T) predicate)` | 首个下标；无则 null | 无 | O(n) |
+| `dedup` | `List<T> dedup<T>(List<T> items, Bool(T,T) equals)` | 保序去重 | 无 | O(n²) |
+| `any` | `Bool any<T>(List<T> items, Bool(T) predicate)` | 任一满足 | 无 | O(n) |
+| `all` | `Bool all<T>(List<T> items, Bool(T) predicate)` | 全部满足 | 无 | O(n) |
+| `count` | `Int count<T>(List<T> items, Bool(T) predicate)` | 满足个数 | 无 | O(n) |
+| `reduce` | `T reduce<T>(List<T> items, T initial, T(T,T) combine)` | 左折叠 | combine 抛错由语言边界 | O(n) |
+| `partition` | `Pair<List<T>,List<T>> partition<T>(List<T> items, Bool(T) predicate)` | 满足/不满足两组，保序 | 无 | O(n) |
+| `chunks` | `List<List<T>> chunks<T>(List<T> items, Int chunkSize)` | 每块 chunkSize；末块可短 | chunkSize <= 0 → `InvalidArgument` | O(n) |
+| `windows` | `List<List<T>> windows<T>(List<T> items, Int windowSize)` | 滑动窗口 | windowSize <= 0 → `InvalidArgument` | O(n) |
+| `zip` | `List<Pair<A,B>> zip<A,B>(List<A> left, List<B> right)` | 取较短长度 | 无 | O(min) |
+| `flatten` | `List<T> flatten<T>(List<List<T>> nestedItems)` | 展平一层 | 无 | O(n) |
+| `groupByInt` | `Map<Int,List<T>> groupByInt<T>(List<T> items, Int(T) keySelector)` | 按 Int 键分组，保序 | 依赖 Map<Int,...> | O(n) |
+| `groupBy` | `Map<K,List<T>> groupBy<T,K>(List<T> items, K(T) keySelector)` | 泛型键分组 | 依赖 Map<K,...> | O(n) |
 
 ### 7.3 `Pair` / `Indexed`
 
@@ -243,10 +243,10 @@ struct Indexed<T> { Int index; T value }
 
 ```text
 class PriorityQueue<T> {
-    PriorityQueue(Bool(T,T) less)
+    PriorityQueue(Bool(T,T) lessThan)
     Int length()
     Bool isEmpty()
-    Void push(T)
+    Void push(T value)
     T? peek()
     T? pop()
     Void clear()
@@ -255,19 +255,19 @@ class PriorityQueue<T> {
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `push` | less 严格弱序 | 插入并上浮 | 无 | O(log n) |
+| `push(T value)` | lessThan 严格弱序 | 插入并上浮 | 无 | O(log n) |
 | `peek` | 无 | 返回堆顶借用；空 → null | 无 | O(1) |
 | `pop` | 无 | 移除并返回堆顶；空 → null | 无 | O(log n) |
 | `clear` | 无 | 清空 | 无 | O(n) |
 
 - 不稳定；相等优先级顺序不承诺。
-- `less` 由调用方持有；不得在队列生命周期内改变语义。
+- `lessThan` 由调用方持有；不得在队列生命周期内改变语义。
 
 ### 8.2 `RingBuffer<T>`（T0-K，已有源码）
 
 | 方法 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
-| `push` | `Bool push(T)` | 无 | 未满 → 写入 true；满 → 覆盖最旧并 true？**固定：满返回 false 不写入** | 无 | O(1) |
+| `push` | `Bool push(T value)` | 无 | 未满 → 写入 true；满 → 覆盖最旧并 true？**固定：满返回 false 不写入** | 无 | O(1) |
 | `pop` | `T? pop()` | 无 | 非空 → 取出；空 → null | 无 | O(1) |
 | `peek` | `T? peek()` | 无 | 非空 → 返回最旧；空 → null | 无 | O(1) |
 | `isFull`/`isEmpty` | `Bool` | 无 | 状态 | 无 | O(1) |
@@ -283,7 +283,7 @@ class Deque<T> {
     Deque()
     Int length()
     Bool isEmpty()
-    Void pushFront(T) / pushBack(T)
+    Void pushFront(T value) / pushBack(T value)
     T? popFront() / popBack()
     T? peekFront() / peekBack()
     Void clear()
@@ -297,36 +297,36 @@ class Deque<T> {
 
 ```text
 class HashMap<K,V> {
-    HashMap(Int(K) hash, Bool(K,K) eq)
+    HashMap(Int(K) hashFunction, Bool(K,K) equals)
     Int length()
-    Bool has(K)
-    V? get(K)
-    V? put(K, V)
-    V? remove(K)
+    Bool has(K key)
+    V? get(K key)
+    V? put(K key, V value)
+    V? remove(K key)
     List<K> keys()
     void clear()
 }
 
 class TreeMap<K,V> {
-    TreeMap(Int(K,K) compare)
+    TreeMap(Int(K,K) compareFunction)
     ... 同 HashMap + firstKey/lastKey/range ...
 }
 ```
 
-- `HashMap` 的 hash/eq 必须一致；`TreeMap` 的 compare 必须严格弱序。
-- 迭代顺序：HashMap 不承诺；TreeMap 按 compare 升序。
+- `HashMap` 的 hashFunction/equals 必须一致；`TreeMap` 的 compareFunction 必须严格弱序。
+- 迭代顺序：HashMap 不承诺；TreeMap 按 compareFunction 升序。
 - 复杂度：HashMap 均摊 O(1)；TreeMap O(log n)。
 
 ### 8.5 `BitSet`（T0-X）
 
 | 方法 | 签名 | 语义 | 复杂度 |
 | --- | --- | --- | --- |
-| `set` | `Void set(Int i)` | 置位；自动扩容 | O(1) 摊还 |
-| `clearBit` | `Void clearBit(Int i)` | 清位 | O(1) |
-| `get` | `Bool get(Int i)` | 越界 false | O(1) |
+| `set` | `Void set(Int index)` | 置位；自动扩容 | O(1) 摊还 |
+| `clearBit` | `Void clearBit(Int index)` | 清位 | O(1) |
+| `get` | `Bool get(Int index)` | 越界 false | O(1) |
 | `length` | `Int length()` | 最高置位+1 | O(1) |
 | `count` | `Int count()` | 置位数 | O(n/64) |
-| `and/or/xor` | `BitSet op(BitSet)` | 位集合运算 | O(n/64) |
+| `and` / `or` / `xor` | `BitSet and(BitSet other)` 等 | 位集合运算 | O(n/64) |
 
 - 负索引是合同错误；越界读取返回 false，越界写自动扩容。
 
@@ -349,24 +349,24 @@ class TreeMap<K,V> {
 ### 10.1 示例
 
 ```text
-List<Int> xs = [3, 1, 2]
-List<Int> sorted = sortBy(xs, (Int a, Int b) -> a < b)
-Int idx = binarySearchBy(sorted, 2, (Int a, Int b) -> a - b)
+List<Int> values = [3, 1, 2]
+List<Int> sorted = sortBy(values, (Int left, Int right) -> left < right)
+Int index = binarySearchBy(sorted, 2, (Int left, Int right) -> left - right)
 
-Map<String, Int> m = [:]
-m.put("a", 1)
-Int v = m.getOr("a", 0)
+Map<String, Int> map = [:]
+map.put("a", 1)
+Int storedValue = map.getOr("a", 0)
 
-List<Int> part = chunks(xs, 2).get(0)
+List<Int> firstChunk = chunks(values, 2).get(0)
 ```
 
 ### 10.2 反例
 
 - 用可变对象作 Map 键；
-- `less` 不满足严格弱序（如 `<=`）导致排序不稳定/越界；
+- `lessThan` 不满足严格弱序（如 `<=`）导致排序不稳定/越界；
 - 迭代 List 时 `push/remove`；
 - 依赖 Map 的迭代顺序；
-- `chunks(xs, 0)` 未校验。
+- `chunks(values, 0)` 未校验。
 
 ### 10.3 测试义务
 
@@ -399,5 +399,5 @@ List<Int> part = chunks(xs, 2).get(0)
 2. `put/remove` 返回 `V?` 与可选引用支持冲突；备选 `Result<V,Error>`。
 3. `for-in` 脱糖是否固定为 `iterator()/hasNext()/next()`；需编译器确认。
 4. `sortBy` 首版 O(n²)；是否在 T0-X 换归并排序（稳定性保持）。
-5. 容器相等/哈希协议是否进入语言层；否则 HashMap 只能注入 hash/eq。
+5. 容器相等/哈希协议是否进入语言层；否则 HashMap 只能注入 hashFunction/equals。
 6. `chunks/windows` 返回 `List<List<T>>` 会复制；是否需要惰性视图。
