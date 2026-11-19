@@ -1,5 +1,8 @@
 # xdk.bytes —— T0 核心包详细设计
 
+> 本文是 v1.1 的包级设计样板：一个包一个阶段，一次验收、一次提交。
+> 后续包按同样结构编写，不拆子阶段。
+
 | 项 | 值 |
 | --- | --- |
 | 包 | `xdk.bytes` |
@@ -8,7 +11,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | text、io、fs、sys、log |
 | 对应源码 | `src/xdk/core/bytes/Bytes.x`（当前单文件；目标拆分见 §2） |
-| 阶段 | T0-04（B1–B4） |
+| 阶段 | T0-04（一个包一个阶段，一次验收） |
 
 ---
 
@@ -16,14 +19,14 @@
 
 | 能力 | 说明 | 承载 |
 | --- | --- | --- |
-| C1 字节序列 | 可变、按索引访问的字节数组 | `Bytes` |
-| C2 编码转换 | UTF-8 / hex 与文本互转 | `fromUtf8`、`toUtf8`、`fromHex`、`toHex` |
-| C3 切片与比较 | 子序列、字典序比较、相等 | `slice`、`compare`、`equals` |
-| C4 顺序读 | 带游标的读取与越界检查 | `ByteReader` |
-| C5 顺序写 | 追加写、定长整数写 | `ByteWriter` |
-| C6 可增长缓冲 | 构造/拼接/清空 | `ByteBuffer`、`BytesBuilder`（X） |
-| C7 位操作 | 与/或/异或/移位/位计数 | `Bits` |
-| C8 端序 | u16/u32/u64 与大小端读写 | `Endian` |
+| CAP-1 字节序列 | 可变、按索引访问的字节数组 | `Bytes` |
+| CAP-2 编码转换 | UTF-8 / hex 与文本互转 | `fromUtf8`、`toUtf8`、`fromHex`、`toHex` |
+| CAP-3 切片与比较 | 子序列、字典序比较、相等 | `slice`、`compare`、`equals` |
+| CAP-4 顺序读 | 带游标的读取与越界检查 | `ByteReader` |
+| CAP-5 顺序写 | 追加写、定长整数写 | `ByteWriter` |
+| CAP-6 可增长缓冲 | 构造/拼接/清空 | `ByteBuffer`、`BytesBuilder`（X） |
+| CAP-7 位操作 | 与/或/异或/移位/位计数 | `Bits` |
+| CAP-8 端序 | u16/u32/u64 与大小端读写 | `Endian` |
 
 **非目标**：不做 base64/压缩/加密（T1 codec/crypto）、不做文件/网络 I/O、
 不做零拷贝 FFI 裸指针暴露、不做线程安全容器。
@@ -344,14 +347,20 @@ Result<Bytes, Error> payloadResult = reader.readExact(payloadLength)
 
 ---
 
-## 11. 阶段切片（T0-04）
+## 11. 阶段交付与验收（T0-04）
 
-| 切片 | 交付 | 出口 |
-| --- | --- | --- |
-| B1 | 文件拆分；`Bytes` 顶层函数与 `tryGet/trySet` | 现有 bytes 场景不回归 |
-| B2 | `ByteReader` 严格读取、`ByteWriter` 端序补全 | 协议解析场景 |
-| B3 | `Bits` 计数、`ByteBuffer` 扩展 | 位/缓冲场景 |
-| B4 | `Cursor`、`BytesBuilder`、严格端序读取 | T0-X 完成 |
+本包是一个阶段、一个提交，不拆子阶段。交付范围：
+
+- 文件拆分：Bytes/ByteReader/ByteWriter/Endian/Bits/ByteBuffer/Cursor/Builder；
+- `Bytes` 顶层函数、严格读取/写入、位计数、u64 端序；
+- 场景、回归、mini/legacy 差分或缺口记录。
+
+验收条件：
+
+1. 类级契约与本文一致，宽松/严格行为都有测试；
+2. `xdk_bytes*.x` 覆盖转换/切片/游标/端序/位操作/反例；
+3. mini 与 legacy 差分通过，或缺口登记到 `src/xdk/PLAN.md`；
+4. 代码 + 场景 + 回归 + 本文同一提交。
 
 ---
 
@@ -361,4 +370,15 @@ Result<Bytes, Error> payloadResult = reader.readExact(payloadLength)
 2. `slice` 是否提供零拷贝视图：首版不做，避免别名与生命周期问题。
 3. `ByteBuffer` 是否采用 NIO 的 position/limit：T0-X 再定，先保持追加模型。
 4. `readU8` 宽松语义是否保留：保留一个发布周期，随后标记 deprecated。
-5. `u64` 依赖 `Long`/`UInt64` 的编译器支持；若缺失，B2 暂停并记录。
+5. `u64` 依赖 `Long`/`UInt64` 的编译器支持；若缺失，本包阶段暂停并记录，不拆子阶段。
+
+---
+
+## 13. 评审结论（本包）
+
+- 每个类给出能力、表示、不变量、构造、方法前置/后置/失败/复杂度/并发；
+- 严格/宽松读取、所有权、别名与越界行为已写入契约；
+- 有示例、反例、测试义务、阶段验收；
+- 满足 v1.1 类级设计标准。
+
+下一阶段：`05-text.md`（文本算法、Builder、Format、Parse、Unicode）。

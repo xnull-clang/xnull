@@ -1,5 +1,8 @@
 # xdk.errors —— T0 核心包详细设计
 
+> 本文是 v1.1 的包级设计样板：一个包一个阶段，一次验收、一次提交。
+> 后续包按同样结构编写，不拆子阶段。
+
 | 项 | 值 |
 | --- | --- |
 | 包 | `xdk.errors` |
@@ -8,7 +11,7 @@
 | 依赖 | L2 诊断、L2 FFI 错误码（不依赖其他 T0 包） |
 | 被依赖 | 所有 T0 包 |
 | 对应源码 | `src/xdk/core/errors/Errors.x`、`BasicError.x`、`ErrorReport.x` |
-| 阶段 | T0-01（E1–E4 四个可提交切片） |
+| 阶段 | T0-01（一个包一个阶段，一次验收） |
 
 ---
 
@@ -18,14 +21,14 @@
 
 | 能力 | 说明 | 承载类型/函数 |
 | --- | --- | --- |
-| C1 分类 | 把失败归入稳定、跨包的类别 | `ErrorKind` |
-| C2 构造 | 创建简单错误，不依赖异常 | `BasicError` |
-| C3 结构化上下文 | 给错误附加 key/value 细节与原因链 | `ErrorDetail`、`BasicError.withDetail/withCause` |
-| C4 包装与报告 | 在不丢失分类的前提下记录“在哪一步失败” | `ErrorReport`、`report`、`wrap` |
-| C5 聚合 | 一次返回多个失败（校验、并行任务） | `ErrorGroup` |
-| C6 Result 组合 | 对 `Result` 做 map/andThen/collect，不手写样板 | `mapResult`、`mapError`、`andThen`、`collectOk` |
-| C7 重试分类 | 判断某错误是否“通常可重试” | `isRetryable` |
-| C8 FFI 映射 | 在 L2 错误码与 `ErrorKind` 之间稳定转换 | `errorKindFromCode`、`errorKindCode` |
+| CAP-1 分类 | 把失败归入稳定、跨包的类别 | `ErrorKind` |
+| CAP-2 构造 | 创建简单错误，不依赖异常 | `BasicError` |
+| CAP-3 结构化上下文 | 给错误附加 key/value 细节与原因链 | `ErrorDetail`、`BasicError.withDetail/withCause` |
+| CAP-4 包装与报告 | 在不丢失分类的前提下记录“在哪一步失败” | `ErrorReport`、`report`、`wrap` |
+| CAP-5 聚合 | 一次返回多个失败（校验、并行任务） | `ErrorGroup` |
+| CAP-6 Result 组合 | 对 `Result` 做 map/andThen/collect，不手写样板 | `mapResult`、`mapError`、`andThen`、`collectOk` |
+| CAP-7 重试分类 | 判断某错误是否“通常可重试” | `isRetryable` |
+| CAP-8 FFI 映射 | 在 L2 错误码与 `ErrorKind` 之间稳定转换 | `errorKindFromCode`、`errorKindCode` |
 
 **非目标**：
 
@@ -451,17 +454,22 @@ ErrorKind errorKindFromCode(Int32 code)
 
 ---
 
-## 13. 阶段切片（T0-01）
+## 13. 阶段交付与验收（T0-01）
 
-| 切片 | 交付 | 出口 |
-| --- | --- | --- |
-| E1 | `ErrorKind`、`Error`、`ErrorDetail`、`BasicError` | 现有错误场景不回归；kind 表测试 |
-| E2 | `ErrorReport`、`report`、`wrap` | 包装不改变 kind；文本稳定 |
-| E3 | `ErrorGroup`、`ResultOps` | 聚合/collectOk 场景 |
-| E4 | FFI 码映射、重试分类 | 码往返；kind 表冻结 |
+本包是一个阶段、一个提交，不拆子阶段。交付范围：
 
-每一切片独立提交；E1 可以替换当前 `BasicError`，但必须保持
-`kind()/describe()` 旧签名可用（迁移期兼容）。
+- `ErrorKind`、`Error`、`ErrorDetail`、`BasicError`；
+- `ErrorReport`、`report`、`wrap`；
+- `ErrorGroup`、`ResultOps`；
+- FFI 码映射、重试分类；
+- 场景、回归、mini/legacy 差分或缺口记录。
+
+验收条件：
+
+1. 类级契约与本文一致；迁移期保留 `kind()/describe()` 旧签名；
+2. `xdk_errors.x` 覆盖分类/构造/包装/聚合/ResultOps/码映射；
+3. mini 与 legacy 差分通过，或缺口登记到 `src/xdk/PLAN.md`；
+4. 代码 + 场景 + 回归 + 本文同一提交。
 
 ---
 
@@ -484,8 +492,7 @@ ErrorKind errorKindFromCode(Int32 code)
 - 每个类均给出能力、表示、不变量、构造、方法前置/后置/失败/复杂度/并发；
 - 每个失败点有 `ErrorKind`；
 - 无资源/取消面（错误本身不阻塞）；
-- 有示例、反例、测试义务、阶段切片；
+- 有示例、反例、测试义务、阶段验收；
 - 满足 v1.1 类级设计标准。
 
-下一步：按同一标准写 `04-bytes.md`（`Bytes`、`ByteBuffer`、`ByteReader`、
-`ByteWriter` 的完整方法契约），随后 `06-collections.md`。
+下一阶段：`02-runtime.md`（诊断、退出、时钟、stdio、运行时信息）。

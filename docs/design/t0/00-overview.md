@@ -112,10 +112,14 @@ T0 的设计单位是**能力**，不是文件：
 
 避免“一口画大饼”，每个包分两层：
 
-- **T0-K（Kernel）**：没有它，该包不能算可用；必须先冻结、先实现、先回归。
-- **T0-X（Extended）**：常用但可后补；不得阻塞 T0-K，也不得用空实现冒充。
+- **T0-K（Kernel）**：没有它，该包不能算可用；是该包阶段的验收底线。
+- **T0-X（Extended）**：常用扩展，同属该包阶段；不得用空实现冒充。
 
-| 包 | T0-K（必须先有） | T0-X（随后补齐） |
+K/X 是**范围标签，不是子阶段**：一个包一个阶段、一次验收、一次提交。
+若 X 被编译器/运行时外部依赖阻塞，整个包阶段标记 blocked，不允许用 K 通过
+冒充包完成。
+
+| 包 | T0-K（验收底线） | T0-X（同阶段完成） |
 | --- | --- | --- |
 | errors | ErrorKind、Error、BasicError、wrap、report | ErrorGroup、ResultOps、FFI code 映射、重试分类 |
 | runtime | diagnose、exit、nowMono/nowWall | stdio 流、RuntimeInfo、断言、fatal 边界 |
@@ -257,9 +261,10 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 
 1. 先评设计（本文档对应包）；
 2. 设计通过后写场景（先失败）；
-3. 实现 T0-K；
-4. 补 T0-X（可拆下一提交）；
-5. 跑 mini/legacy/base/full；
-6. 更新追溯矩阵与 `src/xdk/PLAN.md`。
+3. 实现 T0-K 与 T0-X（同一阶段，不拆提交）；
+4. 跑 mini/legacy/base/full；
+5. 更新追溯矩阵与 `src/xdk/PLAN.md`；
+6. 一次提交。
 
 不允许“先把 16 份文件生成出来，再回头补内容”；每一份包设计必须单独可评审。
+也不允许把一个包拆成多个子阶段。

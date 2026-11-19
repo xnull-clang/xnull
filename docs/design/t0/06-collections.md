@@ -1,5 +1,8 @@
 # xdk.collections —— T0 核心包详细设计
 
+> 本文是 v1.1 的包级设计样板：一个包一个阶段，一次验收、一次提交。
+> 后续包按同样结构编写，不拆子阶段。
+
 | 项 | 值 |
 | --- | --- |
 | 包 | `xdk.collections` |
@@ -8,7 +11,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | 所有业务包、text/codec/config/cli |
 | 对应源码 | `src/xdk/core/collections/*.x` |
-| 阶段 | T0-06（C1–C4） |
+| 阶段 | T0-06（一个包一个阶段，一次验收） |
 
 ---
 
@@ -16,13 +19,13 @@
 
 | 能力 | 说明 | 承载 |
 | --- | --- | --- |
-| C1 序列 | 有序、可重复、按索引访问 | `List<T>` |
-| C2 映射 | 键唯一、按键查找 | `Map<K,V>` |
-| C3 集合 | 元素唯一、成员判断 | `Set<T>` |
-| C4 迭代 | 统一遍历协议与适配器 | `Iterator<T>`、`Iterable<T>` |
-| C5 排序/查找 | 比较器驱动的排序、二分查找 | `sortBy`、`binarySearch` |
-| C6 聚合 | dedup/find/group/partition/chunks/windows | 算法族 |
-| C7 专用容器 | 堆、双端队列、环形缓冲、位集、有序映射 | `PriorityQueue`、`Deque`、`RingBuffer`、`BitSet`、`TreeMap` |
+| CAP-1 序列 | 有序、可重复、按索引访问 | `List<T>` |
+| CAP-2 映射 | 键唯一、按键查找 | `Map<K,V>` |
+| CAP-3 集合 | 元素唯一、成员判断 | `Set<T>` |
+| CAP-4 迭代 | 统一遍历协议与适配器 | `Iterator<T>`、`Iterable<T>` |
+| CAP-5 排序/查找 | 比较器驱动的排序、二分查找 | `sortBy`、`binarySearch` |
+| CAP-6 聚合 | dedup/find/group/partition/chunks/windows | 算法族 |
+| CAP-7 专用容器 | 堆、双端队列、环形缓冲、位集、有序映射 | `PriorityQueue`、`Deque`、`RingBuffer`、`BitSet`、`TreeMap` |
 
 **非目标**：并发容器（sync）、持久化容器、数据库索引、无锁结构承诺。
 
@@ -167,7 +170,7 @@ while iterator.hasNext() {
 
 > `put/remove` 返回 `V?` 使用可选引用；若 legacy/目标引擎对可选引用支持不足，
 > T0-K 改为 `Result<V, Error>`（缺失 `NotFound`）或 `Void` + `has` 先查。
-> 该决策在 C1 阶段冻结，不允许两套语义并存。
+> 该决策在本包阶段冻结，不允许两套语义并存。
 
 ### 5.3 键的要求
 
@@ -382,22 +385,39 @@ List<Int> firstChunk = chunks(values, 2).get(0)
 
 ---
 
-## 11. 阶段切片（T0-06）
+## 11. 阶段交付与验收（T0-06）
 
-| 切片 | 交付 | 出口 |
-| --- | --- | --- |
-| C1 | `List/Map/Set` 成员契约 + `Map<K,V>` 运行时决策 | 现有 Map 字面量不回归 |
-| C2 | `Iterator/Iterable` + `for-in` 脱糖对齐 | 迭代场景 |
-| C3 | 算法族（sort/search/reduce/group/partition/chunks） | 算法场景 |
-| C4 | HashMap/Deque/BitSet/TreeMap | T0-X 完成 |
+本包是一个阶段、一个提交，不拆子阶段。交付范围：
 
----
+- `List/Map/Set` 成员契约与 `Map<K,V>` 运行时决策；
+- `Iterator/Iterable` 与 `for-in` 脱糖对齐；
+- 算法族（sort/search/reduce/group/partition/chunks）；
+- HashMap/Deque/BitSet/TreeMap；
+- 场景、回归、mini/legacy 差分或缺口记录。
+
+验收条件：
+
+1. 类级契约与本文一致；`Map<K,V>` 决策已冻结；
+2. `xdk_collections*.x` 覆盖容器/迭代/算法/边界；
+3. mini 与 legacy 差分通过，或缺口登记到 `src/xdk/PLAN.md`；
+4. 代码 + 场景 + 回归 + 本文同一提交。
 
 ## 12. 开放问题
 
-1. `Map<K,V>` 泛型运行时是最大阻塞；C1 必须先决策（哈希表 vs 特化）。
+1. `Map<K,V>` 泛型运行时是最大阻塞；本包阶段必须先决策（哈希表 vs 特化）。
 2. `put/remove` 返回 `V?` 与可选引用支持冲突；备选 `Result<V,Error>`。
 3. `for-in` 脱糖是否固定为 `iterator()/hasNext()/next()`；需编译器确认。
 4. `sortBy` 首版 O(n²)；是否在 T0-X 换归并排序（稳定性保持）。
 5. 容器相等/哈希协议是否进入语言层；否则 HashMap 只能注入 hashFunction/equals。
 6. `chunks/windows` 返回 `List<List<T>>` 会复制；是否需要惰性视图。
+
+---
+
+## 13. 评审结论（本包）
+
+- 内建容器与库容器边界明确，`Map<K,V>` 阻塞已显式记录；
+- 每个类/算法给出前置、后置、失败、复杂度、所有权；
+- 有示例、反例、测试义务、阶段验收；
+- 满足 v1.1 类级设计标准。
+
+下一阶段：`07-math.md`（数学函数、溢出、统计、Int128）。
