@@ -27,7 +27,7 @@ it. No XDK source package is filled with an empty implementation. No runtime
 primitive is "completed" without a consumer and a test.
 
 The T0 package/file/API design baseline is
-[`../../docs/设计08-T0核心包详细设计方案-v1.0.0.md`](../../docs/设计08-T0核心包详细设计方案-v1.0.0.md):
+[`../../docs/design/t0/00-overview.md`](../../docs/design/t0/00-overview.md):
 one package per stage, with per-file interfaces, contracts, scenarios, and
 recorded gaps.
 
@@ -277,7 +277,7 @@ wave.
 
 XDK-W0 through XDK-W7 are closed and `mini 0.3.0` is released. The next
 work is the T0 package-by-package hardening defined in
-[`../../docs/设计08-T0核心包详细设计方案-v1.0.0.md`](../../docs/设计08-T0核心包详细设计方案-v1.0.0.md):
+[`../../docs/design/t0/00-overview.md`](../../docs/design/t0/00-overview.md):
 execute stages T0-01 … T0-16 in dependency order, one package per stage.
 
 Each stage must land the package file layout/API, a runnable scenario, a
