@@ -54,8 +54,8 @@
 - `Bytes` 是**可变、引用语义**的字节序列；`length()` 以字节计。
 - 任意时刻 `0 <= length`；索引合法域 `[0, length-1]`。
 - `Bytes` 不持有 OS 资源，无 `close()`。
-- `Bytes` 的 `==` 不定义为字节相等；值比较必须用 `equals(a,b)` 或
-  `compare(a,b)==0`（避免与引用相等混淆）。
+- `Bytes` 的 `==` 不定义为字节相等；值比较必须用 `equals(left, right)` 或
+  `compare(left, right) == 0`（避免与引用相等混淆）。
 
 ### 3.2 所有权与别名
 

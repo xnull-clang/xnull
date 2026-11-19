@@ -225,4 +225,8 @@ diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
     exit 1
 }
 
+python3 "$ROOT/src/toolchain/check_doc_naming.py" \
+    "$ROOT/docs/design/t0" \
+    "$ROOT/docs/设计08-T0核心包详细设计方案-v1.0.0.md"
+
 echo "mini xdk: PASS"

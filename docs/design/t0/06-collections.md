@@ -188,7 +188,7 @@ while iterator.hasNext() {
 | `clear` | `Void clear()` | 无 | 清空 | 无 | O(n) |
 
 - 迭代顺序不承诺；需要顺序用有序结构或先排序。
-- `Set.of(a,b)` 由编译器脱糖；重复元素语义固定为“后者忽略”。
+- `Set.of(first, second)` 由编译器脱糖；重复元素语义固定为“后者忽略”。
 
 ---
 

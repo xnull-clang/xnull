@@ -88,6 +88,8 @@
   必须 `fromUtf8(String text)`）。
 - 例外：FFI/ABI 声明可按 C 约定使用短名，但必须标 `internal`，且不得出现在
   XDK 公开 API。
+- 自动检查：`src/toolchain/check_doc_naming.py` 扫描本目录与 v1.0 提纲；
+  `src/mini/tests/xdk.sh` 已把它纳入回归，出现缩写参数直接失败。
 
 ## 2. 能力模型
 

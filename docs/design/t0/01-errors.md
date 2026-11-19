@@ -81,10 +81,10 @@
 
 | 方法/函数 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- | --- |
-| `errorKindName` | `String errorKindName(ErrorKind)` | 无 | 返回稳定小写名（`invalid_argument` 等） | 无 | O(1) |
+| `errorKindName` | `String errorKindName(ErrorKind kind)` | 无 | 返回稳定小写名（`invalid_argument` 等） | 无 | O(1) |
 | `errorKindFromName` | `Result<ErrorKind, Error> errorKindFromName(String name)` | 无 | 大小写不敏感匹配；未知 → `InvalidArgument` | `InvalidArgument` | O(1) |
-| `errorKindCode` | `Int32 errorKindCode(ErrorKind)` | 无 | 返回稳定 FFI 码 | 无 | O(1) |
-| `errorKindFromCode` | `ErrorKind errorKindFromCode(Int32)` | 无 | 未知码 → `Internal`，不 panic | 无 | O(1) |
+| `errorKindCode` | `Int32 errorKindCode(ErrorKind kind)` | 无 | 返回稳定 FFI 码 | 无 | O(1) |
+| `errorKindFromCode` | `ErrorKind errorKindFromCode(Int32 code)` | 无 | 未知码 → `Internal`，不 panic | 无 | O(1) |
 
 ---
 
@@ -312,7 +312,7 @@ class ErrorGroup implements Error {
 - `errors` 有序；`add` 追加；不复制错误对象（GC 引用）。
 - `kind()` 规则：返回**第一个非 `Cancelled`** 的错误分类；若全部为
   `Cancelled` → `Cancelled`；空组 → `Internal`。
-- `message()`：`"N error(s); first: <first.message>"`；空组为 `"empty error group"`。
+- `message()`：`"N errors; first: <first.message>"`；空组为 `"empty error group"`。
 - `describe()`：单行摘要，最多列前 3 条；其余以 `...` 省略。
 - `details()`：聚合所有子错误 details，键加 `#<index>.` 前缀。
 - `causes()`：返回子错误列表（只读快照）。
