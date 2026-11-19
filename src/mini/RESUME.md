@@ -1,18 +1,18 @@
 # Mini 恢复入口
 
-> 小里程碑 0.2.0 / M9-CUT 已结束并归档。
-> 当前产品计划：`src/xdk/PLAN.md`（XDK-first / Mini 0.3.0 / M10-T0）。
+> 小里程碑 0.3.0 / M10-T0 已发布。
+> 当前产品计划：`src/xdk/PLAN.md`（XDK-first）。
 > 编译器支持队列：`src/mini/PLAN.md`。
 
 ## 当前基线
 
 ```text
 分支:          main / dev（以 git rev-parse 为准）
-Mini 版本:     0.2.0（M9-CUT）
+Mini 版本:     0.3.0（M10-T0）
 默认引擎:      mini
 可选引擎:      legacy（oracle）
-活动里程碑:    Mini 0.3.0 / M10-T0
-目标版本:      0.3.0
+活动里程碑:    M10-T0 已发布
+目标版本:      0.3.0（已达成）
 ```
 
 已完成的小里程碑：
@@ -28,6 +28,7 @@ Mini 版本:     0.2.0（M9-CUT）
 - XDK-W4：泛型函数特化；`sortBy`/`dedup`/`find` 在 Int/String 列表上通过 `tests/xdk_collections_algo.x`
 - XDK-W5：`xdk.log`/`xdk.config`/`xdk.cli` 三个可运行场景进入 `tests/xdk.sh`
 - XDK-W6：`tests/m10_parity.sh` 覆盖 T0 base/full；`tests/m10_perf.sh` 守住 200M 门禁
+- XDK-W7：`mini 0.3.0` 发布，记录与标签为 `mini-v0.3.0`
 
 验收记录：
 
@@ -43,11 +44,11 @@ src/mini/archive/2026-11-18-m9cut/RESUME.md
 
 ## 下一个动作
 
-**XDK-W7：发布 `mini 0.3.0`。**
+**发布后维护：T1 包扩展。**
 
-W0–W6 已关闭：T0 矩阵、并发/资源/集合/高层包、base/full 一致性与 200M
-性能证据齐全。下一步更新版本号、README/RESUME 和里程碑记录，并打
-`mini-v0.3.0` 标签。legacy 保留；删除旧引擎或再次改变默认引擎必须单独批准。
+W0–W7 已全部关闭，`mini 0.3.0` 已发布。后续从 T1 包矩阵中选择下一批场景；
+沿用同一纪律：场景先行、base/full 回归、legacy 缺口显式记录。legacy 保留；
+删除旧引擎或再次改变默认引擎必须单独批准。
 
 ## 重启命令
 

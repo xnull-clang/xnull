@@ -154,6 +154,21 @@ The default switched to `mini` on 2026-11-18 after M9-PAR passed and M9-CUT was 
 
 No Go is required for the bootstrap path. `src/bootstrap/build.sh` builds the native parser and compiler with a C compiler.
 
+## Mini 0.3.0 milestone
+
+The XDK-first **M10-T0** release adds runnable T0 package scenarios for
+concurrency (`Mutex`, tasks, channel close/cancel), complete Sys resources and
+Context cancellation, collections generic algorithms, and the `log`, `config`,
+and `cli` packages. The T0 base/full matrix lives in
+[`src/mini/tests/m10_parity.sh`](src/mini/tests/m10_parity.sh) and the 200M gate
+in [`src/mini/tests/m10_perf.sh`](src/mini/tests/m10_perf.sh).
+
+[`docs/assets/mini-200m-runtime-20261119.svg`](docs/assets/mini-200m-runtime-20261119.svg)
+
+![Mini 0.3.0 200M performance curve](docs/assets/mini-200m-runtime-20261119.svg)
+
+200M result: mini 0.727s versus the 0.2.0 baseline of 0.733s (0.992x).
+
 ## Mini 0.2.0 milestone
 
 The first complete **language source → mini compiler → C → executable** milestone is

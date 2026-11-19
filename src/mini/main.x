@@ -8975,7 +8975,7 @@ static Int main(String[] args) {
     loadProject(argAfter(args, "--project-file"))
     xdkFullSource = hasArg(args, "--xdk-full")
     if cmd == "--version" {
-        print("mini 0.2.0")
+        print("mini 0.3.0")
         return 0
     }
     if cmd == "--supports" {

@@ -155,6 +155,20 @@ CLI 支持三个引擎：
 
 引导路径不需要 Go。`src/bootstrap/build.sh` 只需要 C 编译器即可构建原生解析器和编译器。
 
+## Mini 0.3.0 里程碑
+
+XDK-first **M10-T0** 版本补齐了可运行的 T0 包场景：并发（`Mutex`、tasks、
+Channel close/取消）、完整 Sys 资源与 Context 取消、集合泛型算法，以及
+`log`、`config`、`cli` 包。T0 的 base/full 矩阵位于
+[`src/mini/tests/m10_parity.sh`](../src/mini/tests/m10_parity.sh)，200M 门禁位于
+[`src/mini/tests/m10_perf.sh`](../src/mini/tests/m10_perf.sh)。
+
+[`docs/assets/mini-200m-runtime-20261119.svg`](../docs/assets/mini-200m-runtime-20261119.svg)
+
+![Mini 0.3.0 2 亿次性能曲线](../docs/assets/mini-200m-runtime-20261119.svg)
+
+200M 实测：mini 0.727s，相对 0.2.0 基线 0.733s 为 0.992x。
+
 ## Mini 0.2.0 里程碑
 
 第一个完整跑通「语言源码 → mini 编译器 → C → 可执行程序」的里程碑记录在

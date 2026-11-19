@@ -199,10 +199,13 @@ Ordered slices; each slice is code + scenario + regression + commit:
   `docs/assets/mini-200m-runtime-20261119.svg`; mini and legacy stay within
   1.001x at 200M.
 
-### XDK-W7 — release
+### XDK-W7 — release — DONE (2026-11-19)
 
 - `mini 0.3.0`, milestone record, README, RESUME, tag.
 - Legacy remains selectable; deletion/default changes need separate approval.
+- **Done**: `mini --version` reports `mini 0.3.0`; `MILESTONES.md` records
+  `mini-v0.3.0`; English and Chinese READMEs link the 0.3.0 curve; RESUME
+  marks W0–W7 closed. Tag created after the release commit.
 
 ## 5. Compiler dependency queue
 
@@ -267,20 +270,24 @@ wave.
 
 ## 8. Current next action
 
-XDK-W0 through XDK-W6 are closed. `tests/m10_parity.sh` covers the T0
-matrix in base/full modes and `tests/m10_perf.sh` holds the 200M gate at
-0.727s (baseline 0.733s, 0.992x). Start **XDK-W7**: release `mini 0.3.0`
-with milestone record, README/RESUME updates, and the tag. Legacy remains
-selectable; deletion or default changes require separate approval.
+XDK-W0 through XDK-W7 are closed. `mini 0.3.0` is released with the T0
+matrix in base/full modes and the 200M gate holding at 0.727s (baseline
+0.733s, 0.992x). The next milestone is the T1 package set; each slice
+follows the same rule: scenario first, base/full regression, recorded
+legacy gaps. Legacy remains selectable; deletion or default changes require
+separate approval.
 
-Baseline to preserve on every W2 commit:
+Release baseline:
 
 ```sh
 ./src/mini/tests/xdk.sh
+./src/mini/tests/resources.sh
+./src/mini/tests/m10_parity.sh
+./src/mini/tests/m10_perf.sh
 ./src/mini/tests/m9_parity.sh
 ./src/mini/tests/selfhost.sh
 ```
 
-`m9_parity` (47/47), the 26 regressions, `selfhost`, and `m8` are the floor.
-Do not spend a wave building compiler machinery before its XDK scenario
-exists.
+`m9_parity` (47/47), the 26 regressions, `selfhost`, `m8`, and the W6
+matrix are the floor. Do not spend a wave building compiler machinery
+before its XDK scenario exists.

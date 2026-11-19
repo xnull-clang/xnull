@@ -4,6 +4,12 @@
 
 XDK-first 里程碑：T0 包从矩阵声明推进到可运行场景与 base/full 回归。
 
+```text
+mini 0.3.0
+tag: mini-v0.3.0
+record: 2611190501
+```
+
 ![Mini 0.3.0 200M performance curve](../../docs/assets/mini-200m-runtime-20261119.svg)
 
 ### 验收范围
