@@ -97,6 +97,13 @@ int64_t xdkc_now_mono_ms(void);
 int64_t xdkc_now_wall_ms(void);
 typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;
 typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;
+typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;
+static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { "BuiltinError", sizeof(xn_builtin_error), NULL, NULL };
+static xn_builtin_error *xn_builtin_error_new(int64_t kind, const char *message) { xn_builtin_error *e = (xn_builtin_error *)rt_gc_new(&RT_TYPE_XN_BUILTIN_ERROR); memset((char *)e + sizeof(rt_header), 0, sizeof(xn_builtin_error) - sizeof(rt_header)); e->kind = kind; e->message = rt_string_from_c(message); return e; }
+static xn_Result xn_arr_i_try_remove(xn_arr_i *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, "tryRemove: index out of range") }; } int64_t v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .i = v }; }
+static xn_Result xn_arr_d_try_remove(xn_arr_d *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, "tryRemove: index out of range") }; } double v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .d = v }; }
+static xn_Result xn_arr_s_try_remove(xn_arr_s *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, "tryRemove: index out of range") }; } rt_string *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .s = v }; }
+static xn_Result xn_arr_o_try_remove(xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, "tryRemove: index out of range") }; } void *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .p = v }; }
 typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;
 static const rt_type RT_TYPE_XN_ARR_R = { "List", sizeof(xn_arr_r), NULL, NULL };
 static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }
@@ -107,6 +114,8 @@ static void xn_arr_r_remove(xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= 
 static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }
 static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
+static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
+static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }
 static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }
 static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }
@@ -2209,6 +2218,22 @@ static rt_string * xn_Cls_Mono_argType(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("New"))) {
     return n->text;
   }
+  if (xn_str_eq(n->kind, rt_string_from_c("Call"))) {
+    int64_t ci = xn_int_wrap(0);
+    while ((ci < ((int64_t)self->program->kids->len))) {
+      xn_Cls_AstNode * cf = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, ci));
+      if ((xn_str_eq(cf->kind, rt_string_from_c("Func")) && xn_str_eq(cf->text, n->text))) {
+        int64_t ri = xn_int_wrap(0);
+        while ((ri < ((int64_t)cf->kids->len))) {
+          if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cf->kids, ri))->kind, rt_string_from_c("Ret"))) {
+            return ((xn_Cls_AstNode *)xn_arr_o_get(cf->kids, ri))->text;
+          }
+          ri = xn_int_wrap((ri + 1));
+        }
+      }
+      ci = xn_int_wrap((ci + 1));
+    }
+  }
   return rt_string_from_c("Any");
 }
 
@@ -4230,6 +4255,12 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     if (((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
       return rt_string_from_c("Unit");
     }
+    if ((xn_str_eq(mth, rt_string_from_c("tryGet")) || xn_str_eq(mth, rt_string_from_c("tryRemove")))) {
+      return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_Checker_elementType(self, bt)), rt_string_from_c(",Error>"));
+    }
+    if ((xn_str_eq(mth, rt_string_from_c("trySet")) || xn_str_eq(mth, rt_string_from_c("tryInsert")))) {
+      return rt_string_from_c("Result<Unit,Error>");
+    }
     if (xn_str_eq(mth, rt_string_from_c("join"))) {
       return rt_string_from_c("String");
     }
@@ -4712,6 +4743,12 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       }
       if (((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert"))) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
         return rt_string_from_c("Unit");
+      }
+      if ((xn_str_eq(mth, rt_string_from_c("tryGet")) || xn_str_eq(mth, rt_string_from_c("tryRemove")))) {
+        return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_Checker_elementType(self, bt)), rt_string_from_c(",Error>"));
+      }
+      if ((xn_str_eq(mth, rt_string_from_c("trySet")) || xn_str_eq(mth, rt_string_from_c("tryInsert")))) {
+        return rt_string_from_c("Result<Unit,Error>");
       }
       if (xn_str_eq(mth, rt_string_from_c("join"))) {
         return rt_string_from_c("String");
@@ -7064,6 +7101,34 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     if (xn_str_eq(mth, rt_string_from_c("clear"))) {
       return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
     }
+    if ((xn_str_eq(mth, rt_string_from_c("tryGet")) && (((int64_t)n->kids->len) > off))) {
+      rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)));
+      rt_string * resultTy = xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_CGen_elementType(self, bt)), rt_string_from_c(",Error>"));
+      rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, resultTy, xn_Cls_CGen_arrayGet(self, bt, bv, index))), rt_string_from_c(" }"));
+      rt_string * err = rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryGet: index out of range\") }");
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(("), index), rt_string_from_c(" >= 0 && ")), index), rt_string_from_c(" < (int64_t)")), bv), rt_string_from_c("->len) ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
+    }
+    if ((xn_str_eq(mth, rt_string_from_c("tryRemove")) && (((int64_t)n->kids->len) > off))) {
+      rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_try_remove(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(")"));
+    }
+    if (((xn_str_eq(mth, rt_string_from_c("trySet")) || xn_str_eq(mth, rt_string_from_c("tryInsert"))) && (((int64_t)n->kids->len) > xn_int_wrap((off + 1))))) {
+      rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)));
+      rt_string * value = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))));
+      rt_string * call = rt_string_from_c("");
+      if (xn_str_eq(mth, rt_string_from_c("trySet"))) {
+        call = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_set(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(", ")), value), rt_string_from_c(")"));
+      }
+      else {
+        call = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_insert(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(", ")), value), rt_string_from_c(")"));
+      }
+      rt_string * bound = rt_string_from_c(" < ");
+      if (xn_str_eq(mth, rt_string_from_c("tryInsert"))) {
+        bound = rt_string_from_c(" <= ");
+      }
+      rt_string * err = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \""), mth), rt_string_from_c(": index out of range\") }"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(("), index), rt_string_from_c(" >= 0 && ")), index), bound), rt_string_from_c("(int64_t)")), bv), rt_string_from_c("->len) ? (")), call), rt_string_from_c(", (xn_Result){ .ok = 1 }) : ")), err), rt_string_from_c(")"));
+    }
   }
   if (xn_Cls_CGen_isMap(self, bt)) {
     if (xn_str_eq(mth, rt_string_from_c("length"))) {
@@ -7419,6 +7484,12 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
           return rt_string_from_c("Unit");
+        }
+        if ((xn_str_eq(mth, rt_string_from_c("tryGet")) || xn_str_eq(mth, rt_string_from_c("tryRemove")))) {
+          return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_CGen_elementType(self, bt)), rt_string_from_c(",Error>"));
+        }
+        if ((xn_str_eq(mth, rt_string_from_c("trySet")) || xn_str_eq(mth, rt_string_from_c("tryInsert")))) {
+          return rt_string_from_c("Result<Unit,Error>");
         }
         if (xn_str_eq(mth, rt_string_from_c("join"))) {
           return rt_string_from_c("String");
@@ -8139,6 +8210,34 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (xn_str_eq(mth, rt_string_from_c("clear"))) {
           return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
+        }
+        if ((xn_str_eq(mth, rt_string_from_c("tryGet")) && (((int64_t)n->kids->len) > 0))) {
+          rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+          rt_string * resultTy = xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_CGen_elementType(self, bt)), rt_string_from_c(",Error>"));
+          rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, resultTy, xn_Cls_CGen_arrayGet(self, bt, bv, index))), rt_string_from_c(" }"));
+          rt_string * err = rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryGet: index out of range\") }");
+          return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(("), index), rt_string_from_c(" >= 0 && ")), index), rt_string_from_c(" < (int64_t)")), bv), rt_string_from_c("->len) ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
+        }
+        if ((xn_str_eq(mth, rt_string_from_c("tryRemove")) && (((int64_t)n->kids->len) > 0))) {
+          rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+          return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_try_remove(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(")"));
+        }
+        if (((xn_str_eq(mth, rt_string_from_c("trySet")) || xn_str_eq(mth, rt_string_from_c("tryInsert"))) && (((int64_t)n->kids->len) > 1))) {
+          rt_string * index = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+          rt_string * value = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)));
+          rt_string * call = rt_string_from_c("");
+          if (xn_str_eq(mth, rt_string_from_c("trySet"))) {
+            call = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_set(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(", ")), value), rt_string_from_c(")"));
+          }
+          else {
+            call = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_Cls_CGen_arrayCName(self, bt), rt_string_from_c("_insert(")), bv), rt_string_from_c(", ")), index), rt_string_from_c(", ")), value), rt_string_from_c(")"));
+          }
+          rt_string * bound = rt_string_from_c(" < ");
+          if (xn_str_eq(mth, rt_string_from_c("tryInsert"))) {
+            bound = rt_string_from_c(" <= ");
+          }
+          rt_string * err = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \""), mth), rt_string_from_c(": index out of range\") }"));
+          return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(("), index), rt_string_from_c(" >= 0 && ")), index), bound), rt_string_from_c("(int64_t)")), bv), rt_string_from_c("->len) ? (")), call), rt_string_from_c(", (xn_Result){ .ok = 1 }) : ")), err), rt_string_from_c(")"));
         }
       }
       if (xn_Cls_CGen_isMap(self, bt)) {
@@ -9088,6 +9187,13 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("int64_t xdkc_now_wall_ms(void);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;"));
   xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { \"BuiltinError\", sizeof(xn_builtin_error), NULL, NULL };"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_builtin_error *xn_builtin_error_new(int64_t kind, const char *message) { xn_builtin_error *e = (xn_builtin_error *)rt_gc_new(&RT_TYPE_XN_BUILTIN_ERROR); memset((char *)e + sizeof(rt_header), 0, sizeof(xn_builtin_error) - sizeof(rt_header)); e->kind = kind; e->message = rt_string_from_c(message); return e; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_arr_i_try_remove(xn_arr_i *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } int64_t v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .i = v }; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_arr_d_try_remove(xn_arr_d *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } double v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .d = v }; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_arr_s_try_remove(xn_arr_s *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } rt_string *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .s = v }; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_arr_o_try_remove(xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } void *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .p = v }; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static const rt_type RT_TYPE_XN_ARR_R = { \"List\", sizeof(xn_arr_r), NULL, NULL };"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }"));
@@ -9251,6 +9357,12 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
               }
             }
             ci = xn_int_wrap((ci + 1));
+          }
+          if ((xn_str_eq(p->text, rt_string_from_c("Error")) && xn_str_eq(sig->text, rt_string_from_c("kind")))) {
+            xn_Cls_CGen_emit(self, rt_string_from_c("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->kind;"));
+          }
+          if ((xn_str_eq(p->text, rt_string_from_c("Error")) && xn_str_eq(sig->text, rt_string_from_c("describe")))) {
+            xn_Cls_CGen_emit(self, rt_string_from_c("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->message;"));
           }
           xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  rt_fatal(\"protocol dispatch failed: "), p->text), rt_string_from_c(".")), sig->text), rt_string_from_c("\");")));
           if (((xn_str_eq(rt, rt_string_from_c("Unit")) || xn_str_eq(rt, rt_string_from_c("void"))) || xn_str_eq(rt, rt_string_from_c("Void")))) {

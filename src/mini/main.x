@@ -1877,6 +1877,22 @@ class Mono {
         if n.kind == "New" {
             return n.text
         }
+        if n.kind == "Call" {
+            Int ci = 0
+            while ci < self.program.kids.length() {
+                AstNode cf = self.program.kids.get(ci)
+                if cf.kind == "Func" && cf.text == n.text {
+                    Int ri = 0
+                    while ri < cf.kids.length() {
+                        if cf.kids.get(ri).kind == "Ret" {
+                            return cf.kids.get(ri).text
+                        }
+                        ri = ri + 1
+                    }
+                }
+                ci = ci + 1
+            }
+        }
         return "Any"
     }
 
@@ -3751,6 +3767,12 @@ class Checker {
             if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" || mth == "clear" {
                 return "Unit"
             }
+            if mth == "tryGet" || mth == "tryRemove" {
+                return "Result<" + self.elementType(bt) + ",Error>"
+            }
+            if mth == "trySet" || mth == "tryInsert" {
+                return "Result<Unit,Error>"
+            }
             if mth == "join" {
                 return "String"
             }
@@ -4173,6 +4195,12 @@ class Checker {
                 }
                 if mth == "push" || mth == "set" || mth == "insert" || mth == "remove" || mth == "clear" {
                     return "Unit"
+                }
+                if mth == "tryGet" || mth == "tryRemove" {
+                    return "Result<" + self.elementType(bt) + ",Error>"
+                }
+                if mth == "trySet" || mth == "tryInsert" {
+                    return "Result<Unit,Error>"
                 }
                 if mth == "join" {
                     return "String"
@@ -6287,6 +6315,31 @@ class CGen {
             if mth == "clear" {
                 return "(" + bv + "->len = 0)"
             }
+            if mth == "tryGet" && n.kids.length() > off {
+                String index = self.expr(n.kids.get(off))
+                String resultTy = "Result<" + self.elementType(bt) + ",Error>"
+                String ok = "(xn_Result){ .ok = 1, " + self.resultInitField(resultTy, self.arrayGet(bt, bv, index)) + " }"
+                String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryGet: index out of range\") }"
+                return "((" + index + " >= 0 && " + index + " < (int64_t)" + bv + "->len) ? " + ok + " : " + err + ")"
+            }
+            if mth == "tryRemove" && n.kids.length() > off {
+                String index = self.expr(n.kids.get(off))
+                return self.arrayCName(bt) + "_try_remove(" + bv + ", " + index + ")"
+            }
+            if (mth == "trySet" || mth == "tryInsert") && n.kids.length() > off + 1 {
+                String index = self.expr(n.kids.get(off))
+                String value = self.expr(n.kids.get(off + 1))
+                String call = ""
+                if mth == "trySet" {
+                    call = self.arrayCName(bt) + "_set(" + bv + ", " + index + ", " + value + ")"
+                } else {
+                    call = self.arrayCName(bt) + "_insert(" + bv + ", " + index + ", " + value + ")"
+                }
+                String bound = " < "
+                if mth == "tryInsert" { bound = " <= " }
+                String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"" + mth + ": index out of range\") }"
+                return "((" + index + " >= 0 && " + index + bound + "(int64_t)" + bv + "->len) ? (" + call + ", (xn_Result){ .ok = 1 }) : " + err + ")"
+            }
         }
         if self.isMap(bt) {
             if mth == "length" {
@@ -6607,6 +6660,12 @@ class CGen {
                     }
                     if mth == "push" || mth == "remove" || mth == "clear" {
                         return "Unit"
+                    }
+                    if mth == "tryGet" || mth == "tryRemove" {
+                        return "Result<" + self.elementType(bt) + ",Error>"
+                    }
+                    if mth == "trySet" || mth == "tryInsert" {
+                        return "Result<Unit,Error>"
                     }
                     if mth == "join" {
                         return "String"
@@ -7295,6 +7354,31 @@ class CGen {
                     }
                     if mth == "clear" {
                         return "(" + bv + "->len = 0)"
+                    }
+                    if mth == "tryGet" && n.kids.length() > 0 {
+                        String index = self.expr(n.kids.get(0))
+                        String resultTy = "Result<" + self.elementType(bt) + ",Error>"
+                        String ok = "(xn_Result){ .ok = 1, " + self.resultInitField(resultTy, self.arrayGet(bt, bv, index)) + " }"
+                        String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryGet: index out of range\") }"
+                        return "((" + index + " >= 0 && " + index + " < (int64_t)" + bv + "->len) ? " + ok + " : " + err + ")"
+                    }
+                    if mth == "tryRemove" && n.kids.length() > 0 {
+                        String index = self.expr(n.kids.get(0))
+                        return self.arrayCName(bt) + "_try_remove(" + bv + ", " + index + ")"
+                    }
+                    if (mth == "trySet" || mth == "tryInsert") && n.kids.length() > 1 {
+                        String index = self.expr(n.kids.get(0))
+                        String value = self.expr(n.kids.get(1))
+                        String call = ""
+                        if mth == "trySet" {
+                            call = self.arrayCName(bt) + "_set(" + bv + ", " + index + ", " + value + ")"
+                        } else {
+                            call = self.arrayCName(bt) + "_insert(" + bv + ", " + index + ", " + value + ")"
+                        }
+                        String bound = " < "
+                        if mth == "tryInsert" { bound = " <= " }
+                        String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"" + mth + ": index out of range\") }"
+                        return "((" + index + " >= 0 && " + index + bound + "(int64_t)" + bv + "->len) ? (" + call + ", (xn_Result){ .ok = 1 }) : " + err + ")"
                     }
                 }
                 if self.isMap(bt) {
@@ -8226,6 +8310,13 @@ class CGen {
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
+        self.emit("typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;")
+        self.emit("static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { \"BuiltinError\", sizeof(xn_builtin_error), NULL, NULL };")
+        self.emit("static xn_builtin_error *xn_builtin_error_new(int64_t kind, const char *message) { xn_builtin_error *e = (xn_builtin_error *)rt_gc_new(&RT_TYPE_XN_BUILTIN_ERROR); memset((char *)e + sizeof(rt_header), 0, sizeof(xn_builtin_error) - sizeof(rt_header)); e->kind = kind; e->message = rt_string_from_c(message); return e; }")
+        self.emit("static xn_Result xn_arr_i_try_remove(xn_arr_i *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } int64_t v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .i = v }; }")
+        self.emit("static xn_Result xn_arr_d_try_remove(xn_arr_d *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } double v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .d = v }; }")
+        self.emit("static xn_Result xn_arr_s_try_remove(xn_arr_s *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } rt_string *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .s = v }; }")
+        self.emit("static xn_Result xn_arr_o_try_remove(xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { return (xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(0, \"tryRemove: index out of range\") }; } void *v = a->data[i]; for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; return (xn_Result){ .ok = 1, .p = v }; }")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;")
         self.emit("static const rt_type RT_TYPE_XN_ARR_R = { \"List\", sizeof(xn_arr_r), NULL, NULL };")
         self.emit("static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }")
@@ -8387,6 +8478,12 @@ class CGen {
                                 }
                             }
                             ci = ci + 1
+                        }
+                        if p.text == "Error" && sig.text == "kind" {
+                            self.emit("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->kind;")
+                        }
+                        if p.text == "Error" && sig.text == "describe" {
+                            self.emit("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->message;")
                         }
                         self.emit("  rt_fatal(\"protocol dispatch failed: " + p.text + "." + sig.text + "\");")
                         if rt == "Unit" || rt == "void" || rt == "Void" {

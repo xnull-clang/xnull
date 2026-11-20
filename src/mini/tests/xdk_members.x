@@ -13,5 +13,15 @@ static Int main() {
     map.put("a", 1)
     map.clear()
     print(map.length())
+
+    List<Int> checked = [1, 2, 3]
+    print(checked.tryGet(1).value())
+    print(checked.tryGet(9).isErr())
+    print(checked.trySet(0, 9).isOk())
+    print(checked.get(0))
+    print(checked.tryInsert(checked.length(), 7).isOk())
+    print(checked.length())
+    print(checked.tryRemove(0).value())
+    print(checked.length())
     return 0
 }
