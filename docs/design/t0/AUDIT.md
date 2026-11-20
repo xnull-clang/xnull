@@ -62,7 +62,9 @@ src/mini/tests/m10_perf.sh
 for t in src/mini/tests/*.sh; do "$t"; done
 ```
 
-All gates must pass on mini. There is no second engine.
+All gates must pass on mini. There is no second engine. Gates run once per
+batch; items inside a batch are not gated or committed individually, and a red
+gate blocks the next batch rather than the next item.
 
 2026-11-20 note: all functional gates pass; Int128 scalar, wide literals, and
 checked math have landed. `m10_perf` passes on an idle host: 200M in 0.592s

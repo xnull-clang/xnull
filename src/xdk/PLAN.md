@@ -40,8 +40,10 @@ src/mini/tests/m8.sh
 src/mini/tests/m10_perf.sh
 ```
 
-A package is frozen only after its scenario and regression pass. A blocked
-T0-X item marks the package `partial`; it does not reopen a second engine.
+A package is frozen only after its scenario and regression pass. Gates and
+commits run once per batch; batch items are not gated or committed individually.
+A blocked T0-X item marks the package `partial`; it does not reopen a second
+engine.
 
 ## 3. Current compiler gaps
 

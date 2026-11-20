@@ -13,6 +13,9 @@ mini scenario
   → commit
 ```
 
+This pipeline runs once per batch, not once per item. Batch items are not
+gated or committed individually.
+
 mini is the only compiler and the only evidence source. If mini cannot do
 something, it is recorded as a mini gap or removed from the public CLI until
 mini can do it.
@@ -53,7 +56,8 @@ src/mini/tests/m8.sh
 src/mini/tests/m10_perf.sh
 ```
 
-All gates are mini-only. A red gate blocks the next change; there is no
+All gates are mini-only and run once per batch. Items inside a batch are not
+gated or committed individually. A red gate blocks the next batch; there is no
 second-engine override.
 
 ## 5. Architecture

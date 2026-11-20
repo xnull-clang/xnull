@@ -14,7 +14,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | 业务包、text/codec/config/cli |
 | 对应源码 | `src/xdk/core/collections/*.x` |
-| 阶段 | T0-06（一个包一个验收门；实现可分内部提交） |
+| 阶段 | T0-06（一个包一个验收门；批内条目不单独提交） |
 | 当前状态 | Partial：T0-K 算法/容器与成员面已实现；其他 Map/Set 组合为 T0-X |
 
 ---
@@ -456,7 +456,7 @@ print(firstChunk.length())           // 2
 
 ## 11. 阶段交付与验收（T0-06）
 
-本包是一个验收门，不是一次提交。实现可以拆内部提交，但只有满足以下条件
+本包是一个验收门，不是一次提交。批内条目不单独提交，但只有满足以下条件
 才能标记 `xdk.collections` 为 `complete`：
 
 - `List<T>`（Int/String）、`Map<String,Int>`、`Map<Int,Int>`、`Set<Int>`、`Set<String>` 契约与实现一致；
@@ -464,7 +464,7 @@ print(firstChunk.length())           // 2
 - `PriorityQueue<T>`、`RingBuffer<T>` 契约与实现一致；
 - `for-in` 对 List/Set 的场景通过；
 - 场景、回归、mini base/full 通过；
-- 文档、场景、回归、实现同一包交付；内部提交不单独宣称包完成。
+- 文档、场景、回归、实现同批交付；批内条目不单独提交、不宣称包完成。
 
 当前已实现并通过 mini base/full 的 T0-K 面：
 

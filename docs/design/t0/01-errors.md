@@ -13,7 +13,7 @@
 | 依赖 | L2 诊断、L2 FFI 错误码（不依赖其他 T0 包） |
 | 被依赖 | 所有 T0 包 |
 | 对应源码 | `src/xdk/core/errors/Errors.x`（单文件；目标拆分见 §2） |
-| 阶段 | T0-01（一个包一个验收门；实现可分内部提交） |
+| 阶段 | T0-01（一个包一个验收门；批内条目不单独提交） |
 | 当前状态 | Verified（mini） |
 
 ---
@@ -397,7 +397,7 @@ Bool isRetryableError(Error error)
 - `BasicError`、`ErrorDetail`、`ErrorReport`、`ErrorGroup`、ResultOps 与实现一致；
 - `wrap`/`mapErr`/`report` 的 S4 语义未被改变；
 - mini 场景通过；
-- 文档、场景、回归、实现同一包交付；内部提交不单独宣称包完成。
+- 文档、场景、回归、实现同批交付；批内条目不单独提交、不宣称包完成。
 
 **已登记缺口**：
 
