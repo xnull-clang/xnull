@@ -1887,9 +1887,18 @@ class Mono {
 
     Void collectScope(AstNode n) {
         if n.kind == "Param" || n.kind == "Local" {
-            List<String> pp = n.text.split(" ")
-            if pp.length() >= 2 {
-                self.addScope(pp.get(1), pp.get(0))
+            String text = n.text
+            Int splitAt = -1
+            Int si = 0
+            while si < text.length() {
+                if text.substring(si, 1) == " " {
+                    splitAt = si
+                }
+                si = si + 1
+            }
+            if splitAt > 0 && splitAt + 1 < text.length() {
+                self.addScope(text.substring(splitAt + 1, text.length() - splitAt - 1),
+                              text.substring(0, splitAt))
             }
         }
         Int i = 0
@@ -1897,6 +1906,48 @@ class Mono {
             self.collectScope(n.kids.get(i))
             i = i + 1
         }
+    }
+
+    Bool inferTypePattern(String pattern, String actual, List<String> names, List<String> inferred) {
+        Int ni = 0
+        while ni < names.length() {
+            if pattern == names.get(ni) {
+                if actual == "Any" {
+                    return true
+                }
+                if inferred.get(ni) == "" {
+                    inferred.set(ni, actual)
+                } else if inferred.get(ni) != actual {
+                    return false
+                }
+                return true
+            }
+            ni = ni + 1
+        }
+        if pattern.startsWith("List<") && actual.startsWith("List<") &&
+           pattern.substring(pattern.length() - 1, 1) == ">" &&
+           actual.substring(actual.length() - 1, 1) == ">" {
+            return self.inferTypePattern(
+                pattern.substring(5, pattern.length() - 6),
+                actual.substring(5, actual.length() - 6), names, inferred)
+        }
+        if pattern.startsWith("Result<") && actual.startsWith("Result<") &&
+           pattern.substring(pattern.length() - 1, 1) == ">" &&
+           actual.substring(actual.length() - 1, 1) == ">" {
+            List<String> patternParts = splitTop(pattern.substring(7, pattern.length() - 8))
+            List<String> actualParts = splitTop(actual.substring(7, actual.length() - 8))
+            if patternParts.length() != 2 || actualParts.length() != 2 {
+                return false
+            }
+            if !self.inferTypePattern(patternParts.get(0), actualParts.get(0), names, inferred) {
+                return false
+            }
+            return self.inferTypePattern(patternParts.get(1), actualParts.get(1), names, inferred)
+        }
+        if pattern.indexOf("(") >= 0 && actual == "Any" {
+            return true
+        }
+        return pattern == actual
     }
 
     String typeArgsFor(AstNode call) {
@@ -1928,30 +1979,18 @@ class Mono {
         while pi < fn.kids.length() {
             AstNode p = fn.kids.get(pi)
             if p.kind == "Param" {
-                List<String> pp = p.text.split(" ")
-                if pp.length() >= 1 && argi < actual.length() {
-                    String pty = pp.get(0)
-                    String aty = actual.get(argi)
-                    Int ii = 0
-                    while ii < names.length() {
-                        String nm = names.get(ii)
-                        if pty == nm && aty != "Any" {
-                            if inferred.get(ii) == "" {
-                                inferred.set(ii, aty)
-                            } else if inferred.get(ii) != aty {
-                                return ""
-                            }
-                        }
-                        if pty == "List<" + nm + ">" && aty.length() > 6 &&
-                           aty.substring(0, 5) == "List<" && aty.substring(aty.length() - 1, 1) == ">" {
-                            String et = aty.substring(5, aty.length() - 6)
-                            if inferred.get(ii) == "" {
-                                inferred.set(ii, et)
-                            } else if inferred.get(ii) != et {
-                                return ""
-                            }
-                        }
-                        ii = ii + 1
+                String ptext = p.text
+                Int splitAt = -1
+                Int si = 0
+                while si < ptext.length() {
+                    if ptext.substring(si, 1) == " " {
+                        splitAt = si
+                    }
+                    si = si + 1
+                }
+                if splitAt > 0 && argi < actual.length() {
+                    if !self.inferTypePattern(ptext.substring(0, splitAt), actual.get(argi), names, inferred) {
+                        return ""
                     }
                 }
                 argi = argi + 1
@@ -3741,7 +3780,7 @@ class Checker {
                 Int pai = 0
                 while pai < argc && !self.hasError() {
                     String pat = self.argType(n.kids.get(pai + 1), pwant.get(pai))
-                    if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
+                    if pat != "Error" && !self.isAssignable(pwant.get(pai), pat) {
                         self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
                     }
                     pai = pai + 1
@@ -3770,7 +3809,7 @@ class Checker {
         Int ai = 0
         while ai < argc && !self.hasError() {
             String at = self.argType(n.kids.get(ai + 1), want.get(ai))
-            if at != "Error" && !self.sameType(at, want.get(ai)) {
+            if at != "Error" && !self.isAssignable(want.get(ai), at) {
                 self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
             }
             ai = ai + 1
@@ -4162,7 +4201,7 @@ class Checker {
                     Int pai = 0
                     while pai < argc && !self.hasError() {
                         String pat = self.argType(n.kids.get(pai), pwant.get(pai))
-                        if pat != "Error" && !self.sameType(pat, pwant.get(pai)) {
+                        if pat != "Error" && !self.isAssignable(pwant.get(pai), pat) {
                             self.fail("SEM-003", "argument " + str(pai + 1) + " of " + mth + ": expected " + pwant.get(pai) + ", got " + pat, n)
                         }
                         pai = pai + 1
@@ -4180,7 +4219,7 @@ class Checker {
                 Int ai = 0
                 while ai < argc && !self.hasError() {
                     String at = self.argType(n.kids.get(ai), want.get(ai))
-                    if at != "Error" && !self.sameType(at, want.get(ai)) {
+                    if at != "Error" && !self.isAssignable(want.get(ai), at) {
                         self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
                     }
                     ai = ai + 1
@@ -4208,7 +4247,7 @@ class Checker {
             Int ai = 0
             while ai < argc && !self.hasError() {
                 String at = self.argType(n.kids.get(ai), want.get(ai))
-                if at != "Error" && at != want.get(ai) {
+                if at != "Error" && !self.isAssignable(want.get(ai), at) {
                     self.fail("SEM-003", "argument " + str(ai + 1) + " of " + mth + ": expected " + want.get(ai) + ", got " + at, n)
                 }
                 ai = ai + 1
@@ -4246,7 +4285,7 @@ class Checker {
             Int ai = 0
             while ai < argc && !self.hasError() {
                 String at = self.argType(n.kids.get(ai), want.get(ai))
-                if at != "Error" && !self.sameType(at, want.get(ai)) {
+                if at != "Error" && !self.isAssignable(want.get(ai), at) {
                     self.fail("SEM-003", "argument " + str(ai + 1) + " of " + n.text + ": expected " + want.get(ai) + ", got " + at, n)
                 }
                 ai = ai + 1
@@ -4708,7 +4747,11 @@ class CGen {
         String ac = self.arrayCName(ty)
         String call = ac + "_get(" + arr + ", " + idx + ")"
         if ac == "xn_arr_o" {
-            return "((xn_Cls_" + self.elementType(ty) + " *)" + call + ")"
+            String elementType = self.elementType(ty)
+            if self.isProtocol(elementType) || elementType == "Any" || elementType == "Object" {
+                return call
+            }
+            return "((xn_Cls_" + elementType + " *)" + call + ")"
         }
         return call
     }
@@ -6345,6 +6388,12 @@ class CGen {
             if self.typeOf(n.kids.get(0)) == "Double" || self.typeOf(n.kids.get(1)) == "Double" {
                 return "Double"
             }
+            String leftType = self.typeOf(n.kids.get(0))
+            String rightType = self.typeOf(n.kids.get(1))
+            if leftType == "Long" || leftType == "Int64" || leftType == "Int32" ||
+               rightType == "Long" || rightType == "Int64" || rightType == "Int32" {
+                return "Long"
+            }
             return "Int"
         }
         if n.kind == "Try" {
@@ -6647,7 +6696,11 @@ class CGen {
             if n.kids.length() == 0 {
                 return "0"
             }
-            return "(" + n.text + self.expr(n.kids.get(0)) + ")"
+            String operand = self.expr(n.kids.get(0))
+            if self.typeOf(n.kids.get(0)) == "Int" && n.text == "-" {
+                return "xn_int_wrap(-(" + operand + "))"
+            }
+            return "(" + n.text + operand + ")"
         }
         if n.kind == "Index" {
             if n.kids.length() < 2 {
@@ -6685,6 +6738,18 @@ class CGen {
                 }
                 if n.text == "!=" {
                     return "(!xn_str_eq(" + a + ", " + b + "))"
+                }
+            }
+            if lt == "Int" && rt == "Int" {
+                if n.text == "<<" {
+                    return "xn_int_shl(" + a + ", " + b + ")"
+                }
+                if n.text == ">>" {
+                    return "xn_int_shr(" + a + ", " + b + ")"
+                }
+                if n.text == "+" || n.text == "-" || n.text == "*" || n.text == "/" ||
+                   n.text == "%" || n.text == "&" || n.text == "|" || n.text == "^" {
+                    return "xn_int_wrap((" + a + " " + n.text + " " + b + "))"
                 }
             }
             return "(" + a + " " + n.text + " " + b + ")"
@@ -6870,8 +6935,11 @@ class CGen {
                 if n.kids.length() > 0 {
                     av = self.expr(n.kids.get(0))
                 }
-                if pat == "Int" || pat == "Long" || pat == "Int64" {
+                if pat == "Int" {
                     return "xn_print_int(" + av + ")"
+                }
+                if pat == "Long" || pat == "Int64" {
+                    return "xn_print_long(" + av + ")"
                 }
                 if pat == "Double" {
                     return "xn_print_double(" + av + ")"
@@ -6905,6 +6973,9 @@ class CGen {
                 }
                 if pat == "Char" {
                     return "xn_str_char(" + av + ")"
+                }
+                if pat == "Long" || pat == "Int64" {
+                    return "xn_str_long(" + av + ")"
                 }
                 return "xn_str_int(" + av + ")"
             }
@@ -7373,7 +7444,11 @@ class CGen {
                 self.emitDefers(indent + "  ", true)
                 self.emit(indent + "  return " + tv + ";")
                 self.emit(indent + "}")
-                self.emit(indent + self.ctype(ty) + " " + name + " = " + tv + ".value;")
+                String valueExpr = tv + ".value"
+                if ty == "Int" {
+                    valueExpr = "xn_int_wrap(" + valueExpr + ")"
+                }
+                self.emit(indent + self.ctype(ty) + " " + name + " = " + valueExpr + ";")
                 self.addVar(ty, name)
                 return
             }
@@ -7404,6 +7479,9 @@ class CGen {
         String init = "0"
         if st.kids.length() > 0 {
             init = self.expr(st.kids.get(0))
+        }
+        if ty == "Int" && st.kids.length() > 0 {
+            init = "xn_int_wrap(" + init + ")"
         }
         self.emit(indent + self.ctype(ty) + " " + name + " = " + init + ";")
         self.addVar(ty, name)
@@ -7598,7 +7676,11 @@ class CGen {
             if st.kids.length() == 0 {
                 self.emit(indent + "return;")
             } else {
-                self.emit(indent + "return " + self.expr(st.kids.get(0)) + ";")
+                String returnExpr = self.expr(st.kids.get(0))
+                if self.curRet == "Int" {
+                    returnExpr = "xn_int_wrap(" + returnExpr + ")"
+                }
+                self.emit(indent + "return " + returnExpr + ";")
             }
             return
         }
@@ -7978,11 +8060,16 @@ class CGen {
         self.emit("")
         self.emit("typedef struct { void *env; void *fn; } xn_closure;")
         self.emit("")
-        self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)v); }")
+        self.emit("static int64_t xn_int_wrap(int64_t value) { return (int64_t)(int32_t)value; }")
+        self.emit("static int64_t xn_int_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint32_t)value << (uint32_t)bitCount); }")
+        self.emit("static int64_t xn_int_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int32_t)value >> (int32_t)bitCount); }")
+        self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)xn_int_wrap(v)); }")
         self.emit("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }")
         self.emit("static void xn_print_double(double v) { printf(\"%g\\n\", v); }")
         self.emit("static void xn_print_str(rt_string *s) { printf(\"%.*s\\n\", (int)s->len, s->bytes); }")
-        self.emit("static rt_string *xn_str_int(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)v); return rt_string_from_c(buf); }")
+        self.emit("static rt_string *xn_str_int(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)xn_int_wrap(v)); return rt_string_from_c(buf); }")
+        self.emit("static rt_string *xn_str_long(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)v); return rt_string_from_c(buf); }")
+        self.emit("static void xn_print_long(int64_t v) { printf(\"%lld\\n\", (long long)v); }")
         self.emit("static rt_string *xn_str_double(double v) { char buf[64]; snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }")
         self.emit("static rt_string *xn_str_char(int32_t cp) { char b[5]; int n = 0; if (cp < 0) { cp = 0xFFFD; } if (cp < 0x80) { b[n++] = (char)cp; } else if (cp < 0x800) { b[n++] = (char)(0xC0 | (cp >> 6)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else if (cp < 0x10000) { b[n++] = (char)(0xE0 | (cp >> 12)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else { b[n++] = (char)(0xF0 | (cp >> 18)); b[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } b[n] = 0; return rt_string_from_c(b); }")
@@ -8108,6 +8195,35 @@ class CGen {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Func" && !hasTypeParams(n) {
                 self.emit(self.funcProto(n))
+            }
+            i = i + 1
+        }
+        // Protocol dispatch prototypes must precede any call site; the
+        // definitions are emitted after class bodies.
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" {
+                Int pi = 0
+                while pi < p.kids.length() {
+                    AstNode sig = p.kids.get(pi)
+                    if sig.kind == "Sig" {
+                        String rt = self.protoRet(p.text, sig.text)
+                        List<AstNode> pps = self.protoParams(p.text, sig.text)
+                        String fsig = "static " + self.ctype(rt) + " xn_proto_" + p.text + "_" + sig.text + "(void *xn_obj"
+                        Int ai = 0
+                        while ai < pps.length() {
+                            List<String> pp = pps.get(ai).text.split(" ")
+                            if pp.length() >= 2 {
+                                fsig = fsig + ", " + self.ctype(pp.get(0)) + " " + pp.get(1)
+                            }
+                            ai = ai + 1
+                        }
+                        fsig = fsig + ");"
+                        self.emit(fsig)
+                    }
+                    pi = pi + 1
+                }
             }
             i = i + 1
         }

@@ -82,7 +82,7 @@ Int? resourceSize(String path) {
     if !resourcePathOk(path, false) {
         return null
     }
-    Int64 n = resourceSizeRaw(path)
+    Long n = resourceSizeRaw(path)
     if n < 0 {
         return null
     }

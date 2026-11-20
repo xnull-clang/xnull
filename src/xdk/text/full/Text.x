@@ -132,7 +132,7 @@ Result<Int, Error> parseInt(String s) {
         Int d = digitOf(s.substring(i, 1))
         if d < 0 { return Err(textErr("parseInt: 非法字符")) }
         any = true
-        Int limit = 922337203685477580
+        Int limit = 214748364
         if v > limit { return Err(textErr("parseInt: 溢出")) }
         v = v * 10 + d
         if !neg && v < 0 { return Err(textErr("parseInt: 溢出")) }

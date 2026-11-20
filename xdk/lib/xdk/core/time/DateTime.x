@@ -130,13 +130,13 @@ import xdk.sys
 
 
 class DateTime {
-    Int64 ms
+    Long ms
 
-    DateTime(Int64 ms0) {
+    DateTime(Long ms0) {
         self.ms = ms0
     }
 
-    Int64 timestamp() {
+    Long timestamp() {
         return self.ms
     }
 

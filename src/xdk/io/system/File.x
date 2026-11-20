@@ -139,9 +139,9 @@ class File {
     }
 
     // 文件字节数（磁盘当前值；缺失返回 -1 经 Err 报告）。
-    Result<Int, Error> size() {
+    Result<Long, Error> size() {
         String p = self.path
-        Int n = fileSizeRaw(p)
+        Long n = fileSizeRaw(p)
         if n < 0 {
             return Err(sysError(ErrorKind.NotFound, $"File.size: 无法读取 {self.path}"))
         }

@@ -13,47 +13,47 @@ import xdk.sys
 
 // ---------- 时钟 ----------
 
-Int nowMs() {
+Long nowMs() {
     return nowMono()
 }
 
-Int nowWallMs() {
+Long nowWallMs() {
     return nowWall()
 }
 
-Int millis() {
+Long millis() {
     return nowMono()
 }
 
-Int micros() {
+Long micros() {
     return nowMicrosRaw()
 }
 
-void sleepMs(Int ms) {
-    sleepMsRaw(ms)
+void sleepMs(Long milliseconds) {
+    sleepMsRaw(milliseconds)
 }
 
 void sleep(Duration d) {
     sleepMsRaw(d.millis())
 }
 
-Duration durationOfMillis(Int64 ms) {
+Duration durationOfMillis(Long ms) {
     return new Duration(ms)
 }
 
-Duration durationOfSeconds(Int64 s) {
+Duration durationOfSeconds(Long s) {
     return new Duration(s * 1000)
 }
 
-Duration durationOfMinutes(Int64 m) {
+Duration durationOfMinutes(Long m) {
     return new Duration(m * 60000)
 }
 
-Duration durationOfHours(Int64 h) {
+Duration durationOfHours(Long h) {
     return new Duration(h * 3600000)
 }
 
-Duration durationOfDays(Int64 dd) {
+Duration durationOfDays(Long dd) {
     return new Duration(dd * 86400000)
 }
 
@@ -258,7 +258,7 @@ String padLeftNum(String s, Int width) {
 
 DateTime dateTimeOf(Int y, Int mo, Int d, Int h, Int mi, Int s) {
     Int days = daysFromCivil(y, mo, d)
-    Int64 ms = days * 86400000 + (h * 3600 + mi * 60 + s) * 1000
+    Long ms = days * 86400000 + (h * 3600 + mi * 60 + s) * 1000
     return new DateTime(ms)
 }
 
@@ -267,7 +267,7 @@ DateTime dateTimeOfMs(Int y, Int mo, Int d, Int h, Int mi, Int s, Int msPart) {
     return new DateTime(base.ms + msPart)
 }
 
-DateTime dateTimeFromTimestamp(Int64 ms) {
+DateTime dateTimeFromTimestamp(Long ms) {
     return new DateTime(ms)
 }
 

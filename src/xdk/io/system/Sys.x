@@ -544,7 +544,7 @@ Result<Process, Error> spawnProcess(String command) {
     if command.length() == 0 {
         return Err(sysError(ErrorKind.InvalidArgument, "spawnProcess: 命令为空"))
     }
-    Int64 h = procSpawnRaw(command)
+    Long h = procSpawnRaw(command)
     if h == 0 {
         return Err(sysError(ErrorKind.Io, "spawnProcess: 无法启动子进程"))
     }
@@ -553,7 +553,7 @@ Result<Process, Error> spawnProcess(String command) {
 
 // runProcess：便捷同步形态，运行 shell 命令并返回退出码。
 Int runProcess(String command) {
-    Int64 code = procExitCodeRaw(command)
+    Long code = procExitCodeRaw(command)
     return code
 }
 
@@ -611,11 +611,11 @@ Bool pathExists(String path) {
     return fileExists(path)
 }
 
-Int32 writeFileText(String path, String text) {
+Int writeFileText(String path, String text) {
     return writeFileTextRaw(path, text)
 }
 
-Int32 procStatus(String command) {
+Int procStatus(String command) {
     return runProcess(command)
 }
 
@@ -653,7 +653,7 @@ Bool chdir(String path) {
     return chdirRaw(path) != 0
 }
 
-Int fileMtime(String path) {
+Long fileMtime(String path) {
     return fileMtimeRaw(path)
 }
 

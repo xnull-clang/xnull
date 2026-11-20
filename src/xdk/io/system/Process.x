@@ -487,10 +487,10 @@ import xdk.errors
 
 // Process：子进程句柄。wait 可重复取同一退出状态；close 未终结则 SIGKILL 并回收。
 class Process {
-    Int64 handle
+    Long handle
     Bool opened
 
-    Process(Int64 h) {
+    Process(Long h) {
         self.handle = h
         self.opened = true
     }
@@ -504,8 +504,8 @@ class Process {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "Process.wait: 句柄已关闭"))
         }
-        Int64 h = self.handle
-        Int64 st = procWaitRaw(h)
+        Long h = self.handle
+        Long st = procWaitRaw(h)
         if st < 0 {
             return Err(sysError(ErrorKind.Io, "Process.wait: 等待失败"))
         }
@@ -516,7 +516,7 @@ class Process {
         if !self.opened {
             return Err(sysError(ErrorKind.Unavailable, "Process.kill: 句柄已关闭"))
         }
-        Int64 h = self.handle
+        Long h = self.handle
         Int rc = procKillRaw(h, sig)
         if rc != 0 {
             return Err(sysError(ErrorKind.Io, "Process.kill: 发送信号失败"))
@@ -529,7 +529,7 @@ class Process {
             return Ok()
         }
         self.opened = false
-        Int64 h = self.handle
+        Long h = self.handle
         Int rc = procCloseRaw(h)
         if rc != 0 {
             return Err(sysError(ErrorKind.Io, "Process.close: 回收失败"))

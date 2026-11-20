@@ -2,21 +2,21 @@
 package xdk.time
 
 class Duration {
-    Int64 ms
+    Long ms
 
-    Duration(Int64 ms0) {
+    Duration(Long ms0) {
         self.ms = ms0
     }
 
-    Int64 seconds() {
+    Long seconds() {
         return self.ms / 1000
     }
 
-    Int64 millis() {
+    Long millis() {
         return self.ms
     }
 
-    Int64 micros() {
+    Long micros() {
         return self.ms * 1000
     }
 
