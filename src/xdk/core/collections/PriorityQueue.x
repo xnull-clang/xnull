@@ -1,322 +1,59 @@
-// xdk.collections —— S6-07 源码单元（算法 + 4 个特化容器）
-// 设计口径：
-//   - 算法用比较/相等/键提取回调表达，不要求 T 可比较；
-//   - 容器为纯 XNull 值类型封装（内部用 List），语义优先、复杂度为首版实现；
-//   - 不改变内建容器语义（S1 §9）。
+// xdk.collections —— T0 专用容器
 package xdk.collections
-// sortBy：按 less(a,b) 升序插入排序，原地修改并返回。
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// PriorityQueue<T>：以 less 定义优先级的二叉堆最小堆。
+// PriorityQueue<T>：以 lessThan 定义优先级的二叉堆最小堆。
 class PriorityQueue<T> {
     List<T> heap = []
-    Bool(T, T) less;
+    Bool(T, T) _lessThan
 
-    PriorityQueue(Bool(T, T) less) {
-        self.less = less
+    PriorityQueue(Bool(T, T) lessThan) {
+        self._lessThan = lessThan
     }
 
     Int length() { return self.heap.length() }
 
     Bool isEmpty() { return self.heap.length() == 0 }
 
-    void swap(Int i, Int j) {
-        T tmp = self.heap.get(i)
-        self.heap.set(i, self.heap.get(j))
-        self.heap.set(j, tmp)
+    void swap(Int index, Int otherIndex) {
+        T temporary = self.heap.get(index)
+        self.heap.set(index, self.heap.get(otherIndex))
+        self.heap.set(otherIndex, temporary)
     }
 
-    void siftUp(Int i) {
-        while i > 0 {
-            Int p = (i - 1) / 2
-            if self.less(self.heap.get(i), self.heap.get(p)) {
-                self.swap(i, p)
-                i = p
+    void siftUp(Int index) {
+        while index > 0 {
+            Int parent = (index - 1) / 2
+            if self._lessThan(self.heap.get(index), self.heap.get(parent)) {
+                self.swap(index, parent)
+                index = parent
             } else {
                 break
             }
         }
     }
 
-    void siftDown(Int i) {
-        Int n = self.heap.length()
+    void siftDown(Int index) {
+        Int count = self.heap.length()
         while true {
-            Int l = i * 2 + 1
-            Int r = l + 1
-            Int best = i
-            if l < n && self.less(self.heap.get(l), self.heap.get(best)) {
-                best = l
+            Int left = index * 2 + 1
+            Int right = left + 1
+            Int best = index
+            if left < count && self._lessThan(self.heap.get(left), self.heap.get(best)) {
+                best = left
             }
-            if r < n && self.less(self.heap.get(r), self.heap.get(best)) {
-                best = r
+            if right < count && self._lessThan(self.heap.get(right), self.heap.get(best)) {
+                best = right
             }
-            if best == i {
+            if best == index {
                 break
             }
-            self.swap(i, best)
-            i = best
+            self.swap(index, best)
+            index = best
         }
     }
 
-    void push(T v) {
-        self.heap.push(v)
+    void push(T value) {
+        self.heap.push(value)
         self.siftUp(self.heap.length() - 1)
     }
 
@@ -341,5 +78,5 @@ class PriorityQueue<T> {
         return top
     }
 
-    void clear() { self.heap.clear() }
+    void clear() { self.heap = [] }
 }

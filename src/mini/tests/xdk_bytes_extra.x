@@ -1,6 +1,7 @@
 import xdk.bytes
 
 static Int main() {
+    Long value32 = 305419896
     Bytes a = fromHex("4142")
     Bytes b = fromHex("43")
     print(toHex(concatBytes(a, b)))
@@ -10,7 +11,7 @@ static Int main() {
     print(toHex(u16LE(4660)))
     print(readShortBE(fromHex("1234"), 0))
     print(readShortLE(fromHex("1234"), 0))
-    print(toHex(u32BE(305419896)))
+    print(toHex(u32BE(value32)))
     print(readIntBE(fromHex("12345678"), 0))
 
     ByteBuffer buf = new ByteBuffer()
@@ -28,7 +29,7 @@ static Int main() {
     ByteWriter writer = new ByteWriter()
     writer.writeU8(65)
     writer.writeU16BE(4660)
-    writer.writeU32LE(305419896)
+    writer.writeU32LE(value32)
     print(toHex(writer.toBytes()))
 
     ByteReader reader = new ByteReader(writer.toBytes())
