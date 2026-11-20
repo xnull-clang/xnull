@@ -80,8 +80,8 @@ claimed as complete:
 2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, `str`, and
    common `Error` method returns; arbitrary method-call inference remains
    incremental.
-3. Typed channels cover Int/Long/Bool/Char/String/Bytes/class/protocol/nullable;
-   Double/Int128/Result value elements remain T0-X.
+3. Typed channels cover Int/Long/Bool/Char/Double/String/Bytes/class/protocol/
+   nullable; Int128/Result value elements remain T0-X.
 4. Project build and formatter have no mini implementation and are outside T0;
    do not claim them.
 
