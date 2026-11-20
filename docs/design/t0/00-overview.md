@@ -199,13 +199,13 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 
 | 包 | T0-K（验收底线） | T0-X（同阶段完成） |
 | --- | --- | --- |
-| errors | ErrorKind、Error、BasicError、DetailedError、ErrorDetail、toErrorReport/annotate、ErrorGroup、同类型 ResultOps、FFI 码 | 跨类型 map/collectOk/flatten（blocked）、错误码命名空间工具 |
+| errors | ErrorKind、Error、BasicError、DetailedError、ErrorDetail、toErrorReport/annotate、ErrorGroup、同类型 ResultOps、跨类型 map/collectOk/flatten、FFI 码 | 复杂方法调用返回值推断、错误码命名空间工具 |
 | runtime | diagnose、exit、nowMono/nowWall | stdio 流、RuntimeInfo、断言、fatal 边界 |
 | meta | language/xdk/target 版本 | BuildInfo、目标能力矩阵、构建元数据 |
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
-| collections | List（Int/String）、Map<String,Int>、Set<Int>、排序/查找/去重、PriorityQueue/RingBuffer | OrderedMap/BTreeMap、groupBy（阻塞）、通用 Map/Set（阻塞） |
-| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角 | checked/saturating、Int128（阻塞）、统计、组合数学 |
+| collections | List（Int/String）、Map<String,Int>、Map<Int,Int>、Set<Int>、Set<String>、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map<Int,Int>.entries、其他 Map/Set 组合、OrderedMap/BTreeMap、groupBy（T0-X） |
+| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角 | Int128 checked、其他整数 saturating、统计、组合数学 |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
@@ -230,7 +230,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | 内嵌资源 | `xdk.sys` | `xdk.sys` T0-X（读取子集）；独立 `xdk.resource`（T1） | T0-X 保留已验收读取面，T1 再做独立包 |
 | 结构化配置解码 | `xdk.config` 依赖 codec | `ConfigSource` 注入 | T0 只做 `key=value`/env/内存快照 |
 | 通用迭代器 | `xdk.collections` | 后续语言扩展 | T0 无 `Iterator<T>`/`Iterable<T>`；`for-in` 编译器展开 |
-| 通用 Map/Set | T0-K | T0-X 阻塞 | 当前只有 `Map<String,Int>`、`Set<Int>` |
+| 通用 Map/Set | T0-K | T0-X 扩展 | 当前有 `Map<String,Int>`、`Map<Int,Int>`、`Set<Int>`、`Set<String>`；其他组合为 T0-X |
 
 > 边界不是“以后再说”：T0 公开签名不得出现 T1 类型；T1 适配器通过协议注入。
 
@@ -245,7 +245,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 - `ErrorKind` 是唯一跨包分类；
 - `wrap`/`mapErr`/`report` 保留 S4 语义，不得同名换义；
 - 步骤记录用 `toErrorReport`/`annotate`/`withStep`；
-- `collectOk`/`flatten`/跨类型 `mapOk/mapErr` 是 T0-X blocked，不得写成已完成；
+- `collectOk`/`flatten`/跨类型 `mapOk/mapErr` 已实现；复杂方法调用返回值推断仍为 T0-X；
 - 不使用 `throw` 表达“文件不存在/解析失败/通道关闭”。
 
 ### 5.2 所有权
@@ -327,14 +327,14 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | 文档 | 内容 | 状态 |
 | --- | --- | --- |
 | `00-overview.md` | 设计标准、权威、K/X、边界、流程 | Decided |
-| `01-errors.md` | 错误协议、构造、包装、聚合、Result 组合、FFI 映射 | Verified（mini；collectOk/flatten blocked） |
+| `01-errors.md` | 错误协议、构造、包装、聚合、Result 组合、FFI 映射 | Verified（mini） |
 | `04-bytes.md` | Bytes、ByteBuffer、游标、位、端序 | Verified（mini） |
-| `06-collections.md` | 容器、算法、特化容器 | Partial（T0-K 算法/容器通过；成员面阻塞） |
+| `06-collections.md` | 容器、算法、特化容器 | Partial（T0-K 成员面通过；其他 Map/Set 组合 T0-X） |
 | `AUDIT.md` | T0 冻结前审计、Int 32 位、包状态、门禁 | 当前 |
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
 | `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
-| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（基础通过；Int128 阻塞） |
+| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（T0-K 通过；Int128 已落地；统计 T0-X） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |

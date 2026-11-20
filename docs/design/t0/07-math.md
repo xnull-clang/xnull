@@ -8,7 +8,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | time、stats（T1）、metrics（T1） |
 | 对应源码 | `src/xdk/core/math/Math.x` |
-| 当前状态 | Partial（基础函数通过；Int128/统计边界待补） |
+| 当前状态 | Partial（T0-K 通过；Int128 已落地；统计边界为 T0-X） |
 
 ## 1. 能力
 
@@ -21,7 +21,7 @@
 | CAP-5 插值 | lerp/mapRange | 顶层函数 |
 | CAP-6 整数数论 | gcd/lcm/isPrime/factorial | 顶层函数 |
 | CAP-7 统计 | sum/mean/median/variance/stddev/quantile | 顶层函数 |
-| CAP-8 Int128 | checked 128 位算术 | T0-X（blocked） |
+| CAP-8 Int128 | checked 128 位算术 | `Int128` 标量 + 顶层 checked 函数 |
 
 **非目标**：随机数（T1 `xdk.random`）、任意精度、矩阵/张量、统计推断。
 
@@ -42,6 +42,16 @@ Int factorial(Int value)
 Double mean(List<Double> values)
 Double quantile(List<Double> values, Double quantile)
 Bool isNaN(Double value)
+
+Int128 int128Min()
+Int128 int128Max()
+Result<Int128, Error> addI128Checked(Int128 left, Int128 right)
+Result<Int128, Error> subI128Checked(Int128 left, Int128 right)
+Result<Int128, Error> mulI128Checked(Int128 left, Int128 right)
+Result<Int128, Error> divI128Checked(Int128 left, Int128 right)
+Result<Int128, Error> modI128Checked(Int128 left, Int128 right)
+Result<Int128, Error> negI128Checked(Int128 value)
+Result<Int128, Error> absI128Checked(Int128 value)
 ```
 
 - 浮点遵循 IEEE 754；域错误返回 NaN/Inf，不 panic。
@@ -51,13 +61,21 @@ Bool isNaN(Double value)
   T0 固定为 `InvalidArgument`（当前源码需对齐）。
 - 统计空列表：`mean/median` 返回 NaN；`sum` 返回 0；文档化。
 - `quantile` 的 q 钳制到 `[0,1]`。
-- `Int` 运算溢出按 32 位回绕；需要 64 位用 `Long`；需要 128 位用 T0-X。
+- `Int` 运算溢出按 32 位回绕；需要 64 位用 `Long`；需要 128 位用 `Int128`。
+- `Int128` 是编译器的有符号 128 位标量：支持宽字面量、四则/比较、
+  `print`/`str`、函数参数与返回值，以及 `Result<Int128,Error>`。
+- `add/sub/mul/div/modI128Checked` 在溢出、下溢、除零时返回
+  `InvalidArgument`；`modI128Checked(min, -1) == Ok(0)`，
+  `divI128Checked(min, -1)`、`negI128Checked(min)`、`absI128Checked(min)` 返回错误。
+- `Int128` 的 `/`/`%` 与 C 一致：商向零截断，余数符号跟随被除数；
+  这与 `mod(Double,Double)` 的除数同号规则不同，测试必须区分。
 
 ## 3. 测试义务
 
 - 常量/取整边界；
 - NaN/Inf/域错误；
 - 整数溢出/负数数论；
+- Int128 宽字面量、四则、比较、打印与 checked 边界；
 - 空/单元素统计；
 - base/full 输出一致。
 
@@ -65,7 +83,6 @@ Bool isNaN(Double value)
 
 ## 4. 后续（T0-X/T1）
 
-- checked/saturating 整数；
-- `Int128`（依赖编译器支持，当前 blocked）；
+- 其他整数的 checked/saturating 版本；
 - 统计边界/分位数算法固定；
 - 随机数移至 T1 `xdk.random`。

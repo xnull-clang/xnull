@@ -38,8 +38,8 @@ Still to watch:
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
-| collections | v1.2 | partial | PASS (subset) | List.clear/try*, Map entries, generic Map/Set |
-| math | v1.0 | partial | PASS | Int128 blocked; stats edges |
+| collections | v1.2 | partial | PASS (subset) | `Map<Int,Int>.entries`, other Map/Set instances |
+| math | v1.0 | partial | PASS | stats edges (T0-X) |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | partial | PASS | strict/checked + copy semantics |
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
@@ -64,24 +64,25 @@ for t in src/mini/tests/*.sh; do "$t"; done
 
 All gates must pass on mini. There is no second engine.
 
-2026-11-20 note: functional gates pass. `m10_perf` reported 1.29x while the host
-was running a remote-desktop helper at ~90% CPU; rerun on an idle host before
-using the performance number for freeze.
+2026-11-20 note: functional gates pass; Int128 scalar, wide literals, and
+checked math have landed. `m10_perf` reported 1.29x while the host was running a
+remote-desktop helper at ~90% CPU; rerun on an idle host before using the
+performance number for freeze.
 
 ## 5. Freeze blockers
 
-1. Collections container member surface is partial: `List.clear`/`Map.clear`/
-   `Set.clear`/`Set.remove` are in; `List.try*`, `Map` entries/remove, and
-   generic `Map<K,V>`/`Set<T>` runtime are still pending.
-2. `collectOk`, `flatten`, `List<Result<...>>`, and cross-type `mapOk/mapErr`
-   are implemented; complex method-call return inference remains incremental.
-3. Typed channels now cover Int/String/class; protocol/nullable elements remain.
-4. Int128 remains blocked: mini has no 128-bit scalar type or literals. It needs
-   a compiler type (`__int128` or a library bigint with explicit ops), printing,
-   parsing, and division/overflow tests. Do not fake a struct named Int128
-   while the language spec says it is built-in.
-5. Project build and formatter have no mini implementation and are not part of
-   T0; do not claim them.
+No T0-K blocking item remains. Remaining T0-X gaps are recorded rather than
+claimed as complete:
+
+1. `Map<Int,Int>.entries` returns 0; other `Map<K,V>`/`Set<T>` instantiations
+   remain T0-X. Current instances are `Map<String,Int>`, `Map<Int,Int>`,
+   `Set<Int>`, and `Set<String>`.
+2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, and `str`
+   returns; complex method-call return inference remains incremental.
+3. Typed channels cover Int/String/class/protocol/nullable; FFI elements remain
+   T0-X.
+4. Project build and formatter have no mini implementation and are outside T0;
+   do not claim them.
 
 Freeze rule: a package is `Verified` only when its design exists, its scenario
 and gate pass, and its blocked items are recorded. A blocking item makes the

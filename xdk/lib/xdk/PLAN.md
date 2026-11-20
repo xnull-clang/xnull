@@ -12,19 +12,19 @@ and recorded gaps.
 
 | Package | Current state | Next target |
 | --- | --- | --- |
-| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk` implemented | complex lambda inference |
+| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map | complex method-call inference |
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
 | `xdk.text` | base + full mini | UTF-16/format edges |
-| `xdk.math` | base mini | Int128/numeric edges |
+| `xdk.math` | base + Int128 checked mini | stats edges |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
 | `xdk.io` | in-memory Reader/Writer mini | file/network streams |
 | `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
 | `xdk.sync` | Atomic/Mutex/Channel<Int/String/class/protocol/nullable> mini | FFI elements |
-| `xdk.collections` | List, Map<String,Int>, Set<Int>, algorithms, PriorityQueue/RingBuffer mini; member surface blocked | generic Map/Set runtime; List.try*; Map keys/values/entries/remove |
+| `xdk.collections` | List, Map<String,Int>, Map<Int,Int>, Set<Int>, Set<String>, member surface, algorithms, PriorityQueue/RingBuffer mini | `Map<Int,Int>.entries`, other Map/Set instances |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |
@@ -48,11 +48,10 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
 1. `Int` 32-bit audit: time epoch, parse limits, file sizes, process/resource
    handles and all public `Int64/Int32` aliases are now `Long/Int`; keep
    auditing new code.
-2. `List<Result<...>>` / generic Result containers (`collectOk`, `flatten`).
-3. Generic return-type inference for cross-type `mapOk/mapErr`; `flatten` implemented; complex lambda inference.
-4. `Map<Int,...>` / generic `Set<T>` runtime; Other Map/Set instantiations.
-5. `Int128` scalar support (blocked on a 128-bit compiler type).
-6. Project build and formatter are future mini work.
+2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
+   are implemented; complex lambda/method-call inference remains incremental.
+3. `Map<Int,Int>.entries` and other `Map<K,V>`/`Set<T>` instantiations remain.
+4. Project build and formatter are future mini work.
 
 ## 4. Architecture
 
