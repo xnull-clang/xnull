@@ -2385,7 +2385,7 @@ class Checker {
         }
         if ty == "Int" || ty == "String" || ty == "Bool" ||
             ty == "Unit" || ty == "Char" || ty == "Double" ||
-            ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "void" {
+            ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "Int128" || ty == "UInt128" || ty == "void" {
             return true
         }
         if self.isListType(ty) {
@@ -2576,6 +2576,9 @@ class Checker {
             return true
         }
         if target == "Any" || actual == "Any" || target == "Error" || actual == "Error" {
+            return true
+        }
+        if target == "Int128" && (actual == "Int" || actual == "Int32" || actual == "Int64" || actual == "Long") {
             return true
         }
         if actual == "Null" {
@@ -3414,6 +3417,9 @@ class Checker {
         if vt == "Double" {
             return ".d = (double)(" + val + ")"
         }
+        if vt == "Int128" {
+            return ".q = (__int128)(" + val + ")"
+        }
         if vt == "String" {
             return ".s = (rt_string *)(" + val + ")"
         }
@@ -3430,6 +3436,9 @@ class Checker {
         }
         if vt == "Double" {
             return "(" + bv + ").d"
+        }
+        if vt == "Int128" {
+            return "(" + bv + ").q"
         }
         if vt == "String" {
             return "(" + bv + ").s"
@@ -3613,6 +3622,9 @@ class Checker {
                     return "Error"
                 }
                 return "Int"
+            }
+            if (lt == "Int128" || rt == "Int128") {
+                return "Int128"
             }
             if (lt == "Int64" || lt == "Int32" || lt == "Long") && (rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long") {
                 return lt
@@ -4732,6 +4744,12 @@ class CGen {
         if ty == "Long" || ty == "Int64" || ty == "Int32" {
             return "int64_t"
         }
+        if ty == "Int128" {
+            return "__int128"
+        }
+        if ty == "UInt128" {
+            return "unsigned __int128"
+        }
         if ty == "Void" || ty == "void" || ty == "Unit" {
             return "void"
         }
@@ -4790,6 +4808,9 @@ class CGen {
         if vt == "Double" {
             return ".d = (double)(" + val + ")"
         }
+        if vt == "Int128" {
+            return ".q = (__int128)(" + val + ")"
+        }
         if vt == "String" {
             return ".s = (rt_string *)(" + val + ")"
         }
@@ -4806,6 +4827,9 @@ class CGen {
         }
         if vt == "Double" {
             return "(" + bv + ").d"
+        }
+        if vt == "Int128" {
+            return "(" + bv + ").q"
         }
         if vt == "String" {
             return "(" + bv + ").s"
@@ -6711,6 +6735,9 @@ class CGen {
             }
             String leftType = self.typeOf(n.kids.get(0))
             String rightType = self.typeOf(n.kids.get(1))
+            if leftType == "Int128" || rightType == "Int128" {
+                return "Int128"
+            }
             if leftType == "Long" || leftType == "Int64" || leftType == "Int32" ||
                rightType == "Long" || rightType == "Int64" || rightType == "Int32" {
                 return "Long"
@@ -6963,8 +6990,17 @@ class CGen {
         return "Any"
     }
 
+    Bool intLiteralFits64(String text) {
+        if text.length() < 19 { return true }
+        if text.length() > 19 { return false }
+        return text <= "9223372036854775807"
+    }
+
     String expr(AstNode n) {
         if n.kind == "Int" {
+            if !self.intLiteralFits64(n.text) {
+                return "xn_int128_from_dec(\"" + n.text + "\")"
+            }
             return n.text
         }
         if n.kind == "Double" {
@@ -7046,6 +7082,10 @@ class CGen {
                 return "0"
             }
             String operand = self.expr(n.kids.get(0))
+            Bool wideLiteral = n.kids.get(0).kind == "Int" && !self.intLiteralFits64(n.kids.get(0).text)
+            if n.text == "-" && (self.typeOf(n.kids.get(0)) == "Int128" || wideLiteral) {
+                return "-(" + operand + ")"
+            }
             if self.typeOf(n.kids.get(0)) == "Int" && n.text == "-" {
                 return "xn_int_wrap(-(" + operand + "))"
             }
@@ -7295,6 +7335,9 @@ class CGen {
                 if pat == "Long" || pat == "Int64" {
                     return "xn_print_long(" + av + ")"
                 }
+                if pat == "Int128" || pat == "UInt128" {
+                    return "xn_print_int128(" + av + ")"
+                }
                 if pat == "Double" {
                     return "xn_print_double(" + av + ")"
                 }
@@ -7330,6 +7373,9 @@ class CGen {
                 }
                 if pat == "Long" || pat == "Int64" {
                     return "xn_str_long(" + av + ")"
+                }
+                if pat == "Int128" || pat == "UInt128" {
+                    return "xn_str_int128(" + av + ")"
                 }
                 return "xn_str_int(" + av + ")"
             }
@@ -8520,6 +8566,9 @@ class CGen {
         self.emit("static rt_string *xn_str_int(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)xn_int_wrap(v)); return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_long(int64_t v) { char buf[32]; snprintf(buf, sizeof(buf), \"%lld\", (long long)v); return rt_string_from_c(buf); }")
         self.emit("static void xn_print_long(int64_t v) { printf(\"%lld\\n\", (long long)v); }")
+        self.emit("static __int128 xn_int128_from_dec(const char *s) { unsigned __int128 u = 0; int neg = 0; if (*s == '-') { neg = 1; s++; } while (*s >= '0' && *s <= '9') { u = u * 10 + (unsigned __int128)(*s - '0'); s++; } return neg ? -(__int128)u : (__int128)u; }")
+        self.emit("static void xn_print_int128(__int128 v) { char buf[64]; int n = 0; unsigned __int128 u; if (v < 0) { putchar('-'); u = (unsigned __int128)(-(v + 1)) + 1; } else { u = (unsigned __int128)v; } do { buf[n++] = (char)('0' + (int)(u % 10)); u /= 10; } while (u != 0); while (n > 0) { putchar(buf[--n]); } putchar('\\n'); }")
+        self.emit("static rt_string *xn_str_int128(__int128 v) { char buf[64]; int n = 0; unsigned __int128 u; if (v < 0) { buf[n++] = '-'; u = (unsigned __int128)(-(v + 1)) + 1; } else { u = (unsigned __int128)v; } int start = n; do { buf[n++] = (char)('0' + (int)(u % 10)); u /= 10; } while (u != 0); for (int i = start, j = n - 1; i < j; i++, j--) { char t = buf[i]; buf[i] = buf[j]; buf[j] = t; } buf[n] = 0; return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_double(double v) { char buf[64]; snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }")
         self.emit("static rt_string *xn_str_char(int32_t cp) { char b[5]; int n = 0; if (cp < 0) { cp = 0xFFFD; } if (cp < 0x80) { b[n++] = (char)cp; } else if (cp < 0x800) { b[n++] = (char)(0xC0 | (cp >> 6)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else if (cp < 0x10000) { b[n++] = (char)(0xE0 | (cp >> 12)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else { b[n++] = (char)(0xF0 | (cp >> 18)); b[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } b[n] = 0; return rt_string_from_c(b); }")
@@ -8620,7 +8669,7 @@ class CGen {
         self.emit("int64_t xdkc_now_mono_ms(void);")
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
-        self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
+        self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; __int128 q; } xn_Result;")
         self.emit("static void *xn_box_result(xn_Result v) { xn_Result *p = (xn_Result *)malloc(sizeof(xn_Result)); if (p == NULL) { abort(); } *p = v; return (void *)p; }")
         self.emit("typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;")
         self.emit("static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { \"BuiltinError\", sizeof(xn_builtin_error), NULL, NULL };")

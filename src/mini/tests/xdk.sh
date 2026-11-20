@@ -54,7 +54,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_math.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '3\n7\n3\n10\ntrue\n' > "$TMP.exp"
+printf '3\n7\n3\n10\ntrue\n3\n2\ntrue\n1\n170141183460469231731687303715884105726\n-170141183460469231731687303715884105726\n11\n170141183460469231731687303715884105727\n-170141183460469231731687303715884105728\n3\ntrue\ntrue\n12\ntrue\n3\ntrue\n-1\ntrue\n5\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_time.x" > "$TMP" 2>"$TMP.err" || {

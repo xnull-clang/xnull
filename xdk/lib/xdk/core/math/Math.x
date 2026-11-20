@@ -3,6 +3,7 @@
 // 超越函数与随机数经 ext_raw 桥接 libm / xorshift64*；统计与数论为纯源码实现。
 // 约定：Double 版函数沿用脑图命名；整数版加 I 后缀（absI/minI/maxI/clampI）。
 package xdk.math
+import xdk.errors
 Double PI() {
     return 3.141592653589793
 }
@@ -284,6 +285,100 @@ Int factorial(Int n) {
         i = i + 1
     }
     return r
+}
+
+
+// ---------- Int128（checked 128 位算术） ----------
+
+Int128 int128Max() {
+    return 170141183460469231731687303715884105727
+}
+
+Int128 int128Min() {
+    return -int128Max() - 1
+}
+
+Error int128Error(String message) {
+    return new BasicError(ErrorKind.InvalidArgument, message)
+}
+
+Result<Int128, Error> addI128Checked(Int128 left, Int128 right) {
+    if right > 0 && left > int128Max() - right {
+        return Err(int128Error("addI128Checked: overflow"))
+    }
+    if right < 0 && left < int128Min() - right {
+        return Err(int128Error("addI128Checked: underflow"))
+    }
+    return Ok(left + right)
+}
+
+Result<Int128, Error> subI128Checked(Int128 left, Int128 right) {
+    if right > 0 && left < int128Min() + right {
+        return Err(int128Error("subI128Checked: underflow"))
+    }
+    if right < 0 && left > int128Max() + right {
+        return Err(int128Error("subI128Checked: overflow"))
+    }
+    return Ok(left - right)
+}
+
+Result<Int128, Error> mulI128Checked(Int128 left, Int128 right) {
+    if left == 0 || right == 0 {
+        return Ok(0)
+    }
+    if left > 0 {
+        if right > 0 && left > int128Max() / right {
+            return Err(int128Error("mulI128Checked: overflow"))
+        }
+        if right < 0 && right < int128Min() / left {
+            return Err(int128Error("mulI128Checked: underflow"))
+        }
+    } else {
+        if right > 0 && left < int128Min() / right {
+            return Err(int128Error("mulI128Checked: underflow"))
+        }
+        if right < 0 && left < int128Max() / right {
+            return Err(int128Error("mulI128Checked: overflow"))
+        }
+    }
+    return Ok(left * right)
+}
+
+Result<Int128, Error> divI128Checked(Int128 left, Int128 right) {
+    if right == 0 {
+        return Err(int128Error("divI128Checked: division by zero"))
+    }
+    if left == int128Min() && right == -1 {
+        return Err(int128Error("divI128Checked: overflow"))
+    }
+    return Ok(left / right)
+}
+
+Result<Int128, Error> modI128Checked(Int128 left, Int128 right) {
+    if right == 0 {
+        return Err(int128Error("modI128Checked: modulo by zero"))
+    }
+    if left == int128Min() && right == -1 {
+        return Ok(0)
+    }
+    return Ok(left % right)
+}
+
+Result<Int128, Error> negI128Checked(Int128 value) {
+    if value == int128Min() {
+        return Err(int128Error("negI128Checked: overflow"))
+    }
+    return Ok(-value)
+}
+
+Result<Int128, Error> absI128Checked(Int128 value) {
+    if value == int128Min() {
+        return Err(int128Error("absI128Checked: overflow"))
+    }
+    if value < 0 {
+        return Ok(-value)
+    }
+    return Ok(value)
 }
 
 // ---------- 统计（List<Double>） ----------
