@@ -12,7 +12,7 @@ trap 'rm -f "$TMP"' EXIT
 }
 diff -u "$HERE/class_basic.out" "$TMP"
 
-"$XNULL" --bootstrap --engine=auto run "$HERE/class_basic.x" > "$TMP" 2>"$TMP.err" || {
+"$XNULL" --bootstrap --engine=mini run "$HERE/class_basic.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2
     exit 1
 }

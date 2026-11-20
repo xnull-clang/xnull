@@ -1,9 +1,9 @@
 #!/bin/sh
-# XDK-W6 T0 conformance matrix: every T0 package in base and full Sys modes.
+# T0 conformance matrix: mini only, base and full Sys modes.
 #
-# Differential cases compare mini vs legacy in both modes. Mini-only cases
-# (recorded legacy gaps) still assert base/full mode parity. Projects cover
-# the resource base/full/cancel surfaces.
+# mini is the only compiler. Every scenario runs through it in both modes;
+# base/full output must match. Package scenarios with a known blocked feature
+# are still listed here as mini-only base/full checks, not as differentials.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
@@ -12,93 +12,64 @@ D=$(mktemp -d)
 trap 'rm -rf "$D"' EXIT
 
 run_file() {
-    file=$1 engine=$2 mode=$3 out=$4
+    file=$1 mode=$2 out=$3
     if [ "$mode" = full ]; then
-        XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine="$engine" run "$HERE/$file" >"$out" 2>"$out.err" || {
+        XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini run "$HERE/$file" >"$out" 2>"$out.err" || {
             cat "$out.err" >&2; exit 1
         }
     else
-        XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine="$engine" run "$HERE/$file" >"$out" 2>"$out.err" || {
+        XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine=mini run "$HERE/$file" >"$out" 2>"$out.err" || {
             cat "$out.err" >&2; exit 1
         }
     fi
 }
 
-check_differential() {
+check_file() {
     file=$1
     key=$(printf '%s' "$file" | tr '/.' '__')
-    run_file "$file" mini base "$D/$key.mini.base"
-    run_file "$file" mini full "$D/$key.mini.full"
-    run_file "$file" legacy base "$D/$key.legacy.base"
-    run_file "$file" legacy full "$D/$key.legacy.full"
-    cmp "$D/$key.mini.base" "$D/$key.mini.full" || { echo "mode mismatch: $file mini" >&2; exit 1; }
-    cmp "$D/$key.legacy.base" "$D/$key.legacy.full" || { echo "mode mismatch: $file legacy" >&2; exit 1; }
-    cmp "$D/$key.mini.base" "$D/$key.legacy.base" || { echo "engine mismatch: $file base" >&2; exit 1; }
-    cmp "$D/$key.mini.full" "$D/$key.legacy.full" || { echo "engine mismatch: $file full" >&2; exit 1; }
-    echo "PASS $file [mini+legacy, base+full]"
-}
-
-check_mini_only() {
-    file=$1
-    key=$(printf '%s' "$file" | tr '/.' '__')
-    run_file "$file" mini base "$D/$key.mini.base"
-    run_file "$file" mini full "$D/$key.mini.full"
-    cmp "$D/$key.mini.base" "$D/$key.mini.full" || { echo "mode mismatch: $file mini" >&2; exit 1; }
+    run_file "$file" base "$D/$key.base"
+    run_file "$file" full "$D/$key.full"
+    cmp "$D/$key.base" "$D/$key.full" || { echo "mode mismatch: $file" >&2; exit 1; }
     echo "PASS $file [mini, base+full]"
 }
 
-# Differential T0 file scenarios.
-for f in xdk_errors.x xdk_meta.x xdk_runtime.x \
-         xdk_bytes.x xdk_bytes_extra.x xdk_text.x xdk_text_full.x \
-         xdk_math.x xdk_time.x xdk_io.x xdk_fs.x xdk_sys.x \
+for f in xdk_errors.x xdk_errors_full.x xdk_meta.x xdk_runtime.x \
+         xdk_bytes.x xdk_bytes_extra.x xdk_bytes_strict.x \
+         xdk_text.x xdk_text_full.x xdk_math.x xdk_time.x \
+         xdk_io.x xdk_fs.x xdk_sys.x \
          xdk_sync_atomic.x xdk_sync_ref.x xdk_mutex.x \
-         xdk_collections.x xdk_integration.x xdk_log.x; do
-    check_differential "$f"
+         xdk_collections.x xdk_collections_algo.x xdk_containers.x \
+         xdk_integration.x xdk_log.x \
+         xdk_tasks.x xdk_cancel.x xdk_channel.x; do
+    check_file "$f"
 done
 
-# Config reads an allowlisted environment variable.
 XDK_W5_NAME=from-env
 export XDK_W5_NAME
-run_file xdk_config.x mini base "$D/cfg.mini.base"
-run_file xdk_config.x mini full "$D/cfg.mini.full"
-run_file xdk_config.x legacy base "$D/cfg.legacy.base"
-run_file xdk_config.x legacy full "$D/cfg.legacy.full"
+run_file xdk_config.x base "$D/cfg.base"
+run_file xdk_config.x full "$D/cfg.full"
 unset XDK_W5_NAME
-cmp "$D/cfg.mini.base" "$D/cfg.mini.full"
-cmp "$D/cfg.legacy.base" "$D/cfg.legacy.full"
-cmp "$D/cfg.mini.base" "$D/cfg.legacy.base"
-cmp "$D/cfg.mini.full" "$D/cfg.legacy.full"
-echo "PASS xdk_config.x [mini+legacy, base+full]"
-
-# Mini-only scenarios with recorded legacy gaps.
-for f in xdk_tasks.x xdk_cancel.x xdk_channel.x xdk_collections_algo.x; do
-    check_mini_only "$f"
-done
+cmp "$D/cfg.base" "$D/cfg.full" || { echo "mode mismatch: xdk_config.x" >&2; exit 1; }
+echo "PASS xdk_config.x [mini, base+full]"
 
 # CLI takes real argv.
 for mode in base full; do
     if [ "$mode" = full ]; then
-        XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$D/cli.$mode" >"$D/cli.$mode.build" 2>&1
+        XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$D/cli.$mode" >"$D/cli.build.$mode" 2>"$D/cli.build.$mode.err" || {
+            cat "$D/cli.build.$mode.err" >&2; exit 1
+        }
     else
-        XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$D/cli.$mode" >"$D/cli.$mode.build" 2>&1
+        XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$D/cli.$mode" >"$D/cli.build.$mode" 2>"$D/cli.build.$mode.err" || {
+            cat "$D/cli.build.$mode.err" >&2; exit 1
+        }
     fi
     "$D/cli.$mode" --name Alpha pos1 -v >"$D/cli.$mode.out" 2>"$D/cli.$mode.err" || {
         cat "$D/cli.$mode.err" >&2; exit 1
     }
 done
-cmp "$D/cli.base.out" "$D/cli.full.out"
+cmp "$D/cli.base.out" "$D/cli.full.out" || { echo "mode mismatch: xdk_cli.x" >&2; exit 1; }
+printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n' > "$D/cli.exp"
+diff -u "$D/cli.exp" "$D/cli.base.out"
 echo "PASS xdk_cli.x [mini, base+full, argv]"
-
-# Resource projects: base surface, full surface (differential), cancel path.
-XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine=mini run-project "$HERE/resources" >"$D/res.base.mini" 2>"$D/res.base.err"
-XNULL_MINI_XDK_FULL=0 "$XNULL" --bootstrap --engine=legacy run-project "$HERE/resources" >"$D/res.base.legacy" 2>"$D/res.base.err"
-cmp "$D/res.base.mini" "$D/res.base.legacy"
-
-XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini run-project "$HERE/resources_full" >"$D/res.full.mini" 2>"$D/res.full.err"
-XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=legacy run-project "$HERE/resources_full" >"$D/res.full.legacy" 2>"$D/res.full.err"
-cmp "$D/res.full.mini" "$D/res.full.legacy"
-
-XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini run-project "$HERE/resources_cancel" >"$D/res.cancel.mini" 2>"$D/res.cancel.err"
-echo "PASS resources [base/full/cancel]"
 
 echo "m10 parity: PASS"

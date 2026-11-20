@@ -1,7 +1,9 @@
-# xdk.errors —— T0 核心包详细设计
+# xdk.errors —— T0 核心包详细设计 v1.4
 
-> 本文是 v1.1 的包级设计样板：一个包一个阶段，一次验收、一次提交。
-> 后续包按同样结构编写，不拆子阶段。
+> 本版与 mini 实现对齐：`Error` 保持 `kind/describe` 两方法；`DetailedError`
+> 是独立的丰富错误协议；`wrap/mapErr/report` 保留 S4 语义；步骤记录用
+> `toErrorReport/annotate/withStep`。当前实现为单文件 `Errors.x`，文件拆分
+> 在编译器支持多文件包后再做。
 
 | 项 | 值 |
 | --- | --- |
@@ -10,489 +12,403 @@
 | 稳定性 | 核心 `stable`；扩展 `preview` |
 | 依赖 | L2 诊断、L2 FFI 错误码（不依赖其他 T0 包） |
 | 被依赖 | 所有 T0 包 |
-| 对应源码 | `src/xdk/core/errors/Errors.x`、`BasicError.x`、`ErrorReport.x` |
-| 阶段 | T0-01（一个包一个阶段，一次验收） |
+| 对应源码 | `src/xdk/core/errors/Errors.x`（单文件；目标拆分见 §2） |
+| 阶段 | T0-01（一个包一个验收门；实现可分内部提交） |
+| 当前状态 | Verified（mini） |
 
 ---
 
 ## 1. 能力声明
 
-`xdk.errors` 让调用方能够：
-
-| 能力 | 说明 | 承载类型/函数 |
-| --- | --- | --- |
-| CAP-1 分类 | 把失败归入稳定、跨包的类别 | `ErrorKind` |
-| CAP-2 构造 | 创建简单错误，不依赖异常 | `BasicError` |
-| CAP-3 结构化上下文 | 给错误附加 key/value 细节与原因链 | `ErrorDetail`、`BasicError.withDetail/withCause` |
-| CAP-4 包装与报告 | 在不丢失分类的前提下记录“在哪一步失败” | `ErrorReport`、`report`、`wrap` |
-| CAP-5 聚合 | 一次返回多个失败（校验、并行任务） | `ErrorGroup` |
-| CAP-6 Result 组合 | 对 `Result` 做 map/andThen/collect，不手写样板 | `mapResult`、`mapError`、`andThen`、`collectOk` |
-| CAP-7 重试分类 | 判断某错误是否“通常可重试” | `isRetryable` |
-| CAP-8 FFI 映射 | 在 L2 错误码与 `ErrorKind` 之间稳定转换 | `errorKindFromCode`、`errorKindCode` |
+| 能力 | 说明 | 承载 | 层级 |
+| --- | --- | --- | --- |
+| CAP-1 分类 | 把失败归入稳定、跨包的类别 | `ErrorKind` | K |
+| CAP-2 构造 | 创建简单错误，不依赖异常 | `BasicError` | K |
+| CAP-3 结构化上下文 | 给错误附加 key/value 细节与原因链 | `ErrorDetail`、`BasicError` | K |
+| CAP-4 步骤报告 | 记录“在哪一步失败”，不改变错误分类 | `ErrorReport`、`toErrorReport`、`annotate` | K |
+| CAP-5 聚合 | 一次返回多个失败 | `ErrorGroup` | K |
+| CAP-6 Result 组合 | 对 `Result` 做同类型映射/串联/兜底 | `mapOk`、`mapErr`、`andThen`、`unwrapOr`、`check` | K |
+| CAP-7 重试分类 | 判断错误是否“通常可重试” | `isRetryable`、`isRetryableError` | K |
+| CAP-8 FFI 映射 | L2 错误码与 `ErrorKind` 稳定转换 | `errorKindCode`、`errorKindFromCode` | K |
+| CAP-9 类型变更组合 | 跨类型 `mapOk/mapErr`、`collectOk`、`flatten` | 无 | X（blocked） |
 
 **非目标**：
 
 - 不做日志输出（`xdk.log`）；
-- 不做重试调度/退避（调用方或 T1）；
-- 不做异常栈/回溯（语言不承诺）；
-- 不做本地化消息（T1 i18n）；
-- 不把业务错误码塞进 `ErrorKind`（用 `code` 字符串）。
+- 不做重试调度/退避；
+- 不做异常栈/回溯；
+- 不做本地化消息；
+- 不把业务错误码塞进 `ErrorKind`（用 `code` 字符串）；
+- 不重新定义 S4 的 `wrap` / `mapErr` / `report`。
 
 ---
 
 ## 2. 类型与文件
 
-| 文件 | 类型/函数 | 公开性 |
-| --- | --- | --- |
-| `Errors.x` | `ErrorKind`、`Error`、`ErrorDetail`、`isRetryable`、`errorKindFromCode`、`errorKindCode` | 公开 |
-| `BasicError.x` | `BasicError` | 公开 |
-| `ErrorReport.x` | `ErrorReport`、`report`、`wrap` | 公开 |
-| `ErrorGroup.x` | `ErrorGroup` | 公开 |
-| `ResultOps.x` | `mapResult`、`mapError`、`andThen`、`unwrapOr`、`collectOk`、`flatten`、`check` | 公开 |
-| `KindNames.x` | `errorKindName`、`errorKindFromName` | 公开（内部实现可合并） |
+当前实现把以下声明放在一个 `Errors.x` 中；文件拆分是内部组织，不改变符号名：
+
+| 目标文件 | 类型/函数 |
+| --- | --- |
+| `Errors.x` | `ErrorKind`、`Error`、`DetailedError`、`ErrorDetail` |
+| `BasicError.x` | `BasicError` |
+| `ErrorReport.x` | `ErrorReport`、`toErrorReport`、`annotate` |
+| `ErrorGroup.x` | `ErrorGroup` |
+| `ResultOps.x` | `mapOk`、`mapErr`、`andThen`、`unwrapOr`、`check` |
+| `KindNames.x` | `errorKindName`、`errorKindFromName`、`errorKindCode`、`errorKindFromCode` |
+
+> 单文件是当前编译器的包加载约束；多文件包加载完成后再拆，不能把“文件已拆”
+> 当成阶段完成条件。
 
 ---
 
-## 3. `ErrorKind`（enum）
+## 3. `ErrorKind`（enum，stable）
 
 ### 3.1 表示与不变量
 
 - 14 个固定成员；不得由应用扩展。
-- 每个值有稳定序号（用于 FFI/持久化）；序号一经发布不得改变。
-- `ErrorKind` 是值语义；可比较、可作为 Map 键。
+- 每个值有稳定序号（0..13，用于 FFI/持久化）；序号一经发布不得改变。
+- `ErrorKind` 是值语义；可比较、可作为 `Map` 键。
 
 ### 3.2 分类表
 
-| 值 | 含义 | 典型产生者 | 默认可重试 | 备注 |
-| --- | --- | --- | --- | --- |
-| `InvalidArgument` | 调用参数/状态不合法 | 所有包的前置检查 | 否 | 调用方 bug，不应自动重试 |
-| `NotFound` | 目标不存在 | fs、resource | 否 | 可能出现竞态，策略由调用方定 |
-| `AlreadyExists` | 目标已存在/重复创建 | fs、tasks | 否 | 含“重复 close”合同错误 |
-| `PermissionDenied` | 权限不足 | fs、sys | 否 | 不应吞掉 |
-| `Io` | 底层 I/O 失败 | fs、io | 条件 | 由调用方按场景决定 |
-| `Network` | 网络失败 | T1 net | 是 | 首版 T0 不产生 |
-| `Timeout` | 截止时间到 | tasks、io | 是 | 只由 deadline 产生 |
-| `Cancelled` | 协作取消 | tasks、所有可阻塞点 | 否 | 必须向上传播 |
-| `Busy` | 资源忙/队列满 | sync | 是 | `trySend` 满等 |
-| `Unavailable` | 暂时不可用/已关闭 | io、fs、sync | 是 | 关闭后操作常返回此值 |
-| `DataCorrupted` | 数据损坏/编码非法 | text、bytes | 否 | 不可静默修复 |
-| `Unsupported` | 平台/实现不支持 | sys、io | 否 | 不用 `Internal` 代替 |
-| `OutOfMemory` | 分配失败 | L2 | 否 | 不应伪装成 Io |
-| `Internal` | 实现不变量被破坏 | 所有包 | 否 | 不是“没实现” |
+| 值 | 码 | 含义 | 默认可重试 | 备注 |
+| --- | ---: | --- | --- | --- |
+| `InvalidArgument` | 0 | 调用参数/状态不合法 | 否 | 调用方 bug |
+| `NotFound` | 1 | 目标不存在 | 否 | 竞态策略由调用方定 |
+| `AlreadyExists` | 2 | 目标已存在/重复创建 | 否 | 不用于重复 close |
+| `PermissionDenied` | 3 | 权限不足 | 否 | 不应吞掉 |
+| `Io` | 4 | 底层 I/O 失败 | 条件 | 由调用方按场景决定 |
+| `Network` | 5 | 网络失败 | 是 | T0 不产生 |
+| `Timeout` | 6 | 截止时间到 | 是 | 只由 deadline 产生 |
+| `Cancelled` | 7 | 协作取消 | 否 | 必须向上传播 |
+| `Busy` | 8 | 资源忙/队列满 | 是 | `trySend` 满等 |
+| `Unavailable` | 9 | 暂时不可用/已关闭 | 是 | 关闭后操作常返回此值 |
+| `DataCorrupted` | 10 | 数据损坏/编码非法 | 否 | 不可静默修复 |
+| `Unsupported` | 11 | 平台/实现不支持 | 否 | 不用 `Internal` 代替 |
+| `OutOfMemory` | 12 | 分配失败 | 否 | 观测路径不得再分配大对象 |
+| `Internal` | 13 | 实现不变量被破坏 | 否 | 不是“没实现” |
 
-### 3.3 契约
+### 3.3 关闭与 `AlreadyExists`
 
-| 方法/函数 | 签名 | 前置 | 后置 | 失败 | 复杂度 |
-| --- | --- | --- | --- | --- | --- |
-| `errorKindName` | `String errorKindName(ErrorKind kind)` | 无 | 返回稳定小写名（`invalid_argument` 等） | 无 | O(1) |
-| `errorKindFromName` | `Result<ErrorKind, Error> errorKindFromName(String name)` | 无 | 大小写不敏感匹配；未知 → `InvalidArgument` | `InvalidArgument` | O(1) |
-| `errorKindCode` | `Int32 errorKindCode(ErrorKind kind)` | 无 | 返回稳定 FFI 码 | 无 | O(1) |
-| `errorKindFromCode` | `ErrorKind errorKindFromCode(Int32 code)` | 无 | 未知码 → `Internal`，不 panic | 无 | O(1) |
+- T0 资源 `close()` 幂等：第一次成功关闭后，第二次返回 `Ok(unit)`，不做事。
+- `AlreadyExists` 只表示创建/注册冲突，不用于重复 close。
+- 关闭失败与未关闭是两种状态；`Err` 只报告诊断，不等于句柄未释放。
+
+### 3.4 名称与代码契约
+
+| 函数 | 签名 | 后置 | 失败 |
+| --- | --- | --- | --- |
+| `errorKindName` | `String errorKindName(ErrorKind kind)` | 稳定小写名（`invalid_argument`） | 无 |
+| `errorKindFromName` | `Result<ErrorKind, Error> errorKindFromName(String name)` | 大小写不敏感匹配稳定名 | 未知 → `InvalidArgument` |
+| `errorKindCode` | `Int errorKindCode(ErrorKind kind)` | 返回 0..13 | 无 |
+| `errorKindFromCode` | `ErrorKind errorKindFromCode(Int code)` | 已知码映射 | 未知 → `Internal` |
+
+- `errorKindCode` 使用 `Int`（32 位），不使用 `Int32` 别名。
+- 未知 FFI 码映射 `Internal`，不 panic，不静默当成功。
 
 ---
 
-## 4. `Error`（protocol）
-
-### 4.1 能力声明
-
-`Error` 是**只读、可观察**的失败值。任何跨包错误边界只依赖它；调用方不得
-对具体错误类做类型判断来决定业务分支。
-
-### 4.2 协议
+## 4. `Error`（protocol，stable）
 
 ```text
 protocol Error {
     ErrorKind kind()
-    String message()
-    String code()                 // 稳定机器码；无则 ""
-    List<ErrorDetail> details()    // 有序、只读快照
-    List<Error> causes()           // 直接原因；无则空
-    String describe()              // 单行人类可读文本
+    String describe()
 }
 ```
 
-### 4.3 方法契约
-
-| 方法 | 前置 | 后置 | 说明 |
-| --- | --- | --- | --- |
-| `kind()` | 无 | 返回稳定分类；不得返回 null | 纯读取；不得有副作用 |
-| `message()` | 无 | 返回人类可读基础消息；不得为空 | 不含敏感数据；不含换行 |
-| `code()` | 无 | 返回 `[a-z0-9_.-]*`；无则 `""` | 用于机器分支/指标；不用于显示 |
-| `details()` | 无 | 返回不可变/只读列表；元素有序 | 调用方不得修改；实现可返回副本 |
-| `causes()` | 无 | 返回直接原因列表；不得有环 | 原因链深度建议 ≤ 8，超过由实现截断 |
-| `describe()` | 无 | 单行文本；包含 `kind` 与 `message` | 不得抛错；不得包含控制字符 |
-
-### 4.4 不变量
-
-- `kind()` 在一次错误对象的生命周期内不变。
-- `causes()` 不得包含自身；实现必须检测/截断环。
-- `details()`/`causes()` 返回的列表不得暴露内部可变状态。
-- `describe()` 不得依赖当前时间、环境或全局状态。
+- 与 S4 §2.2 完全一致；只有 `class` 可以实现。
+- `kind()` 纯读取，生命周期内不变。
+- `describe()` 单行、稳定、不含换行/控制字符；不包含结构化字段。
+- `cause` 不是基础协议成员；原因链由 `BasicError.causes()` 暴露。
 
 ---
 
-## 5. `ErrorDetail`（struct）
-
-### 5.1 表示
+## 5. `DetailedError`（protocol，preview）
 
 ```text
-struct ErrorDetail {
-    String key
-    String value
+protocol DetailedError {
+    ErrorKind kind()
+    String describe()
+    String message()
+    String code()
+}
+```
+
+**冻结说明**：
+
+- `DetailedError` 是**独立协议**，不继承 `Error`；实现类必须同时声明
+  `implements Error, DetailedError`。这是为了避开当前编译器对泛型/协议继承
+  和运行期 `is` 的缺口，不改变调用方的类型契约。
+- `details()` / `causes()` 不在协议里；它们是 `BasicError`、`ErrorReport`、
+  `ErrorGroup` 的**类方法**，因为当前编译器不支持协议方法返回 `List<...>`。
+- `message()` 非空、单行、不含控制字符；`code()` 为空串或
+  `[a-z0-9_.-]+`。
+- `describe()` 的固定格式：
+  - 有 `code`：`[code] KindName: message`
+  - 无 `code`：`KindName: message`
+  - `KindName` 使用枚举名（如 `NotFound`）。
+- T0 的 `ErrorReport`/`ErrorGroup` 以 `BasicError` 为承载；自定义
+  `DetailedError` 在聚合/报告前必须先转成 `BasicError`。这是 T0 限制，
+  不是永久语言限制。
+
+---
+
+## 6. `ErrorDetail`（class）
+
+```text
+class ErrorDetail {
+    final String key
+    final String value
+    ErrorDetail(String key, String value)
 }
 ```
 
 | 项 | 契约 |
 | --- | --- |
-| 值语义 | 复制即独立；无 close |
-| key | 非空；建议 `[a-z0-9_.-]`；不得含 `:`/换行 |
+| 语义 | 不可变引用对象；key/value 构造后不变 |
+| key | 非空；`[a-z0-9_.-]`；不得含 `:`/换行/控制字符 |
 | value | 可为空；不得含换行/控制字符 |
-| 排序 | 由错误实现决定；同一错误内保持稳定顺序 |
+| 排序 | 同一错误内保持插入顺序 |
 | 用途 | 诊断/日志/报告；不得用于业务分支 |
 
-### 5.2 构造
-
-- 直接构造 `ErrorDetail(key, value)`；非法 key 由使用方（`BasicError.withDetail`）
-  校验并返回 `InvalidArgument`，struct 本身不做隐式校验。
+- 构造器校验 key/value；非法为合同错误（panic）。
+- `Result<ErrorDetail, Error> tryErrorDetail(String key, String value)`
+  供外部输入使用；非法返回 `InvalidArgument`。
+- 选择 class 而不是 struct：当前多文件/工具链的 `List<struct>` 支持不完整；
+  class 的不可变字段仍满足 T0 语义。
 
 ---
 
-## 6. `BasicError`（class）
+## 7. `BasicError`（class，stable）
 
-### 6.1 能力与表示
-
-`BasicError` 是最常用的不可变错误实现：分类 + 消息 + 可选机器码 + 细节 + 原因。
+### 7.1 表示
 
 ```text
-class BasicError implements Error {
-    final ErrorKind kind
-    final String message
-    final String code
-    final List<ErrorDetail> details
-    final List<Error> causes
+class BasicError implements Error, DetailedError {
+    ErrorKind _kind
+    String _message
+    String _code
+    List<ErrorDetail> _details
+    List<BasicError> _causes
 
     BasicError(ErrorKind kind, String message)
-    BasicError full(ErrorKind kind, String message, String code,
-                    List<ErrorDetail> details, List<Error> causes)
 
     ErrorKind kind()
     String message()
     String code()
-    List<ErrorDetail> details()
-    List<Error> causes()
     String describe()
+    List<ErrorDetail> details()
+    List<BasicError> causes()
 
-    BasicError withDetail(String key, String value)
-    BasicError withCause(Error cause)
     BasicError withCode(String code)
-}
-```
-
-### 6.2 不变量
-
-- `kind` 非空；`message` 非空（空串按 `kind` 名生成，不保留空消息）。
-- `code` 为空或匹配 `[a-z0-9_.-]+`。
-- `details`/`causes` 构造时复制；之后不可变。
-- `causes` 不含 `self`；总深度 ≤ 8（超出截断）。
-- `describe()` 输出：`[code] KIND: message`（code 为空则 `KIND: message`），
-  不包含 details 内容（details 由 `chainText`/日志展开）。
-
-### 6.3 构造契约
-
-| 构造 | 前置 | 后置 | 失败 |
-| --- | --- | --- | --- |
-| `BasicError(kind, message)` | `kind` 合法 | code="", details=[], causes=[] | 无（非法输入由调用方保证） |
-| `BasicError.full(...)` | 同上；code 合法；列表非 null | 复制列表；截断原因深度 | 无（非法 code 归一为 ""） |
-
-> 构造函数不返回 `Result`，避免“构造错误也要错误处理”的循环；非法输入在
-> XDK 内部由调用方校验。公共 API 若接收外部字符串，使用 `withCode` 的严格版
-> `tryWithCode`（返回 `Result`）。
-
-### 6.4 方法契约
-
-| 方法 | 前置 | 后置 | 失败 | 复杂度 | 并发 |
-| --- | --- | --- | --- | --- | --- |
-| `withDetail(key, value)` | key 非空、无控制字符 | 返回新实例；原实例不变；追加 detail | 非法 key → `InvalidArgument`（严格版） | O(n) 复制 | 只读安全 |
-| `withCause(cause)` | cause 非 null、非 self | 返回新实例；追加 cause；深度截断 | 环/超深 → 截断 | O(n) | 只读安全 |
-| `withCode(code)` | code 合法或空 | 返回新实例 | 非法 → 归一为 "" | O(n) | 只读安全 |
-| `describe()` | 无 | 单行文本 | 无 | O(1) | 只读安全 |
-
-### 6.5 示例
-
-```text
-Error error = new BasicError(ErrorKind.NotFound, "config file missing")
-    .withCode("config.missing")
-    .withDetail("path", "app.conf")
-print(error.kind())        // NotFound
-print(error.code())        // config.missing
-print(error.describe())    // [config.missing] NOT_FOUND: config file missing
-```
-
-### 6.6 反例
-
-- 把用户输入直接拼进 `message` 并包含换行 → 日志注入；
-- 用 `describe()` 做 `if` 分支 → 文本变化导致逻辑变化；
-- 在 `details` 里放密码/token → 泄漏；
-- 修改 `details()` 返回的列表 → 破坏不可变契约。
-
----
-
-## 7. `ErrorReport`（class）
-
-### 7.1 能力
-
-在不改变根错误分类的前提下，记录“经过了哪些步骤”，用于跨层传播和诊断。
-
-```text
-class ErrorReport implements Error {
-    ErrorReport(Error root)
-    ErrorReport wrap(String step)
-
-    ErrorKind kind()
-    String message()
-    String code()
-    List<ErrorDetail> details()
-    List<Error> causes()
-    String describe()
-    String chainText()
+    BasicError withDetail(String key, String value)
+    BasicError withCause(BasicError cause)
 }
 ```
 
 ### 7.2 不变量
 
-- `root` 非空；`steps` 非空元素，最多 16 步（超出丢弃最内层并保留根）。
-- `kind()` 永远等于 `root.kind()`；包装不得改变分类。
-- `code()` 优先 `root.code()`；为空时返回 `""`。
-- `describe()`：`step1 -> step2 -> root.describe()`；单行。
-- `chainText()`：多行渲染 root 的 details；用于诊断输出；不用于业务判断。
-- 不可变；`wrap` 返回新实例。
+- `kind` 非空；`message` 非空（空串按 kind 名生成）。
+- `code` 为空或匹配 `[a-z0-9_.-]+`。
+- `_details`/`_causes` 在 `with*` 时复制；外部只能拿到快照。
+- `_causes` 不含 `self`；最多 8 条；超出丢弃新增。
+- `describe()` 格式见 §5。
 
-### 7.3 方法契约
+### 7.3 构造与方法契约
 
 | 方法 | 前置 | 后置 | 失败 | 复杂度 |
 | --- | --- | --- | --- | --- |
-| `wrap(step)` | step 非空、无换行 | 返回新报告；步骤追加到最外层 | 非法 step → 原样返回/`InvalidArgument`（严格版） | O(n) |
-| `kind()` | 无 | 等于 root.kind() | 无 | O(1) |
-| `chainText()` | 无 | 多行文本；总长度上限 4096 | 无 | O(n) |
+| `BasicError(kind, message)` | kind 合法 | code="", details=[], causes=[] | 无 | O(1) |
+| `withCode(code)` | code 合法或空 | 返回新实例 | 非法 → panic | O(n) |
+| `withDetail(key, value)` | key/value 合法 | 返回新实例，追加 detail | 非法 → panic | O(n) |
+| `withCause(cause)` | cause 非 null、非 self | 返回新实例，追加 cause | null/self → panic | O(n) |
+
+- 不提供“全量构造器”重载：当前编译器不支持构造器重载；用构造器 + `with*`
+  组合。这个限制不改变语义。
+- 构造函数不返回 `Result`；外部字符串先用 `isValidErrorCode`/`tryErrorDetail` 校验，再调用 `with*`。
+- `tryWith*` 方法在当前 mini 代码生成上仍有缺口，归入 T0-X blocked；T0 不提供假实现。
 
 ### 7.4 示例
 
 ```text
-Result<Int, Error> parseResult = parseInt(rawText)
-if parseResult.isErr() {
-    ErrorReport errorReport = report(parseResult.error()).wrap("parse port").wrap("load config")
-    print(errorReport.describe())   // load config -> parse port -> INVALID_ARGUMENT: ...
-}
+BasicError error = new BasicError(ErrorKind.NotFound, "config file missing")
+    .withCode("config.missing")
+    .withDetail("path", "app.conf")
+print(error.describe())    // [config.missing] NotFound: config file missing
+print(error.details().length()) // 1
 ```
 
 ---
 
-## 8. `ErrorGroup`（class）
-
-### 8.1 能力
-
-把多个错误作为一个错误返回（表单校验、批量任务、并行失败）。
+## 8. `ErrorReport`（class，preview）
 
 ```text
-class ErrorGroup implements Error {
-    ErrorGroup()
-    Void add(Error error)
-    Int length()
-    Bool isEmpty()
-    Error? first()
-    List<ErrorKind> kinds()
+class ErrorReport implements Error, DetailedError {
+    ErrorReport(BasicError root)
+
     ErrorKind kind()
     String message()
     String code()
-    List<ErrorDetail> details()
-    List<Error> causes()
     String describe()
+    List<ErrorDetail> details()
+    List<BasicError> causes()
+    List<String> steps()
+
+    ErrorReport withStep(String step)
+    Result<ErrorReport, Error> tryWithStep(String step)
 }
 ```
 
-### 8.2 不变量与聚合规则
+- `root` 非空；`steps` 最多 16 条。
+- `kind/message/code/describe` 委托根错误；`details()` 返回根 details 副本；
+  `causes()` 返回 `[root]`。
+- `steps()` 按加入顺序返回副本（第一条最靠近根）。
+- `describe()`：`stepN -> ... -> step1 -> root.describe()`，单行。
+- `withStep` 在 16 条时 panic；`tryWithStep` 返回 `InvalidArgument`，不静默丢弃。
+- `toErrorReport(BasicError error)` 总是创建新报告；不嵌套检测（当前 `is`
+  不可靠，不能用假语义做优化）。
+- `annotate(BasicError error, String step)` = `toErrorReport(error).withStep(step)`。
+- **不定义** `report(Error)`；S4 的 `report(Result<T,Error>)` 保持不变。
 
-- `errors` 有序；`add` 追加；不复制错误对象（GC 引用）。
-- `kind()` 规则：返回**第一个非 `Cancelled`** 的错误分类；若全部为
-  `Cancelled` → `Cancelled`；空组 → `Internal`。
-- `message()`：`"N errors; first: <first.message>"`；空组为 `"empty error group"`。
-- `describe()`：单行摘要，最多列前 3 条；其余以 `...` 省略。
-- `details()`：聚合所有子错误 details，键加 `#<index>.` 前缀。
-- `causes()`：返回子错误列表（只读快照）。
-- 空组合法，但 `kind()==Internal`，调用方应避免返回空组。
-
-### 8.3 方法契约
-
-| 方法 | 前置 | 后置 | 失败 | 复杂度 | 并发 |
-| --- | --- | --- | --- | --- | --- |
-| `add(error)` | error 非 null | 追加；长度 +1 | null → 忽略或 `InvalidArgument`（固定为忽略并记录） | O(1) | 非线程安全 |
-| `kind()` | 无 | 按聚合规则 | 无 | O(n) 首次 | 非线程安全 |
-| `details()` | 无 | 新列表；不改内部 | 无 | O(total) | 非线程安全 |
-
-> `ErrorGroup` 是可变构建期类型；构建完成后只读共享需外部同步。需要跨任务
-> 聚合时，每个任务返回自己的错误，由父任务串行 `add`。
-
-### 8.4 示例
+示例：
 
 ```text
-ErrorGroup errorGroup = new ErrorGroup()
-errorGroup.add(new BasicError(ErrorKind.InvalidArgument, "name is empty"))
-errorGroup.add(new BasicError(ErrorKind.InvalidArgument, "age < 0"))
-Err(errorGroup)   // 调用方只看到 kind=InvalidArgument + 两条细节
+ErrorReport report = annotate(error, "parse port").withStep("load config")
+print(report.describe())    // load config -> parse port -> ...
 ```
 
 ---
 
-## 9. Result 组合（`ResultOps.x`）
-
-### 9.1 函数契约
-
-| 函数 | 签名 | 前置 | 后置 | 失败 |
-| --- | --- | --- | --- | --- |
-| `mapResult` | `Result<U,E> mapResult<T,U,E>(Result<T,E> result, U(T) transform)` | transform 纯函数（建议） | Ok → Ok(transform(value))；Err → 原样 | transform 抛错由语言边界处理 |
-| `mapError` | `Result<T,F> mapError<T,E,F>(Result<T,E> result, F(E) transformError)` | transformError 不返回 null | Ok → 原样；Err → Err(transformError(error)) | transformError 抛错由语言边界处理 |
-| `andThen` | `Result<U,E> andThen<T,U,E>(Result<T,E> result, Result<U,E>(T) next)` | next 不返回 null | Ok → next(value)；Err → 原样 | 同左 |
-| `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> result, T fallback)` | 无 | Ok → value；Err → fallback | 无 |
-| `collectOk` | `Result<List<T>, ErrorGroup> collectOk<T,E>(List<Result<T,E>> results)` | 无 | 全部 Ok → Ok(list)；否则 Err(所有错误) | 无 |
-| `flatten` | `Result<T,E> flatten<T,E>(Result<Result<T,E>,E> nestedResult)` | 无 | 外层 Ok 取内层；外层 Err 原样 | 无 |
-| `check` | `Result<Unit,Error> check(Bool condition, ErrorKind kind, String message)` | kind 合法 | true → Ok；false → Err(BasicError) | 无 |
-
-### 9.2 设计说明
-
-- 命名避免与语言内建 `Result` 成员冲突：统一用顶层函数 + `Result` 前缀/动词。
-- `collectOk` 保留**所有**错误，不短路；这与并行任务/表单校验一致。
-- `mapError` 不改变成功值；类型参数允许错误类型转换。
-- 这些函数不引入新的错误分类；分类由调用方提供。
-
-### 9.3 示例
+## 9. `ErrorGroup`（class，preview）
 
 ```text
-Result<Int, Error> parsedResult = parseInt("42")
-Result<Int, Error> mappedResult = mapResult(parsedResult, (Int value) -> value + 1)
-Int number = unwrapOr(mappedResult, 0)
+class ErrorGroup implements Error, DetailedError {
+    ErrorGroup()
+    Void add(BasicError error)
+    Int length()
+    Bool isEmpty()
+    BasicError? first()
+    ErrorKind kind()
+    String message()
+    String code()
+    String describe()
+    List<ErrorDetail> details()
+    List<BasicError> causes()
+}
 ```
+
+**聚合规则（冻结）**：
+
+- 存储 `BasicError`；自定义 `DetailedError` 先转 `BasicError` 再 add。
+- `add(error)` 要求非 null；`add(self)` 为合同错误（panic）。
+- `kind()`：只要包含 `Cancelled` 就返回 `Cancelled`；否则返回第一个非
+  `Cancelled`；空组返回 `InvalidArgument`。
+- `message()`：`"N errors; first: <first.describe>"`；空组
+  `"empty error group"`。
+- `code()`：`""`。
+- `details()`：聚合所有子错误 details，键加 `<index>.` 前缀（如 `0.path`）。
+- `causes()`：子错误快照。
+- `describe()`：单行摘要，最多列前 3 条；其余 `...`。
+- 可变构建期类型，非线程安全；构建完成后只读共享需外部同步。
 
 ---
 
-## 10. 重试分类与 FFI 映射
+## 10. Result 组合（`ResultOps`）
 
-### 10.1 重试
+| 函数 | 签名 | 语义 | 失败 |
+| --- | --- | --- | --- |
+| `mapOk` | `Result<T,E> mapOk<T,E>(Result<T,E> result, T(T) transform)` | Ok → Ok(transform(value))；Err 原样 | transform panic 由进程终止 |
+| `mapErr` | `Result<T,E> mapErr<T,E>(Result<T,E> result, E(E) transformError)` | Ok 原样；Err → Err(transformError(error)) | 同上 |
+| `andThen` | `Result<T,E> andThen<T,E>(Result<T,E> result, Result<T,E>(T) next)` | Ok → next(value)；Err 原样 | next 返回 Err 时传播 |
+| `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> result, T fallback)` | Ok → value；Err → fallback | 无 |
+| `check` | `Result<Unit,Error> check(Bool condition, ErrorKind kind, String message)` | true → Ok(unit)；false → Err(BasicError) | 无 |
+
+**冻结说明**：
+
+- T0 只提供**同类型**的 `mapOk/mapErr/andThen`：`T` 与 `E` 不改变。跨类型
+  `mapOk<U>`/`mapErr<F>` 需要编译器从函数返回值推断类型参数，当前 mini
+  不支持；归入 T0-X blocked。
+- `collectOk`、`flatten` 依赖 `List<Result<...>>` 的运行时表示；当前
+  `xn_arr_o` 不能存 `Result` 值，归入 T0-X blocked，不提供假实现。
+- 回调必须是纯函数且不产生日志副作用；需要失败时返回 `Result`。
+
+---
+
+## 11. 重试分类与 FFI 映射
 
 ```text
 Bool isRetryable(ErrorKind kind)
-Bool isRetryable(Error error)
+Bool isRetryableError(Error error)
 ```
 
-- 规则见 §3.2；`Io` 返回 false（条件重试由调用方判断），避免库替业务做决定。
-- 不提供退避/次数/抖动；这些属于调用方或 T1。
-
-### 10.2 FFI 错误码
-
-```text
-Int32 errorKindCode(ErrorKind kind)
-ErrorKind errorKindFromCode(Int32 code)
-```
-
-映射表（与 L2 `XRT_ERR_*` 对齐，发布后冻结）：
-
-| ErrorKind | L2 码 | 说明 |
-| --- | --- | --- |
-| InvalidArgument | 0 | L2 的 0 是“参数错误”，不是成功 |
-| NotFound | 1 | |
-| AlreadyExists | 2 | |
-| PermissionDenied | 3 | |
-| Io | 4 | |
-| Network | 5 | |
-| Timeout | 6 | |
-| Cancelled | 7 | |
-| Busy | 8 | |
-| Unavailable | 9 | |
-| DataCorrupted | 10 | |
-| Unsupported | 11 | |
-| OutOfMemory | 12 | |
-| Internal | 13 | |
-
-- 未知码 → `Internal`；`errorKindCode` 不产生未知码。
-- 跨 FFI 不传递 `Error` 对象，只传码 + 可选字符串；XDK 负责还原。
+- `Network/Timeout/Busy/Unavailable` → true；`Io` → false（条件重试由调用方判断）；
+  其余 false。
+- 不提供退避/次数/抖动。
+- `errorKindCode(ErrorKind) -> Int`；`errorKindFromCode(Int) -> ErrorKind`。
+- 映射表与 L2 `XRT_ERR_*` 对齐（0..13），发布后冻结。
+- 未知码 → `Internal`；跨 FFI 不传 `Error` 对象，只传码 + 可选字符串。
 
 ---
 
-## 11. 所有权、并发与生命周期
+## 12. 所有权、并发与生命周期
 
 | 项 | 契约 |
 | --- | --- |
-| 所有权 | 错误对象是 GC 引用；方法借用，不消费；`Result.error()` 返回借用 |
+| 所有权 | 错误对象是 GC 引用；方法借用，不消费 |
 | close | 错误无资源，无 `close()` |
-| 线程安全 | `BasicError`/`ErrorReport` 构造后只读，可跨任务共享；`ErrorGroup` 可变，非线程安全 |
-| 别名 | `details()`/`causes()` 返回只读快照；修改返回列表不影响错误 |
-| 循环 | 原因链不得成环；实现必须截断 |
-| 泄漏 | 错误持有 detail/cause 引用；长生命周期错误不应持有大对象（文档警告） |
+| 线程安全 | `BasicError`/`ErrorReport` 只读，可跨任务共享；`ErrorGroup` 可变，非线程安全 |
+| 别名 | `details()`/`causes()`/`steps()` 返回快照 |
+| 循环 | `BasicError` 不可变；`ErrorGroup.add(self)` panic |
+| OOM | `OutOfMemory` 路径使用最小错误，不分配 details/causes |
 
 ---
 
-## 12. 测试义务与场景
-
-### 12.1 必须覆盖
+## 13. 测试义务与场景
 
 | 类别 | 断言 |
 | --- | --- |
 | 分类 | 14 个 kind 的名称/码/可重试性表驱动 |
-| 构造 | 空消息归一、非法 code 归一、details 复制 |
-| 包装 | `wrap` 不改变 kind；步骤顺序正确；长度上限 |
-| 聚合 | 优先级（首个非 Cancelled）、全 Cancelled、空组 |
-| ResultOps | Ok/Err 两侧；`collectOk` 收集全部错误 |
+| 构造 | 空消息归一、code/details/cause、非法输入的 checked 路径 |
+| 报告 | 步骤顺序、16 条上限、tryWithStep 失败 |
+| 聚合 | Cancelled 优先、首个非 Cancelled、空组、self 拒绝、details 前缀 |
+| ResultOps | mapOk/mapErr/andThen/unwrapOr/check 的 Ok/Err 两侧 |
 | FFI | 码→kind→码 往返；未知码 → Internal |
-| 反例 | 日志注入（换行/控制字符）被拒绝或转义 |
-| 并发 | BasicError 跨任务只读；ErrorGroup 串行 add |
+| 兼容 | S4 `wrap`/`report` 语义未变 |
+| 反例 | 换行/控制字符被拒绝；describe 不含 details |
 
-### 12.2 场景与回归
+场景：
 
-- `tests/xdk_errors.x`：扩展 wrap/report/group/collectOk/码映射。
-- `xdk.sh`：mini + legacy 差分；错误文本稳定。
-- `m10_parity.sh`：base/full 一致。
-- 新增 `tests/xdk_errors_ffi.x`（或并入现有）：错误码往返。
-
----
-
-## 13. 阶段交付与验收（T0-01）
-
-本包是一个阶段、一个提交，不拆子阶段。交付范围：
-
-- `ErrorKind`、`Error`、`ErrorDetail`、`BasicError`；
-- `ErrorReport`、`report`、`wrap`；
-- `ErrorGroup`、`ResultOps`；
-- FFI 码映射、重试分类；
-- 场景、回归、mini/legacy 差分或缺口记录。
-
-验收条件：
-
-1. 类级契约与本文一致；迁移期保留 `kind()/describe()` 旧签名；
-2. `xdk_errors.x` 覆盖分类/构造/包装/聚合/ResultOps/码映射；
-3. mini 与 legacy 差分通过，或缺口登记到 `src/xdk/PLAN.md`；
-4. 代码 + 场景 + 回归 + 本文同一提交。
+- `tests/xdk_errors.x`：基础分类。
+- `tests/xdk_errors_full.x`：DetailedError/Report/Group/ResultOps/码表。
+- `xdk.sh`：mini。
+- `m10_parity.sh`：mini base/full。
 
 ---
 
-## 14. 开放问题
+## 14. 阶段交付与验收（T0-01）
 
-1. **协议方法扩张**：当前 `Error` 只有 `kind()/describe()`；v1.1 增加
-   `message/code/details/causes` 会破坏现有实现。方案：先加 `DetailedError`
-   协议，或一次性迁移并在同一提交更新全部实现。需确认编译器对多协议实现的支持。
-2. **错误码注册**：`code()` 的命名空间由谁拥有？建议包前缀（`fs.`、`net.`），
-   跨包唯一性由评审保证，不引入全局注册表。
-3. **原因链深度**：8 层是否足够？建议可配置但默认 8，避免日志爆炸。
-4. **本地化**：`message()` 固定英文/源码语言？T0 不做 i18n；T1 通过错误码映射。
-5. **ErrorGroup 可变性**：是否需要不可变 builder；首版用可变 + 文档约束。
-6. **`describe()` 格式稳定性**：人类文本不做兼容承诺；机器分支只用 `kind/code`。
+- `Error` 保持 `kind/describe`；`DetailedError` 独立；
+- `BasicError`、`ErrorDetail`、`ErrorReport`、`ErrorGroup`、ResultOps 与实现一致；
+- `wrap`/`mapErr`/`report` 的 S4 语义未被改变；
+- mini 场景通过；
+- 文档、场景、回归、实现同一包交付；内部提交不单独宣称包完成。
+
+**已登记缺口**：
+
+- `collectOk`、`flatten`：`List<Result<...>>` 运行时未支持；
+- 跨类型 `mapOk/mapErr`：mini 泛型返回值推断未支持；
+- `xdk_errors_full.x` 为 mini 专用；没有第二引擎。
+- 自定义 `DetailedError` 聚合：T0 先转 `BasicError`，T1 再泛化。
 
 ---
 
 ## 15. 评审结论（本包）
 
-- 每个类均给出能力、表示、不变量、构造、方法前置/后置/失败/复杂度/并发；
-- 每个失败点有 `ErrorKind`；
-- 无资源/取消面（错误本身不阻塞）；
-- 有示例、反例、测试义务、阶段验收；
-- 满足 v1.1 类级设计标准。
+- `Error` 最小协议与 S4 一致；`DetailedError` 独立且可验证；
+- `wrap`/`mapErr`/`report` 没有同名换义；
+- 聚合/报告以 `BasicError` 为 T0 承载，限制写清楚；
+- 所有失败有明确通道：unchecked panic、checked `Result`；
+- 没有“或/待定/严格版本”双义条目；blocked 项不是待定，是明确不支持。
 
 下一阶段：`02-runtime.md`（诊断、退出、时钟、stdio、运行时信息）。

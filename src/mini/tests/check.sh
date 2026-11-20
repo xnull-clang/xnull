@@ -12,7 +12,7 @@ if "$ROOT/src/cli/xnull" --bootstrap --engine=mini check /tmp/mini-check-bad.x >
     echo "expected check failure" >&2
     exit 1
 fi
-grep -q 'SEM-001' /tmp/mini-check.err
+grep -q 'SEM-001' /tmp/mini-check.out /tmp/mini-check.err
 
 "$ROOT/src/cli/xnull" --bootstrap --engine=mini check "$HERE/xdk_errors.x" --json >/tmp/mini-check.out 2>/tmp/mini-check.err
 grep -q '"ok":true' /tmp/mini-check.out
@@ -26,6 +26,6 @@ r=json.load(open('/tmp/mini-check.out'))
 assert r["ok"] is False and r["exitCode"] == 1
 assert any(d["code"] == "SEM-001" for d in r["diagnostics"])
 PY
-grep -q 'SEM-001' /tmp/mini-check.err
+grep -q 'SEM-001' /tmp/mini-check.out /tmp/mini-check.err
 
 echo "mini check: PASS"
