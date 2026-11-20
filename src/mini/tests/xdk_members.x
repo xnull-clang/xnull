@@ -10,6 +10,15 @@ static Int main() {
     print(seen.length())
 
     Map<String, Int> map = [:]
+    print(map.put("a", 1))
+    print(map.put("a", 2))
+    print(map.tryGet("a").value())
+    print(map.tryGet("z").isErr())
+    print(map.keys().length())
+    print(map.values().length())
+    print(map.remove("z"))
+    print(map.remove("a"))
+    print(map.removeOr("q", 9))
     map.put("a", 1)
     map.clear()
     print(map.length())

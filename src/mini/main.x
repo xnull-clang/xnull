@@ -3784,11 +3784,23 @@ class Checker {
             if mth == "has" {
                 return "Bool"
             }
-            if mth == "put" || mth == "clear" {
+            if mth == "put" || mth == "remove" {
+                return "Bool"
+            }
+            if mth == "clear" {
                 return "Unit"
             }
-            if mth == "getOr" {
+            if mth == "getOr" || mth == "removeOr" {
                 return self.mapValueType(bt)
+            }
+            if mth == "tryGet" {
+                return "Result<" + self.mapValueType(bt) + ",Error>"
+            }
+            if mth == "keys" {
+                return "List<String>"
+            }
+            if mth == "values" {
+                return "List<" + self.mapValueType(bt) + ">"
             }
         }
         if self.isProtocolName(bt) {
@@ -4216,8 +4228,23 @@ class Checker {
                 if mth == "getOr" {
                     return self.mapValueType(bt)
                 }
-                if mth == "put" || mth == "clear" {
+                if mth == "put" || mth == "remove" {
+                    return "Bool"
+                }
+                if mth == "clear" {
                     return "Unit"
+                }
+                if mth == "getOr" || mth == "removeOr" {
+                    return self.mapValueType(bt)
+                }
+                if mth == "tryGet" {
+                    return "Result<" + self.mapValueType(bt) + ",Error>"
+                }
+                if mth == "keys" {
+                    return "List<String>"
+                }
+                if mth == "values" {
+                    return "List<" + self.mapValueType(bt) + ">"
                 }
             }
             if self.isProtocolName(bt) {
@@ -6052,11 +6079,23 @@ class CGen {
             if mth == "has" {
                 return "Bool"
             }
-            if mth == "put" {
+            if mth == "put" || mth == "remove" {
+                return "Bool"
+            }
+            if mth == "clear" {
                 return "Unit"
             }
-            if mth == "getOr" {
+            if mth == "getOr" || mth == "removeOr" {
                 return self.mapValue(bt)
+            }
+            if mth == "tryGet" {
+                return "Result<" + self.mapValue(bt) + ",Error>"
+            }
+            if mth == "keys" {
+                return "List<String>"
+            }
+            if mth == "values" {
+                return "List<" + self.mapValue(bt) + ">"
             }
         }
         if self.isProtocol(bt) {
@@ -6349,10 +6388,29 @@ class CGen {
                 return "xn_map_s_i_has(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
             }
             if mth == "put" && n.kids.length() > off + 1 {
-                return "xn_map_s_i_put(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+                return "xn_map_s_i_put_replaced(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
             }
             if mth == "getOr" && n.kids.length() > off + 1 {
                 return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "remove" && n.kids.length() > off {
+                return "xn_map_s_i_remove(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+            }
+            if mth == "removeOr" && n.kids.length() > off + 1 {
+                return "xn_map_s_i_remove_value(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "tryGet" && n.kids.length() > off {
+                String key = self.expr(n.kids.get(off))
+                String valueTy = self.mapValue(bt)
+                String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valueTy + ",Error>", "xn_map_s_i_getOr(" + bv + ", " + key + ", 0)") + " }"
+                String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }"
+                return "(xn_map_s_i_has(" + bv + ", " + key + ") ? " + ok + " : " + err + ")"
+            }
+            if mth == "keys" {
+                return "xn_map_s_i_keys(" + bv + ")"
+            }
+            if mth == "values" {
+                return "xn_map_s_i_values(" + bv + ")"
             }
             if mth == "clear" {
                 return "(" + bv + "->len = 0)"
@@ -6681,11 +6739,23 @@ class CGen {
                     if mth == "clear" {
                         return "Unit"
                     }
-                    if mth == "put" {
+                    if mth == "put" || mth == "remove" {
+                        return "Bool"
+                    }
+                    if mth == "clear" {
                         return "Unit"
                     }
-                    if mth == "getOr" {
+                    if mth == "getOr" || mth == "removeOr" {
                         return self.mapValue(bt)
+                    }
+                    if mth == "tryGet" {
+                        return "Result<" + self.mapValue(bt) + ",Error>"
+                    }
+                    if mth == "keys" {
+                        return "List<String>"
+                    }
+                    if mth == "values" {
+                        return "List<" + self.mapValue(bt) + ">"
                     }
                 }
                 if self.isProtocol(bt) {
@@ -7393,7 +7463,7 @@ class CGen {
                     }
                     if mth == "put" {
                         if n.kids.length() >= 2 {
-                            return "xn_map_s_i_put(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                            return "xn_map_s_i_put_replaced(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "0"
                     }
@@ -7402,6 +7472,34 @@ class CGen {
                             return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "0"
+                    }
+                    if mth == "remove" {
+                        if n.kids.length() > 0 {
+                            return "xn_map_s_i_remove(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "removeOr" {
+                        if n.kids.length() >= 2 {
+                            return "xn_map_s_i_remove_value(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "tryGet" {
+                        if n.kids.length() > 0 {
+                            String key = self.expr(n.kids.get(0))
+                            String valueTy = self.mapValue(bt)
+                            String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valueTy + ",Error>", "xn_map_s_i_getOr(" + bv + ", " + key + ", 0)") + " }"
+                            String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }"
+                            return "(xn_map_s_i_has(" + bv + ", " + key + ") ? " + ok + " : " + err + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "keys" {
+                        return "xn_map_s_i_keys(" + bv + ")"
+                    }
+                    if mth == "values" {
+                        return "xn_map_s_i_values(" + bv + ")"
                     }
                     if mth == "clear" {
                         return "(" + bv + "->len = 0)"
@@ -8287,6 +8385,11 @@ class CGen {
         self.emit("static int xn_map_s_i_has(const xn_map_s_i *m, rt_string *key) { return xn_map_s_i_find(m, key) >= 0 ? 1 : 0; }")
         self.emit("static void xn_map_s_i_put(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; }")
         self.emit("static int64_t xn_map_s_i_getOr(const xn_map_s_i *m, rt_string *key, int64_t dflt) { long i = xn_map_s_i_find(m, key); return i >= 0 ? m->vals[i] : dflt; }")
+        self.emit("static int xn_map_s_i_put_replaced(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }")
+        self.emit("static int xn_map_s_i_remove(xn_map_s_i *m, rt_string *key) { long i = xn_map_s_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }")
+        self.emit("static int64_t xn_map_s_i_remove_value(xn_map_s_i *m, rt_string *key, int64_t fallback) { long i = xn_map_s_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }")
+        self.emit("static xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) { xn_arr_s *out = xn_arr_s_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[i]); } return out; }")
+        self.emit("static xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }")
         self.emit("")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_set_i;")
         self.emit("static const rt_type RT_TYPE_XN_SET_I = { \"Set\", sizeof(xn_set_i), NULL, NULL };")
