@@ -2,6 +2,18 @@ import xdk.sync
 import xdk.errors
 import xdk.bytes
 
+static Result<Int, Error> okOne() {
+    return Ok(1)
+}
+
+static Result<Int, Error> badResult() {
+    return Err(new BasicError(ErrorKind.InvalidArgument, "bad"))
+}
+
+static Result<Int, String> okTextResult() {
+    return Ok(2)
+}
+
 class Item {
     Int value
 
@@ -64,5 +76,27 @@ static Int main() {
     Result<Double, CancelledError> receivedDouble = doubles.receive()
     print(receivedDouble.isOk())
     print(receivedDouble.value())
+
+    Channel<Int128> bigs = new Channel<Int128>(1)
+    print(bigs.send(170141183460469231731687303715884105727).isOk())
+    Result<Int128, CancelledError> receivedBig = bigs.receive()
+    print(receivedBig.value())
+
+    Channel<Result<Int, Error>> boxes = new Channel<Result<Int, Error>>(1)
+    print(boxes.send(okOne()).isOk())
+    Result<Result<Int, Error>, CancelledError> receivedOk = boxes.receive()
+    print(receivedOk.value().isOk())
+    print(receivedOk.value().value())
+    print(boxes.send(badResult()).isOk())
+    Result<Result<Int, Error>, CancelledError> receivedBad = boxes.receive()
+    print(receivedBad.value().isErr())
+    print(receivedBad.value().error().describe())
+
+    Channel<Result<Int, String>> textBoxes = new Channel<Result<Int, String>>(1)
+    print(textBoxes.send(okTextResult()).isOk())
+    Result<Result<Int, String>, CancelledError> receivedIntText = textBoxes.receive()
+    print(receivedIntText.isOk())
+    print(receivedIntText.value().isOk())
+    print(receivedIntText.value().value())
     return 0
 }

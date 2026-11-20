@@ -1,6 +1,6 @@
 # T0 pre-freeze audit
 
-Date: 2026-11-20  
+Date: 2026-11-21
 Scope: mini-only authority, T0 package design/implementation,
 Int 32-bit audit, and the gates required before freezing T0.
 
@@ -38,14 +38,14 @@ Still to watch:
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
-| collections | v1.3 | partial | PASS (subset) | other Map/Set instances |
+| collections | v1.4 | partial | PASS (subset) | entries pairs/groupBy/OrderedMap |
 | math | v1.1 | partial | PASS | other integer checked/saturating (T0-X) |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | partial | PASS | strict/checked + copy semantics |
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
 | sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
 | tasks | v1.0 | mini | PASS | — |
-| sync | v1.0 | mini | PASS | — |
+| sync | v1.1 | mini | PASS | — |
 | log | v1.0 | mini | PASS | fields/sinks T0-X |
 | config | v1.0 | mini | PASS | sources/codec T0-X/T1 |
 | cli | v1.0 | mini | PASS | subcommands T0-X |
@@ -66,25 +66,24 @@ All gates must pass on mini. There is no second engine. Gates run once per
 batch; items inside a batch are not gated or committed individually, and a red
 gate blocks the next batch rather than the next item.
 
-2026-11-20 note: all functional gates pass; Int128 scalar, wide literals, and
-checked math have landed. `m10_perf` passes on an idle host: 200M in 0.592s
-against the 0.733s baseline (0.808x). The earlier 1.29x reading was taken while
-a remote-desktop helper held ~90% CPU.
+2026-11-21 note: all functional gates pass. Generic Map/Set core runtimes and
+boxed Channel<Int128>/Channel<Result<...>> have landed. `m10_perf` remains within
+baseline (latest 200M run 0.635s, 0.866x). The earlier 1.29x reading was taken
+while a remote-desktop helper held ~90% CPU.
 
 ## 5. Freeze blockers
 
 No T0-K blocking item remains. Remaining T0-X gaps are recorded rather than
 claimed as complete:
 
-1. Other `Map<K,V>`/`Set<T>` instantiations remain T0-X. Current instances are
-   `Map<String,Int>`, `Map<Int,Int>`, `Set<Int>`, and `Set<String>`, including
-   their `entries` snapshots (`Pair` / `IntPair`).
+1. Generic `Map<K,V>`/`Set<T>` core runtimes are implemented for scalar,
+   String, Double, Bytes, class, protocol, and data-enum elements. Remaining
+   T0-X: `Map.entries` value objects other than `Pair`/`IntPair`, `groupBy`,
+   `OrderedMap`, and `BTreeMap`.
 2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, `str`,
    class/protocol methods, and common Result/List/Map/Set members; complex
    receiver expressions remain incremental.
-3. Typed channels cover Int/Long/Bool/Char/Double/String/Bytes/class/protocol/
-   nullable; Int128/Result value elements remain T0-X.
-4. Project build and formatter have no mini implementation and are outside T0;
+3. Project build and formatter have no mini implementation and are outside T0;
    do not claim them.
 
 Freeze rule: a package is `Verified` only when its design exists, its scenario

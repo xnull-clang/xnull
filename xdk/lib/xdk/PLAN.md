@@ -23,8 +23,8 @@ and recorded gaps.
 | `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
-| `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable> mini | Int128/result-value elements |
-| `xdk.collections` | List, Map<String,Int>, Map<Int,Int>, Set<Int>, Set<String>, member surface, algorithms, PriorityQueue/RingBuffer mini | other Map/Set instances |
+| `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result> mini | RwLock/semaphore/select |
+| `xdk.collections` | List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms, PriorityQueue/RingBuffer mini | entries pairs, groupBy, OrderedMap/BTreeMap |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |
@@ -40,8 +40,10 @@ src/mini/tests/m8.sh
 src/mini/tests/m10_perf.sh
 ```
 
-A package is frozen only after its scenario and regression pass. A blocked
-T0-X item marks the package `partial`; it does not reopen a second engine.
+A package is frozen only after its scenario and regression pass. Gates and
+commits run once per batch; batch items are not gated or committed individually.
+A blocked T0-X item marks the package `partial`; it does not reopen a second
+engine.
 
 ## 3. Current compiler gaps
 
@@ -50,7 +52,7 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
    are implemented; complex receiver/return inference remains incremental.
-3. Other `Map<K,V>`/`Set<T>` instantiations remain.
+3. Generic Map/Set core is implemented; `Map.entries` values beyond `Pair`/`IntPair`, `groupBy`, and ordered maps remain.
 4. Project build and formatter are future mini work.
 
 ## 4. Architecture

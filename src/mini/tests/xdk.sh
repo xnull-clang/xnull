@@ -96,7 +96,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_members.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\n' > "$TMP.exp"
+printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\nfalse\nalpha\nnone\na\nalpha\ntrue\ntrue\n0\n9000000000\n9000000000\n2\ntrue\ntrue\ntrue\n2\n2\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {
@@ -212,7 +212,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_channel_typed.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\ntrue\nhello\ntrue\ntrue\n7\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n9000000000\ntrue\ntrue\ntrue\nx\ntrue\ntrue\nffi\ntrue\ntrue\n1.5\n' > "$TMP.exp"
+printf 'true\ntrue\nhello\ntrue\ntrue\n7\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n9000000000\ntrue\ntrue\ntrue\nx\ntrue\ntrue\nffi\ntrue\ntrue\n1.5\ntrue\n170141183460469231731687303715884105727\ntrue\ntrue\n1\ntrue\ntrue\nInvalidArgument: bad\ntrue\ntrue\ntrue\n2\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {

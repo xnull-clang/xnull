@@ -1,4 +1,4 @@
-# xdk.sync —— T0 同步原语 v1.0
+# xdk.sync —— T0 同步原语 v1.1
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,7 @@
 | 依赖 | `xdk.errors`、`xdk.tasks` |
 | 被依赖 | log、config、metrics（T1） |
 | 对应源码 | `src/xdk/concurrent/sync/Sync.x`（运行时绑定） |
-| 当前状态 | Verified（Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable>） |
+| 当前状态 | Verified（Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result>） |
 
 ## 1. 能力
 
@@ -49,9 +49,10 @@ class AtomicInt {
 - 不提供裸 lock/unlock。
 - `Channel(capacity)` 要求 `capacity >= 0`；0 为同步通道。
 - `Channel<T>` 已覆盖 `Int`、`Long`、`Bool`、`Char`、`Double`、`String`、
-  `Bytes`、class、协议和可空元素；`Bytes`/class 等指针元素按引用传递。
-- `Double` 按 64 位位模式存入通道，接收端还原；依赖 64 位指针。
-- `Int128`、`Result` 等值对象元素尚未支持，归入 T0-X；不得用指针转换伪装。
+  `Bytes`、class、协议、可空元素、`Int128` 和 `Result<...>`。
+- `Bytes`/class 等指针元素按引用传递；`Double` 按 64 位位模式传输。
+- `Int128` 与 `Result<...>` 使用堆装箱元素，通道关闭/发送失败时释放，
+  不把 128 位值或结构体伪装成普通指针。
 - `send` 满/`receive` 空时可阻塞并接受任务 Context；取消返回 `Err(CancelledError)`，不消费值。
 - `close` 幂等；关闭后 `send/receive` 返回 `Err`，队列剩余元素丢弃。
 - Atomic 操作是顺序一致；不承诺无锁实现。
@@ -60,6 +61,7 @@ class AtomicInt {
 
 - Mutex 两次 withLock 的可见性；
 - Channel send/receive/close/满/空；
+- Int128/Result 装箱元素的往返、关闭与发送失败；
 - 取消中的 send/receive；
 - Atomic load/store/CAS 成功与失败；
 - base/full 输出一致。
@@ -68,7 +70,6 @@ class AtomicInt {
 
 ## 4. 后续（T0-X/T1）
 
-- `Int128`/`Result` 等值对象元素；
 - RwLock/Semaphore/WaitGroup/Once/Barrier；
 - `select`/超时收发；
 - 并发容器。

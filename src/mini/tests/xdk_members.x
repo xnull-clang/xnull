@@ -63,5 +63,31 @@ static Int main() {
     print(strings.remove("b"))
     strings.clear()
     print(strings.length())
+
+    Map<String, String> names = [:]
+    print(names.put("a", "alpha"))
+    print(names.getOr("a", "none"))
+    print(names.getOr("z", "none"))
+    print(names.keys().get(0))
+    print(names.values().get(0))
+    print(names.tryGet("a").isOk())
+    print(names.remove("a"))
+    print(names.length())
+
+    Map<String, Long> sizes = [:]
+    sizes.put("big", 9000000000)
+    print(sizes.getOr("big", 0))
+    print(sizes.values().get(0))
+
+    Set<Long> longs = Set.of(9000000000, 4, 4)
+    print(longs.length())
+    print(longs.has(9000000000))
+    print(longs.add(5))
+    print(longs.remove(4))
+    print(longs.length())
+
+    Set<Double> doubles = Set.of(1.5, 2.5, 1.5)
+    print(doubles.length())
+    print(doubles.has(2.5))
     return 0
 }

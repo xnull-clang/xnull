@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 版本 | 1.2.0（替代 v1.1） |
-| 状态 | 决策冻结；01 v1.3、04/06 v1.2 已修订，其余包待写 |
+| 状态 | 决策冻结；01 v1.3、04 v1.2、06 v1.4、07 v1.1 已修订，其余包待写 |
 | 依据 | S0 v1.1.0、S1 v3.4.0、S2 v3.4.0（struct 引用字段修订）、S3 v3.2.0、S4 v1.2.0、S5 v1.3.0、S6 v3.0.0 |
 | 目标 | 把 T0 从“包/文件清单”推进到“类级能力契约” |
 | 组织 | 一个包一份设计、一个验收门；包内条目按批次收尾，批内不单独验收/提交 |
@@ -205,7 +205,7 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | meta | language/xdk/target 版本 | BuildInfo、目标能力矩阵、构建元数据 |
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
-| collections | List（Int/String）、Map<String,Int>、Map<Int,Int>、Set<Int>、Set<String>、成员面、排序/查找/去重、PriorityQueue/RingBuffer | 其他 Map/Set 组合、OrderedMap/BTreeMap、groupBy（T0-X） |
+| collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map.entries 任意 K/V 值对象、groupBy、OrderedMap/BTreeMap（T0-X） |
 | math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界 | Int128 checked、其他整数 saturating、组合数学 |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
@@ -330,7 +330,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `00-overview.md` | 设计标准、权威、K/X、边界、流程 | Decided |
 | `01-errors.md` | 错误协议、构造、包装、聚合、Result 组合、FFI 映射 | Verified（mini） |
 | `04-bytes.md` | Bytes、ByteBuffer、游标、位、端序 | Verified（mini） |
-| `06-collections.md` | 容器、算法、特化容器 | Partial（T0-K 成员面通过；其他 Map/Set 组合 T0-X） |
+| `06-collections.md` | 容器、算法、特化容器 | Partial（T0-K 与通用核心通过；entries 组合/groupBy/OrderedMap T0-X） |
 | `AUDIT.md` | T0 冻结前审计、Int 32 位、包状态、门禁 | 当前 |
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
@@ -341,7 +341,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
 | `11-sys.md` | Process、Env、Platform、Signal | Partial（简化文件面；File/Dir/Process X） |
 | `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
-| `13-sync.md` | Mutex、Channel、Atomics、同步器 | Verified（Atomic/Mutex/Channel 标量与指针元素） |
+| `13-sync.md` | Mutex、Channel、Atomics、同步器 | Verified（Atomic/Mutex/Channel 标量、指针、Int128、Result） |
 | `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |
 | `15-config.md` | Config、Source、Profile、校验 | Verified（内存/环境面） |
 | `16-cli.md` | Args、OptionSpec、Command、usage | Verified（最小面） |

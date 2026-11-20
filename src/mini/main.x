@@ -2915,6 +2915,12 @@ class Checker {
         return n.kind == "MapLit" && n.kids.length() == 0
     }
 
+    Bool intFits32(String text) {
+        if text.length() < 10 { return true }
+        if text.length() > 10 { return false }
+        return text.substring(0, 1) == "1"
+    }
+
     Void check() {
         self.collect()
         Int i = 0
@@ -3029,7 +3035,7 @@ class Checker {
             String lt = self.typeOf(st.kids.get(0))
             String rt = self.typeOf(st.kids.get(1))
             Bool emptyMap = self.isEmptyMap(st.kids.get(1)) && self.isMapType(lt)
-            if lt != "Error" && rt != "Error" && !self.isAssignable(lt, rt) && !(self.isEmptyArray(st.kids.get(1)) && self.isListType(lt)) && !emptyMap {
+            if lt != "Error" && rt != "Error" && !self.isAssignable(lt, rt) && !(self.isEmptyArray(st.kids.get(1)) && (self.isListType(lt) || self.isSetType(lt))) && !emptyMap {
                 self.fail("SEM-003", "assignment " + lt + " = " + rt, st)
             }
             return
@@ -3177,9 +3183,11 @@ class Checker {
                 } else {
                     it = self.typeOf(st.kids.get(0))
                 }
-                Bool setLit = self.isSetType(ty) && st.kids.get(0).kind == "ArrayLit" && self.elementType(it) == "Int"
+                String setElemType = self.setElement(ty)
+                Bool setLit = self.isSetType(ty) && st.kids.get(0).kind == "ArrayLit" &&
+                    (self.elementType(it) == setElemType || (setElemType == "Long" && self.elementType(it) == "Int"))
                 Bool emptyMap = self.isEmptyMap(st.kids.get(0)) && self.isMapType(ty)
-                if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && self.isListType(ty)) && !setLit && !emptyMap {
+                if it != "Error" && !self.isAssignable(ty, it) && !(self.isEmptyArray(st.kids.get(0)) && (self.isListType(ty) || self.isSetType(ty))) && !setLit && !emptyMap {
                     self.fail("SEM-003", "cannot initialize " + ty + " with " + it, st)
                 }
             }
@@ -3536,6 +3544,9 @@ class Checker {
         }
         if vt == "String" {
             return "(" + bv + ").s"
+        }
+        if vt == "Result<Int,String>" {
+            return "(*(xn_Result_Int_String *)(" + bv + ").p)"
         }
         if vt.startsWith("Result<") {
             return "(*(xn_Result *)(" + bv + ").p)"
@@ -4034,10 +4045,14 @@ class Checker {
                 return "List<" + self.mapValueType(bt) + ">"
             }
             if mth == "entries" {
+                if bt == "Map<String,Int>" {
+                    return "List<Pair>"
+                }
                 if bt == "Map<Int,Int>" {
                     return "List<IntPair>"
                 }
-                return "List<Pair>"
+                self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
+                return "Error"
             }
         }
         if self.isProtocolName(bt) {
@@ -4244,14 +4259,31 @@ class Checker {
         }
         if n.text == "Set.of" {
             String elementType = "Int"
+            Bool seenElement = false
             Int i = 0
             while i < argc {
-                String at = self.typeOf(n.kids.get(i))
-                if at != "Error" && at != "Int" && at != "String" {
-                    self.fail("SEM-003", "Set.of expects Int or String, got " + at, n)
+                AstNode arg = n.kids.get(i)
+                String at = self.typeOf(arg)
+                if arg.kind == "Int" && !self.intFits32(arg.text) {
+                    at = "Long"
                 }
-                if i == 0 && at == "String" { elementType = "String" }
-                if at != elementType { self.fail("SEM-003", "Set.of mixed element types", n) }
+                if arg.kind == "Unary" && arg.kids.length() > 0 && arg.kids.get(0).kind == "Int" && !self.intFits32(arg.kids.get(0).text) {
+                    at = "Long"
+                }
+                if at == "Error" || at == "Unit" || at == "Void" || !self.knownType(at) {
+                    self.fail("SEM-003", "Set.of unsupported element type: " + at, n)
+                } else if !seenElement {
+                    elementType = at
+                    seenElement = true
+                } else if at == elementType {
+                    // same type
+                } else if elementType == "Int" && at == "Long" {
+                    elementType = "Long"
+                } else if elementType == "Long" && at == "Int" {
+                    // keep Long
+                } else {
+                    self.fail("SEM-003", "Set.of mixed element types", n)
+                }
                 i = i + 1
             }
             return "Set<" + elementType + ">"
@@ -4487,10 +4519,14 @@ class Checker {
                     return "List<" + self.mapValueType(bt) + ">"
                 }
                 if mth == "entries" {
+                    if bt == "Map<String,Int>" {
+                        return "List<Pair>"
+                    }
                     if bt == "Map<Int,Int>" {
                         return "List<IntPair>"
                     }
-                    return "List<Pair>"
+                    self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
+                    return "Error"
                 }
             }
             if self.isProtocolName(bt) {
@@ -4656,6 +4692,8 @@ class CGen {
     final List<String> ffiCallSpecs
     final List<String> ffiCallErrParams
     final List<String> ffiCallErrRets
+    final List<String> genericMaps
+    final List<String> genericSets
 
     CGen(AstNode program, List<String> callNames, List<String> callCNames, List<String> callRets, List<String> callSpecs, List<String> callErrParams, List<String> callErrRets) {
         self.program = program
@@ -4683,6 +4721,8 @@ class CGen {
         self.ffiCallSpecs = callSpecs
         self.ffiCallErrParams = callErrParams
         self.ffiCallErrRets = callErrRets
+        self.genericMaps = []
+        self.genericSets = []
     }
 
     Bool hasError() {
@@ -4865,11 +4905,14 @@ class CGen {
         if ty == "Map<Int,Int>" {
             return "xn_map_i_i *"
         }
+        if self.isMap(ty) {
+            return "xn_map_g *"
+        }
         if ty == "Set<String>" {
             return "xn_set_s *"
         }
         if self.isSet(ty) {
-            return "xn_set_i *"
+            return "xn_set_g *"
         }
         if ty == "Result<Int,String>" {
             return "xn_Result_Int_String"
@@ -4930,6 +4973,9 @@ class CGen {
         }
         if vt == "String" {
             return "(" + bv + ").s"
+        }
+        if vt == "Result<Int,String>" {
+            return "(*(xn_Result_Int_String *)(" + bv + ").p)"
         }
         if vt.startsWith("Result<") {
             return "(*(xn_Result *)(" + bv + ").p)"
@@ -5060,8 +5106,11 @@ class CGen {
 
     String arrayCName(String ty) {
         String et = self.elementType(ty)
-        if et == "Int" || et == "Long" || et == "Int64" || et == "UInt16" || self.isEnumName(et) {
+        if et == "Int" || et == "Long" || et == "Int64" || et == "UInt16" || et == "Bool" || et == "Char" || (self.isEnumName(et) && !self.isDataEnum(et)) {
             return "xn_arr_i"
+        }
+        if self.isDataEnum(et) {
+            return "xn_arr_o"
         }
         if et == "Double" {
             return "xn_arr_d"
@@ -5090,6 +5139,9 @@ class CGen {
             String elementType = self.elementType(ty)
             if self.isProtocol(elementType) || elementType == "Any" || elementType == "Object" {
                 return call
+            }
+            if elementType == "Bytes" {
+                return "((xrt_bytes_obj *)" + call + ")"
             }
             return "((xn_Cls_" + elementType + " *)" + call + ")"
         }
@@ -5157,6 +5209,179 @@ class CGen {
             return parts.get(0).trim()
         }
         return "Any"
+    }
+
+    Bool isGenericMap(String ty) {
+        return self.isMap(ty) && ty != "Map<String,Int>" && ty != "Map<Int,Int>"
+    }
+
+    Bool isGenericSet(String ty) {
+        return self.isSet(ty) && ty != "Set<Int>" && ty != "Set<String>"
+    }
+
+    String setElementOf(String ty) {
+        if self.isSet(ty) {
+            return ty.substring(4, ty.length() - 5)
+        }
+        return "Any"
+    }
+
+    String cMangle(String ty) {
+        String res = ""
+        Int i = 0
+        while i < ty.length() {
+            String c = ty.substring(i, 1)
+            String alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+            if alpha.indexOf(c) >= 0 {
+                res = res + c
+            } else {
+                res = res + "_"
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String genericMapSuffix(String ty) {
+        return self.cMangle(ty)
+    }
+
+    String genericMapKeysName(String ty) {
+        return "xn_map_g_" + self.genericMapSuffix(ty) + "_keys"
+    }
+
+    String genericMapValuesName(String ty) {
+        return "xn_map_g_" + self.genericMapSuffix(ty) + "_values"
+    }
+
+    Bool containsGeneric(List<String> xs, String v) {
+        Int i = 0
+        while i < xs.length() {
+            if xs.get(i) == v {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void registerGenericMap(String ty) {
+        if !self.containsGeneric(self.genericMaps, ty) {
+            self.genericMaps.push(ty)
+        }
+    }
+
+    Void registerGenericSet(String ty) {
+        if !self.containsGeneric(self.genericSets, ty) {
+            self.genericSets.push(ty)
+        }
+    }
+
+    String baseType(String ty) {
+        if ty.length() > 1 && ty.substring(ty.length() - 1, 1) == "?" {
+            return ty.substring(0, ty.length() - 1)
+        }
+        return ty
+    }
+
+    String kindOf(String ty) {
+        String b = self.baseType(ty)
+        if b == "Int" || b == "Long" || b == "Int64" || b == "Int32" || b == "UInt16" || b == "Bool" || b == "Char" {
+            return "0"
+        }
+        if b == "String" {
+            return "1"
+        }
+        if b == "Double" {
+            return "2"
+        }
+        if b == "Bytes" || self.isClass(b) || self.isProtocol(b) || self.isDataEnum(b) {
+            return "3"
+        }
+        if self.isEnumName(b) {
+            return "0"
+        }
+        return "-1"
+    }
+
+    String encodeOf(String ty, String expr) {
+        String k = self.kindOf(ty)
+        if k == "0" {
+            return "(void *)(intptr_t)(" + expr + ")"
+        }
+        if k == "1" || k == "3" {
+            return "(void *)(" + expr + ")"
+        }
+        if k == "2" {
+            return "xn_double_to_ptr(" + expr + ")"
+        }
+        return "0"
+    }
+
+    String decodeOf(String ty, String expr) {
+        String b = self.baseType(ty)
+        String k = self.kindOf(ty)
+        if k == "0" {
+            return "((int64_t)(intptr_t)(" + expr + "))"
+        }
+        if k == "1" {
+            return "((rt_string *)(" + expr + "))"
+        }
+        if k == "2" {
+            return "xn_ptr_to_double(" + expr + ")"
+        }
+        if k == "3" {
+            return "((" + self.ctype(b) + ")(" + expr + "))"
+        }
+        return "0"
+    }
+
+    String readTypeAt(String text, Int start) {
+        Int depth = 0
+        Int i = start
+        while i < text.length() {
+            String c = text.substring(i, 1)
+            if c == "<" {
+                depth = depth + 1
+            } else if c == ">" {
+                depth = depth - 1
+                if depth == 0 {
+                    return text.substring(start, i - start + 1)
+                }
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    Void scanGenericTypeText(String text) {
+        Int m = text.indexOf("Map<")
+        if m >= 0 {
+            String ty = self.readTypeAt(text, m)
+            if ty != "" {
+                self.registerGenericMap(ty)
+            }
+        }
+        Int st = text.indexOf("Set<")
+        if st >= 0 {
+            String ty = self.readTypeAt(text, st)
+            if ty != "" {
+                self.registerGenericSet(ty)
+            }
+        }
+    }
+
+    Void collectGenericTypes(AstNode n) {
+        if n.kind == "Local" || n.kind == "Param" || n.kind == "Ret" || n.kind == "Field" ||
+           n.kind == "New" || n.kind == "Cast" || n.kind == "TypeArgs" || n.kind == "Base" ||
+           n.kind == "Implements" {
+            self.scanGenericTypeText(n.text)
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectGenericTypes(n.kids.get(i))
+            i = i + 1
+        }
     }
 
     Bool isFunctionType(String ty) {
@@ -6386,6 +6611,159 @@ class CGen {
         return self.methodRet(bt, mth)
     }
 
+    String mapMethodExpr(String bv, String bt, String mth, AstNode n, Int off, Bool useOff) {
+        Int base = 0
+        if useOff {
+            base = off
+        }
+        Int argc = n.kids.length() - base
+        Bool genericMap = self.isGenericMap(bt)
+        String keyTy = self.mapKey(bt)
+        String valTy = self.mapValue(bt)
+        if genericMap {
+            if self.kindOf(keyTy) == "-1" || self.kindOf(valTy) == "-1" {
+                self.fail("generic Map does not support key/value type: " + bt)
+                return "0"
+            }
+            self.registerGenericMap(bt)
+        }
+        String mapPrefix = ""
+        if bt == "Map<String,Int>" {
+            mapPrefix = "xn_map_s_i_"
+        } else if bt == "Map<Int,Int>" {
+            mapPrefix = "xn_map_i_i_"
+        }
+        if mth == "length" {
+            return "((int64_t)" + bv + "->len)"
+        }
+        if mth == "has" && argc >= 1 {
+            String key = self.expr(n.kids.get(base))
+            if genericMap {
+                return "xn_map_g_has(" + bv + ", " + self.encodeOf(keyTy, key) + ")"
+            }
+            return mapPrefix + "has(" + bv + ", " + key + ")"
+        }
+        if mth == "put" && argc >= 2 {
+            String key = self.expr(n.kids.get(base))
+            String val = self.expr(n.kids.get(base + 1))
+            if genericMap {
+                return "xn_map_g_put_replaced(" + bv + ", " + self.encodeOf(keyTy, key) + ", " + self.encodeOf(valTy, val) + ")"
+            }
+            return mapPrefix + "put_replaced(" + bv + ", " + key + ", " + val + ")"
+        }
+        if mth == "getOr" && argc >= 2 {
+            String key = self.expr(n.kids.get(base))
+            String fallback = self.expr(n.kids.get(base + 1))
+            if genericMap {
+                return self.decodeOf(valTy, "xn_map_g_getOr(" + bv + ", " + self.encodeOf(keyTy, key) + ", " + self.encodeOf(valTy, fallback) + ")")
+            }
+            return mapPrefix + "getOr(" + bv + ", " + key + ", " + fallback + ")"
+        }
+        if mth == "remove" && argc >= 1 {
+            String key = self.expr(n.kids.get(base))
+            if genericMap {
+                return "xn_map_g_remove(" + bv + ", " + self.encodeOf(keyTy, key) + ")"
+            }
+            return mapPrefix + "remove(" + bv + ", " + key + ")"
+        }
+        if mth == "removeOr" && argc >= 2 {
+            String key = self.expr(n.kids.get(base))
+            String fallback = self.expr(n.kids.get(base + 1))
+            if genericMap {
+                return self.decodeOf(valTy, "xn_map_g_remove_value(" + bv + ", " + self.encodeOf(keyTy, key) + ", " + self.encodeOf(valTy, fallback) + ")")
+            }
+            return mapPrefix + "remove_value(" + bv + ", " + key + ", " + fallback + ")"
+        }
+        if mth == "tryGet" && argc >= 1 {
+            String key = self.expr(n.kids.get(base))
+            String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }"
+            if genericMap {
+                String stored = "xn_map_g_getOr(" + bv + ", " + self.encodeOf(keyTy, key) + ", " + self.encodeOf(valTy, "0") + ")"
+                String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valTy + ",Error>", self.decodeOf(valTy, stored)) + " }"
+                return "(xn_map_g_has(" + bv + ", " + self.encodeOf(keyTy, key) + ") ? " + ok + " : " + err + ")"
+            }
+            String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valTy + ",Error>", mapPrefix + "getOr(" + bv + ", " + key + ", 0)") + " }"
+            return "(" + mapPrefix + "has(" + bv + ", " + key + ") ? " + ok + " : " + err + ")"
+        }
+        if mth == "keys" {
+            if genericMap {
+                return self.genericMapKeysName(bt) + "(" + bv + ")"
+            }
+            return mapPrefix + "keys(" + bv + ")"
+        }
+        if mth == "values" {
+            if genericMap {
+                return self.genericMapValuesName(bt) + "(" + bv + ")"
+            }
+            return mapPrefix + "values(" + bv + ")"
+        }
+        if mth == "entries" {
+            if bt == "Map<String,Int>" {
+                return "xn_map_s_i_entries(" + bv + ")"
+            }
+            if bt == "Map<Int,Int>" {
+                return "xn_map_i_i_entries(" + bv + ")"
+            }
+            self.fail("Map.entries for " + bt + " is T0-X")
+            return "0"
+        }
+        if mth == "clear" {
+            return "(" + bv + "->len = 0)"
+        }
+        return "0"
+    }
+
+    String setMethodExpr(String bv, String bt, String mth, AstNode n, Int off, Bool useOff) {
+        Int base = 0
+        if useOff {
+            base = off
+        }
+        Int argc = n.kids.length() - base
+        Bool genericSet = self.isGenericSet(bt)
+        String elemTy = self.setElementOf(bt)
+        if genericSet {
+            if self.kindOf(elemTy) == "-1" {
+                self.fail("generic Set does not support element type: " + bt)
+                return "0"
+            }
+            self.registerGenericSet(bt)
+        }
+        String setPrefix = ""
+        if bt == "Set<Int>" {
+            setPrefix = "xn_set_i_"
+        } else if bt == "Set<String>" {
+            setPrefix = "xn_set_s_"
+        }
+        if mth == "length" {
+            return "((int64_t)" + bv + "->len)"
+        }
+        if mth == "has" && argc >= 1 {
+            String v = self.expr(n.kids.get(base))
+            if genericSet {
+                return "xn_set_g_has(" + bv + ", " + self.encodeOf(elemTy, v) + ")"
+            }
+            return setPrefix + "has(" + bv + ", " + v + ")"
+        }
+        if mth == "add" && argc >= 1 {
+            String v = self.expr(n.kids.get(base))
+            if genericSet {
+                return "xn_set_g_add(" + bv + ", " + self.encodeOf(elemTy, v) + ")"
+            }
+            return setPrefix + "add(" + bv + ", " + v + ")"
+        }
+        if mth == "remove" && argc >= 1 {
+            String v = self.expr(n.kids.get(base))
+            if genericSet {
+                return "xn_set_g_remove(" + bv + ", " + self.encodeOf(elemTy, v) + ")"
+            }
+            return setPrefix + "remove(" + bv + ", " + v + ")"
+        }
+        if mth == "clear" {
+            return "(" + bv + "->len = 0)"
+        }
+        return "0"
+    }
+
     String methodExpr(String bv, String bt, String mth, AstNode n, Int off) {
         if bt == "AtomicInt" {
             if mth == "load" { return "xrt_atomic_int_load(" + bv + ")" }
@@ -6419,11 +6797,17 @@ class CGen {
             if mth == "send" {
                 if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
                 if elementType == "Double" { return "xn_channel_send_double(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+                if elementType == "Int128" { return "xn_channel_send_int128(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+                if elementType == "Result<Int,String>" { return "xn_channel_send_result_is(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+                if self.isResult(elementType) { return "xn_channel_send_result(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
                 return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "), " + self.curCtxExpr + ")"
             }
             if mth == "receive" {
                 if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
                 if elementType == "Double" { return "xn_channel_recv_double(" + bv + ", " + self.curCtxExpr + ")" }
+                if elementType == "Int128" { return "xn_channel_recv_int128(" + bv + ", " + self.curCtxExpr + ")" }
+                if elementType == "Result<Int,String>" { return "xn_channel_recv_result_is(" + bv + ", " + self.curCtxExpr + ")" }
+                if self.isResult(elementType) { return "xn_channel_recv_result(" + bv + ", " + self.curCtxExpr + ")" }
                 return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
             }
             if mth == "close" { return "xrt_channel_close(" + bv + ")" }
@@ -6540,32 +6924,7 @@ class CGen {
             }
         }
         if self.isSet(bt) {
-            String setPrefix = "xn_set_i_"
-            if bt == "Set<String>" { setPrefix = "xn_set_s_" }
-            if mth == "length" {
-                return "((int64_t)" + bv + "->len)"
-            }
-            if mth == "has" {
-                if n.kids.length() > off {
-                    return setPrefix + "has(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
-                }
-                return "0"
-            }
-            if mth == "add" {
-                if n.kids.length() > off {
-                    return setPrefix + "add(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
-                }
-                return "0"
-            }
-            if mth == "remove" {
-                if n.kids.length() > off {
-                    return setPrefix + "remove(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
-                }
-                return "0"
-            }
-            if mth == "clear" {
-                return "(" + bv + "->len = 0)"
-            }
+            return self.setMethodExpr(bv, bt, mth, n, off, true)
         }
         if self.isResult(bt) {
             if mth == "isOk" {
@@ -6667,47 +7026,7 @@ class CGen {
             }
         }
         if self.isMap(bt) {
-            String mapPrefix = "xn_map_s_i_"
-            if bt == "Map<Int,Int>" { mapPrefix = "xn_map_i_i_" }
-            if mth == "length" {
-                return "((int64_t)" + bv + "->len)"
-            }
-            if mth == "has" && n.kids.length() > off {
-                return mapPrefix + "has(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
-            }
-            if mth == "put" && n.kids.length() > off + 1 {
-                return mapPrefix + "put_replaced(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
-            }
-            if mth == "getOr" && n.kids.length() > off + 1 {
-                return mapPrefix + "getOr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
-            }
-            if mth == "remove" && n.kids.length() > off {
-                return mapPrefix + "remove(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
-            }
-            if mth == "removeOr" && n.kids.length() > off + 1 {
-                return mapPrefix + "remove_value(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
-            }
-            if mth == "tryGet" && n.kids.length() > off {
-                String key = self.expr(n.kids.get(off))
-                String valueTy = self.mapValue(bt)
-                String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valueTy + ",Error>", mapPrefix + "getOr(" + bv + ", " + key + ", 0)") + " }"
-                String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }"
-                return "(" + mapPrefix + "has(" + bv + ", " + key + ") ? " + ok + " : " + err + ")"
-            }
-            if mth == "keys" {
-                return mapPrefix + "keys(" + bv + ")"
-            }
-            if mth == "values" {
-                return mapPrefix + "values(" + bv + ")"
-            }
-            if mth == "entries" {
-                if mapPrefix == "xn_map_s_i_" { return "xn_map_s_i_entries(" + bv + ")" }
-                if mapPrefix == "xn_map_i_i_" { return "xn_map_i_i_entries(" + bv + ")" }
-                return "0"
-            }
-            if mth == "clear" {
-                return "(" + bv + "->len = 0)"
-            }
+            return self.mapMethodExpr(bv, bt, mth, n, off, true)
         }
         if self.isProtocol(bt) {
             String pb = "xn_proto_" + bt + "_" + mth + "(" + bv
@@ -6873,7 +7192,18 @@ class CGen {
                 return "String"
             }
             if n.text == "Set.of" {
-                return "Set<Int>"
+                if n.kids.length() == 0 {
+                    return "Set<Int>"
+                }
+                AstNode firstSetArg = n.kids.get(0)
+                String setElem = self.typeOf(firstSetArg)
+                if firstSetArg.kind == "Int" && !self.intLiteralFits32(firstSetArg.text) {
+                    setElem = "Long"
+                }
+                if firstSetArg.kind == "Unary" && firstSetArg.kids.length() > 0 && firstSetArg.kids.get(0).kind == "Int" && !self.intLiteralFits32(firstSetArg.kids.get(0).text) {
+                    setElem = "Long"
+                }
+                return "Set<" + setElem + ">"
             }
             if n.text == "Mutex" {
                 if n.kids.length() > 0 {
@@ -7102,6 +7432,12 @@ class CGen {
         return text <= "9223372036854775807"
     }
 
+    Bool intLiteralFits32(String text) {
+        if text.length() < 10 { return true }
+        if text.length() > 10 { return false }
+        return text.substring(0, 1) == "1"
+    }
+
     String expr(AstNode n) {
         if n.kind == "Int" {
             if !self.intLiteralFits64(n.text) {
@@ -7211,7 +7547,12 @@ class CGen {
             if n.text == "Channel" || n.text.startsWith("Channel<") {
                 String capacity = "1"
                 if n.kids.length() > 0 { capacity = self.expr(n.kids.get(0)) }
-                return "xrt_channel_new((size_t)(" + capacity + "), NULL)"
+                String ops = "NULL"
+                if n.text.startsWith("Channel<") {
+                    String elem = n.text.substring(8, n.text.length() - 9)
+                    if elem == "Int128" || self.isResult(elem) { ops = "&xn_channel_box_ops" }
+                }
+                return "xrt_channel_new((size_t)(" + capacity + "), " + ops + ")"
             }
             String b = "xn_Cls_" + n.text + "_new("
             Int ni = 0
@@ -7316,7 +7657,12 @@ class CGen {
             if n.text == "Channel" || n.text.startsWith("Channel<") {
                 String av = "1"
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
-                return "xrt_channel_new((size_t)(" + av + "), NULL)"
+                String ops = "NULL"
+                if n.text.startsWith("Channel<") {
+                    String elem = n.text.substring(8, n.text.length() - 9)
+                    if elem == "Int128" || self.isResult(elem) { ops = "&xn_channel_box_ops" }
+                }
+                return "xrt_channel_new((size_t)(" + av + "), " + ops + ")"
             }
             if n.text == "Mutex" {
                 String av = "NULL"
@@ -7523,11 +7869,17 @@ class CGen {
                     if mth == "send" {
                         if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
                         if elementType == "Double" { return "xn_channel_send_double(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Int128" { return "xn_channel_send_int128(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Result<Int,String>" { return "xn_channel_send_result_is(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                        if self.isResult(elementType) { return "xn_channel_send_result(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
                         return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "), " + self.curCtxExpr + ")"
                     }
                     if mth == "receive" {
                         if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
                         if elementType == "Double" { return "xn_channel_recv_double(" + bv + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Int128" { return "xn_channel_recv_int128(" + bv + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Result<Int,String>" { return "xn_channel_recv_result_is(" + bv + ", " + self.curCtxExpr + ")" }
+                        if self.isResult(elementType) { return "xn_channel_recv_result(" + bv + ", " + self.curCtxExpr + ")" }
                         return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
                     }
                     if mth == "close" { return "xrt_channel_close(" + bv + ")" }
@@ -7650,32 +8002,7 @@ class CGen {
                     }
                 }
                 if self.isSet(bt) {
-                    String setPrefix = "xn_set_i_"
-                    if bt == "Set<String>" { setPrefix = "xn_set_s_" }
-                    if mth == "length" {
-                        return "((int64_t)" + bv + "->len)"
-                    }
-                    if mth == "has" {
-                        if n.kids.length() > 0 {
-                            return setPrefix + "has(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "add" {
-                        if n.kids.length() > 0 {
-                            return setPrefix + "add(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "remove" {
-                        if n.kids.length() > 0 {
-                            return setPrefix + "remove(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "clear" {
-                        return "(" + bv + "->len = 0)"
-                    }
+                    return self.setMethodExpr(bv, bt, mth, n, 0, false)
                 }
                 if self.isResult(bt) {
                     if mth == "isOk" {
@@ -7777,65 +8104,7 @@ class CGen {
                     }
                 }
                 if self.isMap(bt) {
-                    String mapPrefix = "xn_map_s_i_"
-                    if bt == "Map<Int,Int>" { mapPrefix = "xn_map_i_i_" }
-                    if mth == "length" {
-                        return "((int64_t)" + bv + "->len)"
-                    }
-                    if mth == "has" {
-                        if n.kids.length() > 0 {
-                            return mapPrefix + "has(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "put" {
-                        if n.kids.length() >= 2 {
-                            return mapPrefix + "put_replaced(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "getOr" {
-                        if n.kids.length() >= 2 {
-                            return mapPrefix + "getOr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "remove" {
-                        if n.kids.length() > 0 {
-                            return mapPrefix + "remove(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "removeOr" {
-                        if n.kids.length() >= 2 {
-                            return mapPrefix + "remove_value(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "tryGet" {
-                        if n.kids.length() > 0 {
-                            String key = self.expr(n.kids.get(0))
-                            String valueTy = self.mapValue(bt)
-                            String ok = "(xn_Result){ .ok = 1, " + self.resultInitField("Result<" + valueTy + ",Error>", mapPrefix + "getOr(" + bv + ", " + key + ", 0)") + " }"
-                            String err = "(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }"
-                            return "(" + mapPrefix + "has(" + bv + ", " + key + ") ? " + ok + " : " + err + ")"
-                        }
-                        return "0"
-                    }
-                    if mth == "keys" {
-                        return mapPrefix + "keys(" + bv + ")"
-                    }
-                    if mth == "values" {
-                        return mapPrefix + "values(" + bv + ")"
-                    }
-                    if mth == "entries" {
-                        if mapPrefix == "xn_map_s_i_" { return "xn_map_s_i_entries(" + bv + ")" }
-                        if mapPrefix == "xn_map_i_i_" { return "xn_map_i_i_entries(" + bv + ")" }
-                        return "0"
-                    }
-                    if mth == "clear" {
-                        return "(" + bv + "->len = 0)"
-                    }
+                    return self.mapMethodExpr(bv, bt, mth, n, 0, false)
                 }
                 if self.isClass(bt) {
                     String fty = self.fieldType(bt, mth)
@@ -8007,10 +8276,24 @@ class CGen {
         if self.isSet(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "ArrayLit" {
             AstNode lit = st.kids.get(0)
             Bool stringSet = ty == "Set<String>"
-            self.emit(indent + (stringSet ? "xn_set_s *" : "xn_set_i *") + name + " = " + (stringSet ? "xn_set_s_new()" : "xn_set_i_new()") + ";")
+            Bool genericSet = self.isGenericSet(ty)
+            String elemTy = self.setElementOf(ty)
+            String ek = self.kindOf(elemTy)
+            if genericSet {
+                if ek == "-1" { self.fail("generic Set does not support element type: " + ty); return }
+                self.registerGenericSet(ty)
+                self.emit(indent + "xn_set_g *" + name + " = xn_set_g_new(" + ek + ");")
+            } else {
+                self.emit(indent + (stringSet ? "xn_set_s *" : "xn_set_i *") + name + " = " + (stringSet ? "xn_set_s_new()" : "xn_set_i_new()") + ";")
+            }
             Int si = 0
             while si < lit.kids.length() {
-                self.emit(indent + (stringSet ? "xn_set_s_add(" : "xn_set_i_add(") + name + ", " + self.expr(lit.kids.get(si)) + ");")
+                String item = self.expr(lit.kids.get(si))
+                if genericSet {
+                    self.emit(indent + "xn_set_g_add(" + name + ", " + self.encodeOf(elemTy, item) + ");")
+                } else {
+                    self.emit(indent + (stringSet ? "xn_set_s_add(" : "xn_set_i_add(") + name + ", " + item + ");")
+                }
                 si = si + 1
             }
             self.addVar(ty, name)
@@ -8019,10 +8302,24 @@ class CGen {
         if self.isSet(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "Call" && st.kids.get(0).text == "Set.of" {
             AstNode call = st.kids.get(0)
             Bool stringSet = ty == "Set<String>"
-            self.emit(indent + (stringSet ? "xn_set_s *" : "xn_set_i *") + name + " = " + (stringSet ? "xn_set_s_new()" : "xn_set_i_new()") + ";")
+            Bool genericSet = self.isGenericSet(ty)
+            String elemTy = self.setElementOf(ty)
+            String ek = self.kindOf(elemTy)
+            if genericSet {
+                if ek == "-1" { self.fail("generic Set does not support element type: " + ty); return }
+                self.registerGenericSet(ty)
+                self.emit(indent + "xn_set_g *" + name + " = xn_set_g_new(" + ek + ");")
+            } else {
+                self.emit(indent + (stringSet ? "xn_set_s *" : "xn_set_i *") + name + " = " + (stringSet ? "xn_set_s_new()" : "xn_set_i_new()") + ";")
+            }
             Int si = 0
             while si < call.kids.length() {
-                self.emit(indent + (stringSet ? "xn_set_s_add(" : "xn_set_i_add(") + name + ", " + self.expr(call.kids.get(si)) + ");")
+                String item = self.expr(call.kids.get(si))
+                if genericSet {
+                    self.emit(indent + "xn_set_g_add(" + name + ", " + self.encodeOf(elemTy, item) + ");")
+                } else {
+                    self.emit(indent + (stringSet ? "xn_set_s_add(" : "xn_set_i_add(") + name + ", " + item + ");")
+                }
                 si = si + 1
             }
             self.addVar(ty, name)
@@ -8064,6 +8361,23 @@ class CGen {
             Int mi = 0
             while mi + 1 < lit.kids.length() {
                 self.emit(indent + "xn_map_i_i_put_replaced(" + name + ", " + self.expr(lit.kids.get(mi)) + ", " + self.expr(lit.kids.get(mi + 1)) + ");")
+                mi = mi + 2
+            }
+            self.addVar(ty, name)
+            return
+        }
+        if self.isMap(ty) && st.kids.length() > 0 && st.kids.get(0).kind == "MapLit" {
+            AstNode lit = st.kids.get(0)
+            String keyTy = self.mapKey(ty)
+            String valTy = self.mapValue(ty)
+            String kk = self.kindOf(keyTy)
+            String vk = self.kindOf(valTy)
+            if kk == "-1" || vk == "-1" { self.fail("generic Map does not support key/value type: " + ty); return }
+            self.registerGenericMap(ty)
+            self.emit(indent + "xn_map_g *" + name + " = xn_map_g_new(4, " + kk + ", " + vk + ");")
+            Int mi = 0
+            while mi + 1 < lit.kids.length() {
+                self.emit(indent + "xn_map_g_put_replaced(" + name + ", " + self.encodeOf(keyTy, self.expr(lit.kids.get(mi))) + ", " + self.encodeOf(valTy, self.expr(lit.kids.get(mi + 1))) + ");")
                 mi = mi + 2
             }
             self.addVar(ty, name)
@@ -8654,6 +8968,7 @@ class CGen {
             self.collectLambdas(self.program.kids.get(lci), "")
             lci = lci + 1
         }
+        self.collectGenericTypes(self.program)
         self.emit("#include \"rt.h\"")
         self.emit("#include \"rt_gc.h\"")
         self.emit("#include \"xrt.h\"")
@@ -8764,6 +9079,35 @@ class CGen {
         self.emit("static int xn_set_s_has(const xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { return 1; } } return 0; }")
         self.emit("static int xn_set_s_add(xn_set_s *s, rt_string *v) { if (xn_set_s_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (rt_string **)realloc(s->data, sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }")
         self.emit("static int xn_set_s_remove(xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }")
+        self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; void **keys; void **vals; int keyKind; int valKind; } xn_map_g;")
+        self.emit("static const rt_type RT_TYPE_XN_MAP_G = { \"Map\", sizeof(xn_map_g), NULL, NULL };")
+        self.emit("static void *xn_double_to_ptr(double v) { uint64_t bits; memcpy(&bits, &v, sizeof(bits)); return (void *)(uintptr_t)bits; }")
+        self.emit("static double xn_ptr_to_double(void *p) { uint64_t bits = (uint64_t)(uintptr_t)p; double v; memcpy(&v, &bits, sizeof(v)); return v; }")
+        self.emit("static int xn_map_g_key_eq(int kind, void *a, void *b) { if (kind == 1) { return xn_str_eq((rt_string *)a, (rt_string *)b); } if (kind == 2) { return (uint64_t)(uintptr_t)a == (uint64_t)(uintptr_t)b; } return a == b; }")
+        self.emit("static xn_map_g *xn_map_g_new(size_t cap, int kk, int vk) { xn_map_g *m = (xn_map_g *)rt_gc_new(&RT_TYPE_XN_MAP_G); memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_g) - sizeof(rt_header)); m->cap = cap ? cap : 4; m->keys = (void **)malloc(sizeof(void *) * m->cap); m->vals = (void **)malloc(sizeof(void *) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } m->keyKind = kk; m->valKind = vk; return m; }")
+        self.emit("static long xn_map_g_find(const xn_map_g *m, void *key) { for (size_t i = 0; i < m->len; i++) { if (xn_map_g_key_eq(m->keyKind, m->keys[i], key)) { return (long)i; } } return -1; }")
+        self.emit("static int xn_map_g_has(const xn_map_g *m, void *key) { return xn_map_g_find(m, key) >= 0 ? 1 : 0; }")
+        self.emit("static int xn_map_g_put_replaced(xn_map_g *m, void *key, void *val) { long i = xn_map_g_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (void **)realloc(m->keys, sizeof(void *) * m->cap); m->vals = (void **)realloc(m->vals, sizeof(void *) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }")
+        self.emit("static void *xn_map_g_getOr(const xn_map_g *m, void *key, void *fallback) { long i = xn_map_g_find(m, key); return i >= 0 ? m->vals[i] : fallback; }")
+        self.emit("static int xn_map_g_remove(xn_map_g *m, void *key) { long i = xn_map_g_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }")
+        self.emit("static void *xn_map_g_remove_value(xn_map_g *m, void *key, void *fallback) { long i = xn_map_g_find(m, key); if (i < 0) { return fallback; } void *v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }")
+        self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; void **data; int elemKind; } xn_set_g;")
+        self.emit("static const rt_type RT_TYPE_XN_SET_G = { \"Set\", sizeof(xn_set_g), NULL, NULL };")
+        self.emit("static xn_set_g *xn_set_g_new(int ek) { xn_set_g *s = (xn_set_g *)rt_gc_new(&RT_TYPE_XN_SET_G); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_g) - sizeof(rt_header)); s->cap = 4; s->data = (void **)malloc(sizeof(void *) * s->cap); if (s->data == NULL) { abort(); } s->elemKind = ek; return s; }")
+        self.emit("static int xn_set_g_has(const xn_set_g *s, void *v) { for (size_t i = 0; i < s->len; i++) { if (xn_map_g_key_eq(s->elemKind, s->data[i], v)) { return 1; } } return 0; }")
+        self.emit("static int xn_set_g_add(xn_set_g *s, void *v) { if (xn_set_g_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (void **)realloc(s->data, sizeof(void *) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }")
+        self.emit("static int xn_set_g_remove(xn_set_g *s, void *v) { for (size_t i = 0; i < s->len; i++) { if (xn_map_g_key_eq(s->elemKind, s->data[i], v)) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }")
+        Int gmi = 0
+        while gmi < self.genericMaps.length() {
+            String gty = self.genericMaps.get(gmi)
+            String kty = self.mapKey(gty)
+            String vty = self.mapValue(gty)
+            String kac = self.arrayCName("List<" + kty + ">")
+            String vac = self.arrayCName("List<" + vty + ">")
+            self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m);")
+            self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m);")
+            gmi = gmi + 1
+        }
         self.emit("")
         self.emit("const char *mini_read_file(const char *path, size_t len);")
         self.emit("const char *mini_list_x(const char *path, size_t len);")
@@ -8802,6 +9146,13 @@ class CGen {
         self.emit("static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_send_double(xrt_channel *c, double v, xrt_context *ctx) { uint64_t bits; memcpy(&bits, &v, sizeof(bits)); xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)(uintptr_t)bits, ctx); r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_recv_double(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { uint64_t bits = (uint64_t)(uintptr_t)v; memcpy(&r.d, &bits, sizeof(double)); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static const xrt_channel_ops xn_channel_box_ops = { NULL, free };")
+        self.emit("static xn_Result xn_channel_send_int128(xrt_channel *c, __int128 v, xrt_context *ctx) { __int128 *p = (__int128 *)malloc(sizeof(__int128)); if (p == NULL) { abort(); } *p = v; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)p, ctx); if (rc != 0) { free(p); } r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_int128(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { __int128 *p = (__int128 *)v; r.q = *p; free(p); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_send_result(xrt_channel *c, xn_Result v, xrt_context *ctx) { xn_Result *p = (xn_Result *)malloc(sizeof(xn_Result)); if (p == NULL) { abort(); } *p = v; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)p, ctx); if (rc != 0) { free(p); } r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_result(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { xn_Result *p = (xn_Result *)v; r.p = (void *)malloc(sizeof(xn_Result)); if (r.p == NULL) { abort(); } *(xn_Result *)r.p = *p; free(p); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_send_result_is(xrt_channel *c, xn_Result_Int_String v, xrt_context *ctx) { xn_Result *p = (xn_Result *)malloc(sizeof(xn_Result)); if (p == NULL) { abort(); } memset(p, 0, sizeof(xn_Result)); p->ok = v.ok; p->i = v.value; p->s = v.error; p->err = v.error; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)p, ctx); if (rc != 0) { free(p); } r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_result_is(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { xn_Result *p = (xn_Result *)v; xn_Result_Int_String *out = (xn_Result_Int_String *)malloc(sizeof(xn_Result_Int_String)); if (out == NULL) { abort(); } out->ok = p->ok; out->value = p->i; out->error = (rt_string *)p->err; r.p = (void *)out; free(p); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }")
         self.emit("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }")
         self.emit("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }")
@@ -9085,6 +9436,17 @@ class CGen {
         }
         if concreteIntPair {
             self.emit("static xn_arr_o *xn_map_i_i_entries(const xn_map_i_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_IntPair_new(m->keys[i], m->vals[i])); } return out; }")
+        }
+        Int gmDef = 0
+        while gmDef < self.genericMaps.length() {
+            String gty = self.genericMaps.get(gmDef)
+            String kty = self.mapKey(gty)
+            String vty = self.mapValue(gty)
+            String kac = self.arrayCName("List<" + kty + ">")
+            String vac = self.arrayCName("List<" + vty + ">")
+            self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m) { " + kac + " *out = " + kac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + kac + "_push(out, " + self.decodeOf(kty, "m->keys[i]") + "); } return out; }")
+            self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m) { " + vac + " *out = " + vac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + vac + "_push(out, " + self.decodeOf(vty, "m->vals[i]") + "); } return out; }")
+            gmDef = gmDef + 1
         }
         Bool mainArgs = false
         i = 0
