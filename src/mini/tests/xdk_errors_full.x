@@ -69,5 +69,7 @@ static Int main() {
     Result<Int, String> mappedError = mapErr(badResult(), (Error failure) -> "bad")
     print(mappedError.isErr())
     print(mappedError.error())
+    Result<Int, String> described = mapErr(badResult(), (Error failure) -> failure.describe())
+    print(described.error())
     return 0
 }

@@ -17,7 +17,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_errors_full.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\ntrue\nNotFound: missing\n[cfg.missing] NotFound: missing\n1\nload -> parse -> [cfg.missing] NotFound: missing\n2\n2\ntrue\n1\n2\ntrue\n7\ntrue\ntrue\ntrue\nfalse\n1\n2\nnot_found\ntrue\n6\ntrue\ntrue\ntrue\ntrue\n1\ntrue\ntrue\n1\nn=1\ntrue\nbad\n' > "$TMP.exp"
+printf 'true\ntrue\nNotFound: missing\n[cfg.missing] NotFound: missing\n1\nload -> parse -> [cfg.missing] NotFound: missing\n2\n2\ntrue\n1\n2\ntrue\n7\ntrue\ntrue\ntrue\nfalse\n1\n2\nnot_found\ntrue\n6\ntrue\ntrue\ntrue\ntrue\n1\ntrue\ntrue\n1\nn=1\ntrue\nbad\nInvalidArgument: bad\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_meta.x" > "$TMP" 2>"$TMP.err" || {

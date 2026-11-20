@@ -2359,6 +2359,16 @@ static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode 
     if (xn_str_eq(n->text, rt_string_from_c("str"))) {
       return rt_string_from_c("String");
     }
+    int64_t dot = xn_int_wrap(xn_lastDot(n->text));
+    if ((dot > 0)) {
+      rt_string * mth = xn_str_substr(n->text, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)n->text->len) - dot)) - 1)));
+      if ((((xn_str_eq(mth, rt_string_from_c("describe")) || xn_str_eq(mth, rt_string_from_c("message"))) || xn_str_eq(mth, rt_string_from_c("code"))) || xn_str_eq(mth, rt_string_from_c("toString")))) {
+        return rt_string_from_c("String");
+      }
+      if (xn_str_eq(mth, rt_string_from_c("kind"))) {
+        return rt_string_from_c("ErrorKind");
+      }
+    }
     int64_t i = xn_int_wrap(0);
     while ((i < ((int64_t)self->program->kids->len))) {
       xn_Cls_AstNode * fn = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));

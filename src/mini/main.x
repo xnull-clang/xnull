@@ -1955,6 +1955,12 @@ class Mono {
         }
         if n.kind == "Call" {
             if n.text == "str" { return "String" }
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                if mth == "describe" || mth == "message" || mth == "code" || mth == "toString" { return "String" }
+                if mth == "kind" { return "ErrorKind" }
+            }
             Int i = 0
             while i < self.program.kids.length() {
                 AstNode fn = self.program.kids.get(i)
