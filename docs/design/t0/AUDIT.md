@@ -64,6 +64,10 @@ for t in src/mini/tests/*.sh; do "$t"; done
 
 All gates must pass on mini. There is no second engine.
 
+2026-11-20 note: functional gates pass. `m10_perf` reported 1.29x while the host
+was running a remote-desktop helper at ~90% CPU; rerun on an idle host before
+using the performance number for freeze.
+
 ## 5. Freeze blockers
 
 1. Collections container member surface is partial: `List.clear`/`Map.clear`/
