@@ -459,7 +459,7 @@ print(firstChunk.length())           // 2
 
 以下不是开放问题，而是明确移出本包的能力：
 
-- 通用 `Map<K,V>` / `Set<T>` 运行时与键规则；
+- 其他 K/V 组合的通用 `Map<K,V>` / `Set<T>` 运行时；
 - `HashMap`/`TreeMap`/`LinkedHashMap`/`Deque`/`BitSet`；
 - 并发容器、持久化容器、无锁结构。
 

@@ -50,7 +50,7 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    auditing new code.
 2. `List<Result<...>>` / generic Result containers (`collectOk`, `flatten`).
 3. Generic return-type inference for cross-type `mapOk/mapErr`; `flatten` nested Result.
-4. `Map<Int,...>` / generic `Set<T>` runtime; Generic Map/Set.
+4. `Map<Int,...>` / generic `Set<T>` runtime; Other Map/Set instantiations.
 5. `Int128` scalar support (blocked on a 128-bit compiler type).
 6. Project build and formatter are future mini work.
 
