@@ -44,6 +44,12 @@ static Int main() {
     Map<Int, Int> intMap = [:]
     print(intMap.put(1, 10))
     print(intMap.put(2, 20))
+    List<IntPair> intEntries = intMap.entries()
+    print(intEntries.length())
+    print(intEntries.get(0).first)
+    print(intEntries.get(0).second)
+    print(intEntries.get(1).first)
+    print(intEntries.get(1).second)
     print(intMap.getOr(1, 0))
     print(intMap.remove(2))
     print(intMap.length())

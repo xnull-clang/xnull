@@ -3940,6 +3940,9 @@ class Checker {
                 return "List<" + self.mapValueType(bt) + ">"
             }
             if mth == "entries" {
+                if bt == "Map<Int,Int>" {
+                    return "List<IntPair>"
+                }
                 return "List<Pair>"
             }
         }
@@ -4390,6 +4393,9 @@ class Checker {
                     return "List<" + self.mapValueType(bt) + ">"
                 }
                 if mth == "entries" {
+                    if bt == "Map<Int,Int>" {
+                        return "List<IntPair>"
+                    }
                     return "List<Pair>"
                 }
             }
@@ -6274,6 +6280,9 @@ class CGen {
                 return "List<" + self.mapValue(bt) + ">"
             }
             if mth == "entries" {
+                if bt == "Map<Int,Int>" {
+                    return "List<IntPair>"
+                }
                 return "List<Pair>"
             }
         }
@@ -6597,6 +6606,7 @@ class CGen {
             }
             if mth == "entries" {
                 if mapPrefix == "xn_map_s_i_" { return "xn_map_s_i_entries(" + bv + ")" }
+                if mapPrefix == "xn_map_i_i_" { return "xn_map_i_i_entries(" + bv + ")" }
                 return "0"
             }
             if mth == "clear" {
@@ -6948,6 +6958,9 @@ class CGen {
                         return "List<" + self.mapValue(bt) + ">"
                     }
                     if mth == "entries" {
+                        if bt == "Map<Int,Int>" {
+                            return "List<IntPair>"
+                        }
                         return "List<Pair>"
                     }
                 }
@@ -7719,6 +7732,7 @@ class CGen {
                     }
                     if mth == "entries" {
                         if mapPrefix == "xn_map_s_i_" { return "xn_map_s_i_entries(" + bv + ")" }
+                        if mapPrefix == "xn_map_i_i_" { return "xn_map_i_i_entries(" + bv + ")" }
                         return "0"
                     }
                     if mth == "clear" {
@@ -8645,6 +8659,7 @@ class CGen {
         self.emit("static int64_t xn_map_i_i_remove_value(xn_map_i_i *m, int64_t key, int64_t fallback) { long i = xn_map_i_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }")
         self.emit("static xn_arr_i *xn_map_i_i_keys(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->keys[i]); } return out; }")
         self.emit("static xn_arr_i *xn_map_i_i_values(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }")
+        self.emit("static xn_arr_o *xn_map_i_i_entries(const xn_map_i_i *m);")
         self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; rt_string **data; } xn_set_s;")
         self.emit("static const rt_type RT_TYPE_XN_SET_S = { \"Set\", sizeof(xn_set_s), NULL, NULL };")
         self.emit("static xn_set_s *xn_set_s_new(void) { xn_set_s *s = (xn_set_s *)rt_gc_new(&RT_TYPE_XN_SET_S); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_s) - sizeof(rt_header)); s->cap = 4; s->data = (rt_string **)malloc(sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } return s; }")
@@ -8958,6 +8973,18 @@ class CGen {
         }
         if concretePair {
             self.emit("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_Pair_new(m->keys[i], m->vals[i])); } return out; }")
+        }
+        Bool concreteIntPair = false
+        Int intPairIdx = 0
+        while intPairIdx < self.program.kids.length() {
+            AstNode intPairNode = self.program.kids.get(intPairIdx)
+            if (intPairNode.kind == "Class" || intPairNode.kind == "Struct") && intPairNode.text == "IntPair" && !hasTypeParams(intPairNode) {
+                concreteIntPair = true
+            }
+            intPairIdx = intPairIdx + 1
+        }
+        if concreteIntPair {
+            self.emit("static xn_arr_o *xn_map_i_i_entries(const xn_map_i_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_IntPair_new(m->keys[i], m->vals[i])); } return out; }")
         }
         Bool mainArgs = false
         i = 0

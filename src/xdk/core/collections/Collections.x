@@ -89,3 +89,14 @@ class Pair {
         self.second = second
     }
 }
+
+// IntPair：Map<Int,Int>.entries 的值对象。
+class IntPair {
+    Int first
+    Int second
+
+    IntPair(Int first, Int second) {
+        self.first = first
+        self.second = second
+    }
+}
