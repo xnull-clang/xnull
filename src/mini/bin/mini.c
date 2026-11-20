@@ -2894,7 +2894,7 @@ static int xn_Cls_Checker_knownType(xn_Cls_Checker *self, rt_string * ty) {
   if (xn_Cls_Checker_isFunctionType(self, ty)) {
     return 1;
   }
-  if (((((((((((((xn_str_eq(ty, rt_string_from_c("Int")) || xn_str_eq(ty, rt_string_from_c("String"))) || xn_str_eq(ty, rt_string_from_c("Bool"))) || xn_str_eq(ty, rt_string_from_c("Unit"))) || xn_str_eq(ty, rt_string_from_c("Char"))) || xn_str_eq(ty, rt_string_from_c("Double"))) || xn_str_eq(ty, rt_string_from_c("Long"))) || xn_str_eq(ty, rt_string_from_c("Int64"))) || xn_str_eq(ty, rt_string_from_c("Int32"))) || xn_str_eq(ty, rt_string_from_c("UInt16"))) || xn_str_eq(ty, rt_string_from_c("Int128"))) || xn_str_eq(ty, rt_string_from_c("UInt128"))) || xn_str_eq(ty, rt_string_from_c("void")))) {
+  if ((((((((((((xn_str_eq(ty, rt_string_from_c("Int")) || xn_str_eq(ty, rt_string_from_c("String"))) || xn_str_eq(ty, rt_string_from_c("Bool"))) || xn_str_eq(ty, rt_string_from_c("Unit"))) || xn_str_eq(ty, rt_string_from_c("Char"))) || xn_str_eq(ty, rt_string_from_c("Double"))) || xn_str_eq(ty, rt_string_from_c("Long"))) || xn_str_eq(ty, rt_string_from_c("Int64"))) || xn_str_eq(ty, rt_string_from_c("Int32"))) || xn_str_eq(ty, rt_string_from_c("UInt16"))) || xn_str_eq(ty, rt_string_from_c("Int128"))) || xn_str_eq(ty, rt_string_from_c("void")))) {
     return 1;
   }
   if (xn_Cls_Checker_isListType(self, ty)) {
@@ -5524,9 +5524,6 @@ static rt_string * xn_Cls_CGen_ctype(xn_Cls_CGen *self, rt_string * ty) {
   }
   if (xn_str_eq(ty, rt_string_from_c("Int128"))) {
     return rt_string_from_c("__int128");
-  }
-  if (xn_str_eq(ty, rt_string_from_c("UInt128"))) {
-    return rt_string_from_c("unsigned __int128");
   }
   if (((xn_str_eq(ty, rt_string_from_c("Void")) || xn_str_eq(ty, rt_string_from_c("void"))) || xn_str_eq(ty, rt_string_from_c("Unit")))) {
     return rt_string_from_c("void");
@@ -8260,7 +8257,7 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
       if ((xn_str_eq(pat, rt_string_from_c("Long")) || xn_str_eq(pat, rt_string_from_c("Int64")))) {
         return xn_concat(xn_concat(rt_string_from_c("xn_print_long("), av), rt_string_from_c(")"));
       }
-      if ((xn_str_eq(pat, rt_string_from_c("Int128")) || xn_str_eq(pat, rt_string_from_c("UInt128")))) {
+      if (xn_str_eq(pat, rt_string_from_c("Int128"))) {
         return xn_concat(xn_concat(rt_string_from_c("xn_print_int128("), av), rt_string_from_c(")"));
       }
       if (xn_str_eq(pat, rt_string_from_c("Double"))) {
@@ -8299,7 +8296,7 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
       if ((xn_str_eq(pat, rt_string_from_c("Long")) || xn_str_eq(pat, rt_string_from_c("Int64")))) {
         return xn_concat(xn_concat(rt_string_from_c("xn_str_long("), av), rt_string_from_c(")"));
       }
-      if ((xn_str_eq(pat, rt_string_from_c("Int128")) || xn_str_eq(pat, rt_string_from_c("UInt128")))) {
+      if (xn_str_eq(pat, rt_string_from_c("Int128"))) {
         return xn_concat(xn_concat(rt_string_from_c("xn_str_int128("), av), rt_string_from_c(")"));
       }
       return xn_concat(xn_concat(rt_string_from_c("xn_str_int("), av), rt_string_from_c(")"));

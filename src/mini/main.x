@@ -2385,7 +2385,7 @@ class Checker {
         }
         if ty == "Int" || ty == "String" || ty == "Bool" ||
             ty == "Unit" || ty == "Char" || ty == "Double" ||
-            ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "Int128" || ty == "UInt128" || ty == "void" {
+            ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "Int128" || ty == "void" {
             return true
         }
         if self.isListType(ty) {
@@ -4746,9 +4746,6 @@ class CGen {
         }
         if ty == "Int128" {
             return "__int128"
-        }
-        if ty == "UInt128" {
-            return "unsigned __int128"
         }
         if ty == "Void" || ty == "void" || ty == "Unit" {
             return "void"
@@ -7335,7 +7332,7 @@ class CGen {
                 if pat == "Long" || pat == "Int64" {
                     return "xn_print_long(" + av + ")"
                 }
-                if pat == "Int128" || pat == "UInt128" {
+                if pat == "Int128" {
                     return "xn_print_int128(" + av + ")"
                 }
                 if pat == "Double" {
@@ -7374,7 +7371,7 @@ class CGen {
                 if pat == "Long" || pat == "Int64" {
                     return "xn_str_long(" + av + ")"
                 }
-                if pat == "Int128" || pat == "UInt128" {
+                if pat == "Int128" {
                     return "xn_str_int128(" + av + ")"
                 }
                 return "xn_str_int(" + av + ")"
