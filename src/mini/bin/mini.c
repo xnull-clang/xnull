@@ -74,6 +74,11 @@ static long xn_map_s_i_find(const xn_map_s_i *m, rt_string *key) { for (size_t i
 static int xn_map_s_i_has(const xn_map_s_i *m, rt_string *key) { return xn_map_s_i_find(m, key) >= 0 ? 1 : 0; }
 static void xn_map_s_i_put(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; }
 static int64_t xn_map_s_i_getOr(const xn_map_s_i *m, rt_string *key, int64_t dflt) { long i = xn_map_s_i_find(m, key); return i >= 0 ? m->vals[i] : dflt; }
+static int xn_map_s_i_put_replaced(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }
+static int xn_map_s_i_remove(xn_map_s_i *m, rt_string *key) { long i = xn_map_s_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }
+static int64_t xn_map_s_i_remove_value(xn_map_s_i *m, rt_string *key, int64_t fallback) { long i = xn_map_s_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }
+static xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) { xn_arr_s *out = xn_arr_s_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[i]); } return out; }
+static xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }
 
 typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *data; } xn_set_i;
 static const rt_type RT_TYPE_XN_SET_I = { "Set", sizeof(xn_set_i), NULL, NULL };
@@ -4290,6 +4295,9 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
       return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(">"));
     }
+    if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+      return rt_string_from_c("List<Pair>");
+    }
   }
   if (xn_Cls_Checker_isProtocolName(self, bt)) {
     rt_string * pr = xn_Cls_Checker_protocolRet(self, bt, mth);
@@ -4793,6 +4801,9 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       }
       if (xn_str_eq(mth, rt_string_from_c("values"))) {
         return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(">"));
+      }
+      if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+        return rt_string_from_c("List<Pair>");
       }
     }
     if (xn_Cls_Checker_isProtocolName(self, bt)) {
@@ -6859,6 +6870,9 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
       return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(">"));
     }
+    if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+      return rt_string_from_c("List<Pair>");
+    }
   }
   if (xn_Cls_CGen_isProtocol(self, bt)) {
     return xn_Cls_CGen_protoRet(self, bt, mth);
@@ -7200,6 +7214,9 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
       return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_values("), bv), rt_string_from_c(")"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+      return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("clear"))) {
       return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
@@ -7580,6 +7597,9 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (xn_str_eq(mth, rt_string_from_c("values"))) {
           return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(">"));
+        }
+        if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+          return rt_string_from_c("List<Pair>");
         }
       }
       if (xn_Cls_CGen_isProtocol(self, bt)) {
@@ -8359,6 +8379,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (xn_str_eq(mth, rt_string_from_c("values"))) {
           return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_values("), bv), rt_string_from_c(")"));
+        }
+        if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+          return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("clear"))) {
           return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
@@ -9265,6 +9288,7 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_map_s_i_put_replaced(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_map_s_i_remove(xn_map_s_i *m, rt_string *key) { long i = xn_map_s_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_map_s_i_remove_value(xn_map_s_i *m, rt_string *key, int64_t fallback) { long i = xn_map_s_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) { xn_arr_s *out = xn_arr_s_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[i]); } return out; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c(""));
@@ -9575,6 +9599,9 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
       }
     }
     i = xn_int_wrap((i + 1));
+  }
+  if (xn_Cls_CGen_isClass(self, rt_string_from_c("Pair"))) {
+    xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_Pair_new(m->keys[i], m->vals[i])); } return out; }"));
   }
   int mainArgs = 0;
   i = 0;

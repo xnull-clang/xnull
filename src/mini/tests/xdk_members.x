@@ -1,3 +1,5 @@
+import xdk.collections
+
 static Int main() {
     List<Int> items = [1, 2, 3]
     items.clear()
@@ -20,6 +22,12 @@ static Int main() {
     print(map.remove("a"))
     print(map.removeOr("q", 9))
     map.put("a", 1)
+    map.put("b", 2)
+    List<Pair> entries = map.entries()
+    print(entries.length())
+    print(entries.get(0).first)
+    print(entries.get(0).second)
+    map.remove("b")
     map.clear()
     print(map.length())
 

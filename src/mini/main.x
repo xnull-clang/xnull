@@ -3802,6 +3802,9 @@ class Checker {
             if mth == "values" {
                 return "List<" + self.mapValueType(bt) + ">"
             }
+            if mth == "entries" {
+                return "List<Pair>"
+            }
         }
         if self.isProtocolName(bt) {
             String pr = self.protocolRet(bt, mth)
@@ -4245,6 +4248,9 @@ class Checker {
                 }
                 if mth == "values" {
                     return "List<" + self.mapValueType(bt) + ">"
+                }
+                if mth == "entries" {
+                    return "List<Pair>"
                 }
             }
             if self.isProtocolName(bt) {
@@ -6097,6 +6103,9 @@ class CGen {
             if mth == "values" {
                 return "List<" + self.mapValue(bt) + ">"
             }
+            if mth == "entries" {
+                return "List<Pair>"
+            }
         }
         if self.isProtocol(bt) {
             return self.protoRet(bt, mth)
@@ -6411,6 +6420,9 @@ class CGen {
             }
             if mth == "values" {
                 return "xn_map_s_i_values(" + bv + ")"
+            }
+            if mth == "entries" {
+                return "xn_map_s_i_entries(" + bv + ")"
             }
             if mth == "clear" {
                 return "(" + bv + "->len = 0)"
@@ -6756,6 +6768,9 @@ class CGen {
                     }
                     if mth == "values" {
                         return "List<" + self.mapValue(bt) + ">"
+                    }
+                    if mth == "entries" {
+                        return "List<Pair>"
                     }
                 }
                 if self.isProtocol(bt) {
@@ -7500,6 +7515,9 @@ class CGen {
                     }
                     if mth == "values" {
                         return "xn_map_s_i_values(" + bv + ")"
+                    }
+                    if mth == "entries" {
+                        return "xn_map_s_i_entries(" + bv + ")"
                     }
                     if mth == "clear" {
                         return "(" + bv + "->len = 0)"
@@ -8388,6 +8406,7 @@ class CGen {
         self.emit("static int xn_map_s_i_put_replaced(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }")
         self.emit("static int xn_map_s_i_remove(xn_map_s_i *m, rt_string *key) { long i = xn_map_s_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }")
         self.emit("static int64_t xn_map_s_i_remove_value(xn_map_s_i *m, rt_string *key, int64_t fallback) { long i = xn_map_s_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }")
+        self.emit("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m);")
         self.emit("static xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) { xn_arr_s *out = xn_arr_s_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[i]); } return out; }")
         self.emit("static xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }")
         self.emit("")
@@ -8691,6 +8710,9 @@ class CGen {
                 }
             }
             i = i + 1
+        }
+        if self.isClass("Pair") {
+            self.emit("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_Pair_new(m->keys[i], m->vals[i])); } return out; }")
         }
         Bool mainArgs = false
         i = 0

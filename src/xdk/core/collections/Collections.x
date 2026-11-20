@@ -78,3 +78,14 @@ String join(List<String> items, String separator) {
     }
     return result
 }
+
+// Pair：Map<String,Int>.entries 的值对象。
+class Pair {
+    String first
+    Int second
+
+    Pair(String first, Int second) {
+        self.first = first
+        self.second = second
+    }
+}
