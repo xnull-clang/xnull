@@ -8950,7 +8950,16 @@ class CGen {
             }
             i = i + 1
         }
-        if self.isClass("Pair") {
+        Bool concretePair = false
+        Int pairIdx = 0
+        while pairIdx < self.program.kids.length() {
+            AstNode pairNode = self.program.kids.get(pairIdx)
+            if (pairNode.kind == "Class" || pairNode.kind == "Struct") && pairNode.text == "Pair" && !hasTypeParams(pairNode) {
+                concretePair = true
+            }
+            pairIdx = pairIdx + 1
+        }
+        if concretePair {
             self.emit("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_Pair_new(m->keys[i], m->vals[i])); } return out; }")
         }
         Bool mainArgs = false

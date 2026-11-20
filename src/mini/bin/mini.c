@@ -122,7 +122,7 @@ int32_t xdkc_exit_rc(int32_t code);
 int64_t xdkc_now_mono_ms(void);
 int64_t xdkc_now_wall_ms(void);
 typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;
-typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;
+typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; __int128 q; } xn_Result;
 static void *xn_box_result(xn_Result v) { xn_Result *p = (xn_Result *)malloc(sizeof(xn_Result)); if (p == NULL) { abort(); } *p = v; return (void *)p; }
 typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;
 static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { "BuiltinError", sizeof(xn_builtin_error), NULL, NULL };
@@ -9933,7 +9933,16 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
     }
     i = xn_int_wrap((i + 1));
   }
-  if (xn_Cls_CGen_isClass(self, rt_string_from_c("Pair"))) {
+  int concretePair = 0;
+  int64_t pairIdx = xn_int_wrap(0);
+  while ((pairIdx < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * pairNode = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, pairIdx));
+    if ((((xn_str_eq(pairNode->kind, rt_string_from_c("Class")) || xn_str_eq(pairNode->kind, rt_string_from_c("Struct"))) && xn_str_eq(pairNode->text, rt_string_from_c("Pair"))) && (!xn_hasTypeParams(pairNode)))) {
+      concretePair = 1;
+    }
+    pairIdx = xn_int_wrap((pairIdx + 1));
+  }
+  if (concretePair) {
     xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_Pair_new(m->keys[i], m->vals[i])); } return out; }"));
   }
   int mainArgs = 0;
