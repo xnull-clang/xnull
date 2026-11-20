@@ -37,12 +37,12 @@ Still to watch:
 | runtime | v1.0 | mini | PASS | — |
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
-| text | missing | mini | PASS | design doc; Regex T0-X |
+| text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
 | collections | v1.2 | partial | PASS (subset) | List.clear/try*, Map entries, generic Map/Set |
 | math | missing | mini | PASS | design doc; Int128 blocked |
-| time | missing | mini | PASS | design doc |
-| io | missing | mini | PASS | design doc |
-| fs | missing | mini | PASS | design doc; large offsets |
+| time | v1.0 | mini | PASS | — |
+| io | v1.0 | partial | PASS | strict/checked + copy semantics |
+| fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
 | sys | missing | mini | PASS | design doc; resource T0-X |
 | tasks | missing | mini | PASS | design doc |
 | sync | missing | mini | PASS | design doc; typed channels |
@@ -66,8 +66,8 @@ All gates must pass on mini. There is no second engine.
 
 ## 5. Freeze blockers
 
-1. T0 design docs for `text`, `math`, `time`, `io`, `fs`, `sys`, `tasks`,
-   `sync`, `log`, `config`, `cli` are still missing.
+1. T0 design docs for `math`, `sys`, `tasks`, `sync`, `log`, `config`,
+   `cli` are still missing.
 2. Collections container member surface (`List.clear/try*`, `Map` entries,
    `Set` checked) and generic `Map<K,V>`/`Set<T>` runtime are not implemented.
 3. `collectOk`/`flatten`/cross-type `mapOk/mapErr` await generic Result

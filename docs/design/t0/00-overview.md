@@ -333,11 +333,11 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `AUDIT.md` | T0 冻结前审计、Int 32 位、包状态、门禁 | 当前 |
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
-| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | 待写 |
+| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
 | `07-math.md` | 数学函数、溢出、统计、Int128 | 待写 |
-| `08-time.md` | Instant、Duration、DateTime、TimeZone | 待写 |
-| `09-io.md` | Reader/Writer、缓冲、组合、stdio | 待写 |
-| `10-fs.md` | Path、File、Dir、遍历、临时、原子 | 待写 |
+| `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
+| `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
+| `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
 | `11-sys.md` | Process、Env、Platform、Signal | 待写 |
 | `12-tasks.md` | Task、TaskGroup、Context、取消 | 待写 |
 | `13-sync.md` | Mutex、Channel、Atomics、同步器 | 待写 |
