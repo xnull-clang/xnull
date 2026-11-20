@@ -58,5 +58,11 @@ static Int main() {
     Result<Bytes, CancelledError> receivedBytes = payloads.receive()
     print(receivedBytes.isOk())
     print(toUtf8(receivedBytes.value()))
+
+    Channel<Double> doubles = new Channel<Double>(1)
+    print(doubles.send(1.5).isOk())
+    Result<Double, CancelledError> receivedDouble = doubles.receive()
+    print(receivedDouble.isOk())
+    print(receivedDouble.value())
     return 0
 }

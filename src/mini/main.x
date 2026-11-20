@@ -6330,10 +6330,12 @@ class CGen {
             String elementType = bt.substring(8, bt.length() - 9)
             if mth == "send" {
                 if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+                if elementType == "Double" { return "xn_channel_send_double(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
                 return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "), " + self.curCtxExpr + ")"
             }
             if mth == "receive" {
                 if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+                if elementType == "Double" { return "xn_channel_recv_double(" + bv + ", " + self.curCtxExpr + ")" }
                 return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
             }
             if mth == "close" { return "xrt_channel_close(" + bv + ")" }
@@ -7432,10 +7434,12 @@ class CGen {
                     String elementType = bt.substring(8, bt.length() - 9)
                     if mth == "send" {
                         if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Double" { return "xn_channel_send_double(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
                         return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "), " + self.curCtxExpr + ")"
                     }
                     if mth == "receive" {
                         if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+                        if elementType == "Double" { return "xn_channel_recv_double(" + bv + ", " + self.curCtxExpr + ")" }
                         return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
                     }
                     if mth == "close" { return "xrt_channel_close(" + bv + ")" }
@@ -8708,6 +8712,8 @@ class CGen {
         self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_send_double(xrt_channel *c, double v, xrt_context *ctx) { uint64_t bits; memcpy(&bits, &v, sizeof(bits)); xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)(uintptr_t)bits, ctx); r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_double(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { uint64_t bits = (uint64_t)(uintptr_t)v; memcpy(&r.d, &bits, sizeof(double)); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }")
         self.emit("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }")
         self.emit("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }")

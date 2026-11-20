@@ -143,7 +143,7 @@ static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || 
 static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
-static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
+static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }
 static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }
 static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }
@@ -7188,11 +7188,17 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
       if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
         return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
       }
+      if (xn_str_eq(elementType, rt_string_from_c("Double"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_double("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      }
       return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_ptr("), bv), rt_string_from_c(", (void *)(")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c("), ")), self->curCtxExpr), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("receive"))) {
       if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
         return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      }
+      if (xn_str_eq(elementType, rt_string_from_c("Double"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_double("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
       }
       return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_ptr("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
     }
@@ -8372,11 +8378,17 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
             return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
           }
+          if (xn_str_eq(elementType, rt_string_from_c("Double"))) {
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_double("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          }
           return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_ptr("), bv), rt_string_from_c(", (void *)(")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c("), ")), self->curCtxExpr), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("receive"))) {
           if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
             return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          }
+          if (xn_str_eq(elementType, rt_string_from_c("Double"))) {
+            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_double("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
           }
           return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_ptr("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
         }
@@ -9693,6 +9705,8 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_send_double(xrt_channel *c, double v, xrt_context *ctx) { uint64_t bits; memcpy(&bits, &v, sizeof(bits)); xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)(uintptr_t)bits, ctx); r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_double(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { uint64_t bits = (uint64_t)(uintptr_t)v; memcpy(&r.d, &bits, sizeof(double)); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }"));
