@@ -77,6 +77,7 @@ static int64_t xn_map_s_i_getOr(const xn_map_s_i *m, rt_string *key, int64_t dfl
 static int xn_map_s_i_put_replaced(xn_map_s_i *m, rt_string *key, int64_t val) { long i = xn_map_s_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (rt_string **)realloc(m->keys, sizeof(rt_string *) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }
 static int xn_map_s_i_remove(xn_map_s_i *m, rt_string *key) { long i = xn_map_s_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }
 static int64_t xn_map_s_i_remove_value(xn_map_s_i *m, rt_string *key, int64_t fallback) { long i = xn_map_s_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }
+static xn_arr_o *xn_map_s_i_entries(const xn_map_s_i *m);
 static xn_arr_s *xn_map_s_i_keys(const xn_map_s_i *m) { xn_arr_s *out = xn_arr_s_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_s_push(out, m->keys[i]); } return out; }
 static xn_arr_i *xn_map_s_i_values(const xn_map_s_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }
 
@@ -86,6 +87,23 @@ static xn_set_i *xn_set_i_new(void) { xn_set_i *s = (xn_set_i *)rt_gc_new(&RT_TY
 static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }
 static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }
 static int xn_set_i_remove(xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }
+typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *keys; int64_t *vals; } xn_map_i_i;
+static const rt_type RT_TYPE_XN_MAP_I_I = { "Map", sizeof(xn_map_i_i), NULL, NULL };
+static xn_map_i_i *xn_map_i_i_new(size_t cap) { xn_map_i_i *m = (xn_map_i_i *)rt_gc_new(&RT_TYPE_XN_MAP_I_I); memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_i_i) - sizeof(rt_header)); m->cap = cap ? cap : 4; m->keys = (int64_t *)malloc(sizeof(int64_t) * m->cap); m->vals = (int64_t *)malloc(sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } return m; }
+static long xn_map_i_i_find(const xn_map_i_i *m, int64_t key) { for (size_t i = 0; i < m->len; i++) { if (m->keys[i] == key) { return (long)i; } } return -1; }
+static int xn_map_i_i_has(const xn_map_i_i *m, int64_t key) { return xn_map_i_i_find(m, key) >= 0 ? 1 : 0; }
+static int64_t xn_map_i_i_getOr(const xn_map_i_i *m, int64_t key, int64_t fallback) { long i = xn_map_i_i_find(m, key); return i >= 0 ? m->vals[i] : fallback; }
+static int xn_map_i_i_put_replaced(xn_map_i_i *m, int64_t key, int64_t val) { long i = xn_map_i_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (int64_t *)realloc(m->keys, sizeof(int64_t) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }
+static int xn_map_i_i_remove(xn_map_i_i *m, int64_t key) { long i = xn_map_i_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }
+static int64_t xn_map_i_i_remove_value(xn_map_i_i *m, int64_t key, int64_t fallback) { long i = xn_map_i_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }
+static xn_arr_i *xn_map_i_i_keys(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->keys[i]); } return out; }
+static xn_arr_i *xn_map_i_i_values(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }
+typedef struct { rt_header hdr; size_t len; size_t cap; rt_string **data; } xn_set_s;
+static const rt_type RT_TYPE_XN_SET_S = { "Set", sizeof(xn_set_s), NULL, NULL };
+static xn_set_s *xn_set_s_new(void) { xn_set_s *s = (xn_set_s *)rt_gc_new(&RT_TYPE_XN_SET_S); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_s) - sizeof(rt_header)); s->cap = 4; s->data = (rt_string **)malloc(sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } return s; }
+static int xn_set_s_has(const xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { return 1; } } return 0; }
+static int xn_set_s_add(xn_set_s *s, rt_string *v) { if (xn_set_s_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (rt_string **)realloc(s->data, sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }
+static int xn_set_s_remove(xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }
 
 const char *mini_read_file(const char *path, size_t len);
 const char *mini_list_x(const char *path, size_t len);
@@ -2601,6 +2619,7 @@ static void xn_Cls_Checker_collect(xn_Cls_Checker *self);
 static void xn_Cls_Checker_addVar(xn_Cls_Checker *self, rt_string * ty, rt_string * name, xn_Cls_AstNode * where);
 static void xn_Cls_Checker_popTo(xn_Cls_Checker *self, int64_t mark);
 static int xn_Cls_Checker_isEmptyArray(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static int xn_Cls_Checker_isEmptyMap(xn_Cls_Checker *self, xn_Cls_AstNode * n);
 static void xn_Cls_Checker_check(xn_Cls_Checker *self);
 static void xn_Cls_Checker_checkClass(xn_Cls_Checker *self, xn_Cls_AstNode * cls);
 static void xn_Cls_Checker_checkFunc(xn_Cls_Checker *self, xn_Cls_AstNode * fn);
@@ -3135,6 +3154,10 @@ static int xn_Cls_Checker_isEmptyArray(xn_Cls_Checker *self, xn_Cls_AstNode * n)
   return (xn_str_eq(n->kind, rt_string_from_c("ArrayLit")) && (((int64_t)n->kids->len) == 0));
 }
 
+static int xn_Cls_Checker_isEmptyMap(xn_Cls_Checker *self, xn_Cls_AstNode * n) {
+  return (xn_str_eq(n->kind, rt_string_from_c("MapLit")) && (((int64_t)n->kids->len) == 0));
+}
+
 static void xn_Cls_Checker_check(xn_Cls_Checker *self) {
   xn_Cls_Checker_collect(self);
   int64_t i = xn_int_wrap(0);
@@ -3256,7 +3279,8 @@ static void xn_Cls_Checker_checkStmt(xn_Cls_Checker *self, xn_Cls_AstNode * st) 
     }
     rt_string * lt = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0)));
     rt_string * rt = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 1)));
-    if (((((!xn_str_eq(lt, rt_string_from_c("Error"))) && (!xn_str_eq(rt, rt_string_from_c("Error")))) && (!xn_Cls_Checker_isAssignable(self, lt, rt))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 1))) && xn_Cls_Checker_isListType(self, lt))))) {
+    int emptyMap = (xn_Cls_Checker_isEmptyMap(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 1))) && xn_Cls_Checker_isMapType(self, lt));
+    if ((((((!xn_str_eq(lt, rt_string_from_c("Error"))) && (!xn_str_eq(rt, rt_string_from_c("Error")))) && (!xn_Cls_Checker_isAssignable(self, lt, rt))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 1))) && xn_Cls_Checker_isListType(self, lt)))) && (!emptyMap))) {
       xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(rt_string_from_c("assignment "), lt), rt_string_from_c(" = ")), rt), st);
     }
     return;
@@ -3409,7 +3433,8 @@ static void xn_Cls_Checker_checkStmt(xn_Cls_Checker *self, xn_Cls_AstNode * st) 
         it = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0)));
       }
       int setLit = ((xn_Cls_Checker_isSetType(self, ty) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))->kind, rt_string_from_c("ArrayLit"))) && xn_str_eq(xn_Cls_Checker_elementType(self, it), rt_string_from_c("Int")));
-      if (((((!xn_str_eq(it, rt_string_from_c("Error"))) && (!xn_Cls_Checker_isAssignable(self, ty, it))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))) && xn_Cls_Checker_isListType(self, ty)))) && (!setLit))) {
+      int emptyMap = (xn_Cls_Checker_isEmptyMap(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))) && xn_Cls_Checker_isMapType(self, ty));
+      if ((((((!xn_str_eq(it, rt_string_from_c("Error"))) && (!xn_Cls_Checker_isAssignable(self, ty, it))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))) && xn_Cls_Checker_isListType(self, ty)))) && (!setLit)) && (!emptyMap))) {
         xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(rt_string_from_c("cannot initialize "), ty), rt_string_from_c(" with ")), it), st);
       }
     }
@@ -4290,7 +4315,7 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
       return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(",Error>"));
     }
     if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-      return rt_string_from_c("List<String>");
+      return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapKeyType(self, bt)), rt_string_from_c(">"));
     }
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
       return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(">"));
@@ -4526,15 +4551,22 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
     return rt_string_from_c("String");
   }
   if (xn_str_eq(n->text, rt_string_from_c("Set.of"))) {
+    rt_string * elementType = rt_string_from_c("Int");
     int64_t i = xn_int_wrap(0);
     while ((i < argc)) {
       rt_string * at = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)));
-      if (((!xn_str_eq(at, rt_string_from_c("Error"))) && (!xn_str_eq(at, rt_string_from_c("Int"))))) {
-        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(rt_string_from_c("Set.of expects Int, got "), at), n);
+      if ((((!xn_str_eq(at, rt_string_from_c("Error"))) && (!xn_str_eq(at, rt_string_from_c("Int")))) && (!xn_str_eq(at, rt_string_from_c("String"))))) {
+        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(rt_string_from_c("Set.of expects Int or String, got "), at), n);
+      }
+      if (((i == 0) && xn_str_eq(at, rt_string_from_c("String")))) {
+        elementType = rt_string_from_c("String");
+      }
+      if ((!xn_str_eq(at, elementType))) {
+        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), rt_string_from_c("Set.of mixed element types"), n);
       }
       i = xn_int_wrap((i + 1));
     }
-    return rt_string_from_c("Set<Int>");
+    return xn_concat(xn_concat(rt_string_from_c("Set<"), elementType), rt_string_from_c(">"));
   }
   if ((xn_str_eq(n->text, rt_string_from_c("Ok")) || xn_str_eq(n->text, rt_string_from_c("Err")))) {
     if ((!xn_Cls_Checker_isResultType(self, self->curRet))) {
@@ -4797,7 +4829,7 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
         return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(",Error>"));
       }
       if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-        return rt_string_from_c("List<String>");
+        return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapKeyType(self, bt)), rt_string_from_c(">"));
       }
       if (xn_str_eq(mth, rt_string_from_c("values"))) {
         return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_mapValueType(self, bt)), rt_string_from_c(">"));
@@ -5063,6 +5095,7 @@ static int xn_Cls_CGen_isGcRefType(xn_Cls_CGen *self, rt_string * ty);
 static int xn_Cls_CGen_isMap(xn_Cls_CGen *self, rt_string * ty);
 static int xn_Cls_CGen_isSet(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_mapValue(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_mapKey(xn_Cls_CGen *self, rt_string * ty);
 static int xn_Cls_CGen_isFunctionType(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_fnRetType(xn_Cls_CGen *self, rt_string * ty);
 static xn_arr_s * xn_Cls_CGen_fnParams(xn_Cls_CGen *self, rt_string * ty);
@@ -5318,6 +5351,12 @@ static rt_string * xn_Cls_CGen_ctype(xn_Cls_CGen *self, rt_string * ty) {
   }
   if (xn_str_eq(ty, rt_string_from_c("Map<String,Int>"))) {
     return rt_string_from_c("xn_map_s_i *");
+  }
+  if (xn_str_eq(ty, rt_string_from_c("Map<Int,Int>"))) {
+    return rt_string_from_c("xn_map_i_i *");
+  }
+  if (xn_str_eq(ty, rt_string_from_c("Set<String>"))) {
+    return rt_string_from_c("xn_set_s *");
   }
   if (xn_Cls_CGen_isSet(self, ty)) {
     return rt_string_from_c("xn_set_i *");
@@ -5583,6 +5622,15 @@ static rt_string * xn_Cls_CGen_mapValue(xn_Cls_CGen *self, rt_string * ty) {
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 2)) {
     return xn_str_trim(xn_arr_s_get(parts, 1));
+  }
+  return rt_string_from_c("Any");
+}
+
+static rt_string * xn_Cls_CGen_mapKey(xn_Cls_CGen *self, rt_string * ty) {
+  rt_string * inner = xn_str_substr(ty, 4, xn_int_wrap((((int64_t)ty->len) - 5)));
+  xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
+  if ((((int64_t)parts->len) >= 1)) {
+    return xn_str_trim(xn_arr_s_get(parts, 0));
   }
   return rt_string_from_c("Any");
 }
@@ -6865,7 +6913,7 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
       return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(",Error>"));
     }
     if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-      return rt_string_from_c("List<String>");
+      return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapKey(self, bt)), rt_string_from_c(">"));
     }
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
       return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(">"));
@@ -7056,24 +7104,28 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
   }
   if (xn_Cls_CGen_isSet(self, bt)) {
+    rt_string * setPrefix = rt_string_from_c("xn_set_i_");
+    if (xn_str_eq(bt, rt_string_from_c("Set<String>"))) {
+      setPrefix = rt_string_from_c("xn_set_s_");
+    }
     if (xn_str_eq(mth, rt_string_from_c("length"))) {
       return xn_concat(xn_concat(rt_string_from_c("((int64_t)"), bv), rt_string_from_c("->len)"));
     }
     if (xn_str_eq(mth, rt_string_from_c("has"))) {
       if ((((int64_t)n->kids->len) > off)) {
-        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_has("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+        return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("has(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
       }
       return rt_string_from_c("0");
     }
     if (xn_str_eq(mth, rt_string_from_c("add"))) {
       if ((((int64_t)n->kids->len) > off)) {
-        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_add("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+        return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("add(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
       }
       return rt_string_from_c("0");
     }
     if (xn_str_eq(mth, rt_string_from_c("remove"))) {
       if ((((int64_t)n->kids->len) > off)) {
-        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+        return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("remove(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
       }
       return rt_string_from_c("0");
     }
@@ -7184,39 +7236,46 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
   }
   if (xn_Cls_CGen_isMap(self, bt)) {
+    rt_string * mapPrefix = rt_string_from_c("xn_map_s_i_");
+    if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
+      mapPrefix = rt_string_from_c("xn_map_i_i_");
+    }
     if (xn_str_eq(mth, rt_string_from_c("length"))) {
       return xn_concat(xn_concat(rt_string_from_c("((int64_t)"), bv), rt_string_from_c("->len)"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("has")) && (((int64_t)n->kids->len) > off))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_has("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("has(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("put")) && (((int64_t)n->kids->len) > xn_int_wrap((off + 1))))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_put_replaced("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("put_replaced(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("getOr")) && (((int64_t)n->kids->len) > xn_int_wrap((off + 1))))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("getOr(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("remove")) && (((int64_t)n->kids->len) > off))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("remove(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("removeOr")) && (((int64_t)n->kids->len) > xn_int_wrap((off + 1))))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_remove_value("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("remove_value(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
     }
     if ((xn_str_eq(mth, rt_string_from_c("tryGet")) && (((int64_t)n->kids->len) > off))) {
       rt_string * key = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)));
       rt_string * valueTy = xn_Cls_CGen_mapValue(self, bt);
-      rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, xn_concat(xn_concat(rt_string_from_c("Result<"), valueTy), rt_string_from_c(",Error>")), xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), key), rt_string_from_c(", 0)")))), rt_string_from_c(" }"));
+      rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, xn_concat(xn_concat(rt_string_from_c("Result<"), valueTy), rt_string_from_c(",Error>")), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("getOr(")), bv), rt_string_from_c(", ")), key), rt_string_from_c(", 0)")))), rt_string_from_c(" }"));
       rt_string * err = rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }");
-      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(xn_map_s_i_has("), bv), rt_string_from_c(", ")), key), rt_string_from_c(") ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("("), mapPrefix), rt_string_from_c("has(")), bv), rt_string_from_c(", ")), key), rt_string_from_c(") ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-      return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_keys("), bv), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("keys(")), bv), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("values"))) {
-      return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_values("), bv), rt_string_from_c(")"));
+      return xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("values(")), bv), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("entries"))) {
-      return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
+      if (xn_str_eq(mapPrefix, rt_string_from_c("xn_map_s_i_"))) {
+        return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
+      }
+      return rt_string_from_c("0");
     }
     if (xn_str_eq(mth, rt_string_from_c("clear"))) {
       return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
@@ -7593,7 +7652,7 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           return xn_concat(xn_concat(rt_string_from_c("Result<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(",Error>"));
         }
         if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-          return rt_string_from_c("List<String>");
+          return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapKey(self, bt)), rt_string_from_c(">"));
         }
         if (xn_str_eq(mth, rt_string_from_c("values"))) {
           return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(">"));
@@ -8203,24 +8262,28 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
       }
       if (xn_Cls_CGen_isSet(self, bt)) {
+        rt_string * setPrefix = rt_string_from_c("xn_set_i_");
+        if (xn_str_eq(bt, rt_string_from_c("Set<String>"))) {
+          setPrefix = rt_string_from_c("xn_set_s_");
+        }
         if (xn_str_eq(mth, rt_string_from_c("length"))) {
           return xn_concat(xn_concat(rt_string_from_c("((int64_t)"), bv), rt_string_from_c("->len)"));
         }
         if (xn_str_eq(mth, rt_string_from_c("has"))) {
           if ((((int64_t)n->kids->len) > 0)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_has("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("has(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("add"))) {
           if ((((int64_t)n->kids->len) > 0)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_add("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("add(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("remove"))) {
           if ((((int64_t)n->kids->len) > 0)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(setPrefix, rt_string_from_c("remove(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
@@ -8331,36 +8394,40 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
       }
       if (xn_Cls_CGen_isMap(self, bt)) {
+        rt_string * mapPrefix = rt_string_from_c("xn_map_s_i_");
+        if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
+          mapPrefix = rt_string_from_c("xn_map_i_i_");
+        }
         if (xn_str_eq(mth, rt_string_from_c("length"))) {
           return xn_concat(xn_concat(rt_string_from_c("((int64_t)"), bv), rt_string_from_c("->len)"));
         }
         if (xn_str_eq(mth, rt_string_from_c("has"))) {
           if ((((int64_t)n->kids->len) > 0)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_has("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("has(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("put"))) {
           if ((((int64_t)n->kids->len) >= 2)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_put_replaced("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("put_replaced(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("getOr"))) {
           if ((((int64_t)n->kids->len) >= 2)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("getOr(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("remove"))) {
           if ((((int64_t)n->kids->len) > 0)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("remove(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("removeOr"))) {
           if ((((int64_t)n->kids->len) >= 2)) {
-            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_remove_value("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("remove_value(")), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
@@ -8368,20 +8435,23 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           if ((((int64_t)n->kids->len) > 0)) {
             rt_string * key = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
             rt_string * valueTy = xn_Cls_CGen_mapValue(self, bt);
-            rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, xn_concat(xn_concat(rt_string_from_c("Result<"), valueTy), rt_string_from_c(",Error>")), xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), key), rt_string_from_c(", 0)")))), rt_string_from_c(" }"));
+            rt_string * ok = xn_concat(xn_concat(rt_string_from_c("(xn_Result){ .ok = 1, "), xn_Cls_CGen_resultInitField(self, xn_concat(xn_concat(rt_string_from_c("Result<"), valueTy), rt_string_from_c(",Error>")), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("getOr(")), bv), rt_string_from_c(", ")), key), rt_string_from_c(", 0)")))), rt_string_from_c(" }"));
             rt_string * err = rt_string_from_c("(xn_Result){ .ok = 0, .err = (void *)xn_builtin_error_new(1, \"tryGet: key not found\") }");
-            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(xn_map_s_i_has("), bv), rt_string_from_c(", ")), key), rt_string_from_c(") ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("("), mapPrefix), rt_string_from_c("has(")), bv), rt_string_from_c(", ")), key), rt_string_from_c(") ? ")), ok), rt_string_from_c(" : ")), err), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("keys"))) {
-          return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_keys("), bv), rt_string_from_c(")"));
+          return xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("keys(")), bv), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("values"))) {
-          return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_values("), bv), rt_string_from_c(")"));
+          return xn_concat(xn_concat(xn_concat(mapPrefix, rt_string_from_c("values(")), bv), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("entries"))) {
-          return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
+          if (xn_str_eq(mapPrefix, rt_string_from_c("xn_map_s_i_"))) {
+            return xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_entries("), bv), rt_string_from_c(")"));
+          }
+          return rt_string_from_c("0");
         }
         if (xn_str_eq(mth, rt_string_from_c("clear"))) {
           return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
@@ -8559,10 +8629,11 @@ static void xn_Cls_CGen_local(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string 
   }
   if (((xn_Cls_CGen_isSet(self, ty) && (((int64_t)st->kids->len) > 0)) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))->kind, rt_string_from_c("ArrayLit")))) {
     xn_Cls_AstNode * lit = ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0));
-    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_set_i *")), name), rt_string_from_c(" = xn_set_i_new();")));
+    int stringSet = xn_str_eq(ty, rt_string_from_c("Set<String>"));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, ((stringSet) ? (rt_string_from_c("xn_set_s *")) : (rt_string_from_c("xn_set_i *")))), name), rt_string_from_c(" = ")), ((stringSet) ? (rt_string_from_c("xn_set_s_new()")) : (rt_string_from_c("xn_set_i_new()")))), rt_string_from_c(";")));
     int64_t si = xn_int_wrap(0);
     while ((si < ((int64_t)lit->kids->len))) {
-      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_set_i_add(")), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, si)))), rt_string_from_c(");")));
+      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, ((stringSet) ? (rt_string_from_c("xn_set_s_add(")) : (rt_string_from_c("xn_set_i_add(")))), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, si)))), rt_string_from_c(");")));
       si = xn_int_wrap((si + 1));
     }
     xn_Cls_CGen_addVar(self, ty, name);
@@ -8570,10 +8641,11 @@ static void xn_Cls_CGen_local(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string 
   }
   if ((((xn_Cls_CGen_isSet(self, ty) && (((int64_t)st->kids->len) > 0)) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))->kind, rt_string_from_c("Call"))) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))->text, rt_string_from_c("Set.of")))) {
     xn_Cls_AstNode * call = ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0));
-    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_set_i *")), name), rt_string_from_c(" = xn_set_i_new();")));
+    int stringSet = xn_str_eq(ty, rt_string_from_c("Set<String>"));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, ((stringSet) ? (rt_string_from_c("xn_set_s *")) : (rt_string_from_c("xn_set_i *")))), name), rt_string_from_c(" = ")), ((stringSet) ? (rt_string_from_c("xn_set_s_new()")) : (rt_string_from_c("xn_set_i_new()")))), rt_string_from_c(";")));
     int64_t si = xn_int_wrap(0);
     while ((si < ((int64_t)call->kids->len))) {
-      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_set_i_add(")), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(call->kids, si)))), rt_string_from_c(");")));
+      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, ((stringSet) ? (rt_string_from_c("xn_set_s_add(")) : (rt_string_from_c("xn_set_i_add(")))), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(call->kids, si)))), rt_string_from_c(");")));
       si = xn_int_wrap((si + 1));
     }
     xn_Cls_CGen_addVar(self, ty, name);
@@ -8604,6 +8676,17 @@ static void xn_Cls_CGen_local(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string 
     int64_t mi = xn_int_wrap(0);
     while ((xn_int_wrap((mi + 1)) < ((int64_t)lit->kids->len))) {
       xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_map_s_i_put(")), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, mi)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, xn_int_wrap((mi + 1)))))), rt_string_from_c(");")));
+      mi = xn_int_wrap((mi + 2));
+    }
+    xn_Cls_CGen_addVar(self, ty, name);
+    return;
+  }
+  if (((xn_str_eq(ty, rt_string_from_c("Map<Int,Int>")) && (((int64_t)st->kids->len) > 0)) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0))->kind, rt_string_from_c("MapLit")))) {
+    xn_Cls_AstNode * lit = ((xn_Cls_AstNode *)xn_arr_o_get(st->kids, 0));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_map_i_i *")), name), rt_string_from_c(" = xn_map_i_i_new(4);")));
+    int64_t mi = xn_int_wrap(0);
+    while ((xn_int_wrap((mi + 1)) < ((int64_t)lit->kids->len))) {
+      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_map_i_i_put_replaced(")), name), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, mi)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(lit->kids, xn_int_wrap((mi + 1)))))), rt_string_from_c(");")));
       mi = xn_int_wrap((mi + 2));
     }
     xn_Cls_CGen_addVar(self, ty, name);
@@ -9298,6 +9381,23 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_remove(xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { rt_header hdr; size_t len; size_t cap; int64_t *keys; int64_t *vals; } xn_map_i_i;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static const rt_type RT_TYPE_XN_MAP_I_I = { \"Map\", sizeof(xn_map_i_i), NULL, NULL };"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_map_i_i *xn_map_i_i_new(size_t cap) { xn_map_i_i *m = (xn_map_i_i *)rt_gc_new(&RT_TYPE_XN_MAP_I_I); memset((char *)m + sizeof(rt_header), 0, sizeof(xn_map_i_i) - sizeof(rt_header)); m->cap = cap ? cap : 4; m->keys = (int64_t *)malloc(sizeof(int64_t) * m->cap); m->vals = (int64_t *)malloc(sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } return m; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static long xn_map_i_i_find(const xn_map_i_i *m, int64_t key) { for (size_t i = 0; i < m->len; i++) { if (m->keys[i] == key) { return (long)i; } } return -1; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_map_i_i_has(const xn_map_i_i *m, int64_t key) { return xn_map_i_i_find(m, key) >= 0 ? 1 : 0; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_map_i_i_getOr(const xn_map_i_i *m, int64_t key, int64_t fallback) { long i = xn_map_i_i_find(m, key); return i >= 0 ? m->vals[i] : fallback; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_map_i_i_put_replaced(xn_map_i_i *m, int64_t key, int64_t val) { long i = xn_map_i_i_find(m, key); if (i >= 0) { m->vals[i] = val; return 1; } if (m->len == m->cap) { m->cap *= 2; m->keys = (int64_t *)realloc(m->keys, sizeof(int64_t) * m->cap); m->vals = (int64_t *)realloc(m->vals, sizeof(int64_t) * m->cap); if (m->keys == NULL || m->vals == NULL) { abort(); } } m->keys[m->len] = key; m->vals[m->len] = val; m->len++; return 0; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_map_i_i_remove(xn_map_i_i *m, int64_t key) { long i = xn_map_i_i_find(m, key); if (i < 0) { return 0; } for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return 1; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_map_i_i_remove_value(xn_map_i_i *m, int64_t key, int64_t fallback) { long i = xn_map_i_i_find(m, key); if (i < 0) { return fallback; } int64_t v = m->vals[i]; for (size_t j = (size_t)i; j + 1 < m->len; j++) { m->keys[j] = m->keys[j + 1]; m->vals[j] = m->vals[j + 1]; } m->len--; return v; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_i *xn_map_i_i_keys(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->keys[i]); } return out; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_i *xn_map_i_i_values(const xn_map_i_i *m) { xn_arr_i *out = xn_arr_i_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_i_push(out, m->vals[i]); } return out; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { rt_header hdr; size_t len; size_t cap; rt_string **data; } xn_set_s;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static const rt_type RT_TYPE_XN_SET_S = { \"Set\", sizeof(xn_set_s), NULL, NULL };"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_set_s *xn_set_s_new(void) { xn_set_s *s = (xn_set_s *)rt_gc_new(&RT_TYPE_XN_SET_S); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_s) - sizeof(rt_header)); s->cap = 4; s->data = (rt_string **)malloc(sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } return s; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_s_has(const xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { return 1; } } return 0; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_s_add(xn_set_s *s, rt_string *v) { if (xn_set_s_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (rt_string **)realloc(s->data, sizeof(rt_string *) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_s_remove(xn_set_s *s, rt_string *v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i]->len == v->len && memcmp(s->data[i]->bytes, v->bytes, v->len) == 0) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c(""));
   xn_Cls_CGen_emit(self, rt_string_from_c("const char *mini_read_file(const char *path, size_t len);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("const char *mini_list_x(const char *path, size_t len);"));

@@ -40,5 +40,22 @@ static Int main() {
     print(checked.length())
     print(checked.tryRemove(0).value())
     print(checked.length())
+
+    Map<Int, Int> intMap = [:]
+    print(intMap.put(1, 10))
+    print(intMap.put(2, 20))
+    print(intMap.getOr(1, 0))
+    print(intMap.remove(2))
+    print(intMap.length())
+    print(intMap.keys().length())
+    print(intMap.values().length())
+
+    Set<String> strings = Set.of("a", "b", "a")
+    print(strings.length())
+    print(strings.has("a"))
+    print(strings.add("c"))
+    print(strings.remove("b"))
+    strings.clear()
+    print(strings.length())
     return 0
 }
