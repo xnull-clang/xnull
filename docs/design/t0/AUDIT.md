@@ -77,9 +77,9 @@ claimed as complete:
 1. Other `Map<K,V>`/`Set<T>` instantiations remain T0-X. Current instances are
    `Map<String,Int>`, `Map<Int,Int>`, `Set<Int>`, and `Set<String>`, including
    their `entries` snapshots (`Pair` / `IntPair`).
-2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, `str`, and
-   common `Error` method returns; arbitrary method-call inference remains
-   incremental.
+2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, `str`,
+   class/protocol methods, and common Result/List/Map/Set members; complex
+   receiver expressions remain incremental.
 3. Typed channels cover Int/Long/Bool/Char/Double/String/Bytes/class/protocol/
    nullable; Int128/Result value elements remain T0-X.
 4. Project build and formatter have no mini implementation and are outside T0;

@@ -318,8 +318,8 @@ class ErrorGroup implements Error, DetailedError {
 
 | 函数 | 签名 | 语义 | 失败 |
 | --- | --- | --- | --- |
-| `mapOk` | `Result<T,E> mapOk<T,E>(Result<T,E> result, T(T) transform)` | Ok → Ok(transform(value))；Err 原样 | transform panic 由进程终止 |
-| `mapErr` | `Result<T,E> mapErr<T,E>(Result<T,E> result, E(E) transformError)` | Ok 原样；Err → Err(transformError(error)) | 同上 |
+| `mapOk` | `Result<U,E> mapOk<T,U,E>(Result<T,E> result, U(T) transform)` | Ok → Ok(transform(value))；Err 原样 | transform panic 由进程终止 |
+| `mapErr` | `Result<T,F> mapErr<T,E,F>(Result<T,E> result, F(E) transformError)` | Ok 原样；Err → Err(transformError(error)) | 同上 |
 | `andThen` | `Result<T,E> andThen<T,E>(Result<T,E> result, Result<T,E>(T) next)` | Ok → next(value)；Err 原样 | next 返回 Err 时传播 |
 | `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> result, T fallback)` | Ok → value；Err → fallback | 无 |
 | `collectOk` | `Result<List<T>, ErrorGroup> collectOk<T>(List<Result<T,Error>> results)` | 全部 Ok → Ok(list)；否则 Err(所有错误) | 无 |
@@ -328,9 +328,11 @@ class ErrorGroup implements Error, DetailedError {
 
 **冻结说明**：
 
-- T0 只提供**同类型**的 `mapOk/mapErr/andThen`：`T` 与 `E` 不改变。跨类型
-  `mapOk<U>`/`mapErr<F>` 需要编译器从函数返回值推断类型参数，当前 mini
-  不支持；归入 T0-X blocked。
+- `mapOk<U>`/`mapErr<F>` 支持跨类型：编译器从 lambda 参数与返回表达式
+  推断 `U`/`F`，覆盖字面量、二元表达式、`new`、`str`、类/协议方法和常见
+  `Result`/`List`/`Map`/`Set` 成员。
+- `andThen` 仍保持同类型 `Result<T,E>`，不改变 `T`/`E`。
+- 复杂接收者表达式的返回值推断仍为 T0-X；无法推断时显式拆辅助函数。
 - `collectOk` 已通过 `xn_arr_r`（`List<Result<...>>`）落地；`flatten` 通过
   嵌套 Result 的类型分解和 boxing 落地（要求内层 Result 由函数返回，不写
   直接嵌套的 `Ok(Ok(...))` 表达式）。
@@ -399,8 +401,7 @@ Bool isRetryableError(Error error)
 
 **已登记缺口**：
 
-
-- 跨类型 `mapOk/mapErr`：mini 泛型返回值推断未支持；
+- 复杂接收者表达式的跨类型推断仍为 T0-X；
 - `xdk_errors_full.x` 为 mini 专用；没有第二引擎。
 - 自定义 `DetailedError` 聚合：T0 先转 `BasicError`，T1 再泛化。
 

@@ -49,7 +49,7 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    handles and all public `Int64/Int32` aliases are now `Long/Int`; keep
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
-   are implemented; arbitrary lambda/method-call inference remains incremental.
+   are implemented; complex receiver/return inference remains incremental.
 3. Other `Map<K,V>`/`Set<T>` instantiations remain.
 4. Project build and formatter are future mini work.
 
