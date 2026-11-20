@@ -277,14 +277,20 @@ Bool isPrime(Int n) {
     return true
 }
 
-Int factorial(Int n) {
+Result<Int, Error> factorial(Int n) {
+    if n < 0 {
+        return Err(int128Error("factorial: negative input"))
+    }
+    if n > 12 {
+        return Err(int128Error("factorial: result exceeds Int"))
+    }
     Int r = 1
     Int i = 2
     while i <= n {
         r = r * i
         i = i + 1
     }
-    return r
+    return Ok(r)
 }
 
 

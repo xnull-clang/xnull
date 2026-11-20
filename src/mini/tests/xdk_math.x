@@ -35,5 +35,23 @@ static Int main() {
     print(modI128Checked(-7, 3).value())
     print(negI128Checked(int128Min()).isErr())
     print(absI128Checked(-5).value())
+
+    print(factorial(5).value())
+    print(factorial(-1).isErr())
+    print(factorial(13).isErr())
+
+    List<Double> empty = []
+    List<Double> one = [4.0]
+    print(sum(empty))
+    print(isNaN(mean(empty)))
+    print(isNaN(median(empty)))
+    print(isNaN(variance(empty)))
+    print(isNaN(quantile(empty, 0.5)))
+    print(mean(one))
+    print(median(one))
+    print(variance(one))
+    List<Double> two = [1.0, 3.0]
+    print(quantile(two, -1.0))
+    print(quantile(two, 2.0))
     return 0
 }
