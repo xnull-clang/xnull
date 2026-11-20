@@ -9,7 +9,7 @@
 //   AtomicInt/AtomicBool  load/store/compareExchange(cas)
 //   AtomicRef<T>          load/store/compareExchange
 //   Mutex<T>              Mutex(data) + withLock(T) -> Result<void,TaskError>
-//   Channel<Int>          Channel(cap) + send/receive -> Result<...,CancelledError>
+//   Channel<Int/String/class> Channel(cap) + send/receive -> Result<...,CancelledError>
 //                         + close()
 // 运行时契约：withLock 的闭包在持锁状态执行；channel 的 send/receive 接受
 // 任务上下文，取消时返回 Err 而不消费值；close 幂等并丢弃队列剩余元素。

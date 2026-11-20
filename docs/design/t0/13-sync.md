@@ -8,7 +8,7 @@
 | 依赖 | `xdk.errors`、`xdk.tasks` |
 | 被依赖 | log、config、metrics（T1） |
 | 对应源码 | `src/xdk/concurrent/sync/Sync.x`（运行时绑定） |
-| 当前状态 | Partial（Atomic/Mutex/Channel<Int> 通过；typed channel 待补） |
+| 当前状态 | Verified（Atomic/Mutex/Channel<Int/String/class>） |
 
 ## 1. 能力
 
@@ -48,6 +48,7 @@ class AtomicInt {
 - `withLock` 的闭包在持锁状态执行；返回 `Err` 也会释放锁。
 - 不提供裸 lock/unlock。
 - `Channel(capacity)` 要求 `capacity >= 0`；0 为同步通道。
+- `Channel<T>` 已覆盖 `Int`、`String`、class 元素；其他引用/协议元素待验证。
 - `send` 满/`receive` 空时可阻塞并接受任务 Context；取消返回 `Err(CancelledError)`，不消费值。
 - `close` 幂等；关闭后 `send/receive` 返回 `Err`，队列剩余元素丢弃。
 - Atomic 操作是顺序一致；不承诺无锁实现。
@@ -60,11 +61,11 @@ class AtomicInt {
 - Atomic load/store/CAS 成功与失败；
 - base/full 输出一致。
 
-场景：`xdk_mutex.x`、`xdk_channel.x`、`xdk_sync_atomic.x`、`xdk_sync_ref.x`、`xdk_cancel.x`。
+场景：`xdk_mutex.x`、`xdk_channel.x`、`xdk_channel_typed.x`、`xdk_sync_atomic.x`、`xdk_sync_ref.x`、`xdk_cancel.x`。
 
 ## 4. 后续（T0-X/T1）
 
-- `Channel<T>` 任意元素类型；
+- 协议/可空元素的 Channel；
 - RwLock/Semaphore/WaitGroup/Once/Barrier；
 - `select`/超时收发；
 - 并发容器。
