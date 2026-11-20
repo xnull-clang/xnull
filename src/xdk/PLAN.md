@@ -23,7 +23,7 @@ and recorded gaps.
 | `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
-| `xdk.sync` | Atomic/Mutex/Channel<Int/String/class> mini | protocol elements |
+| `xdk.sync` | Atomic/Mutex/Channel<Int/String/class/protocol/nullable> mini | FFI elements |
 | `xdk.collections` | List, Map<String,Int>, Set<Int>, algorithms, PriorityQueue/RingBuffer mini; member surface blocked | generic Map/Set runtime; List.try*; Map keys/values/entries/remove |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |

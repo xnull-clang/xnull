@@ -45,7 +45,7 @@ Still to watch:
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
 | sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
 | tasks | v1.0 | mini | PASS | — |
-| sync | v1.0 | mini | PASS | protocol/nullable channel elements |
+| sync | v1.0 | mini | PASS | — |
 | log | v1.0 | mini | PASS | fields/sinks T0-X |
 | config | v1.0 | mini | PASS | sources/codec T0-X/T1 |
 | cli | v1.0 | mini | PASS | subcommands T0-X |
