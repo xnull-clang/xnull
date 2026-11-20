@@ -212,7 +212,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_channel_typed.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\ntrue\nhello\ntrue\ntrue\n7\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n' > "$TMP.exp"
+printf 'true\ntrue\nhello\ntrue\ntrue\n7\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n9000000000\ntrue\ntrue\ntrue\nx\ntrue\ntrue\nffi\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {

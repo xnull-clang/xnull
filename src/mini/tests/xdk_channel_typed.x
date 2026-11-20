@@ -1,5 +1,6 @@
 import xdk.sync
 import xdk.errors
+import xdk.bytes
 
 class Item {
     Int value
@@ -35,5 +36,27 @@ static Int main() {
     Result<Error, CancelledError> receivedError = errors.receive()
     print(receivedError.isOk())
     print(receivedError.value().kind() == ErrorKind.NotFound)
+
+    Channel<Long> longs = new Channel<Long>(1)
+    print(longs.send(9000000000).isOk())
+    Result<Long, CancelledError> receivedLong = longs.receive()
+    print(receivedLong.value())
+
+    Channel<Bool> bools = new Channel<Bool>(1)
+    print(bools.send(true).isOk())
+    Result<Bool, CancelledError> receivedBool = bools.receive()
+    print(receivedBool.value())
+
+    Channel<Char> chars = new Channel<Char>(1)
+    print(chars.send('x').isOk())
+    Result<Char, CancelledError> receivedChar = chars.receive()
+    print(str(receivedChar.value()))
+
+    Channel<Bytes> payloads = new Channel<Bytes>(1)
+    Bytes raw = fromUtf8("ffi")
+    print(payloads.send(raw).isOk())
+    Result<Bytes, CancelledError> receivedBytes = payloads.receive()
+    print(receivedBytes.isOk())
+    print(toUtf8(receivedBytes.value()))
     return 0
 }
