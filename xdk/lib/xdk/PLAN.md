@@ -17,7 +17,7 @@ and recorded gaps.
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
 | `xdk.text` | base + full mini | UTF-16/format edges |
-| `xdk.math` | base + Int128 checked mini | stats edges |
+| `xdk.math` | base + Int128 checked + stats edges mini | other integer checked/saturating |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
 | `xdk.io` | in-memory Reader/Writer mini | file/network streams |
 | `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |

@@ -1,4 +1,4 @@
-# xdk.math —— T0 数学 v1.0
+# xdk.math —— T0 数学 v1.1
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | time、stats（T1）、metrics（T1） |
 | 对应源码 | `src/xdk/core/math/Math.x` |
-| 当前状态 | Partial（T0-K 通过；Int128 已落地；统计边界为 T0-X） |
+| 当前状态 | Partial（T0-K 通过；Int128 与统计边界已落地；其他整数 checked 为 T0-X） |
 
 ## 1. 能力
 
@@ -38,7 +38,7 @@ Double sqrt(Double value)
 Double log(Double value)
 Double sin(Double radians)
 Int gcd(Int left, Int right)
-Int factorial(Int value)
+Result<Int, Error> factorial(Int value)
 Double mean(List<Double> values)
 Double quantile(List<Double> values, Double quantile)
 Bool isNaN(Double value)
@@ -57,8 +57,8 @@ Result<Int128, Error> absI128Checked(Int128 value)
 - 浮点遵循 IEEE 754；域错误返回 NaN/Inf，不 panic。
 - `sqrt(-1)`、`log(-1)` 返回 NaN；`pow` 按 IEEE 结果。
 - `mod` 的结果符号必须固定并测试；T0 选择与除数同号。
-- `factorial(value)` 对负数/过大值返回 `InvalidArgument` 或合同错误；
-  T0 固定为 `InvalidArgument`（当前源码需对齐）。
+- `factorial(value)` 返回 `Result<Int, Error>`；负数或结果超过 32 位 `Int`
+  （`n > 12`）返回 `InvalidArgument`，不再静默回绕。
 - 统计空列表：`mean/median` 返回 NaN；`sum` 返回 0；文档化。
 - `quantile` 的 q 钳制到 `[0,1]`。
 - `Int` 运算溢出按 32 位回绕；需要 64 位用 `Long`；需要 128 位用 `Int128`。
@@ -84,5 +84,5 @@ Result<Int128, Error> absI128Checked(Int128 value)
 ## 4. 后续（T0-X/T1）
 
 - 其他整数的 checked/saturating 版本；
-- 统计边界/分位数算法固定；
+- 组合数学（排列/组合）；
 - 随机数移至 T1 `xdk.random`。

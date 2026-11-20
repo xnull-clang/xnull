@@ -205,7 +205,7 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
 | collections | List（Int/String）、Map<String,Int>、Map<Int,Int>、Set<Int>、Set<String>、成员面、排序/查找/去重、PriorityQueue/RingBuffer | 其他 Map/Set 组合、OrderedMap/BTreeMap、groupBy（T0-X） |
-| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角 | Int128 checked、其他整数 saturating、统计、组合数学 |
+| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界 | Int128 checked、其他整数 saturating、组合数学 |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
@@ -334,7 +334,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
 | `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
-| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（T0-K 通过；Int128 已落地；统计 T0-X） |
+| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（T0-K 通过；Int128 与统计边界已落地；其他整数 checked T0-X） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
