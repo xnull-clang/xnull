@@ -30,7 +30,7 @@
 | CAP-6 Result 组合 | 对 `Result` 做同类型映射/串联/兜底 | `mapOk`、`mapErr`、`andThen`、`unwrapOr`、`check` | K |
 | CAP-7 重试分类 | 判断错误是否“通常可重试” | `isRetryable`、`isRetryableError` | K |
 | CAP-8 FFI 映射 | L2 错误码与 `ErrorKind` 稳定转换 | `errorKindCode`、`errorKindFromCode` | K |
-| CAP-9 收集/展平 | `collectOk`；`flatten` 与跨类型 `mapOk/mapErr` | 无 | K（flatten/X 为 blocked） |
+| CAP-9 收集/展平/映射 | `collectOk`、`flatten`、跨类型 `mapOk/mapErr` | 无 | K |
 
 **非目标**：
 
@@ -323,6 +323,7 @@ class ErrorGroup implements Error, DetailedError {
 | `andThen` | `Result<T,E> andThen<T,E>(Result<T,E> result, Result<T,E>(T) next)` | Ok → next(value)；Err 原样 | next 返回 Err 时传播 |
 | `unwrapOr` | `T unwrapOr<T,E>(Result<T,E> result, T fallback)` | Ok → value；Err → fallback | 无 |
 | `collectOk` | `Result<List<T>, ErrorGroup> collectOk<T>(List<Result<T,Error>> results)` | 全部 Ok → Ok(list)；否则 Err(所有错误) | 无 |
+| `flatten` | `Result<T,E> flatten<T,E>(Result<Result<T,E>,E> nestedResult)` | 外层 Ok 取内层；外层 Err 原样 | 无 |
 | `check` | `Result<Unit,Error> check(Bool condition, ErrorKind kind, String message)` | true → Ok(unit)；false → Err(BasicError) | 无 |
 
 **冻结说明**：
@@ -330,8 +331,9 @@ class ErrorGroup implements Error, DetailedError {
 - T0 只提供**同类型**的 `mapOk/mapErr/andThen`：`T` 与 `E` 不改变。跨类型
   `mapOk<U>`/`mapErr<F>` 需要编译器从函数返回值推断类型参数，当前 mini
   不支持；归入 T0-X blocked。
-- `collectOk` 已通过 `xn_arr_r`（`List<Result<...>>`）落地；`flatten` 的
-  嵌套 Result 类型推断仍未通过，归入 blocked。
+- `collectOk` 已通过 `xn_arr_r`（`List<Result<...>>`）落地；`flatten` 通过
+  嵌套 Result 的类型分解和 boxing 落地（要求内层 Result 由函数返回，不写
+  直接嵌套的 `Ok(Ok(...))` 表达式）。
 - 回调必须是纯函数且不产生日志副作用；需要失败时返回 `Result`。
 
 ---
@@ -397,7 +399,7 @@ Bool isRetryableError(Error error)
 
 **已登记缺口**：
 
-- `flatten`：嵌套 Result 类型推断未支持；
+
 - 跨类型 `mapOk/mapErr`：mini 泛型返回值推断未支持；
 - `xdk_errors_full.x` 为 mini 专用；没有第二引擎。
 - 自定义 `DetailedError` 聚合：T0 先转 `BasicError`，T1 再泛化。

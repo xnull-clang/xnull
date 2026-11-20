@@ -33,7 +33,7 @@ Still to watch:
 
 | Package | Design | Implementation | Gate | Blocker |
 | --- | --- | --- | --- | --- |
-| errors | v1.4 | mini | PASS | flatten/cross-type map |
+| errors | v1.4 | mini | PASS | — |
 | runtime | v1.0 | mini | PASS | — |
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
@@ -73,8 +73,8 @@ using the performance number for freeze.
 1. Collections container member surface is partial: `List.clear`/`Map.clear`/
    `Set.clear`/`Set.remove` are in; `List.try*`, `Map` entries/remove, and
    generic `Map<K,V>`/`Set<T>` runtime are still pending.
-2. `flatten`/cross-type `mapOk/mapErr` await generic return-type inference;
-   `collectOk` and `List<Result<...>>` are now implemented.
+2. `collectOk`, `flatten`, `List<Result<...>>`, and cross-type `mapOk/mapErr`
+   are implemented; complex method-call return inference remains incremental.
 3. Typed channels now cover Int/String/class; protocol/nullable elements remain.
 4. Int128 remains blocked: mini has no 128-bit scalar type or literals. It needs
    a compiler type (`__int128` or a library bigint with explicit ops), printing,

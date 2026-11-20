@@ -12,7 +12,7 @@ and recorded gaps.
 
 | Package | Current state | Next target |
 | --- | --- | --- |
-| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk` implemented | flatten/cross-type map |
+| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk` implemented | complex lambda inference |
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
@@ -49,7 +49,7 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    handles and all public `Int64/Int32` aliases are now `Long/Int`; keep
    auditing new code.
 2. `List<Result<...>>` / generic Result containers (`collectOk`, `flatten`).
-3. Generic return-type inference for cross-type `mapOk/mapErr`; `flatten` nested Result.
+3. Generic return-type inference for cross-type `mapOk/mapErr`; `flatten` implemented; complex lambda inference.
 4. `Map<Int,...>` / generic `Set<T>` runtime; Other Map/Set instantiations.
 5. `Int128` scalar support (blocked on a 128-bit compiler type).
 6. Project build and formatter are future mini work.
