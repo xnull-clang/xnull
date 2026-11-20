@@ -93,6 +93,12 @@ diff -u "$TMP.exp" "$TMP.mini"
 printf '1\n2\n1\ntrue\ntrue\nfalse\n1\n1\n2\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
+"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_members.x" > "$TMP.mini" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '0\ntrue\n2\n0\n0\n' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP.mini"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }

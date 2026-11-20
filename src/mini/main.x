@@ -3722,8 +3722,11 @@ class Checker {
             if mth == "has" {
                 return "Bool"
             }
-            if mth == "add" {
+            if mth == "add" || mth == "remove" {
                 return "Bool"
+            }
+            if mth == "clear" {
+                return "Unit"
             }
         }
         if self.isResultType(bt) {
@@ -3744,7 +3747,7 @@ class Checker {
             if mth == "get" {
                 return self.elementType(bt)
             }
-            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" {
+            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" || mth == "clear" {
                 return "Unit"
             }
             if mth == "join" {
@@ -3758,7 +3761,7 @@ class Checker {
             if mth == "has" {
                 return "Bool"
             }
-            if mth == "put" {
+            if mth == "put" || mth == "clear" {
                 return "Unit"
             }
             if mth == "getOr" {
@@ -4137,8 +4140,11 @@ class Checker {
                 if mth == "has" {
                     return "Bool"
                 }
-                if mth == "add" {
+                if mth == "add" || mth == "remove" {
                     return "Bool"
+                }
+                if mth == "clear" {
+                    return "Unit"
                 }
             }
             if self.isResultType(bt) {
@@ -4162,10 +4168,7 @@ class Checker {
                 if mth == "get" {
                     return self.elementType(bt)
                 }
-                if mth == "push" || mth == "set" || mth == "insert" {
-                    return "Unit"
-                }
-                if mth == "remove" || mth == "insert" {
+                if mth == "push" || mth == "set" || mth == "insert" || mth == "remove" || mth == "clear" {
                     return "Unit"
                 }
                 if mth == "join" {
@@ -4182,7 +4185,7 @@ class Checker {
                 if mth == "getOr" {
                     return self.mapValueType(bt)
                 }
-                if mth == "put" {
+                if mth == "put" || mth == "clear" {
                     return "Unit"
                 }
             }
@@ -6175,6 +6178,15 @@ class CGen {
                 }
                 return "0"
             }
+            if mth == "remove" {
+                if n.kids.length() > off {
+                    return "xn_set_i_remove(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
+                }
+                return "0"
+            }
+            if mth == "clear" {
+                return "(" + bv + "->len = 0)"
+            }
         }
         if self.isResult(bt) {
             if mth == "isOk" {
@@ -6246,6 +6258,9 @@ class CGen {
                 }
                 return "rt_string_from_c(\"\")"
             }
+            if mth == "clear" {
+                return "(" + bv + "->len = 0)"
+            }
         }
         if self.isMap(bt) {
             if mth == "length" {
@@ -6259,6 +6274,9 @@ class CGen {
             }
             if mth == "getOr" && n.kids.length() > off + 1 {
                 return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.expr(n.kids.get(off + 1)) + ")"
+            }
+            if mth == "clear" {
+                return "(" + bv + "->len = 0)"
             }
         }
         if self.isProtocol(bt) {
@@ -6535,8 +6553,11 @@ class CGen {
                     if mth == "has" {
                         return "Bool"
                     }
-                    if mth == "add" {
+                    if mth == "add" || mth == "remove" {
                         return "Bool"
+                    }
+                    if mth == "clear" {
+                        return "Unit"
                     }
                 }
                 if self.isResult(bt) {
@@ -6557,7 +6578,7 @@ class CGen {
                     if mth == "get" {
                         return self.elementType(bt)
                     }
-                    if mth == "push" || mth == "remove" {
+                    if mth == "push" || mth == "remove" || mth == "clear" {
                         return "Unit"
                     }
                     if mth == "join" {
@@ -6570,6 +6591,9 @@ class CGen {
                     }
                     if mth == "has" {
                         return "Bool"
+                    }
+                    if mth == "clear" {
+                        return "Unit"
                     }
                     if mth == "put" {
                         return "Unit"
@@ -7150,6 +7174,15 @@ class CGen {
                         }
                         return "0"
                     }
+                    if mth == "remove" {
+                        if n.kids.length() > 0 {
+                            return "xn_set_i_remove(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
+                        }
+                        return "0"
+                    }
+                    if mth == "clear" {
+                        return "(" + bv + "->len = 0)"
+                    }
                 }
                 if self.isResult(bt) {
                     if mth == "isOk" {
@@ -7221,6 +7254,9 @@ class CGen {
                         }
                         return "rt_string_from_c(\"\")"
                     }
+                    if mth == "clear" {
+                        return "(" + bv + "->len = 0)"
+                    }
                 }
                 if self.isMap(bt) {
                     if mth == "length" {
@@ -7243,6 +7279,9 @@ class CGen {
                             return "xn_map_s_i_getOr(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.expr(n.kids.get(1)) + ")"
                         }
                         return "0"
+                    }
+                    if mth == "clear" {
+                        return "(" + bv + "->len = 0)"
                     }
                 }
                 if self.isClass(bt) {
@@ -8131,6 +8170,7 @@ class CGen {
         self.emit("static xn_set_i *xn_set_i_new(void) { xn_set_i *s = (xn_set_i *)rt_gc_new(&RT_TYPE_XN_SET_I); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_i) - sizeof(rt_header)); s->cap = 4; s->data = (int64_t *)malloc(sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } return s; }")
         self.emit("static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }")
         self.emit("static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }")
+        self.emit("static int xn_set_i_remove(xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }")
         self.emit("")
         self.emit("const char *mini_read_file(const char *path, size_t len);")
         self.emit("const char *mini_list_x(const char *path, size_t len);")

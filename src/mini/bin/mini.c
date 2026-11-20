@@ -4192,8 +4192,11 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     if (xn_str_eq(mth, rt_string_from_c("has"))) {
       return rt_string_from_c("Bool");
     }
-    if (xn_str_eq(mth, rt_string_from_c("add"))) {
+    if ((xn_str_eq(mth, rt_string_from_c("add")) || xn_str_eq(mth, rt_string_from_c("remove")))) {
       return rt_string_from_c("Bool");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return rt_string_from_c("Unit");
     }
   }
   if (xn_Cls_Checker_isResultType(self, bt)) {
@@ -4214,7 +4217,7 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     if (xn_str_eq(mth, rt_string_from_c("get"))) {
       return xn_Cls_Checker_elementType(self, bt);
     }
-    if ((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert")))) {
+    if (((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
       return rt_string_from_c("Unit");
     }
     if (xn_str_eq(mth, rt_string_from_c("join"))) {
@@ -4228,7 +4231,7 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     if (xn_str_eq(mth, rt_string_from_c("has"))) {
       return rt_string_from_c("Bool");
     }
-    if (xn_str_eq(mth, rt_string_from_c("put"))) {
+    if ((xn_str_eq(mth, rt_string_from_c("put")) || xn_str_eq(mth, rt_string_from_c("clear")))) {
       return rt_string_from_c("Unit");
     }
     if (xn_str_eq(mth, rt_string_from_c("getOr"))) {
@@ -4665,8 +4668,11 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       if (xn_str_eq(mth, rt_string_from_c("has"))) {
         return rt_string_from_c("Bool");
       }
-      if (xn_str_eq(mth, rt_string_from_c("add"))) {
+      if ((xn_str_eq(mth, rt_string_from_c("add")) || xn_str_eq(mth, rt_string_from_c("remove")))) {
         return rt_string_from_c("Bool");
+      }
+      if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+        return rt_string_from_c("Unit");
       }
     }
     if (xn_Cls_Checker_isResultType(self, bt)) {
@@ -4690,10 +4696,7 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       if (xn_str_eq(mth, rt_string_from_c("get"))) {
         return xn_Cls_Checker_elementType(self, bt);
       }
-      if (((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert")))) {
-        return rt_string_from_c("Unit");
-      }
-      if ((xn_str_eq(mth, rt_string_from_c("remove")) || xn_str_eq(mth, rt_string_from_c("insert")))) {
+      if (((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert"))) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
         return rt_string_from_c("Unit");
       }
       if (xn_str_eq(mth, rt_string_from_c("join"))) {
@@ -4710,7 +4713,7 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       if (xn_str_eq(mth, rt_string_from_c("getOr"))) {
         return xn_Cls_Checker_mapValueType(self, bt);
       }
-      if (xn_str_eq(mth, rt_string_from_c("put"))) {
+      if ((xn_str_eq(mth, rt_string_from_c("put")) || xn_str_eq(mth, rt_string_from_c("clear")))) {
         return rt_string_from_c("Unit");
       }
     }
@@ -6940,6 +6943,15 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
       }
       return rt_string_from_c("0");
     }
+    if (xn_str_eq(mth, rt_string_from_c("remove"))) {
+      if ((((int64_t)n->kids->len) > off)) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
+      }
+      return rt_string_from_c("0");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
+    }
   }
   if (xn_Cls_CGen_isResult(self, bt)) {
     if (xn_str_eq(mth, rt_string_from_c("isOk"))) {
@@ -7011,6 +7023,9 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
       }
       return rt_string_from_c("rt_string_from_c(\"\")");
     }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
+    }
   }
   if (xn_Cls_CGen_isMap(self, bt)) {
     if (xn_str_eq(mth, rt_string_from_c("length"))) {
@@ -7024,6 +7039,9 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
     if ((xn_str_eq(mth, rt_string_from_c("getOr")) && (((int64_t)n->kids->len) > xn_int_wrap((off + 1))))) {
       return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, xn_int_wrap((off + 1)))))), rt_string_from_c(")"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
     }
   }
   if (xn_Cls_CGen_isProtocol(self, bt)) {
@@ -7335,8 +7353,11 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         if (xn_str_eq(mth, rt_string_from_c("has"))) {
           return rt_string_from_c("Bool");
         }
-        if (xn_str_eq(mth, rt_string_from_c("add"))) {
+        if ((xn_str_eq(mth, rt_string_from_c("add")) || xn_str_eq(mth, rt_string_from_c("remove")))) {
           return rt_string_from_c("Bool");
+        }
+        if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+          return rt_string_from_c("Unit");
         }
       }
       if (xn_Cls_CGen_isResult(self, bt)) {
@@ -7357,7 +7378,7 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         if (xn_str_eq(mth, rt_string_from_c("get"))) {
           return xn_Cls_CGen_elementType(self, bt);
         }
-        if ((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove")))) {
+        if (((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
           return rt_string_from_c("Unit");
         }
         if (xn_str_eq(mth, rt_string_from_c("join"))) {
@@ -7370,6 +7391,9 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (xn_str_eq(mth, rt_string_from_c("has"))) {
           return rt_string_from_c("Bool");
+        }
+        if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+          return rt_string_from_c("Unit");
         }
         if (xn_str_eq(mth, rt_string_from_c("put"))) {
           return rt_string_from_c("Unit");
@@ -7980,6 +8004,15 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           }
           return rt_string_from_c("0");
         }
+        if (xn_str_eq(mth, rt_string_from_c("remove"))) {
+          if ((((int64_t)n->kids->len) > 0)) {
+            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_set_i_remove("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
+          }
+          return rt_string_from_c("0");
+        }
+        if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+          return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
+        }
       }
       if (xn_Cls_CGen_isResult(self, bt)) {
         if (xn_str_eq(mth, rt_string_from_c("isOk"))) {
@@ -8051,6 +8084,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           }
           return rt_string_from_c("rt_string_from_c(\"\")");
         }
+        if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+          return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
+        }
       }
       if (xn_Cls_CGen_isMap(self, bt)) {
         if (xn_str_eq(mth, rt_string_from_c("length"))) {
@@ -8073,6 +8109,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
             return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_map_s_i_getOr("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)))), rt_string_from_c(")"));
           }
           return rt_string_from_c("0");
+        }
+        if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+          return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
         }
       }
       if (xn_Cls_CGen_isClass(self, bt)) {
@@ -8979,6 +9018,7 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_set_i *xn_set_i_new(void) { xn_set_i *s = (xn_set_i *)rt_gc_new(&RT_TYPE_XN_SET_I); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_i) - sizeof(rt_header)); s->cap = 4; s->data = (int64_t *)malloc(sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } return s; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int xn_set_i_remove(xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c(""));
   xn_Cls_CGen_emit(self, rt_string_from_c("const char *mini_read_file(const char *path, size_t len);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("const char *mini_list_x(const char *path, size_t len);"));

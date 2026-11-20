@@ -38,7 +38,7 @@ for f in xdk_errors.x xdk_errors_full.x xdk_meta.x xdk_runtime.x \
          xdk_text.x xdk_text_full.x xdk_math.x xdk_time.x \
          xdk_io.x xdk_fs.x xdk_sys.x \
          xdk_sync_atomic.x xdk_sync_ref.x xdk_mutex.x \
-         xdk_collections.x xdk_collections_algo.x xdk_containers.x \
+         xdk_collections.x xdk_collections_algo.x xdk_containers.x xdk_members.x \
          xdk_integration.x xdk_log.x \
          xdk_tasks.x xdk_cancel.x xdk_channel.x; do
     check_file "$f"
