@@ -49,9 +49,9 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    handles and all public `Int64/Int32` aliases are now `Long/Int`; keep
    auditing new code.
 2. `List<Result<...>>` / generic Result containers (`collectOk`, `flatten`).
-3. Generic return-type inference for cross-type `mapOk/mapErr`.
-4. `Map<Int,...>` / generic `Set<T>` runtime.
-5. `List.clear` and other container member surface required by XDK scenarios.
+3. Generic return-type inference for cross-type `mapOk/mapErr`; `flatten` nested Result.
+4. `Map<Int,...>` / generic `Set<T>` runtime; `List.try*` and Map entries/remove.
+5. `Int128` scalar support (blocked on a 128-bit compiler type).
 6. Project build and formatter are future mini work.
 
 ## 4. Architecture

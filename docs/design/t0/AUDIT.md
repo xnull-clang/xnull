@@ -71,8 +71,12 @@ All gates must pass on mini. There is no second engine.
    generic `Map<K,V>`/`Set<T>` runtime are still pending.
 2. `flatten`/cross-type `mapOk/mapErr` await generic return-type inference;
    `collectOk` and `List<Result<...>>` are now implemented.
-3. Int128 and typed channels remain pending.
-4. Project build and formatter have no mini implementation and are not part of
+3. Typed channels now cover Int/String/class; protocol/nullable elements remain.
+4. Int128 remains blocked: mini has no 128-bit scalar type or literals. It needs
+   a compiler type (`__int128` or a library bigint with explicit ops), printing,
+   parsing, and division/overflow tests. Do not fake a struct named Int128
+   while the language spec says it is built-in.
+5. Project build and formatter have no mini implementation and are not part of
    T0; do not claim them.
 
 Freeze rule: a package is `Verified` only when its design exists, its scenario
