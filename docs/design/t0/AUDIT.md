@@ -38,7 +38,7 @@ Still to watch:
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
-| collections | v1.2 | partial | PASS (subset) | `Map<Int,Int>.entries`, other Map/Set instances |
+| collections | v1.3 | partial | PASS (subset) | other Map/Set instances |
 | math | v1.0 | partial | PASS | stats edges (T0-X) |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | partial | PASS | strict/checked + copy semantics |
@@ -74,9 +74,9 @@ a remote-desktop helper held ~90% CPU.
 No T0-K blocking item remains. Remaining T0-X gaps are recorded rather than
 claimed as complete:
 
-1. `Map<Int,Int>.entries` returns 0; other `Map<K,V>`/`Set<T>` instantiations
-   remain T0-X. Current instances are `Map<String,Int>`, `Map<Int,Int>`,
-   `Set<Int>`, and `Set<String>`.
+1. Other `Map<K,V>`/`Set<T>` instantiations remain T0-X. Current instances are
+   `Map<String,Int>`, `Map<Int,Int>`, `Set<Int>`, and `Set<String>`, including
+   their `entries` snapshots (`Pair` / `IntPair`).
 2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, and `str`
    returns; complex method-call return inference remains incremental.
 3. Typed channels cover Int/String/class/protocol/nullable; FFI elements remain

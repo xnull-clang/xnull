@@ -1,9 +1,10 @@
-# xdk.collections —— T0 核心包详细设计 v1.2
+# xdk.collections —— T0 核心包详细设计 v1.3
 
-> 本版把“迭代器协议”和“泛型 Map/Set”从 T0-K 中移除：S2 禁止泛型协议，
-> S1 的 `for-in` 由编译器按容器展开，mini 运行时也只支持
-> `Map<String,Int>` 与 `Set<Int>`。设计只承诺现在能验收的能力，其余登记为
-> T0-X 阻塞项或 T1，不用空实现冒充。
+> 本版把“迭代器协议”和通用泛型 Map/Set 从 T0-K 中移除：S2 禁止泛型协议，
+> S1 的 `for-in` 由编译器按容器展开。mini 运行时当前提供
+> `Map<String,Int>`、`Map<Int,Int>`、`Set<Int>`、`Set<String>` 四个实例。
+> 设计只承诺现在能验收的能力，其余登记为 T0-X 阻塞项或 T1，
+> 不用空实现冒充。
 
 | 项 | 值 |
 | --- | --- |
@@ -14,7 +15,7 @@
 | 被依赖 | 业务包、text/codec/config/cli |
 | 对应源码 | `src/xdk/core/collections/*.x` |
 | 阶段 | T0-06（一个包一个验收门；实现可分内部提交） |
-| 当前状态 | Partial：T0-K 算法/容器已实现；容器成员面与通用 Map/Set 阻塞 |
+| 当前状态 | Partial：T0-K 算法/容器与成员面已实现；其他 Map/Set 组合为 T0-X |
 
 ---
 
@@ -23,8 +24,8 @@
 | 能力 | 说明 | 承载 | 层级 |
 | --- | --- | --- | --- |
 | CAP-1 序列 | 有序、可重复、按索引访问 | `List<T>` | K |
-| CAP-2 字符串键映射 | 键唯一、按 `String` 查找 `Int` | `Map<String,Int>` | K |
-| CAP-3 整数集合 | 元素唯一、成员判断 | `Set<Int>` | K |
+| CAP-2 映射 | 键唯一、查找/替换/删除/快照 | `Map<String,Int>`、`Map<Int,Int>` | K |
+| CAP-3 集合 | 元素唯一、成员判断 | `Set<Int>`、`Set<String>` | K |
 | CAP-4 排序/查找 | 比较器驱动的排序、二分查找 | `sortBy`、`binarySearchBy` | K |
 | CAP-5 聚合 | 查找、去重、分组、切块、窗口 | 算法族 | K（分组为 X） |
 | CAP-6 专用容器 | 堆、环形缓冲、插入序映射、有序映射 | `PriorityQueue`、`RingBuffer`、`OrderedMap`、`BTreeMap` | K（后两者为 X） |
@@ -35,7 +36,7 @@
 - 不提供通用 `Iterator<T>` / `Iterable<T>` 抽象，不提供 `map/filter/take/drop` 等惰性适配器；
 - 不做并发容器（属于 `xdk.sync`）；
 - 不做持久化容器、数据库索引、无锁结构；
-- 不做通用 `Map<K,V>` / `Set<T>` 运行时（T0-X 阻塞项，见 §8）。
+- 不做四个实例之外的通用 `Map<K,V>` / `Set<T>` 运行时（T0-X 阻塞项）。
 
 ---
 
@@ -49,14 +50,15 @@
 | 类型 | 字面量 | 语义 | T0-K 可用实例 |
 | --- | --- | --- | --- |
 | `List<T>` | `[a, b]` | 有序、可重复、可变 | `List<Int>`、`List<String>` |
-| `Map<K,V>` | `[key: value]` | 键唯一；`getOr` 不插入 | `Map<String,Int>` |
-| `Set<T>` | `Set.of(...)` | 元素唯一 | `Set<Int>` |
+| `Map<K,V>` | `[key: value]` | 键唯一；`getOr` 不插入 | `Map<String,Int>`、`Map<Int,Int>` |
+| `Set<T>` | `Set.of(...)` | 元素唯一 | `Set<Int>`、`Set<String>` |
 
 **运行时边界（冻结）**：
 
-- `Map<K,V>` 当前只有 `Map<String,Int>` 的运行时表示；`Map<Int,...>`、
-  `Map<String,String>` 等一律视为 T0-X 阻塞，不得在场景中宣称可用。
-- `Set<T>` 当前只有 `Set<Int>` 的运行时表示；其他元素类型同为 T0-X 阻塞。
+- `Map<K,V>` 当前有 `Map<String,Int>` 与 `Map<Int,Int>` 的运行时表示；
+  其他 K/V 组合（如 `Map<String,String>`）为 T0-X 阻塞，不得在场景中宣称可用。
+- `Set<T>` 当前有 `Set<Int>` 与 `Set<String>` 的运行时表示；其他元素类型
+  同为 T0-X 阻塞。
 - `List<T>` 在 T0-K 覆盖 `Int`、`String`；其他元素类型由编译器和运行时能力决定，
   未验证前不得宣称。
 
@@ -194,9 +196,9 @@ print(joined)                   // a,b
 
 ### 5.3 键规则
 
-- T0-K 只允许 `String` 键。
+- T0-K 允许 `String` 与 `Int` 键。
+- `Map<Int,Int>` 使用数值键；其余键类型属于 T0-X 阻塞项。
 - 键必须是不可变值；禁止用可变对象作键。
-- `Int` 键、其他键类型属于 T0-X 阻塞项，不得在 T0-K 场景中使用。
 
 ### 5.4 示例
 
@@ -210,9 +212,27 @@ Result<Int, Error> missing = counts.tryGet("b")
 print(missing.isErr())           // true
 ```
 
+
+### 5.5 `Map<Int,Int>`
+
+与 §5.2 相同的成员面，差异只在类型：
+
+| 成员 | 签名 |
+| --- | --- |
+| `has` | `Bool has(Int key)` |
+| `getOr` | `Int getOr(Int key, Int fallback)` |
+| `tryGet` | `Result<Int, Error> tryGet(Int key)` |
+| `put` | `Bool put(Int key, Int value)` |
+| `remove` / `removeOr` | `Bool remove(Int key)` / `Int removeOr(Int key, Int fallback)` |
+| `keys` / `values` | `List<Int> keys()` / `List<Int> values()` |
+| `entries` | `List<IntPair> entries()`，元素为 `Int first` / `Int second` |
+
+- 顺序不承诺；`entries` 是快照。
+- 与 `Map<String,Int>` 一样是引用类型；`clear` 清空全部键值。
+
 ---
 
-## 6. `Set<Int>`（语言容器，T0-K）
+## 6. `Set<Int>` 与 `Set<String>`（语言容器，T0-K）
 
 ### 6.1 成员契约
 
@@ -224,10 +244,12 @@ print(missing.isErr())           // true
 | `remove` | `Bool remove(Int value)` | 无 | 删除 → true；不存在 → false | 无 | 均摊 O(1) |
 | `clear` | `Void clear()` | 无 | 清空 | 无 | O(n) |
 
-- `Set.of(...)` 是编译器对字面量的脱糖，T0-K 只生成 `Set<Int>`。
+- `Set.of(...)` 是编译器对字面量的脱糖；`Set.of(1,2)` 生成 `Set<Int>`，
+  `Set.of("a","b")` 生成 `Set<String>`。
+- `Set<String>` 的 `has/add/remove` 接收 `String`，其余语义与 `Set<Int>` 相同。
 - 重复元素语义固定为“后者忽略”，`add` 返回 `false`。
 - 迭代顺序不承诺；需要顺序时先转 `List` 并排序（T0-X）。
-- 泛型 `Set<T>` 属于 T0-X 阻塞项。
+- 其他元素类型的泛型 `Set<T>` 属于 T0-X 阻塞项。
 
 ---
 
@@ -269,22 +291,29 @@ print(missing.isErr())           // true
 
 - `chunks/windows` 的非法尺寸是调用方 bug，直接 panic；需要可恢复错误时，
   由调用方先校验 `chunkSize/windowSize`。
-- `groupByInt`、`groupBy` 依赖 `Map<Int,...>`/`Map<K,...>`，T0-K 不提供；
-  归入 T0-X 阻塞项（见 §8）。
-- `Pair<A,B>` 是值 struct；引用字段按 S2 浅复制规则共享句柄。
+- `groupByInt` 依赖 `Map<Int,Int>`，但 `groupBy` 仍依赖未支持的通用
+  `Map<K,...>`；两者都归入 T0-X 阻塞项。
+- `Pair`/`IntPair` 是值对象；引用字段按 S2 浅复制规则共享句柄。
 
-### 7.3 `Pair`（struct）
+### 7.3 `Pair` / `IntPair`（值对象）
 
 ```text
-struct Pair<A, B> {
-    A first
-    B second
+class Pair {
+    String first
+    Int second
+}
+
+class IntPair {
+    Int first
+    Int second
 }
 ```
 
+- `Pair` 是 `Map<String,Int>.entries()` 的元素；`IntPair` 是
+  `Map<Int,Int>.entries()` 的元素。
 - 值语义；复制时字段槽复制，引用字段浅复制。
-- 作为 `zip`、`partition`、`Map.entries()` 的返回元素。
 - 不持有资源，无 `close()`。
+- 通用 `Pair<A,B>` 属于 T0-X，不在当前运行时中伪装成已实现。
 
 ---
 
@@ -409,7 +438,7 @@ print(firstChunk.length())           // 2
 - 遍历 `List` 时 `push/remove`；
 - 依赖 `Map` 的迭代顺序；
 - `chunks(values, 0)` 未校验；
-- 在 T0-K 场景使用 `Map<Int,...>` 或 `Set<String>`。
+- 在 T0-K 场景使用未支持的组合（如 `Map<String,String>`、`Set<Long>`）。
 
 ### 10.3 测试义务
 
@@ -430,7 +459,7 @@ print(firstChunk.length())           // 2
 本包是一个验收门，不是一次提交。实现可以拆内部提交，但只有满足以下条件
 才能标记 `xdk.collections` 为 `complete`：
 
-- `List<T>`（Int/String）、`Map<String,Int>`、`Set<Int>` 契约与实现一致；
+- `List<T>`（Int/String）、`Map<String,Int>`、`Map<Int,Int>`、`Set<Int>`、`Set<String>` 契约与实现一致；
 - `sortBy/sortedBy/isSortedBy/binarySearchBy` 与查找/去重/聚合算法可用；
 - `PriorityQueue<T>`、`RingBuffer<T>` 契约与实现一致；
 - `for-in` 对 List/Set 的场景通过；
@@ -443,15 +472,13 @@ print(firstChunk.length())           // 2
 - `PriorityQueue<T>`、`RingBuffer<T>`；场景 `xdk_containers.x`；
 - `List.clear/tryGet/trySet/tryInsert/tryRemove`、`Map.clear/put/remove/removeOr/tryGet/keys/values/entries`、`Set.remove/clear`；场景 `xdk_members.x`。
 
-仍为 `partial` 的阻塞项：
+仍为 `partial` 的 T0-X 项：
 
-- `List.clear`、`Map.clear`、`Set.clear/remove` 已落地；
-- `List.tryGet/trySet/tryInsert/tryRemove` 已落地；
-- `Set<Int>` checked 成员尚未落地；
-- 通用 `Map<K,V>`/`Set<T>` 运行时、`groupBy`/`groupByInt`；
-- `OrderedMap`/`BTreeMap` 的 T0-X 契约已设计，但未纳入 T0-K 验收。
+- 其他 K/V 组合的 `Map<K,V>`/`Set<T>` 运行时；
+- `groupBy`/`groupByInt`；
+- `OrderedMap`/`BTreeMap` 契约已设计，但未纳入 T0-K 验收。
 
-这些阻塞项不阻止 T0-K 场景通过，但整包不得标 `complete`。
+这些 T0-X 项不阻止 T0-K 场景通过，但整包不得标 `complete`。
 
 ---
 

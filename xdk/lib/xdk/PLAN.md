@@ -24,7 +24,7 @@ and recorded gaps.
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
 | `xdk.sync` | Atomic/Mutex/Channel<Int/String/class/protocol/nullable> mini | FFI elements |
-| `xdk.collections` | List, Map<String,Int>, Map<Int,Int>, Set<Int>, Set<String>, member surface, algorithms, PriorityQueue/RingBuffer mini | `Map<Int,Int>.entries`, other Map/Set instances |
+| `xdk.collections` | List, Map<String,Int>, Map<Int,Int>, Set<Int>, Set<String>, member surface, algorithms, PriorityQueue/RingBuffer mini | other Map/Set instances |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |
@@ -50,7 +50,7 @@ T0-X item marks the package `partial`; it does not reopen a second engine.
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
    are implemented; complex lambda/method-call inference remains incremental.
-3. `Map<Int,Int>.entries` and other `Map<K,V>`/`Set<T>` instantiations remain.
+3. Other `Map<K,V>`/`Set<T>` instantiations remain.
 4. Project build and formatter are future mini work.
 
 ## 4. Architecture
