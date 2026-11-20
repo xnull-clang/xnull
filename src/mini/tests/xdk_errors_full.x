@@ -1,5 +1,11 @@
 import xdk.errors
 
+class Item {
+    Int value
+    Item(Int value) { self.value = value }
+    String label() { return "v=" + str(self.value) }
+}
+
 static Result<Int, Error> okOne() {
     return Ok(1)
 }
@@ -71,5 +77,11 @@ static Int main() {
     print(mappedError.error())
     Result<Int, String> described = mapErr(badResult(), (Error failure) -> failure.describe())
     print(described.error())
+    Result<Item, Error> mappedItem = mapOk(okOne(), (Int value) -> new Item(value))
+    print(mappedItem.isOk())
+    print(mappedItem.value().value)
+    Result<String, Error> labeled = mapOk(mappedItem, (Item item) -> item.label())
+    print(labeled.isOk())
+    print(labeled.value())
     return 0
 }

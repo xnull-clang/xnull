@@ -144,6 +144,8 @@ static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx
 static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = (int64_t)(intptr_t)v; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
+static xn_Result xn_channel_send_double(xrt_channel *c, double v, xrt_context *ctx) { uint64_t bits; memcpy(&bits, &v, sizeof(bits)); xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_send(c, (void *)(uintptr_t)bits, ctx); r.ok = rc == 0; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
+static xn_Result xn_channel_recv_double(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; if (rc == 0) { uint64_t bits = (uint64_t)(uintptr_t)v; memcpy(&r.d, &bits, sizeof(double)); } r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }
 static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }
 static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }
@@ -1895,6 +1897,7 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
 static rt_string * xn_Cls_Mono_argType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static void xn_Cls_Mono_addScope(xn_Cls_Mono *self, rt_string * name, rt_string * ty);
 static void xn_Cls_Mono_collectScope(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * recvType, rt_string * mth);
 static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_Mono_inferLambdaReturn(xn_Cls_Mono *self, xn_Cls_AstNode * lambda);
 static int xn_Cls_Mono_inferTypePattern(xn_Cls_Mono *self, rt_string * pattern, rt_string * actual, xn_arr_s * names, xn_arr_s * inferred);
@@ -2294,6 +2297,131 @@ static void xn_Cls_Mono_collectScope(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   }
 }
 
+static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * recvType, rt_string * mth) {
+  if (xn_str_startswith(recvType, rt_string_from_c("Result<"))) {
+    rt_string * inner = xn_str_substr(recvType, 7, xn_int_wrap((((int64_t)recvType->len) - 8)));
+    xn_arr_s * parts = xn_splitTop(inner);
+    if ((xn_str_eq(mth, rt_string_from_c("value")) && (((int64_t)parts->len) >= 1))) {
+      return xn_str_trim(xn_arr_s_get(parts, 0));
+    }
+    if ((xn_str_eq(mth, rt_string_from_c("error")) && (((int64_t)parts->len) >= 2))) {
+      return xn_str_trim(xn_arr_s_get(parts, 1));
+    }
+    if ((xn_str_eq(mth, rt_string_from_c("isOk")) || xn_str_eq(mth, rt_string_from_c("isErr")))) {
+      return rt_string_from_c("Bool");
+    }
+    return rt_string_from_c("Any");
+  }
+  if (xn_str_startswith(recvType, rt_string_from_c("List<"))) {
+    rt_string * elem = xn_str_substr(recvType, 5, xn_int_wrap((((int64_t)recvType->len) - 6)));
+    if (xn_str_eq(mth, rt_string_from_c("length"))) {
+      return rt_string_from_c("Int");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("get"))) {
+      return elem;
+    }
+    if (xn_str_eq(mth, rt_string_from_c("tryGet"))) {
+      return xn_concat(xn_concat(rt_string_from_c("Result<"), elem), rt_string_from_c(",Error>"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("isEmpty"))) {
+      return rt_string_from_c("Bool");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return rt_string_from_c("Unit");
+    }
+    return rt_string_from_c("Any");
+  }
+  if (xn_str_startswith(recvType, rt_string_from_c("Map<"))) {
+    rt_string * inner = xn_str_substr(recvType, 4, xn_int_wrap((((int64_t)recvType->len) - 5)));
+    xn_arr_s * parts = xn_splitTop(inner);
+    if ((((int64_t)parts->len) < 2)) {
+      return rt_string_from_c("Any");
+    }
+    rt_string * key = xn_str_trim(xn_arr_s_get(parts, 0));
+    rt_string * val = xn_str_trim(xn_arr_s_get(parts, 1));
+    if (xn_str_eq(mth, rt_string_from_c("length"))) {
+      return rt_string_from_c("Int");
+    }
+    if (((xn_str_eq(mth, rt_string_from_c("has")) || xn_str_eq(mth, rt_string_from_c("put"))) || xn_str_eq(mth, rt_string_from_c("remove")))) {
+      return rt_string_from_c("Bool");
+    }
+    if ((xn_str_eq(mth, rt_string_from_c("getOr")) || xn_str_eq(mth, rt_string_from_c("removeOr")))) {
+      return val;
+    }
+    if (xn_str_eq(mth, rt_string_from_c("tryGet"))) {
+      return xn_concat(xn_concat(rt_string_from_c("Result<"), val), rt_string_from_c(",Error>"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("keys"))) {
+      return xn_concat(xn_concat(rt_string_from_c("List<"), key), rt_string_from_c(">"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("values"))) {
+      return xn_concat(xn_concat(rt_string_from_c("List<"), val), rt_string_from_c(">"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+      if (xn_str_eq(key, rt_string_from_c("Int"))) {
+        return rt_string_from_c("List<IntPair>");
+      }
+      return rt_string_from_c("List<Pair>");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return rt_string_from_c("Unit");
+    }
+    return rt_string_from_c("Any");
+  }
+  if (xn_str_startswith(recvType, rt_string_from_c("Set<"))) {
+    rt_string * elem = xn_str_substr(recvType, 4, xn_int_wrap((((int64_t)recvType->len) - 5)));
+    if (xn_str_eq(mth, rt_string_from_c("length"))) {
+      return rt_string_from_c("Int");
+    }
+    if (((xn_str_eq(mth, rt_string_from_c("has")) || xn_str_eq(mth, rt_string_from_c("add"))) || xn_str_eq(mth, rt_string_from_c("remove")))) {
+      return rt_string_from_c("Bool");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return rt_string_from_c("Unit");
+    }
+    return rt_string_from_c("Any");
+  }
+  xn_Cls_AstNode * cls = xn_Cls_Mono_findClass(self, recvType);
+  if ((!xn_str_eq(cls->kind, rt_string_from_c("None")))) {
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)cls->kids->len))) {
+      xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+      if (((xn_str_eq(k->kind, rt_string_from_c("Method")) || xn_str_eq(k->kind, rt_string_from_c("Func"))) && xn_str_eq(k->text, mth))) {
+        int64_t r = xn_int_wrap(0);
+        while ((r < ((int64_t)k->kids->len))) {
+          if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, r))->kind, rt_string_from_c("Ret"))) {
+            return ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, r))->text;
+          }
+          r = xn_int_wrap((r + 1));
+        }
+      }
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  int64_t pi = xn_int_wrap(0);
+  while ((pi < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * pn = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, pi));
+    if ((xn_str_eq(pn->kind, rt_string_from_c("Protocol")) && xn_str_eq(pn->text, recvType))) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)pn->kids->len))) {
+        xn_Cls_AstNode * sig = ((xn_Cls_AstNode *)xn_arr_o_get(pn->kids, j));
+        if (((xn_str_eq(sig->kind, rt_string_from_c("Sig")) || xn_str_eq(sig->kind, rt_string_from_c("Method"))) && xn_str_eq(sig->text, mth))) {
+          int64_t r = xn_int_wrap(0);
+          while ((r < ((int64_t)sig->kids->len))) {
+            if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(sig->kids, r))->kind, rt_string_from_c("Ret"))) {
+              return ((xn_Cls_AstNode *)xn_arr_o_get(sig->kids, r))->text;
+            }
+            r = xn_int_wrap((r + 1));
+          }
+        }
+        j = xn_int_wrap((j + 1));
+      }
+    }
+    pi = xn_int_wrap((pi + 1));
+  }
+  return rt_string_from_c("Any");
+}
+
 static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
@@ -2361,7 +2489,16 @@ static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode 
     }
     int64_t dot = xn_int_wrap(xn_lastDot(n->text));
     if ((dot > 0)) {
+      rt_string * recv = xn_str_substr(n->text, 0, dot);
       rt_string * mth = xn_str_substr(n->text, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)n->text->len) - dot)) - 1)));
+      if (xn_Cls_Mono_identChar(self, xn_str_substr(recv, 0, 1))) {
+        xn_Cls_AstNode * recvNode = xn_Cls_AstNode_new(rt_string_from_c("Name"), recv, n->line, n->col);
+        rt_string * recvType = xn_Cls_Mono_simpleExprType(self, recvNode);
+        rt_string * inferred = xn_Cls_Mono_methodReturnType(self, recvType, mth);
+        if ((!xn_str_eq(inferred, rt_string_from_c("Any")))) {
+          return inferred;
+        }
+      }
       if ((((xn_str_eq(mth, rt_string_from_c("describe")) || xn_str_eq(mth, rt_string_from_c("message"))) || xn_str_eq(mth, rt_string_from_c("code"))) || xn_str_eq(mth, rt_string_from_c("toString")))) {
         return rt_string_from_c("String");
       }

@@ -1924,6 +1924,87 @@ class Mono {
         }
     }
 
+    String methodReturnType(String recvType, String mth) {
+        if recvType.startsWith("Result<") {
+            String inner = recvType.substring(7, recvType.length() - 8)
+            List<String> parts = splitTop(inner)
+            if mth == "value" && parts.length() >= 1 { return parts.get(0).trim() }
+            if mth == "error" && parts.length() >= 2 { return parts.get(1).trim() }
+            if mth == "isOk" || mth == "isErr" { return "Bool" }
+            return "Any"
+        }
+        if recvType.startsWith("List<") {
+            String elem = recvType.substring(5, recvType.length() - 6)
+            if mth == "length" { return "Int" }
+            if mth == "get" { return elem }
+            if mth == "tryGet" { return "Result<" + elem + ",Error>" }
+            if mth == "isEmpty" { return "Bool" }
+            if mth == "clear" { return "Unit" }
+            return "Any"
+        }
+        if recvType.startsWith("Map<") {
+            String inner = recvType.substring(4, recvType.length() - 5)
+            List<String> parts = splitTop(inner)
+            if parts.length() < 2 { return "Any" }
+            String key = parts.get(0).trim()
+            String val = parts.get(1).trim()
+            if mth == "length" { return "Int" }
+            if mth == "has" || mth == "put" || mth == "remove" { return "Bool" }
+            if mth == "getOr" || mth == "removeOr" { return val }
+            if mth == "tryGet" { return "Result<" + val + ",Error>" }
+            if mth == "keys" { return "List<" + key + ">" }
+            if mth == "values" { return "List<" + val + ">" }
+            if mth == "entries" {
+                if key == "Int" { return "List<IntPair>" }
+                return "List<Pair>"
+            }
+            if mth == "clear" { return "Unit" }
+            return "Any"
+        }
+        if recvType.startsWith("Set<") {
+            String elem = recvType.substring(4, recvType.length() - 5)
+            if mth == "length" { return "Int" }
+            if mth == "has" || mth == "add" || mth == "remove" { return "Bool" }
+            if mth == "clear" { return "Unit" }
+            return "Any"
+        }
+        AstNode cls = self.findClass(recvType)
+        if cls.kind != "None" {
+            Int i = 0
+            while i < cls.kids.length() {
+                AstNode k = cls.kids.get(i)
+                if (k.kind == "Method" || k.kind == "Func") && k.text == mth {
+                    Int r = 0
+                    while r < k.kids.length() {
+                        if k.kids.get(r).kind == "Ret" { return k.kids.get(r).text }
+                        r = r + 1
+                    }
+                }
+                i = i + 1
+            }
+        }
+        Int pi = 0
+        while pi < self.program.kids.length() {
+            AstNode pn = self.program.kids.get(pi)
+            if pn.kind == "Protocol" && pn.text == recvType {
+                Int j = 0
+                while j < pn.kids.length() {
+                    AstNode sig = pn.kids.get(j)
+                    if (sig.kind == "Sig" || sig.kind == "Method") && sig.text == mth {
+                        Int r = 0
+                        while r < sig.kids.length() {
+                            if sig.kids.get(r).kind == "Ret" { return sig.kids.get(r).text }
+                            r = r + 1
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            pi = pi + 1
+        }
+        return "Any"
+    }
+
     String simpleExprType(AstNode n) {
         if n.kind == "Int" { return "Int" }
         if n.kind == "String" { return "String" }
@@ -1957,7 +2038,14 @@ class Mono {
             if n.text == "str" { return "String" }
             Int dot = lastDot(n.text)
             if dot > 0 {
+                String recv = n.text.substring(0, dot)
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                if self.identChar(recv.substring(0, 1)) {
+                    AstNode recvNode = new AstNode("Name", recv, n.line, n.col)
+                    String recvType = self.simpleExprType(recvNode)
+                    String inferred = self.methodReturnType(recvType, mth)
+                    if inferred != "Any" { return inferred }
+                }
                 if mth == "describe" || mth == "message" || mth == "code" || mth == "toString" { return "String" }
                 if mth == "kind" { return "ErrorKind" }
             }
