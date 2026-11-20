@@ -12,7 +12,7 @@ and recorded gaps.
 
 | Package | Current state | Next target |
 | --- | --- | --- |
-| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map blocked | generic Result containers |
+| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk` implemented | flatten/cross-type map |
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
@@ -24,7 +24,7 @@ and recorded gaps.
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
 | `xdk.sync` | Atomic/Mutex/Channel<Int> mini | typed channels |
-| `xdk.collections` | List, Map<String,Int>, Set<Int>, algorithms, PriorityQueue/RingBuffer mini; member surface blocked | generic Map/Set runtime; List.clear/try*; Map keys/values/entries |
+| `xdk.collections` | List, Map<String,Int>, Set<Int>, algorithms, PriorityQueue/RingBuffer mini; member surface blocked | generic Map/Set runtime; List.try*; Map keys/values/entries/remove |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |

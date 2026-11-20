@@ -439,12 +439,14 @@ print(firstChunk.length())           // 2
 当前已实现并通过 mini base/full 的 T0-K 面：
 
 - `sortBy`（原地、稳定插入排序）、`sortedBy`（副本）、`dedup`、`find`、`join`；
-- `PriorityQueue<T>`、`RingBuffer<T>`；场景 `xdk_containers.x`。
+- `PriorityQueue<T>`、`RingBuffer<T>`；场景 `xdk_containers.x`；
+- `List.clear`、`Map.clear`、`Set.remove/clear`；场景 `xdk_members.x`。
 
 仍为 `partial` 的阻塞项：
 
-- `List.clear/tryGet/trySet/tryInsert/tryRemove` 等容器成员面需要编译器/运行时支持；
-- `Map<String,Int>.keys/values/entries` 与 `Set<Int>` checked 成员尚未落地；
+- `List.clear`、`Map.clear`、`Set.clear/remove` 已落地；
+- `List.tryGet/trySet/tryInsert/tryRemove`、`Map<String,Int>.keys/values/entries`
+  与 `Set<Int>` checked 成员尚未落地；
 - 通用 `Map<K,V>`/`Set<T>` 运行时、`groupBy`/`groupByInt`；
 - `OrderedMap`/`BTreeMap` 的 T0-X 契约已设计，但未纳入 T0-K 验收。
 

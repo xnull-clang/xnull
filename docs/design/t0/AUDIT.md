@@ -33,7 +33,7 @@ Still to watch:
 
 | Package | Design | Implementation | Gate | Blocker |
 | --- | --- | --- | --- | --- |
-| errors | v1.4 | mini | PASS | collectOk/flatten/cross-type map |
+| errors | v1.4 | mini | PASS | flatten/cross-type map |
 | runtime | v1.0 | mini | PASS | — |
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
@@ -69,8 +69,8 @@ All gates must pass on mini. There is no second engine.
 1. Collections container member surface is partial: `List.clear`/`Map.clear`/
    `Set.clear`/`Set.remove` are in; `List.try*`, `Map` entries/remove, and
    generic `Map<K,V>`/`Set<T>` runtime are still pending.
-2. `collectOk`/`flatten`/cross-type `mapOk/mapErr` await generic Result
-   container support.
+2. `flatten`/cross-type `mapOk/mapErr` await generic return-type inference;
+   `collectOk` and `List<Result<...>>` are now implemented.
 3. Int128 and typed channels remain pending.
 4. Project build and formatter have no mini implementation and are not part of
    T0; do not claim them.
