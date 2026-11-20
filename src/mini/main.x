@@ -2335,7 +2335,7 @@ class Checker {
         String inner = self.mapInner(ty)
         List<String> parts = inner.split(",")
         if parts.length() >= 2 {
-            return parts.get(1)
+            return parts.get(1).trim()
         }
         return "Any"
     }
@@ -2383,7 +2383,7 @@ class Checker {
         }
         List<String> parts = inner.split(",")
         if parts.length() >= 1 {
-            return parts.get(0)
+            return parts.get(0).trim()
         }
         return "Any"
     }
@@ -2395,7 +2395,7 @@ class Checker {
         }
         List<String> parts = inner.split(",")
         if parts.length() >= 2 {
-            return parts.get(1)
+            return parts.get(1).trim()
         }
         return "Any"
     }
@@ -3307,7 +3307,7 @@ class Checker {
         String inner = ty.substring(7, ty.length() - 8)
         List<String> parts = inner.split(",")
         if parts.length() >= 1 {
-            return parts.get(0)
+            return parts.get(0).trim()
         }
         return "Any"
     }
@@ -4620,7 +4620,16 @@ class CGen {
         String inner = ty.substring(7, ty.length() - 8)
         List<String> parts = inner.split(",")
         if parts.length() >= 1 {
-            return parts.get(0)
+            return parts.get(0).trim()
+        }
+        return "Any"
+    }
+
+    String resultError(String ty) {
+        String inner = ty.substring(7, ty.length() - 8)
+        List<String> parts = inner.split(",")
+        if parts.length() >= 2 {
+            return parts.get(1).trim()
         }
         return "Any"
     }
@@ -4735,6 +4744,9 @@ class CGen {
         if et == "String" {
             return "xn_arr_s"
         }
+        if self.isResult(et) {
+            return "xn_arr_r"
+        }
         return "xn_arr_o"
     }
 
@@ -4808,7 +4820,7 @@ class CGen {
         String inner = ty.substring(4, ty.length() - 5)
         List<String> parts = inner.split(",")
         if parts.length() >= 2 {
-            return parts.get(1)
+            return parts.get(1).trim()
         }
         return "Any"
     }
@@ -5969,8 +5981,11 @@ class CGen {
             if mth == "has" {
                 return "Bool"
             }
-            if mth == "add" {
+            if mth == "add" || mth == "remove" {
                 return "Bool"
+            }
+            if mth == "clear" {
+                return "Unit"
             }
         }
         if self.isResult(bt) {
@@ -5981,7 +5996,7 @@ class CGen {
                 return self.resultValue(bt)
             }
             if mth == "error" {
-                return "String"
+                return self.resultError(bt)
             }
         }
         if self.isArray(bt) {
@@ -5991,7 +6006,7 @@ class CGen {
             if mth == "get" {
                 return self.elementType(bt)
             }
-            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" {
+            if mth == "push" || mth == "remove" || mth == "set" || mth == "insert" || mth == "clear" {
                 return "Unit"
             }
             if mth == "join" {
@@ -6568,7 +6583,7 @@ class CGen {
                         return self.resultValue(bt)
                     }
                     if mth == "error" {
-                        return "String"
+                        return self.resultError(bt)
                     }
                 }
                 if self.isArray(bt) {
@@ -8187,6 +8202,14 @@ class CGen {
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
+        self.emit("typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;")
+        self.emit("static const rt_type RT_TYPE_XN_ARR_R = { \"List\", sizeof(xn_arr_r), NULL, NULL };")
+        self.emit("static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }")
+        self.emit("static void xn_arr_r_push(xn_arr_r *a, xn_Result v) { if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }")
+        self.emit("static xn_Result xn_arr_r_get(const xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }")
+        self.emit("static void xn_arr_r_set(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
+        self.emit("static void xn_arr_r_remove(xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
+        self.emit("static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }")

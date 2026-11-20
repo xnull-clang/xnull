@@ -648,6 +648,27 @@ T unwrapOr<T, E>(Result<T, E> result, T fallback) {
     return result.value()
 }
 
+Result<List<T>, ErrorGroup> collectOk<T>(List<Result<T, Error>> results) {
+    List<T> values = []
+    ErrorGroup group = new ErrorGroup()
+    Int index = 0
+    while index < results.length() {
+        Result<T, Error> current = results.get(index)
+        if current.isErr() {
+            Error error = current.error()
+            BasicError detailed = new BasicError(error.kind(), error.describe())
+            group.add(detailed)
+        } else {
+            values.push(current.value())
+        }
+        index = index + 1
+    }
+    if group.isEmpty() {
+        return Ok(values)
+    }
+    return Err(group)
+}
+
 Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
     if condition {
         return Ok()

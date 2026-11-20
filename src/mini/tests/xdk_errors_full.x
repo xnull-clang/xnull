@@ -47,5 +47,13 @@ static Int main() {
     print(errorKindFromCode(7) == ErrorKind.Cancelled)
     print(tryErrorDetail("path", "a.conf").isOk())
     print(tryErrorDetail("bad:key", "a.conf").isErr())
+
+    List<Result<Int, Error>> results = []
+    results.push(okOne())
+    results.push(badResult())
+    Result<List<Int>, ErrorGroup> collected = collectOk(results)
+    print(collected.isErr())
+    print(collected.error().length())
+    print(collected.error().kind() == ErrorKind.InvalidArgument)
     return 0
 }

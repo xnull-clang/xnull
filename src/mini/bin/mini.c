@@ -80,6 +80,7 @@ static const rt_type RT_TYPE_XN_SET_I = { "Set", sizeof(xn_set_i), NULL, NULL };
 static xn_set_i *xn_set_i_new(void) { xn_set_i *s = (xn_set_i *)rt_gc_new(&RT_TYPE_XN_SET_I); memset((char *)s + sizeof(rt_header), 0, sizeof(xn_set_i) - sizeof(rt_header)); s->cap = 4; s->data = (int64_t *)malloc(sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } return s; }
 static int xn_set_i_has(const xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { return 1; } } return 0; }
 static int xn_set_i_add(xn_set_i *s, int64_t v) { if (xn_set_i_has(s, v)) { return 0; } if (s->len == s->cap) { s->cap *= 2; s->data = (int64_t *)realloc(s->data, sizeof(int64_t) * s->cap); if (s->data == NULL) { abort(); } } s->data[s->len++] = v; return 1; }
+static int xn_set_i_remove(xn_set_i *s, int64_t v) { for (size_t i = 0; i < s->len; i++) { if (s->data[i] == v) { for (size_t j = i; j + 1 < s->len; j++) { s->data[j] = s->data[j + 1]; } s->len--; return 1; } } return 0; }
 
 const char *mini_read_file(const char *path, size_t len);
 const char *mini_list_x(const char *path, size_t len);
@@ -96,6 +97,14 @@ int64_t xdkc_now_mono_ms(void);
 int64_t xdkc_now_wall_ms(void);
 typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;
 typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;
+typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;
+static const rt_type RT_TYPE_XN_ARR_R = { "List", sizeof(xn_arr_r), NULL, NULL };
+static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }
+static void xn_arr_r_push(xn_arr_r *a, xn_Result v) { if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }
+static xn_Result xn_arr_r_get(const xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }
+static void xn_arr_r_set(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }
+static void xn_arr_r_remove(xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }
+static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }
 static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }
 static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }
@@ -2748,7 +2757,7 @@ static rt_string * xn_Cls_Checker_mapValueType(xn_Cls_Checker *self, rt_string *
   rt_string * inner = xn_Cls_Checker_mapInner(self, ty);
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 2)) {
-    return xn_arr_s_get(parts, 1);
+    return xn_str_trim(xn_arr_s_get(parts, 1));
   }
   return rt_string_from_c("Any");
 }
@@ -2796,7 +2805,7 @@ static rt_string * xn_Cls_Checker_resultValueType(xn_Cls_Checker *self, rt_strin
   }
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 1)) {
-    return xn_arr_s_get(parts, 0);
+    return xn_str_trim(xn_arr_s_get(parts, 0));
   }
   return rt_string_from_c("Any");
 }
@@ -2808,7 +2817,7 @@ static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_strin
   }
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 2)) {
-    return xn_arr_s_get(parts, 1);
+    return xn_str_trim(xn_arr_s_get(parts, 1));
   }
   return rt_string_from_c("Any");
 }
@@ -3730,7 +3739,7 @@ static rt_string * xn_Cls_Checker_resultValue(xn_Cls_Checker *self, rt_string * 
   rt_string * inner = xn_str_substr(ty, 7, xn_int_wrap((((int64_t)ty->len) - 8)));
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 1)) {
-    return xn_arr_s_get(parts, 0);
+    return xn_str_trim(xn_arr_s_get(parts, 0));
   }
   return rt_string_from_c("Any");
 }
@@ -4957,6 +4966,7 @@ static rt_string * xn_Cls_CGen_resultInitField(xn_Cls_CGen *self, rt_string * ty
 static rt_string * xn_Cls_CGen_resultValueExpr(xn_Cls_CGen *self, rt_string * ty, rt_string * bv);
 static int xn_Cls_CGen_isResult(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_resultValue(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_resultError(xn_Cls_CGen *self, rt_string * ty);
 static int xn_Cls_CGen_isArray(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_elementType(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_curFieldType(xn_Cls_CGen *self, rt_string * fname);
@@ -5294,7 +5304,16 @@ static rt_string * xn_Cls_CGen_resultValue(xn_Cls_CGen *self, rt_string * ty) {
   rt_string * inner = xn_str_substr(ty, 7, xn_int_wrap((((int64_t)ty->len) - 8)));
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 1)) {
-    return xn_arr_s_get(parts, 0);
+    return xn_str_trim(xn_arr_s_get(parts, 0));
+  }
+  return rt_string_from_c("Any");
+}
+
+static rt_string * xn_Cls_CGen_resultError(xn_Cls_CGen *self, rt_string * ty) {
+  rt_string * inner = xn_str_substr(ty, 7, xn_int_wrap((((int64_t)ty->len) - 8)));
+  xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
+  if ((((int64_t)parts->len) >= 2)) {
+    return xn_str_trim(xn_arr_s_get(parts, 1));
   }
   return rt_string_from_c("Any");
 }
@@ -5409,6 +5428,9 @@ static rt_string * xn_Cls_CGen_arrayCName(xn_Cls_CGen *self, rt_string * ty) {
   if (xn_str_eq(et, rt_string_from_c("String"))) {
     return rt_string_from_c("xn_arr_s");
   }
+  if (xn_Cls_CGen_isResult(self, et)) {
+    return rt_string_from_c("xn_arr_r");
+  }
   return rt_string_from_c("xn_arr_o");
 }
 
@@ -5480,7 +5502,7 @@ static rt_string * xn_Cls_CGen_mapValue(xn_Cls_CGen *self, rt_string * ty) {
   rt_string * inner = xn_str_substr(ty, 4, xn_int_wrap((((int64_t)ty->len) - 5)));
   xn_arr_s * parts = xn_str_split(inner, rt_string_from_c(","));
   if ((((int64_t)parts->len) >= 2)) {
-    return xn_arr_s_get(parts, 1);
+    return xn_str_trim(xn_arr_s_get(parts, 1));
   }
   return rt_string_from_c("Any");
 }
@@ -6710,8 +6732,11 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
     if (xn_str_eq(mth, rt_string_from_c("has"))) {
       return rt_string_from_c("Bool");
     }
-    if (xn_str_eq(mth, rt_string_from_c("add"))) {
+    if ((xn_str_eq(mth, rt_string_from_c("add")) || xn_str_eq(mth, rt_string_from_c("remove")))) {
       return rt_string_from_c("Bool");
+    }
+    if (xn_str_eq(mth, rt_string_from_c("clear"))) {
+      return rt_string_from_c("Unit");
     }
   }
   if (xn_Cls_CGen_isResult(self, bt)) {
@@ -6722,7 +6747,7 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
       return xn_Cls_CGen_resultValue(self, bt);
     }
     if (xn_str_eq(mth, rt_string_from_c("error"))) {
-      return rt_string_from_c("String");
+      return xn_Cls_CGen_resultError(self, bt);
     }
   }
   if (xn_Cls_CGen_isArray(self, bt)) {
@@ -6732,7 +6757,7 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
     if (xn_str_eq(mth, rt_string_from_c("get"))) {
       return xn_Cls_CGen_elementType(self, bt);
     }
-    if ((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert")))) {
+    if (((((xn_str_eq(mth, rt_string_from_c("push")) || xn_str_eq(mth, rt_string_from_c("remove"))) || xn_str_eq(mth, rt_string_from_c("set"))) || xn_str_eq(mth, rt_string_from_c("insert"))) || xn_str_eq(mth, rt_string_from_c("clear")))) {
       return rt_string_from_c("Unit");
     }
     if (xn_str_eq(mth, rt_string_from_c("join"))) {
@@ -7368,7 +7393,7 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           return xn_Cls_CGen_resultValue(self, bt);
         }
         if (xn_str_eq(mth, rt_string_from_c("error"))) {
-          return rt_string_from_c("String");
+          return xn_Cls_CGen_resultError(self, bt);
         }
       }
       if (xn_Cls_CGen_isArray(self, bt)) {
@@ -9035,6 +9060,14 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("int64_t xdkc_now_wall_ms(void);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;"));
   xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("typedef struct { rt_header hdr; size_t len; size_t cap; xn_Result *data; } xn_arr_r;"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static const rt_type RT_TYPE_XN_ARR_R = { \"List\", sizeof(xn_arr_r), NULL, NULL };"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_arr_r *xn_arr_r_new(size_t cap) { xn_arr_r *a = (xn_arr_r *)rt_gc_new(&RT_TYPE_XN_ARR_R); memset((char *)a + sizeof(rt_header), 0, sizeof(xn_arr_r) - sizeof(rt_header)); a->cap = cap ? cap : 4; a->data = (xn_Result *)malloc(sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } return a; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_arr_r_push(xn_arr_r *a, xn_Result v) { if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } a->data[a->len++] = v; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_arr_r_get(const xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } return a->data[i]; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_arr_r_set(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_arr_r_remove(xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }"));
