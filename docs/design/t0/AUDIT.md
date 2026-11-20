@@ -64,10 +64,10 @@ for t in src/mini/tests/*.sh; do "$t"; done
 
 All gates must pass on mini. There is no second engine.
 
-2026-11-20 note: functional gates pass; Int128 scalar, wide literals, and
-checked math have landed. `m10_perf` reported 1.29x while the host was running a
-remote-desktop helper at ~90% CPU; rerun on an idle host before using the
-performance number for freeze.
+2026-11-20 note: all functional gates pass; Int128 scalar, wide literals, and
+checked math have landed. `m10_perf` passes on an idle host: 200M in 0.592s
+against the 0.733s baseline (0.808x). The earlier 1.29x reading was taken while
+a remote-desktop helper held ~90% CPU.
 
 ## 5. Freeze blockers
 
