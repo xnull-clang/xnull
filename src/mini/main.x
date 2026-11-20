@@ -3607,8 +3607,9 @@ class Checker {
             return "Error"
         }
         if bt.indexOf("Channel<") == 0 {
+            String elementType = bt.substring(8, bt.length() - 9)
             if mth == "send" { return "Result<void,CancelledError>" }
-            if mth == "receive" { return "Result<Int,CancelledError>" }
+            if mth == "receive" { return "Result<" + elementType + ",CancelledError>" }
             if mth == "close" { return "Unit" }
             self.fail("SEM-001", "undefined method: Channel." + mth, n)
             return "Error"
@@ -3861,12 +3862,13 @@ class Checker {
             }
             return "AtomicRef<" + inner + ">"
         }
-        if n.text == "Channel" {
+        if n.text == "Channel" || n.text.startsWith("Channel<") {
             if argc != 1 {
                 self.fail("SEM-004", "Channel expects 1 argument", n)
                 return "Error"
             }
             self.typeOf(n.kids.get(0))
+            if n.text.startsWith("Channel<") { return n.text }
             return "Channel<Int>"
         }
         if n.text == "Mutex" {
@@ -4034,8 +4036,9 @@ class Checker {
                 return "Error"
             }
             if bt.indexOf("Channel<") == 0 {
+                String elementType = bt.substring(8, bt.length() - 9)
                 if mth == "send" { return "Result<void,CancelledError>" }
-                if mth == "receive" { return "Result<Int,CancelledError>" }
+                if mth == "receive" { return "Result<" + elementType + ",CancelledError>" }
                 if mth == "close" { return "Unit" }
                 self.fail("SEM-001", "undefined method: Channel." + mth, n)
                 return "Error"
@@ -5916,8 +5919,9 @@ class CGen {
             if mth == "cas" || mth == "compareExchange" { return "Bool" }
         }
         if bt.indexOf("Channel<") == 0 {
+            String elementType = bt.substring(8, bt.length() - 9)
             if mth == "send" { return "Result<void,CancelledError>" }
-            if mth == "receive" { return "Result<Int,CancelledError>" }
+            if mth == "receive" { return "Result<" + elementType + ",CancelledError>" }
             if mth == "close" { return "Unit" }
         }
         if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
@@ -6062,8 +6066,15 @@ class CGen {
             }
         }
         if bt.indexOf("Channel<") == 0 {
-            if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
-            if mth == "receive" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+            String elementType = bt.substring(8, bt.length() - 9)
+            if mth == "send" {
+                if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(off)) + ", " + self.curCtxExpr + ")" }
+                return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(off)) + "), " + self.curCtxExpr + ")"
+            }
+            if mth == "receive" {
+                if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+                return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
+            }
             if mth == "close" { return "xrt_channel_close(" + bv + ")" }
         }
         if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
@@ -6503,8 +6514,9 @@ class CGen {
                     if mth == "cas" || mth == "compareExchange" { return "Bool" }
                 }
                 if bt.indexOf("Channel<") == 0 {
+                    String elementType = bt.substring(8, bt.length() - 9)
                     if mth == "send" { return "Result<void,CancelledError>" }
-                    if mth == "receive" { return "Result<Int,CancelledError>" }
+                    if mth == "receive" { return "Result<" + elementType + ",CancelledError>" }
                     if mth == "close" { return "Unit" }
                 }
                 if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
@@ -6752,6 +6764,11 @@ class CGen {
             return self.nameExpr(n.text)
         }
         if n.kind == "New" {
+            if n.text == "Channel" || n.text.startsWith("Channel<") {
+                String capacity = "1"
+                if n.kids.length() > 0 { capacity = self.expr(n.kids.get(0)) }
+                return "xrt_channel_new((size_t)(" + capacity + "), NULL)"
+            }
             String b = "xn_Cls_" + n.text + "_new("
             Int ni = 0
             while ni < n.kids.length() {
@@ -6852,7 +6869,7 @@ class CGen {
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
                 return "xdkc_atomic_ref_new((void *)(" + av + "))"
             }
-            if n.text == "Channel" {
+            if n.text == "Channel" || n.text.startsWith("Channel<") {
                 String av = "1"
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
                 return "xrt_channel_new((size_t)(" + av + "), NULL)"
@@ -7052,8 +7069,15 @@ class CGen {
                     }
                 }
                 if bt.indexOf("Channel<") == 0 {
-                    if mth == "send" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
-                    if mth == "receive" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+                    String elementType = bt.substring(8, bt.length() - 9)
+                    if mth == "send" {
+                        if elementType == "Int" { return "xn_channel_send_int(" + bv + ", " + self.expr(n.kids.get(0)) + ", " + self.curCtxExpr + ")" }
+                        return "xn_channel_send_ptr(" + bv + ", (void *)(" + self.expr(n.kids.get(0)) + "), " + self.curCtxExpr + ")"
+                    }
+                    if mth == "receive" {
+                        if elementType == "Int" { return "xn_channel_recv_int(" + bv + ", " + self.curCtxExpr + ")" }
+                        return "xn_channel_recv_ptr(" + bv + ", " + self.curCtxExpr + ")"
+                    }
                     if mth == "close" { return "xrt_channel_close(" + bv + ")" }
                 }
                 if bt == "Mutex" || bt.indexOf("Mutex<") == 0 {
@@ -8212,6 +8236,8 @@ class CGen {
         self.emit("static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
         self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
+        self.emit("static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }")
         self.emit("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }")
         self.emit("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }")

@@ -4068,11 +4068,12 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
     return rt_string_from_c("Error");
   }
   if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+    rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
     if (xn_str_eq(mth, rt_string_from_c("send"))) {
       return rt_string_from_c("Result<void,CancelledError>");
     }
     if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-      return rt_string_from_c("Result<Int,CancelledError>");
+      return xn_concat(xn_concat(rt_string_from_c("Result<"), elementType), rt_string_from_c(",CancelledError>"));
     }
     if (xn_str_eq(mth, rt_string_from_c("close"))) {
       return rt_string_from_c("Unit");
@@ -4344,12 +4345,15 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
     }
     return xn_concat(xn_concat(rt_string_from_c("AtomicRef<"), inner), rt_string_from_c(">"));
   }
-  if (xn_str_eq(n->text, rt_string_from_c("Channel"))) {
+  if ((xn_str_eq(n->text, rt_string_from_c("Channel")) || xn_str_startswith(n->text, rt_string_from_c("Channel<")))) {
     if ((argc != 1)) {
       xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("Channel expects 1 argument"), n);
       return rt_string_from_c("Error");
     }
     xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+    if (xn_str_startswith(n->text, rt_string_from_c("Channel<"))) {
+      return n->text;
+    }
     return rt_string_from_c("Channel<Int>");
   }
   if (xn_str_eq(n->text, rt_string_from_c("Mutex"))) {
@@ -4553,11 +4557,12 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       return rt_string_from_c("Error");
     }
     if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+      rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
       if (xn_str_eq(mth, rt_string_from_c("send"))) {
         return rt_string_from_c("Result<void,CancelledError>");
       }
       if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-        return rt_string_from_c("Result<Int,CancelledError>");
+        return xn_concat(xn_concat(rt_string_from_c("Result<"), elementType), rt_string_from_c(",CancelledError>"));
       }
       if (xn_str_eq(mth, rt_string_from_c("close"))) {
         return rt_string_from_c("Unit");
@@ -6647,11 +6652,12 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
     }
   }
   if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+    rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
     if (xn_str_eq(mth, rt_string_from_c("send"))) {
       return rt_string_from_c("Result<void,CancelledError>");
     }
     if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-      return rt_string_from_c("Result<Int,CancelledError>");
+      return xn_concat(xn_concat(rt_string_from_c("Result<"), elementType), rt_string_from_c(",CancelledError>"));
     }
     if (xn_str_eq(mth, rt_string_from_c("close"))) {
       return rt_string_from_c("Unit");
@@ -6819,11 +6825,18 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
   }
   if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+    rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
     if (xn_str_eq(mth, rt_string_from_c("send"))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      }
+      return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_ptr("), bv), rt_string_from_c(", (void *)(")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c("), ")), self->curCtxExpr), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+      }
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_ptr("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("close"))) {
       return xn_concat(xn_concat(rt_string_from_c("xrt_channel_close("), bv), rt_string_from_c(")"));
@@ -7293,11 +7306,12 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
       }
       if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+        rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
         if (xn_str_eq(mth, rt_string_from_c("send"))) {
           return rt_string_from_c("Result<void,CancelledError>");
         }
         if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-          return rt_string_from_c("Result<Int,CancelledError>");
+          return xn_concat(xn_concat(rt_string_from_c("Result<"), elementType), rt_string_from_c(",CancelledError>"));
         }
         if (xn_str_eq(mth, rt_string_from_c("close"))) {
           return rt_string_from_c("Unit");
@@ -7562,6 +7576,13 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     return xn_Cls_CGen_nameExpr(self, n->text);
   }
   if (xn_str_eq(n->kind, rt_string_from_c("New"))) {
+    if ((xn_str_eq(n->text, rt_string_from_c("Channel")) || xn_str_startswith(n->text, rt_string_from_c("Channel<")))) {
+      rt_string * capacity = rt_string_from_c("1");
+      if ((((int64_t)n->kids->len) > 0)) {
+        capacity = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+      }
+      return xn_concat(xn_concat(rt_string_from_c("xrt_channel_new((size_t)("), capacity), rt_string_from_c("), NULL)"));
+    }
     rt_string * b = xn_concat(xn_concat(rt_string_from_c("xn_Cls_"), n->text), rt_string_from_c("_new("));
     int64_t ni = xn_int_wrap(0);
     while ((ni < ((int64_t)n->kids->len))) {
@@ -7662,7 +7683,7 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
       }
       return xn_concat(xn_concat(rt_string_from_c("xdkc_atomic_ref_new((void *)("), av), rt_string_from_c("))"));
     }
-    if (xn_str_eq(n->text, rt_string_from_c("Channel"))) {
+    if ((xn_str_eq(n->text, rt_string_from_c("Channel")) || xn_str_startswith(n->text, rt_string_from_c("Channel<")))) {
       rt_string * av = rt_string_from_c("1");
       if ((((int64_t)n->kids->len) > 0)) {
         av = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
@@ -7874,11 +7895,18 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
       }
       if ((xn_str_indexof(bt, rt_string_from_c("Channel<")) == 0)) {
+        rt_string * elementType = xn_str_substr(bt, 8, xn_int_wrap((((int64_t)bt->len) - 9)));
         if (xn_str_eq(mth, rt_string_from_c("send"))) {
-          return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
+            return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_int("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          }
+          return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_send_ptr("), bv), rt_string_from_c(", (void *)(")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c("), ")), self->curCtxExpr), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("receive"))) {
-          return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          if (xn_str_eq(elementType, rt_string_from_c("Int"))) {
+            return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_int("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
+          }
+          return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_channel_recv_ptr("), bv), rt_string_from_c(", ")), self->curCtxExpr), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("close"))) {
           return xn_concat(xn_concat(rt_string_from_c("xrt_channel_close("), bv), rt_string_from_c(")"));
@@ -9070,6 +9098,8 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_channel_recv_ptr(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = (rt_string *)v; r.p = v; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_mutex_lock(xrt_mutex *m, xn_closure cl, xrt_with_lock_body body) { xn_Result r; memset(&r, 0, sizeof(r)); int32_t rc = xrt_mutex_with_lock(m, body, &cl, NULL); r.ok = rc == 0; if (rc != 0) { r.err = (void *)(intptr_t)rc; } return r; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xrt_task *xn_task_spawn(xrt_task_group *g, xn_closure cl, xrt_task_body body) { xn_closure *env = (xn_closure *)malloc(sizeof(xn_closure)); if (env == NULL) { abort(); } *env = cl; xrt_task *t = NULL; xrt_task_group_spawn(g, body, env, &t); return t; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Result xn_task_result_map(xrt_task_result *tr) { xn_Result r; memset(&r, 0, sizeof(r)); if (!tr->ok) { r.ok = 0; r.err = (void *)(intptr_t)tr->kind; return r; } r.ok = 1; r.i = (int64_t)(intptr_t)tr->value; r.s = (rt_string *)tr->value; r.p = tr->value; return r; }"));
