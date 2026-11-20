@@ -5,7 +5,7 @@
 // 依赖矩阵：本骨架不导入其他 xdk 单元（依赖方向由 S6 §2 冻结后再追加）。
 // 稳定性：@preview（API 冻结前不承诺）。
 //
-// 已验收面（W2；legacy 差分缺口单独记录）：
+// 已验收面（W2；mini base/full 记录）：
 //   AtomicInt/AtomicBool  load/store/compareExchange(cas)
 //   AtomicRef<T>          load/store/compareExchange
 //   Mutex<T>              Mutex(data) + withLock(T) -> Result<void,TaskError>

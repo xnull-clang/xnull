@@ -14,8 +14,10 @@ Thumbs.db
 __pycache__/
 
 # 构建产物
-/src/bootstrap/bin/
-/src/mini/bin/
+/src/mini/bin/mini
+/src/mini/bin/*.tmp
+/src/mini/bin/*.err
+/src/mini/bin/*.c.tmp
 
 # 本地保留、不提交
 /docs/zh/

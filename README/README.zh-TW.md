@@ -52,7 +52,7 @@ static Int main() {
 
 ```sh
 # 在倉庫根目錄執行
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -63,16 +63,10 @@ hello, XNull
 CLI 支援三個引擎：
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy`：目前原生 C 工具鏈，預設。
 - `mini`：新的最小編譯器。
-- `auto`：`mini` 明確支援時優先使用，否則回退 `legacy`。
 
-引導路徑不需要 Go。`src/bootstrap/build.sh` 只需要 C 編譯器即可建置原生解析器與編譯器。
 
 ## 倉庫結構
 
@@ -82,23 +76,17 @@ docs/                 架構、語言與設計文件
 README/               多語言 README
 ide/                  VS Code 擴充與 Web IDE
 src/                  開發樹
-  build/              工程、相依、資源與 Reactor 模型
   cli/xnull           統一 CLI
-  compiler/           舊編譯器
   mini/               自舉最小編譯器
   runtime/            C 執行期原始碼與標頭檔
   xdk/                XDK 原始碼
-  bindings/           型別化 FFI 綁定（.xfb）
   ffi/                raw FFI 橋（.xfb）
-  bootstrap/          原生 xparser 與 xn-s4
   toolchain/          建置與打包腳本
-  xnfmt/              格式化器
   examples/           可運行範例
 
 xdk/                  XDK 交付包
   lib/xdk/            XDK 套件原始碼
   runtime/            C 執行期原始碼與標頭檔
-  bindings/xdk/       XDK FFI 綁定
   ffi/                raw FFI 橋
   install.sh          POSIX sh 安裝腳本
 ```
@@ -109,7 +97,6 @@ xdk/                  XDK 交付包
 
 `src/` 是開發樹，`xdk/` 是交付副本。修改 `src/xdk/` 後，需要同步到 `xdk/lib/xdk/`。
 
-CLI 入口與 `legacy` / `mini` / `auto` 引擎見「快速開始」。mini 的里程碑見 `src/mini/PLAN.md`。
 
 ### 安裝 XDK
 
@@ -123,7 +110,6 @@ cd xdk
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 

@@ -130,7 +130,7 @@ It is not designed for infinite design space, but for designs that are decidable
 
 ```sh
 # from the repository root
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -138,21 +138,17 @@ hello, XNull
 1 + 2 = 3
 ```
 
-The CLI supports three engines:
+mini is the only compiler:
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
+./src/cli/xnull build src/examples/hello.x -o /tmp/hello
 ```
 
-- `mini` — the new minimal compiler and the default engine since `mini 0.2.0` / M9-CUT. It can compile itself and has passed the mini1/mini2 fixed-point check.
-- `legacy` — the frozen native C toolchain and oracle; retained and explicitly selectable.
-- `auto` — prefers `mini` when it explicitly supports the program, otherwise falls back to `legacy`.
-
-The default switched to `mini` on 2026-11-18 after M9-PAR passed and M9-CUT was approved. `legacy` remains available via `--engine=legacy` or `XNULL_ENGINE=legacy`.
-
-No Go is required for the bootstrap path. `src/bootstrap/build.sh` builds the native parser and compiler with a C compiler.
+mini is the only compiler; there is no second code generator.
+`--bootstrap` is accepted as a compatibility no-op; `--engine=mini` is the
+only engine. If mini cannot run a command, the command is absent rather than
+delegated.
 
 ## Mini 0.3.0 milestone
 
@@ -192,23 +188,17 @@ docs/                 architecture, language, and design documents
 README/               translated README files
 ide/                  VS Code extension and web IDE
 src/                  development tree
-  build/              project, dependency, resource, and reactor model
   cli/xnull           unified CLI
-  compiler/           legacy compiler
-  mini/               self-hosting minimal compiler
+  mini/               self-hosting compiler
   runtime/            C runtime sources and headers
   xdk/                XDK sources
-  bindings/           typed FFI contracts (.xfb)
   ffi/                raw FFI bridges (.xfb)
-  bootstrap/          native xparser and xn-s4
-  toolchain/          build and packaging scripts
-  xnfmt/              formatter
+  toolchain/          mini build/run/check scripts
   examples/           runnable examples
 
 xdk/                  XDK delivery package
   lib/xdk/            XDK package sources
   runtime/            C runtime sources and headers
-  bindings/xdk/       XDK FFI contracts
   ffi/                raw FFI bridges
   install.sh          POSIX sh installer
 ```
@@ -219,7 +209,7 @@ Modify `src/`; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it t
 
 `src/` is the development tree; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it to `xdk/lib/xdk/`.
 
-The CLI entry point and the `mini` / `legacy` / `auto` engines are described in Quick start. The active XDK-first plan is in `src/xdk/PLAN.md`; the compiler support queue is in `src/mini/PLAN.md`, and the completed milestone record is in `src/mini/MILESTONES.md`.
+The CLI entry point and the mini-only surface are described in Quick start. The active XDK-first plan is in `src/xdk/PLAN.md`; the compiler queue is in `src/mini/PLAN.md`, and the milestone record is in `src/mini/MILESTONES.md`.
 
 ### Install XDK
 
@@ -233,7 +223,6 @@ This installs:
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 

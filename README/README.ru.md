@@ -52,7 +52,7 @@ static Int main() {
 
 ```sh
 # из корня репозитория
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -63,16 +63,10 @@ hello, XNull
 CLI поддерживает три движка:
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy` — текущий нативный C-инструментарий (по умолчанию).
 - `mini` — новый минимальный компилятор.
-- `auto` — предпочитает `mini`, если он явно поддерживает программу, иначе откатывается на `legacy`.
 
-Для bootstrap-пути Go не нужен. `src/bootstrap/build.sh` собирает нативный парсер и компилятор с помощью C-компилятора.
 
 ## Структура репозитория
 
@@ -82,23 +76,17 @@ docs/                 документы по архитектуре, языку
 README/               переводы README
 ide/                  расширение VS Code и веб-IDE
 src/                  дерево разработки
-  build/              модель проекта, зависимостей, ресурсов и reactor
   cli/xnull           единый CLI
-  compiler/           legacy-компилятор
   mini/               самостоятельно собираемый минимальный компилятор
   runtime/            исходники и заголовки C-среды выполнения
   xdk/                исходники XDK
-  bindings/           типизированные FFI-контракты (.xfb)
   ffi/                raw FFI-мосты (.xfb)
-  bootstrap/          нативные xparser и xn-s4
   toolchain/          скрипты сборки и упаковки
-  xnfmt/              форматтер
   examples/           запускаемые примеры
 
 xdk/                  пакет поставки XDK
   lib/xdk/            исходники пакетов XDK
   runtime/            исходники и заголовки C-среды выполнения
-  bindings/xdk/       FFI-контракты XDK
   ffi/                raw FFI-мосты
   install.sh          POSIX sh установщик
 ```
@@ -109,7 +97,6 @@ xdk/                  пакет поставки XDK
 
 `src/` — дерево разработки, `xdk/` — готовый к поставке пакет. После изменения `src/xdk/` синхронизируйте его с `xdk/lib/xdk/`.
 
-Точка входа CLI и движки `legacy` / `mini` / `auto` описаны в разделе «Быстрый старт». Этапы mini-компилятора — в `src/mini/PLAN.md`.
 
 ### Установка XDK
 
@@ -123,7 +110,6 @@ cd xdk
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 

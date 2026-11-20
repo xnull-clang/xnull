@@ -36,7 +36,7 @@ lock {
 6. Entries are sorted by ascending `groupId:artifactId`; duplicate coordinates
    and unresolved versions are errors.
 7. A coordinate that is not a workspace module is unresolved in Mini 1.0:
-   the lock command reports `XPD-401` (legacy alias `LOCK-002`) and must not
+   the lock command reports `XPD-401` and must not
    create or modify the lock file.
 8. A missing or byte-different lock file under `--check`, or a conflicting
    lock without `--update`, reports `XPD-402` and leaves the file untouched.

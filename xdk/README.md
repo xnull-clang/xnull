@@ -5,8 +5,7 @@ XDK is the developer-facing XNull standard library package. It contains:
 ```
 lib/xdk/          XDK package sources (`xdk.errors`, `xdk.runtime`, ...)
 runtime/          C runtime sources and headers
-bindings/xdk/     typed FFI binding contracts (`.xfb`)
-ffi/              raw FFI bridge contracts
+ffi/              raw FFI bridge contracts (`.xfb`)
 install.sh        POSIX sh installer
 ```
 
@@ -27,7 +26,6 @@ After installation, point the XNull toolchain at:
 
 - `XNULL_XDK_ROOT=<prefix>/share/xnull/xdk`
 - `XNULL_RUNTIME=<prefix>/share/xnull/runtime`
-- `XNULL_BINDINGS=<prefix>/share/xnull/bindings`
 - `XNULL_FFI=<prefix>/share/xnull/ffi`
 
 The package is source-only; the XNull compiler remains a separate toolchain

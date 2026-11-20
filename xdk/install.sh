@@ -1,5 +1,5 @@
 #!/bin/sh
-# XDK installer: deploy the XDK sources, runtime sources, bindings and FFI
+# XDK installer: deploy the XDK sources, runtime sources, and raw FFI
 # contracts into a developer prefix. No build step is required.
 set -eu
 
@@ -18,7 +18,6 @@ usage: ./install.sh [--prefix DIR] [--destdir DIR]
 Installs:
   <prefix>/share/xnull/xdk        XDK library sources
   <prefix>/share/xnull/runtime    C runtime sources and headers
-  <prefix>/share/xnull/bindings   .xfb binding contracts
   <prefix>/share/xnull/ffi        raw FFI bridge contracts
 USAGE
 }
@@ -34,12 +33,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-for d in lib/xdk runtime bindings/xdk ffi; do
+for d in lib/xdk runtime ffi; do
     [ -d "$SELF_DIR/$d" ] || { echo "install.sh: missing payload: $d" >&2; exit 1; }
 done
 
 DEST="$DESTDIR$PREFIX/share/xnull"
-install -d "$DEST/xdk" "$DEST/runtime" "$DEST/bindings/xdk" "$DEST/ffi"
+install -d "$DEST/xdk" "$DEST/runtime" "$DEST/ffi"
 
 copy_tree() {
     src=$1
@@ -50,11 +49,9 @@ copy_tree() {
 
 copy_tree "$SELF_DIR/lib/xdk" "$DEST/xdk"
 copy_tree "$SELF_DIR/runtime" "$DEST/runtime"
-copy_tree "$SELF_DIR/bindings/xdk" "$DEST/bindings/xdk"
 copy_tree "$SELF_DIR/ffi" "$DEST/ffi"
 
 printf '%s\n' "XDK installed under: $DEST"
 printf '%s\n' "  XNULL_XDK_ROOT=$DEST/xdk"
 printf '%s\n' "  XNULL_RUNTIME=$DEST/runtime"
-printf '%s\n' "  XNULL_BINDINGS=$DEST/bindings"
 printf '%s\n' "  XNULL_FFI=$DEST/ffi"

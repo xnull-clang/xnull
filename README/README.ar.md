@@ -62,7 +62,7 @@ static Int main() {
 
 ```sh
 # من جذر المستودع
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -73,16 +73,10 @@ hello, XNull
 تدعم واجهة CLI ثلاثة محركات:
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy` — أدوات C الأصلية الحالية (الافتراضي).
 - `mini` — المترجم الأدنى الجديد.
-- `auto` — يفضّل `mini` عندما يدعم البرنامج صراحةً، وإلا يرجع إلى `legacy`.
 
-مسار bootstrap لا يحتاج إلى Go. يبني `src/bootstrap/build.sh` المحلل والمترجم الأصليين باستخدام مترجم C.
 
 ## بنية المستودع
 
@@ -92,23 +86,17 @@ docs/                 وثائق البنية واللغة والتصميم
 README/               ملفات README المترجمة
 ide/                  إضافة VS Code وبيئة الويب
 src/                  شجرة التطوير
-  build/              نموذج المشروع والتبعيات والموارد وreactor
   cli/xnull           واجهة CLI موحدة
-  compiler/           المترجم القديم
   mini/               المترجم الأدنى ذاتي الاستضافة
   runtime/            مصادر وترويسات وقت التشغيل C
   xdk/                مصادر XDK
-  bindings/           عقود FFI typed ‏(.xfb)
   ffi/                جسور FFI الخام ‏(.xfb)
-  bootstrap/          xparser وxn-s4 الأصليان
   toolchain/          سكربتات البناء والتغليف
-  xnfmt/              المنسق
   examples/           أمثلة قابلة للتشغيل
 
 xdk/                  حزمة تسليم XDK
   lib/xdk/            مصادر حزم XDK
   runtime/            مصادر وترويسات وقت التشغيل C
-  bindings/xdk/       عقود FFI الخاصة بـ XDK
   ffi/                جسور FFI الخام
   install.sh          مثبّت POSIX sh
 ```
@@ -119,7 +107,6 @@ xdk/                  حزمة تسليم XDK
 
 `src/` شجرة التطوير، و`xdk/` نسخة التسليم. بعد تعديل `src/xdk/` يجب مزامنته مع `xdk/lib/xdk/`.
 
-نقطة دخول CLI والمحركات `legacy` / `mini` / `auto` موضحة في «بدء سريع». مراحل المترجم mini في `src/mini/PLAN.md`.
 
 ### تثبيت XDK
 
@@ -133,7 +120,6 @@ cd xdk
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 

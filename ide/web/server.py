@@ -6,10 +6,10 @@ XNull Web IDE —— 单页 Web IDE 后端（仅 Python 3 标准库，无第三�
 职责：
   1. 托管 ide/web/index.html 单页前端；
   2. 以 ide/web/workspace/ 为沙箱根，提供工程创建、文件读写 API；
-  3. 封装仓库 CLI（bin/xnull --bootstrap）实现构建 / 运行 / 校验 / 依赖树。
+  3. 封装仓库 CLI 的 mini 单文件 build/run。
 
-说明：本工作区缺少 Go oracle（impl/cmd/xnast），工程聚合构建不可用时
-      自动回退为「入口文件单文件构建」，并在输出中注明。
+工程模式尚未由 mini 提供：IDE 从 xnull.project 读取 entryFile，然后调用
+mini 的单文件 build/run；不存在第二引擎或回退。
 
 启动：python3 ide/web/server.py [端口]   （默认 8765，仅监听 127.0.0.1）
 """
@@ -27,7 +27,7 @@ from urllib.parse import urlparse, parse_qs
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WEB_DIR = os.path.join(ROOT, "ide", "web")
 WORKSPACE = os.path.join(WEB_DIR, "workspace")
-CLI = os.path.join(ROOT, "bin", "xnull")
+CLI = os.path.join(ROOT, "src", "cli", "xnull")
 TIMEOUT = 60  # 子进程超时（秒）
 
 PROJECT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
@@ -130,28 +130,16 @@ def cli_run(args, cwd):
         return "执行失败：%s" % e, 1
 
 
-ORACLE_ERR = "oracle"
-
-
-def run_project_or_fallback(proj_dir, mode):
-    """mode: 'run' | 'build'。优先工程模式，oracle 缺失时回退入口文件单文件模式。"""
-    out, rc = cli_run([mode, proj_dir], cwd=proj_dir)
-    if rc == 0:
-        return out, rc, "project"
-    # 工程聚合需要 Go oracle（impl/cmd/xnast），缺失则回退单文件
-    if ORACLE_ERR in out.lower() and "stat" in out.lower():
-        info = parse_manifest(proj_dir)
-        entry = info and info.get("entryFile")
-        if entry:
-            entry_path = safe_join(proj_dir, entry)
-            if os.path.isfile(entry_path):
-                out2, rc2 = cli_run([mode, entry_path], cwd=proj_dir)
-                tag = "entry-fallback"
-                if rc2 != 0:
-                    return out + "\n—— 工程聚合构建不可用（缺少 Go oracle），已回退入口文件单文件模式 ——\n" + out2, rc2, tag
-                return ("—— 工程聚合构建不可用（缺少 Go oracle），已回退入口文件单文件模式 ——\n" + out2,
-                        rc2, tag)
-    return out, rc, "project"
+def run_project(proj_dir, mode):
+    """mode: 'run' | 'build'。工程清单只用于定位 entryFile，构建由 mini 完成。"""
+    info = parse_manifest(proj_dir)
+    if not info or not info.get("entryFile"):
+        return "工程缺少 entryFile；mini 目前只支持单文件构建", 2, "entry"
+    entry_path = safe_join(proj_dir, info["entryFile"])
+    if not os.path.isfile(entry_path):
+        return "入口文件不存在：%s" % info["entryFile"], 2, "entry"
+    out, rc = cli_run([mode, entry_path], cwd=proj_dir)
+    return out, rc, "entry"
 
 
 TEMPLATES = {
@@ -553,9 +541,7 @@ class Handler(BaseHTTPRequestHandler):
         path = safe_join(WORKSPACE, name, rel)
         if not os.path.isfile(path):
             raise FileNotFoundError("文件不存在：%s" % rel)
-        out, rc = cli_run(["fmt", path], cwd=WORKSPACE)
-        if rc != 0:
-            return {"ok": False, "output": out}
+        return {"ok": False, "output": "mini CLI 尚未提供 fmt；格式化将在 mini fmt 落地后恢复"}
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             return {"ok": True, "content": f.read()}
 
@@ -566,13 +552,11 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError("不是有效工程：%s" % name)
         t0 = time.time()
         if cmd in ("run", "build"):
-            out, rc, path = run_project_or_fallback(proj_dir, cmd)
-            mode_note = {"project": "工程模式", "entry-fallback": "入口文件模式（回退）"}[path]
-        elif cmd in ("validate", "tree"):
-            out, rc = cli_run([cmd, proj_dir], cwd=proj_dir)
-            mode_note = "清单模式"
+            out, rc, path = run_project(proj_dir, cmd)
+            mode_note = "mini 单文件"
         else:
-            raise ValueError("不支持的命令：%s" % cmd)
+            return {"ok": False, "exit": 2, "output": "mini CLI 尚未提供该命令：%s" % cmd,
+                    "mode": "mini", "ms": 0, "problems": []}
         return {"ok": rc == 0, "exit": rc, "output": out, "mode": mode_note,
                 "ms": int((time.time() - t0) * 1000),
                 "problems": parse_problems(out, proj_dir)}

@@ -9,7 +9,7 @@
 | Applies to | XNull language implementations |
 | Related parts | Part 1 v3.4.0; Part 4 v1.2.0; Part 6 v3.0.0; Part 7 v2.2.0 |
 
-> **Version note**: 5.2.0 patches four gaps where "an example can be written but the grammar cannot read it": ① `language-version` uses `[3.3, 4.0)`, while the original grammar only had bracketed lists → add a **range literal** production; ② **bodyless entries** such as `module platform` and `exclusion org.old:legacy` were forced by the original grammar to have `{ }` → the block body becomes optional (C.2, C.3 item 6); ③ **dotted keys** such as `db.pool.max-size` are not identifiers → add a "key name" notation and restrict it to the `configuration` section only (C.3 item 4); ④ the `*` and `?` in the resource glob `**/*.psd` are not in the bare-word character set → added. It also clarifies that **a newline is a statement terminator** (a leaf entry ends at end of line); lists/ranges must not span lines, and an entry that is not terminated by a newline is an error. New diagnostic codes `XPD-105/106/107`.
+> **Version note**: 5.2.0 patches four gaps where "an example can be written but the grammar cannot read it": ① `language-version` uses `[3.3, 4.0)`, while the original grammar only had bracketed lists → add a **range literal** production; ② **bodyless entries** such as `module platform` and `exclusion org.old:archive` were forced by the original grammar to have `{ }` → the block body becomes optional (C.2, C.3 item 6); ③ **dotted keys** such as `db.pool.max-size` are not identifiers → add a "key name" notation and restrict it to the `configuration` section only (C.3 item 4); ④ the `*` and `?` in the resource glob `**/*.psd` are not in the bare-word character set → added. It also clarifies that **a newline is a statement terminator** (a leaf entry ends at end of line); lists/ranges must not span lines, and an entry that is not terminated by a newline is an error. New diagnostic codes `XPD-105/106/107`.
 >
 > **Version note**: 5.1.0 adds the **resource directory design**—`src/main/resources` / `src/test/resources`, inclusion and exclusion, the `resources/` prefix inside artifacts, merging of dependency-library resources with failure on conflict, rejection of build-time filtering, and runtime access through the library resource reading API (Part 6 §4); the service configuration file is accordingly located under the resource root. The rest of 5.0.0 is unchanged.
 >
@@ -148,7 +148,7 @@ project {
       scope    = compile
       optional = false
       exclusions {
-        exclusion org.old:legacy
+        exclusion org.old:archive
       }
     }
   }
@@ -255,7 +255,7 @@ dependencyManagement {
     dependency com.example:common {
       version = 1.4.0
       exclusions {
-        exclusion org.old:legacy
+        exclusion org.old:archive
       }
     }
   }
@@ -280,7 +280,7 @@ dependencies {
     scope    = compile
     optional = true
     exclusions {
-      exclusion org.old:legacy
+      exclusion org.old:archive
     }
   }
 }
@@ -1179,7 +1179,7 @@ List       = "[" [ Value { "," Value } ] "]" ;
 Range      = ( "[" | "(" ) Value "," Value ( "]" | ")" ) ;
 ```
 
-**The block body may be omitted**: the trailing `{ … }` of an `EntryBlock` is optional, so `module platform`, `exclusion org.old:legacy`, and `repository central { … }` are all legal. To determine "where this entry ends", look only at the end of the line—this is also why newlines must be part of the grammar.
+**The block body may be omitted**: the trailing `{ … }` of an `EntryBlock` is optional, so `module platform`, `exclusion org.old:archive`, and `repository central { … }` are all legal. To determine "where this entry ends", look only at the end of the line—this is also why newlines must be part of the grammar.
 
 ### C.3 Semantic Constraints
 

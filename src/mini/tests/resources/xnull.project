@@ -1,7 +1,0 @@
-project {
-  groupId = io.xnull
-  artifactId = mini-resources
-  version = 1.0.0
-  packaging = app
-  build { entryFile = src/main/x/main.x }
-}

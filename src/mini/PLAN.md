@@ -1,57 +1,69 @@
-# Mini compiler support plan
+# mini compiler plan
 
-> The product plan is now XDK-first: [`../xdk/PLAN.md`](../xdk/PLAN.md).
-> This file only tracks compiler/language work derived from that plan.
+**Status:** mini is the canonical compiler. Legacy engine and bootstrap tools
+are removed. The only supported command is the mini single-file surface.
 
-The compiler is not the driver. Every item below must cite a concrete XDK
-package scenario and runtime contract.
+## 1. Product rule
 
-## Priority queue
+```text
+mini scenario
+  → mini codegen
+  → runtime/XDK support only where the scenario requires it
+  → regression evidence
+  → commit
+```
 
-| Order | XDK trigger | Compiler work |
-| --- | --- | --- |
-| 1 | `xdk.sync` Mutex<T> (W2 / S2-1) | DONE: Mutex type, scoped `withLock` lowering, runtime bridge |
-| 2 | `xdk.tasks` Task/TaskGroup/Context (W2 / S2-2, S2-4) | DONE: task types, spawn/join/cancel, result mapping, join deadline, context threaded into channel ops |
-| 3 | `xdk.sync` Channel completion (W2 / S2-3) | DONE: close/cancel semantics; legacy `Result<void, ...>` gap recorded |
-| 4 | `xdk.collections` algorithms (W4) | DONE: scope-aware generic inference, `List<T>` extraction, top-level param splitting, monomorphization |
-| 5 | resource/context (W3) | DONE: full Sys loads Resource.x; null handle args, `Int?` print, Bytes method typing |
-| 6 | log/config/cli (W5) | DONE: package source/adapters over existing text/time/sys primitives; no new language feature |
+mini is the only compiler and the only evidence source. If mini cannot do
+something, it is recorded as a mini gap or removed from the public CLI until
+mini can do it.
 
-## Rules
+## 2. Current surface
 
-- No compiler-only feature without an XDK probe and a runtime consumer.
-- No empty package implementation counts as capability.
-- The current runtime and XDK evidence live in `src/xdk/PLAN.md`.
-- Keep `legacy` as oracle where it works; record where it does not.
-- Existing M9-PAR 47/47, 26 regressions, selfhost and m8 remain the regression
-  floor for any compiler change.
+- `xnull build <entry.x>`
+- `xnull run <entry.x> [-- args]`
+- `xnull check <entry.x> [--json]`
+- `xnull version`
+- `xnull clean`
+- `xnull doctor`
+- `--resources <dir>` for embedded resources
+- `.xfb` FFI projection through `src/ffi`
 
-## Current evidence
+Project/package commands (`validate`, `tree`, `why`, `install`, `lock`,
+`repro`, `xmeta`, `fmt`, project `build/run`) are intentionally absent until
+mini can implement them. They are not delegated to another engine.
 
-- W1 is closed: `tests/xdk_bytes*.x`, `tests/xdk_io.x`, `tests/xdk_fs.x` pass
-  through mini and legacy in `src/mini/tests/xdk.sh`.
-- W2 is closed. `tests/xdk_mutex.x` passes mini + legacy; `tests/xdk_tasks.x`,
-  `tests/xdk_cancel.x`, and `tests/xdk_channel.x` pass on mini. `xdk.sync`
-  AtomicInt/AtomicBool/AtomicRef/Mutex pass in mini and legacy; `Channel<Int>`
-  is mini-only with the legacy `Result<void, ...>` typedef gap recorded.
-- `xdk.tasks` now has a working mini surface: `Context`, `TaskGroup`,
-  `Task<T>`, spawn/join/joinDeadline/cancel/close, and cancellation of
-  blocked channel operations. Legacy fails on undeclared `xn_task_body_*`
-  adapters and is recorded as an open differential gap.
-- `import xdk.collections` + `[:]` now works in mini/legacy;
-  `sortBy`/`dedup`/`find` monomorphize on mini over Int/String
-  (`tests/xdk_collections_algo.x`). `groupByInt` still needs `Map<Int, ...>`.
-- W3 is closed: full Sys loads `io/resource/Resource.x`; base/full resource
-  projects and the cancelled-context path pass in `tests/resources.sh`.
-- W4 is closed for the mini algorithm surface; legacy generic function
-  typedefs (`xn_fn_*`) remain an open differential gap.
-- W5 is closed: log/config are differential; CLI runs on mini and the legacy
-  String element read gap is recorded.
-- W6 is closed: `m10_parity.sh` covers T0 base/full; `m10_perf.sh` records
-  200M at 0.727s vs the 0.733s 0.2.0 baseline (0.992x).
-- M7-F1 Result/companion and closure lifetime remain open.
+## 3. Compiler queue
 
-## Archive
+1. **Int 32-bit semantics**: keep arithmetic/bitwise/return/local normalization
+   and shift bounds; audit XDK code that used 64-bit Int assumptions.
+2. **String/collection member surface**: `List.clear`, `Map` checked members,
+   generic Result containers as required by T0 scenarios.
+3. **Resource/FFI**: keep single-file `--resources` and `.xfb` projection green.
+4. **Project build**: only after a mini project scenario exists.
+5. **Formatter**: build it as mini source when it compiles with mini.
 
-The completed Mini 1.0 / M9-CUT plan is
-[`archive/2026-11-18-m9cut/`](archive/2026-11-18-m9cut/).
+## 4. Verification gates
+
+```sh
+src/mini/tests/selfhost.sh
+src/mini/tests/xdk.sh
+src/mini/tests/m10_parity.sh
+src/mini/tests/resources.sh
+src/mini/tests/m8.sh
+src/mini/tests/m10_perf.sh
+```
+
+All gates are mini-only. A red gate blocks the next change; there is no
+second-engine override.
+
+## 5. Architecture
+
+- `src/mini/main.x`: compiler source (self-hosted).
+- `src/mini/bin/mini`: current seed/self-hosted binary.
+- `src/runtime`: C runtime.
+- `src/xdk`: XDK source.
+- `src/toolchain/xnull-build.sh`: mini-only build/run/check.
+- `src/cli/xnull`: mini-only CLI entry.
+
+The former second compiler, bootstrap tools, project reactor, formatter, and
+split manifests are deleted. Historical versions remain in git history.

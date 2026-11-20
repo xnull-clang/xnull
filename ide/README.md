@@ -13,14 +13,14 @@ ide/
 ## Web IDE（ide/web）
 
 单页浏览器 IDE：`python3 ide/web/server.py [端口]`（默认 8765，仅监听 127.0.0.1）。
-后端仅用 Python 3 标准库，封装仓库 CLI（`bin/xnull --bootstrap`）；前端内嵌 CodeMirror 5（`vendor/`，离线可用）。
+后端仅用 Python 3 标准库，封装 `src/cli/xnull` 的 mini 单文件 build/run；前端内嵌 CodeMirror 5（`vendor/`，离线可用）。
 
 - 工程：模板向导（6 种）、导入本机工程目录、多工程切换；
 - 资源管理器：嵌套文件树，新建文件/文件夹、重命名、删除；
 - 编辑器：XNull 语法高亮、关键字/类型/片段补全（⌃Space）、括号自动闭合、格式化；
 - 生产力：快速打开（⌘P）、命令面板（⌘⇧P）、全局搜索（⌘⇧F）、自动保存、设置持久化；
 - 诊断：构建/运行的编译错误解析为问题列表，点击跳转到出错行并在编辑器标记；
-- 运行：工程聚合构建缺少 Go oracle 时自动回退入口文件单文件模式（输出中注明）。
+- 运行：从 `xnull.project` 读取 `entryFile`，由 mini 单文件构建/运行。
 
 工作区为 `ide/web/workspace/`，路径越界与非法工程名均被拒绝。
 

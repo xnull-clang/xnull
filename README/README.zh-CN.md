@@ -130,7 +130,7 @@ XNull 的选择是：**用约束换可预测性**。它不是“抽象能力最�
 
 ```sh
 # 在仓库根目录执行
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -138,22 +138,16 @@ hello, XNull
 1 + 2 = 3
 ```
 
-CLI 支持三个引擎：
+mini 是唯一编译器：
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
+./src/cli/xnull build src/examples/hello.x -o /tmp/hello
 ```
 
-- `mini`：新的最小编译器，`mini 0.2.0` / M9-CUT 后成为默认引擎。
-- `legacy`：冻结的原生 C 工具链与 oracle，保留并可用 `--engine=legacy` 显式选择。
-- `auto`：`mini` 明确支持时优先使用，否则回退 `legacy`。
-
-默认引擎已在 2026-11-18 切换到 `mini`；`legacy` 仍可通过
-`--engine=legacy` 或 `XNULL_ENGINE=legacy` 使用。
-
-引导路径不需要 Go。`src/bootstrap/build.sh` 只需要 C 编译器即可构建原生解析器和编译器。
+mini 是唯一编译器，没有第二套代码生成器。
+`--bootstrap` 仅作为旧脚本兼容参数保留；`--engine=mini` 是唯一引擎。
+mini 不能执行的命令直接不存在，不会转交给别的引擎。
 
 ## Mini 0.3.0 里程碑
 
@@ -190,23 +184,17 @@ docs/                 架构、语言与设计文档
 README/               多语言 README
 ide/                  VS Code 扩展与 Web IDE
 src/                  开发树
-  build/              工程、依赖、资源与 Reactor 模型
   cli/xnull           统一 CLI
-  compiler/           旧编译器
   mini/               自举最小编译器
   runtime/            C 运行时源码与头文件
   xdk/                XDK 源码
-  bindings/           类型化 FFI 绑定（.xfb）
   ffi/                raw FFI 桥（.xfb）
-  bootstrap/          原生 xparser 与 xn-s4
   toolchain/          构建与打包脚本
-  xnfmt/              格式化器
   examples/           可运行示例
 
 xdk/                  XDK 交付包
   lib/xdk/            XDK 包源码
   runtime/            C 运行时源码与头文件
-  bindings/xdk/       XDK FFI 绑定
   ffi/                raw FFI 桥
   install.sh          POSIX sh 安装脚本
 ```
@@ -217,7 +205,7 @@ xdk/                  XDK 交付包
 
 `src/` 是开发树，`xdk/` 是交付副本。修改 `src/xdk/` 后，需要同步到 `xdk/lib/xdk/`。
 
-CLI 入口与 `mini` / `legacy` / `auto` 引擎见「快速开始」。mini 的里程碑见 `src/mini/MILESTONES.md` 和 `src/mini/PLAN.md`。
+CLI 入口与 mini-only 命令面见「快速开始」。mini 的里程碑见 `src/mini/MILESTONES.md` 和 `src/mini/PLAN.md`。
 
 ### 安装 XDK
 
@@ -231,7 +219,6 @@ cd xdk
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 

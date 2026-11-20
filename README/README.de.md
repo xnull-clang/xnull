@@ -52,7 +52,7 @@ static Int main() {
 
 ```sh
 # im Repository-Wurzelverzeichnis
-./src/cli/xnull --bootstrap run src/examples/hello.x
+./src/cli/xnull run src/examples/hello.x
 ```
 
 ```text
@@ -63,16 +63,10 @@ hello, XNull
 Die CLI unterstützt drei Engines:
 
 ```sh
-./src/cli/xnull --bootstrap --engine=legacy run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=mini   run src/examples/hello.x
-./src/cli/xnull --bootstrap --engine=auto   run src/examples/hello.x
 ```
 
-- `legacy` — die aktuelle native C-Toolchain (Standard).
 - `mini` — der neue minimale Compiler.
-- `auto` — bevorzugt `mini`, wenn es das Programm explizit unterstützt, sonst Fallback auf `legacy`.
 
-Der Bootstrap-Pfad benötigt kein Go. `src/bootstrap/build.sh` baut den nativen Parser und Compiler mit einem C-Compiler.
 
 ## Repository-Struktur
 
@@ -82,23 +76,17 @@ docs/                 Architektur-, Sprach- und Designdokumente
 README/               übersetzte README-Dateien
 ide/                  VS-Code-Erweiterung und Web-IDE
 src/                  Entwicklungsbaum
-  build/              Projekt-, Abhängigkeits-, Ressourcen- und Reactor-Modell
   cli/xnull           einheitliche CLI
-  compiler/           Legacy-Compiler
   mini/               selbsthostender minimaler Compiler
   runtime/            C-Runtime-Quellen und Header
   xdk/                XDK-Quellen
-  bindings/           typisierte FFI-Verträge (.xfb)
   ffi/                Raw-FFI-Bridges (.xfb)
-  bootstrap/          native xparser und xn-s4
   toolchain/          Build- und Packaging-Skripte
-  xnfmt/              Formatierer
   examples/           ausführbare Beispiele
 
 xdk/                  XDK-Auslieferungspaket
   lib/xdk/            XDK-Paketquellen
   runtime/            C-Runtime-Quellen und Header
-  bindings/xdk/       XDK-FFI-Verträge
   ffi/                Raw-FFI-Bridges
   install.sh          POSIX-sh-Installer
 ```
@@ -109,7 +97,6 @@ xdk/                  XDK-Auslieferungspaket
 
 `src/` ist der Entwicklungsbaum, `xdk/` die Auslieferungskopie. Nach Änderungen an `src/xdk/` muss nach `xdk/lib/xdk/` synchronisiert werden.
 
-CLI-Einstieg und die Engines `legacy` / `mini` / `auto` sind unter „Schnellstart“ beschrieben. Die Meilensteine des Mini-Compilers stehen in `src/mini/PLAN.md`.
 
 ### XDK installieren
 
@@ -123,7 +110,6 @@ Installiert wird nach:
 ```text
 <prefix>/share/xnull/xdk
 <prefix>/share/xnull/runtime
-<prefix>/share/xnull/bindings
 <prefix>/share/xnull/ffi
 ```
 
