@@ -176,11 +176,12 @@ print(joined)                   // a,b
 | `has` | `Bool has(String key)` | 无 | 是否存在 | 无 | 均摊 O(1) |
 | `getOr` | `Int getOr(String key, Int fallback)` | 无 | 存在 → 值；否则 fallback；不插入 | 无 | 均摊 O(1) |
 | `tryGet` | `Result<Int, Error> tryGet(String key)` | 无 | 缺失 → `NotFound` | `NotFound` | 均摊 O(1) |
-| `put` | `Int? put(String key, Int value)` | 无 | 插入/替换；返回旧值，无则 `null` | 无 | 均摊 O(1) |
-| `remove` | `Int? remove(String key)` | 无 | 删除并返回旧值；无则 `null` | 无 | 均摊 O(1) |
+| `put` | `Bool put(String key, Int value)` | 无 | 替换返回 `true`，插入返回 `false` | 无 | 均摊 O(1) |
+| `remove` | `Bool remove(String key)` | 无 | 删除返回 `true`，不存在返回 `false` | 无 | 均摊 O(1) |
+| `removeOr` | `Int removeOr(String key, Int fallback)` | 无 | 删除并返回旧值；无则 fallback | 无 | 均摊 O(1) |
 | `keys` | `List<String> keys()` | 无 | 快照；顺序不承诺 | 无 | O(n) |
 | `values` | `List<Int> values()` | 无 | 快照 | 无 | O(n) |
-| `entries` | `List<Pair<String,Int>> entries()` | 无 | 快照 | 无 | O(n) |
+| `entries` | `List<Pair<String,Int>> entries()` | 无 | 快照 | 无 | blocked（Pair 运行时待补） |
 | `clear` | `Void clear()` | 无 | 清空 | 无 | O(n) |
 
 **冻结说明**：
@@ -440,13 +441,13 @@ print(firstChunk.length())           // 2
 
 - `sortBy`（原地、稳定插入排序）、`sortedBy`（副本）、`dedup`、`find`、`join`；
 - `PriorityQueue<T>`、`RingBuffer<T>`；场景 `xdk_containers.x`；
-- `List.clear/tryGet/trySet/tryInsert/tryRemove`、`Map.clear`、`Set.remove/clear`；场景 `xdk_members.x`。
+- `List.clear/tryGet/trySet/tryInsert/tryRemove`、`Map.clear/put/remove/removeOr/tryGet/keys/values`、`Set.remove/clear`；场景 `xdk_members.x`。
 
 仍为 `partial` 的阻塞项：
 
 - `List.clear`、`Map.clear`、`Set.clear/remove` 已落地；
 - `List.tryGet/trySet/tryInsert/tryRemove` 已落地；
-- `Map<String,Int>.keys/values/entries/remove` 与 `Set<Int>` checked 成员尚未落地；
+- `Map<String,Int>.entries` 与 `Set<Int>` checked 成员尚未落地；
 - 通用 `Map<K,V>`/`Set<T>` 运行时、`groupBy`/`groupByInt`；
 - `OrderedMap`/`BTreeMap` 的 T0-X 契约已设计，但未纳入 T0-K 验收。
 
