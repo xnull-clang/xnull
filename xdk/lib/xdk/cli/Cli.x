@@ -1,4 +1,4 @@
-// Tier: T1；依赖：xdk.text、xdk.sys；稳定性：preview。
+// Tier: T0；依赖：xdk.text、xdk.sys；稳定性：preview。
 // xdk.cli —— 命令行解析与用法（W5）
 //
 // 面：参数列表、flag/值查询（`--k v` 与 `--k=v`）、位置参数、usage 文本、

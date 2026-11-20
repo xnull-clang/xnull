@@ -1,4 +1,4 @@
-// Tier: T1；依赖：xdk.runtime、xdk.text；稳定性：preview。
+// Tier: T0；依赖：xdk.runtime、xdk.text；稳定性：preview。
 // xdk.config —— 配置快照与覆盖（W5）
 //
 // 面：profile、键值快照（保持插入顺序）、覆盖、环境变量白名单导入。

@@ -334,16 +334,16 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
 | `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
-| `07-math.md` | 数学函数、溢出、统计、Int128 | 待写 |
+| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（基础通过；Int128 阻塞） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
-| `11-sys.md` | Process、Env、Platform、Signal | 待写 |
-| `12-tasks.md` | Task、TaskGroup、Context、取消 | 待写 |
-| `13-sync.md` | Mutex、Channel、Atomics、同步器 | 待写 |
-| `14-log.md` | Level、Logger、Field、Sink、过滤 | 待写 |
-| `15-config.md` | Config、Source、Profile、校验 | 待写 |
-| `16-cli.md` | Args、OptionSpec、Command、usage | 待写 |
+| `11-sys.md` | Process、Env、Platform、Signal | Partial（简化文件面；File/Dir/Process X） |
+| `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
+| `13-sync.md` | Mutex、Channel、Atomics、同步器 | Partial（typed channel 待补） |
+| `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |
+| `15-config.md` | Config、Source、Profile、校验 | Verified（内存/环境面） |
+| `16-cli.md` | Args、OptionSpec、Command、usage | Verified（最小面） |
 
 `01-errors.md`、`04-bytes.md`、`06-collections.md` 是后续包的样板：
 达不到它们的契约密度，就不算完成；但不要复制它们已删除的旧写法

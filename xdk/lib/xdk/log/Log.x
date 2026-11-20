@@ -1,4 +1,4 @@
-// Tier: T1；依赖：xdk.runtime、xdk.text；稳定性：preview。
+// Tier: T0；依赖：xdk.runtime、xdk.text；稳定性：preview。
 // xdk.log —— 结构化日志（W5 首个可运行面）
 //
 // 面：Level 阈值、Logger 名称、debug/info/warn/error 便捷方法、stdout sink。

@@ -39,16 +39,16 @@ Still to watch:
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
 | collections | v1.2 | partial | PASS (subset) | List.clear/try*, Map entries, generic Map/Set |
-| math | missing | mini | PASS | design doc; Int128 blocked |
+| math | v1.0 | partial | PASS | Int128 blocked; stats edges |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | partial | PASS | strict/checked + copy semantics |
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
-| sys | missing | mini | PASS | design doc; resource T0-X |
-| tasks | missing | mini | PASS | design doc |
-| sync | missing | mini | PASS | design doc; typed channels |
-| log | missing | mini | PASS | design doc |
-| config | missing | mini | PASS | design doc |
-| cli | missing | mini | PASS | design doc |
+| sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
+| tasks | v1.0 | mini | PASS | — |
+| sync | v1.0 | partial | PASS | typed channels |
+| log | v1.0 | mini | PASS | fields/sinks T0-X |
+| config | v1.0 | mini | PASS | sources/codec T0-X/T1 |
+| cli | v1.0 | mini | PASS | subcommands T0-X |
 
 ## 4. Gates
 
@@ -66,14 +66,13 @@ All gates must pass on mini. There is no second engine.
 
 ## 5. Freeze blockers
 
-1. T0 design docs for `math`, `sys`, `tasks`, `sync`, `log`, `config`,
-   `cli` are still missing.
-2. Collections container member surface (`List.clear/try*`, `Map` entries,
-   `Set` checked) and generic `Map<K,V>`/`Set<T>` runtime are not implemented.
-3. `collectOk`/`flatten`/cross-type `mapOk/mapErr` await generic Result
+1. Collections container member surface is partial: `List.clear`/`Map.clear`/
+   `Set.clear`/`Set.remove` are in; `List.try*`, `Map` entries/remove, and
+   generic `Map<K,V>`/`Set<T>` runtime are still pending.
+2. `collectOk`/`flatten`/cross-type `mapOk/mapErr` await generic Result
    container support.
-4. Int128 and typed channels remain T0-X/T1 dependencies.
-5. Project build and formatter have no mini implementation and are not part of
+3. Int128 and typed channels remain pending.
+4. Project build and formatter have no mini implementation and are not part of
    T0; do not claim them.
 
 Freeze rule: a package is `Verified` only when its design exists, its scenario
