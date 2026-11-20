@@ -8,6 +8,10 @@ static Result<Int, Error> badResult() {
     return Err(new BasicError(ErrorKind.InvalidArgument, "bad"))
 }
 
+static Result<Result<Int, Error>, Error> nestedOkResult() {
+    return Ok(okOne())
+}
+
 static Int main() {
     BasicError error = new BasicError(ErrorKind.NotFound, "missing")
     print(error.kind() == ErrorKind.NotFound)
@@ -55,5 +59,15 @@ static Int main() {
     print(collected.isErr())
     print(collected.error().length())
     print(collected.error().kind() == ErrorKind.InvalidArgument)
+
+    Result<Int, Error> flat = flatten(nestedOkResult())
+    print(flat.isOk())
+    print(flat.value())
+
+    Result<String, Error> text = mapOk(okOne(), (Int value) -> "n=" + str(value))
+    print(text.value())
+    Result<Int, String> mappedError = mapErr(badResult(), (Error failure) -> "bad")
+    print(mappedError.isErr())
+    print(mappedError.error())
     return 0
 }

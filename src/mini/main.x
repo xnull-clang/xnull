@@ -1924,6 +1924,88 @@ class Mono {
         }
     }
 
+    String simpleExprType(AstNode n) {
+        if n.kind == "Int" { return "Int" }
+        if n.kind == "String" { return "String" }
+        if n.kind == "Bool" { return "Bool" }
+        if n.kind == "Double" { return "Double" }
+        if n.kind == "Char" { return "Char" }
+        if n.kind == "Null" { return "Null" }
+        if n.kind == "New" { return n.text }
+        if n.kind == "Name" {
+            Int i = self.scopeNames.length() - 1
+            while i >= 0 {
+                if self.scopeNames.get(i) == n.text { return self.scopeTypes.get(i) }
+                i = i - 1
+            }
+        }
+        if n.kind == "Unary" && n.kids.length() > 0 { return self.simpleExprType(n.kids.get(0)) }
+        if n.kind == "Binary" && n.kids.length() > 1 {
+            String lt = self.simpleExprType(n.kids.get(0))
+            String rt = self.simpleExprType(n.kids.get(1))
+            if n.text == "==" || n.text == "!=" || n.text == "<" || n.text == "<=" || n.text == ">" || n.text == ">=" || n.text == "&&" || n.text == "||" { return "Bool" }
+            if lt == "String" && rt == "String" { return "String" }
+            if lt == "Double" || rt == "Double" { return "Double" }
+            if lt == "Long" || rt == "Long" { return "Long" }
+            if lt == "Int" && rt == "Int" { return "Int" }
+        }
+        if n.kind == "MethodCall" {
+            if n.text == "describe" || n.text == "message" || n.text == "code" || n.text == "toString" { return "String" }
+            if n.text == "kind" { return "ErrorKind" }
+        }
+        if n.kind == "Call" {
+            if n.text == "str" { return "String" }
+            Int i = 0
+            while i < self.program.kids.length() {
+                AstNode fn = self.program.kids.get(i)
+                if fn.kind == "Func" && fn.text == n.text {
+                    Int r = 0
+                    while r < fn.kids.length() {
+                        if fn.kids.get(r).kind == "Ret" { return fn.kids.get(r).text }
+                        r = r + 1
+                    }
+                }
+                i = i + 1
+            }
+        }
+        return "Any"
+    }
+
+    String inferLambdaReturn(AstNode lambda) {
+        Int mark = self.scopeNames.length()
+        Int i = 0
+        while i < lambda.kids.length() {
+            AstNode c = lambda.kids.get(i)
+            if c.kind == "Param" {
+                String text = c.text
+                Int split = -1
+                Int si = 0
+                while si < text.length() {
+                    if text.substring(si, 1) == " " { split = si }
+                    si = si + 1
+                }
+                if split > 0 {
+                    self.addScope(text.substring(split + 1, text.length() - split - 1), text.substring(0, split))
+                }
+            }
+            if c.kind == "Block" {
+                Int j = 0
+                while j < c.kids.length() {
+                    AstNode st = c.kids.get(j)
+                    if st.kind == "Return" && st.kids.length() > 0 {
+                        String result = self.simpleExprType(st.kids.get(0))
+                        while self.scopeNames.length() > mark { self.scopeNames.remove(self.scopeNames.length() - 1); self.scopeTypes.remove(self.scopeTypes.length() - 1); }
+                        return result
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        while self.scopeNames.length() > mark { self.scopeNames.remove(self.scopeNames.length() - 1); self.scopeTypes.remove(self.scopeTypes.length() - 1); }
+        return "Any"
+    }
+
     Bool inferTypePattern(String pattern, String actual, List<String> names, List<String> inferred) {
         Int ni = 0
         while ni < names.length() {
@@ -2005,8 +2087,39 @@ class Mono {
                     si = si + 1
                 }
                 if splitAt > 0 && argi < actual.length() {
-                    if !self.inferTypePattern(ptext.substring(0, splitAt), actual.get(argi), names, inferred) {
-                        return ""
+                    AstNode argNode = call.kids.get(argi)
+                    String patternType = ptext.substring(0, splitAt)
+                    if argNode.kind == "Lambda" && patternType.indexOf("(") >= 0 {
+                        String returnPattern = patternType.substring(0, patternType.indexOf("("))
+                        String returnType = self.inferLambdaReturn(argNode)
+                        if returnType != "Any" && !self.inferTypePattern(returnPattern, returnType, names, inferred) {
+                            return ""
+                        }
+                        String inside = patternType.substring(patternType.indexOf("(") + 1, patternType.length() - patternType.indexOf("(") - 2)
+                        List<String> patternArgs = splitTop(inside)
+                        Int lpi = 0
+                        Int api = 0
+                        while lpi < argNode.kids.length() {
+                            AstNode lp = argNode.kids.get(lpi)
+                            if lp.kind == "Param" && api < patternArgs.length() {
+                                String lpText = lp.text
+                                Int lpSplit = -1
+                                Int lsi = 0
+                                while lsi < lpText.length() {
+                                    if lpText.substring(lsi, 1) == " " { lpSplit = lsi }
+                                    lsi = lsi + 1
+                                }
+                                if lpSplit > 0 && !self.inferTypePattern(patternArgs.get(api).trim(), lpText.substring(0, lpSplit), names, inferred) {
+                                    return ""
+                                }
+                                api = api + 1
+                            }
+                            lpi = lpi + 1
+                        }
+                    } else {
+                        if !self.inferTypePattern(patternType, actual.get(argi), names, inferred) {
+                            return ""
+                        }
                     }
                 }
                 argi = argi + 1
@@ -2340,7 +2453,7 @@ class Checker {
 
     String mapKeyType(String ty) {
         String inner = self.mapInner(ty)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 1 {
             return parts.get(0)
         }
@@ -2349,7 +2462,7 @@ class Checker {
 
     String mapValueType(String ty) {
         String inner = self.mapInner(ty)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 2 {
             return parts.get(1).trim()
         }
@@ -2397,7 +2510,7 @@ class Checker {
         if self.isResultType(ty) {
             inner = ty.substring(7, ty.length() - 8)
         }
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 1 {
             return parts.get(0).trim()
         }
@@ -2409,7 +2522,7 @@ class Checker {
         if self.isResultType(ty) {
             inner = ty.substring(7, ty.length() - 8)
         }
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 2 {
             return parts.get(1).trim()
         }
@@ -3304,6 +3417,9 @@ class Checker {
         if vt == "String" {
             return ".s = (rt_string *)(" + val + ")"
         }
+        if vt.startsWith("Result<") {
+            return ".p = xn_box_result(" + val + ")"
+        }
         return ".p = (void *)(" + val + ")"
     }
 
@@ -3318,6 +3434,9 @@ class Checker {
         if vt == "String" {
             return "(" + bv + ").s"
         }
+        if vt.startsWith("Result<") {
+            return "(*(xn_Result *)(" + bv + ").p)"
+        }
         return "(" + bv + ").p"
     }
 
@@ -3327,7 +3446,7 @@ class Checker {
 
     String resultValue(String ty) {
         String inner = ty.substring(7, ty.length() - 8)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 1 {
             return parts.get(0).trim()
         }
@@ -4674,6 +4793,9 @@ class CGen {
         if vt == "String" {
             return ".s = (rt_string *)(" + val + ")"
         }
+        if vt.startsWith("Result<") {
+            return ".p = xn_box_result(" + val + ")"
+        }
         return ".p = (void *)(" + val + ")"
     }
 
@@ -4688,6 +4810,9 @@ class CGen {
         if vt == "String" {
             return "(" + bv + ").s"
         }
+        if vt.startsWith("Result<") {
+            return "(*(xn_Result *)(" + bv + ").p)"
+        }
         return "(" + bv + ").p"
     }
 
@@ -4697,7 +4822,7 @@ class CGen {
 
     String resultValue(String ty) {
         String inner = ty.substring(7, ty.length() - 8)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 1 {
             return parts.get(0).trim()
         }
@@ -4706,7 +4831,7 @@ class CGen {
 
     String resultError(String ty) {
         String inner = ty.substring(7, ty.length() - 8)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 2 {
             return parts.get(1).trim()
         }
@@ -4897,7 +5022,7 @@ class CGen {
 
     String mapValue(String ty) {
         String inner = ty.substring(4, ty.length() - 5)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 2 {
             return parts.get(1).trim()
         }
@@ -4906,7 +5031,7 @@ class CGen {
 
     String mapKey(String ty) {
         String inner = ty.substring(4, ty.length() - 5)
-        List<String> parts = inner.split(",")
+        List<String> parts = splitTop(inner)
         if parts.length() >= 1 {
             return parts.get(0).trim()
         }
@@ -8496,6 +8621,7 @@ class CGen {
         self.emit("int64_t xdkc_now_wall_ms(void);")
         self.emit("typedef struct { int ok; int64_t value; rt_string *error; } xn_Result_Int_String;")
         self.emit("typedef struct { int ok; int64_t i; double d; rt_string *s; void *p; void *err; } xn_Result;")
+        self.emit("static void *xn_box_result(xn_Result v) { xn_Result *p = (xn_Result *)malloc(sizeof(xn_Result)); if (p == NULL) { abort(); } *p = v; return (void *)p; }")
         self.emit("typedef struct { rt_header hdr; int64_t kind; rt_string *message; } xn_builtin_error;")
         self.emit("static const rt_type RT_TYPE_XN_BUILTIN_ERROR = { \"BuiltinError\", sizeof(xn_builtin_error), NULL, NULL };")
         self.emit("static xn_builtin_error *xn_builtin_error_new(int64_t kind, const char *message) { xn_builtin_error *e = (xn_builtin_error *)rt_gc_new(&RT_TYPE_XN_BUILTIN_ERROR); memset((char *)e + sizeof(rt_header), 0, sizeof(xn_builtin_error) - sizeof(rt_header)); e->kind = kind; e->message = rt_string_from_c(message); return e; }")

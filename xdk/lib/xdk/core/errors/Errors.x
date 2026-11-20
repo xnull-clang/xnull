@@ -620,21 +620,21 @@ class ErrorGroup implements Error, DetailedError {
     }
 }
 
-Result<T, E> mapOk<T, E>(Result<T, E> result, T(T) transform) {
+Result<U, E> mapOk<T, U, E>(Result<T, E> result, U(T) transform) {
     if result.isErr() {
         return Err(result.error())
     }
     return Ok(transform(result.value()))
 }
 
-Result<T, E> mapErr<T, E>(Result<T, E> result, E(E) transformError) {
+Result<T, F> mapErr<T, E, F>(Result<T, E> result, F(E) transformError) {
     if result.isErr() {
         return Err(transformError(result.error()))
     }
     return Ok(result.value())
 }
 
-Result<T, E> andThen<T, E>(Result<T, E> result, Result<T, E>(T) next) {
+Result<U, E> andThen<T, U, E>(Result<T, E> result, Result<U, E>(T) next) {
     if result.isErr() {
         return Err(result.error())
     }
@@ -667,6 +667,13 @@ Result<List<T>, ErrorGroup> collectOk<T>(List<Result<T, Error>> results) {
         return Ok(values)
     }
     return Err(group)
+}
+
+Result<T, E> flatten<T, E>(Result<Result<T, E>, E> nestedResult) {
+    if nestedResult.isErr() {
+        return Err(nestedResult.error())
+    }
+    return nestedResult.value()
 }
 
 Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
