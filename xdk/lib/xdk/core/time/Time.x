@@ -258,7 +258,7 @@ String padLeftNum(String s, Int width) {
 
 DateTime dateTimeOf(Int y, Int mo, Int d, Int h, Int mi, Int s) {
     Int days = daysFromCivil(y, mo, d)
-    Long ms = days * 86400000 + (h * 3600 + mi * 60 + s) * 1000
+    Long ms = (days as Long) * 86400000 + ((h * 3600 + mi * 60 + s) as Long) * 1000
     return new DateTime(ms)
 }
 
