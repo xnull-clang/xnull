@@ -55,15 +55,15 @@ every program end-to-end and diffs exact output. The full C suite
 
 ## 1. Status after the text/errors batch
 
-| State | Ledger start | After R4 batch | After follow-up | After text/errors | Change |
-| --- | ---: | ---: | ---: | ---: | --- |
-| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 39 | +12 total: DetailedError, setChecked, complex receiver, escape/raw/unicode, RuntimeInfo, stats, Stopwatch, cancellable sleep, full layout parse, error-code registry, StringBuilder, tryWith* |
-| `Strict candidate` | 13 | 11 | 9 | 2 | -11 total; A9/A10 remain |
-| `Optimized proposed` | 0 | 3 | 3 | 2 | +2: meta/能力矩阵, time/日历加减 |
-| `Optimized candidate` | 11 | 8 | 8 | 8 | -3 total; 8 remain |
-| `Deferred candidate` | 3 | 3 | 3 | 3 | 0 promoted; 3 decision packets completed |
-| `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
-| `Signed Strict/Optimized closed` | 0 | 0 | 0 | 0 | no signer in this batch |
+| State | Ledger start | After R4 batch | After follow-up | After text/errors | After this batch | Change |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 39 | 41 | +14 total; this batch adds log timestamp and config typed getter |
+| `Strict candidate` | 13 | 11 | 9 | 2 | 0 | -13 total; all strict candidates now have a real chain |
+| `Optimized proposed` | 0 | 3 | 3 | 2 | 8 | +8 total; this batch adds meta BuildInfo/build metadata, bytes NUL, cli completion/short options/env defaults |
+| `Optimized candidate` | 11 | 8 | 8 | 8 | 2 | -9 total; B2 stdio and B8 log filter retain candidates |
+| `Deferred candidate` | 3 | 3 | 3 | 3 | 3 | 0 promoted; C1-C3 decision packets refreshed |
+| `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
+| `Signed Strict/Optimized closed` | 0 | 0 | 0 | 0 | 0 | no signer in this batch |
 
 `Strict evidenced` and `Optimized proposed` are **not closed**. Only a user or
 independent reviewer signature makes a row `Signed ... closed`.
@@ -411,41 +411,74 @@ true
   `08-time.md` documents the exact supported set.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### A9. log / 时间戳/单调时钟字段 (ledger #31)
+### A9. log / 时间戳/单调时钟字段 (ledger #31) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:** `src/xdk/log/Log.x:51-61` (`LogRecord`) has only
-  `level`, `loggerName`, `message`, `fields`; there is no timestamp or
-  monotonic value:
-
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source/fixes:**
+  - `src/xdk/log/Log.x`: `LogRecord` now carries `timestampMs`/`monotonicMs`
+    plus `timestamp()`/`monotonic()` accessors.
+  - A `Clock` protocol (`wallMs`/`monoMs`) and `SystemClock` default are added;
+    `Logger.withClock` injects a replacement clock and `withSink`/`withField`
+    preserve it.
+  - `Logger.log` fills both fields before handing the record to the sink.
+  - `MemorySink.captured()` returns the raw `LogRecord` objects, and
+    `recordTextWithTime` provides an explicit timestamped rendering;
+    `recordText` is unchanged so existing log output stays stable.
+- **Design:** `docs/design/t0/14-log.md` CAP-7/CAP-8, contract, and test
+  obligations updated; timestamp/clock is T0-X, not T1.
+- **Scenario:** `src/mini/tests/r4/log_timestamp.x` via `r4_evidence.sh`.
+- **Command/output:**
 ```text
-$ grep -n "timestamp\|nowMono\|nowWall" src/xdk/log/Log.x
-(no matches)
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/log_timestamp.x
+2
+1700000000000
+500
+1700000000000
+500
+true
+[INFO] svc: ready
+1700000000000 [INFO] svc: ready
+[INFO] svc: ready
+1700000000000
+[INFO] svc: field k=v
 ```
+  The scenario injects `FixedClock(1700000000000, 500)`, filters a debug
+  record, observes both raw fields and accessors, checks the injected clock
+  survives `withField`, and confirms the legacy text form is unchanged.
+- **Gap:** no locale/time formatting; the fields are raw milliseconds.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-- **Design:** `docs/design/t0/14-log.md:79` puts timestamp/monotonic fields in
-  T1.
-- **Gap:** a timestamp field (and clock injection for deterministic tests) plus
-  a scenario.
-- **What closes it:** add the field/API, update `LogRecord` formatting, and add
-  a deterministic clock test.
+### A10. config / 类型化 getter (ledger #33) — PROMOTED
 
-### A10. config / 类型化 getter (ledger #33)
-
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:** `src/xdk/config/Config.x` has `getOr(String,String)` only:
-
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source/fixes:** `src/xdk/config/Config.x` adds
+  `getInt`/`getLong`/`getBool`/`getDouble`, all returning
+  `Result<T, Error>`. Missing keys return `NotFound`, parse failures return
+  `InvalidArgument`; `getLong` parses 64-bit decimal values, `getBool` accepts
+  `true`/`false`/`1`/`0`, and `getDouble` uses the strict `parseFloat` contract.
+- **Design:** `docs/design/t0/15-config.md` CAP-8, contract, and test
+  obligations updated; `Duration` getter stays T1.
+- **Scenario:** `src/mini/tests/r4/config_typed.x` via `r4_evidence.sh`.
+- **Command/output:**
 ```text
-$ grep -n "getInt\|getBool\|getLong\|getDouble\|getFloat\|getDuration" src/xdk/config/Config.x
-(no matches)
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/config_typed.x
+true
+9090
+true
+9000000000
+true
+3.5
+true
+true
+true
+true
+true
+true
 ```
-
-- **Design:** `docs/design/t0/15-config.md:26` and `:75` put typed getters in
-  T1.
-- **Gap:** typed getters with parse errors and a scenario covering valid,
-  invalid, and missing values.
-- **What closes it:** add `getInt/getBool/...` returning `Result<T, Error>` (or
-  the documented shape) and a scenario.
+  The scenario covers valid values (including a >32-bit Long), missing keys
+  (with `ErrorKind.NotFound`), and invalid Int/Long/Bool/Double values.
+- **Gap:** no `Duration` getter and no schema/error aggregation; both are T1.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A11. time / Stopwatch (ledger #36) — PROMOTED
 
@@ -584,18 +617,42 @@ test/output exist. `Optimized proposed` is still **not closed**.
   **Migration:** use `xdk.io` streams plus `stdinReadLine` where possible.
 - **Gap:** adapter (`stdinReader()/stdoutWriter()` or equivalent) + scenario.
 
-### B3. meta / BuildInfo (ledger #40)
+### B3. meta / BuildInfo (ledger #40) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** `languageVersion`, `xdkVersion`, `targetPlatform`
-  (`src/xdk/core/meta/Meta.x:5,9,13`).
-- **Lost:** compiler version, architecture, build mode; the proposal asks for
-  version/platform/compiler. `xdk_meta.x` tests only the two version strings.
-- **Test evidence:** `xdk.sh` runs `xdk_meta.x` (`3.4.0`, `0.1.0`) — PASS, but
-  it is not the BuildInfo surface.
-- **Impact:** meta. **Dependents:** log/cli. **Breakage:** none.
-  **Migration:** none.
-- **Gap:** compiler/arch/mode constants + scenario; `03-meta.md:51` is T0-X.
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:** `BuildInfo` and `buildInfo()` in `src/xdk/core/meta/Meta.x`
+  aggregate language/XDK/compiler/platform/arch/mode/build time; `complete()`
+  rejects any empty field and `describe()` provides a diagnostic string.
+- **Retained:** `languageVersion`, `xdkVersion`, `targetPlatform`, and all
+  previously frozen version/platform strings.
+- **Lost:** no runtime capability probing and no package-manager metadata; the
+  build identity is fixed by the compiler/runtime that produced the binary.
+- **Test/command/output:**
+```text
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/meta_buildinfo.x
+true
+3.4.0
+0.1.0
+mini
+3.4.0
+true
+true
+true
+true
+true
+true
+true
+mini
+3.4.0
+true
+```
+  The scenario checks `complete()`, all version/compiler fields, non-empty
+  platform/arch/mode/build time, `describe()`, and the standalone functions.
+- **Impact:** meta additively; existing three functions unchanged.
+  **Dependents:** log/cli/diagnostics. **Breakage:** none.
+  **Migration:** read the aggregate through `buildInfo()` when several fields
+  are needed.
+- **Status:** proposed, not closed.
 
 ### B4. meta / 能力矩阵 (ledger #41) — PROMOTED TO PROPOSED
 
@@ -624,34 +681,58 @@ api manifest: 114 symbols / 14 packages
   read the table at build time instead of probing the runtime.
 - **Status:** proposed, not closed.
 
-### B5. meta / 构建元数据 (ledger #42)
+### B5. meta / 构建元数据 (ledger #42) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** version constants and target platform (`Meta.x`).
-- **Lost:** build date, compiler identity, target architecture, build mode.
-- **Test evidence:** none for build metadata; `xdk_meta.x` covers versions only.
-- **Impact:** meta. **Dependents:** meta. **Breakage:** none.
-  **Migration:** none.
-- **Gap:** read-only build metadata constants + scenario; `03-meta.md:53` is
-  T0-X.
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:** read-only `targetArch`, `buildMode`, `compilerName`,
+  `compilerVersion`, and `buildDate` in `src/xdk/core/meta/Meta.x`.
+  `buildDate` is the C runtime's `__DATE__ __TIME__`; `buildMode` is
+  `release`/`debug` from the runtime build.
+- **Retained:** version constants and target platform.
+- **Lost:** reproducible build timestamps and build numbers. `buildDate` is
+  explicitly diagnostic-only and must not be used in business logic or cache
+  keys; the docs say so.
+- **Test/command/output:** the same `meta_buildinfo.x` run as B3 checks the
+  non-empty build date, mode, arch, and compiler identity; `src/runtime/test_std.c`
+  also asserts `xdkc_build_date()` is non-empty in the C suite.
+- **Impact:** meta. **Dependents:** meta/diagnostics. **Breakage:** none
+  (additive). **Migration:** none.
+- **Status:** proposed, not closed.
 
-### B6. bytes / NUL 边界工具 (ledger #44)
+### B6. bytes / NUL 边界工具 (ledger #44) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** `Bytes`, `ByteReader`, `ByteWriter`, `ByteBuffer`
-  (`src/xdk/core/bytes/Bytes.x`) and their scenarios (`xdk_bytes*.x` PASS).
-- **Lost:** C-string/NUL-boundary helpers (no `nul`/`CString` symbol):
-
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:** `src/xdk/core/bytes/Bytes.x` adds `nulIndex`, `hasNul`,
+  `nulPrefix`, `withNulTerminator`, and `withoutTrailingNul`. They operate on
+  byte 0 only, never expose a raw pointer, and always return new copies.
+- **Retained:** `Bytes`, `ByteReader`, `ByteWriter`, `ByteBuffer` and their
+  existing scenarios.
+- **Lost:** no `CString` type, no implicit C-string conversion, and no
+  ownership transfer to/from native code; that remains outside the safe T0 API.
+- **Test/command/output:**
 ```text
-$ grep -rni "nul\|cstring\|fromCString\|toCString" src/xdk/core/bytes
-(no matches)
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/bytes_nul.x
+2
+true
+6162
+686900
+686900
+6869
+-1
+false
+706c61696e
+6869
+0
+true
+00
+true
 ```
-
-- **Test evidence:** none for the optimized item; the existing ByteBuffer
-  evidence is a different ledger row.
-- **Impact:** bytes. **Dependents:** bytes users. **Breakage:** none.
-  **Migration:** use `ByteReader`/`ByteWriter` explicitly.
-- **Gap:** the thin NUL-boundary wrapper and a scenario.
+  The scenario covers embedded NUL, no NUL, an empty sequence, a leading NUL,
+  adding a terminator (including to an empty sequence), and removing one
+  trailing NUL.
+- **Impact:** bytes additively. **Dependents:** bytes users.
+  **Breakage:** none. **Migration:** replace manual NUL scans with the helpers.
+- **Status:** proposed, not closed.
 
 ### B7. time / 日历加减边界 (ledger #45) — PROMOTED TO PROPOSED
 
@@ -717,52 +798,79 @@ $ grep -rni "filter\|redact\|sample" src/xdk/log
   **Migration:** add hooks later.
 - **Gap:** predicates/redaction/sampler + tests, or keep as T1 non-goal.
 
-### B9. cli / 补全 (ledger #49)
+### B9. cli / 补全 (ledger #49) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** `OptionSpec`/`Command`/`help` (`src/xdk/cli/Cli.x`), covered by
-  `xdk_cli.x` via `xdk.sh`.
-- **Lost:** shell completion generation; no symbol:
-
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:** `completionBash(Command root)` in `src/xdk/cli/Cli.x` emits one
+  `complete -W` line for the root command and one for each direct subcommand.
+  Words are the long option, its short name, child command names, and `help`.
+- **Retained:** `OptionSpec`/`Command`/`help` and all existing parse behavior.
+- **Lost:** no zsh/fish native completion and no dynamic value completion; the
+  output is a deterministic word list only.
+- **Test/command/output:**
 ```text
-$ grep -rni "completion\|complete" src/xdk/cli
-(no matches)
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/cli_completion.x
+...
+complete -W "--verbose -v --all -a run help" demo
+complete -W "--output -o help" "demo run"
 ```
+- **Impact:** cli additively. **Dependents:** cli users. **Breakage:** none.
+  **Migration:** call `completionBash` when generating a shell hook.
+- **Status:** proposed, not closed.
 
-- **Design:** `docs/design/t0/16-cli.md:28` lists completion as T1.
-- **Impact:** cli. **Dependents:** cli users. **Breakage:** none.
-  **Migration:** generated later.
-- **Gap:** generator from `OptionSpec` + test.
+### B10. cli / 短选项合并/重复策略 (ledger #50) — PROMOTED TO PROPOSED
 
-### B10. cli / 短选项合并/重复策略 (ledger #50)
-
-- **Verdict:** stays `Optimized candidate`.
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:**
+  - `OptionSpec.withShort` attaches a short name without changing the original.
+  - `Args.expandShortFlags(known)` expands `-abc` only when every short option
+    is known; `Command.parse` performs the same expansion for all-flag clusters
+    and rejects clusters that contain a value-taking option.
+  - `Args.lastValue`/`Args.values` make the duplicate policy explicit;
+    `Args.value` remains first-wins.
+  - `--` is a documented terminator: `has`/`value`/`values` stop there and
+    `positionals()` returns everything after it verbatim.
 - **Retained:** long-option parsing (`--k v`, `--k=v`), unknown-option
-  rejection, required/value checks, subcommands, help (`Cli.x`).
-- **Lost:** POSIX short-option bundling (`-abc`), an explicit duplicate-option
-  policy, and a `--` terminator contract. The current `Args.value` returns the
-  first match; that is incidental behavior, not a documented rule.
-- **Design:** `docs/design/t0/16-cli.md:28` lists short-option merging and
-  duplicate policy as T1.
-- **Impact:** cli. **Dependents:** cli users. **Breakage:** subset.
-  **Migration:** keep long options; do not rely on bundling.
-- **Gap:** document/implement the rule and add a scenario.
+  rejection, required/value checks, subcommands, help.
+- **Lost:** bundling a value-taking short option (`-ovalue`) is rejected rather
+  than guessed; only all-flag clusters are merged.
+- **Test/command/output:** the `cli_completion.x` scenario observes `false/3/
+  -c/--name/late/true/true/one/three/3/true/true/true` before the completion
+  lines: terminator positionals, bundle expansion, and first/last/all duplicates.
+- **Impact:** cli. **Dependents:** cli users. **Breakage:** none for existing
+  long-option code; clusters were previously rejected as unknown.
+  **Migration:** attach short names with `withShort`; use `lastValue`/`values`
+  when a specific duplicate policy is needed.
+- **Status:** proposed, not closed.
 
-### B11. cli / 环境/配置文件默认值 (ledger #51)
+### B11. cli / 环境/配置文件默认值 (ledger #51) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** `Args` parsing and `valueOr` fallback.
-- **Lost:** environment/config precedence chain; no symbol:
-
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim:** `resolveValue(args, flag, envName, configValue, fallback)` in
+  `src/xdk/cli/Cli.x` implements the documented order
+  argv > environment > non-empty config value > fallback;
+  `defaultFromEnv(envName, fallback)` is the two-level form. It reads the
+  environment through the existing raw env primitives without importing
+  `xdk.config`, so no dependency cycle is introduced.
+- **Retained:** `Args` parsing and `valueOr`.
+- **Lost:** no automatic prefix derivation and no direct `Config` parameter;
+  the caller passes the config value explicitly.
+- **Test/command/output:**
 ```text
-$ grep -rni "env\|config" src/xdk/cli
-(no matches)
+$ XDK_R4_CLI=from-env ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/cli_defaults.x
+argv
+from-env
+config
+fallback
+from-env
+fb
 ```
-
-- **Design:** `docs/design/t0/16-cli.md:75` lists env/config defaults as T1.
-- **Impact:** cli. **Dependents:** cli users. **Breakage:** subset.
-  **Migration:** pass explicit defaults at the call site.
-- **Gap:** a fixed precedence chain + scenario.
+  The scenario exercises all four precedence levels and both `defaultFromEnv`
+  branches.
+- **Impact:** cli additively. **Dependents:** cli users.
+  **Breakage:** none. **Migration:** replace ad-hoc precedence code with
+  `resolveValue`.
+- **Status:** proposed, not closed.
 
 ## 4. C. The 3 Deferred candidates
 
@@ -772,11 +880,17 @@ promoted or closed here.
 
 ### C1. math / random (ledger #52)
 
+- **Verdict:** stays `Deferred candidate` (no XDK surface, not closed).
 - **Current evidence:** no `xdk.math` random symbol; `07-math.md:27` and `:124`
   say random is T1 `xdk.random`. A deterministic raw bridge already exists but
   is unused by XDK: `src/ffi/ext_raw.xfb:113-126` (`randSeedRaw`,
   `randNextRaw`, `randDoubleRaw`) and `src/runtime/rt_std_ext.c:52-81`
   (xorshift64*).
+- **Retained:** the raw bridge (seed, non-negative 63-bit `next`, `[0,1)`
+  double) and the existing math package; neither is part of the T0 public API.
+- **Lost:** no XDK `nextLong`/bounded `nextInt`/`nextBool`/`shuffle`, no
+  seed-reset contract, and no scenario; the bridge alone is not evidence for
+  the ledger item.
 - **Strict plan:** define `xdk.random` as a T1 package with explicit seed,
   `nextLong`, bounded `nextInt(min,max)`, `nextDouble`, `nextBool`, and
   `shuffle<T>`; document that it is deterministic and not cryptographic; add
@@ -786,13 +900,20 @@ promoted or closed here.
   reproducibility promise; C) no random in the 1.x core.
 - **Impact:** new package, additive. **Dependents:** math users, tests.
   **Breakage:** none. **Migration:** none (no existing symbol).
+- **Test evidence:** none for the XDK item; deferred. Do not cite the raw
+  bridge as a passing scenario.
 - **Meeting/signature:** date TBD; signer: user.
 
 ### C2. time / TimeZone (ledger #53)
 
+- **Verdict:** stays `Deferred candidate` (UTC-only, not closed).
 - **Current evidence:** UTC-only; `DateTime.toUTC()`/`toLocal()` return `self`
   (`src/xdk/core/time/DateTime.x`); `08-time.md:24` excludes IANA tzdata and
   `:104` puts `TimeZone`/`toZone` in T0-X. There is no `TimeZone` source.
+- **Retained:** UTC epoch milliseconds, civil arithmetic, `addDays`/`addMonths`/
+  `addYears`, layout formatting/parsing, and `Stopwatch`.
+- **Lost:** no fixed-offset or IANA zone type, no `toZone`, and no DST
+  transition handling; `toUTC`/`toLocal` are identity operations.
 - **Strict plan:** A) fixed-offset subset: `FixedOffset(seconds)` and
   `DateTime.toZone(FixedOffset)`/`offsetSeconds()`, epoch value unchanged,
   formatting applies the offset; tests for +08:00/-05:00 and round trips; no
@@ -802,13 +923,20 @@ promoted or closed here.
 - **Impact:** time API. **Dependents:** time/log/config users. **Breakage:**
   none if additive; UTC remains default. **Migration:** explicit offset for
   display; keep epoch math in UTC.
+- **Test evidence:** none for the deferred item; existing `xdk_time.x` and R4
+  time scenarios cover UTC only.
 - **Meeting/signature:** date TBD; signer: user.
 
 ### C3. config / codec (ledger #54)
 
+- **Verdict:** stays `Deferred candidate` (no codec, not closed).
 - **Current evidence:** `Config.x` only has `FileSource` `key=value` parsing;
   `15-config.md:25-26` excludes JSON/TOML/YAML and `:77` puts codec injection
   in T1. There is no codec symbol.
+- **Retained:** `ConfigSource`/`MapSource`/`FileSource`, ordered snapshots,
+  overlay, `setChecked`, and the new typed getters.
+- **Lost:** no structured codec (JSON/TOML/YAML), no duplicate-key policy, and
+  no nested/array value mapping; callers must supply `key=value` sources.
 - **Strict plan:** A) JSON codec: `protocol Codec { decode(String) ->
   Result<List<ConfigEntry>, Error> }` plus `JsonCodec`; object-only, scalar
   values converted to strings, arrays/nesting rejected or flattened by rule;
@@ -818,6 +946,8 @@ promoted or closed here.
 - **Impact:** config API. **Dependents:** config/cli/app users. **Breakage:**
   none (additive); `FileSource` stays. **Migration:** implement `ConfigSource`
   for other formats until a codec is chosen.
+- **Test evidence:** none for the deferred item; `xdk_config.x` and
+  `r4/config_typed.x` cover only `key=value` sources.
 - **Meeting/signature:** date TBD; signer: user.
 
 ## 5. D. The 9 language built-in items (out-of-scope / deferred)
@@ -936,12 +1066,49 @@ This batch (text/errors strict candidates):
 - `src/ffi/capabilities.tsv`, `src/ffi/api-manifest.tsv`: `StringBuilder`
   symbol and the new scenarios.
 
+This batch (config/log/cli/meta/bytes optimized candidates + deferred packets):
+
+- New scenarios: `src/mini/tests/r4/config_typed.x`,
+  `src/mini/tests/r4/log_timestamp.x`,
+  `src/mini/tests/r4/meta_buildinfo.x`,
+  `src/mini/tests/r4/bytes_nul.x`,
+  `src/mini/tests/r4/cli_completion.x`,
+  `src/mini/tests/r4/cli_defaults.x`.
+- `src/mini/tests/r4_evidence.sh`: exact-output cases for the six scenarios
+  (and an env-passing form of `run_case` for the cli precedence test).
+- `src/xdk/config/Config.x` + mirror: `getInt`/`getLong`/`getBool`/`getDouble`
+  and the 64-bit decimal parser.
+- `src/xdk/log/Log.x` + mirror: `Clock`/`SystemClock`, clock injection,
+  `LogRecord.timestampMs/monotonicMs`, `MemorySink.captured`, and
+  `recordTextWithTime`; `recordText` is unchanged.
+- `src/xdk/core/meta/Meta.x` + mirror: `BuildInfo`, `buildInfo`, `targetArch`,
+  `buildMode`, `compilerName`, `compilerVersion`, `buildDate`.
+- `src/xdk/core/bytes/Bytes.x` + mirror: NUL-boundary helpers.
+- `src/xdk/cli/Cli.x` + mirror: `OptionSpec.withShort`, duplicate/terminator
+  Args surface, short-cluster expansion, `completionBash`, and
+  `resolveValue`/`defaultFromEnv`.
+- `src/ffi/runtime_raw.xfb` + mirror: `buildDateRaw`.
+- `src/runtime/rt_std_runtime.c` + mirror: `xdkc_build_date`.
+- `src/runtime/test_std.c`: non-empty build-date assertion.
+- `src/ffi/capabilities.tsv`, `src/ffi/api-manifest.tsv`: new L1 symbols and
+  scenarios.
+- `docs/design/t0/03-meta.md`, `04-bytes.md`, `14-log.md`, `15-config.md`,
+  `16-cli.md`: contracts, test obligations, and T1 boundaries updated.
+
+Deliberately not touched in this batch:
+
+- `docs/design/MINI-1.0.md` (ledger owner; user asked not to edit).
+- `docs/design/t0/C1-U0-U5-EVIDENCE.md` and `AUDIT.md` signatures.
+- `src/xdk/cli/Cli.x` still does not import `xdk.config`; `resolveValue` takes
+  the config value as an argument to keep the layer direction clean.
+
 ## 7. Remaining RED / unsigned
 
 | Area | Remaining | Why |
 | --- | ---: | --- |
-| Strict candidates | 2 | A9, A10; each has a named gap and a close path |
-| Optimized candidates | 8 | B2, B3, B5, B6, B8-B11; no shim/test yet |
+| Strict candidates | 0 | A9/A10 now have real source + scenario + output |
+| Optimized candidates | 2 | B2 stdio adapter and B8 log filter/sampling; no shim/test yet |
+| Optimized proposed | 8 | B3-B7, B9-B11: shim + scenario exist; still unsigned |
 | Deferred candidates | 3 | C1-C3; decision meeting date is user-owned |
 | Out-of-scope / deferred | 9 | D1-D9; spec non-goals, package API user-signed |
 | Signed closed | 0 | no independent reviewer signature |
@@ -957,7 +1124,7 @@ Resolved by the first follow-up:
 4. `src/runtime/build_rt.sh` (full C suite) is green after the
    `xdkc_read_file_text` error contract fix.
 
-Resolved by this batch:
+Resolved by the runtime/time batch:
 
 1. `runtime / RuntimeInfo` (A4): real class + `runtimeInfo()` + scenario.
 2. `runtime / stats` (A3): public `RuntimeStats`/`stats` over the existing
@@ -979,10 +1146,26 @@ Resolved by the text/errors batch:
    `BasicError.tryWith*` methods + scenario (moves from Optimized to Strict
    evidenced).
 
-Still open (Strict candidates):
+Resolved by the config/log/cli/meta/bytes batch:
 
-- A9 log timestamp/monotonic field, A10 config typed getter.
-- B2/B3/B5/B6/B8-B11 optimized candidates, C1-C3 deferred, D1-D9 out-of-scope.
+1. `log / 时间戳/单调时钟字段` (A9): injected `Clock`, per-record fields, and a
+   deterministic scenario (Strict evidenced).
+2. `config / 类型化 getter` (A10): Int/Long/Bool/Double Result getters and a
+   valid/invalid/missing scenario (Strict evidenced).
+3. `meta / BuildInfo` and `构建元数据` (B3/B5): aggregate plus standalone
+   metadata functions and a scenario (Optimized proposed).
+4. `bytes / NUL 边界工具` (B6): five copy-returning helpers and a scenario
+   (Optimized proposed).
+5. `cli / 补全`, `短选项合并/重复策略`, `环境/配置文件默认值` (B9-B11):
+   completion text, short clusters/duplicates/terminator, and the precedence
+   chain (Optimized proposed).
+
+Still open:
+
+- B2 stdio adapter and B8 log filter/redaction/sampling remain `Optimized
+  candidate`; C1-C3 remain `Deferred candidate`; D1-D9 remain out-of-scope.
+- No row is `Signed ... closed`; only a user or independent reviewer signature
+  can make that true.
 
 The required gates (`r4_evidence.sh`, `ref.sh`, `xdk.sh`, `xdk_core.sh`,
 `check_layers`) and the full C suite (`src/runtime/build_rt.sh`) are green as

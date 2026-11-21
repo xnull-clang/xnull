@@ -24,6 +24,7 @@ void        xdkc_exit(int64_t code);
 int64_t     xdkc_now_mono_ms(void);
 int64_t     xdkc_now_wall_ms(void);
 const char *xdkc_build_mode(void);
+const char *xdkc_build_date(void);
 int64_t     xdkc_stats_allocs(void);
 int64_t     xdkc_stats_frees(void);
 int64_t     xdkc_stats_bytes(void);
@@ -624,6 +625,7 @@ static void test_stats(void) {
     xdkc_stats_set_enabled(0);
     CHECK(xdkc_stats_enabled() == 0);
     CHECK(strlen(xdkc_build_mode()) > 0);
+    CHECK(strlen(xdkc_build_date()) > 0);
 }
 
 static void test_files(void) {

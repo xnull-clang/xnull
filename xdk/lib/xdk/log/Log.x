@@ -4,6 +4,7 @@
 // 面：Level 阈值、Logger 名称、debug/info/warn/error 便捷方法、stdout sink。
 // 字段（fields）与可插拔 sink 为后续切片；本切片只承诺可执行的最小契约。
 package xdk.log
+import xdk.runtime
 
 enum Level {
     Debug,
@@ -48,17 +49,48 @@ class Field {
     }
 }
 
+// 时钟注入：默认 SystemClock；测试可用固定实现获得确定性时间戳。
+protocol Clock {
+    Long wallMs();
+    Long monoMs();
+}
+
+class SystemClock implements Clock {
+    SystemClock() {
+    }
+
+    Long wallMs() {
+        return nowWall()
+    }
+
+    Long monoMs() {
+        return nowMono()
+    }
+}
+
 class LogRecord {
     final Level level
     final String loggerName
     final String message
     final List<Field> fields
+    Long timestampMs
+    Long monotonicMs
 
     LogRecord(Level level, String loggerName, String message, List<Field> fields) {
         self.level = level
         self.loggerName = loggerName
         self.message = message
         self.fields = fields
+        self.timestampMs = 0
+        self.monotonicMs = 0
+    }
+
+    Long timestamp() {
+        return self.timestampMs
+    }
+
+    Long monotonic() {
+        return self.monotonicMs
     }
 }
 
@@ -77,6 +109,11 @@ String recordText(LogRecord record) {
     return text
 }
 
+// 带墙钟毫秒前缀的显式格式；recordText 保持旧格式，避免改变既有输出。
+String recordTextWithTime(LogRecord record) {
+    return str(record.timestampMs) + " " + recordText(record)
+}
+
 class ConsoleSink implements Sink {
     ConsoleSink() {
     }
@@ -88,21 +125,29 @@ class ConsoleSink implements Sink {
 
 class MemorySink implements Sink {
     List<String> entries
+    List<LogRecord> records
 
     MemorySink() {
         self.entries = []
+        self.records = []
     }
 
     Void write(LogRecord record) {
         self.entries.push(recordText(record))
+        self.records.push(record)
     }
 
     List<String> lines() {
         return self.entries
     }
 
+    List<LogRecord> captured() {
+        return self.records
+    }
+
     Void clear() {
         self.entries = []
+        self.records = []
     }
 }
 
@@ -111,18 +156,27 @@ class Logger {
     Level min
     Sink sink
     List<Field> fields
+    Clock clock
 
     Logger(String name, Level min) {
         self.name = name
         self.min = min
         self.sink = new ConsoleSink()
         self.fields = []
+        self.clock = new SystemClock()
     }
 
     Logger withSink(Sink sink) {
         Logger next = new Logger(self.name, self.min)
         next.sink = sink
         next.fields = self.fields
+        next.clock = self.clock
+        return next
+    }
+
+    Logger withClock(Clock clock) {
+        Logger next = self.withSink(self.sink)
+        next.clock = clock
         return next
     }
 
@@ -146,6 +200,8 @@ class Logger {
     Void log(Level level, String message) {
         if self.enabled(level) {
             LogRecord record = new LogRecord(level, self.name, message, self.fields)
+            record.timestampMs = self.clock.wallMs()
+            record.monotonicMs = self.clock.monoMs()
             self.sink.write(record)
         }
     }

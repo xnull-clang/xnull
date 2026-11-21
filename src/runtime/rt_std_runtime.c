@@ -95,6 +95,10 @@ const char *xdkc_build_mode(void) {
 #endif
 }
 
+const char *xdkc_build_date(void) {
+    return __DATE__ " " __TIME__;
+}
+
 /* ---- 分配/GC 统计（只读快照；写操作走 xrt_stats_*） ---- */
 
 int64_t xdkc_stats_allocs(void) {

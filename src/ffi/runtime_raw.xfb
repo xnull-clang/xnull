@@ -39,6 +39,10 @@ ffi xdkc_runtime_raw {
   @blocking(.unaware)
   String buildModeRaw();
 
+  @ffiEntry(cName = "xdkc_build_date")
+  @blocking(.unaware)
+  String buildDateRaw();
+
   // ---- 分配/GC 统计（S3 §21/§23）----
   @ffiEntry(cName = "xdkc_stats_allocs")
   @blocking(.unaware)

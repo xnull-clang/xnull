@@ -29,6 +29,7 @@
 | CAP-6 端序 | u16/u32/u64 与大小端读写 | `Endian` | K |
 | CAP-7 位操作 | 32 位与 64 位位运算、计数 | `Bits` | K |
 | CAP-8 可增长缓冲 | 随机定位读写、预留容量 | `ByteBuffer` | X |
+| CAP-9 NUL 边界 | 首个 NUL、前缀、补/去尾随 NUL | `nulIndex`、`hasNul`、`nulPrefix`、`withNulTerminator`、`withoutTrailingNul` | X |
 
 **非目标**：
 
@@ -116,6 +117,11 @@ Result<Unit, Error> trySetByte(Bytes target, Int index, Int value)
 | `sliceChecked` | `Result<Bytes, Error> sliceChecked(Bytes source, Int startIndex, Int endIndex)` | 无 | 严格范围检查；成功返回副本 | `InvalidArgument` | O(n) |
 | `tryGetByte` | `Result<Int, Error> tryGetByte(Bytes source, Int index)` | 无 | 合法返回 0..255；越界 `InvalidArgument` | `InvalidArgument` | O(1) |
 | `trySetByte` | `Result<Unit, Error> trySetByte(Bytes target, Int index, Int value)` | 无 | 合法写入低 8 位；越界 `InvalidArgument` | `InvalidArgument` | O(1) |
+| `nulIndex` | `Int nulIndex(Bytes source)` | 无 | 首个 0 字节下标；无 NUL 返回 -1 | 无 | O(n) |
+| `hasNul` | `Bool hasNul(Bytes source)` | 无 | 是否含 0 字节 | 无 | O(n) |
+| `nulPrefix` | `Bytes nulPrefix(Bytes source)` | 无 | 首个 NUL 前的副本；无 NUL 返回全量副本 | 无 | O(n) |
+| `withNulTerminator` | `Bytes withNulTerminator(Bytes source)` | 无 | 副本 + 单个尾随 0；已有尾随 0 时不重复 | 无 | O(n) |
+| `withoutTrailingNul` | `Bytes withoutTrailingNul(Bytes source)` | 无 | 去掉一个尾随 0 的副本；无尾随 0 时返回全量副本 | 无 | O(n) |
 
 **冻结说明**：
 
@@ -125,6 +131,8 @@ Result<Unit, Error> trySetByte(Bytes target, Int index, Int value)
 - `slice` 的钳制语义保留，但只用于已知范围；外部范围用 `sliceChecked`。
 - `tryGetByte/trySetByte` 是 XDK 函数，不是运行时成员，避免运行时依赖
   `xdk.errors`。
+- NUL 边界函数只处理字节 0，不做 C 字符串转换，也不暴露裸指针；返回值一律是
+  新副本，调用方修改副本不影响源序列。
 
 ### 3.4 运行时原语契约
 
@@ -440,6 +448,7 @@ print(toHex(payloadResult.value()))  // 6869
 | 游标 | 严格读取、checked 读取、position 不变性 |
 | 端序 | 已知向量（0x1234 → 12 34 / 34 12；0xFFFFFFFF） |
 | 位 | popCount/leadingZeros/trailingZeros 边界（0、-1、MIN） |
+| NUL | 首个 NUL、无 NUL、空序列、已有尾随 NUL、补/去终止符 |
 | 反例 | 越界、截断、别名修改 |
 | 差分 | mini base/full `xdk_bytes*.x` |
 
@@ -460,7 +469,8 @@ print(toHex(payloadResult.value()))  // 6869
 
 `ByteBuffer` 已完成：`src/mini/tests/xdk_bytes_extra.x` 与
 `xdk_bytes_strict.x` 覆盖构造、追加、定位读写、越界错误与容量预留；
-`src/runtime/test_std.c` 提供运行时回归。API manifest 与 AUDIT 记录同一组
+`src/runtime/test_std.c` 提供运行时回归。NUL 边界函数由
+`src/mini/tests/r4/bytes_nul.x` 覆盖。API manifest 与 AUDIT 记录同一组
 证据。
 
 ---

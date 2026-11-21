@@ -70,6 +70,50 @@ Bool isEmptyBytes(Bytes source) {
     return source.length() == 0
 }
 
+// ---------- NUL 边界工具（T0-X） ----------
+// 只处理字节 0，不做 C 字符串转换；返回的 Bytes 一律是新副本。
+
+Int nulIndex(Bytes source) {
+    Int index = 0
+    while index < source.length() {
+        if source.get(index) == 0 {
+            return index
+        }
+        index = index + 1
+    }
+    return -1
+}
+
+Bool hasNul(Bytes source) {
+    return nulIndex(source) >= 0
+}
+
+// 首个 NUL 之前的前缀；无 NUL 时返回全量副本。
+Bytes nulPrefix(Bytes source) {
+    Int end = nulIndex(source)
+    if end < 0 {
+        end = source.length()
+    }
+    return slice(source, 0, end)
+}
+
+// 返回带单个尾随 NUL 的副本；已有尾随 NUL 时不重复追加。
+Bytes withNulTerminator(Bytes source) {
+    Bytes result = copy(source)
+    if result.length() == 0 || result.get(result.length() - 1) != 0 {
+        result.push(0)
+    }
+    return result
+}
+
+// 去掉一个尾随 NUL；没有尾随 NUL 时返回全量副本。
+Bytes withoutTrailingNul(Bytes source) {
+    if source.length() > 0 && source.get(source.length() - 1) == 0 {
+        return slice(source, 0, source.length() - 1)
+    }
+    return copy(source)
+}
+
 Bytes concatBytes(Bytes first, Bytes second) {
     Bytes result = Bytes.fromString("")
     Int index = 0

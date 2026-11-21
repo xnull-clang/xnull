@@ -13,10 +13,11 @@ trap 'rm -rf "$D"' EXIT
 
 run_case() {
     name=$1
+    shift
     "$XNULL" --bootstrap --engine=mini build "$HERE/r4/$name.x" -o "$D/$name" >"$D/$name.build" 2>&1 || {
         cat "$D/$name.build" >&2; exit 1
     }
-    "$D/$name" >"$D/$name.out" 2>"$D/$name.err" || {
+    env "$@" "$D/$name" >"$D/$name.out" 2>"$D/$name.err" || {
         cat "$D/$name.err" >&2; exit 1
     }
     diff -u "$D/$name.exp" "$D/$name.out"
@@ -250,11 +251,108 @@ cat > "$D/time_calendar_edges.exp" <<'EOF'
 2025-01-31 12:34:56
 EOF
 
+cat > "$D/config_typed.exp" <<'EOF'
+true
+9090
+true
+9000000000
+true
+3.5
+true
+true
+true
+true
+true
+true
+EOF
+
+cat > "$D/log_timestamp.exp" <<'EOF'
+2
+1700000000000
+500
+1700000000000
+500
+true
+[INFO] svc: ready
+1700000000000 [INFO] svc: ready
+[INFO] svc: ready
+1700000000000
+[INFO] svc: field k=v
+EOF
+
+cat > "$D/meta_buildinfo.exp" <<'EOF'
+true
+3.4.0
+0.1.0
+mini
+3.4.0
+true
+true
+true
+true
+true
+true
+true
+mini
+3.4.0
+true
+EOF
+
+cat > "$D/bytes_nul.exp" <<'EOF'
+2
+true
+6162
+686900
+686900
+6869
+-1
+false
+706c61696e
+6869
+0
+true
+00
+true
+EOF
+
+cat > "$D/cli_completion.exp" <<'EOF'
+false
+3
+-c
+--name
+late
+true
+true
+one
+three
+3
+true
+true
+true
+complete -W "--verbose -v --all -a run help" demo
+complete -W "--output -o help" "demo run"
+EOF
+
+cat > "$D/cli_defaults.exp" <<'EOF'
+argv
+from-env
+config
+fallback
+from-env
+fb
+EOF
+
 run_case escape
 run_case inference
 run_case errors_detail
 run_case text_builder
 run_case config_checked
+run_case config_typed
+run_case log_timestamp
+run_case meta_buildinfo
+run_case bytes_nul
+run_case cli_completion
+run_case cli_defaults XDK_R4_CLI=from-env
 run_case time_calendar
 run_case runtime_info
 run_case runtime_stats
