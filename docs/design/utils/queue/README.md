@@ -1,0 +1,93 @@
+# `xdk.queue` 包设计
+
+| 项 | 值 |
+| --- | --- |
+| 包 | `xdk.queue` |
+| 层 | L7 应用服务（文档分组 `utils/`） |
+| 依赖 | `xdk.errors`、`xdk.execution`、`xdk.runtime` |
+| 被依赖 | 应用、日志/指标缓冲、批处理 |
+| 稳定性 | `preview` |
+| 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+
+---
+
+## 1. 包定位
+
+并发队列补充：有界丢弃策略、批处理、延迟出队、统计。
+
+不重复 core：
+- 阻塞单值通道用 `xdk.execution.Channel`；
+- 普通容器用 `xdk.collections.Queue/Deque/PriorityQueue/RingBuffer`；
+- 本包只补策略、批处理、延迟和统计。
+
+不做：持久化队列、分布式队列、优先级堆（用 `PriorityQueue`）、事务。
+
+---
+
+## 2. 设计原则
+
+| 原则 | 说明 |
+| --- | --- |
+| 不阻塞 | `BoundedQueue`/`BatchQueue` 非阻塞；阻塞语义用 Channel |
+| 策略显式 | full 时 Error/DropNewest/DropOldest 由调用方选择 |
+| 计数可见 | pushed/popped/dropped/rejected 可观测 |
+| 延迟可取消 | `DelayQueue.take` 接受 Context |
+| 关闭明确 | close 清空并计数丢弃；之后拒绝写入 |
+| 无全局 | 无全局队列注册表 |
+
+---
+
+## 3. 类型总览与索引
+
+| 类型 | 种类 | 能力 | 文件 |
+| --- | --- | --- | --- |
+| `DropPolicy` | enum | 满队列策略 | [`DropPolicy.md`](DropPolicy.md) |
+| `QueueStats` | class | 队列统计快照 | [`QueueStats.md`](QueueStats.md) |
+| `BoundedQueue` | class | 非阻塞有界队列 | [`BoundedQueue.md`](BoundedQueue.md) |
+| `BatchQueue` | class | 批处理缓冲 | [`BatchQueue.md`](BatchQueue.md) |
+| `DelayQueue` | class | 延迟出队 | [`DelayQueue.md`](DelayQueue.md) |
+
+X：持久化、分布式、优先级延迟、批量超时自动 flush、无锁队列。
+
+---
+
+## 4. 顶层函数
+
+无。
+
+---
+
+## 5. 技术/支撑/依赖
+
+- 技术：监视器保护、丢弃策略、批处理、单调截止、延迟堆/线性扫描。
+- 支撑：`RuntimeMonitor`、`nowMono`、`cancelledError`、`unavailableError`。
+- 依赖：`errors`、`execution`、`runtime`。
+
+---
+
+## 6. 场景
+
+### Q1：遥测缓冲
+
+`BoundedQueue(1024, DropPolicy.DropOldest)`；满时丢最旧，保留最新。
+
+### Q2：批量写入
+
+`BatchQueue(128)`；`add` 后检查 `isFull()`，再 `flush()`。
+
+### Q3：延迟重试
+
+`DelayQueue`；`put(task, 30000)`；`take(ctx)` 在到期后返回。
+
+---
+
+## 7. 缺口与决策
+
+| 项 | 决策 |
+| --- | --- |
+| 阻塞队列 | 使用 `Channel`，不重复 |
+| 有界丢弃 |  支持三种策略 |
+| 延迟队列 | 无界；`take` 可取消 |
+| 批量自动 flush | X； 显式 flush |
+| 公平性 | 不承诺 |
+| 持久化/分布式 | 不做 |
