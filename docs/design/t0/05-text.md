@@ -22,6 +22,7 @@
 | CAP-6 Unicode | UTF-8 ↔ UTF-16、code point 访问与计数 | 顶层函数、`Utf16` |
 | CAP-7 正则 | POSIX ERE 子集：字面量、量词、类、分组、分支、锚 | `Regex`、`Match` |
 | CAP-8 比较 | UTF-8 字节字典序比较，供排序/查找使用 | `compareText` |
+| CAP-9 构造 | append-only 文本构造；长度与不可变快照 | `StringBuilder` |
 
 **非目标**：完整正则引擎（T1 `xdk.regex`）、i18n、locale、完整 Unicode
 大小写/规范化、字符串内部表示 API。
@@ -123,6 +124,27 @@ FormatArgument FormatArgument.ofChar(Char value)
   返回 `InvalidArgument`。不支持 `*` 动态宽度和长度修饰符。
 - `Format` 保留原有链式左填充：`Format.int(7).width(4).pad('0').build()`。
 
+### 2.4 StringBuilder
+
+```text
+StringBuilder StringBuilder()
+StringBuilder StringBuilder.append(String text)
+StringBuilder StringBuilder.appendInt(Int value)
+StringBuilder StringBuilder.appendLong(Long value)
+StringBuilder StringBuilder.appendChar(Char value)
+StringBuilder StringBuilder.clear()
+Int StringBuilder.length()
+Bool StringBuilder.isEmpty()
+String StringBuilder.toString()
+```
+
+- `StringBuilder` 是引用类型、可变；append 系列返回 `self`，支持链式调用。
+- `length()` 返回当前内容的 UTF-8 字节数；`toString()` 返回当前内容的不可变
+  快照，后续 append 不改变已取出的快照。
+- `clear()` 清空内容并返回 `self`；空 builder 的 `toString()` 为 `""`。
+- 文本索引单位仍是字节；Unicode 码点操作使用 §2.1 的函数。
+- 实现可以把内容承载在运行时缓冲区；公开语义以本节为准。
+
 ## 3. 错误与边界
 
 - `parseInt` 的溢出上限是 32 位 `Int`；64 位值使用 `xdk.math`/`Long` 方案。
@@ -136,6 +158,9 @@ FormatArgument FormatArgument.ofChar(Char value)
 Result<Int, Error> number = parseInt("42")
 if number.isErr() { print(number.error().describe()) }
 String padded = padLeft("7", 3, "0")      // 007
+StringBuilder builder = new StringBuilder()
+builder.append("n=").appendInt(7)         // "n=7"
+print(builder.toString())
 Format.int(7).width(4).pad('0').build()   // 0007
 Int order = compareText("alpha", "beta")  // -1
 Int codePoint = codePointAt("é", 0)       // 233
@@ -163,13 +188,15 @@ print(printf("%04d", values).value())     // 0007
 - UTF-8 ↔ UTF-16、非法 UTF-8 修复、非法代理对、BMP 外码点；
 - Regex 字面量/量词（含 `{m,n}`）/字符类/POSIX 名字类/分组捕获/分支/锚；
 - printf 宽度、精度、flags、类型错误与参数数量错误；
+- StringBuilder 空值、链式 append、`length()` 字节计数、快照与 `clear()`；
 - base/full 输出一致。
 
-场景：`xdk_text.x`、`xdk_text_full.x`、`xdk_core.x`。
+场景：`xdk_text.x`、`xdk_text_full.x`、`r4/text_builder.x`、`xdk_core.x`。
 
 ## 6. 已知缺口
 
 - 完整 Unicode 大小写/规范化与 locale 不在 T0；
 - T0-X Regex 只是 ERE 子集，完整引擎归 T1 `xdk.regex`；
 - printf 不支持 `*` 动态宽度/精度、长度修饰符和 locale 分组；
-- 完整 `StringBuilder`、字符集转码与 i18n 属于后续包。
+- 零拷贝/可变缓冲区优化、更多 append 重载（Double/Bool）与字符集转码、i18n
+  属于后续包；T0 的 `StringBuilder` 只承诺 §2.4 的 append-only 语义。

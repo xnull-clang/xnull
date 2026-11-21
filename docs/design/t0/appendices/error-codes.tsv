@@ -1,0 +1,10 @@
+code	namespace	owner	severity	description	status
+SEM-001	SEM	mini/compiler	error	Undefined symbol or function	active
+SEM-002	SEM	mini/compiler	error	Duplicate declaration	active
+SEM-003	SEM	mini/compiler	error	Type or assignment mismatch	active
+SEM-004	SEM	mini/compiler	error	Argument count mismatch	active
+SEM-005	SEM	mini/compiler	error	Unknown or malformed type	active
+CLI-001	CLI	xnull/cli	error	Unknown command	reserved
+CLI-002	CLI	xnull/cli	error	Unknown flag or missing option argument	active
+CLI-003	CLI	xnull/cli	error	Project file not found	reserved
+CLI-901	CLI	xnull/toolchain	error	Command not implemented	reserved

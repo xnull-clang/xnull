@@ -94,6 +94,20 @@ true
 [cfg.bad] InvalidArgument: bad setting
 [cfg.bad] InvalidArgument: bad setting; NotFound: missing
 true
+1
+[cfg.bad] InvalidArgument: bad setting
+true
+true
+cfg.checked
+true
+true
+2
+true
+true
+1
+true
+true
+true
 true
 true
 false
@@ -106,6 +120,20 @@ true
 true
 16
 true
+EOF
+
+cat > "$D/text_builder.exp" <<'EOF'
+0
+true
+true
+4
+ab7-
+14
+ab7-9000000000
+0
+true
+x
+xy
 EOF
 
 cat > "$D/config_checked.exp" <<'EOF'
@@ -225,6 +253,7 @@ EOF
 run_case escape
 run_case inference
 run_case errors_detail
+run_case text_builder
 run_case config_checked
 run_case time_calendar
 run_case runtime_info
@@ -241,5 +270,7 @@ if "$XNULL" --bootstrap --engine=mini check "$HERE/r4/escape_bad.x" >"$D/escape_
     exit 1
 fi
 grep -q 'invalid escape sequence' "$D/escape_bad.out"
+
+"$HERE/error_codes.sh"
 
 echo "mini r4 evidence: PASS"

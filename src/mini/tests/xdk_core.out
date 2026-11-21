@@ -1,6 +1,8 @@
 alpha,beta,gamma
 true
 42
+6
+core7!
 3
 alpha
 2
@@ -32,6 +34,9 @@ true
 20
 true
 NotFound: missing
+1
+true
+core.missing
 8080
 [WARN] core: closure
 3

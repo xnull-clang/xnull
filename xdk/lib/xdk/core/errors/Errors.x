@@ -399,6 +399,46 @@ class BasicError implements Error, DetailedError {
         return result
     }
 
+    // checked 变体：不合法输入返回 InvalidArgument，不抛异常、不静默丢弃。
+    Result<BasicError, Error> tryWithCode(String code) {
+        if !isValidErrorCode(code) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid error code"))
+        }
+        return Ok(self.withCode(code))
+    }
+
+    Result<BasicError, Error> tryWithDetail(String key, String value) {
+        if !isValidDetailKey(key) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid detail key"))
+        }
+        if !isValidDetailValue(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid detail value"))
+        }
+        return Ok(self.withDetail(key, value))
+    }
+
+    Result<BasicError, Error> tryWithCause(BasicError cause) {
+        if cause == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "null error cause"))
+        }
+        if cause == self {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "self error cause"))
+        }
+        if self._causes.length() >= 8 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "too many error causes"))
+        }
+        return Ok(self.withCause(cause))
+    }
+
+}
+
+// 自定义 DetailedError 转 BasicError 的唯一转换点；T0 聚合/报告以 BasicError 承载。
+static BasicError basicErrorOf(DetailedError error) {
+    BasicError result = new BasicError(error.kind(), error.message())
+    if error.code() != "" {
+        result = result.withCode(error.code())
+    }
+    return result
 }
 
 // xdk.errors —— 错误步骤报告（T0）
@@ -510,6 +550,11 @@ class ErrorGroup implements Error, DetailedError {
             throw "ErrorGroup.add: self"
         }
         self._errors.push(error)
+    }
+
+    // 直接聚合任意 DetailedError：先经唯一转换点转 BasicError。
+    Void addDetailed(DetailedError error) {
+        self.add(basicErrorOf(error))
     }
 
     Int length() {

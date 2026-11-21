@@ -57,6 +57,36 @@ static Int main() {
     mixed.add(cancelled)
     print(mixed.kind() == ErrorKind.Cancelled)
 
+    // Direct T0 aggregation: ErrorGroup converts arbitrary DetailedError.
+    ErrorGroup direct = new ErrorGroup()
+    direct.addDetailed(custom)
+    print(direct.length())
+    print(direct.causes().get(0).describe())
+    print(direct.kind() == ErrorKind.InvalidArgument)
+
+    // Direct BasicError.tryWith* methods: checked, no silent drop.
+    Result<BasicError, Error> triedCode = base.tryWithCode("cfg.checked")
+    print(triedCode.isOk())
+    print(triedCode.value().code())
+    print(base.tryWithCode("Cfg.Bad").isErr())
+    Result<BasicError, Error> triedDetail = base.tryWithDetail("phase", "load")
+    print(triedDetail.isOk())
+    print(triedDetail.value().details().length())
+    print(base.tryWithDetail("bad:key", "x").isErr())
+    BasicError cause = new BasicError(ErrorKind.Io, "disk")
+    Result<BasicError, Error> triedCause = base.tryWithCause(cause)
+    print(triedCause.isOk())
+    print(triedCause.value().causes().length())
+    print(base.tryWithCause(base).isErr())
+    print(base.tryWithCause(null).isErr())
+    BasicError capped = new BasicError(ErrorKind.Io, "root")
+    Int causeIndex = 0
+    while causeIndex < 8 {
+        capped = capped.withCause(new BasicError(ErrorKind.Io, "c" + str(causeIndex)))
+        causeIndex = causeIndex + 1
+    }
+    print(capped.tryWithCause(new BasicError(ErrorKind.Io, "over")).isErr())
+
     print(isValidErrorCode("cfg.bad"))
     print(isValidErrorCode(""))
     print(isValidErrorCode("Cfg.Bad"))

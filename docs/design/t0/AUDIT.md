@@ -67,11 +67,11 @@ stricter CORE-CLOSURE state (T0-K + T0-X), so a package can be `Gate PASS` and
 
 | Package | T0-K | 1.0 | Design | Implementation | Gate | Verified | Evidence | Reviewer | Date |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| xdk.errors | PASS | yes | v1.4 | mini | PASS | no | xdk_errors.x, xdk_errors_full.x | 待签 | 2026-11-21 |
+| xdk.errors | PASS | yes | v1.5 | mini | PASS | no | xdk_errors.x, xdk_errors_full.x, r4/errors_detail.x | 待签 | 2026-11-22 |
 | xdk.runtime | PASS | yes | v1.0 | mini | PASS | no | xdk_runtime.x, ref/u2_task_dump.x | 待签 | 2026-11-21 |
 | xdk.meta | PASS | yes | v1.0 | mini | PASS | no | xdk_meta.x | 待签 | 2026-11-21 |
 | xdk.bytes | PASS | yes | v1.2 | mini | PASS | no | xdk_bytes.x, xdk_bytes_strict.x | 待签 | 2026-11-21 |
-| xdk.text | PASS | yes | v1.1 | mini | PASS | yes | xdk_text.x, xdk_text_full.x | 待签 | 2026-11-21 |
+| xdk.text | PASS | yes | v1.1 | mini | PASS | yes | xdk_text.x, xdk_text_full.x, r4/text_builder.x | 待签 | 2026-11-22 |
 | xdk.collections | PASS | yes | v1.5 | mini | PASS | yes | xdk_collections.x, xdk_containers.x, xdk_members.x | 待签 | 2026-11-21 |
 | xdk.math | PASS | yes | v1.2 | mini | PASS | no | xdk_math.x | 待签 | 2026-11-21 |
 | xdk.time | PASS | yes | v1.0 | mini | PASS | no | xdk_time.x | 待签 | 2026-11-21 |
@@ -197,11 +197,11 @@ run, not a self-signature.
 
 | Package | Reviewer | Date | Evidence command | Observed |
 | --- | --- | --- | --- | --- |
-| xdk.errors | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_errors.x` | PASS |
+| xdk.errors | 待签 | 2026-11-22 | `src/mini/tests/xdk.sh` + `xdk_errors*.x` + `r4/errors_detail.x` | PASS |
 | xdk.runtime | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_runtime.x` | PASS |
 | xdk.meta | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_meta.x` | PASS |
 | xdk.bytes | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_bytes*.x` | PASS |
-| xdk.text | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_text*.x` | PASS |
+| xdk.text | 待签 | 2026-11-22 | `src/mini/tests/xdk.sh` + `xdk_text*.x` + `r4/text_builder.x` | PASS |
 | xdk.collections | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_collections*.x` | PASS |
 | xdk.math | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_math.x` | PASS |
 | xdk.time | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_time.x` | PASS |

@@ -356,8 +356,8 @@ math → time → io → fs → sys → log → config → cli。
 达不到它们的契约密度，就不算完成；但不要复制它们已删除的旧写法
 （泛型协议、宽松读取、`wrap/report` 同名换义、`HashMap/TreeMap` 空承诺）。
 
-同目录 `appendices/` 放错误码表、所有权表、稳定性表、测试矩阵；当前尚未创建，
-不阻塞包设计，但场景/回归落地前必须补齐。
+同目录 `appendices/` 放错误码表、所有权表、稳定性表、测试矩阵；
+`appendices/error-codes.tsv` 已随 W6 落地，其余表在场景/回归前补齐。
 
 ---
 

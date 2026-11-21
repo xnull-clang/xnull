@@ -5,7 +5,7 @@
 | Base | `core-verify@f254ab33` |
 | Worktree | `../XNull-core-evidence` |
 | Branch | `core-evidence` |
-| Date | 2026-11-21 |
+| Date | 2026-11-22 |
 | Scope | R4 evidence gaps only; no merge, no ledger edit |
 | Ledger owner | `docs/design/MINI-1.0.md` §15 (user-owned; **not modified** here) |
 
@@ -33,7 +33,12 @@ $ python3 src/toolchain/check_layers.py
 check_layers: PASS (g1=0 g2=0 g3=0 allowlist=0/0; raw g1=0 g2=0 g3=0)
 
 $ ./src/mini/tests/r4_evidence.sh
+mini error codes: PASS
 mini r4 evidence: PASS
+
+$ ./src/mini/tests/error_codes.sh
+check_error_codes: PASS (9 codes, 2 sources)
+mini error codes: PASS
 
 $ ./src/runtime/build_rt.sh
 ...
@@ -43,17 +48,18 @@ empty resource table fallback ok
 exit 0
 ```
 
-`r4_evidence.sh` is the new evidence runner for the scenarios added in this
-batch. It builds and runs every program end-to-end and diffs exact output. The
-full C suite (`build_rt.sh`, no `--lib`) is also green.
+`r4_evidence.sh` is the evidence runner for the scenarios added in these
+batches; it now also invokes the W6 error-code registry test. It builds and runs
+every program end-to-end and diffs exact output. The full C suite
+(`build_rt.sh`, no `--lib`) is also green.
 
-## 1. Status after the follow-up batch
+## 1. Status after the text/errors batch
 
-| State | Ledger start | After R4 batch | After follow-up | After this batch | Change |
+| State | Ledger start | After R4 batch | After follow-up | After text/errors | Change |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 36 | +9 total: DetailedError, setChecked, complex receiver, escape/raw/unicode, RuntimeInfo, stats, Stopwatch, cancellable sleep, full layout parse |
-| `Strict candidate` | 13 | 11 | 9 | 4 | -9 total; A2/A5/A9/A10 remain |
-| `Optimized proposed` | 0 | 3 | 3 | 3 | +3: errors/tryWith*, meta/能力矩阵, time/日历加减 |
+| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 39 | +12 total: DetailedError, setChecked, complex receiver, escape/raw/unicode, RuntimeInfo, stats, Stopwatch, cancellable sleep, full layout parse, error-code registry, StringBuilder, tryWith* |
+| `Strict candidate` | 13 | 11 | 9 | 2 | -11 total; A9/A10 remain |
+| `Optimized proposed` | 0 | 3 | 3 | 2 | +2: meta/能力矩阵, time/日历加减 |
 | `Optimized candidate` | 11 | 8 | 8 | 8 | -3 total; 8 remain |
 | `Deferred candidate` | 3 | 3 | 3 | 3 | 0 promoted; 3 decision packets completed |
 | `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
@@ -94,30 +100,35 @@ mini r4 evidence: PASS
   limitation, but the audited complex-receiver inference case now passes.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### A2. errors / 错误码命名空间工具 (ledger #2)
+### A2. errors / 错误码命名空间工具 (ledger #2) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence of the current namespace:**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source/fixes:**
+  - `docs/design/t0/appendices/error-codes.tsv`: W6 registry with
+    `code/namespace/owner/severity/description/status` per code.
+  - `src/toolchain/check_error_codes.py`: rejects malformed, duplicate,
+    namespace-mismatched, and unregistered emitted codes.
+  - `src/mini/tests/error_codes.sh`: positive gate plus three negative fixtures
+    (unregistered `SEM-999`, duplicate row, namespace mismatch).
+- **Registry contents:** `SEM-001..005` (compiler semantic diagnostics) and
+  `CLI-001..003`, `CLI-901` (CLI namespace; `CLI-002` is active, the rest are
+  reserved). `ErrorKind` code 0..13 remains the separate FFI error-kind table.
+- **Scenario/command/output:**
 
 ```text
-$ grep -o 'SEM-[0-9][0-9][0-9]' src/mini/main.x | sort -u
-SEM-001
-SEM-002
-SEM-003
-SEM-004
-SEM-005
+$ python3 src/toolchain/check_error_codes.py
+check_error_codes: PASS (9 codes, 2 sources)
 
-$ find . -path ./.git -prune -o -iname '*registry*' -print
-(no output)
+$ ./src/mini/tests/error_codes.sh
+check_error_codes: PASS (9 codes, 2 sources)
+mini error codes: PASS
 ```
 
-- **Gap:** there is no W6 error-code registry file, no owner/description per
-  code, and no negative test for an unregistered code. `SEM-001..005` are
-  literal strings in the compiler; `ErrorKind` name/code mapping in
-  `src/xdk/core/errors/Errors.x` is a different table (FFI error kinds, not
-  compiler diagnostics).
-- **What closes it:** a registry artifact plus a test that rejects an
-  unregistered code and a duplicate code; `MINI-1.0` W6 is the delivery point.
+  The negative fixtures make the gate RED when a source emits `SEM-999`, when
+  the registry repeats `SEM-001`, or when `CLI-777` is filed under `SEM`.
+- **Gap:** none for the W6 registry scope. Runtime `ErrorKind` codes are not
+  duplicated into this table; they stay in `01-errors.md` §3/§11.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A3. runtime / dumpTasks / stats (ledger #3) — PROMOTED
 
@@ -208,25 +219,33 @@ true
   lower layer and does not import `meta`; they are kept identical by contract.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### A5. text / StringBuilder (ledger #6)
+### A5. text / StringBuilder (ledger #6) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source/fixes:**
+  - `src/xdk/text/full/StringBuilder.x` and the base mirror: append-only
+    `StringBuilder` with `append/appendInt/appendLong/appendChar/clear`,
+    `length()`, `isEmpty()`, and `toString()`.
+  - The `xdk.text` package loader picks up the sibling builder unit; no
+    `Text.x` change was needed.
+  - `docs/design/t0/05-text.md` §2.4 defines the T0 contract; §6 narrows the
+    remaining gap to zero-copy/extra overloads/T1.
+- **Scenario:** `src/mini/tests/r4/text_builder.x` via `r4_evidence.sh`; also a
+  small StringBuilder assertion in `xdk_core.x`.
+- **Observed output:**
 
 ```text
-$ grep -rn "StringBuilder" src/xdk
-(no matches)
+$ ./src/mini/tests/r4_evidence.sh
+mini error codes: PASS
+mini r4 evidence: PASS
 ```
 
-  The C runtime has `StringBuilder` (`src/runtime/rt_std_text.c:340-385`) and
-  `test_std.c:546` only mentions it in the S3-04 GC-type comment. There is no
-  XDK symbol and no XDK scenario.
-- **Design:** `docs/design/t0/05-text.md:175` says the complete `StringBuilder`
-  belongs to a later package; `00-overview.md:207` lists it as text T0-X.
-- **Gap:** either an XDK surface + scenario + design contract, or an explicit
-  reclassification to out-of-scope/T1. The current row cannot be strict.
-- **What closes it:** add the XDK API and a scenario such as
-  `xdk_text_builder.x`, or move the row to out-of-scope with the T1 statement.
+  The scenario observes `0/true/true/4/ab7-/14/ab7-9000000000/0/true/x/xy`;
+  it covers the empty builder, chained append, UTF-8 byte length, integral and
+  Long append, `clear()`, and immutable `toString()` snapshots.
+- **Gap:** none for the §2.4 T0 contract. The C runtime `xrt_sb_*` buffer and a
+  zero-copy XDK binding remain T1 optimization work.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A6. text / 转义 (ledger #8) — PROMOTED
 
@@ -466,32 +485,28 @@ true
 
 - **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
 - **Source:** `src/xdk/core/errors/Errors.x:36` (`DetailedError`),
-  `:502` (`ErrorGroup`), `:579` (`<index>.` detail prefix); the documented T0
-  path is custom `DetailedError` → `BasicError` → `ErrorGroup`
-  (`docs/design/t0/01-errors.md` §5/§9/§14).
+  `:502` (`ErrorGroup`), `:579` (`<index>.` detail prefix);
+  `ErrorGroup.addDetailed(DetailedError)` now performs the single conversion
+  through `basicErrorOf` instead of requiring callers to hand-build a
+  `BasicError`. The documented T0 path is custom `DetailedError` →
+  `addDetailed` → `ErrorGroup` (`docs/design/t0/01-errors.md` §5/§9/§14).
 - **Scenario:** `src/mini/tests/r4/errors_detail.x`.
 - **Command/output:** `./src/mini/tests/r4_evidence.sh` → `mini r4 evidence:
-  PASS`; the scenario observes:
+  PASS`; the scenario observes the original manual path plus direct
+  aggregation:
 
 ```text
-2
-2
-0.origin
-custom
-1.path
-true
-2
-[cfg.bad] InvalidArgument: bad setting
-[cfg.bad] InvalidArgument: bad setting; NotFound: missing
-true
+$ ./src/mini/tests/r4_evidence.sh
+mini error codes: PASS
+mini r4 evidence: PASS
 ```
 
-  It defines a custom `CustomFailure implements Error, DetailedError`, converts
-  it to `BasicError` with code/detail, aggregates it with a second error,
-  checks the `<index>.` detail prefix, `causes()`, `kind()`, and
-  `Cancelled` precedence.
-- **Gap:** T1 generalisation (adding arbitrary `DetailedError` directly to the
-  group) remains out of T0; that is recorded in `01-errors.md` §14, not hidden.
+  For the direct path it observes `1`, `[cfg.bad] InvalidArgument: bad setting`,
+  `true`; the error is a custom `CustomFailure implements Error, DetailedError`
+  passed to `addDetailed` with no manual conversion.
+- **Gap:** T1 full aggregation of a custom `DetailedError`'s details/causes
+  remains out of T0 (T0 converts kind/message/code); that is recorded in
+  `01-errors.md` §14, not hidden.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A13. config / 最小键校验（setChecked） (ledger #48) — PROMOTED
@@ -530,26 +545,30 @@ For each item: retained/lost, impact, dependents, breakage, migration, and
 test evidence. A row moves to `Optimized proposed` only when the shim and the
 test/output exist. `Optimized proposed` is still **not closed**.
 
-### B1. errors / tryWith* (ledger #38) — PROMOTED TO PROPOSED
+### B1. errors / tryWith* (ledger #38) — PROMOTED TO STRICT EVIDENCED
 
-- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
-- **Shim:** `isValidErrorCode` (`Errors.x:92`) + `tryErrorDetail` (`:59`) +
-  `withCode/withDetail/withCause` (`:368-395`) + `ErrorReport.tryWithStep`
-  (`:470`).
-- **Retained:** checked validation before mutation; checked detail construction;
-  checked report step; immutable `with*` copies.
-- **Lost:** direct same-name `BasicError.tryWithCode/tryWithDetail/
-  tryWithCause` methods. The shim is explicit helper calls, not duplicate
-  methods. `ErrorReport.tryWithStep` is the one direct `tryWith*` that exists.
+- **Verdict:** `Optimized candidate` → `Strict evidenced` (unsigned). The old
+  `01-errors.md` §7.3 note that mini codegen blocked direct `tryWith*` methods
+  was reproduced and disproved: the blocker was a class-method emission-order
+  issue for *user* classes referencing imported package symbols, not for
+  methods inside the package. `BasicError.tryWithCode/tryWithDetail/
+  tryWithCause` now compile and run as direct methods.
+- **Source:** `BasicError.tryWithCode`/`tryWithDetail`/`tryWithCause` in
+  `src/xdk/core/errors/Errors.x`; checked return values, no exception, no
+  silent drop at the 8-cause limit.
+- **Retained:** direct same-name methods, checked validation before mutation,
+  immutable `with*` copies, and `ErrorReport.tryWithStep`.
+- **Lost:** nothing; the helper shim remains as the lower-level path.
 - **Test:** `src/mini/tests/r4/errors_detail.x` via `r4_evidence.sh`; output
-  includes `true/true/false/false/true/true/true/true/true/true/16/true` for
-  code validation, detail validation, step success/failure, and the 16-step
-  limit. `xdk_errors_full.x` (via `xdk.sh`) also covers the helper path.
+  covers `true/cfg.checked/true/true/2/true/true/1/true/true/true` for
+  code success, code rejection, detail success/rejection, cause success/self/
+  null, and the full-cause rejection. `xdk_core.x` also calls
+  `tryWithCode("core.missing")`.
 - **Impact:** errors API. **Dependents:** errors users. **Breakage:** none
-  (additive helpers; no existing signature changed). **Migration:** replace a
-  desired `tryWithCode/tryWithDetail` with `isValidErrorCode`/`tryErrorDetail`
-  plus the existing `with*`.
-- **Status:** proposed, not closed.
+  (additive methods; `with*` semantics unchanged). **Migration:** replace the
+  `isValidErrorCode`/`tryErrorDetail` + `with*` shim with the direct method
+  when a checked `Result` is wanted.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### B2. runtime / stdio 流 (ledger #39)
 
@@ -894,14 +913,34 @@ Deliberately untouched:
 
 - `docs/design/MINI-1.0.md` (ledger owner; user asked not to edit).
 - `docs/design/t0/C1-U0-U5-EVIDENCE.md` (U3 session owns it).
-- `docs/design/t0/AUDIT.md` (no independent signer in this batch, so no
-  signature row was added; the U3 section was not touched).
+- `docs/design/t0/AUDIT.md` signatures/`Verified` states: only the
+  `xdk.errors`/`xdk.text` design-version and evidence cells were refreshed;
+  the reviewer stays `待签` and no package was marked signed.
+
+This batch (text/errors strict candidates):
+
+- New scenarios: `src/mini/tests/r4/text_builder.x`; extended
+  `src/mini/tests/r4/errors_detail.x` and `src/mini/tests/xdk_core.x` /
+  `xdk_core.out`.
+- `src/xdk/text/full/StringBuilder.x`, `src/xdk/text/base/StringBuilder.x`
+  + mirrors: T0 append-only `StringBuilder`.
+- `src/xdk/core/errors/Errors.x` + mirror: `tryWithCode`, `tryWithDetail`,
+  `tryWithCause`, `ErrorGroup.addDetailed`, and the `basicErrorOf` conversion.
+- `docs/design/t0/appendices/error-codes.tsv`,
+  `src/toolchain/check_error_codes.py`, `src/mini/tests/error_codes.sh`:
+  W6 registry plus positive/negative gate.
+- `src/mini/tests/r4_evidence.sh`: builder case and the registry test.
+- `docs/design/t0/01-errors.md`, `docs/design/t0/05-text.md`,
+  `docs/design/t0/AUDIT.md`, `src/xdk/PLAN.md`: contract, version, and
+  evidence-cell updates (no signature).
+- `src/ffi/capabilities.tsv`, `src/ffi/api-manifest.tsv`: `StringBuilder`
+  symbol and the new scenarios.
 
 ## 7. Remaining RED / unsigned
 
 | Area | Remaining | Why |
 | --- | ---: | --- |
-| Strict candidates | 4 | A2, A5, A9, A10; each has a named gap and a close path |
+| Strict candidates | 2 | A9, A10; each has a named gap and a close path |
 | Optimized candidates | 8 | B2, B3, B5, B6, B8-B11; no shim/test yet |
 | Deferred candidates | 3 | C1-C3; decision meeting date is user-owned |
 | Out-of-scope / deferred | 9 | D1-D9; spec non-goals, package API user-signed |
@@ -931,10 +970,18 @@ Resolved by this batch:
 6. `time / 日历加减边界` (B7): `addDays`/`addMonths`/`addYears` with
    month-end clamping and leap/year-boundary tests (stays Optimized proposed).
 
+Resolved by the text/errors batch:
+
+1. `errors / 错误码命名空间工具` (A2): W6 registry + checker + negative tests.
+2. `text / StringBuilder` (A5): XDK append-only builder + scenario.
+3. `errors / DetailedError 聚合` (A12): direct `addDetailed` path + scenario.
+4. `errors / tryWith*` (B1): the codegen blocker was disproved; direct
+   `BasicError.tryWith*` methods + scenario (moves from Optimized to Strict
+   evidenced).
+
 Still open (Strict candidates):
 
-- A2 error-code registry, A5 StringBuilder, A9 log timestamp/monotonic field,
-  A10 config typed getter.
+- A9 log timestamp/monotonic field, A10 config typed getter.
 - B2/B3/B5/B6/B8-B11 optimized candidates, C1-C3 deferred, D1-D9 out-of-scope.
 
 The required gates (`r4_evidence.sh`, `ref.sh`, `xdk.sh`, `xdk_core.sh`,

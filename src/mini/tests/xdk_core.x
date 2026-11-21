@@ -19,6 +19,10 @@ static Int main() {
     print(t)
     print(contains(t, "beta"))
     print(parseInt("42").value())
+    StringBuilder coreBuilder = new StringBuilder()
+    coreBuilder.append("core").appendInt(7).appendChar('!')
+    print(coreBuilder.length())
+    print(coreBuilder.toString())
 
     // collections: list sort, map put/getOr
     List<String> names = ["gamma", "alpha", "beta"]
@@ -79,6 +83,11 @@ static Int main() {
     BasicError missing = new BasicError(ErrorKind.NotFound, "missing")
     print(missing.kind() == ErrorKind.NotFound)
     print(missing.describe())
+    ErrorGroup coreGroup = new ErrorGroup()
+    coreGroup.addDetailed(missing)
+    print(coreGroup.length())
+    print(coreGroup.causes().get(0).kind() == ErrorKind.NotFound)
+    print(missing.tryWithCode("core.missing").value().code())
 
     // config: snapshot set/getOr
     Config cfg = new Config("dev")

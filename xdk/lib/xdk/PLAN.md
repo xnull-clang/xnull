@@ -12,11 +12,11 @@ and recorded gaps.
 
 | Package | Current state | Next target |
 | --- | --- | --- |
-| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map | complex method-call inference |
+| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map; `tryWith*` + direct `DetailedError` aggregation | complex method-call inference |
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
-| `xdk.text` | `Verified`：Unicode、POSIX ERE 子集、printf Format mini | T1 `xdk.regex` |
+| `xdk.text` | `Verified`：StringBuilder、Unicode、POSIX ERE 子集、printf Format mini | T1 `xdk.regex` |
 | `xdk.math` | base + Int128/Int/Long checked + saturating + combinatorics mini | random T1 |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
 | `xdk.io` | `Verified`：memory/checked/buffered/composed/LineReader mini | file/network/stdio via fs/sys/runtime |
