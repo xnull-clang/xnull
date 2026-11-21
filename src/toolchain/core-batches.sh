@@ -15,12 +15,16 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 BRANCH=${CORE_BRANCH:-core-closure}
 WT=${CORE_WORKTREE:-$ROOT/../XNull-core-closure}
 ATTEMPTS=${CORE_ATTEMPTS:-3}
+MODEL=${CORE_MODEL:-deepseek/deepseek-flash}
 LOG_DIR="$ROOT/.cache/core-batches"
 mkdir -p "$LOG_DIR"
 STAMP=$(date +%Y%m%d-%H%M%S)
 LOG="$LOG_DIR/$STAMP.log"
 
 log() { printf '%s %s\n' "$(date +%H:%M:%S)" "$*" | tee -a "$LOG"; }
+
+log "log: $LOG"
+log "worktree: $WT ($BRANCH), model: $MODEL"
 
 if [ ! -e "$WT/.git" ]; then
     log "creating worktree: $WT ($BRANCH)"
@@ -48,8 +52,8 @@ src/mini/build.sh >>"$LOG" 2>&1
 run_agent() {
     session=$1
     prompt=$2
-    log "--- agent: $session ---"
-    opencode run --auto --session "$session" "$prompt" 2>&1 | tee -a "$LOG" || true
+    log "--- agent: $session ($MODEL) ---"
+    opencode run --auto --model "$MODEL" --session "$session" "$prompt" 2>&1 | tee -a "$LOG" || true
 }
 
 dirty() { [ -n "$(git status --porcelain)" ]; }
@@ -83,7 +87,7 @@ batch() {
     doc=$2
     prompt=$3
     attempt=1
-    session="core-$name-$STAMP"
+    session="ses-core-$name-$STAMP"
 
     while [ "$attempt" -le "$ATTEMPTS" ]; do
         log "=== $name attempt $attempt/$ATTEMPTS ==="
@@ -110,6 +114,7 @@ pkg_prompt() {
     doc=$2
     extra=$3
     printf '%s\n' \
+        "开工前先读 LOCAL_RULES.md 第 5/6 号与 docs/design/t0/CORE-CLOSURE.md。" \
         "本批 = $pkg T0-X 收口，一次做完再停。" \
         "范围 = docs/design/t0/$doc 的全部 T0-X 条目，不缩范围、不跳过。" \
         "$extra" \
@@ -118,7 +123,8 @@ pkg_prompt() {
         "结束条件：该包状态 Verified、两道门禁绿、工作区干净。只有红门修不了、必须改变产品方向的决策、破坏性操作才停。"
 }
 
-INTEGRATION_PROMPT="本批 = 核心层集成收口（批 0），一次做完再停。
+INTEGRATION_PROMPT="开工前先读 LOCAL_RULES.md 第 5/6 号与 docs/design/t0/CORE-CLOSURE.md。
+本批 = 核心层集成收口（批 0），一次做完再停。
 目标：src/mini/tests/xdk_core.sh 绿。
 范围：修 docs/design/t0/CORE-CLOSURE.md §3.1 的全部红点，以及 xdk_core.sh 暴露的其他缺口。
 已知红点：List<String> 的 sortBy(a < b) 不排序，且旧期望值把错误顺序固化了；writeText 返回 0，而 10-fs.md 要求字节数。
