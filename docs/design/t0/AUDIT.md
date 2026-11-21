@@ -156,11 +156,30 @@ live rather than a status line. `src/ffi/capabilities.tsv` is mirrored to
   append to `src/runtime/rt.c` is reported, then restored.
 - `--release 1.0.0` PASS with an empty allowlist.
 
+## 3.5 C1 reference programs
+
+Three real programs under `src/mini/tests/ref/` are built and run by
+`src/mini/tests/ref.sh`:
+
+| Program | Covers | Expected output |
+| --- | --- | --- |
+| `ref/cli_tool.x` | FileSource, Config.apply, Command/subcommands/help, Logger Field/Sink, fixed DateTime.format, InvalidArgument code | `cli_help.out`, `cli_run.out`, `cli_missing.out` |
+| `ref/concurrent.x` | 10k tasks, `Channel<Int>(16)` backpressure, `Mutex<Counter>`, cancellation, close | `concurrent.out` |
+| `ref/ffi_bytes.x` | `demoNow`/`fileSize` FFI, ByteWriter/ByteReader, tryFromHex, readExact error kinds | `ffi_bytes.out` |
+
+Gap found and fixed: `Bytes.toString` used `rt_string_from_c`, which relies on
+NUL termination and re-evaluated the receiver twice. A compiler helper
+`xn_bytes_to_string` now takes the Bytes pointer once and uses its length.
+This was caught by the pipe/`readStdoutAll().toString()` and FileSource paths;
+the reference programs and the existing xdk gates cover the fix.
+
 ## 4. Gates
 
 ```sh
 src/mini/tests/selfhost.sh
 src/mini/tests/xdk.sh
+src/mini/tests/xdk_core.sh
+src/mini/tests/ref.sh
 src/mini/tests/m10_parity.sh
 src/mini/tests/resources.sh
 src/mini/tests/m8.sh

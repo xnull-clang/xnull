@@ -1,0 +1,6 @@
+usage: demo
+reference CLI tool
+options:
+commands:
+  run  load config and report
+  help  show command help

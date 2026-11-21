@@ -7960,7 +7960,7 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
       return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xrt_bytes_push("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, off)))), rt_string_from_c(")"));
     }
     if (xn_str_eq(mth, rt_string_from_c("toString"))) {
-      return xn_concat(xn_concat(rt_string_from_c("rt_string_from_c((const char *)xrt_bytes_data("), bv), rt_string_from_c("))"));
+      return xn_concat(xn_concat(rt_string_from_c("xn_bytes_to_string("), bv), rt_string_from_c(")"));
     }
   }
   if (xn_str_eq(bt, rt_string_from_c("String"))) {
@@ -9139,7 +9139,7 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xrt_bytes_push("), bv), rt_string_from_c(", ")), xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)))), rt_string_from_c(")"));
         }
         if (xn_str_eq(mth, rt_string_from_c("toString"))) {
-          return xn_concat(xn_concat(rt_string_from_c("rt_string_from_c((const char *)xrt_bytes_data("), bv), rt_string_from_c("))"));
+          return xn_concat(xn_concat(rt_string_from_c("xn_bytes_to_string("), bv), rt_string_from_c(")"));
         }
       }
       if (xn_str_eq(bt, rt_string_from_c("String"))) {
@@ -10230,6 +10230,7 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_str_int128(__int128 v) { char buf[64]; int n = 0; unsigned __int128 u; if (v < 0) { buf[n++] = '-'; u = (unsigned __int128)(-(v + 1)) + 1; } else { u = (unsigned __int128)v; } int start = n; do { buf[n++] = (char)('0' + (int)(u % 10)); u /= 10; } while (u != 0); for (int i = start, j = n - 1; i < j; i++, j--) { char t = buf[i]; buf[i] = buf[j]; buf[j] = t; } buf[n] = 0; return rt_string_from_c(buf); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_str_double(double v) { char buf[64]; snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_from_c(buf); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_bytes_to_string(xrt_bytes_obj *buffer) { return rt_string_new((const char *)xrt_bytes_data(buffer), (size_t)xrt_bytes_len(buffer)); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_str_char(int32_t cp) { char b[5]; int n = 0; if (cp < 0) { cp = 0xFFFD; } if (cp < 0x80) { b[n++] = (char)cp; } else if (cp < 0x800) { b[n++] = (char)(0xC0 | (cp >> 6)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else if (cp < 0x10000) { b[n++] = (char)(0xE0 | (cp >> 12)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else { b[n++] = (char)(0xF0 | (cp >> 18)); b[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } b[n] = 0; return rt_string_from_c(b); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) { if (start < 0) { start = 0; } if (n < 0) { n = 0; } if ((size_t)start > s->len) { start = (int64_t)s->len; } if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; } rt_string *out = rt_string_alloc((size_t)n); if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); } out->bytes[n] = 0; return out; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_str_indexof(rt_string *s, rt_string *sub) { if (sub->len == 0) { return 0; } if (sub->len > s->len) { return -1; } for (size_t i = 0; i + sub->len <= s->len; i++) { if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; } } return -1; }"));

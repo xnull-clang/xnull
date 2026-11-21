@@ -54,6 +54,8 @@ surface.
 ```sh
 src/mini/tests/selfhost.sh
 src/mini/tests/xdk.sh
+src/mini/tests/xdk_core.sh
+src/mini/tests/ref.sh
 src/mini/tests/m10_parity.sh
 src/mini/tests/resources.sh
 src/mini/tests/m8.sh
