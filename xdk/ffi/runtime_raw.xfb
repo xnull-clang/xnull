@@ -20,4 +20,8 @@ ffi xdkc_runtime_raw {
   @ffiEntry(cName = "xdkc_now_wall_ms")
   @blocking(.unaware)
   Int64 nowWallRaw();
+
+  @ffiEntry(cName = "xdkc_dump_tasks")
+  @blocking(.unaware)
+  void dumpTasksRaw();
 }

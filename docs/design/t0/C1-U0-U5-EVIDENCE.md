@@ -9,14 +9,19 @@
 
 ## A1. API manifest
 
-Generated from `src/ffi/capabilities.tsv` and the package design headers by
-`src/toolchain/gen_api_manifest.py`; no symbol is hand-added.
+Generated from `src/ffi/capabilities.tsv` and package/source evidence by
+`src/toolchain/gen_api_manifest.py`; no symbol is hand-added. One row per
+public symbol, with signature and stability.
 
 ```text
 python3 src/toolchain/gen_api_manifest.py
-api manifest: 14 packages
+api manifest: 114 symbols / 14 packages
 src/ffi/api-manifest.tsv
+xdk/ffi/api-manifest.tsv
 ```
+
+`ByteBuffer` has its own row pointing at `xdk_bytes_extra.x` and
+`xdk_bytes_strict.x`; `dumpTasks` points at `ref/u2_task_dump.x`.
 
 ## R0. Reproducible bootstrap
 
@@ -69,29 +74,32 @@ Budgets and observed for the 200M point:
 The full `m10_perf.sh` wall time is about 15.3s per run because it compiles and
 runs four points; that is separate from the 200M compile/run budget above.
 
-## U0. Install from local artifact
+## U0. Reproducible install
 
-Built a temporary release tarball (not committed) from `src/cli`,
-`src/toolchain`, `src/mini/bin/mini`, `src/runtime`, `src/xdk`, `src/ffi`:
+`src/toolchain/release.sh` builds a deterministic tarball (fixed
+`SOURCE_DATE_EPOCH=1700000000`, sorted entries, fixed mtime/uid/gid, gzip mtime).
+It writes `xnull-1.0.0.tar.gz`, its `.sha256`, and `VERSION`.
+
+Two independent runs:
 
 ```text
-/tmp/c1_u0/xnull-1.0.0.tar.gz
-sha256 7c9d711d09820c9d8a37898934ce449dc86693b66a758a071d7f00a09ef18772
+run1 sha256 9395415af43d1de03fc39c5943c05e6e4f7c76f2b7d4d03d507656662b190f63
+run2 sha256 9395415af43d1de03fc39c5943c05e6e4f7c76f2b7d4d03d507656662b190f63
+cmp: identical
 ```
 
-Extracted to `/tmp/c1_u0/prefix`; `doctor` and hello output:
+Installed from that tarball into `/tmp/c1_u0_release/prefix/xnull-1.0.0`:
 
 ```text
-mini: /tmp/c1_u0/prefix/src/mini/bin/mini
-runtime: /tmp/c1_u0/prefix/src/runtime
+doctor exit 0:
+mini: .../xnull-1.0.0/src/mini/bin/mini
+runtime: .../xnull-1.0.0/src/runtime
 cc: /usr/bin/cc
 python3: /Users/vjs/.local/bin/python3
 ffi projection: ok
 engine: mini
-hello from installed xnull
+hello exit 0: hello from released xnull
 ```
-
-`doctor` exit 0, hello exit 0.
 
 ## U1. Multi-file project
 
@@ -116,9 +124,9 @@ alpha=3
 rebuild on change; there is no incremental object cache, and the docs do not
 claim one.
 
-## U2. Injected failure
+## U2. Injected failure and task dump
 
-Changed `line(item)` to `line(missing)` in the project.
+Compile failure in the project (`line(item)` → `line(missing)`):
 
 ```text
 xnull check --json: exit 1
@@ -128,19 +136,66 @@ xnull run: exit 1
 /tmp/c1_u2/project/src/main/x/main.x:6:16: [SEM-001] undefined symbol: missing
 ```
 
-The error code and source location are sufficient to locate the failure. There
-is no task dump API in the 1.0 surface; U2 uses the diagnostic/error-code path.
+Runtime diagnostic surface: `xdk.runtime.dumpTasks()` writes task
+live/spawned/settled/carrier counters to stderr. The U2 probe
+`src/mini/tests/ref/u2_task_dump.x` (run with `XNULL_CARRIERS=1`) prints:
+
+```text
+stdout:
+true
+1
+stderr:
+tasks: live=1 spawned=1 settled=0 carrier=1
+tasks: live=0 spawned=1 settled=1 carrier=1
+```
+
+The first dump locates the blocked task; after `cancel`/`join`, the second
+shows it settled. `ref.sh` diffs both streams.
 
 ## U3. 0.x upgrade
 
-Guide: `docs/design/t0/MIGRATION-0.x-to-1.0.md`.
-Sample: `src/mini/tests/ref/migration_sample.x`; output
-`[INFO] migration: ready version=1.0`.
+Worktree: `../XNull-mini-0.3.0` at tag `mini-v0.3.0` (commit `a36d123b`).
 
-**Explicit incomplete item:** no installable 0.x artifact exists in this
-workspace, so the migration was validated by source patterns and a compilable
-1.0 sample, not by an in-place install/upgrade. This is the only unfinished U3
-item.
+Official build attempt:
+
+```text
+./src/mini/build.sh -> exit 2
+libxnrt.a: built and cached
+shasum: .../src/bootstrap/bin/xn-s4: No such file or directory
+xnull: bootstrap tool missing; run src/bootstrap/build.sh
+```
+
+The tag has no bootstrap artifact, so the official 0.3.0 build cannot run on
+this machine. Per the fallback rule, a minimal substitute artifact was built
+from the tag's own `src/mini/main.x` using the 1.0 mini as the seed compiler,
+then linked with the tag runtime:
+
+```text
+artifact: /tmp/u3/xnull-0.3.0.tar.gz
+sha256 45f2897d4e739c06e1eee3f3b816d89fc393d1d5c8643f0a8373d0039023f19b
+installed version: mini 0.3.0
+```
+
+0.3.0 on `/tmp/u3/project` (single entry + `model.x`):
+
+```text
+mini 0.3.0
+before=1
+```
+
+1.0 upgrade of the same project per `MIGRATION-0.x-to-1.0.md`: added
+`xnull.project`, kept `model.x`, added `xdk.log` + `Logger.withField`.
+
+```text
+xnull check: sema ok, exit 0
+xnull build: exit 0
+run:
+before=1
+[INFO] u3: ready stage=upgraded
+```
+
+U3 is PASS with the documented substitute artifact; the missing official
+bootstrap is recorded above rather than hidden.
 
 ## U5. Non-author trial
 

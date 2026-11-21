@@ -1,6 +1,6 @@
 package	capability	owner	l2	l1	c_test	x_scenario	parity	status
 xdk.errors	error-classification-and-reporting	xdk.errors	xdkc_diagnose_rc	ErrorKind;Error;DetailedError;ErrorDetail;BasicError;ErrorReport;ErrorGroup	src/runtime/test_rt.c	src/mini/tests/xdk_errors.x	mini-only	verified
-xdk.runtime	diagnostics-exit-and-clock	xdk.runtime	diagnoseRaw;exitRaw;nowMonoRaw;nowWallRaw	diagnose;exit;nowMono;nowWall	src/runtime/test_rt.c	src/mini/tests/xdk_runtime.x	mini-only	verified
+xdk.runtime	diagnostics-exit-and-clock	xdk.runtime	diagnoseRaw;exitRaw;nowMonoRaw;nowWallRaw;dumpTasksRaw	diagnose;exit;nowMono;nowWall;dumpTasks	src/runtime/test_rt.c	src/mini/tests/xdk_runtime.x	mini-only	verified
 xdk.meta	version-and-target-metadata	xdk.meta	platformRaw	languageVersion;xdkVersion;targetPlatform	src/runtime/test_std.c	src/mini/tests/xdk_meta.x	mini-only	verified
 xdk.bytes	byte-sequence-and-buffers	xdk.bytes	-	fromUtf8;toUtf8;fromHex;toHex;isEmptyBytes;compare;ByteReader;ByteWriter;ByteBuffer	src/runtime/test_std.c	src/mini/tests/xdk_bytes.x	mini-only	verified
 xdk.text	text-parse-format-regex	xdk.text	-	Format;Match;Regex;Utf16;parseInt;parseFloat;compareText;printf	src/runtime/test_std.c	src/mini/tests/xdk_text.x	mini-only	verified

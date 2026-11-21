@@ -22,6 +22,9 @@ trap 'rm -rf "$D"' EXIT
 "$XNULL" --bootstrap --engine=mini build "$HERE/ref/migration_sample.x" -o "$D/migration" >"$D/migration.build" 2>&1 || {
     cat "$D/migration.build" >&2; exit 1
 }
+"$XNULL" --bootstrap --engine=mini build "$HERE/ref/u2_task_dump.x" -o "$D/u2_task_dump" >"$D/u2_task_dump.build" 2>&1 || {
+    cat "$D/u2_task_dump.build" >&2; exit 1
+}
 
 printf 'app.name=demo-app\napp.port=8080\n' > "$D/config.txt"
 
@@ -59,5 +62,11 @@ diff -u "$HERE/ref/project.out" "$D/project.out"
     cat "$D/migration.err" >&2; exit 1
 }
 diff -u "$HERE/ref/migration_sample.out" "$D/migration.out"
+
+XNULL_CARRIERS=1 "$D/u2_task_dump" > "$D/u2_task_dump.out" 2> "$D/u2_task_dump.err" || {
+    cat "$D/u2_task_dump.err" >&2; exit 1
+}
+diff -u "$HERE/ref/u2_task_dump.out" "$D/u2_task_dump.out"
+diff -u "$HERE/ref/u2_task_dump.err" "$D/u2_task_dump.err"
 
 echo "mini ref: PASS"

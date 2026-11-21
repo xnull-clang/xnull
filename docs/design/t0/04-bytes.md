@@ -458,8 +458,10 @@ print(toHex(payloadResult.value()))  // 6869
 - 场景、回归、mini base/full 通过；
 - 文档、场景、回归、实现同批交付；批内条目不单独提交、不宣称包完成。
 
-`ByteBuffer` 属于 T0-X；未完成时包状态为 `partial`，不得用 T0-K 冒充
-`complete`。
+`ByteBuffer` 已完成：`src/mini/tests/xdk_bytes_extra.x` 与
+`xdk_bytes_strict.x` 覆盖构造、追加、定位读写、越界错误与容量预留；
+`src/runtime/test_std.c` 提供运行时回归。API manifest 与 AUDIT 记录同一组
+证据。
 
 ---
 

@@ -1,15 +1,115 @@
-package	public_symbols	stability	owner	scenario	test	gate	evidence
-xdk.errors	ErrorKind;Error;DetailedError;ErrorDetail;BasicError;ErrorReport;ErrorGroup	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
-xdk.runtime	diagnose;exit;nowMono;nowWall	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
-xdk.meta	languageVersion;xdkVersion;targetPlatform	stable	xdk.meta	src/mini/tests/xdk_meta.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_meta.x && src/runtime/test_std.c
-xdk.bytes	fromUtf8;toUtf8;fromHex;toHex;isEmptyBytes;compare;ByteReader;ByteWriter;ByteBuffer	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
-xdk.text	Format;Match;Regex;Utf16;parseInt;parseFloat;compareText;printf	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
-xdk.collections	Pair;IntPair;Entry;PriorityQueue;RingBuffer;OrderedMap;BTreeMap;sortBy;sortedBy;groupBy;groupByInt;joinWith	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
-xdk.math	PI;abs;clamp;pow;sqrt;gcd;addIntChecked;mulIntChecked;addI128Checked	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
-xdk.time	Duration;DateTime;Civil;nowMs;nowWallMs;sleepMs;durationOfMinutes	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
-xdk.io	Readable;Writable;Reader;Writer;BufferedReader;BufferedWriter;ChainReader;TeeReader;LimitReader;LineReader;readAll;copyTo	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
-xdk.fs	Path;File;FileMode;Dir;EntryKind;Metadata;TempFile;TempDir;exists;readText;writeText;walk;glob	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
-xdk.sys	Process;ProcessResult;Signal;readFileText;writeFileText;env;envNames;platform;hostname;pid;cwd	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
-xdk.log	Level;Logger;Sink;Field;LogRecord;ConsoleSink;MemorySink	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
-xdk.config	Config;ConfigEntry;ConfigSource;MapSource;FileSource	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
-xdk.cli	Args;OptionSpec;Command;CommandMatch;usage;exitCodeFor	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+package	symbol	signature	stability	owner	scenario	test	gate	evidence
+xdk.errors	ErrorKind	enum ErrorKind	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	Error	protocol Error	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	DetailedError	protocol DetailedError	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	ErrorDetail	class ErrorDetail	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	BasicError	class BasicError implements Error, DetailedError	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	ErrorReport	class ErrorReport implements Error, DetailedError	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.errors	ErrorGroup	class ErrorGroup implements Error, DetailedError	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.runtime	diagnose	diagnose($"[{errorKindDisplayName(result.error().kind())}] {result.error().describe()}")	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
+xdk.runtime	exit	Void exit(Int code)	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
+xdk.runtime	nowMono	Long nowMono()	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
+xdk.runtime	nowWall	Long nowWall()	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
+xdk.runtime	dumpTasks	void dumpTasks()	stable	xdk.runtime	src/mini/tests/ref/u2_task_dump.x	src/runtime/test_rt.c	ref.sh	XNULL_CARRIERS=1 src/mini/tests/ref/u2_task_dump.x && src/runtime/test_rt.c
+xdk.meta	languageVersion	String languageVersion()	stable	xdk.meta	src/mini/tests/xdk_meta.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_meta.x && src/runtime/test_std.c
+xdk.meta	xdkVersion	String xdkVersion()	stable	xdk.meta	src/mini/tests/xdk_meta.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_meta.x && src/runtime/test_std.c
+xdk.meta	targetPlatform	String targetPlatform()	stable	xdk.meta	src/mini/tests/xdk_meta.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_meta.x && src/runtime/test_std.c
+xdk.bytes	fromUtf8	Bytes fromUtf8(String text)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	toUtf8	String toUtf8(Bytes source)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	fromHex	Bytes fromHex(String hexadecimal)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	toHex	String toHex(Bytes source)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	isEmptyBytes	Bool isEmptyBytes(Bytes source)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	compare	Int compare(Bytes left, Bytes right)	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	ByteReader	class ByteReader	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	ByteWriter	class ByteWriter	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.bytes	ByteBuffer	class ByteBuffer	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes_extra.x;src/mini/tests/xdk_bytes_strict.x	src/runtime/test_std.c	xdk.sh	src/mini/tests/xdk_bytes_extra.x && src/mini/tests/xdk_bytes_strict.x && src/runtime/test_std.c
+xdk.text	Format	class Format	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	Match	class Match	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	Regex	class Regex	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	Utf16	class Utf16	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	parseInt	Result<Int, Error> parseInt(String text)	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	parseFloat	Result<Double, Error> parseFloat(String text)	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	compareText	Int compareText(String left, String right)	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.text	printf	Result<String, Error> printf(String pattern, List<FormatArgument> arguments)	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.collections	Pair	class Pair	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	IntPair	class IntPair	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	Entry	class Entry<K, V>	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	PriorityQueue	class PriorityQueue<T>	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	RingBuffer	class RingBuffer<T>	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	OrderedMap	class OrderedMap<V>	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	BTreeMap	class BTreeMap<V>	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	sortBy	List<T> sortBy<T>(List<T> items, Bool(T, T) lessThan)	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	sortedBy	List<T> sortedBy<T>(List<T> items, Bool(T, T) lessThan)	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	groupBy	Map<K,List<T>> groupBy<T, K>(List<T> items, K(T) keyOf)	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	groupByInt	Map<Int,List<T>> groupByInt<T>(List<T> items, Int(T) keyOf)	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.collections	joinWith	String joinWith<T>(List<T> items, String separator, String(T) format)	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.math	PI	Double PI()	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	abs	Double abs(Double x)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	clamp	Double clamp(Double x, Double lo, Double hi)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	pow	Double pow(Double x, Double y)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	sqrt	Double sqrt(Double x)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	gcd	Int gcd(Int a, Int b)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	addIntChecked	Result<Int, Error> addIntChecked(Int left, Int right)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	mulIntChecked	Result<Int, Error> mulIntChecked(Int left, Int right)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.math	addI128Checked	Result<Int128, Error> addI128Checked(Int128 left, Int128 right)	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.time	Duration	return new Duration(self.ms - other.ms)	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	DateTime	class DateTime	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	Civil	class Civil	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	nowMs	Long nowMs()	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	nowWallMs	Long nowWallMs()	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	sleepMs	void sleepMs(Long milliseconds)	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.time	durationOfMinutes	Duration durationOfMinutes(Long m)	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.io	Readable	protocol Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	Writable	protocol Writable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	Reader	class Reader implements Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	Writer	class Writer implements Writable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	BufferedReader	class BufferedReader implements Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	BufferedWriter	class BufferedWriter implements Writable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	ChainReader	class ChainReader implements Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	TeeReader	class TeeReader implements Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	LimitReader	class LimitReader implements Readable	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	LineReader	class LineReader	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	readAll	Result<Bytes, Error> readAll()	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.io	copyTo	Result<Int, Error> copyTo(Readable source, Writable sink)	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.fs	Path	class Path	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	File	class File	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	FileMode	enum FileMode	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	Dir	class Dir	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	EntryKind	enum EntryKind	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	Metadata	class Metadata	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	TempFile	class TempFile	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	TempDir	class TempDir	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	exists	Bool exists(String path)	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	readText	Result<String, Error> readText(String path)	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	writeText	Result<Long, Error> writeText(String path, String text)	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	walk	Result<List<String>, Error> walk(String root)	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.fs	glob	Result<List<String>, Error> glob(String pattern)	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.sys	Process	class Process	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	ProcessResult	class ProcessResult	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	Signal	enum Signal	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	readFileText	Result<String, Error> readFileText(String path)	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	writeFileText	Result<Long, Error> writeFileText(String path, String text)	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	env	String env(String name)	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	envNames	List<String> envNames()	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	platform	String platform()	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	hostname	String hostname()	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	pid	Int pid()	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.sys	cwd	String cwd()	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.log	Level	enum Level	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	Logger	class Logger	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	Sink	protocol Sink	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	Field	class Field	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	LogRecord	class LogRecord	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	ConsoleSink	class ConsoleSink implements Sink	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.log	MemorySink	class MemorySink implements Sink	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.config	Config	class Config	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.config	ConfigEntry	class ConfigEntry	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.config	ConfigSource	protocol ConfigSource	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.config	MapSource	class MapSource implements ConfigSource	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.config	FileSource	class FileSource implements ConfigSource	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.cli	Args	class Args	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+xdk.cli	OptionSpec	class OptionSpec	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+xdk.cli	Command	class Command	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+xdk.cli	CommandMatch	class CommandMatch	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+xdk.cli	usage	String usage(String program, String summary)	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c
+xdk.cli	exitCodeFor	Int exitCodeFor(String outcome)	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c

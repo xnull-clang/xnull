@@ -68,7 +68,7 @@ stricter CORE-CLOSURE state (T0-K + T0-X), so a package can be `Gate PASS` and
 | Package | T0-K | 1.0 | Design | Implementation | Gate | Verified | Evidence | Reviewer | Date |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | xdk.errors | PASS | yes | v1.4 | mini | PASS | no | xdk_errors.x, xdk_errors_full.x | 待签 | 2026-11-21 |
-| xdk.runtime | PASS | yes | v1.0 | mini | PASS | no | xdk_runtime.x | 待签 | 2026-11-21 |
+| xdk.runtime | PASS | yes | v1.0 | mini | PASS | no | xdk_runtime.x, ref/u2_task_dump.x | 待签 | 2026-11-21 |
 | xdk.meta | PASS | yes | v1.0 | mini | PASS | no | xdk_meta.x | 待签 | 2026-11-21 |
 | xdk.bytes | PASS | yes | v1.2 | mini | PASS | no | xdk_bytes.x, xdk_bytes_strict.x | 待签 | 2026-11-21 |
 | xdk.text | PASS | yes | v1.1 | mini | PASS | yes | xdk_text.x, xdk_text_full.x | 待签 | 2026-11-21 |
@@ -172,6 +172,23 @@ NUL termination and re-evaluated the receiver twice. A compiler helper
 `xn_bytes_to_string` now takes the Bytes pointer once and uses its length.
 This was caught by the pipe/`readStdoutAll().toString()` and FileSource paths;
 the reference programs and the existing xdk gates cover the fix.
+
+## 3.5.1 ByteBuffer evidence
+
+`ByteBuffer` is code-complete in `src/xdk/core/bytes/Bytes.x` and covered by
+`src/mini/tests/xdk_bytes_extra.x` (append/put/get/reserve) and
+`src/mini/tests/xdk_bytes_strict.x` (checked construction/position). The
+per-symbol API manifest row carries the same scenario/test/gate evidence.
+
+## 3.5.2 API manifest and task dump evidence
+
+- `src/ffi/api-manifest.tsv` has 114 per-symbol rows across 14 packages,
+  generated from capabilities + source signatures + design stability. Missing
+  symbol/signature/design is a generator RED.
+- `ByteBuffer`: `xdk_bytes_extra.x` + `xdk_bytes_strict.x` + `test_std.c`.
+- `dumpTasks`: `xdk.runtime.dumpTasks()` → `xdkc_dump_tasks`, exercised by
+  `ref/u2_task_dump.x` with `XNULL_CARRIERS=1`; expected stderr is
+  `tasks: live=1 ...` followed by `tasks: live=0 ... settled=1 ...`.
 
 ## 3.6 Per-package signature ledger
 

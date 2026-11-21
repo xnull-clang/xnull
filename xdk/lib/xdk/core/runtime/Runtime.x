@@ -1,7 +1,7 @@
 // xdk.runtime —— 诊断、退出、时钟（T0-A）
 // Tier: T0；依赖：runtime_raw.xfb；稳定性：stable。
 //
-// 原语由 runtime_raw.xfb 提供；env / dumpTasks 在后续切片补齐。
+// 原语由 runtime_raw.xfb 提供；env 在后续切片补齐，dumpTasks 已接入。
 package xdk.runtime
 
 Void diagnose(String msg) {
@@ -24,4 +24,8 @@ Long nowMono() {
 
 Long nowWall() {
     return nowWallRaw()
+}
+
+void dumpTasks() {
+    dumpTasksRaw()
 }
