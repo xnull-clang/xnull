@@ -1,4 +1,7 @@
-// xdk.text —— S6-05 源码单元（Format builder / parse / UTF-8↔UTF-16 / Regex）
+// xdk.text 完整实现（源码层过渡单元，仅 XNULL_XDK_SOURCE=1 编入）
+//
+// 与 src/xdk/text.x（默认构建面）同源；追加顶层工厂与 Utf16 包装。
+// 默认构建不加载本单元，避免改变冻结 golden。
 //
 // 依赖：xdk.errors（错误值）；C 原语对应 src/runtime/rt_std_text.c
 // （parse_int/parse_float/utf8_to_utf16/utf16_to_utf8/regex_match；解释器路径由等价源码执行）。
@@ -21,31 +24,31 @@ class Format {
         self.pad = pad
     }
 
-    static Format int(Int v) {
-        return new Format(str(v), 0, ' ')
+    static Format int(Int value) {
+        return new Format(str(value), 0, ' ')
     }
 
-    static Format float(Double v) {
-        return new Format($"{(v)}", 0, ' ')
+    static Format float(Double value) {
+        return new Format($"{(value)}", 0, ' ')
     }
 
-    static Format string(String v) {
-        return new Format(v, 0, ' ')
+    static Format string(String value) {
+        return new Format(value, 0, ' ')
     }
 
-    static Format bool(Bool v) {
-        if v {
+    static Format bool(Bool value) {
+        if value {
             return new Format("true", 0, ' ')
         }
         return new Format("false", 0, ' ')
     }
 
-    Format width(Int w) {
-        return new Format(self.text, w, self.pad)
+    Format width(Int width) {
+        return new Format(self.text, width, self.pad)
     }
 
-    Format pad(Char c) {
-        return new Format(self.text, self.width, c)
+    Format pad(Char padding) {
+        return new Format(self.text, self.width, padding)
     }
 
     String build() {

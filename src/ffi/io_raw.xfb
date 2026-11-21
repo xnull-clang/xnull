@@ -1,0 +1,18 @@
+// bindings/xdk/io_raw.xfb —— xdk.io 进程 stdio 适配（B2）
+//
+// 只暴露字节安全的最小面：读返回 hex（避免 NUL/0x00 截断），写以 hex 输入。
+// 原生实现在 impl/runtime/rt_std_ext.c；fd 仅允许 1（stdout）/2（stderr）。
+ffi xdkc_io_raw {
+  @ffiEntry(cName = "xdkc_stdio_read_hex")
+  @blocking(.aware)
+  String stdioReadHexRaw(Int64 maxBytes);
+
+  @ffiEntry(cName = "xdkc_stdio_write_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  Int32 stdioWriteHexRaw(Int32 fd, String hex);
+
+  @ffiEntry(cName = "xdkc_stdio_flush")
+  @blocking(.unaware)
+  Int32 stdioFlushRaw(Int32 fd);
+}

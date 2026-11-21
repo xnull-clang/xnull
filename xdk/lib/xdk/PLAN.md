@@ -12,22 +12,23 @@ and recorded gaps.
 
 | Package | Current state | Next target |
 | --- | --- | --- |
-| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map | complex method-call inference |
+| `xdk.errors` | `xdk_errors.x` + `xdk_errors_full.x` mini; `collectOk`/`flatten`/cross-type map; `tryWith*` + direct `DetailedError` aggregation | complex method-call inference |
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
-| `xdk.text` | base + full mini | UTF-16/format edges |
+| `xdk.text` | `Verified`：StringBuilder、Unicode、POSIX ERE 子集、printf Format mini | T1 `xdk.regex` |
 | `xdk.math` | base + Int128/Int/Long checked + saturating + combinatorics mini | random T1 |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
-| `xdk.io` | in-memory Reader/Writer mini | file/network streams |
-| `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |
-| `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
-| `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
-| `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result> mini | RwLock/semaphore/select |
-| `xdk.collections` | List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms, PriorityQueue/RingBuffer mini | entries pairs, groupBy, OrderedMap/BTreeMap |
-| `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
-| `xdk.config` | key/profile/env mini | file/typed sources |
-| `xdk.cli` | Args/usage/exit mini | subcommands/help |
+| `xdk.io` | `Verified`：memory/checked/buffered/composed/LineReader mini | file/network/stdio via fs/sys/runtime |
+| `xdk.fs` | `Verified`：Result 面、File/Dir/Path、Long offset、atomic/temp/walk/glob、metadata/权限/链接 mini | T1 watch/lock/mmap |
+| `xdk.sys` | `Verified`：Result 面、File/Dir/Process、stdio 管道、信号/进程组、环境枚举、资源读取子集 mini | T1 PTY/net/session |
+| `xdk.collections` | `Verified`：List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms (`sortBy`/`sortedBy`/`groupBy`/`joinWith`), generic entries (`Entry<K,V>`), PriorityQueue/RingBuffer/OrderedMap/BTreeMap mini | T1 containers |
+| `xdk.log` | Verified: Level/Logger/Field/Sink/Console/Memory mini | File sink/filter T1 |
+| `xdk.config` | Verified: Config/MapSource/FileSource/overlay mini | typed getters/schema T1 |
+| `xdk.cli` | Verified: Args/OptionSpec/Command/subcommands/help/exit mini | completion T1 |
+
+`xdk.tasks` and `xdk.sync` are language/runtime builtins, not 1.0 packages.
+Their package documents are builtin references and deprecated for packaging.
 
 ## 2. Mini-only verification
 
@@ -52,8 +53,10 @@ engine.
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
    are implemented; complex receiver/return inference remains incremental.
-3. Generic Map/Set core is implemented; `Map.entries` values beyond `Pair`/`IntPair`, `groupBy`, and ordered maps remain.
+3. Generic Map/Set core is implemented, including `List`/`Map`/`Set` map values and `Entry<K,V>` entries. Collections, text, and fs T0-X are closed; next is sys.
 4. Project build and formatter are future mini work.
+5. Protocol dispatch fallback emits type-correct zero values for `Result` and
+   closure returns; new protocol return types must keep this path covered.
 
 ## 4. Architecture
 

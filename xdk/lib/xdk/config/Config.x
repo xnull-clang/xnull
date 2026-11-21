@@ -4,6 +4,134 @@
 // 面：profile、键值快照（保持插入顺序）、覆盖、环境变量白名单导入。
 // 文件/编码加载为后续切片；本切片用已证明的运行时原语完成内存快照。
 package xdk.config
+import xdk.errors
+import xdk.fs
+import xdk.text
+
+static Error configError(ErrorKind kind, String message) {
+    BasicError error = new BasicError(kind, message)
+    return error
+}
+
+static Int configDigit(String character) {
+    if character == "0" { return 0 }
+    if character == "1" { return 1 }
+    if character == "2" { return 2 }
+    if character == "3" { return 3 }
+    if character == "4" { return 4 }
+    if character == "5" { return 5 }
+    if character == "6" { return 6 }
+    if character == "7" { return 7 }
+    if character == "8" { return 8 }
+    if character == "9" { return 9 }
+    return -1
+}
+
+// 只服务于 getLong：十进制、可选正负号、全串消费；超出 Long 正数上限返回 Err。
+static Result<Long, Error> configParseLong(String text) {
+    Int length = text.length()
+    if length == 0 {
+        return Err(configError(ErrorKind.InvalidArgument, "Config: empty Long"))
+    }
+    Int index = 0
+    Bool negative = false
+    if text.substring(0, 1) == "-" {
+        negative = true
+        index = 1
+    } else if text.substring(0, 1) == "+" {
+        index = 1
+    }
+    if index >= length {
+        return Err(configError(ErrorKind.InvalidArgument, "Config: Long has no digits"))
+    }
+    Long value = 0
+    Bool any = false
+    while index < length {
+        Int digit = configDigit(text.substring(index, 1))
+        if digit < 0 {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: invalid Long character"))
+        }
+        any = true
+        if value > 922337203685477580 {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: Long overflow"))
+        }
+        value = value * 10 + (digit as Long)
+        if value < 0 {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: Long overflow"))
+        }
+        index = index + 1
+    }
+    if !any {
+        return Err(configError(ErrorKind.InvalidArgument, "Config: Long has no digits"))
+    }
+    if negative {
+        return Ok(0 - value)
+    }
+    return Ok(value)
+}
+
+class ConfigEntry {
+    final String key
+    final String value
+
+    ConfigEntry(String key, String value) {
+        self.key = key
+        self.value = value
+    }
+}
+
+protocol ConfigSource {
+    Result<List<ConfigEntry>, Error> load();
+}
+
+class MapSource implements ConfigSource {
+    final List<ConfigEntry> entries
+
+    MapSource(List<ConfigEntry> entries) {
+        self.entries = entries
+    }
+
+    Result<List<ConfigEntry>, Error> load() {
+        return Ok(self.entries)
+    }
+}
+
+class FileSource implements ConfigSource {
+    final String path
+
+    FileSource(String path) {
+        self.path = path
+    }
+
+    Result<List<ConfigEntry>, Error> load() {
+        Result<String, Error> loaded = readText(self.path)
+        if loaded.isErr() {
+            return Err(loaded.error())
+        }
+        List<String> lines = loaded.value().split("\n")
+        List<ConfigEntry> result = []
+        Int index = 0
+        Int lineNumber = 1
+        while index < lines.length() {
+            String line = lines.get(index).trim()
+            if line.length() > 0 && !line.startsWith("#") {
+                Int equalsAt = line.indexOf("=")
+                if equalsAt <= 0 {
+                    return Err(configError(ErrorKind.InvalidArgument, "FileSource: invalid line " + str(lineNumber)))
+                }
+                String key = line.substring(0, equalsAt).trim()
+                String value = line.substring(equalsAt + 1, line.length() - equalsAt - 1).trim()
+                if key.length() == 0 {
+                    return Err(configError(ErrorKind.InvalidArgument, "FileSource: empty key at line " + str(lineNumber)))
+                }
+                result.push(new ConfigEntry(key, value))
+            }
+            index = index + 1
+            lineNumber = lineNumber + 1
+        }
+        return Ok(result)
+    }
+}
 
 class Config {
     List<String> entries
@@ -34,6 +162,59 @@ class Config {
         return self.indexOf(key) >= 0
     }
 
+    Config copy() {
+        Config result = new Config(self.profile)
+        Int index = 0
+        while index < self.entries.length() {
+            result.entries.push(self.entries.get(index))
+            index = index + 1
+        }
+        return result
+    }
+
+    Result<Unit, Error> setChecked(String key, String value) {
+        if key.length() == 0 {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: empty key"))
+        }
+        if key.indexOf("=") >= 0 {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: key contains '='"))
+        }
+        self.set(key, value)
+        return Ok()
+    }
+
+    Result<Unit, Error> apply(ConfigSource source) {
+        Result<List<ConfigEntry>, Error> loaded = source.load()
+        if loaded.isErr() {
+            return Err(loaded.error())
+        }
+        List<ConfigEntry> items = loaded.value()
+        Int index = 0
+        while index < items.length() {
+            ConfigEntry entry = items.get(index)
+            Result<Unit, Error> setResult = self.setChecked(entry.key, entry.value)
+            if setResult.isErr() {
+                return Err(setResult.error())
+            }
+            index = index + 1
+        }
+        return Ok()
+    }
+
+    Config overlay(Config other) {
+        Config result = self.copy()
+        Int index = 0
+        while index < other.entries.length() {
+            String line = other.entries.get(index)
+            Int equalsAt = line.indexOf("=")
+            if equalsAt > 0 {
+                result.set(line.substring(0, equalsAt), line.substring(equalsAt + 1, line.length() - equalsAt - 1))
+            }
+            index = index + 1
+        }
+        return result
+    }
+
     Void set(String key, String value) {
         String line = key + "=" + value
         Int i = self.indexOf(key)
@@ -52,6 +233,56 @@ class Config {
         String line = self.entries.get(i)
         Int eq = line.indexOf("=")
         return line.substring(eq + 1, line.length() - eq - 1)
+    }
+
+    // ---------- 类型化 getter（T0-X） ----------
+    // 缺失键返回 NotFound；解析失败返回 InvalidArgument；值本身不做 trim。
+
+    Result<Int, Error> getInt(String key) {
+        if !self.has(key) {
+            return Err(configError(ErrorKind.NotFound, "Config: missing key " + key))
+        }
+        Result<Int, Error> parsed = parseInt(self.getOr(key, ""))
+        if parsed.isErr() {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: invalid Int for " + key))
+        }
+        return Ok(parsed.value())
+    }
+
+    Result<Long, Error> getLong(String key) {
+        if !self.has(key) {
+            return Err(configError(ErrorKind.NotFound, "Config: missing key " + key))
+        }
+        Result<Long, Error> parsed = configParseLong(self.getOr(key, ""))
+        if parsed.isErr() {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: invalid Long for " + key))
+        }
+        return Ok(parsed.value())
+    }
+
+    Result<Bool, Error> getBool(String key) {
+        if !self.has(key) {
+            return Err(configError(ErrorKind.NotFound, "Config: missing key " + key))
+        }
+        String value = self.getOr(key, "")
+        if value == "true" || value == "1" {
+            return Ok(true)
+        }
+        if value == "false" || value == "0" {
+            return Ok(false)
+        }
+        return Err(configError(ErrorKind.InvalidArgument, "Config: invalid Bool for " + key))
+    }
+
+    Result<Double, Error> getDouble(String key) {
+        if !self.has(key) {
+            return Err(configError(ErrorKind.NotFound, "Config: missing key " + key))
+        }
+        Result<Double, Error> parsed = parseFloat(self.getOr(key, ""))
+        if parsed.isErr() {
+            return Err(configError(ErrorKind.InvalidArgument, "Config: invalid Double for " + key))
+        }
+        return Ok(parsed.value())
     }
 
     // 只导入显式白名单中的环境变量；缺失的键保持原值。

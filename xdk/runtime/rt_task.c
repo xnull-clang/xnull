@@ -527,6 +527,33 @@ void xdkc_dump_tasks(void) {
     }
 }
 
+/* S6 §4.4 / T0-X：上下文感知 sleep。
+ * 返回 0 = 睡满；1 = 上下文（含祖先或截止）已取消。
+ * 以 10ms 为片轮询取消位，保证取消后及时返回；取消语义为协作式。 */
+int32_t xdkc_sleep_ctx_ms(xrt_context *ctx, int64_t ms) {
+    if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+        return 1;
+    }
+    if (ms <= 0) {
+        return 0;
+    }
+    int64_t deadline = xrt_clock_mono_ms() + ms;
+    for (;;) {
+        int64_t remaining = deadline - xrt_clock_mono_ms();
+        if (remaining <= 0) {
+            return 0;
+        }
+        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+            return 1;
+        }
+        int64_t slice = remaining < 10 ? remaining : 10;
+        struct timespec req;
+        req.tv_sec = (time_t)(slice / 1000);
+        req.tv_nsec = (long)((slice % 1000) * 1000000);
+        nanosleep(&req, NULL);
+    }
+}
+
 /* ---- 伴生执行器（S5 §2.2 / S7 §7.3：.unaware 长阻塞不占载体线程） ---- */
 
 struct xrt_future {

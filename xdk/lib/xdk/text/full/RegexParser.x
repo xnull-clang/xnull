@@ -1,441 +1,14 @@
 // xdk.text 完整实现（源码层过渡单元，仅 XNULL_XDK_SOURCE=1 编入）
 //
-// 与 src/xdk/text.x（默认构建面）同源；追加顶层工厂与 Utf16 包装。
-// 默认构建不加载本单元，避免改变冻结 golden。
-//
-// 依赖：xdk.errors（错误值）；C 原语对应 src/runtime/rt_std_text.c
-// （parse_int/parse_float/utf8_to_utf16/utf16_to_utf8/regex_match；解释器路径由等价源码执行）。
-// 稳定性：@preview。
-// 合同：可失败操作返回 Result；Regex 动态编译失败是可恢复错误，不 panic。
+// POSIX ERE 子集解析器：字面量、.、* + ?、{m} {m,} {m,n}、字符类与
+// POSIX 名字类、分组捕获、|、转义、^ $。语法错误返回 InvalidArgument。
 package xdk.text
 import xdk.errors
 
-// ---------- 格式化 builder ----------
-
-// Format：链式格式化构造器（Format.int(7).width(4).pad('0').build()）。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+// 量词上界（与 Int 32 位一致）。
+static Int regexMaxRepeat() {
+    return 2147483647
+}
 
 class RegexParser {
     String pattern
@@ -444,8 +17,8 @@ class RegexParser {
     Int groupCount
     Bool anchored
 
-    RegexParser(String p) {
-        self.pattern = p
+    RegexParser(String pattern) {
+        self.pattern = pattern
         self.pos = 0
         self.t = new RegexTree()
         self.groupCount = 0
@@ -459,143 +32,279 @@ class RegexParser {
         return self.pattern.get(self.pos)
     }
 
-    Bool eatByte(Int b) {
-        if self.peekByte() == b {
+    Bool eatByte(Int byteValue) {
+        if self.peekByte() == byteValue {
             self.pos = self.pos + 1
             return true
         }
         return false
     }
 
-    Int escapeByte(Int e) {
-        if e == 110 { return 10 }
-        if e == 116 { return 9 }
-        if e == 114 { return 13 }
-        if e == 102 { return 12 }
-        if e == 118 { return 11 }
-        if e == 48 { return 0 }
-        if e == 92 || e == 46 || e == 42 || e == 43 || e == 63 || e == 40 ||
-            e == 41 || e == 91 || e == 93 || e == 123 || e == 125 ||
-            e == 124 || e == 36 || e == 94 || e == 47 || e == 45 {
-            return e
+    // 读取一个完整 UTF-8 码点；非法返回 -1。
+    Int readCodePoint() {
+        if self.pos >= self.pattern.length() {
+            return -1
+        }
+        Int codePoint = decodeCodePoint(self.pattern, self.pos)
+        if codePoint < 0 {
+            return -1
+        }
+        self.pos = self.pos + codePointLen(self.pattern, self.pos)
+        return codePoint
+    }
+
+    Int escapeCodePoint(Int escaped) {
+        if escaped == 110 { return 10 }
+        if escaped == 116 { return 9 }
+        if escaped == 114 { return 13 }
+        if escaped == 102 { return 12 }
+        if escaped == 118 { return 11 }
+        if escaped == 48 { return 0 }
+        if escaped == 92 || escaped == 46 || escaped == 42 || escaped == 43 || escaped == 63 ||
+            escaped == 40 || escaped == 41 || escaped == 91 || escaped == 93 ||
+            escaped == 123 || escaped == 125 || escaped == 124 || escaped == 36 ||
+            escaped == 94 || escaped == 47 || escaped == 45 {
+            return escaped
         }
         return -1
     }
 
-    // 向当前（最后一个）类节点追加转义展开。
-    void addClassEscape(Int esc) {
-        Int last = self.t.negated.length() - 1
-        if esc == 100 || esc == 68 {
-            self.t.lo.push(48)
-            self.t.hi.push(57)
-            self.t.singles.push(-1)
-            if esc == 68 {
-                self.t.negated.set(last, 1)
-            }
+    Bool isClassEscape(Int escaped) {
+        return escaped == 100 || escaped == 68 || escaped == 119 || escaped == 87 ||
+            escaped == 115 || escaped == 83
+    }
+
+    void addRange(Int low, Int high) {
+        self.t.lo.push(low)
+        self.t.hi.push(high)
+        self.t.singles.push(-1)
+    }
+
+    void addSingle(Int value) {
+        self.t.lo.push(value)
+        self.t.hi.push(value)
+        self.t.singles.push(value)
+    }
+
+    // 向当前（最后一个）类节点追加转义展开。范围用码点表示。
+    void addClassEscape(Int escaped) {
+        if escaped == 100 {
+            self.addRange(48, 57)
             return
         }
-        if esc == 119 || esc == 87 {
-            self.t.lo.push(48)
-            self.t.hi.push(57)
-            self.t.singles.push(-1)
-            self.t.lo.push(97)
-            self.t.hi.push(122)
-            self.t.singles.push(-1)
-            self.t.lo.push(65)
-            self.t.hi.push(90)
-            self.t.singles.push(-1)
-            self.t.singles.push(95)
-            if esc == 87 {
-                self.t.negated.set(last, 1)
-            }
+        if escaped == 68 {
+            self.addRange(0, 47)
+            self.addRange(58, 1114111)
             return
         }
-        if esc == 115 || esc == 83 {
-            self.t.singles.push(32)
-            self.t.singles.push(9)
-            self.t.singles.push(10)
-            self.t.singles.push(13)
-            self.t.singles.push(12)
-            self.t.singles.push(11)
-            if esc == 83 {
-                self.t.negated.set(last, 1)
-            }
+        if escaped == 119 {
+            self.addRange(48, 57)
+            self.addRange(65, 90)
+            self.addRange(97, 122)
+            self.addSingle(95)
             return
         }
-        self.t.singles.push(esc)
+        if escaped == 87 {
+            self.addRange(0, 47)
+            self.addRange(58, 64)
+            self.addRange(91, 94)
+            self.addSingle(96)
+            self.addRange(123, 1114111)
+            return
+        }
+        if escaped == 115 {
+            self.addSingle(32)
+            self.addSingle(9)
+            self.addSingle(10)
+            self.addSingle(13)
+            self.addSingle(12)
+            self.addSingle(11)
+            return
+        }
+        if escaped == 83 {
+            self.addRange(0, 8)
+            self.addRange(14, 31)
+            self.addRange(33, 1114111)
+            return
+        }
+        self.addSingle(escaped)
+    }
+
+    // POSIX 名字类 [[:alpha:]]；返回 1=已识别、0=不是该形式、-1=未知名字。
+    Int parsePosixClass() {
+        if self.peekByte() != 91 {
+            return 0
+        }
+        if self.pos + 1 >= self.pattern.length() || self.pattern.get(self.pos + 1) != 58 {
+            return 0
+        }
+        Int nameStart = self.pos + 2
+        Int scan = nameStart
+        Int close = -1
+        while scan < self.pattern.length() {
+            if self.pattern.get(scan) == 58 && scan + 1 < self.pattern.length() &&
+                self.pattern.get(scan + 1) == 93 {
+                close = scan
+                break
+            }
+            scan = scan + 1
+        }
+        if close < 0 {
+            return 0
+        }
+        String name = self.pattern.substring(nameStart, close - nameStart)
+        self.pos = close + 2
+        if name == "alnum" {
+            self.addRange(48, 57)
+            self.addRange(65, 90)
+            self.addRange(97, 122)
+            return 1
+        }
+        if name == "alpha" {
+            self.addRange(65, 90)
+            self.addRange(97, 122)
+            return 1
+        }
+        if name == "blank" {
+            self.addSingle(32)
+            self.addSingle(9)
+            return 1
+        }
+        if name == "cntrl" {
+            self.addRange(0, 31)
+            self.addSingle(127)
+            return 1
+        }
+        if name == "digit" {
+            self.addRange(48, 57)
+            return 1
+        }
+        if name == "graph" {
+            self.addRange(33, 126)
+            return 1
+        }
+        if name == "lower" {
+            self.addRange(97, 122)
+            return 1
+        }
+        if name == "print" {
+            self.addRange(32, 126)
+            return 1
+        }
+        if name == "punct" {
+            self.addRange(33, 47)
+            self.addRange(58, 64)
+            self.addRange(91, 96)
+            self.addRange(123, 126)
+            return 1
+        }
+        if name == "space" {
+            self.addSingle(9)
+            self.addSingle(10)
+            self.addSingle(11)
+            self.addSingle(12)
+            self.addSingle(13)
+            self.addSingle(32)
+            return 1
+        }
+        if name == "upper" {
+            self.addRange(65, 90)
+            return 1
+        }
+        if name == "xdigit" {
+            self.addRange(48, 57)
+            self.addRange(65, 70)
+            self.addRange(97, 102)
+            return 1
+        }
+        return -1
+    }
+
+    Bool isRangeStart() {
+        if self.peekByte() != 45 {
+            return false
+        }
+        if self.pos + 1 >= self.pattern.length() {
+            return false
+        }
+        if self.pattern.get(self.pos + 1) == 93 {
+            return false
+        }
+        return true
+    }
+
+    // 读取类中的一个端点；转义名字类不能作为区间端点（返回 -1）。
+    Int readClassEndpoint() {
+        Int current = self.peekByte()
+        if current < 0 {
+            return -1
+        }
+        if current == 92 {
+            self.pos = self.pos + 1
+            Int escaped = self.peekByte()
+            if escaped < 0 {
+                return -1
+            }
+            self.pos = self.pos + 1
+            if self.isClassEscape(escaped) {
+                return -1
+            }
+            return self.escapeCodePoint(escaped)
+        }
+        return self.readCodePoint()
     }
 
     // 解析字符类（'[' 已消费）；返回类节点下标，失败 -1。
     Int parseClass() {
-        Int ni = self.t.addNode(2, "")
-        self.t.clsStart.set(ni, self.t.singles.length())
+        Int node = self.t.addNode(2, "")
+        self.t.clsStart.set(node, self.t.lo.length())
         if self.eatByte(94) {
-            self.t.negated.set(ni, 1)
+            self.t.negated.set(node, 1)
         }
         Bool first = true
         while true {
-            Int c = self.peekByte()
-            if c < 0 {
+            Int current = self.peekByte()
+            if current < 0 {
                 return -1
             }
-            if c == 93 && !first {
+            if current == 93 && !first {
                 self.pos = self.pos + 1
                 break
             }
             first = false
-            Int lo = -1
-            if c == 92 {
-                self.pos = self.pos + 1
-                Int e = self.peekByte()
-                if e < 0 {
+            if current == 91 {
+                Int posix = self.parsePosixClass()
+                if posix < 0 {
                     return -1
                 }
-                self.pos = self.pos + 1
-                if e == 100 || e == 68 || e == 119 || e == 87 || e == 115 || e == 83 {
-                    self.addClassEscape(e)
+                if posix > 0 {
                     continue
                 }
-                lo = self.escapeByte(e)
-            } else {
-                lo = c
-                self.pos = self.pos + 1
             }
-            if lo < 0 {
+            Int low = self.readClassEndpoint()
+            if low < 0 {
                 return -1
             }
-            if self.peekByte() == 45 && self.pos + 1 < self.pattern.length() &&
-                self.pattern.get(self.pos + 1) != 93 {
+            if self.isRangeStart() {
                 self.pos = self.pos + 1
-                Int hc = self.peekByte()
-                Int hi = -1
-                if hc == 92 {
-                    self.pos = self.pos + 1
-                    Int e2 = self.peekByte()
-                    self.pos = self.pos + 1
-                    hi = self.escapeByte(e2)
-                } else {
-                    hi = hc
-                    self.pos = self.pos + 1
-                }
-                if hi < lo {
+                Int high = self.readClassEndpoint()
+                if high < 0 || high < low {
                     return -1
                 }
-                self.t.lo.push(lo)
-                self.t.hi.push(hi)
-                self.t.singles.push(-1)
+                self.addRange(low, high)
             } else {
-                self.t.singles.push(lo)
+                self.addSingle(low)
             }
         }
-        self.t.clsCount.set(ni, self.t.singles.length() - self.t.clsStart.get(ni))
-        return ni
+        self.t.clsCount.set(node, self.t.lo.length() - self.t.clsStart.get(node))
+        return node
     }
 
     Result<Int, Error> parseAtom() {
-        Int c = self.peekByte()
-        if c == 40 {
+        Int current = self.peekByte()
+        if current == 40 {
             self.pos = self.pos + 1
-            Int gi = self.groupCount
+            Int groupIndex = self.groupCount
             self.groupCount = self.groupCount + 1
             Result<Int, Error> inner = self.parseAlt()
             if inner.isErr() {
@@ -604,58 +313,130 @@ class RegexParser {
             if !self.eatByte(41) {
                 return Err(textErr("regexCompile: 缺少右括号"))
             }
-            Int ni = self.t.addNode(3, "")
-            self.t.kidStart.set(ni, inner.value())
-            self.t.kidCount.set(ni, 1)
-            self.t.groupIds.set(ni, gi)
-            return Ok(ni)
+            Int node = self.t.addNode(3, "")
+            self.t.kidStart.set(node, self.t.kidRefs.length())
+            self.t.kidRefs.push(inner.value())
+            self.t.kidCount.set(node, 1)
+            self.t.groupIds.set(node, groupIndex)
+            return Ok(node)
         }
-        if c == 91 {
+        if current == 91 {
             self.pos = self.pos + 1
-            Int ni = self.parseClass()
-            if ni < 0 {
+            Int node = self.parseClass()
+            if node < 0 {
                 return Err(textErr("regexCompile: 字符类非法"))
             }
-            return Ok(ni)
+            return Ok(node)
         }
-        if c == 46 {
+        if current == 46 {
             self.pos = self.pos + 1
             return Ok(self.t.addNode(1, "."))
         }
-        if c == 92 {
+        if current == 92 {
             self.pos = self.pos + 1
-            Int e = self.peekByte()
-            if e < 0 {
+            Int escaped = self.peekByte()
+            if escaped < 0 {
                 return Err(textErr("regexCompile: 转义截断"))
             }
             self.pos = self.pos + 1
-            if e == 100 || e == 68 || e == 119 || e == 87 || e == 115 || e == 83 {
-                Int ni = self.t.addNode(2, "")
-                self.t.clsStart.set(ni, self.t.singles.length())
-                self.addClassEscape(e)
-                self.t.clsCount.set(ni, self.t.singles.length() - self.t.clsStart.get(ni))
-                return Ok(ni)
+            if self.isClassEscape(escaped) {
+                Int node = self.t.addNode(2, "")
+                self.t.clsStart.set(node, self.t.lo.length())
+                self.addClassEscape(escaped)
+                self.t.clsCount.set(node, self.t.lo.length() - self.t.clsStart.get(node))
+                return Ok(node)
             }
-            Int b = self.escapeByte(e)
-            if b < 0 {
+            Int decoded = self.escapeCodePoint(escaped)
+            if decoded < 0 {
                 return Err(textErr("regexCompile: 非法转义"))
             }
-            return Ok(self.t.addNode(0, stringOfByte(b)))
+            return Ok(self.t.addNode(0, fromCodePoint(decoded)))
         }
-        if c == 41 || c == 124 {
+        if current == 41 || current == 124 {
             return Err(textErr("regexCompile: 意外的 ) 或 |"))
         }
-        if c == 42 || c == 43 || c == 63 {
+        if current == 42 || current == 43 || current == 63 {
             return Err(textErr("regexCompile: 量词缺少原子"))
         }
-        self.pos = self.pos + 1
-        if c == 36 {
+        if current == 36 {
+            self.pos = self.pos + 1
             return Ok(self.t.addNode(0, "$"))
         }
-        if c == 94 {
+        if current == 94 {
+            self.pos = self.pos + 1
             return Ok(self.t.addNode(0, "^"))
         }
-        return Ok(self.t.addNode(0, stringOfByte(c)))
+        Int codePoint = self.readCodePoint()
+        if codePoint < 0 {
+            return Err(textErr("regexCompile: 非法 UTF-8 模式"))
+        }
+        return Ok(self.t.addNode(0, fromCodePoint(codePoint)))
+    }
+
+    // 读取十进制数；-1=没有数字，-2=溢出。
+    Int readDecimal() {
+        Int value = 0
+        Int digits = 0
+        while self.pos < self.pattern.length() {
+            Int current = self.pattern.get(self.pos)
+            if current < 48 || current > 57 {
+                break
+            }
+            if value > 214748364 {
+                return -2
+            }
+            value = value * 10 + (current - 48)
+            if value < 0 {
+                return -2
+            }
+            digits = digits + 1
+            self.pos = self.pos + 1
+        }
+        if digits == 0 {
+            return -1
+        }
+        return value
+    }
+
+    Result<Int, Error> parseInterval(Int atom) {
+        Int saved = self.pos
+        self.pos = self.pos + 1
+        Int minimum = self.readDecimal()
+        if minimum == -2 {
+            return Err(textErr("regexCompile: 量词上界溢出"))
+        }
+        if minimum < 0 {
+            self.pos = saved
+            return Ok(atom)
+        }
+        Int maximum = minimum
+        if self.eatByte(125) {
+            // {m}
+        } else if self.eatByte(44) {
+            if self.eatByte(125) {
+                maximum = regexMaxRepeat()
+            } else {
+                maximum = self.readDecimal()
+                if maximum == -2 {
+                    return Err(textErr("regexCompile: 量词上界溢出"))
+                }
+                if maximum < 0 || !self.eatByte(125) {
+                    return Err(textErr("regexCompile: 区间量词非法"))
+                }
+            }
+        } else {
+            return Err(textErr("regexCompile: 区间量词非法"))
+        }
+        if maximum < minimum {
+            return Err(textErr("regexCompile: 区间量词上下界颠倒"))
+        }
+        Int node = self.t.addNode(6, "")
+        self.t.kidStart.set(node, self.t.kidRefs.length())
+        self.t.kidRefs.push(atom)
+        self.t.kidCount.set(node, 1)
+        self.t.minr.set(node, minimum)
+        self.t.maxr.set(node, maximum)
+        return Ok(node)
     }
 
     Result<Int, Error> parseQuantified() {
@@ -663,102 +444,72 @@ class RegexParser {
         if atom.isErr() {
             return atom
         }
-        Int ni = atom.value()
-        Int c = self.peekByte()
-        if c == 42 {
+        Int node = atom.value()
+        Int current = self.peekByte()
+        if current == 42 {
             self.pos = self.pos + 1
-            Int q = self.t.addNode(6, "")
-            self.t.kidStart.set(q, ni)
-            self.t.kidCount.set(q, 1)
-            self.t.minr.set(q, 0)
-            self.t.maxr.set(q, 2147483647)
-            return Ok(q)
+            Int quantifier = self.t.addNode(6, "")
+            self.t.kidStart.set(quantifier, self.t.kidRefs.length())
+            self.t.kidRefs.push(node)
+            self.t.kidCount.set(quantifier, 1)
+            self.t.minr.set(quantifier, 0)
+            self.t.maxr.set(quantifier, regexMaxRepeat())
+            return Ok(quantifier)
         }
-        if c == 43 {
+        if current == 43 {
             self.pos = self.pos + 1
-            Int q = self.t.addNode(6, "")
-            self.t.kidStart.set(q, ni)
-            self.t.kidCount.set(q, 1)
-            self.t.minr.set(q, 1)
-            self.t.maxr.set(q, 2147483647)
-            return Ok(q)
+            Int quantifier = self.t.addNode(6, "")
+            self.t.kidStart.set(quantifier, self.t.kidRefs.length())
+            self.t.kidRefs.push(node)
+            self.t.kidCount.set(quantifier, 1)
+            self.t.minr.set(quantifier, 1)
+            self.t.maxr.set(quantifier, regexMaxRepeat())
+            return Ok(quantifier)
         }
-        if c == 63 {
+        if current == 63 {
             self.pos = self.pos + 1
-            Int q = self.t.addNode(6, "")
-            self.t.kidStart.set(q, ni)
-            self.t.kidCount.set(q, 1)
-            self.t.minr.set(q, 0)
-            self.t.maxr.set(q, 1)
-            return Ok(q)
+            Int quantifier = self.t.addNode(6, "")
+            self.t.kidStart.set(quantifier, self.t.kidRefs.length())
+            self.t.kidRefs.push(node)
+            self.t.kidCount.set(quantifier, 1)
+            self.t.minr.set(quantifier, 0)
+            self.t.maxr.set(quantifier, 1)
+            return Ok(quantifier)
         }
-        return Ok(ni)
-    }
-
-    // 把 src 子树复制追加到树尾（seq/alt 收集孩子用）。
-    void copyNode(Int src) {
-        Int kind = self.t.kinds.get(src)
-        Int ni = self.t.addNode(kind, self.t.chs.get(src))
-        if kind == 2 {
-            self.t.negated.set(ni, self.t.negated.get(src))
-            Int cs = self.t.clsStart.get(src)
-            Int cc = self.t.clsCount.get(src)
-            self.t.clsStart.set(ni, self.t.singles.length())
-            Int i = 0
-            while i < cc {
-                Int j = cs + i
-                self.t.lo.push(self.t.lo.get(j))
-                self.t.hi.push(self.t.hi.get(j))
-                self.t.singles.push(self.t.singles.get(j))
-                i = i + 1
-            }
-            self.t.clsCount.set(ni, cc)
-            return
+        if current == 123 {
+            return self.parseInterval(node)
         }
-        if kind == 5 || kind == 4 || kind == 3 || kind == 6 {
-            Int cs = self.t.kidStart.get(src)
-            Int cc = self.t.kidCount.get(src)
-            self.t.kidStart.set(ni, self.t.kinds.length())
-            Int i = 0
-            while i < cc {
-                self.copyNode(cs + i)
-                i = i + 1
-            }
-            self.t.kidCount.set(ni, cc)
-            self.t.minr.set(ni, self.t.minr.get(src))
-            self.t.maxr.set(ni, self.t.maxr.get(src))
-            self.t.groupIds.set(ni, self.t.groupIds.get(src))
-        }
+        return Ok(node)
     }
 
     Result<Int, Error> parseSeq() {
-        List<Int> kids = []
+        List<Int> children = []
         while true {
-            Int c = self.peekByte()
-            if c < 0 || c == 41 || c == 124 {
+            Int current = self.peekByte()
+            if current < 0 || current == 41 || current == 124 {
                 break
             }
-            Result<Int, Error> k = self.parseQuantified()
-            if k.isErr() {
-                return k
+            Result<Int, Error> child = self.parseQuantified()
+            if child.isErr() {
+                return child
             }
-            kids.push(k.value())
+            children.push(child.value())
         }
-        if kids.length() == 0 {
+        if children.length() == 0 {
             return Ok(self.t.addNode(7, ""))
         }
-        if kids.length() == 1 {
-            return Ok(kids.get(0))
+        if children.length() == 1 {
+            return Ok(children.get(0))
         }
-        Int ni = self.t.addNode(5, "")
-        self.t.kidStart.set(ni, self.t.kinds.length())
-        Int i = 0
-        while i < kids.length() {
-            self.copyNode(kids.get(i))
-            i = i + 1
+        Int node = self.t.addNode(5, "")
+        self.t.kidStart.set(node, self.t.kidRefs.length())
+        Int index = 0
+        while index < children.length() {
+            self.t.kidRefs.push(children.get(index))
+            index = index + 1
         }
-        self.t.kidCount.set(ni, kids.length())
-        return Ok(ni)
+        self.t.kidCount.set(node, children.length())
+        return Ok(node)
     }
 
     Result<Int, Error> parseAlt() {
@@ -772,23 +523,23 @@ class RegexParser {
         List<Int> branches = []
         branches.push(first.value())
         while self.eatByte(124) {
-            Result<Int, Error> b = self.parseSeq()
-            if b.isErr() {
-                return b
+            Result<Int, Error> branch = self.parseSeq()
+            if branch.isErr() {
+                return branch
             }
-            branches.push(b.value())
+            branches.push(branch.value())
         }
         if branches.length() == 1 {
             return Ok(branches.get(0))
         }
-        Int ni = self.t.addNode(4, "")
-        self.t.kidStart.set(ni, self.t.kinds.length())
-        Int i = 0
-        while i < branches.length() {
-            self.copyNode(branches.get(i))
-            i = i + 1
+        Int node = self.t.addNode(4, "")
+        self.t.kidStart.set(node, self.t.kidRefs.length())
+        Int index = 0
+        while index < branches.length() {
+            self.t.kidRefs.push(branches.get(index))
+            index = index + 1
         }
-        self.t.kidCount.set(ni, branches.length())
-        return Ok(ni)
+        self.t.kidCount.set(node, branches.length())
+        return Ok(node)
     }
 }

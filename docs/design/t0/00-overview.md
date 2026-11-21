@@ -205,20 +205,21 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | meta | language/xdk/target 版本 | BuildInfo、目标能力矩阵、构建元数据 |
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
-| collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map.entries 任意 K/V 值对象、groupBy、OrderedMap/BTreeMap（T0-X） |
+| collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、任意 K/V entries、groupBy/groupByInt、joinWith、PriorityQueue/RingBuffer/OrderedMap/BTreeMap | 容器 T1（HashMap/Deque/BitSet） |
 | math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界、Int/Long checked/saturating、组合数学 | random（T1） |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
-| io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
+| io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader（stdio 归 runtime/sys） |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
 | sys | Process、env、platform、cwd | stdio 管道、信号、环境枚举、进程组、内嵌资源读取子集 |
-| tasks | Task/TaskGroup/Context、取消、joinDeadline | select/race、Context 值、取消作用域 |
-| sync | Mutex、Channel、AtomicInt/Bool/Ref | RwLock、Semaphore、WaitGroup、Once、Barrier、select |
-| log | Level、Logger、ConsoleSink | Field/Sink 分层、File/Memory sink、过滤、redaction |
-| config | Config 快照、getOr/set、env allowlist | typed getter、overlay、Source、FileSource、校验 |
-| cli | Args、usage、exitCode | OptionSpec、Command、子命令、help、补全 |
+| log | Level、Logger、Field、Sink、Console/Memory | File sink、过滤、redaction（T1） |
+| config | Config、ConfigSource、MapSource/FileSource、overlay/校验 | typed getter、schema 校验（T1） |
+| cli | Args、OptionSpec、Command、子命令、help、exitCode | 补全、短选项合并（T1） |
 
 实现顺序仍按依赖：errors → runtime → meta → bytes → text → collections →
-math → time → io → fs → sys → tasks → sync → log → config → cli。
+math → time → io → fs → sys → log → config → cli。
+
+`xdk.tasks` 与 `xdk.sync` 是语言/运行时内建面，不是 1.0 包；`12-tasks.md`、
+`13-sync.md` 保留为内建参考并标 deprecated，不计入 14 包矩阵。
 
 ---
 
@@ -292,8 +293,6 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | io | 20 | 60 | 协议、内存、缓冲、组合、stdio |
 | fs | 25 | 70 | 路径、文件、目录、遍历、临时、原子 |
 | sys | 20 | 50 | 进程、环境、平台、信号 |
-| tasks | 15 | 40 | 任务、组、上下文、取消、select |
-| sync | 20 | 50 | 锁、通道、原子、同步器 |
 | log | 15 | 45 | 级别、记录器、字段、sink、过滤 |
 | config | 15 | 40 | 快照、来源、类型、校验 |
 | cli | 15 | 45 | 参数、选项、命令、帮助、补全 |
@@ -323,6 +322,13 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 
 ---
 
+## 7.1 分层验证工具
+
+- `src/ffi/capabilities.tsv`：14 包的 package/capability/owner/L2/L1/test/scenario/status 机器可读表；
+- `src/toolchain/check_layers.py`：G1 所有权、G2 符号闭环、G3 三组镜像，JSON 输出，退出 0/1；
+- `src/toolchain/layer-allowlist.tsv`：每条带 `remove_batch`；0.9.0 允许非空，1.0.0 必须为空；
+- `docs/design/DET-01.md`：内存策略判定表的权威条目（判定表 + 正反例）。
+
 ## 8. 文档索引与完成度
 
 | 文档 | 内容 | 状态 |
@@ -334,24 +340,24 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `AUDIT.md` | T0 冻结前审计、Int 32 位、包状态、门禁 | 当前 |
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
-| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
+| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode、Regex | Verified（mini） |
 | `07-math.md` | 数学函数、溢出、统计、Int128 | Verified（mini；random T1） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
-| `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
-| `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
-| `11-sys.md` | Process、Env、Platform、Signal | Partial（简化文件面；File/Dir/Process X） |
-| `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
-| `13-sync.md` | Mutex、Channel、Atomics、同步器 | Verified（Atomic/Mutex/Channel 标量、指针、Int128、Result） |
-| `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |
-| `15-config.md` | Config、Source、Profile、校验 | Verified（内存/环境面） |
-| `16-cli.md` | Args、OptionSpec、Command、usage | Verified（最小面） |
+| `09-io.md` | Reader/Writer、缓冲、组合、stdio | Verified（内存/协议/组合/LineReader） |
+| `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Verified（Result 面、File/Dir/Path、atomic/temp/walk/glob、metadata/权限/链接） |
+| `11-sys.md` | Process、Env、Platform、Signal | Verified（Result 面、File/Dir/Process、管道/信号/进程组/环境枚举/资源读取子集） |
+| `12-tasks.md` | Task、TaskGroup、Context、取消 | 内建面参考；非 1.0 包，deprecated |
+| `13-sync.md` | Mutex、Channel、Atomics、同步器 | 内建面参考；非 1.0 包，deprecated |
+| `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（Field/Sink/Console/Memory） |
+| `15-config.md` | Config、Source、Profile、校验 | Verified（FileSource/overlay/校验） |
+| `16-cli.md` | Args、OptionSpec、Command、usage | Verified（Command/子命令/help） |
 
 `01-errors.md`、`04-bytes.md`、`06-collections.md` 是后续包的样板：
 达不到它们的契约密度，就不算完成；但不要复制它们已删除的旧写法
 （泛型协议、宽松读取、`wrap/report` 同名换义、`HashMap/TreeMap` 空承诺）。
 
-同目录 `appendices/` 放错误码表、所有权表、稳定性表、测试矩阵；当前尚未创建，
-不阻塞包设计，但场景/回归落地前必须补齐。
+同目录 `appendices/` 放错误码表、所有权表、稳定性表、测试矩阵；
+`appendices/error-codes.tsv` 已随 W6 落地，其余表在场景/回归前补齐。
 
 ---
 

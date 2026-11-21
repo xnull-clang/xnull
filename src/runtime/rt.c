@@ -147,6 +147,9 @@ rt_string *rt_string_alloc(size_t len) {
 }
 
 rt_string *rt_string_from_c(const char *cstr) {
+    if (cstr == NULL) {
+        return rt_string_new("", 0);
+    }
     return rt_string_new(cstr, strlen(cstr));
 }
 

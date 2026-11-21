@@ -132,6 +132,11 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   void sleepMsRaw(Int64 ms);
 
+  // 返回 0 = 睡满；1 = 上下文已取消。
+  @ffiEntry(cName = "xdkc_sleep_ctx_ms")
+  @blocking(.unaware)
+  Int32 sleepContextRaw(Context context, Int64 ms);
+
   // ---- env / system ----
   @ffiEntry(cName = "xdkc_env_lookup2")
   @lease(name = .borrow)

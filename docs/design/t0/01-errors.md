@@ -1,4 +1,4 @@
-# xdk.errors —— T0 核心包详细设计 v1.4
+# xdk.errors —— T0 核心包详细设计 v1.5
 
 > 本版与 mini 实现对齐：`Error` 保持 `kind/describe` 两方法；`DetailedError`
 > 是独立的丰富错误协议；`wrap/mapErr/report` 保留 S4 语义；步骤记录用
@@ -149,8 +149,9 @@ protocol DetailedError {
   - 无 `code`：`KindName: message`
   - `KindName` 使用枚举名（如 `NotFound`）。
 - T0 的 `ErrorReport`/`ErrorGroup` 以 `BasicError` 为承载；自定义
-  `DetailedError` 在聚合/报告前必须先转成 `BasicError`。这是 T0 限制，
-  不是永久语言限制。
+  `DetailedError` 通过 `ErrorGroup.addDetailed`（内部唯一转换点
+  `basicErrorOf`）进入聚合，调用方不再手写转换。转换只复制 kind/message/code，
+  details/causes 仍由自定义类型自行定义。
 
 ---
 
@@ -204,6 +205,10 @@ class BasicError implements Error, DetailedError {
     BasicError withCode(String code)
     BasicError withDetail(String key, String value)
     BasicError withCause(BasicError cause)
+
+    Result<BasicError, Error> tryWithCode(String code)
+    Result<BasicError, Error> tryWithDetail(String key, String value)
+    Result<BasicError, Error> tryWithCause(BasicError cause)
 }
 ```
 
@@ -223,11 +228,16 @@ class BasicError implements Error, DetailedError {
 | `withCode(code)` | code 合法或空 | 返回新实例 | 非法 → panic | O(n) |
 | `withDetail(key, value)` | key/value 合法 | 返回新实例，追加 detail | 非法 → panic | O(n) |
 | `withCause(cause)` | cause 非 null、非 self | 返回新实例，追加 cause | null/self → panic | O(n) |
+| `tryWithCode(code)` | code 合法或空 | Ok(新实例) | 非法 → `InvalidArgument` | O(n) |
+| `tryWithDetail(key, value)` | key/value 合法 | Ok(新实例，追加 detail) | 非法 → `InvalidArgument` | O(n) |
+| `tryWithCause(cause)` | cause 非 null、非 self、causes<8 | Ok(新实例，追加 cause) | 非法/满 → `InvalidArgument` | O(n) |
 
 - 不提供“全量构造器”重载：当前编译器不支持构造器重载；用构造器 + `with*`
   组合。这个限制不改变语义。
-- 构造函数不返回 `Result`；外部字符串先用 `isValidErrorCode`/`tryErrorDetail` 校验，再调用 `with*`。
-- `tryWith*` 方法在当前 mini 代码生成上仍有缺口，归入 T0-X blocked；T0 不提供假实现。
+- 构造函数不返回 `Result`；外部字符串用 `tryWithCode`/`tryWithDetail` 走
+  checked 路径，或先用 `isValidErrorCode`/`tryErrorDetail` 校验再调用 `with*`。
+- `tryWithCause` 在 8 条上限处返回 `InvalidArgument`，不静默丢弃；`withCause`
+  保持“超出丢弃新增”的未检查语义。
 
 ### 7.4 示例
 
@@ -286,6 +296,7 @@ print(report.describe())    // load config -> parse port -> ...
 class ErrorGroup implements Error, DetailedError {
     ErrorGroup()
     Void add(BasicError error)
+    Void addDetailed(DetailedError error)
     Int length()
     Bool isEmpty()
     BasicError? first()
@@ -300,8 +311,11 @@ class ErrorGroup implements Error, DetailedError {
 
 **聚合规则（冻结）**：
 
-- 存储 `BasicError`；自定义 `DetailedError` 先转 `BasicError` 再 add。
+- 存储 `BasicError`；`addDetailed` 用唯一转换点 `basicErrorOf` 把任意
+  `DetailedError` 转成 `BasicError` 后 add；调用方无需手写转换。
 - `add(error)` 要求非 null；`add(self)` 为合同错误（panic）。
+- `basicErrorOf` 复制 kind/message/code；自定义类型的 details/causes 不进入
+  T0 聚合（T0 仍以 `BasicError` 为承载）。
 - `kind()`：只要包含 `Cancelled` 就返回 `Cancelled`；否则返回第一个非
   `Cancelled`；空组返回 `InvalidArgument`。
 - `message()`：`"N errors; first: <first.describe>"`；空组
@@ -353,6 +367,9 @@ Bool isRetryableError(Error error)
 - `errorKindCode(ErrorKind) -> Int`；`errorKindFromCode(Int) -> ErrorKind`。
 - 映射表与 L2 `XRT_ERR_*` 对齐（0..13），发布后冻结。
 - 未知码 → `Internal`；跨 FFI 不传 `Error` 对象，只传码 + 可选字符串。
+- 诊断码命名空间与注册表见
+  `docs/design/t0/appendices/error-codes.tsv`；`check_error_codes.py` 拒绝
+  源码中未登记、重复登记和命名空间错配的码。
 
 ---
 
@@ -375,8 +392,11 @@ Bool isRetryableError(Error error)
 | --- | --- |
 | 分类 | 14 个 kind 的名称/码/可重试性表驱动 |
 | 构造 | 空消息归一、code/details/cause、非法输入的 checked 路径 |
+| checked 变更 | `tryWithCode`/`tryWithDetail`/`tryWithCause` 的成功与失败两侧；8 条上限不静默丢弃 |
 | 报告 | 步骤顺序、16 条上限、tryWithStep 失败 |
 | 聚合 | Cancelled 优先、首个非 Cancelled、空组、self 拒绝、details 前缀 |
+| 直接聚合 | `addDetailed` 接受自定义 `DetailedError`，kind/message/code 正确转换 |
+| 错误码 registry | `docs/design/t0/appendices/error-codes.tsv` 无重复；源码中每个诊断码已登记；未登记/重复/命名空间错配为 RED |
 | ResultOps | mapOk/mapErr/andThen/unwrapOr/check 的 Ok/Err 两侧 |
 | FFI | 码→kind→码 往返；未知码 → Internal |
 | 兼容 | S4 `wrap`/`report` 语义未变 |
@@ -386,6 +406,8 @@ Bool isRetryableError(Error error)
 
 - `tests/xdk_errors.x`：基础分类。
 - `tests/xdk_errors_full.x`：DetailedError/Report/Group/ResultOps/码表。
+- `tests/r4/errors_detail.x`：自定义 `DetailedError` 直接聚合、`tryWith*` 检查路径。
+- `tests/error_codes.sh`：W6 registry 正例与未登记/重复/命名空间负例。
 - `xdk.sh`：mini。
 - `m10_parity.sh`：mini base/full。
 
@@ -403,7 +425,8 @@ Bool isRetryableError(Error error)
 
 - 复杂接收者表达式的跨类型推断仍为 T0-X；
 - `xdk_errors_full.x` 为 mini 专用；没有第二引擎。
-- 自定义 `DetailedError` 聚合：T0 先转 `BasicError`，T1 再泛化。
+- 自定义 `DetailedError` 的 details/causes 不进入 T0 聚合；T0 只转换
+  kind/message/code，T1 再泛化完整聚合。
 
 ---
 

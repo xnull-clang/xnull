@@ -27,6 +27,7 @@ List<T> sortBy<T>(List<T> items, Bool(T, T) lessThan) {
 }
 
 // sortedBy：返回新列表，不修改入参。
+// 内联排序循环：mini 暂不支持在泛型函数体内调用另一个泛型函数。
 List<T> sortedBy<T>(List<T> items, Bool(T, T) lessThan) {
     List<T> result = []
     Int index = 0
@@ -34,7 +35,22 @@ List<T> sortedBy<T>(List<T> items, Bool(T, T) lessThan) {
         result.push(items.get(index))
         index = index + 1
     }
-    return sortBy(result, lessThan)
+    Int current = 1
+    while current < result.length() {
+        T value = result.get(current)
+        Int previous = current - 1
+        while previous >= 0 {
+            if lessThan(value, result.get(previous)) {
+                result.set(previous + 1, result.get(previous))
+                previous = previous - 1
+            } else {
+                break
+            }
+        }
+        result.set(previous + 1, value)
+        current = current + 1
+    }
+    return result
 }
 
 // dedup：按 equals 去重，保留首次出现顺序。
@@ -63,6 +79,54 @@ T? find<T>(List<T> items, Bool(T) predicate) {
         }
     }
     return null
+}
+
+// joinWith：用 separator 拼接任意 List<T>，元素由 format 转成文本。
+String joinWith<T>(List<T> items, String separator, String(T) format) {
+    String result = ""
+    Int index = 0
+    while index < items.length() {
+        if index > 0 {
+            result = result + separator
+        }
+        result = result + format(items.get(index))
+        index = index + 1
+    }
+    return result
+}
+
+// groupByInt：按 Int 键分组，保留首次出现顺序和组内原始顺序。
+Map<Int,List<T>> groupByInt<T>(List<T> items, Int(T) keyOf) {
+    Map<Int,List<T>> result = [:]
+    for item in items {
+        Int key = keyOf(item)
+        if result.has(key) {
+            List<T> bucket = result.getOr(key, items)
+            bucket.push(item)
+        } else {
+            List<T> bucket = []
+            bucket.push(item)
+            result.put(key, bucket)
+        }
+    }
+    return result
+}
+
+// groupBy：按任意受支持 K 分组；组内与组间均按首次出现顺序。
+Map<K,List<T>> groupBy<T, K>(List<T> items, K(T) keyOf) {
+    Map<K,List<T>> result = [:]
+    for item in items {
+        K key = keyOf(item)
+        if result.has(key) {
+            List<T> bucket = result.getOr(key, items)
+            bucket.push(item)
+        } else {
+            List<T> bucket = []
+            bucket.push(item)
+            result.put(key, bucket)
+        }
+    }
+    return result
 }
 
 // join：用 separator 拼接 List<String>；空列表返回空串。
@@ -98,5 +162,17 @@ class IntPair {
     IntPair(Int first, Int second) {
         self.first = first
         self.second = second
+    }
+}
+
+// Entry<K,V>：通用 Map<K,V>.entries 的值对象。
+// 快速路径 Map<String,Int>/Map<Int,Int> 仍分别返回 Pair/IntPair。
+class Entry<K, V> {
+    K key
+    V value
+
+    Entry(K key, V value) {
+        self.key = key
+        self.value = value
     }
 }

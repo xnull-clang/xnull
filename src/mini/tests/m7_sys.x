@@ -8,7 +8,7 @@ static Int main() {
         return 1
     }
     File w = wf.value()
-    Result<Int, Error> wr = w.writeText("alpha\nbeta")
+    Result<Long, Error> wr = w.writeText("alpha\nbeta")
     print(wr.value())
     w.close()
 
@@ -23,7 +23,8 @@ static Int main() {
 
     Result<Dir, Error> od = openDir("/tmp")
     Dir d = od.value()
-    print(d.next().length() > 0)
+    String firstName = d.next().value() as String
+    print(firstName.length() > 0)
     d.close()
 
     Result<ProcessResult, Error> pr = runProcessResult("printf hi")

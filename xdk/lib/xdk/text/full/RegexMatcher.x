@@ -1,1043 +1,262 @@
 // xdk.text 完整实现（源码层过渡单元，仅 XNULL_XDK_SOURCE=1 编入）
 //
-// 与 src/xdk/text.x（默认构建面）同源；追加顶层工厂与 Utf16 包装。
-// 默认构建不加载本单元，避免改变冻结 golden。
-//
-// 依赖：xdk.errors（错误值）；C 原语对应 src/runtime/rt_std_text.c
-// （parse_int/parse_float/utf8_to_utf16/utf16_to_utf8/regex_match；解释器路径由等价源码执行）。
-// 稳定性：@preview。
-// 合同：可失败操作返回 Result；Regex 动态编译失败是可恢复错误，不 panic。
+// POSIX ERE 子集回溯匹配器。字面量与 . 按 UTF-8 码点推进，
+// 字符类范围为码点；匹配偏移仍是字节下标。
 package xdk.text
 import xdk.errors
-
-// ---------- 格式化 builder ----------
-
-// Format：链式格式化构造器（Format.int(7).width(4).pad('0').build()）。
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class RegexMatcher {
     RegexTree t
     String text
     RegexMatchState st
 
-    RegexMatcher(RegexTree t0, String text0, Int groupCount) {
-        self.t = t0
-        self.text = text0
+    RegexMatcher(RegexTree tree, String text, Int groupCount) {
+        self.t = tree
+        self.text = text
         self.st = new RegexMatchState()
         self.st.ensure(groupCount)
     }
 
-    // 序列自 ki 起匹配；走完整个序列返回终点 ti'，失败 -1。
-    Int matchSeq(Int ni, Int ki, Int ti) {
-        if ki >= self.t.kidCount.get(ni) {
-            return ti
+    // 结构节点的第 childIndex 个孩子节点。
+    Int childAt(Int nodeIndex, Int childIndex) {
+        return self.t.kidRefs.get(self.t.kidStart.get(nodeIndex) + childIndex)
+    }
+
+    // 序列自 childIndex 起匹配；走完整个序列返回终点，失败 -1。
+    Int matchSeq(Int nodeIndex, Int childIndex, Int textIndex) {
+        if childIndex >= self.t.kidCount.get(nodeIndex) {
+            return textIndex
         }
-        Int child = self.t.kidStart.get(ni) + ki
-        Int ck = self.t.kinds.get(child)
-        if ck == 6 {
-            return self.matchQuantInSeq(ni, ki, child, ti)
+        Int child = self.childAt(nodeIndex, childIndex)
+        Int kind = self.t.kinds.get(child)
+        if kind == 6 {
+            return self.matchQuantInSeq(nodeIndex, childIndex, child, textIndex)
         }
-        if ck == 0 && self.t.chs.get(child) == "^" {
-            if ti != 0 {
+        if kind == 0 && self.t.chs.get(child) == "^" {
+            if textIndex != 0 {
                 return -1
             }
-            return self.matchSeq(ni, ki + 1, ti)
+            return self.matchSeq(nodeIndex, childIndex + 1, textIndex)
         }
-        if ck == 0 && self.t.chs.get(child) == "$" {
-            if ti != self.text.length() {
+        if kind == 0 && self.t.chs.get(child) == "$" {
+            if textIndex != self.text.length() {
                 return -1
             }
-            return self.matchSeq(ni, ki + 1, ti)
+            return self.matchSeq(nodeIndex, childIndex + 1, textIndex)
         }
-        if ck == 3 {
-            Int gi = self.t.groupIds.get(child)
+        if kind == 3 {
+            Int groupIndex = self.t.groupIds.get(child)
             self.st.pushSnap()
-            self.st.starts.set(gi, ti)
-            Int inner = self.matchSeq(child, 0, ti)
+            self.st.starts.set(groupIndex, textIndex)
+            Int inner = self.matchSeq(child, 0, textIndex)
             if inner < 0 {
                 self.st.popSnapFail()
                 return -1
             }
-            Int rest = self.matchSeq(ni, ki + 1, inner)
+            Int rest = self.matchSeq(nodeIndex, childIndex + 1, inner)
             if rest < 0 {
                 self.st.popSnapFail()
                 return -1
             }
-            self.st.ends.set(gi, inner)
+            self.st.ends.set(groupIndex, inner)
             self.st.popSnapOk()
             return rest
         }
-        if ck == 4 {
-            Int ks = self.t.kidStart.get(child)
-            Int kc = self.t.kidCount.get(child)
-            Int b = 0
-            while b < kc {
+        if kind == 4 {
+            Int childCount = self.t.kidCount.get(child)
+            Int branch = 0
+            while branch < childCount {
                 self.st.pushSnap()
-                Int inner = self.matchSeq(ks + b, 0, ti)
+                Int inner = self.matchSeq(self.childAt(child, branch), 0, textIndex)
                 if inner >= 0 {
-                    Int rest = self.matchSeq(ni, ki + 1, inner)
+                    Int rest = self.matchSeq(nodeIndex, childIndex + 1, inner)
                     if rest >= 0 {
                         self.st.popSnapOk()
                         return rest
                     }
                 }
                 self.st.popSnapFail()
-                b = b + 1
+                branch = branch + 1
             }
             return -1
         }
-        if ck == 5 {
-            Int inner = self.matchSeq(child, 0, ti)
+        if kind == 5 {
+            Int inner = self.matchSeq(child, 0, textIndex)
             if inner < 0 {
                 return -1
             }
-            return self.matchSeq(ni, ki + 1, inner)
+            return self.matchSeq(nodeIndex, childIndex + 1, inner)
         }
-        if ck == 7 {
-            return self.matchSeq(ni, ki + 1, ti)
+        if kind == 7 {
+            return self.matchSeq(nodeIndex, childIndex + 1, textIndex)
         }
-        // 单字符原子：0=char 1=any 2=class
-        if ti >= self.text.length() {
+        Int next = self.matchLeaf(child, textIndex)
+        if next < 0 {
             return -1
         }
-        Int byte = self.text.get(ti)
-        Bool ok = false
-        if ck == 1 {
-            ok = true
-        } else if ck == 0 {
-            ok = self.t.chs.get(child).get(0) == byte
-        } else {
-            ok = regexClassMatch(self.t, child, byte)
-        }
-        if !ok {
+        return self.matchSeq(nodeIndex, childIndex + 1, next)
+    }
+
+    // 单叶节点（char/any/class）匹配一次；返回终点或 -1。
+    Int matchLeaf(Int nodeIndex, Int textIndex) {
+        if textIndex >= self.text.length() {
             return -1
         }
-        return self.matchSeq(ni, ki + 1, ti + 1)
+        Int kind = self.t.kinds.get(nodeIndex)
+        if kind == 1 {
+            Int length = codePointLen(self.text, textIndex)
+            if length < 0 {
+                return -1
+            }
+            return textIndex + length
+        }
+        if kind == 0 {
+            String unit = self.t.chs.get(nodeIndex)
+            if textIndex + unit.length() > self.text.length() {
+                return -1
+            }
+            if self.text.substring(textIndex, unit.length()) == unit {
+                return textIndex + unit.length()
+            }
+            return -1
+        }
+        Int codePoint = decodeCodePoint(self.text, textIndex)
+        if codePoint < 0 {
+            return -1
+        }
+        if regexClassMatch(self.t, nodeIndex, codePoint) {
+            return textIndex + codePointLen(self.text, textIndex)
+        }
+        return -1
     }
 
     // 序列内量词：以可连续匹配次数为上界，从上界向 min 枚举（贪心）。
-    Int matchQuantInSeq(Int seqNi, Int ki, Int qni, Int ti) {
-        Int child = self.t.kidStart.get(qni)
-        Int min = self.t.minr.get(qni)
-        Int max = self.t.maxr.get(qni)
+    Int matchQuantInSeq(Int seqNode, Int childIndex, Int quantifier, Int textIndex) {
+        Int child = self.childAt(quantifier, 0)
+        Int minimum = self.t.minr.get(quantifier)
+        Int maximum = self.t.maxr.get(quantifier)
         self.st.pushSnap()
-        Int bound = self.maxReps(child, ti, max)
+        Int bound = self.maxReps(child, textIndex, maximum)
         self.st.popSnapFail()
-        Int cnt = bound
-        while cnt >= min {
+        Int count = bound
+        while count >= minimum {
             self.st.pushSnap()
-            Int end = self.repCount(child, cnt, seqNi, ki, ti)
+            Int end = self.repCount(child, count, seqNode, childIndex, textIndex)
             if end >= 0 {
                 self.st.popSnapOk()
                 return end
             }
             self.st.popSnapFail()
-            cnt = cnt - 1
+            count = count - 1
         }
         return -1
     }
 
-    // 从 ti 起连续匹配 child 的最大次数（≤max；零宽即停）。
-    Int maxReps(Int child, Int ti, Int max) {
-        Int pos = ti
-        Int n = 0
-        while n < max {
-            Int end = self.matchOne(child, pos)
-            if end < 0 || end == pos {
-                return n
+    // 从 textIndex 起连续匹配 child 的最大次数（≤maximum；零宽即停）。
+    Int maxReps(Int child, Int textIndex, Int maximum) {
+        Int position = textIndex
+        Int count = 0
+        while count < maximum {
+            Int end = self.matchOne(child, position)
+            if end < 0 || end == position {
+                return count
             }
-            pos = end
-            n = n + 1
+            position = end
+            count = count + 1
         }
-        return max
+        return maximum
     }
 
-    // 精确匹配 child 共 cnt 次后接续 seq 的 ki+1。
-    Int repCount(Int child, Int cnt, Int seqNi, Int ki, Int ti) {
-        if cnt == 0 {
-            return self.matchSeq(seqNi, ki + 1, ti)
+    // 精确匹配 child 共 count 次后接续 seq 的 childIndex+1。
+    Int repCount(Int child, Int count, Int seqNode, Int childIndex, Int textIndex) {
+        if count == 0 {
+            return self.matchSeq(seqNode, childIndex + 1, textIndex)
         }
-        Int end = self.matchOne(child, ti)
+        Int end = self.matchOne(child, textIndex)
         if end < 0 {
             return -1
         }
-        if end == ti {
-            // 零宽原子：剩余重复按零宽满足，直接接续
-            return self.matchSeq(seqNi, ki + 1, ti)
+        if end == textIndex {
+            return self.matchSeq(seqNode, childIndex + 1, textIndex)
         }
-        return self.repCount(child, cnt - 1, seqNi, ki, end)
+        return self.repCount(child, count - 1, seqNode, childIndex, end)
     }
 
     // 单个节点完整匹配一次；返回终点或 -1。
-    Int matchOne(Int ni, Int ti) {
-        Int k = self.t.kinds.get(ni)
-        if k == 7 {
-            return ti
+    Int matchOne(Int nodeIndex, Int textIndex) {
+        Int kind = self.t.kinds.get(nodeIndex)
+        if kind == 7 {
+            return textIndex
         }
-        if k == 0 && self.t.chs.get(ni) == "^" {
-            return ti == 0 ? ti : -1
+        if kind == 0 && self.t.chs.get(nodeIndex) == "^" {
+            return textIndex == 0 ? textIndex : -1
         }
-        if k == 0 && self.t.chs.get(ni) == "$" {
-            return ti == self.text.length() ? ti : -1
+        if kind == 0 && self.t.chs.get(nodeIndex) == "$" {
+            return textIndex == self.text.length() ? textIndex : -1
         }
-        if k == 3 {
-            Int gi = self.t.groupIds.get(ni)
+        if kind == 3 {
+            Int groupIndex = self.t.groupIds.get(nodeIndex)
             self.st.pushSnap()
-            self.st.starts.set(gi, ti)
-            Int inner = self.matchSeq(ni, 0, ti)
+            self.st.starts.set(groupIndex, textIndex)
+            Int inner = self.matchSeq(nodeIndex, 0, textIndex)
             if inner < 0 {
                 self.st.popSnapFail()
                 return -1
             }
-            self.st.ends.set(gi, inner)
+            self.st.ends.set(groupIndex, inner)
             self.st.popSnapOk()
             return inner
         }
-        if k == 4 {
-            Int ks = self.t.kidStart.get(ni)
-            Int kc = self.t.kidCount.get(ni)
-            Int b = 0
-            while b < kc {
+        if kind == 4 {
+            Int childCount = self.t.kidCount.get(nodeIndex)
+            Int branch = 0
+            while branch < childCount {
                 self.st.pushSnap()
-                Int inner = self.matchSeq(ks + b, 0, ti)
+                Int inner = self.matchSeq(self.childAt(nodeIndex, branch), 0, textIndex)
                 if inner >= 0 {
                     self.st.popSnapOk()
                     return inner
                 }
                 self.st.popSnapFail()
-                b = b + 1
+                branch = branch + 1
             }
             return -1
         }
-        if k == 5 {
-            return self.matchSeq(ni, 0, ti)
+        if kind == 5 {
+            return self.matchSeq(nodeIndex, 0, textIndex)
         }
-        if k == 6 {
-            Int child = self.t.kidStart.get(ni)
-            Int min = self.t.minr.get(ni)
-            Int max = self.t.maxr.get(ni)
+        if kind == 6 {
+            Int child = self.childAt(nodeIndex, 0)
+            Int minimum = self.t.minr.get(nodeIndex)
+            Int maximum = self.t.maxr.get(nodeIndex)
             self.st.pushSnap()
-            Int bound = self.maxReps(child, ti, max)
+            Int bound = self.maxReps(child, textIndex, maximum)
             self.st.popSnapFail()
-            Int cnt = bound
-            while cnt >= min {
-                Int end = self.repCountRoot(child, cnt, ti)
+            Int count = bound
+            while count >= minimum {
+                Int end = self.repCountRoot(child, count, textIndex)
                 if end >= 0 {
                     return end
                 }
-                cnt = cnt - 1
+                count = count - 1
             }
             return -1
         }
-        if ti >= self.text.length() {
-            return -1
-        }
-        Int byte = self.text.get(ti)
-        if k == 1 {
-            return ti + 1
-        }
-        if k == 0 {
-            if self.t.chs.get(ni).get(0) == byte {
-                return ti + 1
-            }
-            return -1
-        }
-        if regexClassMatch(self.t, ni, byte) {
-            return ti + 1
-        }
-        return -1
+        return self.matchLeaf(nodeIndex, textIndex)
     }
 
     // 量词单独出现时的精确重复（无接续）。
-    Int repCountRoot(Int child, Int cnt, Int ti) {
-        if cnt == 0 {
-            return ti
+    Int repCountRoot(Int child, Int count, Int textIndex) {
+        if count == 0 {
+            return textIndex
         }
-        Int end = self.matchOne(child, ti)
+        Int end = self.matchOne(child, textIndex)
         if end < 0 {
             return -1
         }
-        if end == ti {
-            return ti
+        if end == textIndex {
+            return textIndex
         }
-        return self.repCountRoot(child, cnt - 1, end)
+        return self.repCountRoot(child, count - 1, end)
     }
 }

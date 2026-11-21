@@ -1316,6 +1316,10 @@ class Parser {
 
     AstNode parsePrimary() {
         Token t = self.peek()
+        if self.kind("error") {
+            self.fail(t.text)
+            return self.node("error", t.text, t)
+        }
         if self.kind("int") {
             self.advance()
             return self.node("Int", t.text, t)
@@ -1727,6 +1731,53 @@ class Mono {
         return sname
     }
 
+    String readAngleType(String text, Int start) {
+        Int depth = 0
+        Int i = start
+        while i < text.length() {
+            String c = text.substring(i, 1)
+            if c == "<" {
+                depth = depth + 1
+            } else if c == ">" {
+                depth = depth - 1
+                if depth == 0 {
+                    return text.substring(start, i - start + 1)
+                }
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    Void instantiateEntryForMap(String ty) {
+        Int m = ty.indexOf("Map<")
+        if m < 0 {
+            return
+        }
+        String mty = self.readAngleType(ty, m)
+        if mty.length() < 6 {
+            return
+        }
+        String inner = mty.substring(4, mty.length() - 5)
+        List<String> parts = self.splitArgs(inner)
+        if parts.length() < 2 {
+            return
+        }
+        String keyTy = parts.get(0).trim()
+        String valTy = parts.get(1).trim()
+        if (keyTy == "String" && valTy == "Int") || (keyTy == "Int" && valTy == "Int") {
+            return
+        }
+        AstNode ec = self.findClass("Entry")
+        if ec.kind == "None" || !self.hasTypeParams(ec) {
+            return
+        }
+        List<String> entryArgs = []
+        entryArgs.push(keyTy)
+        entryArgs.push(valTy)
+        self.instantiateClass("Entry", entryArgs)
+    }
+
     String rewriteType(String ty) {
         String res = ty
         Bool changed = true
@@ -1766,6 +1817,7 @@ class Mono {
                 ci = ci + 1
             }
         }
+        self.instantiateEntryForMap(res)
         return res
     }
 
@@ -1955,8 +2007,9 @@ class Mono {
             if mth == "keys" { return "List<" + key + ">" }
             if mth == "values" { return "List<" + val + ">" }
             if mth == "entries" {
-                if key == "Int" { return "List<IntPair>" }
-                return "List<Pair>"
+                if key == "String" && val == "Int" { return "List<Pair>" }
+                if key == "Int" && val == "Int" { return "List<IntPair>" }
+                return "List<Entry__" + self.mangle(key) + "_" + self.mangle(val) + ">"
             }
             if mth == "clear" { return "Unit" }
             return "Any"
@@ -2031,6 +2084,13 @@ class Mono {
             if lt == "Int" && rt == "Int" { return "Int" }
         }
         if n.kind == "MethodCall" {
+            if n.kids.length() > 0 {
+                String recvType = self.simpleExprType(n.kids.get(0))
+                if recvType != "Any" {
+                    String inferred = self.methodReturnType(recvType, n.text)
+                    if inferred != "Any" { return inferred }
+                }
+            }
             if n.text == "describe" || n.text == "message" || n.text == "code" || n.text == "toString" { return "String" }
             if n.text == "kind" { return "ErrorKind" }
         }
@@ -2641,6 +2701,26 @@ class Checker {
             return true
         }
         return false
+    }
+
+    String typeMangle(String ty) {
+        String res = ""
+        Int i = 0
+        while i < ty.length() {
+            String c = ty.substring(i, 1)
+            String alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+            if alpha.indexOf(c) >= 0 {
+                res = res + c
+            } else {
+                res = res + "_"
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String entryClassName(String keyTy, String valTy) {
+        return "Entry__" + self.typeMangle(keyTy) + "_" + self.typeMangle(valTy)
     }
 
     Bool classIsA(String actual, String target) {
@@ -4051,8 +4131,7 @@ class Checker {
                 if bt == "Map<Int,Int>" {
                     return "List<IntPair>"
                 }
-                self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
-                return "Error"
+                return "List<" + self.entryClassName(self.mapKeyType(bt), self.mapValueType(bt)) + ">"
             }
         }
         if self.isProtocolName(bt) {
@@ -4525,8 +4604,7 @@ class Checker {
                     if bt == "Map<Int,Int>" {
                         return "List<IntPair>"
                     }
-                    self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
-                    return "Error"
+                    return "List<" + self.entryClassName(self.mapKeyType(bt), self.mapValueType(bt)) + ">"
                 }
             }
             if self.isProtocolName(bt) {
@@ -5254,6 +5332,14 @@ class CGen {
         return "xn_map_g_" + self.genericMapSuffix(ty) + "_values"
     }
 
+    String genericMapEntriesName(String ty) {
+        return "xn_map_g_" + self.genericMapSuffix(ty) + "_entries"
+    }
+
+    String entryClassName(String keyTy, String valTy) {
+        return "Entry__" + self.cMangle(keyTy) + "_" + self.cMangle(valTy)
+    }
+
     Bool containsGeneric(List<String> xs, String v) {
         Int i = 0
         while i < xs.length() {
@@ -5266,6 +5352,9 @@ class CGen {
     }
 
     Void registerGenericMap(String ty) {
+        if ty == "Map<String,Int>" || ty == "Map<Int,Int>" {
+            return
+        }
         if !self.containsGeneric(self.genericMaps, ty) {
             self.genericMaps.push(ty)
         }
@@ -5294,6 +5383,9 @@ class CGen {
         }
         if b == "Double" {
             return "2"
+        }
+        if self.isArray(b) || self.isMap(b) || self.isSet(b) {
+            return "3"
         }
         if b == "Bytes" || self.isClass(b) || self.isProtocol(b) || self.isDataEnum(b) {
             return "3"
@@ -5372,6 +5464,9 @@ class CGen {
     }
 
     Void collectGenericTypes(AstNode n) {
+        if (n.kind == "Func" || n.kind == "Class" || n.kind == "Struct") && hasTypeParams(n) {
+            return
+        }
         if n.kind == "Local" || n.kind == "Param" || n.kind == "Ret" || n.kind == "Field" ||
            n.kind == "New" || n.kind == "Cast" || n.kind == "TypeArgs" || n.kind == "Base" ||
            n.kind == "Implements" {
@@ -6704,8 +6799,7 @@ class CGen {
             if bt == "Map<Int,Int>" {
                 return "xn_map_i_i_entries(" + bv + ")"
             }
-            self.fail("Map.entries for " + bt + " is T0-X")
-            return "0"
+            return self.genericMapEntriesName(bt) + "(" + bv + ")"
         }
         if mth == "clear" {
             return "(" + bv + "->len = 0)"
@@ -6860,7 +6954,7 @@ class CGen {
                 return "xrt_bytes_push(" + bv + ", " + self.expr(n.kids.get(off)) + ")"
             }
             if mth == "toString" {
-                return "rt_string_from_c((const char *)xrt_bytes_data(" + bv + "))"
+                return "xn_bytes_to_string(" + bv + ")"
             }
         }
         if bt == "String" {
@@ -7384,10 +7478,13 @@ class CGen {
                         return "List<" + self.mapValue(bt) + ">"
                     }
                     if mth == "entries" {
+                        if bt == "Map<String,Int>" {
+                            return "List<Pair>"
+                        }
                         if bt == "Map<Int,Int>" {
                             return "List<IntPair>"
                         }
-                        return "List<Pair>"
+                        return "List<" + self.entryClassName(self.mapKey(bt), self.mapValue(bt)) + ">"
                     }
                 }
                 if self.isProtocol(bt) {
@@ -7438,6 +7535,29 @@ class CGen {
         return text.substring(0, 1) == "1"
     }
 
+    // 仅当字面量里真的有 \0（规范化后为 \000）时才用长度构造，
+    // 其余保持 rt_string_from_c，避免 self-host 生成物大面积变化。
+    Bool literalHasNul(String text) {
+        return text.indexOf("\\000") >= 0
+    }
+
+    // 只有非 ASCII / 非简单转义的 Char 字面量需要 U''；ASCII 保持原样，
+    // 避免 self-host 生成物出现无意义的大面积变化。
+    Bool charNeedsU(String text) {
+        if text.length() < 2 {
+            return false
+        }
+        String content = text.substring(1, text.length() - 2)
+        if content.length() <= 1 {
+            return false
+        }
+        if content == "\\n" || content == "\\r" || content == "\\t" || content == "\\0" ||
+           content == "\\\\" || content == "\\'" || content == "\\\"" {
+            return false
+        }
+        return true
+    }
+
     String expr(AstNode n) {
         if n.kind == "Int" {
             if !self.intLiteralFits64(n.text) {
@@ -7449,6 +7569,11 @@ class CGen {
             return n.text
         }
         if n.kind == "String" {
+            // 只有内嵌 NUL 需要长度构造；其余仍用 rt_string_from_c，
+            // 避免 self-host 生成物大面积变化。sizeof 是编译期常量。
+            if self.literalHasNul(n.text) {
+                return "rt_string_new(" + n.text + ", sizeof(" + n.text + ") - 1)"
+            }
             return "rt_string_from_c(" + n.text + ")"
         }
         if n.kind == "Null" {
@@ -7461,6 +7586,11 @@ class CGen {
             return "0"
         }
         if n.kind == "Char" {
+            // Mini Char 是 32 位；C 的普通字符字面量可能是 8 位。
+            // 只有非 ASCII / 非简单转义才用 U''（char32_t）再收窄。
+            if self.charNeedsU(n.text) {
+                return "((int32_t)U" + n.text + ")"
+            }
             return n.text
         }
         if n.kind == "Lambda" {
@@ -7746,7 +7876,7 @@ class CGen {
                 return "mini_file_exists(" + a + "->bytes, " + a + "->len)"
             }
             if n.text == "platformRaw" {
-                return "mini_platform()"
+                return "rt_string_from_c(mini_platform())"
             }
             if n.text == "Ok" {
                 String a = "0"
@@ -7938,7 +8068,7 @@ class CGen {
                         return "xrt_bytes_push(" + bv + ", " + self.expr(n.kids.get(0)) + ")"
                     }
                     if mth == "toString" {
-                        return "rt_string_from_c((const char *)xrt_bytes_data(" + bv + "))"
+                        return "xn_bytes_to_string(" + bv + ")"
                     }
                 }
                 if bt == "String" {
@@ -8995,6 +9125,7 @@ class CGen {
         self.emit("static rt_string *xn_str_int128(__int128 v) { char buf[64]; int n = 0; unsigned __int128 u; if (v < 0) { buf[n++] = '-'; u = (unsigned __int128)(-(v + 1)) + 1; } else { u = (unsigned __int128)v; } int start = n; do { buf[n++] = (char)('0' + (int)(u % 10)); u /= 10; } while (u != 0); for (int i = start, j = n - 1; i < j; i++, j--) { char t = buf[i]; buf[i] = buf[j]; buf[j] = t; } buf[n] = 0; return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_double(double v) { char buf[64]; snprintf(buf, sizeof(buf), \"%g\", v); return rt_string_from_c(buf); }")
         self.emit("static rt_string *xn_str_bool(int v) { return rt_string_from_c(v ? \"true\" : \"false\"); }")
+        self.emit("static rt_string *xn_bytes_to_string(xrt_bytes_obj *buffer) { return rt_string_new((const char *)xrt_bytes_data(buffer), (size_t)xrt_bytes_len(buffer)); }")
         self.emit("static rt_string *xn_str_char(int32_t cp) { char b[5]; int n = 0; if (cp < 0) { cp = 0xFFFD; } if (cp < 0x80) { b[n++] = (char)cp; } else if (cp < 0x800) { b[n++] = (char)(0xC0 | (cp >> 6)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else if (cp < 0x10000) { b[n++] = (char)(0xE0 | (cp >> 12)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } else { b[n++] = (char)(0xF0 | (cp >> 18)); b[n++] = (char)(0x80 | ((cp >> 12) & 0x3F)); b[n++] = (char)(0x80 | ((cp >> 6) & 0x3F)); b[n++] = (char)(0x80 | (cp & 0x3F)); } b[n] = 0; return rt_string_from_c(b); }")
         self.emit("static rt_string *xn_str_substr(rt_string *s, int64_t start, int64_t n) { if (start < 0) { start = 0; } if (n < 0) { n = 0; } if ((size_t)start > s->len) { start = (int64_t)s->len; } if ((size_t)(start + n) > s->len) { n = (int64_t)s->len - start; } rt_string *out = rt_string_alloc((size_t)n); if (n > 0) { memcpy(out->bytes, s->bytes + start, (size_t)n); } out->bytes[n] = 0; return out; }")
         self.emit("static int64_t xn_str_indexof(rt_string *s, rt_string *sub) { if (sub->len == 0) { return 0; } if (sub->len > s->len) { return -1; } for (size_t i = 0; i + sub->len <= s->len; i++) { if (memcmp(s->bytes + i, sub->bytes, sub->len) == 0) { return (int64_t)i; } } return -1; }")
@@ -9106,6 +9237,7 @@ class CGen {
             String vac = self.arrayCName("List<" + vty + ">")
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m);")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m);")
+            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m);")
             gmi = gmi + 1
         }
         self.emit("")
@@ -9310,8 +9442,15 @@ class CGen {
                             self.emit("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->message;")
                         }
                         self.emit("  rt_fatal(\"protocol dispatch failed: " + p.text + "." + sig.text + "\");")
+                        String protocolCType = self.ctype(rt)
                         if rt == "Unit" || rt == "void" || rt == "Void" {
                             self.emit("  return;")
+                        } else if protocolCType == "xn_Result" {
+                            self.emit("  return (xn_Result){ .ok = 0, .err = (void *)0 };")
+                        } else if protocolCType == "xn_Result_Int_String" {
+                            self.emit("  return (xn_Result_Int_String){ .ok = 0, .value = 0, .error = 0 };")
+                        } else if protocolCType == "xn_closure" {
+                            self.emit("  return (xn_closure){ .env = 0, .fn = 0 };")
                         } else {
                             self.emit("  return 0;")
                         }
@@ -9446,6 +9585,8 @@ class CGen {
             String vac = self.arrayCName("List<" + vty + ">")
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m) { " + kac + " *out = " + kac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + kac + "_push(out, " + self.decodeOf(kty, "m->keys[i]") + "); } return out; }")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m) { " + vac + " *out = " + vac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + vac + "_push(out, " + self.decodeOf(vty, "m->vals[i]") + "); } return out; }")
+            String entryCls = self.entryClassName(kty, vty)
+            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_" + entryCls + "_new(" + self.decodeOf(kty, "m->keys[i]") + ", " + self.decodeOf(vty, "m->vals[i]") + ")); } return out; }")
             gmDef = gmDef + 1
         }
         Bool mainArgs = false
@@ -9509,6 +9650,90 @@ static Bool isHex(String c) {
         c == "A" || c == "B" || c == "C" || c == "D" || c == "E" || c == "F"
 }
 
+static Int hexValue(String c) {
+    if c == "0" { return 0 }
+    if c == "1" { return 1 }
+    if c == "2" { return 2 }
+    if c == "3" { return 3 }
+    if c == "4" { return 4 }
+    if c == "5" { return 5 }
+    if c == "6" { return 6 }
+    if c == "7" { return 7 }
+    if c == "8" { return 8 }
+    if c == "9" { return 9 }
+    if c == "a" || c == "A" { return 10 }
+    if c == "b" || c == "B" { return 11 }
+    if c == "c" || c == "C" { return 12 }
+    if c == "d" || c == "D" { return 13 }
+    if c == "e" || c == "E" { return 14 }
+    return 15
+}
+
+static Bool validScalar(Int value) {
+    if value < 0 || value > 0x10FFFF {
+        return false
+    }
+    if value >= 0xD800 && value <= 0xDFFF {
+        return false
+    }
+    return true
+}
+
+// S1 §1.4.3：只接受表中的转义；未知转义、位数不足、越界标量都是词法错误。
+static Bool validEscapeAt(String src, Int slash, Int limit) {
+    if slash + 1 >= limit {
+        return false
+    }
+    String e = at(src, slash + 1)
+    if e == "n" || e == "r" || e == "t" || e == "0" ||
+       e == "\\" || e == "'" || e == "\"" {
+        return true
+    }
+    if e == "x" {
+        return slash + 3 < limit && isHex(at(src, slash + 2)) && isHex(at(src, slash + 3))
+    }
+    if e == "u" {
+        if slash + 2 < limit && at(src, slash + 2) == "{" {
+            Int j = slash + 3
+            Int digits = 0
+            Int value = 0
+            while j < limit && at(src, j) != "}" {
+                String h = at(src, j)
+                if !isHex(h) {
+                    return false
+                }
+                value = value * 16 + hexValue(h)
+                digits = digits + 1
+                if digits > 6 {
+                    return false
+                }
+                j = j + 1
+            }
+            if digits == 0 || j >= limit || at(src, j) != "}" {
+                return false
+            }
+            return validScalar(value)
+        }
+        if slash + 5 >= limit {
+            return false
+        }
+        Int value = 0
+        Int k = slash + 2
+        Int n = 0
+        while n < 4 {
+            String h = at(src, k)
+            if !isHex(h) {
+                return false
+            }
+            value = value * 16 + hexValue(h)
+            k = k + 1
+            n = n + 1
+        }
+        return validScalar(value)
+    }
+    return false
+}
+
 static Bool isLower(String c) {
     return c == "a" || c == "b" || c == "c" || c == "d" || c == "e" ||
         c == "f" || c == "g" || c == "h" || c == "i" || c == "j" ||
@@ -9550,6 +9775,57 @@ static Bool isKeyword(String s) {
         s == "goto" || s == "try" || s == "catch" || s == "throw" || s == "defer" ||
         s == "errdefer" || s == "true" || s == "false" || s == "null" ||
         s == "is" || s == "as" || s == "void" || s == "factory" || s == "deinit"
+}
+
+// 把 raw string 的内容转成 C 字面量：保留反斜杠的“字面”语义。
+static String cStringLiteral(String content) {
+    String out = "\""
+    Int i = 0
+    while i < content.length() {
+        String c = at(content, i)
+        if c == "\\" {
+            out = out + "\\\\"
+        } else if c == "\"" {
+            out = out + "\\\""
+        } else if c == "\n" {
+            out = out + "\\n"
+        } else if c == "\r" {
+            out = out + "\\r"
+        } else if c == "\t" {
+            out = out + "\\t"
+        } else {
+            out = out + c
+        }
+        i = i + 1
+    }
+    return out + "\""
+}
+
+// 普通字符串的 C 字面量规范化：把 \0 写成 \000，避免 C 把它和后续
+// 八进制数字合并成一个字符。其他转义保持原样。
+static String canonicalStringLiteral(String raw) {
+    if raw.length() < 2 {
+        return raw
+    }
+    String content = raw.substring(1, raw.length() - 2)
+    String out = "\""
+    Int i = 0
+    while i < content.length() {
+        String c = at(content, i)
+        if c == "\\" {
+            String e = at(content, i + 1)
+            if e == "0" {
+                out = out + "\\000"
+            } else {
+                out = out + "\\" + e
+            }
+            i = i + 2
+        } else {
+            out = out + c
+            i = i + 1
+        }
+    }
+    return out + "\""
 }
 
 static List<Token> lex(String src) {
@@ -9604,6 +9880,63 @@ static List<Token> lex(String src) {
         Int start = i
         Int startLine = line
         Int startCol = col
+
+        if c == "r" && next == "\"" {
+            Bool triple = starts(src, i, "r\"\"\"")
+            i = i + 1
+            col = col + 1
+            Int contentStart = i
+            Bool rawClosed = false
+            if triple {
+                i = i + 3
+                col = col + 3
+                contentStart = i
+                while i < src.length() {
+                    if starts(src, i, "\"\"\"") {
+                        String content = src.substring(contentStart, i - contentStart)
+                        tokens.push(new Token("string", cStringLiteral(content), startLine, startCol))
+                        i = i + 3
+                        col = col + 3
+                        rawClosed = true
+                        break
+                    }
+                    if at(src, i) == "\n" {
+                        line = line + 1
+                        col = 1
+                    } else {
+                        col = col + 1
+                    }
+                    i = i + 1
+                }
+            } else {
+                i = i + 1
+                col = col + 1
+                contentStart = i
+                while i < src.length() {
+                    String d = at(src, i)
+                    if d == "\"" {
+                        String content = src.substring(contentStart, i - contentStart)
+                        tokens.push(new Token("string", cStringLiteral(content), startLine, startCol))
+                        i = i + 1
+                        col = col + 1
+                        rawClosed = true
+                        break
+                    }
+                    if d == "\n" {
+                        line = line + 1
+                        col = 1
+                    } else {
+                        col = col + 1
+                    }
+                    i = i + 1
+                }
+            }
+            if !rawClosed {
+                tokens.push(new Token("error", "unterminated raw string", startLine, startCol))
+                return tokens
+            }
+            continue
+        }
 
         if isIdentStart(c) {
             i = i + 1
@@ -9671,6 +10004,10 @@ static List<Token> lex(String src) {
             while i < src.length() {
                 String d = at(src, i)
                 if d == "\\" {
+                    if !validEscapeAt(src, i, src.length()) {
+                        tokens.push(new Token("error", "invalid escape sequence", startLine, startCol))
+                        return tokens
+                    }
                     i = i + 2
                     col = col + 2
                     continue
@@ -9696,7 +10033,7 @@ static List<Token> lex(String src) {
             if interp {
                 tokens.push(new Token("interp", src.substring(start, i - start), startLine, startCol))
             } else {
-                tokens.push(new Token("string", src.substring(start, i - start), startLine, startCol))
+                tokens.push(new Token("string", canonicalStringLiteral(src.substring(start, i - start)), startLine, startCol))
             }
             continue
         }
@@ -9708,6 +10045,10 @@ static List<Token> lex(String src) {
             while i < src.length() {
                 String d = at(src, i)
                 if d == "\\" {
+                    if !validEscapeAt(src, i, src.length()) {
+                        tokens.push(new Token("error", "invalid escape sequence", startLine, startCol))
+                        return tokens
+                    }
                     i = i + 2
                     col = col + 2
                     continue
@@ -10063,7 +10404,7 @@ static AstNode loadProgram(String entry, String root) {
     AstNode program = p.parse()
     if p.hasError() {
         print(entry + ":" + str(p.errorLine) + ":" + str(p.errorCol) + ": " + p.error)
-        return program
+        return new AstNode("Program", "", 1, 1)
     }
     loadedFiles.push(entry)
     loadRoot = root
@@ -10136,7 +10477,7 @@ static Int main(String[] args) {
     loadProject(argAfter(args, "--project-file"))
     xdkFullSource = hasArg(args, "--xdk-full")
     if cmd == "--version" {
-        print("mini 0.3.0")
+        print("mini 1.0.0")
         return 0
     }
     if cmd == "--supports" {

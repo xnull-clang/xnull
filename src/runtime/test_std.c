@@ -23,6 +23,16 @@ void        xdkc_diagnose(const char *bytes, size_t len);
 void        xdkc_exit(int64_t code);
 int64_t     xdkc_now_mono_ms(void);
 int64_t     xdkc_now_wall_ms(void);
+const char *xdkc_build_mode(void);
+const char *xdkc_build_date(void);
+int64_t     xdkc_stats_allocs(void);
+int64_t     xdkc_stats_frees(void);
+int64_t     xdkc_stats_bytes(void);
+int64_t     xdkc_stats_gc_collections(void);
+int64_t     xdkc_stats_gc_freed(void);
+int32_t     xdkc_stats_enabled(void);
+int32_t     xdkc_stats_set_enabled(int32_t enabled);
+void        xdkc_stats_reset(void);
 const char *xdkc_env_get(const char *name, size_t len, size_t *out_len);
 int32_t     xdkc_parse_int(const char *bytes, size_t len, int64_t *out);
 int32_t     xdkc_parse_float(const char *bytes, size_t len, double *out);
@@ -414,7 +424,8 @@ static void test_read_file_text_code(void) {
 
     unlink(path);
     code = -1;
-    text = xdkc_read_file_text_code("/tmp/xnull_no_such_k07_file", 25, &code);
+    const char *missing = "/tmp/xnull_no_such_k07_file";
+    text = xdkc_read_file_text_code(missing, strlen(missing), &code);
     CHECK(text == NULL && code != 0);
     CHECK(xdkc_read_file_text_error() != 0);
 }
@@ -603,7 +614,18 @@ static void test_stats(void) {
     CHECK(s.bytes > 0);
     CHECK(s.gc_collections >= 1);
     CHECK(s.gc_freed >= 1);
-    xrt_stats_set_enabled(0);
+    CHECK(xdkc_stats_enabled() == 1);
+    CHECK(xdkc_stats_allocs() == (int64_t)s.allocs);
+    CHECK(xdkc_stats_frees() == (int64_t)s.frees);
+    CHECK(xdkc_stats_bytes() == (int64_t)s.bytes);
+    CHECK(xdkc_stats_gc_collections() == (int64_t)s.gc_collections);
+    CHECK(xdkc_stats_gc_freed() == (int64_t)s.gc_freed);
+    xdkc_stats_reset();
+    CHECK(xdkc_stats_allocs() == 0 && xdkc_stats_frees() == 0);
+    xdkc_stats_set_enabled(0);
+    CHECK(xdkc_stats_enabled() == 0);
+    CHECK(strlen(xdkc_build_mode()) > 0);
+    CHECK(strlen(xdkc_build_date()) > 0);
 }
 
 static void test_files(void) {

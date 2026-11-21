@@ -23,7 +23,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_meta.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '3.4.0\n0.1.0\n' > "$TMP.exp"
+printf '3.4.0\n1.0.0\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_errors.x" > "$TMP" 2>"$TMP.err" || {
@@ -48,7 +48,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_text_full.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '007\n7..\ncba\ntrue\ntrue\ntrue\nAbc\nabcd...\n3\n233\n0007\n..x\ntrue\n!b x !b\ntrue\n1\n' > "$TMP.exp"
+printf '007\n7..\ncba\ntrue\ntrue\ntrue\nAbc\nabcd...\n3\n233\n0007\n..x\ntrue\n! x !\ntrue\n1\n233\n65\n2\n2\né\n128512\n1\ntrue\n1\n65533\n�\ntrue\ntrue\ntrue\nfalse\ntrue\n1\naaabb\naaa\nbb\ntrue\ntrue\ntrue\n0007|ok  |3.14|0xff|true|A|%%\n-00042\n1.235e+03\ntrue\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_math.x" > "$TMP" 2>"$TMP.err" || {
@@ -60,13 +60,96 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_time.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '2000\ntrue\ntrue\ntrue\n' > "$TMP.exp"
+printf '2000\ntrue\ntrue\ntrue\n2024-01-31 23:59:59\n01|Jan|January\n31|Wed|Wednesday\nWed, 31 Jan 2024\n1706745599000\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
-"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {
+XDK_SYS_PROBE=sys-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\nfalse\n' > "$TMP.exp"
+printf '3
+hé
+true
+true
+true
+true
+sys-env
+true
+true
+true
+true
+true
+true
+true
+4
+true
+ping
+0
+true
+true
+err
+0
+true
+false
+true
+0
+true
+true
+true
+true
+true
+true
+143
+true
+false
+0
+true
+true
+0
+' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP"
+
+XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys_full.x" > "$TMP" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '3
+abc
+true
+true
+2
+true
+true
+true
+true
+XY
+1
+true
+XY!
+true
+3
+true
+1
+Y!
+
+true
+true
+true
+true
+true
+xnull_xdk_sys_full.txt
+tmp
+txt
+true
+true
+true
+true
+4
+true
+full
+0
+true
+true
+false
+' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_integration.x" > "$TMP" 2>"$TMP.err" || {
@@ -84,31 +167,31 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_collections_algo.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\nb\na\nc\n3\nfalse\ny\n' > "$TMP.exp"
+printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\na\nb\nc\n3\nfalse\ny\n2\n3\n3\n1\n2\n3\n3\n1|2|3|4|5|6\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_containers.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '1\n2\n1\ntrue\ntrue\nfalse\n1\n1\n2\n' > "$TMP.exp"
+printf '1\n2\n1\ntrue\ntrue\nfalse\n1\n1\n2\ntrue\ntrue\ntwo\none\n2\nTWO\ntrue\n1\ntrue\n1\n3\n5\nthree\nthree\nthree\ntrue\n2\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_members.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\nfalse\nalpha\nnone\na\nalpha\ntrue\ntrue\n0\n9000000000\n9000000000\n2\ntrue\ntrue\ntrue\n2\n2\ntrue\n' > "$TMP.exp"
+printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\nfalse\nalpha\nnone\na\nalpha\ntrue\ntrue\n0\n9000000000\n9000000000\n2\ntrue\ntrue\ntrue\n2\n2\ntrue\n2\nfirst\n11\n22\n7\nseven\n7\n2\ntrue\ntrue\n1\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '[INFO] app: started\n[WARN] app: careful\n[ERROR] app: bad\n[DEBUG] dbg: visible\n' > "$TMP.exp"
+printf '[INFO] app: started\n[WARN] app: careful\n[ERROR] app: bad\n[DEBUG] dbg: visible\n[INFO] field: with field component=core\n1\n[WARN] mem: to memory k=v\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 XDK_W5_NAME=from-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_config.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'demo\n9090\nfalse\n2\nfrom-env\nfalse\ndev:app.name=demo,app.port=9090,XDK_W5_NAME=from-env\n' > "$TMP.exp"
+printf 'demo\n9090\nfalse\n2\nfrom-env\nfalse\ndev:app.name=demo,app.port=9090,XDK_W5_NAME=from-env\noverride\neu\ntrue\non\ntrue\nfile\n42\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$TMP.cli" >"$TMP.err" 2>&1 || {
@@ -117,7 +200,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$TMP.cli" --name Alpha pos1 -v > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n' > "$TMP.exp"
+printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n1\ntrue\nrun\nusage: demo [--verbose]\ndemo tool\noptions:\n  --verbose  verbose output\ncommands:\n  run  run task\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_bytes.x" > "$TMP.mini" 2>"$TMP.err" || {
@@ -171,6 +254,52 @@ if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.pan
 fi
 grep -q "readU8: end of input" "$TMP.panic.err"
 
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+import xdk.bytes
+static Int main() {
+    Reader reader = new Reader(Bytes.fromString("A"))
+    print(reader.readU8())
+    print(reader.readU8())
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Reader readU8 end of input to fail" >&2
+    exit 1
+fi
+grep -q "readU8: end of input" "$TMP.panic.err"
+
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+import xdk.bytes
+static Int main() {
+    Reader reader = new Reader(Bytes.fromString("A"))
+    print(reader.readBytes(-1).length())
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Reader readBytes negative count to fail" >&2
+    exit 1
+fi
+grep -q "readBytes: negative count" "$TMP.panic.err"
+
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+static Int main() {
+    Writer writer = new Writer()
+    writer.close()
+    writer.writeU8(1)
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Writer writeU8 after close to fail" >&2
+    exit 1
+fi
+grep -q "writeU8: closed" "$TMP.panic.err"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sync_atomic.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
@@ -218,13 +347,13 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '3\n65\n66\n67\n0\nfalse\n' > "$TMP.exp"
+printf '3\n65\n66\n67\n0\nfalse\n65\n1\n42\ntrue\ntrue\n0\n01\n0102\ntrue\ntrue\ntrue\ntrue\n5\n65\n424344\n1\ntrue\n1\n69\nfalse\ntrue\n3\n3\n0\ntrue\n3\n0\ntrue\nABCD\ntrue\ntrue\ntrue\n4\n414243\n1\n68\ntrue\n2\n88\n595a\nXYZ\nfalse\ntrue\nfalse\n3\n65\n4243\n0\ntrue\ntrue\none\ntwo\nthree\ntrue\nhello\n0\n4\ncopy\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_fs.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '0\ntrue\nhello xdk.fs\n' > "$TMP.exp"
+printf 'true\n12\ntrue\nhello xdk.fs\n2\né\ntrue\ntrue\n2\n4142\ntrue\n12\ntrue\n6\nxd\nk.fs\ntrue\ntrue\ntrue\ntrue\n6\ntrue\n2\ntrue\ntrue\nabXYef\n1\ntrue\nabXYef!\n4\ntrue\ntrue\nc.txt\nsub\ntxt\ntrue\nd.txt\nb/c\ntrue\n12\ntrue\ntrue\ntrue\n384\n384\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nhello xdk.fs\ntrue\n6\natomic\ntrue\ntrue\n1\n6\n4\n5\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\n1\n1\ntrue\nfalse\ntrue\nhello xdk.fs\ntrue\ntrue\nfalse\ntrue\nfalse\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {

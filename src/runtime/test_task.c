@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 void xdkc_dump_tasks(void);
+int32_t xdkc_sleep_ctx_ms(xrt_context *context, int64_t milliseconds);
 #include <stdatomic.h>
 
 static int32_t body_ok(void *env, xrt_context *ctx, xrt_task_result *out) {
@@ -456,6 +457,44 @@ static void test_companion_executor(void) {
     xrt_release(deadline);
 }
 
+static int32_t body_sleep_ctx(void *env, xrt_context *ctx, xrt_task_result *out) {
+    (void)env;
+    int32_t rc = xdkc_sleep_ctx_ms(ctx, 5000);
+    out->ok = 1;
+    out->value = (void *)(intptr_t)rc;
+    return 0;
+}
+
+static void test_sleep_context(void) {
+    xrt_context *ctx = xrt_context_background();
+    int64_t start = xrt_clock_mono_ms();
+    assert(xdkc_sleep_ctx_ms(ctx, 30) == 0);
+    assert(xrt_clock_mono_ms() - start >= 20);
+    xrt_context_cancel(ctx);
+    start = xrt_clock_mono_ms();
+    assert(xdkc_sleep_ctx_ms(ctx, 5000) == 1);
+    assert(xrt_clock_mono_ms() - start < 1000);
+    xrt_release(ctx);
+
+    ctx = xrt_context_background();
+    xrt_task_group *g = xrt_task_group_new(ctx);
+    xrt_task *t = NULL;
+    assert(xrt_task_group_spawn(g, body_sleep_ctx, NULL, &t) == 0);
+    struct timespec pause = {0, 30000000};
+    nanosleep(&pause, NULL);
+    xrt_task_group_cancel(g);
+    int64_t joinStart = xrt_clock_mono_ms();
+    xrt_task_result r;
+    assert(xrt_task_join(t, &r) == 0);
+    assert(r.ok == 1 && (intptr_t)r.value == 1);
+    assert(xrt_clock_mono_ms() - joinStart < 1000);
+    xrt_release(t);
+    xrt_task_result fe;
+    assert(xrt_task_group_close(g, &fe) == 0);
+    xrt_release(g);
+    xrt_release(ctx);
+}
+
 static void test_dump_tasks(void) {
     char buf[256];
     capture_dump(buf, sizeof(buf));
@@ -508,6 +547,7 @@ int main(int argc, char **argv) {
     test_unclosed_group_fatal();
     test_unclosed_failed_group_fatal();
     test_dump_tasks();
+    test_sleep_context();
     test_carrier_pool();
     test_companion_executor();
     printf("task tests passed (spawn/join/close/cancel/token/deadline/cleanup/timeout/root/panic/group-must-close/dump/pool/companion)\n");

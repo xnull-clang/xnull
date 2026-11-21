@@ -1,7 +1,8 @@
 // xdk-raw/runtime_raw.xfb —— xdk.runtime 源码层的原语桥（raw-only 投影）
 //
 // 冻结编译器在混合绑定集下会错位部分 FFI 包装参数；这里只暴露
-// diagnose / exit / nowMono / nowWall 四个无结构原语，命名带 Raw 后缀。
+// diagnose / exit / nowMono / nowWall / dumpTasks 与只读运行时信息，
+// 命名带 Raw 后缀。
 ffi xdkc_runtime_raw {
   @ffiEntry(cName = "xdkc_diagnose_rc")
   @lease(msg = .borrow)
@@ -20,4 +21,58 @@ ffi xdkc_runtime_raw {
   @ffiEntry(cName = "xdkc_now_wall_ms")
   @blocking(.unaware)
   Int64 nowWallRaw();
+
+  @ffiEntry(cName = "xdkc_dump_tasks")
+  @blocking(.unaware)
+  void dumpTasksRaw();
+
+  // ---- 运行时信息 ----
+  @ffiEntry(cName = "xdkc_platform")
+  @blocking(.unaware)
+  String runtimePlatformRaw();
+
+  @ffiEntry(cName = "xdkc_arch")
+  @blocking(.unaware)
+  String runtimeArchRaw();
+
+  @ffiEntry(cName = "xdkc_build_mode")
+  @blocking(.unaware)
+  String buildModeRaw();
+
+  @ffiEntry(cName = "xdkc_build_date")
+  @blocking(.unaware)
+  String buildDateRaw();
+
+  // ---- 分配/GC 统计（S3 §21/§23）----
+  @ffiEntry(cName = "xdkc_stats_allocs")
+  @blocking(.unaware)
+  Int64 statsAllocsRaw();
+
+  @ffiEntry(cName = "xdkc_stats_frees")
+  @blocking(.unaware)
+  Int64 statsFreesRaw();
+
+  @ffiEntry(cName = "xdkc_stats_bytes")
+  @blocking(.unaware)
+  Int64 statsBytesRaw();
+
+  @ffiEntry(cName = "xdkc_stats_gc_collections")
+  @blocking(.unaware)
+  Int64 statsGcCollectionsRaw();
+
+  @ffiEntry(cName = "xdkc_stats_gc_freed")
+  @blocking(.unaware)
+  Int64 statsGcFreedRaw();
+
+  @ffiEntry(cName = "xdkc_stats_enabled")
+  @blocking(.unaware)
+  Int32 statsEnabledRaw();
+
+  @ffiEntry(cName = "xdkc_stats_set_enabled")
+  @blocking(.unaware)
+  Int32 statsSetEnabledRaw(Int32 enabled);
+
+  @ffiEntry(cName = "xdkc_stats_reset")
+  @blocking(.unaware)
+  void statsResetRaw();
 }

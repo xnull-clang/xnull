@@ -11,7 +11,7 @@ TMP=$(mktemp)
 TMPERR="$TMP.err"
 trap 'rm -f "$TMP" "$TMPERR"' EXIT
 
-if ! "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_core.x" >"$TMP" 2>"$TMPERR"; then
+if ! XDK_CORE_PROBE=core-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_core.x" >"$TMP" 2>"$TMPERR"; then
     cat "$TMPERR" >&2
     exit 1
 fi
