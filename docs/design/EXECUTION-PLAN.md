@@ -42,7 +42,7 @@ CR-0 全绿 = 可以开始写第一个 XDK 包。
 
 | # | 条件 | 证据/命令 | 门禁 |
 | --- | --- | --- | --- |
-| CR-0.1 | 架构基线已提交 | `git log -1 --oneline` 含 `81fddb7b` | 已满足 |
+| CR-0.1 | 架构基线已提交 | `git log --oneline \| grep 81fddb7b` | 已满足 |
 | CR-0.2 | `xdk-2` 分支/worktree 建好 | `git worktree list` 显示 `XNull-xdk2` | B0.1 |
 | CR-0.3 | 2.x 测试入口可跑 | `src/mini/tests/xdk2.sh` 退出 0，至少 1 个 smoke 场景 | B0.2 |
 | CR-0.4 | 2.x 包清单存在 | `src/xdk/xdk2-packages.tsv` 75 行；首批目录存在 | B0.3 |
@@ -84,21 +84,25 @@ xdk-2           2.x 长分支；所有 2.x 代码/文档/测试
 
 **不建 `src/xdk2` 第二套源码。** 2.x 仍用 `src/xdk`，在 `xdk-2` 分支上演进；1.x 由 `main`/`release/1.0` 保存。
 
+2.x 沿用现有 `src/xdk` 目录，不强制把 1.x 目录整体搬迁；包名与目录的映射写入 `xdk2-packages.tsv`。
+
 ```text
 src/xdk/
-  annotations/          xdk.annotations
-  execution/            xdk.execution（替代 concurrent/tasks + concurrent/sync）
-  errors/ runtime/ meta/ bytes/ text/ collections/ math/ time/
-  io/ fs/ sys/ log/ config/ cli/
-  codec/ crypto/ compress/ random/ uuid/ stats/ functional/ graph/ reflect/
-  net/ net/uri ...      xdk.net.*
+  annotations/          xdk.annotations（新增）
+  execution/            xdk.execution（新增；1.x tasks/sync 兼容映射）
+  core/
+    errors/ runtime/ meta/ bytes/ text/ collections/ math/ time/
+  io/ fs/ sys/ log/ config/ cli/          （沿用现有目录）
+  codec/ crypto/ compress/ random/ uuid/ stats/
+  functional/ graph/ reflect/             （新增）
+  net/ net/uri net/mime net/tls net/http net/websocket/
   os/ gpu/ tensor/ linalg/ geo/ serial/ device/
   validate/ cache/ queue/ schedule/ event/ resilience/
   metrics/ trace/ audit/ terminal/ i18n/ test/
   api/ db/ ml/ agent/ numerics/ jsonrpc/ mcp/ accel/ embedded/
 ```
 
-首批只建实际要写的目录，不一次建 75 个空目录。
+首批只建实际要写的目录，不一次建 75 个空目录；`core/` 下的包继续留在 `core/`，不为了目录对称而搬迁。
 
 ### 3.3 测试布局
 
@@ -185,9 +189,9 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 
 | ID | 工作包 | Owner | 依赖 | 文件域 | 产物 | 出口 |
 | --- | --- | --- | --- | --- | --- | --- |
-| B0.1 | 建 `xdk-2` 分支/worktree | ARCH | 无 | `.git`、worktree | `git worktree list` 可见 | `XNull-xdk2` 干净，HEAD=`81fddb7b` |
+| B0.1 | 建 `xdk-2` 分支/worktree | ARCH | 无 | `.git`、worktree | `git worktree list` 可见 | `XNull-xdk2` 干净，HEAD 包含 `81fddb7b` |
 | B0.2 | 2.x 测试入口 | QA | B0.1 | `src/mini/tests/xdk2.sh`、`xdk2/` | smoke 场景 + 门禁 | `xdk2.sh` 退出 0 |
-| B0.3 | 包清单/首批脚手架 | ARCH/QA | B0.1 | `src/xdk/xdk2-packages.tsv`、首批包目录 | 75 行清单 + 首批目录 | 清单计数=75/698；目录存在 |
+| B0.3 | 包清单/首批脚手架 | ARCH/QA | B0.1 | `src/xdk/xdk2-packages.tsv`、`src/xdk/annotations/`、`src/xdk/execution/` | 75 行清单（包名/层/类型数/源码路径/状态）+ 首批目录 | 清单计数=75/698；路径映射无缺失；首批目录存在 |
 | B0.4 | 1.x 基线 | QA | B0.1 | 无代码 | 门禁日志/commit | `xdk.sh`+`xdk_core.sh` 绿 |
 | B0.5 | 注解诊断码冻结 | ARCH | 无 | `ANNOTATION-PLAN.md` | `AN0001`–`AN0020` | 文档签字，无待定 |
 | B0.6 | P0.5 类型改名 | ARCH | B0.1 | `docs/design/utils/**`、`solutions/**`、`network/net/tls/**` | 8 组改名 + 引用 | `check_doc_naming`/links 绿 |
@@ -219,10 +223,10 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 
 | ID | 工作包 | Owner | 依赖 | 文件域 | 产物 | 出口 |
 | --- | --- | --- | --- | --- | --- | --- |
-| B3.1 | `RuntimeMonitor` + raw | RUNTIME | B0.1 | `src/runtime/`、`src/ffi/runtime_raw.xfb`、`src/xdk/runtime/Runtime.x` | enter/exit/wait/notify | 并发/关闭场景绿 |
+| B3.1 | `RuntimeMonitor` + raw | RUNTIME | B0.1 | `src/runtime/`、`src/ffi/runtime_raw.xfb`、`src/xdk/core/runtime/Runtime.x` | enter/exit/wait/notify | 并发/关闭场景绿 |
 | B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | 取消/超时场景绿 |
-| B3.3 | 泛型 `Pair`/`Entry` | XDK-CORE | B0.1 | `src/xdk/collections/Collections.x` | `Pair<A,B>`、`Entry<K,V>` | 1.x 兼容 + 2.x 场景 |
-| B3.4 | `isFinite/isNaN`、`Bytes.alloc/empty`、errors helpers、`List.copy` | XDK-CORE | B0.1 | `src/xdk/math`、`bytes`、`errors`、`collections` | 顶层函数/构造 | prelude 场景绿 |
+| B3.3 | 泛型 `Pair`/`Entry` | XDK-CORE | B0.1 | `src/xdk/core/collections/Collections.x` | `Pair<A,B>`、`Entry<K,V>` | 1.x 兼容 + 2.x 场景 |
+| B3.4 | `isFinite/isNaN`、`Bytes.alloc/empty`、errors helpers、`List.copy` | XDK-CORE | B0.1 | `src/xdk/core/math`、`core/bytes`、`core/errors`、`core/collections` | 顶层函数/构造 | prelude 场景绿 |
 | B3.5 | prelude 门禁 | QA | B3.1–B3.4 | `xdk2/prelude/` | 场景 | `xdk2.sh` 绿 + 1.x 回归绿 |
 
 ### B4：第一批纯 XDK 包
