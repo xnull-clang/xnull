@@ -182,7 +182,7 @@ per-symbol API manifest row carries the same scenario/test/gate evidence.
 
 ## 3.5.2 API manifest and task dump evidence
 
-- `src/ffi/api-manifest.tsv` has 114 per-symbol rows across 14 packages,
+- `src/ffi/api-manifest.tsv` has 160 per-symbol rows across 14 packages,
   generated from capabilities + source signatures + design stability. Missing
   symbol/signature/design is a generator RED.
 - `ByteBuffer`: `xdk_bytes_extra.x` + `xdk_bytes_strict.x` + `test_std.c`.

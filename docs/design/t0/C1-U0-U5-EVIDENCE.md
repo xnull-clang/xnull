@@ -2,9 +2,9 @@
 
 | Item | Value |
 | --- | --- |
-| Base commit | `77e95ae3` (three reference programs PASS) |
+| Base commit | `76871532` (three reference programs PASS) |
 | Machine | Darwin 25.5.0 x86_64, Apple clang 17.0.0 (clang-1700.6.3.2) |
-| Date | 2026-11-21 |
+| Date | 2026-11-22 |
 | Reviewer | 待签 |
 
 ## A1. API manifest
@@ -15,7 +15,7 @@ public symbol, with signature and stability.
 
 ```text
 python3 src/toolchain/gen_api_manifest.py
-api manifest: 114 symbols / 14 packages
+api manifest: 160 symbols / 14 packages
 src/ffi/api-manifest.tsv
 xdk/ffi/api-manifest.tsv
 ```
@@ -194,8 +194,9 @@ before=1
 [INFO] u3: ready stage=upgraded
 ```
 
-U3 is PASS with the documented substitute artifact; the missing official
-bootstrap is recorded above rather than hidden.
+U3 status: **PASS with substitute artifact；official 0.3.0 blocked
+（xn-s4 卡死，已停）**. The missing official bootstrap is recorded above rather
+than hidden.
 
 ## U5. Non-author trial
 
@@ -203,8 +204,9 @@ An independent subagent was given only `README.md` and the T0 package docs
 (`00-overview`, `14-log`, `15-config`, `16-cli`), with no source access. It
 created `/tmp/c1_u5_user` (`xnull.project`, `app.x`, `util.x`, `report.x`).
 
-Result: **PASS**. `check` printed `sema ok`; `build` and `run` both exited 0
-with identical deterministic output (including log lines and sum `55`).
+Result: **agent proxy PASS；human pending**. `check` printed `sema ok`;
+`build` and `run` both exited 0 with identical deterministic output (including
+log lines and sum `55`). This is not a human PASS.
 
 Documentation gaps reported and action taken:
 
