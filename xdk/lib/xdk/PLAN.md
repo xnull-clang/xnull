@@ -22,12 +22,13 @@ and recorded gaps.
 | `xdk.io` | `Verified`：memory/checked/buffered/composed/LineReader mini | file/network/stdio via fs/sys/runtime |
 | `xdk.fs` | `Verified`：Result 面、File/Dir/Path、Long offset、atomic/temp/walk/glob、metadata/权限/链接 mini | T1 watch/lock/mmap |
 | `xdk.sys` | `Verified`：Result 面、File/Dir/Process、stdio 管道、信号/进程组、环境枚举、资源读取子集 mini | T1 PTY/net/session |
-| `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
-| `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result> mini | RwLock/semaphore/select |
 | `xdk.collections` | `Verified`：List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms (`sortBy`/`sortedBy`/`groupBy`/`joinWith`), generic entries (`Entry<K,V>`), PriorityQueue/RingBuffer/OrderedMap/BTreeMap mini | T1 containers |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |
+
+`xdk.tasks` and `xdk.sync` are language/runtime builtins, not 1.0 packages.
+Their package documents are builtin references and deprecated for packaging.
 
 ## 2. Mini-only verification
 

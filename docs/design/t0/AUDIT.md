@@ -30,26 +30,132 @@ Still to watch:
 - `xdk.fs.File` and the `xdk.sys` full File surface use `Long` for size,
   position, and seek offsets.
 
+## 2.1 DET-01 authority
+
+The authoritative memory-strategy decision table is
+[`../DET-01.md`](../DET-01.md). README prose and comments in
+`src/runtime/rt_policy.c` are non-normative references; when they disagree,
+DET-01 wins. DET-01 includes the ordered table, positive examples (struct,
+simple/data enum, stack candidate, ARC finalizer, GC `Any`/cycle) and negative
+examples (source annotations, reclamation timing, identity-based inference).
+
+## 2.2 Green-but-wrong test audit
+
+Two known cases were checked against the spec, not against the old green output:
+
+1. **String sorting**: `xdk_collections_algo.x` now sorts with
+   `compareText(left, right) < 0`; the old expected order `b,a,c` was the bug.
+   The current expectation is `a,b,c`. `xdk_core.x` independently asserts the
+   sorted first element `alpha`.
+2. **`writeText` status**: `xdk.fs.writeText` and `xdk.sys.writeFileText`
+   return `Result<Long,Error>` with the UTF-8 byte count. Tests read
+   `.value()` and assert the count (e.g. 7 for `a.txt`, 2 for `é`); the old
+   `0` status is not an accepted expectation.
+
+No test weakens an assertion to match current behavior. The expected files
+`xdk_core.out` and `xdk_collections_algo.x` are the spec for these cases.
+
 ## 3. Package status
 
-| Package | Design | Implementation | Gate | Blocker |
-| --- | --- | --- | --- | --- |
-| errors | v1.4 | mini | PASS | — |
-| runtime | v1.0 | mini | PASS | — |
-| meta | v1.0 | mini | PASS | — |
-| bytes | v1.2 | mini | PASS | Int overflow edge |
-| text | v1.1 | mini | PASS | — |
-| collections | v1.5 | mini | PASS | — |
-| math | v1.2 | mini | PASS | — |
-| time | v1.0 | mini | PASS | — |
-| io | v1.0 | mini | PASS | — |
-| fs | v1.1 | mini | PASS | — |
-| sys | v1.1 | mini | PASS | — |
-| tasks | v1.0 | mini | PASS | — |
-| sync | v1.1 | mini | PASS | — |
-| log | v1.0 | mini | PASS | fields/sinks T0-X |
-| config | v1.0 | mini | PASS | sources/codec T0-X/T1 |
-| cli | v1.0 | mini | PASS | subcommands T0-X |
+`Gate` is the package scenario/regression result. `Verified` is the stricter
+CORE-CLOSURE state: design exists, T0-K scenarios pass, and T0-X is closed or
+recorded. A package can be `Gate PASS` and still `Verified = no`; that is the
+intended separation. `Reviewer` is deliberately `待签`; no self-signing. Package design docs may state
+`Verified` for their documented scope; the `Verified` column here is the
+stricter CORE-CLOSURE state (T0-K + T0-X), so a package can be `Gate PASS` and
+`Verified = no` at the same time.
+
+| Package | T0-K | 1.0 | Design | Implementation | Gate | Verified | Evidence | Reviewer | Date |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| xdk.errors | PASS | yes | v1.4 | mini | PASS | no | xdk_errors.x, xdk_errors_full.x | 待签 | 2026-11-21 |
+| xdk.runtime | PASS | yes | v1.0 | mini | PASS | no | xdk_runtime.x | 待签 | 2026-11-21 |
+| xdk.meta | PASS | yes | v1.0 | mini | PASS | no | xdk_meta.x | 待签 | 2026-11-21 |
+| xdk.bytes | PASS | yes | v1.2 | mini | PASS | no | xdk_bytes.x, xdk_bytes_strict.x | 待签 | 2026-11-21 |
+| xdk.text | PASS | yes | v1.1 | mini | PASS | yes | xdk_text.x, xdk_text_full.x | 待签 | 2026-11-21 |
+| xdk.collections | PASS | yes | v1.5 | mini | PASS | yes | xdk_collections.x, xdk_containers.x, xdk_members.x | 待签 | 2026-11-21 |
+| xdk.math | PASS | yes | v1.2 | mini | PASS | no | xdk_math.x | 待签 | 2026-11-21 |
+| xdk.time | PASS | yes | v1.0 | mini | PASS | no | xdk_time.x | 待签 | 2026-11-21 |
+| xdk.io | PASS | yes | v1.0 | mini | PASS | yes | xdk_io.x | 待签 | 2026-11-21 |
+| xdk.fs | PASS | yes | v1.1 | mini | PASS | yes | xdk_fs.x | 待签 | 2026-11-21 |
+| xdk.sys | PASS | yes | v1.1 | mini | PASS | yes | xdk_sys.x, xdk_sys_full.x | 待签 | 2026-11-21 |
+| xdk.log | PASS | yes | v1.0 | mini | PASS | no | xdk_log.x (T0-X: Sink/Field) | 待签 | 2026-11-21 |
+| xdk.config | PASS | yes | v1.0 | mini | PASS | no | xdk_config.x (T0-X: ConfigSource) | 待签 | 2026-11-21 |
+| xdk.cli | PASS | yes | v1.0 | mini | PASS | no | xdk_cli.x (T0-X: Command) | 待签 | 2026-11-21 |
+| xdk.tasks | builtin | no | v1.0 | language/runtime | PASS | n/a | xdk_tasks.x, xdk_cancel.x | 待签 | 2026-11-21 |
+| xdk.sync | builtin | no | v1.1 | language/runtime | PASS | n/a | xdk_mutex.x, xdk_channel.x, xdk_sync_atomic.x | 待签 | 2026-11-21 |
+
+## 3.1 P9=B package boundary
+
+`xdk.tasks` and `xdk.sync` are **language/runtime builtins**, not 1.0 packages.
+Their package documents are retained as builtin references and marked
+deprecated for packaging purposes. The 1.0 package count is 14.
+
+The seven synchronized documents are:
+
+1. `docs/design/t0/00-overview.md`
+2. `docs/design/t0/12-tasks.md`
+3. `docs/design/t0/13-sync.md`
+4. `src/xdk/PLAN.md`
+5. `xdk/lib/xdk/PLAN.md`
+6. `docs/design/t0/AUDIT.md`
+7. `src/mini/PLAN.md`
+
+## 3.2 C0-8 T0-X evidence (io/collections/text/fs/sys)
+
+The claim under audit is whether the five closure packages' T0-X surfaces are
+actually empty. They are not empty; each has code, public symbols, and a
+scenario. Evidence by package:
+
+| Package | T0-X evidence (not empty) |
+| --- | --- |
+| xdk.io | `Readable`/`Writable`, `BufferedReader`/`BufferedWriter`, `ChainReader`, `TeeReader`, `LimitReader`, `LineReader`, `readAll`, `copyTo` in `src/xdk/io/IO.x`; `xdk_io.x`. |
+| xdk.collections | generic `Map<K,V>`/`Set<T>` runtime, `groupBy`, `groupByInt`, `joinWith`, `Entry<K,V>`, `OrderedMap`, `BTreeMap`, `PriorityQueue`, `RingBuffer`; `xdk_collections.x`, `xdk_containers.x`, `xdk_members.x`. |
+| xdk.text | Unicode validation/repair, `compareText`, POSIX ERE `Regex`, `Match`, `Utf16`, `printf`; `xdk_text.x`, `xdk_text_full.x`. |
+| xdk.fs | `Result` read/write, `File`/`Dir`/`Path`, `Metadata`, permissions, links, `walk`, `glob`, temp leases, atomic writes; `xdk_fs.x`. |
+| xdk.sys | `Result` file surface, `Process`/`ProcessResult`, piped stdio, `Signal`, process groups, `envNames`, embedded resources; `xdk_sys.x`, `xdk_sys_full.x`, `xdk_core.x`. |
+
+The corresponding design docs (`05-text`, `06-collections`, `09-io`, `10-fs`,
+`11-sys`) mark these surfaces `Verified`; the code and scenarios agree.
+
+Residual after the implemented T0-X (not emptiness, and not a 1.0 blocker):
+
+- io: stdio/terminal/network streams remain sys/runtime/T1; the package owns
+  memory, buffered, composed, and line streams.
+- collections: `Int128`/`Result` keys are intentionally rejected; HashMap,
+  Deque, and BitSet remain T1 containers.
+- text: the full regex engine is T1 `xdk.regex`; T0 ships the POSIX ERE subset.
+- fs: watch, file locking, mmap, and PTY are T1; T0 ships Result, metadata,
+  links, temp, atomic, walk, and glob.
+- sys: PTY, network sessions, and device access are T1; T0 ships process,
+  pipes, signals, env, platform, and embedded-resource reads.
+
+
+## 3.3 Mirror and rt.c status
+
+G3 compares three pairs, excluding `test_*` files and build artifacts:
+
+- `src/xdk` ↔ `xdk/lib/xdk`
+- `src/ffi` ↔ `xdk/ffi`
+- `src/runtime` ↔ `xdk/runtime`
+
+Current HEAD is clean for all three. `rt.c` is included in the runtime pair;
+an artificial append to `src/runtime/rt.c` is reported as
+`g3 xdk/runtime:rt.c [xdk/runtime]: content differs`, so the drift check is
+live rather than a status line. `src/ffi/capabilities.tsv` is mirrored to
+`xdk/ffi/capabilities.tsv` and is covered by the same rule.
+
+## 3.4 Layer verification result
+
+`src/toolchain/check_layers.py` at HEAD: PASS.
+
+- G1 ownership: 0 violations; 14 packages, each capability has one owner.
+- G2 closure: 0 unsuppressed violations; 4 confirmed T0-X gaps are in the
+  allowlist (`xdk.log.Sink`, `xdk.log.Field`, `xdk.config.ConfigSource`,
+  `xdk.cli.Command`), each with `remove_batch=1.0.0`. Deleting one entry makes
+  G2 red; restoring it is green.
+- G3 mirrors: 0 violations; `rt.c` is covered by the runtime pair. A probe
+  append to `src/runtime/rt.c` is reported, then restored.
+- `--release 1.0.0` rejects the non-empty allowlist as required.
 
 ## 4. Gates
 

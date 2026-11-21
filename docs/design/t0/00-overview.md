@@ -211,14 +211,15 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader（stdio 归 runtime/sys） |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
 | sys | Process、env、platform、cwd | stdio 管道、信号、环境枚举、进程组、内嵌资源读取子集 |
-| tasks | Task/TaskGroup/Context、取消、joinDeadline | select/race、Context 值、取消作用域 |
-| sync | Mutex、Channel、AtomicInt/Bool/Ref | RwLock、Semaphore、WaitGroup、Once、Barrier、select |
 | log | Level、Logger、ConsoleSink | Field/Sink 分层、File/Memory sink、过滤、redaction |
 | config | Config 快照、getOr/set、env allowlist | typed getter、overlay、Source、FileSource、校验 |
 | cli | Args、usage、exitCode | OptionSpec、Command、子命令、help、补全 |
 
 实现顺序仍按依赖：errors → runtime → meta → bytes → text → collections →
-math → time → io → fs → sys → tasks → sync → log → config → cli。
+math → time → io → fs → sys → log → config → cli。
+
+`xdk.tasks` 与 `xdk.sync` 是语言/运行时内建面，不是 1.0 包；`12-tasks.md`、
+`13-sync.md` 保留为内建参考并标 deprecated，不计入 14 包矩阵。
 
 ---
 
@@ -292,8 +293,6 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | io | 20 | 60 | 协议、内存、缓冲、组合、stdio |
 | fs | 25 | 70 | 路径、文件、目录、遍历、临时、原子 |
 | sys | 20 | 50 | 进程、环境、平台、信号 |
-| tasks | 15 | 40 | 任务、组、上下文、取消、select |
-| sync | 20 | 50 | 锁、通道、原子、同步器 |
 | log | 15 | 45 | 级别、记录器、字段、sink、过滤 |
 | config | 15 | 40 | 快照、来源、类型、校验 |
 | cli | 15 | 45 | 参数、选项、命令、帮助、补全 |
@@ -323,6 +322,13 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 
 ---
 
+## 7.1 分层验证工具
+
+- `src/ffi/capabilities.tsv`：14 包的 package/capability/owner/L2/L1/test/scenario/status 机器可读表；
+- `src/toolchain/check_layers.py`：G1 所有权、G2 符号闭环、G3 三组镜像，JSON 输出，退出 0/1；
+- `src/toolchain/layer-allowlist.tsv`：每条带 `remove_batch`；0.9.0 允许非空，1.0.0 必须为空；
+- `docs/design/DET-01.md`：内存策略判定表的权威条目（判定表 + 正反例）。
+
 ## 8. 文档索引与完成度
 
 | 文档 | 内容 | 状态 |
@@ -340,8 +346,8 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Verified（内存/协议/组合/LineReader） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Verified（Result 面、File/Dir/Path、atomic/temp/walk/glob、metadata/权限/链接） |
 | `11-sys.md` | Process、Env、Platform、Signal | Verified（Result 面、File/Dir/Process、管道/信号/进程组/环境枚举/资源读取子集） |
-| `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
-| `13-sync.md` | Mutex、Channel、Atomics、同步器 | Verified（Atomic/Mutex/Channel 标量、指针、Int128、Result） |
+| `12-tasks.md` | Task、TaskGroup、Context、取消 | 内建面参考；非 1.0 包，deprecated |
+| `13-sync.md` | Mutex、Channel、Atomics、同步器 | 内建面参考；非 1.0 包，deprecated |
 | `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |
 | `15-config.md` | Config、Source、Profile、校验 | Verified（内存/环境面） |
 | `16-cli.md` | Args、OptionSpec、Command、usage | Verified（最小面） |

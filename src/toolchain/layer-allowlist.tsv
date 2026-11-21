@@ -1,0 +1,5 @@
+kind	symbol	caller	owner	reason	remove_batch
+g2	xdk.log.Sink	xdk.log	xdk.log	log sink/field surface is T0-X beyond the 1.0 K gate	1.0.0
+g2	xdk.log.Field	xdk.log	xdk.log	log field surface is T0-X beyond the 1.0 K gate	1.0.0
+g2	xdk.config.ConfigSource	xdk.config	xdk.config	config sources are T0-X beyond the 1.0 K gate	1.0.0
+g2	xdk.cli.Command	xdk.cli	xdk.cli	CLI subcommands are T0-X beyond the 1.0 K gate	1.0.0

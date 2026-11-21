@@ -1,4 +1,4 @@
-# xdk.tasks —— T0 任务与取消 v1.0
+# xdk.tasks —— T0 任务与取消 v1.0（内建参考，非 1.0 包）
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,10 @@
 | 依赖 | `xdk.errors`、`xdk.runtime` |
 | 被依赖 | sync、log、config、cli |
 | 对应源码 | `src/xdk/concurrent/tasks/Tasks.x`（运行时绑定） |
-| 当前状态 | Verified（mini） |
+| 当前状态 | Language/runtime builtin; package doc deprecated; not a 1.0 package |
+
+> P9=B 决策：`xdk.tasks` 是语言/运行时内建面，不是 1.0 包。本文保留为内建参考，
+> 打包意义上标记 deprecated；不进入 14 包矩阵。
 
 ## 1. 能力
 

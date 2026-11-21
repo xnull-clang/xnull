@@ -35,6 +35,10 @@ Project/package commands (`validate`, `tree`, `why`, `install`, `lock`,
 `repro`, `xmeta`, `fmt`, project `build/run`) are intentionally absent until
 mini can implement them. They are not delegated to another engine.
 
+T0 tasks/sync are language/runtime builtins, not XDK packages; their package
+documents are deprecated for packaging and are not part of the 14-package 1.0
+surface.
+
 ## 3. Compiler queue
 
 1. **Int 32-bit semantics**: keep arithmetic/bitwise/return/local normalization
