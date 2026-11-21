@@ -79,7 +79,7 @@ it; the sys resource evidence above is the independent command/output, not an
 `Strict evidenced` and `Optimized proposed` are **not closed**. Only a user or
 independent reviewer signature makes a row `Signed ... closed`.
 
-Sys resource subset (#26–#28) is evidenced by the standalone
+Sys resource subset (#28) is evidenced by the standalone
 `./src/mini/tests/resources.sh` command/output in §0; `xdk.sh` covers the sys
 stdio/signal surface but does not run `resources.sh`.
 
