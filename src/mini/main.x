@@ -1727,6 +1727,53 @@ class Mono {
         return sname
     }
 
+    String readAngleType(String text, Int start) {
+        Int depth = 0
+        Int i = start
+        while i < text.length() {
+            String c = text.substring(i, 1)
+            if c == "<" {
+                depth = depth + 1
+            } else if c == ">" {
+                depth = depth - 1
+                if depth == 0 {
+                    return text.substring(start, i - start + 1)
+                }
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    Void instantiateEntryForMap(String ty) {
+        Int m = ty.indexOf("Map<")
+        if m < 0 {
+            return
+        }
+        String mty = self.readAngleType(ty, m)
+        if mty.length() < 6 {
+            return
+        }
+        String inner = mty.substring(4, mty.length() - 5)
+        List<String> parts = self.splitArgs(inner)
+        if parts.length() < 2 {
+            return
+        }
+        String keyTy = parts.get(0).trim()
+        String valTy = parts.get(1).trim()
+        if (keyTy == "String" && valTy == "Int") || (keyTy == "Int" && valTy == "Int") {
+            return
+        }
+        AstNode ec = self.findClass("Entry")
+        if ec.kind == "None" || !self.hasTypeParams(ec) {
+            return
+        }
+        List<String> entryArgs = []
+        entryArgs.push(keyTy)
+        entryArgs.push(valTy)
+        self.instantiateClass("Entry", entryArgs)
+    }
+
     String rewriteType(String ty) {
         String res = ty
         Bool changed = true
@@ -1766,6 +1813,7 @@ class Mono {
                 ci = ci + 1
             }
         }
+        self.instantiateEntryForMap(res)
         return res
     }
 
@@ -1955,8 +2003,9 @@ class Mono {
             if mth == "keys" { return "List<" + key + ">" }
             if mth == "values" { return "List<" + val + ">" }
             if mth == "entries" {
-                if key == "Int" { return "List<IntPair>" }
-                return "List<Pair>"
+                if key == "String" && val == "Int" { return "List<Pair>" }
+                if key == "Int" && val == "Int" { return "List<IntPair>" }
+                return "List<Entry__" + self.mangle(key) + "_" + self.mangle(val) + ">"
             }
             if mth == "clear" { return "Unit" }
             return "Any"
@@ -2641,6 +2690,26 @@ class Checker {
             return true
         }
         return false
+    }
+
+    String typeMangle(String ty) {
+        String res = ""
+        Int i = 0
+        while i < ty.length() {
+            String c = ty.substring(i, 1)
+            String alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_"
+            if alpha.indexOf(c) >= 0 {
+                res = res + c
+            } else {
+                res = res + "_"
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String entryClassName(String keyTy, String valTy) {
+        return "Entry__" + self.typeMangle(keyTy) + "_" + self.typeMangle(valTy)
     }
 
     Bool classIsA(String actual, String target) {
@@ -4051,8 +4120,7 @@ class Checker {
                 if bt == "Map<Int,Int>" {
                     return "List<IntPair>"
                 }
-                self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
-                return "Error"
+                return "List<" + self.entryClassName(self.mapKeyType(bt), self.mapValueType(bt)) + ">"
             }
         }
         if self.isProtocolName(bt) {
@@ -4525,8 +4593,7 @@ class Checker {
                     if bt == "Map<Int,Int>" {
                         return "List<IntPair>"
                     }
-                    self.fail("SEM-001", "Map.entries for " + bt + " is T0-X", n)
-                    return "Error"
+                    return "List<" + self.entryClassName(self.mapKeyType(bt), self.mapValueType(bt)) + ">"
                 }
             }
             if self.isProtocolName(bt) {
@@ -5254,6 +5321,14 @@ class CGen {
         return "xn_map_g_" + self.genericMapSuffix(ty) + "_values"
     }
 
+    String genericMapEntriesName(String ty) {
+        return "xn_map_g_" + self.genericMapSuffix(ty) + "_entries"
+    }
+
+    String entryClassName(String keyTy, String valTy) {
+        return "Entry__" + self.cMangle(keyTy) + "_" + self.cMangle(valTy)
+    }
+
     Bool containsGeneric(List<String> xs, String v) {
         Int i = 0
         while i < xs.length() {
@@ -5266,6 +5341,9 @@ class CGen {
     }
 
     Void registerGenericMap(String ty) {
+        if ty == "Map<String,Int>" || ty == "Map<Int,Int>" {
+            return
+        }
         if !self.containsGeneric(self.genericMaps, ty) {
             self.genericMaps.push(ty)
         }
@@ -5294,6 +5372,9 @@ class CGen {
         }
         if b == "Double" {
             return "2"
+        }
+        if self.isArray(b) || self.isMap(b) || self.isSet(b) {
+            return "3"
         }
         if b == "Bytes" || self.isClass(b) || self.isProtocol(b) || self.isDataEnum(b) {
             return "3"
@@ -5372,6 +5453,9 @@ class CGen {
     }
 
     Void collectGenericTypes(AstNode n) {
+        if (n.kind == "Func" || n.kind == "Class" || n.kind == "Struct") && hasTypeParams(n) {
+            return
+        }
         if n.kind == "Local" || n.kind == "Param" || n.kind == "Ret" || n.kind == "Field" ||
            n.kind == "New" || n.kind == "Cast" || n.kind == "TypeArgs" || n.kind == "Base" ||
            n.kind == "Implements" {
@@ -6704,8 +6788,7 @@ class CGen {
             if bt == "Map<Int,Int>" {
                 return "xn_map_i_i_entries(" + bv + ")"
             }
-            self.fail("Map.entries for " + bt + " is T0-X")
-            return "0"
+            return self.genericMapEntriesName(bt) + "(" + bv + ")"
         }
         if mth == "clear" {
             return "(" + bv + "->len = 0)"
@@ -7384,10 +7467,13 @@ class CGen {
                         return "List<" + self.mapValue(bt) + ">"
                     }
                     if mth == "entries" {
+                        if bt == "Map<String,Int>" {
+                            return "List<Pair>"
+                        }
                         if bt == "Map<Int,Int>" {
                             return "List<IntPair>"
                         }
-                        return "List<Pair>"
+                        return "List<" + self.entryClassName(self.mapKey(bt), self.mapValue(bt)) + ">"
                     }
                 }
                 if self.isProtocol(bt) {
@@ -9106,6 +9192,7 @@ class CGen {
             String vac = self.arrayCName("List<" + vty + ">")
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m);")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m);")
+            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m);")
             gmi = gmi + 1
         }
         self.emit("")
@@ -9453,6 +9540,8 @@ class CGen {
             String vac = self.arrayCName("List<" + vty + ">")
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m) { " + kac + " *out = " + kac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + kac + "_push(out, " + self.decodeOf(kty, "m->keys[i]") + "); } return out; }")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m) { " + vac + " *out = " + vac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + vac + "_push(out, " + self.decodeOf(vty, "m->vals[i]") + "); } return out; }")
+            String entryCls = self.entryClassName(kty, vty)
+            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_" + entryCls + "_new(" + self.decodeOf(kty, "m->keys[i]") + ", " + self.decodeOf(vty, "m->vals[i]") + ")); } return out; }")
             gmDef = gmDef + 1
         }
         Bool mainArgs = false

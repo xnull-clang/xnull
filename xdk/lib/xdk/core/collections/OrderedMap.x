@@ -124,14 +124,16 @@ class OrderedMap<V> {
         return -1
     }
 
-    void put(Int k, V v) {
+    V? put(Int k, V v) {
         Int i = self.indexOf(k)
         if i >= 0 {
+            V old = self.vals.get(i)
             self.vals.set(i, v)
-            return
+            return old
         }
         self.keys.push(k)
         self.vals.push(v)
+        return null
     }
 
     V? get(Int k) {
@@ -160,21 +162,21 @@ class OrderedMap<V> {
         return true
     }
 
-    Int[] keysArray() {
-        Int[] res = new Int[self.keys.length()]
+    List<Int> keys() {
+        List<Int> res = []
         Int i = 0
         while i < self.keys.length() {
-            res[i] = self.keys.get(i)
+            res.push(self.keys.get(i))
             i = i + 1
         }
         return res
     }
 
-    V[] valuesArray() {
-        V[] res = new V[self.vals.length()]
+    List<V> values() {
+        List<V> res = []
         Int i = 0
         while i < self.vals.length() {
-            res[i] = self.vals.get(i)
+            res.push(self.vals.get(i))
             i = i + 1
         }
         return res

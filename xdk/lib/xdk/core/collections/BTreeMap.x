@@ -212,14 +212,16 @@ class BTreeMap<V> {
         return i < self.keys.length() && self.keys.get(i) == k
     }
 
-    void put(Int k, V v) {
+    V? put(Int k, V v) {
         Int i = self.lowerBound(k)
         if i < self.keys.length() && self.keys.get(i) == k {
+            V old = self.vals.get(i)
             self.vals.set(i, v)
-            return
+            return old
         }
         self.keys.insert(i, k)
         self.vals.insert(i, v)
+        return null
     }
 
     V? get(Int k) {
@@ -231,11 +233,11 @@ class BTreeMap<V> {
     }
 
     V getOr(Int k, V fallback) {
-        V? v = self.get(k)
-        if v == null {
+        Int i = self.lowerBound(k)
+        if i >= self.keys.length() || self.keys.get(i) != k {
             return fallback
         }
-        return v
+        return self.vals.get(i)
     }
 
     Bool remove(Int k) {
@@ -248,11 +250,21 @@ class BTreeMap<V> {
         return true
     }
 
-    Int[] keysArray() {
-        Int[] res = new Int[self.keys.length()]
+    List<Int> keys() {
+        List<Int> res = []
         Int i = 0
         while i < self.keys.length() {
-            res[i] = self.keys.get(i)
+            res.push(self.keys.get(i))
+            i = i + 1
+        }
+        return res
+    }
+
+    List<V> values() {
+        List<V> res = []
+        Int i = 0
+        while i < self.vals.length() {
+            res.push(self.vals.get(i))
             i = i + 1
         }
         return res

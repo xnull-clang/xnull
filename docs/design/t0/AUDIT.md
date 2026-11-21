@@ -38,7 +38,7 @@ Still to watch:
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
-| collections | v1.4 | partial | PASS (subset) | entries pairs/groupBy/OrderedMap |
+| collections | v1.5 | mini | PASS | — |
 | math | v1.2 | mini | PASS | — |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | mini | PASS | — |
@@ -86,15 +86,25 @@ EOF instead of returning the `0` sentinel; `tryReadU8`/`readExact` return
 dispatch fallback now emits a type-correct zero value for `Result` and closure
 returns instead of `return 0`.
 
+2026-11-21 batch 2 (collections): `xdk.collections` is `Verified`. The generic
+`Map<K,V>` runtime now accepts `List`/`Map`/`Set` values, so
+`Map<K,List<T>>` works. `Map.entries()` covers every supported K/V: fast paths
+keep `Pair`/`IntPair`, other combinations return `Entry<K,V>` (`key`/`value`).
+Added `groupByInt`, `groupBy`, and `joinWith`; `OrderedMap<V>`/`BTreeMap<V>`
+now expose `V? put`, `keys()`, and `values()` and are part of the acceptance
+surface. Scene coverage: `xdk_collections_algo.x`, `xdk_containers.x`,
+`xdk_members.x`, and `xdk_core.x`.
+
 ## 5. Freeze blockers
 
 No T0-K blocking item remains. Remaining T0-X gaps are recorded rather than
 claimed as complete:
 
 1. Generic `Map<K,V>`/`Set<T>` core runtimes are implemented for scalar,
-   String, Double, Bytes, class, protocol, and data-enum elements. Remaining
-   T0-X: `Map.entries` value objects other than `Pair`/`IntPair`, `groupBy`,
-   `OrderedMap`, and `BTreeMap`.
+   String, Double, Bytes, class, protocol, and data-enum elements, with
+   `List`/`Map`/`Set` values in maps. `Map.entries`, `groupBy`, `OrderedMap`,
+   and `BTreeMap` are closed; `Int128`/`Result` keys and elements remain
+   intentionally rejected.
 2. Cross-type `mapOk/mapErr` inference covers literal, binary, `new`, `str`,
    class/protocol methods, and common Result/List/Map/Set members; complex
    receiver expressions remain incremental.

@@ -1914,6 +1914,8 @@ static int xn_Cls_Mono_isDataEnum(xn_Cls_Mono *self, rt_string * name);
 static xn_Cls_AstNode * xn_Cls_Mono_findClass(xn_Cls_Mono *self, rt_string * name);
 static xn_arr_s * xn_Cls_Mono_splitArgs(xn_Cls_Mono *self, rt_string * text);
 static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start);
+static void xn_Cls_Mono_instantiateEntryForMap(xn_Cls_Mono *self, rt_string * ty);
 static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty);
 static xn_Cls_AstNode * xn_Cls_Mono_cloneSubst(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_arr_s * names, xn_arr_s * args);
 static xn_Cls_AstNode * xn_Cls_Mono_findGeneric(xn_Cls_Mono *self, rt_string * name);
@@ -2124,6 +2126,56 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
   return sname;
 }
 
+static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start) {
+  int64_t depth = xn_int_wrap(0);
+  int64_t i = xn_int_wrap(start);
+  while ((i < ((int64_t)text->len))) {
+    rt_string * c = xn_str_substr(text, i, 1);
+    if (xn_str_eq(c, rt_string_from_c("<"))) {
+      depth = xn_int_wrap((depth + 1));
+    }
+    else {
+      if (xn_str_eq(c, rt_string_from_c(">"))) {
+        depth = xn_int_wrap((depth - 1));
+        if ((depth == 0)) {
+          return xn_str_substr(text, start, xn_int_wrap((xn_int_wrap((i - start)) + 1)));
+        }
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return rt_string_from_c("");
+}
+
+static void xn_Cls_Mono_instantiateEntryForMap(xn_Cls_Mono *self, rt_string * ty) {
+  int64_t m = xn_int_wrap(xn_str_indexof(ty, rt_string_from_c("Map<")));
+  if ((m < 0)) {
+    return;
+  }
+  rt_string * mty = xn_Cls_Mono_readAngleType(self, ty, m);
+  if ((((int64_t)mty->len) < 6)) {
+    return;
+  }
+  rt_string * inner = xn_str_substr(mty, 4, xn_int_wrap((((int64_t)mty->len) - 5)));
+  xn_arr_s * parts = xn_Cls_Mono_splitArgs(self, inner);
+  if ((((int64_t)parts->len) < 2)) {
+    return;
+  }
+  rt_string * keyTy = xn_str_trim(xn_arr_s_get(parts, 0));
+  rt_string * valTy = xn_str_trim(xn_arr_s_get(parts, 1));
+  if (((xn_str_eq(keyTy, rt_string_from_c("String")) && xn_str_eq(valTy, rt_string_from_c("Int"))) || (xn_str_eq(keyTy, rt_string_from_c("Int")) && xn_str_eq(valTy, rt_string_from_c("Int"))))) {
+    return;
+  }
+  xn_Cls_AstNode * ec = xn_Cls_Mono_findClass(self, rt_string_from_c("Entry"));
+  if ((xn_str_eq(ec->kind, rt_string_from_c("None")) || (!xn_Cls_Mono_hasTypeParams(self, ec)))) {
+    return;
+  }
+  xn_arr_s *entryArgs = xn_arr_s_new(0);
+  xn_arr_s_push(entryArgs, keyTy);
+  xn_arr_s_push(entryArgs, valTy);
+  xn_Cls_Mono_instantiateClass(self, rt_string_from_c("Entry"), entryArgs);
+}
+
 static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty) {
   rt_string * res = ty;
   int changed = 1;
@@ -2166,6 +2218,7 @@ static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty) {
       ci = xn_int_wrap((ci + 1));
     }
   }
+  xn_Cls_Mono_instantiateEntryForMap(self, res);
   return res;
 }
 
@@ -2383,10 +2436,13 @@ static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * r
       return xn_concat(xn_concat(rt_string_from_c("List<"), val), rt_string_from_c(">"));
     }
     if (xn_str_eq(mth, rt_string_from_c("entries"))) {
-      if (xn_str_eq(key, rt_string_from_c("Int"))) {
+      if ((xn_str_eq(key, rt_string_from_c("String")) && xn_str_eq(val, rt_string_from_c("Int")))) {
+        return rt_string_from_c("List<Pair>");
+      }
+      if ((xn_str_eq(key, rt_string_from_c("Int")) && xn_str_eq(val, rt_string_from_c("Int")))) {
         return rt_string_from_c("List<IntPair>");
       }
-      return rt_string_from_c("List<Pair>");
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("List<Entry__"), xn_Cls_Mono_mangle(self, key)), rt_string_from_c("_")), xn_Cls_Mono_mangle(self, val)), rt_string_from_c(">"));
     }
     if (xn_str_eq(mth, rt_string_from_c("clear"))) {
       return rt_string_from_c("Unit");
@@ -2945,6 +3001,8 @@ static rt_string * xn_Cls_Checker_taskElement(xn_Cls_Checker *self, rt_string * 
 static rt_string * xn_Cls_Checker_resultValueType(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_string * ty);
 static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_string * b);
+static rt_string * xn_Cls_Checker_typeMangle(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_entryClassName(xn_Cls_Checker *self, rt_string * keyTy, rt_string * valTy);
 static int xn_Cls_Checker_classIsA(xn_Cls_Checker *self, rt_string * actual, rt_string * target);
 static int xn_Cls_Checker_isAssignable(xn_Cls_Checker *self, rt_string * target, rt_string * actual);
 static int64_t xn_Cls_Checker_findFn(xn_Cls_Checker *self, rt_string * name);
@@ -3228,6 +3286,27 @@ static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_strin
     return 1;
   }
   return 0;
+}
+
+static rt_string * xn_Cls_Checker_typeMangle(xn_Cls_Checker *self, rt_string * ty) {
+  rt_string * res = rt_string_from_c("");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)ty->len))) {
+    rt_string * c = xn_str_substr(ty, i, 1);
+    rt_string * alpha = rt_string_from_c("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_");
+    if ((xn_str_indexof(alpha, c) >= 0)) {
+      res = xn_concat(res, c);
+    }
+    else {
+      res = xn_concat(res, rt_string_from_c("_"));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return res;
+}
+
+static rt_string * xn_Cls_Checker_entryClassName(xn_Cls_Checker *self, rt_string * keyTy, rt_string * valTy) {
+  return xn_concat(xn_concat(xn_concat(rt_string_from_c("Entry__"), xn_Cls_Checker_typeMangle(self, keyTy)), rt_string_from_c("_")), xn_Cls_Checker_typeMangle(self, valTy));
 }
 
 static int xn_Cls_Checker_classIsA(xn_Cls_Checker *self, rt_string * actual, rt_string * target) {
@@ -4699,8 +4778,7 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
       if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
         return rt_string_from_c("List<IntPair>");
       }
-      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-001"), xn_concat(xn_concat(rt_string_from_c("Map.entries for "), bt), rt_string_from_c(" is T0-X")), n);
-      return rt_string_from_c("Error");
+      return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_entryClassName(self, xn_Cls_Checker_mapKeyType(self, bt), xn_Cls_Checker_mapValueType(self, bt))), rt_string_from_c(">"));
     }
   }
   if (xn_Cls_Checker_isProtocolName(self, bt)) {
@@ -5244,8 +5322,7 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
         if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
           return rt_string_from_c("List<IntPair>");
         }
-        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-001"), xn_concat(xn_concat(rt_string_from_c("Map.entries for "), bt), rt_string_from_c(" is T0-X")), n);
-        return rt_string_from_c("Error");
+        return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_Checker_entryClassName(self, xn_Cls_Checker_mapKeyType(self, bt), xn_Cls_Checker_mapValueType(self, bt))), rt_string_from_c(">"));
       }
     }
     if (xn_Cls_Checker_isProtocolName(self, bt)) {
@@ -5519,6 +5596,8 @@ static rt_string * xn_Cls_CGen_cMangle(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_genericMapSuffix(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_genericMapKeysName(xn_Cls_CGen *self, rt_string * ty);
 static rt_string * xn_Cls_CGen_genericMapValuesName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_genericMapEntriesName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_entryClassName(xn_Cls_CGen *self, rt_string * keyTy, rt_string * valTy);
 static int xn_Cls_CGen_containsGeneric(xn_Cls_CGen *self, xn_arr_s * xs, rt_string * v);
 static void xn_Cls_CGen_registerGenericMap(xn_Cls_CGen *self, rt_string * ty);
 static void xn_Cls_CGen_registerGenericSet(xn_Cls_CGen *self, rt_string * ty);
@@ -6143,6 +6222,14 @@ static rt_string * xn_Cls_CGen_genericMapValuesName(xn_Cls_CGen *self, rt_string
   return xn_concat(xn_concat(rt_string_from_c("xn_map_g_"), xn_Cls_CGen_genericMapSuffix(self, ty)), rt_string_from_c("_values"));
 }
 
+static rt_string * xn_Cls_CGen_genericMapEntriesName(xn_Cls_CGen *self, rt_string * ty) {
+  return xn_concat(xn_concat(rt_string_from_c("xn_map_g_"), xn_Cls_CGen_genericMapSuffix(self, ty)), rt_string_from_c("_entries"));
+}
+
+static rt_string * xn_Cls_CGen_entryClassName(xn_Cls_CGen *self, rt_string * keyTy, rt_string * valTy) {
+  return xn_concat(xn_concat(xn_concat(rt_string_from_c("Entry__"), xn_Cls_CGen_cMangle(self, keyTy)), rt_string_from_c("_")), xn_Cls_CGen_cMangle(self, valTy));
+}
+
 static int xn_Cls_CGen_containsGeneric(xn_Cls_CGen *self, xn_arr_s * xs, rt_string * v) {
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)xs->len))) {
@@ -6155,6 +6242,9 @@ static int xn_Cls_CGen_containsGeneric(xn_Cls_CGen *self, xn_arr_s * xs, rt_stri
 }
 
 static void xn_Cls_CGen_registerGenericMap(xn_Cls_CGen *self, rt_string * ty) {
+  if ((xn_str_eq(ty, rt_string_from_c("Map<String,Int>")) || xn_str_eq(ty, rt_string_from_c("Map<Int,Int>")))) {
+    return;
+  }
   if ((!xn_Cls_CGen_containsGeneric(self, self->genericMaps, ty))) {
     xn_arr_s_push(self->genericMaps, ty);
   }
@@ -6183,6 +6273,9 @@ static rt_string * xn_Cls_CGen_kindOf(xn_Cls_CGen *self, rt_string * ty) {
   }
   if (xn_str_eq(b, rt_string_from_c("Double"))) {
     return rt_string_from_c("2");
+  }
+  if (((xn_Cls_CGen_isArray(self, b) || xn_Cls_CGen_isMap(self, b)) || xn_Cls_CGen_isSet(self, b))) {
+    return rt_string_from_c("3");
   }
   if ((((xn_str_eq(b, rt_string_from_c("Bytes")) || xn_Cls_CGen_isClass(self, b)) || xn_Cls_CGen_isProtocol(self, b)) || xn_Cls_CGen_isDataEnum(self, b))) {
     return rt_string_from_c("3");
@@ -6264,6 +6357,9 @@ static void xn_Cls_CGen_scanGenericTypeText(xn_Cls_CGen *self, rt_string * text)
 }
 
 static void xn_Cls_CGen_collectGenericTypes(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
+  if ((((xn_str_eq(n->kind, rt_string_from_c("Func")) || xn_str_eq(n->kind, rt_string_from_c("Class"))) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) && xn_hasTypeParams(n))) {
+    return;
+  }
   if (((((((((xn_str_eq(n->kind, rt_string_from_c("Local")) || xn_str_eq(n->kind, rt_string_from_c("Param"))) || xn_str_eq(n->kind, rt_string_from_c("Ret"))) || xn_str_eq(n->kind, rt_string_from_c("Field"))) || xn_str_eq(n->kind, rt_string_from_c("New"))) || xn_str_eq(n->kind, rt_string_from_c("Cast"))) || xn_str_eq(n->kind, rt_string_from_c("TypeArgs"))) || xn_str_eq(n->kind, rt_string_from_c("Base"))) || xn_str_eq(n->kind, rt_string_from_c("Implements")))) {
     xn_Cls_CGen_scanGenericTypeText(self, n->text);
   }
@@ -7666,8 +7762,7 @@ static rt_string * xn_Cls_CGen_mapMethodExpr(xn_Cls_CGen *self, rt_string * bv, 
     if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
       return xn_concat(xn_concat(rt_string_from_c("xn_map_i_i_entries("), bv), rt_string_from_c(")"));
     }
-    xn_Cls_CGen_fail(self, xn_concat(xn_concat(rt_string_from_c("Map.entries for "), bt), rt_string_from_c(" is T0-X")));
-    return rt_string_from_c("0");
+    return xn_concat(xn_concat(xn_concat(xn_Cls_CGen_genericMapEntriesName(self, bt), rt_string_from_c("(")), bv), rt_string_from_c(")"));
   }
   if (xn_str_eq(mth, rt_string_from_c("clear"))) {
     return xn_concat(xn_concat(rt_string_from_c("("), bv), rt_string_from_c("->len = 0)"));
@@ -8427,10 +8522,13 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_mapValue(self, bt)), rt_string_from_c(">"));
         }
         if (xn_str_eq(mth, rt_string_from_c("entries"))) {
+          if (xn_str_eq(bt, rt_string_from_c("Map<String,Int>"))) {
+            return rt_string_from_c("List<Pair>");
+          }
           if (xn_str_eq(bt, rt_string_from_c("Map<Int,Int>"))) {
             return rt_string_from_c("List<IntPair>");
           }
-          return rt_string_from_c("List<Pair>");
+          return xn_concat(xn_concat(rt_string_from_c("List<"), xn_Cls_CGen_entryClassName(self, xn_Cls_CGen_mapKey(self, bt), xn_Cls_CGen_mapValue(self, bt))), rt_string_from_c(">"));
         }
       }
       if (xn_Cls_CGen_isProtocol(self, bt)) {
@@ -10243,6 +10341,7 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
     rt_string * vac = xn_Cls_CGen_arrayCName(self, xn_concat(xn_concat(rt_string_from_c("List<"), vty), rt_string_from_c(">")));
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static "), kac), rt_string_from_c(" *")), xn_Cls_CGen_genericMapKeysName(self, gty)), rt_string_from_c("(const xn_map_g *m);")));
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static "), vac), rt_string_from_c(" *")), xn_Cls_CGen_genericMapValuesName(self, gty)), rt_string_from_c("(const xn_map_g *m);")));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("static xn_arr_o *"), xn_Cls_CGen_genericMapEntriesName(self, gty)), rt_string_from_c("(const xn_map_g *m);")));
     gmi = xn_int_wrap((gmi + 1));
   }
   xn_Cls_CGen_emit(self, rt_string_from_c(""));
@@ -10606,6 +10705,8 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
     rt_string * vac = xn_Cls_CGen_arrayCName(self, xn_concat(xn_concat(rt_string_from_c("List<"), vty), rt_string_from_c(">")));
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static "), kac), rt_string_from_c(" *")), xn_Cls_CGen_genericMapKeysName(self, gty)), rt_string_from_c("(const xn_map_g *m) { ")), kac), rt_string_from_c(" *out = ")), kac), rt_string_from_c("_new(m->len); for (size_t i = 0; i < m->len; i++) { ")), kac), rt_string_from_c("_push(out, ")), xn_Cls_CGen_decodeOf(self, kty, rt_string_from_c("m->keys[i]"))), rt_string_from_c("); } return out; }")));
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static "), vac), rt_string_from_c(" *")), xn_Cls_CGen_genericMapValuesName(self, gty)), rt_string_from_c("(const xn_map_g *m) { ")), vac), rt_string_from_c(" *out = ")), vac), rt_string_from_c("_new(m->len); for (size_t i = 0; i < m->len; i++) { ")), vac), rt_string_from_c("_push(out, ")), xn_Cls_CGen_decodeOf(self, vty, rt_string_from_c("m->vals[i]"))), rt_string_from_c("); } return out; }")));
+    rt_string * entryCls = xn_Cls_CGen_entryClassName(self, kty, vty);
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_arr_o *"), xn_Cls_CGen_genericMapEntriesName(self, gty)), rt_string_from_c("(const xn_map_g *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_")), entryCls), rt_string_from_c("_new(")), xn_Cls_CGen_decodeOf(self, kty, rt_string_from_c("m->keys[i]"))), rt_string_from_c(", ")), xn_Cls_CGen_decodeOf(self, vty, rt_string_from_c("m->vals[i]"))), rt_string_from_c(")); } return out; }")));
     gmDef = xn_int_wrap((gmDef + 1));
   }
   int mainArgs = 0;

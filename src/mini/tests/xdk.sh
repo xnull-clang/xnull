@@ -84,19 +84,19 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_collections_algo.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\na\nb\nc\n3\nfalse\ny\n' > "$TMP.exp"
+printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\na\nb\nc\n3\nfalse\ny\n2\n3\n3\n1\n2\n3\n3\n1|2|3|4|5|6\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_containers.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '1\n2\n1\ntrue\ntrue\nfalse\n1\n1\n2\n' > "$TMP.exp"
+printf '1\n2\n1\ntrue\ntrue\nfalse\n1\n1\n2\ntrue\ntrue\ntwo\none\n2\nTWO\ntrue\n1\ntrue\n1\n3\n5\nthree\nthree\nthree\ntrue\n2\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_members.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\nfalse\nalpha\nnone\na\nalpha\ntrue\ntrue\n0\n9000000000\n9000000000\n2\ntrue\ntrue\ntrue\n2\n2\ntrue\n' > "$TMP.exp"
+printf '0\ntrue\n2\n0\nfalse\ntrue\n2\ntrue\n1\n1\nfalse\ntrue\n9\n2\na\n1\n0\n2\ntrue\ntrue\n9\ntrue\n4\n9\n3\nfalse\nfalse\n2\n1\n10\n2\n20\n10\ntrue\n1\n1\n1\n2\ntrue\ntrue\ntrue\n0\nfalse\nalpha\nnone\na\nalpha\ntrue\ntrue\n0\n9000000000\n9000000000\n2\ntrue\ntrue\ntrue\n2\n2\ntrue\n2\nfirst\n11\n22\n7\nseven\n7\n2\ntrue\ntrue\n1\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {

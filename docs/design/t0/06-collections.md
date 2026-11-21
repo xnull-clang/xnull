@@ -1,9 +1,9 @@
-# xdk.collections —— T0 核心包详细设计 v1.4
+# xdk.collections —— T0 核心包详细设计 v1.5
 
 > 本版把“迭代器协议”继续排除在 T0-K 外：S2 禁止泛型协议，S1 的 `for-in`
 > 由编译器按容器展开。mini 运行时保留 `Map<String,Int>`、`Map<Int,Int>`、
 > `Set<Int>`、`Set<String>` 四个快速路径，同时提供通用 `Map<K,V>`/`Set<T>`
-> 核心运行时。`Map.entries` 的任意 K/V 值对象仍登记为 T0-X。
+> 核心运行时。`Map.entries` 对任意受支持 K/V 返回 `Entry<K,V>` 值对象。
 > 设计只承诺现在能验收的能力，不用空实现冒充。
 
 | 项 | 值 |
@@ -15,7 +15,7 @@
 | 被依赖 | 业务包、text/codec/config/cli |
 | 对应源码 | `src/xdk/core/collections/*.x` |
 | 阶段 | T0-06（一个包一个验收门；批内条目不单独提交） |
-| 当前状态 | Partial：T0-K、通用 Map/Set 核心与成员面已实现；entries 组合/groupBy/OrderedMap/BTreeMap 为 T0-X |
+| 当前状态 | Verified：T0-K、通用 Map/Set 核心、任意 K/V entries、groupBy/groupByInt、OrderedMap/BTreeMap、joinWith 均已实现并通过门禁 |
 
 ---
 
@@ -27,16 +27,15 @@
 | CAP-2 映射 | 键唯一、查找/替换/删除/快照 | 四个实例 + 通用 `Map<K,V>` 核心 | K |
 | CAP-3 集合 | 元素唯一、成员判断 | 四个实例 + 通用 `Set<T>` 核心 | K |
 | CAP-4 排序/查找 | 比较器驱动的排序、二分查找 | `sortBy`、`binarySearchBy` | K |
-| CAP-5 聚合 | 查找、去重、分组、切块、窗口 | 算法族 | K（分组为 X） |
-| CAP-6 专用容器 | 堆、环形缓冲、插入序映射、有序映射 | `PriorityQueue`、`RingBuffer`、`OrderedMap`、`BTreeMap` | K（后两者为 X） |
+| CAP-5 聚合 | 查找、去重、分组、切块、窗口 | 算法族 | K |
+| CAP-6 专用容器 | 堆、环形缓冲、插入序映射、有序映射 | `PriorityQueue`、`RingBuffer`、`OrderedMap`、`BTreeMap` | K |
 | CAP-7 迭代 | `for-in` 遍历数组、List、Set | 编译器展开 | K |
 
 **非目标**：
 
 - 不提供通用 `Iterator<T>` / `Iterable<T>` 抽象，不提供 `map/filter/take/drop` 等惰性适配器；
 - 不做并发容器（属于 `xdk.sync`）；
-- 不做持久化容器、数据库索引、无锁结构；
-- 不做任意 K/V 的 `Map.entries` 值对象（仅 `Pair`/`IntPair`）；`groupBy` 与有序映射仍为 T0-X。
+- 不做持久化容器、数据库索引、无锁结构。
 
 ---
 
@@ -56,12 +55,13 @@
 **运行时边界（冻结）**：
 
 - `Map<String,Int>`、`Map<Int,Int>` 保留专用运行时；其他 K/V 组合走通用
-  `xn_map_g`，支持标量、`String`、`Double`、`Bytes`、class、协议和数据枚举。
-  不支持的键/值类型（`Int128`、`Result` 等）为 T0-X，编译器明确拒绝。
+  `xn_map_g`，支持标量、`String`、`Double`、`Bytes`、class、协议、data enum
+  以及 `List/Map/Set` 容器值（按引用身份）。不支持的键/值类型（`Int128`、
+  `Result` 等）由编译器明确拒绝。
 - `Set<Int>`、`Set<String>` 保留专用运行时；其他元素类型走通用 `xn_set_g`，
-  支持的类型同上。
-- `Map.entries` 仍只支持 `Map<String,Int>` → `List<Pair>` 与
-  `Map<Int,Int>` → `List<IntPair>`；其他组合为 T0-X。
+  支持的类型同上（不含容器元素）。
+- `Map.entries` 对 `Map<String,Int>` 返回 `List<Pair>`，对 `Map<Int,Int>` 返回
+  `List<IntPair>`，其余受支持 K/V 返回 `List<Entry<K,V>>`；快照语义一致。
 - `List<T>` 在 T0-K 覆盖 `Int`、`String`；其他元素类型由编译器和运行时能力决定，
   未验证前不得宣称。
 
@@ -71,8 +71,8 @@
 | --- | --- | --- | --- |
 | `PriorityQueue<T>` | 最小堆 | push/pop O(log n) | K |
 | `RingBuffer<T>` | 固定容量环形缓冲 | 两端 O(1) | K |
-| `OrderedMap<V>` | `Int` 键、插入序映射 | 查找 O(n)，插入 O(n) | X |
-| `BTreeMap<V>` | `Int` 键、键升序映射 | 查找 O(log n)，插入 O(n) | X |
+| `OrderedMap<V>` | `Int` 键、插入序映射 | 查找 O(n)，插入 O(n) | K |
+| `BTreeMap<V>` | `Int` 键、键升序映射 | 查找 O(log n)，插入 O(n) | K |
 
 **命名冻结**：T0 不使用 `HashMap`、`TreeMap`、`LinkedHashMap`、`Deque`、`BitSet`
 这些名字。它们要么需要泛型 Map/Set 运行时，要么没有场景；归入 T1/backlog，
@@ -131,15 +131,14 @@
 | `join` | `String join(List<String> items, String separator)` | 元素为 `String` | 用分隔符拼接 | 无 | O(n) |
 
 > `join` 是 `xdk.collections` 顶层函数，不是 `List` 成员；放在本节是因为它只对
-> `List<String>` 提供。泛型元素的 `joinWith` 属于 T0-X。
+> `List<String>` 提供。泛型元素用 `joinWith`。
 
 **失败策略（冻结）**：
 
 - 下标越界属于调用方 bug，`get/set/insert/remove` 直接 panic；
 - 输入来自外部或不可信数据时，必须使用 `tryGet/trySet/tryInsert/tryRemove`；
 - `insert` 允许 `index == length`，即追加到末尾；
-- `join` 只接受 `List<String>`；泛型元素的格式化用 T0-X 的 `joinWith`，
-  不在本阶段承诺。
+- `join` 只接受 `List<String>`；泛型元素的格式化用 `joinWith`。
 
 ### 4.3 示例
 
@@ -193,14 +192,15 @@ print(joined)                   // a,b
 
 - `put/remove` 返回 `Int?`。T0-K 的值类型是 `Int`，`null` 只表示“键不存在”，
   不存在“存了 null”的歧义。
-- 泛型 `Map<K,V>`（T0-X，当前阻塞）的契约同样冻结：`K` 必须是非空
-  `String`/`Int`/简单枚举，`V` 必须是非空类型；`put/remove` 返回 `V?`，
-  `null` 只表示“键不存在”。可空 `V` 不支持，避免双重含义。
+- 通用 `Map<K,V>` 的契约同样冻结：`K` 必须是受支持的不可变值，`V` 必须是
+  非空类型；`put/remove` 返回 `V?`，`null` 只表示“键不存在”。可空 `V`
+  不支持，避免双重含义。
 
 ### 5.3 键规则
 
 - T0-K 允许 `String` 与 `Int` 键。
-- `Map<Int,Int>` 使用数值键；其余键类型属于 T0-X 阻塞项。
+- 通用 `Map<K,V>` 还允许 `Long`/`Bool`/`Char`/简单枚举、`Double`、`Bytes`、
+  class、协议、data enum 作为键。
 - 键必须是不可变值；禁止用可变对象作键。
 
 ### 5.4 示例
@@ -244,12 +244,12 @@ print(missing.isErr())           // true
 | 整数槽 | `Int`、`Long`、`Bool`、`Char`、简单枚举 | 按整数值 |
 | 文本 | `String` | 按内容 |
 | 浮点 | `Double` | 按 64 位位模式 |
-| 引用 | `Bytes`、class、协议、data enum | 按引用身份 |
+| 引用 | `Bytes`、class、协议、data enum、`List`/`Map`/`Set` 值 | 按引用身份 |
 
 - `keys()`/`values()` 返回对应 `List<K>`/`List<V>` 快照。
-- `entries()` 仅支持上述 `Pair`/`IntPair` 两种；其他组合在语义阶段报
-  `Map.entries ... is T0-X`，不返回假对象。
-- `Int128`、`Result` 作为键/值仍是 T0-X。
+- `entries()` 对 `Map<String,Int>`/`Map<Int,Int>` 返回 `Pair`/`IntPair`，
+  其余受支持组合返回 `Entry<K,V>`（`key`/`value` 字段）。
+- `Int128`、`Result` 以及可空类型作为键/值仍被编译器拒绝。
 - 可空键不承诺；`Map` 是引用类型，`clear` 清空全部键值。
 
 ---
@@ -270,8 +270,9 @@ print(missing.isErr())           // true
   `Set.of("a","b")` 生成 `Set<String>`。
 - `Set<String>` 的 `has/add/remove` 接收 `String`，其余语义与 `Set<Int>` 相同。
 - 重复元素语义固定为“后者忽略”，`add` 返回 `false`。
-- 迭代顺序不承诺；需要顺序时先转 `List` 并排序（T0-X）。
-- 其他元素类型的泛型 `Set<T>` 属于 T0-X 阻塞项。
+- 迭代顺序不承诺；需要顺序时先转 `List` 并排序。
+- 其他元素类型走通用 `Set<T>`；容器元素不承诺（运行时按引用身份，但类型面
+  未列为 T0 验收项）。
 
 
 ### 6.2 通用 `Set<T>` 运行时
@@ -320,16 +321,19 @@ print(missing.isErr())           // true
 | `windows` | `List<List<T>> windows<T>(List<T> items, Int windowSize)` | 滑动窗口 | `windowSize <= 0` → 合同错误（panic） | O(n) |
 | `zip` | `List<Pair<A,B>> zip<A,B>(List<A> left, List<B> right)` | 取较短长度 | 无 | O(min) |
 | `flatten` | `List<T> flatten<T>(List<List<T>> nestedItems)` | 展平一层 | 无 | O(n) |
+| `joinWith` | `String joinWith<T>(List<T> items, String separator, String(T) format)` | 用 `format` 转文本后拼接；空列表为空串 | 无 | O(n) |
+| `groupByInt` | `Map<Int,List<T>> groupByInt<T>(List<T> items, Int(T) keyOf)` | 按 `Int` 键分组，保序 | 无 | O(n²) |
+| `groupBy` | `Map<K,List<T>> groupBy<T,K>(List<T> items, K(T) keyOf)` | 按任意受支持 `K` 分组，保序 | 无 | O(n²) |
 
 **冻结说明**：
 
 - `chunks/windows` 的非法尺寸是调用方 bug，直接 panic；需要可恢复错误时，
   由调用方先校验 `chunkSize/windowSize`。
-- `groupByInt`/`groupBy` 算法本身尚未实现；`groupBy` 依赖的
-  通用 `Map<K,List<T>>` 值类型仍为 T0-X。
-- `Pair`/`IntPair` 是值对象；引用字段按 S2 浅复制规则共享句柄。
+- `groupByInt`/`groupBy` 的组间与组内顺序均为首次出现顺序；分组用通用
+  `Map<K,List<T>>` 承载，查找为线性扫描，首版复杂度 O(n²)。
+- `Pair`/`IntPair`/`Entry` 是值对象；引用字段按 S2 浅复制规则共享句柄。
 
-### 7.3 `Pair` / `IntPair`（值对象）
+### 7.3 `Pair` / `IntPair` / `Entry`（值对象）
 
 ```text
 class Pair {
@@ -341,13 +345,19 @@ class IntPair {
     Int first
     Int second
 }
+
+class Entry<K, V> {
+    K key
+    V value
+}
 ```
 
 - `Pair` 是 `Map<String,Int>.entries()` 的元素；`IntPair` 是
   `Map<Int,Int>.entries()` 的元素。
+- `Entry<K,V>` 是其余受支持 `Map<K,V>.entries()` 的元素，`key`/`value`
+  字段类型分别为 `K`/`V`。
 - 值语义；复制时字段槽复制，引用字段浅复制。
 - 不持有资源，无 `close()`。
-- 通用 `Pair<A,B>` 属于 T0-X，不在当前运行时中伪装成已实现。
 
 ---
 
@@ -405,20 +415,20 @@ class RingBuffer<T> {
 - **满时行为冻结为“返回 false，不覆盖”**；不提供覆盖模式。
 - 容量在构造后不变。
 
-### 8.3 `OrderedMap<V>`（T0-X）
+### 8.3 `OrderedMap<V>`（T0-K）
 
 - `Int` 键、插入序映射；`length/has/get/getOr/put/remove/keys/values/clear`。
 - 查找 O(n)，插入 O(n)；不承诺哈希复杂度。
-- `put` 返回 `V?`，无旧值返回 `null`；T0-X 要求 `V` 是不可空类型，
-  不支持 `V?` 作为值类型，避免 `null` 同时表示“无旧值”和“存了 null”。
-- 与现有 `xdk.collections.OrderedMap` 源码同名同语义。
+- `put(Int key, V value)` 返回 `V?`：替换返回旧值，插入返回 `null`。
+- `keys()` 按插入序返回 `List<Int>`，`values()` 返回对应的 `List<V>`。
+- `V` 是不可空类型，不支持 `V?` 作为值类型，避免 `null` 同时表示“无旧值”
+  和“存了 null”。
 
-### 8.4 `BTreeMap<V>`（T0-X）
+### 8.4 `BTreeMap<V>`（T0-K）
 
 - `Int` 键、键升序映射；`length/has/get/getOr/put/remove/keys/values/clear`。
 - 查找 O(log n)，插入/删除 O(n)（首版为有序数组）；不宣称真正的 B 树复杂度。
-- `put` 返回 `V?`，规则同 `OrderedMap`。
-- 与现有 `xdk.collections.BTreeMap` 源码同名同语义。
+- `put` 返回 `V?`，规则同 `OrderedMap`；`keys()`/`values()` 按键升序返回快照。
 
 ### 8.5 不在 T0 的容器
 
@@ -500,20 +510,18 @@ print(firstChunk.length())           // 2
 - 场景、回归、mini base/full 通过；
 - 文档、场景、回归、实现同批交付；批内条目不单独提交、不宣称包完成。
 
-当前已实现并通过 mini base/full 的 T0-K 面：
+本包现已 `Verified`，并通过 mini base/full：
 
-- `sortBy`（原地、稳定插入排序）、`sortedBy`（副本）、`dedup`、`find`、`join`；
-- `PriorityQueue<T>`、`RingBuffer<T>`；场景 `xdk_containers.x`；
-- `List.clear/tryGet/trySet/tryInsert/tryRemove`、`Map.clear/put/remove/removeOr/tryGet/keys/values/entries`、`Set.remove/clear`；场景 `xdk_members.x`。
-- 通用 `Map<K,V>`/`Set<T>` 核心：标量、`String`、`Double`、`Bytes`、class、协议、data enum；场景 `xdk_members.x`。
+- `sortBy`（原地、稳定插入排序）、`sortedBy`（副本）、`dedup`、`find`、`join`、
+  `joinWith`；
+- `groupByInt`/`groupBy`，通用 `Map<K,List<T>>` 值类型；
+- `PriorityQueue<T>`、`RingBuffer<T>`、`OrderedMap<V>`、`BTreeMap<V>`；
+  场景 `xdk_containers.x`；
+- `List.clear/tryGet/trySet/tryInsert/tryRemove`、`Map.clear/put/remove/removeOr/tryGet/keys/values/entries`、`Set.remove/clear`；场景 `xdk_members.x`；
+- 通用 `Map<K,V>`/`Set<T>` 核心：标量、`String`、`Double`、`Bytes`、class、协议、data enum，容器值；
+- 任意受支持 K/V 的 `entries`：`Pair`/`IntPair`/`Entry<K,V>`。
 
-仍为 `partial` 的 T0-X 项：
-
-- 通用 `Map` 的 `entries` 仅覆盖 `Pair`/`IntPair`；其他 K/V 值对象未提供；
-- `groupBy`/`groupByInt`；
-- `OrderedMap`/`BTreeMap` 契约已设计，但未纳入 T0-K 验收。
-
-这些 T0-X 项不阻止 T0-K 场景通过，但整包不得标 `complete`。
+批末门禁：`src/mini/build.sh`、`src/mini/tests/xdk.sh`、`src/mini/tests/xdk_core.sh` 全绿。
 
 ---
 
@@ -567,4 +575,4 @@ class Iterator<T> {
 - 不再把 `HashMap/TreeMap/Deque/BitSet` 写成 T0 承诺；
 - 满足 v1.2 的“无待定、无同名换义、无不可表达类型”要求。
 
-下一阶段：`07-math.md`（数学函数、溢出、统计、Int128）。
+下一阶段：按 `CORE-CLOSURE.md` 的固定顺序进入 `05-text.md`。

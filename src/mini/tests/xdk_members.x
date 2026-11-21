@@ -1,5 +1,13 @@
 import xdk.collections
 
+class RefItem {
+    Int id
+
+    RefItem(Int id) {
+        self.id = id
+    }
+}
+
 static Int main() {
     List<Int> items = [1, 2, 3]
     items.clear()
@@ -89,5 +97,29 @@ static Int main() {
     Set<Double> doubles = Set.of(1.5, 2.5, 1.5)
     print(doubles.length())
     print(doubles.has(2.5))
+
+    Map<String, Long> generic = [:]
+    generic.put("first", 11)
+    generic.put("second", 22)
+    List<Entry<String, Long>> genericEntries = generic.entries()
+    print(genericEntries.length())
+    print(genericEntries.get(0).key)
+    print(genericEntries.get(0).value)
+    print(genericEntries.get(1).value)
+
+    Map<Int, String> byId = [:]
+    byId.put(7, "seven")
+    List<Entry<Int, String>> idEntries = byId.entries()
+    print(idEntries.get(0).key)
+    print(idEntries.get(0).value)
+    print(byId.entries().get(0).key)
+
+    RefItem firstItem = new RefItem(1)
+    RefItem secondItem = new RefItem(2)
+    Set<RefItem> refs = Set.of(firstItem, secondItem, firstItem)
+    print(refs.length())
+    print(refs.has(secondItem))
+    print(refs.remove(firstItem))
+    print(refs.length())
     return 0
 }

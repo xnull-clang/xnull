@@ -24,7 +24,7 @@ and recorded gaps.
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
 | `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result> mini | RwLock/semaphore/select |
-| `xdk.collections` | List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms (`sortBy`/`sortedBy`), PriorityQueue/RingBuffer mini | entries pairs, groupBy, OrderedMap/BTreeMap |
+| `xdk.collections` | `Verified`：List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms (`sortBy`/`sortedBy`/`groupBy`/`joinWith`), generic entries (`Entry<K,V>`), PriorityQueue/RingBuffer/OrderedMap/BTreeMap mini | T1 containers |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |
@@ -52,7 +52,7 @@ engine.
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
    are implemented; complex receiver/return inference remains incremental.
-3. Generic Map/Set core is implemented; `Map.entries` values beyond `Pair`/`IntPair`, `groupBy`, and ordered maps remain.
+3. Generic Map/Set core is implemented, including `List`/`Map`/`Set` map values and `Entry<K,V>` entries. Collections T0-X is closed; next is text.
 4. Project build and formatter are future mini work.
 5. Protocol dispatch fallback emits type-correct zero values for `Result` and
    closure returns; new protocol return types must keep this path covered.

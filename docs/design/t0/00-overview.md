@@ -205,7 +205,7 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | meta | language/xdk/target 版本 | BuildInfo、目标能力矩阵、构建元数据 |
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
-| collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map.entries 任意 K/V 值对象、groupBy、OrderedMap/BTreeMap（T0-X） |
+| collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、任意 K/V entries、groupBy/groupByInt、joinWith、PriorityQueue/RingBuffer/OrderedMap/BTreeMap | 容器 T1（HashMap/Deque/BitSet） |
 | math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界、Int/Long checked/saturating、组合数学 | random（T1） |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader（stdio 归 runtime/sys） |
