@@ -133,3 +133,13 @@ true
 bb
 0007:ok
 65533
+1
+[INFO] core: sink k=v
+true
+on
+override
+true
+usage: core [--flag]
+core command
+options:
+  --flag  flag

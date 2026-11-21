@@ -78,9 +78,9 @@ stricter CORE-CLOSURE state (T0-K + T0-X), so a package can be `Gate PASS` and
 | xdk.io | PASS | yes | v1.0 | mini | PASS | yes | xdk_io.x | 待签 | 2026-11-21 |
 | xdk.fs | PASS | yes | v1.1 | mini | PASS | yes | xdk_fs.x | 待签 | 2026-11-21 |
 | xdk.sys | PASS | yes | v1.1 | mini | PASS | yes | xdk_sys.x, xdk_sys_full.x | 待签 | 2026-11-21 |
-| xdk.log | PASS | yes | v1.0 | mini | PASS | no | xdk_log.x (T0-X: Sink/Field) | 待签 | 2026-11-21 |
-| xdk.config | PASS | yes | v1.0 | mini | PASS | no | xdk_config.x (T0-X: ConfigSource) | 待签 | 2026-11-21 |
-| xdk.cli | PASS | yes | v1.0 | mini | PASS | no | xdk_cli.x (T0-X: Command) | 待签 | 2026-11-21 |
+| xdk.log | PASS | yes | v1.0 | mini | PASS | yes | xdk_log.x (Field/Sink/Console/Memory) | 待签 | 2026-11-21 |
+| xdk.config | PASS | yes | v1.0 | mini | PASS | yes | xdk_config.x (ConfigSource/FileSource/overlay) | 待签 | 2026-11-21 |
+| xdk.cli | PASS | yes | v1.0 | mini | PASS | yes | xdk_cli.x (OptionSpec/Command/help) | 待签 | 2026-11-21 |
 | xdk.tasks | builtin | no | v1.0 | language/runtime | PASS | n/a | xdk_tasks.x, xdk_cancel.x | 待签 | 2026-11-21 |
 | xdk.sync | builtin | no | v1.1 | language/runtime | PASS | n/a | xdk_mutex.x, xdk_channel.x, xdk_sync_atomic.x | 待签 | 2026-11-21 |
 
@@ -149,13 +149,12 @@ live rather than a status line. `src/ffi/capabilities.tsv` is mirrored to
 `src/toolchain/check_layers.py` at HEAD: PASS.
 
 - G1 ownership: 0 violations; 14 packages, each capability has one owner.
-- G2 closure: 0 unsuppressed violations; 4 confirmed T0-X gaps are in the
-  allowlist (`xdk.log.Sink`, `xdk.log.Field`, `xdk.config.ConfigSource`,
-  `xdk.cli.Command`), each with `remove_batch=1.0.0`. Deleting one entry makes
-  G2 red; restoring it is green.
+- G2 closure: 0 raw violations; the four former gaps are implemented, so the
+  allowlist is empty (`0/0`). Deleting a gap previously made G2 red; the
+  current empty allowlist is the 1.0 state.
 - G3 mirrors: 0 violations; `rt.c` is covered by the runtime pair. A probe
   append to `src/runtime/rt.c` is reported, then restored.
-- `--release 1.0.0` rejects the non-empty allowlist as required.
+- `--release 1.0.0` PASS with an empty allowlist.
 
 ## 4. Gates
 

@@ -185,13 +185,13 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_log.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '[INFO] app: started\n[WARN] app: careful\n[ERROR] app: bad\n[DEBUG] dbg: visible\n' > "$TMP.exp"
+printf '[INFO] app: started\n[WARN] app: careful\n[ERROR] app: bad\n[DEBUG] dbg: visible\n[INFO] field: with field component=core\n1\n[WARN] mem: to memory k=v\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 XDK_W5_NAME=from-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_config.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'demo\n9090\nfalse\n2\nfrom-env\nfalse\ndev:app.name=demo,app.port=9090,XDK_W5_NAME=from-env\n' > "$TMP.exp"
+printf 'demo\n9090\nfalse\n2\nfrom-env\nfalse\ndev:app.name=demo,app.port=9090,XDK_W5_NAME=from-env\noverride\neu\ntrue\non\ntrue\nfile\n42\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini build "$HERE/xdk_cli.x" -o "$TMP.cli" >"$TMP.err" 2>&1 || {
@@ -200,7 +200,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$TMP.cli" --name Alpha pos1 -v > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n' > "$TMP.exp"
+printf '4\ntrue\nfalse\nAlpha\nfallback\n1\npos1\nusage: demo --name <name> [files]\n2\n1\ntrue\nrun\nusage: demo [--verbose]\ndemo tool\noptions:\n  --verbose  verbose output\ncommands:\n  run  run task\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_bytes.x" > "$TMP.mini" 2>"$TMP.err" || {

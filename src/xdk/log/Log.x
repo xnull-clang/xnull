@@ -38,13 +38,105 @@ static String levelName(Level level) {
     return "ERROR"
 }
 
+class Field {
+    final String key
+    final String value
+
+    Field(String key, String value) {
+        self.key = key
+        self.value = value
+    }
+}
+
+class LogRecord {
+    final Level level
+    final String loggerName
+    final String message
+    final List<Field> fields
+
+    LogRecord(Level level, String loggerName, String message, List<Field> fields) {
+        self.level = level
+        self.loggerName = loggerName
+        self.message = message
+        self.fields = fields
+    }
+}
+
+protocol Sink {
+    Void write(LogRecord record);
+}
+
+String recordText(LogRecord record) {
+    String text = "[" + levelName(record.level) + "] " + record.loggerName + ": " + record.message
+    Int index = 0
+    while index < record.fields.length() {
+        Field field = record.fields.get(index)
+        text = text + " " + field.key + "=" + field.value
+        index = index + 1
+    }
+    return text
+}
+
+class ConsoleSink implements Sink {
+    ConsoleSink() {
+    }
+
+    Void write(LogRecord record) {
+        print(recordText(record))
+    }
+}
+
+class MemorySink implements Sink {
+    List<String> entries
+
+    MemorySink() {
+        self.entries = []
+    }
+
+    Void write(LogRecord record) {
+        self.entries.push(recordText(record))
+    }
+
+    List<String> lines() {
+        return self.entries
+    }
+
+    Void clear() {
+        self.entries = []
+    }
+}
+
 class Logger {
     String name
     Level min
+    Sink sink
+    List<Field> fields
 
     Logger(String name, Level min) {
         self.name = name
         self.min = min
+        self.sink = new ConsoleSink()
+        self.fields = []
+    }
+
+    Logger withSink(Sink sink) {
+        Logger next = new Logger(self.name, self.min)
+        next.sink = sink
+        next.fields = self.fields
+        return next
+    }
+
+    Logger withField(String key, String value) {
+        Logger next = self.withSink(self.sink)
+        List<Field> copy = []
+        Int index = 0
+        while index < self.fields.length() {
+            copy.push(self.fields.get(index))
+            index = index + 1
+        }
+        copy.push(new Field(key, value))
+        next.fields = copy
+        return next
     }
 
     Bool enabled(Level level) {
@@ -53,7 +145,8 @@ class Logger {
 
     Void log(Level level, String message) {
         if self.enabled(level) {
-            print("[" + levelName(level) + "] " + self.name + ": " + message)
+            LogRecord record = new LogRecord(level, self.name, message, self.fields)
+            self.sink.write(record)
         }
     }
 

@@ -10,6 +10,7 @@ import xdk.io
 import xdk.bytes
 import xdk.fs
 import xdk.sys
+import xdk.cli
 
 static Int main() {
     // text: trim, search, parse
@@ -247,5 +248,38 @@ static Int main() {
     print(printf("%04d:%s", coreFormatArgs).value())
     Result<Utf16, Error> repairedCore = utf8ToUtf16(fromHex("ff"))
     print(repairedCore.value().get(0) as Int)
+
+    // log T0-X: structured fields and a pluggable sink.
+    MemorySink coreSink = new MemorySink()
+    Logger coreBase = new Logger("core", Level.Info)
+    Logger coreSinkLogger = coreBase.withSink(coreSink)
+    Logger coreFieldLogger = coreSinkLogger.withField("k", "v")
+    coreFieldLogger.info("sink")
+    List<String> coreLines = coreSink.lines()
+    print(coreLines.length())
+    print(coreLines.get(0))
+
+    // config T0-X: source apply and overlay.
+    List<ConfigEntry> coreEntries = []
+    coreEntries.push(new ConfigEntry("feature", "on"))
+    MapSource coreSource = new MapSource(coreEntries)
+    Config coreConfig = new Config("core")
+    Result<Unit, Error> coreApplied = coreConfig.apply(coreSource)
+    print(coreApplied.isOk())
+    print(coreConfig.getOr("feature", "off"))
+    Config coreOverlay = new Config("override")
+    coreOverlay.set("feature", "override")
+    Config coreMerged = coreConfig.overlay(coreOverlay)
+    print(coreMerged.getOr("feature", "off"))
+
+    // cli T0-X: option spec, command parse, and help.
+    List<OptionSpec> coreOptions = []
+    coreOptions.push(new OptionSpec("--flag", false, "flag", false))
+    Command coreCommand = new Command("core", "core command", coreOptions)
+    List<String> coreArgv = ["--flag"]
+    Args coreArgs = new Args(coreArgv)
+    Result<CommandMatch, Error> coreMatch = coreCommand.parse(coreArgs)
+    print(coreMatch.isOk())
+    print(coreCommand.help())
     return 0
 }

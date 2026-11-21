@@ -10,6 +10,6 @@ xdk.time	clock-duration-datetime	xdk.time	nowMonoRaw;nowWallRaw;nowMicrosRaw;sle
 xdk.io	streams-and-buffers	xdk.io	-	Readable;Writable;Reader;Writer;BufferedReader;BufferedWriter;ChainReader;TeeReader;LimitReader;LineReader;readAll;copyTo	src/runtime/test_std.c	src/mini/tests/xdk_io.x	mini-only	verified
 xdk.fs	files-directories-and-paths	xdk.fs	fsErrorRaw;pathKindRaw;readFileHexRaw;writeFileHexRaw	Path;File;FileMode;Dir;EntryKind;Metadata;TempFile;TempDir;exists;readText;writeText;walk;glob	src/runtime/test_res.c	src/mini/tests/xdk_fs.x	mini-only	verified
 xdk.sys	process-env-platform-signals	xdk.sys	fileExistsRaw;readFileTextRaw;writeFileTextRaw;envRaw;envHasRaw;envNamesRaw;procSpawnRaw	Process;ProcessResult;Signal;readFileText;writeFileText;env;envNames;platform;hostname;pid;cwd	src/runtime/test_sysasync.c	src/mini/tests/xdk_sys.x	mini-only	verified
-xdk.log	structured-logging	xdk.log	-	Level;Logger;Sink;Field	src/runtime/test_rt.c	src/mini/tests/xdk_log.x	mini-only	partial
-xdk.config	configuration-snapshots	xdk.config	envRaw;envHasRaw	Config;ConfigSource	src/runtime/test_std.c	src/mini/tests/xdk_config.x	mini-only	partial
-xdk.cli	command-line-parsing	xdk.cli	-	Args;usage;exitCodeFor;Command	src/runtime/test_rt.c	src/mini/tests/xdk_cli.x	mini-only	partial
+xdk.log	structured-logging	xdk.log	-	Level;Logger;Sink;Field;LogRecord;ConsoleSink;MemorySink	src/runtime/test_rt.c	src/mini/tests/xdk_log.x	mini-only	verified
+xdk.config	configuration-snapshots	xdk.config	envRaw;envHasRaw	Config;ConfigEntry;ConfigSource;MapSource;FileSource	src/runtime/test_std.c	src/mini/tests/xdk_config.x	mini-only	verified
+xdk.cli	command-line-parsing	xdk.cli	-	Args;OptionSpec;Command;CommandMatch;usage;exitCodeFor	src/runtime/test_rt.c	src/mini/tests/xdk_cli.x	mini-only	verified

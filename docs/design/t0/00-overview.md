@@ -211,9 +211,9 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader（stdio 归 runtime/sys） |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
 | sys | Process、env、platform、cwd | stdio 管道、信号、环境枚举、进程组、内嵌资源读取子集 |
-| log | Level、Logger、ConsoleSink | Field/Sink 分层、File/Memory sink、过滤、redaction |
-| config | Config 快照、getOr/set、env allowlist | typed getter、overlay、Source、FileSource、校验 |
-| cli | Args、usage、exitCode | OptionSpec、Command、子命令、help、补全 |
+| log | Level、Logger、Field、Sink、Console/Memory | File sink、过滤、redaction（T1） |
+| config | Config、ConfigSource、MapSource/FileSource、overlay/校验 | typed getter、schema 校验（T1） |
+| cli | Args、OptionSpec、Command、子命令、help、exitCode | 补全、短选项合并（T1） |
 
 实现顺序仍按依赖：errors → runtime → meta → bytes → text → collections →
 math → time → io → fs → sys → log → config → cli。
@@ -348,9 +348,9 @@ math → time → io → fs → sys → log → config → cli。
 | `11-sys.md` | Process、Env、Platform、Signal | Verified（Result 面、File/Dir/Process、管道/信号/进程组/环境枚举/资源读取子集） |
 | `12-tasks.md` | Task、TaskGroup、Context、取消 | 内建面参考；非 1.0 包，deprecated |
 | `13-sync.md` | Mutex、Channel、Atomics、同步器 | 内建面参考；非 1.0 包，deprecated |
-| `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |
-| `15-config.md` | Config、Source、Profile、校验 | Verified（内存/环境面） |
-| `16-cli.md` | Args、OptionSpec、Command、usage | Verified（最小面） |
+| `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（Field/Sink/Console/Memory） |
+| `15-config.md` | Config、Source、Profile、校验 | Verified（FileSource/overlay/校验） |
+| `16-cli.md` | Args、OptionSpec、Command、usage | Verified（Command/子命令/help） |
 
 `01-errors.md`、`04-bytes.md`、`06-collections.md` 是后续包的样板：
 达不到它们的契约密度，就不算完成；但不要复制它们已删除的旧写法
