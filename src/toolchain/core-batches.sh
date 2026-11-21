@@ -65,7 +65,12 @@ gates() {
 }
 
 verified() {
-    grep -q '^| 当前状态 | Verified' "docs/design/t0/$1.md"
+    doc=$1
+    case "$doc" in
+        *.md) ;;
+        *) doc="$doc.md" ;;
+    esac
+    grep -q '^| 当前状态 | Verified' "docs/design/t0/$doc"
 }
 
 finish() {
@@ -89,6 +94,16 @@ batch() {
     attempt=1
     session="ses-core-$name-$STAMP"
 
+    if [ "$name" = "core-integration" ]; then
+        if [ -z "$(git status --porcelain)" ] && src/mini/tests/xdk_core.sh >>"$LOG" 2>&1; then
+            log "=== $name already done; skip ==="
+            return 0
+        fi
+    elif verified "$doc" && [ -z "$(git status --porcelain)" ] && src/mini/tests/xdk_core.sh >>"$LOG" 2>&1; then
+        log "=== $name already Verified; skip ==="
+        return 0
+    fi
+
     while [ "$attempt" -le "$ATTEMPTS" ]; do
         log "=== $name attempt $attempt/$ATTEMPTS ==="
         run_agent "$session" "$prompt"
@@ -101,7 +116,7 @@ batch() {
         else
             log "=== $name RED ==="
         fi
-        prompt="上一轮没有收口。继续本批：$name（$doc）。完成条件：门禁全绿、该包状态 Verified、工作区干净。不要汇报，不要列待办/冻结/跳过；发现缺口就地补。"
+        prompt="上一轮没有收口。继续本批：${name}（${doc}）。完成条件：门禁全绿、该包状态 Verified、工作区干净。不要汇报，不要列待办/冻结/跳过；发现缺口就地补。"
         attempt=$((attempt + 1))
     done
 
