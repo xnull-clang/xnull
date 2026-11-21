@@ -387,6 +387,288 @@ Result<Int128, Error> absI128Checked(Int128 value) {
     return Ok(value)
 }
 
+
+// ---------- Int / Long checked 与 saturating ----------
+
+Int maxIntValue() {
+    return 2147483647
+}
+
+Int minIntValue() {
+    return -maxIntValue() - 1
+}
+
+Long maxLongValue() {
+    return 9223372036854775807
+}
+
+Long minLongValue() {
+    return -maxLongValue() - 1
+}
+
+Result<Int, Error> addIntChecked(Int left, Int right) {
+    Long sum = (left as Long) + (right as Long)
+    Long upper = maxIntValue() as Long
+    Long lower = minIntValue() as Long
+    if sum > upper {
+        return Err(int128Error("addIntChecked: overflow"))
+    }
+    if lower > sum {
+        return Err(int128Error("addIntChecked: underflow"))
+    }
+    return Ok(sum as Int)
+}
+
+Result<Int, Error> subIntChecked(Int left, Int right) {
+    Long diff = (left as Long) - (right as Long)
+    Long upper = maxIntValue() as Long
+    Long lower = minIntValue() as Long
+    if diff > upper {
+        return Err(int128Error("subIntChecked: overflow"))
+    }
+    if lower > diff {
+        return Err(int128Error("subIntChecked: underflow"))
+    }
+    return Ok(diff as Int)
+}
+
+Result<Int, Error> mulIntChecked(Int left, Int right) {
+    Long product = (left as Long) * (right as Long)
+    Long upper = maxIntValue() as Long
+    Long lower = minIntValue() as Long
+    if product > upper {
+        return Err(int128Error("mulIntChecked: overflow"))
+    }
+    if lower > product {
+        return Err(int128Error("mulIntChecked: underflow"))
+    }
+    return Ok(product as Int)
+}
+
+Result<Int, Error> divIntChecked(Int left, Int right) {
+    if right == 0 {
+        return Err(int128Error("divIntChecked: division by zero"))
+    }
+    if left == minIntValue() && right == -1 {
+        return Err(int128Error("divIntChecked: overflow"))
+    }
+    return Ok(left / right)
+}
+
+Result<Int, Error> modIntChecked(Int left, Int right) {
+    if right == 0 {
+        return Err(int128Error("modIntChecked: modulo by zero"))
+    }
+    if left == minIntValue() && right == -1 {
+        return Ok(0)
+    }
+    return Ok(left % right)
+}
+
+Result<Int, Error> negIntChecked(Int value) {
+    if value == minIntValue() {
+        return Err(int128Error("negIntChecked: overflow"))
+    }
+    return Ok(-value)
+}
+
+Result<Int, Error> absIntChecked(Int value) {
+    if value == minIntValue() {
+        return Err(int128Error("absIntChecked: overflow"))
+    }
+    if value < 0 {
+        return Ok(-value)
+    }
+    return Ok(value)
+}
+
+Result<Long, Error> addLongChecked(Long left, Long right) {
+    Int128 wide = (left as Int128) + (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return Err(int128Error("addLongChecked: overflow"))
+    }
+    if lower > wide {
+        return Err(int128Error("addLongChecked: underflow"))
+    }
+    return Ok(wide as Long)
+}
+
+Result<Long, Error> subLongChecked(Long left, Long right) {
+    Int128 wide = (left as Int128) - (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return Err(int128Error("subLongChecked: overflow"))
+    }
+    if lower > wide {
+        return Err(int128Error("subLongChecked: underflow"))
+    }
+    return Ok(wide as Long)
+}
+
+Result<Long, Error> mulLongChecked(Long left, Long right) {
+    Int128 wide = (left as Int128) * (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return Err(int128Error("mulLongChecked: overflow"))
+    }
+    if lower > wide {
+        return Err(int128Error("mulLongChecked: underflow"))
+    }
+    return Ok(wide as Long)
+}
+
+Result<Long, Error> divLongChecked(Long left, Long right) {
+    if right == 0 {
+        return Err(int128Error("divLongChecked: division by zero"))
+    }
+    if left == minLongValue() && right == -1 {
+        return Err(int128Error("divLongChecked: overflow"))
+    }
+    return Ok(left / right)
+}
+
+Result<Long, Error> modLongChecked(Long left, Long right) {
+    if right == 0 {
+        return Err(int128Error("modLongChecked: modulo by zero"))
+    }
+    if left == minLongValue() && right == -1 {
+        return Ok(0)
+    }
+    return Ok(left % right)
+}
+
+Result<Long, Error> negLongChecked(Long value) {
+    if value == minLongValue() {
+        return Err(int128Error("negLongChecked: overflow"))
+    }
+    return Ok(-value)
+}
+
+Result<Long, Error> absLongChecked(Long value) {
+    if value == minLongValue() {
+        return Err(int128Error("absLongChecked: overflow"))
+    }
+    if value < 0 {
+        return Ok(-value)
+    }
+    return Ok(value)
+}
+
+Int addIntSaturating(Int left, Int right) {
+    Result<Int, Error> checked = addIntChecked(left, right)
+    if checked.isErr() {
+        if right > 0 {
+            return maxIntValue()
+        }
+        return minIntValue()
+    }
+    return checked.value()
+}
+
+Int subIntSaturating(Int left, Int right) {
+    Result<Int, Error> checked = subIntChecked(left, right)
+    if checked.isErr() {
+        if right > 0 {
+            return minIntValue()
+        }
+        return maxIntValue()
+    }
+    return checked.value()
+}
+
+Int mulIntSaturating(Int left, Int right) {
+    Result<Int, Error> checked = mulIntChecked(left, right)
+    if checked.isErr() {
+        if (left > 0 && right > 0) || (left < 0 && right < 0) {
+            return maxIntValue()
+        }
+        return minIntValue()
+    }
+    return checked.value()
+}
+
+Long addLongSaturating(Long left, Long right) {
+    Int128 wide = (left as Int128) + (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return maxLongValue()
+    }
+    if lower > wide {
+        return minLongValue()
+    }
+    return wide as Long
+}
+
+Long subLongSaturating(Long left, Long right) {
+    Int128 wide = (left as Int128) - (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return maxLongValue()
+    }
+    if lower > wide {
+        return minLongValue()
+    }
+    return wide as Long
+}
+
+Long mulLongSaturating(Long left, Long right) {
+    Int128 wide = (left as Int128) * (right as Int128)
+    Int128 upper = maxLongValue() as Int128
+    Int128 lower = minLongValue() as Int128
+    if wide > upper {
+        return maxLongValue()
+    }
+    if lower > wide {
+        return minLongValue()
+    }
+    return wide as Long
+}
+
+Result<Long, Error> permutations(Int totalCount, Int selectedCount) {
+    if totalCount < 0 || selectedCount < 0 || selectedCount > totalCount {
+        return Err(int128Error("permutations: invalid arguments"))
+    }
+    Long result = 1
+    Int i = 0
+    while i < selectedCount {
+        Result<Long, Error> step = mulLongChecked(result, (totalCount - i) as Long)
+        if step.isErr() {
+            return Err(step.error())
+        }
+        result = step.value()
+        i = i + 1
+    }
+    return Ok(result)
+}
+
+Result<Long, Error> combinations(Int totalCount, Int selectedCount) {
+    if totalCount < 0 || selectedCount < 0 || selectedCount > totalCount {
+        return Err(int128Error("combinations: invalid arguments"))
+    }
+    Long result = 1
+    Int i = 1
+    while i <= selectedCount {
+        Result<Long, Error> mul = mulLongChecked(result, (totalCount - selectedCount + i) as Long)
+        if mul.isErr() {
+            return Err(mul.error())
+        }
+        Result<Long, Error> div = divLongChecked(mul.value(), i as Long)
+        if div.isErr() {
+            return Err(div.error())
+        }
+        result = div.value()
+        i = i + 1
+    }
+    return Ok(result)
+}
+
+
 // ---------- 统计（List<Double>） ----------
 
 Double sum(List<Double> xs) {

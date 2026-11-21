@@ -1,4 +1,4 @@
-# xdk.math —— T0 数学 v1.1
+# xdk.math —— T0 数学 v1.2
 
 | 项 | 值 |
 | --- | --- |
@@ -8,7 +8,7 @@
 | 依赖 | `xdk.errors` |
 | 被依赖 | time、stats（T1）、metrics（T1） |
 | 对应源码 | `src/xdk/core/math/Math.x` |
-| 当前状态 | Partial（T0-K 通过；Int128 与统计边界已落地；其他整数 checked 为 T0-X） |
+| 当前状态 | Verified（mini；random 归 T1） |
 
 ## 1. 能力
 
@@ -22,6 +22,7 @@
 | CAP-6 整数数论 | gcd/lcm/isPrime/factorial | 顶层函数 |
 | CAP-7 统计 | sum/mean/median/variance/stddev/quantile | 顶层函数 |
 | CAP-8 Int128 | checked 128 位算术 | `Int128` 标量 + 顶层 checked 函数 |
+| CAP-9 整数检查/饱和/组合 | Int/Long checked、saturating、排列组合 | 顶层函数 |
 
 **非目标**：随机数（T1 `xdk.random`）、任意精度、矩阵/张量、统计推断。
 
@@ -52,6 +53,33 @@ Result<Int128, Error> divI128Checked(Int128 left, Int128 right)
 Result<Int128, Error> modI128Checked(Int128 left, Int128 right)
 Result<Int128, Error> negI128Checked(Int128 value)
 Result<Int128, Error> absI128Checked(Int128 value)
+
+Int maxIntValue()
+Int minIntValue()
+Long maxLongValue()
+Long minLongValue()
+Result<Int, Error> addIntChecked(Int left, Int right)
+Result<Int, Error> subIntChecked(Int left, Int right)
+Result<Int, Error> mulIntChecked(Int left, Int right)
+Result<Int, Error> divIntChecked(Int left, Int right)
+Result<Int, Error> modIntChecked(Int left, Int right)
+Result<Int, Error> negIntChecked(Int value)
+Result<Int, Error> absIntChecked(Int value)
+Result<Long, Error> addLongChecked(Long left, Long right)
+Result<Long, Error> subLongChecked(Long left, Long right)
+Result<Long, Error> mulLongChecked(Long left, Long right)
+Result<Long, Error> divLongChecked(Long left, Long right)
+Result<Long, Error> modLongChecked(Long left, Long right)
+Result<Long, Error> negLongChecked(Long value)
+Result<Long, Error> absLongChecked(Long value)
+Int addIntSaturating(Int left, Int right)
+Int subIntSaturating(Int left, Int right)
+Int mulIntSaturating(Int left, Int right)
+Long addLongSaturating(Long left, Long right)
+Long subLongSaturating(Long left, Long right)
+Long mulLongSaturating(Long left, Long right)
+Result<Long, Error> permutations(Int totalCount, Int selectedCount)
+Result<Long, Error> combinations(Int totalCount, Int selectedCount)
 ```
 
 - 浮点遵循 IEEE 754；域错误返回 NaN/Inf，不 panic。
@@ -69,6 +97,15 @@ Result<Int128, Error> absI128Checked(Int128 value)
   `divI128Checked(min, -1)`、`negI128Checked(min)`、`absI128Checked(min)` 返回错误。
 - `Int128` 的 `/`/`%` 与 C 一致：商向零截断，余数符号跟随被除数；
   这与 `mod(Double,Double)` 的除数同号规则不同，测试必须区分。
+- `Int` 为 32 位、`Long` 为 64 位。`*Checked` 在除零、溢出、下溢、
+  `min / -1`、`neg/abs(min)` 时返回 `InvalidArgument`；`mod(min, -1)` 返回
+  `Ok(0)`。不新增错误类型。
+- `*Saturating` 只提供 add/sub/mul；溢出时钳制到对应类型的 min/max，
+  不返回 `Result`。
+- `permutations(totalCount,selectedCount)`/`combinations(totalCount,selectedCount)` 要求
+  `totalCount >= 0`、`selectedCount >= 0`、`selectedCount <= totalCount`，
+  否则 `InvalidArgument`；中间结果按 `Long` 计算，超出 `Long` 返回 `Err`，
+  成功返回 `Result<Long, Error>`。
 
 ## 3. 测试义务
 
@@ -76,13 +113,12 @@ Result<Int128, Error> absI128Checked(Int128 value)
 - NaN/Inf/域错误；
 - 整数溢出/负数数论；
 - Int128 宽字面量、四则、比较、打印与 checked 边界；
+- Int/Long checked、saturating、排列/组合边界；
 - 空/单元素统计；
 - base/full 输出一致。
 
 场景：`xdk_math.x`。
 
-## 4. 后续（T0-X/T1）
+## 4. 后续（T1）
 
-- 其他整数的 checked/saturating 版本；
-- 组合数学（排列/组合）；
-- 随机数移至 T1 `xdk.random`。
+- 随机数移至 T1 `xdk.random`；T0 不提供随机数。

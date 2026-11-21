@@ -39,7 +39,7 @@ Still to watch:
 | bytes | v1.2 | mini | PASS | Int overflow edge |
 | text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
 | collections | v1.4 | partial | PASS (subset) | entries pairs/groupBy/OrderedMap |
-| math | v1.1 | partial | PASS | other integer checked/saturating (T0-X) |
+| math | v1.2 | mini | PASS | — |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | partial | PASS | strict/checked + copy semantics |
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |

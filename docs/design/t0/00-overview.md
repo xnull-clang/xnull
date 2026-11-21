@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 版本 | 1.2.0（替代 v1.1） |
-| 状态 | 决策冻结；01 v1.3、04 v1.2、06 v1.4、07 v1.1 已修订，其余包待写 |
+| 状态 | 决策冻结；01 v1.3、04 v1.2、06 v1.4、07 v1.2 已修订，其余包待写 |
 | 依据 | S0 v1.1.0、S1 v3.4.0、S2 v3.4.0（struct 引用字段修订）、S3 v3.2.0、S4 v1.2.0、S5 v1.3.0、S6 v3.0.0 |
 | 目标 | 把 T0 从“包/文件清单”推进到“类级能力契约” |
 | 组织 | 一个包一份设计、一个验收门；包内条目按批次收尾，批内不单独验收/提交 |
@@ -206,7 +206,7 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | bytes | Bytes 转换/切片/比较、ByteReader/Writer 严格读取、Endian、Bits | ByteBuffer 定位、NUL 边界工具 |
 | text | trim/split/replace、parseInt/Float、Format | StringBuilder、Unicode、转义、数字格式化、Regex（POSIX 子集） |
 | collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map.entries 任意 K/V 值对象、groupBy、OrderedMap/BTreeMap（T0-X） |
-| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界 | Int128 checked、其他整数 saturating、组合数学 |
+| math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界、Int/Long checked/saturating、组合数学 | random（T1） |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
 | io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
@@ -335,7 +335,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
 | `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
-| `07-math.md` | 数学函数、溢出、统计、Int128 | Partial（T0-K 通过；Int128 与统计边界已落地；其他整数 checked T0-X） |
+| `07-math.md` | 数学函数、溢出、统计、Int128 | Verified（mini；random T1） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
