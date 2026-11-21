@@ -290,6 +290,8 @@ lexer/parser
 | P7 应用服务 | `validate`、`cache`、`queue`、`schedule`、`event`、`resilience`、`metrics`、`trace`、`audit`、`terminal`、`i18n`、`test` | 依赖闭包绿 |
 | P8 solutions | `jsonrpc`、`mcp`、`numerics`、`db`、`api`、`agent`、`accel`、`embedded`、`ml` | 各组依赖闭合后逐组绿 |
 
+> 执行批次、CR-0 门禁、任务板与派工模板见 [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)。
+
 顺序理由：
 
 - 注解是编译器能力，必须先于所有“生成型”包；
