@@ -85,6 +85,61 @@ int64_t xdkc_now_wall_ms(void) {
     return (int64_t)time(NULL) * 1000;
 }
 
+/* ---- 运行时信息（RuntimeInfo 的只读原语） ---- */
+
+const char *xdkc_build_mode(void) {
+#if defined(__OPTIMIZE__)
+    return "release";
+#else
+    return "debug";
+#endif
+}
+
+/* ---- 分配/GC 统计（只读快照；写操作走 xrt_stats_*） ---- */
+
+int64_t xdkc_stats_allocs(void) {
+    xrt_stats stats;
+    xrt_stats_get(&stats);
+    return (int64_t)stats.allocs;
+}
+
+int64_t xdkc_stats_frees(void) {
+    xrt_stats stats;
+    xrt_stats_get(&stats);
+    return (int64_t)stats.frees;
+}
+
+int64_t xdkc_stats_bytes(void) {
+    xrt_stats stats;
+    xrt_stats_get(&stats);
+    return (int64_t)stats.bytes;
+}
+
+int64_t xdkc_stats_gc_collections(void) {
+    xrt_stats stats;
+    xrt_stats_get(&stats);
+    return (int64_t)stats.gc_collections;
+}
+
+int64_t xdkc_stats_gc_freed(void) {
+    xrt_stats stats;
+    xrt_stats_get(&stats);
+    return (int64_t)stats.gc_freed;
+}
+
+int32_t xdkc_stats_enabled(void) {
+    return xrt_stats_enabled() ? 1 : 0;
+}
+
+int32_t xdkc_stats_set_enabled(int32_t enabled) {
+    xrt_stats_set_enabled(enabled ? 1 : 0);
+    return 0;
+}
+
+void xdkc_stats_reset(void) {
+    xrt_stats_reset();
+}
+
 static env_entry *env_slot(const char *name, size_t len) {
     for (size_t i = 0; i < g_env_n; i++) {
         if (g_env[i].name_len == len && memcmp(g_env[i].name, name, len) == 0) {

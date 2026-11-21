@@ -251,6 +251,32 @@ class DateTime {
         return new DateTime(self.ms + d.ms)
     }
 
+    // 日历日加减：UTC 下一天恒为 86400000ms（不涉及 DST）。
+    DateTime addDays(Int days) {
+        return new DateTime(self.ms + (days as Long) * 86400000)
+    }
+
+    // 日历月加减：目标月天数不足时收敛到月末（1/31 +1M = 2/29 或 2/28）。
+    DateTime addMonths(Int months) {
+        Civil current = self.civil()
+        Int total = current.y * 12 + (current.m - 1) + months
+        Int year = civilFloorDiv(total, 12)
+        Int month = civilMod(total, 12) + 1
+        Int day = current.d
+        Int lastDay = civilDaysInMonth(year, month)
+        if day > lastDay {
+            day = lastDay
+        }
+        Int timeOfDay = civilMod(self.ms as Int, 86400000)
+        Long dayPart = (daysFromCivil(year, month, day) as Long) * 86400000
+        return new DateTime(dayPart + (timeOfDay as Long))
+    }
+
+    // 日历年加减：等价于 12 个月，闰日按目标年 2 月末收敛。
+    DateTime addYears(Int years) {
+        return self.addMonths(years * 12)
+    }
+
     Duration diff(DateTime other) {
         return new Duration(self.ms - other.ms)
     }

@@ -49,15 +49,15 @@ full C suite (`build_rt.sh`, no `--lib`) is also green.
 
 ## 1. Status after the follow-up batch
 
-| State | Ledger start | After R4 batch | After this follow-up | Change |
-| --- | ---: | ---: | ---: | --- |
-| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | +4 total: DetailedError, setChecked, complex receiver, escape/raw/unicode |
-| `Strict candidate` | 13 | 11 | 9 | -4 total; 9 remain |
-| `Optimized proposed` | 0 | 3 | 3 | +3: errors/tryWith*, meta/能力矩阵, time/日历加减 |
-| `Optimized candidate` | 11 | 8 | 8 | -3 total; 8 remain |
-| `Deferred candidate` | 3 | 3 | 3 | 0 promoted; 3 decision packets completed |
-| `Out-of-scope / deferred` | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
-| `Signed Strict/Optimized closed` | 0 | 0 | 0 | no signer in this batch |
+| State | Ledger start | After R4 batch | After follow-up | After this batch | Change |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 36 | +9 total: DetailedError, setChecked, complex receiver, escape/raw/unicode, RuntimeInfo, stats, Stopwatch, cancellable sleep, full layout parse |
+| `Strict candidate` | 13 | 11 | 9 | 4 | -9 total; A2/A5/A9/A10 remain |
+| `Optimized proposed` | 0 | 3 | 3 | 3 | +3: errors/tryWith*, meta/能力矩阵, time/日历加减 |
+| `Optimized candidate` | 11 | 8 | 8 | 8 | -3 total; 8 remain |
+| `Deferred candidate` | 3 | 3 | 3 | 3 | 0 promoted; 3 decision packets completed |
+| `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
+| `Signed Strict/Optimized closed` | 0 | 0 | 0 | 0 | no signer in this batch |
 
 `Strict evidenced` and `Optimized proposed` are **not closed**. Only a user or
 independent reviewer signature makes a row `Signed ... closed`.
@@ -119,10 +119,10 @@ $ find . -path ./.git -prune -o -iname '*registry*' -print
 - **What closes it:** a registry artifact plus a test that rejects an
   unregistered code and a duplicate code; `MINI-1.0` W6 is the delivery point.
 
-### A3. runtime / dumpTasks / stats (ledger #3)
+### A3. runtime / dumpTasks / stats (ledger #3) — PROMOTED
 
-- **Verdict:** stays `Strict candidate` (the `stats` half is unbacked).
-- **dumpTasks is real:**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **dumpTasks (retained):**
   - Source: `src/xdk/core/runtime/Runtime.x:29`.
   - Scenario: `src/mini/tests/ref/u2_task_dump.x`.
   - Command/output:
@@ -138,44 +138,75 @@ tasks: live=1 spawned=1 settled=0 carrier=1
 tasks: live=0 spawned=1 settled=1 carrier=1
 ```
 
-- **stats is not a public XDK surface:** `src/xdk/core/runtime/Runtime.x` has no
-  `stats` symbol. The internal runtime counter test exists at
-  `src/runtime/test_std.c:587` (`test_stats`) and is invoked at `:718`. The
-  full C suite is now green after the follow-up fix:
+- **stats is now a public XDK surface:**
+  - Source: `src/xdk/core/runtime/Runtime.x` (`class RuntimeStats`, `stats`,
+    `statsEnabled`, `statsSetEnabled`, `statsReset`); primitives
+    `statsAllocsRaw`…`statsResetRaw` in `src/ffi/runtime_raw.xfb`; C wrappers in
+    `src/runtime/rt_std_runtime.c` over the existing `xrt_stats_*` ABI.
+  - C test: `src/runtime/test_std.c` (`test_stats`) now checks that the XDK
+    wrappers match `xrt_stats_get`, reset zeroes the counters, and the enable
+    flag round-trips.
+  - Scenario: `src/mini/tests/r4/runtime_stats.x`.
+  - Command/output:
 
 ```text
-$ ./src/runtime/build_rt.sh
-...
-std 测试通过
-...
-empty resource table fallback ok
-exit 0
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
+
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/runtime_stats.x
+true
+11
+true
+true
+true
+true
+true
+true
+false
 ```
 
-  So the runtime counter itself has a green command. What is still missing is a
-  public `xdk.runtime` stats symbol/scenario; the ledger row therefore stays a
-  candidate rather than claiming a package-level stats surface.
-- **Gap:** a public `xdk.runtime` stats symbol and a scenario (or a split ledger
-  row that closes `dumpTasks` and leaves `stats` open).
-- **What closes it:** expose stats through the runtime surface and add a
-  scenario; the C-level test/command is already green.
+  The scenario resets and enables stats, allocates a string, snapshots
+  `RuntimeStats`, checks `allocs >= 1`, `bytes > 0`, `live()/frees/gc* >= 0`,
+  disables stats, and checks the flag is off.
+- **Gap:** none for the documented T0 stats surface. The snapshot is explicitly
+  approximate (`live() = allocs - frees`), not a precise heap census.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### A4. runtime / RuntimeInfo (ledger #4)
+### A4. runtime / RuntimeInfo (ledger #4) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence of absence:**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source:** `src/xdk/core/runtime/Runtime.x` (`class RuntimeInfo`,
+  `runtimeInfo`); read-only primitives `runtimePlatformRaw`, `runtimeArchRaw`,
+  `buildModeRaw` in `src/ffi/runtime_raw.xfb`; `xdkc_build_mode` in
+  `src/runtime/rt_std_runtime.c`.
+- **Contract:** `docs/design/t0/02-runtime.md` §1 CAP-6 and §2 now list
+  `RuntimeInfo`/`runtimeInfo` as a T0-X surface.
+- **Scenario:** `src/mini/tests/r4/runtime_info.x`.
+- **Command/output:**
 
 ```text
-$ grep -rn "RuntimeInfo" src/xdk src/mini/tests
-(no matches)
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
+
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/runtime_info.x
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
 ```
 
-- **Design:** `docs/design/t0/02-runtime.md:80` puts `RuntimeInfo` in T1, not
-  T0. There is no source, no symbol, no scenario.
-- **Gap:** implementation + scenario + design move from T1 to the intended
-  delivery line.
-- **What closes it:** `RuntimeInfo` class/struct with version/platform/mode
-  fields, a scenario asserting non-empty values, and a design contract.
+  The scenario checks language version, XDK version, platform, architecture,
+  build mode (`release` or `debug`), `complete()`, a non-empty `describe()`,
+  and equality with `xdk.meta`'s `languageVersion`/`xdkVersion`/`targetPlatform`.
+- **Gap:** the version strings mirror `xdk.meta` because `xdk.runtime` is the
+  lower layer and does not import `meta`; they are kept identical by contract.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A5. text / StringBuilder (ledger #6)
 
@@ -282,59 +313,84 @@ $ ./src/cli/xnull --bootstrap --engine=mini check src/mini/tests/r4/escape_bad.x
 - **Gap:** none for the documented S1 escape/raw/Char surface.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### A7. time / 可取消 sleep (ledger #15)
+### A7. time / 可取消 sleep (ledger #15) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:** `src/xdk/core/time/Time.x:32-38` exposes only
-  `sleepMs(Long)` / `sleep(Duration)`; both call `sleepMsRaw`. There is no
-  `Context` parameter:
-
-```text
-$ grep -rn "Context" src/xdk/core/time
-(no matches)
-```
-
-- **Design:** `docs/design/t0/08-time.md:89` says `sleepMs` does not accept
-  `Context` and T0 is not cancellable; `:106` puts cancellable sleep in T0-X.
-- **Gap:** a cancellable sleep contract and implementation, plus a scenario
-  that cancels a sleeping task and observes prompt return.
-- **What closes it:** define `sleep(Context, Duration) -> Result<Unit, Error>`
-  (or the chosen signature), implement against a context-aware wait, and add
-  a scenario; `xdk_cancel.x` currently tests task cancellation, not sleep.
-
-### A8. time / 全量 layout 解析/格式化 (ledger #16)
-
-- **Verdict:** stays `Strict candidate` (format bug fixed; full parse still
-  absent).
-- **Format fix:** `src/xdk/core/time/DateTime.x` now scans the layout
-  left-to-right with longest-token matching instead of chained `replace`.
-  It covers `yyyy`, `MM`, `MMM`, `MMMM`, `dd`, `ddd`, `dddd`, `EEE`, `EEEE`,
-  `HH`, `mm`, `ss`, `SSS`; month/weekday names are real names, not literals.
-- **Probe (fixed):**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Signature:** `sleepContext(Context context, Duration duration) ->
+  Result<Unit, Error>`; the existing `sleepMs`/`sleep` stay non-cancellable.
+  The context-first parameter order follows the rest of the XDK.
+- **Source:** `src/xdk/core/time/Time.x` (`sleepContext`); FFI
+  `sleepContextRaw` in `src/ffi/ext_raw.xfb`; runtime implementation
+  `xdkc_sleep_ctx_ms` in `src/runtime/rt_task.c`. It polls
+  `xrt_context_check_cancel` in 10ms slices and returns 1 on cancellation.
+- **C test:** `src/runtime/test_task.c` (`test_sleep_context`) covers a full
+  30ms sleep, an already-cancelled context, and a sleeping task cancelled by
+  its group.
+- **Scenario:** `src/mini/tests/r4/time_sleep_cancel.x`.
+- **Command/output:**
 
 ```text
-$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r5_layout_tokens.x
-01|Jan|January
-31|Wed|Wednesday
-Wed|Wednesday
-2024-01-31 23:59:59.000
-Jan Wed January Wednesday
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
 
-$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r4_layout.x
-2024/01/31 23:59:59 000
-Wed, 31 Jan 2024
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/time_sleep_cancel.x
 true
-false
+true
+true
 true
 ```
 
-  `"EEE, dd MMM yyyy"` now renders `"Wed, 31 Jan 2024"`; `MM` no longer eats
-  `MMM`, and `dd` no longer eats `ddd`.
-- **Remaining gap:** `parseDateTime` (`Time.x:303-325`) still accepts only the
-  ISO subset, not arbitrary layouts. `08-time.md:65` does not promise full
-  strftime; `:105` puts full layout parse/format in T0-X.
-- **What closes it:** add a token-aware parser for the same layout set and
-  negative tests; formatting is now evidenced.
+  The task calls `sleepContext(context, 5000ms)`; the main task cancels the
+  group, joins, observes `ErrorKind.Cancelled` (code 7), and measures the join
+  under 1s. `xdk_cancel.x` remains the built-in task-cancellation gate.
+- **Design:** `docs/design/t0/08-time.md` now documents the cancellable path
+  separately from `sleepMs`.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
+
+### A8. time / 全量 layout 解析/格式化 (ledger #16) — PROMOTED
+
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Format:** `src/xdk/core/time/DateTime.x` scans the layout left-to-right
+  with longest-token matching. It covers `yyyy`, `MM`, `MMM`, `MMMM`, `dd`,
+  `ddd`, `dddd`, `EEE`, `EEEE`, `HH`, `mm`, `ss`, `SSS`; month/weekday names
+  are real names, not literals.
+- **Parse:** `src/xdk/core/time/Time.x` adds `parseDateTimeLayout(String text,
+  String layout)` over the same token set and longest-match order, with
+  strict literals, duplicate-field rejection, range validation, weekday
+  consistency, and trailing-character rejection. `parseDateTime` is now a
+  thin ISO wrapper that tries `T`/space separators, optional `.SSS`, and an
+  optional trailing `Z` through the same parser.
+- **Scenario:** `src/mini/tests/r4/time_layout_parse.x`.
+- **Command/output:**
+
+```text
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
+
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/time_layout_parse.x
+true
+2024-01-31 23:59:59.250
+true
+Wednesday, January 31 2024
+true
+1706659200000
+true
+1706745599250
+true
+2024-01-31 23:59:59
+true
+true
+true
+true
+1706659200000
+```
+
+  It covers numeric and name tokens, `EEE`/`EEEE`, `MMM`/`MMMM`, `.SSS`,
+  `Z`, space-separated ISO, invalid day (`2024-02-30`), weekday mismatch,
+  trailing characters, and format→parse→format round trips.
+- **Gap:** no `M`/`d`/`H` single-letter tokens or locale-specific names;
+  `08-time.md` documents the exact supported set.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A9. log / 时间戳/单调时钟字段 (ledger #31)
 
@@ -372,20 +428,39 @@ $ grep -n "getInt\|getBool\|getLong\|getDouble\|getFloat\|getDuration" src/xdk/c
 - **What closes it:** add `getInt/getBool/...` returning `Result<T, Error>` (or
   the documented shape) and a scenario.
 
-### A11. time / Stopwatch (ledger #36)
+### A11. time / Stopwatch (ledger #36) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:**
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source:** `class Stopwatch` in `src/xdk/core/time/Time.x` over `nowMono`.
+  `Stopwatch()` starts immediately; `start` restarts, `stop` freezes the
+  reading, `reset` returns the previous reading and restarts, `elapsedMs`
+  returns monotonic milliseconds, and `elapsed` returns a `Duration`.
+- **Contract:** `docs/design/t0/08-time.md` §1 CAP-7, §3 class list, §4 top-level
+  list, and §5 test obligations now include `Stopwatch`.
+- **Scenario:** `src/mini/tests/r4/time_stopwatch.x`.
+- **Command/output:**
 
 ```text
-$ grep -rni "stopwatch" src/xdk src/mini/tests
-(no matches)
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
+
+$ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/time_stopwatch.x
+true
+true
+true
+true
+true
+true
+true
+true
+true
 ```
 
-- **Design:** `docs/design/t0/08-time.md:106` puts Stopwatch in T0-X.
-- **Gap:** no class, no scenario, no contract.
-- **What closes it:** define a monotonic Stopwatch (`start/reset/elapsed`) over
-  `nowMono`, add a scenario, and document the contract.
+  It checks a 25ms elapsed window, `isRunning`, frozen elapsed after `stop`,
+  previous reading from `reset`, restart, and `elapsed().millis()`.
+- **Gap:** none for the documented T0-X contract (not wall-clock, not
+  high-resolution beyond milliseconds).
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A12. errors / DetailedError 聚合 (ledger #37) — PROMOTED
 
@@ -562,42 +637,46 @@ $ grep -rni "nul\|cstring\|fromCString\|toCString" src/xdk/core/bytes
 ### B7. time / 日历加减边界 (ledger #45) — PROMOTED TO PROPOSED
 
 - **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
-- **Retained:** `Duration` arithmetic; `DateTime.add(Duration)`,
-  `diff`, `before/after/compare`; field extraction; `dateTimeFromTimestamp`;
-  ISO-subset `parseDateTime`; fixed civil factory `dateTimeOf`.
-- **Lost:** calendar month/year arithmetic, DST/TimeZone, locale/month names,
-  and full layout parsing. The proposal is explicitly the basic add/sub subset,
-  not full civil arithmetic.
-- **Test:** `src/mini/tests/r4/time_calendar.x` via `r4_evidence.sh`; also
+- **Retained:** `Duration` arithmetic; `DateTime.add(Duration)`/`addDays`/
+  `addMonths`/`addYears`, `diff`, `before/after/compare`; field extraction;
+  `dateTimeFromTimestamp`; ISO and full-layout parsing; fixed civil factory
+  `dateTimeOf`.
+- **Lost:** DST/TimeZone and locale-specific month names. The retained
+  calendar arithmetic is UTC civil arithmetic; no tz database is involved.
+  Full layout parsing moved from this optimized proposal to the now-evidenced
+  strict item A8, so it is no longer a loss.
+- **Test:** `src/mini/tests/r4/time_calendar.x` and
+  `src/mini/tests/r4/time_calendar_edges.x` via `r4_evidence.sh`; also
   `xdk_time.x` via `xdk.sh`.
-- **Observed output:**
+- **Observed output (edges):**
 
 ```text
-2024-01-31 23:59:59
-2024-02-01 23:59:59
-86400000
--86400000
-true
-false
--1
-3
-31
+2024-02-29 12:34:56
+2023-02-28
+2024-02-29
+2025-02-28
+2025-02-28
+2023-02-28
+2022-11-30
+2025-02-28
+2024-02-29
 2024-03-01
-2023-03-01
-1970-01-01 00:00:00
-1970-01-01 00:00:01.500
--1
+2023-12-31
+2025-01-31 12:34:56
 ```
 
+  The scenario covers leap/non-leap month-end clamping, negative month
+  arithmetic, year boundaries, Feb 29 ±1 year, leap-day `addDays`, and
+  time-of-day preservation.
 - **Bug found and fixed:** `dateTimeOf` multiplied `Int days * 86400000` in
   32-bit, so fixed dates after 1970-01-25 were wrong (e.g. `2024-01-31`
   produced `1970-01-20`). It now casts both factors to `Long`
-  (`src/xdk/core/time/Time.x:259-263` and the mirror). `xdk_time.x` now asserts
-  a fixed date and timestamp as a regression.
-- **Impact:** time API. **Dependents:** time users. **Breakage:** subset; the
-  only behavior change is wrong `dateTimeOf` output becoming correct.
-  **Migration:** use day/second `Duration` arithmetic; do not assume month
-  arithmetic or DST.
+  (`src/xdk/core/time/Time.x` and the mirror). `xdk_time.x` now asserts a fixed
+  date and timestamp as a regression.
+- **Impact:** time API. **Dependents:** time users. **Breakage:** additive;
+  the only behavior change is wrong `dateTimeOf` output becoming correct.
+  **Migration:** use `addDays`/`addMonths`/`addYears` for civil arithmetic;
+  do not assume DST or locale names.
 - **Status:** proposed, not closed.
 
 ### B8. log / 过滤/脱敏/采样 (ledger #47)
@@ -784,6 +863,33 @@ Follow-up fixes (all real code, no stubs):
 - `src/mini/tests/xdk_time.x` + `src/mini/tests/xdk.sh`: fixed-date, layout
   token, and timestamp regression output.
 
+This batch (RuntimeInfo/stats/Stopwatch/cancellable sleep/layout parse/calendar):
+
+- New scenarios: `src/mini/tests/r4/runtime_info.x`,
+  `src/mini/tests/r4/runtime_stats.x`,
+  `src/mini/tests/r4/time_stopwatch.x`,
+  `src/mini/tests/r4/time_sleep_cancel.x`,
+  `src/mini/tests/r4/time_layout_parse.x`,
+  `src/mini/tests/r4/time_calendar_edges.x`.
+- `src/mini/tests/r4_evidence.sh`: exact-output cases for all six.
+- `src/xdk/core/runtime/Runtime.x` + mirror: `RuntimeInfo`, `RuntimeStats`,
+  `runtimeInfo`, `stats`, `statsEnabled`, `statsSetEnabled`, `statsReset`.
+- `src/xdk/core/time/Time.x` + mirror: `Stopwatch`, `sleepContext`,
+  `parseDateTimeLayout`, and `parseDateTime` rewritten over the layout parser.
+- `src/xdk/core/time/DateTime.x` + mirror: `addDays`, `addMonths`, `addYears`.
+- `src/ffi/runtime_raw.xfb` + mirror: runtime-info and stats primitives.
+- `src/ffi/ext_raw.xfb` + mirror: `sleepContextRaw`.
+- `src/runtime/rt_std_runtime.c` + mirror: `xdkc_build_mode` and
+  `xdkc_stats_*` wrappers over `xrt_stats_*`.
+- `src/runtime/rt_task.c` + mirror: `xdkc_sleep_ctx_ms`.
+- `src/runtime/test_std.c`: XDK stats wrappers match the ABI snapshot.
+- `src/runtime/test_task.c`: full sleep, already-cancelled context, and
+  group-cancelled sleeping task.
+- `src/ffi/capabilities.tsv` + `api-manifest.tsv` + mirrors: new L1/L2
+  symbols, scenarios, and C tests.
+- `docs/design/t0/02-runtime.md`, `docs/design/t0/08-time.md`: contract and
+  test-obligation updates.
+
 Deliberately untouched:
 
 - `docs/design/MINI-1.0.md` (ledger owner; user asked not to edit).
@@ -795,13 +901,13 @@ Deliberately untouched:
 
 | Area | Remaining | Why |
 | --- | ---: | --- |
-| Strict candidates | 9 | A2, A3, A4, A5, A7, A8, A9, A10, A11; each has a named gap and a close path |
+| Strict candidates | 4 | A2, A5, A9, A10; each has a named gap and a close path |
 | Optimized candidates | 8 | B2, B3, B5, B6, B8-B11; no shim/test yet |
 | Deferred candidates | 3 | C1-C3; decision meeting date is user-owned |
 | Out-of-scope / deferred | 9 | D1-D9; spec non-goals, package API user-signed |
 | Signed closed | 0 | no independent reviewer signature |
 
-Resolved by this follow-up:
+Resolved by the first follow-up:
 
 1. `text / 转义`: embedded `\0`, raw strings, and non-ASCII `Char` literals
    now work; unknown escapes are rejected (A6).
@@ -812,14 +918,25 @@ Resolved by this follow-up:
 4. `src/runtime/build_rt.sh` (full C suite) is green after the
    `xdkc_read_file_text` error contract fix.
 
-Still open (outside the four fixed items):
+Resolved by this batch:
 
-- A8 full layout **parsing** (`parseDateTime` is still ISO-only).
-- A3 public `xdk.runtime` stats symbol (the C-level `test_stats` is green).
-- A2 error-code registry, A4 RuntimeInfo, A5 StringBuilder, A7 cancellable
-  sleep, A9 log timestamp, A10 typed getter, A11 Stopwatch.
+1. `runtime / RuntimeInfo` (A4): real class + `runtimeInfo()` + scenario.
+2. `runtime / stats` (A3): public `RuntimeStats`/`stats` over the existing
+   `xrt_stats_*` ABI, with C and XDK tests.
+3. `time / Stopwatch` (A11): monotonic start/stop/reset/elapsed + scenario.
+4. `time / 可取消 sleep` (A7): `sleepContext` over a context-aware runtime
+   wait + cancellation scenario + C test.
+5. `time / 全量 layout 解析/格式化` (A8): token-aware
+   `parseDateTimeLayout`; `parseDateTime` is now a thin ISO wrapper over it.
+6. `time / 日历加减边界` (B7): `addDays`/`addMonths`/`addYears` with
+   month-end clamping and leap/year-boundary tests (stays Optimized proposed).
+
+Still open (Strict candidates):
+
+- A2 error-code registry, A5 StringBuilder, A9 log timestamp/monotonic field,
+  A10 config typed getter.
 - B2/B3/B5/B6/B8-B11 optimized candidates, C1-C3 deferred, D1-D9 out-of-scope.
 
 The required gates (`r4_evidence.sh`, `ref.sh`, `xdk.sh`, `xdk_core.sh`,
-`check_layers`) and the full C suite are green as shown in §0. The worktree is
-clean after the single batch commit.
+`check_layers`) and the full C suite (`src/runtime/build_rt.sh`) are green as
+shown in §0. The worktree is clean after the single batch commit.

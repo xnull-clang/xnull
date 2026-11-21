@@ -1,8 +1,9 @@
 #!/bin/sh
 # R4 evidence programs: escape/raw/unicode, complex-receiver inference,
-# DetailedError aggregation, Config.setChecked, and the retained DateTime
-# add/diff + layout subset. These are evidence, not new gates; every program is
-# built and run end-to-end with exact output diffs.
+# DetailedError aggregation, Config.setChecked, RuntimeInfo/stats, Stopwatch,
+# cancellable sleep, full layout parse/format, DateTime calendar arithmetic, and
+# the retained DateTime add/diff subset. These are evidence, not new gates;
+# every program is built and run end-to-end with exact output diffs.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
@@ -144,11 +145,94 @@ false
 -1
 EOF
 
+cat > "$D/runtime_info.exp" <<'EOF'
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+EOF
+
+cat > "$D/runtime_stats.exp" <<'EOF'
+true
+11
+true
+true
+true
+true
+true
+true
+false
+EOF
+
+cat > "$D/time_stopwatch.exp" <<'EOF'
+true
+true
+true
+true
+true
+true
+true
+true
+true
+EOF
+
+cat > "$D/time_sleep_cancel.exp" <<'EOF'
+true
+true
+true
+true
+EOF
+
+cat > "$D/time_layout_parse.exp" <<'EOF'
+true
+2024-01-31 23:59:59.250
+true
+Wednesday, January 31 2024
+true
+1706659200000
+true
+1706745599250
+true
+2024-01-31 23:59:59
+true
+true
+true
+true
+1706659200000
+EOF
+
+cat > "$D/time_calendar_edges.exp" <<'EOF'
+2024-02-29 12:34:56
+2023-02-28
+2024-02-29
+2025-02-28
+2025-02-28
+2023-02-28
+2022-11-30
+2025-02-28
+2024-02-29
+2024-03-01
+2023-12-31
+2025-01-31 12:34:56
+EOF
+
 run_case escape
 run_case inference
 run_case errors_detail
 run_case config_checked
 run_case time_calendar
+run_case runtime_info
+run_case runtime_stats
+run_case time_stopwatch
+run_case time_sleep_cancel
+run_case time_layout_parse
+run_case time_calendar_edges
 
 # Negative case: an unknown escape must be a lexical error, not silently dropped.
 if "$XNULL" --bootstrap --engine=mini check "$HERE/r4/escape_bad.x" >"$D/escape_bad.out" 2>&1; then
