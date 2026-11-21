@@ -16,6 +16,12 @@ trap 'rm -rf "$D"' EXIT
 "$XNULL" --bootstrap --engine=mini build "$HERE/ref/ffi_bytes.x" -o "$D/ffi" >"$D/ffi.build" 2>&1 || {
     cat "$D/ffi.build" >&2; exit 1
 }
+"$XNULL" --bootstrap --engine=mini build "$HERE/ref/project" -o "$D/project" >"$D/project.build" 2>&1 || {
+    cat "$D/project.build" >&2; exit 1
+}
+"$XNULL" --bootstrap --engine=mini build "$HERE/ref/migration_sample.x" -o "$D/migration" >"$D/migration.build" 2>&1 || {
+    cat "$D/migration.build" >&2; exit 1
+}
 
 printf 'app.name=demo-app\napp.port=8080\n' > "$D/config.txt"
 
@@ -43,5 +49,15 @@ diff -u "$HERE/ref/concurrent.out" "$D/concurrent.out"
     cat "$D/ffi.err" >&2; exit 1
 }
 diff -u "$HERE/ref/ffi_bytes.out" "$D/ffi.out"
+
+"$D/project" > "$D/project.out" 2>"$D/project.err" || {
+    cat "$D/project.err" >&2; exit 1
+}
+diff -u "$HERE/ref/project.out" "$D/project.out"
+
+"$D/migration" > "$D/migration.out" 2>"$D/migration.err" || {
+    cat "$D/migration.err" >&2; exit 1
+}
+diff -u "$HERE/ref/migration_sample.out" "$D/migration.out"
 
 echo "mini ref: PASS"

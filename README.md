@@ -180,6 +180,42 @@ The recorded signature `2611180201` is stored verbatim in
 `xn_mini_genesis` in `src/runtime/rt.c`. It is never read by any logic and is
 not used for language behavior or feature decisions.
 
+### Multi-file project (minimal)
+
+The mini-only surface accepts a project directory for `build`, `run`, and
+`check`. A project root needs `xnull.project` with `entryFile`; files in the
+entry directory can be imported by module name.
+
+```text
+project {
+  groupId = io.xnull
+  artifactId = demo
+  version = 1.0.0
+  packaging = app
+  build { entryFile = src/main/x/main.x }
+}
+```
+
+`import model` in the entry file loads `model.x` next to it; dotted imports
+(`import lib.model`) resolve under subdirectories. Imports are direct and must
+not form cycles. CLI flags include their leading dashes: `Args.has("--verbose")`,
+not `Args.has("verbose")`.
+
+```sh
+./src/cli/xnull build src/mini/tests/ref/project -o /tmp/ref-project
+./src/cli/xnull run   src/mini/tests/ref/project
+./src/cli/xnull check src/mini/tests/ref/project
+```
+
+Language and library guides: [basic syntax](docs/solution-01-basic-syntax.md),
+[objects](docs/solution-02-object-programming.md),
+[memory](docs/solution-03-memory-management.md),
+[errors](docs/solution-04-error-handling.md),
+[tasks](docs/solution-05-tasks-and-concurrency.md), [XDK](docs/solution-06-xdk.md).
+
+There is no package manager, dependency reactor, or formatter yet; those
+commands intentionally remain unavailable.
+
 ## Repository layout
 
 ```text

@@ -173,6 +173,32 @@ NUL termination and re-evaluated the receiver twice. A compiler helper
 This was caught by the pipe/`readStdoutAll().toString()` and FileSource paths;
 the reference programs and the existing xdk gates cover the fix.
 
+## 3.6 Per-package signature ledger
+
+Reviewer remains `待签`; evidence columns record the command that was actually
+run, not a self-signature.
+
+| Package | Reviewer | Date | Evidence command | Observed |
+| --- | --- | --- | --- | --- |
+| xdk.errors | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_errors.x` | PASS |
+| xdk.runtime | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_runtime.x` | PASS |
+| xdk.meta | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_meta.x` | PASS |
+| xdk.bytes | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_bytes*.x` | PASS |
+| xdk.text | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_text*.x` | PASS |
+| xdk.collections | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_collections*.x` | PASS |
+| xdk.math | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_math.x` | PASS |
+| xdk.time | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_time.x` | PASS |
+| xdk.io | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_io.x` | PASS |
+| xdk.fs | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_fs.x` | PASS |
+| xdk.sys | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_sys*.x` | PASS |
+| xdk.log | 待签 | 2026-11-21 | `src/mini/tests/ref.sh` + `xdk_log.x` | PASS |
+| xdk.config | 待签 | 2026-11-21 | `src/mini/tests/ref.sh` + `xdk_config.x` | PASS |
+| xdk.cli | 待签 | 2026-11-21 | `src/mini/tests/ref.sh` + `xdk_cli.x` | PASS |
+| xdk.tasks | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_tasks.x` | PASS (builtin) |
+| xdk.sync | 待签 | 2026-11-21 | `src/mini/tests/xdk.sh` + `xdk_sync*.x` | PASS (builtin) |
+
+C1 evidence and U0–U5 journeys: [`C1-U0-U5-EVIDENCE.md`](C1-U0-U5-EVIDENCE.md).
+
 ## 4. Gates
 
 ```sh

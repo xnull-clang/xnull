@@ -54,7 +54,7 @@ String usage(String program, String summary)
 Int exitCodeFor(String outcome)
 ```
 
-- `has` 同时接受 `--flag` 与 `--flag=value`。
+- `has` 同时接受 `--flag` 与 `--flag=value`；flag 字符串必须包含前导 `--`。
 - `value` 找不到返回空串；需要默认值时用 `valueOr`。
 - `positionals` 跳过 option 及其后随值；`--flag=value` 不跳过下一项。
 - `usage` 只生成文本，不写 stdout/stderr。

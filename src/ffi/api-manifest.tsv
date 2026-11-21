@@ -1,0 +1,15 @@
+package	public_symbols	stability	owner	scenario	test	gate	evidence
+xdk.errors	ErrorKind;Error;DetailedError;ErrorDetail;BasicError;ErrorReport;ErrorGroup	stable/preview	xdk.errors	src/mini/tests/xdk_errors.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_errors.x && src/runtime/test_rt.c
+xdk.runtime	diagnose;exit;nowMono;nowWall	stable	xdk.runtime	src/mini/tests/xdk_runtime.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_runtime.x && src/runtime/test_rt.c
+xdk.meta	languageVersion;xdkVersion;targetPlatform	stable	xdk.meta	src/mini/tests/xdk_meta.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_meta.x && src/runtime/test_std.c
+xdk.bytes	fromUtf8;toUtf8;fromHex;toHex;isEmptyBytes;compare;ByteReader;ByteWriter;ByteBuffer	stable/preview	xdk.bytes	src/mini/tests/xdk_bytes.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_bytes.x && src/runtime/test_std.c
+xdk.text	Format;Match;Regex;Utf16;parseInt;parseFloat;compareText;printf	stable/preview	xdk.text	src/mini/tests/xdk_text.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_text.x && src/runtime/test_std.c
+xdk.collections	Pair;IntPair;Entry;PriorityQueue;RingBuffer;OrderedMap;BTreeMap;sortBy;sortedBy;groupBy;groupByInt;joinWith	stable/preview	xdk.collections	src/mini/tests/xdk_collections.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_collections.x && src/runtime/test_std.c
+xdk.math	PI;abs;clamp;pow;sqrt;gcd;addIntChecked;mulIntChecked;addI128Checked	preview	xdk.math	src/mini/tests/xdk_math.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_math.x && src/runtime/test_std.c
+xdk.time	Duration;DateTime;Civil;nowMs;nowWallMs;sleepMs;durationOfMinutes	preview	xdk.time	src/mini/tests/xdk_time.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_time.x && src/runtime/test_std.c
+xdk.io	Readable;Writable;Reader;Writer;BufferedReader;BufferedWriter;ChainReader;TeeReader;LimitReader;LineReader;readAll;copyTo	preview	xdk.io	src/mini/tests/xdk_io.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_io.x && src/runtime/test_std.c
+xdk.fs	Path;File;FileMode;Dir;EntryKind;Metadata;TempFile;TempDir;exists;readText;writeText;walk;glob	preview	xdk.fs	src/mini/tests/xdk_fs.x	src/runtime/test_res.c	xdk.sh/ref.sh	src/mini/tests/xdk_fs.x && src/runtime/test_res.c
+xdk.sys	Process;ProcessResult;Signal;readFileText;writeFileText;env;envNames;platform;hostname;pid;cwd	preview	xdk.sys	src/mini/tests/xdk_sys.x	src/runtime/test_sysasync.c	xdk.sh/ref.sh	src/mini/tests/xdk_sys.x && src/runtime/test_sysasync.c
+xdk.log	Level;Logger;Sink;Field;LogRecord;ConsoleSink;MemorySink	preview	xdk.log	src/mini/tests/xdk_log.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_log.x && src/runtime/test_rt.c
+xdk.config	Config;ConfigEntry;ConfigSource;MapSource;FileSource	preview	xdk.config	src/mini/tests/xdk_config.x	src/runtime/test_std.c	xdk.sh/ref.sh	src/mini/tests/xdk_config.x && src/runtime/test_std.c
+xdk.cli	Args;OptionSpec;Command;CommandMatch;usage;exitCodeFor	preview	xdk.cli	src/mini/tests/xdk_cli.x	src/runtime/test_rt.c	xdk.sh/ref.sh	src/mini/tests/xdk_cli.x && src/runtime/test_rt.c

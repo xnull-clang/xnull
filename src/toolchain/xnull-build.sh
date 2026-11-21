@@ -26,9 +26,9 @@ fail() { echo "xnull-build: $*" >&2; exit 1; }
 usage() {
   cat >&2 <<'EOF'
 xnull-build: mini-only commands
-  build <entry.x> [-o out] [--emit-c-only] [--resources dir] [--json]
-  run   <entry.x> [-- args] [--json]
-  check <entry.x> [--json]
+  build <entry.x|project-dir> [-o out] [--emit-c-only] [--resources dir] [--json]
+  run   <entry.x|project-dir> [-- args] [--json]
+  check <entry.x|project-dir> [--json]
   version
   clean [--all]
   doctor
@@ -42,8 +42,30 @@ require_mini() {
 
 resolve_entry() {
   local entry=$1
+  local dir=""
+  if [ -d "$entry" ]; then
+    dir=$(cd "$entry" && pwd)
+  elif [ -d "$ROOT/$entry" ]; then
+    dir=$(cd "$ROOT/$entry" && pwd)
+  fi
+  if [ -n "$dir" ]; then
+    local manifest="$dir/xnull.project"
+    local rel=""
+    if [ -f "$manifest" ]; then
+      rel=$(sed -n 's/.*entryFile[[:space:]]*=[[:space:]]*//p' "$manifest" | head -1 | tr -d '\r' | sed 's/}.*//; s/[[:space:]]*$//')
+    fi
+    if [ -n "$rel" ] && [ -f "$dir/$rel" ]; then
+      printf '%s/%s\n' "$dir" "$rel"
+      return 0
+    fi
+    if [ -f "$dir/src/main/x/main.x" ]; then
+      printf '%s/src/main/x/main.x\n' "$dir"
+      return 0
+    fi
+    die "project entry not found: $dir"
+  fi
   if [ -f "$entry" ]; then
-    printf '%s\n' "$entry"
+    printf '%s/%s\n' "$(cd "$(dirname "$entry")" && pwd)" "$(basename "$entry")"
     return 0
   fi
   if [ -f "$ROOT/$entry" ]; then
@@ -220,8 +242,15 @@ cmd_check() {
   [ -n "$entry" ] || usage
   require_mini
   local entry_abs; entry_abs=$(resolve_entry "$entry")
+  local entry_dir; entry_dir=$(dirname "$entry_abs")
+  local w; w=$(workdir) || exit 1
+  : > "$w/project.txt"
+  if [ -d "$entry_dir" ]; then
+    python3 "$ROOT/src/toolchain/xfb-projection.py" "$entry_dir" >> "$w/project.txt" 2>/dev/null || true
+  fi
+  python3 "$ROOT/src/toolchain/xfb-projection.py" "$ROOT/src/ffi" >> "$w/project.txt" 2>/dev/null || true
   local out rc
-  out=$( ( cd "$ROOT" && "$MINI" --sema "$entry_abs" --xdk-root "$ROOT/src/xdk" ) 2>&1 )
+  out=$( ( cd "$ROOT" && "$MINI" --sema "$entry_abs" --xdk-root "$ROOT/src/xdk" --project-file "$w/project.txt" ) 2>&1 )
   rc=$?
   if [ "$json" = 1 ]; then
     if [ $rc -eq 0 ]; then

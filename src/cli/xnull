@@ -40,10 +40,10 @@ case "${1:-}" in
 用法：xnull [--bootstrap] [--engine=mini] <命令> [参数…]
   --bootstrap                             兼容旧脚本；mini 是唯一引擎
   --engine=mini                           唯一引擎（auto 等价于 mini）
-  build <entry.x> [-o out] [--emit-c-only] [--resources dir]
-                                          单文件构建
-  run   <entry.x> [-- 参数…]              构建并运行
-  check <entry.x> [--json]                语法/类型检查
+  build <entry.x|project-dir> [-o out] [--emit-c-only] [--resources dir]
+                                          单文件或最小工程构建
+  run   <entry.x|project-dir> [-- 参数…]  构建并运行
+  check <entry.x|project-dir> [--json]    语法/类型检查
   version                                 版本信息
   clean [目录] [--all]                    清理 target/cache
   doctor                                  环境自检
