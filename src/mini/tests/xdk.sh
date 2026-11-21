@@ -63,10 +63,93 @@ diff -u "$TMP.exp" "$TMP"
 printf '2000\ntrue\ntrue\ntrue\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
-"$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {
+XDK_SYS_PROBE=sys-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf 'true\nfalse\n' > "$TMP.exp"
+printf '3
+hé
+true
+true
+true
+true
+sys-env
+true
+true
+true
+true
+true
+true
+true
+4
+true
+ping
+0
+true
+true
+err
+0
+true
+false
+true
+0
+true
+true
+true
+true
+true
+true
+143
+true
+false
+0
+true
+true
+0
+' > "$TMP.exp"
+diff -u "$TMP.exp" "$TMP"
+
+XNULL_MINI_XDK_FULL=1 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys_full.x" > "$TMP" 2>"$TMP.err" || {
+    cat "$TMP.err" >&2; exit 1
+}
+printf '3
+abc
+true
+true
+2
+true
+true
+true
+true
+XY
+1
+true
+XY!
+true
+3
+true
+1
+Y!
+
+true
+true
+true
+true
+true
+xnull_xdk_sys_full.txt
+tmp
+txt
+true
+true
+true
+true
+4
+true
+full
+0
+true
+true
+false
+' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_integration.x" > "$TMP" 2>"$TMP.err" || {

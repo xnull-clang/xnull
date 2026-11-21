@@ -27,8 +27,8 @@ Fixed:
 Still to watch:
 
 - Any new XDK code using `Int` for epoch/size/handle must use `Long`.
-- `xdk.fs.File` now uses `Long` for size, position, and seek offsets; keep the
-  same rule for `xdk.sys.File` when that surface lands.
+- `xdk.fs.File` and the `xdk.sys` full File surface use `Long` for size,
+  position, and seek offsets.
 
 ## 3. Package status
 
@@ -44,7 +44,7 @@ Still to watch:
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | mini | PASS | — |
 | fs | v1.1 | mini | PASS | — |
-| sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
+| sys | v1.1 | mini | PASS | — |
 | tasks | v1.0 | mini | PASS | — |
 | sync | v1.1 | mini | PASS | — |
 | log | v1.0 | mini | PASS | fields/sinks T0-X |
@@ -107,6 +107,18 @@ atom failed. The stale `replaceAll` expectation `!b x !b` encoded that defect
 and is corrected to `! x !`. printf formatting adds `%d/i/x/X/o/f/e/E/g/G/s/c/b`
 with flags, width, and precision. Public value parameters use full names.
 Scene coverage: `xdk_text.x`, `xdk_text_full.x`, and `xdk_core.x`.
+
+2026-11-21 batch 5 (sys): `xdk.sys` is `Verified`. `readFileText` now returns
+`Result<String, Error>` and `writeFileText` returns `Result<Long, Error>` with
+the UTF-8 byte count. The default sys surface gained environment enumeration
+(`envNames`), platform/cwd/pid/mtime, `ProcessResult`, piped child processes
+(`spawnProcessPiped` with stdin/stdout/stderr), named signals, and process-group
+signalling; every child is its own group leader. Embedded resources upgraded to
+the `Result`/`Context` surface with size, count, and listing. The full
+`io/system` File/Dir/Path handles now match the `xdk.fs` contract. The runtime
+also hardens `rt_string_from_c(NULL)` to an empty string, and the compiler wraps
+`platformRaw` as a `String`. Scene coverage: `xdk_sys.x`, `xdk_sys_full.x`,
+`xdk_core.x`, `m7_sys.x`, and `resources.sh`.
 
 2026-11-21 batch 4 (fs): `xdk.fs` is `Verified`. `readText` now returns
 `Result<String, Error>` and `writeText` returns `Result<Long, Error>` with the

@@ -191,6 +191,49 @@ static Int main() {
     print(removeDirAll(fsRoot).isOk())
     print(exists(fsRoot))
 
+    // sys T0-X: Result top-level, env/platform, stdio pipes, signals/groups,
+    // and the embedded-resource read subset.
+    String sysPath = "/tmp/xnull_xdk_core_sys.txt"
+    print(writeFileText(sysPath, "核心").value())
+    print(readFileText(sysPath).value())
+    print(readFileText("/tmp/xnull_xdk_core_sys_missing.txt").isErr())
+    print(readFileText("/tmp/xnull_xdk_core_sys_missing.txt").error().kind() == ErrorKind.NotFound)
+    print(envHas("XDK_CORE_PROBE"))
+    print(env("XDK_CORE_PROBE"))
+    Bool probeSeen = false
+    List<String> sysEnv = envNames()
+    Int sysEnvIndex = 0
+    while sysEnvIndex < sysEnv.length() {
+        if sysEnv.get(sysEnvIndex) == "XDK_CORE_PROBE" {
+            probeSeen = true
+        }
+        sysEnvIndex = sysEnvIndex + 1
+    }
+    print(probeSeen)
+    print(platform().length() > 0)
+    print(cwd().length() > 0)
+    print(pid() > 0)
+    print(fileMtime(sysPath) >= 0)
+    Result<Process, Error> pipeOpened = spawnProcessPiped("cat")
+    Process pipeProcess = pipeOpened.value()
+    print(pipeProcess.isPiped())
+    print(pipeProcess.writeStdinText("pipe").value())
+    print(pipeProcess.closeStdin().isOk())
+    print(pipeProcess.readStdoutText().value())
+    print(pipeProcess.wait().value())
+    print(pipeProcess.close().isOk())
+    Result<Process, Error> groupOpened = spawnProcessPiped("sleep 30")
+    Process groupProcess = groupOpened.value()
+    print(groupProcess.sendGroupSignal(Signal.Terminate).isOk())
+    print(groupProcess.wait().value())
+    print(groupProcess.close().isOk())
+    print(signalNumber(Signal.Kill) > 0)
+    print(resourceExists("missing.txt"))
+    print(resourceCount())
+    print(readResourceText(null, "missing.txt").isErr())
+    print(readResourceText(null, "missing.txt").error().kind() == ErrorKind.NotFound)
+    print(listResources(null, "").value().length())
+
     // text T0-X: Unicode, POSIX ERE subset, printf Format
     print(codePointAt("é", 0))
     print(codePointCount("éA"))

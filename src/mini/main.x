@@ -7832,7 +7832,7 @@ class CGen {
                 return "mini_file_exists(" + a + "->bytes, " + a + "->len)"
             }
             if n.text == "platformRaw" {
-                return "mini_platform()"
+                return "rt_string_from_c(mini_platform())"
             }
             if n.text == "Ok" {
                 String a = "0"

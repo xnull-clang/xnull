@@ -339,7 +339,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Verified（内存/协议/组合/LineReader） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Verified（Result 面、File/Dir/Path、atomic/temp/walk/glob、metadata/权限/链接） |
-| `11-sys.md` | Process、Env、Platform、Signal | Partial（简化文件面；File/Dir/Process X） |
+| `11-sys.md` | Process、Env、Platform、Signal | Verified（Result 面、File/Dir/Process、管道/信号/进程组/环境枚举/资源读取子集） |
 | `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
 | `13-sync.md` | Mutex、Channel、Atomics、同步器 | Verified（Atomic/Mutex/Channel 标量、指针、Int128、Result） |
 | `14-log.md` | Level、Logger、Field、Sink、过滤 | Verified（最小面） |

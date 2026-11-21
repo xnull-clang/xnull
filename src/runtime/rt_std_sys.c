@@ -195,25 +195,25 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
     }
     if (len == 0 || memchr(bytes, 0, len) != NULL) {
         g_read_file_text_error = 2;
-        return NULL;
+        return "";
     }
     char *p = path_dup(bytes, len);
     FILE *f = fopen(p, "rb");
     free(p);
     if (f == NULL) {
         g_read_file_text_error = 2;
-        return NULL;
+        return "";
     }
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
         g_read_file_text_error = 2;
-        return NULL;
+        return "";
     }
     long n = ftell(f);
     if (n < 0 || (size_t)n > XDK_READ_FILE_TEXT_MAX || fseek(f, 0, SEEK_SET) != 0) {
         fclose(f);
         g_read_file_text_error = 2;
-        return NULL;
+        return "";
     }
     size_t need = (size_t)n + 1;
     if (need > g_text_cap) {
@@ -221,7 +221,7 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
         if (nb == NULL) {
             fclose(f);
             g_read_file_text_error = 2;
-            return NULL;
+            return "";
         }
         g_text_buf = nb;
         g_text_cap = need;
@@ -231,7 +231,7 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
     fclose(f);
     if (bad || got != (size_t)n) {
         g_read_file_text_error = 2;
-        return NULL;
+        return "";
     }
     g_text_buf[got] = 0;
     return g_text_buf;
@@ -565,9 +565,21 @@ typedef struct {
     pid_t pid;
     int   reaped;
     int   status;
+    int   in_fd;
+    int   out_fd;
+    int   err_fd;
 } proc_t;
 
-void *xdkc_proc_spawn(const char *cmd, size_t len, int32_t *code) {
+static void proc_close_fds(proc_t *p) {
+    if (p == NULL) {
+        return;
+    }
+    if (p->in_fd >= 0) { (void)close(p->in_fd); p->in_fd = -1; }
+    if (p->out_fd >= 0) { (void)close(p->out_fd); p->out_fd = -1; }
+    if (p->err_fd >= 0) { (void)close(p->err_fd); p->err_fd = -1; }
+}
+
+static void *proc_spawn_internal(const char *cmd, size_t len, int32_t *code, int piped) {
     if (cmd == NULL) {
         xrt_fatal("procSpawn：命令为空（S6 §4.7）");
     }
@@ -577,18 +589,50 @@ void *xdkc_proc_spawn(const char *cmd, size_t len, int32_t *code) {
     }
     memcpy(c, cmd, len);
     c[len] = 0;
+
+    int in_pipe[2] = {-1, -1};
+    int out_pipe[2] = {-1, -1};
+    int err_pipe[2] = {-1, -1};
+    if (piped) {
+        if (pipe(in_pipe) != 0 || pipe(out_pipe) != 0 || pipe(err_pipe) != 0) {
+            if (in_pipe[0] >= 0) { close(in_pipe[0]); close(in_pipe[1]); }
+            if (out_pipe[0] >= 0) { close(out_pipe[0]); close(out_pipe[1]); }
+            if (err_pipe[0] >= 0) { close(err_pipe[0]); close(err_pipe[1]); }
+            free(c);
+            if (code != NULL) { *code = 2; }
+            return NULL;
+        }
+    }
+
     pid_t pid = fork();
     if (pid == 0) {
+        /* 每个子进程自成一个进程组：组信号可一次覆盖 shell 及其后代。 */
+        (void)setpgid(0, 0);
+        if (piped) {
+            (void)dup2(in_pipe[0], 0);
+            (void)dup2(out_pipe[1], 1);
+            (void)dup2(err_pipe[1], 2);
+            (void)close(in_pipe[0]); (void)close(in_pipe[1]);
+            (void)close(out_pipe[0]); (void)close(out_pipe[1]);
+            (void)close(err_pipe[0]); (void)close(err_pipe[1]);
+        }
         execl("/bin/sh", "sh", "-c", c, (char *)NULL);
         _exit(127);
     }
     free(c);
     if (pid < 0) {
+        if (piped) {
+            (void)close(in_pipe[0]); (void)close(in_pipe[1]);
+            (void)close(out_pipe[0]); (void)close(out_pipe[1]);
+            (void)close(err_pipe[0]); (void)close(err_pipe[1]);
+        }
         if (code != NULL) {
             *code = 2;
         }
         return NULL;
     }
+    (void)setpgid(pid, pid); /* 与子进程内的 setpgid 竞争，取先到者，结果一致。 */
+
     proc_t *p = malloc(sizeof(*p));
     if (p == NULL) {
         xrt_fatal("procSpawn：内存不足（S6 §4.7）");
@@ -596,10 +640,25 @@ void *xdkc_proc_spawn(const char *cmd, size_t len, int32_t *code) {
     p->pid = pid;
     p->reaped = 0;
     p->status = 0;
+    p->in_fd = -1;
+    p->out_fd = -1;
+    p->err_fd = -1;
+    if (piped) {
+        p->in_fd = in_pipe[1];
+        p->out_fd = out_pipe[0];
+        p->err_fd = err_pipe[0];
+        (void)close(in_pipe[0]);
+        (void)close(out_pipe[1]);
+        (void)close(err_pipe[1]);
+    }
     if (code != NULL) {
         *code = 0;
     }
     return p;
+}
+
+void *xdkc_proc_spawn(const char *cmd, size_t len, int32_t *code) {
+    return proc_spawn_internal(cmd, len, code, 0);
 }
 
 int32_t xdkc_proc_wait(void *proc, int32_t *status) {
@@ -629,12 +688,13 @@ int32_t xdkc_proc_kill(void *proc, int32_t sig) {
     return kill(p->pid, sig) == 0 ? 0 : 2;
 }
 
-/* close 必达：未终结则 SIGKILL + reap；幂等（reaped 后只释放）。 */
+/* close 必达：先关管道，再 kill + reap；幂等（reaped 后只释放）。 */
 int32_t xdkc_proc_close(void *proc) {
     proc_t *p = proc;
     if (p == NULL) {
         return 0;
     }
+    proc_close_fds(p);
     if (!p->reaped) {
         (void)kill(p->pid, SIGKILL);
         int st = 0;
@@ -1348,6 +1408,304 @@ int32_t xdkc_p_proc_kill_simple(int64_t proc, int32_t sig) {
 
 int32_t xdkc_p_proc_close_simple(int64_t proc) {
     return xdkc_proc_close((void *)(intptr_t)proc);
+}
+
+/* ---- T0-X：stdio 管道 / 进程组 / 信号 / 环境枚举 ---- */
+
+int64_t xdkc_p_proc_spawn_piped_simple(const char *cmd, size_t len) {
+    int32_t code = 0;
+    void *p = proc_spawn_internal(cmd, len, &code, 1);
+    if (code != 0 || p == NULL) {
+        return 0;
+    }
+    return (int64_t)(intptr_t)p;
+}
+
+int32_t xdkc_p_proc_pid_simple(int64_t proc) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    return p == NULL ? -1 : (int32_t)p->pid;
+}
+
+int32_t xdkc_p_proc_signal_group_simple(int64_t proc, int32_t sig) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL || p->reaped || sig <= 0) {
+        return 1;
+    }
+    return kill(-p->pid, sig) == 0 ? 0 : 2;
+}
+
+static char  *xdk_pipe_out_buf = NULL;
+static size_t xdk_pipe_out_cap = 0;
+static char  *xdk_pipe_err_buf = NULL;
+static size_t xdk_pipe_err_cap = 0;
+
+static int proc_hex_value(int c) {
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+    return -1;
+}
+
+static const char *proc_fd_read_hex(int *fdp, int64_t maximum, int read_all,
+                                    char **store, size_t *store_cap) {
+    static const char empty[] = "";
+    static const char hex[] = "0123456789abcdef";
+    if (fdp == NULL || *fdp < 0) {
+        return empty;
+    }
+    int fd = *fdp;
+    size_t cap = 4096;
+    size_t n = 0;
+    char *buf = malloc(cap);
+    if (buf == NULL) {
+        return empty;
+    }
+    for (;;) {
+        size_t want = cap - n - 1;
+        if (!read_all) {
+            int64_t left = maximum - (int64_t)n;
+            if (left <= 0) {
+                break;
+            }
+            if ((size_t)left < want) {
+                want = (size_t)left;
+            }
+        }
+        if (want == 0) {
+            if (read_all) {
+                cap *= 2;
+                char *nb = realloc(buf, cap);
+                if (nb == NULL) { free(buf); return empty; }
+                buf = nb;
+                continue;
+            }
+            break;
+        }
+        ssize_t got = read(fd, buf + n, want);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+        if (got == 0) {
+            (void)close(fd);
+            *fdp = -1;
+            break;
+        }
+        n += (size_t)got;
+        if (!read_all && (int64_t)n >= maximum) {
+            break;
+        }
+    }
+    size_t need = n * 2 + 1;
+    if (need > *store_cap) {
+        char *nb = realloc(*store, need);
+        if (nb == NULL) {
+            free(buf);
+            return empty;
+        }
+        *store = nb;
+        *store_cap = need;
+    }
+    for (size_t i = 0; i < n; i++) {
+        unsigned char v = (unsigned char)buf[i];
+        (*store)[i * 2] = hex[v >> 4];
+        (*store)[i * 2 + 1] = hex[v & 15];
+    }
+    (*store)[n * 2] = 0;
+    free(buf);
+    return *store;
+}
+
+const char *xdkc_p_proc_read_stdout_hex(int64_t proc, int64_t maximum) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL) {
+        return "";
+    }
+    return proc_fd_read_hex(&p->out_fd, maximum, 0, &xdk_pipe_out_buf, &xdk_pipe_out_cap);
+}
+
+const char *xdkc_p_proc_read_stderr_hex(int64_t proc, int64_t maximum) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL) {
+        return "";
+    }
+    return proc_fd_read_hex(&p->err_fd, maximum, 0, &xdk_pipe_err_buf, &xdk_pipe_err_cap);
+}
+
+const char *xdkc_p_proc_read_all_stdout_hex(int64_t proc) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL) {
+        return "";
+    }
+    return proc_fd_read_hex(&p->out_fd, 0, 1, &xdk_pipe_out_buf, &xdk_pipe_out_cap);
+}
+
+const char *xdkc_p_proc_read_all_stderr_hex(int64_t proc) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL) {
+        return "";
+    }
+    return proc_fd_read_hex(&p->err_fd, 0, 1, &xdk_pipe_err_buf, &xdk_pipe_err_cap);
+}
+
+int32_t xdkc_p_proc_close_stdin(int64_t proc) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL || p->in_fd < 0) {
+        return 0;
+    }
+    (void)close(p->in_fd);
+    p->in_fd = -1;
+    return 0;
+}
+
+int64_t xdkc_p_proc_write_stdin_hex(int64_t proc, const char *hex, size_t hlen) {
+    proc_t *p = (proc_t *)(intptr_t)proc;
+    if (p == NULL || p->in_fd < 0 || hex == NULL || (hlen % 2) != 0) {
+        return -1;
+    }
+    size_t n = hlen / 2;
+    if (n == 0) {
+        return 0;
+    }
+    unsigned char *buf = malloc(n);
+    if (buf == NULL) {
+        return -1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = proc_hex_value((unsigned char)hex[i * 2]);
+        int lo = proc_hex_value((unsigned char)hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            free(buf);
+            return -1;
+        }
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    size_t off = 0;
+    while (off < n) {
+        ssize_t got = write(p->in_fd, buf + off, n - off);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            free(buf);
+            return -1;
+        }
+        if (got == 0) {
+            break;
+        }
+        off += (size_t)got;
+    }
+    free(buf);
+    return (int64_t)off;
+}
+
+/* 信号名 → POSIX 编号；未知返回 -1。只暴露跨平台稳定的常用集合。 */
+int32_t xdkc_p_signal_number(const char *name, size_t len) {
+    if (name == NULL) {
+        return -1;
+    }
+#define XDK_SIG_EQ(s) (len == sizeof(s) - 1 && memcmp(name, s, len) == 0)
+    if (XDK_SIG_EQ("HUP"))  { return SIGHUP; }
+    if (XDK_SIG_EQ("INT"))  { return SIGINT; }
+    if (XDK_SIG_EQ("QUIT")) { return SIGQUIT; }
+    if (XDK_SIG_EQ("KILL")) { return SIGKILL; }
+    if (XDK_SIG_EQ("TERM")) { return SIGTERM; }
+    if (XDK_SIG_EQ("USR1")) { return SIGUSR1; }
+    if (XDK_SIG_EQ("USR2")) { return SIGUSR2; }
+    if (XDK_SIG_EQ("PIPE")) { return SIGPIPE; }
+    if (XDK_SIG_EQ("ALRM")) { return SIGALRM; }
+    if (XDK_SIG_EQ("CHLD")) { return SIGCHLD; }
+    if (XDK_SIG_EQ("STOP")) { return SIGSTOP; }
+    if (XDK_SIG_EQ("CONT")) { return SIGCONT; }
+#undef XDK_SIG_EQ
+    return -1;
+}
+
+int32_t xdkc_p_signal_send(int32_t pid, int32_t sig) {
+    if (pid <= 0 || sig <= 0) {
+        return 1;
+    }
+    return kill(pid, sig) == 0 ? 0 : 2;
+}
+
+int32_t xdkc_p_signal_group(int32_t pgid, int32_t sig) {
+    if (pgid <= 0 || sig <= 0) {
+        return 1;
+    }
+    return kill(-pgid, sig) == 0 ? 0 : 2;
+}
+
+/* 环境变量名枚举：升序、'\n' 分隔、不含值；值经 envRaw(name) 读取。 */
+static int env_name_cmp(const void *a, const void *b) {
+    const char *const *pa = a;
+    const char *const *pb = b;
+    return strcmp(*pa, *pb);
+}
+
+const char *xdkc_p_env_names(void) {
+    extern char **environ;
+    static char *out = NULL;
+    static size_t out_cap = 0;
+    static const char empty[] = "";
+    size_t count = 0;
+    if (environ != NULL) {
+        while (environ[count] != NULL) {
+            count++;
+        }
+    }
+    if (count == 0) {
+        return empty;
+    }
+    char **names = malloc(sizeof(char *) * count);
+    if (names == NULL) {
+        return empty;
+    }
+    size_t used = 0;
+    for (size_t i = 0; i < count; i++) {
+        const char *entry = environ[i];
+        const char *eq = strchr(entry, '=');
+        size_t n = eq == NULL ? strlen(entry) : (size_t)(eq - entry);
+        if (n == 0) {
+            continue;
+        }
+        char *copy = malloc(n + 1);
+        if (copy == NULL) {
+            continue;
+        }
+        memcpy(copy, entry, n);
+        copy[n] = 0;
+        names[used++] = copy;
+    }
+    qsort(names, used, sizeof(char *), env_name_cmp);
+    size_t total = 1;
+    for (size_t i = 0; i < used; i++) {
+        total += strlen(names[i]) + 1;
+    }
+    if (total > out_cap) {
+        char *nb = realloc(out, total);
+        if (nb == NULL) {
+            for (size_t i = 0; i < used; i++) { free(names[i]); }
+            free(names);
+            return empty;
+        }
+        out = nb;
+        out_cap = total;
+    }
+    size_t off = 0;
+    for (size_t i = 0; i < used; i++) {
+        size_t n = strlen(names[i]);
+        memcpy(out + off, names[i], n);
+        off += n;
+        if (i + 1 < used) {
+            out[off++] = '\n';
+        }
+        free(names[i]);
+    }
+    out[off] = 0;
+    free(names);
+    return out;
 }
 
 int64_t xdkc_p_proc_status(const char *cmd, size_t len) {

@@ -8907,7 +8907,7 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
       return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("mini_file_exists("), a), rt_string_from_c("->bytes, ")), a), rt_string_from_c("->len)"));
     }
     if (xn_str_eq(n->text, rt_string_from_c("platformRaw"))) {
-      return rt_string_from_c("mini_platform()");
+      return rt_string_from_c("rt_string_from_c(mini_platform())");
     }
     if (xn_str_eq(n->text, rt_string_from_c("Ok"))) {
       rt_string * a = rt_string_from_c("0");

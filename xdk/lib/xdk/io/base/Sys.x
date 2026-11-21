@@ -1,47 +1,198 @@
 // Tier: T0；依赖：xdk.runtime、xdk.errors；稳定性：preview。
-// xdk.sys —— S6-08 包骨架
+// xdk.sys —— T0 平台与进程（默认精简编译单元）。
 //
-// 说明：文件、目录、进程与内嵌资源（原语由运行时提供，句柄 close 必达）。
-// 依赖矩阵：本骨架不导入其他 xdk 单元（依赖方向由 S6 §2 冻结后再追加）。
-// 稳定性：@preview（API 冻结前不承诺）。
+// 本单元是 `xdk.sys` 的默认面：顶层 Result 读写、环境/平台、内嵌资源、
+// Process（含 stdio 管道、信号、进程组）。File/Dir 句柄的完整契约在
+// `xdk.fs`（同目录 io/system 保留兼容实现）；同一程序中同时导入 fs 与 sys
+// 时，句柄类型以 fs 的规范实现为准，避免同名类型冲突。
 package xdk.sys
 import xdk.errors
 
+// ---------- 错误映射 ----------
+
 static Error sysError(ErrorKind kind, String message) {
-    BasicError be = new BasicError(kind, message)
-    return be
+    BasicError error = new BasicError(kind, message)
+    return error
 }
 
-// K-07：文件输入通道（xnullc --ast-file/--bundle-file 使用）。
-// 读取失败（缺失/IO/超过 64 MiB）→ throw 明确诊断，不返回空串。
-String readFileText(String path) {
-    String raw = readFileTextRaw(path)
-    if (readFileTextError() != 0) {
-        throw $"readFileText: 无法读取文件 {path}"
+static ErrorKind sysKind(Int code) {
+    if code == 1 { return ErrorKind.NotFound }
+    if code == 2 { return ErrorKind.PermissionDenied }
+    if code == 3 { return ErrorKind.AlreadyExists }
+    if code == 4 { return ErrorKind.InvalidArgument }
+    if code == 5 { return ErrorKind.Io }
+    if code == 6 { return ErrorKind.Unsupported }
+    if code == 7 { return ErrorKind.Busy }
+    return ErrorKind.Internal
+}
+
+static Error sysOperationError(String operation) {
+    Int code = fsErrorRaw()
+    if code == 0 {
+        return sysError(ErrorKind.Io, $"{operation}: 系统调用失败")
     }
-    return raw
+    return sysError(sysKind(code), $"{operation}: 系统错误（{code}）")
+}
+
+static Error sysPathError(String operation, String path) {
+    Int code = fsErrorRaw()
+    if code == 0 {
+        return sysError(ErrorKind.Io, $"{operation}: {path}")
+    }
+    return sysError(sysKind(code), $"{operation}: {path}（{code}）")
+}
+
+static ErrorKind resourceKind(Int code) {
+    if code == 1 { return ErrorKind.NotFound }
+    if code == 2 { return ErrorKind.InvalidArgument }
+    if code == 3 { return ErrorKind.DataCorrupted }
+    return ErrorKind.Io
+}
+
+// ---------- 字节/hex ----------
+
+static String hexChar(Int value) {
+    String table = "0123456789abcdef"
+    return table.substring(value, 1)
+}
+
+static String hexEncode(Bytes data) {
+    String result = ""
+    Int i = 0
+    while i < data.length() {
+        Int value = data.get(i)
+        result = $"{result}{hexChar(value / 16)}{hexChar(value % 16)}"
+        i = i + 1
+    }
+    return result
+}
+
+static Int hexValueAt(String text, Int index) {
+    String ch = text.substring(index, 1)
+    if ch == "0" { return 0 }
+    if ch == "1" { return 1 }
+    if ch == "2" { return 2 }
+    if ch == "3" { return 3 }
+    if ch == "4" { return 4 }
+    if ch == "5" { return 5 }
+    if ch == "6" { return 6 }
+    if ch == "7" { return 7 }
+    if ch == "8" { return 8 }
+    if ch == "9" { return 9 }
+    if ch == "a" { return 10 }
+    if ch == "b" { return 11 }
+    if ch == "c" { return 12 }
+    if ch == "d" { return 13 }
+    if ch == "e" { return 14 }
+    if ch == "f" { return 15 }
+    return 0
+}
+
+static Bytes hexDecode(String hex) {
+    Bytes result = Bytes.fromString("")
+    Int i = 0
+    while i + 1 < hex.length() {
+        Int hi = hexValueAt(hex, i)
+        Int lo = hexValueAt(hex, i + 1)
+        result.push(hi * 16 + lo)
+        i = i + 2
+    }
+    return result
+}
+
+// ---------- 顶层文件面（T0-X：Result） ----------
+
+Result<String, Error> readFileText(String path) {
+    if path.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "readFileText: 路径为空"))
+    }
+    String text = readFileTextRaw(path)
+    if readFileTextError() != 0 {
+        if fileExistsRaw(path) == 0 {
+            return Err(sysError(ErrorKind.NotFound, $"readFileText: 文件不存在 {path}"))
+        }
+        return Err(sysError(ErrorKind.Io, $"readFileText: 无法读取文件 {path}"))
+    }
+    return Ok(text)
 }
 
 Bool fileExists(String path) {
+    if path.length() == 0 {
+        return false
+    }
     return fileExistsRaw(path) != 0
 }
 
-Int writeFileText(String path, String text) {
+// 写入 UTF-8 文本并返回写入字节数（非 ASCII 按字节计）。
+Result<Long, Error> writeFileText(String path, String text) {
+    if path.length() == 0 {
+        return Err(sysError(ErrorKind.InvalidArgument, "writeFileText: 路径为空"))
+    }
     Int rc = writeFileTextRaw(path, text)
     if rc != 0 {
-        throw $"writeFileText: 无法写入文件 {path}"
+        return Err(sysPathError("writeFileText", path))
     }
-    return text.length()
+    return Ok(text.length() as Long)
 }
 
-Bool resourceExists(String path) {
-    return resourceExistsRaw(path) != 0
+// ---------- 环境与平台（T0-X：枚举 + 稳定投影） ----------
+
+String env(String name) {
+    return envRaw(name)
 }
 
-String readResourceText(String path) {
-    return readResourceTextRaw(path)
+Bool envHas(String name) {
+    return envHasRaw(name) != 0
 }
 
-Int resourceCount() {
-    return resourceCountRaw()
+// 全部环境变量名（升序、不含值）；值用 env(name) 读取。
+List<String> envNames() {
+    String raw = envNamesRaw()
+    if raw.length() == 0 {
+        List<String> empty = []
+        return empty
+    }
+    return raw.split("\n")
+}
+
+String hostname() {
+    return hostnameRaw()
+}
+
+String platform() {
+    return platformRaw()
+}
+
+String arch() {
+    return archRaw()
+}
+
+Int pid() {
+    return pidRaw() as Int
+}
+
+String cwd() {
+    return cwdRaw()
+}
+
+Bool chdir(String path) {
+    return chdirRaw(path) != 0
+}
+
+// 失败返回 -1；需要错误分类时用 fileMtimeResult。
+Long fileMtime(String path) {
+    return fileMtimeRaw(path)
+}
+
+Result<Long, Error> fileMtimeResult(String path) {
+    Long value = fileMtimeRaw(path)
+    if value < 0 {
+        return Err(sysError(ErrorKind.NotFound, $"fileMtime: 无法读取 {path}"))
+    }
+    return Ok(value)
+}
+
+// 读取一行 stdin（EOF 返回空串）；阻塞面，取消随调度器切片补齐。
+String stdinReadLine() {
+    return stdinLineRaw()
 }
