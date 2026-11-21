@@ -107,7 +107,7 @@ Result<Unit, Error> trySetByte(Bytes target, Int index, Int value)
 | `tryFromHex` | `Result<Bytes, Error> tryFromHex(String hexadecimal)` | 无 | 合法解码；非法 `InvalidArgument` | `InvalidArgument` | O(n) |
 | `toHex` | `String toHex(Bytes source)` | 无 | 小写 hex，长度 = 2×字节数 | 无 | O(n) |
 | `byteLength` | `Int byteLength(Bytes source)` | 无 | 字节数 | 无 | O(1) |
-| `isEmpty` | `Bool isEmpty(Bytes source)` | 无 | `length == 0` | 无 | O(1) |
+| `isEmptyBytes` | `Bool isEmptyBytes(Bytes source)` | 无 | `length == 0` | 无 | O(1) |
 | `concatBytes` | `Bytes concatBytes(Bytes first, Bytes second)` | 无 | 新序列 = first + second；不修改入参 | 无 | O(a+b) |
 | `copy` | `Bytes copy(Bytes source)` | 无 | 返回独立副本 | 无 | O(n) |
 | `equals` | `Bool equals(Bytes left, Bytes right)` | 无 | 长度与逐字节相等 | 无 | O(n) |

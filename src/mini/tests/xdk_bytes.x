@@ -6,6 +6,6 @@ static Int main() {
     print(byteLength(raw))
     print(toUtf8(raw))
     print(toHex(fromUtf8("hi")))
-    print(isEmpty(fromUtf8("")))
+    print(isEmptyBytes(fromUtf8("")))
     return 0
 }

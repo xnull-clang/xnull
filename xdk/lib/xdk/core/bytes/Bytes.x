@@ -66,7 +66,7 @@ Int byteLength(Bytes source) {
     return source.length()
 }
 
-Bool isEmpty(Bytes source) {
+Bool isEmptyBytes(Bytes source) {
     return source.length() == 0
 }
 
