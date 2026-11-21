@@ -171,6 +171,52 @@ if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.pan
 fi
 grep -q "readU8: end of input" "$TMP.panic.err"
 
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+import xdk.bytes
+static Int main() {
+    Reader reader = new Reader(Bytes.fromString("A"))
+    print(reader.readU8())
+    print(reader.readU8())
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Reader readU8 end of input to fail" >&2
+    exit 1
+fi
+grep -q "readU8: end of input" "$TMP.panic.err"
+
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+import xdk.bytes
+static Int main() {
+    Reader reader = new Reader(Bytes.fromString("A"))
+    print(reader.readBytes(-1).length())
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Reader readBytes negative count to fail" >&2
+    exit 1
+fi
+grep -q "readBytes: negative count" "$TMP.panic.err"
+
+cat > "$TMP.panic.x" <<'X'
+import xdk.io
+static Int main() {
+    Writer writer = new Writer()
+    writer.close()
+    writer.writeU8(1)
+    return 0
+}
+X
+if "$XNULL" --bootstrap --engine=mini run "$TMP.panic.x" > /dev/null 2>"$TMP.panic.err"; then
+    echo "expected io Writer writeU8 after close to fail" >&2
+    exit 1
+fi
+grep -q "writeU8: closed" "$TMP.panic.err"
+
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sync_atomic.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
@@ -218,7 +264,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_io.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '3\n65\n66\n67\n0\nfalse\n' > "$TMP.exp"
+printf '3\n65\n66\n67\n0\nfalse\n65\n1\n42\ntrue\ntrue\n0\n01\n0102\ntrue\ntrue\ntrue\ntrue\n5\n65\n424344\n1\ntrue\n1\n69\nfalse\ntrue\n3\n3\n0\ntrue\n3\n0\ntrue\nABCD\ntrue\ntrue\ntrue\n4\n414243\n1\n68\ntrue\n2\n88\n595a\nXYZ\nfalse\ntrue\nfalse\n3\n65\n4243\n0\ntrue\ntrue\none\ntwo\nthree\ntrue\nhello\n0\n4\ncopy\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_fs.x" > "$TMP.mini" 2>"$TMP.err" || {

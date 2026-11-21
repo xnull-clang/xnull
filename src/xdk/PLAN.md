@@ -19,7 +19,7 @@ and recorded gaps.
 | `xdk.text` | base + full mini; `compareText` byte ordering | UTF-16/format edges |
 | `xdk.math` | base + Int128/Int/Long checked + saturating + combinatorics mini | random T1 |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
-| `xdk.io` | in-memory Reader/Writer mini | file/network streams |
+| `xdk.io` | `Verified`：memory/checked/buffered/composed/LineReader mini | file/network/stdio via fs/sys/runtime |
 | `xdk.fs` | text exists/read/write mini | path/atomic/full File/Dir |
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
@@ -54,6 +54,8 @@ engine.
    are implemented; complex receiver/return inference remains incremental.
 3. Generic Map/Set core is implemented; `Map.entries` values beyond `Pair`/`IntPair`, `groupBy`, and ordered maps remain.
 4. Project build and formatter are future mini work.
+5. Protocol dispatch fallback emits type-correct zero values for `Result` and
+   closure returns; new protocol return types must keep this path covered.
 
 ## 4. Architecture
 

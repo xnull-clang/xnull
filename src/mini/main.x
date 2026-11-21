@@ -9310,8 +9310,15 @@ class CGen {
                             self.emit("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->message;")
                         }
                         self.emit("  rt_fatal(\"protocol dispatch failed: " + p.text + "." + sig.text + "\");")
+                        String protocolCType = self.ctype(rt)
                         if rt == "Unit" || rt == "void" || rt == "Void" {
                             self.emit("  return;")
+                        } else if protocolCType == "xn_Result" {
+                            self.emit("  return (xn_Result){ .ok = 0, .err = (void *)0 };")
+                        } else if protocolCType == "xn_Result_Int_String" {
+                            self.emit("  return (xn_Result_Int_String){ .ok = 0, .value = 0, .error = 0 };")
+                        } else if protocolCType == "xn_closure" {
+                            self.emit("  return (xn_closure){ .env = 0, .fn = 0 };")
                         } else {
                             self.emit("  return 0;")
                         }

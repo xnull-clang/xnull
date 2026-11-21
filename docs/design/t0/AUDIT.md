@@ -41,7 +41,7 @@ Still to watch:
 | collections | v1.4 | partial | PASS (subset) | entries pairs/groupBy/OrderedMap |
 | math | v1.2 | mini | PASS | — |
 | time | v1.0 | mini | PASS | — |
-| io | v1.0 | partial | PASS | strict/checked + copy semantics |
+| io | v1.0 | mini | PASS | — |
 | fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
 | sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
 | tasks | v1.0 | mini | PASS | — |
@@ -76,6 +76,15 @@ gained `compareText` for byte-lexicographic ordering (String has no `<`), and
 `writeFileText`/`writeText` now return the UTF-8 byte count instead of the raw
 status code. The previous expected order in `xdk_collections_algo` was the bug,
 not the contract.
+
+2026-11-21 batch 1 (io): `xdk.io` is `Verified`. `Reader.readU8` now panics at
+EOF instead of returning the `0` sentinel; `tryReadU8`/`readExact` return
+`Result` without advancing on failure. `Writer.toBytes` returns a copy and
+`Writer` gained idempotent `flush`/`close`. The package now has `Readable` /
+`Writable` protocols, buffered streams, `ChainReader` / `TeeReader` /
+`LimitReader`, `LineReader`, and `readAll` / `copyTo`. The mini protocol
+dispatch fallback now emits a type-correct zero value for `Result` and closure
+returns instead of `return 0`.
 
 ## 5. Freeze blockers
 

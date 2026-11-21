@@ -10449,11 +10449,27 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
             xn_Cls_CGen_emit(self, rt_string_from_c("  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_BUILTIN_ERROR) return ((xn_builtin_error *)xn_obj)->message;"));
           }
           xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  rt_fatal(\"protocol dispatch failed: "), p->text), rt_string_from_c(".")), sig->text), rt_string_from_c("\");")));
+          rt_string * protocolCType = xn_Cls_CGen_ctype(self, rt);
           if (((xn_str_eq(rt, rt_string_from_c("Unit")) || xn_str_eq(rt, rt_string_from_c("void"))) || xn_str_eq(rt, rt_string_from_c("Void")))) {
             xn_Cls_CGen_emit(self, rt_string_from_c("  return;"));
           }
           else {
-            xn_Cls_CGen_emit(self, rt_string_from_c("  return 0;"));
+            if (xn_str_eq(protocolCType, rt_string_from_c("xn_Result"))) {
+              xn_Cls_CGen_emit(self, rt_string_from_c("  return (xn_Result){ .ok = 0, .err = (void *)0 };"));
+            }
+            else {
+              if (xn_str_eq(protocolCType, rt_string_from_c("xn_Result_Int_String"))) {
+                xn_Cls_CGen_emit(self, rt_string_from_c("  return (xn_Result_Int_String){ .ok = 0, .value = 0, .error = 0 };"));
+              }
+              else {
+                if (xn_str_eq(protocolCType, rt_string_from_c("xn_closure"))) {
+                  xn_Cls_CGen_emit(self, rt_string_from_c("  return (xn_closure){ .env = 0, .fn = 0 };"));
+                }
+                else {
+                  xn_Cls_CGen_emit(self, rt_string_from_c("  return 0;"));
+                }
+              }
+            }
           }
           xn_Cls_CGen_emit(self, rt_string_from_c("}"));
           xn_Cls_CGen_emit(self, rt_string_from_c(""));

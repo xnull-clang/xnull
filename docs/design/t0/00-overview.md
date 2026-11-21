@@ -208,7 +208,7 @@ K/X 是**范围标签，不是子阶段**：一个包一个验收门、一份最
 | collections | List（Int/String）、四个 Map/Set 快速路径、通用 Map/Set 核心、成员面、排序/查找/去重、PriorityQueue/RingBuffer | Map.entries 任意 K/V 值对象、groupBy、OrderedMap/BTreeMap（T0-X） |
 | math | 常量、abs/clamp、floor/ceil/round、pow/sqrt/log、三角、统计边界、Int/Long checked/saturating、组合数学 | random（T1） |
 | time | Instant/Duration/DateTime 基础换算 | 解析/格式化全量、日历加减、TimeZone、Stopwatch |
-| io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader、stdio |
+| io | Reader/Writer 协议、内存流、readAll/copy | Buffered、Chain/Tee/Limit、LineReader（stdio 归 runtime/sys） |
 | fs | Path/File/Dir、exists/read/write/close | Metadata、walk/glob、Temp、Atomic、权限/链接 |
 | sys | Process、env、platform、cwd | stdio 管道、信号、环境枚举、进程组、内嵌资源读取子集 |
 | tasks | Task/TaskGroup/Context、取消、joinDeadline | select/race、Context 值、取消作用域 |
@@ -337,7 +337,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
 | `07-math.md` | 数学函数、溢出、统计、Int128 | Verified（mini；random T1） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
-| `09-io.md` | Reader/Writer、缓冲、组合、stdio | Partial（内存面通过；严格/副本待补） |
+| `09-io.md` | Reader/Writer、缓冲、组合、stdio | Verified（内存/协议/组合/LineReader） |
 | `10-fs.md` | Path、File、Dir、遍历、临时、原子 | Partial（文本面通过；完整 File/Dir 为 X） |
 | `11-sys.md` | Process、Env、Platform、Signal | Partial（简化文件面；File/Dir/Process X） |
 | `12-tasks.md` | Task、TaskGroup、Context、取消 | Verified（mini） |
