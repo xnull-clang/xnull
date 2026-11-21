@@ -109,4 +109,6 @@ if wall <= 0 { diagnose("clock unavailable") }
 ## 6. 后续（T1）
 
 - `sleepUntilMono` 与超时面；
-- stdio 流、断言、fatal 边界。
+- 断言、fatal 边界。
+- 进程 stdio 流由 `xdk.io` 的 `StdioReader`/`StdioWriter` 承载（B2）；
+  runtime 不重复暴露第二套 stdio 面。

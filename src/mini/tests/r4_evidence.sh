@@ -1,9 +1,10 @@
 #!/bin/sh
 # R4 evidence programs: escape/raw/unicode, complex-receiver inference,
 # DetailedError aggregation, Config.setChecked, RuntimeInfo/stats, Stopwatch,
-# cancellable sleep, full layout parse/format, DateTime calendar arithmetic, and
-# the retained DateTime add/diff subset. These are evidence, not new gates;
-# every program is built and run end-to-end with exact output diffs.
+# cancellable sleep, full layout parse/format, DateTime calendar arithmetic,
+# process stdio streams, log filter/redaction/sampling, and the retained
+# DateTime add/diff subset. These are evidence, not new gates; every program is
+# built and run end-to-end with exact output diffs.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
@@ -342,6 +343,47 @@ from-env
 fb
 EOF
 
+cat > "$D/log_pipeline.exp" <<'EOF'
+2
+[INFO] svc: keep-one
+[WARN] svc: keep-two
+[INFO] svc: token [redacted]
+[WARN] svc: second password=[redacted]
+2
+[INFO] svc: s2
+[INFO] svc: s4
+4
+1
+[WARN] svc: *** two
+2
+EOF
+
+cat > "$D/stdio.exp" <<'EOF'
+alpha
+10
+beta
+10
+gamma
+true
+true
+true
+false
+false
+OUT:hello
+!
+true
+true
+true
+12
+true
+true
+13
+EOF
+
+cat > "$D/stdio.err.exp" <<'EOF'
+ERR:redacted
+EOF
+
 run_case escape
 run_case inference
 run_case errors_detail
@@ -349,6 +391,7 @@ run_case text_builder
 run_case config_checked
 run_case config_typed
 run_case log_timestamp
+run_case log_pipeline
 run_case meta_buildinfo
 run_case bytes_nul
 run_case cli_completion
@@ -360,6 +403,17 @@ run_case time_stopwatch
 run_case time_sleep_cancel
 run_case time_layout_parse
 run_case time_calendar_edges
+
+# B2: real process stdio over pipes. stdin is piped, stdout/stderr are captured
+# separately so the writer target is observable.
+"$XNULL" --bootstrap --engine=mini build "$HERE/r4/stdio.x" -o "$D/stdio" >"$D/stdio.build" 2>&1 || {
+    cat "$D/stdio.build" >&2; exit 1
+}
+printf 'alpha\nbeta\ngamma\n' | "$D/stdio" >"$D/stdio.out" 2>"$D/stdio.err" || {
+    cat "$D/stdio.err" >&2; exit 1
+}
+diff -u "$D/stdio.exp" "$D/stdio.out"
+diff -u "$D/stdio.err.exp" "$D/stdio.err"
 
 # Negative case: an unknown escape must be a lexical error, not silently dropped.
 if "$XNULL" --bootstrap --engine=mini check "$HERE/r4/escape_bad.x" >"$D/escape_bad.out" 2>&1; then

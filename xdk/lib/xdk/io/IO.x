@@ -171,6 +171,218 @@ class Writer implements Writable {
     }
 }
 
+// ---------- 进程 stdio 适配（B2） ----------
+//
+// 真实走 fd 0/1/2，不是内存流。Reader 在内部按需拉取，EOF 由空块表示；
+// remaining() 只报告已缓冲且未消费的字节，hasRemaining() 在 EOF 前保持 true。
+class StdioReader implements Readable {
+    Bytes _buffer
+    Int _position
+    Bool _closed
+    Bool _eof
+
+    StdioReader() {
+        self._buffer = Bytes.fromString("")
+        self._position = 0
+        self._closed = false
+        self._eof = false
+    }
+
+    Void compact() {
+        if self._position > 0 {
+            self._buffer = slice(self._buffer, self._position, self._buffer.length())
+            self._position = 0
+        }
+    }
+
+    Void ensureBuffered(Int count) {
+        if self._closed || count <= 0 {
+            return
+        }
+        while !self._eof && self._buffer.length() - self._position < count {
+            self.compact()
+            Bytes more = fromHex(stdioReadHexRaw(count - self._buffer.length()))
+            if more.length() == 0 {
+                self._eof = true
+                break
+            }
+            self._buffer = concatBytes(self._buffer, more)
+        }
+    }
+
+    Int remaining() {
+        if self._closed {
+            return 0
+        }
+        return self._buffer.length() - self._position
+    }
+
+    Bool hasRemaining() {
+        if self._closed {
+            return false
+        }
+        return self.remaining() > 0 || !self._eof
+    }
+
+    Int readU8() {
+        if self._closed {
+            throw "readU8: closed"
+        }
+        self.ensureBuffered(1)
+        if self.remaining() <= 0 {
+            throw "readU8: end of input"
+        }
+        Int value = self._buffer.get(self._position)
+        self._position = self._position + 1
+        return value
+    }
+
+    Result<Int, Error> tryReadU8() {
+        if self._closed {
+            return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
+        }
+        self.ensureBuffered(1)
+        if self.remaining() <= 0 {
+            return Err(ioError(ErrorKind.DataCorrupted, "tryReadU8: end of input"))
+        }
+        return Ok(self.readU8())
+    }
+
+    Bytes readBytes(Int count) {
+        if count < 0 {
+            throw "readBytes: negative count"
+        }
+        if self._closed {
+            throw "readBytes: closed"
+        }
+        self.ensureBuffered(count)
+        Int available = self.remaining()
+        Int take = count
+        if take > available {
+            take = available
+        }
+        Bytes value = slice(self._buffer, self._position, self._position + take)
+        self._position = self._position + take
+        return value
+    }
+
+    Result<Bytes, Error> readExact(Int count) {
+        if count < 0 {
+            throw "readExact: negative count"
+        }
+        if self._closed {
+            return Err(ioError(ErrorKind.Unavailable, "readExact: closed"))
+        }
+        self.ensureBuffered(count)
+        if self.remaining() < count {
+            return Err(ioError(ErrorKind.DataCorrupted, "readExact: end of input"))
+        }
+        return Ok(self.readBytes(count))
+    }
+
+    Bool isClosed() {
+        return self._closed
+    }
+
+    Result<Unit, Error> close() {
+        self._closed = true
+        self._buffer = Bytes.fromString("")
+        self._position = 0
+        return Ok()
+    }
+}
+
+class StdioWriter implements Writable {
+    Int _descriptor
+    Int _length
+    Bool _closed
+
+    StdioWriter(Int descriptor) {
+        if descriptor != 1 && descriptor != 2 {
+            throw "StdioWriter: descriptor must be 1 or 2"
+        }
+        self._descriptor = descriptor
+        self._length = 0
+        self._closed = false
+    }
+
+    Int descriptor() {
+        return self._descriptor
+    }
+
+    Int length() {
+        return self._length
+    }
+
+    Void writeHex(String hex) {
+        if self._closed {
+            throw "writeHex: closed"
+        }
+        Int written = stdioWriteHexRaw(self._descriptor, hex)
+        if written < 0 {
+            throw "write: stdio failed"
+        }
+        self._length = self._length + written
+    }
+
+    Void writeU8(Int value) {
+        if self._closed {
+            throw "writeU8: closed"
+        }
+        String digits = "0123456789abcdef"
+        Int byte = value % 256
+        self.writeHex(digits.substring(byte / 16, 1) + digits.substring(byte % 16, 1))
+    }
+
+    Void writeBytes(Bytes source) {
+        if self._closed {
+            throw "writeBytes: closed"
+        }
+        if source.length() > 0 {
+            self.writeHex(toHex(source))
+        }
+    }
+
+    Result<Unit, Error> flush() {
+        if self._closed {
+            return Ok()
+        }
+        if stdioFlushRaw(self._descriptor) != 0 {
+            return Err(ioError(ErrorKind.Io, "flush: stdio failed"))
+        }
+        return Ok()
+    }
+
+    Bool isClosed() {
+        return self._closed
+    }
+
+    // 进程 stdout/stderr 由运行时持有；close 只 flush 并标记关闭，不关闭底层描述符。
+    Result<Unit, Error> close() {
+        if self._closed {
+            return Ok()
+        }
+        Result<Unit, Error> flushed = self.flush()
+        if flushed.isErr() {
+            return Err(flushed.error())
+        }
+        self._closed = true
+        return Ok()
+    }
+}
+
+StdioReader stdinReader() {
+    return new StdioReader()
+}
+
+StdioWriter stdoutWriter() {
+    return new StdioWriter(1)
+}
+
+StdioWriter stderrWriter() {
+    return new StdioWriter(2)
+}
+
 class BufferedReader implements Readable {
     Readable _source
     Bytes _buffer
@@ -207,7 +419,7 @@ class BufferedReader implements Readable {
     }
 
     Bool hasRemaining() {
-        return self.remaining() > 0
+        return self.remaining() > 0 || self._source.hasRemaining()
     }
 
     Int readU8() {

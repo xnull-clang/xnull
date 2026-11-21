@@ -55,15 +55,15 @@ every program end-to-end and diffs exact output. The full C suite
 
 ## 1. Status after the text/errors batch
 
-| State | Ledger start | After R4 batch | After follow-up | After text/errors | After this batch | Change |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 39 | 41 | +14 total; this batch adds log timestamp and config typed getter |
-| `Strict candidate` | 13 | 11 | 9 | 2 | 0 | -13 total; all strict candidates now have a real chain |
-| `Optimized proposed` | 0 | 3 | 3 | 2 | 8 | +8 total; this batch adds meta BuildInfo/build metadata, bytes NUL, cli completion/short options/env defaults |
-| `Optimized candidate` | 11 | 8 | 8 | 8 | 2 | -9 total; B2 stdio and B8 log filter retain candidates |
-| `Deferred candidate` | 3 | 3 | 3 | 3 | 3 | 0 promoted; C1-C3 decision packets refreshed |
-| `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
-| `Signed Strict/Optimized closed` | 0 | 0 | 0 | 0 | 0 | no signer in this batch |
+| State | Ledger start | After R4 batch | After follow-up | After text/errors | After config/log batch | After B2/B8 | Change |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | 39 | 41 | 41 | +14 total; log timestamp and config typed getter |
+| `Strict candidate` | 13 | 11 | 9 | 2 | 0 | 0 | -13 total; all strict candidates now have a real chain |
+| `Optimized proposed` | 0 | 3 | 3 | 2 | 8 | 10 | +10 total; B2 stdio and B8 log pipeline now have shim + scenario |
+| `Optimized candidate` | 11 | 8 | 8 | 8 | 2 | 0 | -11 total; B2/B8 promoted, no optimized candidates remain |
+| `Deferred candidate` | 3 | 3 | 3 | 3 | 3 | 3 | 0 promoted; C1-C3 decision packets refreshed |
+| `Out-of-scope / deferred` | 9 | 9 | 9 | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
+| `Signed Strict/Optimized closed` | 0 | 0 | 0 | 0 | 0 | 0 | no signer in this batch |
 
 `Strict evidenced` and `Optimized proposed` are **not closed**. Only a user or
 independent reviewer signature makes a row `Signed ... closed`.
@@ -603,19 +603,60 @@ test/output exist. `Optimized proposed` is still **not closed**.
   when a checked `Result` is wanted.
 - **Status:** evidence is real; still **unsigned**, therefore not closed.
 
-### B2. runtime / stdio 流 (ledger #39)
+### B2. runtime/io / stdio 流 (ledger #39) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** `xdk.io` `Reader`/`Writer`/`BufferedReader`/`BufferedWriter`/
-  `ChainReader`/`TeeReader`/`LimitReader`/`LineReader` (`src/xdk/io/IO.x`), and
-  `stdinReadLine` (`src/xdk/io/system/Sys.x:196`).
-- **Lost:** no adapter returns a `Reader`/`Writer` over process stdio; there is
-  no runtime stdio stream surface. `02-runtime.md:80` puts stdio in T1.
-- **Test evidence:** none that connects stdio to `xdk.io`. `xdk_io.x` tests
-  memory streams only (`xdk.sh` PASS), which is not the optimized item.
-- **Impact:** runtime/io. **Dependents:** io/runtime. **Breakage:** none.
-  **Migration:** use `xdk.io` streams plus `stdinReadLine` where possible.
-- **Gap:** adapter (`stdinReader()/stdoutWriter()` or equivalent) + scenario.
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim (real OS descriptors, not a memory stream):**
+  - `src/runtime/rt_std_ext.c` + mirror adds `xdkc_stdio_read_hex`,
+    `xdkc_stdio_write_hex`, and `xdkc_stdio_flush`. Reads use `read(0)`, writes
+    use `write(1/2)` after flushing the same fd's stdio buffer; bytes cross the
+    FFI boundary as hex, so embedded NUL is preserved.
+  - `src/ffi/io_raw.xfb` + mirror exposes those three primitives.
+  - `src/xdk/io/IO.x` + mirror adds `StdioReader`, `StdioWriter`, and
+    `stdinReader()`/`stdoutWriter()`/`stderrWriter()`. `StdioReader` implements
+    the existing `Readable` protocol with checked `tryReadU8`/`readExact`;
+    `StdioWriter` implements `Writable` and flushes without closing fd 1/2.
+- **Retained:** `Reader`/`Writer`/`BufferedReader`/`BufferedWriter`/`ChainReader`/
+  `TeeReader`/`LimitReader`/`LineReader`; `stdinReadLine` remains in
+  `xdk.sys`. `BufferedReader.hasRemaining()` now also consults a streaming
+  source, so the adapter composes with buffered reads.
+- **Lost:** no terminal control (raw mode, window size), no non-blocking mode,
+  no fd ownership transfer, and `StdioReader.remaining()` only reports buffered
+  bytes (EOF is discovered by a read). `StdioWriter` accepts only fd 1/2.
+- **Test/command/output:** `src/mini/tests/r4/stdio.x` is built by
+  `r4_evidence.sh`, fed `alpha\nbeta\ngamma\n` through a pipe, and its stdout
+  and stderr are diffed separately:
+
+```text
+alpha
+10
+beta
+10
+gamma
+true
+true
+true
+false
+false
+OUT:hello
+!
+true
+true
+true
+12
+true
+true
+13
+```
+
+  stderr is exactly `ERR:redacted`. The scenario covers `readExact`,
+  `readU8`, `readBytes`, `LineReader` over stdin, EOF via
+  `DataCorrupted`, and writes to both stdout and stderr.
+- **Impact:** io/runtime additively. **Dependents:** io users, log sinks, CLI
+  tools. **Breakage:** none; existing memory streams are unchanged.
+  **Migration:** replace ad-hoc `stdinReadLine`/printf plumbing with
+  `stdinReader()`/`stdoutWriter()` when byte-level streaming is needed.
+- **Status:** proposed, not closed.
 
 ### B3. meta / BuildInfo (ledger #40) — PROMOTED TO PROPOSED
 
@@ -779,24 +820,52 @@ true
   do not assume DST or locale names.
 - **Status:** proposed, not closed.
 
-### B8. log / 过滤/脱敏/采样 (ledger #47)
+### B8. log / 过滤/脱敏/采样 (ledger #47) — PROMOTED TO PROPOSED
 
-- **Verdict:** stays `Optimized candidate`.
-- **Retained:** level threshold, `Field`, `LogRecord`, Console/Memory sink
-  (`src/xdk/log/Log.x`), covered by `xdk_log.x` via `xdk.sh`.
-- **Lost:** filter chain, redaction hooks, deterministic sampler; there are no
-  such symbols:
+- **Verdict:** `Optimized candidate` → `Optimized proposed` (unsigned).
+- **Shim (`src/xdk/log/Log.x` + mirror):**
+  - `Filter` + `PredicateFilter` (function predicate over `LogRecord`) and
+    `KeepAllFilter` default.
+  - `Redactor` + `ReplaceRedactor` (substring replacement) and
+    `IdentityRedactor` default; applied to the message and every field value.
+  - `Sampler` + `EveryNSampler` (every Nth accepted record, deterministic
+    counter) and `KeepAllSampler` default.
+  - `Logger.withFilter/withRedactor/withSampler` return new loggers and preserve
+    `name`/`min`/`sink`/`fields`/`clock`. Pipeline order is
+    level → filter → sampler → redactor → sink.
+- **Retained:** `Level` threshold, `Field`, `LogRecord` timestamps,
+  `ConsoleSink`, `MemorySink`, `Clock`/`SystemClock`, `recordText` and
+  `recordTextWithTime`; existing `xdk_log.x`/`r4/log_timestamp.x` outputs are
+  unchanged.
+- **Lost:** no file sink, no async/batched sink, no rate limiter over wall time,
+  and redaction is literal replacement rather than regex/structure-aware.
+  Sampler state is per-instance (documented, not thread-safe).
+- **Test/command/output:** `src/mini/tests/r4/log_pipeline.x` via
+  `r4_evidence.sh` outputs:
 
 ```text
-$ grep -rni "filter\|redact\|sample" src/xdk/log
-(no matches)
+2
+[INFO] svc: keep-one
+[WARN] svc: keep-two
+[INFO] svc: token [redacted]
+[WARN] svc: second password=[redacted]
+2
+[INFO] svc: s2
+[INFO] svc: s4
+4
+1
+[WARN] svc: *** two
+2
 ```
 
-- **Test evidence:** none for the optimized item; `14-log.md:24` puts these in
-  T1.
-- **Impact:** log. **Dependents:** log users. **Breakage:** none.
-  **Migration:** add hooks later.
-- **Gap:** predicates/redaction/sampler + tests, or keep as T1 non-goal.
+  It covers filter rejection, message and field redaction, every-second
+  sampling with a deterministic counter, and the composed order (filtered info
+  records do not advance the sampler).
+- **Impact:** log additively. **Dependents:** log users, config/cli diagnostics.
+  **Breakage:** none; defaults preserve the old pipeline exactly.
+  **Migration:** add `withFilter`/`withRedactor`/`withSampler` at the logger
+  construction site; no sink or call-site change is required.
+- **Status:** proposed, not closed.
 
 ### B9. cli / 补全 (ledger #49) — PROMOTED TO PROPOSED
 
@@ -990,12 +1059,13 @@ New evidence:
 Follow-up fixes (all real code, no stubs):
 
 - `src/mini/main.x` + regenerated `src/mini/bin/mini.c`:
-  - string literals use `rt_string_new(..., sizeof(...) - 1)`, preserving
-    embedded NUL and `\u{...}` byte length;
+  - string literals containing embedded NUL use
+    `rt_string_new(..., sizeof(...) - 1)`; other literals keep
+    `rt_string_from_c`, so self-host output stays small while NUL is preserved;
   - raw strings `r"..."` / `r"""..."""` are lexed and converted to C literals;
   - the S1 escape table is validated (unknown escapes / invalid scalars are
     lexical errors);
-  - `Char` literals emit `((int32_t)U'...')`, so non-ASCII scalars build;
+  - non-ASCII `Char` literals emit `((int32_t)U'...')`, so wide scalars build;
   - `MethodCall` receiver types are resolved for cross-type inference;
   - top-level parse errors return an empty program, so `--sema`/`--emit-c`
     fail instead of emitting partial C.
@@ -1038,6 +1108,28 @@ This batch (RuntimeInfo/stats/Stopwatch/cancellable sleep/layout parse/calendar)
   symbols, scenarios, and C tests.
 - `docs/design/t0/02-runtime.md`, `docs/design/t0/08-time.md`: contract and
   test-obligation updates.
+
+This batch (B2 stdio adapter + B8 log pipeline):
+
+- New scenarios: `src/mini/tests/r4/stdio.x`,
+  `src/mini/tests/r4/log_pipeline.x`.
+- `src/mini/tests/r4_evidence.sh`: exact stdout/stderr diffs for the piped
+  stdio case and the log pipeline case.
+- `src/xdk/io/IO.x` + mirror: `StdioReader`, `StdioWriter`,
+  `stdinReader`/`stdoutWriter`/`stderrWriter`, plus streaming-source
+  `BufferedReader.hasRemaining`.
+- `src/xdk/log/Log.x` + mirror: `Filter`/`PredicateFilter`/`KeepAllFilter`,
+  `Redactor`/`ReplaceRedactor`/`IdentityRedactor`,
+  `Sampler`/`EveryNSampler`/`KeepAllSampler`, and the three `Logger.with*`
+  hooks.
+- `src/ffi/io_raw.xfb` + mirror: `stdioReadHexRaw`, `stdioWriteHexRaw`,
+  `stdioFlushRaw`.
+- `src/runtime/rt_std_ext.c` + mirror: `xdkc_stdio_read_hex`,
+  `xdkc_stdio_write_hex`, `xdkc_stdio_flush`.
+- `src/ffi/capabilities.tsv`, `src/ffi/api-manifest.tsv` + mirrors: new
+  L1/L2 symbols and the two scenarios.
+- `docs/design/t0/09-io.md`, `docs/design/t0/02-runtime.md`,
+  `docs/design/t0/14-log.md`: contracts and T1 boundaries.
 
 Deliberately untouched:
 
@@ -1107,8 +1199,8 @@ Deliberately not touched in this batch:
 | Area | Remaining | Why |
 | --- | ---: | --- |
 | Strict candidates | 0 | A9/A10 now have real source + scenario + output |
-| Optimized candidates | 2 | B2 stdio adapter and B8 log filter/sampling; no shim/test yet |
-| Optimized proposed | 8 | B3-B7, B9-B11: shim + scenario exist; still unsigned |
+| Optimized candidates | 0 | B2/B8 promoted; no optimized candidate remains |
+| Optimized proposed | 10 | B2-B11: shim + scenario exist; still unsigned |
 | Deferred candidates | 3 | C1-C3; decision meeting date is user-owned |
 | Out-of-scope / deferred | 9 | D1-D9; spec non-goals, package API user-signed |
 | Signed closed | 0 | no independent reviewer signature |
@@ -1160,10 +1252,16 @@ Resolved by the config/log/cli/meta/bytes batch:
    completion text, short clusters/duplicates/terminator, and the precedence
    chain (Optimized proposed).
 
+Resolved by the B2/B8 batch:
+
+1. `runtime-io / stdio adapter` (B2): real fd 0/1/2 reader/writer with a
+   piped stdin/stdout/stderr scenario (Optimized proposed).
+2. `log / 过滤/脱敏/采样` (B8): `Filter`, `Redactor`, and `Sampler` hooks wired
+   into `Logger` with a deterministic pipeline scenario (Optimized proposed).
+
 Still open:
 
-- B2 stdio adapter and B8 log filter/redaction/sampling remain `Optimized
-  candidate`; C1-C3 remain `Deferred candidate`; D1-D9 remain out-of-scope.
+- C1-C3 remain `Deferred candidate`; D1-D9 remain out-of-scope.
 - No row is `Signed ... closed`; only a user or independent reviewer signature
   can make that true.
 

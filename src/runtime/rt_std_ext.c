@@ -8,6 +8,7 @@
  *   - malloc 返回的 C 字符串由 FFI 拷贝进 rt_string 后不再释放（进程生命周期）。
  */
 
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -208,6 +209,103 @@ static char *hex_encode_alloc(const uint8_t *data, size_t n) {
     }
     s[n * 2] = 0;
     return s;
+}
+
+/* ---------- process stdio adapter（B2） ----------
+ *
+ * 读走 read(0)，写走 write(1/2)：二进制安全，不受 NUL 或 stdio 行缓冲影响。
+ * 返回 hex 的静态缓冲由 FFI 层立即拷贝；调用期间不得重入。
+ * 读失败与 EOF 都返回空串（xdk.io 将其映射为 DataCorrupted），写失败返回 -1。
+ */
+#define XDKC_STDIO_READ_MAX (64 * 1024)
+
+static char *g_stdio_read_hex = NULL;
+static size_t g_stdio_read_hex_cap = 0;
+
+char *xdkc_stdio_read_hex(int64_t max_bytes) {
+    if (max_bytes <= 0) {
+        return "";
+    }
+    if (max_bytes > XDKC_STDIO_READ_MAX) {
+        max_bytes = XDKC_STDIO_READ_MAX;
+    }
+    size_t need = (size_t)max_bytes * 2 + 1;
+    if (need > g_stdio_read_hex_cap) {
+        char *grown = (char *)realloc(g_stdio_read_hex, need);
+        if (grown == NULL) {
+            return "";
+        }
+        g_stdio_read_hex = grown;
+        g_stdio_read_hex_cap = need;
+    }
+    unsigned char *bytes = (unsigned char *)malloc((size_t)max_bytes);
+    if (bytes == NULL) {
+        return "";
+    }
+    ssize_t got;
+    do {
+        got = read(STDIN_FILENO, bytes, (size_t)max_bytes);
+    } while (got < 0 && errno == EINTR);
+    if (got <= 0) {
+        free(bytes);
+        return "";
+    }
+    for (ssize_t i = 0; i < got; i++) {
+        g_stdio_read_hex[i * 2] = HEXD[bytes[i] >> 4];
+        g_stdio_read_hex[i * 2 + 1] = HEXD[bytes[i] & 0xF];
+    }
+    g_stdio_read_hex[got * 2] = 0;
+    free(bytes);
+    return g_stdio_read_hex;
+}
+
+int32_t xdkc_stdio_write_hex(int32_t fd, const char *hex, size_t hlen) {
+    if (fd != 1 && fd != 2) {
+        return -1;
+    }
+    if (hlen == 0) {
+        return 0;
+    }
+    if (hlen % 2 != 0) {
+        return -1;
+    }
+    size_t n = hlen / 2;
+    unsigned char *bytes = (unsigned char *)malloc(n);
+    if (bytes == NULL) {
+        return -1;
+    }
+    size_t decoded = hex_decode(hex, hlen, bytes);
+    if (decoded != n) {
+        free(bytes);
+        return -1;
+    }
+    /* 先冲刷同一 fd 上的 stdio 缓冲，保证 print 与 writer 的顺序稳定。 */
+    if (fd == 1) {
+        fflush(stdout);
+    } else {
+        fflush(stderr);
+    }
+    size_t written = 0;
+    while (written < n) {
+        ssize_t w = write(fd, bytes + written, n - written);
+        if (w < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            free(bytes);
+            return -1;
+        }
+        written += (size_t)w;
+    }
+    free(bytes);
+    return (int32_t)n;
+}
+
+int32_t xdkc_stdio_flush(int32_t fd) {
+    if (fd != 1 && fd != 2) {
+        return -1;
+    }
+    return fflush(fd == 1 ? stdout : stderr) == 0 ? 0 : -1;
 }
 
 /* ---------- SHA-256 / SHA-512 / SHA-1 / MD5 / HMAC / CRC32 ---------- */

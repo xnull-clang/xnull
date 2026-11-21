@@ -151,12 +151,113 @@ class MemorySink implements Sink {
     }
 }
 
+// ---------- 过滤 / 脱敏 / 采样（B8） ----------
+//
+// 三者都是协议钩子，Logger 只依赖协议；默认实现保持既有行为不变。
+// 顺序：级别 -> filter -> sampler -> redactor -> sink。采样只统计已通过
+// 级别与 filter 的记录，因此同一输入序列始终得到同一保留集合。
+
+protocol Filter {
+    Bool allow(LogRecord record);
+}
+
+class PredicateFilter implements Filter {
+    Bool(LogRecord) predicate
+
+    PredicateFilter(Bool(LogRecord) predicate0) {
+        self.predicate = predicate0
+    }
+
+    Bool allow(LogRecord record) {
+        return self.predicate(record)
+    }
+}
+
+class KeepAllFilter implements Filter {
+    KeepAllFilter() {
+    }
+
+    Bool allow(LogRecord record) {
+        return true
+    }
+}
+
+protocol Redactor {
+    String redact(String value);
+}
+
+class ReplaceRedactor implements Redactor {
+    String needle
+    String replacement
+
+    ReplaceRedactor(String needle0, String replacement0) {
+        self.needle = needle0
+        self.replacement = replacement0
+    }
+
+    String redact(String value) {
+        if self.needle.length() == 0 {
+            return value
+        }
+        return value.replace(self.needle, self.replacement)
+    }
+}
+
+class IdentityRedactor implements Redactor {
+    IdentityRedactor() {
+    }
+
+    String redact(String value) {
+        return value
+    }
+}
+
+protocol Sampler {
+    Bool keep(LogRecord record);
+}
+
+// 固定间隔采样：每第 N 条通过前置条件的记录保留一条。计数器随 sampler
+// 实例走，同一 Logger 的 with* 派生共享该实例，便于确定性测试。
+class EveryNSampler implements Sampler {
+    Int interval
+    Int seen
+
+    EveryNSampler(Int interval0) {
+        if interval0 < 1 {
+            throw "EveryNSampler: interval must be positive"
+        }
+        self.interval = interval0
+        self.seen = 0
+    }
+
+    Bool keep(LogRecord record) {
+        self.seen = self.seen + 1
+        return self.seen % self.interval == 0
+    }
+
+    Int count() {
+        return self.seen
+    }
+}
+
+class KeepAllSampler implements Sampler {
+    KeepAllSampler() {
+    }
+
+    Bool keep(LogRecord record) {
+        return true
+    }
+}
+
 class Logger {
     String name
     Level min
     Sink sink
     List<Field> fields
     Clock clock
+    Filter filter
+    Redactor redactor
+    Sampler sampler
 
     Logger(String name, Level min) {
         self.name = name
@@ -164,6 +265,9 @@ class Logger {
         self.sink = new ConsoleSink()
         self.fields = []
         self.clock = new SystemClock()
+        self.filter = new KeepAllFilter()
+        self.redactor = new IdentityRedactor()
+        self.sampler = new KeepAllSampler()
     }
 
     Logger withSink(Sink sink) {
@@ -171,12 +275,33 @@ class Logger {
         next.sink = sink
         next.fields = self.fields
         next.clock = self.clock
+        next.filter = self.filter
+        next.redactor = self.redactor
+        next.sampler = self.sampler
         return next
     }
 
     Logger withClock(Clock clock) {
         Logger next = self.withSink(self.sink)
         next.clock = clock
+        return next
+    }
+
+    Logger withFilter(Filter filter) {
+        Logger next = self.withSink(self.sink)
+        next.filter = filter
+        return next
+    }
+
+    Logger withRedactor(Redactor redactor) {
+        Logger next = self.withSink(self.sink)
+        next.redactor = redactor
+        return next
+    }
+
+    Logger withSampler(Sampler sampler) {
+        Logger next = self.withSink(self.sink)
+        next.sampler = sampler
         return next
     }
 
@@ -197,12 +322,33 @@ class Logger {
         return levelRank(level) >= levelRank(self.min)
     }
 
+    LogRecord redacted(LogRecord record) {
+        List<Field> fields = []
+        Int index = 0
+        while index < record.fields.length() {
+            Field field = record.fields.get(index)
+            fields.push(new Field(field.key, self.redactor.redact(field.value)))
+            index = index + 1
+        }
+        LogRecord out = new LogRecord(record.level, record.loggerName,
+            self.redactor.redact(record.message), fields)
+        out.timestampMs = record.timestampMs
+        out.monotonicMs = record.monotonicMs
+        return out
+    }
+
     Void log(Level level, String message) {
         if self.enabled(level) {
             LogRecord record = new LogRecord(level, self.name, message, self.fields)
             record.timestampMs = self.clock.wallMs()
             record.monotonicMs = self.clock.monoMs()
-            self.sink.write(record)
+            if !self.filter.allow(record) {
+                return
+            }
+            if !self.sampler.keep(record) {
+                return
+            }
+            self.sink.write(self.redacted(record))
         }
     }
 
