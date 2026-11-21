@@ -16,7 +16,7 @@ and recorded gaps.
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
-| `xdk.text` | base + full mini; `compareText` byte ordering | UTF-16/format edges |
+| `xdk.text` | `Verified`：Unicode、POSIX ERE 子集、printf Format mini | T1 `xdk.regex` |
 | `xdk.math` | base + Int128/Int/Long checked + saturating + combinatorics mini | random T1 |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
 | `xdk.io` | `Verified`：memory/checked/buffered/composed/LineReader mini | file/network/stdio via fs/sys/runtime |
@@ -52,7 +52,7 @@ engine.
    auditing new code.
 2. `List<Result<...>>`, `collectOk`, `flatten`, and cross-type `mapOk/mapErr`
    are implemented; complex receiver/return inference remains incremental.
-3. Generic Map/Set core is implemented, including `List`/`Map`/`Set` map values and `Entry<K,V>` entries. Collections T0-X is closed; next is text.
+3. Generic Map/Set core is implemented, including `List`/`Map`/`Set` map values and `Entry<K,V>` entries. Collections and text T0-X are closed; next is fs.
 4. Project build and formatter are future mini work.
 5. Protocol dispatch fallback emits type-correct zero values for `Result` and
    closure returns; new protocol return types must keep this path covered.

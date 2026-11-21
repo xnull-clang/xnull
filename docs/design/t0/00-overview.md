@@ -334,7 +334,7 @@ math → time → io → fs → sys → tasks → sync → log → config → cl
 | `AUDIT.md` | T0 冻结前审计、Int 32 位、包状态、门禁 | 当前 |
 | `02-runtime.md` | 诊断、退出、时钟、stdio、运行时信息 | Verified（mini） |
 | `03-meta.md` | 版本、目标平台、目标能力 | Verified（mini） |
-| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode | Partial（base/full 通过；边界待补） |
+| `05-text.md` | 文本算法、Builder、Format、Parse、Unicode、Regex | Verified（mini） |
 | `07-math.md` | 数学函数、溢出、统计、Int128 | Verified（mini；random T1） |
 | `08-time.md` | Instant、Duration、DateTime、TimeZone | Verified（mini） |
 | `09-io.md` | Reader/Writer、缓冲、组合、stdio | Verified（内存/协议/组合/LineReader） |

@@ -37,7 +37,7 @@ Still to watch:
 | runtime | v1.0 | mini | PASS | — |
 | meta | v1.0 | mini | PASS | — |
 | bytes | v1.2 | mini | PASS | Int overflow edge |
-| text | v1.0 | mini | PASS | naming/Unicode edges; Regex T0-X |
+| text | v1.1 | mini | PASS | — |
 | collections | v1.5 | mini | PASS | — |
 | math | v1.2 | mini | PASS | — |
 | time | v1.0 | mini | PASS | — |
@@ -94,6 +94,18 @@ Added `groupByInt`, `groupBy`, and `joinWith`; `OrderedMap<V>`/`BTreeMap<V>`
 now expose `V? put`, `keys()`, and `values()` and are part of the acceptance
 surface. Scene coverage: `xdk_collections_algo.x`, `xdk_containers.x`,
 `xdk_members.x`, and `xdk_core.x`.
+
+2026-11-21 batch 3 (text): `xdk.text` is `Verified`. Unicode now has strict
+UTF-8 validation (overlong, surrogate, >U+10FFFF), U+FFFD repair for invalid
+UTF-8, `DataCorrupted` for isolated UTF-16 surrogates, and code-point
+access/count APIs. Regex is a documented POSIX ERE subset with intervals,
+POSIX named classes, capture groups, alternation, anchors, and code-point
+atoms; the parser tree now stores child references instead of copying
+subtrees, fixing a latent matcher defect where a group followed by another
+atom failed. The stale `replaceAll` expectation `!b x !b` encoded that defect
+and is corrected to `! x !`. printf formatting adds `%d/i/x/X/o/f/e/E/g/G/s/c/b`
+with flags, width, and precision. Public value parameters use full names.
+Scene coverage: `xdk_text.x`, `xdk_text_full.x`, and `xdk_core.x`.
 
 ## 5. Freeze blockers
 

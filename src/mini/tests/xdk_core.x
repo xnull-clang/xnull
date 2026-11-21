@@ -143,5 +143,19 @@ static Int main() {
     print(exists(path))
     print(readText(path))
     print(fileExists(path))
+
+    // text T0-X: Unicode, POSIX ERE subset, printf Format
+    print(codePointAt("é", 0))
+    print(codePointCount("éA"))
+    print(regexCompile("^(ab)+c{2,3}$").value().isMatch("abcc"))
+    List<Match> coreMatches = regexCompile("(a+)(b+)").value().findAll("xxaaabb")
+    print(coreMatches.length())
+    print(coreMatches.get(0).group(2))
+    List<FormatArgument> coreFormatArgs = []
+    coreFormatArgs.push(FormatArgument.ofInt(7))
+    coreFormatArgs.push(FormatArgument.ofText("ok"))
+    print(printf("%04d:%s", coreFormatArgs).value())
+    Result<Utf16, Error> repairedCore = utf8ToUtf16(fromHex("ff"))
+    print(repairedCore.value().get(0) as Int)
     return 0
 }
