@@ -63,7 +63,7 @@ class RuntimeInfo {
 }
 
 RuntimeInfo runtimeInfo() {
-    return new RuntimeInfo("3.4.0", "0.1.0", runtimePlatformRaw(), runtimeArchRaw(), buildModeRaw())
+    return new RuntimeInfo("3.4.0", "1.0.0", runtimePlatformRaw(), runtimeArchRaw(), buildModeRaw())
 }
 
 // ---------- 分配/GC 统计（T0-X） ----------

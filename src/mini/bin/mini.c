@@ -11688,7 +11688,7 @@ static int64_t xn_main(xn_arr_s * args) {
   xn_loadProject(xn_argAfter(args, rt_string_from_c("--project-file")));
   xdkFullSource = xn_hasArg(args, rt_string_from_c("--xdk-full"));
   if (xn_str_eq(cmd, rt_string_from_c("--version"))) {
-    xn_print_str(rt_string_from_c("mini 0.3.0"));
+    xn_print_str(rt_string_from_c("mini 1.0.0"));
     return xn_int_wrap(0);
   }
   if (xn_str_eq(cmd, rt_string_from_c("--supports"))) {

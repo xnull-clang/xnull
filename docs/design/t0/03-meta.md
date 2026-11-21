@@ -47,7 +47,7 @@ BuildInfo buildInfo()
 | 函数 | 后置 | 失败 | 稳定性 |
 | --- | --- | --- | --- |
 | `languageVersion()` | 返回 `"3.4.0"` | 无 | stable |
-| `xdkVersion()` | 返回 `"0.1.0"` | 无 | stable |
+| `xdkVersion()` | 返回 `"1.0.0"` | 无 | stable |
 | `targetPlatform()` | 返回平台名（`macos`/`linux` 等） | 无；未知平台返回 `"unknown"` | stable |
 | `targetArch()` | 返回目标架构名（`arm64`/`x86_64` 等） | 无 | stable |
 | `buildMode()` | 返回 `"release"` 或 `"debug"` | 无 | stable |

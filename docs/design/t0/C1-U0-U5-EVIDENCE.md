@@ -78,17 +78,20 @@ runs four points; that is separate from the 200M compile/run budget above.
 
 `src/toolchain/release.sh` builds a deterministic tarball (fixed
 `SOURCE_DATE_EPOCH=1700000000`, sorted entries, fixed mtime/uid/gid, gzip mtime).
-It writes `xnull-1.0.0.tar.gz`, its `.sha256`, and `VERSION`.
+It writes `xnull-1.0.0.tar.gz`, its `.sha256`, and `VERSION`. The 1.0.0 payload
+is source-only: it ships `src/mini/build.sh` and the `src/mini/bin/mini.c` seed,
+not a host binary, so macOS and Linux x86_64 use the same build path.
 
 Two independent runs:
 
 ```text
-run1 sha256 9395415af43d1de03fc39c5943c05e6e4f7c76f2b7d4d03d507656662b190f63
-run2 sha256 9395415af43d1de03fc39c5943c05e6e4f7c76f2b7d4d03d507656662b190f63
+run1 sha256 5964d6dade77971e8aa60bc2c03ddbaae4c2bfc6db35b54af694ea44dafd0d6b
+run2 sha256 5964d6dade77971e8aa60bc2c03ddbaae4c2bfc6db35b54af694ea44dafd0d6b
 cmp: identical
 ```
 
-Installed from that tarball into `/tmp/c1_u0_release/prefix/xnull-1.0.0`:
+Installed from that tarball into a temporary prefix
+`.../prefix/xnull-1.0.0`, then built with `./src/mini/build.sh`:
 
 ```text
 doctor exit 0:
@@ -98,7 +101,10 @@ cc: /usr/bin/cc
 python3: /Users/vjs/.local/bin/python3
 ffi projection: ok
 engine: mini
-hello exit 0: hello from released xnull
+version: mini 1.0.0
+hello exit 0:
+hello, XNull
+1 + 2 = 3
 ```
 
 ## U1. Multi-file project

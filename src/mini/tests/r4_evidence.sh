@@ -284,7 +284,7 @@ EOF
 cat > "$D/meta_buildinfo.exp" <<'EOF'
 true
 3.4.0
-0.1.0
+1.0.0
 mini
 3.4.0
 true

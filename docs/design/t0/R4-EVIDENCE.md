@@ -691,7 +691,7 @@ true
 $ ./src/cli/xnull --bootstrap --engine=mini run src/mini/tests/r4/meta_buildinfo.x
 true
 3.4.0
-0.1.0
+1.0.0
 mini
 3.4.0
 true

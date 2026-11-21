@@ -11,7 +11,9 @@ mkdir -p "$OUTDIR"
 BASE="xnull-$VERSION"
 TAR="$OUTDIR/$BASE.tar.gz"
 
-SOURCES="src/cli src/toolchain src/mini/bin/mini src/mini/main.x src/mini/support src/runtime src/xdk src/ffi README.md"
+# Source-only payload: no host binary is shipped, so the same tarball builds on
+# macOS and Linux x86_64 from the committed mini.c seed.
+SOURCES="src/cli src/toolchain src/mini/build.sh src/mini/mini src/mini/main.x src/mini/mini_io.xfb src/mini/support src/mini/bin/mini.c src/mini/README.md src/examples src/runtime src/xdk src/ffi README.md LICENSE LICENSE-docs.md"
 ( cd "$ROOT" && SOURCE_DATE_EPOCH="$EPOCH" VERSION="$VERSION" BASE="$BASE" TAR="$TAR" python3 - $SOURCES <<'PY'
 import gzip, os, sys, tarfile, time
 
@@ -22,6 +24,8 @@ roots = sys.argv[1:]
 
 files = []
 for root in roots:
+    if not os.path.exists(root):
+        sys.exit("release: missing source path: " + root)
     if os.path.isfile(root):
         files.append(root)
         continue

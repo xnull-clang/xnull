@@ -23,7 +23,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_meta.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '3.4.0\n0.1.0\n' > "$TMP.exp"
+printf '3.4.0\n1.0.0\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_errors.x" > "$TMP" 2>"$TMP.err" || {
