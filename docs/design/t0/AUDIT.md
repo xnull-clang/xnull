@@ -216,6 +216,14 @@ run, not a self-signature.
 
 C1 evidence and U0–U5 journeys: [`C1-U0-U5-EVIDENCE.md`](C1-U0-U5-EVIDENCE.md).
 
+## 3.7 U3 official build status
+
+Bootstrap `src/bootstrap/build.sh` succeeds (`xn-s4`, `xparser` hashes
+recorded). The official `src/mini/build.sh` legacy path did not finish within
+1800s and was terminated (143), leaving a 0-byte `mini.c`; this is the only
+remaining RED. The substitute 0.3.0 artifact and its upgrade outputs are
+recorded in `C1-U0-U5-EVIDENCE.md`.
+
 ## 4. Gates
 
 ```sh
