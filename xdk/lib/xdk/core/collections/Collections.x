@@ -27,6 +27,7 @@ List<T> sortBy<T>(List<T> items, Bool(T, T) lessThan) {
 }
 
 // sortedBy：返回新列表，不修改入参。
+// 内联排序循环：mini 暂不支持在泛型函数体内调用另一个泛型函数。
 List<T> sortedBy<T>(List<T> items, Bool(T, T) lessThan) {
     List<T> result = []
     Int index = 0
@@ -34,7 +35,22 @@ List<T> sortedBy<T>(List<T> items, Bool(T, T) lessThan) {
         result.push(items.get(index))
         index = index + 1
     }
-    return sortBy(result, lessThan)
+    Int current = 1
+    while current < result.length() {
+        T value = result.get(current)
+        Int previous = current - 1
+        while previous >= 0 {
+            if lessThan(value, result.get(previous)) {
+                result.set(previous + 1, result.get(previous))
+                previous = previous - 1
+            } else {
+                break
+            }
+        }
+        result.set(previous + 1, value)
+        current = current + 1
+    }
+    return result
 }
 
 // dedup：按 equals 去重，保留首次出现顺序。

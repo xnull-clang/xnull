@@ -21,7 +21,7 @@ static Int main() {
 
     // collections: list sort, map put/getOr
     List<String> names = ["gamma", "alpha", "beta"]
-    List<String> sorted = sortBy(names, (String a, String b) -> a < b)
+    List<String> sorted = sortBy(names, (String a, String b) -> compareText(a, b) < 0)
     print(sorted.length())
     print(sorted.get(0))
     Map<String, Int> counts = ["alpha": 1]

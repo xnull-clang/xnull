@@ -21,6 +21,7 @@
 | CAP-5 格式化 | `Format` 链式宽度/填充 | `Format` |
 | CAP-6 Unicode | UTF-8 ↔ UTF-16、code point 访问 | T0-X |
 | CAP-7 正则 | POSIX ERE 子集 | T0-X |
+| CAP-8 比较 | UTF-8 字节字典序比较，供排序/查找使用 | `compareText` |
 
 **非目标**：完整正则引擎（T1 `xdk.regex`）、i18n、locale、完整 Unicode
 大小写/规范化、字符串内部表示 API。
@@ -38,6 +39,7 @@ String padRight(String text, Int width, String padding)
 String repeatText(String text, Int repetitions)
 String repeatJoined(String text, String separator, Int repetitions)
 Bool contains(String text, String searchText)
+Int compareText(String left, String right)
 ```
 
 | 函数 | 前置 | 后置 | 失败 |
@@ -49,8 +51,12 @@ Bool contains(String text, String searchText)
 | `replace` | 无 | 字面量替换，不是正则 | 无 |
 | `repeatText` | `repetitions >= 0` | 重复；0 返回空串 | 负数为合同错误 |
 | `Format.build()` | width ≥ 0 | 左侧填充到 width | 无 |
+| `compareText(left, right)` | 无 | 按 UTF-8 字节字典序比较：`left < right` 返回负数，相等返回 `0`，`left > right` 返回正数 | 无 |
 
 - 文本索引单位是字节；Unicode 码点操作使用 T0-X 函数。
+- `String` 只支持 `==`/`!=`/`===`/`!==`，不提供 `<`/`<=`/`>`/`>=`（S1 §2.8）。
+  排序必须用 `compareText(a, b) < 0` 作为比较器，例如
+  `sortBy(names, (String a, String b) -> compareText(a, b) < 0)`。
 - 所有函数不修改入参；`String` 不可变。
 - `Format` 只做左填充，不实现 printf 全格式。
 
@@ -67,6 +73,7 @@ Result<Int, Error> number = parseInt("42")
 if number.isErr() { print(number.error().describe()) }
 String padded = padLeft("7", 3, "0")      // 007
 Format.int(7).width(4).pad('0').build()   // 0007
+Int order = compareText("alpha", "beta")  // -1
 ```
 
 反例：
@@ -79,6 +86,7 @@ Format.int(7).width(4).pad('0').build()   // 0007
 
 - 空串/非法字符/32 位溢出；
 - 填充/重复边界；
+- 比较：空串、前缀、相等、UTF-8 多字节字节序；
 - UTF-8 ↔ UTF-16、非法代理对；
 - Regex 字面量/量词子集；
 - base/full 输出一致。

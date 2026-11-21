@@ -612,7 +612,11 @@ Bool pathExists(String path) {
 }
 
 Int writeFileText(String path, String text) {
-    return writeFileTextRaw(path, text)
+    Int rc = writeFileTextRaw(path, text)
+    if rc != 0 {
+        throw $"writeFileText: 无法写入文件 {path}"
+    }
+    return text.length()
 }
 
 Int procStatus(String command) {

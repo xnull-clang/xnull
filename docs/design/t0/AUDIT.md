@@ -71,6 +71,12 @@ boxed Channel<Int128>/Channel<Result<...>> have landed. `m10_perf` remains withi
 baseline (latest 200M run 0.635s, 0.866x). The earlier 1.29x reading was taken
 while a remote-desktop helper held ~90% CPU.
 
+2026-11-21 batch 0 (core-integration): `xdk_core.sh` is green. `xdk.text`
+gained `compareText` for byte-lexicographic ordering (String has no `<`), and
+`writeFileText`/`writeText` now return the UTF-8 byte count instead of the raw
+status code. The previous expected order in `xdk_collections_algo` was the bug,
+not the contract.
+
 ## 5. Freeze blockers
 
 No T0-K blocking item remains. Remaining T0-X gaps are recorded rather than

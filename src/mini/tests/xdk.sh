@@ -84,7 +84,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_collections_algo.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\nb\na\nc\n3\nfalse\ny\n' > "$TMP.exp"
+printf '1\n3\n3\n1\n3\nfalse\n5\ntrue\na\nb\nc\n3\nfalse\ny\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_containers.x" > "$TMP.mini" 2>"$TMP.err" || {
@@ -224,7 +224,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_fs.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '0\ntrue\nhello xdk.fs\n' > "$TMP.exp"
+printf '12\ntrue\nhello xdk.fs\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {

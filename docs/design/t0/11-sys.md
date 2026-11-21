@@ -34,7 +34,8 @@ Int writeFileText(String path, String text)
 
 - `readFileText` 失败（缺失/IO/超过 64 MiB）必须显式诊断，不返回空串。
 - `fileExists` 不可区分“缺失”和“权限不足”；需要区分时用 T0-X File。
-- `writeFileText` 返回写入字节数；失败当前为简化面，T0-X 改 `Result`。
+- `writeFileText` 返回写入的 UTF-8 字节数；写入失败抛出明确诊断，
+  不返回 `0` 冒充成功。T0-X 改 `Result`。
 - 资源读取 T0-X：`resourceExists`、`readResourceText`、`resourceCount`。
 
 ## 3. 所有权与错误
@@ -46,7 +47,7 @@ Int writeFileText(String path, String text)
 ## 4. 测试义务
 
 - 存在/不存在；
-- 读取文本与写入后回读；
+- 读取文本与写入后回读，写入返回 UTF-8 字节数；
 - 资源 base/full/cancel；
 - 进程退出码（T0-X）；
 - 目录遍历（T0-X）。

@@ -338,6 +338,34 @@ static Bool regexMatchAt(String pattern, Int pi, String text, Int ti) {
 
 // ---------- 旧种子辅助（保留兼容）----------
 
+// compareText：按 UTF-8 字节字典序比较；left < right 返回负数，相等返回 0，
+// left > right 返回正数。String 不支持 < > 运算符（S1 §2.8），排序用本函数。
+Int compareText(String left, String right) {
+    Int n = left.length()
+    if right.length() < n {
+        n = right.length()
+    }
+    Int i = 0
+    while i < n {
+        Int a = left.get(i)
+        Int b = right.get(i)
+        if a < b {
+            return -1
+        }
+        if a > b {
+            return 1
+        }
+        i = i + 1
+    }
+    if left.length() < right.length() {
+        return -1
+    }
+    if left.length() > right.length() {
+        return 1
+    }
+    return 0
+}
+
 String repeatText(String unit, Int times) {
     if (times <= 0) { return "" }
     return unit + repeatText(unit, times - 1)

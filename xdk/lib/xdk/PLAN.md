@@ -16,7 +16,7 @@ and recorded gaps.
 | `xdk.runtime` | diagnose/exit/clock mini | sleep/deadline edges |
 | `xdk.meta` | versions/platform mini | build/target matrix |
 | `xdk.bytes` | strict/checked surface mini; `ByteBuffer` T0-X | exact 32-bit overflow after Int audit |
-| `xdk.text` | base + full mini | UTF-16/format edges |
+| `xdk.text` | base + full mini; `compareText` byte ordering | UTF-16/format edges |
 | `xdk.math` | base + Int128/Int/Long checked + saturating + combinatorics mini | random T1 |
 | `xdk.time` | Instant/Duration/DateTime mini | timezone/format edges |
 | `xdk.io` | in-memory Reader/Writer mini | file/network streams |
@@ -24,7 +24,7 @@ and recorded gaps.
 | `xdk.sys` | File/Dir/Process + `Resource.x` mini base/full | signal/dir edges |
 | `xdk.tasks` | Task/TaskGroup/Context mini | select/race |
 | `xdk.sync` | Atomic/Mutex/Channel<Int/Long/Bool/Char/Double/String/Bytes/class/protocol/nullable/Int128/Result> mini | RwLock/semaphore/select |
-| `xdk.collections` | List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms, PriorityQueue/RingBuffer mini | entries pairs, groupBy, OrderedMap/BTreeMap |
+| `xdk.collections` | List, four Map/Set fast paths, generic Map/Set core, member surface, algorithms (`sortBy`/`sortedBy`), PriorityQueue/RingBuffer mini | entries pairs, groupBy, OrderedMap/BTreeMap |
 | `xdk.log` | Level/Logger/ConsoleSink mini | Field/Sink |
 | `xdk.config` | key/profile/env mini | file/typed sources |
 | `xdk.cli` | Args/usage/exit mini | subcommands/help |

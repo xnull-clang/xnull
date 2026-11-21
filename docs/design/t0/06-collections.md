@@ -300,6 +300,9 @@ print(missing.isErr())           // true
 - `sortBy` 原地排序，与 mini 现有实现一致；需要保留原列表时使用 `sortedBy`。
 - 首版使用稳定插入排序，复杂度 O(n²)；T0-X 可以替换为归并排序，但稳定性不变。
 - 比较器必须满足严格弱序；违反导致顺序未定义，属于调用方合同错误。
+- `String` 没有 `<`/`>` 运算符（S1 §2.8）。字符串排序必须用
+  `xdk.text.compareText` 构造比较器：比较器写成 `compareText(left, right) < 0`，
+  对 `["gamma", "alpha", "beta"]` 排序得到 `["alpha", "beta", "gamma"]`。
 
 ### 7.2 查找/去重/聚合
 

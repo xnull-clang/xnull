@@ -1,4 +1,5 @@
 import xdk.collections
+import xdk.text
 
 static Int main() {
     List<Int> xs = [3, 1, 2]
@@ -22,7 +23,7 @@ static Int main() {
     print(missing == null)
 
     List<String> names = ["b", "a", "c"]
-    List<String> ns = sortBy(names, (String a, String b) -> a < b)
+    List<String> ns = sortBy(names, (String a, String b) -> compareText(a, b) < 0)
     print(ns.get(0))
     print(ns.get(1))
     print(ns.get(2))

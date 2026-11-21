@@ -50,6 +50,17 @@
 3. `writeText` 返回 `0`，而 `10-fs.md` 规定返回字节数。
    处理：按文档返回字节数；`fs` 的 T0-X 再按设计改为 `Result<Long,Error>`。
 
+批 0 修复记录（2026-11-21）：
+
+- 第 1 条已确认：`bytes.isEmptyBytes` 与 `text.isEmpty` 可同时导入。
+- 第 2 条：新增 `xdk.text.compareText(String,String)`（UTF-8 字节字典序，
+  负/0/正），字符串排序改用 `compareText(a,b) < 0`；`xdk_collections_algo.x`
+  的旧期望 `b,a,c` 修正为 `a,b,c`。同时修掉 `sortedBy` 不能在泛型函数体内
+  调用泛型 `sortBy` 的缺口（排序循环内联）。
+- 第 3 条：`xdk.sys.writeFileText` / `xdk.fs.writeText` 现在返回写入的 UTF-8
+  字节数（非 ASCII 文本按字节计），失败抛出诊断；`Result<Long,Error>` 面仍属
+  后续 fs/sys 批次。
+
 ## 4. 批次顺序
 
 | # | 批次 | 范围 | 验收 |
