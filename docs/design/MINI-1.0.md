@@ -2,9 +2,9 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Draft for sign-off（C0/C1/U 未关闭、X 账本 0 signed closed、3 Deferred candidate 待会议） |
+| 状态 | 已批准并本地发布 `mini-1.0.0`（`1c6f00ff`；main merge `813e52ce`）；签名/决策见 `MINI-1.0-SIGNOFF.md`；未 push |
 | 适用 | mini 1.0 发布列车：编译器 + C runtime + XDK + 工具链 + 发布物 |
-| 权威 | P9 已由用户确认（2026-11-21）；P1–P8、P10 为建议或待签；本文件只管“1.0 范围、分层、门禁、顺序” |
+| 权威 | P1–P10 已按 `MINI-1.0-SIGNOFF.md` 批准（P9 2026-11-21；其余 2026-11-22）；本文件是批准前账本，签名记录以 SIGNOFF 为准 |
 | 不改变 | `docs/design/core/*` 的能力契约；`CORE-CLOSURE.md` 的批次范围 |
 | 执行 | 严格按 `LOCAL_RULES.md` 第 5 号：批内不逐条验收/提交，批末一次门禁与提交 |
 | 本次范围 | 只改本文件；不改代码、core 文档、`LOCAL_RULES`、测试；不提交 |
@@ -138,7 +138,7 @@ mini compiler  +  C runtime  +  XDK  +  xnull CLI  +  发布/安装物
 | R5 | 并发/取消 | 竞态、取消、deadline、channel close、长时压力 | 是 |
 | R6 | 质量工程 | ASan/UBSan/TSan/fuzz、负例；valgrind 限 Linux x86_64 | 是 |
 | R7 | 工具链 | CLI 合同、退出码、JSON、doctor/clean/resources | 是 |
-| R8 | 平台矩阵 | 由 P1 决定的平台清单，每平台完整门禁 | 是 |
+| R8 | 平台矩阵 | P1=B：macOS（arm64/x86_64）+ Linux x86_64，每平台完整门禁 | 是 |
 | R9 | 性能 | 编译/运行/内存预算，参考机中位数（§10.4） | 是 |
 | R10 | 发布卫生 | 文档、迁移、安全、校验和、安装/卸载、release notes | 是 |
 
@@ -438,7 +438,7 @@ io      fs       sys   log    config  cli
 
 ### W10 · 平台矩阵
 
-1. **范围**：P1 决定的平台；当前 R8/W10 默认 C（4 平台），与 P1=B（2 平台）冲突，P1 待签。
+1. **范围**：P1=B 已签，平台为 macOS（arm64/x86_64）+ Linux x86_64；R8/W10 按 2 平台执行。
 2. **产物**：runner 矩阵、平台测试、doctor 平台检查。
 3. **证据**：每平台完整门禁；期望 0。
 4. **依赖**：W3/W9。
@@ -541,7 +541,7 @@ io      fs       sys   log    config  cli
 | R5 | `src/mini/tests/xdk_tasks.x` / `xdk_cancel.x` / `xdk_channel*.x` + 压力 |
 | R6 | CI 矩阵（ASan/UBSan/TSan/fuzz）；valgrind 仅 Linux x86_64 |
 | R7 | `src/mini/tests/m8.sh` |
-| R8 | 各平台完整门禁；平台清单由 P1 决定 |
+| R8 | 各平台完整门禁；P1=B：macOS + Linux x86_64 |
 | R9 | `src/mini/tests/m10_perf.sh` + §10.4 参考机报告 |
 | R10 | 安装/卸载脚本 + 文档检查 |
 
@@ -870,7 +870,7 @@ CORE-CLOSURE 合并后立即做，7 个文件，一个不能漏：
 
 ## 17. 仍未解决的决定
 
-1. **P1 平台矩阵**：B（2 平台）还是 C（4 平台）；当前 R8/W10 写 C，推荐 B，待用户签字。
+1. **P1 平台矩阵**：已签 B（macOS + Linux x86_64）；R8/W10 按 2 平台执行。
 2. **P2 IDE/工具**：A（只语法/index）、B（只读 LSP）、C（LSP+调试+formatter）；推荐 A，待签。
 3. **P3 project**：U1 要求多文件构建，P3 至少 B；若坚持 A，U1 必须改；待签。
 4. **P4 版本口径**：A/B/C；推荐 C（language 3.4 / compiler 1.0 / XDK 1.0 / ABI 1），待签。
@@ -878,7 +878,7 @@ CORE-CLOSURE 合并后立即做，7 个文件，一个不能漏：
 6. **P6 并发保证**：A/B/C；推荐 B（明确取消/关闭，不承诺公平），待签。
 7. **P7 性能预算**：A/B/C；推荐 C（编译+运行+内存），待签；U4 数值见 §10.4。
 8. **P8 安全范围**：A/B/C；推荐 B（FFI/路径/资源/日志脱敏），待签。
-9. **P10 中文文档**：B（入库）还是 A（仅英文）；B 的成本已写入 W12；待签。
+9. **P10 中文文档**：已签 B（中文入库 + 英文翻译）；W12 成本生效。
 10. **X 表**：§15 逐项签字；未签 = 未完成，不是默认关闭；post 共 26 项（14 包 17 + 账本 9），逐项签。
 11. **R4 独立复核人**：需要用户指定；没有独立人时由用户本人签。
 12. **R1 脚本交付**：`check_layers` 已建，allowlist 0/0；B1/0.9.0 非空、1.0 空 的三阶段证据未完整记录。
