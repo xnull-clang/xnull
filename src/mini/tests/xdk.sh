@@ -270,7 +270,7 @@ diff -u "$TMP.exp" "$TMP.mini"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_fs.x" > "$TMP.mini" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '12\ntrue\nhello xdk.fs\n' > "$TMP.exp"
+printf 'true\n12\ntrue\nhello xdk.fs\n2\né\ntrue\ntrue\n2\n4142\ntrue\n12\ntrue\n6\nxd\nk.fs\ntrue\ntrue\ntrue\ntrue\n6\ntrue\n2\ntrue\ntrue\nabXYef\n1\ntrue\nabXYef!\n4\ntrue\ntrue\nc.txt\nsub\ntxt\ntrue\nd.txt\nb/c\ntrue\n12\ntrue\ntrue\ntrue\n384\n384\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nhello xdk.fs\ntrue\n6\natomic\ntrue\ntrue\n1\n6\n4\n5\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\n1\n1\ntrue\nfalse\ntrue\nhello xdk.fs\ntrue\ntrue\nfalse\ntrue\nfalse\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
 diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {

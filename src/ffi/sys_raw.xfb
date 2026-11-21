@@ -86,6 +86,107 @@ ffi xdkc_sys_raw {
   @blocking(.aware)
   Int32 dirCloseIdRaw(Int32 id);
 
+  // ---- xdk.fs T0-X：File 句柄 ----
+  @ffiEntry(cName = "xdkc_p_file_open_handle")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int64 fileOpenHandleRaw(String path, Int32 mode);
+
+  @ffiEntry(cName = "xdkc_p_file_close_handle")
+  @blocking(.aware)
+  Int32 fileCloseHandleRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_p_file_size_handle")
+  @blocking(.aware)
+  Int64 fileSizeHandleRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_p_file_tell_handle")
+  @blocking(.aware)
+  Int64 fileTellHandleRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_p_file_seek_handle")
+  @blocking(.aware)
+  Int64 fileSeekHandleRaw(Int64 handle, Int64 offset);
+
+  @ffiEntry(cName = "xdkc_p_file_read_hex")
+  @blocking(.aware)
+  String fileReadHexHandleRaw(Int64 handle, Int64 count);
+
+  @ffiEntry(cName = "xdkc_p_file_write_hex")
+  @lease(hex = .borrow)
+  @blocking(.aware)
+  Int64 fileWriteHexHandleRaw(Int64 handle, String hex);
+
+  @ffiEntry(cName = "xdkc_p_file_flush_handle")
+  @blocking(.aware)
+  Int32 fileFlushHandleRaw(Int64 handle);
+
+  // ---- xdk.fs T0-X：错误 / 元数据 / 权限 / 链接 ----
+  @ffiEntry(cName = "xdkc_p_fs_error")
+  @blocking(.aware)
+  Int32 fsErrorRaw();
+
+  @ffiEntry(cName = "xdkc_p_path_kind")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 pathKindRaw(String path, Int32 follow);
+
+  @ffiEntry(cName = "xdkc_p_path_size")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int64 pathSizeRaw(String path, Int32 follow);
+
+  @ffiEntry(cName = "xdkc_p_path_mtime")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int64 pathMtimeRaw(String path, Int32 follow);
+
+  @ffiEntry(cName = "xdkc_p_path_mode")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 pathModeRaw(String path, Int32 follow);
+
+  @ffiEntry(cName = "xdkc_p_path_chmod")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  Int32 pathChmodRaw(String path, Int32 mode);
+
+  @ffiEntry(cName = "xdkc_p_path_readlink")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String pathReadlinkRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_path_realpath")
+  @lease(path = .borrow)
+  @blocking(.unaware)
+  String pathRealpathRaw(String path);
+
+  @ffiEntry(cName = "xdkc_p_path_symlink")
+  @lease(target = .borrow, path = .borrow)
+  @blocking(.unaware)
+  Int32 pathSymlinkRaw(String target, String path);
+
+  @ffiEntry(cName = "xdkc_p_path_hardlink")
+  @lease(target = .borrow, path = .borrow)
+  @blocking(.unaware)
+  Int32 pathHardlinkRaw(String target, String path);
+
+  // ---- xdk.fs T0-X：临时文件与原子写 ----
+  @ffiEntry(cName = "xdkc_p_temp_file")
+  @lease(prefix = .borrow)
+  @blocking(.unaware)
+  String tempFileRaw(String prefix);
+
+  @ffiEntry(cName = "xdkc_p_temp_dir")
+  @lease(prefix = .borrow)
+  @blocking(.unaware)
+  String tempDirRaw(String prefix);
+
+  @ffiEntry(cName = "xdkc_p_write_file_atomic")
+  @lease(path = .borrow, hex = .borrow)
+  @blocking(.unaware)
+  Int32 writeFileAtomicRaw(String path, String hex);
+
   // ---- Process ----
   @ffiEntry(cName = "xdkc_p_proc_spawn_simple")
   @lease(cmd = .borrow)

@@ -10,6 +10,7 @@
 #include "xrt.h"
 
 #include <dirent.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,6 +18,9 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
+
+/* macOS 的 <stdlib.h> 在 _POSIX_C_SOURCE=200809L 下隐藏 mkdtemp 声明。 */
+extern char *mkdtemp(char *template);
 
 static char *path_dup(const char *bytes, size_t len) {
     char *p = malloc(len + 1);
@@ -697,17 +701,64 @@ int32_t xdkc_proc_status_async(xrt_context *ctx, const char *cmd, size_t len) {
  * 只用 String/标量形态，避开产品编译器尚未接通的 Bytes 借出/errorCode 出参。
  * 语义复用上方原语；Dir 用固定句柄表把 void* 收敛为 Int32 id（0=失败）。 */
 
-int32_t xdkc_p_write_file_text(const char *path, size_t plen,
-                               const char *text, size_t tlen) {
-    return (int32_t)xdkc_write_file_text(path, plen, text, tlen);
+/* 文件系统错误分类（跨平台稳定小整数）：
+ *   0=OK；1=NotFound；2=PermissionDenied；3=AlreadyExists；
+ *   4=InvalidArgument；5=Io；6=Unsupported；7=Busy。 */
+static _Thread_local int32_t g_fs_last_error = 0;
+
+static int32_t fs_error_from_errno(void) {
+    switch (errno) {
+        case 0:      return 0;
+        case ENOENT:
+        case ENOTDIR: return 1;
+        case EACCES:
+        case EPERM:
+        case EROFS:  return 2;
+        case EEXIST: return 3;
+        case EINVAL:
+        case ENAMETOOLONG:
+        case ELOOP:
+        case EISDIR: return 4;
+        case ENOSPC:
+        case EDQUOT:
+        case EFBIG:  return 5;
+        case ENOSYS: return 6;
+        case EBUSY:
+        case ETXTBSY: return 7;
+        default:     return 5;
+    }
 }
 
-#define XDK_DIR_SLOTS 16
+static int32_t fs_fail(void) {
+    g_fs_last_error = fs_error_from_errno();
+    if (g_fs_last_error == 0) {
+        g_fs_last_error = 5;
+    }
+    return g_fs_last_error;
+}
+
+int32_t xdkc_p_fs_error(void) {
+    return g_fs_last_error;
+}
+
+int32_t xdkc_p_write_file_text(const char *path, size_t plen,
+                               const char *text, size_t tlen) {
+    g_fs_last_error = 0;
+    int32_t rc = (int32_t)xdkc_write_file_text(path, plen, text, tlen);
+    if (rc != 0) {
+        fs_fail();
+    }
+    return rc;
+}
+
+#define XDK_DIR_SLOTS 64
 static void *xdk_dir_slots[XDK_DIR_SLOTS];
 
 int32_t xdkc_p_dir_open_id(const char *path, size_t len) {
+    g_fs_last_error = 0;
     void *d = xdkc_dir_open(path, len);
     if (d == NULL) {
+        fs_fail();
         return 0;
     }
     for (int32_t i = 0; i < XDK_DIR_SLOTS; i++) {
@@ -717,24 +768,561 @@ int32_t xdkc_p_dir_open_id(const char *path, size_t len) {
         }
     }
     (void)xdkc_dir_close(d);
+    g_fs_last_error = 7;
     return 0;
 }
 
 const char *xdkc_p_dir_next_id(int32_t id) {
     if (id < 1 || id > XDK_DIR_SLOTS || xdk_dir_slots[id - 1] == NULL) {
+        g_fs_last_error = 4;
         return "";
     }
+    g_fs_last_error = 0;
     const char *s = xdkc_dir_read(xdk_dir_slots[id - 1]);
     return s == NULL ? "" : s;
 }
 
 int32_t xdkc_p_dir_close_id(int32_t id) {
     if (id < 1 || id > XDK_DIR_SLOTS || xdk_dir_slots[id - 1] == NULL) {
+        g_fs_last_error = 0;
         return 0; /* 幂等 */
     }
     void *d = xdk_dir_slots[id - 1];
     xdk_dir_slots[id - 1] = NULL;
-    return xdkc_dir_close(d);
+    g_fs_last_error = 0;
+    int32_t rc = xdkc_dir_close(d);
+    if (rc != 0) {
+        fs_fail();
+    }
+    return rc;
+}
+
+/* ---- xdk.fs T0-X 桥：File 句柄 / 元数据 / 权限 / 链接 / 临时 / 原子写 ---- */
+
+static int fs_hex_value(int c) {
+    if (c >= '0' && c <= '9') { return c - '0'; }
+    if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+    if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+    return -1;
+}
+
+/* File 句柄：0=read, 1=write(truncate), 2=append, 3=read+write(existing)。 */
+int64_t xdkc_p_file_open_handle(const char *path, size_t len, int32_t mode) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 0;
+    }
+    const char *flags = NULL;
+    switch (mode) {
+        case 0: flags = "rb"; break;
+        case 1: flags = "wb"; break;
+        case 2: flags = "ab"; break;
+        case 3: flags = "r+b"; break;
+        default: g_fs_last_error = 4; return 0;
+    }
+    char *p = path_dup(path, len);
+    FILE *f = fopen(p, flags);
+    free(p);
+    if (f == NULL) {
+        fs_fail();
+        return 0;
+    }
+    return (int64_t)(intptr_t)f;
+}
+
+int32_t xdkc_p_file_close_handle(int64_t handle) {
+    g_fs_last_error = 0;
+    if (handle == 0) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    int rc = fclose((FILE *)(intptr_t)handle);
+    if (rc != 0) {
+        fs_fail();
+        return 1;
+    }
+    return 0;
+}
+
+int64_t xdkc_p_file_size_handle(int64_t handle) {
+    g_fs_last_error = 0;
+    if (handle == 0) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    struct stat st;
+    if (fstat(fileno((FILE *)(intptr_t)handle), &st) != 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)st.st_size;
+}
+
+int64_t xdkc_p_file_tell_handle(int64_t handle) {
+    g_fs_last_error = 0;
+    if (handle == 0) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    off_t pos = ftello((FILE *)(intptr_t)handle);
+    if (pos < 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)pos;
+}
+
+int64_t xdkc_p_file_seek_handle(int64_t handle, int64_t offset) {
+    g_fs_last_error = 0;
+    if (handle == 0 || offset < 0) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    if (fseeko((FILE *)(intptr_t)handle, (off_t)offset, SEEK_SET) != 0) {
+        fs_fail();
+        return -1;
+    }
+    off_t pos = ftello((FILE *)(intptr_t)handle);
+    if (pos < 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)pos;
+}
+
+static char  *g_fs_hex_buf = NULL;
+static size_t g_fs_hex_cap = 0;
+
+const char *xdkc_p_file_read_hex(int64_t handle, int64_t count) {
+    static const char digits[] = "0123456789abcdef";
+    g_fs_last_error = 0;
+    if (handle == 0 || count < 0) {
+        g_fs_last_error = 4;
+        return "";
+    }
+    if (count > 64ll * 1024ll * 1024ll) {
+        g_fs_last_error = 6;
+        return "";
+    }
+    size_t want = (size_t)count;
+    size_t need = want * 2 + 1;
+    if (need > g_fs_hex_cap) {
+        char *nb = realloc(g_fs_hex_buf, need);
+        if (nb == NULL) {
+            g_fs_last_error = 5;
+            return "";
+        }
+        g_fs_hex_buf = nb;
+        g_fs_hex_cap = need;
+    }
+    unsigned char *buf = want == 0 ? NULL : (unsigned char *)malloc(want);
+    if (want != 0 && buf == NULL) {
+        g_fs_last_error = 5;
+        return "";
+    }
+    size_t got = want == 0 ? 0 : fread(buf, 1, want, (FILE *)(intptr_t)handle);
+    if (ferror((FILE *)(intptr_t)handle)) {
+        free(buf);
+        fs_fail();
+        return "";
+    }
+    for (size_t i = 0; i < got; i++) {
+        g_fs_hex_buf[i * 2] = digits[buf[i] >> 4];
+        g_fs_hex_buf[i * 2 + 1] = digits[buf[i] & 0xF];
+    }
+    g_fs_hex_buf[got * 2] = 0;
+    free(buf);
+    return g_fs_hex_buf;
+}
+
+int64_t xdkc_p_file_write_hex(int64_t handle, const char *hex, size_t hlen) {
+    g_fs_last_error = 0;
+    if (handle == 0 || hex == NULL || hlen % 2 != 0) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    size_t n = hlen / 2;
+    if (n > 64u * 1024u * 1024u) {
+        g_fs_last_error = 6;
+        return -1;
+    }
+    unsigned char *buf = n == 0 ? NULL : (unsigned char *)malloc(n);
+    if (n != 0 && buf == NULL) {
+        g_fs_last_error = 5;
+        return -1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = fs_hex_value((unsigned char)hex[i * 2]);
+        int lo = fs_hex_value((unsigned char)hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            free(buf);
+            g_fs_last_error = 4;
+            return -1;
+        }
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    size_t wrote = n == 0 ? 0 : fwrite(buf, 1, n, (FILE *)(intptr_t)handle);
+    free(buf);
+    if (wrote != n) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)wrote;
+}
+
+int32_t xdkc_p_file_flush_handle(int64_t handle) {
+    g_fs_last_error = 0;
+    if (handle == 0) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    if (fflush((FILE *)(intptr_t)handle) != 0) {
+        fs_fail();
+        return 1;
+    }
+    return 0;
+}
+
+int32_t xdkc_p_path_kind(const char *path, size_t len, int32_t follow) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 0;
+    }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int rc = follow ? stat(p, &st) : lstat(p, &st);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return 0;
+    }
+    if (S_ISREG(st.st_mode)) { return 1; }
+    if (S_ISDIR(st.st_mode)) { return 2; }
+    if (S_ISLNK(st.st_mode)) { return 3; }
+    return 4;
+}
+
+int64_t xdkc_p_path_size(const char *path, size_t len, int32_t follow) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int rc = follow ? stat(p, &st) : lstat(p, &st);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)st.st_size;
+}
+
+int64_t xdkc_p_path_mtime(const char *path, size_t len, int32_t follow) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int rc = follow ? stat(p, &st) : lstat(p, &st);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int64_t)st.st_mtime * 1000ll;
+}
+
+int32_t xdkc_p_path_mode(const char *path, size_t len, int32_t follow) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return -1;
+    }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int rc = follow ? stat(p, &st) : lstat(p, &st);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return -1;
+    }
+    return (int32_t)(st.st_mode & 07777);
+}
+
+int32_t xdkc_p_path_chmod(const char *path, size_t len, int32_t mode) {
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL || mode < 0) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    char *p = path_dup(path, len);
+    int rc = chmod(p, (mode_t)(mode & 07777));
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return 1;
+    }
+    return 0;
+}
+
+const char *xdkc_p_path_readlink(const char *path, size_t len) {
+    static _Thread_local char target[4096];
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return "";
+    }
+    char *p = path_dup(path, len);
+    ssize_t n = readlink(p, target, sizeof(target) - 1);
+    free(p);
+    if (n < 0) {
+        fs_fail();
+        return "";
+    }
+    target[n] = 0;
+    return target;
+}
+
+const char *xdkc_p_path_realpath(const char *path, size_t len) {
+    static _Thread_local char resolved[4096];
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return "";
+    }
+    char *p = path_dup(path, len);
+    char *ok = realpath(p, resolved);
+    free(p);
+    if (ok == NULL) {
+        fs_fail();
+        return "";
+    }
+    return resolved;
+}
+
+int32_t xdkc_p_path_symlink(const char *target, size_t tlen,
+                            const char *path, size_t plen) {
+    g_fs_last_error = 0;
+    if (target == NULL || path == NULL || tlen == 0 || plen == 0 ||
+        memchr(target, 0, tlen) != NULL || memchr(path, 0, plen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    char *t = path_dup(target, tlen);
+    char *p = path_dup(path, plen);
+    int rc = symlink(t, p);
+    free(t);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return 1;
+    }
+    return 0;
+}
+
+int32_t xdkc_p_path_hardlink(const char *target, size_t tlen,
+                             const char *path, size_t plen) {
+    g_fs_last_error = 0;
+    if (target == NULL || path == NULL || tlen == 0 || plen == 0 ||
+        memchr(target, 0, tlen) != NULL || memchr(path, 0, plen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    char *t = path_dup(target, tlen);
+    char *p = path_dup(path, plen);
+    int rc = link(t, p);
+    free(t);
+    free(p);
+    if (rc != 0) {
+        fs_fail();
+        return 1;
+    }
+    return 0;
+}
+
+/* prefix 为空：使用系统临时目录 + xnull-；
+ * prefix 无 '/'：放在系统临时目录下；含 '/'：按路径前缀处理。
+ * 尾部没有 XXXXXX 时自动补。 */
+static const char *fs_temp_template(const char *prefix, size_t len) {
+    static _Thread_local char template[4096];
+    const char *tmp = getenv("TMPDIR");
+    if (tmp == NULL || tmp[0] == 0) {
+        tmp = "/tmp";
+    }
+    size_t at = 0;
+    if (len == 0) {
+        int n = snprintf(template, sizeof(template), "%s/xnull-", tmp);
+        if (n < 0 || (size_t)n >= sizeof(template)) {
+            g_fs_last_error = 4;
+            return NULL;
+        }
+        at = (size_t)n;
+    } else if (memchr(prefix, '/', len) != NULL) {
+        if (len >= sizeof(template)) {
+            g_fs_last_error = 4;
+            return NULL;
+        }
+        memcpy(template, prefix, len);
+        template[len] = 0;
+        at = len;
+    } else {
+        int n = snprintf(template, sizeof(template), "%s/", tmp);
+        if (n < 0 || (size_t)n >= sizeof(template)) {
+            g_fs_last_error = 4;
+            return NULL;
+        }
+        at = (size_t)n;
+        if (at + len >= sizeof(template)) {
+            g_fs_last_error = 4;
+            return NULL;
+        }
+        memcpy(template + at, prefix, len);
+        at += len;
+        template[at] = 0;
+    }
+    if (at < 6 || memcmp(template + at - 6, "XXXXXX", 6) != 0) {
+        if (at + 6 >= sizeof(template)) {
+            g_fs_last_error = 4;
+            return NULL;
+        }
+        memcpy(template + at, "XXXXXX", 6);
+        at += 6;
+        template[at] = 0;
+    }
+    return template;
+}
+
+const char *xdkc_p_temp_file(const char *prefix, size_t len) {
+    g_fs_last_error = 0;
+    const char *tmpl = fs_temp_template(prefix, len);
+    if (tmpl == NULL) {
+        return "";
+    }
+    int fd = mkstemp((char *)tmpl);
+    if (fd < 0) {
+        fs_fail();
+        return "";
+    }
+    if (close(fd) != 0) {
+        int32_t saved = fs_fail();
+        (void)remove(tmpl);
+        g_fs_last_error = saved;
+        return "";
+    }
+    return tmpl;
+}
+
+const char *xdkc_p_temp_dir(const char *prefix, size_t len) {
+    g_fs_last_error = 0;
+    const char *tmpl = fs_temp_template(prefix, len);
+    if (tmpl == NULL) {
+        return "";
+    }
+    if (mkdtemp((char *)tmpl) == NULL) {
+        fs_fail();
+        return "";
+    }
+    return tmpl;
+}
+
+int32_t xdkc_p_write_file_atomic(const char *path, size_t plen,
+                                 const char *hex, size_t hlen) {
+    g_fs_last_error = 0;
+    if (path == NULL || plen == 0 || hex == NULL || hlen % 2 != 0 ||
+        memchr(path, 0, plen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    size_t n = hlen / 2;
+    unsigned char *buf = n == 0 ? NULL : (unsigned char *)malloc(n);
+    if (n != 0 && buf == NULL) {
+        g_fs_last_error = 5;
+        return 1;
+    }
+    for (size_t i = 0; i < n; i++) {
+        int hi = fs_hex_value((unsigned char)hex[i * 2]);
+        int lo = fs_hex_value((unsigned char)hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) {
+            free(buf);
+            g_fs_last_error = 4;
+            return 1;
+        }
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    char *target = path_dup(path, plen);
+    size_t tlen = plen + 12;
+    char *tmpl = (char *)malloc(tlen);
+    if (tmpl == NULL) {
+        free(target);
+        free(buf);
+        g_fs_last_error = 5;
+        return 1;
+    }
+    snprintf(tmpl, tlen, "%s.tmp.XXXXXX", target);
+    struct stat existing;
+    int has_existing = stat(target, &existing) == 0;
+    int fd = mkstemp(tmpl);
+    if (fd < 0) {
+        free(target);
+        free(tmpl);
+        free(buf);
+        fs_fail();
+        return 1;
+    }
+    int rc = 0;
+    size_t written = 0;
+    while (written < n) {
+        ssize_t step = write(fd, buf + written, n - written);
+        if (step < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            rc = 1;
+            break;
+        }
+        written += (size_t)step;
+    }
+    if (rc == 0 && fsync(fd) != 0) {
+        rc = 1;
+    }
+    if (rc == 0) {
+        mode_t mode;
+        if (has_existing) {
+            mode = existing.st_mode & 07777;
+        } else {
+            mode_t old = umask(0);
+            umask(old);
+            mode = (mode_t)(0666 & ~old);
+        }
+        if (fchmod(fd, mode) != 0) {
+            rc = 1;
+        }
+    }
+    if (close(fd) != 0) {
+        rc = 1;
+    }
+    if (rc == 0 && rename(tmpl, target) != 0) {
+        rc = 1;
+    }
+    if (rc != 0) {
+        int32_t saved = fs_fail();
+        (void)remove(tmpl);
+        free(target);
+        free(tmpl);
+        free(buf);
+        g_fs_last_error = saved;
+        return 1;
+    }
+    free(target);
+    free(tmpl);
+    free(buf);
+    return 0;
 }
 
 int64_t xdkc_p_proc_spawn_simple(const char *cmd, size_t len) {
@@ -777,22 +1365,26 @@ static int xdk_hex_val(int c) {
     return -1;
 }
 
-/* 读整文件为 hex；失败返回空串（调用方以 fileExists 判别缺失）。 */
+/* 读整文件为 hex；失败返回空串，错误经 xdkc_p_fs_error 读取。 */
 const char *xdkc_p_read_file_hex(const char *path, size_t len) {
     static const char hex[] = "0123456789abcdef";
-    if (path == NULL || len == 0) { return ""; }
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return "";
+    }
     char *p = path_dup(path, len);
     FILE *f = fopen(p, "rb");
     free(p);
-    if (f == NULL) { return ""; }
+    if (f == NULL) { fs_fail(); return ""; }
     size_t cap = 4096, n = 0;
     unsigned char *buf = malloc(cap);
-    if (buf == NULL) { fclose(f); return ""; }
+    if (buf == NULL) { fclose(f); g_fs_last_error = 5; return ""; }
     for (;;) {
         if (n == cap) {
             cap *= 2;
             unsigned char *nb = realloc(buf, cap);
-            if (nb == NULL) { free(buf); fclose(f); return ""; }
+            if (nb == NULL) { free(buf); fclose(f); g_fs_last_error = 5; return ""; }
             buf = nb;
         }
         size_t got = fread(buf + n, 1, cap - n, f);
@@ -801,10 +1393,10 @@ const char *xdkc_p_read_file_hex(const char *path, size_t len) {
     }
     int bad = ferror(f);
     fclose(f);
-    if (bad) { free(buf); return ""; }
+    if (bad) { free(buf); fs_fail(); return ""; }
     if (n * 2 + 1 > xdk_io_hex_cap) {
         char *nb = realloc(xdk_io_hex, n * 2 + 1);
-        if (nb == NULL) { free(buf); return ""; }
+        if (nb == NULL) { free(buf); g_fs_last_error = 5; return ""; }
         xdk_io_hex = nb;
         xdk_io_hex_cap = n * 2 + 1;
     }
@@ -820,19 +1412,23 @@ const char *xdkc_p_read_file_hex(const char *path, size_t len) {
 /* 写/追加 hex 内容；append=1 追加，否则截断。0=成功。 */
 int32_t xdkc_p_write_file_hex(const char *path, size_t plen,
                               const char *hex, size_t hlen, int32_t append) {
-    if (path == NULL || plen == 0 || hex == NULL) { return 1; }
-    if (hlen % 2 != 0) { return 1; }
+    g_fs_last_error = 0;
+    if (path == NULL || plen == 0 || hex == NULL || memchr(path, 0, plen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
+    if (hlen % 2 != 0) { g_fs_last_error = 4; return 1; }
     char *p = path_dup(path, plen);
     FILE *f = fopen(p, append ? "ab" : "wb");
     free(p);
-    if (f == NULL) { return 1; }
+    if (f == NULL) { fs_fail(); return 1; }
     unsigned char stackbuf[1024];
     unsigned char *buf = stackbuf;
     size_t cap = sizeof(stackbuf);
     size_t n = hlen / 2;
     if (n > cap) {
         buf = malloc(n);
-        if (buf == NULL) { fclose(f); return 1; }
+        if (buf == NULL) { fclose(f); g_fs_last_error = 5; return 1; }
         cap = n;
     }
     for (size_t i = 0; i < n; i++) {
@@ -841,6 +1437,7 @@ int32_t xdkc_p_write_file_hex(const char *path, size_t plen,
         if (hi < 0 || lo < 0) {
             if (buf != stackbuf) { free(buf); }
             fclose(f);
+            g_fs_last_error = 4;
             return 1;
         }
         buf[i] = (unsigned char)((hi << 4) | lo);
@@ -849,67 +1446,109 @@ int32_t xdkc_p_write_file_hex(const char *path, size_t plen,
     if (n > 0 && fwrite(buf, 1, n, f) != n) { rc = 1; }
     if (buf != stackbuf) { free(buf); }
     if (fclose(f) != 0) { rc = 1; }
+    if (rc != 0) { fs_fail(); }
     return rc;
 }
 
 int64_t xdkc_p_file_size(const char *path, size_t len) {
-    if (path == NULL || len == 0) { return -1; }
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return -1;
+    }
     char *p = path_dup(path, len);
     struct stat st;
     int ok = stat(p, &st) == 0 && S_ISREG(st.st_mode);
     free(p);
-    return ok ? (int64_t)st.st_size : -1;
+    if (!ok) { fs_fail(); return -1; }
+    return (int64_t)st.st_size;
 }
 
 int32_t xdkc_p_file_exists(const char *path, size_t len) {
-    return xdkc_path_exists(path, len);
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 0;
+    }
+    char *p = path_dup(path, len);
+    struct stat st;
+    int ok = stat(p, &st) == 0;
+    free(p);
+    if (!ok) { fs_fail(); return 0; }
+    return 1;
 }
 
 int32_t xdkc_p_file_remove(const char *path, size_t len) {
-    if (path == NULL || len == 0) { return 1; }
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
     char *p = path_dup(path, len);
     int rc = remove(p);
     free(p);
-    return rc == 0 ? 0 : 1;
+    if (rc != 0) { fs_fail(); return 1; }
+    return 0;
 }
 
 int32_t xdkc_p_file_rename(const char *from, size_t flen,
                            const char *to, size_t tlen) {
-    if (from == NULL || to == NULL || flen == 0 || tlen == 0) { return 1; }
+    g_fs_last_error = 0;
+    if (from == NULL || to == NULL || flen == 0 || tlen == 0 ||
+        memchr(from, 0, flen) != NULL || memchr(to, 0, tlen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
     char *a = path_dup(from, flen);
     char *b = path_dup(to, tlen);
     int rc = rename(a, b);
     free(a);
     free(b);
-    return rc == 0 ? 0 : 1;
+    if (rc != 0) { fs_fail(); return 1; }
+    return 0;
 }
 
 int32_t xdkc_p_dir_make(const char *path, size_t len) {
-    if (path == NULL || len == 0) { return 1; }
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
     char *p = path_dup(path, len);
     int rc = mkdir(p, 0777);
     free(p);
-    return rc == 0 ? 0 : 1;
+    if (rc != 0) { fs_fail(); return 1; }
+    return 0;
 }
 
 int32_t xdkc_p_dir_remove(const char *path, size_t len) {
-    if (path == NULL || len == 0) { return 1; }
+    g_fs_last_error = 0;
+    if (path == NULL || len == 0 || memchr(path, 0, len) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
     char *p = path_dup(path, len);
     int rc = rmdir(p);
     free(p);
-    return rc == 0 ? 0 : 1;
+    if (rc != 0) { fs_fail(); return 1; }
+    return 0;
 }
 
 int32_t xdkc_p_append_file_text(const char *path, size_t plen,
                                 const char *text, size_t tlen) {
-    if (path == NULL || plen == 0) { return 1; }
+    g_fs_last_error = 0;
+    if (path == NULL || plen == 0 || memchr(path, 0, plen) != NULL) {
+        g_fs_last_error = 4;
+        return 1;
+    }
     char *p = path_dup(path, plen);
     FILE *f = fopen(p, "ab");
     free(p);
-    if (f == NULL) { return 1; }
+    if (f == NULL) { fs_fail(); return 1; }
     int rc = 0;
     if (tlen > 0 && fwrite(text, 1, tlen, f) != tlen) { rc = 1; }
     if (fclose(f) != 0) { rc = 1; }
+    if (rc != 0) { fs_fail(); }
     return rc;
 }
 

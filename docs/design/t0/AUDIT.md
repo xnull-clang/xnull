@@ -26,8 +26,9 @@ Fixed:
 
 Still to watch:
 
-- `File.seek` offsets are still `Int`; large-file offsets belong to T0-X.
 - Any new XDK code using `Int` for epoch/size/handle must use `Long`.
+- `xdk.fs.File` now uses `Long` for size, position, and seek offsets; keep the
+  same rule for `xdk.sys.File` when that surface lands.
 
 ## 3. Package status
 
@@ -42,7 +43,7 @@ Still to watch:
 | math | v1.2 | mini | PASS | — |
 | time | v1.0 | mini | PASS | — |
 | io | v1.0 | mini | PASS | — |
-| fs | v1.0 | partial | PASS | Result face + File/Dir T0-X |
+| fs | v1.1 | mini | PASS | — |
 | sys | v1.0 | partial | PASS | File/Dir/Process T0-X |
 | tasks | v1.0 | mini | PASS | — |
 | sync | v1.1 | mini | PASS | — |
@@ -106,6 +107,16 @@ atom failed. The stale `replaceAll` expectation `!b x !b` encoded that defect
 and is corrected to `! x !`. printf formatting adds `%d/i/x/X/o/f/e/E/g/G/s/c/b`
 with flags, width, and precision. Public value parameters use full names.
 Scene coverage: `xdk_text.x`, `xdk_text_full.x`, and `xdk_core.x`.
+
+2026-11-21 batch 4 (fs): `xdk.fs` is `Verified`. `readText` now returns
+`Result<String, Error>` and `writeText` returns `Result<Long, Error>` with the
+UTF-8 byte count. Added `readBytes`/`writeBytes`, real `File` handles with
+`Long` size/position/seek, `FileMode`, `Dir` with `Ok(null)` EOF, and `Path`
+join/normalize/parent/extension. Metadata, permissions, symbolic/hard links,
+`walk`, `glob` (`*`/`?`/`**`), temp file/dir leases, and atomic writes are
+covered. The runtime `sys_raw.xfb` bridge gained file-handle, metadata,
+permission, link, temp, and atomic-write primitives. Scene coverage:
+`xdk_fs.x` and `xdk_core.x`.
 
 ## 5. Freeze blockers
 
