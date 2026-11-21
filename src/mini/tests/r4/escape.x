@@ -1,6 +1,6 @@
 // R4 evidence: S1 §1.4.3/§1.4.4 string and character escape sequences.
-// The \0 case is intentionally excluded: it truncates at the C string
-// boundary (see R4-EVIDENCE.md); raw strings are also unsupported.
+// Covers embedded NUL, raw strings (single-line and multi-line), and a
+// non-ASCII Char literal in addition to the ordinary escape table.
 import xdk.text
 
 static String charText(Char value) {
@@ -39,5 +39,51 @@ static Int main() {
     dumpChar('\\')
     dumpChar('\'')
     dumpChar('\"')
+
+    // Embedded NUL must be preserved as a byte, not terminate the string.
+    String nul = "a\0b"
+    print(nul.length())
+    print(codePointAt(nul, 0))
+    print(codePointAt(nul, 1))
+    print(codePointAt(nul, 2))
+    print(nul == "a")
+    String nulDigit = "a\01"
+    print(nulDigit.length())
+    print(codePointAt(nulDigit, 0))
+    print(codePointAt(nulDigit, 1))
+    print(codePointAt(nulDigit, 2))
+
+    // Raw strings preserve backslashes literally.
+    String raw = r"a\nb"
+    print(raw.length())
+    print(codePointAt(raw, 0))
+    print(codePointAt(raw, 1))
+    print(codePointAt(raw, 2))
+    print(codePointAt(raw, 3))
+    String rawUnicode = r"\u{1F600}"
+    print(rawUnicode.length())
+    print(rawUnicode)
+    String rawBad = r"\q"
+    print(rawBad.length())
+    print(codePointAt(rawBad, 0))
+    print(codePointAt(rawBad, 1))
+
+    // Multi-line raw string: newline is preserved, \n stays literal.
+    String multi = r"""x
+y\n"""
+    print(multi.length())
+    print(codePointAt(multi, 0))
+    print(codePointAt(multi, 1))
+    print(codePointAt(multi, 2))
+    print(codePointAt(multi, 3))
+    print(codePointAt(multi, 4))
+
+    // Non-ASCII Char literal and the same scalar in a string.
+    Char big = '\u{1F600}'
+    print(big == '\u{1F600}')
+    print(big as Int)
+    String bigText = "\u{1F600}"
+    print(bigText.length())
+    print(codePointAt(bigText, 0))
     return 0
 }

@@ -34,22 +34,30 @@ check_layers: PASS (g1=0 g2=0 g3=0 allowlist=0/0; raw g1=0 g2=0 g3=0)
 
 $ ./src/mini/tests/r4_evidence.sh
 mini r4 evidence: PASS
+
+$ ./src/runtime/build_rt.sh
+...
+std 测试通过
+...
+empty resource table fallback ok
+exit 0
 ```
 
 `r4_evidence.sh` is the new evidence runner for the scenarios added in this
-batch. It builds and runs every program end-to-end and diffs exact output.
+batch. It builds and runs every program end-to-end and diffs exact output. The
+full C suite (`build_rt.sh`, no `--lib`) is also green.
 
-## 1. Status after this batch
+## 1. Status after the follow-up batch
 
-| State | Before | After | Change |
-| --- | ---: | ---: | --- |
-| `Strict evidenced` (14-package ledger) | 27 | 29 | +2: `errors / DetailedError 聚合`, `config / setChecked` |
-| `Strict candidate` | 13 | 11 | -2 promoted; 11 remain |
-| `Optimized proposed` | 0 | 3 | +3: `errors/tryWith*`, `meta/能力矩阵`, `time/日历加减` |
-| `Optimized candidate` | 11 | 8 | -3 promoted; 8 remain |
-| `Deferred candidate` | 3 | 3 | 0 promoted; 3 decision packets completed |
-| `Out-of-scope / deferred` | 9 | 9 | 0 changed; non-goal evidence attached |
-| `Signed Strict/Optimized closed` | 0 | 0 | no signer in this batch |
+| State | Ledger start | After R4 batch | After this follow-up | Change |
+| --- | ---: | ---: | ---: | --- |
+| `Strict evidenced` (14-package ledger) | 27 | 29 | 31 | +4 total: DetailedError, setChecked, complex receiver, escape/raw/unicode |
+| `Strict candidate` | 13 | 11 | 9 | -4 total; 9 remain |
+| `Optimized proposed` | 0 | 3 | 3 | +3: errors/tryWith*, meta/能力矩阵, time/日历加减 |
+| `Optimized candidate` | 11 | 8 | 8 | -3 total; 8 remain |
+| `Deferred candidate` | 3 | 3 | 3 | 0 promoted; 3 decision packets completed |
+| `Out-of-scope / deferred` | 9 | 9 | 9 | 0 changed; non-goal evidence attached |
+| `Signed Strict/Optimized closed` | 0 | 0 | 0 | no signer in this batch |
 
 `Strict evidenced` and `Optimized proposed` are **not closed**. Only a user or
 independent reviewer signature makes a row `Signed ... closed`.
@@ -60,35 +68,31 @@ Each item below starts from the ledger state and records the real source,
 scenario, command, and observed output. Items without a complete chain stay
 `Strict candidate` and state exactly what is missing.
 
-### A1. errors / 复杂接收者表达式推断 (ledger #1)
+### A1. errors / 复杂接收者表达式推断 (ledger #1) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`.
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
 - **Source:** `src/xdk/core/errors/Errors.x:623` (`mapOk`); inference contract
   in `docs/design/t0/01-errors.md:331-335` and `:404`.
-- **Control (simple receiver) passes:**
-
-```x
-Result<Int, Error> a = mapOk(okOne(), (Int value) -> value + 1)
-print(a.value())            // 2
-```
-
-- **Complex receiver fails:**
-
-```x
-Result<String, Error> b = mapOk(okOne(), (Int value) -> makeItem(value).label())  // 反例
-```
+- **Root cause:** `simpleExprType` only resolved the method name on a
+  `MethodCall`; it did not resolve the receiver expression. `makeItem(value)`
+  therefore left `U` uninferred, `typeArgsFor` returned empty, and the generic
+  call stayed unresolved (`SEM-001 undefined function: mapOk`).
+- **Fix:** `src/mini/main.x` now resolves `MethodCall` receivers through
+  `simpleExprType` + `methodReturnType` before falling back to the old special
+  names. The generated `mini.c` is refreshed by self-host.
+- **Scenario:** `src/mini/tests/r4/inference.x` via `r4_evidence.sh`.
+- **Observed output:**
 
 ```text
-$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r4_infer3.x
-/tmp/r4_infer3.x:18:31: [SEM-001] undefined function: mapOk
+$ ./src/mini/tests/r4_evidence.sh
+mini r4 evidence: PASS
 ```
 
-- **Gap:** the compiler cannot resolve/infer the cross-type `mapOk` result when
-  the lambda return is a call on a call result (`makeItem(value).label()`).
-  `01-errors.md:335` and `:404` explicitly leave this as T0-X. There is no
-  sema/codegen test for it.
-- **What closes it:** sema/codegen support plus a positive scenario in
-  `xdk_errors_full.x` (or a dedicated test); then re-run `xdk.sh`.
+  The scenario covers `makeItem(value).label()`, `items.get(0).label()`, and
+  `mapOk(..., (Int value) -> makeItem(value))`; output is `v=1 / v=7 / v=1`.
+- **Remaining:** direct `new X(...).method()` chaining is still a parser
+  limitation, but the audited complex-receiver inference case now passes.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A2. errors / 错误码命名空间工具 (ledger #2)
 
@@ -136,23 +140,25 @@ tasks: live=0 spawned=1 settled=1 carrier=1
 
 - **stats is not a public XDK surface:** `src/xdk/core/runtime/Runtime.x` has no
   `stats` symbol. The internal runtime counter test exists at
-  `src/runtime/test_std.c:587` (`test_stats`) and is invoked at `:718`, but the
-  full C suite is currently RED before it reaches a clean result:
+  `src/runtime/test_std.c:587` (`test_stats`) and is invoked at `:718`. The
+  full C suite is now green after the follow-up fix:
 
 ```text
 $ ./src/runtime/build_rt.sh
 ...
-FAIL test_std.c:418: text == NULL && code != 0
-std 测试失败 1 项
+std 测试通过
+...
+empty resource table fallback ok
+exit 0
 ```
 
-  That failure is pre-existing in `f254ab33` (this batch did not edit
-  `src/runtime`), and it is outside the four required gates. It means `stats`
-  cannot be claimed as a green runtime gate either.
-- **Gap:** a public `xdk.runtime` stats symbol, a scenario, and a green command
-  (or a split ledger row that closes `dumpTasks` and leaves `stats` open).
-- **What closes it:** expose stats through the runtime surface, add a scenario,
-  and make the C suite green (or cite a separate green stats-only entry).
+  So the runtime counter itself has a green command. What is still missing is a
+  public `xdk.runtime` stats symbol/scenario; the ledger row therefore stays a
+  candidate rather than claiming a package-level stats surface.
+- **Gap:** a public `xdk.runtime` stats symbol and a scenario (or a split ledger
+  row that closes `dumpTasks` and leaves `stats` open).
+- **What closes it:** expose stats through the runtime surface and add a
+  scenario; the C-level test/command is already green.
 
 ### A4. runtime / RuntimeInfo (ledger #4)
 
@@ -191,12 +197,20 @@ $ grep -rn "StringBuilder" src/xdk
 - **What closes it:** add the XDK API and a scenario such as
   `xdk_text_builder.x`, or move the row to out-of-scope with the T1 statement.
 
-### A6. text / 转义 (ledger #8)
+### A6. text / 转义 (ledger #8) — PROMOTED
 
-- **Verdict:** stays `Strict candidate`; the passing subset is now evidenced,
-  but three S1 escape forms are RED.
-- **Passing subset:** `src/mini/tests/r4/escape.x` (run by
-  `src/mini/tests/r4_evidence.sh`):
+- **Verdict:** `Strict candidate` → `Strict evidenced` (unsigned).
+- **Source/fixes:**
+  - String literals are emitted with `rt_string_new(<literal>, sizeof(<literal>) - 1)`
+    (`src/mini/main.x`), so embedded NUL is length-preserving.
+  - The lexer accepts `r"..."` and `r"""..."""`, converts raw content into a
+    C literal that preserves backslashes, and validates the S1 escape table
+    (unknown escapes and invalid scalars are lexical errors).
+  - `Char` literals are emitted as `((int32_t)U'...')`, so non-ASCII scalars
+    are not narrowed to C `char`.
+- **Scenario:** `src/mini/tests/r4/escape.x` plus the negative
+  `src/mini/tests/r4/escape_bad.x`, run by `r4_evidence.sh`.
+- **Observed output (escape.x):**
 
 ```text
 26
@@ -222,48 +236,51 @@ $ grep -rn "StringBuilder" src/xdk
 39
 1
 34
-```
-
-  This covers `\n`, `\r`, `\t`, `\\`, `\'`, `\"`, `\xHH`, `\uHHHH`, and
-  `\u{...}` in strings, plus the same ASCII escapes in character literals.
-- **RED 1 — embedded NUL truncates:**
-
-```x
-String s = "a\0b"
-print(s.length())
-print(s == "a")
-```
-
-```text
-$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r4_nul.x
-1
+3
+97
+0
+98
+false
+3
+97
+0
+49
+4
+97
+92
+110
+98
+9
+\u{1F600}
+2
+92
+113
+5
+120
+10
+121
+92
+110
 true
+128512
+4
+128512
 ```
 
-  Correct S1 behavior is length 3 and `s == "a"` false. `rt_string_from_c`
-  uses `strlen` (`src/runtime/rt.c:149-153`), and codegen emits string
-  literals through it (`src/mini/main.x:7538`).
-- **RED 2 — raw strings are rejected:**
+  This covers `\n`, `\r`, `\t`, `\\`, `\'`, `\"`, `\xHH`, `\uHHHH`,
+  `\u{...}`, embedded `\0` (`a\0b` → length 3, code points 97/0/98;
+  `a\01` → length 3, code points 97/0/49, so `\0` does not merge with a
+  following octal digit), raw `r"a\nb"` (backslash preserved), raw `r"\q"`,
+  multi-line raw `r"""x\ny\n"""`, and `'\u{1F600}'` (128512).
+- **Negative case:** `escape_bad.x` (`"\q"`) is rejected:
 
 ```text
-$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r4_escape_red.x
-/tmp/r4_escape_red.x:5:18: [SEM-001] undefined symbol: r
+$ ./src/cli/xnull --bootstrap --engine=mini check src/mini/tests/r4/escape_bad.x
+...: invalid escape sequence
 ```
 
-- **RED 3 — non-ASCII character literal does not build:**
-
-```text
-$ ./src/cli/xnull --bootstrap --engine=mini build /tmp/r4_bigchar.x -o /tmp/r4bigchar
-/tmp/r4bigchar.c:848:17: error: character too large for enclosing character literal type
-xnull-build: cc link failed: /tmp/r4bigchar.c
-```
-
-- **Gap:** S1 §1.4.3/§1.4.4 is not fully implemented. The string literal emitter
-  must be length-preserving, the lexer must accept `r"..."`/`r"""..."""`, and
-  `Char` literals must be emitted as 32-bit code points.
-- **What closes it:** fix those three code paths and extend `r4/escape.x` with
-  `\0`, raw strings, and `'\u{1F600}'`; then the item can move to
-  `Strict evidenced`.
+- **Gap:** none for the documented S1 escape/raw/Char surface.
+- **Status:** evidence is real; still **unsigned**, therefore not closed.
 
 ### A7. time / 可取消 sleep (ledger #15)
 
@@ -287,30 +304,37 @@ $ grep -rn "Context" src/xdk/core/time
 
 ### A8. time / 全量 layout 解析/格式化 (ledger #16)
 
-- **Verdict:** stays `Strict candidate`.
-- **Evidence:** `src/xdk/core/time/DateTime.x:227-237` replaces only
-  `yyyy`, `MM`, `dd`, `HH`, `mm`, `ss`, `SSS`. `parseDateTime`
-  (`Time.x:303-325`) accepts only the ISO subset.
-- **Probe:**
+- **Verdict:** stays `Strict candidate` (format bug fixed; full parse still
+  absent).
+- **Format fix:** `src/xdk/core/time/DateTime.x` now scans the layout
+  left-to-right with longest-token matching instead of chained `replace`.
+  It covers `yyyy`, `MM`, `MMM`, `MMMM`, `dd`, `ddd`, `dddd`, `EEE`, `EEEE`,
+  `HH`, `mm`, `ss`, `SSS`; month/weekday names are real names, not literals.
+- **Probe (fixed):**
 
 ```text
+$ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r5_layout_tokens.x
+01|Jan|January
+31|Wed|Wednesday
+Wed|Wednesday
+2024-01-31 23:59:59.000
+Jan Wed January Wednesday
+
 $ ./src/cli/xnull --bootstrap --engine=mini run /tmp/r4_layout.x
 2024/01/31 23:59:59 000
-EEE, 31 01M 2024
+Wed, 31 Jan 2024
 true
 false
 true
 ```
 
-  `"EEE, dd MMM yyyy"` becomes `"EEE, 31 01M 2024"`: `MM` is replaced inside
-  `MMM`, so the replacement is not token-aware. Slash and month-name parses
-  are rejected.
-- **Design:** `docs/design/t0/08-time.md:65` explicitly does not promise full
+  `"EEE, dd MMM yyyy"` now renders `"Wed, 31 Jan 2024"`; `MM` no longer eats
+  `MMM`, and `dd` no longer eats `ddd`.
+- **Remaining gap:** `parseDateTime` (`Time.x:303-325`) still accepts only the
+  ISO subset, not arbitrary layouts. `08-time.md:65` does not promise full
   strftime; `:105` puts full layout parse/format in T0-X.
-- **Gap:** token-aware formatter/parser, weekday/month names, full token set,
-  and negative tests.
-- **What closes it:** implement the documented token set and add a layout
-  scenario covering names, escapes, and invalid tokens.
+- **What closes it:** add a token-aware parser for the same layout set and
+  negative tests; formatting is now evidenced.
 
 ### A9. log / 时间戳/单调时钟字段 (ledger #31)
 
@@ -723,24 +747,42 @@ select、无锁容器”. The existing `xdk.tasks`/`xdk.sync` scenarios
 `xdk_sync_atomic.x`) remain the built-in gate; they are not strict evidence for
 these nine items. No ledger row is changed by this batch.
 
-## 6. Files changed in this batch
+## 6. Files changed across the R4 evidence batches
 
 New evidence:
 
 - `docs/design/t0/R4-EVIDENCE.md` (this file)
 - `src/mini/tests/r4_evidence.sh`
-- `src/mini/tests/r4/escape.x`
+- `src/mini/tests/r4/escape.x`, `src/mini/tests/r4/escape_bad.x`
+- `src/mini/tests/r4/inference.x`
 - `src/mini/tests/r4/errors_detail.x`
 - `src/mini/tests/r4/config_checked.x`
 - `src/mini/tests/r4/time_calendar.x`
 
-Real fix found by the evidence (not a stub):
+Follow-up fixes (all real code, no stubs):
 
+- `src/mini/main.x` + regenerated `src/mini/bin/mini.c`:
+  - string literals use `rt_string_new(..., sizeof(...) - 1)`, preserving
+    embedded NUL and `\u{...}` byte length;
+  - raw strings `r"..."` / `r"""..."""` are lexed and converted to C literals;
+  - the S1 escape table is validated (unknown escapes / invalid scalars are
+    lexical errors);
+  - `Char` literals emit `((int32_t)U'...')`, so non-ASCII scalars build;
+  - `MethodCall` receiver types are resolved for cross-type inference;
+  - top-level parse errors return an empty program, so `--sema`/`--emit-c`
+    fail instead of emitting partial C.
+- `src/xdk/core/time/DateTime.x` and `xdk/lib/xdk/core/time/DateTime.x`:
+  token-aware layout formatting with longest-token matching and real
+  month/weekday names.
 - `src/xdk/core/time/Time.x` and `xdk/lib/xdk/core/time/Time.x`:
-  `dateTimeOf` now widens `days * 86400000` and the time-of-day term to
-  `Long`, fixing 32-bit overflow for fixed dates after 1970-01-25.
-- `src/mini/tests/xdk_time.x` and `src/mini/tests/xdk.sh`: fixed-date
-  regression assertion (`2024-01-31 23:59:59`, `1706745599000`).
+  `dateTimeOf` widens `days * 86400000` and the time-of-day term to `Long`
+  (32-bit overflow fix from the first R4 batch).
+- `src/runtime/rt_std_sys.c` and `xdk/runtime/rt_std_sys.c`:
+  `xdkc_read_file_text` returns `NULL` on error, matching the
+  `xdkc_read_file_text_code` contract.
+- `src/runtime/test_std.c`: the missing-file case uses the real path length.
+- `src/mini/tests/xdk_time.x` + `src/mini/tests/xdk.sh`: fixed-date, layout
+  token, and timestamp regression output.
 
 Deliberately untouched:
 
@@ -753,24 +795,31 @@ Deliberately untouched:
 
 | Area | Remaining | Why |
 | --- | ---: | --- |
-| Strict candidates | 11 | A1-A11 above; each has a named gap and a close path |
+| Strict candidates | 9 | A2, A3, A4, A5, A7, A8, A9, A10, A11; each has a named gap and a close path |
 | Optimized candidates | 8 | B2, B3, B5, B6, B8-B11; no shim/test yet |
 | Deferred candidates | 3 | C1-C3; decision meeting date is user-owned |
 | Out-of-scope / deferred | 9 | D1-D9; spec non-goals, package API user-signed |
 | Signed closed | 0 | no independent reviewer signature |
 
-Additional RED defects found while collecting evidence:
+Resolved by this follow-up:
 
-1. `text / 转义`: embedded `\0` truncates, raw strings are rejected, and
-   non-ASCII character literals do not build (A6). This is a real S1 gap, not a
-   test gap.
-2. `errors / 复杂接收者表达式推断`: `mapOk` inference fails for
-   `makeItem(value).label()` (A1).
-3. `time / 全量 layout`: `MM` is replaced inside `MMM`; only seven tokens and
-   ISO parse exist (A8).
-4. `src/runtime/build_rt.sh` (full C suite) is RED at
-   `test_std.c:418` in `f254ab33`, independent of the four required gates. This
-   is why `stats` stays unbacked in A3; it was not introduced by this batch.
+1. `text / 转义`: embedded `\0`, raw strings, and non-ASCII `Char` literals
+   now work; unknown escapes are rejected (A6).
+2. `errors / 复杂接收者表达式推断`: `makeItem(value).label()` and
+   `items.get(0).label()` now infer `mapOk` (A1).
+3. `time / layout`: `MMM`/`MMMM` and `ddd`/`dddd` are longest-token matched;
+   `"EEE, dd MMM yyyy"` renders `"Wed, 31 Jan 2024"` (A8 formatting).
+4. `src/runtime/build_rt.sh` (full C suite) is green after the
+   `xdkc_read_file_text` error contract fix.
 
-The four required gates (`ref.sh`, `xdk.sh`, `xdk_core.sh`, `check_layers`) are
-green as shown in §0. The worktree is clean after the single batch commit.
+Still open (outside the four fixed items):
+
+- A8 full layout **parsing** (`parseDateTime` is still ISO-only).
+- A3 public `xdk.runtime` stats symbol (the C-level `test_stats` is green).
+- A2 error-code registry, A4 RuntimeInfo, A5 StringBuilder, A7 cancellable
+  sleep, A9 log timestamp, A10 typed getter, A11 Stopwatch.
+- B2/B3/B5/B6/B8-B11 optimized candidates, C1-C3 deferred, D1-D9 out-of-scope.
+
+The required gates (`r4_evidence.sh`, `ref.sh`, `xdk.sh`, `xdk_core.sh`,
+`check_layers`) and the full C suite are green as shown in §0. The worktree is
+clean after the single batch commit.

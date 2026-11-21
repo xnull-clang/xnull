@@ -1,7 +1,8 @@
 #!/bin/sh
-# R4 evidence programs: escape subset, DetailedError aggregation, Config.setChecked,
-# and the retained DateTime add/diff subset. These are evidence, not new gates;
-# every program is built and run end-to-end with exact output diffs.
+# R4 evidence programs: escape/raw/unicode, complex-receiver inference,
+# DetailedError aggregation, Config.setChecked, and the retained DateTime
+# add/diff + layout subset. These are evidence, not new gates; every program is
+# built and run end-to-end with exact output diffs.
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
@@ -44,6 +45,41 @@ cat > "$D/escape.exp" <<'EOF'
 39
 1
 34
+3
+97
+0
+98
+false
+3
+97
+0
+49
+4
+97
+92
+110
+98
+9
+\u{1F600}
+2
+92
+113
+5
+120
+10
+121
+92
+110
+true
+128512
+4
+128512
+EOF
+
+cat > "$D/inference.exp" <<'EOF'
+v=1
+v=7
+v=1
 EOF
 
 cat > "$D/errors_detail.exp" <<'EOF'
@@ -89,6 +125,10 @@ EOF
 
 cat > "$D/time_calendar.exp" <<'EOF'
 2024-01-31 23:59:59
+01|Jan|January
+31|Wed|Wednesday
+Wed|Wednesday
+Wed, 31 Jan 2024
 2024-02-01 23:59:59
 86400000
 -86400000
@@ -105,8 +145,17 @@ false
 EOF
 
 run_case escape
+run_case inference
 run_case errors_detail
 run_case config_checked
 run_case time_calendar
+
+# Negative case: an unknown escape must be a lexical error, not silently dropped.
+if "$XNULL" --bootstrap --engine=mini check "$HERE/r4/escape_bad.x" >"$D/escape_bad.out" 2>&1; then
+    echo "expected invalid-escape failure" >&2
+    cat "$D/escape_bad.out" >&2
+    exit 1
+fi
+grep -q 'invalid escape sequence' "$D/escape_bad.out"
 
 echo "mini r4 evidence: PASS"

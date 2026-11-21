@@ -202,12 +202,17 @@ static rt_string * xn_at(rt_string * s, int64_t i);
 static int xn_starts(rt_string * s, int64_t i, rt_string * lit);
 static int xn_isDigit(rt_string * c);
 static int xn_isHex(rt_string * c);
+static int64_t xn_hexValue(rt_string * c);
+static int xn_validScalar(int64_t value);
+static int xn_validEscapeAt(rt_string * src, int64_t slash, int64_t limit);
 static int xn_isLower(rt_string * c);
 static int xn_isUpper(rt_string * c);
 static int xn_isIdentStart(rt_string * c);
 static int xn_isIdentPart(rt_string * c);
 static int xn_isSpace(rt_string * c);
 static int xn_isKeyword(rt_string * s);
+static rt_string * xn_cStringLiteral(rt_string * content);
+static rt_string * xn_canonicalStringLiteral(rt_string * raw);
 static xn_arr_o * xn_lex(rt_string * src);
 static int xn_hasTypeParams(xn_Cls_AstNode * fn);
 static xn_arr_s * xn_splitTop(rt_string * s);
@@ -1658,6 +1663,10 @@ static xn_Cls_AstNode * xn_Cls_Parser_parseLambda(xn_Cls_Parser *self) {
 
 static xn_Cls_AstNode * xn_Cls_Parser_parsePrimary(xn_Cls_Parser *self) {
   xn_Cls_Token * t = xn_Cls_Parser_peek(self);
+  if (xn_Cls_Parser_kind(self, rt_string_from_c("error"))) {
+    xn_Cls_Parser_fail(self, t->text);
+    return xn_Cls_Parser_node(self, rt_string_from_c("error"), t->text, t);
+  }
   if (xn_Cls_Parser_kind(self, rt_string_from_c("int"))) {
     xn_Cls_Parser_advance(self);
     return xn_Cls_Parser_node(self, rt_string_from_c("Int"), t->text, t);
@@ -2558,6 +2567,15 @@ static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode 
     }
   }
   if (xn_str_eq(n->kind, rt_string_from_c("MethodCall"))) {
+    if ((((int64_t)n->kids->len) > 0)) {
+      rt_string * recvType = xn_Cls_Mono_simpleExprType(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+      if ((!xn_str_eq(recvType, rt_string_from_c("Any")))) {
+        rt_string * inferred = xn_Cls_Mono_methodReturnType(self, recvType, n->text);
+        if ((!xn_str_eq(inferred, rt_string_from_c("Any")))) {
+          return inferred;
+        }
+      }
+    }
     if ((((xn_str_eq(n->text, rt_string_from_c("describe")) || xn_str_eq(n->text, rt_string_from_c("message"))) || xn_str_eq(n->text, rt_string_from_c("code"))) || xn_str_eq(n->text, rt_string_from_c("toString")))) {
       return rt_string_from_c("String");
     }
@@ -5680,6 +5698,8 @@ static rt_string * xn_Cls_CGen_fnRet(xn_Cls_CGen *self, rt_string * name);
 static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static int xn_Cls_CGen_intLiteralFits64(xn_Cls_CGen *self, rt_string * text);
 static int xn_Cls_CGen_intLiteralFits32(xn_Cls_CGen *self, rt_string * text);
+static int xn_Cls_CGen_literalHasNul(xn_Cls_CGen *self, rt_string * text);
+static int xn_Cls_CGen_charNeedsU(xn_Cls_CGen *self, rt_string * text);
 static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static void xn_Cls_CGen_local(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string * indent);
 static void xn_Cls_CGen_stmt(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string * indent);
@@ -8588,6 +8608,24 @@ static int xn_Cls_CGen_intLiteralFits32(xn_Cls_CGen *self, rt_string * text) {
   return xn_str_eq(xn_str_substr(text, 0, 1), rt_string_from_c("1"));
 }
 
+static int xn_Cls_CGen_literalHasNul(xn_Cls_CGen *self, rt_string * text) {
+  return (xn_str_indexof(text, rt_string_new("\\000", sizeof("\\000") - 1)) >= 0);
+}
+
+static int xn_Cls_CGen_charNeedsU(xn_Cls_CGen *self, rt_string * text) {
+  if ((((int64_t)text->len) < 2)) {
+    return 0;
+  }
+  rt_string * content = xn_str_substr(text, 1, xn_int_wrap((((int64_t)text->len) - 2)));
+  if ((((int64_t)content->len) <= 1)) {
+    return 0;
+  }
+  if (((((((xn_str_eq(content, rt_string_from_c("\\n")) || xn_str_eq(content, rt_string_from_c("\\r"))) || xn_str_eq(content, rt_string_from_c("\\t"))) || xn_str_eq(content, rt_string_from_c("\\0"))) || xn_str_eq(content, rt_string_from_c("\\\\"))) || xn_str_eq(content, rt_string_from_c("\\'"))) || xn_str_eq(content, rt_string_from_c("\\\"")))) {
+    return 0;
+  }
+  return 1;
+}
+
 static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     if ((!xn_Cls_CGen_intLiteralFits64(self, n->text))) {
@@ -8599,6 +8637,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     return n->text;
   }
   if (xn_str_eq(n->kind, rt_string_from_c("String"))) {
+    if (xn_Cls_CGen_literalHasNul(self, n->text)) {
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("rt_string_new("), n->text), rt_string_from_c(", sizeof(")), n->text), rt_string_from_c(") - 1)"));
+    }
     return xn_concat(xn_concat(rt_string_from_c("rt_string_from_c("), n->text), rt_string_from_c(")"));
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Null"))) {
@@ -8611,6 +8652,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     return rt_string_from_c("0");
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Char"))) {
+    if (xn_Cls_CGen_charNeedsU(self, n->text)) {
+      return xn_concat(xn_concat(rt_string_from_c("((int32_t)U"), n->text), rt_string_from_c(")"));
+    }
     return n->text;
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Lambda"))) {
@@ -10796,6 +10840,118 @@ static int xn_isHex(rt_string * c) {
   return ((((((((((((xn_isDigit(c) || xn_str_eq(c, rt_string_from_c("a"))) || xn_str_eq(c, rt_string_from_c("b"))) || xn_str_eq(c, rt_string_from_c("c"))) || xn_str_eq(c, rt_string_from_c("d"))) || xn_str_eq(c, rt_string_from_c("e"))) || xn_str_eq(c, rt_string_from_c("f"))) || xn_str_eq(c, rt_string_from_c("A"))) || xn_str_eq(c, rt_string_from_c("B"))) || xn_str_eq(c, rt_string_from_c("C"))) || xn_str_eq(c, rt_string_from_c("D"))) || xn_str_eq(c, rt_string_from_c("E"))) || xn_str_eq(c, rt_string_from_c("F")));
 }
 
+static int64_t xn_hexValue(rt_string * c) {
+  if (xn_str_eq(c, rt_string_from_c("0"))) {
+    return xn_int_wrap(0);
+  }
+  if (xn_str_eq(c, rt_string_from_c("1"))) {
+    return xn_int_wrap(1);
+  }
+  if (xn_str_eq(c, rt_string_from_c("2"))) {
+    return xn_int_wrap(2);
+  }
+  if (xn_str_eq(c, rt_string_from_c("3"))) {
+    return xn_int_wrap(3);
+  }
+  if (xn_str_eq(c, rt_string_from_c("4"))) {
+    return xn_int_wrap(4);
+  }
+  if (xn_str_eq(c, rt_string_from_c("5"))) {
+    return xn_int_wrap(5);
+  }
+  if (xn_str_eq(c, rt_string_from_c("6"))) {
+    return xn_int_wrap(6);
+  }
+  if (xn_str_eq(c, rt_string_from_c("7"))) {
+    return xn_int_wrap(7);
+  }
+  if (xn_str_eq(c, rt_string_from_c("8"))) {
+    return xn_int_wrap(8);
+  }
+  if (xn_str_eq(c, rt_string_from_c("9"))) {
+    return xn_int_wrap(9);
+  }
+  if ((xn_str_eq(c, rt_string_from_c("a")) || xn_str_eq(c, rt_string_from_c("A")))) {
+    return xn_int_wrap(10);
+  }
+  if ((xn_str_eq(c, rt_string_from_c("b")) || xn_str_eq(c, rt_string_from_c("B")))) {
+    return xn_int_wrap(11);
+  }
+  if ((xn_str_eq(c, rt_string_from_c("c")) || xn_str_eq(c, rt_string_from_c("C")))) {
+    return xn_int_wrap(12);
+  }
+  if ((xn_str_eq(c, rt_string_from_c("d")) || xn_str_eq(c, rt_string_from_c("D")))) {
+    return xn_int_wrap(13);
+  }
+  if ((xn_str_eq(c, rt_string_from_c("e")) || xn_str_eq(c, rt_string_from_c("E")))) {
+    return xn_int_wrap(14);
+  }
+  return xn_int_wrap(15);
+}
+
+static int xn_validScalar(int64_t value) {
+  if (((value < 0) || (value > 0x10FFFF))) {
+    return 0;
+  }
+  if (((value >= 0xD800) && (value <= 0xDFFF))) {
+    return 0;
+  }
+  return 1;
+}
+
+static int xn_validEscapeAt(rt_string * src, int64_t slash, int64_t limit) {
+  if ((xn_int_wrap((slash + 1)) >= limit)) {
+    return 0;
+  }
+  rt_string * e = xn_at(src, xn_int_wrap((slash + 1)));
+  if (((((((xn_str_eq(e, rt_string_from_c("n")) || xn_str_eq(e, rt_string_from_c("r"))) || xn_str_eq(e, rt_string_from_c("t"))) || xn_str_eq(e, rt_string_from_c("0"))) || xn_str_eq(e, rt_string_from_c("\\"))) || xn_str_eq(e, rt_string_from_c("'"))) || xn_str_eq(e, rt_string_from_c("\"")))) {
+    return 1;
+  }
+  if (xn_str_eq(e, rt_string_from_c("x"))) {
+    return (((xn_int_wrap((slash + 3)) < limit) && xn_isHex(xn_at(src, xn_int_wrap((slash + 2))))) && xn_isHex(xn_at(src, xn_int_wrap((slash + 3)))));
+  }
+  if (xn_str_eq(e, rt_string_from_c("u"))) {
+    if (((xn_int_wrap((slash + 2)) < limit) && xn_str_eq(xn_at(src, xn_int_wrap((slash + 2))), rt_string_from_c("{")))) {
+      int64_t j = xn_int_wrap(xn_int_wrap((slash + 3)));
+      int64_t digits = xn_int_wrap(0);
+      int64_t value = xn_int_wrap(0);
+      while (((j < limit) && (!xn_str_eq(xn_at(src, j), rt_string_from_c("}"))))) {
+        rt_string * h = xn_at(src, j);
+        if ((!xn_isHex(h))) {
+          return 0;
+        }
+        value = xn_int_wrap((xn_int_wrap((value * 16)) + xn_hexValue(h)));
+        digits = xn_int_wrap((digits + 1));
+        if ((digits > 6)) {
+          return 0;
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      if ((((digits == 0) || (j >= limit)) || (!xn_str_eq(xn_at(src, j), rt_string_from_c("}"))))) {
+        return 0;
+      }
+      return xn_validScalar(value);
+    }
+    if ((xn_int_wrap((slash + 5)) >= limit)) {
+      return 0;
+    }
+    int64_t value = xn_int_wrap(0);
+    int64_t k = xn_int_wrap(xn_int_wrap((slash + 2)));
+    int64_t n = xn_int_wrap(0);
+    while ((n < 4)) {
+      rt_string * h = xn_at(src, k);
+      if ((!xn_isHex(h))) {
+        return 0;
+      }
+      value = xn_int_wrap((xn_int_wrap((value * 16)) + xn_hexValue(h)));
+      k = xn_int_wrap((k + 1));
+      n = xn_int_wrap((n + 1));
+    }
+    return xn_validScalar(value);
+  }
+  return 0;
+}
+
 static int xn_isLower(rt_string * c) {
   return (((((((((((((((((((((((((xn_str_eq(c, rt_string_from_c("a")) || xn_str_eq(c, rt_string_from_c("b"))) || xn_str_eq(c, rt_string_from_c("c"))) || xn_str_eq(c, rt_string_from_c("d"))) || xn_str_eq(c, rt_string_from_c("e"))) || xn_str_eq(c, rt_string_from_c("f"))) || xn_str_eq(c, rt_string_from_c("g"))) || xn_str_eq(c, rt_string_from_c("h"))) || xn_str_eq(c, rt_string_from_c("i"))) || xn_str_eq(c, rt_string_from_c("j"))) || xn_str_eq(c, rt_string_from_c("k"))) || xn_str_eq(c, rt_string_from_c("l"))) || xn_str_eq(c, rt_string_from_c("m"))) || xn_str_eq(c, rt_string_from_c("n"))) || xn_str_eq(c, rt_string_from_c("o"))) || xn_str_eq(c, rt_string_from_c("p"))) || xn_str_eq(c, rt_string_from_c("q"))) || xn_str_eq(c, rt_string_from_c("r"))) || xn_str_eq(c, rt_string_from_c("s"))) || xn_str_eq(c, rt_string_from_c("t"))) || xn_str_eq(c, rt_string_from_c("u"))) || xn_str_eq(c, rt_string_from_c("v"))) || xn_str_eq(c, rt_string_from_c("w"))) || xn_str_eq(c, rt_string_from_c("x"))) || xn_str_eq(c, rt_string_from_c("y"))) || xn_str_eq(c, rt_string_from_c("z")));
 }
@@ -10818,6 +10974,69 @@ static int xn_isSpace(rt_string * c) {
 
 static int xn_isKeyword(rt_string * s) {
   return (((((((((((((((((((((((((((((((((((((((((((xn_str_eq(s, rt_string_from_c("package")) || xn_str_eq(s, rt_string_from_c("import"))) || xn_str_eq(s, rt_string_from_c("static"))) || xn_str_eq(s, rt_string_from_c("final"))) || xn_str_eq(s, rt_string_from_c("public"))) || xn_str_eq(s, rt_string_from_c("private"))) || xn_str_eq(s, rt_string_from_c("protected"))) || xn_str_eq(s, rt_string_from_c("class"))) || xn_str_eq(s, rt_string_from_c("struct"))) || xn_str_eq(s, rt_string_from_c("enum"))) || xn_str_eq(s, rt_string_from_c("protocol"))) || xn_str_eq(s, rt_string_from_c("interface"))) || xn_str_eq(s, rt_string_from_c("extends"))) || xn_str_eq(s, rt_string_from_c("implements"))) || xn_str_eq(s, rt_string_from_c("new"))) || xn_str_eq(s, rt_string_from_c("self"))) || xn_str_eq(s, rt_string_from_c("super"))) || xn_str_eq(s, rt_string_from_c("this"))) || xn_str_eq(s, rt_string_from_c("return"))) || xn_str_eq(s, rt_string_from_c("if"))) || xn_str_eq(s, rt_string_from_c("else"))) || xn_str_eq(s, rt_string_from_c("while"))) || xn_str_eq(s, rt_string_from_c("do"))) || xn_str_eq(s, rt_string_from_c("for"))) || xn_str_eq(s, rt_string_from_c("in"))) || xn_str_eq(s, rt_string_from_c("switch"))) || xn_str_eq(s, rt_string_from_c("case"))) || xn_str_eq(s, rt_string_from_c("default"))) || xn_str_eq(s, rt_string_from_c("break"))) || xn_str_eq(s, rt_string_from_c("continue"))) || xn_str_eq(s, rt_string_from_c("goto"))) || xn_str_eq(s, rt_string_from_c("try"))) || xn_str_eq(s, rt_string_from_c("catch"))) || xn_str_eq(s, rt_string_from_c("throw"))) || xn_str_eq(s, rt_string_from_c("defer"))) || xn_str_eq(s, rt_string_from_c("errdefer"))) || xn_str_eq(s, rt_string_from_c("true"))) || xn_str_eq(s, rt_string_from_c("false"))) || xn_str_eq(s, rt_string_from_c("null"))) || xn_str_eq(s, rt_string_from_c("is"))) || xn_str_eq(s, rt_string_from_c("as"))) || xn_str_eq(s, rt_string_from_c("void"))) || xn_str_eq(s, rt_string_from_c("factory"))) || xn_str_eq(s, rt_string_from_c("deinit")));
+}
+
+static rt_string * xn_cStringLiteral(rt_string * content) {
+  rt_string * out = rt_string_from_c("\"");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)content->len))) {
+    rt_string * c = xn_at(content, i);
+    if (xn_str_eq(c, rt_string_from_c("\\"))) {
+      out = xn_concat(out, rt_string_from_c("\\\\"));
+    }
+    else {
+      if (xn_str_eq(c, rt_string_from_c("\""))) {
+        out = xn_concat(out, rt_string_from_c("\\\""));
+      }
+      else {
+        if (xn_str_eq(c, rt_string_from_c("\n"))) {
+          out = xn_concat(out, rt_string_from_c("\\n"));
+        }
+        else {
+          if (xn_str_eq(c, rt_string_from_c("\r"))) {
+            out = xn_concat(out, rt_string_from_c("\\r"));
+          }
+          else {
+            if (xn_str_eq(c, rt_string_from_c("\t"))) {
+              out = xn_concat(out, rt_string_from_c("\\t"));
+            }
+            else {
+              out = xn_concat(out, c);
+            }
+          }
+        }
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(out, rt_string_from_c("\""));
+}
+
+static rt_string * xn_canonicalStringLiteral(rt_string * raw) {
+  if ((((int64_t)raw->len) < 2)) {
+    return raw;
+  }
+  rt_string * content = xn_str_substr(raw, 1, xn_int_wrap((((int64_t)raw->len) - 2)));
+  rt_string * out = rt_string_from_c("\"");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)content->len))) {
+    rt_string * c = xn_at(content, i);
+    if (xn_str_eq(c, rt_string_from_c("\\"))) {
+      rt_string * e = xn_at(content, xn_int_wrap((i + 1)));
+      if (xn_str_eq(e, rt_string_from_c("0"))) {
+        out = xn_concat(out, rt_string_new("\\000", sizeof("\\000") - 1));
+      }
+      else {
+        out = xn_concat(xn_concat(out, rt_string_from_c("\\")), e);
+      }
+      i = xn_int_wrap((i + 2));
+    }
+    else {
+      out = xn_concat(out, c);
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  return xn_concat(out, rt_string_from_c("\""));
 }
 
 static xn_arr_o * xn_lex(rt_string * src) {
@@ -10870,6 +11089,65 @@ static xn_arr_o * xn_lex(rt_string * src) {
     int64_t start = xn_int_wrap(i);
     int64_t startLine = xn_int_wrap(line);
     int64_t startCol = xn_int_wrap(col);
+    if ((xn_str_eq(c, rt_string_from_c("r")) && xn_str_eq(next, rt_string_from_c("\"")))) {
+      int triple = xn_starts(src, i, rt_string_from_c("r\"\"\""));
+      i = xn_int_wrap((i + 1));
+      col = xn_int_wrap((col + 1));
+      int64_t contentStart = xn_int_wrap(i);
+      int rawClosed = 0;
+      if (triple) {
+        i = xn_int_wrap((i + 3));
+        col = xn_int_wrap((col + 3));
+        contentStart = i;
+        while ((i < ((int64_t)src->len))) {
+          if (xn_starts(src, i, rt_string_from_c("\"\"\""))) {
+            rt_string * content = xn_str_substr(src, contentStart, xn_int_wrap((i - contentStart)));
+            xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("string"), xn_cStringLiteral(content), startLine, startCol));
+            i = xn_int_wrap((i + 3));
+            col = xn_int_wrap((col + 3));
+            rawClosed = 1;
+            break;
+          }
+          if (xn_str_eq(xn_at(src, i), rt_string_from_c("\n"))) {
+            line = xn_int_wrap((line + 1));
+            col = 1;
+          }
+          else {
+            col = xn_int_wrap((col + 1));
+          }
+          i = xn_int_wrap((i + 1));
+        }
+      }
+      else {
+        i = xn_int_wrap((i + 1));
+        col = xn_int_wrap((col + 1));
+        contentStart = i;
+        while ((i < ((int64_t)src->len))) {
+          rt_string * d = xn_at(src, i);
+          if (xn_str_eq(d, rt_string_from_c("\""))) {
+            rt_string * content = xn_str_substr(src, contentStart, xn_int_wrap((i - contentStart)));
+            xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("string"), xn_cStringLiteral(content), startLine, startCol));
+            i = xn_int_wrap((i + 1));
+            col = xn_int_wrap((col + 1));
+            rawClosed = 1;
+            break;
+          }
+          if (xn_str_eq(d, rt_string_from_c("\n"))) {
+            line = xn_int_wrap((line + 1));
+            col = 1;
+          }
+          else {
+            col = xn_int_wrap((col + 1));
+          }
+          i = xn_int_wrap((i + 1));
+        }
+      }
+      if ((!rawClosed)) {
+        xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("error"), rt_string_from_c("unterminated raw string"), startLine, startCol));
+        return tokens;
+      }
+      continue;
+    }
     if (xn_isIdentStart(c)) {
       i = xn_int_wrap((i + 1));
       col = xn_int_wrap((col + 1));
@@ -10935,6 +11213,10 @@ static xn_arr_o * xn_lex(rt_string * src) {
       while ((i < ((int64_t)src->len))) {
         rt_string * d = xn_at(src, i);
         if (xn_str_eq(d, rt_string_from_c("\\"))) {
+          if ((!xn_validEscapeAt(src, i, ((int64_t)src->len)))) {
+            xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("error"), rt_string_from_c("invalid escape sequence"), startLine, startCol));
+            return tokens;
+          }
           i = xn_int_wrap((i + 2));
           col = xn_int_wrap((col + 2));
           continue;
@@ -10962,7 +11244,7 @@ static xn_arr_o * xn_lex(rt_string * src) {
         xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("interp"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
       }
       else {
-        xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("string"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
+        xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("string"), xn_canonicalStringLiteral(xn_str_substr(src, start, xn_int_wrap((i - start)))), startLine, startCol));
       }
       continue;
     }
@@ -10973,6 +11255,10 @@ static xn_arr_o * xn_lex(rt_string * src) {
       while ((i < ((int64_t)src->len))) {
         rt_string * d = xn_at(src, i);
         if (xn_str_eq(d, rt_string_from_c("\\"))) {
+          if ((!xn_validEscapeAt(src, i, ((int64_t)src->len)))) {
+            xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("error"), rt_string_from_c("invalid escape sequence"), startLine, startCol));
+            return tokens;
+          }
           i = xn_int_wrap((i + 2));
           col = xn_int_wrap((col + 2));
           continue;
@@ -11329,7 +11615,7 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
   xn_Cls_AstNode * program = xn_Cls_Parser_parse(p);
   if (xn_Cls_Parser_hasError(p)) {
     xn_print_str(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(entry, rt_string_from_c(":")), xn_str_int(p->errorLine)), rt_string_from_c(":")), xn_str_int(p->errorCol)), rt_string_from_c(": ")), p->error));
-    return program;
+    return xn_Cls_AstNode_new(rt_string_from_c("Program"), rt_string_from_c(""), 1, 1);
   }
   xn_arr_s_push(loadedFiles, entry);
   loadRoot = root;

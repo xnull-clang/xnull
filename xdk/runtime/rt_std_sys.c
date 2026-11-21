@@ -195,25 +195,25 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
     }
     if (len == 0 || memchr(bytes, 0, len) != NULL) {
         g_read_file_text_error = 2;
-        return "";
+        return NULL;
     }
     char *p = path_dup(bytes, len);
     FILE *f = fopen(p, "rb");
     free(p);
     if (f == NULL) {
         g_read_file_text_error = 2;
-        return "";
+        return NULL;
     }
     if (fseek(f, 0, SEEK_END) != 0) {
         fclose(f);
         g_read_file_text_error = 2;
-        return "";
+        return NULL;
     }
     long n = ftell(f);
     if (n < 0 || (size_t)n > XDK_READ_FILE_TEXT_MAX || fseek(f, 0, SEEK_SET) != 0) {
         fclose(f);
         g_read_file_text_error = 2;
-        return "";
+        return NULL;
     }
     size_t need = (size_t)n + 1;
     if (need > g_text_cap) {
@@ -221,7 +221,7 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
         if (nb == NULL) {
             fclose(f);
             g_read_file_text_error = 2;
-            return "";
+            return NULL;
         }
         g_text_buf = nb;
         g_text_cap = need;
@@ -231,7 +231,7 @@ const char *xdkc_read_file_text(const char *bytes, size_t len) {
     fclose(f);
     if (bad || got != (size_t)n) {
         g_read_file_text_error = 2;
-        return "";
+        return NULL;
     }
     g_text_buf[got] = 0;
     return g_text_buf;

@@ -414,7 +414,8 @@ static void test_read_file_text_code(void) {
 
     unlink(path);
     code = -1;
-    text = xdkc_read_file_text_code("/tmp/xnull_no_such_k07_file", 25, &code);
+    const char *missing = "/tmp/xnull_no_such_k07_file";
+    text = xdkc_read_file_text_code(missing, strlen(missing), &code);
     CHECK(text == NULL && code != 0);
     CHECK(xdkc_read_file_text_error() != 0);
 }

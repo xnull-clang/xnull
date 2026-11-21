@@ -60,7 +60,7 @@ diff -u "$TMP.exp" "$TMP"
 "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_time.x" > "$TMP" 2>"$TMP.err" || {
     cat "$TMP.err" >&2; exit 1
 }
-printf '2000\ntrue\ntrue\ntrue\n2024-01-31 23:59:59\n1706745599000\n' > "$TMP.exp"
+printf '2000\ntrue\ntrue\ntrue\n2024-01-31 23:59:59\n01|Jan|January\n31|Wed|Wednesday\nWed, 31 Jan 2024\n1706745599000\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP"
 
 XDK_SYS_PROBE=sys-env "$XNULL" --bootstrap --engine=mini run "$HERE/xdk_sys.x" > "$TMP" 2>"$TMP.err" || {

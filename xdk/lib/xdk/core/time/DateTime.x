@@ -10,6 +10,65 @@ package xdk.time
 import xdk.errors
 import xdk.sys
 
+// 布局令牌（最长匹配）：yyyy MM MMM MMMM dd ddd dddd EEE EEEE HH mm ss SSS。
+// 数字令牌不做二次替换；名称令牌用于展示，不参与解析。
+static Bool layoutAt(String layout, Int index, String token) {
+    if index < 0 || index + token.length() > layout.length() {
+        return false
+    }
+    return layout.substring(index, token.length()) == token
+}
+
+static String monthShortName(Int month) {
+    if month == 1 { return "Jan" }
+    if month == 2 { return "Feb" }
+    if month == 3 { return "Mar" }
+    if month == 4 { return "Apr" }
+    if month == 5 { return "May" }
+    if month == 6 { return "Jun" }
+    if month == 7 { return "Jul" }
+    if month == 8 { return "Aug" }
+    if month == 9 { return "Sep" }
+    if month == 10 { return "Oct" }
+    if month == 11 { return "Nov" }
+    return "Dec"
+}
+
+static String monthLongName(Int month) {
+    if month == 1 { return "January" }
+    if month == 2 { return "February" }
+    if month == 3 { return "March" }
+    if month == 4 { return "April" }
+    if month == 5 { return "May" }
+    if month == 6 { return "June" }
+    if month == 7 { return "July" }
+    if month == 8 { return "August" }
+    if month == 9 { return "September" }
+    if month == 10 { return "October" }
+    if month == 11 { return "November" }
+    return "December"
+}
+
+static String weekdayShortName(Int weekday) {
+    if weekday == 0 { return "Sun" }
+    if weekday == 1 { return "Mon" }
+    if weekday == 2 { return "Tue" }
+    if weekday == 3 { return "Wed" }
+    if weekday == 4 { return "Thu" }
+    if weekday == 5 { return "Fri" }
+    return "Sat"
+}
+
+static String weekdayLongName(Int weekday) {
+    if weekday == 0 { return "Sunday" }
+    if weekday == 1 { return "Monday" }
+    if weekday == 2 { return "Tuesday" }
+    if weekday == 3 { return "Wednesday" }
+    if weekday == 4 { return "Thursday" }
+    if weekday == 5 { return "Friday" }
+    return "Saturday"
+}
+
 // ---------- 时钟 ----------
 
 
@@ -222,17 +281,57 @@ class DateTime {
         return self
     }
 
-    // 布局令牌：yyyy MM dd HH mm ss SSS；其余字符原样输出。
-    // 替换值均为纯数字，不会引入新的字母令牌，可安全全量替换。
+    // 布局令牌（最长匹配）：yyyy MM MMM MMMM dd ddd dddd EEE EEEE HH mm ss SSS。
+    // 从左到右扫描，先匹配 4 字符令牌，再 3 字符，再 2 字符；其余字符原样输出。
+    // 这样 MMM/MMMM 不会被 MM 吃掉，ddd 不会被 dd 吃掉。
     String format(String layout) {
-        String out = layout
-        out = out.replace("yyyy", padLeftNum(str(self.year()), 4))
-        out = out.replace("SSS", padLeftNum(str(self.millisecond()), 3))
-        out = out.replace("MM", padLeftNum(str(self.month()), 2))
-        out = out.replace("dd", padLeftNum(str(self.day()), 2))
-        out = out.replace("HH", padLeftNum(str(self.hour()), 2))
-        out = out.replace("mm", padLeftNum(str(self.minute()), 2))
-        out = out.replace("ss", padLeftNum(str(self.second()), 2))
+        String out = ""
+        Int i = 0
+        while i < layout.length() {
+            if layoutAt(layout, i, "yyyy") {
+                out = out + padLeftNum(str(self.year()), 4)
+                i = i + 4
+            } else if layoutAt(layout, i, "MMMM") {
+                out = out + monthLongName(self.month())
+                i = i + 4
+            } else if layoutAt(layout, i, "EEEE") {
+                out = out + weekdayLongName(self.weekday())
+                i = i + 4
+            } else if layoutAt(layout, i, "dddd") {
+                out = out + weekdayLongName(self.weekday())
+                i = i + 4
+            } else if layoutAt(layout, i, "SSS") {
+                out = out + padLeftNum(str(self.millisecond()), 3)
+                i = i + 3
+            } else if layoutAt(layout, i, "MMM") {
+                out = out + monthShortName(self.month())
+                i = i + 3
+            } else if layoutAt(layout, i, "EEE") {
+                out = out + weekdayShortName(self.weekday())
+                i = i + 3
+            } else if layoutAt(layout, i, "ddd") {
+                out = out + weekdayShortName(self.weekday())
+                i = i + 3
+            } else if layoutAt(layout, i, "MM") {
+                out = out + padLeftNum(str(self.month()), 2)
+                i = i + 2
+            } else if layoutAt(layout, i, "dd") {
+                out = out + padLeftNum(str(self.day()), 2)
+                i = i + 2
+            } else if layoutAt(layout, i, "HH") {
+                out = out + padLeftNum(str(self.hour()), 2)
+                i = i + 2
+            } else if layoutAt(layout, i, "mm") {
+                out = out + padLeftNum(str(self.minute()), 2)
+                i = i + 2
+            } else if layoutAt(layout, i, "ss") {
+                out = out + padLeftNum(str(self.second()), 2)
+                i = i + 2
+            } else {
+                out = out + layout.substring(i, 1)
+                i = i + 1
+            }
+        }
         return out
     }
 

@@ -1316,6 +1316,10 @@ class Parser {
 
     AstNode parsePrimary() {
         Token t = self.peek()
+        if self.kind("error") {
+            self.fail(t.text)
+            return self.node("error", t.text, t)
+        }
         if self.kind("int") {
             self.advance()
             return self.node("Int", t.text, t)
@@ -2080,6 +2084,13 @@ class Mono {
             if lt == "Int" && rt == "Int" { return "Int" }
         }
         if n.kind == "MethodCall" {
+            if n.kids.length() > 0 {
+                String recvType = self.simpleExprType(n.kids.get(0))
+                if recvType != "Any" {
+                    String inferred = self.methodReturnType(recvType, n.text)
+                    if inferred != "Any" { return inferred }
+                }
+            }
             if n.text == "describe" || n.text == "message" || n.text == "code" || n.text == "toString" { return "String" }
             if n.text == "kind" { return "ErrorKind" }
         }
@@ -7524,6 +7535,29 @@ class CGen {
         return text.substring(0, 1) == "1"
     }
 
+    // 仅当字面量里真的有 \0（规范化后为 \000）时才用长度构造，
+    // 其余保持 rt_string_from_c，避免 self-host 生成物大面积变化。
+    Bool literalHasNul(String text) {
+        return text.indexOf("\\000") >= 0
+    }
+
+    // 只有非 ASCII / 非简单转义的 Char 字面量需要 U''；ASCII 保持原样，
+    // 避免 self-host 生成物出现无意义的大面积变化。
+    Bool charNeedsU(String text) {
+        if text.length() < 2 {
+            return false
+        }
+        String content = text.substring(1, text.length() - 2)
+        if content.length() <= 1 {
+            return false
+        }
+        if content == "\\n" || content == "\\r" || content == "\\t" || content == "\\0" ||
+           content == "\\\\" || content == "\\'" || content == "\\\"" {
+            return false
+        }
+        return true
+    }
+
     String expr(AstNode n) {
         if n.kind == "Int" {
             if !self.intLiteralFits64(n.text) {
@@ -7535,6 +7569,11 @@ class CGen {
             return n.text
         }
         if n.kind == "String" {
+            // 只有内嵌 NUL 需要长度构造；其余仍用 rt_string_from_c，
+            // 避免 self-host 生成物大面积变化。sizeof 是编译期常量。
+            if self.literalHasNul(n.text) {
+                return "rt_string_new(" + n.text + ", sizeof(" + n.text + ") - 1)"
+            }
             return "rt_string_from_c(" + n.text + ")"
         }
         if n.kind == "Null" {
@@ -7547,6 +7586,11 @@ class CGen {
             return "0"
         }
         if n.kind == "Char" {
+            // Mini Char 是 32 位；C 的普通字符字面量可能是 8 位。
+            // 只有非 ASCII / 非简单转义才用 U''（char32_t）再收窄。
+            if self.charNeedsU(n.text) {
+                return "((int32_t)U" + n.text + ")"
+            }
             return n.text
         }
         if n.kind == "Lambda" {
@@ -9606,6 +9650,90 @@ static Bool isHex(String c) {
         c == "A" || c == "B" || c == "C" || c == "D" || c == "E" || c == "F"
 }
 
+static Int hexValue(String c) {
+    if c == "0" { return 0 }
+    if c == "1" { return 1 }
+    if c == "2" { return 2 }
+    if c == "3" { return 3 }
+    if c == "4" { return 4 }
+    if c == "5" { return 5 }
+    if c == "6" { return 6 }
+    if c == "7" { return 7 }
+    if c == "8" { return 8 }
+    if c == "9" { return 9 }
+    if c == "a" || c == "A" { return 10 }
+    if c == "b" || c == "B" { return 11 }
+    if c == "c" || c == "C" { return 12 }
+    if c == "d" || c == "D" { return 13 }
+    if c == "e" || c == "E" { return 14 }
+    return 15
+}
+
+static Bool validScalar(Int value) {
+    if value < 0 || value > 0x10FFFF {
+        return false
+    }
+    if value >= 0xD800 && value <= 0xDFFF {
+        return false
+    }
+    return true
+}
+
+// S1 §1.4.3：只接受表中的转义；未知转义、位数不足、越界标量都是词法错误。
+static Bool validEscapeAt(String src, Int slash, Int limit) {
+    if slash + 1 >= limit {
+        return false
+    }
+    String e = at(src, slash + 1)
+    if e == "n" || e == "r" || e == "t" || e == "0" ||
+       e == "\\" || e == "'" || e == "\"" {
+        return true
+    }
+    if e == "x" {
+        return slash + 3 < limit && isHex(at(src, slash + 2)) && isHex(at(src, slash + 3))
+    }
+    if e == "u" {
+        if slash + 2 < limit && at(src, slash + 2) == "{" {
+            Int j = slash + 3
+            Int digits = 0
+            Int value = 0
+            while j < limit && at(src, j) != "}" {
+                String h = at(src, j)
+                if !isHex(h) {
+                    return false
+                }
+                value = value * 16 + hexValue(h)
+                digits = digits + 1
+                if digits > 6 {
+                    return false
+                }
+                j = j + 1
+            }
+            if digits == 0 || j >= limit || at(src, j) != "}" {
+                return false
+            }
+            return validScalar(value)
+        }
+        if slash + 5 >= limit {
+            return false
+        }
+        Int value = 0
+        Int k = slash + 2
+        Int n = 0
+        while n < 4 {
+            String h = at(src, k)
+            if !isHex(h) {
+                return false
+            }
+            value = value * 16 + hexValue(h)
+            k = k + 1
+            n = n + 1
+        }
+        return validScalar(value)
+    }
+    return false
+}
+
 static Bool isLower(String c) {
     return c == "a" || c == "b" || c == "c" || c == "d" || c == "e" ||
         c == "f" || c == "g" || c == "h" || c == "i" || c == "j" ||
@@ -9647,6 +9775,57 @@ static Bool isKeyword(String s) {
         s == "goto" || s == "try" || s == "catch" || s == "throw" || s == "defer" ||
         s == "errdefer" || s == "true" || s == "false" || s == "null" ||
         s == "is" || s == "as" || s == "void" || s == "factory" || s == "deinit"
+}
+
+// 把 raw string 的内容转成 C 字面量：保留反斜杠的“字面”语义。
+static String cStringLiteral(String content) {
+    String out = "\""
+    Int i = 0
+    while i < content.length() {
+        String c = at(content, i)
+        if c == "\\" {
+            out = out + "\\\\"
+        } else if c == "\"" {
+            out = out + "\\\""
+        } else if c == "\n" {
+            out = out + "\\n"
+        } else if c == "\r" {
+            out = out + "\\r"
+        } else if c == "\t" {
+            out = out + "\\t"
+        } else {
+            out = out + c
+        }
+        i = i + 1
+    }
+    return out + "\""
+}
+
+// 普通字符串的 C 字面量规范化：把 \0 写成 \000，避免 C 把它和后续
+// 八进制数字合并成一个字符。其他转义保持原样。
+static String canonicalStringLiteral(String raw) {
+    if raw.length() < 2 {
+        return raw
+    }
+    String content = raw.substring(1, raw.length() - 2)
+    String out = "\""
+    Int i = 0
+    while i < content.length() {
+        String c = at(content, i)
+        if c == "\\" {
+            String e = at(content, i + 1)
+            if e == "0" {
+                out = out + "\\000"
+            } else {
+                out = out + "\\" + e
+            }
+            i = i + 2
+        } else {
+            out = out + c
+            i = i + 1
+        }
+    }
+    return out + "\""
 }
 
 static List<Token> lex(String src) {
@@ -9701,6 +9880,63 @@ static List<Token> lex(String src) {
         Int start = i
         Int startLine = line
         Int startCol = col
+
+        if c == "r" && next == "\"" {
+            Bool triple = starts(src, i, "r\"\"\"")
+            i = i + 1
+            col = col + 1
+            Int contentStart = i
+            Bool rawClosed = false
+            if triple {
+                i = i + 3
+                col = col + 3
+                contentStart = i
+                while i < src.length() {
+                    if starts(src, i, "\"\"\"") {
+                        String content = src.substring(contentStart, i - contentStart)
+                        tokens.push(new Token("string", cStringLiteral(content), startLine, startCol))
+                        i = i + 3
+                        col = col + 3
+                        rawClosed = true
+                        break
+                    }
+                    if at(src, i) == "\n" {
+                        line = line + 1
+                        col = 1
+                    } else {
+                        col = col + 1
+                    }
+                    i = i + 1
+                }
+            } else {
+                i = i + 1
+                col = col + 1
+                contentStart = i
+                while i < src.length() {
+                    String d = at(src, i)
+                    if d == "\"" {
+                        String content = src.substring(contentStart, i - contentStart)
+                        tokens.push(new Token("string", cStringLiteral(content), startLine, startCol))
+                        i = i + 1
+                        col = col + 1
+                        rawClosed = true
+                        break
+                    }
+                    if d == "\n" {
+                        line = line + 1
+                        col = 1
+                    } else {
+                        col = col + 1
+                    }
+                    i = i + 1
+                }
+            }
+            if !rawClosed {
+                tokens.push(new Token("error", "unterminated raw string", startLine, startCol))
+                return tokens
+            }
+            continue
+        }
 
         if isIdentStart(c) {
             i = i + 1
@@ -9768,6 +10004,10 @@ static List<Token> lex(String src) {
             while i < src.length() {
                 String d = at(src, i)
                 if d == "\\" {
+                    if !validEscapeAt(src, i, src.length()) {
+                        tokens.push(new Token("error", "invalid escape sequence", startLine, startCol))
+                        return tokens
+                    }
                     i = i + 2
                     col = col + 2
                     continue
@@ -9793,7 +10033,7 @@ static List<Token> lex(String src) {
             if interp {
                 tokens.push(new Token("interp", src.substring(start, i - start), startLine, startCol))
             } else {
-                tokens.push(new Token("string", src.substring(start, i - start), startLine, startCol))
+                tokens.push(new Token("string", canonicalStringLiteral(src.substring(start, i - start)), startLine, startCol))
             }
             continue
         }
@@ -9805,6 +10045,10 @@ static List<Token> lex(String src) {
             while i < src.length() {
                 String d = at(src, i)
                 if d == "\\" {
+                    if !validEscapeAt(src, i, src.length()) {
+                        tokens.push(new Token("error", "invalid escape sequence", startLine, startCol))
+                        return tokens
+                    }
                     i = i + 2
                     col = col + 2
                     continue
@@ -10160,7 +10404,7 @@ static AstNode loadProgram(String entry, String root) {
     AstNode program = p.parse()
     if p.hasError() {
         print(entry + ":" + str(p.errorLine) + ":" + str(p.errorCol) + ": " + p.error)
-        return program
+        return new AstNode("Program", "", 1, 1)
     }
     loadedFiles.push(entry)
     loadRoot = root

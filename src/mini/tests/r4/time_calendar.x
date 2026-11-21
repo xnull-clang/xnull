@@ -6,6 +6,10 @@ import xdk.time
 static Int main() {
     DateTime jan31 = dateTimeOf(2024, 1, 31, 23, 59, 59)
     print(jan31.format("yyyy-MM-dd HH:mm:ss"))
+    print(jan31.format("MM|MMM|MMMM"))
+    print(jan31.format("dd|ddd|dddd"))
+    print(jan31.format("EEE|EEEE"))
+    print(jan31.format("EEE, dd MMM yyyy"))
     DateTime feb01 = jan31.add(durationOfDays(1))
     print(feb01.format("yyyy-MM-dd HH:mm:ss"))
     print(feb01.timestamp() - jan31.timestamp())
