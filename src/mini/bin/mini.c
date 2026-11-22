@@ -629,6 +629,10 @@ static xn_arr_s * ffiRets;
 static xn_arr_s * ffiParamSpecs;
 static xn_arr_s * ffiErrParams;
 static xn_arr_s * ffiErrRets;
+static rt_string * a8ErrorCode;
+static rt_string * a8ErrorMessage;
+static int64_t a8ErrorLine;
+static int64_t a8ErrorCol;
 
 
 static int64_t xn_usage(void);
@@ -676,6 +680,29 @@ static rt_string * xn_annotationCandidates(rt_string * simple);
 static void xn_resolveAnnotationUse(xn_Cls_AstNode * use, rt_string * ownerPkg);
 static void xn_resolveAnnotationTree(xn_Cls_AstNode * n, rt_string * ownerPkg);
 static void xn_resolveAnnotationUses(xn_Cls_AstNode * program);
+static rt_string * xn_a8SimpleName(rt_string * name);
+static int xn_a8Fail(rt_string * code, rt_string * message, xn_Cls_AstNode * n);
+static int xn_a8HasAnno(xn_Cls_AstNode * cls, rt_string * name);
+static void xn_a8DropAnno(xn_Cls_AstNode * cls, rt_string * name);
+static xn_arr_s * xn_a8TypeParams(xn_Cls_AstNode * cls);
+static rt_string * xn_a8ClassType(xn_Cls_AstNode * cls);
+static rt_string * xn_a8Capitalize(rt_string * name);
+static int xn_a8MethodExists(xn_Cls_AstNode * cls, rt_string * name);
+static xn_Cls_AstNode * xn_a8Method(rt_string * name, rt_string * retType, xn_Cls_AstNode * cls);
+static xn_Cls_AstNode * xn_a8SelfField(rt_string * field);
+static xn_Cls_AstNode * xn_a8OtherField(rt_string * field);
+static xn_arr_o * xn_a8InstanceFields(xn_Cls_AstNode * cls);
+static int xn_a8IsFinalField(xn_Cls_AstNode * f);
+static rt_string * xn_a8FieldType(xn_Cls_AstNode * f);
+static rt_string * xn_a8FieldName(xn_Cls_AstNode * f);
+static xn_Cls_AstNode * xn_a8Ctor(xn_Cls_AstNode * cls);
+static int xn_a8CtorMatches(xn_Cls_AstNode * cls, xn_arr_o * fields);
+static xn_Cls_AstNode * xn_a8EqualsMethod(xn_Cls_AstNode * cls, xn_arr_o * fields);
+static xn_Cls_AstNode * xn_a8ToStringMethod(xn_Cls_AstNode * cls, xn_arr_o * fields);
+static xn_Cls_AstNode * xn_a8CopyMethod(xn_Cls_AstNode * cls, xn_arr_o * fields);
+static xn_Cls_AstNode * xn_a8WithMethod(xn_Cls_AstNode * cls, xn_Cls_AstNode * field);
+static int xn_expandA8Class(xn_Cls_AstNode * cls);
+static int xn_expandA8Annotations(xn_Cls_AstNode * program);
 static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root);
 static rt_string * xn_argAfter(xn_arr_s * args, rt_string * flag);
 static int xn_hasArg(xn_arr_s * args, rt_string * flag);
@@ -719,6 +746,7 @@ struct xn_Cls_AstNode {
   rt_string * packageName;
   rt_string * resolvedAnnotationName;
   rt_string * annotationError;
+  int isFinalField;
 };
 
 static const rt_type RT_TYPE_XN_AstNode = { "AstNode", sizeof(xn_Cls_AstNode), NULL, NULL };
@@ -736,6 +764,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   xn_obj->packageName = rt_string_from_c("");
   xn_obj->resolvedAnnotationName = rt_string_from_c("");
   xn_obj->annotationError = rt_string_from_c("");
+  xn_obj->isFinalField = 0;
   xn_Cls_AstNode *self = xn_obj;
   self->kind = kind;
   self->text = text;
@@ -747,6 +776,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   self->packageName = rt_string_from_c("");
   self->resolvedAnnotationName = rt_string_from_c("");
   self->annotationError = rt_string_from_c("");
+  self->isFinalField = 0;
   return xn_obj;
 }
 
@@ -1215,10 +1245,14 @@ static xn_Cls_AstNode * xn_Cls_Parser_parseClassDecl(xn_Cls_Parser *self, rt_str
   while ((((!xn_Cls_Parser_hasError(self)) && (!xn_Cls_Parser_at(self, rt_string_from_c("}")))) && (!xn_Cls_Parser_eof(self)))) {
     xn_arr_o * memberAnns = xn_Cls_Parser_parseAnnotations(self);
     int isStatic = 0;
+    int isFinal = 0;
     int hasVisibility = 0;
     while (((((xn_Cls_Parser_at(self, rt_string_from_c("static")) || xn_Cls_Parser_at(self, rt_string_from_c("final"))) || xn_Cls_Parser_at(self, rt_string_from_c("public"))) || xn_Cls_Parser_at(self, rt_string_from_c("private"))) || xn_Cls_Parser_at(self, rt_string_from_c("protected")))) {
       if (xn_Cls_Parser_at(self, rt_string_from_c("static"))) {
         isStatic = 1;
+      }
+      if (xn_Cls_Parser_at(self, rt_string_from_c("final"))) {
+        isFinal = 1;
       }
       if (((xn_Cls_Parser_at(self, rt_string_from_c("public")) || xn_Cls_Parser_at(self, rt_string_from_c("private"))) || xn_Cls_Parser_at(self, rt_string_from_c("protected")))) {
         hasVisibility = 1;
@@ -1351,6 +1385,9 @@ static xn_Cls_AstNode * xn_Cls_Parser_parseClassDecl(xn_Cls_Parser *self, rt_str
       xn_Cls_AstNode * f = xn_Cls_Parser_node(self, rt_string_from_c("Field"), xn_concat(xn_concat(ty, rt_string_from_c(" ")), mn), mt);
       if (isStatic) {
         xn_Cls_AstNode_add(f, xn_Cls_AstNode_new(rt_string_from_c("Static"), rt_string_from_c(""), mt->line, mt->col));
+      }
+      if (isFinal) {
+        f->isFinalField = 1;
       }
       if (xn_Cls_Parser_eat(self, rt_string_from_c("="))) {
         xn_Cls_AstNode_add(f, xn_Cls_Parser_parseExpr(self));
@@ -3014,6 +3051,7 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
   }
   rt_string * iname = xn_Cls_Mono_instanceName(self, cname, args);
   xn_Cls_AstNode * clone = xn_Cls_AstNode_new(cls->kind, sname, cls->line, cls->col);
+  clone->isFinalField = cls->isFinalField;
   clone->packageName = cls->packageName;
   clone->resolvedAnnotationName = cls->resolvedAnnotationName;
   clone->annotationError = cls->annotationError;
@@ -3163,6 +3201,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_cloneSubst(xn_Cls_Mono *self, xn_Cls_AstNode
     text = xn_Cls_Mono_substAll(self, text, names, args);
   }
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, text, n->line, n->col);
+  c->isFinalField = n->isFinalField;
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
@@ -3225,6 +3264,7 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
     return sname;
   }
   xn_Cls_AstNode * clone = xn_Cls_AstNode_new(rt_string_from_c("Func"), sname, fn->line, fn->col);
+  clone->isFinalField = fn->isFinalField;
   clone->packageName = fn->packageName;
   clone->resolvedAnnotationName = fn->resolvedAnnotationName;
   clone->annotationError = fn->annotationError;
@@ -4125,6 +4165,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_walk(xn_Cls_Mono *self, xn_Cls_AstNode * n) 
 
 static xn_Cls_AstNode * xn_Cls_Mono_cloneAst(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, n->text, n->line, n->col);
+  c->isFinalField = n->isFinalField;
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
@@ -4195,6 +4236,7 @@ static rt_string * xn_Cls_Mono_gmName(xn_Cls_Mono *self, rt_string * className, 
 
 static xn_Cls_AstNode * xn_Cls_Mono_replaceSelf(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, n->text, n->line, n->col);
+  c->isFinalField = n->isFinalField;
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
@@ -15018,6 +15060,10 @@ static xn_arr_s * ffiRets;
 static xn_arr_s * ffiParamSpecs;
 static xn_arr_s * ffiErrParams;
 static xn_arr_s * ffiErrRets;
+static rt_string * a8ErrorCode;
+static rt_string * a8ErrorMessage;
+static int64_t a8ErrorLine;
+static int64_t a8ErrorCol;
 
 static void xn_init_globals(void) {
   loadedFiles = xn_arr_s_new(0);
@@ -15036,6 +15082,10 @@ static void xn_init_globals(void) {
   ffiParamSpecs = xn_arr_s_new(0);
   ffiErrParams = xn_arr_s_new(0);
   ffiErrRets = xn_arr_s_new(0);
+  a8ErrorCode = rt_string_from_c("");
+  a8ErrorMessage = rt_string_from_c("");
+  a8ErrorLine = 1;
+  a8ErrorCol = 1;
 }
 
 static int64_t xn_usage(void) {
@@ -16151,6 +16201,400 @@ static void xn_resolveAnnotationUses(xn_Cls_AstNode * program) {
   }
 }
 
+static rt_string * xn_a8SimpleName(rt_string * name) {
+  int64_t last = xn_int_wrap(xn_int_wrap(-(1)));
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)name->len))) {
+    if (xn_str_eq(xn_str_substr(name, i, 1), rt_string_from_c("."))) {
+      last = i;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  if ((last >= 0)) {
+    return xn_str_substr(name, xn_int_wrap((last + 1)), xn_int_wrap((xn_int_wrap((((int64_t)name->len) - last)) - 1)));
+  }
+  return name;
+}
+
+static int xn_a8Fail(rt_string * code, rt_string * message, xn_Cls_AstNode * n) {
+  a8ErrorCode = code;
+  a8ErrorMessage = message;
+  a8ErrorLine = n->line;
+  a8ErrorCol = n->col;
+  return 0;
+}
+
+static int xn_a8HasAnno(xn_Cls_AstNode * cls, rt_string * name) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->annotations->len))) {
+    xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(cls->annotations, i));
+    rt_string * useName = use->text;
+    if ((!xn_str_eq(use->resolvedAnnotationName, rt_string_from_c("")))) {
+      useName = use->resolvedAnnotationName;
+    }
+    if (xn_str_eq(xn_a8SimpleName(useName), name)) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static void xn_a8DropAnno(xn_Cls_AstNode * cls, rt_string * name) {
+  xn_arr_o *keep = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->annotations->len))) {
+    xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(cls->annotations, i));
+    rt_string * useName = use->text;
+    if ((!xn_str_eq(use->resolvedAnnotationName, rt_string_from_c("")))) {
+      useName = use->resolvedAnnotationName;
+    }
+    if ((!xn_str_eq(xn_a8SimpleName(useName), name))) {
+      xn_arr_o_push(keep, use);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  cls->annotations = keep;
+}
+
+static xn_arr_s * xn_a8TypeParams(xn_Cls_AstNode * cls) {
+  xn_arr_s *out = xn_arr_s_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    if (xn_str_eq(k->kind, rt_string_from_c("TypeParams"))) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)k->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, j))->kind, rt_string_from_c("TypeParam"))) {
+          xn_arr_s_push(out, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, j))->text);
+        }
+        j = xn_int_wrap((j + 1));
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static rt_string * xn_a8ClassType(xn_Cls_AstNode * cls) {
+  xn_arr_s * tps = xn_a8TypeParams(cls);
+  if ((((int64_t)tps->len) == 0)) {
+    return cls->text;
+  }
+  rt_string * joined = rt_string_from_c("");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)tps->len))) {
+    if ((!xn_str_eq(joined, rt_string_from_c("")))) {
+      joined = xn_concat(joined, rt_string_from_c(","));
+    }
+    joined = xn_concat(joined, xn_arr_s_get(tps, i));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(xn_concat(cls->text, rt_string_from_c("<")), joined), rt_string_from_c(">"));
+}
+
+static rt_string * xn_a8Capitalize(rt_string * name) {
+  int64_t start = xn_int_wrap(0);
+  while (((start < ((int64_t)name->len)) && xn_str_eq(xn_str_substr(name, start, 1), rt_string_from_c("_")))) {
+    start = xn_int_wrap((start + 1));
+  }
+  rt_string * base = xn_str_substr(name, start, xn_int_wrap((((int64_t)name->len) - start)));
+  if (xn_str_eq(base, rt_string_from_c(""))) {
+    return rt_string_from_c("With");
+  }
+  return xn_concat(xn_str_case(xn_str_substr(base, 0, 1), 1), xn_str_substr(base, 1, xn_int_wrap((((int64_t)base->len) - 1))));
+}
+
+static int xn_a8MethodExists(xn_Cls_AstNode * cls, rt_string * name) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    if ((xn_str_eq(k->kind, rt_string_from_c("Method")) && xn_str_eq(k->text, name))) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static xn_Cls_AstNode * xn_a8Method(rt_string * name, rt_string * retType, xn_Cls_AstNode * cls) {
+  xn_Cls_AstNode * m = xn_Cls_AstNode_new(rt_string_from_c("Method"), name, cls->line, cls->col);
+  xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Ret"), retType, cls->line, cls->col));
+  xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Generated"), rt_string_from_c("A8"), cls->line, cls->col));
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8SelfField(rt_string * field) {
+  xn_Cls_AstNode * mem = xn_Cls_AstNode_new(rt_string_from_c("Member"), field, 1, 1);
+  xn_Cls_AstNode_add(mem, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), 1, 1));
+  return mem;
+}
+
+static xn_Cls_AstNode * xn_a8OtherField(rt_string * field) {
+  xn_Cls_AstNode * mem = xn_Cls_AstNode_new(rt_string_from_c("Member"), field, 1, 1);
+  xn_Cls_AstNode_add(mem, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("other"), 1, 1));
+  return mem;
+}
+
+static xn_arr_o * xn_a8InstanceFields(xn_Cls_AstNode * cls) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    if (xn_str_eq(k->kind, rt_string_from_c("Field"))) {
+      int isStatic = 0;
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)k->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, j))->kind, rt_string_from_c("Static"))) {
+          isStatic = 1;
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      if ((!isStatic)) {
+        xn_arr_o_push(out, k);
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static int xn_a8IsFinalField(xn_Cls_AstNode * f) {
+  return f->isFinalField;
+}
+
+static rt_string * xn_a8FieldType(xn_Cls_AstNode * f) {
+  xn_arr_s * parts = xn_str_split(f->text, rt_string_from_c(" "));
+  if ((((int64_t)parts->len) >= 1)) {
+    return xn_arr_s_get(parts, 0);
+  }
+  return f->text;
+}
+
+static rt_string * xn_a8FieldName(xn_Cls_AstNode * f) {
+  xn_arr_s * parts = xn_str_split(f->text, rt_string_from_c(" "));
+  if ((((int64_t)parts->len) >= 2)) {
+    return xn_arr_s_get(parts, 1);
+  }
+  return f->text;
+}
+
+static xn_Cls_AstNode * xn_a8Ctor(xn_Cls_AstNode * cls) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i))->kind, rt_string_from_c("Ctor"))) {
+      return ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), cls->line, cls->col);
+}
+
+static int xn_a8CtorMatches(xn_Cls_AstNode * cls, xn_arr_o * fields) {
+  xn_Cls_AstNode * ctor = xn_a8Ctor(cls);
+  if ((((int64_t)fields->len) == 0)) {
+    return 1;
+  }
+  if (xn_str_eq(ctor->kind, rt_string_from_c("None"))) {
+    return 0;
+  }
+  xn_arr_o *ps = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)ctor->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, i))->kind, rt_string_from_c("Param"))) {
+      xn_arr_o_push(ps, ((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, i)));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  if ((((int64_t)ps->len) != ((int64_t)fields->len))) {
+    return 0;
+  }
+  i = 0;
+  while ((i < ((int64_t)fields->len))) {
+    xn_arr_s * pp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(ps, i))->text, rt_string_from_c(" "));
+    if (((((int64_t)pp->len) < 1) || (!xn_str_eq(xn_arr_s_get(pp, 0), xn_a8FieldType(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))))))) {
+      return 0;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 1;
+}
+
+static xn_Cls_AstNode * xn_a8EqualsMethod(xn_Cls_AstNode * cls, xn_arr_o * fields) {
+  rt_string * ct = xn_a8ClassType(cls);
+  xn_Cls_AstNode * m = xn_a8Method(rt_string_from_c("equals"), rt_string_from_c("Bool"), cls);
+  xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Param"), xn_concat(ct, rt_string_from_c(" other")), cls->line, cls->col));
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode * notNull = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("!="), cls->line, cls->col);
+  xn_Cls_AstNode_add(notNull, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("other"), cls->line, cls->col));
+  xn_Cls_AstNode_add(notNull, xn_Cls_AstNode_new(rt_string_from_c("Null"), rt_string_from_c(""), cls->line, cls->col));
+  xn_Cls_AstNode * expr = notNull;
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)fields->len))) {
+    xn_Cls_AstNode * eq = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("=="), cls->line, cls->col);
+    xn_Cls_AstNode_add(eq, xn_a8SelfField(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
+    xn_Cls_AstNode_add(eq, xn_a8OtherField(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
+    xn_Cls_AstNode * both = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("&&"), cls->line, cls->col);
+    xn_Cls_AstNode_add(both, expr);
+    xn_Cls_AstNode_add(both, eq);
+    expr = both;
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, expr);
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8ToStringMethod(xn_Cls_AstNode * cls, xn_arr_o * fields) {
+  xn_Cls_AstNode * m = xn_a8Method(rt_string_from_c("toString"), rt_string_from_c("String"), cls);
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode * expr = xn_Cls_AstNode_new(rt_string_from_c("String"), xn_concat(xn_concat(rt_string_from_c("\""), cls->text), rt_string_from_c("(\"")), cls->line, cls->col);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)fields->len))) {
+    rt_string * fname = xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)));
+    if ((i > 0)) {
+      xn_Cls_AstNode * sep = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("+"), cls->line, cls->col);
+      xn_Cls_AstNode_add(sep, expr);
+      xn_Cls_AstNode_add(sep, xn_Cls_AstNode_new(rt_string_from_c("String"), rt_string_from_c("\", \""), cls->line, cls->col));
+      expr = sep;
+    }
+    xn_Cls_AstNode * label = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("+"), cls->line, cls->col);
+    xn_Cls_AstNode_add(label, expr);
+    xn_Cls_AstNode_add(label, xn_Cls_AstNode_new(rt_string_from_c("String"), xn_concat(xn_concat(rt_string_from_c("\""), fname), rt_string_from_c("=\"")), cls->line, cls->col));
+    expr = label;
+    xn_Cls_AstNode * call = xn_Cls_AstNode_new(rt_string_from_c("Call"), rt_string_from_c("str"), cls->line, cls->col);
+    xn_Cls_AstNode_add(call, xn_a8SelfField(fname));
+    xn_Cls_AstNode * val = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("+"), cls->line, cls->col);
+    xn_Cls_AstNode_add(val, expr);
+    xn_Cls_AstNode_add(val, call);
+    expr = val;
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * close = xn_Cls_AstNode_new(rt_string_from_c("Binary"), rt_string_from_c("+"), cls->line, cls->col);
+  xn_Cls_AstNode_add(close, expr);
+  xn_Cls_AstNode_add(close, xn_Cls_AstNode_new(rt_string_from_c("String"), rt_string_from_c("\")\""), cls->line, cls->col));
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, close);
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8CopyMethod(xn_Cls_AstNode * cls, xn_arr_o * fields) {
+  rt_string * ct = xn_a8ClassType(cls);
+  xn_Cls_AstNode * m = xn_a8Method(rt_string_from_c("copy"), ct, cls);
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode * nw = xn_Cls_AstNode_new(rt_string_from_c("New"), ct, cls->line, cls->col);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)fields->len))) {
+    xn_Cls_AstNode_add(nw, xn_a8SelfField(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, nw);
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8WithMethod(xn_Cls_AstNode * cls, xn_Cls_AstNode * field) {
+  rt_string * ct = xn_a8ClassType(cls);
+  rt_string * fname = xn_a8FieldName(field);
+  xn_Cls_AstNode * m = xn_a8Method(xn_concat(rt_string_from_c("with"), xn_a8Capitalize(fname)), ct, cls);
+  xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Param"), xn_concat(xn_a8FieldType(field), rt_string_from_c(" value")), cls->line, cls->col));
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode * local = xn_Cls_AstNode_new(rt_string_from_c("Local"), xn_concat(ct, rt_string_from_c(" result")), cls->line, cls->col);
+  xn_Cls_AstNode_add(local, xn_Cls_AstNode_new(rt_string_from_c("Call"), rt_string_from_c("self.copy"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, local);
+  xn_Cls_AstNode * set = xn_Cls_AstNode_new(rt_string_from_c("Assign"), rt_string_from_c("="), cls->line, cls->col);
+  xn_Cls_AstNode * member = xn_Cls_AstNode_new(rt_string_from_c("Member"), fname, cls->line, cls->col);
+  xn_Cls_AstNode_add(member, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("result"), cls->line, cls->col));
+  xn_Cls_AstNode_add(set, member);
+  xn_Cls_AstNode_add(set, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("value"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, set);
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("result"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static int xn_expandA8Class(xn_Cls_AstNode * cls) {
+  int v = xn_a8HasAnno(cls, rt_string_from_c("Value"));
+  int d = xn_a8HasAnno(cls, rt_string_from_c("Data"));
+  int c = xn_a8HasAnno(cls, rt_string_from_c("Copy"));
+  if ((((!v) && (!d)) && (!c))) {
+    return 1;
+  }
+  if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
+    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy require a class"), cls);
+  }
+  xn_a8DropAnno(cls, rt_string_from_c("Value"));
+  xn_a8DropAnno(cls, rt_string_from_c("Data"));
+  xn_a8DropAnno(cls, rt_string_from_c("Copy"));
+  xn_arr_o * fields = xn_a8InstanceFields(cls);
+  if (v) {
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)fields->len))) {
+      if ((!xn_a8IsFinalField(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))))) {
+        return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value requires all instance fields final"), ((xn_Cls_AstNode *)xn_arr_o_get(fields, i)));
+      }
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  if (((v || d) && (!xn_a8CtorMatches(cls, fields)))) {
+    return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+  }
+  if ((v || d)) {
+    if (((xn_a8MethodExists(cls, rt_string_from_c("equals")) || xn_a8MethodExists(cls, rt_string_from_c("toString"))) || xn_a8MethodExists(cls, rt_string_from_c("copy")))) {
+      return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated method conflicts with existing method"), cls);
+    }
+    xn_Cls_AstNode_add(cls, xn_a8EqualsMethod(cls, fields));
+    xn_Cls_AstNode_add(cls, xn_a8ToStringMethod(cls, fields));
+    xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+    return 1;
+  }
+  if (c) {
+    if ((!xn_a8CtorMatches(cls, fields))) {
+      return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+    }
+    if (xn_a8MethodExists(cls, rt_string_from_c("copy"))) {
+      return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated copy conflicts with existing method"), cls);
+    }
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)fields->len))) {
+      rt_string * wname = xn_concat(rt_string_from_c("with"), xn_a8Capitalize(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
+      if (xn_a8MethodExists(cls, wname)) {
+        return xn_a8Fail(rt_string_from_c("AN0023"), xn_concat(rt_string_from_c("generated method conflicts with existing method: "), wname), cls);
+      }
+      i = xn_int_wrap((i + 1));
+    }
+    xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+    i = 0;
+    while ((i < ((int64_t)fields->len))) {
+      xn_Cls_AstNode_add(cls, xn_a8WithMethod(cls, ((xn_Cls_AstNode *)xn_arr_o_get(fields, i))));
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  return 1;
+}
+
+static int xn_expandA8Annotations(xn_Cls_AstNode * program) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if ((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum"))) || xn_str_eq(n->kind, rt_string_from_c("Protocol")))) {
+      if ((!xn_expandA8Class(n))) {
+        return 0;
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 1;
+}
+
 static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
   rt_string * src = rt_string_from_c(mini_read_file(entry->bytes, entry->len));
   if ((((int64_t)src->len) == 0)) {
@@ -16211,6 +16655,10 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
   }
   xn_splitTypeUseAnnotations(program);
   xn_resolveAnnotationUses(program);
+  if ((!xn_expandA8Annotations(program))) {
+    xn_print_str(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(entry, rt_string_from_c(":")), xn_str_int(a8ErrorLine)), rt_string_from_c(":")), xn_str_int(a8ErrorCol)), rt_string_from_c(": [")), a8ErrorCode), rt_string_from_c("] ")), a8ErrorMessage));
+    return xn_Cls_AstNode_new(rt_string_from_c("Program"), rt_string_from_c(""), 1, 1);
+  }
   xn_Cls_Mono * mono = xn_Cls_Mono_new(program);
   return xn_Cls_Mono_run(mono);
 }

@@ -49,6 +49,7 @@ class AstNode {
     String packageName
     String resolvedAnnotationName
     String annotationError
+    Bool isFinalField
 
     AstNode(String kind, String text, Int line, Int col) {
         self.kind = kind
@@ -61,6 +62,7 @@ class AstNode {
         self.packageName = ""
         self.resolvedAnnotationName = ""
         self.annotationError = ""
+        self.isFinalField = false
     }
 
     Void add(AstNode kid) {
@@ -453,10 +455,14 @@ class Parser {
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> memberAnns = self.parseAnnotations()
             Bool isStatic = false
+            Bool isFinal = false
             Bool hasVisibility = false
             while self.at("static") || self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
                 if self.at("static") {
                     isStatic = true
+                }
+                if self.at("final") {
+                    isFinal = true
                 }
                 if self.at("public") || self.at("private") || self.at("protected") {
                     hasVisibility = true
@@ -586,6 +592,9 @@ class Parser {
                 AstNode f = self.node("Field", ty + " " + mn, mt)
                 if isStatic {
                     f.add(new AstNode("Static", "", mt.line, mt.col))
+                }
+                if isFinal {
+                    f.isFinalField = true
                 }
                 if self.eat("=") {
                     f.add(self.parseExpr())
@@ -2111,6 +2120,7 @@ class Mono {
         }
         String iname = self.instanceName(cname, args)
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
+        clone.isFinalField = cls.isFinalField
         clone.packageName = cls.packageName
         clone.resolvedAnnotationName = cls.resolvedAnnotationName
         clone.annotationError = cls.annotationError
@@ -2257,6 +2267,7 @@ class Mono {
             text = self.substAll(text, names, args)
         }
         AstNode c = new AstNode(n.kind, text, n.line, n.col)
+        c.isFinalField = n.isFinalField
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
@@ -2319,6 +2330,7 @@ class Mono {
             return sname
         }
         AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
+        clone.isFinalField = fn.isFinalField
         clone.packageName = fn.packageName
         clone.resolvedAnnotationName = fn.resolvedAnnotationName
         clone.annotationError = fn.annotationError
@@ -3108,6 +3120,7 @@ class Mono {
 
     AstNode cloneAst(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.isFinalField = n.isFinalField
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
@@ -3178,6 +3191,7 @@ class Mono {
 
     AstNode replaceSelf(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.isFinalField = n.isFinalField
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
@@ -14024,6 +14038,357 @@ static Void resolveAnnotationUses(AstNode program) {
     }
 }
 
+String a8ErrorCode = ""
+String a8ErrorMessage = ""
+Int a8ErrorLine = 1
+Int a8ErrorCol = 1
+
+String a8SimpleName(String name) {
+    Int last = -1
+    Int i = 0
+    while i < name.length() {
+        if name.substring(i, 1) == "." { last = i }
+        i = i + 1
+    }
+    if last >= 0 { return name.substring(last + 1, name.length() - last - 1) }
+    return name
+}
+
+Bool a8Fail(String code, String message, AstNode n) {
+    a8ErrorCode = code
+    a8ErrorMessage = message
+    a8ErrorLine = n.line
+    a8ErrorCol = n.col
+    return false
+}
+
+Bool a8HasAnno(AstNode cls, String name) {
+    Int i = 0
+    while i < cls.annotations.length() {
+        AstNode use = cls.annotations.get(i)
+        String useName = use.text
+        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+        if a8SimpleName(useName) == name { return true }
+        i = i + 1
+    }
+    return false
+}
+
+Void a8DropAnno(AstNode cls, String name) {
+    List<AstNode> keep = []
+    Int i = 0
+    while i < cls.annotations.length() {
+        AstNode use = cls.annotations.get(i)
+        String useName = use.text
+        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+        if a8SimpleName(useName) != name { keep.push(use) }
+        i = i + 1
+    }
+    cls.annotations = keep
+}
+
+List<String> a8TypeParams(AstNode cls) {
+    List<String> out = []
+    Int i = 0
+    while i < cls.kids.length() {
+        AstNode k = cls.kids.get(i)
+        if k.kind == "TypeParams" {
+            Int j = 0
+            while j < k.kids.length() {
+                if k.kids.get(j).kind == "TypeParam" { out.push(k.kids.get(j).text) }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+String a8ClassType(AstNode cls) {
+    List<String> tps = a8TypeParams(cls)
+    if tps.length() == 0 { return cls.text }
+    String joined = ""
+    Int i = 0
+    while i < tps.length() {
+        if joined != "" { joined = joined + "," }
+        joined = joined + tps.get(i)
+        i = i + 1
+    }
+    return cls.text + "<" + joined + ">"
+}
+
+String a8Capitalize(String name) {
+    Int start = 0
+    while start < name.length() && name.substring(start, 1) == "_" { start = start + 1 }
+    String base = name.substring(start, name.length() - start)
+    if base == "" { return "With" }
+    return base.substring(0, 1).toUpper() + base.substring(1, base.length() - 1)
+}
+
+Bool a8MethodExists(AstNode cls, String name) {
+    Int i = 0
+    while i < cls.kids.length() {
+        AstNode k = cls.kids.get(i)
+        if k.kind == "Method" && k.text == name { return true }
+        i = i + 1
+    }
+    return false
+}
+
+AstNode a8Method(String name, String retType, AstNode cls) {
+    AstNode m = new AstNode("Method", name, cls.line, cls.col)
+    m.add(new AstNode("Ret", retType, cls.line, cls.col))
+    m.add(new AstNode("Generated", "A8", cls.line, cls.col))
+    return m
+}
+
+AstNode a8SelfField(String field) {
+    AstNode mem = new AstNode("Member", field, 1, 1)
+    mem.add(new AstNode("Name", "self", 1, 1))
+    return mem
+}
+
+AstNode a8OtherField(String field) {
+    AstNode mem = new AstNode("Member", field, 1, 1)
+    mem.add(new AstNode("Name", "other", 1, 1))
+    return mem
+}
+
+List<AstNode> a8InstanceFields(AstNode cls) {
+    List<AstNode> out = []
+    Int i = 0
+    while i < cls.kids.length() {
+        AstNode k = cls.kids.get(i)
+        if k.kind == "Field" {
+            Bool isStatic = false
+            Int j = 0
+            while j < k.kids.length() {
+                if k.kids.get(j).kind == "Static" { isStatic = true }
+                j = j + 1
+            }
+            if !isStatic { out.push(k) }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+Bool a8IsFinalField(AstNode f) {
+    return f.isFinalField
+}
+
+String a8FieldType(AstNode f) {
+    List<String> parts = f.text.split(" ")
+    if parts.length() >= 1 { return parts.get(0) }
+    return f.text
+}
+
+String a8FieldName(AstNode f) {
+    List<String> parts = f.text.split(" ")
+    if parts.length() >= 2 { return parts.get(1) }
+    return f.text
+}
+
+AstNode a8Ctor(AstNode cls) {
+    Int i = 0
+    while i < cls.kids.length() {
+        if cls.kids.get(i).kind == "Ctor" { return cls.kids.get(i) }
+        i = i + 1
+    }
+    return new AstNode("None", "", cls.line, cls.col)
+}
+
+Bool a8CtorMatches(AstNode cls, List<AstNode> fields) {
+    AstNode ctor = a8Ctor(cls)
+    if fields.length() == 0 { return true }
+    if ctor.kind == "None" { return false }
+    List<AstNode> ps = []
+    Int i = 0
+    while i < ctor.kids.length() {
+        if ctor.kids.get(i).kind == "Param" { ps.push(ctor.kids.get(i)) }
+        i = i + 1
+    }
+    if ps.length() != fields.length() { return false }
+    i = 0
+    while i < fields.length() {
+        List<String> pp = ps.get(i).text.split(" ")
+        if pp.length() < 1 || pp.get(0) != a8FieldType(fields.get(i)) { return false }
+        i = i + 1
+    }
+    return true
+}
+
+AstNode a8EqualsMethod(AstNode cls, List<AstNode> fields) {
+    String ct = a8ClassType(cls)
+    AstNode m = a8Method("equals", "Bool", cls)
+    m.add(new AstNode("Param", ct + " other", cls.line, cls.col))
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    AstNode notNull = new AstNode("Binary", "!=", cls.line, cls.col)
+    notNull.add(new AstNode("Name", "other", cls.line, cls.col))
+    notNull.add(new AstNode("Null", "", cls.line, cls.col))
+    AstNode expr = notNull
+    Int i = 0
+    while i < fields.length() {
+        AstNode eq = new AstNode("Binary", "==", cls.line, cls.col)
+        eq.add(a8SelfField(a8FieldName(fields.get(i))))
+        eq.add(a8OtherField(a8FieldName(fields.get(i))))
+        AstNode both = new AstNode("Binary", "&&", cls.line, cls.col)
+        both.add(expr)
+        both.add(eq)
+        expr = both
+        i = i + 1
+    }
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(expr)
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+AstNode a8ToStringMethod(AstNode cls, List<AstNode> fields) {
+    AstNode m = a8Method("toString", "String", cls)
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    AstNode expr = new AstNode("String", "\"" + cls.text + "(\"", cls.line, cls.col)
+    Int i = 0
+    while i < fields.length() {
+        String fname = a8FieldName(fields.get(i))
+        if i > 0 {
+            AstNode sep = new AstNode("Binary", "+", cls.line, cls.col)
+            sep.add(expr)
+            sep.add(new AstNode("String", "\", \"", cls.line, cls.col))
+            expr = sep
+        }
+        AstNode label = new AstNode("Binary", "+", cls.line, cls.col)
+        label.add(expr)
+        label.add(new AstNode("String", "\"" + fname + "=\"", cls.line, cls.col))
+        expr = label
+        AstNode call = new AstNode("Call", "str", cls.line, cls.col)
+        call.add(a8SelfField(fname))
+        AstNode val = new AstNode("Binary", "+", cls.line, cls.col)
+        val.add(expr)
+        val.add(call)
+        expr = val
+        i = i + 1
+    }
+    AstNode close = new AstNode("Binary", "+", cls.line, cls.col)
+    close.add(expr)
+    close.add(new AstNode("String", "\")\"", cls.line, cls.col))
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(close)
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+AstNode a8CopyMethod(AstNode cls, List<AstNode> fields) {
+    String ct = a8ClassType(cls)
+    AstNode m = a8Method("copy", ct, cls)
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    AstNode nw = new AstNode("New", ct, cls.line, cls.col)
+    Int i = 0
+    while i < fields.length() {
+        nw.add(a8SelfField(a8FieldName(fields.get(i))))
+        i = i + 1
+    }
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(nw)
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+AstNode a8WithMethod(AstNode cls, AstNode field) {
+    String ct = a8ClassType(cls)
+    String fname = a8FieldName(field)
+    AstNode m = a8Method("with" + a8Capitalize(fname), ct, cls)
+    m.add(new AstNode("Param", a8FieldType(field) + " value", cls.line, cls.col))
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    AstNode local = new AstNode("Local", ct + " result", cls.line, cls.col)
+    local.add(new AstNode("Call", "self.copy", cls.line, cls.col))
+    body.add(local)
+    AstNode set = new AstNode("Assign", "=", cls.line, cls.col)
+    AstNode member = new AstNode("Member", fname, cls.line, cls.col)
+    member.add(new AstNode("Name", "result", cls.line, cls.col))
+    set.add(member)
+    set.add(new AstNode("Name", "value", cls.line, cls.col))
+    body.add(set)
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(new AstNode("Name", "result", cls.line, cls.col))
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+Bool expandA8Class(AstNode cls) {
+    Bool v = a8HasAnno(cls, "Value")
+    Bool d = a8HasAnno(cls, "Data")
+    Bool c = a8HasAnno(cls, "Copy")
+    if !v && !d && !c { return true }
+    if cls.kind != "Class" {
+        return a8Fail("AN0021", "@Value/@Data/@Copy require a class", cls)
+    }
+    a8DropAnno(cls, "Value")
+    a8DropAnno(cls, "Data")
+    a8DropAnno(cls, "Copy")
+    List<AstNode> fields = a8InstanceFields(cls)
+    if v {
+        Int i = 0
+        while i < fields.length() {
+            if !a8IsFinalField(fields.get(i)) {
+                return a8Fail("AN0021", "@Value requires all instance fields final", fields.get(i))
+            }
+            i = i + 1
+        }
+    }
+    if (v || d) && !a8CtorMatches(cls, fields) {
+        return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
+    }
+    if v || d {
+        if a8MethodExists(cls, "equals") || a8MethodExists(cls, "toString") || a8MethodExists(cls, "copy") {
+            return a8Fail("AN0023", "generated method conflicts with existing method", cls)
+        }
+        cls.add(a8EqualsMethod(cls, fields))
+        cls.add(a8ToStringMethod(cls, fields))
+        cls.add(a8CopyMethod(cls, fields))
+        return true
+    }
+    if c {
+        if !a8CtorMatches(cls, fields) {
+            return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
+        }
+        if a8MethodExists(cls, "copy") {
+            return a8Fail("AN0023", "generated copy conflicts with existing method", cls)
+        }
+        Int i = 0
+        while i < fields.length() {
+            String wname = "with" + a8Capitalize(a8FieldName(fields.get(i)))
+            if a8MethodExists(cls, wname) {
+                return a8Fail("AN0023", "generated method conflicts with existing method: " + wname, cls)
+            }
+            i = i + 1
+        }
+        cls.add(a8CopyMethod(cls, fields))
+        i = 0
+        while i < fields.length() {
+            cls.add(a8WithMethod(cls, fields.get(i)))
+            i = i + 1
+        }
+    }
+    return true
+}
+
+Bool expandA8Annotations(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol" {
+            if !expandA8Class(n) { return false }
+        }
+        i = i + 1
+    }
+    return true
+}
+
 static AstNode loadProgram(String entry, String root) {
     String src = readFile(entry)
     if src.length() == 0 {
@@ -14082,6 +14447,10 @@ static AstNode loadProgram(String entry, String root) {
     }
     splitTypeUseAnnotations(program)
     resolveAnnotationUses(program)
+    if !expandA8Annotations(program) {
+        print(entry + ":" + str(a8ErrorLine) + ":" + str(a8ErrorCol) + ": [" + a8ErrorCode + "] " + a8ErrorMessage)
+        return new AstNode("Program", "", 1, 1)
+    }
     Mono mono = new Mono(program)
     return mono.run()
 }
