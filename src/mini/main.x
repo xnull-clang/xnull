@@ -46,6 +46,8 @@ class AstNode {
     // outside `kids` so existing semantic/codegen passes keep their shape.
     final List<AstNode> annotations
     String packageName
+    String resolvedAnnotationName
+    String annotationError
 
     AstNode(String kind, String text, Int line, Int col) {
         self.kind = kind
@@ -55,6 +57,8 @@ class AstNode {
         self.kids = []
         self.annotations = []
         self.packageName = ""
+        self.resolvedAnnotationName = ""
+        self.annotationError = ""
     }
 
     Void add(AstNode kid) {
@@ -2024,6 +2028,8 @@ class Mono {
         String iname = self.instanceName(cname, args)
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
         clone.packageName = cls.packageName
+        clone.resolvedAnnotationName = cls.resolvedAnnotationName
+        clone.annotationError = cls.annotationError
         i = 0
         while i < cls.annotations.length() {
             clone.annotate(cls.annotations.get(i))
@@ -2154,6 +2160,8 @@ class Mono {
         }
         AstNode c = new AstNode(n.kind, text, n.line, n.col)
         c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -2213,6 +2221,8 @@ class Mono {
         }
         AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
         clone.packageName = fn.packageName
+        clone.resolvedAnnotationName = fn.resolvedAnnotationName
+        clone.annotationError = fn.annotationError
         i = 0
         while i < fn.annotations.length() {
             clone.annotate(fn.annotations.get(i))
@@ -2973,6 +2983,8 @@ class Mono {
     AstNode cloneAst(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
         c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -3040,6 +3052,8 @@ class Mono {
     AstNode replaceSelf(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
         c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
         if n.kind == "Name" && n.text == "self" { c.text = "__self" }
         if n.kind == "Call" && n.text.startsWith("self.") { c.text = "__self." + n.text.substring(5, n.text.length() - 5) }
         Int i = 0
@@ -3887,7 +3901,12 @@ class AnnotationChecker {
     }
 
     Void validateUse(AstNode use, String target, AstNode owner, AstNode scope, Int index) {
+        if use.annotationError != "" {
+            self.failAt("AN0001", use.annotationError, use, scope)
+            return
+        }
         String name = use.text
+        if use.resolvedAnnotationName != "" { name = use.resolvedAnnotationName }
         if self.isReserved(name) {
             self.failAt("AN0001", "reserved annotation cannot be used: @" + name, use, scope)
             return
@@ -11414,6 +11433,7 @@ class CGen {
     }
 
     String annotationQualifiedFor(String name, String ownerPkg) {
+        if name.indexOf(".") >= 0 { return name }
         AstNode d = self.annotationFindDeclFor(name, ownerPkg)
         if d.kind == "None" {
             if ownerPkg == "" { return name }
@@ -11587,7 +11607,9 @@ class CGen {
         Int i = 0
         while i < node.annotations.length() {
             AstNode use = node.annotations.get(i)
-            AstNode decl = self.annotationFindDeclFor(use.text, declPackageOf(node))
+            String useName = use.text
+            if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+            AstNode decl = self.annotationFindDeclFor(useName, declPackageOf(node))
             if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
                 Int repeat = 1
                 Int j = 0
@@ -11600,7 +11622,7 @@ class CGen {
                 out.push(new AnnotationUseMeta(
                     use,
                     decl,
-                    self.annotationQualifiedFor(use.text, declPackageOf(node)),
+                    self.annotationQualifiedFor(useName, declPackageOf(node)),
                     target,
                     targetName,
                     repeat
@@ -11846,9 +11868,11 @@ class CGen {
             i = i + 1
         }
         String info = self.temp()
+        String useName = use.text
+        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
         self.emit(indent + "xn_Cls_AnnotationInfo *" + info +
             " = xn_Cls_AnnotationInfo_new(rt_string_from_c(" +
-            cStringLiteral(self.annotationQualified(use.text)) + "), xn_enum_AnnotationTarget_" +
+            cStringLiteral(self.annotationQualified(useName)) + "), xn_enum_AnnotationTarget_" +
             target + ", rt_string_from_c(" + cStringLiteral(targetName) + "), " +
             values + ", " + str(repeatIndex) + ");")
         return info
@@ -13310,6 +13334,105 @@ static Void loadSiblings(String path, AstNode program) {
     }
 }
 
+static String annotationCandidates(String simple) {
+    String result = ""
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        AstNode n = unitDeclNodes.get(i)
+        if n.kind == "AnnotationDecl" && n.text == simple {
+            String p = unitDeclPkgs.get(i)
+            Bool seen = false
+            Int k = 0
+            while k < i {
+                AstNode old = unitDeclNodes.get(k)
+                if old.kind == "AnnotationDecl" && old.text == simple && unitDeclPkgs.get(k) == p { seen = true; break }
+                k = k + 1
+            }
+            if !seen {
+                if result != "" { result = result + "," }
+                result = result + p
+            }
+        }
+        i = i + 1
+    }
+    return result
+}
+
+static Void resolveAnnotationUse(AstNode use, String ownerPkg) {
+    if use.kind != "AnnotationUse" { return }
+    if use.text.indexOf(".") >= 0 {
+        use.resolvedAnnotationName = use.text
+        return
+    }
+    String simple = use.text
+    Int same = 0
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        AstNode n = unitDeclNodes.get(i)
+        if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(i) == ownerPkg {
+            same = same + 1
+            use.resolvedAnnotationName = ownerPkg + "." + simple
+        }
+        i = i + 1
+    }
+    if same > 0 { return }
+    String hitPkg = ""
+    Int hits = 0
+    i = 0
+    while i < unitImportOwners.length() {
+        if unitImportOwners.get(i) == ownerPkg {
+            Int j = 0
+            while j < unitDeclNodes.length() {
+                AstNode n = unitDeclNodes.get(j)
+                if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(j) == unitImportPkgs.get(i) {
+                    hitPkg = unitImportPkgs.get(i)
+                    hits = hits + 1
+                }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    if hits == 1 { use.resolvedAnnotationName = hitPkg + "." + simple; return }
+    if hits > 1 {
+        use.annotationError = "ambiguous annotation @" + simple + "; candidates: " + annotationCandidates(simple)
+        return
+    }
+    String all = annotationCandidates(simple)
+    if all.indexOf(",") < 0 && all != "" {
+        use.resolvedAnnotationName = all + "." + simple
+    } else if all != "" {
+        use.annotationError = "ambiguous annotation @" + simple + "; candidates: " + all
+    }
+}
+
+static Void resolveAnnotationTree(AstNode n, String ownerPkg) {
+    if n.kind == "AnnotationUse" { resolveAnnotationUse(n, ownerPkg) }
+    Int i = 0
+    while i < n.annotations.length() {
+        AstNode use = n.annotations.get(i)
+        resolveAnnotationUse(use, ownerPkg)
+        resolveAnnotationTree(use, ownerPkg)
+        i = i + 1
+    }
+    i = 0
+    while i < n.kids.length() {
+        resolveAnnotationTree(n.kids.get(i), ownerPkg)
+        i = i + 1
+    }
+}
+
+static Void resolveAnnotationUses(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind != "Package" && n.kind != "Import" {
+            resolveAnnotationTree(n, declPackageOf(n))
+        }
+        i = i + 1
+    }
+}
+
 static AstNode loadProgram(String entry, String root) {
     String src = readFile(entry)
     if src.length() == 0 {
@@ -13331,7 +13454,7 @@ static AstNode loadProgram(String entry, String root) {
             unitImportOwners.push(rootPackageName)
             unitImportPkgs.push(rn.text)
         }
-        if rn.kind == "AnnotationDecl" { rn.packageName = rootPackageName }
+        if rn.kind != "Package" && rn.kind != "Import" { rn.packageName = rootPackageName }
         ri = ri + 1
     }
     loadRoot = root
@@ -13366,6 +13489,7 @@ static AstNode loadProgram(String entry, String root) {
         }
         i = i + 1
     }
+    resolveAnnotationUses(program)
     Mono mono = new Mono(program)
     return mono.run()
 }
