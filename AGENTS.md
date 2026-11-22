@@ -36,6 +36,8 @@
 - 只有四类可停：红门修不了、规范缺失需签字、破坏性操作、用户叫停。
 - 已隔离 ≠ 已解决；已标记 ≠ 已完成；已延期 ≠ 已关闭。
 - PASS ≠ Verified；自述 ≠ 证据。完成必须有命令输出、提交、工作区状态。
+- 派发新批次前必须过 `python3 .agent/bin/preflight.py <batch> --session <ses>`；只有 `DISPATCH: GO` 才能调用 `batch.sh`。
+- 依赖未 accepted → WAIT；写集重叠 → CONFLICT；角色/工作区不满足 → BLOCKED。
 - 汇报：先结论，再证据，再需要用户决定的事。
 
 ## 纠错索引
@@ -51,6 +53,7 @@
 | C-0007 | 调度台不写代码 | L3 | `.opencode/agents/orchestrator.md` |
 | C-0008 | L3 测试通过即生效 | L2 | `.agent/AGENT-LEARNING.md` |
 | C-0009 | 复盘 due 只能指向批次草稿 | L3 | `.agent/bin/check.py` |
+| C-0010 | 派发前做依赖/写集检查 | L2 | `.agent/DISPATCH.md` |
 
 ## 升级
 
