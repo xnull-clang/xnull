@@ -5,7 +5,7 @@ ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 XNULL="$ROOT/src/cli/xnull"
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
-for name in data value copy generic_box; do
+for name in a8_core_all; do
     src="$HERE/$name.x"
     exp="$HERE/$name.out"
     "$XNULL" --bootstrap --engine=mini run "$src" >"$TMP"

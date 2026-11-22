@@ -5,7 +5,7 @@
 | 版本 | `manifestVersion = 1` |
 | 工具 | `src/toolchain/annotation_platform.py` |
 | 子命令 | `check-manifest` / `generate` |
-| 状态 | P0-03/P0-04/P0-07 implemented（M0.2）；生成源码落盘/加载/沙箱仍 planned |
+| 状态 | P0-03/P0-04/P0-05/P0-07 implemented（M0.2/M0.3）；沙箱仍 planned |
 
 ## 1. Manifest schema
 
@@ -95,3 +95,20 @@ String toyValue() { return "toy"; }
 - 不做进程沙箱、网络/文件越界隔离（M0.4）。
 - 不改变 A8/领域注解语义。
 - 当前处理器协议通过命令参数传 IR；不传编译器内部对象。
+
+## 7. M0.3 generated-dir / check
+
+`generate --generated-dir <dir>`：
+
+- 处理器先写临时 staging；全部成功后才原子替换目标目录；失败保持旧目录。
+- 每个 `.x` 输出必须属于 manifest `outputs`，首 200 字节含 `generated` 与 processor 名；否则 `AN0101`。
+- Generate 每轮后尝试重新 `--dump-annotations`；无新文件停止，最多 `--max-rounds`（默认 3）。
+- 第一轮缺失 `generated` import 时，平台为声明 outputs 建 inert 占位文件；未替换的占位文件在成功后删除。
+- Finalize 写文件仍为错误。
+
+`check --generated-dir <dir>`：
+
+- 重新生成到临时目录，只比较 `.x`；
+- 缺失/额外/内容不同/无标记 → 非零；
+- 成功输出 `annotation_platform: generated sources match`；
+- 不修改目标目录。
