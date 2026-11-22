@@ -61,6 +61,7 @@
 | C-0011 | 规则层不调度 | L3 | `.agent/roles.json` |
 | C-0012 | orchestrator 要有 playbook 和反馈 | L2 | `.agent/ORCHESTRATOR.md` |
 | C-0013 | 知识库按需生长 | L2 | `.agent/knowledge/index.md` |
+| C-0014 | 运行中的脚本不可热改 | L2 | `.agent/bin/batch.sh` |
 
 ## 升级
 
@@ -76,5 +77,4 @@
 
 ## 本地文件
 
-详细纠错、复盘、脚本在 `.agent/`（本地，不提交）。团队共享只保留本文件。
-若 `.agent/` 不存在，跳过本地账本，不要创建空文件。
+详细纠错/复盘/脚本在 `.agent/`（本地，不提交）；团队共享只保留本文件。
