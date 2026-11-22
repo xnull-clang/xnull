@@ -2,12 +2,13 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | 1.x 已发布；2.x 设计基线，实现未开始 |
+| 状态 | 1.x 已发布；B0–B3 已合并；B4 合同冻结待 owner 接受；B5–B10 未开工 |
 | 1.x 基线 | [`t0/`](t0/00-overview.md) + `src/xdk`；14 包 / 160 symbols |
 | 2.x 目标 | **75 包 / 698 类型**；见 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
+| 计划总览 | [`PLAN.md`](PLAN.md)；当前位置、下一步、未开工范围 |
 | 架构 | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 一致性 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) |
-| 执行 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；CR-0 前不写 2.x 包 |
+| 执行 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；B4 前不写 2.x 纯包 |
 | 1.x 旧档 | [`LEGACY-1.0.md`](LEGACY-1.0.md) |
 | 第一实现层 | 注解；先编译器，后 XDK |
 
@@ -17,14 +18,17 @@
 
 | 顺序 | 文档 | 用途 |
 | ---: | --- | --- |
-| 1 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
-| 2 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
-| 3 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 从设计基线到 Coding-Ready 的批次/任务板/派工模板 |
-| 4 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | B4 前置债表：四类债、B4 阻塞、B4-01/B4-02 合同冻结、owner 接受 |
-| 5 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) | 注解语义与 P1 实施计划 |
-| 6 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
-| 7 | 各领域 README/类型合同 | 逐包/逐类型契约 |
-| 8 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
+| 1 | [`PLAN.md`](PLAN.md) | 执行总览：现在在哪、下一步、未开工范围、门禁与更新规则 |
+| 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
+| 3 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
+| 4 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
+| 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | B4 前置债表：四类债、B4 阻塞、B4-01/B4-02 合同冻结、owner 接受 |
+| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) | 注解语义与 P1 实施计划 |
+| 7 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
+| 8 | 各领域 README/类型合同 | 逐包/逐类型契约 |
+| 9 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
+
+> `PLAN.md` 是总览；`ARCHITECTURE.md`/`PACKAGE-MAP.md` 是架构/包权威，`EXECUTION-PLAN.md` 是批次权威，`DEBT-REGISTER.md` 是债表/B4 入口权威。总览与权威文档冲突时，以权威文档为准。
 
 > `API-SURFACE.md`、`SCENARIOS.md`、`CAPABILITY.md`、`COVERAGE.md` 是广度/场景/覆盖对照，不反向覆盖逐类型合同。
 
