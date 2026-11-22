@@ -29,7 +29,7 @@
 | S1 | `xdk.core.*` / `xdk.utils.*` 被当成包名 | docs 335 处使用；源码真实包名是 `xdk.errors`、`xdk.log` 等 | 2.x 包名去前缀：`xdk.errors`、`xdk.codec`；`xdk.core`/`xdk.utils` 只作层名 | 全量设计文档 + `PACKAGE-MAP.md` | 回写 |
 | S2 | `xdk.execution` 不存在 | docs 使用；源码是 `xdk.tasks`/`xdk.sync` 内建 | 2.x 统一 `xdk.execution`；`tasks`/`sync` 仅 1.x 兼容 | 全量设计文档 + `src/xdk/PLAN.md` | 回写 |
 | S3 | 包数 14 / 15 / 16 三种口径 | 1.x 14 公开包；2.x core 15（含 execution）；旧 API-SURFACE 含 tasks/sync | 1.x=14 公开包；2.x core=15 包（runtime+execution+13）；总 75 包/698 类型 | `COVERAGE.md`、`PACKAGE-MAP.md`、`API-SURFACE.md` | P0 冻结 |
-| S4 | desktop/UI 残留 | 15 个文件已删；`OsCapability`、`OsHost` 文档、`PLATFORM-BOUNDARY`、`platform/README` 仍有成员/方法/计数 | 2.x 永久移除 desktop/UI；`OsInfo.desktop` 仅保留为 OS 会话字符串，不是 UI 服务 | `platform/os/OsCapability.md`、`platform/os/README.md`、`platform/README.md`、`core/PLATFORM-BOUNDARY.md` | 回写 |
+| S4 | desktop/UI 残留 | 15 个文件已删；`OsInfo` 字段已改名 `session`；平台/边界文档无 UI 成员/方法引用 | 2.x 永久移除 desktop/UI；`OsInfo.session` 仅作为 OS 会话字符串，不是 UI 服务 | `platform/os/OsCapability.md`、`platform/os/README.md`、`platform/README.md`、`core/PLATFORM-BOUNDARY.md` | 已清理（B4 UI scope） |
 | S5 | `xdk.net.service` 层级 | 包名是 network，但计数在 solutions | 归 L5 网络层；L5=9/125，L8=9/122，总数不变 | `PACKAGE-MAP.md`、`COVERAGE.md`、`solutions/README.md` | P0 冻结 |
 | S6 | `xdk.reflect` 是否算反射 | 名字像运行时反射；实际只读类型元数据 | 保留 `xdk.reflect`；只读解析/成员查询，不做动态调用/构造/类加载；注解查询只走 `AnnotationRegistry` | `utils/reflect/README.md`、`ANNOTATION-SYSTEM.md` | P0 冻结 |
 | S7 | `API-SURFACE.md` 旧名/旧类型 | 仍列 `Aes`、`LruCache`、`TtlCache`、`Stats`、`tasks/sync`、URL codec 等 | 不再手写；按逐类型合同生成；旧文件只作广度对照 | `API-SURFACE.md`、`utils/API-SURFACE.md`、`core/API-SURFACE.md` | 回写 |
@@ -107,7 +107,7 @@
 | P10 | §10 “依赖”表成环 | `Eigen↔Svd`、`Lu↔Qr`、`DeviceBus↔DeviceManager`、`GpuBuffer↔GpuFence` | §10 改名为“相关类型”，不是 import DAG；实现按正文 §9/§10 裁剪 | `platform/*/*.md` | 回写 |
 | P11 | TensorView 溢出/stride 0 | `offset + Σ((dim-1)*stride)` 未防 `Long` 溢出；stride 0 等价广播，但 tensor 文档说不做广播 | P6 前补溢出检查；stride 0 要么明确允许只读广播，要么拒绝；与 README 二选一 | `platform/tensor/TensorView.md`、`tensor/README.md` | P6 前 |
 | P12 | GPU 双对象模型 | `xdk.gpu` 与 `xdk.accel` 各有 Program/CommandBuffer/Fence | 刻意分离：`xdk.gpu` 是计算基线；`xdk.accel` 组合/适配，不互操作；文档明确 | `platform/gpu/README.md`、`solutions/accel/README.md` | 已冻结 |
-| P13 | `OsCapability` 含 desktop 成员 | Display/Desktop/Audio/Input/Power/Thermal 仍在枚举 | 删除这些成员；`OsInfo.desktop` 只作会话字符串；平台文档同步 | `platform/os/OsCapability.md` 等 | 回写 |
+| P13 | `OsCapability` desktop 成员已移除 | Display/Desktop/Audio/Input/Power/Thermal 已不在枚举 | 删除这些成员；`OsInfo.session` 只作会话字符串；平台文档已同步 | `platform/os/OsCapability.md` 等 | 已删除（B4 UI scope） |
 
 ---
 

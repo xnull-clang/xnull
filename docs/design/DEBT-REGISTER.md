@@ -129,7 +129,7 @@ B4 真正阻塞项只有两条：
 
 | ID | 范围不变量 | 来源 / 证据 | 影响 | Owner | 验收 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| SCOPE-01 | UI/桌面/显示/音频/输入/电源/剪贴板/通知/托盘/文件对话框不是 XDK 能力；不得出现在包表、API 面或 `xdk2-packages.tsv`。 | [ARCHITECTURE.md](ARCHITECTURE.md) D7；[core/PLATFORM-BOUNDARY.md](core/PLATFORM-BOUNDARY.md) §1.3/§12；[COVERAGE.md](COVERAGE.md)；DESIGN-CONSISTENCY S4/P13 保留旧名，属历史豁免 | 防止把已移除能力重新登记为“未来包”或债务。 | ARCH | grep 只出现“不在范围/已移除”；75 包/698 类型不变；PACKAGE-MAP/API-SURFACE 无 UI 包。 | active（范围不变量） |
+| SCOPE-01 | UI/桌面/显示/音频/输入/电源/剪贴板/通知/托盘/文件对话框不是 XDK 能力；不得出现在包表、API 面或 `xdk2-packages.tsv`。 | [ARCHITECTURE.md](ARCHITECTURE.md) D7；[core/PLATFORM-BOUNDARY.md](core/PLATFORM-BOUNDARY.md) §1.3/§12；[COVERAGE.md](COVERAGE.md)；DESIGN-CONSISTENCY S4/P13 已清理（B4 UI scope） | 防止把已移除能力重新登记为“未来包”或债务。 | ARCH | grep 只出现“不在范围/已移除”；75 包/698 类型不变；PACKAGE-MAP/API-SURFACE 无 UI 包。 | active（范围不变量） |
 
 ## 8. 维护规则
 
