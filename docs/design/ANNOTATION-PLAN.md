@@ -5,6 +5,7 @@
 | 位置 | 注解层；语言/编译器/工具链前置计划 |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；Part 2 §12 是语法摘要 |
 | 相关规范 | S1 `@mustUse`、S6 `@tasks`/`@arena`、S8 工具链 |
+| IR v1 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md) |
 | 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；P1.6 处理器调度、A9、领域处理器为 planned；mini 1.0 平台工作包见 [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) |
 | 约束 | 不再只写设计：P1 直接改 `src/mini`；不引入运行时反射/注解扫描 |
 | 第一出口 | mini 已能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |

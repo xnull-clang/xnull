@@ -1,3 +1,5 @@
+> IR v1：见 [`ANNOTATION-IR.md`](ANNOTATION-IR.md)。
+
 # XNull 注解系统设计
 
 | 项 | 值 |

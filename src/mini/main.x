@@ -5,6 +5,7 @@ List<String> loadedFiles = []
 // Warnings from the annotation pass.  They are printed by --sema/--emit-c and
 // also baked into the generated program so xnull run/build users see them.
 List<String> compilerWarnings = []
+List<String> annotationIRJson = []
 String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
@@ -3537,6 +3538,46 @@ class AnnotationType {
     }
 }
 
+class BuiltinDescriptor {
+    final String name
+    final List<String> targets
+    final String retention
+    final Bool repeatable
+    final String handler
+
+    BuiltinDescriptor(String name, List<String> targets, String retention, Bool repeatable, String handler) {
+        self.name = name
+        self.targets = targets
+        self.retention = retention
+        self.repeatable = repeatable
+        self.handler = handler
+    }
+}
+
+List<BuiltinDescriptor> builtinDescriptors() {
+    List<BuiltinDescriptor> out = []
+    List<String> meta = []
+    meta.push("Annotation")
+    out.push(new BuiltinDescriptor("Target", meta, "Binary", false, "meta.target"))
+    out.push(new BuiltinDescriptor("Retention", meta, "Binary", false, "meta.retention"))
+    out.push(new BuiltinDescriptor("Repeatable", meta, "Binary", false, "meta.repeatable"))
+    List<String> decl = irDeclTargets()
+    out.push(new BuiltinDescriptor("Deprecated", decl, "Binary", false, "builtin.deprecated"))
+    out.push(new BuiltinDescriptor("SuppressWarnings", decl, "Binary", false, "builtin.suppress"))
+    List<String> fieldTarget = []
+    fieldTarget.push("Field")
+    out.push(new BuiltinDescriptor("ReadOnly", fieldTarget, "Binary", false, "builtin.readonly"))
+    out.push(new BuiltinDescriptor("WriteOnly", fieldTarget, "Binary", false, "builtin.writeonly"))
+    List<String> methodTarget = []
+    methodTarget.push("Method")
+    out.push(new BuiltinDescriptor("Override", methodTarget, "Binary", false, "builtin.override"))
+    List<String> mustTarget = []
+    mustTarget.push("Type")
+    mustTarget.push("Method")
+    out.push(new BuiltinDescriptor("MustUse", mustTarget, "Binary", false, "builtin.mustuse"))
+    return out
+}
+
 class AnnotationChecker {
     final String file
     final AstNode program
@@ -3790,29 +3831,13 @@ class AnnotationChecker {
     }
 
     Void initBuiltins() {
-        List<String> meta = []
-        meta.push("Annotation")
-        self.addBuiltin("Target", meta, false)
-        self.addBuiltin("Retention", meta, false)
-        self.addBuiltin("Repeatable", meta, false)
-
-        List<String> decl = self.declTargets()
-        self.addBuiltin("Deprecated", decl, false)
-        self.addBuiltin("SuppressWarnings", decl, false)
-
-        List<String> fieldTarget = []
-        fieldTarget.push("Field")
-        self.addBuiltin("ReadOnly", fieldTarget, false)
-        self.addBuiltin("WriteOnly", fieldTarget, false)
-
-        List<String> methodTarget = []
-        methodTarget.push("Method")
-        self.addBuiltin("Override", methodTarget, false)
-
-        List<String> mustTarget = []
-        mustTarget.push("Type")
-        mustTarget.push("Method")
-        self.addBuiltin("MustUse", mustTarget, false)
+        List<BuiltinDescriptor> descriptors = builtinDescriptors()
+        Int i = 0
+        while i < descriptors.length() {
+            BuiltinDescriptor d = descriptors.get(i)
+            self.addBuiltin(d.name, d.targets, d.repeatable)
+            i = i + 1
+        }
     }
 
     String unquote(String s) {
@@ -12997,7 +13022,7 @@ class CGen {
 }
 
 static Int usage() {
-    print("usage: mini --emit-c <entry.x> [-o out.c] | --check <entry.x> | --ast <entry.x> | --sema <entry.x> | --supports <entry.x> | --version")
+    print("usage: mini --emit-c <entry.x> [-o out.c] | --check <entry.x> | --ast <entry.x> | --sema <entry.x> | --supports <entry.x> | --dump-annotations <entry.x> | --version")
     return 2
 }
 
@@ -14684,6 +14709,596 @@ Bool expandA8Annotations(AstNode program) {
     return true
 }
 
+class IrValue {
+    final String kind
+    final String text
+    final List<IrValue> children
+
+    IrValue(String kind, String text) {
+        self.kind = kind
+        self.text = text
+        self.children = []
+    }
+
+    Void add(IrValue child) { self.children.push(child) }
+
+    String json() {
+        String out = "{\"kind\":" + irQuote(self.kind) + ",\"text\":" + irQuote(self.text) + ",\"children\":["
+        Int i = 0
+        while i < self.children.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.children.get(i).json()
+            i = i + 1
+        }
+        return out + "]}"
+    }
+}
+
+class IrField {
+    final String name
+    final String type
+    final Bool required
+    final IrValue defaultValue
+
+    IrField(String name, String type, Bool required, IrValue defaultValue) {
+        self.name = name
+        self.type = type
+        self.required = required
+        self.defaultValue = defaultValue
+    }
+
+    String json() {
+        String def = "null"
+        if self.required == false { def = self.defaultValue.json() }
+        return "{\"name\":" + irQuote(self.name) + ",\"type\":" + irQuote(self.type) +
+            ",\"required\":" + irBool(self.required) + ",\"default\":" + def + "}"
+    }
+}
+
+class IrDecl {
+    final String fullName
+    final String packageName
+    final String simpleName
+    final List<String> targets
+    final String retention
+    final Bool repeatable
+    final List<IrField> fields
+    final Int line
+    final Int col
+    final String owner
+    final Int irVersion
+
+    IrDecl(String fullName, String packageName, String simpleName,
+           List<String> targets, String retention, Bool repeatable,
+           List<IrField> fields, Int line, Int col, String owner, Int irVersion) {
+        self.fullName = fullName
+        self.packageName = packageName
+        self.simpleName = simpleName
+        self.targets = targets
+        self.retention = retention
+        self.repeatable = repeatable
+        self.fields = fields
+        self.line = line
+        self.col = col
+        self.owner = owner
+        self.irVersion = irVersion
+    }
+
+    String json() {
+        String out = "{\"fullName\":" + irQuote(self.fullName) + ",\"package\":" + irQuote(self.packageName) +
+            ",\"simpleName\":" + irQuote(self.simpleName) + ",\"targets\":["
+        Int i = 0
+        while i < self.targets.length() {
+            if i > 0 { out = out + "," }
+            out = out + irQuote(self.targets.get(i))
+            i = i + 1
+        }
+        out = out + "],\"retention\":" + irQuote(self.retention) + ",\"repeatable\":" + irBool(self.repeatable) +
+            ",\"fields\":["
+        i = 0
+        while i < self.fields.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.fields.get(i).json()
+            i = i + 1
+        }
+        return out + "],\"line\":" + str(self.line) + ",\"col\":" + str(self.col) +
+            ",\"owner\":" + irQuote(self.owner) + ",\"irVersion\":" + str(self.irVersion) + "}"
+    }
+}
+
+class IrUse {
+    final String name
+    final String resolvedName
+    final String target
+    final String targetName
+    final List<IrValue> args
+    final Int line
+    final Int col
+    final Int repeatIndex
+
+    IrUse(String name, String resolvedName, String target, String targetName,
+          List<IrValue> args, Int line, Int col, Int repeatIndex) {
+        self.name = name
+        self.resolvedName = resolvedName
+        self.target = target
+        self.targetName = targetName
+        self.args = args
+        self.line = line
+        self.col = col
+        self.repeatIndex = repeatIndex
+    }
+
+    String json() {
+        String out = "{\"name\":" + irQuote(self.name) + ",\"resolvedName\":" + irQuote(self.resolvedName) +
+            ",\"target\":" + irQuote(self.target) + ",\"targetName\":" + irQuote(self.targetName) +
+            ",\"arguments\":["
+        Int i = 0
+        while i < self.args.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.args.get(i).json()
+            i = i + 1
+        }
+        return out + "],\"line\":" + str(self.line) + ",\"col\":" + str(self.col) +
+            ",\"repeatIndex\":" + str(self.repeatIndex) + "}"
+    }
+}
+
+class AnnotationIR {
+    final List<IrDecl> declarations
+    final List<IrUse> uses
+
+    AnnotationIR() {
+        self.declarations = []
+        self.uses = []
+    }
+
+    String json() {
+        String out = "{\"irVersion\":1,\"declarations\":["
+        Int i = 0
+        while i < self.declarations.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.declarations.get(i).json()
+            i = i + 1
+        }
+        out = out + "],\"uses\":["
+        i = 0
+        while i < self.uses.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.uses.get(i).json()
+            i = i + 1
+        }
+        return out + "]}"
+    }
+}
+
+String irQuote(String value) {
+    String out = "\""
+    Int i = 0
+    while i < value.length() {
+        String c = value.substring(i, 1)
+        if c == "\\" { out = out + "\\\\" }
+        else if c == "\"" { out = out + "\\\"" }
+        else if c == "\n" { out = out + "\\n" }
+        else if c == "\r" { out = out + "\\r" }
+        else if c == "\t" { out = out + "\\t" }
+        else { out = out + c }
+        i = i + 1
+    }
+    return out + "\""
+}
+
+String irBool(Bool value) {
+    if value { return "true" }
+    return "false"
+}
+
+String irPath(AstNode n) {
+    if n.kind == "Name" { return n.text }
+    if n.kind == "Member" && n.kids.length() > 0 {
+        String b = irPath(n.kids.get(0))
+        if b == "" { return n.text }
+        return b + "." + n.text
+    }
+    return n.text
+}
+
+List<String> irAllTargets() {
+    List<String> r = []
+    r.push("Package")
+    r.push("Type")
+    r.push("Annotation")
+    r.push("TypeParameter")
+    r.push("Field")
+    r.push("Method")
+    r.push("Constructor")
+    r.push("Deinit")
+    r.push("Parameter")
+    r.push("TypeUse")
+    r.push("EnumItem")
+    return r
+}
+
+List<String> irDeclTargets() {
+    List<String> r = []
+    List<String> all = irAllTargets()
+    Int i = 0
+    while i < all.length() {
+        if all.get(i) != "TypeUse" { r.push(all.get(i)) }
+        i = i + 1
+    }
+    return r
+}
+
+AstNode irFindDecl(AstNode program, String name) {
+    String simple = a8SimpleName(name)
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "AnnotationDecl" && n.text == simple { return n }
+        i = i + 1
+    }
+    return new AstNode("None", "", 1, 1)
+}
+
+List<String> irFieldTypes(AstNode decl) {
+    List<String> out = []
+    if decl.kind == "None" { return out }
+    Int i = 0
+    while i < decl.kids.length() {
+        AstNode f = decl.kids.get(i)
+        if f.kind == "AnnotationField" {
+            List<String> parts = f.text.split(" ")
+            if parts.length() >= 1 { out.push(parts.get(0)) } else { out.push("") }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+IrValue irValue(AstNode n, String expected) {
+    if n.kind == "Bool" { return new IrValue("bool", n.text) }
+    if n.kind == "Int" {
+        if expected == "Long" { return new IrValue("long", n.text) }
+        return new IrValue("int", n.text)
+    }
+    if n.kind == "Double" {
+        if expected == "Float" { return new IrValue("float", n.text) }
+        return new IrValue("double", n.text)
+    }
+    if n.kind == "String" {
+        String text = n.text
+        if text.length() >= 2 && text.substring(0, 1) == "\"" && text.substring(text.length() - 1, 1) == "\"" {
+            text = text.substring(1, text.length() - 2)
+        }
+        return new IrValue("string", text)
+    }
+    if n.kind == "Char" { return new IrValue("char", n.text) }
+    if n.kind == "Null" { return new IrValue("null", "") }
+    if n.kind == "ArrayLit" {
+        IrValue v = new IrValue("array", "")
+        Int i = 0
+        while i < n.kids.length() {
+            String elem = expected
+            if expected.length() > 2 && expected.substring(expected.length() - 2, 2) == "[]" {
+                elem = expected.substring(0, expected.length() - 2)
+            }
+            v.add(irValue(n.kids.get(i), elem))
+            i = i + 1
+        }
+        return v
+    }
+    if n.kind == "AnnotationUse" {
+        IrValue v = new IrValue("annotation", a8SimpleName(n.text))
+        AstNode d = irFindDecl(globalAnnotationProgram, n.text)
+        List<String> fts = irFieldTypes(d)
+        Int i = 0
+        while i < n.kids.length() {
+            AstNode arg = n.kids.get(i)
+            if arg.kids.length() > 0 {
+                String et = ""
+                if i < fts.length() { et = fts.get(i) }
+                v.add(irValue(arg.kids.get(0), et))
+            }
+            i = i + 1
+        }
+        return v
+    }
+    String p = irPath(n)
+    if expected == "Type" || expected == "TypeRef" {
+        return new IrValue("type", p)
+    }
+    return new IrValue("enum", p)
+}
+
+IrValue irDefault(AstNode field, String type) {
+    if field.kids.length() == 0 { return new IrValue("null", "") }
+    return irValue(field.kids.get(0), type)
+}
+
+List<String> irTargetsOf(AstNode decl) {
+    List<String> out = []
+    Bool has = false
+    Int i = 0
+    while i < decl.annotations.length() {
+        AstNode u = decl.annotations.get(i)
+        if a8SimpleName(u.text) == "Target" {
+            has = true
+            Int j = 0
+            while j < u.kids.length() {
+                AstNode arg = u.kids.get(j)
+                if arg.kids.length() > 0 { out.push(a8SimpleName(irPath(arg.kids.get(0)))) }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    if !has { return irDeclTargets() }
+    return out
+}
+
+String irRetentionOf(AstNode decl) {
+    Int i = 0
+    while i < decl.annotations.length() {
+        AstNode u = decl.annotations.get(i)
+        if a8SimpleName(u.text) == "Retention" && u.kids.length() > 0 && u.kids.get(0).kids.length() > 0 {
+            return a8SimpleName(irPath(u.kids.get(0).kids.get(0)))
+        }
+        i = i + 1
+    }
+    return "Binary"
+}
+
+Bool irRepeatableOf(AstNode decl) {
+    Int i = 0
+    while i < decl.annotations.length() {
+        if a8SimpleName(decl.annotations.get(i).text) == "Repeatable" { return true }
+        i = i + 1
+    }
+    return false
+}
+
+String irOwnerPackage(AstNode n) { return declPackageOf(n) }
+
+String irQualified(AstNode n) {
+    String p = declPackageOf(n)
+    if p == "" { return n.text }
+    return p + "." + n.text
+}
+
+List<IrField> irDeclFields(AstNode decl) {
+    List<IrField> out = []
+    Int i = 0
+    while i < decl.kids.length() {
+        AstNode f = decl.kids.get(i)
+        if f.kind == "AnnotationField" {
+            List<String> parts = f.text.split(" ")
+            String fn = f.text
+            String ft = ""
+            if parts.length() >= 2 { ft = parts.get(0); fn = parts.get(1) }
+            out.push(new IrField(fn, ft, f.kids.length() == 0, irDefault(f, ft)))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+AnnotationIR buildAnnotationIR(AstNode program) {
+    globalAnnotationProgram = program
+    AnnotationIR ir = new AnnotationIR()
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "AnnotationDecl" {
+            String pkg = irOwnerPackage(n)
+            String full = n.text
+            if pkg != "" { full = pkg + "." + n.text }
+            ir.declarations.push(new IrDecl(full, pkg, n.text, irTargetsOf(n),
+                irRetentionOf(n), irRepeatableOf(n), irDeclFields(n), n.line, n.col, pkg, 1))
+        }
+        i = i + 1
+    }
+    irCollectProgramUses(program, ir.uses)
+    return ir
+}
+
+AstNode globalAnnotationProgram = new AstNode("Program", "", 1, 1)
+
+String irMemberTarget(String owner, String name, List<AstNode> params) {
+    String pt = ""
+    Int i = 0
+    while i < params.length() {
+        List<String> parts = params.get(i).text.split(" ")
+        if parts.length() >= 1 {
+            if pt != "" { pt = pt + "," }
+            pt = pt + parts.get(0)
+        }
+        i = i + 1
+    }
+    return owner + "#" + name + "(" + pt + ")"
+}
+
+Void irAddUses(List<AstNode> uses, String target, String targetName, List<IrUse> out) {
+    Int i = 0
+    while i < uses.length() {
+        AstNode u = uses.get(i)
+        String un = u.text
+        if u.resolvedAnnotationName != "" { un = u.resolvedAnnotationName }
+        AstNode d = irFindDecl(globalAnnotationProgram, un)
+        List<String> fts = irFieldTypes(d)
+        List<IrValue> args = []
+        Int j = 0
+        while j < u.kids.length() {
+            AstNode arg = u.kids.get(j)
+            if arg.kids.length() > 0 {
+                String et = ""
+                if j < fts.length() { et = fts.get(j) }
+                args.push(irValue(arg.kids.get(0), et))
+            }
+            j = j + 1
+        }
+        Int repeat = 1
+        Int k = 0
+        while k < i {
+            if uses.get(k).text == u.text { repeat = repeat + 1 }
+            k = k + 1
+        }
+        out.push(new IrUse(u.text, un, target, targetName, args, u.line, u.col, repeat))
+        i = i + 1
+    }
+}
+
+Void irCollectLocals(AstNode n, String methodTarget, List<IrUse> out) {
+    if n.kind == "Local" && n.typeAnnotations.length() > 0 {
+        List<String> parts = n.text.split(" ")
+        if parts.length() >= 2 {
+            irAddUses(n.typeAnnotations, "TypeUse", methodTarget + "#local:" + parts.get(1), out)
+        }
+    }
+    Int i = 0
+    while i < n.kids.length() {
+        irCollectLocals(n.kids.get(i), methodTarget, out)
+        i = i + 1
+    }
+}
+
+Void irCollectClassUses(AstNode cls, List<IrUse> out) {
+    String owner = irQualified(cls)
+    String pkg = irOwnerPackage(cls)
+    irAddUses(cls.annotations, "Type", owner, out)
+    Int i = 0
+    while i < cls.kids.length() {
+        AstNode k = cls.kids.get(i)
+        if k.kind == "TypeParams" {
+            Int j = 0
+            while j < k.kids.length() {
+                if k.kids.get(j).kind == "TypeParam" {
+                    irAddUses(k.kids.get(j).annotations, "TypeParameter", owner + "#" + k.kids.get(j).text, out)
+                }
+                j = j + 1
+            }
+        }
+        if k.kind == "Field" {
+            List<String> fp = k.text.split(" ")
+            String fn = k.text
+            if fp.length() >= 2 { fn = fp.get(1) }
+            irAddUses(k.annotations, "Field", owner + "#" + fn, out)
+            irAddUses(k.typeAnnotations, "TypeUse", owner + "#" + fn, out)
+        }
+        if k.kind == "Method" {
+            List<AstNode> ps = []
+            Int pi = 0
+            while pi < k.kids.length() {
+                if k.kids.get(pi).kind == "Param" { ps.push(k.kids.get(pi)) }
+                pi = pi + 1
+            }
+            String mt = irMemberTarget(owner, k.text, ps)
+            irAddUses(k.annotations, "Method", mt, out)
+            irAddUses(k.typeAnnotations, "TypeUse", mt + "#return", out)
+            pi = 0
+            while pi < ps.length() {
+                irAddUses(ps.get(pi).annotations, "Parameter", mt + "#" + str(pi), out)
+                irAddUses(ps.get(pi).typeAnnotations, "TypeUse", mt + "#" + str(pi), out)
+                pi = pi + 1
+            }
+            irCollectLocals(k, mt, out)
+        }
+        if k.kind == "Ctor" {
+            List<AstNode> ps = []
+            Int pi = 0
+            while pi < k.kids.length() {
+                if k.kids.get(pi).kind == "Param" { ps.push(k.kids.get(pi)) }
+                pi = pi + 1
+            }
+            String mt = irMemberTarget(owner, "<init>", ps)
+            irAddUses(k.annotations, "Constructor", mt, out)
+            pi = 0
+            while pi < ps.length() {
+                irAddUses(ps.get(pi).annotations, "Parameter", mt + "#" + str(pi), out)
+                irAddUses(ps.get(pi).typeAnnotations, "TypeUse", mt + "#" + str(pi), out)
+                pi = pi + 1
+            }
+            irCollectLocals(k, mt, out)
+        }
+        if k.kind == "Deinit" {
+            String mt = owner + "#deinit()"
+            irAddUses(k.annotations, "Deinit", mt, out)
+            irCollectLocals(k, mt, out)
+        }
+        if k.kind == "EnumItem" {
+            irAddUses(k.annotations, "EnumItem", owner + "#" + k.text, out)
+        }
+        i = i + 1
+    }
+}
+
+Void irCollectProgramUses(AstNode program, List<IrUse> out) {
+    String pkg = packageNameOf(program)
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Package" {
+            irAddUses(n.annotations, "Package", n.text, out)
+        }
+        if n.kind == "AnnotationDecl" {
+            String p = irOwnerPackage(n)
+            String full = n.text
+            if p != "" { full = p + "." + n.text }
+            irAddUses(n.annotations, "Annotation", full, out)
+        }
+        if n.kind == "Class" || n.kind == "Struct" {
+            irCollectClassUses(n, out)
+        }
+        if n.kind == "Enum" {
+            String owner = irQualified(n)
+            irAddUses(n.annotations, "Type", owner, out)
+            Int j = 0
+            while j < n.kids.length() {
+                if n.kids.get(j).kind == "EnumItem" {
+                    irAddUses(n.kids.get(j).annotations, "EnumItem", owner + "#" + n.kids.get(j).text, out)
+                }
+                j = j + 1
+            }
+        }
+        if n.kind == "Protocol" {
+            String owner = irQualified(n)
+            irAddUses(n.annotations, "Type", owner, out)
+            Int j = 0
+            while j < n.kids.length() {
+                AstNode sig = n.kids.get(j)
+                if sig.kind == "Sig" {
+                    List<AstNode> ps = []
+                    Int pi = 0
+                    while pi < sig.kids.length() {
+                        if sig.kids.get(pi).kind == "Param" { ps.push(sig.kids.get(pi)) }
+                        pi = pi + 1
+                    }
+                    irAddUses(sig.annotations, "Method", irMemberTarget(owner, sig.text, ps), out)
+                }
+                j = j + 1
+            }
+        }
+        if n.kind == "Func" {
+            List<AstNode> ps = []
+            Int pi = 0
+            while pi < n.kids.length() {
+                if n.kids.get(pi).kind == "Param" { ps.push(n.kids.get(pi)) }
+                pi = pi + 1
+            }
+            String mt = irMemberTarget(pkg, n.text, ps)
+            irAddUses(n.annotations, "Method", mt, out)
+            irAddUses(n.typeAnnotations, "TypeUse", mt + "#return", out)
+            pi = 0
+            while pi < ps.length() {
+                irAddUses(ps.get(pi).annotations, "Parameter", mt + "#" + str(pi), out)
+                irAddUses(ps.get(pi).typeAnnotations, "TypeUse", mt + "#" + str(pi), out)
+                pi = pi + 1
+            }
+            irCollectLocals(n, mt, out)
+        }
+        i = i + 1
+    }
+}
+
 static AstNode loadProgram(String entry, String root) {
     String src = readFile(entry)
     if src.length() == 0 {
@@ -14742,6 +15357,7 @@ static AstNode loadProgram(String entry, String root) {
     }
     splitTypeUseAnnotations(program)
     resolveAnnotationUses(program)
+    annotationIRJson.push(buildAnnotationIR(program).json())
     if !expandA8Annotations(program) {
         print(entry + ":" + str(a8ErrorLine) + ":" + str(a8ErrorCol) + ": [" + a8ErrorCode + "] " + a8ErrorMessage)
         return new AstNode("Program", "", 1, 1)
@@ -14845,6 +15461,17 @@ static Int main(String[] args) {
             return 1
         }
         print("sema ok")
+        return 0
+    }
+    if cmd == "--dump-annotations" {
+        if args.length() < 2 {
+            return usage()
+        }
+        AstNode program = loadProgram(args[1], xdkRoot)
+        if program.kids.length() == 0 || annotationIRJson.length() == 0 {
+            return 1
+        }
+        print(annotationIRJson.get(annotationIRJson.length() - 1))
         return 0
     }
     if cmd == "--emit-c" {
