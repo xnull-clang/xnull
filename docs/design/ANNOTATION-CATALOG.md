@@ -169,5 +169,6 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 - **确定性**：同一输入、同一处理器集合、同一配置产生相同字节；排序、命名、重复项保序。
 - 运行时只有 `Runtime` 注解进入编译器生成的静态 `AnnotationRegistry`；`Source`/`Binary` 不可运行时查询。
 - 领域注解定义在**所属包**，不放进 `xdk.annotations`；`xdk.annotations` 只保留 14 个元模型类型、处理器合同和 Registry。
+- 每个领域注解是一个 PascalCase 类型，单独成文件；处理器是构建期类型，不计入运行时包类型数；生成源码放 `<package>/generated/` 并带 `generated` 标记。
 - 识别但不强制的注解（如 `@WriteOnly`、预留 `@Pure`）不是语义承诺；不得据此宣称行为已被检查。
 - `@arc`/`@gc` 不是注解系统成员，使用即编译错误；块注解 `@tasks`/`@arena` 归语言 S5。

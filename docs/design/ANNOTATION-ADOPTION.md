@@ -30,6 +30,8 @@
 - 注解名在同一包内不得与已有类型同名；本矩阵已避开 `Command`/`HttpMethod`/`JwtHeader`/`SerialPort`/`Test`/`Retry`/`CircuitBreaker`/`Timeout`/`Receiver`/`Processor`/`WebSocketHandler`/`Model`/`AgentPipeline` 等冲突。
 - 需要运行期发现的注解用 `@Retention(Runtime)`；只生成代码的用 `Source`；只给编译器/工具读的 FFI 布局用 `Binary`。
 - 注解本身不做运行时对象；参数在编译期求值；处理器失败不落半成品。
+- 每个领域注解是一个 PascalCase 类型，按 XDK 目录规范单独成文件（如 `HttpRoute.x`/`HttpRoute.md`）；不得把多个注解塞进 `annotations.x` 大文件。
+- 处理器是构建期类型，不计入运行时包类型数；生成源码放 `<package>/generated/<Name>Generated.x`，带 `generated` 标记，禁止手改。
 
 ### 1.2 类型选择
 
@@ -322,6 +324,8 @@
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -432,6 +436,8 @@ class StatusCommand {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -467,6 +473,8 @@ class UserApi {
 @annotation WsHandler {
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -505,6 +513,8 @@ class ChatHandler {
     final String value
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -561,6 +571,8 @@ class JwtHeaderFields {
     final String value
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -652,6 +664,8 @@ class UserDao {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -735,6 +749,8 @@ class CHeader {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -774,6 +790,8 @@ class Kernels {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -804,6 +822,8 @@ class TensorKernels {
     final String name
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -843,6 +863,8 @@ class LinalgKernels {
     final String path
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -887,6 +909,8 @@ class ConsoleConfig {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -927,6 +951,8 @@ class Board {
     final String value
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1028,6 +1054,8 @@ class UserDto {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1056,6 +1084,8 @@ class ServiceConfig {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1083,6 +1113,8 @@ class ServiceConfig {
     final String value
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1136,6 +1168,8 @@ class ServiceConfig {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1173,6 +1207,8 @@ class SignupForm {
     final String key = ""
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1218,6 +1254,8 @@ class UserService {
     final Long fixedRateMillis = 0
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1280,6 +1318,8 @@ class Jobs {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1313,6 +1353,8 @@ class UserService {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1343,6 +1385,8 @@ class UserService {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1372,6 +1416,8 @@ class UserService {
     final String action
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1438,6 +1484,8 @@ class UserService {
     final String name = ""
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1511,6 +1559,8 @@ class UserTests {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1547,6 +1597,8 @@ class WeatherTools {
     final String name
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1607,6 +1659,8 @@ class BatchInference {
     final Bool readOnly = false
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
@@ -1681,6 +1735,8 @@ class UserRepository {
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 使用：
 
 ```x
@@ -1742,6 +1798,8 @@ class UserService {
     final String name
 }
 ```
+
+声明文件：每个注解单独一个 PascalCase 文件（如 `HttpRoute.x`）；处理器为构建期类型；生成代码在 `<package>/generated/`。
 
 使用：
 
