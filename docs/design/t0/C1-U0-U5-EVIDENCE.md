@@ -162,19 +162,23 @@ shows it settled. `ref.sh` diffs both streams.
 
 Worktree: `../XNull-mini-0.3.0` at tag `mini-v0.3.0` (commit `a36d123b`).
 
-Official build attempt:
+Official bootstrap attempt:
 
 ```text
-./src/mini/build.sh -> exit 2
-libxnrt.a: built and cached
-shasum: .../src/bootstrap/bin/xn-s4: No such file or directory
-xnull: bootstrap tool missing; run src/bootstrap/build.sh
+src/bootstrap/build.sh -> exit 0
+e72483f5c27a318a77d7a095a107c850be5c9e42d253d4fe6f9a63de2ca96bb7  xn-s4
+51eee50b1e9e96c64bc6cfd21f2e002d26468e057b9f446b1f25edbe1093770d  xparser
 ```
 
-The tag has no bootstrap artifact, so the official 0.3.0 build cannot run on
-this machine. Per the fallback rule, a minimal substitute artifact was built
-from the tag's own `src/mini/main.x` using the 1.0 mini as the seed compiler,
-then linked with the tag runtime:
+The bootstrap tools are now present. The official `src/mini/build.sh` then
+invoked the legacy xnullc path, but did not finish within 1800s and was
+terminated (SIGTERM/143); `src/mini/bin/mini.c` remained 0 bytes and no
+official mini binary was produced. This is the official-build RED; it is not
+reported as success.
+
+Per the fallback rule, a minimal substitute artifact was built from the tag's
+own `src/mini/main.x` using the 1.0 mini as the seed compiler, then linked
+with the tag runtime:
 
 ```text
 artifact: /tmp/u3/xnull-0.3.0.tar.gz
@@ -200,9 +204,9 @@ before=1
 [INFO] u3: ready stage=upgraded
 ```
 
-U3 status: **PASS with substitute artifact；official 0.3.0 blocked
-（xn-s4 卡死，已停）**. The missing official bootstrap is recorded above rather
-than hidden.
+U3 status: **PASS with substitute artifact；official 0.3.0 remains
+BLOCKED/RED**（xn-s4 bootstrap timeout/hang，已停）。The missing official
+bootstrap is recorded above rather than hidden.
 
 ## U5. Non-author trial
 
