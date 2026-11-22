@@ -8,6 +8,7 @@
 - `BOOT: BLOCKED`：先处理列出的阻塞项，不得跳过。
 - `BOOT: OK` / `BOOT: REPAIRED`：按 `NEXT:` 执行。
 - 它负责：承接未完成复盘、修复权限漂移、核对当前批次与角色。
+- 插件 `boot-guard` 在每次提交前自动执行上述检查；`BLOCKED` 时原任务暂存到 `.agent/state/blocked/`，不会被执行。
 
 ## 角色
 
