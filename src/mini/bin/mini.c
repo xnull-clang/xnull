@@ -16678,6 +16678,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.config")) || xn_str_startswith(pkg, rt_string_from_c("xdk.config.")))) {
     return rt_string_from_c("config/Config.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.codec")) || xn_str_startswith(pkg, rt_string_from_c("xdk.codec.")))) {
+    return rt_string_from_c("codec/Codec.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.cli")) || xn_str_startswith(pkg, rt_string_from_c("xdk.cli.")))) {
     return rt_string_from_c("cli/Cli.x");
   }

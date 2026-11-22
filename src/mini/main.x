@@ -13691,6 +13691,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.config" || pkg.startsWith("xdk.config.") {
         return "config/Config.x"
     }
+    if pkg == "xdk.codec" || pkg.startsWith("xdk.codec.") {
+        return "codec/Codec.x"
+    }
     if pkg == "xdk.cli" || pkg.startsWith("xdk.cli.") {
         return "cli/Cli.x"
     }

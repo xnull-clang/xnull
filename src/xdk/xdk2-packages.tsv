@@ -15,7 +15,7 @@ xdk.sys	L3	8	src/xdk/io/base/Sys.x	1.x
 xdk.log	L3	10	src/xdk/log/Log.x	1.x
 xdk.config	L3	12	src/xdk/config/Config.x	1.x
 xdk.cli	L3	17	src/xdk/cli/Cli.x	1.x
-xdk.codec	L4	13	src/xdk/codec/Codec.x	design
+xdk.codec	L4	13	src/xdk/codec/Codec.x	implemented
 xdk.crypto	L4	17	src/xdk/crypto/Crypto.x	design
 xdk.compress	L4	13	src/xdk/compress/Compress.x	design
 xdk.random	L4	4	src/xdk/random/Random.x	design
