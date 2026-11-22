@@ -11,9 +11,9 @@ class HistogramBucket {
 
     HistogramBucket(Double? lower, Double? upper, Long count) {
         if count < 0 { throw "HistogramBucket: negative count" }
-        if lower != null && isNaN(lower) { throw "HistogramBucket: NaN lower" }
-        if upper != null && isNaN(upper) { throw "HistogramBucket: NaN upper" }
-        if lower != null && upper != null && lower >= upper {
+        if lower != null && isNaN(lower as Double) { throw "HistogramBucket: NaN lower" }
+        if upper != null && isNaN(upper as Double) { throw "HistogramBucket: NaN upper" }
+        if lower != null && upper != null && (lower as Double) >= (upper as Double) {
             throw "HistogramBucket: lower must be less than upper"
         }
         self._lower = lower

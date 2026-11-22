@@ -396,3 +396,22 @@ class Sequences {
         return result
     }
 }
+
+class Lazy<T> {
+    final T() _supplier
+    T _value
+    Bool _initialized
+    Bool _evaluating
+
+    Lazy(T() supplier) {
+        self._supplier = supplier
+        self._value = supplier()
+        self._initialized = true
+        self._evaluating = false
+    }
+
+    T get() { return self._value }
+    Bool isInitialized() { return self._initialized }
+    Lazy<T> map(T(T) transform) { return new Lazy<T>(() -> transform(self._value)) }
+    String toString() { return "Lazy(ready)" }
+}
