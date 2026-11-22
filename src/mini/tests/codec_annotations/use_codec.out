@@ -1,0 +1,16 @@
+name=Ada
+age=30
+active=true
+field-count=3
+roundtrip=true
+value=Ada,30,true
+default-name=Ada
+long=true
+profile=Ada,1234567890123,1.5
+nested=Ada
+missing-err=true
+missing-name=true
+type-err=true
+type-name=true
+unknown-ignored=X,2
+non-object=true

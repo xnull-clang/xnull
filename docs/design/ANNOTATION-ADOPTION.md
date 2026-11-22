@@ -930,7 +930,7 @@ class Board {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Serializable`/`@JsonName` implemented (M3.2)：生成 `<Type>ToJson`/`<Type>FromJson`，支持标量字段与同包嵌套；`List<T>` 与 `@CsvName` planned；无反射。
 
 ### `xdk.codec`
 
@@ -973,7 +973,7 @@ class UserDto {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Serializable`/`@JsonName` implemented (M3.2)：生成 `<Type>ToJson`/`<Type>FromJson`，支持标量字段与同包嵌套；`List<T>` 与 `@CsvName` planned；无反射。
 
 ### `xdk.crypto`
 

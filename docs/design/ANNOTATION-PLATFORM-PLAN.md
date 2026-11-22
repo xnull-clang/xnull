@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1/M2 pilot implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot）；M3–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1/M2/M3.1/M3.2 implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot、M3.1/M3.2）；M3.3、M4–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -194,13 +194,13 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P3 codec / `@Serializable`
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P3-01 | `xdk.codec` 包骨架（13 类型） | P0；B6 包合同 | 类型契约可编译 |
-| P3-02 | `@Serializable`/`@JsonName` 声明 | P3-01 | 目标/保留/参数校验 |
-| P3-03 | CodecProcessor Resolve/Validate/Generate | P3-02 | 生成 JSON codec；诊断 |
-| P3-04 | codec 业务闭环 | P3-03 | 序列化/反序列化/字段名/失败路径 |
-| P3-05 | 生成物一致性/文档 | P3-04 | `--check-generated` + API 注解面 |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P3-01 | `xdk.codec` 包骨架（13 类型） | P0；B6 包合同 | 类型契约可编译 | implemented (M3.1) |
+| P3-02 | `@Serializable`/`@JsonName` 声明 | P3-01 | 目标/保留/参数校验 | implemented (M3.2) |
+| P3-03 | CodecProcessor Resolve/Validate/Generate | P3-02 | 生成 JSON codec；诊断 | implemented (M3.2: AN1101–AN1102) |
+| P3-04 | codec 业务闭环 | P3-03 | 序列化/反序列化/字段名/失败路径 | implemented (M3.2: scalar + nested) |
+| P3-05 | 生成物一致性/文档 | P3-04 | `--check-generated` + API 注解面 | implemented (M3.2) |
 
 ### P4 validate / `@Validate`
 
@@ -248,7 +248,8 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS | implemented（`annotation_platform/m0_gate.sh`） |
 | M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | implemented（A8 processor registry） |
 | M2 | P2 CLI | 命令树/help/解析 pilot 闭环 | implemented (pilot) |
-| M3 | P3 codec | `@Serializable` 业务闭环 | planned |
+| M3 | P3 codec | `@Serializable` 业务闭环 | implemented (M3.1/M3.2) |
+| M3.3 | P3 CSV codec | `@CsvName` CSV 映射闭环 | planned |
 | M4 | P4 validate | `@Validate` 业务闭环 | planned |
 | M5 | P5 http | `@HttpRoute` 业务闭环 | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | planned |

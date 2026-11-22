@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "codec_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/codec_processor.py"],
+      "outputs": ["CodecGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
