@@ -197,6 +197,9 @@ typedef struct xn_Cls_AnnotationChecker xn_Cls_AnnotationChecker;
 typedef struct xn_Cls_Checker xn_Cls_Checker;
 typedef struct xn_Cls_AnnotationUseMeta xn_Cls_AnnotationUseMeta;
 typedef struct xn_Cls_CGen xn_Cls_CGen;
+typedef struct xn_Cls_A8CoreProcessor xn_Cls_A8CoreProcessor;
+typedef struct xn_Cls_A8BuilderProcessor xn_Cls_A8BuilderProcessor;
+typedef struct xn_Cls_A8DelegateProcessor xn_Cls_A8DelegateProcessor;
 typedef struct xn_Cls_IrValue xn_Cls_IrValue;
 typedef struct xn_Cls_IrField xn_Cls_IrField;
 typedef struct xn_Cls_IrDecl xn_Cls_IrDecl;
@@ -620,6 +623,18 @@ static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstN
 static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self);
 static void xn_Cls_CGen_gen(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self);
+static xn_Cls_A8CoreProcessor *xn_Cls_A8CoreProcessor_new(void);
+static rt_string * xn_Cls_A8CoreProcessor_name(xn_Cls_A8CoreProcessor *self);
+static int xn_Cls_A8CoreProcessor_applies(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8CoreProcessor_process(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+static xn_Cls_A8BuilderProcessor *xn_Cls_A8BuilderProcessor_new(void);
+static rt_string * xn_Cls_A8BuilderProcessor_name(xn_Cls_A8BuilderProcessor *self);
+static int xn_Cls_A8BuilderProcessor_applies(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8BuilderProcessor_process(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+static xn_Cls_A8DelegateProcessor *xn_Cls_A8DelegateProcessor_new(void);
+static rt_string * xn_Cls_A8DelegateProcessor_name(xn_Cls_A8DelegateProcessor *self);
+static int xn_Cls_A8DelegateProcessor_applies(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8DelegateProcessor_process(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
 static xn_Cls_IrValue *xn_Cls_IrValue_new(rt_string * kind, rt_string * text);
 static void xn_Cls_IrValue_add(xn_Cls_IrValue *self, xn_Cls_IrValue * child);
 static rt_string * xn_Cls_IrValue_json(xn_Cls_IrValue *self);
@@ -737,7 +752,7 @@ static xn_Cls_AstNode * xn_a8FindClassIn(xn_Cls_AstNode * program, rt_string * n
 static rt_string * xn_a8TypeBase(rt_string * ty);
 static int xn_a8MethodStatic(xn_Cls_AstNode * m);
 static xn_Cls_AstNode * xn_a8DelegateMethod(xn_Cls_AstNode * host, xn_Cls_AstNode * field, xn_Cls_AstNode * target);
-static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+static xn_arr_o * xn_a8Processors(void);
 static int xn_expandA8Annotations(xn_Cls_AstNode * program);
 static rt_string * xn_irQuote(rt_string * value);
 static rt_string * xn_irBool(int value);
@@ -764,6 +779,9 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root);
 static rt_string * xn_argAfter(xn_arr_s * args, rt_string * flag);
 static int xn_hasArg(xn_arr_s * args, rt_string * flag);
 static int64_t xn_main(xn_arr_s * args);
+static rt_string * xn_proto_A8Processor_name(void *xn_obj);
+static int xn_proto_A8Processor_applies(void *xn_obj, xn_Cls_AstNode * cls);
+static int xn_proto_A8Processor_process(void *xn_obj, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
 
 struct xn_Cls_Token {
   rt_header hdr;
@@ -15126,6 +15144,210 @@ static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self) {
   return xn_arr_s_join(self->lines, rt_string_from_c("\n"));
 }
 
+struct xn_Cls_A8CoreProcessor {
+  rt_header hdr;
+};
+
+static const rt_type RT_TYPE_XN_A8CoreProcessor = { "A8CoreProcessor", sizeof(xn_Cls_A8CoreProcessor), NULL, NULL };
+
+static xn_Cls_A8CoreProcessor *xn_Cls_A8CoreProcessor_new(void) {
+  xn_Cls_A8CoreProcessor *xn_obj = (xn_Cls_A8CoreProcessor *)rt_gc_new(&RT_TYPE_XN_A8CoreProcessor);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_A8CoreProcessor) - sizeof(rt_header));
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_A8CoreProcessor_name(xn_Cls_A8CoreProcessor *self);
+static int xn_Cls_A8CoreProcessor_applies(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8CoreProcessor_process(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+
+static rt_string * xn_Cls_A8CoreProcessor_name(xn_Cls_A8CoreProcessor *self) {
+  return rt_string_from_c("core");
+}
+
+static int xn_Cls_A8CoreProcessor_applies(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls) {
+  return ((xn_a8HasAnno(cls, rt_string_from_c("Value")) || xn_a8HasAnno(cls, rt_string_from_c("Data"))) || xn_a8HasAnno(cls, rt_string_from_c("Copy")));
+}
+
+static int xn_Cls_A8CoreProcessor_process(xn_Cls_A8CoreProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
+  int v = xn_a8HasAnno(cls, rt_string_from_c("Value"));
+  int d = xn_a8HasAnno(cls, rt_string_from_c("Data"));
+  int c = xn_a8HasAnno(cls, rt_string_from_c("Copy"));
+  if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
+    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy/@Builder require a class"), cls);
+  }
+  xn_a8DropAnno(cls, rt_string_from_c("Value"));
+  xn_a8DropAnno(cls, rt_string_from_c("Data"));
+  xn_a8DropAnno(cls, rt_string_from_c("Copy"));
+  xn_arr_o * fields = xn_a8InstanceFields(cls);
+  if (v) {
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)fields->len))) {
+      if ((!xn_a8IsFinalField(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))))) {
+        return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value requires all instance fields final"), ((xn_Cls_AstNode *)xn_arr_o_get(fields, i)));
+      }
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  if (((v || d) && (!xn_a8CtorMatches(cls, fields)))) {
+    return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+  }
+  if ((v || d)) {
+    if (((xn_a8MethodExists(cls, rt_string_from_c("equals")) || xn_a8MethodExists(cls, rt_string_from_c("toString"))) || xn_a8MethodExists(cls, rt_string_from_c("copy")))) {
+      return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated method conflicts with existing method"), cls);
+    }
+    xn_Cls_AstNode_add(cls, xn_a8EqualsMethod(cls, fields));
+    xn_Cls_AstNode_add(cls, xn_a8ToStringMethod(cls, fields));
+    xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+  }
+  if (c) {
+    if ((!xn_a8CtorMatches(cls, fields))) {
+      return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+    }
+    if (((!v) && (!d))) {
+      if (xn_a8MethodExists(cls, rt_string_from_c("copy"))) {
+        return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated copy conflicts with existing method"), cls);
+      }
+    }
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)fields->len))) {
+      rt_string * wname = xn_concat(rt_string_from_c("with"), xn_a8Capitalize(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
+      if (xn_a8MethodExists(cls, wname)) {
+        return xn_a8Fail(rt_string_from_c("AN0023"), xn_concat(rt_string_from_c("generated method conflicts with existing method: "), wname), cls);
+      }
+      i = xn_int_wrap((i + 1));
+    }
+    if (((!v) && (!d))) {
+      xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+    }
+    i = 0;
+    while ((i < ((int64_t)fields->len))) {
+      xn_Cls_AstNode_add(cls, xn_a8WithMethod(cls, ((xn_Cls_AstNode *)xn_arr_o_get(fields, i))));
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  return 1;
+}
+
+struct xn_Cls_A8BuilderProcessor {
+  rt_header hdr;
+};
+
+static const rt_type RT_TYPE_XN_A8BuilderProcessor = { "A8BuilderProcessor", sizeof(xn_Cls_A8BuilderProcessor), NULL, NULL };
+
+static xn_Cls_A8BuilderProcessor *xn_Cls_A8BuilderProcessor_new(void) {
+  xn_Cls_A8BuilderProcessor *xn_obj = (xn_Cls_A8BuilderProcessor *)rt_gc_new(&RT_TYPE_XN_A8BuilderProcessor);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_A8BuilderProcessor) - sizeof(rt_header));
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_A8BuilderProcessor_name(xn_Cls_A8BuilderProcessor *self);
+static int xn_Cls_A8BuilderProcessor_applies(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8BuilderProcessor_process(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+
+static rt_string * xn_Cls_A8BuilderProcessor_name(xn_Cls_A8BuilderProcessor *self) {
+  return rt_string_from_c("builder");
+}
+
+static int xn_Cls_A8BuilderProcessor_applies(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls) {
+  return xn_a8HasAnno(cls, rt_string_from_c("Builder"));
+}
+
+static int xn_Cls_A8BuilderProcessor_process(xn_Cls_A8BuilderProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
+  if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
+    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy/@Builder require a class"), cls);
+  }
+  xn_a8DropAnno(cls, rt_string_from_c("Builder"));
+  xn_arr_o * fields = xn_a8InstanceFields(cls);
+  if ((((int64_t)xn_a8TypeParams(cls)->len) > 0)) {
+    return xn_a8Fail(rt_string_from_c("AN0025"), rt_string_from_c("generic @Builder is not supported yet"), cls);
+  }
+  if ((!xn_a8CtorMatches(cls, fields))) {
+    return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+  }
+  rt_string * bname = xn_concat(cls->text, rt_string_from_c("Builder"));
+  if (xn_a8ClassExists(program, bname)) {
+    return xn_a8Fail(rt_string_from_c("AN0024"), xn_concat(rt_string_from_c("builder class already exists: "), bname), cls);
+  }
+  xn_Cls_AstNode_add(program, xn_a8BuildBuilder(cls, xn_a8CtorParams(cls), fields));
+  return 1;
+}
+
+struct xn_Cls_A8DelegateProcessor {
+  rt_header hdr;
+};
+
+static const rt_type RT_TYPE_XN_A8DelegateProcessor = { "A8DelegateProcessor", sizeof(xn_Cls_A8DelegateProcessor), NULL, NULL };
+
+static xn_Cls_A8DelegateProcessor *xn_Cls_A8DelegateProcessor_new(void) {
+  xn_Cls_A8DelegateProcessor *xn_obj = (xn_Cls_A8DelegateProcessor *)rt_gc_new(&RT_TYPE_XN_A8DelegateProcessor);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_A8DelegateProcessor) - sizeof(rt_header));
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_A8DelegateProcessor_name(xn_Cls_A8DelegateProcessor *self);
+static int xn_Cls_A8DelegateProcessor_applies(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls);
+static int xn_Cls_A8DelegateProcessor_process(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
+
+static rt_string * xn_Cls_A8DelegateProcessor_name(xn_Cls_A8DelegateProcessor *self) {
+  return rt_string_from_c("delegate");
+}
+
+static int xn_Cls_A8DelegateProcessor_applies(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    if ((xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i))->kind, rt_string_from_c("Field")) && xn_a8FieldHasAnno(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i)), rt_string_from_c("Delegate")))) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static int xn_Cls_A8DelegateProcessor_process(xn_Cls_A8DelegateProcessor *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
+  if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
+    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy/@Builder require a class"), cls);
+  }
+  xn_arr_o * fields = xn_a8InstanceFields(cls);
+  xn_arr_o *delegateFields = xn_arr_o_new(0);
+  int64_t di = xn_int_wrap(0);
+  while ((di < ((int64_t)fields->len))) {
+    xn_Cls_AstNode * f = ((xn_Cls_AstNode *)xn_arr_o_get(fields, di));
+    if (xn_a8FieldHasAnno(f, rt_string_from_c("Delegate"))) {
+      xn_a8DropFieldAnno(f, rt_string_from_c("Delegate"));
+      xn_arr_o_push(delegateFields, f);
+    }
+    di = xn_int_wrap((di + 1));
+  }
+  xn_arr_s *generated = xn_arr_s_new(0);
+  di = 0;
+  while ((di < ((int64_t)delegateFields->len))) {
+    xn_Cls_AstNode * f = ((xn_Cls_AstNode *)xn_arr_o_get(delegateFields, di));
+    rt_string * targetName = xn_a8TypeBase(xn_a8FieldType(f));
+    xn_Cls_AstNode * target = xn_a8FindClassIn(program, targetName);
+    if (xn_str_eq(target->kind, rt_string_from_c("None"))) {
+      return xn_a8Fail(rt_string_from_c("AN0027"), xn_concat(rt_string_from_c("@Delegate target is not a class: "), targetName), f);
+    }
+    if (((((int64_t)xn_a8TypeParams(target)->len) > 0) || (xn_str_indexof(xn_a8FieldType(f), rt_string_from_c("<")) >= 0))) {
+      return xn_a8Fail(rt_string_from_c("AN0028"), xn_concat(rt_string_from_c("@Delegate target must be non-generic class: "), targetName), f);
+    }
+    int64_t mi = xn_int_wrap(0);
+    while ((mi < ((int64_t)target->kids->len))) {
+      xn_Cls_AstNode * tm = ((xn_Cls_AstNode *)xn_arr_o_get(target->kids, mi));
+      if ((xn_str_eq(tm->kind, rt_string_from_c("Method")) && (!xn_a8MethodStatic(tm)))) {
+        rt_string * mname = tm->text;
+        if ((xn_a8MethodExists(cls, mname) || xn_a8ListHas(generated, mname))) {
+          return xn_a8Fail(rt_string_from_c("AN0026"), xn_concat(rt_string_from_c("@Delegate method conflicts: "), mname), f);
+        }
+        xn_arr_s_push(generated, mname);
+        xn_Cls_AstNode_add(cls, xn_a8DelegateMethod(cls, f, tm));
+      }
+      mi = xn_int_wrap((mi + 1));
+    }
+    di = xn_int_wrap((di + 1));
+  }
+  return 1;
+}
+
 struct xn_Cls_IrValue {
   rt_header hdr;
   rt_string * kind;
@@ -15366,6 +15588,30 @@ static rt_string * xn_Cls_AnnotationIR_json(xn_Cls_AnnotationIR *self) {
     i = xn_int_wrap((i + 1));
   }
   return xn_concat(out, rt_string_from_c("]}"));
+}
+
+static rt_string * xn_proto_A8Processor_name(void *xn_obj) {
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8CoreProcessor) return xn_Cls_A8CoreProcessor_name((xn_Cls_A8CoreProcessor *)xn_obj);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8BuilderProcessor) return xn_Cls_A8BuilderProcessor_name((xn_Cls_A8BuilderProcessor *)xn_obj);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8DelegateProcessor) return xn_Cls_A8DelegateProcessor_name((xn_Cls_A8DelegateProcessor *)xn_obj);
+  rt_fatal("protocol dispatch failed: A8Processor.name");
+  return 0;
+}
+
+static int xn_proto_A8Processor_applies(void *xn_obj, xn_Cls_AstNode * cls) {
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8CoreProcessor) return xn_Cls_A8CoreProcessor_applies((xn_Cls_A8CoreProcessor *)xn_obj, cls);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8BuilderProcessor) return xn_Cls_A8BuilderProcessor_applies((xn_Cls_A8BuilderProcessor *)xn_obj, cls);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8DelegateProcessor) return xn_Cls_A8DelegateProcessor_applies((xn_Cls_A8DelegateProcessor *)xn_obj, cls);
+  rt_fatal("protocol dispatch failed: A8Processor.applies");
+  return 0;
+}
+
+static int xn_proto_A8Processor_process(void *xn_obj, xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8CoreProcessor) return xn_Cls_A8CoreProcessor_process((xn_Cls_A8CoreProcessor *)xn_obj, cls, program);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8BuilderProcessor) return xn_Cls_A8BuilderProcessor_process((xn_Cls_A8BuilderProcessor *)xn_obj, cls, program);
+  if (((rt_header *)xn_obj)->type == &RT_TYPE_XN_A8DelegateProcessor) return xn_Cls_A8DelegateProcessor_process((xn_Cls_A8DelegateProcessor *)xn_obj, cls, program);
+  rt_fatal("protocol dispatch failed: A8Processor.process");
+  return 0;
 }
 
 static xn_arr_s * loadedFiles;
@@ -17123,140 +17369,29 @@ static xn_Cls_AstNode * xn_a8DelegateMethod(xn_Cls_AstNode * host, xn_Cls_AstNod
   return m;
 }
 
-static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
-  int v = xn_a8HasAnno(cls, rt_string_from_c("Value"));
-  int d = xn_a8HasAnno(cls, rt_string_from_c("Data"));
-  int c = xn_a8HasAnno(cls, rt_string_from_c("Copy"));
-  int b = xn_a8HasAnno(cls, rt_string_from_c("Builder"));
-  int fieldDelegate = 0;
-  int64_t fdi = xn_int_wrap(0);
-  while ((fdi < ((int64_t)cls->kids->len))) {
-    if ((xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, fdi))->kind, rt_string_from_c("Field")) && xn_a8FieldHasAnno(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, fdi)), rt_string_from_c("Delegate")))) {
-      fieldDelegate = 1;
-    }
-    fdi = xn_int_wrap((fdi + 1));
-  }
-  if ((((((!v) && (!d)) && (!c)) && (!b)) && (!fieldDelegate))) {
-    return 1;
-  }
-  if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
-    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy/@Builder require a class"), cls);
-  }
-  xn_a8DropAnno(cls, rt_string_from_c("Value"));
-  xn_a8DropAnno(cls, rt_string_from_c("Data"));
-  xn_a8DropAnno(cls, rt_string_from_c("Copy"));
-  xn_a8DropAnno(cls, rt_string_from_c("Builder"));
-  xn_arr_o * fields = xn_a8InstanceFields(cls);
-  xn_arr_o *delegateFields = xn_arr_o_new(0);
-  int64_t dfi = xn_int_wrap(0);
-  while ((dfi < ((int64_t)fields->len))) {
-    if (xn_a8FieldHasAnno(((xn_Cls_AstNode *)xn_arr_o_get(fields, dfi)), rt_string_from_c("Delegate"))) {
-      xn_a8DropFieldAnno(((xn_Cls_AstNode *)xn_arr_o_get(fields, dfi)), rt_string_from_c("Delegate"));
-      xn_arr_o_push(delegateFields, ((xn_Cls_AstNode *)xn_arr_o_get(fields, dfi)));
-    }
-    dfi = xn_int_wrap((dfi + 1));
-  }
-  if (((((int64_t)delegateFields->len) > 0) && (!xn_str_eq(cls->kind, rt_string_from_c("Class"))))) {
-    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Delegate requires a class"), cls);
-  }
-  if (v) {
-    int64_t i = xn_int_wrap(0);
-    while ((i < ((int64_t)fields->len))) {
-      if ((!xn_a8IsFinalField(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))))) {
-        return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value requires all instance fields final"), ((xn_Cls_AstNode *)xn_arr_o_get(fields, i)));
-      }
-      i = xn_int_wrap((i + 1));
-    }
-  }
-  if (((v || d) && (!xn_a8CtorMatches(cls, fields)))) {
-    return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
-  }
-  if ((v || d)) {
-    if (((xn_a8MethodExists(cls, rt_string_from_c("equals")) || xn_a8MethodExists(cls, rt_string_from_c("toString"))) || xn_a8MethodExists(cls, rt_string_from_c("copy")))) {
-      return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated method conflicts with existing method"), cls);
-    }
-    xn_Cls_AstNode_add(cls, xn_a8EqualsMethod(cls, fields));
-    xn_Cls_AstNode_add(cls, xn_a8ToStringMethod(cls, fields));
-    xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
-  }
-  if (c) {
-    if ((!xn_a8CtorMatches(cls, fields))) {
-      return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
-    }
-    if (((!v) && (!d))) {
-      if (xn_a8MethodExists(cls, rt_string_from_c("copy"))) {
-        return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated copy conflicts with existing method"), cls);
-      }
-    }
-    int64_t i = xn_int_wrap(0);
-    while ((i < ((int64_t)fields->len))) {
-      rt_string * wname = xn_concat(rt_string_from_c("with"), xn_a8Capitalize(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))));
-      if (xn_a8MethodExists(cls, wname)) {
-        return xn_a8Fail(rt_string_from_c("AN0023"), xn_concat(rt_string_from_c("generated method conflicts with existing method: "), wname), cls);
-      }
-      i = xn_int_wrap((i + 1));
-    }
-    if (((!v) && (!d))) {
-      xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
-    }
-    i = 0;
-    while ((i < ((int64_t)fields->len))) {
-      xn_Cls_AstNode_add(cls, xn_a8WithMethod(cls, ((xn_Cls_AstNode *)xn_arr_o_get(fields, i))));
-      i = xn_int_wrap((i + 1));
-    }
-  }
-  if (b) {
-    if ((((int64_t)xn_a8TypeParams(cls)->len) > 0)) {
-      return xn_a8Fail(rt_string_from_c("AN0025"), rt_string_from_c("generic @Builder is not supported yet"), cls);
-    }
-    if ((!xn_a8CtorMatches(cls, fields))) {
-      return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
-    }
-    rt_string * bname = xn_concat(cls->text, rt_string_from_c("Builder"));
-    if (xn_a8ClassExists(program, bname)) {
-      return xn_a8Fail(rt_string_from_c("AN0024"), xn_concat(rt_string_from_c("builder class already exists: "), bname), cls);
-    }
-    xn_Cls_AstNode_add(program, xn_a8BuildBuilder(cls, xn_a8CtorParams(cls), fields));
-  }
-  if ((((int64_t)delegateFields->len) > 0)) {
-    xn_arr_s *generated = xn_arr_s_new(0);
-    int64_t di = xn_int_wrap(0);
-    while ((di < ((int64_t)delegateFields->len))) {
-      xn_Cls_AstNode * f = ((xn_Cls_AstNode *)xn_arr_o_get(delegateFields, di));
-      rt_string * targetName = xn_a8TypeBase(xn_a8FieldType(f));
-      xn_Cls_AstNode * target = xn_a8FindClassIn(program, targetName);
-      if (xn_str_eq(target->kind, rt_string_from_c("None"))) {
-        return xn_a8Fail(rt_string_from_c("AN0027"), xn_concat(rt_string_from_c("@Delegate target is not a class: "), targetName), f);
-      }
-      if (((((int64_t)xn_a8TypeParams(target)->len) > 0) || (xn_str_indexof(xn_a8FieldType(f), rt_string_from_c("<")) >= 0))) {
-        return xn_a8Fail(rt_string_from_c("AN0028"), xn_concat(rt_string_from_c("@Delegate target must be non-generic class: "), targetName), f);
-      }
-      int64_t mi = xn_int_wrap(0);
-      while ((mi < ((int64_t)target->kids->len))) {
-        xn_Cls_AstNode * tm = ((xn_Cls_AstNode *)xn_arr_o_get(target->kids, mi));
-        if ((xn_str_eq(tm->kind, rt_string_from_c("Method")) && (!xn_a8MethodStatic(tm)))) {
-          rt_string * mname = tm->text;
-          if ((xn_a8MethodExists(cls, mname) || xn_a8ListHas(generated, mname))) {
-            return xn_a8Fail(rt_string_from_c("AN0026"), xn_concat(rt_string_from_c("@Delegate method conflicts: "), mname), f);
-          }
-          xn_arr_s_push(generated, mname);
-          xn_Cls_AstNode_add(cls, xn_a8DelegateMethod(cls, f, tm));
-        }
-        mi = xn_int_wrap((mi + 1));
-      }
-      di = xn_int_wrap((di + 1));
-    }
-  }
-  return 1;
+static xn_arr_o * xn_a8Processors(void) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  xn_arr_o_push(out, xn_Cls_A8CoreProcessor_new());
+  xn_arr_o_push(out, xn_Cls_A8BuilderProcessor_new());
+  xn_arr_o_push(out, xn_Cls_A8DelegateProcessor_new());
+  return out;
 }
 
 static int xn_expandA8Annotations(xn_Cls_AstNode * program) {
+  xn_arr_o * processors = xn_a8Processors();
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)program->kids->len))) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
     if ((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum"))) || xn_str_eq(n->kind, rt_string_from_c("Protocol")))) {
-      if ((!xn_expandA8Class(n, program))) {
-        return 0;
+      int64_t pi = xn_int_wrap(0);
+      while ((pi < ((int64_t)processors->len))) {
+        void * p = xn_arr_o_get(processors, pi);
+        if (xn_proto_A8Processor_applies(p, n)) {
+          if ((!xn_proto_A8Processor_process(p, n, program))) {
+            return 0;
+          }
+        }
+        pi = xn_int_wrap((pi + 1));
       }
     }
     i = xn_int_wrap((i + 1));

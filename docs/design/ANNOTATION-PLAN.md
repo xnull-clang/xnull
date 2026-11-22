@@ -7,7 +7,7 @@
 | 相关规范 | S1 `@mustUse`、S6 `@tasks`/`@arena`、S8 工具链 |
 | IR v1 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md) |
 | 处理器清单 | [`ANNOTATION-PROCESSOR-MANIFEST.md`](ANNOTATION-PROCESSOR-MANIFEST.md) |
-| 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；P1.6 处理器调度、A9、领域处理器为 planned；mini 1.0 平台工作包见 [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) |
+| 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；A8 已迁入 Internal Processor 注册表（`a8Processors()`）；P1.6 平台处理器、A9、领域处理器为 planned；mini 1.0 平台工作包见 [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) |
 | 约束 | 不再只写设计：P1 直接改 `src/mini`；不引入运行时反射/注解扫描 |
 | 第一出口 | mini 已能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |
 
@@ -140,7 +140,7 @@
 | A9 | 工具链/IDE 只读提取 | 文档/IDE 可读编译期元数据；不做运行时反射 | S8 |
 | A10 | 测试矩阵 | 声明/使用/目标/常量/重复/未知/内建/处理器/注册表 | A1–A9 |
 
-A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate`），限制见 Part 3 §5.7：`@Builder`/`@Delegate` 非泛型、`@Value`/`@Data` 不生成 `hash()`、`@Value` 浅校验；A9 planned**。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现部分或领域注解写成已实现。
+A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate`）并由 `A8Processor` 注册表承载（无 `expandA8Class` 分派），限制见 Part 3 §5.7：`@Builder`/`@Delegate` 非泛型、`@Value`/`@Data` 不生成 `hash()`、`@Value` 浅校验；A9 planned**。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现部分或领域注解写成已实现。
 
 禁止工作项：
 

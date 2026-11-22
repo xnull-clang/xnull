@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0 implemented**（P0-01–P0-09）；M1–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1 implemented**（P0-01–P0-09、P1-01–P1-04）；M2–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -175,12 +175,12 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P1 A8 迁移
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P1-01 | Value/Data/Copy → Internal Processors | P0 | 行为/诊断/测试不回归 |
-| P1-02 | Builder/Delegate → Internal Processors | P1-01 | 同上；非泛型边界保留 |
-| P1-03 | 删除 `a8HasAnno` 硬编码分支 | P1-01/02 | 新派生注解只注册，不改主流程 |
-| P1-04 | A8 回归矩阵 | P1-03 | A8 全部场景 + 负例 + full xdk.sh |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P1-01 | Value/Data/Copy → Internal Processors | P0 | 行为/诊断/测试不回归 | implemented (A8CoreProcessor) |
+| P1-02 | Builder/Delegate → Internal Processors | P1-01 | 同上；非泛型边界保留 | implemented (A8BuilderProcessor/A8DelegateProcessor) |
+| P1-03 | 删除 `a8HasAnno` 硬编码分支 | P1-01/02 | 新派生注解只注册，不改主流程 | implemented (`a8Processors()`；无 `expandA8Class`) |
+| P1-04 | A8 回归矩阵 | P1-03 | A8 全部场景 + 负例 + full xdk.sh | implemented (`a8_registry.sh` + m0_gate) |
 
 ### P2 CLI 试点
 
@@ -245,7 +245,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | 里程碑 | 内容 | 出口 | 状态 |
 | --- | --- | --- | --- |
 | M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS | implemented（`annotation_platform/m0_gate.sh`） |
-| M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | planned |
+| M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | implemented（A8 processor registry） |
 | M2 | P2 CLI | `@CliCommand` 业务闭环 | planned |
 | M3 | P3 codec | `@Serializable` 业务闭环 | planned |
 | M4 | P4 validate | `@Validate` 业务闭环 | planned |
@@ -269,6 +269,16 @@ m0_gate.sh: PASS
 xdk2.sh: 28 scenarios PASS
 xdk2_extra.sh / xdk_core.sh: PASS
 xdk.sh: PASS（最后 mini xdk: PASS）
+```
+
+### M1 出口证据
+
+```text
+A8Processor protocol + a8Processors(): A8Core/A8Builder/A8Delegate
+expandA8Class: removed
+a8_registry.sh: PASS
+A8 场景：a8_core / builder / delegate / packages / negative 全 PASS
+m0_gate.sh: PASS
 ```
 
 ---

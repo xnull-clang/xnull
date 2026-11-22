@@ -14572,87 +14572,85 @@ AstNode a8DelegateMethod(AstNode host, AstNode field, AstNode target) {
     return m
 }
 
-Bool expandA8Class(AstNode cls, AstNode program) {
-    Bool v = a8HasAnno(cls, "Value")
-    Bool d = a8HasAnno(cls, "Data")
-    Bool c = a8HasAnno(cls, "Copy")
-    Bool b = a8HasAnno(cls, "Builder")
-    Bool fieldDelegate = false
-    Int fdi = 0
-    while fdi < cls.kids.length() {
-        if cls.kids.get(fdi).kind == "Field" && a8FieldHasAnno(cls.kids.get(fdi), "Delegate") {
-            fieldDelegate = true
+protocol A8Processor {
+    String name();
+    Bool applies(AstNode cls);
+    Bool process(AstNode cls, AstNode program);
+}
+
+class A8CoreProcessor implements A8Processor {
+    String name() { return "core" }
+    Bool applies(AstNode cls) {
+        return a8HasAnno(cls, "Value") || a8HasAnno(cls, "Data") || a8HasAnno(cls, "Copy")
+    }
+    Bool process(AstNode cls, AstNode program) {
+        Bool v = a8HasAnno(cls, "Value")
+        Bool d = a8HasAnno(cls, "Data")
+        Bool c = a8HasAnno(cls, "Copy")
+        if cls.kind != "Class" {
+            return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
         }
-        fdi = fdi + 1
-    }
-    if !v && !d && !c && !b && !fieldDelegate { return true }
-    if cls.kind != "Class" {
-        return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
-    }
-    a8DropAnno(cls, "Value")
-    a8DropAnno(cls, "Data")
-    a8DropAnno(cls, "Copy")
-    a8DropAnno(cls, "Builder")
-    List<AstNode> fields = a8InstanceFields(cls)
-    List<AstNode> delegateFields = []
-    Int dfi = 0
-    while dfi < fields.length() {
-        if a8FieldHasAnno(fields.get(dfi), "Delegate") {
-            a8DropFieldAnno(fields.get(dfi), "Delegate")
-            delegateFields.push(fields.get(dfi))
-        }
-        dfi = dfi + 1
-    }
-    if delegateFields.length() > 0 && cls.kind != "Class" {
-        return a8Fail("AN0021", "@Delegate requires a class", cls)
-    }
-    if v {
-        Int i = 0
-        while i < fields.length() {
-            if !a8IsFinalField(fields.get(i)) {
-                return a8Fail("AN0021", "@Value requires all instance fields final", fields.get(i))
+        a8DropAnno(cls, "Value")
+        a8DropAnno(cls, "Data")
+        a8DropAnno(cls, "Copy")
+        List<AstNode> fields = a8InstanceFields(cls)
+        if v {
+            Int i = 0
+            while i < fields.length() {
+                if !a8IsFinalField(fields.get(i)) {
+                    return a8Fail("AN0021", "@Value requires all instance fields final", fields.get(i))
+                }
+                i = i + 1
             }
-            i = i + 1
         }
-    }
-    if (v || d) && !a8CtorMatches(cls, fields) {
-        return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
-    }
-    if v || d {
-        if a8MethodExists(cls, "equals") || a8MethodExists(cls, "toString") || a8MethodExists(cls, "copy") {
-            return a8Fail("AN0023", "generated method conflicts with existing method", cls)
-        }
-        cls.add(a8EqualsMethod(cls, fields))
-        cls.add(a8ToStringMethod(cls, fields))
-        cls.add(a8CopyMethod(cls, fields))
-    }
-    if c {
-        if !a8CtorMatches(cls, fields) {
+        if (v || d) && !a8CtorMatches(cls, fields) {
             return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
         }
-        if !v && !d {
-            if a8MethodExists(cls, "copy") {
-                return a8Fail("AN0023", "generated copy conflicts with existing method", cls)
+        if v || d {
+            if a8MethodExists(cls, "equals") || a8MethodExists(cls, "toString") || a8MethodExists(cls, "copy") {
+                return a8Fail("AN0023", "generated method conflicts with existing method", cls)
             }
-        }
-        Int i = 0
-        while i < fields.length() {
-            String wname = "with" + a8Capitalize(a8FieldName(fields.get(i)))
-            if a8MethodExists(cls, wname) {
-                return a8Fail("AN0023", "generated method conflicts with existing method: " + wname, cls)
-            }
-            i = i + 1
-        }
-        if !v && !d {
+            cls.add(a8EqualsMethod(cls, fields))
+            cls.add(a8ToStringMethod(cls, fields))
             cls.add(a8CopyMethod(cls, fields))
         }
-        i = 0
-        while i < fields.length() {
-            cls.add(a8WithMethod(cls, fields.get(i)))
-            i = i + 1
+        if c {
+            if !a8CtorMatches(cls, fields) {
+                return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
+            }
+            if !v && !d {
+                if a8MethodExists(cls, "copy") {
+                    return a8Fail("AN0023", "generated copy conflicts with existing method", cls)
+                }
+            }
+            Int i = 0
+            while i < fields.length() {
+                String wname = "with" + a8Capitalize(a8FieldName(fields.get(i)))
+                if a8MethodExists(cls, wname) {
+                    return a8Fail("AN0023", "generated method conflicts with existing method: " + wname, cls)
+                }
+                i = i + 1
+            }
+            if !v && !d { cls.add(a8CopyMethod(cls, fields)) }
+            i = 0
+            while i < fields.length() {
+                cls.add(a8WithMethod(cls, fields.get(i)))
+                i = i + 1
+            }
         }
+        return true
     }
-    if b {
+}
+
+class A8BuilderProcessor implements A8Processor {
+    String name() { return "builder" }
+    Bool applies(AstNode cls) { return a8HasAnno(cls, "Builder") }
+    Bool process(AstNode cls, AstNode program) {
+        if cls.kind != "Class" {
+            return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
+        }
+        a8DropAnno(cls, "Builder")
+        List<AstNode> fields = a8InstanceFields(cls)
         if a8TypeParams(cls).length() > 0 {
             return a8Fail("AN0025", "generic @Builder is not supported yet", cls)
         }
@@ -14664,10 +14662,39 @@ Bool expandA8Class(AstNode cls, AstNode program) {
             return a8Fail("AN0024", "builder class already exists: " + bname, cls)
         }
         program.add(a8BuildBuilder(cls, a8CtorParams(cls), fields))
+        return true
     }
-    if delegateFields.length() > 0 {
-        List<String> generated = []
+}
+
+class A8DelegateProcessor implements A8Processor {
+    String name() { return "delegate" }
+    Bool applies(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Field" && a8FieldHasAnno(cls.kids.get(i), "Delegate") {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+    Bool process(AstNode cls, AstNode program) {
+        if cls.kind != "Class" {
+            return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
+        }
+        List<AstNode> fields = a8InstanceFields(cls)
+        List<AstNode> delegateFields = []
         Int di = 0
+        while di < fields.length() {
+            AstNode f = fields.get(di)
+            if a8FieldHasAnno(f, "Delegate") {
+                a8DropFieldAnno(f, "Delegate")
+                delegateFields.push(f)
+            }
+            di = di + 1
+        }
+        List<String> generated = []
+        di = 0
         while di < delegateFields.length() {
             AstNode f = delegateFields.get(di)
             String targetName = a8TypeBase(a8FieldType(f))
@@ -14693,16 +14720,32 @@ Bool expandA8Class(AstNode cls, AstNode program) {
             }
             di = di + 1
         }
+        return true
     }
-    return true
+}
+
+List<A8Processor> a8Processors() {
+    List<A8Processor> out = []
+    out.push(new A8CoreProcessor())
+    out.push(new A8BuilderProcessor())
+    out.push(new A8DelegateProcessor())
+    return out
 }
 
 Bool expandA8Annotations(AstNode program) {
+    List<A8Processor> processors = a8Processors()
     Int i = 0
     while i < program.kids.length() {
         AstNode n = program.kids.get(i)
         if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol" {
-            if !expandA8Class(n, program) { return false }
+            Int pi = 0
+            while pi < processors.length() {
+                A8Processor p = processors.get(pi)
+                if p.applies(n) {
+                    if !p.process(n, program) { return false }
+                }
+                pi = pi + 1
+            }
         }
         i = i + 1
     }

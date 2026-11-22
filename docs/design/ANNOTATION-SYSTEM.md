@@ -20,7 +20,7 @@
 | 内建 `@ReadOnly`/`@Override`/`@Deprecated`/`@SuppressWarnings` | 已实现 | 编译器诊断与测试 |
 | 静态 `AnnotationRegistry` 生成与查询 | 已实现 | `src/mini/tests/xdk2/annotations_types/annotations_types_runtime_registry.x` |
 | `xdk.annotations` 14 类型 | 已实现 | `src/xdk/annotations/Annotations.x` |
-| `@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate` 派生处理器 | 已实现（A8，含限制） | Part 3 §5；本文件 §3.2.1 |
+| `@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate` 派生处理器 | 已实现（A8，Internal Processor 注册表，含限制） | Part 3 §5；本文件 §3.2.1 |
 | 领域注解处理器（HTTP/SQL/codec/validate/MCP/CLI/设备/GPU 等） | planned | [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) 与各包 README |
 | 运行时反射/类路径扫描/动态代理 | 永不做 | 语言与 XDK 均为编译期生成 |
 

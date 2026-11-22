@@ -19,6 +19,7 @@ run_gate() {
 
 run_gate annotation_ir "$ROOT/src/mini/tests/annotation_ir/run.sh"
 run_gate annotation_platform "$PLATFORM_RUN"
+run_gate a8_registry "$ROOT/src/mini/tests/a8/a8_registry.sh"
 run_gate a8_core "$ROOT/src/mini/tests/a8/a8_core.sh"
 run_gate a8_delegate "$ROOT/src/mini/tests/a8/a8_delegate.sh"
 run_gate a8_builder "$ROOT/src/mini/tests/a8/a8_builder.sh"
