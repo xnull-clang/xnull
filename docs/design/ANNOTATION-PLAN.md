@@ -5,7 +5,7 @@
 | 位置 | 注解层；语言/编译器/工具链前置计划 |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；Part 2 §12 是语法摘要 |
 | 相关规范 | S1 `@mustUse`、S6 `@tasks`/`@arena`、S8 工具链 |
-| 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；P1.6 处理器调度、A9、领域处理器为 planned |
+| 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；P1.6 处理器调度、A9、领域处理器为 planned；mini 1.0 平台工作包见 [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) |
 | 约束 | 不再只写设计：P1 直接改 `src/mini`；不引入运行时反射/注解扫描 |
 | 第一出口 | mini 已能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |
 
@@ -177,7 +177,7 @@ A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/
 | P1.6 | 处理器调度 | planned；四阶段、多轮固定点、显式启用、失败原子性 |
 | P1.7 | 测试矩阵/文档 | 部分完成；编译器正/负例已存在；领域处理器生成场景待实现；包 README 注解清单已建立 |
 
-> P1.0–P1.5 是 `xdk.annotations` 14 类型与编译器的最小闭环；P1.6 才允许领域处理器接入。不要先写 `@Serializable` 处理器再补编译器。
+> P1.0–P1.5 是 `xdk.annotations` 14 类型与编译器的最小闭环；P1.6 才允许领域处理器接入。不要先写 `@Serializable` 处理器再补编译器。mini 1.0 的 IR、清单、调度、生成源码、沙箱、诊断合并与领域闭环工作包见 [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md)。
 
 ---
 
