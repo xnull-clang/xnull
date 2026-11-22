@@ -170,7 +170,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B0 | 分支/worktree、`xdk2.sh`、包清单、1.x 基线、诊断码冻结 | CR-0 | B0.2/B0.3/B0.4 可并行 |
 | B1 | 注解 lexer/parser/AST、类型解析、目标/保留/重复、常量求值、诊断 | `AN0001`–`AN0014` 正/负例绿 | 与 B3 并行 |
 | B2 | `xdk.annotations` 14 类型、`AnnotationRegistry`、运行时只读查询 | 14 类型 + 注册表场景绿 | 串行 B1 |
-| B3 | `RuntimeMonitor`、`Context` 截止/等待、泛型 `Pair`/`Entry`、`isFinite`、`Bytes.alloc`、errors helpers、`List.copy` | prelude 场景 + 1.x 回归绿 | 与 B1/B2 并行 |
+| B3 | `RuntimeMonitor`、`Context` 截止/等待、泛型 `Pair`/`Entry`、`isFinite`、`Bytes.alloc`、errors helpers、`List.copy` | prelude 场景 + 1.x 回归绿 | 与 B1 并行；`main.x` 冲突按 §4.4 rebase 解决 |
 | B4 | `functional`、`graph`、`stats`、`net.uri`、`net.mime`、`tensor`、`linalg`、`geo` | 每包场景 + 2.x gate 绿 | 包间可并行 |
 | B5 | core 15 包 2.x 化（foundation → io/fs/sys → log/config/cli → execution） | core 15 包 Verified | 子批串行 |
 | B6 | data/encoding 12 包 | 依赖闭包绿 | 子批并行 |
@@ -178,6 +178,23 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B8 | platform 17 包 | 模型/只读/控制面分级绿 | os 与 device 可并行 |
 | B9 | application services 12 包 | 依赖闭包绿 | 包间可并行 |
 | B10 | solutions 9 包 | 逐组端到端绿 | 组间可并行 |
+
+### 4.4 冲突处理（不是隔离）
+
+冲突不是“换一条线绕开”或“标延期”就结束，必须按下面闭环：
+
+1. 写清冲突文件/函数/语义，指定 owner。
+2. 指定合并顺序（谁先落、谁 rebase）。
+3. 合并时保留双方语义，补冲突测试（两边的场景都要跑）。
+4. 处理完仍达不到严格要求，才标 `BLOCKED`，附证据和下一步；标记后继续该批其他条目，不整批停。
+5. 不允许把“冲突已隔离”当作完成。
+
+`src/mini/main.x` 是 B1/B3 的真实共享文件：
+
+- B1 先落注解 AST/parser/Checker。
+- B3 从 B1 的新 HEAD rebase，保留泛型 `Pair`、`List.copy`、`Bytes.alloc` 等编译支持；冲突逐段解，不丢任一侧。
+- 合并后跑 `xdk2.sh`（注解 + prelude 全部场景）+ 1.x 回归。
+- B3.2 `Context` deadline/wait 在 rebase 后继续做；它不是延期关闭项。
 
 ---
 
@@ -224,7 +241,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | ID | 工作包 | Owner | 依赖 | 文件域 | 产物 | 出口 |
 | --- | --- | --- | --- | --- | --- | --- |
 | B3.1 | `RuntimeMonitor` + raw | RUNTIME | B0.1 | `src/runtime/`、`src/ffi/runtime_raw.xfb`、`src/xdk/core/runtime/Runtime.x` | enter/exit/wait/notify | 并发/关闭场景绿 |
-| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | 取消/超时场景绿 |
+| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 + B1 合并 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | B3 rebase 后继续；取消/超时场景绿；不是延期关闭项 |
 | B3.3 | 泛型 `Pair`/`Entry` | XDK-CORE | B0.1 | `src/xdk/core/collections/Collections.x` | `Pair<A,B>`、`Entry<K,V>` | 1.x 兼容 + 2.x 场景 |
 | B3.4 | `isFinite/isNaN`、`Bytes.alloc/empty`、errors helpers、`List.copy` | XDK-CORE | B0.1 | `src/xdk/core/math`、`core/bytes`、`core/errors`、`core/collections` | 顶层函数/构造 | prelude 场景绿 |
 | B3.5 | prelude 门禁 | QA | B3.1–B3.4 | `xdk2/prelude/` | 场景 | `xdk2.sh` 绿 + 1.x 回归绿 |
@@ -287,11 +304,11 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 
 ```text
 读 LOCAL_RULES.md 第 5/6 号、ARCHITECTURE.md §10、PACKAGE-MAP.md L1。
-本批 = B3：RuntimeMonitor、Context deadline/wait、Pair/Entry、isFinite/isNaN、Bytes.alloc/empty、errors helpers、List.copy。
-文件域 = src/runtime/、src/ffi/runtime_raw.xfb、src/xdk/runtime/、execution/、collections/、math/、bytes/、errors/。
-不要改 annotations，不要写 codec/net/platform。
+本批 = B3：RuntimeMonitor、Pair/Entry、isFinite/isNaN、Bytes.alloc/empty、errors helpers、List.copy；B3.2 Context deadline/wait 在 B1 合并后 rebase 继续，不是延期关闭项。
+文件域 = src/runtime/、src/ffi/runtime_raw.xfb、src/xdk/core/runtime/、collections/、math/、bytes/、errors/、execution/。`src/mini/main.x` 是共享文件：按 EXECUTION-PLAN §4.4 与 B1 合并，保留双方语义，不丢泛型/List.copy/Bytes/注解任何一侧。
+不要写 codec/net/platform。
 批末一次 build + xdk2.sh + xdk.sh + xdk_core.sh，提交一次。
-出口 = prelude 场景绿 + 1.x 回归绿。
+出口 = prelude 场景绿 + 1.x 回归绿 + main.x 冲突清单已交给 integration owner。
 ```
 
 ### 7.4 独立 review agent
@@ -397,9 +414,9 @@ worktree: clean
 | --- | --- | --- |
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
 | B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
-| B1 注解编译器 | 未开工 | 等 B1.0；B0 已完成 |
+| B1 注解编译器 | 进行中 | `ses_b1_annotations_20261122` @ `/Users/vjs/Desktop/XNull-xdk2-b1`；与 B3 共享 `main.x`，按 §4.4 合并 |
 | B2 注解类型 | 未开工 | 等 B1 |
-| B3 runtime prelude | 未开工 | 可与 B1 并行 |
+| B3 runtime prelude | 进行中 | `ses_b3_runtime_20261122` @ `/Users/vjs/Desktop/XNull-xdk2-b3`；B3.2 在 B1 rebase 后继续 |
 | B4 第一批纯包 | 未开工 | 等 B2+B3 |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
