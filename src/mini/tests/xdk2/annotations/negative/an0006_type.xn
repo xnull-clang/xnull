@@ -1,0 +1,8 @@
+// expect: fail AN0006
+@annotation Text {
+    final String s = ""
+}
+
+@Text(1)
+class Device {
+}

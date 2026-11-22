@@ -1,0 +1,14 @@
+// expect: fail AN0013
+protocol P {
+    String show();
+}
+
+class Device implements P {
+    @Override Int show() {
+        return 1
+    }
+}
+
+static Int main() {
+    return 0
+}

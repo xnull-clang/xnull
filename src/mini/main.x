@@ -2,6 +2,9 @@
 package mini
 
 List<String> loadedFiles = []
+// Warnings from the annotation pass.  They are printed by --sema/--emit-c and
+// also baked into the generated program so xnull run/build users see them.
+List<String> compilerWarnings = []
 String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
@@ -34,6 +37,9 @@ class AstNode {
     final Int line
     final Int col
     final List<AstNode> kids
+    // Annotation uses attached to this declaration/member.  They are kept
+    // outside `kids` so existing semantic/codegen passes keep their shape.
+    final List<AstNode> annotations
 
     AstNode(String kind, String text, Int line, Int col) {
         self.kind = kind
@@ -41,10 +47,15 @@ class AstNode {
         self.line = line
         self.col = col
         self.kids = []
+        self.annotations = []
     }
 
     Void add(AstNode kid) {
         kids.push(kid)
+    }
+
+    Void annotate(AstNode use) {
+        annotations.push(use)
     }
 
     Void setKid(Int idx, AstNode v) {
@@ -79,6 +90,12 @@ class AstNode {
             print(pad + kind)
         } else {
             print(pad + kind + ": " + text)
+        }
+        Int ai = 0
+        while ai < annotations.length() {
+            AstNode ann = annotations.get(ai)
+            ann.dump(depth + 1)
+            ai = ai + 1
         }
         Int j = 0
         while j < kids.length() {
@@ -175,6 +192,96 @@ class Parser {
         return new AstNode(kindName, text, t.line, t.col)
     }
 
+    Bool atAnnotationStart() {
+        return self.at("@") && (self.look(1).kind == "ident" || self.look(1).kind == "kw")
+    }
+
+    Bool atAnnotationDecl() {
+        return self.at("@") && self.look(1).text == "annotation"
+    }
+
+    AstNode parseAnnotationUse() {
+        Token at = self.expect("@")
+        if !self.kind("ident") && !self.kind("kw") {
+            self.fail("expected annotation name")
+            return self.node("error", "", at)
+        }
+        Token nt = self.advance()
+        AstNode use = new AstNode("AnnotationUse", nt.text, at.line, at.col)
+        if self.eat("(") {
+            Int idx = 0
+            if !self.at(")") {
+                while !self.hasError() {
+                    Token at2 = self.peek()
+                    AstNode arg = new AstNode("AnnotationArg", str(idx), at2.line, at2.col)
+                    if self.atAnnotationStart() && !self.atAnnotationDecl() {
+                        arg.add(self.parseAnnotationUse())
+                    } else {
+                        arg.add(self.parseExpr())
+                    }
+                    use.add(arg)
+                    idx = idx + 1
+                    if !self.eat(",") {
+                        break
+                    }
+                }
+            }
+            self.expect(")")
+        }
+        return use
+    }
+
+    List<AstNode> parseAnnotations() {
+        List<AstNode> uses = []
+        while self.atAnnotationStart() && !self.atAnnotationDecl() {
+            uses.push(self.parseAnnotationUse())
+        }
+        return uses
+    }
+
+    Void attachAnnotations(AstNode n, List<AstNode> uses) {
+        Int i = 0
+        while i < uses.length() {
+            n.annotate(uses.get(i))
+            i = i + 1
+        }
+    }
+
+    AstNode parseAnnotationDecl() {
+        Token at = self.expect("@")
+        self.expect("annotation")
+        if !self.kind("ident") {
+            self.fail("expected annotation name")
+            return self.node("error", "", at)
+        }
+        Token nt = self.advance()
+        AstNode d = new AstNode("AnnotationDecl", nt.text, at.line, at.col)
+        self.expect("{")
+        while !self.hasError() && !self.at("}") && !self.eof() {
+            while self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
+                self.advance()
+            }
+            String ty = self.parseType()
+            if !self.kind("ident") {
+                self.fail("expected annotation field name")
+                break
+            }
+            Token ft = self.advance()
+            AstNode f = new AstNode("AnnotationField", ty + " " + ft.text, ft.line, ft.col)
+            if self.eat("=") {
+                if self.atAnnotationStart() && !self.atAnnotationDecl() {
+                    f.add(self.parseAnnotationUse())
+                } else {
+                    f.add(self.parseExpr())
+                }
+            }
+            self.eat(";")
+            d.add(f)
+        }
+        self.expect("}")
+        return d
+    }
+
     AstNode parse() {
         AstNode program = new AstNode("Program", "", 1, 1)
         while !self.hasError() && !self.eof() {
@@ -207,6 +314,20 @@ class Parser {
 
     AstNode parseTop() {
         Token t = self.peek()
+        if self.atAnnotationDecl() {
+            return self.parseAnnotationDecl()
+        }
+        if self.atAnnotationStart() {
+            List<AstNode> anns = self.parseAnnotations()
+            if self.atAnnotationDecl() {
+                AstNode ad = self.parseAnnotationDecl()
+                self.attachAnnotations(ad, anns)
+                return ad
+            }
+            AstNode d = self.parseTop()
+            self.attachAnnotations(d, anns)
+            return d
+        }
         if self.at("package") {
             self.advance()
             String name = self.parsePath()
@@ -278,12 +399,15 @@ class Parser {
         if self.eat("<") {
             AstNode tp = self.node("TypeParams", "", t)
             while !self.hasError() && !self.at(">") {
+                List<AstNode> panns = self.parseAnnotations()
                 if !self.kind("ident") {
                     self.fail("expected type parameter")
                     break
                 }
                 Token pn = self.advance()
-                tp.add(new AstNode("TypeParam", pn.text, pn.line, pn.col))
+                AstNode tpn = new AstNode("TypeParam", pn.text, pn.line, pn.col)
+                self.attachAnnotations(tpn, panns)
+                tp.add(tpn)
                 if !self.eat(",") {
                     break
                 }
@@ -306,6 +430,7 @@ class Parser {
         }
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
+            List<AstNode> memberAnns = self.parseAnnotations()
             Bool isStatic = false
             while self.at("static") || self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
                 if self.at("static") {
@@ -320,13 +445,16 @@ class Parser {
                 self.expect("(")
                 if !self.at(")") {
                     while !self.hasError() {
+                        List<AstNode> parms = self.parseAnnotations()
                         String pt = self.parseType()
                         if !self.kind("ident") {
                             self.fail("expected constructor parameter name")
                             break
                         }
                         Token pn = self.advance()
-                        ctor.add(new AstNode("Param", pt + " " + pn.text, ct.line, ct.col))
+                        AstNode prm = new AstNode("Param", pt + " " + pn.text, ct.line, ct.col)
+                        self.attachAnnotations(prm, parms)
+                        ctor.add(prm)
                         if !self.eat(",") {
                             break
                         }
@@ -334,6 +462,7 @@ class Parser {
                 }
                 self.expect(")")
                 ctor.add(self.parseBlock())
+                self.attachAnnotations(ctor, memberAnns)
                 cls.add(ctor)
                 continue
             }
@@ -352,13 +481,16 @@ class Parser {
                 self.advance()
                 if !self.at(")") {
                     while !self.hasError() {
+                        List<AstNode> parms = self.parseAnnotations()
                         String pt = self.parseType()
                         if !self.kind("ident") {
                             self.fail("expected parameter name")
                             break
                         }
                         Token pn = self.advance()
-                        m.add(new AstNode("Param", pt + " " + pn.text, mt.line, mt.col))
+                        AstNode prm = new AstNode("Param", pt + " " + pn.text, mt.line, mt.col)
+                        self.attachAnnotations(prm, parms)
+                        m.add(prm)
                         if !self.eat(",") {
                             break
                         }
@@ -366,6 +498,7 @@ class Parser {
                 }
                 self.expect(")")
                 m.add(self.parseBlock())
+                self.attachAnnotations(m, memberAnns)
                 cls.add(m)
             } else {
                 AstNode f = self.node("Field", ty + " " + mn, mt)
@@ -376,6 +509,7 @@ class Parser {
                     f.add(self.parseExpr())
                 }
                 self.eat(";")
+                self.attachAnnotations(f, memberAnns)
                 cls.add(f)
             }
         }
@@ -395,6 +529,7 @@ class Parser {
         self.expect("{")
         Bool data = false
         while !self.hasError() && !self.at("}") && !self.eof() {
+            List<AstNode> itemAnns = self.parseAnnotations()
             if !self.kind("ident") {
                 self.fail("expected enum item")
                 break
@@ -418,6 +553,7 @@ class Parser {
             } else if self.eat("=") {
                 item.add(self.parseExpr())
             }
+            self.attachAnnotations(item, itemAnns)
             e.add(item)
             if self.eat(",") {
                 continue
@@ -430,6 +566,7 @@ class Parser {
         if !self.at("}") {
             data = true
             while !self.hasError() && !self.at("}") && !self.eof() {
+                List<AstNode> memberAnns = self.parseAnnotations()
                 while self.at("static") || self.at("final") || self.at("public") ||
                       self.at("private") || self.at("protected") {
                     self.advance()
@@ -441,13 +578,16 @@ class Parser {
                     self.expect("(")
                     if !self.at(")") {
                         while !self.hasError() {
+                            List<AstNode> parms = self.parseAnnotations()
                             String pt = self.parseType()
                             if !self.kind("ident") {
                                 self.fail("expected constructor parameter name")
                                 break
                             }
                             Token pn = self.advance()
-                            ctor.add(new AstNode("Param", pt + " " + pn.text, ct.line, ct.col))
+                            AstNode prm = new AstNode("Param", pt + " " + pn.text, ct.line, ct.col)
+                            self.attachAnnotations(prm, parms)
+                            ctor.add(prm)
                             if !self.eat(",") {
                                 break
                             }
@@ -455,6 +595,7 @@ class Parser {
                     }
                     self.expect(")")
                     ctor.add(self.parseBlock())
+                    self.attachAnnotations(ctor, memberAnns)
                     e.add(ctor)
                     continue
                 }
@@ -469,13 +610,16 @@ class Parser {
                     self.advance()
                     if !self.at(")") {
                         while !self.hasError() {
+                            List<AstNode> parms = self.parseAnnotations()
                             String pt = self.parseType()
                             if !self.kind("ident") {
                                 self.fail("expected parameter name")
                                 break
                             }
                             Token pn = self.advance()
-                            m.add(new AstNode("Param", pt + " " + pn.text, mt.line, mt.col))
+                            AstNode prm = new AstNode("Param", pt + " " + pn.text, mt.line, mt.col)
+                            self.attachAnnotations(prm, parms)
+                            m.add(prm)
                             if !self.eat(",") {
                                 break
                             }
@@ -483,6 +627,7 @@ class Parser {
                     }
                     self.expect(")")
                     m.add(self.parseBlock())
+                    self.attachAnnotations(m, memberAnns)
                     e.add(m)
                 } else {
                     AstNode f = self.node("Field", ty + " " + mt.text, mt)
@@ -490,6 +635,7 @@ class Parser {
                         f.add(self.parseExpr())
                     }
                     self.eat(";")
+                    self.attachAnnotations(f, memberAnns)
                     e.add(f)
                 }
             }
@@ -518,6 +664,7 @@ class Parser {
         }
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
+            List<AstNode> sigAnns = self.parseAnnotations()
             String rt = self.parseType()
             if !self.kind("ident") {
                 self.fail("expected protocol method name")
@@ -529,13 +676,16 @@ class Parser {
             self.expect("(")
             if !self.at(")") {
                 while !self.hasError() {
+                    List<AstNode> parms = self.parseAnnotations()
                     String pt = self.parseType()
                     if !self.kind("ident") {
                         self.fail("expected parameter name")
                         break
                     }
                     Token pn = self.advance()
-                    m.add(new AstNode("Param", pt + " " + pn.text, mn.line, mn.col))
+                    AstNode prm = new AstNode("Param", pt + " " + pn.text, mn.line, mn.col)
+                    self.attachAnnotations(prm, parms)
+                    m.add(prm)
                     if !self.eat(",") {
                         break
                     }
@@ -543,6 +693,7 @@ class Parser {
             }
             self.expect(")")
             self.expect(";")
+            self.attachAnnotations(m, sigAnns)
             p.add(m)
         }
         self.expect("}")
@@ -566,12 +717,15 @@ class Parser {
         if self.eat("<") {
             AstNode tp = new AstNode("TypeParams", "", t.line, t.col)
             while !self.hasError() && !self.at(">") {
+                List<AstNode> panns = self.parseAnnotations()
                 if !self.kind("ident") {
                     self.fail("expected type parameter")
                     break
                 }
                 Token pn = self.advance()
-                tp.add(new AstNode("TypeParam", pn.text, pn.line, pn.col))
+                AstNode tpn = new AstNode("TypeParam", pn.text, pn.line, pn.col)
+                self.attachAnnotations(tpn, panns)
+                tp.add(tpn)
                 if !self.eat(",") {
                     break
                 }
@@ -582,6 +736,7 @@ class Parser {
         self.expect("(")
         if !self.at(")") {
             while !self.hasError() {
+                List<AstNode> parms = self.parseAnnotations()
                 String pt = self.parseType()
                 if !self.kind("ident") {
                     self.fail("expected parameter name")
@@ -589,7 +744,9 @@ class Parser {
                 }
                 Token pnToken = self.advance()
                 String pn = pnToken.text
-                fn.add(new AstNode("Param", pt + " " + pn, t.line, t.col))
+                AstNode prm = new AstNode("Param", pt + " " + pn, t.line, t.col)
+                self.attachAnnotations(prm, parms)
+                fn.add(prm)
                 if !self.eat(",") {
                     break
                 }
@@ -757,7 +914,14 @@ class Parser {
         AstNode block = self.node("Block", "", t)
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
-            block.add(self.parseStmt())
+            if self.atAnnotationDecl() {
+                block.add(self.parseAnnotationDecl())
+            } else {
+                List<AstNode> stAnns = self.parseAnnotations()
+                AstNode st = self.parseStmt()
+                self.attachAnnotations(st, stAnns)
+                block.add(st)
+            }
         }
         self.expect("}")
         return block
@@ -1016,6 +1180,13 @@ class Parser {
     }
 
     AstNode parseExpr() {
+        if self.atAnnotationStart() && !self.atAnnotationDecl() {
+            AstNode use = self.parseAnnotationUse()
+            AstNode n = new AstNode("AnnotatedExpr", "", use.line, use.col)
+            n.add(use)
+            n.add(self.parseExpr())
+            return n
+        }
         AstNode cond = self.parseOr()
         if self.eat("?") {
             AstNode n = new AstNode("Ternary", "", cond.line, cond.col)
@@ -1288,13 +1459,16 @@ class Parser {
                 if self.at("final") {
                     self.advance()
                 }
+                List<AstNode> parms = self.parseAnnotations()
                 String pt = self.parseType()
                 if !self.kind("ident") {
                     self.fail("expected lambda parameter name")
                     break
                 }
                 Token pn = self.advance()
-                n.add(new AstNode("Param", pt + " " + pn.text, pn.line, pn.col))
+                AstNode prm = new AstNode("Param", pt + " " + pn.text, pn.line, pn.col)
+                self.attachAnnotations(prm, parms)
+                n.add(prm)
                 if !self.eat(",") {
                     break
                 }
@@ -1721,6 +1895,11 @@ class Mono {
         }
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
         i = 0
+        while i < cls.annotations.length() {
+            clone.annotate(cls.annotations.get(i))
+            i = i + 1
+        }
+        i = 0
         while i < cls.kids.length() {
             if cls.kids.get(i).kind != "TypeParams" {
                 clone.add(self.cloneSubst(cls.kids.get(i), names, args))
@@ -1828,6 +2007,11 @@ class Mono {
             text = self.substAll(text, names, args)
         }
         AstNode c = new AstNode(n.kind, text, n.line, n.col)
+        Int ai = 0
+        while ai < n.annotations.length() {
+            c.annotate(n.annotations.get(ai))
+            ai = ai + 1
+        }
         Int i = 0
         while i < n.kids.length() {
             if n.kids.get(i).kind != "TypeParams" {
@@ -1881,6 +2065,11 @@ class Mono {
             return sname
         }
         AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
+        i = 0
+        while i < fn.annotations.length() {
+            clone.annotate(fn.annotations.get(i))
+            i = i + 1
+        }
         i = 0
         while i < fn.kids.length() {
             if fn.kids.get(i).kind != "TypeParams" {
@@ -2331,6 +2520,11 @@ class Mono {
 
     AstNode cloneAst(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        Int ai = 0
+        while ai < n.annotations.length() {
+            c.annotate(n.annotations.get(ai))
+            ai = ai + 1
+        }
         Int i = 0
         while i < n.kids.length() {
             c.add(self.cloneAst(n.kids.get(i)))
@@ -2410,6 +2604,1250 @@ class Mono {
     }
 }
 
+class AnnotationDiag {
+    final String code
+    final String msg
+    final Int line
+    final Int col
+
+    AnnotationDiag(String code, String msg, Int line, Int col) {
+        self.code = code
+        self.msg = msg
+        self.line = line
+        self.col = col
+    }
+}
+
+class AnnotationType {
+    final String name
+    final List<String> targets
+    String retention
+    Bool repeatable
+    final List<String> fieldNames
+    final List<String> fieldTypes
+    final List<String> fieldRequired
+    final List<AstNode> fieldDefaults
+
+    AnnotationType(String name, List<String> targets, String retention, Bool repeatable) {
+        self.name = name
+        self.targets = targets
+        self.retention = retention
+        self.repeatable = repeatable
+        self.fieldNames = []
+        self.fieldTypes = []
+        self.fieldRequired = []
+        self.fieldDefaults = []
+    }
+
+    Void addField(String name, String ty, Bool required, AstNode def) {
+        self.fieldNames.push(name)
+        self.fieldTypes.push(ty)
+        if required {
+            self.fieldRequired.push("1")
+        } else {
+            self.fieldRequired.push("0")
+        }
+        self.fieldDefaults.push(def)
+    }
+
+    Void clearTargets() {
+        while self.targets.length() > 0 {
+            self.targets.remove(self.targets.length() - 1)
+        }
+    }
+
+    Bool allows(String target) {
+        if self.targets.length() == 0 {
+            return target != "TypeUse"
+        }
+        Int i = 0
+        while i < self.targets.length() {
+            if self.targets.get(i) == target {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+}
+
+class AnnotationChecker {
+    final String file
+    final AstNode program
+    final List<AnnotationType> types
+    final List<String> enumNames
+    final List<String> enumItemNames
+    final List<String> enumItemOwners
+    final List<String> roOwners
+    final List<String> roFields
+    final List<String> depFuncs
+    final List<String> depTypes
+    final List<String> depAnnos
+    final List<String> depMethods
+    final List<String> depFields
+    final List<String> depItems
+    final List<String> depCtors
+    final List<String> classNames
+    final List<AnnotationDiag> warnings
+    final List<String> validated
+    String error
+    String errorCode
+    Int errorLine
+    Int errorCol
+
+    AnnotationChecker(String file, AstNode program) {
+        self.file = file
+        self.program = program
+        self.types = []
+        self.enumNames = []
+        self.enumItemNames = []
+        self.enumItemOwners = []
+        self.roOwners = []
+        self.roFields = []
+        self.depFuncs = []
+        self.depTypes = []
+        self.depAnnos = []
+        self.depMethods = []
+        self.depFields = []
+        self.depItems = []
+        self.depCtors = []
+        self.classNames = []
+        self.warnings = []
+        self.validated = []
+        self.error = ""
+        self.errorCode = ""
+        self.errorLine = 1
+        self.errorCol = 1
+    }
+
+    Bool hasError() {
+        return self.error != ""
+    }
+
+    Void fail(String code, String msg, AstNode n) {
+        if self.error == "" {
+            self.error = msg
+            self.errorCode = code
+            self.errorLine = n.line
+            self.errorCol = n.col
+        }
+    }
+
+    Void warn(String code, String msg, AstNode n, AstNode owner) {
+        if code != "AN0015" && self.suppressed(owner, code) {
+            return
+        }
+        Int i = 0
+        while i < self.warnings.length() {
+            AnnotationDiag old = self.warnings.get(i)
+            if old.code == code && old.line == n.line && old.col == n.col && old.msg == msg {
+                return
+            }
+            i = i + 1
+        }
+        self.warnings.push(new AnnotationDiag(code, msg, n.line, n.col))
+    }
+
+    Void failAt(String code, String msg, AstNode n, AstNode owner) {
+        if code != "AN0015" && self.suppressed(owner, code) {
+            return
+        }
+        self.fail(code, msg, n)
+    }
+
+    Bool suppressed(AstNode owner, String code) {
+        if owner.kind == "None" {
+            return false
+        }
+        Int i = 0
+        while i < owner.annotations.length() {
+            AstNode use = owner.annotations.get(i)
+            if use.text == "SuppressWarnings" {
+                Int j = 0
+                while j < use.kids.length() {
+                    AstNode arg = use.kids.get(j)
+                    if arg.kids.length() > 0 {
+                        AstNode v = arg.kids.get(0)
+                        if v.kind == "String" && self.unquote(v.text) == code {
+                            return true
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    List<String> allTargets() {
+        List<String> r = []
+        r.push("Package")
+        r.push("Type")
+        r.push("Annotation")
+        r.push("TypeParameter")
+        r.push("Field")
+        r.push("Method")
+        r.push("Constructor")
+        r.push("Deinit")
+        r.push("Parameter")
+        r.push("TypeUse")
+        r.push("EnumItem")
+        return r
+    }
+
+    List<String> declTargets() {
+        List<String> r = []
+        Int i = 0
+        while i < self.allTargets().length() {
+            String t = self.allTargets().get(i)
+            if t != "TypeUse" {
+                r.push(t)
+            }
+            i = i + 1
+        }
+        return r
+    }
+
+    List<String> retentionNames() {
+        List<String> r = []
+        r.push("Source")
+        r.push("Binary")
+        r.push("Runtime")
+        return r
+    }
+
+    List<String> knownCodes() {
+        List<String> r = []
+        r.push("AN0001")
+        r.push("AN0002")
+        r.push("AN0003")
+        r.push("AN0004")
+        r.push("AN0005")
+        r.push("AN0006")
+        r.push("AN0007")
+        r.push("AN0008")
+        r.push("AN0009")
+        r.push("AN0010")
+        r.push("AN0011")
+        r.push("AN0012")
+        r.push("AN0013")
+        r.push("AN0014")
+        r.push("AN0015")
+        r.push("AN0016")
+        r.push("AN0017")
+        r.push("AN0018")
+        r.push("AN0019")
+        r.push("AN0020")
+        return r
+    }
+
+    Bool listHas(List<String> items, String v) {
+        Int i = 0
+        while i < items.length() {
+            if items.get(i) == v {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isReserved(String name) {
+        return name == "Immediate" || name == "NoAlloc" || name == "Pure" ||
+            name == "Sendable" || name == "tasks" || name == "arena" || name == "Inherited"
+    }
+
+    Bool isBuiltin(String name) {
+        return name == "Target" || name == "Retention" || name == "Repeatable" ||
+            name == "Deprecated" || name == "SuppressWarnings" ||
+            name == "ReadOnly" || name == "WriteOnly" || name == "Override" || name == "MustUse"
+    }
+
+    Int findType(String name) {
+        Int i = 0
+        while i < self.types.length() {
+            if self.types.get(i).name == name {
+                return i
+            }
+            i = i + 1
+        }
+        return -1
+    }
+
+    Void addBuiltin(String name, List<String> targets, Bool repeatable) {
+        self.types.push(new AnnotationType(name, targets, "Binary", repeatable))
+    }
+
+    Void initBuiltins() {
+        List<String> meta = []
+        meta.push("Annotation")
+        self.addBuiltin("Target", meta, false)
+        self.addBuiltin("Retention", meta, false)
+        self.addBuiltin("Repeatable", meta, false)
+
+        List<String> decl = self.declTargets()
+        self.addBuiltin("Deprecated", decl, false)
+        self.addBuiltin("SuppressWarnings", decl, false)
+
+        List<String> fieldTarget = []
+        fieldTarget.push("Field")
+        self.addBuiltin("ReadOnly", fieldTarget, false)
+        self.addBuiltin("WriteOnly", fieldTarget, false)
+
+        List<String> methodTarget = []
+        methodTarget.push("Method")
+        self.addBuiltin("Override", methodTarget, false)
+
+        List<String> mustTarget = []
+        mustTarget.push("Type")
+        mustTarget.push("Method")
+        self.addBuiltin("MustUse", mustTarget, false)
+    }
+
+    String unquote(String s) {
+        if s.length() >= 2 && s.substring(0, 1) == "\"" && s.substring(s.length() - 1, 1) == "\"" {
+            return s.substring(1, s.length() - 2)
+        }
+        return s
+    }
+
+    String pathOf(AstNode n) {
+        if n.kind == "Name" {
+            return n.text
+        }
+        if n.kind == "Member" && n.kids.length() > 0 {
+            String b = self.pathOf(n.kids.get(0))
+            if b == "" {
+                return n.text
+            }
+            return b + "." + n.text
+        }
+        if n.kind == "String" {
+            return self.unquote(n.text)
+        }
+        return ""
+    }
+
+    Bool isEnumItem(String path) {
+        Int i = 0
+        while i < self.enumItemNames.length() {
+            String full = self.enumItemOwners.get(i) + "." + self.enumItemNames.get(i)
+            if full == path {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    String enumOwnerOf(String path) {
+        Int i = 0
+        while i < self.enumItemNames.length() {
+            String full = self.enumItemOwners.get(i) + "." + self.enumItemNames.get(i)
+            if full == path {
+                return self.enumItemOwners.get(i)
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    String constType(AstNode n) {
+        if n.kind == "Int" {
+            return "Int"
+        }
+        if n.kind == "Double" {
+            return "Double"
+        }
+        if n.kind == "Bool" {
+            return "Bool"
+        }
+        if n.kind == "Char" {
+            return "Char"
+        }
+        if n.kind == "String" {
+            return "String"
+        }
+        if n.kind == "Unary" && n.kids.length() > 0 {
+            return self.constType(n.kids.get(0))
+        }
+        if n.kind == "ArrayLit" {
+            if n.kids.length() == 0 {
+                return "Any[]"
+            }
+            return self.constType(n.kids.get(0)) + "[]"
+        }
+        if n.kind == "AnnotationUse" {
+            return n.text
+        }
+        String p = self.pathOf(n)
+        if p != "" && self.isEnumItem(p) {
+            return self.enumOwnerOf(p)
+        }
+        if n.kind == "Name" || n.kind == "Member" {
+            return "Type"
+        }
+        return "Unknown"
+    }
+
+    Bool isConstValue(AstNode n) {
+        if n.kind == "Int" || n.kind == "Double" || n.kind == "Bool" ||
+           n.kind == "Char" || n.kind == "String" {
+            return true
+        }
+        if n.kind == "Unary" && n.kids.length() > 0 {
+            String t = self.constType(n.kids.get(0))
+            return t == "Int" || t == "Double"
+        }
+        if n.kind == "ArrayLit" {
+            Int i = 0
+            while i < n.kids.length() {
+                if !self.isConstValue(n.kids.get(i)) {
+                    return false
+                }
+                i = i + 1
+            }
+            return true
+        }
+        if n.kind == "AnnotationUse" {
+            return true
+        }
+        String p = self.pathOf(n)
+        if p != "" && (self.isEnumItem(p) || self.findType(p) >= 0) {
+            return true
+        }
+        return false
+    }
+
+    Bool numericType(String ty) {
+        return ty == "Int" || ty == "Int32" || ty == "Int64" || ty == "Long" ||
+            ty == "UInt16" || ty == "Int128" || ty == "Float" || ty == "Double"
+    }
+
+    Bool accepts(String fieldType, AstNode arg) {
+        String ft = fieldType
+        if ft.length() > 1 && ft.substring(ft.length() - 1, 1) == "?" {
+            ft = ft.substring(0, ft.length() - 1)
+        }
+        String ct = self.constType(arg)
+        if ft == ct {
+            return true
+        }
+        if self.numericType(ft) && (ct == "Int" || ct == "Double") {
+            if ft == "Double" || ft == "Float" || ct == "Int" {
+                return true
+            }
+        }
+        if ft == "Type" || ft == "TypeRef" {
+            return arg.kind == "Name" || arg.kind == "Member" || arg.kind == "String"
+        }
+        if ft.length() > 2 && ft.substring(ft.length() - 2, 2) == "[]" {
+            if arg.kind != "ArrayLit" {
+                return false
+            }
+            String et = ft.substring(0, ft.length() - 2)
+            Int i = 0
+            while i < arg.kids.length() {
+                if !self.accepts(et, arg.kids.get(i)) {
+                    return false
+                }
+                i = i + 1
+            }
+            return true
+        }
+        if arg.kind == "AnnotationUse" && arg.text == ft {
+            return true
+        }
+        String p = self.pathOf(arg)
+        if p != "" && self.enumOwnerOf(p) == ft {
+            return true
+        }
+        return false
+    }
+
+    Bool constantTypeAllowed(String ty) {
+        String base = ty
+        if base.length() > 1 && base.substring(base.length() - 1, 1) == "?" {
+            base = base.substring(0, base.length() - 1)
+        }
+        if base.length() > 2 && base.substring(base.length() - 2, 2) == "[]" {
+            return self.constantTypeAllowed(base.substring(0, base.length() - 2))
+        }
+        if base == "Bool" || base == "Int" || base == "Int32" || base == "Int64" ||
+           base == "Long" || base == "UInt16" || base == "Int128" ||
+           base == "Float" || base == "Double" || base == "Char" || base == "String" ||
+           base == "Type" || base == "TypeRef" {
+            return true
+        }
+        if self.listHas(self.enumNames, base) {
+            return true
+        }
+        if self.findType(base) >= 0 {
+            return true
+        }
+        return false
+    }
+
+    Void collectTypes() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" {
+                self.enumNames.push(n.text)
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode k = n.kids.get(j)
+                    if k.kind == "EnumItem" {
+                        self.enumItemNames.push(k.text)
+                        self.enumItemOwners.push(n.text)
+                    }
+                    j = j + 1
+                }
+            }
+            if n.kind == "Class" || n.kind == "Struct" {
+                self.classNames.push(n.text)
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" {
+                if self.findType(n.text) >= 0 {
+                    self.fail("AN0001", "duplicate annotation type: " + n.text, n)
+                } else {
+                    self.types.push(new AnnotationType(n.text, self.declTargets(), "Binary", false))
+                }
+            }
+            i = i + 1
+        }
+    }
+
+    Void validateAnnotationDecl(AstNode d) {
+        Int ti = self.findType(d.text)
+        if ti < 0 {
+            return
+        }
+        if self.listHas(self.validated, d.text) {
+            self.validateUses(d, "Annotation", d)
+            return
+        }
+        self.validated.push(d.text)
+        AnnotationType t = self.types.get(ti)
+        Bool hasTarget = false
+        Int i = 0
+        while i < d.annotations.length() {
+            AstNode use = d.annotations.get(i)
+            if use.text == "Target" {
+                hasTarget = true
+                t.clearTargets()
+                if use.kids.length() == 0 {
+                    self.failAt("AN0009", "@Target needs at least one target", use, d)
+                }
+                Int j = 0
+                while j < use.kids.length() {
+                    AstNode arg = use.kids.get(j)
+                    String path = ""
+                    if arg.kids.length() > 0 {
+                        path = self.pathOf(arg.kids.get(0))
+                    }
+                    if !self.listHas(self.allTargets(), path) {
+                        self.failAt("AN0009", "invalid @Target member: " + path, use, d)
+                    } else if !self.listHas(t.targets, path) {
+                        t.targets.push(path)
+                    }
+                    j = j + 1
+                }
+            } else if use.text == "Retention" {
+                String rp = ""
+                if use.kids.length() == 1 && use.kids.get(0).kids.length() > 0 {
+                    rp = self.pathOf(use.kids.get(0).kids.get(0))
+                }
+                if use.kids.length() != 1 || !self.listHas(self.retentionNames(), rp) {
+                    self.failAt("AN0010", "invalid @Retention member", use, d)
+                } else {
+                    t.retention = rp
+                }
+            } else if use.text == "Repeatable" {
+                if use.kids.length() != 0 {
+                    self.failAt("AN0011", "@Repeatable takes no arguments", use, d)
+                } else {
+                    t.repeatable = true
+                }
+            }
+            i = i + 1
+        }
+        if hasTarget && t.targets.length() == 0 {
+            // all members were invalid; keep the default to avoid cascades.
+            Int k = 0
+            while k < self.declTargets().length() {
+                t.targets.push(self.declTargets().get(k))
+                k = k + 1
+            }
+        }
+        i = 0
+        while i < d.kids.length() {
+            AstNode f = d.kids.get(i)
+            if f.kind != "AnnotationField" {
+                self.failAt("AN0008", "annotation may only declare fields", f, d)
+                i = i + 1
+                continue
+            }
+            List<String> parts = f.text.split(" ")
+            if parts.length() < 2 {
+                self.failAt("AN0008", "malformed annotation field", f, d)
+                i = i + 1
+                continue
+            }
+            String ft = parts.get(0)
+            String fn = parts.get(1)
+            if !self.constantTypeAllowed(ft) {
+                self.failAt("AN0008", "annotation field type is not constant: " + ft, f, d)
+            }
+            if self.listHas(t.fieldNames, fn) {
+                self.failAt("AN0008", "duplicate annotation field: " + fn, f, d)
+            }
+            Bool hasDefault = f.kids.length() > 0
+            if hasDefault {
+                AstNode def = f.kids.get(0)
+                if !self.isConstValue(def) {
+                    self.failAt("AN0008", "annotation default is not constant: " + fn, f, d)
+                } else if !self.accepts(ft, def) {
+                    self.failAt("AN0008", "annotation default type mismatch: " + fn, f, d)
+                }
+            }
+            AstNode dummy = new AstNode("None", "", f.line, f.col)
+            t.addField(fn, ft, !hasDefault, dummy)
+            i = i + 1
+        }
+        self.validateUses(d, "Annotation", d)
+    }
+
+    Void validateUses(AstNode owner, String target, AstNode scope) {
+        Int i = 0
+        while i < owner.annotations.length() && !self.hasError() {
+            AstNode use = owner.annotations.get(i)
+            self.validateUse(use, target, owner, scope, i)
+            i = i + 1
+        }
+    }
+
+    Void validateUse(AstNode use, String target, AstNode owner, AstNode scope, Int index) {
+        String name = use.text
+        if self.isReserved(name) {
+            self.failAt("AN0001", "reserved annotation cannot be used: @" + name, use, scope)
+            return
+        }
+        Int ti = self.findType(name)
+        if ti < 0 {
+            self.failAt("AN0001", "unknown annotation: @" + name, use, scope)
+            return
+        }
+        AnnotationType t = self.types.get(ti)
+        if name == "Repeatable" {
+            if target != "Annotation" {
+                self.failAt("AN0011", "@Repeatable only applies to annotation declarations", use, scope)
+            }
+            if use.kids.length() != 0 {
+                self.failAt("AN0011", "@Repeatable takes no arguments", use, scope)
+            }
+            return
+        }
+        if target == "" {
+            // Nested annotation value: no declaration target.
+        } else if !self.listHas(self.allTargets(), target) {
+            self.failAt("AN0002", "annotation @" + name + " is not allowed on " + target, use, scope)
+            return
+        } else if !t.allows(target) {
+            self.failAt("AN0002", "annotation @" + name + " is not allowed on " + target, use, scope)
+            return
+        }
+        Int dup = 0
+        Int j = 0
+        while j < index {
+            if owner.annotations.get(j).text == name {
+                dup = dup + 1
+            }
+            j = j + 1
+        }
+        if dup > 0 && !t.repeatable {
+            self.failAt("AN0003", "duplicate annotation @" + name + " (not @Repeatable)", use, scope)
+            return
+        }
+        if name == "Target" {
+            if use.kids.length() == 0 {
+                self.failAt("AN0009", "@Target needs at least one target", use, scope)
+            }
+            Int k = 0
+            while k < use.kids.length() {
+                AstNode arg = use.kids.get(k)
+                String p = ""
+                if arg.kids.length() > 0 {
+                    p = self.pathOf(arg.kids.get(0))
+                }
+                if !self.listHas(self.allTargets(), p) {
+                    self.failAt("AN0009", "invalid @Target member: " + p, use, scope)
+                }
+                k = k + 1
+            }
+            return
+        }
+        if name == "Retention" {
+            if use.kids.length() != 1 {
+                self.failAt("AN0010", "invalid @Retention member", use, scope)
+            } else {
+                AstNode arg = use.kids.get(0)
+                String p = ""
+                if arg.kids.length() > 0 {
+                    p = self.pathOf(arg.kids.get(0))
+                }
+                if !self.listHas(self.retentionNames(), p) {
+                    self.failAt("AN0010", "invalid @Retention member: " + p, use, scope)
+                }
+            }
+            return
+        }
+        if name == "Deprecated" || name == "ReadOnly" || name == "WriteOnly" ||
+           name == "Override" || name == "MustUse" {
+            if use.kids.length() != 0 {
+                self.failAt("AN0005", "annotation @" + name + " takes no arguments", use, scope)
+            }
+            return
+        }
+        if name == "SuppressWarnings" {
+            if use.kids.length() == 0 {
+                self.warn("AN0015", "@SuppressWarnings needs a diagnostic code", use, scope)
+            }
+            Int k = 0
+            while k < use.kids.length() {
+                AstNode arg = use.kids.get(k)
+                if arg.kids.length() == 0 || arg.kids.get(0).kind != "String" {
+                    self.warn("AN0015", "@SuppressWarnings code must be a String", use, scope)
+                } else {
+                    String code = self.unquote(arg.kids.get(0).text)
+                    if !self.listHas(self.knownCodes(), code) {
+                        self.warn("AN0015", "unknown diagnostic code: " + code, use, scope)
+                    } else if code == "AN0015" || code == "AN0016" || code == "AN0017" ||
+                              code == "AN0018" || code == "AN0019" {
+                        self.warn("AN0015", "diagnostic code is not suppressible: " + code, use, scope)
+                    }
+                }
+                k = k + 1
+            }
+            return
+        }
+        if use.kids.length() > t.fieldNames.length() {
+            self.failAt("AN0005", "too many arguments for @" + name, use, scope)
+            return
+        }
+        Int k = 0
+        while k < t.fieldNames.length() {
+            if k < use.kids.length() {
+                AstNode arg = use.kids.get(k)
+                AstNode v = arg.kids.get(0)
+                if !self.isConstValue(v) {
+                    self.failAt("AN0007", "argument " + str(k + 1) + " of @" + name + " is not a compile-time constant", use, scope)
+                } else if !self.accepts(t.fieldTypes.get(k), v) {
+                    self.failAt("AN0006", "argument " + str(k + 1) + " of @" + name + " expects " + t.fieldTypes.get(k), use, scope)
+                } else if v.kind == "AnnotationUse" {
+                    self.validateUse(v, "", v, scope, 0)
+                }
+            } else if t.fieldRequired.get(k) == "1" {
+                self.failAt("AN0004", "missing required argument " + t.fieldNames.get(k) + " for @" + name, use, scope)
+            }
+            k = k + 1
+        }
+    }
+
+    Void collectDeprecated() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            Bool dep = self.hasUse(n, "Deprecated")
+            if dep && n.kind == "Func" {
+                self.depFuncs.push(n.text)
+            }
+            if dep && (n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol") {
+                self.depTypes.push(n.text)
+            }
+            if dep && n.kind == "AnnotationDecl" {
+                self.depAnnos.push(n.text)
+            }
+            if dep && n.kind == "TopField" {
+                List<String> tf = n.text.split(" ")
+                if tf.length() >= 2 {
+                    self.depFields.push(tf.get(1))
+                }
+            }
+            if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode k = n.kids.get(j)
+                    if k.kind == "Field" && self.hasUse(k, "ReadOnly") {
+                        self.roOwners.push(n.text)
+                        List<String> parts = k.text.split(" ")
+                        if parts.length() >= 2 {
+                            self.roFields.push(parts.get(1))
+                        }
+                    }
+                    if k.kind == "Method" && self.hasUse(k, "Deprecated") {
+                        self.depMethods.push(k.text)
+                    }
+                    if k.kind == "Field" && self.hasUse(k, "Deprecated") {
+                        List<String> fp = k.text.split(" ")
+                        if fp.length() >= 2 {
+                            self.depFields.push(fp.get(1))
+                        }
+                    }
+                    if k.kind == "Ctor" && self.hasUse(k, "Deprecated") {
+                        self.depCtors.push(n.text)
+                    }
+                    if k.kind == "EnumItem" && self.hasUse(k, "Deprecated") {
+                        self.depItems.push(n.text + "." + k.text)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+
+    Bool hasUse(AstNode n, String name) {
+        Int i = 0
+        while i < n.annotations.length() {
+            if n.annotations.get(i).text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isReadOnlyField(String owner, String field) {
+        Int i = 0
+        while i < self.roFields.length() {
+            if self.roOwners.get(i) == owner && self.roFields.get(i) == field {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void checkDecl(AstNode n, String target) {
+        if n.kind == "AnnotationDecl" {
+            self.validateAnnotationDecl(n)
+            Int i = 0
+            while i < n.kids.length() {
+                self.checkDecl(n.kids.get(i), "AnnotationField")
+                i = i + 1
+            }
+            return
+        }
+        if n.kind == "AnnotationField" {
+            return
+        }
+        if n.kind == "AnnotationUse" {
+            return
+        }
+        if n.kind == "AnnotatedExpr" {
+            if n.kids.length() > 0 {
+                self.validateUse(n.kids.get(0), "Expression", n, n, 0)
+            }
+            if n.kids.length() > 1 {
+                self.checkExpr(n.kids.get(1), n)
+            }
+            return
+        }
+        if self.hasError() {
+            return
+        }
+        String t = target
+        if n.kind == "Program" {
+            t = ""
+        } else if n.kind == "Package" {
+            t = "Package"
+        } else if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol" {
+            t = "Type"
+        } else if n.kind == "Func" || n.kind == "Method" || n.kind == "Sig" {
+            t = "Method"
+        } else if n.kind == "Ctor" {
+            t = "Constructor"
+        } else if n.kind == "Field" {
+            t = "Field"
+        } else if n.kind == "Param" {
+            t = "Parameter"
+        } else if n.kind == "TypeParam" {
+            t = "TypeParameter"
+        } else if n.kind == "EnumItem" {
+            t = "EnumItem"
+        } else if n.kind == "Local" || n.kind == "Block" || n.kind == "Return" ||
+                  n.kind == "Assign" || n.kind == "ExprStmt" || n.kind == "If" ||
+                  n.kind == "ForIn" || n.kind == "ForRange" || n.kind == "While" ||
+                  n.kind == "DoWhile" || n.kind == "Switch" || n.kind == "Case" ||
+                  n.kind == "Default" || n.kind == "Defer" || n.kind == "Label" ||
+                  n.kind == "Throw" || n.kind == "Break" || n.kind == "Continue" ||
+                  n.kind == "Goto" {
+            t = n.kind
+        } else if n.kind == "AnnotationField" {
+            return
+        }
+        if target != "AnnotationField" {
+            self.validateUses(n, t, n)
+        }
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" {
+            Int i = 0
+            while i < n.kids.length() && !self.hasError() {
+                AstNode k = n.kids.get(i)
+                if k.kind == "Param" {
+                    self.checkDecl(k, "Parameter")
+                } else if k.kind == "Block" {
+                    self.checkBlock(k, n)
+                }
+                i = i + 1
+            }
+            return
+        }
+        if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol" {
+            Int i = 0
+            while i < n.kids.length() && !self.hasError() {
+                AstNode k = n.kids.get(i)
+                if k.kind == "TypeParams" {
+                    Int j = 0
+                    while j < k.kids.length() {
+                        self.checkDecl(k.kids.get(j), "TypeParameter")
+                        j = j + 1
+                    }
+                } else if k.kind == "Field" || k.kind == "Method" || k.kind == "Ctor" ||
+                          k.kind == "EnumItem" || k.kind == "Sig" {
+                    self.checkDecl(k, "")
+                }
+                i = i + 1
+            }
+            return
+        }
+        Int i = 0
+        while i < n.kids.length() && !self.hasError() {
+            AstNode k = n.kids.get(i)
+            if k.kind != "AnnotationUse" {
+                self.checkDecl(k, "")
+            }
+            i = i + 1
+        }
+    }
+
+    Void checkBlock(AstNode block, AstNode owner) {
+        Int i = 0
+        while i < block.kids.length() && !self.hasError() {
+            AstNode st = block.kids.get(i)
+            if st.kind == "AnnotationDecl" {
+                self.failAt("AN0002", "annotation declaration is only allowed at top level", st, owner)
+            } else {
+                self.checkDecl(st, st.kind)
+                self.checkExpr(st, owner)
+            }
+            i = i + 1
+        }
+    }
+
+    Void checkExpr(AstNode n, AstNode owner) {
+        if self.hasError() {
+            return
+        }
+        if n.kind == "Call" || n.kind == "GenericCall" {
+            if self.listHas(self.depFuncs, n.text) {
+                self.warn("AN0014", "use of deprecated function: " + n.text, n, owner)
+            }
+        }
+        if n.kind == "MethodCall" {
+            if self.listHas(self.depMethods, n.text) {
+                self.warn("AN0014", "use of deprecated method: " + n.text, n, owner)
+            }
+        }
+        if n.kind == "New" {
+            if self.listHas(self.depTypes, n.text) {
+                self.warn("AN0014", "use of deprecated type: " + n.text, n, owner)
+            }
+            if self.listHas(self.depCtors, n.text) {
+                self.warn("AN0014", "use of deprecated constructor: " + n.text, n, owner)
+            }
+        }
+        if n.kind == "Member" {
+            if self.listHas(self.depFields, n.text) {
+                self.warn("AN0014", "use of deprecated field: " + n.text, n, owner)
+            }
+            String mp = self.pathOf(n)
+            if self.listHas(self.depItems, mp) {
+                self.warn("AN0014", "use of deprecated enum item: " + mp, n, owner)
+            }
+        }
+        if n.kind == "AnnotationUse" {
+            if self.listHas(self.depAnnos, n.text) {
+                self.warn("AN0014", "use of deprecated annotation: @" + n.text, n, owner)
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.checkExpr(n.kids.get(i), owner)
+            i = i + 1
+        }
+    }
+
+    String paramTypesOf(AstNode fn) {
+        String res = ""
+        Int i = 0
+        while i < fn.kids.length() {
+            AstNode k = fn.kids.get(i)
+            if k.kind == "Param" {
+                List<String> parts = k.text.split(" ")
+                if parts.length() >= 1 {
+                    if res != "" {
+                        res = res + ","
+                    }
+                    res = res + parts.get(0)
+                }
+            }
+            i = i + 1
+        }
+        return res
+    }
+
+    String retOf(AstNode fn) {
+        Int i = 0
+        while i < fn.kids.length() {
+            if fn.kids.get(i).kind == "Ret" {
+                return fn.kids.get(i).text
+            }
+            i = i + 1
+        }
+        return "Unit"
+    }
+
+    Bool protocolHasSig(String pname, String mname, String params, String ret) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode p = self.program.kids.get(i)
+            if p.kind == "Protocol" && p.text == pname {
+                Int j = 0
+                while j < p.kids.length() {
+                    AstNode s = p.kids.get(j)
+                    if s.kind == "Sig" && s.text == mname && self.paramTypesOf(s) == params && self.retOf(s) == ret {
+                        return true
+                    }
+                    if s.kind == "Extends" {
+                        if self.protocolHasSig(s.text, mname, params, ret) {
+                            return true
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void checkOverrides() {
+        Int i = 0
+        while i < self.program.kids.length() && !self.hasError() {
+            AstNode c = self.program.kids.get(i)
+            if c.kind == "Class" || c.kind == "Struct" {
+                Int j = 0
+                while j < c.kids.length() && !self.hasError() {
+                    AstNode m = c.kids.get(j)
+                    if m.kind == "Method" && self.hasUse(m, "Override") {
+                        List<String> impls = []
+                        Int k = 0
+                        while k < c.kids.length() {
+                            if c.kids.get(k).kind == "Implements" {
+                                impls.push(c.kids.get(k).text)
+                            }
+                            k = k + 1
+                        }
+                        Bool found = false
+                        k = 0
+                        while k < impls.length() {
+                            if self.protocolHasSig(impls.get(k), m.text, self.paramTypesOf(m), self.retOf(m)) {
+                                found = true
+                            }
+                            k = k + 1
+                        }
+                        if !found {
+                            self.failAt("AN0013", "@Override method has no matching protocol signature: " + m.text, m, m)
+                        }
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+
+    String lookupVar(List<String> names, List<String> types, String name) {
+        Int i = names.length() - 1
+        while i >= 0 {
+            if names.get(i) == name {
+                return types.get(i)
+            }
+            i = i - 1
+        }
+        return ""
+    }
+
+    Void popVars(List<String> names, List<String> types, Int mark) {
+        while names.length() > mark {
+            names.remove(names.length() - 1)
+            types.remove(types.length() - 1)
+        }
+    }
+
+    Void checkReadOnlyIn(AstNode n, String cls, List<String> names, List<String> types, AstNode owner) {
+        Int mark = names.length()
+        if n.kind == "Local" {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 {
+                names.push(parts.get(1))
+                types.push(parts.get(0))
+            }
+        }
+        if n.kind == "Assign" && n.kids.length() >= 2 {
+            AstNode left = n.kids.get(0)
+            if left.kind == "Member" && left.kids.length() > 0 {
+                AstNode base = left.kids.get(0)
+                String ownerType = ""
+                if base.kind == "Name" {
+                    if base.text == "self" {
+                        ownerType = cls
+                    } else {
+                        ownerType = self.lookupVar(names, types, base.text)
+                        if ownerType == "" && self.listHas(self.classNames, base.text) {
+                            ownerType = base.text
+                        }
+                    }
+                }
+                if ownerType != "" && self.isReadOnlyField(ownerType, left.text) && ownerType != cls {
+                    self.failAt("AN0012", "write to @ReadOnly field outside its declaring type: " + ownerType + "." + left.text, left, owner)
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() && !self.hasError() {
+            self.checkReadOnlyIn(n.kids.get(i), cls, names, types, owner)
+            i = i + 1
+        }
+        self.popVars(names, types, mark)
+    }
+
+    Void checkReadOnlyWrites() {
+        Int i = 0
+        while i < self.program.kids.length() && !self.hasError() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" {
+                self.roCheckMembers(n, n.text)
+            }
+            if n.kind == "Func" {
+                List<String> names = []
+                List<String> types = []
+                Int k = 0
+                while k < n.kids.length() {
+                    AstNode p = n.kids.get(k)
+                    if p.kind == "Param" {
+                        List<String> parts = p.text.split(" ")
+                        if parts.length() >= 2 {
+                            names.push(parts.get(1))
+                            types.push(parts.get(0))
+                        }
+                    }
+                    k = k + 1
+                }
+                k = 0
+                while k < n.kids.length() && !self.hasError() {
+                    if n.kids.get(k).kind == "Block" {
+                        self.checkReadOnlyIn(n.kids.get(k), "", names, types, n)
+                    }
+                    k = k + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+
+    Void roCheckMembers(AstNode c, String cls) {
+        Int j = 0
+        while j < c.kids.length() && !self.hasError() {
+            AstNode m = c.kids.get(j)
+            if m.kind == "Method" || m.kind == "Ctor" {
+                List<String> names = []
+                List<String> types = []
+                names.push("self")
+                types.push(cls)
+                Int k = 0
+                while k < m.kids.length() {
+                    AstNode p = m.kids.get(k)
+                    if p.kind == "Param" {
+                        List<String> parts = p.text.split(" ")
+                        if parts.length() >= 2 {
+                            names.push(parts.get(1))
+                            types.push(parts.get(0))
+                        }
+                    }
+                    k = k + 1
+                }
+                k = 0
+                while k < m.kids.length() && !self.hasError() {
+                    if m.kids.get(k).kind == "Block" {
+                        self.checkReadOnlyIn(m.kids.get(k), cls, names, types, m)
+                    }
+                    k = k + 1
+                }
+            }
+            j = j + 1
+        }
+    }
+
+    Void check() {
+        self.initBuiltins()
+        self.collectTypes()
+        if self.hasError() {
+            return
+        }
+        Int i = 0
+        while i < self.program.kids.length() && !self.hasError() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" {
+                self.validateAnnotationDecl(n)
+            }
+            i = i + 1
+        }
+        if self.hasError() {
+            return
+        }
+        self.collectDeprecated()
+        i = 0
+        while i < self.program.kids.length() && !self.hasError() {
+            self.checkDecl(self.program.kids.get(i), "")
+            i = i + 1
+        }
+        if self.hasError() {
+            return
+        }
+        self.checkOverrides()
+        if self.hasError() {
+            return
+        }
+        self.checkReadOnlyWrites()
+        if self.hasError() {
+            return
+        }
+        i = 0
+        while i < self.program.kids.length() && !self.hasError() {
+            self.checkExpr(self.program.kids.get(i), self.program.kids.get(i))
+            i = i + 1
+        }
+    }
+}
+
 class Checker {
     final String file
     final AstNode program
@@ -2428,6 +3866,7 @@ class Checker {
     final List<String> methodNames
     final List<String> methodRets
     final List<String> methodParams
+    final List<AnnotationDiag> warnings
     String error
     String errorCode
     Int errorLine
@@ -2454,6 +3893,7 @@ class Checker {
         self.methodNames = []
         self.methodRets = []
         self.methodParams = []
+        self.warnings = []
         self.error = ""
         self.errorCode = ""
         self.errorLine = 1
@@ -3002,6 +4442,20 @@ class Checker {
     }
 
     Void check() {
+        AnnotationChecker ann = new AnnotationChecker(self.file, self.program)
+        ann.check()
+        Int ai = 0
+        while ai < ann.warnings.length() {
+            self.warnings.push(ann.warnings.get(ai))
+            ai = ai + 1
+        }
+        if ann.hasError() {
+            self.error = ann.error
+            self.errorCode = ann.errorCode
+            self.errorLine = ann.errorLine
+            self.errorCol = ann.errorCol
+            return
+        }
         self.collect()
         Int i = 0
         while i < self.program.kids.length() && !self.hasError() {
@@ -9605,6 +11059,12 @@ class CGen {
         }
         self.emit("  xrt_runtime_init();")
         self.emit("  xn_init_globals();")
+        Int wi = 0
+        while wi < compilerWarnings.length() {
+            String warning = compilerWarnings.get(wi)
+            self.emit("  (void)xdkc_diagnose_rc(" + cStringLiteral(warning) + ", " + str(warning.length()) + ");")
+            wi = wi + 1
+        }
         if mainArgs {
             self.emit("  xn_arr_s *args = xn_arr_s_new(argc > 1 ? (size_t)(argc - 1) : 1);")
             self.emit("  for (int ai = 1; ai < argc; ai++) { xn_arr_s_push(args, rt_string_from_c(argv[ai])); }")
@@ -10527,6 +11987,12 @@ static Int main(String[] args) {
         }
         Checker c = new Checker(args[1], program)
         c.check()
+        Int wi = 0
+        while wi < c.warnings.length() {
+            AnnotationDiag d = c.warnings.get(wi)
+            print(args[1] + ":" + str(d.line) + ":" + str(d.col) + ": warning [" + d.code + "] " + d.msg)
+            wi = wi + 1
+        }
         if c.hasError() {
             print(args[1] + ":" + str(c.errorLine) + ":" + str(c.errorCol) + ": [" + c.errorCode + "] " + c.error)
             return 1
@@ -10544,6 +12010,16 @@ static Int main(String[] args) {
         }
         Checker c = new Checker(args[1], program)
         c.check()
+        while compilerWarnings.length() > 0 {
+            compilerWarnings.remove(compilerWarnings.length() - 1)
+        }
+        Int wi = 0
+        while wi < c.warnings.length() {
+            AnnotationDiag d = c.warnings.get(wi)
+            diagnoseRaw(args[1] + ":" + str(d.line) + ":" + str(d.col) + ": warning [" + d.code + "] " + d.msg)
+            compilerWarnings.push("warning [" + d.code + "] " + d.msg)
+            wi = wi + 1
+        }
         if c.hasError() {
             print(args[1] + ":" + str(c.errorLine) + ":" + str(c.errorCol) + ": [" + c.errorCode + "] " + c.error)
             return 1

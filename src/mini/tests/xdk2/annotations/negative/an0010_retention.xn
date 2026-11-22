@@ -1,0 +1,4 @@
+// expect: fail AN0010
+@Retention(Weird)
+@annotation A {
+}

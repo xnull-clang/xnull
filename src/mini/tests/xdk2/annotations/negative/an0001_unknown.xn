@@ -1,0 +1,4 @@
+// expect: fail AN0001
+@Missing
+class Device {
+}

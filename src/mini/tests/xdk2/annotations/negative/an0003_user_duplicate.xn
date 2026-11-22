@@ -1,0 +1,9 @@
+// expect: fail AN0003
+@annotation Tag {
+    final String v = ""
+}
+
+@Tag("a")
+@Tag("b")
+class Device {
+}

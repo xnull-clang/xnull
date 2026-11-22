@@ -1,0 +1,8 @@
+// expect: fail AN0005
+@annotation One {
+    final Int n = 0
+}
+
+@One(1, 2)
+class Device {
+}

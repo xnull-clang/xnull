@@ -1,0 +1,5 @@
+// expect: fail AN0003
+@Deprecated
+@Deprecated
+class Device {
+}

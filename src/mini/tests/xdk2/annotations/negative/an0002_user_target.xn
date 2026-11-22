@@ -1,0 +1,9 @@
+// expect: fail AN0002
+@Target(Field)
+@annotation FieldOnly {
+    final String v = ""
+}
+
+@FieldOnly("x")
+class Device {
+}
