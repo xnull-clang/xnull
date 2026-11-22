@@ -69,5 +69,8 @@ static Int main() {
     print(tensorDTypeFromName("float32") != null)
     print(tensorDTypeFromName("unknown") == null)
     print(tensorDTypeFromName("other") == null)
+    print(tensorDTypeName(null as TensorDType))
+    print(tensorDTypeByteWidth(null as TensorDType))
+    print(tensorDTypeFromName(null) == null)
     return 0
 }
