@@ -59,10 +59,12 @@ class SystemClock implements Clock {
     SystemClock() {
     }
 
+    @Override
     Long wallMs() {
         return nowWall()
     }
 
+    @Override
     Long monoMs() {
         return nowMono()
     }
@@ -118,6 +120,7 @@ class ConsoleSink implements Sink {
     ConsoleSink() {
     }
 
+    @Override
     Void write(LogRecord record) {
         print(recordText(record))
     }
@@ -132,6 +135,7 @@ class MemorySink implements Sink {
         self.records = []
     }
 
+    @Override
     Void write(LogRecord record) {
         self.entries.push(recordText(record))
         self.records.push(record)
@@ -168,6 +172,7 @@ class PredicateFilter implements Filter {
         self.predicate = predicate0
     }
 
+    @Override
     Bool allow(LogRecord record) {
         return self.predicate(record)
     }
@@ -177,6 +182,7 @@ class KeepAllFilter implements Filter {
     KeepAllFilter() {
     }
 
+    @Override
     Bool allow(LogRecord record) {
         return true
     }
@@ -195,6 +201,7 @@ class ReplaceRedactor implements Redactor {
         self.replacement = replacement0
     }
 
+    @Override
     String redact(String value) {
         if self.needle.length() == 0 {
             return value
@@ -207,6 +214,7 @@ class IdentityRedactor implements Redactor {
     IdentityRedactor() {
     }
 
+    @Override
     String redact(String value) {
         return value
     }
@@ -230,6 +238,7 @@ class EveryNSampler implements Sampler {
         self.seen = 0
     }
 
+    @Override
     Bool keep(LogRecord record) {
         self.seen = self.seen + 1
         return self.seen % self.interval == 0
@@ -244,6 +253,7 @@ class KeepAllSampler implements Sampler {
     KeepAllSampler() {
     }
 
+    @Override
     Bool keep(LogRecord record) {
         return true
     }

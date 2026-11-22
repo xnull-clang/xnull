@@ -325,14 +325,17 @@ class BasicError implements Error, DetailedError {
         }
     }
 
+    @Override
     ErrorKind kind() {
         return self._kind
     }
 
+    @Override
     String message() {
         return self._message
     }
 
+    @Override
     String code() {
         return self._code
     }
@@ -357,6 +360,7 @@ class BasicError implements Error, DetailedError {
         return result
     }
 
+    @Override
     String describe() {
         String prefix = ""
         if self._code != "" {
@@ -452,14 +456,17 @@ class ErrorReport implements Error, DetailedError {
         self._root = root
     }
 
+    @Override
     ErrorKind kind() {
         return self._root.kind()
     }
 
+    @Override
     String message() {
         return self._root.message()
     }
 
+    @Override
     String code() {
         return self._root.code()
     }
@@ -474,6 +481,7 @@ class ErrorReport implements Error, DetailedError {
         return result
     }
 
+    @Override
     String describe() {
         String result = ""
         Int index = self._steps.length() - 1
@@ -572,6 +580,7 @@ class ErrorGroup implements Error, DetailedError {
         return self._errors.get(0)
     }
 
+    @Override
     ErrorKind kind() {
         if self.isEmpty() {
             return ErrorKind.InvalidArgument
@@ -600,6 +609,7 @@ class ErrorGroup implements Error, DetailedError {
         return ErrorKind.InvalidArgument
     }
 
+    @Override
     String message() {
         if self.isEmpty() {
             return "empty error group"
@@ -608,6 +618,7 @@ class ErrorGroup implements Error, DetailedError {
         return $"{self._errors.length()} errors; first: {firstError.describe()}"
     }
 
+    @Override
     String code() {
         return ""
     }
@@ -640,6 +651,7 @@ class ErrorGroup implements Error, DetailedError {
         return result
     }
 
+    @Override
     String describe() {
         if self.isEmpty() {
             return "empty error group"

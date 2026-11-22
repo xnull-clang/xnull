@@ -45,6 +45,7 @@ class Reader implements Readable {
         self._closed = false
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -52,10 +53,12 @@ class Reader implements Readable {
         return self.data.length() - self.position
     }
 
+    @Override
     Bool hasRemaining() {
         return self.remaining() > 0
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -68,6 +71,7 @@ class Reader implements Readable {
         return value
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -78,6 +82,7 @@ class Reader implements Readable {
         return Ok(self.readU8())
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -99,6 +104,7 @@ class Reader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -112,10 +118,12 @@ class Reader implements Readable {
         return Ok(self.readBytes(count))
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         self._closed = true
         return Ok()
@@ -131,6 +139,7 @@ class Writer implements Writable {
         self._closed = false
     }
 
+    @Override
     Int length() {
         return self.data.length()
     }
@@ -139,6 +148,7 @@ class Writer implements Writable {
         return copy(self.data)
     }
 
+    @Override
     Void writeU8(Int value) {
         if self._closed {
             throw "writeU8: closed"
@@ -146,6 +156,7 @@ class Writer implements Writable {
         self.data.push(value % 256)
     }
 
+    @Override
     Void writeBytes(Bytes source) {
         if self._closed {
             throw "writeBytes: closed"
@@ -157,14 +168,17 @@ class Writer implements Writable {
         }
     }
 
+    @Override
     Result<Unit, Error> flush() {
         return Ok()
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         self._closed = true
         return Ok()
@@ -210,6 +224,7 @@ class StdioReader implements Readable {
         }
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -217,6 +232,7 @@ class StdioReader implements Readable {
         return self._buffer.length() - self._position
     }
 
+    @Override
     Bool hasRemaining() {
         if self._closed {
             return false
@@ -224,6 +240,7 @@ class StdioReader implements Readable {
         return self.remaining() > 0 || !self._eof
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -237,6 +254,7 @@ class StdioReader implements Readable {
         return value
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -248,6 +266,7 @@ class StdioReader implements Readable {
         return Ok(self.readU8())
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -266,6 +285,7 @@ class StdioReader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -280,10 +300,12 @@ class StdioReader implements Readable {
         return Ok(self.readBytes(count))
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         self._closed = true
         self._buffer = Bytes.fromString("")
@@ -310,6 +332,7 @@ class StdioWriter implements Writable {
         return self._descriptor
     }
 
+    @Override
     Int length() {
         return self._length
     }
@@ -325,6 +348,7 @@ class StdioWriter implements Writable {
         self._length = self._length + written
     }
 
+    @Override
     Void writeU8(Int value) {
         if self._closed {
             throw "writeU8: closed"
@@ -334,6 +358,7 @@ class StdioWriter implements Writable {
         self.writeHex(digits.substring(byte / 16, 1) + digits.substring(byte % 16, 1))
     }
 
+    @Override
     Void writeBytes(Bytes source) {
         if self._closed {
             throw "writeBytes: closed"
@@ -343,6 +368,7 @@ class StdioWriter implements Writable {
         }
     }
 
+    @Override
     Result<Unit, Error> flush() {
         if self._closed {
             return Ok()
@@ -353,11 +379,13 @@ class StdioWriter implements Writable {
         return Ok()
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
     // 进程 stdout/stderr 由运行时持有；close 只 flush 并标记关闭，不关闭底层描述符。
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()
@@ -411,6 +439,7 @@ class BufferedReader implements Readable {
         self._bufferPosition = 0
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -418,10 +447,12 @@ class BufferedReader implements Readable {
         return self._buffer.length() - self._bufferPosition + self._source.remaining()
     }
 
+    @Override
     Bool hasRemaining() {
         return self.remaining() > 0 || self._source.hasRemaining()
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -437,6 +468,7 @@ class BufferedReader implements Readable {
         return value
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -450,6 +482,7 @@ class BufferedReader implements Readable {
         return Ok(self.readU8())
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -482,6 +515,7 @@ class BufferedReader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -495,10 +529,12 @@ class BufferedReader implements Readable {
         return Ok(self.readBytes(count))
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()
@@ -523,6 +559,7 @@ class BufferedWriter implements Writable {
         self._closed = false
     }
 
+    @Override
     Int length() {
         return self._length
     }
@@ -535,6 +572,7 @@ class BufferedWriter implements Writable {
         return copy(self._buffer)
     }
 
+    @Override
     Void writeU8(Int value) {
         if self._closed {
             throw "writeU8: closed"
@@ -543,6 +581,7 @@ class BufferedWriter implements Writable {
         self._length = self._length + 1
     }
 
+    @Override
     Void writeBytes(Bytes source) {
         if self._closed {
             throw "writeBytes: closed"
@@ -555,6 +594,7 @@ class BufferedWriter implements Writable {
         self._length = self._length + source.length()
     }
 
+    @Override
     Result<Unit, Error> flush() {
         if self._closed {
             return Ok()
@@ -570,10 +610,12 @@ class BufferedWriter implements Writable {
         return Ok()
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()
@@ -598,6 +640,7 @@ class ChainReader implements Readable {
         self._closed = false
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -605,10 +648,12 @@ class ChainReader implements Readable {
         return self._first.remaining() + self._second.remaining()
     }
 
+    @Override
     Bool hasRemaining() {
         return self.remaining() > 0
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -619,6 +664,7 @@ class ChainReader implements Readable {
         return self._second.readU8()
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -629,6 +675,7 @@ class ChainReader implements Readable {
         return self._second.tryReadU8()
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -658,6 +705,7 @@ class ChainReader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -671,10 +719,12 @@ class ChainReader implements Readable {
         return Ok(self.readBytes(count))
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()
@@ -700,6 +750,7 @@ class TeeReader implements Readable {
         self._closed = false
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -707,10 +758,12 @@ class TeeReader implements Readable {
         return self._source.remaining()
     }
 
+    @Override
     Bool hasRemaining() {
         return self.remaining() > 0
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -723,6 +776,7 @@ class TeeReader implements Readable {
         return value
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -738,6 +792,7 @@ class TeeReader implements Readable {
         return next
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -755,6 +810,7 @@ class TeeReader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -773,11 +829,13 @@ class TeeReader implements Readable {
         return next
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
     // Tee 只关闭源；sink 由调用方持有，便于继续 flush/close。
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()
@@ -803,6 +861,7 @@ class LimitReader implements Readable {
         self._closed = false
     }
 
+    @Override
     Int remaining() {
         if self._closed {
             return 0
@@ -815,10 +874,12 @@ class LimitReader implements Readable {
         return sourceRemaining
     }
 
+    @Override
     Bool hasRemaining() {
         return self.remaining() > 0
     }
 
+    @Override
     Int readU8() {
         if self._closed {
             throw "readU8: closed"
@@ -831,6 +892,7 @@ class LimitReader implements Readable {
         return value
     }
 
+    @Override
     Result<Int, Error> tryReadU8() {
         if self._closed {
             return Err(ioError(ErrorKind.Unavailable, "tryReadU8: closed"))
@@ -841,6 +903,7 @@ class LimitReader implements Readable {
         return Ok(self.readU8())
     }
 
+    @Override
     Bytes readBytes(Int count) {
         if count < 0 {
             throw "readBytes: negative count"
@@ -857,6 +920,7 @@ class LimitReader implements Readable {
         return value
     }
 
+    @Override
     Result<Bytes, Error> readExact(Int count) {
         if count < 0 {
             throw "readExact: negative count"
@@ -870,10 +934,12 @@ class LimitReader implements Readable {
         return Ok(self.readBytes(count))
     }
 
+    @Override
     Bool isClosed() {
         return self._closed
     }
 
+    @Override
     Result<Unit, Error> close() {
         if self._closed {
             return Ok()

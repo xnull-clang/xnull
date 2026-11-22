@@ -4,6 +4,7 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 for gate in \
     "$HERE/mirror_check.sh" \
+    "$HERE/core_annotations.sh" \
     "$HERE/doc_gates.sh" \
     "$HERE/functional_empty/run.sh" \
     "$HERE/generic_field/run.sh" \

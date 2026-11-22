@@ -91,6 +91,7 @@ class MapSource implements ConfigSource {
         self.entries = entries
     }
 
+    @Override
     Result<List<ConfigEntry>, Error> load() {
         return Ok(self.entries)
     }
@@ -103,6 +104,7 @@ class FileSource implements ConfigSource {
         self.path = path
     }
 
+    @Override
     Result<List<ConfigEntry>, Error> load() {
         Result<String, Error> loaded = readText(self.path)
         if loaded.isErr() {

@@ -90,6 +90,7 @@ class Args {
         return false
     }
 
+    @Deprecated
     String value(String flag) {
         String prefix = flag + "="
         String result = ""
