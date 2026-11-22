@@ -5,7 +5,7 @@
 | 版本 | `manifestVersion = 1` |
 | 工具 | `src/toolchain/annotation_platform.py` |
 | 子命令 | `check-manifest` / `generate` |
-| 状态 | P0-03–P0-07 implemented（M0.2/M0.3/M0.4）；Darwin sandbox-exec，其他平台 limits-only |
+| 状态 | P0-03–P0-09 implemented（M0）；Darwin sandbox-exec，其他平台 limits-only |
 
 ## 1. Manifest schema
 
@@ -92,7 +92,7 @@ String toyValue() { return "toy"; }
 ## 6. 边界
 
 - M0.2 不做源码落盘/加载/`--check-generated`（M0.3）。
-- 不做进程沙箱、网络/文件越界隔离（M0.4）。
+- 进程沙箱、网络/文件越界隔离见 §8（M0.4）；总门禁见 `annotation_platform/m0_gate.sh`。
 - 不改变 A8/领域注解语义。
 - 当前处理器协议通过命令参数传 IR；不传编译器内部对象。
 

@@ -2,8 +2,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | P0-01–P0-07 已实现（M0.2/M0.3/M0.4）；P0-08/P0-09 planned；A8 5 个已实现 |
-| 基线 | `main` @ `40ea3e05`（S3 1.0.0；A8 5 个已实现；处理器调度 planned） |
+| 状态 | **M0 implemented**（P0-01–P0-09）；M1–M7 planned；A8 5 个已实现 |
+| 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
 | 范围 | mini 1.0 注解平台：IR、内建注册、处理器清单、阶段调度、生成源码、固定点、沙箱、诊断合并、一致性门禁；A8 迁移；CLI/codec/validate/http/sql 五个领域闭环 |
@@ -170,8 +170,8 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | P0-05 | Generated Source Pipeline | P0-04 | 生成/落盘/加载/回滚；`--check-generated` | implemented (M0.3：generated-dir staging/原子替换/标记/固定点/check) |
 | P0-06 | Sandbox 进程适配 | P0-04 | 网络/文件/进程越界被拒；超时/资源限制 | implemented (M0.4：Darwin sandbox-exec；其他平台 limits-only) |
 | P0-07 | 诊断合并/码段 | P0-04 | 多处理器诊断稳定排序/去重 | implemented (M0.2) |
-| P0-08 | 玩具注解 + 玩具处理器 | P0-01–07 | 不改主流程新增一个注解/处理器/生成物 | planned |
-| P0-09 | 平台门禁脚本 | P0-08 | 一键跑 IR/manifest/phase/fixed/sandbox/check-generated | planned |
+| P0-08 | 玩具注解 + 玩具处理器 | P0-01–07 | 不改主流程新增一个注解/处理器/生成物 | implemented (M0：toy_processor + annotation_platform) |
+| P0-09 | 平台门禁脚本 | P0-08 | 一键跑 IR/manifest/phase/fixed/sandbox/check-generated | implemented (M0：`annotation_platform/m0_gate.sh`) |
 
 ### P1 A8 迁移
 
@@ -242,16 +242,16 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ## 5. 里程碑与顺序
 
-| 里程碑 | 内容 | 出口 |
-| --- | --- | --- |
-| M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS |
-| M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 |
-| M2 | P2 CLI | `@CliCommand` 业务闭环 |
-| M3 | P3 codec | `@Serializable` 业务闭环 |
-| M4 | P4 validate | `@Validate` 业务闭环 |
-| M5 | P5 http | `@HttpRoute` 业务闭环 |
-| M6 | P6 sql | `@Sql` 业务闭环 |
-| M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 |
+| 里程碑 | 内容 | 出口 | 状态 |
+| --- | --- | --- | --- |
+| M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS | implemented（`annotation_platform/m0_gate.sh`） |
+| M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | planned |
+| M2 | P2 CLI | `@CliCommand` 业务闭环 | planned |
+| M3 | P3 codec | `@Serializable` 业务闭环 | planned |
+| M4 | P4 validate | `@Validate` 业务闭环 | planned |
+| M5 | P5 http | `@HttpRoute` 业务闭环 | planned |
+| M6 | P6 sql | `@Sql` 业务闭环 | planned |
+| M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | planned |
 
 顺序原则：
 
@@ -260,6 +260,16 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 3. M2 是第一个领域试点；通过后再开 codec/validate/http/sql。
 4. M3–M6 可评估顺序，但都在同一个 `main` 上串行；不创建分支/worktree。
 5. 每个里程碑结束提交并推送。
+
+### M0 出口证据
+
+```text
+commit chain: a8b0eca0 / 6de47c5a / e121db6c / baf9719d
+m0_gate.sh: PASS
+xdk2.sh: 28 scenarios PASS
+xdk2_extra.sh / xdk_core.sh: PASS
+xdk.sh: PASS（最后 mini xdk: PASS）
+```
 
 ---
 
