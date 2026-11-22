@@ -6781,6 +6781,15 @@ class CGen {
             if elementType == "Bytes" {
                 return "((xrt_bytes_obj *)" + call + ")"
             }
+            if self.isArray(elementType) {
+                return "((" + self.arrayCName(elementType) + " *)" + call + ")"
+            }
+            if self.isMap(elementType) {
+                return "((xn_map_g *)" + call + ")"
+            }
+            if self.isSet(elementType) {
+                return "((xn_set_g *)" + call + ")"
+            }
             return "((xn_Cls_" + elementType + " *)" + call + ")"
         }
         return call
@@ -12381,6 +12390,30 @@ static String xdkFile(String pkg) {
             return "io/system/Sys.x"
         }
         return "io/base/Sys.x"
+    }
+    if pkg == "xdk.functional" || pkg.startsWith("xdk.functional.") {
+        return "functional/Functional.x"
+    }
+    if pkg == "xdk.graph" || pkg.startsWith("xdk.graph.") {
+        return "graph/Graph.x"
+    }
+    if pkg == "xdk.stats" || pkg.startsWith("xdk.stats.") {
+        return "stats/Stats.x"
+    }
+    if pkg == "xdk.net.uri" || pkg.startsWith("xdk.net.uri.") {
+        return "net/uri/Uri.x"
+    }
+    if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
+        return "net/mime/Mime.x"
+    }
+    if pkg == "xdk.tensor" || pkg.startsWith("xdk.tensor.") {
+        return "tensor/Tensor.x"
+    }
+    if pkg == "xdk.linalg" || pkg.startsWith("xdk.linalg.") {
+        return "linalg/Linalg.x"
+    }
+    if pkg == "xdk.geo" || pkg.startsWith("xdk.geo.") {
+        return "geo/Geo.x"
     }
     return ""
 }

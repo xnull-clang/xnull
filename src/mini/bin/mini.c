@@ -7905,6 +7905,15 @@ static rt_string * xn_Cls_CGen_arrayGet(xn_Cls_CGen *self, rt_string * ty, rt_st
     if (xn_str_eq(elementType, rt_string_from_c("Bytes"))) {
       return xn_concat(xn_concat(rt_string_from_c("((xrt_bytes_obj *)"), call), rt_string_from_c(")"));
     }
+    if (xn_Cls_CGen_isArray(self, elementType)) {
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(("), xn_Cls_CGen_arrayCName(self, elementType)), rt_string_from_c(" *)")), call), rt_string_from_c(")"));
+    }
+    if (xn_Cls_CGen_isMap(self, elementType)) {
+      return xn_concat(xn_concat(rt_string_from_c("((xn_map_g *)"), call), rt_string_from_c(")"));
+    }
+    if (xn_Cls_CGen_isSet(self, elementType)) {
+      return xn_concat(xn_concat(rt_string_from_c("((xn_set_g *)"), call), rt_string_from_c(")"));
+    }
     return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("((xn_Cls_"), elementType), rt_string_from_c(" *)")), call), rt_string_from_c(")"));
   }
   return call;
@@ -13785,6 +13794,30 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
       return rt_string_from_c("io/system/Sys.x");
     }
     return rt_string_from_c("io/base/Sys.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.functional")) || xn_str_startswith(pkg, rt_string_from_c("xdk.functional.")))) {
+    return rt_string_from_c("functional/Functional.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.graph")) || xn_str_startswith(pkg, rt_string_from_c("xdk.graph.")))) {
+    return rt_string_from_c("graph/Graph.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.stats")) || xn_str_startswith(pkg, rt_string_from_c("xdk.stats.")))) {
+    return rt_string_from_c("stats/Stats.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.uri")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.uri.")))) {
+    return rt_string_from_c("net/uri/Uri.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
+    return rt_string_from_c("net/mime/Mime.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.tensor")) || xn_str_startswith(pkg, rt_string_from_c("xdk.tensor.")))) {
+    return rt_string_from_c("tensor/Tensor.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.linalg")) || xn_str_startswith(pkg, rt_string_from_c("xdk.linalg.")))) {
+    return rt_string_from_c("linalg/Linalg.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.geo")) || xn_str_startswith(pkg, rt_string_from_c("xdk.geo.")))) {
+    return rt_string_from_c("geo/Geo.x");
   }
   return rt_string_from_c("");
 }
