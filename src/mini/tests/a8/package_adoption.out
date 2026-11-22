@@ -1,0 +1,22 @@
+true
+false
+false
+ErrorDetail(key=alpha, value=one)
+true
+true
+false
+ConfigEntry(key=key, value=value)
+true
+true
+Field(key=level, value=info)
+true
+true
+BuildInfo(languageVersion=3.4.0, xdkVersion=1.0.0, compiler=mini, compilerVersion=0.4, platform=linux, arch=x64, mode=release, builtAt=2026-11-22)
+true
+true
+RuntimeInfo(languageVersion=3.4.0, xdkVersion=1.0.0, platform=linux, arch=x64, mode=release)
+true
+true
+false
+RuntimeStats(allocs=1, frees=2, bytes=3, gcCollections=4, gcFreed=5)
+true

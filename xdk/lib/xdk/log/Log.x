@@ -39,6 +39,7 @@ static String levelName(Level level) {
     return "ERROR"
 }
 
+@Value
 class Field {
     final String key
     final String value

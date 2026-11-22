@@ -83,6 +83,7 @@ class RuntimeMonitor {
 // ---------- RuntimeInfo（T0-X） ----------
 
 // 版本常量与 xdk.meta 保持一致；runtime 位于依赖底层，不反向导入 meta。
+@Value
 class RuntimeInfo {
     final String languageVersion
     final String xdkVersion
@@ -118,6 +119,7 @@ RuntimeInfo runtimeInfo() {
 
 // ---------- 分配/GC 统计（T0-X） ----------
 
+@Value
 class RuntimeStats {
     final Long allocs
     final Long frees

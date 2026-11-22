@@ -40,6 +40,7 @@ protocol DetailedError {
     String code();
 }
 
+@Value
 class ErrorDetail {
     final String key
     final String value

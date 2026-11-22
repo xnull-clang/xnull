@@ -35,7 +35,7 @@
 
 | 注解 | 生成 | 目标 / 保留 | 主要诊断 | 状态 |
 | --- | --- | --- | --- | --- |
-| `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned | Type / Source | 非 final 字段、构造器顺序/既有方法冲突 | implemented (A8 core) |
+| `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned；core 6 类型实际采用 | Type / Source | 非 final 字段、构造器顺序/既有方法冲突 | implemented (A8 core) |
 | `@Data` | 数据类语义：`equals`/`toString`/`copy`；hash 仍 planned | Type / Source | 字段/方法名冲突 | implemented (A8 core) |
 | `@Builder` | builder 类型、`build()`、必填校验 | Type / Source | 缺必填、重复设置、构造不可见 | planned |
 | `@Copy` | `copy()` 与逐字段 `withX` | Type / Source | 不可复制字段、命名冲突 | implemented (A8 core) |

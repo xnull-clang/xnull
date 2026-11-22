@@ -156,31 +156,33 @@
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `ErrorDetail`/`BasicError` | `@Value` | equals/hash/toString/copy |
-| `BasicError` | `@Copy` | 逐字段 `withX` |
+| `ErrorDetail` | `@Value` implemented (A8 core) | equals/toString/copy |
+| `BasicError` | `@Value`/`@Copy` planned | 未采用 |
 | `Error`/`DetailedError` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（ErrorDetail）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.runtime`
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `RuntimeInfo`/`MemoryStats`/`TaskStats`/`TaskSnapshot` | `@Value` | 值语义成员 |
+| `RuntimeInfo`/`RuntimeStats` | `@Value` implemented (A8 core) | equals/toString/copy |
+| `MemoryStats`/`TaskStats`/`TaskSnapshot` | `@Value` planned | 未采用 |
 | `HealthReport` | `@Value` | 快照相等/文本 |
 | `HealthCheck` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（RuntimeInfo/RuntimeStats）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.meta`
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `CapabilitySet`/`CoreProfile`/`BuildInfo`/`TargetInfo`/`DependencyInfo` | `@Value` | 值语义成员 |
+| `BuildInfo` | `@Value` implemented (A8 core) | equals/toString/copy |
+| `CapabilitySet`/`CoreProfile`/`TargetInfo`/`DependencyInfo` | `@Value` planned | 未采用 |
 | `ResourceLimits` | `@Data` | 数据类成员 |
 | `ProfileBuilder` | — | 已是显式 builder，不叠加 `@Builder` |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（BuildInfo）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.bytes`
 
@@ -265,17 +267,19 @@
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Field`/`LogRecord`/`TextFormatter` | `@Value` | 值语义成员 |
+| `Field` | `@Value` implemented (A8 core) | equals/toString/copy |
+| `LogRecord`/`TextFormatter` | `@Value` planned | 未采用 |
 | `LogRecord` 构造 | `@Builder` | 多字段构造 |
 | `Sink`/`Formatter`/`Filter`/`Redactor`/`Sampler` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（Field）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.config`
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `ConfigEntry`/`ConfigField` | `@Value` | 值语义成员 |
+| `ConfigEntry` | `@Value` implemented (A8 core) | equals/toString/copy |
+| `ConfigField` | `@Value` planned | 未采用 |
 | `Config` | `@Data` | 可变配置快照 |
 | `ConfigSchema` | `@Builder` | schema 构造 |
 | `ConfigSource` 实现 | `@Override` | 签名校验 |

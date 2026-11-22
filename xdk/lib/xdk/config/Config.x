@@ -70,6 +70,7 @@ static Result<Long, Error> configParseLong(String text) {
     return Ok(value)
 }
 
+@Value
 class ConfigEntry {
     final String key
     final String value

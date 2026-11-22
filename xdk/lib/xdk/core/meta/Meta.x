@@ -38,6 +38,7 @@ String buildDate() {
     return buildDateRaw()
 }
 
+@Value
 class BuildInfo {
     final String languageVersion
     final String xdkVersion
