@@ -147,6 +147,8 @@ CPU 上的 N 维稠密数值张量：dtype、shape、连续字节存储、逐元
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 ### 使用
 
 ```x

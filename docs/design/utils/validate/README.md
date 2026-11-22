@@ -149,6 +149,8 @@ X：JSON Schema 导入/导出、i18n 消息、异步/远程规则、错误码注
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 ### 使用
 
 ```x

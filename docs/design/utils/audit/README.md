@@ -156,6 +156,8 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 ### 使用
 
 ```x
