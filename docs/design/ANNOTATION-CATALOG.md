@@ -5,7 +5,7 @@
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 24（内建/元模型 9 + A8 5 + 领域 10）、`reserved` 4、`planned` 65（S6 2 + 领域 63） |
+| 计数 | 93 条：`implemented` 28（内建/元模型 9 + A8 5 + 领域 14）、`reserved` 4、`planned` 61（S6 2 + 领域 59） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -45,7 +45,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ## 3. 领域注解
 
-领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName）为 `implemented (M3.2)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`；@CsvName、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
+领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName）为 `implemented (M3.2)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`，http（@HttpRoute/@Header/@Query/@Body）为 `implemented (M5.2)`；@StatusCode、@CsvName、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
 
 ### 3.1 CLI
 
@@ -58,13 +58,13 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ### 3.2 HTTP / WebSocket / JWT
 
-| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 |
-| --- | --- | --- | --- | --- |
-| `@HttpRoute` | 绑定 HTTP 路径与方法 | `String path`、`HttpMethod method = HttpMethod.Get` | Method / Source | HttpAnnotationProcessor → 路由表 |
-| `@Header` | 绑定请求/响应头 | `String value` | Parameter / Source | HttpAnnotationProcessor → 头绑定 |
-| `@Query` | 绑定查询参数 | `String value` | Parameter / Source | HttpAnnotationProcessor → 查询绑定 |
-| `@Body` | 绑定请求/响应 body | 无 | Parameter / Source | HttpAnnotationProcessor → body 绑定 |
-| `@StatusCode` | 标记返回状态 | 无 | Method / Source | HttpAnnotationProcessor → 状态映射 |
+| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `@HttpRoute` | 绑定 HTTP 路径与方法 | `String path`、`HttpMethod method = HttpMethod.Get` | Method / Source | http_processor → 路由表 | implemented (M5.2) |
+| `@Header` | 绑定请求/响应头 | `String value` | Parameter / Source | http_processor → 头绑定 | implemented (M5.2) |
+| `@Query` | 绑定查询参数 | `String value` | Parameter / Source | http_processor → 查询绑定 | implemented (M5.2) |
+| `@Body` | 绑定请求/响应 body | 无 | Parameter / Source | http_processor → body 绑定 | implemented (M5.2) |
+| `@StatusCode` | 标记返回状态 | 无 | Method / Source | HttpAnnotationProcessor → 状态映射 | planned |
 | `@WsHandler` | 注册 WebSocket handler | 无 | Type / Source | WebSocketAnnotationProcessor → handler 表 |
 | `@JwtClaim` | 绑定 claim 字段 | `String value` | Field / Source | JwtAnnotationProcessor → claims 映射 |
 | `@JwtHeaderField` | 绑定 header 字段 | `String value` | Field / Source | JwtAnnotationProcessor → header 映射 |

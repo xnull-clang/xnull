@@ -1,0 +1,16 @@
+matches=true,false,false
+get=200,42:yes:t1
+optional=7:none:t2
+missing-header=400,missing header: X-Token
+create=201,Ada:30
+bad-body=400,invalid body json
+query=5
+missing-query=400,missing query: limit
+bad-query=400,invalid query: limit
+path-int=7
+path-int-bad=400
+not-found=404
+method=405,GET
+path-long=9000000000
+path-long-bad=400
+health=204

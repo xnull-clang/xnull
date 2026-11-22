@@ -464,7 +464,7 @@ class UserApi {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@HttpRoute`/`@Header`/`@Query`/`@Body` implemented (M5.2)：生成 `<Class>Router`，支持方法/路径模板、query/header/body 绑定、404/405/400；`@StatusCode` planned；client/server/HTTP2/proxy/streaming 见 M5.3 planned。
 
 ### `xdk.net.websocket`
 

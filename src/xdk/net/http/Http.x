@@ -443,7 +443,7 @@ class HttpRequest {
     HttpBody _body
 
     HttpRequest(HttpMethod method, Uri uri) {
-        if method == null || uri == null { throw "HttpRequest: null argument" }
+        if uri == null { throw "HttpRequest: null argument" }
         self._method = method
         self._uri = uri
         self._version = HttpVersion.Http11
@@ -485,7 +485,6 @@ class HttpRequest {
     }
 
     HttpRequest withVersion(HttpVersion version) {
-        if version == null { throw "HttpRequest.withVersion: null" }
         HttpRequest next = new HttpRequest(self._method, self._uri)
         next._version = version
         next._headers = self._headers.copy()

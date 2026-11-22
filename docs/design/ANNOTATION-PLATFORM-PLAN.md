@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2 implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot、M3.1/M3.2、M4.1/M4.2）；M3.3、M5–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2/M5.1/M5.2 implemented**（M2 pilot、M3.1/M3.2、M4.1/M4.2、M5.1 子集/M5.2）；M3.3、M5.3、M6–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -213,12 +213,12 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P5 http / `@HttpRoute`
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P5-01 | `xdk.net.http` 包骨架（40 类型） | P0；B7 合同 | 路由/请求/响应可编译 |
-| P5-02 | `@HttpRoute`/`@Header`/`@Query` | P5-01 | 目标/参数校验 |
-| P5-03 | HttpProcessor Generate | P5-02 | 路由表/参数绑定 |
-| P5-04 | http 业务闭环 | P5-03 | 方法/路径/参数/错误/404 |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P5-01 | `xdk.net.http` 包骨架（40 类型） | P0；B7 合同 | 路由/请求/响应可编译 | implemented (M5.1 subset) |
+| P5-02 | `@HttpRoute`/`@Header`/`@Query`/`@Body` | P5-01 | 目标/参数校验 | implemented (M5.2) |
+| P5-03 | HttpProcessor Generate | P5-02 | 路由表/参数绑定 | implemented (M5.2) |
+| P5-04 | http 业务闭环 | P5-03 | 方法/路径/参数/错误/404 | implemented (M5.2) |
 
 ### P6 sql / `@Sql`
 
@@ -251,7 +251,8 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | M3 | P3 codec | `@Serializable` 业务闭环 | implemented (M3.1/M3.2) |
 | M3.3 | P3 CSV codec | `@CsvName` CSV 映射闭环 | planned |
 | M4 | P4 validate | `@Validate` 业务闭环 | implemented (M4.1/M4.2) |
-| M5 | P5 http | `@HttpRoute` 业务闭环 | planned |
+| M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
+| M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | planned |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | planned |
 
