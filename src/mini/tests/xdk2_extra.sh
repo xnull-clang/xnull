@@ -18,12 +18,15 @@ for gate in \
     "$HERE/xdk2/graph/graph_negative.sh" \
     "$HERE/xdk2/linalg/linalg_negative.sh"; do
     [ -x "$gate" ] || { echo "xdk2_extra: missing gate: $gate" >&2; exit 1; }
+    gate_start=$(date +%s)
     if ! out=$("$gate" 2>&1); then
         printf '%s\n' "$out" >&2
         echo "xdk2_extra: gate failed: $gate" >&2
         exit 1
     fi
     printf '%s\n' "$out"
+    gate_end=$(date +%s)
+    echo "xdk2_extra: time=$((gate_end - gate_start))s gate=$(basename "$gate")"
     case "$out" in
         *PASS*) ;;
         *) echo "xdk2_extra: gate produced no PASS marker: $gate" >&2; exit 1 ;;
