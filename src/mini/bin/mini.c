@@ -278,6 +278,7 @@ static rt_string * xn_Cls_Mono_retTypeText(xn_Cls_Mono *self, xn_Cls_AstNode * m
 static int xn_Cls_Mono_safeInstanceMethod(xn_Cls_Mono *self, rt_string * name);
 static int xn_Cls_Mono_methodRecursive(xn_Cls_Mono *self, xn_Cls_AstNode * m, rt_string * base);
 static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
+static void xn_Cls_Mono_instantiateNestedTypes(xn_Cls_Mono *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start);
 static void xn_Cls_Mono_instantiateEntryForMap(xn_Cls_Mono *self, rt_string * ty);
 static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty);
@@ -2695,6 +2696,7 @@ static rt_string * xn_Cls_Mono_retTypeText(xn_Cls_Mono *self, xn_Cls_AstNode * m
 static int xn_Cls_Mono_safeInstanceMethod(xn_Cls_Mono *self, rt_string * name);
 static int xn_Cls_Mono_methodRecursive(xn_Cls_Mono *self, xn_Cls_AstNode * m, rt_string * base);
 static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
+static void xn_Cls_Mono_instantiateNestedTypes(xn_Cls_Mono *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start);
 static void xn_Cls_Mono_instantiateEntryForMap(xn_Cls_Mono *self, rt_string * ty);
 static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty);
@@ -3037,8 +3039,20 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
     }
     i = xn_int_wrap((i + 1));
   }
+  xn_Cls_Mono_instantiateNestedTypes(self, clone);
   xn_Cls_AstNode_add(self->program, clone);
   return sname;
+}
+
+static void xn_Cls_Mono_instantiateNestedTypes(xn_Cls_Mono *self, xn_Cls_AstNode * cls) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    if (((xn_str_eq(k->kind, rt_string_from_c("Field")) || xn_str_eq(k->kind, rt_string_from_c("Base"))) || xn_str_eq(k->kind, rt_string_from_c("Implements")))) {
+      k->text = xn_Cls_Mono_rewriteType(self, k->text);
+    }
+    i = xn_int_wrap((i + 1));
+  }
 }
 
 static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start) {

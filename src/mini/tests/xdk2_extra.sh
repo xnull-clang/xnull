@@ -6,7 +6,8 @@ for gate in \
     "$HERE/functional_empty/run.sh" \
     "$HERE/deinit/deinit.sh" \
     "$HERE/typeuse/typeuse.sh" \
-    "$HERE/xdk2/annotations_cross_package/cross_package.sh"; do
+    "$HERE/xdk2/annotations_cross_package/cross_package.sh" \
+    "$HERE/xdk2/graph/graph_negative.sh"; do
     [ -x "$gate" ] || { echo "xdk2_extra: missing gate: $gate" >&2; exit 1; }
     "$gate"
 done

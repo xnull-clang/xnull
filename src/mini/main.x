@@ -2138,8 +2138,20 @@ class Mono {
             }
             i = i + 1
         }
+        self.instantiateNestedTypes(clone)
         self.program.add(clone)
         return sname
+    }
+
+    Void instantiateNestedTypes(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "Field" || k.kind == "Base" || k.kind == "Implements" {
+                k.text = self.rewriteType(k.text)
+            }
+            i = i + 1
+        }
     }
 
     String readAngleType(String text, Int start) {

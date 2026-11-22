@@ -1,16 +1,16 @@
-// xdk.graph — single-threaded directed simple graph (String-node baseline).
-// Tier: L4；依赖：xdk.errors、xdk.collections、xdk.math；稳定性：preview。
+// xdk.graph — single-threaded directed simple graph (generic nodes).
+// Tier: L4；依赖：xdk.errors；稳定性：preview。
 package xdk.graph
 import xdk.errors
 import xdk.collections
 import xdk.math
 
-class GraphEdge {
-    final String fromNode
-    final String toNode
+class GraphEdge<T> {
+    final T fromNode
+    final T toNode
     final Double weightValue
 
-    GraphEdge(String from, String to, Double weight) {
+    GraphEdge(T from, T to, Double weight) {
         if from == null || to == null { throw "GraphEdge: null endpoint" }
         if !isFinite(weight) { throw "GraphEdge: non-finite weight" }
         self.fromNode = from
@@ -18,20 +18,20 @@ class GraphEdge {
         self.weightValue = weight
     }
 
-    String from() { return self.fromNode }
-    String to() { return self.toNode }
+    T from() { return self.fromNode }
+    T to() { return self.toNode }
     Double weight() { return self.weightValue }
     Bool isSelfLoop() { return self.fromNode == self.toNode }
-    String describe() { return self.fromNode + " -> " + self.toNode + " (weight=" + str(self.weightValue) + ")" }
+    String describe() { return str(self.fromNode) + " -> " + str(self.toNode) + " (weight=" + str(self.weightValue) + ")" }
 }
 
-class Graph {
-    final List<String> _nodes
-    final List<GraphEdge> _edges
+class Graph<T> {
+    final List<T> _nodes
+    final List<GraphEdge<T>> _edges
 
     Graph() { self._nodes = []; self._edges = [] }
 
-    Int nodeIndex(String node) {
+    Int nodeIndex(T node) {
         Int index = 0
         while index < self._nodes.length() {
             if self._nodes.get(index) == node { return index }
@@ -40,76 +40,77 @@ class Graph {
         return -1
     }
 
-    Void addNode(String node) {
+    Void addNode(T node) {
         if node == null { throw "Graph.addNode: null node" }
         if self.nodeIndex(node) >= 0 { return }
         self._nodes.push(node)
     }
-    Bool hasNode(String node) { if node == null { return false } return self.nodeIndex(node) >= 0 }
-    Bool hasEdge(String source, String target) {
+    Bool hasNode(T node) { if node == null { return false } return self.nodeIndex(node) >= 0 }
+    Bool hasEdge(T source, T target) {
         if source == null || target == null { return false }
         Int index = 0
         while index < self._edges.length() {
-            GraphEdge edge = self._edges.get(index)
+            GraphEdge<T> edge = self._edges.get(index)
             if edge.fromNode == source && edge.toNode == target { return true }
             index = index + 1
         }
         return false
     }
-    Void addEdge(GraphEdge edge) {
+    Void addEdge(GraphEdge<T> edge) {
         if edge == null { throw "Graph.addEdge: null edge" }
         if !self.hasNode(edge.fromNode) || !self.hasNode(edge.toNode) { throw "Graph.addEdge: unknown endpoint" }
         if self.hasEdge(edge.fromNode, edge.toNode) { throw "Graph.addEdge: duplicate ordered pair" }
         self._edges.push(edge)
     }
-    Void removeNode(String node) {
+    Void removeNode(T node) {
         if node == null { throw "Graph.removeNode: null node" }
         Int index = self._edges.length() - 1
         while index >= 0 {
-            GraphEdge edge = self._edges.get(index)
+            GraphEdge<T> edge = self._edges.get(index)
             if edge.fromNode == node || edge.toNode == node { self._edges.remove(index) }
             index = index - 1
         }
-        Int nodeIndex = self.nodeIndex(node)
-        if nodeIndex >= 0 { self._nodes.remove(nodeIndex) }
+        Int ni = self.nodeIndex(node)
+        if ni >= 0 { self._nodes.remove(ni) }
     }
-    Void removeEdge(String source, String target) {
+    Void removeEdge(T source, T target) {
         if source == null || target == null { throw "Graph.removeEdge: null endpoint" }
         Int index = 0
         while index < self._edges.length() {
-            GraphEdge edge = self._edges.get(index)
+            GraphEdge<T> edge = self._edges.get(index)
             if edge.fromNode == source && edge.toNode == target { self._edges.remove(index); return }
             index = index + 1
         }
     }
-    List<String> nodes() { return self._nodes.copy() }
+    List<T> nodes() { return self._nodes.copy() }
+    List<GraphEdge<T>> edges() { return self._edges.copy() }
     Int nodeCount() { return self._nodes.length() }
     Int edgeCount() { return self._edges.length() }
-    List<String> neighbors(String node) {
+    List<T> neighbors(T node) {
         if node == null || !self.hasNode(node) { throw "Graph.neighbors: unknown node" }
-        List<String> result = []
+        List<T> result = []
         Int index = 0
         while index < self._edges.length() {
-            GraphEdge edge = self._edges.get(index)
+            GraphEdge<T> edge = self._edges.get(index)
             if edge.fromNode == node { result.push(edge.toNode) }
             index = index + 1
         }
         return result
     }
-    List<String> bfs(String start) {
+    List<T> bfs(T start) {
         if start == null || !self.hasNode(start) { throw "Graph.bfs: unknown start" }
-        List<String> result = []
-        List<String> queue = []
+        List<T> result = []
+        List<T> queue = []
         queue.push(start)
         result.push(start)
         Int head = 0
         while head < queue.length() {
-            String current = queue.get(head)
+            T current = queue.get(head)
             head = head + 1
-            List<String> next = self.neighbors(current)
+            List<T> next = self.neighbors(current)
             Int index = 0
             while index < next.length() {
-                String candidate = next.get(index)
+                T candidate = next.get(index)
                 Bool seen = false
                 Int scan = 0
                 while scan < result.length() {
@@ -122,13 +123,13 @@ class Graph {
         }
         return result
     }
-    List<String> dfs(String start) {
+    List<T> dfs(T start) {
         if start == null || !self.hasNode(start) { throw "Graph.dfs: unknown start" }
-        List<String> result = []
-        List<String> stack = []
+        List<T> result = []
+        List<T> stack = []
         stack.push(start)
         while stack.length() > 0 {
-            String current = stack.get(stack.length() - 1)
+            T current = stack.get(stack.length() - 1)
             stack.remove(stack.length() - 1)
             Bool seen = false
             Int scan = 0
@@ -138,7 +139,7 @@ class Graph {
             }
             if seen { continue }
             result.push(current)
-            List<String> next = self.neighbors(current)
+            List<T> next = self.neighbors(current)
             Int index = next.length() - 1
             while index >= 0 { stack.push(next.get(index)); index = index - 1 }
         }
@@ -173,7 +174,7 @@ class Graph {
                 continue
             }
             edgeStack.set(edgeStack.length() - 1, edgeIndex + 1)
-            GraphEdge edge = self._edges.get(edgeIndex)
+            GraphEdge<T> edge = self._edges.get(edgeIndex)
             if edge.fromNode != self._nodes.get(current) { continue }
             Int target = self.nodeIndex(edge.toNode)
             if state.get(target) == 1 { return true }
@@ -185,13 +186,13 @@ class Graph {
         }
         return false
     }
-    Result<List<String>, Error> topologicalSort() {
+    Result<List<T>, Error> topologicalSort() {
         List<Int> indegree = []
         Int index = 0
         while index < self._nodes.length() { indegree.push(0); index = index + 1 }
         index = 0
         while index < self._edges.length() {
-            GraphEdge edge = self._edges.get(index)
+            GraphEdge<T> edge = self._edges.get(index)
             Int target = self.nodeIndex(edge.toNode)
             indegree.set(target, indegree.get(target) + 1)
             index = index + 1
@@ -202,7 +203,7 @@ class Graph {
             if indegree.get(index) == 0 { queue.push(index) }
             index = index + 1
         }
-        List<String> result = []
+        List<T> result = []
         Int head = 0
         while head < queue.length() {
             Int current = queue.get(head)
@@ -210,7 +211,7 @@ class Graph {
             result.push(self._nodes.get(current))
             index = 0
             while index < self._edges.length() {
-                GraphEdge edge = self._edges.get(index)
+                GraphEdge<T> edge = self._edges.get(index)
                 if self.nodeIndex(edge.fromNode) == current {
                     Int target = self.nodeIndex(edge.toNode)
                     Int value = indegree.get(target) - 1
@@ -225,12 +226,12 @@ class Graph {
         }
         return Ok(result)
     }
-    Result<List<String>, Error> shortestPath(String source, String target) {
+    Result<List<T>, Error> shortestPath(T source, T target) {
         if source == null || target == null { throw "Graph.shortestPath: null endpoint" }
         if !self.hasNode(source) || !self.hasNode(target) {
             return Err(new BasicError(ErrorKind.InvalidArgument, "Graph.shortestPath: unknown endpoint"))
         }
-        if source == target { List<String> only = []; only.push(source); return Ok(only) }
+        if source == target { List<T> only = []; only.push(source); return Ok(only) }
         List<Int> queue = []
         List<Int> parent = []
         List<Bool> seen = []
@@ -244,7 +245,7 @@ class Graph {
         while head < queue.length() {
             Int current = queue.get(head)
             head = head + 1
-            List<String> next = self.neighbors(self._nodes.get(current))
+            List<T> next = self.neighbors(self._nodes.get(current))
             Int nextIndex = 0
             while nextIndex < next.length() {
                 Int candidate = self.nodeIndex(next.get(nextIndex))
@@ -259,10 +260,10 @@ class Graph {
             if found { break }
         }
         if !found { return Err(new BasicError(ErrorKind.NotFound, "Graph.shortestPath: no path")) }
-        List<String> reversedPath = []
+        List<T> reversedPath = []
         Int cursor = self.nodeIndex(target)
         while cursor >= 0 { reversedPath.push(self._nodes.get(cursor)); cursor = parent.get(cursor) }
-        List<String> path = []
+        List<T> path = []
         index = reversedPath.length() - 1
         while index >= 0 { path.push(reversedPath.get(index)); index = index - 1 }
         return Ok(path)
