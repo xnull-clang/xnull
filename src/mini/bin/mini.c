@@ -6274,6 +6274,12 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
       }
       return rt_string_from_c("Unit");
     }
+    if (xn_str_eq(mth, rt_string_from_c("wait"))) {
+      if ((argc != 0)) {
+        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("Context.wait expects 0 arguments"), n);
+      }
+      return rt_string_from_c("Unit");
+    }
     xn_Cls_Checker_fail(self, rt_string_from_c("SEM-001"), xn_concat(rt_string_from_c("undefined method: Context."), mth), n);
     return rt_string_from_c("Error");
   }
@@ -6570,6 +6576,29 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
     }
     return rt_string_from_c("Context");
   }
+  if (xn_str_eq(n->text, rt_string_from_c("Context.withCancel"))) {
+    if ((argc != 1)) {
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("Context.withCancel expects 1 argument"), n);
+      return rt_string_from_c("Context");
+    }
+    rt_string * pt = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+    if (((!xn_str_eq(pt, rt_string_from_c("Error"))) && (!xn_str_eq(pt, rt_string_from_c("Context"))))) {
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(rt_string_from_c("Context.withCancel expects Context, got "), pt), n);
+    }
+    return rt_string_from_c("Context");
+  }
+  if ((xn_str_eq(n->text, rt_string_from_c("Context.withDeadline")) || xn_str_eq(n->text, rt_string_from_c("Context.withTimeout")))) {
+    if ((argc != 2)) {
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), xn_concat(n->text, rt_string_from_c(" expects 2 arguments")), n);
+      return rt_string_from_c("Context");
+    }
+    rt_string * pt = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+    if (((!xn_str_eq(pt, rt_string_from_c("Error"))) && (!xn_str_eq(pt, rt_string_from_c("Context"))))) {
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(n->text, rt_string_from_c(" expects Context, got ")), pt), n);
+    }
+    xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)));
+    return rt_string_from_c("Context");
+  }
   if (xn_str_eq(n->text, rt_string_from_c("TaskGroup.create"))) {
     if ((argc != 1)) {
       xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("TaskGroup.create expects 1 argument"), n);
@@ -6820,6 +6849,12 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
       if (xn_str_eq(mth, rt_string_from_c("cancel"))) {
         if ((argc != 0)) {
           xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("Context.cancel expects 0 arguments"), n);
+        }
+        return rt_string_from_c("Unit");
+      }
+      if (xn_str_eq(mth, rt_string_from_c("wait"))) {
+        if ((argc != 0)) {
+          xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), rt_string_from_c("Context.wait expects 0 arguments"), n);
         }
         return rt_string_from_c("Unit");
       }
@@ -9214,6 +9249,9 @@ static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_
     if (xn_str_eq(mth, rt_string_from_c("cancel"))) {
       return rt_string_from_c("Unit");
     }
+    if (xn_str_eq(mth, rt_string_from_c("wait"))) {
+      return rt_string_from_c("Unit");
+    }
   }
   if (xn_str_eq(bt, rt_string_from_c("TaskGroup"))) {
     if (xn_str_eq(mth, rt_string_from_c("spawn"))) {
@@ -9603,6 +9641,9 @@ static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_
     }
     if (xn_str_eq(mth, rt_string_from_c("cancel"))) {
       return xn_concat(xn_concat(rt_string_from_c("xrt_context_cancel("), bv), rt_string_from_c(")"));
+    }
+    if (xn_str_eq(mth, rt_string_from_c("wait"))) {
+      return xn_concat(xn_concat(rt_string_from_c("xrt_context_wait("), bv), rt_string_from_c(")"));
     }
   }
   if (xn_str_eq(bt, rt_string_from_c("TaskGroup"))) {
@@ -10007,6 +10048,9 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     if (xn_str_eq(n->text, rt_string_from_c("Context.background"))) {
       return rt_string_from_c("Context");
     }
+    if (((xn_str_eq(n->text, rt_string_from_c("Context.withCancel")) || xn_str_eq(n->text, rt_string_from_c("Context.withDeadline"))) || xn_str_eq(n->text, rt_string_from_c("Context.withTimeout")))) {
+      return rt_string_from_c("Context");
+    }
     if (xn_str_eq(n->text, rt_string_from_c("TaskGroup.create"))) {
       return rt_string_from_c("TaskGroup");
     }
@@ -10083,6 +10127,9 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
           return rt_string_from_c("Bool");
         }
         if (xn_str_eq(mth, rt_string_from_c("cancel"))) {
+          return rt_string_from_c("Unit");
+        }
+        if (xn_str_eq(mth, rt_string_from_c("wait"))) {
           return rt_string_from_c("Unit");
         }
       }
@@ -10557,6 +10604,35 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     if (xn_str_eq(n->text, rt_string_from_c("Context.background"))) {
       return rt_string_from_c("xrt_context_background()");
     }
+    if (xn_str_eq(n->text, rt_string_from_c("Context.withCancel"))) {
+      rt_string * av = rt_string_from_c("NULL");
+      if ((((int64_t)n->kids->len) > 0)) {
+        av = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+      }
+      return xn_concat(xn_concat(rt_string_from_c("xrt_context_child("), av), rt_string_from_c(")"));
+    }
+    if (xn_str_eq(n->text, rt_string_from_c("Context.withDeadline"))) {
+      rt_string * pv = rt_string_from_c("NULL");
+      rt_string * dv = rt_string_from_c("0");
+      if ((((int64_t)n->kids->len) > 0)) {
+        pv = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+      }
+      if ((((int64_t)n->kids->len) > 1)) {
+        dv = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)));
+      }
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xrt_context_with_deadline("), pv), rt_string_from_c(", ")), dv), rt_string_from_c(")"));
+    }
+    if (xn_str_eq(n->text, rt_string_from_c("Context.withTimeout"))) {
+      rt_string * pv = rt_string_from_c("NULL");
+      rt_string * tv = rt_string_from_c("0");
+      if ((((int64_t)n->kids->len) > 0)) {
+        pv = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+      }
+      if ((((int64_t)n->kids->len) > 1)) {
+        tv = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)));
+      }
+      return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xrt_context_with_timeout("), pv), rt_string_from_c(", ")), tv), rt_string_from_c(")"));
+    }
     if (xn_str_eq(n->text, rt_string_from_c("TaskGroup.create"))) {
       rt_string * av = rt_string_from_c("NULL");
       if ((((int64_t)n->kids->len) > 0)) {
@@ -10812,6 +10888,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         }
         if (xn_str_eq(mth, rt_string_from_c("cancel"))) {
           return xn_concat(xn_concat(rt_string_from_c("xrt_context_cancel("), bv), rt_string_from_c(")"));
+        }
+        if (xn_str_eq(mth, rt_string_from_c("wait"))) {
+          return xn_concat(xn_concat(rt_string_from_c("xrt_context_wait("), bv), rt_string_from_c(")"));
         }
       }
       if (xn_str_eq(bt, rt_string_from_c("TaskGroup"))) {

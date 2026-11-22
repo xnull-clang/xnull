@@ -5443,6 +5443,10 @@ class Checker {
                 if argc != 0 { self.fail("SEM-004", "Context.cancel expects 0 arguments", n) }
                 return "Unit"
             }
+            if mth == "wait" {
+                if argc != 0 { self.fail("SEM-004", "Context.wait expects 0 arguments", n) }
+                return "Unit"
+            }
             self.fail("SEM-001", "undefined method: Context." + mth, n)
             return "Error"
         }
@@ -5723,6 +5727,29 @@ class Checker {
             }
             return "Context"
         }
+        if n.text == "Context.withCancel" {
+            if argc != 1 {
+                self.fail("SEM-004", "Context.withCancel expects 1 argument", n)
+                return "Context"
+            }
+            String pt = self.typeOf(n.kids.get(0))
+            if pt != "Error" && pt != "Context" {
+                self.fail("SEM-003", "Context.withCancel expects Context, got " + pt, n)
+            }
+            return "Context"
+        }
+        if n.text == "Context.withDeadline" || n.text == "Context.withTimeout" {
+            if argc != 2 {
+                self.fail("SEM-004", n.text + " expects 2 arguments", n)
+                return "Context"
+            }
+            String pt = self.typeOf(n.kids.get(0))
+            if pt != "Error" && pt != "Context" {
+                self.fail("SEM-003", n.text + " expects Context, got " + pt, n)
+            }
+            self.typeOf(n.kids.get(1))
+            return "Context"
+        }
         if n.text == "TaskGroup.create" {
             if argc != 1 {
                 self.fail("SEM-004", "TaskGroup.create expects 1 argument", n)
@@ -5919,6 +5946,10 @@ class Checker {
                 }
                 if mth == "cancel" {
                     if argc != 0 { self.fail("SEM-004", "Context.cancel expects 0 arguments", n) }
+                    return "Unit"
+                }
+                if mth == "wait" {
+                    if argc != 0 { self.fail("SEM-004", "Context.wait expects 0 arguments", n) }
                     return "Unit"
                 }
                 self.fail("SEM-001", "undefined method: Context." + mth, n)
@@ -8064,6 +8095,7 @@ class CGen {
         if bt == "Context" {
             if mth == "isCancelled" { return "Bool" }
             if mth == "cancel" { return "Unit" }
+            if mth == "wait" { return "Unit" }
         }
         if bt == "TaskGroup" {
             if mth == "spawn" {
@@ -8408,6 +8440,7 @@ class CGen {
         if bt == "Context" {
             if mth == "isCancelled" { return "xrt_context_cancelled(" + bv + ")" }
             if mth == "cancel" { return "xrt_context_cancel(" + bv + ")" }
+            if mth == "wait" { return "xrt_context_wait(" + bv + ")" }
         }
         if bt == "TaskGroup" {
             if mth == "spawn" && n.kids.length() > off {
@@ -8803,6 +8836,9 @@ class CGen {
             if n.text == "Context.background" {
                 return "Context"
             }
+            if n.text == "Context.withCancel" || n.text == "Context.withDeadline" || n.text == "Context.withTimeout" {
+                return "Context"
+            }
             if n.text == "TaskGroup.create" {
                 return "TaskGroup"
             }
@@ -8851,6 +8887,7 @@ class CGen {
                 if bt == "Context" {
                     if mth == "isCancelled" { return "Bool" }
                     if mth == "cancel" { return "Unit" }
+                    if mth == "wait" { return "Unit" }
                 }
                 if bt == "TaskGroup" {
                     if mth == "spawn" {
@@ -9306,6 +9343,25 @@ class CGen {
             if n.text == "Context.background" {
                 return "xrt_context_background()"
             }
+            if n.text == "Context.withCancel" {
+                String av = "NULL"
+                if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
+                return "xrt_context_child(" + av + ")"
+            }
+            if n.text == "Context.withDeadline" {
+                String pv = "NULL"
+                String dv = "0"
+                if n.kids.length() > 0 { pv = self.expr(n.kids.get(0)) }
+                if n.kids.length() > 1 { dv = self.expr(n.kids.get(1)) }
+                return "xrt_context_with_deadline(" + pv + ", " + dv + ")"
+            }
+            if n.text == "Context.withTimeout" {
+                String pv = "NULL"
+                String tv = "0"
+                if n.kids.length() > 0 { pv = self.expr(n.kids.get(0)) }
+                if n.kids.length() > 1 { tv = self.expr(n.kids.get(1)) }
+                return "xrt_context_with_timeout(" + pv + ", " + tv + ")"
+            }
             if n.text == "TaskGroup.create" {
                 String av = "NULL"
                 if n.kids.length() > 0 { av = self.expr(n.kids.get(0)) }
@@ -9528,6 +9584,7 @@ class CGen {
                 if bt == "Context" {
                     if mth == "isCancelled" { return "xrt_context_cancelled(" + bv + ")" }
                     if mth == "cancel" { return "xrt_context_cancel(" + bv + ")" }
+                    if mth == "wait" { return "xrt_context_wait(" + bv + ")" }
                 }
                 if bt == "TaskGroup" {
                     if mth == "spawn" && n.kids.length() > 0 {

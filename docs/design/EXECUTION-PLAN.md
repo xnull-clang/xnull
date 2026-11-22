@@ -241,7 +241,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | ID | 工作包 | Owner | 依赖 | 文件域 | 产物 | 出口 |
 | --- | --- | --- | --- | --- | --- | --- |
 | B3.1 | `RuntimeMonitor` + raw | RUNTIME | B0.1 | `src/runtime/`、`src/ffi/runtime_raw.xfb`、`src/xdk/core/runtime/Runtime.x` | enter/exit/wait/notify | 并发/关闭场景绿 |
-| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 + B1 合并 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | B3 rebase 后继续；取消/超时场景绿；不是延期关闭项 |
+| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 + B1 合并 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | 已合并 `876b9320`；取消/超时/重复 wait 场景绿 |
 | B3.3 | 泛型 `Pair`/`Entry` | XDK-CORE | B0.1 | `src/xdk/core/collections/Collections.x` | `Pair<A,B>`、`Entry<K,V>` | 1.x 兼容 + 2.x 场景 |
 | B3.4 | `isFinite/isNaN`、`Bytes.alloc/empty`、errors helpers、`List.copy` | XDK-CORE | B0.1 | `src/xdk/core/math`、`core/bytes`、`core/errors`、`core/collections` | 顶层函数/构造 | prelude 场景绿 |
 | B3.5 | prelude 门禁 | QA | B3.1–B3.4 | `xdk2/prelude/` | 场景 | `xdk2.sh` 绿 + 1.x 回归绿 |
@@ -415,8 +415,8 @@ worktree: clean
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
 | B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
 | B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
-| B2 注解类型 | 未开工 | 等 B1 合并完成（已完成），但 B2 本身未开工 |
-| B3 runtime prelude | 已合并（B3.2 OPEN） | merge `cce533f5`；B3.1/B3.3/B3.4/B3.5 完成；B3.2 保留给 B3 继续 |
+| B2 注解类型 | 进行中（B2.1/B2.2） | 独立 worktree；B2.3 未开工 |
+| B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
 | B4 第一批纯包 | 未开工 | 等 B2+B3 |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
@@ -470,7 +470,7 @@ python3 src/toolchain/check_doc_naming.py docs/design   PASS
 python3 src/toolchain/check_links.py docs/design        PASS
 ```
 
-**B0 时点缺口（历史记录）**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B1/B3 已在 §11.2 合并，B3.2 仍 OPEN。
+**B0 时点缺口（历史记录）**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B1/B3 已在 §11.2 合并，B3.2 已在 §11.3 合并。
 
 ### 11.2 Integration batch：B1 + B3
 
@@ -499,7 +499,40 @@ check_doc_naming             PASS
 check_links                  PASS
 ```
 
-B3.2 `Context` deadline/wait 仍 **OPEN**，不随本批关闭；B2 未开工。B1/B3 只标“已合并”，不把 B3 整包标完成。
+B3.2 `Context` deadline/wait 在本批仍 **OPEN**；随后在 §11.3 合并完成。B1/B3 在本批只标“已合并”。
+
+### 11.3 B3.2 integration：Context deadline/wait
+
+```text
+B3.2 merge: 876b9320（--no-ff，B3 branch tip 8a76b7bb）
+base: c2974f2c
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+合并：`git merge-tree` 预演无冲突，`git merge --no-ff b3-runtime` 由 `ort` 自动合并；未丢 `Context`、注解或泛型任一侧。
+
+B3.2 场景 `src/mini/tests/xdk2/prelude/context_deadline.x/.out` 覆盖：
+
+- `Context.withCancel` / `withDeadline` / `withTimeout` / `wait`；
+- 父取消传播到子，子取消不反向影响父；
+- 相对超时与绝对截止到期取消；
+- 已过期截止/零超时立即取消，`wait` 不阻塞；
+- 重复 `wait` / 重复 `cancel` 幂等；
+- 另一任务取消唤醒主线程 `wait`。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（12 scenario(s)；22 negative；warning；AST；context_deadline）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B3 最终状态：**已完成（B3.1–B3.5）**。B2 仍在独立 worktree 进行（B2.1/B2.2），B2.3 未开工；本批不开始 B2.3/B4。
 
 ## 12. 一句话收口
 
