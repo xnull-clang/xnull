@@ -775,6 +775,14 @@ class Parser {
                 if depth == 0 {
                     return self.look(j + 1).text == "("
                 }
+            } else if t.kind == "ident" {
+                /* type name */
+            } else if t.text == "." || t.text == "," || t.text == "?" ||
+                      t.text == "[" || t.text == "]" || t.text == "(" ||
+                      t.text == ")" || t.text == "->" {
+                /* type punctuation */
+            } else {
+                return false
             }
             j = j + 1
         }
@@ -5584,12 +5592,23 @@ class Checker {
                     return "Double"
                 }
             }
-            if n.text == "&" || n.text == "|" || n.text == "^" || n.text == "<<" || n.text == ">>" {
-                if lt != "Int" || rt != "Int" {
-                    self.fail("SEM-003", "operator " + n.text + " needs Int, got " + lt + "/" + rt, n)
-                    return "Error"
+            if n.text == "&" || n.text == "|" || n.text == "^" {
+                if lt == rt && (lt == "Int" || lt == "Long" || lt == "Int32" || lt == "Int64") {
+                    return lt
                 }
-                return "Int"
+                self.fail("SEM-003", "operator " + n.text + " needs matching Int/Long, got " + lt + "/" + rt, n)
+                return "Error"
+            }
+            if n.text == "<<" || n.text == ">>" {
+                Bool wideLeft = lt == "Long" || lt == "Int64" || lt == "Int32"
+                Bool narrowLeft = lt == "Int"
+                Bool shiftCount = rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long"
+                if (wideLeft || narrowLeft) && shiftCount {
+                    if wideLeft { return lt }
+                    return "Int"
+                }
+                self.fail("SEM-003", "operator " + n.text + " needs Int/Long left and Int right, got " + lt + "/" + rt, n)
+                return "Error"
             }
             if (lt == "Int128" || rt == "Int128") {
                 return "Int128"
@@ -9625,6 +9644,14 @@ class CGen {
                     return "(!xn_str_eq(" + a + ", " + b + "))"
                 }
             }
+            if (lt == "Long" || lt == "Int64" || lt == "Int32") && (rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long") {
+                if n.text == "<<" {
+                    return "xn_long_shl(" + a + ", " + b + ")"
+                }
+                if n.text == ">>" {
+                    return "xn_long_shr(" + a + ", " + b + ")"
+                }
+            }
             if lt == "Int" && rt == "Int" {
                 if n.text == "<<" {
                     return "xn_int_shl(" + a + ", " + b + ")"
@@ -11503,6 +11530,8 @@ class CGen {
         self.emit("static int64_t xn_int_wrap(int64_t value) { return (int64_t)(int32_t)value; }")
         self.emit("static int64_t xn_int_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint32_t)value << (uint32_t)bitCount); }")
         self.emit("static int64_t xn_int_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int32_t)value >> (int32_t)bitCount); }")
+        self.emit("static int64_t xn_long_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint64_t)value << (uint64_t)bitCount); }")
+        self.emit("static int64_t xn_long_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int64_t)value >> (int64_t)bitCount); }")
         self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)xn_int_wrap(v)); }")
         self.emit("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }")
         self.emit("static void xn_print_double(double v) { printf(\"%g\\n\", v); }")

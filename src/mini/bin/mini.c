@@ -1497,6 +1497,17 @@ static int xn_Cls_Parser_looksLikeTypeArgs(xn_Cls_Parser *self) {
           return xn_str_eq(xn_Cls_Parser_look(self, xn_int_wrap((j + 1)))->text, rt_string_from_c("("));
         }
       }
+      else {
+        if (xn_str_eq(t->kind, rt_string_from_c("ident"))) {
+        }
+        else {
+          if ((((((((xn_str_eq(t->text, rt_string_from_c(".")) || xn_str_eq(t->text, rt_string_from_c(","))) || xn_str_eq(t->text, rt_string_from_c("?"))) || xn_str_eq(t->text, rt_string_from_c("["))) || xn_str_eq(t->text, rt_string_from_c("]"))) || xn_str_eq(t->text, rt_string_from_c("("))) || xn_str_eq(t->text, rt_string_from_c(")"))) || xn_str_eq(t->text, rt_string_from_c("->")))) {
+          }
+          else {
+            return 0;
+          }
+        }
+      }
     }
     j = xn_int_wrap((j + 1));
   }
@@ -6778,12 +6789,25 @@ static rt_string * xn_Cls_Checker_typeOf(xn_Cls_Checker *self, xn_Cls_AstNode * 
         return rt_string_from_c("Double");
       }
     }
-    if (((((xn_str_eq(n->text, rt_string_from_c("&")) || xn_str_eq(n->text, rt_string_from_c("|"))) || xn_str_eq(n->text, rt_string_from_c("^"))) || xn_str_eq(n->text, rt_string_from_c("<<"))) || xn_str_eq(n->text, rt_string_from_c(">>")))) {
-      if (((!xn_str_eq(lt, rt_string_from_c("Int"))) || (!xn_str_eq(rt, rt_string_from_c("Int"))))) {
-        xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("operator "), n->text), rt_string_from_c(" needs Int, got ")), lt), rt_string_from_c("/")), rt), n);
-        return rt_string_from_c("Error");
+    if (((xn_str_eq(n->text, rt_string_from_c("&")) || xn_str_eq(n->text, rt_string_from_c("|"))) || xn_str_eq(n->text, rt_string_from_c("^")))) {
+      if ((xn_str_eq(lt, rt) && (((xn_str_eq(lt, rt_string_from_c("Int")) || xn_str_eq(lt, rt_string_from_c("Long"))) || xn_str_eq(lt, rt_string_from_c("Int32"))) || xn_str_eq(lt, rt_string_from_c("Int64"))))) {
+        return lt;
       }
-      return rt_string_from_c("Int");
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("operator "), n->text), rt_string_from_c(" needs matching Int/Long, got ")), lt), rt_string_from_c("/")), rt), n);
+      return rt_string_from_c("Error");
+    }
+    if ((xn_str_eq(n->text, rt_string_from_c("<<")) || xn_str_eq(n->text, rt_string_from_c(">>")))) {
+      int wideLeft = ((xn_str_eq(lt, rt_string_from_c("Long")) || xn_str_eq(lt, rt_string_from_c("Int64"))) || xn_str_eq(lt, rt_string_from_c("Int32")));
+      int narrowLeft = xn_str_eq(lt, rt_string_from_c("Int"));
+      int shiftCount = (((xn_str_eq(rt, rt_string_from_c("Int")) || xn_str_eq(rt, rt_string_from_c("Int32"))) || xn_str_eq(rt, rt_string_from_c("Int64"))) || xn_str_eq(rt, rt_string_from_c("Long")));
+      if (((wideLeft || narrowLeft) && shiftCount)) {
+        if (wideLeft) {
+          return lt;
+        }
+        return rt_string_from_c("Int");
+      }
+      xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("operator "), n->text), rt_string_from_c(" needs Int/Long left and Int right, got ")), lt), rt_string_from_c("/")), rt), n);
+      return rt_string_from_c("Error");
     }
     if ((xn_str_eq(lt, rt_string_from_c("Int128")) || xn_str_eq(rt, rt_string_from_c("Int128")))) {
       return rt_string_from_c("Int128");
@@ -11313,6 +11337,14 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
         return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("(!xn_str_eq("), a), rt_string_from_c(", ")), b), rt_string_from_c("))"));
       }
     }
+    if ((((xn_str_eq(lt, rt_string_from_c("Long")) || xn_str_eq(lt, rt_string_from_c("Int64"))) || xn_str_eq(lt, rt_string_from_c("Int32"))) && (((xn_str_eq(rt, rt_string_from_c("Int")) || xn_str_eq(rt, rt_string_from_c("Int32"))) || xn_str_eq(rt, rt_string_from_c("Int64"))) || xn_str_eq(rt, rt_string_from_c("Long"))))) {
+      if (xn_str_eq(n->text, rt_string_from_c("<<"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_long_shl("), a), rt_string_from_c(", ")), b), rt_string_from_c(")"));
+      }
+      if (xn_str_eq(n->text, rt_string_from_c(">>"))) {
+        return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_long_shr("), a), rt_string_from_c(", ")), b), rt_string_from_c(")"));
+      }
+    }
     if ((xn_str_eq(lt, rt_string_from_c("Int")) && xn_str_eq(rt, rt_string_from_c("Int")))) {
       if (xn_str_eq(n->text, rt_string_from_c("<<"))) {
         return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_int_shl("), a), rt_string_from_c(", ")), b), rt_string_from_c(")"));
@@ -13250,6 +13282,8 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_int_wrap(int64_t value) { return (int64_t)(int32_t)value; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_int_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint32_t)value << (uint32_t)bitCount); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_int_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int32_t)value >> (int32_t)bitCount); }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_long_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint64_t)value << (uint64_t)bitCount); }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_long_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int64_t)value >> (int64_t)bitCount); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)xn_int_wrap(v)); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static void xn_print_double(double v) { printf(\"%g\\n\", v); }"));
