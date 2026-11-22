@@ -72,9 +72,15 @@ class JsonNumber {
         Bool neg = false
         if self._raw.substring(0, 1) == "-" { neg = true; i = 1 }
         Long value = 0
+        Long cutoff = 922337203685477580
         while i < self._raw.length() {
             Int d = JsonNumber.digitIndex(self._raw.substring(i, 1))
             if d < 0 { return Err(codecError(ErrorKind.DataCorrupted, "JsonNumber: invalid digit")) }
+            if value > cutoff { return Err(codecError(ErrorKind.DataCorrupted, "JsonNumber: long overflow")) }
+            if value == cutoff {
+                if !neg && d > 7 { return Err(codecError(ErrorKind.DataCorrupted, "JsonNumber: long overflow")) }
+                if neg && d > 8 { return Err(codecError(ErrorKind.DataCorrupted, "JsonNumber: long overflow")) }
+            }
             value = value * 10 + d
             i = i + 1
         }
@@ -234,8 +240,8 @@ class JsonOptions {
     Bool _allowTrailingComma
     Bool _pretty
     JsonOptions() {
-        self._maxDepth = 64
-        self._maxBytes = 1048576
+        self._maxDepth = 128
+        self._maxBytes = 16777216
         self._allowComments = false
         self._allowTrailingComma = false
         self._pretty = false

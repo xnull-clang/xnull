@@ -71,6 +71,14 @@ static Int main() {
     JsonOptions copySource = new JsonOptions()
     copySource = copySource.maxDepth(5)
     print("json-options-copy=" + str(copySource.copy().getMaxDepth() == 5))
+    JsonValue bigJson = Json.parse("9223372036854775808").value()
+    JsonNumber? bigOptional = bigJson.asNumber()
+    JsonNumber bigNumber = bigOptional as JsonNumber
+    print("json-long-overflow=" + str(bigNumber.asLong().isErr()))
+    JsonValue minJson = Json.parse("-9223372036854775808").value()
+    JsonNumber? minOptional = minJson.asNumber()
+    JsonNumber minNumber = minOptional as JsonNumber
+    print("json-long-min=" + str(minNumber.asLong().isOk()))
 
     // ---- JsonObject / JsonArray ----
     JsonObject object = new JsonObject()
