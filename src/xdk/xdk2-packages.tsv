@@ -48,7 +48,7 @@ xdk.os.container	L6	5	src/xdk/os/container/Container.x	design
 xdk.os.virt	L6	5	src/xdk/os/virt/Virt.x	design
 xdk.os.service	L6	3	src/xdk/os/service/Service.x	design
 xdk.gpu	L6	8	src/xdk/gpu/Gpu.x	design
-xdk.tensor	L6	5	src/xdk/tensor/Tensor.x	blocked
+xdk.tensor	L6	5	src/xdk/tensor/Tensor.x	implemented
 xdk.linalg	L6	7	src/xdk/linalg/Linalg.x	implemented
 xdk.geo	L6	6	src/xdk/geo/Geo.x	implemented
 xdk.serial	L6	6	src/xdk/serial/Serial.x	design
