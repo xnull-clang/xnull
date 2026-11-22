@@ -192,7 +192,7 @@ L1 → L0
 | --- | --- | --- |
 | `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned | 非 final 字段、构造器顺序/方法冲突 |
 | `@Data` | 数据类语义：`equals`/`toString`/`copy`；不生成访问器；hash 仍 planned | 字段/方法名冲突、不可生成类型 |
-| `@Builder` | builder 类型、`withField`、`build()`、必填校验 | 缺必填、重复设置、构造不可见 |
+| `@Builder` | `<Class>Builder`、`withField`、required-by-set `build()`、缺失字段 panic；非泛型 | 缺必填、已有 builder、泛型暂不支持（`AN0025`） |
 | `@Copy` | `copy()` 与逐字段 `withField` | 不可复制字段、命名冲突 |
 | `@Delegate` | 到指定字段的转发方法 | 目标缺失、签名冲突、可见性不足 |
 
@@ -202,7 +202,7 @@ A8 管线：`Resolve → Validate → Generate → Finalize`。
 - **沙箱**：只读输入 AST；只写声明式输出；禁止任意文件、网络、进程、反射。
 - **确定性**：同输入、同处理器集合、同配置产生相同字节；生成名与顺序稳定。
 - **失败原子**：任一步失败整批回滚，不留下半生成文件或半修改 AST。
-- A8 已实现 `@Value`/`@Data`/`@Copy`；`@Builder`/`@Delegate` 与 A9 仍 `planned`；hash 仍 planned。
+- A8 已实现 `@Value`/`@Data`/`@Copy`/`@Builder`；`@Delegate` 与 A9 仍 `planned`；hash 仍 planned。
 
 ### 6.5 领域注解与归属
 

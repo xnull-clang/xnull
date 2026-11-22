@@ -701,7 +701,15 @@ static xn_Cls_AstNode * xn_a8EqualsMethod(xn_Cls_AstNode * cls, xn_arr_o * field
 static xn_Cls_AstNode * xn_a8ToStringMethod(xn_Cls_AstNode * cls, xn_arr_o * fields);
 static xn_Cls_AstNode * xn_a8CopyMethod(xn_Cls_AstNode * cls, xn_arr_o * fields);
 static xn_Cls_AstNode * xn_a8WithMethod(xn_Cls_AstNode * cls, xn_Cls_AstNode * field);
-static int xn_expandA8Class(xn_Cls_AstNode * cls);
+static int xn_a8ClassExists(xn_Cls_AstNode * program, rt_string * name);
+static xn_arr_o * xn_a8CtorParams(xn_Cls_AstNode * cls);
+static rt_string * xn_a8ParamType(xn_Cls_AstNode * p);
+static rt_string * xn_a8ParamName(xn_Cls_AstNode * p);
+static xn_Cls_AstNode * xn_a8BuilderField(rt_string * ty, rt_string * name, xn_Cls_AstNode * cls);
+static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, xn_Cls_AstNode * cls);
+static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params);
+static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params);
+static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program);
 static int xn_expandA8Annotations(xn_Cls_AstNode * program);
 static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root);
 static rt_string * xn_argAfter(xn_arr_s * args, rt_string * flag);
@@ -4940,6 +4948,11 @@ static xn_arr_s * xn_Cls_AnnotationChecker_knownCodes(xn_Cls_AnnotationChecker *
   xn_arr_s_push(r, rt_string_from_c("AN0018"));
   xn_arr_s_push(r, rt_string_from_c("AN0019"));
   xn_arr_s_push(r, rt_string_from_c("AN0020"));
+  xn_arr_s_push(r, rt_string_from_c("AN0021"));
+  xn_arr_s_push(r, rt_string_from_c("AN0022"));
+  xn_arr_s_push(r, rt_string_from_c("AN0023"));
+  xn_arr_s_push(r, rt_string_from_c("AN0024"));
+  xn_arr_s_push(r, rt_string_from_c("AN0025"));
   return r;
 }
 
@@ -16521,19 +16534,153 @@ static xn_Cls_AstNode * xn_a8WithMethod(xn_Cls_AstNode * cls, xn_Cls_AstNode * f
   return m;
 }
 
-static int xn_expandA8Class(xn_Cls_AstNode * cls) {
+static int xn_a8ClassExists(xn_Cls_AstNode * program, rt_string * name) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if (((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum"))) || xn_str_eq(n->kind, rt_string_from_c("Protocol"))) && xn_str_eq(n->text, name))) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static xn_arr_o * xn_a8CtorParams(xn_Cls_AstNode * cls) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  xn_Cls_AstNode * ctor = xn_a8Ctor(cls);
+  if (xn_str_eq(ctor->kind, rt_string_from_c("None"))) {
+    return out;
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)ctor->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, i))->kind, rt_string_from_c("Param"))) {
+      xn_arr_o_push(out, ((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, i)));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static rt_string * xn_a8ParamType(xn_Cls_AstNode * p) {
+  xn_arr_s * parts = xn_str_split(p->text, rt_string_from_c(" "));
+  if ((((int64_t)parts->len) >= 1)) {
+    return xn_arr_s_get(parts, 0);
+  }
+  return p->text;
+}
+
+static rt_string * xn_a8ParamName(xn_Cls_AstNode * p) {
+  xn_arr_s * parts = xn_str_split(p->text, rt_string_from_c(" "));
+  if ((((int64_t)parts->len) >= 2)) {
+    return xn_arr_s_get(parts, 1);
+  }
+  return p->text;
+}
+
+static xn_Cls_AstNode * xn_a8BuilderField(rt_string * ty, rt_string * name, xn_Cls_AstNode * cls) {
+  return xn_Cls_AstNode_new(rt_string_from_c("Field"), xn_concat(xn_concat(ty, rt_string_from_c(" ")), name), cls->line, cls->col);
+}
+
+static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, xn_Cls_AstNode * cls) {
+  rt_string * bname = builder->text;
+  rt_string * pname = xn_a8ParamName(p);
+  rt_string * cap = xn_a8Capitalize(pname);
+  xn_Cls_AstNode * m = xn_a8Method(xn_concat(rt_string_from_c("with"), cap), bname, cls);
+  xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Param"), xn_concat(xn_a8ParamType(p), rt_string_from_c(" value")), cls->line, cls->col));
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode * set = xn_Cls_AstNode_new(rt_string_from_c("Assign"), rt_string_from_c("="), cls->line, cls->col);
+  xn_Cls_AstNode * member = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_"), pname), cls->line, cls->col);
+  xn_Cls_AstNode_add(member, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
+  xn_Cls_AstNode_add(set, member);
+  xn_Cls_AstNode_add(set, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("value"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, set);
+  xn_Cls_AstNode * flag = xn_Cls_AstNode_new(rt_string_from_c("Assign"), rt_string_from_c("="), cls->line, cls->col);
+  xn_Cls_AstNode * flagMember = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_has"), cap), cls->line, cls->col);
+  xn_Cls_AstNode_add(flagMember, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
+  xn_Cls_AstNode_add(flag, flagMember);
+  xn_Cls_AstNode_add(flag, xn_Cls_AstNode_new(rt_string_from_c("Bool"), rt_string_from_c("true"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, flag);
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params) {
+  xn_Cls_AstNode * m = xn_a8Method(rt_string_from_c("build"), cls->text, cls);
+  xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)params->len))) {
+    rt_string * cap = xn_a8Capitalize(xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i))));
+    xn_Cls_AstNode * has = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_has"), cap), cls->line, cls->col);
+    xn_Cls_AstNode_add(has, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
+    xn_Cls_AstNode * cond = xn_Cls_AstNode_new(rt_string_from_c("Unary"), rt_string_from_c("!"), cls->line, cls->col);
+    xn_Cls_AstNode_add(cond, has);
+    xn_Cls_AstNode * ifn = xn_Cls_AstNode_new(rt_string_from_c("If"), rt_string_from_c(""), cls->line, cls->col);
+    xn_Cls_AstNode_add(ifn, cond);
+    xn_Cls_AstNode * block = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
+    xn_Cls_AstNode * thr = xn_Cls_AstNode_new(rt_string_from_c("Throw"), rt_string_from_c(""), cls->line, cls->col);
+    xn_Cls_AstNode_add(thr, xn_Cls_AstNode_new(rt_string_from_c("String"), xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("\""), builder->text), rt_string_from_c(".build: missing field ")), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), rt_string_from_c("\"")), cls->line, cls->col));
+    xn_Cls_AstNode_add(block, thr);
+    xn_Cls_AstNode_add(ifn, block);
+    xn_Cls_AstNode_add(body, ifn);
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * nw = xn_Cls_AstNode_new(rt_string_from_c("New"), cls->text, cls->line, cls->col);
+  i = 0;
+  while ((i < ((int64_t)params->len))) {
+    xn_Cls_AstNode * mem = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_"), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), cls->line, cls->col);
+    xn_Cls_AstNode_add(mem, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
+    xn_Cls_AstNode_add(nw, mem);
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * ret = xn_Cls_AstNode_new(rt_string_from_c("Return"), rt_string_from_c(""), cls->line, cls->col);
+  xn_Cls_AstNode_add(ret, nw);
+  xn_Cls_AstNode_add(body, ret);
+  xn_Cls_AstNode_add(m, body);
+  return m;
+}
+
+static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params) {
+  rt_string * bname = xn_concat(cls->text, rt_string_from_c("Builder"));
+  xn_Cls_AstNode * b = xn_Cls_AstNode_new(rt_string_from_c("Class"), bname, cls->line, cls->col);
+  b->packageName = cls->packageName;
+  xn_Cls_AstNode_add(b, xn_Cls_AstNode_new(rt_string_from_c("Generated"), rt_string_from_c("A8"), cls->line, cls->col));
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)params->len))) {
+    xn_Cls_AstNode_add(b, xn_a8BuilderField(xn_a8ParamType(((xn_Cls_AstNode *)xn_arr_o_get(params, i))), xn_concat(rt_string_from_c("_"), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), cls));
+    xn_Cls_AstNode_add(b, xn_a8BuilderField(rt_string_from_c("Bool"), xn_concat(rt_string_from_c("_has"), xn_a8Capitalize(xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i))))), cls));
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode * ctor = xn_Cls_AstNode_new(rt_string_from_c("Ctor"), bname, cls->line, cls->col);
+  xn_Cls_AstNode_add(ctor, xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col));
+  xn_Cls_AstNode_add(b, ctor);
+  i = 0;
+  while ((i < ((int64_t)params->len))) {
+    xn_Cls_AstNode_add(b, xn_a8BuilderWith(b, ((xn_Cls_AstNode *)xn_arr_o_get(params, i)), cls));
+    i = xn_int_wrap((i + 1));
+  }
+  xn_Cls_AstNode_add(b, xn_a8BuilderBuild(b, cls, params));
+  return b;
+}
+
+static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
   int v = xn_a8HasAnno(cls, rt_string_from_c("Value"));
   int d = xn_a8HasAnno(cls, rt_string_from_c("Data"));
   int c = xn_a8HasAnno(cls, rt_string_from_c("Copy"));
-  if ((((!v) && (!d)) && (!c))) {
+  int b = xn_a8HasAnno(cls, rt_string_from_c("Builder"));
+  if (((((!v) && (!d)) && (!c)) && (!b))) {
     return 1;
   }
   if ((!xn_str_eq(cls->kind, rt_string_from_c("Class")))) {
-    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy require a class"), cls);
+    return xn_a8Fail(rt_string_from_c("AN0021"), rt_string_from_c("@Value/@Data/@Copy/@Builder require a class"), cls);
   }
   xn_a8DropAnno(cls, rt_string_from_c("Value"));
   xn_a8DropAnno(cls, rt_string_from_c("Data"));
   xn_a8DropAnno(cls, rt_string_from_c("Copy"));
+  xn_a8DropAnno(cls, rt_string_from_c("Builder"));
   xn_arr_o * fields = xn_a8InstanceFields(cls);
   if (v) {
     int64_t i = xn_int_wrap(0);
@@ -16554,9 +16701,8 @@ static int xn_expandA8Class(xn_Cls_AstNode * cls) {
     xn_Cls_AstNode_add(cls, xn_a8EqualsMethod(cls, fields));
     xn_Cls_AstNode_add(cls, xn_a8ToStringMethod(cls, fields));
     xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
-    return 1;
   }
-  if (c) {
+  if (((c && (!v)) && (!d))) {
     if ((!xn_a8CtorMatches(cls, fields))) {
       return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
     }
@@ -16578,6 +16724,19 @@ static int xn_expandA8Class(xn_Cls_AstNode * cls) {
       i = xn_int_wrap((i + 1));
     }
   }
+  if (b) {
+    if ((((int64_t)xn_a8TypeParams(cls)->len) > 0)) {
+      return xn_a8Fail(rt_string_from_c("AN0025"), rt_string_from_c("generic @Builder is not supported yet"), cls);
+    }
+    if ((!xn_a8CtorMatches(cls, fields))) {
+      return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
+    }
+    rt_string * bname = xn_concat(cls->text, rt_string_from_c("Builder"));
+    if (xn_a8ClassExists(program, bname)) {
+      return xn_a8Fail(rt_string_from_c("AN0024"), xn_concat(rt_string_from_c("builder class already exists: "), bname), cls);
+    }
+    xn_Cls_AstNode_add(program, xn_a8BuildBuilder(cls, xn_a8CtorParams(cls)));
+  }
   return 1;
 }
 
@@ -16586,7 +16745,7 @@ static int xn_expandA8Annotations(xn_Cls_AstNode * program) {
   while ((i < ((int64_t)program->kids->len))) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
     if ((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum"))) || xn_str_eq(n->kind, rt_string_from_c("Protocol")))) {
-      if ((!xn_expandA8Class(n))) {
+      if ((!xn_expandA8Class(n, program))) {
         return 0;
       }
     }

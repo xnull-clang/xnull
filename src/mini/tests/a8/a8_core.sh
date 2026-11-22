@@ -5,8 +5,9 @@ ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 XNULL="$ROOT/src/cli/xnull"
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
-for src in "$HERE"/*.x; do
-    exp=${src%.x}.out
+for name in data value copy generic_box package_adoption; do
+    src="$HERE/$name.x"
+    exp="$HERE/$name.out"
     "$XNULL" --bootstrap --engine=mini run "$src" >"$TMP"
     diff -u "$exp" "$TMP"
 done

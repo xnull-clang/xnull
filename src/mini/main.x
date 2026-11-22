@@ -3705,6 +3705,11 @@ class AnnotationChecker {
         r.push("AN0018")
         r.push("AN0019")
         r.push("AN0020")
+        r.push("AN0021")
+        r.push("AN0022")
+        r.push("AN0023")
+        r.push("AN0024")
+        r.push("AN0025")
         return r
     }
 
@@ -14319,17 +14324,142 @@ AstNode a8WithMethod(AstNode cls, AstNode field) {
     return m
 }
 
-Bool expandA8Class(AstNode cls) {
+Bool a8ClassExists(AstNode program, String name) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if (n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol") &&
+           n.text == name { return true }
+        i = i + 1
+    }
+    return false
+}
+
+List<AstNode> a8CtorParams(AstNode cls) {
+    List<AstNode> out = []
+    AstNode ctor = a8Ctor(cls)
+    if ctor.kind == "None" { return out }
+    Int i = 0
+    while i < ctor.kids.length() {
+        if ctor.kids.get(i).kind == "Param" { out.push(ctor.kids.get(i)) }
+        i = i + 1
+    }
+    return out
+}
+
+String a8ParamType(AstNode p) {
+    List<String> parts = p.text.split(" ")
+    if parts.length() >= 1 { return parts.get(0) }
+    return p.text
+}
+
+String a8ParamName(AstNode p) {
+    List<String> parts = p.text.split(" ")
+    if parts.length() >= 2 { return parts.get(1) }
+    return p.text
+}
+
+AstNode a8BuilderField(String ty, String name, AstNode cls) {
+    return new AstNode("Field", ty + " " + name, cls.line, cls.col)
+}
+
+AstNode a8BuilderWith(AstNode builder, AstNode p, AstNode cls) {
+    String bname = builder.text
+    String pname = a8ParamName(p)
+    String cap = a8Capitalize(pname)
+    AstNode m = a8Method("with" + cap, bname, cls)
+    m.add(new AstNode("Param", a8ParamType(p) + " value", cls.line, cls.col))
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    AstNode set = new AstNode("Assign", "=", cls.line, cls.col)
+    AstNode member = new AstNode("Member", "_" + pname, cls.line, cls.col)
+    member.add(new AstNode("Name", "self", cls.line, cls.col))
+    set.add(member)
+    set.add(new AstNode("Name", "value", cls.line, cls.col))
+    body.add(set)
+    AstNode flag = new AstNode("Assign", "=", cls.line, cls.col)
+    AstNode flagMember = new AstNode("Member", "_has" + cap, cls.line, cls.col)
+    flagMember.add(new AstNode("Name", "self", cls.line, cls.col))
+    flag.add(flagMember)
+    flag.add(new AstNode("Bool", "true", cls.line, cls.col))
+    body.add(flag)
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(new AstNode("Name", "self", cls.line, cls.col))
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params) {
+    AstNode m = a8Method("build", cls.text, cls)
+    AstNode body = new AstNode("Block", "", cls.line, cls.col)
+    Int i = 0
+    while i < params.length() {
+        String cap = a8Capitalize(a8ParamName(params.get(i)))
+        AstNode has = new AstNode("Member", "_has" + cap, cls.line, cls.col)
+        has.add(new AstNode("Name", "self", cls.line, cls.col))
+        AstNode cond = new AstNode("Unary", "!", cls.line, cls.col)
+        cond.add(has)
+        AstNode ifn = new AstNode("If", "", cls.line, cls.col)
+        ifn.add(cond)
+        AstNode block = new AstNode("Block", "", cls.line, cls.col)
+        AstNode thr = new AstNode("Throw", "", cls.line, cls.col)
+        thr.add(new AstNode("String", "\"" + builder.text + ".build: missing field " + a8ParamName(params.get(i)) + "\"", cls.line, cls.col))
+        block.add(thr)
+        ifn.add(block)
+        body.add(ifn)
+        i = i + 1
+    }
+    AstNode nw = new AstNode("New", cls.text, cls.line, cls.col)
+    i = 0
+    while i < params.length() {
+        AstNode mem = new AstNode("Member", "_" + a8ParamName(params.get(i)), cls.line, cls.col)
+        mem.add(new AstNode("Name", "self", cls.line, cls.col))
+        nw.add(mem)
+        i = i + 1
+    }
+    AstNode ret = new AstNode("Return", "", cls.line, cls.col)
+    ret.add(nw)
+    body.add(ret)
+    m.add(body)
+    return m
+}
+
+AstNode a8BuildBuilder(AstNode cls, List<AstNode> params) {
+    String bname = cls.text + "Builder"
+    AstNode b = new AstNode("Class", bname, cls.line, cls.col)
+    b.packageName = cls.packageName
+    b.add(new AstNode("Generated", "A8", cls.line, cls.col))
+    Int i = 0
+    while i < params.length() {
+        b.add(a8BuilderField(a8ParamType(params.get(i)), "_" + a8ParamName(params.get(i)), cls))
+        b.add(a8BuilderField("Bool", "_has" + a8Capitalize(a8ParamName(params.get(i))), cls))
+        i = i + 1
+    }
+    AstNode ctor = new AstNode("Ctor", bname, cls.line, cls.col)
+    ctor.add(new AstNode("Block", "", cls.line, cls.col))
+    b.add(ctor)
+    i = 0
+    while i < params.length() {
+        b.add(a8BuilderWith(b, params.get(i), cls))
+        i = i + 1
+    }
+    b.add(a8BuilderBuild(b, cls, params))
+    return b
+}
+
+Bool expandA8Class(AstNode cls, AstNode program) {
     Bool v = a8HasAnno(cls, "Value")
     Bool d = a8HasAnno(cls, "Data")
     Bool c = a8HasAnno(cls, "Copy")
-    if !v && !d && !c { return true }
+    Bool b = a8HasAnno(cls, "Builder")
+    if !v && !d && !c && !b { return true }
     if cls.kind != "Class" {
-        return a8Fail("AN0021", "@Value/@Data/@Copy require a class", cls)
+        return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
     }
     a8DropAnno(cls, "Value")
     a8DropAnno(cls, "Data")
     a8DropAnno(cls, "Copy")
+    a8DropAnno(cls, "Builder")
     List<AstNode> fields = a8InstanceFields(cls)
     if v {
         Int i = 0
@@ -14350,9 +14480,8 @@ Bool expandA8Class(AstNode cls) {
         cls.add(a8EqualsMethod(cls, fields))
         cls.add(a8ToStringMethod(cls, fields))
         cls.add(a8CopyMethod(cls, fields))
-        return true
     }
-    if c {
+    if c && !v && !d {
         if !a8CtorMatches(cls, fields) {
             return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
         }
@@ -14374,6 +14503,19 @@ Bool expandA8Class(AstNode cls) {
             i = i + 1
         }
     }
+    if b {
+        if a8TypeParams(cls).length() > 0 {
+            return a8Fail("AN0025", "generic @Builder is not supported yet", cls)
+        }
+        if !a8CtorMatches(cls, fields) {
+            return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
+        }
+        String bname = cls.text + "Builder"
+        if a8ClassExists(program, bname) {
+            return a8Fail("AN0024", "builder class already exists: " + bname, cls)
+        }
+        program.add(a8BuildBuilder(cls, a8CtorParams(cls)))
+    }
     return true
 }
 
@@ -14382,7 +14524,7 @@ Bool expandA8Annotations(AstNode program) {
     while i < program.kids.length() {
         AstNode n = program.kids.get(i)
         if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" || n.kind == "Protocol" {
-            if !expandA8Class(n) { return false }
+            if !expandA8Class(n, program) { return false }
         }
         i = i + 1
     }
