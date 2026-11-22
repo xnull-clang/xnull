@@ -1190,12 +1190,37 @@ static xn_Cls_AstNode * xn_Cls_Parser_parseClassDecl(xn_Cls_Parser *self, rt_str
     }
     xn_Cls_Token * mt = xn_Cls_Parser_advance(self);
     rt_string * mn = mt->text;
+    int hasMethodTypeParams = 0;
+    xn_Cls_AstNode * methodTypeParams = xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), mt->line, mt->col);
+    if (xn_Cls_Parser_at(self, rt_string_from_c("<"))) {
+      xn_Cls_Parser_advance(self);
+      methodTypeParams = xn_Cls_AstNode_new(rt_string_from_c("TypeParams"), rt_string_from_c(""), mt->line, mt->col);
+      while (((!xn_Cls_Parser_hasError(self)) && (!xn_Cls_Parser_at(self, rt_string_from_c(">"))))) {
+        xn_arr_o * panns = xn_Cls_Parser_parseAnnotations(self);
+        if ((!xn_Cls_Parser_kind(self, rt_string_from_c("ident")))) {
+          xn_Cls_Parser_fail(self, rt_string_from_c("expected method type parameter"));
+          break;
+        }
+        xn_Cls_Token * pn = xn_Cls_Parser_advance(self);
+        xn_Cls_AstNode * tpn = xn_Cls_AstNode_new(rt_string_from_c("TypeParam"), pn->text, pn->line, pn->col);
+        xn_Cls_Parser_attachAnnotations(self, tpn, panns);
+        xn_Cls_AstNode_add(methodTypeParams, tpn);
+        if ((!xn_Cls_Parser_eat(self, rt_string_from_c(",")))) {
+          break;
+        }
+      }
+      xn_Cls_Parser_expect(self, rt_string_from_c(">"));
+      hasMethodTypeParams = 1;
+    }
     if (xn_Cls_Parser_at(self, rt_string_from_c("("))) {
       xn_Cls_AstNode * m = xn_Cls_Parser_node(self, rt_string_from_c("Method"), mn, mt);
       if (isStatic) {
         xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Static"), rt_string_from_c(""), mt->line, mt->col));
       }
       xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Ret"), ty, mt->line, mt->col));
+      if (hasMethodTypeParams) {
+        xn_Cls_AstNode_add(m, methodTypeParams);
+      }
       xn_Cls_Parser_advance(self);
       if ((!xn_Cls_Parser_at(self, rt_string_from_c(")")))) {
         while ((!xn_Cls_Parser_hasError(self))) {
@@ -2395,7 +2420,14 @@ static xn_Cls_AstNode * xn_Cls_Parser_parsePrimary(xn_Cls_Parser *self) {
       if ((xn_Cls_Parser_at(self, rt_string_from_c("<")) && xn_Cls_Parser_looksLikeTypeArgs(self))) {
         xn_Cls_Token * gt = xn_Cls_Parser_peek(self);
         rt_string * targs = xn_Cls_Parser_parseTypeArgsText(self);
-        xn_Cls_AstNode * call = xn_Cls_Parser_node(self, rt_string_from_c("GenericCall"), n->text, t);
+        xn_Cls_AstNode * call = xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), t->line, t->col);
+        if (xn_str_eq(n->kind, rt_string_from_c("Member"))) {
+          call = xn_Cls_Parser_node(self, rt_string_from_c("MethodCall"), n->text, t);
+          xn_Cls_AstNode_add(call, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+        }
+        else {
+          call = xn_Cls_Parser_node(self, rt_string_from_c("GenericCall"), n->text, t);
+        }
         xn_Cls_AstNode_add(call, xn_Cls_Parser_node(self, rt_string_from_c("TypeArgs"), targs, gt));
         xn_Cls_Parser_expect(self, rt_string_from_c("("));
         if ((!xn_Cls_Parser_at(self, rt_string_from_c(")")))) {

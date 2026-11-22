@@ -472,12 +472,35 @@ class Parser {
             }
             Token mt = self.advance()
             String mn = mt.text
+            Bool hasMethodTypeParams = false
+            AstNode methodTypeParams = new AstNode("None", "", mt.line, mt.col)
+            if self.at("<") {
+                self.advance()
+                methodTypeParams = new AstNode("TypeParams", "", mt.line, mt.col)
+                while !self.hasError() && !self.at(">") {
+                    List<AstNode> panns = self.parseAnnotations()
+                    if !self.kind("ident") {
+                        self.fail("expected method type parameter")
+                        break
+                    }
+                    Token pn = self.advance()
+                    AstNode tpn = new AstNode("TypeParam", pn.text, pn.line, pn.col)
+                    self.attachAnnotations(tpn, panns)
+                    methodTypeParams.add(tpn)
+                    if !self.eat(",") {
+                        break
+                    }
+                }
+                self.expect(">")
+                hasMethodTypeParams = true
+            }
             if self.at("(") {
                 AstNode m = self.node("Method", mn, mt)
                 if isStatic {
                     m.add(new AstNode("Static", "", mt.line, mt.col))
                 }
                 m.add(new AstNode("Ret", ty, mt.line, mt.col))
+                if hasMethodTypeParams { m.add(methodTypeParams) }
                 self.advance()
                 if !self.at(")") {
                     while !self.hasError() {
@@ -1638,7 +1661,13 @@ class Parser {
                 if self.at("<") && self.looksLikeTypeArgs() {
                     Token gt = self.peek()
                     String targs = self.parseTypeArgsText()
-                    AstNode call = self.node("GenericCall", n.text, t)
+                    AstNode call = new AstNode("None", "", t.line, t.col)
+                    if n.kind == "Member" {
+                        call = self.node("MethodCall", n.text, t)
+                        call.add(n.kids.get(0))
+                    } else {
+                        call = self.node("GenericCall", n.text, t)
+                    }
                     call.add(self.node("TypeArgs", targs, gt))
                     self.expect("(")
                     if !self.at(")") {
