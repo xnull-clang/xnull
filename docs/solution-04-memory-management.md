@@ -1,15 +1,17 @@
-# XNull Solution Part 3: Memory Management
+# XNull Solution Part 4: Memory Management
 
 | Item | Value |
 | --- | --- |
-| Document number | Part 3 (S3) |
+| Document number | Part 4 (S4) |
 | Document version | 3.2.0 |
 | Specification status | Formal |
 | Publication date | 2026-11-15 |
 | Applies to | XNull language implementations |
-| Related parts | Part 1 v3.4.0; Part 2 v3.4.0; Part 4 v1.2.0; Part 5 v1.3.0; Part 7 v2.2.0 |
+| Related parts | Part 1 v3.4.0; Part 2 v3.6.0; Part 3 v1.0.0; Part 5 v1.2.0; Part 6 v1.3.0; Part 8 v2.2.0 |
 
 Version rule: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. Historical versions are recorded in git.
+
+Renumber note: document renumbered from Part 3 to Part 4 on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
 
 ## Decision Summary
 
@@ -32,7 +34,7 @@ This document does not specify:
 
 - Object kinds, inheritance, protocols, and dispatch; see Part 2.
 - The syntax and propagation semantics of `defer` / `errdefer`; see Part 1, Section 10.
-- Library types and API shapes; see Part 6.
+- Library types and API shapes; see Part 7.
 - Error observation, cancellation, and timeouts; see Parts 4 and 5.
 - Specific allocator algorithms or GC generational/incremental strategies; implementations MAY choose these themselves, but MUST satisfy the invariants of this document.
 
@@ -366,7 +368,7 @@ An implementation MAY use mark-sweep, generational, incremental, or concurrent s
 
 - ARC counts MUST be atomic under concurrency; the GC MUST scan the root set at safe points.
 - Concurrent reads and writes of object fields are not synchronized; data races are program errors, the runtime does not detect them, and results are not guaranteed in any way.
-- When synchronization is needed, use the synchronization primitives of Part 5; synchronization responsibility is explicit at the point of use.
+- When synchronization is needed, use the synchronization primitives of Part 6; synchronization responsibility is explicit at the point of use.
 
 ### 11.3 Task Finalization
 
@@ -433,7 +435,7 @@ Contract:
 - A close failure does not mean the resource is still open: cleanup actions are irreversible, and `Result` only reports diagnostics.
 - Handles MUST NOT rely on `deinit` as the only close path.
 - The lifetime of a handle is determined by the object or scope that holds it; sharing a handle across tasks requires synchronization.
-- For concrete types and signatures, see Part 6.
+- For concrete types and signatures, see Part 7.
 
 ## 19. FFI and Cross-Language Ownership
 
@@ -444,7 +446,7 @@ FFI is a contract-constrained boundary, not a direct call to arbitrary native fu
 - Call leases are declared per parameter: lend (`.borrow`), transfer (`.transfer`), reclaim (`.reclaim`).
 - Buffers MUST remain address-stable for the duration of the boundary; out-of-bounds writes are contract violations.
 - Layout compatibility MUST be verified per type; XNull field slots and the target ABI are not identical by default.
-- For the complete contract, see Part 7, Appendix A.
+- For the complete contract, see Part 8, Appendix A.
 
 ## 20. Diagnostics and Observability
 
@@ -470,5 +472,5 @@ The runtime library MAY provide allocation statistics, GC metrics, live object d
 - Allocation failure is fatal; `OutOfMemory` MAY serve as an observation surface, but a partially initialized object MUST NOT be returned.
 - When a constructor panics, the object is not published and the process terminates.
 - Stack overflow is fatal.
-- APIs that require capacity control MUST explicitly return errors at L1 (Part 4); a general allocation failure MUST NOT be treated as a recoverable error and retried.
+- APIs that require capacity control MUST explicitly return errors at L1 (Part 5); a general allocation failure MUST NOT be treated as a recoverable error and retried.
 - Allocation failure MUST NOT trigger undefined behavior; the process MUST terminate with a fatal diagnostic.

@@ -110,7 +110,7 @@ X：Hedging、组合策略、分布式熔断、指标导出。
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | ResilienceAnnotationProcessor（Validate/Generate） |
 | 生成物 | 重试/熔断/限流/超时包装器 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

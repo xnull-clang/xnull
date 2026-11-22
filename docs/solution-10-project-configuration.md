@@ -1,17 +1,17 @@
-# XNull Solution Part 9: Project Configuration
+# XNull Solution Part 10: Project Configuration
 
 | Item | Value |
 | --- | --- |
-| Document ID | Part 9 (S9) |
+| Document ID | Part 10 (S10) |
 | Document version | 5.3.0 |
 | Specification status | Final |
 | Release date | 2026-11-15 |
 | Applies to | XNull language implementations |
-| Related parts | Part 1 v3.4.0; Part 4 v1.2.0; Part 6 v3.0.0; Part 7 v2.2.0 |
+| Related parts | Part 1 v3.4.0; Part 3 v1.0.0; Part 5 v1.2.0; Part 7 v3.0.0; Part 8 v2.2.0; Part 9 v2.0.0 |
 
 > **Version note**: 5.2.0 patches four gaps where "an example can be written but the grammar cannot read it": ① `language-version` uses `[3.3, 4.0)`, while the original grammar only had bracketed lists → add a **range literal** production; ② **bodyless entries** such as `module platform` and `exclusion org.old:archive` were forced by the original grammar to have `{ }` → the block body becomes optional (C.2, C.3 item 6); ③ **dotted keys** such as `db.pool.max-size` are not identifiers → add a "key name" notation and restrict it to the `configuration` section only (C.3 item 4); ④ the `*` and `?` in the resource glob `**/*.psd` are not in the bare-word character set → added. It also clarifies that **a newline is a statement terminator** (a leaf entry ends at end of line); lists/ranges must not span lines, and an entry that is not terminated by a newline is an error. New diagnostic codes `XPD-105/106/107`.
 >
-> **Version note**: 5.1.0 adds the **resource directory design**—`src/main/resources` / `src/test/resources`, inclusion and exclusion, the `resources/` prefix inside artifacts, merging of dependency-library resources with failure on conflict, rejection of build-time filtering, and runtime access through the library resource reading API (Part 6 §4); the service configuration file is accordingly located under the resource root. The rest of 5.0.0 is unchanged.
+> **Version note**: 5.1.0 adds the **resource directory design**—`src/main/resources` / `src/test/resources`, inclusion and exclusion, the `resources/` prefix inside artifacts, merging of dependency-library resources with failure on conflict, rejection of build-time filtering, and runtime access through the library resource reading API (Part 7 §4); the service configuration file is accordingly located under the resource root. The rest of 5.0.0 is unchanged.
 >
 > **Finalization note**: This part specifies the complete configuration of an XNull project: the manifest section tree and inheritance, coordinates, properties and variables, dependency management, dependencies and plugins, repositories and credentials, lifecycle and artifacts, resource directories and packaging, service runtime configuration, linking and FFI declarations, reproducibility, diagnostic code ranges, and gives three complete examples—single-module project, multi-service project, and aggregator project—in Appendix A. Drafts v1.0.0 (JSON), v2.0.0 (XML), v3.0.0 (TOML), and v4.0.0 (flat XPD) are archived, and their semantic conclusions have all been absorbed into this version.
 
@@ -41,9 +41,9 @@ Project structure and skeleton consistency; the `xnull.project` manifest (coordi
 | Dimension | Specified by | Role of this part |
 | --- | --- | --- |
 | Entry signature and semantics | Part 1 §11.2 | Only specifies "how the entry is found" (§5.4) |
-| Exit code mapping | Part 4 §6.2 | Reference (runtime exit codes of compiled artifacts); for the build tool's own exit codes see §5.1 |
-| XDK version declaration mechanism | Part 6 §6 | Specifies the manifest fields and validation semantics (§3.9) |
-| FFI native libraries and the `@unsafe` gate | Part 7 Appendix A | Specifies the manifest sections and the linking contract (§7) |
+| Exit code mapping | Part 5 §6.2 | Reference (runtime exit codes of compiled artifacts); for the build tool's own exit codes see §5.1 |
+| XDK version declaration mechanism | Part 7 §6 | Specifies the manifest fields and validation semantics (§3.9) |
+| FFI native libraries and the `@unsafe` gate | Part 8 Appendix A | Specifies the manifest sections and the linking contract (§7) |
 
 ## 2. Project Model
 
@@ -332,7 +332,7 @@ profiles {
 - Multiple profiles activated at once and modifying the same key → failure (do not silently take the latter);
 - The set of simultaneously active profiles must be **explicitly determined**: the union of `-P` and `activation.platform`, written into `.xmeta`.
 
-### 3.9 Version declaration (implementing Part 6 Decision 4-3)
+### 3.9 Version declaration (implementing Part 7 Decision 4-3)
 
 - `properties.xdk-version`: the required XDK version (exact); toolchain XDK mismatch → failure;
 - `properties.language-version`: the language version range, **the only place where a range expression is allowed** (`[3.3, 4.0)`); outside the range → failure;
@@ -483,7 +483,7 @@ settings {
 | `package` | Produce `target/<artifactId>-<version>.<ext>` + `.xmeta` |
 | `install` | Install to the local repository (can be skipped) |
 
-**Toolchain exit codes (final, independent of the runtime exit codes in Part 4 §6.2)**:
+**Toolchain exit codes (final, independent of the runtime exit codes in Part 5 §6.2)**:
 
 | Code | Meaning |
 | --- | --- |
@@ -592,7 +592,7 @@ plugin {
 
 - Metadata missing or inconsistent with the manifest (coordinates, phase, goal, configKeys, toolchain version) → failure;
 - `toolchainVersion` is a major-version compatibility constraint: different major version → failure;
-- **Unrelated to runtime dynamic modules**: plugins in this section are build-time executables and do not enter the artifact; dynamic loading/unloading of managed modules at program runtime is finalized in Part 3 (not included in the initial baseline).
+- **Unrelated to runtime dynamic modules**: plugins in this section are build-time executables and do not enter the artifact; dynamic loading/unloading of managed modules at program runtime is finalized in Part 4 (not included in the initial baseline).
 
 ### 5.6 Resource Directories and Packaging
 
@@ -633,7 +633,7 @@ build {
 - A `starter`'s resources are published with its metadata and are **not merged** into consumers (a starter has no code artifact);
 - A `library`'s `.xlib` contains only its own resources.
 
-**Runtime access**: read-only; paths are rooted at `resources/` (e.g., `templates/a.html`); absolute paths and `..` segments prohibited; nonexistent → `NotFound` error. For the API, see the library resource reading capability in Part 6 §4. Resources are separate from the filesystem: resources do not support writing, deletion, or renaming.
+**Runtime access**: read-only; paths are rooted at `resources/` (e.g., `templates/a.html`); absolute paths and `..` segments prohibited; nonexistent → `NotFound` error. For the API, see the library resource reading capability in Part 7 §4. Resources are separate from the filesystem: resources do not support writing, deletion, or renaming.
 
 **Relationship to configuration**: `application.properties` / `application-<profile>.properties` are **fixed-filename resources at the top level of the resource root** (§6.1), allowed only at the top level of the resource root and must not be placed in subdirectories; read at build time and counted in the `.xmeta` input digest.
 
@@ -667,7 +667,7 @@ feature.new-checkout=false
 | Prefix | Ownership | Example |
 | --- | --- | --- |
 | `xnull.` | Reserved by the toolchain | `xnull.profile` |
-| `xdk.` | XDK configuration namespace (Part 6) | `xdk.log.level` |
+| `xdk.` | XDK configuration namespace (Part 7) | `xdk.log.level` |
 | `app.` | The service itself | `app.name` |
 | Custom (lowercase dot-separated, hyphens within segments) | Service-internal | `net.http.listen-port` |
 
@@ -696,7 +696,7 @@ feature.new-checkout=false
 - Missing required key = startup failure (named);
 - Value parse failure (e.g., `listen-port=abc`) = startup failure;
 - Error messages must contain: the key name, the layer where it occurs, and the file path (or "command line");
-- Configuration validation occurs before `main` executes; validation failure → exit code handled as an initialization failure per Part 4 §6.2.
+- Configuration validation occurs before `main` executes; validation failure → exit code handled as an initialization failure per Part 5 §6.2.
 
 ### 6.6 Cross-Service Sharing (build time only)
 
@@ -727,14 +727,14 @@ link {
 
 | Field | Required | Description |
 | --- | --- | --- |
-| `unsafe` | No | Defaults to `false`; `true` indicates allowing the controlled `@unsafe` entry (Part 7 Appendix A §A.8); once enabled, the build log must record it |
+| `unsafe` | No | Defaults to `false`; `true` indicates allowing the controlled `@unsafe` entry (Part 8 Appendix A §A.8); once enabled, the build log must record it |
 | `library <name>` | Yes (when non-empty) | Native library name |
 | `kind` | Yes | `static` / `dynamic` |
 | `system` | No | Defaults to `false`; `true` indicates a system library (provided by the host, not packaged) |
 
-- Native libraries that are not declared must not be linked; FFI bindings referencing an undeclared library → build failure (Part 7 Appendix A §A.2.2 auditable);
+- Native libraries that are not declared must not be linked; FFI bindings referencing an undeclared library → build failure (Part 8 Appendix A §A.2.2 auditable);
 - Duplicate declaration of a library with the same name → failure;
-- Runtime ABI symbols (`xrt_*`, Part 7 Appendix A §A.6.1) are linked automatically by the toolchain; no declaration is needed, and they must not be rewritten;
+- Runtime ABI symbols (`xrt_*`, Part 8 Appendix A §A.6.1) are linked automatically by the toolchain; no declaration is needed, and they must not be rewritten;
 - A non-`app`/`library` declaring a non-empty `link` → failure.
 
 ## 8. Reproducibility
@@ -761,12 +761,12 @@ link {
 | Environment-variable profile activation | Rejected | Irreproducible |
 | Remote repository signature verification | Non-promise | Reason: ecosystem undecided; consequence: must not be used as a security boundary |
 | Incremental compilation / parallel build strategies | Non-promise | Reason: implementation freedom; consequence: only consistency of semantics and artifact digest is guaranteed |
-| Editor highlighting/formatting | Not part of this part | See Part 8 and the toolchain |
+| Editor highlighting/formatting | Not part of this part | See Part 9 and the toolchain |
 | Build artifact encryption/obfuscation | Rejected | Not within the scope of this part |
 | Build-time resource filtering/variable substitution | Rejected | Reason: resource bytes that change with the manifest cannot be reviewed file-by-file; dependent consequence: content that varies by environment must go through runtime configuration |
 | Resource size limit | Non-promise | Reason: resource volume is determined by the user; consequence: oversized resources lengthen build time and memory usage; no specification limit is set |
 
-**Resource directory capability ownership (final)**: resource packaging rules belong to §5.6 of this part; the resource reading API belongs to the resource reading capability in Part 6 §4; the toolchain is only responsible for assembling artifacts per §5.6 and does not interpret resource content.
+**Resource directory capability ownership (final)**: resource packaging rules belong to §5.6 of this part; the resource reading API belongs to the resource reading capability in Part 7 §4; the toolchain is only responsible for assembling artifacts per §5.6 and does not interpret resource content.
 
 ## Appendix A: Complete Examples of Three Project Types
 

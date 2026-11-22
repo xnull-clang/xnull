@@ -138,7 +138,7 @@ X：完整 CLDR 复数/日期/数字规则、脚本子标签、BCP 47 扩展、I
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | Locale/目录/格式化值语义 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

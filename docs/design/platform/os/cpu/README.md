@@ -78,7 +78,7 @@ CPU 拓扑、缓存、NUMA 归属、ISA 特性和亲和性控制。
 | 本包消费 | `@Value` |
 | 处理器 | 标准 A8 |
 | 生成物 | CPU 拓扑/核心/缓存值语义；Affinity 是句柄 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -121,7 +121,7 @@ JWT 包使用 `Hmac`/`Asymmetric`；不把 JWT 放进 crypto。
 | 本包消费 | `@Value`、`@Deprecated` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | `KeyPair` 值语义、弃用诊断；密钥句柄不套 `@Value` |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -6,7 +6,7 @@
 | 层 | 语言/编译期层，位于 core 之前 |
 | 依赖 | 仅语言核心标量与容器；不依赖其他 XDK 包 |
 | 被依赖 | 各领域注解、编译器、构建调度、IDE/文档工具 |
-| 稳定性 | `preview`；14 类型 + 编译器注解管线 + Registry 已实现；A8/领域处理器 planned |
+| 稳定性 | `preview`；14 类型 + 编译器注解管线 + Registry + A8 已实现；领域处理器 planned |
 | 文档 | 1 包 / 14 类型 |
 
 ---
@@ -24,6 +24,7 @@
 
 权威设计：
 
+- [`../../solution-03-annotation.md`](../../solution-03-annotation.md)
 - [`../ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md)
 - [`README.md`](README.md)
 - [`../ANNOTATION-PLAN.md`](../ANNOTATION-PLAN.md)

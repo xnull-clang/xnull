@@ -244,7 +244,7 @@ SessionOptions options = new SessionOptions(
 | 本包消费 | `@Value`、`@Builder`、`@TensorSpec` |
 | 处理器 | MlAnnotationProcessor（Validate/Generate） |
 | 生成物 | 模型/流水线目录、输入输出 spec |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

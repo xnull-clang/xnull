@@ -237,7 +237,7 @@ Result<DateTime, Error> parsed = parseDateTimeLayout("2026-11-22 12:00:00", "yyy
 | 本包消费 | `@Data`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | Duration/Instant/Date/Time/DateTime 用合法 struct；格式化器用数据类/ builder |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

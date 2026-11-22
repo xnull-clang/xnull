@@ -395,13 +395,13 @@ ErrorReport report = toErrorReport(error).withStep("load config")
 | 本包消费 | `@Value`、`@Copy`、`@Override`、`@Deprecated` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 派生相等/复制、协议签名校验、弃用诊断 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `ErrorDetail`/`BasicError` | `@Value` | equals/hash/toString/copy |
+| `ErrorDetail`/`BasicError` | `@Value` | equals/toString/copy |
 | `BasicError` | `@Copy` | 逐字段 `withX` |
 | `Error`/`DetailedError` 实现 | `@Override` | 签名校验 |
 

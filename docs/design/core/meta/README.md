@@ -409,7 +409,7 @@ Bool tls = hasCapability(Capability.Tls)
 | 本包消费 | `@Value`、`@Data`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | 能力/画像/构建信息派生成员、ProfileBuilder |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

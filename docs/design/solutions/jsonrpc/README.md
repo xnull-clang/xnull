@@ -139,7 +139,7 @@ X：批量请求、JSON-RPC 1.0 兼容层、取消扩展、进度扩展。MCP �
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | JSON-RPC 请求/响应/错误值语义 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

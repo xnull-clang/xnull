@@ -124,7 +124,7 @@ OS 防火墙的类型化规则、状态查询与控制；Linux nftables/iptables
 | 本包消费 | `@Value`、`@Builder`、`@Audited` |
 | 处理器 | 标准 A8 / 审计处理器 |
 | 生成物 | 规则值语义、规则构造、变更审计 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

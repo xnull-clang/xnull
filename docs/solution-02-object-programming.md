@@ -3,15 +3,15 @@
 | Item | Value |
 | --- | --- |
 | Document number | Part 2 (S2) |
-| Document version | 3.5.0 |
+| Document version | 3.6.0 |
 | Specification status | Formal |
-| Release date | 2026-11-22 |
+| Release date | 2026-11-23 |
 | Intended audience | XNull language implementations |
-| Related parts | Part 1 v3.4.0; Part 3 v3.2.0 |
+| Related parts | Part 1 v3.4.0; Part 3 v1.0.0; Part 4 v3.2.0 |
 
 Versioning rules: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. See the git history for past versions.
 
-Revision note: 3.5.0 (2026-11-22) completes the annotation execution model: meta-annotations are enforced, build-time processors and code generation are part of the language contract, `@Repeatable` preserves order, and `Runtime` retention is exposed only through a compiler-generated static registry. No annotation syntax is changed.
+Revision note: 3.6.0 (2026-11-23) moves the complete annotation execution model to Part 3. Section 12 remains the object-model syntax summary and points to Part 3 for the full contract. No annotation syntax is changed.
 
 ## Decision Summary
 
@@ -41,9 +41,9 @@ This Solution does not specify:
 
 - Lexical structure, basic types, expressions, statements, closure syntax, packages and imports, and the entry point; see Part 1.
 - The basic semantics of `Result`, `try`, and `defer` / `errdefer`; see Part 1, Section 10.
-- Error observation, cancellation, timeouts, and `ErrorKind` policies; see the Error Handling specification.
-- C ABI, IPC, and cross-language ownership; see Part 7.
-- Object memory policies and storage layout; see Part 3.
+- Error observation, cancellation, timeouts, and `ErrorKind` policies; see Part 5 (Error Handling).
+- C ABI, IPC, and cross-language ownership; see Part 8.
+- Object memory policies and storage layout; see Part 4.
 
 ### 0.2 Relationship with Part 1
 
@@ -375,7 +375,7 @@ Struct instance fields are checked recursively by declared type; value-containme
 | Inheritance | Forbidden | Single parent class; field/method reuse only |
 | Protocols | Forbidden | Allowed; protocol-type receivers dispatch dynamically |
 | Dispatch | Static | Static for class types; dynamic for protocol types |
-| Lifetime | Follows the value or container that holds it | The object is finalized after it becomes unreachable (see Part 3) |
+| Lifetime | Follows the value or container that holds it | The object is finalized after it becomes unreachable (see Part 4) |
 | Typical uses | Coordinates, sizes, colors, ranges, pure-value configuration snapshots | Entities, services, shared state, polymorphism, objects that need `deinit` |
 
 Selection rule: use `struct` when independent copies are needed and all fields are value types; use `class` when identity, sharing, protocol polymorphism, lifetime callbacks, or reference fields are needed.
@@ -1245,84 +1245,52 @@ extension Device {
 
 ## 12. annotation
 
-### 12.1 Declaration
+This section is the object-model syntax summary. The complete annotation contract—built-ins, A8 derived members, domain processors, runtime registry, API documentation surface, compatibility, and examples—is specified in **Part 3 (S3), [`solution-03-annotation.md`](solution-03-annotation.md)**.
+
+### 12.1 Declaration and Use
 
 ```x
 @annotation Marker {
     final String name = "";
 }
-```
 
-- `@annotation` declares a compile-time annotation type; no runtime annotation object is generated.
-- Annotations may only declare `final` fields. Field types are compile-time constant types: `Bool`, integer types, `Float`/`Double`, `Char`, `String`, simple enums, constant arrays of those types, nested annotation types, and `Type`/`TypeRef` references.
-- Annotation fields may have compile-time constant initializers. A field without an initializer is required at every use site; omitted trailing optional fields use their declared initializer.
-- Annotations cannot have methods, constructors, `deinit`, static members, generic parameters, inheritance, or protocol implementations.
-- Annotation declarations do not produce runtime instances.
-- Annotation types exist only at compile time; they cannot be `new`-ed and cannot be passed as values.
-
-### 12.2 Usage
-
-```x
-@Marker
+@Marker("device")
 class Device { }
 ```
 
-Annotation arguments support positional arguments only:
+- `@annotation` declares a compile-time type; no runtime annotation object is generated.
+- Fields are `final` and use compile-time constant types: `Bool`, integer types, `Float`/`Double`, `Char`, `String`, simple enums, constant arrays, nested annotation types, and `Type`/`TypeRef` references.
+- A field may have a constant initializer. A field without one is required at every use site; omitted trailing fields use their defaults.
+- Annotation arguments are positional only. Named arguments, variadic arguments, and runtime expressions are not supported.
+- Annotations cannot declare methods, constructors, `deinit`, static members, generics, inheritance, or protocol implementations. They cannot be `new`-ed or used as runtime values.
 
-```x
-@Marker("x")
-class Device { }
-```
+### 12.2 Targets, Retention, and TypeUse
 
-- Usage forms: `@Name` or `@Name(arg1, arg2, ...)`; arguments are bound in field declaration order.
-- Arguments must be compile-time constants; their types must be assignable to the field types; omitted trailing fields use the initializer from the declaration site.
-- Extra arguments are compile errors; intermediate fields cannot be skipped; named arguments are not supported.
-- Annotations may be applied to package declarations, type declarations, annotation declarations, type parameters, fields, methods, constructors, `deinit`, parameters, and enum items.
-- Type-use annotations use the prefix form `@Foo Type` and are allowed on field types, parameter types, return types, and local variable types; they are recorded as `AnnotationTarget.TypeUse`, not as declaration annotations.
-- `@Target(TypeUse)` is always explicit: the default target set for annotations without `@Target` does not include `TypeUse`.
-- Disambiguation at a declaration prefix is by the annotation's declared targets: only `TypeUse` binds to the following type use; only declaration targets bind to the declaration; declaring both `TypeUse` and declaration targets in that position is a compile error and the annotation must be split or narrowed.
-- A `@Target(TypeUse)` annotation cannot be attached to a declaration, and a declaration-only annotation (for example `@Target(Field)`) is not reinterpreted as a type-use annotation.
-- Runtime TypeUse entries use `targetName` `<owner>#<field>`, `<owner>#<method>(<paramTypes>)#<index>` (parameter), `<owner>#<method>(<paramTypes>)#return`, or `<owner>#<method>(<paramTypes>)#local:<name>`; `typeName` is the fully qualified used type.
-- Type-use annotations cannot be used on generic type arguments, expressions, control bodies, or type parameter declarations; the block annotation semantics of `@tasks` / `@arena` are defined in Part 5 (§2.3).
-- An unknown annotation is a compile error; an annotation must resolve to an `@annotation` type in the same package or an imported one, or to a built-in annotation.
-- Using the same annotation repeatedly on the same target is a compile error unless the annotation is declared `@Repeatable`. A repeatable annotation preserves every use in source order; the compiler records a one-based repeat index.
-- Annotations do not affect control flow or the object model; memory strategy annotations are not part of the language annotation system.
+- Targets: `Package`, `Type`, `Annotation`, `TypeParameter`, `Field`, `Method`, `Constructor`, `Deinit`, `Parameter`, `TypeUse`, `EnumItem`.
+- Retention: `Source`, `Binary`, `Runtime`; default `Binary`.
+- `TypeUse` uses prefix form `@Foo Type` on field/parameter/return/local types and is recorded as `AnnotationTarget.TypeUse`. It MUST be explicitly declared in `@Target`.
+- A declaration-only annotation is never reinterpreted as a type-use annotation. Declaring both `TypeUse` and a declaration target at a declaration prefix is a compile error.
+- `@Repeatable` allows repeated uses on the same target and preserves source order with a one-based repeat index. Repeating a non-repeatable annotation is a compile error.
+- Unknown annotations, wrong targets, wrong/missing/extra arguments, non-constant arguments, and unsupported positions are compile errors. Stable codes are listed in Part 3 §3.8.
 
-### 12.3 Built-in Annotations
+### 12.3 Built-in, Derived, and Domain Annotations
 
-| Annotation | Target | Enforced | Semantics |
+| Class | Examples | Owner | Current status |
 | --- | --- | --- | --- |
-| `@ReadOnly` | Field | Yes | Read-only externally; writable inside the declaring type |
-| `@Override` | Method | Yes | Must correspond to a protocol method with the same signature; cannot mark superclass methods |
-| `@WriteOnly` | Field | No | Recognized but not enforced; never a security boundary |
-| `@Target` | Annotation | Yes | Restricts where the declared annotation may be used |
-| `@Retention` | Annotation | Yes | Selects `Source`, `Binary`, or `Runtime`; default is `Binary` |
-| `@Repeatable` | Annotation | Yes | Allows repeated uses on one target and preserves order |
-| `@Deprecated` | Declaration | Yes (warning) | Using the declaration produces a deprecation diagnostic |
-| `@SuppressWarnings` | Declaration | Yes | Suppresses only the named diagnostic codes |
-| `@MustUse` | Type/Method | Yes | A language rule for discardable results, not a user annotation |
-| `@Value` | Type | Yes, when the A8 processor is enabled | Immutable value semantics; generates `equals`/`hash`/`toString`/`copy` |
-| `@Data` | Type | Yes, when the A8 processor is enabled | Data-class value semantics; generates `equals`/`hash`/`toString`/`copy`; no accessors |
-| `@Builder` | Type | Yes, when the A8 processor is enabled | Generates a builder with `withField` and `build` |
-| `@Copy` | Type | Yes, when the A8 processor is enabled | Generates `copy` and per-field `withField` |
-| `@Delegate` | Type/Field | Yes, when the A8 processor is enabled | Generates forwarding methods to the selected field |
-| `@Immediate` / `@NoAlloc` / `@Pure` / `@Sendable` | Reserved | No | Reserved; does not change semantics before its semantics and checks are frozen |
+| Language built-in | `@Target`, `@Retention`, `@Repeatable`, `@ReadOnly`, `@Override`, `@Deprecated`, `@SuppressWarnings`, `@MustUse` | Compiler | implemented |
+| Reserved | `@Immediate`, `@NoAlloc`, `@Pure`, `@Sendable` | Compiler | reserved; no semantics change |
+| Block annotations | `@tasks`, `@arena` | Part 6 | planned |
+| A8 derived | `@Value`, `@Data`, `@Copy`, `@Builder`, `@Delegate` | Compiler | implemented with limits (Part 3 §5.7) |
+| Domain | `@Serializable`, `@HttpRoute`, `@Sql`, `@Packed`, `@Tool` | Owning XDK package | planned; package processors not implemented |
 
-The memory strategy annotations `@arc` / `@gc` are not members of the language annotation system; using them in source code is a compile error.
+The memory strategy annotations `@arc` / `@gc` are not members of the language annotation system; using them is a compile error.
 
-### 12.4 Retention, Processing, and Runtime Queries
+### 12.4 Object-Model Boundary
 
-- `Source`: visible to build-time processors; not retained in build output.
-- `Binary`: visible to build-time processors; retained as tool/IDE metadata; not queryable at runtime.
-- `Runtime`: visible to build-time processors; the compiler emits a static registry; runtime access is limited to the generated registry API.
-- Build-time annotation processors are part of the language contract. A processor declares supported phases (`Resolve`, `Validate`, `Generate`, `Finalize`), reads immutable element views, and returns diagnostics plus generated source. Processors are explicitly enabled by the build manifest, run in a sandbox, produce deterministic output, and fail atomically.
-- Generated declarations enter the next processing round until a fixed point is reached. `Finalize` must not generate new declarations. Generated source carries a generated marker and is not hand-edited.
-- `@Value`/`@Data` generated equality is structural over fields. A reference field must provide a value-comparison contract; otherwise the processor reports an error (`AN0021`) and must not silently fall back to reference identity. `@Value.copy()` must use the canonical constructor so validation and defensive copies are preserved. `@Data` does not generate field accessors. A generated member that collides with a hand-written member is an error; the implementation must remove the hand-written duplicate rather than keep both.
-- Runtime annotation access is not reflection. The compiler emits a read-only registry indexed by target kind and canonical target name. Runtime code can query that registry; it cannot load annotation types, scan packages/class files, create dynamic proxies, or run processors.
-- An annotation declaration is only a compile-time type and does not generate a runtime object.
-- Annotation arguments must be compile-time constants; runtime expressions are not evaluated.
-- Annotation inheritance, annotation constructors, annotation methods, and named arguments are not supported. Annotation field defaults are supported.
-- Type-use annotations are prefix-only. `List<@Foo T>`, `@Foo` on an expression, and `@Foo` on a type parameter declaration are compile errors; only the enclosing type/parameter/return/local type position is annotated.
+- Annotations do not change control flow, object identity, inheritance, protocol dispatch, memory strategy, ownership, or error channels.
+- They do not create runtime objects or runtime type members.
+- Generated members/types are ordinary source declarations produced at build time; they must follow this Part's object model.
+- Runtime access to `Runtime` annotations is limited to the compiler-generated read-only `AnnotationRegistry`; reflection, classpath scanning, dynamic loading, and runtime processors are forbidden.
 
 ## 13. Generic Types and Generic Methods
 
@@ -1442,7 +1410,7 @@ Box<Int> inferred = new Box(1);
 
 ## 14. Object Lifetime
 
-Object storage and reclamation are specified in Part 3; this section defines only the observable lifetime semantics.
+Object storage and reclamation are specified in Part 4; this section defines only the observable lifetime semantics.
 
 ### 14.1 Construction and Publication
 

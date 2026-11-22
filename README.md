@@ -209,9 +209,12 @@ not `Args.has("verbose")`.
 
 Language and library guides: [basic syntax](docs/solution-01-basic-syntax.md),
 [objects](docs/solution-02-object-programming.md),
-[memory](docs/solution-03-memory-management.md),
-[errors](docs/solution-04-error-handling.md),
-[tasks](docs/solution-05-tasks-and-concurrency.md), [XDK](docs/solution-06-xdk.md).
+[annotations](docs/solution-03-annotation.md),
+[memory](docs/solution-04-memory-management.md),
+[errors](docs/solution-05-error-handling.md),
+[tasks](docs/solution-06-tasks-and-concurrency.md), [XDK](docs/solution-07-xdk.md),
+[toolchain](docs/solution-08-toolchain.md), [IDE](docs/solution-09-ide.md),
+[project configuration](docs/solution-10-project-configuration.md).
 
 There is no package manager, dependency reactor, or formatter yet; those
 commands intentionally remain unavailable.
@@ -272,8 +275,10 @@ DESTDIR=/tmp/xdk-pkg ./install.sh --prefix /usr/local
 
 | Area | Status |
 | --- | --- |
-| Specifications S1–S5, S7–S8 | Approved |
-| XDK catalog S6 | v3.0.0 draft; T0 core first |
+| Specifications S1–S6 | Formal; S3 lists open decisions in §14 |
+| XDK catalog S7 | v3.0.0 draft; T0 core first |
+| Toolchain S8 / IDE S9 | Draft |
+| Project configuration S10 | Final v5.3.0 |
 | Native C toolchain | Live for the current core scenarios |
 | Minimal compiler | Core language + basic classes; broader coverage in progress |
 | End-to-end scenarios | hello, classes, `import xdk.errors` pass; more in progress |

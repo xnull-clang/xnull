@@ -679,7 +679,56 @@
 
 ---
 
-## 16. `xdk.core` 覆盖结论
+## 16. 注解面（Annotation Surface）
+
+完整模板见 [`../../solution-03-annotation.md`](../../solution-03-annotation.md) §8 与 [`../API-SURFACE.md`](../API-SURFACE.md) §7。本节只给 core/B4 包的注解面现状；A8/编译器状态是全局能力，不代表每个类型都已采用。
+
+### 16.1 core/B4 注解面
+
+| 包 | 可用注解 | 状态 |
+| --- | --- | --- |
+| `xdk.errors` | `@Value`、`@Copy`、`@Override`、`@Deprecated` | A8/compiler implemented；包内采用 partial |
+| `xdk.runtime` | `@Value`、`@Copy`、`@Override` | A8/compiler implemented；partial |
+| `xdk.meta` | `@Value`、`@Data`、`@Builder`、`@Copy` | A8 implemented；partial |
+| `xdk.bytes` | `@Data`、`@Value`、`@Builder`、`@Copy` | A8 implemented；partial |
+| `xdk.text` | `@Value`、`@Builder`、`@Copy`、`@Override` | A8/compiler implemented；partial |
+| `xdk.collections` | `@Data`、`@Value`、`@Builder`、`@Copy` | A8 implemented；partial |
+| `xdk.math` | `@Value`、`@Builder`、`@Copy` | A8 implemented；已落地范围见类型合同 |
+| `xdk.time` | `struct` 原生值语义；`@Data`/`@Builder` | A8 implemented；struct 类型已落地 |
+| `xdk.io` | `@Override`、`@Deprecated` | compiler implemented；流是资源，不套 `@Value`/`@Data` |
+| `xdk.fs` | `@Value`、`@Override` | A8/compiler implemented；partial |
+| `xdk.sys` | `@Value`、`@Copy`、`@Override` | A8/compiler implemented；partial |
+| `xdk.log` | `@Value`、`@Builder`、`@Override` | A8/compiler implemented；partial |
+| `xdk.config` | `@Value`、`@Data`、`@Builder`、`@Override` | A8/compiler implemented；partial |
+| `xdk.cli` | `@CliCommand`、`@CliSubcommand`、`@Option`、`@Arg`；`@Value`/`@Copy` | 领域注解 planned；A8 implemented |
+| `xdk.execution` | `@Value`、`@Override` | A8/compiler implemented；partial |
+
+### 16.2 强制模板
+
+每个 core 公共类型/成员必须写：
+
+```markdown
+| 项 | 内容 |
+| --- | --- |
+| 类型/成员 | `Type.member(...)` |
+| 可用注解 | `@Value` / 无 |
+| 目标 / 保留 | `Type` / `Source` |
+| 所属包/处理器 | `xdk.core` / 编译器 A8 |
+| 生成物 | `equals`、`toString`、`copy`；不生成 `hash()` |
+| 诊断码 | `AN0021`–`AN0023` |
+| 状态 | implemented（含限制） |
+| 反例 | `@Value` 用于 struct |
+```
+
+### 16.3 规则
+
+- `planned` 的 `@CliCommand` 等不得写成已生效；A8 implemented 不等于领域处理器 implemented。
+- 每个公共类型必须显式写“无注解”或注解面；缺失视为文档不完整。
+- 删除/收紧注解、目标、保留、默认值或生成物是破坏性变更。
+
+---
+
+## 17. `xdk.core` 覆盖结论
 
 | 包 | 旧版方法面 | API 面目标 |
 | --- | --- | --- |

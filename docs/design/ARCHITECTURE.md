@@ -150,7 +150,7 @@ L1 → L0
 
 ## 6. 注解系统
 
-注解是编译期元数据、检查与生成入口，不是运行时反射机制。完整注解清单、状态与验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。
+注解是编译期元数据、检查与生成入口，不是运行时反射机制。完整规范见 [`solution-03-annotation.md`](../solution-03-annotation.md)；清单/状态/验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。
 
 ### 6.1 定位
 
@@ -184,7 +184,7 @@ L1 → L0
 | `@SuppressWarnings` | 按码抑制警告 | 是 | 局部豁免 |
 | `@MustUse` | 返回值必须使用 | 是（语言规则） | 防忽略关键结果 |
 | `@Immediate`/`@NoAlloc`/`@Pure`/`@Sendable` | 预留标记 | 否 | 不改变语义 |
-| `@tasks`/`@arena` | 块注解 | S5 | 任务/区域生命周期 |
+| `@tasks`/`@arena` | 块注解 | S6 | 任务/区域生命周期 |
 
 ### 6.4 派生注解与 A8 处理器
 
@@ -243,9 +243,9 @@ A8 管线：`Resolve → Validate → Generate → Finalize`。
 ### 6.8 状态与目录
 
 - 完整清单、目标/保留、处理器阶段、归属包、状态、验收：见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。
-- 语义权威：[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)；实施计划：[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)。
-- 编译器状态：B1/B2 已实现内建、目标/保留、Registry；A8 已实现 Value/Data/Copy，Builder/Delegate 与 A9 工具提取、领域注解仍 `planned`。
-- 不得把未实现的 A8/A9 或领域注解写成已实现；不得把“识别”写成“强制”。
+- 语义权威：[`solution-03-annotation.md`](../solution-03-annotation.md)；设计概览：[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)；实施计划：[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)。
+- 编译器状态：B1/B2 已实现内建、目标/保留、Registry；A8 已实现 Value/Data/Copy/Builder/Delegate（Builder/Delegate 非泛型、Value/Data 无 hash）；A9 工具提取、领域注解仍 `planned`。
+- 不得把 A8 的限制写成完整支持；不得把 A9 或领域注解写成已实现；不得把“识别”写成“强制”。
 
 ---
 
@@ -280,7 +280,7 @@ A8 管线：`Resolve → Validate → Generate → Finalize`。
 - 先编译器、后 XDK：注解解析/目标/保留/Registry 是编译器能力，领域包不得自行实现一套。
 - 领域注解随包实现；没有处理器与生成场景不得进入公共 API。
 - 处理器显式启用、沙箱、确定性、失败原子；运行时只读 Registry。
-- `@tasks`/`@arena` 归语言 S5，不进入通用注解系统；`@arc`/`@gc` 非法。
+- `@tasks`/`@arena` 归语言 S6，不进入通用注解系统；`@arc`/`@gc` 非法。
 - 注解不得改变内存策略或绕过类型检查；识别不等于强制。
 - 具体语义与清单以 [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) 为准。
 

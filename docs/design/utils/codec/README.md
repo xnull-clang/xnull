@@ -115,7 +115,7 @@ X：`JsonPointer`、JSON Schema、流式 JSON SAX、CSV 类型映射、自定义
 | 本包消费 | `@Value`、`@Builder`、`@Copy` |
 | 处理器 | CodecAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | JSON/CSV 编解码器、字段名映射、静态元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

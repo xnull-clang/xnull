@@ -75,7 +75,7 @@ xdk.os.host
 | 本包消费 | `@Override` |
 | 处理器 | 编译器内建 |
 | 生成物 | OsHost 实现签名；Os 是门面，不套派生注解 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

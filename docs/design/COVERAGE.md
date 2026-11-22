@@ -4,7 +4,7 @@
 | --- | --- |
 | 目的 | 回答 XDK 能力设计是否完整、还差哪些包 |
 | 范围 | annotations、core、net/jwt/sql、os/平台/计算、utils、solutions（另计） |
-| 依据 | S6 包目录、API 面分层能力、各层 README、实际类型文件 |
+| 依据 | S7 包目录、API 面分层能力、各层 README、实际类型文件 |
 | 结论口径 | **设计完成** ≠ **实现完成** ≠ **场景验证通过** |
 | 日期 | 2026-11-22 |
 
@@ -16,7 +16,7 @@
 
 | 层 | 包/组 | 类型文档 | 设计状态 | 实现状态 |
 | --- | --- | ---: | --- | --- |
-| L0 annotations | 1 | 14 | 设计基线（元模型/处理器合同） | 14 类型 + 编译器注解管线 + Registry 已实现；处理器调度/领域处理器未实现 |
+| L0 annotations | 1 | 14 | 设计基线（元模型/处理器合同） | 14 类型 + 编译器注解管线 + Registry + A8 5 个派生已实现；处理器调度/领域处理器未实现 |
 | L1 runtime/execution | 2 | 25 | 设计完成 | 1.x runtime 部分；execution 为 tasks/sync 合并 |
 | L2 core foundation | 7 | 80 | 设计完成 | 1.x 多数 Verified，部分 Partial |
 | L3 core system | 6 | 81 | 设计完成 | 1.x 多数 Verified，部分 Partial |
@@ -40,13 +40,13 @@
 
 ---
 
-## 2. 对照 S6 / API 面目录
+## 2. 对照 S7 / API 面目录
 
 ### 2.1 annotations + core：基本闭合
 
-| S6/API 面要求 | 现状 | 判断 |
+| S7/API 面要求 | 现状 | 判断 |
 | --- | --- | --- |
-| annotations | 14 类型 | 完整（已实现；A8/领域处理器 planned） |
+| annotations | 14 类型 | 完整（14 类型 + A8 已实现；领域处理器 planned） |
 | errors/runtime/meta | 已有 | 完整 |
 | bytes/text/collections/math/time | 已有 | 完整 |
 | io/fs/sys/log/config/cli | 已有 | 完整 |
@@ -55,18 +55,18 @@
 | resource | `xdk.sys.Resource` | 已合并，不缺口 |
 | health | `xdk.runtime.Health*` | 已合并，不缺口 |
 
-结论：**annotations + core 设计闭合**；缺口在 core 的扩展面（时区库、完整 Unicode/ICU、Regex 全量、atomic/temp/walk/glob、PTY/信号等）与实现，不是“缺包”。编译器注解管线与 Registry 已实现；处理器调度器、A8 派生和领域处理器仍未实现。
+结论：**annotations + core 设计闭合**；缺口在 core 的扩展面（时区库、完整 Unicode/ICU、Regex 全量、atomic/temp/walk/glob、PTY/信号等）与实现，不是“缺包”。编译器注解管线、Registry 与 A8 派生已实现；处理器调度器和领域处理器仍未实现。
 
 ### 2.2 net/jwt/sql：9 包 / 125 类型
 
-| S6/API 面要求 | 现状 | 判断 |
+| S7/API 面要求 | 现状 | 判断 |
 | --- | --- | --- |
 | net.uri/net/net.tls | 已有 | 完整 |
 | net.http/net.websocket/net.mime | 已有 | 完整（HTTP3/QUIC 不做） |
 | net.service | 已有 | 连接/会话/重连/背压/停机；归 L5 网络层 |
 | jwt | 已有 | 完整（JWE/JWK 拉取为扩展） |
 | sql | 已有 | 通用 SQL 接口完整；驱动为 ecosystem |
-| auth/oauth/oidc | 未列入 S6 | 可作扩展/生态 |
+| auth/oauth/oidc | 未列入 S7 | 可作扩展/生态 |
 
 结论：**网络、JWT、SQL 接口设计完成**；OAuth/OIDC、SOCKS、Unix domain、raw socket、ICMP、TUN/TAP、QUIC 为扩展/生态。
 
@@ -156,7 +156,7 @@
 
 ### 6.1 “设计完整”分层回答
 
-- **annotations**：1 包 / 14 类型已实现；编译器注解管线与 Registry 已实现；A8 派生、处理器调度、领域处理器未完成。
+- **annotations**：1 包 / 14 类型已实现；编译器注解管线、Registry 与 A8 派生已实现；处理器调度、领域处理器未完成。
 - **core**：15 包 / 186 类型，声明包设计闭合；包内扩展面与实现未完成。
 - **net/jwt/sql**：9 包 / 125 类型（含 `xdk.net.service`）；网络 + JWT + SQL 接口设计完成；OAuth/OIDC/QUIC 等为扩展/生态。
 - **os/平台/计算**：17 包 / 93 类型，非 UI 平台/计算包设计完成；UI/desktop 已从 2.x 移除，不计入完成度。
@@ -167,7 +167,7 @@
 ### 6.2 不能说的话
 
 - 不能说“全部完成”：utils/solutions 扩展仍有深水区；UI/desktop 不在 2.x，不是“待完成项”。
-- 不能说“所有注解都可用”：编译器内建与 Registry 已实现，但 A8 派生和领域处理器仍为 planned；领域注解不得写成已生效。
+- 不能说“所有注解都可用”：编译器内建、Registry 与 A8 已实现；领域处理器仍为 planned；领域注解不得写成已生效。
 - 不能说“设计完成 = 实现完成”：net/os/utils/solutions 均未实现；core 仍有 Partial。
 - 不能说“缺包都是遗漏”：UI/desktop 是主动移除；扩展面已登记。
 

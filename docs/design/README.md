@@ -10,7 +10,7 @@
 | 一致性 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) |
 | 执行 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；B4 已完成，下一步 B5 |
 | 1.x 旧档 | [`LEGACY-1.0.md`](LEGACY-1.0.md) |
-| 第一实现层 | 注解；先编译器，后 XDK |
+| 第一实现层 | 注解；完整方案 [`solution-03-annotation.md`](../solution-03-annotation.md)；先编译器，后 XDK |
 
 ---
 
@@ -88,9 +88,9 @@
 
 ## 5. 权威顺序
 
-1. 语言规范 S0–S9；
+1. 语言规范 S0–S10；
 2. [`ARCHITECTURE.md`](ARCHITECTURE.md) 与 [`PACKAGE-MAP.md`](PACKAGE-MAP.md)（架构/包边界）；
-3. [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)（注解语义）；
+3. [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 注解规范）+ [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)（设计/实现概览）；
 4. 各领域 README / 逐类型合同；
 5. [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md)（冲突决定与改名）；
 6. [`API-SURFACE.md`](API-SURFACE.md)、[`SCENARIOS.md`](SCENARIOS.md)、[`CAPABILITY.md`](CAPABILITY.md)、[`COVERAGE.md`](COVERAGE.md)（广度/场景/覆盖对照）；

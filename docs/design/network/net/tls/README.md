@@ -138,7 +138,7 @@ String tlsVersionName(TlsVersion version) {
 | 本包消费 | `@Value`、`@Builder`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 证书/会话值语义、TLS 配置 builder、handler 签名 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

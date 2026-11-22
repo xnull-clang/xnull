@@ -229,7 +229,7 @@ Bool matched = FileSystem.globMatch("a/b.txt", "a/**/*.txt")
 | 本包消费 | `@Value`、`@Builder`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 路径/元数据/权限值语义、OpenOptions builder |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

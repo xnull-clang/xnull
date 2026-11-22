@@ -137,7 +137,7 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | AuditAnnotationProcessor（Validate/Generate） |
 | 生成物 | 审计包装器/脱敏元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -124,7 +124,7 @@ GPU 适配器/设备/显存/队列的只读清单与显式打开的句柄。
 | 本包消费 | `@Value` |
 | 处理器 | 标准 A8 |
 | 生成物 | 适配器/设备/显存/队列值语义；GpuDevice/GpuQueue 若持原生句柄则按资源 class 处理 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

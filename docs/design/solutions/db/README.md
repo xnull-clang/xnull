@@ -283,7 +283,7 @@ Database.close()
 | 本包消费 | `@Value`、`@Builder`、`@Sql`、`@Column`、`@Param`、`@Row` |
 | 处理器 | DbAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | 实体/表/列/DAO 映射、事务包装 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -341,7 +341,7 @@ MCU 常见无动态加载、无多队列、内存极小；`createProgram`/`creat
 | 本包消费 | `@Builder`、`@GpuKernel`、`@TensorOp` |
 | 处理器 | 无自有处理器；消费 GPU/Tensor 生成物 |
 | 生成物 | 设备/程序/队列是句柄/服务；kernel 入口复用 GPU/Tensor 处理器 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

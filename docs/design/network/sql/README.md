@@ -178,7 +178,7 @@
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | SqlAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | DAO 方法、行 mapper、参数绑定、列映射 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

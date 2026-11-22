@@ -1,15 +1,17 @@
-# XNull Solution Part 6: Standard Library XDK
+# XNull Solution Part 7: Standard Library XDK
 
 | Item | Value |
 | --- | --- |
-| Document Number | Part 6 (S6) |
+| Document Number | Part 7 (S7) |
 | Document Version | 3.0.0 |
 | Specification Status | Draft (package catalog and layered contracts; symbol-level API added with implementation) |
 | Release Date | 2026-11-15 |
 | Audience | XNull language implementers and standard library authors |
-| Related Parts | Part 1 v3.4.0; Part 2 v3.4.0; Part 3 v3.2.0; Part 4 v1.2.0; Part 5 v1.3.0; Part 7 v2.2.0 |
+| Related Parts | Part 1 v3.4.0; Part 2 v3.6.0; Part 3 v1.0.0; Part 4 v3.2.0; Part 5 v1.2.0; Part 6 v1.3.0; Part 8 v2.2.0 |
 
 Versioning rules: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. Historical versions are recorded in git.
+
+Renumber note: document renumbered from Part 6 to Part 7 on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
 
 ## 0. Positioning
 
@@ -45,13 +47,13 @@ Rules:
 - **Unidirectional dependency**: L0 → L1 → L2 → L3; reverse, cross-layer, or bypassing dependencies are forbidden.
 - **L1 is the developer-visible surface**: all public types, functions, error surfaces, cancellation surfaces, and resource surfaces are in L1.
 - **L2 contains no domain policy**: it does not implement collection, text, file, or network algorithms.
-- **L3 is entered only through FFI contracts**: the three-contract surface, leases, and error-code mapping (Part 7, Appendix A).
+- **L3 is entered only through FFI contracts**: the three-contract surface, leases, and error-code mapping (Part 8, Appendix A).
 
 ## 2. Inter-Layer Contracts
 
 ### 2.1 L1 Public API Layer
 
-- Fallible operations return `Result<T, E>`; error types follow Part 4.
+- Fallible operations return `Result<T, E>`; error types follow Part 5.
 - The first parameter of a blockable operation is `Context`; suspension points are cancellable and reported as `Cancelled`.
 - Types holding OS resources MUST provide an explicit `close()`; `deinit` MUST NOT be the only close path.
 - No global mutable singletons; no implicit initialization/cleanup hooks; no thread-local implicit state.
@@ -71,7 +73,7 @@ Rules:
 
 ### 2.4 L3 Native Boundary
 
-- Entered only through the FFI contracts in Part 7, Appendix A.
+- Entered only through the FFI contracts in Part 8, Appendix A.
 - "Arbitrary direct native function calls" are not allowed; every entry point is a declarative contract object.
 - After native capabilities enter XNull, they MUST be adapted to this language's error, resource, and cancellation contracts.
 

@@ -169,7 +169,7 @@ X：Router/Middleware、连接池高级策略。HTTP/3/QUIC 不做。
 | 本包消费 | `@Value`、`@Builder`、`@Serializable`、`@JsonName` |
 | 处理器 | HttpAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | 路由表、参数绑定、状态映射、body DTO codec |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

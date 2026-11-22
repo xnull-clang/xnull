@@ -117,7 +117,7 @@ X：压缩扩展、HTTP/2 WebSocket、消息重放、连接迁移、多路复用
 | 本包消费 | `@Value`、`@Builder`、`@Override` |
 | 处理器 | WebSocketAnnotationProcessor（Validate/Generate） |
 | 生成物 | handler 注册、消息类型映射 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

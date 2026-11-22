@@ -131,7 +131,7 @@
 | 本包消费 | `@Value`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | GeoPoint/GeoBounds 用合法 struct；Path/Polygon 含列表，用 class + `@Value` |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

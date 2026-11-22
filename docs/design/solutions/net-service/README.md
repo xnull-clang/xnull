@@ -213,7 +213,7 @@ handler 返回 `Err` 时先 `onError`、再关闭资源、最后 `onClose`；连
 | 本包消费 | `@Value`、`@Builder`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 服务选项/统计值语义、连接/会话 handler 签名 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

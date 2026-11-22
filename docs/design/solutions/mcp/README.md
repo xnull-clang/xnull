@@ -264,7 +264,7 @@ CLI 启动子进程，拿到 stdin/stdout 的 `Reader`/`Writer` → `McpStdioTra
 | 本包消费 | `@Value`、`@Builder`、`@Serializable` |
 | 处理器 | McpAnnotationProcessor（Validate/Generate） |
 | 生成物 | 工具/资源/prompt 清单、输入 schema |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

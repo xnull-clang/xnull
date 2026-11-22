@@ -3,9 +3,9 @@
 | 项 | 值 |
 | --- | --- |
 | 位置 | 注解层；语言/编译器/工具链前置计划 |
-| 权威语法 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12 + [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) |
-| 相关规范 | S1 `@mustUse`、S5 `@tasks`/`@arena`、S7 工具链 |
-| 状态 | P1.0–P1.5 已实现（B1/B2/B2.3）；P1.6 处理器调度、A8 派生、领域处理器为 planned |
+| 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；Part 2 §12 是语法摘要 |
+| 相关规范 | S1 `@mustUse`、S6 `@tasks`/`@arena`、S8 工具链 |
+| 状态 | P1.0–P1.5 与 A8 5 个派生已实现（含限制）；P1.6 处理器调度、A9、领域处理器为 planned |
 | 约束 | 不再只写设计：P1 直接改 `src/mini`；不引入运行时反射/注解扫描 |
 | 第一出口 | mini 已能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |
 
@@ -33,7 +33,7 @@
 
 ---
 
-## 2. 语言基线（S2 §12）
+## 2. 语言基线（S2 §12 摘要；完整方案见 S3）
 
 ### 2.1 声明
 
@@ -88,7 +88,7 @@
 | `@SuppressWarnings` | 声明 | 是（诊断） | 抑制指定诊断码 | 仅工具/诊断使用 |
 | `@Immediate`/`@NoAlloc`/`@Pure`/`@Sendable` | — | 否 | 预留，不改变语义 | 语义冻结前禁止使用 |
 | `@MustUse` | 语言规则 | 是 | `Result` 丢弃是编译错误 | 不是用户注解；不作为 `@annotation` 使用 |
-| `@tasks`/`@arena` | 块注解 | 按 S5 | 并发/内存作用域 | 按 S5；不进入通用注解系统 |
+| `@tasks`/`@arena` | 块注解 | 按 S6 | 并发/内存作用域 | 按 S6；不进入通用注解系统 |
 
 ---
 
@@ -116,7 +116,7 @@
 | D3 | `@Target`/`@Retention`/`@Repeatable` | **实现强制**；不是“识别不强制” |
 | D4 | 自定义注解的用途 | **构建期处理器**可用；运行期无处理器、无扫描 |
 | D5 | 注解字段默认值/位置参数 | 位置参数、尾部省略；不支持命名参数；`@Repeatable` 支持重复 |
-| D6 | 块注解 `@tasks`/`@arena` | 归 S5；不进入通用注解系统 |
+| D6 | 块注解 `@tasks`/`@arena` | 归 S6；不进入通用注解系统 |
 | D7 | 运行时注册表格式 | 编译器生成；带版本号；只读；不做反射 |
 | D8 | 处理器失败原子性 | 生成失败不落半成品；不修改已有声明 |
 
@@ -126,7 +126,7 @@
 
 | # | 工作项 | 产物 | 依赖 |
 | --- | --- | --- | --- |
-| A0 | 冻结目标/保留/诊断码/元数据格式 | 本文件 §2/§3/§9 + `AnnotationTarget`/`AnnotationRetention` | S2 §12 |
+| A0 | 冻结目标/保留/诊断码/元数据格式 | 本文件 §2/§3/§9 + `AnnotationTarget`/`AnnotationRetention` | S3 §3 |
 | A1 | 词法/语法：`@annotation` 声明与 `@Name(...)` 使用 | `AnnotationDecl`/`AnnotationUse` AST 节点 | A0 |
 | A2 | 注解类型解析 | 同包/导入解析；未知注解诊断 | 包/导入系统 |
 | A3 | 目标校验 | 11 项目标表；非法目标诊断 | A1/A2 |
@@ -135,10 +135,10 @@
 | A6 | 强制内建 | `@ReadOnly` 字段写检查；`@Override` 签名匹配；`@Deprecated` 警告；`@SuppressWarnings` 诊断过滤 | 类型检查器/诊断系统 |
 | A7 | 元数据生成 | `AnnotationRegistry` 静态表：目标索引、重复项、版本号、排序 | A1–A5 |
 | A8 | 处理器调度 | Resolve → Validate → Generate → Finalize；多轮固定点；显式启用；沙箱 | A1–A7 |
-| A9 | 工具链/IDE 只读提取 | 文档/IDE 可读编译期元数据；不做运行时反射 | S7 |
+| A9 | 工具链/IDE 只读提取 | 文档/IDE 可读编译期元数据；不做运行时反射 | S8 |
 | A10 | 测试矩阵 | 声明/使用/目标/常量/重复/未知/内建/处理器/注册表 | A1–A9 |
 
-A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate`）；A9 planned**。hash 仍 planned。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现的 A8/A9 或领域注解写成已实现。
+A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate`），限制见 Part 3 §5.7：`@Builder`/`@Delegate` 非泛型、`@Value`/`@Data` 不生成 `hash()`、`@Value` 浅校验；A9 planned**。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现部分或领域注解写成已实现。
 
 禁止工作项：
 
@@ -205,10 +205,17 @@ A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/
 | `AN0018` | 生成声明冲突 | Error |
 | `AN0019` | 元数据/注册表版本不匹配 | Error |
 | `AN0020` | 注解用于不支持的声明/表达式/块 | Error |
-| `AN0021` | 派生注解字段不可值比较/不可生成 | Error |
+| `AN0021` | A8 注解要求 class；`@Value` 要求字段全 final | Error |
+| `AN0022` | 构造器参数与字段顺序/类型不匹配 | Error |
+| `AN0023` | 生成方法/成员与已有方法冲突 | Error |
+| `AN0024` | 生成的 builder 类已存在 | Error |
+| `AN0025` | 泛型 `@Builder` 暂不支持 | Error |
+| `AN0026` | `@Delegate` 转发方法冲突 | Error |
+| `AN0027` | `@Delegate` 目标不是 class | Error |
+| `AN0028` | `@Delegate` 目标是泛型 class | Error |
 
-冻结状态：**已冻结 2026-11-22**（执行 owner 签字）。`AN0001`–`AN0021`
-为 P1 的稳定码集，不得重编号；新增只能追加 `AN0022+`。
+冻结状态：**已冻结 2026-11-22**（执行 owner 签字）。`AN0001`–`AN0028`
+为 P1 的稳定码集，不得重编号；新增只能追加 `AN0029+`。
 
 规则：
 
@@ -221,7 +228,7 @@ A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/
 
 ## 10. 验收谓词
 
-- S2 §12 与 XDK 文档无矛盾；
+- S3 与 S2 §12/XDK 文档无矛盾；
 - 所有 XDK 注解使用都在允许清单内；
 - 不存在类路径扫描/动态加载/运行期处理器；运行时查询只读生成注册表；
 - 未知/非法目标/非法参数/重复注解有稳定诊断；
@@ -230,7 +237,7 @@ A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/
 - `@Deprecated` 产生使用警告；
 - `@Target`/`@Retention`/`@Repeatable` 强制并作为语义承诺；
 - `@MustUse` 不被误用为用户注解；
-- `@tasks`/`@arena` 仍归 S5；
+- `@tasks`/`@arena` 仍归 S6；
 - `xdk.reflect` 明确不返回注解；
 - 生成源码/注册表确定性、可重现、带版本号。
 
@@ -240,8 +247,8 @@ A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/
 
 1. 编译器注解 AST/解析/目标/保留/常量/内建/Registry 已实现；证据见 `src/mini/tests/annotations*` 与 `src/mini/tests/xdk2/annotations_types/*`。
 2. `xdk.annotations` 14 类型已实现；`src/xdk/annotations/Annotations.x` 与 `xdk2.sh` 场景通过。
-3. 诊断码表 §9 已冻结（2026-11-22）；编译器已使用 `AN0001`–`AN0020`；`AN0021` 为 A8 派生预留。
+3. 诊断码表 §9 已冻结（2026-11-22）；编译器已使用 `AN0001`–`AN0028`（A8 使用 `AN0021`–`AN0028`）。
 4. 处理器调度器、生成目录、增量缓存、沙箱尚未实现（P1.6）。
 5. 各包 README 的领域注解清单已建立；`ANNOTATION-CATALOG.md` 与 `ANNOTATION-ADOPTION.md` 是权威索引。
-6. A8 派生处理器（`@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate`）与领域处理器仍为 planned；不得写成已实现。
+6. A8 派生已实现（含限制）；领域处理器仍为 planned；不得把领域注解写成已实现。
 7. `@Serializable`/`@Validate`/`@HttpRoute` 等处理器必须等 P1.6 + 对应包实现后再接，不能先写处理器空壳。

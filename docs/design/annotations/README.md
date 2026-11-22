@@ -8,7 +8,8 @@
 | 上游依赖 | 语言核心标量与容器（`String`、`Int`、`Long`、`Float`、`Double`、`Char`、`Bool`、`List`、`Map`）；无其他 XDK 包 |
 | 下游使用 | 编译器前端/语义分析/生成器、构建调度器、运行时注册表查询方、IDE/文档工具、各领域注解 |
 | 权威设计 | [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) |
-| 语言语法 | [`solution-02-object-programming.md`](../../solution-02-object-programming.md) §12（S2 3.5.0） |
+| 语言语法 | [`solution-02-object-programming.md`](../../solution-02-object-programming.md) §12（S2 3.6.0，摘要） |
+| 权威注解方案 | [`solution-03-annotation.md`](../../solution-03-annotation.md)（S3 1.0.0） |
 | 计划背景 | [`ANNOTATION-PLAN.md`](../ANNOTATION-PLAN.md) |
 | 目录规范 | [`../core/README.md`](../core/README.md) |
 
@@ -191,7 +192,7 @@ class Device { }
 
 ### A2：派生成员生成
 
-`@Data` 处理器声明 `Validate` + `Generate`；在 `Validate` 检查目标字段，在 `Generate` 生成 `equals`/`hash`/`toString`/`copy`。验收：生成源码确定性；相同输入字节级一致；生成文件带来源标记；失败不落半成品。
+`@Data` 处理器声明 `Validate` + `Generate`；在 `Validate` 检查目标字段，在 `Generate` 生成 `equals`/`toString`/`copy`。验收：生成源码确定性；相同输入字节级一致；生成文件带来源标记；失败不落半成品。
 
 ### A3：运行时注册表查询
 
@@ -228,8 +229,8 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 
 | # | 缺口/冲突 | 现状 | 处置 |
 | --- | --- | --- | --- |
-| G1 | S2 §12 与 `ANNOTATION-PLAN.md` 的同步 | S2 §12.4/§12.5 已清理冲突：构建期处理器/生成支持，运行期处理器不支持；计划已更新 | 已关闭（正式 3.5 合并待评审） |
-| G2 | `deinit` 目标 | 已新增 `AnnotationTarget.Deinit`，与 S2 §12 对齐 | 已关闭 |
+| G1 | S2 §12 与 `ANNOTATION-PLAN.md` 的同步 | S2 §12.4/§12.5 已清理冲突：构建期处理器/生成支持，运行期处理器不支持；计划已更新 | 已关闭（S2 3.6.0 / S3 1.0.0） |
+| G2 | `deinit` 目标 | 已新增 `AnnotationTarget.Deinit`，与 S2 §12/S3 §3 对齐 | 已关闭 |
 | G3 | `@Repeatable` 语义 | S2 内建表已改为强制；重复注解保留顺序 | 已关闭 |
 | G4 | 注解声明模型 | `@annotation` 字段/默认值/常量类型不在本包 14 类型内 | 编译器内部模型；需要单独设计文档或语言规范章节 |
 | G5 | 保留策略执行 | `AnnotationRegistry` 不判断保留策略 | 生成器负责过滤；需要生成器规范 |
@@ -240,7 +241,7 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 | G10 | 领域注解矩阵 | 各层注解清单不在本包 | 各领域包 README 维护；本包只冻结元模型 |
 | G11 | 内建注解强制 | `@ReadOnly`/`@Override` 等强制在编译器 | 编译器设计负责；本包只提供目标/保留模型 |
 | G12 | `@MustUse`/`@tasks`/`@arena`/`@arc`/`@gc` | 不属于通用注解系统 | 保持现状；不进入本包 |
-| G13 | S2 §12 与 `TypeParameter`/`TypeUse` | S2 §12 已加入类型参数/类型使用目标；TypeUse 前置语法、消歧与注册表已验证 | 已关闭（2026-11-22） |
+| G13 | S2 §12 与 `TypeParameter`/`TypeUse` | S3 §3.2 已加入类型参数/类型使用目标；TypeUse 前置语法、消歧与注册表已验证 | 已关闭（2026-11-22） |
 | G14 | 默认保留策略/默认 `@Target` | 默认 `Binary`；未写 `@Target` 允许所有声明目标，`TypeUse` 必须显式 | 已冻结；补测试矩阵 |
 | G15 |  总目录/`core/README.md` 列出 `annotations` | 已加入  地图/统计/包顺序 | 已关闭 |
 | G16 | 元注解的 `Annotation` 目标 | 已新增 `AnnotationTarget.Annotation` | 已关闭 |
@@ -298,7 +299,7 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 - 2026-11-22：`AnnotationTarget` 对齐为 11 目标（含 `Deinit` 与元注解目标 `Annotation`），并补 `AnnotationInfo` 规范名、`AnnotationElement` 视图和 `AnnotationRegistry.targetKey`。
 - 2026-11-22：B2.3 定义 Runtime 注册表 v1 与生成入口；B2-fix 统一 `annotation:` 目标键、枚举不可为 null、Float 作为 Double 别名。
 - 2026-11-22：S2 注解收口：跨包注解 use 预解析（`11298b82`）、`Deinit` 声明与 GC 钩子（`20f82bf5`）、`TypeUse` 前置语法与注册表（`ab7e2a47`）；11 个目标均有合法挂载点。
-- 2026-11-22：S2 升到 3.5.0，明确元注解强制、构建期处理器/生成与 `Runtime` 静态 Registry；`ANNOTATION-CATALOG.md`/`ANNOTATION-ADOPTION.md` 建立 93 条注解目录与 75 包采用矩阵；领域注解均为 planned。
+- 2026-11-22：S2 升到 3.6.0，并由 S3 1.0.0 接管完整注解语义：元注解强制、构建期处理器/生成与 `Runtime` 静态 Registry；`ANNOTATION-CATALOG.md`/`ANNOTATION-ADOPTION.md` 建立 93 条注解目录与 75 包采用矩阵；领域注解均为 planned。
 
 ---
 

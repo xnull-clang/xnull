@@ -193,7 +193,7 @@
 | 本包消费 | `@Builder`、`@TensorOp` |
 | 处理器 | GpuAnnotationProcessor（Validate/Generate） |
 | 生成物 | kernel 注册、后端/队列校验；buffer/program/fence 是资源句柄，不套 `@Value` |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

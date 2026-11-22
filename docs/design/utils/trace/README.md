@@ -165,7 +165,7 @@ xdk.errors / xdk.time / xdk.runtime / xdk.math / xdk.text / xdk.collections
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | TraceAnnotationProcessor（Validate/Generate） |
 | 生成物 | span/包装器元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

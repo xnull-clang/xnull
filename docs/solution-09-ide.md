@@ -1,31 +1,33 @@
-# XNull Solution Part 8: IDE
+# XNull Solution Part 9: IDE
 
 | Item | Value |
 | --- | --- |
-| Document ID | Part 8 (S8) |
+| Document ID | Part 9 (S9) |
 | Document version | 2.0.0 |
-| Specification status | Draft (depends on Part 7 machine interface validation) |
+| Specification status | Draft (depends on Part 8 machine interface validation) |
 | Release date | 2026-11-15 |
 | Intended audience | XNull IDE / editor integration implementations |
-| Related parts | Parts 1–7 |
+| Related parts | Parts 1–8 |
 
 Version rules: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. Historical versions are available in the git history.
 
+Renumber note: document renumbered from Part 8 to Part 9 on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
+
 ## 0. Positioning and boundaries
 
-### 0.1 What Part 8 is
+### 0.1 What Part 9 is
 
-Part 8 specifies the **stable contract** among the IDE, the toolchain, and the language specification: editing experience, project creation, standard library browsing, build/run entry points, diagnostics presentation, and settings. It adds no new language semantics, nor does it prescribe UI form.
+Part 9 specifies the **stable contract** among the IDE, the toolchain, and the language specification: editing experience, project creation, standard library browsing, build/run entry points, diagnostics presentation, and settings. It adds no new language semantics, nor does it prescribe UI form.
 
 ### 0.2 What it is not
 
 - It does not define editors, language service protocols, or UI interaction details; these are implementation choices.
-- It does not replace the Part 7 CLI, compiler, or build system; the IDE only invokes them.
+- It does not replace the Part 8 CLI, compiler, or build system; the IDE only invokes them.
 - It does not require a specific implementation form (a plugin, a standalone workbench, or a language service are all acceptable).
 
 ### 0.3 Conflict rules
 
-- Language semantics are governed by Parts 0–9; the IDE MUST NOT change the observable behavior of source code.
+- Language semantics are governed by Parts 0–10; the IDE MUST NOT change the observable behavior of source code.
 - The IDE's interactions, commands, layout, and caching strategies are implementation choices and MUST NOT be written as language commitments.
 
 ## 1. Required capabilities
@@ -34,7 +36,7 @@ Part 8 specifies the **stable contract** among the IDE, the toolchain, and the l
 
 - Syntax highlighting, bracket matching, comment toggling, code snippets.
 - Diagnostic navigation: jump from a diagnostic to `file:line:column`.
-- Completion, refactoring, or a debugger is not required; when provided, it MUST follow the Part 7 machine interface.
+- Completion, refactoring, or a debugger is not required; when provided, it MUST follow the Part 8 machine interface.
 
 ### 1.2 Projects
 
@@ -44,13 +46,13 @@ Part 8 specifies the **stable contract** among the IDE, the toolchain, and the l
 
 ### 1.3 Standard library
 
-- Browse the Part 6 XDK capabilities: errors and observability, concurrency, data and text, system and resource reading.
+- Browse the Part 7 XDK capabilities: errors and observability, concurrency, data and text, system and resource reading.
 - Display public signatures and documentation; insert `import` and call snippets.
 - MUST NOT display internal implementation details or undecided APIs.
 
 ### 1.4 Build and run
 
-- Execute `build` / `run` / `check` through the Part 7 CLI; MUST NOT assemble compiler commands on its own.
+- Execute `build` / `run` / `check` through the Part 8 CLI; MUST NOT assemble compiler commands on its own.
 - Display diagnostics, exit codes, and artifact paths; pass program output through unchanged.
 - On run failure, preserve the original exit code; MUST NOT swallow it.
 
@@ -67,13 +69,13 @@ Part 8 specifies the **stable contract** among the IDE, the toolchain, and the l
 
 ### 1.7 Security and reproducibility
 
-- No implicit network access; dependency and repository access follow the Part 9 manifest.
+- No implicit network access; dependency and repository access follow the Part 10 manifest.
 - Do not cache stale diagnostics; MUST recompute after source files or the toolchain version change.
 - Build artifacts are consistent with the CLI; the IDE MUST NOT generate substitute artifacts that "look runnable".
 
 ## 2. Machine interface
 
-The IDE uses only the stable machine interface defined in Part 7:
+The IDE uses only the stable machine interface defined in Part 8:
 
 - `check --json`: `ok` / `file` / `diagnostics`.
 - `build --json`: `ok` / `file` / `output` / `exitCode` / `diagnostics` / `log`.

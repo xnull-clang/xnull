@@ -508,7 +508,7 @@ String value = resolveValue(args, "--mode", "APP_MODE", configValue, "default")
 | 本包消费 | `@Value`、`@Builder`、`@Copy`、`@Deprecated` |
 | 处理器 | CliAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | 命令树、选项/参数表、帮助/补全元数据、解析器绑定 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

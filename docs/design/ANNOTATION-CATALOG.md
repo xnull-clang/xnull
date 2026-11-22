@@ -3,9 +3,9 @@
 | 项 | 值 |
 | --- | --- |
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
-| 权威语义 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.5.0）、[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) |
+| 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 14、`reserved` 4、`planned` 75（S5 2 + A8 0 + 领域 73） |
+| 计数 | 93 条：`implemented` 14（内建/元模型 9 + A8 5）、`reserved` 4、`planned` 75（S6 2 + 领域 73） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -28,18 +28,18 @@
 | `@NoAlloc` | 预留无分配标记 | 声明目标 / Binary | 否 | 编译器 | reserved |
 | `@Pure` | 预留纯函数标记 | Method / Binary | 否 | 编译器 | reserved |
 | `@Sendable` | 预留跨任务安全标记 | Type/Method / Binary | 否 | 编译器 | reserved |
-| `@tasks` | 块内结构化并发 | Block / Source | S5 | 语言 S5 | planned（S5） |
-| `@arena` | 块内区域分配 | Block / Source | S5 | 语言 S5 | planned（S5） |
+| `@tasks` | 块内结构化并发 | Block / Source | S6 | 语言 S6 | planned（S6） |
+| `@arena` | 块内区域分配 | Block / Source | S6 | 语言 S6 | planned（S6） |
 
 ## 2. 语言内建派生（A8）
 
 | 注解 | 生成 | 目标 / 保留 | 主要诊断 | 状态 |
 | --- | --- | --- | --- | --- |
-| `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned；core 6 类型实际采用 | Type / Source | 非 final 字段、构造器顺序/既有方法冲突 | implemented (A8 core) |
-| `@Data` | 数据类语义：`equals`/`toString`/`copy`；hash 仍 planned | Type / Source | 字段/方法名冲突 | implemented (A8 core) |
-| `@Builder` | 生成 `<Class>Builder`：withX 链式、required-by-set、缺失字段 build panic；非泛型；core BuildInfo/RuntimeInfo 实际采用 | Type / Source | 缺必填、重复构造、已有 builder 类、泛型暂不支持（`AN0025`） | implemented (A8 core) |
-| `@Copy` | `copy()` 与逐字段 `withX`；core Pair/IntPair/Entry 实际采用 | Type / Source | 不可复制字段、命名冲突 | implemented (A8 core) |
-| `@Delegate` | 字段方法转发：同名/同参数/同返回；不转发字段/ctor/static；非泛型 class 目标 | Field / Source | 目标缺失/非 class（`AN0027`）、泛型目标（`AN0028`）、方法冲突（`AN0026`） | implemented (A8 core) |
+| `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned；core 6 类型实际采用 | Type / Source | `AN0021` 非 class/非 final；`AN0022` 构造器；`AN0023` 方法冲突 | implemented (A8 core) |
+| `@Data` | 数据类语义：`equals`/`toString`/`copy`；hash 仍 planned | Type / Source | `AN0021` 非 class；`AN0022` 构造器；`AN0023` 方法冲突 | implemented (A8 core) |
+| `@Builder` | 生成 `<Class>Builder`：withX 链式、required-by-set、缺失字段 build panic；非泛型；core BuildInfo/RuntimeInfo 实际采用 | Type / Source | `AN0022` 构造器；`AN0024` builder 类已存在；`AN0025` 泛型暂不支持 | implemented (A8 core) |
+| `@Copy` | `copy()` 与逐字段 `withX`；core Pair/IntPair/Entry 实际采用 | Type / Source | `AN0022` 构造器；`AN0023` 命名冲突 | implemented (A8 core) |
+| `@Delegate` | 字段方法转发：同名/同参数/同返回；不转发字段/ctor/static；非泛型 class 目标 | Field / Source | `AN0026` 方法冲突；`AN0027` 非 class；`AN0028` 泛型目标 | implemented (A8 core) |
 
 A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失败整批回滚；不得写任意文件、联网、反射或启动进程。当前 `@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate` 均已生成真实 AST。`hash` 因语言无 hash 原语仍 planned，不得写成已生成。`@Value`/`@Data` 的 `copy()` 必须走 canonical 构造器，保留不变量。
 
@@ -171,4 +171,4 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 - 领域注解定义在**所属包**，不放进 `xdk.annotations`；`xdk.annotations` 只保留 14 个元模型类型、处理器合同和 Registry。
 - 每个领域注解是一个 PascalCase 类型，单独成文件；处理器是构建期类型，不计入运行时包类型数；生成源码放 `<package>/generated/` 并带 `generated` 标记。
 - 识别但不强制的注解（如 `@WriteOnly`、预留 `@Pure`）不是语义承诺；不得据此宣称行为已被检查。
-- `@arc`/`@gc` 不是注解系统成员，使用即编译错误；块注解 `@tasks`/`@arena` 归语言 S5。
+- `@arc`/`@gc` 不是注解系统成员，使用即编译错误；块注解 `@tasks`/`@arena` 归语言 S6。

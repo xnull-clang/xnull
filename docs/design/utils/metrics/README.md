@@ -216,7 +216,7 @@ Result<Histogram, Error> histogram = registry.histogram("latency", [10.0])
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | MetricsAnnotationProcessor（Validate/Generate） |
 | 生成物 | 指标注册/包装器 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

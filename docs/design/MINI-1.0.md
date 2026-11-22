@@ -212,7 +212,7 @@ C0b 不 gate 0.9.0；它是 0.9.1–0.9.2 的 gate。C0b 不过，0.9.2 不算�
 | # | 判定 | 证据 | 失败处理 |
 | --- | --- | --- | --- |
 | C0b-1 | env/platform/sleep 无双语义（0.9.1） | 双实现清单为空；单一 owner 场景 | 有分叉，停止 |
-| C0b-2 | DET-01 有权威条目 + 正反例（0.9.2 / W3） | `docs/design` 或 S3 的 DET-01 页；`test_rt.c` 正反例 | 只写“必须有”，不算 |
+| C0b-2 | DET-01 有权威条目 + 正反例（0.9.2 / W3） | `docs/design` 或 S4 的 DET-01 页；`test_rt.c` 正反例 | 只写“必须有”，不算 |
 | C0b-3 | 核心 5 包的 `1.0 Verified` 在还债后复核签字（0.9.2；初签在 0.9.0，复核不替代初签） | `AUDIT.md` 复核行 | 复核不过，回到 0.9.1 |
 
 ---
@@ -340,7 +340,7 @@ U5 human 不过，1.0 不算站起来。
 7. **风险/缓解**：macOS arm64 无 valgrind；按平台拆分；TSan 不可用则记录例外。
 8. **明确不做**：Windows、实时/嵌入式、自定义分配器。
 
-**DET-01 交付**：必须有一页权威条目（放在 `docs/design` 或链接 S3），包含判定表和正反例；只在 README 里出现不算。
+**DET-01 交付**：必须有一页权威条目（放在 `docs/design` 或链接 S4），包含判定表和正反例；只在 README 里出现不算。
 
 ### W4 · XDK 公共面
 
@@ -642,7 +642,7 @@ package | capability | public symbol | API manifest id | scenario file | C test 
 
 ### 10.5 DET-01
 
-- 必须在 `docs/design` 或 S3 有一页权威条目，包含判定表和正反例。
+- 必须在 `docs/design` 或 S4 有一页权威条目，包含判定表和正反例。
 - 只在 README 或 `rt_policy.h` 注释里出现不算。
 - W3 交付；C0b-2 检查；不在 C0 前检查。
 

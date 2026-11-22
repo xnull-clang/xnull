@@ -208,7 +208,7 @@ Result<String?, Error> line = new LineReader(reader).readLine(context)
 | 本包消费 | `@Override`、`@Deprecated` |
 | 处理器 | 编译器内建 |
 | 生成物 | 协议签名校验、1.x 迁移诊断；流是资源，不套 `@Value`/`@Data` |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

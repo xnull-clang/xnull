@@ -216,7 +216,7 @@ Error unavailableError(String operation) {
 | 本包消费 | `@Value`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | Context/Task 快照值语义、协议签名；原子/锁是状态资源，不套 `@Data` |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

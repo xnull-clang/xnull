@@ -116,7 +116,7 @@
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | 服务信息值语义 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

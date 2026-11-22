@@ -323,7 +323,7 @@
 | 本包消费 | `@Value`、`@Builder`、`@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` |
 | 处理器 | ApiAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | 路由表、OpenAPI、参数绑定、装配元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

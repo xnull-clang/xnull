@@ -7,7 +7,7 @@
 | --- | --- |
 | 文档性质 | 设计基线；只写方案与 API 面，不写代码，不讨论编译器/FFI/实现 |
 | 范围 |  核心层：14 个公共包 + 执行层内建 |
-| 依据 | S6 v3.0、`00-overview.md` v1.2、`01`–`16` 包设计、`MINI-1.0.md` 的 P9=B |
+| 依据 | S7 v3.0、`00-overview.md` v1.2、`01`–`16` 包设计、`MINI-1.0.md` 的 P9=B |
 | 目标 | 回答“核心层能做什么”，并给出每个包、每个公开类/协议/枚举的能力与方法面 |
 | 状态 | Draft for review；本文与旧包文档冲突处，以本文 §2 的契约决策为准，后续回写各包文档 |
 | 场景 | 见 `XDK-SCENARIOS.md`；本文只定义 API，场景负责验证 API 是否够用 |
@@ -20,7 +20,7 @@
 
 | 层 | 内容 | 作用 | 问题 |
 | --- | --- | --- | --- |
-| 规范层 | S0–S9 | 语言语义、错误/并发/资源合同、XDK 分层 | 与  设计存在少量口径差异 |
+| 规范层 | S0–S10 | 语言语义、错误/并发/资源合同、XDK 分层 | 与  设计存在少量口径差异 |
 | 包设计层 | `docs/design/01`–`16` | 包能力、K/X、部分类契约 | 成熟度不均，部分只有能力级描述 |
 | 范围决策层 | `MINI-1.0.md`、`AUDIT.md` | 1.0 包清单、阶段状态 | 16 包与 14 包口径未统一 |
 
@@ -1350,7 +1350,7 @@ errors  runtime  meta
 | `TaskError` | 任务失败通道 | `ErrorKind kind()`、`String describe()` | 必须实现 `Error`；不得把 `Cancelled` 伪装成其他分类 |
 | `CancelledError` | 取消错误值 | `ErrorKind kind()`、`String describe()` | `kind() == Cancelled`；可被 `TaskError` 通道承载 |
 
-- `TaskError` 的具体表示由 S5/运行时定义；XDK 只承诺它实现 `Error`，并能表达 `Cancelled`、`Timeout`、`Unavailable`。
+- `TaskError` 的具体表示由 S6/运行时定义；XDK 只承诺它实现 `Error`，并能表达 `Cancelled`、`Timeout`、`Unavailable`。
 - `TaskError` 不是新的业务错误分类；细粒度信息用 `describe()` 或具体错误类承载。
 
 ---
@@ -1531,7 +1531,7 @@ errors  runtime  meta
 | `usage` | `String usage(String program, String summary)` | 生成用法文本，不写 stdout/stderr |
 | `exitCodeFor` | `Int exitCodeFor(String outcome)` | `ok=0`、`usage=2`、其他=1 |
 
-> 与 S4 §6.2 的“64 = usage”约定不同： 保留 `2` 作为 CLI 应用约定；S4 的 64 是建议值，不是语言错误。若 1.0 要统一，需要同时改 CLI 设计和用户文档。
+> 与 S5 §6.2 的“64 = usage”约定不同： 保留 `2` 作为 CLI 应用约定；S5 的 64 是建议值，不是语言错误。若 1.0 要统一，需要同时改 CLI 设计和用户文档。
 
 ---
 
@@ -1597,7 +1597,7 @@ errors  runtime  meta
 
 ### 5.3 仍需用户签字的点
 
-1. **`fs`/`sys` 归属**：本文按 S6 把文件/目录/路径归 `fs`；这会改变现有 `xdk.sys` 的公开导入面。是否需要兼容期？
+1. **`fs`/`sys` 归属**：本文按 S7 把文件/目录/路径归 `fs`；这会改变现有 `xdk.sys` 的公开导入面。是否需要兼容期？
 2. **`tasks`/`sync` 的 1.0 地位**：本文按 P9=B 作为语言内建；若要把它们重新纳入 1.0 公共包，需要改 P9 决策。
 3. **破坏性改名**：`countText`、`countIf`、`flattenResult`、`flattenList`、`Tasks.spawn` 返回类型、`Channel` 错误类型、`Map.put` 返回类型。是否接受在 1.0 前一次性修正？
 4. **`xdk.text` 的 API profile**：本文按“一个包、同一 API、能力分级（K/X）”设计；若允许两套 API，需要明确 feature gate。

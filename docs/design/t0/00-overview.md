@@ -14,6 +14,8 @@
 
 ---
 
+> **Legacy numbering**: this directory is the 1.x published baseline and retains the original S3/S4/S5/S6 numbering. The current 11-part specification is `docs/solution-00`…`docs/solution-10`; do not treat t0 references as current part numbers.
+
 ## 0. 权威与状态
 
 ### 0.1 优先级（冻结）

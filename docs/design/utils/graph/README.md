@@ -113,7 +113,7 @@ X：Dijkstra 与加权最短路、A*、最大流、最小生成树、无向图/�
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | 图/边值语义 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

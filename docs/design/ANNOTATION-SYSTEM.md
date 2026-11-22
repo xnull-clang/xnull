@@ -3,9 +3,10 @@
 | 项 | 值 |
 | --- | --- |
 | 位置 | 注解层核心；语言/编译器/runtime/工具链 |
-| 权威语法 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.5.0，2026-11-22） |
+| 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；Part 2 §12 是语法摘要 |
+| 语言摘要 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 覆盖 | 语言、XDK、编译器、runtime、工具链、基线 |
-| 状态 | 编译器 B1/B2 与 `xdk.annotations` 14 类型已实现；A8 派生、A9 工具提取、领域处理器为 planned |
+| 状态 | 编译器 B1/B2、`xdk.annotations` 14 类型、A8 5 个派生已实现；A9 工具提取、领域处理器为 planned |
 | 原则 | 注解是编译期契约与生成入口，不是运行时反射魔法 |
 | 实施 | P1 编译器/元模型/处理器计划见 [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)；逐条状态见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) |
 
@@ -17,7 +18,7 @@
 | 内建 `@ReadOnly`/`@Override`/`@Deprecated`/`@SuppressWarnings` | 已实现 | 编译器诊断与测试 |
 | 静态 `AnnotationRegistry` 生成与查询 | 已实现 | `src/mini/tests/xdk2/annotations_types/annotations_types_runtime_registry.x` |
 | `xdk.annotations` 14 类型 | 已实现 | `src/xdk/annotations/Annotations.x` |
-| `@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate` 派生处理器 | planned（A8） | 本文件 §3；不得写成已实现 |
+| `@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate` 派生处理器 | 已实现（A8，含限制） | Part 3 §5；本文件 §3.2.1 |
 | 领域注解处理器（HTTP/SQL/codec/validate/MCP/CLI/设备/GPU 等） | planned | [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) 与各包 README |
 | 运行时反射/类路径扫描/动态代理 | 永不做 | 语言与 XDK 均为编译期生成 |
 
@@ -129,7 +130,7 @@ class Device { }
 | `@SuppressWarnings` | Declaration | 是（诊断） | 仅抑制指定诊断码 |
 | `@Target`/`@Retention`/`@Repeatable` | Annotation | 是 | 元注解 |
 | `@MustUse` | Type/Method | 是 | `Result` 丢弃诊断；不是普通注解 |
-| `@tasks`/`@arena` | Block | 按 S5 | 不进入通用注解系统 |
+| `@tasks`/`@arena` | Block | 按 S6 | 不进入通用注解系统 |
 | `@Immediate`/`@NoAlloc`/`@Pure`/`@Sendable` | — | 预留 | 语义冻结前禁止使用 |
 
 ---
@@ -162,7 +163,7 @@ Source/Binary/Runtime
 
 | 能力 | 用途 |
 | --- | --- |
-| 生成成员 | `@Data` 的 equals/hash/toString/copy；`@Delegate` 转发 |
+| 生成成员 | `@Data` 的 equals/toString/copy；`@Delegate` 转发 |
 | 生成协议实现 | 为类生成缺失的协议方法 |
 | 生成独立类型 | 序列化器、校验器、路由表、DAO、Mapper |
 | 生成元数据 | `AnnotationRegistry`、路由表、测试清单 |
@@ -173,21 +174,21 @@ Source/Binary/Runtime
 
 | 注解 | 前置条件 | 生成 | 不生成 |
 | --- | --- | --- | --- |
-| `@Value` | 类型；实例字段全 `final`；无 `deinit`；字段可值比较 | `equals(other)`、`hash()`、`toString()`、`copy()` | 访问器、setter、深拷贝、运行时反射 |
-| `@Data` | 类型；字段可读写；无 `deinit` | `equals`、`hash`、`toString`、`copy()` | 访问器/setter/property 语法 |
-| `@Builder` | 类型有可用构造器或字段默认值 | `<Type>Builder`、`withField(value)`、`build()`、必填/重复设置诊断 | 运行时 builder 注册、全局缓存 |
+| `@Value` | class；实例字段全 `final`；构造器与字段顺序/类型匹配 | `equals(other)`、`toString()`、`copy()` | `hash()`、访问器、setter、深拷贝、运行时反射 |
+| `@Data` | class；构造器与字段顺序/类型匹配 | `equals`、`toString`、`copy()` | `hash()`、访问器/setter/property 语法 |
+| `@Builder` | 非泛型 class；构造器匹配字段 | `<Type>Builder`、`withField(value)`、`build()`、缺字段诊断 | 泛型展开、运行时 builder 注册、全局缓存 |
 | `@Copy` | 类型可复制；字段可读 | `copy()`、逐字段 `withField(value)` | 深拷贝、隐式共享 |
-| `@Delegate` | 类型/字段；目标字段类型可解析 | 到目标字段的转发方法 | 协议实现推导、动态代理 |
+| `@Delegate` | class 字段；目标是非泛型 class | 到目标字段的实例方法转发 | 静态转发、协议实现推导、动态代理 |
 
 规则：
 
-- `@Value`/`@Data` 的引用字段默认按字段值语义比较；字段类型必须提供可用的值比较（标量、枚举、`@Value`/`@Data` 类型，或其 `equals` 合同）。无法证明时处理器报 `AN0021`，不得静默退化成引用比较。
+- 当前 `@Value` 只做浅校验（class、final 字段、构造器匹配）；不证明引用字段可值比较，也不生成 `hash()`。这是明确限制，不得写成深度值验证。
 - `@Value` 的 `copy()` 必须走 canonical 构造器，保留构造器中的防御性复制/校验；不得直接复制私有字段绕过不变量。
 - `@Data` 不生成访问器；XNull 字段直接读写。需要计算/校验时写动词方法或使用领域注解。
 - `@Builder` 的 `build()` 必须校验必填字段和跨字段不变量；失败返回诊断或 panic（按目标类型的失败通道），不得返回半成品。
 - `@Value`/`@Data` 生成成员与手写成员同名时，处理器报错；实现必须删除手写成员，不能“注解 + 手写”并存。
 - `@Copy`/`@Builder` 的生成名不得与已有成员冲突；冲突是错误，不是覆盖。
-- A8 仍为 planned；上述合同是验收谓词，不是已实现声明。
+- A8 已实现，但 `@Builder`/`@Delegate` 仅支持非泛型；`@Value`/`@Data` 不生成 `hash()`。合同中的深校验/泛型支持是未来扩展，不是当前行为。
 
 ### 3.3 安全与确定性
 
@@ -230,7 +231,7 @@ AnnotationValue? name = set.first("Marker")?.valueOrNull("name")
 | 层/包 | 注解/处理器 | 对接能力 | 状态 |
 | --- | --- | --- | --- |
 | annotations/core | `@Target`、`@Retention`、`@Repeatable`、`@ReadOnly`、`@Override`、`@Deprecated`、`@SuppressWarnings` | 声明校验/生命周期/诊断 | implemented |
-| annotations A8 | `@Value`、`@Data`、`@Builder`、`@Copy`、`@Delegate` | 派生成员/构造器/复制/转发 | planned |
+| annotations A8 | `@Value`、`@Data`、`@Builder`、`@Copy`、`@Delegate` | 派生成员/构造器/复制/转发 | implemented（含限制） |
 | `xdk.cli` | `@CliCommand`、`@Option`、`@Arg`、`@CliSubcommand` | 命令树、解析、帮助/补全元数据 | planned |
 | `xdk.net.http` | `@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` | 路由表、参数绑定、响应状态 | planned |
 | `xdk.net.websocket` | `@WsHandler` | handler 注册/消息映射 | planned |

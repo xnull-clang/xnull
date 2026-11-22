@@ -93,7 +93,7 @@
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | LinalgAnnotationProcessor（Validate/Generate） |
 | 生成物 | 算子注册、矩阵约束校验 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

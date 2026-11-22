@@ -96,7 +96,7 @@ X：完整 IANA 表、内容嗅探、自定义注册表、结构化后缀（`+js
 | 本包消费 | `@Value` |
 | 处理器 | 标准 A8 |
 | 生成物 | MediaType 值语义；参数由显式构造/parse 提供 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

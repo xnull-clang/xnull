@@ -9,7 +9,7 @@
 
 ---
 
-> 注解合同（A8，planned）：`@Value` 生成 `equals`/`hash`/`toString`/`copy`；列表字段按值语义比较/复制；字段保持 `final`。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`toString`/`copy` 只描述生成物行为。
+> 注解合同（A8，implemented；限制见 S3 §5.7）：`@Value` 生成 `equals`/`toString`/`copy`（不生成 `hash`）；列表字段按值语义比较/复制；字段保持 `final`。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`toString`/`copy` 只描述生成物行为。
 
 ## 1. 定位
 

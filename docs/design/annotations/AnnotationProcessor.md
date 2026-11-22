@@ -125,7 +125,7 @@
 
 ## 12. 示例与反例
 
-正确：`DataProcessor` 在 `Validate` 检查 `@Data` 目标是否为类型，在 `Generate` 生成 `equals`/`hash`/`toString`/`copy`，用 `Error` 诊断报告非法字段，用 `Warning` 诊断报告可选字段缺失；相同输入两次生成字节级一致。
+正确：`DataProcessor` 在 `Validate` 检查 `@Data` 目标是否为类型，在 `Generate` 生成 `equals`/`toString`/`copy`，用 `Error` 诊断报告非法字段，用 `Warning` 诊断报告可选字段缺失；相同输入两次生成字节级一致。
 
 正确：`RouteProcessor` 只声明 `Generate`，把路由表源码放入 `AnnotationProcessingResult.generatedSources()`，由构建系统写入生成目录。
 

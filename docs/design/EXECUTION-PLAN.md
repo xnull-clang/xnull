@@ -568,7 +568,7 @@ check_links                  PASS
 
 B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生成只读表。
 
-S2 注解三块已关闭，B4 已完成：
+S3 注解三块已关闭，B4 已完成：
 
 - `Deinit`：`20f82bf5`；`deinit` 声明、`@Target(Deinit)`、注册表 `owner#deinit()` 与 GC 钩子已落地；`deinit.sh` 12 cases PASS。
 - `TypeUse`：`ab7e2a47`；`@Foo Type` 支持字段/参数/返回/局部类型，消歧与注册表已落地；`typeuse.sh` 3 正例 + 6 负例 PASS。
@@ -588,7 +588,7 @@ B4 已完成。
   - tensor：`src/mini/tests/xdk2/tensor/tensor.x/.out`、`tensor_panic.sh` 6/6 PASS。
   - `check_b4_contracts.py`、`check_b4_status.py` PASS。
 - B4-01/P11 与 B4-02/P8 已关闭；C7 合同已整合待 B5，B5–B10 未开工。
-- 债表计数：45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S2 3 + B4 2）。
+- 债表计数：45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S3 3 + B4 2）。
 - 已知残余不影响 B4 合同：functional 嵌套 inline lambda 链、graph `describe()` 文本、linalg Int64 `>2^53`/大矩阵 panic 未单列。
 
 ## 12. 一句话收口

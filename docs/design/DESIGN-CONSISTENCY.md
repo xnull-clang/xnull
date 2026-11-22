@@ -66,11 +66,11 @@
 | # | 冲突 | 现状 | 决定 | 改哪份 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | A1 | 目标集合 7 vs 11 | 旧计划写 7 个；系统/`AnnotationTarget` 写 11 个 | 以 11 个为准：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem` | `ANNOTATION-PLAN.md` | 已关闭（B1） |
-| A2 | `@Repeatable` 无效果 vs 可用 | S2 旧文写“保留但无效果”；编译器已按重复保序实现 | 支持重复并保序；未标 `@Repeatable` 的重复是错误 | S2 §12、`ANNOTATION-SYSTEM.md` | 已关闭（S2 3.5.0） |
+| A2 | `@Repeatable` 无效果 vs 可用 | S2 旧文写“保留但无效果”；编译器已按重复保序实现 | 支持重复并保序；未标 `@Repeatable` 的重复是错误 | S3 §3、`ANNOTATION-SYSTEM.md` | 已关闭（S3 1.0.0） |
 | A3 | `@Override` 是否强制 | 旧计划写“无需强制”；系统表写“强制” | 使用 `@Override` 时强制签名匹配；不要求每个实现都标注 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
 | A4 | `@MustUse` 是否用户注解 | 旧计划把它列入内建注解表 | `@MustUse` 是语言规则，不是 `@annotation`；不得当普通注解使用 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
-| A5 | 诊断码缺失 | S2 §12 没有稳定诊断码表 | 冻结 `AN00xx`；新增 `AN0021` 派生字段不可值比较 | `ANNOTATION-PLAN.md` §9 | 已冻结 |
-| A6 | 编译器支持 | 旧文称 0 支持 | 注解 AST/解析/目标/保留/常量/内建/Registry 已实现（B1/B2）；处理器调度 P1.6 planned | `src/mini`、`ANNOTATION-PLAN.md` | 已关闭（B1/B2） |
+| A5 | 诊断码缺失 | S2 §12 没有稳定诊断码表 | 冻结 `AN0001`–`AN0028`；A8 使用 `AN0021`–`AN0028` | `ANNOTATION-PLAN.md` §9、S3 §3.8 | 已冻结 |
+| A6 | 编译器支持 | 旧文称 0 支持 | 注解 AST/解析/目标/保留/常量/内建/Registry/A8 已实现（B1/B2/A8）；处理器调度 P1.6、领域处理器 planned | `src/mini`、`ANNOTATION-PLAN.md`、S3 §5 | 已关闭（B1/B2/A8） |
 | A7 | 处理器阶段/轮次 | 文档有 Resolve/Validate/Generate/Finalize，但调度器未实现 | 多轮固定点、失败原子、显式启用、确定性输出；P1.6 实现 | `ANNOTATION-SYSTEM.md` | 合同已冻结 |
 | A8 | 运行时注册表格式 | 已实现 v1 静态表 | 版本号、排序、目标索引、重复项保留规则冻结；运行时只读 | `annotations/AnnotationRegistry.md`、`ANNOTATION-SYSTEM.md` | 已关闭（B2.3） |
 | A11 | 注解名与同包类型同名 | 早期矩阵出现 `@Command`/`@HttpMethod`/`@JwtHeader`/`@SerialPort`/`@Test`/`@Retry`/`@CircuitBreaker`/`@Timeout`/`@Receiver`/`@Processor`/`@WebSocketHandler`/`@Model`/`@AgentPipeline` 等冲突 | 注解名必须避开同包类型；改名为 `@CliCommand`/`@HttpRoute`（含 method 字段）/`@JwtHeaderField`/`@SerialBinding`/`@TestCase`/`@Retryable`/`@CircuitBreakerPolicy`/`@TimeoutPolicy`/`@AgentReceiver`/`@AgentProcessor`/`@WsHandler`/`@ModelSpec`/`@PipelineSpec` | `ANNOTATION-CATALOG.md`、各包 README | 已冻结（2026-11-22） |

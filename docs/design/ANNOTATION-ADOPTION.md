@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 目的 | 把 XNull 注解系统落到 75 个包；注解是编译期契约/生成入口，不是装饰 |
-| 权威 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.5.0）、[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
+| 权威 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0）；[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 状态 | 编译器内建与 Registry 已实现；A8 `@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate` 已实现；领域处理器为 planned |
 | 覆盖 | 75 包/组：1 annotations + 15 core + 9 network + 17 platform + 24 utils + 9 solutions |
 | 规则 | 构建期处理；运行时只读静态 `AnnotationRegistry`；无反射/扫描/动态代理 |
@@ -15,7 +15,7 @@
 | 问题 | 证据 | 修复 |
 | --- | --- | --- |
 | 注解没有真正进入设计 | 早期类型文件几乎无 `@annotation`；75 个包 README 只有 2 个有注解清单 | 75 包 README 全部补“声明/消费/处理器/生成物/具体落点”；73 个领域注解有 `@annotation` 合同与使用示例 |
-| 语言规范与注解设计冲突 | S2 §12.3 写元注解“识别但不强制”；§12.4 写“不支持处理器/运行期查询/代码生成” | S2 升到 3.5.0：元注解强制、构建期处理器/生成、`Runtime` 静态 Registry；明确禁止反射/扫描 |
+| 语言规范与注解设计冲突 | S2 §12.3 写元注解“识别但不强制”；§12.4 写“不支持处理器/运行期查询/代码生成” | S2 升到 3.6.0 并由 S3 1.0.0 接管完整语义：元注解强制、构建期处理器/生成、`Runtime` 静态 Registry；明确禁止反射/扫描 |
 | 注解名与同包类型同名 | 早期 `@Command`/`HttpMethod`/`JwtHeader`/`SerialPort`/`Test`/`Retry`/`CircuitBreaker`/`Timeout`/`Receiver`/`Processor`/`WebSocketHandler`/`Model`/`AgentPipeline` 与类型冲突 | 改名为 `@CliCommand`、`@HttpRoute`（含 method 字段）、`@JwtHeaderField`、`@SerialBinding`、`@TestCase`、`@Retryable`、`@CircuitBreakerPolicy`、`@TimeoutPolicy`、`@AgentReceiver`、`@AgentProcessor`、`@WsHandler`、`@ModelSpec`、`@PipelineSpec`；碰撞检查 0 |
 | 值类型没有体现 XNull 类型选择 | 早期文档 512 个 class、0 个 struct；部分纯值类型被写成 class | `Duration`/`Instant`/`Date`/`Time`/`DateTime`/`GeoPoint`/`GeoBounds` 改为合法 `struct`；含 `String`/`List` 的值类型继续 `class` + `@Value` |
 | 类型合同没有注解证据 | 采用矩阵只写包级表，类型文件没有注解使用 | 11 个代表类型补“注解合同”并标注生成物；7 个纯值类型补 `struct` 类型选择；领域包 README 给出可编译形态的声明/使用示例 |
@@ -57,6 +57,8 @@
 ---
 
 ## 2. 75 包采用矩阵
+
+> “具体落点”是设计与采用目标；只有明确标 `implemented` 的类型才是已落地。A8 能力已实现，但各包采用范围是 partial；领域注解均为 planned。
 
 | # | 包 | 声明 | 消费 | 处理器 | 生成物 |
 | ---: | --- | --- | --- | --- | --- |
@@ -160,7 +162,7 @@
 | `BasicError` | `@Value`/`@Copy` planned | 未采用 |
 | `Error`/`DetailedError` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；`@Value` implemented（ErrorDetail）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（ErrorDetail）；其余类型未采用 A8；编译器内建 implemented。
 
 ### `xdk.runtime`
 
@@ -171,7 +173,7 @@
 | `HealthReport` | `@Value` | 快照相等/文本 |
 | `HealthCheck` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；`@Value`/`@Builder` implemented（RuntimeInfo；RuntimeStats 仅 @Value）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value`/`@Builder` implemented（RuntimeInfo；RuntimeStats 仅 @Value）；其余类型未采用 A8；编译器内建 implemented。
 
 ### `xdk.meta`
 
@@ -182,7 +184,7 @@
 | `ResourceLimits` | `@Data` | 数据类成员 |
 | `ProfileBuilder` | — | 已是显式 builder，不叠加 `@Builder` |
 
-状态：无领域注解；`@Value`/`@Builder` implemented（BuildInfo）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value`/`@Builder` implemented（BuildInfo）；其余类型未采用 A8；编译器内建 implemented。
 
 ### `xdk.bytes`
 
@@ -192,7 +194,7 @@
 | `ByteOrder` | — | enum，无派生 |
 | `ByteBuffer` | `@Builder` | 选项构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.text`
 
@@ -202,7 +204,7 @@
 | `RegexOptions` | `@Builder` | 选项构造 |
 | `Regex`/`Unicode` 等入口 | — | 静态/实例方法，不强行套派生 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.collections`
 
@@ -213,7 +215,7 @@
 | `IntRange` | `@Value` | 值语义成员 |
 | `LRUCache` 等容器 | — | 可变容器不套 `@Value` |
 
-状态：无领域注解；`@Data`/`@Copy` implemented（Pair/IntPair/Entry）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Data`/`@Copy` implemented（Pair/IntPair/Entry）；其余类型未采用 A8；编译器内建 implemented。
 
 ### `xdk.math`
 
@@ -223,7 +225,7 @@
 | `RoundingMode` | — | enum |
 | `Decimal` 构造选项 | `@Builder` | builder/build 校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.time`
 
@@ -232,7 +234,7 @@
 | `Duration`/`Instant`/`Date`/`Time`/`DateTime` | `struct` | 原生值语义；无需 `@Value` |
 | `TimeZone`/`DateTimeFormatter`/`DateTimeParser` | `@Data`/`@Builder` | 配置快照/构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.io`
 
@@ -242,7 +244,7 @@
 | 1.x 适配入口 | `@Deprecated` | 迁移警告 |
 | `BufferedReader`/`ByteArrayReader` 等 | — | 资源/组合器，保持显式 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.fs`
 
@@ -252,7 +254,7 @@
 | `OpenOptions` | — | 已是显式 with* builder，不叠加 `@Builder` |
 | `FileSystem` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.sys`
 
@@ -262,7 +264,7 @@
 | `ProcessBuilder` | — | 已是显式 builder，不叠加 `@Builder` |
 | `Process`/`Resource` | `@Override` | close 协议签名 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.log`
 
@@ -273,7 +275,7 @@
 | `LogRecord` 构造 | `@Builder` | 多字段构造 |
 | `Sink`/`Formatter`/`Filter`/`Redactor`/`Sampler` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；`@Value` implemented（Field）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value` implemented（Field）；其余类型未采用 A8；编译器内建 implemented。
 
 ### `xdk.config`
 
@@ -285,7 +287,7 @@
 | `ConfigSchema` | `@Builder` | schema 构造 |
 | `ConfigSource` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.cli`
 
@@ -346,7 +348,7 @@ class StatusCommand {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.execution`
 
@@ -356,7 +358,7 @@ class StatusCommand {
 | `AtomicInt`/`AtomicBool`/`AtomicRef`/`Mutex`/`RwLock` | — | 状态资源，保持显式 class |
 | `TaskHandle` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net`
 
@@ -366,16 +368,16 @@ class StatusCommand {
 | `SocketOptions`/`MulticastOptions`/`TcpServerOptions`/`ConnectionPoolOptions` | `@Builder` | 选项构造 |
 | `ByteStream`/`TcpHandler` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.uri`
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Uri`/`Query` | `@Value` | equals/hash/toString/copy |
+| `Uri`/`Query` | `@Value` | equals/toString/copy |
 | `Uri.parse`/`Query.parse` | — | 显式解析入口，不叠加 builder |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.mime`
 
@@ -384,7 +386,7 @@ class StatusCommand {
 | `MediaType` | `@Value` | 值语义成员 |
 | `MimeTypes` | — | 常量入口，不套派生 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.tls`
 
@@ -394,7 +396,7 @@ class StatusCommand {
 | `TlsConfig` | — | 已是显式 with* builder，不叠加 `@Builder` |
 | `TlsHandler` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.http`
 
@@ -460,7 +462,7 @@ class UserApi {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.websocket`
 
@@ -492,7 +494,7 @@ class ChatHandler {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.jwt`
 
@@ -537,7 +539,7 @@ class JwtHeaderFields {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.sql`
 
@@ -596,7 +598,7 @@ class UserDao {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.net.service`
 
@@ -605,7 +607,7 @@ class UserDao {
 | `ServiceOptions`/`ServiceStats`/`BackpressurePolicy`/`HeartbeatPolicy` | `@Value`/`@Builder` | 值语义/选项 |
 | `ConnectionHandler`/`SessionHandler` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os`
 
@@ -614,7 +616,7 @@ class UserDao {
 | `OsInfo`/`OsProfile` | `@Value` | 值语义成员 |
 | `OsProfile` 构造 | `@Builder` | 多字段构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.host`
 
@@ -623,7 +625,7 @@ class UserDao {
 | `OsHost` 实现 | `@Override` | 签名校验 |
 | `Os` 门面 | — | 门面/装配，保持显式 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.cpu`
 
@@ -632,7 +634,7 @@ class UserDao {
 | `CpuTopology`/`CpuCore`/`CpuCache` | `@Value` | 值语义成员 |
 | `CpuAffinity` | — | 资源/句柄，保持显式 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.memory`
 
@@ -640,7 +642,7 @@ class UserDao {
 | --- | --- | --- |
 | `PhysicalMemory`/`MemoryModule`/`NumaNode` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.hardware`
 
@@ -683,7 +685,7 @@ class CHeader {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.storage`
 
@@ -691,7 +693,7 @@ class CHeader {
 | --- | --- | --- |
 | `StorageInventory`/`StorageDevice`/`Partition`/`SmartInfo` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.gpu`
 
@@ -700,7 +702,7 @@ class CHeader {
 | `GpuAdapter`/`GpuMemoryInfo` | `@Value` | 值语义成员 |
 | `GpuDevice`/`GpuQueue` | — | 若持原生句柄，保持资源 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.firewall`
 
@@ -709,7 +711,7 @@ class CHeader {
 | `FirewallRule`/`FirewallStatus` | `@Value`/`@Builder` | 值语义/构造 |
 | `FirewallController` 变更方法 | `@Audited` | 审计事件 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.container`
 
@@ -717,7 +719,7 @@ class CHeader {
 | --- | --- | --- |
 | `Namespace`/`Cgroup`/`ContainerInfo` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.virt`
 
@@ -725,7 +727,7 @@ class CHeader {
 | --- | --- | --- |
 | `Hypervisor`/`VirtualMachine` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.os.service`
 
@@ -733,7 +735,7 @@ class CHeader {
 | --- | --- | --- |
 | `ServiceInfo` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.gpu`
 
@@ -767,7 +769,7 @@ class Kernels {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.tensor`
 
@@ -809,7 +811,7 @@ class TensorKernels {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.linalg`
 
@@ -841,7 +843,7 @@ class LinalgKernels {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.geo`
 
@@ -850,7 +852,7 @@ class LinalgKernels {
 | `GeoPoint`/`GeoBounds` | `struct` | 原生值语义；无需 `@Value` |
 | `GeoPath`/`GeoPolygon` | `@Value`/`@Builder` | 值语义/构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.serial`
 
@@ -879,7 +881,7 @@ class ConsoleConfig {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.device`
 
@@ -926,7 +928,7 @@ class Board {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.codec`
 
@@ -969,7 +971,7 @@ class UserDto {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.crypto`
 
@@ -979,7 +981,7 @@ class UserDto {
 | `PublicKey`/`PrivateKey` | — | 句柄/权限资源，保持显式 class |
 | 废弃算法入口 | `@Deprecated` | 迁移警告 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.compress`
 
@@ -989,7 +991,7 @@ class UserDto {
 | `ZipOptions` | `@Builder` | 选项构造 |
 | `ZipArchive`/`ZipWriter` | `@Override` | 关闭/写入签名 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.random`
 
@@ -998,16 +1000,16 @@ class UserDto {
 | `WeightedChoice` | `@Value` | 值语义成员 |
 | `RandomSource` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.uuid`
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Uuid`/`Ulid` | `@Value` | equals/hash/toString/copy |
+| `Uuid`/`Ulid` | `@Value` | equals/toString/copy |
 | `Uuid` 构造 | `@Builder` | 版本/变体构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.stats`
 
@@ -1015,7 +1017,7 @@ class UserDto {
 | --- | --- | --- |
 | `HistogramBucket`/`BucketHistogram`/`Summary`/`RunningStats`/`Regression`/`MovingAverage`/`Ema` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.functional`
 
@@ -1024,7 +1026,7 @@ class UserDto {
 | `Seq`/`Sequences` | `@Value` | 值语义成员（若不可变） |
 | `Lazy` | — | 惰性视图，保持显式 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.graph`
 
@@ -1032,7 +1034,7 @@ class UserDto {
 | --- | --- | --- |
 | `Graph`/`GraphEdge` | `@Value` | 值语义成员 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.reflect`
 
@@ -1040,7 +1042,7 @@ class UserDto {
 | --- | --- | --- |
 | `TypeInfo`/`MemberInfo` | `@Value` | 只读快照 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.toml`
 
@@ -1070,7 +1072,7 @@ class ServiceConfig {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.yaml`
 
@@ -1100,7 +1102,7 @@ class ServiceConfig {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.xml`
 
@@ -1130,7 +1132,7 @@ class ServiceConfig {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.validate`
 
@@ -1186,7 +1188,7 @@ class SignupForm {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.cache`
 
@@ -1231,7 +1233,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.queue`
 
@@ -1240,7 +1242,7 @@ class UserService {
 | `QueueStats` | `@Value` | 值语义成员 |
 | `BoundedQueue`/`BatchQueue`/`DelayQueue` | — | 状态资源，保持显式 class/close |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.schedule`
 
@@ -1273,7 +1275,7 @@ class Jobs {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.event`
 
@@ -1282,7 +1284,7 @@ class Jobs {
 | `Event` | `@Value` | 值语义成员 |
 | `EventSubscription`/`EventBus` | `@Override` | 订阅/关闭签名；不套 builder |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.resilience`
 
@@ -1338,7 +1340,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.metrics`
 
@@ -1371,7 +1373,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.trace`
 
@@ -1403,7 +1405,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.audit`
 
@@ -1435,7 +1437,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.terminal`
 
@@ -1444,7 +1446,7 @@ class UserService {
 | `Color`/`Style` | `@Value` | 值语义成员 |
 | `ProgressBar`/`Table`/`Prompt` | — | 服务/呈现，保持显式 class |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.i18n`
 
@@ -1453,7 +1455,7 @@ class UserService {
 | `Locale`/`MessageCatalog`/`PluralRules`/`NumberFormat`/`DateFormat` | `@Value` | 值语义成员 |
 | `MessageCatalog` 构造 | `@Builder` | 目录构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.test`
 
@@ -1511,7 +1513,7 @@ class UserTests {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.jsonrpc`
 
@@ -1519,7 +1521,7 @@ class UserTests {
 | --- | --- | --- |
 | `JsonRpcRequest`/`JsonRpcResponse`/`JsonRpcError` | `@Value`/`@Builder` | 值语义/构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.mcp`
 
@@ -1577,7 +1579,7 @@ class WeatherTools {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.ml`
 
@@ -1619,7 +1621,7 @@ class BatchInference {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.numerics`
 
@@ -1627,7 +1629,7 @@ class BatchInference {
 | --- | --- | --- |
 | `BigInt`/`BigFloat`/`Polynomial`/`SignalBuffer` | `@Value`/`@Builder` | 值语义/构造 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.db`
 
@@ -1684,7 +1686,7 @@ class UserRepository {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.api`
 
@@ -1765,7 +1767,7 @@ class UserService {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.agent`
 
@@ -1830,7 +1832,7 @@ class TracePipeline {
 }
 ```
 
-状态：领域注解 planned；A8 派生 planned；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.accel`
 
@@ -1839,7 +1841,7 @@ class TracePipeline {
 | `Accelerator`/`AcceleratorDevice`/`AcceleratorProgram`/`AcceleratorQueue` | — | 句柄/服务，保持显式 class/close |
 | kernel 方法 | `@GpuKernel`/`@TensorOp` | 复用 GPU/Tensor 处理器 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.embedded`
 
@@ -1850,7 +1852,7 @@ class TracePipeline {
 | 串口字段 | `@SerialBinding` | 复用 Serial 处理器 |
 | 原生布局类型 | `@Packed`/`@Align` | 复用 FFI 布局处理器 |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ---
 

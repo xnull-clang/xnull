@@ -126,7 +126,7 @@ X：流式 tar/zip、流式 zstd/lz4/brotli。
 | 本包消费 | `@Value`、`@Builder`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 压缩条目/选项值语义、归档句柄签名 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

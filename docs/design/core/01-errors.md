@@ -7,7 +7,7 @@
 > 本文件的 `当前状态`、源码路径与 K/X 明细继续保留。
 
 > 本版与 mini 实现对齐：`Error` 保持 `kind/describe` 两方法；`DetailedError`
-> 是独立的丰富错误协议；`wrap/mapErr/report` 保留 S4 语义；步骤记录用
+> 是独立的丰富错误协议；`wrap/mapErr/report` 保留 S5 语义；步骤记录用
 > `toErrorReport/annotate/withStep`。当前实现为单文件 `Errors.x`，文件拆分
 > 在编译器支持多文件包后再做。
 
@@ -45,7 +45,7 @@
 - 不做异常栈/回溯；
 - 不做本地化消息；
 - 不把业务错误码塞进 `ErrorKind`（用 `code` 字符串）；
-- 不重新定义 S4 的 `wrap` / `mapErr` / `report`。
+- 不重新定义 S5 的 `wrap` / `mapErr` / `report`。
 
 ---
 
@@ -123,7 +123,7 @@ protocol Error {
 }
 ```
 
-- 与 S4 §2.2 完全一致；只有 `class` 可以实现。
+- 与 S5 §2.2 完全一致；只有 `class` 可以实现。
 - `kind()` 纯读取，生命周期内不变。
 - `describe()` 单行、稳定、不含换行/控制字符；不包含结构化字段。
 - `cause` 不是基础协议成员；原因链由 `BasicError.causes()` 暴露。
@@ -275,7 +275,7 @@ class ErrorReport implements Error, DetailedError {
 - `toErrorReport(BasicError error)` 总是创建新报告；不嵌套检测（当前 `is`
   不可靠，不能用假语义做优化）。
 - `annotate(BasicError error, String step)` = `toErrorReport(error).withStep(step)`。
-- **不定义** `report(Error)`；S4 的 `report(Result<T,Error>)` 保持不变。
+- **不定义** `report(Error)`；S5 的 `report(Result<T,Error>)` 保持不变。
 
 示例：
 
@@ -385,7 +385,7 @@ Bool isRetryableError(Error error)
 | 聚合 | Cancelled 优先、首个非 Cancelled、空组、self 拒绝、details 前缀 |
 | ResultOps | mapOk/mapErr/andThen/unwrapOr/check 的 Ok/Err 两侧 |
 | FFI | 码→kind→码 往返；未知码 → Internal |
-| 兼容 | S4 `wrap`/`report` 语义未变 |
+| 兼容 | S5 `wrap`/`report` 语义未变 |
 | 反例 | 换行/控制字符被拒绝；describe 不含 details |
 
 场景：
@@ -401,7 +401,7 @@ Bool isRetryableError(Error error)
 
 - `Error` 保持 `kind/describe`；`DetailedError` 独立；
 - `BasicError`、`ErrorDetail`、`ErrorReport`、`ErrorGroup`、ResultOps 与实现一致；
-- `wrap`/`mapErr`/`report` 的 S4 语义未被改变；
+- `wrap`/`mapErr`/`report` 的 S5 语义未被改变；
 - mini 场景通过；
 - 文档、场景、回归、实现同批交付；批内条目不单独提交、不宣称包完成。
 
@@ -415,7 +415,7 @@ Bool isRetryableError(Error error)
 
 ## 15. 评审结论（本包）
 
-- `Error` 最小协议与 S4 一致；`DetailedError` 独立且可验证；
+- `Error` 最小协议与 S5 一致；`DetailedError` 独立且可验证；
 - `wrap`/`mapErr`/`report` 没有同名换义；
 - 聚合/报告以 `BasicError` 为  承载，限制写清楚；
 - 所有失败有明确通道：unchecked panic、checked `Result`；

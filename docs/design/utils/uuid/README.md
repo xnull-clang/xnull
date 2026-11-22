@@ -93,13 +93,13 @@ v7/ULID 按时间前缀自然排序；`compare`。
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | Uuid/Ulid 值语义与构造 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Uuid`/`Ulid` | `@Value` | equals/hash/toString/copy |
+| `Uuid`/`Ulid` | `@Value` | equals/toString/copy |
 | `Uuid` 构造 | `@Builder` | 版本/变体构造 |
 
 规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。

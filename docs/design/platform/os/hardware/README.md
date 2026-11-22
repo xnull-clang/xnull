@@ -80,7 +80,7 @@
 | 本包消费 | `@Value`、`@Builder`、`@Serializable` |
 | 处理器 | HardwareLayoutProcessor（Validate/Generate） |
 | 生成物 | FFI 布局/对齐校验、硬件清单序列化 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -1,17 +1,19 @@
-# XNull Solution Part 4: Error Handling
+# XNull Solution Part 5: Error Handling
 
 | Item | Value |
 | --- | --- |
-| Document number | Part 4 (S4) |
+| Document number | Part 5 (S5) |
 | Document version | 1.2.0 |
 | Specification status | Formal |
 | Release date | 2026-11-15 |
 | Applies to | XNull language implementations |
-| Related parts | Part 1 v3.4.0; Part 3 v3.2.0; Part 5 v1.3.0; Part 7 v2.2.0 |
+| Related parts | Part 1 v3.4.0; Part 2 v3.6.0; Part 3 v1.0.0; Part 4 v3.2.0; Part 6 v1.3.0; Part 8 v2.2.0 |
 
 Versioning rules: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. Historical versions are in the git history.
 
-Division of labor in this document: **the syntax and propagation of `Result` / `try` / `defer` / `errdefer` / `throw` are in S1 §10; the mechanisms of cancellation and timeout are in Part 5; this document defines error types, the `Error` protocol, `ErrorKind`, error observation, the error surface of cancellation/timeout, boundary conversion, and cleanup patterns.**
+Renumber note: document renumbered from Part 4 to Part 5 on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
+
+Division of labor in this document: **the syntax and propagation of `Result` / `try` / `defer` / `errdefer` / `throw` are in S1 §10; the mechanisms of cancellation and timeout are in Part 6; this document defines error types, the `Error` protocol, `ErrorKind`, error observation, the error surface of cancellation/timeout, boundary conversion, and cleanup patterns.**
 
 ## 1. Positioning and Core Stance
 
@@ -20,12 +22,12 @@ Division of labor in this document: **the syntax and propagation of `Result` / `
 | Topic | Owner |
 | --- | --- |
 | `Result<T,E>` syntax, `try` propagation, `defer` / `errdefer`, `throw` / fatal | S1 §10 |
-| Memory representation of `Result` | S3 §9 |
-| Resource close failure paths, cleanup responsibility model | S3 §17—18; §7 of this document completes the observation side |
-| Cancellation mechanism, checkpoints, propagation | Part 5 §4 |
-| Timeout mechanism, deadlines | Part 5 §5 |
+| Memory representation of `Result` | S4 §9 |
+| Resource close failure paths, cleanup responsibility model | S4 §17—18; §7 of this document completes the observation side |
+| Cancellation mechanism, checkpoints, propagation | Part 6 §4 |
+| Timeout mechanism, deadlines | Part 6 §5 |
 | **Error surface** of cancellation/timeout | §5 of this document |
-| Handles and leases at the FFI boundary | S3 §19, Part 7 Appendix A |
+| Handles and leases at the FFI boundary | S4 §19, Part 8 Appendix A |
 | Cross-language error conversion | §6.3 of this document |
 
 ### 1.2 Core Stance
@@ -33,11 +35,11 @@ Division of labor in this document: **the syntax and propagation of `Result` / `
 - Errors are values. Recoverable failures only take the `Result` path; `panic` / fatal are uncatchable and terminate the process (S1 §10.4).
 - Error observation is a boundary behavior, not control flow. Global notification centers, implicit recovery, and implicit logging are prohibited.
 - Fault isolation for high-availability services is designed along process boundaries: a single request handler must not catch fatal and continue serving. See Appendix B for the distinction between recoverable and unrecoverable.
-- Memory reclamation and resource closing are two separate responsibilities: the runtime only manages memory; closing resources is the explicit responsibility of the use site (S3 §17—18).
+- Memory reclamation and resource closing are two separate responsibilities: the runtime only manages memory; closing resources is the explicit responsibility of the use site (S4 §17—18).
 
 ### 1.3 Boundary with the Standard Library
 
-The names, ownership, and signatures of the `Error` protocol, `ErrorKind`, and error helper functions belong to the library API surface in Part 6 (appended with the implementation); this document only specifies their **semantics and invariants**.
+The names, ownership, and signatures of the `Error` protocol, `ErrorKind`, and error helper functions belong to the library API surface in Part 7 (appended with the implementation); this document only specifies their **semantics and invariants**.
 
 ## 2. Error Types and the `Error` Protocol
 
@@ -45,7 +47,7 @@ The names, ownership, and signatures of the `Error` protocol, `ErrorKind`, and e
 
 Per S1 §10.5: an error type `E` may be an enum, struct, class, or `Error` protocol implementation; `E` cannot be `void`. Additions:
 
-- `E` must not be `Result`; nesting `Result<Result<..>>` as an error type is prohibited. Error types containing `Result` fields are handled per S3 §9 value semantics.
+- `E` must not be `Result`; nesting `Result<Result<..>>` as an error type is prohibited. Error types containing `Result` fields are handled per S4 §9 value semantics.
 - Error types should be data carriers: fields are diagnostic information (context, cause, location), and do not carry mutable state.
 - Error type selection: prefer enums (closed error sets) or structs (carrying context); classes are only for cases that need inheritance to reuse diagnostic fields.
 - Once an error value is created, its `kind()` and `describe()` output must be stable; it must not change due to later state changes.
@@ -69,7 +71,7 @@ protocol Error {
 
 ### 2.3 Helper Functions and Cause Chains
 
-Error helper capabilities are provided as top-level functions; names and signatures belong to the library API surface in Part 6; semantics are as follows:
+Error helper capabilities are provided as top-level functions; names and signatures belong to the library API surface in Part 7; semantics are as follows:
 
 | Function | Semantics |
 | --- | --- |
@@ -80,7 +82,7 @@ Error helper capabilities are provided as top-level functions; names and signatu
 - `wrap` discarding the original error is an explicit decision; when the cause chain needs to be preserved, the error type carries a `cause` field and is assembled with `mapErr`.
 - The cause chain is a conventional field, not a protocol member; readers access `cause` through the concrete error type, and must not require every error to have a cause.
 - The `mapErr` conversion function must be pure: it must not produce logs, I/O, or global state changes.
-- The library provides the basic error class `BasicError` (`kind` / `message` / `cause`) and a coarse-grained `isRetryable(ErrorKind): Bool`; the concrete signatures belong to the library API surface in Part 6.
+- The library provides the basic error class `BasicError` (`kind` / `message` / `cause`) and a coarse-grained `isRetryable(ErrorKind): Bool`; the concrete signatures belong to the library API surface in Part 7.
 - No implicit error stringification is provided; `describe()` is the sole textual exit.
 - The language method set (`isOk` / `isErr` / `value` / `error` / `unwrapOr`) follows S1 §10.1; this document does not extend language methods.
 
@@ -160,7 +162,7 @@ Observation is permitted only in the following explicit forms:
 
 ### 4.5 Resource Close Failures
 
-Aligned with S3 §18: close failures are reported through `Result`, and the caller decides whether to observe.
+Aligned with S4 §18: close failures are reported through `Result`, and the caller decides whether to observe.
 
 - **Close contract**: the failure of a cleanup operation such as `close()` **does not equal not closed**—the cleanup action is irrevocable, and the `Result` only reports diagnostics (e.g., flush failed but the handle has been released).
 - Handling pattern inside `defer`: the `Result` of a cleanup call must be explicitly checked or observed; it must not be discarded directly.
@@ -169,7 +171,7 @@ Aligned with S3 §18: close failures are reported through `Result`, and the call
 
 ## 5. The Error Surface of Cancellation and Timeout
 
-**Mechanism** (checkpoints, propagation, deadlines, task groups) is in Part 5; this section defines the contract that error values must satisfy.
+**Mechanism** (checkpoints, propagation, deadlines, task groups) is in Part 6; this section defines the contract that error values must satisfy.
 
 ### 5.1 The `Cancelled` Contract
 
@@ -177,7 +179,7 @@ Aligned with S3 §18: close failures are reported through `Result`, and the call
 - **Cancellation must not be swallowed**: after catching `Cancelled`, returning `Ok` or converting to another classification is allowed only in the race case where "work completed before cancellation".
 - **Cancellation must not be disguised**: failures for non-cancellation reasons must not be reported as `Cancelled`.
 - A cancelled operation must have stopped producing externally visible side effects before it may return `Cancelled`.
-- Cleanup paths must not be skipped due to another cancellation; cancellation requests during cleanup are queued and handled after cleanup completes (Part 5 §4.4).
+- Cleanup paths must not be skipped due to another cancellation; cancellation requests during cleanup are queued and handled after cleanup completes (Part 6 §4.4).
 - The signature of a cancellable function is unchanged: it is still `Result<T,E>`; `E` must be able to express `Cancelled` (directly or via `kind()`).
 
 ### 5.2 The `Timeout` Contract
@@ -185,7 +187,7 @@ Aligned with S3 §18: close failures are reported through `Result`, and the call
 - A timeout reports `Err` with `kind()` equal to `ErrorKind.Timeout`; a timeout is not a panic and not fatal.
 - After a timed-out operation returns, the underlying resource state must be in the deterministic state declared by the documentation (committed / not committed, never "indeterminate").
 - Timeout and cancellation are isomorphic: the §5.1 contracts of stopping side effects, not disguising, and not skipping cleanup also apply to timeout.
-- A timeout is a caller-driven cancellation; whether to also cancel the underlying operation is explicitly decided by the caller (Part 5 §5.1).
+- A timeout is a caller-driven cancellation; whether to also cancel the underlying operation is explicitly decided by the caller (Part 6 §5.1).
 
 ### 5.3 Completion-First and the Race Window
 
@@ -201,8 +203,8 @@ Aligned with S3 §18: close failures are reported through `Result`, and the call
 | Boundary | Conversion responsibility | Specification |
 | --- | --- | --- |
 | Process entry (`main` return) | §6.2 | S1 §11 |
-| FFI cross-language calls | §6.3 | Part 7 Appendix A; S3 §19 |
-| Task boundary (join / group close) | Part 5 §3.6 | S3 §11 |
+| FFI cross-language calls | §6.3 | Part 8 Appendix A; S4 §19 |
+| Task boundary (join / group close) | Part 6 §3.6 | S4 §11 |
 | Out-of-process communication (network, IPC) | Application layer; this document only gives principles | §6.4 |
 
 ### 6.2 Process Entry: Exit Code Mapping
@@ -220,7 +222,7 @@ The two signatures of `main` are in S1 §11.1. Exit code mapping for `Int main`:
 
 ### 6.3 FFI Boundary
 
-- `Result` is a built-in value type of XNull and **does not cross language boundaries**: function signatures entering FFI must not contain `Result` type parameters or return values; errors are expressed as error codes/out-parameters (Part 7 Appendix A).
+- `Result` is a built-in value type of XNull and **does not cross language boundaries**: function signatures entering FFI must not contain `Result` type parameters or return values; errors are expressed as error codes/out-parameters (Part 8 Appendix A).
 - Cross-language error conversion must be explicit: wrapper functions map FFI error codes to local error types (`kind` is selected according to the semantics in Appendix A); silently mapping unknown error codes to `Ok` is prohibited.
 - Cancellation/timeout reported by the native side to XNull must be mapped to `Cancelled` / `Timeout`, and must not be downgraded to `Internal`.
 - Error code mapping must be deterministic; the same error code must not be mapped to different classifications at different call sites.
@@ -233,11 +235,11 @@ The two signatures of `main` are in S1 §11.1. Exit code mapping for `Int main`:
 
 ## 7. Structured Cleanup and Error Paths
 
-S3 §17 defines the cleanup responsibility model: defer LIFO, `goto` / `throw` / process exit do not execute defer, fatal has no cleanup guarantee. This document supplements the usage rules for error paths:
+S4 §17 defines the cleanup responsibility model: defer LIFO, `goto` / `throw` / process exit do not execute defer, fatal has no cleanup guarantee. This document supplements the usage rules for error paths:
 
 - `errdefer` is for **compensation** (the reverse action on failure: rollback, release, decrement counters); `defer` is for **unconditional cleanup**. The selection criterion: whether the action must also happen on the success path.
 - The compensation action itself fails: compensation is best-effort, and `Result` handling within compensation follows the §4.5 pattern; a compensation failure must not block propagation of the original error (no `return` in an `errdefer` body, S1 §10.3).
-- Error paths do not introduce a new level of cleanup responsibility: the use-site close pattern for resources (S3 §17) behaves consistently across the three paths of `try` propagation, `Err` return, and normal return.
+- Error paths do not introduce a new level of cleanup responsibility: the use-site close pattern for resources (S4 §17) behaves consistently across the three paths of `try` propagation, `Err` return, and normal return.
 - Partially completed state: when a function modifies external state in multiple steps and fails midway, it must either roll back to the pre-entry state in `errdefer`, or carry "completed steps" information in the error type for the caller to decide; silently leaving a half-completed state is a design error.
 - Cleanup bodies must not contain control transfer, `try`, or `throw`; cleanup must be non-throwing.
 
@@ -264,9 +266,9 @@ S3 §17 defines the cleanup responsibility model: defer LIFO, `goto` / `throw` /
 
 | Case | Path | Basis |
 | --- | --- | --- |
-| Illegal arguments, missing target, permissions, network, timeout, cancellation | `Result` / `Err` | This document; Part 5 |
-| Resource close failure | `Result` (close contract §4.5) | S3 §18 |
+| Illegal arguments, missing target, permissions, network, timeout, cancellation | `Result` / `Err` | This document; Part 6 |
+| Resource close failure | `Result` (close contract §4.5) | S4 §18 |
 | Division by zero, shift out of range, index out of bounds, null reference dereference, failed `as`, call on `null` | panic / fatal | S1 §7.1, §10.4 |
 | Explicit `throw` (contract violation) | panic / fatal | S1 §10.4 |
-| Allocation failure, stack overflow | fatal (observation surface `OutOfMemory` see §3.2) | S3 §22 |
-| `deinit` resurrection, finalizer chain panic | Terminate the process | S3 §15 |
+| Allocation failure, stack overflow | fatal (observation surface `OutOfMemory` see §3.2) | S4 §22 |
+| `deinit` resurrection, finalizer chain panic | Terminate the process | S4 §15 |

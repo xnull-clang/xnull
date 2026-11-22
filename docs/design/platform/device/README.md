@@ -102,7 +102,7 @@
 | 本包消费 | `@Value`、`@Builder`、`@Packed`、`@Align`、`@NativeLayout` |
 | 处理器 | DeviceAnnotationProcessor（Validate/Generate） |
 | 生成物 | 设备/引脚/地址目录、布局校验 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

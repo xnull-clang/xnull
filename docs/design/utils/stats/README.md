@@ -105,7 +105,7 @@ X：t-digest/ reservoir 近似分位、加权统计、分布式合并、时间�
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | 标准 A8 |
 | 生成物 | 统计快照/直方图/回归值语义 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

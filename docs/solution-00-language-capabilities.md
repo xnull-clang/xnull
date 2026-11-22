@@ -7,13 +7,15 @@
 | Specification status | Positioning preface (adds no syntax or semantics) |
 | Release date | 2026-11-15 |
 | Applies to | XNull language users and implementers |
-| Related parts | Parts 1–9 |
+| Related parts | Parts 1–10 |
 
 ## 0. Purpose of This Document
 
 Before entering the specification, answer three questions first: **what XNull is, what it can take on, and what it explicitly does not promise.**
 
 XNull's positioning is not "writing interfaces, doing backend work". As long as a problem consists mainly of data representation, computation, state changes, object collaboration, and task execution, existing language constructs usually provide an expression path. This document gives the capability map and application domains, and draws the execution boundary; the basis for every judgment can be found in the subsequent parts.
+
+The specification has eleven parts: Part 0 plus Parts 1–10. This preface explains the boundaries; the normative parts follow.
 
 This specification is a refactoring draft: a clause is considered stable only after it has been validated in `dx/` scenarios or in actual toolchain testing; unvalidated clauses may be modified, and "already written into the specification" is not a reason for immutability.
 
@@ -40,8 +42,9 @@ It does not treat "whether there is domain-specific syntax" as a capability prer
 | Closures | Callbacks, subscriptions, local policies, deferred execution | Passing behavior as parameters, return values, or fields |
 | `Result` / `try` | Failure returns, layer-by-layer propagation, normal cleanup, failure compensation | Complete business chains and boundary conversion |
 | Generics | Container algorithms, generic handlers, type-safe reuse | One codebase adapted to multiple element types |
+| Annotations | Compile-time metadata, static checks, generated members/types/manifests | Serialization mapping, routing, DAO/row mapping, FFI layout, test/job discovery |
 | Task groups / `Context` | Structured concurrency, cancellation, timeouts, task trees | Service requests, batch processing, device polling |
-| XDK | L1 public API layer (errors and observation, concurrency, data and text, system and resource reading; networking and other T1 later) → L2 primitive layer (memory and handles, scheduling, diagnostics, FFI contracts) → L3 native boundary | Platform capabilities required by applications, organized by layer rather than enumerated by package; per S6 §1 |
+| XDK | L1 public API layer (errors and observation, concurrency, data and text, system and resource reading; networking and other T1 later) → L2 primitive layer (memory and handles, scheduling, diagnostics, FFI contracts) → L3 native boundary | Platform capabilities required by applications, organized by layer rather than enumerated by package; per S7 §1 |
 | FFI contracts | Native libraries, device interfaces, existing system integration | Controlled cross-language boundary |
 
 These constructs can be combined. For example: protocol parsing uses integers, bit operations, arrays, and state machines; a query engine uses data structures, algorithms, and execution objects; a desktop application uses objects, closures, and application state; robot navigation uses arrays, graph search, and task orchestration.
@@ -55,21 +58,22 @@ A concept is defined in only one part; other parts reference it and do not redef
 | `Result` with no success value | `Result<Unit,E>` | S1 §10.1 |
 | Empty value type | `Unit` / `unit` | S1 §9.1 |
 | No return value | `void` | S1 §2.1 |
-| Recoverable failure | `Result` / `Err` | S1 §10.1, S4 |
+| Recoverable failure | `Result` / `Err` | S1 §10.1, S5 |
 | Terminal failure | fatal (panic / throw) | S1 §10.4 |
-| Object finalization | `deinit` / finalization | S2 §6.4, S3 §14–15 |
-| Memory strategy | stack / ARC / GC | S3 §4 |
-| Cancellation error surface | `Cancelled` | S4 §5.1 |
-| Cancellation mechanism | checkpoint / propagation | S5 §4 |
-| Timeout error surface | `Timeout` | S4 §5.2 |
-| Timeout mechanism | deadline | S5 §5 |
-| Task group | group / `TaskGroup` | S5 §3 |
-| Context | `Context` | S5 §4.1 |
-| XDK layer | L1 public API / L2 primitive / L3 native | S6 §1 |
-| Three FFI contract surfaces | value / handle / buffer | S7 Appendix A §A.2.1 |
-| Resource closing | `close()` / explicit close | S3 §18, S4 §4.5 |
+| Object finalization | `deinit` / finalization | S2 §6.4, S4 §14–15 |
+| Memory strategy | stack / ARC / GC | S4 §4 |
+| Cancellation error surface | `Cancelled` | S5 §5.1 |
+| Cancellation mechanism | checkpoint / propagation | S6 §4 |
+| Timeout error surface | `Timeout` | S5 §5.2 |
+| Timeout mechanism | deadline | S6 §5 |
+| Annotation metadata | annotation / `AnnotationRegistry` | S3 §3–§6 |
+| Task group | group / `TaskGroup` | S6 §3 |
+| Context | `Context` | S6 §4.1 |
+| XDK layer | L1 public API / L2 primitive / L3 native | S7 §1 |
+| Three FFI contract surfaces | value / handle / buffer | S8 Appendix A §A.2.1 |
+| Resource closing | `close()` / explicit close | S4 §18, S5 §4.5 |
 
-`TaskGroup` / `Context` / `List` / `Map` / `Set` / `Iterator` and the like in the table are the current mapping names of **library types**; their members and signatures are in S6/source code, not in the compiler.
+`TaskGroup` / `Context` / `List` / `Map` / `Set` / `Iterator` and the like in the table are the current mapping names of **library types**; their members and signatures are in S7/source code, not in the compiler.
 
 ## 3. Application Domains
 
@@ -148,7 +152,7 @@ Answer in order:
 1. Does it require source-level addresses, pointers, or manual freeing? — If yes, it is not suitable.
 2. Does it require hard real-time or worst-case timing guarantees? — If yes, it is not suitable.
 3. Can it execute within the managed runtime, with resources explicitly closed at the point of use? — If yes, it is suitable.
-4. Does it require cross-language calls? — If yes, follow the FFI contract in Appendix A of Part 7; do not make arbitrary direct native calls.
+4. Does it require cross-language calls? — If yes, follow the FFI contract in Appendix A of Part 8; do not make arbitrary direct native calls.
 5. Does it rely on implicit behavior not written into the specification? — If yes, it is not promised.
 
 ## 7. Relationship with the Parts of the Specification
@@ -157,14 +161,15 @@ Answer in order:
 | --- | --- |
 | S0 (this document) | Why this language exists, what it can do, and what it does not do |
 | S1 Basic Syntax | Lexical Structure, Type System, Expressions and Operators, Statements and Control Flow, closures, generics, error handling core, Program Entry Point |
-| S2 Object Programming | Type declarations, inheritance, protocols, enums, singletons, factories, extensions, annotations, visibility |
-| S3 Memory Management | Strategy determination, escape, ARC/GC, finalization, weak references, resource cleanup, FFI ownership |
-| S4 Error Handling | Error types, `Error` protocol, `ErrorKind`, observation, boundary conversion, cleanup |
-| S5 Tasks and Concurrency | Execution model, structured concurrency, cancellation, timeouts, synchronization semantics |
-| S6 Standard Library XDK | XDK's layered design: public API layer, primitive layer, native boundary; capability and dependency matrix |
-| S7 Toolchain | CLI, builds, determinism, FFI contracts |
-| S8 IDE | Editing, project creation, standard library browsing, build/run entry points |
-| S9 Project Configuration | Manifests, dependencies, lifecycle, resources, linking, reproducibility |
+| S2 Object Programming | Type declarations, inheritance, protocols, enums, singletons, factories, extensions, annotation syntax summary, visibility |
+| S3 Annotations | Declaration/use, targets, retention, repeatability, built-ins, A8 derived members, domain processors, registry, API annotation surface |
+| S4 Memory Management | Strategy determination, escape, ARC/GC, finalization, weak references, resource cleanup, FFI ownership |
+| S5 Error Handling | Error types, `Error` protocol, `ErrorKind`, observation, boundary conversion, cleanup |
+| S6 Tasks and Concurrency | Execution model, structured concurrency, cancellation, timeouts, synchronization semantics |
+| S7 Standard Library XDK | XDK's layered design: public API layer, primitive layer, native boundary; capability and dependency matrix |
+| S8 Toolchain | CLI, builds, determinism, FFI contracts |
+| S9 IDE | Editing, project creation, standard library browsing, build/run entry points |
+| S10 Project Configuration | Manifests, dependencies, lifecycle, resources, linking, reproducibility |
 
 ## 8. Non-Promises
 

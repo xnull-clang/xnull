@@ -45,7 +45,7 @@ given inputs.
 | 5 | Class strong-reference field contains `Any`, `Object`, a protocol, an unmonomorphized generic, a tuple containing references, or `Result` | GC | Heap |
 | 6 | Class strong references form a cycle | GC | Heap |
 | 7 | Class has `deinit`, or a method captures `self` | ARC | Heap; counted |
-| 8 | Class has only value fields | Stack candidate | Stack if escape is `none`; otherwise promoted per S3 §6 |
+| 8 | Class has only value fields | Stack candidate | Stack if escape is `none`; otherwise promoted per S4 §6 |
 | 9 | Remaining acyclic class references | ARC | Heap; counted |
 
 Conservative rule: if acyclicity or field concreteness cannot be proven, the
@@ -146,7 +146,7 @@ class Temp { deinit { print("freed") } }
 ```
 
 Printing from `deinit` and expecting a specific wall-clock moment is invalid.
-GC reclamation timing is nondeterministic; only the ordering rules in S3 apply.
+GC reclamation timing is nondeterministic; only the ordering rules in S4 apply.
 
 ### 4.3 Inferring strategy from identity
 
@@ -179,7 +179,7 @@ when `T`/`E` are concrete; `Result` may hide a reference.
 
 Changing a row, its order, or a conservative fallback requires:
 
-1. a spec change in S3 §4 (or an S6/S3 errata page);
+1. a spec change in S4 §4 (or an S7/S4 errata page);
 2. an update to this page with positive and negative examples;
 3. a runtime/compiler test update;
 4. an AUDIT note with reviewer and date.

@@ -135,7 +135,7 @@
 | 本包消费 | `@Value`、`@Builder`、`@Packed`、`@Align` |
 | 处理器 | SerialAnnotationProcessor（Validate/Generate） |
 | 生成物 | 串口配置、端口信息、布局校验 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

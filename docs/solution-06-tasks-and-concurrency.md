@@ -1,17 +1,19 @@
-# XNull Solution Part 5: Runtime Tasks and Concurrency
+# XNull Solution Part 6: Runtime Tasks and Concurrency
 
 | Item | Value |
 | --- | --- |
-| Document ID | Part 5 (S5) |
+| Document ID | Part 6 (S6) |
 | Document version | 1.3.0 |
 | Specification status | Formal |
 | Publication date | 2026-11-15 |
 | Applies to | XNull language implementations |
-| Related parts | Part 1 v3.4.0; Part 3 v3.2.0; Part 4 v1.2.0; Part 6 v3.0.0 |
+| Related parts | Part 1 v3.4.0; Part 2 v3.6.0; Part 3 v1.0.0; Part 4 v3.2.0; Part 5 v1.2.0; Part 7 v3.0.0 |
 
 Version rules: Revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. Historical versions are in the git record.
 
-This document specifies the runtime execution model, structured concurrency, cancellation and timeouts, synchronization semantics, and runtime behavior boundaries. **The language layer has no `async` / `await` and no task syntax (S1 §0.6); the memory rules for task closures are in S3 §11; the names and signatures of task and synchronization APIs are in Part 6.**
+Renumber note: document renumbered from Part 5 to Part 6 on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
+
+This document specifies the runtime execution model, structured concurrency, cancellation and timeouts, synchronization semantics, and runtime behavior boundaries. **The language layer has no `async` / `await` and no task syntax (S1 §0.6); the memory rules for task closures are in S4 §11; the names and signatures of task and synchronization APIs are in Part 7.**
 
 ## 1. Positioning and Core Stance
 
@@ -20,11 +22,11 @@ This document specifies the runtime execution model, structured concurrency, can
 | Topic | Ownership |
 | --- | --- |
 | `async` / `await`, function coloring | Rejected (S1 §0.6), permanent design |
-| Task closure capture, env cross-thread roots, GC keep-alive | S3 §11 |
-| Memory safety for cross-task sharing (publication points, atomic counts) | S3 §11–12 |
-| Names, signatures, package ownership of task and synchronization APIs | Part 6 |
-| Cancellation mechanism, checkpoints, propagation | §4 of this document; error surface see S4 §5 |
-| Timeout mechanism, deadlines | §5 of this document; error surface see S4 §5 |
+| Task closure capture, env cross-thread roots, GC keep-alive | S4 §11 |
+| Memory safety for cross-task sharing (publication points, atomic counts) | S4 §11–12 |
+| Names, signatures, package ownership of task and synchronization APIs | Part 7 |
+| Cancellation mechanism, checkpoints, propagation | §4 of this document; error surface see S5 §5 |
+| Timeout mechanism, deadlines | §5 of this document; error surface see S5 §5 |
 | Error delivery form at task boundaries | §3.6 of this document |
 | Scheduling contract, structured concurrency, synchronization semantics | §2, §3, §6 of this document |
 
@@ -32,12 +34,12 @@ This document specifies the runtime execution model, structured concurrency, can
 
 - Concurrency is a library capability, not a language capability. Concurrent code has the same shape as sequential code: functions return `Result`, cancellation and timeout are `Err`, there is no second control flow.
 - Structured first: tasks MUST belong to an explicit task group; the group's lifetime constrains the tasks' lifetimes (§3). No free-floating (detached) tasks are provided.
-- Data races are program errors: the runtime does not detect them and makes no guarantees about results; synchronization responsibility is explicit at the point of use (S3 §11).
+- Data races are program errors: the runtime does not detect them and makes no guarantees about results; synchronization responsibility is explicit at the point of use (S4 §11).
 - No commitment to scheduling fairness or real-time behavior; what is committed is a deterministic behavioral contract: cancellation arrives, timeouts take effect, and tasks terminate before the group closes.
 
 ### 1.3 Boundary with the Standard Library
 
-The names, ownership, and signatures of task and synchronization APIs belong to the library API surface of Part 6 (appended as implementations proceed). For readability, this document uses current mapping names (`Task` / `TaskGroup` / `Context` / `Mutex` / `Channel` / `Atomic*`); they are all library types. This document only specifies their **semantics and mechanisms**: execution model and scheduling contract (§2), structured concurrency (§3), cancellation and timeout (§4, §5), synchronization semantics (§6), runtime behavior boundaries (§7). The semantics of the `@tasks` block annotation are normative; changes to the annotation name go through the Part 6 version process.
+The names, ownership, and signatures of task and synchronization APIs belong to the library API surface of Part 7 (appended as implementations proceed). For readability, this document uses current mapping names (`Task` / `TaskGroup` / `Context` / `Mutex` / `Channel` / `Atomic*`); they are all library types. This document only specifies their **semantics and mechanisms**: execution model and scheduling contract (§2), structured concurrency (§3), cancellation and timeout (§4, §5), synchronization semantics (§6), runtime behavior boundaries (§7). The block semantics of `@tasks` are normative in this Part; its annotation syntax and name are specified by Part 3, and changes to either require the owning Part's version process.
 
 ## 2. Execution Model
 
@@ -85,7 +87,7 @@ Blocking inside a task falls into two categories:
 
 - `@tasks` annotates a method or block: it declares that the body submits or awaits tasks.
 - All task APIs can be used inside a `@tasks` block; using task APIs outside a block is a compilation error.
-- The closure environment of a submitted task is treated as an external root per S3 §11 (an invisible boundary for escape analysis).
+- The closure environment of a submitted task is treated as an external root per S4 §11 (an invisible boundary for escape analysis).
 - The annotation does not change the function signature, error surface, or scheduling semantics; it only marks the legal scope for task APIs.
 
 ### 2.6 Runtime Exit
@@ -106,18 +108,18 @@ Blocking inside a task falls into two categories:
 
 ### 3.2 Submission Contract
 
-- When a group submits a task, the task closure returns `Result<T,E>`; `E` MUST be a valid error type (Part 4 §2.1).
+- When a group submits a task, the task closure returns `Result<T,E>`; `E` MUST be a valid error type (Part 5 §2.1).
 - The closure obtains `Context` and shared data via capture; it MUST NOT depend on an implicit thread-local context.
-- Submission MUST NOT copy the task closure's mutable captures; captures are shared according to the cell rules of S3 §10.5.
+- Submission MUST NOT copy the task closure's mutable captures; captures are shared according to the cell rules of S4 §10.5.
 - No tasks may be submitted after the group is closed; submission returns a usage error and MUST NOT silently discard.
 
 ### 3.3 Group Close
 
-- A group is a resource: it MUST be closed explicitly at the point of use (S3 §17–18).
+- A group is a resource: it MUST be closed explicitly at the point of use (S4 §17–18).
 - Close contract:
   1. Issue cancellation to the contexts of all unterminated child tasks (contract in §4.1 takes effect);
   2. Wait for all child tasks to terminate, including completion of their cleanup paths (§4.4 "cleanup is not skipped");
-  3. Return **the first non-cancellation child task error in submission order**; the caller decides whether to observe it (S4 §4.1).
+  3. Return **the first non-cancellation child task error in submission order**; the caller decides whether to observe it (S5 §4.1).
 - Close is the only termination path: there is no legal form of "discarding without closing the group"; exiting a scope without closing is a usage error.
 - Close is idempotent: repeated close does not repeat cancellation or waiting, and subsequent closes return success.
 - After group close returns, the environment roots of tasks in the group MUST have been removed.
@@ -165,7 +167,7 @@ Blocking inside a task falls into two categories:
 
 ### 4.4 `Cancelled` Error Surface
 
-The error value contract for cancellation (must not be swallowed, must not be disguised, side effects stop, cleanup is not skipped, completion takes priority) is in S4 §5.1 and §5.3. This section only defines the mechanism:
+The error value contract for cancellation (must not be swallowed, must not be disguised, side effects stop, cleanup is not skipped, completion takes priority) is in S5 §5.1 and §5.3. This section only defines the mechanism:
 
 - A checkpoint returns `Err(Cancelled)`; the task terminates with `Err`.
 - Cancellation requests during cleanup are queued and processed after cleanup completes; cleanup MUST NOT be skipped due to repeated cancellation.
@@ -173,7 +175,7 @@ The error value contract for cancellation (must not be swallowed, must not be di
 
 ### 4.5 Race Window
 
-- When completion races with cancellation, "completion takes priority" applies; see S4 §5.3 for the determination contract.
+- When completion races with cancellation, "completion takes priority" applies; see S5 §5.3 for the determination contract.
 - The scheduler reports cancellation only at checkpoints; execution outside checkpoints MUST NOT be asynchronously interrupted.
 - No new externally visible side effects may occur after cancellation returns.
 
@@ -193,7 +195,7 @@ The error value contract for cancellation (must not be swallowed, must not be di
 
 ### 5.2 `Timeout` Error Surface
 
-The error value contract for timeout (not a panic, deterministic resource final state, isomorphic to cancellation) is in S4 §5.2. This section only defines the mechanism:
+The error value contract for timeout (not a panic, deterministic resource final state, isomorphic to cancellation) is in S5 §5.2. This section only defines the mechanism:
 
 - A deadline-bearing wait returns `Err(Timeout)` after timing out; the task continues executing and is not automatically cancelled.
 - The caller explicitly decides whether a context deadline also cancels the underlying operation.
@@ -206,7 +208,7 @@ The error value contract for timeout (not a panic, deterministic resource final 
 
 ## 6. Synchronization Semantics
 
-This section describes the contracts for three categories of library synchronization capabilities: mutexes, channels, and atomics; `Mutex` / `Channel` / `Atomic*` are the current implementation mapping names, and the specific names and signatures belong to the library API surface of Part 6.
+This section describes the contracts for three categories of library synchronization capabilities: mutexes, channels, and atomics; `Mutex` / `Channel` / `Atomic*` are the current implementation mapping names, and the specific names and signatures belong to the library API surface of Part 7.
 
 ### 6.1 Mutex
 
@@ -237,7 +239,7 @@ This section describes the contracts for three categories of library synchroniza
 - A data race means two tasks concurrently access the same memory location, at least one writes, and there is no synchronization.
 - Data races are program errors; the runtime does not detect them and makes no guarantees about results.
 - Immutable snapshots (object graphs that are no longer written after construction) require no synchronization and are the recommended default sharing form.
-- Mutable state shared across tasks MUST go through one of `Mutex` / `Atomic` / `Channel` (the concretization of S3 §11).
+- Mutable state shared across tasks MUST go through one of `Mutex` / `Atomic` / `Channel` (the concretization of S4 §11).
 
 ### 6.5 Primitives Not Provided
 

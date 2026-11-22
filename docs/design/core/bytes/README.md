@@ -405,7 +405,7 @@ Bool isPowerOfTwo(Int value) {
 | 本包消费 | `@Data`、`@Value`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | 字节容器/构建器派生成员与复制 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

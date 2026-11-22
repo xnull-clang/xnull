@@ -133,7 +133,7 @@ xdk.errors / xdk.codec
 | 本包消费 | `@Value`、`@Builder`、`@Serializable` |
 | 处理器 | TomlAnnotationProcessor（Validate/Generate） |
 | 生成物 | TOML 字段名映射、编解码元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

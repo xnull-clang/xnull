@@ -299,13 +299,13 @@ String key = entry.key()
 | 本包消费 | `@Data`、`@Value`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | Pair/Triple/Entry 值语义、容器快照 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Pair`/`Triple`/`Entry` | `@Data` | equals/hash/toString/copy |
+| `Pair`/`Triple`/`Entry` | `@Data` | equals/toString/copy |
 | `IntRange` | `@Value` | 值语义成员 |
 | `LRUCache` 等容器 | — | 可变容器不套 `@Value` |
 

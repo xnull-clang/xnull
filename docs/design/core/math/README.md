@@ -317,7 +317,7 @@ Result<Int, Error> addIntChecked(Int left, Int right) {
 | 本包消费 | `@Value`、`@Builder`、`@Copy` |
 | 处理器 | 标准 A8 |
 | 生成物 | Decimal/Complex 值语义、构造/舍入选项 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

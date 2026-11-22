@@ -7,11 +7,11 @@
 | Specification status | Formal |
 | Publication date | 2026-11-15 |
 | Intended audience | XNull language implementations |
-| Related parts | Parts 2–9 |
+| Related parts | Parts 2–10 |
 
 Versioning rules: the revision number is used for clarifications that do not change semantics, the minor version for backward-compatible additions, and the major version for breaking changes. Historical versions are available in the git history.
 
-Revision note: 3.4.0 (2026-11-15) retains only standard clauses; implementation status is not part of this document.
+Revision note: 3.4.0 (2026-11-15) retains only standard clauses; implementation status is not part of this document. Part numbers were renumbered on 2026-11-23 to insert Part 3 (Annotations); content is unchanged.
 
 ## Decision Summary
 
@@ -37,11 +37,12 @@ This solution specifies the basic syntax and semantics of XNull: lexical structu
 This solution does not specify:
 
 - Type declarations, inheritance, protocols, enums, singletons, and extensions; see Part 2.
-- Object memory layout and reclamation; see Part 3.
-- Error observation, cancellation, timeouts, and `ErrorKind` policy; core syntax is in Section 10, the complete model is in the Error Handling specification.
-- FFI, C ABI, `unsafe` boundaries, and cross-language ownership; see Part 7 and Part 6.
-- Runtime semantics of concurrency, asynchrony, and tasks; the language does not provide `async` / `await` syntax; use the task API provided by the library (Part 6).
-- Complete APIs of library types (`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder`) and the standard library packages; see Part 6.
+- Object memory layout and reclamation; see Part 4.
+- Annotation declaration/use and the complete annotation execution model; Part 2 §12 is the object-model summary, Part 3 is the complete solution.
+- Error observation, cancellation, timeouts, and `ErrorKind` policy; core syntax is in Section 10, the complete model is in Part 5 (Error Handling).
+- FFI, C ABI, `unsafe` boundaries, and cross-language ownership; see Part 8 and Part 7.
+- Runtime semantics of concurrency, asynchrony, and tasks; the language does not provide `async` / `await` syntax; use the task API provided by the library (Part 7).
+- Complete APIs of library types (`List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder`) and the standard library packages; see Part 7.
 - Project manifest, build system, and package management; this solution only specifies the entry function signature and startup order.
 
 ### 0.2 Normative Terminology
@@ -86,7 +87,7 @@ The following features are not part of the XNull basic syntax. Implementations M
 | C-style `for (init; cond; step)` | `while`, `do-while`, `for-in`, and range loops already exist | Use `while` + explicit state, or a range loop |
 | `catch` / `finally`, cross-frame exceptions | Errors must propagate explicitly, implicit unwind is forbidden; `try` is only for `Result` propagation | `Result` + `try` + `defer` / `errdefer`; use `throw` for fatal errors |
 | Operator overloading, user-defined implicit conversions | Type behavior stays predictable | Named methods; explicit `as` / `as?` |
-| Address-of operator, pointers, smart pointers, weak reference modifiers, memory policy annotations (`@arc` / `@gc`) | Source code must not express reference strength, addresses, or memory policy | Memory management is covered in Part 3; FFI goes through contracts (Part 7) |
+| Address-of operator, pointers, smart pointers, weak reference modifiers, memory policy annotations (`@arc` / `@gc`) | Source code must not express reference strength, addresses, or memory policy | Memory management is covered in Part 4; FFI goes through contracts (Part 8) |
 | Custom accessor properties (property get/set syntax) | XNull public fields are read and written directly by default; getters/setters are unnecessary | Access public fields directly; use methods for computation, validation, and private state |
 | User-defined indexers | Container interfaces already provide them | `get` / `set` / `at` |
 | Events | No event syntax is introduced | Closure callbacks or explicit observer lists |
@@ -97,7 +98,7 @@ The following features are not part of the XNull basic syntax. Implementations M
 | `??=` | No null-assignment syntax is introduced | `if x == null { x = ... }` |
 | `?.()` / `?.[]` | Dot syntax retains only nullable member access | Call/index after an `if` check |
 | Function type arrow `(P) -> R` | Retain the `R(P...)` form | `R(P...)` |
-| `async` / `await`, generators, `yield` | Concurrency is handled by the library; no function coloring is introduced | Task API provided by the library (Part 6) |
+| `async` / `await`, generators, `yield` | Concurrency is handled by the library; no function coloring is introduced | Task API provided by the library (Part 7) |
 | `unsafe` blocks, raw pointers, inline assembly, macros | XNull source has no address-of, pointer, or smart pointer syntax; the safety boundary lies in libraries and FFI | Library APIs and FFI contracts (Parts 6, 7) |
 | Conditional compilation, macro expansion, runtime reflection | Build and metaprogramming are not part of the language core | Build configuration, code generation, or library APIs |
 | Package re-exports, explicit export lists | Avoid package surface bloat and implicit dependencies | Public wrapper types / functions, or direct imports |
@@ -123,7 +124,7 @@ The following features are not part of the XNull basic syntax. Implementations M
 - There are no smart pointer types: `Box<T>`, `Rc<T>`, `Arc<T>`, `Ref<T>`, `Weak<T>`, etc. do not exist. Memory policy is not a source type; source code does not write `retain` / `release`.
 - Source code has no concept of weak references; reference strength and memory policy are managed entirely by the compiler and runtime and must not be expressed in source code; see Part 2, Section 15.
 - Classes, protocols, arrays, containers, `String`, and closures are semantically object handles/reference semantics; they cannot have their address taken, be converted to integers, undergo pointer arithmetic, or be manually released.
-- FFI, raw pointers, and `unsafe` blocks are not part of the XNull language syntax; they are defined by Part 7 (FFI) and Part 6 (Standard Library). XNull source contains no pointer declarations or dereferences.
+- FFI, raw pointers, and `unsafe` blocks are not part of the XNull language syntax; they are defined by Part 8 (FFI) and Part 7 (Standard Library). XNull source contains no pointer declarations or dereferences.
 
 ## 1. Lexical Structure
 
@@ -341,7 +342,7 @@ Lexical errors MUST include the file, line, and column range; invalid tokens MUS
 | --- | --- | --- |
 | Value types | `Bool` `Unit` `Byte` `Short` `Int` `Long` `UByte` `UShort` `UInt` `ULong` `Int128` `UInt128` `Float` `Double` `Char` | Copied by value |
 | Reference types | `String` `Object` `Any` `T[]` | Passed by object handle |
-| Library types | Capability contracts of Part 6 (implementations map to `List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder`, etc.) | All are reference types; passed by object handle |
+| Library types | Capability contracts of Part 7 (implementations map to `List` / `Map` / `Set` / `Text` / `Bytes` / `StringBuilder`, etc.) | All are reference types; passed by object handle |
 | Language-level error type | `Result<T,E>` | Value type; see Section 10 |
 | Tuples | `(T1, T2, ...)` | Copied by value; see 2.11 |
 | User types | `class`, `protocol`, `enum`, `singleton`, `struct` in Part 2 | Specified in Part 2 |
@@ -397,7 +398,7 @@ Floating-point rules:
 
 `T[]` is a fixed-length one-dimensional array, passed by object handle. Multi-dimensional arrays are written by appending `[]` repeatedly, with nested-array semantics: `T[][]` is equivalent to `Array<Array<T>>`. The language does not provide rectangular matrix or `Tensor` types.
 
-`List<T>`, `Set<T>`, `Map<K,V>`, and other library container types belong to the data and text capabilities of Part 6. The language only specifies that they are reference types and that their type parameters are invariant; members, construction, and key type restrictions are specified by the library API (Part 6).
+`List<T>`, `Set<T>`, `Map<K,V>`, and other library container types belong to the data and text capabilities of Part 7. The language only specifies that they are reference types and that their type parameters are invariant; members, construction, and key type restrictions are specified by the library API (Part 7).
 
 `Result<T,E>` is the language-level error type; `Ok` / `Err` are constructors. `Result` is a value type and can appear in variables, parameters, return values, fields, containers, and closures. Core propagation and handling are described in Section 10; error observation, cancellation, and timeouts are specified by the error handling specification.
 
@@ -1243,7 +1244,7 @@ static T first<T>(T[] values) {
 
 `Unit` is the built-in empty-value type: its sole value is `unit`; it is zero-sized, has no identity, and is copied by value; it is used as `Result<Unit,E>` to represent operations with no success value. `unit == unit` is `true`, and `str(unit)` is `"unit"`.
 
-`List<T>`, `Map<K,V>`, `Set<T>`, `StringBuilder`, `Text`, and `Bytes` are library types and belong to the XDK capabilities of Part 6; the language only specifies that they are all reference types with invariant type parameters.
+`List<T>`, `Map<K,V>`, `Set<T>`, `StringBuilder`, `Text`, and `Bytes` are library types and belong to the XDK capabilities of Part 7; the language only specifies that they are all reference types with invariant type parameters.
 
 ### 9.2 String
 
@@ -1290,7 +1291,7 @@ String text = values.join(",");
 - `length()` returns the number of elements.
 - `join(separator)` formats the elements as strings and joins them with the separator; the elements must be formattable.
 - Multidimensional arrays are nested arrays; rectangular matrices and `Tensor` are not provided.
-- An array cannot be `push`-ed or have its length changed; when a growable container is needed, use a library container (Part 6).
+- An array cannot be `push`-ed or have its length changed; when a growable container is needed, use a library container (Part 7).
 - `T[]` is a reference type; assigning it to a variable copies the object handle, not the array. When elements are `struct`s, writes and reads copy by value; when elements are reference types, the object handle is copied.
 - Array element types are invariant; `String[]` cannot be assigned to `Object[]`.
 
@@ -1334,7 +1335,7 @@ The `Map` / `List` / `Set` in the examples are library types, not language built
 - Built-in members resolve by the static receiver type; calling a non-`?.` member on a `null` receiver panics.
 - `length()` counts bytes on `String` and elements on `T[]`.
 - `Result`'s `isOk` / `isErr` / `value` / `error` / `unwrapOr` are built-in members, see 10.1.
-- Array out-of-bounds is reported via panic; the behavior of library type members is covered in Part 6.
+- Array out-of-bounds is reported via panic; the behavior of library type members is covered in Part 7.
 
 ## 10. Error Handling
 
@@ -1421,7 +1422,7 @@ Result<Unit, IoError> copy(String from, String to) {
 - `defer` / `errdefer` may appear only in a function body, a control body, or a closure body; they must not serve as the single-statement body of `if` / `while` / `for`. They are not allowed at top level or in type bodies.
 - The single-statement body of `defer` / `errdefer` must not be a local declaration; when a local variable is needed, use a brace body.
 - Cleanups registered inside a loop body run at the end of each iteration; when `break` / `continue` exits the current iteration, the cleanups registered in that iteration run.
-- `defer` manages only external resources such as files, locks, transactions, and sockets; object lifetimes are covered in Part 3.
+- `defer` manages only external resources such as files, locks, transactions, and sockets; object lifetimes are covered in Part 4.
 
 ### 10.4 throw and fatal
 

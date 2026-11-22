@@ -100,7 +100,7 @@ B4 第一批纯包
 
 [`DEBT-REGISTER.md`](DEBT-REGISTER.md) 记录 B4 完成与后续债务：
 
-- 45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S2 3 + B4 2）。
+- 45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S3 3 + B4 2）。
 - B4-01/P11 与 B4-02/P8 已关闭；B4 已完成（8 包/34 类型 + full `xdk.sh`）。
 - C7 合同已整合（待 B5 实现/验证）；B5–B10 未开工。
 - `SCOPE-01` 是“非债务/范围外”，不计入 45 条。
@@ -127,7 +127,7 @@ UI/桌面/显示/音频/输入/电源/剪贴板/通知/托盘/文件对话框是
 
 | 顺序 | 文档 | 覆盖什么 |
 | ---: | --- | --- |
-| 1 | 语言规范 S0–S9 | 语言语法/语义；最高优先级 |
+| 1 | 语言规范 S0–S10 | 语言语法/语义；最高优先级 |
 | 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) + [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 分层、包边界、包/类型计数；“有什么” |
 | 3 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、门禁；“什么时候做什么” |
 | 4 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务分类、B4 入口、owner 接受状态；“欠什么/能否开工” |

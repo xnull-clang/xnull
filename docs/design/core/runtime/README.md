@@ -452,7 +452,7 @@ Long startMicros = nowMicros()
 | 本包消费 | `@Value`、`@Copy`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 运行信息/健康快照的派生成员、协议签名校验 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

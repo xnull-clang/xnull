@@ -17,7 +17,7 @@
 
 ## 2. 设计逻辑
 
-- S4 禁止全局错误通知中心/隐式日志；Sink 由调用方显式持有。
+- S5 禁止全局错误通知中心/隐式日志；Sink 由调用方显式持有。
 - Sink 可能失败；`report` 返回 `Result`，由 `reportTo` 决定是否诊断 sink 失败。
 - `close` 幂等；关闭后 `report` 返回 `Unavailable`。
 - 默认非线程安全；实现必须声明。

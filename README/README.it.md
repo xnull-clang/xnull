@@ -123,8 +123,10 @@ DESTDIR=/tmp/xdk-pkg ./install.sh --prefix /usr/local
 
 | Area | Stato |
 | --- | --- |
-| Specifiche S1–S5, S7–S8 | Approvate |
-| Catalogo XDK S6 | v3.0.0 bozza; prima il core T0 |
+| Specifiche S1–S6 | Formali; S3 §14 elenca decisioni aperte |
+| Catalogo XDK S7 | v3.0.0 bozza; prima il core T0 |
+| Toolchain S8 / IDE S9 | Bozza |
+| Configurazione progetto S10 | Finale v5.3.0 |
 | Toolchain C nativa | Attiva per gli scenari core attuali |
 | Compilatore minimale | Linguaggio core + classi di base; copertura in espansione |
 | Scenari end-to-end | hello, classi, `import xdk.errors` funzionano; altro in corso |

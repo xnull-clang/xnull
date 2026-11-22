@@ -104,7 +104,7 @@ SM2-SM3；key 来自 `xdk.crypto`。
 | 本包消费 | `@Value`、`@Builder`、`@Serializable`、`@JsonName` |
 | 处理器 | JwtAnnotationProcessor（Validate/Generate） |
 | 生成物 | claims/header 映射、序列化元数据 |
-| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

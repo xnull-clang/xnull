@@ -1,6 +1,6 @@
 # Workspace lock entries (v1)
 
-Status: normative addendum to `solution-09-project-configuration.md` §4.4.
+Status: normative addendum to `solution-10-project-configuration.md` §4.4.
 Scope: Mini 1.0, workspace dependencies resolved from a `modules` aggregation.
 
 ## Format

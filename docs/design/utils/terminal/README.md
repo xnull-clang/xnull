@@ -165,7 +165,7 @@ core/errors + core/io (Reader/Writer/LineReader/Stdio) + core/text (parseInt)
 | 本包消费 | `@Value` |
 | 处理器 | 标准 A8 |
 | 生成物 | 颜色/样式值语义；提示/表格是服务 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

@@ -88,7 +88,7 @@ metrics/trace/audit/terminal/i18n/test/
 event/reflect/graph/yaml/toml/xml
 ```
 
-> 如果团队坚持 S6 的 `xdk.codec`/`xdk.crypto` 命名，可以把 `xdk.utils.*` 视为分组别名；但本设计按“三组”组织。
+> 如果团队坚持 S7 的 `xdk.codec`/`xdk.crypto` 命名，可以把 `xdk.utils.*` 视为分组别名；但本设计按“三组”组织。
 
 ---
 
@@ -274,7 +274,66 @@ API 面目标：
 
 ---
 
-## 7. 文档索引
+## 7. 注解面（Annotation Surface）
+
+公共 API 文档必须把注解当作 API 合同的一部分。完整规范见 [`solution-03-annotation.md`](../solution-03-annotation.md) §8；本节只规定 XDK API 面模板。
+
+### 7.1 强制模板
+
+每个公共类型/成员必须给出：
+
+| 项 | 内容 |
+| --- | --- |
+| 类型/成员 | 规范名/签名 |
+| 可用注解 | 注解名；没有就写“无” |
+| 目标/保留 | 精确 `@Target` / `@Retention` |
+| 所属包/处理器 | owner 包 + 构建期处理器 |
+| 生成物 | 生成的成员/类型/文件/目录 |
+| 诊断码 | 稳定码 + 严重度 |
+| 状态 | `implemented` / `reserved` / `planned` / `open` |
+| 反例 | 至少一个禁用位置/失败模式 |
+
+### 7.2 状态口径
+
+- `implemented`：注解 + 处理器/生成 + 测试都存在；仅表示注解能力，不表示整个包已实现。
+- `reserved`：识别但不承诺语义。
+- `planned`：合同已写，处理器/生成未实现；不得用现在时描述行为。
+- `open`：决策/签字缺失；不得写成冻结。
+
+### 7.3 已实现与计划中的示例
+
+已实现（A8，编译器）：
+
+```markdown
+| 可用注解 | `@Value` |
+| 目标/保留 | `Type` / `Source` |
+| 所属包/处理器 | 编译器 A8 |
+| 生成物 | `equals`、`toString`、`copy`；不生成 `hash()` |
+| 诊断码 | `AN0021`–`AN0023` |
+| 状态 | implemented（含限制） |
+```
+
+计划中（领域包）：
+
+```markdown
+| 可用注解 | `@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` |
+| 目标/保留 | `Method`/`Parameter` / `Source` |
+| 所属包/处理器 | `xdk.net.http` / `HttpAnnotationProcessor` |
+| 生成物 | `generated/routes.x`: 路由表与 binder |
+| 诊断码 | `AN1101` 空路径；`AN1102` 重复路由；`AN1103` 不支持的绑定 |
+| 状态 | planned；处理器未实现 |
+```
+
+### 7.4 评审规则
+
+- 没有“注解面”的公共 API 文档视为不完整；“无注解”也必须显式。
+- `planned` 注解不得写成已生效；不得把编译器 A8 的 `implemented` 扩大到领域包。
+- 删除/收紧注解、目标、保留、默认值或生成物属于破坏性变更。
+- 生成物必须有稳定路径/命名规则；诊断必须是稳定码。
+
+---
+
+## 8. 文档索引
 
 | 文档 | 内容 |
 | --- | --- |
@@ -284,8 +343,8 @@ API 面目标：
 | [`SCENARIOS.md`](SCENARIOS.md) | 服务/监控/中间件/CLI/协议/推送等场景 |
 | [`CAPABILITY.md`](CAPABILITY.md) | 分层能力详细分析、覆盖矩阵、缺口/优先级 |
 
-> **注解系统**：语言语法、`xdk.annotations` 元模型、处理器合同与 XDK 对接矩阵见
-> [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)。注解是**编译期契约 + 生成入口**，运行时只读编译器生成的静态元数据，不做反射/类路径扫描/动态代理；core/net/utils 的注解对接分别见各层设计。
+> **注解系统**：完整方案见 [`solution-03-annotation.md`](../solution-03-annotation.md)；`xdk.annotations` 元模型、处理器合同与 XDK 对接矩阵见
+> [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) 与 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。注解是**编译期契约 + 生成入口**，运行时只读编译器生成的静态元数据，不做反射/类路径扫描/动态代理；core/net/utils 的注解对接分别见各层设计。
 
 > 客户端/服务器核心能力画像与资源上限见
 > [`core/CORE-PROFILES.md`](core/CORE-PROFILES.md)。本文的 core/net/utils 分组是该画像的上一级视角。

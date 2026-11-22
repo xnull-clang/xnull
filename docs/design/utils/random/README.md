@@ -94,7 +94,7 @@ X：可插拔算法、并行 PRNG、硬件随机源。
 | 本包消费 | `@Value`、`@Override` |
 | 处理器 | 标准 A8 / 编译器内建 |
 | 生成物 | 权重选择值语义、RandomSource 签名 |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

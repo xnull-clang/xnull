@@ -185,7 +185,7 @@
 | 本包消费 | `@Builder`、`@Device`、`@Gpio`、`@I2cAddress`、`@SerialBinding`、`@Packed`、`@Align` |
 | 处理器 | 无自有处理器；消费 Device/Serial/FFI 生成物 |
 | 生成物 | 板级/引脚描述、设备目录、布局校验；设备句柄不套 `@Value` |
-| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+| 状态 | 无领域注解；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
