@@ -100,7 +100,7 @@ B4 第一批纯包
 
 [`DEBT-REGISTER.md`](DEBT-REGISTER.md) 是 B4 的前置账本，不是 B4 完成记录：
 
-- 45 条 = 2 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
+- 45 条 = 2 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 3 已关闭（S2 注解块）。
 - B4-01/P11 与 B4-02/P8 的合同已冻结，状态为“合同已冻结（待 owner 接受）”。
 - B4 入口公式：**owner 接受债表 + B4-01/B4-02 合同冻结 → GO**。合同冻结已完成，owner 接受未完成，所以 B4 不 GO。
 - `SCOPE-01` 是“非债务/范围外”，不计入 45 条。

@@ -2,8 +2,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | B4 owner accepted；B4 实施中；tensor BLOCKED；B4-01/B4-02 未关闭；本表只分类已有债，不新增 API/包/批次 |
-| 基线 | `b4-compiler-hang` @ `aab1576f`（B4 checkpoints） |
+| 状态 | B4 owner accepted；B4 实施中；tensor BLOCKED；B4-01/B4-02 未关闭；S2 注解三块已关闭；本表只分类已有债，不新增 API/包/批次 |
+| 基线 | `b4-compiler-hang` @ `ab7e2a47`（S2 annotation closure） |
 | 范围 | 注解实现前已存在、至今未关闭的 1.x/2.x 旧账，以及 B4–B10 未实现批次 |
 | 权威 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md)、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 分类 | B4 阻塞 / 后续批次 / 1.x-only·post-1.0·owner accepted / BLOCKED |
@@ -17,7 +17,8 @@
 | B4 阻塞 | 2 | 合同已冻结，待 owner 接受；见 §4 |
 | 后续批次 | 26 | 已明确归属 B4–B10 / P4–P8 |
 | 1.x-only / post-1.0 / owner accepted | 13 | 不得冒充 2.x 完成 |
-| BLOCKED | 4 | 有依赖或证据缺口，附下一步 |
+| BLOCKED | 1 | 有依赖或证据缺口，附下一步；只剩 BLK-01 |
+| 已关闭（原 BLOCKED，保留行） | 3 | S2 注解三块：BLK-02/03/04 |
 | **合计** | **45** | |
 
 ## 2. B4 阻塞
@@ -107,7 +108,8 @@ B4 入口合同已冻结，owner accepted；当前实施状态：
 
 - C7 合同整合已完成（NEXT-01：合同已整合，待 B5 实现/验证）；B5 负责实现与 xdk2 + 1.x 回归，不是 B4 阻塞。
 - API-SURFACE 旧稿重生成归 **B5**，不是 B4 阻塞；B4 以逐类型合同为准。
-- 注解 `Deinit`/`TypeUse` 受 S2 约束，跨包注解全限定名受编译器约束；B4 纯包不使用这些目标，故列为 BLOCKED 而非 B4 阻塞。
+- S2 注解三块已关闭：`Deinit`（`20f82bf5`）、`TypeUse`（`ab7e2a47`）、跨包注解 use 预解析（`11298b82`）；11 个注解目标均有合法挂载点。
+- 仍保留的源语法限制：`@pkg.a.Marker` 点号路径尚未解析；跨包注解通过导入 + 简单名或声明包解析。B4 纯包不使用这些目标，故不再是 BLOCKED。
 - N1、P6/P7/P9、U5–U11、X1–X5、B5–B10 都是后续批次或已接受债，不伪装成 B4 阻塞。
 - P4（`PI()`）与 P10（“依赖”改“相关类型”）的决定已冻结，属于 B4.7/B4.8 合同回写，不阻塞 B4。
 - P8 的 serial 同类 fallback 归 B8；本次只冻结 B4 需要的 `tensor`/`geo` 子集，不宣称 P8 全量关闭。
@@ -149,9 +151,9 @@ B4 入口公式：**owner 接受债表 + B4-01/B4-02 合同冻结 → GO**。当
 | ID | 债务描述 | 来源 / 证据 | 影响 | Owner | 目标批次 / 验收 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
 | BLK-01 | U3：官方 0.3.0 构建 blocked；tag `mini-v0.3.0`（`a36d123b`）缺 `src/bootstrap/bin/xn-s4`，官方 `./src/mini/build.sh` exit 2。替代 artifact 只证明 1.0 可升级，不是官方 0.3.0 通过。 | [MINI-1.0-SIGNOFF.md](MINI-1.0-SIGNOFF.md) §8 G1；[RELEASE-NOTES-1.0.0.md](RELEASE-NOTES-1.0.0.md) §2.2；[t0/C1-U0-U5-EVIDENCE.md](t0/C1-U0-U5-EVIDENCE.md) §U3 | 官方 0.3.0 升级路径未验证；不得宣称官方 0.3.0 已升级。 | QA / RELEASE | 修复或重建 tag 的 `xn-s4` bootstrap 后重跑官方 build；否则保持 substitute waiver 并继续标注 blocked。 | BLOCKED（缺官方 bootstrap artifact） |
-| BLK-02 | 注解目标 `Deinit` 无合法挂载点：mini 不解析 `deinit` 声明语法；`@Target(Deinit)` 只作为目标名接受。 | [../../src/mini/tests/xdk2/annotations/BLOCKED.md](../../src/mini/tests/xdk2/annotations/BLOCKED.md)；[annotations/README.md](annotations/README.md) G2 | 11 个目标不能全部从源码生成；注册表 `deinit:` key 已有但无条目。 | COMPILER / S2 | S2 定义 `deinit` 声明语法；随后补 parser/AST/目标检查与正负例。 | BLOCKED（依赖 S2 语法） |
-| BLK-03 | 注解目标 `TypeUse` 无显式类型使用位置语法；`@Target(TypeUse)` 只作为目标名接受。 | [../../src/mini/tests/xdk2/annotations/BLOCKED.md](../../src/mini/tests/xdk2/annotations/BLOCKED.md)；[annotations/README.md](annotations/README.md) G13 | 11 个目标不能全部从源码生成；类型使用注解无法挂载。 | COMPILER / S2 | S2 定义 type-use 位置语法；随后补 parser/AST/目标检查与正负例。 | BLOCKED（依赖 S2 语法） |
-| BLK-04 | 跨包注解全限定名受限：mini 合并 AST 时丢弃被导入文件的 `Package` 节点；生成的 `typeName` 只对同包声明加当前包前缀，跨包注解按简单名解析。 | [../../src/mini/tests/xdk2/annotations_types/BLOCKED.md](../../src/mini/tests/xdk2/annotations_types/BLOCKED.md)；[annotations/README.md](annotations/README.md) §5.1 | 跨包领域注解可能同名冲突；运行时注册表 `typeName` 不能唯一标识来源。 | COMPILER | 在领域注解包（B5/B6+）前保留 `Package` 节点/全限定名；补两个包同名注解场景。 | BLOCKED（编译器合并 AST 限制） |
+| BLK-02 | 注解目标 `Deinit` 无合法挂载点：mini 不解析 `deinit` 声明语法；`@Target(Deinit)` 只作为目标名接受。 | [../../src/mini/tests/xdk2/annotations/BLOCKED.md](../../src/mini/tests/xdk2/annotations/BLOCKED.md)；[annotations/README.md](annotations/README.md) G2 | 已由 S2 关闭：`class` 的 `deinit()` 解析为 `Deinit`，注册表 `owner#deinit()`，GC 钩子已接。 | COMPILER / S2 | `20f82bf5`；`src/mini/tests/deinit/deinit_registry.x`；`deinit.sh` 12 cases PASS。 | CLOSED（S2 deinit） |
+| BLK-03 | 注解目标 `TypeUse` 无显式类型使用位置语法；`@Target(TypeUse)` 只作为目标名接受。 | [../../src/mini/tests/xdk2/annotations/BLOCKED.md](../../src/mini/tests/xdk2/annotations/BLOCKED.md)；[annotations/README.md](annotations/README.md) G13 | 已由 S2 关闭：`@Foo Type` 支持字段/参数/返回/局部类型，注册表 `TypeUse` 条目可查。 | COMPILER / S2 | `ab7e2a47`；`src/mini/tests/typeuse/`；`typeuse.sh` 3 正例 + 6 负例 PASS。 | CLOSED（S2 TypeUse） |
+| BLK-04 | 跨包注解全限定名受限：曾按简单名解析，两个包同名注解无法区分来源。 | [../../src/mini/tests/xdk2/annotations_types/BLOCKED.md](../../src/mini/tests/xdk2/annotations_types/BLOCKED.md)；[annotations/README.md](annotations/README.md) §5.1 | 已由 S2 关闭：每个声明保留声明包，use 在 Mono 前预解析，注册表 `typeName` 使用全限定名。 | COMPILER | `11298b82`；`src/mini/tests/xdk2/annotations_cross_package/cross_package.sh`（`true/true/true`，双导入歧义 `AN0001`）。 | CLOSED（S2 跨包 use 预解析） |
 
 
 ## 7. 非债务 / 范围外

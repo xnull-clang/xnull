@@ -566,12 +566,15 @@ check_links                  PASS
 
 B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生成只读表。
 
-剩余限制（不阻塞 B2）：
+S2 注解三块已关闭（不改变 B4 实施状态）：
 
-- `Deinit` 源语法依赖 S2：mini 尚不解析 `deinit` 声明；注册表已支持 `deinit:` key；
-- 跨包注解全限定名：mini 合并 AST 时丢弃被导入文件 `Package` 节点，跨包注解目前只能按简单名解析。
+- `Deinit`：`20f82bf5`；`deinit` 声明、`@Target(Deinit)`、注册表 `owner#deinit()` 与 GC 钩子已落地；`deinit.sh` 12 cases PASS。
+- `TypeUse`：`ab7e2a47`；`@Foo Type` 支持字段/参数/返回/局部类型，消歧与注册表已落地；`typeuse.sh` 3 正例 + 6 负例 PASS。
+- 跨包注解 use 预解析：`11298b82`；注册表 `typeName` 使用全限定名，`cross_package.sh` 输出 `true/true/true`，双导入歧义 `AN0001`。
+- 11 个注解目标现在都有至少一个合法挂载点。
+- 仍保留：`@pkg.a.Marker` 源码点号路径尚未解析；跨包注解通过导入 + 简单名或声明包解析。
 
-B4 仍未开工。
+B4 仍在实施，未完成。
 
 ### 11.5 B4 入口：owner accepted（实施中；tensor BLOCKED）
 
@@ -580,7 +583,7 @@ B4 仍未开工。
   - B4-01/P11：[`platform/tensor/TensorView.md`](platform/tensor/TensorView.md)、[`platform/tensor/README.md`](platform/tensor/README.md)；不做广播，非空视图 `dim > 1` 的 stride 0 拒绝，checked Long 溢出 panic。
   - B4-02/P8：[`platform/tensor/TensorDType.md`](platform/tensor/TensorDType.md)、[`platform/geo/GeoProjection.md`](platform/geo/GeoProjection.md)；null → `"unknown"`，未知未来成员 → `"other"`，`tensorDTypeByteWidth` null/未知 → 0，FromName null/未知 → null。
 - 当前判定：**B4 GO（实施中）；tensor 因 parser 错误 BLOCKED；B4-01/B4-02 未关闭；B5 仍未开工。**
-- 债表计数：45 条 = 2 B4 阻塞（合同冻结，待 owner 接受）+ 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
+- 债表计数：45 条 = 2 B4 阻塞（合同冻结，待 owner 接受）+ 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 3 已关闭（S2 注解块）。
 - B4 之外的历史结论不改；本节只增加入口条件与新文件链接。
 
 ## 12. 一句话收口
