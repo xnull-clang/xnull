@@ -13,7 +13,7 @@
 
 张量元素类型：32/64 位浮点、32/64 位有符号整数、布尔。
 
-不做：复数、无符号整数、半精度/bf16、量化类型、字符串、任意精度；不做隐式类型提升。
+不做：复数、无符号整数、半精度/bf16、量化类型、字符串、任意精度；不做隐式类型提升；不把 null 或未知名称猜成合法成员。
 
 ---
 
@@ -24,6 +24,8 @@
 - `Bool` 是独立类型，不用 `Int32` 假装；只允许 0/1 字节。
 - 枚举不定义实例方法；名称、宽度、分类由顶层函数映射，避免枚举依赖 `String`/`Result`。
 - 成员只允许追加；已有序号与名称冻结。
+- 名称/宽度函数有冻结兜底：null → `"unknown"`，未知未来成员 → `"other"`；`tensorDTypeByteWidth` 的 null/未知成员 → 0。兜底不 panic，不映射到合法成员。
+- `tensorDTypeFromName` 的 `null` 表示“未找到”，不是诊断兜底；`"unknown"`/`"other"` 不是成员，不得解析成合法成员。
 
 ---
 
@@ -56,6 +58,15 @@
 
 枚举成员直接使用；不允许 `new TensorDType()`，不允许应用扩展成员。
 
+兜底策略（冻结）：
+
+- `tensorDTypeName(null)` → `"unknown"`；未知未来成员 → `"other"`；`"unknown"`/`"other"` 都不是枚举成员。
+- `tensorDTypeByteWidth(null)` / 未知成员 → `0`；`0` 不是合法元素宽度，只表示未知；不得返回 `1`、`4`、`8` 等合法宽度。
+- `tensorDTypeFromName(null)` / 未知 / 空串 → `null`（未找到）；`"unknown"`/`"other"` 不得解析成成员。
+- 谓词 `tensorDTypeIsFloatingPoint` / `tensorDTypeIsInteger` / `tensorDTypeIsBoolean` 对 null/未知成员返回 `false`。
+- 三个谓词的“互斥且完备”只对 5 个合法成员成立；null/未知时三者都为 `false`，表示不属于任何类别，不表示归入另一类。
+- 以上兜底不 panic；闭枚举仍只有 5 个成员，兜底不表示 null 是合法 dtype。
+
 ---
 
 ## 6. 字段表
@@ -70,14 +81,14 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| `tensorDTypeByteWidth` | 元素的字节宽度 | `TensorDType tensorDType` | `Int` | 无 | 4/8/1，见 §3 |
-| `tensorDTypeName` | 稳定小写名 | `TensorDType tensorDType` | `String` | 无 | `"float32"` 等 |
-| `tensorDTypeFromName` | 名称解析 | `String name` | `TensorDType?` | 无 | 去空白、忽略大小写；未知 → `null` |
-| `tensorDTypeIsFloatingPoint` | 是否浮点 | `TensorDType tensorDType` | `Bool` | 无 | Float32/Float64 |
-| `tensorDTypeIsInteger` | 是否有符号整数 | `TensorDType tensorDType` | `Bool` | 无 | Int32/Int64 |
-| `tensorDTypeIsBoolean` | 是否布尔 | `TensorDType tensorDType` | `Bool` | 无 | 仅 Bool |
+| `tensorDTypeByteWidth` | 元素的字节宽度 | `TensorDType tensorDType` | `Int` | 无 | 4/8/1；null/未知成员 → 0（未知宽度） |
+| `tensorDTypeName` | 稳定小写名 | `TensorDType tensorDType` | `String` | 无 | `"float32"` 等；null → `"unknown"`；未知成员 → `"other"` |
+| `tensorDTypeFromName` | 名称解析 | `String name` | `TensorDType?` | 无 | 去空白、忽略大小写；null/未知/空 → `null`（未找到） |
+| `tensorDTypeIsFloatingPoint` | 是否浮点 | `TensorDType tensorDType` | `Bool` | 无 | Float32/Float64；null/未知 → false |
+| `tensorDTypeIsInteger` | 是否有符号整数 | `TensorDType tensorDType` | `Bool` | 无 | Int32/Int64；null/未知 → false |
+| `tensorDTypeIsBoolean` | 是否布尔 | `TensorDType tensorDType` | `Bool` | 无 | 仅 Bool；null/未知 → false |
 
-名称是交换/日志合同；不得把 `"float"`、`"int"`、`"f32"` 解析为合法成员。
+名称是交换/日志合同；不得把 `"float"`、`"int"`、`"f32"` 解析为合法成员。`"unknown"`/`"other"` 是诊断兜底文本，不是成员；`tensorDTypeFromName` 不接受它们。`tensorDTypeByteWidth` 的 0 也不是元素宽度；合法宽度只有 1/4/8。
 
 ---
 
@@ -113,14 +124,17 @@
 
 ## 12. 示例与反例
 
-正确：`TensorDType.Float32` 表示单精度；`tensorDTypeByteWidth(TensorDType.Int64) == 8`；`TensorDType.Bool` 只存 0/1。  
-反例：假设所有元素都是 8 字节；把 `Int64` 当 `Float64` 位模式重解释；让 `add` 自动把 `Int32` 提升为 `Float64`；把未知名称猜成 `Float32`。
+正确：`TensorDType.Float32` 表示单精度；`tensorDTypeByteWidth(TensorDType.Int64) == 8`；`TensorDType.Bool` 只存 0/1。
+
+正确：`tensorDTypeName(null) == "unknown"`；未知未来成员 → `"other"`；`tensorDTypeByteWidth(null) == 0`；`tensorDTypeFromName("unknown") == null`。
+
+反例：假设所有元素都是 8 字节；把 `Int64` 当 `Float64` 位模式重解释；让 `add` 自动把 `Int32` 提升为 `Float64`；把未知名称猜成 `Float32`；把 `tensorDTypeByteWidth(null)` 当 Bool 宽度 1；把 `tensorDTypeName(null)` 返回 `"bool"`；把 `"unknown"`/`"other"` 解析成合法成员；对 null/未知成员 panic（本合同选择不 panic）。
 
 ---
 
 ## 13. 测试/场景义务
 
-五个成员的名称/宽度/序号；`tensorDTypeFromName` 的大小写、空白、未知、空串；浮点/整数/布尔谓词互斥且完备；枚举值可作 `Map` 键；不出现第六个成员。
+五个成员的名称/宽度/序号；`tensorDTypeFromName` 的大小写、空白、null、空串、未知、`"unknown"`、`"other"`；`tensorDTypeName` 的 null → `"unknown"`、未知/未来成员兜底分支 → `"other"`；`tensorDTypeByteWidth` 的 null/未知 → 0、五个成员 → 4/8/4/8/1；浮点/整数/布尔谓词互斥且完备，null/未知 → false；名称与宽度兜底分支不得返回合法成员名/宽度；五个成员 round-trip；枚举值可作 `Map` 键；不出现第六个成员。闭枚举当前无法直接构造未来成员；追加成员时先补“旧分派返回 `other`/0”的前向测试，再更新分派表。
 
 ---
 
@@ -138,19 +152,23 @@ enum TensorDType {
 }
 
 Int tensorDTypeByteWidth(TensorDType tensorDType) {
+    if tensorDType == null { return 0 }
     if tensorDType == TensorDType.Float32 { return 4 }
     if tensorDType == TensorDType.Float64 { return 8 }
     if tensorDType == TensorDType.Int32 { return 4 }
     if tensorDType == TensorDType.Int64 { return 8 }
-    return 1
+    if tensorDType == TensorDType.Bool { return 1 }
+    return 0
 }
 
 String tensorDTypeName(TensorDType tensorDType) {
+    if tensorDType == null { return "unknown" }
     if tensorDType == TensorDType.Float32 { return "float32" }
     if tensorDType == TensorDType.Float64 { return "float64" }
     if tensorDType == TensorDType.Int32 { return "int32" }
     if tensorDType == TensorDType.Int64 { return "int64" }
-    return "bool"
+    if tensorDType == TensorDType.Bool { return "bool" }
+    return "other"
 }
 
 TensorDType? tensorDTypeFromName(String name) {
@@ -165,18 +183,21 @@ TensorDType? tensorDTypeFromName(String name) {
 }
 
 Bool tensorDTypeIsFloatingPoint(TensorDType tensorDType) {
+    if tensorDType == null { return false }
     if tensorDType == TensorDType.Float32 { return true }
     if tensorDType == TensorDType.Float64 { return true }
     return false
 }
 
 Bool tensorDTypeIsInteger(TensorDType tensorDType) {
+    if tensorDType == null { return false }
     if tensorDType == TensorDType.Int32 { return true }
     if tensorDType == TensorDType.Int64 { return true }
     return false
 }
 
 Bool tensorDTypeIsBoolean(TensorDType tensorDType) {
+    if tensorDType == null { return false }
     return tensorDType == TensorDType.Bool
 }
 ```

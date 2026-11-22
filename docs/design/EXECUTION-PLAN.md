@@ -417,7 +417,7 @@ worktree: clean
 | B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
 | B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae`；16 场景绿；B2.3 Registry 已生成 |
 | B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
-| B4 第一批纯包 | 未开工 | B4 前置 = DEBT-REGISTER accepted（§11.5） |
+| B4 第一批纯包 | 未开工 | B4 前置 = DEBT-REGISTER accepted + B4-01/B4-02 合同冻结（§11.5） |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
 
@@ -572,16 +572,18 @@ B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生
 
 B4 仍未开工。
 
-### 11.5 B4 前置：debt register accepted
+### 11.5 B4 前置：debt register accepted + B4-01/B4-02 合同冻结
 
 - 债表：[`DEBT-REGISTER.md`](DEBT-REGISTER.md)
-- B4 入口 = owner 接受债表 + B4 阻塞项关闭；当前 §4 列出 2 条 B4 阻塞：B4-01/P11、B4-02/P8。
-- 当前判定：**B4 整体不 GO**；B4 未开工，B5 仍等 B4。
-- 债表计数：45 条 = 2 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
+- B4 入口 = owner 接受债表 + B4-01/B4-02 合同冻结；当前 §4 的 2 条 B4 阻塞已冻结为合同，仍待 owner 接受：
+  - B4-01/P11：[`platform/tensor/TensorView.md`](platform/tensor/TensorView.md)、[`platform/tensor/README.md`](platform/tensor/README.md)；不做广播，非空视图 `dim > 1` 的 stride 0 拒绝，checked Long 溢出 panic。
+  - B4-02/P8：[`platform/tensor/TensorDType.md`](platform/tensor/TensorDType.md)、[`platform/geo/GeoProjection.md`](platform/geo/GeoProjection.md)；null → `"unknown"`，未知未来成员 → `"other"`，`tensorDTypeByteWidth` null/未知 → 0，FromName null/未知 → null。
+- 当前判定：**B4 仍未 GO；B4 未开工，B5 仍等 B4。** 合同冻结不等于 owner 接受，也不等于 B4 GO。
+- 债表计数：45 条 = 2 B4 阻塞（合同冻结，待 owner 接受）+ 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
 - B4 之外的历史结论不改；本节只增加入口条件与新文件链接。
 
 ## 12. 一句话收口
 
 **先 B0 把“开工条件”做实，再 B1/B3 并行，B2/B4 出第一批可验收包；不要从 75 包同时铺开，也不要在 `main` 上写 2.x。**
 
-B4 前置 = [`DEBT-REGISTER.md`](DEBT-REGISTER.md) owner 接受；入口判断见 §11.5。
+B4 前置 = [`DEBT-REGISTER.md`](DEBT-REGISTER.md) owner 接受 + B4-01/B4-02 合同冻结；入口判断见 §11.5。

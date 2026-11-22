@@ -20,7 +20,7 @@
 | 1 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
 | 2 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
 | 3 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 从设计基线到 Coding-Ready 的批次/任务板/派工模板 |
-| 4 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | B4 前置债表：四类债、B4 阻塞、owner 接受 |
+| 4 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | B4 前置债表：四类债、B4 阻塞、B4-01/B4-02 合同冻结、owner 接受 |
 | 5 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) | 注解语义与 P1 实施计划 |
 | 6 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
 | 7 | 各领域 README/类型合同 | 逐包/逐类型契约 |
