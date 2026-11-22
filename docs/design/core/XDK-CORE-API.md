@@ -1445,7 +1445,7 @@ errors  runtime  meta
 
 - 不提供全局 logger；不隐式读取环境/配置。
 - 日志失败不传播为业务错误； 最小 sink 不做 I/O 错误传播。
-- 脱敏/采样/过滤链是 X/。
+- 脱敏/采样/过滤链已纳入 2.x log 合同：`Filter`/`Redactor`/`Sampler` 与 `Logger.with*` 见 [`log/README.md`](log/README.md) §9。
 
 ---
 

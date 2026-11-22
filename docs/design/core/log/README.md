@@ -13,9 +13,9 @@
 
 ## 1. 包定位
 
-`xdk.log` 提供分级日志：Level/Field/Record/Sink/Formatter/Logger/Factory。
+`xdk.log` 提供分级日志：Level/Field/Record/Sink/Formatter/Logger/Factory，以及过滤、脱敏、采样管道。
 
-不做：全局 logger、远程日志协议、文件轮转完整实现、采样/脱敏（X）。
+不做：全局 logger、远程日志协议、文件轮转完整实现、JSON 格式化。
 
 ---
 
@@ -46,8 +46,17 @@
 | `TextFormatter` | class | 文本格式 | [`TextFormatter.md`](TextFormatter.md) |
 | `Logger` | class | 级别/字段/输出 | [`Logger.md`](Logger.md) |
 | `LoggerFactory` | class | 命名 logger 管理 | [`LoggerFactory.md`](LoggerFactory.md) |
+| `Filter` | protocol | 记录过滤 | [`Filter.md`](Filter.md) |
+| `PredicateFilter` | class | predicate 过滤 | [`PredicateFilter.md`](PredicateFilter.md) |
+| `KeepAllFilter` | class | 默认全保留 | [`KeepAllFilter.md`](KeepAllFilter.md) |
+| `Redactor` | protocol | 文本脱敏 | [`Redactor.md`](Redactor.md) |
+| `ReplaceRedactor` | class | 子串替换脱敏 | [`ReplaceRedactor.md`](ReplaceRedactor.md) |
+| `IdentityRedactor` | class | 默认不脱敏 | [`IdentityRedactor.md`](IdentityRedactor.md) |
+| `Sampler` | protocol | 记录采样 | [`Sampler.md`](Sampler.md) |
+| `EveryNSampler` | class | 每 N 条采样 | [`EveryNSampler.md`](EveryNSampler.md) |
+| `KeepAllSampler` | class | 默认全采样 | [`KeepAllSampler.md`](KeepAllSampler.md) |
 
-X 未纳入本批：`FileSink`、`RotatingFileSink`、`AsyncSink`、`MultiSink`、`Filter`、`LevelFilter`、`FieldFilter`、`Redactor`、`Sampler`、`JsonFormatter`。它们必须在后续批次单独设计，不得塞进现有类。
+X 未纳入本批：`FileSink`、`RotatingFileSink`、`AsyncSink`、`MultiSink`、`JsonFormatter`。它们必须在后续批次单独设计，不得塞进现有类。
 
 ---
 
@@ -55,7 +64,7 @@ X 未纳入本批：`FileSink`、`RotatingFileSink`、`AsyncSink`、`MultiSink`�
 
 - 技术：级别比较、结构化字段、Sink 协议、Formatter、有界内存队列。
 - 支撑：`Stdio`、`StringBuilder`、`time.nowMono/nowWall`、`Context`（异步 sink）。
-- 依赖：`errors`、`runtime`、`text`、`time`、`io`、`Level`、`Field`、`LogRecord`、`Sink`、`Formatter`。
+- 依赖：`errors`、`runtime`、`text`、`time`、`io`、`Level`、`Field`、`LogRecord`、`Sink`、`Formatter`、`Filter`、`Redactor`、`Sampler`。
 
 ---
 
@@ -86,19 +95,33 @@ X 未纳入本批：`FileSink`、`RotatingFileSink`、`AsyncSink`、`MultiSink`�
 | 全局 logger | 禁止 |
 | 文件 sink/轮转 | X |
 | 异步 sink | X |
-| 过滤链 | X； 只有级别阈值 |
-| 脱敏/采样 | X |
+| 过滤链 | 单个 `Filter`；`PredicateFilter`/`KeepAllFilter` 已纳入；多过滤器组合 X |
+| 脱敏/采样 | 已纳入：`Redactor`/`ReplaceRedactor`/`IdentityRedactor`、`Sampler`/`EveryNSampler`/`KeepAllSampler` |
 | JSON 格式 | X（依赖 codec） |
 | 线程安全 | 实现声明；默认非线程安全 |
 | 日志失败 | 诊断，不抛业务错误 |
 
-## 9. 1.x 已实现 API 回写
+## 9. 1.x 管道合同（C7）
 
-1.x 已实现且 2.x 必须保留：
+1.x 已实现、2.x 必须保留的日志管道：
 
-- `Filter` / `PredicateFilter` / `KeepAllFilter`；
-- `Redactor` / `ReplaceRedactor` / `IdentityRedactor`；
-- `Sampler` / `EveryNSampler` / `KeepAllSampler`；
-- `Logger.withFilter/withRedactor/withSampler`。
+| 环节 | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| 级别阈值 | `Logger.enabled(level)`；`level >= minimum` | 不进入后续环节 |
+| 过滤 | [`Filter.md`](Filter.md)；`PredicateFilter`/`KeepAllFilter` | `record == null` → `false`；拒绝不进入 sampler/redactor/sink |
+| 采样 | [`Sampler.md`](Sampler.md)；`EveryNSampler`/`KeepAllSampler` | `EveryNSampler(interval)` ≤0 → panic；`count()` 按实例 |
+| 脱敏 | [`Redactor.md`](Redactor.md)；`ReplaceRedactor`/`IdentityRedactor` | message 与每个 `Field.value` 都改写；空 needle no-op |
+| 输出 | `Sink.write(LogRecord)` | 失败只诊断，不改变业务控制流 |
 
-2.x 的 `Formatter`/`FileSink` 等是增量；1.x 结论不删。
+固定顺序：**级别阈值 → Filter.allow → Sampler.keep → Redactor → Sink**。`Logger` 默认 `KeepAllFilter`/`KeepAllSampler`/`IdentityRedactor`；`withFilter/withRedactor/withSampler` 返回新 `Logger` 并保留其余配置。
+
+示例：
+
+```xnull
+Logger logger = new Logger("app", Level.Info)
+    .withFilter(new PredicateFilter((LogRecord record) -> record.level() == Level.Error))
+    .withSampler(new EveryNSampler(10))
+    .withRedactor(new ReplaceRedactor("secret", "***"))
+```
+
+测试义务：阈值/过滤/采样/脱敏/输出五段顺序；filter 拒绝不进入 sampler；sampler 只统计通过前置条件的记录；redactor 同时改 message 与字段值；默认三件套保持旧行为；派生 Logger 独立配置。

@@ -120,3 +120,13 @@ protocol Reader {
     Bool isOpen();
 }
 ```
+
+---
+
+## 15. 1.x Reader 兼容边界（C7）
+
+- 1.x `Reader(Bytes)` 具体类映射到 `xdk.bytes.ByteReader`：`readU8`/`tryReadU8`/`readBytes`/`readExact`/`remaining`/`hasRemaining` 保留。
+- 2.x `xdk.io.Reader` 是流协议：`read(Context, Bytes)` 返回实际字节数，`0` 明确 EOF；`readFully` 用于严格读满。
+- EOF 失败通道：1.x `readU8` panic / `tryReadU8` `DataCorrupted`；2.x 流 `read` 的 0 是 EOF，不是错误，严格读用 `readFully`/`DataCorrupted`。
+- 关闭后 2.x 返回 `Unavailable`；`isOpen` 取代 1.x `isClosed`。
+- 需要 1.x 内存游标语义时使用 `ByteReader`，不要给流协议强加 `remaining()`。

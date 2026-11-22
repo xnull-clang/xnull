@@ -156,3 +156,30 @@ class Stopwatch {
     Bool isRunning() { return _running }
 }
 ```
+
+---
+
+## 15. 1.x 兼容边界（C7）
+
+1.x `Stopwatch` 的行为：
+
+```text
+Stopwatch()        // 构造即开始
+void start()       // 重新开始
+Long stop()        // 停止并返回 elapsedMs
+Long reset()       // 返回上次 elapsedMs 并重新开始
+Long elapsedMs()
+Duration elapsed()
+Bool isRunning()
+```
+
+2.x 合同冻结为：
+
+- `Stopwatch()` 不自动开始，`elapsedMillis() == 0`；
+- `start()` 运行中 no-op；
+- `stop()`/`reset()` 返回 `void`；
+- 读数用 `elapsedMillis()`（1.x 名称 `elapsedMs` 迁移）。
+
+迁移边界：1.x 公共字段 `startedAt/stoppedAt/running` 迁移到 `elapsedMillis()`/`isRunning()`，不保留公共字段；1.x `new Stopwatch()` 后立即计时 → 2.x 显式 `new Stopwatch().start()`；1.x `Long elapsed = watch.stop()` → 2.x `watch.stop(); Long elapsed = watch.elapsedMillis()`；1.x `reset()` 返回旧值 → 2.x 先读 `elapsedMillis()` 再 `reset()`。能力未删除，语义按 2.x 合同显式化。
+
+测试义务：构造未启动；显式 start 后计时；stop/reset 的 2.x 语义；1.x 迁移示例；跨平台无差异。

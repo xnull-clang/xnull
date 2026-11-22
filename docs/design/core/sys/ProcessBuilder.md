@@ -11,9 +11,9 @@
 
 ## 1. 定位
 
-子进程构造器：命令/参数/cwd/env/错误合并；spawn/run/runResult。
+子进程构造器：命令/参数/cwd/env/错误合并/管道模式；spawn/spawnPiped/run/runResult。
 
-不做：PTY、stdio 管道（X）、进程组、shell 解释。
+不做：PTY、shell 解释、作业控制。
 
 ---
 
@@ -23,6 +23,7 @@
 - `command` 是程序；`args` 不含 argv[0]。
 - `inheritEnv` 默认 true；`env` 覆盖/追加。
 - `redirectErrorStream` 把 stderr 合并到 stdout。
+- `piped(true)` 让 `spawnPiped` 为 stdin/stdout/stderr 建管道；非管道 `spawn` 不建。
 - `spawn` 返回句柄；`run` 等完返回 status；`runResult` 捕获输出。
 - Context 取消 → kill + Cancelled。
 
@@ -38,6 +39,7 @@
 | `_env` | `Map<String,String>` | 覆盖 |
 | `_inheritEnv` | `Bool` | 继承 |
 | `_redirectErrorStream` | `Bool` | 合并 stderr |
+| `_piped` | `Bool` | 管道模式 |
 
 不变量：command 非空；args 无 null。
 
@@ -75,7 +77,9 @@
 | `envAll` | 批量设置 | `Map<String,String> values` | `ProcessBuilder` | null → panic |
 | `inheritEnv` | 继承环境 | `Bool value` | `ProcessBuilder` | 无 |
 | `redirectErrorStream` | 合并 stderr | `Bool value` | `ProcessBuilder` | 无 |
+| `piped` | 管道模式 | `Bool value` | `ProcessBuilder` | 无 |
 | `spawn` | 启动 | `Context` | `Result<Process, Error>` | `Unavailable`/`Io`/`Cancelled` |
+| `spawnPiped` | 启动管道进程 | `Context` | `Result<Process, Error>` | 同上；平台无管道 → `Unsupported` |
 | `run` | 运行等待 | `Context` | `Result<Int, Error>` | 同上 |
 | `runResult` | 捕获结果 | `Context` | `Result<ProcessResult, Error>` | 同上 |
 
@@ -113,14 +117,15 @@
 
 ## 12. 示例与反例
 
-正确：`ProcessBuilder.of("ls").arg("-l").runResult(ctx)`。  
-反例：command 含空格期望 shell；args 含 null；spawn 后修改 builder。
+正确：`ProcessBuilder.of("ls").arg("-l").runResult(ctx)`；`ProcessBuilder.of("cat").piped(true).spawnPiped(ctx)`。
+
+反例：command 含空格期望 shell；args 含 null；spawn 后修改 builder；非管道进程调用 stdio；平台无管道却期望成功。
 
 ---
 
 ## 13. 测试/场景义务
 
-参数/cwd/env；继承/覆盖；stderr 合并；取消；spawn/run/runResult；失败。
+参数/cwd/env；继承/覆盖；stderr 合并；取消；spawn/spawnPiped/run/runResult；piped 标志；非管道 stdio 返回 Unsupported；失败。
 
 ---
 
@@ -134,6 +139,7 @@ class ProcessBuilder {
     Map<String, String> _env = [:]
     Bool _inheritEnv = true
     Bool _redirectErrorStream = false
+    Bool _piped = false
 
     ProcessBuilder(String command) {
         if command == "" { throw "ProcessBuilder: empty command" }
@@ -180,6 +186,7 @@ class ProcessBuilder {
 
     ProcessBuilder inheritEnv(Bool value) { _inheritEnv = value; return self }
     ProcessBuilder redirectErrorStream(Bool value) { _redirectErrorStream = value; return self }
+    ProcessBuilder piped(Bool value) { _piped = value; return self }
 
     Result<Process, Error> spawn(Context context) {
         if context == null {
@@ -189,6 +196,14 @@ class ProcessBuilder {
             return Err(new BasicError(ErrorKind.Cancelled, "cancelled"))
         }
         Result<ProcessHandle, Error> handle = spawnRaw(
+            _command, _args, _cwd, _env, _inheritEnv, _redirectErrorStream)
+        if handle.isErr() { return Err(handle.error()) }
+        return Ok(new Process(handle.value()))
+    }
+
+    Result<Process, Error> spawnPiped(Context context) {
+        _piped = true
+        Result<ProcessHandle, Error> handle = spawnPipedRaw(
             _command, _args, _cwd, _env, _inheritEnv, _redirectErrorStream)
         if handle.isErr() { return Err(handle.error()) }
         return Ok(new Process(handle.value()))
@@ -214,4 +229,4 @@ class ProcessBuilder {
 }
 ```
 
-> `ProcessHandle`、`spawnRaw` 是 OS/运行时进程原语；`runResult` 的真实实现还需捕获 stdout/stderr。
+> `ProcessHandle`、`spawnRaw`、`spawnPipedRaw` 是 OS/运行时进程原语；`runResult` 的真实实现还需捕获 stdout/stderr。

@@ -54,6 +54,7 @@
 | 运行时信息 | `RuntimeInfo`/`runtimeInfo` | 版本/平台/pid/cwd/启动时间 |
 | 内存统计 | `MemoryStats`/`memoryStats` | 堆/外部/峰值/GC |
 | 任务统计 | `TaskStats`/`taskStats` | active/queued/completed/failed/cancelled |
+| 分配统计 | `RuntimeStats`/`stats`/`statsEnabled`/`statsSetEnabled`/`statsReset` | 分配/释放/字节/GC 计数与开关 |
 | 任务转储 | `dumpTasks` | 诊断输出任务快照 |
 | 栈文本 | `stackTrace` | 当前栈；诊断 |
 | 健康/就绪 | `HealthRegistry`/`HealthReport` | 客户端连接健康、服务器 readiness/liveness |
@@ -69,6 +70,7 @@
 | `RuntimeInfo` | [`RuntimeInfo.md`](RuntimeInfo.md) |
 | `MemoryStats` | [`MemoryStats.md`](MemoryStats.md) |
 | `TaskStats` | [`TaskStats.md`](TaskStats.md) |
+| `RuntimeStats` | [`RuntimeStats.md`](RuntimeStats.md) |
 | `TaskSnapshot`（内部） | [`TaskSnapshot.md`](TaskSnapshot.md) |
 | `HealthState` | [`HealthState.md`](HealthState.md) |
 | `HealthReport` | [`HealthReport.md`](HealthReport.md) |
@@ -341,6 +343,28 @@ String stackTrace() {
 
 `MemorySnapshot`、`TaskSnapshotSet`、`TaskSnapshot` 是运行时内部诊断结构，不属于 XDK 公共类型；`TaskSnapshot` 的 XDK 侧包装见 §7。
 
+### 12. 分配统计
+
+| 函数 | 用途 | 参数 | 返回 | 失败 |
+| --- | --- | --- | --- | --- |
+| `stats` | 当前分配/GC 快照 | 无 | `RuntimeStats` | 无；不支持字段 0 |
+| `statsEnabled` | 统计是否开启 | 无 | `Bool` | 无 |
+| `statsSetEnabled` | 开启/关闭后续计数 | `Bool enabled` | `void` | 无 |
+| `statsReset` | 清零计数 | 无 | `void` | 无；不改变开关状态 |
+
+```xnull
+RuntimeStats stats() {
+    return new RuntimeStats(statsAllocsRaw(), statsFreesRaw(), statsBytesRaw(),
+        statsGcCollectionsRaw(), statsGcFreedRaw())
+}
+
+Bool statsEnabled() { return statsEnabledRaw() != 0 }
+void statsSetEnabled(Bool enabled) { statsSetEnabledRaw(enabled ? 1 : 0) }
+void statsReset() { statsResetRaw() }
+```
+
+`RuntimeStats.live()` = `allocs - frees`，是近似计数，不是精确堆普查；统计默认关闭。
+
 ---
 
 ## 6. 场景
@@ -387,6 +411,7 @@ String stackTrace() {
 | dumpTasks 格式 | 文本；JSON 为 X |
 | stackTrace 符号化 | 不保证完整；文档要求脱敏 |
 | MemoryStats 字段 | 因平台而异；缺失为 0 |
+| RuntimeStats vs MemoryStats | `RuntimeStats` 是 1.x 分配/GC 计数；`MemoryStats` 是 2.x 内存快照；两者并存，不互相替代 |
 | TaskStats 一致性 | 快照尽力；不用于计费 |
 | 测试注入 | 内部机制；不进入公共 API |
 | 健康检查 | `HealthRegistry` 非阻塞；HTTP 端点/指标导出归  |
@@ -394,12 +419,25 @@ String stackTrace() {
 | QUIC/网络 | 不属于 runtime |
 | 信号/环境/进程 | 属于 `xdk.sys` |
 
-## 9. 1.x 已实现 API 回写
+## 9. 1.x 兼容合同（C7）
 
-以下 1.x 已实现并验证的 API 不得在 2.x 合同中删除：
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `RuntimeStats` | [`RuntimeStats.md`](RuntimeStats.md)；`allocs/frees/bytes/gcCollections/gcFreed/live` | 计数不可用为 0；`live()` 近似 |
+| `stats()` | 顶层 `stats`；返回不可变快照 | 无 |
+| `statsEnabled()` / `statsSetEnabled(Bool)` / `statsReset()` | 同签名；默认关闭；reset 不改开关 | 无 |
+| `dumpTasks()` | 顶层 `dumpTasks`；诊断 stderr | 格式不作为稳定契约 |
+| `nowMicros()` | 顶层 `nowMicros`；单调微秒 | 1.x runtime 只有 `nowMono/nowWall`；`nowMicros` 是 2.x 增量，不得用于墙钟 |
+| `sleepContext` | 不属于 runtime；见 [`../time/README.md`](../time/README.md) 的 `sleepContext(Context, Duration)` | 取消返回 `Cancelled`；runtime 不重复暴露 sleep |
 
-- `RuntimeStats` 快照与 `stats()`/`statsEnabled()`/`statsSetEnabled()`/`statsReset()`；
-- `dumpTasks()` 任务转储（诊断 stderr）；
-- `nowMicros()` 与 `sleep`/`sleepContext` 的时钟边界。
+示例：
 
-2.x 的 `RuntimeInfo`/`MemoryStats`/`TaskStats` 是增量，不替代上述 1.x 面。
+```xnull
+RuntimeStats snapshot = stats()
+statsSetEnabled(true)
+statsReset()
+dumpTasks()
+Long startMicros = nowMicros()
+```
+
+测试义务：统计默认关闭/开关/reset；五个计数与 `live()`；`dumpTasks` 不改变任务状态；`nowMicros` 单调；`sleepContext` 在 time 包测试。

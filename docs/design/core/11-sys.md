@@ -28,7 +28,7 @@
 | CAP-6 目录 | open/next/close | X |
 | CAP-7 平台 | platform/cwd/pid/mtime | X |
 
-**非目标**：信号、进程组、stdio 管道、环境枚举（X/）。
+**非目标**：PTY/作业控制；1.x 信号/进程组/stdio/环境枚举已整合，见 [`sys/README.md`](sys/README.md) §9。
 
 ## 2. 顶层函数（K）
 

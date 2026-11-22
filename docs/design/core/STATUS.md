@@ -20,17 +20,17 @@
 | `xdk.meta` | `core/meta/` | `03-meta.md` | `src/xdk/core/meta/Meta.x` | Verified（mini） | 新增画像类型为设计稿 |
 | `xdk.bytes` | `core/bytes/` | `04-bytes.md` | `src/xdk/core/bytes/Bytes.x` | Verified（mini） | X：ByteBuffer 等 |
 | `xdk.text` | `core/text/` | `05-text.md` | `src/xdk/text/base/*.x`、`src/xdk/text/full/*.x` | Partial（mini） | 命名/Unicode/Regex 边界待补 |
-| `xdk.collections` | `core/collections/` | `06-collections.md` | `src/xdk/core/collections/*.x` | Partial（mini） | entries 任意 K/V、groupBy 等 X |
+| `xdk.collections` | `core/collections/` | `06-collections.md` | `src/xdk/core/collections/*.x` | Partial（mini） | 1.x `joinWith`/`Entry`/固定 `Pair` 已整合；见 README §9 |
 | `xdk.math` | `core/math/` | `07-math.md` | `src/xdk/core/math/Math.x` | Verified（mini） | random 归  |
-| `xdk.time` | `core/time/` | `08-time.md` | `src/xdk/core/time/*.x` | Verified（mini） | 时区库/可取消 sleep 为 X |
+| `xdk.time` | `core/time/` | `08-time.md` | `src/xdk/core/time/*.x` | Verified（mini） | 时区库 X；`sleepContext`/layout 已整合 |
 | `xdk.io` | `core/io/` | `09-io.md` | `src/xdk/io/IO.x`、`src/xdk/io/system/` | Partial（mini） | 完整文件/目录面在 system |
-| `xdk.fs` | `core/fs/` | `10-fs.md` | `src/xdk/fs/FS.x`、`src/xdk/io/system/` | Partial（mini） | 完整 File/Dir/atomic/temp 为 X |
-| `xdk.sys` | `core/sys/` | `11-sys.md` | `src/xdk/io/base/Sys.x`、`io/system`、`io/resource` | Partial（mini） | 完整 File/Dir/Process 为 X |
+| `xdk.fs` | `core/fs/` | `10-fs.md` | `src/xdk/fs/FS.x`、`src/xdk/io/system/` | Partial（mini） | 1.x 完整 File/Dir/atomic/temp 已整合；`FileMode` 迁移 `OpenOptions` |
+| `xdk.sys` | `core/sys/` | `11-sys.md` | `src/xdk/io/base/Sys.x`、`io/system`、`io/resource` | Partial（mini） | 1.x 完整 File/Dir/Process、进程组/stdio 兼容面已整合 |
 | `xdk.tasks` | `core/execution/` | `12-tasks.md` | `src/xdk/concurrent/tasks/Tasks.x` | Verified（mini） | `xdk.tasks` 为兼容命名 |
 | `xdk.sync` | `core/execution/` | `13-sync.md` | `src/xdk/concurrent/sync/Sync.x` | Verified（mini） | `xdk.sync` 为兼容命名 |
-| `xdk.log` | `core/log/` | `14-log.md` | `src/xdk/log/Log.x` | Verified（mini） | 最小面；Field/Sink/过滤 X |
-| `xdk.config` | `core/config/` | `15-config.md` | `src/xdk/config/Config.x` | Verified（mini） | 内存/环境面；画像来源为设计稿 |
-| `xdk.cli` | `core/cli/` | `16-cli.md` | `src/xdk/cli/Cli.x` | Verified（mini） | 最小面；子命令/补全 X |
+| `xdk.log` | `core/log/` | `14-log.md` | `src/xdk/log/Log.x` | Verified（mini） | 过滤/脱敏/采样已整合；见 README §9 |
+| `xdk.config` | `core/config/` | `15-config.md` | `src/xdk/config/Config.x` | Verified（mini） | 内存/环境面；`setChecked`/`apply` 已整合 |
+| `xdk.cli` | `core/cli/` | `16-cli.md` | `src/xdk/cli/Cli.x` | Verified（mini） | 子命令/`completionBash` 已整合；`Completion` 类型 X |
 
 ---
 

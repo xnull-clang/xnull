@@ -143,3 +143,28 @@ class Pair<A, B> {
     }
 }
 ```
+
+---
+
+## 15. 1.x 固定 Pair 兼容边界（C7）
+
+1.x 源码同时保留两种形态：
+
+```text
+class Pair {              // 固定兼容形态
+    String first
+    Int second
+}
+
+class Pair<A, B> {        // 2.x 泛型形态
+    A first()
+    B second()
+}
+```
+
+- 2.x 公共合同只有泛型 `Pair<A,B>`；字段为私有 `_first`/`_second`，通过 `first()`/`second()` 读取。
+- `Map<String,Int>.entries()` 返回 `Pair<String,Int>`；1.x 的 `pair.first`/`pair.second` 字段访问迁移到 `pair.first()`/`pair.second()`。
+- 不保留同名第二类；需要键值语义时用 [`Entry<K,V>`](Entry.md) 的 `key()`/`value()`。
+- `Map<Int,Int>.entries()` 继续返回固定 `IntPair`（`first`/`second` 字段）；这是专用快速路径，不属于泛型 `Pair`。
+
+测试义务：泛型 `Pair` 与固定 `IntPair` 的访问器/字段形状；`Map<String,Int>.entries()` 返回 `Pair<String,Int>`；1.x 字段访问迁移示例；不出现同名固定 `Pair` 类。

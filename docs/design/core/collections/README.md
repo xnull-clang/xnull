@@ -57,6 +57,7 @@
 | `BiMap<K,V>` | class | 双向映射 | [`BiMap.md`](BiMap.md) |
 | `LRUCache<K,V>` | class | 容量淘汰 | [`LRUCache.md`](LRUCache.md) |
 | `Pair` | class | 两元组 | [`Pair.md`](Pair.md) |
+| `Entry<K,V>` | class | 通用 Map 条目 | [`Entry.md`](Entry.md) |
 | `Triple` | class | 三元组 | [`Triple.md`](Triple.md) |
 | `Iterator<T>` | class | 迭代器 | [`Iterator.md`](Iterator.md) |
 | `IntRange` | class | 整数区间 | [`IntRange.md`](IntRange.md) |
@@ -117,6 +118,7 @@
 | `unzip` | 解拉链 | `List<Pair<A,B>> pairs` | `Pair<List<A>,List<B>>` | 无 |
 | `flattenList` | 展平一层 | `List<List<T>> nestedItems` | `List<T>` | 无 |
 | `join` | 字符串拼接 | `List<String> items, String separator` | `String` | 无 |
+| `joinWith` | 泛型格式化拼接 | `List<T> items, String separator, String(T) format` | `String` | null → panic |
 
 ### 4.4 集合/分组/组合
 
@@ -257,19 +259,32 @@ List<List<T>> chunk<T>(List<T> items, Int chunkSize) {
 
 | 项 | 决策 |
 | --- | --- |
-| 通用 `Map.entries` 值对象 | K 只支持 `Pair/IntPair`；其余 X |
+| 通用 `Map.entries` 值对象 | `Map<String,Int>` → `Pair<String,Int>`；`Map<Int,Int>` → `IntPair`；其余受支持 K/V → `Entry<K,V>`；三者都是值对象 |
 | `groupBy` 泛型 Map 值 | X； 先 `groupByInt`/专用 |
 | 并发容器 | `xdk.execution`；本包非线程安全 |
 | 持久化/B 树复杂度 | `BTreeMap` 首版有序数组，O(n) 插入 |
 | 迭代器协议 | `Iterator<T>` 是 class；不是泛型 protocol |
 | 排序复杂度 | 首版稳定插入排序 O(n²)；后续可替换 |
-| `Pair/Triple` 值语义 | class + 公共字段；按约定值语义 |
+| `Pair/Triple` 值语义 | class + 访问器方法（`first()/second()`）；按约定值语义 |
 | 空值 | 用 nullable；不支持“存 null”作为合法值 |
 
-## 9. 1.x 已实现 API 回写
+## 9. 1.x 兼容合同（C7）
 
-- `joinWith<T>(List<T> items, String separator, String(T) format)` 已实现；
-- `Entry<K,V>` 已实现，作为 `Map.entries()` 的值对象；
-- 1.x `Pair` 固定形态保留为兼容适配；2.x 泛型 `Pair<A,B>` 是增量。
+1.x 已实现、2.x 必须保留的集合面：
 
-这些能力在 2.x 文档中不得删除或降级为“待办”。
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `joinWith<T>(List<T> items, String separator, String(T) format)` | 顶层 `joinWith`；空列表 → `""`；`format` 为 null → panic | 不修改入参；O(n) |
+| `Entry<K,V>`（公共 `key`/`value` 字段） | [`Entry.md`](Entry.md)；`key()`/`value()` 访问器；通用 `Map.entries()` 返回 `List<Entry<K,V>>` | 1.x 字段访问迁移到访问器；`Map<String,Int>`/`Map<Int,Int>` 仍返回 `Pair`/`IntPair` |
+| 1.x 固定 `Pair`（`String first`/`Int second` 公共字段） | [`Pair.md`](Pair.md) 的 `Pair<A,B>` 泛型值对象；`Map<String,Int>.entries()` 返回 `Pair<String,Int>` | 公共字段迁移到 `first()`/`second()`；不保留同名第二类 |
+| `Map.put` 1.x 旧值返回 | 2.x `Map.put` 冻结返回 `Bool`（替换 true、插入 false）；删除旧值用 `removeOr`，缺失读用 `tryGet`/`getOr` | 1.x t0 同时存在 `Bool put` 与 `Int? put` 证据；以 2.x `Bool` 为准；`OrderedMap/BTreeMap` 保持 `V?` 旧值返回 |
+
+示例：
+
+```xnull
+String joined = joinWith(names, ",", (String name) -> name.toUpper())
+Entry<String, Bool> entry = flags.entries().get(0)
+String key = entry.key()
+```
+
+测试义务：`joinWith` 空/单元素/多元素/null formatter；`Entry` 构造/访问器/with*/equals；三种 `entries()` 返回形状；`Map.put` 的 true/false 与旧值迁移路径；`Pair` 固定字段迁移示例。

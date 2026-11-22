@@ -87,6 +87,7 @@
 | `longToken` | `--name` | 无 | `String` | 无 |
 | `shortToken` | `-s`/无 | 无 | `String?` | 无 |
 | `withShortName` | 派生短名 | `String shortName` | `OptionSpec` | 非法 → panic |
+| `withShort` | `withShortName` 的 1.x 别名 | `String shortName` | `OptionSpec` | 非法 → panic |
 | `withValue` | 派生为值选项 | 无 | `OptionSpec` | 无 |
 | `withValueName` | 派生值名 | `String valueName` | `OptionSpec` | 空/null → panic |
 | `withRequired` | 派生必填 | `Bool value` | `OptionSpec` | 与 default 冲突 → panic |
@@ -138,14 +139,15 @@
 
 ## 12. 示例与反例
 
-正确：`new OptionSpec("output").withShortName("o").withValueName("file")`。  
-反例：`new OptionSpec("--output")`；flag 调用 `withDefault`；required + default；`-abc` 短名。
+正确：`new OptionSpec("output").withShortName("o").withValueName("file")`；1.x 迁移可写 `withShort("o")`。
+
+反例：`new OptionSpec("--output")`；flag 调用 `withDefault`；required + default；`-abc` 短名；把带 `--` 的 1.x 名字直接传给 2.x `OptionSpec`。
 
 ---
 
 ## 13. 测试/场景义务
 
-长名/短名合法与非法；flag/值选项；默认；required；repeatable；parser；隐藏；互斥规则；派生独立性。
+长名/短名合法与非法；flag/值选项；默认；required；repeatable；parser；隐藏；互斥规则；`withShortName` 与 `withShort` 等价；派生独立性。
 
 ---
 
@@ -235,6 +237,10 @@ class OptionSpec {
             _name, shortName, _hasValue, _isRequired, _isRepeatable,
             _defaultValue, _valueName, _description, _isHidden, _valueParser)
         return result
+    }
+
+    OptionSpec withShort(String shortName) {
+        return self.withShortName(shortName)
     }
 
     OptionSpec withValue() {

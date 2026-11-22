@@ -13,7 +13,7 @@
 
 键唯一、可查找/替换/删除/快照的映射。
 
-不做：并发安全、持久化、任意 K/V 的 entries 值对象（X）。
+不做：并发安全、持久化。
 
 ---
 
@@ -23,8 +23,17 @@
 - `put` 返回 `Bool`：替换 true、插入 false。
 - `remove` 返回 `Bool`；`removeOr` 返回旧值/fallback。
 - `getOr` 只读，不插入。
-- `entries` 返回 `List<Pair>`/`List<IntPair>` 快照（K）。
+- `entries` 返回 `List<Pair<String,Int>>`（`Map<String,Int>`）、`List<IntPair>`（`Map<Int,Int>`）或 `List<Entry<K,V>>`（其余受支持 K/V）快照。
 - 非线程安全；顺序不承诺。
+
+---
+
+## 2.1 1.x 兼容边界（C7）
+
+- 1.x t0 同时出现 `Bool put` 与 `Int? put` 两种写法；2.x 冻结 `Bool put`：替换 `true`、插入 `false`。需要旧值时用 `removeOr`、`putIfAbsent` 或先 `tryGet`。
+- 1.x 固定 `Pair`（公共字段）仅用于 `Map<String,Int>.entries()`；2.x 返回 `Pair<String,Int>`，字段访问迁移到 `first()`/`second()`。
+- 其余受支持 K/V 的 `entries()` 返回 `Entry<K,V>`，使用 `key()`/`value()`。
+- `OrderedMap`/`BTreeMap` 的 `put` 仍返回 `V?` 旧值；这是专用容器既有契约，不与通用 `Map` 的 `Bool` 混用。
 
 ---
 
@@ -81,7 +90,7 @@
 | `removeOr` | 删除并返回 | `K key, V fallback` | `V` | 无 |
 | `keys` | 键快照 | 无 | `List<K>` | 无 |
 | `values` | 值快照 | 无 | `List<V>` | 无 |
-| `entries` | 条目快照 | 无 | `List<Pair>`/`List<IntPair>` | 无 |
+| `entries` | 条目快照 | 无 | `List<Pair<String,Int>>`/`List<IntPair>`/`List<Entry<K,V>>` | 无 |
 | `clear` | 清空 | 无 | `void` | 无 |
 | `copy` | 副本 | 无 | `Map<K,V>` | 无 |
 | `containsValue` | 是否含值 | `V value` | `Bool` | 无 |
@@ -105,13 +114,13 @@
 
 - 语言：class/容器、K/V 泛型、Int、Bool、List、Result；
 - 运行时：映射存储/查找；
-- 接口：`Error`、`BasicError`、`ErrorKind`、`Pair`、`IntPair`。
+- 接口：`Error`、`BasicError`、`ErrorKind`、`Pair`、`IntPair`、`Entry`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Pair`、`IntPair`、`Error`、`BasicError`、`ErrorKind`。
+`Pair`、`IntPair`、`Entry`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
@@ -125,14 +134,17 @@
 
 ## 12. 示例与反例
 
-正确：`put("a",1)` 插入 false；再次 put 替换 true；`tryGet` 缺失 Err。  
-反例：用可变对象作键；依赖迭代顺序；`get` 缺失期望 null；遍历时删除。
+正确：`put("a",1)` 插入 false；再次 put 替换 true；`tryGet` 缺失 Err。
+
+正确：`Map<String,Bool> flags` 的 `entries()` 返回 `List<Entry<String,Bool>>`，用 `key()`/`value()` 读取。
+
+反例：用可变对象作键；依赖迭代顺序；`get` 缺失期望 null；遍历时删除；把 2.x `put` 当 1.x 旧值返回；用 `entry.key` 公共字段访问 2.x `Entry`。
 
 ---
 
 ## 13. 测试/场景义务
 
-空/插入/替换/删除；putIfAbsent；compute/merge；removeIf；keys/values/entries 快照；键相等规则；null 值限制。
+空/插入/替换/删除；putIfAbsent；compute/merge；removeIf；keys/values/entries 快照；`Map<String,Int>`/`Map<Int,Int>`/通用 K/V 三种 entries 形状；`Entry` 访问器；`put` 返回 Bool 的插入/替换两侧；键相等规则；null 值限制。
 
 ---
 
