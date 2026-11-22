@@ -66,10 +66,10 @@
 
 ## 升级
 
-- L1 纠错账本：agent 自动写。
-- L2 硬规则/合同：agent 提议，用户签字。
-- L3 权限/脚本/测试：`python3 .agent/bin/promote.py apply <ID>`；测试通过即生效，失败自动回滚；回滚用 `rollback`。
-- L4 退役：标 `superseded`，移出索引。
+- 等级由执行证据决定，不由用户逐条签字。
+- L1→L2：同一问题复发≥1（第二次出现），或出现跨会话冲突/异常/交叉影响。
+- L2→L3：可机械判定，且有 recipe + test；`promote.py apply`，test PASS 即生效，失败自动回滚。
+- L3→L2/L1/L4：test 失效、误报≥2、规则被替代或条件消失；用户可随时否决/回滚。
 
 ## 承接
 
