@@ -4,6 +4,7 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 for gate in \
     "$HERE/functional_empty/run.sh" \
+    "$HERE/generic_field/run.sh" \
     "$HERE/deinit/deinit.sh" \
     "$HERE/typeuse/typeuse.sh" \
     "$HERE/xdk2/annotations_cross_package/cross_package.sh" \
