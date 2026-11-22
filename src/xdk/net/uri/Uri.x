@@ -9,9 +9,9 @@ Error uriError(ErrorKind kind, String message) { return new BasicError(kind, mes
 
 Bool uriAsciiLetter(String text) {
     if text == "" { return false }
-    Char c = text.charAt(0)
-    Bool lower = c >= 'a' && c <= 'z'
-    Bool upper = c >= 'A' && c <= 'Z'
+    String c = text.substring(0, 1)
+    Bool lower = compareText(c, "a") >= 0 && compareText(c, "z") <= 0
+    Bool upper = compareText(c, "A") >= 0 && compareText(c, "Z") <= 0
     return lower || upper
 }
 
@@ -22,7 +22,7 @@ Bool isValidScheme(String scheme) {
     while index < scheme.length() {
         String c = scheme.substring(index, 1)
         Bool letter = uriAsciiLetter(c)
-        Bool digit = c >= "0" && c <= "9"
+        Bool digit = compareText(c, "0") >= 0 && compareText(c, "9") <= 0
         if !letter && !digit && c != "+" && c != "-" && c != "." { return false }
         index = index + 1
     }
@@ -32,10 +32,31 @@ Bool isValidScheme(String scheme) {
 Int uriHexValue(String text) {
     if text == "" { return -1 }
     String c = text.substring(0, 1)
-    if c >= "0" && c <= "9" { return (c.charAt(0) - '0') as Int }
-    if c >= "a" && c <= "f" { return (c.charAt(0) - 'a' + 10) as Int }
-    if c >= "A" && c <= "F" { return (c.charAt(0) - 'A' + 10) as Int }
+    if compareText(c, "0") >= 0 && compareText(c, "9") <= 0 { return parseInt(c).value() }
+    if compareText(c, "a") >= 0 && compareText(c, "f") <= 0 {
+        Int index = 0
+        while index < 6 {
+            if c == hexLetter(index) { return 10 + index }
+            index = index + 1
+        }
+    }
+    if compareText(c, "A") >= 0 && compareText(c, "F") <= 0 {
+        Int index = 0
+        while index < 6 {
+            if c == hexLetter(index) { return 10 + index }
+            index = index + 1
+        }
+    }
     return -1
+}
+
+String hexLetter(Int index) {
+    if index == 0 { return "a" }
+    if index == 1 { return "b" }
+    if index == 2 { return "c" }
+    if index == 3 { return "d" }
+    if index == 4 { return "e" }
+    return "f"
 }
 
 String uriHexDigit(Int value) {
@@ -54,9 +75,8 @@ String percentEncode(String text, String allowed) {
     Int index = 0
     while index < text.length() {
         String c = text.substring(index, 1)
-        Int code = c.charAt(0) as Int
         Bool keep = false
-        if code < 128 {
+        if compareText(c, " ") >= 0 && compareText(c, "~") <= 0 {
             Int allowedIndex = 0
             while allowedIndex < allowed.length() {
                 if allowed.substring(allowedIndex, 1) == c { keep = true; break }
@@ -157,7 +177,7 @@ class Query {
 
     static Result<Query, Error> parse(String text) {
         if text == null { throw "Query.parse: null text" }
-        return Ok(parseValue(text))
+        return Ok(Query.parseValue(text))
     }
 
     Void add(String name, String value) {
@@ -362,7 +382,7 @@ class Uri {
         String result = ""
         if self._scheme != null { result = (self._scheme as String) + ":" }
         if self._host != null {
-            result = result + "//" + self.authority()
+            result = result + "//" + (self.authority() as String)
         }
         result = result + self._path
         if self._hasQuery { result = result + "?" + self._query.encode() }
@@ -410,7 +430,12 @@ class Uri {
             return Ok(new Uri(self._scheme, null, self._host, self._port, reference.path(), reference.query(), reference.hasQuery(), reference.fragment()))
         }
         String basePath = self._path
-        Int slash = basePath.lastIndexOf("/")
+        Int slash = -1
+        Int slashIndex = 0
+        while slashIndex < basePath.length() {
+            if basePath.substring(slashIndex, 1) == "/" { slash = slashIndex }
+            slashIndex = slashIndex + 1
+        }
         String directory = ""
         if slash >= 0 { directory = basePath.substring(0, slash + 1) }
         return Ok(new Uri(self._scheme, self._userInfo, self._host, self._port, directory + reference.path(), reference.query(), reference.hasQuery(), reference.fragment()))

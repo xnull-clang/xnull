@@ -6,26 +6,40 @@ import xdk.text
 
 Error mimeError(ErrorKind kind, String message) { return new BasicError(kind, message) }
 
+Bool isToken(String text) {
+    if text == null || text == "" { return false }
+    Int index = 0
+    while index < text.length() {
+        String c = text.substring(index, 1)
+        Bool letter = (compareText(c, "a") >= 0 && compareText(c, "z") <= 0) ||
+            (compareText(c, "A") >= 0 && compareText(c, "Z") <= 0)
+        Bool digit = compareText(c, "0") >= 0 && compareText(c, "9") <= 0
+        Bool allowed = c == "!" || c == "#" || c == "$" || c == "%" || c == "&" ||
+            c == "'" || c == "*" || c == "+" || c == "-" || c == "." || c == "^" ||
+            c == "_" || c == "`" || c == "|" || c == "~"
+        if !letter && !digit && !allowed { return false }
+        index = index + 1
+    }
+    return true
+}
+
 class MediaType {
     final String _type
     final String _subtype
-    final Map<String, String> _parameters
+    final List<String> _names
+    final List<String> _values
 
-    MediaType(String mediaType, String mediaSubtype, Map<String, String> parameters) {
+    MediaType(String mediaType, String mediaSubtype, List<String> names, List<String> values) {
         if mediaType == null || mediaType == "" || mediaSubtype == null || mediaSubtype == "" {
             throw "MediaType: empty type/subtype"
         }
-        if parameters == null { throw "MediaType: null parameters" }
+        if names == null || values == null || names.length() != values.length() {
+            throw "MediaType: invalid parameters"
+        }
         self._type = mediaType.toLower()
         self._subtype = mediaSubtype.toLower()
-        self._parameters = [:]
-        List<String> names = parameters.keys()
-        Int index = 0
-        while index < names.length() {
-            String name = names.get(index)
-            self._parameters.put(name.toLower(), parameters.getOr(name, ""))
-            index = index + 1
-        }
+        self._names = names.copy()
+        self._values = values.copy()
     }
 
     static Result<MediaType, Error> parse(String text) {
@@ -43,7 +57,8 @@ class MediaType {
         if !isToken(mediaType) || !isToken(subtype) {
             return Err(mimeError(ErrorKind.InvalidArgument, "invalid media token"))
         }
-        Map<String, String> parameters = [:]
+        List<String> names = []
+        List<String> values = []
         Int index = 1
         while index < parts.length() {
             String parameter = parts.get(index).trim()
@@ -60,37 +75,52 @@ class MediaType {
                 if !isToken(name) {
                     return Err(mimeError(ErrorKind.InvalidArgument, "invalid parameter name"))
                 }
-                parameters.put(name.toLower(), value)
+                names.push(name.toLower())
+                values.push(value)
             }
             index = index + 1
         }
-        return Ok(new MediaType(mediaType, subtype, parameters))
+        return Ok(new MediaType(mediaType, subtype, names, values))
     }
 
     String type() { return self._type }
     String subtype() { return self._subtype }
+
     String? parameter(String name) {
         if name == null { return null }
-        return self._parameters.getOrNull(name.toLower())
+        String key = name.toLower()
+        Int index = 0
+        while index < self._names.length() {
+            if self._names.get(index) == key { return self._values.get(index) }
+            index = index + 1
+        }
+        return null
     }
-    Map<String, String> parameters() { return self._parameters.copy() }
+
     String? charset() { return self.parameter("charset") }
 
     MediaType withParameter(String name, String value) {
         if name == null || name == "" || value == null || !isToken(name) {
             throw "MediaType.withParameter: invalid argument"
         }
-        Map<String, String> next = self._parameters.copy()
-        next.put(name.toLower(), value)
-        return new MediaType(self._type, self._subtype, next)
+        List<String> names = []
+        List<String> values = []
+        Int index = 0
+        while index < self._names.length() {
+            names.push(self._names.get(index))
+            values.push(self._values.get(index))
+            index = index + 1
+        }
+        names.push(name.toLower())
+        values.push(value)
+        return new MediaType(self._type, self._subtype, names, values)
     }
 
     String text() {
         String result = self._type + "/" + self._subtype
-        List<String> names = self._parameters.keys()
         Int index = 0
-        while index < names.length() {
-            result = result + "; " + names.get(index) + "=" + self._parameters.getOr(names.get(index), "")
+        while index < self._names.length() {
+            result = result + "; " + self._names.get(index) + "=" + self._values.get(index)
             index = index + 1
         }
         return result
@@ -108,46 +138,30 @@ class MediaType {
     String toString() { return self.text() }
 }
 
-Bool isToken(String text) {
-    if text == null || text == "" { return false }
-    Int index = 0
-    while index < text.length() {
-        String c = text.substring(index, 1)
-        Bool letter = (c >= "a" && c <= "z") || (c >= "A" && c <= "Z")
-        Bool digit = c >= "0" && c <= "9"
-        Bool allowed = c == "!" || c == "#" || c == "$" || c == "%" || c == "&" ||
-            c == "'" || c == "*" || c == "+" || c == "-" || c == "." || c == "^" ||
-            c == "_" || c == "`" || c == "|" || c == "~"
-        if !letter && !digit && !allowed { return false }
-        index = index + 1
-    }
-    return true
-}
-
 class MimeTypes {
-    static MediaType json() { return new MediaType("application", "json", [:]) }
-    static MediaType text() { return new MediaType("text", "plain", [:]) }
-    static MediaType octetStream() { return new MediaType("application", "octet-stream", [:]) }
-    static MediaType formUrlEncoded() { return new MediaType("application", "x-www-form-urlencoded", [:]) }
-    static MediaType multipartFormData() { return new MediaType("multipart", "form-data", [:]) }
+    static MediaType json() { List<String> n = []; List<String> v = []; return new MediaType("application", "json", n, v) }
+    static MediaType text() { List<String> n = []; List<String> v = []; return new MediaType("text", "plain", n, v) }
+    static MediaType octetStream() { List<String> n = []; List<String> v = []; return new MediaType("application", "octet-stream", n, v) }
+    static MediaType formUrlEncoded() { List<String> n = []; List<String> v = []; return new MediaType("application", "x-www-form-urlencoded", n, v) }
+    static MediaType multipartFormData() { List<String> n = []; List<String> v = []; return new MediaType("multipart", "form-data", n, v) }
 
     static MediaType? fromExtension(String extension) {
         if extension == null { return null }
         String normalized = extension.trim().toLower()
         if normalized.startsWith(".") { normalized = normalized.substring(1, normalized.length() - 1) }
-        if normalized == "json" { return json() }
-        if normalized == "txt" || normalized == "text" || normalized == "log" { return text() }
-        if normalized == "html" || normalized == "htm" { return new MediaType("text", "html", [:]) }
-        if normalized == "css" { return new MediaType("text", "css", [:]) }
-        if normalized == "js" { return new MediaType("application", "javascript", [:]) }
-        if normalized == "xml" { return new MediaType("application", "xml", [:]) }
-        if normalized == "png" { return new MediaType("image", "png", [:]) }
-        if normalized == "jpg" || normalized == "jpeg" { return new MediaType("image", "jpeg", [:]) }
-        if normalized == "gif" { return new MediaType("image", "gif", [:]) }
-        if normalized == "svg" { return new MediaType("image", "svg+xml", [:]) }
-        if normalized == "pdf" { return new MediaType("application", "pdf", [:]) }
-        if normalized == "zip" { return new MediaType("application", "zip", [:]) }
-        if normalized == "csv" { return new MediaType("text", "csv", [:]) }
+        if normalized == "json" { return MimeTypes.json() }
+        if normalized == "txt" || normalized == "text" || normalized == "log" { return MimeTypes.text() }
+        if normalized == "html" || normalized == "htm" { List<String> n = []; List<String> v = []; return new MediaType("text", "html", n, v) }
+        if normalized == "css" { List<String> n = []; List<String> v = []; return new MediaType("text", "css", n, v) }
+        if normalized == "js" { List<String> n = []; List<String> v = []; return new MediaType("application", "javascript", n, v) }
+        if normalized == "xml" { List<String> n = []; List<String> v = []; return new MediaType("application", "xml", n, v) }
+        if normalized == "png" { List<String> n = []; List<String> v = []; return new MediaType("image", "png", n, v) }
+        if normalized == "jpg" || normalized == "jpeg" { List<String> n = []; List<String> v = []; return new MediaType("image", "jpeg", n, v) }
+        if normalized == "gif" { List<String> n = []; List<String> v = []; return new MediaType("image", "gif", n, v) }
+        if normalized == "svg" { List<String> n = []; List<String> v = []; return new MediaType("image", "svg+xml", n, v) }
+        if normalized == "pdf" { List<String> n = []; List<String> v = []; return new MediaType("application", "pdf", n, v) }
+        if normalized == "zip" { List<String> n = []; List<String> v = []; return new MediaType("application", "zip", n, v) }
+        if normalized == "csv" { List<String> n = []; List<String> v = []; return new MediaType("text", "csv", n, v) }
         return null
     }
 

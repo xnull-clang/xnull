@@ -1,0 +1,27 @@
+import xdk.net.uri
+static Int main() {
+    Result<Uri, Error> parsed = Uri.parse("https://user@example.com:8443/a/b?q=1#f")
+    print(parsed.isOk())
+    Uri uri = parsed.value()
+    print(uri.scheme())
+    print(uri.host())
+    print(uri.port())
+    print(uri.path())
+    print(uri.fragment())
+    print(uri.query().getOr("q", "none"))
+    Query q = new Query()
+    q.add("a", "1")
+    q.add("a", "2")
+    q.set("b", "x y")
+    print(q.length())
+    print(q.getAll("a").length())
+    print(q.encode())
+    print(queryDecode("a+b%20c").value())
+    print(percentEncode("a b", "abc"))
+    print(percentDecode("%41%42").value())
+    print(isValidScheme("x+1"))
+    print(isValidScheme("1x"))
+    Result<Uri, Error> bad = Uri.parse("ftp://host:99999/x")
+    print(bad.isOk())
+    return 0
+}
