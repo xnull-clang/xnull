@@ -12,6 +12,8 @@ typedef struct { void *env; void *fn; } xn_closure;
 static int64_t xn_int_wrap(int64_t value) { return (int64_t)(int32_t)value; }
 static int64_t xn_int_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal("shift count out of range"); } return (int64_t)((uint32_t)value << (uint32_t)bitCount); }
 static int64_t xn_int_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal("shift count out of range"); } return (int64_t)((int32_t)value >> (int32_t)bitCount); }
+static int64_t xn_long_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal("shift count out of range"); } return (int64_t)((uint64_t)value << (uint64_t)bitCount); }
+static int64_t xn_long_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal("shift count out of range"); } return (int64_t)((int64_t)value >> (int64_t)bitCount); }
 static void xn_print_int(int64_t v) { printf("%lld\n", (long long)xn_int_wrap(v)); }
 static void xn_print_bool(int v) { printf(v ? "true\n" : "false\n"); }
 static void xn_print_double(double v) { printf("%g\n", v); }
