@@ -22,7 +22,7 @@
 ## 开工前 60 秒
 
 1. 读 `LOCAL_RULES.md`（若存在）。
-2. 读 `.agent/AGENT-LEARNING.md` 与 `.agent/corrections.md` 的 active 条目（若存在）。
+2. 读 `.agent/AGENT-LEARNING.md`、active 纠错，以及 `.agent/knowledge/index.md` 的相关条目（若存在）。
 3. 读本次任务的批次合同/计划：边界、验收谓词、停止白名单。
 4. 涉及共享文件时，先确认写入归属与合并顺序。
 5. 若 `.agent/state/retro-due` 存在，先完成对应复盘并跑 `check.py`，再开新活。
@@ -60,6 +60,7 @@
 | C-0010 | 派发前做依赖/写集检查 | L3 | `.agent/bin/preflight.py` |
 | C-0011 | 规则层不调度 | L3 | `.agent/roles.json` |
 | C-0012 | orchestrator 要有 playbook 和反馈 | L2 | `.agent/ORCHESTRATOR.md` |
+| C-0013 | 知识库按需生长 | L2 | `.agent/knowledge/index.md` |
 
 ## 升级
 
