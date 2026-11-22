@@ -329,6 +329,7 @@ static int xn_Cls_AnnotationChecker_listHas(xn_Cls_AnnotationChecker *self, xn_a
 static int xn_Cls_AnnotationChecker_isReserved(xn_Cls_AnnotationChecker *self, rt_string * name);
 static int xn_Cls_AnnotationChecker_isBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name);
 static int64_t xn_Cls_AnnotationChecker_findType(xn_Cls_AnnotationChecker *self, rt_string * name);
+static int64_t xn_Cls_AnnotationChecker_findTypeFor(xn_Cls_AnnotationChecker *self, rt_string * name, rt_string * ownerPkg);
 static void xn_Cls_AnnotationChecker_addBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name, xn_arr_s * targets, int repeatable);
 static void xn_Cls_AnnotationChecker_initBuiltins(xn_Cls_AnnotationChecker *self);
 static rt_string * xn_Cls_AnnotationChecker_unquote(xn_Cls_AnnotationChecker *self, rt_string * s);
@@ -571,11 +572,12 @@ static void xn_Cls_CGen_genClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_CGen_funcProto(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static void xn_Cls_CGen_func(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_annotationQualifiedFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name);
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationPath(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_string * path);
-static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDecl(xn_Cls_CGen *self, rt_string * name);
+static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDeclFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationRetention(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
 static xn_arr_o * xn_Cls_CGen_annotationFields(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
 static rt_string * xn_Cls_CGen_annotationFieldType(xn_Cls_CGen *self, xn_Cls_AstNode * f);
@@ -596,6 +598,11 @@ static xn_arr_s * compilerWarnings;
 static rt_string * loadBaseDir;
 static rt_string * loadRoot;
 static int xdkFullSource;
+static rt_string * rootPackageName;
+static xn_arr_o * unitDeclNodes;
+static xn_arr_s * unitDeclPkgs;
+static xn_arr_s * unitImportOwners;
+static xn_arr_s * unitImportPkgs;
 static xn_arr_s * ffiNames;
 static xn_arr_s * ffiCNames;
 static xn_arr_s * ffiRets;
@@ -634,6 +641,8 @@ static rt_string * xn_xdkFile(rt_string * pkg);
 static int xn_endsWithX(rt_string * s);
 static rt_string * xn_dirName(rt_string * path);
 static int xn_loaded(rt_string * path);
+static rt_string * xn_packageNameOf(xn_Cls_AstNode * program);
+static rt_string * xn_declPackageOf(xn_Cls_AstNode * n);
 static void xn_mergeDecls(xn_Cls_AstNode * program, xn_Cls_AstNode * parsed);
 static void xn_loadUnit(rt_string * path, xn_Cls_AstNode * program);
 static void xn_loadSiblings(rt_string * path, xn_Cls_AstNode * program);
@@ -4421,6 +4430,7 @@ static int xn_Cls_AnnotationChecker_listHas(xn_Cls_AnnotationChecker *self, xn_a
 static int xn_Cls_AnnotationChecker_isReserved(xn_Cls_AnnotationChecker *self, rt_string * name);
 static int xn_Cls_AnnotationChecker_isBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name);
 static int64_t xn_Cls_AnnotationChecker_findType(xn_Cls_AnnotationChecker *self, rt_string * name);
+static int64_t xn_Cls_AnnotationChecker_findTypeFor(xn_Cls_AnnotationChecker *self, rt_string * name, rt_string * ownerPkg);
 static void xn_Cls_AnnotationChecker_addBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name, xn_arr_s * targets, int repeatable);
 static void xn_Cls_AnnotationChecker_initBuiltins(xn_Cls_AnnotationChecker *self);
 static rt_string * xn_Cls_AnnotationChecker_unquote(xn_Cls_AnnotationChecker *self, rt_string * s);
@@ -4602,7 +4612,64 @@ static int64_t xn_Cls_AnnotationChecker_findType(xn_Cls_AnnotationChecker *self,
     }
     i = xn_int_wrap((i + 1));
   }
-  return xn_int_wrap(xn_int_wrap(-(1)));
+  if ((xn_str_indexof(name, rt_string_from_c(".")) >= 0)) {
+    return xn_int_wrap(xn_int_wrap(-(1)));
+  }
+  int64_t found = xn_int_wrap(xn_int_wrap(-(1)));
+  i = 0;
+  while ((i < ((int64_t)self->types->len))) {
+    rt_string * candidate = ((xn_Cls_AnnotationType *)xn_arr_o_get(self->types, i))->name;
+    int64_t dot = xn_int_wrap(xn_int_wrap((((int64_t)candidate->len) - 1)));
+    while ((dot >= 0)) {
+      if (xn_str_eq(xn_str_substr(candidate, dot, 1), rt_string_from_c("."))) {
+        break;
+      }
+      dot = xn_int_wrap((dot - 1));
+    }
+    rt_string * simple = candidate;
+    if ((dot >= 0)) {
+      simple = xn_str_substr(candidate, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)candidate->len) - dot)) - 1)));
+    }
+    if (xn_str_eq(simple, name)) {
+      if ((found >= 0)) {
+        return xn_int_wrap(xn_int_wrap(-(1)));
+      }
+      found = i;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_int_wrap(found);
+}
+
+static int64_t xn_Cls_AnnotationChecker_findTypeFor(xn_Cls_AnnotationChecker *self, rt_string * name, rt_string * ownerPkg) {
+  if ((xn_str_indexof(name, rt_string_from_c(".")) >= 0)) {
+    return xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, name));
+  }
+  int64_t found = xn_int_wrap(xn_int_wrap(-(1)));
+  int64_t hits = xn_int_wrap(0);
+  rt_string * own = xn_concat(xn_concat(ownerPkg, rt_string_from_c(".")), name);
+  int64_t direct = xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, own));
+  if ((direct >= 0)) {
+    return xn_int_wrap(direct);
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)unitImportOwners->len))) {
+    if (xn_str_eq(xn_arr_s_get(unitImportOwners, i), ownerPkg)) {
+      int64_t candidate = xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, xn_concat(xn_concat(xn_arr_s_get(unitImportPkgs, i), rt_string_from_c(".")), name)));
+      if ((candidate >= 0)) {
+        found = candidate;
+        hits = xn_int_wrap((hits + 1));
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  if ((hits == 1)) {
+    return xn_int_wrap(found);
+  }
+  if ((hits > 1)) {
+    return xn_int_wrap(xn_int_wrap(-(2)));
+  }
+  return xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, name));
 }
 
 static void xn_Cls_AnnotationChecker_addBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name, xn_arr_s * targets, int repeatable) {
@@ -4838,11 +4905,16 @@ static void xn_Cls_AnnotationChecker_collectTypes(xn_Cls_AnnotationChecker *self
   while ((i < ((int64_t)self->program->kids->len))) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
     if (xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl"))) {
-      if ((xn_Cls_AnnotationChecker_findType(self, n->text) >= 0)) {
-        xn_Cls_AnnotationChecker_fail(self, rt_string_from_c("AN0001"), xn_concat(rt_string_from_c("duplicate annotation type: "), n->text), n);
+      rt_string * pkg = xn_declPackageOf(n);
+      rt_string * qualified = n->text;
+      if ((!xn_str_eq(pkg, rt_string_from_c("")))) {
+        qualified = xn_concat(xn_concat(pkg, rt_string_from_c(".")), n->text);
+      }
+      if ((xn_Cls_AnnotationChecker_findType(self, qualified) >= 0)) {
+        xn_Cls_AnnotationChecker_fail(self, rt_string_from_c("AN0001"), xn_concat(rt_string_from_c("duplicate annotation type: "), qualified), n);
       }
       else {
-        xn_arr_o_push(self->types, xn_Cls_AnnotationType_new(n->text, xn_Cls_AnnotationChecker_declTargets(self), rt_string_from_c("Binary"), 0));
+        xn_arr_o_push(self->types, xn_Cls_AnnotationType_new(qualified, xn_Cls_AnnotationChecker_declTargets(self), rt_string_from_c("Binary"), 0));
       }
     }
     i = xn_int_wrap((i + 1));
@@ -4850,15 +4922,19 @@ static void xn_Cls_AnnotationChecker_collectTypes(xn_Cls_AnnotationChecker *self
 }
 
 static void xn_Cls_AnnotationChecker_validateAnnotationDecl(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * d) {
-  int64_t ti = xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, d->text));
+  int64_t ti = xn_int_wrap(xn_Cls_AnnotationChecker_findTypeFor(self, d->text, xn_declPackageOf(d)));
   if ((ti < 0)) {
     return;
   }
-  if (xn_Cls_AnnotationChecker_listHas(self, self->validated, d->text)) {
+  rt_string * validateKey = d->text;
+  if ((!xn_str_eq(xn_declPackageOf(d), rt_string_from_c("")))) {
+    validateKey = xn_concat(xn_concat(xn_declPackageOf(d), rt_string_from_c(".")), d->text);
+  }
+  if (xn_Cls_AnnotationChecker_listHas(self, self->validated, validateKey)) {
     xn_Cls_AnnotationChecker_validateUses(self, d, rt_string_from_c("Annotation"), d);
     return;
   }
-  xn_arr_s_push(self->validated, d->text);
+  xn_arr_s_push(self->validated, validateKey);
   xn_Cls_AnnotationType * t = ((xn_Cls_AnnotationType *)xn_arr_o_get(self->types, ti));
   int hasTarget = 0;
   int64_t i = xn_int_wrap(0);
@@ -4977,7 +5053,11 @@ static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self,
     xn_Cls_AnnotationChecker_failAt(self, rt_string_from_c("AN0001"), xn_concat(rt_string_from_c("reserved annotation cannot be used: @"), name), use, scope);
     return;
   }
-  int64_t ti = xn_int_wrap(xn_Cls_AnnotationChecker_findType(self, name));
+  int64_t ti = xn_int_wrap(xn_Cls_AnnotationChecker_findTypeFor(self, name, xn_declPackageOf(owner)));
+  if ((ti == xn_int_wrap(-(2)))) {
+    xn_Cls_AnnotationChecker_failAt(self, rt_string_from_c("AN0001"), xn_concat(rt_string_from_c("ambiguous annotation: @"), name), use, scope);
+    return;
+  }
   if ((ti < 0)) {
     xn_Cls_AnnotationChecker_failAt(self, rt_string_from_c("AN0001"), xn_concat(rt_string_from_c("unknown annotation: @"), name), use, scope);
     return;
@@ -8577,11 +8657,12 @@ static void xn_Cls_CGen_genClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_CGen_funcProto(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static void xn_Cls_CGen_func(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_annotationQualifiedFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name);
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationPath(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_string * path);
-static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDecl(xn_Cls_CGen *self, rt_string * name);
+static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDeclFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationRetention(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
 static xn_arr_o * xn_Cls_CGen_annotationFields(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
 static rt_string * xn_Cls_CGen_annotationFieldType(xn_Cls_CGen *self, xn_Cls_AstNode * f);
@@ -13246,12 +13327,26 @@ static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self) {
   return rt_string_from_c("");
 }
 
-static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name) {
-  rt_string * pkg = xn_Cls_CGen_annotationPackageName(self);
+static rt_string * xn_Cls_CGen_annotationQualifiedFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg) {
+  xn_Cls_AstNode * d = xn_Cls_CGen_annotationFindDeclFor(self, name, ownerPkg);
+  if (xn_str_eq(d->kind, rt_string_from_c("None"))) {
+    if (xn_str_eq(ownerPkg, rt_string_from_c(""))) {
+      return name;
+    }
+    return xn_concat(xn_concat(ownerPkg, rt_string_from_c(".")), name);
+  }
+  rt_string * pkg = xn_declPackageOf(d);
   if (xn_str_eq(pkg, rt_string_from_c(""))) {
     return name;
   }
   return xn_concat(xn_concat(pkg, rt_string_from_c(".")), name);
+}
+
+static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name) {
+  if ((xn_str_indexof(name, rt_string_from_c(".")) >= 0)) {
+    return name;
+  }
+  return xn_Cls_CGen_annotationQualifiedFor(self, name, rootPackageName);
 }
 
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
@@ -13295,14 +13390,58 @@ static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_strin
   return path;
 }
 
-static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDecl(xn_Cls_CGen *self, rt_string * name) {
-  int64_t i = xn_int_wrap(0);
-  while ((i < ((int64_t)self->program->kids->len))) {
-    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDeclFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg) {
+  if ((xn_str_indexof(name, rt_string_from_c(".")) >= 0)) {
+    int64_t dot = xn_int_wrap(0);
+    int64_t i = xn_int_wrap(xn_int_wrap((((int64_t)name->len) - 1)));
+    while ((i >= 0)) {
+      if (xn_str_eq(xn_str_substr(name, i, 1), rt_string_from_c("."))) {
+        dot = i;
+        break;
+      }
+      i = xn_int_wrap((i - 1));
+    }
+    rt_string * pkg = xn_str_substr(name, 0, dot);
+    rt_string * simple = xn_str_substr(name, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)name->len) - dot)) - 1)));
+    int64_t j = xn_int_wrap(0);
+    while ((j < ((int64_t)unitDeclNodes->len))) {
+      xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
+      if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple)) && xn_str_eq(xn_arr_s_get(unitDeclPkgs, j), pkg))) {
+        return n;
+      }
+      j = xn_int_wrap((j + 1));
+    }
+    return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
+  }
+  int64_t j = xn_int_wrap(0);
+  while ((j < ((int64_t)unitDeclNodes->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
+    if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name)) && xn_str_eq(xn_arr_s_get(unitDeclPkgs, j), ownerPkg))) {
+      return n;
+    }
+    j = xn_int_wrap((j + 1));
+  }
+  j = 0;
+  while ((j < ((int64_t)unitDeclNodes->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
+    if ((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name))) {
+      int64_t k = xn_int_wrap(0);
+      while ((k < ((int64_t)unitImportOwners->len))) {
+        if ((xn_str_eq(xn_arr_s_get(unitImportOwners, k), ownerPkg) && xn_str_eq(xn_arr_s_get(unitImportPkgs, k), xn_arr_s_get(unitDeclPkgs, j)))) {
+          return n;
+        }
+        k = xn_int_wrap((k + 1));
+      }
+    }
+    j = xn_int_wrap((j + 1));
+  }
+  j = 0;
+  while ((j < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, j));
     if ((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name))) {
       return n;
     }
-    i = xn_int_wrap((i + 1));
+    j = xn_int_wrap((j + 1));
   }
   return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
 }
@@ -13376,7 +13515,7 @@ static void xn_Cls_CGen_collectAnnotationUses(xn_Cls_CGen *self, xn_Cls_AstNode 
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)node->annotations->len))) {
     xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(node->annotations, i));
-    xn_Cls_AstNode * decl = xn_Cls_CGen_annotationFindDecl(self, use->text);
+    xn_Cls_AstNode * decl = xn_Cls_CGen_annotationFindDeclFor(self, use->text, xn_declPackageOf(node));
     if (((!xn_str_eq(decl->kind, rt_string_from_c("None"))) && xn_str_eq(xn_Cls_CGen_annotationRetention(self, decl), rt_string_from_c("Runtime")))) {
       int64_t repeat = xn_int_wrap(1);
       int64_t j = xn_int_wrap(0);
@@ -13386,7 +13525,7 @@ static void xn_Cls_CGen_collectAnnotationUses(xn_Cls_CGen *self, xn_Cls_AstNode 
         }
         j = xn_int_wrap((j + 1));
       }
-      xn_arr_o_push(out, xn_Cls_AnnotationUseMeta_new(use, decl, xn_Cls_CGen_annotationQualified(self, use->text), target, targetName, repeat));
+      xn_arr_o_push(out, xn_Cls_AnnotationUseMeta_new(use, decl, xn_Cls_CGen_annotationQualifiedFor(self, use->text, xn_declPackageOf(node)), target, targetName, repeat));
     }
     i = xn_int_wrap((i + 1));
   }
@@ -13402,7 +13541,7 @@ static void xn_Cls_CGen_collectAnnotationParams(xn_Cls_CGen *self, xn_Cls_AstNod
 }
 
 static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls, xn_arr_o * out) {
-  rt_string * owner = xn_Cls_CGen_annotationQualified(self, cls->text);
+  rt_string * owner = xn_Cls_CGen_annotationQualifiedFor(self, cls->text, xn_declPackageOf(cls));
   xn_Cls_CGen_collectAnnotationUses(self, cls, rt_string_from_c("Type"), owner, out);
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)cls->kids->len))) {
@@ -13447,14 +13586,14 @@ static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self) {
       xn_Cls_CGen_collectAnnotationUses(self, n, rt_string_from_c("Package"), n->text, out);
     }
     if (xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl"))) {
-      rt_string * full = xn_Cls_CGen_annotationQualified(self, n->text);
+      rt_string * full = xn_Cls_CGen_annotationQualifiedFor(self, n->text, xn_declPackageOf(n));
       xn_Cls_CGen_collectAnnotationUses(self, n, rt_string_from_c("Annotation"), full, out);
     }
     if ((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct")))) {
       xn_Cls_CGen_collectAnnotationClass(self, n, out);
     }
     if (xn_str_eq(n->kind, rt_string_from_c("Enum"))) {
-      rt_string * owner = xn_Cls_CGen_annotationQualified(self, n->text);
+      rt_string * owner = xn_Cls_CGen_annotationQualifiedFor(self, n->text, xn_declPackageOf(n));
       xn_Cls_CGen_collectAnnotationUses(self, n, rt_string_from_c("Type"), owner, out);
       int64_t e = xn_int_wrap(0);
       while ((e < ((int64_t)n->kids->len))) {
@@ -13466,7 +13605,7 @@ static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self) {
       }
     }
     if (xn_str_eq(n->kind, rt_string_from_c("Protocol"))) {
-      rt_string * owner = xn_Cls_CGen_annotationQualified(self, n->text);
+      rt_string * owner = xn_Cls_CGen_annotationQualifiedFor(self, n->text, xn_declPackageOf(n));
       xn_Cls_CGen_collectAnnotationUses(self, n, rt_string_from_c("Type"), owner, out);
       int64_t p = xn_int_wrap(0);
       while ((p < ((int64_t)n->kids->len))) {
@@ -13521,7 +13660,7 @@ static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_Ast
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_Cls_AnnotationValue *")), arrayValue), rt_string_from_c(" = xn_Cls_AnnotationValue_ofArray(")), items), rt_string_from_c(");")));
     return arrayValue;
   }
-  xn_Cls_AstNode * nestedDecl = xn_Cls_CGen_annotationFindDecl(self, expected);
+  xn_Cls_AstNode * nestedDecl = xn_Cls_CGen_annotationFindDeclFor(self, expected, rootPackageName);
   if (((!xn_str_eq(nestedDecl->kind, rt_string_from_c("None"))) && xn_str_eq(n->kind, rt_string_from_c("AnnotationUse")))) {
     rt_string * info = xn_Cls_CGen_emitAnnotationInfo(self, n, nestedDecl, rt_string_from_c("Annotation"), xn_Cls_CGen_annotationQualified(self, expected), 1, indent);
     rt_string * nestedValue = xn_Cls_CGen_temp(self);
@@ -14248,6 +14387,11 @@ static xn_arr_s * compilerWarnings;
 static rt_string * loadBaseDir;
 static rt_string * loadRoot;
 static int xdkFullSource;
+static rt_string * rootPackageName;
+static xn_arr_o * unitDeclNodes;
+static xn_arr_s * unitDeclPkgs;
+static xn_arr_s * unitImportOwners;
+static xn_arr_s * unitImportPkgs;
 static xn_arr_s * ffiNames;
 static xn_arr_s * ffiCNames;
 static xn_arr_s * ffiRets;
@@ -14261,6 +14405,11 @@ static void xn_init_globals(void) {
   loadBaseDir = rt_string_from_c("");
   loadRoot = rt_string_from_c("");
   xdkFullSource = 0;
+  rootPackageName = rt_string_from_c("");
+  unitDeclNodes = xn_arr_o_new(0);
+  unitDeclPkgs = xn_arr_s_new(0);
+  unitImportOwners = xn_arr_s_new(0);
+  unitImportPkgs = xn_arr_s_new(0);
   ffiNames = xn_arr_s_new(0);
   ffiCNames = xn_arr_s_new(0);
   ffiRets = xn_arr_s_new(0);
@@ -15028,11 +15177,41 @@ static int xn_loaded(rt_string * path) {
   return 0;
 }
 
+static rt_string * xn_packageNameOf(xn_Cls_AstNode * program) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if (xn_str_eq(n->kind, rt_string_from_c("Package"))) {
+      return n->text;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return rt_string_from_c("");
+}
+
+static rt_string * xn_declPackageOf(xn_Cls_AstNode * n) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)unitDeclNodes->len))) {
+    if ((((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, i)) == n)) {
+      return xn_arr_s_get(unitDeclPkgs, i);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return rootPackageName;
+}
+
 static void xn_mergeDecls(xn_Cls_AstNode * program, xn_Cls_AstNode * parsed) {
+  rt_string * pkg = xn_packageNameOf(parsed);
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)parsed->kids->len))) {
     xn_Cls_AstNode * d = ((xn_Cls_AstNode *)xn_arr_o_get(parsed->kids, i));
+    if (xn_str_eq(d->kind, rt_string_from_c("Import"))) {
+      xn_arr_s_push(unitImportOwners, pkg);
+      xn_arr_s_push(unitImportPkgs, d->text);
+    }
     if (((!xn_str_eq(d->kind, rt_string_from_c("Package"))) && (!xn_str_eq(d->kind, rt_string_from_c("Import"))))) {
+      xn_arr_o_push(unitDeclNodes, d);
+      xn_arr_s_push(unitDeclPkgs, pkg);
       xn_Cls_AstNode_add(program, d);
     }
     i = xn_int_wrap((i + 1));
@@ -15117,6 +15296,7 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
     return xn_Cls_AstNode_new(rt_string_from_c("Program"), rt_string_from_c(""), 1, 1);
   }
   xn_arr_s_push(loadedFiles, entry);
+  rootPackageName = xn_packageNameOf(program);
   loadRoot = root;
   loadBaseDir = xn_dirName(entry);
   if ((xn_str_indexof(entry, rt_string_from_c("/xdk/")) >= 0)) {

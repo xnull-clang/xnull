@@ -8,6 +8,11 @@ List<String> compilerWarnings = []
 String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
+String rootPackageName = ""
+List<AstNode> unitDeclNodes = []
+List<String> unitDeclPkgs = []
+List<String> unitImportOwners = []
+List<String> unitImportPkgs = []
 List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
@@ -3463,12 +3468,48 @@ class AnnotationChecker {
     Int findType(String name) {
         Int i = 0
         while i < self.types.length() {
-            if self.types.get(i).name == name {
-                return i
+            if self.types.get(i).name == name { return i }
+            i = i + 1
+        }
+        if name.indexOf(".") >= 0 { return -1 }
+        Int found = -1
+        i = 0
+        while i < self.types.length() {
+            String candidate = self.types.get(i).name
+            Int dot = candidate.length() - 1
+            while dot >= 0 {
+                if candidate.substring(dot, 1) == "." { break }
+                dot = dot - 1
+            }
+            String simple = candidate
+            if dot >= 0 { simple = candidate.substring(dot + 1, candidate.length() - dot - 1) }
+            if simple == name {
+                if found >= 0 { return -1 }
+                found = i
             }
             i = i + 1
         }
-        return -1
+        return found
+    }
+
+    Int findTypeFor(String name, String ownerPkg) {
+        if name.indexOf(".") >= 0 { return self.findType(name) }
+        Int found = -1
+        Int hits = 0
+        String own = ownerPkg + "." + name
+        Int direct = self.findType(own)
+        if direct >= 0 { return direct }
+        Int i = 0
+        while i < unitImportOwners.length() {
+            if unitImportOwners.get(i) == ownerPkg {
+                Int candidate = self.findType(unitImportPkgs.get(i) + "." + name)
+                if candidate >= 0 { found = candidate; hits = hits + 1 }
+            }
+            i = i + 1
+        }
+        if hits == 1 { return found }
+        if hits > 1 { return -2 }
+        return self.findType(name)
     }
 
     Void addBuiltin(String name, List<String> targets, Bool repeatable) {
@@ -3713,10 +3754,13 @@ class AnnotationChecker {
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "AnnotationDecl" {
-                if self.findType(n.text) >= 0 {
-                    self.fail("AN0001", "duplicate annotation type: " + n.text, n)
+                String pkg = declPackageOf(n)
+                String qualified = n.text
+                if pkg != "" { qualified = pkg + "." + n.text }
+                if self.findType(qualified) >= 0 {
+                    self.fail("AN0001", "duplicate annotation type: " + qualified, n)
                 } else {
-                    self.types.push(new AnnotationType(n.text, self.declTargets(), "Binary", false))
+                    self.types.push(new AnnotationType(qualified, self.declTargets(), "Binary", false))
                 }
             }
             i = i + 1
@@ -3724,15 +3768,17 @@ class AnnotationChecker {
     }
 
     Void validateAnnotationDecl(AstNode d) {
-        Int ti = self.findType(d.text)
+        Int ti = self.findTypeFor(d.text, declPackageOf(d))
         if ti < 0 {
             return
         }
-        if self.listHas(self.validated, d.text) {
+        String validateKey = d.text
+        if declPackageOf(d) != "" { validateKey = declPackageOf(d) + "." + d.text }
+        if self.listHas(self.validated, validateKey) {
             self.validateUses(d, "Annotation", d)
             return
         }
-        self.validated.push(d.text)
+        self.validated.push(validateKey)
         AnnotationType t = self.types.get(ti)
         Bool hasTarget = false
         Int i = 0
@@ -3838,7 +3884,11 @@ class AnnotationChecker {
             self.failAt("AN0001", "reserved annotation cannot be used: @" + name, use, scope)
             return
         }
-        Int ti = self.findType(name)
+        Int ti = self.findTypeFor(name, declPackageOf(owner))
+        if ti == -2 {
+            self.failAt("AN0001", "ambiguous annotation: @" + name, use, scope)
+            return
+        }
         if ti < 0 {
             self.failAt("AN0001", "unknown annotation: @" + name, use, scope)
             return
@@ -11355,12 +11405,20 @@ class CGen {
         return ""
     }
 
-    String annotationQualified(String name) {
-        String pkg = self.annotationPackageName()
-        if pkg == "" {
-            return name
+    String annotationQualifiedFor(String name, String ownerPkg) {
+        AstNode d = self.annotationFindDeclFor(name, ownerPkg)
+        if d.kind == "None" {
+            if ownerPkg == "" { return name }
+            return ownerPkg + "." + name
         }
+        String pkg = declPackageOf(d)
+        if pkg == "" { return name }
         return pkg + "." + name
+    }
+
+    String annotationQualified(String name) {
+        if name.indexOf(".") >= 0 { return name }
+        return self.annotationQualifiedFor(name, rootPackageName)
     }
 
     String annotationStringText(AstNode n) {
@@ -11404,14 +11462,47 @@ class CGen {
         return path
     }
 
-    AstNode annotationFindDecl(String name) {
-        Int i = 0
-        while i < self.program.kids.length() {
-            AstNode n = self.program.kids.get(i)
-            if n.kind == "AnnotationDecl" && n.text == name {
-                return n
+    AstNode annotationFindDeclFor(String name, String ownerPkg) {
+        if name.indexOf(".") >= 0 {
+            Int dot = 0
+            Int i = name.length() - 1
+            while i >= 0 {
+                if name.substring(i, 1) == "." { dot = i; break }
+                i = i - 1
             }
-            i = i + 1
+            String pkg = name.substring(0, dot)
+            String simple = name.substring(dot + 1, name.length() - dot - 1)
+            Int j = 0
+            while j < unitDeclNodes.length() {
+                AstNode n = unitDeclNodes.get(j)
+                if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(j) == pkg { return n }
+                j = j + 1
+            }
+            return new AstNode("None", "", 1, 1)
+        }
+        Int j = 0
+        while j < unitDeclNodes.length() {
+            AstNode n = unitDeclNodes.get(j)
+            if n.kind == "AnnotationDecl" && n.text == name && unitDeclPkgs.get(j) == ownerPkg { return n }
+            j = j + 1
+        }
+        j = 0
+        while j < unitDeclNodes.length() {
+            AstNode n = unitDeclNodes.get(j)
+            if n.kind == "AnnotationDecl" && n.text == name {
+                Int k = 0
+                while k < unitImportOwners.length() {
+                    if unitImportOwners.get(k) == ownerPkg && unitImportPkgs.get(k) == unitDeclPkgs.get(j) { return n }
+                    k = k + 1
+                }
+            }
+            j = j + 1
+        }
+        j = 0
+        while j < self.program.kids.length() {
+            AstNode n = self.program.kids.get(j)
+            if n.kind == "AnnotationDecl" && n.text == name { return n }
+            j = j + 1
         }
         return new AstNode("None", "", 1, 1)
     }
@@ -11486,7 +11577,7 @@ class CGen {
         Int i = 0
         while i < node.annotations.length() {
             AstNode use = node.annotations.get(i)
-            AstNode decl = self.annotationFindDecl(use.text)
+            AstNode decl = self.annotationFindDeclFor(use.text, declPackageOf(node))
             if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
                 Int repeat = 1
                 Int j = 0
@@ -11499,7 +11590,7 @@ class CGen {
                 out.push(new AnnotationUseMeta(
                     use,
                     decl,
-                    self.annotationQualified(use.text),
+                    self.annotationQualifiedFor(use.text, declPackageOf(node)),
                     target,
                     targetName,
                     repeat
@@ -11520,7 +11611,7 @@ class CGen {
     }
 
     Void collectAnnotationClass(AstNode cls, List<AnnotationUseMeta> out) {
-        String owner = self.annotationQualified(cls.text)
+        String owner = self.annotationQualifiedFor(cls.text, declPackageOf(cls))
         self.collectAnnotationUses(cls, "Type", owner, out)
         Int i = 0
         while i < cls.kids.length() {
@@ -11565,14 +11656,14 @@ class CGen {
                 self.collectAnnotationUses(n, "Package", n.text, out)
             }
             if n.kind == "AnnotationDecl" {
-                String full = self.annotationQualified(n.text)
+                String full = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Annotation", full, out)
             }
             if n.kind == "Class" || n.kind == "Struct" {
                 self.collectAnnotationClass(n, out)
             }
             if n.kind == "Enum" {
-                String owner = self.annotationQualified(n.text)
+                String owner = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Type", owner, out)
                 Int e = 0
                 while e < n.kids.length() {
@@ -11584,7 +11675,7 @@ class CGen {
                 }
             }
             if n.kind == "Protocol" {
-                String owner = self.annotationQualified(n.text)
+                String owner = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Type", owner, out)
                 Int p = 0
                 while p < n.kids.length() {
@@ -11640,7 +11731,7 @@ class CGen {
                 " = xn_Cls_AnnotationValue_ofArray(" + items + ");")
             return arrayValue
         }
-        AstNode nestedDecl = self.annotationFindDecl(expected)
+        AstNode nestedDecl = self.annotationFindDeclFor(expected, rootPackageName)
         if nestedDecl.kind != "None" && n.kind == "AnnotationUse" {
             String info = self.emitAnnotationInfo(
                 n,
@@ -13108,11 +13199,37 @@ static Bool loaded(String path) {
     return false
 }
 
+static String packageNameOf(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Package" { return n.text }
+        i = i + 1
+    }
+    return ""
+}
+
+static String declPackageOf(AstNode n) {
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        if unitDeclNodes.get(i) == n { return unitDeclPkgs.get(i) }
+        i = i + 1
+    }
+    return rootPackageName
+}
+
 static Void mergeDecls(AstNode program, AstNode parsed) {
+    String pkg = packageNameOf(parsed)
     Int i = 0
     while i < parsed.kids.length() {
         AstNode d = parsed.kids.get(i)
+        if d.kind == "Import" {
+            unitImportOwners.push(pkg)
+            unitImportPkgs.push(d.text)
+        }
         if d.kind != "Package" && d.kind != "Import" {
+            unitDeclNodes.push(d)
+            unitDeclPkgs.push(pkg)
             program.add(d)
         }
         i = i + 1
@@ -13194,6 +13311,7 @@ static AstNode loadProgram(String entry, String root) {
         return new AstNode("Program", "", 1, 1)
     }
     loadedFiles.push(entry)
+    rootPackageName = packageNameOf(program)
     loadRoot = root
     loadBaseDir = dirName(entry)
     if entry.indexOf("/xdk/") >= 0 {
