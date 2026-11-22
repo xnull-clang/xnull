@@ -11,6 +11,7 @@
 2. 读 `.agent/AGENT-LEARNING.md` 与 `.agent/corrections.md` 的 active 条目（若存在）。
 3. 读本次任务的批次合同/计划：边界、验收谓词、停止白名单。
 4. 涉及共享文件时，先确认写入归属与合并顺序。
+5. 若 `.agent/state/retro-due` 存在，先完成对应复盘并跑 `check.py`，再开新活。
 
 ## 收工前 60 秒
 
