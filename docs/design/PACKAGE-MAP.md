@@ -57,7 +57,7 @@
 
 | 包 | 类型 | 公共结构（角色） | 依赖 | 阶段 | 状态 |
 | --- | ---: | --- | --- | --- | --- |
-| `xdk.annotations` | 14 | `AnnotationValue/Info/Set`（V）；`AnnotationProcessor`（P）；`AnnotationProcessorContext/AnnotationProcessingResult`（X）；`AnnotationRegistry`（R）；`AnnotationElement`（V）；`AnnotationDiagnostic`（Er）；`AnnotationTarget/Retention/ValueKind/DiagnosticSeverity/ProcessorPhase`（E） | 语言核心标量/容器 | P1 | 2.x 设计；编译器 0 |
+| `xdk.annotations` | 14 | `AnnotationValue/Info/Set`（V）；`AnnotationProcessor`（P）；`AnnotationProcessorContext/AnnotationProcessingResult`（X）；`AnnotationRegistry`（R）；`AnnotationElement`（V）；`AnnotationDiagnostic`（Er）；`AnnotationTarget/Retention/ValueKind/DiagnosticSeverity/ProcessorPhase`（E） | 语言核心标量/容器 | P1 | 2.x 已实现（B2：14 类型 + Registry + 注解管线） |
 
 ---
 

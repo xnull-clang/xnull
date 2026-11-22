@@ -4,7 +4,7 @@
 | --- | --- |
 | 包 | `xdk.annotations` |
 | 层 | annotations / `xdk.annotations` |
-| 稳定性 | `preview`（设计基线；实现未开始） |
+| 稳定性 | `preview`（已实现：14 类型 + Registry + 编译器注解管线） |
 | 上游依赖 | 语言核心标量与容器（`String`、`Int`、`Long`、`Float`、`Double`、`Char`、`Bool`、`List`、`Map`）；无其他 XDK 包 |
 | 下游使用 | 编译器前端/语义分析/生成器、构建调度器、运行时注册表查询方、IDE/文档工具、各领域注解 |
 | 权威设计 | [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) |
