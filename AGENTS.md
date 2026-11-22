@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## 0. 开机自检（强制）
+
+做任何事之前，先运行：
+`python3 .agent/bin/boot.py`
+
+- `BOOT: BLOCKED`：先处理列出的阻塞项，不得跳过。
+- `BOOT: OK` / `BOOT: REPAIRED`：按 `NEXT:` 执行。
+- 它负责：承接未完成复盘、修复权限漂移、核对当前批次与角色。
+
 ## 角色
 
 你是 XNull-Lang 的 coding agent。规则优先级：`LOCAL_RULES.md`（若存在）> 本文件 > 任务合同。
