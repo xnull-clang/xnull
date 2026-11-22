@@ -9,9 +9,13 @@ trap 'rm -rf "$TMP"' EXIT
 "$MINI" --dump-annotations "$HERE/source.x" --xdk-root "$ROOT/src/xdk" >"$TMP/actual.json"
 diff -u "$HERE/expected.json" "$TMP/actual.json"
 
-# Field order / IR version / no absolute paths.
-grep -q '"irVersion":1,"declarations":' "$TMP/actual.json"
-grep -q '"uses":' "$TMP/actual.json"
+# Field order / IR version / symbols / no absolute paths.
+grep -q '"irVersion":2,"declarations":' "$TMP/actual.json"
+grep -q '"symbols":{"types":' "$TMP/actual.json"
+"$MINI" --dump-annotations "$HERE/source.x" --xdk-root "$ROOT/src/xdk" >"$TMP/actual2.json"
+cmp "$TMP/actual.json" "$TMP/actual2.json"
+printf '%s\n' '{"irVersion":1,"declarations":[],"uses":[]}' > "$TMP/v1.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["irVersion"] == 1 and "symbols" not in d' "$TMP/v1.json"
 if grep -q "$ROOT" "$TMP/actual.json"; then
     echo "annotation_ir: absolute path leaked into JSON" >&2
     exit 1

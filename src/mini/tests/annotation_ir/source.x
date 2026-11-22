@@ -34,6 +34,50 @@ class Device {
     }
 }
 
+
+class Base {
+}
+
+protocol Ready {
+    Bool ready();
+}
+
+class Widget : Base implements Ready {
+    private String _name
+    final Int count
+    Widget(String name, Int count) {
+        self._name = name
+        self.count = count
+    }
+    static Int make() {
+        return 1
+    }
+    Bool ready() {
+        return true
+    }
+}
+
+struct PointS {
+    Int x
+    Int y
+    PointS(Int x, Int y) {
+        self.x = x
+        self.y = y
+    }
+}
+
+enum Color {
+    Red,
+    Green,
+}
+
+class Box<T> {
+    T value
+    Box(T value) {
+        self.value = value
+    }
+}
+
 static Int main() {
     return 0
 }

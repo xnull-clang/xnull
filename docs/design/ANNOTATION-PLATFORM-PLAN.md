@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1 implemented**（P0-01–P0-09、P1-01–P1-04）；M2–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1 implemented**（P0-01–P0-10、P1-01–P1-04）；M2–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -172,6 +172,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | P0-07 | 诊断合并/码段 | P0-04 | 多处理器诊断稳定排序/去重 | implemented (M0.2) |
 | P0-08 | 玩具注解 + 玩具处理器 | P0-01–07 | 不改主流程新增一个注解/处理器/生成物 | implemented (M0：toy_processor + annotation_platform) |
 | P0-09 | 平台门禁脚本 | P0-08 | 一键跑 IR/manifest/phase/fixed/sandbox/check-generated | implemented (M0：`annotation_platform/m0_gate.sh`) |
+| P0-10 | Program IR：类型/字段/方法/构造器 symbols | P0-01 | v2 symbols；v1 兼容；确定性 | implemented (M0.6：`irVersion=2`, `symbols.types`) |
 
 ### P1 A8 迁移
 
@@ -279,6 +280,7 @@ expandA8Class: removed
 a8_registry.sh: PASS
 A8 场景：a8_core / builder / delegate / packages / negative 全 PASS
 m0_gate.sh: PASS
+IR v2 symbols: PASS（`annotation_ir` golden + annotation_platform symbols probe）
 ```
 
 ---

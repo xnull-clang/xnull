@@ -204,6 +204,11 @@ typedef struct xn_Cls_IrValue xn_Cls_IrValue;
 typedef struct xn_Cls_IrField xn_Cls_IrField;
 typedef struct xn_Cls_IrDecl xn_Cls_IrDecl;
 typedef struct xn_Cls_IrUse xn_Cls_IrUse;
+typedef struct xn_Cls_IrParam xn_Cls_IrParam;
+typedef struct xn_Cls_IrFieldSym xn_Cls_IrFieldSym;
+typedef struct xn_Cls_IrMethodSym xn_Cls_IrMethodSym;
+typedef struct xn_Cls_IrCtorSym xn_Cls_IrCtorSym;
+typedef struct xn_Cls_IrTypeSym xn_Cls_IrTypeSym;
 typedef struct xn_Cls_AnnotationIR xn_Cls_AnnotationIR;
 static xn_Cls_Token *xn_Cls_Token_new(rt_string * kind, rt_string * text, int64_t line, int64_t col);
 static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, int64_t line, int64_t col);
@@ -644,6 +649,16 @@ static xn_Cls_IrDecl *xn_Cls_IrDecl_new(rt_string * fullName, rt_string * packag
 static rt_string * xn_Cls_IrDecl_json(xn_Cls_IrDecl *self);
 static xn_Cls_IrUse *xn_Cls_IrUse_new(rt_string * name, rt_string * resolvedName, rt_string * target, rt_string * targetName, xn_arr_o * args, int64_t line, int64_t col, int64_t repeatIndex);
 static rt_string * xn_Cls_IrUse_json(xn_Cls_IrUse *self);
+static xn_Cls_IrParam *xn_Cls_IrParam_new(rt_string * name, rt_string * type);
+static rt_string * xn_Cls_IrParam_json(xn_Cls_IrParam *self);
+static xn_Cls_IrFieldSym *xn_Cls_IrFieldSym_new(rt_string * name, rt_string * type, int isFinal, int isStatic, rt_string * visibility, int64_t line, int64_t col);
+static rt_string * xn_Cls_IrFieldSym_json(xn_Cls_IrFieldSym *self);
+static xn_Cls_IrMethodSym *xn_Cls_IrMethodSym_new(rt_string * name, rt_string * returnType, xn_arr_o * params, int isStatic, rt_string * visibility, int64_t line, int64_t col);
+static rt_string * xn_Cls_IrMethodSym_json(xn_Cls_IrMethodSym *self);
+static xn_Cls_IrCtorSym *xn_Cls_IrCtorSym_new(xn_arr_o * params, rt_string * visibility, int64_t line, int64_t col);
+static rt_string * xn_Cls_IrCtorSym_json(xn_Cls_IrCtorSym *self);
+static xn_Cls_IrTypeSym *xn_Cls_IrTypeSym_new(rt_string * kind, rt_string * fullName, rt_string * packageName, rt_string * simpleName, xn_arr_s * typeParams, rt_string * base, xn_arr_s * implementsNames, xn_arr_o * fields, xn_arr_o * methods, xn_arr_o * ctors, xn_arr_s * enumItems, int64_t line, int64_t col);
+static rt_string * xn_Cls_IrTypeSym_json(xn_Cls_IrTypeSym *self);
 static xn_Cls_AnnotationIR *xn_Cls_AnnotationIR_new(void);
 static rt_string * xn_Cls_AnnotationIR_json(xn_Cls_AnnotationIR *self);
 static xn_arr_s * loadedFiles;
@@ -769,6 +784,14 @@ static int xn_irRepeatableOf(xn_Cls_AstNode * decl);
 static rt_string * xn_irOwnerPackage(xn_Cls_AstNode * n);
 static rt_string * xn_irQualified(xn_Cls_AstNode * n);
 static xn_arr_o * xn_irDeclFields(xn_Cls_AstNode * decl);
+static rt_string * xn_irTypeName(rt_string * ty, rt_string * pkg);
+static xn_arr_o * xn_irParamsOf(xn_Cls_AstNode * n, rt_string * pkg);
+static xn_arr_o * xn_irFieldSymbols(xn_Cls_AstNode * n, rt_string * pkg);
+static xn_arr_o * xn_irMethodSymbols(xn_Cls_AstNode * n, rt_string * pkg);
+static xn_arr_o * xn_irCtorSymbols(xn_Cls_AstNode * n, rt_string * pkg);
+static xn_arr_s * xn_irEnumItems(xn_Cls_AstNode * n);
+static xn_arr_s * xn_irTypeParamsOf(xn_Cls_AstNode * n);
+static void xn_irTypeSymbols(xn_Cls_AstNode * program, xn_arr_o * out);
 static xn_Cls_AnnotationIR * xn_buildAnnotationIR(xn_Cls_AstNode * program);
 static rt_string * xn_irMemberTarget(rt_string * owner, rt_string * name, xn_arr_o * params);
 static void xn_irAddUses(xn_arr_o * uses, rt_string * target, rt_string * targetName, xn_arr_o * out);
@@ -15547,10 +15570,277 @@ static rt_string * xn_Cls_IrUse_json(xn_Cls_IrUse *self) {
   return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(out, rt_string_from_c("],\"line\":")), xn_str_int(self->line)), rt_string_from_c(",\"col\":")), xn_str_int(self->col)), rt_string_from_c(",\"repeatIndex\":")), xn_str_int(self->repeatIndex)), rt_string_from_c("}"));
 }
 
+struct xn_Cls_IrParam {
+  rt_header hdr;
+  rt_string * name;
+  rt_string * type;
+};
+
+static const rt_type RT_TYPE_XN_IrParam = { "IrParam", sizeof(xn_Cls_IrParam), NULL, NULL };
+
+static xn_Cls_IrParam *xn_Cls_IrParam_new(rt_string * name, rt_string * type) {
+  xn_Cls_IrParam *xn_obj = (xn_Cls_IrParam *)rt_gc_new(&RT_TYPE_XN_IrParam);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_IrParam) - sizeof(rt_header));
+  xn_obj->name = rt_string_from_c("");
+  xn_obj->type = rt_string_from_c("");
+  xn_Cls_IrParam *self = xn_obj;
+  self->name = name;
+  self->type = type;
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_IrParam_json(xn_Cls_IrParam *self);
+
+static rt_string * xn_Cls_IrParam_json(xn_Cls_IrParam *self) {
+  return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("{\"name\":"), xn_irQuote(self->name)), rt_string_from_c(",\"type\":")), xn_irQuote(self->type)), rt_string_from_c("}"));
+}
+
+struct xn_Cls_IrFieldSym {
+  rt_header hdr;
+  rt_string * name;
+  rt_string * type;
+  int isFinal;
+  int isStatic;
+  rt_string * visibility;
+  int64_t line;
+  int64_t col;
+};
+
+static const rt_type RT_TYPE_XN_IrFieldSym = { "IrFieldSym", sizeof(xn_Cls_IrFieldSym), NULL, NULL };
+
+static xn_Cls_IrFieldSym *xn_Cls_IrFieldSym_new(rt_string * name, rt_string * type, int isFinal, int isStatic, rt_string * visibility, int64_t line, int64_t col) {
+  xn_Cls_IrFieldSym *xn_obj = (xn_Cls_IrFieldSym *)rt_gc_new(&RT_TYPE_XN_IrFieldSym);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_IrFieldSym) - sizeof(rt_header));
+  xn_obj->name = rt_string_from_c("");
+  xn_obj->type = rt_string_from_c("");
+  xn_obj->isFinal = 0;
+  xn_obj->isStatic = 0;
+  xn_obj->visibility = rt_string_from_c("");
+  xn_obj->line = 0;
+  xn_obj->col = 0;
+  xn_Cls_IrFieldSym *self = xn_obj;
+  self->name = name;
+  self->type = type;
+  self->isFinal = isFinal;
+  self->isStatic = isStatic;
+  self->visibility = visibility;
+  self->line = line;
+  self->col = col;
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_IrFieldSym_json(xn_Cls_IrFieldSym *self);
+
+static rt_string * xn_Cls_IrFieldSym_json(xn_Cls_IrFieldSym *self) {
+  return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("{\"name\":"), xn_irQuote(self->name)), rt_string_from_c(",\"type\":")), xn_irQuote(self->type)), rt_string_from_c(",\"final\":")), xn_irBool(self->isFinal)), rt_string_from_c(",\"static\":")), xn_irBool(self->isStatic)), rt_string_from_c(",\"visibility\":")), xn_irQuote(self->visibility)), rt_string_from_c(",\"line\":")), xn_str_int(self->line)), rt_string_from_c(",\"col\":")), xn_str_int(self->col)), rt_string_from_c("}"));
+}
+
+struct xn_Cls_IrMethodSym {
+  rt_header hdr;
+  rt_string * name;
+  rt_string * returnType;
+  xn_arr_o * params;
+  int isStatic;
+  rt_string * visibility;
+  int64_t line;
+  int64_t col;
+};
+
+static const rt_type RT_TYPE_XN_IrMethodSym = { "IrMethodSym", sizeof(xn_Cls_IrMethodSym), NULL, NULL };
+
+static xn_Cls_IrMethodSym *xn_Cls_IrMethodSym_new(rt_string * name, rt_string * returnType, xn_arr_o * params, int isStatic, rt_string * visibility, int64_t line, int64_t col) {
+  xn_Cls_IrMethodSym *xn_obj = (xn_Cls_IrMethodSym *)rt_gc_new(&RT_TYPE_XN_IrMethodSym);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_IrMethodSym) - sizeof(rt_header));
+  xn_obj->name = rt_string_from_c("");
+  xn_obj->returnType = rt_string_from_c("");
+  xn_obj->params = xn_arr_o_new(4);
+  xn_obj->isStatic = 0;
+  xn_obj->visibility = rt_string_from_c("");
+  xn_obj->line = 0;
+  xn_obj->col = 0;
+  xn_Cls_IrMethodSym *self = xn_obj;
+  self->name = name;
+  self->returnType = returnType;
+  self->params = params;
+  self->isStatic = isStatic;
+  self->visibility = visibility;
+  self->line = line;
+  self->col = col;
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_IrMethodSym_json(xn_Cls_IrMethodSym *self);
+
+static rt_string * xn_Cls_IrMethodSym_json(xn_Cls_IrMethodSym *self) {
+  rt_string * out = xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("{\"name\":"), xn_irQuote(self->name)), rt_string_from_c(",\"return\":")), xn_irQuote(self->returnType)), rt_string_from_c(",\"params\":["));
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->params->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrParam_json(((xn_Cls_IrParam *)xn_arr_o_get(self->params, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(out, rt_string_from_c("],\"static\":")), xn_irBool(self->isStatic)), rt_string_from_c(",\"visibility\":")), xn_irQuote(self->visibility)), rt_string_from_c(",\"line\":")), xn_str_int(self->line)), rt_string_from_c(",\"col\":")), xn_str_int(self->col)), rt_string_from_c("}"));
+}
+
+struct xn_Cls_IrCtorSym {
+  rt_header hdr;
+  xn_arr_o * params;
+  rt_string * visibility;
+  int64_t line;
+  int64_t col;
+};
+
+static const rt_type RT_TYPE_XN_IrCtorSym = { "IrCtorSym", sizeof(xn_Cls_IrCtorSym), NULL, NULL };
+
+static xn_Cls_IrCtorSym *xn_Cls_IrCtorSym_new(xn_arr_o * params, rt_string * visibility, int64_t line, int64_t col) {
+  xn_Cls_IrCtorSym *xn_obj = (xn_Cls_IrCtorSym *)rt_gc_new(&RT_TYPE_XN_IrCtorSym);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_IrCtorSym) - sizeof(rt_header));
+  xn_obj->params = xn_arr_o_new(4);
+  xn_obj->visibility = rt_string_from_c("");
+  xn_obj->line = 0;
+  xn_obj->col = 0;
+  xn_Cls_IrCtorSym *self = xn_obj;
+  self->params = params;
+  self->visibility = visibility;
+  self->line = line;
+  self->col = col;
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_IrCtorSym_json(xn_Cls_IrCtorSym *self);
+
+static rt_string * xn_Cls_IrCtorSym_json(xn_Cls_IrCtorSym *self) {
+  rt_string * out = rt_string_from_c("{\"params\":[");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->params->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrParam_json(((xn_Cls_IrParam *)xn_arr_o_get(self->params, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(out, rt_string_from_c("],\"visibility\":")), xn_irQuote(self->visibility)), rt_string_from_c(",\"line\":")), xn_str_int(self->line)), rt_string_from_c(",\"col\":")), xn_str_int(self->col)), rt_string_from_c("}"));
+}
+
+struct xn_Cls_IrTypeSym {
+  rt_header hdr;
+  rt_string * kind;
+  rt_string * fullName;
+  rt_string * packageName;
+  rt_string * simpleName;
+  xn_arr_s * typeParams;
+  rt_string * base;
+  xn_arr_s * implementsNames;
+  xn_arr_o * fields;
+  xn_arr_o * methods;
+  xn_arr_o * ctors;
+  xn_arr_s * enumItems;
+  int64_t line;
+  int64_t col;
+};
+
+static const rt_type RT_TYPE_XN_IrTypeSym = { "IrTypeSym", sizeof(xn_Cls_IrTypeSym), NULL, NULL };
+
+static xn_Cls_IrTypeSym *xn_Cls_IrTypeSym_new(rt_string * kind, rt_string * fullName, rt_string * packageName, rt_string * simpleName, xn_arr_s * typeParams, rt_string * base, xn_arr_s * implementsNames, xn_arr_o * fields, xn_arr_o * methods, xn_arr_o * ctors, xn_arr_s * enumItems, int64_t line, int64_t col) {
+  xn_Cls_IrTypeSym *xn_obj = (xn_Cls_IrTypeSym *)rt_gc_new(&RT_TYPE_XN_IrTypeSym);
+  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_IrTypeSym) - sizeof(rt_header));
+  xn_obj->kind = rt_string_from_c("");
+  xn_obj->fullName = rt_string_from_c("");
+  xn_obj->packageName = rt_string_from_c("");
+  xn_obj->simpleName = rt_string_from_c("");
+  xn_obj->typeParams = xn_arr_s_new(4);
+  xn_obj->base = rt_string_from_c("");
+  xn_obj->implementsNames = xn_arr_s_new(4);
+  xn_obj->fields = xn_arr_o_new(4);
+  xn_obj->methods = xn_arr_o_new(4);
+  xn_obj->ctors = xn_arr_o_new(4);
+  xn_obj->enumItems = xn_arr_s_new(4);
+  xn_obj->line = 0;
+  xn_obj->col = 0;
+  xn_Cls_IrTypeSym *self = xn_obj;
+  self->kind = kind;
+  self->fullName = fullName;
+  self->packageName = packageName;
+  self->simpleName = simpleName;
+  self->typeParams = typeParams;
+  self->base = base;
+  self->implementsNames = implementsNames;
+  self->fields = fields;
+  self->methods = methods;
+  self->ctors = ctors;
+  self->enumItems = enumItems;
+  self->line = line;
+  self->col = col;
+  return xn_obj;
+}
+
+static rt_string * xn_Cls_IrTypeSym_json(xn_Cls_IrTypeSym *self);
+
+static rt_string * xn_Cls_IrTypeSym_json(xn_Cls_IrTypeSym *self) {
+  rt_string * out = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("{\"kind\":"), xn_irQuote(self->kind)), rt_string_from_c(",\"fullName\":")), xn_irQuote(self->fullName)), rt_string_from_c(",\"package\":")), xn_irQuote(self->packageName)), rt_string_from_c(",\"simpleName\":")), xn_irQuote(self->simpleName)), rt_string_from_c(",\"typeParams\":["));
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->typeParams->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_irQuote(xn_arr_s_get(self->typeParams, i)));
+    i = xn_int_wrap((i + 1));
+  }
+  out = xn_concat(xn_concat(xn_concat(out, rt_string_from_c("],\"base\":")), xn_irQuote(self->base)), rt_string_from_c(",\"implements\":["));
+  i = 0;
+  while ((i < ((int64_t)self->implementsNames->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_irQuote(xn_arr_s_get(self->implementsNames, i)));
+    i = xn_int_wrap((i + 1));
+  }
+  out = xn_concat(out, rt_string_from_c("],\"fields\":["));
+  i = 0;
+  while ((i < ((int64_t)self->fields->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrFieldSym_json(((xn_Cls_IrFieldSym *)xn_arr_o_get(self->fields, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  out = xn_concat(out, rt_string_from_c("],\"methods\":["));
+  i = 0;
+  while ((i < ((int64_t)self->methods->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrMethodSym_json(((xn_Cls_IrMethodSym *)xn_arr_o_get(self->methods, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  out = xn_concat(out, rt_string_from_c("],\"ctors\":["));
+  i = 0;
+  while ((i < ((int64_t)self->ctors->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrCtorSym_json(((xn_Cls_IrCtorSym *)xn_arr_o_get(self->ctors, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  out = xn_concat(out, rt_string_from_c("],\"enumItems\":["));
+  i = 0;
+  while ((i < ((int64_t)self->enumItems->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_irQuote(xn_arr_s_get(self->enumItems, i)));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(out, rt_string_from_c("],\"line\":")), xn_str_int(self->line)), rt_string_from_c(",\"col\":")), xn_str_int(self->col)), rt_string_from_c("}"));
+}
+
 struct xn_Cls_AnnotationIR {
   rt_header hdr;
   xn_arr_o * declarations;
   xn_arr_o * uses;
+  xn_arr_o * types;
 };
 
 static const rt_type RT_TYPE_XN_AnnotationIR = { "AnnotationIR", sizeof(xn_Cls_AnnotationIR), NULL, NULL };
@@ -15560,16 +15850,18 @@ static xn_Cls_AnnotationIR *xn_Cls_AnnotationIR_new(void) {
   memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_AnnotationIR) - sizeof(rt_header));
   xn_obj->declarations = xn_arr_o_new(4);
   xn_obj->uses = xn_arr_o_new(4);
+  xn_obj->types = xn_arr_o_new(4);
   xn_Cls_AnnotationIR *self = xn_obj;
   self->declarations = xn_arr_o_new(0);
   self->uses = xn_arr_o_new(0);
+  self->types = xn_arr_o_new(0);
   return xn_obj;
 }
 
 static rt_string * xn_Cls_AnnotationIR_json(xn_Cls_AnnotationIR *self);
 
 static rt_string * xn_Cls_AnnotationIR_json(xn_Cls_AnnotationIR *self) {
-  rt_string * out = rt_string_from_c("{\"irVersion\":1,\"declarations\":[");
+  rt_string * out = rt_string_from_c("{\"irVersion\":2,\"declarations\":[");
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)self->declarations->len))) {
     if ((i > 0)) {
@@ -15587,7 +15879,16 @@ static rt_string * xn_Cls_AnnotationIR_json(xn_Cls_AnnotationIR *self) {
     out = xn_concat(out, xn_Cls_IrUse_json(((xn_Cls_IrUse *)xn_arr_o_get(self->uses, i))));
     i = xn_int_wrap((i + 1));
   }
-  return xn_concat(out, rt_string_from_c("]}"));
+  out = xn_concat(out, rt_string_from_c("],\"symbols\":{\"types\":["));
+  i = 0;
+  while ((i < ((int64_t)self->types->len))) {
+    if ((i > 0)) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_Cls_IrTypeSym_json(((xn_Cls_IrTypeSym *)xn_arr_o_get(self->types, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(out, rt_string_from_c("]}}"));
 }
 
 static rt_string * xn_proto_A8Processor_name(void *xn_obj) {
@@ -17674,6 +17975,177 @@ static xn_arr_o * xn_irDeclFields(xn_Cls_AstNode * decl) {
   return out;
 }
 
+static rt_string * xn_irTypeName(rt_string * ty, rt_string * pkg) {
+  if (((xn_str_eq(ty, rt_string_from_c("")) || (xn_str_indexof(ty, rt_string_from_c(".")) >= 0)) || (xn_str_indexof(ty, rt_string_from_c("<")) >= 0))) {
+    return ty;
+  }
+  if (((((((((((((((((((xn_str_eq(ty, rt_string_from_c("String")) || xn_str_eq(ty, rt_string_from_c("Int"))) || xn_str_eq(ty, rt_string_from_c("Long"))) || xn_str_eq(ty, rt_string_from_c("Double"))) || xn_str_eq(ty, rt_string_from_c("Float"))) || xn_str_eq(ty, rt_string_from_c("Bool"))) || xn_str_eq(ty, rt_string_from_c("Char"))) || xn_str_eq(ty, rt_string_from_c("Bytes"))) || xn_str_eq(ty, rt_string_from_c("List"))) || xn_str_eq(ty, rt_string_from_c("Map"))) || xn_str_eq(ty, rt_string_from_c("Set"))) || xn_str_eq(ty, rt_string_from_c("Result"))) || xn_str_eq(ty, rt_string_from_c("Error"))) || xn_str_eq(ty, rt_string_from_c("Unit"))) || xn_str_eq(ty, rt_string_from_c("Void"))) || xn_str_eq(ty, rt_string_from_c("Any"))) || xn_str_eq(ty, rt_string_from_c("Int128"))) || xn_str_eq(ty, rt_string_from_c("Type"))) || xn_str_eq(ty, rt_string_from_c("TypeRef")))) {
+    return ty;
+  }
+  xn_Cls_AstNode * d = xn_a8FindClassIn(globalAnnotationProgram, ty);
+  if ((!xn_str_eq(d->kind, rt_string_from_c("None")))) {
+    return xn_concat(xn_concat(pkg, rt_string_from_c(".")), ty);
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)globalAnnotationProgram->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(globalAnnotationProgram->kids, i));
+    if (((xn_str_eq(n->kind, rt_string_from_c("Enum")) || xn_str_eq(n->kind, rt_string_from_c("Protocol"))) && xn_str_eq(n->text, ty))) {
+      return xn_concat(xn_concat(pkg, rt_string_from_c(".")), ty);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return ty;
+}
+
+static xn_arr_o * xn_irParamsOf(xn_Cls_AstNode * n, rt_string * pkg) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i));
+    if (xn_str_eq(k->kind, rt_string_from_c("Param"))) {
+      xn_arr_s * parts = xn_str_split(k->text, rt_string_from_c(" "));
+      rt_string * ty = k->text;
+      rt_string * name = k->text;
+      if ((((int64_t)parts->len) >= 2)) {
+        ty = xn_arr_s_get(parts, 0);
+        name = xn_arr_s_get(parts, 1);
+      }
+      xn_arr_o_push(out, xn_Cls_IrParam_new(name, xn_irTypeName(ty, pkg)));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static xn_arr_o * xn_irFieldSymbols(xn_Cls_AstNode * n, rt_string * pkg) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_AstNode * f = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i));
+    if ((xn_str_eq(f->kind, rt_string_from_c("Field")) || xn_str_eq(f->kind, rt_string_from_c("AnnotationField")))) {
+      xn_arr_s * parts = xn_str_split(f->text, rt_string_from_c(" "));
+      rt_string * ty = f->text;
+      rt_string * name = f->text;
+      if ((((int64_t)parts->len) >= 2)) {
+        ty = xn_arr_s_get(parts, 0);
+        name = xn_arr_s_get(parts, 1);
+      }
+      int st = 0;
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)f->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(f->kids, j))->kind, rt_string_from_c("Static"))) {
+          st = 1;
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      xn_arr_o_push(out, xn_Cls_IrFieldSym_new(name, xn_irTypeName(ty, pkg), f->isFinalField, st, rt_string_from_c("unknown"), f->line, f->col));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static xn_arr_o * xn_irMethodSymbols(xn_Cls_AstNode * n, rt_string * pkg) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_AstNode * m = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i));
+    if (xn_str_eq(m->kind, rt_string_from_c("Method"))) {
+      rt_string * ret = rt_string_from_c("Unit");
+      int st = 0;
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)m->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(m->kids, j))->kind, rt_string_from_c("Ret"))) {
+          ret = ((xn_Cls_AstNode *)xn_arr_o_get(m->kids, j))->text;
+        }
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(m->kids, j))->kind, rt_string_from_c("Static"))) {
+          st = 1;
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      xn_arr_o_push(out, xn_Cls_IrMethodSym_new(m->text, xn_irTypeName(ret, pkg), xn_irParamsOf(m, pkg), st, rt_string_from_c("unknown"), m->line, m->col));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static xn_arr_o * xn_irCtorSymbols(xn_Cls_AstNode * n, rt_string * pkg) {
+  xn_arr_o *out = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_AstNode * c = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i));
+    if (xn_str_eq(c->kind, rt_string_from_c("Ctor"))) {
+      xn_arr_o_push(out, xn_Cls_IrCtorSym_new(xn_irParamsOf(c, pkg), rt_string_from_c("unknown"), c->line, c->col));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static xn_arr_s * xn_irEnumItems(xn_Cls_AstNode * n) {
+  xn_arr_s *out = xn_arr_s_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i))->kind, rt_string_from_c("EnumItem"))) {
+      xn_arr_s_push(out, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i))->text);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static xn_arr_s * xn_irTypeParamsOf(xn_Cls_AstNode * n) {
+  xn_arr_s *out = xn_arr_s_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i));
+    if (xn_str_eq(k->kind, rt_string_from_c("TypeParams"))) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)k->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, j))->kind, rt_string_from_c("TypeParam"))) {
+          xn_arr_s_push(out, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, j))->text);
+        }
+        j = xn_int_wrap((j + 1));
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static void xn_irTypeSymbols(xn_Cls_AstNode * program, xn_arr_o * out) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if (((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum"))) || xn_str_eq(n->kind, rt_string_from_c("Protocol"))) || xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")))) {
+      rt_string * pkg = xn_irOwnerPackage(n);
+      rt_string * full = n->text;
+      if ((!xn_str_eq(pkg, rt_string_from_c("")))) {
+        full = xn_concat(xn_concat(pkg, rt_string_from_c(".")), n->text);
+      }
+      rt_string * kindName = n->kind;
+      if (xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl"))) {
+        kindName = rt_string_from_c("Annotation");
+      }
+      rt_string * base = rt_string_from_c("");
+      xn_arr_s *impls = xn_arr_s_new(0);
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)n->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j))->kind, rt_string_from_c("Base"))) {
+          base = xn_irTypeName(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j))->text, pkg);
+        }
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j))->kind, rt_string_from_c("Implements"))) {
+          xn_arr_s_push(impls, xn_irTypeName(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j))->text, pkg));
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      xn_arr_o_push(out, xn_Cls_IrTypeSym_new(kindName, full, pkg, n->text, xn_irTypeParamsOf(n), base, impls, xn_irFieldSymbols(n, pkg), xn_irMethodSymbols(n, pkg), xn_irCtorSymbols(n, pkg), xn_irEnumItems(n), n->line, n->col));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+}
+
 static xn_Cls_AnnotationIR * xn_buildAnnotationIR(xn_Cls_AstNode * program) {
   globalAnnotationProgram = program;
   xn_Cls_AnnotationIR * ir = xn_Cls_AnnotationIR_new();
@@ -17686,11 +18158,12 @@ static xn_Cls_AnnotationIR * xn_buildAnnotationIR(xn_Cls_AstNode * program) {
       if ((!xn_str_eq(pkg, rt_string_from_c("")))) {
         full = xn_concat(xn_concat(pkg, rt_string_from_c(".")), n->text);
       }
-      xn_arr_o_push(ir->declarations, xn_Cls_IrDecl_new(full, pkg, n->text, xn_irTargetsOf(n), xn_irRetentionOf(n), xn_irRepeatableOf(n), xn_irDeclFields(n), n->line, n->col, pkg, 1));
+      xn_arr_o_push(ir->declarations, xn_Cls_IrDecl_new(full, pkg, n->text, xn_irTargetsOf(n), xn_irRetentionOf(n), xn_irRepeatableOf(n), xn_irDeclFields(n), n->line, n->col, pkg, 2));
     }
     i = xn_int_wrap((i + 1));
   }
   xn_irCollectProgramUses(program, ir->uses);
+  xn_irTypeSymbols(program, ir->types);
   return ir;
 }
 

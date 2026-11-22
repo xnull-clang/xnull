@@ -14886,17 +14886,161 @@ class IrUse {
     }
 }
 
+class IrParam {
+    final String name
+    final String type
+    IrParam(String name, String type) { self.name = name; self.type = type }
+    String json() { return "{\"name\":" + irQuote(self.name) + ",\"type\":" + irQuote(self.type) + "}" }
+}
+
+class IrFieldSym {
+    final String name
+    final String type
+    final Bool isFinal
+    final Bool isStatic
+    final String visibility
+    final Int line
+    final Int col
+    IrFieldSym(String name, String type, Bool isFinal, Bool isStatic, String visibility, Int line, Int col) {
+        self.name = name; self.type = type; self.isFinal = isFinal; self.isStatic = isStatic
+        self.visibility = visibility; self.line = line; self.col = col
+    }
+    String json() {
+        return "{\"name\":" + irQuote(self.name) + ",\"type\":" + irQuote(self.type) +
+            ",\"final\":" + irBool(self.isFinal) + ",\"static\":" + irBool(self.isStatic) +
+            ",\"visibility\":" + irQuote(self.visibility) + ",\"line\":" + str(self.line) + ",\"col\":" + str(self.col) + "}"
+    }
+}
+
+class IrMethodSym {
+    final String name
+    final String returnType
+    final List<IrParam> params
+    final Bool isStatic
+    final String visibility
+    final Int line
+    final Int col
+    IrMethodSym(String name, String returnType, List<IrParam> params, Bool isStatic, String visibility, Int line, Int col) {
+        self.name = name; self.returnType = returnType; self.params = params
+        self.isStatic = isStatic; self.visibility = visibility; self.line = line; self.col = col
+    }
+    String json() {
+        String out = "{\"name\":" + irQuote(self.name) + ",\"return\":" + irQuote(self.returnType) + ",\"params\":["
+        Int i = 0
+        while i < self.params.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.params.get(i).json()
+            i = i + 1
+        }
+        return out + "],\"static\":" + irBool(self.isStatic) + ",\"visibility\":" + irQuote(self.visibility) +
+            ",\"line\":" + str(self.line) + ",\"col\":" + str(self.col) + "}"
+    }
+}
+
+class IrCtorSym {
+    final List<IrParam> params
+    final String visibility
+    final Int line
+    final Int col
+    IrCtorSym(List<IrParam> params, String visibility, Int line, Int col) {
+        self.params = params; self.visibility = visibility; self.line = line; self.col = col
+    }
+    String json() {
+        String out = "{\"params\":["
+        Int i = 0
+        while i < self.params.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.params.get(i).json()
+            i = i + 1
+        }
+        return out + "],\"visibility\":" + irQuote(self.visibility) + ",\"line\":" + str(self.line) + ",\"col\":" + str(self.col) + "}"
+    }
+}
+
+class IrTypeSym {
+    final String kind
+    final String fullName
+    final String packageName
+    final String simpleName
+    final List<String> typeParams
+    final String base
+    final List<String> implementsNames
+    final List<IrFieldSym> fields
+    final List<IrMethodSym> methods
+    final List<IrCtorSym> ctors
+    final List<String> enumItems
+    final Int line
+    final Int col
+    IrTypeSym(String kind, String fullName, String packageName, String simpleName,
+              List<String> typeParams, String base, List<String> implementsNames,
+              List<IrFieldSym> fields, List<IrMethodSym> methods, List<IrCtorSym> ctors,
+              List<String> enumItems, Int line, Int col) {
+        self.kind = kind; self.fullName = fullName; self.packageName = packageName; self.simpleName = simpleName
+        self.typeParams = typeParams; self.base = base; self.implementsNames = implementsNames
+        self.fields = fields; self.methods = methods; self.ctors = ctors; self.enumItems = enumItems
+        self.line = line; self.col = col
+    }
+    String json() {
+        String out = "{\"kind\":" + irQuote(self.kind) + ",\"fullName\":" + irQuote(self.fullName) +
+            ",\"package\":" + irQuote(self.packageName) + ",\"simpleName\":" + irQuote(self.simpleName) + ",\"typeParams\":["
+        Int i = 0
+        while i < self.typeParams.length() {
+            if i > 0 { out = out + "," }
+            out = out + irQuote(self.typeParams.get(i))
+            i = i + 1
+        }
+        out = out + "],\"base\":" + irQuote(self.base) + ",\"implements\":["
+        i = 0
+        while i < self.implementsNames.length() {
+            if i > 0 { out = out + "," }
+            out = out + irQuote(self.implementsNames.get(i))
+            i = i + 1
+        }
+        out = out + "],\"fields\":["
+        i = 0
+        while i < self.fields.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.fields.get(i).json()
+            i = i + 1
+        }
+        out = out + "],\"methods\":["
+        i = 0
+        while i < self.methods.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.methods.get(i).json()
+            i = i + 1
+        }
+        out = out + "],\"ctors\":["
+        i = 0
+        while i < self.ctors.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.ctors.get(i).json()
+            i = i + 1
+        }
+        out = out + "],\"enumItems\":["
+        i = 0
+        while i < self.enumItems.length() {
+            if i > 0 { out = out + "," }
+            out = out + irQuote(self.enumItems.get(i))
+            i = i + 1
+        }
+        return out + "],\"line\":" + str(self.line) + ",\"col\":" + str(self.col) + "}"
+    }
+}
+
 class AnnotationIR {
     final List<IrDecl> declarations
     final List<IrUse> uses
+    final List<IrTypeSym> types
 
     AnnotationIR() {
         self.declarations = []
         self.uses = []
+        self.types = []
     }
 
     String json() {
-        String out = "{\"irVersion\":1,\"declarations\":["
+        String out = "{\"irVersion\":2,\"declarations\":["
         Int i = 0
         while i < self.declarations.length() {
             if i > 0 { out = out + "," }
@@ -14910,7 +15054,14 @@ class AnnotationIR {
             out = out + self.uses.get(i).json()
             i = i + 1
         }
-        return out + "]}"
+        out = out + "],\"symbols\":{\"types\":["
+        i = 0
+        while i < self.types.length() {
+            if i > 0 { out = out + "," }
+            out = out + self.types.get(i).json()
+            i = i + 1
+        }
+        return out + "]}}"
     }
 }
 
@@ -15125,6 +15276,151 @@ List<IrField> irDeclFields(AstNode decl) {
     return out
 }
 
+String irTypeName(String ty, String pkg) {
+    if ty == "" || ty.indexOf(".") >= 0 || ty.indexOf("<") >= 0 { return ty }
+    if ty == "String" || ty == "Int" || ty == "Long" || ty == "Double" || ty == "Float" ||
+       ty == "Bool" || ty == "Char" || ty == "Bytes" || ty == "List" || ty == "Map" ||
+       ty == "Set" || ty == "Result" || ty == "Error" || ty == "Unit" || ty == "Void" ||
+       ty == "Any" || ty == "Int128" || ty == "Type" || ty == "TypeRef" { return ty }
+    AstNode d = a8FindClassIn(globalAnnotationProgram, ty)
+    if d.kind != "None" { return pkg + "." + ty }
+    Int i = 0
+    while i < globalAnnotationProgram.kids.length() {
+        AstNode n = globalAnnotationProgram.kids.get(i)
+        if (n.kind == "Enum" || n.kind == "Protocol") && n.text == ty { return pkg + "." + ty }
+        i = i + 1
+    }
+    return ty
+}
+
+List<IrParam> irParamsOf(AstNode n, String pkg) {
+    List<IrParam> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        AstNode k = n.kids.get(i)
+        if k.kind == "Param" {
+            List<String> parts = k.text.split(" ")
+            String ty = k.text
+            String name = k.text
+            if parts.length() >= 2 { ty = parts.get(0); name = parts.get(1) }
+            out.push(new IrParam(name, irTypeName(ty, pkg)))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+List<IrFieldSym> irFieldSymbols(AstNode n, String pkg) {
+    List<IrFieldSym> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        AstNode f = n.kids.get(i)
+        if f.kind == "Field" || f.kind == "AnnotationField" {
+            List<String> parts = f.text.split(" ")
+            String ty = f.text
+            String name = f.text
+            if parts.length() >= 2 { ty = parts.get(0); name = parts.get(1) }
+            Bool st = false
+            Int j = 0
+            while j < f.kids.length() {
+                if f.kids.get(j).kind == "Static" { st = true }
+                j = j + 1
+            }
+            out.push(new IrFieldSym(name, irTypeName(ty, pkg), f.isFinalField, st, "unknown", f.line, f.col))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+List<IrMethodSym> irMethodSymbols(AstNode n, String pkg) {
+    List<IrMethodSym> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        AstNode m = n.kids.get(i)
+        if m.kind == "Method" {
+            String ret = "Unit"
+            Bool st = false
+            Int j = 0
+            while j < m.kids.length() {
+                if m.kids.get(j).kind == "Ret" { ret = m.kids.get(j).text }
+                if m.kids.get(j).kind == "Static" { st = true }
+                j = j + 1
+            }
+            out.push(new IrMethodSym(m.text, irTypeName(ret, pkg), irParamsOf(m, pkg), st, "unknown", m.line, m.col))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+List<IrCtorSym> irCtorSymbols(AstNode n, String pkg) {
+    List<IrCtorSym> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        AstNode c = n.kids.get(i)
+        if c.kind == "Ctor" {
+            out.push(new IrCtorSym(irParamsOf(c, pkg), "unknown", c.line, c.col))
+        }
+        i = i + 1
+    }
+    return out
+}
+
+List<String> irEnumItems(AstNode n) {
+    List<String> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        if n.kids.get(i).kind == "EnumItem" { out.push(n.kids.get(i).text) }
+        i = i + 1
+    }
+    return out
+}
+
+List<String> irTypeParamsOf(AstNode n) {
+    List<String> out = []
+    Int i = 0
+    while i < n.kids.length() {
+        AstNode k = n.kids.get(i)
+        if k.kind == "TypeParams" {
+            Int j = 0
+            while j < k.kids.length() {
+                if k.kids.get(j).kind == "TypeParam" { out.push(k.kids.get(j).text) }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    return out
+}
+
+Void irTypeSymbols(AstNode program, List<IrTypeSym> out) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" ||
+           n.kind == "Protocol" || n.kind == "AnnotationDecl" {
+            String pkg = irOwnerPackage(n)
+            String full = n.text
+            if pkg != "" { full = pkg + "." + n.text }
+            String kindName = n.kind
+            if n.kind == "AnnotationDecl" { kindName = "Annotation" }
+            String base = ""
+            List<String> impls = []
+            Int j = 0
+            while j < n.kids.length() {
+                if n.kids.get(j).kind == "Base" { base = irTypeName(n.kids.get(j).text, pkg) }
+                if n.kids.get(j).kind == "Implements" { impls.push(irTypeName(n.kids.get(j).text, pkg)) }
+                j = j + 1
+            }
+            out.push(new IrTypeSym(kindName, full, pkg, n.text, irTypeParamsOf(n), base, impls,
+                irFieldSymbols(n, pkg), irMethodSymbols(n, pkg), irCtorSymbols(n, pkg),
+                irEnumItems(n), n.line, n.col))
+        }
+        i = i + 1
+    }
+}
+
 AnnotationIR buildAnnotationIR(AstNode program) {
     globalAnnotationProgram = program
     AnnotationIR ir = new AnnotationIR()
@@ -15136,11 +15432,12 @@ AnnotationIR buildAnnotationIR(AstNode program) {
             String full = n.text
             if pkg != "" { full = pkg + "." + n.text }
             ir.declarations.push(new IrDecl(full, pkg, n.text, irTargetsOf(n),
-                irRetentionOf(n), irRepeatableOf(n), irDeclFields(n), n.line, n.col, pkg, 1))
+                irRetentionOf(n), irRepeatableOf(n), irDeclFields(n), n.line, n.col, pkg, 2))
         }
         i = i + 1
     }
     irCollectProgramUses(program, ir.uses)
+    irTypeSymbols(program, ir.types)
     return ir
 }
 
