@@ -415,7 +415,7 @@ worktree: clean
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
 | B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
 | B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
-| B2 注解类型 | 进行中（B2.1/B2.2） | 独立 worktree；B2.3 未开工 |
+| B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae`；16 场景绿；B2.3 Registry 已生成 |
 | B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
 | B4 第一批纯包 | 未开工 | 等 B2+B3 |
 | B5 core 2.x | 未开工 | 等 B4 |
@@ -532,7 +532,45 @@ check_doc_naming             PASS
 check_links                  PASS
 ```
 
-B3 最终状态：**已完成（B3.1–B3.5）**。B2 仍在独立 worktree 进行（B2.1/B2.2），B2.3 未开工；本批不开始 B2.3/B4。
+B3 最终状态：**已完成（B3.1–B3.5）**。B2 在本批之后由 §11.4 合并完成；本批不开始 B2.3/B4。
+
+### 11.4 B2 integration：`xdk.annotations` 14 类型与 Registry
+
+```text
+B2 merge: 48ec4bae（--no-ff，B2 branch tip 1abcb8da）
+base: 248fccb0
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+合并：`merge-tree` 预演无冲突；`ort` 自动合并，无冲突文件。B1 注解、B3 `Context`/泛型、B2 Registry/14 类型三侧同时保留。
+
+验证：
+
+- `import xdk.annotations` 直接可用；`annotations_types_*` 测试无 `annotations` 符号链接；
+- `xdkAnnotationRegistry()` / `xdkAnnotationRegistryVersion()` 是编译期生成入口，查询只读静态表；
+- `annotations_types_runtime_registry.x/.out` 通过；
+- B2-fix 四项通过：无 `xdk.collections` 依赖、`Float` 作为 `Double` 别名、枚举不可为 null、`targetKey(Annotation)` 为 `annotation:` 分支。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（16 scenario(s)；22 negative；warning；AST；registry）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生成只读表。
+
+剩余限制（不阻塞 B2）：
+
+- `Deinit` 源语法依赖 S2：mini 尚不解析 `deinit` 声明；注册表已支持 `deinit:` key；
+- 跨包注解全限定名：mini 合并 AST 时丢弃被导入文件 `Package` 节点，跨包注解目前只能按简单名解析。
+
+B4 仍未开工。
 
 ## 12. 一句话收口
 
