@@ -91,3 +91,14 @@ X 未纳入本批：`FileSink`、`RotatingFileSink`、`AsyncSink`、`MultiSink`�
 | JSON 格式 | X（依赖 codec） |
 | 线程安全 | 实现声明；默认非线程安全 |
 | 日志失败 | 诊断，不抛业务错误 |
+
+## 9. 1.x 已实现 API 回写
+
+1.x 已实现且 2.x 必须保留：
+
+- `Filter` / `PredicateFilter` / `KeepAllFilter`；
+- `Redactor` / `ReplaceRedactor` / `IdentityRedactor`；
+- `Sampler` / `EveryNSampler` / `KeepAllSampler`；
+- `Logger.withFilter/withRedactor/withSampler`。
+
+2.x 的 `Formatter`/`FileSink` 等是增量；1.x 结论不删。

@@ -5,7 +5,7 @@
 | 类型 | `class NetworkService` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
-| 依赖 | `Context`、`SocketAddress`、`ServiceOptions`、`ServiceState`、`ServiceStats`、`Server`、`Client`、`SessionHandler`、`TaskGroup`、`TaskHandle`、`Error` |
+| 依赖 | `Context`、`SocketAddress`、`ServiceOptions`、`NetServiceState`、`ServiceStats`、`Server`、`Client`、`SessionHandler`、`TaskGroup`、`TaskHandle`、`Error` |
 
 ---
 
@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | `_options` | `ServiceOptions` | final | 配置快照 |
 | `_startedAtMonoMillis` | `Long` | final | 构造时间，≥0 |
-| `_state` | `ServiceState` | 可变 | 生命周期 |
+| `_state` | `NetServiceState` | 可变 | 生命周期 |
 | `_closed` | `Bool` | 可变 | 是否已 close |
 | `_server` | `Server?` | 可变 | 服务端角色；与客户端互斥 |
 | `_client` | `Client?` | 可变 | 客户端角色；与服务端互斥 |
@@ -81,7 +81,7 @@
 | `startClient` | 后台启动客户端 | `Context context, SocketAddress remote, SessionHandler handler` | `Result<Client, Error>` | `AlreadyExists`/连接/会话/任务创建失败 |
 | `shutdown` | 优雅/立即停止 | `Context context` | `Result<Unit, Error>` | `Timeout`/`Cancelled`/`Io` |
 | `close` | 立即关闭 | 无 | `Result<Unit, Error>` | `Io`（诊断） |
-| `state` | 生命周期快照 | 无 | `ServiceState` | 无 |
+| `state` | 生命周期快照 | 无 | `NetServiceState` | 无 |
 | `stats` | 聚合统计 | 无 | `ServiceStats` | 无 |
 | `localAddress` | 本地地址/无 | 无 | `SocketAddress?` | 无 |
 | `server` | 服务端借用/无 | 无 | `Server?` | 无 |
@@ -119,13 +119,13 @@
 
 - 语言：class、泛型任务引用、Long、Bool、Result；
 - 运行时：`TaskGroup.create`、`TaskGroup.spawn`、`TaskGroup.cancel`、`TaskGroup.close`、`TaskHandle.isDone`、`TaskHandle.failure`、`monotonicMillis`；
-- 接口：`Context`、`SocketAddress`、`ServiceOptions`、`Server`、`Client`、`SessionHandler`、`ServiceState`、`ServiceStats`、`Error`、`ErrorKind`、`unavailableError`、`BasicError`。
+- 接口：`Context`、`SocketAddress`、`ServiceOptions`、`Server`、`Client`、`SessionHandler`、`NetServiceState`、`ServiceStats`、`Error`、`ErrorKind`、`unavailableError`、`BasicError`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Context`、`SocketAddress`、`ServiceOptions`、`ServiceState`、`ServiceStats`、`Server`、`Client`、`Session`、`Connection`、`SessionHandler`、`TaskGroup`、`TaskHandle`、`Task`、`Error`、`ErrorKind`、`unavailableError`、`BasicError`、`monotonicMillis`。
+`Context`、`SocketAddress`、`ServiceOptions`、`NetServiceState`、`ServiceStats`、`Server`、`Client`、`Session`、`Connection`、`SessionHandler`、`TaskGroup`、`TaskHandle`、`Task`、`Error`、`ErrorKind`、`unavailableError`、`BasicError`、`monotonicMillis`。
 
 ---
 
@@ -155,7 +155,7 @@
 class NetworkService {
     final ServiceOptions _options
     final Long _startedAtMonoMillis
-    ServiceState _state
+    NetServiceState _state
     Bool _closed
     Server? _server
     Client? _client
@@ -166,7 +166,7 @@ class NetworkService {
         if options == null { throw "NetworkService: null options" }
         _options = options.copy()
         _startedAtMonoMillis = monotonicMillis()
-        _state = ServiceState.Created
+        _state = NetServiceState.Created
         _closed = false
         _server = null
         _client = null
@@ -180,7 +180,7 @@ class NetworkService {
             throw "NetworkService.startServer: null argument"
         }
         if _closed { return Err(unavailableError("network service")) }
-        if _state != ServiceState.Created || _server != null || _client != null {
+        if _state != NetServiceState.Created || _server != null || _client != null {
             return Err(new BasicError(ErrorKind.AlreadyExists,
                 "network service already started"))
         }
@@ -195,13 +195,13 @@ class NetworkService {
         if spawned.isErr() {
             group.close()
             server.close()
-            _state = ServiceState.Failed
+            _state = NetServiceState.Failed
             return Err(spawned.error())
         }
         _server = server
         _group = group
         _task = spawned.value()
-        _state = ServiceState.Running
+        _state = NetServiceState.Running
         return Ok(server)
     }
 
@@ -211,7 +211,7 @@ class NetworkService {
             throw "NetworkService.startClient: null argument"
         }
         if _closed { return Err(unavailableError("network service")) }
-        if _state != ServiceState.Created || _server != null || _client != null {
+        if _state != NetServiceState.Created || _server != null || _client != null {
             return Err(new BasicError(ErrorKind.AlreadyExists,
                 "network service already started"))
         }
@@ -236,26 +236,26 @@ class NetworkService {
         if spawned.isErr() {
             group.close()
             client.close()
-            _state = ServiceState.Failed
+            _state = NetServiceState.Failed
             return Err(spawned.error())
         }
         _client = client
         _group = group
         _task = spawned.value()
-        _state = ServiceState.Running
+        _state = NetServiceState.Running
         return Ok(client)
     }
 
     Result<Unit, Error> shutdown(Context context) {
         if context == null { throw "NetworkService.shutdown: null context" }
-        ServiceState current = self.state()
-        if current == ServiceState.Closed { return Ok(unit) }
-        if current == ServiceState.Failed { return Ok(unit) }
-        if current == ServiceState.Created {
-            _state = ServiceState.Stopped
+        NetServiceState current = self.state()
+        if current == NetServiceState.Closed { return Ok(unit) }
+        if current == NetServiceState.Failed { return Ok(unit) }
+        if current == NetServiceState.Created {
+            _state = NetServiceState.Stopped
             return Ok(unit)
         }
-        _state = ServiceState.Draining
+        _state = NetServiceState.Draining
         Result<Unit, Error> result = Ok(unit)
         if _server != null {
             Result<Unit, Error> serverResult = _server.shutdown(context)
@@ -274,14 +274,14 @@ class NetworkService {
                 result = groupResult
             }
         }
-        _state = ServiceState.Stopped
+        _state = NetServiceState.Stopped
         return result
     }
 
     Result<Unit, Error> close() {
         if _closed { return Ok(unit) }
         _closed = true
-        _state = ServiceState.Closed
+        _state = NetServiceState.Closed
         Result<Unit, Error> serverResult = Ok(unit)
         Result<Unit, Error> clientResult = Ok(unit)
         Result<Unit, Error> groupResult = Ok(unit)
@@ -294,17 +294,17 @@ class NetworkService {
         return groupResult
     }
 
-    ServiceState state() {
-        if _state == ServiceState.Closed { return ServiceState.Closed }
-        if _state == ServiceState.Stopped { return ServiceState.Stopped }
-        if _state == ServiceState.Failed { return ServiceState.Failed }
+    NetServiceState state() {
+        if _state == NetServiceState.Closed { return NetServiceState.Closed }
+        if _state == NetServiceState.Stopped { return NetServiceState.Stopped }
+        if _state == NetServiceState.Failed { return NetServiceState.Failed }
         if _task != null && _task.isDone() {
             Error? failure = _task.failure()
-            if failure == null { return ServiceState.Stopped }
+            if failure == null { return NetServiceState.Stopped }
             if failure.kind() == ErrorKind.Cancelled {
-                return ServiceState.Stopped
+                return NetServiceState.Stopped
             }
-            return ServiceState.Failed
+            return NetServiceState.Failed
         }
         return _state
     }
@@ -334,11 +334,11 @@ class NetworkService {
     ServiceOptions options() { return _options.copy() }
 
     Bool isOpen() {
-        ServiceState current = self.state()
+        NetServiceState current = self.state()
         if _closed { return false }
-        return current == ServiceState.Starting
-            || current == ServiceState.Running
-            || current == ServiceState.Draining
+        return current == NetServiceState.Starting
+            || current == NetServiceState.Running
+            || current == NetServiceState.Draining
     }
 }
 ```

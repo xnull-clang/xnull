@@ -5,7 +5,7 @@
 | 类型 | `class TlsConfig` |
 | 包 | `xdk.net.tls` |
 | 稳定性 | `preview` |
-| 依赖 | `TlsVersion`、`Certificate`、`PrivateKey`、`TrustStore` |
+| 依赖 | `TlsVersion`、`Certificate`、`TlsPrivateKey`、`TrustStore` |
 
 ---
 
@@ -36,9 +36,9 @@
 | `_serverName` | `String?` | SNI/主机名 |
 | `_trustStore` | `TrustStore?` | null → 系统库 |
 | `_serverCertificate` | `Certificate?` | 服务端证书 |
-| `_serverKey` | `PrivateKey?` | 服务端私钥 |
+| `_serverKey` | `TlsPrivateKey?` | 服务端私钥 |
 | `_clientCertificate` | `Certificate?` | 客户端证书 |
-| `_clientKey` | `PrivateKey?` | 客户端私钥 |
+| `_clientKey` | `TlsPrivateKey?` | 客户端私钥 |
 | `_minVersion` | `TlsVersion?` | 最低版本 |
 | `_maxVersion` | `TlsVersion?` | 最高版本 |
 | `_alpn` | `List<String>` | ALPN 协议 |
@@ -77,17 +77,17 @@
 | `serverName` | SNI | 无 | `String?` | 无 |
 | `trustStore` | 信任库 | 无 | `TrustStore?` | 无 |
 | `serverCertificate` | 服务端证书 | 无 | `Certificate?` | 无 |
-| `serverKey` | 服务端私钥 | 无 | `PrivateKey?` | 无 |
+| `serverKey` | 服务端私钥 | 无 | `TlsPrivateKey?` | 无 |
 | `clientCertificate` | 客户端证书 | 无 | `Certificate?` | 无 |
-| `clientKey` | 客户端私钥 | 无 | `PrivateKey?` | 无 |
+| `clientKey` | 客户端私钥 | 无 | `TlsPrivateKey?` | 无 |
 | `minVersion` | 最低版本 | 无 | `TlsVersion?` | 无 |
 | `maxVersion` | 最高版本 | 无 | `TlsVersion?` | 无 |
 | `alpn` | ALPN 快照 | 无 | `List<String>` | 无 |
 | `verifyPeer` | 是否验证 | 无 | `Bool` | 无 |
 | `withServerName` | 派生 SNI | `String value` | `TlsConfig` | 空/null → panic |
 | `withTrustStore` | 派生信任库 | `TrustStore value` | `TlsConfig` | null → panic |
-| `withServerCertificate` | 派生服务端证书 | `Certificate certificate, PrivateKey key` | `TlsConfig` | null → panic |
-| `withClientCertificate` | 派生客户端证书 | `Certificate certificate, PrivateKey key` | `TlsConfig` | null → panic |
+| `withServerCertificate` | 派生服务端证书 | `Certificate certificate, TlsPrivateKey key` | `TlsConfig` | null → panic |
+| `withClientCertificate` | 派生客户端证书 | `Certificate certificate, TlsPrivateKey key` | `TlsConfig` | null → panic |
 | `withMinVersion` | 派生最低版本 | `TlsVersion value` | `TlsConfig` | 无 |
 | `withMaxVersion` | 派生最高版本 | `TlsVersion value` | `TlsConfig` | 无 |
 | `withAlpn` | 派生 ALPN | `List<String> protocols` | `TlsConfig` | null/空串 → panic |
@@ -110,13 +110,13 @@
 
 - 语言：class、List、String、Bool、Result；
 - 运行时：无（握手时由 TLS 原语读取）；
-- 接口：`TlsVersion`、`Certificate`、`PrivateKey`、`TrustStore`。
+- 接口：`TlsVersion`、`Certificate`、`TlsPrivateKey`、`TrustStore`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`TlsVersion`、`Certificate`、`PrivateKey`、`TrustStore`。
+`TlsVersion`、`Certificate`、`TlsPrivateKey`、`TrustStore`。
 
 ---
 
@@ -146,9 +146,9 @@ class TlsConfig {
     final String? _serverName
     final TrustStore? _trustStore
     final Certificate? _serverCertificate
-    final PrivateKey? _serverKey
+    final TlsPrivateKey? _serverKey
     final Certificate? _clientCertificate
-    final PrivateKey? _clientKey
+    final TlsPrivateKey? _clientKey
     final TlsVersion? _minVersion
     final TlsVersion? _maxVersion
     final List<String> _alpn
@@ -168,8 +168,8 @@ class TlsConfig {
     }
 
     private TlsConfig(String? serverName, TrustStore? trustStore,
-                      Certificate? serverCertificate, PrivateKey? serverKey,
-                      Certificate? clientCertificate, PrivateKey? clientKey,
+                      Certificate? serverCertificate, TlsPrivateKey? serverKey,
+                      Certificate? clientCertificate, TlsPrivateKey? clientKey,
                       TlsVersion? minVersion, TlsVersion? maxVersion,
                       List<String> alpn, Bool verifyPeer) {
         _serverName = serverName
@@ -187,9 +187,9 @@ class TlsConfig {
     String? serverName() { return _serverName }
     TrustStore? trustStore() { return _trustStore }
     Certificate? serverCertificate() { return _serverCertificate }
-    PrivateKey? serverKey() { return _serverKey }
+    TlsPrivateKey? serverKey() { return _serverKey }
     Certificate? clientCertificate() { return _clientCertificate }
-    PrivateKey? clientKey() { return _clientKey }
+    TlsPrivateKey? clientKey() { return _clientKey }
     TlsVersion? minVersion() { return _minVersion }
     TlsVersion? maxVersion() { return _maxVersion }
     List<String> alpn() { return _alpn.copy() }
@@ -209,7 +209,7 @@ class TlsConfig {
             _clientCertificate, _clientKey, _minVersion, _maxVersion, _alpn, _verifyPeer)
     }
 
-    TlsConfig withServerCertificate(Certificate certificate, PrivateKey key) {
+    TlsConfig withServerCertificate(Certificate certificate, TlsPrivateKey key) {
         if certificate == null || key == null {
             throw "TlsConfig.withServerCertificate: null"
         }
@@ -217,7 +217,7 @@ class TlsConfig {
             _clientCertificate, _clientKey, _minVersion, _maxVersion, _alpn, _verifyPeer)
     }
 
-    TlsConfig withClientCertificate(Certificate certificate, PrivateKey key) {
+    TlsConfig withClientCertificate(Certificate certificate, TlsPrivateKey key) {
         if certificate == null || key == null {
             throw "TlsConfig.withClientCertificate: null"
         }

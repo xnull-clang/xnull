@@ -24,14 +24,14 @@
 
 - 非泛型协议；输入/输出都是 `TelemetryBatch`；
 - `inputKind()` 必须匹配源管线 kind；`outputKind()` 必须匹配目标管线 kind；
-- `consume` 是导出侧：源管线像调用 Exporter 一样调用它；
+- `consume` 是导出侧：源管线像调用 PipelineExporter 一样调用它；
 - `start` 是接收侧：目标管线把 downstream 交给它；连接器在转换/聚合后向下游推送；
 - 一个连接器实例必须且只能接入一条源管线和一条目标管线；
 - 连接器由 `Agent` 拥有生命周期，`AgentPipeline` 只引用；避免两条管线重复 start/close；
 - 连接器不得形成环；Agent 启动时校验连接图；
 - 连接器可以缓冲/聚合；缓冲有界；满时返回 `Busy` 或显式丢弃并计数；
 - 同 kind 连接器可以路由/复制；跨 kind 连接器可以聚合（traces/logs → metrics）；
-- 连接器不是 `Exporter`/`Receiver` 的子协议，避免单一 `kind()` 无法表达输入/输出差异。
+- 连接器不是 `PipelineExporter`/`Receiver` 的子协议，避免单一 `kind()` 无法表达输入/输出差异。
 
 ---
 

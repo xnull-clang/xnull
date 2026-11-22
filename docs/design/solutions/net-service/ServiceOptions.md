@@ -5,7 +5,7 @@
 | 类型 | `class ServiceOptions` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
-| 依赖 | `SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ReconnectPolicy` |
+| 依赖 | `SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ServiceReconnectPolicy` |
 
 ---
 
@@ -47,7 +47,7 @@
 | `_tlsConfig` | `TlsConfig?` | 为空表示明文 |
 | `_backpressurePolicy` | `BackpressurePolicy` | 背压策略副本 |
 | `_heartbeatPolicy` | `HeartbeatPolicy` | 心跳策略副本 |
-| `_reconnectPolicy` | `ReconnectPolicy` | 客户端重连策略副本 |
+| `_reconnectPolicy` | `ServiceReconnectPolicy` | 客户端重连策略副本 |
 
 不变量：计数/容量/超时非负；`maxConnections>0`；`readBufferBytes` 在范围内；策略/socket 选项非 null；TLS 组合在 bind/connect 时校验。
 
@@ -93,7 +93,7 @@ setter 的合法域见 §7；非法值是合同错误（panic）。
 | `withoutTls` | 清除 TLS | 无 | `ServiceOptions` | 无 |
 | `backpressurePolicy` | 背压策略 | `BackpressurePolicy value` | `ServiceOptions` | null → panic |
 | `heartbeatPolicy` | 心跳策略 | `HeartbeatPolicy value` | `ServiceOptions` | null → panic |
-| `reconnectPolicy` | 重连策略 | `ReconnectPolicy value` | `ServiceOptions` | null → panic |
+| `reconnectPolicy` | 重连策略 | `ServiceReconnectPolicy value` | `ServiceOptions` | null → panic |
 | `getMaxConnections` | 读最大连接 | 无 | `Int` | 无 |
 | `getAcceptQueueCapacity` | 读队列容量 | 无 | `Int` | 无 |
 | `getAcceptBackoffMillis` | 读退避 | 无 | `Long` | 无 |
@@ -106,7 +106,7 @@ setter 的合法域见 §7；非法值是合同错误（panic）。
 | `getTlsConfig` | TLS 配置/无 | 无 | `TlsConfig?` | 无 |
 | `getBackpressurePolicy` | 背压策略副本 | 无 | `BackpressurePolicy` | 无 |
 | `getHeartbeatPolicy` | 心跳策略副本 | 无 | `HeartbeatPolicy` | 无 |
-| `getReconnectPolicy` | 重连策略副本 | 无 | `ReconnectPolicy` | 无 |
+| `getReconnectPolicy` | 重连策略副本 | 无 | `ServiceReconnectPolicy` | 无 |
 | `tcpServerOptions` | 转为  选项 | 无 | `TcpServerOptions` | 无 |
 | `copy` | 独立快照 | 无 | `ServiceOptions` | 无 |
 
@@ -134,13 +134,13 @@ setter 的合法域见 §7；非法值是合同错误（panic）。
 
 - 语言：class、Int、Long、Bool、可空引用；
 - 运行时：无；
-- 接口：`SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ReconnectPolicy`。
+- 接口：`SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ServiceReconnectPolicy`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ReconnectPolicy`、`Server`、`Client`、`NetworkService`。
+`SocketOptions`、`TcpServerOptions`、`TlsConfig`、`BackpressurePolicy`、`HeartbeatPolicy`、`ServiceReconnectPolicy`、`Server`、`Client`、`NetworkService`。
 
 ---
 
@@ -180,7 +180,7 @@ class ServiceOptions {
     TlsConfig? _tlsConfig = null
     BackpressurePolicy _backpressurePolicy = new BackpressurePolicy()
     HeartbeatPolicy _heartbeatPolicy = new HeartbeatPolicy()
-    ReconnectPolicy _reconnectPolicy = new ReconnectPolicy()
+    ServiceReconnectPolicy _reconnectPolicy = new ServiceReconnectPolicy()
 
     ServiceOptions() {
     }
@@ -282,7 +282,7 @@ class ServiceOptions {
         return self
     }
 
-    ServiceOptions reconnectPolicy(ReconnectPolicy value) {
+    ServiceOptions reconnectPolicy(ServiceReconnectPolicy value) {
         if value == null { throw "ServiceOptions.reconnectPolicy: null" }
         _reconnectPolicy = value.copy()
         return self
@@ -303,7 +303,7 @@ class ServiceOptions {
     TlsConfig? getTlsConfig() { return _tlsConfig }
     BackpressurePolicy getBackpressurePolicy() { return _backpressurePolicy.copy() }
     HeartbeatPolicy getHeartbeatPolicy() { return _heartbeatPolicy.copy() }
-    ReconnectPolicy getReconnectPolicy() { return _reconnectPolicy.copy() }
+    ServiceReconnectPolicy getReconnectPolicy() { return _reconnectPolicy.copy() }
 
     TcpServerOptions tcpServerOptions() {
         TcpServerOptions result = new TcpServerOptions()

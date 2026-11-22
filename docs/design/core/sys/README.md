@@ -154,3 +154,12 @@ Result<Bytes, Error> readResource(Context context, String path) {
 | 进程 stdio 管道 | X |
 | 系统信息精度 | 快照；不承诺强一致 |
 | 权限/用户 |  只读 |
+
+## 9. 1.x 已实现 API 回写
+
+- `Process.sendGroupSignal(Signal)` 与进程组信号；
+- `spawnProcessPiped` 的 stdin/stdout/stderr 管道；
+- `stdinReadLine()`、`envNames()`、`fileMtime()` 等 1.x 环境/进程面；
+- `Result` 文件读写与 `Long` 大小/句柄。
+
+2.x 的 `ProcessBuilder`/`Resource` 是增量；1.x 进程组/stdio 不得删。

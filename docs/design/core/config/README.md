@@ -114,3 +114,11 @@ Overlay：默认文件 → profile 文件 → env → CLI；后者覆盖前者�
 | 多 profile 自动发现 | 应用/CLI |
 | 键大小写 | 大小写敏感 |
 | 值类型 | 字符串存储；读取时转换 |
+
+## 9. 1.x 已实现 API 回写
+
+- `Config.setChecked(key, value)` 最小键校验；
+- `Config.apply(ConfigSource)` 与 `ConfigSource/MapSource/FileSource`；
+- `Config.overlay`、`copy`、`env allowlist` 均已在 1.x 验证。
+
+2.x 的 `ConfigLoader`/`ConfigSchema` 是增量；1.x 面不删。

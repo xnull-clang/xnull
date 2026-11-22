@@ -178,3 +178,10 @@ Int civilDaysInMonth(Int year, Month month) {
 | 日期加减月末 | 钳制到月末；文档固定 |
 | `toLocal` |  直通 UTC；不静默改变 |
 | 时间范围 | `Long` epoch 毫秒；不处理超出范围 |
+
+## 9. 1.x 已实现 API 回写
+
+- `sleepContext(Context, Duration)` 已实现，取消返回 `Cancelled`；
+- `Duration`/`DateTime`/`Civil` 的 1.x 构造与格式化保留。
+
+2.x 的 `Timer`/`TimeZone`/`DateTimeFormatter` 是增量，不替代 1.x 面。

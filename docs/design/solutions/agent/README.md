@@ -14,7 +14,7 @@
 ## 1. 包定位
 
 `xdk.agent` 是进程内/节点侧的**遥测采集与转发 Agent**：按 OpenTelemetry Collector 的
-Receiver → Processor → Exporter 模型组织三类遥测，提供显式生命周期、有限队列、背压与健康面。
+Receiver → Processor → PipelineExporter 模型组织三类遥测，提供显式生命周期、有限队列、背压与健康面。
 
 它解决的是：
 
@@ -39,7 +39,7 @@ Receiver → Processor → Exporter 模型组织三类遥测，提供显式生�
 | --- | --- |
 | OTel Collector 形状 | 每种遥测一条管线：接收器 → 处理器 → 导出器；连接器可选，连接两条管线 |
 | 显式对象图 | Agent、管线、组件都是显式实例；无全局 Agent、全局组件注册表、隐式单例 |
-| 非泛型协议 | `Receiver`/`Processor`/`Exporter`/`Connector` 不带类型参数，统一面向 `TelemetryBatch` |
+| 非泛型协议 | `Receiver`/`Processor`/`PipelineExporter`/`Connector` 不带类型参数，统一面向 `TelemetryBatch` |
 | 类型闭合 | `TelemetryKind` 固定 Metrics/Traces/Logs；组件与管线必须同 kind；连接器可跨 kind |
 | 不可变批次 | `TelemetryRecord`/`TelemetryBatch` 构造后不可变；列表与 Map 读取返回副本 |
 | 生命周期显式 | `start` → `stop`（停止入口）→ `drain`（冲刷在途）→ `close`（释放）；close 幂等 |
@@ -62,7 +62,7 @@ Receiver → Processor → Exporter 模型组织三类遥测，提供显式生�
 | `TelemetryBatch` | class | 不可变同 kind 批次 | [`TelemetryBatch.md`](TelemetryBatch.md) |
 | `Receiver` | protocol | 采集入口与推送合同 | [`Receiver.md`](Receiver.md) |
 | `Processor` | protocol | 批处理/限流/变换合同 | [`Processor.md`](Processor.md) |
-| `Exporter` | protocol | 远端/本地导出合同 | [`Exporter.md`](Exporter.md) |
+| `PipelineExporter` | protocol | 远端/本地导出合同 | [`PipelineExporter.md`](PipelineExporter.md) |
 | `Connector` | protocol | 跨管线连接合同 | [`Connector.md`](Connector.md) |
 | `AgentPipeline` | class | 一条 kind 管线的装配与运行 | [`AgentPipeline.md`](AgentPipeline.md) |
 | `AgentConfig` | class | 显式 Agent 配置对象图 | [`AgentConfig.md`](AgentConfig.md) |
@@ -87,7 +87,7 @@ Receiver → Processor → Exporter 模型组织三类遥测，提供显式生�
 | 能力 | 承载类型 | 说明 |
 | --- | --- | --- |
 | 三类遥测统一信封 | `TelemetryKind`、`TelemetryRecord`、`TelemetryBatch` | 批次内 kind 一致；资源属性在批次级 |
-| 组件协议 | `Receiver`、`Processor`、`Exporter`、`Connector` | 非泛型，统一 `TelemetryBatch` |
+| 组件协议 | `Receiver`、`Processor`、`PipelineExporter`、`Connector` | 非泛型，统一 `TelemetryBatch` |
 | 管线编排 | `AgentPipeline` | 接收、处理、fan-out 导出、连接器出入口 |
 | Agent 生命周期 | `Agent` | start/stop/drain/close、失败回滚、连接器所有权 |
 | 显式配置 | `AgentConfig` | 管线/连接器/默认溢出策略；无远程拉取 |
@@ -118,7 +118,7 @@ Receiver → Processor → Exporter 模型组织三类遥测，提供显式生�
 ### 5.1 kind 一致性
 
 - 一个 `TelemetryBatch` 只能包含一种 `TelemetryKind`；
-- `Receiver.kind()`、`Processor.kind()`、`Exporter.kind()` 必须与所属 `AgentPipeline.kind()` 相同；
+- `Receiver.kind()`、`Processor.kind()`、`PipelineExporter.kind()` 必须与所属 `AgentPipeline.kind()` 相同；
 - `Connector.inputKind()` 对接源管线 kind，`Connector.outputKind()` 对接目标管线 kind；
 - 不允许 `Traces` 批次进入 metrics 导出器；违反是合同错误（panic）或配置错误（`InvalidArgument`），
   由构造/启动阶段拒绝，不在热路径猜测。
@@ -199,10 +199,10 @@ Receiver → Processor → Exporter 模型组织三类遥测，提供显式生�
 
 ### 5.8 无全局状态
 
-- 无 `AgentRegistry`、无全局 `Receiver`/`Exporter` 注册表、无全局配置；
+- 无 `AgentRegistry`、无全局 `Receiver`/`PipelineExporter` 注册表、无全局配置；
 - 每个应用/测试显式构造 `AgentConfig` 与 `Agent`；
 - 组件实例不跨 Agent 共享；共享 `MetricFamily`/`SpanContext`/`LogRecord` 值对象是允许的；
-- 测试可注入 fake `OsHost`、内存 `Exporter`、固定 `Context`。
+- 测试可注入 fake `OsHost`、内存 `PipelineExporter`、固定 `Context`。
 
 ---
 
@@ -227,7 +227,7 @@ XNull 对齐与取舍：
 | OTel 能力 | `xdk.agent` 对齐 |
 | --- | --- |
 | pipelines per signal | `AgentPipeline` + `TelemetryKind` |
-| receivers/processors/exporters | `Receiver`/`Processor`/`Exporter` 协议 |
+| receivers/processors/exporters | `Receiver`/`Processor`/`PipelineExporter` 协议 |
 | fan-out | `AgentPipeline` 向多个 exporter/connector 顺序 fan-out |
 | connectors | `Connector` 协议；Agent 拥有生命周期；基线无内置实现 |
 | service/extensions | 基线只保留 `AgentHealth`；无扩展注册表 |
@@ -263,8 +263,8 @@ XNull 对齐与取舍：
 - File Log Receiver：<https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/filelogreceiver>
 - Batch Processor：<https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/batchprocessor>
 - Memory Limiter Processor：<https://github.com/open-telemetry/opentelemetry-collector/tree/main/processor/memorylimiterprocessor>
-- OTLP Exporter：<https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter>
-- Prometheus Exporter：<https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/prometheusexporter>
+- OTLP PipelineExporter：<https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlpexporter>
+- Prometheus PipelineExporter：<https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/prometheusexporter>
 - OTLP 规范：<https://opentelemetry.io/docs/specs/otel/protocol/>
 
 ---
@@ -324,7 +324,7 @@ utils：metrics / trace
         │
         ▼
  agent：TelemetryKind / TelemetryRecord / TelemetryBatch
-          Receiver / Processor / Exporter / Connector
+          Receiver / Processor / PipelineExporter / Connector
           AgentPipeline / AgentConfig / Agent / AgentHealth
           HostMetricsReceiver / FileLogReceiver
           BatchProcessor / MemoryLimiterProcessor
@@ -348,7 +348,7 @@ utils：metrics / trace
 
 | 项 | 决策 |
 | --- | --- |
-| OTLP/gRPC | 基线不做；X 增加协议实现，不改 `Exporter` 协议 |
+| OTLP/gRPC | 基线不做；X 增加协议实现，不改 `PipelineExporter` 协议 |
 | OTLP/protobuf | 基线不做；只做 OTLP/HTTP JSON |
 | Prometheus HTTP 服务器 | 不做；`scrape` 写调用方 `Writer` |
 | 持久化发送队列/WAL | 不做；队列在内存，重启丢失 |

@@ -120,13 +120,13 @@ Trainer 拥有自动微分/优化器资源（若有），必须在 `close` 释�
   - 优化器状态与参数更新（X 或实现）；
   - 指标聚合；
   - `nowMono` 计时（实现可选）；
-- 接口：[`Optimizer`](Optimizer.md)、[`LossKind`](LossKind.md)、[`EpochStats`](EpochStats.md)、[`DataLoader`](DataLoader.md)、[`Batch`](Batch.md)、[`Ml`](Ml.md)、`Context`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`、`cancelledError`。
+- 接口：[`Optimizer`](Optimizer.md)、[`LossKind`](LossKind.md)、[`EpochStats`](EpochStats.md)、[`DataLoader`](DataLoader.md)、[`MlBatch`](MlBatch.md)、[`Ml`](Ml.md)、`Context`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`、`cancelledError`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-[`Optimizer`](Optimizer.md)、[`LossKind`](LossKind.md)、[`EpochStats`](EpochStats.md)、[`DataLoader`](DataLoader.md)、[`Batch`](Batch.md)、[`Ml`](Ml.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
+[`Optimizer`](Optimizer.md)、[`LossKind`](LossKind.md)、[`EpochStats`](EpochStats.md)、[`DataLoader`](DataLoader.md)、[`MlBatch`](MlBatch.md)、[`Ml`](Ml.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
 
 不依赖 PyTorch、TensorFlow、ONNX Runtime 或任何自动微分实现。
 

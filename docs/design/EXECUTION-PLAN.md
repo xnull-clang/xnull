@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Active；P0 架构基线已提交（`81fddb7b`）；代码开工由 CR-0 门禁控制 |
+| 状态 | Active；P0 架构基线 `81fddb7b`；B0 已完成，CR-0 门禁通过；B1/B3 未开工 |
 | 目标 | 把 2.x 从“设计完成”推进到“第一个 XDK 包可编码、可验收” |
 | 基线 | `main` = 1.x 已发布；2.x 在 `xdk-2` 分支/worktree |
 | 规则 | `LOCAL_RULES.md` 第 1–6 号；批内不停、批末一次门禁/提交/汇报 |
@@ -396,8 +396,8 @@ worktree: clean
 | 批次 | 状态 | 备注 |
 | --- | --- | --- |
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
-| B0 方案落地 | 未开工 | 本轮编排对象 |
-| B1 注解编译器 | 未开工 | 等 B0.5 |
+| B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
+| B1 注解编译器 | 未开工 | 等 B1.0；B0 已完成 |
 | B2 注解类型 | 未开工 | 等 B1 |
 | B3 runtime prelude | 未开工 | 可与 B1 并行 |
 | B4 第一批纯包 | 未开工 | 等 B2+B3 |
@@ -405,6 +405,55 @@ worktree: clean
 | B6–B10 | 未开工 | 按层推进 |
 
 ---
+
+### 11.1 B0 执行证据（2026-11-22）
+
+```text
+branch: xdk-2
+base: b95e4f76（包含 81fddb7b）
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+B0.1–B0.7：
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| B0.1 分支/worktree | PASS | `git switch -c xdk-2`；HEAD `b95e4f76` |
+| B0.2 2.x 测试入口 | PASS | `src/mini/tests/xdk2.sh` + `xdk2/smoke/smoke.x/.out`；输出 `xdk2: PASS (1 scenario(s))` |
+| B0.3 包清单 | PASS | `src/xdk/xdk2-packages.tsv` 75 包 / 698 类型；`annotations/`、`execution/` 首批目录存在 |
+| B0.4 1.x 基线 | PASS | `src/mini/build.sh`、`xdk.sh`、`xdk_core.sh` 均 exit 0 |
+| B0.5 诊断码 | PASS | `ANNOTATION-PLAN.md` §9 冻结 `AN0001`–`AN0020` |
+| B0.6 P0.5 改名 | PASS | 10 个文件/9 组类型改名；链接与命名门禁绿 |
+| B0.7 C7 回写 | PASS | 10 个 core README 增加“1.x 已实现 API 回写” |
+
+B0.6 改名清单：
+
+```text
+stats/Histogram.md -> stats/BucketHistogram.md
+metrics/Timer.md -> metrics/MetricTimer.md
+audit/Redactor.md -> audit/AuditRedactor.md
+net-service/ReconnectPolicy.md -> net-service/ServiceReconnectPolicy.md
+net-service/ServiceState.md -> net-service/NetServiceState.md
+numerics/Signal.md -> numerics/SignalBuffer.md
+agent/Exporter.md -> agent/PipelineExporter.md
+db/Batch.md -> db/DbBatch.md；ml/Batch.md -> ml/MlBatch.md
+net/tls/PrivateKey.md -> net/tls/TlsPrivateKey.md
+```
+
+B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io}/README.md`。
+
+批末门禁（本记录随后提交）：
+
+```text
+src/mini/build.sh                 PASS
+src/mini/tests/xdk.sh             PASS
+src/mini/tests/xdk_core.sh        PASS
+src/mini/tests/xdk2.sh            PASS
+python3 src/toolchain/check_doc_naming.py docs/design   PASS
+python3 src/toolchain/check_links.py docs/design        PASS
+```
+
+**剩余缺口**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B0 无 Partial/Blocked。
 
 ## 12. 一句话收口
 

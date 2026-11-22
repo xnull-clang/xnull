@@ -1,8 +1,8 @@
-# `Batch`
+# `MlBatch`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Batch` |
+| 类型 | `class MlBatch` |
 | 包 | `xdk.ml` |
 | 稳定性 | `preview` |
 | 依赖 | `Tensor`、`List`、`Int` |
@@ -22,13 +22,13 @@
 ## 2. 设计逻辑
 
 - 用 `class`：需要复制输入/目标列表，并逐个校验张量的第 0 维与 `sampleCount` 一致。
-- 单样本也用 `Batch` 表示：`sampleCount == 1`，张量形状仍带第 0 维 1；这样 Dataset 到 DataLoader 的合同一致，不需要“有无批维”的两套规则。
+- 单样本也用 `MlBatch` 表示：`sampleCount == 1`，张量形状仍带第 0 维 1；这样 Dataset 到 DataLoader 的合同一致，不需要“有无批维”的两套规则。
 - 输入至少一个；目标可以为空，表示无监督/推理样本。目标非空时也必须满足批维合同。
 - 张量必须 rank ≥1；标量不能作为批样本，因为无法表达批维。
 - `Tensor` 不可变，批次共享张量引用；列表返回副本。
 - 不提供 `slice`/`concat`；这些是 `DataLoader` 的内部拼批职责，避免在值对象上堆积数据管道算法。
 - `withTargets` 返回新批次，用于给无标签样本补充目标；原批次不变。
-- 不引入 `Sample` 类型：单样本就是 `sampleCount == 1` 的 `Batch`。
+- 不引入 `Sample` 类型：单样本就是 `sampleCount == 1` 的 `MlBatch`。
 
 ---
 
@@ -54,7 +54,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Batch(Int sampleCount, List<Tensor> inputs, List<Tensor> targets)` | 样本数、输入、目标 | sampleCount ≥1；inputs 非空；targets 非 null；张量非 null、rank ≥1、dim(0) == sampleCount | 违约 → panic |
+| `MlBatch(Int sampleCount, List<Tensor> inputs, List<Tensor> targets)` | 样本数、输入、目标 | sampleCount ≥1；inputs 非空；targets 非 null；张量非 null、rank ≥1、dim(0) == sampleCount | 违约 → panic |
 
 构造器复制两个列表；张量本身不可变，可共享。
 
@@ -78,7 +78,7 @@
 | `hasTargets` | 是否有目标 | 无 | `Bool` | 无 | targetCount >0 |
 | `input` | 按序号取输入 | `Int inputIndex` | `Tensor` | 越界 → panic | O(1) |
 | `target` | 按序号取目标 | `Int targetIndex` | `Tensor` | 越界 → panic | O(1) |
-| `withTargets` | 替换目标 | `List<Tensor> targets` | `Batch` | 非法 → panic | 新批次 |
+| `withTargets` | 替换目标 | `List<Tensor> targets` | `MlBatch` | 非法 → panic | 新批次 |
 | `describe` | 单行描述 | 无 | `String` | 无 | 不含张量内容 |
 
 说明：
@@ -126,7 +126,7 @@
 
 ## 12. 示例与反例
 
-正确：`new Batch(32, [images], [labels])`，其中 `images` 形状 `[32, 3, 224, 224]`、`labels` 形状 `[32]`；单样本用 `new Batch(1, [image], [label])`；无标签样本用空目标列表。  
+正确：`new MlBatch(32, [images], [labels])`，其中 `images` 形状 `[32, 3, 224, 224]`、`labels` 形状 `[32]`；单样本用 `new MlBatch(1, [image], [label])`；无标签样本用空目标列表。  
 反例：输入张量形状 `[3, 224, 224]` 却声明 `sampleCount == 32`；用标量目标且无批维；把 `sampleCount` 当特征数；构造后修改传入列表并期望批次变化；用空输入表示无监督样本；在批次上做 padding。
 
 ---
@@ -142,32 +142,32 @@ sampleCount 0/负数 panic；输入空列表 panic；目标 null panic；张量 
 以下为设计伪代码，非可执行。
 
 ```xnull
-class Batch {
+class MlBatch {
     final Int _sampleCount
     final List<Tensor> _inputs
     final List<Tensor> _targets
 
-    Batch(Int sampleCount, List<Tensor> inputs, List<Tensor> targets) {
+    MlBatch(Int sampleCount, List<Tensor> inputs, List<Tensor> targets) {
         if sampleCount < 1 {
-            throw "Batch: sample count must be positive"
+            throw "MlBatch: sample count must be positive"
         }
         if inputs == null || targets == null {
-            throw "Batch: null tensor list"
+            throw "MlBatch: null tensor list"
         }
         if inputs.length() == 0 {
-            throw "Batch: empty input list"
+            throw "MlBatch: empty input list"
         }
         Int tensorIndex = 0
         while tensorIndex < inputs.length() {
             Tensor tensor = inputs.get(tensorIndex)
             if tensor == null {
-                throw "Batch: null input tensor"
+                throw "MlBatch: null input tensor"
             }
             if tensor.rank() < 1 {
-                throw "Batch: input tensor must have rank >= 1"
+                throw "MlBatch: input tensor must have rank >= 1"
             }
             if tensor.tensorShape().dim(0) != sampleCount {
-                throw "Batch: input batch dimension mismatch"
+                throw "MlBatch: input batch dimension mismatch"
             }
             tensorIndex = tensorIndex + 1
         }
@@ -175,13 +175,13 @@ class Batch {
         while tensorIndex < targets.length() {
             Tensor tensor = targets.get(tensorIndex)
             if tensor == null {
-                throw "Batch: null target tensor"
+                throw "MlBatch: null target tensor"
             }
             if tensor.rank() < 1 {
-                throw "Batch: target tensor must have rank >= 1"
+                throw "MlBatch: target tensor must have rank >= 1"
             }
             if tensor.tensorShape().dim(0) != sampleCount {
-                throw "Batch: target batch dimension mismatch"
+                throw "MlBatch: target batch dimension mismatch"
             }
             tensorIndex = tensorIndex + 1
         }
@@ -199,20 +199,20 @@ class Batch {
 
     Tensor input(Int inputIndex) {
         if inputIndex < 0 || inputIndex >= _inputs.length() {
-            throw "Batch.input: input index out of range"
+            throw "MlBatch.input: input index out of range"
         }
         return _inputs.get(inputIndex)
     }
 
     Tensor target(Int targetIndex) {
         if targetIndex < 0 || targetIndex >= _targets.length() {
-            throw "Batch.target: target index out of range"
+            throw "MlBatch.target: target index out of range"
         }
         return _targets.get(targetIndex)
     }
 
-    Batch withTargets(List<Tensor> targets) {
-        return new Batch(_sampleCount, _inputs, targets)
+    MlBatch withTargets(List<Tensor> targets) {
+        return new MlBatch(_sampleCount, _inputs, targets)
     }
 
     String describe() {

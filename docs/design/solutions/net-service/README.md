@@ -20,7 +20,7 @@
 - 连接：包装 `ByteStream`（`TcpStream`、`TlsStream` 或调用方提供的其他字节流）与本地/对端地址；
 - 会话：每个连接至多一个 `Session`，携带生命周期、活动时间和属性；
 - 处理协议：`ConnectionHandler` 处理原始字节，`SessionHandler` 处理会话消息；
-- 策略：`ReconnectPolicy`、`BackpressurePolicy`、`HeartbeatPolicy`。
+- 策略：`ServiceReconnectPolicy`、`BackpressurePolicy`、`HeartbeatPolicy`。
 
 UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `xdk.net.UdpSocket`。因此“TCP/UDP 服务层”在这里指传输面覆盖，服务编排只对面向连接的流生效。
 
@@ -49,7 +49,7 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 
 | 类型 | 种类 | 职责 | 文件 |
 | --- | --- | --- | --- |
-| `ServiceState` | enum | 服务生命周期状态与稳定名 | [`ServiceState.md`](ServiceState.md) |
+| `NetServiceState` | enum | 服务生命周期状态与稳定名 | [`NetServiceState.md`](NetServiceState.md) |
 | `NetworkService` | class | 服务宿主：启动、停止、状态、统计 | [`NetworkService.md`](NetworkService.md) |
 | `ServiceOptions` | class | 连接上限、队列、超时、策略、TLS 快照 | [`ServiceOptions.md`](ServiceOptions.md) |
 | `ServiceStats` | class | 连接/会话/字节/错误计数快照 | [`ServiceStats.md`](ServiceStats.md) |
@@ -59,7 +59,7 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 | `Session` | class | 每连接一个会话、消息循环、属性、空闲判断 | [`Session.md`](Session.md) |
 | `ConnectionHandler` | protocol | 原始字节连接的生命周期回调 | [`ConnectionHandler.md`](ConnectionHandler.md) |
 | `SessionHandler` | protocol | 会话生命周期回调 | [`SessionHandler.md`](SessionHandler.md) |
-| `ReconnectPolicy` | class | 客户端重连退避与可重试分类 | [`ReconnectPolicy.md`](ReconnectPolicy.md) |
+| `ServiceReconnectPolicy` | class | 客户端重连退避与可重试分类 | [`ServiceReconnectPolicy.md`](ServiceReconnectPolicy.md) |
 | `BackpressurePolicy` | class | 接受/读取水位与拒绝策略 | [`BackpressurePolicy.md`](BackpressurePolicy.md) |
 | `HeartbeatPolicy` | class | 空闲检查节奏与超时阈值 | [`HeartbeatPolicy.md`](HeartbeatPolicy.md) |
 
@@ -78,7 +78,7 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 - `onMessage` 的 `Bytes` 只在回调期间有效；需要保留时由实现复制。消息是读取块而非协议帧；分帧由实现负责。
 - `BackpressurePolicy` 只作用于服务端接受与读取水位；写侧背压来自 TCP 发送窗口与 `writeTimeoutMillis`，不建立无界写队列。
 - `HeartbeatPolicy` 只做空闲检测，不注入协议帧；WebSocket ping/pong 仍由 `xdk.net.websocket` 负责。
-- `ReconnectPolicy` 只由客户端使用；服务端不自动重连。它不替代 `xdk.net.websocket.ReconnectPolicy`，后者仍服务 WebSocket 握手语义。
+- `ServiceReconnectPolicy` 只由客户端使用；服务端不自动重连。它不替代 `xdk.net.websocket.ServiceReconnectPolicy`，后者仍服务 WebSocket 握手语义。
 - `TLS` 由 `ServiceOptions.tlsConfig` 开启：服务端执行 `TlsStream.accept`，客户端执行 `TlsStream.connect`；本包不管理证书生命周期。
 - 统计中的累计量为 `Long`，当前连接/会话数为 `Int`；统计是快照，不保证与其他查询原子组合。
 - 失败分类沿用 `ErrorKind`：连接拒绝 `Network`、截止 `Timeout`、取消 `Cancelled`、容量满 `Busy`、关闭后 `Unavailable`、配置错误 `InvalidArgument`。
@@ -98,7 +98,7 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 
 ### S3：客户端断线重连
 
-`new Client(options)` → `connect(context, remote)` → 读取失败后 `reconnect(context)`；`ReconnectPolicy` 决定延迟、次数与可重试分类；成功后 `attempt` 归零。
+`new Client(options)` → `connect(context, remote)` → 读取失败后 `reconnect(context)`；`ServiceReconnectPolicy` 决定延迟、次数与可重试分类；成功后 `attempt` 归零。
 
 ### S4：优雅停机
 

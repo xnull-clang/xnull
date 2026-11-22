@@ -155,7 +155,7 @@ L0 语言原语（不属于 XDK）
 | utils | `xdk.random` | L7 | PRNG/SecureRandom | `Random`、`SecureRandom` |
 | utils | `xdk.uuid` | L7 | UUID/ULID | `Uuid`、`Ulid` |
 | utils | `xdk.functional` | L7 | 序列/惰性/函数组合 | `Seq`、`Sequences`、`Lazy` |
-| utils | `xdk.stats` | L7 | 统计/直方图/回归 | `Stats`、`Histogram`、`Regression` |
+| utils | `xdk.stats` | L7 | 统计/直方图/回归 | `Stats`、`BucketHistogram`、`Regression` |
 | utils | `xdk.resilience` | L7 | 熔断/限流/重试/降级 | `CircuitBreaker`、`RateLimiter`、`Retry`、`Fallback` |
 | utils | `xdk.validate` | L7 | 校验/模式 | `Validator`、`Schema`、`ValidationError` |
 | utils | `xdk.cache` | L7 | LRU/TTL/Loading | `LruCache`、`TtlCache`、`LoadingCache` |

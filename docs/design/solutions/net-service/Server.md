@@ -5,7 +5,7 @@
 | 类型 | `class Server` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
-| 依赖 | `Context`、`SocketAddress`、`ServiceOptions`、`ServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error` |
+| 依赖 | `Context`、`SocketAddress`、`ServiceOptions`、`NetServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error` |
 
 ---
 
@@ -79,7 +79,7 @@
 | `serveConnections` | 原始模式分派 | `Context context, ConnectionHandler handler` | `Result<Unit, Error>` | 同上 |
 | `shutdown` | 优雅停机 | `Context context` | `Result<Unit, Error>` | `Timeout`/`Cancelled`/`Io` |
 | `localAddress` | 实际本地地址 | 无 | `SocketAddress` | 无 |
-| `state` | 生命周期快照 | 无 | `ServiceState` | 无 |
+| `state` | 生命周期快照 | 无 | `NetServiceState` | 无 |
 | `stats` | 统计快照 | 无 | `ServiceStats` | 无 |
 | `isOpen` | 是否监听 | 无 | `Bool` | 无 |
 | `isServing` | 是否正在 serve | 无 | `Bool` | 无 |
@@ -116,13 +116,13 @@
 
 - 语言：class、Bool、Long、Result；
 - 运行时：`networkServerBindRaw`、`networkServerServeRaw`、`networkServerServeConnectionsRaw`、`networkServerShutdownRaw`、`networkServerCloseRaw`、`networkServerStateRaw`、`networkServerStatsRaw`、`networkServerLocalAddressRaw`、`networkServerIsOpenRaw`、`NetworkServerHandle`；
-- 接口：`Context`、`SocketAddress`、`ServiceOptions`、`ServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error`、`unavailableError`、`BasicError`、`ErrorKind`。
+- 接口：`Context`、`SocketAddress`、`ServiceOptions`、`NetServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error`、`unavailableError`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Context`、`SocketAddress`、`TcpListener`、`TcpStream`、`TlsStream`、`TlsConfig`、`Connection`、`Session`、`ServiceOptions`、`ServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error`、`networkServerBindRaw`、`networkServerServeRaw`、`networkServerServeConnectionsRaw`、`networkServerShutdownRaw`、`networkServerCloseRaw`、`networkServerStateRaw`、`networkServerStatsRaw`、`networkServerLocalAddressRaw`、`networkServerIsOpenRaw`、`NetworkServerHandle`。
+`Context`、`SocketAddress`、`TcpListener`、`TcpStream`、`TlsStream`、`TlsConfig`、`Connection`、`Session`、`ServiceOptions`、`NetServiceState`、`ServiceStats`、`SessionHandler`、`ConnectionHandler`、`Error`、`networkServerBindRaw`、`networkServerServeRaw`、`networkServerServeConnectionsRaw`、`networkServerShutdownRaw`、`networkServerCloseRaw`、`networkServerStateRaw`、`networkServerStatsRaw`、`networkServerLocalAddressRaw`、`networkServerIsOpenRaw`、`NetworkServerHandle`。
 
 ---
 
@@ -218,7 +218,7 @@ class Server {
         return networkServerLocalAddressRaw(_handle)
     }
 
-    ServiceState state() {
+    NetServiceState state() {
         return networkServerStateRaw(_handle)
     }
 
@@ -233,9 +233,9 @@ class Server {
 
     Bool isServing() {
         if _closed || !_served { return false }
-        ServiceState current = self.state()
-        return current == ServiceState.Running
-            || current == ServiceState.Draining
+        NetServiceState current = self.state()
+        return current == NetServiceState.Running
+            || current == NetServiceState.Draining
     }
 
     ServiceOptions options() { return _options.copy() }

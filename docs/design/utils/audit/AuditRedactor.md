@@ -1,8 +1,8 @@
-# `Redactor`
+# `AuditRedactor`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Redactor` |
+| 类型 | `class AuditRedactor` |
 | 包 | `xdk.audit` |
 | 稳定性 | `preview` |
 | 依赖 | `Regex`、`AuditEvent` |
@@ -54,7 +54,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Redactor()` | 无 | 空规则集 | 无 |
+| `AuditRedactor()` | 无 | 空规则集 | 无 |
 
 构造不注册任何默认规则；调用方必须显式添加。
 
@@ -70,7 +70,7 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `addPattern` | 追加规则 | `Regex pattern, String replacement` | `Redactor`（self） | null/空 replacement → panic |
+| `addPattern` | 追加规则 | `Regex pattern, String replacement` | `AuditRedactor`（self） | null/空 replacement → panic |
 | `redact` | 脱敏文本 | `String text` | `String` | null → panic |
 | `redactEvent` | 脱敏事件 | `AuditEvent event` | `AuditEvent` | null → panic |
 | `clear` | 清空规则 | 无 | `void` | 无 |
@@ -84,7 +84,7 @@
 - `redactEvent` 返回新事件；保留 `level` 和 `timestampMono`；字段键不变，字段值逐条脱敏。
 - `redactEvent` 对所有字符串值使用同一规则快照，保证一次事件内的规则一致。
 - `clear` 幂等；清空后 `redact` 返回原文。
-- 共享 `Redactor` 时，一个持有者的 `addPattern`/`clear` 会影响其他持有者；需要隔离时创建独立实例。
+- 共享 `AuditRedactor` 时，一个持有者的 `addPattern`/`clear` 会影响其他持有者；需要隔离时创建独立实例。
 
 ---
 
@@ -136,21 +136,21 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Redactor {
+class AuditRedactor {
     final RuntimeMonitor _monitor
     final List<Regex> _patterns
     final List<String> _replacements
 
-    Redactor() {
+    AuditRedactor() {
         _monitor = new RuntimeMonitor()
         _patterns = []
         _replacements = []
     }
 
-    Redactor addPattern(Regex pattern, String replacement) {
-        if pattern == null { throw "Redactor.addPattern: null pattern" }
+    AuditRedactor addPattern(Regex pattern, String replacement) {
+        if pattern == null { throw "AuditRedactor.addPattern: null pattern" }
         if replacement == null || replacement == "" {
-            throw "Redactor.addPattern: empty replacement"
+            throw "AuditRedactor.addPattern: empty replacement"
         }
         _monitor.enter()
         _patterns.push(pattern)
@@ -160,7 +160,7 @@ class Redactor {
     }
 
     String redact(String text) {
-        if text == null { throw "Redactor.redact: null text" }
+        if text == null { throw "AuditRedactor.redact: null text" }
         _monitor.enter()
         List<Regex> patterns = _patterns.copy()
         List<String> replacements = _replacements.copy()
@@ -169,7 +169,7 @@ class Redactor {
     }
 
     AuditEvent redactEvent(AuditEvent event) {
-        if event == null { throw "Redactor.redactEvent: null event" }
+        if event == null { throw "AuditRedactor.redactEvent: null event" }
         _monitor.enter()
         List<Regex> patterns = _patterns.copy()
         List<String> replacements = _replacements.copy()

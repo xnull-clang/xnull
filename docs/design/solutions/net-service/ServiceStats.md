@@ -123,7 +123,7 @@
 
 ## 10. 依赖的特性/接口/类
 
-`Server`、`Client`、`NetworkService`、`ServiceState`、`monotonicMillis`、`str`。
+`Server`、`Client`、`NetworkService`、`NetServiceState`、`monotonicMillis`、`str`。
 
 ---
 

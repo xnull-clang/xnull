@@ -1,8 +1,8 @@
-# `Signal`
+# `SignalBuffer`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Signal`（静态算子） |
+| 类型 | `class SignalBuffer`（静态算子） |
 | 包 | `xdk.numerics` |
 | 稳定性 | `preview` |
 | 依赖 | `Context`、`SpecialFunctions`、`BasicError`、`ErrorKind` |
@@ -55,7 +55,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Signal()` | 无 | 私有；禁止外部实例化 | 外部 `new` 不可用 |
+| `SignalBuffer()` | 无 | 私有；禁止外部实例化 | 外部 `new` 不可用 |
 
 ---
 
@@ -131,7 +131,7 @@
 
 ## 12. 示例与反例
 
-正确：`Signal.hannWindow(1024, true)`；`Signal.kaiserWindow(256, 8.0, false)`；`Signal.convolve(context, signal, kernel)`；`Signal.iirFilter(context, signal, numerator, denominator)`。  
+正确：`SignalBuffer.hannWindow(1024, true)`；`SignalBuffer.kaiserWindow(256, 8.0, false)`；`SignalBuffer.convolve(context, signal, kernel)`；`SignalBuffer.iirFilter(context, signal, numerator, denominator)`。  
 反例：对 `length = 0` 调用窗；把 `periodic = true` 的窗用于对称 FIR 设计而不检查；对空 kernel 卷积；IIR 分母首项为 0；期望 `convolve` 返回与输入等长（它是全卷积）；忽略输出非有限错误。
 
 ---
@@ -147,13 +147,13 @@
 以下为设计伪代码，非可执行。
 
 ```xnull
-class Signal {
-    private Signal() {}
+class SignalBuffer {
+    private SignalBuffer() {}
 
     static Result<List<Double>, Error> rectangularWindow(Int length) {
         if length < 1 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.rectangularWindow: invalid length"))
+                "SignalBuffer.rectangularWindow: invalid length"))
         }
         List<Double> result = []
         Int index = 0
@@ -167,7 +167,7 @@ class Signal {
     static Result<List<Double>, Error> hannWindow(Int length,
         Bool periodic) {
         Result<Unit, Error> validation = _validateWindow(length,
-            "Signal.hannWindow")
+            "SignalBuffer.hannWindow")
         if validation.isErr() {
             return Err(validation.error())
         }
@@ -188,7 +188,7 @@ class Signal {
     static Result<List<Double>, Error> hammingWindow(Int length,
         Bool periodic) {
         Result<Unit, Error> validation = _validateWindow(length,
-            "Signal.hammingWindow")
+            "SignalBuffer.hammingWindow")
         if validation.isErr() {
             return Err(validation.error())
         }
@@ -209,7 +209,7 @@ class Signal {
     static Result<List<Double>, Error> blackmanWindow(Int length,
         Bool periodic) {
         Result<Unit, Error> validation = _validateWindow(length,
-            "Signal.blackmanWindow")
+            "SignalBuffer.blackmanWindow")
         if validation.isErr() {
             return Err(validation.error())
         }
@@ -230,13 +230,13 @@ class Signal {
     static Result<List<Double>, Error> kaiserWindow(Int length, Double beta,
         Bool periodic) {
         Result<Unit, Error> validation = _validateWindow(length,
-            "Signal.kaiserWindow")
+            "SignalBuffer.kaiserWindow")
         if validation.isErr() {
             return Err(validation.error())
         }
         if isNaN(beta) || isInf(beta) || beta < 0.0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.kaiserWindow: invalid beta"))
+                "SignalBuffer.kaiserWindow: invalid beta"))
         }
         if length == 1 {
             return Ok([1.0])
@@ -248,7 +248,7 @@ class Signal {
         }
         if normalization.value() == 0.0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.kaiserWindow: zero normalization"))
+                "SignalBuffer.kaiserWindow: zero normalization"))
         }
         List<Double> result = []
         Int index = 0
@@ -262,7 +262,7 @@ class Signal {
             Double windowValue = value.value() / normalization.value()
             if isNaN(windowValue) || isInf(windowValue) {
                 return Err(new BasicError(ErrorKind.InvalidArgument,
-                    "Signal.kaiserWindow: non-finite value"))
+                    "SignalBuffer.kaiserWindow: non-finite value"))
             }
             result.push(windowValue)
             index = index + 1
@@ -273,21 +273,21 @@ class Signal {
     static Result<List<Double>, Error> convolve(Context context,
         List<Double> signal, List<Double> kernel) {
         if context == null {
-            throw "Signal.convolve: null context"
+            throw "SignalBuffer.convolve: null context"
         }
         if signal == null || kernel == null {
-            throw "Signal.convolve: null input"
+            throw "SignalBuffer.convolve: null input"
         }
         if signal.length() == 0 || kernel.length() == 0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.convolve: empty input"))
+                "SignalBuffer.convolve: empty input"))
         }
         Result<Unit, Error> validation = _validateValues(signal,
-            "Signal.convolve")
+            "SignalBuffer.convolve")
         if validation.isErr() {
             return Err(validation.error())
         }
-        validation = _validateValues(kernel, "Signal.convolve")
+        validation = _validateValues(kernel, "SignalBuffer.convolve")
         if validation.isErr() {
             return Err(validation.error())
         }
@@ -295,7 +295,7 @@ class Signal {
             + (kernel.length() as Long) - 1
         if outputLength > 2147483647 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.convolve: output too large"))
+                "SignalBuffer.convolve: output too large"))
         }
         List<Double> result = []
         Long clearIndex = 0
@@ -307,7 +307,7 @@ class Signal {
         while signalIndex < signal.length() {
             if context.isCancelled() {
                 return Err(new BasicError(ErrorKind.Cancelled,
-                    "Signal.convolve: cancelled"))
+                    "SignalBuffer.convolve: cancelled"))
             }
             Int kernelIndex = 0
             while kernelIndex < kernel.length() {
@@ -316,7 +316,7 @@ class Signal {
                     + signal.get(signalIndex) * kernel.get(kernelIndex)
                 if isNaN(value) || isInf(value) {
                     return Err(new BasicError(ErrorKind.InvalidArgument,
-                        "Signal.convolve: non-finite output"))
+                        "SignalBuffer.convolve: non-finite output"))
                 }
                 result.set(position, value)
                 kernelIndex = kernelIndex + 1
@@ -329,21 +329,21 @@ class Signal {
     static Result<List<Double>, Error> firFilter(Context context,
         List<Double> signal, List<Double> coefficients) {
         if context == null {
-            throw "Signal.firFilter: null context"
+            throw "SignalBuffer.firFilter: null context"
         }
         if signal == null || coefficients == null {
-            throw "Signal.firFilter: null input"
+            throw "SignalBuffer.firFilter: null input"
         }
         if signal.length() == 0 || coefficients.length() == 0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.firFilter: empty input"))
+                "SignalBuffer.firFilter: empty input"))
         }
         Result<Unit, Error> validation = _validateValues(signal,
-            "Signal.firFilter")
+            "SignalBuffer.firFilter")
         if validation.isErr() {
             return Err(validation.error())
         }
-        validation = _validateValues(coefficients, "Signal.firFilter")
+        validation = _validateValues(coefficients, "SignalBuffer.firFilter")
         if validation.isErr() {
             return Err(validation.error())
         }
@@ -352,7 +352,7 @@ class Signal {
         while index < signal.length() {
             if context.isCancelled() {
                 return Err(new BasicError(ErrorKind.Cancelled,
-                    "Signal.firFilter: cancelled"))
+                    "SignalBuffer.firFilter: cancelled"))
             }
             Double sum = 0.0
             Int coefficientIndex = 0
@@ -366,7 +366,7 @@ class Signal {
             }
             if isNaN(sum) || isInf(sum) {
                 return Err(new BasicError(ErrorKind.InvalidArgument,
-                    "Signal.firFilter: non-finite output"))
+                    "SignalBuffer.firFilter: non-finite output"))
             }
             result.push(sum)
             index = index + 1
@@ -378,39 +378,39 @@ class Signal {
         List<Double> signal, List<Double> numerator,
         List<Double> denominator) {
         if context == null {
-            throw "Signal.iirFilter: null context"
+            throw "SignalBuffer.iirFilter: null context"
         }
         if signal == null || numerator == null || denominator == null {
-            throw "Signal.iirFilter: null input"
+            throw "SignalBuffer.iirFilter: null input"
         }
         if signal.length() == 0 || numerator.length() == 0
             || denominator.length() == 0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.iirFilter: empty input"))
+                "SignalBuffer.iirFilter: empty input"))
         }
         Result<Unit, Error> validation = _validateValues(signal,
-            "Signal.iirFilter")
+            "SignalBuffer.iirFilter")
         if validation.isErr() {
             return Err(validation.error())
         }
-        validation = _validateValues(numerator, "Signal.iirFilter")
+        validation = _validateValues(numerator, "SignalBuffer.iirFilter")
         if validation.isErr() {
             return Err(validation.error())
         }
-        validation = _validateValues(denominator, "Signal.iirFilter")
+        validation = _validateValues(denominator, "SignalBuffer.iirFilter")
         if validation.isErr() {
             return Err(validation.error())
         }
         if denominator.get(0) == 0.0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
-                "Signal.iirFilter: zero leading denominator"))
+                "SignalBuffer.iirFilter: zero leading denominator"))
         }
         List<Double> result = []
         Int index = 0
         while index < signal.length() {
             if context.isCancelled() {
                 return Err(new BasicError(ErrorKind.Cancelled,
-                    "Signal.iirFilter: cancelled"))
+                    "SignalBuffer.iirFilter: cancelled"))
             }
             Double sum = 0.0
             Int forwardIndex = 0
@@ -434,7 +434,7 @@ class Signal {
             Double outputValue = sum / denominator.get(0)
             if isNaN(outputValue) || isInf(outputValue) {
                 return Err(new BasicError(ErrorKind.InvalidArgument,
-                    "Signal.iirFilter: non-finite output"))
+                    "SignalBuffer.iirFilter: non-finite output"))
             }
             result.push(outputValue)
             index = index + 1

@@ -370,3 +370,10 @@ ShutdownPolicy? shutdownPolicyFromName(String name) {
 | 动态能力 | `DynamicLibrary` 只表示目标支持，不表示已加载 |
 | ABI 版本 | 未进入 meta；需要时单独设计 |
 | 依赖重复 | `DependencyInfo` 列表由构建保证唯一；meta 不做去重 |
+
+## 9. 1.x 已实现 API 回写
+
+- `buildDate()` 已实现并进入 `BuildInfo`；
+- 1.x 的 `languageVersion/xdkVersion/compilerVersion/targetPlatform/targetArch/buildMode` 保留。
+
+2.x 的 `Capability`/`ProfileBuilder` 是增量。

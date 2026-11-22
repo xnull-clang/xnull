@@ -1,8 +1,8 @@
-# `PrivateKey`
+# `TlsPrivateKey`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class PrivateKey` |
+| 类型 | `class TlsPrivateKey` |
 | 包 | `xdk.net.tls` |
 | 稳定性 | `preview` |
 | 依赖 | `Error` |
@@ -50,7 +50,7 @@ TLS 私钥句柄：PEM 解析、算法/位数只读属性；不导出私钥字�
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `PrivateKey.parsePem(String pem)` | pem | 非 null | `DataCorrupted`/`Unsupported` |
+| `TlsPrivateKey.parsePem(String pem)` | pem | 非 null | `DataCorrupted`/`Unsupported` |
 
 构造器私有。
 
@@ -66,7 +66,7 @@ TLS 私钥句柄：PEM 解析、算法/位数只读属性；不导出私钥字�
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `parsePem` | 解析私钥 | `String pem` | `Result<PrivateKey, Error>` | `DataCorrupted`/`Unsupported` |
+| `parsePem` | 解析私钥 | `String pem` | `Result<TlsPrivateKey, Error>` | `DataCorrupted`/`Unsupported` |
 | `algorithm` | 算法名 | 无 | `String` | 无 |
 | `bits` | 位数 | 无 | `Int` | 无 |
 | `toString` | 安全摘要 | 无 | `String` | 无 |
@@ -103,7 +103,7 @@ TLS 私钥句柄：PEM 解析、算法/位数只读属性；不导出私钥字�
 
 ## 12. 示例与反例
 
-正确：`PrivateKey.parsePem(pem)`；`key.algorithm()`。  
+正确：`TlsPrivateKey.parsePem(pem)`；`key.algorithm()`。  
 反例：打印私钥 PEM；提供 `bytes()`；把私钥写入错误 describe；跨进程持久化明文。
 
 ---
@@ -117,23 +117,23 @@ PEM 成功/失败；算法/位数；toString 不含密钥；错误消息不含�
 ## 14. XNull 伪代码
 
 ```xnull
-class PrivateKey {
+class TlsPrivateKey {
     final TlsKeyHandle _handle
     final String _algorithm
     final Int _bits
 
-    private PrivateKey(TlsKeyHandle handle, String algorithm, Int bits) {
+    private TlsPrivateKey(TlsKeyHandle handle, String algorithm, Int bits) {
         _handle = handle
         _algorithm = algorithm
         _bits = bits
     }
 
-    static Result<PrivateKey, Error> parsePem(String pem) {
-        if pem == null { throw "PrivateKey.parsePem: null pem" }
+    static Result<TlsPrivateKey, Error> parsePem(String pem) {
+        if pem == null { throw "TlsPrivateKey.parsePem: null pem" }
         Result<PrivateKeyRaw, Error> raw = parsePrivateKeyPemRaw(pem)
         if raw.isErr() { return Err(raw.error()) }
         PrivateKeyRaw value = raw.value()
-        return Ok(new PrivateKey(value.handle(), value.algorithm(), value.bits()))
+        return Ok(new TlsPrivateKey(value.handle(), value.algorithm(), value.bits()))
     }
 
     String algorithm() { return _algorithm }

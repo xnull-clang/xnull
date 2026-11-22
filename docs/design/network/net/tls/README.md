@@ -16,7 +16,7 @@
 `xdk.net.tls` 提供 TLS 配置、证书、私钥、信任库、TLS 流和协商信息：
 
 - `TlsVersion`：TLS 1.2/1.3；
-- `Certificate` / `PrivateKey`：证书/私钥解析与只读属性；
+- `Certificate` / `TlsPrivateKey`：证书/私钥解析与只读属性；
 - `TrustStore`：不可变信任库；
 - `TlsConfig`：客户端/服务端配置；
 - `TlsStream`：在 `ByteStream` 上做 TLS；
@@ -31,7 +31,7 @@
 
 | 原则 | 说明 |
 | --- | --- |
-| 不导出私钥 | `PrivateKey` 不提供 `bytes/der`；不得进入日志/错误 |
+| 不导出私钥 | `TlsPrivateKey` 不提供 `bytes/der`；不得进入日志/错误 |
 | 默认验证对端 | `TlsConfig` 默认 `verifyPeer=true` |
 | 流所有权明确 | 成功握手后 `TlsStream` 拥有底层流；失败时调用方关闭 |
 | Context 可取消 | 握手/读写/截止均接受 `Context` |
@@ -48,7 +48,7 @@
 | --- | --- | --- | --- |
 | `TlsVersion` | enum | TLS 1.2/1.3 | [`TlsVersion.md`](TlsVersion.md) |
 | `Certificate` | class | X.509 只读证书 | [`Certificate.md`](Certificate.md) |
-| `PrivateKey` | class | 私钥句柄/属性 | [`PrivateKey.md`](PrivateKey.md) |
+| `TlsPrivateKey` | class | 私钥句柄/属性 | [`TlsPrivateKey.md`](TlsPrivateKey.md) |
 | `TrustStore` | class | 不可变信任库 | [`TrustStore.md`](TrustStore.md) |
 | `TlsConfig` | class | 不可变 TLS 配置 | [`TlsConfig.md`](TlsConfig.md) |
 | `TlsStream` | class | TLS 字节流 | [`TlsStream.md`](TlsStream.md) |

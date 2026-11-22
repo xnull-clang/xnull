@@ -1,8 +1,8 @@
-# `ReconnectPolicy`
+# `ServiceReconnectPolicy`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class ReconnectPolicy` |
+| 类型 | `class ServiceReconnectPolicy` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
 | 依赖 | `Error`、`ErrorKind`、`retryDelayRaw` |
@@ -15,7 +15,7 @@
 
 不做：实际连接、消息重放、DNS 重解析、连接迁移、服务端重连、会话恢复。
 
-本类型与 [`xdk.net.websocket.ReconnectPolicy`](../../network/net/websocket/ReconnectPolicy.md) 同名但职责不同：后者只服务 WebSocket 客户端握手；本类型增加 `ErrorKind` 过滤，供通用 TCP/TLS 客户端使用。两者不互相替代。
+本类型与 [`xdk.net.websocket.ServiceReconnectPolicy`](../../network/net/websocket/ReconnectPolicy.md) 同名但职责不同：后者只服务 WebSocket 客户端握手；本类型增加 `ErrorKind` 过滤，供通用 TCP/TLS 客户端使用。两者不互相替代。
 
 ---
 
@@ -56,8 +56,8 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `ReconnectPolicy()` | 无 | 默认值 | 无 |
-| `ReconnectPolicy(ReconnectPolicy other)` | 非 null | 非 null | null → panic |
+| `ServiceReconnectPolicy()` | 无 | 默认值 | 无 |
+| `ServiceReconnectPolicy(ServiceReconnectPolicy other)` | 非 null | 非 null | null → panic |
 
 构造后通过 setter 调整；非法值属于合同错误（panic）。
 
@@ -73,13 +73,13 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `initialDelayMillis` | 设置初始延迟 | `Long value` | `ReconnectPolicy` | <0 → panic |
-| `maxDelayMillis` | 设置最大延迟 | `Long value` | `ReconnectPolicy` | <initial → panic |
-| `multiplier` | 设置倍数 | `Double value` | `ReconnectPolicy` | <1.0/NaN → panic |
-| `maxAttempts` | 设置最大次数 | `Int value` | `ReconnectPolicy` | <0 → panic |
-| `jitter` | 设置抖动 | `Bool value` | `ReconnectPolicy` | 无 |
-| `retryKind` | 加入可重试分类 | `ErrorKind kind` | `ReconnectPolicy` | null → panic |
-| `clearRetryKinds` | 清空分类 | 无 | `ReconnectPolicy` | 无 |
+| `initialDelayMillis` | 设置初始延迟 | `Long value` | `ServiceReconnectPolicy` | <0 → panic |
+| `maxDelayMillis` | 设置最大延迟 | `Long value` | `ServiceReconnectPolicy` | <initial → panic |
+| `multiplier` | 设置倍数 | `Double value` | `ServiceReconnectPolicy` | <1.0/NaN → panic |
+| `maxAttempts` | 设置最大次数 | `Int value` | `ServiceReconnectPolicy` | <0 → panic |
+| `jitter` | 设置抖动 | `Bool value` | `ServiceReconnectPolicy` | 无 |
+| `retryKind` | 加入可重试分类 | `ErrorKind kind` | `ServiceReconnectPolicy` | null → panic |
+| `clearRetryKinds` | 清空分类 | 无 | `ServiceReconnectPolicy` | 无 |
 | `getInitialDelayMillis` | 读初始延迟 | 无 | `Long` | 无 |
 | `getMaxDelayMillis` | 读最大延迟 | 无 | `Long` | 无 |
 | `getMultiplier` | 读倍数 | 无 | `Double` | 无 |
@@ -90,7 +90,7 @@
 | `shouldRetry` | 仅按次数判断 | `Int attempt` | `Bool` | <0 → panic |
 | `shouldRetry` | 按次数与错误判断 | `Int attempt, Error error` | `Bool` | <0/null → panic |
 | `delayMillis` | 退避延迟 | `Int attempt` | `Long` | <0 → panic |
-| `copy` | 独立快照 | 无 | `ReconnectPolicy` | 无 |
+| `copy` | 独立快照 | 无 | `ServiceReconnectPolicy` | 无 |
 
 说明：
 
@@ -135,7 +135,7 @@
 
 ## 12. 示例与反例
 
-正确：`new ReconnectPolicy().maxAttempts(8).initialDelayMillis(500).maxDelayMillis(20000)`；失败后按 `shouldRetry(attempt, error)` 与 `delayMillis(attempt)` 重连。  
+正确：`new ServiceReconnectPolicy().maxAttempts(8).initialDelayMillis(500).maxDelayMillis(20000)`；失败后按 `shouldRetry(attempt, error)` 与 `delayMillis(attempt)` 重连。  
 反例：无限重试；对 `Cancelled` 重试；`maxAttempts=0` 仍期望重连；把抖动延迟当精确值；运行中修改策略期望已创建客户端变化。
 
 ---
@@ -149,7 +149,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class ReconnectPolicy {
+class ServiceReconnectPolicy {
     Long _initialDelayMillis = 1000
     Long _maxDelayMillis = 30000
     Double _multiplier = 2.0
@@ -162,11 +162,11 @@ class ReconnectPolicy {
         ErrorKind.Busy,
     ]
 
-    ReconnectPolicy() {
+    ServiceReconnectPolicy() {
     }
 
-    ReconnectPolicy(ReconnectPolicy other) {
-        if other == null { throw "ReconnectPolicy: null other" }
+    ServiceReconnectPolicy(ServiceReconnectPolicy other) {
+        if other == null { throw "ServiceReconnectPolicy: null other" }
         _initialDelayMillis = other.getInitialDelayMillis()
         _maxDelayMillis = other.getMaxDelayMillis()
         _multiplier = other.getMultiplier()
@@ -175,50 +175,50 @@ class ReconnectPolicy {
         _retryableKinds = other.retryableKinds()
     }
 
-    ReconnectPolicy initialDelayMillis(Long value) {
-        if value < 0 { throw "ReconnectPolicy.initialDelayMillis: negative" }
+    ServiceReconnectPolicy initialDelayMillis(Long value) {
+        if value < 0 { throw "ServiceReconnectPolicy.initialDelayMillis: negative" }
         if value > _maxDelayMillis {
-            throw "ReconnectPolicy.initialDelayMillis: exceeds max"
+            throw "ServiceReconnectPolicy.initialDelayMillis: exceeds max"
         }
         _initialDelayMillis = value
         return self
     }
 
-    ReconnectPolicy maxDelayMillis(Long value) {
+    ServiceReconnectPolicy maxDelayMillis(Long value) {
         if value < _initialDelayMillis {
-            throw "ReconnectPolicy.maxDelayMillis: below initial"
+            throw "ServiceReconnectPolicy.maxDelayMillis: below initial"
         }
         _maxDelayMillis = value
         return self
     }
 
-    ReconnectPolicy multiplier(Double value) {
-        if value < 1.0 { throw "ReconnectPolicy.multiplier: below one" }
-        if value != value { throw "ReconnectPolicy.multiplier: NaN" }
+    ServiceReconnectPolicy multiplier(Double value) {
+        if value < 1.0 { throw "ServiceReconnectPolicy.multiplier: below one" }
+        if value != value { throw "ServiceReconnectPolicy.multiplier: NaN" }
         _multiplier = value
         return self
     }
 
-    ReconnectPolicy maxAttempts(Int value) {
-        if value < 0 { throw "ReconnectPolicy.maxAttempts: negative" }
+    ServiceReconnectPolicy maxAttempts(Int value) {
+        if value < 0 { throw "ServiceReconnectPolicy.maxAttempts: negative" }
         _maxAttempts = value
         return self
     }
 
-    ReconnectPolicy jitter(Bool value) {
+    ServiceReconnectPolicy jitter(Bool value) {
         _jitter = value
         return self
     }
 
-    ReconnectPolicy retryKind(ErrorKind kind) {
-        if kind == null { throw "ReconnectPolicy.retryKind: null" }
+    ServiceReconnectPolicy retryKind(ErrorKind kind) {
+        if kind == null { throw "ServiceReconnectPolicy.retryKind: null" }
         if !self.isRetryableKind(kind) {
             _retryableKinds.push(kind)
         }
         return self
     }
 
-    ReconnectPolicy clearRetryKinds() {
+    ServiceReconnectPolicy clearRetryKinds() {
         _retryableKinds = []
         return self
     }
@@ -231,7 +231,7 @@ class ReconnectPolicy {
     List<ErrorKind> retryableKinds() { return _retryableKinds.copy() }
 
     Bool isRetryableKind(ErrorKind kind) {
-        if kind == null { throw "ReconnectPolicy.isRetryableKind: null" }
+        if kind == null { throw "ServiceReconnectPolicy.isRetryableKind: null" }
         Int index = 0
         while index < _retryableKinds.length() {
             if _retryableKinds.get(index) == kind { return true }
@@ -241,25 +241,25 @@ class ReconnectPolicy {
     }
 
     Bool shouldRetry(Int attempt) {
-        if attempt < 0 { throw "ReconnectPolicy.shouldRetry: negative" }
+        if attempt < 0 { throw "ServiceReconnectPolicy.shouldRetry: negative" }
         return attempt < _maxAttempts
     }
 
     Bool shouldRetry(Int attempt, Error error) {
-        if attempt < 0 { throw "ReconnectPolicy.shouldRetry: negative" }
-        if error == null { throw "ReconnectPolicy.shouldRetry: null error" }
+        if attempt < 0 { throw "ServiceReconnectPolicy.shouldRetry: negative" }
+        if error == null { throw "ServiceReconnectPolicy.shouldRetry: null error" }
         if !self.shouldRetry(attempt) { return false }
         return self.isRetryableKind(error.kind())
     }
 
     Long delayMillis(Int attempt) {
-        if attempt < 0 { throw "ReconnectPolicy.delayMillis: negative" }
+        if attempt < 0 { throw "ServiceReconnectPolicy.delayMillis: negative" }
         return retryDelayRaw(_initialDelayMillis, _maxDelayMillis,
             _multiplier, attempt, _jitter)
     }
 
-    ReconnectPolicy copy() {
-        return new ReconnectPolicy(self)
+    ServiceReconnectPolicy copy() {
+        return new ServiceReconnectPolicy(self)
     }
 }
 ```

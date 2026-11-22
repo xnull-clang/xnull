@@ -1,8 +1,8 @@
-# `ServiceState`
+# `NetServiceState`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `enum ServiceState` |
+| 类型 | `enum NetServiceState` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
 | 依赖 | 无 |
@@ -15,7 +15,7 @@
 
 不做：OS 服务状态、进程状态、健康评分、连接状态、TLS 握手状态、客户端重连状态。
 
-本类型与 [`xdk.os.service.ServiceState`](../../platform/os/service/ServiceState.md) 同名但语义不同：后者是操作系统服务管理器（systemd/launchd/SCM）的观测快照，含 `Unknown`；本类型是 `xdk.net.service` 实例的内部生命周期，不含 `Unknown`。两者不得混用，导入时使用完整包名消歧。
+本类型与 [`xdk.os.service.NetServiceState`](../../platform/os/service/ServiceState.md) 同名但语义不同：后者是操作系统服务管理器（systemd/launchd/SCM）的观测快照，含 `Unknown`；本类型是 `xdk.net.service` 实例的内部生命周期，不含 `Unknown`。两者不得混用，导入时使用完整包名消歧。
 
 ---
 
@@ -71,7 +71,7 @@
 
 ## 4. 生命周期
 
-枚举值本身无生命周期；服务实例负责迁移。`ServiceState` 值可长期保存用于日志/诊断，但过期快照不得当作当前状态。
+枚举值本身无生命周期；服务实例负责迁移。`NetServiceState` 值可长期保存用于日志/诊断，但过期快照不得当作当前状态。
 
 ---
 
@@ -93,11 +93,11 @@
 
 | 函数 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `serviceStateName` | 稳定小写名 | `ServiceState state` | `String` | 无 |
-| `serviceStateFromName` | 名称解析 | `String stateName` | `ServiceState?` | 无；未知返回 null |
-| `serviceStateIsTerminal` | 是否终态 | `ServiceState state` | `Bool` | 无 |
-| `serviceStateCanServe` | 是否可服务 | `ServiceState state` | `Bool` | 无 |
-| `serviceStateIsActive` | 是否活动/过渡 | `ServiceState state` | `Bool` | 无 |
+| `serviceStateName` | 稳定小写名 | `NetServiceState state` | `String` | 无 |
+| `serviceStateFromName` | 名称解析 | `String stateName` | `NetServiceState?` | 无；未知返回 null |
+| `serviceStateIsTerminal` | 是否终态 | `NetServiceState state` | `Bool` | 无 |
+| `serviceStateCanServe` | 是否可服务 | `NetServiceState state` | `Bool` | 无 |
+| `serviceStateIsActive` | 是否活动/过渡 | `NetServiceState state` | `Bool` | 无 |
 
 说明：
 
@@ -141,8 +141,8 @@
 
 ## 12. 示例与反例
 
-正确：`service.state() == ServiceState.Running` 表示可接受；`Draining` 时只等待存量会话；`Stopped` 后再 `close()`。  
-反例：把 `Stopped` 当终态而不 `close()`；从 `Failed` 直接重新 `startServer`；把本类型与 `xdk.os.service.ServiceState` 混用；把 `Draining` 当“仍可接受新连接”。
+正确：`service.state() == NetServiceState.Running` 表示可接受；`Draining` 时只等待存量会话；`Stopped` 后再 `close()`。  
+反例：把 `Stopped` 当终态而不 `close()`；从 `Failed` 直接重新 `startServer`；把本类型与 `xdk.os.service.NetServiceState` 混用；把 `Draining` 当“仍可接受新连接”。
 
 ---
 
@@ -155,7 +155,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-enum ServiceState {
+enum NetServiceState {
     Created,
     Starting,
     Running,
@@ -165,40 +165,40 @@ enum ServiceState {
     Closed,
 }
 
-String serviceStateName(ServiceState state) {
-    if state == ServiceState.Created { return "created" }
-    if state == ServiceState.Starting { return "starting" }
-    if state == ServiceState.Running { return "running" }
-    if state == ServiceState.Draining { return "draining" }
-    if state == ServiceState.Stopped { return "stopped" }
-    if state == ServiceState.Failed { return "failed" }
+String serviceStateName(NetServiceState state) {
+    if state == NetServiceState.Created { return "created" }
+    if state == NetServiceState.Starting { return "starting" }
+    if state == NetServiceState.Running { return "running" }
+    if state == NetServiceState.Draining { return "draining" }
+    if state == NetServiceState.Stopped { return "stopped" }
+    if state == NetServiceState.Failed { return "failed" }
     return "closed"
 }
 
-ServiceState? serviceStateFromName(String stateName) {
+NetServiceState? serviceStateFromName(String stateName) {
     if stateName == null { return null }
     String normalized = toLowerAscii(stateName.trim())
-    if normalized == "created" { return ServiceState.Created }
-    if normalized == "starting" { return ServiceState.Starting }
-    if normalized == "running" { return ServiceState.Running }
-    if normalized == "draining" { return ServiceState.Draining }
-    if normalized == "stopped" { return ServiceState.Stopped }
-    if normalized == "failed" { return ServiceState.Failed }
-    if normalized == "closed" { return ServiceState.Closed }
+    if normalized == "created" { return NetServiceState.Created }
+    if normalized == "starting" { return NetServiceState.Starting }
+    if normalized == "running" { return NetServiceState.Running }
+    if normalized == "draining" { return NetServiceState.Draining }
+    if normalized == "stopped" { return NetServiceState.Stopped }
+    if normalized == "failed" { return NetServiceState.Failed }
+    if normalized == "closed" { return NetServiceState.Closed }
     return null
 }
 
-Bool serviceStateIsTerminal(ServiceState state) {
-    return state == ServiceState.Closed
+Bool serviceStateIsTerminal(NetServiceState state) {
+    return state == NetServiceState.Closed
 }
 
-Bool serviceStateCanServe(ServiceState state) {
-    return state == ServiceState.Running
+Bool serviceStateCanServe(NetServiceState state) {
+    return state == NetServiceState.Running
 }
 
-Bool serviceStateIsActive(ServiceState state) {
-    return state == ServiceState.Starting
-        || state == ServiceState.Running
-        || state == ServiceState.Draining
+Bool serviceStateIsActive(NetServiceState state) {
+    return state == NetServiceState.Starting
+        || state == NetServiceState.Running
+        || state == NetServiceState.Draining
 }
 ```

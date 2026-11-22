@@ -162,3 +162,11 @@ Result<String?, Error> readLine(Context context, Reader source) {
 | 标准流 close | 不 close |
 | 文件/网络流 | 在 fs/net 实现 `Reader/Writer` |
 | 线程安全 | 单 reader/单 writer；外部同步 |
+
+## 9. 1.x 已实现 API 回写
+
+- `StdioReader`/`StdioWriter`、`stdinReader()`/`stdoutWriter()`/`stderrWriter()`；
+- `readAll`/`copyTo` 与 Buffered/Chain/Tee/Limit/LineReader；
+- 1.x `Reader`/`Writer` 具体类保留为 2.x `protocol + ByteArray/String` 的适配来源。
+
+2.x 协议化不删除 1.x 行为；适配器在 2.x 合同中登记。

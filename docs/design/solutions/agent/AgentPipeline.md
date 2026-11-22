@@ -5,7 +5,7 @@
 | 类型 | `class AgentPipeline` |
 | 包 | `xdk.agent` |
 | 稳定性 | `preview` |
-| 依赖 | `Receiver`、`Processor`、`Exporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、`HealthReport`、`HealthState`、`Context`、`Error` |
+| 依赖 | `Receiver`、`Processor`、`PipelineExporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、`HealthReport`、`HealthState`、`Context`、`Error` |
 
 ---
 
@@ -45,7 +45,7 @@
 | `_kind` | `TelemetryKind` | 非 null |
 | `_receivers` | `List<Receiver>` | 构造时复制；元素非 null；kind 一致 |
 | `_processors` | `List<Processor>` | 构造时复制；元素非 null；kind 一致 |
-| `_exporters` | `List<Exporter>` | 构造时复制；元素非 null；kind 一致 |
+| `_exporters` | `List<PipelineExporter>` | 构造时复制；元素非 null；kind 一致 |
 | `_inputConnectors` | `List<Connector>` | 输出 kind 与管线一致 |
 | `_outputConnectors` | `List<Connector>` | 输入 kind 与管线一致 |
 | `_monitor` | `RuntimeMonitor` | 串行化 consume/生命周期 |
@@ -81,7 +81,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `AgentPipeline` | `String name, TelemetryKind kind, List<Receiver> receivers, List<Processor> processors, List<Exporter> exporters, List<Connector> inputConnectors, List<Connector> outputConnectors` | name 非空；kind 非 null；列表非 null；至少一个源/汇；kind 匹配；元素非 null | 非法 → panic |
+| `AgentPipeline` | `String name, TelemetryKind kind, List<Receiver> receivers, List<Processor> processors, List<PipelineExporter> exporters, List<Connector> inputConnectors, List<Connector> outputConnectors` | name 非空；kind 非 null；列表非 null；至少一个源/汇；kind 匹配；元素非 null | 非法 → panic |
 
 说明：
 
@@ -115,7 +115,7 @@
 | `isClosed` | 是否关闭 | 无 | `Bool` | 无 |
 | `receivers` | 接收器快照 | 无 | `List<Receiver>` | 无 |
 | `processors` | 处理器快照 | 无 | `List<Processor>` | 无 |
-| `exporters` | 导出器快照 | 无 | `List<Exporter>` | 无 |
+| `exporters` | 导出器快照 | 无 | `List<PipelineExporter>` | 无 |
 | `inputConnectors` | 输入连接器快照 | 无 | `List<Connector>` | 无 |
 | `outputConnectors` | 输出连接器快照 | 无 | `List<Connector>` | 无 |
 | `start` | 启动管线 | `Context context` | `Result<Unit, Error>` | `Busy`/`Unavailable`/`Cancelled`/组件错误 |
@@ -160,14 +160,14 @@
 
 - 语言：class、List、String、Bool、Result、Unit、函数类型；
 - 运行时：`RuntimeMonitor`、`Context.withCancel`、`nowMono`；
-- 接口：`Receiver`、`Processor`、`Exporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、
+- 接口：`Receiver`、`Processor`、`PipelineExporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、
   `HealthReport`、`HealthState`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Receiver`、`Processor`、`Exporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、
+`Receiver`、`Processor`、`PipelineExporter`、`Connector`、`TelemetryKind`、`TelemetryBatch`、
 `Context`、`RuntimeMonitor`、`HealthReport`、`HealthState`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
@@ -225,7 +225,7 @@ class AgentPipeline {
     final TelemetryKind _kind
     final List<Receiver> _receivers
     final List<Processor> _processors
-    final List<Exporter> _exporters
+    final List<PipelineExporter> _exporters
     final List<Connector> _inputConnectors
     final List<Connector> _outputConnectors
     final RuntimeMonitor _monitor
@@ -239,7 +239,7 @@ class AgentPipeline {
     Result<Unit, Error>? _closeResult
 
     AgentPipeline(String name, TelemetryKind kind, List<Receiver> receivers,
-                  List<Processor> processors, List<Exporter> exporters,
+                  List<Processor> processors, List<PipelineExporter> exporters,
                   List<Connector> inputConnectors,
                   List<Connector> outputConnectors) {
         if name == null || name == "" {
@@ -276,7 +276,7 @@ class AgentPipeline {
         }
         Int exporterIndex = 0
         while exporterIndex < exporters.length() {
-            Exporter exporter = exporters.get(exporterIndex)
+            PipelineExporter exporter = exporters.get(exporterIndex)
             if exporter == null { throw "AgentPipeline: null exporter" }
             if exporter.kind() != kind {
                 throw "AgentPipeline: exporter kind mismatch"
@@ -322,7 +322,7 @@ class AgentPipeline {
     Bool isClosed() { return _closed }
     List<Receiver> receivers() { return _receivers.copy() }
     List<Processor> processors() { return _processors.copy() }
-    List<Exporter> exporters() { return _exporters.copy() }
+    List<PipelineExporter> exporters() { return _exporters.copy() }
     List<Connector> inputConnectors() { return _inputConnectors.copy() }
     List<Connector> outputConnectors() { return _outputConnectors.copy() }
 

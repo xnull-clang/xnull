@@ -362,3 +362,11 @@ Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
 | 全局码表 | 禁止；应用显式持有 Registry |
 | `collectAll` 错误类型 | 返回 `List<E>`；不聚合 |
 | `ErrorKind` 扩展 | 只允许追加；新码需版本决策 |
+
+## 9. 1.x 已实现 API 回写
+
+- `ErrorGroup.addDetailed(DetailedError)` 已实现；
+- `ErrorGroup` 的首个非取消错误规则保留；
+- 1.x `BasicError`/`ErrorReport`/`ErrorDetail` 契约不得删除。
+
+2.x 的 `RetryPolicy`/`ErrorCode`/`ErrorSink` 是增量。

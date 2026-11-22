@@ -1,8 +1,8 @@
-# `Timer`
+# `MetricTimer`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Timer implements Metric` |
+| 类型 | `class MetricTimer implements Metric` |
 | 包 | `xdk.metrics` |
 | 稳定性 | `preview` |
 | 依赖 | `Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.Summary`、`Duration`、`RuntimeMonitor`、`nowMono` |
@@ -40,7 +40,7 @@
 | `_summary` | `Summary` | 毫秒样本摘要 |
 | `_monitor` | `RuntimeMonitor` | 摘要保护 |
 
-不变量：`_unit == "ms"`；样本非负；快照 kind 恒为 `Timer`；`start` 不修改任何字段。
+不变量：`_unit == "ms"`；样本非负；快照 kind 恒为 `MetricTimer`；`start` 不修改任何字段。
 
 ---
 
@@ -54,14 +54,14 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Timer(String name, String help, Map<String,String> labels)` | 全部 | 名称合法；help 非 null；labels 非 null | 非法 → panic |
-| `Timer(String name)` | name | 同上 | 非法 → panic；help 为空，labels 为空 |
+| `MetricTimer(String name, String help, Map<String,String> labels)` | 全部 | 名称合法；help 非 null；labels 非 null | 非法 → panic |
+| `MetricTimer(String name)` | name | 同上 | 非法 → panic；help 为空，labels 为空 |
 
 说明：
 
 - 名称/标签规则与 `Counter` 一致。
 - 构造器复制 labels；调用方后续修改不影响计时器。
-- 不接受初始时长；所有 Timer 从空摘要开始。
+- 不接受初始时长；所有 MetricTimer 从空摘要开始。
 
 ---
 
@@ -147,7 +147,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Timer implements Metric {
+class MetricTimer implements Metric {
     final String _name
     final String _help
     final String _unit
@@ -155,24 +155,24 @@ class Timer implements Metric {
     final Summary _summary
     final RuntimeMonitor _monitor
 
-    Timer(String name, String help, Map<String, String> labels) {
-        if name == null || name == "" { throw "Timer: empty name" }
+    MetricTimer(String name, String help, Map<String, String> labels) {
+        if name == null || name == "" { throw "MetricTimer: empty name" }
         if name.indexOf(" ") >= 0 || name.indexOf("{") >= 0 || name.indexOf("}") >= 0 {
-            throw "Timer: invalid name"
+            throw "MetricTimer: invalid name"
         }
         if name.indexOf("\"") >= 0 || name.indexOf(",") >= 0 {
-            throw "Timer: invalid name"
+            throw "MetricTimer: invalid name"
         }
-        if help == null { throw "Timer: null help" }
-        if labels == null { throw "Timer: null labels" }
+        if help == null { throw "MetricTimer: null help" }
+        if labels == null { throw "MetricTimer: null labels" }
         Map<String, String> copy = [:]
         List<String> keys = labels.keys()
         Int index = 0
         while index < keys.length() {
             String key = keys.get(index)
             String labelValue = labels.get(key)
-            if key == "" { throw "Timer: empty label key" }
-            if labelValue == null { throw "Timer: null label value" }
+            if key == "" { throw "MetricTimer: empty label key" }
+            if labelValue == null { throw "MetricTimer: null label value" }
             copy.put(key, labelValue)
             index = index + 1
         }
@@ -184,13 +184,13 @@ class Timer implements Metric {
         _monitor = new RuntimeMonitor()
     }
 
-    Timer(String name) {
-        if name == null || name == "" { throw "Timer: empty name" }
+    MetricTimer(String name) {
+        if name == null || name == "" { throw "MetricTimer: empty name" }
         if name.indexOf(" ") >= 0 || name.indexOf("{") >= 0 || name.indexOf("}") >= 0 {
-            throw "Timer: invalid name"
+            throw "MetricTimer: invalid name"
         }
         if name.indexOf("\"") >= 0 || name.indexOf(",") >= 0 {
-            throw "Timer: invalid name"
+            throw "MetricTimer: invalid name"
         }
         _name = name
         _help = ""
@@ -201,14 +201,14 @@ class Timer implements Metric {
     }
 
     String name() { return _name }
-    MetricKind kind() { return MetricKind.Timer }
+    MetricKind kind() { return MetricKind.MetricTimer }
     String help() { return _help }
     String unit() { return _unit }
     Map<String, String> labels() { return _labels.copy() }
 
     void observe(Duration duration) {
-        if duration == null { throw "Timer.observe: null duration" }
-        if duration.isNegative() { throw "Timer.observe: negative duration" }
+        if duration == null { throw "MetricTimer.observe: null duration" }
+        if duration.isNegative() { throw "MetricTimer.observe: negative duration" }
         Double millis = duration.millis() as Double
         _monitor.enter()
         _summary.observe(millis)
@@ -220,7 +220,7 @@ class Timer implements Metric {
     }
 
     Duration stop(Long startMono) {
-        if startMono < 0 { throw "Timer.stop: negative start" }
+        if startMono < 0 { throw "MetricTimer.stop: negative start" }
         Long elapsed = nowMono() - startMono
         if elapsed < 0 { elapsed = 0 }
         Duration duration = Duration.ofMillis(elapsed)
@@ -240,7 +240,7 @@ class Timer implements Metric {
         Double value = _summary.sum()
         _monitor.exit()
         if value > 9223372036854775807.0 {
-            throw "Timer.total: overflow"
+            throw "MetricTimer.total: overflow"
         }
         return Duration.ofMillis(value as Long)
     }
@@ -260,7 +260,7 @@ class Timer implements Metric {
     }
 
     Double percentile(Double percentileValue) {
-        if !isFinite(percentileValue) { throw "Timer.percentile: non-finite percentile" }
+        if !isFinite(percentileValue) { throw "MetricTimer.percentile: non-finite percentile" }
         _monitor.enter()
         Double value = _summary.quantile(percentileValue / 100.0)
         _monitor.exit()
@@ -287,7 +287,7 @@ class Timer implements Metric {
         if count > 0 {
             samples.push(new MetricSample(_name + "_max", _labels, maximum, timestamp))
         }
-        return new MetricFamily(_name, MetricKind.Timer, _help, _unit, samples)
+        return new MetricFamily(_name, MetricKind.MetricTimer, _help, _unit, samples)
     }
 }
 ```

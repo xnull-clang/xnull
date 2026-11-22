@@ -265,3 +265,11 @@ List<List<T>> chunk<T>(List<T> items, Int chunkSize) {
 | 排序复杂度 | 首版稳定插入排序 O(n²)；后续可替换 |
 | `Pair/Triple` 值语义 | class + 公共字段；按约定值语义 |
 | 空值 | 用 nullable；不支持“存 null”作为合法值 |
+
+## 9. 1.x 已实现 API 回写
+
+- `joinWith<T>(List<T> items, String separator, String(T) format)` 已实现；
+- `Entry<K,V>` 已实现，作为 `Map.entries()` 的值对象；
+- 1.x `Pair` 固定形态保留为兼容适配；2.x 泛型 `Pair<A,B>` 是增量。
+
+这些能力在 2.x 文档中不得删除或降级为“待办”。

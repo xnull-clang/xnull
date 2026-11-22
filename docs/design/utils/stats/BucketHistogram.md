@@ -1,8 +1,8 @@
-# `Histogram`
+# `BucketHistogram`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Histogram` |
+| 类型 | `class BucketHistogram` |
 | 包 | `xdk.stats` |
 | 稳定性 | `preview` |
 | 依赖 | `HistogramBucket`、`xdk.math`、`xdk.collections` |
@@ -56,7 +56,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Histogram(List<Double> boundaries)` | boundaries | 非 null；严格递增；无 NaN | 非法 → panic |
+| `BucketHistogram(List<Double> boundaries)` | boundaries | 非 null；严格递增；无 NaN | 非法 → panic |
 
 ---
 
@@ -79,7 +79,7 @@
 | `stddev` | 总体标准差 | 无 | `Double` | 空 → NaN |
 | `percentile` | 近似分位 | `Double percentileValue` | `Double` | 空 → NaN；percentileValue 钳制 |
 | `buckets` | 桶快照 | 无 | `List<HistogramBucket>` | 无 |
-| `merge` | 合并 | `Histogram other` | `Bool` | null → panic；边界不同 false |
+| `merge` | 合并 | `BucketHistogram other` | `Bool` | null → panic；边界不同 false |
 | `reset` | 清空 | 无 | `void` | 无 |
 
 说明：
@@ -123,7 +123,7 @@
 
 ## 12. 示例与反例
 
-正确：`new Histogram([1.0,5.0,10.0])`；observe 3 → 第二桶。  
+正确：`new BucketHistogram([1.0,5.0,10.0])`；observe 3 → 第二桶。  
 反例：边界乱序；observe NaN；空直方图取 min 当有效值；合并不同边界。
 
 ---
@@ -137,7 +137,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Histogram {
+class BucketHistogram {
     final List<Double> _boundaries
     final List<Long> _counts
     Long _count = 0
@@ -147,15 +147,15 @@ class Histogram {
     Double _max = 0.0
     Bool _hasValues = false
 
-    Histogram(List<Double> boundaries) {
-        if boundaries == null { throw "Histogram: null boundaries" }
+    BucketHistogram(List<Double> boundaries) {
+        if boundaries == null { throw "BucketHistogram: null boundaries" }
         List<Double> copy = []
         Int index = 0
         while index < boundaries.length() {
             Double boundary = boundaries.get(index)
-            if isNaN(boundary) { throw "Histogram: NaN boundary" }
+            if isNaN(boundary) { throw "BucketHistogram: NaN boundary" }
             if copy.length() > 0 && boundary <= copy.get(copy.length() - 1) {
-                throw "Histogram: boundaries not increasing"
+                throw "BucketHistogram: boundaries not increasing"
             }
             copy.push(boundary)
             index = index + 1
@@ -171,7 +171,7 @@ class Histogram {
     }
 
     void observe(Double value) {
-        if isNaN(value) { throw "Histogram.observe: NaN" }
+        if isNaN(value) { throw "BucketHistogram.observe: NaN" }
         if !_hasValues {
             _min = value
             _max = value
@@ -250,8 +250,8 @@ class Histogram {
         return result
     }
 
-    Bool merge(Histogram other) {
-        if other == null { throw "Histogram.merge: null" }
+    Bool merge(BucketHistogram other) {
+        if other == null { throw "BucketHistogram.merge: null" }
         if _boundaries.length() != other._boundaries.length() { return false }
         Int index = 0
         while index < _boundaries.length() {

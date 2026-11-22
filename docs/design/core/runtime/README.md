@@ -393,3 +393,13 @@ String stackTrace() {
 | 健康聚合 | 取最严重状态；不提供自动轮询/告警 |
 | QUIC/网络 | 不属于 runtime |
 | 信号/环境/进程 | 属于 `xdk.sys` |
+
+## 9. 1.x 已实现 API 回写
+
+以下 1.x 已实现并验证的 API 不得在 2.x 合同中删除：
+
+- `RuntimeStats` 快照与 `stats()`/`statsEnabled()`/`statsSetEnabled()`/`statsReset()`；
+- `dumpTasks()` 任务转储（诊断 stderr）；
+- `nowMicros()` 与 `sleep`/`sleepContext` 的时钟边界。
+
+2.x 的 `RuntimeInfo`/`MemoryStats`/`TaskStats` 是增量，不替代上述 1.x 面。

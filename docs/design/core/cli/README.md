@@ -415,3 +415,14 @@ return exitCodeValue(ExitCode.Error)
 | [Go `os/exec`](https://pkg.go.dev/os/exec) | `Command` 不经过 shell；stdin/stdout/stderr 显式 | 采纳显式 stdio；不继承隐式终端 |
 
 > 系统资源字段沿用 core `sys` 的 `SystemInfo`/`Env`/`Platform`/`Process`；本包不复制  OS 类型，也不把容器/cgroup/GPU 探测塞进 CLI。
+
+## 9. 1.x 已实现 API 回写
+
+1.x 已实现：
+
+- `OptionSpec.shortName` + `OptionSpec.withShort(...)`；
+- 短选项簇解析（`shortClusterKnown`）；
+- `completionWords` / `completionBash` 补全文本生成；
+- `CommandMatch` 兼容别名（2.x 主名为 `ParseResult`）。
+
+2.x 的 `HelpFormatter`/`Shell` 是增量；不得删除上述 1.x 面。

@@ -51,7 +51,7 @@
 | `AuditEvent` | class | 不可变审计事件 | [`AuditEvent.md`](AuditEvent.md) |
 | `AuditSink` | protocol | 写入/刷新/关闭/可用 | [`AuditSink.md`](AuditSink.md) |
 | `AuditLogger` | class | 同步审计入口/生命周期 | [`AuditLogger.md`](AuditLogger.md) |
-| `Redactor` | class | 局部正则脱敏 | [`Redactor.md`](Redactor.md) |
+| `Redactor` | class | 局部正则脱敏 | [`Redactor.md`](AuditRedactor.md) |
 
 X：异步/批量 sink、文件轮转、远程传输、结构化策略、字段键脱敏、捕获组替换、墙钟时间戳、事件签名。
 

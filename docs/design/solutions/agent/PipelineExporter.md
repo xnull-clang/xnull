@@ -1,8 +1,8 @@
-# `Exporter`
+# `PipelineExporter`
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `protocol Exporter` |
+| 类型 | `protocol PipelineExporter` |
 | 包 | `xdk.agent` |
 | 稳定性 | `preview` |
 | 依赖 | `TelemetryKind`、`TelemetryBatch`、`Context`、`Error`、`Result` |
@@ -173,7 +173,7 @@ close 后 Unavailable；不关闭注入资源；健康状态；并发 export；n
 ## 14. XNull 伪代码
 
 ```xnull
-protocol Exporter {
+protocol PipelineExporter {
     TelemetryKind kind();
     String name();
     Result<Unit, Error> start(Context context);

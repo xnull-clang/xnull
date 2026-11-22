@@ -2,10 +2,10 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class OtlpExporter implements Exporter` |
+| 类型 | `class OtlpExporter implements PipelineExporter` |
 | 包 | `xdk.agent` |
 | 稳定性 | `preview` |
-| 依赖 | `Exporter`、`TelemetryKind`、`TelemetryBatch`、`HttpClient`、`HttpRequest`、`HttpResponse`、`HttpBody`、`RetryPolicy`、`Timer`、`Context`、`Error` |
+| 依赖 | `PipelineExporter`、`TelemetryKind`、`TelemetryBatch`、`HttpClient`、`HttpRequest`、`HttpResponse`、`HttpBody`、`RetryPolicy`、`Timer`、`Context`、`Error` |
 
 ---
 
@@ -22,7 +22,7 @@ OTLP 导出器：把 Metrics/Traces/Logs 批次编码为 OTLP/HTTP JSON，按端
 
 ## 2. 设计逻辑
 
-- 实现 `Exporter`；`kind()` 由构造器固定，一个实例只导一种信号；
+- 实现 `PipelineExporter`；`kind()` 由构造器固定，一个实例只导一种信号；
 - endpoint 是基础 URL；按 kind 追加 `/v1/metrics`、`/v1/traces`、`/v1/logs`；
 - 协议基线只接受 `http_json`；其他值构造时拒绝；
 - `export` 将批次放入有界队列并立即返回；工作线程串行发送；
@@ -184,7 +184,7 @@ OTLP 导出器：把 Metrics/Traces/Logs 批次编码为 OTLP/HTTP JSON，按端
 
 ## 10. 依赖的特性/接口/类
 
-`Exporter`、`TelemetryKind`、`TelemetryBatch`、`HttpClient`、`HttpRequest`、`HttpResponse`、
+`PipelineExporter`、`TelemetryKind`、`TelemetryBatch`、`HttpClient`、`HttpRequest`、`HttpResponse`、
 `HttpBody`、`HttpStatus`、`HttpMethod`、`Uri`、`Bytes`、`RetryPolicy`、`TaskGroup`、`Task`、
 `Timer`、`Duration`、`Context`、`RuntimeMonitor`、`Error`、`BasicError`、`ErrorKind`。
 
@@ -244,7 +244,7 @@ worker 发送成功/2xx/4xx/5xx/网络/超时；RetryPolicy 次数/耗尽；requ
 ## 14. XNull 伪代码
 
 ```xnull
-class OtlpExporter implements Exporter {
+class OtlpExporter implements PipelineExporter {
     final String _name
     final TelemetryKind _kind
     final String _endpoint

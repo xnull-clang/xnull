@@ -25,7 +25,7 @@
 
 - 只记录可聚合数值，不记录离散事件/级别；`metrics` 不是 `log` 的别名，也不依赖 `log`。
 - 指标对象与注册表都是显式实例；没有全局注册表、全局导出器或隐式单例。
-- 直方图桶数学复用 `xdk.stats.Histogram`；分布摘要复用 `xdk.stats.Summary`，本包不复制算法。
+- 直方图桶数学复用 `xdk.stats.BucketHistogram`；分布摘要复用 `xdk.stats.Summary`，本包不复制算法。
 - 导出只定义协议与数据模型；具体编码器/传输由应用或 X 扩展提供。
 
 不做：
@@ -65,7 +65,7 @@
 | `Counter` | class | 单调累计 | [`Counter.md`](Counter.md) |
 | `Gauge` | class | 瞬时值 | [`Gauge.md`](Gauge.md) |
 | `Histogram` | class | 固定边界桶分布 | [`Histogram.md`](Histogram.md) |
-| `Timer` | class | 单调时钟时长统计 | [`Timer.md`](Timer.md) |
+| `Timer` | class | 单调时钟时长统计 | [`Timer.md`](MetricTimer.md) |
 | `Registry` | class | 线程安全指标注册表 | [`Registry.md`](Registry.md) |
 | `Exporter` | protocol | 格式/导出/flush/close 合同 | [`Exporter.md`](Exporter.md) |
 | `MetricsFormat` | enum | Text/Json/Prometheus | [`MetricsFormat.md`](MetricsFormat.md) |
@@ -192,7 +192,7 @@ Result<Histogram, Error> histogram = registry.histogram("latency", [10.0])
 | --- | --- |
 | 全局注册表 | 禁止；每个应用/测试自建 `Registry` |
 | 标签 | 指标构造器接收标签；`register` 登记带标签序列；便捷方法只创建空标签序列 |
-| 直方图算法 | 委托 `xdk.stats.Histogram`；本包只加标签/快照面 |
+| 直方图算法 | 委托 `xdk.stats.BucketHistogram`；本包只加标签/快照面 |
 | 直方图分位 | 桶级近似，p 使用 0..100；不承诺精确 |
 | Timer 分位 | 委托 `xdk.stats.Summary`，精确但内存随样本增长；X 再补固定内存方案 |
 | Timer 单位 | 固定 `"ms"`；不做秒/毫秒自动换算 |
