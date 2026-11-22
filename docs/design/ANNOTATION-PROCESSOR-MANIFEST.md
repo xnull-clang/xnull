@@ -5,7 +5,7 @@
 | 版本 | `manifestVersion = 1` |
 | 工具 | `src/toolchain/annotation_platform.py` |
 | 子命令 | `check-manifest` / `generate` |
-| 状态 | P0-03/P0-04/P0-05/P0-07 implemented（M0.2/M0.3）；沙箱仍 planned |
+| 状态 | P0-03–P0-07 implemented（M0.2/M0.3/M0.4）；Darwin sandbox-exec，其他平台 limits-only |
 
 ## 1. Manifest schema
 
@@ -112,3 +112,48 @@ String toyValue() { return "toy"; }
 - 缺失/额外/内容不同/无标记 → 非零；
 - 成功输出 `annotation_platform: generated sources match`；
 - 不修改目标目录。
+
+
+## 8. Sandbox（M0.4）
+
+processor 可选字段：
+
+```json
+"sandbox": {
+  "enabled": true,
+  "allowNetwork": false,
+  "maxMemoryMB": 256,
+  "maxCpuSeconds": 30
+}
+```
+
+- `enabled` 默认 true；`allowNetwork` 只允许 false（true 直接 manifest reject）。
+- `maxMemoryMB` 32–4096；`maxCpuSeconds` 1–120，默认 timeoutSeconds。
+- 不接受 sandbox 额外字段。
+
+Backend：
+
+| 平台 | backend | 能力 |
+| --- | --- | --- |
+| macOS + `/usr/bin/sandbox-exec` | `darwin-sandbox-exec` | deny default；file-read 允许；write 限 outdir；network deny；process/sysctl/mach 最小放行 |
+| 其他 | `limits-only` | RLIMIT_CPU/AS/NOFILE + 最小 env + cwd=temp；**不宣称网络隔离** |
+
+运行后：
+
+- 拒绝 outdir 内 symlink；
+- 拒绝 `..`、绝对路径、未在 manifest outputs 的文件；
+- 超时/CPU/内存/越界 → 平台错误，exit 非零；
+- 失败保留 `report.json`（generated-dir 模式下写 `<dir>.report.json`）。
+
+`report.json` 顶层：
+
+```json
+{
+  "sandboxBackend": "darwin-sandbox-exec",
+  "sandboxProfile": "...",
+  "limits": {"maxMemoryMB": 256, "maxCpuSeconds": 30},
+  "processors": [...]
+}
+```
+
+测试必须打印实际 backend；Darwin 要求 `sandbox-exec` 路径 PASS。非 Darwin 的 escape/network 检查标记 SKIP，不假 PASS。

@@ -7,7 +7,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+import platform as host_platform
 
 PHASES = ["Resolve", "Validate", "Generate", "Finalize"]
 SEV_RANK = {"Error": 0, "Warning": 1, "Note": 2}
@@ -69,6 +71,29 @@ def load_manifest(path):
         priority = proc.get("priority", 0)
         if not isinstance(priority, int):
             raise ValueError(f"{name}: priority must be an integer")
+        sandbox = proc.get("sandbox", {})
+        if not isinstance(sandbox, dict):
+            raise ValueError(f"{name}: sandbox must be an object")
+        allowed = {"enabled", "allowNetwork", "maxMemoryMB", "maxCpuSeconds"}
+        extra = set(sandbox) - allowed
+        if extra:
+            raise ValueError(f"{name}: sandbox has unknown fields: {sorted(extra)}")
+        enabled = sandbox.get("enabled", True)
+        if not isinstance(enabled, bool):
+            raise ValueError(f"{name}: sandbox.enabled must be bool")
+        allow_network = sandbox.get("allowNetwork", False)
+        if allow_network is not False:
+            raise ValueError(f"{name}: sandbox.allowNetwork must be false")
+        max_memory = sandbox.get("maxMemoryMB", 256)
+        if not isinstance(max_memory, int) or max_memory < 32 or max_memory > 4096:
+            raise ValueError(f"{name}: sandbox.maxMemoryMB must be 32..4096")
+        max_cpu = sandbox.get("maxCpuSeconds", timeout)
+        if not isinstance(max_cpu, int) or max_cpu < 1 or max_cpu > 120:
+            raise ValueError(f"{name}: sandbox.maxCpuSeconds must be 1..120")
+        proc["_sandbox"] = {
+            "enabled": enabled, "allowNetwork": False,
+            "maxMemoryMB": max_memory, "maxCpuSeconds": max_cpu,
+        }
         proc["_timeout"] = timeout
         proc["_priority"] = priority
     return data
@@ -140,6 +165,59 @@ def merge_diagnostics(diags):
     return ordered
 
 
+SANDBOX_BACKEND = "darwin-sandbox-exec" if host_platform.system() == "Darwin" and Path("/usr/bin/sandbox-exec").exists() else "limits-only"
+
+
+def sandbox_profile(outdir, tmpdir):
+    return """(version 1)
+(deny default)
+(allow file-read*)
+(allow file-write* (subpath \"""" + str(outdir) + """\") (subpath \"""" + str(tmpdir) + """\") (literal "/dev/null") (literal "/dev/stdout") (literal "/dev/stderr"))
+(allow process*)
+(allow sysctl-read)
+(allow mach-lookup)
+(deny network*)
+""", ""
+
+
+def resource_limits(proc):
+    import resource
+    def apply():
+        cpu = proc["_sandbox"]["maxCpuSeconds"]
+        mem = proc["_sandbox"]["maxMemoryMB"] * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu + 1))
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
+        except (ValueError, OSError):
+            pass
+        try:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
+        except (ValueError, OSError):
+            pass
+    return apply
+
+
+def run_sandboxed(proc, command, cwd, ir_path, work):
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C"),
+        "PYTHONPATH": str(Path(__file__).resolve().parents[1]),
+        "HOME": str(work),
+        "TMPDIR": str(work),
+    }
+    prof = work.parent / (work.name + ".sandbox.sb")
+    if proc["_sandbox"]["enabled"] and SANDBOX_BACKEND == "darwin-sandbox-exec":
+        text, _ = sandbox_profile(work, work)
+        prof.write_text(text, encoding="utf-8")
+        full = ["/usr/bin/sandbox-exec", "-f", str(prof)] + command
+    else:
+        full = command
+    return subprocess.run(
+        full, capture_output=True, text=True, timeout=proc["_timeout"],
+        cwd=str(cwd), env=env, preexec_fn=resource_limits(proc),
+    )
+
+
 def snapshot(root):
     result = {}
     if not root.exists():
@@ -198,6 +276,7 @@ def generate(args):
     diagnostics = []
     reports = []
     failure = None
+    sandbox_profiles = []
 
     def platform_error(message):
         diagnostics.append({
@@ -214,10 +293,7 @@ def generate(args):
             "--phase", phase, "--ir", str(out / "ir.json"), "--out", str(work),
         ]
         try:
-            result = subprocess.run(
-                command, capture_output=True, text=True, timeout=proc["_timeout"],
-                cwd=str(manifest_dir),
-            )
+            result = run_sandboxed(proc, command, work, out / "ir.json", work)
         except subprocess.TimeoutExpired:
             failure = f"processor {name} timeout in {phase}"
             return []
@@ -228,6 +304,23 @@ def generate(args):
         if result.returncode != 0:
             failure = f"processor {name} failed in {phase}: exit {result.returncode}"
             return []
+        try:
+            import resource
+            peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
+            limit_bytes = proc["_sandbox"]["maxMemoryMB"] * 1024 * 1024
+            if host_platform.system() == "Darwin":
+                over = peak > limit_bytes
+            else:
+                over = peak * 1024 > limit_bytes
+            if over:
+                failure = f"processor {name} exceeded memory limit"
+                return []
+        except Exception:
+            pass
+        for path in work.rglob("*"):
+            if path.is_symlink():
+                failure = f"processor {name} created symlink: {path.relative_to(work)}"
+                return []
         files = snapshot(work)
         diag_path = work / "diagnostics.json"
         if diag_path.exists():
@@ -294,8 +387,17 @@ def generate(args):
         platform_error(failure)
 
     merged = merge_diagnostics(diagnostics)
+    report = {
+        "sandboxBackend": SANDBOX_BACKEND,
+        "sandboxProfile": str(out / ".processors"),
+        "limits": {
+            "maxMemoryMB": max((p["_sandbox"]["maxMemoryMB"] for p in manifest["processors"]), default=0),
+            "maxCpuSeconds": max((p["_sandbox"]["maxCpuSeconds"] for p in manifest["processors"]), default=0),
+        },
+        "processors": reports,
+    }
     (out / "diagnostics.json").write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (out / "report.json").write_text(json.dumps({"processors": reports}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     for d in merged:
         print(f"{d['severity']} [{d['code']}] {d['message']} at {d['line']}:{d['col']}", file=sys.stderr)
@@ -310,6 +412,7 @@ def generate(args):
         if args.generated_dir:
             artifact = out.parent / (out.name + ".diagnostics.json")
             artifact.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            (out.parent / (out.name + ".report.json")).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             shutil.rmtree(out)
             if backup is not None and backup.exists():
                 backup.rename(out)

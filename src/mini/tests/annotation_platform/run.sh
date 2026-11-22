@@ -228,3 +228,96 @@ if python3 "$PLATFORM" generate --entry "$TMP/project/source.x" --xdk-root "$ROO
     --manifest "$TMP/nonconv.json" --generated-dir "$TMP/nonconv" --max-rounds 2 >/dev/null 2>&1; then
     echo "annotation_platform: non-convergence accepted" >&2; exit 1
 fi
+
+# M0.4 sandbox / limits
+BACKEND=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['sandboxBackend'])" "$TMP/out1/report.json")
+echo "annotation_platform: sandboxBackend=$BACKEND"
+if [ "$BACKEND" = "darwin-sandbox-exec" ]; then
+    test "$(uname -s)" = "Darwin"
+fi
+
+cat > "$TMP/escape.py" <<'PY'
+import argparse
+from pathlib import Path
+p=argparse.ArgumentParser(); p.add_argument('--phase'); p.add_argument('--ir'); p.add_argument('--out'); a=p.parse_args()
+Path(a.out).mkdir(parents=True, exist_ok=True)
+Path(a.out, '..', 'escape.x').write_text('x')
+Path('/tmp/xnull_sandbox_escape').write_text('x')
+PY
+cat > "$TMP/net.py" <<'PY'
+import argparse, socket
+p=argparse.ArgumentParser(); p.add_argument('--phase'); p.add_argument('--ir'); p.add_argument('--out'); a=p.parse_args()
+s=socket.socket(); s.settimeout(1); s.connect(('127.0.0.1', 9))
+PY
+cat > "$TMP/mem.py" <<'PY'
+import argparse
+p=argparse.ArgumentParser(); p.add_argument('--phase'); p.add_argument('--ir'); p.add_argument('--out'); a=p.parse_args()
+x = bytearray(200 * 1024 * 1024)
+PY
+cat > "$TMP/cpu.py" <<'PY'
+import argparse
+p=argparse.ArgumentParser(); p.add_argument('--phase'); p.add_argument('--ir'); p.add_argument('--out'); a=p.parse_args()
+while True:
+    pass
+PY
+cat > "$TMP/sym.py" <<'PY'
+import argparse, os
+from pathlib import Path
+p=argparse.ArgumentParser(); p.add_argument('--phase'); p.add_argument('--ir'); p.add_argument('--out'); a=p.parse_args()
+os.symlink('/tmp', Path(a.out) / 'link')
+PY
+python3 - "$TMP" <<'PY'
+import json, sys
+from pathlib import Path
+base=Path(sys.argv[1])
+def write(name, sandbox, timeout=2):
+    proc={'name':name,'phases':['Generate'],'command':['python3',str(base/(name+'.py'))],'outputs':[],'timeoutSeconds':timeout,'priority':0,'sandbox':sandbox}
+    (base/(name+'.json')).write_text(json.dumps({'manifestVersion':1,'processors':[proc]}))
+write('escape', {})
+write('net', {})
+write('mem', {'maxMemoryMB':64})
+write('cpu', {'maxCpuSeconds':1}, 2)
+write('sym', {})
+PY
+rm -f /tmp/xnull_sandbox_escape
+if [ "$BACKEND" = "darwin-sandbox-exec" ]; then
+    if python3 "$PLATFORM" generate --entry "$HERE/source.x" --xdk-root "$ROOT/src/xdk" --manifest "$TMP/escape.json" --generated-dir "$TMP/sandbox_escape" >/dev/null 2>&1; then
+        echo "annotation_platform: sandbox escape accepted" >&2; exit 1
+    fi
+    test ! -e /tmp/xnull_sandbox_escape
+    if python3 "$PLATFORM" generate --entry "$HERE/source.x" --xdk-root "$ROOT/src/xdk" --manifest "$TMP/net.json" --generated-dir "$TMP/sandbox_net" >/dev/null 2>&1; then
+        echo "annotation_platform: sandbox network accepted" >&2; exit 1
+    fi
+else
+    echo "annotation_platform: escape/network sandbox checks SKIP (backend limits-only)"
+fi
+if python3 "$PLATFORM" generate --entry "$HERE/source.x" --xdk-root "$ROOT/src/xdk" --manifest "$TMP/mem.json" --generated-dir "$TMP/sandbox_mem" >/dev/null 2>&1; then
+    echo "annotation_platform: memory limit accepted" >&2; exit 1
+fi
+if python3 "$PLATFORM" generate --entry "$HERE/source.x" --xdk-root "$ROOT/src/xdk" --manifest "$TMP/cpu.json" --generated-dir "$TMP/sandbox_cpu" >/dev/null 2>&1; then
+    echo "annotation_platform: cpu limit accepted" >&2; exit 1
+fi
+if python3 "$PLATFORM" generate --entry "$HERE/source.x" --xdk-root "$ROOT/src/xdk" --manifest "$TMP/sym.json" --generated-dir "$TMP/sandbox_sym" >/dev/null 2>&1; then
+    echo "annotation_platform: symlink accepted" >&2; exit 1
+fi
+
+# invalid sandbox manifests
+python3 - "$TMP" <<'PY'
+import json, sys
+from pathlib import Path
+base=Path(sys.argv[1])
+proc={'name':'p','phases':['Generate'],'command':['python3','x.py'],'outputs':[],'timeoutSeconds':5,'priority':0}
+for name, sandbox in [
+    ('allow_net', {'allowNetwork':True}),
+    ('extra', {'bogus':1}),
+    ('mem_low', {'maxMemoryMB':8}),
+    ('cpu_high', {'maxCpuSeconds':121}),
+]:
+    p=dict(proc); p['sandbox']=sandbox
+    (base/(name+'.json')).write_text(json.dumps({'manifestVersion':1,'processors':[p]}))
+PY
+for bad in allow_net.json extra.json mem_low.json cpu_high.json; do
+    if python3 "$PLATFORM" check-manifest --manifest "$TMP/$bad" >"$TMP/$bad.out" 2>&1; then
+        echo "annotation_platform: invalid sandbox manifest accepted: $bad" >&2; exit 1
+    fi
+done

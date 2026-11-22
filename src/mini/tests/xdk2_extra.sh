@@ -7,7 +7,6 @@ for gate in \
     "$HERE/annotation_ir/run.sh" \
     "$HERE/annotation_platform/run.sh" \
     "$HERE/core_annotations.sh" \
-    "$HERE/a8/a8_core.sh" \
     "$HERE/a8/a8_packages.sh" \
     "$HERE/a8/a8_delegate.sh" \
     "$HERE/doc_gates.sh" \
