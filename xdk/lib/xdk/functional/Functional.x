@@ -13,6 +13,15 @@ class Seq<T> {
         self._items = items.copy()
     }
 
+    static Seq<R> of<R>(List<R> items) {
+        return new Seq<R>(items)
+    }
+
+    static Seq<R> empty<R>() {
+        List<R> emptyItems = []
+        return new Seq<R>(emptyItems)
+    }
+
     Int length() { return self._items.length() }
     Bool isEmpty() { return self._items.length() == 0 }
     T get(Int index) {
@@ -22,34 +31,14 @@ class Seq<T> {
         return self._items.get(index)
     }
 
-    Seq<T> map(T(T) transform) {
-        List<T> result = []
+    Seq<R> map<R>(R(T) transform) {
+        List<R> result = []
         Int index = 0
         while index < self._items.length() {
             result.push(transform(self._items.get(index)))
             index = index + 1
         }
-        return new Seq<T>(result)
-    }
-
-    Seq<String> mapToString(String(T) transform) {
-        List<String> result = []
-        Int index = 0
-        while index < self._items.length() {
-            result.push(transform(self._items.get(index)))
-            index = index + 1
-        }
-        return new Seq<String>(result)
-    }
-
-    Seq<Int> mapToInt(Int(T) transform) {
-        List<Int> result = []
-        Int index = 0
-        while index < self._items.length() {
-            result.push(transform(self._items.get(index)))
-            index = index + 1
-        }
-        return new Seq<Int>(result)
+        return new Seq<R>(result)
     }
 
     Seq<T> filter(Bool(T) predicate) {
@@ -63,11 +52,11 @@ class Seq<T> {
         return new Seq<T>(result)
     }
 
-    Seq<T> flatMap(List<T>(T) transform) {
-        List<T> result = []
+    Seq<R> flatMap<R>(List<R>(T) transform) {
+        List<R> result = []
         Int index = 0
         while index < self._items.length() {
-            List<T> part = transform(self._items.get(index))
+            List<R> part = transform(self._items.get(index))
             if part == null { throw "Seq.flatMap: null result" }
             Int inner = 0
             while inner < part.length() {
@@ -76,7 +65,7 @@ class Seq<T> {
             }
             index = index + 1
         }
-        return new Seq<T>(result)
+        return new Seq<R>(result)
     }
 
     Seq<T> distinct() {
@@ -215,26 +204,24 @@ class Seq<T> {
         return new Seq<List<T>>(result)
     }
 
-    Seq<Pair<T, T>> zip(Seq<T> other) {
-        if other == null { throw "Seq.zip: null other" }
-        List<Pair<T, T>> result = []
+    Seq<Pair<T, R>> zip<R>(Seq<R> other) {
+        List<Pair<T, R>> result = []
         Int limit = self._items.length()
         if other.length() < limit { limit = other.length() }
         Int index = 0
         while index < limit {
-            result.push(new Pair<T, T>(self._items.get(index), other.get(index)))
+            result.push(new Pair<T, R>(self._items.get(index), other.get(index)))
             index = index + 1
         }
-        return new Seq<Pair<T, T>>(result)
+        return new Seq<Pair<T, R>>(result)
     }
 
-    Map<String, List<T>> groupBy(String(T) keySelector) {
-        Map<String, List<T>> result = [:]
+    Map<K, List<T>> groupBy<K>(K(T) keySelector) {
+        Map<K, List<T>> result = [:]
         Int index = 0
         while index < self._items.length() {
             T item = self._items.get(index)
-            String key = keySelector(item)
-            if key == null { throw "Seq.groupBy: null key" }
+            K key = keySelector(item)
             List<T> empty = []
             List<T> bucket = result.getOr(key, empty)
             bucket.push(item)
@@ -337,81 +324,116 @@ class Seq<T> {
 
 
 class Sequences {
-    static List<Int> range(Int start, Int endExclusive) {
+    static Seq<Int> range(Int start, Int endExclusive) {
         List<Int> result = []
         Int value = start
         while value < endExclusive { result.push(value); value = value + 1 }
-        return result
+        return new Seq<Int>(result)
     }
-    static List<Int> rangeStep(Int start, Int endExclusive, Int step) {
+
+    static Seq<Int> rangeStep(Int start, Int endExclusive, Int step) {
         if step == 0 { throw "Sequences.rangeStep: step must not be zero" }
         List<Int> result = []
         Int value = start
-        if step > 0 { while value < endExclusive { result.push(value); value = value + step } }
-        else { while value > endExclusive { result.push(value); value = value + step } }
-        return result
+        if step > 0 {
+            while value < endExclusive { result.push(value); value = value + step }
+        } else {
+            while value > endExclusive { result.push(value); value = value + step }
+        }
+        return new Seq<Int>(result)
     }
-    static List<Int> repeatValue(Int value, Int count) {
+
+    static Seq<T> repeatValue<T>(T value, Int count) {
         if count < 0 { throw "Sequences.repeatValue: negative count" }
-        List<Int> result = []
+        List<T> result = []
         Int index = 0
         while index < count { result.push(value); index = index + 1 }
-        return result
+        return new Seq<T>(result)
     }
-    static List<Int> generate(Int count, Int() supplier) {
-        List<Int> result = []
+
+    static Seq<T> generate<T>(Int count, T() supplier) {
+        if count < 0 { throw "Sequences.generate: negative count" }
+        List<T> result = []
         Int index = 0
         while index < count { result.push(supplier()); index = index + 1 }
-        return result
+        return new Seq<T>(result)
     }
-    static List<Int> iterate(Int seed, Int count, Int(Int) next) {
-        List<Int> result = []
-        Int value = seed
+
+    static Seq<T> iterate<T>(T seed, Int count, T(T) next) {
+        if count < 0 { throw "Sequences.iterate: negative count" }
+        List<T> result = []
+        T value = seed
         Int index = 0
         while index < count { result.push(value); value = next(value); index = index + 1 }
-        return result
+        return new Seq<T>(result)
     }
-    static List<Int> concat(List<Int> left, List<Int> right) {
-        if left == null || right == null { throw "Sequences.concat: null list" }
-        List<Int> result = left.copy()
+
+    static Seq<T> concat<T>(Seq<T> left, Seq<T> right) {
+        if left == null || right == null { throw "Sequences.concat: null sequence" }
+        List<T> result = []
         Int index = 0
+        while index < left.length() { result.push(left.get(index)); index = index + 1 }
+        index = 0
         while index < right.length() { result.push(right.get(index)); index = index + 1 }
-        return result
+        return new Seq<T>(result)
     }
-    static List<Int> flatten(List<List<Int>> nested) {
+
+    static Seq<T> flatten<T>(List<List<T>> nested) {
         if nested == null { throw "Sequences.flatten: null input" }
-        List<Int> result = []
+        List<T> result = []
         Int index = 0
         while index < nested.length() {
-            List<Int> inner = nested.get(index)
+            List<T> inner = nested.get(index)
+            if inner == null { throw "Sequences.flatten: null inner list" }
             Int innerIndex = 0
             while innerIndex < inner.length() { result.push(inner.get(innerIndex)); innerIndex = innerIndex + 1 }
             index = index + 1
         }
-        return result
+        return new Seq<T>(result)
     }
-    static List<Int> fromNullable(Int? value) {
-        List<Int> result = []
+
+    static Seq<T> fromNullable<T>(T? value) {
+        List<T> result = []
         if value != null { result.push(value) }
-        return result
+        return new Seq<T>(result)
     }
 }
 
 class Lazy<T> {
     final T() _supplier
-    T _value
-    Bool _initialized
-    Bool _evaluating
+    final List<T> _cache
+    Bool _computing
 
     Lazy(T() supplier) {
         self._supplier = supplier
-        self._value = supplier()
-        self._initialized = true
-        self._evaluating = false
+        self._cache = []
+        self._computing = false
     }
 
-    T get() { return self._value }
-    Bool isInitialized() { return self._initialized }
-    Lazy<T> map(T(T) transform) { return new Lazy<T>(() -> transform(self._value)) }
-    String toString() { return "Lazy(ready)" }
+    static Lazy<R> ready<R>(R value) {
+        Lazy<R> result = new Lazy<R>(() -> value)
+        result._cache.push(value)
+        return result
+    }
+
+    T get() {
+        if self._cache.length() > 0 { return self._cache.get(0) }
+        if self._computing { throw "Lazy.get: recursive evaluation" }
+        self._computing = true
+        T computed = self._supplier()
+        self._cache.push(computed)
+        self._computing = false
+        return computed
+    }
+
+    Bool isInitialized() { return self._cache.length() > 0 }
+
+    Lazy<R> map<R>(R(T) transform) {
+        return new Lazy<R>(() -> transform(self.get()))
+    }
+
+    String toString() {
+        if self._cache.length() > 0 { return "Lazy(initialized=true)" }
+        return "Lazy(initialized=false)"
+    }
 }

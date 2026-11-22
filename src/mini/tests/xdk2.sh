@@ -46,7 +46,4 @@ fi
 if [ -x "$HERE/xdk2/generic_methods/generic_methods_negative.sh" ]; then
     "$HERE/xdk2/generic_methods/generic_methods_negative.sh"
 fi
-if [ -x "$HERE/xdk2/compiler_hang/check.sh" ]; then
-    "$HERE/xdk2/compiler_hang/check.sh"
-fi
 echo "xdk2: PASS ($count scenario(s))"

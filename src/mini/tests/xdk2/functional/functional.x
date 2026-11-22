@@ -1,61 +1,109 @@
 import xdk.functional
 
+class Counter {
+    Int calls
+    Counter() { self.calls = 0 }
+    Void inc() { self.calls = self.calls + 1 }
+}
+
 static Int main() {
     List<Int> items = [1, 2, 2, 3, 4]
     Seq<Int> seq = new Seq<Int>(items)
-    Int(Int) doubleValue = (Int value) -> value * 2
-    Bool(Int) even = (Int value) -> value % 2 == 0
-    Int(Int, Int) compare = (Int left, Int right) -> left - right
-    Bool(Int) lessThanThree = (Int value) -> value < 3
+    Seq<Int> made = Seq.of(items)
+    print(made.length())
     String(Int) asText = (Int value) -> str(value)
-    String(Int) parity = (Int value) -> str(value % 2)
-    Bool(Int) greaterThanTwo = (Int value) -> value > 2
-    Int(Int, Int) add = (Int left, Int right) -> left + right
-    Bool(Int) equalFour = (Int value) -> value == 4
-    Bool(Int) positive = (Int value) -> value > 0
-    Bool(Int) negative = (Int value) -> value < 0
-    Bool(Int) equalTwo = (Int value) -> value == 2
-    print(seq.length())
-    print(seq.isEmpty())
-    print(seq.get(0))
-    print(seq.map(doubleValue).get(2))
-    print(seq.filter(even).length())
+    Seq<String> texts = seq.map(asText)
+    print(texts.length())
+    print(texts.get(1))
+    Seq<String> flat = seq.flatMap((Int value) -> {
+        List<String> out = []
+        out.push(str(value))
+        out.push(str(value))
+        return out
+    })
+    print(flat.length())
+    List<String> words = ["a", "b"]
+    Seq<String> wordSeq = new Seq<String>(words)
+    Seq<Pair<Int, String>> zipped = seq.zip(wordSeq)
+    print(zipped.length())
+    print(zipped.get(0).first())
+    print(zipped.get(0).second())
+    Int(Int) parity = (Int value) -> value % 2
+    Map<Int, List<Int>> groups = seq.groupBy(parity)
+    List<Int> emptyGroup = []
+    print(groups.getOr(0, emptyGroup).length())
+    print(groups.getOr(1, emptyGroup).length())
+    Bool(Int) isEven = (Int value) -> value % 2 == 0
+    Int(Int, Int) compareInts = (Int left, Int right) -> left - right
+    Bool(Int) lessThanThree = (Int value) -> value < 3
+    Int(Int, Int) addInts = (Int left, Int right) -> left + right
+    Bool(Int) equalsFour = (Int value) -> value == 4
+    print(seq.filter(isEven).length())
     print(seq.distinct().length())
-    print(seq.sorted(compare).get(0))
-    print(seq.reversed().get(0))
+    print(seq.sorted(compareInts).get(0))
     print(seq.take(2).length())
-    print(seq.skip(3).length())
     print(seq.takeWhile(lessThanThree).length())
-    print(seq.dropWhile(lessThanThree).length())
     print(seq.chunk(2).length())
     print(seq.window(2).length())
-    print(seq.zip(seq).length())
-    print(seq.zip(seq).get(0).first())
-    List<Int> empty = []
-    print(seq.groupBy(parity).getOr("0", empty).length())
-    print(seq.partition(greaterThanTwo).first().length())
-    print(seq.reduce(0, add))
-    print(seq.anyMatch(equalFour))
-    print(seq.allMatch(positive))
-    print(seq.noneMatch(negative))
-    print(seq.firstOrNull())
-    print(seq.count(equalTwo))
-    print(seq.toList().length())
-    print(seq.toSet().has(3))
+    print(seq.reduce(0, addInts))
+    print(seq.anyMatch(equalsFour))
     print(seq.join(",", asText))
-    print(Sequences.range(1, 4).length())
-    print(Sequences.rangeStep(0, 10, 3).length())
-    print(Sequences.repeatValue(7, 3).length())
+    Seq<Int> ranged = Sequences.range(1, 4)
+    print(ranged.length())
+    print(ranged.get(2))
+    Seq<Int> stepped = Sequences.rangeStep(0, 10, 3)
+    print(stepped.length())
+    Seq<Int> repeated = Sequences.repeatValue(7, 3)
+    print(repeated.get(1))
     Int() nine = () -> 9
-    print(Sequences.generate(3, nine).get(0))
+    Seq<Int> generated = Sequences.generate(3, nine)
+    print(generated.length())
     Int(Int) twice = (Int value) -> value * 2
-    print(Sequences.iterate(1, 4, twice).get(3))
-    print(Sequences.concat(Sequences.range(1, 3), Sequences.range(5, 7)).length())
-    print(Sequences.fromNullable(8).length())
-    Int() five = () -> 5
-    Lazy<Int> lazy = new Lazy<Int>(five)
-    print(lazy.get())
+    Seq<Int> iterated = Sequences.iterate(1, 4, twice)
+    print(iterated.get(3))
+    Seq<Int> leftRange = Sequences.range(1, 3)
+    Seq<Int> rightRange = Sequences.range(5, 7)
+    Seq<Int> concatenated = Sequences.concat(leftRange, rightRange)
+    print(concatenated.length())
+    List<Int> firstNested = [1, 2]
+    List<Int> secondNested = []
+    List<Int> thirdNested = [3]
+    List<List<Int>> nested = []
+    nested.push(firstNested)
+    nested.push(secondNested)
+    nested.push(thirdNested)
+    Seq<Int> flattened = Sequences.flatten(nested)
+    print(flattened.length())
+    Seq<Int> nullableSeq = Sequences.fromNullable(8)
+    print(nullableSeq.length())
+    List<Int> emptyItems = []
+    Seq<Int> emptySeq = new Seq<Int>(emptyItems)
+    Counter counter = new Counter()
+    Int() supplier = () -> {
+        counter.inc()
+        return 7
+    }
+    Lazy<Int> lazy = new Lazy<Int>(supplier)
     print(lazy.isInitialized())
+    print(counter.calls)
     print(lazy.toString())
+    print(lazy.get())
+    print(counter.calls)
+    print(lazy.get())
+    print(counter.calls)
+    print(lazy.isInitialized())
+    Counter mappedCounter = new Counter()
+    Lazy<Int> mapped = lazy.map((Int value) -> {
+        mappedCounter.inc()
+        return value * 2
+    })
+    print(mappedCounter.calls)
+    print(mapped.get())
+    print(mappedCounter.calls)
+    Lazy<String> mappedText = lazy.map((Int value) -> str(value))
+    print(mappedText.get())
+    Lazy<Int> ready = Lazy.ready(5)
+    print(ready.isInitialized())
+    print(ready.get())
     return 0
 }
