@@ -45,16 +45,16 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ## 3. 领域注解
 
-领域注解随所属包实现，不放进 `xdk.annotations`。下表状态均为 `planned`，验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
+领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；其余领域注解仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
 
 ### 3.1 CLI
 
-| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 |
-| --- | --- | --- | --- | --- |
-| `@CliCommand` | 声明命令节点 | `String name`、`String summary = ""` | Type / Runtime | CliAnnotationProcessor → 命令树/帮助元数据 |
-| `@CliSubcommand` | 声明子命令 | `String name` | Type / Runtime | CliAnnotationProcessor → 子命令表 |
-| `@Option` | 声明选项 | `String name`、`String shortName = ""`、`Bool required = false` | Field/Parameter / Runtime | CliAnnotationProcessor → 解析表/补全元数据 |
-| `@Arg` | 声明位置参数 | `String name`、`Bool required = true` | Field/Parameter / Runtime | CliAnnotationProcessor → 参数表/用法文本 |
+| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `@CliCommand` | 声明命令节点 | `String name`、`String summary = ""` | Type / Source | cli_processor → 命令树/帮助元数据 | implemented (M2 pilot) |
+| `@CliSubcommand` | 声明子命令 | `String parent`、`String name`、`String summary = ""` | Type / Source | cli_processor → 子命令表 | implemented (M2 pilot) |
+| `@Option` | 声明选项 | `String name`、`String short = ""`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → 解析表/帮助 | implemented (M2 pilot) |
+| `@Arg` | 声明位置参数 | `String name`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → positional help；执行 planned | implemented (M2 pilot) |
 
 ### 3.2 HTTP / WebSocket / JWT
 

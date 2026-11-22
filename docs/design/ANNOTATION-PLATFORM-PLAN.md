@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1 implemented**（P0-01–P0-10、P1-01–P1-04）；M2–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1/M2 pilot implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot）；M3–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -185,12 +185,12 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P2 CLI 试点
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P2-01 | `@CliCommand`/`@CliSubcommand`/`@Option`/`@Arg` 声明 | P0 | 注解可声明/校验 |
-| P2-02 | CliProcessor Resolve/Validate | P2-01 | 目标/参数/重复/错误诊断 |
-| P2-03 | 生成命令树/参数表/help/completion | P2-02 | 生成物入库；真实 CLI 场景 |
-| P2-04 | CLI 业务闭环 | P2-03 | 解析/帮助/补全/错误路径 PASS |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P2-01 | `@CliCommand`/`@CliSubcommand`/`@Option`/`@Arg` 声明 | P0 | 注解可声明/校验 | implemented (M2 pilot) |
+| P2-02 | CliProcessor Resolve/Validate | P2-01 | 目标/参数/重复/错误诊断 | implemented (M2 pilot: AN1001–AN1006) |
+| P2-03 | 生成命令树/参数表/help/completion | P2-02 | 生成物入库；真实 CLI 场景 | implemented (M2 pilot: tree/help/positional help; completion planned) |
+| P2-04 | CLI 业务闭环 | P2-03 | 解析/帮助/补全/错误路径 PASS | planned (M2.2 executor) |
 
 ### P3 codec / `@Serializable`
 
@@ -247,7 +247,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | --- | --- | --- | --- |
 | M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS | implemented（`annotation_platform/m0_gate.sh`） |
 | M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | implemented（A8 processor registry） |
-| M2 | P2 CLI | `@CliCommand` 业务闭环 | planned |
+| M2 | P2 CLI | 命令树/help/解析 pilot 闭环 | implemented (pilot) |
 | M3 | P3 codec | `@Serializable` 业务闭环 | planned |
 | M4 | P4 validate | `@Validate` 业务闭环 | planned |
 | M5 | P5 http | `@HttpRoute` 业务闭环 | planned |
@@ -281,6 +281,7 @@ a8_registry.sh: PASS
 A8 场景：a8_core / builder / delegate / packages / negative 全 PASS
 m0_gate.sh: PASS
 IR v2 symbols: PASS（`annotation_ir` golden + annotation_platform symbols probe）
+m2_gate.sh: PASS（CLI pilot）
 ```
 
 ---

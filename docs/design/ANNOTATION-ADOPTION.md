@@ -299,6 +299,8 @@
 | `Command`/`ParseResult` | `@Value` | 值语义/复制 |
 | `OptionSpec` | — | 已是显式 builder，不叠加 `@Builder` |
 
+状态：`@CliCommand`/`@CliSubcommand`/`@Option`/`@Arg` 为 `implemented (M2 pilot)`：生成 `CliGenerated.x` 命令树/选项表/help/positional help。方法执行器与 positionals 执行未做（M2.2 planned）。
+
 声明：
 
 ```x

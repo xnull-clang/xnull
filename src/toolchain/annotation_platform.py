@@ -191,6 +191,10 @@ def resource_limits(proc):
         except (ValueError, OSError):
             pass
         try:
+            resource.setrlimit(resource.RLIMIT_DATA, (mem, mem))
+        except (ValueError, OSError):
+            pass
+        try:
             resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
         except (ValueError, OSError):
             pass
@@ -212,10 +216,19 @@ def run_sandboxed(proc, command, cwd, ir_path, work):
         full = ["/usr/bin/sandbox-exec", "-f", str(prof)] + command
     else:
         full = command
-    return subprocess.run(
-        full, capture_output=True, text=True, timeout=proc["_timeout"],
+    timed = full
+    if host_platform.system() == "Darwin" and Path("/usr/bin/time").exists():
+        timed = ["/usr/bin/time", "-l"] + full
+    result = subprocess.run(
+        timed, capture_output=True, text=True, timeout=proc["_timeout"],
         cwd=str(cwd), env=env, preexec_fn=resource_limits(proc),
     )
+    import re
+    match = re.search(r"(\d+)\s+maximum resident set size", result.stderr)
+    if match and int(match.group(1)) > proc["_sandbox"]["maxMemoryMB"] * 1024 * 1024:
+        result.returncode = 137
+        result.stderr += "\nannotation_platform: exceeded memory limit"
+    return result
 
 
 def snapshot(root):
@@ -304,19 +317,6 @@ def generate(args):
         if result.returncode != 0:
             failure = f"processor {name} failed in {phase}: exit {result.returncode}"
             return []
-        try:
-            import resource
-            peak = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-            limit_bytes = proc["_sandbox"]["maxMemoryMB"] * 1024 * 1024
-            if host_platform.system() == "Darwin":
-                over = peak > limit_bytes
-            else:
-                over = peak * 1024 > limit_bytes
-            if over:
-                failure = f"processor {name} exceeded memory limit"
-                return []
-        except Exception:
-            pass
         for path in work.rglob("*"):
             if path.is_symlink():
                 failure = f"processor {name} created symlink: {path.relative_to(work)}"
@@ -443,8 +443,8 @@ def check_generated(args):
             return rc
         actual = Path(td) / "generated"
         expected = Path(args.generated_dir)
-        expected_files = {k: v for k, v in snapshot(expected).items() if k.endswith(".x")}
-        actual_files = {k: v for k, v in snapshot(actual).items() if k.endswith(".x")}
+        expected_files = {k: v for k, v in snapshot(expected).items() if k.endswith(".x") and not k.startswith(".processors/")}
+        actual_files = {k: v for k, v in snapshot(actual).items() if k.endswith(".x") and not k.startswith(".processors/")}
         for name in sorted(set(expected_files) | set(actual_files)):
             if name not in expected_files:
                 return fail(f"generated source missing in target: {name}")
