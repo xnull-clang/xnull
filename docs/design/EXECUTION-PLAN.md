@@ -195,7 +195,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B0.4 | 1.x 基线 | QA | B0.1 | 无代码 | 门禁日志/commit | `xdk.sh`+`xdk_core.sh` 绿 |
 | B0.5 | 注解诊断码冻结 | ARCH | 无 | `ANNOTATION-PLAN.md` | `AN0001`–`AN0020` | 文档签字，无待定 |
 | B0.6 | P0.5 类型改名 | ARCH | B0.1 | `docs/design/utils/**`、`solutions/**`、`network/net/tls/**` | 8 组改名 + 引用 | `check_doc_naming`/links 绿 |
-| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 已实现 API 同步 | 文档与 `src/xdk` 不矛盾 |
+| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 ledger 同步 | PASS（ledger）；full contract integration = B5 prerequisite |
 
 ### B1：注解编译器最小闭环
 
@@ -424,7 +424,7 @@ B0.1–B0.7：
 | B0.4 1.x 基线 | PASS | `src/mini/build.sh`、`xdk.sh`、`xdk_core.sh` 均 exit 0 |
 | B0.5 诊断码 | PASS | `ANNOTATION-PLAN.md` §9 冻结 `AN0001`–`AN0020` |
 | B0.6 P0.5 改名 | PASS | 10 个文件/9 组类型改名；链接与命名门禁绿 |
-| B0.7 C7 回写 | PASS | 10 个 core README 增加“1.x 已实现 API 回写” |
+| B0.7 C7 回写 | PASS（ledger） | 10 个 core README 增加“1.x 已实现 API 回写”；full contract integration = B5 prerequisite，不是 C7 全量 PASS |
 
 B0.6 改名清单：
 
@@ -440,7 +440,7 @@ db/Batch.md -> db/DbBatch.md；ml/Batch.md -> ml/MlBatch.md
 net/tls/PrivateKey.md -> net/tls/TlsPrivateKey.md
 ```
 
-B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io}/README.md`。
+B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io}/README.md`。这里的 PASS 是 **ledger 完成**；把 1.x API 变成 2.x 的完整合同整合是 B5 前置，不在 B0 宣称全量 PASS。
 
 批末门禁（本记录随后提交）：
 

@@ -48,7 +48,7 @@
 | C4 | `CommandMatch` → `ParseResult` | 1.x CLI 用 `CommandMatch`；2.x 用 `ParseResult` | 2.x `ParseResult`；1.x `CommandMatch` 别名/适配 | `core/cli` | 已冻结 |
 | C5 | `Pair` 固定 vs 泛型 | 源码 `Pair(String, Int)`；2.x 文档 `Pair<A,B>` | 2.x 泛型 `Pair<A,B>`；1.x 固定 `Pair` deprecated；`Entry<K,V>` 保留 | `core/collections/Pair.md`、`geo/linalg/tensor` | 已冻结 |
 | C6 | `Map.put` 返回 | 文档写 `Bool`；旧 API 面写 `V?` | 冻结 `Bool`（替换 true、插入 false）；`putIfAbsent` 返回旧值 `V?`；`remove` 返回 `Bool` | `core/collections/Map.md`、`API-SURFACE.md` | 已冻结 |
-| C7 | 2.x core 文档比 1.x 旧 | 新 core 删掉 `RuntimeStats/stats`、`joinWith`/`Entry`、log `Filter/Redactor/Sampler`、CLI 短选项/补全、sys 进程组/stdio、`sleepContext`、`buildDate`、`setChecked/apply`、`addDetailed` | 2.x 先从 1.x 同步已实现能力，再加新类型；不得删已实现 API | `core/*/README.md`、`core/*.md` | 回写 |
+| C7 | 2.x core 文档比 1.x 旧 | 新 core 删掉 `RuntimeStats/stats`、`joinWith`/`Entry`、log `Filter/Redactor/Sampler`、CLI 短选项/补全、sys 进程组/stdio、`sleepContext`、`buildDate`、`setChecked/apply`、`addDetailed` | 2.x 先从 1.x 同步已实现能力，再加新类型；不得删已实现 API | `core/*/README.md`、`core/*.md` | ledger done（B0）；full contract integration = B5 prerequisite |
 | C8 | `ConfigSource.load` 是否带 `Context` | 1.x 无 Context；2.x 文档带 Context | 2.x 带 `Context`；1.x 提供无 Context 适配 | `core/config/ConfigSource.md` | 已冻结 |
 | C9 | `Sink.write` 是否返回 `Result` | 1.x log Sink 可能无返回；2.x 文档要求 Result | 2.x `Result<Unit, Error>`；日志失败不改变业务控制流 | `core/log/Sink.md` | 已冻结 |
 | C10 | `Process.id` 类型 | 1.x 可能是 `Int`；2.x 文档 `Long` | 2.x `Long`；1.x 适配/收窄检查 | `core/sys/Process.md` | 已冻结 |
@@ -81,9 +81,9 @@
 | # | 冲突 | 现状 | 决定 | 改哪份 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | N1 | HTTP/2 模型缺伪头/END_STREAM | 设计有 `Http2Session/Stream`，但头模型没有伪头与流结束表示 | P5 前补 `Http2Headers`/`endStream` 显式字段；HTTP/1.1 先实现，HTTP/2 最后 | `network/net/http` | 延期到 P5 |
-| N2 | TLS `PrivateKey` 与 crypto 同名 | `net.tls.PrivateKey` 与 `crypto.PrivateKey` 都是私钥句柄 | `xdk.crypto.PrivateKey` 为 owner；TLS 消费它；若必须保留 TLS 句柄，改名 `TlsPrivateKey` | `network/net/tls/PrivateKey.md`、`utils/crypto/PrivateKey.md` | P0 冻结 |
-| N3 | `ReconnectPolicy` 同名 | WebSocket 与 `net.service` 各有一个 | WebSocket 保留 `ReconnectPolicy`；`net.service` 改名 `ServiceReconnectPolicy` | `solutions/net-service/ReconnectPolicy.md` | P0 改名 |
-| N4 | `ServiceState` 同名 | `os.service` 与 `net.service` 各有一个 | `os.service` 保留 `ServiceState`；`net.service` 改名 `NetServiceState` | `solutions/net-service/ServiceState.md` | P0 改名 |
+| N2 | TLS `PrivateKey` 与 crypto 同名 | `net.tls.PrivateKey` 与 `crypto.PrivateKey` 都是私钥句柄 | `xdk.crypto.PrivateKey` 为 owner；TLS 消费它；TLS 句柄已改名 `TlsPrivateKey` | `network/net/tls/TlsPrivateKey.md`、`utils/crypto/PrivateKey.md` | 已冻结（B0） |
+| N3 | `ReconnectPolicy` 同名 | WebSocket 与 `net.service` 各有一个 | WebSocket 保留 `ReconnectPolicy`；`net.service` 已改名 `ServiceReconnectPolicy` | `solutions/net-service/ServiceReconnectPolicy.md` | 已改名（B0） |
+| N4 | `ServiceState` 同名 | `os.service` 与 `net.service` 各有一个 | `os.service` 保留 `ServiceState`；`net.service` 已改名 `NetServiceState` | `solutions/net-service/NetServiceState.md` | 已改名（B0） |
 | N5 | JWT 依赖 crypto/codec | L5 依赖 L4，层级正确；但文档写成 `xdk.crypto` | 改 `xdk.crypto`/`xdk.codec`；JWT 不自己实现密码学 | `network/jwt/README.md` | 回写 |
 | N6 | SQL 驱动边界 | `xdk.sql` 只有接口，驱动在生态 | 保持：核心不绑定 PostgreSQL/MySQL/SQLite 驱动；`xdk.db` 只做池/迁移/映射 | `network/sql/README.md`、`solutions/db/README.md` | 已冻结 |
 | N7 | WebSocket 正常关闭 vs 错误 | 文档已写“正常关闭不是 Err” | 保持；关闭码/原因显式，不混入传输错误 | `network/net/websocket` | 已冻结 |
@@ -128,9 +128,9 @@
 | U11 | CompressionLevel 映射 | deflate 有 0/1/3/6/9；zstd/lz4/brotli 只写“稳定子集”；`None` 语义不一 | P4 前给每个算法一张映射表；`None` 统一“不压缩/仅容器”或明确 Unsupported | `utils/compress/CompressionLevel.md`、`Zstd/Lz4/Brotli.md` | P4 前 |
 | U12 | CacheStats reset 归属 | 旧 API 把 reset 放 `CacheStats`；类型文档是 `Cache.resetStats()` | `CacheStats` 不可变；`Cache.resetStats()` 负责重置 | `utils/cache/Cache.md`、`CacheStats.md` | 已冻结 |
 | U13 | AuditEvent 构造 7 vs 4 参 | 类型文档 7 参；旧 API 4 参 | 7 参为 canonical；4 参便捷构造改 `AuditEvent.of(...)` | `utils/audit/AuditEvent.md` | 回写 |
-| U14 | `Histogram` 同名 | `metrics.Histogram` 与 `stats.Histogram` | stats 改名 `BucketHistogram`；metrics 保留 `Histogram` | `utils/stats/Histogram.md` | P0 改名 |
-| U15 | `Timer` 同名 | `time.Timer` 与 `metrics.Timer` | metrics 改名 `MetricTimer`；time 保留 `Timer` | `utils/metrics/Timer.md` | P0 改名 |
-| U16 | `Redactor` 同名 | `log.Redactor`（1.x 已实现）与 `audit.Redactor` | log 保留 `Redactor`；audit 改名 `AuditRedactor` | `utils/audit/Redactor.md` | P0 改名 |
+| U14 | `Histogram` 同名 | `metrics.Histogram` 与 `stats.Histogram` | stats 已改名 `BucketHistogram`；metrics 保留 `Histogram` | `utils/stats/BucketHistogram.md` | 已改名（B0） |
+| U15 | `Timer` 同名 | `time.Timer` 与 `metrics.Timer` | metrics 已改名 `MetricTimer`；time 保留 `Timer` | `utils/metrics/MetricTimer.md` | 已改名（B0） |
+| U16 | `Redactor` 同名 | `log.Redactor`（1.x 已实现）与 `audit.Redactor` | log 保留 `Redactor`；audit 已改名 `AuditRedactor` | `utils/audit/AuditRedactor.md` | 已改名（B0） |
 | U17 | metrics 依赖 stats 实现 | `metrics` 依赖 `stats.Histogram/Summary`，但 stats 未实现 | P4 先实现 stats，再实现 metrics；metrics 不复制桶算法 | `utils/metrics/README.md` | P4 |
 | U18 | i18n 缺 core 前置 | 需要 `TimeZone`/`DateTimeFormatter`/`Decimal`/`RoundingMode`/`OpenOptions`；src 无 | P3 补 core 类型；i18n 的 Locale/PluralRules 可先做 | `core/time`、`core/math`、`core/fs` | P3/P7 |
 | U19 | raw 原语缺失 | JSON/CSV/Base64、zstd/lz4/brotli、zip/tar、cipher/KDF/非对称、per-instance RNG | P4 分批补 FFI；Base64/Hex 可纯 XDK 先做；没有 raw 不写假实现 | `src/ffi/*.xfb`、`utils/*/README.md` | P4 |
@@ -149,9 +149,9 @@
 | X3 | `SseStream` 失败面偏窄 | 只覆盖部分写/关闭错误 | 补 write/flush/close/取消/背压错误；SSE 事件编码失败显式返回 | `solutions/api/SseStream.md` | P8 前 |
 | X4 | `Agent` 启动失败回滚不完整 | 组件启动失败可能留下半启动管线 | 定义启动顺序 + 逆序回滚；失败不返回半成品；关闭幂等 | `solutions/agent/*` | P8 前 |
 | X5 | API “无注解扫描” vs 注解矩阵 | `api/README` 写无反射/无注解扫描；`ANNOTATION-SYSTEM` 写 `@HttpRoute` 生成路由 | 注解处理器在构建期生成显式 `ApiRoute` 注册代码；运行时仍无扫描/反射；文档统一措辞 | `solutions/api/README.md`、`ANNOTATION-SYSTEM.md` | 回写 |
-| X6 | `Exporter` 同名 | `metrics.Exporter` 与 `agent.Exporter` | agent 改名 `PipelineExporter`；metrics 保留 `Exporter` | `solutions/agent/*` | P0 改名 |
-| X7 | `Batch` 同名 | `db.Batch` 与 `ml.Batch` | 改名 `DbBatch`/`MlBatch`，或始终包名限定；优先改名 | `solutions/db/*`、`solutions/ml/*` | P0 改名 |
-| X8 | `Signal` 同名 | `sys.Signal` 与 `numerics.Signal` | numerics 改名 `SignalBuffer`；sys 保留 `Signal` | `solutions/numerics/*` | P0 改名 |
+| X6 | `Exporter` 同名 | `metrics.Exporter` 与 `agent.Exporter` | agent 已改名 `PipelineExporter`；metrics 保留 `Exporter` | `solutions/agent/*` | 已改名（B0） |
+| X7 | `Batch` 同名 | `db.Batch` 与 `ml.Batch` | 已改名 `DbBatch`/`MlBatch` | `solutions/db/*`、`solutions/ml/*` | 已改名（B0） |
+| X8 | `Signal` 同名 | `sys.Signal` 与 `numerics.Signal` | numerics 已改名 `SignalBuffer`；sys 保留 `Signal` | `solutions/numerics/*` | 已改名（B0） |
 | X9 | `net.service` 层级 | 见 S5 | 归 L5；solutions 只剩 9 包/122 类型 | `solutions/README.md`、`COVERAGE.md` | P0 冻结 |
 
 ---
@@ -211,6 +211,8 @@
 8. `utils/OVERVIEW.md`、`utils/README.md` 24 包口径统一；去掉 `health` 行/说明。
 
 ### 10.2 P0.5 改名批次
+
+状态：已执行（B0）。
 
 按 `PACKAGE-MAP.md` §12 执行类型文件改名与引用替换：
 

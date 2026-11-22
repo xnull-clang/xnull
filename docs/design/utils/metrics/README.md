@@ -46,7 +46,7 @@
 | 非泛型协议 | XNull 禁止泛型协议；`Metric`/`Exporter` 不带类型参数 |
 | 显式实例 | 注册表由调用方持有；不提供全局访问器 |
 | 不可变快照 | `MetricSample`/`MetricFamily` 构造后不可变；读接口返回副本 |
-| 算法复用 | 桶计数委托 `stats.Histogram`；时长分位委托 `stats.Summary` |
+| 算法复用 | 桶计数委托 `stats.BucketHistogram`；时长分位委托 `stats.Summary` |
 | 冲突可见 | 注册冲突返回 `Result`，不静默覆盖 |
 | 线程安全 | 指标与注册表均可跨任务共享；快照弱一致 |
 | 无 log 依赖 | 指标不写日志；错误用 `Result`/panic 表达 |

@@ -23,7 +23,7 @@
 - 构造时复制并校验边界；边界严格递增，空边界表示单一无界桶。
 - `observe` 拒绝 NaN；允许 ±Inf（落入首/末桶），总和/均值可能因此变为 NaN/±Inf。
 - `count`/`sum`/`min`/`max`/`mean`/`percentile`/`buckets` 直接委托；空统计的 min/max/mean/percentile 为 NaN。
-- `percentile(percentileValue)` 的 percentileValue 使用 0..100 百分位，与 `stats.Histogram.percentile` 一致；不转换为 0..1。
+- `percentile(percentileValue)` 的 percentileValue 使用 0..100 百分位，与 `stats.BucketHistogram.percentile` 一致；不转换为 0..1。
 - 快照按 Prometheus 约定生成：每个桶一个 `_bucket` 样本，标签含 `le`（上界文本，最后桶为 `+Inf`），累计计数；另有 `_sum`、`_count`。
 - 线程安全：`RuntimeMonitor` 保护委托对象；元数据不可变。
 - 无 close；无资源；可跨任务共享。
