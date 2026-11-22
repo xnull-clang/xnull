@@ -1,0 +1,9 @@
+package pkg.c
+import xdk.annotations
+import pkg.a
+import pkg.b
+@Marker("ambiguous")
+class C { }
+static Int main() {
+    return 0
+}

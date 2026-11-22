@@ -1,0 +1,16 @@
+true
+https
+example.com
+8443
+/a/b
+f
+1
+3
+2
+a=1&a=2&b=x%20y
+a b c
+a%20b
+AB
+true
+false
+false

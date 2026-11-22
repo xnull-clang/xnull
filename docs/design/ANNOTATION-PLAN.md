@@ -55,7 +55,9 @@
 - 只支持位置参数；按字段声明顺序绑定；省略尾部字段用默认值；
 - 参数必须是编译期常量；类型必须可赋给字段；
 - 目标 11 项：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem`；
-- 不能用于表达式、控制体、类型实参；`TypeUse` 必须显式声明；
+- `TypeUse` 使用前缀形式 `@Foo Type`，允许字段类型、参数类型、返回类型、局部变量类型；必须显式 `@Target(TypeUse)`；
+- 声明前缀消歧：仅 `TypeUse` → 类型使用；仅声明目标 → 声明；同时声明 `TypeUse` 与声明目标 → 编译错误；
+- 不能用于表达式、控制体、类型实参、类型参数声明；
 - 未知注解、错目标、错参数、重复注解都是编译错误；
 - `@Repeatable` 允许同一目标重复，重复项按出现顺序保留；
 - 注解不改变控制流/对象模型；`@arc`/`@gc` 不属于注解系统。

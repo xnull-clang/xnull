@@ -14,11 +14,11 @@
 
 | 问题 | 结论 |
 | --- | --- |
-| 现在在哪 | B0–B3 已完成并合并；C7 合同已整合（merge `d01943ba`）；B4-01/B4-02 与 B4 设计合同已冻结；B4 仍 NO-GO。 |
-| 下一步 | owner 接受 [`DEBT-REGISTER.md`](DEBT-REGISTER.md) 与 B4-01/B4-02 冻结决定后，开 B4 的 8 个纯包；C7 的实现/验证归 B5。 |
-| 什么没开 | B4 实现未开工；B5–B10 未开工；C7 的 B5 实现/验证未开始。 |
+| 现在在哪 | B0–B4 已完成并合并；C7 合同已整合（merge `d01943ba`）；B4 八包/34 类型与全量 `xdk.sh` 已验收。 |
+| 下一步 | B5 core 实现/验证；C7 的实现/验证归 B5。 |
+| 什么没开 | B5–B10 未开工；C7 的 B5 实现/验证未开始。 |
 
-B4 当前状态是“**合同已冻结（待 owner 接受）**”，不是“B4 已完成”或“已 GO”。合同冻结不等于 owner 接受，也不等于包验收。
+B4 状态：**已完成（8 包 / 34 类型 + 全量 `xdk.sh`）**。C7 仍待 B5 实现/验证。
 
 ---
 
@@ -41,7 +41,7 @@ UI:     removed from 2.x scope
 | B3 runtime prelude | 已完成；含 B3.2 | merge `cce533f5` / `876b9320` |
 | B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae` |
 | C7 core 合同整合 | 合同已整合（待 B5 实现/验证） | merge `d01943ba` / 源 `c0ab6d2a` |
-| B4 入口合同 | B4-01/B4-02 已冻结，待 owner 接受 | `993833b8` |
+| B4 完成 | 8 包/34 类型；full `xdk.sh` exit 0 / 142s | `6369205c` |
 
 B0–B3 的详细证据在 [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) §11.1–§11.4；不要在 PLAN 里复制门禁日志。
 
@@ -82,7 +82,7 @@ B4 第一批纯包
 
 | 批次 | 范围 | 入口/出口 |
 | --- | --- | --- |
-| B4 | functional/graph/stats/net.uri/net.mime/tensor/linalg/geo；8 包 / 34 类型 | owner 接受债表与 B4-01/B4-02 冻结决定；每包场景 + 2.x gate |
+| B4 | functional/graph/stats/net.uri/net.mime/tensor/linalg/geo；8 包 / 34 类型 | 已完成；每包场景 + 2.x gate + full `xdk.sh` |
 | B5 | core 15 包 / 186 类型 | B4 完成；C7 合同已整合，B5 实现/验证 + 1.x 回归 |
 | B6 | data/encoding 12 包 / 76 类型 | B5 完成；依赖闭包绿 |
 | B7 | network 9 包 / 125 类型 | B6 完成；HTTP/1.1 先于 HTTP/2 |
@@ -98,11 +98,11 @@ B4 第一批纯包
 
 ### 5.1 B4 前置账本
 
-[`DEBT-REGISTER.md`](DEBT-REGISTER.md) 是 B4 的前置账本，不是 B4 完成记录：
+[`DEBT-REGISTER.md`](DEBT-REGISTER.md) 记录 B4 完成与后续债务：
 
-- 45 条 = 2 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
-- B4-01/P11 与 B4-02/P8 的合同已冻结，状态为“合同已冻结（待 owner 接受）”。
-- B4 入口公式：**owner 接受债表 + B4-01/B4-02 合同冻结 → GO**。合同冻结已完成，owner 接受未完成，所以 B4 不 GO。
+- 45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S2 3 + B4 2）。
+- B4-01/P11 与 B4-02/P8 已关闭；B4 已完成（8 包/34 类型 + full `xdk.sh`）。
+- C7 合同已整合（待 B5 实现/验证）；B5–B10 未开工。
 - `SCOPE-01` 是“非债务/范围外”，不计入 45 条。
 
 ### 5.2 C7
@@ -179,4 +179,4 @@ git diff --check
 3. 包/类型计数变化：同步 `PACKAGE-MAP.md`、`COVERAGE.md`、`README.md`，并在批次记录说明原因。
 4. 1.x `t0`/`MINI-1.0` 历史不改；2.x 破坏性变化走 `DESIGN-CONSISTENCY.md`。
 5. UI/桌面是范围不变量；不得把已移除能力重新登记成“未来包”、债务或计划项。
-6. 合同冻结 ≠ owner 接受 ≠ 包验收 ≠ B4 GO；三者分开写。
+6. 合同冻结 ≠ owner 接受 ≠ 包验收 ≠ 批次完成；三者分开写。

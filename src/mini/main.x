@@ -8,6 +8,11 @@ List<String> compilerWarnings = []
 String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
+String rootPackageName = ""
+List<AstNode> unitDeclNodes = []
+List<String> unitDeclPkgs = []
+List<String> unitImportOwners = []
+List<String> unitImportPkgs = []
 List<String> ffiNames = []
 List<String> ffiCNames = []
 List<String> ffiRets = []
@@ -39,7 +44,11 @@ class AstNode {
     final List<AstNode> kids
     // Annotation uses attached to this declaration/member.  They are kept
     // outside `kids` so existing semantic/codegen passes keep their shape.
-    final List<AstNode> annotations
+    List<AstNode> annotations
+    List<AstNode> typeAnnotations
+    String packageName
+    String resolvedAnnotationName
+    String annotationError
 
     AstNode(String kind, String text, Int line, Int col) {
         self.kind = kind
@@ -48,6 +57,10 @@ class AstNode {
         self.col = col
         self.kids = []
         self.annotations = []
+        self.typeAnnotations = []
+        self.packageName = ""
+        self.resolvedAnnotationName = ""
+        self.annotationError = ""
     }
 
     Void add(AstNode kid) {
@@ -96,6 +109,14 @@ class AstNode {
             AstNode ann = annotations.get(ai)
             ann.dump(depth + 1)
             ai = ai + 1
+        }
+        if typeAnnotations.length() > 0 {
+            print(pad + "  TypeUse")
+            Int ti = 0
+            while ti < typeAnnotations.length() {
+                typeAnnotations.get(ti).dump(depth + 2)
+                ti = ti + 1
+            }
         }
         Int j = 0
         while j < kids.length() {
@@ -432,11 +453,41 @@ class Parser {
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> memberAnns = self.parseAnnotations()
             Bool isStatic = false
+            Bool hasVisibility = false
             while self.at("static") || self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
                 if self.at("static") {
                     isStatic = true
                 }
+                if self.at("public") || self.at("private") || self.at("protected") {
+                    hasVisibility = true
+                }
                 self.advance()
+            }
+            if self.at("deinit") {
+                Token dt = self.advance()
+                if kindName != "Class" {
+                    self.fail("deinit is only allowed in class")
+                    return cls
+                }
+                if isStatic {
+                    self.fail("deinit cannot be static")
+                    return cls
+                }
+                if hasVisibility {
+                    self.fail("deinit cannot have a visibility modifier")
+                    return cls
+                }
+                AstNode d = self.node("Deinit", "", dt)
+                self.expect("(")
+                if !self.hasError() && !self.at(")") {
+                    self.fail("deinit cannot have parameters")
+                    return cls
+                }
+                self.expect(")")
+                d.add(self.parseBlock())
+                self.attachAnnotations(d, memberAnns)
+                cls.add(d)
+                continue
             }
             String ty = self.parseType()
             if self.at("(") && ty == name {
@@ -466,18 +517,49 @@ class Parser {
                 cls.add(ctor)
                 continue
             }
+            if self.at("deinit") {
+                self.fail("deinit cannot declare a return type")
+                break
+            }
             if !self.kind("ident") {
                 self.fail("expected member name")
                 break
             }
             Token mt = self.advance()
             String mn = mt.text
+            if mn == "deinit" {
+                self.fail("deinit cannot declare a return type")
+                return cls
+            }
+            Bool hasMethodTypeParams = false
+            AstNode methodTypeParams = new AstNode("None", "", mt.line, mt.col)
+            if self.at("<") {
+                self.advance()
+                methodTypeParams = new AstNode("TypeParams", "", mt.line, mt.col)
+                while !self.hasError() && !self.at(">") {
+                    List<AstNode> panns = self.parseAnnotations()
+                    if !self.kind("ident") {
+                        self.fail("expected method type parameter")
+                        break
+                    }
+                    Token pn = self.advance()
+                    AstNode tpn = new AstNode("TypeParam", pn.text, pn.line, pn.col)
+                    self.attachAnnotations(tpn, panns)
+                    methodTypeParams.add(tpn)
+                    if !self.eat(",") {
+                        break
+                    }
+                }
+                self.expect(">")
+                hasMethodTypeParams = true
+            }
             if self.at("(") {
                 AstNode m = self.node("Method", mn, mt)
                 if isStatic {
                     m.add(new AstNode("Static", "", mt.line, mt.col))
                 }
                 m.add(new AstNode("Ret", ty, mt.line, mt.col))
+                if hasMethodTypeParams { m.add(methodTypeParams) }
                 self.advance()
                 if !self.at(")") {
                     while !self.hasError() {
@@ -530,6 +612,10 @@ class Parser {
         Bool data = false
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> itemAnns = self.parseAnnotations()
+            if self.at("deinit") {
+                self.fail("deinit is only allowed in class")
+                break
+            }
             if !self.kind("ident") {
                 self.fail("expected enum item")
                 break
@@ -570,6 +656,10 @@ class Parser {
                 while self.at("static") || self.at("final") || self.at("public") ||
                       self.at("private") || self.at("protected") {
                     self.advance()
+                }
+                if self.at("deinit") {
+                    self.fail("deinit is only allowed in class")
+                    break
                 }
                 String ty = self.parseType()
                 if self.at("(") && ty == e.text {
@@ -665,6 +755,10 @@ class Parser {
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> sigAnns = self.parseAnnotations()
+            if self.at("deinit") {
+                self.fail("deinit is only allowed in class")
+                break
+            }
             String rt = self.parseType()
             if !self.kind("ident") {
                 self.fail("expected protocol method name")
@@ -775,6 +869,14 @@ class Parser {
                 if depth == 0 {
                     return self.look(j + 1).text == "("
                 }
+            } else if t.kind == "ident" {
+                /* type name */
+            } else if t.text == "." || t.text == "," || t.text == "?" ||
+                      t.text == "[" || t.text == "]" || t.text == "(" ||
+                      t.text == ")" || t.text == "->" {
+                /* type punctuation */
+            } else {
+                return false
             }
             j = j + 1
         }
@@ -1498,6 +1600,10 @@ class Parser {
             self.advance()
             return self.node("Int", t.text, t)
         }
+        if self.kind("long") {
+            self.advance()
+            return self.node("Long", t.text, t)
+        }
         if self.kind("double") {
             self.advance()
             return self.node("Double", t.text, t)
@@ -1626,7 +1732,13 @@ class Parser {
                 if self.at("<") && self.looksLikeTypeArgs() {
                     Token gt = self.peek()
                     String targs = self.parseTypeArgsText()
-                    AstNode call = self.node("GenericCall", n.text, t)
+                    AstNode call = new AstNode("None", "", t.line, t.col)
+                    if n.kind == "Member" {
+                        call = self.node("MethodCall", n.text, t)
+                        call.add(n.kids.get(0))
+                    } else {
+                        call = self.node("GenericCall", n.text, t)
+                    }
                     call.add(self.node("TypeArgs", targs, gt))
                     self.expect("(")
                     if !self.at(")") {
@@ -1713,11 +1825,41 @@ class Mono {
     final AstNode program
     final List<String> scopeNames
     final List<String> scopeTypes
+    final List<String> usedMethodTypes
+    final List<String> usedMethodNames
+    final List<String> wildcardMethods
+    final List<String> gmClasses
+    final List<String> gmMethods
+    final List<Int> gmStatic
 
     Mono(AstNode p) {
         self.program = p
         self.scopeNames = []
         self.scopeTypes = []
+        self.usedMethodTypes = []
+        self.usedMethodNames = []
+        self.wildcardMethods = []
+        self.gmClasses = []
+        self.gmMethods = []
+        self.gmStatic = []
+    }
+
+    Bool isGenericMethod(String className, String methodName) {
+        Int i = 0
+        while i < self.gmClasses.length() {
+            if self.gmClasses.get(i) == className && self.gmMethods.get(i) == methodName { return true }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isGenericMethodStatic(String className, String methodName) {
+        Int i = 0
+        while i < self.gmClasses.length() {
+            if self.gmClasses.get(i) == className && self.gmMethods.get(i) == methodName { return self.gmStatic.get(i) != 0 }
+            i = i + 1
+        }
+        return false
     }
 
     Bool hasTypeParams(AstNode n) {
@@ -1748,6 +1890,44 @@ class Mono {
             i = i + 1
         }
         return res
+    }
+
+    Bool hasGenericSyntax(String ty) {
+        return ty.indexOf("<") > 0 && ty.substring(ty.length() - 1, 1) == ">"
+    }
+
+    String genericBase(String ty) {
+        Int p = ty.indexOf("<")
+        if p > 0 {
+            return ty.substring(0, p)
+        }
+        return ty
+    }
+
+    List<String> genericArgsOf(String ty) {
+        Int p = ty.indexOf("<")
+        if p <= 0 || ty.substring(ty.length() - 1, 1) != ">" {
+            List<String> empty = []
+            return empty
+        }
+        return splitTop(ty.substring(p + 1, ty.length() - p - 2))
+    }
+
+    String joinTypeArgs(List<String> args) {
+        String out = ""
+        Int i = 0
+        while i < args.length() {
+            if out != "" {
+                out = out + ","
+            }
+            out = out + args.get(i).trim()
+            i = i + 1
+        }
+        return out
+    }
+
+    String instanceName(String cname, List<String> args) {
+        return cname + "<" + self.joinTypeArgs(args) + ">"
     }
 
     Bool identChar(String c) {
@@ -1804,6 +1984,10 @@ class Mono {
         Int i = 0
         while i < ty.length() {
             String c = ty.substring(i, 1)
+            if c == " " || c == "\t" {
+                i = i + 1
+                continue
+            }
             if self.identChar(c) {
                 res = res + c
             } else {
@@ -1885,6 +2069,24 @@ class Mono {
         return res
     }
 
+    String retTypeText(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Ret" { return m.kids.get(i).text }
+            i = i + 1
+        }
+        return "Unit"
+    }
+
+    Bool safeInstanceMethod(String name) {
+        return name == "length" || name == "get"
+    }
+
+    Bool methodRecursive(AstNode m, String base) {
+        String rt = self.retTypeText(m)
+        return rt == base || rt.indexOf(base + "<") >= 0
+    }
+
     String instantiateClass(String cname, List<String> args) {
         AstNode cls = self.findGenericClass(cname)
         if cls.kind == "None" || !self.hasTypeParams(cls) {
@@ -1900,28 +2102,56 @@ class Mono {
             if suffix != "" {
                 suffix = suffix + "_"
             }
-            suffix = suffix + self.mangle(args.get(i))
+            suffix = suffix + self.mangle(args.get(i).trim())
             i = i + 1
         }
         String sname = cname + "__" + suffix
         if self.findClass(sname).kind != "None" {
             return sname
         }
+        String iname = self.instanceName(cname, args)
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
+        clone.packageName = cls.packageName
+        clone.resolvedAnnotationName = cls.resolvedAnnotationName
+        clone.annotationError = cls.annotationError
+        clone.typeAnnotations = cls.typeAnnotations
         i = 0
         while i < cls.annotations.length() {
             clone.annotate(cls.annotations.get(i))
             i = i + 1
         }
+        List<String> reachable = self.reachableMethods(cls, iname, sname)
         i = 0
         while i < cls.kids.length() {
-            if cls.kids.get(i).kind != "TypeParams" {
-                clone.add(self.cloneSubst(cls.kids.get(i), names, args))
+            AstNode member = cls.kids.get(i)
+            Bool skip = false
+            if member.kind == "TypeParams" {
+                skip = true
+            }
+            if member.kind == "Method" && !self.methodIsStatic(member) &&
+               !self.listHas(reachable, member.text) &&
+               !(cname == "Seq" && self.safeInstanceMethod(member.text)) {
+                skip = true
+            }
+            if !skip {
+                clone.add(self.cloneSubst(member, names, args))
             }
             i = i + 1
         }
+        self.instantiateNestedTypes(clone)
         self.program.add(clone)
         return sname
+    }
+
+    Void instantiateNestedTypes(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "Field" || k.kind == "Base" || k.kind == "Implements" {
+                k.text = self.rewriteType(k.text)
+            }
+            i = i + 1
+        }
     }
 
     String readAngleType(String text, Int start) {
@@ -1976,38 +2206,44 @@ class Mono {
         Bool changed = true
         while changed {
             changed = false
+            Int bestP = -1
+            AstNode bestCls = new AstNode("None", "", 1, 1)
             Int ci = 0
             while ci < self.program.kids.length() {
                 AstNode cls = self.program.kids.get(ci)
                 if (cls.kind == "Class" || cls.kind == "Struct") && self.hasTypeParams(cls) && self.typeParams(cls).length() > 0 {
-                    String needle = cls.text + "<"
-                    Int p = res.indexOf(needle)
-                    if p >= 0 {
-                        Int depth = 0
-                        Int j = p + cls.text.length()
-                        Int end = -1
-                        while j < res.length() {
-                            String c = res.substring(j, 1)
-                            if c == "<" {
-                                depth = depth + 1
-                            } else if c == ">" {
-                                depth = depth - 1
-                                if depth == 0 {
-                                    end = j
-                                    break
-                                }
-                            }
-                            j = j + 1
-                        }
-                        if end > p {
-                            String inner = res.substring(p + needle.length(), end - p - needle.length())
-                            String sname = self.instantiateClass(cls.text, self.splitArgs(inner))
-                            res = res.substring(0, p) + sname + res.substring(end + 1, res.length() - end - 1)
-                            changed = true
-                        }
+                    Int p = res.indexOf(cls.text + "<")
+                    if p >= 0 && (bestP < 0 || p < bestP) {
+                        bestP = p
+                        bestCls = cls
                     }
                 }
                 ci = ci + 1
+            }
+            if bestP >= 0 && bestCls.kind != "None" {
+                String needle = bestCls.text + "<"
+                Int depth = 0
+                Int j = bestP + bestCls.text.length()
+                Int end = -1
+                while j < res.length() {
+                    String c = res.substring(j, 1)
+                    if c == "<" {
+                        depth = depth + 1
+                    } else if c == ">" {
+                        depth = depth - 1
+                        if depth == 0 {
+                            end = j
+                            break
+                        }
+                    }
+                    j = j + 1
+                }
+                if end > bestP {
+                    String inner = res.substring(bestP + needle.length(), end - bestP - needle.length())
+                    String sname = self.instantiateClass(bestCls.text, self.splitArgs(inner))
+                    res = res.substring(0, bestP) + sname + res.substring(end + 1, res.length() - end - 1)
+                    changed = true
+                }
             }
         }
         self.instantiateEntryForMap(res)
@@ -2021,6 +2257,10 @@ class Mono {
             text = self.substAll(text, names, args)
         }
         AstNode c = new AstNode(n.kind, text, n.line, n.col)
+        c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -2079,6 +2319,10 @@ class Mono {
             return sname
         }
         AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
+        clone.packageName = fn.packageName
+        clone.resolvedAnnotationName = fn.resolvedAnnotationName
+        clone.annotationError = fn.annotationError
+        clone.typeAnnotations = fn.typeAnnotations
         i = 0
         while i < fn.annotations.length() {
             clone.annotate(fn.annotations.get(i))
@@ -2098,6 +2342,9 @@ class Mono {
     String argType(AstNode n) {
         if n.kind == "Int" {
             return "Int"
+        }
+        if n.kind == "Long" {
+            return "Long"
         }
         if n.kind == "Double" {
             return "Double"
@@ -2179,6 +2426,233 @@ class Mono {
         }
     }
 
+    Void collectDeclTypes(AstNode n, List<String> names, List<String> types) {
+        if n.kind == "Param" || n.kind == "Local" || n.kind == "Field" {
+            String text = n.text
+            Int splitAt = -1
+            Int i = 0
+            while i < text.length() {
+                if text.substring(i, 1) == " " {
+                    splitAt = i
+                }
+                i = i + 1
+            }
+            if splitAt > 0 && splitAt + 1 < text.length() {
+                names.push(text.substring(splitAt + 1, text.length() - splitAt - 1))
+                types.push(text.substring(0, splitAt))
+            }
+        }
+        Int j = 0
+        while j < n.kids.length() {
+            self.collectDeclTypes(n.kids.get(j), names, types)
+            j = j + 1
+        }
+    }
+
+    String declaredType(List<String> names, List<String> types, String name) {
+        Int i = names.length() - 1
+        while i >= 0 {
+            if names.get(i) == name {
+                return types.get(i)
+            }
+            i = i - 1
+        }
+        return ""
+    }
+
+    Bool sameClassType(String ty, AstNode cls) {
+        return ty == cls.text || ty.startsWith(cls.text + "<")
+    }
+
+    Void collectClassCalls(AstNode n, AstNode cls, List<String> names, List<String> types, List<String> out) {
+        if n.kind == "MethodCall" && n.kids.length() > 0 {
+            AstNode recv = n.kids.get(0)
+            if recv.kind == "Name" {
+                String rt = ""
+                if recv.text == "self" {
+                    rt = cls.text
+                } else {
+                    rt = self.declaredType(names, types, recv.text)
+                }
+                if self.sameClassType(rt, cls) && !self.listHas(out, n.text) {
+                    out.push(n.text)
+                }
+            }
+        }
+        if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recv = n.text.substring(0, dot)
+                String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                String rt = ""
+                if recv == "self" {
+                    rt = cls.text
+                } else {
+                    rt = self.declaredType(names, types, recv)
+                }
+                if self.sameClassType(rt, cls) && !self.listHas(out, mth) {
+                    out.push(mth)
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectClassCalls(n.kids.get(i), cls, names, types, out)
+            i = i + 1
+        }
+    }
+
+    Bool listHas(List<String> items, String value) {
+        Int i = 0
+        while i < items.length() {
+            if items.get(i) == value {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    String mangledTypeName(String ty) {
+        if !self.hasGenericSyntax(ty) {
+            return ty
+        }
+        String base = self.genericBase(ty)
+        List<String> args = self.genericArgsOf(ty)
+        String suffix = ""
+        Int i = 0
+        while i < args.length() {
+            if suffix != "" {
+                suffix = suffix + "_"
+            }
+            suffix = suffix + self.mangle(args.get(i).trim())
+            i = i + 1
+        }
+        return base + "__" + suffix
+    }
+
+    // Recursive generic shapes such as Seq<T>.chunk -> Seq<List<T>> make
+    // "clone every method of every instance" an infinite type family.  Keep
+    // only methods reachable from source calls (plus self/same-class calls)
+    // for each instantiation; fields, constructors, and static methods stay.
+    List<String> reachableMethods(AstNode cls, String iname, String sname) {
+        List<String> out = []
+        Int i = 0
+        while i < self.usedMethodTypes.length() {
+            String usedType = self.usedMethodTypes.get(i)
+            if (usedType == iname || self.mangledTypeName(usedType) == sname) &&
+               !self.listHas(out, self.usedMethodNames.get(i)) {
+                out.push(self.usedMethodNames.get(i))
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Ctor" {
+                List<String> cnames = []
+                List<String> ctypes = []
+                self.collectDeclTypes(cls.kids.get(i), cnames, ctypes)
+                self.collectClassCalls(cls.kids.get(i), cls, cnames, ctypes, out)
+            }
+            i = i + 1
+        }
+        Bool changed = true
+        while changed {
+            changed = false
+            i = 0
+            while i < cls.kids.length() {
+                AstNode m = cls.kids.get(i)
+                if m.kind == "Method" && self.listHas(out, m.text) {
+                    List<String> mnames = []
+                    List<String> mtypes = []
+                    self.collectDeclTypes(m, mnames, mtypes)
+                    List<String> calls = []
+                    self.collectClassCalls(m, cls, mnames, mtypes, calls)
+                    Int ci = 0
+                    while ci < calls.length() {
+                        if !self.listHas(out, calls.get(ci)) {
+                            out.push(calls.get(ci))
+                            changed = true
+                        }
+                        ci = ci + 1
+                    }
+                }
+                i = i + 1
+            }
+        }
+        return out
+    }
+
+    Bool methodIsStatic(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Static" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void collectUsedIn(AstNode fn) {
+        Int mark = self.scopeNames.length()
+        self.collectScope(fn)
+        self.scanUsed(fn)
+        while self.scopeNames.length() > mark {
+            self.scopeNames.remove(self.scopeNames.length() - 1)
+            self.scopeTypes.remove(self.scopeTypes.length() - 1)
+        }
+    }
+
+    Void scanUsed(AstNode n) {
+        if n.kind == "MethodCall" && n.kids.length() > 0 {
+            String recv = self.simpleExprType(n.kids.get(0))
+            if recv != "Any" {
+                self.usedMethodTypes.push(recv)
+                self.usedMethodNames.push(n.text)
+            }
+        }
+        if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recv = n.text.substring(0, dot)
+                String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                AstNode recvNode = new AstNode("Name", recv, n.line, n.col)
+                String rt = self.simpleExprType(recvNode)
+                if rt != "Any" {
+                    self.usedMethodTypes.push(rt)
+                    self.usedMethodNames.push(mth)
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.scanUsed(n.kids.get(i))
+            i = i + 1
+        }
+    }
+
+    Void collectUsedMethods() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" {
+                self.collectUsedIn(n)
+            }
+            if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode k = n.kids.get(j)
+                    if k.kind == "Method" || k.kind == "Ctor" {
+                        self.collectUsedIn(k)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+
     String methodReturnType(String recvType, String mth) {
         if recvType.startsWith("Result<") {
             String inner = recvType.substring(7, recvType.length() - 8)
@@ -2224,6 +2698,30 @@ class Mono {
             if mth == "has" || mth == "add" || mth == "remove" { return "Bool" }
             if mth == "clear" { return "Unit" }
             return "Any"
+        }
+        if self.hasGenericSyntax(recvType) {
+            String base = self.genericBase(recvType)
+            AstNode gc = self.findGenericClass(base)
+            if gc.kind != "None" {
+                List<String> gnames = self.typeParams(gc)
+                List<String> gargs = self.genericArgsOf(recvType)
+                if gnames.length() == gargs.length() {
+                    Int gi = 0
+                    while gi < gc.kids.length() {
+                        AstNode gm = gc.kids.get(gi)
+                        if gm.kind == "Method" && gm.text == mth {
+                            Int gr = 0
+                            while gr < gm.kids.length() {
+                                if gm.kids.get(gr).kind == "Ret" {
+                                    return self.substAll(gm.kids.get(gr).text, gnames, gargs)
+                                }
+                                gr = gr + 1
+                            }
+                        }
+                        gi = gi + 1
+                    }
+                }
+            }
         }
         AstNode cls = self.findClass(recvType)
         if cls.kind != "None" {
@@ -2365,6 +2863,9 @@ class Mono {
     }
 
     Bool inferTypePattern(String pattern, String actual, List<String> names, List<String> inferred) {
+        if pattern.length() > 1 && pattern.substring(pattern.length() - 1, 1) == "?" {
+            return self.inferTypePattern(pattern.substring(0, pattern.length() - 1), actual, names, inferred)
+        }
         Int ni = 0
         while ni < names.length() {
             if pattern == names.get(ni) {
@@ -2403,7 +2904,78 @@ class Mono {
         if pattern.indexOf("(") >= 0 && actual == "Any" {
             return true
         }
+        Int pparen = pattern.indexOf("(")
+        Int aparen = actual.indexOf("(")
+        if pparen > 0 && aparen > 0 {
+            String pret = pattern.substring(0, pparen).trim()
+            String aret = actual.substring(0, aparen).trim()
+            if !self.inferTypePattern(pret, aret, names, inferred) { return false }
+            String pin = pattern.substring(pparen + 1, pattern.length() - pparen - 2)
+            String ain = actual.substring(aparen + 1, actual.length() - aparen - 2)
+            List<String> pps = splitTop(pin)
+            List<String> aps = splitTop(ain)
+            if pps.length() != aps.length() { return false }
+            Int fi = 0
+            while fi < pps.length() {
+                if !self.inferTypePattern(pps.get(fi).trim(), aps.get(fi).trim(), names, inferred) { return false }
+                fi = fi + 1
+            }
+            return true
+        }
+        Int gp = pattern.indexOf("<")
+        if gp > 0 && actual.startsWith(pattern.substring(0, gp) + "__") {
+            String suffix = actual.substring(gp + 2, actual.length() - gp - 2)
+            List<String> aa = suffix.split("_")
+            List<String> pp = splitTop(pattern.substring(gp + 1, pattern.length() - gp - 2))
+            if pp.length() != aa.length() { return false }
+            Int gi = 0
+            while gi < pp.length() {
+                if !self.inferTypePattern(pp.get(gi).trim(), aa.get(gi).trim(), names, inferred) { return false }
+                gi = gi + 1
+            }
+            return true
+        }
+        Int ga = actual.indexOf("<")
+        if gp > 0 && ga > 0 && pattern.substring(pattern.length() - 1, 1) == ">" &&
+           actual.substring(actual.length() - 1, 1) == ">" &&
+           pattern.substring(0, gp) == actual.substring(0, ga) {
+            List<String> pp = splitTop(pattern.substring(gp + 1, pattern.length() - gp - 2))
+            List<String> aa = splitTop(actual.substring(ga + 1, actual.length() - ga - 2))
+            if pp.length() != aa.length() { return false }
+            Int gi = 0
+            while gi < pp.length() {
+                if !self.inferTypePattern(pp.get(gi).trim(), aa.get(gi).trim(), names, inferred) { return false }
+                gi = gi + 1
+            }
+            return true
+        }
         return pattern == actual
+    }
+
+    String angleFromMangled(String ty) {
+        Int u = ty.indexOf("__")
+        if u < 0 {
+            return ty
+        }
+        String base = ty.substring(0, u)
+        String rest = ty.substring(u + 2, ty.length() - u - 2)
+        if rest.length() > 0 && rest.substring(rest.length() - 1, 1) == "_" {
+            rest = rest.substring(0, rest.length() - 1)
+        }
+        if rest == "" {
+            return ty
+        }
+        List<String> parts = rest.split("_")
+        String joined = ""
+        Int i = 0
+        while i < parts.length() {
+            if parts.get(i) != "" {
+                if joined != "" { joined = joined + "," }
+                joined = joined + parts.get(i)
+            }
+            i = i + 1
+        }
+        return base + "<" + joined + ">"
     }
 
     String typeArgsFor(AstNode call) {
@@ -2421,7 +2993,7 @@ class Mono {
         List<String> actual = []
         Int ai = 0
         while ai < call.kids.length() {
-            actual.push(self.argType(call.kids.get(ai)))
+            actual.push(self.angleFromMangled(self.argType(call.kids.get(ai))))
             ai = ai + 1
         }
         List<String> inferred = []
@@ -2500,6 +3072,7 @@ class Mono {
     }
 
     AstNode walk(AstNode n) {
+        if n.kind == "MethodCall" || n.kind == "Call" { n = self.rewriteGenericMethodCall(n) }
         Bool isFn = n.kind == "Func"
         if isFn {
             self.collectScope(n)
@@ -2535,6 +3108,10 @@ class Mono {
 
     AstNode cloneAst(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -2595,7 +3172,266 @@ class Mono {
         }
     }
 
+    String gmName(String className, String methodName) {
+        return "__gm_" + className + "_" + methodName
+    }
+
+    AstNode replaceSelf(AstNode n) {
+        AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.packageName = n.packageName
+        c.resolvedAnnotationName = n.resolvedAnnotationName
+        c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
+        if n.kind == "Name" && n.text == "self" { c.text = "__self" }
+        if n.kind == "Call" && n.text.startsWith("self.") { c.text = "__self." + n.text.substring(5, n.text.length() - 5) }
+        Int i = 0
+        while i < n.kids.length() { c.add(self.replaceSelf(n.kids.get(i))); i = i + 1 }
+        return c
+    }
+
+    Void desugarGenericMethods() {
+        Int ci = 0
+        while ci < self.program.kids.length() {
+            AstNode cls = self.program.kids.get(ci)
+            if cls.kind == "Class" || cls.kind == "Struct" {
+                List<String> classParams = self.typeParams(cls)
+                List<Int> removeAt = []
+                Int mi = 0
+                while mi < cls.kids.length() {
+                    AstNode m = cls.kids.get(mi)
+                    if m.kind == "Method" && self.hasTypeParams(m) {
+                        List<String> methodParams = self.typeParams(m)
+                        Bool isStatic = self.methodIsStatic(m)
+                        List<String> combined = []
+                        Int pi = 0
+                        if !isStatic {
+                            while pi < classParams.length() { combined.push(classParams.get(pi)); pi = pi + 1 }
+                        }
+                        pi = 0
+                        while pi < methodParams.length() {
+                            Bool found = false
+                            Int qi = 0
+                            while qi < combined.length() {
+                                if combined.get(qi) == methodParams.get(pi) { found = true; break }
+                                qi = qi + 1
+                            }
+                            if !found { combined.push(methodParams.get(pi)) }
+                            pi = pi + 1
+                        }
+                        AstNode fn = new AstNode("Func", self.gmName(cls.text, m.text), m.line, m.col)
+                        fn.packageName = cls.packageName
+                        AstNode tp = new AstNode("TypeParams", "", m.line, m.col)
+                        pi = 0
+                        while pi < combined.length() { tp.add(new AstNode("TypeParam", combined.get(pi), m.line, m.col)); pi = pi + 1 }
+                        fn.add(tp)
+                        pi = 0
+                        while pi < m.kids.length() {
+                            AstNode k = m.kids.get(pi)
+                            if k.kind == "Ret" { fn.add(self.replaceSelf(k)) }
+                            pi = pi + 1
+                        }
+                        if !isStatic {
+                            String recvType = cls.text
+                            if classParams.length() > 0 { recvType = cls.text + "<" + self.joinTypeArgs(classParams) + ">" }
+                            fn.add(new AstNode("Param", recvType + " __self", m.line, m.col))
+                        }
+                        pi = 0
+                        while pi < m.kids.length() {
+                            AstNode k = m.kids.get(pi)
+                            if k.kind == "Param" || k.kind == "Block" { fn.add(self.replaceSelf(k)) }
+                            pi = pi + 1
+                        }
+                        self.program.add(fn)
+                        self.gmClasses.push(cls.text)
+                        self.gmMethods.push(m.text)
+                        if isStatic { self.gmStatic.push(1) } else { self.gmStatic.push(0) }
+                        removeAt.push(mi)
+                    }
+                    mi = mi + 1
+                }
+                Int ri = removeAt.length() - 1
+                while ri >= 0 { cls.kids.remove(removeAt.get(ri)); ri = ri - 1 }
+            }
+            ci = ci + 1
+        }
+    }
+
+    AstNode rewriteGenericMethodCall(AstNode n) {
+        String className = ""
+        String classArgsText = ""
+        AstNode recv = new AstNode("None", "", n.line, n.col)
+        Bool methodCall = n.kind == "MethodCall"
+        Bool receiverInKids = n.kind == "MethodCall"
+        if methodCall && n.kids.length() > 0 {
+            recv = n.kids.get(0)
+            if recv.kind == "Call" || recv.kind == "MethodCall" {
+                recv = self.rewriteGenericMethodCall(recv)
+                n.setKid(0, recv)
+            }
+            String rt = self.simpleExprType(recv)
+            if rt != "Any" {
+                if rt.startsWith("Box<") || rt.indexOf("<") > 0 {
+                    classArgsText = self.joinTypeArgs(self.genericArgsOf(rt))
+                } else if rt.indexOf("__") > 0 {
+                    classArgsText = rt.substring(rt.indexOf("__") + 2, rt.length() - rt.indexOf("__") - 2).replace("_", ",")
+                }
+                className = self.genericBase(rt)
+                Int uu = className.indexOf("__")
+                if uu > 0 {
+                    String baseCandidate = className.substring(0, uu)
+                    if self.isGenericMethod(baseCandidate, n.text) { className = baseCandidate }
+                }
+            }
+            else if recv.kind == "Name" && self.findClass(recv.text).kind != "None" { className = recv.text }
+        } else if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recvName = n.text.substring(0, dot)
+                AstNode recvNode = new AstNode("Name", recvName, n.line, n.col)
+                String rt = self.simpleExprType(recvNode)
+                if rt != "Any" {
+                    className = self.genericBase(rt)
+                    Int uu = className.indexOf("__")
+                    if uu > 0 {
+                        String baseCandidate = className.substring(0, uu)
+                        if self.isGenericMethod(baseCandidate, n.text.substring(dot + 1, n.text.length() - dot - 1)) { className = baseCandidate }
+                    }
+                    methodCall = true
+                    recv = recvNode
+                } else {
+                    className = recvName
+                }
+            }
+        }
+        if className == "" { return n }
+        String originalName = n.text
+        if n.kind == "Call" {
+            Int dot2 = lastDot(n.text)
+            if dot2 > 0 { originalName = n.text.substring(dot2 + 1, n.text.length() - dot2 - 1) }
+        }
+        if !self.isGenericMethod(className, originalName) { return n }
+        Bool isStatic = self.isGenericMethodStatic(className, originalName)
+        String gname = self.gmName(className, originalName)
+        AstNode call = new AstNode("Call", gname, n.line, n.col)
+        Int start = 0
+        if methodCall {
+            if !isStatic { call.add(recv) }
+            if receiverInKids { start = 1 }
+        }
+        if start < n.kids.length() && n.kids.get(start).kind == "TypeArgs" {
+            String explicitArgs = n.kids.get(start).text
+            String combinedArgs = explicitArgs
+            if classArgsText != "" { combinedArgs = classArgsText + "," + explicitArgs }
+            AstNode gf = self.findGeneric(gname)
+            if gf.kind == "Func" {
+                String sname = self.specialize(gf, splitTop(combinedArgs))
+                if sname != "" { call.text = sname }
+            }
+            start = start + 1
+        }
+        while start < n.kids.length() { call.add(n.kids.get(start)); start = start + 1 }
+        if call.text == gname {
+            String inferredArgs = self.typeArgsFor(call)
+            if inferredArgs != "" {
+                AstNode gf2 = self.findGeneric(gname)
+                if gf2.kind == "Func" {
+                    String sname = self.specialize(gf2, splitTop(inferredArgs))
+                    if sname != "" { call.text = sname }
+                }
+            }
+        }
+        return call
+    }
+
+    String firstTypeToken(String text) {
+        Int i = 0
+        while i < text.length() {
+            if text.substring(i, 1) == " " { return text.substring(0, i) }
+            i = i + 1
+        }
+        return text
+    }
+
+    AstNode inferGenericStaticCall(AstNode n, String expected) {
+        if n.kind != "Call" || expected == "" {
+            return n
+        }
+        AstNode fn = self.findGeneric(n.text)
+        if fn.kind != "Func" {
+            return n
+        }
+        List<String> names = self.typeParams(fn)
+        if names.length() == 0 {
+            return n
+        }
+        List<String> inferred = []
+        Int i = 0
+        while i < names.length() {
+            inferred.push("")
+            i = i + 1
+        }
+        if !self.inferTypePattern(self.retTypeText(fn), expected, names, inferred) {
+            return n
+        }
+        Int k = 0
+        while k < inferred.length() {
+            if inferred.get(k) == "" { return n }
+            k = k + 1
+        }
+        String sname = self.specialize(fn, inferred)
+        if sname != "" { n.text = sname }
+        return n
+    }
+
+    Bool inferGenericStaticCalls(AstNode n, String expected, String curRet) {
+        if self.hasTypeParams(n) {
+            return false
+        }
+        Bool changed = false
+        if n.kind == "Call" {
+            String before = n.text
+            n = self.inferGenericStaticCall(n, expected)
+            if n.text != before { changed = true }
+        }
+        String childExpected = ""
+        String childRet = curRet
+        if n.kind == "Local" || n.kind == "Field" {
+            childExpected = self.firstTypeToken(n.text)
+        } else if n.kind == "Return" {
+            childExpected = curRet
+        } else if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
+            childRet = self.retTypeText(n)
+        }
+        Bool childChanged = false
+        Int i = 0
+        while i < n.kids.length() {
+            if self.inferGenericStaticCalls(n.kids.get(i), childExpected, childRet) {
+                childChanged = true
+            }
+            i = i + 1
+        }
+        if (n.kind == "Local" || n.kind == "Field") && childChanged {
+            n.text = self.rewriteType(n.text)
+        }
+        if n.kind == "New" {
+            n.text = self.rewriteType(n.text)
+        }
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
+            Int ri = 0
+            while ri < n.kids.length() {
+                if n.kids.get(ri).kind == "Ret" {
+                    n.kids.get(ri).text = self.rewriteType(n.kids.get(ri).text)
+                }
+                ri = ri + 1
+            }
+        }
+        if childChanged { changed = true }
+        return changed
+    }
+
     AstNode run() {
+        self.desugarGenericMethods()
+        self.collectUsedMethods()
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
@@ -2615,6 +3451,7 @@ class Mono {
             }
             i = i + 1
         }
+        self.inferGenericStaticCalls(self.program, "", "")
         return self.program
     }
 }
@@ -2882,12 +3719,48 @@ class AnnotationChecker {
     Int findType(String name) {
         Int i = 0
         while i < self.types.length() {
-            if self.types.get(i).name == name {
-                return i
+            if self.types.get(i).name == name { return i }
+            i = i + 1
+        }
+        if name.indexOf(".") >= 0 { return -1 }
+        Int found = -1
+        i = 0
+        while i < self.types.length() {
+            String candidate = self.types.get(i).name
+            Int dot = candidate.length() - 1
+            while dot >= 0 {
+                if candidate.substring(dot, 1) == "." { break }
+                dot = dot - 1
+            }
+            String simple = candidate
+            if dot >= 0 { simple = candidate.substring(dot + 1, candidate.length() - dot - 1) }
+            if simple == name {
+                if found >= 0 { return -1 }
+                found = i
             }
             i = i + 1
         }
-        return -1
+        return found
+    }
+
+    Int findTypeFor(String name, String ownerPkg) {
+        if name.indexOf(".") >= 0 { return self.findType(name) }
+        Int found = -1
+        Int hits = 0
+        String own = ownerPkg + "." + name
+        Int direct = self.findType(own)
+        if direct >= 0 { return direct }
+        Int i = 0
+        while i < unitImportOwners.length() {
+            if unitImportOwners.get(i) == ownerPkg {
+                Int candidate = self.findType(unitImportPkgs.get(i) + "." + name)
+                if candidate >= 0 { found = candidate; hits = hits + 1 }
+            }
+            i = i + 1
+        }
+        if hits == 1 { return found }
+        if hits > 1 { return -2 }
+        return self.findType(name)
     }
 
     Void addBuiltin(String name, List<String> targets, Bool repeatable) {
@@ -2971,6 +3844,9 @@ class AnnotationChecker {
     String constType(AstNode n) {
         if n.kind == "Int" {
             return "Int"
+        }
+        if n.kind == "Long" {
+            return "Long"
         }
         if n.kind == "Double" {
             return "Double"
@@ -3129,10 +4005,13 @@ class AnnotationChecker {
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
             if n.kind == "AnnotationDecl" {
-                if self.findType(n.text) >= 0 {
-                    self.fail("AN0001", "duplicate annotation type: " + n.text, n)
+                String pkg = declPackageOf(n)
+                String qualified = n.text
+                if pkg != "" { qualified = pkg + "." + n.text }
+                if self.findType(qualified) >= 0 {
+                    self.fail("AN0001", "duplicate annotation type: " + qualified, n)
                 } else {
-                    self.types.push(new AnnotationType(n.text, self.declTargets(), "Binary", false))
+                    self.types.push(new AnnotationType(qualified, self.declTargets(), "Binary", false))
                 }
             }
             i = i + 1
@@ -3140,15 +4019,17 @@ class AnnotationChecker {
     }
 
     Void validateAnnotationDecl(AstNode d) {
-        Int ti = self.findType(d.text)
+        Int ti = self.findTypeFor(d.text, declPackageOf(d))
         if ti < 0 {
             return
         }
-        if self.listHas(self.validated, d.text) {
+        String validateKey = d.text
+        if declPackageOf(d) != "" { validateKey = declPackageOf(d) + "." + d.text }
+        if self.listHas(self.validated, validateKey) {
             self.validateUses(d, "Annotation", d)
             return
         }
-        self.validated.push(d.text)
+        self.validated.push(validateKey)
         AnnotationType t = self.types.get(ti)
         Bool hasTarget = false
         Int i = 0
@@ -3243,18 +4124,36 @@ class AnnotationChecker {
         Int i = 0
         while i < owner.annotations.length() && !self.hasError() {
             AstNode use = owner.annotations.get(i)
-            self.validateUse(use, target, owner, scope, i)
+            self.validateUse(use, target, owner, owner.annotations, scope, i)
             i = i + 1
         }
     }
 
-    Void validateUse(AstNode use, String target, AstNode owner, AstNode scope, Int index) {
+    Void validateTypeUses(AstNode owner, AstNode scope) {
+        Int i = 0
+        while i < owner.typeAnnotations.length() && !self.hasError() {
+            AstNode use = owner.typeAnnotations.get(i)
+            self.validateUse(use, "TypeUse", owner, owner.typeAnnotations, scope, i)
+            i = i + 1
+        }
+    }
+
+    Void validateUse(AstNode use, String target, AstNode owner, List<AstNode> uses, AstNode scope, Int index) {
+        if use.annotationError != "" {
+            self.failAt("AN0001", use.annotationError, use, scope)
+            return
+        }
         String name = use.text
+        if use.resolvedAnnotationName != "" { name = use.resolvedAnnotationName }
         if self.isReserved(name) {
             self.failAt("AN0001", "reserved annotation cannot be used: @" + name, use, scope)
             return
         }
-        Int ti = self.findType(name)
+        Int ti = self.findTypeFor(name, declPackageOf(owner))
+        if ti == -2 {
+            self.failAt("AN0001", "ambiguous annotation: @" + name, use, scope)
+            return
+        }
         if ti < 0 {
             self.failAt("AN0001", "unknown annotation: @" + name, use, scope)
             return
@@ -3280,8 +4179,8 @@ class AnnotationChecker {
         }
         Int dup = 0
         Int j = 0
-        while j < index {
-            if owner.annotations.get(j).text == name {
+        while j < index && j < uses.length() {
+            if uses.get(j).text == name {
                 dup = dup + 1
             }
             j = j + 1
@@ -3366,7 +4265,7 @@ class AnnotationChecker {
                 } else if !self.accepts(t.fieldTypes.get(k), v) {
                     self.failAt("AN0006", "argument " + str(k + 1) + " of @" + name + " expects " + t.fieldTypes.get(k), use, scope)
                 } else if v.kind == "AnnotationUse" {
-                    self.validateUse(v, "", v, scope, 0)
+                    self.validateUse(v, "", v, v.annotations, scope, 0)
                 }
             } else if t.fieldRequired.get(k) == "1" {
                 self.failAt("AN0004", "missing required argument " + t.fieldNames.get(k) + " for @" + name, use, scope)
@@ -3468,7 +4367,7 @@ class AnnotationChecker {
         }
         if n.kind == "AnnotatedExpr" {
             if n.kids.length() > 0 {
-                self.validateUse(n.kids.get(0), "Expression", n, n, 0)
+                self.validateUse(n.kids.get(0), "Expression", n, n.annotations, n, 0)
             }
             if n.kids.length() > 1 {
                 self.checkExpr(n.kids.get(1), n)
@@ -3489,6 +4388,8 @@ class AnnotationChecker {
             t = "Method"
         } else if n.kind == "Ctor" {
             t = "Constructor"
+        } else if n.kind == "Deinit" {
+            t = "Deinit"
         } else if n.kind == "Field" {
             t = "Field"
         } else if n.kind == "Param" {
@@ -3510,8 +4411,9 @@ class AnnotationChecker {
         }
         if target != "AnnotationField" {
             self.validateUses(n, t, n)
+            self.validateTypeUses(n, n)
         }
-        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" {
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
             Int i = 0
             while i < n.kids.length() && !self.hasError() {
                 AstNode k = n.kids.get(i)
@@ -3535,7 +4437,7 @@ class AnnotationChecker {
                         j = j + 1
                     }
                 } else if k.kind == "Field" || k.kind == "Method" || k.kind == "Ctor" ||
-                          k.kind == "EnumItem" || k.kind == "Sig" {
+                          k.kind == "Deinit" || k.kind == "EnumItem" || k.kind == "Sig" {
                     self.checkDecl(k, "")
                 }
                 i = i + 1
@@ -3569,6 +4471,20 @@ class AnnotationChecker {
     Void checkExpr(AstNode n, AstNode owner) {
         if self.hasError() {
             return
+        }
+        if n.kind == "Call" || n.kind == "MethodCall" {
+            String dn = n.text
+            Bool isDeinitCall = dn == "deinit" || dn.endsWith(".deinit")
+            if isDeinitCall {
+                Bool superCall = dn == "super.deinit"
+                if n.kind == "MethodCall" && n.kids.length() > 0 {
+                    superCall = self.pathOf(n.kids.get(0)) == "super"
+                }
+                if !superCall {
+                    self.fail("SEM-001", "deinit cannot be called explicitly", n)
+                    return
+                }
+            }
         }
         if n.kind == "Call" || n.kind == "GenericCall" {
             if self.listHas(self.depFuncs, n.text) {
@@ -3914,6 +4830,7 @@ class Checker {
         self.errorLine = 1
         self.errorCol = 1
         self.curRet = "Unit"
+        self.curClass = ""
     }
 
     Bool hasError() {
@@ -4138,9 +5055,40 @@ class Checker {
         return "Any"
     }
 
+    String demangleType(String ty) {
+        Int u = ty.indexOf("__")
+        if u < 0 {
+            return ty
+        }
+        String base = ty.substring(0, u)
+        String rest = ty.substring(u + 2, ty.length() - u - 2)
+        if rest.length() > 0 && rest.substring(rest.length() - 1, 1) == "_" {
+            rest = rest.substring(0, rest.length() - 1)
+        }
+        if rest == "" {
+            return ty
+        }
+        List<String> parts = rest.split("_")
+        String joined = ""
+        Int i = 0
+        while i < parts.length() {
+            if parts.get(i) != "" {
+                if joined != "" { joined = joined + "," }
+                joined = joined + parts.get(i)
+            }
+            i = i + 1
+        }
+        return base + "<" + joined + ">"
+    }
+
     Bool sameType(String a, String b) {
         if a == b {
             return true
+        }
+        String da = self.demangleType(a)
+        String db = self.demangleType(b)
+        if da != a || db != b {
+            return self.sameType(da, db)
         }
         if b == "Null" && (a == "Any" || (a.length() > 1 && a.substring(a.length() - 1, 1) == "?")) {
             return true
@@ -4149,7 +5097,7 @@ class Checker {
             return true
         }
         if self.isListType(a) && self.isListType(b) {
-            return self.elementType(a) == self.elementType(b)
+            return self.sameType(self.elementType(a), self.elementType(b))
         }
         if (a == "Int" || a == "Int32" || a == "Int64" || a == "Long") &&
            (b == "Int" || b == "Int32" || b == "Int64" || b == "Long") {
@@ -4491,9 +5439,16 @@ class Checker {
 
     Void checkClass(AstNode cls) {
         self.curClass = cls.text
+        Int deinitCount = 0
         Int i = 0
         while i < cls.kids.length() && !self.hasError() {
             AstNode k = cls.kids.get(i)
+            if k.kind == "Deinit" {
+                deinitCount = deinitCount + 1
+                if deinitCount > 1 {
+                    self.fail("SEM-001", "duplicate deinit in " + cls.text, k)
+                }
+            }
             if k.kind == "Field" {
                 List<String> parts = k.text.split(" ")
                 if parts.length() >= 2 {
@@ -4502,13 +5457,13 @@ class Checker {
                     }
                     if k.kids.length() > 0 {
                         String it = self.typeOf(k.kids.get(0))
-                        if it != "Error" && it != parts.get(0) && !(self.isEmptyArray(k.kids.get(0)) && self.isListType(parts.get(0))) {
+                        if it != "Error" && !self.sameType(parts.get(0), it) && !(self.isEmptyArray(k.kids.get(0)) && self.isListType(parts.get(0))) {
                             self.fail("SEM-003", "field " + parts.get(1) + " expects " + parts.get(0) + ", got " + it, k)
                         }
                     }
                 }
             }
-            if k.kind == "Method" || k.kind == "Ctor" {
+            if k.kind == "Method" || k.kind == "Ctor" || k.kind == "Deinit" {
                 self.checkFunc(k)
             }
             i = i + 1
@@ -4517,7 +5472,7 @@ class Checker {
     }
 
     Void checkFunc(AstNode fn) {
-        if fn.kind == "Ctor" {
+        if fn.kind == "Ctor" || fn.kind == "Deinit" {
             self.curRet = "Unit"
         } else if fn.kind == "Method" {
             self.curRet = self.retOf(fn)
@@ -5123,6 +6078,9 @@ class Checker {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Long" {
+            return "Long"
+        }
         if n.kind == "Double" {
             return "Double"
         }
@@ -5273,12 +6231,23 @@ class Checker {
                     return "Double"
                 }
             }
-            if n.text == "&" || n.text == "|" || n.text == "^" || n.text == "<<" || n.text == ">>" {
-                if lt != "Int" || rt != "Int" {
-                    self.fail("SEM-003", "operator " + n.text + " needs Int, got " + lt + "/" + rt, n)
-                    return "Error"
+            if n.text == "&" || n.text == "|" || n.text == "^" {
+                if lt == rt && (lt == "Int" || lt == "Long" || lt == "Int32" || lt == "Int64") {
+                    return lt
                 }
-                return "Int"
+                self.fail("SEM-003", "operator " + n.text + " needs matching Int/Long, got " + lt + "/" + rt, n)
+                return "Error"
+            }
+            if n.text == "<<" || n.text == ">>" {
+                Bool wideLeft = lt == "Long" || lt == "Int64" || lt == "Int32"
+                Bool narrowLeft = lt == "Int"
+                Bool shiftCount = rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long"
+                if (wideLeft || narrowLeft) && shiftCount {
+                    if wideLeft { return lt }
+                    return "Int"
+                }
+                self.fail("SEM-003", "operator " + n.text + " needs Int/Long left and Int right, got " + lt + "/" + rt, n)
+                return "Error"
             }
             if (lt == "Int128" || rt == "Int128") {
                 return "Int128"
@@ -5328,6 +6297,7 @@ class Checker {
 
     String syntacticType(AstNode n) {
         if n.kind == "Int" { return "Int" }
+        if n.kind == "Long" { return "Long" }
         if n.kind == "Double" { return "Double" }
         if n.kind == "Bool" { return "Bool" }
         if n.kind == "Char" { return "Char" }
@@ -5883,6 +6853,9 @@ class Checker {
                 self.typeOf(n.kids.get(0))
             }
             return self.curRet
+        }
+        if n.text == "super.deinit" {
+            return "Unit"
         }
         Int dot = lastDot(n.text)
         if dot >= 0 {
@@ -6781,6 +7754,15 @@ class CGen {
             if elementType == "Bytes" {
                 return "((xrt_bytes_obj *)" + call + ")"
             }
+            if self.isArray(elementType) {
+                return "((" + self.arrayCName(elementType) + " *)" + call + ")"
+            }
+            if self.isMap(elementType) {
+                return "((xn_map_g *)" + call + ")"
+            }
+            if self.isSet(elementType) {
+                return "((xn_set_g *)" + call + ")"
+            }
             return "((xn_Cls_" + elementType + " *)" + call + ")"
         }
         return call
@@ -7162,6 +8144,7 @@ class CGen {
 
     String syntacticType(AstNode n) {
         if n.kind == "Int" { return "Int" }
+        if n.kind == "Long" { return "Long" }
         if n.kind == "Double" { return "Double" }
         if n.kind == "Bool" { return "Bool" }
         if n.kind == "Char" { return "Char" }
@@ -8730,6 +9713,9 @@ class CGen {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Long" {
+            return "Long"
+        }
         if n.kind == "Double" {
             return "Double"
         }
@@ -8848,6 +9834,9 @@ class CGen {
             return self.methodType(self.typeOf(n.kids.get(0)), n.text, n)
         }
         if n.kind == "Call" {
+            if n.text == "super.deinit" {
+                return "Unit"
+            }
             if n.text == "xdkAnnotationRegistry" {
                 return "AnnotationRegistry"
             }
@@ -9159,6 +10148,9 @@ class CGen {
             }
             return n.text
         }
+        if n.kind == "Long" {
+            return n.text
+        }
         if n.kind == "Double" {
             return n.text
         }
@@ -9305,6 +10297,14 @@ class CGen {
                     return "(!xn_str_eq(" + a + ", " + b + "))"
                 }
             }
+            if (lt == "Long" || lt == "Int64" || lt == "Int32") && (rt == "Int" || rt == "Int32" || rt == "Int64" || rt == "Long") {
+                if n.text == "<<" {
+                    return "xn_long_shl(" + a + ", " + b + ")"
+                }
+                if n.text == ">>" {
+                    return "xn_long_shr(" + a + ", " + b + ")"
+                }
+            }
             if lt == "Int" && rt == "Int" {
                 if n.text == "<<" {
                     return "xn_int_shl(" + a + ", " + b + ")"
@@ -9328,6 +10328,13 @@ class CGen {
             return self.methodExpr(bv, bt, n.text, n, 1)
         }
         if n.kind == "Call" {
+            if n.text == "super.deinit" {
+                AstNode cur = self.classByName(self.curClass)
+                String base = ""
+                if cur.kind != "None" { base = self.baseNameOf(cur) }
+                if base != "" { return "xn_Cls_" + base + "_deinit((void *)self)" }
+                return "((void)0)"
+            }
             Int fvi = self.varIndex(n.text)
             if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
                 return self.closureCall(self.varTypes.get(fvi), self.nameExpr(n.text), n)
@@ -10532,8 +11539,90 @@ class CGen {
         return new AstNode("None", "", cls.line, cls.col)
     }
 
+    AstNode deinitOf(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Deinit" {
+                return cls.kids.get(i)
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", cls.line, cls.col)
+    }
+
+    String baseNameOf(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Base" {
+                return cls.kids.get(i).text
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    AstNode classByName(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" && n.text == name {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    Bool hasSuperDeinitCall(AstNode n) {
+        if n.kind == "Call" && n.text == "super.deinit" {
+            return true
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            if self.hasSuperDeinitCall(n.kids.get(i)) {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void deinitMethod(AstNode d, String cn) {
+        self.curClass = cn
+        self.curRet = "Unit"
+        self.emit("static void xn_Cls_" + cn + "_deinit(void *payload) {")
+        self.emit("  xn_Cls_" + cn + " *self = (xn_Cls_" + cn + " *)payload;")
+        self.popTo(0)
+        self.addVar(cn, "self")
+        Int i = 0
+        while i < d.kids.length() {
+            AstNode k = d.kids.get(i)
+            if k.kind == "Block" {
+                self.blockBody(k, "  ")
+            }
+            i = i + 1
+        }
+        self.popTo(0)
+        AstNode cur = self.classByName(cn)
+        String base = self.baseNameOf(cur)
+        if base != "" {
+            AstNode bc = self.classByName(base)
+            if bc.kind != "None" && self.deinitOf(bc).kind != "None" && !self.hasSuperDeinitCall(d) {
+                self.emit("  xn_Cls_" + base + "_deinit(payload);")
+            }
+        }
+        self.curClass = ""
+        self.curRet = "Int"
+        self.emit("}")
+        self.emit("")
+    }
+
     Void genClass(AstNode cls) {
         String cn = cls.text
+        AstNode dinit = self.deinitOf(cls)
+        if dinit.kind != "None" {
+            self.emit("static void xn_Cls_" + cn + "_deinit(void *payload);")
+        }
         self.emit("struct xn_Cls_" + cn + " {")
         self.emit("  rt_header hdr;")
         Int i = 0
@@ -10549,7 +11638,11 @@ class CGen {
         }
         self.emit("};")
         self.emit("")
-        self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), NULL, NULL };")
+        String deinitPtr = "NULL"
+        if dinit.kind != "None" {
+            deinitPtr = "xn_Cls_" + cn + "_deinit"
+        }
+        self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), " + deinitPtr + ", NULL };")
         self.emit("")
         AstNode ctor = self.ctorOf(cls)
         String csig = "static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new("
@@ -10648,6 +11741,9 @@ class CGen {
             }
             i = i + 1
         }
+        if dinit.kind != "None" {
+            self.deinitMethod(dinit, cn)
+        }
     }
 
     String funcProto(AstNode fn) {
@@ -10732,12 +11828,77 @@ class CGen {
         return ""
     }
 
-    String annotationQualified(String name) {
-        String pkg = self.annotationPackageName()
-        if pkg == "" {
-            return name
+    String annotationQualifiedFor(String name, String ownerPkg) {
+        if name.indexOf(".") >= 0 { return name }
+        AstNode d = self.annotationFindDeclFor(name, ownerPkg)
+        if d.kind == "None" {
+            if ownerPkg == "" { return name }
+            return ownerPkg + "." + name
         }
+        String pkg = declPackageOf(d)
+        if pkg == "" { return name }
         return pkg + "." + name
+    }
+
+    String annotationQualified(String name) {
+        if name.indexOf(".") >= 0 { return name }
+        return self.annotationQualifiedFor(name, rootPackageName)
+    }
+
+    String typeTextOf(AstNode n) {
+        if n.kind == "Ret" { return n.text }
+        if n.kind == "Method" || n.kind == "Func" || n.kind == "Sig" { return self.retNode(n).text }
+        List<String> parts = n.text.split(" ")
+        if parts.length() >= 1 { return parts.get(0) }
+        return n.text
+    }
+
+    Bool knownTypeName(String ty) {
+        if self.isClass(ty) { return true }
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Enum" || n.kind == "Protocol") && n.text == ty { return true }
+            i = i + 1
+        }
+        return false
+    }
+
+    String qualifiedTypeName(String ty, String ownerPkg) {
+        if ty == "" || ty.indexOf(".") >= 0 { return ty }
+        if self.knownTypeName(ty) && ownerPkg != "" { return ownerPkg + "." + ty }
+        return ty
+    }
+
+    Void collectTypeUses(AstNode node, String targetName, String ownerPkg,
+                         List<AnnotationUseMeta> out) {
+        String typeName = self.qualifiedTypeName(self.typeTextOf(node), ownerPkg)
+        Int i = 0
+        while i < node.typeAnnotations.length() {
+            AstNode use = node.typeAnnotations.get(i)
+            String useName = use.text
+            if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+            AstNode decl = self.annotationFindDeclFor(useName, ownerPkg)
+            if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
+                out.push(new AnnotationUseMeta(use, decl, typeName, "TypeUse", targetName, i + 1))
+            }
+            i = i + 1
+        }
+    }
+
+    Void collectTypeUseLocals(AstNode n, String methodOwner, String ownerPkg,
+                              List<AnnotationUseMeta> out) {
+        if n.kind == "Local" && n.typeAnnotations.length() > 0 {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 {
+                self.collectTypeUses(n, methodOwner + "#local:" + parts.get(1), ownerPkg, out)
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectTypeUseLocals(n.kids.get(i), methodOwner, ownerPkg, out)
+            i = i + 1
+        }
     }
 
     String annotationStringText(AstNode n) {
@@ -10781,15 +11942,50 @@ class CGen {
         return path
     }
 
-    AstNode annotationFindDecl(String name) {
+    AstNode annotationFindDeclFor(String name, String ownerPkg) {
+        String simple = name
+        String exactPkg = ""
+        Int dot = name.length() - 1
+        while dot >= 0 {
+            if name.substring(dot, 1) == "." { exactPkg = name.substring(0, dot); simple = name.substring(dot + 1, name.length() - dot - 1); break }
+            dot = dot - 1
+        }
+        if exactPkg != "" {
+            Int i = 0
+            while i < self.program.kids.length() {
+                AstNode n = self.program.kids.get(i)
+                if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == exactPkg { return n }
+                i = i + 1
+            }
+            return new AstNode("None", "", 1, 1)
+        }
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
-            if n.kind == "AnnotationDecl" && n.text == name {
-                return n
+            if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == ownerPkg { return n }
+            i = i + 1
+        }
+        i = 0
+        while i < unitImportOwners.length() {
+            if unitImportOwners.get(i) == ownerPkg {
+                Int j = 0
+                while j < self.program.kids.length() {
+                    AstNode n = self.program.kids.get(j)
+                    if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == unitImportPkgs.get(i) { return n }
+                    j = j + 1
+                }
             }
             i = i + 1
         }
+        AstNode found = new AstNode("None", "", 1, 1)
+        Int hits = 0
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" && n.text == simple { found = n; hits = hits + 1 }
+            i = i + 1
+        }
+        if hits == 1 { return found }
         return new AstNode("None", "", 1, 1)
     }
 
@@ -10863,7 +12059,9 @@ class CGen {
         Int i = 0
         while i < node.annotations.length() {
             AstNode use = node.annotations.get(i)
-            AstNode decl = self.annotationFindDecl(use.text)
+            String useName = use.text
+            if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+            AstNode decl = self.annotationFindDeclFor(useName, declPackageOf(node))
             if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
                 Int repeat = 1
                 Int j = 0
@@ -10876,7 +12074,7 @@ class CGen {
                 out.push(new AnnotationUseMeta(
                     use,
                     decl,
-                    self.annotationQualified(use.text),
+                    self.annotationQualifiedFor(useName, declPackageOf(node)),
                     target,
                     targetName,
                     repeat
@@ -10897,7 +12095,7 @@ class CGen {
     }
 
     Void collectAnnotationClass(AstNode cls, List<AnnotationUseMeta> out) {
-        String owner = self.annotationQualified(cls.text)
+        String owner = self.annotationQualifiedFor(cls.text, declPackageOf(cls))
         self.collectAnnotationUses(cls, "Type", owner, out)
         Int i = 0
         while i < cls.kids.length() {
@@ -10916,16 +12114,35 @@ class CGen {
                 String tn = owner + "#<init>(" + self.annotationParamTypes(k) + ")"
                 self.collectAnnotationUses(k, "Constructor", tn, out)
                 self.collectAnnotationParams(k, tn, out)
+                List<AstNode> cps = self.paramsOf(k)
+                Int cpi = 0
+                while cpi < cps.length() {
+                    self.collectTypeUses(cps.get(cpi), tn + "#" + str(cpi), declPackageOf(cls), out)
+                    cpi = cpi + 1
+                }
+                self.collectTypeUseLocals(k, tn, declPackageOf(cls), out)
             }
             if k.kind == "Method" {
                 String tn = owner + "#" + k.text + "(" + self.annotationParamTypes(k) + ")"
                 self.collectAnnotationUses(k, "Method", tn, out)
                 self.collectAnnotationParams(k, tn, out)
+                self.collectTypeUses(k, tn + "#return", declPackageOf(cls), out)
+                List<AstNode> mps = self.paramsOf(k)
+                Int mpi = 0
+                while mpi < mps.length() {
+                    self.collectTypeUses(mps.get(mpi), tn + "#" + str(mpi), declPackageOf(cls), out)
+                    mpi = mpi + 1
+                }
+                self.collectTypeUseLocals(k, tn, declPackageOf(cls), out)
+            }
+            if k.kind == "Deinit" {
+                self.collectAnnotationUses(k, "Deinit", owner + "#deinit()", out)
             }
             if k.kind == "Field" {
                 List<String> parts = k.text.split(" ")
                 if parts.length() >= 2 {
                     self.collectAnnotationUses(k, "Field", owner + "#" + parts.get(1), out)
+                    self.collectTypeUses(k, owner + "#" + parts.get(1), declPackageOf(cls), out)
                 }
             }
             i = i + 1
@@ -10942,14 +12159,14 @@ class CGen {
                 self.collectAnnotationUses(n, "Package", n.text, out)
             }
             if n.kind == "AnnotationDecl" {
-                String full = self.annotationQualified(n.text)
+                String full = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Annotation", full, out)
             }
             if n.kind == "Class" || n.kind == "Struct" {
                 self.collectAnnotationClass(n, out)
             }
             if n.kind == "Enum" {
-                String owner = self.annotationQualified(n.text)
+                String owner = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Type", owner, out)
                 Int e = 0
                 while e < n.kids.length() {
@@ -10961,7 +12178,7 @@ class CGen {
                 }
             }
             if n.kind == "Protocol" {
-                String owner = self.annotationQualified(n.text)
+                String owner = self.annotationQualifiedFor(n.text, declPackageOf(n))
                 self.collectAnnotationUses(n, "Type", owner, out)
                 Int p = 0
                 while p < n.kids.length() {
@@ -10979,6 +12196,14 @@ class CGen {
                 String tn = owner + "#" + n.text + "(" + self.annotationParamTypes(n) + ")"
                 self.collectAnnotationUses(n, "Method", tn, out)
                 self.collectAnnotationParams(n, tn, out)
+                self.collectTypeUses(n, tn + "#return", pkg, out)
+                List<AstNode> fps = self.paramsOf(n)
+                Int fpi = 0
+                while fpi < fps.length() {
+                    self.collectTypeUses(fps.get(fpi), tn + "#" + str(fpi), pkg, out)
+                    fpi = fpi + 1
+                }
+                self.collectTypeUseLocals(n, tn, pkg, out)
             }
             if n.kind == "TopField" {
                 List<String> parts = n.text.split(" ")
@@ -11017,11 +12242,12 @@ class CGen {
                 " = xn_Cls_AnnotationValue_ofArray(" + items + ");")
             return arrayValue
         }
-        AstNode nestedDecl = self.annotationFindDecl(expected)
+        AstNode nestedDecl = self.annotationFindDeclFor(expected, rootPackageName)
         if nestedDecl.kind != "None" && n.kind == "AnnotationUse" {
             String info = self.emitAnnotationInfo(
                 n,
                 nestedDecl,
+                self.annotationQualified(expected),
                 "Annotation",
                 self.annotationQualified(expected),
                 1,
@@ -11098,7 +12324,7 @@ class CGen {
         return value
     }
 
-    String emitAnnotationInfo(AstNode use, AstNode decl, String target,
+    String emitAnnotationInfo(AstNode use, AstNode decl, String typeName, String target,
                               String targetName, Int repeatIndex, String indent) {
         List<AstNode> fields = self.annotationFields(decl)
         String values = self.temp()
@@ -11124,7 +12350,7 @@ class CGen {
         String info = self.temp()
         self.emit(indent + "xn_Cls_AnnotationInfo *" + info +
             " = xn_Cls_AnnotationInfo_new(rt_string_from_c(" +
-            cStringLiteral(self.annotationQualified(use.text)) + "), xn_enum_AnnotationTarget_" +
+            cStringLiteral(typeName) + "), xn_enum_AnnotationTarget_" +
             target + ", rt_string_from_c(" + cStringLiteral(targetName) + "), " +
             values + ", " + str(repeatIndex) + ");")
         return info
@@ -11147,6 +12373,7 @@ class CGen {
             String info = self.emitAnnotationInfo(
                 use.use,
                 use.decl,
+                use.typeName,
                 use.target,
                 use.targetName,
                 use.repeatIndex,
@@ -11183,6 +12410,8 @@ class CGen {
         self.emit("static int64_t xn_int_wrap(int64_t value) { return (int64_t)(int32_t)value; }")
         self.emit("static int64_t xn_int_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint32_t)value << (uint32_t)bitCount); }")
         self.emit("static int64_t xn_int_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 32) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int32_t)value >> (int32_t)bitCount); }")
+        self.emit("static int64_t xn_long_shl(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((uint64_t)value << (uint64_t)bitCount); }")
+        self.emit("static int64_t xn_long_shr(int64_t value, int64_t bitCount) { if (bitCount < 0 || bitCount >= 64) { rt_fatal(\"shift count out of range\"); } return (int64_t)((int64_t)value >> (int64_t)bitCount); }")
         self.emit("static void xn_print_int(int64_t v) { printf(\"%lld\\n\", (long long)xn_int_wrap(v)); }")
         self.emit("static void xn_print_bool(int v) { printf(v ? \"true\\n\" : \"false\\n\"); }")
         self.emit("static void xn_print_double(double v) { printf(\"%g\\n\", v); }")
@@ -11376,6 +12605,42 @@ class CGen {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
+            }
+            i = i + 1
+        }
+        // Forward-declare every class constructor and method before any class
+        // body. Monomorphization can place a callee after its caller.
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if ((n.kind == "Class" || n.kind == "Struct" ||
+                 (n.kind == "Enum" && self.isDataEnum(n.text))) && !hasTypeParams(n)) {
+                AstNode ctor = self.ctorOf(n)
+                List<AstNode> cps = self.paramsOf(ctor)
+                String csig = "static xn_Cls_" + n.text + " *xn_Cls_" + n.text + "_new("
+                if cps.length() == 0 {
+                    csig = csig + "void"
+                } else {
+                    Int ci = 0
+                    while ci < cps.length() {
+                        if ci > 0 {
+                            csig = csig + ", "
+                        }
+                        List<String> cpp = cps.get(ci).text.split(" ")
+                        if cpp.length() >= 2 {
+                            csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
+                        }
+                        ci = ci + 1
+                    }
+                }
+                self.emit(csig + ");")
+                Int mi = 0
+                while mi < n.kids.length() {
+                    if n.kids.get(mi).kind == "Method" {
+                        self.emit(self.methodSig(n.kids.get(mi), n.text) + ";")
+                    }
+                    mi = mi + 1
+                }
             }
             i = i + 1
         }
@@ -12049,7 +13314,14 @@ static List<Token> lex(String src) {
                     i = i + 1
                     col = col + 1
                 }
-                tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+                if i < src.length() && (at(src, i) == "L" || at(src, i) == "l") {
+                    String text = src.substring(start, i - start)
+                    i = i + 1
+                    col = col + 1
+                    tokens.push(new Token("long", text, startLine, startCol))
+                } else {
+                    tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+                }
                 continue
             }
             i = i + 1
@@ -12070,6 +13342,11 @@ static List<Token> lex(String src) {
             }
             if isDouble {
                 tokens.push(new Token("double", src.substring(start, i - start), startLine, startCol))
+            } else if i < src.length() && (at(src, i) == "L" || at(src, i) == "l") {
+                String text = src.substring(start, i - start)
+                i = i + 1
+                col = col + 1
+                tokens.push(new Token("long", text, startLine, startCol))
             } else {
                 tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
             }
@@ -12382,6 +13659,30 @@ static String xdkFile(String pkg) {
         }
         return "io/base/Sys.x"
     }
+    if pkg == "xdk.functional" || pkg.startsWith("xdk.functional.") {
+        return "functional/Functional.x"
+    }
+    if pkg == "xdk.graph" || pkg.startsWith("xdk.graph.") {
+        return "graph/Graph.x"
+    }
+    if pkg == "xdk.stats" || pkg.startsWith("xdk.stats.") {
+        return "stats/Stats.x"
+    }
+    if pkg == "xdk.net.uri" || pkg.startsWith("xdk.net.uri.") {
+        return "net/uri/Uri.x"
+    }
+    if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
+        return "net/mime/Mime.x"
+    }
+    if pkg == "xdk.tensor" || pkg.startsWith("xdk.tensor.") {
+        return "tensor/Tensor.x"
+    }
+    if pkg == "xdk.linalg" || pkg.startsWith("xdk.linalg.") {
+        return "linalg/Linalg.x"
+    }
+    if pkg == "xdk.geo" || pkg.startsWith("xdk.geo.") {
+        return "geo/Geo.x"
+    }
     return ""
 }
 
@@ -12411,11 +13712,39 @@ static Bool loaded(String path) {
     return false
 }
 
+static String packageNameOf(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Package" { return n.text }
+        i = i + 1
+    }
+    return ""
+}
+
+static String declPackageOf(AstNode n) {
+    if n.packageName != "" { return n.packageName }
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        if unitDeclNodes.get(i) == n { return unitDeclPkgs.get(i) }
+        i = i + 1
+    }
+    return rootPackageName
+}
+
 static Void mergeDecls(AstNode program, AstNode parsed) {
+    String pkg = packageNameOf(parsed)
     Int i = 0
     while i < parsed.kids.length() {
         AstNode d = parsed.kids.get(i)
+        if d.kind == "Import" {
+            unitImportOwners.push(pkg)
+            unitImportPkgs.push(d.text)
+        }
         if d.kind != "Package" && d.kind != "Import" {
+            d.packageName = pkg
+            unitDeclNodes.push(d)
+            unitDeclPkgs.push(pkg)
             program.add(d)
         }
         i = i + 1
@@ -12484,6 +13813,217 @@ static Void loadSiblings(String path, AstNode program) {
     }
 }
 
+static String simpleTypeUseName(String name) {
+    Int last = -1
+    Int i = 0
+    while i < name.length() {
+        if name.substring(i, 1) == "." { last = i }
+        i = i + 1
+    }
+    if last >= 0 { return name.substring(last + 1, name.length() - last - 1) }
+    return name
+}
+
+static String targetPath(AstNode n) {
+    if n.kind == "Name" { return n.text }
+    if n.kind == "Member" && n.kids.length() > 0 {
+        String b = targetPath(n.kids.get(0))
+        if b == "" { return n.text }
+        return b + "." + n.text
+    }
+    return n.text
+}
+
+static List<String> annotationTargetSet(AstNode program, String useText) {
+    List<String> targets = []
+    String simple = simpleTypeUseName(useText)
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode d = program.kids.get(i)
+        if d.kind == "AnnotationDecl" && d.text == simple {
+            Int j = 0
+            while j < d.annotations.length() {
+                AstNode use = d.annotations.get(j)
+                if simpleTypeUseName(use.text) == "Target" {
+                    Int k = 0
+                    while k < use.kids.length() {
+                        AstNode arg = use.kids.get(k)
+                        if arg.kids.length() > 0 {
+                            String p = targetPath(arg.kids.get(0))
+                            if p != "" { targets.push(simpleTypeUseName(p)) }
+                        }
+                        k = k + 1
+                    }
+                }
+                j = j + 1
+            }
+            return targets
+        }
+        i = i + 1
+    }
+    return targets
+}
+
+static Bool typeUsePosition(AstNode n) {
+    return n.kind == "Field" || n.kind == "Param" || n.kind == "Ret" ||
+        n.kind == "Local" || n.kind == "Method" || n.kind == "Func" || n.kind == "Sig"
+}
+
+static Void splitTypeUseAnnotationsIn(AstNode n, AstNode program) {
+    if n.annotations.length() > 0 {
+        List<AstNode> keep = []
+        Int i = 0
+        while i < n.annotations.length() {
+            AstNode use = n.annotations.get(i)
+            List<String> targets = annotationTargetSet(program, use.text)
+            Bool hasTypeUse = false
+            Int t = 0
+            while t < targets.length() {
+                if targets.get(t) == "TypeUse" { hasTypeUse = true }
+                t = t + 1
+            }
+            if hasTypeUse && targets.length() == 1 {
+                if typeUsePosition(n) {
+                    n.typeAnnotations.push(use)
+                } else {
+                    keep.push(use)
+                }
+            } else if hasTypeUse && targets.length() > 1 {
+                if typeUsePosition(n) {
+                    use.annotationError = "ambiguous annotation @" + use.text + ": TypeUse and declaration targets; split it or remove one target"
+                }
+                keep.push(use)
+            } else {
+                keep.push(use)
+            }
+            i = i + 1
+        }
+        n.annotations = keep
+    }
+    Int k = 0
+    while k < n.kids.length() {
+        splitTypeUseAnnotationsIn(n.kids.get(k), program)
+        k = k + 1
+    }
+}
+
+static Void splitTypeUseAnnotations(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind != "Package" && n.kind != "Import" {
+            splitTypeUseAnnotationsIn(n, program)
+        }
+        i = i + 1
+    }
+}
+
+static String annotationCandidates(String simple) {
+    String result = ""
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        AstNode n = unitDeclNodes.get(i)
+        if n.kind == "AnnotationDecl" && n.text == simple {
+            String p = unitDeclPkgs.get(i)
+            Bool seen = false
+            Int k = 0
+            while k < i {
+                AstNode old = unitDeclNodes.get(k)
+                if old.kind == "AnnotationDecl" && old.text == simple && unitDeclPkgs.get(k) == p { seen = true; break }
+                k = k + 1
+            }
+            if !seen {
+                if result != "" { result = result + "," }
+                result = result + p
+            }
+        }
+        i = i + 1
+    }
+    return result
+}
+
+static Void resolveAnnotationUse(AstNode use, String ownerPkg) {
+    if use.kind != "AnnotationUse" { return }
+    if use.text.indexOf(".") >= 0 {
+        use.resolvedAnnotationName = use.text
+        return
+    }
+    String simple = use.text
+    Int same = 0
+    Int i = 0
+    while i < unitDeclNodes.length() {
+        AstNode n = unitDeclNodes.get(i)
+        if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(i) == ownerPkg {
+            same = same + 1
+            use.resolvedAnnotationName = ownerPkg + "." + simple
+        }
+        i = i + 1
+    }
+    if same > 0 { return }
+    String hitPkg = ""
+    Int hits = 0
+    i = 0
+    while i < unitImportOwners.length() {
+        if unitImportOwners.get(i) == ownerPkg {
+            Int j = 0
+            while j < unitDeclNodes.length() {
+                AstNode n = unitDeclNodes.get(j)
+                if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(j) == unitImportPkgs.get(i) {
+                    hitPkg = unitImportPkgs.get(i)
+                    hits = hits + 1
+                }
+                j = j + 1
+            }
+        }
+        i = i + 1
+    }
+    if hits == 1 { use.resolvedAnnotationName = hitPkg + "." + simple; return }
+    if hits > 1 {
+        use.annotationError = "ambiguous annotation @" + simple + "; candidates: " + annotationCandidates(simple)
+        return
+    }
+    String all = annotationCandidates(simple)
+    if all.indexOf(",") < 0 && all != "" {
+        use.resolvedAnnotationName = all + "." + simple
+    } else if all != "" {
+        use.annotationError = "ambiguous annotation @" + simple + "; candidates: " + all
+    }
+}
+
+static Void resolveAnnotationTree(AstNode n, String ownerPkg) {
+    if n.kind == "AnnotationUse" { resolveAnnotationUse(n, ownerPkg) }
+    Int i = 0
+    while i < n.annotations.length() {
+        AstNode use = n.annotations.get(i)
+        resolveAnnotationUse(use, ownerPkg)
+        resolveAnnotationTree(use, ownerPkg)
+        i = i + 1
+    }
+    i = 0
+    while i < n.typeAnnotations.length() {
+        AstNode use = n.typeAnnotations.get(i)
+        resolveAnnotationUse(use, ownerPkg)
+        resolveAnnotationTree(use, ownerPkg)
+        i = i + 1
+    }
+    i = 0
+    while i < n.kids.length() {
+        resolveAnnotationTree(n.kids.get(i), ownerPkg)
+        i = i + 1
+    }
+}
+
+static Void resolveAnnotationUses(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind != "Package" && n.kind != "Import" {
+            resolveAnnotationTree(n, declPackageOf(n))
+        }
+        i = i + 1
+    }
+}
+
 static AstNode loadProgram(String entry, String root) {
     String src = readFile(entry)
     if src.length() == 0 {
@@ -12497,6 +14037,17 @@ static AstNode loadProgram(String entry, String root) {
         return new AstNode("Program", "", 1, 1)
     }
     loadedFiles.push(entry)
+    rootPackageName = packageNameOf(program)
+    Int ri = 0
+    while ri < program.kids.length() {
+        AstNode rn = program.kids.get(ri)
+        if rn.kind == "Import" {
+            unitImportOwners.push(rootPackageName)
+            unitImportPkgs.push(rn.text)
+        }
+        if rn.kind != "Package" && rn.kind != "Import" { rn.packageName = rootPackageName }
+        ri = ri + 1
+    }
     loadRoot = root
     loadBaseDir = dirName(entry)
     if entry.indexOf("/xdk/") >= 0 {
@@ -12529,6 +14080,8 @@ static AstNode loadProgram(String entry, String root) {
         }
         i = i + 1
     }
+    splitTypeUseAnnotations(program)
+    resolveAnnotationUses(program)
     Mono mono = new Mono(program)
     return mono.run()
 }

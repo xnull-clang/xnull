@@ -17,8 +17,8 @@ assert sum(int(r["types"]) for r in rows) == 698
 for r in rows:
     assert r["package"].startswith("xdk.")
     assert r["path"].startswith("src/xdk/")
-    assert r["status"] in {"1.x", "design"}
-    if r["status"] == "1.x":
+    assert r["status"] in {"1.x", "design", "implemented", "blocked"}
+    if r["status"] in {"1.x", "implemented"}:
         assert os.path.isfile(os.path.join(root, r["path"])), r["path"]
 for d in ("annotations", "execution"):
     assert os.path.isdir(os.path.join(root, "src/xdk", d)), d
@@ -42,5 +42,8 @@ if [ -x "$HERE/xdk2/annotations/annotations_negative.sh" ]; then
 fi
 if [ -x "$HERE/xdk2/annotations/annotations_ast.sh" ]; then
     "$HERE/xdk2/annotations/annotations_ast.sh"
+fi
+if [ -x "$HERE/xdk2/generic_methods/generic_methods_negative.sh" ]; then
+    "$HERE/xdk2/generic_methods/generic_methods_negative.sh"
 fi
 echo "xdk2: PASS ($count scenario(s))"

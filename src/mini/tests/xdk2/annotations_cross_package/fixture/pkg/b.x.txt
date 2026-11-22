@@ -1,0 +1,6 @@
+package pkg.b
+import xdk.annotations
+@Retention(Runtime)
+@annotation Marker { final String value = "" }
+@Marker("from-b")
+class B { }

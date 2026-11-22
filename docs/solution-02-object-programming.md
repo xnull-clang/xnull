@@ -1277,7 +1277,12 @@ class Device { }
 - Arguments must be compile-time constants; their types must be assignable to the field types; omitted trailing fields use the initializer from the declaration site.
 - Extra arguments are compile errors; intermediate fields cannot be skipped; named arguments are not supported.
 - Annotations may be applied to type declarations, fields, methods, constructors, `deinit`, parameters, and enum items.
-- Annotations cannot be used on expressions, type parameters, type arguments, or control bodies; the block annotation semantics of `@tasks` / `@arena` are defined in Part 5 (§2.3).
+- Type-use annotations use the prefix form `@Foo Type` and are allowed on field types, parameter types, return types, and local variable types; they are recorded as `AnnotationTarget.TypeUse`, not as declaration annotations.
+- `@Target(TypeUse)` is always explicit: the default target set for annotations without `@Target` does not include `TypeUse`.
+- Disambiguation at a declaration prefix is by the annotation's declared targets: only `TypeUse` binds to the following type use; only declaration targets bind to the declaration; declaring both `TypeUse` and declaration targets in that position is a compile error and the annotation must be split or narrowed.
+- A `@Target(TypeUse)` annotation cannot be attached to a declaration, and a declaration-only annotation (for example `@Target(Field)`) is not reinterpreted as a type-use annotation.
+- Runtime TypeUse entries use `targetName` `<owner>#<field>`, `<owner>#<method>(<paramTypes>)#<index>` (parameter), `<owner>#<method>(<paramTypes>)#return`, or `<owner>#<method>(<paramTypes>)#local:<name>`; `typeName` is the fully qualified used type.
+- Type-use annotations cannot be used on generic type arguments, expressions, control bodies, or type parameter declarations; the block annotation semantics of `@tasks` / `@arena` are defined in Part 5 (§2.3).
 - An unknown annotation is a compile error; an annotation must resolve to an `@annotation` type in the same package or an imported one, or to a built-in annotation.
 - Using the same annotation repeatedly on the same target is a compile error; `@Repeatable` is reserved but has no effect.
 - Annotations do not affect control flow or the object model; memory strategy annotations are not part of the language annotation system.
@@ -1304,7 +1309,8 @@ The memory strategy annotations `@arc` / `@gc` are not members of the language a
 - Language annotations only perform compile-time checks or recognition; `@arc` / `@gc` are not part of the language annotation system.
 - Annotation arguments must be compile-time constants; runtime expressions are not evaluated.
 - Reflection, runtime annotation queries, annotation processors, and code generation are not supported.
-- Annotation inheritance, repeated annotations, default arguments, and named arguments are not supported.
+- Annotation inheritance, default arguments, and named arguments are not supported; `@Repeatable` preserves repeated uses in order on the same target.
+- Type-use annotations are prefix-only. `List<@Foo T>`, `@Foo` on an expression, and `@Foo` on a type parameter declaration are compile errors; only the enclosing type/parameter/return/local type position is annotated.
 
 ## 13. Generic Types and Generic Methods
 

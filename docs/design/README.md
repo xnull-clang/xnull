@@ -2,13 +2,13 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | 1.x 已发布；B0–B3 已合并；C7 合同已整合待 B5；B4 合同冻结待 owner；B5–B10 未开工 |
+| 状态 | 1.x 已发布；B0–B4 已完成；C7 合同已整合待 B5；B5–B10 未开工 |
 | 1.x 基线 | [`t0/`](t0/00-overview.md) + `src/xdk`；14 包 / 160 symbols |
 | 2.x 目标 | **75 包 / 698 类型**；见 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 计划总览 | [`PLAN.md`](PLAN.md)；当前位置、下一步、未开工范围 |
 | 架构 | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 一致性 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) |
-| 执行 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；B4 前不写 2.x 纯包 |
+| 执行 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；B4 已完成，下一步 B5 |
 | 1.x 旧档 | [`LEGACY-1.0.md`](LEGACY-1.0.md) |
 | 第一实现层 | 注解；先编译器，后 XDK |
 
@@ -22,7 +22,7 @@
 | 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
 | 3 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
 | 4 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
-| 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | B4 前置债表：四类债、B4 阻塞、B4-01/B4-02 合同冻结、owner 接受 |
+| 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务台账：四类债、B4 完成、B4-01/B4-02 关闭、B5–B10 后续 |
 | 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) | 注解语义与 P1 实施计划 |
 | 7 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
 | 8 | 各领域 README/类型合同 | 逐包/逐类型契约 |
