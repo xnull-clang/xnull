@@ -52,13 +52,13 @@
 | C-0002 | 收口只有 Verified/RED | L2 | `LOCAL_RULES.md` 第 6 号 |
 | C-0003 | 标记不是完成 | L2 | MINI-1.0 闭包账本 |
 | C-0004 | 隔离不是解决 | L2 | `EXECUTION-PLAN.md` §4.4（xdk-2） |
-| C-0005 | 后台要有 watchdog | L2 | 脚本待建 |
-| C-0006 | 汇报结论先行 | L1 | 本文件 |
+| C-0005 | 后台要有 watchdog | L3 | `.agent/bin/watch.sh` |
+| C-0006 | 汇报结论先行 | L2 | `.agent/templates/report.md` |
 | C-0007 | 调度台不写代码 | L3 | `.opencode/agents/orchestrator.md` |
 | C-0008 | L3 测试通过即生效 | L2 | `.agent/AGENT-LEARNING.md` |
 | C-0009 | 复盘 due 只能指向批次草稿 | L3 | `.agent/bin/check.py` |
-| C-0010 | 派发前做依赖/写集检查 | L2 | `.agent/DISPATCH.md` |
-| C-0011 | 规则层不调度 | L2 | `.agent/roles.json` |
+| C-0010 | 派发前做依赖/写集检查 | L3 | `.agent/bin/preflight.py` |
+| C-0011 | 规则层不调度 | L3 | `.agent/roles.json` |
 
 ## 升级
 
