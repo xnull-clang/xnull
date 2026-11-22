@@ -77,7 +77,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `AnnotationElement(AnnotationTarget target, String ownerName, String name, String typeName, AnnotationSet annotations, String sourceName)` | 全部 | target 非 null；ownerName 非 null；name/typeName/sourceName 非空；annotations 非 null 且目标一致 | null/空名/目标不一致 → panic |
+| `AnnotationElement(AnnotationTarget target, String ownerName, String name, String typeName, AnnotationSet annotations, String sourceName)` | 全部 | target 是枚举成员（枚举不可为 null）；ownerName 非 null；name/typeName/sourceName 非空；annotations 非 null 且目标一致 | null/空名/目标不一致 → panic |
 
 说明：
 
@@ -213,9 +213,7 @@ class AnnotationElement {
 
     AnnotationElement(AnnotationTarget target, String ownerName, String name,
                       String typeName, AnnotationSet annotations, String sourceName) {
-        if target == null {
-            throw "AnnotationElement: null target"
-        }
+        // target 是枚举成员；枚举是值类型，不存在 null。
         if ownerName == null {
             throw "AnnotationElement: null owner name"
         }

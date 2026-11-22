@@ -2,10 +2,10 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class PrometheusExporter implements Exporter` |
+| 类型 | `class PrometheusExporter implements PipelineExporter` |
 | 包 | `xdk.agent` |
 | 稳定性 | `preview` |
-| 依赖 | `Exporter`、`TelemetryKind`、`TelemetryBatch`、`MetricFamily`、`MetricSample`、`MetricKind`、`Writer`、`Context`、`Error` |
+| 依赖 | `PipelineExporter`、`TelemetryKind`、`TelemetryBatch`、`MetricFamily`、`MetricSample`、`MetricKind`、`Writer`、`Context`、`Error` |
 
 ---
 
@@ -23,7 +23,7 @@ Prometheus 查询、告警。
 
 ## 2. 设计逻辑
 
-- 实现 `Exporter`；`kind()` 固定 Metrics；非 Metrics 批次拒绝；
+- 实现 `PipelineExporter`；`kind()` 固定 Metrics；非 Metrics 批次拒绝；
 - `export` 合并到内存中的族表：同族同标签样本替换，新样本追加；保留 kind/help/unit；
 - 不持久化；不排队；导出是内存更新，`drain` 无操作；
 - `scrape` 遍历族表，按名称排序，输出 `# HELP`/`# TYPE` 与样本行；
@@ -174,7 +174,7 @@ Prometheus 查询、告警。
 
 ## 10. 依赖的特性/接口/类
 
-`Exporter`、`TelemetryKind`、`TelemetryBatch`、`TelemetryRecord`、`MetricFamily`、`MetricSample`、
+`PipelineExporter`、`TelemetryKind`、`TelemetryBatch`、`TelemetryRecord`、`MetricFamily`、`MetricSample`、
 `MetricKind`、`Writer`、`Context`、`RuntimeMonitor`、`StringBuilder`、`nowMono`、`nowWall`、
 `isNaN`、`isFinite`、`Error`、`BasicError`、`ErrorKind`、`metricKindName`、`sortedBy`、`toUtf8`。
 
@@ -222,7 +222,7 @@ if rendered.isErr() { diagnose(rendered.error().describe()) }
 ## 14. XNull 伪代码
 
 ```xnull
-class PrometheusExporter implements Exporter {
+class PrometheusExporter implements PipelineExporter {
     final String _name
     final String _namespace
     final Map<String, String> _constantLabels

@@ -60,6 +60,7 @@
 - `GeoPolygon` 外环至少 3 个顶点；支持隐式闭合与显式闭合；基线不支持洞。
 - 多边形命中采用经纬度平面射线法；边界点视为包含；自交环不在契约内。
 - `GeoProjection.Wgs84` 是恒等投影；`WebMercator` 输出米制 `(x, y)`；`Utm` 保留但基线返回 `Unsupported`。
+- `GeoProjection` 名称兜底：null → `"unknown"`，未知未来成员 → `"other"`；`"unknown"`/`"other"` 不是成员，`geoProjectionFromName` 对 null/未知名称返回 null。
 - `Geo.project`/`unproject` 使用 `Pair<Double, Double>` 承载坐标对：`first` 为 x/经度，`second` 为 y/纬度；单位由投影决定。
 - 距离/方位/终点/中点使用球面近似；不与 `WebMercator` 的米制坐标混用。
 - 所有列表参数复制；所有返回值不暴露内部可变状态。

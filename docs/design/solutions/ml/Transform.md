@@ -5,13 +5,13 @@
 | 类型 | `protocol Transform` |
 | 包 | `xdk.ml` |
 | 稳定性 | `preview` |
-| 依赖 | `Batch`、`Context`、`Error` |
+| 依赖 | `MlBatch`、`Context`、`Error` |
 
 ---
 
 ## 1. 定位
 
-批次/样本变换合同：接收 `Batch`，返回新的 `Batch`，可附带稳定描述。
+批次/样本变换合同：接收 `MlBatch`，返回新的 `MlBatch`，可附带稳定描述。
 
 只定义“输入批次 → 输出批次”的纯管道步骤；不做数据集索引、洗牌、拼批、并行预取、缓存、设备放置或模型推理。
 
@@ -21,8 +21,8 @@
 
 ## 2. 设计逻辑
 
-- 非泛型协议：变换统一在 `Batch` 上表达，避免为每种样本类型引入泛型。
-- 返回新 `Batch`，不原地修改；`Batch`/`Tensor` 不可变。
+- 非泛型协议：变换统一在 `MlBatch` 上表达，避免为每种样本类型引入泛型。
+- 返回新 `MlBatch`，不原地修改；`MlBatch`/`Tensor` 不可变。
 - `apply` 是阻塞点，首参 `Context`；取消返回 `Cancelled`，不返回半个批次。
 - DataLoader 按“单样本批次”（`sampleCount == 1`）调用变换；独立使用时可以处理任意 `sampleCount`。
 - 变换可以改变张量形状/ dtype（例如归一化、转置），但不能改变样本数；DataLoader 会在调用后校验 `sampleCount == 1`。
@@ -36,8 +36,8 @@
 
 协议无字段。实现保证：
 
-- `apply` 不修改传入 `Batch`；
-- 成功返回的 `Batch` 非 null，张量满足 `Batch` 的批维合同；
+- `apply` 不修改传入 `MlBatch`；
+- 成功返回的 `MlBatch` 非 null，张量满足 `MlBatch` 的批维合同；
 - 不改变样本数（输入 `sampleCount` 与输出 `sampleCount` 相同）；
 - 取消时不返回部分结果；
 - `describe` 稳定、可读，不泄露样本内容；
@@ -69,7 +69,7 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `apply` | 变换一个批次 | `Context context, Batch batch` | `Result<Batch, Error>` | `InvalidArgument`/`Cancelled`/实现错误 |
+| `apply` | 变换一个批次 | `Context context, MlBatch batch` | `Result<MlBatch, Error>` | `InvalidArgument`/`Cancelled`/实现错误 |
 | `describe` | 单行描述 | 无 | `String` | 无 |
 
 说明：
@@ -98,13 +98,13 @@
 
 - 语言：protocol、class、String、Bool、Result、Unit、void；
 - 运行时：由实现决定（CPU 计算、随机源、文件）；
-- 接口：[`Batch`](Batch.md)、[`DataLoader`](DataLoader.md)、[`Dataset`](Dataset.md)、`Context`、`Error`、`BasicError`、`ErrorKind`。
+- 接口：[`MlBatch`](MlBatch.md)、[`DataLoader`](DataLoader.md)、[`Dataset`](Dataset.md)、`Context`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-[`Batch`](Batch.md)、[`DataLoader`](DataLoader.md)、[`Dataset`](Dataset.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
+[`MlBatch`](MlBatch.md)、[`DataLoader`](DataLoader.md)、[`Dataset`](Dataset.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
 
 不依赖具体数据格式、模型运行时或图像/文本处理库。
 
@@ -122,7 +122,7 @@
 
 ## 12. 示例与反例
 
-正确：归一化变换读取配置，逐元素计算并返回新 `Batch`；随机裁剪变换持有注入的随机源；`describe()` 返回 `"normalize(mean=0.5,std=0.5)"`。  
+正确：归一化变换读取配置，逐元素计算并返回新 `MlBatch`；随机裁剪变换持有注入的随机源；`describe()` 返回 `"normalize(mean=0.5,std=0.5)"`。  
 反例：`apply` 原地修改输入张量；输出 `sampleCount` 与输入不同；取消时返回部分批次；在变换内创建全局 RNG；`apply` 关闭数据集；把 tokenizer/图像解码塞进基线变换；`describe` 输出样本内容。
 
 ---
@@ -139,7 +139,7 @@
 
 ```xnull
 protocol Transform {
-    Result<Batch, Error> apply(Context context, Batch batch);
+    Result<MlBatch, Error> apply(Context context, MlBatch batch);
     String describe();
 }
 ```

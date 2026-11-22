@@ -1,0 +1,4 @@
+// expect: fail AN0002
+@ReadOnly
+class Device {
+}

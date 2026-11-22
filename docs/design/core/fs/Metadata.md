@@ -32,6 +32,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `_size` | `Long` | 字节 |
+| `_kind` | `EntryKind` | 条目类型 |
 | `_isFile` | `Bool` | 文件 |
 | `_isDirectory` | `Bool` | 目录 |
 | `_isSymlink` | `Bool` | 链接 |
@@ -69,9 +70,11 @@
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
 | `size` | 大小 | 无 | `Long` | 无 |
+| `kind` | 条目类型 | 无 | `EntryKind` | 无 |
 | `isFile` | 文件 | 无 | `Bool` | 无 |
 | `isDirectory` | 目录 | 无 | `Bool` | 无 |
 | `isSymlink` | 链接 | 无 | `Bool` | 无 |
+| `isOther` | 其他类型 | 无 | `Bool` | 无 |
 | `createdMillis` | 创建时间 | 无 | `Long` | 无 |
 | `modifiedMillis` | 修改时间 | 无 | `Long` | 无 |
 | `accessedMillis` | 访问时间 | 无 | `Long` | 无 |
@@ -95,13 +98,13 @@
 
 - 语言：class、Long、Bool、String；
 - 运行时：OS stat；
-- 接口：`Permissions`。
+- 接口：`Permissions`、`EntryKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Permissions`。
+`Permissions`、`EntryKind`。
 
 ---
 
@@ -120,7 +123,7 @@
 
 ## 13. 测试/场景义务
 
-文件/目录/链接；大小；时间；权限；owner/group 空值；copy。
+文件/目录/链接/缺失；`kind` 与 `isFile/isDirectory/isSymlink/isOther` 一致；大小；时间；权限；owner/group 空值；copy。
 
 ---
 
@@ -129,6 +132,7 @@
 ```xnull
 class Metadata {
     final Long _size
+    final EntryKind _kind
     final Bool _isFile
     final Bool _isDirectory
     final Bool _isSymlink
@@ -139,10 +143,11 @@ class Metadata {
     final String _owner
     final String _group
 
-    Metadata(Long size, Bool isFile, Bool isDirectory, Bool isSymlink,
+    Metadata(Long size, EntryKind kind, Bool isFile, Bool isDirectory, Bool isSymlink,
              Long createdMillis, Long modifiedMillis, Long accessedMillis,
              Permissions permissions, String owner, String group) {
         _size = size
+        _kind = kind
         _isFile = isFile
         _isDirectory = isDirectory
         _isSymlink = isSymlink
@@ -155,9 +160,11 @@ class Metadata {
     }
 
     Long size() { return _size }
+    EntryKind kind() { return _kind }
     Bool isFile() { return _isFile }
     Bool isDirectory() { return _isDirectory }
     Bool isSymlink() { return _isSymlink }
+    Bool isOther() { return _kind == EntryKind.Other }
     Long createdMillis() { return _createdMillis }
     Long modifiedMillis() { return _modifiedMillis }
     Long accessedMillis() { return _accessedMillis }
@@ -174,7 +181,7 @@ class Metadata {
     }
 
     Metadata copy() {
-        return new Metadata(_size, _isFile, _isDirectory, _isSymlink,
+        return new Metadata(_size, _kind, _isFile, _isDirectory, _isSymlink,
             _createdMillis, _modifiedMillis, _accessedMillis,
             _permissions, _owner, _group)
     }

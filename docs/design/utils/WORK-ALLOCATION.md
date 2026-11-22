@@ -36,7 +36,7 @@ health 不单独建包：`xdk.runtime` 已有 `HealthState`/`HealthReport`/`Heal
   - `docs/design/WORK-ALLOCATION.md`
   - `docs/design/platform/os/WORK-ALLOCATION.md`（参考，不修改）
   由集成者最后统一修改，工作流不得改。
-- `metrics.Histogram` 组合 `xdk.stats.Histogram`，不复制桶算法；仅增加标签/注册表快照。
+- `metrics.Histogram` 组合 `xdk.stats.BucketHistogram`，不复制桶算法；仅增加标签/注册表快照。
 - `trace` 不依赖 metrics；`audit` 不依赖 log 包（只依赖 errors/regex）。
 - `terminal` 不依赖 log；`i18n` 不复用 `xdk.time.DateTimeFormatter` 的通用格式化，只做 locale 资源。
 - `test` 不依赖 terminal/i18n，保持纯断言/运行器。

@@ -19,7 +19,7 @@
 
 - **推理优先**：`Model` 描述格式/元数据/输入/输出，`InferenceSession` 执行 `List<Tensor>`，`InferenceResult` 承载输出；
 - **提供者显式**：`SessionOptions` 用有序 `ExecutionProvider` 列表表达优先级，不读全局环境；
-- **数据管道**：`Dataset` 随机访问单样本，`DataLoader` 负责批大小/洗牌/变换/拼批，`Batch` 统一带批维；
+- **数据管道**：`Dataset` 随机访问单样本，`DataLoader` 负责批大小/洗牌/变换/拼批，`MlBatch` 统一带批维；
 - **训练抽象**：`Optimizer`/`LossKind`/`Trainer`/`EpochStats` 只定义合同；自动微分、参数更新和优化器状态属于 X，本包不伪造；
 - **复用底层**：所有数值数据是 [`xdk.tensor.Tensor`](../../platform/tensor/Tensor.md)，二维桥接用 [`xdk.linalg`](../../platform/linalg/README.md)，不重复定义 `Tensor`/`Matrix`；
 - **平台透明**：公共 API 不出现 ONNX Runtime/TFLite/Torch/CUDA/ROCm/DirectML/OpenVINO 类型、句柄或头文件。
@@ -40,7 +40,7 @@
 | 线程显式 | `SessionOptions` 的线程数由调用方决定；可用 [`CpuTopology`](../../platform/os/cpu/CpuTopology.md) 作为上限输入，本包不自动探测/绑核 |
 | 动态维度显式 | `ModelInput`/`ModelOutput` 用并行布尔列表标记动态轴，不用负数哨兵 |
 | 位置合同 | `run` 的第 i 个输入对应 `Model.inputs().get(i)`；输出同序 |
-| 批维统一 | `Batch.sampleCount` 与每个张量第 0 维一致；单样本也带批维 1 |
+| 批维统一 | `MlBatch.sampleCount` 与每个张量第 0 维一致；单样本也带批维 1 |
 | 运行时注入 | `Ml.openSession` 调用宿主注入的 `mlSessionCreateRaw`；本包不链接运行时 |
 | 不伪造训练 | 本包无自动微分；`Trainer` 是协议，基线无实现；`Ml.computeLoss` 只做前向 |
 | 可取消 | 阻塞方法首参 `Context`；取消返回 `Cancelled`，不返回部分结果 |
@@ -67,7 +67,7 @@
 | `SessionOptions` | class | 提供者/线程/优化/回退/选项 | [`SessionOptions.md`](SessionOptions.md) |
 | `InferenceResult` | class | 输出张量/名称/耗时 | [`InferenceResult.md`](InferenceResult.md) |
 | `Dataset` | protocol | 随机访问单样本 | [`Dataset.md`](Dataset.md) |
-| `Batch` | class | 带批维的样本集合 | [`Batch.md`](Batch.md) |
+| `MlBatch` | class | 带批维的样本集合 | [`MlBatch.md`](MlBatch.md) |
 | `DataLoader` | class | 批大小/洗牌/变换/拼批 | [`DataLoader.md`](DataLoader.md) |
 | `Transform` | protocol | 批次变换合同 | [`Transform.md`](Transform.md) |
 | `OptimizerKind` | enum | SGD/Adam/AdamW/RMSprop/AdaGrad/Other | [`OptimizerKind.md`](OptimizerKind.md) |
@@ -87,12 +87,12 @@
 2. **模型与会话分离**：`Model` 不持有运行时资源；`InferenceSession` 才持有句柄并借用 `Model`。会话关闭不关闭模型。
 3. **位置而非名称**：`run` 按 `Model.inputs()` 顺序收 `List<Tensor>`；输出按 `Model.outputs()` 顺序返回。名称只用于查找/诊断。
 4. **动态维度**：`ModelInput`/`ModelOutput` 的 `dimensionDynamic` 为 true 的轴接受任意非负长度；固定轴精确匹配。动态轴声明值必须为 0，不表示空张量。
-5. **批维统一**：`Batch` 的每个张量 rank ≥1，且 `dim(0) == sampleCount`；`Dataset.get` 返回 `sampleCount == 1` 的单样本。
+5. **批维统一**：`MlBatch` 的每个张量 rank ≥1，且 `dim(0) == sampleCount`；`Dataset.get` 返回 `sampleCount == 1` 的单样本。
 6. **DataLoader 借用**：`DataLoader` 不关闭 `Dataset`、`Transform` 或随机源；`next` 失败不推进游标；`beginEpoch` 重置并洗牌。
 7. **拼批边界**：默认拼批只沿第 0 维拼接同 dtype/rank/尾部维度的张量；变长序列必须前置 padding/截断或自定义 `collate`。
 8. **训练抽象不执行**：`Optimizer` 只是超参数配置；`Ml.computeLoss` 只算前向标量；`Trainer` 才定义训练循环，基线无实现。自动微分/参数更新是 X。
 9. **梯度合同**：`Trainer` 实现必须用自动微分引擎产生梯度；不得用有限差分、数值扰动或静默 detach 冒充。缺失能力返回 `Unsupported`。
-10. **生命周期**：`InferenceSession`/`Dataset` 的 `close` 幂等；关闭后 `run`/`get` 返回 `Unavailable`；`Model`/`Batch`/`InferenceResult`/`EpochStats` 无 close。
+10. **生命周期**：`InferenceSession`/`Dataset` 的 `close` 幂等；关闭后 `run`/`get` 返回 `Unavailable`；`Model`/`MlBatch`/`InferenceResult`/`EpochStats` 无 close。
 11. **计数宽度**：数据集样本数、批次数、耗时、元素数用 `Long`；批大小、维度、线程数、epoch 序号用 `Int`。
 12. **无全局注册表**：会话、提供者、数据集、Trainer、随机源都由调用方显式持有；环境变量/默认设备不构成隐式输入。
 13. **不重复底层**：不定义 `Tensor`/`Matrix`/`Vector`；需要矩阵运算时用 `xdk.linalg`，需要元素运算时用 `xdk.tensor.TensorOps`。
@@ -129,7 +129,7 @@ DataLoader loader = new DataLoader(dataset, 32, true,
 loader.beginEpoch()
 Bool loading = true
 while loading {
-    Result<Batch, Error> nextBatch = loader.next(context)
+    Result<MlBatch, Error> nextBatch = loader.next(context)
     if nextBatch.isErr() {
         if nextBatch.error().kind() == ErrorKind.NotFound {
             loading = false
@@ -137,7 +137,7 @@ while loading {
             return 1
         }
     } else {
-        Batch batch = nextBatch.value()
+        MlBatch batch = nextBatch.value()
         Int batchSamples = batch.sampleCount()
     }
 }
@@ -206,7 +206,7 @@ SessionOptions options = new SessionOptions(
 对齐结论：
 
 - ONNX Runtime 的 Session/SessionOptions/EP 说明“格式 + 提供者 + 选项”必须分开；本包用 `ModelFormat`、`ExecutionProvider`、`SessionOptions` 三分。
-- PyTorch C++ 的 `Dataset`→`DataLoader`→`Transform` 说明数据管道应独立于模型；本包沿用该分层，但样本统一为 `Batch`。
+- PyTorch C++ 的 `Dataset`→`DataLoader`→`Transform` 说明数据管道应独立于模型；本包沿用该分层，但样本统一为 `MlBatch`。
 - TFLite 的 delegate 说明后端能力不是容器格式的属性；本包的提供者/格式正交。
 - Hugging Face pipeline 的任务 ID 说明任务标签应稳定且可映射；本包用 `MlTask`，但不内置 tokenizer/后处理。
 

@@ -5,7 +5,7 @@
 | 类型 | `class Histogram implements Metric` |
 | 包 | `xdk.metrics` |
 | 稳定性 | `preview` |
-| 依赖 | `Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.Histogram`、`HistogramBucket`、`RuntimeMonitor`、`nowMono` |
+| 依赖 | `Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.BucketHistogram`、`HistogramBucket`、`RuntimeMonitor`、`nowMono` |
 
 ---
 
@@ -19,11 +19,11 @@
 
 ## 2. 设计逻辑
 
-- 桶数学全部委托 `xdk.stats.Histogram`；本类型只增加名称/标签/快照面，不复制边界查找或桶计数算法。
+- 桶数学全部委托 `xdk.stats.BucketHistogram`；本类型只增加名称/标签/快照面，不复制边界查找或桶计数算法。
 - 构造时复制并校验边界；边界严格递增，空边界表示单一无界桶。
 - `observe` 拒绝 NaN；允许 ±Inf（落入首/末桶），总和/均值可能因此变为 NaN/±Inf。
 - `count`/`sum`/`min`/`max`/`mean`/`percentile`/`buckets` 直接委托；空统计的 min/max/mean/percentile 为 NaN。
-- `percentile(percentileValue)` 的 percentileValue 使用 0..100 百分位，与 `stats.Histogram.percentile` 一致；不转换为 0..1。
+- `percentile(percentileValue)` 的 percentileValue 使用 0..100 百分位，与 `stats.BucketHistogram.percentile` 一致；不转换为 0..1。
 - 快照按 Prometheus 约定生成：每个桶一个 `_bucket` 样本，标签含 `le`（上界文本，最后桶为 `+Inf`），累计计数；另有 `_sum`、`_count`。
 - 线程安全：`RuntimeMonitor` 保护委托对象；元数据不可变。
 - 无 close；无资源；可跨任务共享。
@@ -39,7 +39,7 @@
 | `_unit` | `String` | 单位；可为空 |
 | `_labels` | `Map<String,String>` | 标签快照；不含 `le` |
 | `_boundaries` | `List<Double>` | 私有边界副本；严格递增 |
-| `_delegate` | `xdk.stats.Histogram` | 桶数学委托 |
+| `_delegate` | `xdk.stats.BucketHistogram` | 桶数学委托 |
 | `_monitor` | `RuntimeMonitor` | 委托对象保护 |
 
 不变量：边界严格递增且无 NaN；标签不含 `le`；`_delegate` 与 `_boundaries` 对应；快照 kind 恒为 `Histogram`。
@@ -118,13 +118,13 @@
 
 - 语言：class、String、Double、Long、Int、Bool、Map、List、void；
 - 运行时：`RuntimeMonitor.enter/exit`、`nowMono`、`isNaN`、`isFinite`；
-- 接口：`Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.Histogram`、`HistogramBucket`。
+- 接口：`Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.BucketHistogram`、`HistogramBucket`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.Histogram`、`HistogramBucket`、`RuntimeMonitor`、`nowMono`、`xdk.math.isNaN`、`xdk.math.isFinite`。
+`Metric`、`MetricFamily`、`MetricSample`、`MetricKind`、`xdk.stats.BucketHistogram`、`HistogramBucket`、`RuntimeMonitor`、`nowMono`、`xdk.math.isNaN`、`xdk.math.isFinite`。
 
 ---
 
@@ -156,7 +156,7 @@ class Histogram implements Metric {
     final String _unit
     final Map<String, String> _labels
     final List<Double> _boundaries
-    final xdk.stats.Histogram _delegate
+    final xdk.stats.BucketHistogram _delegate
     final RuntimeMonitor _monitor
 
     Histogram(String name, String help, String unitText, Map<String, String> labels,
@@ -189,7 +189,7 @@ class Histogram implements Metric {
         _unit = unitText
         _labels = copy
         _boundaries = boundaries.copy()
-        _delegate = new xdk.stats.Histogram(_boundaries)
+        _delegate = new xdk.stats.BucketHistogram(_boundaries)
         _monitor = new RuntimeMonitor()
     }
 
@@ -207,7 +207,7 @@ class Histogram implements Metric {
         _unit = ""
         _labels = [:]
         _boundaries = boundaries.copy()
-        _delegate = new xdk.stats.Histogram(_boundaries)
+        _delegate = new xdk.stats.BucketHistogram(_boundaries)
         _monitor = new RuntimeMonitor()
     }
 
@@ -312,4 +312,4 @@ class Histogram implements Metric {
 }
 ```
 
-> `xdk.stats.Histogram` 使用全限定名，以区别于本包的 `Histogram`；`HistogramBucket` 来自 `xdk.stats`。
+> `xdk.stats.BucketHistogram` 使用全限定名，以区别于本包的 `Histogram`；`HistogramBucket` 来自 `xdk.stats`。

@@ -30,6 +30,56 @@ void dumpTasks() {
     dumpTasksRaw()
 }
 
+// ---------- RuntimeMonitor（B3.1；执行层内部原语） ----------
+// 不是 xdk.runtime 的 8 个公开类型之一；供 xdk.execution 的 Mutex/Once/
+// WaitGroup/TaskGroup 等内部同步使用。
+//
+// mini 不支持同名方法重载，因此无上下文等待用 wait()，可取消等待用
+// waitContext(Context)；两者语义对应设计文档的 wait() / wait(Context)。
+class RuntimeMonitor {
+    final Long _handle
+
+    RuntimeMonitor() {
+        self._handle = monitorNewRaw()
+    }
+
+    void enter() {
+        monitorEnterRaw(self._handle)
+    }
+
+    void exit() {
+        monitorExitRaw(self._handle)
+    }
+
+    // 等待一次通知；可能虚假唤醒，调用方必须循环重查条件。
+    void wait() {
+        monitorWaitRaw(self._handle)
+    }
+
+    // 可取消等待：true = 被通知/已关闭；false = Context 已取消。
+    Bool waitContext(Context context) {
+        return monitorWaitContextRaw(self._handle, context) != 0
+    }
+
+    void notifyAll() {
+        monitorNotifyAllRaw(self._handle)
+    }
+
+    // notify 是 notifyAll 的单数别名；语义一致（唤醒全部等待者）。
+    void notify() {
+        monitorNotifyAllRaw(self._handle)
+    }
+
+    // 幂等关闭：重复调用安全；关闭后等待者被唤醒，wait 不再阻塞。
+    void close() {
+        monitorCloseRaw(self._handle)
+    }
+
+    Bool isClosed() {
+        return monitorClosedRaw(self._handle) != 0
+    }
+}
+
 // ---------- RuntimeInfo（T0-X） ----------
 
 // 版本常量与 xdk.meta 保持一致；runtime 位于依赖底层，不反向导入 meta。

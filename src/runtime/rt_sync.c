@@ -17,9 +17,143 @@
 
 #include <pthread.h>
 #include <stdatomic.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+/* ---- RuntimeMonitor ---- */
+/*
+ * 执行层内部监视器原语（B3.1）。不是 XDK 公共类型：
+ *   - enter/exit 成对持有/释放内部互斥量；
+ *   - wait 等待一次通知（可能虚假唤醒，调用方循环重查条件）；
+ *   - wait_context 每 5ms 轮询取消位，返回 0 = 已取消，1 = 通知/关闭；
+ *   - notify/notifyAll 唤醒等待者；
+ *   - close 幂等：标记关闭并唤醒等待者；之后 wait 立即返回，不再阻塞。
+ *
+ * 生命周期：句柄由进程级分配，close 只改状态、不释放内存，避免关闭与等待者
+ * 竞争释放；进程退出时统一回收。monitor 只允许在 enter/exit 之间 wait。
+ */
+struct xrt_monitor {
+    pthread_mutex_t mu;
+    pthread_cond_t  cv;
+    atomic_int      closed;
+};
+
+xrt_monitor *xrt_monitor_new(void) {
+    xrt_monitor *m = (xrt_monitor *)calloc(1, sizeof(*m));
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor：分配失败（S3 §2）");
+    }
+    pthread_mutex_init(&m->mu, NULL);
+    pthread_cond_init(&m->cv, NULL);
+    atomic_init(&m->closed, 0);
+    return m;
+}
+
+void xrt_monitor_enter(xrt_monitor *m) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.enter：监视器为空");
+    }
+    pthread_mutex_lock(&m->mu);
+}
+
+void xrt_monitor_exit(xrt_monitor *m) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.exit：监视器为空");
+    }
+    pthread_mutex_unlock(&m->mu);
+}
+
+void xrt_monitor_wait(xrt_monitor *m) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.wait：监视器为空");
+    }
+    if (atomic_load_explicit(&m->closed, memory_order_acquire)) {
+        return;
+    }
+    pthread_cond_wait(&m->cv, &m->mu);
+}
+
+int32_t xrt_monitor_wait_context(xrt_monitor *m, xrt_context *ctx) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.wait：监视器为空");
+    }
+    for (;;) {
+        if (atomic_load_explicit(&m->closed, memory_order_acquire)) {
+            return 1;
+        }
+        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+            return 0;
+        }
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_nsec += 5 * 1000 * 1000;
+        if (ts.tv_nsec >= 1000000000L) {
+            ts.tv_sec++;
+            ts.tv_nsec -= 1000000000L;
+        }
+        int rc = pthread_cond_timedwait(&m->cv, &m->mu, &ts);
+        if (rc == 0) {
+            return 1;
+        }
+    }
+}
+
+void xrt_monitor_notify_all(xrt_monitor *m) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.notifyAll：监视器为空");
+    }
+    pthread_cond_broadcast(&m->cv);
+}
+
+void xrt_monitor_close(xrt_monitor *m) {
+    if (m == NULL) {
+        return;
+    }
+    atomic_store_explicit(&m->closed, 1, memory_order_release);
+    pthread_cond_broadcast(&m->cv);
+}
+
+int32_t xrt_monitor_closed(const xrt_monitor *m) {
+    if (m == NULL) {
+        return 1;
+    }
+    return atomic_load_explicit(&m->closed, memory_order_acquire) ? 1 : 0;
+}
+
+/* FFI 投影：句柄以 int64_t 传递，避免生成端需要知道不透明指针类型。 */
+int64_t xdkc_monitor_new(void) {
+    return (int64_t)(intptr_t)xrt_monitor_new();
+}
+
+void xdkc_monitor_enter(int64_t handle) {
+    xrt_monitor_enter((xrt_monitor *)(intptr_t)handle);
+}
+
+void xdkc_monitor_exit(int64_t handle) {
+    xrt_monitor_exit((xrt_monitor *)(intptr_t)handle);
+}
+
+void xdkc_monitor_wait(int64_t handle) {
+    xrt_monitor_wait((xrt_monitor *)(intptr_t)handle);
+}
+
+int32_t xdkc_monitor_wait_context(int64_t handle, void *ctx) {
+    return xrt_monitor_wait_context((xrt_monitor *)(intptr_t)handle, (xrt_context *)ctx);
+}
+
+void xdkc_monitor_notify_all(int64_t handle) {
+    xrt_monitor_notify_all((xrt_monitor *)(intptr_t)handle);
+}
+
+void xdkc_monitor_close(int64_t handle) {
+    xrt_monitor_close((xrt_monitor *)(intptr_t)handle);
+}
+
+int32_t xdkc_monitor_closed(int64_t handle) {
+    return xrt_monitor_closed((const xrt_monitor *)(intptr_t)handle);
+}
 
 /* ---- Channel ---- */
 

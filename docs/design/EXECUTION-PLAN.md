@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Active；P0 架构基线已提交（`81fddb7b`）；代码开工由 CR-0 门禁控制 |
+| 状态 | Active；P0 架构基线 `81fddb7b`；B0–B4 已完成/合并；C7 合同已整合待 B5；B5–B10 未开工 |
 | 目标 | 把 2.x 从“设计完成”推进到“第一个 XDK 包可编码、可验收” |
 | 基线 | `main` = 1.x 已发布；2.x 在 `xdk-2` 分支/worktree |
 | 规则 | `LOCAL_RULES.md` 第 1–6 号；批内不停、批末一次门禁/提交/汇报 |
@@ -170,7 +170,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B0 | 分支/worktree、`xdk2.sh`、包清单、1.x 基线、诊断码冻结 | CR-0 | B0.2/B0.3/B0.4 可并行 |
 | B1 | 注解 lexer/parser/AST、类型解析、目标/保留/重复、常量求值、诊断 | `AN0001`–`AN0014` 正/负例绿 | 与 B3 并行 |
 | B2 | `xdk.annotations` 14 类型、`AnnotationRegistry`、运行时只读查询 | 14 类型 + 注册表场景绿 | 串行 B1 |
-| B3 | `RuntimeMonitor`、`Context` 截止/等待、泛型 `Pair`/`Entry`、`isFinite`、`Bytes.alloc`、errors helpers、`List.copy` | prelude 场景 + 1.x 回归绿 | 与 B1/B2 并行 |
+| B3 | `RuntimeMonitor`、`Context` 截止/等待、泛型 `Pair`/`Entry`、`isFinite`、`Bytes.alloc`、errors helpers、`List.copy` | prelude 场景 + 1.x 回归绿 | 与 B1 并行；`main.x` 冲突按 §4.4 rebase 解决 |
 | B4 | `functional`、`graph`、`stats`、`net.uri`、`net.mime`、`tensor`、`linalg`、`geo` | 每包场景 + 2.x gate 绿 | 包间可并行 |
 | B5 | core 15 包 2.x 化（foundation → io/fs/sys → log/config/cli → execution） | core 15 包 Verified | 子批串行 |
 | B6 | data/encoding 12 包 | 依赖闭包绿 | 子批并行 |
@@ -178,6 +178,23 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B8 | platform 17 包 | 模型/只读/控制面分级绿 | os 与 device 可并行 |
 | B9 | application services 12 包 | 依赖闭包绿 | 包间可并行 |
 | B10 | solutions 9 包 | 逐组端到端绿 | 组间可并行 |
+
+### 4.4 冲突处理（不是隔离）
+
+冲突不是“换一条线绕开”或“标延期”就结束，必须按下面闭环：
+
+1. 写清冲突文件/函数/语义，指定 owner。
+2. 指定合并顺序（谁先落、谁 rebase）。
+3. 合并时保留双方语义，补冲突测试（两边的场景都要跑）。
+4. 处理完仍达不到严格要求，才标 `BLOCKED`，附证据和下一步；标记后继续该批其他条目，不整批停。
+5. 不允许把“冲突已隔离”当作完成。
+
+`src/mini/main.x` 是 B1/B3 的真实共享文件：
+
+- B1 先落注解 AST/parser/Checker。
+- B3 从 B1 的新 HEAD rebase，保留泛型 `Pair`、`List.copy`、`Bytes.alloc` 等编译支持；冲突逐段解，不丢任一侧。
+- 合并后跑 `xdk2.sh`（注解 + prelude 全部场景）+ 1.x 回归。
+- B3.2 `Context` deadline/wait 在 rebase 后继续做；它不是延期关闭项。
 
 ---
 
@@ -195,7 +212,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B0.4 | 1.x 基线 | QA | B0.1 | 无代码 | 门禁日志/commit | `xdk.sh`+`xdk_core.sh` 绿 |
 | B0.5 | 注解诊断码冻结 | ARCH | 无 | `ANNOTATION-PLAN.md` | `AN0001`–`AN0020` | 文档签字，无待定 |
 | B0.6 | P0.5 类型改名 | ARCH | B0.1 | `docs/design/utils/**`、`solutions/**`、`network/net/tls/**` | 8 组改名 + 引用 | `check_doc_naming`/links 绿 |
-| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 已实现 API 同步 | 文档与 `src/xdk` 不矛盾 |
+| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 ledger 同步 | PASS（ledger）；C7 合同整合已合并（`d01943ba`）；B5 负责实现/验证 |
 
 ### B1：注解编译器最小闭环
 
@@ -224,7 +241,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | ID | 工作包 | Owner | 依赖 | 文件域 | 产物 | 出口 |
 | --- | --- | --- | --- | --- | --- | --- |
 | B3.1 | `RuntimeMonitor` + raw | RUNTIME | B0.1 | `src/runtime/`、`src/ffi/runtime_raw.xfb`、`src/xdk/core/runtime/Runtime.x` | enter/exit/wait/notify | 并发/关闭场景绿 |
-| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | 取消/超时场景绿 |
+| B3.2 | `Context` 截止/等待 | RUNTIME/COMPILER | B3.1 + B1 合并 | `src/mini/main.x` 内建、`src/xdk/execution/` | deadline/cancel/wait | 已合并 `876b9320`；取消/超时/重复 wait 场景绿 |
 | B3.3 | 泛型 `Pair`/`Entry` | XDK-CORE | B0.1 | `src/xdk/core/collections/Collections.x` | `Pair<A,B>`、`Entry<K,V>` | 1.x 兼容 + 2.x 场景 |
 | B3.4 | `isFinite/isNaN`、`Bytes.alloc/empty`、errors helpers、`List.copy` | XDK-CORE | B0.1 | `src/xdk/core/math`、`core/bytes`、`core/errors`、`core/collections` | 顶层函数/构造 | prelude 场景绿 |
 | B3.5 | prelude 门禁 | QA | B3.1–B3.4 | `xdk2/prelude/` | 场景 | `xdk2.sh` 绿 + 1.x 回归绿 |
@@ -287,11 +304,11 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 
 ```text
 读 LOCAL_RULES.md 第 5/6 号、ARCHITECTURE.md §10、PACKAGE-MAP.md L1。
-本批 = B3：RuntimeMonitor、Context deadline/wait、Pair/Entry、isFinite/isNaN、Bytes.alloc/empty、errors helpers、List.copy。
-文件域 = src/runtime/、src/ffi/runtime_raw.xfb、src/xdk/runtime/、execution/、collections/、math/、bytes/、errors/。
-不要改 annotations，不要写 codec/net/platform。
+本批 = B3：RuntimeMonitor、Pair/Entry、isFinite/isNaN、Bytes.alloc/empty、errors helpers、List.copy；B3.2 Context deadline/wait 在 B1 合并后 rebase 继续，不是延期关闭项。
+文件域 = src/runtime/、src/ffi/runtime_raw.xfb、src/xdk/core/runtime/、collections/、math/、bytes/、errors/、execution/。`src/mini/main.x` 是共享文件：按 EXECUTION-PLAN §4.4 与 B1 合并，保留双方语义，不丢泛型/List.copy/Bytes/注解任何一侧。
+不要写 codec/net/platform。
 批末一次 build + xdk2.sh + xdk.sh + xdk_core.sh，提交一次。
-出口 = prelude 场景绿 + 1.x 回归绿。
+出口 = prelude 场景绿 + 1.x 回归绿 + main.x 冲突清单已交给 integration owner。
 ```
 
 ### 7.4 独立 review agent
@@ -396,16 +413,184 @@ worktree: clean
 | 批次 | 状态 | 备注 |
 | --- | --- | --- |
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
-| B0 方案落地 | 未开工 | 本轮编排对象 |
-| B1 注解编译器 | 未开工 | 等 B0.5 |
-| B2 注解类型 | 未开工 | 等 B1 |
-| B3 runtime prelude | 未开工 | 可与 B1 并行 |
-| B4 第一批纯包 | 未开工 | 等 B2+B3 |
+| B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
+| B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
+| B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae`；16 场景绿；B2.3 Registry 已生成 |
+| B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
+| C7 core 合同整合 | 合同已整合（待 B5 实现/验证） | merge `d01943ba`（源 `c0ab6d2a`）；B5 前不标完成 |
+| B4 第一批纯包 | 已完成 | 8 包/34 类型；`xdk2.sh` 27 scenarios、`xdk2_extra.sh`、`xdk_core.sh`、full `xdk.sh` 142s PASS（§11.5） |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
 
 ---
 
+### 11.1 B0 执行证据（2026-11-22）
+
+```text
+branch: xdk-2
+base: b95e4f76（包含 81fddb7b）
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+B0.1–B0.7：
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| B0.1 分支/worktree | PASS | `git switch -c xdk-2`；HEAD `b95e4f76` |
+| B0.2 2.x 测试入口 | PASS | `src/mini/tests/xdk2.sh` + `xdk2/smoke/smoke.x/.out`；输出 `xdk2: PASS (1 scenario(s))` |
+| B0.3 包清单 | PASS | `src/xdk/xdk2-packages.tsv` 75 包 / 698 类型；`annotations/`、`execution/` 首批目录存在 |
+| B0.4 1.x 基线 | PASS | `src/mini/build.sh`、`xdk.sh`、`xdk_core.sh` 均 exit 0 |
+| B0.5 诊断码 | PASS | `ANNOTATION-PLAN.md` §9 冻结 `AN0001`–`AN0020` |
+| B0.6 P0.5 改名 | PASS | 10 个文件/9 组类型改名；链接与命名门禁绿 |
+| B0.7 C7 回写 | PASS（ledger）；合同整合见 NEXT-01 | 10 个 core README 的 ledger 已升级为类型合同（C7）；B5 仍负责实现/验证，不宣称 B5 完成 |
+
+B0.6 改名清单：
+
+```text
+stats/Histogram.md -> stats/BucketHistogram.md
+metrics/Timer.md -> metrics/MetricTimer.md
+audit/Redactor.md -> audit/AuditRedactor.md
+net-service/ReconnectPolicy.md -> net-service/ServiceReconnectPolicy.md
+net-service/ServiceState.md -> net-service/NetServiceState.md
+numerics/Signal.md -> numerics/SignalBuffer.md
+agent/Exporter.md -> agent/PipelineExporter.md
+db/Batch.md -> db/DbBatch.md；ml/Batch.md -> ml/MlBatch.md
+net/tls/PrivateKey.md -> net/tls/TlsPrivateKey.md
+```
+
+B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io,fs}/README.md`。这里的 PASS 是 **ledger 完成**；C7 的 1.x → 2.x 类型合同整合已合并（merge `d01943ba`，源 `c0ab6d2a`；NEXT-01：合同已整合），B5 仍负责实现与 xdk2 + 1.x 回归，不在 B0 宣称 B5 完成。
+
+批末门禁（本记录随后提交）：
+
+```text
+src/mini/build.sh                 PASS
+src/mini/tests/xdk.sh             PASS
+src/mini/tests/xdk_core.sh        PASS
+src/mini/tests/xdk2.sh            PASS
+python3 src/toolchain/check_doc_naming.py docs/design   PASS
+python3 src/toolchain/check_links.py docs/design        PASS
+```
+
+**B0 时点缺口（历史记录）**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B1/B3 已在 §11.2 合并，B3.2 已在 §11.3 合并。
+
+### 11.2 Integration batch：B1 + B3
+
+```text
+B1 merge: c4dbdf54
+B3 merge: cce533f5
+integration commit: HEAD at 2026-11-22 (the commit containing this record)
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+冲突：`src/mini/main.x` 与 `src/mini/bin/mini.c` 为共享文件；本次 `ort` 自动合并，无冲突文件。合并后确认双方语义同时存在：
+
+- B1：`AnnotationDecl` / `AnnotationUse` / 注解 parser/Checker；22 个负例、warning、AST 场景；
+- B3：`findGenericClass`、泛型 `Pair`/`Entry`、`Bytes.alloc`、`List.copy`、runtime monitor；
+- 没有回退任一侧，也没有修改期望值迁就实现。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（11 scenario(s)；22 negative；warning；AST）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B3.2 `Context` deadline/wait 在本批仍 **OPEN**；随后在 §11.3 合并完成。B1/B3 在本批只标“已合并”。
+
+### 11.3 B3.2 integration：Context deadline/wait
+
+```text
+B3.2 merge: 876b9320（--no-ff，B3 branch tip 8a76b7bb）
+base: c2974f2c
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+合并：`git merge-tree` 预演无冲突，`git merge --no-ff b3-runtime` 由 `ort` 自动合并；未丢 `Context`、注解或泛型任一侧。
+
+B3.2 场景 `src/mini/tests/xdk2/prelude/context_deadline.x/.out` 覆盖：
+
+- `Context.withCancel` / `withDeadline` / `withTimeout` / `wait`；
+- 父取消传播到子，子取消不反向影响父；
+- 相对超时与绝对截止到期取消；
+- 已过期截止/零超时立即取消，`wait` 不阻塞；
+- 重复 `wait` / 重复 `cancel` 幂等；
+- 另一任务取消唤醒主线程 `wait`。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（12 scenario(s)；22 negative；warning；AST；context_deadline）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B3 最终状态：**已完成（B3.1–B3.5）**。B2 在本批之后由 §11.4 合并完成；本批不开始 B2.3/B4。
+
+### 11.4 B2 integration：`xdk.annotations` 14 类型与 Registry
+
+```text
+B2 merge: 48ec4bae（--no-ff，B2 branch tip 1abcb8da）
+base: 248fccb0
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+合并：`merge-tree` 预演无冲突；`ort` 自动合并，无冲突文件。B1 注解、B3 `Context`/泛型、B2 Registry/14 类型三侧同时保留。
+
+验证：
+
+- `import xdk.annotations` 直接可用；`annotations_types_*` 测试无 `annotations` 符号链接；
+- `xdkAnnotationRegistry()` / `xdkAnnotationRegistryVersion()` 是编译期生成入口，查询只读静态表；
+- `annotations_types_runtime_registry.x/.out` 通过；
+- B2-fix 四项通过：无 `xdk.collections` 依赖、`Float` 作为 `Double` 别名、枚举不可为 null、`targetKey(Annotation)` 为 `annotation:` 分支。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（16 scenario(s)；22 negative；warning；AST；registry）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生成只读表。
+
+S2 注解三块已关闭，B4 已完成：
+
+- `Deinit`：`20f82bf5`；`deinit` 声明、`@Target(Deinit)`、注册表 `owner#deinit()` 与 GC 钩子已落地；`deinit.sh` 12 cases PASS。
+- `TypeUse`：`ab7e2a47`；`@Foo Type` 支持字段/参数/返回/局部类型，消歧与注册表已落地；`typeuse.sh` 3 正例 + 6 负例 PASS。
+- 跨包注解 use 预解析：`11298b82`；注册表 `typeName` 使用全限定名，`cross_package.sh` 输出 `true/true/true`，双导入歧义 `AN0001`。
+- 11 个注解目标现在都有至少一个合法挂载点。
+- 仍保留：`@pkg.a.Marker` 源码点号路径尚未解析；跨包注解通过导入 + 简单名或声明包解析。
+
+B4 已完成。
+
+### 11.5 B4 完成：8 包 / 34 类型
+
+- 债表：[`DEBT-REGISTER.md`](DEBT-REGISTER.md)
+- B4 包：`functional`、`graph`、`stats`、`net.uri`、`net.mime`、`tensor`、`linalg`、`geo`，合计 8 包 / 34 类型。
+- 验收证据：
+  - `xdk2.sh` 27 scenarios PASS；`xdk2_extra.sh` PASS；`xdk_core.sh` PASS。
+  - 完整 `xdk.sh` exit 0，142s，最后 `mini xdk: PASS`。
+  - tensor：`src/mini/tests/xdk2/tensor/tensor.x/.out`、`tensor_panic.sh` 6/6 PASS。
+  - `check_b4_contracts.py`、`check_b4_status.py` PASS。
+- B4-01/P11 与 B4-02/P8 已关闭；C7 合同已整合待 B5，B5–B10 未开工。
+- 债表计数：45 条 = 0 B4 阻塞 + 26 后续批次 + 13 1.x/post-1.0/owner accepted + 1 BLOCKED + 5 已关闭（S2 3 + B4 2）。
+- 已知残余不影响 B4 合同：functional 嵌套 inline lambda 链、graph `describe()` 文本、linalg Int64 `>2^53`/大矩阵 panic 未单列。
+
 ## 12. 一句话收口
 
 **先 B0 把“开工条件”做实，再 B1/B3 并行，B2/B4 出第一批可验收包；不要从 75 包同时铺开，也不要在 `main` 上写 2.x。**
+
+B4 已完成（8 包 / 34 类型 + full `xdk.sh`）；入口与关闭证据见 §11.5。下一步 B5 仍需 owner 对剩余运行时分项做实现/waiver 决定；C7 实现/验证归 B5。

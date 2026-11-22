@@ -38,9 +38,9 @@
 - `SystemSnapshot` 是不可变的系统资源快照；
 - `CliRuntime` 显式持有 args/env/cwd/stdin/stdout/stderr/terminal。
 
-`Shell` 不是 shell 解释器：它不接收单个命令字符串，不展开 glob/变量，不解析管道/重定向，不生成补全脚本。
+`Shell` 不是 shell 解释器：它不接收单个命令字符串，不展开 glob/变量，不解析管道/重定向；`completionBash` 只返回补全文本，不执行/安装脚本。
 
-不做：进程退出、stdout/stderr 写入策略（由调用方/`CliRuntime` 决定）、shell 补全、交互式提示、配置绑定、命令处理器、TUI、参数文件、PTY、全局 shell/进程表、权限提升、 `xdk.os` 扩展资源。
+不做：进程退出、stdout/stderr 写入策略（由调用方/`CliRuntime` 决定）、`Completion`/`CompletionScript` 类型、交互式提示、配置绑定、命令处理器、TUI、参数文件、PTY、全局 shell/进程表、权限提升、 `xdk.os` 扩展资源。1.x `completionBash` 仅作为文本生成兼容面保留。
 
 ---
 
@@ -53,12 +53,12 @@
 | 用户错误走 Result | 缺值、未知选项、重复、校验失败 → `UsageError` |
 | 合同错误 panic | null 参数、非法 spec、非法名字 → panic |
 | 不伪造成功 | flag 没有值；值选项才参与 `values/valueOrNull` |
-| 默认值显式 | 默认值只来自 `OptionSpec`，不从环境/配置文件偷读 |
+| 默认值显式 | Parser 只从 `OptionSpec` 取默认值，不偷读环境/配置文件；`defaultFromEnv`/`resolveValue` 是显式 1.x 兼容助手 |
 | 祖先选项可见 | 子命令可继续使用祖先声明的选项；同一路径重名直接拒绝 |
 | 终止符 | `--` 之后全部是位置参数；不再识别选项/子命令 |
 | 帮助分离 | `HelpFormatter` 只返回文本；是否打印由调用方决定 |
 | 不自动 help | `--help` 不是魔法；需要时显式声明 `OptionSpec("help")` |
-| 无短选项合并 |  不支持 `-abc`；只支持 `-a`、`-a value`、`-a=value` |
+| 无短选项合并 | `Parser` 不接受 `-abc`；需要 1.x 短选项簇时显式 `Args.expandShortFlags` 预展开 |
 | 无缩写匹配 | `--out` 不会匹配 `--output` |
 | 解析/执行分离 | `Parser` 只解析；`Shell` 只执行；二者不互相调用 |
 | argv 执行 | program 与 arguments 分开；没有 shell 字符串；不展开 glob/变量/管道/重定向 |
@@ -73,7 +73,7 @@
 | 不自动退出 | `Shell`/`Parser` 不调用进程退出；应用映射 `ExitCode`/`CommandResult` |
 | 不提升权限 | Shell 以调用方身份执行；不注入 sudo/权限包装；不提供提权 API |
 | 无 secret 日志 | `describe` 不输出参数值、环境值、stdin、输出内容 |
-| 补全后置 | Completion 仍 X；Shell 不生成补全脚本 |
+| 补全文本后置 | `Completion`/`CompletionScript` 类型仍 X；`completionBash` 作为 1.x 兼容文本函数保留 |
 
 ---
 
@@ -125,6 +125,10 @@ X 未纳入本批：`Completion`、`CompletionScript`、`PositionalSpec`、`Comm
 | `exitCodeValue` | 枚举 → 进程码 | `ExitCode code` | `Int` | 无 |
 | `exitCodeName` | 枚举 → 稳定名 | `ExitCode code` | `String` | 无 |
 | `usage` | 简单 usage 行 | `String program, String summary` | `String` | 无 |
+| `completionWords` | 补全词表 | `Command command` | `String` | null → panic |
+| `completionBash` | bash `complete -W` 文本 | `Command root` | `String` | null → panic |
+| `defaultFromEnv` | 环境/兜底两段 | `String envName, String fallback` | `String` | null → panic |
+| `resolveValue` | argv/env/config/fallback 优先级 | `Args arguments, String flag, String envName, String configValue, String fallback` | `String` | null → panic |
 
 执行/系统类型没有额外顶层函数：入口是 `Shell`/`SystemResource` 的方法；校验是各类型的构造契约。
 
@@ -198,6 +202,59 @@ String usage(String program, String summary) {
     if program == null || summary == null { throw "usage: null argument" }
     if summary == "" { return "usage: " + program }
     return "usage: " + program + " " + summary
+}
+
+String completionWords(Command command) {
+    if command == null { throw "completionWords: null" }
+    String words = "help"
+    List<OptionSpec> options = command.options()
+    Int index = 0
+    while index < options.length() {
+        OptionSpec option = options.get(index)
+        words = words + " " + option.longToken()
+        String? shortToken = option.shortToken()
+        if shortToken != null { words = words + " " + shortToken }
+        index = index + 1
+    }
+    List<Command> children = command.children()
+    index = 0
+    while index < children.length() {
+        words = words + " " + children.get(index).name()
+        index = index + 1
+    }
+    return words
+}
+
+String completionBash(Command root) {
+    if root == null { throw "completionBash: null" }
+    String text = "complete -W \"" + completionWords(root) + "\" " + root.name()
+    List<Command> children = root.children()
+    Int index = 0
+    while index < children.length() {
+        Command child = children.get(index)
+        text = text + "\ncomplete -W \"" + completionWords(child) + "\" \""
+            + root.name() + " " + child.name() + "\""
+        index = index + 1
+    }
+    return text
+}
+
+String defaultFromEnv(String envName, String fallback) {
+    if envName == null || fallback == null { throw "defaultFromEnv: null" }
+    if envName != "" && envHas(envName) { return envOr(envName, "") }
+    return fallback
+}
+
+String resolveValue(Args arguments, String flag, String envName,
+                    String configValue, String fallback) {
+    if arguments == null || flag == null || envName == null
+        || configValue == null || fallback == null {
+        throw "resolveValue: null argument"
+    }
+    if arguments.has(flag) { return arguments.valueOr(flag, fallback) }
+    if envName != "" && envHas(envName) { return envOr(envName, "") }
+    if configValue != "" { return configValue }
+    return fallback
 }
 ```
 
@@ -371,13 +428,14 @@ return exitCodeValue(ExitCode.Error)
 | shell 字符串/管道/重定向/glob/变量 | 不做；只接受 `CommandLine`；需要 shell 语义时调用方显式执行 `/bin/sh -c`，风险自担 |
 | Pipeline | X；当前不提供 `Pipeline` 类型，调用方显式组合 sys 进程原语 |
 | PTY/交互式 stdin | X；`ShellOptions.stdin` 只支持固定字节，不继承终端 |
-| shell 补全 | X；不生成 Completion/CompletionScript |
+| shell 补全 | `Completion`/`CompletionScript` 类型 X；`completionBash`/`completionWords` 只生成 `complete -W` 文本，不执行/安装 |
 | 参数文件/response file | X |
-| sys 公开 stdio 管道 | X；Shell 的捕获/streaming/spawn 依赖内部 `spawnPipedRaw`；平台不提供管道时返回 `Unsupported` |
+| sys 公开 stdio 管道 | `xdk.sys` 的 1.x `spawnProcessPiped`/Process stdio 兼容面保留；CLI `Shell` 仍用内部管道，不把它变成 Shell 语法 |
 | 环境变量 unset | 不支持；用 `withInheritEnvironment(false)` + 精确 env 覆盖 |
+| 默认值优先级 | Parser 不偷读；`resolveValue` 显式 argv > env > 非空 config > fallback |
 | 超时 | 是结果，不是 `Err(Timeout)`；不合成 124；`isTimedOut` 权威 |
 | 信号 |  只基本 Terminate/Kill；Windows 语义受限，返回 `Unsupported`/`Unavailable` |
-| 进程组/后代 | X；Shell 管理直接子进程，不 kill 进程组；后代持有管道可能延长排空 |
+| 进程组/后代 | `Shell` 不 kill 进程组；`xdk.sys.Process.sendGroupSignal` 是独立 1.x 兼容面 |
 | 输出上限 | 每流独立；0 = 不限制；只限制保留，始终排空；sink 不受上限保护 |
 | secret 日志 | `describe` 脱敏；调用方不得把 argv/env/stdin/输出直接写日志 |
 | SystemResource 范围 | 当前系统/当前或指定进程；不枚举进程表、不读 cgroup/容器/GPU/温度/网络 |
@@ -415,3 +473,27 @@ return exitCodeValue(ExitCode.Error)
 | [Go `os/exec`](https://pkg.go.dev/os/exec) | `Command` 不经过 shell；stdin/stdout/stderr 显式 | 采纳显式 stdio；不继承隐式终端 |
 
 > 系统资源字段沿用 core `sys` 的 `SystemInfo`/`Env`/`Platform`/`Process`；本包不复制  OS 类型，也不把容器/cgroup/GPU 探测塞进 CLI。
+
+## 9. 1.x 兼容合同（C7）
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `OptionSpec.withShort(String)` | [`OptionSpec.md`](OptionSpec.md) `withShort` 别名 → `withShortName` | 非法短名 → panic |
+| `Args.expandShortFlags(List<String>)` | [`Args.md`](Args.md)；全已知 `-abc` → `-a -b -c`，未知原样 | null → panic；Parser 不自动展开 |
+| `Args.value` / `lastValue` / `values` | `Args` 同名；首次/末次/全部 | 缺失返回空串/空列表；不改变 `valueOrNull` last-wins |
+| `Args.terminatorIndex` | `Args` 同名 | 无 `--` → -1 |
+| `completionBash(Command)` / `completionWords(Command)` | 顶层同名；生成 bash `complete -W` 文本 | null → panic；只生成文本，不执行 |
+| `defaultFromEnv(String, String)` | 顶层同名；env 存在 → env，否则 fallback | null → panic |
+| `resolveValue(Args, String, String, String, String)` | 顶层同名；argv > env > 非空 config > fallback | null → panic |
+| `CommandMatch` | 2.x 主名 `ParseResult`；`CommandMatch` 为兼容别名 | 不新增第二套解析结果 |
+
+示例：
+
+```xnull
+OptionSpec output = new OptionSpec("output").withShort("o").withValueName("file")
+Args expanded = new Args(["-abc"]).expandShortFlags(["a", "b", "c"])
+String text = completionBash(command)
+String value = resolveValue(args, "--mode", "APP_MODE", configValue, "default")
+```
+
+测试义务：短名别名；短选项簇全已知/含未知/`--` 后；首次/末次/全部值；`completionBash` 根/子命令文本；env/config/fallback 优先级；`CommandMatch` 别名；Parser 仍拒绝未预展开的 `-abc`。

@@ -1,0 +1,10 @@
+// expect: fail AN0002
+// BLOCKED: `Deinit` is a valid @Target name, but S2/mini has no deinit
+// declaration syntax yet, so there is no legal mount site.
+@Target(Deinit)
+@annotation DeinitOnly {
+}
+
+@DeinitOnly
+class Device {
+}

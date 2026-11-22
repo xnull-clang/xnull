@@ -57,7 +57,7 @@
 
 | 包 | 类型 | 公共结构（角色） | 依赖 | 阶段 | 状态 |
 | --- | ---: | --- | --- | --- | --- |
-| `xdk.annotations` | 14 | `AnnotationValue/Info/Set`（V）；`AnnotationProcessor`（P）；`AnnotationProcessorContext/AnnotationProcessingResult`（X）；`AnnotationRegistry`（R）；`AnnotationElement`（V）；`AnnotationDiagnostic`（Er）；`AnnotationTarget/Retention/ValueKind/DiagnosticSeverity/ProcessorPhase`（E） | 语言核心标量/容器 | P1 | 2.x 设计；编译器 0 |
+| `xdk.annotations` | 14 | `AnnotationValue/Info/Set`（V）；`AnnotationProcessor`（P）；`AnnotationProcessorContext/AnnotationProcessingResult`（X）；`AnnotationRegistry`（R）；`AnnotationElement`（V）；`AnnotationDiagnostic`（Er）；`AnnotationTarget/Retention/ValueKind/DiagnosticSeverity/ProcessorPhase`（E） | 语言核心标量/容器 | P1 | 2.x 已实现（B2：14 类型 + Registry + 注解管线） |
 
 ---
 
@@ -91,7 +91,7 @@
 | `xdk.io` | 22 | `Reader/Writer/Seekable/Closer`（P）；`ByteArrayReader/Writer/StringReader/Writer/Buffered/Line/Chain/Tee/Limit/Counting/Peek`（H）；`Stdio`（S） | errors/bytes | P3 | 1.x Verified |
 | `xdk.fs` | 12 | `Path/Metadata/DirEntry/Permissions/PathMatcher`（V）；`OpenOptions`（B）；`File/Dir/TempFile/TempDir/FileLock`（H）；`FileSystem`（P） | errors/bytes/io | P3 | 1.x Verified |
 | `xdk.sys` | 8 | `Env/Platform/SystemInfo/ProcessResult`（V）；`ProcessBuilder`（B）；`Process/Resource`（H）；`Signal`（E） | errors/runtime/io | P3 | 1.x Verified |
-| `xdk.log` | 10 | `Level`（E）；`Field/LogRecord/TextFormatter`（V）；`Sink/Formatter`（P）；`ConsoleSink/MemorySink/Logger/LoggerFactory`（S） | errors/runtime/text/time/io | P3 | 1.x Verified；1.x Filter/Redactor/Sampler 需回写 2.x |
+| `xdk.log` | 10 | `Level`（E）；`Field/LogRecord/TextFormatter`（V）；`Sink/Formatter`（P）；`ConsoleSink/MemorySink/Logger/LoggerFactory`（S） | errors/runtime/text/time/io | P3 | 1.x Verified；1.x Filter/Redactor/Sampler 已记录（B0） |
 | `xdk.config` | 12 | `Config/ConfigEntry/ConfigSchema/ConfigField`（V）；`ConfigSource`（P）；`MapSource/FileSource/EnvSource/OverlaySource/ProfileSource/ConfigProfileSource/ConfigLoader`（S） | errors/meta/text/fs/sys | P3 | 1.x Verified |
 | `xdk.cli` | 17 | `Args/OptionSpec/Command/ParseResult/HelpFormatter/CommandResult/CommandOutput/SystemResource/SystemSnapshot`（V）；`Parser/Shell/CommandLine/CliRuntime`（S） | errors/bytes/io/sys/time/execution | P3 | 1.x Verified |
 
@@ -123,10 +123,10 @@
 | `xdk.net` | 28 | `IpFamily/SocketState/ShutdownMode`（E）；`IpAddress/IpPrefix/SocketAddress/DnsRecord/DnsCacheStats/SocketOptions/MulticastOptions/NetworkInterface/PoolKey/PooledConnection/ConnectionPoolOptions/ConnectionPoolStats/Datagram`（V）；`ByteStream/TcpHandler`（P）；`Dns/DnsResolver/TcpListener/TcpStream/TcpServer/TcpClient/UdpSocket/ConnectionPool`（S） | errors/bytes/execution/uri | P5 | 2.x 设计；runtime 仅 plain TCP |
 | `xdk.net.uri` | 2 | `Uri/Query`（V） | errors/text/bytes | P5 | 2.x 设计；纯 XDK 可先行 |
 | `xdk.net.mime` | 2 | `MediaType/MimeTypes`（V） | errors/text | P5 | 2.x 设计；纯 XDK 可先行 |
-| `xdk.net.tls` | 10 | `TlsVersion`（E）；`Certificate/PrivateKey/TrustStore/TlsConfig/TlsSessionInfo`（V）；`TlsStream`（H）；`TlsHandler`（P）；`TlsServer/TlsClient`（S） | errors/bytes/execution/net/crypto | P5 | 2.x 设计；TLS FFI 0 |
+| `xdk.net.tls` | 10 | `TlsVersion`（E）；`Certificate/TlsPrivateKey/TrustStore/TlsConfig/TlsSessionInfo`（V）；`TlsStream`（H）；`TlsHandler`（P）；`TlsServer/TlsClient`（S） | errors/bytes/execution/net/crypto | P5 | 2.x 设计；TLS FFI 0 |
 | `xdk.net.http` | 40 | `HttpMethod/HttpVersion/HttpStatus`（E）；`HttpHeader/HttpHeaders/HttpBody/HttpRequest/HttpResponse/Form/Multipart/Auth/Proxy/Cookie`（V）；`HttpHandler/HttpMiddleware`（P）；`HttpServer/HttpClient/HttpExchange`（S）；`Http2Session/Http2Stream`（H） | net/uri/mime/tls/execution/codec/compress | P5 | 2.x 设计；HTTP/2 最后 |
 | `xdk.net.websocket` | 12 | `WebSocketCloseCode`（E）；`WebSocketMessage/WebSocketOptions/WebSocketStats/ReconnectPolicy`（V）；`WebSocket`（H）；`WebSocketServer/WebSocketClient`（S） | net/http/execution | P5 | 2.x 设计 |
-| `xdk.net.service` | 13 | `ServiceState`（E）；`ServiceOptions/ServiceStats/ReconnectPolicy/BackpressurePolicy/HeartbeatPolicy`（V）；`NetworkService/Server/Client/Connection/Session`（S/H）；`ConnectionHandler/SessionHandler`（P） | net/tls/execution | P5 | 2.x 设计；从 solutions 归位 |
+| `xdk.net.service` | 13 | `NetServiceState`（E）；`ServiceOptions/ServiceStats/ServiceReconnectPolicy/BackpressurePolicy/HeartbeatPolicy`（V）；`NetworkService/Server/Client/Connection/Session`（S/H）；`ConnectionHandler/SessionHandler`（P） | net/tls/execution | P5 | 2.x 设计；从 solutions 归位 |
 | `xdk.jwt` | 6 | `JwtAlgorithm`（E）；`JwtHeader/JwtClaims/JwtToken/JwtOptions`（V）；`Jwt`（S） | errors/bytes/text/codec/crypto | P5 | 2.x 设计 |
 | `xdk.sql` | 12 | `SqlDialect/SqlKind`（E）；`SqlValue/SqlColumn/SqlRow/SqlParameter/SqlStatement/SqlOptions/SqlResult`（V）；`SqlDriver`（P）；`SqlConnection/SqlTransaction`（H） | core only | P5 | 2.x 设计；驱动归生态 |
 
@@ -166,7 +166,7 @@
 | `xdk.schedule` | 8 | `ScheduleKind/MisfirePolicy`（E）；`CronExpression/Schedule/SchedulerOptions`（V）；`Job`（P）；`JobHandle`（H）；`Scheduler`（S） | errors/execution/runtime/time | P7 | 2.x 设计 |
 | `xdk.event` | 3 | `Event`（V）；`EventSubscription`（H）；`EventBus`（S） | errors/runtime/codec | P7 | 2.x 设计 |
 | `xdk.resilience` | 7 | `CircuitState`（E）；`CircuitBreaker/RateLimiter/Bulkhead/Retry/Fallback/Timeout`（S） | errors/execution/runtime | P7 | 2.x 设计 |
-| `xdk.metrics` | 11 | `MetricKind/MetricsFormat`（E）；`MetricSample/MetricFamily`（V）；`Metric/Exporter`（P）；`Counter/Gauge/Histogram/Timer/Registry`（S） | errors/execution/runtime/time/io/collections/math/stats | P7 | 2.x 设计 |
+| `xdk.metrics` | 11 | `MetricKind/MetricsFormat`（E）；`MetricSample/MetricFamily`（V）；`Metric/Exporter`（P）；`Counter/Gauge/Histogram/MetricTimer/Registry`（S） | errors/execution/runtime/time/io/collections/math/stats | P7 | 2.x 设计 |
 | `xdk.trace` | 9 | `SpanKind/SpanStatus`（E）；`SpanContext/SpanEvent/TraceOptions/Sampler`（V）；`Propagator`（P）；`Span`（H）；`Tracer`（S） | errors/time/runtime/math/text/collections | P7 | 2.x 设计 |
 | `xdk.audit` | 5 | `AuditLevel`（E）；`AuditEvent`（V）；`AuditSink`（P）；`AuditLogger/AuditRedactor`（S） | errors/text/runtime | P7 | 2.x 设计 |
 | `xdk.terminal` | 8 | `Color/Style`（V）；`Terminal/Ansi/ProgressBar/Spinner/Prompt/Table`（S） | errors/io/text/collections/execution | P7 | 2.x 设计；CLI 呈现，不是桌面 UI |

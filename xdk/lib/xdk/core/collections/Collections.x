@@ -154,6 +154,47 @@ class Pair {
     }
 }
 
+// Pair<A,B>：2.x 泛型二元组（值语义）。
+// 1.x 的固定 Pair 保留在上方作为兼容适配；两者使用不同形态：
+//   - 固定 Pair：公共字段 first/second（Map<String,Int>.entries）；
+//   - 泛型 Pair：私有字段 + first()/second()/with*/equals/toString。
+class Pair<A, B> {
+    final A _first
+    final B _second
+
+    Pair(A first, B second) {
+        self._first = first
+        self._second = second
+    }
+
+    A first() {
+        return self._first
+    }
+
+    B second() {
+        return self._second
+    }
+
+    Pair<A, B> withFirst(A value) {
+        return new Pair<A, B>(value, self._second)
+    }
+
+    Pair<A, B> withSecond(B value) {
+        return new Pair<A, B>(self._first, value)
+    }
+
+    Bool equals(Pair<A, B> other) {
+        if other == null {
+            return false
+        }
+        return self._first == other._first && self._second == other._second
+    }
+
+    String toString() {
+        return "(" + str(self._first) + ", " + str(self._second) + ")"
+    }
+}
+
 // IntPair：Map<Int,Int>.entries 的值对象。
 class IntPair {
     Int first

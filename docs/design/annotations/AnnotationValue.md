@@ -70,7 +70,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| 私有构造器 | 标签 + 12 个负载槽 | 由工厂独占调用；标签非 null；数组负载元素非 null | 内部不变量破坏 → panic |
+| 私有构造器 | 标签 + 12 个负载槽 | 由工厂独占调用；标签是枚举成员（枚举不可为 null）；数组负载元素非 null | 内部不变量破坏 → panic |
 | `ofBool` | `Bool value` | 任意 Bool | 无 |
 | `ofInt` | `Int value` | 任意 Int | 无 |
 | `ofLong` | `Long value` | 任意 Long | 无 |
@@ -245,9 +245,7 @@ class AnnotationValue {
                             String? enumItemName, String? typeName,
                             List<AnnotationValue>? arrayValue,
                             AnnotationInfo? annotationValue) {
-        if kind == null {
-            throw "AnnotationValue: null kind"
-        }
+        // kind 是枚举成员；枚举是值类型，不存在 null。
         _kind = kind
         _boolValue = boolValue
         _intValue = intValue

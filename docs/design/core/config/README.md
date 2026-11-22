@@ -114,3 +114,24 @@ Overlay：默认文件 → profile 文件 → env → CLI；后者覆盖前者�
 | 多 profile 自动发现 | 应用/CLI |
 | 键大小写 | 大小写敏感 |
 | 值类型 | 字符串存储；读取时转换 |
+
+## 9. 1.x 兼容合同（C7）
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `setChecked(String, String)` | [`Config.md`](Config.md) 同名；空 key/含 `=` → `InvalidArgument` | 成功 `Ok()`；不改变 2.x `set` 的 panic 语义 |
+| `apply(ConfigSource)` | `Config.apply(Context, ConfigSource)` 主合同；`apply(ConfigSource)` 1.x 兼容重载用 `Context.background()` | `source.load` 失败原样返回；逐条 `setChecked`，首个失败即止；兼容重载不支持取消 |
+| `getInt/getLong/getBool/getDouble` | `Config` 同名 Result getter | 缺失 `NotFound`；解析失败 `InvalidArgument`；Bool 接受 `true/false/1/0` |
+| `get*Or` | `Config.getIntOr/getLongOr/getBoolOr/getDoubleOr` | 解析失败返回 fallback |
+| `overlay/copy/loadEnv` | `Config.overlay/copy`、`EnvSource` 白名单 | 覆盖后者优先；env 只读显式键 |
+
+示例：
+
+```xnull
+Result<Unit, Error> set = config.setChecked("port", "8080")
+Result<Unit, Error> applied = config.apply(source)
+Result<Int, Error> port = config.getInt("port")
+Result<Bool, Error> debug = config.getBool("debug")
+```
+
+测试义务：`setChecked` 非法/成功；`apply` source 失败与 entry 失败；四个 Result getter 的缺失/非法/成功；`getBool` 的 `true/false/1/0`；`get*Or` fallback；overlay/copy/EnvSource 白名单。

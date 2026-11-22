@@ -6,7 +6,7 @@
 | --- | --- |
 | 目的 | 历史批次：补齐非 UI 缺口包（已完成）；UI/desktop 已在 2.x 移除 |
 | 范围 | `xdk.sql`；`xdk.gpu`/`xdk.tensor`/`xdk.linalg`/`xdk.geo`/`xdk.serial`/`xdk.device` |
-| 不做 | `xdk.ui`、`xdk.gfx`、`xdk.image`、`xdk.font`、`xdk.input`、`xdk.clipboard` |
+| 不做 | UI/桌面相关包（不在 XDK 范围） |
 | 暂缓 | X：event/reflect/graph、YAML/TOML/XML、zstd/lz4/brotli、exporter |
 | 约束 | 只写设计文档；不改代码/测试/脚本；共享 README 由集成者最后修改 |
 
@@ -17,14 +17,7 @@
 桌面 UI 需要大量抽象：窗口/合成器/控件树/布局/渲染/输入/无障碍/主题/DPI/生命周期。
 当前 XNull 的抽象与运行时还不足以把这些设计冻结；先做不依赖 UI 抽象的包，避免把错误抽象写进规范。
 
-2.x 已移除：
-
-```text
-xdk.ui        xdk.gfx       xdk.image
-xdk.font      xdk.input     xdk.clipboard
-```
-
-这些不在 2.x 计划；不排期、不设计、不立 3.x 议题。
+2.x 已移除 UI/桌面相关包；这些不在 2.x 计划，不排期、不设计、不立 3.x 议题。
 
 ---
 
@@ -109,6 +102,6 @@ Device      9 类型
 
 - 7 个包全部有 README 与完整类型文件；
 - 类型索引 = 文件数；
-- 不出现 UI/GFX/Image/Font/Input/Clipboard 类型；
+- 不出现 UI/桌面类型；
 - 不出现驱动/裸设备 ioctl 公共 API；
 - `COVERAGE.md` 的 §4.1 明确缺包只保留 UI 相关项与 X。

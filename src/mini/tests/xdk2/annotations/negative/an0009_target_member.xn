@@ -1,0 +1,4 @@
+// expect: fail AN0009
+@Target(Bogus)
+@annotation A {
+}

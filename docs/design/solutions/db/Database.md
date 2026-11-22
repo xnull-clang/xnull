@@ -5,7 +5,7 @@
 | 类型 | `class Database` |
 | 包 | `xdk.db` |
 | 稳定性 | `preview` |
-| 依赖 | `DatabasePool`、`DatabaseConfig`、`Batch`、`RowMapper`、`DatabasePoolStats`、`SqlStatement`、`SqlOptions`、`SqlResult`、`SqlConnection`、`SqlTransaction`、`Context`、`Error` |
+| 依赖 | `DatabasePool`、`DatabaseConfig`、`DbBatch`、`RowMapper`、`DatabasePoolStats`、`SqlStatement`、`SqlOptions`、`SqlResult`、`SqlConnection`、`SqlTransaction`、`Context`、`Error` |
 | 被依赖 | 应用服务、[`Db`](Db.md)、[`MigrationRunner`](MigrationRunner.md)、[`DatabaseHealth`](DatabaseHealth.md) |
 
 > 包索引见 [`README.md`](README.md)。
@@ -39,7 +39,7 @@
 - 批量：
   - `executeBatch` 在**一条连接**上顺序执行，不自动开启事务；遇到第一个错误停止并返回错误，已完成语句已生效（自动提交或数据库默认），结果列表不返回；
   - `executeBatchAtomic` 在**一个事务**内顺序执行；任一失败回滚并返回错误；全部成功才提交并返回结果；
-  - 两者都按 `Batch` 顺序返回 `List<SqlResult>`；空批次返回空列表且不借连接；
+  - 两者都按 `DbBatch` 顺序返回 `List<SqlResult>`；空批次返回空列表且不借连接；
   - 同一 `SqlOptions` 应用于批次中的每条语句；需要不同控制面时拆分批次。
 - 行映射：
   - `query` 要求结果是查询（`SqlResult.isQuery()=true`），先调用 `mapper.start(context, columns)`，再按行调用 `mapper.mapRow`；
@@ -76,7 +76,7 @@
 - `isOpen()` 等价于 `!_pool.isClosed()`；关闭后不再变为打开。
 - `pool()` 返回借用的池引用；调用方不得关闭它（关闭后 `Database` 也不可用）。
 - `close` 幂等；第一次可能返回池关闭诊断错误，后续返回 `Ok(unit)`。
-- 所有公开方法不修改传入的 `SqlStatement`/`SqlOptions`/`Batch`/`RowMapper`；`SqlOptions` 由执行方按次快照。
+- 所有公开方法不修改传入的 `SqlStatement`/`SqlOptions`/`DbBatch`/`RowMapper`；`SqlOptions` 由执行方按次快照。
 - 不暴露物理连接/驱动句柄。
 
 ---
@@ -130,10 +130,10 @@
 | `query` | 带选项映射 | `Context context, SqlStatement statement, RowMapper mapper, SqlOptions options` | `Result<Int, Error>` | 同上 | 结果必须是查询 |
 | `queryOne` | 映射至多一行 | `Context context, SqlStatement statement, RowMapper mapper` | `Result<Bool, Error>` | 同上 | 内部 `maxRows=1` |
 | `queryOne` | 带选项映射一行 | `Context context, SqlStatement statement, RowMapper mapper, SqlOptions options` | `Result<Bool, Error>` | 同上 | 复制 options 后设 `maxRows=1` |
-| `executeBatch` | 非原子批量 | `Context context, Batch batch` | `Result<List<SqlResult>, Error>` | SQL/池错误 | 单连接；失败停止；不自动事务 |
-| `executeBatch` | 带选项非原子批量 | `Context context, Batch batch, SqlOptions options` | `Result<List<SqlResult>, Error>` | 同上 | 同一 options 用于每条 |
-| `executeBatchAtomic` | 原子批量 | `Context context, Batch batch` | `Result<List<SqlResult>, Error>` | SQL/池/提交错误 | 单事务；失败回滚 |
-| `executeBatchAtomic` | 带选项原子批量 | `Context context, Batch batch, SqlOptions options` | `Result<List<SqlResult>, Error>` | 同上 | 同一 options 用于每条 |
+| `executeBatch` | 非原子批量 | `Context context, DbBatch batch` | `Result<List<SqlResult>, Error>` | SQL/池错误 | 单连接；失败停止；不自动事务 |
+| `executeBatch` | 带选项非原子批量 | `Context context, DbBatch batch, SqlOptions options` | `Result<List<SqlResult>, Error>` | 同上 | 同一 options 用于每条 |
+| `executeBatchAtomic` | 原子批量 | `Context context, DbBatch batch` | `Result<List<SqlResult>, Error>` | SQL/池/提交错误 | 单事务；失败回滚 |
+| `executeBatchAtomic` | 带选项原子批量 | `Context context, DbBatch batch, SqlOptions options` | `Result<List<SqlResult>, Error>` | 同上 | 同一 options 用于每条 |
 | `begin` | 开启事务 | `Context context` | `Result<SqlTransaction, Error>` | `Unavailable`/`Unsupported`/SQL/池错误 | 结束自动归还租约 |
 | `close` | 关闭 | 无 | `Result<Unit, Error>` | `Io`/`Network`（诊断） | 幂等；不等待租约 |
 | `describe` | 单行诊断 | 无 | `String` | 无 | 不含 URI/选项 |
@@ -252,13 +252,13 @@
 - 语言：class、final 字段、List、Int、Bool、Long、String、Result、Unit；
 - 运行时：`List.copy`、`str(Int)`、`str(Bool)`；
 - 驱动/池：`DatabasePool.acquire/begin/stats/close`、`SqlConnection.execute`、`SqlTransaction.execute/commit/rollback/close`；
-- 接口：`DatabasePool`、`DatabasePoolStats`、`Batch`、`RowMapper`、`SqlStatement`、`SqlOptions`、`SqlResult`、`SqlRow`、`SqlConnection`、`SqlTransaction`、`Context`、`Error`、`BasicError`、`ErrorKind`。
+- 接口：`DatabasePool`、`DatabasePoolStats`、`DbBatch`、`RowMapper`、`SqlStatement`、`SqlOptions`、`SqlResult`、`SqlRow`、`SqlConnection`、`SqlTransaction`、`Context`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-[`DatabasePool`](DatabasePool.md)、[`DatabasePoolStats`](DatabasePoolStats.md)、[`DatabaseConfig`](DatabaseConfig.md)、[`Batch`](Batch.md)、[`RowMapper`](RowMapper.md)、[`Db`](Db.md)、[`SqlStatement`](../../network/sql/SqlStatement.md)、[`SqlOptions`](../../network/sql/SqlOptions.md)、[`SqlResult`](../../network/sql/SqlResult.md)、[`SqlRow`](../../network/sql/SqlRow.md)、[`SqlConnection`](../../network/sql/SqlConnection.md)、[`SqlTransaction`](../../network/sql/SqlTransaction.md)、[`Context`](../../core/execution/Context.md)、[`Error`](../../core/errors/Error.md)、[`ErrorKind`](../../core/errors/ErrorKind.md)。
+[`DatabasePool`](DatabasePool.md)、[`DatabasePoolStats`](DatabasePoolStats.md)、[`DatabaseConfig`](DatabaseConfig.md)、[`DbBatch`](DbBatch.md)、[`RowMapper`](RowMapper.md)、[`Db`](Db.md)、[`SqlStatement`](../../network/sql/SqlStatement.md)、[`SqlOptions`](../../network/sql/SqlOptions.md)、[`SqlResult`](../../network/sql/SqlResult.md)、[`SqlRow`](../../network/sql/SqlRow.md)、[`SqlConnection`](../../network/sql/SqlConnection.md)、[`SqlTransaction`](../../network/sql/SqlTransaction.md)、[`Context`](../../core/execution/Context.md)、[`Error`](../../core/errors/Error.md)、[`ErrorKind`](../../core/errors/ErrorKind.md)。
 
 ---
 
@@ -268,7 +268,7 @@
 - `Database` 线程安全；可跨任务共享；每次操作独立借还。
 - 单条租约/事务不跨任务共享；事务打开期间连接独占。
 - `close` 可与其他方法并发；关闭后新操作失败；在途操作可能被取消/失败。
-- 语句/选项/mapper/batch 借用；`SqlOptions` 调用开始时快照；`Batch` 执行开始时快照。
+- 语句/选项/mapper/batch 借用；`SqlOptions` 调用开始时快照；`DbBatch` 执行开始时快照。
 - `SqlResult` 返回所有权给调用方，不可变，可共享。
 - `pool()` 返回借用引用，不转移所有权；不得关闭。
 - 相等：引用身份；不提供 `equals`；不同 `Database` 永不相等。
@@ -304,7 +304,7 @@ if started.isOk() {
 ```
 
 ```text
-Batch batch = new Batch().add(statementA).add(statementB)
+DbBatch batch = new DbBatch().add(statementA).add(statementB)
 Result<List<SqlResult>, Error> applied =
     database.executeBatchAtomic(context, batch)
 ```
@@ -473,11 +473,11 @@ class Database {
         return Ok(mapped.value() > 0)
     }
 
-    Result<List<SqlResult>, Error> executeBatch(Context context, Batch batch) {
+    Result<List<SqlResult>, Error> executeBatch(Context context, DbBatch batch) {
         return executeBatch(context, batch, new SqlOptions())
     }
 
-    Result<List<SqlResult>, Error> executeBatch(Context context, Batch batch,
+    Result<List<SqlResult>, Error> executeBatch(Context context, DbBatch batch,
             SqlOptions options) {
         if context == null || batch == null || options == null {
             throw "Database.executeBatch: null argument"
@@ -511,12 +511,12 @@ class Database {
     }
 
     Result<List<SqlResult>, Error> executeBatchAtomic(Context context,
-            Batch batch) {
+            DbBatch batch) {
         return executeBatchAtomic(context, batch, new SqlOptions())
     }
 
     Result<List<SqlResult>, Error> executeBatchAtomic(Context context,
-            Batch batch, SqlOptions options) {
+            DbBatch batch, SqlOptions options) {
         if context == null || batch == null || options == null {
             throw "Database.executeBatchAtomic: null argument"
         }

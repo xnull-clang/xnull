@@ -1,0 +1,9 @@
+// expect: fail AN0008
+Int seed = 1
+
+@annotation Bad {
+    final Int n = seed
+}
+
+class Device {
+}

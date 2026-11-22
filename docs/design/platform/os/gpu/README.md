@@ -86,7 +86,7 @@ GPU 适配器/设备/显存/队列的只读清单与显式打开的句柄。
 
 ### G2：无头 GPU 计算
 
-无 `Display` 要求；`Gpu` + `GpuCompute` 能力；打开 `ComputeOnly`/Vulkan/Metal 适配器；创建 `Compute`/`Transfer` 队列；不请求 `Graphics`。
+无显示输出要求；`Gpu` + `GpuCompute` 能力；打开 `ComputeOnly`/Vulkan/Metal 适配器；创建 `Compute`/`Transfer` 队列；不请求 `Graphics`。
 
 ### G3：诊断/资产清单
 

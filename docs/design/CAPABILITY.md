@@ -251,7 +251,7 @@ L0 语言原语
 | `xdk.cache` | LRU/TTL/Loading/统计 | Guava/Caffeine、MemoryCache | C3 |
 | `xdk.queue` | 有界/阻塞/批处理 | Java BlockingQueue、.NET Channels | C2–C3 |
 | `xdk.schedule` | cron/周期/JobHandle | Quartz、cron、.NET Timer | C2–C3 |
-| `xdk.metrics` | Counter/Gauge/Histogram/Timer/Registry/Exporter | Micrometer、Prometheus | C2–C3 |
+| `xdk.metrics` | Counter/Gauge/Histogram/MetricTimer/Registry/Exporter | Micrometer、Prometheus | C2–C3 |
 | `xdk.trace` | Tracer/Span/Propagator/Sampler | OpenTelemetry | C2 |
 | `xdk.audit` | 审计事件/Sink/脱敏 | 审计日志 | C2 |
 | `xdk.event` | 事件/订阅/同步发布 | Guava EventBus、.NET events | C2 |

@@ -13,7 +13,7 @@
 
 当前/目标操作系统的封闭分类：Linux、Windows、macOS、Android、iOS、FreeBSD、WASM、未知。
 
-不做：发行版识别（`OsInfo.name`）、版本比较、架构、桌面环境。
+不做：发行版识别（`OsInfo.name`）、版本比较、架构、OS 会话（`OsInfo.session`）。
 
 ---
 

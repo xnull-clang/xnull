@@ -72,17 +72,24 @@
 | `removeTree` | 递归删除 | `String path` | `Result<Unit, Error>` | `NotFound`/`Io` |
 | `createDir` | 创建目录 | `String path` | `Result<Unit, Error>` | `AlreadyExists`/`Io` |
 | `createDirs` | 递归创建 | `String path` | `Result<Unit, Error>` | `Io` |
+| `removeDir` | 删除空目录 | `String path` | `Result<Unit, Error>` | `NotFound`/`Io` |
 | `createTempFile` | 临时文件 | `String prefix, String suffix` | `Result<TempFile, Error>` | `Io` |
 | `createTempDir` | 临时目录 | `String prefix` | `Result<TempDir, Error>` | `Io` |
 | `walk` | 递归遍历 | `String root` | `Result<List<Path>, Error>` | `NotFound`/`Io` |
 | `glob` | 通配 | `String pattern` | `Result<List<Path>, Error>` | `InvalidArgument`/`Io` |
 | `metadata` | 元数据 | `String path` | `Result<Metadata, Error>` | `NotFound`/`Io` |
+| `linkMetadata` | 链接元数据（lstat） | `String path` | `Result<Metadata, Error>` | `NotFound`/`Io` |
+| `permissions` | 读权限位 | `String path` | `Result<Int, Error>` | `NotFound`/`Io` |
+| `fileSize` | 文件大小 | `String path` | `Result<Long, Error>` | `NotFound`/`Io` |
+| `fileMtime` | 修改时间 | `String path` | `Result<Long, Error>` | `NotFound`/`Io` |
+| `globMatch` | 单路径 glob 匹配 | `String text, String pattern` | `Bool` | 非法 pattern → panic |
 | `canonicalize` | 规范化 | `String path` | `Result<String, Error>` | `NotFound`/`Io` |
-| `symlink` | 创建链接 | `String target, String link` | `Result<Unit, Error>` | `PermissionDenied`/`Io` |
+| `symlink` | 创建符号链接 | `String target, String link` | `Result<Unit, Error>` | `PermissionDenied`/`Io` |
+| `hardLink` | 创建硬链接 | `String target, String link` | `Result<Unit, Error>` | `AlreadyExists`/`Io` |
 | `readLink` | 读链接 | `String path` | `Result<String, Error>` | `NotFound`/`Io` |
 | `setPermissions` | 设置权限 | `String path, Permissions permissions` | `Result<Unit, Error>` | `NotFound`/`PermissionDenied` |
-| `writeTextAtomic` | 原子写文本 | `String path, String text` | `Result<Unit, Error>` | `Io` |
-| `writeBytesAtomic` | 原子写字节 | `String path, Bytes data` | `Result<Unit, Error>` | `Io` |
+| `writeTextAtomic` | 原子写文本 | `String path, String text` | `Result<Unit, Error>` | `Io`；1.x 返回 Long 的迁移为 Unit |
+| `writeBytesAtomic` | 原子写字节 | `String path, Bytes data` | `Result<Unit, Error>` | `Io`；1.x 返回 Long 的迁移为 Unit |
 
 ---
 
@@ -119,14 +126,15 @@
 
 ## 12. 示例与反例
 
-正确：`writeTextAtomic(path,text)`；`walk(root)`；`metadata(path)`。  
-反例：用 exists 区分权限；`removeTree` 删错根；跨设备 rename；忽略 Result。
+正确：`writeTextAtomic(path,text)`；`walk(root)`；`metadata(path)`；`linkMetadata(path)`；`hardLink(a,b)`；`globMatch(path, "**/*.txt")`。
+
+反例：用 exists 区分权限；`removeTree` 删错根；跨设备 rename；忽略 Result；用 `metadata` 代替 `linkMetadata` 判断链接。
 
 ---
 
 ## 13. 测试/场景义务
 
-存在/类型；读写/追加；复制/移动/删除；递归创建/删除；walk/glob；元数据；链接；原子写；权限错误。
+存在/类型；读写/追加；复制/移动/删除；递归创建/删除；walk/glob/globMatch；元数据/链接元数据；硬链接；权限读取/设置；链接；原子写；权限错误。
 
 ---
 

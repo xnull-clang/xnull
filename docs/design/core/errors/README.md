@@ -354,7 +354,7 @@ Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
 | 项 | 决策/缺口 |
 | --- | --- |
 | 错误链环检测 | `BasicError` 拒绝 self；深度上限 8；不提供 `hasCycle` |
-| `ErrorGroup` 自定义错误 |  只存 `BasicError`；自定义先转基础错误 |
+| `ErrorGroup` 自定义错误 | `ErrorGroup.addDetailed(DetailedError)` 是唯一转换点；只复制 kind/message/code；details/causes 不进入 T0 聚合 |
 | `ErrorReport` 转 BasicError | steps 不进入 BasicError；调用方先 `describe()`/日志 |
 | `MemoryErrorSink` 结构化字段 | 只存 `BasicError(kind,describe)`；丢失自定义字段 |
 | `ErrorSink` 线程安全 | 实现声明；默认非线程安全 |
@@ -362,3 +362,25 @@ Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
 | 全局码表 | 禁止；应用显式持有 Registry |
 | `collectAll` 错误类型 | 返回 `List<E>`；不聚合 |
 | `ErrorKind` 扩展 | 只允许追加；新码需版本决策 |
+
+## 9. 1.x 兼容合同（C7）
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `BasicError.tryWithCode(String)` | [`BasicError.md`](BasicError.md) 同名；非法 code → `InvalidArgument` | 不修改原实例 |
+| `BasicError.tryWithDetail(String, String)` | `tryWithDetail`；非法 key/value 或超 64 → `InvalidArgument` | 不修改原实例 |
+| `BasicError.tryWithCause(BasicError)` | `tryWithCause`；null/self/超 8 → `InvalidArgument` | 不修改原实例 |
+| `ErrorReport.tryWithStep(String)` | [`ErrorReport.md`](ErrorReport.md) 同名；非法/超 16 → `InvalidArgument` | 不修改原报告 |
+| `ErrorGroup.addDetailed(DetailedError)` | [`ErrorGroup.md`](ErrorGroup.md) 同名；经 `basicErrorOf` 转 `BasicError` | null → panic；只复制 kind/message/code |
+| `collectOk` / `report` / `toErrorReport` / `annotate` | 见 §5 顶层函数表 | 保持 1.x 语义 |
+
+示例：
+
+```xnull
+Result<BasicError, Error> coded = error.tryWithCode("value.invalid")
+ErrorGroup group = new ErrorGroup()
+group.addDetailed(customDetailedError)
+ErrorReport report = toErrorReport(error).withStep("load config")
+```
+
+测试义务：`tryWith*` 成功/失败两侧；`addDetailed` 自定义错误转换；`Cancelled` 优先；`collectOk` 聚合；`report` 不改变 Result；`toErrorReport`/`annotate` 步骤顺序。

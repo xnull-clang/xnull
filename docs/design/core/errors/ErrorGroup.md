@@ -2,7 +2,7 @@
 
 ### 1. 定位
 
-一次操作产生多个错误时聚合；横向多错误；Cancelled 优先。
+一次操作产生多个错误时聚合；横向多错误；Cancelled 优先；接受任意 `DetailedError` 并统一转成 `BasicError`。
 
 ### 2. 表示与不变量
 
@@ -23,18 +23,19 @@
 
 - 语言：class、List、String、ErrorKind、Int、Bool；
 - 运行时：无；
-- 接口：`BasicError`、`ErrorDetail`、`Result`。
+- 接口：`BasicError`、`DetailedError`、`ErrorDetail`、`Result`、`basicErrorOf`。
 
 ### 5. 依赖的特性/接口/类
 
-`BasicError`、`ErrorDetail`、`ErrorKind`、`List`、`Result`。
+`BasicError`、`DetailedError`、`ErrorDetail`、`ErrorKind`、`basicErrorOf`、`List`、`Result`。
 
 ### 6. 方法面
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
 | `ErrorGroup()` | 构造空组 | 无 | `ErrorGroup` | 无 |
-| `add` | 追加 | error | `void` | null/self → panic |
+| `add` | 追加基础错误 | error | `void` | null/self → panic |
+| `addDetailed` | 追加任意 DetailedError | error | `void` | null → panic；只保留 kind/message/code |
 | `addAll` | 追加多个 | errors | `void` | 非法 → panic |
 | `addResult` | 追加 Err | Result | `void` | null → panic |
 | `length/isEmpty` | 数量/空 | 无 | `Int`/`Bool` | 无 |
@@ -67,6 +68,13 @@ class ErrorGroup implements Error, DetailedError {
             throw "ErrorGroup.add: self"
         }
         _errors.push(error)
+    }
+
+    void addDetailed(DetailedError error) {
+        if error == null {
+            throw "ErrorGroup.addDetailed: null"
+        }
+        self.add(basicErrorOf(error))
     }
 
     void addAll(List<BasicError> errors) {
@@ -220,3 +228,18 @@ class ErrorGroup implements Error, DetailedError {
 ```
 
 ---
+
+### 8. 示例与测试义务
+
+正确：
+
+```xnull
+ErrorGroup group = new ErrorGroup()
+group.add(new BasicError(ErrorKind.NotFound, "missing"))
+group.addDetailed(customDetailedError)
+Error error = group.toBasicError()
+```
+
+反例：把自定义 `DetailedError` 直接塞进 `List<BasicError>`；期望 `addDetailed` 复制 details/causes（T0 只复制 kind/message/code）；`addDetailed(null)`。
+
+测试义务：`addDetailed` 接受自定义 `DetailedError`；转换后 kind/message/code 正确；null → panic；自我聚合拒绝；Cancelled 优先；首个非 Cancelled；details `<index>.` 前缀；`toBasicError` causes 上限 8。

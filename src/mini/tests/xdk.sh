@@ -356,7 +356,8 @@ diff -u "$TMP.exp" "$TMP.mini"
 printf 'true\n12\ntrue\nhello xdk.fs\n2\né\ntrue\ntrue\n2\n4142\ntrue\n12\ntrue\n6\nxd\nk.fs\ntrue\ntrue\ntrue\ntrue\n6\ntrue\n2\ntrue\ntrue\nabXYef\n1\ntrue\nabXYef!\n4\ntrue\ntrue\nc.txt\nsub\ntxt\ntrue\nd.txt\nb/c\ntrue\n12\ntrue\ntrue\ntrue\n384\n384\nfalse\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\nhello xdk.fs\ntrue\n6\natomic\ntrue\ntrue\n1\n6\n4\n5\ntrue\ntrue\ntrue\nfalse\ntrue\ntrue\ntrue\n1\n1\ntrue\nfalse\ntrue\nhello xdk.fs\ntrue\ntrue\nfalse\ntrue\nfalse\n' > "$TMP.exp"
 diff -u "$TMP.exp" "$TMP.mini"
 
-diff -qr "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
+# 2.x-only manifest/directories live in src/xdk; the 1.x mirror stays 1.x.
+diff -qr -x annotations -x execution -x xdk2-packages.tsv "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
     echo "src/xdk and xdk/lib/xdk differ" >&2
     exit 1
 }

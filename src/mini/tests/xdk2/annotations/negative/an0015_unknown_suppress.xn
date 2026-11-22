@@ -1,0 +1,9 @@
+// expect: warn AN0015
+@SuppressWarnings("AN9999")
+static Int f() {
+    return 1
+}
+
+static Int main() {
+    return f()
+}

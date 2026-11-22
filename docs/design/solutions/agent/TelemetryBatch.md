@@ -13,7 +13,7 @@
 
 不可变的同 kind 遥测批次：共享资源属性 + 记录列表 + 丢弃计数 + 代表时间戳 + 大小估算。
 
-批次是 Receiver/Processor/Exporter/Connector 之间唯一的数据单位；它不携带管线、组件或目标信息。
+批次是 Receiver/Processor/PipelineExporter/Connector 之间唯一的数据单位；它不携带管线、组件或目标信息。
 
 不做：跨 kind 混装、可变追加、持久化、编码、资源属性派生、记录排序。
 

@@ -5,7 +5,7 @@
 | 类型 | `class Client` |
 | 包 | `xdk.net.service` |
 | 稳定性 | `preview` |
-| 依赖 | `Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`ByteStream`、`Connection`、`Session`、`ServiceOptions`、`ReconnectPolicy`、`HeartbeatPolicy`、`ServiceStats`、`ServiceState`、`Error` |
+| 依赖 | `Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`ByteStream`、`Connection`、`Session`、`ServiceOptions`、`ServiceReconnectPolicy`、`HeartbeatPolicy`、`ServiceStats`、`NetServiceState`、`Error` |
 
 ---
 
@@ -38,12 +38,12 @@ TLS 由 `ServiceOptions.tlsConfig` 开启：客户端用 `TlsStream.connect` 包
 | --- | --- | --- | --- |
 | `_tcpClient` | `TcpClient` | final |  TCP 客户端；使用选项副本 |
 | `_options` | `ServiceOptions` | final | 配置快照 |
-| `_policy` | `ReconnectPolicy` | final | 重连策略快照 |
+| `_policy` | `ServiceReconnectPolicy` | final | 重连策略快照 |
 | `_startedAtMonoMillis` | `Long` | final | 启动时间，≥0 |
 | `_connection` | `Connection?` | 可变 | 当前连接；至多一个 |
 | `_lastRemote` | `SocketAddress?` | 可变 | 最近成功对端 |
 | `_lastError` | `Error?` | 可变 | 最近失败 |
-| `_state` | `ServiceState` | 可变 | 生命周期 |
+| `_state` | `NetServiceState` | 可变 | 生命周期 |
 | `_open` | `Bool` | 可变 | 客户端可用 |
 | `_attempt` | `Int` | 可变 | 连续重连尝试，≥0 |
 | `_totalConnections` | `Long` | 可变 | 累计成功连接，≥0 |
@@ -84,11 +84,11 @@ TLS 由 `ServiceOptions.tlsConfig` 开启：客户端用 `TlsStream.connect` 包
 | `connect` | 连接地址 | `Context context, SocketAddress remote` | `Result<Connection, Error>` | `Busy`/`Network`/`Timeout`/`Cancelled`/TLS |
 | `connect` | DNS + 连接 | `Context context, String host, Int port` | `Result<Connection, Error>` | 同上 + `NotFound` |
 | `connection` | 当前连接/无 | 无 | `Connection?` | 无 |
-| `state` | 生命周期 | 无 | `ServiceState` | 无 |
+| `state` | 生命周期 | 无 | `NetServiceState` | 无 |
 | `isOpen` | 是否可用 | 无 | `Bool` | 无 |
 | `attempt` | 当前重连尝试 | 无 | `Int` | 无 |
 | `lastError` | 最近错误/无 | 无 | `Error?` | 无 |
-| `reconnectPolicy` | 策略副本 | 无 | `ReconnectPolicy` | 无 |
+| `reconnectPolicy` | 策略副本 | 无 | `ServiceReconnectPolicy` | 无 |
 | `openSession` | 当前连接建会话 | 无 | `Result<Session, Error>` | `Unavailable` |
 | `openSession` | 指定缓冲/心跳 | `Int readBufferBytes, HeartbeatPolicy heartbeatPolicy` | `Result<Session, Error>` | `Unavailable`/参数非法 |
 | `reconnect` | 单次重连尝试 | `Context context` | `Result<Connection, Error>` | 策略拒绝/`Busy`/`Unavailable`/连接失败 |
@@ -124,13 +124,13 @@ TLS 由 `ServiceOptions.tlsConfig` 开启：客户端用 `TlsStream.connect` 包
 
 - 语言：class、Long、Int、Bool、Result、可空引用；
 - 运行时：`monotonicMillis`、`nextConnectionIdRaw`、`nextSessionIdRaw`、`sleepMillis`；
-- 接口：`Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`Connection`、`Session`、`ServiceOptions`、`ReconnectPolicy`、`ServiceStats`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`。
+- 接口：`Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`Connection`、`Session`、`ServiceOptions`、`ServiceReconnectPolicy`、`ServiceStats`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`ByteStream`、`Connection`、`Session`、`ServiceOptions`、`ReconnectPolicy`、`HeartbeatPolicy`、`ServiceStats`、`ServiceState`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`、`monotonicMillis`、`nextConnectionIdRaw`、`sleepMillis`。
+`Context`、`SocketAddress`、`TcpClient`、`TcpStream`、`TlsStream`、`TlsConfig`、`ByteStream`、`Connection`、`Session`、`ServiceOptions`、`ServiceReconnectPolicy`、`HeartbeatPolicy`、`ServiceStats`、`NetServiceState`、`Error`、`BasicError`、`ErrorKind`、`unavailableError`、`monotonicMillis`、`nextConnectionIdRaw`、`sleepMillis`。
 
 ---
 
@@ -160,12 +160,12 @@ TLS 由 `ServiceOptions.tlsConfig` 开启：客户端用 `TlsStream.connect` 包
 class Client {
     final TcpClient _tcpClient
     final ServiceOptions _options
-    final ReconnectPolicy _policy
+    final ServiceReconnectPolicy _policy
     final Long _startedAtMonoMillis
     Connection? _connection
     SocketAddress? _lastRemote
     Error? _lastError
-    ServiceState _state
+    NetServiceState _state
     Bool _open
     Int _attempt
     Long _totalConnections
@@ -182,7 +182,7 @@ class Client {
         _connection = null
         _lastRemote = null
         _lastError = null
-        _state = ServiceState.Created
+        _state = NetServiceState.Created
         _open = true
         _attempt = 0
         _totalConnections = 0
@@ -200,7 +200,7 @@ class Client {
             return Err(new BasicError(ErrorKind.Busy, "client already connected"))
         }
         _connection = null
-        _state = ServiceState.Starting
+        _state = NetServiceState.Starting
         Result<TcpStream, Error> tcpResult = _tcpClient.connect(context, remote)
         if tcpResult.isErr() {
             self.recordFailure(tcpResult.error())
@@ -217,7 +217,7 @@ class Client {
             return Err(new BasicError(ErrorKind.Busy, "client already connected"))
         }
         _connection = null
-        _state = ServiceState.Starting
+        _state = NetServiceState.Starting
         Result<TcpStream, Error> tcpResult = _tcpClient.connect(context, host, port)
         if tcpResult.isErr() {
             self.recordFailure(tcpResult.error())
@@ -244,7 +244,7 @@ class Client {
         _connection = created
         _lastRemote = tcp.remoteAddress()
         _lastError = null
-        _state = ServiceState.Running
+        _state = NetServiceState.Running
         _attempt = 0
         _totalConnections = _totalConnections + 1
         return Ok(created)
@@ -252,16 +252,16 @@ class Client {
 
     private void recordFailure(Error error) {
         _lastError = error
-        _state = ServiceState.Stopped
+        _state = NetServiceState.Stopped
         _errors = _errors + 1
     }
 
     Connection? connection() { return _connection }
 
-    ServiceState state() {
-        if _state == ServiceState.Running && _connection != null
+    NetServiceState state() {
+        if _state == NetServiceState.Running && _connection != null
             && !_connection.isOpen() {
-            return ServiceState.Stopped
+            return NetServiceState.Stopped
         }
         return _state
     }
@@ -270,7 +270,7 @@ class Client {
 
     Int attempt() { return _attempt }
     Error? lastError() { return _lastError }
-    ReconnectPolicy reconnectPolicy() { return _policy.copy() }
+    ServiceReconnectPolicy reconnectPolicy() { return _policy.copy() }
 
     Result<Session, Error> openSession() {
         if _connection == null || !_connection.isOpen() {
@@ -368,7 +368,7 @@ class Client {
     Result<Unit, Error> close() {
         if !_open { return Ok(unit) }
         _open = false
-        _state = ServiceState.Closed
+        _state = NetServiceState.Closed
         if _connection == null { return Ok(unit) }
         return _connection.close()
     }

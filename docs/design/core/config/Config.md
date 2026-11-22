@@ -21,8 +21,10 @@
 
 - 字段 `_profile`、`_entries: Map<String,String>`、`_order: List<String>`、`_frozen: Bool`。
 - 键大小写敏感；键非空、不含 `=`/换行。
-- `set` 已存在原位替换，新键追加 order。
-- 类型化 getter 用 `text` 解析；失败返回 fallback 或 `Result`。
+- `set` 已存在原位替换，新键追加 order；非法 key panic。
+- `setChecked` 对空 key/含 `=` key 返回 `InvalidArgument`，成功返回 `Ok()`；这是外部输入的 checked 入口。
+- `apply(Context, ConfigSource)` 逐条 `setChecked`；source.load 或任一 entry 失败立即返回 `Err`，不静默跳过。`apply(ConfigSource)` 是 1.x 兼容重载，内部用 `Context.background()`，不支持取消。
+- 类型化 getter 用 `text` 解析；失败返回 fallback 或 `Result`。`getInt/getLong/getBool/getDouble` 返回 `Result`；`get*Or` 返回 fallback。
 - `freeze` 后 `set/remove/clear` 失败（panic）。
 - 非线程安全。
 
@@ -66,14 +68,17 @@
 | 组 | 方法 |
 | --- | --- |
 | 读取 | `profile`、`length`、`isEmpty`、`has`、`get`、`getOr`、`tryGet`、`keys`、`values`、`entries`、`toMap` |
-| 类型化 | `getIntOr`、`getLongOr`、`getBoolOr`、`getDoubleOr`、`getDuration`、`tryGetInt`、`tryGetBool`、`tryGetLong` |
-| 修改 | `set`、`setAll`、`remove`、`merge`、`overlay`、`clear`、`copy`、`freeze` |
+| 类型化 | `getInt`、`getLong`、`getBool`、`getDouble`、`getIntOr`、`getLongOr`、`getBoolOr`、`getDoubleOr`、`getDuration`、`tryGetInt`、`tryGetBool`、`tryGetLong` |
+| 修改 | `set`、`setChecked`、`apply(Context, ConfigSource)`、`apply(ConfigSource)`（1.x 兼容）、`setAll`、`remove`、`merge`、`overlay`、`clear`、`copy`、`freeze` |
 | 校验/渲染 | `validate`、`render` |
 
 详细契约：
 
 - `get` 缺失 panic；`getOr` fallback；`tryGet` `NotFound`。
-- `getIntOr` 等解析失败返回 fallback；`tryGetInt` 返回 `InvalidArgument`。
+- `getInt`/`getLong`/`getBool`/`getDouble`：缺失 `NotFound`；解析失败 `InvalidArgument`；成功返回 `Ok`。`getIntOr` 等解析失败返回 fallback。
+- `getBool` 接受 `true`/`false`/`1`/`0`；`getLong` 全串消费并检查 64 位溢出。
+- `setChecked(key, value)`：空 key 或含 `=` → `InvalidArgument`；成功 `Ok()`。
+- `apply(Context, ConfigSource)`：`source.load(context)` 失败原样返回；逐条 `setChecked`，首个失败立即返回 `Err`。`apply(ConfigSource)` 用 `Context.background()`，不支持取消。
 - `merge` 叠加但不覆盖已有键；`overlay` 后者覆盖前者。
 - `validate(schema)` 返回 `Result<Unit, ErrorGroup>`。
 - `render` 仅诊断，不是稳定序列化。
@@ -94,13 +99,13 @@
 
 - 语言：class、Map、List、String、Bool、Int、Long、Result；
 - 运行时：无；
-- 接口：`ConfigEntry`、`ConfigSchema`、`parseInt/parseLong/parseBool/parseFloat`、`BasicError`、`ErrorGroup`。
+- 接口：`ConfigEntry`、`ConfigSchema`、`ConfigSource`、`Context`、`parseInt/parseLong/parseBool/parseFloat`、`BasicError`、`ErrorGroup`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`ConfigEntry`、`ConfigSchema`、`text` 解析函数、`BasicError`、`ErrorGroup`。
+`ConfigEntry`、`ConfigSchema`、`ConfigSource`、`Context`、`text` 解析函数、`BasicError`、`ErrorGroup`。
 
 ---
 
@@ -112,14 +117,15 @@
 
 ## 12. 示例与反例
 
-正确：`config.getIntOr("port", 8080)`。  
-反例：用 `get` 读外部配置；key 含 `=`；freeze 后 set；依赖 render 做持久化。
+正确：`config.getIntOr("port", 8080)`；`config.setChecked(key, value).isOk()`；`config.apply(source)`。
+
+反例：用 `get` 读外部配置；key 含 `=`；freeze 后 set；依赖 render 做持久化；把 `apply` 的部分失败当成功；忽略 `setChecked` 的 Err。
 
 ---
 
 ## 13. 测试/场景义务
 
-set/覆盖/顺序；get/getOr/tryGet；类型化/失败；merge/overlay；freeze；validate；render。
+set/覆盖/顺序；get/getOr/tryGet；类型化 `getInt/getLong/getBool/getDouble` 与 `get*Or`；`setChecked` 空 key/含 `=`/成功；`apply` source 失败与 entry 失败；merge/overlay；freeze；validate；render。
 
 ---
 
@@ -174,6 +180,35 @@ class Config {
         _entries.put(key, value)
     }
 
+    Result<Unit, Error> setChecked(String key, String value) {
+        if key == "" || key.indexOf("=") >= 0 || key.indexOf("\n") >= 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Config: invalid key"))
+        }
+        self.set(key, value)
+        return Ok(unit)
+    }
+
+    Result<Unit, Error> apply(Context context, ConfigSource source) {
+        if context == null || source == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Config.apply: null argument"))
+        }
+        Result<List<ConfigEntry>, Error> loaded = source.load(context)
+        if loaded.isErr() { return Err(loaded.error()) }
+        List<ConfigEntry> entries = loaded.value()
+        Int index = 0
+        while index < entries.length() {
+            ConfigEntry entry = entries.get(index)
+            Result<Unit, Error> applied = self.setChecked(entry.key(), entry.value())
+            if applied.isErr() { return Err(applied.error()) }
+            index = index + 1
+        }
+        return Ok(unit)
+    }
+
+    Result<Unit, Error> apply(ConfigSource source) {
+        return self.apply(Context.background(), source)
+    }
+
     void setAll(List<ConfigEntry> entries) {
         Int index = 0
         while index < entries.length() {
@@ -217,8 +252,8 @@ class Config {
 
     Bool getBoolOr(String key, Bool fallback) {
         String value = self.getOr(key, "")
-        if value == "true" { return true }
-        if value == "false" { return false }
+        if value == "true" || value == "1" { return true }
+        if value == "false" || value == "0" { return false }
         return fallback
     }
 
@@ -232,6 +267,37 @@ class Config {
         Result<Double, Error> parsed = parseFloat(self.getOr(key, str(fallback)))
         if parsed.isErr() { return fallback }
         return parsed.value()
+    }
+
+    Result<Int, Error> getInt(String key) {
+        if !_entries.has(key) {
+            return Err(new BasicError(ErrorKind.NotFound, "config missing: " + key))
+        }
+        return parseInt(self.getOr(key, ""))
+    }
+
+    Result<Long, Error> getLong(String key) {
+        if !_entries.has(key) {
+            return Err(new BasicError(ErrorKind.NotFound, "config missing: " + key))
+        }
+        return parseLong(self.getOr(key, ""))
+    }
+
+    Result<Bool, Error> getBool(String key) {
+        if !_entries.has(key) {
+            return Err(new BasicError(ErrorKind.NotFound, "config missing: " + key))
+        }
+        String value = self.getOr(key, "")
+        if value == "true" || value == "1" { return Ok(true) }
+        if value == "false" || value == "0" { return Ok(false) }
+        return Err(new BasicError(ErrorKind.InvalidArgument, "invalid bool: " + value))
+    }
+
+    Result<Double, Error> getDouble(String key) {
+        if !_entries.has(key) {
+            return Err(new BasicError(ErrorKind.NotFound, "config missing: " + key))
+        }
+        return parseFloat(self.getOr(key, ""))
     }
 
     List<String> keys() { return _order.copy() }

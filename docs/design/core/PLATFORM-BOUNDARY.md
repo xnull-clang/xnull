@@ -43,7 +43,7 @@ ecosystem   = 驱动、厂商 SDK、发行版集成
 - 虚拟化/hypervisor 归 `xdk.os.virt`；
 - 系统服务管理归 `xdk.os.service`；
 - 显示/窗口/音频/输入/电源/剪贴板/通知/托盘/文件对话框**不在 2.x 基线**；
-- `xdk.os.OsInfo.desktop` 只保留为 OS 会话标识字符串，不是 UI 服务；
+- `xdk.os.OsInfo.session` 是 OS 会话标识字符串，不是 UI 服务；
 - 驱动/裸设备/厂商 SDK 归 ecosystem。
 
 ---
@@ -120,7 +120,7 @@ P3 OS/硬件
 - **特权操作必须显式能力 + 失败分类。** 无权限返回 `PermissionDenied`，无实现返回 `Unsupported`。
 - **不提供全局探测/全局驱动注册。** 由调用方持有 `OsHost`/`HardwareInventory`。
 - **不把 OS 字符串当能力。** 用 `OsCapability`/`Capability`，不用 `if os == "linux"` 散落业务。
-- **不做 UI/desktop 抽象。** 窗口/合成器/控件树/剪贴板/通知/托盘/文件对话框不在 2.x。
+- **不做 UI/桌面抽象。** 显示/窗口/音频/输入/电源/剪贴板/通知/托盘/文件对话框不在 XDK 范围。
 
 ---
 
@@ -475,7 +475,7 @@ CoreProfile.isCoherent()
 - 平台适配器不暴露裸指针/裸 fd；句柄有 `close()` 且幂等。
 - 服务器/沙箱画像与平台画像分离；不把 UI/desktop 能力塞进服务器默认。
 - Linux/Windows/macOS/Android/iOS/WASM 的差异只出现在适配器实现，不进入公开 API。
-- 0 个 UI/desktop 服务类型；`OsInfo.desktop` 仅作为会话字符串。
+- 0 个 UI/desktop 服务类型；`OsInfo.session` 是会话字符串，不是 UI 服务。
 
 ---
 

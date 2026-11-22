@@ -22,7 +22,7 @@
 - `Resource` 内嵌资源；
 - `SystemInfo` CPU/内存/磁盘/主机快照。
 
-不做：PTY、进程组、cgroup、容器信息、信号完整语义、网络。
+不做：PTY、cgroup、容器信息、信号完整语义、网络；进程组/stdio 管道作为 1.x 兼容面保留。
 
 ---
 
@@ -60,11 +60,13 @@
 | 函数 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
 | `spawnProcess` | 启动 | `Context, String command` | `Result<Process, Error>` | `Unavailable`/`Io` |
+| `spawnProcessPiped` | 启动管道进程 | `Context, String command` | `Result<Process, Error>` | 同上；无管道 → `Unsupported` |
 | `runProcess` | 运行并等 | `Context, String command` | `Result<ProcessResult, Error>` | 同上 |
 | `runProcessResult` | 运行并捕获 | `Context, String command` | `Result<ProcessResult, Error>` | 同上 |
 | `envOrNull` | 环境变量 | `String name` | `String?` | 无 |
 | `envOr` | 环境变量/兜底 | `String name, String fallback` | `String` | 无 |
 | `envHas` | 是否存在 | `String name` | `Bool` | 无 |
+| `envNames` | 升序变量名 | 无 | `List<String>` | 无 |
 | `envAll` | 全量快照 | 无 | `Map<String,String>` | 无 |
 | `platform` | 运行平台 | 无 | `String` | 无 |
 | `arch` | 架构 | 无 | `String` | 无 |
@@ -77,10 +79,17 @@
 | `which` | 查找命令 | `String command` | `String?` | 无 |
 | `commandExists` | 命令存在 | `String command` | `Bool` | 无 |
 | `signalNumber` | 信号号 | `Signal signal` | `Int` | 无 |
+| `signalNumberFromName` | 名称→信号号 | `String name` | `Int` | 未知 → -1 |
 | `signal` | 发信号 | `Context, Process, Signal` | `Result<Unit, Error>` | `Unavailable`/`Io` |
+| `sendSignal` | 按 pid 发信号 | `Int targetPid, Signal signal` | `Result<Unit, Error>` | `InvalidArgument`/`Unsupported`/`Io` |
+| `sendGroupSignal` | 按进程组发信号 | `Int processGroup, Signal signal` | `Result<Unit, Error>` | 同上 |
 | `kill` | 终止 | `Context, Process` | `Result<Unit, Error>` | 同上 |
+| `stdinReadLine` | 读 stdin 一行 | 无 | `String` | EOF → 空串 |
+| `fileMtime` | 修改时间（兼容） | `String path` | `Long` | 失败 → -1 |
+| `fileMtimeResult` | 修改时间 | `String path` | `Result<Long, Error>` | `NotFound`/`Io` |
 | `resourceExists` | 资源存在 | `String path` | `Bool` | 无 |
 | `resourceSize` | 资源大小 | `String path` | `Long?` | 无 |
+| `resourceCount` | 资源总数 | 无 | `Int` | 无 |
 | `readResource` | 读资源 | `Context, String path` | `Result<Bytes, Error>` | `NotFound`/`Cancelled` |
 | `readResourceText` | 读资源文本 | `Context, String path` | `Result<String, Error>` | 同上 |
 | `listResources` | 列资源 | `Context, String prefix` | `Result<List<String>, Error>` | `Cancelled` |
@@ -146,11 +155,43 @@ Result<Bytes, Error> readResource(Context context, String path) {
 
 | 项 | 决策 |
 | --- | --- |
-| PTY/进程组/cgroup | X |
+| PTY/cgroup | X |
+| 进程组 | 已纳入：`Process.groupId/sendGroupSignal`、顶层 `sendGroupSignal` |
 | 信号 handler | X |
 | 环境变量修改 | 不支持；只快照/传给子进程 |
 | Windows 信号语义 | 受限；`Unsupported` |
 | 资源写入 | 只读 |
-| 进程 stdio 管道 | X |
+| 进程 stdio 管道 | 已纳入：`spawnProcessPiped` 与 `Process` stdin/stdout/stderr；平台无管道 → `Unsupported` |
 | 系统信息精度 | 快照；不承诺强一致 |
 | 权限/用户 |  只读 |
+
+## 9. 1.x 兼容合同（C7）
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `Process.groupId` / `sendGroupSignal` | [`Process.md`](Process.md) 同名 | 子进程自成组；未知信号 `Unsupported` |
+| `spawnProcessPiped` | 顶层同名 + [`ProcessBuilder.md`](ProcessBuilder.md) `spawnPiped` | 平台无管道 → `Unsupported` |
+| `Process` stdio 方法 | `isPiped/writeStdin*/closeStdin/readStdout*/readStderr*` | 非管道 → `Unsupported`；返回副本；NUL 安全 |
+| `Process.terminate` | `terminate()`；SIGTERM | 关闭后 `Unavailable` |
+| `envNames` | 顶层 `envNames` + [`Env.md`](Env.md) `names()` | 升序名称，不含值 |
+| `stdinReadLine` | 顶层同名 | EOF → 空串 |
+| `fileMtime` / `fileMtimeResult` | 顶层同名；`fs.metadata.modifiedMillis` 是规范面 | `-1` 兼容/`Result` 分类 |
+| `resourceCount` | 顶层同名 | 内嵌资源总数 |
+| `readResource` / `readResourceText` / `listResources` | 见 §4；[`Resource.md`](Resource.md) | `NotFound`/`Cancelled`/`DataCorrupted` |
+| `pid(): Int` | `pid(): Long` | 类型迁移 |
+| `runProcessResult(String)` | `ProcessBuilder` argv-only | 不接受 shell 字符串 |
+
+示例：
+
+```xnull
+Result<Process, Error> spawned = spawnProcessPiped(context, "cat")
+Process process = spawned.value()
+process.writeStdinText("hello\n")
+process.closeStdin()
+String output = process.readStdoutText().value()
+Result<Unit, Error> term = process.terminate()
+List<String> names = envNames()
+Int count = resourceCount()
+```
+
+测试义务：进程组 SIGTERM → wait 143；stdio 往返/EOF/非管道 Unsupported；envNames 排序；stdinReadLine EOF；fileMtime -1/Result；resourceCount；pid/id 迁移；runProcessResult shell 字符串迁移。

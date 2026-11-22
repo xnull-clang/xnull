@@ -75,4 +75,39 @@ ffi xdkc_runtime_raw {
   @ffiEntry(cName = "xdkc_stats_reset")
   @blocking(.unaware)
   void statsResetRaw();
+
+  // ---- 执行层内部监视器（B3.1）----
+  // 句柄为进程级不透明地址；close 幂等，之后 wait 立即返回。
+  @ffiEntry(cName = "xdkc_monitor_new")
+  @blocking(.unaware)
+  Int64 monitorNewRaw();
+
+  @ffiEntry(cName = "xdkc_monitor_enter")
+  @blocking(.unaware)
+  void monitorEnterRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_monitor_exit")
+  @blocking(.unaware)
+  void monitorExitRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_monitor_wait")
+  @blocking(.unaware)
+  void monitorWaitRaw(Int64 handle);
+
+  // 返回 1 = 已通知/已关闭；0 = 上下文已取消。
+  @ffiEntry(cName = "xdkc_monitor_wait_context")
+  @blocking(.unaware)
+  Int32 monitorWaitContextRaw(Int64 handle, Context context);
+
+  @ffiEntry(cName = "xdkc_monitor_notify_all")
+  @blocking(.unaware)
+  void monitorNotifyAllRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_monitor_close")
+  @blocking(.unaware)
+  void monitorCloseRaw(Int64 handle);
+
+  @ffiEntry(cName = "xdkc_monitor_closed")
+  @blocking(.unaware)
+  Int32 monitorClosedRaw(Int64 handle);
 }

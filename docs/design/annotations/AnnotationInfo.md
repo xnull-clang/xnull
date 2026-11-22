@@ -77,7 +77,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `AnnotationInfo(String typeName, AnnotationTarget target, String targetName, Map<String, AnnotationValue> values, Int repeatIndex)` | 全部 | typeName 非空；target 非 null；targetName 非空；values 非 null、键非空、值非 null；repeatIndex ≥ 1 | null/空名/空键/null 值/非法 repeatIndex → panic |
+| `AnnotationInfo(String typeName, AnnotationTarget target, String targetName, Map<String, AnnotationValue> values, Int repeatIndex)` | 全部 | typeName 非空；target 是枚举成员（枚举不可为 null）；targetName 非空；values 非 null、键非空、值非 null；repeatIndex ≥ 1 | 空名/空键/null 值/非法 repeatIndex → panic |
 
 说明：
 
@@ -209,9 +209,7 @@ class AnnotationInfo {
         if typeName == null || typeName == "" {
             throw "AnnotationInfo: empty type name"
         }
-        if target == null {
-            throw "AnnotationInfo: null target"
-        }
+        // target 是枚举成员；枚举是值类型，不存在 null。
         if targetName == null || targetName == "" {
             throw "AnnotationInfo: empty target name"
         }

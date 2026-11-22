@@ -71,6 +71,7 @@
 | 函数 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
 | `copy` | 复制到 EOF | `Context, Reader, Writer` | `Result<Long, Error>` | `Io`/`Cancelled` |
+| `copyTo` | `copy` 的 1.x 别名 | `Context, Reader, Writer` | `Result<Long, Error>` | `Io`/`Cancelled` |
 | `copyN` | 复制 N 字节 | `Context, Reader, Writer, Long count` | `Result<Long, Error>` | `Io`/`Cancelled` |
 | `copyBuffer` | 带缓冲复制 | `Context, Reader, Writer, Bytes buffer` | `Result<Long, Error>` | `Io`/`Cancelled` |
 | `readAll` | 读全部 | `Context, Reader` | `Result<Bytes, Error>` | `Io`/`Cancelled` |
@@ -123,6 +124,10 @@ Result<String?, Error> readLine(Context context, Reader source) {
         }
     }
 }
+
+Result<Long, Error> copyTo(Context context, Reader source, Writer target) {
+    return copy(context, source, target)
+}
 ```
 
 ---
@@ -162,3 +167,33 @@ Result<String?, Error> readLine(Context context, Reader source) {
 | 标准流 close | 不 close |
 | 文件/网络流 | 在 fs/net 实现 `Reader/Writer` |
 | 线程安全 | 单 reader/单 writer；外部同步 |
+
+## 9. 1.x 兼容合同（C7）
+
+1.x 与 2.x 的 Reader/Writer 是不同形态；2.x 以协议为准，1.x 具体类映射如下：
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `Reader(Bytes)` class | `xdk.bytes.ByteReader`（内存）+ `xdk.io.Reader`（流协议） | 1.x `readU8` EOF panic、`tryReadU8` `DataCorrupted`、`readBytes` 钳制、`readExact` 失败不前进：由 `ByteReader` 保留 |
+| `Writer()` class | `xdk.bytes.ByteWriter` / `xdk.io.ByteArrayWriter` | `writeU8`/`writeBytes`/`toBytes` 保留；2.x 协议写返回 `Result` |
+| `BufferedReader(Readable, Int)` | `BufferedReader(Reader, Int)` | 2.x 增加 readLine/peek/skip；无 `remaining`/`hasRemaining` |
+| `ChainReader(first, second)` | `ChainReader(List<Reader>)` | 2.x 支持 N 源；`readExact` 可能已消费前段后才报错 |
+| `TeeReader(source, sink)` | `TeeReader(Reader, Writer)` | 2.x `close()` 同时关 source 和 copy；1.x 只关 source |
+| `LimitReader(source, Int)` | `LimitReader(Reader, Long)` | 2.x 到限返回 `Ok(0)`；`Int`→`Long` |
+| `LineReader(source)` | `LineReader(Reader)`；`readLine(Context)` | 2.x 丢弃所有 CR；1.x 只丢 CRLF 的 CR |
+| `readAll(Readable)` | `readAll(Context, Reader)` | 2.x 返回副本；关闭 `Unavailable` |
+| `copyTo(Readable, Writable)` | `copy` / `copyTo(Context, Reader, Writer)` | 2.x 返回 `Long`（1.x `Int`） |
+| `StdioReader`/`StdioWriter`/`stdinReader`/`stdoutWriter`/`stderrWriter` | `Stdio.stdin/stdout/stderr` | 标准流不 close；`StdioWriter` 的 descriptor 面由 `Stdio` 取代 |
+| checked EOF | `Reader.read` 返回 `Ok(0)` 表示 EOF；`readFully` 严格读满 | 1.x 禁止 0 哨兵；2.x 明确 0=EOF，不是错误；失败用 `DataCorrupted`/`Unavailable` |
+
+示例：
+
+```xnull
+ByteReader memory = new ByteReader(fromUtf8("abc"))
+Result<Int, Error> first = memory.tryReadU8()
+Result<Bytes, Error> frame = memory.readExact(2)
+Result<Long, Error> copied = copyTo(context, reader, writer)
+Result<String?, Error> line = new LineReader(reader).readLine(context)
+```
+
+测试义务：内存 `ByteReader` 的 checked EOF/readExact；流 `Reader.read` 0=EOF；`copyTo` 返回 Long；Buffered/Chain/Tee/Limit/Line 的 2.x 行为；Tee close 传播；LineReader CR 差异；Stdio 标准流不 close；1.x 迁移示例。

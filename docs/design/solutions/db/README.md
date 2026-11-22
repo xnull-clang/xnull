@@ -38,7 +38,7 @@ xdk.db
   ├─ Db.open / Db.openPool        静态入口，无全局状态
   ├─ Database                     应用句柄，按操作借还
   ├─ DatabasePool                 连接池，显式创建、显式关闭
-  ├─ Batch / RowMapper            批量与逐行映射
+  ├─ DbBatch / RowMapper            批量与逐行映射
   ├─ DatabaseHealth               健康快照与主动刷新
   └─ MigrationRunner              有序迁移、回滚、校验、锁
         │
@@ -58,7 +58,7 @@ xdk.sql（SqlDriver / SqlConnection / SqlTransaction / SqlStatement / SqlResult�
 | 显式依赖 | `SqlDriver` 由调用方注入；`Db` 不查全局注册表 |
 | 池显式 | 连接池由 `Db.openPool` 或 `Db.open` 创建，有名字、有上限、可观测、必须关闭 |
 | 无全局池 | 每次 `Db.open`/`Db.openPool` 返回独立实例；不按 URI 隐式复用 |
-| 事务显式 | 自动提交只发生在单条 `execute`；多条原子操作使用 `Database.begin` 或 `Batch` 原子执行 |
+| 事务显式 | 自动提交只发生在单条 `execute`；多条原子操作使用 `Database.begin` 或 `DbBatch` 原子执行 |
 | SQL 归 `xdk.sql` | `xdk.db` 不重定义 `SqlStatement`、`SqlResult`、`SqlTransaction` |
 | 值不可变 | 配置、统计、迁移、批量快照在构造时复制列表/映射，读取返回副本 |
 | 超时统一 | 池获取超时用 `Long` 毫秒；执行超时仍用 `SqlOptions`；`Context` 取消优先 |
@@ -102,7 +102,7 @@ Database.begin(context)
 - `DatabasePool.acquire` 返回的 `SqlConnection` 是**租约包装**；`close` 把物理连接归还池，而不是关闭数据库会话。
 - 租约包装的 `isOpen=false` 或池已关闭时，`close` 丢弃物理连接。
 - 池化事务在 `commit`/`rollback`/`close` 后自动归还租约；失败且连接不可判定时丢弃。
-- `Batch` 只持有语句；执行由 `Database.executeBatch` / `executeBatchAtomic` 完成。
+- `DbBatch` 只持有语句；执行由 `Database.executeBatch` / `executeBatchAtomic` 完成。
 
 ### 3.3 关闭
 
@@ -133,7 +133,7 @@ Database.close()
 | `Migration` | class | 不可变迁移：版本、名称、up/down 语句、校验和、排序 | [`Migration.md`](Migration.md) |
 | `MigrationRunner` | class | 有序应用/回滚、审计、校验、修复、迁移锁 | [`MigrationRunner.md`](MigrationRunner.md) |
 | `RowMapper` | protocol | 逐行映射到应用值；非泛型回调 | [`RowMapper.md`](RowMapper.md) |
-| `Batch` | class | 语句批量构建器；由 `Database` 执行 | [`Batch.md`](Batch.md) |
+| `DbBatch` | class | 语句批量构建器；由 `Database` 执行 | [`DbBatch.md`](DbBatch.md) |
 | `DatabaseHealth` | class | 池/数据库健康快照；缓存 + 主动刷新 | [`DatabaseHealth.md`](DatabaseHealth.md) |
 | `Db` | class | 静态入口：打开 Database/Pool、隔离级别选项键 | [`Db.md`](Db.md) |
 
@@ -185,7 +185,7 @@ Database.close()
 
 ### S4：批量导入
 
-`new Batch().add(insertStatement).add(...)` → `database.executeBatchAtomic(context, batch)`；全部成功提交，任一失败回滚；返回按顺序排列的 `List<SqlResult>`。
+`new DbBatch().add(insertStatement).add(...)` → `database.executeBatchAtomic(context, batch)`；全部成功提交，任一失败回滚；返回按顺序排列的 `List<SqlResult>`。
 
 ### S5：逐行映射
 
@@ -226,7 +226,7 @@ Database.close()
 | 连接 URI | 可能含口令；`DatabaseConfig.describe` 只显示 `<redacted>`，错误不拼接 URI |
 | 驱动选项 | 值可能含令牌；诊断只显示键数量，不显示键值 |
 | SQL 参数 | `SqlStatement.describe` 不含值；`xdk.db` 不新增参数日志 |
-| SQL 正文 | `Database`/`Batch` 诊断不含 SQL；迁移诊断不含 up/down 正文 |
+| SQL 正文 | `Database`/`DbBatch` 诊断不含 SQL；迁移诊断不含 up/down 正文 |
 | 迁移名称 | 可进入历史表和错误文本；调用方不得把秘密放进名称 |
 | 健康详情 | 只含池名、计数、验证方式、错误 kind；不含连接串/查询结果 |
 | 锁 owner | 随机/单调令牌；不含主机名、用户名、口令 |

@@ -62,7 +62,7 @@
 | `Optimization` | class（静态算子） | 一维 Brent、多变量 Nelder-Mead/BFGS | [`Optimization.md`](Optimization.md) |
 | `OdeSolver` | class（静态算子） | RK4、Dormand-Prince 5(4)、隐式 Euler | [`OdeSolver.md`](OdeSolver.md) |
 | `Fft` | class（静态算子） | 一维复数/实数 FFT、逆变换、任意长度 | [`Fft.md`](Fft.md) |
-| `Signal` | class（静态算子） | 窗函数、卷积、FIR/IIR 滤波 | [`Signal.md`](Signal.md) |
+| `SignalBuffer` | class（静态算子） | 窗函数、卷积、FIR/IIR 滤波 | [`SignalBuffer.md`](SignalBuffer.md) |
 | `Interpolation` | class | 线性、自然/夹持三次样条、PCHIP | [`Interpolation.md`](Interpolation.md) |
 | `RootFinder` | class（静态算子） | 二分、Brent、Newton、割线 | [`RootFinder.md`](RootFinder.md) |
 | `Numerics` | class（静态入口） | 默认算法门面、后端标识、默认容差 | [`Numerics.md`](Numerics.md) |
@@ -191,7 +191,7 @@
 
 ### M5：频谱分析
 
-`Signal.hannWindow(1024, true)` 后逐点乘输入；`Fft.forwardReal` 得 513 个非冗余频点；`Fft.inverseReal` 还原时检查 DC/Nyquist 虚部容差。
+`SignalBuffer.hannWindow(1024, true)` 后逐点乘输入；`Fft.forwardReal` 得 513 个非冗余频点；`Fft.inverseReal` 还原时检查 DC/Nyquist 虚部容差。
 
 ### M6：一维求根
 

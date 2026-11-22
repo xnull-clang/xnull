@@ -1,0 +1,10 @@
+package pkg.c
+import xdk.annotations
+import pkg.a
+import pkg.b
+static Int main() {
+    AnnotationRegistry r = xdkAnnotationRegistry()
+    print(r.ofType("pkg.a.A").first("pkg.a.Marker") != null)
+    print(r.ofType("pkg.b.B").first("pkg.b.Marker") != null)
+    return 0
+}

@@ -39,7 +39,7 @@
 | 类型 | 种类 | 能力 | 文件 |
 | --- | --- | --- | --- |
 | `HistogramBucket` | class | 桶边界/计数 | [`HistogramBucket.md`](HistogramBucket.md) |
-| `Histogram` | class | 桶计数/分位近似 | [`Histogram.md`](Histogram.md) |
+| `Histogram` | class | 桶计数/分位近似 | [`Histogram.md`](BucketHistogram.md) |
 | `Summary` | class | 精确分位/矩统计 | [`Summary.md`](Summary.md) |
 | `RunningStats` | class | 常数内存均值/方差 | [`RunningStats.md`](RunningStats.md) |
 | `Regression` | class | 最小二乘回归 | [`Regression.md`](Regression.md) |

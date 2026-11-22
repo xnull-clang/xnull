@@ -5,13 +5,13 @@
 | 类型 | `protocol Dataset` |
 | 包 | `xdk.ml` |
 | 稳定性 | `preview` |
-| 依赖 | `Batch`、`Context`、`Error` |
+| 依赖 | `MlBatch`、`Context`、`Error` |
 
 ---
 
 ## 1. 定位
 
-随机访问的数据集合同：样本总数、按 Long 下标读取单样本 `Batch`、打开状态与关闭。
+随机访问的数据集合同：样本总数、按 Long 下标读取单样本 `MlBatch`、打开状态与关闭。
 
 只定义“如何按索引取一个样本”，不做批次拼接、洗牌、变换、并行加载、缓存、下载或格式解码。批次与流水线由 [`DataLoader`](DataLoader.md) 负责；样本内容由实现解释。
 
@@ -21,7 +21,7 @@
 
 ## 2. 设计逻辑
 
-- 非泛型协议：样本统一用 [`Batch`](Batch.md) 表达；`Batch.sampleCount()` 必须为 1，张量第 0 维为 1，表示“单样本也带批维”。
+- 非泛型协议：样本统一用 [`MlBatch`](MlBatch.md) 表达；`MlBatch.sampleCount()` 必须为 1，张量第 0 维为 1，表示“单样本也带批维”。
 - 下标用 `Long`：数据集样本数可以超过 `Int`；具体实现对超大索引可以返回 `Unsupported`/`InvalidArgument`。
 - `size` 是稳定快照：数据集打开期间不变化；需要动态数据集时创建新实例。
 - `get` 是唯一阻塞点，首参 `Context`；取消返回 `Cancelled`，不产生半个样本。
@@ -37,8 +37,8 @@
 协议无字段。实现保证：
 
 - `size()` 在打开期间稳定且 ≥0；
-- `get` 只返回 `sampleCount == 1` 的 `Batch`；
-- 返回的 `Batch` 中每个张量第 0 维为 1；
+- `get` 只返回 `sampleCount == 1` 的 `MlBatch`；
+- 返回的 `MlBatch` 中每个张量第 0 维为 1；
 - `get` 不修改数据集内部可观察状态（缓存除外，缓存不作为语义）；
 - `close` 幂等；关闭后不可重新打开；
 - `isOpen` 与生命周期一致：构造后 true，`close` 后 false；
@@ -73,7 +73,7 @@
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
 | `size` | 样本总数 | 无 | `Long` | 无 |
-| `get` | 读取单样本 | `Context context, Long sampleIndex` | `Result<Batch, Error>` | `InvalidArgument`/`Unavailable`/`Cancelled`/实现错误 |
+| `get` | 读取单样本 | `Context context, Long sampleIndex` | `Result<MlBatch, Error>` | `InvalidArgument`/`Unavailable`/`Cancelled`/实现错误 |
 | `isOpen` | 是否可读 | 无 | `Bool` | 无 |
 | `close` | 关闭 | 无 | `Result<Unit, Error>` | `Io`（诊断） |
 | `describe` | 单行描述 | 无 | `String` | 无 |
@@ -81,7 +81,7 @@
 说明：
 
 - `get`：`context == null` → panic；`sampleIndex < 0` 或 `>= size()` → `InvalidArgument`；关闭 → `Unavailable`；取消 → `Cancelled`。
-- `get` 返回的 `Batch` 是独立快照；实现不得在返回后继续修改其中的张量（`Tensor` 不可变）。
+- `get` 返回的 `MlBatch` 是独立快照；实现不得在返回后继续修改其中的张量（`Tensor` 不可变）。
 - `get` 不负责批处理；调用方传入的是样本下标，不是批次下标。
 - `size` 不阻塞、不分配；可在关闭后调用。
 - `close` 第一次调用释放资源；后续调用返回 `Ok(unit)`；即使之前的 `get` 失败也必须释放。
@@ -105,13 +105,13 @@
 
 - 语言：protocol、class、Long、Bool、Result、Unit、void；
 - 运行时：由实现决定（内存/文件/网络）；
-- 接口：[`Batch`](Batch.md)、[`DataLoader`](DataLoader.md)、[`Transform`](Transform.md)、`Context`、`Error`、`BasicError`、`ErrorKind`。
+- 接口：[`MlBatch`](MlBatch.md)、[`DataLoader`](DataLoader.md)、[`Transform`](Transform.md)、`Context`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-[`Batch`](Batch.md)、[`DataLoader`](DataLoader.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
+[`MlBatch`](MlBatch.md)、[`DataLoader`](DataLoader.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Context`、`Error`。
 
 不依赖 `xdk.fs`、`xdk.net`、`xdk.io`；实现自行选择数据源。
 
@@ -147,7 +147,7 @@
 ```xnull
 protocol Dataset {
     Long size();
-    Result<Batch, Error> get(Context context, Long sampleIndex);
+    Result<MlBatch, Error> get(Context context, Long sampleIndex);
     Bool isOpen();
     Result<Unit, Error> close();
     String describe();

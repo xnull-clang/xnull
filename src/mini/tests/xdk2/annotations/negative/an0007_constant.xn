@@ -1,0 +1,10 @@
+// expect: fail AN0007
+@annotation Count {
+    final Int n = 0
+}
+
+Int seed = 0
+
+@Count(seed)
+class Device {
+}

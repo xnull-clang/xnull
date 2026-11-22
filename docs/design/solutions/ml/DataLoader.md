@@ -5,7 +5,7 @@
 | 类型 | `class DataLoader` |
 | 包 | `xdk.ml` |
 | 稳定性 | `preview` |
-| 依赖 | `Dataset`、`Batch`、`Transform`、`Random`、`Context`、`Error` |
+| 依赖 | `Dataset`、`MlBatch`、`Transform`、`Random`、`Context`、`Error` |
 
 ---
 
@@ -23,7 +23,7 @@
 
 - 用 `class`：需要持有游标、当前 epoch 的顺序表、随机源和配置；不是一次性纯函数。
 - `Dataset.size()` 用 `Long`；`batchSize` 用 `Int`；`batchCount` 用 `Long`，因为批次数由样本总数派生。
-- 单样本批约定：`Dataset.get` 返回 `sampleCount == 1` 的 `Batch`；变换后仍必须为 1；拼批后样本数为实际收集数。
+- 单样本批约定：`Dataset.get` 返回 `sampleCount == 1` 的 `MlBatch`；变换后仍必须为 1；拼批后样本数为实际收集数。
 - 洗牌由调用方注入 `Random`；无全局 RNG。随机序列由注入的 `Random` 状态决定；同一 `Random` 状态 + 同一 `beginEpoch` 顺序可复现。
 - 顺序模式不物化 `_order`，用 `Long` 游标直接索引，支持超过 `Int` 样本数；洗牌模式需要 `List<Long>` 顺序表，因此构造时要求 `size <= 2147483647`，否则 panic。这是基线的显式限制。
 - `next` 在本地收集样本；只有成功拼批后才推进游标。失败不消耗样本，调用方可重试或 `beginEpoch`。
@@ -44,7 +44,7 @@
 | `_shuffle` | `Bool` | final | 是否按 epoch 洗牌 |
 | `_transforms` | `List<Transform>` | final | 非 null；元素非 null；副本 |
 | `_randomSource` | `Random?` | final | shuffle 为 true 时非 null；非拥有 |
-| `_collate` | `Result<Batch,Error>(Context,List<Batch>)?` | final | null = 默认拼批 |
+| `_collate` | `Result<MlBatch,Error>(Context,List<MlBatch>)?` | final | null = 默认拼批 |
 | `_order` | `List<Long>` | 内部 | 洗牌顺序；顺序模式为空 |
 | `_cursor` | `Long` | 内部 | 已消费样本数；0..size |
 | `_started` | `Bool` | 内部 | 是否已开始当前 epoch |
@@ -67,7 +67,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `DataLoader(Dataset dataset, Int batchSize, Bool shuffle, List<Transform> transforms, Random? randomSource, Result<Batch,Error>(Context,List<Batch>)? collate)` | 数据集、批大小、洗牌、变换、随机源、拼批函数 | dataset/transforms 非 null；batchSize >0；transform 元素非 null；shuffle true 时 randomSource 非 null 且 dataset.size() ≤ 2147483647 | 违约 → panic |
+| `DataLoader(Dataset dataset, Int batchSize, Bool shuffle, List<Transform> transforms, Random? randomSource, Result<MlBatch,Error>(Context,List<MlBatch>)? collate)` | 数据集、批大小、洗牌、变换、随机源、拼批函数 | dataset/transforms 非 null；batchSize >0；transform 元素非 null；shuffle true 时 randomSource 非 null 且 dataset.size() ≤ 2147483647 | 违约 → panic |
 
 构造器复制 `transforms` 列表；不复制 dataset/randomSource/collate。`collate == null` 表示默认拼批。
 
@@ -89,7 +89,7 @@
 | `transforms` | 变换副本 | 无 | `List<Transform>` | 无 | 顺序即应用顺序 |
 | `batchCount` | 批次数 | 无 | `Long` | 无 | 由 size/batchSize 派生 |
 | `beginEpoch` | 开始新 epoch | 无 | `void` | 无 | 重置游标并按需洗牌 |
-| `next` | 取下一批 | `Context context` | `Result<Batch, Error>` | `InvalidArgument`/`Cancelled`/`NotFound`/数据集/变换/拼批错误 | 阻塞；失败不推进游标 |
+| `next` | 取下一批 | `Context context` | `Result<MlBatch, Error>` | `InvalidArgument`/`Cancelled`/`NotFound`/数据集/变换/拼批错误 | 阻塞；失败不推进游标 |
 | `describe` | 单行描述 | 无 | `String` | 无 | 不含样本内容 |
 
 说明：
@@ -98,8 +98,8 @@
 - `beginEpoch`：`_cursor=0`、`_started=true`；顺序模式清空 `_order`；洗牌模式重建 `[0, size)` 并用注入的 `Random.shuffle` 打乱。`size` 必须稳定。
 - `next`：未 started 时先调用 `beginEpoch`；`cursor >= size` → `NotFound`；每次最多取 `min(batchSize, size - cursor)` 个样本；对每个样本调用 `dataset.get`，再按顺序调用 `transforms`；变换后 `sampleCount` 必须为 1；收集完调用 `collate`；成功后才 `cursor += collected`。
 - `next` 失败不改变游标、不改变 `_order`；已读取的样本不写回任何缓存。
-- 默认拼批：所有样本的输入/目标数量一致；逐张量沿第 0 维拼接；dtype/rank/尾部维度必须一致，否则 `InvalidArgument`。拼接结果由 `Batch` 构造器再次校验。
-- 自定义 `collate`：接收 `Context` 与样本列表；返回 `Batch`；返回样本数必须等于收集数，否则 `InvalidArgument`。
+- 默认拼批：所有样本的输入/目标数量一致；逐张量沿第 0 维拼接；dtype/rank/尾部维度必须一致，否则 `InvalidArgument`。拼接结果由 `MlBatch` 构造器再次校验。
+- 自定义 `collate`：接收 `Context` 与样本列表；返回 `MlBatch`；返回样本数必须等于收集数，否则 `InvalidArgument`。
 - `next` 的 `Context` 在每个样本/变换/拼批前检查；取消返回 `Cancelled`。
 - `transforms()` 返回副本；修改不影响加载器。
 - 不提供 `reset`/`skip`/`setEpoch`；epoch 语义只由 `beginEpoch` 表达。
@@ -127,13 +127,13 @@
   - `mlConcatTensors(List<Tensor> tensors) -> Result<Tensor, Error>`：同 dtype/rank/尾部维度，沿第 0 维拼接；由  `Tensor` 构造与元素读写组合实现，不新增公共类型；
   - `Random.shuffle(List<Long> values) -> void`；
   - `nowMono` 不需要；
-- 接口：[`Dataset`](Dataset.md)、[`Batch`](Batch.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Random`、`Context`、`Error`、`BasicError`、`ErrorKind`、`cancelledError`。
+- 接口：[`Dataset`](Dataset.md)、[`MlBatch`](MlBatch.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、`Random`、`Context`、`Error`、`BasicError`、`ErrorKind`、`cancelledError`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-[`Dataset`](Dataset.md)、[`Batch`](Batch.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、[`TensorShape`](../../platform/tensor/TensorShape.md)、[`Random`](../../utils/random/Random.md)、`Context`、`Error`。
+[`Dataset`](Dataset.md)、[`MlBatch`](MlBatch.md)、[`Transform`](Transform.md)、[`Tensor`](../../platform/tensor/Tensor.md)、[`TensorShape`](../../platform/tensor/TensorShape.md)、[`Random`](../../utils/random/Random.md)、`Context`、`Error`。
 
 不依赖 `xdk.io`、`xdk.fs`、`xdk.net` 或任何模型运行时。
 
@@ -143,7 +143,7 @@
 
 引用语义；`DataLoader` 由调用方拥有；dataset/transform/randomSource 都是非拥有引用；构造器复制变换列表。
 
-非线程安全：`beginEpoch`/`next` 不得并发；一个实例由一个任务驱动。`next` 返回的 `Batch` 独立于加载器，可安全共享。
+非线程安全：`beginEpoch`/`next` 不得并发；一个实例由一个任务驱动。`next` 返回的 `MlBatch` 独立于加载器，可安全共享。
 
 无 `equals`/`copy`；`==` 是引用身份；不推荐作 `Map` 键。
 
@@ -173,14 +173,14 @@ class DataLoader {
     final Bool _shuffle
     final List<Transform> _transforms
     final Random? _randomSource
-    final Result<Batch, Error>(Context, List<Batch>)? _collate
+    final Result<MlBatch, Error>(Context, List<MlBatch>)? _collate
     List<Long> _order
     Long _cursor
     Bool _started
 
     DataLoader(Dataset dataset, Int batchSize, Bool shuffle,
                List<Transform> transforms, Random? randomSource,
-               Result<Batch, Error>(Context, List<Batch>)? collate) {
+               Result<MlBatch, Error>(Context, List<MlBatch>)? collate) {
         if dataset == null || transforms == null {
             throw "DataLoader: null dataset or transforms"
         }
@@ -247,7 +247,7 @@ class DataLoader {
         activeRandom.shuffle(_order)
     }
 
-    Result<Batch, Error> next(Context context) {
+    Result<MlBatch, Error> next(Context context) {
         if context == null { throw "DataLoader.next: null context" }
         if !_started {
             self.beginEpoch()
@@ -262,7 +262,7 @@ class DataLoader {
         if wanted > (_batchSize as Long) {
             wanted = _batchSize as Long
         }
-        List<Batch> samples = []
+        List<MlBatch> samples = []
         Long offset = 0
         while offset < wanted {
             if context.isCancelled() {
@@ -272,12 +272,12 @@ class DataLoader {
             if _shuffle {
                 sampleIndex = _order.get(sampleIndex as Int)
             }
-            Result<Batch, Error> sampleResult =
+            Result<MlBatch, Error> sampleResult =
                 _dataset.get(context, sampleIndex)
             if sampleResult.isErr() {
                 return Err(sampleResult.error())
             }
-            Batch sample = sampleResult.value()
+            MlBatch sample = sampleResult.value()
             if sample == null || sample.sampleCount() != 1 {
                 return Err(new BasicError(ErrorKind.InvalidArgument,
                     "dataset sample must have sample count 1"))
@@ -287,7 +287,7 @@ class DataLoader {
                 if context.isCancelled() {
                     return Err(cancelledError("data loader transform"))
                 }
-                Result<Batch, Error> transformed =
+                Result<MlBatch, Error> transformed =
                     _transforms.get(transformIndex).apply(context, sample)
                 if transformed.isErr() {
                     return Err(transformed.error())
@@ -305,11 +305,11 @@ class DataLoader {
         if context.isCancelled() {
             return Err(cancelledError("data loader collate"))
         }
-        Result<Batch, Error> collateResult = self.collateBatch(context, samples)
+        Result<MlBatch, Error> collateResult = self.collateBatch(context, samples)
         if collateResult.isErr() {
             return Err(collateResult.error())
         }
-        Batch batch = collateResult.value()
+        MlBatch batch = collateResult.value()
         if batch == null || batch.sampleCount() != (wanted as Int) {
             return Err(new BasicError(ErrorKind.InvalidArgument,
                 "collate returned wrong sample count"))
@@ -318,15 +318,15 @@ class DataLoader {
         return Ok(batch)
     }
 
-    Result<Batch, Error> collateBatch(Context context,
-                                      List<Batch> samples) {
+    Result<MlBatch, Error> collateBatch(Context context,
+                                      List<MlBatch> samples) {
         if _collate == null {
             return self.collateSamples(samples)
         }
         return _collate(context, samples)
     }
 
-    Result<Batch, Error> collateSamples(List<Batch> samples) {
+    Result<MlBatch, Error> collateSamples(List<MlBatch> samples) {
         if samples.length() == 0 {
             return Err(new BasicError(ErrorKind.InvalidArgument,
                 "cannot collate empty sample list"))
@@ -374,7 +374,7 @@ class DataLoader {
             targets.push(concatenated.value())
             targetIndex = targetIndex + 1
         }
-        return Ok(new Batch(samples.length(), inputs, targets))
+        return Ok(new MlBatch(samples.length(), inputs, targets))
     }
 
     String describe() {
