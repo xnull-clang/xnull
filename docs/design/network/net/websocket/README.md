@@ -136,6 +136,8 @@ X：压缩扩展、HTTP/2 WebSocket、消息重放、连接迁移、多路复用
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 ### 使用
 
 ```x

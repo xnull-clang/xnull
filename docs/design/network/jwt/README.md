@@ -131,6 +131,8 @@ SM2-SM3；key 来自 `xdk.crypto`。
 }
 ```
 
+声明文件：每个注解单独一个 PascalCase 文件；处理器为构建期类型；生成代码在 `<package>/generated/`。
+
 ### 使用
 
 ```x
