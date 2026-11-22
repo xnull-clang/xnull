@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | P0-01/P0-02 已实现；P0-03+ planned；A8 5 个已实现 |
+| 状态 | P0-01–P0-04、P0-07 已实现（M0.2）；P0-05/P0-06/P0-08/P0-09 planned；A8 5 个已实现 |
 | 基线 | `main` @ `40ea3e05`（S3 1.0.0；A8 5 个已实现；处理器调度 planned） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -165,11 +165,11 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | --- | --- | --- | --- | --- |
 | P0-01 | Annotation IR v1 + 版本规则 | S3 | IR 能表达现有全部注解/值/目标；往返测试稳定 | implemented（`annotation_ir/run.sh`、`--dump-annotations`） |
 | P0-02 | Builtin Registry | P0-01 | 内建注解由注册表加载；行为不回归 | implemented（`builtinDescriptors()`，B1 行为 PASS） |
-| P0-03 | Processor Manifest 规范 + 解析 | P0-01 | 清单可启用/禁用；非法清单稳定诊断 | planned |
-| P0-04 | Phase Scheduler + 固定点 | P0-02/03 | 阶段顺序、轮次、循环检测、Finalize 禁生成 | planned |
+| P0-03 | Processor Manifest 规范 + 解析 | P0-01 | 清单可启用/禁用；非法清单稳定诊断 | implemented (M0.2) |
+| P0-04 | Phase Scheduler + 固定点 | P0-02/03 | 阶段顺序、轮次、循环检测、Finalize 禁生成 | implemented (M0.2) |
 | P0-05 | Generated Source Pipeline | P0-04 | 生成/落盘/加载/回滚；`--check-generated` | planned |
 | P0-06 | Sandbox 进程适配 | P0-04 | 网络/文件/进程越界被拒；超时/资源限制 | planned |
-| P0-07 | 诊断合并/码段 | P0-04 | 多处理器诊断稳定排序/去重 | planned |
+| P0-07 | 诊断合并/码段 | P0-04 | 多处理器诊断稳定排序/去重 | implemented (M0.2) |
 | P0-08 | 玩具注解 + 玩具处理器 | P0-01–07 | 不改主流程新增一个注解/处理器/生成物 | planned |
 | P0-09 | 平台门禁脚本 | P0-08 | 一键跑 IR/manifest/phase/fixed/sandbox/check-generated | planned |
 

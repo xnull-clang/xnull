@@ -5,6 +5,7 @@
 | 版本 | `irVersion = 1` |
 | 入口 | `mini --dump-annotations <entry.x> --xdk-root <root>` |
 | 构建时机 | `splitTypeUseAnnotations` / `resolveAnnotationUses` 之后，A8 展开与 `Mono` 之前 |
+| 处理器协议 | [`ANNOTATION-PROCESSOR-MANIFEST.md`](ANNOTATION-PROCESSOR-MANIFEST.md) |
 | 边界 | IR 只读快照；不依赖 Mono 克隆节点；不生成源码、不运行处理器 |
 | 权威 | [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) P0-01/P0-02 |
 

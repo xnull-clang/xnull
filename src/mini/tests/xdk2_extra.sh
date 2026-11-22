@@ -5,6 +5,7 @@ HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 for gate in \
     "$HERE/mirror_check.sh" \
     "$HERE/annotation_ir/run.sh" \
+    "$HERE/annotation_platform/run.sh" \
     "$HERE/core_annotations.sh" \
     "$HERE/a8/a8_core.sh" \
     "$HERE/a8/a8_packages.sh" \
