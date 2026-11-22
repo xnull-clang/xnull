@@ -1506,6 +1506,10 @@ class Parser {
             self.advance()
             return self.node("Int", t.text, t)
         }
+        if self.kind("long") {
+            self.advance()
+            return self.node("Long", t.text, t)
+        }
         if self.kind("double") {
             self.advance()
             return self.node("Double", t.text, t)
@@ -2165,6 +2169,9 @@ class Mono {
     String argType(AstNode n) {
         if n.kind == "Int" {
             return "Int"
+        }
+        if n.kind == "Long" {
+            return "Long"
         }
         if n.kind == "Double" {
             return "Double"
@@ -3290,6 +3297,9 @@ class AnnotationChecker {
     String constType(AstNode n) {
         if n.kind == "Int" {
             return "Int"
+        }
+        if n.kind == "Long" {
+            return "Long"
         }
         if n.kind == "Double" {
             return "Double"
@@ -5442,6 +5452,9 @@ class Checker {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Long" {
+            return "Long"
+        }
         if n.kind == "Double" {
             return "Double"
         }
@@ -5658,6 +5671,7 @@ class Checker {
 
     String syntacticType(AstNode n) {
         if n.kind == "Int" { return "Int" }
+        if n.kind == "Long" { return "Long" }
         if n.kind == "Double" { return "Double" }
         if n.kind == "Bool" { return "Bool" }
         if n.kind == "Char" { return "Char" }
@@ -7501,6 +7515,7 @@ class CGen {
 
     String syntacticType(AstNode n) {
         if n.kind == "Int" { return "Int" }
+        if n.kind == "Long" { return "Long" }
         if n.kind == "Double" { return "Double" }
         if n.kind == "Bool" { return "Bool" }
         if n.kind == "Char" { return "Char" }
@@ -9069,6 +9084,9 @@ class CGen {
         if n.kind == "Int" {
             return "Int"
         }
+        if n.kind == "Long" {
+            return "Long"
+        }
         if n.kind == "Double" {
             return "Double"
         }
@@ -9496,6 +9514,9 @@ class CGen {
             if !self.intLiteralFits64(n.text) {
                 return "xn_int128_from_dec(\"" + n.text + "\")"
             }
+            return n.text
+        }
+        if n.kind == "Long" {
             return n.text
         }
         if n.kind == "Double" {
@@ -12434,7 +12455,14 @@ static List<Token> lex(String src) {
                     i = i + 1
                     col = col + 1
                 }
-                tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+                if i < src.length() && (at(src, i) == "L" || at(src, i) == "l") {
+                    String text = src.substring(start, i - start)
+                    i = i + 1
+                    col = col + 1
+                    tokens.push(new Token("long", text, startLine, startCol))
+                } else {
+                    tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
+                }
                 continue
             }
             i = i + 1
@@ -12455,6 +12483,11 @@ static List<Token> lex(String src) {
             }
             if isDouble {
                 tokens.push(new Token("double", src.substring(start, i - start), startLine, startCol))
+            } else if i < src.length() && (at(src, i) == "L" || at(src, i) == "l") {
+                String text = src.substring(start, i - start)
+                i = i + 1
+                col = col + 1
+                tokens.push(new Token("long", text, startLine, startCol))
             } else {
                 tokens.push(new Token("int", src.substring(start, i - start), startLine, startCol))
             }

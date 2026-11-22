@@ -7,12 +7,8 @@ class Holder {
 static Int main() {
     Holder h = new Holder()
     print(h.shift(256, 1))
-    Long one = 1
-    print(one << 40)
-    Long mask = 255
-    Long low = 15
-    print(mask & low)
-    Long minus = -1
-    print(minus >> 8)
+    print(1L << 40)
+    print(0xFFL & 0x0FL)
+    print(-1L >> 8)
     return 0
 }

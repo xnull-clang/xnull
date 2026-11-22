@@ -2263,6 +2263,10 @@ static xn_Cls_AstNode * xn_Cls_Parser_parsePrimary(xn_Cls_Parser *self) {
     xn_Cls_Parser_advance(self);
     return xn_Cls_Parser_node(self, rt_string_from_c("Int"), t->text, t);
   }
+  if (xn_Cls_Parser_kind(self, rt_string_from_c("long"))) {
+    xn_Cls_Parser_advance(self);
+    return xn_Cls_Parser_node(self, rt_string_from_c("Long"), t->text, t);
+  }
   if (xn_Cls_Parser_kind(self, rt_string_from_c("double"))) {
     xn_Cls_Parser_advance(self);
     return xn_Cls_Parser_node(self, rt_string_from_c("Double"), t->text, t);
@@ -3001,6 +3005,9 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
 static rt_string * xn_Cls_Mono_argType(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
@@ -4320,6 +4327,9 @@ static rt_string * xn_Cls_AnnotationChecker_enumOwnerOf(xn_Cls_AnnotationChecker
 static rt_string * xn_Cls_AnnotationChecker_constType(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
@@ -6643,6 +6653,9 @@ static rt_string * xn_Cls_Checker_typeOf(xn_Cls_Checker *self, xn_Cls_AstNode * 
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
   }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
+  }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
   }
@@ -6860,6 +6873,9 @@ static rt_string * xn_Cls_Checker_typeOf(xn_Cls_Checker *self, xn_Cls_AstNode * 
 static rt_string * xn_Cls_Checker_syntacticType(xn_Cls_Checker *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
@@ -9037,6 +9053,9 @@ static rt_string * xn_Cls_CGen_syntacticType(xn_Cls_CGen *self, xn_Cls_AstNode *
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
   }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
+  }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
   }
@@ -10725,6 +10744,9 @@ static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
   if (xn_str_eq(n->kind, rt_string_from_c("Int"))) {
     return rt_string_from_c("Int");
   }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
+    return rt_string_from_c("Long");
+  }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
     return rt_string_from_c("Double");
   }
@@ -11191,6 +11213,9 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
     if ((!xn_Cls_CGen_intLiteralFits64(self, n->text))) {
       return xn_concat(xn_concat(rt_string_from_c("xn_int128_from_dec(\""), n->text), rt_string_from_c("\")"));
     }
+    return n->text;
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Long"))) {
     return n->text;
   }
   if (xn_str_eq(n->kind, rt_string_from_c("Double"))) {
@@ -14247,7 +14272,15 @@ static xn_arr_o * xn_lex(rt_string * src) {
           i = xn_int_wrap((i + 1));
           col = xn_int_wrap((col + 1));
         }
-        xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("int"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
+        if (((i < ((int64_t)src->len)) && (xn_str_eq(xn_at(src, i), rt_string_from_c("L")) || xn_str_eq(xn_at(src, i), rt_string_from_c("l"))))) {
+          rt_string * text = xn_str_substr(src, start, xn_int_wrap((i - start)));
+          i = xn_int_wrap((i + 1));
+          col = xn_int_wrap((col + 1));
+          xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("long"), text, startLine, startCol));
+        }
+        else {
+          xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("int"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
+        }
         continue;
       }
       i = xn_int_wrap((i + 1));
@@ -14270,7 +14303,15 @@ static xn_arr_o * xn_lex(rt_string * src) {
         xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("double"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
       }
       else {
-        xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("int"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
+        if (((i < ((int64_t)src->len)) && (xn_str_eq(xn_at(src, i), rt_string_from_c("L")) || xn_str_eq(xn_at(src, i), rt_string_from_c("l"))))) {
+          rt_string * text = xn_str_substr(src, start, xn_int_wrap((i - start)));
+          i = xn_int_wrap((i + 1));
+          col = xn_int_wrap((col + 1));
+          xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("long"), text, startLine, startCol));
+        }
+        else {
+          xn_arr_o_push(tokens, xn_Cls_Token_new(rt_string_from_c("int"), xn_str_substr(src, start, xn_int_wrap((i - start))), startLine, startCol));
+        }
       }
       continue;
     }
