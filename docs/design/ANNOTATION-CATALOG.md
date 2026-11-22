@@ -37,8 +37,8 @@
 | --- | --- | --- | --- | --- |
 | `@Value` | 不可变值语义：`equals`/`toString`/`copy`；hash 仍 planned；core 6 类型实际采用 | Type / Source | 非 final 字段、构造器顺序/既有方法冲突 | implemented (A8 core) |
 | `@Data` | 数据类语义：`equals`/`toString`/`copy`；hash 仍 planned | Type / Source | 字段/方法名冲突 | implemented (A8 core) |
-| `@Builder` | 生成 `<Class>Builder`：withX 链式、required-by-set、缺失字段 build panic；非泛型 | Type / Source | 缺必填、重复构造、已有 builder 类、泛型暂不支持（`AN0025`） | implemented (A8 core) |
-| `@Copy` | `copy()` 与逐字段 `withX` | Type / Source | 不可复制字段、命名冲突 | implemented (A8 core) |
+| `@Builder` | 生成 `<Class>Builder`：withX 链式、required-by-set、缺失字段 build panic；非泛型；core BuildInfo/RuntimeInfo 实际采用 | Type / Source | 缺必填、重复构造、已有 builder 类、泛型暂不支持（`AN0025`） | implemented (A8 core) |
+| `@Copy` | `copy()` 与逐字段 `withX`；core Pair/IntPair/Entry 实际采用 | Type / Source | 不可复制字段、命名冲突 | implemented (A8 core) |
 | `@Delegate` | 字段方法转发：同名/同参数/同返回；不转发字段/ctor/static；非泛型 class 目标 | Field / Source | 目标缺失/非 class（`AN0027`）、泛型目标（`AN0028`）、方法冲突（`AN0026`） | implemented (A8 core) |
 
 A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失败整批回滚；不得写任意文件、联网、反射或启动进程。当前 `@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate` 均已生成真实 AST。`hash` 因语言无 hash 原语仍 planned，不得写成已生成。`@Value`/`@Data` 的 `copy()` 必须走 canonical 构造器，保留不变量。

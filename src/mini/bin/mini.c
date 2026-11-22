@@ -706,9 +706,9 @@ static xn_arr_o * xn_a8CtorParams(xn_Cls_AstNode * cls);
 static rt_string * xn_a8ParamType(xn_Cls_AstNode * p);
 static rt_string * xn_a8ParamName(xn_Cls_AstNode * p);
 static xn_Cls_AstNode * xn_a8BuilderField(rt_string * ty, rt_string * name, xn_Cls_AstNode * cls);
-static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, xn_Cls_AstNode * cls);
-static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params);
-static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params);
+static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, rt_string * fname, xn_Cls_AstNode * cls);
+static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params, xn_arr_o * fields);
+static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params, xn_arr_o * fields);
 static int xn_a8ListHas(xn_arr_s * items, rt_string * value);
 static int xn_a8FieldHasAnno(xn_Cls_AstNode * f, rt_string * name);
 static void xn_a8DropFieldAnno(xn_Cls_AstNode * f, rt_string * name);
@@ -16592,9 +16592,9 @@ static xn_Cls_AstNode * xn_a8BuilderField(rt_string * ty, rt_string * name, xn_C
   return xn_Cls_AstNode_new(rt_string_from_c("Field"), xn_concat(xn_concat(ty, rt_string_from_c(" ")), name), cls->line, cls->col);
 }
 
-static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, xn_Cls_AstNode * cls) {
+static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNode * p, rt_string * fname, xn_Cls_AstNode * cls) {
   rt_string * bname = builder->text;
-  rt_string * pname = xn_a8ParamName(p);
+  rt_string * pname = fname;
   rt_string * cap = xn_a8Capitalize(pname);
   xn_Cls_AstNode * m = xn_a8Method(xn_concat(rt_string_from_c("with"), cap), bname, cls);
   xn_Cls_AstNode_add(m, xn_Cls_AstNode_new(rt_string_from_c("Param"), xn_concat(xn_a8ParamType(p), rt_string_from_c(" value")), cls->line, cls->col));
@@ -16618,12 +16618,12 @@ static xn_Cls_AstNode * xn_a8BuilderWith(xn_Cls_AstNode * builder, xn_Cls_AstNod
   return m;
 }
 
-static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params) {
+static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNode * cls, xn_arr_o * params, xn_arr_o * fields) {
   xn_Cls_AstNode * m = xn_a8Method(rt_string_from_c("build"), cls->text, cls);
   xn_Cls_AstNode * body = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)params->len))) {
-    rt_string * cap = xn_a8Capitalize(xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i))));
+    rt_string * cap = xn_a8Capitalize(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))));
     xn_Cls_AstNode * has = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_has"), cap), cls->line, cls->col);
     xn_Cls_AstNode_add(has, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
     xn_Cls_AstNode * cond = xn_Cls_AstNode_new(rt_string_from_c("Unary"), rt_string_from_c("!"), cls->line, cls->col);
@@ -16632,7 +16632,7 @@ static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNo
     xn_Cls_AstNode_add(ifn, cond);
     xn_Cls_AstNode * block = xn_Cls_AstNode_new(rt_string_from_c("Block"), rt_string_from_c(""), cls->line, cls->col);
     xn_Cls_AstNode * thr = xn_Cls_AstNode_new(rt_string_from_c("Throw"), rt_string_from_c(""), cls->line, cls->col);
-    xn_Cls_AstNode_add(thr, xn_Cls_AstNode_new(rt_string_from_c("String"), xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("\""), builder->text), rt_string_from_c(".build: missing field ")), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), rt_string_from_c("\"")), cls->line, cls->col));
+    xn_Cls_AstNode_add(thr, xn_Cls_AstNode_new(rt_string_from_c("String"), xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("\""), builder->text), rt_string_from_c(".build: missing field ")), xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))), rt_string_from_c("\"")), cls->line, cls->col));
     xn_Cls_AstNode_add(block, thr);
     xn_Cls_AstNode_add(ifn, block);
     xn_Cls_AstNode_add(body, ifn);
@@ -16641,7 +16641,7 @@ static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNo
   xn_Cls_AstNode * nw = xn_Cls_AstNode_new(rt_string_from_c("New"), cls->text, cls->line, cls->col);
   i = 0;
   while ((i < ((int64_t)params->len))) {
-    xn_Cls_AstNode * mem = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_"), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), cls->line, cls->col);
+    xn_Cls_AstNode * mem = xn_Cls_AstNode_new(rt_string_from_c("Member"), xn_concat(rt_string_from_c("_"), xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))), cls->line, cls->col);
     xn_Cls_AstNode_add(mem, xn_Cls_AstNode_new(rt_string_from_c("Name"), rt_string_from_c("self"), cls->line, cls->col));
     xn_Cls_AstNode_add(nw, mem);
     i = xn_int_wrap((i + 1));
@@ -16653,15 +16653,15 @@ static xn_Cls_AstNode * xn_a8BuilderBuild(xn_Cls_AstNode * builder, xn_Cls_AstNo
   return m;
 }
 
-static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params) {
+static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * params, xn_arr_o * fields) {
   rt_string * bname = xn_concat(cls->text, rt_string_from_c("Builder"));
   xn_Cls_AstNode * b = xn_Cls_AstNode_new(rt_string_from_c("Class"), bname, cls->line, cls->col);
   b->packageName = cls->packageName;
   xn_Cls_AstNode_add(b, xn_Cls_AstNode_new(rt_string_from_c("Generated"), rt_string_from_c("A8"), cls->line, cls->col));
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)params->len))) {
-    xn_Cls_AstNode_add(b, xn_a8BuilderField(xn_a8ParamType(((xn_Cls_AstNode *)xn_arr_o_get(params, i))), xn_concat(rt_string_from_c("_"), xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i)))), cls));
-    xn_Cls_AstNode_add(b, xn_a8BuilderField(rt_string_from_c("Bool"), xn_concat(rt_string_from_c("_has"), xn_a8Capitalize(xn_a8ParamName(((xn_Cls_AstNode *)xn_arr_o_get(params, i))))), cls));
+    xn_Cls_AstNode_add(b, xn_a8BuilderField(xn_a8ParamType(((xn_Cls_AstNode *)xn_arr_o_get(params, i))), xn_concat(rt_string_from_c("_"), xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i)))), cls));
+    xn_Cls_AstNode_add(b, xn_a8BuilderField(rt_string_from_c("Bool"), xn_concat(rt_string_from_c("_has"), xn_a8Capitalize(xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))))), cls));
     i = xn_int_wrap((i + 1));
   }
   xn_Cls_AstNode * ctor = xn_Cls_AstNode_new(rt_string_from_c("Ctor"), bname, cls->line, cls->col);
@@ -16669,10 +16669,10 @@ static xn_Cls_AstNode * xn_a8BuildBuilder(xn_Cls_AstNode * cls, xn_arr_o * param
   xn_Cls_AstNode_add(b, ctor);
   i = 0;
   while ((i < ((int64_t)params->len))) {
-    xn_Cls_AstNode_add(b, xn_a8BuilderWith(b, ((xn_Cls_AstNode *)xn_arr_o_get(params, i)), cls));
+    xn_Cls_AstNode_add(b, xn_a8BuilderWith(b, ((xn_Cls_AstNode *)xn_arr_o_get(params, i)), xn_a8FieldName(((xn_Cls_AstNode *)xn_arr_o_get(fields, i))), cls));
     i = xn_int_wrap((i + 1));
   }
-  xn_Cls_AstNode_add(b, xn_a8BuilderBuild(b, cls, params));
+  xn_Cls_AstNode_add(b, xn_a8BuilderBuild(b, cls, params, fields));
   return b;
 }
 
@@ -16850,12 +16850,14 @@ static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
     xn_Cls_AstNode_add(cls, xn_a8ToStringMethod(cls, fields));
     xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
   }
-  if (((c && (!v)) && (!d))) {
+  if (c) {
     if ((!xn_a8CtorMatches(cls, fields))) {
       return xn_a8Fail(rt_string_from_c("AN0022"), rt_string_from_c("constructor parameters must match field order and types"), cls);
     }
-    if (xn_a8MethodExists(cls, rt_string_from_c("copy"))) {
-      return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated copy conflicts with existing method"), cls);
+    if (((!v) && (!d))) {
+      if (xn_a8MethodExists(cls, rt_string_from_c("copy"))) {
+        return xn_a8Fail(rt_string_from_c("AN0023"), rt_string_from_c("generated copy conflicts with existing method"), cls);
+      }
     }
     int64_t i = xn_int_wrap(0);
     while ((i < ((int64_t)fields->len))) {
@@ -16865,7 +16867,9 @@ static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
       }
       i = xn_int_wrap((i + 1));
     }
-    xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+    if (((!v) && (!d))) {
+      xn_Cls_AstNode_add(cls, xn_a8CopyMethod(cls, fields));
+    }
     i = 0;
     while ((i < ((int64_t)fields->len))) {
       xn_Cls_AstNode_add(cls, xn_a8WithMethod(cls, ((xn_Cls_AstNode *)xn_arr_o_get(fields, i))));
@@ -16883,7 +16887,7 @@ static int xn_expandA8Class(xn_Cls_AstNode * cls, xn_Cls_AstNode * program) {
     if (xn_a8ClassExists(program, bname)) {
       return xn_a8Fail(rt_string_from_c("AN0024"), xn_concat(rt_string_from_c("builder class already exists: "), bname), cls);
     }
-    xn_Cls_AstNode_add(program, xn_a8BuildBuilder(cls, xn_a8CtorParams(cls)));
+    xn_Cls_AstNode_add(program, xn_a8BuildBuilder(cls, xn_a8CtorParams(cls), fields));
   }
   if ((((int64_t)delegateFields->len) > 0)) {
     xn_arr_s *generated = xn_arr_s_new(0);

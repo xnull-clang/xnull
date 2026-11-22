@@ -84,6 +84,7 @@ class RuntimeMonitor {
 
 // 版本常量与 xdk.meta 保持一致；runtime 位于依赖底层，不反向导入 meta。
 @Value
+@Builder
 class RuntimeInfo {
     final String languageVersion
     final String xdkVersion

@@ -14366,9 +14366,9 @@ AstNode a8BuilderField(String ty, String name, AstNode cls) {
     return new AstNode("Field", ty + " " + name, cls.line, cls.col)
 }
 
-AstNode a8BuilderWith(AstNode builder, AstNode p, AstNode cls) {
+AstNode a8BuilderWith(AstNode builder, AstNode p, String fname, AstNode cls) {
     String bname = builder.text
-    String pname = a8ParamName(p)
+    String pname = fname
     String cap = a8Capitalize(pname)
     AstNode m = a8Method("with" + cap, bname, cls)
     m.add(new AstNode("Param", a8ParamType(p) + " value", cls.line, cls.col))
@@ -14392,12 +14392,12 @@ AstNode a8BuilderWith(AstNode builder, AstNode p, AstNode cls) {
     return m
 }
 
-AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params) {
+AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params, List<AstNode> fields) {
     AstNode m = a8Method("build", cls.text, cls)
     AstNode body = new AstNode("Block", "", cls.line, cls.col)
     Int i = 0
     while i < params.length() {
-        String cap = a8Capitalize(a8ParamName(params.get(i)))
+        String cap = a8Capitalize(a8FieldName(fields.get(i)))
         AstNode has = new AstNode("Member", "_has" + cap, cls.line, cls.col)
         has.add(new AstNode("Name", "self", cls.line, cls.col))
         AstNode cond = new AstNode("Unary", "!", cls.line, cls.col)
@@ -14406,7 +14406,7 @@ AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params) {
         ifn.add(cond)
         AstNode block = new AstNode("Block", "", cls.line, cls.col)
         AstNode thr = new AstNode("Throw", "", cls.line, cls.col)
-        thr.add(new AstNode("String", "\"" + builder.text + ".build: missing field " + a8ParamName(params.get(i)) + "\"", cls.line, cls.col))
+        thr.add(new AstNode("String", "\"" + builder.text + ".build: missing field " + a8FieldName(fields.get(i)) + "\"", cls.line, cls.col))
         block.add(thr)
         ifn.add(block)
         body.add(ifn)
@@ -14415,7 +14415,7 @@ AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params) {
     AstNode nw = new AstNode("New", cls.text, cls.line, cls.col)
     i = 0
     while i < params.length() {
-        AstNode mem = new AstNode("Member", "_" + a8ParamName(params.get(i)), cls.line, cls.col)
+        AstNode mem = new AstNode("Member", "_" + a8FieldName(fields.get(i)), cls.line, cls.col)
         mem.add(new AstNode("Name", "self", cls.line, cls.col))
         nw.add(mem)
         i = i + 1
@@ -14427,15 +14427,15 @@ AstNode a8BuilderBuild(AstNode builder, AstNode cls, List<AstNode> params) {
     return m
 }
 
-AstNode a8BuildBuilder(AstNode cls, List<AstNode> params) {
+AstNode a8BuildBuilder(AstNode cls, List<AstNode> params, List<AstNode> fields) {
     String bname = cls.text + "Builder"
     AstNode b = new AstNode("Class", bname, cls.line, cls.col)
     b.packageName = cls.packageName
     b.add(new AstNode("Generated", "A8", cls.line, cls.col))
     Int i = 0
     while i < params.length() {
-        b.add(a8BuilderField(a8ParamType(params.get(i)), "_" + a8ParamName(params.get(i)), cls))
-        b.add(a8BuilderField("Bool", "_has" + a8Capitalize(a8ParamName(params.get(i))), cls))
+        b.add(a8BuilderField(a8ParamType(params.get(i)), "_" + a8FieldName(fields.get(i)), cls))
+        b.add(a8BuilderField("Bool", "_has" + a8Capitalize(a8FieldName(fields.get(i))), cls))
         i = i + 1
     }
     AstNode ctor = new AstNode("Ctor", bname, cls.line, cls.col)
@@ -14443,10 +14443,10 @@ AstNode a8BuildBuilder(AstNode cls, List<AstNode> params) {
     b.add(ctor)
     i = 0
     while i < params.length() {
-        b.add(a8BuilderWith(b, params.get(i), cls))
+        b.add(a8BuilderWith(b, params.get(i), a8FieldName(fields.get(i)), cls))
         i = i + 1
     }
-    b.add(a8BuilderBuild(b, cls, params))
+    b.add(a8BuilderBuild(b, cls, params, fields))
     return b
 }
 
@@ -14601,12 +14601,14 @@ Bool expandA8Class(AstNode cls, AstNode program) {
         cls.add(a8ToStringMethod(cls, fields))
         cls.add(a8CopyMethod(cls, fields))
     }
-    if c && !v && !d {
+    if c {
         if !a8CtorMatches(cls, fields) {
             return a8Fail("AN0022", "constructor parameters must match field order and types", cls)
         }
-        if a8MethodExists(cls, "copy") {
-            return a8Fail("AN0023", "generated copy conflicts with existing method", cls)
+        if !v && !d {
+            if a8MethodExists(cls, "copy") {
+                return a8Fail("AN0023", "generated copy conflicts with existing method", cls)
+            }
         }
         Int i = 0
         while i < fields.length() {
@@ -14616,7 +14618,9 @@ Bool expandA8Class(AstNode cls, AstNode program) {
             }
             i = i + 1
         }
-        cls.add(a8CopyMethod(cls, fields))
+        if !v && !d {
+            cls.add(a8CopyMethod(cls, fields))
+        }
         i = 0
         while i < fields.length() {
             cls.add(a8WithMethod(cls, fields.get(i)))
@@ -14634,7 +14638,7 @@ Bool expandA8Class(AstNode cls, AstNode program) {
         if a8ClassExists(program, bname) {
             return a8Fail("AN0024", "builder class already exists: " + bname, cls)
         }
-        program.add(a8BuildBuilder(cls, a8CtorParams(cls)))
+        program.add(a8BuildBuilder(cls, a8CtorParams(cls), fields))
     }
     if delegateFields.length() > 0 {
         List<String> generated = []

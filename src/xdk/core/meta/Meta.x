@@ -39,6 +39,7 @@ String buildDate() {
 }
 
 @Value
+@Builder
 class BuildInfo {
     final String languageVersion
     final String xdkVersion

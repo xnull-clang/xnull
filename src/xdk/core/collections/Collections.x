@@ -144,6 +144,8 @@ String join(List<String> items, String separator) {
 }
 
 // Pair：Map<String,Int>.entries 的值对象。
+@Data
+@Copy
 class Pair {
     String first
     Int second
@@ -196,6 +198,8 @@ class Pair<A, B> {
 }
 
 // IntPair：Map<Int,Int>.entries 的值对象。
+@Data
+@Copy
 class IntPair {
     Int first
     Int second
@@ -208,6 +212,8 @@ class IntPair {
 
 // Entry<K,V>：通用 Map<K,V>.entries 的值对象。
 // 快速路径 Map<String,Int>/Map<Int,Int> 仍分别返回 Pair/IntPair。
+@Data
+@Copy
 class Entry<K, V> {
     K key
     V value

@@ -171,7 +171,7 @@
 | `HealthReport` | `@Value` | 快照相等/文本 |
 | `HealthCheck` 实现 | `@Override` | 签名校验 |
 
-状态：无领域注解；`@Value` implemented（RuntimeInfo/RuntimeStats）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value`/`@Builder` implemented（RuntimeInfo；RuntimeStats 仅 @Value）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.meta`
 
@@ -182,7 +182,7 @@
 | `ResourceLimits` | `@Data` | 数据类成员 |
 | `ProfileBuilder` | — | 已是显式 builder，不叠加 `@Builder` |
 
-状态：无领域注解；`@Value` implemented（BuildInfo）；其余 A8 planned；编译器内建 implemented。
+状态：无领域注解；`@Value`/`@Builder` implemented（BuildInfo）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.bytes`
 
@@ -208,11 +208,12 @@
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| `Pair`/`Triple`/`Entry` | `@Data` | equals/hash/toString/copy |
+| `Pair`/`IntPair`/`Entry` | `@Data`/`@Copy` implemented (A8 core) | equals/toString/copy + withX |
+| `Triple` | `@Data` planned | 未采用 |
 | `IntRange` | `@Value` | 值语义成员 |
 | `LRUCache` 等容器 | — | 可变容器不套 `@Value` |
 
-状态：无领域注解；A8 派生 planned；编译器内建 implemented。
+状态：无领域注解；`@Data`/`@Copy` implemented（Pair/IntPair/Entry）；其余 A8 planned；编译器内建 implemented。
 
 ### `xdk.math`
 
