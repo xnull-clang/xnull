@@ -37,4 +37,10 @@ for src in $(find "$HERE/xdk2" -name '*.x' | sort); do
 done
 
 [ "$count" -gt 0 ] || { echo "xdk2: no scenarios" >&2; exit 1; }
+if [ -x "$HERE/xdk2/annotations/annotations_negative.sh" ]; then
+    "$HERE/xdk2/annotations/annotations_negative.sh"
+fi
+if [ -x "$HERE/xdk2/annotations/annotations_ast.sh" ]; then
+    "$HERE/xdk2/annotations/annotations_ast.sh"
+fi
 echo "xdk2: PASS ($count scenario(s))"

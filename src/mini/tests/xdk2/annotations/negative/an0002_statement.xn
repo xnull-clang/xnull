@@ -1,0 +1,5 @@
+// expect: fail AN0002
+static Int main() {
+    @ReadOnly Int x = 1
+    return x
+}

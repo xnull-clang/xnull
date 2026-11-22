@@ -1,0 +1,8 @@
+// expect: warn AN0014
+@Deprecated Int old() {
+    return 1
+}
+
+static Int main() {
+    return old()
+}

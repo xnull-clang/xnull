@@ -1,0 +1,4 @@
+// expect: fail AN0011
+@Repeatable
+class Device {
+}

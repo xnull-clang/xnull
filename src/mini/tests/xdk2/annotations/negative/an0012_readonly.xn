@@ -1,0 +1,14 @@
+// expect: fail AN0012
+class Device {
+    @ReadOnly Int value = 0
+}
+
+class User {
+    Void poke(Device d) {
+        d.value = 1
+    }
+}
+
+static Int main() {
+    return 0
+}
