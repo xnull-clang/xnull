@@ -9,6 +9,7 @@ trap 'rm -rf "$TMP"' EXIT
 python3 "$PLATFORM" generate --entry "$HERE/app.x" --xdk-root "$ROOT/src/xdk" \
     --manifest "$HERE/cli.manifest.json" --generated-dir "$TMP/generated"
 diff -u "$HERE/generated/CliGenerated.x" "$TMP/generated/CliGenerated.x"
+"$ROOT/src/cli/xnull" check "$HERE/generated/CliGenerated.x"
 "$ROOT/src/cli/xnull" --bootstrap --engine=mini run "$HERE/use_cli.x" >"$TMP/use.out"
 diff -u "$HERE/use_cli.out" "$TMP/use.out"
 python3 "$PLATFORM" check --entry "$HERE/app.x" --xdk-root "$ROOT/src/xdk" \
