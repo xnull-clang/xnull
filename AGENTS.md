@@ -32,7 +32,7 @@
 1. 有没有已记录的纠正复发？
 2. 本批是否 RED / 返工 / 卡死？是则写 `.agent/retros/<date>-<batch>.md`。
 3. 有纠正重复 ≥2 次或可机械判定？升级到 L2/L3，或提出升级。
-4. 只有规则变化时才改本文件，保持 ≤80 行。
+4. 只有规则变化时才改本文件，保持 ≤90 行。
 
 ## 行为硬规则
 
@@ -49,7 +49,7 @@
 | ID | 规则 | 级别 | 位置 |
 |---|---|---|---|
 | C-0001 | 批内不停，批末一次收尾 | L2 | `LOCAL_RULES.md` 第 5 号 |
-| C-0002 | 收口只有 Verified/RED | L2 | `LOCAL_RULES.md` 第 6 号 |
+| C-0002 | 收口只有 Verified/RED | L3 | `.agent/bin/check_report_status.py` |
 | C-0003 | 标记不是完成 | L2 | MINI-1.0 闭包账本 |
 | C-0004 | 隔离不是解决 | L2 | `EXECUTION-PLAN.md` §4.4（xdk-2） |
 | C-0005 | 后台要有 watchdog | L3 | `.agent/bin/watch.sh` |
@@ -63,6 +63,10 @@
 | C-0013 | 知识库按需生长 | L2 | `.agent/knowledge/index.md` |
 | C-0014 | 运行中的脚本不可热改 | L2 | `.agent/bin/batch.sh` |
 | C-0015 | 生成入口与 14 类型分账 | L1 | `docs/design/annotations/README.md` §5.1 |
+| C-0016 | 复盘事实按批次范围采集 | L3 | `.agent/bin/retro.sh` |
+| C-0017 | 复盘草稿只生成一套骨架 | L3 | `.agent/bin/retro-draft.sh` |
+| C-0018 | UI 范围引用必须可机械拦截 | L3 | `.agent/bin/check_ui_scope.py` |
+| C-0019 | 合同冻结证据必须独立可复现 | L3 | `.agent/bin/check_b4_contracts.py` |
 
 ## 升级
 
