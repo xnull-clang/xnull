@@ -119,6 +119,54 @@ class TensorShape {
         return new TensorShape(next)
     }
 
+
+    List<Long> rowMajorStrides() {
+        List<Long> result = []
+        Int rankValue = self._dimensions.length()
+        if rankValue == 0 { return result }
+        Long stride = 1
+        Int index = rankValue - 1
+        while (index >= 0) {
+            if self._dimensions.get(index) == 0 {
+                Int reset = 0
+                while (reset < rankValue) { result.insert(0, 0); reset = reset + 1 }
+                return result
+            }
+            result.insert(0, stride)
+            stride = stride * (self._dimensions.get(index) as Long)
+            index = index - 1
+        }
+        return result
+    }
+
+    Long flatIndex(List<Int> indices) {
+        if indices == null || indices.length() != self._dimensions.length() {
+            throw "TensorShape.flatIndex: rank mismatch"
+        }
+        List<Long> strides = self.rowMajorStrides()
+        Long result = 0
+        Int index = 0
+        while (index < indices.length()) {
+            Int value = indices.get(index)
+            if value < 0 || value >= self._dimensions.get(index) {
+                throw "TensorShape.flatIndex: index out of range"
+            }
+            result = result + (value as Long) * strides.get(index)
+            index = index + 1
+        }
+        return result
+    }
+
+    Bool equals(TensorShape other) {
+        if other == null || other.rank() != self.rank() { return false }
+        Int index = 0
+        while (index < self._dimensions.length()) {
+            if self._dimensions.get(index) != other.dim(index) { return false }
+            index = index + 1
+        }
+        return true
+    }
+
     String describe() {
         String result = "["
         Int index = 0
@@ -192,7 +240,12 @@ class Tensor {
                 index = index + 1
             }
         }
-        Bytes copy = data.copy()
+        Bytes copy = Bytes.alloc(data.length())
+        Int copyIndex = 0
+        while copyIndex < data.length() {
+            copy.set(copyIndex, data.get(copyIndex))
+            copyIndex = copyIndex + 1
+        }
         self._dtype = tensorDType
         self._shape = tensorShape
         self._data = copy
@@ -219,7 +272,7 @@ class Tensor {
         if !tensorDTypeIsInteger(self._dtype) && self._dtype != TensorDType.Bool {
             throw "Tensor.atLong: dtype is not integer"
         }
-        return self.atFlat(indexList(indices)) as Long
+        return self.atFlat(self._shape.flatIndex(indices)) as Long
     }
 
     Long atFlatLong(Long elementIndex) {
@@ -229,12 +282,7 @@ class Tensor {
         return self.atFlat(elementIndex) as Long
     }
 
-    Long indexList(List<Int> indices) { return self._shape.flatIndex(indices) }
 
-    Bool atBool(List<Int> indices) {
-        if self._dtype != TensorDType.Bool { throw "Tensor.atBool: dtype is not Bool" }
-        return self.at(indices) != 0.0
-    }
 
     Tensor withValue(List<Int> indices, Double value) {
         Long target = self._shape.flatIndex(indices)
@@ -408,7 +456,7 @@ class TensorOps {
     }
 
     static Tensor ones(TensorDType tensorDType, TensorShape tensorShape) {
-        return fill(tensorDType, tensorShape, 1.0)
+        return TensorOps.fill(tensorDType, tensorShape, 1.0)
     }
 
     static Tensor fill(TensorDType tensorDType, TensorShape tensorShape, Double value) {
@@ -420,7 +468,7 @@ class TensorOps {
             values.push(value)
             index = index + 1
         }
-        return fromDoubles(tensorDType, tensorShape, values)
+        return TensorOps.fromDoubles(tensorDType, tensorShape, values)
     }
 
     static Tensor fromDoubles(TensorDType tensorDType, TensorShape tensorShape, List<Double> values) {
@@ -446,7 +494,7 @@ class TensorOps {
         if tensor.elementCount() != tensorShape.elementCount() {
             throw "TensorOps.reshape: element count mismatch"
         }
-        return fromDoubles(tensor.tensorDType(), tensorShape, tensor.toDoubles())
+        return TensorOps.fromDoubles(tensor.tensorDType(), tensorShape, tensor.toDoubles())
     }
 
     static Tensor transpose(Tensor tensor) {
@@ -483,15 +531,15 @@ class TensorOps {
             values.push(tensor.at(source))
             flat = flat + 1
         }
-        return fromDoubles(tensor.tensorDType(), shape, values)
+        return TensorOps.fromDoubles(tensor.tensorDType(), shape, values)
     }
 
     static Tensor add(Tensor left, Tensor right) {
-        return elementwise(left, right, true)
+        return TensorOps.elementwise(left, right, true)
     }
 
     static Tensor mul(Tensor left, Tensor right) {
-        return elementwise(left, right, false)
+        return TensorOps.elementwise(left, right, false)
     }
 
     static Tensor elementwise(Tensor left, Tensor right, Bool adding) {
@@ -509,7 +557,7 @@ class TensorOps {
             else { result.push(leftValues.get(index) * rightValues.get(index)) }
             index = index + 1
         }
-        return fromDoubles(left.tensorDType(), left.tensorShape(), result)
+        return TensorOps.fromDoubles(left.tensorDType(), left.tensorShape(), result)
     }
 
     static Tensor matmul(Tensor left, Tensor right) {
@@ -544,7 +592,8 @@ class TensorOps {
             }
             row = row + 1
         }
-        return fromDoubles(left.tensorDType(), new TensorShape([m, n]), result)
+        List<Int> outputShape = [m, n]
+        return TensorOps.fromDoubles(left.tensorDType(), new TensorShape(outputShape), result)
     }
 
     static Tensor sum(Tensor tensor) {
@@ -559,6 +608,7 @@ class TensorOps {
         }
         List<Double> result = []
         result.push(total)
-        return fromDoubles(tensor.tensorDType(), new TensorShape([]), result)
+        List<Int> scalarShape = []
+        return TensorOps.fromDoubles(tensor.tensorDType(), new TensorShape(scalarShape), result)
     }
 }
