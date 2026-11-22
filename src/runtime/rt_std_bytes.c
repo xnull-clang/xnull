@@ -94,6 +94,13 @@ xrt_bytes_buf *xrt_bytes_alloc(size_t len) {
     return b;
 }
 
+xrt_bytes_buf *xrt_bytes_alloc_checked(int64_t len) {
+    if (len < 0) {
+        xrt_fatal("Bytes.alloc：长度不能为负（S1 §9.7）");
+    }
+    return xrt_bytes_alloc((size_t)len);
+}
+
 xrt_bytes_buf *xrt_bytes_from_c(const void *data, size_t len) {
     if (len > 0 && data == NULL) {
         xrt_fatal("Bytes.fromString：数据为空但长度非零（S1 §9.7）");

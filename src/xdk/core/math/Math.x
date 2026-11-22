@@ -32,6 +32,11 @@ Bool isInf(Double x) {
     return mathIsInfRaw(x) != 0
 }
 
+// 有限值：既非 NaN 也非 ±Inf。
+Bool isFinite(Double x) {
+    return !isNaN(x) && !isInf(x)
+}
+
 // ---------- 基础运算 ----------
 
 Double abs(Double x) {

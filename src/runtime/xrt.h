@@ -141,6 +141,7 @@ typedef xrt_bytes_buf xrt_bytes_obj;        /* B0-07c codegen 契约别名 */
 
 xrt_bytes_buf *xrt_bytes_new(void);                          /* 空缓冲 */
 xrt_bytes_buf *xrt_bytes_alloc(size_t len);                  /* 定长、内容清零 */
+xrt_bytes_buf *xrt_bytes_alloc_checked(int64_t len);         /* Bytes.alloc：负数 → panic */
 xrt_bytes_buf *xrt_bytes_from_c(const void *data, size_t len); /* 复制构造 */
 xrt_bytes_buf *xrt_bytes_from_string(const char *bytes, size_t len); /* from_c 别名 */
 size_t         xrt_bytes_len(const xrt_bytes_buf *b);
@@ -301,6 +302,17 @@ int xrt_companion_thread_count(void);
 int xrt_companion_on_worker(void);
 
 /* ---- 同步原语（S5-00 冻结面；S5-03） ---- */
+
+/* 执行层内部监视器（B3.1；不是 XDK 公共类型）。 */
+typedef struct xrt_monitor xrt_monitor;
+xrt_monitor *xrt_monitor_new(void);
+void    xrt_monitor_enter(xrt_monitor *m);
+void    xrt_monitor_exit(xrt_monitor *m);
+void    xrt_monitor_wait(xrt_monitor *m);
+int32_t xrt_monitor_wait_context(xrt_monitor *m, xrt_context *ctx);
+void    xrt_monitor_notify_all(xrt_monitor *m);
+void    xrt_monitor_close(xrt_monitor *m);   /* 幂等 */
+int32_t xrt_monitor_closed(const xrt_monitor *m);
 
 typedef void *(*xrt_ref_retain_fn)(void *v);
 typedef void  (*xrt_ref_release_fn)(void *v);
