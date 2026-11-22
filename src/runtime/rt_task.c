@@ -81,6 +81,29 @@ xrt_context *xrt_context_with_deadline(xrt_context *parent, int64_t deadline_mon
     return context_alloc(parent, deadline_mono_ms);
 }
 
+xrt_context *xrt_context_with_timeout(xrt_context *parent, int64_t timeout_ms) {
+    int64_t now = xrt_clock_mono_ms();
+    int64_t deadline = now + (timeout_ms > 0 ? timeout_ms : 0);
+    if (deadline < now) {
+        deadline = now; /* 溢出/非正超时：立即到期 */
+    }
+    return context_alloc(parent, deadline);
+}
+
+/* 阻塞到取消或截止；已取消/已到期立即返回。协作式取消：5ms 轮询，
+ * 同时覆盖祖先上下文的取消传播（父取消后子等待也会在 5ms 内返回）。 */
+int32_t xrt_context_wait(xrt_context *ctx) {
+    for (;;) {
+        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+            return 1;
+        }
+        struct timespec req;
+        req.tv_sec = 0;
+        req.tv_nsec = 5 * 1000 * 1000;
+        nanosleep(&req, NULL);
+    }
+}
+
 /* 返回 1 表示该上下文（或其祖先）已取消/到期；到期时把自身置取消。 */
 static int context_cancelled_flag(context_obj *c) {
     if (c == NULL) {

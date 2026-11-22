@@ -248,6 +248,8 @@ typedef int32_t (*xrt_task_body)(void *env, xrt_context *ctx, xrt_task_result *o
 xrt_context *xrt_context_background(void); /* +1；仅 main/测试 */
 xrt_context *xrt_context_child(xrt_context *parent);
 xrt_context *xrt_context_with_deadline(xrt_context *parent, int64_t deadline_mono_ms);
+xrt_context *xrt_context_with_timeout(xrt_context *parent, int64_t timeout_ms);
+int32_t      xrt_context_wait(xrt_context *ctx); /* 阻塞到取消/截止；返回 1 */
 int32_t      xrt_context_check_cancel(const xrt_context *ctx); /* 0 或 XRT_ERR_CANCELLED */
 int32_t      xrt_context_cancelled(const xrt_context *ctx);
 xrt_cancel_token *xrt_context_token(xrt_context *ctx); /* 借用 */
