@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 状态 | Draft for B4 owner acceptance；B4-01/B4-02 合同已冻结（待 owner 接受）；本表只分类已有债，不新增 API/包/批次 |
-| 基线 | `xdk-2` @ `20a8edd6` |
+| 基线 | `xdk-2` @ `d01943ba`（C7 merge `c0ab6d2a`） |
 | 范围 | 注解实现前已存在、至今未关闭的 1.x/2.x 旧账，以及 B4–B10 未实现批次 |
 | 权威 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md)、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 分类 | B4 阻塞 / 后续批次 / 1.x-only·post-1.0·owner accepted / BLOCKED |

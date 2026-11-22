@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Active；P0 架构基线 `81fddb7b`；B0 已完成，CR-0 门禁通过；B1/B3 未开工 |
+| 状态 | Active；P0 架构基线 `81fddb7b`；B0–B3 已完成/合并；C7 合同已整合待 B5；B4 合同冻结待 owner 接受；B4–B10 未开工 |
 | 目标 | 把 2.x 从“设计完成”推进到“第一个 XDK 包可编码、可验收” |
 | 基线 | `main` = 1.x 已发布；2.x 在 `xdk-2` 分支/worktree |
 | 规则 | `LOCAL_RULES.md` 第 1–6 号；批内不停、批末一次门禁/提交/汇报 |
@@ -212,7 +212,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 | B0.4 | 1.x 基线 | QA | B0.1 | 无代码 | 门禁日志/commit | `xdk.sh`+`xdk_core.sh` 绿 |
 | B0.5 | 注解诊断码冻结 | ARCH | 无 | `ANNOTATION-PLAN.md` | `AN0001`–`AN0020` | 文档签字，无待定 |
 | B0.6 | P0.5 类型改名 | ARCH | B0.1 | `docs/design/utils/**`、`solutions/**`、`network/net/tls/**` | 8 组改名 + 引用 | `check_doc_naming`/links 绿 |
-| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 ledger 同步 | PASS（ledger）；full contract integration = B5 prerequisite |
+| B0.7 | 1.x core 文档回写 | ARCH | B0.1 | `docs/design/core/**` | C7 ledger 同步 | PASS（ledger）；C7 合同整合已合并（`d01943ba`）；B5 负责实现/验证 |
 
 ### B1：注解编译器最小闭环
 
@@ -417,7 +417,8 @@ worktree: clean
 | B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
 | B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae`；16 场景绿；B2.3 Registry 已生成 |
 | B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
-| B4 第一批纯包 | 未开工 | B4 前置 = DEBT-REGISTER accepted + B4-01/B4-02 合同冻结（§11.5） |
+| C7 core 合同整合 | 合同已整合（待 B5 实现/验证） | merge `d01943ba`（源 `c0ab6d2a`）；B5 前不标完成 |
+| B4 第一批纯包 | 未开工 | 合同已冻结，待 owner 接受 → GO（§11.5） |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
 
@@ -457,7 +458,7 @@ db/Batch.md -> db/DbBatch.md；ml/Batch.md -> ml/MlBatch.md
 net/tls/PrivateKey.md -> net/tls/TlsPrivateKey.md
 ```
 
-B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io,fs}/README.md`。这里的 PASS 是 **ledger 完成**；C7 的 1.x → 2.x 类型合同整合已在 `debt-c7-core` 完成（NEXT-01：合同已整合），B5 仍负责实现与 xdk2 + 1.x 回归，不在 B0 宣称 B5 完成。
+B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io,fs}/README.md`。这里的 PASS 是 **ledger 完成**；C7 的 1.x → 2.x 类型合同整合已合并（merge `d01943ba`，源 `c0ab6d2a`；NEXT-01：合同已整合），B5 仍负责实现与 xdk2 + 1.x 回归，不在 B0 宣称 B5 完成。
 
 批末门禁（本记录随后提交）：
 
@@ -572,10 +573,10 @@ B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生
 
 B4 仍未开工。
 
-### 11.5 B4 前置：debt register accepted + B4-01/B4-02 合同冻结
+### 11.5 B4 前置：debt register accepted（B4-01/B4-02 合同已冻结）
 
 - 债表：[`DEBT-REGISTER.md`](DEBT-REGISTER.md)
-- B4 入口 = owner 接受债表 + B4-01/B4-02 合同冻结；当前 §4 的 2 条 B4 阻塞已冻结为合同，仍待 owner 接受：
+- B4 入口 = owner 接受债表；B4-01/B4-02 合同已冻结。当前 §4 的 2 条 B4 阻塞合同已冻结，仍待 owner 接受：
   - B4-01/P11：[`platform/tensor/TensorView.md`](platform/tensor/TensorView.md)、[`platform/tensor/README.md`](platform/tensor/README.md)；不做广播，非空视图 `dim > 1` 的 stride 0 拒绝，checked Long 溢出 panic。
   - B4-02/P8：[`platform/tensor/TensorDType.md`](platform/tensor/TensorDType.md)、[`platform/geo/GeoProjection.md`](platform/geo/GeoProjection.md)；null → `"unknown"`，未知未来成员 → `"other"`，`tensorDTypeByteWidth` null/未知 → 0，FromName null/未知 → null。
 - 当前判定：**B4 仍未 GO；B4 未开工，B5 仍等 B4。** 合同冻结不等于 owner 接受，也不等于 B4 GO。
@@ -586,4 +587,4 @@ B4 仍未开工。
 
 **先 B0 把“开工条件”做实，再 B1/B3 并行，B2/B4 出第一批可验收包；不要从 75 包同时铺开，也不要在 `main` 上写 2.x。**
 
-B4 前置 = [`DEBT-REGISTER.md`](DEBT-REGISTER.md) owner 接受 + B4-01/B4-02 合同冻结；入口判断见 §11.5。
+B4 前置 = [`DEBT-REGISTER.md`](DEBT-REGISTER.md) owner 接受（B4-01/B4-02 合同已冻结）；入口判断见 §11.5。

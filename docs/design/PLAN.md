@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 性质 | 执行总览；不复制逐类型合同，不替代架构/包/批次/债表 |
-| 基线 | 分支 `xdk-2` @ `993833b8` |
+| 基线 | 分支 `xdk-2` @ `d01943ba` |
 | 目标 | 75 包 / 698 类型 |
 | 1.x 基线 | 14 包 / 160 symbols |
 | 范围不变量 | UI/桌面/显示/音频/输入/电源/剪贴板/通知/托盘/文件对话框不在 XDK 范围 |
@@ -14,9 +14,9 @@
 
 | 问题 | 结论 |
 | --- | --- |
-| 现在在哪 | B0–B3 已完成并合并；B4 设计合同与 B4-01/B4-02 入口合同已冻结；B4 仍未 GO。 |
-| 下一步 | owner 接受 [`DEBT-REGISTER.md`](DEBT-REGISTER.md) 与 B4-01/B4-02 冻结决定后，开 B4 的 8 个纯包。 |
-| 什么没开 | B4 实现未开工；B5–B10 未开工；C7 正在 `debt-c7-core` 进行中，未合并前不算完成。 |
+| 现在在哪 | B0–B3 已完成并合并；C7 合同已整合（merge `d01943ba`）；B4-01/B4-02 与 B4 设计合同已冻结；B4 仍 NO-GO。 |
+| 下一步 | owner 接受 [`DEBT-REGISTER.md`](DEBT-REGISTER.md) 与 B4-01/B4-02 冻结决定后，开 B4 的 8 个纯包；C7 的实现/验证归 B5。 |
+| 什么没开 | B4 实现未开工；B5–B10 未开工；C7 的 B5 实现/验证未开始。 |
 
 B4 当前状态是“**合同已冻结（待 owner 接受）**”，不是“B4 已完成”或“已 GO”。合同冻结不等于 owner 接受，也不等于包验收。
 
@@ -26,7 +26,7 @@ B4 当前状态是“**合同已冻结（待 owner 接受）**”，不是“B4 
 
 ```text
 branch: xdk-2
-HEAD:   993833b8 docs(design): freeze B4-01/B4-02 contracts
+HEAD:   d01943ba merge(xdk2): integrate C7 core contract debt
 2.x:    75 packages / 698 types
 1.x:    14 packages / 160 symbols
 UI:     removed from 2.x scope
@@ -40,6 +40,7 @@ UI:     removed from 2.x scope
 | B1 注解编译器 | 已合并 | merge `c4dbdf54` |
 | B3 runtime prelude | 已完成；含 B3.2 | merge `cce533f5` / `876b9320` |
 | B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae` |
+| C7 core 合同整合 | 合同已整合（待 B5 实现/验证） | merge `d01943ba` / 源 `c0ab6d2a` |
 | B4 入口合同 | B4-01/B4-02 已冻结，待 owner 接受 | `993833b8` |
 
 B0–B3 的详细证据在 [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) §11.1–§11.4；不要在 PLAN 里复制门禁日志。
@@ -82,7 +83,7 @@ B4 第一批纯包
 | 批次 | 范围 | 入口/出口 |
 | --- | --- | --- |
 | B4 | functional/graph/stats/net.uri/net.mime/tensor/linalg/geo；8 包 / 34 类型 | owner 接受债表与 B4-01/B4-02 冻结决定；每包场景 + 2.x gate |
-| B5 | core 15 包 / 186 类型 | B4 完成；C7 完整合同整合与 1.x 回归 |
+| B5 | core 15 包 / 186 类型 | B4 完成；C7 合同已整合，B5 实现/验证 + 1.x 回归 |
 | B6 | data/encoding 12 包 / 76 类型 | B5 完成；依赖闭包绿 |
 | B7 | network 9 包 / 125 类型 | B6 完成；HTTP/1.1 先于 HTTP/2 |
 | B8 | platform 17 包 / 93 类型 | B7 完成；P6/P7/P9 决策先冻结 |
@@ -106,11 +107,11 @@ B4 第一批纯包
 
 ### 5.2 C7
 
-C7 是 1.x 已实现 API 向 2.x core 完整合同的整合，当前在 `debt-c7-core` 进行中：
+C7 合同整合已合并（merge `d01943ba` / 源 `c0ab6d2a`），当前状态是“合同已整合（待 B5 实现/验证）”：
 
-- 已完成的只是 B0 的 ledger 回写；不等于 C7 完成。
-- 未合并前不得写成“已完成”，也不得据此宣布 B5 开工。
-- 证据入口：[`DEBT-REGISTER.md`](DEBT-REGISTER.md) NEXT-01、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) §11.1。
+- 合同层已覆盖 1.x 已实现 API；这不等于 C7 完成，也不等于 B5 开工。
+- B5 负责实现与 xdk2 + 1.x 回归；B5 仍未开工。
+- 证据入口：[`DEBT-REGISTER.md`](DEBT-REGISTER.md) NEXT-01、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) §11。
 
 ### 5.3 UI/桌面
 

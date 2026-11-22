@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | 1.x 已发布；B0–B3 已合并；B4 合同冻结待 owner 接受；B5–B10 未开工 |
+| 状态 | 1.x 已发布；B0–B3 已合并；C7 合同已整合待 B5；B4 合同冻结待 owner；B5–B10 未开工 |
 | 1.x 基线 | [`t0/`](t0/00-overview.md) + `src/xdk`；14 包 / 160 symbols |
 | 2.x 目标 | **75 包 / 698 类型**；见 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 计划总览 | [`PLAN.md`](PLAN.md)；当前位置、下一步、未开工范围 |
