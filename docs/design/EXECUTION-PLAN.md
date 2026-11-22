@@ -414,9 +414,9 @@ worktree: clean
 | --- | --- | --- |
 | P0 架构基线 | 已完成 | commit `81fddb7b` |
 | B0 方案落地 | 已完成 | 见 §11.1；CR-0.2–CR-0.8 绿 |
-| B1 注解编译器 | 进行中 | `ses_b1_annotations_20261122` @ `/Users/vjs/Desktop/XNull-xdk2-b1`；与 B3 共享 `main.x`，按 §4.4 合并 |
-| B2 注解类型 | 未开工 | 等 B1 |
-| B3 runtime prelude | 进行中 | `ses_b3_runtime_20261122` @ `/Users/vjs/Desktop/XNull-xdk2-b3`；B3.2 在 B1 rebase 后继续 |
+| B1 注解编译器 | 已合并 | merge `c4dbdf54`；22 负例 + warning + AST 场景绿 |
+| B2 注解类型 | 未开工 | 等 B1 合并完成（已完成），但 B2 本身未开工 |
+| B3 runtime prelude | 已合并（B3.2 OPEN） | merge `cce533f5`；B3.1/B3.3/B3.4/B3.5 完成；B3.2 保留给 B3 继续 |
 | B4 第一批纯包 | 未开工 | 等 B2+B3 |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
@@ -470,7 +470,36 @@ python3 src/toolchain/check_doc_naming.py docs/design   PASS
 python3 src/toolchain/check_links.py docs/design        PASS
 ```
 
-**剩余缺口**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B0 无 Partial/Blocked。
+**B0 时点缺口（历史记录）**：B1 注解编译器、B2 注解类型、B3 runtime prelude 未开工；B1/B3 已在 §11.2 合并，B3.2 仍 OPEN。
+
+### 11.2 Integration batch：B1 + B3
+
+```text
+B1 merge: c4dbdf54
+B3 merge: cce533f5
+integration commit: HEAD at 2026-11-22 (the commit containing this record)
+worktree: /Users/vjs/.local/share/opencode/worktree/0778d3/xdk-2
+```
+
+冲突：`src/mini/main.x` 与 `src/mini/bin/mini.c` 为共享文件；本次 `ort` 自动合并，无冲突文件。合并后确认双方语义同时存在：
+
+- B1：`AnnotationDecl` / `AnnotationUse` / 注解 parser/Checker；22 个负例、warning、AST 场景；
+- B3：`findGenericClass`、泛型 `Pair`/`Entry`、`Bytes.alloc`、`List.copy`、runtime monitor；
+- 没有回退任一侧，也没有修改期望值迁就实现。
+
+门禁：
+
+```text
+src/mini/build.sh            PASS
+src/mini/tests/xdk2.sh       PASS（11 scenario(s)；22 negative；warning；AST）
+src/mini/tests/xdk.sh        PASS
+src/mini/tests/xdk_core.sh   PASS
+src/runtime/build_rt.sh      PASS（无参全量 C 套件）
+check_doc_naming             PASS
+check_links                  PASS
+```
+
+B3.2 `Context` deadline/wait 仍 **OPEN**，不随本批关闭；B2 未开工。B1/B3 只标“已合并”，不把 B3 整包标完成。
 
 ## 12. 一句话收口
 
