@@ -2,8 +2,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | B4 owner accepted；B4 实施中；tensor BLOCKED；B4-01/B4-02 未关闭；S2 注解三块已关闭；本表只分类已有债，不新增 API/包/批次 |
-| 基线 | `b4-compiler-hang` @ `ab7e2a47`（S2 annotation closure） |
+| 状态 | B4 已完成（8 包/34 类型 + 全量 `xdk.sh`）；B4-01/B4-02 已关闭；S2 注解三块已关闭；B5–B10 未开工；本表只分类已有债，不新增 API/包/批次 |
+| 基线 | `b4-compiler-hang` @ `6369205c`（B4 closure） |
 | 范围 | 注解实现前已存在、至今未关闭的 1.x/2.x 旧账，以及 B4–B10 未实现批次 |
 | 权威 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md)、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 分类 | B4 阻塞 / 后续批次 / 1.x-only·post-1.0·owner accepted / BLOCKED |
@@ -14,11 +14,11 @@
 
 | 类别 | 条数 | 说明 |
 | --- | ---: | --- |
-| B4 阻塞 | 2 | 合同已冻结，待 owner 接受；见 §4 |
+| B4 阻塞 | 0 | B4 已完成；见 §4 |
 | 后续批次 | 26 | 已明确归属 B4–B10 / P4–P8 |
 | 1.x-only / post-1.0 / owner accepted | 13 | 不得冒充 2.x 完成 |
 | BLOCKED | 1 | 有依赖或证据缺口，附下一步；只剩 BLK-01 |
-| 已关闭（原 BLOCKED，保留行） | 3 | S2 注解三块：BLK-02/03/04 |
+| 已关闭（原 BLOCKED + B4，保留行） | 5 | S2 3（BLK-02/03/04）+ B4 2（B4-01/B4-02） |
 | **合计** | **45** | |
 
 ## 2. B4 阻塞
@@ -27,12 +27,12 @@
 
 | ID | 债务描述 | 来源 / 证据 | 影响 | Owner | 目标批次 / 验收 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| B4-01 | P11：`TensorView` 的 `offset + Σ((dim-1)*stride)` 未防 `Long` 溢出；stride 0 与 tensor README“不做广播”冲突。**冻结决定**：不做广播；非空视图中 `dim > 1` 的 stride 0 拒绝（构造 panic），`dim <= 1` 或空视图允许 stride 0；最大下标用带检查的 `Long` 乘加，任何溢出在构造时 panic，不回绕。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P11；[TensorView.md](platform/tensor/TensorView.md) §1/§3/§5/§7/§12–§14；[tensor/README.md](platform/tensor/README.md) §4/§7 | B4.6 `tensor` 与 B4.7 `linalg` 按冻结合同实施；tensor BLOCKED，B4-01 未关闭。 | XDK-PLATFORM / ARCH | B4 实施：合同冻结 + 示例/反例/测试义务 + grep/门禁；实现+场景后才关闭。 | 合同已冻结；owner accepted；实施中（tensor BLOCKED） |
-| B4-02 | P8：`tensorDTypeByteWidth(null)` 返回 1、`geoProjectionName(null)` 返回 `"utm"`；null 与未知成员 fallback 未按函数冻结。**冻结决定**：`tensorDTypeName`/`geoProjectionName` 的 null → `"unknown"`、未知未来成员 → `"other"`；`tensorDTypeByteWidth` 的 null/未知成员 → 0（未知宽度，不是合法宽度）；`tensorDTypeFromName`/`geoProjectionFromName` 的 null/未知 → null（未找到），`"unknown"`/`"other"` 不解析成成员；不 panic，不映射到合法成员。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P8；[TensorDType.md](platform/tensor/TensorDType.md) §5/§7/§12–§14；[GeoProjection.md](platform/geo/GeoProjection.md) §5/§7/§12–§14 | B4.6 `tensor` 与 B4.8 `geo` 的 null/未知成员行为已可按冻结合同签；serial 同类项留 B8。 | XDK-PLATFORM | B4 实施：合同冻结 + 示例/反例/测试义务 + grep/门禁；实现+场景后才关闭。 | 合同已冻结；owner accepted；实施中（tensor BLOCKED） |
+| B4-01 | P11：`TensorView` 的 `offset + Σ((dim-1)*stride)` 未防 `Long` 溢出；stride 0 与 tensor README“不做广播”冲突。**冻结决定**：不做广播；非空视图中 `dim > 1` 的 stride 0 拒绝（构造 panic），`dim <= 1` 或空视图允许 stride 0；最大下标用带检查的 `Long` 乘加，任何溢出在构造时 panic，不回绕。 | [TensorView.md](platform/tensor/TensorView.md) §1/§3/§5/§7/§12–§14；[tensor/README.md](platform/tensor/README.md) §4/§7；`src/mini/tests/xdk2/tensor/tensor.x/.out`、`tensor_panic.sh` | B4.6 `tensor` 与 B4.7 `linalg` 已按冻结合同实现；`tensor_panic.sh` 6/6 PASS。 | XDK-PLATFORM / ARCH | `check_b4_contracts.py`、`check_b4_status.py` PASS；full `xdk.sh` exit 0 / 142s。 | CLOSED（B4.6/B4.7） |
+| B4-02 | P8：`tensorDTypeByteWidth(null)` 返回 1、`geoProjectionName(null)` 返回 `"utm"`；null 与未知成员 fallback 未按函数冻结。**冻结决定**：`tensorDTypeName`/`geoProjectionName` 的 null → `"unknown"`、未知未来成员 → `"other"`；`tensorDTypeByteWidth` 的 null/未知成员 → 0（未知宽度，不是合法宽度）；`tensorDTypeFromName`/`geoProjectionFromName` 的 null/未知 → null（未找到），`"unknown"`/`"other"` 不解析成成员；不 panic，不映射到合法成员。 | [TensorDType.md](platform/tensor/TensorDType.md) §5/§7/§12–§14；[GeoProjection.md](platform/geo/GeoProjection.md) §5/§7/§12–§14；`src/mini/tests/xdk2/geo/geo.x` | B4.6 `tensor` 与 B4.8 `geo` 已按冻结合同实现；serial 同类项留 B8。 | XDK-PLATFORM | `check_b4_contracts.py`、`check_b4_status.py` PASS；full `xdk.sh` exit 0 / 142s。 | CLOSED（B4.6/B4.8） |
 
 ### 2.1 B4-01 / B4-02 合同冻结记录
 
-> 状态是“合同已冻结（待 owner 接受）”，不是“债已关闭”。冻结不等于 B4 GO；关闭还需要 owner 接受与 B4.6/B4.7/B4.8 包验收证据。
+> B4-01/B4-02 已按冻结合同实现并关闭；证据见各行与 §4。冻结记录保留作历史合同依据。
 
 **B4-01 / P11（TensorView）**
 
@@ -84,7 +84,7 @@
 | NEXT-17 | X3：`SseStream` 只覆盖部分写/关闭错误，缺 flush/取消/背压/编码失败面。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) X3；[SseStream.md](solutions/api/SseStream.md) | SSE 失败通道不完整；B10/P8 前补齐。 | XDK-SOLUTIONS | B10/P8：write/flush/close/取消/背压/编码失败显式返回；端到端场景。 | OPEN（决定已冻结，实现未做） |
 | NEXT-18 | X4：`Agent` 启动失败可能留下半启动管线，回滚顺序未定义。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) X4；[solutions/agent/README.md](solutions/agent/README.md) | 失败不原子；B10/P8 前定启动顺序与逆序回滚。 | XDK-SOLUTIONS | B10/P8：启动顺序 + 逆序回滚；失败不返回半成品；关闭幂等。 | OPEN（决定已冻结，实现未做） |
 | NEXT-19 | X5：API README 写“无注解扫描”，注解矩阵又写 `@HttpRoute` 生成路由；措辞与生成边界未统一。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) X5；[solutions/api/README.md](solutions/api/README.md)；[ANNOTATION-SYSTEM.md](ANNOTATION-SYSTEM.md) | 易被误读为运行时反射/扫描；B10/P8 前统一为构建期生成显式 `ApiRoute`。 | XDK-SOLUTIONS | B10/P8：构建期生成 `ApiRoute` 注册；运行时无扫描/反射；文档统一；场景。 | OPEN（回写） |
-| NEXT-20 | B4 首批纯包未实现：functional/graph/stats/net.uri/net.mime/tensor/linalg/geo，合计 8 包 / 34 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B4；[PACKAGE-MAP.md](PACKAGE-MAP.md) L4/L5/L6 | 2.x 尚无任何纯 XDK 包；B4 是 B5 的前置。 | XDK-CORE / XDK-NET / XDK-PLATFORM | B4：8 包逐包场景 + xdk2 + 1.x 回归；入口见本文件 §4。 | 未开工（受 B4-01/B4-02 约束） |
+| NEXT-20 | B4 首批纯包：functional/graph/stats/net.uri/net.mime/tensor/linalg/geo，合计 8 包 / 34 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B4；[PACKAGE-MAP.md](PACKAGE-MAP.md) L4/L5/L6 | 已完成；B5 可以开始。 | XDK-CORE / XDK-NET / XDK-PLATFORM | 8 包场景 + `xdk2.sh` + full `xdk.sh`；见 §4。 | 已完成（B4） |
 | NEXT-21 | B5 core 15 包 2.x 化未开工：foundation → io/fs/sys → log/config/cli → execution，合计 15 包 / 186 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B5；[PACKAGE-MAP.md](PACKAGE-MAP.md) L1–L3 | core 合同与 2.x 类型未落地；B5 是 B6 的前置。 | XDK-CORE / RUNTIME | B5：15 包 Verified；按 C7 已整合合同实现；xdk2 + 1.x 回归绿。 | 未开工（等 B4） |
 | NEXT-22 | B6 data/encoding 12 包未开工：codec/crypto/compress/random/uuid/stats/functional/graph/reflect/toml/yaml/xml，合计 12 包 / 76 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B6；[PACKAGE-MAP.md](PACKAGE-MAP.md) L4 | 数据/编码依赖闭包未落地；B6 是 B7 的前置。 | XDK-CORE | B6：12 包依赖闭包绿；Json/Base64/统计/图先验收。 | 未开工（等 B5） |
 | NEXT-23 | B7 network 9 包未开工：net/uri/mime/tls/http/websocket/net.service/jwt/sql，合计 9 包 / 125 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B7；[PACKAGE-MAP.md](PACKAGE-MAP.md) L5 | 网络端到端能力未落地；B7 是 B8 的前置。 | XDK-NET | B7：9 包端到端网络场景绿；HTTP/1.1 先于 HTTP/2。 | 未开工（等 B6） |
@@ -93,35 +93,27 @@
 | NEXT-26 | B10 solutions 9 包未开工：jsonrpc/mcp/ml/numerics/db/api/agent/accel/embedded，合计 9 包 / 122 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B10；[PACKAGE-MAP.md](PACKAGE-MAP.md) L8 | 解决方案层未落地；B10 是 2.x 包面收口。 | XDK-SOLUTIONS | B10：9 包逐组端到端绿；X1–X5 先冻结。 | 未开工（等 B9） |
 
 
-## 4. B4 入口判断
+## 4. B4 完成判断
 
-**结论：B4 GO（owner accepted）；B4 实施中；tensor BLOCKED。** 入口条件已满足：owner 接受债表 + B4-01/B4-02 合同冻结。B4-01/B4-02 仍需实现与场景证据后才能关闭，B4 不得在验证前标完成。
+**结论：B4 已完成（8 包 / 34 类型 + 全量 `xdk.sh`）。** B4-01/B4-02 已关闭；S2 注解三块已关闭；B5–B10 未开工。
 
-B4 入口合同已冻结，owner accepted；当前实施状态：
+验收证据：
 
-1. **B4-01 / P11**：`TensorView` 的 stride 0 与 `Long` 溢出政策已冻结为“不做广播；非空视图 `dim > 1` 的 stride 0 拒绝；`dim <= 1`/空视图允许 0；最大下标 checked Long，溢出 panic”。B4.6 `tensor` 与 B4.7 `linalg` 按此合同。
-2. **B4-02 / P8**：`tensorDTypeByteWidth(null)` 与 `geoProjectionName(null)` 的 null/未知成员语义已冻结为“null → `"unknown"`；未知未来成员 → `"other"`；byteWidth null/未知 → 0；FromName null/未知 → null；不 panic，不映射合法成员”。B4.6 `tensor` 与 B4.8 `geo` 按此合同。
-
-来源表把 P11/P8 标在 P6 前后，但 B4.6/B4.8 已把 `tensor`/`geo` 提前到 B4；因此这两项必须在 B4 前冻结。这是“B4 提前实现所依赖的合同”，不是把后续批次升级成 B4 阻塞。
+- `functional`、`graph`、`stats`、`net.uri`、`net.mime`、`tensor`、`linalg`、`geo` 均有实现与场景。
+- `xdk2.sh` 27 scenarios PASS；`xdk2_extra.sh` PASS；`xdk_core.sh` PASS。
+- 完整 `xdk.sh` exit 0，142s，最后 `mini xdk: PASS`。
+- tensor：`src/mini/tests/xdk2/tensor/tensor.x/.out`、`tensor_panic.sh` 6/6 PASS。
+- `check_b4_contracts.py`、`check_b4_status.py` PASS。
 
 边界说明：
 
-- C7 合同整合已完成（NEXT-01：合同已整合，待 B5 实现/验证）；B5 负责实现与 xdk2 + 1.x 回归，不是 B4 阻塞。
-- API-SURFACE 旧稿重生成归 **B5**，不是 B4 阻塞；B4 以逐类型合同为准。
+- C7 合同整合已完成（NEXT-01：合同已整合，待 B5 实现/验证）；B5 负责实现与 xdk2 + 1.x 回归。
 - S2 注解三块已关闭：`Deinit`（`20f82bf5`）、`TypeUse`（`ab7e2a47`）、跨包注解 use 预解析（`11298b82`）；11 个注解目标均有合法挂载点。
-- 仍保留的源语法限制：`@pkg.a.Marker` 点号路径尚未解析；跨包注解通过导入 + 简单名或声明包解析。B4 纯包不使用这些目标，故不再是 BLOCKED。
-- N1、P6/P7/P9、U5–U11、X1–X5、B5–B10 都是后续批次或已接受债，不伪装成 B4 阻塞。
-- P4（`PI()`）与 P10（“依赖”改“相关类型”）的决定已冻结，属于 B4.7/B4.8 合同回写，不阻塞 B4。
-- P8 的 serial 同类 fallback 归 B8；本次只冻结 B4 需要的 `tensor`/`geo` 子集，不宣称 P8 全量关闭。
+- 仍保留的源语法限制：`@pkg.a.Marker` 点号路径尚未解析；跨包注解通过导入 + 简单名或声明包解析。
+- 已知残余不影响 B4 合同：functional 嵌套 inline lambda 链、graph `describe()` 的 `1.0` 文本、linalg Int64 `>2^53`/大矩阵 panic 未单列。
+- N1、P6/P7/P9、U5–U11、X1–X5、B5–B10 都是后续批次或已接受债。
 
-B4 入口公式：**owner 接受债表 + B4-01/B4-02 合同冻结 → GO**。当前合同冻结已完成，owner 接受未完成，所以 **B4 不 GO**。
-
-需要 owner 决定：
-
-- 接受本债表作为 B4 前置。
-- 接受 B4-01 冻结决定：不做广播；非空视图 `dim > 1` 的 stride 0 拒绝；`dim <= 1`/空视图允许 0；checked Long 溢出 panic。
-- 接受 B4-02 冻结决定：null → `"unknown"`；未知未来成员 → `"other"`；`tensorDTypeByteWidth` null/未知 → 0；FromName null/未知 → null；不 panic，不映射合法成员。
-- 是否允许 B4.1–B4.5 先于 B4.6–B4.8 拆批；本表不自动拆批。
+B4 已完成；下一步是 B5，不得把 C7 或 B5–B10 写成已完成。
 
 ## 5. 1.x-only / post-1.0 / owner accepted
 
