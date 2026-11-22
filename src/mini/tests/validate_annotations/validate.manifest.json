@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "validate_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/validate_processor.py"],
+      "outputs": ["ValidateGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}

@@ -106,7 +106,7 @@ X：JSON Schema 导入/导出、i18n 消息、异步/远程规则、错误码注
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | ValidateAnnotationProcessor（Validate/Generate） |
 | 生成物 | 校验器、字段规则、错误路径 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@Validate`/`@Min`/`@Max`/`@Pattern` implemented (M4.2)；`@Email` planned；A8 派生 implemented（含限制） |
 
 ### 具体落点
 
@@ -120,24 +120,24 @@ X：JSON Schema 导入/导出、i18n 消息、异步/远程规则、错误码注
 ### 声明
 
 ```x
-@Target(Type, Field)
+@Target(Type)
 @Retention(Source)
 @annotation Validate {
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Min {
     final Long value
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Max {
     final Long value
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Pattern {
     final String value

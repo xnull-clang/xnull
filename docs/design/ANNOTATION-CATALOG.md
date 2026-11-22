@@ -5,7 +5,7 @@
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 20（内建/元模型 9 + A8 5 + 领域 6）、`reserved` 4、`planned` 69（S6 2 + 领域 67） |
+| 计数 | 93 条：`implemented` 24（内建/元模型 9 + A8 5 + 领域 10）、`reserved` 4、`planned` 65（S6 2 + 领域 63） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -45,7 +45,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ## 3. 领域注解
 
-领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName）为 `implemented (M3.2)`，@CsvName 仍 planned；其余领域注解仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
+领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName）为 `implemented (M3.2)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`；@CsvName、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
 
 ### 3.1 CLI
 
@@ -95,13 +95,13 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ### 3.5 校验 / 韧性 / 观测
 
-| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 |
-| --- | --- | --- | --- | --- |
-| `@Validate` | 标记校验入口 | 无 | Type/Field / Source | ValidateAnnotationProcessor → 校验器 |
-| `@Min` | 数值下界 | `Long value` | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 |
-| `@Max` | 数值上界 | `Long value` | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 |
-| `@Pattern` | 正则约束 | `String value` | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 |
-| `@Email` | 邮箱约束 | 无 | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 |
+| 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `@Validate` | 标记校验入口 | 无 | Type / Source | validate_processor → `Schema`/`ValidationResult` | implemented (M4.2) |
+| `@Min` | 数值/字符串长度下界 | `Long value` | Field / Source | validate_processor → `range`/`minLength` | implemented (M4.2) |
+| `@Max` | 数值/字符串长度上界 | `Long value` | Field / Source | validate_processor → `range`/`maxLength` | implemented (M4.2) |
+| `@Pattern` | 正则约束 | `String value` | Field / Source | validate_processor → `Rules.pattern` | implemented (M4.2) |
+| `@Email` | 邮箱约束 | 无 | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 | planned |
 | `@Cacheable` | 声明可缓存 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 缓存包装 |
 | `@CacheEvict` | 声明缓存淘汰 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 淘汰包装 |
 | `@Retryable` | 重试策略 | `Int maxAttempts = 3`、`Long initialDelayMillis = 100` | Method / Source | ResilienceAnnotationProcessor → 重试包装 |

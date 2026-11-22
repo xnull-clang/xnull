@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1/M2/M3.1/M3.2 implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot、M3.1/M3.2）；M3.3、M4–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2 implemented**（P0-01–P0-10、P1-01–P1-04、M2 pilot、M3.1/M3.2、M4.1/M4.2）；M3.3、M5–M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -204,12 +204,12 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P4 validate / `@Validate`
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P4-01 | `xdk.validate` 包骨架（8 类型） | P0；B9 合同 | 类型契约可编译 |
-| P4-02 | `@Validate`/`@Min`/`@Max`/`@Pattern` | P4-01 | 目标/参数校验 |
-| P4-03 | ValidateProcessor Generate | P4-02 | 生成校验器/错误路径 |
-| P4-04 | validate 业务闭环 | P4-03 | 成功/失败/边界/错误路径 |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P4-01 | `xdk.validate` 包骨架（8 类型） | P0；B9 合同 | 类型契约可编译 | implemented (M4.1) |
+| P4-02 | `@Validate`/`@Min`/`@Max`/`@Pattern` | P4-01 | 目标/参数校验 | implemented (M4.2) |
+| P4-03 | ValidateProcessor Generate | P4-02 | 生成校验器/错误路径 | implemented (M4.2) |
+| P4-04 | validate 业务闭环 | P4-03 | 成功/失败/边界/错误路径 | implemented (M4.2) |
 
 ### P5 http / `@HttpRoute`
 
@@ -250,7 +250,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | M2 | P2 CLI | 命令树/help/解析 pilot 闭环 | implemented (pilot) |
 | M3 | P3 codec | `@Serializable` 业务闭环 | implemented (M3.1/M3.2) |
 | M3.3 | P3 CSV codec | `@CsvName` CSV 映射闭环 | planned |
-| M4 | P4 validate | `@Validate` 业务闭环 | planned |
+| M4 | P4 validate | `@Validate` 业务闭环 | implemented (M4.1/M4.2) |
 | M5 | P5 http | `@HttpRoute` 业务闭环 | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | planned |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | planned |

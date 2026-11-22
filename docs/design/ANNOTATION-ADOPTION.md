@@ -1148,24 +1148,24 @@ class ServiceConfig {
 声明：
 
 ```x
-@Target(Type, Field)
+@Target(Type)
 @Retention(Source)
 @annotation Validate {
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Min {
     final Long value
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Max {
     final Long value
 }
 
-@Target(Field, Parameter)
+@Target(Field)
 @Retention(Source)
 @annotation Pattern {
     final String value
@@ -1190,7 +1190,7 @@ class SignupForm {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Validate`/`@Min`/`@Max`/`@Pattern` implemented (M4.2)：生成 `<Type>Schema()`/`<Type>Validate(JsonValue)`，覆盖标量与可空 String；List、嵌套类型、可空数值由 AN1205 warning 跳过；`@Email` planned。
 
 ### `xdk.cache`
 
