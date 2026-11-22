@@ -36,7 +36,7 @@
 - 纯值且字段全是值类型（数值/Bool/枚举/其他合法 struct）→ `struct`。已落地：`Duration`、`Instant`、`Date`、`Time`、`DateTime`、`GeoPoint`、`GeoBounds`。
 - 值语义但含 `String`/`List`/`Map` 等引用字段 → `class` + `@Value`；不要为了“像值”强行写非法 `struct`。`ErrorDetail`、`HttpHeader`、`SqlColumn`、`ValidationError` 等走这条路径。
 - 需要身份/共享/生命周期 → `class`；需要可替换行为 → `protocol`；封闭分类 → `enum`。
-- 选项/多字段构造 → `@Builder`；不可变更新 → `@Copy`；协议实现 → 使用 `@Override` 时强制匹配签名。
+- 选项/多字段构造 → `@Builder`；已有显式 `with*`/`build()` 的 builder（如 `OpenOptions`、`TlsConfig`、`ProcessBuilder`）不再叠加 `@Builder`。不可变更新 → `@Copy`；协议实现 → 使用 `@Override` 时强制匹配签名。
 - 不使用 getter/setter 访问器模式；字段直接读写；校验/计算用动词方法或校验器注解。协议方法/只读查询（如 `kind()`）不是 property 访问器，按 1.x 合同保留；不要新增 `getX`/`setX` 命名。
 
 ### 1.3 生成与运行时
@@ -244,7 +244,7 @@
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
 | `Path`/`Metadata`/`Permissions`/`DirEntry` | `@Value` | 值语义成员 |
-| `OpenOptions` | `@Builder` | 打开选项 builder |
+| `OpenOptions` | — | 已是显式 with* builder，不叠加 `@Builder` |
 | `FileSystem` 实现 | `@Override` | 签名校验 |
 
 状态：无领域注解；A8 派生 planned；编译器内建 implemented。
@@ -382,7 +382,7 @@ class StatusCommand {
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
 | `Certificate`/`TlsPrivateKey`/`TrustStore`/`TlsSessionInfo` | `@Value` | 值语义成员 |
-| `TlsConfig` | `@Builder` | TLS 选项构造 |
+| `TlsConfig` | — | 已是显式 with* builder，不叠加 `@Builder` |
 | `TlsHandler` 实现 | `@Override` | 签名校验 |
 
 状态：无领域注解；A8 派生 planned；编译器内建 implemented。

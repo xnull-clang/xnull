@@ -145,7 +145,7 @@ String tlsVersionName(TlsVersion version) {
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
 | `Certificate`/`TlsPrivateKey`/`TrustStore`/`TlsSessionInfo` | `@Value` | 值语义成员 |
-| `TlsConfig` | `@Builder` | TLS 选项构造 |
+| `TlsConfig` | — | 已是显式 with* builder，不叠加 `@Builder` |
 | `TlsHandler` 实现 | `@Override` | 签名校验 |
 
 规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
