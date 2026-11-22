@@ -1671,6 +1671,20 @@ class Mono {
         return new AstNode("None", "", 1, 1)
     }
 
+    // 泛型声明与 1.x 固定声明可同名共存（如 Pair）。实例化只认带类型参数的
+    // 声明，避免固定 Pair 挡在泛型 Pair<A,B> 前面。
+    AstNode findGenericClass(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Class" || n.kind == "Struct") && n.text == name && self.hasTypeParams(n) {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
     List<String> splitArgs(String text) {
         List<String> res = []
         String cur = ""
@@ -1698,7 +1712,7 @@ class Mono {
     }
 
     String instantiateClass(String cname, List<String> args) {
-        AstNode cls = self.findClass(cname)
+        AstNode cls = self.findGenericClass(cname)
         if cls.kind == "None" || !self.hasTypeParams(cls) {
             return cname
         }
@@ -1991,6 +2005,7 @@ class Mono {
             if mth == "get" { return elem }
             if mth == "tryGet" { return "Result<" + elem + ",Error>" }
             if mth == "isEmpty" { return "Bool" }
+            if mth == "copy" { return recvType }
             if mth == "clear" { return "Unit" }
             return "Any"
         }
@@ -4083,6 +4098,9 @@ class Checker {
             if mth == "length" {
                 return "Int"
             }
+            if mth == "copy" {
+                return "List<" + self.elementType(bt) + ">"
+            }
             if mth == "get" {
                 return self.elementType(bt)
             }
@@ -4488,6 +4506,14 @@ class Checker {
                 if mth == "fromString" {
                     return "Bytes"
                 }
+                if mth == "alloc" {
+                    if argc != 1 { self.fail("SEM-004", "Bytes.alloc expects 1 argument", n) }
+                    return "Bytes"
+                }
+                if mth == "empty" {
+                    if argc != 0 { self.fail("SEM-004", "Bytes.empty expects 0 arguments", n) }
+                    return "Bytes"
+                }
                 if mth == "length" || mth == "get" {
                     return "Int"
                 }
@@ -4552,6 +4578,9 @@ class Checker {
             if self.elementType(bt) != "Any" {
                 if mth == "length" {
                     return "Int"
+                }
+                if mth == "copy" {
+                    return "List<" + self.elementType(bt) + ">"
                 }
                 if mth == "get" {
                     return self.elementType(bt)
@@ -6619,6 +6648,12 @@ class CGen {
             if mth == "fromString" {
                 return "Bytes"
             }
+            if mth == "alloc" {
+                return "Bytes"
+            }
+            if mth == "empty" {
+                return "Bytes"
+            }
             if mth == "length" || mth == "get" {
                 return "Int"
             }
@@ -6657,6 +6692,9 @@ class CGen {
         if self.isArray(bt) {
             if mth == "length" {
                 return "Int"
+            }
+            if mth == "copy" {
+                return "List<" + self.elementType(bt) + ">"
             }
             if mth == "get" {
                 return self.elementType(bt)
@@ -7054,6 +7092,9 @@ class CGen {
             if mth == "length" {
                 return "((int64_t)" + bv + "->len)"
             }
+            if mth == "copy" {
+                return self.arrayCName(bt) + "_copy(" + bv + ")"
+            }
             if mth == "get" {
                 if n.kids.length() > off {
                     return self.arrayGet(bt, bv, self.expr(n.kids.get(off)))
@@ -7377,6 +7418,12 @@ class CGen {
                     if mth == "fromString" {
                         return "Bytes"
                     }
+                    if mth == "alloc" {
+                        return "Bytes"
+                    }
+                    if mth == "empty" {
+                        return "Bytes"
+                    }
                     if mth == "length" || mth == "get" {
                         return "Int"
                     }
@@ -7432,6 +7479,9 @@ class CGen {
                 if self.isArray(bt) {
                     if mth == "length" {
                         return "Int"
+                    }
+                    if mth == "copy" {
+                        return "List<" + self.elementType(bt) + ">"
                     }
                     if mth == "get" {
                         return self.elementType(bt)
@@ -8049,6 +8099,15 @@ class CGen {
                         }
                         return "xrt_bytes_new()"
                     }
+                    if mth == "alloc" {
+                        if n.kids.length() > 0 {
+                            return "xrt_bytes_alloc_checked(" + self.expr(n.kids.get(0)) + ")"
+                        }
+                        return "xrt_bytes_new()"
+                    }
+                    if mth == "empty" {
+                        return "xrt_bytes_new()"
+                    }
                     if mth == "length" {
                         return "((int64_t)xrt_bytes_len(" + bv + "))"
                     }
@@ -8167,6 +8226,9 @@ class CGen {
                 if self.isArray(bt) {
                     if mth == "length" {
                         return "((int64_t)" + bv + "->len)"
+                    }
+                    if mth == "copy" {
+                        return self.arrayCName(bt) + "_copy(" + bv + ")"
                     }
                     if mth == "get" {
                         if n.kids.length() > 0 {
@@ -9164,6 +9226,10 @@ class CGen {
         self.emit("static void xn_arr_o_remove(xn_arr_o *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
         self.emit("static void xn_arr_o_set(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
         self.emit("static void xn_arr_o_insert(xn_arr_o *a, int64_t i, void *v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (void **)realloc(a->data, sizeof(void *) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
+        self.emit("static xn_arr_i *xn_arr_i_copy(const xn_arr_i *a) { xn_arr_i *out = xn_arr_i_new(a->len); if (a->len > 0) { memcpy(out->data, a->data, sizeof(int64_t) * a->len); } out->len = a->len; return out; }")
+        self.emit("static xn_arr_d *xn_arr_d_copy(const xn_arr_d *a) { xn_arr_d *out = xn_arr_d_new(a->len); if (a->len > 0) { memcpy(out->data, a->data, sizeof(double) * a->len); } out->len = a->len; return out; }")
+        self.emit("static xn_arr_s *xn_arr_s_copy(const xn_arr_s *a) { xn_arr_s *out = xn_arr_s_new(a->len); if (a->len > 0) { memcpy(out->data, a->data, sizeof(rt_string *) * a->len); } out->len = a->len; return out; }")
+        self.emit("static xn_arr_o *xn_arr_o_copy(const xn_arr_o *a) { xn_arr_o *out = xn_arr_o_new(a->len); if (a->len > 0) { memcpy(out->data, a->data, sizeof(void *) * a->len); } out->len = a->len; return out; }")
         self.emit("static int xn_str_startswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes, p->bytes, p->len) == 0 ? 1 : 0; }")
         self.emit("static int xn_str_endswith(rt_string *s, rt_string *p) { if (p->len > s->len) { return 0; } return memcmp(s->bytes + (s->len - p->len), p->bytes, p->len) == 0 ? 1 : 0; }")
         self.emit("static rt_string *xn_str_trim(rt_string *s) { size_t a = 0, b = s->len; while (a < b && (s->bytes[a] == ' ' || s->bytes[a] == '\\t' || s->bytes[a] == '\\n' || s->bytes[a] == '\\r' || s->bytes[a] == '\\v' || s->bytes[a] == '\\f')) { a++; } while (b > a && (s->bytes[b-1] == ' ' || s->bytes[b-1] == '\\t' || s->bytes[b-1] == '\\n' || s->bytes[b-1] == '\\r' || s->bytes[b-1] == '\\v' || s->bytes[b-1] == '\\f')) { b--; } rt_string *r = rt_string_alloc(b - a); if (b > a) { memcpy(r->bytes, s->bytes + a, b - a); } r->bytes[b-a] = 0; return r; }")
@@ -9272,6 +9338,7 @@ class CGen {
         self.emit("static void xn_arr_r_set(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i >= a->len) { abort(); } a->data[i] = v; }")
         self.emit("static void xn_arr_r_remove(xn_arr_r *a, int64_t i) { if (i < 0 || (size_t)i >= a->len) { abort(); } for (size_t j = (size_t)i; j + 1 < a->len; j++) { a->data[j] = a->data[j + 1]; } a->len--; }")
         self.emit("static void xn_arr_r_insert(xn_arr_r *a, int64_t i, xn_Result v) { if (i < 0 || (size_t)i > a->len) { abort(); } if (a->len == a->cap) { a->cap *= 2; a->data = (xn_Result *)realloc(a->data, sizeof(xn_Result) * a->cap); if (a->data == NULL) { abort(); } } for (size_t j = a->len; j > (size_t)i; j--) { a->data[j] = a->data[j - 1]; } a->data[i] = v; a->len++; }")
+        self.emit("static xn_arr_r *xn_arr_r_copy(const xn_arr_r *a) { xn_arr_r *out = xn_arr_r_new(a->len); if (a->len > 0) { memcpy(out->data, a->data, sizeof(xn_Result) * a->len); } out->len = a->len; return out; }")
         self.emit("static xn_Result xn_channel_send_int(xrt_channel *c, int64_t v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, (void *)(intptr_t)v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_recv_int(xrt_channel *c, xrt_context *ctx) { void *v = NULL; xn_Result r; int32_t rc = xrt_channel_receive(c, &v, ctx); r.ok = rc == 0; r.i = rc == 0 ? (int64_t)(intptr_t)v : 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")
         self.emit("static xn_Result xn_channel_send_ptr(xrt_channel *c, void *v, xrt_context *ctx) { xn_Result r; int32_t rc = xrt_channel_send(c, v, ctx); r.ok = rc == 0; r.i = 0; r.d = 0; r.s = NULL; r.p = NULL; r.err = (rc == 0) ? NULL : (void *)(intptr_t)rc; return r; }")

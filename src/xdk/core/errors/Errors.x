@@ -727,3 +727,78 @@ Result<Unit, Error> check(Bool condition, ErrorKind kind, String message) {
     }
     return Err(new BasicError(kind, message))
 }
+
+// ---------- B3.4 Result helpers ----------
+// 与 docs/design/core/errors/README.md §5 对齐的纯组合函数；不引入全局状态。
+
+Result<T, E> orElse<T, E>(Result<T, E> result, Result<T, E>(E) fallback) {
+    if result.isOk() {
+        return result
+    }
+    return fallback(result.error())
+}
+
+T expect<T, E>(Result<T, E> result, String message) {
+    if result.isOk() {
+        return result.value()
+    }
+    throw message
+}
+
+Result<T, E> inspect<T, E>(Result<T, E> result, Unit(T) callback) {
+    if result.isOk() {
+        callback(result.value())
+    }
+    return result
+}
+
+Result<T, E> inspectErr<T, E>(Result<T, E> result, Unit(E) callback) {
+    if result.isErr() {
+        callback(result.error())
+    }
+    return result
+}
+
+Result<T, E> filterOk<T, E>(Result<T, E> result, Bool(T) predicate, E error) {
+    if error == null {
+        throw "filterOk: null error"
+    }
+    if result.isOk() && !predicate(result.value()) {
+        return Err(error)
+    }
+    return result
+}
+
+Result<List<T>, List<E>> collectAll<T, E>(List<Result<T, E>> results) {
+    List<T> values = []
+    List<E> errors = []
+    Int index = 0
+    while index < results.length() {
+        Result<T, E> current = results.get(index)
+        if current.isErr() {
+            errors.push(current.error())
+        } else {
+            values.push(current.value())
+        }
+        index = index + 1
+    }
+    if errors.length() == 0 {
+        return Ok(values)
+    }
+    return Err(errors)
+}
+
+// flatten 的 2.x 名称；flatten 保留为 1.x 兼容别名。
+Result<T, E> flattenResult<T, E>(Result<Result<T, E>, E> nestedResult) {
+    if nestedResult.isErr() {
+        return Err(nestedResult.error())
+    }
+    return nestedResult.value()
+}
+
+Result<U, F> mapBoth<T, U, E, F>(Result<T, E> result, U(T) onOk, F(E) onErr) {
+    if result.isOk() {
+        return Ok(onOk(result.value()))
+    }
+    return Err(onErr(result.error()))
+}
