@@ -49,6 +49,7 @@
 | C-0006 | 汇报结论先行 | L1 | 本文件 |
 | C-0007 | 调度台不写代码 | L3 | `.opencode/agents/orchestrator.md` |
 | C-0008 | L3 测试通过即生效 | L2 | `.agent/AGENT-LEARNING.md` |
+| C-0009 | 复盘 due 只能指向批次草稿 | L3 | `.agent/bin/check.py` |
 
 ## 升级
 
