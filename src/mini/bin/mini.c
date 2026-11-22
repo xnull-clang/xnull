@@ -685,6 +685,7 @@ struct xn_Cls_AstNode {
   int64_t col;
   xn_arr_o * kids;
   xn_arr_o * annotations;
+  rt_string * packageName;
 };
 
 static const rt_type RT_TYPE_XN_AstNode = { "AstNode", sizeof(xn_Cls_AstNode), NULL, NULL };
@@ -698,6 +699,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   xn_obj->col = 0;
   xn_obj->kids = xn_arr_o_new(4);
   xn_obj->annotations = xn_arr_o_new(4);
+  xn_obj->packageName = rt_string_from_c("");
   xn_Cls_AstNode *self = xn_obj;
   self->kind = kind;
   self->text = text;
@@ -705,6 +707,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   self->col = col;
   self->kids = xn_arr_o_new(0);
   self->annotations = xn_arr_o_new(0);
+  self->packageName = rt_string_from_c("");
   return xn_obj;
 }
 
@@ -2879,6 +2882,7 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
   }
   rt_string * iname = xn_Cls_Mono_instanceName(self, cname, args);
   xn_Cls_AstNode * clone = xn_Cls_AstNode_new(cls->kind, sname, cls->line, cls->col);
+  clone->packageName = cls->packageName;
   i = 0;
   while ((i < ((int64_t)cls->annotations->len))) {
     xn_Cls_AstNode_annotate(clone, ((xn_Cls_AstNode *)xn_arr_o_get(cls->annotations, i)));
@@ -3012,6 +3016,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_cloneSubst(xn_Cls_Mono *self, xn_Cls_AstNode
     text = xn_Cls_Mono_substAll(self, text, names, args);
   }
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, text, n->line, n->col);
+  c->packageName = n->packageName;
   int64_t ai = xn_int_wrap(0);
   while ((ai < ((int64_t)n->annotations->len))) {
     xn_Cls_AstNode_annotate(c, ((xn_Cls_AstNode *)xn_arr_o_get(n->annotations, ai)));
@@ -3070,6 +3075,7 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
     return sname;
   }
   xn_Cls_AstNode * clone = xn_Cls_AstNode_new(rt_string_from_c("Func"), sname, fn->line, fn->col);
+  clone->packageName = fn->packageName;
   i = 0;
   while ((i < ((int64_t)fn->annotations->len))) {
     xn_Cls_AstNode_annotate(clone, ((xn_Cls_AstNode *)xn_arr_o_get(fn->annotations, i)));
@@ -3938,6 +3944,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_walk(xn_Cls_Mono *self, xn_Cls_AstNode * n) 
 
 static xn_Cls_AstNode * xn_Cls_Mono_cloneAst(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, n->text, n->line, n->col);
+  c->packageName = n->packageName;
   int64_t ai = xn_int_wrap(0);
   while ((ai < ((int64_t)n->annotations->len))) {
     xn_Cls_AstNode_annotate(c, ((xn_Cls_AstNode *)xn_arr_o_get(n->annotations, ai)));
@@ -4004,6 +4011,7 @@ static rt_string * xn_Cls_Mono_gmName(xn_Cls_Mono *self, rt_string * className, 
 
 static xn_Cls_AstNode * xn_Cls_Mono_replaceSelf(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   xn_Cls_AstNode * c = xn_Cls_AstNode_new(n->kind, n->text, n->line, n->col);
+  c->packageName = n->packageName;
   if ((xn_str_eq(n->kind, rt_string_from_c("Name")) && xn_str_eq(n->text, rt_string_from_c("self")))) {
     c->text = rt_string_from_c("__self");
   }
@@ -4056,6 +4064,7 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self) {
             pi = xn_int_wrap((pi + 1));
           }
           xn_Cls_AstNode * fn = xn_Cls_AstNode_new(rt_string_from_c("Func"), xn_Cls_Mono_gmName(self, cls->text, m->text), m->line, m->col);
+          fn->packageName = cls->packageName;
           xn_Cls_AstNode * tp = xn_Cls_AstNode_new(rt_string_from_c("TypeParams"), rt_string_from_c(""), m->line, m->col);
           pi = 0;
           while ((pi < ((int64_t)combined->len))) {
@@ -13391,57 +13400,63 @@ static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_strin
 }
 
 static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDeclFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg) {
-  if ((xn_str_indexof(name, rt_string_from_c(".")) >= 0)) {
-    int64_t dot = xn_int_wrap(0);
-    int64_t i = xn_int_wrap(xn_int_wrap((((int64_t)name->len) - 1)));
-    while ((i >= 0)) {
-      if (xn_str_eq(xn_str_substr(name, i, 1), rt_string_from_c("."))) {
-        dot = i;
-        break;
-      }
-      i = xn_int_wrap((i - 1));
+  rt_string * simple = name;
+  rt_string * exactPkg = rt_string_from_c("");
+  int64_t dot = xn_int_wrap(xn_int_wrap((((int64_t)name->len) - 1)));
+  while ((dot >= 0)) {
+    if (xn_str_eq(xn_str_substr(name, dot, 1), rt_string_from_c("."))) {
+      exactPkg = xn_str_substr(name, 0, dot);
+      simple = xn_str_substr(name, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)name->len) - dot)) - 1)));
+      break;
     }
-    rt_string * pkg = xn_str_substr(name, 0, dot);
-    rt_string * simple = xn_str_substr(name, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)name->len) - dot)) - 1)));
-    int64_t j = xn_int_wrap(0);
-    while ((j < ((int64_t)unitDeclNodes->len))) {
-      xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
-      if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple)) && xn_str_eq(xn_arr_s_get(unitDeclPkgs, j), pkg))) {
+    dot = xn_int_wrap((dot - 1));
+  }
+  if ((!xn_str_eq(exactPkg, rt_string_from_c("")))) {
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)self->program->kids->len))) {
+      xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+      if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple)) && xn_str_eq(xn_declPackageOf(n), exactPkg))) {
         return n;
       }
-      j = xn_int_wrap((j + 1));
+      i = xn_int_wrap((i + 1));
     }
     return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
   }
-  int64_t j = xn_int_wrap(0);
-  while ((j < ((int64_t)unitDeclNodes->len))) {
-    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
-    if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name)) && xn_str_eq(xn_arr_s_get(unitDeclPkgs, j), ownerPkg))) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+    if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple)) && xn_str_eq(xn_declPackageOf(n), ownerPkg))) {
       return n;
     }
-    j = xn_int_wrap((j + 1));
+    i = xn_int_wrap((i + 1));
   }
-  j = 0;
-  while ((j < ((int64_t)unitDeclNodes->len))) {
-    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, j));
-    if ((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name))) {
-      int64_t k = xn_int_wrap(0);
-      while ((k < ((int64_t)unitImportOwners->len))) {
-        if ((xn_str_eq(xn_arr_s_get(unitImportOwners, k), ownerPkg) && xn_str_eq(xn_arr_s_get(unitImportPkgs, k), xn_arr_s_get(unitDeclPkgs, j)))) {
+  i = 0;
+  while ((i < ((int64_t)unitImportOwners->len))) {
+    if (xn_str_eq(xn_arr_s_get(unitImportOwners, i), ownerPkg)) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)self->program->kids->len))) {
+        xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, j));
+        if (((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple)) && xn_str_eq(xn_declPackageOf(n), xn_arr_s_get(unitImportPkgs, i)))) {
           return n;
         }
-        k = xn_int_wrap((k + 1));
+        j = xn_int_wrap((j + 1));
       }
     }
-    j = xn_int_wrap((j + 1));
+    i = xn_int_wrap((i + 1));
   }
-  j = 0;
-  while ((j < ((int64_t)self->program->kids->len))) {
-    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, j));
-    if ((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, name))) {
-      return n;
+  xn_Cls_AstNode * found = xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
+  int64_t hits = xn_int_wrap(0);
+  i = 0;
+  while ((i < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+    if ((xn_str_eq(n->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(n->text, simple))) {
+      found = n;
+      hits = xn_int_wrap((hits + 1));
     }
-    j = xn_int_wrap((j + 1));
+    i = xn_int_wrap((i + 1));
+  }
+  if ((hits == 1)) {
+    return found;
   }
   return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
 }
@@ -15190,6 +15205,9 @@ static rt_string * xn_packageNameOf(xn_Cls_AstNode * program) {
 }
 
 static rt_string * xn_declPackageOf(xn_Cls_AstNode * n) {
+  if ((!xn_str_eq(n->packageName, rt_string_from_c("")))) {
+    return n->packageName;
+  }
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)unitDeclNodes->len))) {
     if ((((xn_Cls_AstNode *)xn_arr_o_get(unitDeclNodes, i)) == n)) {
@@ -15210,6 +15228,7 @@ static void xn_mergeDecls(xn_Cls_AstNode * program, xn_Cls_AstNode * parsed) {
       xn_arr_s_push(unitImportPkgs, d->text);
     }
     if (((!xn_str_eq(d->kind, rt_string_from_c("Package"))) && (!xn_str_eq(d->kind, rt_string_from_c("Import"))))) {
+      d->packageName = pkg;
       xn_arr_o_push(unitDeclNodes, d);
       xn_arr_s_push(unitDeclPkgs, pkg);
       xn_Cls_AstNode_add(program, d);
@@ -15297,6 +15316,18 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
   }
   xn_arr_s_push(loadedFiles, entry);
   rootPackageName = xn_packageNameOf(program);
+  int64_t ri = xn_int_wrap(0);
+  while ((ri < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * rn = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, ri));
+    if (xn_str_eq(rn->kind, rt_string_from_c("Import"))) {
+      xn_arr_s_push(unitImportOwners, rootPackageName);
+      xn_arr_s_push(unitImportPkgs, rn->text);
+    }
+    if (xn_str_eq(rn->kind, rt_string_from_c("AnnotationDecl"))) {
+      rn->packageName = rootPackageName;
+    }
+    ri = xn_int_wrap((ri + 1));
+  }
   loadRoot = root;
   loadBaseDir = xn_dirName(entry);
   if ((xn_str_indexof(entry, rt_string_from_c("/xdk/")) >= 0)) {

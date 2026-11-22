@@ -45,6 +45,7 @@ class AstNode {
     // Annotation uses attached to this declaration/member.  They are kept
     // outside `kids` so existing semantic/codegen passes keep their shape.
     final List<AstNode> annotations
+    String packageName
 
     AstNode(String kind, String text, Int line, Int col) {
         self.kind = kind
@@ -53,6 +54,7 @@ class AstNode {
         self.col = col
         self.kids = []
         self.annotations = []
+        self.packageName = ""
     }
 
     Void add(AstNode kid) {
@@ -2021,6 +2023,7 @@ class Mono {
         }
         String iname = self.instanceName(cname, args)
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
+        clone.packageName = cls.packageName
         i = 0
         while i < cls.annotations.length() {
             clone.annotate(cls.annotations.get(i))
@@ -2150,6 +2153,7 @@ class Mono {
             text = self.substAll(text, names, args)
         }
         AstNode c = new AstNode(n.kind, text, n.line, n.col)
+        c.packageName = n.packageName
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -2208,6 +2212,7 @@ class Mono {
             return sname
         }
         AstNode clone = new AstNode("Func", sname, fn.line, fn.col)
+        clone.packageName = fn.packageName
         i = 0
         while i < fn.annotations.length() {
             clone.annotate(fn.annotations.get(i))
@@ -2967,6 +2972,7 @@ class Mono {
 
     AstNode cloneAst(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.packageName = n.packageName
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -3033,6 +3039,7 @@ class Mono {
 
     AstNode replaceSelf(AstNode n) {
         AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        c.packageName = n.packageName
         if n.kind == "Name" && n.text == "self" { c.text = "__self" }
         if n.kind == "Call" && n.text.startsWith("self.") { c.text = "__self." + n.text.substring(5, n.text.length() - 5) }
         Int i = 0
@@ -3070,6 +3077,7 @@ class Mono {
                             pi = pi + 1
                         }
                         AstNode fn = new AstNode("Func", self.gmName(cls.text, m.text), m.line, m.col)
+                        fn.packageName = cls.packageName
                         AstNode tp = new AstNode("TypeParams", "", m.line, m.col)
                         pi = 0
                         while pi < combined.length() { tp.add(new AstNode("TypeParam", combined.get(pi), m.line, m.col)); pi = pi + 1 }
@@ -11463,47 +11471,49 @@ class CGen {
     }
 
     AstNode annotationFindDeclFor(String name, String ownerPkg) {
-        if name.indexOf(".") >= 0 {
-            Int dot = 0
-            Int i = name.length() - 1
-            while i >= 0 {
-                if name.substring(i, 1) == "." { dot = i; break }
-                i = i - 1
-            }
-            String pkg = name.substring(0, dot)
-            String simple = name.substring(dot + 1, name.length() - dot - 1)
-            Int j = 0
-            while j < unitDeclNodes.length() {
-                AstNode n = unitDeclNodes.get(j)
-                if n.kind == "AnnotationDecl" && n.text == simple && unitDeclPkgs.get(j) == pkg { return n }
-                j = j + 1
+        String simple = name
+        String exactPkg = ""
+        Int dot = name.length() - 1
+        while dot >= 0 {
+            if name.substring(dot, 1) == "." { exactPkg = name.substring(0, dot); simple = name.substring(dot + 1, name.length() - dot - 1); break }
+            dot = dot - 1
+        }
+        if exactPkg != "" {
+            Int i = 0
+            while i < self.program.kids.length() {
+                AstNode n = self.program.kids.get(i)
+                if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == exactPkg { return n }
+                i = i + 1
             }
             return new AstNode("None", "", 1, 1)
         }
-        Int j = 0
-        while j < unitDeclNodes.length() {
-            AstNode n = unitDeclNodes.get(j)
-            if n.kind == "AnnotationDecl" && n.text == name && unitDeclPkgs.get(j) == ownerPkg { return n }
-            j = j + 1
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == ownerPkg { return n }
+            i = i + 1
         }
-        j = 0
-        while j < unitDeclNodes.length() {
-            AstNode n = unitDeclNodes.get(j)
-            if n.kind == "AnnotationDecl" && n.text == name {
-                Int k = 0
-                while k < unitImportOwners.length() {
-                    if unitImportOwners.get(k) == ownerPkg && unitImportPkgs.get(k) == unitDeclPkgs.get(j) { return n }
-                    k = k + 1
+        i = 0
+        while i < unitImportOwners.length() {
+            if unitImportOwners.get(i) == ownerPkg {
+                Int j = 0
+                while j < self.program.kids.length() {
+                    AstNode n = self.program.kids.get(j)
+                    if n.kind == "AnnotationDecl" && n.text == simple && declPackageOf(n) == unitImportPkgs.get(i) { return n }
+                    j = j + 1
                 }
             }
-            j = j + 1
+            i = i + 1
         }
-        j = 0
-        while j < self.program.kids.length() {
-            AstNode n = self.program.kids.get(j)
-            if n.kind == "AnnotationDecl" && n.text == name { return n }
-            j = j + 1
+        AstNode found = new AstNode("None", "", 1, 1)
+        Int hits = 0
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" && n.text == simple { found = n; hits = hits + 1 }
+            i = i + 1
         }
+        if hits == 1 { return found }
         return new AstNode("None", "", 1, 1)
     }
 
@@ -13210,6 +13220,7 @@ static String packageNameOf(AstNode program) {
 }
 
 static String declPackageOf(AstNode n) {
+    if n.packageName != "" { return n.packageName }
     Int i = 0
     while i < unitDeclNodes.length() {
         if unitDeclNodes.get(i) == n { return unitDeclPkgs.get(i) }
@@ -13228,6 +13239,7 @@ static Void mergeDecls(AstNode program, AstNode parsed) {
             unitImportPkgs.push(d.text)
         }
         if d.kind != "Package" && d.kind != "Import" {
+            d.packageName = pkg
             unitDeclNodes.push(d)
             unitDeclPkgs.push(pkg)
             program.add(d)
@@ -13312,6 +13324,16 @@ static AstNode loadProgram(String entry, String root) {
     }
     loadedFiles.push(entry)
     rootPackageName = packageNameOf(program)
+    Int ri = 0
+    while ri < program.kids.length() {
+        AstNode rn = program.kids.get(ri)
+        if rn.kind == "Import" {
+            unitImportOwners.push(rootPackageName)
+            unitImportPkgs.push(rn.text)
+        }
+        if rn.kind == "AnnotationDecl" { rn.packageName = rootPackageName }
+        ri = ri + 1
+    }
     loadRoot = root
     loadBaseDir = dirName(entry)
     if entry.indexOf("/xdk/") >= 0 {
