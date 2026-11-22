@@ -3710,6 +3710,9 @@ class AnnotationChecker {
         r.push("AN0023")
         r.push("AN0024")
         r.push("AN0025")
+        r.push("AN0026")
+        r.push("AN0027")
+        r.push("AN0028")
         return r
     }
 
@@ -14447,12 +14450,117 @@ AstNode a8BuildBuilder(AstNode cls, List<AstNode> params) {
     return b
 }
 
+Bool a8ListHas(List<String> items, String value) {
+    Int i = 0
+    while i < items.length() {
+        if items.get(i) == value { return true }
+        i = i + 1
+    }
+    return false
+}
+
+Bool a8FieldHasAnno(AstNode f, String name) {
+    Int i = 0
+    while i < f.annotations.length() {
+        AstNode use = f.annotations.get(i)
+        String useName = use.text
+        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+        if a8SimpleName(useName) == name { return true }
+        i = i + 1
+    }
+    return false
+}
+
+Void a8DropFieldAnno(AstNode f, String name) {
+    List<AstNode> keep = []
+    Int i = 0
+    while i < f.annotations.length() {
+        AstNode use = f.annotations.get(i)
+        String useName = use.text
+        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+        if a8SimpleName(useName) != name { keep.push(use) }
+        i = i + 1
+    }
+    f.annotations = keep
+}
+
+AstNode a8FindClassIn(AstNode program, String name) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind == "Class" && n.text == name { return n }
+        i = i + 1
+    }
+    return new AstNode("None", "", 1, 1)
+}
+
+String a8TypeBase(String ty) {
+    Int p = ty.indexOf("<")
+    if p > 0 { return ty.substring(0, p) }
+    return ty
+}
+
+Bool a8MethodStatic(AstNode m) {
+    Int i = 0
+    while i < m.kids.length() {
+        if m.kids.get(i).kind == "Static" { return true }
+        i = i + 1
+    }
+    return false
+}
+
+AstNode a8DelegateMethod(AstNode host, AstNode field, AstNode target) {
+    String fieldName = a8FieldName(field)
+    String mname = target.text
+    String ret = "Unit"
+    Int i = 0
+    while i < target.kids.length() {
+        if target.kids.get(i).kind == "Ret" { ret = target.kids.get(i).text }
+        i = i + 1
+    }
+    AstNode m = a8Method(mname, ret, host)
+    AstNode call = new AstNode("MethodCall", mname, host.line, host.col)
+    AstNode recv = new AstNode("Member", fieldName, host.line, host.col)
+    recv.add(new AstNode("Name", "self", host.line, host.col))
+    call.add(recv)
+    i = 0
+    while i < target.kids.length() {
+        AstNode k = target.kids.get(i)
+        if k.kind == "Param" {
+            m.add(new AstNode("Param", k.text, k.line, k.col))
+            List<String> pp = k.text.split(" ")
+            if pp.length() >= 2 { call.add(new AstNode("Name", pp.get(1), k.line, k.col)) }
+        }
+        i = i + 1
+    }
+    AstNode body = new AstNode("Block", "", host.line, host.col)
+    if ret == "Void" || ret == "Unit" {
+        AstNode st = new AstNode("ExprStmt", "", host.line, host.col)
+        st.add(call)
+        body.add(st)
+    } else {
+        AstNode r = new AstNode("Return", "", host.line, host.col)
+        r.add(call)
+        body.add(r)
+    }
+    m.add(body)
+    return m
+}
+
 Bool expandA8Class(AstNode cls, AstNode program) {
     Bool v = a8HasAnno(cls, "Value")
     Bool d = a8HasAnno(cls, "Data")
     Bool c = a8HasAnno(cls, "Copy")
     Bool b = a8HasAnno(cls, "Builder")
-    if !v && !d && !c && !b { return true }
+    Bool fieldDelegate = false
+    Int fdi = 0
+    while fdi < cls.kids.length() {
+        if cls.kids.get(fdi).kind == "Field" && a8FieldHasAnno(cls.kids.get(fdi), "Delegate") {
+            fieldDelegate = true
+        }
+        fdi = fdi + 1
+    }
+    if !v && !d && !c && !b && !fieldDelegate { return true }
     if cls.kind != "Class" {
         return a8Fail("AN0021", "@Value/@Data/@Copy/@Builder require a class", cls)
     }
@@ -14461,6 +14569,18 @@ Bool expandA8Class(AstNode cls, AstNode program) {
     a8DropAnno(cls, "Copy")
     a8DropAnno(cls, "Builder")
     List<AstNode> fields = a8InstanceFields(cls)
+    List<AstNode> delegateFields = []
+    Int dfi = 0
+    while dfi < fields.length() {
+        if a8FieldHasAnno(fields.get(dfi), "Delegate") {
+            a8DropFieldAnno(fields.get(dfi), "Delegate")
+            delegateFields.push(fields.get(dfi))
+        }
+        dfi = dfi + 1
+    }
+    if delegateFields.length() > 0 && cls.kind != "Class" {
+        return a8Fail("AN0021", "@Delegate requires a class", cls)
+    }
     if v {
         Int i = 0
         while i < fields.length() {
@@ -14515,6 +14635,35 @@ Bool expandA8Class(AstNode cls, AstNode program) {
             return a8Fail("AN0024", "builder class already exists: " + bname, cls)
         }
         program.add(a8BuildBuilder(cls, a8CtorParams(cls)))
+    }
+    if delegateFields.length() > 0 {
+        List<String> generated = []
+        Int di = 0
+        while di < delegateFields.length() {
+            AstNode f = delegateFields.get(di)
+            String targetName = a8TypeBase(a8FieldType(f))
+            AstNode target = a8FindClassIn(program, targetName)
+            if target.kind == "None" {
+                return a8Fail("AN0027", "@Delegate target is not a class: " + targetName, f)
+            }
+            if a8TypeParams(target).length() > 0 || a8FieldType(f).indexOf("<") >= 0 {
+                return a8Fail("AN0028", "@Delegate target must be non-generic class: " + targetName, f)
+            }
+            Int mi = 0
+            while mi < target.kids.length() {
+                AstNode tm = target.kids.get(mi)
+                if tm.kind == "Method" && !a8MethodStatic(tm) {
+                    String mname = tm.text
+                    if a8MethodExists(cls, mname) || a8ListHas(generated, mname) {
+                        return a8Fail("AN0026", "@Delegate method conflicts: " + mname, f)
+                    }
+                    generated.push(mname)
+                    cls.add(a8DelegateMethod(cls, f, tm))
+                }
+                mi = mi + 1
+            }
+            di = di + 1
+        }
     }
     return true
 }

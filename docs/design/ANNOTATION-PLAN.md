@@ -138,7 +138,7 @@
 | A9 | 工具链/IDE 只读提取 | 文档/IDE 可读编译期元数据；不做运行时反射 | S7 |
 | A10 | 测试矩阵 | 声明/使用/目标/常量/重复/未知/内建/处理器/注册表 | A1–A9 |
 
-A8/A9 状态：**A8 部分实现（`@Value`/`@Data`/`@Copy`/`@Builder`），`@Delegate` planned；A9 planned**。hash 仍 planned。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现的 A8/A9 或领域注解写成已实现。
+A8/A9 状态：**A8 已实现全部 5 个（`@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate`）；A9 planned**。hash 仍 planned。完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把未实现的 A8/A9 或领域注解写成已实现。
 
 禁止工作项：
 

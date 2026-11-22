@@ -4,7 +4,7 @@
 | --- | --- |
 | 目的 | 把 XNull 注解系统落到 75 个包；注解是编译期契约/生成入口，不是装饰 |
 | 权威 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.5.0）、[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
-| 状态 | 编译器内建与 Registry 已实现；A8 `@Value`/`@Data`/`@Copy`/`@Builder` 已实现；`@Delegate`、领域处理器为 planned |
+| 状态 | 编译器内建与 Registry 已实现；A8 `@Value`/`@Data`/`@Copy`/`@Builder`/`@Delegate` 已实现；领域处理器为 planned |
 | 覆盖 | 75 包/组：1 annotations + 15 core + 9 network + 17 platform + 24 utils + 9 solutions |
 | 规则 | 构建期处理；运行时只读静态 `AnnotationRegistry`；无反射/扫描/动态代理 |
 
