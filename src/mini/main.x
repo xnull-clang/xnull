@@ -13694,6 +13694,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.codec" || pkg.startsWith("xdk.codec.") {
         return "codec/Codec.x"
     }
+    if pkg == "xdk.validate" || pkg.startsWith("xdk.validate.") {
+        return "validate/Validate.x"
+    }
     if pkg == "xdk.cli" || pkg.startsWith("xdk.cli.") {
         return "cli/Cli.x"
     }
