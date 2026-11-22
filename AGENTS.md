@@ -13,7 +13,7 @@
 ## 角色边界
 
 - **rule-writer**：只写规则/规范/验收谓词；不派发、不盯盘、不验收、不碰 worker worktree。
-- **orchestrator**：读规则、跑 preflight、派发、盯盘、验收、更新 queue；不写代码。
+- **orchestrator**：读 `.agent/ORCHESTRATOR.md`，跑 preflight、派发、盯盘、验收、更新 queue；不写代码；每批写 `.agent/feedback/<batch>.md`。
 - **worker**：只执行自己 owner 的批次；不接别人的批次、不调度。
 - **reviewer**：只读审计；不改文件。
 - 当前会话角色由 `.agent/roles.json` 声明；`boot.py` 按角色给 NEXT，不按全局批次状态给 NEXT。
@@ -59,6 +59,7 @@
 | C-0009 | 复盘 due 只能指向批次草稿 | L3 | `.agent/bin/check.py` |
 | C-0010 | 派发前做依赖/写集检查 | L3 | `.agent/bin/preflight.py` |
 | C-0011 | 规则层不调度 | L3 | `.agent/roles.json` |
+| C-0012 | orchestrator 要有 playbook 和反馈 | L2 | `.agent/ORCHESTRATOR.md` |
 
 ## 升级
 
