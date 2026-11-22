@@ -3,15 +3,15 @@
 | Item | Value |
 | --- | --- |
 | Document number | Part 2 (S2) |
-| Document version | 3.4.0 |
+| Document version | 3.5.0 |
 | Specification status | Formal |
-| Release date | 2026-11-15 |
+| Release date | 2026-11-22 |
 | Intended audience | XNull language implementations |
 | Related parts | Part 1 v3.4.0; Part 3 v3.2.0 |
 
 Versioning rules: revision numbers are used for clarifications that do not change semantics, minor versions for backward-compatible additions, and major versions for breaking changes. See the git history for past versions.
 
-Revision note: 3.4.0 (2026-11-15) retains only the object programming standard; implementation status is not part of this document.
+Revision note: 3.5.0 (2026-11-22) completes the annotation execution model: meta-annotations are enforced, build-time processors and code generation are part of the language contract, `@Repeatable` preserves order, and `Runtime` retention is exposed only through a compiler-generated static registry. No annotation syntax is changed.
 
 ## Decision Summary
 
@@ -27,6 +27,7 @@ Revision note: 3.4.0 (2026-11-15) retains only the object programming standard; 
 - The canonical internal name of a private field is uniformly `_name`. There are only two declarations, `Int _name` and `private Int name`, and they map to the same field; `private Int _name` is a compile error. Inside the class only the bare `_name` may be written; `self._name` and the bare `name` are both illegal, and local variables/parameters must not have the same name as `_name`. External access to either `name` or `_name` reports a private access error.
 - Tuples are the built-in value type of Part 1, 2.11; a tuple whose elements are all values may be used as a `struct` field, whereas a tuple field containing reference elements cannot be a `struct` field.
 - No accessor pattern: fields are read and written directly; getter/setter accessor patterns and property syntax are forbidden (7.3); computation and validation use verb methods.
+- Annotations are compile-time declarations with three execution surfaces: compiler enforcement (`@Target`/`@Retention`/`@Repeatable`/`@ReadOnly`/`@Override`/`@Deprecated`/`@SuppressWarnings`), build-time processors and code generation, and a compiler-generated read-only `Runtime` registry. Runtime reflection, classpath scanning, dynamic loading, and runtime annotation processing are forbidden.
 - Primary constructor (6.3): `class Worker(final Int id)` declares fields and a constructor in the class header, with parameters bound to same-named fields; `class` only, and it is not mixed with other constructors.
 - Unified function rules: methods follow the same set of explicit function rules as top-level functions, constructors, and lambdas (Part 1, 7.10).
 
@@ -1252,9 +1253,9 @@ extension Device {
 }
 ```
 
-- `@annotation` declares a compile-time annotation type; no runtime object is generated.
-- Annotations may only declare `final` fields; field types must be compile-time constant types: `Bool`, integer, `Float`, `Double`, `Char`, `String`, simple enums.
-- Annotation fields must have compile-time constant initializers.
+- `@annotation` declares a compile-time annotation type; no runtime annotation object is generated.
+- Annotations may only declare `final` fields. Field types are compile-time constant types: `Bool`, integer types, `Float`/`Double`, `Char`, `String`, simple enums, constant arrays of those types, nested annotation types, and `Type`/`TypeRef` references.
+- Annotation fields may have compile-time constant initializers. A field without an initializer is required at every use site; omitted trailing optional fields use their declared initializer.
 - Annotations cannot have methods, constructors, `deinit`, static members, generic parameters, inheritance, or protocol implementations.
 - Annotation declarations do not produce runtime instances.
 - Annotation types exist only at compile time; they cannot be `new`-ed and cannot be passed as values.
@@ -1276,7 +1277,7 @@ class Device { }
 - Usage forms: `@Name` or `@Name(arg1, arg2, ...)`; arguments are bound in field declaration order.
 - Arguments must be compile-time constants; their types must be assignable to the field types; omitted trailing fields use the initializer from the declaration site.
 - Extra arguments are compile errors; intermediate fields cannot be skipped; named arguments are not supported.
-- Annotations may be applied to type declarations, fields, methods, constructors, `deinit`, parameters, and enum items.
+- Annotations may be applied to package declarations, type declarations, annotation declarations, type parameters, fields, methods, constructors, `deinit`, parameters, and enum items.
 - Type-use annotations use the prefix form `@Foo Type` and are allowed on field types, parameter types, return types, and local variable types; they are recorded as `AnnotationTarget.TypeUse`, not as declaration annotations.
 - `@Target(TypeUse)` is always explicit: the default target set for annotations without `@Target` does not include `TypeUse`.
 - Disambiguation at a declaration prefix is by the annotation's declared targets: only `TypeUse` binds to the following type use; only declaration targets bind to the declaration; declaring both `TypeUse` and declaration targets in that position is a compile error and the annotation must be split or narrowed.
@@ -1284,7 +1285,7 @@ class Device { }
 - Runtime TypeUse entries use `targetName` `<owner>#<field>`, `<owner>#<method>(<paramTypes>)#<index>` (parameter), `<owner>#<method>(<paramTypes>)#return`, or `<owner>#<method>(<paramTypes>)#local:<name>`; `typeName` is the fully qualified used type.
 - Type-use annotations cannot be used on generic type arguments, expressions, control bodies, or type parameter declarations; the block annotation semantics of `@tasks` / `@arena` are defined in Part 5 (§2.3).
 - An unknown annotation is a compile error; an annotation must resolve to an `@annotation` type in the same package or an imported one, or to a built-in annotation.
-- Using the same annotation repeatedly on the same target is a compile error; `@Repeatable` is reserved but has no effect.
+- Using the same annotation repeatedly on the same target is a compile error unless the annotation is declared `@Repeatable`. A repeatable annotation preserves every use in source order; the compiler records a one-based repeat index.
 - Annotations do not affect control flow or the object model; memory strategy annotations are not part of the language annotation system.
 
 ### 12.3 Built-in Annotations
@@ -1293,23 +1294,34 @@ class Device { }
 | --- | --- | --- | --- |
 | `@ReadOnly` | Field | Yes | Read-only externally; writable inside the declaring type |
 | `@Override` | Method | Yes | Must correspond to a protocol method with the same signature; cannot mark superclass methods |
-| `@WriteOnly` | Field | No | Recognized but not enforced |
-| `@Target` | Annotation | No | Recognized but not enforced |
-| `@Retention` | Annotation | No | Recognized but not enforced |
-| `@Repeatable` | Annotation | No | Recognized but not enforced |
-| `@Deprecated` | Declaration | No | Recognized but not enforced |
-| `@SuppressWarnings` | Declaration | No | Recognized but not enforced |
-| `@Immediate` / `@NoAlloc` / `@Pure` / `@Sendable` | Reserved | No | Reserved; does not change semantics |
+| `@WriteOnly` | Field | No | Recognized but not enforced; never a security boundary |
+| `@Target` | Annotation | Yes | Restricts where the declared annotation may be used |
+| `@Retention` | Annotation | Yes | Selects `Source`, `Binary`, or `Runtime`; default is `Binary` |
+| `@Repeatable` | Annotation | Yes | Allows repeated uses on one target and preserves order |
+| `@Deprecated` | Declaration | Yes (warning) | Using the declaration produces a deprecation diagnostic |
+| `@SuppressWarnings` | Declaration | Yes | Suppresses only the named diagnostic codes |
+| `@MustUse` | Type/Method | Yes | A language rule for discardable results, not a user annotation |
+| `@Value` | Type | Yes, when the A8 processor is enabled | Immutable value semantics; generates `equals`/`hash`/`toString`/`copy` |
+| `@Data` | Type | Yes, when the A8 processor is enabled | Data-class value semantics; generates `equals`/`hash`/`toString`/`copy`; no accessors |
+| `@Builder` | Type | Yes, when the A8 processor is enabled | Generates a builder with `withField` and `build` |
+| `@Copy` | Type | Yes, when the A8 processor is enabled | Generates `copy` and per-field `withField` |
+| `@Delegate` | Type/Field | Yes, when the A8 processor is enabled | Generates forwarding methods to the selected field |
+| `@Immediate` / `@NoAlloc` / `@Pure` / `@Sendable` | Reserved | No | Reserved; does not change semantics before its semantics and checks are frozen |
 
 The memory strategy annotations `@arc` / `@gc` are not members of the language annotation system; using them in source code is a compile error.
 
-### 12.4 Restrictions
+### 12.4 Retention, Processing, and Runtime Queries
 
-- An `@annotation` declaration is only a compile-time type and does not generate a runtime object.
-- Language annotations only perform compile-time checks or recognition; `@arc` / `@gc` are not part of the language annotation system.
+- `Source`: visible to build-time processors; not retained in build output.
+- `Binary`: visible to build-time processors; retained as tool/IDE metadata; not queryable at runtime.
+- `Runtime`: visible to build-time processors; the compiler emits a static registry; runtime access is limited to the generated registry API.
+- Build-time annotation processors are part of the language contract. A processor declares supported phases (`Resolve`, `Validate`, `Generate`, `Finalize`), reads immutable element views, and returns diagnostics plus generated source. Processors are explicitly enabled by the build manifest, run in a sandbox, produce deterministic output, and fail atomically.
+- Generated declarations enter the next processing round until a fixed point is reached. `Finalize` must not generate new declarations. Generated source carries a generated marker and is not hand-edited.
+- `@Value`/`@Data` generated equality is structural over fields. A reference field must provide a value-comparison contract; otherwise the processor reports an error (`AN0021`) and must not silently fall back to reference identity. `@Value.copy()` must use the canonical constructor so validation and defensive copies are preserved. `@Data` does not generate field accessors. A generated member that collides with a hand-written member is an error; the implementation must remove the hand-written duplicate rather than keep both.
+- Runtime annotation access is not reflection. The compiler emits a read-only registry indexed by target kind and canonical target name. Runtime code can query that registry; it cannot load annotation types, scan packages/class files, create dynamic proxies, or run processors.
+- An annotation declaration is only a compile-time type and does not generate a runtime object.
 - Annotation arguments must be compile-time constants; runtime expressions are not evaluated.
-- Reflection, runtime annotation queries, annotation processors, and code generation are not supported.
-- Annotation inheritance, default arguments, and named arguments are not supported; `@Repeatable` preserves repeated uses in order on the same target.
+- Annotation inheritance, annotation constructors, annotation methods, and named arguments are not supported. Annotation field defaults are supported.
 - Type-use annotations are prefix-only. `List<@Foo T>`, `@Foo` on an expression, and `@Foo` on a type parameter declaration are compile errors; only the enclosing type/parameter/return/local type position is annotated.
 
 ## 13. Generic Types and Generic Methods
