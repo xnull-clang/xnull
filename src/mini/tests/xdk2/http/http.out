@@ -1,0 +1,66 @@
+method=GET,CONNECT
+method-parse=POST
+method-bad=true
+version=HTTP/1.0,HTTP/2
+version-parse=HTTP/2
+version-bad=true
+samesite=Strict,true
+status=200,OK,200 OK
+status-class=true,true,true,true,true
+status-equals=true,false
+status-unknown=true,599
+header=true,X-Test: value
+headers-len=4
+headers-get=true
+headers-all=2,application/json
+headers-getor=fallback
+headers-has=true,false
+headers-entries=5
+headers-content-type=text/plain
+headers-content-length=5
+headers-user-agent=xdk-test
+headers-copy=3,4
+headers-set=1,text/html
+headers-clear=0
+body-empty=true,false
+body-length=5
+body-read=hello
+body-read-limit=true
+body-text=hello
+body-bytes=hello
+body-close=true,true
+body-closed-read=true
+body-empty-length=0
+request-base=POST,HTTP/1.1,0,true
+request-with-header=true,false
+request-with-headers=1,0
+request-with-body=false,true
+request-with-version=HTTP/2,HTTP/1.1
+request-with-uri=/other
+response=201,Created,true
+response-with-status=404,true,true
+response-with-header=true,false
+response-with-body=false,true
+options=65536,16777216,true,false
+options-set=1024,2048,100,200,false,4,true
+options-copy=77,1024
+form-len=4,2
+form-values=1,two words,,fallback
+form-encode=a=1&b=two%20words&a=3&empty=
+form-body=a=1&b=two%20words&a=3&empty=
+form-set=1,9
+form-copy=0,3
+form-remove=true,2
+form-bad=true
+cookie=sid,abc,example.com,/app
+cookie-flags=true,true,Lax,0
+cookie-header=sid=abc; Domain=example.com; Path=/app; Expires=0; Secure; HttpOnly; SameSite=Lax
+cookie-match=true,false,false,false
+cookie-list=2,b
+cookie-list-bad=true
+jar-len=3
+jar-header=a=9; b=2; old=1
+jar-miss=true
+jar-expired=1,2
+jar-header-clean=a=9; b=2
+jar-clear=0

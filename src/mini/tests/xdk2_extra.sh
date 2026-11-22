@@ -17,7 +17,8 @@ for gate in \
     "$HERE/xdk2/annotations_cross_package/cross_package.sh" \
     "$HERE/xdk2/graph/graph_negative.sh" \
     "$HERE/xdk2/linalg/linalg_negative.sh" \
-    "$HERE/xdk2/validate/panic.sh"; do
+    "$HERE/xdk2/validate/panic.sh" \
+    "$HERE/xdk2/http/panic.sh"; do
     [ -x "$gate" ] || { echo "xdk2_extra: missing gate: $gate" >&2; exit 1; }
     gate_start=$(date +%s)
     if ! out=$("$gate" 2>&1); then

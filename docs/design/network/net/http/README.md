@@ -116,6 +116,17 @@ X：Router/Middleware、连接池高级策略。HTTP/3/QUIC 不做。
 | HTTP/2 | 多路复用、SETTINGS、流、PING/GOAWAY、HPACK | `Http2Session`/`Http2Stream` 等 |
 | HTTP/3 | QUIC 传输、0-RTT | 不做；需要 QUIC 层 |
 
+## 5.2 M5.1 实现子集与裁剪
+
+当前 `implemented` 只覆盖 `@HttpRoute` 业务闭环所需子集：
+
+- 已实现：`HttpMethod`、`HttpVersion`、`HttpStatus`、`HttpHeader`、`HttpHeaders`、`HttpBody`（仅缓冲字节）、`HttpRequest`、`HttpResponse`、`HttpServerOptions`、`Form`、`FormEntry`、`SameSite`、`Cookie`、`CookieJar`。
+- 签名裁剪：不带 `Context`（核心 Context 未实现）。
+- `HttpBody` 无 `ByteStream`：无 `stream()`/`writeTo`/`fromStream`，只做 `Bytes` + `readAll`/`readText`/`close`。
+- planned：`HttpExchange`/`HttpHandler`、`HttpClient`/`HttpClientOptions`、`HttpServer`、HTTP/2、TLS、代理/CONNECT、multipart、流式 body、socket 网络栈。
+- Cookie 过期只解析数字 `Max-Age`/`Expires`（`Expires` 不做 RFC HTTP-date）；`CookieJar` 只做精确 domain/path，不实现 PSL。
+- `HttpHeaders.contentType/contentLength/userAgent` 已实现。
+
 ## 6. 场景
 
 ### H1：JSON 客户端
