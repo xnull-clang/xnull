@@ -3,6 +3,7 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 for gate in \
+    "$HERE/mirror_check.sh" \
     "$HERE/functional_empty/run.sh" \
     "$HERE/generic_field/run.sh" \
     "$HERE/deinit/deinit.sh" \
