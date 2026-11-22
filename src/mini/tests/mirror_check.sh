@@ -2,14 +2,8 @@
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../.." && pwd)
-for pair in \
-    "src/xdk/graph/Graph.x:xdk/lib/xdk/graph/Graph.x" \
-    "src/xdk/linalg/Linalg.x:xdk/lib/xdk/linalg/Linalg.x"; do
-    left=${pair%%:*}
-    right=${pair#*:}
-    cmp -s "$ROOT/$left" "$ROOT/$right" || {
-        echo "mirror_check: drift: $left != $right" >&2
-        exit 1
-    }
-done
+diff -qr -x annotations -x execution -x xdk2-packages.tsv     "$ROOT/src/xdk" "$ROOT/xdk/lib/xdk" >/dev/null || {
+    echo "mirror_check: src/xdk and xdk/lib/xdk differ" >&2
+    exit 1
+}
 echo "mirror_check: PASS"
