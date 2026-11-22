@@ -194,6 +194,395 @@ typedef struct xn_Cls_AnnotationChecker xn_Cls_AnnotationChecker;
 typedef struct xn_Cls_Checker xn_Cls_Checker;
 typedef struct xn_Cls_AnnotationUseMeta xn_Cls_AnnotationUseMeta;
 typedef struct xn_Cls_CGen xn_Cls_CGen;
+static xn_Cls_Token *xn_Cls_Token_new(rt_string * kind, rt_string * text, int64_t line, int64_t col);
+static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, int64_t line, int64_t col);
+static void xn_Cls_AstNode_add(xn_Cls_AstNode *self, xn_Cls_AstNode * kid);
+static void xn_Cls_AstNode_annotate(xn_Cls_AstNode *self, xn_Cls_AstNode * use);
+static void xn_Cls_AstNode_setKid(xn_Cls_AstNode *self, int64_t idx, xn_Cls_AstNode * v);
+static void xn_Cls_AstNode_dump(xn_Cls_AstNode *self, int64_t depth);
+static xn_Cls_Parser *xn_Cls_Parser_new(xn_arr_o * ts);
+static int xn_Cls_Parser_hasError(xn_Cls_Parser *self);
+static xn_Cls_Token * xn_Cls_Parser_peek(xn_Cls_Parser *self);
+static xn_Cls_Token * xn_Cls_Parser_advance(xn_Cls_Parser *self);
+static int xn_Cls_Parser_eof(xn_Cls_Parser *self);
+static int xn_Cls_Parser_at(xn_Cls_Parser *self, rt_string * text);
+static int xn_Cls_Parser_kind(xn_Cls_Parser *self, rt_string * k);
+static int xn_Cls_Parser_eat(xn_Cls_Parser *self, rt_string * text);
+static xn_Cls_Token * xn_Cls_Parser_expect(xn_Cls_Parser *self, rt_string * text);
+static void xn_Cls_Parser_fail(xn_Cls_Parser *self, rt_string * msg);
+static xn_Cls_AstNode * xn_Cls_Parser_node(xn_Cls_Parser *self, rt_string * kindName, rt_string * text, xn_Cls_Token * t);
+static int xn_Cls_Parser_atAnnotationStart(xn_Cls_Parser *self);
+static int xn_Cls_Parser_atAnnotationDecl(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseAnnotationUse(xn_Cls_Parser *self);
+static xn_arr_o * xn_Cls_Parser_parseAnnotations(xn_Cls_Parser *self);
+static void xn_Cls_Parser_attachAnnotations(xn_Cls_Parser *self, xn_Cls_AstNode * n, xn_arr_o * uses);
+static xn_Cls_AstNode * xn_Cls_Parser_parseAnnotationDecl(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parse(xn_Cls_Parser *self);
+static rt_string * xn_Cls_Parser_parsePath(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseTop(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseClassDecl(xn_Cls_Parser *self, rt_string * kindName);
+static xn_Cls_AstNode * xn_Cls_Parser_parseEnum(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseProtocol(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseFunc(xn_Cls_Parser *self);
+static int xn_Cls_Parser_looksLikeTypeArgs(xn_Cls_Parser *self);
+static rt_string * xn_Cls_Parser_parseTypeArgsText(xn_Cls_Parser *self);
+static int xn_Cls_Parser_typeHasFuncSuffix(xn_Cls_Parser *self);
+static rt_string * xn_Cls_Parser_parseType(xn_Cls_Parser *self);
+static rt_string * xn_Cls_Parser_parseNewType(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseBlock(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseCaseBody(xn_Cls_Parser *self);
+static xn_Cls_Token * xn_Cls_Parser_look(xn_Cls_Parser *self, int64_t n);
+static int xn_Cls_Parser_isLocalDecl(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseLocal(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseStmt(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseExpr(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseOr(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseAnd(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseEquality(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseRel(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseBitOr(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseBitXor(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseBitAnd(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseShift(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseAdd(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseMul(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseCast(xn_Cls_Parser *self);
+static int xn_Cls_Parser_hasCall(xn_Cls_Parser *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Parser_memberPath(xn_Cls_Parser *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Parser_quoted(xn_Cls_Parser *self, rt_string * s);
+static xn_Cls_AstNode * xn_Cls_Parser_parseInterpolation(xn_Cls_Parser *self, xn_Cls_Token * t);
+static int xn_Cls_Parser_looksLikeLambda(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parseLambda(xn_Cls_Parser *self);
+static xn_Cls_AstNode * xn_Cls_Parser_parsePrimary(xn_Cls_Parser *self);
+static xn_Cls_Mono *xn_Cls_Mono_new(xn_Cls_AstNode * p);
+static int xn_Cls_Mono_hasTypeParams(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static xn_arr_s * xn_Cls_Mono_typeParams(xn_Cls_Mono *self, xn_Cls_AstNode * fn);
+static int xn_Cls_Mono_hasGenericSyntax(xn_Cls_Mono *self, rt_string * ty);
+static rt_string * xn_Cls_Mono_genericBase(xn_Cls_Mono *self, rt_string * ty);
+static xn_arr_s * xn_Cls_Mono_genericArgsOf(xn_Cls_Mono *self, rt_string * ty);
+static rt_string * xn_Cls_Mono_joinTypeArgs(xn_Cls_Mono *self, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_instanceName(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
+static int xn_Cls_Mono_identChar(xn_Cls_Mono *self, rt_string * c);
+static rt_string * xn_Cls_Mono_subst(xn_Cls_Mono *self, rt_string * text, rt_string * from, rt_string * to);
+static rt_string * xn_Cls_Mono_substAll(xn_Cls_Mono *self, rt_string * text, xn_arr_s * names, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_mangle(xn_Cls_Mono *self, rt_string * ty);
+static int xn_Cls_Mono_isDataEnum(xn_Cls_Mono *self, rt_string * name);
+static xn_Cls_AstNode * xn_Cls_Mono_findClass(xn_Cls_Mono *self, rt_string * name);
+static xn_Cls_AstNode * xn_Cls_Mono_findGenericClass(xn_Cls_Mono *self, rt_string * name);
+static xn_arr_s * xn_Cls_Mono_splitArgs(xn_Cls_Mono *self, rt_string * text);
+static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_readAngleType(xn_Cls_Mono *self, rt_string * text, int64_t start);
+static void xn_Cls_Mono_instantiateEntryForMap(xn_Cls_Mono *self, rt_string * ty);
+static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty);
+static xn_Cls_AstNode * xn_Cls_Mono_cloneSubst(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_arr_s * names, xn_arr_s * args);
+static xn_Cls_AstNode * xn_Cls_Mono_findGeneric(xn_Cls_Mono *self, rt_string * name);
+static int xn_Cls_Mono_hasFunc(xn_Cls_Mono *self, rt_string * name);
+static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_argType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static void xn_Cls_Mono_addScope(xn_Cls_Mono *self, rt_string * name, rt_string * ty);
+static void xn_Cls_Mono_collectScope(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static void xn_Cls_Mono_collectDeclTypes(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_arr_s * names, xn_arr_s * types);
+static rt_string * xn_Cls_Mono_declaredType(xn_Cls_Mono *self, xn_arr_s * names, xn_arr_s * types, rt_string * name);
+static int xn_Cls_Mono_sameClassType(xn_Cls_Mono *self, rt_string * ty, xn_Cls_AstNode * cls);
+static void xn_Cls_Mono_collectClassCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_Cls_AstNode * cls, xn_arr_s * names, xn_arr_s * types, xn_arr_s * out);
+static int xn_Cls_Mono_listHas(xn_Cls_Mono *self, xn_arr_s * items, rt_string * value);
+static rt_string * xn_Cls_Mono_mangledTypeName(xn_Cls_Mono *self, rt_string * ty);
+static xn_arr_s * xn_Cls_Mono_reachableMethods(xn_Cls_Mono *self, xn_Cls_AstNode * cls, rt_string * iname, rt_string * sname);
+static int xn_Cls_Mono_methodIsStatic(xn_Cls_Mono *self, xn_Cls_AstNode * m);
+static void xn_Cls_Mono_collectUsedIn(xn_Cls_Mono *self, xn_Cls_AstNode * fn);
+static void xn_Cls_Mono_scanUsed(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static void xn_Cls_Mono_collectUsedMethods(xn_Cls_Mono *self);
+static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * recvType, rt_string * mth);
+static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Mono_inferLambdaReturn(xn_Cls_Mono *self, xn_Cls_AstNode * lambda);
+static int xn_Cls_Mono_inferTypePattern(xn_Cls_Mono *self, rt_string * pattern, rt_string * actual, xn_arr_s * names, xn_arr_s * inferred);
+static rt_string * xn_Cls_Mono_typeArgsFor(xn_Cls_Mono *self, xn_Cls_AstNode * call);
+static xn_Cls_AstNode * xn_Cls_Mono_walk(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static xn_Cls_AstNode * xn_Cls_Mono_cloneAst(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static int xn_Cls_Mono_hasMember(xn_Cls_Mono *self, xn_Cls_AstNode * cls, xn_Cls_AstNode * member);
+static void xn_Cls_Mono_flattenClass(xn_Cls_Mono *self, xn_Cls_AstNode * cls);
+static xn_Cls_AstNode * xn_Cls_Mono_run(xn_Cls_Mono *self);
+static xn_Cls_AnnotationDiag *xn_Cls_AnnotationDiag_new(rt_string * code, rt_string * msg, int64_t line, int64_t col);
+static xn_Cls_AnnotationType *xn_Cls_AnnotationType_new(rt_string * name, xn_arr_s * targets, rt_string * retention, int repeatable);
+static void xn_Cls_AnnotationType_addField(xn_Cls_AnnotationType *self, rt_string * name, rt_string * ty, int required, xn_Cls_AstNode * def);
+static void xn_Cls_AnnotationType_clearTargets(xn_Cls_AnnotationType *self);
+static int xn_Cls_AnnotationType_allows(xn_Cls_AnnotationType *self, rt_string * target);
+static xn_Cls_AnnotationChecker *xn_Cls_AnnotationChecker_new(rt_string * file, xn_Cls_AstNode * program);
+static int xn_Cls_AnnotationChecker_hasError(xn_Cls_AnnotationChecker *self);
+static void xn_Cls_AnnotationChecker_fail(xn_Cls_AnnotationChecker *self, rt_string * code, rt_string * msg, xn_Cls_AstNode * n);
+static void xn_Cls_AnnotationChecker_warn(xn_Cls_AnnotationChecker *self, rt_string * code, rt_string * msg, xn_Cls_AstNode * n, xn_Cls_AstNode * owner);
+static void xn_Cls_AnnotationChecker_failAt(xn_Cls_AnnotationChecker *self, rt_string * code, rt_string * msg, xn_Cls_AstNode * n, xn_Cls_AstNode * owner);
+static int xn_Cls_AnnotationChecker_suppressed(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, rt_string * code);
+static xn_arr_s * xn_Cls_AnnotationChecker_allTargets(xn_Cls_AnnotationChecker *self);
+static xn_arr_s * xn_Cls_AnnotationChecker_declTargets(xn_Cls_AnnotationChecker *self);
+static xn_arr_s * xn_Cls_AnnotationChecker_retentionNames(xn_Cls_AnnotationChecker *self);
+static xn_arr_s * xn_Cls_AnnotationChecker_knownCodes(xn_Cls_AnnotationChecker *self);
+static int xn_Cls_AnnotationChecker_listHas(xn_Cls_AnnotationChecker *self, xn_arr_s * items, rt_string * v);
+static int xn_Cls_AnnotationChecker_isReserved(xn_Cls_AnnotationChecker *self, rt_string * name);
+static int xn_Cls_AnnotationChecker_isBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name);
+static int64_t xn_Cls_AnnotationChecker_findType(xn_Cls_AnnotationChecker *self, rt_string * name);
+static void xn_Cls_AnnotationChecker_addBuiltin(xn_Cls_AnnotationChecker *self, rt_string * name, xn_arr_s * targets, int repeatable);
+static void xn_Cls_AnnotationChecker_initBuiltins(xn_Cls_AnnotationChecker *self);
+static rt_string * xn_Cls_AnnotationChecker_unquote(xn_Cls_AnnotationChecker *self, rt_string * s);
+static rt_string * xn_Cls_AnnotationChecker_pathOf(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n);
+static int xn_Cls_AnnotationChecker_isEnumItem(xn_Cls_AnnotationChecker *self, rt_string * path);
+static rt_string * xn_Cls_AnnotationChecker_enumOwnerOf(xn_Cls_AnnotationChecker *self, rt_string * path);
+static rt_string * xn_Cls_AnnotationChecker_constType(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n);
+static int xn_Cls_AnnotationChecker_isConstValue(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n);
+static int xn_Cls_AnnotationChecker_numericType(xn_Cls_AnnotationChecker *self, rt_string * ty);
+static int xn_Cls_AnnotationChecker_accepts(xn_Cls_AnnotationChecker *self, rt_string * fieldType, xn_Cls_AstNode * arg);
+static int xn_Cls_AnnotationChecker_constantTypeAllowed(xn_Cls_AnnotationChecker *self, rt_string * ty);
+static void xn_Cls_AnnotationChecker_collectTypes(xn_Cls_AnnotationChecker *self);
+static void xn_Cls_AnnotationChecker_validateAnnotationDecl(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * d);
+static void xn_Cls_AnnotationChecker_validateUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, rt_string * target, xn_Cls_AstNode * scope);
+static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope, int64_t index);
+static void xn_Cls_AnnotationChecker_collectDeprecated(xn_Cls_AnnotationChecker *self);
+static int xn_Cls_AnnotationChecker_hasUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, rt_string * name);
+static int xn_Cls_AnnotationChecker_isReadOnlyField(xn_Cls_AnnotationChecker *self, rt_string * owner, rt_string * field);
+static void xn_Cls_AnnotationChecker_checkDecl(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, rt_string * target);
+static void xn_Cls_AnnotationChecker_checkBlock(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * block, xn_Cls_AstNode * owner);
+static void xn_Cls_AnnotationChecker_checkExpr(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, xn_Cls_AstNode * owner);
+static rt_string * xn_Cls_AnnotationChecker_paramTypesOf(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * fn);
+static rt_string * xn_Cls_AnnotationChecker_retOf(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * fn);
+static int xn_Cls_AnnotationChecker_protocolHasSig(xn_Cls_AnnotationChecker *self, rt_string * pname, rt_string * mname, rt_string * params, rt_string * ret);
+static void xn_Cls_AnnotationChecker_checkOverrides(xn_Cls_AnnotationChecker *self);
+static rt_string * xn_Cls_AnnotationChecker_lookupVar(xn_Cls_AnnotationChecker *self, xn_arr_s * names, xn_arr_s * types, rt_string * name);
+static void xn_Cls_AnnotationChecker_popVars(xn_Cls_AnnotationChecker *self, xn_arr_s * names, xn_arr_s * types, int64_t mark);
+static void xn_Cls_AnnotationChecker_checkReadOnlyIn(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, rt_string * cls, xn_arr_s * names, xn_arr_s * types, xn_Cls_AstNode * owner);
+static void xn_Cls_AnnotationChecker_checkReadOnlyWrites(xn_Cls_AnnotationChecker *self);
+static void xn_Cls_AnnotationChecker_roCheckMembers(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * c, rt_string * cls);
+static void xn_Cls_AnnotationChecker_check(xn_Cls_AnnotationChecker *self);
+static xn_Cls_Checker *xn_Cls_Checker_new(rt_string * file, xn_Cls_AstNode * program);
+static int xn_Cls_Checker_hasError(xn_Cls_Checker *self);
+static void xn_Cls_Checker_fail(xn_Cls_Checker *self, rt_string * code, rt_string * msg, xn_Cls_AstNode * n);
+static int xn_Cls_Checker_isFunctionType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_fnRetType(xn_Cls_Checker *self, rt_string * ty);
+static xn_arr_s * xn_Cls_Checker_fnParams(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_knownType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isListType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isMapType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isSetType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_setElement(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_mapInner(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_mapKeyType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_mapValueType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_elementType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isResultType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isMutexType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_mutexElement(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_isTaskType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_taskElement(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_resultValueType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_string * ty);
+static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_string * b);
+static rt_string * xn_Cls_Checker_typeMangle(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_entryClassName(xn_Cls_Checker *self, rt_string * keyTy, rt_string * valTy);
+static int xn_Cls_Checker_classIsA(xn_Cls_Checker *self, rt_string * actual, rt_string * target);
+static int xn_Cls_Checker_isAssignable(xn_Cls_Checker *self, rt_string * target, rt_string * actual);
+static int64_t xn_Cls_Checker_findFn(xn_Cls_Checker *self, rt_string * name);
+static int64_t xn_Cls_Checker_findVar(xn_Cls_Checker *self, rt_string * name);
+static int64_t xn_Cls_Checker_findClass(xn_Cls_Checker *self, rt_string * name);
+static int64_t xn_Cls_Checker_findField(xn_Cls_Checker *self, rt_string * cls, rt_string * name);
+static int64_t xn_Cls_Checker_findMethod(xn_Cls_Checker *self, rt_string * cls, rt_string * name);
+static rt_string * xn_Cls_Checker_retOf(xn_Cls_Checker *self, xn_Cls_AstNode * fn);
+static rt_string * xn_Cls_Checker_paramTypes(xn_Cls_Checker *self, xn_Cls_AstNode * fn);
+static void xn_Cls_Checker_collect(xn_Cls_Checker *self);
+static void xn_Cls_Checker_addVar(xn_Cls_Checker *self, rt_string * ty, rt_string * name, xn_Cls_AstNode * where);
+static void xn_Cls_Checker_popTo(xn_Cls_Checker *self, int64_t mark);
+static int xn_Cls_Checker_isEmptyArray(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static int xn_Cls_Checker_isEmptyMap(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static int xn_Cls_Checker_intFits32(xn_Cls_Checker *self, rt_string * text);
+static void xn_Cls_Checker_check(xn_Cls_Checker *self);
+static void xn_Cls_Checker_checkClass(xn_Cls_Checker *self, xn_Cls_AstNode * cls);
+static void xn_Cls_Checker_checkFunc(xn_Cls_Checker *self, xn_Cls_AstNode * fn);
+static void xn_Cls_Checker_checkBlock(xn_Cls_Checker *self, xn_Cls_AstNode * block);
+static void xn_Cls_Checker_checkStmt(xn_Cls_Checker *self, xn_Cls_AstNode * st);
+static int xn_Cls_Checker_isClass(xn_Cls_Checker *self, rt_string * name);
+static int xn_Cls_Checker_isDataEnum(xn_Cls_Checker *self, rt_string * name);
+static rt_string * xn_Cls_Checker_protocolRet(xn_Cls_Checker *self, rt_string * pname, rt_string * mname);
+static rt_string * xn_Cls_Checker_protocolParams(xn_Cls_Checker *self, rt_string * pname, rt_string * mname);
+static int xn_Cls_Checker_isProtocolName(xn_Cls_Checker *self, rt_string * name);
+static xn_arr_s * xn_Cls_Checker_enumItems(xn_Cls_Checker *self, rt_string * name);
+static rt_string * xn_Cls_Checker_enumCaseItem(xn_Cls_Checker *self, xn_Cls_AstNode * n, rt_string * enumName);
+static xn_Cls_AstNode * xn_Cls_Checker_classNode(xn_Cls_Checker *self, rt_string * name);
+static rt_string * xn_Cls_Checker_curFieldType(xn_Cls_Checker *self, rt_string * fname);
+static rt_string * xn_Cls_Checker_pathType(xn_Cls_Checker *self, rt_string * path);
+static rt_string * xn_Cls_Checker_fieldType(xn_Cls_Checker *self, rt_string * cls, rt_string * fname);
+static int xn_Cls_Checker_isStaticMethod(xn_Cls_Checker *self, rt_string * cls, rt_string * mname);
+static int xn_Cls_Checker_methodStatic(xn_Cls_Checker *self, xn_Cls_AstNode * m);
+static rt_string * xn_Cls_Checker_methodRet(xn_Cls_Checker *self, rt_string * cls, rt_string * mname);
+static int xn_Cls_Checker_isGenericResult(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_resultInitField(xn_Cls_Checker *self, rt_string * ty, rt_string * val);
+static rt_string * xn_Cls_Checker_resultValueExpr(xn_Cls_Checker *self, rt_string * ty, rt_string * bv);
+static int xn_Cls_Checker_isResult(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_resultValue(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_typeOf(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Checker_syntacticType(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Checker_spawnReturnType(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Checker_spawnLambdaType(xn_Cls_Checker *self, xn_Cls_AstNode * lam);
+static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_Checker_argType(xn_Cls_Checker *self, xn_Cls_AstNode * arg, rt_string * want);
+static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode * n);
+static xn_Cls_AnnotationUseMeta *xn_Cls_AnnotationUseMeta_new(xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * typeName, rt_string * target, rt_string * targetName, int64_t repeatIndex);
+static xn_Cls_CGen *xn_Cls_CGen_new(xn_Cls_AstNode * program, xn_arr_s * callNames, xn_arr_s * callCNames, xn_arr_s * callRets, xn_arr_s * callSpecs, xn_arr_s * callErrParams, xn_arr_s * callErrRets);
+static int xn_Cls_CGen_hasError(xn_Cls_CGen *self);
+static void xn_Cls_CGen_fail(xn_Cls_CGen *self, rt_string * msg);
+static void xn_Cls_CGen_emit(xn_Cls_CGen *self, rt_string * line);
+static rt_string * xn_Cls_CGen_temp(xn_Cls_CGen *self);
+static xn_Cls_AstNode * xn_Cls_CGen_retNode(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
+static xn_arr_o * xn_Cls_CGen_paramsOf(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
+static int xn_Cls_CGen_isProtocol(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_protoRet(xn_Cls_CGen *self, rt_string * pname, rt_string * mname);
+static xn_arr_o * xn_Cls_CGen_protoParams(xn_Cls_CGen *self, rt_string * pname, rt_string * mname);
+static rt_string * xn_Cls_CGen_ctype(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isGenericResult(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_resultInitField(xn_Cls_CGen *self, rt_string * ty, rt_string * val);
+static rt_string * xn_Cls_CGen_resultValueExpr(xn_Cls_CGen *self, rt_string * ty, rt_string * bv);
+static int xn_Cls_CGen_isResult(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_resultValue(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_resultError(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isArray(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_elementType(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_curFieldType(xn_Cls_CGen *self, rt_string * fname);
+static rt_string * xn_Cls_CGen_topFieldType(xn_Cls_CGen *self, rt_string * fname);
+static rt_string * xn_Cls_CGen_pathType(xn_Cls_CGen *self, rt_string * path);
+static rt_string * xn_Cls_CGen_pathExpr(xn_Cls_CGen *self, rt_string * path);
+static rt_string * xn_Cls_CGen_arrayCName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_arrayNew(xn_Cls_CGen *self, rt_string * ty, int64_t cap);
+static rt_string * xn_Cls_CGen_arrayPush(xn_Cls_CGen *self, rt_string * ty, rt_string * arr, rt_string * val);
+static rt_string * xn_Cls_CGen_arrayGet(xn_Cls_CGen *self, rt_string * ty, rt_string * arr, rt_string * idx);
+static rt_string * xn_Cls_CGen_nameExpr(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_resultValueCExpr(xn_Cls_CGen *self, rt_string * ty, rt_string * bv);
+static int xn_Cls_CGen_isGcRefType(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isMap(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isSet(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_mapValue(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_mapKey(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isGenericMap(xn_Cls_CGen *self, rt_string * ty);
+static int xn_Cls_CGen_isGenericSet(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_setElementOf(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_cMangle(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_genericMapSuffix(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_genericMapKeysName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_genericMapValuesName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_genericMapEntriesName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_entryClassName(xn_Cls_CGen *self, rt_string * keyTy, rt_string * valTy);
+static int xn_Cls_CGen_containsGeneric(xn_Cls_CGen *self, xn_arr_s * xs, rt_string * v);
+static void xn_Cls_CGen_registerGenericMap(xn_Cls_CGen *self, rt_string * ty);
+static void xn_Cls_CGen_registerGenericSet(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_baseType(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_kindOf(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_encodeOf(xn_Cls_CGen *self, rt_string * ty, rt_string * expr);
+static rt_string * xn_Cls_CGen_decodeOf(xn_Cls_CGen *self, rt_string * ty, rt_string * expr);
+static rt_string * xn_Cls_CGen_readTypeAt(xn_Cls_CGen *self, rt_string * text, int64_t start);
+static void xn_Cls_CGen_scanGenericTypeText(xn_Cls_CGen *self, rt_string * text);
+static void xn_Cls_CGen_collectGenericTypes(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static int xn_Cls_CGen_isFunctionType(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_fnRetType(xn_Cls_CGen *self, rt_string * ty);
+static xn_arr_s * xn_Cls_CGen_fnParams(xn_Cls_CGen *self, rt_string * ty);
+static int64_t xn_Cls_CGen_lambdaIndex(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static xn_Cls_AstNode * xn_Cls_CGen_findFunctionNode(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_callParamType(xn_Cls_CGen *self, rt_string * name, int64_t argIndex);
+static rt_string * xn_Cls_CGen_ctorParamType(xn_Cls_CGen *self, rt_string * cls, int64_t argIndex);
+static void xn_Cls_CGen_registerLambda(xn_Cls_CGen *self, xn_Cls_AstNode * lam, rt_string * ty);
+static void xn_Cls_CGen_collectReturnLambdas(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * retTy);
+static rt_string * xn_Cls_CGen_syntacticType(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_spawnReturnType(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_spawnLambdaType(xn_Cls_CGen *self, xn_Cls_AstNode * lam);
+static rt_string * xn_Cls_CGen_lambdaFirstParamType(xn_Cls_CGen *self, xn_Cls_AstNode * lam);
+static int xn_Cls_CGen_lambdaHasParams(xn_Cls_CGen *self, xn_Cls_AstNode * lam);
+static void xn_Cls_CGen_setLambdaMode(xn_Cls_CGen *self, xn_Cls_AstNode * lam, rt_string * mode);
+static void xn_Cls_CGen_collectLambdas(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * expected);
+static xn_arr_s * xn_Cls_CGen_splitCaps(xn_Cls_CGen *self, rt_string * s);
+static rt_string * xn_Cls_CGen_joinCaps(xn_Cls_CGen *self, xn_arr_s * xs);
+static int xn_Cls_CGen_listHas(xn_Cls_CGen *self, xn_arr_s * xs, rt_string * v);
+static void xn_Cls_CGen_collectShadows(xn_Cls_CGen *self, xn_Cls_AstNode * n, xn_arr_s * out);
+static int xn_Cls_CGen_containsVarUse(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * name);
+static void xn_Cls_CGen_ensureLambdaCaptures(xn_Cls_CGen *self, int64_t li, xn_Cls_AstNode * lam);
+static rt_string * xn_Cls_CGen_lambdaName(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_fnPtrDecl(xn_Cls_CGen *self, rt_string * ty, rt_string * name);
+static int xn_Cls_CGen_ffiSpecial(xn_Cls_CGen *self, rt_string * name);
+static int xn_Cls_CGen_ffiHardProto(xn_Cls_CGen *self, rt_string * cname);
+static int xn_Cls_CGen_ffiTypeOk(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_ffiMiniType(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_ffiAbiType(xn_Cls_CGen *self, rt_string * ty);
+static int64_t xn_Cls_CGen_ffiParamCount(xn_Cls_CGen *self, int64_t idx);
+static rt_string * xn_Cls_CGen_ffiParamType(xn_Cls_CGen *self, int64_t idx, int64_t p);
+static rt_string * xn_Cls_CGen_ffiParamName(xn_Cls_CGen *self, int64_t idx, int64_t p);
+static rt_string * xn_Cls_CGen_ffiErrParam(xn_Cls_CGen *self, int64_t idx);
+static int64_t xn_Cls_CGen_ffiErrParamIndex(xn_Cls_CGen *self, int64_t idx);
+static int xn_Cls_CGen_ffiEntryOk(xn_Cls_CGen *self, int64_t idx);
+static rt_string * xn_Cls_CGen_ffiAbiProto(xn_Cls_CGen *self, int64_t idx);
+static rt_string * xn_Cls_CGen_ffiWrapperSig(xn_Cls_CGen *self, int64_t idx);
+static rt_string * xn_Cls_CGen_ffiWrapperArgs(xn_Cls_CGen *self, int64_t idx);
+static rt_string * xn_Cls_CGen_ffiWrapperDef(xn_Cls_CGen *self, int64_t idx);
+static void xn_Cls_CGen_emitFfiDecls(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_closureCast(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_closureCall(xn_Cls_CGen *self, rt_string * ty, rt_string * target, xn_Cls_AstNode * call);
+static rt_string * xn_Cls_CGen_lambdaProto(xn_Cls_CGen *self, int64_t i);
+static rt_string * xn_Cls_CGen_lockAdapterProto(xn_Cls_CGen *self, int64_t i);
+static rt_string * xn_Cls_CGen_lambdaMode(xn_Cls_CGen *self, int64_t i);
+static rt_string * xn_Cls_CGen_taskAdapterProto(xn_Cls_CGen *self, int64_t i);
+static void xn_Cls_CGen_emitLockAdapter(xn_Cls_CGen *self, int64_t i);
+static void xn_Cls_CGen_emitTaskAdapter(xn_Cls_CGen *self, int64_t i);
+static void xn_Cls_CGen_emitLambdaDef(xn_Cls_CGen *self, int64_t i);
+static int xn_Cls_CGen_isEnumName(xn_Cls_CGen *self, rt_string * name);
+static int64_t xn_Cls_CGen_enumValue(xn_Cls_CGen *self, rt_string * name, rt_string * item);
+static xn_arr_s * xn_Cls_CGen_enumItems(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_enumCaseItem(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * enumName);
+static int xn_Cls_CGen_isClass(xn_Cls_CGen *self, rt_string * name);
+static int xn_Cls_CGen_isDataEnum(xn_Cls_CGen *self, rt_string * name);
+static xn_Cls_AstNode * xn_Cls_CGen_classNode(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_fieldType(xn_Cls_CGen *self, rt_string * cls, rt_string * fname);
+static int xn_Cls_CGen_isStaticMethod(xn_Cls_CGen *self, rt_string * cls, rt_string * mname);
+static rt_string * xn_Cls_CGen_methodRet(xn_Cls_CGen *self, rt_string * cls, rt_string * mname);
+static int64_t xn_Cls_CGen_varIndex(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_findVar(xn_Cls_CGen *self, rt_string * name);
+static void xn_Cls_CGen_addVar(xn_Cls_CGen *self, rt_string * ty, rt_string * name);
+static void xn_Cls_CGen_popTo(xn_Cls_CGen *self, int64_t mark);
+static rt_string * xn_Cls_CGen_methodType(xn_Cls_CGen *self, rt_string * bt, rt_string * mth, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_mapMethodExpr(xn_Cls_CGen *self, rt_string * bv, rt_string * bt, rt_string * mth, xn_Cls_AstNode * n, int64_t off, int useOff);
+static rt_string * xn_Cls_CGen_setMethodExpr(xn_Cls_CGen *self, rt_string * bv, rt_string * bt, rt_string * mth, xn_Cls_AstNode * n, int64_t off, int useOff);
+static rt_string * xn_Cls_CGen_methodExpr(xn_Cls_CGen *self, rt_string * bv, rt_string * bt, rt_string * mth, xn_Cls_AstNode * n, int64_t off);
+static rt_string * xn_Cls_CGen_fnRet(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_typeOf(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static int xn_Cls_CGen_intLiteralFits64(xn_Cls_CGen *self, rt_string * text);
+static int xn_Cls_CGen_intLiteralFits32(xn_Cls_CGen *self, rt_string * text);
+static int xn_Cls_CGen_literalHasNul(xn_Cls_CGen *self, rt_string * text);
+static int xn_Cls_CGen_charNeedsU(xn_Cls_CGen *self, rt_string * text);
+static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static void xn_Cls_CGen_local(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string * indent);
+static void xn_Cls_CGen_stmt(xn_Cls_CGen *self, xn_Cls_AstNode * st, rt_string * indent);
+static void xn_Cls_CGen_emitDefers(xn_Cls_CGen *self, rt_string * indent, int includeErr);
+static void xn_Cls_CGen_blockBody(xn_Cls_CGen *self, xn_Cls_AstNode * block, rt_string * indent);
+static int xn_Cls_CGen_methodStatic(xn_Cls_CGen *self, xn_Cls_AstNode * m);
+static rt_string * xn_Cls_CGen_methodSig(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
+static void xn_Cls_CGen_method(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
+static xn_Cls_AstNode * xn_Cls_CGen_ctorOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
+static void xn_Cls_CGen_genClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
+static rt_string * xn_Cls_CGen_funcProto(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
+static void xn_Cls_CGen_func(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
+static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_annotationPath(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_string * path);
+static xn_Cls_AstNode * xn_Cls_CGen_annotationFindDecl(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_annotationRetention(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
+static xn_arr_o * xn_Cls_CGen_annotationFields(xn_Cls_CGen *self, xn_Cls_AstNode * decl);
+static rt_string * xn_Cls_CGen_annotationFieldType(xn_Cls_CGen *self, xn_Cls_AstNode * f);
+static rt_string * xn_Cls_CGen_annotationFieldName(xn_Cls_CGen *self, xn_Cls_AstNode * f);
+static rt_string * xn_Cls_CGen_annotationParamTypes(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
+static void xn_Cls_CGen_collectAnnotationUses(xn_Cls_CGen *self, xn_Cls_AstNode * node, rt_string * target, rt_string * targetName, xn_arr_o * out);
+static void xn_Cls_CGen_collectAnnotationParams(xn_Cls_CGen *self, xn_Cls_AstNode * fn, rt_string * memberTarget, xn_arr_o * out);
+static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls, xn_arr_o * out);
+static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_annotationNumberText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * indent);
+static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent);
+static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self);
+static void xn_Cls_CGen_gen(xn_Cls_CGen *self);
+static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self);
 static xn_arr_s * loadedFiles;
 static xn_arr_s * compilerWarnings;
 static rt_string * loadBaseDir;
@@ -2087,6 +2476,8 @@ struct xn_Cls_Mono {
   xn_Cls_AstNode * program;
   xn_arr_s * scopeNames;
   xn_arr_s * scopeTypes;
+  xn_arr_s * usedMethodTypes;
+  xn_arr_s * usedMethodNames;
 };
 
 static const rt_type RT_TYPE_XN_Mono = { "Mono", sizeof(xn_Cls_Mono), NULL, NULL };
@@ -2097,15 +2488,24 @@ static xn_Cls_Mono *xn_Cls_Mono_new(xn_Cls_AstNode * p) {
   xn_obj->program = 0;
   xn_obj->scopeNames = xn_arr_s_new(4);
   xn_obj->scopeTypes = xn_arr_s_new(4);
+  xn_obj->usedMethodTypes = xn_arr_s_new(4);
+  xn_obj->usedMethodNames = xn_arr_s_new(4);
   xn_Cls_Mono *self = xn_obj;
   self->program = p;
   self->scopeNames = xn_arr_s_new(0);
   self->scopeTypes = xn_arr_s_new(0);
+  self->usedMethodTypes = xn_arr_s_new(0);
+  self->usedMethodNames = xn_arr_s_new(0);
   return xn_obj;
 }
 
 static int xn_Cls_Mono_hasTypeParams(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static xn_arr_s * xn_Cls_Mono_typeParams(xn_Cls_Mono *self, xn_Cls_AstNode * fn);
+static int xn_Cls_Mono_hasGenericSyntax(xn_Cls_Mono *self, rt_string * ty);
+static rt_string * xn_Cls_Mono_genericBase(xn_Cls_Mono *self, rt_string * ty);
+static xn_arr_s * xn_Cls_Mono_genericArgsOf(xn_Cls_Mono *self, rt_string * ty);
+static rt_string * xn_Cls_Mono_joinTypeArgs(xn_Cls_Mono *self, xn_arr_s * args);
+static rt_string * xn_Cls_Mono_instanceName(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args);
 static int xn_Cls_Mono_identChar(xn_Cls_Mono *self, rt_string * c);
 static rt_string * xn_Cls_Mono_subst(xn_Cls_Mono *self, rt_string * text, rt_string * from, rt_string * to);
 static rt_string * xn_Cls_Mono_substAll(xn_Cls_Mono *self, rt_string * text, xn_arr_s * names, xn_arr_s * args);
@@ -2125,6 +2525,17 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
 static rt_string * xn_Cls_Mono_argType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static void xn_Cls_Mono_addScope(xn_Cls_Mono *self, rt_string * name, rt_string * ty);
 static void xn_Cls_Mono_collectScope(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static void xn_Cls_Mono_collectDeclTypes(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_arr_s * names, xn_arr_s * types);
+static rt_string * xn_Cls_Mono_declaredType(xn_Cls_Mono *self, xn_arr_s * names, xn_arr_s * types, rt_string * name);
+static int xn_Cls_Mono_sameClassType(xn_Cls_Mono *self, rt_string * ty, xn_Cls_AstNode * cls);
+static void xn_Cls_Mono_collectClassCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_Cls_AstNode * cls, xn_arr_s * names, xn_arr_s * types, xn_arr_s * out);
+static int xn_Cls_Mono_listHas(xn_Cls_Mono *self, xn_arr_s * items, rt_string * value);
+static rt_string * xn_Cls_Mono_mangledTypeName(xn_Cls_Mono *self, rt_string * ty);
+static xn_arr_s * xn_Cls_Mono_reachableMethods(xn_Cls_Mono *self, xn_Cls_AstNode * cls, rt_string * iname, rt_string * sname);
+static int xn_Cls_Mono_methodIsStatic(xn_Cls_Mono *self, xn_Cls_AstNode * m);
+static void xn_Cls_Mono_collectUsedIn(xn_Cls_Mono *self, xn_Cls_AstNode * fn);
+static void xn_Cls_Mono_scanUsed(xn_Cls_Mono *self, xn_Cls_AstNode * n);
+static void xn_Cls_Mono_collectUsedMethods(xn_Cls_Mono *self);
 static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * recvType, rt_string * mth);
 static rt_string * xn_Cls_Mono_simpleExprType(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_Mono_inferLambdaReturn(xn_Cls_Mono *self, xn_Cls_AstNode * lambda);
@@ -2164,6 +2575,44 @@ static xn_arr_s * xn_Cls_Mono_typeParams(xn_Cls_Mono *self, xn_Cls_AstNode * fn)
     i = xn_int_wrap((i + 1));
   }
   return res;
+}
+
+static int xn_Cls_Mono_hasGenericSyntax(xn_Cls_Mono *self, rt_string * ty) {
+  return ((xn_str_indexof(ty, rt_string_from_c("<")) > 0) && xn_str_eq(xn_str_substr(ty, xn_int_wrap((((int64_t)ty->len) - 1)), 1), rt_string_from_c(">")));
+}
+
+static rt_string * xn_Cls_Mono_genericBase(xn_Cls_Mono *self, rt_string * ty) {
+  int64_t p = xn_int_wrap(xn_str_indexof(ty, rt_string_from_c("<")));
+  if ((p > 0)) {
+    return xn_str_substr(ty, 0, p);
+  }
+  return ty;
+}
+
+static xn_arr_s * xn_Cls_Mono_genericArgsOf(xn_Cls_Mono *self, rt_string * ty) {
+  int64_t p = xn_int_wrap(xn_str_indexof(ty, rt_string_from_c("<")));
+  if (((p <= 0) || (!xn_str_eq(xn_str_substr(ty, xn_int_wrap((((int64_t)ty->len) - 1)), 1), rt_string_from_c(">"))))) {
+    xn_arr_s *empty = xn_arr_s_new(0);
+    return empty;
+  }
+  return xn_splitTop(xn_str_substr(ty, xn_int_wrap((p + 1)), xn_int_wrap((xn_int_wrap((((int64_t)ty->len) - p)) - 2))));
+}
+
+static rt_string * xn_Cls_Mono_joinTypeArgs(xn_Cls_Mono *self, xn_arr_s * args) {
+  rt_string * out = rt_string_from_c("");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)args->len))) {
+    if ((!xn_str_eq(out, rt_string_from_c("")))) {
+      out = xn_concat(out, rt_string_from_c(","));
+    }
+    out = xn_concat(out, xn_str_trim(xn_arr_s_get(args, i)));
+    i = xn_int_wrap((i + 1));
+  }
+  return out;
+}
+
+static rt_string * xn_Cls_Mono_instanceName(xn_Cls_Mono *self, rt_string * cname, xn_arr_s * args) {
+  return xn_concat(xn_concat(xn_concat(cname, rt_string_from_c("<")), xn_Cls_Mono_joinTypeArgs(self, args)), rt_string_from_c(">"));
 }
 
 static int xn_Cls_Mono_identChar(xn_Cls_Mono *self, rt_string * c) {
@@ -2327,16 +2776,26 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
   if ((!xn_str_eq(xn_Cls_Mono_findClass(self, sname)->kind, rt_string_from_c("None")))) {
     return sname;
   }
+  rt_string * iname = xn_Cls_Mono_instanceName(self, cname, args);
   xn_Cls_AstNode * clone = xn_Cls_AstNode_new(cls->kind, sname, cls->line, cls->col);
   i = 0;
   while ((i < ((int64_t)cls->annotations->len))) {
     xn_Cls_AstNode_annotate(clone, ((xn_Cls_AstNode *)xn_arr_o_get(cls->annotations, i)));
     i = xn_int_wrap((i + 1));
   }
+  xn_arr_s * reachable = xn_Cls_Mono_reachableMethods(self, cls, iname, sname);
   i = 0;
   while ((i < ((int64_t)cls->kids->len))) {
-    if ((!xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i))->kind, rt_string_from_c("TypeParams")))) {
-      xn_Cls_AstNode_add(clone, xn_Cls_Mono_cloneSubst(self, ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i)), names, args));
+    xn_Cls_AstNode * member = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+    int skip = 0;
+    if (xn_str_eq(member->kind, rt_string_from_c("TypeParams"))) {
+      skip = 1;
+    }
+    if (((xn_str_eq(member->kind, rt_string_from_c("Method")) && (!xn_Cls_Mono_methodIsStatic(self, member))) && (!xn_Cls_Mono_listHas(self, reachable, member->text)))) {
+      skip = 1;
+    }
+    if ((!skip)) {
+      xn_Cls_AstNode_add(clone, xn_Cls_Mono_cloneSubst(self, member, names, args));
     }
     i = xn_int_wrap((i + 1));
   }
@@ -2399,41 +2858,47 @@ static rt_string * xn_Cls_Mono_rewriteType(xn_Cls_Mono *self, rt_string * ty) {
   int changed = 1;
   while (changed) {
     changed = 0;
+    int64_t bestP = xn_int_wrap(xn_int_wrap(-(1)));
+    xn_Cls_AstNode * bestCls = xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), 1, 1);
     int64_t ci = xn_int_wrap(0);
     while ((ci < ((int64_t)self->program->kids->len))) {
       xn_Cls_AstNode * cls = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, ci));
       if ((((xn_str_eq(cls->kind, rt_string_from_c("Class")) || xn_str_eq(cls->kind, rt_string_from_c("Struct"))) && xn_Cls_Mono_hasTypeParams(self, cls)) && (((int64_t)xn_Cls_Mono_typeParams(self, cls)->len) > 0))) {
-        rt_string * needle = xn_concat(cls->text, rt_string_from_c("<"));
-        int64_t p = xn_int_wrap(xn_str_indexof(res, needle));
-        if ((p >= 0)) {
-          int64_t depth = xn_int_wrap(0);
-          int64_t j = xn_int_wrap(xn_int_wrap((p + ((int64_t)cls->text->len))));
-          int64_t end = xn_int_wrap(xn_int_wrap(-(1)));
-          while ((j < ((int64_t)res->len))) {
-            rt_string * c = xn_str_substr(res, j, 1);
-            if (xn_str_eq(c, rt_string_from_c("<"))) {
-              depth = xn_int_wrap((depth + 1));
-            }
-            else {
-              if (xn_str_eq(c, rt_string_from_c(">"))) {
-                depth = xn_int_wrap((depth - 1));
-                if ((depth == 0)) {
-                  end = j;
-                  break;
-                }
-              }
-            }
-            j = xn_int_wrap((j + 1));
-          }
-          if ((end > p)) {
-            rt_string * inner = xn_str_substr(res, xn_int_wrap((p + ((int64_t)needle->len))), xn_int_wrap((xn_int_wrap((end - p)) - ((int64_t)needle->len))));
-            rt_string * sname = xn_Cls_Mono_instantiateClass(self, cls->text, xn_Cls_Mono_splitArgs(self, inner));
-            res = xn_concat(xn_concat(xn_str_substr(res, 0, p), sname), xn_str_substr(res, xn_int_wrap((end + 1)), xn_int_wrap((xn_int_wrap((((int64_t)res->len) - end)) - 1))));
-            changed = 1;
-          }
+        int64_t p = xn_int_wrap(xn_str_indexof(res, xn_concat(cls->text, rt_string_from_c("<"))));
+        if (((p >= 0) && ((bestP < 0) || (p < bestP)))) {
+          bestP = p;
+          bestCls = cls;
         }
       }
       ci = xn_int_wrap((ci + 1));
+    }
+    if (((bestP >= 0) && (!xn_str_eq(bestCls->kind, rt_string_from_c("None"))))) {
+      rt_string * needle = xn_concat(bestCls->text, rt_string_from_c("<"));
+      int64_t depth = xn_int_wrap(0);
+      int64_t j = xn_int_wrap(xn_int_wrap((bestP + ((int64_t)bestCls->text->len))));
+      int64_t end = xn_int_wrap(xn_int_wrap(-(1)));
+      while ((j < ((int64_t)res->len))) {
+        rt_string * c = xn_str_substr(res, j, 1);
+        if (xn_str_eq(c, rt_string_from_c("<"))) {
+          depth = xn_int_wrap((depth + 1));
+        }
+        else {
+          if (xn_str_eq(c, rt_string_from_c(">"))) {
+            depth = xn_int_wrap((depth - 1));
+            if ((depth == 0)) {
+              end = j;
+              break;
+            }
+          }
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      if ((end > bestP)) {
+        rt_string * inner = xn_str_substr(res, xn_int_wrap((bestP + ((int64_t)needle->len))), xn_int_wrap((xn_int_wrap((end - bestP)) - ((int64_t)needle->len))));
+        rt_string * sname = xn_Cls_Mono_instantiateClass(self, bestCls->text, xn_Cls_Mono_splitArgs(self, inner));
+        res = xn_concat(xn_concat(xn_str_substr(res, 0, bestP), sname), xn_str_substr(res, xn_int_wrap((end + 1)), xn_int_wrap((xn_int_wrap((((int64_t)res->len) - end)) - 1))));
+        changed = 1;
+      }
     }
   }
   xn_Cls_Mono_instantiateEntryForMap(self, res);
@@ -2603,6 +3068,230 @@ static void xn_Cls_Mono_collectScope(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
   }
 }
 
+static void xn_Cls_Mono_collectDeclTypes(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_arr_s * names, xn_arr_s * types) {
+  if (((xn_str_eq(n->kind, rt_string_from_c("Param")) || xn_str_eq(n->kind, rt_string_from_c("Local"))) || xn_str_eq(n->kind, rt_string_from_c("Field")))) {
+    rt_string * text = n->text;
+    int64_t splitAt = xn_int_wrap(xn_int_wrap(-(1)));
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)text->len))) {
+      if (xn_str_eq(xn_str_substr(text, i, 1), rt_string_from_c(" "))) {
+        splitAt = i;
+      }
+      i = xn_int_wrap((i + 1));
+    }
+    if (((splitAt > 0) && (xn_int_wrap((splitAt + 1)) < ((int64_t)text->len)))) {
+      xn_arr_s_push(names, xn_str_substr(text, xn_int_wrap((splitAt + 1)), xn_int_wrap((xn_int_wrap((((int64_t)text->len) - splitAt)) - 1))));
+      xn_arr_s_push(types, xn_str_substr(text, 0, splitAt));
+    }
+  }
+  int64_t j = xn_int_wrap(0);
+  while ((j < ((int64_t)n->kids->len))) {
+    xn_Cls_Mono_collectDeclTypes(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j)), names, types);
+    j = xn_int_wrap((j + 1));
+  }
+}
+
+static rt_string * xn_Cls_Mono_declaredType(xn_Cls_Mono *self, xn_arr_s * names, xn_arr_s * types, rt_string * name) {
+  int64_t i = xn_int_wrap(xn_int_wrap((((int64_t)names->len) - 1)));
+  while ((i >= 0)) {
+    if (xn_str_eq(xn_arr_s_get(names, i), name)) {
+      return xn_arr_s_get(types, i);
+    }
+    i = xn_int_wrap((i - 1));
+  }
+  return rt_string_from_c("");
+}
+
+static int xn_Cls_Mono_sameClassType(xn_Cls_Mono *self, rt_string * ty, xn_Cls_AstNode * cls) {
+  return (xn_str_eq(ty, cls->text) || xn_str_startswith(ty, xn_concat(cls->text, rt_string_from_c("<"))));
+}
+
+static void xn_Cls_Mono_collectClassCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, xn_Cls_AstNode * cls, xn_arr_s * names, xn_arr_s * types, xn_arr_s * out) {
+  if ((xn_str_eq(n->kind, rt_string_from_c("MethodCall")) && (((int64_t)n->kids->len) > 0))) {
+    xn_Cls_AstNode * recv = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0));
+    if (xn_str_eq(recv->kind, rt_string_from_c("Name"))) {
+      rt_string * rt = rt_string_from_c("");
+      if (xn_str_eq(recv->text, rt_string_from_c("self"))) {
+        rt = cls->text;
+      }
+      else {
+        rt = xn_Cls_Mono_declaredType(self, names, types, recv->text);
+      }
+      if ((xn_Cls_Mono_sameClassType(self, rt, cls) && (!xn_Cls_Mono_listHas(self, out, n->text)))) {
+        xn_arr_s_push(out, n->text);
+      }
+    }
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Call"))) {
+    int64_t dot = xn_int_wrap(xn_lastDot(n->text));
+    if ((dot > 0)) {
+      rt_string * recv = xn_str_substr(n->text, 0, dot);
+      rt_string * mth = xn_str_substr(n->text, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)n->text->len) - dot)) - 1)));
+      rt_string * rt = rt_string_from_c("");
+      if (xn_str_eq(recv, rt_string_from_c("self"))) {
+        rt = cls->text;
+      }
+      else {
+        rt = xn_Cls_Mono_declaredType(self, names, types, recv);
+      }
+      if ((xn_Cls_Mono_sameClassType(self, rt, cls) && (!xn_Cls_Mono_listHas(self, out, mth)))) {
+        xn_arr_s_push(out, mth);
+      }
+    }
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_Mono_collectClassCalls(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)), cls, names, types, out);
+    i = xn_int_wrap((i + 1));
+  }
+}
+
+static int xn_Cls_Mono_listHas(xn_Cls_Mono *self, xn_arr_s * items, rt_string * value) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)items->len))) {
+    if (xn_str_eq(xn_arr_s_get(items, i), value)) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static rt_string * xn_Cls_Mono_mangledTypeName(xn_Cls_Mono *self, rt_string * ty) {
+  if ((!xn_Cls_Mono_hasGenericSyntax(self, ty))) {
+    return ty;
+  }
+  rt_string * base = xn_Cls_Mono_genericBase(self, ty);
+  xn_arr_s * args = xn_Cls_Mono_genericArgsOf(self, ty);
+  rt_string * suffix = rt_string_from_c("");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)args->len))) {
+    if ((!xn_str_eq(suffix, rt_string_from_c("")))) {
+      suffix = xn_concat(suffix, rt_string_from_c("_"));
+    }
+    suffix = xn_concat(suffix, xn_Cls_Mono_mangle(self, xn_str_trim(xn_arr_s_get(args, i))));
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(base, rt_string_from_c("__")), suffix);
+}
+
+static xn_arr_s * xn_Cls_Mono_reachableMethods(xn_Cls_Mono *self, xn_Cls_AstNode * cls, rt_string * iname, rt_string * sname) {
+  xn_arr_s *out = xn_arr_s_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->usedMethodTypes->len))) {
+    rt_string * usedType = xn_arr_s_get(self->usedMethodTypes, i);
+    if (((xn_str_eq(usedType, iname) || xn_str_eq(xn_Cls_Mono_mangledTypeName(self, usedType), sname)) && (!xn_Cls_Mono_listHas(self, out, xn_arr_s_get(self->usedMethodNames, i))))) {
+      xn_arr_s_push(out, xn_arr_s_get(self->usedMethodNames, i));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  i = 0;
+  while ((i < ((int64_t)cls->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i))->kind, rt_string_from_c("Ctor"))) {
+      xn_arr_s *cnames = xn_arr_s_new(0);
+      xn_arr_s *ctypes = xn_arr_s_new(0);
+      xn_Cls_Mono_collectDeclTypes(self, ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i)), cnames, ctypes);
+      xn_Cls_Mono_collectClassCalls(self, ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i)), cls, cnames, ctypes, out);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  int changed = 1;
+  while (changed) {
+    changed = 0;
+    i = 0;
+    while ((i < ((int64_t)cls->kids->len))) {
+      xn_Cls_AstNode * m = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+      if ((xn_str_eq(m->kind, rt_string_from_c("Method")) && xn_Cls_Mono_listHas(self, out, m->text))) {
+        xn_arr_s *mnames = xn_arr_s_new(0);
+        xn_arr_s *mtypes = xn_arr_s_new(0);
+        xn_Cls_Mono_collectDeclTypes(self, m, mnames, mtypes);
+        xn_arr_s *calls = xn_arr_s_new(0);
+        xn_Cls_Mono_collectClassCalls(self, m, cls, mnames, mtypes, calls);
+        int64_t ci = xn_int_wrap(0);
+        while ((ci < ((int64_t)calls->len))) {
+          if ((!xn_Cls_Mono_listHas(self, out, xn_arr_s_get(calls, ci)))) {
+            xn_arr_s_push(out, xn_arr_s_get(calls, ci));
+            changed = 1;
+          }
+          ci = xn_int_wrap((ci + 1));
+        }
+      }
+      i = xn_int_wrap((i + 1));
+    }
+  }
+  return out;
+}
+
+static int xn_Cls_Mono_methodIsStatic(xn_Cls_Mono *self, xn_Cls_AstNode * m) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)m->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(m->kids, i))->kind, rt_string_from_c("Static"))) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static void xn_Cls_Mono_collectUsedIn(xn_Cls_Mono *self, xn_Cls_AstNode * fn) {
+  int64_t mark = xn_int_wrap(((int64_t)self->scopeNames->len));
+  xn_Cls_Mono_collectScope(self, fn);
+  xn_Cls_Mono_scanUsed(self, fn);
+  while ((((int64_t)self->scopeNames->len) > mark)) {
+    xn_arr_s_remove(self->scopeNames, xn_int_wrap((((int64_t)self->scopeNames->len) - 1)));
+    xn_arr_s_remove(self->scopeTypes, xn_int_wrap((((int64_t)self->scopeTypes->len) - 1)));
+  }
+}
+
+static void xn_Cls_Mono_scanUsed(xn_Cls_Mono *self, xn_Cls_AstNode * n) {
+  if ((xn_str_eq(n->kind, rt_string_from_c("MethodCall")) && (((int64_t)n->kids->len) > 0))) {
+    rt_string * recv = xn_Cls_Mono_simpleExprType(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+    if ((!xn_str_eq(recv, rt_string_from_c("Any")))) {
+      xn_arr_s_push(self->usedMethodTypes, recv);
+      xn_arr_s_push(self->usedMethodNames, n->text);
+    }
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("Call"))) {
+    int64_t dot = xn_int_wrap(xn_lastDot(n->text));
+    if ((dot > 0)) {
+      rt_string * recv = xn_str_substr(n->text, 0, dot);
+      rt_string * mth = xn_str_substr(n->text, xn_int_wrap((dot + 1)), xn_int_wrap((xn_int_wrap((((int64_t)n->text->len) - dot)) - 1)));
+      xn_Cls_AstNode * recvNode = xn_Cls_AstNode_new(rt_string_from_c("Name"), recv, n->line, n->col);
+      rt_string * rt = xn_Cls_Mono_simpleExprType(self, recvNode);
+      if ((!xn_str_eq(rt, rt_string_from_c("Any")))) {
+        xn_arr_s_push(self->usedMethodTypes, rt);
+        xn_arr_s_push(self->usedMethodNames, mth);
+      }
+    }
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_Mono_scanUsed(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)));
+    i = xn_int_wrap((i + 1));
+  }
+}
+
+static void xn_Cls_Mono_collectUsedMethods(xn_Cls_Mono *self) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+    if (xn_str_eq(n->kind, rt_string_from_c("Func"))) {
+      xn_Cls_Mono_collectUsedIn(self, n);
+    }
+    if (((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || xn_str_eq(n->kind, rt_string_from_c("Enum")))) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)n->kids->len))) {
+        xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, j));
+        if ((xn_str_eq(k->kind, rt_string_from_c("Method")) || xn_str_eq(k->kind, rt_string_from_c("Ctor")))) {
+          xn_Cls_Mono_collectUsedIn(self, k);
+        }
+        j = xn_int_wrap((j + 1));
+      }
+    }
+    i = xn_int_wrap((i + 1));
+  }
+}
+
 static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * recvType, rt_string * mth) {
   if (xn_str_startswith(recvType, rt_string_from_c("Result<"))) {
     rt_string * inner = xn_str_substr(recvType, 7, xn_int_wrap((((int64_t)recvType->len) - 8)));
@@ -2692,6 +3381,30 @@ static rt_string * xn_Cls_Mono_methodReturnType(xn_Cls_Mono *self, rt_string * r
       return rt_string_from_c("Unit");
     }
     return rt_string_from_c("Any");
+  }
+  if (xn_Cls_Mono_hasGenericSyntax(self, recvType)) {
+    rt_string * base = xn_Cls_Mono_genericBase(self, recvType);
+    xn_Cls_AstNode * gc = xn_Cls_Mono_findGenericClass(self, base);
+    if ((!xn_str_eq(gc->kind, rt_string_from_c("None")))) {
+      xn_arr_s * gnames = xn_Cls_Mono_typeParams(self, gc);
+      xn_arr_s * gargs = xn_Cls_Mono_genericArgsOf(self, recvType);
+      if ((((int64_t)gnames->len) == ((int64_t)gargs->len))) {
+        int64_t gi = xn_int_wrap(0);
+        while ((gi < ((int64_t)gc->kids->len))) {
+          xn_Cls_AstNode * gm = ((xn_Cls_AstNode *)xn_arr_o_get(gc->kids, gi));
+          if ((xn_str_eq(gm->kind, rt_string_from_c("Method")) && xn_str_eq(gm->text, mth))) {
+            int64_t gr = xn_int_wrap(0);
+            while ((gr < ((int64_t)gm->kids->len))) {
+              if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(gm->kids, gr))->kind, rt_string_from_c("Ret"))) {
+                return xn_Cls_Mono_substAll(self, ((xn_Cls_AstNode *)xn_arr_o_get(gm->kids, gr))->text, gnames, gargs);
+              }
+              gr = xn_int_wrap((gr + 1));
+            }
+          }
+          gi = xn_int_wrap((gi + 1));
+        }
+      }
+    }
   }
   xn_Cls_AstNode * cls = xn_Cls_Mono_findClass(self, recvType);
   if ((!xn_str_eq(cls->kind, rt_string_from_c("None")))) {
@@ -3119,6 +3832,7 @@ static void xn_Cls_Mono_flattenClass(xn_Cls_Mono *self, xn_Cls_AstNode * cls) {
 }
 
 static xn_Cls_AstNode * xn_Cls_Mono_run(xn_Cls_Mono *self) {
+  xn_Cls_Mono_collectUsedMethods(self);
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)self->program->kids->len))) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
@@ -4928,7 +5642,7 @@ static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_strin
     return 1;
   }
   if ((xn_Cls_Checker_isListType(self, a) && xn_Cls_Checker_isListType(self, b))) {
-    return xn_str_eq(xn_Cls_Checker_elementType(self, a), xn_Cls_Checker_elementType(self, b));
+    return xn_Cls_Checker_sameType(self, xn_Cls_Checker_elementType(self, a), xn_Cls_Checker_elementType(self, b));
   }
   if (((((xn_str_eq(a, rt_string_from_c("Int")) || xn_str_eq(a, rt_string_from_c("Int32"))) || xn_str_eq(a, rt_string_from_c("Int64"))) || xn_str_eq(a, rt_string_from_c("Long"))) && (((xn_str_eq(b, rt_string_from_c("Int")) || xn_str_eq(b, rt_string_from_c("Int32"))) || xn_str_eq(b, rt_string_from_c("Int64"))) || xn_str_eq(b, rt_string_from_c("Long"))))) {
     return 1;
@@ -12729,6 +13443,40 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
     if (((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || (xn_str_eq(n->kind, rt_string_from_c("Enum")) && xn_Cls_CGen_isDataEnum(self, n->text)))) {
       xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("typedef struct xn_Cls_"), n->text), rt_string_from_c(" xn_Cls_")), n->text), rt_string_from_c(";")));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  i = 0;
+  while ((i < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+    if ((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || (xn_str_eq(n->kind, rt_string_from_c("Enum")) && xn_Cls_CGen_isDataEnum(self, n->text))) && (!xn_hasTypeParams(n)))) {
+      xn_Cls_AstNode * ctor = xn_Cls_CGen_ctorOf(self, n);
+      xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, ctor);
+      rt_string * csig = xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), n->text), rt_string_from_c(" *xn_Cls_")), n->text), rt_string_from_c("_new("));
+      if ((((int64_t)cps->len) == 0)) {
+        csig = xn_concat(csig, rt_string_from_c("void"));
+      }
+      else {
+        int64_t ci = xn_int_wrap(0);
+        while ((ci < ((int64_t)cps->len))) {
+          if ((ci > 0)) {
+            csig = xn_concat(csig, rt_string_from_c(", "));
+          }
+          xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, ci))->text, rt_string_from_c(" "));
+          if ((((int64_t)cpp->len) >= 2)) {
+            csig = xn_concat(xn_concat(xn_concat(csig, xn_Cls_CGen_ctype(self, xn_arr_s_get(cpp, 0))), rt_string_from_c(" ")), xn_arr_s_get(cpp, 1));
+          }
+          ci = xn_int_wrap((ci + 1));
+        }
+      }
+      xn_Cls_CGen_emit(self, xn_concat(csig, rt_string_from_c(");")));
+      int64_t mi = xn_int_wrap(0);
+      while ((mi < ((int64_t)n->kids->len))) {
+        if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, mi))->kind, rt_string_from_c("Method"))) {
+          xn_Cls_CGen_emit(self, xn_concat(xn_Cls_CGen_methodSig(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, mi)), n->text), rt_string_from_c(";")));
+        }
+        mi = xn_int_wrap((mi + 1));
+      }
     }
     i = xn_int_wrap((i + 1));
   }

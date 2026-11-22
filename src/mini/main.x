@@ -1713,11 +1713,15 @@ class Mono {
     final AstNode program
     final List<String> scopeNames
     final List<String> scopeTypes
+    final List<String> usedMethodTypes
+    final List<String> usedMethodNames
 
     Mono(AstNode p) {
         self.program = p
         self.scopeNames = []
         self.scopeTypes = []
+        self.usedMethodTypes = []
+        self.usedMethodNames = []
     }
 
     Bool hasTypeParams(AstNode n) {
@@ -1748,6 +1752,44 @@ class Mono {
             i = i + 1
         }
         return res
+    }
+
+    Bool hasGenericSyntax(String ty) {
+        return ty.indexOf("<") > 0 && ty.substring(ty.length() - 1, 1) == ">"
+    }
+
+    String genericBase(String ty) {
+        Int p = ty.indexOf("<")
+        if p > 0 {
+            return ty.substring(0, p)
+        }
+        return ty
+    }
+
+    List<String> genericArgsOf(String ty) {
+        Int p = ty.indexOf("<")
+        if p <= 0 || ty.substring(ty.length() - 1, 1) != ">" {
+            List<String> empty = []
+            return empty
+        }
+        return splitTop(ty.substring(p + 1, ty.length() - p - 2))
+    }
+
+    String joinTypeArgs(List<String> args) {
+        String out = ""
+        Int i = 0
+        while i < args.length() {
+            if out != "" {
+                out = out + ","
+            }
+            out = out + args.get(i).trim()
+            i = i + 1
+        }
+        return out
+    }
+
+    String instanceName(String cname, List<String> args) {
+        return cname + "<" + self.joinTypeArgs(args) + ">"
     }
 
     Bool identChar(String c) {
@@ -1907,16 +1949,27 @@ class Mono {
         if self.findClass(sname).kind != "None" {
             return sname
         }
+        String iname = self.instanceName(cname, args)
         AstNode clone = new AstNode(cls.kind, sname, cls.line, cls.col)
         i = 0
         while i < cls.annotations.length() {
             clone.annotate(cls.annotations.get(i))
             i = i + 1
         }
+        List<String> reachable = self.reachableMethods(cls, iname, sname)
         i = 0
         while i < cls.kids.length() {
-            if cls.kids.get(i).kind != "TypeParams" {
-                clone.add(self.cloneSubst(cls.kids.get(i), names, args))
+            AstNode member = cls.kids.get(i)
+            Bool skip = false
+            if member.kind == "TypeParams" {
+                skip = true
+            }
+            if member.kind == "Method" && !self.methodIsStatic(member) &&
+               !self.listHas(reachable, member.text) {
+                skip = true
+            }
+            if !skip {
+                clone.add(self.cloneSubst(member, names, args))
             }
             i = i + 1
         }
@@ -1976,38 +2029,44 @@ class Mono {
         Bool changed = true
         while changed {
             changed = false
+            Int bestP = -1
+            AstNode bestCls = new AstNode("None", "", 1, 1)
             Int ci = 0
             while ci < self.program.kids.length() {
                 AstNode cls = self.program.kids.get(ci)
                 if (cls.kind == "Class" || cls.kind == "Struct") && self.hasTypeParams(cls) && self.typeParams(cls).length() > 0 {
-                    String needle = cls.text + "<"
-                    Int p = res.indexOf(needle)
-                    if p >= 0 {
-                        Int depth = 0
-                        Int j = p + cls.text.length()
-                        Int end = -1
-                        while j < res.length() {
-                            String c = res.substring(j, 1)
-                            if c == "<" {
-                                depth = depth + 1
-                            } else if c == ">" {
-                                depth = depth - 1
-                                if depth == 0 {
-                                    end = j
-                                    break
-                                }
-                            }
-                            j = j + 1
-                        }
-                        if end > p {
-                            String inner = res.substring(p + needle.length(), end - p - needle.length())
-                            String sname = self.instantiateClass(cls.text, self.splitArgs(inner))
-                            res = res.substring(0, p) + sname + res.substring(end + 1, res.length() - end - 1)
-                            changed = true
-                        }
+                    Int p = res.indexOf(cls.text + "<")
+                    if p >= 0 && (bestP < 0 || p < bestP) {
+                        bestP = p
+                        bestCls = cls
                     }
                 }
                 ci = ci + 1
+            }
+            if bestP >= 0 && bestCls.kind != "None" {
+                String needle = bestCls.text + "<"
+                Int depth = 0
+                Int j = bestP + bestCls.text.length()
+                Int end = -1
+                while j < res.length() {
+                    String c = res.substring(j, 1)
+                    if c == "<" {
+                        depth = depth + 1
+                    } else if c == ">" {
+                        depth = depth - 1
+                        if depth == 0 {
+                            end = j
+                            break
+                        }
+                    }
+                    j = j + 1
+                }
+                if end > bestP {
+                    String inner = res.substring(bestP + needle.length(), end - bestP - needle.length())
+                    String sname = self.instantiateClass(bestCls.text, self.splitArgs(inner))
+                    res = res.substring(0, bestP) + sname + res.substring(end + 1, res.length() - end - 1)
+                    changed = true
+                }
             }
         }
         self.instantiateEntryForMap(res)
@@ -2179,6 +2238,233 @@ class Mono {
         }
     }
 
+    Void collectDeclTypes(AstNode n, List<String> names, List<String> types) {
+        if n.kind == "Param" || n.kind == "Local" || n.kind == "Field" {
+            String text = n.text
+            Int splitAt = -1
+            Int i = 0
+            while i < text.length() {
+                if text.substring(i, 1) == " " {
+                    splitAt = i
+                }
+                i = i + 1
+            }
+            if splitAt > 0 && splitAt + 1 < text.length() {
+                names.push(text.substring(splitAt + 1, text.length() - splitAt - 1))
+                types.push(text.substring(0, splitAt))
+            }
+        }
+        Int j = 0
+        while j < n.kids.length() {
+            self.collectDeclTypes(n.kids.get(j), names, types)
+            j = j + 1
+        }
+    }
+
+    String declaredType(List<String> names, List<String> types, String name) {
+        Int i = names.length() - 1
+        while i >= 0 {
+            if names.get(i) == name {
+                return types.get(i)
+            }
+            i = i - 1
+        }
+        return ""
+    }
+
+    Bool sameClassType(String ty, AstNode cls) {
+        return ty == cls.text || ty.startsWith(cls.text + "<")
+    }
+
+    Void collectClassCalls(AstNode n, AstNode cls, List<String> names, List<String> types, List<String> out) {
+        if n.kind == "MethodCall" && n.kids.length() > 0 {
+            AstNode recv = n.kids.get(0)
+            if recv.kind == "Name" {
+                String rt = ""
+                if recv.text == "self" {
+                    rt = cls.text
+                } else {
+                    rt = self.declaredType(names, types, recv.text)
+                }
+                if self.sameClassType(rt, cls) && !self.listHas(out, n.text) {
+                    out.push(n.text)
+                }
+            }
+        }
+        if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recv = n.text.substring(0, dot)
+                String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                String rt = ""
+                if recv == "self" {
+                    rt = cls.text
+                } else {
+                    rt = self.declaredType(names, types, recv)
+                }
+                if self.sameClassType(rt, cls) && !self.listHas(out, mth) {
+                    out.push(mth)
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectClassCalls(n.kids.get(i), cls, names, types, out)
+            i = i + 1
+        }
+    }
+
+    Bool listHas(List<String> items, String value) {
+        Int i = 0
+        while i < items.length() {
+            if items.get(i) == value {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    String mangledTypeName(String ty) {
+        if !self.hasGenericSyntax(ty) {
+            return ty
+        }
+        String base = self.genericBase(ty)
+        List<String> args = self.genericArgsOf(ty)
+        String suffix = ""
+        Int i = 0
+        while i < args.length() {
+            if suffix != "" {
+                suffix = suffix + "_"
+            }
+            suffix = suffix + self.mangle(args.get(i).trim())
+            i = i + 1
+        }
+        return base + "__" + suffix
+    }
+
+    // Recursive generic shapes such as Seq<T>.chunk -> Seq<List<T>> make
+    // "clone every method of every instance" an infinite type family.  Keep
+    // only methods reachable from source calls (plus self/same-class calls)
+    // for each instantiation; fields, constructors, and static methods stay.
+    List<String> reachableMethods(AstNode cls, String iname, String sname) {
+        List<String> out = []
+        Int i = 0
+        while i < self.usedMethodTypes.length() {
+            String usedType = self.usedMethodTypes.get(i)
+            if (usedType == iname || self.mangledTypeName(usedType) == sname) &&
+               !self.listHas(out, self.usedMethodNames.get(i)) {
+                out.push(self.usedMethodNames.get(i))
+            }
+            i = i + 1
+        }
+        i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Ctor" {
+                List<String> cnames = []
+                List<String> ctypes = []
+                self.collectDeclTypes(cls.kids.get(i), cnames, ctypes)
+                self.collectClassCalls(cls.kids.get(i), cls, cnames, ctypes, out)
+            }
+            i = i + 1
+        }
+        Bool changed = true
+        while changed {
+            changed = false
+            i = 0
+            while i < cls.kids.length() {
+                AstNode m = cls.kids.get(i)
+                if m.kind == "Method" && self.listHas(out, m.text) {
+                    List<String> mnames = []
+                    List<String> mtypes = []
+                    self.collectDeclTypes(m, mnames, mtypes)
+                    List<String> calls = []
+                    self.collectClassCalls(m, cls, mnames, mtypes, calls)
+                    Int ci = 0
+                    while ci < calls.length() {
+                        if !self.listHas(out, calls.get(ci)) {
+                            out.push(calls.get(ci))
+                            changed = true
+                        }
+                        ci = ci + 1
+                    }
+                }
+                i = i + 1
+            }
+        }
+        return out
+    }
+
+    Bool methodIsStatic(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Static" {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void collectUsedIn(AstNode fn) {
+        Int mark = self.scopeNames.length()
+        self.collectScope(fn)
+        self.scanUsed(fn)
+        while self.scopeNames.length() > mark {
+            self.scopeNames.remove(self.scopeNames.length() - 1)
+            self.scopeTypes.remove(self.scopeTypes.length() - 1)
+        }
+    }
+
+    Void scanUsed(AstNode n) {
+        if n.kind == "MethodCall" && n.kids.length() > 0 {
+            String recv = self.simpleExprType(n.kids.get(0))
+            if recv != "Any" {
+                self.usedMethodTypes.push(recv)
+                self.usedMethodNames.push(n.text)
+            }
+        }
+        if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recv = n.text.substring(0, dot)
+                String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
+                AstNode recvNode = new AstNode("Name", recv, n.line, n.col)
+                String rt = self.simpleExprType(recvNode)
+                if rt != "Any" {
+                    self.usedMethodTypes.push(rt)
+                    self.usedMethodNames.push(mth)
+                }
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.scanUsed(n.kids.get(i))
+            i = i + 1
+        }
+    }
+
+    Void collectUsedMethods() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Func" {
+                self.collectUsedIn(n)
+            }
+            if n.kind == "Class" || n.kind == "Struct" || n.kind == "Enum" {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode k = n.kids.get(j)
+                    if k.kind == "Method" || k.kind == "Ctor" {
+                        self.collectUsedIn(k)
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+    }
+
     String methodReturnType(String recvType, String mth) {
         if recvType.startsWith("Result<") {
             String inner = recvType.substring(7, recvType.length() - 8)
@@ -2224,6 +2510,30 @@ class Mono {
             if mth == "has" || mth == "add" || mth == "remove" { return "Bool" }
             if mth == "clear" { return "Unit" }
             return "Any"
+        }
+        if self.hasGenericSyntax(recvType) {
+            String base = self.genericBase(recvType)
+            AstNode gc = self.findGenericClass(base)
+            if gc.kind != "None" {
+                List<String> gnames = self.typeParams(gc)
+                List<String> gargs = self.genericArgsOf(recvType)
+                if gnames.length() == gargs.length() {
+                    Int gi = 0
+                    while gi < gc.kids.length() {
+                        AstNode gm = gc.kids.get(gi)
+                        if gm.kind == "Method" && gm.text == mth {
+                            Int gr = 0
+                            while gr < gm.kids.length() {
+                                if gm.kids.get(gr).kind == "Ret" {
+                                    return self.substAll(gm.kids.get(gr).text, gnames, gargs)
+                                }
+                                gr = gr + 1
+                            }
+                        }
+                        gi = gi + 1
+                    }
+                }
+            }
         }
         AstNode cls = self.findClass(recvType)
         if cls.kind != "None" {
@@ -2596,6 +2906,7 @@ class Mono {
     }
 
     AstNode run() {
+        self.collectUsedMethods()
         Int i = 0
         while i < self.program.kids.length() {
             AstNode n = self.program.kids.get(i)
@@ -4149,7 +4460,7 @@ class Checker {
             return true
         }
         if self.isListType(a) && self.isListType(b) {
-            return self.elementType(a) == self.elementType(b)
+            return self.sameType(self.elementType(a), self.elementType(b))
         }
         if (a == "Int" || a == "Int32" || a == "Int64" || a == "Long") &&
            (b == "Int" || b == "Int32" || b == "Int64" || b == "Long") {
@@ -11385,6 +11696,42 @@ class CGen {
             AstNode n = self.program.kids.get(i)
             if n.kind == "Class" || n.kind == "Struct" || (n.kind == "Enum" && self.isDataEnum(n.text)) {
                 self.emit("typedef struct xn_Cls_" + n.text + " xn_Cls_" + n.text + ";")
+            }
+            i = i + 1
+        }
+        // Forward-declare every class constructor and method before any class
+        // body. Monomorphization can place a callee after its caller.
+        i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if ((n.kind == "Class" || n.kind == "Struct" ||
+                 (n.kind == "Enum" && self.isDataEnum(n.text))) && !hasTypeParams(n)) {
+                AstNode ctor = self.ctorOf(n)
+                List<AstNode> cps = self.paramsOf(ctor)
+                String csig = "static xn_Cls_" + n.text + " *xn_Cls_" + n.text + "_new("
+                if cps.length() == 0 {
+                    csig = csig + "void"
+                } else {
+                    Int ci = 0
+                    while ci < cps.length() {
+                        if ci > 0 {
+                            csig = csig + ", "
+                        }
+                        List<String> cpp = cps.get(ci).text.split(" ")
+                        if cpp.length() >= 2 {
+                            csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
+                        }
+                        ci = ci + 1
+                    }
+                }
+                self.emit(csig + ");")
+                Int mi = 0
+                while mi < n.kids.length() {
+                    if n.kids.get(mi).kind == "Method" {
+                        self.emit(self.methodSig(n.kids.get(mi), n.text) + ";")
+                    }
+                    mi = mi + 1
+                }
             }
             i = i + 1
         }

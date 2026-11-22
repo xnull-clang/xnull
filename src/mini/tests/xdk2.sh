@@ -43,4 +43,7 @@ fi
 if [ -x "$HERE/xdk2/annotations/annotations_ast.sh" ]; then
     "$HERE/xdk2/annotations/annotations_ast.sh"
 fi
+if [ -x "$HERE/xdk2/compiler_hang/check.sh" ]; then
+    "$HERE/xdk2/compiler_hang/check.sh"
+fi
 echo "xdk2: PASS ($count scenario(s))"
