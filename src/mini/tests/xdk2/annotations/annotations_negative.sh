@@ -60,3 +60,6 @@ done
     exit 1
 }
 echo "annotations negative: PASS ($pass case(s))"
+if [ -x "$HERE/annotations_warning.sh" ]; then
+    "$HERE/annotations_warning.sh"
+fi

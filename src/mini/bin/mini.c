@@ -189,6 +189,7 @@ typedef struct xn_Cls_AnnotationChecker xn_Cls_AnnotationChecker;
 typedef struct xn_Cls_Checker xn_Cls_Checker;
 typedef struct xn_Cls_CGen xn_Cls_CGen;
 static xn_arr_s * loadedFiles;
+static xn_arr_s * compilerWarnings;
 static rt_string * loadBaseDir;
 static rt_string * loadRoot;
 static int xdkFullSource;
@@ -3358,6 +3359,14 @@ static void xn_Cls_AnnotationChecker_warn(xn_Cls_AnnotationChecker *self, rt_str
   if (((!xn_str_eq(code, rt_string_from_c("AN0015"))) && xn_Cls_AnnotationChecker_suppressed(self, owner, code))) {
     return;
   }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->warnings->len))) {
+    xn_Cls_AnnotationDiag * old = ((xn_Cls_AnnotationDiag *)xn_arr_o_get(self->warnings, i));
+    if ((((xn_str_eq(old->code, code) && (old->line == n->line)) && (old->col == n->col)) && xn_str_eq(old->msg, msg))) {
+      return;
+    }
+    i = xn_int_wrap((i + 1));
+  }
   xn_arr_o_push(self->warnings, xn_Cls_AnnotationDiag_new(code, msg, n->line, n->col));
 }
 
@@ -3758,7 +3767,7 @@ static void xn_Cls_AnnotationChecker_validateAnnotationDecl(xn_Cls_AnnotationChe
           xn_Cls_AnnotationChecker_failAt(self, rt_string_from_c("AN0009"), xn_concat(rt_string_from_c("invalid @Target member: "), path), use, d);
         }
         else {
-          if ((!xn_Cls_AnnotationType_allows(t, path))) {
+          if ((!xn_Cls_AnnotationChecker_listHas(self, t->targets, path))) {
             xn_arr_s_push(t->targets, path);
           }
         }
@@ -12384,6 +12393,12 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   }
   xn_Cls_CGen_emit(self, rt_string_from_c("  xrt_runtime_init();"));
   xn_Cls_CGen_emit(self, rt_string_from_c("  xn_init_globals();"));
+  int64_t wi = xn_int_wrap(0);
+  while ((wi < ((int64_t)compilerWarnings->len))) {
+    rt_string * warning = xn_arr_s_get(compilerWarnings, wi);
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  (void)xdkc_diagnose_rc("), xn_cStringLiteral(warning)), rt_string_from_c(", ")), xn_str_int(((int64_t)warning->len))), rt_string_from_c(");")));
+    wi = xn_int_wrap((wi + 1));
+  }
   if (mainArgs) {
     xn_Cls_CGen_emit(self, rt_string_from_c("  xn_arr_s *args = xn_arr_s_new(argc > 1 ? (size_t)(argc - 1) : 1);"));
     xn_Cls_CGen_emit(self, rt_string_from_c("  for (int ai = 1; ai < argc; ai++) { xn_arr_s_push(args, rt_string_from_c(argv[ai])); }"));
@@ -12402,6 +12417,7 @@ static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self) {
 }
 
 static xn_arr_s * loadedFiles;
+static xn_arr_s * compilerWarnings;
 static rt_string * loadBaseDir;
 static rt_string * loadRoot;
 static int xdkFullSource;
@@ -12414,6 +12430,7 @@ static xn_arr_s * ffiErrRets;
 
 static void xn_init_globals(void) {
   loadedFiles = xn_arr_s_new(0);
+  compilerWarnings = xn_arr_s_new(0);
   loadBaseDir = rt_string_from_c("");
   loadRoot = rt_string_from_c("");
   xdkFullSource = 0;
@@ -13373,6 +13390,16 @@ static int64_t xn_main(xn_arr_s * args) {
     }
     xn_Cls_Checker * c = xn_Cls_Checker_new(xn_arr_s_get(args, 1), program);
     xn_Cls_Checker_check(c);
+    while ((((int64_t)compilerWarnings->len) > 0)) {
+      xn_arr_s_remove(compilerWarnings, xn_int_wrap((((int64_t)compilerWarnings->len) - 1)));
+    }
+    int64_t wi = xn_int_wrap(0);
+    while ((wi < ((int64_t)c->warnings->len))) {
+      xn_Cls_AnnotationDiag * d = ((xn_Cls_AnnotationDiag *)xn_arr_o_get(c->warnings, wi));
+      xdkc_diagnose_rc(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_arr_s_get(args, 1), rt_string_from_c(":")), xn_str_int(d->line)), rt_string_from_c(":")), xn_str_int(d->col)), rt_string_from_c(": warning [")), d->code), rt_string_from_c("] ")), d->msg)->bytes, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_arr_s_get(args, 1), rt_string_from_c(":")), xn_str_int(d->line)), rt_string_from_c(":")), xn_str_int(d->col)), rt_string_from_c(": warning [")), d->code), rt_string_from_c("] ")), d->msg)->len);
+      xn_arr_s_push(compilerWarnings, xn_concat(xn_concat(xn_concat(rt_string_from_c("warning ["), d->code), rt_string_from_c("] ")), d->msg));
+      wi = xn_int_wrap((wi + 1));
+    }
     if (xn_Cls_Checker_hasError(c)) {
       xn_print_str(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_arr_s_get(args, 1), rt_string_from_c(":")), xn_str_int(c->errorLine)), rt_string_from_c(":")), xn_str_int(c->errorCol)), rt_string_from_c(": [")), c->errorCode), rt_string_from_c("] ")), c->error));
       return xn_int_wrap(1);

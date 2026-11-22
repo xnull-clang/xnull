@@ -1,0 +1,10 @@
+// expect: fail AN0002
+// BLOCKED: `TypeUse` is a valid @Target name, but the language has no
+// type-use annotation position yet, so there is no legal mount site.
+@Target(TypeUse)
+@annotation TypeUseOnly {
+}
+
+@TypeUseOnly
+class Device {
+}

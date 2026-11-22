@@ -48,6 +48,11 @@
     final String v = ""
 }
 
+@Target(TypeUse)
+@annotation TypeUseTag {
+    final String v = ""
+}
+
 @PkgTag("pkg")
 package demo
 
@@ -63,7 +68,7 @@ class Box<@TpTag("t") T> {
     }
 }
 
-@ItemTag("enum")
+@TypeTag("enum")
 enum E {
     @ItemTag("a") A,
     B

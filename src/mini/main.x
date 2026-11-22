@@ -2,6 +2,9 @@
 package mini
 
 List<String> loadedFiles = []
+// Warnings from the annotation pass.  They are printed by --sema/--emit-c and
+// also baked into the generated program so xnull run/build users see them.
+List<String> compilerWarnings = []
 String loadBaseDir = ""
 String loadRoot = ""
 Bool xdkFullSource = false
@@ -2734,6 +2737,14 @@ class AnnotationChecker {
         if code != "AN0015" && self.suppressed(owner, code) {
             return
         }
+        Int i = 0
+        while i < self.warnings.length() {
+            AnnotationDiag old = self.warnings.get(i)
+            if old.code == code && old.line == n.line && old.col == n.col && old.msg == msg {
+                return
+            }
+            i = i + 1
+        }
         self.warnings.push(new AnnotationDiag(code, msg, n.line, n.col))
     }
 
@@ -3143,7 +3154,7 @@ class AnnotationChecker {
                     }
                     if !self.listHas(self.allTargets(), path) {
                         self.failAt("AN0009", "invalid @Target member: " + path, use, d)
-                    } else if !t.allows(path) {
+                    } else if !self.listHas(t.targets, path) {
                         t.targets.push(path)
                     }
                     j = j + 1
@@ -11048,6 +11059,12 @@ class CGen {
         }
         self.emit("  xrt_runtime_init();")
         self.emit("  xn_init_globals();")
+        Int wi = 0
+        while wi < compilerWarnings.length() {
+            String warning = compilerWarnings.get(wi)
+            self.emit("  (void)xdkc_diagnose_rc(" + cStringLiteral(warning) + ", " + str(warning.length()) + ");")
+            wi = wi + 1
+        }
         if mainArgs {
             self.emit("  xn_arr_s *args = xn_arr_s_new(argc > 1 ? (size_t)(argc - 1) : 1);")
             self.emit("  for (int ai = 1; ai < argc; ai++) { xn_arr_s_push(args, rt_string_from_c(argv[ai])); }")
@@ -11993,6 +12010,16 @@ static Int main(String[] args) {
         }
         Checker c = new Checker(args[1], program)
         c.check()
+        while compilerWarnings.length() > 0 {
+            compilerWarnings.remove(compilerWarnings.length() - 1)
+        }
+        Int wi = 0
+        while wi < c.warnings.length() {
+            AnnotationDiag d = c.warnings.get(wi)
+            diagnoseRaw(args[1] + ":" + str(d.line) + ":" + str(d.col) + ": warning [" + d.code + "] " + d.msg)
+            compilerWarnings.push("warning [" + d.code + "] " + d.msg)
+            wi = wi + 1
+        }
         if c.hasError() {
             print(args[1] + ":" + str(c.errorLine) + ":" + str(c.errorCol) + ": [" + c.errorCode + "] " + c.error)
             return 1
