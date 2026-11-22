@@ -1,0 +1,70 @@
+true
+true
+true
+true
+true
+true
+true
+true
+true
+ANN001
+unknown annotation
+app.Device
+error ANN001: unknown annotation [app.Device]
+warning ANN010: optional field omitted
+note ANN020: generated source [app.Device]
+true
+app
+Device
+app.Device
+app/Device.x
+true
+false
+1
+true
+app#Device:app.Device
+true
+true
+package app.device
+true
+true
+true
+1
+true
+true
+false
+true
+true
+false
+1
+1
+false
+3
+true
+0
+0
+true
+true
+false
+3
+ANN001
+ANN010
+ANN020
+2
+class DeviceGenerated { }
+3
+3
+2
+3
+test.processor
+2
+true
+true
+true
+0
+true
+1
+true
+ANN100
+1
+true

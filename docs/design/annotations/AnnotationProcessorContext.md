@@ -59,7 +59,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `AnnotationProcessorContext(AnnotationProcessorPhase phase, List<AnnotationElement> elements, Map<String, String> options)` | 全部 | phase 非 null；elements 非 null、元素非 null；options 非 null、键非空、值非 null | null/含 null/空键 → panic |
+| `AnnotationProcessorContext(AnnotationProcessorPhase phase, List<AnnotationElement> elements, Map<String, String> options)` | 全部 | phase 是枚举成员（枚举不可为 null）；elements 非 null、元素非 null；options 非 null、键非空、值非 null | null/含 null/空键 → panic |
 
 说明：
 
@@ -178,9 +178,7 @@ class AnnotationProcessorContext {
     AnnotationProcessorContext(AnnotationProcessorPhase phase,
                                List<AnnotationElement> elements,
                                Map<String, String> options) {
-        if phase == null {
-            throw "AnnotationProcessorContext: null phase"
-        }
+        // phase 是枚举成员；枚举是值类型，不存在 null。
         if elements == null {
             throw "AnnotationProcessorContext: null elements"
         }

@@ -22,7 +22,7 @@
 - 注册表由编译器生成代码构造；构造参数是扁平的 `AnnotationInfo` 列表，注册表在构造时按 `target + targetName` 分组。
 - 运行时查询只访问生成表，不访问类文件、不调用 `Class.forName`、不扫描模块/包。
 - 所有查询返回 `AnnotationSet`；未命中返回空集合，不返回 null，避免调用方分支与空指针。
-- `ofType`/`ofField`/`ofMethod`/`ofConstructor`/`ofParameter`/`ofPackage`/`ofEnumItem` 用规范名拼装查询键；`ofTarget` 接受任意目标种类与生成名，覆盖 `TypeParameter`/`TypeUse`。
+- `ofType`/`ofField`/`ofMethod`/`ofConstructor`/`ofParameter`/`ofPackage`/`ofEnumItem` 用规范名拼装查询键；`ofTarget` 接受任意目标种类与生成名，覆盖 `Annotation`/`TypeParameter`/`TypeUse`/`Deinit`。
 - `types()` 只返回注册表中实际带注解的类型名，按字典序排序；不返回未注解类型，也不枚举运行时类。
 - 注册表只应包含编译器选中的 `Runtime` 保留注解；保留策略过滤在生成阶段完成，注册表不重新判断。
 - 构造后不可变；映射和集合都不再修改；可跨任务只读共享。
@@ -78,7 +78,7 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `ofTarget` | 任意目标查询 | `AnnotationTarget target, String targetName` | `AnnotationSet` | null/空名 → panic；未命中 → 空集合 |
+| `ofTarget` | 任意目标查询 | `AnnotationTarget target, String targetName` | `AnnotationSet` | 空名 → panic；未命中 → 空集合 |
 | `ofType` | 类型注解 | `String typeName` | `AnnotationSet` | null/空名 → panic；未命中 → 空集合 |
 | `ofField` | 字段注解 | `String ownerName, String fieldName` | `AnnotationSet` | null/空名 → panic；未命中 → 空集合 |
 | `ofMethod` | 方法注解 | `String ownerName, String methodName, List<String> parameterTypeNames` | `AnnotationSet` | null/空名/含 null 参数类型 → panic；未命中 → 空集合 |
@@ -104,7 +104,7 @@
 
 | 方法 | 用途 | 参数 | 返回 | 失败 |
 | --- | --- | --- | --- | --- |
-| `targetKey` | 生成目标映射键 | `AnnotationTarget target, String targetName` | `String` | null/空名 → panic |
+| `targetKey` | 生成目标映射键 | `AnnotationTarget target, String targetName` | `String` | 空名 → panic |
 | `parameterKey` | 拼接参数类型列表 | `List<String> parameterTypeNames` | `String` | null/含 null/空名 → panic |
 
 ---
@@ -185,7 +185,7 @@ List<String> annotatedTypes = registry.types()
 - 方法重载通过参数类型列表区分；
 - `ofParameter` 下标 0/1/越界未命中；
 - `ofPackage`/`ofEnumItem`；
-- `ofTarget` 覆盖 `TypeParameter`/`TypeUse`/`Deinit`；
+- `ofTarget` 覆盖 `Annotation`/`TypeParameter`/`TypeUse`/`Deinit`；
 - `types()` 只含类型、排序、副本独立；
 - 重复 `repeatIndex` 被拒绝；
 - 生成器只传入 `Runtime` 项；
@@ -316,9 +316,7 @@ class AnnotationRegistry {
     }
 
     private static String targetKey(AnnotationTarget target, String targetName) {
-        if target == null {
-            throw "AnnotationRegistry.targetKey: null target"
-        }
+        // target 是枚举成员；枚举是值类型，不存在 null。
         if targetName == null || targetName == "" {
             throw "AnnotationRegistry.targetKey: empty target name"
         }
@@ -327,6 +325,9 @@ class AnnotationRegistry {
         }
         if target == AnnotationTarget.Type {
             return "type:" + targetName
+        }
+        if target == AnnotationTarget.Annotation {
+            return "annotation:" + targetName
         }
         if target == AnnotationTarget.TypeParameter {
             return "type_parameter:" + targetName
