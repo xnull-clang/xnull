@@ -13,7 +13,7 @@
 
 日期时间解析： 支持 ISO 8601（`yyyy-MM-ddTHH:mm:ss[.SSS]`，可选 `Z`）。
 
-不做：任意 pattern 解析、locale、时区规则、相对时间。
+不做：任意 pattern 解析（由顶层 `parseDateTimeLayout` 提供）、locale、时区规则、相对时间。
 
 ---
 
@@ -100,7 +100,8 @@
 
 ## 12. 示例与反例
 
-正确：`DateTimeParser.iso8601().parse("2026-11-21T12:00:00Z")`。  
+正确：`DateTimeParser.iso8601().parse("2026-11-21T12:00:00Z")`；任意 layout 用顶层 `parseDateTimeLayout(text, layout)`。
+
 反例：期望任意 pattern；接受非 `Z` 偏移；非法日期静默归一。
 
 ---

@@ -233,7 +233,7 @@ class BasicError implements Error, DetailedError {
 - 不提供“全量构造器”重载：当前编译器不支持构造器重载；用构造器 + `with*`
   组合。这个限制不改变语义。
 - 构造函数不返回 `Result`；外部字符串先用 `isValidErrorCode`/`tryErrorDetail` 校验，再调用 `with*`。
-- `tryWith*` 方法在当前 mini 代码生成上仍有缺口，归入 X blocked； 不提供假实现。
+- `tryWith*` 已在 1.x 实现并通过；2.x 合同见 [`errors/README.md`](errors/README.md) §9，不再标 X blocked。
 
 ### 7.4 示例
 

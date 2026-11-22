@@ -146,3 +146,15 @@ class ProcessResult {
     }
 }
 ```
+
+---
+
+## 15. 1.x 字段兼容（C7）
+
+- 1.x `ProcessResult.code`（`Int`）→ 2.x `status()`。
+- 1.x `ProcessResult.output`（`String`）→ 2.x `stdout()`。
+- 2.x 增加 `stderr()`、`durationMillis()`、`signal()`、`isSuccess()`；1.x 的 stdout-only 行为由 `stdout()` 保留。
+- 1.x 公共字段访问迁移到访问器；不保留第二套结果类型。
+- 1.x `runProcessResult` 只捕获 stdout；2.x `ProcessBuilder.runResult` 可同时提供 stderr，但不得改变 `stdout()` 语义。
+
+测试义务：`code`→`status()`、`output`→`stdout()` 迁移；stderr/duration/signal 增量；成功/失败/信号终止；空输出。

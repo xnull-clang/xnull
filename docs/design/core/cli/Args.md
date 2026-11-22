@@ -69,8 +69,12 @@
 | `has` | 选项是否存在 | `String flag` | `Bool` | 非法 flag → panic |
 | `valueOrNull` | 原始值/缺失 | `String flag` | `String?` | 非法 flag → panic |
 | `valueOr` | 原始值/兜底 | `String flag, String fallback` | `String` | 非法 flag → panic |
+| `value` | 首次值/缺失空串（1.x 兼容） | `String flag` | `String` | 非法 flag → panic |
+| `lastValue` | 末次值/缺失空串（1.x 兼容） | `String flag` | `String` | 非法 flag → panic |
 | `tryValue` | checked 原始值 | `String flag` | `Result<String, Error>` | `NotFound`；非法 flag → panic |
 | `values` | 全部原始值 | `String flag` | `List<String>` | 非法 flag → panic |
+| `terminatorIndex` | `--` 下标 | 无 | `Int` | 无；缺失 `-1` |
+| `expandShortFlags` | 展开 `-abc` | `List<String> knownShortFlags` | `Args` | null → panic；未知短名原样保留 |
 | `optionNames` | 原始选项名 | 无 | `List<String>` | 无 |
 
 说明：
@@ -79,6 +83,9 @@
 - `valueOrNull` 的“缺失”只指没有出现或 `--` 后不再识别；空串 `--name=` 是合法值，不是缺失。
 - `valueOrNull` 在 `--name` 后没有 token，或下一 token 恰为 `--` 时返回 null。
 - `values` 不合并、不去重；按出现顺序返回。
+- `value` 返回首次出现值，缺失返回空串；`lastValue` 返回末次值，缺失返回空串；二者是 1.x 兼容入口，不改变 `valueOrNull` 的 last-wins 语义。
+- `terminatorIndex` 返回第一个 `--` 的下标；没有返回 `-1`。
+- `expandShortFlags(known)` 只在 `-abc` 的每个短名都在 `known` 中时展开为 `-a -b -c`；含未知短名或 `--` 后原样保留。`Parser` 不自动调用它；需要 1.x 短选项簇时显式预展开。
 - `Args` 不提供 `positionals()`；使用 `ParseResult.positionals()`，因为它知道哪些选项消费值。
 
 ---
@@ -115,14 +122,17 @@
 
 ## 12. 示例与反例
 
-正确：`new Args(["--output","a.txt","x"]).valueOr("--output","-")` → `"a.txt"`。  
-反例：用 `Args` 判断位置参数；把空串当缺失；期望 `Args` 拒绝重复选项。
+正确：`new Args(["--output","a.txt","x"]).valueOr("--output","-")` → `"a.txt"`。
+
+正确：`new Args(["-abc"]).expandShortFlags(["a","b","c"])` → `["-a","-b","-c"]`。
+
+反例：用 `Args` 判断位置参数；把空串当缺失；期望 `Args` 拒绝重复选项；期望 `Parser` 自动展开 `-abc`；未知短名被静默丢弃。
 
 ---
 
 ## 13. 测试/场景义务
 
-空 argv；`--name value`；`--name=value`；空值；缺失；重复；`--` 终止；非法 flag；`get` 越界；快照独立性。
+空 argv；`--name value`；`--name=value`；空值；缺失；重复；`value`/`lastValue`/`values` 三种重复策略；`terminatorIndex`；`expandShortFlags` 全已知/含未知/`--` 后；`--` 终止；非法 flag；`get` 越界；快照独立性。
 
 ---
 
@@ -202,6 +212,75 @@ class Args {
         String? value = self.valueOrNull(flag)
         if value == null { return fallback }
         return value as String
+    }
+
+    String value(String flag) {
+        List<String> all = self.values(flag)
+        if all.length() == 0 { return "" }
+        return all.get(0)
+    }
+
+    String lastValue(String flag) {
+        List<String> all = self.values(flag)
+        if all.length() == 0 { return "" }
+        return all.get(all.length() - 1)
+    }
+
+    Int terminatorIndex() {
+        Int index = 0
+        while index < _raw.length() {
+            if _raw.get(index) == "--" { return index }
+            index = index + 1
+        }
+        return -1
+    }
+
+    Args expandShortFlags(List<String> knownShortFlags) {
+        if knownShortFlags == null { throw "Args.expandShortFlags: null" }
+        List<String> expanded = []
+        Bool terminated = false
+        Int index = 0
+        while index < _raw.length() {
+            String token = _raw.get(index)
+            if !terminated && token == "--" {
+                terminated = true
+                expanded.push(token)
+                index = index + 1
+                continue
+            }
+            Bool isCluster = !terminated && token.startsWith("-")
+                && !token.startsWith("--") && token.length() > 2
+            if isCluster {
+                Bool allKnown = true
+                Int cursor = 1
+                while cursor < token.length() {
+                    String shortName = token.substring(cursor, 1)
+                    Bool found = false
+                    Int knownIndex = 0
+                    while knownIndex < knownShortFlags.length() {
+                        if knownShortFlags.get(knownIndex) == shortName {
+                            found = true
+                            break
+                        }
+                        knownIndex = knownIndex + 1
+                    }
+                    if !found { allKnown = false; break }
+                    cursor = cursor + 1
+                }
+                if allKnown {
+                    cursor = 1
+                    while cursor < token.length() {
+                        expanded.push("-" + token.substring(cursor, 1))
+                        cursor = cursor + 1
+                    }
+                    index = index + 1
+                    continue
+                }
+            }
+            expanded.push(token)
+            index = index + 1
+        }
+        return new Args(expanded)
     }
 
     Result<String, Error> tryValue(String flag) {

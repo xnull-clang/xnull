@@ -137,7 +137,7 @@
 | `join` | `String join(List<String> items, String separator)` | 元素为 `String` | 用分隔符拼接 | 无 | O(n) |
 
 > `join` 是 `xdk.collections` 顶层函数，不是 `List` 成员；放在本节是因为它只对
-> `List<String>` 提供。泛型元素的 `joinWith` 属于 X。
+> `List<String>` 提供。泛型元素用 `joinWith`；见 [`collections/README.md`](collections/README.md) §9。
 
 **失败策略（冻结）**：
 

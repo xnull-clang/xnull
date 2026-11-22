@@ -20,8 +20,10 @@
 ## 2. 设计逻辑
 
 - 不可变；字段 `_pattern`。
-- 令牌：`yyyy`、`MM`、`dd`、`HH`、`mm`、`ss`、`SSS`；其他字符原样。
-- 所有替换值为纯数字，避免二次替换。
+- 令牌：`yyyy`、`MM`、`MMM`、`MMMM`、`dd`、`ddd`、`dddd`、`EEE`、`EEEE`、`HH`、`mm`、`ss`、`SSS`；其他字符原样。
+- `MMM`/`MMMM`/`ddd`/`dddd`/`EEE`/`EEEE` 使用固定英文名称，不读取 locale；这是 1.x 布局兼容面，不是 i18n。
+- 最长匹配优先：`MMMM` 先于 `MMM` 先于 `MM`；`EEEE`/`dddd` 先于 `EEE`/`ddd`。
+- 所有替换值为纯数字或固定英文名，避免二次替换。
 -  只 UTC；不处理时区名/偏移。
 - 非法 pattern/null → panic（构造时）。
 
@@ -82,13 +84,13 @@
 
 - 语言：class、String、Int、Bool；
 - 运行时：字符串替换；
-- 接口：`DateTime`、`Date`、`Time`、`Month`、`Weekday`、`padLeftNum`、`number`。
+- 接口：`DateTime`、`Date`、`Time`、`Month`、`Weekday`、`padLeftNum`、`number`、`monthNameEnglish`、`weekdayNameEnglish`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`DateTime`、`Date`、`Time`、`Month`、`Weekday`、`padLeftNum`、`number`。
+`DateTime`、`Date`、`Time`、`Month`、`Weekday`、`padLeftNum`、`number`、`monthNameEnglish`、`weekdayNameEnglish`。
 
 ---
 
@@ -100,14 +102,17 @@
 
 ## 12. 示例与反例
 
-正确：`DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(dt)`。  
-反例：期望 locale 月份名；用 pattern 做解析；用格式化做时区转换。
+正确：`DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").format(dt)`。
+
+正确：`DateTimeFormatter.ofPattern("EEE, dd MMM yyyy").format(dt)` 使用固定英文简称，不依赖 locale。
+
+反例：期望 locale 月份名；用 pattern 做解析；用格式化做时区转换；期望 `MMM` 受系统语言影响。
 
 ---
 
 ## 13. 测试/场景义务
 
-每个令牌；字面字符；`yyyy` 4 位；`SSS` 3 位；Date/Time；空 pattern；null。
+每个令牌；字面字符；`yyyy` 4 位；`SSS` 3 位；`MMM`/`MMMM`/`ddd`/`dddd`/`EEE`/`EEEE` 固定英文名；最长匹配顺序；Date/Time；空 pattern；null。
 
 ---
 
@@ -131,6 +136,12 @@ class DateTimeFormatter {
     String format(DateTime value) {
         if value == null { throw "DateTimeFormatter.format: null" }
         String result = _pattern
+        result = replace(result, "MMMM", monthNameEnglish(value.month(), false))
+        result = replace(result, "MMM", monthNameEnglish(value.month(), true))
+        result = replace(result, "EEEE", weekdayNameEnglish(value.weekday(), false))
+        result = replace(result, "EEE", weekdayNameEnglish(value.weekday(), true))
+        result = replace(result, "dddd", weekdayNameEnglish(value.weekday(), false))
+        result = replace(result, "ddd", weekdayNameEnglish(value.weekday(), true))
         result = replace(result, "yyyy", padLeftNum(str(value.year()), 4))
         result = replace(result, "MM", padLeftNum(str(number(value.month())), 2))
         result = replace(result, "dd", padLeftNum(str(value.day()), 2))

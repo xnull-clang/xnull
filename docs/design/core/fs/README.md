@@ -50,6 +50,7 @@
 | `OpenOptions` | class | 打开选项 | [`OpenOptions.md`](OpenOptions.md) |
 | `Permissions` | class | 权限位 | [`Permissions.md`](Permissions.md) |
 | `Metadata` | class | 文件元数据 | [`Metadata.md`](Metadata.md) |
+| `EntryKind` | enum | 条目类型 | [`EntryKind.md`](EntryKind.md) |
 | `DirEntry` | class | 目录项 | [`DirEntry.md`](DirEntry.md) |
 | `File` | class | 文件句柄 | [`File.md`](File.md) |
 | `Dir` | class | 目录句柄 | [`Dir.md`](Dir.md) |
@@ -83,12 +84,19 @@
 | `makeDir` | 创建目录 | `String path` | `Result<Unit, Error>` | `AlreadyExists`/`Io` |
 | `makeDirs` | 递归创建 | `String path` | `Result<Unit, Error>` | `Io` |
 | `removeDir` | 删除空目录 | `String path` | `Result<Unit, Error>` | `NotFound`/`Io` |
-| `walk` | 递归遍历 | `String root` | `Result<List<String>, Error>` | `NotFound`/`Io` |
-| `glob` | 通配遍历 | `String pattern` | `Result<List<String>, Error>` | `InvalidArgument`/`Io` |
+| `walk` | 递归遍历 | `String root` | `Result<List<Path>, Error>` | `NotFound`/`Io` |
+| `glob` | 通配遍历 | `String pattern` | `Result<List<Path>, Error>` | `InvalidArgument`/`Io` |
 | `fileSize` | 大小 | `String path` | `Result<Long, Error>` | `NotFound`/`Io` |
 | `fileMtime` | 修改时间 | `String path` | `Result<Long, Error>` | `NotFound`/`Io` |
+| `metadata` | 元数据 | `String path` | `Result<Metadata, Error>` | `NotFound`/`Io` |
+| `linkMetadata` | 链接元数据 | `String path` | `Result<Metadata, Error>` | `NotFound`/`Io` |
+| `permissions` | 读权限位 | `String path` | `Result<Int, Error>` | `NotFound`/`Io` |
+| `globMatch` | 单路径 glob | `String text, String pattern` | `Bool` | 非法 pattern → panic |
+| `entryKindName` | 条目类型稳定名 | `EntryKind kind` | `String` | null → `"unknown"` |
+| `entryKindFromName` | 条目类型解析 | `String name` | `EntryKind?` | 未知 → null |
 | `canonicalize` | 规范化 | `String path` | `Result<String, Error>` | `NotFound`/`Io` |
 | `symlink` | 创建链接 | `String target, String link` | `Result<Unit, Error>` | `PermissionDenied`/`Io` |
+| `hardLink` | 创建硬链接 | `String target, String link` | `Result<Unit, Error>` | `AlreadyExists`/`Io` |
 | `readLink` | 读链接 | `String path` | `Result<String, Error>` | `NotFound`/`Io` |
 | `setPermissions` | 设置权限 | `String path, Permissions permissions` | `Result<Unit, Error>` | `NotFound`/`PermissionDenied` |
 | `writeTextAtomic` | 原子写文本 | `String path, String text` | `Result<Unit, Error>` | `Io` |
@@ -100,7 +108,7 @@
 
 - 技术：路径解析、文件句柄、目录迭代、临时文件、rename、权限位、glob。
 - 支撑：OS 文件 API、`Bytes`、`Context`、`Result`。
-- 依赖：`errors`、`bytes`、`io`、`Path`、`OpenOptions`、`Permissions`、`Metadata`、`DirEntry`、`File`、`Dir`、`TempFile`、`TempDir`、`FileSystem`、`PathMatcher`、`FileLock`。
+- 依赖：`errors`、`bytes`、`io`、`Path`、`OpenOptions`、`Permissions`、`Metadata`、`EntryKind`、`DirEntry`、`File`、`Dir`、`TempFile`、`TempDir`、`FileSystem`、`PathMatcher`、`FileLock`。
 
 ### 4.2 关键伪代码
 
@@ -179,3 +187,34 @@ Result<Unit, Error> writeTextAtomic(String path, String text) {
 | 原子写 | 临时文件 + rename；跨设备失败 |
 | 目录顺序 | 不承诺；排序由调用方 |
 | 大文件 | Long 偏移/大小 |
+
+## 7. 1.x 兼容合同（C7）
+
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `readText` / `readBytes` | `FileSystem.readAllText/readAllBytes`（README 顶层同名 `readText/readBytes`） | `NotFound`/`PermissionDenied`/`DataCorrupted`/`Io` |
+| `writeText` / `writeBytes` | `writeAllText/writeAllBytes`；返回 `Long` | 覆盖写；返回字节数 |
+| `FileMode` / `openFile*` | `OpenOptions` + `File.open` | 1.x `FileMode` 迁移到 `OpenOptions` |
+| `Dir.next(): String?` | `Dir.next(): DirEntry?` | 1.x 字符串用 `dirEntry.name()` 迁移 |
+| `Path.parent(): Path` / `pathJoin(base, child)` | `Path.parent(): String` / `Path.join(child)` | 1.x `Path` 结果用 `new Path(parentText)`；绝对 child 见 `Path.join` |
+| `TempFile.remove()` / `isRemoved()` | `TempFile.close()` / `isOpen()` | close 删除租约；无独立 remove |
+| `metadata` / `linkMetadata` | `FileSystem.metadata`；`linkMetadata` 新增 | `NotFound`/`Io`；linkMetadata 不跟随 |
+| `Metadata.kind` / `EntryKind` | [`EntryKind.md`](EntryKind.md) + `Metadata.kind/isOther` | 五成员；`Missing` 不是错误 |
+| `permissions(path)` | `FileSystem.permissions` 新增；`Metadata.permissions()` 已有 | `mode & 07777`；2.x `Permissions` 已扩展低 12 位 |
+| `createSymlink` / `createHardLink` / `readLink` / `canonicalPath` | `symlink` / `hardLink` 新增 / `readLink` / `canonicalize` | 已存在 `AlreadyExists`；空目标 `InvalidArgument` |
+| `walk` / `glob` / `globMatch` | `FileSystem.walk/glob` 返回 `List<Path>`；`globMatch` 新增 | 1.x `List<String>` 用 `path.text()` 迁移；`walk` 不跟随链接目录；`glob` 无匹配 `Ok([])` |
+| `createTempFile(String)` / `createTempDir` | `createTempFile(prefix, suffix)` / `createTempDir(prefix)`；`TempFile/TempDir` | close 删除租约；幂等 |
+| `writeTextAtomic` / `writeBytesAtomic` | `FileSystem.writeTextAtomic/writeBytesAtomic` | 同目录临时文件 + rename；失败不留半文件 |
+| `removeFile/renameFile/copyFile/makeDir/removeDir/mkdirAll/removeDirAll` | `remove/move/copy/createDir/removeDir/createDirs/removeTree` | 名称迁移；`removeTree` 缺失路径返回 `NotFound`（1.x 部分为 success） |
+
+示例：
+
+```xnull
+Result<String, Error> text = readText("config.conf")
+Result<Metadata, Error> meta = FileSystem.metadata("config.conf")
+EntryKind kind = meta.value().kind()
+Result<Unit, Error> linked = FileSystem.hardLink("a.txt", "b.txt")
+Bool matched = FileSystem.globMatch("a/b.txt", "a/**/*.txt")
+```
+
+测试义务：读写/追加；`FileMode`→`OpenOptions` 迁移；`metadata`/`linkMetadata`/`kind`；权限 12 位（含 setuid/setgid/sticky）；`hardLink`/`symlink`/`readLink`/`canonicalize`；`walk`/`glob`/`globMatch`；temp 租约；原子写不留半文件；1.x 名称迁移。

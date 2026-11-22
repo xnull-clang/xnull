@@ -36,7 +36,7 @@
 | 不可变值对象 | Duration/Instant/DateTime/Date/Time 不可变 |
 | 显式单位 | 参数名写 `milliseconds`/`seconds`，不混用 |
 | 无全局时区 | 时区显式传入/默认 UTC |
-| 可取消 | 长休眠的取消版为 X； `sleep` 不可取消 |
+| 可取消 | `sleepContext` 可取消；`sleepMs`/`sleep` 不可取消 |
 
 ---
 
@@ -73,7 +73,8 @@
 | `micros` | 单调微秒 | 无 | `Long` | 无 |
 | `sleepMs` | 阻塞休眠 | `Long milliseconds` | `void` | 负值 → panic |
 | `sleep` | 阻塞休眠 | `Duration duration` | `void` | 负时长 → panic |
-| `sleepCancellable` | 可取消休眠（X） | `Context context, Duration duration` | `Result<Unit, Error>` | `Cancelled`/`Timeout` |
+| `sleepContext` | 可取消休眠 | `Context context, Duration duration` | `Result<Unit, Error>` | `Cancelled`；负时长 → panic |
+| `sleepCancellable` | `sleepContext` 的旧名别名 | 同上 | 同上 | 同上 |
 
 ### 4.2 构造/转换
 
@@ -89,6 +90,7 @@
 | `dateTimeFromTimestamp` | epoch 构造 | `Long epochMillis` | `DateTime` | 无 |
 | `now` | 当前墙钟 | 无 | `DateTime` | 无 |
 | `parseDateTime` | 解析 ISO | `String text` | `Result<DateTime, Error>` | `InvalidArgument` |
+| `parseDateTimeLayout` | 按布局解析 | `String text, String layout` | `Result<DateTime, Error>` | `InvalidArgument` |
 | `civilIsLeap` | 闰年 | `Int year` | `Bool` | 无 |
 | `civilDaysInMonth` | 月天数 | `Int year, Month month` | `Int` | 非法 month/year → panic |
 
@@ -114,6 +116,30 @@ void sleepMs(Long milliseconds) {
         throw "sleepMs: negative duration"
     }
     sleepMillisRaw(milliseconds)
+}
+
+Result<Unit, Error> sleepContext(Context context, Duration duration) {
+    if context == null || duration == null {
+        throw "sleepContext: null argument"
+    }
+    if duration.millis() < 0 {
+        throw "sleepContext: negative duration"
+    }
+    if context.isCancelled() {
+        return Err(new BasicError(ErrorKind.Cancelled, "sleepContext: cancelled"))
+    }
+    Int result = sleepContextRaw(context, duration.millis())
+    if result != 0 {
+        return Err(new BasicError(ErrorKind.Cancelled, "sleepContext: cancelled"))
+    }
+    return Ok(unit)
+}
+
+Result<DateTime, Error> parseDateTimeLayout(String text, String layout) {
+    if text == null || layout == null {
+        throw "parseDateTimeLayout: null argument"
+    }
+    return parseDateTimeLayoutRaw(text, layout)
 }
 
 Bool civilIsLeap(Int year) {
@@ -172,16 +198,31 @@ Int civilDaysInMonth(Int year, Month month) {
 | IANA 时区数据库 | X； 只 UTC/固定偏移 |
 | 闰秒 | 不处理 |
 | locale/日历系统 |  `i18n` |
-| 可取消 sleep | X |
+| 可取消 sleep | `sleepContext` 已纳入；`sleepMs`/`sleep` 保持不可取消 |
 | 高精度时钟 | 毫秒基准；`micros` 只读 |
 | 定时器公平性/漂移 | 不承诺 |
 | 日期加减月末 | 钳制到月末；文档固定 |
 | `toLocal` |  直通 UTC；不静默改变 |
 | 时间范围 | `Long` epoch 毫秒；不处理超出范围 |
 
-## 9. 1.x 已实现 API 回写
+## 9. 1.x 兼容合同（C7）
 
-- `sleepContext(Context, Duration)` 已实现，取消返回 `Cancelled`；
-- `Duration`/`DateTime`/`Civil` 的 1.x 构造与格式化保留。
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `sleepContext(Context, Duration)` | 顶层 `sleepContext`；睡满 `Ok()`，取消 `Err(Cancelled)`；`sleepCancellable` 为旧名别名 | null → panic；负时长 → panic；`sleepMs`/`sleep` 仍不可取消 |
+| `Stopwatch` | [`Stopwatch.md`](Stopwatch.md)；`start/stop/reset/elapsed/elapsedMillis/isRunning` | 2.x 构造器不自动开始；1.x 构造即开始、`stop/reset` 返回 `Long`，迁移为显式 `start()` + `elapsedMillis()`；见 §15 |
+| `parseDateTimeLayout(String, String)` | 顶层 `parseDateTimeLayout`；令牌集与 `DateTimeFormatter` 一致 | 重复字段/非法字段/星期不一致/尾随字符 → `InvalidArgument`；缺失字段按 1970-01-01 补齐 |
+| `DateTime.format(String)` | `DateTimeFormatter.ofPattern(layout).format(dateTime)` | 2.x 令牌集见 [`DateTimeFormatter.md`](DateTimeFormatter.md)；不做 locale 名称 |
 
-2.x 的 `Timer`/`TimeZone`/`DateTimeFormatter` 是增量，不替代 1.x 面。
+示例：
+
+```xnull
+Result<Unit, Error> slept = sleepContext(context, durationOfMillis(100))
+Stopwatch watch = new Stopwatch()
+watch.start()
+watch.stop()
+Long elapsed = watch.elapsedMillis()
+Result<DateTime, Error> parsed = parseDateTimeLayout("2026-11-22 12:00:00", "yyyy-MM-dd HH:mm:ss")
+```
+
+测试义务：`sleepContext` 睡满/取消；`Stopwatch` 未启动/启动/停止/复位/读数；`parseDateTimeLayout` 成功与非法输入；`format` 与 `parseDateTimeLayout` 令牌往返一致；`sleepMs`/`sleep` 仍不可取消。

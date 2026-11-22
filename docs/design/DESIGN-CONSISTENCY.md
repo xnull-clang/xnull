@@ -8,7 +8,7 @@
 | 状态 | Draft for P0 sign-off；`已冻结` 项才可进入实现 |
 | 原则 | 先改名/回写，再实现；不带着已知冲突写代码 |
 
-> **2026-11-22 执行状态**：S1/S2 包名归一、S4 desktop 清理、S8 legacy 分层、P0 计数/链接、C7 的 1.x 核心回写、A1/A5/A7/A8 注解文档、P0.5 类型文件改名均已执行；B0 收口。表中状态词表示“决定是否冻结”，不表示所有实现已完成。
+> **2026-11-22 执行状态**：S1/S2 包名归一、S4 桌面范围清理、S8 legacy 分层、P0 计数/链接、C7 的 1.x 核心合同整合、A1/A5/A7/A8 注解文档、P0.5 类型文件改名均已执行；B0 收口。表中状态词表示“决定是否冻结”，不表示所有实现已完成。
 
 ---
 
@@ -48,7 +48,7 @@
 | C4 | `CommandMatch` → `ParseResult` | 1.x CLI 用 `CommandMatch`；2.x 用 `ParseResult` | 2.x `ParseResult`；1.x `CommandMatch` 别名/适配 | `core/cli` | 已冻结 |
 | C5 | `Pair` 固定 vs 泛型 | 源码 `Pair(String, Int)`；2.x 文档 `Pair<A,B>` | 2.x 泛型 `Pair<A,B>`；1.x 固定 `Pair` deprecated；`Entry<K,V>` 保留 | `core/collections/Pair.md`、`geo/linalg/tensor` | 已冻结 |
 | C6 | `Map.put` 返回 | 文档写 `Bool`；旧 API 面写 `V?` | 冻结 `Bool`（替换 true、插入 false）；`putIfAbsent` 返回旧值 `V?`；`remove` 返回 `Bool` | `core/collections/Map.md`、`API-SURFACE.md` | 已冻结 |
-| C7 | 2.x core 文档比 1.x 旧 | 新 core 删掉 `RuntimeStats/stats`、`joinWith`/`Entry`、log `Filter/Redactor/Sampler`、CLI 短选项/补全、sys 进程组/stdio、`sleepContext`、`buildDate`、`setChecked/apply`、`addDetailed` | 2.x 先从 1.x 同步已实现能力，再加新类型；不得删已实现 API | `core/*/README.md`、`core/*.md` | ledger done（B0）；full contract integration = B5 prerequisite |
+| C7 | 2.x core 文档比 1.x 旧 | 新 core 删掉 `RuntimeStats/stats`、`joinWith`/`Entry`、log `Filter/Redactor/Sampler`、CLI 短选项/补全、sys 进程组/stdio、`sleepContext`、`buildDate`、`setChecked/apply`、`addDetailed` | 已整合：runtime/collections/log/cli/sys/time/meta/errors/config/io/fs 的 1.x 面写入 2.x 类型合同；冲突按 2.x 合同登记迁移边界 | `core/*/README.md`、`core/*.md` | 合同已整合（待 B5 实现/验证） |
 | C8 | `ConfigSource.load` 是否带 `Context` | 1.x 无 Context；2.x 文档带 Context | 2.x 带 `Context`；1.x 提供无 Context 适配 | `core/config/ConfigSource.md` | 已冻结 |
 | C9 | `Sink.write` 是否返回 `Result` | 1.x log Sink 可能无返回；2.x 文档要求 Result | 2.x `Result<Unit, Error>`；日志失败不改变业务控制流 | `core/log/Sink.md` | 已冻结 |
 | C10 | `Process.id` 类型 | 1.x 可能是 `Int`；2.x 文档 `Long` | 2.x `Long`；1.x 适配/收窄检查 | `core/sys/Process.md` | 已冻结 |

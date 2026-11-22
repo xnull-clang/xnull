@@ -64,7 +64,7 @@
 
 | ID | 债务描述 | 来源 / 证据 | 影响 | Owner | 目标批次 / 验收 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT-01 | C7：1.x 已实现 API 只完成 ledger 回写，尚未整合进 2.x core 完整合同。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) C7；[EXECUTION-PLAN.md](EXECUTION-PLAN.md) §11.1；[core/runtime/README.md](core/runtime/README.md) 等 10 个 core README | 2.x core 合同可能漏掉 1.x 已实现面；B5 前置。 | XDK-CORE / ARCH | B5 core 15 包：逐条把 ledger 并入类型合同；xdk2 + 1.x 回归绿。 | ledger done（B0）；integration OPEN |
+| NEXT-01 | C7：1.x 已实现 API 已整合进 2.x core 类型合同（runtime/collections/log/cli/sys/time/meta/errors/config/io/fs），不再只是 README ledger。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) C7；[EXECUTION-PLAN.md](EXECUTION-PLAN.md) §11.1；[core/runtime/README.md](core/runtime/README.md) 等 10 个 core README | 2.x core 合同已覆盖 1.x 面；B5 仍需实现与回归验证。 | XDK-CORE / ARCH | B5 core 15 包：按合同实现；xdk2 + 1.x 回归绿。 | 合同已整合（待 B5 实现/验证） |
 | NEXT-02 | S7/U1：`API-SURFACE.md` 与 `utils/API-SURFACE.md` 仍是旧版广度稿，未按逐类型合同重生成。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) S7/U1；[API-SURFACE.md](API-SURFACE.md)；[utils/API-SURFACE.md](utils/API-SURFACE.md) | 旧名可能被误当实现依据；B5 合同冻结前必须只保留对照地位或重生成。 | ARCH | B5 前：从类型合同生成 API 面；旧名不进入实现；check_doc_naming + links 绿。 | OPEN（旧稿横幅已加，重生成未做） |
 | NEXT-03 | N1：HTTP/2 头模型缺伪头与 `END_STREAM` 表示。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) N1；[network/net/http/README.md](network/net/http/README.md)；[Http2Session.md](network/net/http/Http2Session.md) | HTTP/2 合同不完整；HTTP/1.1 可先行，HTTP/2 不能实现。 | XDK-NET | B7/P5：补 `Http2Headers`/`endStream` 显式字段；HTTP/1.1 先验收，HTTP/2 最后验收。 | OPEN（延期 P5） |
 | NEXT-04 | P6：平台适配器注入与包级 raw 自由函数两种模型未冻结。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P6；[platform/README.md](platform/README.md) | serial/device/gpu 的 raw 面可能引入全局可变驱动表；B8 前必须定一种注入模型。 | XDK-PLATFORM | B8/P6：冻结 `OsHost`/controller 参数或编译期后端选择；禁止全局可变驱动表；场景验证。 | OPEN（决策未冻结） |
@@ -84,7 +84,7 @@
 | NEXT-18 | X4：`Agent` 启动失败可能留下半启动管线，回滚顺序未定义。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) X4；[solutions/agent/README.md](solutions/agent/README.md) | 失败不原子；B10/P8 前定启动顺序与逆序回滚。 | XDK-SOLUTIONS | B10/P8：启动顺序 + 逆序回滚；失败不返回半成品；关闭幂等。 | OPEN（决定已冻结，实现未做） |
 | NEXT-19 | X5：API README 写“无注解扫描”，注解矩阵又写 `@HttpRoute` 生成路由；措辞与生成边界未统一。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) X5；[solutions/api/README.md](solutions/api/README.md)；[ANNOTATION-SYSTEM.md](ANNOTATION-SYSTEM.md) | 易被误读为运行时反射/扫描；B10/P8 前统一为构建期生成显式 `ApiRoute`。 | XDK-SOLUTIONS | B10/P8：构建期生成 `ApiRoute` 注册；运行时无扫描/反射；文档统一；场景。 | OPEN（回写） |
 | NEXT-20 | B4 首批纯包未实现：functional/graph/stats/net.uri/net.mime/tensor/linalg/geo，合计 8 包 / 34 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B4；[PACKAGE-MAP.md](PACKAGE-MAP.md) L4/L5/L6 | 2.x 尚无任何纯 XDK 包；B4 是 B5 的前置。 | XDK-CORE / XDK-NET / XDK-PLATFORM | B4：8 包逐包场景 + xdk2 + 1.x 回归；入口见本文件 §4。 | 未开工（受 B4-01/B4-02 约束） |
-| NEXT-21 | B5 core 15 包 2.x 化未开工：foundation → io/fs/sys → log/config/cli → execution，合计 15 包 / 186 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B5；[PACKAGE-MAP.md](PACKAGE-MAP.md) L1–L3 | core 合同与 2.x 类型未落地；B5 是 B6 的前置。 | XDK-CORE / RUNTIME | B5：15 包 Verified；C7 完整整合；xdk2 + 1.x 回归绿。 | 未开工（等 B4） |
+| NEXT-21 | B5 core 15 包 2.x 化未开工：foundation → io/fs/sys → log/config/cli → execution，合计 15 包 / 186 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B5；[PACKAGE-MAP.md](PACKAGE-MAP.md) L1–L3 | core 合同与 2.x 类型未落地；B5 是 B6 的前置。 | XDK-CORE / RUNTIME | B5：15 包 Verified；按 C7 已整合合同实现；xdk2 + 1.x 回归绿。 | 未开工（等 B4） |
 | NEXT-22 | B6 data/encoding 12 包未开工：codec/crypto/compress/random/uuid/stats/functional/graph/reflect/toml/yaml/xml，合计 12 包 / 76 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B6；[PACKAGE-MAP.md](PACKAGE-MAP.md) L4 | 数据/编码依赖闭包未落地；B6 是 B7 的前置。 | XDK-CORE | B6：12 包依赖闭包绿；Json/Base64/统计/图先验收。 | 未开工（等 B5） |
 | NEXT-23 | B7 network 9 包未开工：net/uri/mime/tls/http/websocket/net.service/jwt/sql，合计 9 包 / 125 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B7；[PACKAGE-MAP.md](PACKAGE-MAP.md) L5 | 网络端到端能力未落地；B7 是 B8 的前置。 | XDK-NET | B7：9 包端到端网络场景绿；HTTP/1.1 先于 HTTP/2。 | 未开工（等 B6） |
 | NEXT-24 | B8 platform 17 包未开工：os.*/gpu/tensor/linalg/geo/serial/device，合计 17 包 / 93 类型。 | [EXECUTION-PLAN.md](EXECUTION-PLAN.md) §4.3/§5 B8；[PACKAGE-MAP.md](PACKAGE-MAP.md) L6 | 平台/计算能力未落地；B8 是 B9 的前置。 | XDK-PLATFORM | B8：17 包模型/只读/控制面分级绿；P6/P7/P9 决策先冻结。 | 未开工（等 B7） |
@@ -105,7 +105,7 @@ B4 真正阻塞项只有两条，当前状态均为“合同已冻结（待 owne
 
 边界说明：
 
-- C7 完整合同整合归 **B5**，不是 B4 阻塞；B4 只需使用 B3 已落地的 core 面。
+- C7 合同整合已完成（NEXT-01：合同已整合，待 B5 实现/验证）；B5 负责实现与 xdk2 + 1.x 回归，不是 B4 阻塞。
 - API-SURFACE 旧稿重生成归 **B5**，不是 B4 阻塞；B4 以逐类型合同为准。
 - 注解 `Deinit`/`TypeUse` 受 S2 约束，跨包注解全限定名受编译器约束；B4 纯包不使用这些目标，故列为 BLOCKED 而非 B4 阻塞。
 - N1、P6/P7/P9、U5–U11、X1–X5、B5–B10 都是后续批次或已接受债，不伪装成 B4 阻塞。

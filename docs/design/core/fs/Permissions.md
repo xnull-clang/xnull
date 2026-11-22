@@ -11,7 +11,7 @@
 
 ## 1. 定位
 
-POSIX 权限位值对象：owner/group/other 的 rwx。
+POSIX 权限位值对象：owner/group/other 的 rwx，以及 setuid/setgid/sticky 低 12 位。
 
 不做：ACL、扩展属性、Windows 完整 ACL 映射。
 
@@ -19,9 +19,10 @@ POSIX 权限位值对象：owner/group/other 的 rwx。
 
 ## 2. 设计逻辑
 
-- 唯一字段 `_mode: Int`（低 9 位）。
-- `fromOctal("755")`、`toOctal()`。
+- 唯一字段 `_mode: Int`（低 12 位）。
+- `fromOctal("755")`、`toOctal()`；支持到 `7777`。
 - `isReadable/isWritable/isExecutable` 判断当前进程（ 近似）。
+- `ownerSetId/groupSetId/sticky` 读取低 12 位特殊位；1.x `mode & 07777` 兼容。
 - 不可变；值语义。
 
 ---
@@ -30,9 +31,9 @@ POSIX 权限位值对象：owner/group/other 的 rwx。
 
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
-| `_mode` | `Int` | 0..511 |
+| `_mode` | `Int` | 0..4095 |
 
-不变量：mode 在 0..511；只使用低 9 位。
+不变量：mode 在 0..4095；只使用低 12 位。
 
 ---
 
@@ -46,8 +47,8 @@ POSIX 权限位值对象：owner/group/other 的 rwx。
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `Permissions(Int mode)` | mode | 0..511 | 越界 → panic |
-| `fromOctal(String)` | octal | 0..777 | 非法 → panic |
+| `Permissions(Int mode)` | mode | 0..4095 | 越界 → panic |
+| `fromOctal(String)` | octal | 0..7777 | 非法 → panic |
 
 ---
 
@@ -68,6 +69,9 @@ POSIX 权限位值对象：owner/group/other 的 rwx。
 | `isWritable` | 可写 | 无 | `Bool` | 无 |
 | `isExecutable` | 可执行 | 无 | `Bool` | 无 |
 | `ownerRead` 等 | 单权限位 | 无 | `Bool` | 无 |
+| `ownerSetId` | setuid | 无 | `Bool` | 无 |
+| `groupSetId` | setgid | 无 | `Bool` | 无 |
+| `sticky` | sticky | 无 | `Bool` | 无 |
 | `equals` | 值相等 | `Permissions` | `Bool` | 无 |
 | `toString` | 文本 | 无 | `String` | 无 |
 
@@ -103,14 +107,15 @@ POSIX 权限位值对象：owner/group/other 的 rwx。
 
 ## 12. 示例与反例
 
-正确：`Permissions.fromOctal("644")`。  
-反例：mode 1000；把 ACL 塞进 9 位；用字符串权限做位运算。
+正确：`Permissions.fromOctal("644")`；`Permissions.fromOctal("4755").ownerSetId()`。
+
+反例：mode 4096；把 ACL 塞进 12 位；用字符串权限做位运算。
 
 ---
 
 ## 13. 测试/场景义务
 
-0/777/644；fromOctal/toOctal；单权限位；equals；越界。
+0/777/644/4755；fromOctal/toOctal；单权限位；setuid/setgid/sticky；equals；越界。
 
 ---
 
@@ -121,7 +126,7 @@ class Permissions {
     final Int _mode
 
     Permissions(Int mode) {
-        if mode < 0 || mode > 511 {
+        if mode < 0 || mode > 4095 {
             throw "Permissions: mode out of range"
         }
         _mode = mode
@@ -145,11 +150,18 @@ class Permissions {
     Int mode() { return _mode }
 
     String toOctal() {
+        Int special = (_mode / 512) % 8
         Int owner = (_mode / 64) % 8
         Int group = (_mode / 8) % 8
         Int other = _mode % 8
-        return str(owner) + str(group) + str(other)
+        String result = ""
+        if special != 0 { result = str(special) }
+        return result + str(owner) + str(group) + str(other)
     }
+
+    Bool ownerSetId() { return (_mode & 2048) != 0 }
+    Bool groupSetId() { return (_mode & 1024) != 0 }
+    Bool sticky() { return (_mode & 512) != 0 }
 
     Bool ownerRead() { return (_mode & 256) != 0 }
     Bool ownerWrite() { return (_mode & 128) != 0 }

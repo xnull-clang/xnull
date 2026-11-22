@@ -64,6 +64,7 @@
 | `tryGet` | checked 取 | `String name` | `Result<String, Error>` | `NotFound` |
 | `has` | 是否存在 | `String name` | `Bool` | 无 |
 | `keys` | 键快照 | 无 | `List<String>` | 无 |
+| `names` | 升序键快照（1.x） | 无 | `List<String>` | 无 |
 | `values` | 值快照 | 无 | `List<String>` | 无 |
 | `all` | 映射快照 | 无 | `Map<String,String>` | 无 |
 | `length` | 数量 | 无 | `Int` | 无 |
@@ -81,14 +82,14 @@
 ## 9. 需要的支撑
 
 - 语言：class、Map、List、String、Bool、Result；
-- 运行时：进程环境；
+- 运行时：进程环境；文本比较 `compareText`；
 - 接口：`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`BasicError`、`ErrorKind`、`Map`。
+`BasicError`、`ErrorKind`、`Map`、`compareText`。
 
 ---
 
@@ -100,14 +101,15 @@
 
 ## 12. 示例与反例
 
-正确：`Env.snapshot().getOr("PATH", "")`。  
-反例：期望 snapshot 实时更新；用空串表示缺失；全局修改 env。
+正确：`Env.snapshot().getOr("PATH", "")`；`Env.snapshot().names()` 返回升序名称。
+
+反例：期望 snapshot 实时更新；用空串表示缺失；全局修改 env；期望 `names()` 返回值。
 
 ---
 
 ## 13. 测试/场景义务
 
-快照独立性；get/getOr/tryGet；has；keys/values/all；空环境。
+快照独立性；get/getOr/tryGet；has；keys/names 排序；values/all；空环境。
 
 ---
 
@@ -152,6 +154,13 @@ class Env {
 
     Bool has(String name) { return _values.has(name) }
     List<String> keys() { return _values.keys() }
+
+    List<String> names() {
+        List<String> result = self.keys()
+        result.sort((String left, String right) -> compareText(left, right))
+        return result
+    }
+
     List<String> values() { return _values.values() }
     Map<String, String> all() { return _values.copy() }
     Int length() { return _values.length() }

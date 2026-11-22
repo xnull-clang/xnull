@@ -20,6 +20,7 @@
 ## 2. 设计逻辑
 
 - `load(Context)` 返回条目列表；可取消。
+- 1.x 无 Context 的 `Config.apply(ConfigSource)` 由 `Config` 的兼容重载用 `Context.background()` 适配；`ConfigSource` 本身仍要求 Context。
 - `name()` 诊断用；`priority()` 越大越优先（由 Overlay 使用）。
 - 来源不持有全局状态；失败返回 Result。
 - 不负责 key 去重；Overlay 负责。

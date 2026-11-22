@@ -31,7 +31,7 @@
 | --- | --- |
 | 只读快照 | 所有类型不可变；需要最新值重新调用 |
 | 无全局状态 | 不维护全局元数据单例 |
-| 可复现 | 不包含构建时间戳；`buildId` 可复现 |
+| 可复现 | `buildId` 可复现；`builtAt` 只作诊断，可为空，不参与缓存/排序 |
 | 目标 ≠ 运行时 | 能力是构建目标支持，不是当前进程保证 |
 | 版本是字符串 | 不把 semver 比较塞进 meta |
 | 依赖是快照 | 不解析、不加载、不联网 |
@@ -66,6 +66,9 @@
 | --- | --- | --- | --- | --- |
 | `languageVersion` | 语言版本 | 无 | `String` | 无 |
 | `xdkVersion` | XDK 版本 | 无 | `String` | 无 |
+| `compilerName` | 编译器名 | 无 | `String` | 无 |
+| `compilerVersion` | 编译器版本 | 无 | `String` | 无 |
+| `buildDate` | 构建时间文本（诊断） | 无 | `String` | 无；可为空/不可复现 |
 | `targetPlatform` | 目标平台 | 无 | `String` | 无 |
 | `buildInfo` | 构建快照 | 无 | `BuildInfo` | 无 |
 | `targetInfo` | 目标快照 | 无 | `TargetInfo` | 无 |
@@ -127,10 +130,13 @@ BuildInfo buildInfo() {
     return new BuildInfo(
         LANG_VERSION,
         XDK_VERSION,
+        compilerName(),
+        compilerVersion(),
         TARGET_PLATFORM,
         TARGET_ARCH,
         BUILD_MODE,
         BUILD_ID,
+        buildDate(),
         dependencies
     )
 }
@@ -362,7 +368,7 @@ ShutdownPolicy? shutdownPolicyFromName(String name) {
 
 | 项 | 决策/缺口 |
 | --- | --- |
-| 构建时间戳 | 不提供；避免破坏可复现构建 |
+| 构建时间戳 | `buildDate` 保留为诊断字段；可为空/不可复现，不参与缓存/排序/业务判断 |
 | 编译器内部信息 | 不进入 XDK 公共面 |
 | semver 比较 | 不提供；版本是字符串 |
 | 运行时能力探测 | meta 只给目标能力；运行时探测为 X |
@@ -371,9 +377,24 @@ ShutdownPolicy? shutdownPolicyFromName(String name) {
 | ABI 版本 | 未进入 meta；需要时单独设计 |
 | 依赖重复 | `DependencyInfo` 列表由构建保证唯一；meta 不做去重 |
 
-## 9. 1.x 已实现 API 回写
+## 9. 1.x 兼容合同（C7）
 
-- `buildDate()` 已实现并进入 `BuildInfo`；
-- 1.x 的 `languageVersion/xdkVersion/compilerVersion/targetPlatform/targetArch/buildMode` 保留。
+| 1.x API | 2.x 合同 | 失败/边界 |
+| --- | --- | --- |
+| `BuildInfo`（8 字段 + `complete`） | [`BuildInfo.md`](BuildInfo.md)；保留 `compiler`/`compilerVersion`/`builtAt`，新增 `buildId`/dependencies | `builtAt` 仅诊断、可为空；`complete()` 不要求 builtAt |
+| `buildInfo()` | 顶层 `buildInfo`；返回不可变快照 | 无 |
+| `buildDate()` | 顶层 `buildDate`；返回构建时间文本 | 可为空/不可复现；不得用于业务/缓存 |
+| `compilerName()` / `compilerVersion()` | 顶层同名函数 | 诊断字段；不是 ABI 承诺 |
+| `targetPlatform()` / `targetArch()` / `buildMode()` | 顶层 `targetPlatform`/`targetArch`/`buildMode` | 未知平台空串/`"unknown"` 按实现 |
+| 目标/能力清单 | `TargetInfo`/`Capability`/`CapabilitySet`/`targetInfo`/`hasCapability` | 1.x 只有构建期 TSV，没有运行时查询；2.x 为增量，不声称 1.x 已实现 |
 
-2.x 的 `Capability`/`ProfileBuilder` 是增量。
+示例：
+
+```xnull
+BuildInfo info = buildInfo()
+Bool complete = info.complete()
+String builtAt = buildDate()
+Bool tls = hasCapability(Capability.Tls)
+```
+
+测试义务：`compiler`/`compilerVersion`/`builtAt` 读取；`complete()` 空/非空；`buildDate` 空值与诊断用途；`buildId` 可复现断言；`TargetInfo`/`Capability` 为 2.x 增量测试。

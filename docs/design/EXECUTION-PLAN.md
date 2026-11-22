@@ -441,7 +441,7 @@ B0.1–B0.7：
 | B0.4 1.x 基线 | PASS | `src/mini/build.sh`、`xdk.sh`、`xdk_core.sh` 均 exit 0 |
 | B0.5 诊断码 | PASS | `ANNOTATION-PLAN.md` §9 冻结 `AN0001`–`AN0020` |
 | B0.6 P0.5 改名 | PASS | 10 个文件/9 组类型改名；链接与命名门禁绿 |
-| B0.7 C7 回写 | PASS（ledger） | 10 个 core README 增加“1.x 已实现 API 回写”；full contract integration = B5 prerequisite，不是 C7 全量 PASS |
+| B0.7 C7 回写 | PASS（ledger）；合同整合见 NEXT-01 | 10 个 core README 的 ledger 已升级为类型合同（C7）；B5 仍负责实现/验证，不宣称 B5 完成 |
 
 B0.6 改名清单：
 
@@ -457,7 +457,7 @@ db/Batch.md -> db/DbBatch.md；ml/Batch.md -> ml/MlBatch.md
 net/tls/PrivateKey.md -> net/tls/TlsPrivateKey.md
 ```
 
-B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io}/README.md`。这里的 PASS 是 **ledger 完成**；把 1.x API 变成 2.x 的完整合同整合是 B5 前置，不在 B0 宣称全量 PASS。
+B0.7 回写文件：`core/{runtime,collections,log,cli,sys,time,meta,errors,config,io,fs}/README.md`。这里的 PASS 是 **ledger 完成**；C7 的 1.x → 2.x 类型合同整合已在 `debt-c7-core` 完成（NEXT-01：合同已整合），B5 仍负责实现与 xdk2 + 1.x 回归，不在 B0 宣称 B5 完成。
 
 批末门禁（本记录随后提交）：
 
