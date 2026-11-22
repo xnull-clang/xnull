@@ -344,7 +344,8 @@ static int xn_Cls_AnnotationChecker_constantTypeAllowed(xn_Cls_AnnotationChecker
 static void xn_Cls_AnnotationChecker_collectTypes(xn_Cls_AnnotationChecker *self);
 static void xn_Cls_AnnotationChecker_validateAnnotationDecl(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * d);
 static void xn_Cls_AnnotationChecker_validateUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, rt_string * target, xn_Cls_AstNode * scope);
-static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope, int64_t index);
+static void xn_Cls_AnnotationChecker_validateTypeUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope);
+static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_arr_o * uses, xn_Cls_AstNode * scope, int64_t index);
 static void xn_Cls_AnnotationChecker_collectDeprecated(xn_Cls_AnnotationChecker *self);
 static int xn_Cls_AnnotationChecker_hasUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, rt_string * name);
 static int xn_Cls_AnnotationChecker_isReadOnlyField(xn_Cls_AnnotationChecker *self, rt_string * owner, rt_string * field);
@@ -579,6 +580,11 @@ static void xn_Cls_CGen_func(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_annotationQualifiedFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_typeTextOf(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static int xn_Cls_CGen_knownTypeName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_qualifiedTypeName(xn_Cls_CGen *self, rt_string * ty, rt_string * ownerPkg);
+static void xn_Cls_CGen_collectTypeUses(xn_Cls_CGen *self, xn_Cls_AstNode * node, rt_string * targetName, rt_string * ownerPkg, xn_arr_o * out);
+static void xn_Cls_CGen_collectTypeUseLocals(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * methodOwner, rt_string * ownerPkg, xn_arr_o * out);
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationPath(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_string * path);
@@ -594,7 +600,7 @@ static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode
 static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_annotationNumberText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * indent);
-static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent);
+static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * typeName, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent);
 static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self);
 static void xn_Cls_CGen_gen(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self);
@@ -651,6 +657,12 @@ static rt_string * xn_declPackageOf(xn_Cls_AstNode * n);
 static void xn_mergeDecls(xn_Cls_AstNode * program, xn_Cls_AstNode * parsed);
 static void xn_loadUnit(rt_string * path, xn_Cls_AstNode * program);
 static void xn_loadSiblings(rt_string * path, xn_Cls_AstNode * program);
+static rt_string * xn_simpleTypeUseName(rt_string * name);
+static rt_string * xn_targetPath(xn_Cls_AstNode * n);
+static xn_arr_s * xn_annotationTargetSet(xn_Cls_AstNode * program, rt_string * useText);
+static int xn_typeUsePosition(xn_Cls_AstNode * n);
+static void xn_splitTypeUseAnnotationsIn(xn_Cls_AstNode * n, xn_Cls_AstNode * program);
+static void xn_splitTypeUseAnnotations(xn_Cls_AstNode * program);
 static rt_string * xn_annotationCandidates(rt_string * simple);
 static void xn_resolveAnnotationUse(xn_Cls_AstNode * use, rt_string * ownerPkg);
 static void xn_resolveAnnotationTree(xn_Cls_AstNode * n, rt_string * ownerPkg);
@@ -694,6 +706,7 @@ struct xn_Cls_AstNode {
   int64_t col;
   xn_arr_o * kids;
   xn_arr_o * annotations;
+  xn_arr_o * typeAnnotations;
   rt_string * packageName;
   rt_string * resolvedAnnotationName;
   rt_string * annotationError;
@@ -710,6 +723,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   xn_obj->col = 0;
   xn_obj->kids = xn_arr_o_new(4);
   xn_obj->annotations = xn_arr_o_new(4);
+  xn_obj->typeAnnotations = xn_arr_o_new(4);
   xn_obj->packageName = rt_string_from_c("");
   xn_obj->resolvedAnnotationName = rt_string_from_c("");
   xn_obj->annotationError = rt_string_from_c("");
@@ -720,6 +734,7 @@ static xn_Cls_AstNode *xn_Cls_AstNode_new(rt_string * kind, rt_string * text, in
   self->col = col;
   self->kids = xn_arr_o_new(0);
   self->annotations = xn_arr_o_new(0);
+  self->typeAnnotations = xn_arr_o_new(0);
   self->packageName = rt_string_from_c("");
   self->resolvedAnnotationName = rt_string_from_c("");
   self->annotationError = rt_string_from_c("");
@@ -779,6 +794,14 @@ static void xn_Cls_AstNode_dump(xn_Cls_AstNode *self, int64_t depth) {
     xn_Cls_AstNode * ann = ((xn_Cls_AstNode *)xn_arr_o_get(self->annotations, ai));
     xn_Cls_AstNode_dump(ann, xn_int_wrap((depth + 1)));
     ai = xn_int_wrap((ai + 1));
+  }
+  if ((((int64_t)self->typeAnnotations->len) > 0)) {
+    xn_print_str(xn_concat(pad, rt_string_from_c("  TypeUse")));
+    int64_t ti = xn_int_wrap(0);
+    while ((ti < ((int64_t)self->typeAnnotations->len))) {
+      xn_Cls_AstNode_dump(((xn_Cls_AstNode *)xn_arr_o_get(self->typeAnnotations, ti)), xn_int_wrap((depth + 2)));
+      ti = xn_int_wrap((ti + 1));
+    }
   }
   int64_t j = xn_int_wrap(0);
   while ((j < ((int64_t)self->kids->len))) {
@@ -2950,6 +2973,7 @@ static rt_string * xn_Cls_Mono_instantiateClass(xn_Cls_Mono *self, rt_string * c
   clone->packageName = cls->packageName;
   clone->resolvedAnnotationName = cls->resolvedAnnotationName;
   clone->annotationError = cls->annotationError;
+  clone->typeAnnotations = cls->typeAnnotations;
   i = 0;
   while ((i < ((int64_t)cls->annotations->len))) {
     xn_Cls_AstNode_annotate(clone, ((xn_Cls_AstNode *)xn_arr_o_get(cls->annotations, i)));
@@ -3086,6 +3110,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_cloneSubst(xn_Cls_Mono *self, xn_Cls_AstNode
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
+  c->typeAnnotations = n->typeAnnotations;
   int64_t ai = xn_int_wrap(0);
   while ((ai < ((int64_t)n->annotations->len))) {
     xn_Cls_AstNode_annotate(c, ((xn_Cls_AstNode *)xn_arr_o_get(n->annotations, ai)));
@@ -3147,6 +3172,7 @@ static rt_string * xn_Cls_Mono_specialize(xn_Cls_Mono *self, xn_Cls_AstNode * fn
   clone->packageName = fn->packageName;
   clone->resolvedAnnotationName = fn->resolvedAnnotationName;
   clone->annotationError = fn->annotationError;
+  clone->typeAnnotations = fn->typeAnnotations;
   i = 0;
   while ((i < ((int64_t)fn->annotations->len))) {
     xn_Cls_AstNode_annotate(clone, ((xn_Cls_AstNode *)xn_arr_o_get(fn->annotations, i)));
@@ -4018,6 +4044,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_cloneAst(xn_Cls_Mono *self, xn_Cls_AstNode *
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
+  c->typeAnnotations = n->typeAnnotations;
   int64_t ai = xn_int_wrap(0);
   while ((ai < ((int64_t)n->annotations->len))) {
     xn_Cls_AstNode_annotate(c, ((xn_Cls_AstNode *)xn_arr_o_get(n->annotations, ai)));
@@ -4087,6 +4114,7 @@ static xn_Cls_AstNode * xn_Cls_Mono_replaceSelf(xn_Cls_Mono *self, xn_Cls_AstNod
   c->packageName = n->packageName;
   c->resolvedAnnotationName = n->resolvedAnnotationName;
   c->annotationError = n->annotationError;
+  c->typeAnnotations = n->typeAnnotations;
   if ((xn_str_eq(n->kind, rt_string_from_c("Name")) && xn_str_eq(n->text, rt_string_from_c("self")))) {
     c->text = rt_string_from_c("__self");
   }
@@ -4529,7 +4557,8 @@ static int xn_Cls_AnnotationChecker_constantTypeAllowed(xn_Cls_AnnotationChecker
 static void xn_Cls_AnnotationChecker_collectTypes(xn_Cls_AnnotationChecker *self);
 static void xn_Cls_AnnotationChecker_validateAnnotationDecl(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * d);
 static void xn_Cls_AnnotationChecker_validateUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, rt_string * target, xn_Cls_AstNode * scope);
-static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope, int64_t index);
+static void xn_Cls_AnnotationChecker_validateTypeUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope);
+static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_arr_o * uses, xn_Cls_AstNode * scope, int64_t index);
 static void xn_Cls_AnnotationChecker_collectDeprecated(xn_Cls_AnnotationChecker *self);
 static int xn_Cls_AnnotationChecker_hasUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * n, rt_string * name);
 static int xn_Cls_AnnotationChecker_isReadOnlyField(xn_Cls_AnnotationChecker *self, rt_string * owner, rt_string * field);
@@ -5126,12 +5155,21 @@ static void xn_Cls_AnnotationChecker_validateUses(xn_Cls_AnnotationChecker *self
   int64_t i = xn_int_wrap(0);
   while (((i < ((int64_t)owner->annotations->len)) && (!xn_Cls_AnnotationChecker_hasError(self)))) {
     xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(owner->annotations, i));
-    xn_Cls_AnnotationChecker_validateUse(self, use, target, owner, scope, i);
+    xn_Cls_AnnotationChecker_validateUse(self, use, target, owner, owner->annotations, scope, i);
     i = xn_int_wrap((i + 1));
   }
 }
 
-static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope, int64_t index) {
+static void xn_Cls_AnnotationChecker_validateTypeUses(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * owner, xn_Cls_AstNode * scope) {
+  int64_t i = xn_int_wrap(0);
+  while (((i < ((int64_t)owner->typeAnnotations->len)) && (!xn_Cls_AnnotationChecker_hasError(self)))) {
+    xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(owner->typeAnnotations, i));
+    xn_Cls_AnnotationChecker_validateUse(self, use, rt_string_from_c("TypeUse"), owner, owner->typeAnnotations, scope, i);
+    i = xn_int_wrap((i + 1));
+  }
+}
+
+static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self, xn_Cls_AstNode * use, rt_string * target, xn_Cls_AstNode * owner, xn_arr_o * uses, xn_Cls_AstNode * scope, int64_t index) {
   if ((!xn_str_eq(use->annotationError, rt_string_from_c("")))) {
     xn_Cls_AnnotationChecker_failAt(self, rt_string_from_c("AN0001"), use->annotationError, use, scope);
     return;
@@ -5179,8 +5217,8 @@ static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self,
   }
   int64_t dup = xn_int_wrap(0);
   int64_t j = xn_int_wrap(0);
-  while ((j < index)) {
-    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(owner->annotations, j))->text, name)) {
+  while (((j < index) && (j < ((int64_t)uses->len)))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(uses, j))->text, name)) {
       dup = xn_int_wrap((dup + 1));
     }
     j = xn_int_wrap((j + 1));
@@ -5272,7 +5310,7 @@ static void xn_Cls_AnnotationChecker_validateUse(xn_Cls_AnnotationChecker *self,
         }
         else {
           if (xn_str_eq(v->kind, rt_string_from_c("AnnotationUse"))) {
-            xn_Cls_AnnotationChecker_validateUse(self, v, rt_string_from_c(""), v, scope, 0);
+            xn_Cls_AnnotationChecker_validateUse(self, v, rt_string_from_c(""), v, v->annotations, scope, 0);
           }
         }
       }
@@ -5379,7 +5417,7 @@ static void xn_Cls_AnnotationChecker_checkDecl(xn_Cls_AnnotationChecker *self, x
   }
   if (xn_str_eq(n->kind, rt_string_from_c("AnnotatedExpr"))) {
     if ((((int64_t)n->kids->len) > 0)) {
-      xn_Cls_AnnotationChecker_validateUse(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)), rt_string_from_c("Expression"), n, n, 0);
+      xn_Cls_AnnotationChecker_validateUse(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)), rt_string_from_c("Expression"), n, n->annotations, n, 0);
     }
     if ((((int64_t)n->kids->len) > 1)) {
       xn_Cls_AnnotationChecker_checkExpr(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 1)), n);
@@ -5450,6 +5488,7 @@ static void xn_Cls_AnnotationChecker_checkDecl(xn_Cls_AnnotationChecker *self, x
   }
   if ((!xn_str_eq(target, rt_string_from_c("AnnotationField")))) {
     xn_Cls_AnnotationChecker_validateUses(self, n, t, n);
+    xn_Cls_AnnotationChecker_validateTypeUses(self, n, n);
   }
   if ((((xn_str_eq(n->kind, rt_string_from_c("Func")) || xn_str_eq(n->kind, rt_string_from_c("Method"))) || xn_str_eq(n->kind, rt_string_from_c("Ctor"))) || xn_str_eq(n->kind, rt_string_from_c("Deinit")))) {
     int64_t i = xn_int_wrap(0);
@@ -8785,6 +8824,11 @@ static void xn_Cls_CGen_func(xn_Cls_CGen *self, xn_Cls_AstNode * fn);
 static rt_string * xn_Cls_CGen_annotationPackageName(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_annotationQualifiedFor(xn_Cls_CGen *self, rt_string * name, rt_string * ownerPkg);
 static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string * name);
+static rt_string * xn_Cls_CGen_typeTextOf(xn_Cls_CGen *self, xn_Cls_AstNode * n);
+static int xn_Cls_CGen_knownTypeName(xn_Cls_CGen *self, rt_string * ty);
+static rt_string * xn_Cls_CGen_qualifiedTypeName(xn_Cls_CGen *self, rt_string * ty, rt_string * ownerPkg);
+static void xn_Cls_CGen_collectTypeUses(xn_Cls_CGen *self, xn_Cls_AstNode * node, rt_string * targetName, rt_string * ownerPkg, xn_arr_o * out);
+static void xn_Cls_CGen_collectTypeUseLocals(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * methodOwner, rt_string * ownerPkg, xn_arr_o * out);
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationPath(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_annotationLastSegment(xn_Cls_CGen *self, rt_string * path);
@@ -8800,7 +8844,7 @@ static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode
 static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_annotationNumberText(xn_Cls_CGen *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * indent);
-static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent);
+static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * typeName, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent);
 static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self);
 static void xn_Cls_CGen_gen(xn_Cls_CGen *self);
 static rt_string * xn_Cls_CGen_text(xn_Cls_CGen *self);
@@ -13581,6 +13625,76 @@ static rt_string * xn_Cls_CGen_annotationQualified(xn_Cls_CGen *self, rt_string 
   return xn_Cls_CGen_annotationQualifiedFor(self, name, rootPackageName);
 }
 
+static rt_string * xn_Cls_CGen_typeTextOf(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
+  if (xn_str_eq(n->kind, rt_string_from_c("Ret"))) {
+    return n->text;
+  }
+  if (((xn_str_eq(n->kind, rt_string_from_c("Method")) || xn_str_eq(n->kind, rt_string_from_c("Func"))) || xn_str_eq(n->kind, rt_string_from_c("Sig")))) {
+    return xn_Cls_CGen_retNode(self, n)->text;
+  }
+  xn_arr_s * parts = xn_str_split(n->text, rt_string_from_c(" "));
+  if ((((int64_t)parts->len) >= 1)) {
+    return xn_arr_s_get(parts, 0);
+  }
+  return n->text;
+}
+
+static int xn_Cls_CGen_knownTypeName(xn_Cls_CGen *self, rt_string * ty) {
+  if (xn_Cls_CGen_isClass(self, ty)) {
+    return 1;
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)self->program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
+    if (((xn_str_eq(n->kind, rt_string_from_c("Enum")) || xn_str_eq(n->kind, rt_string_from_c("Protocol"))) && xn_str_eq(n->text, ty))) {
+      return 1;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return 0;
+}
+
+static rt_string * xn_Cls_CGen_qualifiedTypeName(xn_Cls_CGen *self, rt_string * ty, rt_string * ownerPkg) {
+  if ((xn_str_eq(ty, rt_string_from_c("")) || (xn_str_indexof(ty, rt_string_from_c(".")) >= 0))) {
+    return ty;
+  }
+  if ((xn_Cls_CGen_knownTypeName(self, ty) && (!xn_str_eq(ownerPkg, rt_string_from_c(""))))) {
+    return xn_concat(xn_concat(ownerPkg, rt_string_from_c(".")), ty);
+  }
+  return ty;
+}
+
+static void xn_Cls_CGen_collectTypeUses(xn_Cls_CGen *self, xn_Cls_AstNode * node, rt_string * targetName, rt_string * ownerPkg, xn_arr_o * out) {
+  rt_string * typeName = xn_Cls_CGen_qualifiedTypeName(self, xn_Cls_CGen_typeTextOf(self, node), ownerPkg);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)node->typeAnnotations->len))) {
+    xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(node->typeAnnotations, i));
+    rt_string * useName = use->text;
+    if ((!xn_str_eq(use->resolvedAnnotationName, rt_string_from_c("")))) {
+      useName = use->resolvedAnnotationName;
+    }
+    xn_Cls_AstNode * decl = xn_Cls_CGen_annotationFindDeclFor(self, useName, ownerPkg);
+    if (((!xn_str_eq(decl->kind, rt_string_from_c("None"))) && xn_str_eq(xn_Cls_CGen_annotationRetention(self, decl), rt_string_from_c("Runtime")))) {
+      xn_arr_o_push(out, xn_Cls_AnnotationUseMeta_new(use, decl, typeName, rt_string_from_c("TypeUse"), targetName, xn_int_wrap((i + 1))));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+}
+
+static void xn_Cls_CGen_collectTypeUseLocals(xn_Cls_CGen *self, xn_Cls_AstNode * n, rt_string * methodOwner, rt_string * ownerPkg, xn_arr_o * out) {
+  if ((xn_str_eq(n->kind, rt_string_from_c("Local")) && (((int64_t)n->typeAnnotations->len) > 0))) {
+    xn_arr_s * parts = xn_str_split(n->text, rt_string_from_c(" "));
+    if ((((int64_t)parts->len) >= 2)) {
+      xn_Cls_CGen_collectTypeUses(self, n, xn_concat(xn_concat(methodOwner, rt_string_from_c("#local:")), xn_arr_s_get(parts, 1)), ownerPkg, out);
+    }
+  }
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)n->kids->len))) {
+    xn_Cls_CGen_collectTypeUseLocals(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)), methodOwner, ownerPkg, out);
+    i = xn_int_wrap((i + 1));
+  }
+}
+
 static rt_string * xn_Cls_CGen_annotationStringText(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
   if ((!xn_str_eq(n->kind, rt_string_from_c("String")))) {
     return rt_string_from_c("");
@@ -13802,11 +13916,26 @@ static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode
       rt_string * tn = xn_concat(xn_concat(xn_concat(owner, rt_string_from_c("#<init>(")), xn_Cls_CGen_annotationParamTypes(self, k)), rt_string_from_c(")"));
       xn_Cls_CGen_collectAnnotationUses(self, k, rt_string_from_c("Constructor"), tn, out);
       xn_Cls_CGen_collectAnnotationParams(self, k, tn, out);
+      xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, k);
+      int64_t cpi = xn_int_wrap(0);
+      while ((cpi < ((int64_t)cps->len))) {
+        xn_Cls_CGen_collectTypeUses(self, ((xn_Cls_AstNode *)xn_arr_o_get(cps, cpi)), xn_concat(xn_concat(tn, rt_string_from_c("#")), xn_str_int(cpi)), xn_declPackageOf(cls), out);
+        cpi = xn_int_wrap((cpi + 1));
+      }
+      xn_Cls_CGen_collectTypeUseLocals(self, k, tn, xn_declPackageOf(cls), out);
     }
     if (xn_str_eq(k->kind, rt_string_from_c("Method"))) {
       rt_string * tn = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(owner, rt_string_from_c("#")), k->text), rt_string_from_c("(")), xn_Cls_CGen_annotationParamTypes(self, k)), rt_string_from_c(")"));
       xn_Cls_CGen_collectAnnotationUses(self, k, rt_string_from_c("Method"), tn, out);
       xn_Cls_CGen_collectAnnotationParams(self, k, tn, out);
+      xn_Cls_CGen_collectTypeUses(self, k, xn_concat(tn, rt_string_from_c("#return")), xn_declPackageOf(cls), out);
+      xn_arr_o * mps = xn_Cls_CGen_paramsOf(self, k);
+      int64_t mpi = xn_int_wrap(0);
+      while ((mpi < ((int64_t)mps->len))) {
+        xn_Cls_CGen_collectTypeUses(self, ((xn_Cls_AstNode *)xn_arr_o_get(mps, mpi)), xn_concat(xn_concat(tn, rt_string_from_c("#")), xn_str_int(mpi)), xn_declPackageOf(cls), out);
+        mpi = xn_int_wrap((mpi + 1));
+      }
+      xn_Cls_CGen_collectTypeUseLocals(self, k, tn, xn_declPackageOf(cls), out);
     }
     if (xn_str_eq(k->kind, rt_string_from_c("Deinit"))) {
       xn_Cls_CGen_collectAnnotationUses(self, k, rt_string_from_c("Deinit"), xn_concat(owner, rt_string_from_c("#deinit()")), out);
@@ -13815,6 +13944,7 @@ static void xn_Cls_CGen_collectAnnotationClass(xn_Cls_CGen *self, xn_Cls_AstNode
       xn_arr_s * parts = xn_str_split(k->text, rt_string_from_c(" "));
       if ((((int64_t)parts->len) >= 2)) {
         xn_Cls_CGen_collectAnnotationUses(self, k, rt_string_from_c("Field"), xn_concat(xn_concat(owner, rt_string_from_c("#")), xn_arr_s_get(parts, 1)), out);
+        xn_Cls_CGen_collectTypeUses(self, k, xn_concat(xn_concat(owner, rt_string_from_c("#")), xn_arr_s_get(parts, 1)), xn_declPackageOf(cls), out);
       }
     }
     i = xn_int_wrap((i + 1));
@@ -13868,6 +13998,14 @@ static xn_arr_o * xn_Cls_CGen_collectGeneratedAnnotations(xn_Cls_CGen *self) {
       rt_string * tn = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(owner, rt_string_from_c("#")), n->text), rt_string_from_c("(")), xn_Cls_CGen_annotationParamTypes(self, n)), rt_string_from_c(")"));
       xn_Cls_CGen_collectAnnotationUses(self, n, rt_string_from_c("Method"), tn, out);
       xn_Cls_CGen_collectAnnotationParams(self, n, tn, out);
+      xn_Cls_CGen_collectTypeUses(self, n, xn_concat(tn, rt_string_from_c("#return")), pkg, out);
+      xn_arr_o * fps = xn_Cls_CGen_paramsOf(self, n);
+      int64_t fpi = xn_int_wrap(0);
+      while ((fpi < ((int64_t)fps->len))) {
+        xn_Cls_CGen_collectTypeUses(self, ((xn_Cls_AstNode *)xn_arr_o_get(fps, fpi)), xn_concat(xn_concat(tn, rt_string_from_c("#")), xn_str_int(fpi)), pkg, out);
+        fpi = xn_int_wrap((fpi + 1));
+      }
+      xn_Cls_CGen_collectTypeUseLocals(self, n, tn, pkg, out);
     }
     if (xn_str_eq(n->kind, rt_string_from_c("TopField"))) {
       xn_arr_s * parts = xn_str_split(n->text, rt_string_from_c(" "));
@@ -13907,7 +14045,7 @@ static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_Ast
   }
   xn_Cls_AstNode * nestedDecl = xn_Cls_CGen_annotationFindDeclFor(self, expected, rootPackageName);
   if (((!xn_str_eq(nestedDecl->kind, rt_string_from_c("None"))) && xn_str_eq(n->kind, rt_string_from_c("AnnotationUse")))) {
-    rt_string * info = xn_Cls_CGen_emitAnnotationInfo(self, n, nestedDecl, rt_string_from_c("Annotation"), xn_Cls_CGen_annotationQualified(self, expected), 1, indent);
+    rt_string * info = xn_Cls_CGen_emitAnnotationInfo(self, n, nestedDecl, xn_Cls_CGen_annotationQualified(self, expected), rt_string_from_c("Annotation"), xn_Cls_CGen_annotationQualified(self, expected), 1, indent);
     rt_string * nestedValue = xn_Cls_CGen_temp(self);
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_Cls_AnnotationValue *")), nestedValue), rt_string_from_c(" = xn_Cls_AnnotationValue_ofAnnotation(")), info), rt_string_from_c(");")));
     return nestedValue;
@@ -13974,7 +14112,7 @@ static rt_string * xn_Cls_CGen_emitAnnotationValue(xn_Cls_CGen *self, xn_Cls_Ast
   return value;
 }
 
-static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent) {
+static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstNode * use, xn_Cls_AstNode * decl, rt_string * typeName, rt_string * target, rt_string * targetName, int64_t repeatIndex, rt_string * indent) {
   xn_arr_o * fields = xn_Cls_CGen_annotationFields(self, decl);
   rt_string * values = xn_Cls_CGen_temp(self);
   xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_map_g *")), values), rt_string_from_c(" = xn_map_g_new(")), xn_str_int(((int64_t)fields->len))), rt_string_from_c(", 1, 0);")));
@@ -13999,11 +14137,7 @@ static rt_string * xn_Cls_CGen_emitAnnotationInfo(xn_Cls_CGen *self, xn_Cls_AstN
     i = xn_int_wrap((i + 1));
   }
   rt_string * info = xn_Cls_CGen_temp(self);
-  rt_string * useName = use->text;
-  if ((!xn_str_eq(use->resolvedAnnotationName, rt_string_from_c("")))) {
-    useName = use->resolvedAnnotationName;
-  }
-  xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_Cls_AnnotationInfo *")), info), rt_string_from_c(" = xn_Cls_AnnotationInfo_new(rt_string_from_c(")), xn_cStringLiteral(xn_Cls_CGen_annotationQualified(self, useName))), rt_string_from_c("), xn_enum_AnnotationTarget_")), target), rt_string_from_c(", rt_string_from_c(")), xn_cStringLiteral(targetName)), rt_string_from_c("), ")), values), rt_string_from_c(", ")), xn_str_int(repeatIndex)), rt_string_from_c(");")));
+  xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(indent, rt_string_from_c("xn_Cls_AnnotationInfo *")), info), rt_string_from_c(" = xn_Cls_AnnotationInfo_new(rt_string_from_c(")), xn_cStringLiteral(typeName)), rt_string_from_c("), xn_enum_AnnotationTarget_")), target), rt_string_from_c(", rt_string_from_c(")), xn_cStringLiteral(targetName)), rt_string_from_c("), ")), values), rt_string_from_c(", ")), xn_str_int(repeatIndex)), rt_string_from_c(");")));
   return info;
 }
 
@@ -14020,7 +14154,7 @@ static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self) {
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)uses->len))) {
     xn_Cls_AnnotationUseMeta * use = ((xn_Cls_AnnotationUseMeta *)xn_arr_o_get(uses, i));
-    rt_string * info = xn_Cls_CGen_emitAnnotationInfo(self, use->use, use->decl, use->target, use->targetName, use->repeatIndex, rt_string_from_c("    "));
+    rt_string * info = xn_Cls_CGen_emitAnnotationInfo(self, use->use, use->decl, use->typeName, use->target, use->targetName, use->repeatIndex, rt_string_from_c("    "));
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("    xn_arr_o_push(items, (void *)"), info), rt_string_from_c(");")));
     i = xn_int_wrap((i + 1));
   }
@@ -15536,6 +15670,127 @@ static void xn_loadSiblings(rt_string * path, xn_Cls_AstNode * program) {
   }
 }
 
+static rt_string * xn_simpleTypeUseName(rt_string * name) {
+  int64_t last = xn_int_wrap(xn_int_wrap(-(1)));
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)name->len))) {
+    if (xn_str_eq(xn_str_substr(name, i, 1), rt_string_from_c("."))) {
+      last = i;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  if ((last >= 0)) {
+    return xn_str_substr(name, xn_int_wrap((last + 1)), xn_int_wrap((xn_int_wrap((((int64_t)name->len) - last)) - 1)));
+  }
+  return name;
+}
+
+static rt_string * xn_targetPath(xn_Cls_AstNode * n) {
+  if (xn_str_eq(n->kind, rt_string_from_c("Name"))) {
+    return n->text;
+  }
+  if ((xn_str_eq(n->kind, rt_string_from_c("Member")) && (((int64_t)n->kids->len) > 0))) {
+    rt_string * b = xn_targetPath(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, 0)));
+    if (xn_str_eq(b, rt_string_from_c(""))) {
+      return n->text;
+    }
+    return xn_concat(xn_concat(b, rt_string_from_c(".")), n->text);
+  }
+  return n->text;
+}
+
+static xn_arr_s * xn_annotationTargetSet(xn_Cls_AstNode * program, rt_string * useText) {
+  xn_arr_s *targets = xn_arr_s_new(0);
+  rt_string * simple = xn_simpleTypeUseName(useText);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * d = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if ((xn_str_eq(d->kind, rt_string_from_c("AnnotationDecl")) && xn_str_eq(d->text, simple))) {
+      int64_t j = xn_int_wrap(0);
+      while ((j < ((int64_t)d->annotations->len))) {
+        xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(d->annotations, j));
+        if (xn_str_eq(xn_simpleTypeUseName(use->text), rt_string_from_c("Target"))) {
+          int64_t k = xn_int_wrap(0);
+          while ((k < ((int64_t)use->kids->len))) {
+            xn_Cls_AstNode * arg = ((xn_Cls_AstNode *)xn_arr_o_get(use->kids, k));
+            if ((((int64_t)arg->kids->len) > 0)) {
+              rt_string * p = xn_targetPath(((xn_Cls_AstNode *)xn_arr_o_get(arg->kids, 0)));
+              if ((!xn_str_eq(p, rt_string_from_c("")))) {
+                xn_arr_s_push(targets, xn_simpleTypeUseName(p));
+              }
+            }
+            k = xn_int_wrap((k + 1));
+          }
+        }
+        j = xn_int_wrap((j + 1));
+      }
+      return targets;
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return targets;
+}
+
+static int xn_typeUsePosition(xn_Cls_AstNode * n) {
+  return ((((((xn_str_eq(n->kind, rt_string_from_c("Field")) || xn_str_eq(n->kind, rt_string_from_c("Param"))) || xn_str_eq(n->kind, rt_string_from_c("Ret"))) || xn_str_eq(n->kind, rt_string_from_c("Local"))) || xn_str_eq(n->kind, rt_string_from_c("Method"))) || xn_str_eq(n->kind, rt_string_from_c("Func"))) || xn_str_eq(n->kind, rt_string_from_c("Sig")));
+}
+
+static void xn_splitTypeUseAnnotationsIn(xn_Cls_AstNode * n, xn_Cls_AstNode * program) {
+  if ((((int64_t)n->annotations->len) > 0)) {
+    xn_arr_o *keep = xn_arr_o_new(0);
+    int64_t i = xn_int_wrap(0);
+    while ((i < ((int64_t)n->annotations->len))) {
+      xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(n->annotations, i));
+      xn_arr_s * targets = xn_annotationTargetSet(program, use->text);
+      int hasTypeUse = 0;
+      int64_t t = xn_int_wrap(0);
+      while ((t < ((int64_t)targets->len))) {
+        if (xn_str_eq(xn_arr_s_get(targets, t), rt_string_from_c("TypeUse"))) {
+          hasTypeUse = 1;
+        }
+        t = xn_int_wrap((t + 1));
+      }
+      if ((hasTypeUse && (((int64_t)targets->len) == 1))) {
+        if (xn_typeUsePosition(n)) {
+          xn_arr_o_push(n->typeAnnotations, use);
+        }
+        else {
+          xn_arr_o_push(keep, use);
+        }
+      }
+      else {
+        if ((hasTypeUse && (((int64_t)targets->len) > 1))) {
+          if (xn_typeUsePosition(n)) {
+            use->annotationError = xn_concat(xn_concat(rt_string_from_c("ambiguous annotation @"), use->text), rt_string_from_c(": TypeUse and declaration targets; split it or remove one target"));
+          }
+          xn_arr_o_push(keep, use);
+        }
+        else {
+          xn_arr_o_push(keep, use);
+        }
+      }
+      i = xn_int_wrap((i + 1));
+    }
+    n->annotations = keep;
+  }
+  int64_t k = xn_int_wrap(0);
+  while ((k < ((int64_t)n->kids->len))) {
+    xn_splitTypeUseAnnotationsIn(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, k)), program);
+    k = xn_int_wrap((k + 1));
+  }
+}
+
+static void xn_splitTypeUseAnnotations(xn_Cls_AstNode * program) {
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)program->kids->len))) {
+    xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(program->kids, i));
+    if (((!xn_str_eq(n->kind, rt_string_from_c("Package"))) && (!xn_str_eq(n->kind, rt_string_from_c("Import"))))) {
+      xn_splitTypeUseAnnotationsIn(n, program);
+    }
+    i = xn_int_wrap((i + 1));
+  }
+}
+
 static rt_string * xn_annotationCandidates(rt_string * simple) {
   rt_string * result = rt_string_from_c("");
   int64_t i = xn_int_wrap(0);
@@ -15635,6 +15890,13 @@ static void xn_resolveAnnotationTree(xn_Cls_AstNode * n, rt_string * ownerPkg) {
     i = xn_int_wrap((i + 1));
   }
   i = 0;
+  while ((i < ((int64_t)n->typeAnnotations->len))) {
+    xn_Cls_AstNode * use = ((xn_Cls_AstNode *)xn_arr_o_get(n->typeAnnotations, i));
+    xn_resolveAnnotationUse(use, ownerPkg);
+    xn_resolveAnnotationTree(use, ownerPkg);
+    i = xn_int_wrap((i + 1));
+  }
+  i = 0;
   while ((i < ((int64_t)n->kids->len))) {
     xn_resolveAnnotationTree(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)), ownerPkg);
     i = xn_int_wrap((i + 1));
@@ -15710,6 +15972,7 @@ static xn_Cls_AstNode * xn_loadProgram(rt_string * entry, rt_string * root) {
     }
     i = xn_int_wrap((i + 1));
   }
+  xn_splitTypeUseAnnotations(program);
   xn_resolveAnnotationUses(program);
   xn_Cls_Mono * mono = xn_Cls_Mono_new(program);
   return xn_Cls_Mono_run(mono);

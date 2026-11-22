@@ -4,15 +4,12 @@ The target-name table contains all 11 names:
 `Package`, `Type`, `Annotation`, `TypeParameter`, `Field`, `Method`,
 `Constructor`, `Deinit`, `Parameter`, `TypeUse`, `EnumItem`.
 
-`Deinit` now has a legal mount site (`class`/`singleton` `deinit`); see
+`Deinit` has a legal mount site (`class` `deinit`); see
 `src/mini/tests/deinit/deinit_registry.x`.
 
-One name has no legal mount site in the current language surface:
+`TypeUse` has legal mount sites (field/parameter/return/local types) via the
+prefix form `@Foo Type`; see `src/mini/tests/typeuse/`.
 
-| Target | Status | Dependency |
-| --- | --- | --- |
-| `TypeUse` | BLOCKED | S2 must define explicit type-use annotation positions; mini has no such syntax yet. |
-
-`@Target(TypeUse)` is still accepted as a valid target name (`AN0009` does not
-fire); applying it to an existing declaration is rejected with `AN0002`.
-B1 does not claim that all 11 targets are mountable until TypeUse exists.
+All 11 target names now have at least one legal mount site. `@Target(TypeUse)`
+must still be explicit, and a declaration-only annotation is not reinterpreted
+as a type-use annotation.

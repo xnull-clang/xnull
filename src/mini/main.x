@@ -44,7 +44,8 @@ class AstNode {
     final List<AstNode> kids
     // Annotation uses attached to this declaration/member.  They are kept
     // outside `kids` so existing semantic/codegen passes keep their shape.
-    final List<AstNode> annotations
+    List<AstNode> annotations
+    List<AstNode> typeAnnotations
     String packageName
     String resolvedAnnotationName
     String annotationError
@@ -56,6 +57,7 @@ class AstNode {
         self.col = col
         self.kids = []
         self.annotations = []
+        self.typeAnnotations = []
         self.packageName = ""
         self.resolvedAnnotationName = ""
         self.annotationError = ""
@@ -107,6 +109,14 @@ class AstNode {
             AstNode ann = annotations.get(ai)
             ann.dump(depth + 1)
             ai = ai + 1
+        }
+        if typeAnnotations.length() > 0 {
+            print(pad + "  TypeUse")
+            Int ti = 0
+            while ti < typeAnnotations.length() {
+                typeAnnotations.get(ti).dump(depth + 2)
+                ti = ti + 1
+            }
         }
         Int j = 0
         while j < kids.length() {
@@ -2080,6 +2090,7 @@ class Mono {
         clone.packageName = cls.packageName
         clone.resolvedAnnotationName = cls.resolvedAnnotationName
         clone.annotationError = cls.annotationError
+        clone.typeAnnotations = cls.typeAnnotations
         i = 0
         while i < cls.annotations.length() {
             clone.annotate(cls.annotations.get(i))
@@ -2212,6 +2223,7 @@ class Mono {
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -2273,6 +2285,7 @@ class Mono {
         clone.packageName = fn.packageName
         clone.resolvedAnnotationName = fn.resolvedAnnotationName
         clone.annotationError = fn.annotationError
+        clone.typeAnnotations = fn.typeAnnotations
         i = 0
         while i < fn.annotations.length() {
             clone.annotate(fn.annotations.get(i))
@@ -3035,6 +3048,7 @@ class Mono {
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
         Int ai = 0
         while ai < n.annotations.length() {
             c.annotate(n.annotations.get(ai))
@@ -3104,6 +3118,7 @@ class Mono {
         c.packageName = n.packageName
         c.resolvedAnnotationName = n.resolvedAnnotationName
         c.annotationError = n.annotationError
+        c.typeAnnotations = n.typeAnnotations
         if n.kind == "Name" && n.text == "self" { c.text = "__self" }
         if n.kind == "Call" && n.text.startsWith("self.") { c.text = "__self." + n.text.substring(5, n.text.length() - 5) }
         Int i = 0
@@ -3945,12 +3960,21 @@ class AnnotationChecker {
         Int i = 0
         while i < owner.annotations.length() && !self.hasError() {
             AstNode use = owner.annotations.get(i)
-            self.validateUse(use, target, owner, scope, i)
+            self.validateUse(use, target, owner, owner.annotations, scope, i)
             i = i + 1
         }
     }
 
-    Void validateUse(AstNode use, String target, AstNode owner, AstNode scope, Int index) {
+    Void validateTypeUses(AstNode owner, AstNode scope) {
+        Int i = 0
+        while i < owner.typeAnnotations.length() && !self.hasError() {
+            AstNode use = owner.typeAnnotations.get(i)
+            self.validateUse(use, "TypeUse", owner, owner.typeAnnotations, scope, i)
+            i = i + 1
+        }
+    }
+
+    Void validateUse(AstNode use, String target, AstNode owner, List<AstNode> uses, AstNode scope, Int index) {
         if use.annotationError != "" {
             self.failAt("AN0001", use.annotationError, use, scope)
             return
@@ -3991,8 +4015,8 @@ class AnnotationChecker {
         }
         Int dup = 0
         Int j = 0
-        while j < index {
-            if owner.annotations.get(j).text == name {
+        while j < index && j < uses.length() {
+            if uses.get(j).text == name {
                 dup = dup + 1
             }
             j = j + 1
@@ -4077,7 +4101,7 @@ class AnnotationChecker {
                 } else if !self.accepts(t.fieldTypes.get(k), v) {
                     self.failAt("AN0006", "argument " + str(k + 1) + " of @" + name + " expects " + t.fieldTypes.get(k), use, scope)
                 } else if v.kind == "AnnotationUse" {
-                    self.validateUse(v, "", v, scope, 0)
+                    self.validateUse(v, "", v, v.annotations, scope, 0)
                 }
             } else if t.fieldRequired.get(k) == "1" {
                 self.failAt("AN0004", "missing required argument " + t.fieldNames.get(k) + " for @" + name, use, scope)
@@ -4179,7 +4203,7 @@ class AnnotationChecker {
         }
         if n.kind == "AnnotatedExpr" {
             if n.kids.length() > 0 {
-                self.validateUse(n.kids.get(0), "Expression", n, n, 0)
+                self.validateUse(n.kids.get(0), "Expression", n, n.annotations, n, 0)
             }
             if n.kids.length() > 1 {
                 self.checkExpr(n.kids.get(1), n)
@@ -4223,6 +4247,7 @@ class AnnotationChecker {
         }
         if target != "AnnotationField" {
             self.validateUses(n, t, n)
+            self.validateTypeUses(n, n)
         }
         if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
             Int i = 0
@@ -11625,6 +11650,62 @@ class CGen {
         return self.annotationQualifiedFor(name, rootPackageName)
     }
 
+    String typeTextOf(AstNode n) {
+        if n.kind == "Ret" { return n.text }
+        if n.kind == "Method" || n.kind == "Func" || n.kind == "Sig" { return self.retNode(n).text }
+        List<String> parts = n.text.split(" ")
+        if parts.length() >= 1 { return parts.get(0) }
+        return n.text
+    }
+
+    Bool knownTypeName(String ty) {
+        if self.isClass(ty) { return true }
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if (n.kind == "Enum" || n.kind == "Protocol") && n.text == ty { return true }
+            i = i + 1
+        }
+        return false
+    }
+
+    String qualifiedTypeName(String ty, String ownerPkg) {
+        if ty == "" || ty.indexOf(".") >= 0 { return ty }
+        if self.knownTypeName(ty) && ownerPkg != "" { return ownerPkg + "." + ty }
+        return ty
+    }
+
+    Void collectTypeUses(AstNode node, String targetName, String ownerPkg,
+                         List<AnnotationUseMeta> out) {
+        String typeName = self.qualifiedTypeName(self.typeTextOf(node), ownerPkg)
+        Int i = 0
+        while i < node.typeAnnotations.length() {
+            AstNode use = node.typeAnnotations.get(i)
+            String useName = use.text
+            if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
+            AstNode decl = self.annotationFindDeclFor(useName, ownerPkg)
+            if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
+                out.push(new AnnotationUseMeta(use, decl, typeName, "TypeUse", targetName, i + 1))
+            }
+            i = i + 1
+        }
+    }
+
+    Void collectTypeUseLocals(AstNode n, String methodOwner, String ownerPkg,
+                              List<AnnotationUseMeta> out) {
+        if n.kind == "Local" && n.typeAnnotations.length() > 0 {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 {
+                self.collectTypeUses(n, methodOwner + "#local:" + parts.get(1), ownerPkg, out)
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectTypeUseLocals(n.kids.get(i), methodOwner, ownerPkg, out)
+            i = i + 1
+        }
+    }
+
     String annotationStringText(AstNode n) {
         if n.kind != "String" {
             return ""
@@ -11838,11 +11919,26 @@ class CGen {
                 String tn = owner + "#<init>(" + self.annotationParamTypes(k) + ")"
                 self.collectAnnotationUses(k, "Constructor", tn, out)
                 self.collectAnnotationParams(k, tn, out)
+                List<AstNode> cps = self.paramsOf(k)
+                Int cpi = 0
+                while cpi < cps.length() {
+                    self.collectTypeUses(cps.get(cpi), tn + "#" + str(cpi), declPackageOf(cls), out)
+                    cpi = cpi + 1
+                }
+                self.collectTypeUseLocals(k, tn, declPackageOf(cls), out)
             }
             if k.kind == "Method" {
                 String tn = owner + "#" + k.text + "(" + self.annotationParamTypes(k) + ")"
                 self.collectAnnotationUses(k, "Method", tn, out)
                 self.collectAnnotationParams(k, tn, out)
+                self.collectTypeUses(k, tn + "#return", declPackageOf(cls), out)
+                List<AstNode> mps = self.paramsOf(k)
+                Int mpi = 0
+                while mpi < mps.length() {
+                    self.collectTypeUses(mps.get(mpi), tn + "#" + str(mpi), declPackageOf(cls), out)
+                    mpi = mpi + 1
+                }
+                self.collectTypeUseLocals(k, tn, declPackageOf(cls), out)
             }
             if k.kind == "Deinit" {
                 self.collectAnnotationUses(k, "Deinit", owner + "#deinit()", out)
@@ -11851,6 +11947,7 @@ class CGen {
                 List<String> parts = k.text.split(" ")
                 if parts.length() >= 2 {
                     self.collectAnnotationUses(k, "Field", owner + "#" + parts.get(1), out)
+                    self.collectTypeUses(k, owner + "#" + parts.get(1), declPackageOf(cls), out)
                 }
             }
             i = i + 1
@@ -11904,6 +12001,14 @@ class CGen {
                 String tn = owner + "#" + n.text + "(" + self.annotationParamTypes(n) + ")"
                 self.collectAnnotationUses(n, "Method", tn, out)
                 self.collectAnnotationParams(n, tn, out)
+                self.collectTypeUses(n, tn + "#return", pkg, out)
+                List<AstNode> fps = self.paramsOf(n)
+                Int fpi = 0
+                while fpi < fps.length() {
+                    self.collectTypeUses(fps.get(fpi), tn + "#" + str(fpi), pkg, out)
+                    fpi = fpi + 1
+                }
+                self.collectTypeUseLocals(n, tn, pkg, out)
             }
             if n.kind == "TopField" {
                 List<String> parts = n.text.split(" ")
@@ -11947,6 +12052,7 @@ class CGen {
             String info = self.emitAnnotationInfo(
                 n,
                 nestedDecl,
+                self.annotationQualified(expected),
                 "Annotation",
                 self.annotationQualified(expected),
                 1,
@@ -12023,7 +12129,7 @@ class CGen {
         return value
     }
 
-    String emitAnnotationInfo(AstNode use, AstNode decl, String target,
+    String emitAnnotationInfo(AstNode use, AstNode decl, String typeName, String target,
                               String targetName, Int repeatIndex, String indent) {
         List<AstNode> fields = self.annotationFields(decl)
         String values = self.temp()
@@ -12047,11 +12153,9 @@ class CGen {
             i = i + 1
         }
         String info = self.temp()
-        String useName = use.text
-        if use.resolvedAnnotationName != "" { useName = use.resolvedAnnotationName }
         self.emit(indent + "xn_Cls_AnnotationInfo *" + info +
             " = xn_Cls_AnnotationInfo_new(rt_string_from_c(" +
-            cStringLiteral(self.annotationQualified(useName)) + "), xn_enum_AnnotationTarget_" +
+            cStringLiteral(typeName) + "), xn_enum_AnnotationTarget_" +
             target + ", rt_string_from_c(" + cStringLiteral(targetName) + "), " +
             values + ", " + str(repeatIndex) + ");")
         return info
@@ -12074,6 +12178,7 @@ class CGen {
             String info = self.emitAnnotationInfo(
                 use.use,
                 use.decl,
+                use.typeName,
                 use.target,
                 use.targetName,
                 use.repeatIndex,
@@ -13513,6 +13618,111 @@ static Void loadSiblings(String path, AstNode program) {
     }
 }
 
+static String simpleTypeUseName(String name) {
+    Int last = -1
+    Int i = 0
+    while i < name.length() {
+        if name.substring(i, 1) == "." { last = i }
+        i = i + 1
+    }
+    if last >= 0 { return name.substring(last + 1, name.length() - last - 1) }
+    return name
+}
+
+static String targetPath(AstNode n) {
+    if n.kind == "Name" { return n.text }
+    if n.kind == "Member" && n.kids.length() > 0 {
+        String b = targetPath(n.kids.get(0))
+        if b == "" { return n.text }
+        return b + "." + n.text
+    }
+    return n.text
+}
+
+static List<String> annotationTargetSet(AstNode program, String useText) {
+    List<String> targets = []
+    String simple = simpleTypeUseName(useText)
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode d = program.kids.get(i)
+        if d.kind == "AnnotationDecl" && d.text == simple {
+            Int j = 0
+            while j < d.annotations.length() {
+                AstNode use = d.annotations.get(j)
+                if simpleTypeUseName(use.text) == "Target" {
+                    Int k = 0
+                    while k < use.kids.length() {
+                        AstNode arg = use.kids.get(k)
+                        if arg.kids.length() > 0 {
+                            String p = targetPath(arg.kids.get(0))
+                            if p != "" { targets.push(simpleTypeUseName(p)) }
+                        }
+                        k = k + 1
+                    }
+                }
+                j = j + 1
+            }
+            return targets
+        }
+        i = i + 1
+    }
+    return targets
+}
+
+static Bool typeUsePosition(AstNode n) {
+    return n.kind == "Field" || n.kind == "Param" || n.kind == "Ret" ||
+        n.kind == "Local" || n.kind == "Method" || n.kind == "Func" || n.kind == "Sig"
+}
+
+static Void splitTypeUseAnnotationsIn(AstNode n, AstNode program) {
+    if n.annotations.length() > 0 {
+        List<AstNode> keep = []
+        Int i = 0
+        while i < n.annotations.length() {
+            AstNode use = n.annotations.get(i)
+            List<String> targets = annotationTargetSet(program, use.text)
+            Bool hasTypeUse = false
+            Int t = 0
+            while t < targets.length() {
+                if targets.get(t) == "TypeUse" { hasTypeUse = true }
+                t = t + 1
+            }
+            if hasTypeUse && targets.length() == 1 {
+                if typeUsePosition(n) {
+                    n.typeAnnotations.push(use)
+                } else {
+                    keep.push(use)
+                }
+            } else if hasTypeUse && targets.length() > 1 {
+                if typeUsePosition(n) {
+                    use.annotationError = "ambiguous annotation @" + use.text + ": TypeUse and declaration targets; split it or remove one target"
+                }
+                keep.push(use)
+            } else {
+                keep.push(use)
+            }
+            i = i + 1
+        }
+        n.annotations = keep
+    }
+    Int k = 0
+    while k < n.kids.length() {
+        splitTypeUseAnnotationsIn(n.kids.get(k), program)
+        k = k + 1
+    }
+}
+
+static Void splitTypeUseAnnotations(AstNode program) {
+    Int i = 0
+    while i < program.kids.length() {
+        AstNode n = program.kids.get(i)
+        if n.kind != "Package" && n.kind != "Import" {
+            splitTypeUseAnnotationsIn(n, program)
+        }
+        i = i + 1
+    }
+}
+
 static String annotationCandidates(String simple) {
     String result = ""
     Int i = 0
@@ -13595,6 +13805,13 @@ static Void resolveAnnotationTree(AstNode n, String ownerPkg) {
         i = i + 1
     }
     i = 0
+    while i < n.typeAnnotations.length() {
+        AstNode use = n.typeAnnotations.get(i)
+        resolveAnnotationUse(use, ownerPkg)
+        resolveAnnotationTree(use, ownerPkg)
+        i = i + 1
+    }
+    i = 0
     while i < n.kids.length() {
         resolveAnnotationTree(n.kids.get(i), ownerPkg)
         i = i + 1
@@ -13668,6 +13885,7 @@ static AstNode loadProgram(String entry, String root) {
         }
         i = i + 1
     }
+    splitTypeUseAnnotations(program)
     resolveAnnotationUses(program)
     Mono mono = new Mono(program)
     return mono.run()

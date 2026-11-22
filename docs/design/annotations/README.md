@@ -234,7 +234,7 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 | G4 | 注解声明模型 | `@annotation` 字段/默认值/常量类型不在本包 14 类型内 | 编译器内部模型；需要单独设计文档或语言规范章节 |
 | G5 | 保留策略执行 | `AnnotationRegistry` 不判断保留策略 | 生成器负责过滤；需要生成器规范 |
 | G6 | 注册表格式版本 | B2.3 定义 v1：`xdkAnnotationRegistryVersion() == 1`，扁平 `AnnotationInfo` 列表按目标分组 | 已定义 |
-| G7 | `TypeParameter`/`TypeUse`/`Deinit` 运行时查询 | 只有 `ofTarget` 通用入口，无专用便捷方法 | 若领域需要，后续版本增加专用方法；当前不扩 API |
+| G7 | `TypeParameter`/`TypeUse`/`Deinit` 运行时查询 | `TypeUse`/`Deinit` 已由编译器生成条目，通过 `ofTarget` 通用入口查询；无专用便捷方法 | 若领域需要，后续版本增加专用方法；当前不扩 API |
 | G8 | 处理器依赖/轮次 API | 本包只定义阶段与上下文，不定义依赖图 | 构建系统/调度器设计负责 |
 | G9 | 值树深比较 | `AnnotationValue`/`AnnotationInfo`/`AnnotationSet` 无 `equals` | 需要确定性哈希/比较时增加专用比较器，不把 `==` 当值比较 |
 | G10 | 领域注解矩阵 | 各层注解清单不在本包 | 各领域包 README 维护；本包只冻结元模型 |
