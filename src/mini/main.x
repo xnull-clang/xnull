@@ -2781,6 +2781,24 @@ class Mono {
         if pattern.indexOf("(") >= 0 && actual == "Any" {
             return true
         }
+        Int pparen = pattern.indexOf("(")
+        Int aparen = actual.indexOf("(")
+        if pparen > 0 && aparen > 0 {
+            String pret = pattern.substring(0, pparen).trim()
+            String aret = actual.substring(0, aparen).trim()
+            if !self.inferTypePattern(pret, aret, names, inferred) { return false }
+            String pin = pattern.substring(pparen + 1, pattern.length() - pparen - 2)
+            String ain = actual.substring(aparen + 1, actual.length() - aparen - 2)
+            List<String> pps = splitTop(pin)
+            List<String> aps = splitTop(ain)
+            if pps.length() != aps.length() { return false }
+            Int fi = 0
+            while fi < pps.length() {
+                if !self.inferTypePattern(pps.get(fi).trim(), aps.get(fi).trim(), names, inferred) { return false }
+                fi = fi + 1
+            }
+            return true
+        }
         Int gp = pattern.indexOf("<")
         if gp > 0 && actual.startsWith(pattern.substring(0, gp) + "__") {
             String suffix = actual.substring(gp + 2, actual.length() - gp - 2)
@@ -3080,12 +3098,19 @@ class Mono {
 
     AstNode rewriteGenericMethodCall(AstNode n) {
         String className = ""
+        String classArgsText = ""
         AstNode recv = new AstNode("None", "", n.line, n.col)
         Bool methodCall = n.kind == "MethodCall"
+        Bool receiverInKids = n.kind == "MethodCall"
         if methodCall && n.kids.length() > 0 {
             recv = n.kids.get(0)
             String rt = self.simpleExprType(recv)
             if rt != "Any" {
+                if rt.startsWith("Box<") || rt.indexOf("<") > 0 {
+                    classArgsText = self.joinTypeArgs(self.genericArgsOf(rt))
+                } else if rt.indexOf("__") > 0 {
+                    classArgsText = rt.substring(rt.indexOf("__") + 2, rt.length() - rt.indexOf("__") - 2).replace("_", ",")
+                }
                 className = self.genericBase(rt)
                 Int uu = className.indexOf("__")
                 if uu > 0 {
@@ -3122,15 +3147,22 @@ class Mono {
         }
         if !self.isGenericMethod(className, originalName) { return n }
         Bool isStatic = self.isGenericMethodStatic(className, originalName)
-        AstNode call = new AstNode("Call", self.gmName(className, originalName), n.line, n.col)
+        String gname = self.gmName(className, originalName)
+        AstNode call = new AstNode("Call", gname, n.line, n.col)
         Int start = 0
         if methodCall {
             if !isStatic { call.add(recv) }
-            start = 1
+            if receiverInKids { start = 1 }
         }
         if start < n.kids.length() && n.kids.get(start).kind == "TypeArgs" {
-            call.kind = "GenericCall"
-            call.add(n.kids.get(start))
+            String explicitArgs = n.kids.get(start).text
+            String combinedArgs = explicitArgs
+            if classArgsText != "" { combinedArgs = classArgsText + "," + explicitArgs }
+            AstNode gf = self.findGeneric(gname)
+            if gf.kind == "Func" {
+                String sname = self.specialize(gf, splitTop(combinedArgs))
+                if sname != "" { call.text = sname }
+            }
             start = start + 1
         }
         while start < n.kids.length() { call.add(n.kids.get(start)); start = start + 1 }
