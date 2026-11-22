@@ -16,6 +16,7 @@ grep -q '"symbols":{"types":' "$TMP/actual.json"
 cmp "$TMP/actual.json" "$TMP/actual2.json"
 printf '%s\n' '{"irVersion":1,"declarations":[],"uses":[]}' > "$TMP/v1.json"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["irVersion"] == 1 and "symbols" not in d' "$TMP/v1.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["irVersion"] == 2; assert all(x["irVersion"] == 2 for x in d["declarations"])' "$TMP/actual.json"
 if grep -q "$ROOT" "$TMP/actual.json"; then
     echo "annotation_ir: absolute path leaked into JSON" >&2
     exit 1
