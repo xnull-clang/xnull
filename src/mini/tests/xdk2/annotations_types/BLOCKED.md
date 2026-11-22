@@ -39,6 +39,6 @@
 
 | 项 | 状态 | 证据/影响 |
 | --- | --- | --- |
-| `Deinit` 源语法 | BLOCKED（继承 B1） | mini 不解析 `deinit` 声明；注册表 key 已支持 `deinit:`，但无法从源码生成 `Deinit` 条目。见 `../annotations/BLOCKED.md`。 |
+| `Deinit` 源语法 | 已支持 | `class` 的 `deinit()` 解析为 `Deinit` 节点，注册表用 `owner#deinit()`；见 `src/mini/tests/deinit/deinit_registry.x`。 |
 | 导入包的注解全限定名 | 限制 | mini 合并 AST 时丢弃被导入文件的 `Package` 节点；B2.3 的生成 `typeName` 对同包声明加当前包前缀，对跨包注解无法恢复其声明包。当前 B1 注解解析也只按简单名解析。 |
 | 生成入口的编译期形态 | 说明 | `xdkAnnotationRegistry()` / `xdkAnnotationRegistryVersion()` 是编译器生成的 X/C 入口，不是 14 个元模型类型之一；文档已在 `docs/design/annotations/README.md` §5.1 记录。 |

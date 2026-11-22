@@ -443,11 +443,41 @@ class Parser {
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> memberAnns = self.parseAnnotations()
             Bool isStatic = false
+            Bool hasVisibility = false
             while self.at("static") || self.at("final") || self.at("public") || self.at("private") || self.at("protected") {
                 if self.at("static") {
                     isStatic = true
                 }
+                if self.at("public") || self.at("private") || self.at("protected") {
+                    hasVisibility = true
+                }
                 self.advance()
+            }
+            if self.at("deinit") {
+                Token dt = self.advance()
+                if kindName != "Class" {
+                    self.fail("deinit is only allowed in class")
+                    return cls
+                }
+                if isStatic {
+                    self.fail("deinit cannot be static")
+                    return cls
+                }
+                if hasVisibility {
+                    self.fail("deinit cannot have a visibility modifier")
+                    return cls
+                }
+                AstNode d = self.node("Deinit", "", dt)
+                self.expect("(")
+                if !self.hasError() && !self.at(")") {
+                    self.fail("deinit cannot have parameters")
+                    return cls
+                }
+                self.expect(")")
+                d.add(self.parseBlock())
+                self.attachAnnotations(d, memberAnns)
+                cls.add(d)
+                continue
             }
             String ty = self.parseType()
             if self.at("(") && ty == name {
@@ -477,12 +507,20 @@ class Parser {
                 cls.add(ctor)
                 continue
             }
+            if self.at("deinit") {
+                self.fail("deinit cannot declare a return type")
+                break
+            }
             if !self.kind("ident") {
                 self.fail("expected member name")
                 break
             }
             Token mt = self.advance()
             String mn = mt.text
+            if mn == "deinit" {
+                self.fail("deinit cannot declare a return type")
+                return cls
+            }
             Bool hasMethodTypeParams = false
             AstNode methodTypeParams = new AstNode("None", "", mt.line, mt.col)
             if self.at("<") {
@@ -564,6 +602,10 @@ class Parser {
         Bool data = false
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> itemAnns = self.parseAnnotations()
+            if self.at("deinit") {
+                self.fail("deinit is only allowed in class")
+                break
+            }
             if !self.kind("ident") {
                 self.fail("expected enum item")
                 break
@@ -604,6 +646,10 @@ class Parser {
                 while self.at("static") || self.at("final") || self.at("public") ||
                       self.at("private") || self.at("protected") {
                     self.advance()
+                }
+                if self.at("deinit") {
+                    self.fail("deinit is only allowed in class")
+                    break
                 }
                 String ty = self.parseType()
                 if self.at("(") && ty == e.text {
@@ -699,6 +745,10 @@ class Parser {
         self.expect("{")
         while !self.hasError() && !self.at("}") && !self.eof() {
             List<AstNode> sigAnns = self.parseAnnotations()
+            if self.at("deinit") {
+                self.fail("deinit is only allowed in class")
+                break
+            }
             String rt = self.parseType()
             if !self.kind("ident") {
                 self.fail("expected protocol method name")
@@ -4150,6 +4200,8 @@ class AnnotationChecker {
             t = "Method"
         } else if n.kind == "Ctor" {
             t = "Constructor"
+        } else if n.kind == "Deinit" {
+            t = "Deinit"
         } else if n.kind == "Field" {
             t = "Field"
         } else if n.kind == "Param" {
@@ -4172,7 +4224,7 @@ class AnnotationChecker {
         if target != "AnnotationField" {
             self.validateUses(n, t, n)
         }
-        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" {
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
             Int i = 0
             while i < n.kids.length() && !self.hasError() {
                 AstNode k = n.kids.get(i)
@@ -4196,7 +4248,7 @@ class AnnotationChecker {
                         j = j + 1
                     }
                 } else if k.kind == "Field" || k.kind == "Method" || k.kind == "Ctor" ||
-                          k.kind == "EnumItem" || k.kind == "Sig" {
+                          k.kind == "Deinit" || k.kind == "EnumItem" || k.kind == "Sig" {
                     self.checkDecl(k, "")
                 }
                 i = i + 1
@@ -4230,6 +4282,20 @@ class AnnotationChecker {
     Void checkExpr(AstNode n, AstNode owner) {
         if self.hasError() {
             return
+        }
+        if n.kind == "Call" || n.kind == "MethodCall" {
+            String dn = n.text
+            Bool isDeinitCall = dn == "deinit" || dn.endsWith(".deinit")
+            if isDeinitCall {
+                Bool superCall = dn == "super.deinit"
+                if n.kind == "MethodCall" && n.kids.length() > 0 {
+                    superCall = self.pathOf(n.kids.get(0)) == "super"
+                }
+                if !superCall {
+                    self.fail("SEM-001", "deinit cannot be called explicitly", n)
+                    return
+                }
+            }
         }
         if n.kind == "Call" || n.kind == "GenericCall" {
             if self.listHas(self.depFuncs, n.text) {
@@ -4575,6 +4641,7 @@ class Checker {
         self.errorLine = 1
         self.errorCol = 1
         self.curRet = "Unit"
+        self.curClass = ""
     }
 
     Bool hasError() {
@@ -5152,9 +5219,16 @@ class Checker {
 
     Void checkClass(AstNode cls) {
         self.curClass = cls.text
+        Int deinitCount = 0
         Int i = 0
         while i < cls.kids.length() && !self.hasError() {
             AstNode k = cls.kids.get(i)
+            if k.kind == "Deinit" {
+                deinitCount = deinitCount + 1
+                if deinitCount > 1 {
+                    self.fail("SEM-001", "duplicate deinit in " + cls.text, k)
+                }
+            }
             if k.kind == "Field" {
                 List<String> parts = k.text.split(" ")
                 if parts.length() >= 2 {
@@ -5169,7 +5243,7 @@ class Checker {
                     }
                 }
             }
-            if k.kind == "Method" || k.kind == "Ctor" {
+            if k.kind == "Method" || k.kind == "Ctor" || k.kind == "Deinit" {
                 self.checkFunc(k)
             }
             i = i + 1
@@ -5178,7 +5252,7 @@ class Checker {
     }
 
     Void checkFunc(AstNode fn) {
-        if fn.kind == "Ctor" {
+        if fn.kind == "Ctor" || fn.kind == "Deinit" {
             self.curRet = "Unit"
         } else if fn.kind == "Method" {
             self.curRet = self.retOf(fn)
@@ -6559,6 +6633,9 @@ class Checker {
                 self.typeOf(n.kids.get(0))
             }
             return self.curRet
+        }
+        if n.text == "super.deinit" {
+            return "Unit"
         }
         Int dot = lastDot(n.text)
         if dot >= 0 {
@@ -9537,6 +9614,9 @@ class CGen {
             return self.methodType(self.typeOf(n.kids.get(0)), n.text, n)
         }
         if n.kind == "Call" {
+            if n.text == "super.deinit" {
+                return "Unit"
+            }
             if n.text == "xdkAnnotationRegistry" {
                 return "AnnotationRegistry"
             }
@@ -10028,6 +10108,13 @@ class CGen {
             return self.methodExpr(bv, bt, n.text, n, 1)
         }
         if n.kind == "Call" {
+            if n.text == "super.deinit" {
+                AstNode cur = self.classByName(self.curClass)
+                String base = ""
+                if cur.kind != "None" { base = self.baseNameOf(cur) }
+                if base != "" { return "xn_Cls_" + base + "_deinit((void *)self)" }
+                return "((void)0)"
+            }
             Int fvi = self.varIndex(n.text)
             if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
                 return self.closureCall(self.varTypes.get(fvi), self.nameExpr(n.text), n)
@@ -11232,8 +11319,90 @@ class CGen {
         return new AstNode("None", "", cls.line, cls.col)
     }
 
+    AstNode deinitOf(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Deinit" {
+                return cls.kids.get(i)
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", cls.line, cls.col)
+    }
+
+    String baseNameOf(AstNode cls) {
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Base" {
+                return cls.kids.get(i).text
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    AstNode classByName(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" && n.text == name {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    Bool hasSuperDeinitCall(AstNode n) {
+        if n.kind == "Call" && n.text == "super.deinit" {
+            return true
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            if self.hasSuperDeinitCall(n.kids.get(i)) {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Void deinitMethod(AstNode d, String cn) {
+        self.curClass = cn
+        self.curRet = "Unit"
+        self.emit("static void xn_Cls_" + cn + "_deinit(void *payload) {")
+        self.emit("  xn_Cls_" + cn + " *self = (xn_Cls_" + cn + " *)payload;")
+        self.popTo(0)
+        self.addVar(cn, "self")
+        Int i = 0
+        while i < d.kids.length() {
+            AstNode k = d.kids.get(i)
+            if k.kind == "Block" {
+                self.blockBody(k, "  ")
+            }
+            i = i + 1
+        }
+        self.popTo(0)
+        AstNode cur = self.classByName(cn)
+        String base = self.baseNameOf(cur)
+        if base != "" {
+            AstNode bc = self.classByName(base)
+            if bc.kind != "None" && self.deinitOf(bc).kind != "None" && !self.hasSuperDeinitCall(d) {
+                self.emit("  xn_Cls_" + base + "_deinit(payload);")
+            }
+        }
+        self.curClass = ""
+        self.curRet = "Int"
+        self.emit("}")
+        self.emit("")
+    }
+
     Void genClass(AstNode cls) {
         String cn = cls.text
+        AstNode dinit = self.deinitOf(cls)
+        if dinit.kind != "None" {
+            self.emit("static void xn_Cls_" + cn + "_deinit(void *payload);")
+        }
         self.emit("struct xn_Cls_" + cn + " {")
         self.emit("  rt_header hdr;")
         Int i = 0
@@ -11249,7 +11418,11 @@ class CGen {
         }
         self.emit("};")
         self.emit("")
-        self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), NULL, NULL };")
+        String deinitPtr = "NULL"
+        if dinit.kind != "None" {
+            deinitPtr = "xn_Cls_" + cn + "_deinit"
+        }
+        self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), " + deinitPtr + ", NULL };")
         self.emit("")
         AstNode ctor = self.ctorOf(cls)
         String csig = "static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new("
@@ -11347,6 +11520,9 @@ class CGen {
                 self.method(k, cn)
             }
             i = i + 1
+        }
+        if dinit.kind != "None" {
+            self.deinitMethod(dinit, cn)
         }
     }
 
@@ -11667,6 +11843,9 @@ class CGen {
                 String tn = owner + "#" + k.text + "(" + self.annotationParamTypes(k) + ")"
                 self.collectAnnotationUses(k, "Method", tn, out)
                 self.collectAnnotationParams(k, tn, out)
+            }
+            if k.kind == "Deinit" {
+                self.collectAnnotationUses(k, "Deinit", owner + "#deinit()", out)
             }
             if k.kind == "Field" {
                 List<String> parts = k.text.split(" ")
