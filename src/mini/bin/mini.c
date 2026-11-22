@@ -315,7 +315,7 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self);
 static xn_Cls_AstNode * xn_Cls_Mono_rewriteGenericMethodCall(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_Mono_firstTypeToken(xn_Cls_Mono *self, rt_string * text);
 static xn_Cls_AstNode * xn_Cls_Mono_inferGenericStaticCall(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected);
-static void xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet);
+static int xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet);
 static xn_Cls_AstNode * xn_Cls_Mono_run(xn_Cls_Mono *self);
 static xn_Cls_AnnotationDiag *xn_Cls_AnnotationDiag_new(rt_string * code, rt_string * msg, int64_t line, int64_t col);
 static xn_Cls_AnnotationType *xn_Cls_AnnotationType_new(rt_string * name, xn_arr_s * targets, rt_string * retention, int repeatable);
@@ -391,6 +391,7 @@ static int xn_Cls_Checker_isTaskType(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_taskElement(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_resultValueType(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_demangleType(xn_Cls_Checker *self, rt_string * ty);
 static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_string * b);
 static rt_string * xn_Cls_Checker_typeMangle(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_entryClassName(xn_Cls_Checker *self, rt_string * keyTy, rt_string * valTy);
@@ -2731,7 +2732,7 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self);
 static xn_Cls_AstNode * xn_Cls_Mono_rewriteGenericMethodCall(xn_Cls_Mono *self, xn_Cls_AstNode * n);
 static rt_string * xn_Cls_Mono_firstTypeToken(xn_Cls_Mono *self, rt_string * text);
 static xn_Cls_AstNode * xn_Cls_Mono_inferGenericStaticCall(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected);
-static void xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet);
+static int xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet);
 static xn_Cls_AstNode * xn_Cls_Mono_run(xn_Cls_Mono *self);
 
 static int xn_Cls_Mono_isGenericMethod(xn_Cls_Mono *self, rt_string * className, rt_string * methodName) {
@@ -2979,7 +2980,7 @@ static rt_string * xn_Cls_Mono_retTypeText(xn_Cls_Mono *self, xn_Cls_AstNode * m
 }
 
 static int xn_Cls_Mono_safeInstanceMethod(xn_Cls_Mono *self, rt_string * name) {
-  return xn_str_eq(name, rt_string_from_c("length"));
+  return (xn_str_eq(name, rt_string_from_c("length")) || xn_str_eq(name, rt_string_from_c("get")));
 }
 
 static int xn_Cls_Mono_methodRecursive(xn_Cls_Mono *self, xn_Cls_AstNode * m, rt_string * base) {
@@ -4457,13 +4458,21 @@ static xn_Cls_AstNode * xn_Cls_Mono_inferGenericStaticCall(xn_Cls_Mono *self, xn
   return n;
 }
 
-static void xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet) {
+static int xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNode * n, rt_string * expected, rt_string * curRet) {
+  if (xn_Cls_Mono_hasTypeParams(self, n)) {
+    return 0;
+  }
+  int changed = 0;
   if (xn_str_eq(n->kind, rt_string_from_c("Call"))) {
+    rt_string * before = n->text;
     n = xn_Cls_Mono_inferGenericStaticCall(self, n, expected);
+    if ((!xn_str_eq(n->text, before))) {
+      changed = 1;
+    }
   }
   rt_string * childExpected = rt_string_from_c("");
   rt_string * childRet = curRet;
-  if (xn_str_eq(n->kind, rt_string_from_c("Local"))) {
+  if ((xn_str_eq(n->kind, rt_string_from_c("Local")) || xn_str_eq(n->kind, rt_string_from_c("Field")))) {
     childExpected = xn_Cls_Mono_firstTypeToken(self, n->text);
   }
   else {
@@ -4476,11 +4485,33 @@ static void xn_Cls_Mono_inferGenericStaticCalls(xn_Cls_Mono *self, xn_Cls_AstNod
       }
     }
   }
+  int childChanged = 0;
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)n->kids->len))) {
-    xn_Cls_Mono_inferGenericStaticCalls(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)), childExpected, childRet);
+    if (xn_Cls_Mono_inferGenericStaticCalls(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, i)), childExpected, childRet)) {
+      childChanged = 1;
+    }
     i = xn_int_wrap((i + 1));
   }
+  if (((xn_str_eq(n->kind, rt_string_from_c("Local")) || xn_str_eq(n->kind, rt_string_from_c("Field"))) && childChanged)) {
+    n->text = xn_Cls_Mono_rewriteType(self, n->text);
+  }
+  if (xn_str_eq(n->kind, rt_string_from_c("New"))) {
+    n->text = xn_Cls_Mono_rewriteType(self, n->text);
+  }
+  if ((((xn_str_eq(n->kind, rt_string_from_c("Func")) || xn_str_eq(n->kind, rt_string_from_c("Method"))) || xn_str_eq(n->kind, rt_string_from_c("Ctor"))) || xn_str_eq(n->kind, rt_string_from_c("Deinit")))) {
+    int64_t ri = xn_int_wrap(0);
+    while ((ri < ((int64_t)n->kids->len))) {
+      if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, ri))->kind, rt_string_from_c("Ret"))) {
+        ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, ri))->text = xn_Cls_Mono_rewriteType(self, ((xn_Cls_AstNode *)xn_arr_o_get(n->kids, ri))->text);
+      }
+      ri = xn_int_wrap((ri + 1));
+    }
+  }
+  if (childChanged) {
+    changed = 1;
+  }
+  return changed;
 }
 
 static xn_Cls_AstNode * xn_Cls_Mono_run(xn_Cls_Mono *self) {
@@ -6128,6 +6159,7 @@ static int xn_Cls_Checker_isTaskType(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_taskElement(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_resultValueType(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_string * ty);
+static rt_string * xn_Cls_Checker_demangleType(xn_Cls_Checker *self, rt_string * ty);
 static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_string * b);
 static rt_string * xn_Cls_Checker_typeMangle(xn_Cls_Checker *self, rt_string * ty);
 static rt_string * xn_Cls_Checker_entryClassName(xn_Cls_Checker *self, rt_string * keyTy, rt_string * valTy);
@@ -6397,9 +6429,42 @@ static rt_string * xn_Cls_Checker_resultErrorType(xn_Cls_Checker *self, rt_strin
   return rt_string_from_c("Any");
 }
 
+static rt_string * xn_Cls_Checker_demangleType(xn_Cls_Checker *self, rt_string * ty) {
+  int64_t u = xn_int_wrap(xn_str_indexof(ty, rt_string_from_c("__")));
+  if ((u < 0)) {
+    return ty;
+  }
+  rt_string * base = xn_str_substr(ty, 0, u);
+  rt_string * rest = xn_str_substr(ty, xn_int_wrap((u + 2)), xn_int_wrap((xn_int_wrap((((int64_t)ty->len) - u)) - 2)));
+  if (((((int64_t)rest->len) > 0) && xn_str_eq(xn_str_substr(rest, xn_int_wrap((((int64_t)rest->len) - 1)), 1), rt_string_from_c("_")))) {
+    rest = xn_str_substr(rest, 0, xn_int_wrap((((int64_t)rest->len) - 1)));
+  }
+  if (xn_str_eq(rest, rt_string_from_c(""))) {
+    return ty;
+  }
+  xn_arr_s * parts = xn_str_split(rest, rt_string_from_c("_"));
+  rt_string * joined = rt_string_from_c("");
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)parts->len))) {
+    if ((!xn_str_eq(xn_arr_s_get(parts, i), rt_string_from_c("")))) {
+      if ((!xn_str_eq(joined, rt_string_from_c("")))) {
+        joined = xn_concat(joined, rt_string_from_c(","));
+      }
+      joined = xn_concat(joined, xn_arr_s_get(parts, i));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return xn_concat(xn_concat(xn_concat(base, rt_string_from_c("<")), joined), rt_string_from_c(">"));
+}
+
 static int xn_Cls_Checker_sameType(xn_Cls_Checker *self, rt_string * a, rt_string * b) {
   if (xn_str_eq(a, b)) {
     return 1;
+  }
+  rt_string * da = xn_Cls_Checker_demangleType(self, a);
+  rt_string * db = xn_Cls_Checker_demangleType(self, b);
+  if (((!xn_str_eq(da, a)) || (!xn_str_eq(db, b)))) {
+    return xn_Cls_Checker_sameType(self, da, db);
   }
   if ((xn_str_eq(b, rt_string_from_c("Null")) && (xn_str_eq(a, rt_string_from_c("Any")) || ((((int64_t)a->len) > 1) && xn_str_eq(xn_str_substr(a, xn_int_wrap((((int64_t)a->len) - 1)), 1), rt_string_from_c("?")))))) {
     return 1;
@@ -6770,7 +6835,7 @@ static void xn_Cls_Checker_checkClass(xn_Cls_Checker *self, xn_Cls_AstNode * cls
         }
         if ((((int64_t)k->kids->len) > 0)) {
           rt_string * it = xn_Cls_Checker_typeOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0)));
-          if ((((!xn_str_eq(it, rt_string_from_c("Error"))) && (!xn_str_eq(it, xn_arr_s_get(parts, 0)))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0))) && xn_Cls_Checker_isListType(self, xn_arr_s_get(parts, 0)))))) {
+          if ((((!xn_str_eq(it, rt_string_from_c("Error"))) && (!xn_Cls_Checker_sameType(self, xn_arr_s_get(parts, 0), it))) && (!(xn_Cls_Checker_isEmptyArray(self, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0))) && xn_Cls_Checker_isListType(self, xn_arr_s_get(parts, 0)))))) {
             xn_Cls_Checker_fail(self, rt_string_from_c("SEM-003"), xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("field "), xn_arr_s_get(parts, 1)), rt_string_from_c(" expects ")), xn_arr_s_get(parts, 0)), rt_string_from_c(", got ")), it), k);
           }
         }

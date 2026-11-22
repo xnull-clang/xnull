@@ -2079,7 +2079,7 @@ class Mono {
     }
 
     Bool safeInstanceMethod(String name) {
-        return name == "length"
+        return name == "length" || name == "get"
     }
 
     Bool methodRecursive(AstNode m, String base) {
@@ -3371,24 +3371,50 @@ class Mono {
         return n
     }
 
-    Void inferGenericStaticCalls(AstNode n, String expected, String curRet) {
+    Bool inferGenericStaticCalls(AstNode n, String expected, String curRet) {
+        if self.hasTypeParams(n) {
+            return false
+        }
+        Bool changed = false
         if n.kind == "Call" {
+            String before = n.text
             n = self.inferGenericStaticCall(n, expected)
+            if n.text != before { changed = true }
         }
         String childExpected = ""
         String childRet = curRet
-        if n.kind == "Local" {
+        if n.kind == "Local" || n.kind == "Field" {
             childExpected = self.firstTypeToken(n.text)
         } else if n.kind == "Return" {
             childExpected = curRet
         } else if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
             childRet = self.retTypeText(n)
         }
+        Bool childChanged = false
         Int i = 0
         while i < n.kids.length() {
-            self.inferGenericStaticCalls(n.kids.get(i), childExpected, childRet)
+            if self.inferGenericStaticCalls(n.kids.get(i), childExpected, childRet) {
+                childChanged = true
+            }
             i = i + 1
         }
+        if (n.kind == "Local" || n.kind == "Field") && childChanged {
+            n.text = self.rewriteType(n.text)
+        }
+        if n.kind == "New" {
+            n.text = self.rewriteType(n.text)
+        }
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
+            Int ri = 0
+            while ri < n.kids.length() {
+                if n.kids.get(ri).kind == "Ret" {
+                    n.kids.get(ri).text = self.rewriteType(n.kids.get(ri).text)
+                }
+                ri = ri + 1
+            }
+        }
+        if childChanged { changed = true }
+        return changed
     }
 
     AstNode run() {
@@ -5017,9 +5043,40 @@ class Checker {
         return "Any"
     }
 
+    String demangleType(String ty) {
+        Int u = ty.indexOf("__")
+        if u < 0 {
+            return ty
+        }
+        String base = ty.substring(0, u)
+        String rest = ty.substring(u + 2, ty.length() - u - 2)
+        if rest.length() > 0 && rest.substring(rest.length() - 1, 1) == "_" {
+            rest = rest.substring(0, rest.length() - 1)
+        }
+        if rest == "" {
+            return ty
+        }
+        List<String> parts = rest.split("_")
+        String joined = ""
+        Int i = 0
+        while i < parts.length() {
+            if parts.get(i) != "" {
+                if joined != "" { joined = joined + "," }
+                joined = joined + parts.get(i)
+            }
+            i = i + 1
+        }
+        return base + "<" + joined + ">"
+    }
+
     Bool sameType(String a, String b) {
         if a == b {
             return true
+        }
+        String da = self.demangleType(a)
+        String db = self.demangleType(b)
+        if da != a || db != b {
+            return self.sameType(da, db)
         }
         if b == "Null" && (a == "Any" || (a.length() > 1 && a.substring(a.length() - 1, 1) == "?")) {
             return true
@@ -5388,7 +5445,7 @@ class Checker {
                     }
                     if k.kids.length() > 0 {
                         String it = self.typeOf(k.kids.get(0))
-                        if it != "Error" && it != parts.get(0) && !(self.isEmptyArray(k.kids.get(0)) && self.isListType(parts.get(0))) {
+                        if it != "Error" && !self.sameType(parts.get(0), it) && !(self.isEmptyArray(k.kids.get(0)) && self.isListType(parts.get(0))) {
                             self.fail("SEM-003", "field " + parts.get(1) + " expects " + parts.get(0) + ", got " + it, k)
                         }
                     }
