@@ -38,15 +38,20 @@
 | C-0004 | 隔离不是解决 | L2 | `EXECUTION-PLAN.md` §4.4（xdk-2） |
 | C-0005 | 后台要有 watchdog | L2 | 脚本待建 |
 | C-0006 | 汇报结论先行 | L1 | 本文件 |
-| C-0007 | 调度台不写代码 | L1 | 待升 L3 权限 |
+| C-0007 | 调度台不写代码 | L3 | `.opencode/agents/orchestrator.md` |
 | C-0008 | L3 测试通过即生效 | L2 | `.agent/AGENT-LEARNING.md` |
 
 ## 升级
 
 - L1 纠错账本：agent 自动写。
 - L2 硬规则/合同：agent 提议，用户签字。
-- L3 权限/脚本/测试：自带测试通过即生效，保留回滚。
+- L3 权限/脚本/测试：`python3 .agent/bin/promote.py apply <ID>`；测试通过即生效，失败自动回滚；回滚用 `rollback`。
 - L4 退役：标 `superseded`，移出索引。
+
+## 承接
+
+- 批次用 `.agent/bin/batch.sh` 跑；它跑完一定接 `.agent/bin/retro-run.sh`，不靠谁记得调用。
+- 复盘未完成会留下 `.agent/state/retro-due`，下次开工先处理。
 
 ## 本地文件
 
