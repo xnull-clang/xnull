@@ -3,6 +3,7 @@
 package xdk.linalg
 import xdk.math
 import xdk.errors
+import xdk.tensor
 
 Error linalgError(ErrorKind kind, String message) { return new BasicError(kind, message) }
 
@@ -765,4 +766,34 @@ class Linalg {
         return new Matrix(size, size, values)
     }
 
+
+    static Result<Matrix, Error> matrixFromTensor(Tensor tensor) {
+        if tensor == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Linalg.matrixFromTensor: null tensor"))
         }
+        if tensor.rank() != 2 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Linalg.matrixFromTensor: tensor rank must be 2"))
+        }
+        if tensor.tensorDType() == TensorDType.Bool {
+            return Err(new BasicError(ErrorKind.Unsupported,
+                "Linalg.matrixFromTensor: bool tensor is not supported"))
+        }
+        TensorShape tensorShape = tensor.tensorShape()
+        return Ok(new Matrix(tensorShape.dim(0), tensorShape.dim(1),
+            tensor.toDoubles()))
+    }
+
+    static Tensor tensorFromMatrix(Matrix matrix) {
+        if matrix == null {
+            throw "Linalg.tensorFromMatrix: null matrix"
+        }
+        List<Int> dimensions = []
+        dimensions.push(matrix.rowCount())
+        dimensions.push(matrix.columnCount())
+        TensorShape tensorShape = new TensorShape(dimensions)
+        return TensorOps.fromDoubles(TensorDType.Float64, tensorShape,
+            matrix.toList())
+    }
+}
