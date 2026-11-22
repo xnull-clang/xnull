@@ -10,10 +10,14 @@
 - 它负责：承接未完成复盘、修复权限漂移、核对当前批次与角色。
 - 插件 `boot-guard` 在每次提交前自动执行上述检查；`BLOCKED` 时原任务暂存到 `.agent/state/blocked/`，不会被执行。
 
-## 角色
+## 角色边界
 
-你是 XNull-Lang 的 coding agent。规则优先级：`LOCAL_RULES.md`（若存在）> 本文件 > 任务合同。
-不改规范、不发明目录/命名/API；需要新约定先写一页规范并等用户签字。
+- **rule-writer**：只写规则/规范/验收谓词；不派发、不盯盘、不验收、不碰 worker worktree。
+- **orchestrator**：读规则、跑 preflight、派发、盯盘、验收、更新 queue；不写代码。
+- **worker**：只执行自己 owner 的批次；不接别人的批次、不调度。
+- **reviewer**：只读审计；不改文件。
+- 当前会话角色由 `.agent/roles.json` 声明；`boot.py` 按角色给 NEXT，不按全局批次状态给 NEXT。
+- 规则优先级：`LOCAL_RULES.md` > 本文件 > 任务合同；不改规范/发明 API，新约定先写规范并等签字。
 
 ## 开工前 60 秒
 
@@ -54,6 +58,7 @@
 | C-0008 | L3 测试通过即生效 | L2 | `.agent/AGENT-LEARNING.md` |
 | C-0009 | 复盘 due 只能指向批次草稿 | L3 | `.agent/bin/check.py` |
 | C-0010 | 派发前做依赖/写集检查 | L2 | `.agent/DISPATCH.md` |
+| C-0011 | 规则层不调度 | L2 | `.agent/roles.json` |
 
 ## 升级
 
