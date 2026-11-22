@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Active；P0 架构基线 `81fddb7b`；B0–B3 已完成/合并；C7 合同已整合待 B5；B4 合同冻结待 owner 接受；B4–B10 未开工 |
+| 状态 | Active；P0 架构基线 `81fddb7b`；B0–B3 已完成/合并；C7 合同已整合待 B5；B4 实施中（tensor BLOCKED）；B5–B10 未开工 |
 | 目标 | 把 2.x 从“设计完成”推进到“第一个 XDK 包可编码、可验收” |
 | 基线 | `main` = 1.x 已发布；2.x 在 `xdk-2` 分支/worktree |
 | 规则 | `LOCAL_RULES.md` 第 1–6 号；批内不停、批末一次门禁/提交/汇报 |
@@ -418,7 +418,7 @@ worktree: clean
 | B2 注解类型 | 已完成（B2.1–B2.3） | merge `48ec4bae`；16 场景绿；B2.3 Registry 已生成 |
 | B3 runtime prelude | 已完成（B3.1–B3.5） | merge `cce533f5` + B3.2 merge `876b9320`；prelude 12 场景绿 |
 | C7 core 合同整合 | 合同已整合（待 B5 实现/验证） | merge `d01943ba`（源 `c0ab6d2a`）；B5 前不标完成 |
-| B4 第一批纯包 | 未开工 | 合同已冻结，待 owner 接受 → GO（§11.5） |
+| B4 第一批纯包 | 实施中（tensor BLOCKED） | owner accepted；7 包 implemented；tensor 无场景（§11.5） |
 | B5 core 2.x | 未开工 | 等 B4 |
 | B6–B10 | 未开工 | 按层推进 |
 
@@ -573,13 +573,13 @@ B2 最终状态：**已完成（B2.1–B2.3）**，B2.3 Registry 由编译器生
 
 B4 仍未开工。
 
-### 11.5 B4 前置：debt register accepted（B4-01/B4-02 合同已冻结）
+### 11.5 B4 入口：owner accepted（实施中；tensor BLOCKED）
 
 - 债表：[`DEBT-REGISTER.md`](DEBT-REGISTER.md)
-- B4 入口 = owner 接受债表；B4-01/B4-02 合同已冻结。当前 §4 的 2 条 B4 阻塞合同已冻结，仍待 owner 接受：
+- B4 入口 = owner accepted；B4-01/B4-02 合同已冻结，当前进入实施：
   - B4-01/P11：[`platform/tensor/TensorView.md`](platform/tensor/TensorView.md)、[`platform/tensor/README.md`](platform/tensor/README.md)；不做广播，非空视图 `dim > 1` 的 stride 0 拒绝，checked Long 溢出 panic。
   - B4-02/P8：[`platform/tensor/TensorDType.md`](platform/tensor/TensorDType.md)、[`platform/geo/GeoProjection.md`](platform/geo/GeoProjection.md)；null → `"unknown"`，未知未来成员 → `"other"`，`tensorDTypeByteWidth` null/未知 → 0，FromName null/未知 → null。
-- 当前判定：**B4 仍未 GO；B4 未开工，B5 仍等 B4。** 合同冻结不等于 owner 接受，也不等于 B4 GO。
+- 当前判定：**B4 GO（实施中）；tensor 因 parser 错误 BLOCKED；B4-01/B4-02 未关闭；B5 仍未开工。**
 - 债表计数：45 条 = 2 B4 阻塞（合同冻结，待 owner 接受）+ 26 后续批次 + 13 1.x/post-1.0/owner accepted + 4 BLOCKED。
 - B4 之外的历史结论不改；本节只增加入口条件与新文件链接。
 

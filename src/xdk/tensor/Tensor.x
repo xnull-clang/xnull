@@ -67,7 +67,7 @@ class TensorShape {
         List<Int> copy = []
         Long count = 1
         Int index = 0
-        while index < dimensions.length() {
+        while (index < dimensions.length()) {
             Int dim = dimensions.get(index)
             if dim < 0 { throw "TensorShape: negative dimension" }
             copy.push(dim)
@@ -97,7 +97,7 @@ class TensorShape {
     Long elementCount() {
         Long count = 1
         Int index = 0
-        while index < self._dimensions.length() {
+        while (index < self._dimensions.length()) {
             Int dim = self._dimensions.get(index)
             if dim == 0 { return 0 }
             if count > maxLongValue() / (dim as Long) {
@@ -119,62 +119,10 @@ class TensorShape {
         return new TensorShape(next)
     }
 
-    List<Long> rowMajorStrides() {
-        List<Long> result = []
-        Int rankValue = self._dimensions.length()
-        if rankValue == 0 { return result }
-        Long stride = 1
-        Int index = rankValue - 1
-        while index >= 0 {
-            if self._dimensions.get(index) == 0 {
-                Int reset = 0
-                while reset < rankValue {
-                    result.insert(0, 0)
-                    reset = reset + 1
-                }
-                return result
-            }
-            result.insert(0, stride)
-            stride = stride * (self._dimensions.get(index) as Long)
-            index = index - 1
-        }
-        return result
-    }
-
-    Long flatIndex(List<Int> indices) {
-        if indices == null { throw "TensorShape.flatIndex: null indices" }
-        if indices.length() != self._dimensions.length() {
-            throw "TensorShape.flatIndex: rank mismatch"
-        }
-        List<Long> strides = self.rowMajorStrides()
-        Long result = 0
-        Int index = 0
-        while index < indices.length() {
-            Int value = indices.get(index)
-            if value < 0 || value >= self._dimensions.get(index) {
-                throw "TensorShape.flatIndex: index out of range"
-            }
-            result = result + (value as Long) * strides.get(index)
-            index = index + 1
-        }
-        return result
-    }
-
-    Bool equals(TensorShape other) {
-        if other == null { return false }
-        if other.rank() != self.rank() { return false }
-        Int index = 0
-        while index < self._dimensions.length() {
-            if self._dimensions.get(index) != other.dim(index) { return false }
-            index = index + 1
-        }
-        return true
-    }
-
     String describe() {
         String result = "["
         Int index = 0
-        while index < self._dimensions.length() {
+        while (index < self._dimensions.length()) {
             if index > 0 { result = result + "," }
             result = result + str(self._dimensions.get(index))
             index = index + 1
@@ -185,16 +133,7 @@ class TensorShape {
     TensorShape copy() { return new TensorShape(self._dimensions) }
 }
 
-Bytes tensorZeroData(Int byteCount) {
-    if byteCount < 0 { throw "tensorZeroData: negative size" }
-    Bytes result = Bytes.fromString("")
-    Int index = 0
-    while index < byteCount {
-        result.push(0)
-        index = index + 1
-    }
-    return result
-}
+
 
 Long tensorBits(TensorDType dtype, Double value) {
     if dtype == TensorDType.Float64 { return f64BitsRaw(value) }
@@ -213,7 +152,7 @@ Void tensorWriteElement(Bytes data, Int byteOffset, TensorDType dtype, Double va
     Long bits = tensorBits(dtype, value)
     if dtype == TensorDType.Float32 { bits = f32BitsRaw(value) }
     Int index = 0
-    while index < width {
+    while (index < width) {
         Long shifted = bits >> (index * 8)
         data.set(byteOffset + index, (shifted & 255) as Int)
         index = index + 1
@@ -238,7 +177,8 @@ class Tensor {
             throw "Tensor: null argument"
         }
         Long expected = tensorShape.elementCount() * (tensorDTypeByteWidth(tensorDType) as Long)
-        if expected > 2147483647L {
+        Long limit = 2147483647 as Long
+        if expected > limit {
             throw "Tensor: byte length exceeds Int limit"
         }
         if data.length() != (expected as Int) {
@@ -246,18 +186,13 @@ class Tensor {
         }
         if tensorDType == TensorDType.Bool {
             Int index = 0
-            while index < data.length() {
+            while (index < data.length()) {
                 Int value = data.get(index)
                 if value != 0 && value != 1 { throw "Tensor: invalid Bool byte" }
                 index = index + 1
             }
         }
-        Bytes copy = Bytes.fromString("")
-        Int index = 0
-        while index < data.length() {
-            copy.push(data.get(index))
-            index = index + 1
-        }
+        Bytes copy = data.copy()
         self._dtype = tensorDType
         self._shape = tensorShape
         self._data = copy
@@ -311,7 +246,7 @@ class Tensor {
     List<Double> toDoubles() {
         List<Double> result = []
         Long index = 0
-        while index < self.elementCount() {
+        while (index < self.elementCount()) {
             result.push(self.atFlat(index))
             index = index + 1
         }
@@ -324,7 +259,7 @@ class Tensor {
         if other == null { return false }
         if other._dtype != self._dtype || !other._shape.equals(self._shape) { return false }
         Long index = 0
-        while index < self.elementCount() {
+        while (index < self.elementCount()) {
             Double left = self.atFlat(index)
             Double right = other.atFlat(index)
             if isNaN(left) || isNaN(right) { return false }
@@ -363,7 +298,7 @@ class TensorView {
         List<Long> copy = strides.copy()
         Long maximum = elementOffset
         Int index = 0
-        while index < copy.length() {
+        while (index < copy.length()) {
             Long stride = copy.get(index)
             if stride < 0 { throw "TensorView.of: negative stride" }
             Int dim = tensorShape.dim(index)
@@ -403,7 +338,7 @@ class TensorView {
         }
         Long index = self._offset
         Int dim = 0
-        while dim < indices.length() {
+        while (dim < indices.length()) {
             Int value = indices.get(dim)
             if value < 0 || value >= self._shape.dim(dim) {
                 throw "TensorView.at: index out of range"
@@ -421,7 +356,7 @@ class TensorView {
         List<Long> expected = self._shape.rowMajorStrides()
         if expected.length() != self._strides.length() { return false }
         Int index = 0
-        while index < expected.length() {
+        while (index < expected.length()) {
             if expected.get(index) != self._strides.get(index) { return false }
             index = index + 1
         }
@@ -432,7 +367,7 @@ class TensorView {
         List<Int> dims = []
         List<Long> strides = []
         Int index = self._shape.rank() - 1
-        while index >= 0 {
+        while (index >= 0) {
             dims.push(self._shape.dim(index))
             strides.push(self._strides.get(index))
             index = index - 1
@@ -444,11 +379,11 @@ class TensorView {
         List<Double> values = []
         Long count = self.elementCount()
         Long index = 0
-        while index < count {
+        while (index < count) {
             List<Int> indices = []
             Long remaining = index
             Int dim = self._shape.rank() - 1
-            while dim >= 0 {
+            while (dim >= 0) {
                 Int size = self._shape.dim(dim)
                 if size == 0 { indices.insert(0, 0) } else {
                     indices.insert(0, (remaining % (size as Long)) as Int)
@@ -469,7 +404,7 @@ class TensorOps {
     static Tensor zeros(TensorDType tensorDType, TensorShape tensorShape) {
         if tensorDType == null || tensorShape == null { throw "TensorOps.zeros: null argument" }
         Int byteCount = (tensorShape.elementCount() * (tensorDTypeByteWidth(tensorDType) as Long)) as Int
-        return new Tensor(tensorDType, tensorShape, tensorZeroData(byteCount))
+        return new Tensor(tensorDType, tensorShape, Bytes.alloc(byteCount))
     }
 
     static Tensor ones(TensorDType tensorDType, TensorShape tensorShape) {
@@ -481,7 +416,7 @@ class TensorOps {
         List<Double> values = []
         Long count = tensorShape.elementCount()
         Long index = 0
-        while index < count {
+        while (index < count) {
             values.push(value)
             index = index + 1
         }
@@ -497,9 +432,9 @@ class TensorOps {
         }
         Int width = tensorDTypeByteWidth(tensorDType)
         Int byteCount = (tensorShape.elementCount() * (width as Long)) as Int
-        Bytes data = tensorZeroData(byteCount)
+        Bytes data = Bytes.alloc(byteCount)
         Int index = 0
-        while index < values.length() {
+        while (index < values.length()) {
             tensorWriteElement(data, index * width, tensorDType, values.get(index))
             index = index + 1
         }
@@ -520,7 +455,7 @@ class TensorOps {
         List<Int> dims = tensor.tensorShape().dimensions()
         List<Int> reversedDims = []
         Int index = dims.length() - 1
-        while index >= 0 {
+        while (index >= 0) {
             reversedDims.push(dims.get(index))
             index = index - 1
         }
@@ -528,11 +463,11 @@ class TensorOps {
         List<Double> values = []
         Long count = shape.elementCount()
         Long flat = 0
-        while flat < count {
+        while (flat < count) {
             Int remaining = flat as Int
             List<Int> oldIndices = []
             Int dim = reversedDims.length() - 1
-            while dim >= 0 {
+            while (dim >= 0) {
                 Int size = reversedDims.get(dim)
                 Int coordinate = 0
                 if size > 0 { coordinate = remaining % size; remaining = remaining / size }
@@ -541,7 +476,7 @@ class TensorOps {
             }
             List<Int> source = []
             index = oldIndices.length() - 1
-            while index >= 0 {
+            while (index >= 0) {
                 source.push(oldIndices.get(index))
                 index = index - 1
             }
@@ -569,7 +504,7 @@ class TensorOps {
         List<Double> rightValues = right.toDoubles()
         List<Double> result = []
         Int index = 0
-        while index < leftValues.length() {
+        while (index < leftValues.length()) {
             if adding { result.push(leftValues.get(index) + rightValues.get(index)) }
             else { result.push(leftValues.get(index) * rightValues.get(index)) }
             index = index + 1
@@ -589,12 +524,12 @@ class TensorOps {
         if k != k2 { throw "TensorOps.matmul: inner dimension mismatch" }
         List<Double> result = []
         Int row = 0
-        while row < m {
+        while (row < m) {
             Int column = 0
-            while column < n {
+            while (column < n) {
                 Double total = 0.0
                 Int inner = 0
-                while inner < k {
+                while (inner < k) {
                     List<Int> leftIndex = []
                     leftIndex.push(row)
                     leftIndex.push(inner)
@@ -618,7 +553,7 @@ class TensorOps {
         List<Double> values = tensor.toDoubles()
         Double total = 0.0
         Int index = 0
-        while index < values.length() {
+        while (index < values.length()) {
             total = total + values.get(index)
             index = index + 1
         }

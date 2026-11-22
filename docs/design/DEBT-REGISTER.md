@@ -2,8 +2,8 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | Draft for B4 owner acceptance；B4-01/B4-02 合同已冻结（待 owner 接受）；本表只分类已有债，不新增 API/包/批次 |
-| 基线 | `xdk-2` @ `d01943ba`（C7 merge `c0ab6d2a`） |
+| 状态 | B4 owner accepted；B4 实施中；tensor BLOCKED；B4-01/B4-02 未关闭；本表只分类已有债，不新增 API/包/批次 |
+| 基线 | `b4-compiler-hang` @ `aab1576f`（B4 checkpoints） |
 | 范围 | 注解实现前已存在、至今未关闭的 1.x/2.x 旧账，以及 B4–B10 未实现批次 |
 | 权威 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md)、[`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)、[`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
 | 分类 | B4 阻塞 / 后续批次 / 1.x-only·post-1.0·owner accepted / BLOCKED |
@@ -26,8 +26,8 @@
 
 | ID | 债务描述 | 来源 / 证据 | 影响 | Owner | 目标批次 / 验收 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
-| B4-01 | P11：`TensorView` 的 `offset + Σ((dim-1)*stride)` 未防 `Long` 溢出；stride 0 与 tensor README“不做广播”冲突。**冻结决定**：不做广播；非空视图中 `dim > 1` 的 stride 0 拒绝（构造 panic），`dim <= 1` 或空视图允许 stride 0；最大下标用带检查的 `Long` 乘加，任何溢出在构造时 panic，不回绕。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P11；[TensorView.md](platform/tensor/TensorView.md) §1/§3/§5/§7/§12–§14；[tensor/README.md](platform/tensor/README.md) §4/§7 | B4.6 `tensor` 与 B4.7 `linalg` 可按冻结合同签 `TensorView`；B4 仍待 owner 接受。 | XDK-PLATFORM / ARCH | B4 前：合同冻结 + 示例/反例/测试义务 + grep/门禁；owner 接受后 GO。 | 合同已冻结（待 owner 接受） |
-| B4-02 | P8：`tensorDTypeByteWidth(null)` 返回 1、`geoProjectionName(null)` 返回 `"utm"`；null 与未知成员 fallback 未按函数冻结。**冻结决定**：`tensorDTypeName`/`geoProjectionName` 的 null → `"unknown"`、未知未来成员 → `"other"`；`tensorDTypeByteWidth` 的 null/未知成员 → 0（未知宽度，不是合法宽度）；`tensorDTypeFromName`/`geoProjectionFromName` 的 null/未知 → null（未找到），`"unknown"`/`"other"` 不解析成成员；不 panic，不映射到合法成员。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P8；[TensorDType.md](platform/tensor/TensorDType.md) §5/§7/§12–§14；[GeoProjection.md](platform/geo/GeoProjection.md) §5/§7/§12–§14 | B4.6 `tensor` 与 B4.8 `geo` 的 null/未知成员行为已可按冻结合同签；serial 同类项留 B8。 | XDK-PLATFORM | B4 前：合同冻结 + 示例/反例/测试义务 + grep/门禁；owner 接受后 GO。 | 合同已冻结（待 owner 接受） |
+| B4-01 | P11：`TensorView` 的 `offset + Σ((dim-1)*stride)` 未防 `Long` 溢出；stride 0 与 tensor README“不做广播”冲突。**冻结决定**：不做广播；非空视图中 `dim > 1` 的 stride 0 拒绝（构造 panic），`dim <= 1` 或空视图允许 stride 0；最大下标用带检查的 `Long` 乘加，任何溢出在构造时 panic，不回绕。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P11；[TensorView.md](platform/tensor/TensorView.md) §1/§3/§5/§7/§12–§14；[tensor/README.md](platform/tensor/README.md) §4/§7 | B4.6 `tensor` 与 B4.7 `linalg` 按冻结合同实施；tensor BLOCKED，B4-01 未关闭。 | XDK-PLATFORM / ARCH | B4 实施：合同冻结 + 示例/反例/测试义务 + grep/门禁；实现+场景后才关闭。 | 合同已冻结；owner accepted；实施中（tensor BLOCKED） |
+| B4-02 | P8：`tensorDTypeByteWidth(null)` 返回 1、`geoProjectionName(null)` 返回 `"utm"`；null 与未知成员 fallback 未按函数冻结。**冻结决定**：`tensorDTypeName`/`geoProjectionName` 的 null → `"unknown"`、未知未来成员 → `"other"`；`tensorDTypeByteWidth` 的 null/未知成员 → 0（未知宽度，不是合法宽度）；`tensorDTypeFromName`/`geoProjectionFromName` 的 null/未知 → null（未找到），`"unknown"`/`"other"` 不解析成成员；不 panic，不映射到合法成员。 | [DESIGN-CONSISTENCY.md](DESIGN-CONSISTENCY.md) P8；[TensorDType.md](platform/tensor/TensorDType.md) §5/§7/§12–§14；[GeoProjection.md](platform/geo/GeoProjection.md) §5/§7/§12–§14 | B4.6 `tensor` 与 B4.8 `geo` 的 null/未知成员行为已可按冻结合同签；serial 同类项留 B8。 | XDK-PLATFORM | B4 实施：合同冻结 + 示例/反例/测试义务 + grep/门禁；实现+场景后才关闭。 | 合同已冻结；owner accepted；实施中（tensor BLOCKED） |
 
 ### 2.1 B4-01 / B4-02 合同冻结记录
 
@@ -94,9 +94,9 @@
 
 ## 4. B4 入口判断
 
-**结论：B4 仍未 GO；B4 未开工。** 入口条件已收敛为：**owner 接受本债表 + B4-01/B4-02 合同冻结后 GO**。两份合同现已冻结（见 §2.1），但仍需 owner 明确接受债表与冻结决定；本表不自行宣布 B4 GO。
+**结论：B4 GO（owner accepted）；B4 实施中；tensor BLOCKED。** 入口条件已满足：owner 接受债表 + B4-01/B4-02 合同冻结。B4-01/B4-02 仍需实现与场景证据后才能关闭，B4 不得在验证前标完成。
 
-B4 真正阻塞项只有两条，当前状态均为“合同已冻结（待 owner 接受）”：
+B4 入口合同已冻结，owner accepted；当前实施状态：
 
 1. **B4-01 / P11**：`TensorView` 的 stride 0 与 `Long` 溢出政策已冻结为“不做广播；非空视图 `dim > 1` 的 stride 0 拒绝；`dim <= 1`/空视图允许 0；最大下标 checked Long，溢出 panic”。B4.6 `tensor` 与 B4.7 `linalg` 按此合同。
 2. **B4-02 / P8**：`tensorDTypeByteWidth(null)` 与 `geoProjectionName(null)` 的 null/未知成员语义已冻结为“null → `"unknown"`；未知未来成员 → `"other"`；byteWidth null/未知 → 0；FromName null/未知 → null；不 panic，不映射合法成员”。B4.6 `tensor` 与 B4.8 `geo` 按此合同。
