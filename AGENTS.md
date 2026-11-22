@@ -62,6 +62,7 @@
 | C-0012 | orchestrator 要有 playbook 和反馈 | L2 | `.agent/ORCHESTRATOR.md` |
 | C-0013 | 知识库按需生长 | L2 | `.agent/knowledge/index.md` |
 | C-0014 | 运行中的脚本不可热改 | L2 | `.agent/bin/batch.sh` |
+| C-0015 | 生成入口与 14 类型分账 | L1 | `docs/design/annotations/README.md` §5.1 |
 
 ## 升级
 
@@ -72,8 +73,7 @@
 
 ## 承接
 
-- 批次用 `.agent/bin/batch.sh` 跑；它跑完一定接 `.agent/bin/retro-run.sh`，不靠谁记得调用。
-- 复盘未完成会留下 `.agent/state/retro-due`，下次开工先处理。
+- 批次用 `.agent/bin/batch.sh` 跑（强制接 `retro-run.sh`）；未完成复盘留下 `retro-due`，下次开工先处理。
 
 ## 本地文件
 
