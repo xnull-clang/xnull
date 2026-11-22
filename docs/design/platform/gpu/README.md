@@ -88,7 +88,7 @@
 
 ### 4.1 依赖与分层
 
-- 本包只依赖 `xdk.core` 与 `xdk.os.gpu`；不依赖 `xdk.ui`、`xdk.gfx`、`xdk.image`、`xdk.font`、`xdk.input`、`xdk.clipboard`。
+- 本包只依赖 `xdk.core` 与 `xdk.os.gpu`；UI/桌面/渲染/图像/字体/输入/剪贴板不在 XDK 范围。
 - 设备/队列/后端类型不重定义：使用 [`GpuDevice`](../os/gpu/GpuDevice.md)、[`GpuQueue`](../os/gpu/GpuQueue.md)、[`GpuQueueKind`](../os/gpu/GpuQueueKind.md)、[`GpuBackend`](../os/gpu/GpuBackend.md)。
 - `GpuCompute` 是静态工厂，不拥有设备、不枚举设备、不创建队列；设备与 Compute 队列由调用方通过 `xdk.os.gpu` 获取。
 
@@ -145,7 +145,7 @@
 
 ### G1：无头计算初始化
 
-`OsProfile.has(OsCapability.Gpu)` → `gpuAdapters(context)` 选择设备 → `GpuAdapter.open(context)` 得到 `GpuDevice` → `createQueue(context, GpuQueueKind.Compute)` → `GpuCompute.createBuffer` / `createProgram` / `createPipeline` / `createCommandBuffer` / `createFence` → `GpuBuffer.write` → `begin` / `bindPipeline` / `bindBuffer` / `dispatch` / `end` → `submit(fence)` → `fence.wait` → `GpuBuffer.read` → 按 §4.2 的关闭顺序关闭。全程不要求 `Display`。
+`OsProfile.has(OsCapability.Gpu)` → `gpuAdapters(context)` 选择设备 → `GpuAdapter.open(context)` 得到 `GpuDevice` → `createQueue(context, GpuQueueKind.Compute)` → `GpuCompute.createBuffer` / `createProgram` / `createPipeline` / `createCommandBuffer` / `createFence` → `GpuBuffer.write` → `begin` / `bindPipeline` / `bindBuffer` / `dispatch` / `end` → `submit(fence)` → `fence.wait` → `GpuBuffer.read` → 按 §4.2 的关闭顺序关闭。全程不要求显示输出/窗口系统。
 
 ### G2：一个命令缓冲内多次 dispatch
 
@@ -161,7 +161,7 @@
 
 ### G5：容器、WASM 与 ComputeOnly
 
-只使用宿主可见的 `GpuDevice`；WebGPU 可选；`ComputeOnly` 后端只请求 Compute 队列；不请求 Graphics/Display；不支持的设备/队列/程序 kind 显式返回 `Unsupported`，不模拟、不静默降级。
+只使用宿主可见的 `GpuDevice`；WebGPU 可选；`ComputeOnly` 后端只请求 Compute 队列；不请求图形/显示输出；不支持的设备/队列/程序 kind 显式返回 `Unsupported`，不模拟、不静默降级。
 
 ---
 
@@ -169,7 +169,7 @@
 
 | 缺口 | 决策 |
 | --- | --- |
-| 渲染管线、render pass、纹理/图像/采样器、交换链、present | X / `xdk.ui`/`xdk.gfx`；本包不做 |
+| 渲染管线、render pass、纹理/图像/采样器、交换链、present | UI/桌面/渲染不在 XDK 范围；本包只做计算 |
 | 顶点/索引缓冲与 `GpuBufferUsage.Vertex`/`Index` | X 渲染；基线枚举不包含 |
 | 着色器语言、编译器、反射、入口点、工作组大小、特化常量 | 不做；程序代码是后端可接受的不透明 `Bytes` |
 | `dispatchIndirect` | X；`GpuBufferUsage.Indirect` 仅保留创建/读写 |

@@ -123,7 +123,15 @@ B4 真正阻塞项只有两条：
 | BLK-04 | 跨包注解全限定名受限：mini 合并 AST 时丢弃被导入文件的 `Package` 节点；生成的 `typeName` 只对同包声明加当前包前缀，跨包注解按简单名解析。 | [../../src/mini/tests/xdk2/annotations_types/BLOCKED.md](../../src/mini/tests/xdk2/annotations_types/BLOCKED.md)；[annotations/README.md](annotations/README.md) §5.1 | 跨包领域注解可能同名冲突；运行时注册表 `typeName` 不能唯一标识来源。 | COMPILER | 在领域注解包（B5/B6+）前保留 `Package` 节点/全限定名；补两个包同名注解场景。 | BLOCKED（编译器合并 AST 限制） |
 
 
-## 7. 维护规则
+## 7. 非债务 / 范围外
+
+> 本节不是债务，不计入 §1 的 45 条。UI/桌面能力是范围不变量：不实现、不排期、不立 3.x 议题。
+
+| ID | 范围不变量 | 来源 / 证据 | 影响 | Owner | 验收 | 状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| SCOPE-01 | UI/桌面/显示/音频/输入/电源/剪贴板/通知/托盘/文件对话框不是 XDK 能力；不得出现在包表、API 面或 `xdk2-packages.tsv`。 | [ARCHITECTURE.md](ARCHITECTURE.md) D7；[core/PLATFORM-BOUNDARY.md](core/PLATFORM-BOUNDARY.md) §1.3/§12；[COVERAGE.md](COVERAGE.md)；DESIGN-CONSISTENCY S4/P13 保留旧名，属历史豁免 | 防止把已移除能力重新登记为“未来包”或债务。 | ARCH | grep 只出现“不在范围/已移除”；75 包/698 类型不变；PACKAGE-MAP/API-SURFACE 无 UI 包。 | active（范围不变量） |
+
+## 8. 维护规则
 
 - 新增债先登记本表，再改 `DESIGN-CONSISTENCY.md` 或对应合同；本表不复制第二份签名。
 - 关闭一条债必须附：commit、命令/场景、退出码；只改状态不算关闭。

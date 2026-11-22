@@ -327,7 +327,7 @@ lexer/parser
 ARCHITECTURE.md / PACKAGE-MAP.md / DESIGN-CONSISTENCY.md / LEGACY-1.0.md 存在且互相链接
 75 包 / 698 类型计数一致
 0 个 xdk.core.* / xdk.utils.* 包名引用
-0 个 desktop/UI 服务引用（OsInfo.desktop 仅作为 OS 会话字符串保留）
+0 个 desktop/UI 服务引用（会话标识是 `OsInfo.session`，不是 UI 服务）
 0 个同名换义未登记
 0 个 dangling 相对链接
 1.x t0 25 个旧档完整保留

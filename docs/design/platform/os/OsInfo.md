@@ -11,7 +11,7 @@
 
 ## 1. 定位
 
-OS 身份与版本快照：类型、家族、名称、版本、内核、架构、主机名、桌面/环境、libc、是否容器化。
+OS 身份与版本快照：类型、家族、名称、版本、内核、架构、主机名、OS 会话、libc、是否容器化。
 
 不做：硬件清单、CPU/内存/GPU、能力控制、动态探测循环。
 
@@ -23,7 +23,7 @@ OS 身份与版本快照：类型、家族、名称、版本、内核、架构�
 - `name` 是发行版/OS 名（如 `Ubuntu`、`Windows 11`、`macOS`）；未知时可为空串。
 - `version` 是发行版版本；`kernelVersion` 是内核版本；两者分开。
 - `architecture` 是运行架构（`arm64`/`x86_64` 等）。
-- `desktop` 是 OS 会话标识（如 `gnome`、`kde`、`wayland`、`windows-shell`），不是 UI 服务；无会话为空串。
+- `session` 是 OS 会话标识（如 `gnome`、`kde`、`wayland`、`windows-shell`），不是 UI 服务；无会话为空串。
 - `libc` 是运行库标识（`glibc`/`musl`/`msvcrt`/`bionic`）；未知为空串。
 - `isContainerized` 表示当前进程是否在容器内；不是“是否有容器能力”。
 - 全部字段只读；缺失字段用空串/`false`，不 panic。
@@ -41,7 +41,7 @@ OS 身份与版本快照：类型、家族、名称、版本、内核、架构�
 | `_kernelVersion` | `String` | final | 可为空 |
 | `_architecture` | `String` | final | 非空 |
 | `_hostname` | `String` | final | 可为空 |
-| `_desktop` | `String` | final | 可为空；空 = 无会话 |
+| `_session` | `String` | final | 可为空；空 = 无会话 |
 | `_libc` | `String` | final | 可为空 |
 | `_isContainerized` | `Bool` | final | 是否容器内 |
 
@@ -80,10 +80,10 @@ OS 身份与版本快照：类型、家族、名称、版本、内核、架构�
 | `kernelVersion` | 内核版本 | 无 | `String` | 无 |
 | `architecture` | 架构 | 无 | `String` | 无 |
 | `hostname` | 主机名 | 无 | `String` | 无 |
-| `desktop` | OS 会话标识 | 无 | `String` | 无 |
+| `session` | OS 会话标识 | 无 | `String` | 无 |
 | `libc` | 运行库 | 无 | `String` | 无 |
 | `isContainerized` | 是否容器内 | 无 | `Bool` | 无 |
-| `isHeadless` | 是否无桌面 | 无 | `Bool` | 无 |
+| `isHeadless` | 是否无 OS 会话 | 无 | `Bool` | 无 |
 | `describe` | 单行摘要 | 无 | `String` | 无 |
 | `equals` | 值比较 | `OsInfo other` | `Bool` | null → false |
 | `copy` | 复制 | 无 | `OsInfo` | 无 |
@@ -102,7 +102,7 @@ OS 身份与版本快照：类型、家族、名称、版本、内核、架构�
 ## 9. 需要的支撑
 
 - 语言：class、final 字段、String、Bool；
-- 运行时/适配器：OS 标识、内核版本、架构、桌面会话、libc、容器检测；
+- 运行时/适配器：OS 标识、内核版本、架构、OS 会话、libc、容器检测；
 - 接口：`OsKind`、`OsFamily`。
 
 ---
@@ -121,14 +121,14 @@ OS 身份与版本快照：类型、家族、名称、版本、内核、架构�
 
 ## 12. 示例与反例
 
-正确：`Os.info().name()` 写启动日志；`Os.info().isHeadless()` 决定是否加载桌面。  
+正确：`Os.info().name()` 写启动日志；`Os.info().isHeadless()` 决定是否走无头路径。
 反例：用版本字符串做能力判断；把容器检测当安全边界；未知字段 panic。
 
 ---
 
 ## 13. 测试/场景义务
 
-每个字段；未知 OS；无桌面；容器内；版本/内核为空；family/kind 一致；equals/copy；
+每个字段；未知 OS；无会话；容器内；版本/内核为空；family/kind 一致；equals/copy；
 敏感信息不写日志（hostname 可选脱敏）。
 
 ---
@@ -144,20 +144,20 @@ class OsInfo {
     final String _kernelVersion
     final String _architecture
     final String _hostname
-    final String _desktop
+    final String _session
     final String _libc
     final Bool _isContainerized
 
     OsInfo(OsKind kind, OsFamily family, String name, String version,
            String kernelVersion, String architecture, String hostname,
-           String desktop, String libc, Bool isContainerized) {
+           String session, String libc, Bool isContainerized) {
         if kind == null || family == null { throw "OsInfo: null kind/family" }
         if name == null || name == "" { throw "OsInfo: empty name" }
         if architecture == null || architecture == "" {
             throw "OsInfo: empty architecture"
         }
         if version == null || kernelVersion == null || hostname == null
-            || desktop == null || libc == null {
+            || session == null || libc == null {
             throw "OsInfo: null string"
         }
         if family != osKindFamily(kind) {
@@ -170,7 +170,7 @@ class OsInfo {
         _kernelVersion = kernelVersion
         _architecture = architecture
         _hostname = hostname
-        _desktop = desktop
+        _session = session
         _libc = libc
         _isContainerized = isContainerized
     }
@@ -182,17 +182,17 @@ class OsInfo {
     String kernelVersion() { return _kernelVersion }
     String architecture() { return _architecture }
     String hostname() { return _hostname }
-    String desktop() { return _desktop }
+    String session() { return _session }
     String libc() { return _libc }
     Bool isContainerized() { return _isContainerized }
-    Bool isHeadless() { return _desktop == "" }
+    Bool isHeadless() { return _session == "" }
 
     String describe() {
         return osKindName(_kind) + " " + _name
             + " version=" + _version
             + " kernel=" + _kernelVersion
             + " arch=" + _architecture
-            + " desktop=" + _desktop
+            + " session=" + _session
     }
 
     Bool equals(OsInfo other) {
@@ -204,14 +204,14 @@ class OsInfo {
             && _kernelVersion == other.kernelVersion()
             && _architecture == other.architecture()
             && _hostname == other.hostname()
-            && _desktop == other.desktop()
+            && _session == other.session()
             && _libc == other.libc()
             && _isContainerized == other.isContainerized()
     }
 
     OsInfo copy() {
         return new OsInfo(_kind, _family, _name, _version, _kernelVersion,
-            _architecture, _hostname, _desktop, _libc, _isContainerized)
+            _architecture, _hostname, _session, _libc, _isContainerized)
     }
 }
 ```
