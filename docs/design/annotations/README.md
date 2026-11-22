@@ -145,6 +145,25 @@ AnnotationProcessor
 | IDE/文档 | 读取 `Binary` 元数据/生成源码；注解索引；生成代码导航 | 不依赖运行时反射 |
 | 构建系统 | 处理器清单、沙箱、生成目录、缓存键、失败原子性 | 不把处理器自动带入依赖包 |
 
+### 5.1 编译器生成的注册表入口
+
+B2.3 由编译器发射 Runtime 注解静态表；X 代码通过两个生成入口读取：
+
+| 入口 | 返回 | 语义 |
+| --- | --- | --- |
+| `xdkAnnotationRegistry()` | `AnnotationRegistry` | 只读注册表；只含 `Runtime` 注解 |
+| `xdkAnnotationRegistryVersion()` | `Int` | 注册表格式版本；当前为 `1` |
+
+生成表规则：
+
+- 输入是编译器收集的 `AnnotationInfo` 扁平列表；
+- 只发射 `@Retention(Runtime)` 注解；`Source`/`Binary`/默认 `Binary` 不进入；
+- 同一目标保留源码出现顺序，`repeatIndex` 从 1 递增；
+- 目标索引使用 `target + targetName`，包括 `Package`/`Type`/`Annotation`/
+  `TypeParameter`/`Field`/`Method`/`Constructor`/`Deinit`/`Parameter`/`TypeUse`/`EnumItem`；
+- `types()` 只列 `Type` 目标并按字典序排序；
+- 运行时只读该表，不反射、不扫描、不动态注册。
+
 关键边界：
 
 - `Source`：处理器可见，编译后不保留；运行时无查询。
@@ -214,7 +233,7 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 | G3 | `@Repeatable` 语义 | S2 内建表已改为强制；重复注解保留顺序 | 已关闭 |
 | G4 | 注解声明模型 | `@annotation` 字段/默认值/常量类型不在本包 14 类型内 | 编译器内部模型；需要单独设计文档或语言规范章节 |
 | G5 | 保留策略执行 | `AnnotationRegistry` 不判断保留策略 | 生成器负责过滤；需要生成器规范 |
-| G6 | 注册表格式版本 | 未定义版本字段/格式 | 按 `ANNOTATION-SYSTEM.md` §7 增加生成元数据版本 |
+| G6 | 注册表格式版本 | B2.3 定义 v1：`xdkAnnotationRegistryVersion() == 1`，扁平 `AnnotationInfo` 列表按目标分组 | 已定义 |
 | G7 | `TypeParameter`/`TypeUse`/`Deinit` 运行时查询 | 只有 `ofTarget` 通用入口，无专用便捷方法 | 若领域需要，后续版本增加专用方法；当前不扩 API |
 | G8 | 处理器依赖/轮次 API | 本包只定义阶段与上下文，不定义依赖图 | 构建系统/调度器设计负责 |
 | G9 | 值树深比较 | `AnnotationValue`/`AnnotationInfo`/`AnnotationSet` 无 `equals` | 需要确定性哈希/比较时增加专用比较器，不把 `==` 当值比较 |
@@ -277,3 +296,4 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 
 - 2026-11-22：首版。按 `ANNOTATION-SYSTEM.md` 建立 `xdk.annotations`  包，交付 14 个类型文件与包 README；标注 S2 §12/`ANNOTATION-PLAN.md` 与新设计的冲突为待冻结缺口。
 - 2026-11-22：`AnnotationTarget` 对齐为 11 目标（含 `Deinit` 与元注解目标 `Annotation`），并补 `AnnotationInfo` 规范名、`AnnotationElement` 视图和 `AnnotationRegistry.targetKey`。
+- 2026-11-22：B2.3 定义 Runtime 注册表 v1 与生成入口；B2-fix 统一 `annotation:` 目标键、枚举不可为 null、Float 作为 Double 别名。

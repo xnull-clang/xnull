@@ -1,5 +1,5 @@
 // B2.1 场景：14 类型中的值树、目标/保留/值标签枚举、注解信息与集合。
-import annotations.Annotations
+import xdk.annotations
 
 static Map<String, AnnotationValue> markerValues(String name, Int priority) {
     Map<String, AnnotationValue> values = [:]
@@ -91,6 +91,12 @@ static Int main() {
     print(floatValue.asFloat())
     print(floatValue.asDouble() == null)
     print(floatValue.describe())
+
+    // B2-fix：Float 是 Double 的别名，仍保留 Float 值标签。
+    Float ratio = 1.25
+    AnnotationValue floatFromVariable = AnnotationValue.ofFloat(ratio)
+    print(ratio)
+    print(floatFromVariable.describe())
 
     AnnotationValue doubleValue = AnnotationValue.ofDouble(2.25)
     print(doubleValue.kind() == AnnotationValueKind.Double)

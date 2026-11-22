@@ -2283,7 +2283,7 @@ class Mono {
             String rt = self.simpleExprType(n.kids.get(1))
             if n.text == "==" || n.text == "!=" || n.text == "<" || n.text == "<=" || n.text == ">" || n.text == ">=" || n.text == "&&" || n.text == "||" { return "Bool" }
             if lt == "String" && rt == "String" { return "String" }
-            if lt == "Double" || rt == "Double" { return "Double" }
+            if lt == "Double" || rt == "Double" || lt == "Float" || rt == "Float" { return "Double" }
             if lt == "Long" || rt == "Long" { return "Long" }
             if lt == "Int" && rt == "Int" { return "Int" }
         }
@@ -3993,7 +3993,7 @@ class Checker {
             return true
         }
         if ty == "Int" || ty == "String" || ty == "Bool" ||
-            ty == "Unit" || ty == "Char" || ty == "Double" ||
+            ty == "Unit" || ty == "Char" || ty == "Double" || ty == "Float" ||
             ty == "Long" || ty == "Int64" || ty == "Int32" || ty == "UInt16" || ty == "Int128" || ty == "void" {
             return true
         }
@@ -4153,6 +4153,9 @@ class Checker {
         }
         if (a == "Int" || a == "Int32" || a == "Int64" || a == "Long") &&
            (b == "Int" || b == "Int32" || b == "Int64" || b == "Long") {
+            return true
+        }
+        if (a == "Float" || a == "Double") && (b == "Float" || b == "Double") {
             return true
         }
         return false
@@ -5265,8 +5268,8 @@ class Checker {
             if n.text == "+" && lt == "String" && rt == "String" {
                 return "String"
             }
-            if (lt == "Double" || rt == "Double") && n.text != "%" {
-                if (lt == "Double" || lt == "Int") && (rt == "Double" || rt == "Int") {
+            if (lt == "Double" || rt == "Double" || lt == "Float" || rt == "Float") && n.text != "%" {
+                if (lt == "Double" || lt == "Float" || lt == "Int") && (rt == "Double" || rt == "Float" || rt == "Int") {
                     return "Double"
                 }
             }
@@ -5336,7 +5339,8 @@ class Checker {
                n.text == ">" || n.text == ">=" || n.text == "&&" || n.text == "||" {
                 return "Bool"
             }
-            if self.syntacticType(n.kids.get(0)) == "Double" || self.syntacticType(n.kids.get(1)) == "Double" {
+            if self.syntacticType(n.kids.get(0)) == "Double" || self.syntacticType(n.kids.get(1)) == "Double" ||
+               self.syntacticType(n.kids.get(0)) == "Float" || self.syntacticType(n.kids.get(1)) == "Float" {
                 return "Double"
             }
             return "Int"
@@ -6209,6 +6213,28 @@ class Checker {
             }
             return "String"
         }
+        if n.text == "xdkAnnotationRegistry" {
+            if argc != 0 {
+                self.fail("SEM-004", "xdkAnnotationRegistry expects 0 arguments", n)
+                return "Error"
+            }
+            if self.findClass("AnnotationRegistry") < 0 {
+                self.fail("SEM-001", "xdkAnnotationRegistry requires import xdk.annotations", n)
+                return "Error"
+            }
+            return "AnnotationRegistry"
+        }
+        if n.text == "xdkAnnotationRegistryVersion" {
+            if argc != 0 {
+                self.fail("SEM-004", "xdkAnnotationRegistryVersion expects 0 arguments", n)
+                return "Error"
+            }
+            if self.findClass("AnnotationRegistry") < 0 {
+                self.fail("SEM-001", "xdkAnnotationRegistryVersion requires import xdk.annotations", n)
+                return "Error"
+            }
+            return "Int"
+        }
         Int fvi = self.findVar(n.text)
         if fvi >= 0 && self.isFunctionType(self.varTypes.get(fvi)) {
             String ft = self.varTypes.get(fvi)
@@ -6257,6 +6283,26 @@ class Checker {
     }
 }
 
+
+// 编译器生成的 Runtime 注解元数据条目；只用于 B2.3 C 代码发射。
+class AnnotationUseMeta {
+    final AstNode use
+    final AstNode decl
+    final String typeName
+    final String target
+    final String targetName
+    final Int repeatIndex
+
+    AnnotationUseMeta(AstNode use, AstNode decl, String typeName,
+                      String target, String targetName, Int repeatIndex) {
+        self.use = use
+        self.decl = decl
+        self.typeName = typeName
+        self.target = target
+        self.targetName = targetName
+        self.repeatIndex = repeatIndex
+    }
+}
 
 class CGen {
     final AstNode program
@@ -6470,7 +6516,7 @@ class CGen {
         if ty == "Char" {
             return "int32_t"
         }
-        if ty == "Double" {
+        if ty == "Double" || ty == "Float" {
             return "double"
         }
         if ty == "Long" || ty == "Int64" || ty == "Int32" {
@@ -8774,7 +8820,8 @@ class CGen {
             if n.text == "+" && self.typeOf(n.kids.get(0)) == "String" {
                 return "String"
             }
-            if self.typeOf(n.kids.get(0)) == "Double" || self.typeOf(n.kids.get(1)) == "Double" {
+            if self.typeOf(n.kids.get(0)) == "Double" || self.typeOf(n.kids.get(1)) == "Double" ||
+               self.typeOf(n.kids.get(0)) == "Float" || self.typeOf(n.kids.get(1)) == "Float" {
                 return "Double"
             }
             String leftType = self.typeOf(n.kids.get(0))
@@ -8801,6 +8848,12 @@ class CGen {
             return self.methodType(self.typeOf(n.kids.get(0)), n.text, n)
         }
         if n.kind == "Call" {
+            if n.text == "xdkAnnotationRegistry" {
+                return "AnnotationRegistry"
+            }
+            if n.text == "xdkAnnotationRegistryVersion" {
+                return "Int"
+            }
             if n.text == "readFile" || n.text == "listFiles" {
                 return "String"
             }
@@ -9480,7 +9533,7 @@ class CGen {
                 if pat == "Int128" {
                     return "xn_print_int128(" + av + ")"
                 }
-                if pat == "Double" {
+                if pat == "Double" || pat == "Float" {
                     return "xn_print_double(" + av + ")"
                 }
                 if pat == "Bool" {
@@ -9504,7 +9557,7 @@ class CGen {
                 if pat == "String" {
                     return av
                 }
-                if pat == "Double" {
+                if pat == "Double" || pat == "Float" {
                     return "xn_str_double(" + av + ")"
                 }
                 if pat == "Bool" {
@@ -10665,6 +10718,450 @@ class CGen {
         self.emit("")
     }
 
+    // ---------- B2.3：Runtime 注解静态注册表发射 ----------
+
+    String annotationPackageName() {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Package" {
+                return n.text
+            }
+            i = i + 1
+        }
+        return ""
+    }
+
+    String annotationQualified(String name) {
+        String pkg = self.annotationPackageName()
+        if pkg == "" {
+            return name
+        }
+        return pkg + "." + name
+    }
+
+    String annotationStringText(AstNode n) {
+        if n.kind != "String" {
+            return ""
+        }
+        String raw = n.text
+        if raw.length() >= 2 {
+            if raw.substring(0, 1) == "\"" && raw.substring(raw.length() - 1, 1) == "\"" {
+                return raw.substring(1, raw.length() - 2)
+            }
+        }
+        return raw
+    }
+
+    String annotationPath(AstNode n) {
+        if n.kind == "Name" {
+            return n.text
+        }
+        if n.kind == "Member" && n.kids.length() > 0 {
+            String b = self.annotationPath(n.kids.get(0))
+            if b == "" {
+                return n.text
+            }
+            return b + "." + n.text
+        }
+        if n.kind == "String" {
+            return self.annotationStringText(n)
+        }
+        return ""
+    }
+
+    String annotationLastSegment(String path) {
+        Int i = path.length() - 1
+        while i >= 0 {
+            if path.substring(i, 1) == "." {
+                return path.substring(i + 1, path.length() - i - 1)
+            }
+            i = i - 1
+        }
+        return path
+    }
+
+    AstNode annotationFindDecl(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "AnnotationDecl" && n.text == name {
+                return n
+            }
+            i = i + 1
+        }
+        return new AstNode("None", "", 1, 1)
+    }
+
+    String annotationRetention(AstNode decl) {
+        String retention = "Binary"
+        Int i = 0
+        while i < decl.annotations.length() {
+            AstNode use = decl.annotations.get(i)
+            if use.text == "Retention" && use.kids.length() > 0 {
+                AstNode arg = use.kids.get(0)
+                if arg.kids.length() > 0 {
+                    String p = self.annotationPath(arg.kids.get(0))
+                    if p != "" {
+                        retention = p
+                    }
+                }
+            }
+            i = i + 1
+        }
+        return retention
+    }
+
+    List<AstNode> annotationFields(AstNode decl) {
+        List<AstNode> fields = []
+        Int i = 0
+        while i < decl.kids.length() {
+            AstNode f = decl.kids.get(i)
+            if f.kind == "AnnotationField" {
+                fields.push(f)
+            }
+            i = i + 1
+        }
+        return fields
+    }
+
+    String annotationFieldType(AstNode f) {
+        List<String> parts = f.text.split(" ")
+        if parts.length() >= 2 {
+            return parts.get(0)
+        }
+        return ""
+    }
+
+    String annotationFieldName(AstNode f) {
+        List<String> parts = f.text.split(" ")
+        if parts.length() >= 2 {
+            return parts.get(1)
+        }
+        return ""
+    }
+
+    String annotationParamTypes(AstNode fn) {
+        String result = ""
+        List<AstNode> ps = self.paramsOf(fn)
+        Int i = 0
+        while i < ps.length() {
+            List<String> parts = ps.get(i).text.split(" ")
+            if parts.length() >= 2 {
+                if result != "" {
+                    result = result + ","
+                }
+                result = result + parts.get(0)
+            }
+            i = i + 1
+        }
+        return result
+    }
+
+    Void collectAnnotationUses(AstNode node, String target, String targetName,
+                               List<AnnotationUseMeta> out) {
+        Int i = 0
+        while i < node.annotations.length() {
+            AstNode use = node.annotations.get(i)
+            AstNode decl = self.annotationFindDecl(use.text)
+            if decl.kind != "None" && self.annotationRetention(decl) == "Runtime" {
+                Int repeat = 1
+                Int j = 0
+                while j < i {
+                    if node.annotations.get(j).text == use.text {
+                        repeat = repeat + 1
+                    }
+                    j = j + 1
+                }
+                out.push(new AnnotationUseMeta(
+                    use,
+                    decl,
+                    self.annotationQualified(use.text),
+                    target,
+                    targetName,
+                    repeat
+                ))
+            }
+            i = i + 1
+        }
+    }
+
+    Void collectAnnotationParams(AstNode fn, String memberTarget,
+                                 List<AnnotationUseMeta> out) {
+        List<AstNode> ps = self.paramsOf(fn)
+        Int i = 0
+        while i < ps.length() {
+            self.collectAnnotationUses(ps.get(i), "Parameter", memberTarget + "#" + str(i), out)
+            i = i + 1
+        }
+    }
+
+    Void collectAnnotationClass(AstNode cls, List<AnnotationUseMeta> out) {
+        String owner = self.annotationQualified(cls.text)
+        self.collectAnnotationUses(cls, "Type", owner, out)
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "TypeParams" {
+                Int j = 0
+                while j < k.kids.length() {
+                    AstNode tp = k.kids.get(j)
+                    if tp.kind == "TypeParam" {
+                        self.collectAnnotationUses(tp, "TypeParameter", owner + "#" + tp.text, out)
+                    }
+                    j = j + 1
+                }
+            }
+            if k.kind == "Ctor" {
+                String tn = owner + "#<init>(" + self.annotationParamTypes(k) + ")"
+                self.collectAnnotationUses(k, "Constructor", tn, out)
+                self.collectAnnotationParams(k, tn, out)
+            }
+            if k.kind == "Method" {
+                String tn = owner + "#" + k.text + "(" + self.annotationParamTypes(k) + ")"
+                self.collectAnnotationUses(k, "Method", tn, out)
+                self.collectAnnotationParams(k, tn, out)
+            }
+            if k.kind == "Field" {
+                List<String> parts = k.text.split(" ")
+                if parts.length() >= 2 {
+                    self.collectAnnotationUses(k, "Field", owner + "#" + parts.get(1), out)
+                }
+            }
+            i = i + 1
+        }
+    }
+
+    List<AnnotationUseMeta> collectGeneratedAnnotations() {
+        List<AnnotationUseMeta> out = []
+        String pkg = self.annotationPackageName()
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Package" {
+                self.collectAnnotationUses(n, "Package", n.text, out)
+            }
+            if n.kind == "AnnotationDecl" {
+                String full = self.annotationQualified(n.text)
+                self.collectAnnotationUses(n, "Annotation", full, out)
+            }
+            if n.kind == "Class" || n.kind == "Struct" {
+                self.collectAnnotationClass(n, out)
+            }
+            if n.kind == "Enum" {
+                String owner = self.annotationQualified(n.text)
+                self.collectAnnotationUses(n, "Type", owner, out)
+                Int e = 0
+                while e < n.kids.length() {
+                    AstNode item = n.kids.get(e)
+                    if item.kind == "EnumItem" {
+                        self.collectAnnotationUses(item, "EnumItem", owner + "#" + item.text, out)
+                    }
+                    e = e + 1
+                }
+            }
+            if n.kind == "Protocol" {
+                String owner = self.annotationQualified(n.text)
+                self.collectAnnotationUses(n, "Type", owner, out)
+                Int p = 0
+                while p < n.kids.length() {
+                    AstNode sig = n.kids.get(p)
+                    if sig.kind == "Sig" {
+                        String tn = owner + "#" + sig.text + "(" + self.annotationParamTypes(sig) + ")"
+                        self.collectAnnotationUses(sig, "Method", tn, out)
+                        self.collectAnnotationParams(sig, tn, out)
+                    }
+                    p = p + 1
+                }
+            }
+            if n.kind == "Func" {
+                String owner = pkg
+                String tn = owner + "#" + n.text + "(" + self.annotationParamTypes(n) + ")"
+                self.collectAnnotationUses(n, "Method", tn, out)
+                self.collectAnnotationParams(n, tn, out)
+            }
+            if n.kind == "TopField" {
+                List<String> parts = n.text.split(" ")
+                if parts.length() >= 2 {
+                    self.collectAnnotationUses(n, "Field", pkg + "#" + parts.get(1), out)
+                }
+            }
+            i = i + 1
+        }
+        return out
+    }
+
+    String annotationNumberText(AstNode n) {
+        if n.kind == "Int" || n.kind == "Double" {
+            return n.text
+        }
+        if n.kind == "Unary" && n.kids.length() > 0 {
+            return n.text + self.annotationNumberText(n.kids.get(0))
+        }
+        return "0"
+    }
+
+    String emitAnnotationValue(AstNode n, String expected, String indent) {
+        if expected.length() > 2 && expected.substring(expected.length() - 2, 2) == "[]" {
+            String elementType = expected.substring(0, expected.length() - 2)
+            String items = self.temp()
+            self.emit(indent + "xn_arr_o *" + items + " = xn_arr_o_new(" + str(n.kids.length()) + ");")
+            Int i = 0
+            while i < n.kids.length() {
+                String item = self.emitAnnotationValue(n.kids.get(i), elementType, indent)
+                self.emit(indent + "xn_arr_o_push(" + items + ", (void *)" + item + ");")
+                i = i + 1
+            }
+            String arrayValue = self.temp()
+            self.emit(indent + "xn_Cls_AnnotationValue *" + arrayValue +
+                " = xn_Cls_AnnotationValue_ofArray(" + items + ");")
+            return arrayValue
+        }
+        AstNode nestedDecl = self.annotationFindDecl(expected)
+        if nestedDecl.kind != "None" && n.kind == "AnnotationUse" {
+            String info = self.emitAnnotationInfo(
+                n,
+                nestedDecl,
+                "Annotation",
+                self.annotationQualified(expected),
+                1,
+                indent
+            )
+            String nestedValue = self.temp()
+            self.emit(indent + "xn_Cls_AnnotationValue *" + nestedValue +
+                " = xn_Cls_AnnotationValue_ofAnnotation(" + info + ");")
+            return nestedValue
+        }
+        String value = self.temp()
+        if expected == "Type" || expected == "TypeRef" {
+            String name = self.annotationPath(n)
+            if name == "" {
+                name = self.annotationStringText(n)
+            }
+            if name == "" {
+                name = expected
+            }
+            if name.indexOf(".") < 0 && name != "void" {
+                name = self.annotationQualified(name)
+            }
+            self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                " = xn_Cls_AnnotationValue_ofType(rt_string_from_c(" + cStringLiteral(name) + "));")
+            return value
+        }
+        if self.isEnumName(expected) {
+            String path = self.annotationPath(n)
+            String item = self.annotationLastSegment(path)
+            String enumName = self.annotationQualified(expected)
+            self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                " = xn_Cls_AnnotationValue_ofEnum(rt_string_from_c(" + cStringLiteral(enumName) + "), rt_string_from_c(" + cStringLiteral(item) + "));")
+            return value
+        }
+        if n.kind == "Bool" {
+            String boolValue = "0"
+            if n.text == "true" {
+                boolValue = "1"
+            }
+            self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                " = xn_Cls_AnnotationValue_ofBool(" + boolValue + ");")
+            return value
+        }
+        if n.kind == "String" {
+            self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                " = xn_Cls_AnnotationValue_ofString(rt_string_from_c(" + canonicalStringLiteral(n.text) + "));")
+            return value
+        }
+        if n.kind == "Char" {
+            self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                " = xn_Cls_AnnotationValue_ofChar((int32_t)(" + n.text + "));")
+            return value
+        }
+        if n.kind == "Int" || n.kind == "Double" ||
+           (n.kind == "Unary" && n.kids.length() > 0 && (n.kids.get(0).kind == "Int" || n.kids.get(0).kind == "Double")) {
+            String number = self.annotationNumberText(n)
+            if expected == "Long" {
+                self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                    " = xn_Cls_AnnotationValue_ofLong((int64_t)(" + number + "));")
+            } else if expected == "Float" {
+                self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                    " = xn_Cls_AnnotationValue_ofFloat((double)(" + number + "));")
+            } else if expected == "Double" {
+                self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                    " = xn_Cls_AnnotationValue_ofDouble((double)(" + number + "));")
+            } else {
+                self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+                    " = xn_Cls_AnnotationValue_ofInt((int64_t)(" + number + "));")
+            }
+            return value
+        }
+        self.emit(indent + "xn_Cls_AnnotationValue *" + value +
+            " = xn_Cls_AnnotationValue_nullValue();")
+        return value
+    }
+
+    String emitAnnotationInfo(AstNode use, AstNode decl, String target,
+                              String targetName, Int repeatIndex, String indent) {
+        List<AstNode> fields = self.annotationFields(decl)
+        String values = self.temp()
+        self.emit(indent + "xn_map_g *" + values + " = xn_map_g_new(" + str(fields.length()) + ", 1, 0);")
+        Int i = 0
+        while i < fields.length() {
+            AstNode field = fields.get(i)
+            AstNode value = new AstNode("None", "", 1, 1)
+            if i < use.kids.length() && use.kids.get(i).kids.length() > 0 {
+                value = use.kids.get(i).kids.get(0)
+            } else if field.kids.length() > 0 {
+                value = field.kids.get(0)
+            }
+            if value.kind != "None" {
+                String name = self.annotationFieldName(field)
+                String type = self.annotationFieldType(field)
+                String emitted = self.emitAnnotationValue(value, type, indent)
+                self.emit(indent + "xn_map_g_put_replaced(" + values +
+                    ", rt_string_from_c(" + cStringLiteral(name) + "), (void *)" + emitted + ");")
+            }
+            i = i + 1
+        }
+        String info = self.temp()
+        self.emit(indent + "xn_Cls_AnnotationInfo *" + info +
+            " = xn_Cls_AnnotationInfo_new(rt_string_from_c(" +
+            cStringLiteral(self.annotationQualified(use.text)) + "), xn_enum_AnnotationTarget_" +
+            target + ", rt_string_from_c(" + cStringLiteral(targetName) + "), " +
+            values + ", " + str(repeatIndex) + ");")
+        return info
+    }
+
+    Void emitAnnotationRegistry() {
+        if !self.isClass("AnnotationValue") || !self.isClass("AnnotationInfo") ||
+           !self.isClass("AnnotationRegistry") || !self.isEnumName("AnnotationTarget") {
+            return
+        }
+        List<AnnotationUseMeta> uses = self.collectGeneratedAnnotations()
+        self.emit("static xn_Cls_AnnotationRegistry *xn_generated_annotation_registry = NULL;")
+        self.emit("static int64_t xn_xdkAnnotationRegistryVersion(void) { return 1; }")
+        self.emit("static xn_Cls_AnnotationRegistry *xn_xdkAnnotationRegistry(void) {")
+        self.emit("  if (xn_generated_annotation_registry == NULL) {")
+        self.emit("    xn_arr_o *items = xn_arr_o_new(" + str(uses.length()) + ");")
+        Int i = 0
+        while i < uses.length() {
+            AnnotationUseMeta use = uses.get(i)
+            String info = self.emitAnnotationInfo(
+                use.use,
+                use.decl,
+                use.target,
+                use.targetName,
+                use.repeatIndex,
+                "    "
+            )
+            self.emit("    xn_arr_o_push(items, (void *)" + info + ");")
+            i = i + 1
+        }
+        self.emit("    xn_generated_annotation_registry = xn_Cls_AnnotationRegistry_new(items);")
+        self.emit("  }")
+        self.emit("  return xn_generated_annotation_registry;")
+        self.emit("}")
+        self.emit("")
+    }
+
     Void gen() {
         Int lci = 0
         while lci < self.program.kids.length() {
@@ -10812,9 +11309,12 @@ class CGen {
             String vty = self.mapValue(gty)
             String kac = self.arrayCName("List<" + kty + ">")
             String vac = self.arrayCName("List<" + vty + ">")
+            String entryCls = self.entryClassName(kty, vty)
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m);")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m);")
-            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m);")
+            if self.isClass(entryCls) {
+                self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m);")
+            }
             gmi = gmi + 1
         }
         self.emit("")
@@ -11052,6 +11552,7 @@ class CGen {
             i = i + 1
         }
         self.emit("")
+        self.emitAnnotationRegistry()
         self.emit("static void xn_init_globals(void) {")
         i = 0
         while i < self.program.kids.length() {
@@ -11164,7 +11665,9 @@ class CGen {
             self.emit("static " + kac + " *" + self.genericMapKeysName(gty) + "(const xn_map_g *m) { " + kac + " *out = " + kac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + kac + "_push(out, " + self.decodeOf(kty, "m->keys[i]") + "); } return out; }")
             self.emit("static " + vac + " *" + self.genericMapValuesName(gty) + "(const xn_map_g *m) { " + vac + " *out = " + vac + "_new(m->len); for (size_t i = 0; i < m->len; i++) { " + vac + "_push(out, " + self.decodeOf(vty, "m->vals[i]") + "); } return out; }")
             String entryCls = self.entryClassName(kty, vty)
-            self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_" + entryCls + "_new(" + self.decodeOf(kty, "m->keys[i]") + ", " + self.decodeOf(vty, "m->vals[i]") + ")); } return out; }")
+            if self.isClass(entryCls) {
+                self.emit("static xn_arr_o *" + self.genericMapEntriesName(gty) + "(const xn_map_g *m) { xn_arr_o *out = xn_arr_o_new(m->len); for (size_t i = 0; i < m->len; i++) { xn_arr_o_push(out, (void *)xn_Cls_" + entryCls + "_new(" + self.decodeOf(kty, "m->keys[i]") + ", " + self.decodeOf(vty, "m->vals[i]") + ")); } return out; }")
+            }
             gmDef = gmDef + 1
         }
         Bool mainArgs = false
@@ -11825,6 +12328,9 @@ static String localImportFile(String pkg) {
 }
 
 static String xdkFile(String pkg) {
+    if pkg == "xdk.annotations" || pkg.startsWith("xdk.annotations.") {
+        return "annotations/Annotations.x"
+    }
     if pkg == "xdk.errors" || pkg.startsWith("xdk.errors.") {
         return "core/errors/Errors.x"
     }

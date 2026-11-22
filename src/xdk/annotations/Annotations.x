@@ -7,7 +7,6 @@
 //   - 值树、集合、元素、上下文、结果与注册表构造后不可变；
 //   - 注册表只读查询，不提供动态注册入口。
 package xdk.annotations
-import xdk.collections
 
 enum AnnotationTarget {
     Package,
@@ -59,14 +58,13 @@ enum AnnotationProcessorPhase {
 
 // 不可变注解常量值树节点：标签 + 对应负载。
 // 工厂是唯一公开构造入口；不匹配的访问器返回 null，不抛异常。
-// 说明：mini 暂不支持 Float 作为通用类型，Float 标签以 Double 负载承载；
-// 该差异记录在 B2 批末 BLOCKED 证据中，访问器语义保持不变。
+// 说明：编译器把 Float 作为 Double 别名；Float 标签保留独立语义。
 class AnnotationValue {
     final AnnotationValueKind _kind
     final Bool? _boolValue
     final Int? _intValue
     final Long? _longValue
-    final Double? _floatValue
+    final Float? _floatValue
     final Double? _doubleValue
     final Char? _charValue
     final String? _stringValue
@@ -77,7 +75,7 @@ class AnnotationValue {
     final AnnotationInfo? _annotationValue
 
     private AnnotationValue(AnnotationValueKind kind, Bool? boolValue, Int? intValue,
-                            Long? longValue, Double? floatValue, Double? doubleValue,
+                            Long? longValue, Float? floatValue, Double? doubleValue,
                             Char? charValue, String? stringValue, String? enumTypeName,
                             String? enumItemName, String? typeName,
                             List<AnnotationValue>? arrayValue,
@@ -131,8 +129,7 @@ class AnnotationValue {
         )
     }
 
-    // mini 无 Float 类型；以 Double 承载 Float 标签。
-    static AnnotationValue ofFloat(Double value) {
+    static AnnotationValue ofFloat(Float value) {
         return new AnnotationValue(
             AnnotationValueKind.Float,
             null, null, null, value, null, null, null, null, null, null, null, null
@@ -238,8 +235,7 @@ class AnnotationValue {
         return self._longValue
     }
 
-    // 与 ofFloat 一致：Float 标签的负载以 Double 返回。
-    Double? asFloat() {
+    Float? asFloat() {
         return self._floatValue
     }
 
@@ -1008,7 +1004,7 @@ static String annotationsValueDescribe(AnnotationValue value) {
         return "Long(" + str(value.asLong() as Long) + ")"
     }
     if kind == AnnotationValueKind.Float {
-        return "Float(" + str(value.asFloat() as Double) + ")"
+        return "Float(" + str(value.asFloat() as Float) + ")"
     }
     if kind == AnnotationValueKind.Double {
         return "Double(" + str(value.asDouble() as Double) + ")"

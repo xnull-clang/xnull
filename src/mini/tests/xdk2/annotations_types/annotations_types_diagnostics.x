@@ -1,5 +1,5 @@
 // B2 场景：元素视图、诊断、处理器上下文/结果与非泛型处理器协议。
-import annotations.Annotations
+import xdk.annotations
 
 static Map<String, AnnotationValue> emptyValues() {
     Map<String, AnnotationValue> values = [:]
@@ -152,6 +152,17 @@ static Int main() {
     print(packageElement.target() == AnnotationTarget.Package)
     print(packageElement.annotations().isEmpty())
     print(packageElement.describe())
+
+    // 枚举 0 号成员不是 null：Resolve / Package / Error / Bool 均可构造。
+    List<AnnotationElement> noElements = []
+    Map<String, String> noOptions = [:]
+    AnnotationProcessorContext resolveContext = new AnnotationProcessorContext(
+        AnnotationProcessorPhase.Resolve,
+        noElements,
+        noOptions
+    )
+    print(resolveContext.phase() == AnnotationProcessorPhase.Resolve)
+    print(resolveContext.elements().length() == 0)
 
     // 处理器上下文：阶段、元素快照、选项快照。
     List<AnnotationElement> elements = []

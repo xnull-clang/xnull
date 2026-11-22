@@ -1,5 +1,5 @@
 // B2.2 场景：只读注册表按类型/目标查询、缺失返回空集合、类型列表排序。
-import annotations.Annotations
+import xdk.annotations
 
 static Map<String, AnnotationValue> emptyValues() {
     Map<String, AnnotationValue> values = [:]

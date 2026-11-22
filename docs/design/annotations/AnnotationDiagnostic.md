@@ -58,7 +58,7 @@
 
 | 构造 | 参数 | 合法域 | 失败 |
 | --- | --- | --- | --- |
-| `AnnotationDiagnostic(AnnotationDiagnosticSeverity severity, String code, String message, String elementName)` | 全部 | severity 非 null；code/message 去空白后非空；elementName 非 null | null/空 code/空 message → panic |
+| `AnnotationDiagnostic(AnnotationDiagnosticSeverity severity, String code, String message, String elementName)` | 全部 | severity 是枚举成员（枚举不可为 null）；code/message 去空白后非空；elementName 非 null | null/空 code/空 message → panic |
 
 说明：
 
@@ -170,9 +170,7 @@ class AnnotationDiagnostic {
 
     AnnotationDiagnostic(AnnotationDiagnosticSeverity severity, String code,
                          String message, String elementName) {
-        if severity == null {
-            throw "AnnotationDiagnostic: null severity"
-        }
+        // severity 是枚举成员；枚举是值类型，不存在 null。
         if code == null || trim(code) == "" {
             throw "AnnotationDiagnostic: empty code"
         }
