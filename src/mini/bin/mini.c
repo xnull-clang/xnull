@@ -3697,6 +3697,9 @@ static rt_string * xn_Cls_Mono_inferLambdaReturn(xn_Cls_Mono *self, xn_Cls_AstNo
 }
 
 static int xn_Cls_Mono_inferTypePattern(xn_Cls_Mono *self, rt_string * pattern, rt_string * actual, xn_arr_s * names, xn_arr_s * inferred) {
+  if (((((int64_t)pattern->len) > 1) && xn_str_eq(xn_str_substr(pattern, xn_int_wrap((((int64_t)pattern->len) - 1)), 1), rt_string_from_c("?")))) {
+    return xn_Cls_Mono_inferTypePattern(self, xn_str_substr(pattern, 0, xn_int_wrap((((int64_t)pattern->len) - 1))), actual, names, inferred);
+  }
   int64_t ni = xn_int_wrap(0);
   while ((ni < ((int64_t)names->len))) {
     if (xn_str_eq(pattern, xn_arr_s_get(names, ni))) {
@@ -4018,11 +4021,14 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self) {
         xn_Cls_AstNode * m = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, mi));
         if ((xn_str_eq(m->kind, rt_string_from_c("Method")) && xn_Cls_Mono_hasTypeParams(self, m))) {
           xn_arr_s * methodParams = xn_Cls_Mono_typeParams(self, m);
+          int isStatic = xn_Cls_Mono_methodIsStatic(self, m);
           xn_arr_s *combined = xn_arr_s_new(0);
           int64_t pi = xn_int_wrap(0);
-          while ((pi < ((int64_t)classParams->len))) {
-            xn_arr_s_push(combined, xn_arr_s_get(classParams, pi));
-            pi = xn_int_wrap((pi + 1));
+          if ((!isStatic)) {
+            while ((pi < ((int64_t)classParams->len))) {
+              xn_arr_s_push(combined, xn_arr_s_get(classParams, pi));
+              pi = xn_int_wrap((pi + 1));
+            }
           }
           pi = 0;
           while ((pi < ((int64_t)methodParams->len))) {
@@ -4040,7 +4046,6 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self) {
             }
             pi = xn_int_wrap((pi + 1));
           }
-          int isStatic = xn_Cls_Mono_methodIsStatic(self, m);
           xn_Cls_AstNode * fn = xn_Cls_AstNode_new(rt_string_from_c("Func"), xn_Cls_Mono_gmName(self, cls->text, m->text), m->line, m->col);
           xn_Cls_AstNode * tp = xn_Cls_AstNode_new(rt_string_from_c("TypeParams"), rt_string_from_c(""), m->line, m->col);
           pi = 0;

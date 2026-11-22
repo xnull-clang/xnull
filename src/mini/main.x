@@ -2743,6 +2743,9 @@ class Mono {
     }
 
     Bool inferTypePattern(String pattern, String actual, List<String> names, List<String> inferred) {
+        if pattern.length() > 1 && pattern.substring(pattern.length() - 1, 1) == "?" {
+            return self.inferTypePattern(pattern.substring(0, pattern.length() - 1), actual, names, inferred)
+        }
         Int ni = 0
         while ni < names.length() {
             if pattern == names.get(ni) {
@@ -3044,9 +3047,12 @@ class Mono {
                     AstNode m = cls.kids.get(mi)
                     if m.kind == "Method" && self.hasTypeParams(m) {
                         List<String> methodParams = self.typeParams(m)
+                        Bool isStatic = self.methodIsStatic(m)
                         List<String> combined = []
                         Int pi = 0
-                        while pi < classParams.length() { combined.push(classParams.get(pi)); pi = pi + 1 }
+                        if !isStatic {
+                            while pi < classParams.length() { combined.push(classParams.get(pi)); pi = pi + 1 }
+                        }
                         pi = 0
                         while pi < methodParams.length() {
                             Bool found = false
@@ -3058,7 +3064,6 @@ class Mono {
                             if !found { combined.push(methodParams.get(pi)) }
                             pi = pi + 1
                         }
-                        Bool isStatic = self.methodIsStatic(m)
                         AstNode fn = new AstNode("Func", self.gmName(cls.text, m.text), m.line, m.col)
                         AstNode tp = new AstNode("TypeParams", "", m.line, m.col)
                         pi = 0
