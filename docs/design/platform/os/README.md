@@ -296,3 +296,26 @@ print(profile.describe())
 ## 14. 变更记录
 
 - 2026-11-21：首版。定义 `xdk.os`  包、`OsHost` 服务面、CPU/内存/硬件/存储/GPU/桌面/防火墙/容器/虚拟化/服务域，以及适配器与安全边界。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | 标准 A8 |
+| 生成物 | OS 信息/画像值语义与构造 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `OsInfo`/`OsProfile` | `@Value` | 值语义成员 |
+| `OsProfile` 构造 | `@Builder` | 多字段构造 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -137,3 +137,45 @@ Result<String, Error> written = Xml.stringify(root, new XmlOptions().maxBytes(10
 | 父指针/环 | 不保存父指针；`addChild` 拒绝自引用，更深环由调用方保证；`Xml.stringify` 以 `maxDepth` 终止，`copy` 要求无环树 |
 | 全局状态 | 禁止全局 parser/registry/options 单例 |
 | 默认值 | `maxDepth=128`、`maxBytes=16777216`、`preserveWhitespace=true`、`allowDoctype=false` |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@XmlName` |
+| 本包消费 | `@Value`、`@Builder`、`@Serializable` |
+| 处理器 | XmlAnnotationProcessor（Validate/Generate） |
+| 生成物 | XML 元素/属性名映射、文档元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| DTO 字段 | `@XmlName` | 元素/属性名映射 |
+| `XmlElement`/`XmlOptions` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Field)
+@Retention(Source)
+@annotation XmlName {
+    final String value
+}
+```
+
+### 使用
+
+```x
+@Serializable
+class ServiceConfig {
+    @XmlName("serviceName") String name
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

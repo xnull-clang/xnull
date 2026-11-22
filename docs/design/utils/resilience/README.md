@@ -99,3 +99,71 @@ X：Hedging、组合策略、分布式熔断、指标导出。
 | Hedging | X |
 | Timeout |  用任务截止实现；不接受 0/负值 |
 | 退避 | 使用 `errors.RetryPolicy` |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | ResilienceAnnotationProcessor（Validate/Generate） |
+| 生成物 | 重试/熔断/限流/超时包装器 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 服务方法 | `@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` | 策略包装 |
+| `Retry`/`CircuitBreaker`/`RateLimiter`/`Timeout` | `@Value`/`@Builder` | 值语义/策略构造 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Retryable {
+    final Int maxAttempts = 3
+    final Long initialDelayMillis = 100
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation CircuitBreakerPolicy {
+    final String name
+    final Int failureThreshold = 5
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation RateLimit {
+    final String name
+    final Int permits
+    final Long perMillis
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation TimeoutPolicy {
+    final Long timeoutMillis
+}
+```
+
+### 使用
+
+```x
+class UserService {
+    @Retryable(3, 100)
+    @CircuitBreakerPolicy("users", 5)
+    @TimeoutPolicy(2000)
+    User find(Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

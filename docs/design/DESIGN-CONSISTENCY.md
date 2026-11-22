@@ -65,14 +65,16 @@
 
 | # | 冲突 | 现状 | 决定 | 改哪份 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| A1 | 目标集合 7 vs 11 | `ANNOTATION-PLAN.md` 写 7 个；`ANNOTATION-SYSTEM.md`/`AnnotationTarget` 写 11 个 | 以 11 个为准：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem` | `ANNOTATION-PLAN.md` | 回写 |
-| A2 | `@Repeatable` 无效果 vs 可用 | 旧计划写“保留但无效果”；新系统写允许重复并保序 | 2.x 支持重复并保序；未标 `@Repeatable` 的重复是错误 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
-| A3 | `@Override` 是否强制 | 旧计划 D1 写“无需强制”；系统表写“强制” | 使用 `@Override` 时强制签名匹配；不要求每个实现都标注 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
+| A1 | 目标集合 7 vs 11 | 旧计划写 7 个；系统/`AnnotationTarget` 写 11 个 | 以 11 个为准：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem` | `ANNOTATION-PLAN.md` | 已关闭（B1） |
+| A2 | `@Repeatable` 无效果 vs 可用 | S2 旧文写“保留但无效果”；编译器已按重复保序实现 | 支持重复并保序；未标 `@Repeatable` 的重复是错误 | S2 §12、`ANNOTATION-SYSTEM.md` | 已关闭（S2 3.5.0） |
+| A3 | `@Override` 是否强制 | 旧计划写“无需强制”；系统表写“强制” | 使用 `@Override` 时强制签名匹配；不要求每个实现都标注 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
 | A4 | `@MustUse` 是否用户注解 | 旧计划把它列入内建注解表 | `@MustUse` 是语言规则，不是 `@annotation`；不得当普通注解使用 | `ANNOTATION-PLAN.md`、`ANNOTATION-SYSTEM.md` | 已冻结 |
-| A5 | 诊断码缺失 | S2 §12 没有稳定诊断码表 | P1.0 冻结 `AN00xx` 诊断码表；见 `ANNOTATION-PLAN.md` §10 | `ANNOTATION-PLAN.md` | 回写 |
-| A6 | 编译器 0 支持 | `src/mini/main.x` 无 `@annotation`/注解 AST/解析/处理器 | P1 先做 lexer/parser/AST，再做语义/常量/内建/元数据/处理器；14 类型不是第一步 | `src/mini`、`ANNOTATION-PLAN.md` | P1 |
-| A7 | 处理器阶段/轮次未冻结 | 文档有 Resolve/Validate/Generate/Finalize，但没有固定点/失败原子性规则 | P1.0 冻结：多轮固定点、生成失败不落半成品、处理器显式启用、确定性输出 | `ANNOTATION-SYSTEM.md` | 回写 |
-| A8 | 运行时注册表格式未冻结 | 只写“编译器生成静态表” | P1.0 冻结版本号、排序、目标索引、重复项保留规则；运行时只读 | `annotations/AnnotationRegistry.md`、`ANNOTATION-SYSTEM.md` | 回写 |
+| A5 | 诊断码缺失 | S2 §12 没有稳定诊断码表 | 冻结 `AN00xx`；新增 `AN0021` 派生字段不可值比较 | `ANNOTATION-PLAN.md` §9 | 已冻结 |
+| A6 | 编译器支持 | 旧文称 0 支持 | 注解 AST/解析/目标/保留/常量/内建/Registry 已实现（B1/B2）；处理器调度 P1.6 planned | `src/mini`、`ANNOTATION-PLAN.md` | 已关闭（B1/B2） |
+| A7 | 处理器阶段/轮次 | 文档有 Resolve/Validate/Generate/Finalize，但调度器未实现 | 多轮固定点、失败原子、显式启用、确定性输出；P1.6 实现 | `ANNOTATION-SYSTEM.md` | 合同已冻结 |
+| A8 | 运行时注册表格式 | 已实现 v1 静态表 | 版本号、排序、目标索引、重复项保留规则冻结；运行时只读 | `annotations/AnnotationRegistry.md`、`ANNOTATION-SYSTEM.md` | 已关闭（B2.3） |
+| A11 | 注解名与同包类型同名 | 早期矩阵出现 `@Command`/`@HttpMethod`/`@JwtHeader`/`@SerialPort`/`@Test`/`@Retry`/`@CircuitBreaker`/`@Timeout`/`@Receiver`/`@Processor`/`@WebSocketHandler`/`@Model`/`@AgentPipeline` 等冲突 | 注解名必须避开同包类型；改名为 `@CliCommand`/`@HttpRoute`（含 method 字段）/`@JwtHeaderField`/`@SerialBinding`/`@TestCase`/`@Retryable`/`@CircuitBreakerPolicy`/`@TimeoutPolicy`/`@AgentReceiver`/`@AgentProcessor`/`@WsHandler`/`@ModelSpec`/`@PipelineSpec` | `ANNOTATION-CATALOG.md`、各包 README | 已冻结（2026-11-22） |
+| A12 | 注解只用表、不进类型设计 | 早期采用只在 README 加矩阵，类型合同无注解 | 75 包 README 必须有声明/消费/处理器/生成物/具体落点；值类型与领域类型在类型合同标注 | `ANNOTATION-ADOPTION.md`、各包 README | 执行中 |
 
 ---
 
@@ -239,7 +241,7 @@
 ```text
 S1–S9 全部有决定；无“待定”进入实现
 C1–C16 全部有 owner/阶段
-A1–A8 全部有 owner/阶段
+A1–A12 全部有 owner/阶段
 N1–N8 / P1–P13 / U1–U22 / X1–X9 全部有 owner/阶段
 同名冲突登记表覆盖全部重复简单名
 缺失原语表覆盖所有跨包阻塞

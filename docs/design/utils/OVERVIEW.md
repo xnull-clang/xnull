@@ -110,9 +110,9 @@ X 扩展面（本批已设计）：
 | `xdk.codec` | `@Serializable`、`@JsonName` | JSON 编解码器、字段名映射 |
 | `xdk.yaml` / `xdk.toml` / `xdk.xml` | `@YamlName`、`@TomlName`、`@XmlName` | 文档字段名映射 |
 | `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器生成 |
-| `xdk.cache` / `xdk.resilience` | `@Cacheable`、`@CacheEvict`、`@Retry`、`@CircuitBreaker`、`@RateLimit`、`@Timeout` | 缓存/重试/熔断包装器 |
+| `xdk.cache` / `xdk.resilience` | `@Cacheable`、`@CacheEvict`、`@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 缓存/重试/熔断包装器 |
 | `xdk.metrics` / `xdk.trace` / `xdk.audit` | `@Metered`、`@Traced`、`@Audited` | 指标/追踪/审计包装 |
-| `xdk.test` / `xdk.schedule` | `@Test`、`@Before`、`@After`、`@Benchmark`、`@Scheduled`、`@Cron` | 测试清单、作业注册 |
+| `xdk.test` / `xdk.schedule` | `@TestCase`、`@Before`、`@After`、`@Benchmark`、`@Scheduled` | 测试清单、作业注册 |
 
 完整矩阵见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。注解只生成显式包装/元数据，不改变类型系统、错误模型或资源所有权。
 

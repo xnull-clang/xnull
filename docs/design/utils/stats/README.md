@@ -94,3 +94,25 @@ X：t-digest/ reservoir 近似分位、加权统计、分布式合并、时间�
 | 线程安全 | 默认非线程安全；跨任务共享需外部同步 |
 | 直方图边界 | 必须严格递增；空边界表示单一无界桶 |
 | 空数据 | 均值/方差/分位返回 NaN；min/max 返回 NaN |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | 标准 A8 |
+| 生成物 | 统计快照/直方图/回归值语义 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `HistogramBucket`/`BucketHistogram`/`Summary`/`RunningStats`/`Regression`/`MovingAverage`/`Ema` | `@Value` | 值语义成员 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

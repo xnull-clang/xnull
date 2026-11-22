@@ -71,11 +71,11 @@ core ────────┼─ net/jwt/sql
 | --- | --- | --- |
 | `xdk.api` | `@Api`、`@Operation`、`@Middleware`、`@Inject`、`@Component`、`@Configuration`、`@Bean` | 路由、DI、配置生成 |
 | `xdk.db` | `@Entity`、`@Table`、`@Id`、`@Transactional` | ORM/DAO、事务包装 |
-| `xdk.ml` | `@Model`、`@Pipeline`、`@TensorSpec` | 模型/流水线描述 |
+| `xdk.ml` | `@ModelSpec`、`@MlPipeline`、`@TensorSpec` | 模型/流水线描述 |
 | `xdk.mcp` | `@Tool`、`@Resource`、`@Prompt` | MCP 能力清单 |
-| `xdk.agent` | `@Receiver`、`@Processor`、`@Exporter`、`@Pipeline` | 采集/处理/导出管线 |
+| `xdk.agent` | `@AgentReceiver`、`@AgentProcessor`、`@AgentExporter`、`@PipelineSpec` | 采集/处理/导出管线 |
 
-完整矩阵与处理器规则见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。领域注解定义在所属包；处理器必须显式启用，生成结果确定、可重现并带来源标记。
+本层领域注解均为 planned；处理器/生成物未实现，不得写成已生效。完整矩阵与处理器规则见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。领域注解定义在所属包；处理器必须显式启用，生成结果确定、可重现并带来源标记。
 
 ## 4. 工作流
 

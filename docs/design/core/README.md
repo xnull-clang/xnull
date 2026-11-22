@@ -108,7 +108,7 @@ xdk.core
 
 规则：
 
--  `annotations` 是独立层，位于 core 之前；其元模型/元注解/处理器合同见 [`../annotations/README.md`](../annotations/README.md) 与 [`../../ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md)。
+-  `annotations` 是独立层，位于 core 之前；其元模型/元注解/处理器合同见 [`../annotations/README.md`](../annotations/README.md) 与 [`../ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md)。
 - core 既有 `01`–`15` 编号保持不变，以免破坏 `01`–`16` 状态账本与 `core-batches.sh`；annotations 先于 `01` 冻结。
 - 后面的包可以依赖前面的包；反向依赖禁止。
 - 一个包未冻结，不开始下一个包。
@@ -306,7 +306,7 @@ class BasicError implements Error, DetailedError {
 | `cli` | 设计完成（含 Shell/系统资源；X completion/positional 后续） | `cli/` |
 | 执行层 `xdk.execution`（1.x `tasks`/`sync` 兼容） | 已交付（待评审；含 Executor/RwLock/Semaphore/WaitGroup/Once/Pool/Future/Promise） | `execution/` |
 
-> `xdk.annotations` 是独立注解层（14 类型，设计基线），不计入 2.x core 的 15 包实现状态；见 [`../annotations/README.md`](../annotations/README.md)。
+> `xdk.annotations` 是独立注解层（14 类型 + 编译器注解管线 + Registry 已实现；A8/领域处理器 planned），不计入 2.x core 的 15 包实现状态；见 [`../annotations/README.md`](../annotations/README.md)。
 
 > L3 已覆盖 `io`、`fs`、`sys`、`log`、`config`、`cli`；L4 执行层已覆盖 `Context`/`TaskHandle`/`Task`/`TaskGroup`/`Mutex`/`Channel`/`Atomic*`，并补齐 `Executor`/`Semaphore`/`RwLock`/`WaitGroup`/`Once`/`Pool`/`Future`/`Promise`；`CORE-PROFILES.md` 定义客户端/服务器画像与资源上限。
 >

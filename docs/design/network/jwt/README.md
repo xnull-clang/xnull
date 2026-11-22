@@ -93,3 +93,60 @@ SM2-SM3；key 来自 `xdk.crypto`。
 | 全局密钥 | 禁止 |
 | 自动刷新 | X |
 | JWT 压缩 | X |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@JwtClaim`、`@JwtHeaderField` |
+| 本包消费 | `@Value`、`@Builder`、`@Serializable`、`@JsonName` |
+| 处理器 | JwtAnnotationProcessor（Validate/Generate） |
+| 生成物 | claims/header 映射、序列化元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| claims 类 | `@JwtClaim` | claim 字段映射 |
+| header 类 | `@JwtHeaderField` | header 字段映射 |
+| `JwtClaims`/`JwtHeader`/`JwtToken`/`JwtOptions` | `@Value`/`@Builder` | 值语义/选项 |
+| claims/header DTO | `@Serializable`/`@JsonName` | JSON 编解码 |
+
+### 声明
+
+```x
+@Target(Field)
+@Retention(Source)
+@annotation JwtClaim {
+    final String value
+}
+
+@Target(Field)
+@Retention(Source)
+@annotation JwtHeaderField {
+    final String value
+}
+```
+
+### 使用
+
+```x
+@Serializable
+class AccessClaims {
+    @JwtClaim("sub") String subject
+    @JwtClaim("exp") Long expiresAt
+}
+
+@Serializable
+class JwtHeaderFields {
+    @JwtHeaderField("alg") String algorithm
+    @JwtHeaderField("kid") String keyId
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

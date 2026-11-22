@@ -231,3 +231,25 @@
 - **确定性**：不使用随机数；算法路径由输入与显式参数决定；不依赖哈希遍历顺序。
 - **拒绝服务**：`BigInt` 解析、`BigFloat` 精度、FFT 长度、插值节点数都有上限；调用方仍应对公网输入做配额。
 - **无隐式求值**：不做符号展开、不做用户文本求值；多项式与回调都是显式数据/函数。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Copy` |
+| 处理器 | 标准 A8 |
+| 生成物 | 大数/多项式/信号值语义 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `BigInt`/`BigFloat`/`Polynomial`/`SignalBuffer` | `@Value`/`@Builder` | 值语义/构造 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

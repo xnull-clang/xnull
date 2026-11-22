@@ -441,3 +441,27 @@ Long startMicros = nowMicros()
 ```
 
 测试义务：统计默认关闭/开关/reset；五个计数与 `live()`；`dumpTasks` 不改变任务状态；`nowMicros` 单调；`sleepContext` 在 time 包测试。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Copy`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 运行信息/健康快照的派生成员、协议签名校验 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `RuntimeInfo`/`MemoryStats`/`TaskStats`/`TaskSnapshot` | `@Value` | 值语义成员 |
+| `HealthReport` | `@Value` | 快照相等/文本 |
+| `HealthCheck` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

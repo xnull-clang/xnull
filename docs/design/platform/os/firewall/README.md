@@ -113,3 +113,26 @@ OS 防火墙的类型化规则、状态查询与控制；Linux nftables/iptables
 | 规则持久化/跨重启规则 ID | 适配器/OS 负责；不承诺 |
 | 全局规则/其他管理器规则枚举 | X |
 | 原生规则字符串/后端命令 | 不暴露 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Audited` |
+| 处理器 | 标准 A8 / 审计处理器 |
+| 生成物 | 规则值语义、规则构造、变更审计 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `FirewallRule`/`FirewallStatus` | `@Value`/`@Builder` | 值语义/构造 |
+| `FirewallController` 变更方法 | `@Audited` | 审计事件 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../../ANNOTATION-CATALOG.md)。

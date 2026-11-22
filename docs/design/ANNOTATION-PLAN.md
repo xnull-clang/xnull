@@ -5,9 +5,9 @@
 | 位置 | 注解层；语言/编译器/工具链前置计划 |
 | 权威语法 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12 + [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) |
 | 相关规范 | S1 `@mustUse`、S5 `@tasks`/`@arena`、S7 工具链 |
-| 状态 | 2.x P1 实施计划；语义已并入 `ANNOTATION-SYSTEM.md` |
+| 状态 | P1.0–P1.5 已实现（B1/B2/B2.3）；P1.6 处理器调度、A8 派生、领域处理器为 planned |
 | 约束 | 不再只写设计：P1 直接改 `src/mini`；不引入运行时反射/注解扫描 |
-| 第一出口 | mini 能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |
+| 第一出口 | mini 已能解析、校验、生成注解元数据；`xdk.annotations` 14 类型可查询 |
 
 ---
 
@@ -19,8 +19,8 @@
 - `@Validate`/`@Min`/`@Max`/`@Pattern` → 校验器；
 - `@HttpRoute`/`@Header`/`@Query` → 路由表/参数绑定；
 - `@Sql`/`@Param`/`@Row` → DAO/行映射；
-- `@JwtClaim`/`@JwtHeader` → claims/header 映射；
-- `@Test`/`@Scheduled` → 测试清单/作业注册；
+- `@JwtClaim`/`@JwtHeaderField` → claims/header 映射；
+- `@TestCase`/`@Scheduled` → 测试清单/作业注册；
 - `@Packed`/`@Align`/`@Device`/`@GpuKernel` → FFI 布局/设备/算子入口。
 
 没有注解，这些包只能：
@@ -159,8 +159,8 @@ A8/A9 状态：**planned / not implemented**。A8 派生注解（`@Value`/`@Data
 | 字段只读 | 仅在确实需要“外部只读、内部可写”时使用 `@ReadOnly`；普通不可变用 `final` |
 | 协议实现 | 可用 `@Override`；使用即强制匹配协议签名 |
 | 预留性能注解 | 全部禁止，直到语义/验证/工具链冻结 |
-| 自定义注解 | 不作为 XDK 公共 API 的一部分；应用/生态自用 |
-| 领域注解 | 定义在所属包；处理器由包/项目显式启用；不塞进 `xdk.annotations` |
+| 用户自定义注解 | 不属于 XDK 公共 API；应用/生态可在构建期处理器中使用 |
+| XDK 领域注解 | 由所属包声明并作为该包公共合同；处理器由包/项目显式启用；不塞进 `xdk.annotations` |
 
 ---
 
@@ -168,14 +168,14 @@ A8/A9 状态：**planned / not implemented**。A8 派生注解（`@Value`/`@Data
 
 | 阶段 | 内容 | 完成条件 |
 | --- | --- | --- |
-| P1.0 | 冻结 A0：目标 11、保留 3、诊断码、注册表格式 | 本文件 + `AnnotationTarget`/`Retention` 签字 |
-| P1.1 | 词法/语法/AST | `@annotation` 与 `@Name(...)` 可解析；非法语法有诊断 |
-| P1.2 | 类型/目标/重复/保留 | 未知/错目标/错参数/重复诊断 |
-| P1.3 | 常量求值/默认值 | 标量/枚举/数组/嵌套注解/类型引用；尾部省略 |
-| P1.4 | 内建强制 | `@ReadOnly`、`@Override`、`@Deprecated`、`@SuppressWarnings` |
-| P1.5 | 元数据/注册表 | `AnnotationRegistry` 只读查询；版本/排序/重复项 |
-| P1.6 | 处理器调度 | 四阶段、多轮固定点、显式启用、失败原子性 |
-| P1.7 | 测试矩阵/文档 | 正/负例、诊断码、生成场景全绿；包 README 注解清单 |
+| P1.0 | 冻结 A0：目标 11、保留 3、诊断码、注册表格式 | 已实现；`AnnotationTarget`/`AnnotationRetention`/诊断码冻结 |
+| P1.1 | 词法/语法/AST | 已实现；`@annotation` 与 `@Name(...)` 可解析，非法语法有诊断 |
+| P1.2 | 类型/目标/重复/保留 | 已实现；未知/错目标/错参数/重复诊断 |
+| P1.3 | 常量求值/默认值 | 已实现；标量/枚举/数组/嵌套注解/类型引用；尾部省略 |
+| P1.4 | 内建强制 | 已实现；`@ReadOnly`、`@Override`、`@Deprecated`、`@SuppressWarnings` |
+| P1.5 | 元数据/注册表 | 已实现；`AnnotationRegistry` 只读查询；版本/排序/重复项 |
+| P1.6 | 处理器调度 | planned；四阶段、多轮固定点、显式启用、失败原子性 |
+| P1.7 | 测试矩阵/文档 | 部分完成；编译器正/负例已存在；领域处理器生成场景待实现；包 README 注解清单已建立 |
 
 > P1.0–P1.5 是 `xdk.annotations` 14 类型与编译器的最小闭环；P1.6 才允许领域处理器接入。不要先写 `@Serializable` 处理器再补编译器。
 
@@ -205,9 +205,10 @@ A8/A9 状态：**planned / not implemented**。A8 派生注解（`@Value`/`@Data
 | `AN0018` | 生成声明冲突 | Error |
 | `AN0019` | 元数据/注册表版本不匹配 | Error |
 | `AN0020` | 注解用于不支持的声明/表达式/块 | Error |
+| `AN0021` | 派生注解字段不可值比较/不可生成 | Error |
 
-冻结状态：**已冻结 2026-11-22**（执行 owner 签字）。`AN0001`–`AN0020`
-为 P1 的稳定码集，不得重编号；新增只能追加 `AN0021+`。
+冻结状态：**已冻结 2026-11-22**（执行 owner 签字）。`AN0001`–`AN0021`
+为 P1 的稳定码集，不得重编号；新增只能追加 `AN0022+`。
 
 规则：
 
@@ -237,9 +238,10 @@ A8/A9 状态：**planned / not implemented**。A8 派生注解（`@Value`/`@Data
 
 ## 11. 当前缺口
 
-1. 编译器 `src/mini/main.x` 没有注解 AST/解析/语义/处理器；`@` 目前不是注解语法。
-2. `xdk.annotations` 14 类型只有设计，没有 XDK 实现。
-3. 诊断码表 §9 已冻结（2026-11-22）。
-4. 处理器调度器、生成目录、增量缓存、沙箱尚未实现。
-5. 各包 README 的领域注解清单尚未统一。
-6. `@Serializable`/`@Validate`/`@HttpRoute` 等处理器必须等 P1.5 + 对应包实现后再接，不能先写处理器空壳。
+1. 编译器注解 AST/解析/目标/保留/常量/内建/Registry 已实现；证据见 `src/mini/tests/annotations*` 与 `src/mini/tests/xdk2/annotations_types/*`。
+2. `xdk.annotations` 14 类型已实现；`src/xdk/annotations/Annotations.x` 与 `xdk2.sh` 场景通过。
+3. 诊断码表 §9 已冻结（2026-11-22）；编译器已使用 `AN0001`–`AN0020`；`AN0021` 为 A8 派生预留。
+4. 处理器调度器、生成目录、增量缓存、沙箱尚未实现（P1.6）。
+5. 各包 README 的领域注解清单已建立；`ANNOTATION-CATALOG.md` 与 `ANNOTATION-ADOPTION.md` 是权威索引。
+6. A8 派生处理器（`@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate`）与领域处理器仍为 planned；不得写成已实现。
+7. `@Serializable`/`@Validate`/`@HttpRoute` 等处理器必须等 P1.6 + 对应包实现后再接，不能先写处理器空壳。

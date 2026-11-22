@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Instant` |
+| 类型 | `struct Instant` |
 | 包 | `xdk.time` |
 | 稳定性 | `stable` |
 | 依赖 | `Duration`、`DateTime` |
 
 ---
+
+> 类型选择：`struct Instant`；唯一字段是 Long，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -87,7 +89,7 @@ epoch 毫秒时间点；用于时间戳/比较/与 DateTime 转换。
 
 ## 9. 需要的支撑
 
-- 语言：class、Long、Int、Bool、String；
+- 语言：struct、Long、Int、Bool、String；
 - 运行时：`nowWall`；
 - 接口：`Duration`、`DateTime`。
 
@@ -121,7 +123,7 @@ epoch 正/负/0；plus/minus；比较；toDateTime；now；toString。
 ## 14. XNull 伪代码
 
 ```xnull
-class Instant {
+struct Instant {
     final Long _epochMillis
 
     Instant(Long epochMillis) {

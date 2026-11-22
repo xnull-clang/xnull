@@ -11,6 +11,8 @@
 
 ---
 
+> 注解合同（A8，planned）：`@Value` 生成 `equals`/`hash`/`toString`/`copy`；字段保持 `final`；引用字段按值语义比较。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`hash`/`toString`/`copy` 只描述生成物行为，不是手写实现。
+
 ## 1. 定位
 
 结果集列元数据：列名、数据库原生类型名、是否可空。
@@ -129,6 +131,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
+@Value
 class SqlColumn {
     final String _name
     final String _typeName

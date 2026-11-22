@@ -330,3 +330,26 @@ MCU 常见无动态加载、无多队列、内存极小；`createProgram`/`creat
 - 相对链接：本 README 的类型链接、[`../README.md`](../README.md)、[`../WORK-ALLOCATION.md`](../WORK-ALLOCATION.md)、[`xdk.gpu`](../../platform/gpu/README.md)、[`xdk.os.gpu`](../../platform/os/gpu/README.md)、[`xdk.tensor`](../../platform/tensor/README.md)、[`GpuAdapter`](../../platform/os/gpu/GpuAdapter.md)、[`GpuBackend`](../../platform/os/gpu/GpuBackend.md)、[`CpuTopology`](../../platform/os/cpu/CpuTopology.md)。
 - 不修改 `../../platform/README.md` 或 `../README.md`；不新增代码/测试/脚本。
 - 设计完成不等于实现完成；实现批次另排。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Builder`、`@GpuKernel`、`@TensorOp` |
+| 处理器 | 无自有处理器；消费 GPU/Tensor 生成物 |
+| 生成物 | 设备/程序/队列是句柄/服务；kernel 入口复用 GPU/Tensor 处理器 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Accelerator`/`AcceleratorDevice`/`AcceleratorProgram`/`AcceleratorQueue` | — | 句柄/服务，保持显式 class/close |
+| kernel 方法 | `@GpuKernel`/`@TensorOp` | 复用 GPU/Tensor 处理器 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

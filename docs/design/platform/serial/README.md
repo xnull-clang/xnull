@@ -124,3 +124,44 @@
 - 可阻塞方法首参 `Context`；
 - `SerialPort` 使用不透明 `Long`，`close` 幂等；
 - 无权限/不支持/取消/超时/部分写均有明确通道。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@SerialBinding` |
+| 本包消费 | `@Value`、`@Builder`、`@Packed`、`@Align` |
+| 处理器 | SerialAnnotationProcessor（Validate/Generate） |
+| 生成物 | 串口配置、端口信息、布局校验 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 端口配置字段/参数 | `@SerialBinding` | 端口绑定 |
+| `SerialOptions`/`SerialPortInfo` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Field, Parameter)
+@Retention(Source)
+@annotation SerialBinding {
+    final String path
+}
+```
+
+### 使用
+
+```x
+class ConsoleConfig {
+    @SerialBinding("/dev/ttyUSB0") String port
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

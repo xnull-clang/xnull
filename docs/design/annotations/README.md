@@ -8,7 +8,7 @@
 | 上游依赖 | 语言核心标量与容器（`String`、`Int`、`Long`、`Float`、`Double`、`Char`、`Bool`、`List`、`Map`）；无其他 XDK 包 |
 | 下游使用 | 编译器前端/语义分析/生成器、构建调度器、运行时注册表查询方、IDE/文档工具、各领域注解 |
 | 权威设计 | [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) |
-| 语言语法 | [`solution-02-object-programming.md`](../../solution-02-object-programming.md) §12（由 `ANNOTATION-SYSTEM.md` 升级） |
+| 语言语法 | [`solution-02-object-programming.md`](../../solution-02-object-programming.md) §12（S2 3.5.0） |
 | 计划背景 | [`ANNOTATION-PLAN.md`](../ANNOTATION-PLAN.md) |
 | 目录规范 | [`../core/README.md`](../core/README.md) |
 
@@ -27,7 +27,7 @@
 
 它不回答：
 
-- 具体领域注解的语义（`@Data`、`@Serializable`、`@Route` 等归所属包）；
+- 具体领域注解的语义（`@Data`、`@Serializable`、`@HttpRoute` 等归所属包）；
 - 编译器内部 AST/符号表；
 - 构建系统如何调度、缓存、落盘；
 - 运行时如何反射读取注解（**永远不做**）；
@@ -298,3 +298,28 @@ AnnotationValue? name = set.first("app.Marker")?.valueOrNull("name")
 - 2026-11-22：`AnnotationTarget` 对齐为 11 目标（含 `Deinit` 与元注解目标 `Annotation`），并补 `AnnotationInfo` 规范名、`AnnotationElement` 视图和 `AnnotationRegistry.targetKey`。
 - 2026-11-22：B2.3 定义 Runtime 注册表 v1 与生成入口；B2-fix 统一 `annotation:` 目标键、枚举不可为 null、Float 作为 Double 别名。
 - 2026-11-22：S2 注解收口：跨包注解 use 预解析（`11298b82`）、`Deinit` 声明与 GC 钩子（`20f82bf5`）、`TypeUse` 前置语法与注册表（`ab7e2a47`）；11 个目标均有合法挂载点。
+- 2026-11-22：S2 升到 3.5.0，明确元注解强制、构建期处理器/生成与 `Runtime` 静态 Registry；`ANNOTATION-CATALOG.md`/`ANNOTATION-ADOPTION.md` 建立 93 条注解目录与 75 包采用矩阵；领域注解均为 planned。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | 无（本包定义元模型，不消费领域注解） |
+| 处理器 | 无（处理器合同由构建期实现） |
+| 生成物 | 14 类型、AnnotationRegistry 查询面、处理器上下文/结果合同 |
+| 状态 | 已实现（B1/B2） |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `AnnotationRegistry`/`AnnotationSet` | — | 静态注册表只读查询 |
+| `AnnotationProcessor` | — | 构建期处理器合同 |
+| `AnnotationElement` | — | 处理器只读元素视图 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../ANNOTATION-CATALOG.md)。

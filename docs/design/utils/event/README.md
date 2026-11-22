@@ -177,3 +177,26 @@ xdk.errors / xdk.runtime / xdk.codec
 - 应用可以在 handler 或发布方调用 `xdk.log`；`xdk.event` 不反向依赖 `xdk.log`。
 - `xdk.event` 不依赖 `xdk.graph`/`xdk.reflect`/`xdk.metrics`；这些包也不能把事件总线当作日志或指标通道。
 - 不创建全局总线；跨组件传递时必须显式传入 `EventBus` 或 `EventSubscription`。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 事件值语义、订阅/总线签名 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Event` | `@Value` | 值语义成员 |
+| `EventSubscription`/`EventBus` | `@Override` | 订阅/关闭签名；不套 builder |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

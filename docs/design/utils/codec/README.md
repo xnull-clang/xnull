@@ -104,3 +104,58 @@ X：`JsonPointer`、JSON Schema、流式 JSON SAX、CSV 类型映射、自定义
 | URL 编码 | 由 `net.uri` 提供 |
 | CSV 类型映射 | 只做 string 行 |
 | 全局注册表 | 禁止 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Serializable`、`@JsonName`、`@CsvName` |
+| 本包消费 | `@Value`、`@Builder`、`@Copy` |
+| 处理器 | CodecAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | JSON/CSV 编解码器、字段名映射、静态元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| DTO 类型 | `@Serializable` | 编解码器 |
+| DTO 字段 | `@JsonName`/`@CsvName` | 字段名映射 |
+| `JsonValue`/`JsonNumber`/`JsonOptions`/`CsvOptions` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Source)
+@annotation Serializable {
+}
+
+@Target(Field)
+@Retention(Source)
+@annotation JsonName {
+    final String value
+}
+
+@Target(Field)
+@Retention(Source)
+@annotation CsvName {
+    final String value
+}
+```
+
+### 使用
+
+```x
+@Serializable
+class UserDto {
+    @JsonName("user_id") final Long id
+    @JsonName("display_name") final String name
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -101,3 +101,25 @@ X：动态调用/构造、参数/注解/泛型元数据。
 | graph/event/log 依赖 | 禁止；保持 X 包边界 |
 | 字段与方法同名 | 允许；`field`/`method` 分流，`TypeInfo` 按种类去重 |
 | `Primitive` 元数据 | 强制为空；可赋值性仅名称同一 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | 标准 A8 |
+| 生成物 | 只读类型/成员信息快照 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `TypeInfo`/`MemberInfo` | `@Value` | 只读快照 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -64,3 +64,26 @@ xdk.os.host
 
 - 按需加载 domain：当前 `OsHost` 聚合全部；如果编译期裁剪需要，后续可拆 `OsHost` 为多个小协议。
 - 宿主生命周期：调用方 `close()`；无全局。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Override` |
+| 处理器 | 编译器内建 |
+| 生成物 | OsHost 实现签名；Os 是门面，不套派生注解 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `OsHost` 实现 | `@Override` | 签名校验 |
+| `Os` 门面 | — | 门面/装配，保持显式 class |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../../ANNOTATION-CATALOG.md)。

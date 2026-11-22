@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class DateTime` |
+| 类型 | `struct DateTime` |
 | 包 | `xdk.time` |
 | 稳定性 | `stable` |
 | 依赖 | `Duration`、`Instant`、`Date`、`Time`、`Month`、`Weekday`、`DateTimeFormatter`、`DateTimeParser` |
 
 ---
+
+> 类型选择：`struct DateTime`；唯一字段是 Long，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -92,7 +94,7 @@ UTC 日期时间：epoch 毫秒 + 年月日时分秒毫秒派生；支持加减/
 
 ## 9. 需要的支撑
 
-- 语言：class、Long、Int、Bool、String、Result；
+- 语言：struct、Long、Int、Bool、String、Result；
 - 运行时：无（`now` 用 `runtime.nowWall`）；
 - 接口：`Duration`、`Instant`、`Date`、`Time`、`Month`、`Weekday`、`DateTimeFormatter`、`DateTimeParser`、`civilDaysInMonth`、`civilIsLeap`、`daysFromCivil`、`civilFromDays`、`floorDiv`、`floorMod`。
 
@@ -126,7 +128,7 @@ UTC 日期时间：epoch 毫秒 + 年月日时分秒毫秒派生；支持加减/
 ## 14. XNull 伪代码
 
 ```xnull
-class DateTime {
+struct DateTime {
     final Long _epochMillis
 
     DateTime(Long epochMillis) {

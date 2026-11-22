@@ -323,3 +323,27 @@ Result<String, Error> regexReplaceAll(String pattern, String text, String replac
 | 文本索引 | 字节索引；码点用 Unicode 函数 |
 | Format 精度 | 精度在 `formatFloat/Double`，不在 `Format` |
 | 大文本 | 按行/分块；`StringBuilder` 不是流 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Copy`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 匹配/格式/正则选项派生成员 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Match`/`Format` | `@Value` | 值语义成员 |
+| `RegexOptions` | `@Builder` | 选项构造 |
+| `Regex`/`Unicode` 等入口 | — | 静态/实例方法，不强行套派生 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

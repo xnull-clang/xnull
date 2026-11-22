@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Duration` |
+| 类型 | `struct Duration` |
 | 包 | `xdk.time` |
 | 稳定性 | `stable` |
 | 依赖 | `TimeUnit`、`errors` |
 
 ---
+
+> 类型选择：`struct Duration`；唯一字段是 Long，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -99,7 +101,7 @@
 
 ## 9. 需要的支撑
 
-- 语言：class、Long、Int、Bool、String；
+- 语言：struct、Long、Int、Bool、String；
 - 运行时：整数算术；
 - 接口：`TimeUnit`、`BasicError`。
 
@@ -133,7 +135,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Duration {
+struct Duration {
     final Long _millis
 
     Duration(Long milliseconds) {

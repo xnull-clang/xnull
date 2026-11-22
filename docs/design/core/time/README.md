@@ -226,3 +226,26 @@ Result<DateTime, Error> parsed = parseDateTimeLayout("2026-11-22 12:00:00", "yyy
 ```
 
 测试义务：`sleepContext` 睡满/取消；`Stopwatch` 未启动/启动/停止/复位/读数；`parseDateTimeLayout` 成功与非法输入；`format` 与 `parseDateTimeLayout` 令牌往返一致；`sleepMs`/`sleep` 仍不可取消。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Data`、`@Builder`、`@Copy` |
+| 处理器 | 标准 A8 |
+| 生成物 | Duration/Instant/Date/Time/DateTime 用合法 struct；格式化器用数据类/ builder |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Duration`/`Instant`/`Date`/`Time`/`DateTime` | `struct` | 原生值语义；无需 `@Value` |
+| `TimeZone`/`DateTimeFormatter`/`DateTimeParser` | `@Data`/`@Builder` | 配置快照/构造 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -102,3 +102,25 @@ X：Dijkstra 与加权最短路、A*、最大流、最小生成树、无向图/�
 | 全局图注册表 | 禁止 |
 | 持久化/序列化 | 不做 |
 | 递归 DFS | 不用；迭代实现避免深图栈溢出 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | 标准 A8 |
+| 生成物 | 图/边值语义 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Graph`/`GraphEdge` | `@Value` | 值语义成员 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

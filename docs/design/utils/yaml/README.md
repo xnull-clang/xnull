@@ -153,3 +153,45 @@ xdk.errors / xdk.codec
 - 只依赖 `xdk.errors` 与 `xdk.codec`；不依赖 `fs`/`io`/`net`/Spring。
 - `codec` 不反向依赖本包；YAML/TOML/XML 各自独立。
 - 调用方读取文本并完成 UTF-8 解码；本包不读取文件、不建立全局 parser。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@YamlName` |
+| 本包消费 | `@Value`、`@Builder`、`@Serializable` |
+| 处理器 | YamlAnnotationProcessor（Validate/Generate） |
+| 生成物 | YAML 字段名映射、文档元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| DTO 字段 | `@YamlName` | 字段名映射 |
+| `YamlDocument`/`YamlOptions`/`YamlPropertySource` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Field)
+@Retention(Source)
+@annotation YamlName {
+    final String value
+}
+```
+
+### 使用
+
+```x
+@Serializable
+class ServiceConfig {
+    @YamlName("service_name") String name
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -135,3 +135,28 @@ Result<Bool, Error> debug = config.getBool("debug")
 ```
 
 测试义务：`setChecked` 非法/成功；`apply` source 失败与 entry 失败；四个 Result getter 的缺失/非法/成功；`getBool` 的 `true/false/1/0`；`get*Or` fallback；overlay/copy/EnvSource 白名单。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Data`、`@Builder`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 配置条目/字段值语义、Schema builder、ConfigSource 签名 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `ConfigEntry`/`ConfigField` | `@Value` | 值语义成员 |
+| `Config` | `@Data` | 可变配置快照 |
+| `ConfigSchema` | `@Builder` | schema 构造 |
+| `ConfigSource` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

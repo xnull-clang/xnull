@@ -182,7 +182,7 @@ L1 → L0
 | `@Override` | 校验协议签名 | 是 | 防伪实现/拼写漂移 |
 | `@Deprecated` | 使用点警告 | 是 | 迁移提示 |
 | `@SuppressWarnings` | 按码抑制警告 | 是 | 局部豁免 |
-| `@MustUse` | 返回值必须使用 | 识别，规则随 A6 完善 | 防忽略关键结果 |
+| `@MustUse` | 返回值必须使用 | 是（语言规则） | 防忽略关键结果 |
 | `@Immediate`/`@NoAlloc`/`@Pure`/`@Sendable` | 预留标记 | 否 | 不改变语义 |
 | `@tasks`/`@arena` | 块注解 | S5 | 任务/区域生命周期 |
 
@@ -190,10 +190,10 @@ L1 → L0
 
 | 注解 | 生成成员 | 主要失败诊断 |
 | --- | --- | --- |
-| `@Value` | 值构造、equals/hash/toString 等值语义 | 非 final 字段、引用相等要求冲突 |
-| `@Data` | 数据访问器与值语义成员 | 字段/方法名冲突、不可生成类型 |
-| `@Builder` | builder 类型、`build()`、必填校验 | 缺必填、重复设置、构造不可见 |
-| `@Copy` | `copy()` 与逐字段 `withX` | 不可复制字段、命名冲突 |
+| `@Value` | 不可变值语义：`equals`/`hash`/`toString`/`copy` | 非 final 字段、字段不可值比较（`AN0021`） |
+| `@Data` | 数据类值语义：`equals`/`hash`/`toString`/`copy`；不生成访问器 | 字段/方法名冲突、不可生成类型 |
+| `@Builder` | builder 类型、`withField`、`build()`、必填校验 | 缺必填、重复设置、构造不可见 |
+| `@Copy` | `copy()` 与逐字段 `withField` | 不可复制字段、命名冲突 |
 | `@Delegate` | 到指定字段的转发方法 | 目标缺失、签名冲突、可见性不足 |
 
 A8 管线：`Resolve → Validate → Generate → Finalize`。
@@ -210,14 +210,20 @@ A8 管线：`Resolve → Validate → Generate → Finalize`。
 
 | 领域 | 注解 | 归属 | 阶段 |
 | --- | --- | --- | --- |
-| codec | `@Serializable`/`@JsonName`/`@YamlName`/`@TomlName`/`@XmlName` | `xdk.codec` | B5 |
-| validation | `@Validate`/`@Min`/`@Max`/`@Pattern` | `xdk.validate` | B9 |
-| net/http | `@HttpRoute`/`@Header`/`@Query` | `xdk.net.http` | B7 |
-| db | `@Sql`/`@Param`/`@Row` | `xdk.db` | B10 |
-| auth | `@JwtClaim`/`@JwtHeader` | `xdk.auth` | B9 |
-| test/scheduler | `@Test`/`@Scheduled` | `xdk.test`/`xdk.schedule` | B9 |
-| ffi/platform | `@Packed`/`@Align`/`@Device`/`@GpuKernel` | 编译器/`xdk.os.device`/`xdk.gpu` | B5/P4/B8 |
-| resilience/observability | `@Cacheable`/`@Retry`/`@Metered`/`@Traced`/`@Audited` | cache/resilience/metrics/trace/audit | B9 |
+| cli | `@CliCommand`/`@CliSubcommand`/`@Option`/`@Arg` | `xdk.cli` | B5 |
+| codec | `@Serializable`/`@JsonName`/`@CsvName` | `xdk.codec` | B5 |
+| yaml/toml/xml | `@YamlName`/`@TomlName`/`@XmlName` | `xdk.yaml`/`xdk.toml`/`xdk.xml` | B6 |
+| validation | `@Validate`/`@Min`/`@Max`/`@Pattern`/`@Email` | `xdk.validate` | B9 |
+| net/http | `@HttpRoute`（含 method 字段）/`@Header`/`@Query`/`@Body`/`@StatusCode` | `xdk.net.http` | B7 |
+| websocket | `@WsHandler` | `xdk.net.websocket` | B7 |
+| jwt | `@JwtClaim`/`@JwtHeaderField` | `xdk.jwt` | B7 |
+| sql | `@Sql`/`@Param`/`@Row`/`@Column` | `xdk.sql` | B7 |
+| db | `@Entity`/`@Table`/`@Id`/`@Transactional` | `xdk.db` | B10 |
+| test/scheduler | `@TestCase`/`@Before`/`@After`/`@Benchmark`/`@Scheduled` | `xdk.test`/`xdk.schedule` | B9 |
+| ffi/platform | `@Packed`/`@Align`/`@NativeLayout`/`@SerialBinding` | 编译器/`xdk.os.hardware`/`xdk.serial` | B5/P4/B8 |
+| device/compute | `@Device`/`@Gpio`/`@I2cAddress`/`@GpuKernel`/`@TensorOp`/`@TensorSpec`/`@LinalgOp` | `xdk.device`/`xdk.gpu`/`xdk.tensor`/`xdk.linalg` | B8 |
+| resilience/observability | `@Cacheable`/`@CacheEvict`/`@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy`/`@Metered`/`@Traced`/`@Audited` | cache/resilience/metrics/trace/audit | B9 |
+| api/mcp/agent/ml | `@Api`/`@Operation`/`@Middleware`/`@Inject`/`@Component`/`@Configuration`/`@Bean`；`@Tool`/`@ToolParam`/`@Resource`/`@Prompt`；`@AgentReceiver`/`@AgentProcessor`/`@AgentExporter`/`@PipelineSpec`；`@ModelSpec`/`@MlPipeline` | `xdk.api`/`xdk.mcp`/`xdk.agent`/`xdk.ml` | B10 |
 
 ### 6.6 运行时元数据
 

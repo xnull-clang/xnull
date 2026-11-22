@@ -208,3 +208,26 @@ Result<String, Error> queryDecode(String text) {
 | 查询参数顺序 | 保留插入/解析顺序 |
 | 重复键 | 允许；`getOrNull` 取首个 |
 | `+` | `queryDecode` 当空格；字面 `+` 用 `%2B` |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Copy` |
+| 处理器 | 标准 A8 |
+| 生成物 | Uri/Query 值语义与复制；解析构造保持显式 `parse`/构造器 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Uri`/`Query` | `@Value` | equals/hash/toString/copy |
+| `Uri.parse`/`Query.parse` | — | 显式解析入口，不叠加 builder |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../../ANNOTATION-CATALOG.md)。

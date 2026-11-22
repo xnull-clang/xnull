@@ -9,6 +9,8 @@
 
 ---
 
+> 注解合同（A8，planned）：`@Data` 生成 `equals`/`hash`/`toString`/`copy`；字段可保持可变，不生成访问器。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`hash`/`toString`/`copy` 只描述生成物行为，不是手写实现。
+
 ## 1. 定位
 
 有序键值配置快照：读取/覆盖/类型化/合并/冻结/渲染。
@@ -132,6 +134,7 @@ set/覆盖/顺序；get/getOr/tryGet；类型化 `getInt/getLong/getBool/getDoub
 ## 14. XNull 伪代码
 
 ```xnull
+@Data
 class Config {
     String _profile
     Map<String, String> _entries

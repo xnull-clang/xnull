@@ -82,3 +82,47 @@
 - 极端量级的缩放/溢出保护、迭代 refinement、条件数估计：X。
 - 秩揭示 QR、全 SVD（完整 U/V）、广义特征值：X。
 - 数值稳定的高端 SVD（单边 Jacobi/Golub-Kahan）：当前基线复用对称特征分解，见 [`Svd.md`](Svd.md)。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@LinalgOp` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | LinalgAnnotationProcessor（Validate/Generate） |
+| 生成物 | 算子注册、矩阵约束校验 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 算子方法 | `@LinalgOp` | 算子注册 |
+| `Vector`/`Matrix`/`LuDecomposition`/`QrDecomposition`/`Svd`/`EigenDecomposition` | `@Value`/`@Builder` | 值语义/构造 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation LinalgOp {
+    final String name
+}
+```
+
+### 使用
+
+```x
+class LinalgKernels {
+    @LinalgOp("solve")
+    Vector solve(Matrix matrix, Vector rhs) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

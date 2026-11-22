@@ -384,3 +384,27 @@ ErrorReport report = toErrorReport(error).withStep("load config")
 ```
 
 测试义务：`tryWith*` 成功/失败两侧；`addDetailed` 自定义错误转换；`Cancelled` 优先；`collectOk` 聚合；`report` 不改变 Result；`toErrorReport`/`annotate` 步骤顺序。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Copy`、`@Override`、`@Deprecated` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 派生相等/复制、协议签名校验、弃用诊断 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `ErrorDetail`/`BasicError` | `@Value` | equals/hash/toString/copy |
+| `BasicError` | `@Copy` | 逐字段 `withX` |
+| `Error`/`DetailedError` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

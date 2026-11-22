@@ -158,3 +158,81 @@ X：Router/Middleware、连接池高级策略。HTTP/3/QUIC 不做。
 | 状态码 | 正常值，不是 `Err` |
 | 流式 body | 持有 `ByteStream`，必须 close |
 | 升级 | 返回裸流；HTTP 层停止 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` |
+| 本包消费 | `@Value`、`@Builder`、`@Serializable`、`@JsonName` |
+| 处理器 | HttpAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | 路由表、参数绑定、状态映射、body DTO codec |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `HttpHeader`/`HttpStatus` | `@Value` | 值语义成员 |
+| `HttpRequest`/`HttpResponse` | — | 含 headers/body 引用字段；不强行 `@Value`，保留显式构造/with* |
+| `HttpClientOptions`/`HttpServerOptions` | `@Builder` | 选项构造 |
+| handler 方法 | `@HttpRoute` | 路由表/方法绑定 |
+| handler 参数 | `@Header`/`@Query`/`@Body` | 参数绑定 |
+| handler 方法 | `@StatusCode` | 响应状态 |
+| body DTO | `@Serializable`/`@JsonName` | JSON 编解码 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation HttpRoute {
+    final String path
+    final HttpMethod method = HttpMethod.Get
+}
+
+@Target(Parameter)
+@Retention(Source)
+@annotation Header {
+    final String value
+}
+
+@Target(Parameter)
+@Retention(Source)
+@annotation Query {
+    final String value
+}
+
+@Target(Parameter)
+@Retention(Source)
+@annotation Body {
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation StatusCode {
+}
+```
+
+### 使用
+
+```x
+class UserApi {
+    @HttpRoute("/users/{id}", HttpMethod.Get)
+    @StatusCode
+    HttpResponse getUser(@Query("id") Long id, @Header("Accept") String accept) {
+        // ...
+    }
+
+    @HttpRoute("/users", HttpMethod.Post)
+    HttpResponse create(@Body UserDto body) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../../ANNOTATION-CATALOG.md)。

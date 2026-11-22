@@ -398,3 +398,27 @@ Bool tls = hasCapability(Capability.Tls)
 ```
 
 测试义务：`compiler`/`compilerVersion`/`builtAt` 读取；`complete()` 空/非空；`buildDate` 空值与诊断用途；`buildId` 可复现断言；`TargetInfo`/`Capability` 为 2.x 增量测试。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Data`、`@Builder`、`@Copy` |
+| 处理器 | 标准 A8 |
+| 生成物 | 能力/画像/构建信息派生成员、ProfileBuilder |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `CapabilitySet`/`CoreProfile`/`BuildInfo`/`TargetInfo`/`DependencyInfo` | `@Value` | 值语义成员 |
+| `ResourceLimits` | `@Data` | 数据类成员 |
+| `ProfileBuilder` | — | 已是显式 builder，不叠加 `@Builder` |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

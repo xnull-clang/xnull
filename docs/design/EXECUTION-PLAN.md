@@ -32,6 +32,8 @@
 | G7 | 1.x 已实现 API 未回写 2.x core 文档 | C7：`RuntimeStats/stats`、log Filter 等 | core 文档同步批次 | ARCH |
 | G8 | 没有可执行任务板 | 只有 ARCHITECTURE/PACKAGE-MAP | 本文件 §5 工作包板 | ARCH |
 
+> 历史快照：G1–G8 已由 B0–B4 解除；G4 已由 B1（注解 parser/AST/语义/诊断）关闭，G5 已由 B3 关闭。保留此表用于追溯，不再作为当前阻塞。
+
 > G1–G8 不要求一次全清；**CR-0 只要求 G1–G5 + G8**。G6/G7 可与 B1/B3 并行，但必须在对应包实现前完成。
 
 ---

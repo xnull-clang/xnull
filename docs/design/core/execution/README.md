@@ -205,3 +205,27 @@ Error unavailableError(String operation) {
 | Atomic 顺序 | 顺序一致；不承诺无锁 |
 | Atomic 溢出 | 按 `Int` 回绕 |
 | 线程终止 | 不支持；取消是协作式 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | Context/Task 快照值语义、协议签名；原子/锁是状态资源，不套 `@Data` |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Context`/`TaskSnapshot` | `@Value` | 值语义成员 |
+| `AtomicInt`/`AtomicBool`/`AtomicRef`/`Mutex`/`RwLock` | — | 状态资源，保持显式 class |
+| `TaskHandle` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

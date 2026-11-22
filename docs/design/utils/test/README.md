@@ -155,3 +155,73 @@ List<TestResult> results = runner.runAll(Context.background(), suites)
 | 数值比较 | `lessThan`/`greaterThan` 提供 `Int`/`Long`/`Double` 重载 |
 | 全局状态 | 禁止全局注册表、全局当前测试、全局日志缓冲 |
 | 终端/i18n | 不做；`TestResult.describe` 只返回单行纯文本 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@TestCase`、`@Before`、`@After`、`@Benchmark` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | TestAnnotationProcessor（Validate/Generate） |
+| 生成物 | 测试清单、生命周期/基准元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 测试方法 | `@TestCase` | 测试清单 |
+| 前置/后置方法 | `@Before`/`@After` | 生命周期表 |
+| 基准方法 | `@Benchmark` | 基准清单 |
+| `TestResult`/`TestContext` | `@Value`/`@Builder` | 值语义/上下文 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation TestCase {
+    final String name = ""
+}
+
+@Target(Method)
+@Retention(Runtime)
+@annotation Before {
+}
+
+@Target(Method)
+@Retention(Runtime)
+@annotation After {
+}
+
+@Target(Method)
+@Retention(Runtime)
+@annotation Benchmark {
+    final String name = ""
+}
+```
+
+### 使用
+
+```x
+class UserTests {
+    @Before void setUp() {
+        // ...
+    }
+
+    @TestCase("find missing")
+    void findMissing() {
+        // ...
+    }
+
+    @After void tearDown() {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

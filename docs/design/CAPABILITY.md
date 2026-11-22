@@ -331,9 +331,9 @@ L0 语言原语
 | --- | --- | --- |
 |  | `@Target`/`@Retention`/`@Repeatable`、`@Data`/`@Value`/`@Builder`/`@Copy`/`@Delegate`、元模型/处理器合同 | 元模型、派生成员、`AnnotationRegistry` |
 |  / L1 | `@ReadOnly`/`@Override`/`@Deprecated`/`@SuppressWarnings` | 字段/协议/API 生命周期检查 |
-| L5/L6 | `@HttpRoute`/`@HttpMethod`/`@Header`/`@Query`/`@Body`/`@StatusCode`/`@WebSocketHandler`、`@Sql`/`@Param`/`@Row`/`@Column`、`@JwtClaim`/`@JwtHeader` | 路由表、参数绑定、DAO/行映射、claims 映射 |
-|  / L7 | `@Serializable`/`@JsonName` 等、`@Validate`、`@Cacheable`/`@Retry` 等、`@Metered`/`@Traced`/`@Audited`、`@Test`/`@Scheduled` | 编解码器、校验器、包装器、测试清单/作业注册 |
-| / | `@Packed`/`@Align`/`@NativeLayout`/`@Device`/`@Gpio`/`@I2cAddress`/`@SerialPort`/`@GpuKernel`/`@TensorOp`/`@LinalgOp`；`@Api`/`@Entity`/`@Transactional`/`@Tool`/`@Resource`/`@Prompt`/`@Pipeline` 等 | 布局校验、设备/能力注册、路由/DI/ORM/MCP/管线 |
+| L5/L6 | `@HttpRoute`（含 method 字段）/`@Header`/`@Query`/`@Body`/`@StatusCode`/`@WsHandler`、`@Sql`/`@Param`/`@Row`/`@Column`、`@JwtClaim`/`@JwtHeaderField` | 路由表、参数绑定、DAO/行映射、claims 映射 |
+|  / L7 | `@Serializable`/`@JsonName` 等、`@Validate`、`@Cacheable`/`@Retryable` 等、`@Metered`/`@Traced`/`@Audited`、`@TestCase`/`@Scheduled` | 编解码器、校验器、包装器、测试清单/作业注册 |
+| / | `@Packed`/`@Align`/`@NativeLayout`/`@Device`/`@Gpio`/`@I2cAddress`/`@SerialBinding`/`@GpuKernel`/`@TensorOp`/`@LinalgOp`；`@Api`/`@Entity`/`@Transactional`/`@Tool`/`@Resource`/`@Prompt`/`@MlPipeline`/`@PipelineSpec` 等 | 布局校验、设备/能力注册、路由/DI/ORM/MCP/管线 |
 
 注解不改变 API 面的分层与包计数，只作为第六个能力维度评估；运行时只读生成表，无反射/类路径扫描/动态代理。完整矩阵见 [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) §5。
 

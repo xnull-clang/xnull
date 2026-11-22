@@ -115,3 +115,27 @@ X：流式 tar/zip、流式 zstd/lz4/brotli。
 | 加密压缩 | 不做 |
 | 7z/rar | 不做 |
 | 解压炸弹 |  用 `ZipOptions`/`decompressWithLimit` 限额；X 流式限额 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 压缩条目/选项值语义、归档句柄签名 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `ZipEntry`/`TarEntry` | `@Value` | 值语义成员 |
+| `ZipOptions` | `@Builder` | 选项构造 |
+| `ZipArchive`/`ZipWriter` | `@Override` | 关闭/写入签名 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -108,3 +108,57 @@ CPU 上的 N 维稠密数值张量：dtype、shape、连续字节存储、逐元
 - `offset + Σ` 的乘法或加法溢出 → panic，消息含 `overflow`，不回绕。
 - 边界：最大下标 `== base.elementCount() − 1` 通过；`>= base.elementCount()` → panic。
 - `transpose()` 不重新引入广播；空视图转置后仍为空且允许全 0 步长。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@TensorOp`、`@TensorSpec` |
+| 本包消费 | `@Value`、`@Builder`、`@LinalgOp` |
+| 处理器 | TensorAnnotationProcessor（Validate/Generate） |
+| 生成物 | 算子注册、shape/dtype 校验 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 算子方法 | `@TensorOp` | 算子注册 |
+| 张量参数/字段 | `@TensorSpec` | shape/dtype 校验 |
+| `TensorShape` | `@Value` | shape 值语义 |
+| `Tensor`/`TensorView` | — | 持有数据/视图，保持显式 class |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation TensorOp {
+    final String name
+}
+
+@Target(Field, Parameter)
+@Retention(Runtime)
+@annotation TensorSpec {
+    final String shape
+    final String dtype
+}
+```
+
+### 使用
+
+```x
+class TensorKernels {
+    @TensorOp("matmul")
+    Tensor matmul(@TensorSpec("M,K", "f32") Tensor left,
+                  @TensorSpec("K,N", "f32") Tensor right) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

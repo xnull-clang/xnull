@@ -126,3 +126,47 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 | 线程安全 | logger 串行化 sink 调用；sink 被多个 logger 共享时必须自行同步；禁止重入 |
 | 文件/网络/轮转 | 不做内置 sink；由应用实现 `AuditSink`；X |
 | 事件签名/哈希链 | X；当前不提供防篡改证明 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Audited` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | AuditAnnotationProcessor（Validate/Generate） |
+| 生成物 | 审计包装器/脱敏元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 敏感方法 | `@Audited` | 审计事件 |
+| `AuditEvent` | `@Value`/`@Builder` | 值语义/构造 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Audited {
+    final String action
+}
+```
+
+### 使用
+
+```x
+class UserService {
+    @Audited("user.delete")
+    void delete(Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -182,3 +182,49 @@
 | 设备丢失/热插拔事件 | X `DeviceWatcher`（`xdk.os.gpu` 缺口） |
 | `GpuDevice` 的公开不透明句柄访问器 | 不新增；`xdk.gpu` 适配器内部解析设备，公共 API 不暴露 |
 | 显示/呈现提交 | 明确不做；本包只提交计算命令 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@GpuKernel` |
+| 本包消费 | `@Builder`、`@TensorOp` |
+| 处理器 | GpuAnnotationProcessor（Validate/Generate） |
+| 生成物 | kernel 注册、后端/队列校验；buffer/program/fence 是资源句柄，不套 `@Value` |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| kernel 方法 | `@GpuKernel` | kernel 注册 |
+| `GpuPipeline` 描述/选项 | `@Builder` | pipeline 构造 |
+| `GpuBuffer`/`GpuProgram`/`GpuFence` | — | 资源句柄，保持显式 class/close |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation GpuKernel {
+    final String name
+    final String backend = ""
+}
+```
+
+### 使用
+
+```x
+class Kernels {
+    @GpuKernel("vector_add", "spirv")
+    void vectorAdd(GpuBuffer out, GpuBuffer left, GpuBuffer right) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

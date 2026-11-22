@@ -92,3 +92,60 @@ X：single-flight 加载、异步 loader、分布式缓存、持久化、弱引�
 | 监听线程 | 锁内同步；不得重入 |
 | 权重 | `put` 默认 1；`putWeighted` 显式 |
 | TTL 时钟 | 单调毫秒；墙钟回拨不影响 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Cacheable`、`@CacheEvict` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | CacheAnnotationProcessor（Validate/Generate） |
+| 生成物 | 缓存键/包装器、淘汰元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 服务方法 | `@Cacheable`/`@CacheEvict` | 缓存/淘汰包装 |
+| `CacheOptions`/`CacheStats` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Cacheable {
+    final String value
+    final String key = ""
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation CacheEvict {
+    final String value
+    final String key = ""
+}
+```
+
+### 使用
+
+```x
+class UserService {
+    @Cacheable("users", "id")
+    User find(Long id) {
+        // ...
+    }
+
+    @CacheEvict("users", "id")
+    void update(Long id, User user) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

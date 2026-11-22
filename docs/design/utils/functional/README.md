@@ -82,3 +82,26 @@ X：真正惰性 Seq、并行管线、无限序列。
 | 无限序列 | X |
 | 自定义比较器 | `sorted(Int(T,T))` |
 | 相等语义 | 使用 `==`；类按引用 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value` |
+| 处理器 | 标准 A8 |
+| 生成物 | 序列/惰性视图的值语义范围按实现确认；视图不强行 `@Value` |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Seq`/`Sequences` | `@Value` | 值语义成员（若不可变） |
+| `Lazy` | — | 惰性视图，保持显式 class |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

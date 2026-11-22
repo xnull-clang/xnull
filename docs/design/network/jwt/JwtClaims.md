@@ -9,6 +9,8 @@
 
 ---
 
+> 注解合同（A8，planned）：`@Data` 生成 `equals`/`hash`/`toString`/`copy`；字段可保持可变，不生成访问器。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`hash`/`toString`/`copy` 只描述生成物行为，不是手写实现。
+
 ## 1. 定位
 
 JWT claims 集合：标准字段、任意 JSON claims、过期/受众检查。
@@ -115,6 +117,7 @@ JWT claims 集合：标准字段、任意 JSON claims、过期/受众检查。
 ## 14. XNull 伪代码
 
 ```xnull
+@Data
 class JwtClaims {
     final JsonObject _claims
 

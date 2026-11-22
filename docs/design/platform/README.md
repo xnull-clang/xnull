@@ -80,10 +80,10 @@ L0  language/compiler    annotations
 | 领域 | 注解 | 编译期检查 / 生成 |
 | --- | --- | --- |
 | FFI/布局 | `@Packed`、`@Align`、`@NativeLayout` | 结构体布局/对齐校验、native 绑定 |
-| 设备/串口 | `@Device`、`@Gpio`、`@I2cAddress`、`@SerialPort` | 设备/引脚/地址注册与参数检查 |
+| 设备/串口 | `@Device`、`@Gpio`、`@I2cAddress`、`@SerialBinding` | 设备/引脚/地址注册与参数检查 |
 | GPU/张量/线代 | `@GpuKernel`、`@TensorOp`、`@LinalgOp` | kernel/算子入口与包装生成 |
 
-完整矩阵见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。注解不替代显式设备/流/缓冲 API；处理器不得执行网络/任意文件写入，也不得在运行时反射扫描。
+本层领域注解均为 planned；处理器/生成物未实现，不得写成已生效。完整矩阵见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。注解不替代显式设备/流/缓冲 API；处理器不得执行网络/任意文件写入，也不得在运行时反射扫描。
 
 ## 4. 文档索引
 

@@ -205,3 +205,48 @@ Result<Histogram, Error> histogram = registry.histogram("latency", [10.0])
 | `le` 标签 | Histogram 保留；用户标签不得使用 |
 | 指标命名/转义 | 本包做基本校验；Prometheus 名称清洗/转义由导出器负责 |
 | 与 log 的关系 | 无依赖；metrics 不是 log 别名 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Metered` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | MetricsAnnotationProcessor（Validate/Generate） |
+| 生成物 | 指标注册/包装器 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 服务方法 | `@Metered` | 指标包装 |
+| `MetricSample`/`MetricFamily`/`Histogram` | `@Value`/`@Builder` | 值语义/构造 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Metered {
+    final String name
+    final String unitName = ""
+}
+```
+
+### 使用
+
+```x
+class UserService {
+    @Metered("user.find", "requests")
+    User find(Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

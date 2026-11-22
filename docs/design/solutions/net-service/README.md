@@ -202,3 +202,26 @@ handler 返回 `Err` 时先 `onError`、再关闭资源、最后 `onClose`；连
 - [ ] 参数名完整，不使用 `id`/`unit`/`pad`/`to`/`q` 作为参数名；
 - [ ] `Long` 表示大小/累计/时长，`Int` 表示计数/容量；
 - [ ] 相对链接可达，未修改 `../../network/README.md` 与 `../README.md`。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 服务选项/统计值语义、连接/会话 handler 签名 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `ServiceOptions`/`ServiceStats`/`BackpressurePolicy`/`HeartbeatPolicy` | `@Value`/`@Builder` | 值语义/选项 |
+| `ConnectionHandler`/`SessionHandler` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

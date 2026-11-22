@@ -97,3 +97,48 @@ X：分布式调度、持久化、集群选主、日历排除、Cron 名称字�
 | misfire | 三策略；CatchUp 有上限 |
 | 动态修改 | 取消后重新 schedule；原地修改 X |
 | 关闭超时 | 0 = 无限等待；>0 = Timeout |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Scheduled` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | ScheduleAnnotationProcessor（Validate/Generate） |
+| 生成物 | 作业注册、cron 元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 作业方法 | `@Scheduled` | 作业注册 |
+| `CronExpression`/`Schedule`/`SchedulerOptions` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation Scheduled {
+    final String cron = ""
+    final Long fixedRateMillis = 0
+}
+```
+
+### 使用
+
+```x
+class Jobs {
+    @Scheduled("0 */5 * * * *")
+    void refreshCache() {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

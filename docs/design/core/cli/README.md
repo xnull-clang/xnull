@@ -497,3 +497,76 @@ String value = resolveValue(args, "--mode", "APP_MODE", configValue, "default")
 ```
 
 测试义务：短名别名；短选项簇全已知/含未知/`--` 后；首次/末次/全部值；`completionBash` 根/子命令文本；env/config/fallback 优先级；`CommandMatch` 别名；Parser 仍拒绝未预展开的 `-abc`。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@CliCommand`、`@CliSubcommand`、`@Option`、`@Arg` |
+| 本包消费 | `@Value`、`@Builder`、`@Copy`、`@Deprecated` |
+| 处理器 | CliAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | 命令树、选项/参数表、帮助/补全元数据、解析器绑定 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 命令类 | `@CliCommand` | 命令树/帮助元数据 |
+| 子命令类 | `@CliSubcommand` | 子命令表 |
+| 命令字段/参数 | `@Option`/`@Arg` | 解析表/默认值/必填校验 |
+| `Command`/`ParseResult` | `@Value` | 值语义/复制 |
+| `OptionSpec` | — | 已是显式 builder，不叠加 `@Builder` |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Runtime)
+@annotation CliCommand {
+    final String name
+    final String summary = ""
+}
+
+@Target(Type)
+@Retention(Runtime)
+@annotation CliSubcommand {
+    final String name
+}
+
+@Target(Field, Parameter)
+@Retention(Runtime)
+@annotation Option {
+    final String name
+    final String shortName = ""
+    final Bool required = false
+}
+
+@Target(Field, Parameter)
+@Retention(Runtime)
+@annotation Arg {
+    final String name
+    final Bool required = true
+}
+```
+
+### 使用
+
+```x
+@CliCommand("deploy", "Deploy an artifact")
+class DeployCommand {
+    @Option("--env", "-e") String env = "dev"
+    @Arg("artifact") String artifact
+}
+
+@CliSubcommand("status")
+class StatusCommand {
+    @Option("--json") Bool json = false
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

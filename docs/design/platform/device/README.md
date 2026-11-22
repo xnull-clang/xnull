@@ -91,3 +91,62 @@
 - USB 控制：留在 `xdk.os.hardware` 只读清单与 ecosystem/FFI；不进入本包。
 - 权限策略、设备树/overlay、沙箱/容器设备映射：由宿主/运行时/部署层提供。
 - 串口：独立包 `xdk.serial`，不在本包重复。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Device`、`@Gpio`、`@I2cAddress` |
+| 本包消费 | `@Value`、`@Builder`、`@Packed`、`@Align`、`@NativeLayout` |
+| 处理器 | DeviceAnnotationProcessor（Validate/Generate） |
+| 生成物 | 设备/引脚/地址目录、布局校验 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 板级/设备类 | `@Device` | 设备目录 |
+| 引脚字段/参数 | `@Gpio` | 引脚目录 |
+| I2C 字段/参数 | `@I2cAddress` | 地址目录 |
+| `CameraFrame` | `@Value` | 不可变帧快照 |
+| `GpioPin`/`I2cBus`/`SpiBus`/`CameraDevice` | — | 资源句柄，保持显式 class/close |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Runtime)
+@annotation Device {
+    final String kind
+}
+
+@Target(Field, Parameter)
+@Retention(Runtime)
+@annotation Gpio {
+    final Int pin
+    final GpioDirection direction = GpioDirection.In
+}
+
+@Target(Field, Parameter)
+@Retention(Runtime)
+@annotation I2cAddress {
+    final Int address
+}
+```
+
+### 使用
+
+```x
+@Device("board")
+class Board {
+    @Gpio(17, GpioDirection.Out) Int statusLed
+    @I2cAddress(0x3C) Int display
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

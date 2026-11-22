@@ -504,14 +504,14 @@
 
 ## 21. 注解对接（P1）
 
-注解是**编译期契约/生成入口**，不是运行时反射：`@Serializable` 等由构建期处理器生成编解码器，`@Validate` 生成校验器，`@Cacheable`/`@Retry` 等生成包装器，`@Test`/`@Scheduled` 生成测试清单/作业注册。运行时只读生成的静态元数据。
+注解是**编译期契约/生成入口**，不是运行时反射：`@Serializable` 等由构建期处理器生成编解码器，`@Validate` 生成校验器，`@Cacheable`/`@Retryable` 等生成包装器，`@TestCase`/`@Scheduled` 生成测试清单/作业注册。运行时只读生成的静态元数据。
 
 | 包 | 注解 | 编译期检查 / 生成 |
 | --- | --- | --- |
 | `xdk.codec` | `@Serializable`、`@JsonName`、`@YamlName`、`@TomlName`、`@XmlName` | 编解码器、字段名映射 |
 | `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器生成 |
-| `xdk.cache` / `xdk.resilience` | `@Cacheable`、`@CacheEvict`、`@Retry`、`@CircuitBreaker`、`@RateLimit`、`@Timeout` | 缓存/重试/熔断包装器 |
+| `xdk.cache` / `xdk.resilience` | `@Cacheable`、`@CacheEvict`、`@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 缓存/重试/熔断包装器 |
 | `xdk.metrics` / `xdk.trace` / `xdk.audit` | `@Metered`、`@Traced`、`@Audited` | 指标/追踪/审计包装 |
-| `xdk.test` / `xdk.schedule` | `@Test`、`@Before`、`@After`、`@Benchmark`、`@Scheduled`、`@Cron` | 测试清单、作业注册 |
+| `xdk.test` / `xdk.schedule` | `@TestCase`、`@Before`、`@After`、`@Benchmark`、`@Scheduled` | 测试清单、作业注册 |
 
 完整矩阵与处理器规则见 [`../ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5；包计数按当前 24 包口径，不因注解维度重算。

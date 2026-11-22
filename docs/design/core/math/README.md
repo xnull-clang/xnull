@@ -306,3 +306,27 @@ Result<Int, Error> addIntChecked(Int left, Int right) {
 | 浮点比较 | 不提供 epsilon 相等；调用方显式 |
 | 统计空列表 | sum=0/product=1，mean/median/stddev=NaN |
 | `Int128` | 语言标量；不定义 class |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Copy` |
+| 处理器 | 标准 A8 |
+| 生成物 | Decimal/Complex 值语义、构造/舍入选项 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Decimal`/`Complex` | `@Value` | 值语义成员 |
+| `RoundingMode` | — | enum |
+| `Decimal` 构造选项 | `@Builder` | builder/build 校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -174,3 +174,28 @@
 - **RTC 不是可信时间源**：RTC 可被设置/校准，不能作为安全审计的唯一时间依据；需要可信时间时使用安全元件/签名时间源。
 - **ADC 不是安全联锁**：采样值仅用于测量/控制，不满足功能安全认证；安全联锁必须由独立硬件/认证组件实现。
 - **日志脱敏**：`Board`/`BoardPin` 不含序列号、MAC、密钥；`FlashRegion.name()` 由调用方提供，禁止放入秘密；错误消息不得包含写入内容或 CAN 载荷。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Builder`、`@Device`、`@Gpio`、`@I2cAddress`、`@SerialBinding`、`@Packed`、`@Align` |
+| 处理器 | 无自有处理器；消费 Device/Serial/FFI 生成物 |
+| 生成物 | 板级/引脚描述、设备目录、布局校验；设备句柄不套 `@Value` |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 板级类型 | `@Device` | 复用 Device 处理器 |
+| 引脚/地址字段 | `@Gpio`/`@I2cAddress` | 复用 Device 处理器 |
+| 串口字段 | `@SerialBinding` | 复用 Serial 处理器 |
+| 原生布局类型 | `@Packed`/`@Align` | 复用 FFI 布局处理器 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

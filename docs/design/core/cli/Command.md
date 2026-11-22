@@ -9,6 +9,8 @@
 
 ---
 
+> 注解合同（A8，planned）：`@Value` 生成 `equals`/`hash`/`toString`/`copy`；列表字段按值语义比较/复制；字段保持 `final`。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`toString`/`copy` 只描述生成物行为。
+
 ## 1. 定位
 
 命令树节点：命令名、别名、摘要、描述、选项、子命令、隐藏、是否必须选子命令。
@@ -145,6 +147,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
+@Value
 class Command {
     final String _name
     final String _summary

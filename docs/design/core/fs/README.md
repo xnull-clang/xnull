@@ -218,3 +218,27 @@ Bool matched = FileSystem.globMatch("a/b.txt", "a/**/*.txt")
 ```
 
 测试义务：读写/追加；`FileMode`→`OpenOptions` 迁移；`metadata`/`linkMetadata`/`kind`；权限 12 位（含 setuid/setgid/sticky）；`hardLink`/`symlink`/`readLink`/`canonicalize`；`walk`/`glob`/`globMatch`；temp 租约；原子写不留半文件；1.x 名称迁移。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder`、`@Override` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | 路径/元数据/权限值语义、OpenOptions builder |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Path`/`Metadata`/`Permissions`/`DirEntry` | `@Value` | 值语义成员 |
+| `OpenOptions` | `@Builder` | 打开选项 builder |
+| `FileSystem` 实现 | `@Override` | 签名校验 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

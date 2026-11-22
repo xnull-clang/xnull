@@ -312,3 +312,96 @@
 - [MDN CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)：预检、凭据、通配限制、`Vary: Origin`。
 - [WHATWG Server-Sent Events](https://html.spec.whatwg.org/dev/server-sent-events.html)：事件流格式与 `Last-Event-ID`。
 - [IETF RateLimit Header Fields](https://datatracker.ietf.org/doc/draft-ietf-httpapi-ratelimit-headers/)：`RateLimit-Limit`/`RateLimit-Remaining`/`RateLimit-Reset`。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Api`、`@Operation`、`@Middleware`、`@Inject`、`@Component`、`@Configuration`、`@Bean` |
+| 本包消费 | `@Value`、`@Builder`、`@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` |
+| 处理器 | ApiAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | 路由表、OpenAPI、参数绑定、装配元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| API 类 | `@Api` | OpenAPI/路由前缀 |
+| 路由方法 | `@HttpRoute`/`@Operation` | 路由/operation |
+| 中间件类 | `@Middleware` | 中间件链 |
+| 组件/配置/Bean | `@Component`/`@Configuration`/`@Bean` | 装配表 |
+| 装配字段/构造/参数 | `@Inject` | 装配代码 |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Source)
+@annotation Api {
+    final String prefix
+    final String title
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation Operation {
+    final String summary
+}
+
+@Target(Type)
+@Retention(Source)
+@annotation Middleware {
+}
+
+@Target(Field, Constructor, Parameter)
+@Retention(Source)
+@annotation Inject {
+}
+
+@Target(Type)
+@Retention(Source)
+@annotation Component {
+    final String name = ""
+}
+
+@Target(Type)
+@Retention(Source)
+@annotation Configuration {
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation Bean {
+    final String name = ""
+}
+```
+
+### 使用
+
+```x
+@Api("/v1", "User API")
+class UserApi {
+    @HttpRoute("/users/{id}", HttpMethod.Get)
+    @Operation("Get user")
+    HttpResponse getUser(@Query("id") Long id) {
+        // ...
+    }
+}
+
+@Component("userService")
+class UserService {
+    @Inject UserRepository repository
+
+    @Transactional(readOnly = true)
+    Result<User, Error> find(Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Time` |
+| 类型 | `struct Time` |
 | 包 | `xdk.time` |
 | 稳定性 | `stable` |
 | 依赖 | `Duration` |
 
 ---
+
+> 类型选择：`struct Time`；四个 Int 字段，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -87,7 +89,7 @@
 
 ## 9. 需要的支撑
 
-- 语言：class、Int、Bool、String；
+- 语言：struct、Int、Bool、String；
 - 运行时：整数运算；
 - 接口：`Duration`、`floorMod`。
 
@@ -121,7 +123,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Time {
+struct Time {
     final Int _hour
     final Int _minute
     final Int _second

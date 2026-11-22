@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class GeoBounds` |
+| 类型 | `struct GeoBounds` |
 | 包 | `xdk.geo` |
 | 稳定性 | `preview` |
 | 依赖 | `GeoPoint` |
 
 ---
+
+> 类型选择：`struct GeoBounds`；四个 Double 字段，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -101,7 +103,7 @@
 
 ## 9. 需要的支撑
 
-- 语言：class、final 字段、Double、Bool、String；
+- 语言：struct、final 字段、Double、Bool、String；
 - 运行时：`isFinite(Double)`、`str(Double)`；
 - 接口：`GeoPoint`、`Geo`。
 
@@ -145,7 +147,7 @@ GeoPoint center = europe.center()
 以下为 XNull 形态伪代码，非可执行。
 
 ```xnull
-class GeoBounds {
+struct GeoBounds {
     final Double _south
     final Double _west
     final Double _north

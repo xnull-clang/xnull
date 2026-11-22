@@ -9,6 +9,8 @@
 
 ---
 
+> 注解合同（A8，planned）：`@Value` 生成 `equals`/`hash`/`toString`/`copy`；字段保持 `final`；引用字段按值语义比较。实现由处理器生成，不手写；实现时删除同名手写成员，避免生成冲突；伪代码中的 `equals`/`hash`/`toString`/`copy` 只描述生成物行为，不是手写实现。
+
 ## 1. 定位
 
 结构化日志键值字段；用于 request id、user id、path 等。
@@ -112,6 +114,7 @@ key 合法/非法；value 单行；toString；equals；空值。
 ## 14. XNull 伪代码
 
 ```xnull
+@Value
 class Field {
     final String _key
     final String _value

@@ -272,3 +272,72 @@ Database.close()
 - [x] 无 `self(...)`、无 `self._private`、无 `new T()`、无 `// ...`、无 Python 式条件表达式；
 - [x] 无全局池、无全局注册表、无秘密日志；
 - [x] 相对链接可达；不修改 `../../network/README.md` 与 `../README.md`。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Entity`、`@Table`、`@Id`、`@Transactional` |
+| 本包消费 | `@Value`、`@Builder`、`@Sql`、`@Column`、`@Param`、`@Row` |
+| 处理器 | DbAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | 实体/表/列/DAO 映射、事务包装 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 实体类 | `@Entity`/`@Table` | 实体/表元数据 |
+| 主键字段 | `@Id` | 主键元数据 |
+| 事务方法 | `@Transactional` | 事务包装 |
+| DAO 方法/参数/行 | `@Sql`/`@Param`/`@Row`/`@Column` | SQL 映射 |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Source)
+@annotation Entity {
+    final String table
+}
+
+@Target(Type)
+@Retention(Source)
+@annotation Table {
+    final String name
+}
+
+@Target(Field)
+@Retention(Source)
+@annotation Id {
+}
+
+@Target(Method)
+@Retention(Source)
+@annotation Transactional {
+    final Bool readOnly = false
+}
+```
+
+### 使用
+
+```x
+@Entity("users")
+class User {
+    @Id Long id
+    @Column("display_name") String name
+}
+
+class UserRepository {
+    @Sql("SELECT id, display_name FROM users WHERE id = :id")
+    Result<User, Error> find(@Param("id") Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

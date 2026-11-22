@@ -23,7 +23,7 @@
 | 3 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
 | 4 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
 | 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务台账：四类债、B4 完成、B4-01/B4-02 关闭、B5–B10 后续 |
-| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) + [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) | 注解语义、实施计划、全量目录 |
+| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) + [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) + [`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md) | 注解语义、实施计划、全量目录、75 包采用矩阵 |
 | 7 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
 | 8 | 各领域 README/类型合同 | 逐包/逐类型契约 |
 | 9 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
@@ -79,7 +79,8 @@
 - 协议非泛型；泛型用于 class/函数/方法；
 - 阻塞操作接受 `Context`；失败用 `Result`；资源有幂等 `close()`；
 - 无全局状态、无运行时反射、无隐式注解扫描；
-- 注解由编译期处理器生成代码/元数据，运行时只读注册表；
+- 注解由编译期处理器生成代码/元数据，运行时只读注册表；注解名不得与同包类型同名；
+- 合法纯值类型用 `struct`；含 `String`/`List`/`Map` 等引用字段的值语义类型用 `class` + `@Value`，不得写非法 `struct`；
 - 公共包名是能力名；`xdk.core`/`xdk.utils` 只作层名；
 - 同一简单名只能有一个语义 owner；冲突登记在 `DESIGN-CONSISTENCY.md`。
 

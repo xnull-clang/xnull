@@ -83,12 +83,12 @@
 
 | 包 | 注解 | 编译期检查 / 生成 |
 | --- | --- | --- |
-| `net.http` | `@HttpRoute`、`@HttpMethod`、`@Header`、`@Query`、`@Body`、`@StatusCode` | 路由表、参数绑定、状态码映射 |
-| `net.websocket` | `@WebSocketHandler` | 处理器注册/分发 |
+| `net.http` | `@HttpRoute`（含 method 字段）、`@Header`、`@Query`、`@Body`、`@StatusCode` | 路由表、参数绑定、状态码映射 |
+| `net.websocket` | `@WsHandler` | 处理器注册/分发 |
 | `sql` | `@Sql`、`@Param`、`@Row`、`@Column` | DAO、参数绑定、行映射 |
-| `jwt` | `@JwtClaim`、`@JwtHeader` | claims/header 映射 |
+| `jwt` | `@JwtClaim`、`@JwtHeaderField` | claims/header 映射 |
 
-完整矩阵与处理器规则见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。注解参数只在编译期求值；生成代码带 `generated` 标记，处理器必须由包/项目显式启用。
+本层领域注解均为 planned；处理器/生成物未实现，不得写成已生效。完整矩阵与处理器规则见 [`ANNOTATION-SYSTEM.md`](../ANNOTATION-SYSTEM.md) §5。注解参数只在编译期求值；生成代码带 `generated` 标记，处理器必须由包/项目显式启用。
 
 ## 5. 检查
 

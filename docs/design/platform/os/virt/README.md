@@ -89,3 +89,25 @@ hypervisor 管理 API 镜像。控制面属于 X 或 ecosystem。
 - 嵌套虚拟化完整检测：X。
 - hypervisor 特定 API（libvirt/WMI/Hyper-V）：适配器 internal，不公开。
 - guest agent/VM 内自省：ecosystem。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | 标准 A8 |
+| 生成物 | Hypervisor/VM 值语义 |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `Hypervisor`/`VirtualMachine` | `@Value` | 值语义成员 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../../ANNOTATION-CATALOG.md)。

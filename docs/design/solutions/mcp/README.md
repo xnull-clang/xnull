@@ -253,3 +253,73 @@ CLI 启动子进程，拿到 stdin/stdout 的 `Reader`/`Writer` → `McpStdioTra
 - 消息/行/body/SSE 事件有 `Long` 上限；超限返回 `DataCorrupted`/`InvalidArgument`，不继续分配。
 - 所有阻塞调用首参 `Context`；超时由调用方 `Context` + `xdk.resilience.Timeout` 或 HTTP 客户端选项提供；本包不内建计时器。
 - 列表/内容/工具结果的业务条数上限由应用 handler/调用方控制；传输层只保证字节上限。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Tool`、`@ToolParam`、`@Resource`、`@Prompt` |
+| 本包消费 | `@Value`、`@Builder`、`@Serializable` |
+| 处理器 | McpAnnotationProcessor（Validate/Generate） |
+| 生成物 | 工具/资源/prompt 清单、输入 schema |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 工具方法 | `@Tool` | 工具清单 |
+| 工具参数 | `@ToolParam` | 输入 schema |
+| 资源方法 | `@Resource` | 资源清单 |
+| prompt 方法 | `@Prompt` | prompt 清单 |
+| MCP DTO | `@Value`/`@Builder`/`@Serializable` | 值语义/schema |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Runtime)
+@annotation Tool {
+    final String name
+    final String description
+}
+
+@Target(Parameter)
+@Retention(Runtime)
+@annotation ToolParam {
+    final String name
+    final String description = ""
+    final Bool required = true
+}
+
+@Target(Method)
+@Retention(Runtime)
+@annotation Resource {
+    final String uri
+    final String mimeType
+}
+
+@Target(Method)
+@Retention(Runtime)
+@annotation Prompt {
+    final String name
+    final String description = ""
+}
+```
+
+### 使用
+
+```x
+class WeatherTools {
+    @Tool("weather.current", "Get current weather")
+    Result<WeatherReport, Error> current(@ToolParam("city") String city) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

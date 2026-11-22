@@ -95,3 +95,71 @@ X：JSON Schema 导入/导出、i18n 消息、异步/远程规则、错误码注
 | 跨字段规则 | 用 `Rules.custom` 捕获整体对象；专用 DSL X |
 | 消息 i18n | X；当前 code + message |
 | 线程安全 | 校验上下文非线程安全；Schema 构建后只读 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | ValidateAnnotationProcessor（Validate/Generate） |
+| 生成物 | 校验器、字段规则、错误路径 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 表单/请求类型 | `@Validate` | 校验入口 |
+| 数值字段/参数 | `@Min`/`@Max` | 范围规则 |
+| 字符串字段/参数 | `@Pattern`/`@Email` | 格式规则 |
+| `ValidationError`/`ValidationResult`/`FieldRule` | `@Value`/`@Builder` | 值语义/规则构造 |
+
+### 声明
+
+```x
+@Target(Type, Field)
+@Retention(Source)
+@annotation Validate {
+}
+
+@Target(Field, Parameter)
+@Retention(Source)
+@annotation Min {
+    final Long value
+}
+
+@Target(Field, Parameter)
+@Retention(Source)
+@annotation Max {
+    final Long value
+}
+
+@Target(Field, Parameter)
+@Retention(Source)
+@annotation Pattern {
+    final String value
+}
+
+@Target(Field, Parameter)
+@Retention(Source)
+@annotation Email {
+}
+```
+
+### 使用
+
+```x
+@Validate
+class SignupForm {
+    @Email String email
+    @Min(18) @Max(120) Int age
+    @Pattern("^[a-z0-9_]+$") String handle
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class GeoPoint` |
+| 类型 | `struct GeoPoint` |
 | 包 | `xdk.geo` |
 | 稳定性 | `preview` |
 | 依赖 | 无 |
 
 ---
+
+> 类型选择：`struct GeoPoint`；两个 Double 字段，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -89,7 +91,7 @@ WGS84 经纬度点：纬度/经度均为十进制度；用于距离、边界、�
 
 ## 9. 需要的支撑
 
-- 语言：class、final 字段、Double、Bool、String；
+- 语言：struct、final 字段、Double、Bool、String；
 - 运行时：`isFinite(Double)`、`str(Double)`；
 - 接口：`Geo`、`GeoBounds`、`GeoPath`、`GeoPolygon`。
 
@@ -133,7 +135,7 @@ Double distance = Geo.distanceMeters(berlin, paris)
 以下为 XNull 形态伪代码，非可执行。
 
 ```xnull
-class GeoPoint {
+struct GeoPoint {
     final Double _latitude
     final Double _longitude
 

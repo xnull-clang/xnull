@@ -154,3 +154,47 @@ xdk.errors / xdk.time / xdk.runtime / xdk.math / xdk.text / xdk.collections
 ```
 
 `xdk.trace` 不进入 `xdk.metrics` 的依赖链，也不被 `xdk.metrics` 依赖；两者只共享 `core` 层的时间与错误类型。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Traced` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | TraceAnnotationProcessor（Validate/Generate） |
+| 生成物 | span/包装器元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 服务方法 | `@Traced` | span 包装 |
+| `SpanContext`/`SpanEvent`/`TraceOptions` | `@Value`/`@Builder` | 值语义/选项 |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Traced {
+    final String name
+}
+```
+
+### 使用
+
+```x
+class UserService {
+    @Traced("user.find")
+    User find(Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

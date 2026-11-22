@@ -2,12 +2,14 @@
 
 | 项 | 值 |
 | --- | --- |
-| 类型 | `class Date` |
+| 类型 | `struct Date` |
 | 包 | `xdk.time` |
 | 稳定性 | `stable` |
 | 依赖 | `Month`、`Weekday` |
 
 ---
+
+> 类型选择：`struct Date`；唯一字段是 Int/Month，全部为值类型，使用原生值语义，不需要 `@Value`。
 
 ## 1. 定位
 
@@ -91,7 +93,7 @@
 
 ## 9. 需要的支撑
 
-- 语言：class、Int、Bool、String；
+- 语言：struct、Int、Bool、String；
 - 运行时：无；
 - 接口：`Month`、`Weekday`、`civilDaysInMonth`、`daysFromCivil`、`civilFromDays`、`monthFromNumber`、`weekdayFromIso`。
 
@@ -125,7 +127,7 @@
 ## 14. XNull 伪代码
 
 ```xnull
-class Date {
+struct Date {
     final Int _year
     final Month _month
     final Int _day

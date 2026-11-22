@@ -167,3 +167,74 @@
 | 凭证管理 | 驱动 open options 负责；核心不存储、不记录、不回显口令 |
 | `SqlOptions` 传递 | 通过三参 `execute` 重载；两参形式等价于全零默认 options |
 | 驱动生命周期 | 协议无 `close`；驱动应保持轻量，进程级资源由生态实现自行管理 |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@Sql`、`@Param`、`@Row`、`@Column` |
+| 本包消费 | `@Value`、`@Builder` |
+| 处理器 | SqlAnnotationProcessor（Resolve/Validate/Generate） |
+| 生成物 | DAO 方法、行 mapper、参数绑定、列映射 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| DAO 方法 | `@Sql` | SQL 文本/返回映射 |
+| DAO 参数 | `@Param` | 命名参数绑定 |
+| 行类型 | `@Row` | 行 mapper |
+| 行字段 | `@Column` | 列映射 |
+| `SqlColumn` | `@Value` | 列元数据值语义 |
+| `SqlValue`/`SqlRow`/`SqlStatement`/`SqlResult` | — | 含 tagged value/List 字段；按字段可值比较性再决定，不强行全量 `@Value` |
+
+### 声明
+
+```x
+@Target(Method)
+@Retention(Source)
+@annotation Sql {
+    final String value
+}
+
+@Target(Parameter)
+@Retention(Source)
+@annotation Param {
+    final String value
+}
+
+@Target(Type)
+@Retention(Source)
+@annotation Row {
+}
+
+@Target(Field)
+@Retention(Source)
+@annotation Column {
+    final String value
+}
+```
+
+### 使用
+
+```x
+@Row
+class UserRow {
+    @Column("user_id") final Long id
+    @Column("display_name") final String name
+}
+
+class UserDao {
+    @Sql("SELECT user_id, display_name FROM users WHERE user_id = :id")
+    Result<UserRow, Error> find(@Param("id") Long id) {
+        // ...
+    }
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

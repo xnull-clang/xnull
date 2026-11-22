@@ -3,11 +3,23 @@
 | 项 | 值 |
 | --- | --- |
 | 位置 | 注解层核心；语言/编译器/runtime/工具链 |
-| 权威语法 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（2026-11-22 扩展） |
+| 权威语法 | [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.5.0，2026-11-22） |
 | 覆盖 | 语言、XDK、编译器、runtime、工具链、基线 |
-| 状态 | 设计基线；实现未开始 |
+| 状态 | 编译器 B1/B2 与 `xdk.annotations` 14 类型已实现；A8 派生、A9 工具提取、领域处理器为 planned |
 | 原则 | 注解是编译期契约与生成入口，不是运行时反射魔法 |
-| 实施 | P1 编译器/元模型/处理器计划见 [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) |
+| 实施 | P1 编译器/元模型/处理器计划见 [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)；逐条状态见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) |
+
+### 0.1 实现状态
+
+| 能力 | 状态 | 证据 |
+| --- | --- | --- |
+| `@annotation` 声明/使用/参数/目标/保留/重复 | 已实现 | `src/mini/main.x`、`src/mini/tests/annotations*` |
+| 内建 `@ReadOnly`/`@Override`/`@Deprecated`/`@SuppressWarnings` | 已实现 | 编译器诊断与测试 |
+| 静态 `AnnotationRegistry` 生成与查询 | 已实现 | `src/mini/tests/xdk2/annotations_types/annotations_types_runtime_registry.x` |
+| `xdk.annotations` 14 类型 | 已实现 | `src/xdk/annotations/Annotations.x` |
+| `@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate` 派生处理器 | planned（A8） | 本文件 §3；不得写成已实现 |
+| 领域注解处理器（HTTP/SQL/codec/validate/MCP/CLI/设备/GPU 等） | planned | [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) 与各包 README |
+| 运行时反射/类路径扫描/动态代理 | 永不做 | 语言与 XDK 均为编译期生成 |
 
 ---
 
@@ -28,10 +40,10 @@
 | 派生成员 | `@Data`、`@Value`、`@Builder`、`@Copy`、`@Delegate` |
 | 序列化映射 | `@Serializable`、`@JsonName`、`@YamlName`、`@XmlName` |
 | 校验 | `@Validate`、`@Min`、`@Max`、`@Pattern` |
-| 框架适配 | `@Route`、`@Entity`、`@Inject`、`@Tool`、`@Resource` |
+| 框架适配 | `@HttpRoute`、`@Entity`、`@Inject`、`@Tool`、`@Resource` |
 | 资源/FFI | `@Packed`、`@Align`、`@Device`、`@GpuKernel` |
-| 可观测/治理 | `@Retry`、`@Cacheable`、`@Traced`、`@Audited` |
-| 测试/调度 | `@Test`、`@Benchmark`、`@Scheduled` |
+| 可观测/治理 | `@Retryable`、`@Cacheable`、`@Traced`、`@Audited` |
+| 测试/调度 | `@TestCase`、`@Benchmark`、`@Scheduled` |
 
 不做：
 
@@ -55,8 +67,8 @@
 
 - 注解类型只作为编译期声明；
 - 字段必须 `final`，类型为常量类型；
-- 支持：`Bool`、整数、`Float`/`Double`、`Char`、`String`、简单枚举、常量数组、嵌套注解、类型引用字符串；
-- 字段必须有常量初值；
+- 支持：`Bool`、整数、`Float`/`Double`、`Char`、`String`、简单枚举、常量数组、嵌套注解、`Type`/`TypeRef` 引用；
+- 字段可有常量初值；无初值的字段是必填字段，使用点必须提供；
 - 不允许方法、构造器、`deinit`、静态成员、泛型、继承、协议实现；
 - 注解类型不能 `new`，不能作为运行时值传递。
 
@@ -100,7 +112,7 @@ class Device { }
 | 元注解 | `@Target`、`@Retention`、`@Repeatable` | 语言内建 |
 | 生命周期/检查 | `@Deprecated`、`@SuppressWarnings`、`@ReadOnly`、`@Override` | 语言内建 |
 | 通用派生 | `@Value`、`@Data`、`@Builder`、`@Copy`、`@Delegate` | 语言内建 + 构建期处理器 |
-| 领域注解 | `@Serializable`、`@Route`、`@Entity`、`@Tool` | 所属 XDK 包 |
+| 领域注解 | `@Serializable`、`@HttpRoute`、`@Entity`、`@Tool` | 所属 XDK 包 |
 | 元模型/处理器合同 | `AnnotationTarget`、`AnnotationValue`、`AnnotationProcessor` 等 | `xdk.annotations` 14 类型 |
 
 - `xdk.annotations` 不定义 `@Data`/`@Serializable` 等具体注解；它们是语言内建或领域包声明。
@@ -157,6 +169,26 @@ Source/Binary/Runtime
 | 生成诊断 | 冲突、缺失、非法组合 |
 | 生成文档/IDE 信息 | 注解说明、生成代码导航 |
 
+#### 3.2.1 A8 派生合同
+
+| 注解 | 前置条件 | 生成 | 不生成 |
+| --- | --- | --- | --- |
+| `@Value` | 类型；实例字段全 `final`；无 `deinit`；字段可值比较 | `equals(other)`、`hash()`、`toString()`、`copy()` | 访问器、setter、深拷贝、运行时反射 |
+| `@Data` | 类型；字段可读写；无 `deinit` | `equals`、`hash`、`toString`、`copy()` | 访问器/setter/property 语法 |
+| `@Builder` | 类型有可用构造器或字段默认值 | `<Type>Builder`、`withField(value)`、`build()`、必填/重复设置诊断 | 运行时 builder 注册、全局缓存 |
+| `@Copy` | 类型可复制；字段可读 | `copy()`、逐字段 `withField(value)` | 深拷贝、隐式共享 |
+| `@Delegate` | 类型/字段；目标字段类型可解析 | 到目标字段的转发方法 | 协议实现推导、动态代理 |
+
+规则：
+
+- `@Value`/`@Data` 的引用字段默认按字段值语义比较；字段类型必须提供可用的值比较（标量、枚举、`@Value`/`@Data` 类型，或其 `equals` 合同）。无法证明时处理器报 `AN0021`，不得静默退化成引用比较。
+- `@Value` 的 `copy()` 必须走 canonical 构造器，保留构造器中的防御性复制/校验；不得直接复制私有字段绕过不变量。
+- `@Data` 不生成访问器；XNull 字段直接读写。需要计算/校验时写动词方法或使用领域注解。
+- `@Builder` 的 `build()` 必须校验必填字段和跨字段不变量；失败返回诊断或 panic（按目标类型的失败通道），不得返回半成品。
+- `@Value`/`@Data` 生成成员与手写成员同名时，处理器报错；实现必须删除手写成员，不能“注解 + 手写”并存。
+- `@Copy`/`@Builder` 的生成名不得与已有成员冲突；冲突是错误，不是覆盖。
+- A8 仍为 planned；上述合同是验收谓词，不是已实现声明。
+
 ### 3.3 安全与确定性
 
 - 处理器必须在构建清单显式启用；
@@ -195,26 +227,34 @@ AnnotationValue? name = set.first("Marker")?.valueOrNull("name")
 
 ## 5. XDK 对接矩阵
 
-| 层 | 注解/处理器 | 对接能力 |
-| --- | --- | --- |
-| core | `@ReadOnly`、`@Override`、`@Deprecated`、`@SuppressWarnings` | 字段/协议/API 生命周期 |
-| annotations | `@Target`、`@Retention`、`@Repeatable`、`@Data`、`@Value`、`@Builder`、`@Copy`、`@Delegate` | 生成/派生/元数据 |
-| net | `@HttpRoute`、`@HttpMethod`、`@Header`、`@Query`、`@Body`、`@StatusCode`、`@WebSocketHandler` | 路由/参数绑定/协议适配 |
-|  sql | `@Sql`、`@Param`、`@Row`、`@Column` | SQL 映射/DAO 生成 |
-|  jwt | `@JwtClaim`、`@JwtHeader` | claims 映射 |
-| os/device | `@Packed`、`@Align`、`@NativeLayout`、`@Device`、`@Gpio`、`@I2cAddress`、`@SerialPort` | FFI/设备布局 |
-|  gpu/tensor/linalg | `@GpuKernel`、`@TensorOp`、`@LinalgOp` | kernel/算子生成 |
-|  codec | `@Serializable`、`@JsonName` | JSON 编解码器生成 |
-|  yaml/toml/xml | `@YamlName`、`@TomlName`、`@XmlName` | 文档字段名映射 |
-|  validate | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器生成 |
-|  cache/resilience | `@Cacheable`、`@CacheEvict`、`@Retry`、`@CircuitBreaker`、`@RateLimit`、`@Timeout` | 包装器/策略生成 |
-|  metrics/trace/audit | `@Metered`、`@Traced`、`@Audited` | 观测/审计包装 |
-|  test/schedule | `@Test`、`@Before`、`@After`、`@Benchmark`、`@Scheduled`、`@Cron` | 测试清单/作业注册 |
-|  api | `@Api`、`@Operation`、`@Middleware`、`@Inject`、`@Component`、`@Configuration`、`@Bean` | 路由/DI/配置生成 |
-|  db | `@Entity`、`@Table`、`@Id`、`@Transactional` | ORM/DAO/事务包装 |
-|  ml | `@Model`、`@Pipeline`、`@TensorSpec` | 模型/流水线描述 |
-|  mcp | `@Tool`、`@Resource`、`@Prompt` | MCP 能力清单 |
-|  agent | `@Receiver`、`@Processor`、`@Exporter`、`@Pipeline` | 采集/处理/导出管线 |
+| 层/包 | 注解/处理器 | 对接能力 | 状态 |
+| --- | --- | --- | --- |
+| annotations/core | `@Target`、`@Retention`、`@Repeatable`、`@ReadOnly`、`@Override`、`@Deprecated`、`@SuppressWarnings` | 声明校验/生命周期/诊断 | implemented |
+| annotations A8 | `@Value`、`@Data`、`@Builder`、`@Copy`、`@Delegate` | 派生成员/构造器/复制/转发 | planned |
+| `xdk.cli` | `@CliCommand`、`@Option`、`@Arg`、`@CliSubcommand` | 命令树、解析、帮助/补全元数据 | planned |
+| `xdk.net.http` | `@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` | 路由表、参数绑定、响应状态 | planned |
+| `xdk.net.websocket` | `@WsHandler` | handler 注册/消息映射 | planned |
+| `xdk.jwt` | `@JwtClaim`、`@JwtHeaderField` | claims/header 映射 | planned |
+| `xdk.sql` | `@Sql`、`@Param`、`@Row`、`@Column` | DAO/行映射/参数绑定 | planned |
+| `xdk.codec` | `@Serializable`、`@JsonName`、`@CsvName` | JSON/CSV 编解码器与字段名 | planned |
+| `xdk.yaml`/`toml`/`xml` | `@YamlName`、`@TomlName`、`@XmlName` | 文档字段名映射 | planned |
+| `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器/字段规则/错误路径 | planned |
+| `xdk.cache` | `@Cacheable`、`@CacheEvict` | 缓存键/淘汰包装 | planned |
+| `xdk.schedule` | `@Scheduled` | 作业注册/cron 元数据 | planned |
+| `xdk.resilience` | `@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 重试/熔断/限流/超时包装 | planned |
+| `xdk.metrics`/`trace`/`audit` | `@Metered`、`@Traced`、`@Audited` | 观测/审计包装 | planned |
+| `xdk.test` | `@TestCase`、`@Before`、`@After`、`@Benchmark` | 测试清单/生命周期/基准 | planned |
+| `xdk.os.hardware` | `@Packed`、`@Align`、`@NativeLayout` | FFI 布局/对齐校验 | planned |
+| `xdk.serial` | `@SerialBinding` | 串口配置/布局 | planned |
+| `xdk.device` | `@Device`、`@Gpio`、`@I2cAddress` | 设备/引脚/地址清单 | planned |
+| `xdk.gpu` | `@GpuKernel` | kernel 注册/后端校验 | planned |
+| `xdk.tensor` | `@TensorOp`、`@TensorSpec` | 算子注册/shape/dtype | planned |
+| `xdk.linalg` | `@LinalgOp` | 算子注册/矩阵约束 | planned |
+| `xdk.api` | `@Api`、`@Operation`、`@Middleware`、`@Inject`、`@Component`、`@Configuration`、`@Bean` | 路由/OpenAPI/装配 | planned |
+| `xdk.db` | `@Entity`、`@Table`、`@Id`、`@Transactional` | 实体/表/事务 | planned |
+| `xdk.ml` | `@ModelSpec`、`@MlPipeline` | 模型/流水线描述 | planned |
+| `xdk.mcp` | `@Tool`、`@ToolParam`、`@Resource`、`@Prompt` | 工具/参数 schema/资源/prompt | planned |
+| `xdk.agent` | `@AgentReceiver`、`@AgentProcessor`、`@AgentExporter`、`@PipelineSpec` | 采集/处理/导出管线 | planned |
 
 规则：
 

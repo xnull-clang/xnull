@@ -406,3 +406,80 @@ utils：metrics / trace
 
 - 2026-11-22：首版。定义 `xdk.agent` 的 17 个类型、Collector 风格管线、显式生命周期、
   有界队列/背压/丢弃策略、健康面与安全边界。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@AgentReceiver`、`@AgentProcessor`、`@AgentExporter`、`@PipelineSpec` |
+| 本包消费 | `@Value`、`@Builder`、`@Metered`、`@Traced` |
+| 处理器 | AgentAnnotationProcessor（Validate/Generate） |
+| 生成物 | 管线/组件注册、观测元数据 |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| receiver 类 | `@AgentReceiver` | receiver 表 |
+| processor 类 | `@AgentProcessor` | processor 表 |
+| exporter 类 | `@AgentExporter` | exporter 表 |
+| 管线类 | `@PipelineSpec` | 管线表 |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Runtime)
+@annotation AgentReceiver {
+    final String name
+}
+
+@Target(Type)
+@Retention(Runtime)
+@annotation AgentProcessor {
+    final String name
+}
+
+@Target(Type)
+@Retention(Runtime)
+@annotation AgentExporter {
+    final String name
+}
+
+@Target(Type)
+@Retention(Runtime)
+@annotation PipelineSpec {
+    final String name
+}
+```
+
+### 使用
+
+```x
+@AgentReceiver("otlp")
+class OtlpReceiver {
+    // ...
+}
+
+@AgentProcessor("redact")
+class RedactProcessor {
+    // ...
+}
+
+@AgentExporter("otlp")
+class OtlpExporter {
+    // ...
+}
+
+@PipelineSpec("traces")
+class TracePipeline {
+    // ...
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

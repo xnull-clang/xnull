@@ -233,3 +233,57 @@ SessionOptions options = new SessionOptions(
 - 不包含模型运行时二进制、ONNX 解析器实现或 GPU 内核；
 - 所有相对链接可达；参数命名检查通过；
 - 本轮只改 `docs/design/solutions/ml`，未修改 `docs/design/platform/README.md`、`docs/design/README.md`，未改代码/测试/脚本。
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | `@ModelSpec`、`@MlPipeline` |
+| 本包消费 | `@Value`、`@Builder`、`@TensorSpec` |
+| 处理器 | MlAnnotationProcessor（Validate/Generate） |
+| 生成物 | 模型/流水线目录、输入输出 spec |
+| 状态 | 领域注解 planned；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 模型类 | `@ModelSpec` | 模型目录 |
+| 流水线类 | `@MlPipeline` | 流水线目录 |
+| 输入/输出字段 | `@TensorSpec` | shape/dtype 校验 |
+
+### 声明
+
+```x
+@Target(Type)
+@Retention(Runtime)
+@annotation ModelSpec {
+    final String name
+}
+
+@Target(Type)
+@Retention(Runtime)
+@annotation MlPipeline {
+    final String name
+}
+```
+
+### 使用
+
+```x
+@ModelSpec("sentiment")
+class SentimentModel {
+    // ...
+}
+
+@MlPipeline("batch-infer")
+class BatchInference {
+    // ...
+}
+```
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。

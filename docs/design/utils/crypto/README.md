@@ -110,3 +110,27 @@ JWT 包使用 `Hmac`/`Asymmetric`；不把 JWT 放进 crypto。
 | 后量子 | X |
 | HSM/证书 | 不做；TLS 另包 |
 | JWT | 独立 `xdk.jwt` |
+
+---
+
+## 注解与生成
+
+| 项 | 内容 |
+| --- | --- |
+| 本包声明 | 无领域注解 |
+| 本包消费 | `@Value`、`@Deprecated` |
+| 处理器 | 标准 A8 / 编译器内建 |
+| 生成物 | `KeyPair` 值语义、弃用诊断；密钥句柄不套 `@Value` |
+| 状态 | 无领域注解；A8 派生 planned；编译器内建 implemented |
+
+### 具体落点
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| `KeyPair` | `@Value` | 值语义成员 |
+| `PublicKey`/`PrivateKey` | — | 句柄/权限资源，保持显式 class |
+| 废弃算法入口 | `@Deprecated` | 迁移警告 |
+
+规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
+
+完整声明与 75 包矩阵见 [`ANNOTATION-ADOPTION.md`](../../ANNOTATION-ADOPTION.md)、逐条状态见 [`ANNOTATION-CATALOG.md`](../../ANNOTATION-CATALOG.md)。
