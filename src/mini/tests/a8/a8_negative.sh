@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-ROOT=$(CDPATH= cd -- "$HERE/../../../.." && pwd)
+ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 XNULL="$ROOT/src/cli/xnull"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT

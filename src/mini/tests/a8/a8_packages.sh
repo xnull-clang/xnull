@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-ROOT=$(CDPATH= cd -- "$HERE/../../../.." && pwd)
+ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 TMP=$(mktemp)
 trap 'rm -f "$TMP"' EXIT
 "$ROOT/src/cli/xnull" --bootstrap --engine=mini run "$HERE/package_adoption.x" >"$TMP"
