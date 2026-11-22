@@ -3,7 +3,6 @@
 package xdk.linalg
 import xdk.math
 import xdk.errors
-import xdk.tensor
 
 Error linalgError(ErrorKind kind, String message) { return new BasicError(kind, message) }
 
@@ -766,19 +765,4 @@ class Linalg {
         return new Matrix(size, size, values)
     }
 
-    static Result<Matrix, Error> matrixFromTensor(Tensor tensor) {
-        if tensor == null { throw "Linalg.matrixFromTensor: null tensor" }
-        if tensor.rank() != 2 {
-            return Err(linalgError(ErrorKind.InvalidArgument, "matrixFromTensor requires rank 2"))
         }
-        if tensor.tensorDType() == TensorDType.Bool {
-            return Err(linalgError(ErrorKind.Unsupported, "matrixFromTensor does not accept Bool"))
-        }
-        return Ok(new Matrix(tensor.tensorShape().dim(0), tensor.tensorShape().dim(1), tensor.toDoubles()))
-    }
-
-    static Tensor tensorFromMatrix(Matrix matrix) {
-        if matrix == null { throw "Linalg.tensorFromMatrix: null matrix" }
-        return TensorOps.fromDoubles(TensorDType.Float64, new TensorShape([matrix.rowCount(), matrix.columnCount()]), matrix.toList())
-    }
-}

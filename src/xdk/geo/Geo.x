@@ -35,7 +35,6 @@ class GeoPoint {
     final Double _longitude
 
     GeoPoint(Double latitude, Double longitude) {
-        if latitude == null || longitude == null { throw "GeoPoint: null coordinate" }
         if !isFinite(latitude) || !isFinite(longitude) { throw "GeoPoint: non-finite coordinate" }
         if latitude < -90.0 || latitude > 90.0 || longitude < -180.0 || longitude > 180.0 {
             throw "GeoPoint: coordinate out of range"
@@ -60,7 +59,6 @@ class GeoBounds {
     final Double _east
 
     GeoBounds(Double south, Double west, Double north, Double east) {
-        if south == null || west == null || north == null || east == null { throw "GeoBounds: null bound" }
         if !isFinite(south) || !isFinite(west) || !isFinite(north) || !isFinite(east) {
             throw "GeoBounds: non-finite bound"
         }
@@ -230,7 +228,7 @@ class Geo {
         Double lat1 = first.latitude() * PI() / 180.0
         Double lat2 = second.latitude() * PI() / 180.0
         Double deltaLat = (second.latitude() - first.latitude()) * PI() / 180.0
-        Double deltaLon = normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
+        Double deltaLon = Geo.normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
         Double a = sin(deltaLat / 2.0) * sin(deltaLat / 2.0) +
             cos(lat1) * cos(lat2) * sin(deltaLon / 2.0) * sin(deltaLon / 2.0)
         return 6371008.8 * 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
@@ -240,7 +238,7 @@ class Geo {
         if first == null || second == null { throw "Geo.bearingDegrees: null point" }
         Double lat1 = first.latitude() * PI() / 180.0
         Double lat2 = second.latitude() * PI() / 180.0
-        Double deltaLon = normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
+        Double deltaLon = Geo.normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
         Double y = sin(deltaLon) * cos(lat2)
         Double x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(deltaLon)
         Double angle = atan2(y, x) * 180.0 / PI()
@@ -260,7 +258,7 @@ class Geo {
         Double lon2 = lon1 + atan2(sin(bearing) * sin(angular) * cos(lat1),
             cos(angular) - sin(lat1) * sin(lat2))
         Double latitude = lat2 * 180.0 / PI()
-        Double longitude = normalizeLongitude(lon2 * 180.0 / PI())
+        Double longitude = Geo.normalizeLongitude(lon2 * 180.0 / PI())
         if latitude > 90.0 { latitude = 90.0 }
         if latitude < -90.0 { latitude = -90.0 }
         return new GeoPoint(latitude, longitude)
@@ -271,7 +269,7 @@ class Geo {
         Double lat1 = first.latitude() * PI() / 180.0
         Double lat2 = second.latitude() * PI() / 180.0
         Double lon1 = first.longitude() * PI() / 180.0
-        Double deltaLon = normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
+        Double deltaLon = Geo.normalizeLongitude(second.longitude() - first.longitude()) * PI() / 180.0
         Double bx = cos(lat2) * cos(deltaLon)
         Double by = cos(lat2) * sin(deltaLon)
         Double denominator = sqrt((1.0 + cos(lat1) * bx + sin(lat1) * by) * 0.5)
@@ -279,7 +277,7 @@ class Geo {
             return Err(geoError(ErrorKind.InvalidArgument, "Geo.midpoint: antipodal points"))
         }
         Double latitude = atan2(sin(lat1) + sin(lat2), sqrt((cos(lat1) + bx) * (cos(lat1) + bx) + by * by)) * 180.0 / PI()
-        Double longitude = normalizeLongitude((lon1 + atan2(by, cos(lat1) + bx)) * 180.0 / PI())
+        Double longitude = Geo.normalizeLongitude((lon1 + atan2(by, cos(lat1) + bx)) * 180.0 / PI())
         return Ok(new GeoPoint(latitude, longitude))
     }
 
