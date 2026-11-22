@@ -21,11 +21,10 @@
 
 ## 开工前 60 秒
 
-1. 读 `LOCAL_RULES.md`（若存在）。
-2. 读 `.agent/AGENT-LEARNING.md`、active 纠错，以及 `.agent/knowledge/index.md` 的相关条目（若存在）。
-3. 读本次任务的批次合同/计划：边界、验收谓词、停止白名单。
-4. 涉及共享文件时，先确认写入归属与合并顺序。
-5. 若 `.agent/state/retro-due` 存在，先完成对应复盘并跑 `check.py`，再开新活。
+1. 读 `.agent/rules/active.md`；需要完整触发/证据时再查 `.agent/corrections.md` 对应条目。
+2. 读任务合同；orchestrator 加读 `ORCHESTRATOR.md` + `DISPATCH.md`，rule-writer 加读 `AGENT-LEARNING.md` + `MECHANISM.md`。
+3. 按任务读 `.agent/knowledge/index.md`；读 `LOCAL_RULES.md` 第 5/6 号。
+4. 共享文件先确认归属/顺序；`retro-due` 存在先处理。
 
 ## 收工前 60 秒
 

@@ -13,7 +13,7 @@ function bootReport(root: string, sessionID?: string): string {
       cwd: root,
       encoding: "utf8",
       timeout: 15000,
-      env: { ...process.env, OPENCODE_SESSION_ID: sessionID ?? "" },
+      env: { ...process.env, OPENCODE_SESSION_ID: sessionID ?? "", BOOT_FAST: "1" },
     }).trim()
   } catch (error) {
     const stdout = (error as { stdout?: string }).stdout ?? ""
@@ -48,6 +48,15 @@ export default Plugin.define({
             "BLOCKED: 不得执行原任务。先处理上述阻塞项（如完成复盘）；" +
             "处理完后让用户重新发送原任务。原任务已暂存到 `.agent/state/blocked/`。"
           return
+        }
+
+        const state = report.match(/^- state: (.+)$/m)?.[1] ?? "ok";
+        if (report.startsWith("BOOT: OK") && state === "ok") {
+          const role = report.match(/^- role: (.+)$/m)?.[1] ?? "?";
+          const batch = report.match(/^- batch: (.+)$/m)?.[1] ?? "?";
+          event.prompt.text =
+            `${MARKER}\n[BOOT] OK · role=${role} · ${batch}\n[/BOOT]\n\n${event.prompt.text}`;
+          return;
         }
 
         event.prompt.text = `${MARKER}\n[BOOT]\n${report}\n[/BOOT]\n按 NEXT 执行。\n\n${event.prompt.text}`
