@@ -1756,6 +1756,9 @@ class Mono {
     final List<String> scopeTypes
     final List<String> usedMethodTypes
     final List<String> usedMethodNames
+    final List<String> gmClasses
+    final List<String> gmMethods
+    final List<Int> gmStatic
 
     Mono(AstNode p) {
         self.program = p
@@ -1763,6 +1766,27 @@ class Mono {
         self.scopeTypes = []
         self.usedMethodTypes = []
         self.usedMethodNames = []
+        self.gmClasses = []
+        self.gmMethods = []
+        self.gmStatic = []
+    }
+
+    Bool isGenericMethod(String className, String methodName) {
+        Int i = 0
+        while i < self.gmClasses.length() {
+            if self.gmClasses.get(i) == className && self.gmMethods.get(i) == methodName { return true }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isGenericMethodStatic(String className, String methodName) {
+        Int i = 0
+        while i < self.gmClasses.length() {
+            if self.gmClasses.get(i) == className && self.gmMethods.get(i) == methodName { return self.gmStatic.get(i) != 0 }
+            i = i + 1
+        }
+        return false
     }
 
     Bool hasTypeParams(AstNode n) {
@@ -2757,6 +2781,33 @@ class Mono {
         if pattern.indexOf("(") >= 0 && actual == "Any" {
             return true
         }
+        Int gp = pattern.indexOf("<")
+        if gp > 0 && actual.startsWith(pattern.substring(0, gp) + "__") {
+            String suffix = actual.substring(gp + 2, actual.length() - gp - 2)
+            List<String> aa = suffix.split("_")
+            List<String> pp = splitTop(pattern.substring(gp + 1, pattern.length() - gp - 2))
+            if pp.length() != aa.length() { return false }
+            Int gi = 0
+            while gi < pp.length() {
+                if !self.inferTypePattern(pp.get(gi).trim(), aa.get(gi).trim(), names, inferred) { return false }
+                gi = gi + 1
+            }
+            return true
+        }
+        Int ga = actual.indexOf("<")
+        if gp > 0 && ga > 0 && pattern.substring(pattern.length() - 1, 1) == ">" &&
+           actual.substring(actual.length() - 1, 1) == ">" &&
+           pattern.substring(0, gp) == actual.substring(0, ga) {
+            List<String> pp = splitTop(pattern.substring(gp + 1, pattern.length() - gp - 2))
+            List<String> aa = splitTop(actual.substring(ga + 1, actual.length() - ga - 2))
+            if pp.length() != aa.length() { return false }
+            Int gi = 0
+            while gi < pp.length() {
+                if !self.inferTypePattern(pp.get(gi).trim(), aa.get(gi).trim(), names, inferred) { return false }
+                gi = gi + 1
+            }
+            return true
+        }
         return pattern == actual
     }
 
@@ -2854,6 +2905,7 @@ class Mono {
     }
 
     AstNode walk(AstNode n) {
+        if n.kind == "MethodCall" || n.kind == "Call" { n = self.rewriteGenericMethodCall(n) }
         Bool isFn = n.kind == "Func"
         if isFn {
             self.collectScope(n)
@@ -2866,6 +2918,7 @@ class Mono {
             AstNode fn = self.findGeneric(n.text)
             if fn.kind == "Func" {
                 String tas = self.typeArgsFor(n)
+                print("TA " + n.text + "=" + tas)
                 if tas != "" {
                     List<String> args = splitTop(tas)
                     String sname = self.specialize(fn, args)
@@ -2949,7 +3002,145 @@ class Mono {
         }
     }
 
+    String gmName(String className, String methodName) {
+        return "__gm_" + className + "_" + methodName
+    }
+
+    AstNode replaceSelf(AstNode n) {
+        AstNode c = new AstNode(n.kind, n.text, n.line, n.col)
+        if n.kind == "Name" && n.text == "self" { c.text = "__self" }
+        if n.kind == "Call" && n.text.startsWith("self.") { c.text = "__self." + n.text.substring(5, n.text.length() - 5) }
+        Int i = 0
+        while i < n.kids.length() { c.add(self.replaceSelf(n.kids.get(i))); i = i + 1 }
+        return c
+    }
+
+    Void desugarGenericMethods() {
+        Int ci = 0
+        while ci < self.program.kids.length() {
+            AstNode cls = self.program.kids.get(ci)
+            if cls.kind == "Class" || cls.kind == "Struct" {
+                List<String> classParams = self.typeParams(cls)
+                List<Int> removeAt = []
+                Int mi = 0
+                while mi < cls.kids.length() {
+                    AstNode m = cls.kids.get(mi)
+                    if m.kind == "Method" && self.hasTypeParams(m) {
+                        List<String> methodParams = self.typeParams(m)
+                        List<String> combined = []
+                        Int pi = 0
+                        while pi < classParams.length() { combined.push(classParams.get(pi)); pi = pi + 1 }
+                        pi = 0
+                        while pi < methodParams.length() {
+                            Bool found = false
+                            Int qi = 0
+                            while qi < combined.length() {
+                                if combined.get(qi) == methodParams.get(pi) { found = true; break }
+                                qi = qi + 1
+                            }
+                            if !found { combined.push(methodParams.get(pi)) }
+                            pi = pi + 1
+                        }
+                        Bool isStatic = self.methodIsStatic(m)
+                        AstNode fn = new AstNode("Func", self.gmName(cls.text, m.text), m.line, m.col)
+                        AstNode tp = new AstNode("TypeParams", "", m.line, m.col)
+                        pi = 0
+                        while pi < combined.length() { tp.add(new AstNode("TypeParam", combined.get(pi), m.line, m.col)); pi = pi + 1 }
+                        fn.add(tp)
+                        pi = 0
+                        while pi < m.kids.length() {
+                            AstNode k = m.kids.get(pi)
+                            if k.kind == "Ret" { fn.add(self.replaceSelf(k)) }
+                            pi = pi + 1
+                        }
+                        if !isStatic {
+                            String recvType = cls.text
+                            if classParams.length() > 0 { recvType = cls.text + "<" + self.joinTypeArgs(classParams) + ">" }
+                            fn.add(new AstNode("Param", recvType + " __self", m.line, m.col))
+                        }
+                        pi = 0
+                        while pi < m.kids.length() {
+                            AstNode k = m.kids.get(pi)
+                            if k.kind == "Param" || k.kind == "Block" { fn.add(self.replaceSelf(k)) }
+                            pi = pi + 1
+                        }
+                        print("DES " + fn.text + " params=" + str(combined.length()))
+                        self.program.add(fn)
+                        self.gmClasses.push(cls.text)
+                        self.gmMethods.push(m.text)
+                        if isStatic { self.gmStatic.push(1) } else { self.gmStatic.push(0) }
+                        removeAt.push(mi)
+                    }
+                    mi = mi + 1
+                }
+                Int ri = removeAt.length() - 1
+                while ri >= 0 { cls.kids.remove(removeAt.get(ri)); ri = ri - 1 }
+            }
+            ci = ci + 1
+        }
+    }
+
+    AstNode rewriteGenericMethodCall(AstNode n) {
+        String className = ""
+        AstNode recv = new AstNode("None", "", n.line, n.col)
+        Bool methodCall = n.kind == "MethodCall"
+        if methodCall && n.kids.length() > 0 {
+            recv = n.kids.get(0)
+            String rt = self.simpleExprType(recv)
+            if rt != "Any" {
+                className = self.genericBase(rt)
+                Int uu = className.indexOf("__")
+                if uu > 0 {
+                    String baseCandidate = className.substring(0, uu)
+                    if self.isGenericMethod(baseCandidate, n.text) { className = baseCandidate }
+                }
+            }
+            else if recv.kind == "Name" && self.findClass(recv.text).kind != "None" { className = recv.text }
+        } else if n.kind == "Call" {
+            Int dot = lastDot(n.text)
+            if dot > 0 {
+                String recvName = n.text.substring(0, dot)
+                AstNode recvNode = new AstNode("Name", recvName, n.line, n.col)
+                String rt = self.simpleExprType(recvNode)
+                if rt != "Any" {
+                    className = self.genericBase(rt)
+                    Int uu = className.indexOf("__")
+                    if uu > 0 {
+                        String baseCandidate = className.substring(0, uu)
+                        if self.isGenericMethod(baseCandidate, n.text.substring(dot + 1, n.text.length() - dot - 1)) { className = baseCandidate }
+                    }
+                    methodCall = true
+                    recv = recvNode
+                } else {
+                    className = recvName
+                }
+            }
+        }
+        if className == "" { return n }
+        String originalName = n.text
+        if n.kind == "Call" {
+            Int dot2 = lastDot(n.text)
+            if dot2 > 0 { originalName = n.text.substring(dot2 + 1, n.text.length() - dot2 - 1) }
+        }
+        if !self.isGenericMethod(className, originalName) { return n }
+        Bool isStatic = self.isGenericMethodStatic(className, originalName)
+        AstNode call = new AstNode("Call", self.gmName(className, originalName), n.line, n.col)
+        Int start = 0
+        if methodCall {
+            if !isStatic { call.add(recv) }
+            start = 1
+        }
+        if start < n.kids.length() && n.kids.get(start).kind == "TypeArgs" {
+            call.kind = "GenericCall"
+            call.add(n.kids.get(start))
+            start = start + 1
+        }
+        while start < n.kids.length() { call.add(n.kids.get(start)); start = start + 1 }
+        return call
+    }
+
     AstNode run() {
+        self.desugarGenericMethods()
         self.collectUsedMethods()
         Int i = 0
         while i < self.program.kids.length() {
