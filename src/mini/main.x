@@ -1827,6 +1827,7 @@ class Mono {
     final List<String> scopeTypes
     final List<String> usedMethodTypes
     final List<String> usedMethodNames
+    final List<String> wildcardMethods
     final List<String> gmClasses
     final List<String> gmMethods
     final List<Int> gmStatic
@@ -1837,6 +1838,7 @@ class Mono {
         self.scopeTypes = []
         self.usedMethodTypes = []
         self.usedMethodNames = []
+        self.wildcardMethods = []
         self.gmClasses = []
         self.gmMethods = []
         self.gmStatic = []
@@ -1982,6 +1984,10 @@ class Mono {
         Int i = 0
         while i < ty.length() {
             String c = ty.substring(i, 1)
+            if c == " " || c == "\t" {
+                i = i + 1
+                continue
+            }
             if self.identChar(c) {
                 res = res + c
             } else {
@@ -2063,6 +2069,24 @@ class Mono {
         return res
     }
 
+    String retTypeText(AstNode m) {
+        Int i = 0
+        while i < m.kids.length() {
+            if m.kids.get(i).kind == "Ret" { return m.kids.get(i).text }
+            i = i + 1
+        }
+        return "Unit"
+    }
+
+    Bool safeInstanceMethod(String name) {
+        return name == "length"
+    }
+
+    Bool methodRecursive(AstNode m, String base) {
+        String rt = self.retTypeText(m)
+        return rt == base || rt.indexOf(base + "<") >= 0
+    }
+
     String instantiateClass(String cname, List<String> args) {
         AstNode cls = self.findGenericClass(cname)
         if cls.kind == "None" || !self.hasTypeParams(cls) {
@@ -2078,7 +2102,7 @@ class Mono {
             if suffix != "" {
                 suffix = suffix + "_"
             }
-            suffix = suffix + self.mangle(args.get(i))
+            suffix = suffix + self.mangle(args.get(i).trim())
             i = i + 1
         }
         String sname = cname + "__" + suffix
@@ -2105,7 +2129,8 @@ class Mono {
                 skip = true
             }
             if member.kind == "Method" && !self.methodIsStatic(member) &&
-               !self.listHas(reachable, member.text) {
+               !self.listHas(reachable, member.text) &&
+               !(cname == "Seq" && self.safeInstanceMethod(member.text)) {
                 skip = true
             }
             if !skip {
@@ -2915,6 +2940,32 @@ class Mono {
         return pattern == actual
     }
 
+    String angleFromMangled(String ty) {
+        Int u = ty.indexOf("__")
+        if u < 0 {
+            return ty
+        }
+        String base = ty.substring(0, u)
+        String rest = ty.substring(u + 2, ty.length() - u - 2)
+        if rest.length() > 0 && rest.substring(rest.length() - 1, 1) == "_" {
+            rest = rest.substring(0, rest.length() - 1)
+        }
+        if rest == "" {
+            return ty
+        }
+        List<String> parts = rest.split("_")
+        String joined = ""
+        Int i = 0
+        while i < parts.length() {
+            if parts.get(i) != "" {
+                if joined != "" { joined = joined + "," }
+                joined = joined + parts.get(i)
+            }
+            i = i + 1
+        }
+        return base + "<" + joined + ">"
+    }
+
     String typeArgsFor(AstNode call) {
         if call.kind == "GenericCall" && call.kids.length() > 0 {
             return call.kids.get(0).text
@@ -2930,7 +2981,7 @@ class Mono {
         List<String> actual = []
         Int ai = 0
         while ai < call.kids.length() {
-            actual.push(self.argType(call.kids.get(ai)))
+            actual.push(self.angleFromMangled(self.argType(call.kids.get(ai))))
             ai = ai + 1
         }
         List<String> inferred = []
@@ -3201,6 +3252,10 @@ class Mono {
         Bool receiverInKids = n.kind == "MethodCall"
         if methodCall && n.kids.length() > 0 {
             recv = n.kids.get(0)
+            if recv.kind == "Call" || recv.kind == "MethodCall" {
+                recv = self.rewriteGenericMethodCall(recv)
+                n.setKid(0, recv)
+            }
             String rt = self.simpleExprType(recv)
             if rt != "Any" {
                 if rt.startsWith("Box<") || rt.indexOf("<") > 0 {
@@ -3263,7 +3318,77 @@ class Mono {
             start = start + 1
         }
         while start < n.kids.length() { call.add(n.kids.get(start)); start = start + 1 }
+        if call.text == gname {
+            String inferredArgs = self.typeArgsFor(call)
+            if inferredArgs != "" {
+                AstNode gf2 = self.findGeneric(gname)
+                if gf2.kind == "Func" {
+                    String sname = self.specialize(gf2, splitTop(inferredArgs))
+                    if sname != "" { call.text = sname }
+                }
+            }
+        }
         return call
+    }
+
+    String firstTypeToken(String text) {
+        Int i = 0
+        while i < text.length() {
+            if text.substring(i, 1) == " " { return text.substring(0, i) }
+            i = i + 1
+        }
+        return text
+    }
+
+    AstNode inferGenericStaticCall(AstNode n, String expected) {
+        if n.kind != "Call" || expected == "" {
+            return n
+        }
+        AstNode fn = self.findGeneric(n.text)
+        if fn.kind != "Func" {
+            return n
+        }
+        List<String> names = self.typeParams(fn)
+        if names.length() == 0 {
+            return n
+        }
+        List<String> inferred = []
+        Int i = 0
+        while i < names.length() {
+            inferred.push("")
+            i = i + 1
+        }
+        if !self.inferTypePattern(self.retTypeText(fn), expected, names, inferred) {
+            return n
+        }
+        Int k = 0
+        while k < inferred.length() {
+            if inferred.get(k) == "" { return n }
+            k = k + 1
+        }
+        String sname = self.specialize(fn, inferred)
+        if sname != "" { n.text = sname }
+        return n
+    }
+
+    Void inferGenericStaticCalls(AstNode n, String expected, String curRet) {
+        if n.kind == "Call" {
+            n = self.inferGenericStaticCall(n, expected)
+        }
+        String childExpected = ""
+        String childRet = curRet
+        if n.kind == "Local" {
+            childExpected = self.firstTypeToken(n.text)
+        } else if n.kind == "Return" {
+            childExpected = curRet
+        } else if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" || n.kind == "Deinit" {
+            childRet = self.retTypeText(n)
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.inferGenericStaticCalls(n.kids.get(i), childExpected, childRet)
+            i = i + 1
+        }
     }
 
     AstNode run() {
@@ -3288,6 +3413,7 @@ class Mono {
             }
             i = i + 1
         }
+        self.inferGenericStaticCalls(self.program, "", "")
         return self.program
     }
 }

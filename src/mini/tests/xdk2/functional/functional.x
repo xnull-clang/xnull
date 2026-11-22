@@ -105,5 +105,14 @@ static Int main() {
     Lazy<Int> ready = Lazy.ready(5)
     print(ready.isInitialized())
     print(ready.get())
+    Seq<Int> emptyFromExpected = Seq.empty()
+    Seq<Int> emptyExplicit = Seq.empty<Int>()
+    print(emptyFromExpected.length())
+    print(emptyExplicit.length())
+    print(emptyFromExpected.zip(wordSeq).length())
+    Seq<String> chained = seq.map(asText).map((String text) -> text + "!")
+    print(chained.get(0))
+    Seq<List<Int>> chunks = seq.chunk(2)
+    print(chunks.get(0).length())
     return 0
 }

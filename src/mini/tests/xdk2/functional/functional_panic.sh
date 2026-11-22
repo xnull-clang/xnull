@@ -19,6 +19,7 @@ if "$XNULL" --bootstrap --engine=mini run "$TMP/mapnull.x" >"$TMP/out" 2>"$TMP/e
     echo "functional_panic: Seq.map(null) unexpectedly passed" >&2
     exit 1
 fi
+grep -q 'SEM-001' "$TMP/err"
 cat > "$TMP/lazynull.x" <<'X'
 import xdk.functional
 static Int main() {
