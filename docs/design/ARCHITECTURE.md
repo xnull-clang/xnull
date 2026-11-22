@@ -148,7 +148,102 @@ L1 → L0
 
 ---
 
-## 6. 抽象边界
+## 6. 注解系统
+
+注解是编译期元数据、检查与生成入口，不是运行时反射机制。完整注解清单、状态与验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。
+
+### 6.1 定位
+
+- 注解在编译期声明、解析、校验和生成；运行时不发现、不扫描、不加载注解类。
+- `xdk.annotations` 只定义 14 个元模型类型、处理器合同和只读 Registry；不承载领域注解。
+- 领域注解随所属包实现；没有处理器、生成物和场景的注解不得标 implemented。
+- 构建期处理器必须显式启用；未启用时不产生“已处理”承诺。
+
+### 6.2 语法、目标与保留
+
+- 声明：`@annotation Name { final Type field = default }`；字段必须是编译期常量类型。
+- 使用：`@Name` 或 `@Name(arg1, arg2, ...)`；只支持位置参数，尾部字段可省略。
+- 目标 11 项：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem`。
+- `TypeUse` 使用前缀 `@Foo Type`，允许字段、参数、返回、局部变量类型；必须显式 `@Target(TypeUse)`。
+- 保留 3 项：`Source`/`Binary`/`Runtime`；未写 `@Retention` 默认 `Binary`。
+- `@Repeatable` 允许同一目标重复并保序；未标重复的重复使用是编译错误。
+- 未知注解、错目标、错参数、非法常量、重复注解必须有稳定诊断码。
+- 声明前缀消歧：仅 `TypeUse` → 类型使用；仅声明目标 → 声明；两者同时声明 → 编译错误。
+
+### 6.3 语言内建注解
+
+| 注解 | 用途 | 强制 | 解决的问题 |
+| --- | --- | --- | --- |
+| `@Target` | 限定挂载目标 | 是 | 防错挂载 |
+| `@Retention` | 选择保留策略 | 是 | 编译期/工具/运行时分层 |
+| `@Repeatable` | 允许重复并保序 | 是 | 多值元数据不丢项 |
+| `@ReadOnly` | 字段对外只读 | 是 | 防外部写状态 |
+| `@WriteOnly` | 标记只写字段 | 识别，不强制 | API 方向表达 |
+| `@Override` | 校验协议签名 | 是 | 防伪实现/拼写漂移 |
+| `@Deprecated` | 使用点警告 | 是 | 迁移提示 |
+| `@SuppressWarnings` | 按码抑制警告 | 是 | 局部豁免 |
+| `@MustUse` | 返回值必须使用 | 识别，规则随 A6 完善 | 防忽略关键结果 |
+| `@Immediate`/`@NoAlloc`/`@Pure`/`@Sendable` | 预留标记 | 否 | 不改变语义 |
+| `@tasks`/`@arena` | 块注解 | S5 | 任务/区域生命周期 |
+
+### 6.4 派生注解与 A8 处理器
+
+| 注解 | 生成成员 | 主要失败诊断 |
+| --- | --- | --- |
+| `@Value` | 值构造、equals/hash/toString 等值语义 | 非 final 字段、引用相等要求冲突 |
+| `@Data` | 数据访问器与值语义成员 | 字段/方法名冲突、不可生成类型 |
+| `@Builder` | builder 类型、`build()`、必填校验 | 缺必填、重复设置、构造不可见 |
+| `@Copy` | `copy()` 与逐字段 `withX` | 不可复制字段、命名冲突 |
+| `@Delegate` | 到指定字段的转发方法 | 目标缺失、签名冲突、可见性不足 |
+
+A8 管线：`Resolve → Validate → Generate → Finalize`。
+
+- **固定点**：多轮处理器直到无新生成；每轮只读上一轮稳定结果。
+- **沙箱**：只读输入 AST；只写声明式输出；禁止任意文件、网络、进程、反射。
+- **确定性**：同输入、同处理器集合、同配置产生相同字节；生成名与顺序稳定。
+- **失败原子**：任一步失败整批回滚，不留下半生成文件或半修改 AST。
+- A8/A9 状态为 `planned`；不得把派生注解写成已实现。
+
+### 6.5 领域注解与归属
+
+领域注解随包实现，禁止空壳；至少需要包实现、处理器、生成代码、场景四项证据。
+
+| 领域 | 注解 | 归属 | 阶段 |
+| --- | --- | --- | --- |
+| codec | `@Serializable`/`@JsonName`/`@YamlName`/`@TomlName`/`@XmlName` | `xdk.codec` | B5 |
+| validation | `@Validate`/`@Min`/`@Max`/`@Pattern` | `xdk.validate` | B9 |
+| net/http | `@HttpRoute`/`@Header`/`@Query` | `xdk.net.http` | B7 |
+| db | `@Sql`/`@Param`/`@Row` | `xdk.db` | B10 |
+| auth | `@JwtClaim`/`@JwtHeader` | `xdk.auth` | B9 |
+| test/scheduler | `@Test`/`@Scheduled` | `xdk.test`/`xdk.schedule` | B9 |
+| ffi/platform | `@Packed`/`@Align`/`@Device`/`@GpuKernel` | 编译器/`xdk.os.device`/`xdk.gpu` | B5/P4/B8 |
+| resilience/observability | `@Cacheable`/`@Retry`/`@Metered`/`@Traced`/`@Audited` | cache/resilience/metrics/trace/audit | B9 |
+
+### 6.6 运行时元数据
+
+- 只有 `Runtime` 注解进入编译器生成的静态 `AnnotationRegistry`；`Source`/`Binary` 不可运行时查询。
+- Registry 只读、带版本号；按 `target + targetName` 索引，重复项保序。
+- 运行时无反射、无扫描、无注解类加载、无动态注册。
+- 生成入口 `xdkAnnotationRegistry()`/`xdkAnnotationRegistryVersion()` 是编译器产物，不是 14 个元模型类型之一。
+
+### 6.7 核心 API 采用规则
+
+- `@Override`：实现协议方法时使用即校验签名；不要求每个实现都标注。
+- `@Deprecated`：公共 API 迁移窗口内使用；不得只写注释不标注解。
+- `@ReadOnly`：用于对外只读、内部可写的字段；不替代不可变值设计。
+- 不得装饰性乱加注解；没有处理器/检查/生成/运行时查询的注解不进入公共 API。
+- 识别但不强制（如 `@WriteOnly`、预留 `@Pure`）不得被文档/汇报写成已强制。
+
+### 6.8 状态与目录
+
+- 完整清单、目标/保留、处理器阶段、归属包、状态、验收：见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。
+- 语义权威：[`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)；实施计划：[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)。
+- 编译器状态：B1/B2 已实现内建、目标/保留、Registry；A8 派生、A9 工具提取、领域注解仍 `planned`。
+- 不得把 A8/A9 或领域注解写成已实现；不得把“识别”写成“强制”。
+
+---
+
+## 7. 抽象边界
 
 只在以下边界抽协议；其他位置优先具体值/具体类：
 
@@ -174,66 +269,18 @@ L1 → L0
 
 ---
 
-## 7. 注解优先
+## 8. 注解优先的落地约束
 
-注解是 2.x 的第一个实现层。原因不是“注解很酷”，而是后续包的大量样板必须由编译器生成，否则抽象会退化成宏、代码复制或运行时反射。
-
-### 7.1 注解能力边界
-
-- 注解是**编译期声明、检查、生成入口**；
-- 运行时只读编译器生成的静态注册表；
-- 不做类路径扫描、动态加载、动态代理、运行时处理器；
-- `@MustUse` 是语言规则，不是用户注解；
-- `@tasks`/`@arena` 是块注解，归语言 S5，不进入通用注解系统；
-- 领域注解定义在所属包，不全部塞进 `xdk.annotations`。
-
-### 7.2 编译器管线
-
-```text
-lexer/parser
-  → AST（@annotation 声明 / @Name 使用）
-  → 语义解析（类型/目标/保留/重复）
-  → 常量求值（默认值/数组/嵌套注解/类型引用）
-  → 内建强制（ReadOnly/Override/Deprecated/SuppressWarnings/MustUse）
-  → 处理器调度（Resolve → Validate → Generate → Finalize，多轮固定点）
-  → 生成源码/静态元数据
-  → 运行时只读 AnnotationRegistry
-```
-
-### 7.3 冻结的注解语义
-
-- 目标 11 项：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/Deinit/Parameter/TypeUse/EnumItem`；
-- 保留 3 项：`Source/Binary/Runtime`；
-- `@Repeatable` 允许重复并保序；
-- 参数只支持位置参数；尾部字段可省略；必须是编译期常量；
-- 内建强制：`@ReadOnly`、`@Override`（使用即校验签名）、`@Deprecated`、`@SuppressWarnings`；
-- 未知注解、错目标、重复、错参数、非法常量必须有稳定诊断码；
-- 处理器必须显式启用，生成确定性、可重现、带来源标记；
-- 处理器不得写任意文件、联网、反射、加载类、启动进程。
-
-### 7.4 14 个元模型类型
-
-`xdk.annotations` 只定义元模型、处理器合同和只读注册表：
-
-- Value：`AnnotationValue`、`AnnotationInfo`、`AnnotationSet`；
-- Protocol：`AnnotationProcessor`；
-- Service/Processor：`AnnotationProcessorContext`、`AnnotationProcessingResult`；
-- Registry：`AnnotationRegistry`；
-- Element：`AnnotationElement`；
-- Diagnostic：`AnnotationDiagnostic`、`AnnotationDiagnosticSeverity`；
-- Enum：`AnnotationTarget`、`AnnotationRetention`、`AnnotationValueKind`、`AnnotationProcessorPhase`。
-
-### 7.5 为什么先做
-
-- `@Serializable`/`@Validate`/`@HttpRoute`/`@Sql`/`@JwtClaim` 都依赖生成；
-- 没有注解，后续包只能手写重复代码，抽象会退化成宏/代码复制；
-- 注解处理器是编译器能力，不是 XDK 运行时包；必须先落编译器，再落包。
-
-> 实施计划见 [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)；权威语义见 [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)。
+- 先编译器、后 XDK：注解解析/目标/保留/Registry 是编译器能力，领域包不得自行实现一套。
+- 领域注解随包实现；没有处理器与生成场景不得进入公共 API。
+- 处理器显式启用、沙箱、确定性、失败原子；运行时只读 Registry。
+- `@tasks`/`@arena` 归语言 S5，不进入通用注解系统；`@arc`/`@gc` 非法。
+- 注解不得改变内存策略或绕过类型检查；识别不等于强制。
+- 具体语义与清单以 [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) 为准。
 
 ---
 
-## 8. 1.x / 2.x 分层
+## 9. 1.x / 2.x 分层
 
 | 项 | 1.x | 2.x |
 | --- | --- | --- |
@@ -255,7 +302,7 @@ lexer/parser
 
 ---
 
-## 9. 包地图摘要
+## 10. 包地图摘要
 
 | 层 | 包 | 类型 | 代表抽象 |
 | --- | ---: | ---: | --- |
@@ -274,7 +321,7 @@ lexer/parser
 
 ---
 
-## 10. 实施阶段
+## 11. 实施阶段
 
 严格顺序；上一阶段出口不绿，不开下一阶段。
 
@@ -302,7 +349,7 @@ lexer/parser
 
 ---
 
-## 11. 架构决策（建议默认值）
+## 12. 架构决策（建议默认值）
 
 以下决策需要在 P0 签字；未签字前，实现不得自行选择。
 
@@ -321,7 +368,7 @@ lexer/parser
 
 ---
 
-## 12. 架构冻结验收
+## 13. 架构冻结验收
 
 ```text
 ARCHITECTURE.md / PACKAGE-MAP.md / DESIGN-CONSISTENCY.md / LEGACY-1.0.md 存在且互相链接

@@ -23,7 +23,7 @@
 | 3 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
 | 4 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
 | 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务台账：四类债、B4 完成、B4-01/B4-02 关闭、B5–B10 后续 |
-| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) | 注解语义与 P1 实施计划 |
+| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) + [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) | 注解语义、实施计划、全量目录 |
 | 7 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
 | 8 | 各领域 README/类型合同 | 逐包/逐类型契约 |
 | 9 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
@@ -113,6 +113,6 @@ P0 架构冻结
                 → P8 solutions
 ```
 
-详细批次、任务板、派工模板与 CR-0 门禁见 [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；架构出口见 [`ARCHITECTURE.md`](ARCHITECTURE.md) §10 与 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) §13。
+详细批次、任务板、派工模板与 CR-0 门禁见 [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md)；架构出口见 [`ARCHITECTURE.md`](ARCHITECTURE.md) §11 与 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) §13。
 
 > 注解是第一个实现层：没有编译器注解管线，后续 `@Serializable`/`@Validate`/`@HttpRoute`/`@Sql` 只能手写或退化为运行时反射。P1 先做 mini 的 lexer/parser/AST/语义/处理器，再落 `xdk.annotations` 14 类型。

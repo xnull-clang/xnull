@@ -138,6 +138,8 @@
 | A9 | 工具链/IDE 只读提取 | 文档/IDE 可读编译期元数据；不做运行时反射 | S7 |
 | A10 | 测试矩阵 | 声明/使用/目标/常量/重复/未知/内建/处理器/注册表 | A1–A9 |
 
+A8/A9 状态：**planned / not implemented**。A8 派生注解（`@Value`/`@Data`/`@Builder`/`@Copy`/`@Delegate`）与 A9 工具链只读提取均未实现；完整清单、归属、验收见 [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)。不得把 A8/A9 或领域注解写成已实现。
+
 禁止工作项：
 
 - 运行期注解对象；

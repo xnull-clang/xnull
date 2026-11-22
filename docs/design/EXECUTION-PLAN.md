@@ -292,7 +292,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 ### 7.2 B1 编译器注解 agent
 
 ```text
-读 LOCAL_RULES.md 第 5/6 号、ANNOTATION-PLAN.md、ARCHITECTURE.md §7。
+读 LOCAL_RULES.md 第 5/6 号、ANNOTATION-PLAN.md、ARCHITECTURE.md §8。
 本批 = B1：Parser/AST/类型解析/目标/保留/重复/常量/内建/诊断。
 文件域 = src/mini/main.x + src/mini/tests/xdk2/annotations/。不要写 xdk.annotations 14 类型，不要写处理器调度。
 词法已把 @ 产出为 punct；从 Parser.parseTop 和 AstNode 开始。
@@ -303,7 +303,7 @@ B5 之后按层串行；同层内按依赖列排序，不按目录顺序。
 ### 7.3 B3 runtime prelude agent
 
 ```text
-读 LOCAL_RULES.md 第 5/6 号、ARCHITECTURE.md §10、PACKAGE-MAP.md L1。
+读 LOCAL_RULES.md 第 5/6 号、ARCHITECTURE.md §11、PACKAGE-MAP.md L1。
 本批 = B3：RuntimeMonitor、Pair/Entry、isFinite/isNaN、Bytes.alloc/empty、errors helpers、List.copy；B3.2 Context deadline/wait 在 B1 合并后 rebase 继续，不是延期关闭项。
 文件域 = src/runtime/、src/ffi/runtime_raw.xfb、src/xdk/core/runtime/、collections/、math/、bytes/、errors/、execution/。`src/mini/main.x` 是共享文件：按 EXECUTION-PLAN §4.4 与 B1 合并，保留双方语义，不丢泛型/List.copy/Bytes/注解任何一侧。
 不要写 codec/net/platform。
