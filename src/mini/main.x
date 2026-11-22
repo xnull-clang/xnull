@@ -2918,7 +2918,6 @@ class Mono {
             AstNode fn = self.findGeneric(n.text)
             if fn.kind == "Func" {
                 String tas = self.typeArgsFor(n)
-                print("TA " + n.text + "=" + tas)
                 if tas != "" {
                     List<String> args = splitTop(tas)
                     String sname = self.specialize(fn, args)
@@ -3064,7 +3063,6 @@ class Mono {
                             if k.kind == "Param" || k.kind == "Block" { fn.add(self.replaceSelf(k)) }
                             pi = pi + 1
                         }
-                        print("DES " + fn.text + " params=" + str(combined.length()))
                         self.program.add(fn)
                         self.gmClasses.push(cls.text)
                         self.gmMethods.push(m.text)

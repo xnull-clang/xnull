@@ -3879,7 +3879,6 @@ static xn_Cls_AstNode * xn_Cls_Mono_walk(xn_Cls_Mono *self, xn_Cls_AstNode * n) 
     xn_Cls_AstNode * fn = xn_Cls_Mono_findGeneric(self, n->text);
     if (xn_str_eq(fn->kind, rt_string_from_c("Func"))) {
       rt_string * tas = xn_Cls_Mono_typeArgsFor(self, n);
-      xn_print_str(xn_concat(xn_concat(xn_concat(rt_string_from_c("TA "), n->text), rt_string_from_c("=")), tas));
       if ((!xn_str_eq(tas, rt_string_from_c("")))) {
         xn_arr_s * args = xn_splitTop(tas);
         rt_string * sname = xn_Cls_Mono_specialize(self, fn, args);
@@ -4049,7 +4048,6 @@ static void xn_Cls_Mono_desugarGenericMethods(xn_Cls_Mono *self) {
             }
             pi = xn_int_wrap((pi + 1));
           }
-          xn_print_str(xn_concat(xn_concat(xn_concat(rt_string_from_c("DES "), fn->text), rt_string_from_c(" params=")), xn_str_int(((int64_t)combined->len))));
           xn_Cls_AstNode_add(self->program, fn);
           xn_arr_s_push(self->gmClasses, cls->text);
           xn_arr_s_push(self->gmMethods, m->text);
