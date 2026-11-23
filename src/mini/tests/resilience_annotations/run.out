@@ -1,0 +1,8 @@
+retry-success=true,3,3
+retry-exhausted=true,network,3
+timeout-slow=true,timeout
+timeout-fast=true,7
+circuit-open=true,true,true,2
+circuit-probe=true,42,closed
+rate-first=true,5
+rate-cancel=cancelled

@@ -267,6 +267,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M6.4 | P6 db 值与池 | 配置/统计/批量/映射/池/Database/健康 | in progress (M6.4a/M6.4b implemented；迁移 planned) |
 | M6.5 | P6 实体注解 | `@Entity`/`@Table`/`@Id`/`@Transactional` | implemented (M6.5) |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | implemented (M7.1/M7.2) |
+| M8.2 | P8 resilience 注解 | `@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` 包装函数 | implemented (M8.2) |
 
 顺序原则：
 

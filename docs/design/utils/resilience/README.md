@@ -8,7 +8,7 @@
 | 被依赖 | 应用/客户端/服务端 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
-| 实现状态 | M8.1：`CircuitState`/`CircuitBreaker`/`RateLimiter`/`Bulkhead`/`Retry`/`Timeout`/`Fallback` implemented；`RetryPolicy` 支撑在 `xdk.errors`；Timeout 为协作取消；注解包装 planned |
+| 实现状态 | M8.1：`CircuitState`/`CircuitBreaker`/`RateLimiter`/`Bulkhead`/`Retry`/`Timeout`/`Fallback` implemented；`RetryPolicy` 支撑在 `xdk.errors`；Timeout 为协作取消。M8.2：四个策略注解与显式包装函数 implemented；仅位置参数、单方法单策略 |
 
 ---
 
@@ -111,7 +111,7 @@ X：Hedging、组合策略、分布式熔断、指标导出。
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | ResilienceAnnotationProcessor（Validate/Generate） |
 | 生成物 | 重试/熔断/限流/超时包装器 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` implemented (M8.2)；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

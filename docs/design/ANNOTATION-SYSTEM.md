@@ -244,7 +244,7 @@ AnnotationValue? name = set.first("Marker")?.valueOrNull("name")
 | `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器/字段规则/错误路径 | implemented (M4.2/M4.3) |
 | `xdk.cache` | `@Cacheable`、`@CacheEvict` | 缓存键/淘汰包装 | planned |
 | `xdk.schedule` | `@Scheduled` | 作业注册/cron 元数据 | planned |
-| `xdk.resilience` | `@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 重试/熔断/限流/超时包装 | planned |
+| `xdk.resilience` | `@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 重试/熔断/限流/超时包装 | implemented (M8.2) |
 | `xdk.metrics`/`trace`/`audit` | `@Metered`、`@Traced`、`@Audited` | 观测/审计包装 | planned |
 | `xdk.test` | `@TestCase`、`@Before`、`@After`、`@Benchmark` | 测试清单/生命周期/基准 | planned |
 | `xdk.os.hardware` | `@Packed`、`@Align`、`@NativeLayout` | FFI 布局/对齐校验 | planned |

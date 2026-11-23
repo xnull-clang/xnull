@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "resilience_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/resilience_processor.py"],
+      "outputs": ["ResilienceGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}

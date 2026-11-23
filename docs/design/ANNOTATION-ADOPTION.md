@@ -1334,15 +1334,13 @@ class Jobs {
 ```x
 class UserService {
     @Retryable(3, 100)
-    @CircuitBreakerPolicy("users", 5)
-    @TimeoutPolicy(2000)
-    User find(Long id) {
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` implemented (M8.2)；仅位置参数，单方法单策略；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.metrics`
 

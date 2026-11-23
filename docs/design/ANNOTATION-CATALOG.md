@@ -104,10 +104,10 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@Email` | 邮箱约束 | 无 | Field / Source | validate_processor → `Rules.email` | implemented (M4.3) |
 | `@Cacheable` | 声明可缓存 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 缓存包装 |
 | `@CacheEvict` | 声明缓存淘汰 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 淘汰包装 |
-| `@Retryable` | 重试策略 | `Int maxAttempts = 3`、`Long initialDelayMillis = 100` | Method / Source | ResilienceAnnotationProcessor → 重试包装 |
-| `@CircuitBreakerPolicy` | 熔断策略 | `String name`、`Int failureThreshold = 5` | Method / Source | ResilienceAnnotationProcessor → 熔断包装 |
-| `@RateLimit` | 限流策略 | `String name`、`Int permits`、`Long perMillis` | Method / Source | ResilienceAnnotationProcessor → 限流包装 |
-| `@TimeoutPolicy` | 超时策略 | `Long timeoutMillis` | Method / Source | ResilienceAnnotationProcessor → 超时包装 |
+| `@Retryable` | 重试策略 | `Int maxAttempts = 3`、`Long initialDelayMillis = 100` | Method / Source | resilience_processor → Retry 包装 | implemented (M8.2) |
+| `@CircuitBreakerPolicy` | 熔断策略 | `String name`、`Int failureThreshold = 5` | Method / Source | resilience_processor → CircuitBreaker 包装 | implemented (M8.2) |
+| `@RateLimit` | 限流策略 | `String name`、`Int permits`、`Long perMillis` | Method / Source | resilience_processor → RateLimiter 包装 | implemented (M8.2) |
+| `@TimeoutPolicy` | 超时策略 | `Long timeoutMillis` | Method / Source | resilience_processor → Timeout 包装 | implemented (M8.2) |
 | `@Metered` | 指标埋点 | `String name`、`String unitName = ""` | Method / Source | MetricsAnnotationProcessor → 指标包装 |
 | `@Traced` | trace span | `String name` | Method / Source | TraceAnnotationProcessor → span 包装 |
 | `@Audited` | 审计事件 | `String action` | Method / Source | AuditAnnotationProcessor → 审计包装 |
