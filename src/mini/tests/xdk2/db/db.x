@@ -3,6 +3,9 @@ import xdk.db
 import xdk.sql
 import xdk.runtime
 import xdk.errors
+import xdk.tasks
+import xdk.time
+import MemoryFixture
 
 class TestCheck implements HealthCheck {
     String name() { return "database" }
@@ -23,6 +26,17 @@ class TestMapper implements RowMapper {
         self.mapped = self.mapped + 1
         return Ok()
     }
+}
+
+class WaitFlag {
+    Bool done
+    WaitFlag() { self.done = false }
+}
+
+static DatabaseConfig poolConfig(Int maximum, Long timeout) {
+    Map<String, String> options = [:]
+    return new DatabaseConfig("pool", "memory://test/db", options, null, 0, maximum,
+        timeout, 0, 0, 0, 0, true, true, null)
 }
 
 static Int main() {
@@ -80,5 +94,93 @@ static Int main() {
     TestMapper mapper = new TestMapper()
     print("mapper-start=" + str(mapper.start(context, columns).isOk()))
     print("mapper-row=" + str(mapper.mapRow(context, new SqlRow(values)).isOk()) + "," + str(mapper.started) + "," + str(mapper.mapped))
+
+    MemoryDriver driver = new MemoryDriver()
+    DatabaseConfig poolCfg = poolConfig(10, 1000)
+    DatabasePool pool = DatabasePool.open(context, driver, poolCfg).value()
+    print("open=" + str(pool.isOpen()) + "," + pool.name() + "," + pool.driverName())
+    DatabasePoolStats opened = pool.stats()
+    print("open-stats=" + str(opened.totalConnections()) + "," + str(opened.idleConnections()) + "," + str(opened.activeConnections()))
+
+    SqlConnection lease = pool.borrow(context).value()
+    print("borrow=" + str(lease.isOpen()) + "," + str(pool.stats().activeConnections()) + "," + str(pool.stats().idleConnections()))
+    print("lease-close=" + str(lease.close().isOk()) + "," + str(lease.close().isOk()) + "," + str(lease.isOpen()))
+    DatabasePoolStats returned = pool.stats()
+    print("returned=" + str(returned.activeConnections()) + "," + str(returned.idleConnections()) + "," + str(returned.acquireCount()))
+
+    Database database = new Database(pool)
+    SqlStatement create = new SqlStatement("CREATE TABLE items (id INT, name TEXT)")
+    print("create=" + str(database.execute(context, create).isOk()))
+    SqlStatement insert = new SqlStatement("INSERT INTO items VALUES (?, ?)")
+    insert = insert.bind(SqlValue.ofInt(1)).bind(SqlValue.ofString("one"))
+    print("insert=" + str(database.execute(context, insert).isOk()))
+    SqlStatement select = new SqlStatement("SELECT id, name FROM items")
+    print("select=" + str(database.execute(context, select).value().rowCount()))
+
+    SqlTransaction transaction = database.begin(context).value()
+    SqlStatement txInsert = new SqlStatement("INSERT INTO items VALUES (?, ?)")
+    txInsert = txInsert.bind(SqlValue.ofInt(2)).bind(SqlValue.ofString("two"))
+    print("tx-exec=" + str(transaction.execute(txInsert).isOk()))
+    print("tx-commit=" + str(transaction.commit().isOk()) + "," + str(transaction.isOpen()))
+    print("tx-count=" + str(database.execute(context, select).value().rowCount()))
+
+    SqlTransaction rollbackTx = database.begin(context).value()
+    SqlStatement txInsert2 = new SqlStatement("INSERT INTO items VALUES (?, ?)")
+    txInsert2 = txInsert2.bind(SqlValue.ofInt(3)).bind(SqlValue.ofString("three"))
+    rollbackTx.execute(txInsert2)
+    print("tx-rollback=" + str(rollbackTx.rollback().isOk()) + "," + str(database.execute(context, select).value().rowCount()))
+    database.close()
+
+    DatabasePool waitPool = DatabasePool.open(context, driver, poolConfig(1, 1000)).value()
+    SqlConnection held = waitPool.borrow(context).value()
+    Context groupContext = Context.background()
+    TaskGroup group = TaskGroup.create(groupContext)
+    WaitFlag flag = new WaitFlag()
+    Task<Int> waiter = group.spawn(() -> {
+        Result<SqlConnection, Error> acquired = waitPool.borrow(context)
+        if acquired.isErr() { return Ok(0) }
+        acquired.value().close()
+        flag.done = true
+        return Ok(1)
+    })
+    sleepMs(30)
+    print("wait-before=" + str(flag.done))
+    held.close()
+    Result<Int, TaskError> joined = waiter.joinDeadline(nowMono() + 2000)
+    print("wait-after=" + str(joined.isOk()) + "," + str(flag.done))
+    group.close()
+    waitPool.close()
+
+    DatabasePool cancelPool = DatabasePool.open(context, driver, poolConfig(1, 1000)).value()
+    SqlConnection cancelHeld = cancelPool.borrow(context).value()
+    Context cancelled = Context.background()
+    cancelled.cancel()
+    Result<SqlConnection, Error> cancelledBorrow = cancelPool.borrow(cancelled)
+    print("cancel=" + str(cancelledBorrow.isErr()) + "," + str(cancelledBorrow.error().kind() == ErrorKind.Cancelled))
+    cancelHeld.close()
+    cancelPool.close()
+
+    DatabasePool timeoutPool = DatabasePool.open(context, driver, poolConfig(1, 40)).value()
+    SqlConnection timeoutHeld = timeoutPool.borrow(context).value()
+    Long started = nowMono()
+    Result<SqlConnection, Error> timedOut = timeoutPool.borrow(context)
+    Long elapsed = nowMono() - started
+    print("timeout=" + str(timedOut.isErr()) + "," + str(timedOut.error().kind() == ErrorKind.Timeout) + "," + str(elapsed >= 20))
+    print("timeout-count=" + str(timeoutPool.stats().acquireTimeoutCount()))
+    timeoutPool.close()
+    print("closed-borrow=" + str(timeoutPool.borrow(context).isErr()) + "," + str(timeoutHeld.close().isOk()) + "," + str(timeoutHeld.isOpen()))
+
+    DatabasePool healthPool = DatabasePool.open(context, driver, poolConfig(2, 1000)).value()
+    Database healthDb = new Database(healthPool)
+    DatabaseHealth health = new DatabaseHealth(healthDb)
+    print("health-name=" + health.name())
+    print("health-initial=" + str(health.check().isHealthy()))
+    Result<HealthReport, Error> refreshed = health.refresh(context)
+    HealthReport healthyReport = refreshed.value()
+    print("health-refresh=" + str(healthyReport.isHealthy()) + "," + str(health.check().isHealthy()))
+    healthDb.close()
+    Result<HealthReport, Error> closedReport = health.refresh(context)
+    HealthReport unhealthyReport = closedReport.value()
+    print("health-closed=" + str(unhealthyReport.isHealthy()) + "," + str(health.check().isHealthy()))
     return 0
 }

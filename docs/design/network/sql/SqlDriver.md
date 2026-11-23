@@ -80,10 +80,12 @@ SQL 驱动注入协议：稳定名称，以及从 URI + 选项打开一个连接
 | 方法 | 用途 | 参数 | 返回 | 失败 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | `name` | 驱动稳定名 | 无 | `String` | 无 | 小写 ASCII；用于日志/调用方注册表 |
-| `open` | 打开连接 | `Context context, String connectionUri, Map<String, String> openOptions` | `Result<SqlConnection, Error>` | `InvalidArgument`/`PermissionDenied`/`Unsupported`/`Network`/`Io`/`Timeout`/`Cancelled` | 建立并验证会话；不缓存 |
+| `open` | 打开连接 | `String connectionUri, Map<String, String> openOptions` | `Result<SqlConnection, Error>` | 同上 | `Context` 暂未进入协议；保留兼容入口 |
+| `openWithOptions` | 池打开入口 | `String connectionUri, SqlOpenOptions options` | `Result<SqlConnection, Error>` | 同上 | `xdk.db` 使用；规避协议泛型 Map arity 编译器缺陷 |
 
 详细契约：
 
+- 当前签名不带 `Context`（核心 Context 未进入 SQL 协议）；`openWithOptions` 为 M6.4b 增补的非泛型入口。
 - `name()` 只做元数据读取；不执行 I/O；名称不随连接/环境变化。
 - `open` 要求非 null `context`/`connectionUri`/`openOptions`；null 是合同错误（panic）。
 - 空 URI 或 scheme 不匹配：`InvalidArgument`。数据库不存在/URI 格式错误：`InvalidArgument`。

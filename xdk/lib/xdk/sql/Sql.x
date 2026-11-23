@@ -525,9 +525,31 @@ class SqlOptions {
     }
 }
 
+class SqlOpenOptions {
+    final Map<String, String> _values
+
+    SqlOpenOptions(Map<String, String> values) {
+        if values == null { throw "SqlOpenOptions: null values" }
+        Map<String, String> copied = [:]
+        List<String> keys = values.keys()
+        Int index = 0
+        while index < keys.length() {
+            copied.put(keys.get(index), values.getOr(keys.get(index), ""))
+            index = index + 1
+        }
+        self._values = copied
+    }
+
+    Bool has(String key) { return self._values.has(key) }
+    String getOr(String key, String fallback) { return self._values.getOr(key, fallback) }
+    List<String> keys() { return self._values.keys() }
+    Int length() { return self._values.keys().length() }
+}
+
 protocol SqlDriver {
     String name();
     Result<SqlConnection, Error> open(String connectionUri, Map<String, String> openOptions);
+    Result<SqlConnection, Error> openWithOptions(String connectionUri, SqlOpenOptions options);
 }
 
 protocol SqlConnection {
@@ -546,4 +568,10 @@ protocol SqlTransaction {
     Result<Unit, Error> rollback();
     Bool isOpen();
     Result<Unit, Error> close();
+}
+
+Result<SqlConnection, Error> sqlDriverOpen(SqlDriver driver, String connectionUri, Map<String, String> openOptions) {
+    if driver == null || connectionUri == null || openOptions == null { throw "sqlDriverOpen: null argument" }
+    SqlOpenOptions options = new SqlOpenOptions(openOptions)
+    return driver.openWithOptions(connectionUri, options)
 }

@@ -121,18 +121,19 @@ Database.close()
 
 ---
 
-## 3.4 M6.4a 实现状态
+## 3.4 M6.4a/M6.4b 实现状态
 
-已实现（子集，`xdk.db` 包状态仍为 `design`）：
+已实现（池/Database/健康为 M6.4b；包状态仍为 `design`）：
 
-- `IsolationLevel` 名称/解析；
-- `DatabaseConfig` 14 字段、默认值、校验、with*/copy/脱敏 describe；
-- `DatabasePoolStats` 19 字段、不变量、派生指标、copy/equals/describe；
-- `DbBatch` 追加/复制/清空；
-- `RowMapper` 协议；
+- `IsolationLevel`、`DatabaseConfig`、`DatabasePoolStats`、`DbBatch`、`RowMapper`；
+- `DatabasePool`：借还、空闲复用、容量上限、Context 取消、获取超时、统计、关闭；
+- `PooledConnection`/`PooledTransaction`：租约归还、事务结束自动归还；
+- `Database`：execute/executeWithOptions/begin/borrow/close；
+- `Db`：open/openPool/isolationOpenOptionKey；
+- `DatabaseHealth implements HealthCheck`；
 - `xdk.runtime.HealthCheck` 协议。
 
-planned：`Database`、`DatabasePool`（M6.4b）、`Migration`、`MigrationRunner`、`DatabaseHealth`、`Db` 静态入口、实体注解（M6.5）。本批不接真实数据库。
+planned：`Migration`、`MigrationRunner`、实体注解（M6.5）。本批不接真实数据库。
 
 ## 4. 类型索引
 

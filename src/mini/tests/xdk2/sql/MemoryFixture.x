@@ -493,7 +493,12 @@ class MemoryDriver implements SqlDriver {
     String name() { return "memory" }
 
     Result<SqlConnection, Error> open(String connectionUri, Map<String, String> openOptions) {
-        if connectionUri == null || openOptions == null { throw "MemoryDriver.open: null argument" }
+        SqlOpenOptions options = new SqlOpenOptions(openOptions)
+        return self.openWithOptions(connectionUri, options)
+    }
+
+    Result<SqlConnection, Error> openWithOptions(String connectionUri, SqlOpenOptions options) {
+        if connectionUri == null || options == null { throw "MemoryDriver.open: null argument" }
         Result<Uri, Error> parsed = Uri.parse(connectionUri)
         if parsed.isErr() { return Err(sqlInvalidArgument("invalid uri")) }
         String? scheme = parsed.value().scheme()
@@ -504,7 +509,7 @@ class MemoryDriver implements SqlDriver {
         if schemeText.toLower() != "memory" {
             return Err(sqlInvalidArgument("unsupported scheme"))
         }
-        if openOptions.has("bogus") {
+        if options.has("bogus") {
             return Err(sqlInvalidArgument("unknown option: bogus"))
         }
         MemoryConnection connection = new MemoryConnection()
