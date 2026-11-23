@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """M0.2 annotation processor platform: manifest, scheduler, diagnostics."""
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -10,6 +11,8 @@ import sys
 import tempfile
 from pathlib import Path
 import platform as host_platform
+
+TOOL_VERSION = "annotation-platform-m7.2"
 
 PHASES = ["Resolve", "Validate", "Generate", "Finalize"]
 SEV_RANK = {"Error": 0, "Warning": 1, "Note": 2}
@@ -241,6 +244,92 @@ def snapshot(root):
     return result
 
 
+def canonical_json_text(path):
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    return json.dumps(data, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def processor_content_hash(manifest, manifest_dir):
+    digest = hashlib.sha256()
+    for proc in manifest["processors"]:
+        for part in proc["command"]:
+            candidate = Path(part)
+            if part.startswith("-"):
+                continue
+            if not candidate.is_absolute():
+                candidate = manifest_dir / candidate
+            if candidate.is_file():
+                digest.update(str(candidate).encode("utf-8"))
+                digest.update(candidate.read_bytes())
+    return digest.hexdigest()
+
+
+def cache_key(ir_text, manifest_path, manifest, manifest_dir):
+    digest = hashlib.sha256()
+    digest.update(TOOL_VERSION.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(ir_text.encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(canonical_json_text(manifest_path).encode("utf-8"))
+    digest.update(b"\0")
+    digest.update(processor_content_hash(manifest, manifest_dir).encode("utf-8"))
+    return digest.hexdigest()
+
+
+def cache_root(args):
+    if getattr(args, "no_cache", False):
+        return None
+    if getattr(args, "cache_dir", None):
+        return Path(args.cache_dir).resolve()
+    return Path(__file__).resolve().parents[2] / ".cache" / "annotations"
+
+
+def read_cache(entry):
+    files = entry / "files"
+    if not files.is_dir():
+        return None
+    result = {}
+    for path in sorted(files.rglob("*")):
+        if path.is_file():
+            result[path.relative_to(files).as_posix()] = path.read_bytes()
+    return result
+
+
+def write_cache(root, key, generated, diagnostics):
+    root.mkdir(parents=True, exist_ok=True)
+    entry = root / key
+    tmp = Path(tempfile.mkdtemp(prefix=".tmp-", dir=str(root)))
+    try:
+        (tmp / "files").mkdir()
+        for rel, data in generated.items():
+            target = tmp / "files" / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
+        (tmp / "diagnostics.json").write_text(json.dumps(diagnostics, ensure_ascii=False), encoding="utf-8")
+        if entry.exists():
+            shutil.rmtree(entry)
+        tmp.rename(entry)
+    finally:
+        if tmp.exists():
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def prepare_output(out, generated_dir):
+    backup = None
+    if generated_dir:
+        backup = out.parent / (".a8-backup-" + out.name)
+        if backup.exists():
+            shutil.rmtree(backup)
+        if out.exists():
+            out.rename(backup)
+        out.mkdir(parents=True)
+    else:
+        if out.exists():
+            shutil.rmtree(out)
+        out.mkdir(parents=True)
+    return backup
+
+
 def generate(args):
     try:
         manifest = load_manifest(args.manifest)
@@ -271,18 +360,44 @@ def generate(args):
         return fail("use either --out or --generated-dir, not both")
     if not args.generated_dir and not args.out:
         return fail("missing --out or --generated-dir")
-    backup = None
-    if args.generated_dir:
-        backup = out.parent / (".a8-backup-" + out.name)
-        if backup.exists():
-            shutil.rmtree(backup)
-        if out.exists():
-            out.rename(backup)
-        out.mkdir(parents=True)
-    else:
-        if out.exists():
-            shutil.rmtree(out)
-        out.mkdir(parents=True)
+
+    root = cache_root(args)
+    key = None
+    if root is not None:
+        key = cache_key(ir_text, args.manifest, manifest, manifest_dir)
+        entry = root / key
+        cached = None if getattr(args, "force", False) else read_cache(entry)
+        if cached is not None:
+            backup = prepare_output(out, args.generated_dir)
+            (out / "ir.json").write_text(ir_text, encoding="utf-8")
+            for rel, data in cached.items():
+                target = out / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            diag_path = entry / "diagnostics.json"
+            cached_diags = json.loads(diag_path.read_text(encoding="utf-8")) if diag_path.exists() else []
+            (out / "diagnostics.json").write_text(json.dumps(cached_diags, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            for diagnostic in cached_diags:
+                print(f"{diagnostic['severity']} [{diagnostic['code']}] {diagnostic['message']} at {diagnostic['line']}:{diagnostic['col']}", file=sys.stderr)
+            report = {
+                "cache": "hit",
+                "key": key,
+                "toolVersion": TOOL_VERSION,
+                "sandboxBackend": SANDBOX_BACKEND,
+                "sandboxProfile": "",
+                "limits": {
+                    "maxMemoryMB": max((p["_sandbox"]["maxMemoryMB"] for p in manifest["processors"]), default=0),
+                    "maxCpuSeconds": max((p["_sandbox"]["maxCpuSeconds"] for p in manifest["processors"]), default=0),
+                },
+                "processors": [],
+            }
+            (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            if backup is not None and backup.exists():
+                shutil.rmtree(backup)
+            print("cache: hit")
+            return 0
+
+    backup = prepare_output(out, args.generated_dir)
     (out / "ir.json").write_text(ir_text, encoding="utf-8")
 
     generated = {}
@@ -388,6 +503,7 @@ def generate(args):
 
     merged = merge_diagnostics(diagnostics)
     report = {
+        "cache": "miss",
         "sandboxBackend": SANDBOX_BACKEND,
         "sandboxProfile": str(out / ".processors"),
         "limits": {
@@ -417,8 +533,11 @@ def generate(args):
             if backup is not None and backup.exists():
                 backup.rename(out)
         return 1
+    if root is not None and key is not None:
+        write_cache(root, key, generated, merged)
     if backup is not None and backup.exists():
         shutil.rmtree(backup)
+    print("cache: miss")
     return 0
 
 
@@ -437,6 +556,7 @@ def check_generated(args):
         gen = argparse.Namespace(
             entry=args.entry, xdk_root=args.xdk_root, manifest=args.manifest,
             out=None, generated_dir=str(Path(td) / "generated"), max_rounds=3,
+            cache_dir=None, no_cache=True, force=False,
         )
         rc = generate(gen)
         if rc != 0:
@@ -466,6 +586,9 @@ def main():
     gen.add_argument("--out")
     gen.add_argument("--generated-dir")
     gen.add_argument("--max-rounds", type=int, default=3)
+    gen.add_argument("--cache-dir")
+    gen.add_argument("--no-cache", action="store_true")
+    gen.add_argument("--force", action="store_true")
     chk = sub.add_parser("check-manifest")
     chk.add_argument("--manifest", required=True)
     check = sub.add_parser("check")

@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2/M5.1/M5.2/M6.1/M6.2 implemented**（M5.1 子集、M6 内存驱动闭环）；M3.3、M5.3、M7 planned；A8 5 个已实现 |
+| 状态 | **M0–M7 implemented**（M5.1 子集、M6 内存驱动闭环、M7.1 Registry v2/扩展、M7.2 缓存/注解面门禁）；M3.3、M5.3 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -147,6 +147,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 - 无反射/扫描/动态加载；
 - 新值类型/目标升版本；
 - 领域逻辑优先用生成显式代码。
+- M7.2 缓存：键 = IR + 规范 manifest + 处理器内容 + 工具版本；默认 `.cache/annotations`，支持 `--cache-dir`/`--no-cache`/`--force`。
 
 ### 3.9 API Annotation Surface
 
@@ -239,8 +240,8 @@ M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数�
 | --- | --- | --- | --- |
 | P7-01 | Registry schema v2 扩展测试 | P0 | 新字段/版本兼容/旧表可读 | implemented (M7.1) |
 | P7-02 | 新目标/值类型扩展流程 | P0 | 版本化 fixture；不散落 if-chain | implemented (M7.1) |
-| P7-03 | 增量缓存/性能 | P0 | 相同输入命中；变更失效 | planned (M7.2) |
-| P7-04 | API 文档注解面自动提取 | P0 | 文档门禁 | planned (M7.2) |
+| P7-03 | 增量缓存/性能 | P0 | 相同输入命中；变更失效 | implemented (M7.2) |
+| P7-04 | API 文档注解面自动提取 | P0 | 文档门禁 | implemented (M7.2) |
 | P7-05 | 泛型 Builder/Delegate 评估 | P1 | owner 决策；不在 1.0 阻塞 | implemented (M7.1) |
 
 ---
@@ -258,7 +259,7 @@ M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数�
 | M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |
-| M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | planned |
+| M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | implemented (M7.1/M7.2) |
 
 顺序原则：
 

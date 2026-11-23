@@ -316,13 +316,23 @@ API 面目标：
 计划中（领域包）：
 
 ```markdown
-| 可用注解 | `@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` |
+| 可用注解 | `@HttpRoute`、`@Header`、`@Query`、`@Body` |
 | 目标/保留 | `Method`/`Parameter` / `Source` |
-| 所属包/处理器 | `xdk.net.http` / `HttpAnnotationProcessor` |
-| 生成物 | `generated/routes.x`: 路由表与 binder |
-| 诊断码 | `AN1101` 空路径；`AN1102` 重复路由；`AN1103` 不支持的绑定 |
-| 状态 | planned；处理器未实现 |
+| 所属包/处理器 | `xdk.net.http` / `http_processor` |
+| 生成物 | `generated/HttpGenerated.x`: Router/dispatch/参数绑定 |
+| 诊断码 | `AN1301`–`AN1307` |
+| 状态 | implemented (M5.2)；`@StatusCode` planned |
 ```
+
+### 7.5 已实现领域注解面（M2–M6）
+
+| 包 | 可用注解 | 目标/保留 | 处理器 | 生成物 | 诊断码 | 状态 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `xdk.cli` | `@CliCommand`、`@CliSubcommand`、`@Option`、`@Arg` | Type/Field / Source | `cli_processor` | `generated/CliGenerated.x` | `AN1001`–`AN1006` | implemented (M2) |
+| `xdk.codec` | `@Serializable`、`@JsonName` | Type/Field / Source | `codec_processor` | `generated/CodecGenerated.x` | `AN1101`–`AN1102` | implemented (M3.2) |
+| `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern` | Type/Field / Source | `validate_processor` | `generated/ValidateGenerated.x` | `AN1201`–`AN1206` | implemented (M4.2) |
+| `xdk.net.http` | `@HttpRoute`、`@Header`、`@Query`、`@Body` | Method/Parameter / Source | `http_processor` | `generated/HttpGenerated.x` | `AN1301`–`AN1307` | implemented (M5.2) |
+| `xdk.sql` | `@Sql`、`@Param`、`@Row`、`@Column` | Method/Parameter/Type/Field / Source | `sql_processor` | `generated/SqlGenerated.x` | `AN1401`–`AN1410` | implemented (M6.2) |
 
 ### 7.4 评审规则
 

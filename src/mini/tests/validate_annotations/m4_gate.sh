@@ -3,8 +3,10 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 
-"$HERE/../codec_annotations/m3_gate.sh"
-"$HERE/../annotation_platform/m0_gate.sh"
+if [ "${ANNOTATION_GATE_CHAIN:-1}" = "1" ]; then
+    "$HERE/../codec_annotations/m3_gate.sh"
+    "$HERE/../annotation_platform/m0_gate.sh"
+fi
 "$HERE/run.sh"
 
 python3 - "$ROOT/docs/design/ANNOTATION-PLATFORM-PLAN.md" "$ROOT/docs/design/ANNOTATION-CATALOG.md" <<'PY'
