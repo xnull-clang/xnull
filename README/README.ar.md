@@ -8,6 +8,8 @@
   <a href="README.de.md">Deutsch</a>
 </p>
 
+> هذه الترجمة لم تُحدَّث بعد. النسخة المرجعية هي [English README](../README.md).
+
 <p align="center">
   <img src="../assets/logo.png" alt="XNull" width="640">
 </p>

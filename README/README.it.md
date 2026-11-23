@@ -6,6 +6,8 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | **Italiano** | [Deutsch](README.de.md)
 
+> Questa traduzione non è ancora allineata all'ultima versione. La versione di riferimento è il [README inglese](../README.md).
+
 **Scrivi codice. Salta la cerimonia.**
 
 Niente lifetime. Niente annotazioni di ownership. Niente `@Override`. Niente `try/catch`. Niente getter e setter. Niente riflessione.

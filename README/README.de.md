@@ -6,6 +6,8 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [Русский](README.ru.md) | [العربية](README.ar.md) | [Italiano](README.it.md) | **Deutsch**
 
+> Diese Übersetzung ist noch nicht auf dem neuesten Stand. Maßgeblich ist das [englische README](../README.md).
+
 **Schreib Code. Lass die Zeremonie weg.**
 
 Keine Lifetimes. Keine Ownership-Annotationen. Kein `@Override`. Kein `try/catch`. Keine Getter und Setter. Keine Reflexion.

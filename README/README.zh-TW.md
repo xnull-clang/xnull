@@ -6,6 +6,8 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | **繁體中文** | [Русский](README.ru.md) | [العربية](README.ar.md) | [Italiano](README.it.md) | [Deutsch](README.de.md)
 
+> 本翻譯尚未同步至最新版本；目前以[英文版](../README.md)為準。
+
 **寫程式，別寫儀式。**
 
 沒有生命週期標註。沒有所有權註解。沒有 `@Override`。沒有 `try/catch`。沒有 getter/setter。沒有反射。

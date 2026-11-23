@@ -6,6 +6,8 @@
 
 [English](../README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | **Русский** | [العربية](README.ar.md) | [Italiano](README.it.md) | [Deutsch](README.de.md)
 
+> Этот перевод ещё не синхронизирован с последней версией. Актуальная версия — [English README](../README.md).
+
 **Пишите код, а не ритуалы.**
 
 Никаких lifetimes. Никаких аннотаций владения. Никакого `@Override`. Никакого `try/catch`. Никаких геттеров и сеттеров. Никакой рефлексии.

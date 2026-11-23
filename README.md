@@ -4,132 +4,33 @@
 
 # XNull
 
-**English** | [简体中文](README/README.zh-CN.md) | [繁體中文](README/README.zh-TW.md) | [Русский](README/README.ru.md) | [العربية](README/README.ar.md) | [Italiano](README/README.it.md) | [Deutsch](README/README.de.md)
-
 **Write the code. Skip the ceremony.**
 
-No lifetimes. No ownership annotations. No `@Override`. No `try/catch`. No getters or setters. No reflection.
+**English** | [简体中文](README/README.zh-CN.md) | [繁體中文](README/README.zh-TW.md) | [Русский](README/README.ru.md) | [العربية](README/README.ar.md) | [Italiano](README/README.it.md) | [Deutsch](README/README.de.md)
 
-XNull is a new programming language where the compiler chooses stack, ARC, or GC for each object using a decision table written into the specification. You write the data and the behavior; the runtime executes the choice. The result is memory management without ownership annotations — and without hidden compiler magic.
+*English is the reference version; translations are updated as time allows.*
 
-Errors are values. Polymorphism is protocols. Fields are fields. The specification records every decision, including every rejected feature and why.
+![status: research](https://img.shields.io/badge/status-research-orange)
+![compiler: mini 1.0.0](https://img.shields.io/badge/compiler-mini%201.0.0-blue)
+![license: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)
 
-```x
-class Counter {
-    Int n = 0
+XNull is a statically typed, general-purpose programming language with a **self-hosting compiler that emits C**. The compiler chooses stack, ARC, or GC for each object from a decision table in the specification; source code never states lifetimes or reference strength.
 
-    Int add(Int v) {
-        self.n = self.n + v
-        return self.n
-    }
-}
+- **Self-hosting compiler.** `src/mini` is written in XNull and compiles itself to a fixed point (`src/mini/tests/selfhost.sh`).
+- **C backend, native binaries.** One entry file becomes C, then a native executable. No VM.
+- **Errors are values.** `Result<T, E>`, `try`, `defer`/`errdefer`. No exceptions and no implicit unwinding.
+- **Protocols, not inheritance.** No `extends`, no `@Override`; fields are fields.
+- **Compile-time annotations, no runtime reflection.** Generated code and static metadata instead of runtime scanning.
+- **Spec-first.** An 11-part specification records what XNull supports, what it rejects, and why.
 
-static Int main() {
-    Counter c = new Counter()
-    print(c.add(2))
-    return 0
-}
-```
+> **Status: research / implementation phase.** The compiler is usable for the examples and the XDK T0 test suite; the language and standard library are not production-ready. There is one maintainer. See [Status](#status) for the current boundary.
 
-| You stop writing | XNull gives you |
-| --- | --- |
-| `Arc<Mutex<T>>`, lifetimes | compiler-decided memory (stack / ARC / GC) |
-| `getX()` / `setX()` | direct fields |
-| `extends` + `@Override` | protocols |
-| `try/catch` | `Result<T,E>` + `try` |
-| reflection | not expressible |
-
-## Why XNull
-
-- **Compiler-decided memory management.** Source code never expresses reference strength. The compiler selects stack, ARC, or GC for each object using the DET-01 decision table; the runtime executes the decision.
-- **No accessor pattern.** Fields are data; behavior is verb-named methods. Getters and setters are not expressible.
-- **Composition over inheritance.** Classes do not support override-based inheritance. Polymorphism is expressed through protocols only.
-- **Errors are values.** `Result<T,E>`, `try`, `defer`/`errdefer`. No exceptions, no implicit unwinding.
-- **No reflection.** If the source and the specification cannot determine it, it is not part of the language.
-- **Every decision is documented.** The specification records what XNull supports, what it rejects, and why. Chinese originals with English translations; more translations are welcome.
-
-## Abstraction profile
-
-XNull does not aim for maximum abstraction. It aims for **bounded abstraction**: hide mechanism, keep structure, and admit only abstractions that can be decided from source + specification.
-
-| Dimension | Level | Notes |
-| --- | --- | --- |
-| Memory automation | Very high | The compiler chooses stack / ARC / GC via DET-01; source never states lifetimes or reference strength |
-| Memory control | Low | No custom allocators or real-time policies; the policy is a closed decision table in the spec |
-| Error handling | High | `Result<T,E>` + `try` + `defer`/`errdefer`; no exceptions or implicit unwinding |
-| Data modeling | High | Classes, structs, enums, protocols, generics; value and reference semantics separated |
-| Behavioral polymorphism | Medium-high | Protocols + composition; no override-based inheritance, no operator overloading |
-| Type abstraction | Medium | Generics, protocols, optionals, `Result`; no type classes, higher-kinded types, or dependent types |
-| Metaprogramming / reflection | Very low | No reflection, macros, or runtime type construction; framework magic lives outside the language |
-| Modular composition | Medium-high | Packages, imports, XDK; composition over inheritance |
-| Concurrency | High in design, early in implementation | Tasks, contexts, channels are specified; XDK concurrency packages are still being filled in |
-| Syntax / DSLs | Low | No macros or operator overloading; APIs rely on named methods |
-
-### Where the abstraction is strong
-
-- **Memory abstraction is a decision table, not compiler magic.** Source never states reference strength; DET-01 records the choice as checkable rules. Predictable, but closed.
-- **Errors are values.** `Result` + `try` put failure paths in the type system; `defer`/`errdefer` make cleanup visible.
-- **Composition over inheritance.** Protocols express polymorphism and avoid fragile base classes; fields are data, not getters/setters.
-- **Data and behavior are separate.** Direct modeling for compiler IR, ASTs, DTOs, configuration, and other structure-first domains.
-- **No reflection means no invisible contracts.** Serialization, dependency injection, and ORMs cannot scan fields at runtime; they need explicit contracts or external generation.
-
-### Where the abstraction tops out
-
-- **Metaprogramming is nearly absent.** No reflection, macros, or runtime type construction; generic frameworks, plugins, ORMs, and DI are limited. This is XNull's biggest abstraction gap.
-- **No override-based inheritance.** Fragile base classes are gone, but the "stable skeleton + variable subclass" template-method pattern is unnatural; protocols + composition are the substitute.
-- **Protocol evolution is costly.** Adding a method affects every implementor; whether default/extension methods belong in the language must be settled by the spec.
-- **No accessors.** A field cannot silently evolve into validation, lazy computation, or a different representation; invariants rely on constructors and methods, and direct assignment can bypass them.
-- **Type abstraction stops at generics.** `List<T>`, `Map<K,V>`, `Result<T,E>` exist, but there are no type classes, associated types, or higher-kinded types; "any addable type" needs protocols or per-type code.
-- **The memory policy is not extensible.** Enough for compilers, CLIs, services, and data pipelines; not enough for real-time systems, embedded work, or custom allocators.
-- **Data-enum destructuring is a key ceiling.** Without pattern matching/binding, AST/IR algebraic data types degrade to `switch` + field access.
-
-### Is XNull "designable"?
-
-| Domain | Designability |
-| --- | --- |
-| Compilers, toolchains, CLIs | High: data modeling, errors, composition, and predictability all fit |
-| Services, data pipelines | High: explicit errors, protocols, and concurrency abstractions are sufficient |
-| Long-lived business systems | Medium-high: no override-based inheritance/reflection reduces surprises, but field and protocol evolution have costs |
-| Frameworks, plugins, ORMs, DI | Low: without reflection/macros, much of the "magic" cannot be expressed |
-| Math DSLs, query DSLs | Low: no operator overloading or macros |
-| Real-time, embedded, custom memory | Medium-low: the memory policy is closed and manual control is limited |
-
-### Why "more abstraction" does not automatically mean "more designable"
-
-"More abstraction means more designability" misses one variable: **whether the cost of the abstraction is visible**.
-
-- Java's inheritance/reflection expands the framework design space, but brings fragile base classes, runtime magic, and unpredictable performance.
-- Haskell's type classes and higher-order abstractions are extremely expressive, but the learning curve and performance-reasoning cost are high.
-- Go has very little abstraction, yet it is very stable for services and toolchains.
-
-XNull's choice is: **trade constraints for predictability**. It is not "the language with the strongest abstraction"; it is "one of the languages with the clearest abstraction boundary."
-
-> XNull's abstraction level: medium-high in semantics, medium in types, very low in metaprogramming; high automation, low manual control.
-
-More precisely: **XNull's abstraction is not "less"; it is narrower and deeper.** It goes deep in its chosen domains (memory, errors, composition) and deliberately gives up breadth in the meta and dynamic layers.
-
-It is not designed for infinite design space, but for designs that are decidable, reasoned about, and maintained over time.
-
-### Abstraction compared with other languages
-
-> More abstraction is not automatically better; the table lists each language's **abstraction focus** and **typical costs**. Order: constrained (XNull, Go) → OO/framework (Java, Dart, Swift) → dynamic/metaprogramming (PHP, JavaScript, Python) → type-level/zero-cost (Rust).
-
-| Language | Abstraction focus | Strengths | Costs / limits | Fits best |
-| --- | --- | --- | --- | --- |
-| **XNull** | Bounded abstraction: compiler-decided memory, protocols for polymorphism, errors as values | Predictable, low magic, explicit; direct modeling for compilers, toolchains, and services | Almost no metaprogramming; no override-based inheritance or accessors; protocol/field evolution has costs; small ecosystem | Compilers, toolchains, CLIs, data pipelines, long-lived explicit systems |
-| **Go** | Minimal abstraction: interfaces, goroutines, GC, explicit errors | Simple, fast to compile, easy to deploy; very stable for services and toolchains | Lower expressive ceiling; verbose error handling; weak type-level abstraction; generics arrived late | Services, CLIs, infrastructure, team collaboration |
-| **Java** | Classic OO + framework abstraction: inheritance, interfaces, reflection, annotations, generics | Mature ecosystem and frameworks; strong modeling and tooling for large systems | Verbose; fragile base classes; reflection/annotations bring runtime magic; type erasure; startup/memory overhead | Enterprise applications, Android, large backends, framework ecosystems |
-| **Dart** | OO + null safety + async: classes, mixins, generics, async/await, isolates | Great for UI/Flutter; sound null safety; consistent tooling; easy for Java/JS developers | Ecosystem centered on Flutter; weak metaprogramming; single vendor; AOT/VM constraints | Flutter/cross-platform UI, client apps, lightweight services |
-| **Swift** | Protocol-oriented + type safety: protocols, value types, generics, optionals, property wrappers/macros | Balanced safety and expressiveness; strong value semantics/protocol extensions; good performance | Apple-centric; compile time/complexity; weaker cross-platform toolchain | iOS/macOS apps, UI, performance-sensitive type-safe code |
-| **PHP** | Dynamic + gradual typing: dynamic types, traits, magic methods, incremental typing | Fast web development; huge deployment/hosting ecosystem; low barrier to entry | Historical baggage/inconsistent APIs; dynamic typing pitfalls; lower abstraction ceiling; large projects need discipline | Web backends, content sites, rapid delivery |
-| **JavaScript** | Dynamic + prototype/metaprogramming: prototypes, closures, Proxy/Reflect, async | Ubiquitous; natural event-driven/async code; largest ecosystem | Dynamic typing/coercion pitfalls; framework churn; runtime magic; large projects need TS/discipline | Web frontends, Node services, cross-platform scripts, event-driven UI |
-| **Python** | Dynamic + duck typing/metaprogramming: decorators, metaclasses, protocols, typing | Fast prototyping; expressive; rich libraries; excellent glue code | Runtime performance; type errors surface late; packaging/versioning; large-scale refactoring is hard | Data/scripting/AI, rapid prototypes, glue layers, automation |
-| **Rust** | Type-level + zero-cost abstraction: traits, generics, ownership/lifetimes, macros, pattern matching | Memory safety; zero-cost abstractions; strong type-level modeling; top performance | Steep learning curve; borrow-checker friction; slow compiles; slower prototyping; high complexity | Systems programming, infrastructure, performance-sensitive/high-reliability services |
-
-## Quick start
+## Try it
 
 ```sh
-# from the repository root
+git clone https://github.com/xnull-clang/xnull.git
+cd xnull
+
 ./src/cli/xnull run src/examples/hello.x
 ```
 
@@ -138,191 +39,158 @@ hello, XNull
 1 + 2 = 3
 ```
 
-mini is the only compiler:
+Build a native binary:
 
 ```sh
-./src/cli/xnull run src/examples/hello.x
 ./src/cli/xnull build src/examples/hello.x -o /tmp/hello
+/tmp/hello
 ```
 
-mini is the only compiler; there is no second code generator.
-`--bootstrap` is accepted as a compatibility no-op; `--engine=mini` is the
-only engine. If mini cannot run a command, the command is absent rather than
-delegated.
+Check without building:
 
-## Mini 0.3.0 milestone
+```sh
+./src/cli/xnull check src/examples/hello.x --json
+# {"ok":true}
+```
 
-The XDK-first **M10-T0** release adds runnable T0 package scenarios for
-concurrency (`Mutex`, tasks, channel close/cancel), complete Sys resources and
-Context cancellation, collections generic algorithms, and the `log`, `config`,
-and `cli` packages. The T0 base/full matrix lives in
-[`src/mini/tests/m10_parity.sh`](src/mini/tests/m10_parity.sh) and the 200M gate
-in [`src/mini/tests/m10_perf.sh`](src/mini/tests/m10_perf.sh).
+Requirements: a C11 compiler (`cc`) and a POSIX shell. Python 3 is used by a few test scripts.
 
-[`docs/assets/mini-200m-runtime-20261119.svg`](docs/assets/mini-200m-runtime-20261119.svg)
+## The language in one example
 
-![Mini 0.3.0 200M performance curve](docs/assets/mini-200m-runtime-20261119.svg)
+```x
+static Result<Int, String> double(Int n) {
+    if n < 0 {
+        return Err("negative: " + str(n))
+    }
+    return Ok(n * 2)
+}
 
-200M result: mini 0.727s versus the 0.2.0 baseline of 0.733s (0.992x).
-
-## Mini 0.2.0 milestone
-
-The first complete **language source → mini compiler → C → executable** milestone is
-recorded in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md). The 200M-iteration
-runtime performance curve is in:
-
-[`docs/assets/mini-200m-runtime-20261118.svg`](docs/assets/mini-200m-runtime-20261118.svg)
-
-![Mini 0.2.0 200M performance curve](docs/assets/mini-200m-runtime-20261118.svg)
-
-The recorded signature `2611180201` is stored verbatim in
-[`src/mini/GENESIS`](src/mini/GENESIS) and as the static runtime constant
-`xn_mini_genesis` in `src/runtime/rt.c`. It is never read by any logic and is
-not used for language behavior or feature decisions.
-
-### Multi-file project (minimal)
-
-The mini-only surface accepts a project directory for `build`, `run`, and
-`check`. A project root needs `xnull.project` with `entryFile`; files in the
-entry directory can be imported by module name.
-
-```text
-project {
-  groupId = io.xnull
-  artifactId = demo
-  version = 1.0.0
-  packaging = app
-  build { entryFile = src/main/x/main.x }
+static Int main() {
+    Int v = try double(21)
+    print(v)                  // 42
+    return 0
 }
 ```
 
-`import model` in the entry file loads `model.x` next to it; dotted imports
-(`import lib.model`) resolve under subdirectories. Imports are direct and must
-not form cycles. CLI flags include their leading dashes: `Args.has("--verbose")`,
-not `Args.has("verbose")`.
+`try` propagates `Err` to the caller as a value. There is no exception unwinding. More runnable examples: [`src/examples/`](src/examples) — classes, containers, `Result`/`try`, `defer`, and a multi-file program.
+
+## What works today
+
+| Area | Status |
+| --- | --- |
+| Compiler | `mini 1.0.0`; self-hosting fixed point; emits C |
+| CLI | `build`, `run`, `check`, `version`, `clean`, `doctor` |
+| Core language | classes, structs, enums, protocols, generics, `Result`/`try`, `defer`, tasks/channels (`Mutex`, close/cancel) |
+| XDK | T0 packages: errors, text, math, time, collections, io/fs/sys, tasks/sync, log, config, cli; more in progress |
+| Multi-file projects | `xnull.project` with `entryFile`; `build`/`run`/`check` |
+| Tooling | Web IDE (`python3 ide/web/server.py`), VS Code extension prototype |
+| Tests | `selfhost`, `xdk`, `m10_parity`, `resources`, `m8`, `m10_perf` |
+
+Not yet: package manager, formatter, project reactor, full standard library, production hardening.
+
+**One compiler, no fallback.** `src/mini` is the only compiler. There is no second engine and no delegation: if mini cannot run a command, the command is absent rather than silently handled elsewhere.
+
+## Why XNull
+
+**Memory is a decision table, not an annotation.** Source never states reference strength. The compiler applies DET-01 — stack, ARC, or GC — and the runtime executes the choice. The policy is closed and written down, so it can be checked rather than guessed. See [S4](docs/solution-04-memory-management.md) and [`DET-01`](docs/design/DET-01.md).
+
+**Errors are values.** `Result<T, E>` puts failure in the type system; `try` propagates it; `defer`/`errdefer` make cleanup explicit. There are no exceptions and no hidden unwinding. See [S5](docs/solution-05-error-handling.md).
+
+**Composition over inheritance, and no reflection.** Polymorphism is expressed with protocols, not fragile base classes. Fields are data, not getters and setters. Compile-time annotations generate code and metadata, so serialization and data mapping do not need runtime scanning. See [S2](docs/solution-02-object-programming.md) and [S3](docs/solution-03-annotation.md).
+
+**Bounded abstraction.** XNull does not aim for the largest abstraction space. It aims for designs that are decidable from source plus specification. The full capability map and the trade-offs are in [S0](docs/solution-00-language-capabilities.md); the comparison with other languages is in [`docs/design/LANGUAGE-COMPARISON.md`](docs/design/LANGUAGE-COMPARISON.md).
+
+### Explicitly unsupported, by design
+
+| Feature | Reason |
+| --- | --- |
+| Method overriding | The method that runs must be answerable from static types; dynamic dispatch exists only through protocols |
+| Accessors / properties | Fields are data; behavior is verb-named methods |
+| Reflection | Breaks the rule that source + specification determine the program |
+| Exceptions | Errors are values; `throw` is fatal-only and never unwinds |
+
+## Performance
+
+The 200M-iteration LCG loop is a regression gate, not a benchmark claim. The latest run on the project's reference machine was **0.675 s** for 200M iterations (2026-11-24), against the 0.733 s mini 0.2.0 baseline. Reproduce it with:
 
 ```sh
-./src/cli/xnull build src/mini/tests/ref/project -o /tmp/ref-project
-./src/cli/xnull run   src/mini/tests/ref/project
-./src/cli/xnull check src/mini/tests/ref/project
+src/mini/tests/m10_perf.sh
 ```
 
-Language and library guides: [basic syntax](docs/solution-01-basic-syntax.md),
-[objects](docs/solution-02-object-programming.md),
-[annotations](docs/solution-03-annotation.md),
-[memory](docs/solution-04-memory-management.md),
-[errors](docs/solution-05-error-handling.md),
-[tasks](docs/solution-06-tasks-and-concurrency.md), [XDK](docs/solution-07-xdk.md),
-[toolchain](docs/solution-08-toolchain.md), [IDE](docs/solution-09-ide.md),
-[project configuration](docs/solution-10-project-configuration.md).
+The workload and the gate are in [`src/mini/tests/m10_perf.sh`](src/mini/tests/m10_perf.sh); the milestone record is in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md).
 
-There is no package manager, dependency reactor, or formatter yet; those
-commands intentionally remain unavailable.
-
-## Repository layout
+## Repository map
 
 ```text
-assets/               logo and project assets
-docs/                 architecture, language, and design documents
-README/               translated README files
-ide/                  VS Code extension and web IDE
-src/                  development tree
-  cli/xnull           unified CLI
-  mini/               self-hosting compiler
-  runtime/            C runtime sources and headers
-  xdk/                XDK sources
-  ffi/                raw FFI bridges (.xfb)
-  toolchain/          mini build/run/check scripts
-  examples/           runnable examples
-
-xdk/                  XDK delivery package
-  lib/xdk/            XDK package sources
-  runtime/            C runtime sources and headers
-  ffi/                raw FFI bridges
-  install.sh          POSIX sh installer
+src/
+  cli/xnull          unified CLI
+  mini/              the compiler (written in XNull, self-hosting)
+  runtime/           C runtime
+  xdk/               XDK sources
+  ffi/               raw FFI bridge contracts (.xfb)
+  toolchain/         mini build/run/check scripts
+  examples/          runnable programs
+docs/
+  solution-00..10    the 11-part specification
+  design/            architecture, annotations, DET-01, package map, plans
+ide/
+  web/               single-page web IDE (Python standard library only)
+  vscode/            VS Code extension prototype
+xdk/                 XDK delivery package (install.sh)
 ```
-
-Modify `src/`; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it to `xdk/lib/xdk/`.
-
-## Development
 
 `src/` is the development tree; `xdk/` is the delivery copy. After changing `src/xdk/`, sync it to `xdk/lib/xdk/`.
 
-The CLI entry point and the mini-only surface are described in Quick start. The active XDK-first plan is in `src/xdk/PLAN.md`; the compiler queue is in `src/mini/PLAN.md`, and the milestone record is in `src/mini/MILESTONES.md`.
+## Documentation
 
-### Install XDK
+| Part | Topic |
+| --- | --- |
+| [S0](docs/solution-00-language-capabilities.md) | Capabilities and application boundaries |
+| [S1](docs/solution-01-basic-syntax.md) | Basic syntax |
+| [S2](docs/solution-02-object-programming.md) | Objects and protocols |
+| [S3](docs/solution-03-annotation.md) | Annotations |
+| [S4](docs/solution-04-memory-management.md) | Memory management |
+| [S5](docs/solution-05-error-handling.md) | Error handling |
+| [S6](docs/solution-06-tasks-and-concurrency.md) | Tasks and concurrency |
+| [S7](docs/solution-07-xdk.md) | XDK |
+| [S8](docs/solution-08-toolchain.md) | Toolchain |
+| [S9](docs/solution-09-ide.md) | IDE |
+| [S10](docs/solution-10-project-configuration.md) | Project configuration |
 
-```sh
-cd xdk
-./install.sh --prefix "$HOME/.local"
-```
-
-This installs:
-
-```text
-<prefix>/share/xnull/xdk
-<prefix>/share/xnull/runtime
-<prefix>/share/xnull/ffi
-```
-
-For packaging, use `DESTDIR`:
-
-```sh
-DESTDIR=/tmp/xdk-pkg ./install.sh --prefix /usr/local
-```
+Design documents: [`docs/design/README.md`](docs/design/README.md). Architecture baseline: [`docs/design/ARCHITECTURE.md`](docs/design/ARCHITECTURE.md).
 
 ## Status
 
 | Area | Status |
 | --- | --- |
-| Specifications S1–S6 | Formal; S3 lists open decisions in §14 |
-| XDK catalog S7 | v3.0.0 draft; T0 core first |
-| Toolchain S8 / IDE S9 | Draft |
-| Project configuration S10 | Final v5.3.0 |
-| Native C toolchain | Live for the current core scenarios |
-| Minimal compiler | Core language + basic classes; broader coverage in progress |
-| End-to-end scenarios | hello, classes, `import xdk.errors` pass; more in progress |
-| Self-hosting | Planned |
+| Compiler | Self-hosting, C backend, single-file and minimal project surface |
+| Language | Core constructs implemented; coverage grows scenario by scenario |
+| XDK | T0 packages pass; T1/T2 packages in progress |
+| Annotations | Registry, codegen, and extension work in progress |
+| IDE | Web IDE works; VS Code extension prototype |
+| Release | Research/implementation phase; no stability promise yet |
 
-## Explicitly unsupported (by design)
+**Roadmap, in order:** broader language coverage → XDK completion → project build and formatter → self-hosting release → production hardening. The queue is in [`src/mini/PLAN.md`](src/mini/PLAN.md); milestone evidence is in [`src/mini/MILESTONES.md`](src/mini/MILESTONES.md).
 
-| Feature | Reason |
-| --- | --- |
-| Method overriding | “Which method actually ran?” must be answerable from static types; dynamic dispatch exists only through protocols |
-| Accessors / properties | Grammar-level separation: fields are data, behavior is verb-named methods |
-| Reflection | Breaks the “source + spec determines everything” axiom |
-| Exceptions | Errors are values: `Result` + `try`; `throw` is fatal-only and never unwinds |
+Development is spec-first: features land with executable scenarios and regression gates, not feature checklists.
 
-## Roadmap
-
-1. Native C backend: one file compiles to C, the C compiles to a binary, the binary runs.
-2. Incremental completion driven by executable scenarios, not feature checklists.
-3. Self-hosting: the compiler rewritten in XNull.
-
-## Angel investment
-
-XNull is looking for a small angel round or non-dilutive support to fund 12–18 months of focused work on the compiler, self-hosting, runtime, and XDK. The goal is narrow: make the existing toolchain correct, fast, and usable before expanding the language.
-
-If you are interested, contact **vjsplus@163.com** with the subject `XNull Angel`. Terms are discussed privately.
-
-> This section is informational only and does not constitute an offer to sell or a solicitation of an offer to buy any securities.
-
-## Sponsorship
-
-If XNull is useful to you, small contributions are welcome — every bit helps.
-
-WeChat Pay (mainland China):
-
-<img src="assets/wechat-pay.jpg" alt="WeChat Pay sponsorship QR code" width="260">
-
-> Sponsorship is voluntary, is not an investment, and carries no promised return.
+XNull is deliberately not trying to be everything. It is not a systems language for manual memory control, not a framework language that depends on reflection, and not a macro/DSL language. If a feature cannot be decided from source plus specification, it is not part of the language.
 
 ## Contributing
 
-XNull started as a one-person design project. The next phase needs compiler engineers, runtime engineers, XDK/API designers, design critics, writers, and translators. If you think a decision is wrong, bring a counterexample; a good argument becomes a specification revision.
+XNull started as a one-person design project. Useful contributions right now:
 
-Contact: vjsplus@163.com · [GitHub Issues](https://github.com/xnull-clang/xnull/issues)
+- compiler and runtime bugs with a minimal reproducer;
+- XDK packages with executable scenarios;
+- specification counterexamples — a good argument becomes a spec revision;
+- translations and documentation fixes.
+
+Open an [issue](https://github.com/xnull-clang/xnull/issues) or send a pull request. For large changes, open an issue first so the design can be discussed before the code.
 
 ## License
 
 Code (`src/`, `xdk/`, `src/examples/`) is licensed under Apache-2.0; see [LICENSE](LICENSE). Specifications and documentation (`docs/`, `README*.md`) are licensed under CC BY 4.0; see [LICENSE-docs.md](LICENSE-docs.md). The XNull name and logo are not covered by either license.
+
+## Support
+
+XNull is a one-person project. If you want to support it financially, see [Funding and sponsorship](docs/FUNDING.md). Sponsorship is voluntary and is not an investment.
