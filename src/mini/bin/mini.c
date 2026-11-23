@@ -16790,6 +16790,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.resilience")) || xn_str_startswith(pkg, rt_string_from_c("xdk.resilience.")))) {
     return rt_string_from_c("resilience/Resilience.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.cache")) || xn_str_startswith(pkg, rt_string_from_c("xdk.cache.")))) {
+    return rt_string_from_c("cache/Cache.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
     return rt_string_from_c("net/mime/Mime.x");
   }

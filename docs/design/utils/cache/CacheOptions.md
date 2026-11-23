@@ -20,7 +20,7 @@
 ## 2. 设计逻辑
 
 - 可变 builder；`Cache` 构造时复制。
-- 默认：1024 条目、1,000,000 权重、TTL 0（不过期）、统计开启。
+- 默认：1024 条目、1,048,576 权重、TTL 0（不过期）、统计开启。
 - `maxEntries ≥1`；`maxWeight ≥1`；`defaultTtlMillis ≥0`。
 - `defaultTtlMillis=0` 表示不过期；条目可 `putWithTtl` 覆盖。
 - 无 close；非线程安全。
@@ -121,7 +121,7 @@
 ```xnull
 class CacheOptions {
     Int _maxEntries = 1024
-    Long _maxWeight = 1000000
+    Long _maxWeight = 1048576
     Long _defaultTtlMillis = 0
     Bool _recordStats = true
 

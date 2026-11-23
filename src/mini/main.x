@@ -13800,6 +13800,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.resilience" || pkg.startsWith("xdk.resilience.") {
         return "resilience/Resilience.x"
     }
+    if pkg == "xdk.cache" || pkg.startsWith("xdk.cache.") {
+        return "cache/Cache.x"
+    }
     if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
         return "net/mime/Mime.x"
     }

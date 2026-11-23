@@ -25,8 +25,8 @@
 - TTL：写入时计算 `nowMono + ttl`；0 表示不过期；读取/统计前惰性清理。
 - 容量：条目数或总权重超限时从最旧开始淘汰。
 - `getOrLoad` 在锁外调用 loader；并发缺失可能重复加载（X single-flight）。
-- listener 在锁内同步调用；不得重入 cache，不得阻塞。
-- `close` 清空并通知 `Closed`；之后 `getOrLoad` 返回 `Unavailable`，读写静默失败。
+- listener 在锁外同步调用；不得重入 cache，不得阻塞。
+- `close` 清空并通知 `Closed`；之后 `getOrLoad` 返回 `Unavailable`；`get` 返回 null，`put*` 返回 null（不 panic）。
 - `recordStats=false` 时 hit/miss/load 计数保持 0；淘汰/过期计数仍维护。
 - 无 close 资源；close 幂等。
 

@@ -8,6 +8,7 @@
 | 被依赖 | 应用、HTTP 客户端、存储层 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M8.3：`EvictionReason`/`CacheOptions`/`CacheStats`/`Cache` implemented；仅内存并发，监听器锁外调用；getOrLoad/listener 的当前编译器函数类型限制见报告 |
 
 ---
 
@@ -29,7 +30,7 @@
 | 显式上限 | `maxEntries` + `maxWeight`；条目权重可显式设置 |
 | TTL | 相对写入的单调毫秒；0 = 不过期 |
 | 无泛型协议 | loader/listener 用函数类型，避免 XNull 泛型协议限制 |
-| 监听谨慎 | listener 在锁内调用；不得重入 cache |
+| 监听谨慎 | listener 在锁外调用；不得重入 cache |
 | 单飞 X | `getOrLoad` 并发缺失可能重复加载 |
 
 ---
@@ -89,7 +90,7 @@ X：single-flight 加载、异步 loader、分布式缓存、持久化、弱引�
 | 异步 loader | 不做 |
 | 弱引用 | 不做 |
 | 持久化/分布式 | 不做 |
-| 监听线程 | 锁内同步；不得重入 |
+| 监听线程 | 锁外同步；不得重入 |
 | 权重 | `put` 默认 1；`putWeighted` 显式 |
 | TTL 时钟 | 单调毫秒；墙钟回拨不影响 |
 
