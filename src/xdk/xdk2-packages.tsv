@@ -69,7 +69,7 @@ xdk.jsonrpc	L8	5	src/xdk/jsonrpc/Jsonrpc.x	design
 xdk.mcp	L8	16	src/xdk/mcp/Mcp.x	design
 xdk.ml	L8	20	src/xdk/ml/Ml.x	design
 xdk.numerics	L8	12	src/xdk/numerics/Numerics.x	design
-xdk.db	L8	11	src/xdk/db/Db.x	design
+xdk.db	L8	11	src/xdk/db/Db.x	implemented
 xdk.api	L8	15	src/xdk/api/Api.x	design
 xdk.agent	L8	17	src/xdk/agent/Agent.x	design
 xdk.accel	L8	14	src/xdk/accel/Accel.x	design

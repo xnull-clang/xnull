@@ -4,7 +4,7 @@
 | --- | --- |
 | 包 | `xdk.db` |
 | 层 | L8 solutions |
-| 依赖 | `xdk.core`、`xdk.sql`、`xdk.crypto`（迁移校验和） |
+| 依赖 | `xdk.core`、`xdk.sql`、`xdk.bytes`（迁移 FNV-1a 校验和） |
 | 被依赖 | 应用服务、后台任务、CLI 工具、数据导入/导出、管理面 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件；公开类型共 11 个 |
@@ -121,9 +121,9 @@ Database.close()
 
 ---
 
-## 3.4 M6.4a/M6.4b/M6.5 实现状态
+## 3.4 M6.4a/M6.4b/M6.5/M6.6 实现状态
 
-已实现（包状态仍为 `design`）：
+已实现（包状态 `implemented`；仅内存驱动）：
 
 - `IsolationLevel`、`DatabaseConfig`、`DatabasePoolStats`、`DbBatch`、`RowMapper`；
 - `DatabasePool`：借还、空闲复用、容量上限、Context 取消、获取超时、统计、关闭；
@@ -133,9 +133,11 @@ Database.close()
 - `DatabaseHealth implements HealthCheck`；
 - `xdk.runtime.HealthCheck` 协议；
 - M6.5 实体注解：`@Entity`、`@Table`、`@Id`、`@Transactional` 与 `db_processor`；
-- 生成：`<Type>TableName`、建表/插入/按 id 查询/更新/删除语句、`FromRow`、连接版 CRUD、事务包装。
+- 生成：`<Type>TableName`、建表/插入/按 id 查询/更新/删除语句、`FromRow`、连接版 CRUD、事务包装；
+- M6.6：`Migration` 版本/名称/checksum/比较；`MigrationRunner` 历史表、migrate/migrateTo/rollbackLast/rollbackTo/rollbackAll/pending/appliedVersions/validate/repair；
+- 锁为进程内 `RuntimeMonitor`；跨进程数据库行锁/租约接管 planned。
 
-planned：`Migration`、`MigrationRunner`。仅内存驱动验证，不接真实数据库。
+剩余：真实数据库验证、跨进程锁、迁移文件扫描/自动生成 planned；本批不接真实 DB。
 
 ## 4. 类型索引
 
@@ -153,7 +155,7 @@ planned：`Migration`、`MigrationRunner`。仅内存驱动验证，不接真实
 | `DatabaseHealth` | class | 池/数据库健康快照；缓存 + 主动刷新 | [`DatabaseHealth.md`](DatabaseHealth.md) |
 | `Db` | class | 静态入口：打开 Database/Pool、隔离级别选项键 | [`Db.md`](Db.md) |
 
-> 类型索引 11 项 = 11 个类型文件。`DatabaseHealth` 实现 `xdk.runtime.HealthCheck`；其余类型不重复 core 已有类型。
+> 类型索引 11 项 = 11 个类型文件，全部 implemented。`DatabaseHealth` 实现 `xdk.runtime.HealthCheck`；其余类型不重复 core 已有类型。
 
 ---
 

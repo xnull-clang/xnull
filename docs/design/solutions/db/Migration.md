@@ -8,6 +8,8 @@
 | 依赖 | `SqlStatement`、`Checksum`、`ChecksumAlgorithm`、`Bytes` |
 | 被依赖 | [`MigrationRunner`](MigrationRunner.md) |
 
+> 实现状态：implemented (M6.6，内存驱动验证)；校验和由本地 FNV-1a 64 位实现，不依赖 crypto 包。
+
 > 包索引见 [`README.md`](README.md)。
 
 ---

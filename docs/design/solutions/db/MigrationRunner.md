@@ -8,6 +8,8 @@
 | 依赖 | `Database`、`Migration`、`SqlStatement`、`SqlResult`、`SqlTransaction`、`SqlOptions`、`Context`、`Error` |
 | 被依赖 | 应用启动流程、部署工具、管理 CLI |
 
+> 实现状态：implemented (M6.6，内存驱动验证)。本批差异：锁为进程内 `RuntimeMonitor`（单进程）；历史表固定 `version/name/checksum/applied_at` 四列；`lockLeaseMillis` 仅校验，不做过期接管；无跨进程锁表/行锁。
+
 > 包索引见 [`README.md`](README.md)。
 
 ---

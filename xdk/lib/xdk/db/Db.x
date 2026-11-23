@@ -1,8 +1,10 @@
 // xdk.db — database toolbox value types and protocols (M6.4a).
 package xdk.db
+import xdk.bytes
 import xdk.errors
 import xdk.runtime
 import xdk.sql
+import xdk.text
 import xdk.time
 
 String isolationOpenOptionKey() {
@@ -1009,5 +1011,911 @@ class DatabaseHealth implements HealthCheck {
         HealthReport report = HealthReport.of(HealthState.Healthy, "database healthy", details)
         self._last = report
         return Ok(report)
+    }
+}
+
+// ---------- M6.6：迁移 ----------
+
+RuntimeMonitor migrationProcessLock = new RuntimeMonitor()
+Bool migrationProcessLockHeld = false
+
+static Bool migrationDigit(String character) {
+    return character.length() == 1 && "0123456789".indexOf(character) >= 0
+}
+
+static Bool migrationAlpha(String character) {
+    if character.length() != 1 { return false }
+    return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(character) >= 0
+}
+
+static List<String> migrationVersionSegments(String version) {
+    if version == null || version == "" || version.length() > 64 {
+        throw "Migration: invalid version"
+    }
+    List<String> segments = version.split(".")
+    if segments.length() == 0 || segments.length() > 16 {
+        throw "Migration: invalid version segment count"
+    }
+    Int index = 0
+    while index < segments.length() {
+        String segment = segments.get(index)
+        if segment == "" || segment.length() > 18 {
+            throw "Migration: invalid version segment"
+        }
+        if segment.length() > 1 && segment.substring(0, 1) == "0" {
+            throw "Migration: version leading zero"
+        }
+        Int digitIndex = 0
+        while digitIndex < segment.length() {
+            if !migrationDigit(segment.substring(digitIndex, 1)) {
+                throw "Migration: version is not decimal"
+            }
+            digitIndex = digitIndex + 1
+        }
+        index = index + 1
+    }
+    return segments
+}
+
+static Bool migrationVersionValid(String version) {
+    if version == null || version == "" || version.length() > 64 { return false }
+    List<String> segments = version.split(".")
+    if segments.length() == 0 || segments.length() > 16 { return false }
+    Int index = 0
+    while index < segments.length() {
+        String segment = segments.get(index)
+        if segment == "" || segment.length() > 18 { return false }
+        if segment.length() > 1 && segment.substring(0, 1) == "0" { return false }
+        Int digitIndex = 0
+        while digitIndex < segment.length() {
+            if !migrationDigit(segment.substring(digitIndex, 1)) { return false }
+            digitIndex = digitIndex + 1
+        }
+        index = index + 1
+    }
+    return true
+}
+
+static Int migrationCompareSegment(String left, String right) {
+    if left.length() < right.length() { return -1 }
+    if left.length() > right.length() { return 1 }
+    Int index = 0
+    while index < left.length() {
+        Int leftDigit = "0123456789".indexOf(left.substring(index, 1))
+        Int rightDigit = "0123456789".indexOf(right.substring(index, 1))
+        if leftDigit < rightDigit { return -1 }
+        if leftDigit > rightDigit { return 1 }
+        index = index + 1
+    }
+    return 0
+}
+
+static Int migrationCompareVersions(String leftVersion, String rightVersion) {
+    List<String> left = migrationVersionSegments(leftVersion)
+    List<String> right = migrationVersionSegments(rightVersion)
+    Int limit = left.length()
+    if right.length() < limit { limit = right.length() }
+    Int index = 0
+    while index < limit {
+        Int compared = migrationCompareSegment(left.get(index), right.get(index))
+        if compared != 0 { return compared }
+        index = index + 1
+    }
+    if left.length() < right.length() { return -1 }
+    if left.length() > right.length() { return 1 }
+    return 0
+}
+
+static Long migrationChecksum(String version, String name,
+                              List<SqlStatement> up, List<SqlStatement> down) {
+    String canonical = version + "\n" + name + "\n" + str(up.length()) + "\n"
+    Int index = 0
+    while index < up.length() {
+        canonical = canonical + up.get(index).sql() + "\n"
+        index = index + 1
+    }
+    canonical = canonical + str(down.length()) + "\n"
+    index = 0
+    while index < down.length() {
+        canonical = canonical + down.get(index).sql() + "\n"
+        index = index + 1
+    }
+    Bytes bytes = Bytes.fromString(canonical)
+    Long hash = -3750763034362895579
+    index = 0
+    while index < bytes.length() {
+        hash = hash ^ (bytes.get(index) as Long)
+        hash = hash * 1099511628211
+        index = index + 1
+    }
+    return hash
+}
+
+class Migration {
+    final String _version
+    final String _name
+    final List<SqlStatement> _up
+    final List<SqlStatement> _down
+    final Long _checksum
+
+    Migration(String version, String name, List<SqlStatement> up) {
+        List<SqlStatement> noDown = []
+        Migration built = new Migration(version, name, up, noDown)
+        self._version = built._version
+        self._name = built._name
+        self._up = built._up
+        self._down = built._down
+        self._checksum = built._checksum
+    }
+
+    Migration(String version, String name, List<SqlStatement> up, List<SqlStatement> down) {
+        if version == null || name == null || up == null { throw "Migration: null argument" }
+        migrationVersionSegments(version)
+        if name == "" || name.length() > 200 || name.trim() == "" {
+            throw "Migration: invalid name"
+        }
+        if name.indexOf("\n") >= 0 || name.indexOf("\r") >= 0 || name.indexOf("\t") >= 0 {
+            throw "Migration: name must be single-line"
+        }
+        if up.length() == 0 { throw "Migration: empty up statements" }
+        List<SqlStatement> upCopy = []
+        Int index = 0
+        while index < up.length() {
+            SqlStatement statement = up.get(index)
+            if statement == null { throw "Migration: null up statement" }
+            upCopy.push(statement)
+            index = index + 1
+        }
+        List<SqlStatement> downCopy = []
+        if down != null {
+            index = 0
+            while index < down.length() {
+                SqlStatement statement = down.get(index)
+                if statement == null { throw "Migration: null down statement" }
+                downCopy.push(statement)
+                index = index + 1
+            }
+        }
+        self._version = version
+        self._name = name
+        self._up = upCopy
+        self._down = downCopy
+        self._checksum = migrationChecksum(version, name, upCopy, downCopy)
+    }
+
+    String version() { return self._version }
+    String name() { return self._name }
+    List<SqlStatement> upStatements() { return self._up.copy() }
+    List<SqlStatement> downStatements() { return self._down.copy() }
+    Int upStatementCount() { return self._up.length() }
+    Int downStatementCount() { return self._down.length() }
+    Bool hasRollback() { return self._down.length() > 0 }
+    Long checksum() { return self._checksum }
+
+    Int compareTo(Migration other) {
+        if other == null { throw "Migration.compareTo: null" }
+        return migrationCompareVersions(self._version, other.version())
+    }
+
+    static Int compareVersion(String leftVersion, String rightVersion) {
+        if leftVersion == null || rightVersion == null { throw "Migration.compareVersion: null" }
+        return migrationCompareVersions(leftVersion, rightVersion)
+    }
+
+    Bool equals(Migration other) {
+        if other == null { return false }
+        if self._version != other.version() || self._name != other.name() {
+            return false
+        }
+        if self._checksum != other.checksum() { return false }
+        if self._up.length() != other.upStatementCount() { return false }
+        if self._down.length() != other.downStatementCount() { return false }
+        Int index = 0
+        List<SqlStatement> otherUp = other.upStatements()
+        while index < self._up.length() {
+            if !self._up.get(index).equals(otherUp.get(index)) { return false }
+            index = index + 1
+        }
+        List<SqlStatement> otherDown = other.downStatements()
+        index = 0
+        while index < self._down.length() {
+            if !self._down.get(index).equals(otherDown.get(index)) { return false }
+            index = index + 1
+        }
+        return true
+    }
+
+    String describe() {
+        return "Migration(version=" + self._version + " name=" + self._name +
+            " up=" + str(self._up.length()) + " down=" + str(self._down.length()) +
+            " checksum=" + str(self._checksum) + ")"
+    }
+}
+
+static Bool migrationTableNameValid(String name) {
+    if name == null || name == "" || name.length() > 56 { return false }
+    String first = name.substring(0, 1)
+    if !migrationAlpha(first) && first != "_" { return false }
+    Int index = 1
+    while index < name.length() {
+        String character = name.substring(index, 1)
+        if !migrationAlpha(character) && !migrationDigit(character) && character != "_" {
+            return false
+        }
+        index = index + 1
+    }
+    return true
+}
+
+static Result<Unit, Error> migrationAcquireLock(Context context, Long timeoutMillis) {
+    migrationProcessLock.enter()
+    Long started = nowMono()
+    while migrationProcessLockHeld {
+        if context != null && context.isCancelled() {
+            migrationProcessLock.exit()
+            return Err(new BasicError(ErrorKind.Cancelled, "migration lock cancelled"))
+        }
+        if timeoutMillis > 0 && nowMono() - started >= timeoutMillis {
+            migrationProcessLock.exit()
+            return Err(new BasicError(ErrorKind.Timeout, "migration lock timeout"))
+        }
+        migrationProcessLock.exit()
+        sleepMs(5)
+        migrationProcessLock.enter()
+    }
+    migrationProcessLockHeld = true
+    migrationProcessLock.exit()
+    return Ok()
+}
+
+static Void migrationReleaseLock() {
+    migrationProcessLock.enter()
+    migrationProcessLockHeld = false
+    migrationProcessLock.notifyAll()
+    migrationProcessLock.exit()
+}
+
+static Long migrationParseLong(String text) {
+    if text == null || text == "" { throw "MigrationRunner: invalid history number" }
+    Int index = 0
+    Bool negative = false
+    if text.substring(0, 1) == "-" {
+        negative = true
+        index = 1
+    }
+    Long value = 0
+    while index < text.length() {
+        Int digit = "0123456789".indexOf(text.substring(index, 1))
+        if digit < 0 { throw "MigrationRunner: invalid history number" }
+        value = value * 10 + digit
+        index = index + 1
+    }
+    if negative { value = -value }
+    return value
+}
+
+static String migrationHistoryEncode(String version, String name, Long checksum, Long appliedAt) {
+    return version + "\t" + name + "\t" + str(checksum) + "\t" + str(appliedAt)
+}
+
+static String migrationHistoryVersion(String entry) {
+    return entry.split("\t").get(0)
+}
+
+static String migrationHistoryName(String entry) {
+    return entry.split("\t").get(1)
+}
+
+static Long migrationHistoryChecksum(String entry) {
+    return migrationParseLong(entry.split("\t").get(2))
+}
+
+static Long migrationHistoryAppliedAt(String entry) {
+    return migrationParseLong(entry.split("\t").get(3))
+}
+
+class MigrationRunner {
+    final Database _database
+    final String _historyTable
+    final Long _lockTimeoutMillis
+    final Long _lockLeaseMillis
+
+    MigrationRunner(Database database, String historyTable) {
+        MigrationRunner built = new MigrationRunner(database, historyTable, 30000, 3600000)
+        self._database = built._database
+        self._historyTable = built._historyTable
+        self._lockTimeoutMillis = built._lockTimeoutMillis
+        self._lockLeaseMillis = built._lockLeaseMillis
+    }
+
+    MigrationRunner(Database database, String historyTable, Long lockTimeoutMillis) {
+        MigrationRunner built = new MigrationRunner(database, historyTable, lockTimeoutMillis, 3600000)
+        self._database = built._database
+        self._historyTable = built._historyTable
+        self._lockTimeoutMillis = built._lockTimeoutMillis
+        self._lockLeaseMillis = built._lockLeaseMillis
+    }
+
+    MigrationRunner(Database database, String historyTable, Long lockTimeoutMillis, Long lockLeaseMillis) {
+        if database == null || historyTable == null { throw "MigrationRunner: null argument" }
+        if !migrationTableNameValid(historyTable) { throw "MigrationRunner: invalid history table" }
+        if lockTimeoutMillis < 0 { throw "MigrationRunner: negative lock timeout" }
+        if lockLeaseMillis < 1000 { throw "MigrationRunner: lock lease below 1000" }
+        self._database = database
+        self._historyTable = historyTable
+        self._lockTimeoutMillis = lockTimeoutMillis
+        self._lockLeaseMillis = lockLeaseMillis
+    }
+
+    String historyTable() { return self._historyTable }
+
+    String describe() {
+        return "MigrationRunner(history=" + self._historyTable +
+            " lockTimeoutMs=" + str(self._lockTimeoutMillis) +
+            " lockLeaseMs=" + str(self._lockLeaseMillis) + ")"
+    }
+
+    String _createHistorySql() {
+        return "CREATE TABLE " + self._historyTable +
+            " (version TEXT, name TEXT, checksum INTEGER, applied_at INTEGER, PRIMARY KEY (version))"
+    }
+
+    Result<Unit, Error> _ensureHistory(Context context) {
+        Result<SqlResult, Error> created = self._database.execute(context, new SqlStatement(self._createHistorySql()))
+        if created.isOk() { return Ok() }
+        String message = created.error().describe().toLower()
+        if message.indexOf("exist") >= 0 { return Ok() }
+        return Err(created.error())
+    }
+
+    Result<List<String>, Error> _readHistory(Context context) {
+        SqlStatement statement = new SqlStatement("SELECT version, name, checksum, applied_at FROM " + self._historyTable)
+        Result<SqlResult, Error> result = self._database.execute(context, statement)
+        if result.isErr() {
+            ErrorKind kind = result.error().kind()
+            if kind == ErrorKind.InvalidArgument || kind == ErrorKind.NotFound {
+                List<String> emptyHistory = []
+                return Ok(emptyHistory)
+            }
+            return Err(result.error())
+        }
+        List<SqlRow> rows = result.value().rows()
+        List<String> history = []
+        Int index = 0
+        while index < rows.length() {
+            SqlRow row = rows.get(index)
+            if row.length() < 4 {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "migration history row is incomplete"))
+            }
+            history.push(migrationHistoryEncode(row.get(0).asString().value(),
+                row.get(1).asString().value(), row.get(2).asLong().value(),
+                row.get(3).asLong().value()))
+            index = index + 1
+        }
+        return Ok(history)
+    }
+
+    Result<List<Migration>, Error> _prepare(List<Migration> migrations) {
+        if migrations == null { throw "MigrationRunner: null migrations" }
+        List<Migration> sorted = []
+        Int index = 0
+        while index < migrations.length() {
+            Migration migration = migrations.get(index)
+            if migration == null {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "migration list contains null"))
+            }
+            Int position = 0
+            while position < sorted.length() && sorted.get(position).compareTo(migration) < 0 {
+                position = position + 1
+            }
+            sorted.insert(position, migration)
+            index = index + 1
+        }
+        index = 1
+        while index < sorted.length() {
+            if sorted.get(index - 1).compareTo(sorted.get(index)) == 0 {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "duplicate migration version"))
+            }
+            index = index + 1
+        }
+        return Ok(sorted)
+    }
+
+    Bool _isApplied(List<String> history, String version) {
+        Int index = 0
+        while index < history.length() {
+            if migrationHistoryVersion(history.get(index)) == version { return true }
+            index = index + 1
+        }
+        return false
+    }
+
+    Result<Unit, Error> _validateDrift(List<Migration> migrations, List<String> history) {
+        Map<String, Migration> byVersion = [:]
+        Int index = 0
+        while index < migrations.length() {
+            byVersion.put(migrations.get(index).version(), migrations.get(index))
+            index = index + 1
+        }
+        index = 0
+        while index < history.length() {
+            String version = migrationHistoryVersion(history.get(index))
+            if !byVersion.has(version) {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "unknown applied migration: " + version))
+            }
+            Migration migration = byVersion.getOr(version, migrations.get(0))
+            if migrationHistoryName(history.get(index)) != migration.name() ||
+               migrationHistoryChecksum(history.get(index)) != migration.checksum() {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "migration drift: " + version))
+            }
+            index = index + 1
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> _validateHistory(List<Migration> migrations, List<String> history, Bool checkOrder) {
+        Result<Unit, Error> drift = self._validateDrift(migrations, history)
+        if drift.isErr() { return drift }
+        Int index = 0
+        while index < history.length() {
+            Int inner = index + 1
+            while inner < history.length() {
+                if migrationHistoryVersion(history.get(index)) == migrationHistoryVersion(history.get(inner)) {
+                    return Err(new BasicError(ErrorKind.DataCorrupted, "duplicate history version"))
+                }
+                inner = inner + 1
+            }
+            index = index + 1
+        }
+        if !checkOrder { return Ok() }
+        String maxApplied = ""
+        index = 0
+        while index < history.length() {
+            String version = migrationHistoryVersion(history.get(index))
+            if maxApplied == "" || migrationCompareVersions(version, maxApplied) > 0 {
+                maxApplied = version
+            }
+            index = index + 1
+        }
+        if maxApplied != "" {
+            index = 0
+            while index < migrations.length() {
+                Migration migration = migrations.get(index)
+                if !self._isApplied(history, migration.version()) &&
+                   migrationCompareVersions(migration.version(), maxApplied) < 0 {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "out-of-order migration: " + migration.version()))
+                }
+                index = index + 1
+            }
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> _applyUp(Context context, Migration migration, Long appliedAt) {
+        Result<SqlConnection, Error> acquired = self._database.borrow(context)
+        if acquired.isErr() { return Err(acquired.error()) }
+        SqlConnection connection = acquired.value()
+        Result<SqlTransaction, Error> started = connection.begin()
+        if started.isErr() {
+            connection.close()
+            return Err(started.error())
+        }
+        SqlTransaction transaction = started.value()
+        List<SqlStatement> statements = migration.upStatements()
+        Int index = 0
+        while index < statements.length() {
+            Result<SqlResult, Error> executed = transaction.execute(statements.get(index))
+            if executed.isErr() {
+                transaction.rollback()
+                connection.close()
+                return Err(executed.error())
+            }
+            index = index + 1
+        }
+        SqlStatement insert = new SqlStatement("INSERT INTO " + self._historyTable + " VALUES (?, ?, ?, ?)")
+        insert = insert.bind(SqlValue.ofString(migration.version()))
+        insert = insert.bind(SqlValue.ofString(migration.name()))
+        insert = insert.bind(SqlValue.ofLong(migration.checksum()))
+        insert = insert.bind(SqlValue.ofLong(appliedAt))
+        Result<SqlResult, Error> written = transaction.execute(insert)
+        if written.isErr() {
+            transaction.rollback()
+            connection.close()
+            return Err(written.error())
+        }
+        Result<Unit, Error> committed = transaction.commit()
+        connection.close()
+        if committed.isErr() { return Err(committed.error()) }
+        return Ok()
+    }
+
+    Result<Unit, Error> _applyDown(Context context, Migration migration) {
+        Result<SqlConnection, Error> acquired = self._database.borrow(context)
+        if acquired.isErr() { return Err(acquired.error()) }
+        SqlConnection connection = acquired.value()
+        Result<SqlTransaction, Error> started = connection.begin()
+        if started.isErr() {
+            connection.close()
+            return Err(started.error())
+        }
+        SqlTransaction transaction = started.value()
+        List<SqlStatement> statements = migration.downStatements()
+        Int index = 0
+        while index < statements.length() {
+            Result<SqlResult, Error> executed = transaction.execute(statements.get(index))
+            if executed.isErr() {
+                transaction.rollback()
+                connection.close()
+                return Err(executed.error())
+            }
+            index = index + 1
+        }
+        SqlStatement deleted = new SqlStatement("DELETE FROM " + self._historyTable + " WHERE version = ?")
+        deleted = deleted.bind(SqlValue.ofString(migration.version()))
+        Result<SqlResult, Error> removed = transaction.execute(deleted)
+        if removed.isErr() {
+            transaction.rollback()
+            connection.close()
+            return Err(removed.error())
+        }
+        Result<Unit, Error> committed = transaction.commit()
+        connection.close()
+        if committed.isErr() { return Err(committed.error()) }
+        return Ok()
+    }
+
+    Result<Int, Error> _migrateToVersion(Context context, List<Migration> migrations,
+                                         List<String> history, String targetVersion) {
+        Long appliedAt = nowWall()
+        Int applied = 0
+        Int index = 0
+        while index < migrations.length() {
+            Migration migration = migrations.get(index)
+            Bool withinTarget = true
+            if targetVersion != "" && migrationCompareVersions(migration.version(), targetVersion) > 0 {
+                withinTarget = false
+            }
+            if withinTarget && !self._isApplied(history, migration.version()) {
+                Result<Unit, Error> result = self._applyUp(context, migration, appliedAt + applied)
+                if result.isErr() { return Err(result.error()) }
+                history.push(migrationHistoryEncode(migration.version(), migration.name(),
+                    migration.checksum(), appliedAt + applied))
+                applied = applied + 1
+            }
+            index = index + 1
+        }
+        return Ok(applied)
+    }
+
+    Result<Int, Error> migrate(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.migrate: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        List<Migration> sorted = prepared.value()
+        if sorted.length() == 0 { return Ok(0) }
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<Unit, Error> ensured = self._ensureHistory(context)
+        if ensured.isErr() {
+            migrationReleaseLock()
+            return Err(ensured.error())
+        }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() {
+            migrationReleaseLock()
+            return Err(historyResult.error())
+        }
+        List<String> history = historyResult.value()
+        Result<Unit, Error> valid = self._validateHistory(sorted, history, true)
+        if valid.isErr() {
+            migrationReleaseLock()
+            return Err(valid.error())
+        }
+        Result<Int, Error> applied = self._migrateToVersion(context, sorted, history, "")
+        migrationReleaseLock()
+        return applied
+    }
+
+    Result<Int, Error> migrateTo(Context context, List<Migration> migrations, String targetVersion) {
+        if context == null || targetVersion == null { throw "MigrationRunner.migrateTo: null argument" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        if !migrationVersionValid(targetVersion) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid target version"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        List<Migration> sorted = prepared.value()
+        Bool found = false
+        Int index = 0
+        while index < sorted.length() {
+            if sorted.get(index).version() == targetVersion { found = true }
+            index = index + 1
+        }
+        if !found {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "unknown target version"))
+        }
+        if sorted.length() == 0 { return Ok(0) }
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<Unit, Error> ensured = self._ensureHistory(context)
+        if ensured.isErr() {
+            migrationReleaseLock()
+            return Err(ensured.error())
+        }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() {
+            migrationReleaseLock()
+            return Err(historyResult.error())
+        }
+        List<String> history = historyResult.value()
+        Result<Unit, Error> valid = self._validateHistory(sorted, history, true)
+        if valid.isErr() {
+            migrationReleaseLock()
+            return Err(valid.error())
+        }
+        Result<Int, Error> applied = self._migrateToVersion(context, sorted, history, targetVersion)
+        migrationReleaseLock()
+        return applied
+    }
+
+    Result<List<Migration>, Error> pending(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.pending: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> history = historyResult.value()
+        Result<Unit, Error> valid = self._validateHistory(prepared.value(), history, false)
+        if valid.isErr() { return Err(valid.error()) }
+        List<Migration> result = []
+        Int index = 0
+        while index < prepared.value().length() {
+            Migration migration = prepared.value().get(index)
+            if !self._isApplied(history, migration.version()) { result.push(migration) }
+            index = index + 1
+        }
+        return Ok(result)
+    }
+
+    Result<List<String>, Error> appliedVersions(Context context) {
+        if context == null { throw "MigrationRunner.appliedVersions: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> versions = []
+        Int index = 0
+        while index < historyResult.value().length() {
+            versions.push(migrationHistoryVersion(historyResult.value().get(index)))
+            index = index + 1
+        }
+        return Ok(versions)
+    }
+
+    Result<Unit, Error> validate(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.validate: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        return self._validateHistory(prepared.value(), historyResult.value(), true)
+    }
+
+    Result<Int, Error> repair(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.repair: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> history = historyResult.value()
+        Map<String, Migration> byVersion = [:]
+        Int index = 0
+        while index < prepared.value().length() {
+            byVersion.put(prepared.value().get(index).version(), prepared.value().get(index))
+            index = index + 1
+        }
+        Int updates = 0
+        index = 0
+        while index < history.length() {
+            String version = migrationHistoryVersion(history.get(index))
+            if !byVersion.has(version) {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "unknown applied migration: " + version))
+            }
+            Migration migration = byVersion.getOr(version, prepared.value().get(0))
+            if migrationHistoryName(history.get(index)) != migration.name() ||
+               migrationHistoryChecksum(history.get(index)) != migration.checksum() {
+                updates = updates + 1
+            }
+            index = index + 1
+        }
+        if updates == 0 { return Ok(0) }
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<SqlConnection, Error> acquired = self._database.borrow(context)
+        if acquired.isErr() {
+            migrationReleaseLock()
+            return Err(acquired.error())
+        }
+        SqlConnection connection = acquired.value()
+        Result<SqlTransaction, Error> started = connection.begin()
+        if started.isErr() {
+            connection.close()
+            migrationReleaseLock()
+            return Err(started.error())
+        }
+        SqlTransaction transaction = started.value()
+        Int updated = 0
+        index = 0
+        while index < history.length() {
+            String version = migrationHistoryVersion(history.get(index))
+            Migration migration = byVersion.getOr(version, prepared.value().get(0))
+            if migrationHistoryName(history.get(index)) != migration.name() ||
+               migrationHistoryChecksum(history.get(index)) != migration.checksum() {
+                SqlStatement statement = new SqlStatement("UPDATE " + self._historyTable +
+                    " SET name = ?, checksum = ? WHERE version = ?")
+                statement = statement.bind(SqlValue.ofString(migration.name()))
+                statement = statement.bind(SqlValue.ofLong(migration.checksum()))
+                statement = statement.bind(SqlValue.ofString(version))
+                Result<SqlResult, Error> executed = transaction.execute(statement)
+                if executed.isErr() {
+                    transaction.rollback()
+                    connection.close()
+                    migrationReleaseLock()
+                    return Err(executed.error())
+                }
+                updated = updated + 1
+            }
+            index = index + 1
+        }
+        Result<Unit, Error> committed = transaction.commit()
+        connection.close()
+        migrationReleaseLock()
+        if committed.isErr() { return Err(committed.error()) }
+        return Ok(updated)
+    }
+
+    Result<Int, Error> _rollbackEntries(Context context, List<Migration> migrations,
+                                        List<String> versionsToRollback) {
+        Map<String, Migration> byVersion = [:]
+        Int index = 0
+        while index < migrations.length() {
+            byVersion.put(migrations.get(index).version(), migrations.get(index))
+            index = index + 1
+        }
+        index = 0
+        while index < versionsToRollback.length() {
+            String version = versionsToRollback.get(index)
+            if !byVersion.has(version) {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "unknown applied migration: " + version))
+            }
+            Migration migration = byVersion.getOr(version, migrations.get(0))
+            if !migration.hasRollback() {
+                return Err(new BasicError(ErrorKind.Unsupported, "migration has no rollback: " + version))
+            }
+            index = index + 1
+        }
+        Int rolledBack = 0
+        index = versionsToRollback.length() - 1
+        while index >= 0 {
+            Migration migration = byVersion.getOr(versionsToRollback.get(index), migrations.get(0))
+            Result<Unit, Error> result = self._applyDown(context, migration)
+            if result.isErr() { return Err(result.error()) }
+            rolledBack = rolledBack + 1
+            index = index - 1
+        }
+        return Ok(rolledBack)
+    }
+
+    Result<Int, Error> rollbackLast(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.rollbackLast: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> history = historyResult.value()
+        if history.length() == 0 { return Ok(0) }
+        List<String> targets = []
+        targets.push(migrationHistoryVersion(history.get(history.length() - 1)))
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<Int, Error> result = self._rollbackEntries(context, prepared.value(), targets)
+        migrationReleaseLock()
+        return result
+    }
+
+    Result<Int, Error> rollbackTo(Context context, List<Migration> migrations, String targetVersion) {
+        if context == null || targetVersion == null { throw "MigrationRunner.rollbackTo: null argument" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        if !migrationVersionValid(targetVersion) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid target version"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> history = historyResult.value()
+        Int targetIndex = -1
+        Int index = 0
+        while index < history.length() {
+            if migrationHistoryVersion(history.get(index)) == targetVersion { targetIndex = index }
+            index = index + 1
+        }
+        if targetIndex < 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "target is not applied: " + targetVersion))
+        }
+        Bool inList = false
+        index = 0
+        while index < prepared.value().length() {
+            if prepared.value().get(index).version() == targetVersion { inList = true }
+            index = index + 1
+        }
+        if !inList {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "target is not in migrations: " + targetVersion))
+        }
+        List<String> targets = []
+        index = targetIndex + 1
+        while index < history.length() {
+            targets.push(migrationHistoryVersion(history.get(index)))
+            index = index + 1
+        }
+        if targets.length() == 0 { return Ok(0) }
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<Int, Error> result = self._rollbackEntries(context, prepared.value(), targets)
+        migrationReleaseLock()
+        return result
+    }
+
+    Result<Int, Error> rollbackAll(Context context, List<Migration> migrations) {
+        if context == null { throw "MigrationRunner.rollbackAll: null context" }
+
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "migration cancelled"))
+        }
+        Result<List<Migration>, Error> prepared = self._prepare(migrations)
+        if prepared.isErr() { return Err(prepared.error()) }
+        Result<List<String>, Error> historyResult = self._readHistory(context)
+        if historyResult.isErr() { return Err(historyResult.error()) }
+        List<String> history = historyResult.value()
+        if history.length() == 0 { return Ok(0) }
+        List<String> targets = []
+        Int index = 0
+        while index < history.length() {
+            targets.push(migrationHistoryVersion(history.get(index)))
+            index = index + 1
+        }
+        Result<Unit, Error> lock = migrationAcquireLock(context, self._lockTimeoutMillis)
+        if lock.isErr() { return Err(lock.error()) }
+        Result<Int, Error> result = self._rollbackEntries(context, prepared.value(), targets)
+        migrationReleaseLock()
+        return result
     }
 }
