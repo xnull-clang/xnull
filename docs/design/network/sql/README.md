@@ -187,7 +187,7 @@
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | SqlAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | DAO 方法、行 mapper、参数绑定、列映射 |
-| 状态 | `xdk.sql` 包 implemented (M6.1)；`@Sql`/`@Param`/`@Row`/`@Column` planned |
+| 状态 | `xdk.sql` 包 implemented (M6.1)；`@Sql`/`@Param`/`@Row`/`@Column` implemented (M6.2，内存驱动闭环) |
 
 ### 具体落点
 

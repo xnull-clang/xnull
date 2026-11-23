@@ -1,0 +1,14 @@
+create=true
+insert1=1
+insert2=1
+find=1,Ada,true,1.5
+list=2,Bob
+update=1
+updated-name=Bobby
+by-name=1,Bobby
+not-found=true,true
+multiple=true,true
+wrong-kind=true,DataCorrupted: UserRow.user_id: expected Long
+short-row=true,DataCorrupted: UserRow: row has too few columns
+statement=SqlStatement(sqlLength=74 parameters=1 style=named)
+statement-params=1,true

@@ -600,7 +600,7 @@ class UserDao {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Sql`/`@Param`/`@Row`/`@Column` implemented (M6.2)：生成 `SqlStatement`/DAO 执行函数/`FromRow`，以内存驱动闭环；无真实数据库。注解文件 `@Sql` 因实现文件同名放在 `SqlAnnotation.x`。
 
 ### `xdk.net.service`
 

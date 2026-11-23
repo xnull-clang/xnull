@@ -16,6 +16,14 @@ Error sqlInvalidArgument(String message) {
     return sqlError(ErrorKind.InvalidArgument, message)
 }
 
+Error sqlNotFound(String message) {
+    return sqlError(ErrorKind.NotFound, message)
+}
+
+Error sqlDataCorrupted(String message) {
+    return sqlError(ErrorKind.DataCorrupted, message)
+}
+
 SqlDialect sqlDefaultDialect() {
     return SqlDialect.Generic
 }

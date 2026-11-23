@@ -26,7 +26,7 @@ print("xdk2 packages: 75 packages / 698 types")
 PY
 
 count=0
-for src in $(find "$HERE/xdk2" -name '*.x' | sort); do
+for src in $(find "$HERE/xdk2" -name '*.x' ! -name '*Fixture.x' | sort); do
     exp=${src%.x}.out
     [ -f "$exp" ] || { echo "xdk2: missing expected output for $src" >&2; exit 1; }
     "$XNULL" --bootstrap --engine=mini run "$src" >"$TMP" 2>"$TMP.err" || {

@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2/M5.1/M5.2 implemented**（M2 pilot、M3.1/M3.2、M4.1/M4.2、M5.1 子集/M5.2）；M3.3、M5.3、M6–M7 planned；A8 5 个已实现 |
+| 状态 | **M0/M1/M2/M3.1/M3.2/M4.1/M4.2/M5.1/M5.2/M6.1/M6.2 implemented**（M5.1 子集、M6 内存驱动闭环）；M3.3、M5.3、M7 planned；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -222,12 +222,12 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 
 ### P6 sql / `@Sql`
 
-| ID | 交付 | 依赖 | 验收 |
-| --- | --- | --- | --- |
-| P6-01 | `xdk.sql` 包骨架（12 类型） | P0；B7 合同 | DAO/行/参数可编译 |
-| P6-02 | `@Sql`/`@Param`/`@Row` | P6-01 | 目标/参数校验 |
-| P6-03 | SqlProcessor Generate | P6-02 | DAO/行映射/参数绑定 |
-| P6-04 | sql 业务闭环 | P6-03 | 查询/行映射/错误/类型不匹配 |
+| ID | 交付 | 依赖 | 验收 | 状态 |
+| --- | --- | --- | --- | --- |
+| P6-01 | `xdk.sql` 包骨架（12 类型） | P0；B7 合同 | DAO/行/参数可编译 | implemented (M6.1) |
+| P6-02 | `@Sql`/`@Param`/`@Row`/`@Column` | P6-01 | 目标/参数校验 | implemented (M6.2) |
+| P6-03 | SqlProcessor Generate | P6-02 | DAO/行映射/参数绑定 | implemented (M6.2) |
+| P6-04 | sql 业务闭环 | P6-03 | 查询/行映射/错误/类型不匹配 | implemented (M6.2) |
 
 ### P7 平台硬化
 
@@ -253,7 +253,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | M4 | P4 validate | `@Validate` 业务闭环 | implemented (M4.1/M4.2) |
 | M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
-| M6 | P6 sql | `@Sql` 业务闭环 | planned |
+| M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | planned |
 
 顺序原则：

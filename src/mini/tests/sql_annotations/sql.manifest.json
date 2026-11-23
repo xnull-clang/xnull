@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "sql_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/sql_processor.py"],
+      "outputs": ["SqlGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
