@@ -1,0 +1,11 @@
+hello=200,true,hello
+hello-length=true,5
+echo=200,true,payload
+body-error=data_corrupted
+missing=404,false,missing
+refused=io
+cancel=cancelled
+scheme=unsupported
+base=200,true,hello
+close=true,true,false,unavailable
+base-option=true

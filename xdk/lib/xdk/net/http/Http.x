@@ -1,12 +1,14 @@
 // xdk.net.http — HTTP/1.x route-closure subset (M5.1).
 //
 // Deliberate cuts for this milestone:
-// - no Context parameter (core Context is not implemented yet);
+// - route closure has no Context parameter;
 // - HttpBody is buffered bytes only (no ByteStream/SocketAddress);
-// - no socket client/server, HTTP/2, TLS, proxy, multipart, streaming.
+// - M5.3a client is buffered text only: no response headers except Content-Length,
+//   no TLS/redirect/streaming/proxy, and no HTTP/2 or server.
 package xdk.net.http
 import xdk.bytes
 import xdk.errors
+import xdk.math
 import xdk.net.mime
 import xdk.net.uri
 import xdk.text
@@ -1018,4 +1020,139 @@ class CookieJar {
 
     void clear() { self._cookies.clear() }
     Int length() { return self._cookies.length() }
+}
+
+// ---------- M5.3a：最小真实 HTTP client ----------
+// FFI 只暴露 body 文本与状态码；响应头仅补 Content-Length，不伪造真实头。
+
+class HttpClientOptions {
+    Uri? _baseUri
+
+    Uri? baseUriOrNull() { return self._baseUri }
+
+    Void baseUri(Uri uri) {
+        if uri == null { throw "HttpClientOptions.baseUri: null uri" }
+        self._baseUri = uri
+    }
+}
+
+static Uri httpClientResolve(HttpClientOptions options, Uri request) {
+    Uri? baseValue = options.baseUriOrNull()
+    if baseValue == null { return request }
+    Uri base = baseValue as Uri
+    if request.scheme() != null && request.host() != null { return request }
+    String? scheme = request.scheme()
+    if scheme == null { scheme = base.scheme() }
+    String? host = request.host()
+    if host == null { host = base.host() }
+    Int? port = request.port()
+    if port == null { port = base.port() }
+    String? userInfo = request.userInfo()
+    if userInfo == null { userInfo = base.userInfo() }
+    return new Uri(scheme, userInfo, host, port, request.path(), request.query(),
+        request.hasQuery(), request.fragment())
+}
+
+static Error httpClientRawError(Int code) {
+    if code == 1 { return httpError(ErrorKind.InvalidArgument, "http request rejected") }
+    if code == 2 { return httpError(ErrorKind.Io, "http request io failure") }
+    if code == 3 { return httpError(ErrorKind.Cancelled, "http request cancelled") }
+    if code == 4 { return httpError(ErrorKind.Timeout, "http request timed out") }
+    if code == 5 { return httpError(ErrorKind.Unavailable, "http request unavailable") }
+    return httpError(ErrorKind.Network, "http request failed")
+}
+
+class HttpClient {
+    final HttpClientOptions _options
+    Bool _open
+
+    HttpClient() {
+        self._options = new HttpClientOptions()
+        self._open = true
+    }
+
+    HttpClient(HttpClientOptions options) {
+        if options == null { throw "HttpClient: null options" }
+        self._options = options
+        self._open = true
+    }
+
+    HttpClientOptions options() { return self._options }
+    Bool isOpen() { return self._open }
+
+    Result<Unit, Error> close() {
+        self._open = false
+        return Ok()
+    }
+
+    Result<HttpResponse, Error> request(Context context, HttpRequest request) {
+        if request == null || context == null {
+            throw "HttpClient.request: null argument"
+        }
+        if !self._open {
+            return Err(httpError(ErrorKind.Unavailable, "http client is closed"))
+        }
+        if context.isCancelled() {
+            return Err(httpError(ErrorKind.Cancelled, "http request cancelled"))
+        }
+        Uri uri = httpClientResolve(self._options, request.uri())
+        String? schemeValue = uri.scheme()
+        if schemeValue == null || (schemeValue as String) == "" {
+            return Err(httpError(ErrorKind.InvalidArgument, "http request requires a scheme"))
+        }
+        String scheme = schemeValue as String
+        if scheme.toLower() != "http" {
+            return Err(httpError(ErrorKind.Unsupported, "only http scheme is supported"))
+        }
+        String? hostValue = uri.host()
+        if hostValue == null || (hostValue as String) == "" {
+            return Err(httpError(ErrorKind.InvalidArgument, "http request requires a host"))
+        }
+        String host = hostValue as String
+        Int port = 80
+        Int? portValue = uri.port()
+        if portValue != null { port = portValue as Int }
+        String path = uri.path()
+        if path == "" { path = "/" }
+        if uri.hasQuery() {
+            path = path + "?" + uri.query().toString()
+        }
+        Result<String, Error> bodyRead = request.body().readText(maxLongValue())
+        if bodyRead.isErr() {
+            return Err(httpError(ErrorKind.DataCorrupted, "request body cannot be read"))
+        }
+        String bodyText = bodyRead.value()
+        String responseText = httpRequestRaw(httpMethodName(request.method()), host,
+            port as Int32, path, bodyText)
+        Int status = httpStatusRaw()
+        if context.isCancelled() {
+            return Err(httpError(ErrorKind.Cancelled, "http request cancelled"))
+        }
+        if status == 0 {
+            return Err(httpClientRawError(httpErrorRaw()))
+        }
+        HttpBody responseBody = HttpBody.fromText(responseText)
+        Long length = responseBody.contentLength() as Long
+        HttpResponse response = HttpResponse.of(status).withBody(responseBody)
+        response = response.withHeader("Content-Length", str(length))
+        return Ok(response)
+    }
+
+    Result<HttpResponse, Error> get(Context context, Uri uri) {
+        return self.request(context, new HttpRequest(HttpMethod.Get, uri))
+    }
+
+    Result<HttpResponse, Error> post(Context context, Uri uri, HttpBody body) {
+        HttpRequest request = new HttpRequest(HttpMethod.Post, uri)
+        return self.request(context, request.withBody(body))
+    }
+
+    Result<HttpResponse, Error> put(Context context, Uri uri, HttpBody body) {
+        HttpRequest request = new HttpRequest(HttpMethod.Put, uri)
+        return self.request(context, request.withBody(body))
+    }
+
+    Result<HttpResponse, Error> delete(Context context, Uri uri) {
+        return self.request(context, new HttpRequest(HttpMethod.Delete, uri))
+    }
 }
