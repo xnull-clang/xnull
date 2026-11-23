@@ -244,7 +244,7 @@ class UserRow {
 
 class UserDao {
     @Sql("SELECT user_id, display_name FROM users WHERE user_id = :id")
-    Result<UserRow, Error> find(@Param("id") Long id) {
+    Result<UserRow, Error> find(@Param("id") Long recordId) {
         // ...
     }
 }

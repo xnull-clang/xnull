@@ -163,7 +163,7 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 ```x
 class UserService {
     @Audited("user.delete")
-    void delete(Long id) {
+    void delete(Long recordId) {
         // ...
     }
 }

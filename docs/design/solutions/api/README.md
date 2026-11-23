@@ -398,7 +398,7 @@ class UserService {
     @Inject UserRepository repository
 
     @Transactional(readOnly = true)
-    Result<User, Error> find(Long id) {
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 }

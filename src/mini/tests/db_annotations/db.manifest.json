@@ -1,0 +1,21 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "db_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/db_processor.py"],
+      "outputs": ["DbGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    },
+    {
+      "name": "sql_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/sql_processor.py"],
+      "outputs": ["SqlGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 1
+    }
+  ]
+}

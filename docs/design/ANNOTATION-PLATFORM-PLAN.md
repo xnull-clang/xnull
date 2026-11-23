@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0–M7 implemented**（M5.1 子集、M6 内存驱动闭环、M7.1 Registry v2/扩展、M7.2 缓存/注解面门禁）；M5.3 planned；A8 5 个已实现 |
+| 状态 | **M0–M7 implemented**（M5.1 子集、M6 内存驱动闭环、M7.1 Registry v2/扩展、M7.2 缓存/注解面门禁）；M5.3 planned；M6.5 实体闭环；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -235,6 +235,8 @@ M5.3 修正：路径参数按段 percentDecode（`%2F` 保留单段，`+` 不转
 
 M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数按 SQL `:name` 出现顺序绑定；重复列诊断 `AN1410`（warning）。
 
+M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内存驱动，无真实 DB；迁移 planned）。`@Column` 复用 `xdk.sql`。
+
 ### P7 平台硬化
 
 | ID | 交付 | 依赖 | 验收 |
@@ -261,7 +263,7 @@ M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数�
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |
 | M6.4 | P6 db 值与池 | 配置/统计/批量/映射/池/Database/健康 | in progress (M6.4a/M6.4b implemented；迁移 planned) |
-| M6.5 | P6 实体注解 | `@Entity`/`@Table`/`@Id` | planned |
+| M6.5 | P6 实体注解 | `@Entity`/`@Table`/`@Id`/`@Transactional` | implemented (M6.5) |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | implemented (M7.1/M7.2) |
 
 顺序原则：

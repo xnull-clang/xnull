@@ -142,7 +142,7 @@ class UserService {
     }
 
     @CacheEvict("users", "id")
-    void update(Long id, User user) {
+    void update(Long recordId, User user) {
         // ...
     }
 }

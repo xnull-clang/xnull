@@ -151,6 +151,10 @@ static Result<SqlResult, Error> memRun(List<MemTable> tables, SqlStatement state
         Int createIndex = 0
         while createIndex < createDefs.length() {
             String createDefinition = createDefs.get(createIndex).trim()
+            if createDefinition.toLower().startsWith("primary key") {
+                createIndex = createIndex + 1
+                continue
+            }
             Int createSpace = createDefinition.indexOf(" ")
             if createSpace <= 0 { return Err(sqlInvalidArgument("invalid column")) }
             createNames.push(createDefinition.substring(0, createSpace).trim())
@@ -290,22 +294,30 @@ static Result<SqlResult, Error> memRun(List<MemTable> tables, SqlStatement state
             updateAssignment = updateTail.substring(0, updateWhere).trim()
             updateCondition = updateTail.substring(updateWhere + 7, updateTail.length() - updateWhere - 7).trim()
         }
-        Int updateEquals = updateAssignment.indexOf(" = ")
-        if updateEquals <= 0 { return Err(sqlInvalidArgument("invalid assignment")) }
-        String updateColumnName = updateAssignment.substring(0, updateEquals).trim()
-        Int updateColumn = updateTable.columnIndex(updateColumnName)
-        if updateColumn < 0 { return Err(sqlInvalidArgument("unknown column")) }
-        if !memIsPlaceholder(updateAssignment.substring(updateEquals + 3, updateAssignment.length() - updateEquals - 3).trim()) { return Err(sqlInvalidArgument("assignment only supports placeholders")) }
+        List<String> updateParts = updateAssignment.split(",")
+        List<Int> updateColumnsList = []
+        Int updatePartIndex = 0
+        while updatePartIndex < updateParts.length() {
+            String assignmentPart = updateParts.get(updatePartIndex).trim()
+            Int updateEquals = assignmentPart.indexOf(" = ")
+            if updateEquals <= 0 { return Err(sqlInvalidArgument("invalid assignment")) }
+            String updateColumnName = assignmentPart.substring(0, updateEquals).trim()
+            Int updateColumn = updateTable.columnIndex(updateColumnName)
+            if updateColumn < 0 { return Err(sqlInvalidArgument("unknown column")) }
+            if !memIsPlaceholder(assignmentPart.substring(updateEquals + 3, assignmentPart.length() - updateEquals - 3).trim()) { return Err(sqlInvalidArgument("assignment only supports placeholders")) }
+            updateColumnsList.push(updateColumn)
+            updatePartIndex = updatePartIndex + 1
+        }
         Int updateWhereColumn = -1
         SqlValue updateWhereValue = SqlValue.nullValue()
-        Int updateExpected = 1
+        Int updateExpected = updateColumnsList.length()
         if updateCondition != "" {
             Int updateWhereEquals = updateCondition.indexOf(" = ")
             if updateWhereEquals <= 0 { return Err(sqlInvalidArgument("invalid where")) }
             updateWhereColumn = updateTable.columnIndex(updateCondition.substring(0, updateWhereEquals).trim())
             if updateWhereColumn < 0 { return Err(sqlInvalidArgument("unknown where column")) }
             if !memIsPlaceholder(updateCondition.substring(updateWhereEquals + 3, updateCondition.length() - updateWhereEquals - 3).trim()) { return Err(sqlInvalidArgument("where only supports placeholders")) }
-            updateExpected = 2
+            updateExpected = updateExpected + 1
         }
         if values.length() != updateExpected { return Err(sqlInvalidArgument("parameter count mismatch")) }
         Int updateAffected = 0
@@ -313,9 +325,13 @@ static Result<SqlResult, Error> memRun(List<MemTable> tables, SqlStatement state
         while updateRowIndex < updateTable.rows.length() {
             List<SqlValue> updateRow = updateTable.rows.get(updateRowIndex)
             Bool updateInclude = true
-            if updateWhereColumn >= 0 { updateInclude = memRowMatches(updateRow, updateWhereColumn, values.get(1)) }
+            if updateWhereColumn >= 0 { updateInclude = memRowMatches(updateRow, updateWhereColumn, values.get(values.length() - 1)) }
             if updateInclude {
-                updateRow.set(updateColumn, values.get(0))
+                Int updateApply = 0
+                while updateApply < updateColumnsList.length() {
+                    updateRow.set(updateColumnsList.get(updateApply), values.get(updateApply))
+                    updateApply = updateApply + 1
+                }
                 updateAffected = updateAffected + 1
             }
             updateRowIndex = updateRowIndex + 1
@@ -386,12 +402,22 @@ class MemoryConnection implements SqlConnection {
     List<MemTable> _tables
     Bool _open
     Bool _transactionOpen
+    Bool _failCommit
 
     MemoryConnection() {
         self._dialect = sqlDefaultDialect()
         self._tables = []
         self._open = true
         self._transactionOpen = false
+        self._failCommit = false
+    }
+
+    Void failNextCommit() { self._failCommit = true }
+
+    Bool consumeFailCommit() {
+        Bool value = self._failCommit
+        self._failCommit = false
+        return value
     }
 
     SqlDialect dialect() { return self._dialect }
@@ -425,7 +451,7 @@ class MemoryConnection implements SqlConnection {
         if !self._open { return Err(sqlInvalidArgument("connection is closed")) }
         if self._transactionOpen { return Err(sqlInvalidArgument("transaction already open")) }
         self._transactionOpen = true
-        MemoryTransaction transaction = new MemoryTransaction(self, self.copyTables())
+        MemoryTransaction transaction = new MemoryTransaction(self, self.copyTables(), self.consumeFailCommit())
         SqlTransaction result = transaction
         return Ok(result)
     }
@@ -442,10 +468,13 @@ class MemoryTransaction implements SqlTransaction {
     List<MemTable> _tables
     Bool _open
 
-    MemoryTransaction(MemoryConnection connection, List<MemTable> tables) {
+    Bool _failCommit
+
+    MemoryTransaction(MemoryConnection connection, List<MemTable> tables, Bool failCommit) {
         self._connection = connection
         self._tables = tables
         self._open = true
+        self._failCommit = failCommit
     }
 
     Result<SqlResult, Error> execute(SqlStatement statement) {
@@ -465,6 +494,11 @@ class MemoryTransaction implements SqlTransaction {
 
     Result<Unit, Error> commit() {
         if !self._open { return Err(sqlInvalidArgument("transaction is closed")) }
+        if self._failCommit {
+            self._connection.endTransaction()
+            self._open = false
+            return Err(sqlInvalidArgument("injected commit failure"))
+        }
         self._connection.adoptTables(self._tables)
         self._connection.endTransaction()
         self._open = false

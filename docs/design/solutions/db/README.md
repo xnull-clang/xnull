@@ -24,7 +24,7 @@
 
 `xdk.db` **不是**：
 
-- 不是 ORM：不做实体映射、关系加载、变更跟踪、懒加载、身份映射；
+- 不是运行时 ORM：不做关系加载、变更跟踪、懒加载、身份映射；编译期实体注解只生成显式 CRUD 助手；
 - 不是 SQL 构建器/解析器：SQL 文本与参数仍由调用方通过 `SqlStatement` 提供；
 - 不是驱动注册表：不提供服务加载、自动发现、全局连接池；
 - 不是数据库抽象层的新方言：方言、值模型、执行协议仍归 `xdk.sql`；
@@ -121,9 +121,9 @@ Database.close()
 
 ---
 
-## 3.4 M6.4a/M6.4b 实现状态
+## 3.4 M6.4a/M6.4b/M6.5 实现状态
 
-已实现（池/Database/健康为 M6.4b；包状态仍为 `design`）：
+已实现（包状态仍为 `design`）：
 
 - `IsolationLevel`、`DatabaseConfig`、`DatabasePoolStats`、`DbBatch`、`RowMapper`；
 - `DatabasePool`：借还、空闲复用、容量上限、Context 取消、获取超时、统计、关闭；
@@ -131,9 +131,11 @@ Database.close()
 - `Database`：execute/executeWithOptions/begin/borrow/close；
 - `Db`：open/openPool/isolationOpenOptionKey；
 - `DatabaseHealth implements HealthCheck`；
-- `xdk.runtime.HealthCheck` 协议。
+- `xdk.runtime.HealthCheck` 协议；
+- M6.5 实体注解：`@Entity`、`@Table`、`@Id`、`@Transactional` 与 `db_processor`；
+- 生成：`<Type>TableName`、建表/插入/按 id 查询/更新/删除语句、`FromRow`、连接版 CRUD、事务包装。
 
-planned：`Migration`、`MigrationRunner`、实体注解（M6.5）。本批不接真实数据库。
+planned：`Migration`、`MigrationRunner`。仅内存驱动验证，不接真实数据库。
 
 ## 4. 类型索引
 
@@ -297,15 +299,15 @@ planned：`Migration`、`MigrationRunner`、实体注解（M6.5）。本批不�
 | 本包消费 | `@Value`、`@Builder`、`@Sql`、`@Column`、`@Param`、`@Row` |
 | 处理器 | DbAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | 实体/表/列/DAO 映射、事务包装 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@Entity`/`@Table`/`@Id`/`@Transactional` implemented (M6.5)；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
 | 类型/成员 | 注解 | 生成/检查 |
 | --- | --- | --- |
-| 实体类 | `@Entity`/`@Table` | 实体/表元数据 |
-| 主键字段 | `@Id` | 主键元数据 |
-| 事务方法 | `@Transactional` | 事务包装 |
+| 实体类 | `@Entity`/`@Table` | 表名、建表/CRUD/`FromRow` |
+| 主键字段 | `@Id` | 主键列、按 id 查询/删除 |
+| 事务方法 | `@Transactional` | begin/commit/rollback 包装；`readOnly` 仅记录，当前驱动无只读提示 |
 | DAO 方法/参数/行 | `@Sql`/`@Param`/`@Row`/`@Column` | SQL 映射 |
 
 ### 声明
@@ -348,7 +350,7 @@ class User {
 
 class UserRepository {
     @Sql("SELECT id, display_name FROM users WHERE id = :id")
-    Result<User, Error> find(@Param("id") Long id) {
+    Result<User, Error> find(@Param("id") Long recordId) {
         // ...
     }
 }

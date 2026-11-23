@@ -77,10 +77,10 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@Param` | 绑定命名参数 | `String value` | Parameter / Source | sql_processor → 参数绑定 | implemented (M6.2) |
 | `@Row` | 标记行映射类型 | 无 | Type / Source | sql_processor → 行 mapper | implemented (M6.2) |
 | `@Column` | 绑定列名 | `String value` | Field / Source | sql_processor → 列映射 | implemented (M6.2) |
-| `@Entity` | 标记实体 | `String table` | Type / Source | DbAnnotationProcessor → 实体元数据 | planned |
-| `@Table` | 绑定表名 | `String name` | Type / Source | DbAnnotationProcessor → 表映射 | planned |
-| `@Id` | 标记主键 | 无 | Field / Source | DbAnnotationProcessor → 主键元数据 | planned |
-| `@Transactional` | 事务包装 | `Bool readOnly = false` | Method / Source | DbAnnotationProcessor → 事务包装 |
+| `@Entity` | 标记实体 | `String table` | Type / Source | db_processor → 表名/CRUD/行映射 | implemented (M6.5) |
+| `@Table` | 绑定表名 | `String name` | Type / Source | db_processor → 表名/CRUD/行映射 | implemented (M6.5) |
+| `@Id` | 标记主键 | 无 | Field / Source | db_processor → 主键列与按 id CRUD | implemented (M6.5) |
+| `@Transactional` | 事务包装 | `Bool readOnly = false` | Method / Source | db_processor → begin/commit/rollback 包装 | implemented (M6.5) |
 
 ### 3.4 编解码 / 文档格式
 

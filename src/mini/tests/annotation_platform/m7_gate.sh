@@ -13,6 +13,7 @@ m3 $HERE/../codec_annotations/m3_gate.sh
 m4 $HERE/../validate_annotations/m4_gate.sh
 m5 $HERE/../http_annotations/m5_gate.sh
 m6 $HERE/../sql_annotations/m6_gate.sh
+m6_5 $HERE/../db_annotations/m6_5_gate.sh
 GATES
 : >"$TMP/pids"
 while read -r name gate; do
@@ -72,6 +73,7 @@ packages = [
     ("xdk.validate", "validate_processor.py", "validate_annotations/m4_gate.sh", "validate_annotations/generated/ValidateGenerated.x"),
     ("xdk.net.http", "http_processor.py", "http_annotations/m5_gate.sh", "http_annotations/generated/HttpGenerated.x"),
     ("xdk.sql", "sql_processor.py", "sql_annotations/m6_gate.sh", "sql_annotations/generated/SqlGenerated.x"),
+    ("xdk.db", "db_processor.py", "db_annotations/m6_5_gate.sh", "db_annotations/generated/DbGenerated.x"),
 ]
 tests = root / "src/mini/tests"
 for package, processor, gate, generated in packages:

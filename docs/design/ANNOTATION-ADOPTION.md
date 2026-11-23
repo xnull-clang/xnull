@@ -132,7 +132,7 @@
 | 68 | `xdk.mcp` | `@Tool`、`@ToolParam`、`@Resource`、`@Prompt` | `@Value`、`@Builder`、`@Serializable` | McpAnnotationProcessor（Validate/Generate） | 工具/资源/prompt 清单、输入 schema |
 | 69 | `xdk.ml` | `@ModelSpec`、`@MlPipeline` | `@Value`、`@Builder`、`@TensorSpec` | MlAnnotationProcessor（Validate/Generate） | 模型/流水线目录、输入输出 spec |
 | 70 | `xdk.numerics` | 无领域注解 | `@Value`、`@Builder`、`@Copy` | 标准 A8 | 大数/多项式/信号值语义 |
-| 71 | `xdk.db` | `@Entity`、`@Table`、`@Id`、`@Transactional` | `@Value`、`@Builder`、`@Sql`、`@Column`、`@Param`、`@Row` | DbAnnotationProcessor（Resolve/Validate/Generate） | 实体/表/列/DAO 映射、事务包装 |
+| 71 | `xdk.db` | `@Entity`、`@Table`、`@Id`、`@Transactional` | `@Value`、`@Builder`、`@Sql`、`@Column`、`@Param`、`@Row` | db_processor（Generate） | 实体/表/列/DAO 映射、事务包装（内存驱动） |
 | 72 | `xdk.api` | `@Api`、`@Operation`、`@Middleware`、`@Inject`、`@Component`、`@Configuration`、`@Bean` | `@Value`、`@Builder`、`@HttpRoute`、`@Header`、`@Query`、`@Body`、`@StatusCode` | ApiAnnotationProcessor（Resolve/Validate/Generate） | 路由表、OpenAPI、参数绑定、装配元数据 |
 | 73 | `xdk.agent` | `@AgentReceiver`、`@AgentProcessor`、`@AgentExporter`、`@PipelineSpec` | `@Value`、`@Builder`、`@Metered`、`@Traced` | AgentAnnotationProcessor（Validate/Generate） | 管线/组件注册、观测元数据 |
 | 74 | `xdk.accel` | 无领域注解 | `@Builder`、`@GpuKernel`、`@TensorOp` | 无自有处理器；消费 GPU/Tensor 生成物 | 设备/程序/队列是句柄/服务；kernel 入口复用 GPU/Tensor 处理器 |
@@ -594,7 +594,7 @@ class UserRow {
 
 class UserDao {
     @Sql("SELECT user_id, display_name FROM users WHERE user_id = :id")
-    Result<UserRow, Error> find(@Param("id") Long id) {
+    Result<UserRow, Error> find(@Param("id") Long recordId) {
         // ...
     }
 }
@@ -1229,7 +1229,7 @@ class UserService {
     }
 
     @CacheEvict("users", "id")
-    void update(Long id, User user) {
+    void update(Long recordId, User user) {
         // ...
     }
 }
@@ -1433,7 +1433,7 @@ class UserService {
 ```x
 class UserService {
     @Audited("user.delete")
-    void delete(Long id) {
+    void delete(Long recordId) {
         // ...
     }
 }
@@ -1682,13 +1682,13 @@ class User {
 
 class UserRepository {
     @Sql("SELECT id, display_name FROM users WHERE id = :id")
-    Result<User, Error> find(@Param("id") Long id) {
+    Result<User, Error> find(@Param("id") Long recordId) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Entity`/`@Table`/`@Id`/`@Transactional` implemented (M6.5，内存驱动)；A8 派生 implemented（含限制）；编译器内建 implemented。迁移/真实数据库 planned。
 
 ### `xdk.api`
 
@@ -1763,7 +1763,7 @@ class UserService {
     @Inject UserRepository repository
 
     @Transactional(readOnly = true)
-    Result<User, Error> find(Long id) {
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 }
