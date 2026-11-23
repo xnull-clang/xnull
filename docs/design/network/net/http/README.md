@@ -116,15 +116,18 @@ X：Router/Middleware、连接池高级策略。HTTP/3/QUIC 不做。
 | HTTP/2 | 多路复用、SETTINGS、流、PING/GOAWAY、HPACK | `Http2Session`/`Http2Stream` 等 |
 | HTTP/3 | QUIC 传输、0-RTT | 不做；需要 QUIC 层 |
 
-## 5.2 M5.1/M5.3a 实现子集与裁剪
+## 5.2 M5.1/M5.3a/M5.3b 实现子集与裁剪
 
-当前 `implemented` 只覆盖 `@HttpRoute` 业务闭环与最小真实 client 子集：
+当前 `implemented` 覆盖 `@HttpRoute` 业务闭环、最小真实 client 与 server 子集：
 
 - 已实现：`HttpMethod`、`HttpVersion`、`HttpStatus`、`HttpHeader`、`HttpHeaders`、`HttpBody`（仅缓冲字节）、`HttpRequest`、`HttpResponse`、`HttpServerOptions`、`Form`、`FormEntry`、`SameSite`、`Cookie`、`CookieJar`。
 - M5.3a client 子集：`HttpClient`、`HttpClientOptions`（仅 `baseUri`）、`request`/`get`/`post`/`put`/`delete`；`httpRequestRaw`/`httpStatusRaw`/`httpErrorRaw`。
 - client 裁剪：无响应头（仅补 `Content-Length`）、无 TLS、无重定向、无流式 body、无 userAgent/timeout/proxy/cookie 选项；3xx 原样返回，不自动跟随。
+- M5.3b server 子集：`HttpExchange`、`HttpHandler`、`HttpServer.bind`/`serve`/`serveOnce`/`close`、`localPort`。
+- server 裁剪：text-only、HTTP/1.0/1.1、单请求单连接、无 keep-alive/chunked/TLS/HTTP2/upgrade；头上限 64KiB、body 上限 1MiB；非法请求 400、chunked 501、未响应 handler 500。
+- 端口：`bind` 只接受显式 `1..65535`；`port 0` 与 `localAddress` planned（FFI 无 getsockname 桥）。
 - `HttpBody` 无 `ByteStream`：无 `stream()`/`writeTo`/`fromStream`，只做 `Bytes` + `readAll`/`readText`/`close`。
-- planned：`HttpExchange`/`HttpHandler`、`HttpServer`、完整 `HttpClientOptions`（TLS/timeout/redirect/userAgent/cookie）、HTTP/2、代理/CONNECT、multipart、流式 body、socket 网络栈。
+- planned：完整 `HttpClientOptions`（TLS/timeout/redirect/userAgent/cookie）、`HttpServerOptions` 网络面、HTTP/2、代理/CONNECT、multipart、流式 body、socket 网络栈。
 - Cookie 过期只解析数字 `Max-Age`/`Expires`（`Expires` 不做 RFC HTTP-date）；`CookieJar` 只做精确 domain/path，不实现 PSL。
 - `HttpHeaders.contentType/contentLength/userAgent` 已实现。
 

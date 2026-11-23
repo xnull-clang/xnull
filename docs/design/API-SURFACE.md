@@ -68,7 +68,7 @@ xdk.execution  任务/任务组/上下文/执行器/定时器/同步原语
 xdk.net.uri        URI/URL/Query/百分号编码
 xdk.net            IP/前缀/Socket 地址/DNS/ByteStream/TCP/UDP
 xdk.net.tls        证书/私钥/信任库/TLS 流/mTLS
-xdk.net.http       HTTP/1.1 client 子集（M5.3a）；HTTP/2、服务端/代理/Multipart planned
+xdk.net.http       HTTP/1.1 client/server 子集（M5.3a/M5.3b）；HTTP/2、代理/Multipart planned
 xdk.net.websocket  WebSocket 客户端/服务端/消息/心跳/重连
 xdk.net.mime       MediaType/扩展名
 ```

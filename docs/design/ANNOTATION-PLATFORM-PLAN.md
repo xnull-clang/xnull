@@ -2,7 +2,7 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | **M0–M7 implemented**（M5.1 子集、M6 内存驱动闭环、M7.1 Registry v2/扩展、M7.2 缓存/注解面门禁）；M5.3 planned；M5.3a client 子集 implemented；M6.5 实体闭环；A8 5 个已实现 |
+| 状态 | **M0–M7 implemented**（M5.1 子集、M6 内存驱动闭环、M7.1 Registry v2/扩展、M7.2 缓存/注解面门禁）；M5.3 planned；M5.3a client 子集、M5.3b server 子集 implemented；M6.5 实体闭环；A8 5 个已实现 |
 | 基线 | `main` @ `a4a5ba33`（M0 close；P0-01–P0-09 implemented） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0） |
 | 相关文档 | [`ANNOTATION-IR.md`](ANNOTATION-IR.md)、[`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md)、[`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md)、[`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md)、[`ARCHITECTURE.md`](ARCHITECTURE.md) §6 |
@@ -262,6 +262,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M5.3a | P5 http client 子集 | `HttpClient`/`HttpClientOptions`（仅 baseUri）、真实 `net_raw` 请求 | implemented (M5.3a) |
+| M5.3b | P5 http server 子集 | `HttpServer`/`HttpExchange`/`HttpHandler`、真实 listener/socket | implemented (M5.3b) |
 | M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |
 | M6.4 | P6 db 值与池 | 配置/统计/批量/映射/池/Database/健康 | in progress (M6.4a/M6.4b implemented；迁移 planned) |
 | M6.5 | P6 实体注解 | `@Entity`/`@Table`/`@Id`/`@Transactional` | implemented (M6.5) |

@@ -3,8 +3,9 @@
 // Deliberate cuts for this milestone:
 // - route closure has no Context parameter;
 // - HttpBody is buffered bytes only (no ByteStream/SocketAddress);
-// - M5.3a client is buffered text only: no response headers except Content-Length,
-//   no TLS/redirect/streaming/proxy, and no HTTP/2 or server.
+// - M5.3a client and M5.3b server are buffered text only: no TLS/redirect/
+//   keep-alive/streaming/proxy, no HTTP/2, and server responses expose only
+//   Content-Length plus caller headers.
 package xdk.net.http
 import xdk.bytes
 import xdk.errors
@@ -1154,5 +1155,304 @@ class HttpClient {
 
     Result<HttpResponse, Error> delete(Context context, Uri uri) {
         return self.request(context, new HttpRequest(HttpMethod.Delete, uri))
+    }
+}
+
+// ---------- M5.3b：最小真实 HTTP server ----------
+// wire 面：HTTP/1.0/1.1 文本、单请求单连接；无 chunked/keep-alive/TLS/HTTP2/upgrade。
+
+protocol HttpHandler {
+    Result<Unit, Error> handle(Context context, HttpExchange exchange);
+}
+
+static Error httpServerRawError(Int code) {
+    if code == 1 { return httpError(ErrorKind.InvalidArgument, "http server argument rejected") }
+    if code == 2 { return httpError(ErrorKind.Io, "http server io failure") }
+    if code == 3 { return httpError(ErrorKind.Cancelled, "http server cancelled") }
+    if code == 4 { return httpError(ErrorKind.Timeout, "http server timed out") }
+    if code == 5 { return httpError(ErrorKind.Unavailable, "http server unavailable") }
+    return httpError(ErrorKind.Network, "http server failed")
+}
+
+static Result<Unit, Error> httpWriteAll(Int64 socket, String text) {
+    Int64 sent = socketSendRaw(socket, text)
+    if sent < 0 {
+        return Err(httpError(ErrorKind.Io, "http response write failed"))
+    }
+    return Ok()
+}
+
+static Result<Unit, Error> httpWriteResponse(Int64 socket, HttpResponse response) {
+    Result<String, Error> bodyResult = response.body().readText(maxLongValue())
+    if bodyResult.isErr() {
+        return Err(httpError(ErrorKind.DataCorrupted, "http response body cannot be read"))
+    }
+    String body = bodyResult.value()
+    Int code = response.status().code()
+    String reason = response.status().reason()
+    if reason == "" { reason = str(code) }
+    Long length = response.body().contentLength() as Long
+    String wire = "HTTP/1.1 " + str(code) + " " + reason + "\r\n" +
+        "Content-Length: " + str(length) + "\r\n" +
+        "Connection: close\r\n"
+    List<HttpHeader> entries = response.headers().entries()
+    Int index = 0
+    while index < entries.length() {
+        HttpHeader header = entries.get(index)
+        String name = header.name().toLower()
+        if name != "content-length" && name != "connection" {
+            wire = wire + header.name() + ": " + header.value() + "\r\n"
+        }
+        index = index + 1
+    }
+    wire = wire + "\r\n" + body
+    return httpWriteAll(socket, wire)
+}
+
+static Result<Unit, Error> httpWriteStatus(Int64 socket, Int status) {
+    return httpWriteResponse(socket, HttpResponse.of(status))
+}
+
+static Result<HttpRequest, Error> httpReadRequest(Int64 socket, String host, Int port) {
+    String headerText = ""
+    Int headerEnd = -1
+    while headerEnd < 0 {
+        String chunk = socketRecvRaw(socket, 65536)
+        if chunk == "" {
+            return Err(httpError(ErrorKind.DataCorrupted, "empty or failed request read"))
+        }
+        headerText = headerText + chunk
+        headerEnd = headerText.indexOf("\r\n\r\n")
+        if headerEnd < 0 && headerText.length() > 65536 {
+            return Err(httpError(ErrorKind.DataCorrupted, "request headers exceed 64KiB"))
+        }
+    }
+    if headerEnd > 65536 {
+        return Err(httpError(ErrorKind.DataCorrupted, "request headers exceed 64KiB"))
+    }
+    String bodyText = headerText.substring(headerEnd + 4, headerText.length() - headerEnd - 4)
+    List<String> lines = headerText.substring(0, headerEnd).split("\r\n")
+    if lines.length() == 0 {
+        return Err(httpError(ErrorKind.InvalidArgument, "invalid request line"))
+    }
+    List<String> requestLine = lines.get(0).split(" ")
+    if requestLine.length() != 3 {
+        return Err(httpError(ErrorKind.InvalidArgument, "invalid request line"))
+    }
+    Result<HttpMethod, Error> methodResult = parseHttpMethod(requestLine.get(0))
+    if methodResult.isErr() {
+        return Err(httpError(ErrorKind.InvalidArgument, "invalid request method"))
+    }
+    HttpMethod method = methodResult.value() as HttpMethod
+    Result<HttpVersion, Error> versionResult = parseHttpVersion(requestLine.get(2))
+    if versionResult.isErr() {
+        return Err(httpError(ErrorKind.InvalidArgument, "invalid request version"))
+    }
+    HttpVersion version = versionResult.value() as HttpVersion
+    if version != HttpVersion.Http10 && version != HttpVersion.Http11 {
+        return Err(httpError(ErrorKind.InvalidArgument, "only HTTP/1.0 and HTTP/1.1 are supported"))
+    }
+    HttpHeaders headers = new HttpHeaders()
+    Int lineIndex = 1
+    while lineIndex < lines.length() {
+        String line = lines.get(lineIndex)
+        if line == "" {
+            lineIndex = lineIndex + 1
+            continue
+        }
+        Int colon = line.indexOf(":")
+        if colon <= 0 {
+            return Err(httpError(ErrorKind.InvalidArgument, "invalid request header"))
+        }
+        String name = line.substring(0, colon).trim()
+        String value = line.substring(colon + 1, line.length() - colon - 1).trim()
+        headers.add(name, value)
+        lineIndex = lineIndex + 1
+    }
+    if headers.has("transfer-encoding") {
+        return Err(httpError(ErrorKind.Unsupported, "transfer-encoding is not supported"))
+    }
+    Long contentLength = 0
+    String? lengthText = headers.getOrNull("content-length")
+    if lengthText != null {
+        Result<Long, Error> parsedLength = httpParseLong(lengthText as String)
+        if parsedLength.isErr() || parsedLength.value() < 0 {
+            return Err(httpError(ErrorKind.InvalidArgument, "invalid content-length"))
+        }
+        contentLength = parsedLength.value()
+        if contentLength > 1048576 {
+            return Err(httpError(ErrorKind.InvalidArgument, "request body exceeds 1MiB"))
+        }
+    }
+    Int expected = contentLength as Int
+    while bodyText.length() < expected {
+        Int remaining = expected - bodyText.length()
+        Int ask = remaining
+        if ask > 65536 { ask = 65536 }
+        String chunk = socketRecvRaw(socket, ask as Int32)
+        if chunk == "" {
+            return Err(httpError(ErrorKind.DataCorrupted, "request body is truncated"))
+        }
+        bodyText = bodyText + chunk
+    }
+    if bodyText.length() > expected {
+        bodyText = bodyText.substring(0, expected)
+    }
+    String target = requestLine.get(1)
+    String uriText = target
+    if !target.startsWith("http://") && !target.startsWith("https://") {
+        uriText = "http://" + host + ":" + str(port) + target
+    }
+    Result<Uri, Error> uriResult = Uri.parse(uriText)
+    if uriResult.isErr() {
+        return Err(httpError(ErrorKind.InvalidArgument, "invalid request target"))
+    }
+    HttpRequest request = new HttpRequest(method, uriResult.value())
+    request = request.withVersion(version).withHeaders(headers)
+    if expected > 0 {
+        request = request.withBody(HttpBody.fromText(bodyText))
+    }
+    return Ok(request)
+}
+
+class HttpExchange {
+    final HttpRequest _request
+    final Int64 _socket
+    Bool _responded
+    Bool _closed
+
+    HttpExchange(HttpRequest request, Int64 socket) {
+        if request == null { throw "HttpExchange: null request" }
+        self._request = request
+        self._socket = socket
+        self._responded = false
+        self._closed = false
+    }
+
+    HttpRequest request() { return self._request }
+    Bool isResponded() { return self._responded }
+    Bool isUpgraded() { return false }
+
+    Result<Unit, Error> respond(HttpResponse response) {
+        if response == null { throw "HttpExchange.respond: null response" }
+        if self._closed {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange is closed"))
+        }
+        if self._responded {
+            return Err(httpError(ErrorKind.InvalidArgument, "http response already sent"))
+        }
+        Result<Unit, Error> written = httpWriteResponse(self._socket, response)
+        if written.isErr() { return written }
+        self._responded = true
+        return Ok()
+    }
+
+    Result<Unit, Error> respondStatus(Int status) {
+        return self.respond(HttpResponse.of(status))
+    }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        Int rc = socketCloseRaw(self._socket)
+        if rc != 0 {
+            return Err(httpError(ErrorKind.Io, "socket close failed"))
+        }
+        return Ok()
+    }
+}
+
+class HttpServer {
+    final Int64 _listener
+    final String _host
+    final Int _port
+    Bool _open
+
+    HttpServer(Int64 listener, String host, Int port) {
+        self._listener = listener
+        self._host = host
+        self._port = port
+        self._open = true
+    }
+
+    static Result<HttpServer, Error> bind(Context context, String host, Int port) {
+        if context == null || host == null { throw "HttpServer.bind: null argument" }
+        if context.isCancelled() {
+            return Err(httpError(ErrorKind.Cancelled, "http server bind cancelled"))
+        }
+        if host == "" || port <= 0 || port > 65535 {
+            return Err(httpError(ErrorKind.InvalidArgument, "http server requires explicit 1..65535 port"))
+        }
+        Int64 listener = listenerBindRaw(host, port as Int32)
+        if listener == 0 {
+            return Err(httpServerRawError(socketErrorRaw()))
+        }
+        return Ok(new HttpServer(listener, host, port))
+    }
+
+    String host() { return self._host }
+    Int localPort() { return self._port }
+    Bool isOpen() { return self._open }
+
+    Result<Unit, Error> serve(Context context, HttpHandler handler, Int maxRequests) {
+        if context == null || handler == null { throw "HttpServer.serve: null argument" }
+        if maxRequests <= 0 { throw "HttpServer.serve: maxRequests must be positive" }
+        if !self._open {
+            return Err(httpError(ErrorKind.Unavailable, "http server is closed"))
+        }
+        Int served = 0
+        while served < maxRequests {
+            if context.isCancelled() {
+                return Err(httpError(ErrorKind.Cancelled, "http server request cancelled"))
+            }
+            if !self._open {
+                return Err(httpError(ErrorKind.Unavailable, "http server is closed"))
+            }
+            Int64 socket = listenerAcceptRaw(self._listener)
+            if socket == 0 {
+                if context.isCancelled() {
+                    return Err(httpError(ErrorKind.Cancelled, "http server request cancelled"))
+                }
+                return Err(httpServerRawError(socketErrorRaw()))
+            }
+            served = served + 1
+            Result<HttpRequest, Error> parsed = httpReadRequest(socket, self._host, self._port)
+            if parsed.isErr() {
+                Error parseError = parsed.error()
+                Int status = 400
+                if parseError.kind() == ErrorKind.Unsupported {
+                    status = 501
+                }
+                Result<Unit, Error> sent = httpWriteStatus(socket, status)
+                socketCloseRaw(socket)
+                if sent.isErr() { return sent }
+                continue
+            }
+            HttpExchange exchange = new HttpExchange(parsed.value(), socket)
+            Result<Unit, Error> handled = handler.handle(context, exchange)
+            if !exchange.isResponded() {
+                Result<Unit, Error> fallback = exchange.respondStatus(500)
+                if fallback.isErr() {
+                    exchange.close()
+                    return fallback
+                }
+            }
+            exchange.close()
+            if handled.isErr() {
+                return Err(handled.error())
+            }
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> serveOnce(Context context, HttpHandler handler) {
+        return self.serve(context, handler, 1)
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        socketCloseRaw(self._listener)
+        return Ok()
     }
 }
