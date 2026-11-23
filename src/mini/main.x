@@ -13724,6 +13724,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.net.uri" || pkg.startsWith("xdk.net.uri.") {
         return "net/uri/Uri.x"
     }
+    if pkg == "xdk.sql" || pkg.startsWith("xdk.sql.") {
+        return "sql/Sql.x"
+    }
     if pkg == "xdk.net.http" || pkg.startsWith("xdk.net.http.") {
         return "net/http/Http.x"
     }

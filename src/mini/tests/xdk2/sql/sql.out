@@ -1,0 +1,50 @@
+value-null=true,null
+value-bool=true,bool
+value-int=7,int
+value-long=9000000000,long
+value-double=1.5,double
+value-string=abc,string
+value-bytes=xy,bytes
+value-wrong=true
+value-equals=true,false,true
+value-describe=SqlValue(kind=long)
+parameter=SqlParameter(indexed=1 kind=string)|SqlParameter(named=userId kind=long)
+parameter-flags=true,false,true,0
+parameter-equals=true
+statement=2,false,SqlStatement(sqlLength=32 parameters=2 style=indexed)
+statement-named=1,true
+statement-clear=0,2
+statement-equals=true
+row=2,Ada,true,SqlRow(values=2)
+result=2,1,true,SqlResult(query=true columns=2 rows=1 affected=0)
+result-snapshot=1
+result-equals=true
+options=2000,10,5,20,SqlOptions(timeoutMillis=2000 maxRows=10 fetchSize=5)
+names=postgres,generic,bytes
+driver-name=memory
+driver-open=true
+connection=generic,true
+create=true
+insert=1,false
+select=2,2,1,Ada
+where=1,2
+maxrows=1
+update=1
+update-value=Bobby
+delete=1
+delete-count=1
+tx-isolation=true
+tx-commit=true,false
+tx-count=2
+rollback=true,false
+rollback-count=2
+close-tx=true,false
+close-count=2
+named-unsupported=true
+bad-option=true
+bad-scheme=true
+close=true,false
+closed-execute=true
+closed-begin=true
+closed-dialect=generic
+close-idempotent=true

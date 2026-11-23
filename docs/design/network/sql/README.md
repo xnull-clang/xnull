@@ -111,6 +111,15 @@
 
 ---
 
+## 4.1 M6.1 实现范围与裁剪
+
+- `xdk.sql` 12 类型已实现，作为接口/值模型；不内置具体驱动。
+- 唯一签名裁剪：核心 `Context` 未实现，协议方法不带 `Context`。
+- 语言不支持协议方法重载，三参执行入口命名为 `executeWithOptions(SqlStatement, SqlOptions)`；两参 `execute` 等价全零 options。
+- `SqlDriver.open(String connectionUri, Map<String,String> openOptions)` 同样不带 `Context`。
+- 内存驱动只存在于 `src/mini/tests/xdk2/sql/`，不是包公共 API。
+- 不提供连接池、ORM、SQL 解析/构建、流式游标、真实数据库连接。
+
 ## 5. 场景
 
 ### S1：索引参数查询
@@ -178,7 +187,7 @@
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | SqlAnnotationProcessor（Resolve/Validate/Generate） |
 | 生成物 | DAO 方法、行 mapper、参数绑定、列映射 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `xdk.sql` 包 implemented (M6.1)；`@Sql`/`@Param`/`@Row`/`@Column` planned |
 
 ### 具体落点
 

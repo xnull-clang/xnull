@@ -16711,6 +16711,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.uri")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.uri.")))) {
     return rt_string_from_c("net/uri/Uri.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.sql")) || xn_str_startswith(pkg, rt_string_from_c("xdk.sql.")))) {
+    return rt_string_from_c("sql/Sql.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.http")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.http.")))) {
     return rt_string_from_c("net/http/Http.x");
   }
