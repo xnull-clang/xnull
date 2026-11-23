@@ -526,8 +526,113 @@ class AnnotationSet {
 
 // 编译器生成的只读注解元数据注册表。
 // 构造参数是扁平 AnnotationInfo 列表；构造时按 target + targetName 分组。
+
+// 注解声明元数据（Registry v2）。
+class AnnotationDeclaration {
+    final String _name
+    final List<AnnotationTarget> _targets
+    final AnnotationRetention _retention
+    final List<String> _parameterNames
+
+    AnnotationDeclaration(String name, List<AnnotationTarget> targets,
+                          AnnotationRetention retention, List<String> parameterNames) {
+        if name == null || name == "" { throw "AnnotationDeclaration: empty name" }
+        if targets == null || targets.length() == 0 { throw "AnnotationDeclaration: empty targets" }
+        if retention == null { throw "AnnotationDeclaration: null retention" }
+        if parameterNames == null { throw "AnnotationDeclaration: null parameters" }
+        List<AnnotationTarget> targetCopy = []
+        Int targetIndex = 0
+        while targetIndex < targets.length() {
+            targetCopy.push(targets.get(targetIndex))
+            targetIndex = targetIndex + 1
+        }
+        self._name = name
+        self._targets = targetCopy
+        self._retention = retention
+        self._parameterNames = parameterNames.copy()
+    }
+
+    static AnnotationDeclaration builtin(String name, List<String> targetNames,
+                                         String retentionName, List<String> parameterNames) {
+        List<AnnotationTarget> targets = []
+        Int index = 0
+        while index < targetNames.length() {
+            targets.push(annotationTargetOf(targetNames.get(index)))
+            index = index + 1
+        }
+        return new AnnotationDeclaration(name, targets,
+            annotationRetentionOf(retentionName), parameterNames)
+    }
+
+    String name() { return self._name }
+    List<AnnotationTarget> targets() { return self._targets.copy() }
+    AnnotationRetention retention() { return self._retention }
+    List<String> parameterNames() { return self._parameterNames.copy() }
+
+    String describe() {
+        String targetText = ""
+        Int index = 0
+        while index < self._targets.length() {
+            if index > 0 { targetText = targetText + "," }
+            targetText = targetText + annotationTargetName(self._targets.get(index))
+            index = index + 1
+        }
+        String parameterText = ""
+        index = 0
+        while index < self._parameterNames.length() {
+            if index > 0 { parameterText = parameterText + "," }
+            parameterText = parameterText + self._parameterNames.get(index)
+            index = index + 1
+        }
+        return "AnnotationDeclaration(name=" + self._name + " targets=" + targetText +
+            " retention=" + annotationRetentionName(self._retention) +
+            " parameters=" + parameterText + ")"
+    }
+}
+
+AnnotationTarget annotationTargetOf(String name) {
+    if name == "Package" { return AnnotationTarget.Package }
+    if name == "Type" { return AnnotationTarget.Type }
+    if name == "Annotation" { return AnnotationTarget.Annotation }
+    if name == "TypeParameter" { return AnnotationTarget.TypeParameter }
+    if name == "Field" { return AnnotationTarget.Field }
+    if name == "Method" { return AnnotationTarget.Method }
+    if name == "Constructor" { return AnnotationTarget.Constructor }
+    if name == "Deinit" { return AnnotationTarget.Deinit }
+    if name == "Parameter" { return AnnotationTarget.Parameter }
+    if name == "TypeUse" { return AnnotationTarget.TypeUse }
+    return AnnotationTarget.EnumItem
+}
+
+String annotationTargetName(AnnotationTarget target) {
+    if target == AnnotationTarget.Package { return "Package" }
+    if target == AnnotationTarget.Type { return "Type" }
+    if target == AnnotationTarget.Annotation { return "Annotation" }
+    if target == AnnotationTarget.TypeParameter { return "TypeParameter" }
+    if target == AnnotationTarget.Field { return "Field" }
+    if target == AnnotationTarget.Method { return "Method" }
+    if target == AnnotationTarget.Constructor { return "Constructor" }
+    if target == AnnotationTarget.Deinit { return "Deinit" }
+    if target == AnnotationTarget.Parameter { return "Parameter" }
+    if target == AnnotationTarget.TypeUse { return "TypeUse" }
+    return "EnumItem"
+}
+
+AnnotationRetention annotationRetentionOf(String name) {
+    if name == "Source" { return AnnotationRetention.Source }
+    if name == "Runtime" { return AnnotationRetention.Runtime }
+    return AnnotationRetention.Binary
+}
+
+String annotationRetentionName(AnnotationRetention retention) {
+    if retention == AnnotationRetention.Source { return "Source" }
+    if retention == AnnotationRetention.Runtime { return "Runtime" }
+    return "Binary"
+}
+
 class AnnotationRegistry {
     final Map<String, AnnotationSet> _targets
+    List<AnnotationDeclaration> _declarations
 
     AnnotationRegistry(List<AnnotationInfo> annotations) {
         if annotations == null {
@@ -554,6 +659,8 @@ class AnnotationRegistry {
         }
         Map<String, AnnotationSet> targets = [:]
         self._targets = targets
+        List<AnnotationDeclaration> noDeclarations = []
+        self._declarations = noDeclarations
         Int orderIndex = 0
         while orderIndex < order.length() {
             String key = order.get(orderIndex)
@@ -561,6 +668,25 @@ class AnnotationRegistry {
             orderIndex = orderIndex + 1
         }
     }
+
+    static AnnotationRegistry fromDeclarations(List<AnnotationInfo> uses,
+                                                List<AnnotationDeclaration> declarations) {
+        if declarations == null { throw "AnnotationRegistry.fromDeclarations: null declarations" }
+        AnnotationRegistry registry = new AnnotationRegistry(uses)
+        List<AnnotationDeclaration> copied = []
+        Int index = 0
+        while index < declarations.length() {
+            if declarations.get(index) == null {
+                throw "AnnotationRegistry.fromDeclarations: null declaration"
+            }
+            copied.push(declarations.get(index))
+            index = index + 1
+        }
+        registry._declarations = copied
+        return registry
+    }
+
+    List<AnnotationDeclaration> declarations() { return self._declarations.copy() }
 
     AnnotationSet ofTarget(AnnotationTarget target, String targetName) {
         String key = annotationsTargetKey(target, targetName)

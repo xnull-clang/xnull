@@ -14549,7 +14549,7 @@ static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self) {
   }
   xn_arr_o * uses = xn_Cls_CGen_collectGeneratedAnnotations(self);
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Cls_AnnotationRegistry *xn_generated_annotation_registry = NULL;"));
-  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_xdkAnnotationRegistryVersion(void) { return 1; }"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("static int64_t xn_xdkAnnotationRegistryVersion(void) { return 2; }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("static xn_Cls_AnnotationRegistry *xn_xdkAnnotationRegistry(void) {"));
   xn_Cls_CGen_emit(self, rt_string_from_c("  if (xn_generated_annotation_registry == NULL) {"));
   xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("    xn_arr_o *items = xn_arr_o_new("), xn_str_int(((int64_t)uses->len))), rt_string_from_c(");")));
@@ -14560,7 +14560,23 @@ static void xn_Cls_CGen_emitAnnotationRegistry(xn_Cls_CGen *self) {
     xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("    xn_arr_o_push(items, (void *)"), info), rt_string_from_c(");")));
     i = xn_int_wrap((i + 1));
   }
-  xn_Cls_CGen_emit(self, rt_string_from_c("    xn_generated_annotation_registry = xn_Cls_AnnotationRegistry_new(items);"));
+  xn_arr_o * declarations = xn_builtinDescriptors();
+  xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("    xn_arr_o *declarations = xn_arr_o_new("), xn_str_int(((int64_t)declarations->len))), rt_string_from_c(");")));
+  int64_t declarationIndex = xn_int_wrap(0);
+  while ((declarationIndex < ((int64_t)declarations->len))) {
+    xn_Cls_BuiltinDescriptor * descriptor = ((xn_Cls_BuiltinDescriptor *)xn_arr_o_get(declarations, declarationIndex));
+    rt_string * prefix = xn_concat(rt_string_from_c("    decl"), xn_str_int(declarationIndex));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("    xn_arr_s *"), prefix), rt_string_from_c("Targets = xn_arr_s_new(")), xn_str_int(((int64_t)descriptor->targets->len))), rt_string_from_c(");")));
+    int64_t targetIndex = xn_int_wrap(0);
+    while ((targetIndex < ((int64_t)descriptor->targets->len))) {
+      xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("    xn_arr_s_push("), prefix), rt_string_from_c("Targets, rt_string_from_c(")), xn_cStringLiteral(xn_arr_s_get(descriptor->targets, targetIndex))), rt_string_from_c("));")));
+      targetIndex = xn_int_wrap((targetIndex + 1));
+    }
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("    xn_arr_s *"), prefix), rt_string_from_c("Params = xn_arr_s_new(0);")));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("    xn_arr_o_push(declarations, (void *)xn_Cls_AnnotationDeclaration_builtin(rt_string_from_c("), xn_cStringLiteral(descriptor->name)), rt_string_from_c("), ")), prefix), rt_string_from_c("Targets, rt_string_from_c(")), xn_cStringLiteral(descriptor->retention)), rt_string_from_c("), ")), prefix), rt_string_from_c("Params));")));
+    declarationIndex = xn_int_wrap((declarationIndex + 1));
+  }
+  xn_Cls_CGen_emit(self, rt_string_from_c("    xn_generated_annotation_registry = xn_Cls_AnnotationRegistry_fromDeclarations(items, declarations);"));
   xn_Cls_CGen_emit(self, rt_string_from_c("  }"));
   xn_Cls_CGen_emit(self, rt_string_from_c("  return xn_generated_annotation_registry;"));
   xn_Cls_CGen_emit(self, rt_string_from_c("}"));

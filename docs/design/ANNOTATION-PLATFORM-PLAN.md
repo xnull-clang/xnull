@@ -143,7 +143,7 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 ### 3.8 Runtime Registry
 
 - 只有 `Runtime` 进入；
-- schema 版本化；
+- schema v2（M7.1）：旧查询表 + `AnnotationDeclaration` 声明表；版本函数返回 2；
 - 无反射/扫描/动态加载；
 - 新值类型/目标升版本；
 - 领域逻辑优先用生成显式代码。
@@ -237,11 +237,11 @@ M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数�
 
 | ID | 交付 | 依赖 | 验收 |
 | --- | --- | --- | --- |
-| P7-01 | Registry schema v2 扩展测试 | P0 | 新字段/版本兼容/旧表可读 |
-| P7-02 | 新目标/值类型扩展流程 | P0 | 版本化 fixture；不散落 if-chain |
-| P7-03 | 增量缓存/性能 | P0 | 相同输入命中；变更失效 |
-| P7-04 | API 文档注解面自动提取 | P0 | 文档门禁 |
-| P7-05 | 泛型 Builder/Delegate 评估 | P1 | owner 决策；不在 1.0 阻塞 |
+| P7-01 | Registry schema v2 扩展测试 | P0 | 新字段/版本兼容/旧表可读 | implemented (M7.1) |
+| P7-02 | 新目标/值类型扩展流程 | P0 | 版本化 fixture；不散落 if-chain | implemented (M7.1) |
+| P7-03 | 增量缓存/性能 | P0 | 相同输入命中；变更失效 | planned (M7.2) |
+| P7-04 | API 文档注解面自动提取 | P0 | 文档门禁 | planned (M7.2) |
+| P7-05 | 泛型 Builder/Delegate 评估 | P1 | owner 决策；不在 1.0 阻塞 | implemented (M7.1) |
 
 ---
 
@@ -343,6 +343,13 @@ S3 OPEN-1–OPEN-8 仍需 owner 签字；本计划默认：
 - OPEN-6：`@Value` 浅校验，深度校验后置；
 - OPEN-7：优先静态 manifest，Runtime 仅运行时发现；
 - OPEN-8：每个领域注解随包实现时冻结。
+
+### P7-05 泛型 Builder/Delegate 评估（M7.1）
+
+- 1.0 保持非泛型 `@Builder` / `@Delegate`：A8 处理器只覆盖已声明类型参数绑定后的具体签名，不生成泛型构造器/方法。
+- 限制：泛型类型参数在 Builder/Delegate 展开时被当作具体类型，跨包泛型约束与类型参数级默认值不推导。
+- 触发条件：出现需要泛型 builder 链或泛型委托签名保留的真实 API；或 A8 场景连续两个批次因非泛型边界返工。
+- 结论：暂不扩展；先通过显式具体类型/工厂封装。需扩展时另立版本化设计，不改现有 descriptor 与领域注解语义。
 
 ---
 

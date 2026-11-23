@@ -12410,7 +12410,7 @@ class CGen {
         }
         List<AnnotationUseMeta> uses = self.collectGeneratedAnnotations()
         self.emit("static xn_Cls_AnnotationRegistry *xn_generated_annotation_registry = NULL;")
-        self.emit("static int64_t xn_xdkAnnotationRegistryVersion(void) { return 1; }")
+        self.emit("static int64_t xn_xdkAnnotationRegistryVersion(void) { return 2; }")
         self.emit("static xn_Cls_AnnotationRegistry *xn_xdkAnnotationRegistry(void) {")
         self.emit("  if (xn_generated_annotation_registry == NULL) {")
         self.emit("    xn_arr_o *items = xn_arr_o_new(" + str(uses.length()) + ");")
@@ -12429,7 +12429,23 @@ class CGen {
             self.emit("    xn_arr_o_push(items, (void *)" + info + ");")
             i = i + 1
         }
-        self.emit("    xn_generated_annotation_registry = xn_Cls_AnnotationRegistry_new(items);")
+        List<BuiltinDescriptor> declarations = builtinDescriptors()
+        self.emit("    xn_arr_o *declarations = xn_arr_o_new(" + str(declarations.length()) + ");")
+        Int declarationIndex = 0
+        while declarationIndex < declarations.length() {
+            BuiltinDescriptor descriptor = declarations.get(declarationIndex)
+            String prefix = "    decl" + str(declarationIndex)
+            self.emit("    xn_arr_s *" + prefix + "Targets = xn_arr_s_new(" + str(descriptor.targets.length()) + ");")
+            Int targetIndex = 0
+            while targetIndex < descriptor.targets.length() {
+                self.emit("    xn_arr_s_push(" + prefix + "Targets, rt_string_from_c(" + cStringLiteral(descriptor.targets.get(targetIndex)) + "));")
+                targetIndex = targetIndex + 1
+            }
+            self.emit("    xn_arr_s *" + prefix + "Params = xn_arr_s_new(0);")
+            self.emit("    xn_arr_o_push(declarations, (void *)xn_Cls_AnnotationDeclaration_builtin(rt_string_from_c(" + cStringLiteral(descriptor.name) + "), " + prefix + "Targets, rt_string_from_c(" + cStringLiteral(descriptor.retention) + "), " + prefix + "Params));")
+            declarationIndex = declarationIndex + 1
+        }
+        self.emit("    xn_generated_annotation_registry = xn_Cls_AnnotationRegistry_fromDeclarations(items, declarations);")
         self.emit("  }")
         self.emit("  return xn_generated_annotation_registry;")
         self.emit("}")

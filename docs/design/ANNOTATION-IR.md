@@ -112,12 +112,20 @@ Target kind：`Package/Type/Annotation/TypeParameter/Field/Method/Constructor/De
 
 当前 descriptor：`Target`、`Retention`、`Repeatable`、`Deprecated`、`SuppressWarnings`、`ReadOnly`、`WriteOnly`、`Override`、`MustUse`。新增内建应先加 descriptor + handler，不在 `initBuiltins` 散落分支。
 
+### 6.1 Registry schema v2（M7.1）
+
+- `AnnotationDeclaration` 字段：`name`、`targets: List<AnnotationTarget>`、`retention: AnnotationRetention`、`parameterNames: List<String>`；`describe()` 输出稳定单行。
+- `AnnotationRegistry.fromDeclarations(uses, declarations)` 同时构建旧查询索引与声明表；原 `AnnotationRegistry(uses)` 的 `declarations()` 返回空列表。
+- `xn_xdkAnnotationRegistry()` 缓存同一实例；`xn_xdkAnnotationRegistryVersion()` 返回 `2`。
+- 9 个内建注解各生成一条 `AnnotationDeclaration`，`retention=Binary`，`parameterNames` 当前为空。
+
 ## 7. 版本规则
 
 - 不兼容变更必须升 `irVersion`。
 - 新增可选字段不升版本，但必须在本文档登记字段顺序。
 - 删除/改义字段、改 target 字符串、改值 kind 字符串属于不兼容变更。
-- 消费者必须拒绝未知 major 版本；当前只接受 `1`。
+- 消费者必须拒绝未知 major 版本；当前 IR `irVersion=2`，Runtime Registry schema 版本 `2`。
+- Registry 新增字段（如声明表）升 schema 版本；只增可选字段可保持版本，但必须登记。
 
 
 ## 8. IR v2 symbols（M0.6）

@@ -1,0 +1,11 @@
+version=2
+version2=true
+same=true
+count=9
+has-target=true,true,false
+target=AnnotationDeclaration(name=Target targets=Annotation retention=Binary parameters=)
+target-values=1,Annotation,Binary,0
+readonly=Field
+mark-type=1
+old=1,1,1
+old-declarations=0
