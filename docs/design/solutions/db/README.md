@@ -121,6 +121,19 @@ Database.close()
 
 ---
 
+## 3.4 M6.4a 实现状态
+
+已实现（子集，`xdk.db` 包状态仍为 `design`）：
+
+- `IsolationLevel` 名称/解析；
+- `DatabaseConfig` 14 字段、默认值、校验、with*/copy/脱敏 describe；
+- `DatabasePoolStats` 19 字段、不变量、派生指标、copy/equals/describe；
+- `DbBatch` 追加/复制/清空；
+- `RowMapper` 协议；
+- `xdk.runtime.HealthCheck` 协议。
+
+planned：`Database`、`DatabasePool`（M6.4b）、`Migration`、`MigrationRunner`、`DatabaseHealth`、`Db` 静态入口、实体注解（M6.5）。本批不接真实数据库。
+
 ## 4. 类型索引
 
 | 类型 | 种类 | 能力 | 文件 |

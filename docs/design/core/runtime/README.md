@@ -77,7 +77,7 @@
 | `HealthCheck` | [`HealthCheck.md`](HealthCheck.md) |
 | `HealthRegistry`（planned） | [`HealthRegistry.md`](HealthRegistry.md) |
 
-实现状态：`HealthState`、`HealthReport` 已实现（health snapshot）；`HealthRegistry` 仍 planned。`HealthState` 增加内部 `Unknown` 占位以避免 optional 枚举 0/null 歧义，`healthStateFromName` 未知仍返回 null。
+实现状态：`HealthState`、`HealthReport`、`HealthCheck` 协议已实现；`HealthRegistry` 仍 planned。`HealthState` 增加内部 `Unknown` 占位以避免 optional 枚举 0/null 歧义，`healthStateFromName` 未知仍返回 null。
 
 ## 5. 顶层函数
 

@@ -38,6 +38,8 @@
 
 ---
 
+实现状态：implemented。内部增加 `Unknown` 0 号占位以规避 optional 枚举 0/null 歧义；`isolationLevelFromName` 未知名称仍返回 null。
+
 ## 3. 表示与不变量
 
 | 成员 | 名称 | 语义 | 备注 |

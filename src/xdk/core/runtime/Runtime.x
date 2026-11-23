@@ -94,6 +94,12 @@ class RuntimeMonitor {
 
 // ---------- Health（T0-X；服务健康元数据） ----------
 
+protocol HealthCheck {
+    String name();
+    HealthReport check();
+}
+
+
 String healthStateName(HealthState state) {
     if state == HealthState.Unknown { return "unknown" }
     if state == HealthState.Healthy { return "healthy" }

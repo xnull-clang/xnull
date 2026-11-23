@@ -1,0 +1,18 @@
+isolation=read_uncommitted,read_committed,repeatable_read,serializable
+isolation-parse=read_committed,true,xdk.isolation
+config=app,0,10,30000,600000,1800000,5000,0,true,true,true,0,true
+config-custom=app-1,2,20,4000,5000,6000,1000,2000,false,false,true,serializable,1
+config-copy-map=1
+config-derived=3,30,repeatable_read,true,2
+config-describe=true,true,true
+config-copy=true,true
+stats=app,7,3,3,1,2,DatabasePoolStats(name=app total=7 idle=3 active=3 opening=1 waiting=2 max=10 acquired=100 timeouts=4 validationFailures=1 leaks=2 closed=false)
+stats-derived=0.4,100,false,false
+stats-copy=true,DatabasePoolStats(name=app total=7 idle=3 active=3 opening=1 waiting=2 max=10 acquired=100 timeouts=4 validationFailures=1 leaks=2 closed=false)
+stats-idle=true,0,0
+batch=3,false,DbBatch(statements=3)
+batch-snapshot=3
+batch-copy=3,true
+health-check=database,true
+mapper-start=true
+mapper-row=true,1,1

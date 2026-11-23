@@ -260,6 +260,8 @@ M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数�
 | M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |
+| M6.4 | P6 db 值类型/协议 | 配置/统计/批量/映射协议 | planned (M6.4a 子集 implemented) |
+| M6.5 | P6 实体注解 | `@Entity`/`@Table`/`@Id` | planned |
 | M7 | P7 硬化 | 版本/缓存/API 文档/扩展流程 | implemented (M7.1/M7.2) |
 
 顺序原则：
