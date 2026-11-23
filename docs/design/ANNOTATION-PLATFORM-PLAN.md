@@ -209,9 +209,9 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | ID | 交付 | 依赖 | 验收 | 状态 |
 | --- | --- | --- | --- | --- |
 | P4-01 | `xdk.validate` 包骨架（8 类型） | P0；B9 合同 | 类型契约可编译 | implemented (M4.1) |
-| P4-02 | `@Validate`/`@Min`/`@Max`/`@Pattern` | P4-01 | 目标/参数校验 | implemented (M4.2) |
-| P4-03 | ValidateProcessor Generate | P4-02 | 生成校验器/错误路径 | implemented (M4.2) |
-| P4-04 | validate 业务闭环 | P4-03 | 成功/失败/边界/错误路径 | implemented (M4.2) |
+| P4-02 | `@Validate`/`@Min`/`@Max`/`@Pattern`/`@Email` | P4-01 | 目标/参数校验 | implemented (M4.2/M4.3) |
+| P4-03 | ValidateProcessor Generate | P4-02 | 生成校验器/错误路径 | implemented (M4.2/M4.3) |
+| P4-04 | validate 业务闭环 | P4-03 | 成功/失败/边界/错误路径 | implemented (M4.2/M4.3) |
 
 ### P5 http / `@HttpRoute`
 
@@ -258,7 +258,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M2 | P2 CLI | 命令树/help/位置参数/类型化绑定 | implemented (pilot + M2.2 位置参数/绑定) |
 | M3 | P3 codec | JSON/CSV 业务闭环 | implemented (M3.1/M3.2/M3.3) |
 | M3.3 | P3 CSV codec | `@CsvName` CSV 映射闭环 | implemented (M3.3) |
-| M4 | P4 validate | `@Validate` 业务闭环 | implemented (M4.1/M4.2) |
+| M4 | P4 validate | `@Validate`/`@Email` 业务闭环 | implemented (M4.1/M4.2/M4.3) |
 | M5 | P5 http | `@HttpRoute` 业务闭环 | implemented (M5.1/M5.2) |
 | M5.3 | P5 http 扩展 | client/server/HTTP2/proxy/streaming | planned |
 | M6 | P6 sql | `@Sql` 业务闭环 | implemented (M6.1/M6.2) |

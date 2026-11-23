@@ -10,6 +10,14 @@ python3 "$PLATFORM" generate --entry "$HERE/app.x" --xdk-root "$ROOT/src/xdk" \
     --manifest "$HERE/validate.manifest.json" --generated-dir "$TMP/generated" 2>"$TMP/gen.log"
 diff -u "$HERE/generated/ValidateGenerated.x" "$TMP/generated/ValidateGenerated.x"
 grep -q 'AN1205' "$TMP/gen.log"
+grep -q 'Rules.email()' "$TMP/generated/ValidateGenerated.x"
+string_line=$(grep -n 'Rules.string()' "$TMP/generated/ValidateGenerated.x" | head -1 | cut -d: -f1)
+min_line=$(grep -n 'Rules.minLength(3)' "$TMP/generated/ValidateGenerated.x" | head -1 | cut -d: -f1)
+pattern_line=$(grep -n 'Rules.pattern(' "$TMP/generated/ValidateGenerated.x" | head -1 | cut -d: -f1)
+email_line=$(grep -n 'Rules.email()' "$TMP/generated/ValidateGenerated.x" | head -1 | cut -d: -f1)
+[ "$string_line" -lt "$min_line" ]
+[ "$min_line" -lt "$pattern_line" ]
+[ "$pattern_line" -lt "$email_line" ]
 
 "$ROOT/src/cli/xnull" check "$HERE/generated/ValidateGenerated.x"
 "$ROOT/src/cli/xnull" --bootstrap --engine=mini build "$HERE/run.x" -o "$TMP/run" >"$TMP/build.log" 2>&1
@@ -114,6 +122,30 @@ case_warn no_fields 'AN1204' 'package app.validate
 import xdk.validate
 @Validate
 class Empty {
+}
+static Int main() { return 0 }'
+
+case_warn email_int 'AN1207' 'package app.validate
+import xdk.validate
+@Validate
+class A {
+    @Email
+    Int count
+}
+static Int main() { return 0 }'
+
+grep -q 'Rules.integer()' "$TMP/warn_email_int/ValidateGenerated.x"
+if grep -q 'Rules.email()' "$TMP/warn_email_int/ValidateGenerated.x"; then
+    echo "validate_annotations: AN1207 still emitted email rule" >&2
+    exit 1
+fi
+
+case_fail email_method 'AN1202' 'package app.validate
+import xdk.validate
+@Validate
+class A {
+    @Email
+    String email() { return "" }
 }
 static Int main() { return 0 }'
 

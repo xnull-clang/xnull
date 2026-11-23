@@ -45,7 +45,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ## 3. 领域注解
 
-领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName/@CsvName）为 `implemented (M3.2/M3.3)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`，http（@HttpRoute/@Header/@Query/@Body）为 `implemented (M5.2)`；@StatusCode、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
+领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName/@CsvName）为 `implemented (M3.2/M3.3)`，validate（@Validate/@Min/@Max/@Pattern/@Email）为 `implemented (M4.2/M4.3)`，http（@HttpRoute/@Header/@Query/@Body）为 `implemented (M5.2)`；@StatusCode 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
 
 ### 3.1 CLI
 
@@ -101,7 +101,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@Min` | 数值/字符串长度下界 | `Long value` | Field / Source | validate_processor → `range`/`minLength` | implemented (M4.2) |
 | `@Max` | 数值/字符串长度上界 | `Long value` | Field / Source | validate_processor → `range`/`maxLength` | implemented (M4.2) |
 | `@Pattern` | 正则约束 | `String value` | Field / Source | validate_processor → `Rules.pattern` | implemented (M4.2) |
-| `@Email` | 邮箱约束 | 无 | Field/Parameter / Source | ValidateAnnotationProcessor → 规则 | planned |
+| `@Email` | 邮箱约束 | 无 | Field / Source | validate_processor → `Rules.email` | implemented (M4.3) |
 | `@Cacheable` | 声明可缓存 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 缓存包装 |
 | `@CacheEvict` | 声明缓存淘汰 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 淘汰包装 |
 | `@Retryable` | 重试策略 | `Int maxAttempts = 3`、`Long initialDelayMillis = 100` | Method / Source | ResilienceAnnotationProcessor → 重试包装 |

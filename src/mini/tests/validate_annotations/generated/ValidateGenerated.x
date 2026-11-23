@@ -6,6 +6,31 @@ import xdk.errors
 import xdk.text
 import xdk.math
 
+Schema EmailFormSchema() {
+    Schema schema = new Schema()
+    List<Validator> validators0 = []
+    validators0.push(Rules.string())
+    validators0.push(Rules.minLength(3))
+    Result<Regex, Error> patternResult0_0 = Regex.compile("^.+$")
+    Regex patternRegex0_0 = patternResult0_0.value()
+    validators0.push(Rules.pattern(patternRegex0_0))
+    validators0.push(Rules.email())
+    Validator validator0 = Rules.all(validators0)
+    schema.field("email", validator0)
+    schema.required("email")
+    List<Validator> validators1 = []
+    validators1.push(Rules.string())
+    validators1.push(Rules.email())
+    Validator validator1 = Rules.all(validators1)
+    schema.field("backupEmail", validator1)
+    return schema
+}
+
+ValidationResult EmailFormValidate(JsonValue json) {
+    Schema schema = EmailFormSchema()
+    return schema.validateValue(json)
+}
+
 Schema SignupFormSchema() {
     Schema schema = new Schema()
     List<Validator> validators0 = []

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""M4.2: generate Schema/ValidationResult from @Validate/@Min/@Max/@Pattern IR v2."""
+"""M4.2/M4.3: generate Schema/ValidationResult from @Validate/@Min/@Max/@Pattern/@Email IR v2."""
 import argparse
 import json
 import re
@@ -10,6 +10,7 @@ VALIDATE = "xdk.validate.Validate"
 MIN = "xdk.validate.Min"
 MAX = "xdk.validate.Max"
 PATTERN = "xdk.validate.Pattern"
+EMAIL = "xdk.validate.Email"
 SCALARS = {"String", "Int", "Long", "Double", "Bool"}
 
 
@@ -20,7 +21,8 @@ def diag(code, message, target="", severity="Error", line=1, col=1):
 
 def write_diags(out, diags):
     out.mkdir(parents=True, exist_ok=True)
-    (out / "diagnostics.json").write_text(json.dumps(diags, ensure_ascii=False), encoding="utf-8")
+    ordered = sorted(diags, key=lambda d: (d["line"], d["col"], d["code"], d["target"], d["message"]))
+    (out / "diagnostics.json").write_text(json.dumps(ordered, ensure_ascii=False), encoding="utf-8")
 
 
 def lit(text):
@@ -63,6 +65,7 @@ def main():
     targets = []
     limits = {}
     patterns = {}
+    emails = {}
 
     for use in uses:
         name = use.get("resolvedName") or use.get("name")
@@ -99,6 +102,14 @@ def main():
                 slot["min" if name == MIN else "max"] = value
             else:
                 patterns.setdefault(target_name, []).append(text_arg(use))
+        elif name == EMAIL:
+            if target != "Field":
+                diags.append(diag("AN1202", "@Email must target a field: " + target_name, target_name, line=line, col=col))
+                continue
+            if "#" not in target_name:
+                diags.append(diag("AN1202", "@Email has invalid field target", target_name, line=line, col=col))
+                continue
+            emails[target_name] = True
 
     if not targets:
         if not diags:
@@ -139,8 +150,11 @@ def main():
             if base not in SCALARS:
                 diags.append(diag("AN1205", path + ": unsupported field type " + ftype + "; field skipped", key, severity="Warning"))
                 continue
+            has_email = key in emails
+            if has_email and base != "String":
+                diags.append(diag("AN1207", path + ": @Email is only supported on String; rule skipped", key, severity="Warning"))
             info = {"name": fname, "type": base, "required": not nullable,
-                    "min": None, "max": None, "patterns": []}
+                    "min": None, "max": None, "patterns": [], "email": has_email and base == "String"}
             bounds = limits.get(key, {})
             if "min" in bounds:
                 info["min"] = bounds["min"]
@@ -211,6 +225,8 @@ def main():
                     lines.append("    Result<Regex, Error> " + result + " = Regex.compile(" + lit(pattern) + ")")
                     lines.append("    Regex " + regex + " = " + result + ".value()")
                     lines.append("    " + var + ".push(Rules.pattern(" + regex + "))")
+                if field["email"]:
+                    lines.append("    " + var + ".push(Rules.email())")
             elif field["type"] == "Int":
                 lines.append("    " + var + ".push(Rules.integer())")
                 if field["min"] is not None or field["max"] is not None:

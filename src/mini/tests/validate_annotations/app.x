@@ -17,3 +17,13 @@ class SignupForm {
     @Min(1)
     Int? optionalAge
 }
+
+@Validate
+class EmailForm {
+    @Min(3)
+    @Pattern("^.+$")
+    @Email
+    String email
+    @Email
+    String? backupEmail
+}

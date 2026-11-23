@@ -106,7 +106,7 @@ X：JSON Schema 导入/导出、i18n 消息、异步/远程规则、错误码注
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | ValidateAnnotationProcessor（Validate/Generate） |
 | 生成物 | 校验器、字段规则、错误路径 |
-| 状态 | `@Validate`/`@Min`/`@Max`/`@Pattern` implemented (M4.2)；`@Email` planned；A8 派生 implemented（含限制） |
+| 状态 | `@Validate`/`@Min`/`@Max`/`@Pattern`/`@Email` implemented (M4.2/M4.3)；A8 派生 implemented（含限制） |
 
 ### 具体落点
 

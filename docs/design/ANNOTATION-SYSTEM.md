@@ -241,7 +241,7 @@ AnnotationValue? name = set.first("Marker")?.valueOrNull("name")
 | `xdk.sql` | `@Sql`、`@Param`、`@Row`、`@Column` | DAO/行映射/参数绑定 | planned |
 | `xdk.codec` | `@Serializable`、`@JsonName`、`@CsvName` | JSON/CSV 编解码器与字段名 | planned |
 | `xdk.yaml`/`toml`/`xml` | `@YamlName`、`@TomlName`、`@XmlName` | 文档字段名映射 | planned |
-| `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器/字段规则/错误路径 | planned |
+| `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern`、`@Email` | 校验器/字段规则/错误路径 | implemented (M4.2/M4.3) |
 | `xdk.cache` | `@Cacheable`、`@CacheEvict` | 缓存键/淘汰包装 | planned |
 | `xdk.schedule` | `@Scheduled` | 作业注册/cron 元数据 | planned |
 | `xdk.resilience` | `@Retryable`、`@CircuitBreakerPolicy`、`@RateLimit`、`@TimeoutPolicy` | 重试/熔断/限流/超时包装 | planned |

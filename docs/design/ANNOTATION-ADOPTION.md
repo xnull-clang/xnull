@@ -1190,7 +1190,7 @@ class SignupForm {
 }
 ```
 
-状态：`@Validate`/`@Min`/`@Max`/`@Pattern` implemented (M4.2)：生成 `<Type>Schema()`/`<Type>Validate(JsonValue)`，覆盖标量与可空 String；List、嵌套类型、可空数值由 AN1205 warning 跳过；`@Email` planned。
+状态：`@Validate`/`@Min`/`@Max`/`@Pattern`/`@Email` implemented (M4.2/M4.3)：生成 `<Type>Schema()`/`<Type>Validate(JsonValue)`，覆盖标量与可空 String；`@Email` 追加 `Rules.email()`，仅 String/String? 生效；List、嵌套类型、可空数值由 AN1205 warning 跳过，非 String 的 `@Email` 由 AN1207 warning 跳过规则。
 
 ### `xdk.cache`
 

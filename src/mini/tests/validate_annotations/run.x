@@ -45,5 +45,16 @@ static Int main() {
     print("toresult=" + str(result.toResult().isErr()))
     print("fields=" + str(SignupFormSchema().fields().length()))
     print("describe=" + SignupFormSchema().describe())
+
+    print("email-valid=" + first(EmailFormValidate(j("{\"email\":\"a@b.co\"}"))))
+    print("email-missing-at=" + first(EmailFormValidate(j("{\"email\":\"abc\"}"))))
+    print("email-empty-domain=" + first(EmailFormValidate(j("{\"email\":\"a@.com\"}"))))
+    print("email-space=" + first(EmailFormValidate(j("{\"email\":\"a b@c.com\"}"))))
+    print("email-uppercase-domain=" + first(EmailFormValidate(j("{\"email\":\"a@B.COM\"}"))))
+    print("email-missing-required=" + first(EmailFormValidate(j("{}"))))
+    print("email-nullable-missing=" + str(EmailFormValidate(j("{\"email\":\"a@b.co\"}")).isValid()))
+    print("email-nullable-null=" + str(EmailFormValidate(j("{\"email\":\"a@b.co\",\"backupEmail\":null}")).isValid()))
+    print("email-nullable-invalid=" + first(EmailFormValidate(j("{\"email\":\"a@b.co\",\"backupEmail\":\"bad\"}"))))
+    print("email-fields=" + str(EmailFormSchema().fields().length()))
     return 0
 }
