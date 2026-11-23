@@ -10317,7 +10317,18 @@ class CGen {
                 }
                 return "xrt_channel_new((size_t)(" + capacity + "), " + ops + ")"
             }
-            String b = "xn_Cls_" + n.text + "_new("
+            String suffix = ""
+            AstNode newClass = self.classByName(n.text)
+            if newClass.kind != "None" {
+                List<AstNode> ctors = self.ctorsOf(newClass)
+                if ctors.length() > 0 {
+                    Int firstArity = self.paramsOf(ctors.get(0)).length()
+                    if n.kids.length() != firstArity {
+                        suffix = "_" + str(n.kids.length())
+                    }
+                }
+            }
+            String b = "xn_Cls_" + n.text + "_new" + suffix + "("
             Int ni = 0
             while ni < n.kids.length() {
                 if ni > 0 {
@@ -11586,6 +11597,18 @@ class CGen {
         return new AstNode("None", "", cls.line, cls.col)
     }
 
+    List<AstNode> ctorsOf(AstNode cls) {
+        List<AstNode> result = []
+        Int i = 0
+        while i < cls.kids.length() {
+            if cls.kids.get(i).kind == "Ctor" {
+                result.push(cls.kids.get(i))
+            }
+            i = i + 1
+        }
+        return result
+    }
+
     AstNode deinitOf(AstNode cls) {
         Int i = 0
         while i < cls.kids.length() {
@@ -11691,86 +11714,98 @@ class CGen {
         }
         self.emit("static const rt_type RT_TYPE_XN_" + cn + " = { \"" + cn + "\", sizeof(xn_Cls_" + cn + "), " + deinitPtr + ", NULL };")
         self.emit("")
-        AstNode ctor = self.ctorOf(cls)
-        String csig = "static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new("
-        List<AstNode> cps = self.paramsOf(ctor)
-        if cps.length() == 0 {
-            csig = csig + "void"
-        } else {
-            Int ci = 0
-            while ci < cps.length() {
-                if ci > 0 {
-                    csig = csig + ", "
-                }
-                List<String> cpp = cps.get(ci).text.split(" ")
-                if cpp.length() >= 2 {
-                    csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
-                }
-                ci = ci + 1
-            }
+        List<AstNode> ctors = self.ctorsOf(cls)
+        if ctors.length() == 0 {
+            ctors.push(new AstNode("None", "", cls.line, cls.col))
         }
-        self.emit(csig + ") {")
-        self.emit("  xn_Cls_" + cn + " *xn_obj = (xn_Cls_" + cn + " *)rt_gc_new(&RT_TYPE_XN_" + cn + ");")
-        self.emit("  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
-        self.curClass = cn
-        i = 0
-        while i < cls.kids.length() {
-            AstNode k = cls.kids.get(i)
-            if k.kind == "Field" {
-                List<String> parts = k.text.split(" ")
-                if parts.length() >= 2 {
-                    String ty = parts.get(0)
-                    String fn = parts.get(1)
-                    String init = "0"
-                    if ty == "String" {
-                        init = "rt_string_from_c(\"\")"
+        Int ctorIndex = 0
+        while ctorIndex < ctors.length() {
+            AstNode ctor = ctors.get(ctorIndex)
+            String suffix = ""
+            if ctorIndex > 0 {
+                suffix = "_" + str(self.paramsOf(ctor).length())
+            }
+                String csig = "static xn_Cls_" + cn + " *xn_Cls_" + cn + "_new" + suffix + "("
+            List<AstNode> cps = self.paramsOf(ctor)
+            if cps.length() == 0 {
+                csig = csig + "void"
+            } else {
+                Int ci = 0
+                while ci < cps.length() {
+                    if ci > 0 {
+                        csig = csig + ", "
                     }
-                    if self.isFunctionType(ty) {
-                        init = "(xn_closure){0, 0}"
+                    List<String> cpp = cps.get(ci).text.split(" ")
+                    if cpp.length() >= 2 {
+                        csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
                     }
-                    if self.isArray(ty) {
-                        init = self.arrayNew(ty, 4)
-                    }
-                    if k.kids.length() > 0 {
-                        if self.isArray(ty) && k.kids.get(0).kind == "ArrayLit" {
-                            AstNode lit = k.kids.get(0)
-                            init = self.arrayNew(ty, lit.kids.length())
-                        } else {
-                            init = self.expr(k.kids.get(0))
-                        }
-                    }
-                    self.emit("  xn_obj->" + fn + " = " + init + ";")
+                    ci = ci + 1
                 }
             }
-            i = i + 1
-        }
-        if ctor.kind == "Ctor" {
+            self.emit(csig + ") {")
+            self.emit("  xn_Cls_" + cn + " *xn_obj = (xn_Cls_" + cn + " *)rt_gc_new(&RT_TYPE_XN_" + cn + ");")
+            self.emit("  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_" + cn + ") - sizeof(rt_header));")
             self.curClass = cn
-            self.emit("  xn_Cls_" + cn + " *self = xn_obj;")
-            self.popTo(0)
-            self.addVar(cn, "self")
-            Int pi = 0
-            while pi < cps.length() {
-                List<String> cpp = cps.get(pi).text.split(" ")
-                if cpp.length() >= 2 {
-                    self.addVar(cpp.get(0), cpp.get(1))
+            i = 0
+            while i < cls.kids.length() {
+                AstNode k = cls.kids.get(i)
+                if k.kind == "Field" {
+                    List<String> parts = k.text.split(" ")
+                    if parts.length() >= 2 {
+                        String ty = parts.get(0)
+                        String fn = parts.get(1)
+                        String init = "0"
+                        if ty == "String" {
+                            init = "rt_string_from_c(\"\")"
+                        }
+                        if self.isFunctionType(ty) {
+                            init = "(xn_closure){0, 0}"
+                        }
+                        if self.isArray(ty) {
+                            init = self.arrayNew(ty, 4)
+                        }
+                        if k.kids.length() > 0 {
+                            if self.isArray(ty) && k.kids.get(0).kind == "ArrayLit" {
+                                AstNode lit = k.kids.get(0)
+                                init = self.arrayNew(ty, lit.kids.length())
+                            } else {
+                                init = self.expr(k.kids.get(0))
+                            }
+                        }
+                        self.emit("  xn_obj->" + fn + " = " + init + ";")
+                    }
                 }
-                pi = pi + 1
+                i = i + 1
             }
-            Int bi = 0
-            while bi < ctor.kids.length() {
-                AstNode ck = ctor.kids.get(bi)
-                if ck.kind == "Block" {
-                    self.blockBody(ck, "  ")
+            if ctor.kind == "Ctor" {
+                self.curClass = cn
+                self.emit("  xn_Cls_" + cn + " *self = xn_obj;")
+                self.popTo(0)
+                self.addVar(cn, "self")
+                Int pi = 0
+                while pi < cps.length() {
+                    List<String> cpp = cps.get(pi).text.split(" ")
+                    if cpp.length() >= 2 {
+                        self.addVar(cpp.get(0), cpp.get(1))
+                    }
+                    pi = pi + 1
                 }
-                bi = bi + 1
+                Int bi = 0
+                while bi < ctor.kids.length() {
+                    AstNode ck = ctor.kids.get(bi)
+                    if ck.kind == "Block" {
+                        self.blockBody(ck, "  ")
+                    }
+                    bi = bi + 1
+                }
+                self.popTo(0)
             }
-            self.popTo(0)
+            self.curClass = ""
+            self.emit("  return xn_obj;")
+            self.emit("}")
+            self.emit("")
+            ctorIndex = ctorIndex + 1
         }
-        self.curClass = ""
-        self.emit("  return xn_obj;")
-        self.emit("}")
-        self.emit("")
         i = 0
         while i < cls.kids.length() {
             AstNode k = cls.kids.get(i)
@@ -12678,25 +12713,38 @@ class CGen {
             AstNode n = self.program.kids.get(i)
             if ((n.kind == "Class" || n.kind == "Struct" ||
                  (n.kind == "Enum" && self.isDataEnum(n.text))) && !hasTypeParams(n)) {
-                AstNode ctor = self.ctorOf(n)
-                List<AstNode> cps = self.paramsOf(ctor)
-                String csig = "static xn_Cls_" + n.text + " *xn_Cls_" + n.text + "_new("
-                if cps.length() == 0 {
-                    csig = csig + "void"
+                List<AstNode> ctors = self.ctorsOf(n)
+                if ctors.length() == 0 {
+                    self.emit("static xn_Cls_" + n.text + " *xn_Cls_" + n.text + "_new(void);")
                 } else {
-                    Int ci = 0
-                    while ci < cps.length() {
-                        if ci > 0 {
-                            csig = csig + ", "
+                    Int ctorIndex = 0
+                    while ctorIndex < ctors.length() {
+                        AstNode ctor = ctors.get(ctorIndex)
+                        List<AstNode> cps = self.paramsOf(ctor)
+                        String suffix = ""
+                        if ctorIndex > 0 {
+                            suffix = "_" + str(cps.length())
                         }
-                        List<String> cpp = cps.get(ci).text.split(" ")
-                        if cpp.length() >= 2 {
-                            csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
+                        String csig = "static xn_Cls_" + n.text + " *xn_Cls_" + n.text + "_new" + suffix + "("
+                        if cps.length() == 0 {
+                            csig = csig + "void"
+                        } else {
+                            Int ci = 0
+                            while ci < cps.length() {
+                                if ci > 0 {
+                                    csig = csig + ", "
+                                }
+                                List<String> cpp = cps.get(ci).text.split(" ")
+                                if cpp.length() >= 2 {
+                                    csig = csig + self.ctype(cpp.get(0)) + " " + cpp.get(1)
+                                }
+                                ci = ci + 1
+                            }
                         }
-                        ci = ci + 1
+                        self.emit(csig + ");")
+                        ctorIndex = ctorIndex + 1
                     }
                 }
-                self.emit(csig + ");")
                 Int mi = 0
                 while mi < n.kids.length() {
                     if n.kids.get(mi).kind == "Method" {

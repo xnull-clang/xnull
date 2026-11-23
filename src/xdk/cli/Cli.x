@@ -236,13 +236,47 @@ class OptionSpec {
     }
 }
 
+class ArgSpec {
+    final String name
+    final String help
+    final Bool required
+
+    ArgSpec(String name, String help, Bool required) {
+        if name == null || name == "" {
+            throw "ArgSpec: name must not be empty"
+        }
+        self.name = name
+        self.help = help
+        self.required = required
+    }
+
+    String describe() {
+        if self.required {
+            return "<" + self.name + ">"
+        }
+        return "[" + self.name + "]"
+    }
+}
+
 class CommandMatch {
     final Args arguments
     final String command
+    final List<String> _positionals
 
     CommandMatch(Args arguments, String command) {
         self.arguments = arguments
         self.command = command
+        self._positionals = []
+    }
+
+    CommandMatch(Args arguments, String command, List<String> positionals) {
+        self.arguments = arguments
+        self.command = command
+        self._positionals = positionals.copy()
+    }
+
+    List<String> positionals() {
+        return self._positionals.copy()
     }
 }
 
@@ -263,16 +297,44 @@ class Command {
     final String summary
     final List<OptionSpec> options
     final List<Command> subcommands
+    final List<ArgSpec> _positionals
 
     Command(String name, String summary, List<OptionSpec> options) {
         self.name = name
         self.summary = summary
         self.options = options
         self.subcommands = []
+        self._positionals = []
     }
 
     Void add(Command child) {
         self.subcommands.push(child)
+    }
+
+    Void addPositional(ArgSpec spec) {
+        if spec == null {
+            throw "Command.addPositional: null spec"
+        }
+        self._positionals.push(spec)
+    }
+
+    List<ArgSpec> positionals() {
+        return self._positionals.copy()
+    }
+
+    List<String> positionalHelp() {
+        List<String> result = []
+        Int index = 0
+        while index < self._positionals.length() {
+            ArgSpec spec = self._positionals.get(index)
+            String line = spec.name + ": " + spec.help
+            if spec.required {
+                line = line + " (required)"
+            }
+            result.push(line)
+            index = index + 1
+        }
+        return result
     }
 
     List<Command> children() {
@@ -340,6 +402,8 @@ class Command {
             String arg = arguments.get(index)
             if limit >= 0 && index >= limit {
                 result.push(arg)
+            } else if self.longForShort(arg) != "" {
+                result.push(self.longForShort(arg))
             } else if isShortCluster(arg) {
                 List<String> expanded = self.expandCluster(arg)
                 if expanded.length() > 0 {
@@ -359,22 +423,67 @@ class Command {
         return new Args(result)
     }
 
+    OptionSpec? findOption(String argument, Bool deep) {
+        Int index = 0
+        while index < self.options.length() {
+            OptionSpec option = self.options.get(index)
+            if argument == option.name || argument.startsWith(option.name + "=") {
+                return option
+            }
+            if option.shortName.length() > 0 {
+                if argument == option.shortName || argument.startsWith(option.shortName + "=") {
+                    return option
+                }
+            }
+            index = index + 1
+        }
+        if deep {
+            Int childIndex = 0
+            while childIndex < self.subcommands.length() {
+                OptionSpec? found = self.subcommands.get(childIndex).findOption(argument, true)
+                if found != null {
+                    return found
+                }
+                childIndex = childIndex + 1
+            }
+        }
+        return null
+    }
+
     Result<CommandMatch, Error> parse(Args arguments) {
         arguments = self.normalize(arguments)
         if self.subcommands.length() > 0 {
-            List<String> positional = arguments.positionals()
-            if positional.length() > 0 {
-                String first = positional.get(0)
+            Int scanIndex = 0
+            while scanIndex < arguments.length() {
+                String argument = arguments.get(scanIndex)
+                if argument == "--" {
+                    break
+                }
+                if isOption(argument) {
+                    OptionSpec? option = self.findOption(argument, true)
+                    if option == null {
+                        return Err(cliError(ErrorKind.InvalidArgument, "unknown option: " + argument))
+                    }
+                    OptionSpec found = option as OptionSpec
+                    if found.takesValue && argument.indexOf("=") < 0 {
+                        if scanIndex + 1 >= arguments.length() || arguments.get(scanIndex + 1) == "--" {
+                            return Err(cliError(ErrorKind.InvalidArgument, "missing value for option: " + found.name))
+                        }
+                        scanIndex = scanIndex + 2
+                    } else {
+                        scanIndex = scanIndex + 1
+                    }
+                    continue
+                }
                 Int childIndex = 0
                 while childIndex < self.subcommands.length() {
                     Command child = self.subcommands.get(childIndex)
-                    if child.name == first {
+                    if child.name == argument {
                         List<String> rest = []
                         Int argIndex = 0
                         while argIndex < arguments.length() {
-                            String argument = arguments.get(argIndex)
-                            if argument != first {
-                                rest.push(argument)
+                            if argIndex != scanIndex {
+                                rest.push(arguments.get(argIndex))
                             }
                             argIndex = argIndex + 1
                         }
@@ -382,7 +491,7 @@ class Command {
                     }
                     childIndex = childIndex + 1
                 }
-                return Err(cliError(ErrorKind.InvalidArgument, "unknown command: " + first))
+                return Err(cliError(ErrorKind.InvalidArgument, "unknown command: " + argument))
             }
         }
 
@@ -398,15 +507,57 @@ class Command {
             optionIndex = optionIndex + 1
         }
 
+        List<String> values = []
+        Bool afterTerminator = false
         Int argumentIndex = 0
         while argumentIndex < arguments.length() {
             String argument = arguments.get(argumentIndex)
-            if isOption(argument) && !isKnownOption(argument, self.options) {
-                return Err(cliError(ErrorKind.InvalidArgument, "unknown option: " + argument))
+            if afterTerminator {
+                values.push(argument)
+                argumentIndex = argumentIndex + 1
+                continue
             }
+            if argument == "--" {
+                afterTerminator = true
+                argumentIndex = argumentIndex + 1
+                continue
+            }
+            if isOption(argument) {
+                OptionSpec? option = self.findOption(argument, false)
+                if option == null {
+                    return Err(cliError(ErrorKind.InvalidArgument, "unknown option: " + argument))
+                }
+                OptionSpec found = option as OptionSpec
+                if found.takesValue && argument.indexOf("=") < 0 {
+                    if argumentIndex + 1 >= arguments.length() || arguments.get(argumentIndex + 1) == "--" {
+                        return Err(cliError(ErrorKind.InvalidArgument, "missing value for option: " + found.name))
+                    }
+                    argumentIndex = argumentIndex + 2
+                } else {
+                    argumentIndex = argumentIndex + 1
+                }
+                continue
+            }
+            values.push(argument)
             argumentIndex = argumentIndex + 1
         }
-        return Ok(new CommandMatch(arguments, self.name))
+
+        Int specIndex = 0
+        while specIndex < self._positionals.length() {
+            if specIndex >= values.length() {
+                ArgSpec spec = self._positionals.get(specIndex)
+                if spec.required {
+                    return Err(cliError(ErrorKind.InvalidArgument, "missing required argument: " + spec.name))
+                }
+            }
+            specIndex = specIndex + 1
+        }
+        if values.length() > self._positionals.length() {
+            return Err(cliError(ErrorKind.InvalidArgument,
+                "too many positional arguments: expected " + str(self._positionals.length()) +
+                ", got " + str(values.length())))
+        }
+        return Ok(new CommandMatch(arguments, self.name, values))
     }
 
     String help() {
@@ -421,6 +572,11 @@ class Command {
             }
             optionIndex = optionIndex + 1
         }
+        Int positionalIndex = 0
+        while positionalIndex < self._positionals.length() {
+            text = text + " " + self._positionals.get(positionalIndex).describe()
+            positionalIndex = positionalIndex + 1
+        }
         text = text + "\n" + self.summary + "\noptions:"
         optionIndex = 0
         while optionIndex < self.options.length() {
@@ -430,6 +586,15 @@ class Command {
                 text = text + " (required)"
             }
             optionIndex = optionIndex + 1
+        }
+        if self._positionals.length() > 0 {
+            text = text + "\narguments:"
+            positionalIndex = 0
+            while positionalIndex < self._positionals.length() {
+                ArgSpec spec = self._positionals.get(positionalIndex)
+                text = text + "\n  " + spec.describe() + "  " + spec.help
+                positionalIndex = positionalIndex + 1
+            }
         }
         if self.subcommands.length() > 0 {
             text = text + "\ncommands:"

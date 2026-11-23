@@ -51,10 +51,10 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 | 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| `@CliCommand` | 声明命令节点 | `String name`、`String summary = ""` | Type / Source | cli_processor → 命令树/帮助元数据 | implemented (M2 pilot) |
-| `@CliSubcommand` | 声明子命令 | `String parent`、`String name`、`String summary = ""` | Type / Source | cli_processor → 子命令表 | implemented (M2 pilot) |
-| `@Option` | 声明选项 | `String name`、`String short = ""`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → 解析表/帮助 | implemented (M2 pilot) |
-| `@Arg` | 声明位置参数 | `String name`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → positional help；执行 planned | implemented (M2 pilot) |
+| `@CliCommand` | 声明命令节点 | `String name`、`String summary = ""` | Type / Source | cli_processor → 命令树/帮助/位置参数/binder | implemented (M2 pilot + M2.2) |
+| `@CliSubcommand` | 声明子命令 | `String parent`、`String name`、`String summary = ""` | Type / Source | cli_processor → 子命令表/位置参数/binder | implemented (M2 pilot + M2.2) |
+| `@Option` | 声明选项 | `String name`、`String short = ""`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → 解析表/帮助/binder | implemented (M2 pilot + M2.2) |
+| `@Arg` | 声明位置参数 | `String name`、`String help = ""`、`Bool required = false` | Field / Source | cli_processor → 位置参数/ArgSpec/binder | implemented (M2 pilot + M2.2) |
 
 ### 3.2 HTTP / WebSocket / JWT
 

@@ -13,6 +13,8 @@
 
 ## 1. 包定位
 
+> 当前实现范围（M2.2）：`Args`、`Command`、`OptionSpec`、`ArgSpec`、`CommandMatch` 与生成器产出的类型化 binder；`Parser`、`ParseResult`、`HelpFormatter`、`UsageError` 仍 planned，未实现。D 处描述的目标面不得当作已实现。
+
 `xdk.cli` 提供两段能力，边界固定：
 
 **解析**：命令行规格、解析、帮助文本、用法错误和退出码：
@@ -85,7 +87,9 @@
 | `Args` | class | 原始 argv 只读视图 | [`Args.md`](Args.md) |
 | `OptionSpec` | class | 选项规格 | [`OptionSpec.md`](OptionSpec.md) |
 | `ValueParser` | protocol | 选项值校验/归一化 | [`ValueParser.md`](ValueParser.md) |
-| `Command` | class | 命令/选项/子命令树 | [`Command.md`](Command.md) |
+| `ArgSpec` | class | 位置参数规格 | 本文 §3.2（M2.2） |
+| `Command` | class | 命令/选项/子命令/位置参数树 | [`Command.md`](Command.md) |
+| `CommandMatch` | class | 1.x 解析结果（命令名 + 原始 Args + 位置参数） | 本文 §3.2（M2.2） |
 | `ParseResult` | class | 解析结果 | [`ParseResult.md`](ParseResult.md) |
 | `Parser` | class | argv → ParseResult | [`Parser.md`](Parser.md) |
 | `HelpFormatter` | class | help/usage 文本 | [`HelpFormatter.md`](HelpFormatter.md) |
@@ -100,6 +104,19 @@
 | `CliRuntime` | class | 显式 args/env/cwd/流/终端上下文 | [`CliRuntime.md`](CliRuntime.md) |
 
 X 未纳入本批：`Completion`、`CompletionScript`、`PositionalSpec`、`CommandHandler`、`HelpTheme`、`VersionSpec`、`Pipeline`、`Pty`、`ResponseFile`。这些必须在后续批次单独设计，不得塞进现有类。
+
+### 3.2 已实现子集（M2.2）
+
+| 类型/函数 | 范围 |
+| --- | --- |
+| `Args` | 原始 argv 只读视图；`positionals()` 仍是非权威辅助 |
+| `OptionSpec` | 长/短选项、flag/取值、必填、帮助 |
+| `ArgSpec` | 位置参数 `name/help/required`；`describe()` 返回 `<name>` / `[name]` |
+| `Command` | 选项/子命令树、`addPositional`、`positionals()`、`positionalHelp()`、spec 感知 `parse` |
+| `CommandMatch` | `arguments/command/positionals()`；保留旧两参构造，新增位置参数构造 |
+| `cli_processor` | 命令树、位置参数、`<Class>Bind(CommandMatch)` 类型化 binder |
+
+`Command.parse` 当前规则：`--` 后全为位置参数；已知取值选项跳过一个 token；未知 `-` token 报错；子命令选择先跳过 flag/取值；叶子按声明顺序校验必填/多余位置参数与已知必填选项。`Parser`/`ParseResult`/`HelpFormatter` 仍 planned。
 
 ### 3.1 跨类型规则
 

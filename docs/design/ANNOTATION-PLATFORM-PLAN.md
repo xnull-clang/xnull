@@ -189,9 +189,9 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | ID | 交付 | 依赖 | 验收 | 状态 |
 | --- | --- | --- | --- | --- |
 | P2-01 | `@CliCommand`/`@CliSubcommand`/`@Option`/`@Arg` 声明 | P0 | 注解可声明/校验 | implemented (M2 pilot) |
-| P2-02 | CliProcessor Resolve/Validate | P2-01 | 目标/参数/重复/错误诊断 | implemented (M2 pilot: AN1001–AN1006) |
-| P2-03 | 生成命令树/参数表/help/completion | P2-02 | 生成物入库；真实 CLI 场景 | implemented (M2 pilot: tree/help/positional help; completion planned) |
-| P2-04 | CLI 业务闭环 | P2-03 | 解析/帮助/补全/错误路径 PASS | planned (M2.2 executor) |
+| P2-02 | CliProcessor Resolve/Validate | P2-01 | 目标/参数/重复/错误诊断 | implemented (M2 pilot: AN1001–AN1006；M2.2: AN1701–AN1706) |
+| P2-03 | 生成命令树/参数表/help/completion | P2-02 | 生成物入库；真实 CLI 场景 | implemented (M2 pilot + M2.2: tree/positionals/help/typed binder; completion planned) |
+| P2-04 | CLI 业务闭环 | P2-03 | 解析/帮助/补全/错误路径 PASS | implemented (M2.2: 位置参数/绑定；Parser/补全 planned) |
 
 ### P3 codec / `@Serializable`
 
@@ -255,7 +255,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | --- | --- | --- | --- |
 | M0 | P0 平台地基 | 玩具注解/处理器/生成物/沙箱/门禁 PASS | implemented（`annotation_platform/m0_gate.sh`） |
 | M1 | P1 A8 迁移 | A8 行为不回归；硬编码分支删除 | implemented（A8 processor registry） |
-| M2 | P2 CLI | 命令树/help/解析 pilot 闭环 | implemented (pilot) |
+| M2 | P2 CLI | 命令树/help/位置参数/类型化绑定 | implemented (pilot + M2.2 位置参数/绑定) |
 | M3 | P3 codec | JSON/CSV 业务闭环 | implemented (M3.1/M3.2/M3.3) |
 | M3.3 | P3 CSV codec | `@CsvName` CSV 映射闭环 | implemented (M3.3) |
 | M4 | P4 validate | `@Validate` 业务闭环 | implemented (M4.1/M4.2) |

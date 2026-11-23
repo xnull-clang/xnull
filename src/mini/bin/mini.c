@@ -593,6 +593,7 @@ static int xn_Cls_CGen_methodStatic(xn_Cls_CGen *self, xn_Cls_AstNode * m);
 static rt_string * xn_Cls_CGen_methodSig(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
 static void xn_Cls_CGen_method(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_ctorOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
+static xn_arr_o * xn_Cls_CGen_ctorsOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_deinitOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_CGen_baseNameOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_classByName(xn_Cls_CGen *self, rt_string * name);
@@ -9215,6 +9216,7 @@ static int xn_Cls_CGen_methodStatic(xn_Cls_CGen *self, xn_Cls_AstNode * m);
 static rt_string * xn_Cls_CGen_methodSig(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
 static void xn_Cls_CGen_method(xn_Cls_CGen *self, xn_Cls_AstNode * m, rt_string * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_ctorOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
+static xn_arr_o * xn_Cls_CGen_ctorsOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_deinitOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static rt_string * xn_Cls_CGen_baseNameOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls);
 static xn_Cls_AstNode * xn_Cls_CGen_classByName(xn_Cls_CGen *self, rt_string * name);
@@ -12348,7 +12350,18 @@ static rt_string * xn_Cls_CGen_expr(xn_Cls_CGen *self, xn_Cls_AstNode * n) {
       }
       return xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xrt_channel_new((size_t)("), capacity), rt_string_from_c("), ")), ops), rt_string_from_c(")"));
     }
-    rt_string * b = xn_concat(xn_concat(rt_string_from_c("xn_Cls_"), n->text), rt_string_from_c("_new("));
+    rt_string * suffix = rt_string_from_c("");
+    xn_Cls_AstNode * newClass = xn_Cls_CGen_classByName(self, n->text);
+    if ((!xn_str_eq(newClass->kind, rt_string_from_c("None")))) {
+      xn_arr_o * ctors = xn_Cls_CGen_ctorsOf(self, newClass);
+      if ((((int64_t)ctors->len) > 0)) {
+        int64_t firstArity = xn_int_wrap(((int64_t)xn_Cls_CGen_paramsOf(self, ((xn_Cls_AstNode *)xn_arr_o_get(ctors, 0)))->len));
+        if ((((int64_t)n->kids->len) != firstArity)) {
+          suffix = xn_concat(rt_string_from_c("_"), xn_str_int(((int64_t)n->kids->len)));
+        }
+      }
+    }
+    rt_string * b = xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("xn_Cls_"), n->text), rt_string_from_c("_new")), suffix), rt_string_from_c("("));
     int64_t ni = xn_int_wrap(0);
     while ((ni < ((int64_t)n->kids->len))) {
       if ((ni > 0)) {
@@ -13711,6 +13724,18 @@ static xn_Cls_AstNode * xn_Cls_CGen_ctorOf(xn_Cls_CGen *self, xn_Cls_AstNode * c
   return xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), cls->line, cls->col);
 }
 
+static xn_arr_o * xn_Cls_CGen_ctorsOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls) {
+  xn_arr_o *result = xn_arr_o_new(0);
+  int64_t i = xn_int_wrap(0);
+  while ((i < ((int64_t)cls->kids->len))) {
+    if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i))->kind, rt_string_from_c("Ctor"))) {
+      xn_arr_o_push(result, ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i)));
+    }
+    i = xn_int_wrap((i + 1));
+  }
+  return result;
+}
+
 static xn_Cls_AstNode * xn_Cls_CGen_deinitOf(xn_Cls_CGen *self, xn_Cls_AstNode * cls) {
   int64_t i = xn_int_wrap(0);
   while ((i < ((int64_t)cls->kids->len))) {
@@ -13816,88 +13841,100 @@ static void xn_Cls_CGen_genClass(xn_Cls_CGen *self, xn_Cls_AstNode * cls) {
   }
   xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static const rt_type RT_TYPE_XN_"), cn), rt_string_from_c(" = { \"")), cn), rt_string_from_c("\", sizeof(xn_Cls_")), cn), rt_string_from_c("), ")), deinitPtr), rt_string_from_c(", NULL };")));
   xn_Cls_CGen_emit(self, rt_string_from_c(""));
-  xn_Cls_AstNode * ctor = xn_Cls_CGen_ctorOf(self, cls);
-  rt_string * csig = xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), cn), rt_string_from_c(" *xn_Cls_")), cn), rt_string_from_c("_new("));
-  xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, ctor);
-  if ((((int64_t)cps->len) == 0)) {
-    csig = xn_concat(csig, rt_string_from_c("void"));
+  xn_arr_o * ctors = xn_Cls_CGen_ctorsOf(self, cls);
+  if ((((int64_t)ctors->len) == 0)) {
+    xn_arr_o_push(ctors, xn_Cls_AstNode_new(rt_string_from_c("None"), rt_string_from_c(""), cls->line, cls->col));
   }
-  else {
-    int64_t ci = xn_int_wrap(0);
-    while ((ci < ((int64_t)cps->len))) {
-      if ((ci > 0)) {
-        csig = xn_concat(csig, rt_string_from_c(", "));
-      }
-      xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, ci))->text, rt_string_from_c(" "));
-      if ((((int64_t)cpp->len) >= 2)) {
-        csig = xn_concat(xn_concat(xn_concat(csig, xn_Cls_CGen_ctype(self, xn_arr_s_get(cpp, 0))), rt_string_from_c(" ")), xn_arr_s_get(cpp, 1));
-      }
-      ci = xn_int_wrap((ci + 1));
+  int64_t ctorIndex = xn_int_wrap(0);
+  while ((ctorIndex < ((int64_t)ctors->len))) {
+    xn_Cls_AstNode * ctor = ((xn_Cls_AstNode *)xn_arr_o_get(ctors, ctorIndex));
+    rt_string * suffix = rt_string_from_c("");
+    if ((ctorIndex > 0)) {
+      suffix = xn_concat(rt_string_from_c("_"), xn_str_int(((int64_t)xn_Cls_CGen_paramsOf(self, ctor)->len)));
     }
-  }
-  xn_Cls_CGen_emit(self, xn_concat(csig, rt_string_from_c(") {")));
-  xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  xn_Cls_"), cn), rt_string_from_c(" *xn_obj = (xn_Cls_")), cn), rt_string_from_c(" *)rt_gc_new(&RT_TYPE_XN_")), cn), rt_string_from_c(");")));
-  xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_"), cn), rt_string_from_c(") - sizeof(rt_header));")));
-  self->curClass = cn;
-  i = 0;
-  while ((i < ((int64_t)cls->kids->len))) {
-    xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
-    if (xn_str_eq(k->kind, rt_string_from_c("Field"))) {
-      xn_arr_s * parts = xn_str_split(k->text, rt_string_from_c(" "));
-      if ((((int64_t)parts->len) >= 2)) {
-        rt_string * ty = xn_arr_s_get(parts, 0);
-        rt_string * fn = xn_arr_s_get(parts, 1);
-        rt_string * init = rt_string_from_c("0");
-        if (xn_str_eq(ty, rt_string_from_c("String"))) {
-          init = rt_string_from_c("rt_string_from_c(\"\")");
+    rt_string * csig = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), cn), rt_string_from_c(" *xn_Cls_")), cn), rt_string_from_c("_new")), suffix), rt_string_from_c("("));
+    xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, ctor);
+    if ((((int64_t)cps->len) == 0)) {
+      csig = xn_concat(csig, rt_string_from_c("void"));
+    }
+    else {
+      int64_t ci = xn_int_wrap(0);
+      while ((ci < ((int64_t)cps->len))) {
+        if ((ci > 0)) {
+          csig = xn_concat(csig, rt_string_from_c(", "));
         }
-        if (xn_Cls_CGen_isFunctionType(self, ty)) {
-          init = rt_string_from_c("(xn_closure){0, 0}");
+        xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, ci))->text, rt_string_from_c(" "));
+        if ((((int64_t)cpp->len) >= 2)) {
+          csig = xn_concat(xn_concat(xn_concat(csig, xn_Cls_CGen_ctype(self, xn_arr_s_get(cpp, 0))), rt_string_from_c(" ")), xn_arr_s_get(cpp, 1));
         }
-        if (xn_Cls_CGen_isArray(self, ty)) {
-          init = xn_Cls_CGen_arrayNew(self, ty, 4);
-        }
-        if ((((int64_t)k->kids->len) > 0)) {
-          if ((xn_Cls_CGen_isArray(self, ty) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0))->kind, rt_string_from_c("ArrayLit")))) {
-            xn_Cls_AstNode * lit = ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0));
-            init = xn_Cls_CGen_arrayNew(self, ty, ((int64_t)lit->kids->len));
-          }
-          else {
-            init = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0)));
-          }
-        }
-        xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  xn_obj->"), fn), rt_string_from_c(" = ")), init), rt_string_from_c(";")));
+        ci = xn_int_wrap((ci + 1));
       }
     }
-    i = xn_int_wrap((i + 1));
-  }
-  if (xn_str_eq(ctor->kind, rt_string_from_c("Ctor"))) {
+    xn_Cls_CGen_emit(self, xn_concat(csig, rt_string_from_c(") {")));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  xn_Cls_"), cn), rt_string_from_c(" *xn_obj = (xn_Cls_")), cn), rt_string_from_c(" *)rt_gc_new(&RT_TYPE_XN_")), cn), rt_string_from_c(");")));
+    xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("  memset((char *)xn_obj + sizeof(rt_header), 0, sizeof(xn_Cls_"), cn), rt_string_from_c(") - sizeof(rt_header));")));
     self->curClass = cn;
-    xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("  xn_Cls_"), cn), rt_string_from_c(" *self = xn_obj;")));
-    xn_Cls_CGen_popTo(self, 0);
-    xn_Cls_CGen_addVar(self, cn, rt_string_from_c("self"));
-    int64_t pi = xn_int_wrap(0);
-    while ((pi < ((int64_t)cps->len))) {
-      xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, pi))->text, rt_string_from_c(" "));
-      if ((((int64_t)cpp->len) >= 2)) {
-        xn_Cls_CGen_addVar(self, xn_arr_s_get(cpp, 0), xn_arr_s_get(cpp, 1));
+    i = 0;
+    while ((i < ((int64_t)cls->kids->len))) {
+      xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
+      if (xn_str_eq(k->kind, rt_string_from_c("Field"))) {
+        xn_arr_s * parts = xn_str_split(k->text, rt_string_from_c(" "));
+        if ((((int64_t)parts->len) >= 2)) {
+          rt_string * ty = xn_arr_s_get(parts, 0);
+          rt_string * fn = xn_arr_s_get(parts, 1);
+          rt_string * init = rt_string_from_c("0");
+          if (xn_str_eq(ty, rt_string_from_c("String"))) {
+            init = rt_string_from_c("rt_string_from_c(\"\")");
+          }
+          if (xn_Cls_CGen_isFunctionType(self, ty)) {
+            init = rt_string_from_c("(xn_closure){0, 0}");
+          }
+          if (xn_Cls_CGen_isArray(self, ty)) {
+            init = xn_Cls_CGen_arrayNew(self, ty, 4);
+          }
+          if ((((int64_t)k->kids->len) > 0)) {
+            if ((xn_Cls_CGen_isArray(self, ty) && xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0))->kind, rt_string_from_c("ArrayLit")))) {
+              xn_Cls_AstNode * lit = ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0));
+              init = xn_Cls_CGen_arrayNew(self, ty, ((int64_t)lit->kids->len));
+            }
+            else {
+              init = xn_Cls_CGen_expr(self, ((xn_Cls_AstNode *)xn_arr_o_get(k->kids, 0)));
+            }
+          }
+          xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("  xn_obj->"), fn), rt_string_from_c(" = ")), init), rt_string_from_c(";")));
+        }
       }
-      pi = xn_int_wrap((pi + 1));
+      i = xn_int_wrap((i + 1));
     }
-    int64_t bi = xn_int_wrap(0);
-    while ((bi < ((int64_t)ctor->kids->len))) {
-      xn_Cls_AstNode * ck = ((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, bi));
-      if (xn_str_eq(ck->kind, rt_string_from_c("Block"))) {
-        xn_Cls_CGen_blockBody(self, ck, rt_string_from_c("  "));
+    if (xn_str_eq(ctor->kind, rt_string_from_c("Ctor"))) {
+      self->curClass = cn;
+      xn_Cls_CGen_emit(self, xn_concat(xn_concat(rt_string_from_c("  xn_Cls_"), cn), rt_string_from_c(" *self = xn_obj;")));
+      xn_Cls_CGen_popTo(self, 0);
+      xn_Cls_CGen_addVar(self, cn, rt_string_from_c("self"));
+      int64_t pi = xn_int_wrap(0);
+      while ((pi < ((int64_t)cps->len))) {
+        xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, pi))->text, rt_string_from_c(" "));
+        if ((((int64_t)cpp->len) >= 2)) {
+          xn_Cls_CGen_addVar(self, xn_arr_s_get(cpp, 0), xn_arr_s_get(cpp, 1));
+        }
+        pi = xn_int_wrap((pi + 1));
       }
-      bi = xn_int_wrap((bi + 1));
+      int64_t bi = xn_int_wrap(0);
+      while ((bi < ((int64_t)ctor->kids->len))) {
+        xn_Cls_AstNode * ck = ((xn_Cls_AstNode *)xn_arr_o_get(ctor->kids, bi));
+        if (xn_str_eq(ck->kind, rt_string_from_c("Block"))) {
+          xn_Cls_CGen_blockBody(self, ck, rt_string_from_c("  "));
+        }
+        bi = xn_int_wrap((bi + 1));
+      }
+      xn_Cls_CGen_popTo(self, 0);
     }
-    xn_Cls_CGen_popTo(self, 0);
+    self->curClass = rt_string_from_c("");
+    xn_Cls_CGen_emit(self, rt_string_from_c("  return xn_obj;"));
+    xn_Cls_CGen_emit(self, rt_string_from_c("}"));
+    xn_Cls_CGen_emit(self, rt_string_from_c(""));
+    ctorIndex = xn_int_wrap((ctorIndex + 1));
   }
-  self->curClass = rt_string_from_c("");
-  xn_Cls_CGen_emit(self, rt_string_from_c("  return xn_obj;"));
-  xn_Cls_CGen_emit(self, rt_string_from_c("}"));
-  xn_Cls_CGen_emit(self, rt_string_from_c(""));
   i = 0;
   while ((i < ((int64_t)cls->kids->len))) {
     xn_Cls_AstNode * k = ((xn_Cls_AstNode *)xn_arr_o_get(cls->kids, i));
@@ -14806,26 +14843,40 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   while ((i < ((int64_t)self->program->kids->len))) {
     xn_Cls_AstNode * n = ((xn_Cls_AstNode *)xn_arr_o_get(self->program->kids, i));
     if ((((xn_str_eq(n->kind, rt_string_from_c("Class")) || xn_str_eq(n->kind, rt_string_from_c("Struct"))) || (xn_str_eq(n->kind, rt_string_from_c("Enum")) && xn_Cls_CGen_isDataEnum(self, n->text))) && (!xn_hasTypeParams(n)))) {
-      xn_Cls_AstNode * ctor = xn_Cls_CGen_ctorOf(self, n);
-      xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, ctor);
-      rt_string * csig = xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), n->text), rt_string_from_c(" *xn_Cls_")), n->text), rt_string_from_c("_new("));
-      if ((((int64_t)cps->len) == 0)) {
-        csig = xn_concat(csig, rt_string_from_c("void"));
+      xn_arr_o * ctors = xn_Cls_CGen_ctorsOf(self, n);
+      if ((((int64_t)ctors->len) == 0)) {
+        xn_Cls_CGen_emit(self, xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), n->text), rt_string_from_c(" *xn_Cls_")), n->text), rt_string_from_c("_new(void);")));
       }
       else {
-        int64_t ci = xn_int_wrap(0);
-        while ((ci < ((int64_t)cps->len))) {
-          if ((ci > 0)) {
-            csig = xn_concat(csig, rt_string_from_c(", "));
+        int64_t ctorIndex = xn_int_wrap(0);
+        while ((ctorIndex < ((int64_t)ctors->len))) {
+          xn_Cls_AstNode * ctor = ((xn_Cls_AstNode *)xn_arr_o_get(ctors, ctorIndex));
+          xn_arr_o * cps = xn_Cls_CGen_paramsOf(self, ctor);
+          rt_string * suffix = rt_string_from_c("");
+          if ((ctorIndex > 0)) {
+            suffix = xn_concat(rt_string_from_c("_"), xn_str_int(((int64_t)cps->len)));
           }
-          xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, ci))->text, rt_string_from_c(" "));
-          if ((((int64_t)cpp->len) >= 2)) {
-            csig = xn_concat(xn_concat(xn_concat(csig, xn_Cls_CGen_ctype(self, xn_arr_s_get(cpp, 0))), rt_string_from_c(" ")), xn_arr_s_get(cpp, 1));
+          rt_string * csig = xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(xn_concat(rt_string_from_c("static xn_Cls_"), n->text), rt_string_from_c(" *xn_Cls_")), n->text), rt_string_from_c("_new")), suffix), rt_string_from_c("("));
+          if ((((int64_t)cps->len) == 0)) {
+            csig = xn_concat(csig, rt_string_from_c("void"));
           }
-          ci = xn_int_wrap((ci + 1));
+          else {
+            int64_t ci = xn_int_wrap(0);
+            while ((ci < ((int64_t)cps->len))) {
+              if ((ci > 0)) {
+                csig = xn_concat(csig, rt_string_from_c(", "));
+              }
+              xn_arr_s * cpp = xn_str_split(((xn_Cls_AstNode *)xn_arr_o_get(cps, ci))->text, rt_string_from_c(" "));
+              if ((((int64_t)cpp->len) >= 2)) {
+                csig = xn_concat(xn_concat(xn_concat(csig, xn_Cls_CGen_ctype(self, xn_arr_s_get(cpp, 0))), rt_string_from_c(" ")), xn_arr_s_get(cpp, 1));
+              }
+              ci = xn_int_wrap((ci + 1));
+            }
+          }
+          xn_Cls_CGen_emit(self, xn_concat(csig, rt_string_from_c(");")));
+          ctorIndex = xn_int_wrap((ctorIndex + 1));
         }
       }
-      xn_Cls_CGen_emit(self, xn_concat(csig, rt_string_from_c(");")));
       int64_t mi = xn_int_wrap(0);
       while ((mi < ((int64_t)n->kids->len))) {
         if (xn_str_eq(((xn_Cls_AstNode *)xn_arr_o_get(n->kids, mi))->kind, rt_string_from_c("Method"))) {
