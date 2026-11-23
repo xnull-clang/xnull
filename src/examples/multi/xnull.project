@@ -1,0 +1,7 @@
+project {
+  groupId = io.xnull
+  artifactId = multi
+  version = 1.0.0
+  packaging = app
+  build { entryFile = main.x }
+}
