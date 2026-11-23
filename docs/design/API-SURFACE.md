@@ -329,7 +329,7 @@ API 面目标：
 | 包 | 可用注解 | 目标/保留 | 处理器 | 生成物 | 诊断码 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `xdk.cli` | `@CliCommand`、`@CliSubcommand`、`@Option`、`@Arg` | Type/Field / Source | `cli_processor` | `generated/CliGenerated.x` | `AN1001`–`AN1006` | implemented (M2) |
-| `xdk.codec` | `@Serializable`、`@JsonName` | Type/Field / Source | `codec_processor` | `generated/CodecGenerated.x` | `AN1101`–`AN1102` | implemented (M3.2) |
+| `xdk.codec` | `@Serializable`、`@JsonName`、`@CsvName` | Type/Field / Source | `codec_processor`、`csv_processor` | `generated/CodecGenerated.x`、`CsvGenerated.x` | `AN1101`–`AN1102`、`AN1601`–`AN1605` | implemented (M3.2/M3.3) |
 | `xdk.validate` | `@Validate`、`@Min`、`@Max`、`@Pattern` | Type/Field / Source | `validate_processor` | `generated/ValidateGenerated.x` | `AN1201`–`AN1206` | implemented (M4.2) |
 | `xdk.net.http` | `@HttpRoute`、`@Header`、`@Query`、`@Body` | Method/Parameter / Source | `http_processor` | `generated/HttpGenerated.x` | `AN1301`–`AN1307` | implemented (M5.2) |
 | `xdk.sql` | `@Sql`、`@Param`、`@Row`、`@Column` | Method/Parameter/Type/Field / Source | `sql_processor` | `generated/SqlGenerated.x` | `AN1401`–`AN1410` | implemented (M6.2) |

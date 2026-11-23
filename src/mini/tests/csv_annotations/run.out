@@ -1,0 +1,15 @@
+header=user_id,name,age,score,active,note\n
+csv=user_id,name,age,score,active,note\n7,"a,b""c\nline",30,1.5,true,"x,y"\n
+roundtrip=true
+values=7,a,b"c\nline,30,1.5,true,x,y
+reordered=8,Ada
+missing=true,DataCorrupted: UserCsv.user_id: missing column
+bad-number=DataCorrupted: UserCsv.age: invalid Int
+bad-bool=DataCorrupted: UserCsv.active: invalid Bool
+empty-number=DataCorrupted: UserCsv.age: invalid Int
+rows=2,B
+first=1,A
+unknown=9,Z
+crlf=3,C
+missing-header=DataCorrupted: UserCsv: missing header
+header-only=DataCorrupted: UserCsv: missing data row

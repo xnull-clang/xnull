@@ -5,7 +5,7 @@
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 32（内建/元模型 9 + A8 5 + 领域 18）、`reserved` 4、`planned` 57（S6 2 + 领域 55） |
+| 计数 | 93 条：`implemented` 33（内建/元模型 9 + A8 5 + 领域 19）、`reserved` 4、`planned` 56（S6 2 + 领域 54） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -45,7 +45,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 ## 3. 领域注解
 
-领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName）为 `implemented (M3.2)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`，http（@HttpRoute/@Header/@Query/@Body）为 `implemented (M5.2)`；@StatusCode、@CsvName、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
+领域注解随所属包实现，不放进 `xdk.annotations`。CLI 试点（@CliCommand/@CliSubcommand/@Option/@Arg）为 `implemented (M2 pilot)`；codec（@Serializable/@JsonName/@CsvName）为 `implemented (M3.2/M3.3)`，validate（@Validate/@Min/@Max/@Pattern）为 `implemented (M4.2)`，http（@HttpRoute/@Header/@Query/@Body）为 `implemented (M5.2)`；@StatusCode、@Email 等仍 planned。验收统一为“包实现 + 处理器 + 生成代码 + 场景”。
 
 ### 3.1 CLI
 
@@ -88,7 +88,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | --- | --- | --- | --- | --- | --- |
 | `@Serializable` | 标记可序列化类型 | `Bool pretty = false` | Type / Source | codec_processor → `<Type>ToJson`/`<Type>FromJson` | implemented (M3.2) |
 | `@JsonName` | JSON 字段名 | `String value` | Field / Source | codec_processor → JSON 字段名 | implemented (M3.2) |
-| `@CsvName` | CSV 列名 | `String value` | Field / Source | CodecAnnotationProcessor → CSV 映射 | planned |
+| `@CsvName` | CSV 列名 | `String value` | Field / Source | csv_processor → CSV 列映射 | implemented (M3.3) |
 | `@YamlName` | YAML 字段名 | `String value` | Field / Source | YamlAnnotationProcessor → YAML 映射 | planned |
 | `@TomlName` | TOML 字段名 | `String value` | Field / Source | TomlAnnotationProcessor → TOML 映射 | planned |
 | `@XmlName` | XML 元素/属性名 | `String value` | Field / Source | XmlAnnotationProcessor → XML 映射 | planned |

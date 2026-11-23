@@ -930,7 +930,7 @@ class Board {
 }
 ```
 
-状态：`@Serializable`/`@JsonName` implemented (M3.2)：生成 `<Type>ToJson`/`<Type>FromJson`，支持标量字段与同包嵌套；`List<T>` 与 `@CsvName` planned；无反射。
+状态：`@Serializable`/`@JsonName` implemented (M3.2)，`@CsvName` implemented (M3.3)：生成 JSON 与 CSV 编解码；CSV 支持 String/Int/Long/Double/Bool，其他字段 AN1605 warning 跳过；`List<T>` JSON planned；无反射。
 
 ### `xdk.codec`
 
@@ -973,7 +973,7 @@ class UserDto {
 }
 ```
 
-状态：`@Serializable`/`@JsonName` implemented (M3.2)：生成 `<Type>ToJson`/`<Type>FromJson`，支持标量字段与同包嵌套；`List<T>` 与 `@CsvName` planned；无反射。
+状态：`@Serializable`/`@JsonName` implemented (M3.2)，`@CsvName` implemented (M3.3)：生成 JSON 与 CSV 编解码；CSV 支持 String/Int/Long/Double/Bool，其他字段 AN1605 warning 跳过；`List<T>` JSON planned；无反射。
 
 ### `xdk.crypto`
 
