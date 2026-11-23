@@ -8,7 +8,7 @@
 | 被依赖 | 应用、HTTP 客户端、存储层 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
-| 实现状态 | M8.3：`EvictionReason`/`CacheOptions`/`CacheStats`/`Cache` implemented；仅内存并发，监听器锁外调用；getOrLoad/listener 的当前编译器函数类型限制见报告 |
+| 实现状态 | M8.3：`EvictionReason`/`CacheOptions`/`CacheStats`/`Cache` implemented；仅内存并发，监听器锁外调用；getOrLoad 使用具体类型 loader；listener 使用具体类型局部函数变量 |
 
 ---
 

@@ -2002,7 +2002,31 @@ static int xn_Cls_Parser_isLocalDecl(xn_Cls_Parser *self) {
       j = xn_int_wrap((j + 1));
     }
     xn_Cls_Token * name = xn_Cls_Parser_look(self, j);
-    return xn_str_eq(name->kind, rt_string_from_c("ident"));
+    if (xn_str_eq(name->kind, rt_string_from_c("ident"))) {
+      return 1;
+    }
+    if (xn_str_eq(name->text, rt_string_from_c("("))) {
+      int64_t funcDepth = xn_int_wrap(1);
+      int64_t funcIndex = xn_int_wrap(xn_int_wrap((j + 1)));
+      while ((funcDepth > 0)) {
+        xn_Cls_Token * token = xn_Cls_Parser_look(self, funcIndex);
+        if (xn_str_eq(token->kind, rt_string_from_c("eof"))) {
+          return 0;
+        }
+        if (xn_str_eq(token->text, rt_string_from_c("("))) {
+          funcDepth = xn_int_wrap((funcDepth + 1));
+        }
+        else {
+          if (xn_str_eq(token->text, rt_string_from_c(")"))) {
+            funcDepth = xn_int_wrap((funcDepth - 1));
+          }
+        }
+        funcIndex = xn_int_wrap((funcIndex + 1));
+      }
+      xn_Cls_Token * funcName = xn_Cls_Parser_look(self, funcIndex);
+      return (xn_str_eq(funcName->kind, rt_string_from_c("ident")) && xn_str_eq(xn_Cls_Parser_look(self, xn_int_wrap((funcIndex + 1)))->text, rt_string_from_c("=")));
+    }
+    return 0;
   }
   if (xn_str_eq(b->text, rt_string_from_c("("))) {
     int64_t depth = xn_int_wrap(1);

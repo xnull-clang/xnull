@@ -1094,7 +1094,28 @@ class Parser {
                 j = j + 1
             }
             Token name = self.look(j)
-            return name.kind == "ident"
+            if name.kind == "ident" {
+                return true
+            }
+            if name.text == "(" {
+                Int funcDepth = 1
+                Int funcIndex = j + 1
+                while funcDepth > 0 {
+                    Token token = self.look(funcIndex)
+                    if token.kind == "eof" {
+                        return false
+                    }
+                    if token.text == "(" {
+                        funcDepth = funcDepth + 1
+                    } else if token.text == ")" {
+                        funcDepth = funcDepth - 1
+                    }
+                    funcIndex = funcIndex + 1
+                }
+                Token funcName = self.look(funcIndex)
+                return funcName.kind == "ident" && self.look(funcIndex + 1).text == "="
+            }
+            return false
         }
         if b.text == "(" {
             Int depth = 1

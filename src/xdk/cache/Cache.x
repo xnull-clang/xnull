@@ -341,8 +341,9 @@ class Cache<K, V> {
         Bool closed = self._closed
         self._monitor.exit()
         if closed { return Err(new BasicError(ErrorKind.Unavailable, "cache is closed")) }
-        V? cached = self.get(key)
-        if cached != null { return Ok(cached as V) }
+        if self.contains(key) {
+            return Ok(self.get(key))
+        }
         Result<V, Error> loaded = loader(key)
         if loaded.isErr() {
             self._monitor.enter()
@@ -355,7 +356,8 @@ class Cache<K, V> {
         if self._options.isRecordStats() { self._loads = self._loads + 1 }
         self._monitor.exit()
         if closedAfterLoad { return Err(new BasicError(ErrorKind.Unavailable, "cache is closed")) }
-        self.put(key, loaded.value())
+        V value = loaded.value()
+        self.put(key, value)
         return loaded
     }
 

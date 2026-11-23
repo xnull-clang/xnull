@@ -4,6 +4,11 @@ import xdk.errors
 import xdk.tasks
 import xdk.time
 
+class LoaderState {
+    Int calls
+    LoaderState() { self.calls = 0 }
+}
+
 static Bool hasReason(List<String> reasons, String wanted) {
     Int index = 0
     while index < reasons.length() {
@@ -63,6 +68,28 @@ static Int main() {
     listened.invalidateAll()
     print("invalidate-all=" + str(reasons.get(reasons.length() - 1)))
 
+
+    LoaderState loaderState = new LoaderState()
+    CacheOptions loadOptions = new CacheOptions()
+    loadOptions.maxEntries(4)
+    Cache<String, Int> loadCache = new Cache<String, Int>(loadOptions)
+    Result<Int, Error>(String) firstLoader = (String key) -> {
+        loaderState.calls = loaderState.calls + 1
+        return Ok(9)
+    }
+    Result<Int, Error>(String) secondLoader = (String key) -> {
+        loaderState.calls = loaderState.calls + 1
+        return Ok(10)
+    }
+    Result<Int, Error> firstLoad = loadCache.getOrLoad("k", firstLoader)
+    Result<Int, Error> secondLoad = loadCache.getOrLoad("k", secondLoader)
+    print("load=" + str(firstLoad.value()) + "," + str(secondLoad.value()) + "," + str(loaderState.calls))
+    Result<Int, Error>(String) failingLoader = (String key) -> {
+        return Err(new BasicError(ErrorKind.Io, "load"))
+    }
+    Result<Int, Error> failedLoad = loadCache.getOrLoad("bad", failingLoader)
+    print("load-fail=" + str(failedLoad.isErr()) + "," + str(loadCache.stats().loadFailures()))
+    print("load-stats=" + str(loadCache.stats().loads()) + "," + str(loadCache.size()))
     CacheOptions statsOptions = new CacheOptions()
     statsOptions.maxEntries(2)
     Cache<String, Int> statsCache = new Cache<String, Int>(statsOptions)
@@ -116,6 +143,10 @@ static Int main() {
     CacheOptions closedLoadOptions = new CacheOptions()
     Cache<String, Int> closedLoad = new Cache<String, Int>(closedLoadOptions)
     closedLoad.close()
-    print("closed-load=" + str(closedLoad.isClosed()) + "," + str(closedLoad.get("x") == null))
+    Result<Int, Error>(String) closedLoader = (String key) -> {
+        return Ok(1)
+    }
+    Result<Int, Error> closedLoadResult = closedLoad.getOrLoad("x", closedLoader)
+    print("closed-load=" + str(closedLoadResult.error().kind() == ErrorKind.Unavailable))
     return 0
 }
