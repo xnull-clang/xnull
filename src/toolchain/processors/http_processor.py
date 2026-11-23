@@ -267,17 +267,17 @@ def main():
         "    return true",
         "}",
         "",
-        "static String? httpGenPathValue(String template, String path, String name) {",
+        "static Result<String, Error> httpGenPathValue(String template, String path, String name) {",
         "    List<String> left = template.split(\"/\")",
         "    List<String> right = path.split(\"/\")",
-        "    if left.length() != right.length() { return null }",
+        "    if left.length() != right.length() { return Err(new BasicError(ErrorKind.InvalidArgument, \"path segment mismatch\")) }",
         "    String marker = \"{\" + name + \"}\"",
         "    Int index = 0",
         "    while index < left.length() {",
-        "        if left.get(index) == marker { return right.get(index) }",
+        "        if left.get(index) == marker { return percentDecode(right.get(index)) }",
         "        index = index + 1",
         "    }",
-        "    return null",
+        "    return Err(new BasicError(ErrorKind.InvalidArgument, \"path parameter not found\"))",
         "}",
         "",
         "static HttpResponse httpGenBadRequest(String message) {",
@@ -292,10 +292,15 @@ def main():
         "    if text.substring(0, 1) == \"-\" { negative = true; index = 1 }",
         "    if index >= text.length() { return Err(new BasicError(ErrorKind.InvalidArgument, \"invalid long\")) }",
         "    Long value = 0",
+        "    Long cutoff = 922337203685477580",
+        "    Int limit = 7",
+        "    if negative { limit = 8 }",
         "    String digits = \"0123456789\"",
         "    while index < text.length() {",
         "        Int digit = digits.indexOf(text.substring(index, 1))",
         "        if digit < 0 { return Err(new BasicError(ErrorKind.InvalidArgument, \"invalid long\")) }",
+        "        if value > cutoff { return Err(new BasicError(ErrorKind.InvalidArgument, \"invalid long\")) }",
+        "        if value == cutoff && digit > limit { return Err(new BasicError(ErrorKind.InvalidArgument, \"invalid long\")) }",
         "        value = value * 10 + digit",
         "        index = index + 1",
         "    }",
@@ -340,9 +345,9 @@ def main():
                 var = "arg" + str(idx) + "_" + str(pidx)
                 raw = "raw" + str(idx) + "_" + str(pidx)
                 if param["kind"] == "path":
-                    lines.append("                String? " + raw + " = httpGenPathValue(" + path_lit + ", path, " + json.dumps(param["source"]) + ")")
-                    lines.append("                if " + raw + " == null { return httpGenBadRequest(\"missing path: " + param["source"] + "\") }")
-                    lines.append("                String " + var + "Raw = " + raw + " as String")
+                    lines.append("                Result<String, Error> " + raw + "Result = httpGenPathValue(" + path_lit + ", path, " + json.dumps(param["source"]) + ")")
+                    lines.append("                if " + raw + "Result.isErr() { return httpGenBadRequest(\"invalid path: " + param["source"] + "\") }")
+                    lines.append("                String " + var + "Raw = " + raw + "Result.value()")
                 elif param["kind"] == "query":
                     lines.append("                String? " + raw + " = request.uri().query().getOrNull(" + json.dumps(param["source"]) + ")")
                     if param["nullable"]:

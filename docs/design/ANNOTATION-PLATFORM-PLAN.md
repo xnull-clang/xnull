@@ -220,6 +220,8 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | P5-03 | HttpProcessor Generate | P5-02 | 路由表/参数绑定 | implemented (M5.2) |
 | P5-04 | http 业务闭环 | P5-03 | 方法/路径/参数/错误/404 | implemented (M5.2) |
 
+M5.3 修正：路径参数按段 percentDecode（`%2F` 保留单段，`+` 不转空格）；非法/截断转义 400；Long 路径参数做上界检查（最大/最小值通过，越界 400）。
+
 ### P6 sql / `@Sql`
 
 | ID | 交付 | 依赖 | 验收 | 状态 |

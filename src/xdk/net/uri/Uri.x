@@ -32,21 +32,12 @@ Bool isValidScheme(String scheme) {
 Int uriHexValue(String text) {
     if text == "" { return -1 }
     String c = text.substring(0, 1)
-    if compareText(c, "0") >= 0 && compareText(c, "9") <= 0 { return parseInt(c).value() }
-    if compareText(c, "a") >= 0 && compareText(c, "f") <= 0 {
-        Int index = 0
-        while index < 6 {
-            if c == hexLetter(index) { return 10 + index }
-            index = index + 1
-        }
-    }
-    if compareText(c, "A") >= 0 && compareText(c, "F") <= 0 {
-        Int index = 0
-        while index < 6 {
-            if c == hexLetter(index) { return 10 + index }
-            index = index + 1
-        }
-    }
+    Int digit = "0123456789".indexOf(c)
+    if digit >= 0 { return digit }
+    Int lower = "abcdef".indexOf(c)
+    if lower >= 0 { return 10 + lower }
+    Int upper = "ABCDEF".indexOf(c)
+    if upper >= 0 { return 10 + upper }
     return -1
 }
 
@@ -99,6 +90,43 @@ String percentEncode(String text, String allowed) {
     return result
 }
 
+
+Bool uriContinuation(Bytes data, Int index) {
+    if index < 0 || index >= data.length() { return false }
+    Int value = data.get(index)
+    return value >= 0x80 && value <= 0xBF
+}
+
+Bool uriValidUtf8(Bytes data) {
+    Int index = 0
+    while index < data.length() {
+        Int first = data.get(index)
+        if first < 0x80 {
+            index = index + 1
+        } else if first >= 0xC2 && first <= 0xDF {
+            if !uriContinuation(data, index + 1) { return false }
+            index = index + 2
+        } else if first >= 0xE0 && first <= 0xEF {
+            if index + 2 >= data.length() { return false }
+            Int second = data.get(index + 1)
+            if first == 0xE0 && second < 0xA0 { return false }
+            if first == 0xED && second > 0x9F { return false }
+            if !uriContinuation(data, index + 1) || !uriContinuation(data, index + 2) { return false }
+            index = index + 3
+        } else if first >= 0xF0 && first <= 0xF4 {
+            if index + 3 >= data.length() { return false }
+            Int second = data.get(index + 1)
+            if first == 0xF0 && second < 0x90 { return false }
+            if first == 0xF4 && second > 0x8F { return false }
+            if !uriContinuation(data, index + 1) || !uriContinuation(data, index + 2) || !uriContinuation(data, index + 3) { return false }
+            index = index + 4
+        } else {
+            return false
+        }
+    }
+    return true
+}
+
 Result<String, Error> percentDecode(String text) {
     if text == null { throw "percentDecode: null text" }
     Bytes result = Bytes.fromString("")
@@ -126,6 +154,7 @@ Result<String, Error> percentDecode(String text) {
             index = index + 1
         }
     }
+    if !uriValidUtf8(result) { return Err(uriError(ErrorKind.DataCorrupted, "invalid utf-8")) }
     return Ok(result.toString())
 }
 

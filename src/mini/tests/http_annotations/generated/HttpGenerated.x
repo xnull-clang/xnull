@@ -24,17 +24,17 @@ static Bool httpGenPathMatches(String template, String path) {
     return true
 }
 
-static String? httpGenPathValue(String template, String path, String name) {
+static Result<String, Error> httpGenPathValue(String template, String path, String name) {
     List<String> left = template.split("/")
     List<String> right = path.split("/")
-    if left.length() != right.length() { return null }
+    if left.length() != right.length() { return Err(new BasicError(ErrorKind.InvalidArgument, "path segment mismatch")) }
     String marker = "{" + name + "}"
     Int index = 0
     while index < left.length() {
-        if left.get(index) == marker { return right.get(index) }
+        if left.get(index) == marker { return percentDecode(right.get(index)) }
         index = index + 1
     }
-    return null
+    return Err(new BasicError(ErrorKind.InvalidArgument, "path parameter not found"))
 }
 
 static HttpResponse httpGenBadRequest(String message) {
@@ -49,10 +49,15 @@ static Result<Long, Error> httpGenParseLong(String text) {
     if text.substring(0, 1) == "-" { negative = true; index = 1 }
     if index >= text.length() { return Err(new BasicError(ErrorKind.InvalidArgument, "invalid long")) }
     Long value = 0
+    Long cutoff = 922337203685477580
+    Int limit = 7
+    if negative { limit = 8 }
     String digits = "0123456789"
     while index < text.length() {
         Int digit = digits.indexOf(text.substring(index, 1))
         if digit < 0 { return Err(new BasicError(ErrorKind.InvalidArgument, "invalid long")) }
+        if value > cutoff { return Err(new BasicError(ErrorKind.InvalidArgument, "invalid long")) }
+        if value == cutoff && digit > limit { return Err(new BasicError(ErrorKind.InvalidArgument, "invalid long")) }
         value = value * 10 + digit
         index = index + 1
     }
@@ -88,9 +93,9 @@ class UserApiRouter {
             if allow != "" { allow = allow + "," }
             allow = allow + "GET"
             if method == HttpMethod.Get {
-                String? raw0_0 = httpGenPathValue("/users/{id}", path, "id")
-                if raw0_0 == null { return httpGenBadRequest("missing path: id") }
-                String arg0_0Raw = raw0_0 as String
+                Result<String, Error> raw0_0Result = httpGenPathValue("/users/{id}", path, "id")
+                if raw0_0Result.isErr() { return httpGenBadRequest("invalid path: id") }
+                String arg0_0Raw = raw0_0Result.value()
                 String arg0_0 = arg0_0Raw
                 String? raw0_1 = request.uri().query().getOrNull("verbose")
                 String? arg0_1 = raw0_1
@@ -138,9 +143,9 @@ class UserApiRouter {
             if allow != "" { allow = allow + "," }
             allow = allow + "GET"
             if method == HttpMethod.Get {
-                String? raw3_0 = httpGenPathValue("/items/{itemId}", path, "itemId")
-                if raw3_0 == null { return httpGenBadRequest("missing path: itemId") }
-                String arg3_0Raw = raw3_0 as String
+                Result<String, Error> raw3_0Result = httpGenPathValue("/items/{itemId}", path, "itemId")
+                if raw3_0Result.isErr() { return httpGenBadRequest("invalid path: itemId") }
+                String arg3_0Raw = raw3_0Result.value()
                 Result<Int, Error> arg3_0Parsed = parseInt(arg3_0Raw)
                 if arg3_0Parsed.isErr() { return httpGenBadRequest("invalid path: itemId") }
                 Int arg3_0 = arg3_0Parsed.value()
@@ -153,9 +158,9 @@ class UserApiRouter {
             if allow != "" { allow = allow + "," }
             allow = allow + "GET"
             if method == HttpMethod.Get {
-                String? raw4_0 = httpGenPathValue("/big/{value}", path, "value")
-                if raw4_0 == null { return httpGenBadRequest("missing path: value") }
-                String arg4_0Raw = raw4_0 as String
+                Result<String, Error> raw4_0Result = httpGenPathValue("/big/{value}", path, "value")
+                if raw4_0Result.isErr() { return httpGenBadRequest("invalid path: value") }
+                String arg4_0Raw = raw4_0Result.value()
                 Result<Long, Error> arg4_0Parsed = httpGenParseLong(arg4_0Raw)
                 if arg4_0Parsed.isErr() { return httpGenBadRequest("invalid path: value") }
                 Long arg4_0 = arg4_0Parsed.value()

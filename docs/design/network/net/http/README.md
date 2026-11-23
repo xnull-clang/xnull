@@ -127,6 +127,8 @@ X：Router/Middleware、连接池高级策略。HTTP/3/QUIC 不做。
 - Cookie 过期只解析数字 `Max-Age`/`Expires`（`Expires` 不做 RFC HTTP-date）；`CookieJar` 只做精确 domain/path，不实现 PSL。
 - `HttpHeaders.contentType/contentLength/userAgent` 已实现。
 
+M5.3 生成约定：路径匹配先按 `/` 分段，再对捕获段 `percentDecode`；`%2F` 不拆段，`+` 保持字面量；非法/截断转义返回 400。Long 路径参数检查 64 位上下界，越界返回 400。
+
 ## 6. 场景
 
 ### H1：JSON 客户端
