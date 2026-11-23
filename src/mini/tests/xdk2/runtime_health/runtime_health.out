@@ -1,0 +1,16 @@
+state-names=healthy,degraded,starting,stopping,stopped,unhealthy
+state-parse=healthy,true
+state-rank=0,5
+state-flags=true,false,true,false
+report=true,true,false,true
+report-flags=true,false,true
+details=2,a,true,fallback
+immutable=partial,changed,2,3,eu
+report-compare=true,true
+monitor-closed=false
+monitor-close=true
+monitor-close-idempotent=true
+wait-cancelled=true
+wait-notify=true,true
+group-close=true
+notifier-wait-closed=true,true

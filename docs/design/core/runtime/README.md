@@ -57,7 +57,7 @@
 | 分配统计 | `RuntimeStats`/`stats`/`statsEnabled`/`statsSetEnabled`/`statsReset` | 分配/释放/字节/GC 计数与开关 |
 | 任务转储 | `dumpTasks` | 诊断输出任务快照 |
 | 栈文本 | `stackTrace` | 当前栈；诊断 |
-| 健康/就绪 | `HealthRegistry`/`HealthReport` | 客户端连接健康、服务器 readiness/liveness |
+| 健康/就绪 | `HealthState`/`HealthReport` | 健康快照、readiness/liveness 判定（M7 前置） |
 
 非目标：日志级别/字段/Sink、全局错误处理器、GC/堆调优、profiler、信号处理、环境/进程启动、日期/时区、休眠。
 
@@ -75,7 +75,9 @@
 | `HealthState` | [`HealthState.md`](HealthState.md) |
 | `HealthReport` | [`HealthReport.md`](HealthReport.md) |
 | `HealthCheck` | [`HealthCheck.md`](HealthCheck.md) |
-| `HealthRegistry` | [`HealthRegistry.md`](HealthRegistry.md) |
+| `HealthRegistry`（planned） | [`HealthRegistry.md`](HealthRegistry.md) |
+
+实现状态：`HealthState`、`HealthReport` 已实现（health snapshot）；`HealthRegistry` 仍 planned。`HealthState` 增加内部 `Unknown` 占位以避免 optional 枚举 0/null 歧义，`healthStateFromName` 未知仍返回 null。
 
 ## 5. 顶层函数
 

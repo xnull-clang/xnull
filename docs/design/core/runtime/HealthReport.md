@@ -9,6 +9,8 @@
 
 ---
 
+实现状态：implemented（工厂/读取/with*/判定/copy/equals/describe）。
+
 ## 1. 定位
 
 单项/聚合健康快照：状态、消息、单调时间戳、键值细节。

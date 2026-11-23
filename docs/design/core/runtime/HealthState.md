@@ -9,6 +9,8 @@
 
 ---
 
+实现状态：implemented（`healthStateName`/`healthStateFromName`/`healthStateRank`/`healthStateIsHealthy`/`healthStateIsReady`）。
+
 ## 1. 定位
 
 健康/就绪状态：启动中、健康、降级、不健康、停止中、已停止。
@@ -37,6 +39,9 @@
 | `Stopping` | 停止中 | 3 | false |
 | `Stopped` | 已停止 | 4 | false |
 | `Unhealthy` | 不可服务 | 5 | false |
+| `Unknown` | 内部占位（可选枚举 0 哨兵规避） | 6 | false |
+
+`Unknown` 不参与 `healthStateFromName` 的名称解析；未知名称仍返回 null。
 
 不变量：成员固定；只允许追加；rank 唯一；值语义。
 
