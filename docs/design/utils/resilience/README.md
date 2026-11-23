@@ -8,6 +8,7 @@
 | 被依赖 | 应用/客户端/服务端 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M8.1：`CircuitState`/`CircuitBreaker`/`RateLimiter`/`Bulkhead`/`Retry`/`Timeout`/`Fallback` implemented；`RetryPolicy` 支撑在 `xdk.errors`；Timeout 为协作取消；注解包装 planned |
 
 ---
 

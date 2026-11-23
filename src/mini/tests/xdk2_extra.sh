@@ -22,7 +22,8 @@ for gate in \
     "$HERE/xdk2/sql/panic.sh" \
     "$HERE/xdk2/runtime_health/panic.sh" \
     "$HERE/xdk2/db/panic.sh" \
-    "$HERE/xdk2/db/fixture_check.sh"; do
+    "$HERE/xdk2/db/fixture_check.sh" \
+    "$HERE/xdk2/resilience/panic.sh"; do
     [ -x "$gate" ] || { echo "xdk2_extra: missing gate: $gate" >&2; exit 1; }
     gate_start=$(date +%s)
     if ! out=$("$gate" 2>&1); then

@@ -815,3 +815,145 @@ Result<U, F> mapBoth<T, U, E, F>(Result<T, E> result, U(T) onOk, F(E) onErr) {
     }
     return Err(onErr(result.error()))
 }
+
+// ---------- RetryPolicy（M8.1 支撑；不可变策略） ----------
+
+class RetryPolicy {
+    Int _maxAttempts
+    Long _initialDelayMillis
+    Long _maxDelayMillis
+    Double _multiplier
+    Double _jitter
+    List<ErrorKind> _retryOn
+
+    RetryPolicy() {
+        self._maxAttempts = 3
+        self._initialDelayMillis = 100
+        self._maxDelayMillis = 5000
+        self._multiplier = 2.0
+        self._jitter = 0.1
+        self._retryOn = []
+        self._retryOn.push(ErrorKind.Network)
+        self._retryOn.push(ErrorKind.Timeout)
+        self._retryOn.push(ErrorKind.Busy)
+        self._retryOn.push(ErrorKind.Unavailable)
+    }
+
+    Int maxAttempts() { return self._maxAttempts }
+    Long initialDelayMillis() { return self._initialDelayMillis }
+    Long maxDelayMillis() { return self._maxDelayMillis }
+    Double multiplier() { return self._multiplier }
+    Double jitter() { return self._jitter }
+
+    List<ErrorKind> retryOn() { return self._retryOn.copy() }
+
+    RetryPolicy copy() {
+        RetryPolicy result = new RetryPolicy()
+        result._maxAttempts = self._maxAttempts
+        result._initialDelayMillis = self._initialDelayMillis
+        result._maxDelayMillis = self._maxDelayMillis
+        result._multiplier = self._multiplier
+        result._jitter = self._jitter
+        result._retryOn = self._retryOn.copy()
+        return result
+    }
+
+    RetryPolicy withMaxAttempts(Int count) {
+        if count < 1 { throw "RetryPolicy.withMaxAttempts: count < 1" }
+        RetryPolicy result = self.copy()
+        result._maxAttempts = count
+        return result
+    }
+
+    RetryPolicy withInitialDelayMillis(Long milliseconds) {
+        if milliseconds < 0 { throw "RetryPolicy.withInitialDelayMillis: negative" }
+        RetryPolicy result = self.copy()
+        result._initialDelayMillis = milliseconds
+        if result._maxDelayMillis < milliseconds { result._maxDelayMillis = milliseconds }
+        return result
+    }
+
+    RetryPolicy withMaxDelayMillis(Long milliseconds) {
+        if milliseconds < self._initialDelayMillis { throw "RetryPolicy.withMaxDelayMillis: max < initial" }
+        RetryPolicy result = self.copy()
+        result._maxDelayMillis = milliseconds
+        return result
+    }
+
+    RetryPolicy withMultiplier(Double factor) {
+        if factor < 1.0 { throw "RetryPolicy.withMultiplier: factor < 1" }
+        RetryPolicy result = self.copy()
+        result._multiplier = factor
+        return result
+    }
+
+    RetryPolicy withJitter(Double value) {
+        if value < 0.0 || value > 1.0 { throw "RetryPolicy.withJitter: out of range" }
+        RetryPolicy result = self.copy()
+        result._jitter = value
+        return result
+    }
+
+    RetryPolicy withRetryOn(List<ErrorKind> kinds) {
+        if kinds == null { throw "RetryPolicy.withRetryOn: null" }
+        RetryPolicy result = self.copy()
+        result._retryOn = []
+        Int index = 0
+        while index < kinds.length() {
+            ErrorKind kind = kinds.get(index)
+            Bool seen = false
+            Int scan = 0
+            while scan < result._retryOn.length() {
+                if result._retryOn.get(scan) == kind { seen = true }
+                scan = scan + 1
+            }
+            if !seen { result._retryOn.push(kind) }
+            index = index + 1
+        }
+        return result
+    }
+
+    Bool shouldRetry(Error error, Int attempt) {
+        if error == null || attempt < 1 { throw "RetryPolicy.shouldRetry: invalid argument" }
+        if attempt >= self._maxAttempts { return false }
+        ErrorKind kind = error.kind()
+        Int index = 0
+        while index < self._retryOn.length() {
+            if self._retryOn.get(index) == kind { return true }
+            index = index + 1
+        }
+        return false
+    }
+
+    Long delayFor(Int attempt) {
+        if attempt < 1 { throw "RetryPolicy.delayFor: attempt < 1" }
+        Double delay = self._initialDelayMillis as Double
+        Int index = 1
+        while index < attempt {
+            delay = delay * self._multiplier
+            if delay >= (self._maxDelayMillis as Double) {
+                return self._maxDelayMillis
+            }
+            index = index + 1
+        }
+        return delay as Long
+    }
+
+    Long delayForJittered(Int attempt, Double randomUnit) {
+        if randomUnit < 0.0 || randomUnit > 1.0 {
+            throw "RetryPolicy.delayForJittered: randomUnit out of range"
+        }
+        Long base = self.delayFor(attempt)
+        Double factor = 1.0 - self._jitter + 2.0 * self._jitter * randomUnit
+        Long value = (base as Double * factor) as Long
+        if value < 0 { return 0 }
+        if value > self._maxDelayMillis { return self._maxDelayMillis }
+        return value
+    }
+
+    String describe() {
+        return "RetryPolicy(max=" + str(self._maxAttempts) + " initial=" + str(self._initialDelayMillis) +
+            " maxDelay=" + str(self._maxDelayMillis) + " multiplier=" + str(self._multiplier) +
+            " jitter=" + str(self._jitter) + ")"
+    }
+}
