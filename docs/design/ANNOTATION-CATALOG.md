@@ -73,7 +73,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 | 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| `@Sql` | 绑定 SQL 文本 | `String value` | Method / Source | sql_processor → DAO 方法 | implemented (M6.2) |
+| `@Sql` | 绑定 SQL 文本 | `String value` | Method / Source | sql_processor → DAO 方法；诊断 AN1401–AN1410 | implemented (M6.2) |
 | `@Param` | 绑定命名参数 | `String value` | Parameter / Source | sql_processor → 参数绑定 | implemented (M6.2) |
 | `@Row` | 标记行映射类型 | 无 | Type / Source | sql_processor → 行 mapper | implemented (M6.2) |
 | `@Column` | 绑定列名 | `String value` | Field / Source | sql_processor → 列映射 | implemented (M6.2) |

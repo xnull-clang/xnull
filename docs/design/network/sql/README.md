@@ -119,6 +119,9 @@
 - `SqlDriver.open(String connectionUri, Map<String,String> openOptions)` 同样不带 `Context`。
 - 内存驱动只存在于 `src/mini/tests/xdk2/sql/`，不是包公共 API。
 - 不提供连接池、ORM、SQL 解析/构建、流式游标、真实数据库连接。
+- M6.3：`<Row>FromRow(row, columns)` 按列名映射（精确优先，再大小写不敏感）；重复列 `AN1410` warning。
+- M6.3：DAO 按 SQL `:name` 占位符出现顺序绑定；SQL 列顺序可不同于行字段顺序。
+- `SqlGenerated.x` 自包含 `xdk.sql`/`xdk.errors` import。
 
 ## 5. 场景
 

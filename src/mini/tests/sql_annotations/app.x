@@ -23,6 +23,16 @@ class UserDao {
         return Err(sqlInvalidArgument("stub"))
     }
 
+    @Sql("SELECT display_name, user_id, active, score FROM users WHERE user_id = :id")
+    Result<UserRow, Error> findReordered(Long id) {
+        return Err(sqlInvalidArgument("stub"))
+    }
+
+    @Sql("SELECT user_id, display_name, active, score FROM users WHERE display_name = :name AND user_id = :id")
+    Result<UserRow, Error> findByNameAndId(@Param("id") Long id, @Param("name") String name) {
+        return Err(sqlInvalidArgument("stub"))
+    }
+
     @Sql("SELECT user_id, display_name, active, score FROM users")
     Result<List<UserRow>, Error> list() {
         return Err(sqlInvalidArgument("stub"))

@@ -229,6 +229,8 @@ manifest 格式必须写进 S3 / Part 8 / Part 10，不在实现里临时发明�
 | P6-03 | SqlProcessor Generate | P6-02 | DAO/行映射/参数绑定 | implemented (M6.2) |
 | P6-04 | sql 业务闭环 | P6-03 | 查询/行映射/错误/类型不匹配 | implemented (M6.2) |
 
+M6.3 修正：行映射按列名（精确后大小写不敏感），DAO 参数按 SQL `:name` 出现顺序绑定；重复列诊断 `AN1410`（warning）。
+
 ### P7 平台硬化
 
 | ID | 交付 | 依赖 | 验收 |

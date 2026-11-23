@@ -227,18 +227,25 @@ static Result<SqlResult, Error> memRun(List<MemTable> tables, SqlStatement state
             selectColumns.push(new SqlColumn(selectSelected.get(selectIndex), selectTable.columnTypes.get(selectColumn), true))
             selectIndex = selectIndex + 1
         }
-        Int selectWhereColumn = -1
-        SqlValue selectWhereValue = SqlValue.nullValue()
+        List<Int> selectWhereColumns = []
+        List<SqlValue> selectWhereValues = []
         if selectCondition != "" {
-            Int selectEquals = selectCondition.indexOf(" = ")
-            if selectEquals <= 0 { return Err(sqlInvalidArgument("invalid where")) }
-            String selectLeft = selectCondition.substring(0, selectEquals).trim()
-            String selectRight = selectCondition.substring(selectEquals + 3, selectCondition.length() - selectEquals - 3).trim()
-            selectWhereColumn = selectTable.columnIndex(selectLeft)
-            if selectWhereColumn < 0 { return Err(sqlInvalidArgument("unknown where column")) }
-            if !memIsPlaceholder(selectRight) { return Err(sqlInvalidArgument("where only supports placeholders")) }
-            if values.length() != 1 { return Err(sqlInvalidArgument("where parameter mismatch")) }
-            selectWhereValue = values.get(0)
+            List<String> conditions = selectCondition.split(" and ")
+            Int conditionIndex = 0
+            while conditionIndex < conditions.length() {
+                String conditionPart = conditions.get(conditionIndex).trim()
+                Int selectEquals = conditionPart.indexOf(" = ")
+                if selectEquals <= 0 { return Err(sqlInvalidArgument("invalid where")) }
+                String selectLeft = conditionPart.substring(0, selectEquals).trim()
+                String selectRight = conditionPart.substring(selectEquals + 3, conditionPart.length() - selectEquals - 3).trim()
+                Int selectColumn = selectTable.columnIndex(selectLeft)
+                if selectColumn < 0 { return Err(sqlInvalidArgument("unknown where column")) }
+                if !memIsPlaceholder(selectRight) { return Err(sqlInvalidArgument("where only supports placeholders")) }
+                selectWhereColumns.push(selectColumn)
+                selectWhereValues.push(values.get(conditionIndex))
+                conditionIndex = conditionIndex + 1
+            }
+            if values.length() != selectWhereColumns.length() { return Err(sqlInvalidArgument("where parameter mismatch")) }
         } else if values.length() != 0 {
             return Err(sqlInvalidArgument("unexpected parameters"))
         }
@@ -247,7 +254,13 @@ static Result<SqlResult, Error> memRun(List<MemTable> tables, SqlStatement state
         while selectRowIndex < selectTable.rows.length() {
             List<SqlValue> selectCurrent = selectTable.rows.get(selectRowIndex)
             Bool selectInclude = true
-            if selectWhereColumn >= 0 { selectInclude = memRowMatches(selectCurrent, selectWhereColumn, selectWhereValue) }
+            Int filterIndex = 0
+            while filterIndex < selectWhereColumns.length() {
+                if !memRowMatches(selectCurrent, selectWhereColumns.get(filterIndex), selectWhereValues.get(filterIndex)) {
+                    selectInclude = false
+                }
+                filterIndex = filterIndex + 1
+            }
             if selectInclude {
                 List<SqlValue> selectProjected = []
                 Int selectColumnIndex = 0

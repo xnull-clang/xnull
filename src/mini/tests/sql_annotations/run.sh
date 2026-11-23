@@ -11,14 +11,22 @@ python3 "$PLATFORM" generate --entry "$HERE/app.x" --xdk-root "$ROOT/src/xdk" \
     --manifest "$HERE/sql.manifest.json" --generated-dir "$TMP/generated"
 diff -u "$HERE/generated/SqlGenerated.x" "$TMP/generated/SqlGenerated.x"
 
+grep -q '^import xdk.sql$' "$TMP/generated/SqlGenerated.x"
+grep -q '^import xdk.errors$' "$TMP/generated/SqlGenerated.x"
+
 mkdir -p "$TMP/project/generated"
-cp "$HERE/app.x" "$TMP/project/app.x"
 cp "$HERE/run.x" "$TMP/project/run.x"
 cp "$MEMORY" "$TMP/project/MemoryFixture.x"
 cp "$TMP/generated/SqlGenerated.x" "$TMP/project/generated/SqlGenerated.x"
 "$ROOT/src/cli/xnull" --bootstrap --engine=mini build "$TMP/project/run.x" -o "$TMP/run" >"$TMP/build.log" 2>&1
 "$TMP/run" >"$TMP/run.out"
 diff -u "$HERE/run.out" "$TMP/run.out"
+
+mkdir -p "$TMP/standalone"
+cp "$TMP/generated/SqlGenerated.x" "$TMP/standalone/SqlGenerated.x"
+printf 'package app.sql\nclass UserRow {\n    Long id\n    String name\n    Bool active\n    Double score\n    UserRow(Long id, String name, Bool active, Double score) {\n        self.id = id\n        self.name = name\n        self.active = active\n        self.score = score\n    }\n}\n' >"$TMP/standalone/UserRow.x"
+printf 'package app.sql\nstatic Int main() { return 0 }\n' >"$TMP/standalone/check.x"
+"$ROOT/src/cli/xnull" --bootstrap --engine=mini build "$TMP/standalone/check.x" -o "$TMP/standalone/check" >"$TMP/standalone/build.log" 2>&1
 
 python3 "$PLATFORM" check --entry "$HERE/app.x" --xdk-root "$ROOT/src/xdk" \
     --manifest "$HERE/sql.manifest.json" --generated-dir "$HERE/generated" >/dev/null
@@ -58,6 +66,16 @@ case_fail() {
         echo "sql_annotations: $name accepted" >&2
         exit 1
     fi
+    grep -q "$expected" "$TMP/$name.log"
+}
+
+case_warn() {
+    name="$1"
+    expected="$2"
+    src="$3"
+    printf '%s\n' "$src" >"$TMP/$name.x"
+    python3 "$PLATFORM" generate --entry "$TMP/$name.x" --xdk-root "$ROOT/src/xdk" \
+        --manifest "$HERE/sql.manifest.json" --generated-dir "$TMP/warn_$name" >"$TMP/$name.log" 2>&1
     grep -q "$expected" "$TMP/$name.log"
 }
 
@@ -117,7 +135,16 @@ class R {
 }
 static Int main() { return 0 }'
 
-case_fail duplicate_column 'AN1408' 'package app.sql
+case_fail empty_column 'AN1408' 'package app.sql
+import xdk.sql
+@Row
+class R {
+    @Column("")
+    Long a
+}
+static Int main() { return 0 }'
+
+case_warn duplicate_column 'AN1410' 'package app.sql
 import xdk.sql
 @Row
 class R {
@@ -125,6 +152,10 @@ class R {
     Long a
     @Column("x")
     String b
+    R(Long a, String b) {
+        self.a = a
+        self.b = b
+    }
 }
 static Int main() { return 0 }'
 
