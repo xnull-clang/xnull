@@ -104,7 +104,7 @@ X：single-flight 加载、异步 loader、分布式缓存、持久化、弱引�
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | CacheAnnotationProcessor（Validate/Generate） |
 | 生成物 | 缓存键/包装器、淘汰元数据 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@Cacheable`/`@CacheEvict` implemented (M8.4，显式包装)；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

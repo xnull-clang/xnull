@@ -15,6 +15,7 @@ m5 $HERE/../http_annotations/m5_gate.sh
 m6 $HERE/../sql_annotations/m6_gate.sh
 m6_5 $HERE/../db_annotations/m6_5_gate.sh
 m8_2 $HERE/../resilience_annotations/m8_2_gate.sh
+m8_4 $HERE/../cache_annotations/m8_4_gate.sh
 GATES
 : >"$TMP/pids"
 while read -r name gate; do
@@ -76,6 +77,7 @@ packages = [
     ("xdk.sql", "sql_processor.py", "sql_annotations/m6_gate.sh", "sql_annotations/generated/SqlGenerated.x"),
     ("xdk.db", "db_processor.py", "db_annotations/m6_5_gate.sh", "db_annotations/generated/DbGenerated.x"),
     ("xdk.resilience", "resilience_processor.py", "resilience_annotations/m8_2_gate.sh", "resilience_annotations/generated/ResilienceGenerated.x"),
+    ("xdk.cache", "cache_processor.py", "cache_annotations/m8_4_gate.sh", "cache_annotations/generated/CacheGenerated.x"),
 ]
 tests = root / "src/mini/tests"
 for package, processor, gate, generated in packages:

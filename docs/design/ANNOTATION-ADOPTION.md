@@ -1224,18 +1224,18 @@ class SignupForm {
 ```x
 class UserService {
     @Cacheable("users", "id")
-    User find(Long id) {
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 
     @CacheEvict("users", "id")
-    void update(Long recordId, User user) {
+    Result<Unit, Error> update(Long recordId, User user) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Cacheable`/`@CacheEvict` implemented (M8.4)；仅位置参数，生成显式包装函数，不做 AOP/代理/全局注册表；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.queue`
 

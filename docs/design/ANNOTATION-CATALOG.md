@@ -102,8 +102,8 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@Max` | 数值/字符串长度上界 | `Long value` | Field / Source | validate_processor → `range`/`maxLength` | implemented (M4.2) |
 | `@Pattern` | 正则约束 | `String value` | Field / Source | validate_processor → `Rules.pattern` | implemented (M4.2) |
 | `@Email` | 邮箱约束 | 无 | Field / Source | validate_processor → `Rules.email` | implemented (M4.3) |
-| `@Cacheable` | 声明可缓存 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 缓存包装 |
-| `@CacheEvict` | 声明缓存淘汰 | `String value`、`String key = ""` | Method / Source | CacheAnnotationProcessor → 淘汰包装 |
+| `@Cacheable` | 声明可缓存 | `String value`、`String key = ""` | Method / Source | cache_processor → Cached 包装 | implemented (M8.4) |
+| `@CacheEvict` | 声明缓存淘汰 | `String value`、`String key = ""` | Method / Source | cache_processor → Evict 包装 | implemented (M8.4) |
 | `@Retryable` | 重试策略 | `Int maxAttempts = 3`、`Long initialDelayMillis = 100` | Method / Source | resilience_processor → Retry 包装 | implemented (M8.2) |
 | `@CircuitBreakerPolicy` | 熔断策略 | `String name`、`Int failureThreshold = 5` | Method / Source | resilience_processor → CircuitBreaker 包装 | implemented (M8.2) |
 | `@RateLimit` | 限流策略 | `String name`、`Int permits`、`Long perMillis` | Method / Source | resilience_processor → RateLimiter 包装 | implemented (M8.2) |

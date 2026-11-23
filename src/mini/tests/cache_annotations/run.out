@@ -1,0 +1,6 @@
+load=10,10,1
+load-other=20,2
+explicit=101,101,1
+error=true,true,2
+evict=1,1,10,3
+cache-size=3

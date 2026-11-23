@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "cache_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/cache_processor.py"],
+      "outputs": ["CacheGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
