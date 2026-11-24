@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""M14.2: generate explicit @Traced span wrappers."""
+import argparse
+import json
+import sys
+from pathlib import Path
+
+TRACED = "xdk.trace.Traced"
+
+
+def diag(code, message, target="", line=1, col=1, severity="Error"):
+    return {"code": code, "severity": severity, "message": message,
+            "line": line, "col": col, "target": target}
+
+
+def write_diags(out, diags):
+    out.mkdir(parents=True, exist_ok=True)
+    ordered = sorted(diags, key=lambda d: (d["severity"], d["code"], d["target"], d["line"], d["col"], d["message"]))
+    (out / "diagnostics.json").write_text(json.dumps(ordered, ensure_ascii=False), encoding="utf-8")
+
+
+def simple(name):
+    return name.split(".")[-1]
+
+
+def split_signature(target):
+    owner, _, rest = target.partition("#")
+    if "(" not in rest or not rest.endswith(")"):
+        return owner, "", []
+    name = rest.split("(", 1)[0]
+    inner = rest[len(name) + 1:-1]
+    types = [t.strip() for t in inner.split(",")] if inner.strip() else []
+    return owner, name, types
+
+
+def split_top_level(text):
+    parts, current, depth = [], "", 0
+    for char in text:
+        if char in "<(":
+            depth += 1
+        elif char in ">)":
+            depth -= 1
+        if char == "," and depth == 0:
+            parts.append(current)
+            current = ""
+        else:
+            current += char
+    if current.strip():
+        parts.append(current)
+    return parts
+
+
+def parse_result(return_type):
+    text = return_type.strip()
+    if not text.startswith("Result<") or not text.endswith(">"):
+        return None
+    parts = split_top_level(text[len("Result<"):-1])
+    if len(parts) != 2 or simple(parts[1].strip()) != "Error":
+        return None
+    return parts[0].strip()
+
+
+def text_arg(use, index, default=""):
+    args = use.get("arguments", [])
+    if index >= len(args):
+        return default
+    return args[index].get("text", default)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--phase", required=True)
+    parser.add_argument("--ir", required=True)
+    parser.add_argument("--out", required=True)
+    args = parser.parse_args()
+    if args.phase != "Generate":
+        return 0
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    ir = json.loads(Path(args.ir).read_text(encoding="utf-8"))
+    symbols = {t.get("fullName"): t for t in ir.get("symbols", {}).get("types", [])}
+    uses = ir.get("uses", [])
+
+    plans = []
+    diags = []
+    for use in uses:
+        name = use.get("resolvedName") or use.get("name")
+        if name != TRACED:
+            continue
+        target_name = use.get("targetName", "")
+        line = use.get("line", 1)
+        col = use.get("col", 1)
+        if use.get("target") != "Method":
+            diags.append(diag("AN2402", "@Traced must target a method: " + target_name, target_name, line, col))
+            continue
+        owner, method_name, types = split_signature(target_name)
+        sym = symbols.get(owner)
+        if not sym or sym.get("kind") != "Class":
+            diags.append(diag("AN2401", "@Traced requires a class method: " + target_name,
+                              target_name, line, col))
+            continue
+        method = None
+        for candidate in sym.get("methods", []):
+            if candidate.get("name") != method_name:
+                continue
+            params = [p.get("type", "") for p in candidate.get("params", [])]
+            if [simple(t) for t in params] == [simple(t) for t in types]:
+                method = candidate
+                break
+        if method is None:
+            diags.append(diag("AN2401", "@Traced method not found: " + target_name, target_name, line, col))
+            continue
+        if method.get("static"):
+            diags.append(diag("AN2404", "@Traced does not support static methods: " + target_name,
+                              target_name, line, col))
+            continue
+        success = parse_result(method.get("return", ""))
+        if success is None:
+            diags.append(diag("AN2401", "@Traced method must return Result<T, Error>: " + target_name,
+                              target_name, line, col))
+            continue
+        type_name = sym.get("simpleName") or simple(owner)
+        label = text_arg(use, 0, "").strip()
+        span_name = label if label != "" else type_name + "." + method_name
+        plans.append({"sym": sym, "method": method, "owner": owner, "name": method_name,
+                      "type": type_name, "span": span_name, "success": success,
+                      "target": target_name})
+
+    if any(d["severity"] == "Error" for d in diags):
+        write_diags(out, diags)
+        return 0
+    if not plans:
+        write_diags(out, diags)
+        return 0
+
+    package = plans[0]["sym"].get("package", "") or "app.trace"
+    lines = [
+        "// generated by trace_processor; DO NOT EDIT",
+        "package " + package,
+        "import xdk.trace",
+        "import xdk.errors",
+        "",
+    ]
+    for plan in sorted(plans, key=lambda p: (p["owner"], p["name"])):
+        method = plan["method"]
+        params = method.get("params", [])
+        param_list = ", ".join(p.get("type", "") + " " + p.get("name", "") for p in params)
+        call_args = ", ".join(p.get("name", "") for p in params)
+        wrapper = plan["type"] + "_" + plan["name"] + "Traced"
+        signature = ("Result<" + plan["success"] + ", Error> " + wrapper + "(" + plan["type"] +
+                     " target, Tracer tracer")
+        if param_list:
+            signature += ", " + param_list
+        signature += ")"
+        lines.append(signature + " {")
+        lines.append('    if target == null || tracer == null { throw "' + wrapper + ': null argument" }')
+        lines.append("    Span span = tracer.startSpan(" + json.dumps(plan["span"]) + ")")
+        lines.append("    Result<" + plan["success"] + ", Error> result = target." +
+                     plan["name"] + "(" + call_args + ")")
+        lines.append("    if result.isErr() {")
+        lines.append("        Error failure = result.error()")
+        lines.append("        span.recordError(failure)")
+        lines.append("        span.setStatus(SpanStatus.Error, failure.describe())")
+        lines.append("    } else {")
+        lines.append('        span.setStatus(SpanStatus.Ok, "")')
+        lines.append("    }")
+        lines.append("    span.end()")
+        lines.append("    return result")
+        lines.append("}")
+        lines.append("")
+
+    (out / "TraceGenerated.x").write_text("\n".join(lines), encoding="utf-8")
+    write_diags(out, diags)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

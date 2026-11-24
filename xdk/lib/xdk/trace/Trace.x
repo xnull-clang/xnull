@@ -573,6 +573,7 @@ class Tracer {
     final TraceRuntime _runtime
     final RuntimeMonitor _monitor
     final List<Span> _stack
+    final List<Span> _completed
     Bool _closed
     Error? _closeError
 
@@ -582,6 +583,7 @@ class Tracer {
         self._runtime = runtime
         self._monitor = new RuntimeMonitor()
         self._stack = []
+        self._completed = []
         self._closed = false
         self._closeError = null
     }
@@ -626,7 +628,18 @@ class Tracer {
             scan = scan + 1
         }
         if index >= 0 { self._stack.remove(index) }
+        self._completed.push(span)
+        if self._completed.length() > 256 {
+            self._completed.remove(0)
+        }
         self._monitor.exit()
+    }
+
+    List<Span> completedSpans() {
+        self._monitor.enter()
+        List<Span> result = self._completed.copy()
+        self._monitor.exit()
+        return result
     }
 
     Span? currentSpan() {

@@ -272,6 +272,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M10.2 | P10 audit 注解 | `@Audited` 显式审计包装 | implemented (M10.2) |
 | M11.2 | P11 test 注解 | `@TestCase`/`@Before`/`@After`/`@Benchmark` 显式 Suite/Benchmarks | implemented (M11.2) |
 | M12.1b | P12 metrics 导出与埋点 | `Exporter` 协议 + `@Metered` 显式计时包装 | implemented (M12.1b) |
+| M14.2 | P14 trace 注解 | `@Traced` 显式 span 包装 | implemented (M14.2) |
 
 顺序原则：
 

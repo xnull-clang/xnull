@@ -1,0 +1,7 @@
+success=true,7,1
+success-span=custom.success,ok,0,true
+failure=true,timeout,1
+failure-span=Service.failure,error,1,exception,true
+snapshot=2
+closed=true,9,2,3,unset,false
+cap=256,custom.success,custom.success

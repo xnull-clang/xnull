@@ -1399,13 +1399,13 @@ class UserService {
 ```x
 class UserService {
     @Traced("user.find")
-    User find(Long id) {
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Traced` implemented (M14.2)；只支持返回 `Result<T, Error>` 的实例方法；默认 span 名为 `<Class>.<method>`；成功 `Ok`、失败 `Error` + `exception` 事件；追踪失败不覆盖业务结果；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.audit`
 

@@ -8,7 +8,7 @@
 | 被依赖 | 应用、客户端、服务端、协议中间件 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
-| 实现状态 | M14.1：`SpanKind`/`SpanStatus`/`SpanContext`/`SpanEvent`/`TraceOptions`/`Sampler`/`Propagator`/`W3cPropagator`/`Span`/`Tracer`/`TraceRuntime` implemented；`@Traced` planned |
+| 实现状态 | M14.1：核心 trace 类型与 `W3cPropagator` implemented；M14.2：`@Traced` 生成器与 `Tracer.completedSpans()` 测试/诊断扩展 implemented |
 
 ---
 
@@ -74,6 +74,8 @@ X：tracestate、span links、tail sampling、exemplars、OTLP exporter、自动
 - `Sampler.ratio` 使用 32 位掩码 FNV-1a 变体（当前 `String` 没有字符码 API；`charAt` 返回子串），同一 traceId 的采样决策仍稳定，跨进程一致。
 - `SpanKind`/`SpanStatus` 内部增加 `Unknown` 0 号占位，避免枚举 0/null 哨兵；业务不使用。
 - 文档中的 `Tracer.startSpan`/`create` 重载改为不同名称：`startSpanKind`/`startSpanFrom`/`startSpanFromKind`、`createWithPropagator`。
+- M14.2 预览扩展：`Tracer.completedSpans()` 返回最近完成的 span 快照，monitor 保护，最多 256 条；关闭后仍可读；不属于原公开合同，仅用于无导出器的测试/诊断。
+- `@Traced` 只生成显式包装，不改变参数求值顺序、不吞错误、不做 AOP/导出。
 
 ---
 
@@ -175,7 +177,7 @@ xdk.errors / xdk.time / xdk.runtime / xdk.math / xdk.text / xdk.collections
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | TraceAnnotationProcessor（Validate/Generate） |
 | 生成物 | span/包装器元数据 |
-| 状态 | 领域注解 `@Traced` planned；M14.1 运行时包 implemented；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@Traced` implemented (M14.2)；M14.1 运行时包 implemented；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

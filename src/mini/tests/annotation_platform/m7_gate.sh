@@ -19,6 +19,7 @@ m8_4 $HERE/../cache_annotations/m8_4_gate.sh
 m10_2 $HERE/../audit_annotations/m10_2_gate.sh
 m11_2 $HERE/../test_annotations/m11_2_gate.sh
 m12_1b $HERE/../metrics_annotations/m12_1b_gate.sh
+m14_2 $HERE/../trace_annotations/m14_2_gate.sh
 GATES
 : >"$TMP/pids"
 while read -r name gate; do
@@ -84,6 +85,7 @@ packages = [
     ("xdk.audit", "audit_processor.py", "audit_annotations/m10_2_gate.sh", "audit_annotations/generated/AuditGenerated.x"),
     ("xdk.test", "test_processor.py", "test_annotations/m11_2_gate.sh", "test_annotations/generated/TestGenerated.x"),
     ("xdk.metrics", "metrics_processor.py", "metrics_annotations/m12_1b_gate.sh", "metrics_annotations/generated/MetricsGenerated.x"),
+    ("xdk.trace", "trace_processor.py", "trace_annotations/m14_2_gate.sh", "trace_annotations/generated/TraceGenerated.x"),
 ]
 tests = root / "src/mini/tests"
 for package, processor, gate, generated in packages:
