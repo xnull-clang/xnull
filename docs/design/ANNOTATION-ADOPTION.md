@@ -1342,6 +1342,47 @@ class UserService {
 
 状态：`@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` implemented (M8.2)；仅位置参数，单方法单策略；A8 派生 implemented（含限制）；编译器内建 implemented。
 
+### `xdk.auth`
+
+| 类型/成员 | 注解 | 生成/检查 |
+| --- | --- | --- |
+| 类/方法 | `@Auth` | 认证 scheme 要求 |
+| 方法 | `@RequireRole` | 角色检查 |
+| 方法 | `@RequirePermission` | 权限检查 |
+| 方法 | `@RequireClaim` | claim 检查 |
+| 方法 | `@AllowAnonymous` | 跳过包装 |
+
+声明：
+
+```x
+@Target(Type, Method)
+@Retention(Source)
+@annotation Auth {
+    final String scheme = ""
+}
+
+@Target(Method)
+@Retention(Source)
+@Repeatable
+@annotation RequireRole {
+    final String value
+}
+```
+
+使用：
+
+```x
+@Auth("jwt")
+class UserApi {
+    @RequireRole("admin")
+    Result<User, Error> find(Long recordId) {
+        // ...
+    }
+}
+```
+
+状态：`@Auth`/`@RequireRole`/`@RequirePermission`/`@RequireClaim`/`@AllowAnonymous` implemented (M16.2)；只生成显式 Authorized 包装；诊断 AN2701–AN2707；不解析 token、不做 AOP/全局安全上下文。
+
 ### `xdk.metrics`
 
 | 类型/成员 | 注解 | 生成/检查 |

@@ -1,0 +1,5 @@
+role=true,true,true,true,true,5
+auth=permission_denied,true,permission_denied
+scheme=permission_denied,true,true,permission_denied
+missing=permission_denied,true,true,true,true
+and=true,io,true

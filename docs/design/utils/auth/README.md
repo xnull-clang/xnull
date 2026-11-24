@@ -47,6 +47,18 @@ Result<Principal, Error> principal = service.authenticate(context, Credential.jw
 
 Principal 只能由 `Authenticator`/工厂构造；注解层只消费 `Principal`，不直接依赖 JWT。
 
+## 注解与生成
+
+| 注解 | 作用 | 状态 |
+| --- | --- | --- |
+| `@Auth` | 类/方法认证 scheme 要求 | implemented (M16.2) |
+| `@RequireRole` | 方法角色要求，可重复 | implemented (M16.2) |
+| `@RequirePermission` | 方法权限要求，可重复 | implemented (M16.2) |
+| `@RequireClaim` | 方法 claim 名值要求，可重复 | implemented (M16.2) |
+| `@AllowAnonymous` | 跳过包装，冲突 AN2704 | implemented (M16.2) |
+
+生成签名：`Result<T, Error> <Class>_<method>Authorized(<Class> target, Principal principal, ...)`。只消费 Principal，不解析 token；诊断 AN2701–AN2707。
+
 ## 5. 缺口
 
 | 项 | 决策 |
