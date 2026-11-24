@@ -91,7 +91,7 @@
 - `runFiltered` 先对 `suite.tests()` 快照应用谓词，再顺序运行；谓词按测试插入顺序调用；父 Context 已取消时不调用谓词并返回空列表。
 - 结果顺序 = 实际执行顺序；不排序、不聚合。
 - 未开始的测试没有 `TestResult`；不存在 `Pending` 状态。
-- 超时错误由 `joinDeadline` 提供；`TestResult.error()` 非 null。
+- 超时为协作取消：定时任务取消子 Context；到达超时后 body 返回的取消错误映射为 `Failed`，`TestResult.error()` 为 `Timeout`。
 - 已完成的任务即使 deadline 已过也返回结果（完成优先）；只有未完成的任务才产生 `Timeout`。
 - `TaskGroup.spawn` 失败时先 `close` 清理；结果保留 spawn 错误，清理错误不覆盖它。
 - `TestContext.skip` 的 `Err` 在结果中保留为 `Skipped` 的 error；`TestContext.fail` 保留为 `Failed` 的 error。

@@ -8,6 +8,7 @@
 | 被依赖 | 应用自测、CI 任务、库的单元测试 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M11.1：`TestStatus`/`TestContext`/`Test`/`TestSuite`/`TestResult`/`TestRunner`/`Assert` implemented；断言 code 为 `test.assertion_failed`；`TestStatus` 内部 Unknown 占 0 号 |
 
 ---
 

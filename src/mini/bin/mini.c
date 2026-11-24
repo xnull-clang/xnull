@@ -16820,6 +16820,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.audit")) || xn_str_startswith(pkg, rt_string_from_c("xdk.audit.")))) {
     return rt_string_from_c("audit/Audit.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.test")) || xn_str_startswith(pkg, rt_string_from_c("xdk.test.")))) {
+    return rt_string_from_c("test/Test.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
     return rt_string_from_c("net/mime/Mime.x");
   }
