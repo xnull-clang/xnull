@@ -7,7 +7,7 @@
 | 依赖 | `xdk.errors`、`xdk.tasks` |
 | 被依赖 | 应用、HTTP 服务/客户端、注解层 |
 | 稳定性 | `preview` |
-| 实现状态 | M16.1：`AuthScheme`/`Credential`/`Principal`/`Authenticator`/`AuthService` implemented；JWT authenticator 在 `xdk.jwt` 接入（M16.3）；不是全局认证器 |
+| 实现状态 | M16.1 核心五类型 implemented；M16.2 Auth 注解生成；M16.3 `JwtAuthenticator`；M16.4 `AuthHeaders` + HTTP 组合示例；不是全局认证器 |
 
 ## 1. 定位
 
@@ -35,6 +35,7 @@
 | `Principal` | class | 身份、角色、权限、claims | [`Principal.md`](Principal.md) |
 | `Authenticator` | protocol | 单 scheme 认证 | [`Authenticator.md`](Authenticator.md) |
 | `AuthService` | class | scheme 选择/组合 | [`AuthService.md`](AuthService.md) |
+| `AuthHeaders` | class | Bearer/ApiKey header 解析 | — |
 
 ## 4. 场景
 
@@ -58,6 +59,10 @@ Principal 只能由 `Authenticator`/工厂构造；注解层只消费 `Principal
 | `@AllowAnonymous` | 跳过包装，冲突 AN2704 | implemented (M16.2) |
 
 生成签名：`Result<T, Error> <Class>_<method>Authorized(<Class> target, Principal principal, ...)`。只消费 Principal，不解析 token；诊断 AN2701–AN2707。
+
+## HTTP 组合
+
+`AuthHeaders.bearer("Bearer <jwt>")` 返回 `Credential.jwt`；缺失/空/非 Bearer → `InvalidArgument`。`apiKey` 直接构造 API Key 凭据。HTTP 入口显式取 `Authorization`、调用 `AuthService.authenticate`、再调用生成的 Authorized 包装；无中间件、无全局安全上下文、无隐藏密钥。
 
 ## 5. 缺口
 

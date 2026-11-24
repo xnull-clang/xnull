@@ -13,7 +13,7 @@ import csv, os, sys
 path, root = sys.argv[1], sys.argv[2]
 rows = list(csv.DictReader(open(path, encoding="utf-8"), delimiter="\t"))
 assert len(rows) == 76, len(rows)
-assert sum(int(r["types"]) for r in rows) == 703
+assert sum(int(r["types"]) for r in rows) == 704
 for r in rows:
     assert r["package"].startswith("xdk.")
     assert r["path"].startswith("src/xdk/")
@@ -22,7 +22,7 @@ for r in rows:
         assert os.path.isfile(os.path.join(root, r["path"])), r["path"]
 for d in ("annotations", "execution"):
     assert os.path.isdir(os.path.join(root, "src/xdk", d)), d
-print("xdk2 packages: 76 packages / 703 types")
+print("xdk2 packages: 76 packages / 704 types")
 PY
 
 count=0

@@ -275,6 +275,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M14.2 | P14 trace 注解 | `@Traced` 显式 span 包装 | implemented (M14.2) |
 | M16.2 | P16 auth 注解 | `@Auth`/`@RequireRole`/`@RequirePermission`/`@RequireClaim`/`@AllowAnonymous` 授权包装 | implemented (M16.2) |
 | M16.3 | P16 JWT 认证接入 | `JwtAuthenticator` 将 HS256 claims 映射为 `Principal` | implemented (M16.3) |
+| M16.4 | P16 Auth+HTTP 组合 | `AuthHeaders` + JwtAuthenticator + HttpRequest 示例 | implemented (M16.4) |
 
 顺序原则：
 

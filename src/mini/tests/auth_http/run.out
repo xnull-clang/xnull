@@ -1,0 +1,4 @@
+http=200,401,401,403,401,401
+public=200,200
+fail=500
+headers=true,true,true,true,api_key(len=3,prefix=key)

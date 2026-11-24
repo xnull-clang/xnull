@@ -35,7 +35,7 @@ xdk.net.http	L5	40	src/xdk/net/http/Http.x	implemented
 xdk.net.websocket	L5	12	src/xdk/net/websocket/Websocket.x	design
 xdk.net.service	L5	13	src/xdk/net/service/Service.x	design
 xdk.jwt	L5	6	src/xdk/jwt/Jwt.x	implemented
-xdk.auth	L8	5	src/xdk/auth/Auth.x	implemented
+xdk.auth	L8	6	src/xdk/auth/AuthCore.x	implemented
 xdk.sql	L5	12	src/xdk/sql/Sql.x	implemented
 xdk.os	L6	5	src/xdk/os/Os.x	design
 xdk.os.host	L6	2	src/xdk/os/host/Host.x	design

@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "auth_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/auth_processor.py"],
+      "outputs": ["AuthGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
