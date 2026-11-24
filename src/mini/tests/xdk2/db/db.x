@@ -200,7 +200,7 @@ static Int main() {
     print("tx-rollback=" + str(rollbackTx.rollback().isOk()) + "," + str(database.execute(context, select).value().rowCount()))
     database.close()
 
-    DatabasePool waitPool = DatabasePool.open(context, driver, poolConfig(1, 1000)).value()
+    DatabasePool waitPool = DatabasePool.open(context, driver, poolConfig(1, 3000)).value()
     SqlConnection held = waitPool.borrow(context).value()
     Context groupContext = Context.background()
     TaskGroup group = TaskGroup.create(groupContext)
@@ -212,11 +212,36 @@ static Int main() {
         flag.done = true
         return Ok(1)
     })
-    sleepMs(30)
+    sleepMs(50)
     print("wait-before=" + str(flag.done))
     held.close()
-    Result<Int, TaskError> joined = waiter.joinDeadline(nowMono() + 2000)
-    print("wait-after=" + str(joined.isOk()) + "," + str(flag.done))
+    Result<Int, TaskError> joined = waiter.joinDeadline(nowMono() + 5000)
+    print("wait-after=" + str(joined.isOk()) + "," + str(joined.value()) + "," + str(flag.done))
+
+    DatabasePool stressPool = DatabasePool.open(context, driver, poolConfig(1, 3000)).value()
+    Int stressOk = 0
+    Int round = 0
+    while round < 20 {
+        SqlConnection stressHeld = stressPool.borrow(context).value()
+        WaitFlag stressFlag = new WaitFlag()
+        Task<Int> stressWaiter = group.spawn(() -> {
+            Result<SqlConnection, Error> acquired = stressPool.borrow(context)
+            if acquired.isErr() { return Ok(0) }
+            acquired.value().close()
+            stressFlag.done = true
+            return Ok(1)
+        })
+        sleepMs(5 + round % 6)
+        stressHeld.close()
+        Result<Int, TaskError> stressJoined = stressWaiter.joinDeadline(nowMono() + 5000)
+        if stressJoined.isOk() && stressJoined.value() == 1 && stressFlag.done {
+            stressOk = stressOk + 1
+        }
+        round = round + 1
+    }
+    print("wait-stress=" + str(stressOk))
+    print("wait-timeouts=" + str(waitPool.stats().acquireTimeoutCount()))
+    stressPool.close()
     group.close()
     waitPool.close()
 

@@ -23,6 +23,7 @@ for gate in \
     "$HERE/xdk2/runtime_health/panic.sh" \
     "$HERE/xdk2/db/panic.sh" \
     "$HERE/xdk2/db/fixture_check.sh" \
+    "$HERE/xdk2/db/wait_stress.sh" \
     "$HERE/xdk2/resilience/panic.sh" \
     "$HERE/xdk2/cache/panic.sh" \
     "$HERE/xdk2/audit/panic.sh" \

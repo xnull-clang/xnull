@@ -725,6 +725,12 @@ class DatabasePool {
         Long waitStart = 0
         while true {
             if self._closed {
+                if waited {
+                    self._waiting = self._waiting - 1
+                    Long closedWait = nowMono() - waitStart
+                    self._waitMillisTotal = self._waitMillisTotal + closedWait
+                    if closedWait > self._maximumWaitMillis { self._maximumWaitMillis = closedWait }
+                }
                 self._monitor.exit()
                 if timerGroup != null { timerGroup.close() }
                 return Err(new BasicError(ErrorKind.Unavailable, "database pool is closed"))
@@ -757,6 +763,7 @@ class DatabasePool {
                 self._active.push(entry)
                 self._acquireCount = self._acquireCount + 1
                 if waited {
+                    self._waiting = self._waiting - 1
                     Long elapsed = nowMono() - waitStart
                     self._waitMillisTotal = self._waitMillisTotal + elapsed
                     if elapsed > self._maximumWaitMillis { self._maximumWaitMillis = elapsed }
@@ -776,11 +783,23 @@ class DatabasePool {
                 self._opening = self._opening - 1
                 if self._closed {
                     if opened.isOk() { opened.value().close() }
+                    if waited {
+                        self._waiting = self._waiting - 1
+                        Long closedWait = nowMono() - waitStart
+                        self._waitMillisTotal = self._waitMillisTotal + closedWait
+                        if closedWait > self._maximumWaitMillis { self._maximumWaitMillis = closedWait }
+                    }
                     self._monitor.exit()
                     if timerGroup != null { timerGroup.close() }
                     return Err(new BasicError(ErrorKind.Unavailable, "database pool is closed"))
                 }
                 if opened.isErr() {
+                    if waited {
+                        self._waiting = self._waiting - 1
+                        Long failedWait = nowMono() - waitStart
+                        self._waitMillisTotal = self._waitMillisTotal + failedWait
+                        if failedWait > self._maximumWaitMillis { self._maximumWaitMillis = failedWait }
+                    }
                     self._monitor.notifyAll()
                     self._monitor.exit()
                     if timerGroup != null { timerGroup.close() }
@@ -795,6 +814,7 @@ class DatabasePool {
                 self._createdCount = self._createdCount + 1
                 self._acquireCount = self._acquireCount + 1
                 if waited {
+                    self._waiting = self._waiting - 1
                     Long elapsed = nowMono() - waitStart
                     self._waitMillisTotal = self._waitMillisTotal + elapsed
                     if elapsed > self._maximumWaitMillis { self._maximumWaitMillis = elapsed }
@@ -813,18 +833,40 @@ class DatabasePool {
             }
             Bool signalled = self._monitor.waitContext(waitContext)
             if !signalled {
-                self._waiting = self._waiting - 1
-                Long elapsed = nowMono() - waitStart
-                self._waitMillisTotal = self._waitMillisTotal + elapsed
-                if elapsed > self._maximumWaitMillis { self._maximumWaitMillis = elapsed }
-                Bool timedOut = timerContext != null && timerContext.isCancelled() && !context.isCancelled()
-                if timedOut { self._acquireTimeoutCount = self._acquireTimeoutCount + 1 }
-                self._monitor.exit()
-                if timerGroup != null { timerGroup.close() }
-                if timedOut {
-                    return Err(new BasicError(ErrorKind.Timeout, "database pool acquire timeout"))
+                if context.isCancelled() {
+                    self._waiting = self._waiting - 1
+                    Long cancelledWait = nowMono() - waitStart
+                    self._waitMillisTotal = self._waitMillisTotal + cancelledWait
+                    if cancelledWait > self._maximumWaitMillis { self._maximumWaitMillis = cancelledWait }
+                    self._monitor.exit()
+                    if timerGroup != null { timerGroup.close() }
+                    return Err(new BasicError(ErrorKind.Cancelled, "database pool acquire cancelled"))
                 }
-                return Err(new BasicError(ErrorKind.Cancelled, "database pool acquire cancelled"))
+                if self._closed {
+                    self._waiting = self._waiting - 1
+                    Long closedWait = nowMono() - waitStart
+                    self._waitMillisTotal = self._waitMillisTotal + closedWait
+                    if closedWait > self._maximumWaitMillis { self._maximumWaitMillis = closedWait }
+                    self._monitor.exit()
+                    if timerGroup != null { timerGroup.close() }
+                    return Err(new BasicError(ErrorKind.Unavailable, "database pool is closed"))
+                }
+                if self._idle.length() > 0 || self._active.length() + self._opening < self._config.maximumPoolSize() {
+                    continue
+                }
+                if timerContext != null {
+                    if timerContext.isCancelled() {
+                        self._waiting = self._waiting - 1
+                        Long elapsed = nowMono() - waitStart
+                        self._waitMillisTotal = self._waitMillisTotal + elapsed
+                        if elapsed > self._maximumWaitMillis { self._maximumWaitMillis = elapsed }
+                        self._acquireTimeoutCount = self._acquireTimeoutCount + 1
+                        self._monitor.exit()
+                        if timerGroup != null { timerGroup.close() }
+                        return Err(new BasicError(ErrorKind.Timeout, "database pool acquire timeout"))
+                    }
+                }
+                continue
             }
         }
     }
