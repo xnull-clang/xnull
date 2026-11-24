@@ -2,9 +2,10 @@
 
 | 项 | 值 |
 | --- | --- |
-| 状态 | 1.x 已发布；B0–B4 已完成；C7 合同已整合待 B5；B5–B10 未开工 |
-| 1.x 基线 | [`t0/`](t0/00-overview.md) + `src/xdk`；14 包 / 160 symbols |
-| 2.x 目标 | **75 包 / 698 类型**；见 [`PACKAGE-MAP.md`](PACKAGE-MAP.md) |
+| 状态 | 1.x 已发布；注解平台 M0–M16 完成；23 包 implemented、39 包仅设计、14 包 1.x |
+| 1.x 基线 | [`t0/`](t0/00-overview.md) + `src/xdk`；14 包 / 169 类型 |
+| 2.x 目标 | **76 包 / 704 类型**；见 [`PACKAGE-MAP.md`](PACKAGE-MAP.md)（计数待同步） |
+| 当前实现 | [`IMPLEMENTATION-STATUS.md`](IMPLEMENTATION-STATUS.md)；包/注解/门禁的最新口径 |
 | 计划总览 | [`PLAN.md`](PLAN.md)；当前位置、下一步、未开工范围 |
 | 架构 | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | 一致性 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) |
@@ -14,19 +15,22 @@
 
 ---
 
+> 计划口径：**B4 已完成；C7 合同已整合待 B5；B5–B10 未开工**。注解平台（M0–M16）与 23 个 implemented 包是此口径之外的额外进展；当前实现状态见 [`IMPLEMENTATION-STATUS.md`](IMPLEMENTATION-STATUS.md)。
+
 ## 1. 先看哪几份
 
 | 顺序 | 文档 | 用途 |
 | ---: | --- | --- |
-| 1 | [`PLAN.md`](PLAN.md) | 执行总览：现在在哪、下一步、未开工范围、门禁与更新规则 |
-| 2 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
-| 3 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段 |
-| 4 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
-| 5 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务台账：四类债、B4 完成、B4-01/B4-02 关闭、B5–B10 后续 |
-| 6 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) + [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) + [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) + [`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md) | 注解语义、实施计划、mini 1.0 平台工作包、全量目录、75 包采用矩阵 |
-| 7 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
-| 8 | 各领域 README/类型合同 | 逐包/逐类型契约 |
-| 9 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
+| 1 | [`IMPLEMENTATION-STATUS.md`](IMPLEMENTATION-STATUS.md) | 当前实现状态：76 包/704 类型、23 implemented、39 仅设计、注解 56/98 |
+| 2 | [`PLAN.md`](PLAN.md) | 执行总览：现在在哪、下一步、未开工范围、门禁与更新规则 |
+| 3 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | 2.x 分层、包/类角色、抽象边界、注解优先 |
+| 4 | [`PACKAGE-MAP.md`](PACKAGE-MAP.md) | 75 包/698 类型的逐包角色、依赖、阶段（计数待同步为 76/704） |
+| 5 | [`EXECUTION-PLAN.md`](EXECUTION-PLAN.md) | 批次顺序、任务板、派工模板、门禁与证据 |
+| 6 | [`DEBT-REGISTER.md`](DEBT-REGISTER.md) | 债务台账：四类债、B4 完成、B4-01/B4-02 关闭、B5–B10 后续 |
+| 7 | [`ANNOTATION-SYSTEM.md`](ANNOTATION-SYSTEM.md) + [`ANNOTATION-PLAN.md`](ANNOTATION-PLAN.md) + [`ANNOTATION-PLATFORM-PLAN.md`](ANNOTATION-PLATFORM-PLAN.md) + [`ANNOTATION-CATALOG.md`](ANNOTATION-CATALOG.md) + [`ANNOTATION-ADOPTION.md`](ANNOTATION-ADOPTION.md) | 注解语义、实施计划、mini 1.0 平台工作包、全量目录、75 包采用矩阵 |
+| 8 | [`DESIGN-CONSISTENCY.md`](DESIGN-CONSISTENCY.md) | 已知冲突、决定、改名、缺失原语 |
+| 9 | 各领域 README/类型合同 | 逐包/逐类型契约 |
+| 10 | [`LEGACY-1.0.md`](LEGACY-1.0.md) | 1.x 已发布基线，不参与 2.x 排序 |
 
 > `PLAN.md` 是总览；`ARCHITECTURE.md`/`PACKAGE-MAP.md` 是架构/包权威，`EXECUTION-PLAN.md` 是批次权威，`DEBT-REGISTER.md` 是债表/B4 入口权威。总览与权威文档冲突时，以权威文档为准。
 

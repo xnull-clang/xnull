@@ -1,5 +1,7 @@
 # XDK 能力覆盖审计
 
+> **已被 [`IMPLEMENTATION-STATUS.md`](IMPLEMENTATION-STATUS.md) 校正**：本文件的 75/698 与“L4–L8 未实现”是 2026-11-22 口径；当前为 76/704、23 包 implemented。保留本文件作为当时的能力覆盖对照。
+
 | 项 | 值 |
 | --- | --- |
 | 目的 | 回答 XDK 能力设计是否完整、还差哪些包 |
