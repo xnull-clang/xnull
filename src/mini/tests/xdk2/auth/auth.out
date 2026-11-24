@@ -1,0 +1,9 @@
+scheme=jwt,api_key,anonymous,true,true,true
+credential=jwt,bearer,api_key,jwt(len=16,prefix=abcd),true
+principal=alice,jwt,true,1,2,true,true,t1,t1
+anonymous=false,,0,true
+service=true,user-jwt,true,2
+unsupported=true,unsupported
+cancelled=cancelled
+failure=permission_denied,PermissionDenied: bad credential
+snapshot=2
