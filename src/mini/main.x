@@ -13830,6 +13830,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.test" || pkg.startsWith("xdk.test.") {
         return "test/Test.x"
     }
+    if pkg == "xdk.metrics" || pkg.startsWith("xdk.metrics.") {
+        return "metrics/Metrics.x"
+    }
     if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
         return "net/mime/Mime.x"
     }

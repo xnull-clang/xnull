@@ -8,6 +8,7 @@
 | 被依赖 | 应用、客户端/服务端观测、导出适配器 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M12.1a：`MetricKind`/`MetricSample`/`MetricFamily`/`Metric`/`Counter`/`Gauge`/`Histogram`/`MetricTimer`/`MetricsFormat`/`Registry` implemented；`Exporter` 下一批；`MetricKind`/`MetricsFormat` 内部 `Unknown` 占 0 号 |
 
 ---
 
@@ -204,6 +205,8 @@ Result<Histogram, Error> histogram = registry.histogram("latency", [10.0])
 | 具体导出器 | 不在本包定义；由应用或 X 实现 |
 | `le` 标签 | Histogram 保留；用户标签不得使用 |
 | 指标命名/转义 | 本包做基本校验；Prometheus 名称清洗/转义由导出器负责 |
+| 方法重载 | 语言不支持同名重载；`Registry` 空标签查询为 `get(name)`，精确标签查询为 `getLabeled(name, labels)`；移除对应 `remove(name)`/`removeLabeled(name, labels)` |
+| 枚举 0 号 | `MetricKind`/`MetricsFormat` 内部 `Unknown` 占 0 号，避免 0/null 哨兵；`Unknown` 不作为业务成员使用 |
 | 与 log 的关系 | 无依赖；metrics 不是 log 别名 |
 
 ---
@@ -216,7 +219,7 @@ Result<Histogram, Error> histogram = registry.histogram("latency", [10.0])
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | MetricsAnnotationProcessor（Validate/Generate） |
 | 生成物 | 指标注册/包装器 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | 领域注解 `@Metered` planned（下一批）；M12.1a 核心指标 implemented；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
