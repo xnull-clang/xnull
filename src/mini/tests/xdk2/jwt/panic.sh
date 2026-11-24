@@ -30,6 +30,16 @@ static Int main(String[] args) {
         options.issuer("")
     } else if name == "require" {
         options.require("")
+    } else if name == "authNullSecret" {
+        JwtAuthenticator auth = new JwtAuthenticator(null, new JwtOptions())
+    } else if name == "authEmptySecret" {
+        JwtAuthenticator auth = new JwtAuthenticator(Bytes.fromString(""), new JwtOptions())
+    } else if name == "authNullOptions" {
+        JwtAuthenticator auth = new JwtAuthenticator(Bytes.fromString("x"), null)
+    } else if name == "authNullCredential" {
+        JwtAuthenticator auth = new JwtAuthenticator(Bytes.fromString("x"), new JwtOptions())
+        Context context = Context.background()
+        Result<Principal, Error> result = auth.authenticate(context, null)
     } else if name == "claimSet" {
         claims.set(null, Json.string("x"))
     }
@@ -51,4 +61,8 @@ check_panic leeway "JwtOptions.leewaySeconds: negative"
 check_panic issuer "JwtOptions.issuer: empty"
 check_panic require "JwtOptions.require: empty"
 check_panic claimSet "JwtClaims.set: null argument"
+check_panic authNullSecret "JwtAuthenticator: null argument"
+check_panic authEmptySecret "JwtAuthenticator: empty secret"
+check_panic authNullOptions "JwtAuthenticator: null argument"
+check_panic authNullCredential "JwtAuthenticator.authenticate: null argument"
 echo "jwt_panic: PASS"

@@ -274,6 +274,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M12.1b | P12 metrics 导出与埋点 | `Exporter` 协议 + `@Metered` 显式计时包装 | implemented (M12.1b) |
 | M14.2 | P14 trace 注解 | `@Traced` 显式 span 包装 | implemented (M14.2) |
 | M16.2 | P16 auth 注解 | `@Auth`/`@RequireRole`/`@RequirePermission`/`@RequireClaim`/`@AllowAnonymous` 授权包装 | implemented (M16.2) |
+| M16.3 | P16 JWT 认证接入 | `JwtAuthenticator` 将 HS256 claims 映射为 `Principal` | implemented (M16.3) |
 
 顺序原则：
 

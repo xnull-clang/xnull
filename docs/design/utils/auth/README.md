@@ -63,7 +63,7 @@ Principal 只能由 `Authenticator`/工厂构造；注解层只消费 `Principal
 
 | 项 | 决策 |
 | --- | --- |
-| JWT authenticator | 在 `xdk.jwt` 实现，本包不依赖 |
+| JWT authenticator | 在 `xdk.jwt` 的 `JwtAuthenticator` 实现（HS256），本包不依赖 JWT |
 | 角色继承/DB 权限 | 应用或 X |
 | 刷新令牌 | X |
 | 全局上下文/注册表 | 禁止 |

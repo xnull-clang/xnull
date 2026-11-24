@@ -541,7 +541,7 @@ class JwtHeaderFields {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented；M16.3 `JwtAuthenticator` 作为 `xdk.auth.Authenticator` 提供 HS256 claims→Principal 认证映射。
 
 ### `xdk.sql`
 

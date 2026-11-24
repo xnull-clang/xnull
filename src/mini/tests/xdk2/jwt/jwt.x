@@ -1,5 +1,6 @@
 package xdk2.jwt
 import xdk.jwt
+import xdk.auth
 import xdk.errors
 import xdk.codec
 import xdk.runtime
@@ -115,6 +116,59 @@ static Int main() {
     Result<JwtClaims, Error> missing = Jwt.verify(encoded, key, required)
     print("claims-check=" + errorKindName(issuerMismatch.error().kind()) + "," +
         errorKindName(audienceMismatch.error().kind()) + "," + errorKindName(missing.error().kind()))
+
+    JwtClaims mappedClaims = claimsWith("mapped-user")
+    JsonValue rolesArray = Json.array()
+    JsonArray rolesValues = rolesArray.asArray() as JsonArray
+    rolesValues.add(Json.string("admin"))
+    rolesValues.add(Json.string("admin"))
+    mappedClaims.set("roles", rolesArray)
+    JsonValue permissionsArray = Json.array()
+    JsonArray permissionValues = permissionsArray.asArray() as JsonArray
+    permissionValues.add(Json.string("read"))
+    permissionValues.add(Json.string("read"))
+    mappedClaims.set("permissions", permissionsArray)
+    mappedClaims.set("scope", Json.string("write read"))
+    mappedClaims.set("tenant", Json.string("acme"))
+    String mappedToken = tokenFor(mappedClaims, key)
+    Context context = Context.background()
+    JwtAuthenticator jwtAuth = new JwtAuthenticator(key, new JwtOptions())
+    Result<Principal, Error> mapped = jwtAuth.authenticate(context, Credential.jwt(mappedToken))
+    print("jwt-auth=" + str(mapped.isOk()) + "," + mapped.value().subject() + "," +
+        authSchemeName(mapped.value().scheme()) + "," + str(mapped.value().roles().length()) + "," +
+        str(mapped.value().permissions().length()) + "," + str(mapped.value().claimOrNull("tenant")))
+    Result<Principal, Error> wrongCredential = jwtAuth.authenticate(context, Credential.bearer(mappedToken))
+    Result<Principal, Error> wrongSecret = jwtAuth.authenticate(context, Credential.jwt(mappedToken))
+    print("jwt-auth-errors=" + errorKindName(wrongCredential.error().kind()) + "," +
+        errorKindName(Jwt.verify(mappedToken, Bytes.fromString("wrong"), new JwtOptions()).error().kind()))
+    JwtClaims stringRoles = claimsWith("string-user")
+    stringRoles.set("roles", Json.string("admin,user"))
+    stringRoles.set("permissions", Json.string("read write"))
+    String stringToken = tokenFor(stringRoles, key)
+    Result<Principal, Error> stringPrincipal = jwtAuth.authenticate(context, Credential.jwt(stringToken))
+    print("jwt-auth-strings=" + str(stringPrincipal.value().roles().length()) + "," +
+        str(stringPrincipal.value().permissions().length()))
+    JwtClaims missingSub = new JwtClaims()
+    missingSub.set("roles", Json.string("admin"))
+    String missingSubToken = tokenFor(missingSub, key)
+    Result<Principal, Error> missingSubject = jwtAuth.authenticate(context, Credential.jwt(missingSubToken))
+    print("jwt-auth-sub=" + errorKindName(missingSubject.error().kind()) + "," +
+        str(missingSubject.error().describe().indexOf("missing sub") >= 0))
+    List<Authenticator> authValues = []
+    authValues.push(jwtAuth)
+    AuthService authService = AuthService.create(authValues)
+    Result<Principal, Error> servicePrincipal = authService.authenticate(context, Credential.jwt(mappedToken))
+    print("jwt-auth-service=" + str(servicePrincipal.isOk()) + "," + servicePrincipal.value().subject())
+
+    JwtClaims expiredAuth = claimsWith("expired-auth")
+    expiredAuth.set("exp", Json.number(str(nowWall() / 1000 - 100)))
+    String expiredAuthToken = tokenFor(expiredAuth, key)
+    Result<Principal, Error> expiredAuthResult = jwtAuth.authenticate(context, Credential.jwt(expiredAuthToken))
+    Context preCancelled = Context.background()
+    preCancelled.cancel()
+    Result<Principal, Error> preCancelledResult = jwtAuth.authenticate(preCancelled, Credential.jwt(mappedToken))
+    print("jwt-auth-expiry=" + errorKindName(expiredAuthResult.error().kind()) + "," +
+        errorKindName(preCancelledResult.error().kind()))
 
     print("bad2=" + errorKindName(Jwt.decode("a.b").error().kind()) + "," +
         errorKindName(Jwt.decode("a.b.c.d").error().kind()) + "," +
