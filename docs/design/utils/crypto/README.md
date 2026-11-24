@@ -8,6 +8,7 @@
 | 被依赖 | `jwt`、`net.tls`、应用 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M15.1 子集：`HashAlgorithm`/`Hash`/`Hmac`/`ChecksumAlgorithm`/`Checksum`/`ConstantTime` implemented；已实现 Md5/Sha1/Sha256/Sha512（SHA1/SHA512 依赖现有 FFI，运行时向量异常见剩余）；Cipher/Kdf/Asymmetric planned |
 
 ---
 
