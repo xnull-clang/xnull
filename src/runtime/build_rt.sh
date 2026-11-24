@@ -27,6 +27,9 @@ if [ "${1:-}" = "--lib" ]; then
 fi
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_rt test_rt.c rt.c rt_policy.c rt_gc.c rt_weak.c
 /tmp/xnull_test_rt
+cc -std=c11 -O2 -pthread -I. -o /tmp/xnull_test_crypto \
+  test_crypto.c rt_std_ext.c rt.c rt_policy.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_sync.c -lz
+/tmp/xnull_test_crypto
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_gc test_gc.c rt.c rt_gc.c rt_weak.c
 /tmp/xnull_test_gc
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_hard test_hard.c rt.c rt_gc.c rt_weak.c

@@ -31,9 +31,11 @@ static Bytes repeated(Int value, Int count) {
 static Int main() {
     Bytes abc = bytesOf("abc")
     print("md5=" + Hash.hex(HashAlgorithm.Md5, abc))
-    print("sha1-length=" + str(Hash.hex(HashAlgorithm.Sha1, abc).length()))
+    print("sha1=" + Hash.hex(HashAlgorithm.Sha1, abc))
     print("sha256=" + Hash.hex(HashAlgorithm.Sha256, abc))
-    print("sha512-length=" + str(Hash.hex(HashAlgorithm.Sha512, abc).length()))
+    print("sha512=" + Hash.hex(HashAlgorithm.Sha512, abc))
+    print("sha1-empty=" + Hash.hex(HashAlgorithm.Sha1, bytesOf("")))
+    print("sha512-empty=" + Hash.hex(HashAlgorithm.Sha512, bytesOf("")))
     print("sha256-b64=" + Hash.base64(HashAlgorithm.Sha256, abc))
     print("sha256-empty=" + Hash.hex(HashAlgorithm.Sha256, bytesOf("")))
     print("sha256-binary=" + Hash.hex(HashAlgorithm.Sha256, binaryBytes()))
@@ -63,7 +65,7 @@ static Int main() {
     print("hmac-verify=" + str(Hmac.verify(HashAlgorithm.Sha256, key2, data2, mac)) + "," +
         str(Hmac.verify(HashAlgorithm.Sha256, key2, bytesOf("changed"), mac)) + "," +
         str(Hmac.verify(HashAlgorithm.Sha256, key2, data2, bytesOf("short"))))
-    print("hmac-sha1=" + Hmac.hex(HashAlgorithm.Sha1, key2, data2))
+    print("hmac-sha1=" + Hmac.hex(HashAlgorithm.Sha1, key1, data1))
     print("hmac-binary=" + Hmac.hex(HashAlgorithm.Sha256, bytesOf("key"), binaryBytes()))
 
     Bytes vector = bytesOf("123456789")

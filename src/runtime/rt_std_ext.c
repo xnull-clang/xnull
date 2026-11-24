@@ -332,6 +332,7 @@ static const uint32_t K256[64] = {
 };
 
 #define ROR32(x, n) (((x) >> (n)) | ((x) << (32 - (n))))
+#define ROL32(x, n) (((x) << (n)) | ((x) >> (32 - (n))))
 
 static void sha256_init(sha256_ctx *c) {
     c->h[0] = 0x6a09e667; c->h[1] = 0xbb67ae85; c->h[2] = 0x3c6ef372; c->h[3] = 0xa54ff53a;
@@ -446,20 +447,19 @@ static void sha1_block(sha1_ctx *c, const uint8_t *p) {
                ((uint32_t)p[i * 4 + 2] << 8) | (uint32_t)p[i * 4 + 3];
     }
     for (int i = 16; i < 80; i++) {
-        w[i] = ROR32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
+        w[i] = ROL32(w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16], 1);
     }
-    uint32_t a = c->h[0], b = c->h[1], d = c->h[2], e = c->h[3], f = c->h[4];
+    uint32_t a = c->h[0], b = c->h[1], cc = c->h[2], d = c->h[3], e = c->h[4];
     for (int i = 0; i < 80; i++) {
-        uint32_t k, t;
-        if (i < 20)      { k = 0x5a827999; t = (b & d) | (~b & e); }
-        else if (i < 40) { k = 0x6ed9eba1; t = b ^ d ^ e; }
-        else if (i < 60) { k = 0x8f1bbcdc; t = (b & d) | (b & e) | (d & e); }
-        else             { k = 0xca62c1d6; t = b ^ d ^ e; }
-        t = ROR32(a, 5) + t + k + w[i];
-        e = d; d = b; b = ROR32(a, 30); a = t;
-        (void)0;
+        uint32_t f, k;
+        if (i < 20)      { f = (b & cc) | ((~b) & d);          k = 0x5A827999U; }
+        else if (i < 40) { f = b ^ cc ^ d;                     k = 0x6ED9EBA1U; }
+        else if (i < 60) { f = (b & cc) | (b & d) | (cc & d);  k = 0x8F1BBCDCU; }
+        else             { f = b ^ cc ^ d;                     k = 0xCA62C1D6U; }
+        uint32_t t = ROL32(a, 5) + f + e + k + w[i];
+        e = d; d = cc; cc = ROL32(b, 30); b = a; a = t;
     }
-    c->h[0] += a; c->h[1] += b; c->h[2] += d; c->h[3] += e; c->h[4] += f;
+    c->h[0] += a; c->h[1] += b; c->h[2] += cc; c->h[3] += d; c->h[4] += e;
 }
 
 static void sha1_update(sha1_ctx *c, const uint8_t *p, size_t n) {
@@ -536,7 +536,7 @@ static uint32_t md5_f(uint32_t x, uint32_t y, uint32_t z) { return (x & y) | (~x
 static uint32_t md5_g(uint32_t x, uint32_t y, uint32_t z) { return (x & z) | (y & ~z); }
 static uint32_t md5_h(uint32_t x, uint32_t y, uint32_t z) { return x ^ y ^ z; }
 static uint32_t md5_i(uint32_t x, uint32_t y, uint32_t z) { return y ^ (x | ~z); }
-static uint32_t ROL32(uint32_t x, uint32_t n) { return (x << n) | (x >> (32 - n)); }
+static uint32_t MD5_ROL32(uint32_t x, uint32_t n) { return (x << n) | (x >> (32 - n)); }
 
 static void md5_init(md5_ctx *c) {
     c->a = 0x67452301; c->b = 0xefcdab89; c->c = 0x98badcfe; c->d = 0x10325476;
@@ -578,7 +578,7 @@ static void md5_block(md5_ctx *c, const uint8_t *p) {
         uint32_t tmp = e;
         e = d;
         d = b;
-        b = b + ROL32(a + f + K[i] + m[g], (uint32_t)R[i]);
+        b = b + MD5_ROL32(a + f + K[i] + m[g], (uint32_t)R[i]);
         a = tmp;
     }
     c->a += a; c->b += b; c->c += d; c->d += e;
@@ -654,7 +654,7 @@ static const uint64_t K512[80] = {
     0x428a2f98d728ae22ULL, 0x7137449123ef65cdULL, 0xb5c0fbcfec4d3b2fULL, 0xe9b5dba58189dbbcULL,
     0x3956c25bf348b538ULL, 0x59f111f1b605d019ULL, 0x923f82a4af194f9bULL, 0xab1c5ed5da6d8118ULL,
     0xd807aa98a3030242ULL, 0x12835b0145706fbeULL, 0x243185be4ee4b28cULL, 0x550c7dc3d5ffb4e2ULL,
-    0x72be5d74f27b896fULL, 0x80deb1fe3b1696b1ULL, 0x9bdc06a725c71235ULL, 0xc19bf174cf592694ULL,
+    0x72be5d74f27b896fULL, 0x80deb1fe3b1696b1ULL, 0x9bdc06a725c71235ULL, 0xc19bf174cf692694ULL,
     0xe49b69c19ef14ad2ULL, 0xefbe4786384f25e3ULL, 0x0fc19dc68b8cd5b5ULL, 0x240ca1cc77ac9c65ULL,
     0x2de92c6f592b0275ULL, 0x4a7484aa6ea6e483ULL, 0x5cb0a9dcbd41fbd4ULL, 0x76f988da831153b5ULL,
     0x983e5152ee66dfabULL, 0xa831c66d2db43210ULL, 0xb00327c898fb213fULL, 0xbf597fc7beef0ee4ULL,
