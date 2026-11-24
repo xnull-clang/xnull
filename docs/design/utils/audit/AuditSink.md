@@ -109,7 +109,7 @@
 
 实现拥有底层资源；调用方或 `AuditLogger` 持有 sink 引用并负责关闭。
 
-协议不承诺线程安全。`AuditLogger` 在内部监视器内调用 `write`/`flush`/`close`，因此一个 sink 被一个 logger 独占时无需额外同步；被多个 logger 或调用方直接共享时，实现必须自行同步。
+协议不承诺线程安全。`AuditLogger` 在独立 sink monitor 内串行化 `write`/`flush`/`close`，状态 monitor 不跨 sink 调用；一个 sink 被一个 logger 独占时无需额外同步；被多个 logger 或调用方直接共享时，实现必须自行同步。
 
 禁止 sink 回调持有它的 logger（`RuntimeMonitor` 不可重入）；回调应通过新任务或外部队列完成。
 

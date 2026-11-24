@@ -23,7 +23,7 @@
 - 级别只描述事件重要性，不控制是否写入；`AuditLogger` 不按级别丢弃事件。
 - 无 `Debug`/`Trace`/`Error` 成员，避免把审计退化成通用日志。
 - 值语义；无 close；可跨任务共享。
-- 成员顺序固定为 Info、Warning、Critical；不承诺数值映射。
+- 成员顺序固定为 Info、Warning、Critical；实现提供 `auditLevelName`/`auditLevelFromName`（大小写不敏感，未知 null）/`auditLevelRank`。
 
 ---
 
@@ -47,7 +47,7 @@
 
 ## 5. 构造契约
 
-枚举成员直接使用；不提供整数转换，也不支持从字符串解析。
+枚举成员直接使用；名称解析走 `auditLevelFromName`，不提供整数转换。
 
 ---
 
@@ -78,7 +78,7 @@
 
 ## 10. 依赖的特性/接口/类
 
-无。
+`AuditLevel` 自身；名称/rank 由包级函数提供。
 
 ---
 

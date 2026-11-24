@@ -1,0 +1,19 @@
+level=info,warning,critical
+parse=warning,true,true
+rank=0,1,2
+event=123,true,admin
+derived=owner,true,admin
+describe=true,true,true
+of=info
+redact=bob token=[REDACTED]
+redact-event=bob,token=[REDACTED],true,123
+redact-keys=true
+redact-clear=alice token=abc
+log=true,1,auth
+override=billing
+logger-redact=masked
+write-error=true,io
+flush-error=true,io
+close=true,true,1,true
+closed=true,true
+concurrent=true,true,40

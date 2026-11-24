@@ -5,7 +5,7 @@
 | 类型 | `class AuditLogger` |
 | 包 | `xdk.audit` |
 | 稳定性 | `preview` |
-| 依赖 | `AuditSink`、`AuditEvent`、`AuditLevel`、`Redactor`、`Error`、`RuntimeMonitor` |
+| 依赖 | `AuditSink`、`AuditEvent`、`AuditLevel`、`AuditRedactor`、`Error`、`RuntimeMonitor` |
 
 ---
 
@@ -28,7 +28,7 @@
 - 脱敏在合并后执行，覆盖 actor/action/resource/outcome 和字段值；字段键不变。
 - `close`：置 closed → `sink.flush` → `sink.close`；flush 错误保留并返回；sink.close 为 `void`；重复 close 返回 `Ok(unit)`。
 - `log`/`flush` 在关闭后返回 `Unavailable`；`with*` 在关闭后 panic。
-- 线程安全：`RuntimeMonitor` 保护全部可变状态；sink 调用被串行化；禁止 sink/redactor 重入 logger。
+- 线程安全：`RuntimeMonitor` 保护全部可变状态；sink 调用由独立 sink monitor 串行化，状态 monitor 不跨 sink 调用；禁止 sink/redactor 重入 logger。
 - 无过滤、采样、异步、自动 flush、内部重试。
 
 ---
@@ -38,7 +38,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `_sink` | `AuditSink` | final；非 null |
-| `_redactor` | `Redactor?` | 可空；null 表示不脱敏 |
+| `_redactor` | `AuditRedactor?` | 可空；null 表示不脱敏 |
 | `_fields` | `Map<String,String>` | 默认字段；key 非空，value 非 null |
 | `_closed` | `Bool` | false→true 单向 |
 | `_monitor` | `RuntimeMonitor` | final；保护状态与 sink 调用 |
@@ -84,7 +84,7 @@ logger 拥有 sink 的关闭权；不要把同一 sink 交给多个 logger，除
 | `log` | 写审计事件 | `AuditEvent event` | `Result<Unit, Error>` | closed → `Unavailable`；sink 错误原样返回；null → panic |
 | `logAction` | 便捷写动作 | `String actor, String action, String resource, String outcome` | `Result<Unit, Error>` | 非法字符串 → panic；closed → `Unavailable`；sink 错误 |
 | `withField` | 添加默认字段 | `String key, String value` | `AuditLogger`（self） | 非法/closed → panic |
-| `withRedactor` | 设置脱敏器 | `Redactor redactor` | `AuditLogger`（self） | null/closed → panic |
+| `withRedactor` | 设置脱敏器 | `AuditRedactor redactor` | `AuditLogger`（self） | null/closed → panic |
 | `flush` | 刷新 sink | 无 | `Result<Unit, Error>` | closed → `Unavailable`；sink 错误 |
 | `close` | 幂等关闭 | 无 | `Result<Unit, Error>` | flush 错误；第二次 `Ok(unit)` |
 | `isClosed` | 是否已关闭 | 无 | `Bool` | 无 |
@@ -95,7 +95,7 @@ logger 拥有 sink 的关闭权；不要把同一 sink 交给多个 logger，除
 - `log` 在 sink 失败后保持 open；不自动关闭、不丢弃后续事件。
 - `logAction` 用 `AuditEvent.of` 构造 Info 事件（`nowMono()`、空字段），再调用 `log`；需要 Warning/Critical 时用 `AuditEvent.of(...).withLevel(...)` 后 `log`。
 - `withField` 替换同名默认字段；返回同一实例，便于链式调用。事件自身的同名字段仍然优先。
-- `withRedactor` 替换当前 redactor；旧 redactor 不被修改。用新的空 `Redactor` 关闭脱敏。
+- `withRedactor` 替换当前 redactor；旧 redactor 不被修改。用新的空 `AuditRedactor` 关闭脱敏。
 - `flush` 只刷新 sink；不改变 closed 状态，不自动 close。
 - `close` 先置 closed 再 flush，阻止并发新事件；flush 失败仍调用 `sink.close`，返回 `Err`；第二次 close 不再触碰 sink。
 - `isClosed` 是唯一状态查询；不提供 `isOpen`，避免与 sink 的 `isOpen` 混淆。
@@ -117,13 +117,13 @@ logger 拥有 sink 的关闭权；不要把同一 sink 交给多个 logger，除
 
 - 语言：class、final 字段、Map、Bool、Result、Unit；
 - 运行时：`RuntimeMonitor.enter/exit`、`nowMono`；
-- 接口：`AuditSink`、`AuditEvent`、`AuditLevel`、`Redactor`、`Error`、`BasicError`、`ErrorKind`。
+- 接口：`AuditSink`、`AuditEvent`、`AuditLevel`、`AuditRedactor`、`Error`、`BasicError`、`ErrorKind`。
 
 ---
 
 ## 10. 依赖的特性/接口/类
 
-`AuditSink`、`AuditEvent`、`AuditLevel`、`Redactor`、`Error`、`BasicError`、`ErrorKind.Unavailable`、`RuntimeMonitor`、`nowMono`。
+`AuditSink`、`AuditEvent`、`AuditLevel`、`AuditRedactor`、`Error`、`BasicError`、`ErrorKind.Unavailable`、`RuntimeMonitor`、`nowMono`。
 
 ---
 
@@ -131,7 +131,7 @@ logger 拥有 sink 的关闭权；不要把同一 sink 交给多个 logger，除
 
 引用语义；logger 拥有 sink 的关闭权；调用方拥有 logger。
 
-线程安全；所有公开方法在监视器内；`log` 持有监视器跨 `sink.write`，保证事件顺序并与 `close` 互斥。sink 被一个 logger 独占时无需线程安全；共享时由 sink 实现同步。redactor 可共享，logger 只持有引用，不复制规则。
+线程安全；所有公开方法在监视器内；`log` 在状态 monitor 外调用 sink，并用独立 sink monitor 与 `close`/`flush` 串行化。sink 被一个 logger 独占时无需线程安全；共享时由 sink 实现同步。redactor 可共享，logger 只持有引用，不复制规则。
 
 禁止 sink/redactor 回调 logger（`RuntimeMonitor` 不可重入）。无 Context/取消/超时；sink 阻塞会阻塞 `log`/`flush`/`close`；异步 sink 是 X。
 
@@ -139,7 +139,7 @@ logger 拥有 sink 的关闭权；不要把同一 sink 交给多个 logger，除
 
 ## 12. 示例与反例
 
-正确：应用实现 sink；`Redactor` 编译并添加规则；`logger.withField("service","billing").withRedactor(redactor)`；`logAction` 记录登录/授权；在检查点 `flush`；退出时 `close`。  
+正确：应用实现 sink；`AuditRedactor` 编译并添加规则；`logger.withField("service","billing").withRedactor(redactor)`；`logAction` 记录登录/授权；在检查点 `flush`；退出时 `close`。
 反例：把 `AuditLogger` 当调试 logger；忽略 `log` 返回的 `Err`；期望 `withField` 返回新 logger；期望 close 后写入被静默丢弃；多个 logger 共享非线程安全 sink；期望 `log` 自动 flush；close 两次期望报错。
 
 ---
@@ -157,7 +157,7 @@ class AuditLogger {
     final AuditSink _sink
     final RuntimeMonitor _monitor
     final Map<String, String> _fields
-    Redactor? _redactor
+    AuditRedactor? _redactor
     Bool _closed = false
 
     AuditLogger(AuditSink sink) {
@@ -203,7 +203,7 @@ class AuditLogger {
         return self
     }
 
-    AuditLogger withRedactor(Redactor redactor) {
+    AuditLogger withRedactor(AuditRedactor redactor) {
         if redactor == null { throw "AuditLogger.withRedactor: null redactor" }
         _monitor.enter()
         if _closed {

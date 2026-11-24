@@ -8,6 +8,7 @@
 | 被依赖 | 应用、服务端、合规审计管道、证书/权限/管理操作 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M10.1：`AuditLevel`/`AuditEvent`/`AuditSink`/`AuditRedactor`/`AuditLogger` implemented；sink 调用在状态 monitor 外、由独立 sink monitor 串行化 |
 
 ---
 
@@ -19,7 +20,7 @@
 - `AuditEvent`：不可变事件快照；
 - `AuditSink`：非泛型输出协议；
 - `AuditLogger`：同步、线程安全的审计入口；
-- `Redactor`：按插入顺序应用的正则脱敏器。
+- `AuditRedactor`：按插入顺序应用的正则脱敏器。
 
 审计不是调试日志的别名：它记录“谁对什么做了什么、结果如何”，用于合规、追责和安全调查；不记录调试轨迹，也不按级别丢弃事件。
 
@@ -36,8 +37,8 @@
 | 同步、不丢弃 | `AuditLogger.log` 同步调用 sink；没有内部队列、采样或静默丢弃 |
 | 错误不吞 | sink 的 `write`/`flush` 错误原样返回；关闭后的调用返回 `Unavailable` |
 | 显式生命周期 | `AuditSink.close` 与 `AuditLogger.close` 幂等；关闭后写入失败而非静默成功 |
-| 脱敏局部 | `Redactor` 的规则按实例持有；无全局 PII 模式；规则按插入顺序应用 |
-| 线程安全 | `AuditLogger`/`Redactor` 用运行时监视器保护状态；sink 调用被串行化 |
+| 脱敏局部 | `AuditRedactor` 的规则按实例持有；无全局 PII 模式；规则按插入顺序应用 |
+| 线程安全 | `AuditLogger`/`AuditRedactor` 用运行时监视器保护状态；sink 调用被串行化 |
 | 无全局状态 | 无全局 logger、全局 sink、全局 redactor、全局注册表 |
 | 最小依赖 | 仅依赖 `errors` 与 `text`（`Regex`）；时间/同步使用运行时原语 |
 
@@ -51,7 +52,7 @@
 | `AuditEvent` | class | 不可变审计事件 | [`AuditEvent.md`](AuditEvent.md) |
 | `AuditSink` | protocol | 写入/刷新/关闭/可用 | [`AuditSink.md`](AuditSink.md) |
 | `AuditLogger` | class | 同步审计入口/生命周期 | [`AuditLogger.md`](AuditLogger.md) |
-| `Redactor` | class | 局部正则脱敏 | [`Redactor.md`](AuditRedactor.md) |
+| `AuditRedactor` | class | 局部正则脱敏 | [`AuditRedactor.md`](AuditRedactor.md) |
 
 X：异步/批量 sink、文件轮转、远程传输、结构化策略、字段键脱敏、捕获组替换、墙钟时间戳、事件签名。
 
@@ -80,7 +81,7 @@ X：异步/批量 sink、文件轮转、远程传输、结构化策略、字段�
 
 ### A2：敏感字段脱敏
 
-`Redactor redactor = new Redactor()`；编译 `Regex` 后 `redactor.addPattern(pattern, "token=[REDACTED]")`；`logger.withRedactor(redactor)`；之后 `log` 自动脱敏 actor/action/resource/outcome 和字段值。
+`AuditRedactor redactor = new AuditRedactor()`；编译 `Regex` 后 `redactor.addPattern(pattern, "token=[REDACTED]")`；`logger.withRedactor(redactor)`；之后 `log` 自动脱敏 actor/action/resource/outcome 和字段值。
 
 ### A3：写入失败
 
@@ -105,7 +106,7 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 | 项 | 决策 |
 | --- | --- |
 | 与日志的关系 | 独立包；不依赖 `xdk.log`；`AuditLevel` 不是 `Level`，不提供转换 |
-| `Redactor` 命名 | 审计专用脱敏器；不复用日志包 X 的 `Redactor`；规则与生命周期独立 |
+| `AuditRedactor` 命名 | 审计专用脱敏器；不复用日志包 X 的 `Redactor`；规则与生命周期独立 |
 | `AuditLogger.withField` | 变异当前 logger，返回同一实例，支持链式调用；不是不可变派生 |
 | `AuditLogger.withRedactor` | 变异当前 logger，返回同一实例；替换已有 redactor；null 拒绝 |
 | `AuditEvent.withField`/`withLevel` | 不可变派生，返回新事件；与 logger 的变异式 `with*` 明确区分 |
@@ -114,7 +115,7 @@ sink 返回 `Err`；`log` 返回同一个错误；调用方告警或重试；log
 | 替换语义 | `Regex.replaceAll` 字面替换；不支持 `$1` 捕获组展开；X |
 | 空替换 | 拒绝；避免把 actor/action/outcome 脱敏成空串，破坏事件不变量 |
 | 规则顺序 | 按加入顺序；后一条规则看到前一条的输出 |
-| 全局规则 | 禁止；每个 `Redactor` 独立；共享实例的修改对所有持有者可见 |
+| 全局规则 | 禁止；每个 `AuditRedactor` 独立；共享实例的修改对所有持有者可见 |
 | 采样/过滤 | 不做；所有级别都写入；审计不能因级别被丢弃 |
 | 异步/批量 | 不做；同步写入，背压由调用方承担；X |
 | 自动 flush | `log` 不自动 flush；在合规检查点显式 `flush`，`close` 会 flush |
