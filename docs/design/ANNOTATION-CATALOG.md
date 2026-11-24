@@ -110,7 +110,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@TimeoutPolicy` | 超时策略 | `Long timeoutMillis` | Method / Source | resilience_processor → Timeout 包装 | implemented (M8.2) |
 | `@Metered` | 指标埋点 | `String name`、`String unitName = ""` | Method / Source | MetricsAnnotationProcessor → 指标包装 |
 | `@Traced` | trace span | `String name` | Method / Source | TraceAnnotationProcessor → span 包装 |
-| `@Audited` | 审计事件 | `String action` | Method / Source | AuditAnnotationProcessor → 审计包装 |
+| `@Audited` | 审计事件 | `String action` | Method / Source | audit_processor → Audited 包装 | implemented (M10.2) |
 
 ### 3.6 测试 / 调度
 

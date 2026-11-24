@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "audit_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/audit_processor.py"],
+      "outputs": ["AuditGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}

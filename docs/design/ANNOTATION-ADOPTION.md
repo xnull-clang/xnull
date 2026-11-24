@@ -1431,13 +1431,13 @@ class UserService {
 ```x
 class UserService {
     @Audited("user.delete")
-    void delete(Long recordId) {
+    Result<Unit, Error> delete(Long recordId) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Audited` implemented (M10.2)；仅位置参数，生成显式包装；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.terminal`
 

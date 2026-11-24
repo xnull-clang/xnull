@@ -1,0 +1,8 @@
+login=true,7,1
+success-event=alice,user.login,Service.login,success,info
+fail=true,network,1
+failure-event=bob,user.fail,Service.fail,failure,network,warning
+closed-success=unavailable,2
+closed-failure=network,2
+write-failure=io,true
+method-failure=network,true
