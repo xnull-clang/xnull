@@ -8275,7 +8275,7 @@ static rt_string * xn_Cls_Checker_checkMethodCall(xn_Cls_Checker *self, xn_Cls_A
       rt_string * pps = xn_Cls_Checker_protocolParams(self, bt, mth);
       xn_arr_s *pwant = xn_arr_s_new(0);
       if ((!xn_str_eq(pps, rt_string_from_c("")))) {
-        pwant = xn_str_split(pps, rt_string_from_c(","));
+        pwant = xn_splitTop(pps);
       }
       if ((((int64_t)pwant->len) != argc)) {
         xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), xn_concat(xn_concat(xn_concat(xn_concat(mth, rt_string_from_c(" expects ")), xn_str_int(((int64_t)pwant->len))), rt_string_from_c(" arguments, got ")), xn_str_int(argc)), n);
@@ -8866,7 +8866,7 @@ static rt_string * xn_Cls_Checker_checkCall(xn_Cls_Checker *self, xn_Cls_AstNode
         rt_string * pps = xn_Cls_Checker_protocolParams(self, bt, mth);
         xn_arr_s *pwant = xn_arr_s_new(0);
         if ((!xn_str_eq(pps, rt_string_from_c("")))) {
-          pwant = xn_str_split(pps, rt_string_from_c(","));
+          pwant = xn_splitTop(pps);
         }
         if ((((int64_t)pwant->len) != argc)) {
           xn_Cls_Checker_fail(self, rt_string_from_c("SEM-004"), xn_concat(xn_concat(xn_concat(xn_concat(mth, rt_string_from_c(" expects ")), xn_str_int(((int64_t)pwant->len))), rt_string_from_c(" arguments, got ")), xn_str_int(argc)), n);
@@ -17071,6 +17071,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.metrics")) || xn_str_startswith(pkg, rt_string_from_c("xdk.metrics.")))) {
     return rt_string_from_c("metrics/Metrics.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.trace")) || xn_str_startswith(pkg, rt_string_from_c("xdk.trace.")))) {
+    return rt_string_from_c("trace/Trace.x");
   }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
     return rt_string_from_c("net/mime/Mime.x");

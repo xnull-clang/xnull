@@ -6684,7 +6684,7 @@ class Checker {
                 String pps = self.protocolParams(bt, mth)
                 List<String> pwant = []
                 if pps != "" {
-                    pwant = pps.split(",")
+                    pwant = splitTop(pps)
                 }
                 if pwant.length() != argc {
                     self.fail("SEM-004", mth + " expects " + str(pwant.length()) + " arguments, got " + str(argc), n)
@@ -7198,7 +7198,7 @@ class Checker {
                     String pps = self.protocolParams(bt, mth)
                     List<String> pwant = []
                     if pps != "" {
-                        pwant = pps.split(",")
+                        pwant = splitTop(pps)
                     }
                     if pwant.length() != argc {
                         self.fail("SEM-004", mth + " expects " + str(pwant.length()) + " arguments, got " + str(argc), n)
@@ -14019,6 +14019,9 @@ static String xdkFile(String pkg) {
     }
     if pkg == "xdk.metrics" || pkg.startsWith("xdk.metrics.") {
         return "metrics/Metrics.x"
+    }
+    if pkg == "xdk.trace" || pkg.startsWith("xdk.trace.") {
+        return "trace/Trace.x"
     }
     if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
         return "net/mime/Mime.x"

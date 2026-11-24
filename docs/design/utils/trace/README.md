@@ -8,6 +8,7 @@
 | 被依赖 | 应用、客户端、服务端、协议中间件 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M14.1：`SpanKind`/`SpanStatus`/`SpanContext`/`SpanEvent`/`TraceOptions`/`Sampler`/`Propagator`/`W3cPropagator`/`Span`/`Tracer`/`TraceRuntime` implemented；`@Traced` planned |
 
 ---
 
@@ -64,6 +65,15 @@
 | `Tracer` | class | 创建 span/当前 span/传播/关闭 | [`Tracer.md`](Tracer.md) |
 
 X：tracestate、span links、tail sampling、exemplars、OTLP exporter、自动 instrumentation、跨任务自动上下文继承。
+
+实现偏差（M14.1）：
+
+- 不新增 C 运行时；包内私有 `TraceRuntime` 承担 ID 生成与关闭状态，`Span` 自身承担属性/事件/状态缓冲，不另设 `TraceHandle`。
+- 当前 span 由每个 `Tracer` 的锁保护栈维护，是 tracer 级而非任务级；跨任务必须显式传 `SpanContext`。
+- `W3cPropagator` 是 `Propagator` 默认实现；`fields()` 返回 `traceparent`/`tracestate`，但本批不解析或注入 `tracestate`；baggage 不传播。
+- `Sampler.ratio` 使用 32 位掩码 FNV-1a 变体（当前 `String` 没有字符码 API；`charAt` 返回子串），同一 traceId 的采样决策仍稳定，跨进程一致。
+- `SpanKind`/`SpanStatus` 内部增加 `Unknown` 0 号占位，避免枚举 0/null 哨兵；业务不使用。
+- 文档中的 `Tracer.startSpan`/`create` 重载改为不同名称：`startSpanKind`/`startSpanFrom`/`startSpanFromKind`、`createWithPropagator`。
 
 ---
 
@@ -165,7 +175,7 @@ xdk.errors / xdk.time / xdk.runtime / xdk.math / xdk.text / xdk.collections
 | 本包消费 | `@Value`、`@Builder` |
 | 处理器 | TraceAnnotationProcessor（Validate/Generate） |
 | 生成物 | span/包装器元数据 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | 领域注解 `@Traced` planned；M14.1 运行时包 implemented；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 

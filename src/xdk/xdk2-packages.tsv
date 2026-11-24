@@ -60,7 +60,7 @@ xdk.schedule	L7	8	src/xdk/schedule/Schedule.x	design
 xdk.event	L7	3	src/xdk/event/Event.x	design
 xdk.resilience	L7	7	src/xdk/resilience/Resilience.x	implemented
 xdk.metrics	L7	11	src/xdk/metrics/Metrics.x	implemented
-xdk.trace	L7	9	src/xdk/trace/Trace.x	design
+xdk.trace	L7	9	src/xdk/trace/Trace.x	implemented
 xdk.audit	L7	5	src/xdk/audit/Audit.x	implemented
 xdk.terminal	L7	8	src/xdk/terminal/Terminal.x	design
 xdk.i18n	L7	7	src/xdk/i18n/I18n.x	design
