@@ -5475,6 +5475,28 @@ class Checker {
         return text.substring(0, 1) == "1"
     }
 
+    Void checkIsTargets(AstNode n) {
+        if self.hasError() {
+            return
+        }
+        if n.kind == "Is" {
+            String target = simpleTypeUseName(n.text)
+            if target != "Any" && !self.knownType(target) {
+                self.fail("SEM-005", "unknown type in is: " + n.text, n)
+                return
+            }
+            if target == "Unit" || target == "void" || self.isFunctionType(target) {
+                self.fail("SEM-005", "is does not support target type: " + n.text, n)
+                return
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() && !self.hasError() {
+            self.checkIsTargets(n.kids.get(i))
+            i = i + 1
+        }
+    }
+
     Void check() {
         AnnotationChecker ann = new AnnotationChecker(self.file, self.program)
         ann.check()
@@ -5503,6 +5525,10 @@ class Checker {
             }
             i = i + 1
         }
+        if self.hasError() {
+            return
+        }
+        self.checkIsTargets(self.program)
     }
 
     Void checkClass(AstNode cls) {
@@ -10301,7 +10327,29 @@ class CGen {
             if n.kids.length() == 0 {
                 return "0"
             }
-            return "1"
+            String operandType = self.typeOf(n.kids.get(0))
+            String operandBase = self.isTypeBase(operandType)
+            String target = simpleTypeUseName(n.text)
+            String objectExpr = self.expr(n.kids.get(0))
+            if target == "Any" {
+                if !self.typeCanHoldReference(operandType) { return "0" }
+                return "((" + objectExpr + " != NULL) ? 1 : 0)"
+            }
+            if self.isReferenceTarget(target) {
+                if !self.typeCanHoldReference(operandType) { return "0" }
+                List<String> matches = self.isMatchingClasses(target)
+                if matches.length() == 0 { return "0" }
+                String checks = ""
+                Int mi = 0
+                while mi < matches.length() {
+                    if mi > 0 { checks = checks + " || " }
+                    checks = checks + "(((rt_header *)(" + objectExpr + "))->type == &RT_TYPE_XN_" + matches.get(mi) + ")"
+                    mi = mi + 1
+                }
+                return "((" + objectExpr + " == NULL) ? 0 : (" + checks + "))"
+            }
+            if operandBase == target { return "1" }
+            return "0"
         }
         if n.kind == "Unary" {
             if n.kids.length() == 0 {
@@ -11639,6 +11687,145 @@ class CGen {
             i = i + 1
         }
         return new AstNode("None", "", cls.line, cls.col)
+    }
+
+    String isTypeBase(String ty) {
+        if ty.length() > 1 && ty.substring(ty.length() - 1, 1) == "?" {
+            return ty.substring(0, ty.length() - 1)
+        }
+        return ty
+    }
+
+    Bool isSourceClass(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" && n.text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isSourceStruct(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Struct" && n.text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isSourceEnum(String name) {
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Enum" && n.text == name {
+                return true
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool isValueTypeName(String ty) {
+        String base = self.isTypeBase(ty)
+        if base == "Int" || base == "Int64" || base == "Int32" || base == "UInt16" ||
+           base == "Int128" || base == "Long" || base == "Float" || base == "Double" ||
+           base == "Bool" || base == "Char" || base == "String" || base == "Bytes" ||
+           base == "Unit" || base == "void" {
+            return true
+        }
+        if base.length() >= 2 && base.substring(base.length() - 2, 2) == "[]" {
+            return true
+        }
+        if base.length() > 5 && base.substring(0, 5) == "List<" { return true }
+        if base.length() > 4 && base.substring(0, 4) == "Map<" { return true }
+        if base.length() > 4 && base.substring(0, 4) == "Set<" { return true }
+        if base.length() > 7 && base.substring(0, 7) == "Result<" { return true }
+        if self.isFunctionType(base) { return true }
+        if self.isSourceStruct(base) || self.isSourceEnum(base) { return true }
+        return false
+    }
+
+    Bool isReferenceTarget(String target) {
+        return self.isSourceClass(target) || self.isProtocol(target)
+    }
+
+    Bool typeCanHoldReference(String ty) {
+        String base = self.isTypeBase(ty)
+        if base == "Any" { return true }
+        return !self.isValueTypeName(base)
+    }
+
+    Bool protocolIsOrExtends(String name, String target) {
+        if name == target { return true }
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Protocol" && n.text == name {
+                Int j = 0
+                while j < n.kids.length() {
+                    AstNode k = n.kids.get(j)
+                    if k.kind == "Extends" && self.protocolIsOrExtends(k.text, target) {
+                        return true
+                    }
+                    j = j + 1
+                }
+            }
+            i = i + 1
+        }
+        return false
+    }
+
+    Bool classImplementsProtocol(String className, String target) {
+        AstNode cls = self.classByName(className)
+        if cls.kind == "None" { return false }
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "Implements" && self.protocolIsOrExtends(k.text, target) {
+                return true
+            }
+            i = i + 1
+        }
+        String base = self.baseNameOf(cls)
+        if base != "" { return self.classImplementsProtocol(base, target) }
+        return false
+    }
+
+    Bool classDerivesFrom(String className, String target) {
+        if className == target { return true }
+        AstNode cls = self.classByName(className)
+        if cls.kind == "None" { return false }
+        String base = self.baseNameOf(cls)
+        if base == "" { return false }
+        return self.classDerivesFrom(base, target)
+    }
+
+    List<String> isMatchingClasses(String target) {
+        List<String> result = []
+        Bool wantClass = self.isSourceClass(target)
+        Bool wantProtocol = self.isProtocol(target)
+        if !wantClass && !wantProtocol { return result }
+        Int i = 0
+        while i < self.program.kids.length() {
+            AstNode n = self.program.kids.get(i)
+            if n.kind == "Class" {
+                if wantClass && self.classDerivesFrom(n.text, target) {
+                    result.push(n.text)
+                }
+                if wantProtocol && self.classImplementsProtocol(n.text, target) {
+                    result.push(n.text)
+                }
+            }
+            i = i + 1
+        }
+        return result
     }
 
     String baseNameOf(AstNode cls) {

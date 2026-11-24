@@ -21,6 +21,7 @@ if ! diff -u "$HERE/xdk_core.out" "$TMP"; then
     exit 1
 fi
 
+"$HERE/type_is/run.sh"
 "$HERE/generic_lambda/run.sh"
 
 echo "xdk core: PASS"
