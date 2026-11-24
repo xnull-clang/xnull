@@ -8,7 +8,7 @@
 | 被依赖 | 应用自测、CI 任务、库的单元测试 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
-| 实现状态 | M11.1：`TestStatus`/`TestContext`/`Test`/`TestSuite`/`TestResult`/`TestRunner`/`Assert` implemented；断言 code 为 `test.assertion_failed`；`TestStatus` 内部 Unknown 占 0 号 |
+| 实现状态 | M11.1：`TestStatus`/`TestContext`/`Test`/`TestSuite`/`TestResult`/`TestRunner`/`Assert` implemented；断言 code 为 `test.assertion_failed`；`TestStatus` 内部 Unknown 占 0 号。M11.2：`@TestCase`/`@Before`/`@After`/`@Benchmark` 生成显式 Suite/Benchmarks；仅位置参数；方法支持 `void` 或 `Result<Unit, Error>`；Benchmark 不做统计/预热 |
 
 ---
 
@@ -165,9 +165,9 @@ List<TestResult> results = runner.runAll(Context.background(), suites)
 | --- | --- |
 | 本包声明 | `@TestCase`、`@Before`、`@After`、`@Benchmark` |
 | 本包消费 | `@Value`、`@Builder` |
-| 处理器 | TestAnnotationProcessor（Validate/Generate） |
+| 处理器 | test_processor（Generate，构建期显式代码） |
 | 生成物 | 测试清单、生命周期/基准元数据 |
-| 状态 | 领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented |
+| 状态 | `@TestCase`/`@Before`/`@After`/`@Benchmark` implemented (M11.2)；仅位置参数；A8 派生 implemented（含限制）；编译器内建 implemented |
 
 ### 具体落点
 
@@ -224,6 +224,28 @@ class UserTests {
     }
 }
 ```
+
+### 生成规则（M11.2）
+
+对每个含 `@TestCase` 的类生成：
+
+```x
+TestSuite <Class>Suite(<Class> target)
+```
+
+对每个含 `@Benchmark` 的类生成：
+
+```x
+List<Test> <Class>Benchmarks(<Class> target)
+```
+
+- 测试/基准方法必须无参数且非静态；支持 `void` 或 `Result<Unit, Error>`，其他返回类型报 `AN2202`；
+- 每个 case 生成独立的 `Result<Unit, Error>(TestContext)` body，固定顺序 `@Before` → 测试方法 → `@After`；
+- `@Before` 失败：测试失败、不执行测试方法，`@After` 仍执行；`@After` 失败：测试方法成功时返回 After 错误，测试方法失败时保留测试方法错误；
+- 每个类最多一个 `@Before` 和一个 `@After`，多个报 `AN2203`；
+- 类只有 `@Before`/`@After` 而无 `@TestCase` 报 `AN2204` warning；
+- 名称取注解位置参数，空串回退方法名；case 按声明顺序生成；
+- `@Benchmark` 只生成可交给 `TestRunner` 的 `Test`，不做预热、统计或报告。
 
 规则：注解是编译期契约/生成入口；处理器显式启用、沙箱、确定性、失败原子；运行时只读生成的 `AnnotationRegistry`，无反射/扫描/动态代理。
 

@@ -5,7 +5,7 @@
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 44（内建/元模型 9 + A8 5 + 领域 30）、`reserved` 4、`planned` 45（S6 2 + 领域 43） |
+| 计数 | 93 条：`implemented` 48（内建/元模型 9 + A8 5 + 领域 34）、`reserved` 4、`planned` 41（S6 2 + 领域 39） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -116,10 +116,10 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 
 | 注解 | 做什么 | 字段 | 目标 / 保留 | 处理器 / 生成 |
 | --- | --- | --- | --- | --- |
-| `@TestCase` | 标记测试方法 | `String name = ""` | Method / Runtime | TestAnnotationProcessor → 测试清单 |
-| `@Before` | 测试前置 | 无 | Method / Runtime | TestAnnotationProcessor → 生命周期表 |
-| `@After` | 测试后置 | 无 | Method / Runtime | TestAnnotationProcessor → 生命周期表 |
-| `@Benchmark` | 标记基准 | `String name = ""` | Method / Runtime | TestAnnotationProcessor → 基准清单 |
+| `@TestCase` | 标记测试方法 | `String name = ""` | Method / Runtime | test_processor → `TestSuite` | implemented (M11.2) |
+| `@Before` | 测试前置 | 无 | Method / Runtime | test_processor → 生命周期调用 | implemented (M11.2) |
+| `@After` | 测试后置 | 无 | Method / Runtime | test_processor → 生命周期调用 | implemented (M11.2) |
+| `@Benchmark` | 标记基准 | `String name = ""` | Method / Runtime | test_processor → `List<Test>`（无统计） | implemented (M11.2) |
 | `@Scheduled` | 声明调度任务 | `String cron = ""`、`Long fixedRateMillis = 0` | Method / Runtime | ScheduleAnnotationProcessor → 作业注册 |
 
 ### 3.7 FFI / 设备 / 计算

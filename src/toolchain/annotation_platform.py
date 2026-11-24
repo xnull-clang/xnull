@@ -135,8 +135,8 @@ def validate_diagnostic(item, processor):
     if not match:
         raise ValueError(f"{processor}: diagnostic code must match ANdddd")
     number = int(match.group(1))
-    if not (100 <= number <= 199 or 1000 <= number <= 1999):
-        raise ValueError(f"{processor}: diagnostic code outside AN0100-0199/AN1000-1999: {code}")
+    if not (100 <= number <= 199 or 1000 <= number <= 1999 or 2000 <= number <= 2999):
+        raise ValueError(f"{processor}: diagnostic code outside AN0100-0199/AN1000-1999/AN2000-2999: {code}")
     severity = item.get("severity")
     if severity not in SEV_RANK:
         raise ValueError(f"{processor}: invalid severity {severity}")

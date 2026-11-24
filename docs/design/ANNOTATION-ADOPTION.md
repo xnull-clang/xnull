@@ -1513,7 +1513,7 @@ class UserTests {
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@TestCase`/`@Before`/`@After`/`@Benchmark` implemented (M11.2)；仅位置参数；测试方法支持 `void` 或 `Result<Unit, Error>`；`@Benchmark` 只生成 `List<Test>`，不做统计/预热；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.jsonrpc`
 

@@ -270,6 +270,7 @@ M6.5：`@Entity`/`@Table`/`@Id`/`@Transactional` 与 `db_processor` 闭环（内
 | M8.2 | P8 resilience 注解 | `@Retryable`/`@CircuitBreakerPolicy`/`@RateLimit`/`@TimeoutPolicy` 包装函数 | implemented (M8.2) |
 | M8.4 | P8 cache 注解 | `@Cacheable`/`@CacheEvict` 显式缓存包装 | implemented (M8.4) |
 | M10.2 | P10 audit 注解 | `@Audited` 显式审计包装 | implemented (M10.2) |
+| M11.2 | P11 test 注解 | `@TestCase`/`@Before`/`@After`/`@Benchmark` 显式 Suite/Benchmarks | implemented (M11.2) |
 
 顺序原则：
 

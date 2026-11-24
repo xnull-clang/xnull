@@ -1,0 +1,10 @@
+suite=UserTests,2
+names=passes,fails
+status=passed,failed
+failure=network
+lifecycle=2,2,2
+benchmarks=1,quick,passed
+benchmark-body=3
+before-fail=failed,already_exists,0,1
+after-success=failed,io
+after-failure=failed,network

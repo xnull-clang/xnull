@@ -8,7 +8,7 @@ static Error auditFailure() {
 }
 
 static Error closedFailure() {
-    return closedFailure()
+    return new BasicError(ErrorKind.Unavailable, "closed")
 }
 
 static Error sinkFailure() {

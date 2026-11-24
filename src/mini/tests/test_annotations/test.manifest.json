@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "test_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/test_processor.py"],
+      "outputs": ["TestGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
