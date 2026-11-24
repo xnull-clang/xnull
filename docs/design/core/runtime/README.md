@@ -55,6 +55,7 @@
 | 内存统计 | `MemoryStats`/`memoryStats` | 堆/外部/峰值/GC |
 | 任务统计 | `TaskStats`/`taskStats` | active/queued/completed/failed/cancelled |
 | 分配统计 | `RuntimeStats`/`stats`/`statsEnabled`/`statsSetEnabled`/`statsReset` | 分配/释放/字节/GC 计数与开关 |
+| GC 强制收集 | `gcCollect` | 测试/诊断；保守扫描当前线程活动栈；编译器进程默认跳过；`XNULL_GC_STACK_SCAN=0` 可关闭；跨任务共享对象仍需显式根/传参 |
 | 任务转储 | `dumpTasks` | 诊断输出任务快照 |
 | 栈文本 | `stackTrace` | 当前栈；诊断 |
 | 健康/就绪 | `HealthState`/`HealthReport` | 健康快照、readiness/liveness 判定（M7 前置） |

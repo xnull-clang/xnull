@@ -43,6 +43,12 @@ size_t rt_gc_collect(void);
 /* 存活 GC 对象数（测试与诊断）。 */
 size_t rt_gc_live(void);
 
+/* 测试/诊断：临时关闭当前线程栈的保守扫描（默认开启）。 */
+void rt_gc_set_stack_scan_enabled(int enabled);
+
+/* 程序退出前回收：栈上的局部已被视为死亡，不扫描当前栈。 */
+size_t rt_gc_collect_shutdown(void);
+
 #ifdef __cplusplus
 }
 #endif

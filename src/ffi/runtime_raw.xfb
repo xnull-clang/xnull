@@ -76,6 +76,11 @@ ffi xdkc_runtime_raw {
   @blocking(.unaware)
   void statsResetRaw();
 
+  // ---- GC 强制收集（测试/诊断）----
+  @ffiEntry(cName = "xdkc_gc_collect")
+  @blocking(.unaware)
+  Int64 gcCollectRaw();
+
   // ---- 执行层内部监视器（B3.1）----
   // 句柄为进程级不透明地址；close 幂等，之后 wait 立即返回。
   @ffiEntry(cName = "xdkc_monitor_new")

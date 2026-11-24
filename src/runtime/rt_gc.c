@@ -8,6 +8,9 @@
  */
 #include "rt_gc.h"
 
+#include <pthread.h>
+#include <setjmp.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -16,6 +19,10 @@ static rt_object *g_scan_list = NULL; /* ARC 扫描链（不变量 2） */
 static void     **g_roots    = NULL;
 static size_t     g_root_n   = 0;
 static size_t     g_root_cap = 0;
+static int        g_collecting = 0;
+static uintptr_t  g_gc_min = UINTPTR_MAX;
+static uintptr_t  g_gc_max = 0;
+static int        g_scan_stack = -1;
 
 /* ---- 分配 ---- */
 
@@ -30,6 +37,11 @@ static void *alloc_sized(const rt_type *type, rt_kind kind, size_t payload) {
     atomic_init(&o->hdr.refcount, 1); /* 计数从 1 起（S3 §7） */
     o->hdr.terminated = 0;
     rt_stats_note_alloc(sizeof(rt_header) + payload);
+    uintptr_t address = (uintptr_t)o;
+    if (address < g_gc_min) { g_gc_min = address; }
+    if (address + sizeof(rt_header) + payload > g_gc_max) {
+        g_gc_max = address + sizeof(rt_header) + payload;
+    }
     if (kind == RT_KIND_GC) {
         o->hdr.gc_next = g_gc_list;
         g_gc_list = o;
@@ -105,6 +117,98 @@ static void mark_ref(void *ref) {
     }
 }
 
+typedef struct {
+    uintptr_t begin;
+    uintptr_t end;
+    rt_object *object;
+} rt_gc_range;
+
+static int range_compare(const void *left, const void *right) {
+    const rt_gc_range *a = (const rt_gc_range *)left;
+    const rt_gc_range *b = (const rt_gc_range *)right;
+    if (a->begin < b->begin) { return -1; }
+    if (a->begin > b->begin) { return 1; }
+    return 0;
+}
+
+static void mark_stack_roots(void) {
+    if (g_scan_stack < 0) {
+        const char *setting = getenv("XNULL_GC_STACK_SCAN");
+        g_scan_stack = (setting != NULL && strcmp(setting, "0") == 0) ? 0 : 1;
+#if defined(__APPLE__)
+        if (strcmp(getprogname(), "mini") == 0) { g_scan_stack = 0; }
+#endif
+    }
+    if (!g_scan_stack) { return; }
+    jmp_buf registers;
+    (void)setjmp(registers);
+    volatile char marker = 0;
+    uintptr_t low = (uintptr_t)&marker;
+    uintptr_t high = low;
+#if defined(__APPLE__)
+    void *top = pthread_get_stackaddr_np(pthread_self());
+    size_t size = pthread_get_stacksize_np(pthread_self());
+    if (top != NULL && size > 0) {
+        uintptr_t stack_top = (uintptr_t)top;
+        uintptr_t stack_low = stack_top - size;
+        if (low < stack_low) { low = stack_low; }
+        high = stack_top;
+    }
+#elif defined(__linux__)
+    pthread_attr_t attr;
+    if (pthread_getattr_np(pthread_self(), &attr) == 0) {
+        void *base = NULL;
+        size_t size = 0;
+        if (pthread_attr_getstack(&attr, &base, &size) == 0 && base != NULL && size > 0) {
+            uintptr_t stack_low = (uintptr_t)base;
+            uintptr_t stack_top = stack_low + size;
+            if (low < stack_low) { low = stack_low; }
+            high = stack_top;
+        }
+        pthread_attr_destroy(&attr);
+    }
+#endif
+    if (high <= low) { return; }
+    size_t count = 0;
+    for (rt_object *o = g_gc_list; o != NULL; o = o->hdr.gc_next) { count++; }
+    for (rt_object *o = g_scan_list; o != NULL; o = o->hdr.scan_next) { count++; }
+    if (count == 0) { return; }
+    rt_gc_range *ranges = (rt_gc_range *)malloc(count * sizeof(rt_gc_range));
+    if (ranges == NULL) { return; }
+    size_t index = 0;
+    for (rt_object *o = g_gc_list; o != NULL; o = o->hdr.gc_next) {
+        ranges[index].begin = (uintptr_t)o;
+        ranges[index].end = ranges[index].begin + sizeof(rt_header) + o->hdr.type->payload_size;
+        ranges[index].object = o;
+        index++;
+    }
+    for (rt_object *o = g_scan_list; o != NULL; o = o->hdr.scan_next) {
+        ranges[index].begin = (uintptr_t)o;
+        ranges[index].end = ranges[index].begin + sizeof(rt_header) + o->hdr.type->payload_size;
+        ranges[index].object = o;
+        index++;
+    }
+    qsort(ranges, count, sizeof(rt_gc_range), range_compare);
+    low = (low + sizeof(void *) - 1) & ~(uintptr_t)(sizeof(void *) - 1);
+    while (low + sizeof(void *) <= high) {
+        uintptr_t candidate = *(uintptr_t *)low;
+        if (candidate >= g_gc_min && candidate < g_gc_max) {
+            size_t left = 0;
+            size_t right = count;
+            while (left < right) {
+                size_t mid = left + (right - left) / 2;
+                if (ranges[mid].begin <= candidate) { left = mid + 1; } else { right = mid; }
+            }
+            if (left > 0) {
+                rt_gc_range *range = &ranges[left - 1];
+                if (candidate < range->end) { mark_ref(range->object); }
+            }
+        }
+        low += sizeof(void *);
+    }
+    free(ranges);
+}
+
 static void mark_all(void) {
     for (size_t i = 0; i < g_root_n; i++) {
         mark_ref(g_roots[i]);
@@ -113,6 +217,7 @@ static void mark_all(void) {
     for (rt_object *o = g_scan_list; o != NULL; o = o->hdr.scan_next) {
         mark_ref(o);
     }
+    mark_stack_roots();
 }
 
 /* ---- 清扫（不变量 3/6：死亡 GC 对象 release 其 ARC 引用后释放） ---- */
@@ -166,12 +271,27 @@ static size_t sweep(void) {
 }
 
 size_t rt_gc_collect(void) {
+    if (g_collecting) { return 0; }
+    g_collecting = 1;
     rt_quarantine_flush(); /* 回收会合：上次终结链隔离的内存在此释放（S3 §13） */
     mark_all();
     size_t freed = sweep();
     rt_stats_note_gc(freed);
+    g_collecting = 0;
     return freed;
 }
+
+size_t xdkc_gc_collect(void) { return rt_gc_collect(); }
+
+size_t rt_gc_collect_shutdown(void) {
+    int previous = g_scan_stack;
+    g_scan_stack = 0;
+    size_t freed = rt_gc_collect();
+    g_scan_stack = previous;
+    return freed;
+}
+
+void rt_gc_set_stack_scan_enabled(int enabled) { g_scan_stack = enabled ? 1 : 0; }
 
 size_t rt_gc_live(void) {
     size_t n = 0;

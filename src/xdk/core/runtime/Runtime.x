@@ -26,6 +26,10 @@ Long nowWall() {
     return nowWallRaw()
 }
 
+Long gcCollect() {
+    return gcCollectRaw()
+}
+
 void dumpTasks() {
     dumpTasksRaw()
 }

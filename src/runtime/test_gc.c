@@ -134,6 +134,8 @@ static const rt_type RT_TYPE_GCHOLDER = {
 };
 
 int main(void) {
+    /* 旧不变量测试使用精确根；关闭保守栈扫描以保持其可达性断言。 */
+    rt_gc_set_stack_scan_enabled(0);
     /* 1. 不变量 5：GC 对象环不可达 → 回收 */
     assert(rt_gc_live() == 0);
     gnode_t *x = rt_gc_new(&RT_TYPE_GNODE);
@@ -143,7 +145,9 @@ int main(void) {
     x->b = NULL;
     y->b = NULL;
     assert(rt_gc_live() == 2);
-    /* 环不可达（未登记根）→ 一轮清扫全部回收 */
+    /* 环不可达（未登记根；清空保守栈槽）→ 一轮清扫全部回收 */
+    x = NULL;
+    y = NULL;
     size_t freed = rt_gc_collect();
     assert(freed == 2);
     assert(rt_gc_live() == 0);
@@ -159,6 +163,8 @@ int main(void) {
     rt_gc_collect();
     assert(rt_gc_live() == 2); /* 根可达：环存活 */
     rt_gc_root_remove(p);
+    p = NULL;
+    q = NULL;
     rt_gc_collect();
     assert(rt_gc_live() == 0); /* 环由 GC 回收 */
 
@@ -172,6 +178,8 @@ int main(void) {
     assert(rt_gc_live() == 1); /* box 在扫描链上 → g 存活 */
     /* box 终结：注销扫描链 + 清除 GC 引用（不变量 6）→ g 不可达 */
     rt_release(box);
+    box = NULL;
+    g = NULL;
     rt_gc_collect();
     assert(rt_gc_live() == 0);
 
@@ -199,6 +207,8 @@ int main(void) {
     assert(rt_gc_live() == 1);
     rt_gc_root_remove(shared);
     rt_release(box2);
+    box2 = NULL;
+    shared = NULL;
     rt_gc_collect();
     assert(rt_gc_live() == 0);
 

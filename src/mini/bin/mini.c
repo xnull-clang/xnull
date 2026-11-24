@@ -15495,7 +15495,7 @@ static void xn_Cls_CGen_gen(xn_Cls_CGen *self) {
   else {
     xn_Cls_CGen_emit(self, rt_string_from_c("  int64_t xn_result = xn_main();"));
   }
-  xn_Cls_CGen_emit(self, rt_string_from_c("  rt_gc_collect();"));
+  xn_Cls_CGen_emit(self, rt_string_from_c("  rt_gc_collect_shutdown();"));
   xn_Cls_CGen_emit(self, rt_string_from_c("  return (int)xn_result;"));
   xn_Cls_CGen_emit(self, rt_string_from_c("}"));
 }
@@ -18975,6 +18975,6 @@ int main(int argc, char **argv) {
   xn_arr_s *args = xn_arr_s_new(argc > 1 ? (size_t)(argc - 1) : 1);
   for (int ai = 1; ai < argc; ai++) { xn_arr_s_push(args, rt_string_from_c(argv[ai])); }
   int64_t xn_result = xn_main(args);
-  rt_gc_collect();
+  rt_gc_collect_shutdown();
   return (int)xn_result;
 }

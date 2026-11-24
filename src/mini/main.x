@@ -13283,7 +13283,7 @@ class CGen {
         } else {
             self.emit("  int64_t xn_result = xn_main();")
         }
-        self.emit("  rt_gc_collect();")
+        self.emit("  rt_gc_collect_shutdown();")
         self.emit("  return (int)xn_result;")
         self.emit("}")
     }

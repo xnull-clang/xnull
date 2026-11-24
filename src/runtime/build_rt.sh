@@ -3,6 +3,8 @@
 set -e
 cd "$(dirname "$0")"
 
+export XNULL_GC_STACK_SCAN=0
+
 # S8-21：--lib 按运行时源文件内容 SHA-256 缓存静态库 libxnrt.a。
 # 命中缓存直接复用；未命中才编译 11 个 C 源。缓存键含编译旗标版本。
 if [ "${1:-}" = "--lib" ]; then
@@ -30,6 +32,9 @@ cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_rt test_rt.c r
 cc -std=c11 -O2 -pthread -I. -o /tmp/xnull_test_crypto \
   test_crypto.c rt_std_ext.c rt.c rt_policy.c rt_gc.c rt_weak.c xrt_abi.c rt_task.c rt_sync.c -lz
 /tmp/xnull_test_crypto
+cc -std=c11 -O2 -pthread -I. -o /tmp/xnull_test_gc_stack \
+  test_gc_stack.c rt_gc.c rt.c rt_weak.c rt_policy.c xrt_abi.c rt_std_runtime.c -lz
+/tmp/xnull_test_gc_stack
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_gc test_gc.c rt.c rt_gc.c rt_weak.c
 /tmp/xnull_test_gc
 cc -std=c11 -Wall -Wextra -Werror -O2 -pthread -o /tmp/xnull_test_hard test_hard.c rt.c rt_gc.c rt_weak.c
