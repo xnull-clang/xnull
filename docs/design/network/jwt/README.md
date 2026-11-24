@@ -8,6 +8,7 @@
 | 被依赖 | 应用、HTTP 服务/客户端 |
 | 稳定性 | `preview` |
 | 文档原则 | 包级说明在本 README；每个类型一个 PascalCase 文件 |
+| 实现状态 | M15.2 HS256 子集：`JwtAlgorithm`/`JwtHeader`/`JwtClaims`/`JwtOptions`/`JwtToken`/`Jwt` implemented；HS384/512、RS/PS/ES/EdDSA/SM2 均返回 `Unsupported`；无 JWKS/网络/非对称 |
 
 ---
 

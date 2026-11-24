@@ -30,6 +30,7 @@ for gate in \
     "$HERE/xdk2/metrics/panic.sh" \
     "$HERE/xdk2/trace/panic.sh" \
     "$HERE/xdk2/crypto/panic.sh" \
+    "$HERE/xdk2/jwt/panic.sh" \
     "$HERE/xdk2/test/panic.sh"; do
     [ -x "$gate" ] || { echo "xdk2_extra: missing gate: $gate" >&2; exit 1; }
     gate_start=$(date +%s)

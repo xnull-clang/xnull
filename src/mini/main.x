@@ -14026,6 +14026,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.crypto" || pkg.startsWith("xdk.crypto.") {
         return "crypto/Crypto.x"
     }
+    if pkg == "xdk.jwt" || pkg.startsWith("xdk.jwt.") {
+        return "jwt/Jwt.x"
+    }
     if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
         return "net/mime/Mime.x"
     }

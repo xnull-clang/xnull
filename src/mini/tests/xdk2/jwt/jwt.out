@@ -1,0 +1,15 @@
+rfc=true,HS256,JWT,1234567890,1516239022,32
+encode=3,true,true
+roundtrip=user-1,2,api,web
+verify=true,user-1,id-1
+wrong-key=true,permission_denied
+tampered=true,permission_denied
+unsupported-encode=true,unsupported
+unsupported-verify=true,unsupported
+exp-fresh=true,false
+exp-stale=true,permission_denied,true,false
+exp-disabled=true
+nbf=true,permission_denied,true
+claims-check=permission_denied,permission_denied,not_found
+bad2=data_corrupted,data_corrupted,data_corrupted,data_corrupted
+alg=HS256,EdDSA,true,true

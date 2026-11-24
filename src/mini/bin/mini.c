@@ -17078,6 +17078,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.crypto")) || xn_str_startswith(pkg, rt_string_from_c("xdk.crypto.")))) {
     return rt_string_from_c("crypto/Crypto.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.jwt")) || xn_str_startswith(pkg, rt_string_from_c("xdk.jwt.")))) {
+    return rt_string_from_c("jwt/Jwt.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
     return rt_string_from_c("net/mime/Mime.x");
   }
