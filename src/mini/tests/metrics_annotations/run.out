@@ -1,0 +1,11 @@
+success=true,7,1
+success-timer=1,true
+failure=true,network,1
+failure-timer=1,true
+conflict=true,9,true,true,true
+exporter=text,true,1,1,false,true
+flush=true,1
+close=true,true,false
+closed-export=unavailable,unavailable
+writer-after=false,1
+cancelled=cancelled,0,0

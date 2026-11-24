@@ -10,6 +10,21 @@ package xdk2.metrics
 import xdk.metrics
 import xdk.time
 import xdk.math
+import xdk.tasks
+import xdk.io
+
+class PanicExporter implements Exporter {
+    MetricsFormat format() { return 1 as MetricsFormat }
+    Bool isOpen() { return true }
+    Result<Unit, Error> export(Context context, Registry registry, Writer writer) {
+        if context == null || registry == null || writer == null {
+            throw "PanicExporter.export: null argument"
+        }
+        return Ok()
+    }
+    Result<Unit, Error> flush() { return Ok() }
+    Result<Unit, Error> close() { return Ok() }
+}
 
 static Map<String, String> labels(String key, String value) {
     Map<String, String> result = [:]
@@ -102,6 +117,21 @@ static Int main(String[] args) {
         registry.register(null)
     } else if name == "timerUnit" {
         MetricTimer timer = new MetricTimer("timer", "", "seconds", labels("a", "b"))
+    } else if name == "exporterContext" {
+        PanicExporter exporter = new PanicExporter()
+        Registry registry = new Registry()
+        Writer writer = new Writer()
+        exporter.export(null, registry, writer)
+    } else if name == "exporterRegistry" {
+        PanicExporter exporter = new PanicExporter()
+        Context context = Context.background()
+        Writer writer = new Writer()
+        exporter.export(context, null, writer)
+    } else if name == "exporterWriter" {
+        PanicExporter exporter = new PanicExporter()
+        Context context = Context.background()
+        Registry registry = new Registry()
+        exporter.export(context, registry, null)
     }
     return 0
 }
@@ -143,4 +173,7 @@ check_panic timerPercentile "MetricTimer.percentile: non-finite percentile"
 check_panic registryName "Registry.counter: invalid name"
 check_panic registryRegisterNull "Registry.register: null metric"
 check_panic timerUnit "MetricTimer: unit must be ms"
+check_panic exporterContext "PanicExporter.export: null argument"
+check_panic exporterRegistry "PanicExporter.export: null argument"
+check_panic exporterWriter "PanicExporter.export: null argument"
 echo "metrics_panic: PASS"

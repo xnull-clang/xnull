@@ -5,7 +5,7 @@
 | 范围 | 语言内建、A8 派生、领域注解、块注解；不含 `@arc`/`@gc`（非法，不属于注解系统） |
 | 权威语义 | [`solution-03-annotation.md`](../solution-03-annotation.md)（S3 1.0.0）；语法摘要见 [`solution-02-object-programming.md`](../solution-02-object-programming.md) §12（S2 3.6.0） |
 | 状态含义 | `implemented` = 编译器已识别/强制并有测试；`reserved` = 保留词，不改变语义；`planned` = 合同已列、处理器未实现 |
-| 计数 | 93 条：`implemented` 48（内建/元模型 9 + A8 5 + 领域 34）、`reserved` 4、`planned` 41（S6 2 + 领域 39） |
+| 计数 | 93 条：`implemented` 49（内建/元模型 9 + A8 5 + 领域 35）、`reserved` 4、`planned` 40（S6 2 + 领域 38） |
 | 保留默认 | 未写 `@Retention` 时为 `Binary`；未写 `@Target` 时允许所有声明目标（`TypeUse` 必须显式） |
 | 处理阶段 | `Resolve → Validate → Generate → Finalize`；多轮固定点；失败原子 |
 
@@ -108,7 +108,7 @@ A8 约束：只读输入 AST；沙箱生成；确定性输出；生成/校验失
 | `@CircuitBreakerPolicy` | 熔断策略 | `String name`、`Int failureThreshold = 5` | Method / Source | resilience_processor → CircuitBreaker 包装 | implemented (M8.2) |
 | `@RateLimit` | 限流策略 | `String name`、`Int permits`、`Long perMillis` | Method / Source | resilience_processor → RateLimiter 包装 | implemented (M8.2) |
 | `@TimeoutPolicy` | 超时策略 | `Long timeoutMillis` | Method / Source | resilience_processor → Timeout 包装 | implemented (M8.2) |
-| `@Metered` | 指标埋点 | `String name`、`String unitName = ""` | Method / Source | MetricsAnnotationProcessor → 指标包装 |
+| `@Metered` | 指标埋点 | `String name`、`String unitName = ""` | Method / Source | metrics_processor → `MetricTimer` 计时包装；指标错误忽略 | implemented (M12.1b) |
 | `@Traced` | trace span | `String name` | Method / Source | TraceAnnotationProcessor → span 包装 |
 | `@Audited` | 审计事件 | `String action` | Method / Source | audit_processor → Audited 包装 | implemented (M10.2) |
 

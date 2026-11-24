@@ -4,6 +4,8 @@ import xdk.runtime
 import xdk.math
 import xdk.time
 import xdk.stats
+import xdk.tasks
+import xdk.io
 
 enum MetricKind {
     Unknown,
@@ -272,6 +274,14 @@ protocol Metric {
     Map<String, String> labels();
     MetricFamily snapshot();
     void reset();
+}
+
+protocol Exporter {
+    MetricsFormat format();
+    Result<Unit, Error> export(Context context, Registry registry, Writer writer);
+    Result<Unit, Error> flush();
+    Result<Unit, Error> close();
+    Bool isOpen();
 }
 
 class Counter implements Metric {

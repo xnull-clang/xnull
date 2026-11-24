@@ -1366,14 +1366,14 @@ class UserService {
 
 ```x
 class UserService {
-    @Metered("user.find", "requests")
-    User find(Long id) {
+    @Metered("user.find", "ms")
+    Result<User, Error> find(Long recordId) {
         // ...
     }
 }
 ```
 
-状态：领域注解 planned；A8 派生 implemented（含限制）；编译器内建 implemented。
+状态：`@Metered` implemented (M12.1b)；只支持返回 `Result<T, Error>` 的实例方法；默认指标名为 `<Class>.<method>`；`unitName` 仅 `ms` 与 `MetricTimer` 固定单位一致，其他值在生成代码注释说明且不伪造；`registry.timer` 失败时仍执行方法并忽略指标错误（AN2303 warning）；A8 派生 implemented（含限制）；编译器内建 implemented。
 
 ### `xdk.trace`
 

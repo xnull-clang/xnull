@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 1,
+  "processors": [
+    {
+      "name": "metrics_processor",
+      "phases": ["Generate"],
+      "command": ["python3", "../../../toolchain/processors/metrics_processor.py"],
+      "outputs": ["MetricsGenerated.x"],
+      "timeoutSeconds": 30,
+      "priority": 0
+    }
+  ]
+}
