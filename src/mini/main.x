@@ -14260,6 +14260,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.tasks" || pkg.startsWith("xdk.tasks.") {
         return "concurrent/tasks/Tasks.x"
     }
+    if pkg == "xdk.execution" || pkg.startsWith("xdk.execution.") {
+        return "execution/Execution.x"
+    }
     if pkg == "xdk.log" || pkg.startsWith("xdk.log.") {
         return "log/Log.x"
     }

@@ -180,6 +180,18 @@ Error unavailableError(String operation) {
 
 ---
 
+## 6.5 实现状态（M17.1）
+
+`src/xdk/execution/Execution.x` 实现 8 个类型：
+`Semaphore`、`WaitGroup`、`Once`、`RwLock<T>`、`Pool<T>`、`Promise<T>`、`Future<T>`、`Executor`。
+
+- `Context`/`Task`/`TaskGroup` 由编译器运行时提供；
+- `Mutex`/`Channel`/`AtomicInt`/`AtomicBool`/`AtomicRef` 由 `xdk.sync`（`src/xdk/concurrent/sync/Sync.x`）提供；
+- 本包不重复定义上述类型，只补缺省协调/结果/执行类型。
+
+偏差：合同方法 `Once.do` 与语言关键字 `do` 冲突，实现名为
+`Once.run(Context, void())`，一次性与取消语义不变。
+
 ## 7. 缺口与决策
 
 | 项 | 决策 |
@@ -187,11 +199,11 @@ Error unavailableError(String operation) {
 | 全局执行器/线程池 | 不做；由运行时/调用方决定 |
 | `Context` 值、截止时间 | X |
 | `CancellationScope` | X |
-| `Executor`/`Future`/`Promise` | 已设计（`preview`） |
+| `Executor`/`Future`/`Promise` | implemented (M17.1) |
 | `Select` | X；需要时用 `Channel` + `TaskGroup` 组合 |
-| `RwLock`/`Semaphore`/`WaitGroup`/`Once` | 已设计（`preview`） |
+| `RwLock`/`Semaphore`/`WaitGroup`/`Once` | implemented (M17.1)；`Once` 方法名为 `run` |
 | `Barrier` | X；一次性场景用 `WaitGroup` |
-| `Pool<T>` | 已设计（`preview`）；健康检查/空闲超时由上层组合 |
+| `Pool<T>` | implemented (M17.1)；健康检查/空闲超时由上层组合 |
 | `Timer` | 归 `xdk.time`；执行层不重复 |
 | `Task.join` 并发/重复 | 单消费者；重复 join 合同错误 |
 | `TaskGroup.close` 并发 | 线程安全；第二个 close 等待并返回同一结果 |

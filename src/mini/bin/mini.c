@@ -17360,6 +17360,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.tasks")) || xn_str_startswith(pkg, rt_string_from_c("xdk.tasks.")))) {
     return rt_string_from_c("concurrent/tasks/Tasks.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.execution")) || xn_str_startswith(pkg, rt_string_from_c("xdk.execution.")))) {
+    return rt_string_from_c("execution/Execution.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.log")) || xn_str_startswith(pkg, rt_string_from_c("xdk.log.")))) {
     return rt_string_from_c("log/Log.x");
   }

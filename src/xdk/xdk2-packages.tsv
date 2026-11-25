@@ -1,7 +1,7 @@
 package	layer	types	path	status
 xdk.annotations	L0	14	src/xdk/annotations/Annotations.x	implemented
 xdk.runtime	L1	8	src/xdk/core/runtime/Runtime.x	1.x
-xdk.execution	L1	17	src/xdk/execution/Execution.x	design
+xdk.execution	L1	17	src/xdk/execution/Execution.x	implemented
 xdk.errors	L2	16	src/xdk/core/errors/Errors.x	1.x
 xdk.meta	L2	11	src/xdk/core/meta/Meta.x	1.x
 xdk.bytes	L2	7	src/xdk/core/bytes/Bytes.x	1.x

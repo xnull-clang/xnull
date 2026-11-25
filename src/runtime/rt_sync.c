@@ -79,25 +79,22 @@ int32_t xrt_monitor_wait_context(xrt_monitor *m, xrt_context *ctx) {
     if (m == NULL) {
         rt_fatal("RuntimeMonitor.wait：监视器为空");
     }
-    for (;;) {
-        if (atomic_load_explicit(&m->closed, memory_order_acquire)) {
-            return 1;
-        }
-        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
-            return 0;
-        }
-        struct timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_nsec += 5 * 1000 * 1000;
-        if (ts.tv_nsec >= 1000000000L) {
-            ts.tv_sec++;
-            ts.tv_nsec -= 1000000000L;
-        }
-        int rc = pthread_cond_timedwait(&m->cv, &m->mu, &ts);
-        if (rc == 0) {
-            return 1;
-        }
+    if (atomic_load_explicit(&m->closed, memory_order_acquire)) {
+        return 1;
     }
+    if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+        return 0;
+    }
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += 5 * 1000 * 1000;
+    if (ts.tv_nsec >= 1000000000L) {
+        ts.tv_sec++;
+        ts.tv_nsec -= 1000000000L;
+    }
+    /* 超时也返回 1：让调用方重查谓词，避免错过通知后永久等待。 */
+    pthread_cond_timedwait(&m->cv, &m->mu, &ts);
+    return 1;
 }
 
 void xrt_monitor_notify_all(xrt_monitor *m) {
