@@ -54,7 +54,7 @@
 | `xdk.stats` | 7 | BucketHistogram/Summary 等统计值类型 |
 | `xdk.execution` | 17 | Semaphore/WaitGroup/Once/RwLock/Pool/Promise/Future/Executor + 运行时 Task/Context；`Once` 方法名为 `run` |
 | `xdk.random` | 4 | Random/SecureRandom/RandomSource/WeightedChoice；OS CSPRNG + 可种子 PRNG |
-| `xdk.compress` | 13 | 实现 4/13：CompressionLevel/Gzip/Zlib/Deflate；Zstd/Lz4/Brotli/Zip/Tar planned |
+| `xdk.compress` | 13 | 实现 6/13：CompressionLevel/Gzip/Zlib/Deflate/TarEntry/Tar；Zstd/Lz4/Brotli/Zip planned |
 | `xdk.toml` | 2 | Toml/TomlOptions；子集解析/规范化输出，日期/多行/inf-nan 显式 Unsupported |
 | `xdk.xml` | 3 | Xml/XmlElement/XmlOptions；元素树、实体/数字引用、CDATA、DOCTYPE 安全默认 |
 | `xdk.yaml` | 5 | Yaml/YamlDocument/YamlOptions/YamlPropertySource/YamlVersion；多文档、profile、锚点/合并、属性扁平化 |

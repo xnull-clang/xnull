@@ -1,0 +1,13 @@
+write=true,3584,true
+read=true,3,a.txt,hello,420,1700000000,false
+dir=dir/,true,0,dir/b.bin,x
+empty=true,1024,true,0
+long=true,true,prefix/very/long/path/that/exceeds/one/hundred/characters/for/sure/file-name.txt
+limits=invalid_argument,invalid_argument
+checksum=data_corrupted
+truncated=data_corrupted
+unsupported=unsupported
+escape=data_corrupted
+files=true,true,3
+extract=true,true,68656c6c6f
+isTar=true,false,false
