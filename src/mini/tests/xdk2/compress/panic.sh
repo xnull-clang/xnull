@@ -32,6 +32,72 @@ static Int main(String[] args) {
         Result<Bytes, Error> value = Deflate.decompress(null)
     } else if name == "deflateLimitNull" {
         Result<Bytes, Error> value = Deflate.decompressWithLimit(null, 16)
+    } else if name == "zipEntryEmpty" {
+        ZipEntry entry = new ZipEntry("", 0 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryAbsolute" {
+        ZipEntry entry = new ZipEntry("/a", 0 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryParent" {
+        ZipEntry entry = new ZipEntry("../a", 0 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryBackslash" {
+        ZipEntry entry = new ZipEntry("a\\\\b", 0 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryFileSlash" {
+        ZipEntry entry = new ZipEntry("a/", 0 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryDirSlash" {
+        ZipEntry entry = new ZipEntry("a", 0 as Long, 0 as Long, 0 as Long, 0 as Long, true, null)
+    } else if name == "zipEntryDirSize" {
+        ZipEntry entry = new ZipEntry("a/", 1 as Long, 0 as Long, 0 as Long, 0 as Long, true, null)
+    } else if name == "zipEntryCrcNegative" {
+        ZipEntry entry = new ZipEntry("a", 0 as Long, 0 as Long, -1 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryCrcBig" {
+        ZipEntry entry = new ZipEntry("a", 0 as Long, 0 as Long, 4294967296 as Long, 0 as Long, false, null)
+    } else if name == "zipEntrySizeNegative" {
+        ZipEntry entry = new ZipEntry("a", -1 as Long, 0 as Long, 0 as Long, 0 as Long, false, null)
+    } else if name == "zipEntryTimeNegative" {
+        ZipEntry entry = new ZipEntry("a", 0 as Long, 0 as Long, 0 as Long, -1 as Long, false, null)
+    } else if name == "zipOptionsEntryZero" {
+        ZipOptions value = new ZipOptions()
+        value.maxEntryBytes(0)
+    } else if name == "zipOptionsTotalBelow" {
+        ZipOptions value = new ZipOptions()
+        value.maxTotalBytes(1)
+    } else if name == "zipOptionsEntryAbove" {
+        ZipOptions value = new ZipOptions()
+        value.maxEntryBytes(100000000)
+    } else if name == "zipWriterNull" {
+        ZipWriter value = new ZipWriter(null)
+    } else if name == "zipAddNameNull" {
+        ZipWriter value = new ZipWriter(new ZipOptions())
+        Result<Unit, Error> result = value.addFile(null, Bytes.fromString("x"))
+    } else if name == "zipAddContentNull" {
+        ZipWriter value = new ZipWriter(new ZipOptions())
+        Result<Unit, Error> result = value.addFile("a", null)
+    } else if name == "zipDirectoryNull" {
+        ZipWriter value = new ZipWriter(new ZipOptions())
+        Result<Unit, Error> result = value.addDirectory(null)
+    } else if name == "zipOpenNull" {
+        Result<ZipArchive, Error> value = ZipArchive.open(null, new ZipOptions())
+    } else if name == "zipOpenBytesNull" {
+        Result<ZipArchive, Error> value = ZipArchive.openBytes(null)
+    } else if name == "zipReadEntryNull" {
+        ZipWriter writer = new ZipWriter(new ZipOptions())
+        Result<Bytes, Error> packed = writer.finish()
+        ZipArchive archive = ZipArchive.openBytes(packed.value()).value()
+        Result<Bytes, Error> result = archive.readEntry(null)
+    } else if name == "zipReadNameNull" {
+        ZipWriter writer = new ZipWriter(new ZipOptions())
+        Result<Bytes, Error> packed = writer.finish()
+        ZipArchive archive = ZipArchive.openBytes(packed.value()).value()
+        Result<Bytes, Error> result = archive.readEntryByName(null)
+    } else if name == "zipGetNull" {
+        ZipWriter writer = new ZipWriter(new ZipOptions())
+        Result<Bytes, Error> packed = writer.finish()
+        ZipArchive archive = ZipArchive.openBytes(packed.value()).value()
+        ZipEntry? result = archive.getOrNull(null)
+    } else if name == "zipExtractNull" {
+        ZipWriter writer = new ZipWriter(new ZipOptions())
+        Result<Bytes, Error> packed = writer.finish()
+        ZipArchive archive = ZipArchive.openBytes(packed.value()).value()
+        Result<Unit, Error> result = archive.extractTo(null)
     } else if name == "tarNameEmpty" {
         List<TarEntry> entries = []
         TarEntry entry = new TarEntry("", data, 420, 0 as Long, false)
@@ -93,6 +159,30 @@ check_panic zlibLimitNull "Zlib.decompressWithLimit: null data"
 check_panic deflateCompressNull "Deflate.compress: null data"
 check_panic deflateDecompressNull "Deflate.decompressWithLimit: null data"
 check_panic deflateLimitNull "Deflate.decompressWithLimit: null data"
+check_panic zipEntryEmpty "ZipEntry: empty name"
+check_panic zipEntryAbsolute "ZipEntry: invalid name"
+check_panic zipEntryParent "ZipEntry: invalid name"
+check_panic zipEntryBackslash "ZipEntry: invalid name"
+check_panic zipEntryFileSlash "ZipEntry: invalid name"
+check_panic zipEntryDirSlash "ZipEntry: invalid name"
+check_panic zipEntryDirSize "ZipEntry: directory size must be zero"
+check_panic zipEntryCrcNegative "ZipEntry: crc32 out of range"
+check_panic zipEntryCrcBig "ZipEntry: crc32 out of range"
+check_panic zipEntrySizeNegative "ZipEntry: negative size/time"
+check_panic zipEntryTimeNegative "ZipEntry: negative size/time"
+check_panic zipOptionsEntryZero "ZipOptions.maxEntryBytes: must be positive"
+check_panic zipOptionsTotalBelow "ZipOptions.maxTotalBytes: below maxEntryBytes"
+check_panic zipOptionsEntryAbove "ZipOptions.maxEntryBytes: exceeds maxTotalBytes"
+check_panic zipWriterNull "ZipWriter: null options"
+check_panic zipAddNameNull "ZipWriter.addFile: null argument"
+check_panic zipAddContentNull "ZipWriter.addFile: null argument"
+check_panic zipDirectoryNull "ZipWriter.addDirectory: null name"
+check_panic zipOpenNull "ZipArchive.open: null argument"
+check_panic zipOpenBytesNull "ZipArchive.openBytes: null argument"
+check_panic zipReadEntryNull "ZipArchive.readEntry: null entry"
+check_panic zipReadNameNull "ZipArchive.readEntryByName: null name"
+check_panic zipGetNull "ZipArchive.getOrNull: null name"
+check_panic zipExtractNull "ZipArchive.extractTo: null directory"
 check_panic tarNameEmpty "TarEntry: empty name"
 check_panic tarContentNull "TarEntry: null content"
 check_panic tarMode "TarEntry: mode out of range"

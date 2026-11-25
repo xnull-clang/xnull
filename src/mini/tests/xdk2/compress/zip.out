@@ -1,0 +1,13 @@
+add=true,true,true,true,4
+duplicate=already_exists
+finish=true,true,true,unavailable,true
+entries=ok,4,a.txt,dir/,dir/b.bin,true
+read=ok,hello,0,true
+read-entry=true,not_found
+extract=ok,true,true
+close=false,unavailable
+empty=true,22,ok,0
+store=ok,store-data,true
+limits=invalid_argument,invalid_argument
+verify=ok,true
+errors=unsupported,unsupported,data_corrupted,data_corrupted,unsupported

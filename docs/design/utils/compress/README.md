@@ -49,8 +49,9 @@
 | `TarEntry` | class | tar 条目 | [`TarEntry.md`](TarEntry.md) |
 | `Tar` | class | tar 读写 | [`Tar.md`](Tar.md) |
 
-当前 6/13 已实现：`CompressionLevel`、`Gzip`、`Zlib`、`Deflate`、`TarEntry`、`Tar`；
-`Zstd`、`Lz4`、`Brotli`、`ZipEntry`、`ZipOptions`、`ZipArchive`、`ZipWriter` 仍为 planned（7 个）。
+当前 10/13 已实现：`CompressionLevel`、`Gzip`、`Zlib`、`Deflate`、`TarEntry`、`Tar`、
+`ZipEntry`、`ZipOptions`、`ZipArchive`、`ZipWriter`；
+`Zstd`、`Lz4`、`Brotli` 仍为 planned（3 个）。
 
 X：流式 tar/zip、流式 zstd/lz4/brotli。
 
