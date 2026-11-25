@@ -1,0 +1,12 @@
+health-names=good,warning,critical,unknown
+health-parse=warning,true,true,true,false
+smart=smart good temp=35 hours=100 reallocated=0,true,false,true
+smart-unavailable=smart unavailable,false
+smart-nan=true,10,2
+device=disk0 ModelX size=1000 ssd=true,true,false,true,true
+device-plain=disk1  size=500 ssd=false,true,true
+partition=partition disk0@/data device=disk0 mount=/data fs=apfs free=100/600,true,false
+inventory=storage devices=2 partitions=1,2,1,1500,600,100
+inventory-find=true,true,1,true,true
+inventory-equals=true,false
+storage-detect=true,true,true,true,true,true,true,true,true

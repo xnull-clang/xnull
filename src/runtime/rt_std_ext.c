@@ -21,6 +21,7 @@
 
 #if defined(__APPLE__)
 #include <sys/sysctl.h>
+#include <sys/mount.h>
 #endif
 #if defined(__linux__) && defined(__GLIBC__)
 #include <gnu/libc-version.h>
@@ -494,6 +495,83 @@ int64_t xdkc_numa_node_count(void) {
     return count;
 #else
     return 0;
+#endif
+}
+
+/* ---------- mounts ---------- */
+
+static void xdkc_mount_field(char *dst, size_t cap, const char *src) {
+    if (cap == 0) { return; }
+    size_t index = 0;
+    while (src[index] != 0 && index + 1 < cap) {
+        char ch = src[index];
+        if (ch == '|' || ch == '\n' || ch == '\r') { ch = '_'; }
+        dst[index] = ch;
+        index++;
+    }
+    dst[index] = 0;
+}
+
+const char *xdkc_mounts_text(void) {
+    static char buf[65536];
+    size_t used = 0;
+    buf[0] = 0;
+#if defined(__APPLE__)
+    struct statfs *mounts = NULL;
+    int count = getmntinfo(&mounts, MNT_NOWAIT);
+    if (count <= 0) { return ""; }
+    for (int i = 0; i < count; i++) {
+        char device[256];
+        char mount[256];
+        char fstype[64];
+        xdkc_mount_field(device, sizeof(device), mounts[i].f_mntfromname);
+        xdkc_mount_field(mount, sizeof(mount), mounts[i].f_mntonname);
+        xdkc_mount_field(fstype, sizeof(fstype), mounts[i].f_fstypename);
+        unsigned long long sizeBytes =
+            (unsigned long long)mounts[i].f_blocks * (unsigned long long)mounts[i].f_bsize;
+        unsigned long long freeBytes =
+            (unsigned long long)mounts[i].f_bavail * (unsigned long long)mounts[i].f_bsize;
+        if (sizeBytes < freeBytes) { freeBytes = sizeBytes; }
+        int written = snprintf(buf + used, sizeof(buf) - used, "%s|%s|%s|%llu|%llu\n",
+            device, mount, fstype, sizeBytes, freeBytes);
+        if (written < 0 || (size_t)written >= sizeof(buf) - used) { break; }
+        used += (size_t)written;
+    }
+    return buf;
+#elif defined(__linux__)
+    FILE *file = fopen("/proc/mounts", "r");
+    if (file == NULL) { return ""; }
+    char line[1024];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char device[256];
+        char mount[256];
+        char fstype[64];
+        if (sscanf(line, "%255s %255s %63s", device, mount, fstype) != 3) {
+            continue;
+        }
+        unsigned long long sizeBytes = 0;
+        unsigned long long freeBytes = 0;
+        struct statvfs info;
+        if (statvfs(mount, &info) == 0) {
+            sizeBytes = (unsigned long long)info.f_blocks * (unsigned long long)info.f_frsize;
+            freeBytes = (unsigned long long)info.f_bavail * (unsigned long long)info.f_frsize;
+            if (sizeBytes < freeBytes) { freeBytes = sizeBytes; }
+        }
+        char safeDevice[256];
+        char safeMount[256];
+        char safeFs[64];
+        xdkc_mount_field(safeDevice, sizeof(safeDevice), device);
+        xdkc_mount_field(safeMount, sizeof(safeMount), mount);
+        xdkc_mount_field(safeFs, sizeof(safeFs), fstype);
+        int written = snprintf(buf + used, sizeof(buf) - used, "%s|%s|%s|%llu|%llu\n",
+            safeDevice, safeMount, safeFs, sizeBytes, freeBytes);
+        if (written < 0 || (size_t)written >= sizeof(buf) - used) { break; }
+        used += (size_t)written;
+    }
+    fclose(file);
+    return buf;
+#else
+    return "";
 #endif
 }
 

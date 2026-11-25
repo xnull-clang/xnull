@@ -14371,6 +14371,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.os.memory" {
         return "os/memory/Memory.x"
     }
+    if pkg == "xdk.os.storage" {
+        return "os/storage/Storage.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

@@ -10,6 +10,17 @@
 
 ---
 
+## 0.5 实现状态（M20.3）
+
+已实现 `SmartHealth`、`SmartInfo`、`StorageDevice`、`Partition`、`StorageInventory`（5/5）。
+
+- `StorageInventory.detect()` 解析 `xdkc_mounts_text()`：Darwin `getmntinfo`，
+  Linux `/proc/mounts` + `statvfs`；每行 `device|mountpoint|fstype|size|free`；
+- 每个挂载点生成 `Partition`（id=device@mountpoint），按 device 聚合 `StorageDevice`，
+  设备按 id 稳定排序；容量和/空闲用于 totals；
+- SMART、可移动/SSD 探测未采集：`smart=null`、布尔为 false，不虚报；
+- DIMM/IOKit/sysfs 深度属性、未挂载分区与热插拔刷新留后续。
+
 ## 1. 定位
 
 存储设备、分区、文件系统、SMART 健康快照。

@@ -196,6 +196,10 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   Int64 numaNodeCountRaw();
 
+  @ffiEntry(cName = "xdkc_mounts_text")
+  @blocking(.unaware)
+  String mountsTextRaw();
+
   @ffiEntry(cName = "xdkc_arch")
   @blocking(.unaware)
   String archRaw();

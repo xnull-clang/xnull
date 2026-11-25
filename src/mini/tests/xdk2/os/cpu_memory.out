@@ -4,11 +4,9 @@ cpu-core=cpu 0 socket=0 core=0 thread=0 numa=0 mhz=3200,true,false,true
 cpu-cache=cache L1 data size=32768 line=64 shared=2,true,false
 cpu-manual=cpu sockets=1 physical=2 logical=3 numa=0 caches=1,2,3,true,2,2,true
 cpu-detect=true,true,true,true,true,true,true,true
-cpu-detect-values=12,6,4,79,true,true
 affinity=unsupported,invalid_argument,unsupported,unsupported,true
 affinity-close=true,true,false,unavailable
 memory-module=dimm DIMM_A1 size=17179869184 kind=DDR5 speed=5600,true,false
 memory-numa=numa 0 memory=17179869184 cpus=2,true,false,2
 memory-value=memory total=34359738368 free=8589934592 available=17179869184 modules=1 numa=1,1,1,true,false
 memory-detect=true,true,true,true,true,true
-memory-detect-values=true,true

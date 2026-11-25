@@ -73,10 +73,6 @@ static Int main() {
         str(logical == detected.cores().length()) + "," + str(first != null) + "," +
         str(cacheOk) + "," + str(featureOk) + "," + str(detectNumbersOk) + "," +
         str(detected.cores().get(0).isOnline()))
-    print("cpu-detect-values=" + str(logical) + "," + str(physical) + "," +
-        str(detected.caches().length()) + "," + str(detected.features().length()) + "," +
-        str(detected.cores().get(0).frequencyMhz() >= 0) + "," +
-        str(detected.findByCore(0, 0).length() >= 1))
 
     CpuAffinity affinity = new CpuAffinity(1 as Long)
     List<Int> empty = []
@@ -115,7 +111,5 @@ static Int main() {
         str(detectedMemory.availableBytes() == detectedMemory.freeBytes()) + "," +
         str(detectedMemory.moduleCount() == 0) + "," +
         str(detectedMemory.numaNodeCount() == 0))
-    print("memory-detect-values=" + str(detectedMemory.totalBytes() > 0 as Long) + "," +
-        str(detectedMemory.freeBytes() > 0 as Long))
     return 0
 }

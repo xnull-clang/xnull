@@ -10,6 +10,7 @@ package xdk2.os
 import xdk.os
 import xdk.os.cpu
 import xdk.os.memory
+import xdk.os.storage
 
 static OsInfo sampleInfo() {
     return new OsInfo(OsKind.Linux, OsFamily.Unix, "TestOS", "1.0",
@@ -88,6 +89,42 @@ static Int main(String[] args) {
         List<NumaNode> nodes = []
         PhysicalMemory memory = new PhysicalMemory(0 as Long, 0 as Long, 0 as Long,
             null, nodes)
+    } else if name == "smartNegativeHours" {
+        SmartInfo smart = new SmartInfo(SmartHealth.Good, 0.0, -1 as Long, 0 as Long, true)
+    } else if name == "smartNegativeSectors" {
+        SmartInfo smart = new SmartInfo(SmartHealth.Good, 0.0, 0 as Long, -1 as Long, true)
+    } else if name == "deviceEmptyId" {
+        StorageDevice device = new StorageDevice("", "disk", "", 0 as Long, false, false, null)
+    } else if name == "deviceEmptyName" {
+        StorageDevice device = new StorageDevice("id", "", "", 0 as Long, false, false, null)
+    } else if name == "deviceNullModel" {
+        StorageDevice device = new StorageDevice("id", "name", null, 0 as Long, false, false, null)
+    } else if name == "deviceNegativeSize" {
+        StorageDevice device = new StorageDevice("id", "name", "", -1 as Long, false, false, null)
+    } else if name == "partitionEmptyId" {
+        Partition partition = new Partition("", "disk", "/", "apfs", 0 as Long, 0 as Long)
+    } else if name == "partitionEmptyDevice" {
+        Partition partition = new Partition("p", "", "/", "apfs", 0 as Long, 0 as Long)
+    } else if name == "partitionNullMount" {
+        Partition partition = new Partition("p", "disk", null, "apfs", 0 as Long, 0 as Long)
+    } else if name == "partitionNegativeSize" {
+        Partition partition = new Partition("p", "disk", "/", "apfs", -1 as Long, 0 as Long)
+    } else if name == "inventoryNullDevices" {
+        List<Partition> parts = []
+        StorageInventory inventory = new StorageInventory(null, parts)
+    } else if name == "inventoryNullPartitions" {
+        List<StorageDevice> devices = []
+        StorageInventory inventory = new StorageInventory(devices, null)
+    } else if name == "inventoryFindDevice" {
+        List<StorageDevice> devices = []
+        List<Partition> parts = []
+        StorageInventory inventory = new StorageInventory(devices, parts)
+        StorageDevice? found = inventory.findDevice(null)
+    } else if name == "inventoryFindMount" {
+        List<StorageDevice> devices = []
+        List<Partition> parts = []
+        StorageInventory inventory = new StorageInventory(devices, parts)
+        Partition? found = inventory.findPartitionByMountPoint(null)
     } else if name == "profileMissing" {
         List<OsCapability> caps = []
         OsProfile profile = new OsProfile("p", sampleInfo(), caps)
@@ -113,6 +150,20 @@ check_panic profileNullInfo "OsProfile: null field"
 check_panic profileNullCaps "OsProfile: null field"
 check_panic profileWithName "OsProfile.withName: empty"
 check_panic profileMissing "OsProfile.missing: null list"
+check_panic smartNegativeHours "SmartInfo: negative field"
+check_panic smartNegativeSectors "SmartInfo: negative field"
+check_panic deviceEmptyId "StorageDevice: empty id/name"
+check_panic deviceEmptyName "StorageDevice: empty id/name"
+check_panic deviceNullModel "StorageDevice: null model"
+check_panic deviceNegativeSize "StorageDevice: negative size"
+check_panic partitionEmptyId "Partition: empty partition id"
+check_panic partitionEmptyDevice "Partition: empty device id"
+check_panic partitionNullMount "Partition: null string"
+check_panic partitionNegativeSize "Partition: negative size"
+check_panic inventoryNullDevices "StorageInventory: null list"
+check_panic inventoryNullPartitions "StorageInventory: null list"
+check_panic inventoryFindDevice "StorageInventory.findDevice: null id"
+check_panic inventoryFindMount "StorageInventory.findPartitionByMountPoint: null mount"
 check_panic cpuCoreNegativeId "CpuCore: negative field"
 check_panic cpuCoreNegativeFrequency "CpuCore: negative field"
 check_panic cpuCacheLevel "CpuCache: invalid field"
