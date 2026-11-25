@@ -1,0 +1,11 @@
+id=true,true,req-1,42,req-1,42,true,true,false,id:"req-1"
+id-parse-invalid=invalid_argument,invalid_argument,invalid_argument
+error=-32700,Parse error: bad,-32602,-32603,true,true,-32700 Parse error: bad,true
+error-invalid=invalid_argument,invalid_argument
+request=true,false,true,add,false,true,true,true,true,true
+request-invalid=invalid_argument,invalid_argument,invalid_argument
+response=true,false,true,true,false,true,true,true,true,response id=42 success,response id=none error=-32601
+response-invalid=invalid_argument,invalid_argument,invalid_argument
+roundtrip={"jsonrpc":"2.0","id":"req-1","method":"echo","params":{}},true,true
+peer=true,result,true,true,true,1,1,1
+peer-close=true,false

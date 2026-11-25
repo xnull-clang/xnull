@@ -11,6 +11,16 @@
 
 ---
 
+## 0.5 实现状态（M22.2）
+
+已实现 5/5：`JsonRpcId`、`JsonRpcError`、`JsonRpcRequest`、`JsonRpcResponse`、`JsonRpcPeer`。
+
+- Id 支持 String/整数 Long；混合 kind 不相等；JSON 小数/布尔/null 拒绝；
+- Error 五个标准码工厂 + data；message 非空单行；
+- Request 通知/带 id，命名构造 `notification/notificationWithParams/request/requestWithParams` 与 `withParams/withId`；
+- Response result/error 互斥，成功必须有 id，错误响应可 id null；
+- Peer 仅协议形状，不做传输/连接/批处理。
+
 ## 1. 包定位
 
 `xdk.jsonrpc` 提供 JSON-RPC 2.0 的值类型、错误类型和传输无关的 Peer 协议：

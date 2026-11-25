@@ -17492,6 +17492,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if (xn_str_eq(pkg, rt_string_from_c("xdk.numerics"))) {
     return rt_string_from_c("numerics/Numerics.x");
   }
+  if (xn_str_eq(pkg, rt_string_from_c("xdk.jsonrpc"))) {
+    return rt_string_from_c("jsonrpc/JsonRpc.x");
+  }
   if (xn_str_eq(pkg, rt_string_from_c("xdk.os"))) {
     return rt_string_from_c("os/Os.x");
   }

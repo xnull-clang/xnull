@@ -66,7 +66,7 @@ xdk.audit	L7	5	src/xdk/audit/Audit.x	implemented
 xdk.terminal	L7	8	src/xdk/terminal/Terminal.x	implemented
 xdk.i18n	L7	7	src/xdk/i18n/I18n.x	implemented
 xdk.test	L7	7	src/xdk/test/Test.x	implemented
-xdk.jsonrpc	L8	5	src/xdk/jsonrpc/Jsonrpc.x	design
+xdk.jsonrpc	L8	5	src/xdk/jsonrpc/JsonRpc.x	implemented
 xdk.mcp	L8	16	src/xdk/mcp/Mcp.x	design
 xdk.ml	L8	20	src/xdk/ml/Ml.x	design
 xdk.numerics	L8	12	src/xdk/numerics/Numerics.x	implemented
