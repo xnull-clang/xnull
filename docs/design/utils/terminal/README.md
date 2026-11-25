@@ -11,6 +11,19 @@
 
 ---
 
+## 0.5 实现状态（M21.4）
+
+已实现核心 5 类型：`Color`、`Ansi`、`Style`、`Terminal`、`Table`（5/8；
+ProgressBar/Spinner/Prompt 留 M21.5）。
+
+- `Color`：basic 0..15 / indexed 0..255 / RGB、16 命名色，错误模式访问 panic；
+- `Ansi`：SGR/CSI 静态包装，序列固定 `\x1b[...m`；
+- `Style`：`fg/bg/boldOn/italicOn/underlineOn/render/isPlain/copy/equals`；
+- `Terminal`：注入 `Writer`、终端/非终端门控、非终端剥离 CSI、clear/flush/close；
+- `Table`：`+---+` 边框、可见宽度估算（忽略 CSI，Unicode 按码元近似）、
+  `maxWidth` 截断、行长度/换行校验；
+- 不探测 TTY/尺寸，由调用方传入；不做完整 Unicode 宽度表。
+
 ## 1. 包定位
 
 `xdk.terminal` 提供一组**显式注入输出、可关闭 ANSI、无后台线程**的终端文本能力：

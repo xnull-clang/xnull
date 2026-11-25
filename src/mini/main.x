@@ -14383,6 +14383,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.event" {
         return "event/Event.x"
     }
+    if pkg == "xdk.terminal" {
+        return "terminal/Terminal.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

@@ -1,0 +1,16 @@
+color=basic(1),indexed(196),rgb(255,128,0),true,true,true,1,196,255,128,0
+color-equals=true,false,true,false,false
+color-named=15,basic(15),basic(0)
+ansi=true,true,true,true,true,true,true,true,true
+style=true,false,true,false,false,true,true
+terminal-plain=true,hello,false,80,24
+terminal-plain-clear=true,5,0
+terminal-close=true,1,true,true,unavailable,true
+terminal-tty=true,true,true,100,40
+terminal-error=io,io,0,0
+table=+------+--------+/| Name | Status |/+------+--------+/| api  | ok     |/+------+--------+
+table-info=1,2,Name,30,true,true
+table-empty=0,+---+---+/| A | B |/+---+---+
+table-narrow=true,true,true,+----+-----+/| A  | B   |/+----+-----+/| lo | val |/+----+-----+
+table-style=true,true,true
+table-clear=0,true

@@ -17483,6 +17483,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if (xn_str_eq(pkg, rt_string_from_c("xdk.event"))) {
     return rt_string_from_c("event/Event.x");
   }
+  if (xn_str_eq(pkg, rt_string_from_c("xdk.terminal"))) {
+    return rt_string_from_c("terminal/Terminal.x");
+  }
   if (xn_str_eq(pkg, rt_string_from_c("xdk.os"))) {
     return rt_string_from_c("os/Os.x");
   }
