@@ -676,6 +676,184 @@ static char *xdk_net_buf_ensure(size_t need) {
     return xdk_net_buf;
 }
 
+/* ---- IP / socket 文本辅助（M19.1） ---- */
+
+static int net_hexval(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+static char *net_hex_encode(const unsigned char *data, size_t n) {
+    static const char digits[] = "0123456789abcdef";
+    char *out = (char *)malloc(n * 2 + 1);
+    if (out == NULL) return NULL;
+    for (size_t i = 0; i < n; i++) {
+        out[i * 2] = digits[data[i] >> 4];
+        out[i * 2 + 1] = digits[data[i] & 0xF];
+    }
+    out[n * 2] = 0;
+    return out;
+}
+
+char *xdkc_ip_parse_text(const char *text, size_t len) {
+    if (text == NULL) return NULL;
+    char *copy = (char *)malloc(len + 1);
+    if (copy == NULL) return NULL;
+    memcpy(copy, text, len);
+    copy[len] = 0;
+    unsigned char buf[16];
+    if (inet_pton(AF_INET, copy, buf) == 1) {
+        free(copy);
+        return net_hex_encode(buf, 4);
+    }
+    if (inet_pton(AF_INET6, copy, buf) == 1) {
+        free(copy);
+        return net_hex_encode(buf, 16);
+    }
+    free(copy);
+    return NULL;
+}
+
+char *xdkc_ip_format_hex(const char *hex, size_t hexlen, int32_t family) {
+    if (hex == NULL || (family != 4 && family != 6)) return NULL;
+    size_t n = hexlen / 2;
+    if ((family == 4 && n != 4) || (family == 6 && n != 16)) return NULL;
+    unsigned char buf[16];
+    for (size_t i = 0; i < n; i++) {
+        int hi = net_hexval(hex[i * 2]);
+        int lo = net_hexval(hex[i * 2 + 1]);
+        if (hi < 0 || lo < 0) return NULL;
+        buf[i] = (unsigned char)((hi << 4) | lo);
+    }
+    char out[INET6_ADDRSTRLEN];
+    if (inet_ntop(family == 4 ? AF_INET : AF_INET6, buf, out, sizeof(out)) == NULL) {
+        return NULL;
+    }
+    size_t olen = strlen(out);
+    char *result = (char *)malloc(olen + 1);
+    if (result == NULL) return NULL;
+    memcpy(result, out, olen + 1);
+    return result;
+}
+
+static char *net_socket_text(net_socket *sock) {
+    if (sock == NULL || sock->closed) return NULL;
+    struct sockaddr_storage storage;
+    socklen_t length = sizeof(storage);
+    if (getsockname(sock->fd, (struct sockaddr *)&storage, &length) != 0) return NULL;
+    char host[INET6_ADDRSTRLEN];
+    char out[INET6_ADDRSTRLEN + 16];
+    if (storage.ss_family == AF_INET) {
+        struct sockaddr_in *addr = (struct sockaddr_in *)&storage;
+        if (inet_ntop(AF_INET, &addr->sin_addr, host, sizeof(host)) == NULL) return NULL;
+        snprintf(out, sizeof(out), "%s:%d", host, (int)ntohs(addr->sin_port));
+    } else if (storage.ss_family == AF_INET6) {
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)&storage;
+        if (inet_ntop(AF_INET6, &addr->sin6_addr, host, sizeof(host)) == NULL) return NULL;
+        snprintf(out, sizeof(out), "[%s]:%d", host, (int)ntohs(addr->sin6_port));
+    } else {
+        return NULL;
+    }
+    size_t n = strlen(out);
+    char *result = (char *)malloc(n + 1);
+    if (result == NULL) return NULL;
+    memcpy(result, out, n + 1);
+    return result;
+}
+
+static char *net_peer_text(net_socket *sock) {
+    if (sock == NULL || sock->closed) return NULL;
+    struct sockaddr_storage storage;
+    socklen_t length = sizeof(storage);
+    if (getpeername(sock->fd, (struct sockaddr *)&storage, &length) != 0) return NULL;
+    char host[INET6_ADDRSTRLEN];
+    char out[INET6_ADDRSTRLEN + 16];
+    if (storage.ss_family == AF_INET) {
+        struct sockaddr_in *addr = (struct sockaddr_in *)&storage;
+        if (inet_ntop(AF_INET, &addr->sin_addr, host, sizeof(host)) == NULL) return NULL;
+        snprintf(out, sizeof(out), "%s:%d", host, (int)ntohs(addr->sin_port));
+    } else if (storage.ss_family == AF_INET6) {
+        struct sockaddr_in6 *addr = (struct sockaddr_in6 *)&storage;
+        if (inet_ntop(AF_INET6, &addr->sin6_addr, host, sizeof(host)) == NULL) return NULL;
+        snprintf(out, sizeof(out), "[%s]:%d", host, (int)ntohs(addr->sin6_port));
+    } else {
+        return NULL;
+    }
+    size_t n = strlen(out);
+    char *result = (char *)malloc(n + 1);
+    if (result == NULL) return NULL;
+    memcpy(result, out, n + 1);
+    return result;
+}
+
+char *xdkc_socket_local_text(int64_t sock) {
+    return net_socket_text((net_socket *)(intptr_t)sock);
+}
+
+char *xdkc_socket_remote_text(int64_t sock) {
+    return net_peer_text((net_socket *)(intptr_t)sock);
+}
+
+char *xdkc_listener_local_text(int64_t sock) {
+    return net_socket_text((net_socket *)(intptr_t)sock);
+}
+
+int64_t xdkc_p_listener_bind_backlog(const char *host, size_t hlen, int32_t port, int32_t backlog) {
+    xdk_net_last_error = NET_OK;
+    if (host == NULL || hlen == 0 || port <= 0 || port > 65535) {
+        xdk_net_last_error = NET_INVALID;
+        return 0;
+    }
+    int effective = backlog > 0 ? backlog : 128;
+    char *h = malloc(hlen + 1);
+    if (h == NULL) {
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    memcpy(h, host, hlen);
+    h[hlen] = 0;
+    char service[16];
+    snprintf(service, sizeof(service), "%d", (int)port);
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    struct addrinfo *addresses = NULL;
+    if (getaddrinfo(h, service, &hints, &addresses) != 0) {
+        free(h);
+        xdk_net_last_error = NET_UNAVAILABLE;
+        return 0;
+    }
+    int fd = -1;
+    for (struct addrinfo *ai = addresses; ai != NULL; ai = ai->ai_next) {
+        fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+        if (fd < 0) continue;
+        int yes = 1;
+        (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+        if (bind(fd, ai->ai_addr, ai->ai_addrlen) == 0 && listen(fd, effective) == 0) break;
+        close(fd);
+        fd = -1;
+    }
+    freeaddrinfo(addresses);
+    free(h);
+    if (fd < 0) {
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    net_socket *listener = malloc(sizeof(*listener));
+    if (listener == NULL) {
+        close(fd);
+        xdk_net_last_error = NET_IO;
+        return 0;
+    }
+    listener->fd = fd;
+    listener->closed = 0;
+    return (int64_t)(intptr_t)listener;
+}
+
 int64_t xdkc_p_socket_connect_simple(const char *host, size_t hlen, int32_t port) {
     int32_t code = 0;
     void *s = xdkc_socket_connect(host, hlen, port, &code);

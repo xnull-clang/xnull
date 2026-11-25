@@ -199,6 +199,16 @@ Result<Bytes, Error> readAllStream(Context context, ByteStream source) {
 
 ---
 
+## 6.5 实现状态（M19.1）
+
+`IpFamily`/`IpAddress`/`IpPrefix`/`SocketAddress`/`SocketState`/`ByteStream`/
+`TcpStream`/`TcpListener`/`TcpClient`/`TcpHandler`/`TcpServer`/`TcpServerOptions`
+implemented（12/28）。
+
+- 仅 TCP + IP 文本/字节/前缀；`Dns`/`UdpSocket`/`ConnectionPool`/TLS/HTTP2 仍 planned；
+- `setReadDeadline`/`setWriteDeadline` 明确 `Unsupported`；
+- connect/accept 只在进入和返回后检查 Context，阻塞期间无法取消。
+
 ## 7. 缺口与决策
 
 | 项 | 决策 |

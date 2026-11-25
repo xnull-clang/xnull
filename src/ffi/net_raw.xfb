@@ -44,6 +44,33 @@ ffi xdkc_net_raw {
   @blocking(.unaware)
   Int64 listenerAcceptRaw(Int64 listener);
 
+  @ffiEntry(cName = "xdkc_p_listener_bind_backlog")
+  @lease(host = .borrow)
+  @blocking(.unaware)
+  Int64 listenerBindBacklogRaw(String host, Int32 port, Int32 backlog);
+
+  @ffiEntry(cName = "xdkc_ip_parse_text")
+  @lease(text = .borrow)
+  @blocking(.unaware)
+  String ipParseRaw(String text);
+
+  @ffiEntry(cName = "xdkc_ip_format_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String ipFormatRaw(String hex, Int32 family);
+
+  @ffiEntry(cName = "xdkc_socket_local_text")
+  @blocking(.unaware)
+  String socketLocalTextRaw(Int64 sock);
+
+  @ffiEntry(cName = "xdkc_socket_remote_text")
+  @blocking(.unaware)
+  String socketRemoteTextRaw(Int64 sock);
+
+  @ffiEntry(cName = "xdkc_listener_local_text")
+  @blocking(.unaware)
+  String listenerLocalTextRaw(Int64 listener);
+
   @ffiEntry(cName = "xdkc_p_http_request_text")
   @lease(method = .borrow, host = .borrow, path = .borrow, body = .borrow)
   @blocking(.unaware)

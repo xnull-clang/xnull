@@ -27,7 +27,7 @@ xdk.reflect	L4	4	src/xdk/reflect/Reflect.x	design
 xdk.toml	L4	2	src/xdk/toml/Toml.x	implemented
 xdk.yaml	L4	5	src/xdk/yaml/Yaml.x	implemented
 xdk.xml	L4	3	src/xdk/xml/Xml.x	implemented
-xdk.net	L5	28	src/xdk/net/Net.x	design
+xdk.net	L5	28	src/xdk/net/Net.x	implemented
 xdk.net.uri	L5	2	src/xdk/net/uri/Uri.x	implemented
 xdk.net.mime	L5	2	src/xdk/net/mime/Mime.x	implemented
 xdk.net.tls	L5	10	src/xdk/net/tls/Tls.x	design

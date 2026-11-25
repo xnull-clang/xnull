@@ -17459,6 +17459,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.mime")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.mime.")))) {
     return rt_string_from_c("net/mime/Mime.x");
   }
+  if (xn_str_eq(pkg, rt_string_from_c("xdk.net"))) {
+    return rt_string_from_c("net/Net.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.tensor")) || xn_str_startswith(pkg, rt_string_from_c("xdk.tensor.")))) {
     return rt_string_from_c("tensor/Tensor.x");
   }
