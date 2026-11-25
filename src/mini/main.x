@@ -14389,6 +14389,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.i18n" {
         return "i18n/I18n.x"
     }
+    if pkg == "xdk.numerics" {
+        return "numerics/Numerics.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }
