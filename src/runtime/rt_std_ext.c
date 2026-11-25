@@ -235,6 +235,268 @@ const char *xdkc_hostname(void) {
     return buf;
 }
 
+/* ---------- sysctl / memory ---------- */
+
+static int64_t xdkc_linux_physical_cores(void) {
+    FILE *file = fopen("/proc/cpuinfo", "r");
+    if (file == NULL) {
+        return -1;
+    }
+    char line[512];
+    char seen[256][64];
+    int seenCount = 0;
+    char physical[32] = "";
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char *colon = strchr(line, ':');
+        if (colon == NULL) {
+            continue;
+        }
+        *colon = 0;
+        char *key = line;
+        while (*key == ' ' || *key == '\t') { key++; }
+        char *value = colon + 1;
+        while (*value == ' ' || *value == '\t') { value++; }
+        size_t len = strlen(value);
+        while (len > 0 && (value[len - 1] == '\n' || value[len - 1] == '\r')) {
+            value[len - 1] = 0;
+            len--;
+        }
+        if (strcmp(key, "physical id") == 0) {
+            snprintf(physical, sizeof(physical), "%s", value);
+        } else if (strcmp(key, "core id") == 0) {
+            char combined[64];
+            snprintf(combined, sizeof(combined), "%s:%s", physical, value);
+            int exists = 0;
+            for (int i = 0; i < seenCount; i++) {
+                if (strcmp(seen[i], combined) == 0) { exists = 1; break; }
+            }
+            if (!exists && seenCount < 256) {
+                snprintf(seen[seenCount], sizeof(seen[seenCount]), "%s", combined);
+                seenCount++;
+            }
+        }
+    }
+    fclose(file);
+    return seenCount > 0 ? (int64_t)seenCount : -1;
+}
+
+int64_t xdkc_sysctl_int64(const char *name) {
+    if (name == NULL) {
+        return -1;
+    }
+#if defined(__APPLE__)
+    size_t size = 0;
+    if (sysctlbyname(name, NULL, &size, NULL, 0) != 0) {
+        return -1;
+    }
+    if (size == sizeof(int32_t)) {
+        int32_t value = 0;
+        if (sysctlbyname(name, &value, &size, NULL, 0) != 0) {
+            return -1;
+        }
+        return (int64_t)value;
+    }
+    if (size == sizeof(int64_t)) {
+        int64_t value = 0;
+        if (sysctlbyname(name, &value, &size, NULL, 0) != 0) {
+            return -1;
+        }
+        return value;
+    }
+    return -1;
+#elif defined(__linux__)
+    if (strcmp(name, "hw.logicalcpu") == 0 || strcmp(name, "hw.ncpu") == 0) {
+        long value = sysconf(_SC_NPROCESSORS_ONLN);
+        return value > 0 ? (int64_t)value : -1;
+    }
+    if (strcmp(name, "hw.physicalcpu") == 0) {
+        return xdkc_linux_physical_cores();
+    }
+    if (strcmp(name, "hw.pagesize") == 0) {
+        long value = sysconf(_SC_PAGESIZE);
+        return value > 0 ? (int64_t)value : -1;
+    }
+    if (strcmp(name, "hw.memsize") == 0) {
+        struct sysinfo info;
+        if (sysinfo(&info) != 0) {
+            return -1;
+        }
+        return (int64_t)info.totalram * (int64_t)info.mem_unit;
+    }
+    if (strcmp(name, "hw.cachelinesize") == 0) {
+#if defined(_SC_LEVEL1_DCACHE_LINESIZE)
+        long value = sysconf(_SC_LEVEL1_DCACHE_LINESIZE);
+        return value > 0 ? (int64_t)value : -1;
+#else
+        return -1;
+#endif
+    }
+    if (strcmp(name, "hw.l1icachesize") == 0) {
+#if defined(_SC_LEVEL1_ICACHE_SIZE)
+        long value = sysconf(_SC_LEVEL1_ICACHE_SIZE);
+        return value > 0 ? (int64_t)value : -1;
+#else
+        return -1;
+#endif
+    }
+    if (strcmp(name, "hw.l1dcachesize") == 0) {
+#if defined(_SC_LEVEL1_DCACHE_SIZE)
+        long value = sysconf(_SC_LEVEL1_DCACHE_SIZE);
+        return value > 0 ? (int64_t)value : -1;
+#else
+        return -1;
+#endif
+    }
+    if (strcmp(name, "hw.l2cachesize") == 0) {
+#if defined(_SC_LEVEL2_CACHE_SIZE)
+        long value = sysconf(_SC_LEVEL2_CACHE_SIZE);
+        return value > 0 ? (int64_t)value : -1;
+#else
+        return -1;
+#endif
+    }
+    if (strcmp(name, "hw.l3cachesize") == 0) {
+#if defined(_SC_LEVEL3_CACHE_SIZE)
+        long value = sysconf(_SC_LEVEL3_CACHE_SIZE);
+        return value > 0 ? (int64_t)value : -1;
+#else
+        return -1;
+#endif
+    }
+    return -1;
+#else
+    return -1;
+#endif
+}
+
+static const char *xdkc_linux_cpu_features(void) {
+    static char buf[4096];
+    FILE *file = fopen("/proc/cpuinfo", "r");
+    if (file == NULL) {
+        return "";
+    }
+    char line[4096];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        char *colon = strchr(line, ':');
+        if (colon == NULL) { continue; }
+        *colon = 0;
+        char *key = line;
+        while (*key == ' ' || *key == '\t') { key++; }
+        if (strcmp(key, "flags") != 0 && strcmp(key, "Features") != 0) {
+            continue;
+        }
+        char *value = colon + 1;
+        while (*value == ' ' || *value == '\t') { value++; }
+        size_t len = strlen(value);
+        while (len > 0 && (value[len - 1] == '\n' || value[len - 1] == '\r')) {
+            value[len - 1] = 0;
+            len--;
+        }
+        snprintf(buf, sizeof(buf), "%s", value);
+        fclose(file);
+        return buf;
+    }
+    fclose(file);
+    return "";
+}
+
+const char *xdkc_sysctl_string(const char *name) {
+    if (name == NULL) {
+        return "";
+    }
+#if defined(__APPLE__)
+    size_t size = 0;
+    if (sysctlbyname(name, NULL, &size, NULL, 0) != 0 || size == 0) {
+        return "";
+    }
+    static char buf[8192];
+    if (size >= sizeof(buf)) { size = sizeof(buf) - 1; }
+    if (sysctlbyname(name, buf, &size, NULL, 0) != 0) {
+        return "";
+    }
+    buf[size] = 0;
+    return buf;
+#elif defined(__linux__)
+    if (strcmp(name, "machdep.cpu.features") == 0 ||
+        strcmp(name, "machdep.cpu.leaf7_features") == 0) {
+        return xdkc_linux_cpu_features();
+    }
+    return "";
+#else
+    return "";
+#endif
+}
+
+int64_t xdkc_memory_free_bytes(void) {
+#if defined(__APPLE__)
+    int64_t freePages = xdkc_sysctl_int64("vm.page_free_count");
+    int64_t pageSize = xdkc_sysctl_int64("hw.pagesize");
+    if (freePages < 0 || pageSize <= 0) {
+        return 0;
+    }
+    return freePages * pageSize;
+#elif defined(__linux__)
+    FILE *file = fopen("/proc/meminfo", "r");
+    if (file == NULL) {
+        return 0;
+    }
+    char line[512];
+    int64_t availableKb = -1;
+    int64_t freeKb = -1;
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strncmp(line, "MemAvailable:", 13) == 0) {
+            availableKb = strtoll(line + 13, NULL, 10);
+        } else if (strncmp(line, "MemFree:", 8) == 0) {
+            freeKb = strtoll(line + 8, NULL, 10);
+        }
+    }
+    fclose(file);
+    if (availableKb >= 0) { return availableKb * 1024; }
+    if (freeKb >= 0) { return freeKb * 1024; }
+    return 0;
+#else
+    return 0;
+#endif
+}
+
+int64_t xdkc_numa_node_count(void) {
+#if defined(__linux__)
+    FILE *file = fopen("/sys/devices/system/node/online", "r");
+    if (file == NULL) {
+        return 0;
+    }
+    char text[256];
+    if (fgets(text, sizeof(text), file) == NULL) {
+        fclose(file);
+        return 0;
+    }
+    fclose(file);
+    int64_t count = 0;
+    char *cursor = text;
+    while (*cursor != 0 && *cursor != '\n') {
+        if (*cursor == ',') { cursor++; continue; }
+        char *end = cursor;
+        while (*end != 0 && *end != ',' && *end != '\n') { end++; }
+        char saved = *end;
+        *end = 0;
+        char *dash = strchr(cursor, '-');
+        if (dash != NULL) {
+            *dash = 0;
+            long first = strtol(cursor, NULL, 10);
+            long last = strtol(dash + 1, NULL, 10);
+            if (last >= first) { count += (last - first + 1); }
+        } else {
+            count++;
+        }
+        *end = saved;
+        cursor = end;
+    }
+    return count;
+#else
+    return 0;
+#endif
+}
+
 /* ---------- OS identity ---------- */
 
 static const char *xdkc_os_release_value(const char *key) {

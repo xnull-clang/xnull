@@ -39,8 +39,8 @@ xdk.auth	L8	6	src/xdk/auth/AuthCore.x	implemented
 xdk.sql	L5	12	src/xdk/sql/Sql.x	implemented
 xdk.os	L6	5	src/xdk/os/Os.x	implemented
 xdk.os.host	L6	2	src/xdk/os/host/Host.x	design
-xdk.os.cpu	L6	5	src/xdk/os/cpu/Cpu.x	design
-xdk.os.memory	L6	3	src/xdk/os/memory/Memory.x	design
+xdk.os.cpu	L6	5	src/xdk/os/cpu/Cpu.x	implemented
+xdk.os.memory	L6	3	src/xdk/os/memory/Memory.x	implemented
 xdk.os.hardware	L6	7	src/xdk/os/hardware/Hardware.x	design
 xdk.os.storage	L6	5	src/xdk/os/storage/Storage.x	design
 xdk.os.gpu	L6	6	src/xdk/os/gpu/Gpu.x	design

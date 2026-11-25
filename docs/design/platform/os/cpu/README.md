@@ -10,6 +10,18 @@
 
 ---
 
+## 0.5 实现状态（M20.2）
+
+已实现 `CpuCacheKind`、`CpuCore`、`CpuCache`、`CpuTopology`、`CpuAffinity`（5/5）。
+
+- `CpuTopology.detect()`：`hw.logicalcpu`/`hw.ncpu`、`hw.physicalcpu`、缓存 sysctl、
+  `machdep.cpu.features`/`leaf7_features`；缺失项跳过，频率未知为 0；
+- `socketCount=1`（多 socket 识别留后续）；Darwin `numaNodeCount=0`，Linux 读
+  `/sys/devices/system/node/online`；
+- `CpuAffinity` 仅保留句柄/生命周期：`get/set/reset` 返回 `Unsupported`，
+  本批不做跨平台绑核；
+- 深度拓扑、SMT 精确映射与容器 cpuset 留后续。
+
 ## 1. 定位
 
 CPU 拓扑、缓存、NUMA 归属、ISA 特性和亲和性控制。

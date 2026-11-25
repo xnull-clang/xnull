@@ -10,6 +10,16 @@
 
 ---
 
+## 0.5 实现状态（M20.2）
+
+已实现 `NumaNode`、`MemoryModule`、`PhysicalMemory`（3/3）。
+
+- `PhysicalMemory.detect()`：`hw.memsize` 总量，`xdkc_memory_free_bytes` 空闲/可用
+  （二者同值）；检测失败返回 0/空，不 panic；
+- DIMM/SMBIOS 未采集（无 IOKit/特权路径），`modules` 为空；
+- Darwin `numaNodes` 为空；Linux NUMA 节点计数由 cpu 包读取；
+- 深度 NUMA/DIMM 槽位/厂商型号留后续。
+
 ## 1. 定位
 
 物理内存快照、内存条（DIMM）信息、NUMA 节点；不涉及语言堆/GC。

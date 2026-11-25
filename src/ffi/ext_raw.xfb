@@ -180,6 +180,22 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   Int32 isContainerizedRaw();
 
+  @ffiEntry(cName = "xdkc_sysctl_int64")
+  @blocking(.unaware)
+  Int64 sysctlInt64Raw(String name);
+
+  @ffiEntry(cName = "xdkc_sysctl_string")
+  @blocking(.unaware)
+  String sysctlStringRaw(String name);
+
+  @ffiEntry(cName = "xdkc_memory_free_bytes")
+  @blocking(.unaware)
+  Int64 memoryFreeBytesRaw();
+
+  @ffiEntry(cName = "xdkc_numa_node_count")
+  @blocking(.unaware)
+  Int64 numaNodeCountRaw();
+
   @ffiEntry(cName = "xdkc_arch")
   @blocking(.unaware)
   String archRaw();

@@ -14365,6 +14365,12 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.net.service" || pkg.startsWith("xdk.net.service.") {
         return "net/service/Service.x"
     }
+    if pkg == "xdk.os.cpu" {
+        return "os/cpu/Cpu.x"
+    }
+    if pkg == "xdk.os.memory" {
+        return "os/memory/Memory.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }
