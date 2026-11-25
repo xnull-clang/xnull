@@ -50,6 +50,23 @@ class MemoryWriter implements Writer {
     }
 }
 
+class MemoryReader implements Reader {
+    List<String> lines
+    Int index
+
+    MemoryReader(List<String> lines) {
+        self.lines = lines.copy()
+        self.index = 0
+    }
+
+    Result<String?, Error> readLine(Context context) {
+        if self.index >= self.lines.length() { return Ok(null) }
+        String line = self.lines.get(self.index)
+        self.index = self.index + 1
+        return Ok(line)
+    }
+}
+
 static String oneLine(String text) {
     return text.replace("\n", "/")
 }
@@ -166,5 +183,147 @@ static Int main() {
     clearing.clear()
     print("table-clear=" + str(clearing.rowCount()) + "," +
         str(clearing.render().indexOf("| x |") < 0))
+
+    MemoryWriter barWriter = new MemoryWriter()
+    Terminal barTerminal = new Terminal(context, barWriter, false, 0, 0)
+    ProgressBar bar = new ProgressBar(barTerminal, 10)
+    String barZero = bar.render()
+    Result<Unit, Error> barSet = bar.set(5)
+    String barHalf = bar.render()
+    Result<Unit, Error> barMessage = bar.message("working")
+    String barMessageText = bar.render()
+    Result<Unit, Error> barFinish = bar.finish()
+    Result<Unit, Error> barFinishAgain = bar.finish()
+    print("progress-plain=" + barZero + "," + barHalf + "," + barMessageText + "," +
+        str(barSet.isOk()) + "," + str(barMessage.isOk()) + "," + str(bar.value()) +
+        "," + str(bar.isFinished()) + "," + str(barFinish.isOk()) + "," +
+        str(barFinishAgain.isOk()) + "," + str(barWriter.data.length() > 0))
+    bar.set(20)
+    print("progress-clamp=" + str(bar.value()) + "," + str(bar.isFinished()))
+    bar.set(0)
+    bar.increment()
+    print("progress-increment=" + str(bar.value()))
+
+    MemoryWriter ttyBarWriter = new MemoryWriter()
+    Terminal ttyBarTerminal = new Terminal(context, ttyBarWriter, true, 20, 5)
+    ProgressBar ttyBar = new ProgressBar(ttyBarTerminal, 4)
+    ttyBar.set(2)
+    String ttyRender = ttyBar.render()
+    Result<Unit, Error> barClear = ttyBar.clear()
+    String ttyBarText = ttyBarWriter.data.toString()
+    print("progress-tty=" + ttyRender + "," + str(ttyRender.length() == 20) + "," +
+        str(ttyBarWriter.data.get(0) == 13) + "," + str(barClear.isOk()) + "," +
+        str(ttyBarText.indexOf("\r\x1b[2K") >= 0))
+
+    MemoryWriter spinnerWriter = new MemoryWriter()
+    Terminal spinnerTerminal = new Terminal(context, spinnerWriter, true, 40, 10)
+    List<String> frames = ["a", "b", "c"]
+    Spinner spinner = new Spinner(spinnerTerminal, frames, 50 as Long)
+    Result<Unit, Error> spinnerStart = spinner.start(null)
+    String frameOne = spinner.frame()
+    Result<Unit, Error> spinnerTick = spinner.tick()
+    String frameTwo = spinner.frame()
+    Result<Unit, Error> spinnerMessage = spinner.setMessage("msg")
+    String spinnerRender = spinner.render()
+    Result<Unit, Error> spinnerStop = spinner.stop()
+    Result<Unit, Error> spinnerStopAgain = spinner.stop()
+    String spinnerWriterText = spinnerWriter.data.toString()
+    print("spinner-tty=" + str(spinnerStart.isOk()) + "," + frameOne + "," +
+        str(spinnerTick.isOk()) + "," + frameTwo + "," + str(spinnerMessage.isOk()) +
+        "," + spinnerRender + "," + str(spinnerStop.isOk()) + "," +
+        str(spinnerStopAgain.isOk()) + "," + str(spinner.isRunning()) + "," +
+        str(spinner.intervalMillis()) + "," +
+        str(spinnerWriterText.indexOf("\r\x1b[2K") >= 0))
+
+    MemoryWriter plainSpinnerWriter = new MemoryWriter()
+    Terminal plainSpinnerTerminal = new Terminal(context, plainSpinnerWriter, false, 0, 0)
+    Spinner plainSpinner = new Spinner(plainSpinnerTerminal, frames, 10 as Long)
+    plainSpinner.start(null)
+    plainSpinner.tick()
+    plainSpinner.setMessage("m")
+    plainSpinner.stop()
+    String spinnerPlainText = plainSpinnerWriter.data.toString()
+    print("spinner-plain=" + oneLine(spinnerPlainText) + "," +
+        str(plainSpinner.isRunning()) + "," + plainSpinner.render())
+
+    Context spinnerCancelContext = Context.background()
+    spinnerCancelContext.cancel()
+    Spinner cancelSpinner = new Spinner(spinnerTerminal, frames, 10 as Long)
+    cancelSpinner.start(spinnerCancelContext)
+    Result<Unit, Error> cancelTick = cancelSpinner.tick()
+    print("spinner-cancel=" + errorKindName(cancelTick.error().kind()) + "," +
+        str(cancelSpinner.isRunning()))
+
+    MemoryWriter promptWriter = new MemoryWriter()
+    List<String> textLines = ["alice"]
+    MemoryReader textReader = new MemoryReader(textLines)
+    Prompt prompt = new Prompt(textReader, promptWriter)
+    Result<String, Error> textAnswer = prompt.text(context, "Name")
+    String promptText = promptWriter.data.toString()
+    print("prompt-text=" + textAnswer.value() + "," + promptText + "," +
+        str(promptWriter.flushes))
+
+    MemoryWriter passwordWriter = new MemoryWriter()
+    List<String> passwordLines = ["secret"]
+    MemoryReader passwordReader = new MemoryReader(passwordLines)
+    Prompt passwordPrompt = new Prompt(passwordReader, passwordWriter)
+    Result<String, Error> passwordAnswer = passwordPrompt.password(context, "Pass")
+    String passwordText = passwordWriter.data.toString()
+    print("prompt-password=" + passwordAnswer.value() + "," +
+        str(passwordText == "Pass: "))
+
+    MemoryWriter confirmWriter = new MemoryWriter()
+    List<String> confirmLines = [" YES "]
+    MemoryReader confirmReader = new MemoryReader(confirmLines)
+    Prompt confirmPrompt = new Prompt(confirmReader, confirmWriter)
+    Result<Bool, Error> confirmed = confirmPrompt.confirm(context, "Continue")
+    String confirmText = confirmWriter.data.toString()
+    print("prompt-confirm=" + str(confirmed.isOk()) + "," + str(confirmed.value()) +
+        "," + str(confirmText.indexOf("[y/N]: ") >= 0))
+
+    MemoryWriter invalidConfirmWriter = new MemoryWriter()
+    List<String> invalidConfirmLines = ["maybe", "n"]
+    MemoryReader invalidConfirmReader = new MemoryReader(invalidConfirmLines)
+    Prompt invalidConfirmPrompt = new Prompt(invalidConfirmReader, invalidConfirmWriter)
+    Result<Bool, Error> invalidConfirmed = invalidConfirmPrompt.confirm(context, "Continue")
+    String invalidConfirmText = invalidConfirmWriter.data.toString()
+    print("prompt-confirm-invalid=" + str(invalidConfirmed.isOk()) + "," +
+        str(invalidConfirmed.value()) + "," +
+        str(invalidConfirmText.indexOf("Please answer yes or no.") >= 0))
+
+    MemoryWriter selectWriter = new MemoryWriter()
+    List<String> selectLines = ["2"]
+    MemoryReader selectReader = new MemoryReader(selectLines)
+    Prompt selectPrompt = new Prompt(selectReader, selectWriter)
+    List<String> options = ["alpha", "beta"]
+    Result<String, Error> selected = selectPrompt.select(context, "Pick", options)
+    String selectText = selectWriter.data.toString()
+    print("prompt-select=" + selected.value() + "," +
+        str(selectText.indexOf("1) alpha") >= 0) + "," +
+        str(selectText.indexOf("2) beta") >= 0) + "," +
+        str(selectText.indexOf("Select 1-2: ") >= 0))
+
+    MemoryWriter invalidSelectWriter = new MemoryWriter()
+    List<String> invalidSelectLines = ["9", "1"]
+    MemoryReader invalidSelectReader = new MemoryReader(invalidSelectLines)
+    Prompt invalidSelectPrompt = new Prompt(invalidSelectReader, invalidSelectWriter)
+    Result<String, Error> invalidSelected = invalidSelectPrompt.select(context, "Pick", options)
+    String invalidSelectText = invalidSelectWriter.data.toString()
+    print("prompt-select-invalid=" + invalidSelected.value() + "," +
+        str(invalidSelectText.indexOf("Invalid selection.") >= 0))
+
+    MemoryWriter eofWriter = new MemoryWriter()
+    List<String> eofLines = []
+    MemoryReader eofReader = new MemoryReader(eofLines)
+    Prompt eofPrompt = new Prompt(eofReader, eofWriter)
+    Result<String, Error> eofAnswer = eofPrompt.text(context, "Name")
+    print("prompt-eof=" + errorKindName(eofAnswer.error().kind()))
+    Context preCancelled = Context.background()
+    preCancelled.cancel()
+    Result<String, Error> cancelledPrompt = prompt.text(preCancelled, "Name")
+    print("prompt-cancel=" + errorKindName(cancelledPrompt.error().kind()))
+    Result<String, Error> nullOptions = prompt.select(context, "Pick", null)
+    print("prompt-select-null=" + errorKindName(nullOptions.error().kind()))
     return 0
+
 }

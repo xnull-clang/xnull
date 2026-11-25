@@ -11,6 +11,10 @@ import xdk.terminal
 import xdk.errors
 import xdk.bytes
 
+class NullReader implements Reader {
+    Result<String?, Error> readLine(Context context) { return Ok(null) }
+}
+
 class NullWriter implements Writer {
     Bool isOpen() { return true }
     Result<Unit, Error> writeAll(Context context, Bytes data) { return Ok() }
@@ -85,6 +89,56 @@ static Int main(String[] args) {
         List<String> cells = []
         cells.push(null)
         table.addRow(cells)
+    } else if name == "progressTerminal" {
+        ProgressBar bar = new ProgressBar(null, 10)
+    } else if name == "progressTotal" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        ProgressBar bar = new ProgressBar(terminal, 0)
+    } else if name == "progressMessage" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        ProgressBar bar = new ProgressBar(terminal, 10)
+        Result<Unit, Error> value = bar.message(null)
+    } else if name == "spinnerTerminal" {
+        List<String> frames = ["a"]
+        Spinner spinner = new Spinner(null, frames, 10 as Long)
+    } else if name == "spinnerFrames" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        List<String> frames = []
+        Spinner spinner = new Spinner(terminal, frames, 10 as Long)
+    } else if name == "spinnerInterval" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        List<String> frames = ["a"]
+        Spinner spinner = new Spinner(terminal, frames, 0 as Long)
+    } else if name == "spinnerNullFrame" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        List<String> frames = []
+        frames.push(null)
+        Spinner spinner = new Spinner(terminal, frames, 10 as Long)
+    } else if name == "spinnerMessage" {
+        Terminal terminal = new Terminal(Context.background(), new NullWriter(), false, 0, 0)
+        List<String> frames = ["a"]
+        Spinner spinner = new Spinner(terminal, frames, 10 as Long)
+        Result<Unit, Error> value = spinner.setMessage(null)
+    } else if name == "promptReader" {
+        Prompt prompt = new Prompt(null, new NullWriter())
+    } else if name == "promptWriter" {
+        Prompt prompt = new Prompt(new NullReader(), null)
+    } else if name == "promptTextContext" {
+        Prompt prompt = new Prompt(new NullReader(), new NullWriter())
+        Result<String, Error> value = prompt.text(null, "Name")
+    } else if name == "promptTextMessage" {
+        Prompt prompt = new Prompt(new NullReader(), new NullWriter())
+        Result<String, Error> value = prompt.text(Context.background(), null)
+    } else if name == "promptConfirmContext" {
+        Prompt prompt = new Prompt(new NullReader(), new NullWriter())
+        Result<Bool, Error> value = prompt.confirm(null, "Continue")
+    } else if name == "promptConfirmMessage" {
+        Prompt prompt = new Prompt(new NullReader(), new NullWriter())
+        Result<Bool, Error> value = prompt.confirm(Context.background(), null)
+    } else if name == "promptSelectMessage" {
+        Prompt prompt = new Prompt(new NullReader(), new NullWriter())
+        List<String> options = ["a"]
+        Result<String, Error> value = prompt.select(Context.background(), null, options)
     } else if name == "tableCellNewline" {
         List<String> columns = ["A"]
         Table table = new Table(columns)
@@ -128,4 +182,19 @@ check_panic tableRowNull "Table.addRow: null cells"
 check_panic tableRowCount "Table.addRow: cell count does not match columns"
 check_panic tableCellNull "Table.addRow: null cell"
 check_panic tableCellNewline "Table.addRow: newline in cell"
+check_panic progressTerminal "ProgressBar: null terminal"
+check_panic progressTotal "ProgressBar: total must be positive"
+check_panic progressMessage "ProgressBar.message: null text"
+check_panic spinnerTerminal "Spinner: null terminal"
+check_panic spinnerFrames "Spinner: empty frames"
+check_panic spinnerInterval "Spinner: interval must be positive"
+check_panic spinnerNullFrame "Spinner: null frame"
+check_panic spinnerMessage "Spinner.setMessage: null text"
+check_panic promptReader "Prompt: null reader or writer"
+check_panic promptWriter "Prompt: null reader or writer"
+check_panic promptTextContext "Prompt.text: null context"
+check_panic promptTextMessage "Prompt.text: null message"
+check_panic promptConfirmContext "Prompt.confirm: null context"
+check_panic promptConfirmMessage "Prompt.confirm: null message"
+check_panic promptSelectMessage "Prompt.select: null message"
 echo "terminal_panic: PASS"

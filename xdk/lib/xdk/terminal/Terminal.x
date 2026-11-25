@@ -5,6 +5,7 @@
 package xdk.terminal
 import xdk.errors
 import xdk.bytes
+import xdk.text
 
 // ---------- Color ----------
 class Color {
@@ -551,4 +552,351 @@ static String terminalRepeat(String text, Int count) {
         index = index + 1
     }
     return result
+}
+
+// ---------- Reader（Prompt 行读取） ----------
+protocol Reader {
+    Result<String?, Error> readLine(Context context);
+}
+
+// ---------- ProgressBar ----------
+class ProgressBar {
+    final Terminal _terminal
+    final Int _total
+    Int _value
+    String _message
+    Bool _finished
+    Int _lastWidth
+
+    ProgressBar(Terminal terminal, Int total) {
+        if terminal == null { throw "ProgressBar: null terminal" }
+        if total < 1 { throw "ProgressBar: total must be positive" }
+        self._terminal = terminal
+        self._total = total
+        self._value = 0
+        self._message = ""
+        self._finished = false
+        self._lastWidth = 0
+    }
+
+    Int total() { return self._total }
+    Int value() { return self._value }
+    Bool isFinished() { return self._finished }
+
+    Result<Unit, Error> set(Int value) {
+        Int next = value
+        if next < 0 { next = 0 }
+        if next > self._total { next = self._total }
+        self._value = next
+        self._finished = false
+        if !self._terminal.isTerminal() { return Ok() }
+        return self.draw(false)
+    }
+
+    Result<Unit, Error> increment() {
+        if self._value >= self._total { return Ok() }
+        return self.set(self._value + 1)
+    }
+
+    Result<Unit, Error> message(String text) {
+        if text == null { throw "ProgressBar.message: null text" }
+        self._message = text
+        if !self._terminal.isTerminal() { return Ok() }
+        return self.draw(false)
+    }
+
+    Result<Unit, Error> finish() {
+        if self._finished { return Ok() }
+        self._value = self._total
+        self._finished = true
+        if self._terminal.isTerminal() { return self.draw(true) }
+        Result<Unit, Error> written = self._terminal.writeLine(self.render())
+        if written.isErr() { return written }
+        return self._terminal.flush()
+    }
+
+    Result<Unit, Error> clear() {
+        if !self._terminal.isTerminal() { return Ok() }
+        self._lastWidth = 0
+        Result<Unit, Error> written = self._terminal.write("\r\x1b[2K")
+        if written.isErr() { return written }
+        return self._terminal.flush()
+    }
+
+    String render() {
+        Int percent = (self._value * 100) / self._total
+        String percentText = str(percent) + "%"
+        if !self._terminal.isTerminal() {
+            String text = percentText + " " + str(self._value) + "/" + str(self._total)
+            if self._message != "" { text = text + " " + self._message }
+            return text
+        }
+        Int width = self._terminal.width()
+        if width <= 0 { width = 40 }
+        String message = self._message
+        Int fixed = 2 + 1 + percentText.length()
+        Int barWidth = width - fixed
+        if message != "" { barWidth = barWidth - message.length() - 1 }
+        if barWidth < 1 {
+            message = ""
+            barWidth = width - fixed
+        }
+        if barWidth < 1 { return percentText }
+        Int filled = (self._value * barWidth) / self._total
+        if filled > barWidth { filled = barWidth }
+        String bar = ""
+        Int index = 0
+        while index < barWidth {
+            if index < filled { bar = bar + "#" } else { bar = bar + "-" }
+            index = index + 1
+        }
+        String line = "[" + bar + "] " + percentText
+        if message != "" { line = line + " " + message }
+        if line.length() > width { line = line.substring(0, width) }
+        return line
+    }
+
+    private Result<Unit, Error> draw(Bool newline) {
+        if !self._terminal.isTerminal() { return Ok() }
+        String line = self.render()
+        String output = "\r" + line
+        if line.length() < self._lastWidth {
+            output = output + terminalRepeat(" ", self._lastWidth - line.length())
+        }
+        if newline {
+            output = output + "\n"
+            self._lastWidth = 0
+        } else {
+            self._lastWidth = line.length()
+        }
+        Result<Unit, Error> written = self._terminal.write(output)
+        if written.isErr() { return written }
+        return self._terminal.flush()
+    }
+}
+
+// ---------- Spinner ----------
+class Spinner {
+    final Terminal _terminal
+    final List<String> _frames
+    final Long _intervalMillis
+    Int _frameIndex
+    String _message
+    Bool _running
+    Context? _context
+    Int _lastWidth
+
+    Spinner(Terminal terminal, List<String> frames, Long intervalMillis) {
+        if terminal == null { throw "Spinner: null terminal" }
+        if frames == null || frames.length() == 0 { throw "Spinner: empty frames" }
+        if intervalMillis < 1 as Long { throw "Spinner: interval must be positive" }
+        Int index = 0
+        while index < frames.length() {
+            if frames.get(index) == null { throw "Spinner: null frame" }
+            index = index + 1
+        }
+        self._terminal = terminal
+        self._frames = frames.copy()
+        self._intervalMillis = intervalMillis
+        self._frameIndex = 0
+        self._message = ""
+        self._running = false
+        self._context = null
+        self._lastWidth = 0
+    }
+
+    Result<Unit, Error> start(Context? context) {
+        if self._running {
+            self._context = context
+            return Ok()
+        }
+        self._running = true
+        self._frameIndex = 0
+        self._context = context
+        return self.draw()
+    }
+
+    Result<Unit, Error> tick() {
+        if !self._running { return Ok() }
+        if self._context != null {
+            Context context = self._context as Context
+            if context.isCancelled() {
+                Result<Unit, Error> cleared = self.clearLine()
+                self._running = false
+                self._context = null
+                if cleared.isErr() { return cleared }
+                return Err(new BasicError(ErrorKind.Cancelled, "spinner tick"))
+            }
+        }
+        self._frameIndex = (self._frameIndex + 1) % self._frames.length()
+        return self.draw()
+    }
+
+    Result<Unit, Error> stop() {
+        if !self._running { return Ok() }
+        self._running = false
+        self._context = null
+        return self.clearLine()
+    }
+
+    Result<Unit, Error> setMessage(String text) {
+        if text == null { throw "Spinner.setMessage: null text" }
+        self._message = text
+        if !self._running { return Ok() }
+        return self.draw()
+    }
+
+    Bool isRunning() { return self._running }
+    String frame() { return self._frames.get(self._frameIndex) }
+    Long intervalMillis() { return self._intervalMillis }
+
+    String render() {
+        if self._message == "" { return self.frame() }
+        return self.frame() + " " + self._message
+    }
+
+    private Result<Unit, Error> draw() {
+        String line = self.render()
+        if !self._terminal.isTerminal() {
+            Result<Unit, Error> written = self._terminal.writeLine(line)
+            if written.isErr() { return written }
+            return self._terminal.flush()
+        }
+        String output = "\r" + line
+        if line.length() < self._lastWidth {
+            output = output + terminalRepeat(" ", self._lastWidth - line.length())
+        }
+        self._lastWidth = line.length()
+        Result<Unit, Error> written = self._terminal.write(output)
+        if written.isErr() { return written }
+        return self._terminal.flush()
+    }
+
+    private Result<Unit, Error> clearLine() {
+        if !self._terminal.isTerminal() { return Ok() }
+        self._lastWidth = 0
+        Result<Unit, Error> written = self._terminal.write("\r\x1b[2K")
+        if written.isErr() { return written }
+        return self._terminal.flush()
+    }
+}
+
+// ---------- Prompt ----------
+class Prompt {
+    final Reader _reader
+    final Writer _writer
+
+    Prompt(Reader reader, Writer writer) {
+        if reader == null || writer == null {
+            throw "Prompt: null reader or writer"
+        }
+        self._reader = reader
+        self._writer = writer
+    }
+
+    Result<String, Error> text(Context context, String message) {
+        if context == null { throw "Prompt.text: null context" }
+        if message == null { throw "Prompt.text: null message" }
+        Result<Unit, Error> written = self.writeText(context, message + ": ")
+        if written.isErr() { return Err(written.error()) }
+        return self.readAnswer(context, "prompt.text")
+    }
+
+    Result<String, Error> password(Context context, String message) {
+        if context == null { throw "Prompt.password: null context" }
+        if message == null { throw "Prompt.password: null message" }
+        Result<Unit, Error> written = self.writeText(context, message + ": ")
+        if written.isErr() { return Err(written.error()) }
+        return self.readAnswer(context, "prompt.password")
+    }
+
+    Result<Bool, Error> confirm(Context context, String message) {
+        if context == null { throw "Prompt.confirm: null context" }
+        if message == null { throw "Prompt.confirm: null message" }
+        Int attempts = 0
+        while attempts < 8 {
+            attempts = attempts + 1
+            Result<Unit, Error> written = self.writeText(context, message + " [y/N]: ")
+            if written.isErr() { return Err(written.error()) }
+            Result<String, Error> answer = self.readAnswer(context, "prompt.confirm")
+            if answer.isErr() { return Err(answer.error()) }
+            String normalized = answer.value().trim().toLower()
+            if normalized == "" || normalized == "n" || normalized == "no" {
+                return Ok(false)
+            }
+            if normalized == "y" || normalized == "yes" {
+                return Ok(true)
+            }
+            Result<Unit, Error> invalid = self.writeText(context, "Please answer yes or no.\n")
+            if invalid.isErr() { return Err(invalid.error()) }
+        }
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "prompt.confirm: too many invalid answers"))
+    }
+
+    Result<String, Error> select(Context context, String message, List<String> options) {
+        if context == null { throw "Prompt.select: null context" }
+        if message == null { throw "Prompt.select: null message" }
+        if options == null || options.length() == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "prompt.select: empty options"))
+        }
+        Int index = 0
+        while index < options.length() {
+            if options.get(index) == null {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "prompt.select: null option"))
+            }
+            index = index + 1
+        }
+        Int attempts = 0
+        while attempts < 8 {
+            attempts = attempts + 1
+            String menu = message + "\n"
+            index = 0
+            while index < options.length() {
+                menu = menu + "  " + str(index + 1) + ") " + options.get(index) + "\n"
+                index = index + 1
+            }
+            menu = menu + "Select 1-" + str(options.length()) + ": "
+            Result<Unit, Error> written = self.writeText(context, menu)
+            if written.isErr() { return Err(written.error()) }
+            Result<String, Error> answer = self.readAnswer(context, "prompt.select")
+            if answer.isErr() { return Err(answer.error()) }
+            Result<Int, Error> parsed = parseInt(answer.value().trim())
+            if parsed.isErr() {
+                Result<Unit, Error> invalid = self.writeText(context, "Invalid selection.\n")
+                if invalid.isErr() { return Err(invalid.error()) }
+            } else {
+                Int picked = parsed.value()
+                if picked >= 1 && picked <= options.length() {
+                    return Ok(options.get(picked - 1))
+                }
+                Result<Unit, Error> invalid = self.writeText(context, "Invalid selection.\n")
+                if invalid.isErr() { return Err(invalid.error()) }
+            }
+        }
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "prompt.select: too many invalid answers"))
+    }
+
+    private Result<String, Error> readAnswer(Context context, String label) {
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, label))
+        }
+        Result<String?, Error> line = self._reader.readLine(context)
+        if line.isErr() { return Err(line.error()) }
+        String? value = line.value()
+        if value == null {
+            return Err(new BasicError(ErrorKind.Io, label + ": end of input"))
+        }
+        return Ok(value as String)
+    }
+
+    private Result<Unit, Error> writeText(Context context, String text) {
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "prompt write"))
+        }
+        Result<Unit, Error> written = self._writer.writeAll(context, fromUtf8(text))
+        if written.isErr() { return written }
+        return self._writer.flush()
+    }
 }

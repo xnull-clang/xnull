@@ -13,8 +13,7 @@
 
 ## 0.5 实现状态（M21.4）
 
-已实现核心 5 类型：`Color`、`Ansi`、`Style`、`Terminal`、`Table`（5/8；
-ProgressBar/Spinner/Prompt 留 M21.5）。
+已实现 8/8：`Color`、`Ansi`、`Style`、`Terminal`、`Table`、`ProgressBar`、`Spinner`、`Prompt`。
 
 - `Color`：basic 0..15 / indexed 0..255 / RGB、16 命名色，错误模式访问 panic；
 - `Ansi`：SGR/CSI 静态包装，序列固定 `\x1b[...m`；
@@ -22,7 +21,11 @@ ProgressBar/Spinner/Prompt 留 M21.5）。
 - `Terminal`：注入 `Writer`、终端/非终端门控、非终端剥离 CSI、clear/flush/close；
 - `Table`：`+---+` 边框、可见宽度估算（忽略 CSI，Unicode 按码元近似）、
   `maxWidth` 截断、行长度/换行校验；
-- 不探测 TTY/尺寸，由调用方传入；不做完整 Unicode 宽度表。
+- `ProgressBar`：total≥1、值钳制 0..total、`[####----] 50% message` 渲染、终端重绘/清行、
+  非终端仅 finish 输出；`set` 越界钳制，`finish` 幂等；
+- `Spinner`：调用方 tick 驱动、帧循环、终端重绘/非终端逐行、可选 Context 取消；
+- `Prompt`：`Reader`/`Writer` 注入，text/password/confirm(8 次重试)/select(编号菜单)；
+- 不探测 TTY/尺寸，不启动计时线程；不做完整 Unicode 宽度表；密码无法关闭回显。
 
 ## 1. 包定位
 
