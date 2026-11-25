@@ -14344,6 +14344,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.toml" || pkg.startsWith("xdk.toml.") {
         return "toml/Toml.x"
     }
+    if pkg == "xdk.xml" || pkg.startsWith("xdk.xml.") {
+        return "xml/Xml.x"
+    }
     if pkg == "xdk.uuid" || pkg.startsWith("xdk.uuid.") {
         return "uuid/Uuid.x"
     }

@@ -57,6 +57,9 @@ XML 树与 [`../codec/JsonValue.md`](../codec/JsonValue.md) 平行：两者都�
 
 X：DTD/实体解析、命名空间展开、混合内容保序模型、流式解析、UTF-16/其他编码、XPath/Schema/XSLT。
 
+实现状态（M18.4）：`XmlElement`/`XmlOptions`/`Xml` implemented；仅元素中心模型，
+混合内容失败，DOCTYPE 默认 `PermissionDenied`，内部子集 `Unsupported`。
+
 ---
 
 ## 4. 顶层函数

@@ -1,0 +1,22 @@
+parse=ok
+root=config,2,5,true
+attrs=1,demo,true
+children=Tom & Jerry,0,true,a < b & c,AB
+nested=leaf,v,text
+stringify=ok
+round=ok,true,true,true
+space=  keep  ,trim
+unclosed=data_corrupted
+duplicate=data_corrupted
+invalid=data_corrupted
+mixed=data_corrupted
+entity=data_corrupted
+limits=invalid_argument,invalid_argument
+doctype=permission_denied
+doctype-allow=ok
+doctype-subset=unsupported
+bytes=ok,unsupported
+isxml=true,true,false,false
+build=ok,<build id="7"><child>x&amp;y</child><empty/></build>,build(attrs=1,children=2,text=none)
+copy=7,8,true
+remove=true,false
