@@ -17,7 +17,7 @@ xdk.config	L3	12	src/xdk/config/Config.x	1.x
 xdk.cli	L3	17	src/xdk/cli/Cli.x	1.x
 xdk.codec	L4	13	src/xdk/codec/Codec.x	implemented
 xdk.crypto	L4	17	src/xdk/crypto/Crypto.x	implemented
-xdk.compress	L4	13	src/xdk/compress/Compress.x	design
+xdk.compress	L4	13	src/xdk/compress/Compress.x	implemented
 xdk.random	L4	4	src/xdk/random/Random.x	implemented
 xdk.uuid	L4	3	src/xdk/uuid/Uuid.x	implemented
 xdk.stats	L4	7	src/xdk/stats/Stats.x	implemented

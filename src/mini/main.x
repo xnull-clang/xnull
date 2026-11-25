@@ -14338,6 +14338,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.random" || pkg.startsWith("xdk.random.") {
         return "random/Random.x"
     }
+    if pkg == "xdk.compress" || pkg.startsWith("xdk.compress.") {
+        return "compress/Compress.x"
+    }
     if pkg == "xdk.uuid" || pkg.startsWith("xdk.uuid.") {
         return "uuid/Uuid.x"
     }

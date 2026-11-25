@@ -237,6 +237,40 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   String gzipDecompressHexRaw(String hex);
 
+  @ffiEntry(cName = "xdkc_gzip_compress_level_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String gzipCompressLevelHexRaw(String hex, Int32 level);
+
+  @ffiEntry(cName = "xdkc_gzip_decompress_limited_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String gzipDecompressLimitedHexRaw(String hex, Int32 maxOut);
+
+  @ffiEntry(cName = "xdkc_zlib_compress_level_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String zlibCompressLevelHexRaw(String hex, Int32 level);
+
+  @ffiEntry(cName = "xdkc_zlib_decompress_limited_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String zlibDecompressLimitedHexRaw(String hex, Int32 maxOut);
+
+  @ffiEntry(cName = "xdkc_deflate_compress_level_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String deflateCompressLevelHexRaw(String hex, Int32 level);
+
+  @ffiEntry(cName = "xdkc_deflate_decompress_limited_hex")
+  @lease(hex = .borrow)
+  @blocking(.unaware)
+  String deflateDecompressLimitedHexRaw(String hex, Int32 maxOut);
+
+  @ffiEntry(cName = "xdkc_compress_last_error")
+  @blocking(.unaware)
+  Int32 compressLastErrorRaw();
+
   // ---- 浮点位模式（BinaryWriter/Reader）----
   @ffiEntry(cName = "xdkc_f64_bits")
   @blocking(.unaware)

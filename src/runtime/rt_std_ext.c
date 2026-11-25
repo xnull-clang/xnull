@@ -1053,6 +1053,194 @@ char *xdkc_gzip_decompress_hex(const char *hex, size_t hexlen) {
     return outhex;
 }
 
+/* ---------- gzip/zlib/deflate 分级与限额（hex 进出） ---------- */
+
+/* 0 = ok；1 = InvalidArgument（超限/空输入）；2 = DataCorrupted。
+ * 每次 compress/decompress 入口重置；单线程使用。 */
+static _Thread_local int32_t g_compress_error = 0;
+
+int32_t xdkc_compress_last_error(void) {
+    return g_compress_error;
+}
+
+static char *compress_hex_level(const char *hex, size_t hexlen, int32_t level, int windowBits) {
+    g_compress_error = 0;
+    if (level < 0 || level > 9) {
+        level = Z_DEFAULT_COMPRESSION;
+    }
+    size_t cap = hexlen / 2 + 64;
+    uint8_t *src = (uint8_t *)malloc(cap);
+    if (src == NULL) {
+        g_compress_error = 2;
+        return NULL;
+    }
+    size_t sn = hex_decode(hex, hexlen, src);
+    z_stream zs;
+    memset(&zs, 0, sizeof(zs));
+    if (deflateInit2(&zs, level, Z_DEFLATED, windowBits, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+        free(src);
+        g_compress_error = 2;
+        return NULL;
+    }
+    size_t bound = deflateBound(&zs, sn);
+    size_t alloc = bound > 64 ? bound : 64;
+    uint8_t *dst = (uint8_t *)malloc(alloc);
+    if (dst == NULL) {
+        deflateEnd(&zs);
+        free(src);
+        g_compress_error = 2;
+        return NULL;
+    }
+    zs.next_in = src;
+    zs.avail_in = (uInt)sn;
+    zs.next_out = dst;
+    zs.avail_out = (uInt)alloc;
+    int rc = deflate(&zs, Z_FINISH);
+    size_t outn = (rc == Z_STREAM_END) ? zs.total_out : 0;
+    deflateEnd(&zs);
+    free(src);
+    if (outn == 0) {
+        free(dst);
+        g_compress_error = 2;
+        return NULL;
+    }
+    char *outhex = hex_encode_alloc(dst, outn);
+    free(dst);
+    return outhex;
+}
+
+static char *decompress_hex_limited(const char *hex, size_t hexlen, int windowBits, int32_t maxOut) {
+    g_compress_error = 0;
+    size_t sn = hexlen / 2;
+    if (sn == 0) {
+        g_compress_error = 1;
+        char *empty = (char *)malloc(1);
+        if (empty != NULL) {
+            empty[0] = 0;
+        }
+        return empty;
+    }
+    uint8_t *src = (uint8_t *)malloc(sn);
+    if (src == NULL) {
+        g_compress_error = 2;
+        return NULL;
+    }
+    size_t decoded = hex_decode(hex, hexlen, src);
+    if (decoded != sn) {
+        free(src);
+        g_compress_error = 2;
+        return NULL;
+    }
+    z_stream zs;
+    memset(&zs, 0, sizeof(zs));
+    if (inflateInit2(&zs, windowBits) != Z_OK) {
+        free(src);
+        g_compress_error = 2;
+        return NULL;
+    }
+    size_t limit = 0;
+    if (maxOut > 0) {
+        limit = (size_t)maxOut + 1; /* +1 用于区分恰好等于 maxOut 与超限 */
+    }
+    size_t cap = sn * 8 + 256;
+    if (cap < 1024) {
+        cap = 1024;
+    }
+    if (limit > 0 && cap > limit) {
+        cap = limit;
+    }
+    uint8_t *dst = (uint8_t *)malloc(cap);
+    if (dst == NULL) {
+        inflateEnd(&zs);
+        free(src);
+        g_compress_error = 2;
+        return NULL;
+    }
+    zs.next_in = src;
+    zs.avail_in = (uInt)sn;
+    size_t total = 0;
+    int done = 0;
+    while (!done) {
+        if (total >= cap) {
+            if (limit > 0 && cap >= limit) {
+                g_compress_error = 1;
+                break;
+            }
+            size_t next = cap * 2;
+            if (limit > 0 && next > limit) {
+                next = limit;
+            }
+            uint8_t *grown = (uint8_t *)realloc(dst, next);
+            if (grown == NULL) {
+                g_compress_error = 2;
+                break;
+            }
+            dst = grown;
+            cap = next;
+        }
+        zs.next_out = dst + total;
+        zs.avail_out = (uInt)(cap - total);
+        int rc = inflate(&zs, Z_NO_FLUSH);
+        total = cap - zs.avail_out;
+        if (rc == Z_STREAM_END) {
+            done = 1;
+        } else if (rc == Z_OK) {
+            if (total < cap) {
+                /* 输出未满但仍未结束：输入可能耗尽，交给下一轮 Z_BUF_ERROR 判定。 */
+                if (zs.avail_in == 0 && total < cap) {
+                    g_compress_error = 2;
+                    break;
+                }
+            }
+        } else if (rc == Z_BUF_ERROR) {
+            if (zs.avail_in == 0) {
+                g_compress_error = 2;
+                break;
+            }
+        } else {
+            g_compress_error = 2;
+            break;
+        }
+    }
+    inflateEnd(&zs);
+    free(src);
+    if (g_compress_error != 0) {
+        free(dst);
+        char *empty = (char *)malloc(1);
+        if (empty != NULL) {
+            empty[0] = 0;
+        }
+        return empty;
+    }
+    char *outhex = hex_encode_alloc(dst, total);
+    free(dst);
+    return outhex;
+}
+
+char *xdkc_gzip_compress_level_hex(const char *hex, size_t hexlen, int32_t level) {
+    return compress_hex_level(hex, hexlen, level, 15 + 16);
+}
+
+char *xdkc_gzip_decompress_limited_hex(const char *hex, size_t hexlen, int32_t maxOut) {
+    return decompress_hex_limited(hex, hexlen, 15 + 16, maxOut);
+}
+
+char *xdkc_zlib_compress_level_hex(const char *hex, size_t hexlen, int32_t level) {
+    return compress_hex_level(hex, hexlen, level, 15);
+}
+
+char *xdkc_zlib_decompress_limited_hex(const char *hex, size_t hexlen, int32_t maxOut) {
+    return decompress_hex_limited(hex, hexlen, 15, maxOut);
+}
+
+char *xdkc_deflate_compress_level_hex(const char *hex, size_t hexlen, int32_t level) {
+    return compress_hex_level(hex, hexlen, level, -15);
+}
+
+char *xdkc_deflate_decompress_limited_hex(const char *hex, size_t hexlen, int32_t maxOut) {
+    return decompress_hex_limited(hex, hexlen, -15, maxOut);
+}
+
 /* ---------- 浮点位模式（BinaryWriter/Reader 用） ---------- */
 
 int64_t xdkc_f64_bits(double v) {

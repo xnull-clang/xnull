@@ -49,7 +49,8 @@
 | `TarEntry` | class | tar 条目 | [`TarEntry.md`](TarEntry.md) |
 | `Tar` | class | tar 读写 | [`Tar.md`](Tar.md) |
 
-当前 13/13：13 个类型索引与 13 个类型文件一一对应。
+当前 4/13 已实现：`CompressionLevel`、`Gzip`、`Zlib`、`Deflate`；
+`Zstd`、`Lz4`、`Brotli`、`ZipEntry`、`ZipOptions`、`ZipArchive`、`ZipWriter`、`TarEntry`、`Tar` 仍为 planned（9 个）。
 
 X：流式 tar/zip、流式 zstd/lz4/brotli。
 

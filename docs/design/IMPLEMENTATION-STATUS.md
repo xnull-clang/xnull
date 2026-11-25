@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 26 包 / 228 类型；`design` 36 包 / 307 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 27 包 / 241 类型；`design` 35 包 / 294 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,7 +18,7 @@
 
 **没有全部做完。**
 
-- 76 个包中：**26 个 implemented、36 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**27 个 implemented、35 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
 - 已实现的 26 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
@@ -35,12 +35,12 @@
 | L1 runtime/execution | 2 | 25 | 1 | 1 | 0 |
 | L2 core 基础 | 7 | 80 | 7 | 0 | 0 |
 | L3 core 系统 | 6 | 81 | 6 | 0 | 0 |
-| L4 数据/编码 | 12 | 76 | 0 | 7 | 5 |
+| L4 数据/编码 | 12 | 76 | 0 | 8 | 4 |
 | L5 网络/数据 | 9 | 125 | 0 | 5 | 4 |
 | L6 平台/计算 | 17 | 93 | 0 | 3 | 14 |
 | L7 应用服务 | 12 | 82 | 0 | 7 | 5 |
 | L8 解决方案 | 10 | 128 | 0 | 2 | 8 |
-| **合计** | **76** | **704** | **14** | **26** | **36** |
+| **合计** | **76** | **704** | **14** | **27** | **35** |
 
 ---
 
@@ -54,6 +54,7 @@
 | `xdk.stats` | 7 | BucketHistogram/Summary 等统计值类型 |
 | `xdk.execution` | 17 | Semaphore/WaitGroup/Once/RwLock/Pool/Promise/Future/Executor + 运行时 Task/Context；`Once` 方法名为 `run` |
 | `xdk.random` | 4 | Random/SecureRandom/RandomSource/WeightedChoice；OS CSPRNG + 可种子 PRNG |
+| `xdk.compress` | 13 | 实现 4/13：CompressionLevel/Gzip/Zlib/Deflate；Zstd/Lz4/Brotli/Zip/Tar planned |
 | `xdk.uuid` | 3 | Uuid v4/v7/UuidVersion/Ulid；ULID 同毫秒单调 |
 | `xdk.functional` | 3 | 函数组合基础 |
 | `xdk.graph` | 2 | 图结构 |
@@ -77,11 +78,11 @@
 
 ---
 
-## 4. 仅设计、未实现（36）
+## 4. 仅设计、未实现（35）
 
 | 层 | 包 |
 | --- | --- |
-| L4 | `xdk.compress`、`xdk.reflect`、`xdk.toml`、`xdk.yaml`、`xdk.xml` |
+| L4 | `xdk.reflect`、`xdk.toml`、`xdk.yaml`、`xdk.xml` |
 | L5 | `xdk.net`、`xdk.net.tls`、`xdk.net.websocket`、`xdk.net.service` |
 | L6 | `xdk.os`、`xdk.os.host`、`xdk.os.cpu`、`xdk.os.memory`、`xdk.os.hardware`、`xdk.os.storage`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
 | L7 | `xdk.queue`、`xdk.schedule`、`xdk.event`、`xdk.terminal`、`xdk.i18n` |

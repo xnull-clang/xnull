@@ -1,0 +1,9 @@
+round=true,true,true,true,true,true
+long=true,true,true,70000
+binary=true,true,true,256
+level=true,true,true
+magic=true,true,false,false,false
+limit=invalid_argument,invalid_argument,invalid_argument
+corrupt=data_corrupted,data_corrupted,data_corrupted
+empty=invalid_argument,invalid_argument,invalid_argument
+empty-out=true,0
