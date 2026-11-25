@@ -16,6 +16,7 @@
 #include "rt_gc.h"
 
 #include <pthread.h>
+#include <errno.h>
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -97,6 +98,42 @@ int32_t xrt_monitor_wait_context(xrt_monitor *m, xrt_context *ctx) {
     return 1;
 }
 
+extern int64_t xdkc_now_mono_ms(void);
+
+int32_t xrt_monitor_wait_deadline(xrt_monitor *m, xrt_context *ctx,
+                                  int64_t deadline_mono_ms) {
+    if (m == NULL) {
+        rt_fatal("RuntimeMonitor.waitDeadline：监视器为空");
+    }
+    if (atomic_load_explicit(&m->closed, memory_order_acquire)) {
+        return 1;
+    }
+    for (;;) {
+        if (xrt_context_check_cancel(ctx) == XRT_ERR_CANCELLED) {
+            return 0;
+        }
+        int64_t now = xdkc_now_mono_ms();
+        int64_t remaining = deadline_mono_ms - now;
+        if (remaining <= 0) {
+            return 2;
+        }
+        int64_t chunk = remaining > 5 ? 5 : remaining;
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += (time_t)(chunk / 1000);
+        ts.tv_nsec += (long)((chunk % 1000) * 1000000);
+        if (ts.tv_nsec >= 1000000000L) {
+            ts.tv_sec++;
+            ts.tv_nsec -= 1000000000L;
+        }
+        int rc = pthread_cond_timedwait(&m->cv, &m->mu, &ts);
+        if (rc == ETIMEDOUT) {
+            continue;
+        }
+        return 1;
+    }
+}
+
 void xrt_monitor_notify_all(xrt_monitor *m) {
     if (m == NULL) {
         rt_fatal("RuntimeMonitor.notifyAll：监视器为空");
@@ -138,6 +175,11 @@ void xdkc_monitor_wait(int64_t handle) {
 
 int32_t xdkc_monitor_wait_context(int64_t handle, void *ctx) {
     return xrt_monitor_wait_context((xrt_monitor *)(intptr_t)handle, (xrt_context *)ctx);
+}
+
+int32_t xdkc_monitor_wait_deadline(int64_t handle, void *ctx, int64_t deadline) {
+    return xrt_monitor_wait_deadline((xrt_monitor *)(intptr_t)handle,
+        (xrt_context *)ctx, deadline);
 }
 
 void xdkc_monitor_notify_all(int64_t handle) {

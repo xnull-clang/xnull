@@ -104,6 +104,11 @@ ffi xdkc_runtime_raw {
   @blocking(.unaware)
   Int32 monitorWaitContextRaw(Int64 handle, Context context);
 
+  // 返回 0 = 取消；1 = 通知/关闭；2 = 到达 deadline。
+  @ffiEntry(cName = "xdkc_monitor_wait_deadline")
+  @blocking(.unaware)
+  Int32 monitorWaitDeadlineRaw(Int64 handle, Context context, Int64 deadlineMonoMillis);
+
   @ffiEntry(cName = "xdkc_monitor_notify_all")
   @blocking(.unaware)
   void monitorNotifyAllRaw(Int64 handle);

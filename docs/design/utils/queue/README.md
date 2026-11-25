@@ -11,6 +11,17 @@
 
 ---
 
+## 0.5 实现状态（M21.1）
+
+已实现 `DropPolicy`、`QueueStats`、`BoundedQueue<T>`、`BatchQueue<T>`、`DelayQueue<T>`（5/5）。
+
+- `BoundedQueue`：Error/DropNewest/DropOldest 三策略、统计、clear/close；
+- `BatchQueue`：达到批量后 `add=false`（任务合同），`flush` 返回副本并清空；
+- `DelayQueue`：按 `nowMono()+delay` 排序，`take` 用 `RuntimeMonitor.waitDeadline`
+  等待最早就绪（5ms 取消轮询，无忙等）；`tryTake` 只取已就绪；
+- `RuntimeMonitor` 新增 `waitDeadline(Context, Long)` 加法 API；
+- 不做无界队列、持久化、优先级；泛型元素不强制 null 检查，以支持 Int 等值类型。
+
 ## 1. 包定位
 
 并发队列补充：有界丢弃策略、批处理、延迟出队、统计。

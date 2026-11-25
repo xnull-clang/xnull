@@ -312,6 +312,7 @@ void    xrt_monitor_enter(xrt_monitor *m);
 void    xrt_monitor_exit(xrt_monitor *m);
 void    xrt_monitor_wait(xrt_monitor *m);
 int32_t xrt_monitor_wait_context(xrt_monitor *m, xrt_context *ctx);
+int32_t xrt_monitor_wait_deadline(xrt_monitor *m, xrt_context *ctx, int64_t deadline_mono_ms);
 void    xrt_monitor_notify_all(xrt_monitor *m);
 void    xrt_monitor_close(xrt_monitor *m);   /* 幂等 */
 int32_t xrt_monitor_closed(const xrt_monitor *m);

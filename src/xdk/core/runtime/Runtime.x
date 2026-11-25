@@ -76,6 +76,11 @@ class RuntimeMonitor {
         return monitorWaitContextRaw(self._handle, context) != 0
     }
 
+    // 等到绝对单调截止；返回 0 = 取消，1 = 通知/关闭，2 = 到达截止。
+    Int waitDeadline(Context context, Long deadlineMonoMillis) {
+        return monitorWaitDeadlineRaw(self._handle, context, deadlineMonoMillis) as Int
+    }
+
     void notifyAll() {
         monitorNotifyAllRaw(self._handle)
     }
