@@ -1,0 +1,15 @@
+handshake=open,true,16777216
+text=true,true,hello websocket
+binary=true,000102ff
+ping=true,1
+len126=130
+len127=70000,1
+deadline=unsupported
+stats=true,true,true,true
+closed=closed,false,unavailable,unavailable
+too-big=true,true,1009,close
+bad-handshake=data_corrupted
+wss=unsupported
+options=2048,4096,100,50,http://example.test,chat
+close-code=1009,true,unsupported
+fragment=true

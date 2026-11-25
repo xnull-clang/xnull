@@ -32,7 +32,7 @@ xdk.net.uri	L5	2	src/xdk/net/uri/Uri.x	implemented
 xdk.net.mime	L5	2	src/xdk/net/mime/Mime.x	implemented
 xdk.net.tls	L5	10	src/xdk/net/tls/Tls.x	design
 xdk.net.http	L5	40	src/xdk/net/http/Http.x	implemented
-xdk.net.websocket	L5	12	src/xdk/net/websocket/Websocket.x	design
+xdk.net.websocket	L5	12	src/xdk/websocket/WebSocket.x	implemented
 xdk.net.service	L5	13	src/xdk/net/service/Service.x	design
 xdk.jwt	L5	6	src/xdk/jwt/Jwt.x	implemented
 xdk.auth	L8	6	src/xdk/auth/AuthCore.x	implemented

@@ -14359,6 +14359,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.net.mime" || pkg.startsWith("xdk.net.mime.") {
         return "net/mime/Mime.x"
     }
+    if pkg == "xdk.net.websocket" || pkg.startsWith("xdk.net.websocket.") {
+        return "websocket/WebSocket.x"
+    }
     if pkg == "xdk.net" {
         return "net/Net.x"
     }

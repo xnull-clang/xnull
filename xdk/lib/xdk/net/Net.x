@@ -19,6 +19,18 @@ String ipFamilyName(IpFamily family) {
     return "v6"
 }
 
+static String netToHex(Bytes data) {
+    String digits = "0123456789abcdef"
+    List<String> parts = []
+    Int index = 0
+    while index < data.length() {
+        Int value = data.get(index)
+        parts.push(digits.substring(value / 16, 1) + digits.substring(value % 16, 1))
+        index = index + 1
+    }
+    return parts.join("")
+}
+
 static Error netError(Int code, String message) {
     if code == 3 { return new BasicError(ErrorKind.Cancelled, message) }
     if code == 4 { return new BasicError(ErrorKind.Timeout, message) }
@@ -432,7 +444,7 @@ class TcpStream implements ByteStream {
         if context.isCancelled() {
             return Err(new BasicError(ErrorKind.Cancelled, "TcpStream.write: cancelled"))
         }
-        Int64 sent = socketSendHexRaw(self._handle, toHex(data))
+        Int64 sent = socketSendHexRaw(self._handle, netToHex(data))
         if sent < 0 {
             return Err(netError(socketErrorRaw(), "TcpStream: write failed"))
         }

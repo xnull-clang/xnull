@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 31 包 / 279 类型；`design` 31 包 / 256 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 32 包 / 291 类型；`design` 30 包 / 244 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,9 +18,9 @@
 
 **没有全部做完。**
 
-- 76 个包中：**31 个 implemented、31 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**32 个 implemented、30 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
-- 已实现的 31 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
+- 已实现的 32 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
@@ -36,11 +36,11 @@
 | L2 core 基础 | 7 | 80 | 7 | 0 | 0 |
 | L3 core 系统 | 6 | 81 | 6 | 0 | 0 |
 | L4 数据/编码 | 12 | 76 | 0 | 11 | 1 |
-| L5 网络/数据 | 9 | 125 | 0 | 6 | 3 |
+| L5 网络/数据 | 9 | 125 | 0 | 7 | 2 |
 | L6 平台/计算 | 17 | 93 | 0 | 3 | 14 |
 | L7 应用服务 | 12 | 82 | 0 | 7 | 5 |
 | L8 解决方案 | 10 | 128 | 0 | 2 | 8 |
-| **合计** | **76** | **704** | **14** | **31** | **31** |
+| **合计** | **76** | **704** | **14** | **32** | **30** |
 
 ---
 
@@ -64,6 +64,7 @@
 | `xdk.net.uri` | 2 | URI/Query/percent 编解码 |
 | `xdk.net.mime` | 2 | MediaType 等 |
 | `xdk.net` | 28 | 实现 12/28：IP/前缀/SocketAddress/TCP 核心；Dns/Udp/连接池/TLS/HTTP2 planned |
+| `xdk.net.websocket` | 12 | 实现 9/12：ws 握手/帧/掩码/分片/关闭/服务端；Client/Reconnect planned |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |
@@ -82,12 +83,12 @@
 
 ---
 
-## 4. 仅设计、未实现（31）
+## 4. 仅设计、未实现（30）
 
 | 层 | 包 |
 | --- | --- |
 | L4 | `xdk.reflect` |
-| L5 | `xdk.net.tls`、`xdk.net.websocket`、`xdk.net.service` |
+| L5 | `xdk.net.tls`、`xdk.net.service` |
 | L6 | `xdk.os`、`xdk.os.host`、`xdk.os.cpu`、`xdk.os.memory`、`xdk.os.hardware`、`xdk.os.storage`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
 | L7 | `xdk.queue`、`xdk.schedule`、`xdk.event`、`xdk.terminal`、`xdk.i18n` |
 | L8 | `xdk.jsonrpc`、`xdk.mcp`、`xdk.ml`、`xdk.numerics`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |

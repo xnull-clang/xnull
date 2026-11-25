@@ -94,6 +94,17 @@ X：压缩扩展、HTTP/2 WebSocket、消息重放、连接迁移、多路复用
 
 ---
 
+## 6.5 实现状态（M19.2）
+
+`WebSocketState`/`WebSocketMessageKind`/`WebSocketCloseCode`/`WebSocketOptions`/
+`WebSocketMessage`/`WebSocketStats`/`WebSocket`/`WebSocketHandler`/`WebSocketServer`
+implemented（9/12）。
+
+- 支持 ws:// 握手、文本/二进制/ping/pong/close、掩码、分片、126/127 长度；
+- `WebSocketClient`/`ReconnectPolicy`/`WebSocketClientState` 留 M19.3；
+- wss/TLS、permessage-deflate、HTTP/2、多线程 serve 明确 Unsupported；
+- deadline 明确 `Unsupported`。
+
 ## 7. 缺口与决策
 
 | 项 | 决策 |
