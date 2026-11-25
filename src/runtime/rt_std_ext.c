@@ -20,6 +20,12 @@
 #include <zlib.h>
 
 #include <stdint.h>
+#include <pthread.h>
+
+#ifdef __linux__
+#include <fcntl.h>
+#include <sys/random.h>
+#endif
 
 /* ---------- math ---------- */
 
@@ -73,6 +79,111 @@ int64_t xdkc_rand_next(void) {
 
 double xdkc_rand_double(void) {
     return (double)(rnd64() >> 11) * (1.0 / 9007199254740992.0); /* [0,1) */
+}
+
+/* ---------- 安全随机（OS CSPRNG） ---------- */
+
+static void secure_fill(uint8_t *buf, int32_t count) {
+#if defined(__APPLE__)
+    arc4random_buf(buf, (size_t)count);
+#elif defined(__linux__)
+    int32_t off = 0;
+    while (off < count) {
+        ssize_t n = getrandom(buf + off, (size_t)(count - off), 0);
+        if (n > 0) {
+            off += (int32_t)n;
+        } else if (n < 0 && errno == EINTR) {
+            continue;
+        } else {
+            break;
+        }
+    }
+    if (off < count) {
+        int fd = open("/dev/urandom", O_RDONLY);
+        if (fd >= 0) {
+            while (off < count) {
+                ssize_t n = read(fd, buf + off, (size_t)(count - off));
+                if (n > 0) {
+                    off += (int32_t)n;
+                } else if (n < 0 && errno == EINTR) {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            close(fd);
+        }
+    }
+    if (off < count) {
+        memset(buf + off, 0, (size_t)(count - off));
+    }
+#else
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd < 0) {
+        memset(buf, 0, (size_t)count);
+        return;
+    }
+    int32_t off = 0;
+    while (off < count) {
+        ssize_t n = read(fd, buf + off, (size_t)(count - off));
+        if (n > 0) {
+            off += (int32_t)n;
+        } else if (n < 0 && errno == EINTR) {
+            continue;
+        } else {
+            break;
+        }
+    }
+    close(fd);
+    if (off < count) {
+        memset(buf + off, 0, (size_t)(count - off));
+    }
+#endif
+}
+
+char *xdkc_secure_random_hex(int32_t count) {
+    static const char hexd[] = "0123456789abcdef";
+    if (count <= 0) {
+        char *empty = (char *)malloc(1);
+        if (empty != NULL) {
+            empty[0] = 0;
+        }
+        return empty;
+    }
+    uint8_t *buf = (uint8_t *)malloc((size_t)count);
+    char *out = (char *)malloc((size_t)count * 2 + 1);
+    if (buf == NULL || out == NULL) {
+        free(buf);
+        free(out);
+        return NULL;
+    }
+    secure_fill(buf, count);
+    for (int32_t i = 0; i < count; i++) {
+        out[i * 2] = hexd[buf[i] >> 4];
+        out[i * 2 + 1] = hexd[buf[i] & 0xF];
+    }
+    out[(size_t)count * 2] = 0;
+    free(buf);
+    return out;
+}
+
+/* ---------- ULID 单调计数器（每毫秒） ---------- */
+
+static pthread_mutex_t g_ulid_mu = PTHREAD_MUTEX_INITIALIZER;
+static int64_t g_ulid_last_ms = -1;
+static int64_t g_ulid_seq = 0;
+
+int64_t xdkc_ulid_monotonic(int64_t millis) {
+    pthread_mutex_lock(&g_ulid_mu);
+    if (millis != g_ulid_last_ms) {
+        g_ulid_last_ms = millis;
+        g_ulid_seq = 0;
+    } else {
+        g_ulid_seq++;
+    }
+    int64_t value = g_ulid_seq;
+    pthread_mutex_unlock(&g_ulid_mu);
+    return value;
 }
 
 /* ---------- time ---------- */

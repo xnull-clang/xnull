@@ -1,0 +1,10 @@
+same=true,true,true
+double=true
+range=true
+bytes=7
+shuffle=5,15
+gaussian=true
+weight=2,4,true,true
+weight-clear=0,0
+weight-single=9
+secure=16,true,true,true,true

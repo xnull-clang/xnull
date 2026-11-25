@@ -1,0 +1,10 @@
+v4=v4,2,36,false
+parse=true,true,true
+parse-bad=true,true,true
+nil=true,00000000-0000-0000-0000-000000000000
+v7=v7,true
+copy=true,true
+ulid=26,true,10
+ulid-time=true
+ulid-order=true
+ulid-bad=true,true,true

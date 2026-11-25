@@ -123,6 +123,10 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   Double randDoubleRaw();
 
+  @ffiEntry(cName = "xdkc_secure_random_hex")
+  @blocking(.unaware)
+  String secureRandomHexRaw(Int32 count);
+
   // ---- time ----
   @ffiEntry(cName = "xdkc_now_micros")
   @blocking(.unaware)
@@ -217,6 +221,10 @@ ffi xdkc_ext_raw {
   @ffiEntry(cName = "xdkc_uuid4")
   @blocking(.unaware)
   String uuid4Raw();
+
+  @ffiEntry(cName = "xdkc_ulid_monotonic")
+  @blocking(.unaware)
+  Int64 ulidMonotonicRaw(Int64 millis);
 
   // ---- gzip（hex 进出）----
   @ffiEntry(cName = "xdkc_gzip_compress_hex")

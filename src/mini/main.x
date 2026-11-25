@@ -14335,6 +14335,12 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.jwt" || pkg.startsWith("xdk.jwt.") {
         return "jwt/Jwt.x"
     }
+    if pkg == "xdk.random" || pkg.startsWith("xdk.random.") {
+        return "random/Random.x"
+    }
+    if pkg == "xdk.uuid" || pkg.startsWith("xdk.uuid.") {
+        return "uuid/Uuid.x"
+    }
     if pkg == "xdk.auth" || pkg.startsWith("xdk.auth.") {
         return "auth/AuthCore.x"
     }
