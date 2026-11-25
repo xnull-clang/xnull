@@ -120,6 +120,20 @@ OS / 硬件           P3
 
 ---
 
+## 5.5 实现状态（M20.1）
+
+已实现基础 5 类型：`OsKind`、`OsFamily`、`OsCapability`、`OsInfo`、`OsProfile`。
+
+- `OsInfo.detect()` 通过 `xdkc_os_name/version/kernel_version/libc_version/is_containerized`
+  + `platformRaw/archRaw/hostnameRaw` 读取本机；失败返回空串，不 panic；
+- `OsProfile` 能力去重保序；`osDetectProfile()` 只声明真实可判定的能力
+  （当前仅容器检测；CPU/内存/存储/GPU 等子包未实现前不虚报）；
+- 解析函数 `osKindFromName`/`osFamilyFromName`/`osCapabilityFromName` 用 `Unknown`
+  哨兵返回未知，避免可选枚举在编译器中的 `== null` 缺陷；
+- `OsCapability` 追加 `Session` 与 `Unknown`；`OsHost`/`Os` 静态入口和 `os.*`
+  domain 子包留后续批次；
+- TLS/特权操作不在本包范围内。
+
 ## 6. 基础类型索引
 
 | 类型 | 种类 | 文件 |

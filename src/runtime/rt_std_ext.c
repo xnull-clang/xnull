@@ -19,6 +19,13 @@
 #include <sys/utsname.h>
 #include <zlib.h>
 
+#if defined(__APPLE__)
+#include <sys/sysctl.h>
+#endif
+#if defined(__linux__) && defined(__GLIBC__)
+#include <gnu/libc-version.h>
+#endif
+
 #include <stdint.h>
 #include <pthread.h>
 
@@ -226,6 +233,146 @@ const char *xdkc_hostname(void) {
     }
     buf[sizeof(buf) - 1] = 0;
     return buf;
+}
+
+/* ---------- OS identity ---------- */
+
+static const char *xdkc_os_release_value(const char *key) {
+    static char buf[256];
+    FILE *file = fopen("/etc/os-release", "r");
+    if (file == NULL) {
+        file = fopen("/usr/lib/os-release", "r");
+    }
+    if (file == NULL) {
+        return "";
+    }
+    size_t keylen = strlen(key);
+    char line[512];
+    while (fgets(line, sizeof(line), file) != NULL) {
+        if (strncmp(line, key, keylen) != 0 || line[keylen] != '=') {
+            continue;
+        }
+        char *value = line + keylen + 1;
+        size_t len = strlen(value);
+        while (len > 0 && (value[len - 1] == '\n' || value[len - 1] == '\r')) {
+            value[len - 1] = 0;
+            len--;
+        }
+        if (len >= 2 && (value[0] == '"' || value[0] == '\'')) {
+            char quote = value[0];
+            if (value[len - 1] == quote) {
+                value[len - 1] = 0;
+                value++;
+            }
+        }
+        snprintf(buf, sizeof(buf), "%s", value);
+        fclose(file);
+        return buf;
+    }
+    fclose(file);
+    return "";
+}
+
+const char *xdkc_os_name(void) {
+#if defined(__APPLE__)
+    return "macOS";
+#elif defined(__linux__)
+    const char *release = xdkc_os_release_value("NAME");
+    if (release[0] != 0) {
+        return release;
+    }
+    static char buf[256];
+    struct utsname u;
+    if (uname(&u) != 0) {
+        return "";
+    }
+    snprintf(buf, sizeof(buf), "%s", u.sysname);
+    return buf;
+#else
+    static char buf[256];
+    struct utsname u;
+    if (uname(&u) != 0) {
+        return "";
+    }
+    snprintf(buf, sizeof(buf), "%s", u.sysname);
+    return buf;
+#endif
+}
+
+const char *xdkc_os_version(void) {
+#if defined(__APPLE__)
+    static char buf[128];
+    size_t len = sizeof(buf) - 1;
+    if (sysctlbyname("kern.osproductversion", buf, &len, NULL, 0) != 0) {
+        return "";
+    }
+    buf[len] = 0;
+    return buf;
+#elif defined(__linux__)
+    const char *release = xdkc_os_release_value("VERSION_ID");
+    if (release[0] != 0) {
+        return release;
+    }
+    return xdkc_os_release_value("VERSION");
+#else
+    return "";
+#endif
+}
+
+const char *xdkc_kernel_version(void) {
+    static char buf[256];
+    struct utsname u;
+    if (uname(&u) != 0) {
+        return "";
+    }
+    snprintf(buf, sizeof(buf), "%s", u.release);
+    return buf;
+}
+
+const char *xdkc_libc_version(void) {
+#if defined(__APPLE__)
+    return "libSystem";
+#elif defined(__linux__) && defined(__GLIBC__)
+    static char buf[64];
+    snprintf(buf, sizeof(buf), "glibc %s", gnu_get_libc_version());
+    return buf;
+#else
+    return "";
+#endif
+}
+
+int32_t xdkc_is_containerized(void) {
+#if defined(__linux__)
+    if (access("/.dockerenv", F_OK) == 0) {
+        return 1;
+    }
+    FILE *file = fopen("/proc/1/cgroup", "r");
+    if (file != NULL) {
+        char line[512];
+        while (fgets(line, sizeof(line), file) != NULL) {
+            if (strstr(line, "docker") != NULL || strstr(line, "kubepods") != NULL ||
+                strstr(line, "containerd") != NULL || strstr(line, "lxc") != NULL ||
+                strstr(line, "podman") != NULL) {
+                fclose(file);
+                return 1;
+            }
+        }
+        fclose(file);
+    }
+    return 0;
+#elif defined(__APPLE__)
+    const char *container = getenv("container");
+    if (container != NULL && container[0] != 0) {
+        return 1;
+    }
+    const char *docker = getenv("DOCKER");
+    if (docker != NULL && docker[0] != 0) {
+        return 1;
+    }
+    return 0;
+#else
+    return 0;
+#endif
 }
 
 const char *xdkc_platform(void) {

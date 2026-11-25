@@ -37,7 +37,7 @@ xdk.net.service	L5	13	src/xdk/net/service/Service.x	implemented
 xdk.jwt	L5	6	src/xdk/jwt/Jwt.x	implemented
 xdk.auth	L8	6	src/xdk/auth/AuthCore.x	implemented
 xdk.sql	L5	12	src/xdk/sql/Sql.x	implemented
-xdk.os	L6	5	src/xdk/os/Os.x	design
+xdk.os	L6	5	src/xdk/os/Os.x	implemented
 xdk.os.host	L6	2	src/xdk/os/host/Host.x	design
 xdk.os.cpu	L6	5	src/xdk/os/cpu/Cpu.x	design
 xdk.os.memory	L6	3	src/xdk/os/memory/Memory.x	design

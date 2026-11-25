@@ -160,6 +160,26 @@ ffi xdkc_ext_raw {
   @blocking(.unaware)
   String platformRaw();
 
+  @ffiEntry(cName = "xdkc_os_name")
+  @blocking(.unaware)
+  String osNameRaw();
+
+  @ffiEntry(cName = "xdkc_os_version")
+  @blocking(.unaware)
+  String osVersionRaw();
+
+  @ffiEntry(cName = "xdkc_kernel_version")
+  @blocking(.unaware)
+  String kernelVersionRaw();
+
+  @ffiEntry(cName = "xdkc_libc_version")
+  @blocking(.unaware)
+  String libcVersionRaw();
+
+  @ffiEntry(cName = "xdkc_is_containerized")
+  @blocking(.unaware)
+  Int32 isContainerizedRaw();
+
   @ffiEntry(cName = "xdkc_arch")
   @blocking(.unaware)
   String archRaw();

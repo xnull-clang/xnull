@@ -1,0 +1,19 @@
+kind-names=linux,windows,macos,android,ios,freebsd,wasm,unknown
+kind-display=macOS,FreeBSD,WebAssembly
+kind-parse=macos,wasm,unknown,unknown
+kind-family=unix,windows,wasm,unknown
+family-names=unix,windows,wasm,unknown
+family-parse=unix,wasm,unknown,true,false
+cap-names=cpu_topology,physical_memory,gpu_compute,service_manager,session,unknown
+cap-parse=cpu_features,raw_device,unknown,unknown
+cap-flags=true,false,true,false
+detect=true,true,true,true,true,true,true,true,true
+detect-kind-name=macos,macOS,unix
+info=linux TestOS version=1.0 kernel=6.1.0 arch=x86_64 session=,true,true,false,glibc 2.39
+info-equals=true,false
+profile=os test-profile kind=linux caps=2,2,cpu_topology,gpu,true,false
+profile-missing=storage,session
+profile-with=3,3,false,renamed,2
+profile-equals=true,true,false
+profile-kinds=linux,unix,TestOS
+detected-profile=true,true,true,true

@@ -14365,6 +14365,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.net.service" || pkg.startsWith("xdk.net.service.") {
         return "net/service/Service.x"
     }
+    if pkg == "xdk.os" {
+        return "os/Os.x"
+    }
     if pkg == "xdk.net" {
         return "net/Net.x"
     }
