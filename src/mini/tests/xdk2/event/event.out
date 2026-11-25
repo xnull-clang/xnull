@@ -1,0 +1,10 @@
+event=evt-1,orders.created,String,100,checkout
+event-nosource=event evt-2 topic=users.created at=0 source=none payload=Number,true,0
+event-now=true,,true
+subscribe=true,true,true,sub-1,orders.created
+publish=true,2,a:evt-1,b:evt-1,true
+publish-topics=1,0,0,a:evt-1,b:evt-1,u:evt-4
+unsubscribe=true,false,false,1,a:evt-1,b:evt-1,u:evt-4,b:evt-7
+handler-error=data_corrupted,first,1
+reentrant=1,first,false,true
+close=true,false,unavailable,unavailable,0

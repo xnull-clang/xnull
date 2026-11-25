@@ -11,6 +11,15 @@
 
 ---
 
+## 0.5 实现状态（M21.3）
+
+已实现 `Event`、`EventBus`、`EventSubscription`（3/3）。
+
+- `publish` 同步、按订阅顺序、锁外回调、首错短路；handler 内可 unsubscribe/subscribe/close；
+- 订阅/取消/关闭用 `RuntimeMonitor` 保护登记表；订阅 id 单调递增；
+- handler 为函数值；编译器不能对函数值判 null，`subscribe` 仅校验 topic；
+- 不做异步队列、持久化、通配符、跨进程；无全局总线。
+
 ## 1. 包定位
 
 `xdk.event` 提供**进程内、同步、显式持有**的发布/订阅：

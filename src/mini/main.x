@@ -14380,6 +14380,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.schedule" {
         return "schedule/Schedule.x"
     }
+    if pkg == "xdk.event" {
+        return "event/Event.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }
