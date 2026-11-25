@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 32 包 / 291 类型；`design` 30 包 / 244 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 33 包 / 304 类型；`design` 29 包 / 231 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,9 +18,9 @@
 
 **没有全部做完。**
 
-- 76 个包中：**32 个 implemented、30 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**33 个 implemented、29 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
-- 已实现的 32 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
+- 已实现的 33 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
@@ -36,11 +36,11 @@
 | L2 core 基础 | 7 | 80 | 7 | 0 | 0 |
 | L3 core 系统 | 6 | 81 | 6 | 0 | 0 |
 | L4 数据/编码 | 12 | 76 | 0 | 11 | 1 |
-| L5 网络/数据 | 9 | 125 | 0 | 7 | 2 |
+| L5 网络/数据 | 9 | 125 | 0 | 8 | 1 |
 | L6 平台/计算 | 17 | 93 | 0 | 3 | 14 |
 | L7 应用服务 | 12 | 82 | 0 | 7 | 5 |
 | L8 解决方案 | 10 | 128 | 0 | 2 | 8 |
-| **合计** | **76** | **704** | **14** | **32** | **30** |
+| **合计** | **76** | **704** | **14** | **33** | **29** |
 
 ---
 
@@ -83,12 +83,12 @@
 
 ---
 
-## 4. 仅设计、未实现（30）
+## 4. 仅设计、未实现（29）
 
 | 层 | 包 |
 | --- | --- |
 | L4 | `xdk.reflect` |
-| L5 | `xdk.net.tls`、`xdk.net.service` |
+| L5 | `xdk.net.tls` |
 | L6 | `xdk.os`、`xdk.os.host`、`xdk.os.cpu`、`xdk.os.memory`、`xdk.os.hardware`、`xdk.os.storage`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
 | L7 | `xdk.queue`、`xdk.schedule`、`xdk.event`、`xdk.terminal`、`xdk.i18n` |
 | L8 | `xdk.jsonrpc`、`xdk.mcp`、`xdk.ml`、`xdk.numerics`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |

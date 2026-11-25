@@ -7,7 +7,7 @@
 | 依赖 | `xdk.core`、`xdk.net`、`xdk.net.tls`、`xdk.execution` |
 | 被依赖 | 应用、服务、Agent、工具；不反向依赖 core/net/os/utils |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
-| 状态 | 设计基线；不含实现 |
+| 状态 | 核心实现（M19.4）：10/13 类型；Server/Client/NetworkService 待 M19.5 |
 
 ---
 
@@ -64,6 +64,21 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 | `HeartbeatPolicy` | class | 空闲检查节奏与超时阈值 | [`HeartbeatPolicy.md`](HeartbeatPolicy.md) |
 
 ---
+
+## 3.5 实现状态（M19.4）
+
+已实现核心 10 类型：`NetServiceState`、`ServiceOptions`、`HeartbeatPolicy`、
+`BackpressurePolicy`、`ServiceReconnectPolicy`、`ServiceStats`、`ConnectionHandler`、
+`SessionHandler`、`Connection`、`Session`。
+
+- `Connection` 包装 `ByteStream`，`read/write/writeAll`、排空、单会话、`process` 闭环；
+- `Session` 提供 `send/receive` 语义（`send` 走 `Connection.writeAll`，`run` 驱动读取）；
+- deadline 委托 `ByteStream`；`TcpStream` 当前返回 `Unsupported`；
+- 实现限制：编译器不支持方法重载，`shouldRetry(Int,Error)` 以 `shouldRetryError` 提供；
+  `openSession()` 零参便利方法以 `openDefaultSession()` 提供；
+- `ServiceOptions` 暂不含 `socketOptions`/`tlsConfig`/`tcpServerOptions`，因为
+  `xdk.net` 尚无 `SocketOptions`、`xdk.net.tls` 尚未实现；留 M19.5/后续批次；
+- `Server`/`Client`/`NetworkService`、TLS、真实 accept 主循环明确未实现。
 
 ## 4. 跨类型规则
 

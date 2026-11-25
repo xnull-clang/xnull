@@ -14362,6 +14362,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.net.websocket" || pkg.startsWith("xdk.net.websocket.") {
         return "websocket/WebSocket.x"
     }
+    if pkg == "xdk.net.service" || pkg.startsWith("xdk.net.service.") {
+        return "net/service/Service.x"
+    }
     if pkg == "xdk.net" {
         return "net/Net.x"
     }

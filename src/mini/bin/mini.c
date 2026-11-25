@@ -17462,6 +17462,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.websocket")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.websocket.")))) {
     return rt_string_from_c("websocket/WebSocket.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.net.service")) || xn_str_startswith(pkg, rt_string_from_c("xdk.net.service.")))) {
+    return rt_string_from_c("net/service/Service.x");
+  }
   if (xn_str_eq(pkg, rt_string_from_c("xdk.net"))) {
     return rt_string_from_c("net/Net.x");
   }
