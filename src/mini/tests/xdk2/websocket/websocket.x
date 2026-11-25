@@ -260,6 +260,92 @@ static Int main() {
         str(parseWebSocketCloseCode(1009).isOk()) + "," +
         errorKindName(parseWebSocketCloseCode(9999).error().kind()))
 
+    ReconnectPolicy policy = new ReconnectPolicy()
+    print("policy=" + str(policy.delayMillis(0)) + "," + str(policy.delayMillis(1)) + "," +
+        str(policy.delayMillis(2)) + "," + str(policy.delayMillis(5)) + "," +
+        str(policy.delayMillis(10)) + "," + str(policy.shouldRetry(0)) + "," +
+        str(policy.shouldRetry(4)) + "," + str(policy.shouldRetry(5)))
+    ReconnectPolicy noRetry = new ReconnectPolicy()
+    noRetry.maxAttempts(0)
+    ReconnectPolicy jitterPolicy = new ReconnectPolicy()
+    jitterPolicy.initialDelayMillis(100 as Long)
+    jitterPolicy.maxDelayMillis(1000 as Long)
+    jitterPolicy.jitter(true)
+    Long jitterOne = jitterPolicy.delayMillis(0)
+    Long jitterTwo = jitterPolicy.delayMillis(0)
+    print("policy-jitter=" + str(jitterOne >= 80 as Long && jitterOne <= 120 as Long) + "," +
+        str(jitterOne == jitterTwo) + "," + str(noRetry.shouldRetry(0)))
+    ReconnectPolicy copiedPolicy = policy.copy()
+    print("policy-copy=" + str(copiedPolicy.getInitialDelayMillis()) + "," +
+        str(copiedPolicy.getMaxAttempts()) + "," + str(copiedPolicy.getMultiplier()))
+
+    SocketAddress clientAddress = SocketAddress.parse("127.0.0.1:19301").value()
+    WebSocketServer clientServer = WebSocketServer.bind(context, clientAddress, new WebSocketOptions()).value()
+    TaskGroup clientGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> clientServe = clientGroup.spawn((Context taskContext) -> {
+        clientServer.serve(taskContext, new EchoHandler())
+        return Ok(0)
+    })
+    sleepMs(50)
+    WebSocketClient client = new WebSocketClient(new WebSocketOptions(), policy)
+    Result<WebSocket, Error> clientConnected = client.connect(context,
+        Uri.parse("ws://127.0.0.1:19301/client").value())
+    print("client-connect=" + str(clientConnected.isOk()) + "," +
+        webSocketClientStateName(client.state()) + "," + str(client.socket() != null))
+    WebSocket clientSocket = client.socket() as WebSocket
+    clientSocket.sendText(context, "client msg")
+    WebSocketMessage clientReply = clientSocket.receive(context).value() as WebSocketMessage
+    print("client-echo=" + (clientReply.text() as String) + "," +
+        str(client.stats().messagesSent() > 0) + "," + str(client.stats().messagesReceived() > 0))
+    Result<Unit, Error> clientClose = client.close()
+    print("client-close=" + str(clientClose.isOk()) + "," +
+        webSocketClientStateName(client.state()) + "," + str(client.stats().messagesSent()))
+    Result<WebSocket, Error> connectClosed = client.connect(context,
+        Uri.parse("ws://127.0.0.1:19301/").value())
+    Result<WebSocket, Error> reconnectClosed = client.reconnect(context)
+    print("client-closed=" + errorKindName(connectClosed.error().kind()) + "," +
+        errorKindName(reconnectClosed.error().kind()))
+    clientServer.close()
+    clientServe.join()
+    clientGroup.close()
+
+    SocketAddress lateAddress = SocketAddress.parse("127.0.0.1:19302").value()
+    ReconnectPolicy shortPolicy = new ReconnectPolicy()
+    shortPolicy.initialDelayMillis(10 as Long)
+    shortPolicy.maxDelayMillis(40 as Long)
+    shortPolicy.maxAttempts(3)
+    WebSocketClient lateClient = new WebSocketClient(new WebSocketOptions(), shortPolicy)
+    Result<WebSocket, Error> lateFirst = lateClient.connect(context,
+        Uri.parse("ws://127.0.0.1:19302/late").value())
+    print("client-fail=" + errorKindName(lateFirst.error().kind()) + "," +
+        webSocketClientStateName(lateClient.state()))
+    WebSocketServer lateServer = WebSocketServer.bind(context, lateAddress, new WebSocketOptions()).value()
+    TaskGroup lateGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> lateServe = lateGroup.spawn((Context taskContext) -> {
+        lateServer.serve(taskContext, new EchoHandler())
+        return Ok(0)
+    })
+    sleepMs(50)
+    Result<WebSocket, Error> lateReconnect = lateClient.reconnect(context)
+    print("client-reconnect=" + str(lateReconnect.isOk()) + "," +
+        webSocketClientStateName(lateClient.state()))
+    lateClient.close()
+    lateServer.close()
+    lateServe.join()
+    lateGroup.close()
+
+    ReconnectPolicy exhaustedPolicy = new ReconnectPolicy()
+    exhaustedPolicy.initialDelayMillis(5 as Long)
+    exhaustedPolicy.maxDelayMillis(10 as Long)
+    exhaustedPolicy.maxAttempts(2)
+    WebSocketClient exhausted = new WebSocketClient(new WebSocketOptions(), exhaustedPolicy)
+    Result<WebSocket, Error> exhaustedFirst = exhausted.connect(context,
+        Uri.parse("ws://127.0.0.1:19303/none").value())
+    Result<WebSocket, Error> exhaustedReconnect = exhausted.reconnect(context)
+    print("client-exhausted=" + errorKindName(exhaustedFirst.error().kind()) + "," +
+        errorKindName(exhaustedReconnect.error().kind()) + "," +
+        webSocketClientStateName(exhausted.state()))
+
     SocketAddress fragmentAddress = SocketAddress.parse("127.0.0.1:19205").value()
     WebSocketServer fragmentServer = WebSocketServer.bind(context, fragmentAddress, new WebSocketOptions()).value()
     TaskGroup fragmentGroup = TaskGroup.create(Context.withCancel(context))

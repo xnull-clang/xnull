@@ -55,6 +55,37 @@ static Int main(String[] args) {
     } else if name == "serverOptions" {
         Result<WebSocketServer, Error> value = WebSocketServer.bind(context,
             SocketAddress.parse("127.0.0.1:19999").value(), null)
+    } else if name == "policyInitial" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        policy.initialDelayMillis(-1 as Long)
+    } else if name == "policyMax" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        policy.maxDelayMillis(1 as Long)
+    } else if name == "policyMultiplier" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        policy.multiplier(0.5)
+    } else if name == "policyAttempts" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        policy.maxAttempts(-1)
+    } else if name == "policyShouldRetry" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        Bool value = policy.shouldRetry(-1)
+    } else if name == "policyDelay" {
+        ReconnectPolicy policy = new ReconnectPolicy()
+        Long value = policy.delayMillis(-1)
+    } else if name == "clientOptions" {
+        WebSocketClient client = new WebSocketClient(null, new ReconnectPolicy())
+    } else if name == "clientPolicy" {
+        WebSocketClient client = new WebSocketClient(new WebSocketOptions(), null)
+    } else if name == "clientConnectContext" {
+        WebSocketClient client = new WebSocketClient(new WebSocketOptions(), new ReconnectPolicy())
+        Result<WebSocket, Error> value = client.connect(null, Uri.parse("ws://127.0.0.1:1/").value())
+    } else if name == "clientConnectUri" {
+        WebSocketClient client = new WebSocketClient(new WebSocketOptions(), new ReconnectPolicy())
+        Result<WebSocket, Error> value = client.connect(context, null)
+    } else if name == "clientReconnect" {
+        WebSocketClient client = new WebSocketClient(new WebSocketOptions(), new ReconnectPolicy())
+        Result<WebSocket, Error> value = client.reconnect(null)
     } else if name == "serverServe" {
         WebSocketServer server = WebSocketServer.bind(context,
             SocketAddress.parse("127.0.0.1:19999").value(), new WebSocketOptions()).value()
@@ -86,4 +117,15 @@ check_panic connectOptions "WebSocket.connect: null argument"
 check_panic serverBind "WebSocketServer.bind: null argument"
 check_panic serverOptions "WebSocketServer.bind: null argument"
 check_panic serverServe "WebSocketServer.serve: null argument"
+check_panic policyInitial "ReconnectPolicy.initialDelayMillis: negative"
+check_panic policyMax "ReconnectPolicy.maxDelayMillis: below initial"
+check_panic policyMultiplier "ReconnectPolicy.multiplier: below 1"
+check_panic policyAttempts "ReconnectPolicy.maxAttempts: negative"
+check_panic policyShouldRetry "ReconnectPolicy.shouldRetry: negative attempt"
+check_panic policyDelay "ReconnectPolicy.delayMillis: negative attempt"
+check_panic clientOptions "WebSocketClient: null argument"
+check_panic clientPolicy "WebSocketClient: null argument"
+check_panic clientConnectContext "WebSocketClient.connect: null argument"
+check_panic clientConnectUri "WebSocketClient.connect: null argument"
+check_panic clientReconnect "WebSocketClient.reconnect: null context"
 echo "websocket_panic: PASS"

@@ -12,6 +12,7 @@ import xdk.net.http
 import xdk.crypto
 import xdk.codec
 import xdk.time
+import xdk.random
 
 // ---------- 枚举 ----------
 enum WebSocketState {
@@ -814,5 +815,205 @@ class WebSocketServer {
     Void close() {
         self._open = false
         self._listener.close()
+    }
+}
+
+// ---------- WebSocketClientState ----------
+enum WebSocketClientState {
+    Idle,
+    Connecting,
+    Open,
+    Reconnecting,
+    Closed,
+}
+
+String webSocketClientStateName(WebSocketClientState state) {
+    if state == WebSocketClientState.Idle { return "idle" }
+    if state == WebSocketClientState.Connecting { return "connecting" }
+    if state == WebSocketClientState.Open { return "open" }
+    if state == WebSocketClientState.Reconnecting { return "reconnecting" }
+    return "closed"
+}
+
+// ---------- ReconnectPolicy ----------
+class ReconnectPolicy {
+    Long _initialDelayMillis
+    Long _maxDelayMillis
+    Double _multiplier
+    Int _maxAttempts
+    Bool _jitter
+
+    ReconnectPolicy() {
+        self._initialDelayMillis = 100 as Long
+        self._maxDelayMillis = 30000 as Long
+        self._multiplier = 2.0
+        self._maxAttempts = 5
+        self._jitter = false
+    }
+
+    ReconnectPolicy initialDelayMillis(Long value) {
+        if value < 0 { throw "ReconnectPolicy.initialDelayMillis: negative" }
+        if value > self._maxDelayMillis { throw "ReconnectPolicy.initialDelayMillis: exceeds max" }
+        self._initialDelayMillis = value
+        return self
+    }
+
+    ReconnectPolicy maxDelayMillis(Long value) {
+        if value < 0 { throw "ReconnectPolicy.maxDelayMillis: negative" }
+        if value < self._initialDelayMillis { throw "ReconnectPolicy.maxDelayMillis: below initial" }
+        self._maxDelayMillis = value
+        return self
+    }
+
+    ReconnectPolicy multiplier(Double value) {
+        if value < 1.0 { throw "ReconnectPolicy.multiplier: below 1" }
+        self._multiplier = value
+        return self
+    }
+
+    ReconnectPolicy maxAttempts(Int value) {
+        if value < 0 { throw "ReconnectPolicy.maxAttempts: negative" }
+        self._maxAttempts = value
+        return self
+    }
+
+    ReconnectPolicy jitter(Bool value) {
+        self._jitter = value
+        return self
+    }
+
+    Long getInitialDelayMillis() { return self._initialDelayMillis }
+    Long getMaxDelayMillis() { return self._maxDelayMillis }
+    Double getMultiplier() { return self._multiplier }
+    Int getMaxAttempts() { return self._maxAttempts }
+    Bool isJitter() { return self._jitter }
+
+    Bool shouldRetry(Int attempt) {
+        if attempt < 0 { throw "ReconnectPolicy.shouldRetry: negative attempt" }
+        return attempt < self._maxAttempts
+    }
+
+    Long delayMillis(Int attempt) {
+        if attempt < 0 { throw "ReconnectPolicy.delayMillis: negative attempt" }
+        Double value = self._initialDelayMillis as Double
+        Int index = 0
+        while index < attempt {
+            value = value * self._multiplier
+            index = index + 1
+        }
+        if value > self._maxDelayMillis as Double { value = self._maxDelayMillis as Double }
+        if self._jitter {
+            Long seed = (attempt as Long) + (1000 as Long)
+            Random random = new Random(seed)
+            Double factor = 0.8 + random.nextDouble() * 0.4
+            value = value * factor
+        }
+        return value as Long
+    }
+
+    ReconnectPolicy copy() {
+        ReconnectPolicy out = new ReconnectPolicy()
+        out._initialDelayMillis = self._initialDelayMillis
+        out._maxDelayMillis = self._maxDelayMillis
+        out._multiplier = self._multiplier
+        out._maxAttempts = self._maxAttempts
+        out._jitter = self._jitter
+        return out
+    }
+}
+
+// ---------- WebSocketClient ----------
+class WebSocketClient {
+    final WebSocketOptions _options
+    final ReconnectPolicy _policy
+    WebSocket? _socket
+    Uri? _uri
+    WebSocketClientState _state
+    Bool _open
+    Int _attempt
+
+    WebSocketClient(WebSocketOptions options, ReconnectPolicy policy) {
+        if options == null || policy == null { throw "WebSocketClient: null argument" }
+        self._options = options.copy()
+        self._policy = policy.copy()
+        self._socket = null
+        self._uri = null
+        self._state = WebSocketClientState.Idle
+        self._open = true
+        self._attempt = 0
+    }
+
+    Result<WebSocket, Error> connect(Context context, Uri uri) {
+        if context == null || uri == null { throw "WebSocketClient.connect: null argument" }
+        if !self._open {
+            return Err(new BasicError(ErrorKind.Unavailable, "WebSocketClient: closed"))
+        }
+        self._uri = uri
+        self._state = WebSocketClientState.Connecting
+        Result<WebSocket, Error> connected = WebSocket.connect(context, uri, self._options)
+        if connected.isErr() {
+            self._state = WebSocketClientState.Idle
+            return Err(connected.error())
+        }
+        self._socket = connected.value()
+        self._state = WebSocketClientState.Open
+        self._attempt = 0
+        return Ok(self._socket as WebSocket)
+    }
+
+    WebSocket? socket() { return self._socket }
+
+    WebSocketClientState state() { return self._state }
+
+    Result<WebSocket, Error> reconnect(Context context) {
+        if context == null { throw "WebSocketClient.reconnect: null context" }
+        if !self._open {
+            return Err(new BasicError(ErrorKind.Unavailable, "WebSocketClient: closed"))
+        }
+        if self._uri == null {
+            return Err(new BasicError(ErrorKind.Unavailable, "WebSocketClient: no previous URI"))
+        }
+        if self._socket != null {
+            WebSocket previous = self._socket as WebSocket
+            previous.close(Context.background(), WebSocketCloseCode.Normal, "reconnect")
+            self._socket = null
+        }
+        self._state = WebSocketClientState.Reconnecting
+        Error? lastError = null
+        while self._policy.shouldRetry(self._attempt) {
+            Long delay = self._policy.delayMillis(self._attempt)
+            self._attempt = self._attempt + 1
+            Result<Unit, Error> slept = sleepContext(context, durationOfMillis(delay))
+            if slept.isErr() { return Err(slept.error()) }
+            Result<WebSocket, Error> connected = WebSocket.connect(context, self._uri as Uri, self._options)
+            if connected.isOk() {
+                self._socket = connected.value()
+                self._state = WebSocketClientState.Open
+                self._attempt = 0
+                return Ok(self._socket as WebSocket)
+            }
+            lastError = connected.error()
+        }
+        self._state = WebSocketClientState.Idle
+        if lastError != null { return Err(lastError as Error) }
+        return Err(new BasicError(ErrorKind.Unavailable, "WebSocketClient: retry limit reached"))
+    }
+
+    WebSocketStats stats() {
+        if self._socket == null { return new WebSocketStats() }
+        WebSocket current = self._socket as WebSocket
+        return current.stats()
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        if self._socket != null {
+            WebSocket current = self._socket as WebSocket
+            current.close(Context.background(), WebSocketCloseCode.Normal, "client close")
+        }
+        self._socket = null
+        self._state = WebSocketClientState.Closed
+        return Ok()
     }
 }
