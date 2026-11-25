@@ -12,6 +12,20 @@
 
 ---
 
+## 0.5 实现状态（M21.6）
+
+已实现核心 3/7：`Locale`、`PluralRules`、`NumberFormat`；
+MessageCatalog/MessageFormatter/Translator/DateFormat 留 M21.7。
+
+- `Locale`：BCP47 子集 `lang[-Country][-variant]`，支持 `und`/变体/3 位数字国家；
+- `PluralRules`：en/de/es/fr/it/pt/nl/sv、ru/uk、pl、ar、ja/zh/ko/th/vi/id/ms/tr、
+  其余 locale 退化 other；
+- `NumberFormat`：`#`/`0`/`,`/`.` 子集、locale 分隔符（en/de/fr/ru 等）、half-up 舍入、
+  NaN/∞/-∞、严格 parse 分组；
+- 因编译器不支持方法重载，`format(Long)`/`format(Double)` 以
+  `formatLong`/`formatDouble` 命名；`Locale.of(language,country)` 以 `ofWithCountry` 提供；
+- 不做全量 CLDR、脚本/扩展段、货币/百分比模式。
+
 ## 1. 包定位
 
 `xdk.i18n` 提供显式 locale 驱动的消息目录、模板格式化、复数选择、数字/日期本地化：

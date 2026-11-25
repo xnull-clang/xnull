@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 41 包 / 346 类型；`design` 21 包 / 189 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 42 包 / 353 类型；`design` 20 包 / 182 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,9 +18,9 @@
 
 **没有全部做完。**
 
-- 76 个包中：**41 个 implemented、21 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**42 个 implemented、20 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
-- 已实现的 41 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
+- 已实现的 42 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
@@ -38,13 +38,13 @@
 | L4 数据/编码 | 12 | 76 | 0 | 11 | 1 |
 | L5 网络/数据 | 9 | 125 | 0 | 8 | 1 |
 | L6 平台/计算 | 17 | 93 | 0 | 7 | 10 |
-| L7 应用服务 | 12 | 82 | 0 | 11 | 1 |
+| L7 应用服务 | 12 | 82 | 0 | 12 | 0 |
 | L8 解决方案 | 10 | 128 | 0 | 2 | 8 |
-| **合计** | **76** | **704** | **14** | **41** | **21** |
+| **合计** | **76** | **704** | **14** | **42** | **20** |
 
 ---
 
-## 3. 已实现包（41）
+## 3. 已实现包（42）
 
 | 包 | 文档类型 | 真实范围 / 边界 |
 | --- | ---: | --- |
@@ -74,6 +74,7 @@
 | `xdk.schedule` | 8 | 实现 8/8：cron/一次性/固定频率/固定延迟、JobHandle、单循环调度；无持久化/多 worker |
 | `xdk.event` | 3 | 实现 3/3：同步 EventBus、精确 topic、锁外回调、首错短路 |
 | `xdk.terminal` | 8 | 实现 8/8：Color/Ansi/Style/Terminal/Table + ProgressBar/Spinner/Prompt |
+| `xdk.i18n` | 7 | 实现 3/7：Locale/PluralRules/NumberFormat；Catalog/Formatter/Translator/DateFormat planned |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |
@@ -92,14 +93,13 @@
 
 ---
 
-## 4. 仅设计、未实现（21）
+## 4. 仅设计、未实现（20）
 
 | 层 | 包 |
 | --- | --- |
 | L4 | `xdk.reflect` |
 | L5 | `xdk.net.tls` |
 | L6 | `xdk.os.host`、`xdk.os.hardware`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
-| L7 | `xdk.i18n` |
 | L8 | `xdk.jsonrpc`、`xdk.mcp`、`xdk.ml`、`xdk.numerics`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |
 
 这些包在 `docs/design/` 下有合同/类型文档，但 `src/xdk/` 无实现或仅有设计占位。

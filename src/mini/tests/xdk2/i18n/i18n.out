@@ -1,0 +1,16 @@
+locale=en-US,de-CH-1901,es-419,und,true,en,US,1901
+locale-parse=true,true,true,true,true
+locale-equals=true,false,fr,pt-BR
+plural-en=other,one,other,other,one
+plural-fr=one,one,one,other
+plural-ru=one,few,few,many,many,one,few,many,other
+plural-pl=one,few,many,many,few
+plural-ar=zero,one,two,few,many,other
+plural-other=other,other,other,other
+plural-select=ONE,FEW,OTHER,true,invalid_argument
+number=12,345.68,12.345,68,12 345,68,12 345,68,42.00,-1,234.00
+number-decimal=1,234.5,0,2,#,##0.###,,,.
+number-special=NaN,∞,-∞,1.01,0.00
+number-parse=true,12,345.68,true,12.345,68,true,12 345,68
+number-invalid=invalid_argument,invalid_argument,invalid_argument,invalid_argument
+number-pattern=8,0,true
