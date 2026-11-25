@@ -57,7 +57,7 @@ xdk.device	L6	9	src/xdk/device/Device.x	design
 xdk.validate	L7	8	src/xdk/validate/Validate.x	implemented
 xdk.cache	L7	4	src/xdk/cache/Cache.x	implemented
 xdk.queue	L7	5	src/xdk/queue/Queue.x	implemented
-xdk.schedule	L7	8	src/xdk/schedule/Schedule.x	design
+xdk.schedule	L7	8	src/xdk/schedule/Schedule.x	implemented
 xdk.event	L7	3	src/xdk/event/Event.x	design
 xdk.resilience	L7	7	src/xdk/resilience/Resilience.x	implemented
 xdk.metrics	L7	11	src/xdk/metrics/Metrics.x	implemented

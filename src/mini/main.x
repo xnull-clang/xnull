@@ -14377,6 +14377,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.queue" {
         return "queue/Queue.x"
     }
+    if pkg == "xdk.schedule" {
+        return "schedule/Schedule.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

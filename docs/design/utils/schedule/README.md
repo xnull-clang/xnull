@@ -11,6 +11,19 @@
 
 ---
 
+## 0.5 实现状态（M21.2）
+
+已实现 `ScheduleKind`、`MisfirePolicy`、`CronExpression`、`Schedule`、`Job`、
+`JobHandle`、`SchedulerOptions`、`Scheduler`（8/8）。
+
+- Cron 支持 5 字段、`*`/`n`/`a-b`/`a,b`/`*/n`/`a-b/n`；DOM/DOW 同时受限按 AND；
+  按分钟遍历，上限 5 年；
+- `Scheduler` 单循环、TaskGroup 后台任务；`RuntimeMonitor` 等待，取消/新增唤醒；
+- 默认 `MisfirePolicy.Skip`；FireOnce/CatchUp 为简化实现，`catchUpLimit` 暂未强制；
+- `workerCount` 保留但当前单循环串行执行；`shutdownTimeoutMillis` 暂未用于硬超时；
+- 静态工厂 `cronExpressionOf` 因编译器不支持与 getter 重载而显式命名；
+- 不做持久化/分布式/多 worker 并行。
+
 ## 1. 包定位
 
 命名作业调度：cron、一次性、固定频率、固定延迟、作业句柄、并发上限、misfire 策略、关闭。

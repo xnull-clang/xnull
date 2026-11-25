@@ -1,0 +1,21 @@
+kind=once,fixed_rate,fixed_delay,cron
+misfire=skip,fire_once,catch_up
+cron-parse=*/5 * * * *,cron(*/5 * * * *)
+cron-next=1704067500000,true
+cron-matches=true,true,false
+cron-nextN=3,1704067500000,1704067800000,1704068100000
+cron-daily=1704074400000,true
+cron-month=1706745600000,true
+cron-dow=1704585600000,true
+cron-zone=1704124800000,true
+cron-invalid=true,true,true,true,true
+schedule=once,50,1234,true,100,10,100,10,cron,true
+schedule-text=once after 50|fixedRate initial=10 period=100|fixedDelay initial=10 delay=100|cron(*/5 * * * *)
+options=1,1024,skip,UTC,30000,10
+options-copy=1,3,1024,7,10,2
+sched-schedule=true,1,39,1024
+sched-fixed=true,true,true,true,false
+sched-trigger=true,1
+sched-cron=true,1,cron
+sched-shutdown=true,true,true,unavailable,unavailable
+sched-max=true,true,busy
