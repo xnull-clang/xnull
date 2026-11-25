@@ -1,0 +1,9 @@
+instant=0,1234,-5,1,1,-1
+instant-text=instant(1234ms),true,false
+instant-seconds=2000,0,-2000
+instant-math=1500,750,true,true,-1,0,1
+instant-datetime=1970-01-01T00:00:00.000,1970-01-02T00:00:00.000
+instant-now=true,true
+timezone=UTC,0,UTC,UTC+08:00,28800000,UTC-05:30,UTC+00:30,UTC+00:00,UTC+18:00
+timezone-offsetAt=28800000,-19800000,0
+timezone-equals=true,false,true,false,UTC

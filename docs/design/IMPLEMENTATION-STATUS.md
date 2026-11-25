@@ -107,7 +107,7 @@
 
 `xdk.runtime`、`xdk.errors`、`xdk.meta`、`xdk.bytes`、`xdk.text`、`xdk.collections`、`xdk.math`、`xdk.time`、`xdk.io`、`xdk.fs`、`xdk.sys`、`xdk.log`、`xdk.config`、`xdk.cli`。
 
-状态以 `docs/design/core/STATUS.md` 为准：多数 Verified（mini），`text`/`collections`/`io`/`fs`/`sys` 有 Partial 边界。`xdk.runtime` 本轮新增 `RuntimeMonitor` 与健康面实现。
+状态以 `docs/design/core/STATUS.md` 为准：多数 Verified（mini），`text`/`collections`/`io`/`fs`/`sys` 有 Partial 边界。`xdk.runtime` 本轮新增 `RuntimeMonitor.waitDeadline`；`xdk.time` 新增 `Instant`/`TimeZone`（UTC/固定偏移，M21.0）。
 
 ---
 

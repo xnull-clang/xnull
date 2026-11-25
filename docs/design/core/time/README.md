@@ -11,6 +11,16 @@
 
 ---
 
+## 0.5 实现状态（M21.0）
+
+`Instant` 与 `TimeZone` 已实现：
+
+- `Instant`：epoch 毫秒/秒、now、plus/minus、isBefore/isAfter/compare、toDateTime、equals/toString/copy；
+  `ofEpochSeconds` 乘法溢出 panic；
+- `TimeZone`：`utc()` 与 `fixed(offsetMillis)`（±18h）；`offsetAt`、abbreviation 同 id；
+  固定偏移 ID 为 `UTC±HH:MM`；`utc()` 的 ID/abbreviation 为 `UTC`；
+- 不实现 IANA/DST/历史偏移/格式化；Timer 与格式解析仍按原状态。
+
 ## 1. 包定位
 
 `xdk.time` 提供时钟、时长、时间点、日期、时间、时区、计时器：
