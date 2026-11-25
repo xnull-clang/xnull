@@ -49,6 +49,9 @@ TOML 1.0.0 解析/生成，值树复用 [`xdk.codec`](../codec/README.md)：
 
 共 2/2 个类型文件；README 索引与文件一一对应。
 
+实现状态（M18.3）：`Toml`、`TomlOptions` implemented；支持子集见 [`Toml.md`](Toml.md)，
+日期/时间、多行字符串、`inf`/`nan`、null 均显式返回 `Unsupported`。
+
 X：日期时间类型、`inf`/`nan` 表示、注释保留、流式 Reader、任意精度整数。
 
 ---

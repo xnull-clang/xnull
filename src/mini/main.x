@@ -14341,6 +14341,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.compress" || pkg.startsWith("xdk.compress.") {
         return "compress/Compress.x"
     }
+    if pkg == "xdk.toml" || pkg.startsWith("xdk.toml.") {
+        return "toml/Toml.x"
+    }
     if pkg == "xdk.uuid" || pkg.startsWith("xdk.uuid.") {
         return "uuid/Uuid.x"
     }

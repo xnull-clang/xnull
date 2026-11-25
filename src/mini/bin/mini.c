@@ -17441,6 +17441,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.compress")) || xn_str_startswith(pkg, rt_string_from_c("xdk.compress.")))) {
     return rt_string_from_c("compress/Compress.x");
   }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.toml")) || xn_str_startswith(pkg, rt_string_from_c("xdk.toml.")))) {
+    return rt_string_from_c("toml/Toml.x");
+  }
   if ((xn_str_eq(pkg, rt_string_from_c("xdk.uuid")) || xn_str_startswith(pkg, rt_string_from_c("xdk.uuid.")))) {
     return rt_string_from_c("uuid/Uuid.x");
   }
