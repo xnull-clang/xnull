@@ -14,8 +14,8 @@
 
 ## 0.5 实现状态（M21.6）
 
-已实现核心 3/7：`Locale`、`PluralRules`、`NumberFormat`；
-MessageCatalog/MessageFormatter/Translator/DateFormat 留 M21.7。
+已实现 6/7：`Locale`、`PluralRules`、`NumberFormat`、`MessageCatalog`、
+`MessageFormatter`、`Translator`；DateFormat 依赖 DateTimeFormatter，留 M21.8。
 
 - `Locale`：BCP47 子集 `lang[-Country][-variant]`，支持 `und`/变体/3 位数字国家；
 - `PluralRules`：en/de/es/fr/it/pt/nl/sv、ru/uk、pl、ar、ja/zh/ko/th/vi/id/ms/tr、
@@ -24,7 +24,11 @@ MessageCatalog/MessageFormatter/Translator/DateFormat 留 M21.7。
   NaN/∞/-∞、严格 parse 分组；
 - 因编译器不支持方法重载，`format(Long)`/`format(Double)` 以
   `formatLong`/`formatDouble` 命名；`Locale.of(language,country)` 以 `ofWithCountry` 提供；
-- 不做全量 CLDR、脚本/扩展段、货币/百分比模式。
+- `MessageCatalog`：properties 子集（注释/空行/转义/续行/BOM）、add/get/getOr/remove/merge/copy、
+  load/loadFromReader/parse；重复 key 与冲突 merge 返回 InvalidArgument；
+- `MessageFormatter`：`{name}`/`{0}`、`{{`/`}}`、format/formatArgs/plural/select；
+- `Translator`：多 locale 目录、withCatalog/withLocale 回退链（精确→同语言国家→同语言→root）；
+- 不做全量 CLDR、脚本/扩展段、货币/百分比模式、DateFormat。
 
 ## 1. 包定位
 

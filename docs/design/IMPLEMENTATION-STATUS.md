@@ -74,7 +74,7 @@
 | `xdk.schedule` | 8 | 实现 8/8：cron/一次性/固定频率/固定延迟、JobHandle、单循环调度；无持久化/多 worker |
 | `xdk.event` | 3 | 实现 3/3：同步 EventBus、精确 topic、锁外回调、首错短路 |
 | `xdk.terminal` | 8 | 实现 8/8：Color/Ansi/Style/Terminal/Table + ProgressBar/Spinner/Prompt |
-| `xdk.i18n` | 7 | 实现 3/7：Locale/PluralRules/NumberFormat；Catalog/Formatter/Translator/DateFormat planned |
+| `xdk.i18n` | 7 | 实现 6/7：Locale/PluralRules/NumberFormat/Catalog/Formatter/Translator；DateFormat planned |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |

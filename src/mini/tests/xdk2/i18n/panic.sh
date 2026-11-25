@@ -53,6 +53,71 @@ static Int main(String[] args) {
     } else if name == "numberWithPattern" {
         NumberFormat format = NumberFormat.decimal(Locale.of("en"))
         NumberFormat value = format.withPattern("bad")
+    } else if name == "catalogLocale" {
+        MessageCatalog catalog = new MessageCatalog(null)
+    } else if name == "catalogParseLocale" {
+        Result<MessageCatalog, Error> value = MessageCatalog.parse(null, "a=b")
+    } else if name == "catalogParseText" {
+        Result<MessageCatalog, Error> value = MessageCatalog.parse(Locale.of("en"), null)
+    } else if name == "catalogLoadContext" {
+        Result<MessageCatalog, Error> value = MessageCatalog.load(null, Locale.of("en"),
+            new Path("/tmp/x"))
+    } else if name == "catalogLoadPath" {
+        Result<MessageCatalog, Error> value = MessageCatalog.load(Context.background(),
+            Locale.of("en"), null)
+    } else if name == "catalogReader" {
+        Result<MessageCatalog, Error> value = MessageCatalog.loadFromReader(Context.background(),
+            Locale.of("en"), null)
+    } else if name == "catalogGetKey" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Result<String, Error> value = catalog.get(null)
+    } else if name == "catalogGetOr" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        String value = catalog.getOr(null, "x")
+    } else if name == "catalogMerge" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Result<Int, Error> value = catalog.merge(null, true)
+    } else if name == "formatterLocale" {
+        MessageFormatter formatter = new MessageFormatter(null)
+    } else if name == "formatterTemplate" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        Map<String, String> values = [:]
+        Result<String, Error> value = formatter.format(null, values)
+    } else if name == "formatterValues" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        Result<String, Error> value = formatter.format("x", null)
+    } else if name == "formatterArgs" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        List<String> formatArguments = []
+        Result<String, Error> value = formatter.formatArgs(null, formatArguments)
+    } else if name == "formatterPlural" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        Result<String, Error> value = formatter.plural(1.0, null)
+    } else if name == "formatterSelectValue" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        Map<String, String> cases = [:]
+        Result<String, Error> value = formatter.select(null, cases)
+    } else if name == "formatterSelectCases" {
+        MessageFormatter formatter = new MessageFormatter(Locale.of("en"))
+        Result<String, Error> value = formatter.select("x", null)
+    } else if name == "translatorCatalog" {
+        Translator translator = new Translator(null)
+    } else if name == "translatorKey" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Translator translator = new Translator(catalog)
+        Result<String, Error> value = translator.translate(null)
+    } else if name == "translatorArgs" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Translator translator = new Translator(catalog)
+        Result<String, Error> value = translator.translateWithArgs("k", null)
+    } else if name == "translatorLocale" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Translator translator = new Translator(catalog)
+        Result<Translator, Error> value = translator.withLocale(null)
+    } else if name == "translatorWithCatalog" {
+        MessageCatalog catalog = new MessageCatalog(Locale.of("en"))
+        Translator translator = new Translator(catalog)
+        Translator value = translator.withCatalog(null)
     } else if name == "numberParseNull" {
         NumberFormat format = NumberFormat.decimal(Locale.of("en"))
         Result<Double, Error> value = format.parse(null)
@@ -86,4 +151,25 @@ check_panic numberGrouping "NumberFormat: invalid grouping"
 check_panic numberFraction "NumberFormat: too many fraction digits"
 check_panic numberWithPattern "NumberFormat: pattern has no digit placeholder"
 check_panic numberParseNull "NumberFormat.parse: null text"
+check_panic catalogLocale "MessageCatalog: null locale"
+check_panic catalogParseLocale "MessageCatalog.parse: null argument"
+check_panic catalogParseText "MessageCatalog.parse: null argument"
+check_panic catalogLoadContext "MessageCatalog.load: null argument"
+check_panic catalogLoadPath "MessageCatalog.load: null argument"
+check_panic catalogReader "MessageCatalog.loadFromReader: null argument"
+check_panic catalogGetKey "MessageCatalog.get: null key"
+check_panic catalogGetOr "MessageCatalog.getOr: null argument"
+check_panic catalogMerge "MessageCatalog.merge: null catalog"
+check_panic formatterLocale "MessageFormatter: null locale"
+check_panic formatterTemplate "MessageFormatter.format: null argument"
+check_panic formatterValues "MessageFormatter.format: null argument"
+check_panic formatterArgs "MessageFormatter.formatArgs: null argument"
+check_panic formatterPlural "MessageFormatter.plural: null forms"
+check_panic formatterSelectValue "MessageFormatter.select: null argument"
+check_panic formatterSelectCases "MessageFormatter.select: null argument"
+check_panic translatorCatalog "Translator: null catalog"
+check_panic translatorKey "Translator.translate: null key"
+check_panic translatorArgs "Translator.translateWithArgs: null argument"
+check_panic translatorLocale "Translator.withLocale: null locale"
+check_panic translatorWithCatalog "Translator.withCatalog: null catalog"
 echo "i18n_panic: PASS"

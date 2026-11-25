@@ -6,6 +6,7 @@ package xdk.i18n
 import xdk.errors
 import xdk.math
 import xdk.text
+import xdk.fs
 
 // ---------- Locale ----------
 class Locale {
@@ -593,4 +594,499 @@ static String terminalPad(String text, Int count) {
         index = index + 1
     }
     return result
+}
+
+// ---------- MessageCatalog ----------
+protocol Reader {
+    Result<String?, Error> readLine(Context context);
+}
+
+class MessageCatalog {
+    final Locale _locale
+    final Map<String, String> _messages
+
+    MessageCatalog(Locale locale) {
+        if locale == null { throw "MessageCatalog: null locale" }
+        self._locale = locale
+        Map<String, String> messages = [:]
+        self._messages = messages
+    }
+
+    Locale locale() { return self._locale }
+    Int length() { return self._messages.keys().length() }
+
+    Result<Unit, Error> add(String key, String value) {
+        if key == null || value == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "null catalog entry"))
+        }
+        if key.trim() == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "invalid message key"))
+        }
+        if self._messages.has(key) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "duplicate message: " + key))
+        }
+        self._messages.put(key, value)
+        return Ok()
+    }
+
+    Result<String, Error> get(String key) {
+        if key == null { throw "MessageCatalog.get: null key" }
+        if !self._messages.has(key) {
+            return Err(new BasicError(ErrorKind.NotFound, "missing message: " + key))
+        }
+        return Ok(self._messages.getOr(key, ""))
+    }
+
+    String getOr(String key, String fallback) {
+        if key == null || fallback == null {
+            throw "MessageCatalog.getOr: null argument"
+        }
+        if self._messages.has(key) { return self._messages.getOr(key, "") }
+        return fallback
+    }
+
+    Bool has(String key) {
+        if key == null { return false }
+        return self._messages.has(key)
+    }
+
+    Bool remove(String key) {
+        if key == null { return false }
+        return self._messages.remove(key)
+    }
+
+    Result<Int, Error> merge(MessageCatalog other, Bool overwrite) {
+        if other == null { throw "MessageCatalog.merge: null catalog" }
+        if !self._locale.equals(other.locale()) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "catalog locale mismatch"))
+        }
+        List<String> incoming = other.keys()
+        Int index = 0
+        while index < incoming.length() {
+            String key = incoming.get(index)
+            if self._messages.has(key) && !overwrite {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "duplicate message: " + key))
+            }
+            index = index + 1
+        }
+        Int imported = 0
+        index = 0
+        while index < incoming.length() {
+            String key = incoming.get(index)
+            self._messages.put(key, other.getOr(key, ""))
+            imported = imported + 1
+            index = index + 1
+        }
+        return Ok(imported)
+    }
+
+    Result<Int, Error> mergeDefault(MessageCatalog other) {
+        return self.merge(other, false)
+    }
+
+    List<String> keys() { return self._messages.keys() }
+
+    MessageCatalog copy() {
+        MessageCatalog result = new MessageCatalog(self._locale)
+        List<String> values = self._messages.keys()
+        Int index = 0
+        while index < values.length() {
+            String key = values.get(index)
+            result._messages.put(key, self._messages.getOr(key, ""))
+            index = index + 1
+        }
+        return result
+    }
+
+    static Result<MessageCatalog, Error> load(Context context, Locale locale, Path path) {
+        if context == null || locale == null || path == null {
+            throw "MessageCatalog.load: null argument"
+        }
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "catalog load cancelled"))
+        }
+        Result<File, Error> opened = openFileRead(path.text())
+        if opened.isErr() { return Err(opened.error()) }
+        File file = opened.value()
+        Result<String, Error> text = file.readText()
+        Result<Unit, Error> closed = file.close()
+        if text.isErr() { return Err(text.error()) }
+        if closed.isErr() { return Err(closed.error()) }
+        return MessageCatalog.parse(locale, text.value())
+    }
+
+    static Result<MessageCatalog, Error> loadFromReader(Context context, Locale locale,
+                                                         Reader reader) {
+        if context == null || locale == null || reader == null {
+            throw "MessageCatalog.loadFromReader: null argument"
+        }
+        String text = ""
+        while true {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "catalog load cancelled"))
+            }
+            Result<String?, Error> line = reader.readLine(context)
+            if line.isErr() { return Err(line.error()) }
+            String? value = line.value()
+            if value == null { break }
+            if text != "" { text = text + "\n" }
+            text = text + (value as String)
+        }
+        return MessageCatalog.parse(locale, text)
+    }
+
+    static Result<MessageCatalog, Error> parse(Locale locale, String text) {
+        if locale == null || text == null {
+            throw "MessageCatalog.parse: null argument"
+        }
+        MessageCatalog catalog = new MessageCatalog(locale)
+        List<String> rawLines = []
+        Int start = 0
+        Int index = 0
+        while index <= text.length() {
+            if index == text.length() || text.get(index) == 10 {
+                String line = text.substring(start, index - start)
+                if line.length() > 0 && line.get(line.length() - 1) == 13 {
+                    line = line.substring(0, line.length() - 1)
+                }
+                rawLines.push(line)
+                start = index + 1
+            }
+            index = index + 1
+        }
+        if rawLines.length() > 0 {
+            String first = rawLines.get(0)
+            if first.length() >= 3 && first.get(0) == 239 && first.get(1) == 187 &&
+                first.get(2) == 191 {
+                rawLines.set(0, first.substring(3, first.length() - 3))
+            } else if first.length() > 0 && first.get(0) == 65279 {
+                rawLines.set(0, first.substring(1, first.length() - 1))
+            }
+        }
+        Int lineIndex = 0
+        while lineIndex < rawLines.length() {
+            String logical = rawLines.get(lineIndex)
+            while MessageCatalog.endsWithContinuation(logical) && lineIndex + 1 < rawLines.length() {
+                logical = logical.substring(0, logical.length() - 1) + rawLines.get(lineIndex + 1).trim()
+                lineIndex = lineIndex + 1
+            }
+            lineIndex = lineIndex + 1
+            String trimmed = logical.trim()
+            if trimmed == "" || trimmed.startsWith("#") || trimmed.startsWith("!") {
+                continue
+            }
+            Int separator = MessageCatalog.separatorIndex(trimmed)
+            if separator < 0 {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "line " + str(lineIndex) + ": missing separator"))
+            }
+            String keyText = trimmed.substring(0, separator).trim()
+            String valueText = trimmed.substring(separator + 1, trimmed.length() - separator - 1).trim()
+            Result<String, Error> key = MessageCatalog.decode(keyText)
+            if key.isErr() {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "line " + str(lineIndex) + ": invalid escape"))
+            }
+            Result<String, Error> value = MessageCatalog.decode(valueText)
+            if value.isErr() {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "line " + str(lineIndex) + ": invalid escape"))
+            }
+            if key.value().trim() == "" {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "line " + str(lineIndex) + ": empty key"))
+            }
+            Result<Unit, Error> added = catalog.add(key.value(), value.value())
+            if added.isErr() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "line " + str(lineIndex) + ": duplicate message: " + key.value()))
+            }
+        }
+        return Ok(catalog)
+    }
+
+    private static Bool endsWithContinuation(String line) {
+        Int count = 0
+        Int index = line.length() - 1
+        while index >= 0 && line.get(index) == 92 {
+            count = count + 1
+            index = index - 1
+        }
+        return count % 2 == 1
+    }
+
+    private static Int separatorIndex(String line) {
+        Int index = 0
+        while index < line.length() {
+            Int code = line.get(index)
+            if code == 61 || code == 58 { return index }
+            index = index + 1
+        }
+        return -1
+    }
+
+    private static Result<String, Error> decode(String text) {
+        String result = ""
+        Int index = 0
+        while index < text.length() {
+            Int code = text.get(index)
+            if code != 92 {
+                result = result + text.substring(index, 1)
+                index = index + 1
+                continue
+            }
+            if index + 1 >= text.length() {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "trailing escape"))
+            }
+            Int next = text.get(index + 1)
+            if next == 110 { result = result + "\n" }
+            else if next == 116 { result = result + "\t" }
+            else if next == 114 { result = result + "\r" }
+            else if next == 92 { result = result + "\\" }
+            else if next == 58 { result = result + ":" }
+            else if next == 61 { result = result + "=" }
+            else if next == 35 { result = result + "#" }
+            else if next == 33 { result = result + "!" }
+            else if next == 117 {
+                if index + 5 >= text.length() {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "bad unicode escape"))
+                }
+                Int value = 0
+                Int digitIndex = index + 2
+                Int digitEnd = index + 6
+                while digitIndex < digitEnd {
+                    Int digit = MessageCatalog.hexValue(text.get(digitIndex))
+                    if digit < 0 {
+                        return Err(new BasicError(ErrorKind.InvalidArgument, "bad unicode escape"))
+                    }
+                    value = value * 16 + digit
+                    digitIndex = digitIndex + 1
+                }
+                result = result + fromCodePoint(value)
+                index = index + 6
+                continue
+            } else {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "invalid escape"))
+            }
+            index = index + 2
+        }
+        return Ok(result)
+    }
+
+    private static Int hexValue(Int code) {
+        if code >= 48 && code <= 57 { return code - 48 }
+        if code >= 65 && code <= 70 { return code - 55 }
+        if code >= 97 && code <= 102 { return code - 87 }
+        return -1
+    }
+}
+
+// ---------- MessageFormatter ----------
+class MessageFormatter {
+    final Locale _locale
+    final PluralRules _pluralRules
+
+    MessageFormatter(Locale locale) {
+        if locale == null { throw "MessageFormatter: null locale" }
+        self._locale = locale
+        self._pluralRules = new PluralRules(locale)
+    }
+
+    Locale locale() { return self._locale }
+
+    Result<String, Error> format(String template, Map<String, String> values) {
+        if template == null || values == null {
+            throw "MessageFormatter.format: null argument"
+        }
+        String result = ""
+        Int index = 0
+        while index < template.length() {
+            String current = template.substring(index, 1)
+            if current == "{" {
+                if index + 1 < template.length() && template.substring(index + 1, 1) == "{" {
+                    result = result + "{"
+                    index = index + 2
+                } else {
+                    Int close = index + 1
+                    while close < template.length() && template.substring(close, 1) != "}" {
+                        close = close + 1
+                    }
+                    if close >= template.length() {
+                        return Err(new BasicError(ErrorKind.InvalidArgument, "unclosed placeholder"))
+                    }
+                    String name = template.substring(index + 1, close - index - 1)
+                    if !MessageFormatter.validName(name) {
+                        return Err(new BasicError(ErrorKind.InvalidArgument,
+                            "invalid placeholder: " + name))
+                    }
+                    if !values.has(name) {
+                        return Err(new BasicError(ErrorKind.InvalidArgument,
+                            "missing placeholder: " + name))
+                    }
+                    result = result + values.getOr(name, "")
+                    index = close + 1
+                }
+            } else if current == "}" {
+                if index + 1 < template.length() && template.substring(index + 1, 1) == "}" {
+                    result = result + "}"
+                    index = index + 2
+                } else {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "unmatched '}'"))
+                }
+            } else {
+                result = result + current
+                index = index + 1
+            }
+        }
+        return Ok(result)
+    }
+
+    Result<String, Error> formatArgs(String template, List<String> arguments) {
+        if template == null || arguments == null {
+            throw "MessageFormatter.formatArgs: null argument"
+        }
+        Map<String, String> values = [:]
+        Int index = 0
+        while index < arguments.length() {
+            values.put(str(index), arguments.get(index))
+            index = index + 1
+        }
+        return self.format(template, values)
+    }
+
+    Result<String, Error> plural(Double count, Map<String, String> forms) {
+        if forms == null { throw "MessageFormatter.plural: null forms" }
+        return self._pluralRules.select(count, forms)
+    }
+
+    Result<String, Error> select(String value, Map<String, String> cases) {
+        if value == null || cases == null {
+            throw "MessageFormatter.select: null argument"
+        }
+        if cases.has(value) { return Ok(cases.getOr(value, "")) }
+        if cases.has("other") { return Ok(cases.getOr("other", "")) }
+        return Err(new BasicError(ErrorKind.InvalidArgument, "missing select branch: " + value))
+    }
+
+    private static Bool validName(String name) {
+        if name == "" { return false }
+        Int index = 0
+        while index < name.length() {
+            Int code = name.get(index)
+            Bool letter = (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+            Bool digit = code >= 48 && code <= 57
+            if !letter && !digit && code != 95 && code != 46 { return false }
+            index = index + 1
+        }
+        return true
+    }
+}
+
+// ---------- Translator ----------
+class Translator {
+    final List<MessageCatalog> _catalogs
+    final MessageCatalog _active
+    final MessageFormatter _formatter
+
+    Translator(MessageCatalog catalog) {
+        if catalog == null { throw "Translator: null catalog" }
+        MessageCatalog copied = catalog.copy()
+        List<MessageCatalog> catalogs = []
+        catalogs.push(copied)
+        self._catalogs = catalogs
+        self._active = copied
+        self._formatter = new MessageFormatter(copied.locale())
+    }
+
+    private Translator(List<MessageCatalog> catalogs, MessageCatalog active) {
+        if catalogs == null || active == null {
+            throw "Translator: null argument"
+        }
+        self._catalogs = catalogs.copy()
+        self._active = active
+        self._formatter = new MessageFormatter(active.locale())
+    }
+
+    Result<String, Error> translate(String key) {
+        if key == null { throw "Translator.translate: null key" }
+        return self._active.get(key)
+    }
+
+    Result<String, Error> translateWithArgs(String key, List<String> arguments) {
+        if key == null || arguments == null {
+            throw "Translator.translateWithArgs: null argument"
+        }
+        Result<String, Error> template = self._active.get(key)
+        if template.isErr() {
+            return Err(new BasicError(ErrorKind.NotFound, "missing message: " + key))
+        }
+        return self._formatter.formatArgs(template.value(), arguments)
+    }
+
+    Result<Translator, Error> withLocale(Locale locale) {
+        if locale == null { throw "Translator.withLocale: null locale" }
+        Int index = 0
+        while index < self._catalogs.length() {
+            MessageCatalog candidate = self._catalogs.get(index)
+            if candidate.locale().equals(locale) {
+                return Ok(new Translator(self._catalogs, candidate))
+            }
+            index = index + 1
+        }
+        if locale.country() != "" {
+            index = 0
+            while index < self._catalogs.length() {
+                MessageCatalog candidate = self._catalogs.get(index)
+                Locale value = candidate.locale()
+                if value.language() == locale.language() &&
+                    value.country() == locale.country() && value.variant() == "" {
+                    return Ok(new Translator(self._catalogs, candidate))
+                }
+                index = index + 1
+            }
+        }
+        index = 0
+        while index < self._catalogs.length() {
+            MessageCatalog candidate = self._catalogs.get(index)
+            Locale value = candidate.locale()
+            if value.language() == locale.language() &&
+                value.country() == "" && value.variant() == "" {
+                return Ok(new Translator(self._catalogs, candidate))
+            }
+            index = index + 1
+        }
+        index = 0
+        while index < self._catalogs.length() {
+            MessageCatalog candidate = self._catalogs.get(index)
+            if candidate.locale().isRoot() {
+                return Ok(new Translator(self._catalogs, candidate))
+            }
+            index = index + 1
+        }
+        return Err(new BasicError(ErrorKind.NotFound, "no catalog for locale: " + locale.toString()))
+    }
+
+    Translator withCatalog(MessageCatalog catalog) {
+        if catalog == null { throw "Translator.withCatalog: null catalog" }
+        MessageCatalog copied = catalog.copy()
+        List<MessageCatalog> next = []
+        Bool replaced = false
+        MessageCatalog active = self._active
+        Int index = 0
+        while index < self._catalogs.length() {
+            MessageCatalog current = self._catalogs.get(index)
+            if current.locale().equals(copied.locale()) {
+                next.push(copied)
+                if self._active.locale().equals(copied.locale()) { active = copied }
+                replaced = true
+            } else {
+                next.push(current.copy())
+            }
+            index = index + 1
+        }
+        if !replaced { next.push(copied) }
+        return new Translator(next, active)
+    }
+
+    Locale locale() { return self._active.locale() }
+    MessageCatalog catalog() { return self._active.copy() }
 }
