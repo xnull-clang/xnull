@@ -2569,13 +2569,49 @@ class Mono {
     // "clone every method of every instance" an infinite type family.  Keep
     // only methods reachable from source calls (plus self/same-class calls)
     // for each instantiation; fields, constructors, and static methods stay.
+    // 判断 usedType 模板是否适用于 iname：泛型参数位置视为通配，具体实参必须相等。
+    Bool typeTemplateMatches(String usedType, String iname) {
+        if self.genericBase(usedType) != self.genericBase(iname) {
+            return false
+        }
+        List<String> usedArgs = self.genericArgsOf(usedType)
+        List<String> actualArgs = self.genericArgsOf(iname)
+        if usedArgs.length() != actualArgs.length() {
+            return false
+        }
+        List<String> params = []
+        AstNode gc = self.findGenericClass(self.genericBase(usedType))
+        if gc.kind != "None" {
+            params = self.typeParams(gc)
+        }
+        Int i = 0
+        while i < usedArgs.length() {
+            String ua = usedArgs.get(i).trim()
+            String aa = actualArgs.get(i).trim()
+            Bool wildcard = false
+            Int pi = 0
+            while pi < params.length() {
+                if params.get(pi) == ua { wildcard = true }
+                pi = pi + 1
+            }
+            if !wildcard && ua != aa {
+                return false
+            }
+            i = i + 1
+        }
+        return true
+    }
+
     List<String> reachableMethods(AstNode cls, String iname, String sname) {
         List<String> out = []
         Int i = 0
         while i < self.usedMethodTypes.length() {
             String usedType = self.usedMethodTypes.get(i)
-            if (usedType == iname || self.mangledTypeName(usedType) == sname) &&
-               !self.listHas(out, self.usedMethodNames.get(i)) {
+            Bool sameFamily = usedType == iname || self.mangledTypeName(usedType) == sname
+            if !sameFamily && self.hasGenericSyntax(iname) && self.hasGenericSyntax(usedType) {
+                sameFamily = self.typeTemplateMatches(usedType, iname)
+            }
+            if sameFamily && !self.listHas(out, self.usedMethodNames.get(i)) {
                 out.push(self.usedMethodNames.get(i))
             }
             i = i + 1
@@ -2640,8 +2676,10 @@ class Mono {
 
     Void scanUsed(AstNode n) {
         if n.kind == "MethodCall" && n.kids.length() > 0 {
-            String recv = self.simpleExprType(n.kids.get(0))
-            if recv != "Any" {
+            AstNode recvNode = n.kids.get(0)
+            Bool selfReceiver = recvNode.kind == "Name" && recvNode.text == "self"
+            String recv = self.simpleExprType(recvNode)
+            if !selfReceiver && recv != "Any" {
                 self.usedMethodTypes.push(recv)
                 self.usedMethodNames.push(n.text)
             }
@@ -2651,9 +2689,9 @@ class Mono {
             if dot > 0 {
                 String recv = n.text.substring(0, dot)
                 String mth = n.text.substring(dot + 1, n.text.length() - dot - 1)
-                AstNode recvNode = new AstNode("Name", recv, n.line, n.col)
-                String rt = self.simpleExprType(recvNode)
-                if rt != "Any" {
+                Bool selfReceiver = recv == "self"
+                String rt = self.pathTypeOf(recv)
+                if !selfReceiver && rt != "Any" {
                     self.usedMethodTypes.push(rt)
                     self.usedMethodNames.push(mth)
                 }
@@ -2678,7 +2716,21 @@ class Mono {
                 while j < n.kids.length() {
                     AstNode k = n.kids.get(j)
                     if k.kind == "Method" || k.kind == "Ctor" {
+                        Bool pushedSelf = false
+                        if k.kind == "Method" && !self.methodIsStatic(k) {
+                            String selfTy = n.text
+                            if self.hasTypeParams(n) {
+                                selfTy = n.text + "<" + self.joinTypeArgs(self.typeParams(n)) + ">"
+                            }
+                            self.scopeNames.push("self")
+                            self.scopeTypes.push(selfTy)
+                            pushedSelf = true
+                        }
                         self.collectUsedIn(k)
+                        if pushedSelf {
+                            self.scopeNames.remove(self.scopeNames.length() - 1)
+                            self.scopeTypes.remove(self.scopeTypes.length() - 1)
+                        }
                     }
                     j = j + 1
                 }
@@ -2794,6 +2846,72 @@ class Mono {
         return "Any"
     }
 
+    String fieldTypeOf(String recvType, String fname) {
+        if self.hasGenericSyntax(recvType) {
+            String base = self.genericBase(recvType)
+            AstNode gc = self.findGenericClass(base)
+            if gc.kind == "None" {
+                return "Any"
+            }
+            List<String> names = self.typeParams(gc)
+            List<String> args = self.genericArgsOf(recvType)
+            if names.length() != args.length() {
+                return "Any"
+            }
+            Int i = 0
+            while i < gc.kids.length() {
+                AstNode k = gc.kids.get(i)
+                if k.kind == "Field" {
+                    List<String> parts = k.text.split(" ")
+                    if parts.length() >= 2 && parts.get(1) == fname {
+                        return self.substAll(parts.get(0), names, args)
+                    }
+                }
+                i = i + 1
+            }
+            return "Any"
+        }
+        AstNode cls = self.findClass(recvType)
+        Int i = 0
+        while i < cls.kids.length() {
+            AstNode k = cls.kids.get(i)
+            if k.kind == "Field" {
+                List<String> parts = k.text.split(" ")
+                if parts.length() >= 2 && parts.get(1) == fname {
+                    return parts.get(0)
+                }
+            }
+            i = i + 1
+        }
+        return "Any"
+    }
+
+    String pathTypeOf(String path) {
+        List<String> parts = path.split(".")
+        if parts.length() == 0 {
+            return "Any"
+        }
+        String head = parts.get(0).trim()
+        String current = "Any"
+        Int i = self.scopeNames.length() - 1
+        while i >= 0 {
+            if self.scopeNames.get(i) == head { current = self.scopeTypes.get(i) }
+            i = i - 1
+        }
+        if current == "Any" {
+            AstNode gc = self.findGenericClass(head)
+            AstNode c = self.findClass(head)
+            if gc.kind != "None" { current = head }
+            if c.kind != "None" { current = head }
+        }
+        Int pi = 1
+        while pi < parts.length() && current != "Any" {
+            current = self.fieldTypeOf(current, parts.get(pi).trim())
+            pi = pi + 1
+        }
+        return current
+    }
+
     String simpleExprType(AstNode n) {
         if n.kind == "Int" { return "Int" }
         if n.kind == "String" { return "String" }
@@ -2818,6 +2936,14 @@ class Mono {
             if lt == "Double" || rt == "Double" || lt == "Float" || rt == "Float" { return "Double" }
             if lt == "Long" || rt == "Long" { return "Long" }
             if lt == "Int" && rt == "Int" { return "Int" }
+        }
+        if n.kind == "Member" && n.kids.length() > 0 {
+            String recvType = self.simpleExprType(n.kids.get(0))
+            if recvType != "Any" {
+                String ft = self.fieldTypeOf(recvType, n.text)
+                if ft != "Any" { return ft }
+            }
+            return "Any"
         }
         if n.kind == "MethodCall" {
             if n.kids.length() > 0 {
@@ -7399,6 +7525,7 @@ class CGen {
     final List<String> ffiCallErrRets
     final List<String> genericMaps
     final List<String> genericSets
+    String lambdaSelfType
 
     CGen(AstNode program, List<String> callNames, List<String> callCNames, List<String> callRets, List<String> callSpecs, List<String> callErrParams, List<String> callErrRets) {
         self.program = program
@@ -7428,6 +7555,7 @@ class CGen {
         self.ffiCallErrRets = callErrRets
         self.genericMaps = []
         self.genericSets = []
+        self.lambdaSelfType = ""
     }
 
     Bool hasError() {
@@ -8320,8 +8448,141 @@ class CGen {
         }
     }
 
+    // 方法形参类型，用于给 lambda 实参补上下文；此阶段类型已完成实例化。
+    String methodParamTypeOf(String recvType, String mname, Int argIndex) {
+        if recvType == "" || recvType == "Any" {
+            return ""
+        }
+        AstNode c = self.classNode(recvType)
+        if c.kind != "None" {
+            Int i = 0
+            while i < c.kids.length() {
+                AstNode m = c.kids.get(i)
+                if m.kind == "Method" && m.text == mname {
+                    List<AstNode> ps = self.paramsOf(m)
+                    if argIndex < 0 || argIndex >= ps.length() {
+                        return ""
+                    }
+                    List<String> parts = ps.get(argIndex).text.split(" ")
+                    if parts.length() >= 2 {
+                        return parts.get(0)
+                    }
+                }
+                i = i + 1
+            }
+            return ""
+        }
+        Int pi = 0
+        while pi < self.program.kids.length() {
+            AstNode pn = self.program.kids.get(pi)
+            if pn.kind == "Protocol" && pn.text == recvType {
+                Int i = 0
+                while i < pn.kids.length() {
+                    AstNode sig = pn.kids.get(i)
+                    if sig.kind == "Sig" && sig.text == mname {
+                        List<AstNode> ps = self.paramsOf(sig)
+                        if argIndex < 0 || argIndex >= ps.length() {
+                            return ""
+                        }
+                        List<String> parts = ps.get(argIndex).text.split(" ")
+                        if parts.length() >= 2 {
+                            return parts.get(0)
+                        }
+                    }
+                    i = i + 1
+                }
+            }
+            pi = pi + 1
+        }
+        return ""
+    }
+
+    // 为 lambda 上下文补类型：只用声明信息（Name/Member/New），不求值。
+    String lambdaExprType(AstNode n) {
+        if n.kind == "Int" || n.kind == "Int32" || n.kind == "Int64" { return "Int" }
+        if n.kind == "Long" { return "Long" }
+        if n.kind == "Double" || n.kind == "Float" { return "Double" }
+        if n.kind == "Bool" { return "Bool" }
+        if n.kind == "Char" { return "Char" }
+        if n.kind == "String" { return "String" }
+        if n.kind == "Null" { return "Null" }
+        if n.kind == "New" { return n.text }
+        if n.kind == "Name" {
+            Int vi = self.varIndex(n.text)
+            if vi >= 0 { return self.varTypes.get(vi) }
+            return "Any"
+        }
+        if n.kind == "Member" && n.kids.length() > 0 {
+            String recv = self.lambdaExprType(n.kids.get(0))
+            if recv != "Any" {
+                String ft = self.fieldType(recv, n.text)
+                if ft != "Any" { return ft }
+            }
+        }
+        if n.kind == "MethodCall" && n.kids.length() > 0 {
+            AstNode c = self.classNode(self.lambdaExprType(n.kids.get(0)))
+            if c.kind != "None" {
+                Int i = 0
+                while i < c.kids.length() {
+                    AstNode m = c.kids.get(i)
+                    if m.kind == "Method" && m.text == n.text {
+                        return self.retNode(m).text
+                    }
+                    i = i + 1
+                }
+            }
+        }
+        return "Any"
+    }
+
+    String lambdaPathType(String path) {
+        List<String> parts = path.split(".")
+        if parts.length() == 0 { return "Any" }
+        String current = "Any"
+        Int vi = self.varIndex(parts.get(0).trim())
+        if vi >= 0 { current = self.varTypes.get(vi) }
+        if current == "Any" {
+            AstNode c = self.classNode(parts.get(0).trim())
+            if c.kind != "None" { current = parts.get(0).trim() }
+        }
+        Int pi = 1
+        while pi < parts.length() && current != "Any" {
+            current = self.fieldType(current, parts.get(pi).trim())
+            pi = pi + 1
+        }
+        return current
+    }
+
+    Void collectLambdaScope(AstNode n) {
+        if n.kind == "Param" || n.kind == "Local" || n.kind == "Field" {
+            List<String> parts = n.text.split(" ")
+            if parts.length() >= 2 {
+                self.addVar(parts.get(0), parts.get(1))
+            }
+        }
+        Int i = 0
+        while i < n.kids.length() {
+            self.collectLambdaScope(n.kids.get(i))
+            i = i + 1
+        }
+    }
+
     Void collectLambdas(AstNode n, String expected) {
-        if n.kind == "Func" || n.kind == "Method" {
+        if (n.kind == "Func" || n.kind == "Class" || n.kind == "Struct") && hasTypeParams(n) {
+            return
+        }
+        if n.kind == "Class" || n.kind == "Struct" {
+            String oldSelfType = self.lambdaSelfType
+            self.lambdaSelfType = n.text
+            Int ci = 0
+            while ci < n.kids.length() {
+                self.collectLambdas(n.kids.get(ci), "")
+                ci = ci + 1
+            }
+            self.lambdaSelfType = oldSelfType
+            return
+        }
+        if n.kind == "Func" || n.kind == "Method" || n.kind == "Ctor" {
             String retTy = self.retNode(n).text
             Int ri = 0
             while ri < n.kids.length() {
@@ -8330,6 +8591,18 @@ class CGen {
                 }
                 ri = ri + 1
             }
+            Int mark = self.vars.length()
+            if n.kind == "Method" && self.lambdaSelfType != "" {
+                self.addVar(self.lambdaSelfType, "self")
+            }
+            self.collectLambdaScope(n)
+            Int fi = 0
+            while fi < n.kids.length() {
+                self.collectLambdas(n.kids.get(fi), "")
+                fi = fi + 1
+            }
+            self.popTo(mark)
+            return
         }
         if n.kind == "Lambda" {
             self.registerLambda(n, expected)
@@ -8365,6 +8638,25 @@ class CGen {
                 self.collectLambdas(n.kids.get(0), "")
                 return
             }
+            String recvTy = ""
+            if n.kids.length() > 0 {
+                recvTy = self.lambdaExprType(n.kids.get(0))
+            }
+            Int argIndex = 0
+            Int mi = 1
+            while mi < n.kids.length() {
+                AstNode arg = n.kids.get(mi)
+                if arg.kind == "TypeArgs" {
+                    mi = mi + 1
+                    continue
+                }
+                String exp = self.methodParamTypeOf(recvTy, n.text, argIndex)
+                self.collectLambdas(arg, exp)
+                argIndex = argIndex + 1
+                mi = mi + 1
+            }
+            self.collectLambdas(n.kids.get(0), "")
+            return
         }
         if n.kind == "Local" {
             List<String> parts = n.text.split(" ")
@@ -8389,6 +8681,7 @@ class CGen {
             Int dn = lastDot(n.text)
             if dn >= 0 {
                 String dm = n.text.substring(dn + 1, n.text.length() - dn - 1)
+                String recvText = n.text.substring(0, dn)
                 if dm == "withLock" && n.kids.length() > 0 {
                     AstNode lam = n.kids.get(0)
                     self.collectLambdas(lam, "Unit(" + self.lambdaFirstParamType(lam) + ")")
@@ -8399,6 +8692,16 @@ class CGen {
                     AstNode lam = n.kids.get(0)
                     self.collectLambdas(lam, self.spawnLambdaType(lam))
                     self.setLambdaMode(lam, "task")
+                    return
+                }
+                String recvTy = self.lambdaPathType(recvText)
+                if recvTy != "Any" {
+                    Int argIndex = 0
+                    while argIndex < n.kids.length() {
+                        self.collectLambdas(n.kids.get(argIndex),
+                            self.methodParamTypeOf(recvTy, dm, argIndex))
+                        argIndex = argIndex + 1
+                    }
                     return
                 }
             }

@@ -23,5 +23,6 @@ fi
 
 "$HERE/type_is/run.sh"
 "$HERE/generic_lambda/run.sh"
+"$HERE/generic_lambda2/run.sh"
 
 echo "xdk core: PASS"
