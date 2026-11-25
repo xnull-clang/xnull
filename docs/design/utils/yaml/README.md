@@ -57,6 +57,10 @@ Spring Boot 级 YAML 解析/生成，值树复用 [`xdk.codec`](../codec/README.
 
 X：完整 YAML 1.1 canonical equality、复杂键、`!!timestamp`/`!!binary` 保真、profile 表达式 `&`/`|`、占位符解析、流式 Reader、Schema。
 
+实现状态（M18.5）：`Yaml`/`YamlDocument`/`YamlOptions`/`YamlPropertySource`/`YamlVersion` implemented；
+支持块/流式集合、引号/转义、多文档、锚点/别名/合并键、profile 提取、属性扁平化；
+块标量、复杂键、自定义标签和流式 Reader 明确 `Unsupported`/`X`。
+
 ---
 
 ## 4. 顶层函数
