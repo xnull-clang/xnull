@@ -65,6 +65,7 @@
 | `xdk.net.mime` | 2 | MediaType 等 |
 | `xdk.net` | 28 | 实现 12/28：IP/前缀/SocketAddress/TCP 核心；Dns/Udp/连接池/TLS/HTTP2 planned |
 | `xdk.net.websocket` | 12 | 实现 12/12：ws 握手/帧/掩码/分片/关闭、服务端、显式重连客户端 |
+| `xdk.net.service` | 13 | 实现 13/13：服务端/客户端/NetworkService、连接/会话、策略与统计；TLS/多线程/背压队列未实现 |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |

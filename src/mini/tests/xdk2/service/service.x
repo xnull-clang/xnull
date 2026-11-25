@@ -3,6 +3,8 @@ import xdk.net.service
 import xdk.net
 import xdk.errors
 import xdk.bytes
+import xdk.tasks
+import xdk.time
 
 static Error serviceUnavailable(String message) {
     return new BasicError(ErrorKind.Unavailable, message)
@@ -205,6 +207,166 @@ static SocketAddress localAddress() {
 
 static Connection connectionFor(MemoryStream stream) {
     return new Connection(1 as Long, stream, localAddress(), localAddress(), 1024)
+}
+
+
+class EchoServiceHandler implements SessionHandler {
+    List<String> messages
+    Bool opened
+    Bool closed
+
+    EchoServiceHandler() {
+        self.messages = []
+        self.opened = false
+        self.closed = false
+    }
+
+    Result<Unit, Error> onOpen(Context context, Session session) {
+        self.opened = true
+        return Ok()
+    }
+
+    Result<Unit, Error> onMessage(Context context, Session session, Bytes message) {
+        String text = message.toString()
+        self.messages.push(text)
+        return session.send(context, message)
+    }
+
+    Result<Unit, Error> onClose(Context context, Session session, Error? cause) {
+        self.closed = true
+        return Ok()
+    }
+
+    Result<Unit, Error> onError(Context context, Session session, Error error) {
+        return Ok()
+    }
+}
+
+class OneShotClientHandler implements SessionHandler {
+    String received
+    Bool opened
+    Bool closed
+
+    OneShotClientHandler() {
+        self.received = ""
+        self.opened = false
+        self.closed = false
+    }
+
+    Result<Unit, Error> onOpen(Context context, Session session) {
+        self.opened = true
+        return session.send(context, Bytes.fromString("hello"))
+    }
+
+    Result<Unit, Error> onMessage(Context context, Session session, Bytes message) {
+        self.received = message.toString()
+        return session.close()
+    }
+
+    Result<Unit, Error> onClose(Context context, Session session, Error? cause) {
+        self.closed = true
+        return Ok()
+    }
+
+    Result<Unit, Error> onError(Context context, Session session, Error error) {
+        return Ok()
+    }
+}
+
+class HoldClientHandler implements SessionHandler {
+    Bool opened
+    Bool received
+    Bool closed
+    String receivedText
+
+    HoldClientHandler() {
+        self.opened = false
+        self.received = false
+        self.closed = false
+        self.receivedText = ""
+    }
+
+    Result<Unit, Error> onOpen(Context context, Session session) {
+        self.opened = true
+        return session.send(context, Bytes.fromString("network"))
+    }
+
+    Result<Unit, Error> onMessage(Context context, Session session, Bytes message) {
+        self.receivedText = message.toString()
+        self.received = true
+        return Ok()
+    }
+
+    Result<Unit, Error> onClose(Context context, Session session, Error? cause) {
+        self.closed = true
+        return Ok()
+    }
+
+    Result<Unit, Error> onError(Context context, Session session, Error error) {
+        return Ok()
+    }
+}
+
+static Bool waitClientReady(Client client) {
+    Int index = 0
+    while index < 300 {
+        if client.state() == NetServiceState.Running {
+            Connection? maybe = client.connection()
+            if maybe != null {
+                Connection connection = maybe as Connection
+                if connection.isOpen() { return true }
+            }
+        }
+        sleepMs(5 as Long)
+        index = index + 1
+    }
+    return false
+}
+
+static Bool waitHoldReceived(HoldClientHandler handler) {
+    Int index = 0
+    while index < 300 {
+        if handler.received { return true }
+        sleepMs(5 as Long)
+        index = index + 1
+    }
+    return false
+}
+
+static Bool waitNetworkClientReady(NetworkService service) {
+    Int index = 0
+    while index < 300 {
+        if service.state() == NetServiceState.Running {
+            Client? maybe = service.client()
+            if maybe != null {
+                Client client = maybe as Client
+                Connection? connection = client.connection()
+                if connection != null {
+                    Connection actual = connection as Connection
+                    if actual.isOpen() { return true }
+                }
+            }
+        }
+        sleepMs(5 as Long)
+        index = index + 1
+    }
+    return false
+}
+
+static Bool waitServiceRunning(NetworkService service) {
+    Int index = 0
+    while index < 300 {
+        if service.state() == NetServiceState.Running {
+            Server? maybe = service.server()
+            if maybe != null {
+                Server server = maybe as Server
+                if server.isOpen() { return true }
+            }
+        }
+        sleepMs(5 as Long)
+        index = index + 1
+    }
+    return false
 }
 
 static Int main() {
@@ -475,5 +637,185 @@ static Int main() {
         "," + errorKindName(closedConnection.read(context, buffer).error().kind()) + "," +
         errorKindName(closedConnection.beginDrain().error().kind()) + "," +
         str(closedConnection.session() == null))
+
+    SocketAddress serverAddress = SocketAddress.parse("127.0.0.1:19301").value()
+    Server server = Server.bindDefault(context, serverAddress).value()
+    EchoServiceHandler serverHandler = new EchoServiceHandler()
+    TaskGroup serverGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> serverTask = serverGroup.spawn((Context taskContext) -> {
+        server.serve(taskContext, serverHandler).value()
+        return Ok(0)
+    })
+    sleepMs(20 as Long)
+    ServiceReconnectPolicy clientPolicy = new ServiceReconnectPolicy()
+    clientPolicy.maxAttempts(0)
+    Client client = new Client(new ServiceOptions(), clientPolicy)
+    OneShotClientHandler clientHandler = new OneShotClientHandler()
+    TaskGroup clientGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> clientTask = clientGroup.spawn((Context taskContext) -> {
+        client.connect(taskContext, serverAddress, clientHandler).value()
+        return Ok(0)
+    })
+    clientTask.join()
+    sleepMs(20 as Long)
+    print("service-server-client=" + clientHandler.received + "," +
+        serverHandler.messages.get(0) + "," + str(clientHandler.opened) + "," +
+        str(clientHandler.closed) + "," + str(serverHandler.closed))
+    ServiceStats serverStats = server.stats()
+    ServiceStats clientStats = client.stats()
+    print("service-stats=" + str(serverStats.totalConnections()) + "," +
+        str(serverStats.totalSessions()) + "," + str(serverStats.messagesReceived()) + "," +
+        str(serverStats.messagesSent()) + "," + str(serverStats.bytesRead() > 0) + "," +
+        str(clientStats.totalConnections()) + "," + str(clientStats.messagesSent() > 0))
+    Result<Unit, Error> serverClose = server.close()
+    Result<Unit, Error> serverCloseAgain = server.close()
+    serverTask.join()
+    serverGroup.close()
+    clientGroup.close()
+    Result<Unit, Error> clientClose = client.close()
+    Result<Unit, Error> clientCloseAgain = client.close()
+    print("service-close=" + str(serverClose.isOk()) + "," + str(serverCloseAgain.isOk()) +
+        "," + str(server.isOpen()) + "," + netServiceStateName(server.state()) + "," +
+        str(clientClose.isOk()) + "," + str(clientCloseAgain.isOk()) + "," +
+        netServiceStateName(client.state()) + "," + str(client.isOpen()))
+
+    SocketAddress dropAddress = SocketAddress.parse("127.0.0.1:19302").value()
+    Server dropServer = Server.bindDefault(context, dropAddress).value()
+    EchoServiceHandler dropHandler = new EchoServiceHandler()
+    TaskGroup dropGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> dropTask = dropGroup.spawn((Context taskContext) -> {
+        dropServer.serve(taskContext, dropHandler).value()
+        return Ok(0)
+    })
+    sleepMs(20 as Long)
+    ServiceReconnectPolicy noRetry = new ServiceReconnectPolicy()
+    noRetry.maxAttempts(0)
+    Client dropClient = new Client(new ServiceOptions(), noRetry)
+    HoldClientHandler dropClientHandler = new HoldClientHandler()
+    TaskGroup dropClientGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> dropClientTask = dropClientGroup.spawn((Context taskContext) -> {
+        dropClient.connect(taskContext, dropAddress, dropClientHandler).value()
+        return Ok(0)
+    })
+    Bool dropReady = waitClientReady(dropClient)
+    dropServer.close()
+    dropClientTask.join()
+    Error? dropError = dropClient.lastError()
+    String dropKind = "none"
+    if dropError != null {
+        Error actualDrop = dropError as Error
+        dropKind = errorKindName(actualDrop.kind())
+    }
+    print("service-drop=" + str(dropReady) + "," + str(dropClientHandler.opened) + "," +
+        dropKind + "," + netServiceStateName(dropClient.state()) + "," +
+        str(dropClient.connection() == null))
+    dropClient.close()
+    dropTask.join()
+    dropGroup.close()
+    dropClientGroup.close()
+
+    SocketAddress netAddress = SocketAddress.parse("127.0.0.1:19303").value()
+    NetworkService serverService = new NetworkService(new ServiceOptions())
+    EchoServiceHandler netServerHandler = new EchoServiceHandler()
+    Result<Server, Error> netServer = serverService.startServer(context, netAddress,
+        netServerHandler)
+    Bool serverServiceReady = waitServiceRunning(serverService)
+    Result<Server, Error> duplicateServer = serverService.startServer(context, netAddress,
+        netServerHandler)
+    print("service-network-server=" + str(netServer.isOk()) + "," +
+        str(serverServiceReady) + "," + netServiceStateName(serverService.state()) + "," +
+        errorKindName(duplicateServer.error().kind()) + "," + str(serverService.stats().totalConnections()))
+    Result<Unit, Error> serverStop = serverService.stop(context)
+    Server? stoppedServer = serverService.server()
+    Bool stoppedServerOpen = true
+    if stoppedServer != null { Server value = stoppedServer as Server; stoppedServerOpen = value.isOpen() }
+    print("service-network-server-stop=" + str(serverStop.isOk()) + "," +
+        netServiceStateName(serverService.state()) + "," + str(stoppedServerOpen))
+    Result<Unit, Error> netServerClose = serverService.close()
+    Result<Unit, Error> netServerCloseAgain = serverService.close()
+    Result<Server, Error> afterCloseServer = serverService.startServer(context, netAddress,
+        netServerHandler)
+    print("service-network-server-close=" + str(netServerClose.isOk()) + "," +
+        str(netServerCloseAgain.isOk()) + "," + netServiceStateName(serverService.state()) + "," +
+        errorKindName(afterCloseServer.error().kind()))
+
+    SocketAddress netClientAddress = SocketAddress.parse("127.0.0.1:19305").value()
+    Server netTarget = Server.bindDefault(context, netClientAddress).value()
+    EchoServiceHandler netTargetHandler = new EchoServiceHandler()
+    TaskGroup netTargetGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> netTargetTask = netTargetGroup.spawn((Context taskContext) -> {
+        netTarget.serve(taskContext, netTargetHandler).value()
+        return Ok(0)
+    })
+    sleepMs(10 as Long)
+    NetworkService clientService = new NetworkService(new ServiceOptions())
+    ServiceReconnectPolicy netPolicy = new ServiceReconnectPolicy()
+    netPolicy.maxAttempts(0)
+    HoldClientHandler netClientHandler = new HoldClientHandler()
+    Result<Client, Error> netClient = clientService.startClientWithPolicy(context,
+        netClientAddress, netClientHandler, netPolicy)
+    Bool clientServiceReady = waitNetworkClientReady(clientService)
+    Bool netReceived = waitHoldReceived(netClientHandler)
+    Result<Client, Error> duplicateClient = clientService.startClient(context,
+        netClientAddress, netClientHandler)
+    ServiceStats netStats = clientService.stats()
+    print("service-network-client=" + str(netClient.isOk()) + "," +
+        str(clientServiceReady) + "," + netServiceStateName(clientService.state()) + "," +
+        str(netReceived) + "," + errorKindName(duplicateClient.error().kind()) + "," +
+        str(netStats.totalConnections() > 0) + "," + str(netStats.messagesSent() > 0))
+    Result<Unit, Error> clientStop = clientService.stop(context)
+    Client? stoppedClient = clientService.client()
+    Bool stoppedClientOpen = true
+    if stoppedClient != null { Client value = stoppedClient as Client; stoppedClientOpen = value.isOpen() }
+    print("service-network-client-stop=" + str(clientStop.isOk()) + "," +
+        netServiceStateName(clientService.state()) + "," + str(stoppedClientOpen))
+    Result<Unit, Error> netClientClose = clientService.close()
+    Result<Unit, Error> netClientCloseAgain = clientService.close()
+    Result<Client, Error> afterCloseClient = clientService.startClient(context,
+        netClientAddress, netClientHandler)
+    print("service-network-client-close=" + str(netClientClose.isOk()) + "," +
+        str(netClientCloseAgain.isOk()) + "," + netServiceStateName(clientService.state()) + "," +
+        errorKindName(afterCloseClient.error().kind()))
+    netTarget.close()
+    netTargetTask.join()
+    netTargetGroup.close()
+
+    SocketAddress lateAddress = SocketAddress.parse("127.0.0.1:19304").value()
+    ServiceReconnectPolicy retryPolicy = new ServiceReconnectPolicy()
+    retryPolicy.initialDelayMillis(5 as Long)
+    retryPolicy.maxDelayMillis(10 as Long)
+    retryPolicy.maxAttempts(100)
+    retryPolicy.jitter(false)
+    retryPolicy.retryKind(ErrorKind.Io)
+    Client retryClient = new Client(new ServiceOptions(), retryPolicy)
+    HoldClientHandler retryClientHandler = new HoldClientHandler()
+    TaskGroup retryClientGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> retryClientTask = retryClientGroup.spawn((Context taskContext) -> {
+        retryClient.connect(taskContext, lateAddress, retryClientHandler).value()
+        return Ok(0)
+    })
+    sleepMs(30 as Long)
+    Server lateServer = Server.bindDefault(context, lateAddress).value()
+    EchoServiceHandler lateHandler = new EchoServiceHandler()
+    TaskGroup lateGroup = TaskGroup.create(Context.withCancel(context))
+    Task<Int> lateTask = lateGroup.spawn((Context taskContext) -> {
+        lateServer.serve(taskContext, lateHandler).value()
+        return Ok(0)
+    })
+    Bool retryReceived = waitHoldReceived(retryClientHandler)
+    ServiceStats retryStats = retryClient.stats()
+    retryClient.close()
+    retryClientTask.join()
+    sleepMs(10 as Long)
+    print("service-reconnect=" + retryClientHandler.receivedText + "," +
+        str(retryReceived) + "," +
+        str(retryStats.reconnectAttempts() > 0) + "," +
+        str(retryStats.totalConnections()) + "," +
+        str(lateHandler.messages.length() > 0))
+    lateServer.close()
+    lateTask.join()
+    lateGroup.close()
+    retryClientGroup.close()
     return 0
+
 }

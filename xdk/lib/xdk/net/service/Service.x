@@ -9,6 +9,7 @@ import xdk.bytes
 import xdk.net
 import xdk.runtime
 import xdk.random
+import xdk.time
 
 // ---------- NetServiceState ----------
 enum NetServiceState {
@@ -1073,5 +1074,684 @@ class Session {
         if !self._sessionOpen { return Ok() }
         self._sessionOpen = false
         return self._connection.close()
+    }
+}
+
+// ---------- Server ----------
+class Server {
+    final TcpListener _listener
+    final ServiceOptions _options
+    final Long _startedAtMonoMillis
+    NetServiceState _state
+    Bool _served
+    Bool _closed
+    Long _nextConnectionId
+    Connection? _activeConnection
+    Session? _activeSession
+    Long _totalConnections
+    Long _rejectedConnections
+    Long _totalSessions
+    Long _bytesRead
+    Long _bytesWritten
+    Long _messagesReceived
+    Long _messagesSent
+    Long _backpressureEvents
+    Long _errors
+
+    private Server(TcpListener listener, ServiceOptions options) {
+        if listener == null || options == null { throw "Server: null argument" }
+        self._listener = listener
+        self._options = options.copy()
+        self._startedAtMonoMillis = nowMono()
+        self._state = NetServiceState.Created
+        self._served = false
+        self._closed = false
+        self._nextConnectionId = 1 as Long
+        self._activeConnection = null
+        self._activeSession = null
+        self._totalConnections = 0 as Long
+        self._rejectedConnections = 0 as Long
+        self._totalSessions = 0 as Long
+        self._bytesRead = 0 as Long
+        self._bytesWritten = 0 as Long
+        self._messagesReceived = 0 as Long
+        self._messagesSent = 0 as Long
+        self._backpressureEvents = 0 as Long
+        self._errors = 0 as Long
+    }
+
+    static Result<Server, Error> bindDefault(Context context, SocketAddress local) {
+        return Server.bind(context, local, new ServiceOptions())
+    }
+
+    static Result<Server, Error> bind(Context context, SocketAddress local,
+                                      ServiceOptions options) {
+        if context == null || local == null || options == null {
+            throw "Server.bind: null argument"
+        }
+        Result<TcpListener, Error> bound = TcpListener.bind(context, local)
+        if bound.isErr() { return Err(bound.error()) }
+        return Ok(new Server(bound.value(), options))
+    }
+
+    Result<Unit, Error> serve(Context context, SessionHandler handler) {
+        if context == null || handler == null {
+            throw "Server.serve: null argument"
+        }
+        if self._closed {
+            return Err(new BasicError(ErrorKind.Unavailable, "server"))
+        }
+        if self._served {
+            return Err(new BasicError(ErrorKind.AlreadyExists, "server already serving"))
+        }
+        self._served = true
+        self._state = NetServiceState.Running
+        while !self._closed && self._listener.isOpen() && !context.isCancelled() {
+            Result<TcpStream, Error> accepted = self._listener.accept(context)
+            if accepted.isErr() {
+                if self._closed { break }
+                if context.isCancelled() {
+                    self._state = NetServiceState.Stopped
+                    return Err(new BasicError(ErrorKind.Cancelled, "server cancelled"))
+                }
+                self._errors = self._errors + 1
+                self._state = NetServiceState.Failed
+                return Err(accepted.error())
+            }
+            TcpStream stream = accepted.value()
+            Int active = 0
+            if self._activeConnection != null { active = 1 }
+            BackpressurePolicy backpressure = self._options.getBackpressurePolicy()
+            if backpressure.shouldPauseAccept(active, 0) {
+                self._rejectedConnections = self._rejectedConnections + 1
+                self._backpressureEvents = self._backpressureEvents + 1
+                stream.close()
+                continue
+            }
+            Result<Unit, Error> handled = self.handleConnection(context, stream, handler)
+            if handled.isErr() { return Err(handled.error()) }
+        }
+        if context.isCancelled() && !self._closed {
+            self._state = NetServiceState.Stopped
+            return Err(new BasicError(ErrorKind.Cancelled, "server cancelled"))
+        }
+        if self._closed {
+            self._state = NetServiceState.Closed
+        } else {
+            self._state = NetServiceState.Stopped
+        }
+        return Ok()
+    }
+
+    private Result<Unit, Error> handleConnection(Context context, TcpStream stream,
+                                                  SessionHandler handler) {
+        Long id = self._nextConnectionId
+        self._nextConnectionId = self._nextConnectionId + 1 as Long
+        Connection connection = new Connection(id, stream, stream.localAddress(),
+            stream.remoteAddress(), self._options.getReadBufferBytes())
+        self._activeConnection = connection
+        self._totalConnections = self._totalConnections + 1 as Long
+        Result<Session, Error> openedSession = connection.openSession(
+            self._options.getReadBufferBytes(), self._options.getHeartbeatPolicy())
+        if openedSession.isErr() {
+            self._errors = self._errors + 1
+            connection.close()
+            self._activeConnection = null
+            return Ok()
+        }
+        Session session = openedSession.value()
+        self._activeSession = session
+        self._totalSessions = self._totalSessions + 1 as Long
+
+        Result<Unit, Error> opened = handler.onOpen(context, session)
+        if opened.isErr() {
+            Error openError = opened.error()
+            handler.onError(context, session, openError)
+            session.close()
+            handler.onClose(context, session, openError)
+            self.finishConnection(session, false)
+            self._errors = self._errors + 1
+            return Err(openError)
+        }
+
+        Error? cause = null
+        Bool fatal = false
+        while session.isOpen() && !context.isCancelled() && !self._closed {
+            HeartbeatPolicy heartbeat = self._options.getHeartbeatPolicy()
+            if heartbeat.isEnabled() {
+                Result<Unit, Error> deadline = session.connection().setReadDeadline(
+                    nowMono() + heartbeat.getTimeoutMillis())
+                if deadline.isErr() {
+                    cause = deadline.error()
+                    fatal = true
+                    break
+                }
+            }
+            Result<Bytes?, Error> received = session.receive(context)
+            if received.isErr() {
+                cause = received.error()
+                fatal = true
+                break
+            }
+            Bytes? maybe = received.value()
+            if maybe == null { break }
+            Bytes message = maybe as Bytes
+            Result<Unit, Error> handled = handler.onMessage(context, session, message)
+            if handled.isErr() {
+                cause = handled.error()
+                fatal = true
+                break
+            }
+        }
+
+        if context.isCancelled() && cause == null {
+            Error cancelled = new BasicError(ErrorKind.Cancelled, "server connection cancelled")
+            cause = cancelled
+            fatal = true
+        }
+        if cause != null {
+            Error actualCause = cause as Error
+            handler.onError(context, session, actualCause)
+        }
+        session.close()
+        handler.onClose(context, session, cause)
+        self.finishConnection(session, cause != null)
+        if fatal {
+            if cause != null { return Err(cause as Error) }
+            return Err(new BasicError(ErrorKind.Io, "server connection failed"))
+        }
+        return Ok()
+    }
+
+    private Void finishConnection(Session session, Bool failed) {
+        self._bytesRead = self._bytesRead + session.bytesReceived()
+        self._bytesWritten = self._bytesWritten + session.bytesSent()
+        self._messagesReceived = self._messagesReceived + session.messageCount()
+        self._messagesSent = self._messagesSent + session.sentMessageCount()
+        if failed { self._errors = self._errors + 1 }
+        self._activeSession = null
+        self._activeConnection = null
+    }
+
+    SocketAddress localAddress() { return self._listener.localAddress() }
+    NetServiceState state() { return self._state }
+    ServiceOptions options() { return self._options.copy() }
+
+    ServiceStats stats() {
+        Int activeConnections = 0
+        Int activeSessions = 0
+        Long bytesRead = self._bytesRead
+        Long bytesWritten = self._bytesWritten
+        Long messagesReceived = self._messagesReceived
+        Long messagesSent = self._messagesSent
+        if self._activeConnection != null {
+            Connection connection = self._activeConnection as Connection
+            if connection.isOpen() { activeConnections = 1 }
+        }
+        if self._activeSession != null {
+            Session session = self._activeSession as Session
+            if session.isOpen() { activeSessions = 1 }
+            bytesRead = bytesRead + session.bytesReceived()
+            bytesWritten = bytesWritten + session.bytesSent()
+            messagesReceived = messagesReceived + session.messageCount()
+            messagesSent = messagesSent + session.sentMessageCount()
+        }
+        return new ServiceStats(activeConnections, self._totalConnections,
+            self._rejectedConnections, activeSessions, self._totalSessions,
+            bytesRead, bytesWritten, messagesReceived, messagesSent, 0 as Long,
+            self._backpressureEvents, self._errors,
+            nowMono() - self._startedAtMonoMillis)
+    }
+
+    Bool isOpen() {
+        if self._closed { return false }
+        return self._listener.isOpen()
+    }
+
+    Bool isServing() {
+        if self._closed || !self._served { return false }
+        return self._state == NetServiceState.Running || self._state == NetServiceState.Draining
+    }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        self._state = NetServiceState.Closed
+        self._listener.close()
+        if self._activeConnection != null {
+            Connection connection = self._activeConnection as Connection
+            connection.close()
+        }
+        return Ok()
+    }
+}
+
+// ---------- Client ----------
+class Client {
+    final TcpClient _tcpClient
+    final ServiceOptions _options
+    final ServiceReconnectPolicy _policy
+    final Long _startedAtMonoMillis
+    Connection? _connection
+    SocketAddress? _lastRemote
+    Error? _lastError
+    NetServiceState _state
+    Bool _open
+    Int _attempt
+    Long _nextConnectionId
+    Long _totalConnections
+    Long _totalSessions
+    Long _reconnectAttempts
+    Long _errors
+    Long _bytesRead
+    Long _bytesWritten
+    Long _messagesReceived
+    Long _messagesSent
+
+    Client(ServiceOptions options, ServiceReconnectPolicy policy) {
+        if options == null || policy == null { throw "Client: null argument" }
+        self._tcpClient = new TcpClient()
+        self._options = options.copy()
+        self._policy = policy.copy()
+        self._startedAtMonoMillis = nowMono()
+        self._connection = null
+        self._lastRemote = null
+        self._lastError = null
+        self._state = NetServiceState.Created
+        self._open = true
+        self._attempt = 0
+        self._nextConnectionId = 1 as Long
+        self._totalConnections = 0 as Long
+        self._totalSessions = 0 as Long
+        self._reconnectAttempts = 0 as Long
+        self._errors = 0 as Long
+        self._bytesRead = 0 as Long
+        self._bytesWritten = 0 as Long
+        self._messagesReceived = 0 as Long
+        self._messagesSent = 0 as Long
+    }
+
+    Result<Connection, Error> connect(Context context, SocketAddress remote,
+                                      SessionHandler handler) {
+        if context == null || remote == null || handler == null {
+            throw "Client.connect: null argument"
+        }
+        if !self._open {
+            return Err(new BasicError(ErrorKind.Unavailable, "client"))
+        }
+        if self._connection != null {
+            Connection current = self._connection as Connection
+            if current.isOpen() {
+                return Err(new BasicError(ErrorKind.Busy, "client already connected"))
+            }
+        }
+        self._lastRemote = remote
+        self._connection = null
+        Bool firstConnect = true
+        while self._open && !context.isCancelled() {
+            self._state = NetServiceState.Starting
+            Result<TcpStream, Error> connected = self._tcpClient.connect(context, remote)
+            if connected.isErr() {
+                Error connectError = connected.error()
+                self._lastError = connectError
+                self._errors = self._errors + 1
+                if !self._open { break }
+                if !self._policy.shouldRetryError(self._attempt, connectError) {
+                    self._state = NetServiceState.Stopped
+                    return Err(connectError)
+                }
+                Long delay = self._policy.delayMillis(self._attempt)
+                self._attempt = self._attempt + 1
+                self._reconnectAttempts = self._reconnectAttempts + 1 as Long
+                Result<Unit, Error> slept = sleepContext(context, durationOfMillis(delay))
+                if slept.isErr() {
+                    self._state = NetServiceState.Stopped
+                    return Err(slept.error())
+                }
+                continue
+            }
+            TcpStream stream = connected.value()
+            Long id = self._nextConnectionId
+            self._nextConnectionId = self._nextConnectionId + 1 as Long
+            Connection connection = new Connection(id, stream, stream.localAddress(),
+                stream.remoteAddress(), self._options.getReadBufferBytes())
+            self._connection = connection
+            self._totalConnections = self._totalConnections + 1 as Long
+            if firstConnect {
+                self._attempt = 0
+                firstConnect = false
+            }
+            self._lastError = null
+            self._state = NetServiceState.Running
+            Result<Session, Error> openedSession = connection.openSession(
+                self._options.getReadBufferBytes(), self._options.getHeartbeatPolicy())
+            if openedSession.isErr() {
+                self._errors = self._errors + 1
+                connection.close()
+                self._connection = null
+                self._state = NetServiceState.Stopped
+                return Err(openedSession.error())
+            }
+            Session session = openedSession.value()
+            self._totalSessions = self._totalSessions + 1 as Long
+            Result<Unit, Error> opened = handler.onOpen(context, session)
+            if opened.isErr() {
+                Error openError = opened.error()
+                handler.onError(context, session, openError)
+                session.close()
+                handler.onClose(context, session, openError)
+                self._bytesRead = self._bytesRead + session.bytesReceived()
+                self._bytesWritten = self._bytesWritten + session.bytesSent()
+                self._messagesReceived = self._messagesReceived + session.messageCount()
+                self._messagesSent = self._messagesSent + session.sentMessageCount()
+                self._connection = null
+                self._errors = self._errors + 1
+                self._state = NetServiceState.Stopped
+                return Err(openError)
+            }
+            Error? cause = null
+            Bool fatal = false
+            while session.isOpen() && !context.isCancelled() && self._open {
+                HeartbeatPolicy heartbeat = self._options.getHeartbeatPolicy()
+                if heartbeat.isEnabled() {
+                    Result<Unit, Error> deadline = session.connection().setReadDeadline(
+                        nowMono() + heartbeat.getTimeoutMillis())
+                    if deadline.isErr() {
+                        cause = deadline.error()
+                        fatal = true
+                        break
+                    }
+                }
+                Result<Bytes?, Error> received = session.receive(context)
+                if received.isErr() {
+                    cause = received.error()
+                    fatal = true
+                    break
+                }
+                Bytes? maybe = received.value()
+                if maybe == null { break }
+                Bytes message = maybe as Bytes
+                Result<Unit, Error> handled = handler.onMessage(context, session, message)
+                if handled.isErr() {
+                    cause = handled.error()
+                    fatal = true
+                    break
+                }
+            }
+            if context.isCancelled() && cause == null {
+                Error cancelled = new BasicError(ErrorKind.Cancelled, "client cancelled")
+                cause = cancelled
+                fatal = true
+            }
+            if cause != null {
+                Error actualCause = cause as Error
+                handler.onError(context, session, actualCause)
+            }
+            session.close()
+            handler.onClose(context, session, cause)
+            self._bytesRead = self._bytesRead + session.bytesReceived()
+            self._bytesWritten = self._bytesWritten + session.bytesSent()
+            self._messagesReceived = self._messagesReceived + session.messageCount()
+            self._messagesSent = self._messagesSent + session.sentMessageCount()
+            self._connection = null
+            if !self._open {
+                self._state = NetServiceState.Closed
+                return Ok()
+            }
+            if fatal {
+                self._errors = self._errors + 1
+                if cause != null {
+                    self._lastError = cause as Error
+                    if self._policy.shouldRetryError(self._attempt, cause as Error) {
+                        Long delay = self._policy.delayMillis(self._attempt)
+                        self._attempt = self._attempt + 1
+                        self._reconnectAttempts = self._reconnectAttempts + 1 as Long
+                        Result<Unit, Error> slept = sleepContext(context,
+                            durationOfMillis(delay))
+                        if slept.isErr() {
+                            self._state = NetServiceState.Stopped
+                            return Err(slept.error())
+                        }
+                        continue
+                    }
+                    self._state = NetServiceState.Stopped
+                    return Err(cause as Error)
+                }
+            }
+            if self._policy.shouldRetry(self._attempt) {
+                Long delay = self._policy.delayMillis(self._attempt)
+                self._attempt = self._attempt + 1
+                self._reconnectAttempts = self._reconnectAttempts + 1 as Long
+                Result<Unit, Error> slept = sleepContext(context, durationOfMillis(delay))
+                if slept.isErr() {
+                    self._state = NetServiceState.Stopped
+                    return Err(slept.error())
+                }
+                continue
+            }
+            self._state = NetServiceState.Stopped
+            Error closedError = new BasicError(ErrorKind.Network, "client connection closed")
+            self._lastError = closedError
+            return Err(closedError)
+        }
+        if !self._open {
+            self._state = NetServiceState.Closed
+            return Ok()
+        }
+        self._state = NetServiceState.Stopped
+        return Err(new BasicError(ErrorKind.Cancelled, "client cancelled"))
+    }
+
+    Connection? connection() { return self._connection }
+    Int attempt() { return self._attempt }
+    Error? lastError() { return self._lastError }
+    ServiceReconnectPolicy reconnectPolicy() { return self._policy.copy() }
+    ServiceOptions options() { return self._options.copy() }
+
+    NetServiceState state() {
+        if self._state == NetServiceState.Running && self._connection != null {
+            Connection current = self._connection as Connection
+            if !current.isOpen() { return NetServiceState.Stopped }
+        }
+        return self._state
+    }
+
+    Bool isOpen() { return self._open }
+
+    Result<Session, Error> openSession(Int readBufferBytes,
+                                       HeartbeatPolicy heartbeatPolicy) {
+        if heartbeatPolicy == null {
+            throw "Client.openSession: null heartbeat policy"
+        }
+        if self._connection == null {
+            return Err(new BasicError(ErrorKind.Unavailable, "client connection"))
+        }
+        Connection current = self._connection as Connection
+        if !current.isOpen() {
+            return Err(new BasicError(ErrorKind.Unavailable, "client connection"))
+        }
+        Bool hadSession = current.hasSession()
+        Result<Session, Error> result = current.openSession(readBufferBytes, heartbeatPolicy)
+        if result.isOk() && !hadSession {
+            self._totalSessions = self._totalSessions + 1 as Long
+        }
+        return result
+    }
+
+    Result<Session, Error> openDefaultSession() {
+        return self.openSession(self._options.getReadBufferBytes(),
+            self._options.getHeartbeatPolicy())
+    }
+
+    ServiceStats stats() {
+        Int activeConnections = 0
+        Int activeSessions = 0
+        Long bytesRead = self._bytesRead
+        Long bytesWritten = self._bytesWritten
+        Long messagesReceived = self._messagesReceived
+        Long messagesSent = self._messagesSent
+        if self._connection != null {
+            Connection connection = self._connection as Connection
+            if connection.isOpen() { activeConnections = 1 }
+            bytesRead = bytesRead + connection.readBytes()
+            bytesWritten = bytesWritten + connection.writtenBytes()
+            Session? session = connection.session()
+            if session != null {
+                Session actual = session as Session
+                if actual.isOpen() { activeSessions = 1 }
+                messagesReceived = messagesReceived + actual.messageCount()
+                messagesSent = messagesSent + actual.sentMessageCount()
+            }
+        }
+        return new ServiceStats(activeConnections, self._totalConnections, 0 as Long,
+            activeSessions, self._totalSessions, bytesRead, bytesWritten,
+            messagesReceived, messagesSent, self._reconnectAttempts, 0 as Long,
+            self._errors, nowMono() - self._startedAtMonoMillis)
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        self._state = NetServiceState.Closed
+        if self._connection == null { return Ok() }
+        Connection connection = self._connection as Connection
+        return connection.close()
+    }
+}
+
+// ---------- NetworkService ----------
+class NetworkService {
+    final ServiceOptions _options
+    final Long _startedAtMonoMillis
+    TaskGroup? _group
+    Server? _server
+    Client? _client
+    NetServiceState _state
+    Bool _open
+    Bool _started
+    Long _errors
+
+    NetworkService(ServiceOptions options) {
+        if options == null { throw "NetworkService: null options" }
+        self._options = options.copy()
+        self._startedAtMonoMillis = nowMono()
+        self._group = null
+        self._server = null
+        self._client = null
+        self._state = NetServiceState.Created
+        self._open = true
+        self._started = false
+        self._errors = 0 as Long
+    }
+
+    Result<Server, Error> startServer(Context context, SocketAddress local,
+                                      SessionHandler handler) {
+        if context == null || local == null || handler == null {
+            throw "NetworkService.startServer: null argument"
+        }
+        if !self._open {
+            return Err(new BasicError(ErrorKind.Unavailable, "network service"))
+        }
+        if self._started {
+            return Err(new BasicError(ErrorKind.AlreadyExists, "network service already started"))
+        }
+        Result<Server, Error> bound = Server.bind(context, local, self._options)
+        if bound.isErr() { return Err(bound.error()) }
+        Server server = bound.value()
+        TaskGroup group = TaskGroup.create(Context.withCancel(context))
+        self._group = group
+        self._server = server
+        self._started = true
+        self._state = NetServiceState.Starting
+        Task<Int> task = group.spawn((Context taskContext) -> {
+            Result<Unit, Error> served = server.serve(taskContext, handler)
+            if served.isErr() { return Ok(1) }
+            return Ok(0)
+        })
+        self._state = NetServiceState.Running
+        return Ok(server)
+    }
+
+    Result<Client, Error> startClient(Context context, SocketAddress remote,
+                                      SessionHandler handler) {
+        return self.startClientWithPolicy(context, remote, handler,
+            self._options.getReconnectPolicy())
+    }
+
+    Result<Client, Error> startClientWithPolicy(Context context, SocketAddress remote,
+                                                SessionHandler handler,
+                                                ServiceReconnectPolicy policy) {
+        if context == null || remote == null || handler == null || policy == null {
+            throw "NetworkService.startClient: null argument"
+        }
+        if !self._open {
+            return Err(new BasicError(ErrorKind.Unavailable, "network service"))
+        }
+        if self._started {
+            return Err(new BasicError(ErrorKind.AlreadyExists, "network service already started"))
+        }
+        Client client = new Client(self._options, policy)
+        TaskGroup group = TaskGroup.create(Context.withCancel(context))
+        self._group = group
+        self._client = client
+        self._started = true
+        self._state = NetServiceState.Starting
+        Task<Int> task = group.spawn((Context taskContext) -> {
+            Result<Connection, Error> connected = client.connect(taskContext, remote, handler)
+            if connected.isErr() { return Ok(1) }
+            return Ok(0)
+        })
+        self._state = NetServiceState.Running
+        return Ok(client)
+    }
+
+    Server? server() { return self._server }
+    Client? client() { return self._client }
+    NetServiceState state() { return self._state }
+    ServiceOptions options() { return self._options.copy() }
+
+    ServiceStats stats() {
+        if self._server != null {
+            Server server = self._server as Server
+            return server.stats()
+        }
+        if self._client != null {
+            Client client = self._client as Client
+            return client.stats()
+        }
+        return new ServiceStats(0, 0 as Long, 0 as Long, 0, 0 as Long,
+            0 as Long, 0 as Long, 0 as Long, 0 as Long, 0 as Long, 0 as Long,
+            0 as Long, nowMono() - self._startedAtMonoMillis)
+    }
+
+    Result<Unit, Error> stop(Context context) {
+        if context == null { throw "NetworkService.stop: null context" }
+        if self._state == NetServiceState.Closed || self._state == NetServiceState.Stopped {
+            return Ok()
+        }
+        self._state = NetServiceState.Draining
+        if self._server != null {
+            Server server = self._server as Server
+            server.close()
+        }
+        if self._client != null {
+            Client client = self._client as Client
+            client.close()
+        }
+        if self._group != null {
+            TaskGroup group = self._group as TaskGroup
+            group.close()
+        }
+        self._group = null
+        self._state = NetServiceState.Stopped
+        return Ok()
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self.stop(Context.background())
+        self._open = false
+        self._state = NetServiceState.Closed
+        return Ok()
     }
 }

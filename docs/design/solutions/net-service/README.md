@@ -7,7 +7,7 @@
 | 依赖 | `xdk.core`、`xdk.net`、`xdk.net.tls`、`xdk.execution` |
 | 被依赖 | 应用、服务、Agent、工具；不反向依赖 core/net/os/utils |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
-| 状态 | 核心实现（M19.4）：10/13 类型；Server/Client/NetworkService 待 M19.5 |
+| 状态 | 实现（M19.5）：13/13 类型；TLS/多线程/背压队列未实现 |
 
 ---
 
@@ -65,20 +65,28 @@ UDP 是数据报，不建立连接/会话；本包不包装 UDP，直接使用 `
 
 ---
 
-## 3.5 实现状态（M19.4）
+## 3.5 实现状态（M19.5）
 
-已实现核心 10 类型：`NetServiceState`、`ServiceOptions`、`HeartbeatPolicy`、
+已实现 13 类型：`NetServiceState`、`ServiceOptions`、`HeartbeatPolicy`、
 `BackpressurePolicy`、`ServiceReconnectPolicy`、`ServiceStats`、`ConnectionHandler`、
-`SessionHandler`、`Connection`、`Session`。
+`SessionHandler`、`Connection`、`Session`、`Server`、`Client`、`NetworkService`。
 
+- `Server`：`TcpListener` 单线程 accept；每连接 `Connection` + `Session`，会话回调闭环；
+  连接/统计/状态/幂等 close；端口 0 由 `localAddress` 返回实际地址；
+- `Client`：`TcpClient` 连接、会话读循环、连接失败/断线按 `ServiceReconnectPolicy`
+  退避重试；同一 `connect` 调用内成功后重置 attempt，重连次数受策略约束；
+- `NetworkService`：后台 `TaskGroup` 启动 Server 或 Client，二者互斥（`AlreadyExists`），
+  `stop` 关闭并等待，`close` 幂等；关闭后启动返回 `Unavailable`；
 - `Connection` 包装 `ByteStream`，`read/write/writeAll`、排空、单会话、`process` 闭环；
 - `Session` 提供 `send/receive` 语义（`send` 走 `Connection.writeAll`，`run` 驱动读取）；
 - deadline 委托 `ByteStream`；`TcpStream` 当前返回 `Unsupported`；
-- 实现限制：编译器不支持方法重载，`shouldRetry(Int,Error)` 以 `shouldRetryError` 提供；
-  `openSession()` 零参便利方法以 `openDefaultSession()` 提供；
+- 实现限制：编译器不支持方法重载，`Server.bind` 默认选项用 `bindDefault`，
+  `NetworkService.startClient` 默认策略用 `startClient`、显式策略用 `startClientWithPolicy`，
+  `shouldRetry(Int,Error)` 以 `shouldRetryError` 提供；
+- `Server.shutdown` 与 `Connection.serveConnections` 未实现；停机关闭 listener/连接；
 - `ServiceOptions` 暂不含 `socketOptions`/`tlsConfig`/`tcpServerOptions`，因为
-  `xdk.net` 尚无 `SocketOptions`、`xdk.net.tls` 尚未实现；留 M19.5/后续批次；
-- `Server`/`Client`/`NetworkService`、TLS、真实 accept 主循环明确未实现。
+  `xdk.net` 尚无 `SocketOptions`、`xdk.net.tls` 尚未实现；
+- TLS、多线程 accept、应用层写队列明确未实现。
 
 ## 4. 跨类型规则
 

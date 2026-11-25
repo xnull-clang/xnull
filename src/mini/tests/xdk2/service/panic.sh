@@ -22,6 +22,13 @@ class NullStream implements ByteStream {
     Void close() { }
 }
 
+class NullSessionHandler implements SessionHandler {
+    Result<Unit, Error> onOpen(Context context, Session session) { return Ok() }
+    Result<Unit, Error> onMessage(Context context, Session session, Bytes message) { return Ok() }
+    Result<Unit, Error> onClose(Context context, Session session, Error? cause) { return Ok() }
+    Result<Unit, Error> onError(Context context, Session session, Error error) { return Ok() }
+}
+
 static SocketAddress panicAddress() {
     return SocketAddress.parse("127.0.0.1:1").value()
 }
@@ -162,6 +169,54 @@ static Int main(String[] args) {
         Session session = new Session(0 as Long, panicConnection(), 1024,
             new HeartbeatPolicy())
         session.setAttribute("k", null)
+    } else if name == "serverBindContext" {
+        Result<Server, Error> value = Server.bindDefault(null, panicAddress())
+    } else if name == "serverBindAddress" {
+        Result<Server, Error> value = Server.bindDefault(Context.background(), null)
+    } else if name == "serverBindOptions" {
+        Result<Server, Error> value = Server.bind(Context.background(), panicAddress(), null)
+    } else if name == "serverServeContext" {
+        Server server = Server.bindDefault(Context.background(), panicAddress()).value()
+        Result<Unit, Error> value = server.serve(null, new NullSessionHandler())
+    } else if name == "serverServeHandler" {
+        Server server = Server.bindDefault(Context.background(), panicAddress()).value()
+        Result<Unit, Error> value = server.serve(Context.background(), null)
+    } else if name == "clientOptions" {
+        Client client = new Client(null, new ServiceReconnectPolicy())
+    } else if name == "clientPolicy" {
+        Client client = new Client(new ServiceOptions(), null)
+    } else if name == "clientConnectContext" {
+        Client client = new Client(new ServiceOptions(), new ServiceReconnectPolicy())
+        Result<Connection, Error> value = client.connect(null, panicAddress(),
+            new NullSessionHandler())
+    } else if name == "clientConnectRemote" {
+        Client client = new Client(new ServiceOptions(), new ServiceReconnectPolicy())
+        Result<Connection, Error> value = client.connect(Context.background(), null,
+            new NullSessionHandler())
+    } else if name == "clientConnectHandler" {
+        Client client = new Client(new ServiceOptions(), new ServiceReconnectPolicy())
+        Result<Connection, Error> value = client.connect(Context.background(), panicAddress(),
+            null)
+    } else if name == "clientOpenSessionHeartbeat" {
+        Client client = new Client(new ServiceOptions(), new ServiceReconnectPolicy())
+        Result<Session, Error> value = client.openSession(1024, null)
+    } else if name == "networkOptions" {
+        NetworkService service = new NetworkService(null)
+    } else if name == "networkStartServerContext" {
+        NetworkService service = new NetworkService(new ServiceOptions())
+        Result<Server, Error> value = service.startServer(null, panicAddress(),
+            new NullSessionHandler())
+    } else if name == "networkStartServerHandler" {
+        NetworkService service = new NetworkService(new ServiceOptions())
+        Result<Server, Error> value = service.startServer(Context.background(), panicAddress(),
+            null)
+    } else if name == "networkStartClientPolicy" {
+        NetworkService service = new NetworkService(new ServiceOptions())
+        Result<Client, Error> value = service.startClientWithPolicy(Context.background(),
+            panicAddress(), new NullSessionHandler(), null)
+    } else if name == "networkStopContext" {
+        NetworkService service = new NetworkService(new ServiceOptions())
+        Result<Unit, Error> value = service.stop(null)
     } else if name == "sessionNegativeIdle" {
         Session session = new Session(0 as Long, panicConnection(), 1024,
             new HeartbeatPolicy())
@@ -220,4 +275,20 @@ check_panic sessionZeroBuffer "Session: invalid buffer"
 check_panic sessionEmptyAttribute "Session.attribute: empty name"
 check_panic sessionNullValue "Session.setAttribute: null value"
 check_panic sessionNegativeIdle "Session.isIdle: negative"
+check_panic serverBindContext "Server.bind: null argument"
+check_panic serverBindAddress "Server.bind: null argument"
+check_panic serverBindOptions "Server.bind: null argument"
+check_panic serverServeContext "Server.serve: null argument"
+check_panic serverServeHandler "Server.serve: null argument"
+check_panic clientOptions "Client: null argument"
+check_panic clientPolicy "Client: null argument"
+check_panic clientConnectContext "Client.connect: null argument"
+check_panic clientConnectRemote "Client.connect: null argument"
+check_panic clientConnectHandler "Client.connect: null argument"
+check_panic clientOpenSessionHeartbeat "Client.openSession: null heartbeat policy"
+check_panic networkOptions "NetworkService: null options"
+check_panic networkStartServerContext "NetworkService.startServer: null argument"
+check_panic networkStartServerHandler "NetworkService.startServer: null argument"
+check_panic networkStartClientPolicy "NetworkService.startClient: null argument"
+check_panic networkStopContext "NetworkService.stop: null context"
 echo "service_panic: PASS"
