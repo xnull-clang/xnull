@@ -6,6 +6,7 @@ package xdk.numerics
 import xdk.errors
 import xdk.math
 import xdk.collections
+import xdk.linalg
 
 // ---------- Polynomial ----------
 class Polynomial {
@@ -1240,4 +1241,1104 @@ class BigInt {
         Long current = limbs.get(limbIndex)
         limbs.set(limbIndex, current | (1 as Long << (bitIndex % 16) as Long))
     }
+}
+
+// ---------- Integration ----------
+class Integration {
+    private Integration() { }
+
+    static Result<Double, Error> integrate(Context context, Double(Double) integrand,
+                                            Double lower, Double upper,
+                                            Double tolerance, Int maximumIntervals) {
+        return Integration.integrateSimpson(context, integrand, lower, upper,
+            tolerance, maximumIntervals)
+    }
+
+    static Result<Double, Error> integrateSimpson(Context context,
+            Double(Double) integrand, Double lower, Double upper, Double tolerance,
+            Int maximumDepth) {
+        if context == null {
+            throw "Integration.integrateSimpson: null argument"
+        }
+        Result<Unit, Error> valid = numericsValidateInterval(lower, upper, tolerance,
+            maximumDepth)
+        if valid.isErr() { return Err(valid.error()) }
+        Double left = lower
+        Double right = upper
+        Bool reversed = false
+        if left > right {
+            Double temporary = left
+            left = right
+            right = temporary
+            reversed = true
+        }
+        if left == right { return Ok(0.0) }
+        Double middle = (left + right) / 2.0
+        Double fLeft = integrand(left)
+        Double fMiddle = integrand(middle)
+        Double fRight = integrand(right)
+        if !isFinite(fLeft) || !isFinite(fMiddle) || !isFinite(fRight) {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: non-finite integrand"))
+        }
+        Double whole = (right - left) / 6.0 *
+            (fLeft + 4.0 * fMiddle + fRight)
+        Double epsilon = tolerance * 15.0
+        Result<Double, Error> value = Integration.simpsonRecursive(context,
+            integrand, left, right, fLeft, fMiddle, fRight, whole, epsilon,
+            maximumDepth)
+        if value.isErr() { return Err(value.error()) }
+        if reversed { return Ok(-value.value()) }
+        return value
+    }
+
+    private static Result<Double, Error> simpsonRecursive(Context context,
+            Double(Double) integrand, Double left, Double right, Double fLeft,
+            Double fMiddle, Double fRight, Double whole, Double epsilon, Int depth) {
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "integration cancelled"))
+        }
+        Double middle = (left + right) / 2.0
+        Double leftMiddle = (left + middle) / 2.0
+        Double rightMiddle = (middle + right) / 2.0
+        Double fLeftMiddle = integrand(leftMiddle)
+        Double fRightMiddle = integrand(rightMiddle)
+        if !isFinite(fLeftMiddle) || !isFinite(fRightMiddle) {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: non-finite integrand"))
+        }
+        Double leftWhole = (middle - left) / 6.0 *
+            (fLeft + 4.0 * fLeftMiddle + fMiddle)
+        Double rightWhole = (right - middle) / 6.0 *
+            (fMiddle + 4.0 * fRightMiddle + fRight)
+        Double combined = leftWhole + rightWhole
+        Double delta = combined - whole
+        if depth <= 0 || abs(delta) <= epsilon {
+            return Ok(combined + delta / 15.0)
+        }
+        Result<Double, Error> leftPart = Integration.simpsonRecursive(context,
+            integrand, left, middle, fLeft, fLeftMiddle, fMiddle, leftWhole,
+            epsilon / 2.0, depth - 1)
+        if leftPart.isErr() { return Err(leftPart.error()) }
+        Result<Double, Error> rightPart = Integration.simpsonRecursive(context,
+            integrand, middle, right, fMiddle, fRightMiddle, fRight, rightWhole,
+            epsilon / 2.0, depth - 1)
+        if rightPart.isErr() { return Err(rightPart.error()) }
+        return Ok(leftPart.value() + rightPart.value())
+    }
+
+    static Result<Double, Error> integrateGaussLegendre(Context context,
+            Double(Double) integrand, Double lower, Double upper, Int order) {
+        if context == null {
+            throw "Integration.integrateGaussLegendre: null argument"
+        }
+        if order < 1 || order > 64 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: order must be 1..64"))
+        }
+        if !isFinite(lower) || !isFinite(upper) {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: non-finite bound"))
+        }
+        if lower == upper { return Ok(0.0) }
+        Double half = (upper - lower) / 2.0
+        Double center = (lower + upper) / 2.0
+        Double sum = 0.0
+        Int index = 0
+        while index < order {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "integration cancelled"))
+            }
+            Double node = Integration.legendreNode(order, index)
+            Double weight = Integration.legendreWeight(order, index)
+            Double value = integrand(center + half * node)
+            if !isFinite(value) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Integration: non-finite integrand"))
+            }
+            sum = sum + weight * value
+            index = index + 1
+        }
+        return Ok(half * sum)
+    }
+
+    static Result<Double, Error> integrateTanhSinh(Context context,
+            Double(Double) integrand, Double lower, Double upper, Double tolerance,
+            Int maximumLevel) {
+        if context == null {
+            throw "Integration.integrateTanhSinh: null argument"
+        }
+        Result<Unit, Error> valid = numericsValidateInterval(lower, upper, tolerance,
+            maximumLevel)
+        if valid.isErr() { return Err(valid.error()) }
+        if lower == upper { return Ok(0.0) }
+        Double half = (upper - lower) / 2.0
+        Double center = (lower + upper) / 2.0
+        Double previous = 0.0
+        Int level = 1
+        Double cutoff = 6.0
+        while level <= maximumLevel {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "integration cancelled"))
+            }
+            Double step = 1.0 / pow(2.0, level as Double)
+            Double sum = 0.0
+            Int terms = (cutoff / step) as Int
+            Int index = -terms
+            while index <= terms {
+                Double t = (index as Double) * step
+                Double sinhValue = sinh((3.141592653589793 / 2.0) * t)
+                Double x = tanh(sinhValue)
+                Double weight = (3.141592653589793 / 2.0) *
+                    cosh((3.141592653589793 / 2.0) * t) * (1.0 - x * x)
+                Double value = integrand(center + half * x)
+                if !isFinite(value) {
+                    return Err(new BasicError(ErrorKind.InvalidArgument,
+                        "Integration: non-finite integrand"))
+                }
+                sum = sum + weight * value
+                index = index + 1
+            }
+            Double current = half * step * sum
+            if level > 1 && abs(current - previous) <= tolerance *
+                (1.0 + abs(current)) {
+                return Ok(current)
+            }
+            previous = current
+            level = level + 1
+        }
+        return Ok(previous)
+    }
+
+    static Result<Double, Error> integrateInfinite(Context context,
+            Double(Double) integrand, Double lower, Double upper, Double tolerance,
+            Int maximumLevel) {
+        if context == null {
+            throw "Integration.integrateInfinite: null argument"
+        }
+        if tolerance <= 0.0 || maximumLevel < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: invalid parameter"))
+        }
+        Bool lowerInfinite = !isFinite(lower)
+        Bool upperInfinite = !isFinite(upper)
+        if !lowerInfinite && !upperInfinite {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Integration: at least one bound must be infinite"))
+        }
+        Double sum = 0.0
+        Int index = 0
+        Int order = 64
+        while index < order {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "integration cancelled"))
+            }
+            Double node = Integration.legendreNode(order, index)
+            Double weight = Integration.legendreWeight(order, index)
+            Double u = 0.5 * (node + 1.0)
+            Double x = 0.0
+            Double jacobian = 0.0
+            if lowerInfinite && upperInfinite {
+                x = tan(3.141592653589793 * (u - 0.5))
+                Double cosine = cos(3.141592653589793 * (u - 0.5))
+                jacobian = 3.141592653589793 / (cosine * cosine)
+            } else if upperInfinite {
+                Double denominator = 1.0 - u
+                x = lower + u / denominator
+                jacobian = 1.0 / (denominator * denominator)
+            } else {
+                Double denominator = 1.0 - u
+                x = upper - u / denominator
+                jacobian = 1.0 / (denominator * denominator)
+            }
+            Double value = integrand(x)
+            if !isFinite(value) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Integration: non-finite integrand"))
+            }
+            sum = sum + weight * value * jacobian * 0.5
+            index = index + 1
+        }
+        return Ok(sum)
+    }
+
+    private static Double legendreNode(Int order, Int index) {
+        Double x = cos(3.141592653589793 * (index as Double + 0.75) /
+            (order as Double + 0.5))
+        Int iteration = 0
+        while iteration < 20 {
+            Double p0 = 1.0
+            Double p1 = x
+            Int k = 2
+            while k <= order {
+                Double p2 = ((2.0 * k as Double - 1.0) * x * p1 -
+                    (k as Double - 1.0) * p0) / (k as Double)
+                p0 = p1
+                p1 = p2
+                k = k + 1
+            }
+            Double derivative = order as Double * (x * p1 - p0) / (x * x - 1.0)
+            Double next = x - p1 / derivative
+            if abs(next - x) < 0.000000000000001 { x = next; break }
+            x = next
+            iteration = iteration + 1
+        }
+        return x
+    }
+
+    private static Double legendreWeight(Int order, Int index) {
+        Double x = Integration.legendreNode(order, index)
+        Double p0 = 1.0
+        Double p1 = x
+        Int k = 2
+        while k <= order {
+            Double p2 = ((2.0 * k as Double - 1.0) * x * p1 -
+                (k as Double - 1.0) * p0) / (k as Double)
+            p0 = p1
+            p1 = p2
+            k = k + 1
+        }
+        Double derivative = order as Double * (x * p1 - p0) / (x * x - 1.0)
+        return 2.0 / ((1.0 - x * x) * derivative * derivative)
+    }
+}
+
+static Result<Unit, Error> numericsValidateInterval(Double lower, Double upper,
+                                                     Double tolerance, Int maximum) {
+    if !isFinite(lower) || !isFinite(upper) {
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "Integration: non-finite bound"))
+    }
+    if tolerance <= 0.0 || !isFinite(tolerance) {
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "Integration: invalid tolerance"))
+    }
+    if maximum < 1 {
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "Integration: invalid maximum"))
+    }
+    return Ok()
+}
+
+// ---------- Optimization ----------
+class Optimization {
+    private Optimization() { }
+
+    static Result<Pair<Double, Double>, Error> minimizeBounded(Context context,
+            Double(Double) objective, Double lower, Double upper, Double tolerance,
+            Int maximumIterations) {
+        if context == null {
+            throw "Optimization.minimizeBounded: null argument"
+        }
+        if !isFinite(lower) || !isFinite(upper) || lower >= upper ||
+            tolerance <= 0.0 || maximumIterations < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Optimization: invalid bounded parameter"))
+        }
+        Double golden = 0.6180339887498949
+        Double a = lower
+        Double b = upper
+        Double x = a + golden * (b - a)
+        Double w = x
+        Double v = x
+        Double fx = objective(x)
+        Double fw = fx
+        Double fv = fx
+        Double d = 0.0
+        Double e = 0.0
+        Int iteration = 0
+        while iteration < maximumIterations {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "optimization cancelled"))
+            }
+            Double middle = 0.5 * (a + b)
+            Double toleranceX = tolerance * (abs(x) + 1.0)
+            if abs(x - middle) <= 2.0 * toleranceX - 0.5 * (b - a) {
+                return Ok(new Pair<Double, Double>(x, fx))
+            }
+            Bool parabolic = false
+            Double u = 0.0
+            if abs(e) > toleranceX {
+                Double r = (x - w) * (fx - fv)
+                Double q = (x - v) * (fx - fw)
+                Double p = (x - v) * q - (x - w) * r
+                q = 2.0 * (q - r)
+                if q > 0.0 { p = -p }
+                q = abs(q)
+                Double previousE = e
+                e = d
+                if abs(p) < abs(0.5 * q * previousE) && p > q * (a - x) &&
+                    p < q * (b - x) {
+                    d = p / q
+                    u = x + d
+                    if u - a < 2.0 * toleranceX || b - u < 2.0 * toleranceX {
+                        d = x < middle ? toleranceX : -toleranceX
+                    }
+                    parabolic = true
+                }
+            }
+            if !parabolic {
+                e = x < middle ? b - x : a - x
+                d = golden * e
+            }
+            u = x + (abs(d) >= toleranceX ? d : (d > 0.0 ? toleranceX : -toleranceX))
+            Double fu = objective(u)
+            if !isFinite(fu) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Optimization: non-finite objective"))
+            }
+            if fu <= fx {
+                if u < x { b = x } else { a = x }
+                v = w
+                fv = fw
+                w = x
+                fw = fx
+                x = u
+                fx = fu
+            } else {
+                if u < x { a = u } else { b = u }
+                if fu <= fw || w == x {
+                    v = w
+                    fv = fw
+                    w = u
+                    fw = fu
+                } else if fu <= fv || v == x || v == w {
+                    v = u
+                    fv = fu
+                }
+            }
+            iteration = iteration + 1
+        }
+        return Err(new BasicError(ErrorKind.Internal,
+            "Optimization: bounded did not converge"))
+    }
+
+    static Result<Pair<Double, Double>, Error> minimize1d(Context context,
+            Double(Double) objective, Double initialPoint, Double initialStep,
+            Double tolerance, Int maximumIterations) {
+        if context == null {
+            throw "Optimization.minimize1d: null argument"
+        }
+        if !isFinite(initialPoint) || !isFinite(initialStep) || initialStep == 0.0 ||
+            tolerance <= 0.0 || maximumIterations < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Optimization: invalid 1d parameter"))
+        }
+        Double a = initialPoint
+        Double b = initialPoint + initialStep
+        Double fa = objective(a)
+        Double fb = objective(b)
+        if !isFinite(fa) || !isFinite(fb) {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Optimization: non-finite objective"))
+        }
+        if fb > fa {
+            Double temporary = a
+            a = b
+            b = temporary
+            Double temporaryValue = fa
+            fa = fb
+            fb = temporaryValue
+        }
+        Double c = b + 1.6180339887498949 * (b - a)
+        Double fc = objective(c)
+        Int bracket = 0
+        while fc < fb && bracket < maximumIterations {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "optimization cancelled"))
+            }
+            a = b
+            fa = fb
+            b = c
+            fb = fc
+            c = b + 1.6180339887498949 * (b - a)
+            fc = objective(c)
+            if !isFinite(fc) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Optimization: non-finite objective"))
+            }
+            bracket = bracket + 1
+        }
+        Double lower = a < c ? a : c
+        Double upper = a < c ? c : a
+        return Optimization.minimizeBounded(context, objective, lower, upper,
+            tolerance, maximumIterations)
+    }
+
+    static Result<Pair<List<Double>, Double>, Error> minimizeNelderMead(
+            Context context, Double(List<Double>) objective, List<Double> initialPoint,
+            Double tolerance, Int maximumIterations) {
+        if context == null || initialPoint == null {
+            throw "Optimization.minimizeNelderMead: null argument"
+        }
+        Int dimension = initialPoint.length()
+        if dimension == 0 || tolerance <= 0.0 || maximumIterations < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Optimization: invalid Nelder-Mead parameter"))
+        }
+        List<List<Double>> simplex = []
+        Int index = 0
+        while index <= dimension {
+            List<Double> point = initialPoint.copy()
+            if index > 0 {
+                Double value = point.get(index - 1)
+                point.set(index - 1, value + (value == 0.0 ? 0.00025 : 0.05 * value))
+            }
+            simplex.push(point)
+            index = index + 1
+        }
+        List<Double> values = []
+        index = 0
+        while index < simplex.length() {
+            Double value = objective(simplex.get(index))
+            if !isFinite(value) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Optimization: non-finite objective"))
+            }
+            values.push(value)
+            index = index + 1
+        }
+        Int iteration = 0
+        while iteration < maximumIterations {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "optimization cancelled"))
+            }
+            Optimization.sortSimplex(simplex, values)
+            Double spread = abs(values.get(values.length() - 1) - values.get(0))
+            Double size = 0.0
+            Int pointIndex = 1
+            while pointIndex < simplex.length() {
+                Int coordinate = 0
+                while coordinate < dimension {
+                    Double difference = abs(simplex.get(pointIndex).get(coordinate) -
+                        simplex.get(0).get(coordinate))
+                    if difference > size { size = difference }
+                    coordinate = coordinate + 1
+                }
+                pointIndex = pointIndex + 1
+            }
+            if spread <= tolerance && size <= tolerance {
+                return Ok(new Pair<List<Double>, Double>(simplex.get(0).copy(),
+                    values.get(0)))
+            }
+            List<Double> centroid = []
+            Int coordinate = 0
+            while coordinate < dimension {
+                Double total = 0.0
+                pointIndex = 0
+                while pointIndex < dimension {
+                    total = total + simplex.get(pointIndex).get(coordinate)
+                    pointIndex = pointIndex + 1
+                }
+                centroid.push(total / dimension as Double)
+                coordinate = coordinate + 1
+            }
+            List<Double> worst = simplex.get(dimension)
+            List<Double> reflected = Optimization.affine(centroid, worst, 1.0)
+            Double reflectedValue = objective(reflected)
+            if reflectedValue < values.get(0) {
+                List<Double> expanded = Optimization.affine(centroid, worst, 2.0)
+                Double expandedValue = objective(expanded)
+                if expandedValue < reflectedValue {
+                    simplex.set(dimension, expanded)
+                    values.set(dimension, expandedValue)
+                } else {
+                    simplex.set(dimension, reflected)
+                    values.set(dimension, reflectedValue)
+                }
+            } else if reflectedValue < values.get(dimension - 1) {
+                simplex.set(dimension, reflected)
+                values.set(dimension, reflectedValue)
+            } else {
+                List<Double> contracted = Optimization.affine(centroid, worst, 0.5)
+                Double contractedValue = objective(contracted)
+                if contractedValue < values.get(dimension) {
+                    simplex.set(dimension, contracted)
+                    values.set(dimension, contractedValue)
+                } else {
+                    pointIndex = 1
+                    while pointIndex < simplex.length() {
+                        Int c = 0
+                        while c < dimension {
+                            Double next = simplex.get(0).get(c) +
+                                0.5 * (simplex.get(pointIndex).get(c) - simplex.get(0).get(c))
+                            simplex.get(pointIndex).set(c, next)
+                            c = c + 1
+                        }
+                        values.set(pointIndex, objective(simplex.get(pointIndex)))
+                        pointIndex = pointIndex + 1
+                    }
+                }
+            }
+            if !isFinite(values.get(dimension)) {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Optimization: non-finite objective"))
+            }
+            iteration = iteration + 1
+        }
+        return Err(new BasicError(ErrorKind.Internal,
+            "Optimization: Nelder-Mead did not converge"))
+    }
+
+    static Result<Pair<List<Double>, Double>, Error> minimizeBfgs(Context context,
+            Double(List<Double>) objective, List<Double>(List<Double>) gradient,
+            List<Double> initialPoint, Double tolerance, Int maximumIterations) {
+        if context == null || initialPoint == null {
+            throw "Optimization.minimizeBfgs: null argument"
+        }
+        Int dimension = initialPoint.length()
+        if dimension == 0 || tolerance <= 0.0 || maximumIterations < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "Optimization: invalid BFGS parameter"))
+        }
+        List<Double> point = initialPoint.copy()
+        List<Double> inverseHessian = []
+        Int row = 0
+        while row < dimension * dimension {
+            inverseHessian.push(0.0)
+            row = row + 1
+        }
+        Int diagonal = 0
+        while diagonal < dimension {
+            inverseHessian.set(diagonal * dimension + diagonal, 1.0)
+            diagonal = diagonal + 1
+        }
+        Double value = objective(point)
+        Int iteration = 0
+        while iteration < maximumIterations {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled,
+                    "optimization cancelled"))
+            }
+            List<Double> slope = gradient(point)
+            if slope.length() != dimension {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "Optimization: gradient dimension mismatch"))
+            }
+            Double maximumSlope = 0.0
+            Int index = 0
+            while index < dimension {
+                Double absolute = abs(slope.get(index))
+                if absolute > maximumSlope { maximumSlope = absolute }
+                index = index + 1
+            }
+            if maximumSlope <= tolerance {
+                return Ok(new Pair<List<Double>, Double>(point, value))
+            }
+            List<Double> direction = []
+            index = 0
+            while index < dimension {
+                Double total = 0.0
+                Int column = 0
+                while column < dimension {
+                    total = total + inverseHessian.get(index * dimension + column) *
+                        slope.get(column)
+                    column = column + 1
+                }
+                direction.push(-total)
+                index = index + 1
+            }
+            Double slopeDotDirection = Optimization.dot(slope, direction)
+            if slopeDotDirection >= 0.0 {
+                index = 0
+                while index < dimension {
+                    direction.set(index, -slope.get(index))
+                    index = index + 1
+                }
+                Optimization.identity(inverseHessian, dimension)
+                slopeDotDirection = Optimization.dot(slope, direction)
+            }
+            Double alpha = 1.0
+            List<Double> candidate = point.copy()
+            Double candidateValue = value
+            Int lineSearch = 0
+            while lineSearch < 40 {
+                index = 0
+                while index < dimension {
+                    candidate.set(index, point.get(index) + alpha * direction.get(index))
+                    index = index + 1
+                }
+                candidateValue = objective(candidate)
+                if candidateValue <= value + 0.0001 * alpha * slopeDotDirection {
+                    break
+                }
+                alpha = alpha * 0.5
+                lineSearch = lineSearch + 1
+            }
+            if lineSearch >= 40 {
+                return Err(new BasicError(ErrorKind.Internal,
+                    "Optimization: BFGS line search failed"))
+            }
+            List<Double> newSlope = gradient(candidate)
+            List<Double> step = []
+            List<Double> change = []
+            index = 0
+            while index < dimension {
+                step.push(candidate.get(index) - point.get(index))
+                change.push(newSlope.get(index) - slope.get(index))
+                index = index + 1
+            }
+            Double curvature = Optimization.dot(change, step)
+            if curvature > 0.000000000001 {
+                Double factor = (curvature + Optimization.quadratic(inverseHessian,
+                    change, change)) / (curvature * curvature)
+                Int i = 0
+                while i < dimension {
+                    Int j = 0
+                    while j < dimension {
+                        Double left = i == j ? 1.0 : 0.0
+                        left = left - change.get(i) * step.get(j) / curvature
+                        Double right = i == j ? 1.0 : 0.0
+                        right = right - step.get(i) * change.get(j) / curvature
+                        Double updated = inverseHessian.get(i * dimension + j)
+                        Int k = 0
+                        while k < dimension {
+                            Int l = 0
+                            while l < dimension {
+                                updated = updated + left * inverseHessian.get(i * dimension + k)
+                                updated = updated + factor * change.get(i) * change.get(j)
+                                l = l + 1
+                            }
+                            k = k + 1
+                        }
+                        inverseHessian.set(i * dimension + j, updated)
+                        j = j + 1
+                    }
+                    i = i + 1
+                }
+            }
+            point = candidate
+            value = candidateValue
+            index = 0
+            Double stepSize = 0.0
+            while index < dimension {
+                if abs(step.get(index)) > stepSize { stepSize = abs(step.get(index)) }
+                index = index + 1
+            }
+            if stepSize <= tolerance {
+                return Ok(new Pair<List<Double>, Double>(point, value))
+            }
+            iteration = iteration + 1
+        }
+        return Err(new BasicError(ErrorKind.Internal,
+            "Optimization: BFGS did not converge"))
+    }
+
+    static Result<Pair<List<Double>, Double>, Error> minimize(Context context,
+            Double(List<Double>) objective, List<Double> initialPoint,
+            Double tolerance, Int maximumIterations) {
+        return Optimization.minimizeNelderMead(context, objective, initialPoint,
+            tolerance, maximumIterations)
+    }
+
+    private static Void sortSimplex(List<List<Double>> points, List<Double> values) {
+        Int index = 1
+        while index < values.length() {
+            Double currentValue = values.get(index)
+            List<Double> currentPoint = points.get(index)
+            Int position = index - 1
+            while position >= 0 && values.get(position) > currentValue {
+                values.set(position + 1, values.get(position))
+                points.set(position + 1, points.get(position))
+                position = position - 1
+            }
+            values.set(position + 1, currentValue)
+            points.set(position + 1, currentPoint)
+            index = index + 1
+        }
+    }
+
+    private static List<Double> affine(List<Double> centroid, List<Double> worst,
+                                        Double factor) {
+        List<Double> result = []
+        Int index = 0
+        while index < centroid.length() {
+            result.push(centroid.get(index) +
+                factor * (centroid.get(index) - worst.get(index)))
+            index = index + 1
+        }
+        return result
+    }
+
+    private static Double dot(List<Double> left, List<Double> right) {
+        Double total = 0.0
+        Int index = 0
+        while index < left.length() {
+            total = total + left.get(index) * right.get(index)
+            index = index + 1
+        }
+        return total
+    }
+
+    private static Double quadratic(List<Double> matrix, List<Double> left,
+                                    List<Double> right) {
+        Double total = 0.0
+        Int dimension = left.length()
+        Int i = 0
+        while i < dimension {
+            Int j = 0
+            while j < dimension {
+                total = total + left.get(i) * matrix.get(i * dimension + j) *
+                    right.get(j)
+                j = j + 1
+            }
+            i = i + 1
+        }
+        return total
+    }
+
+    private static Void identity(List<Double> matrix, Int dimension) {
+        Int index = 0
+        while index < dimension * dimension {
+            matrix.set(index, 0.0)
+            index = index + 1
+        }
+        Int diagonal = 0
+        while diagonal < dimension {
+            matrix.set(diagonal * dimension + diagonal, 1.0)
+            diagonal = diagonal + 1
+        }
+    }
+}
+
+// ---------- OdeSolver ----------
+class OdeSolver {
+    private OdeSolver() { }
+
+    static Result<Pair<List<Double>, List<List<Double>>>, Error> solveRk4(
+            Context context, List<Double>(Double, List<Double>) derivative,
+            Double initialTime, List<Double> initialState, Double endTime,
+            Double stepSize, Int maximumSteps) {
+        if context == null || initialState == null {
+            throw "OdeSolver.solveRk4: null argument"
+        }
+        Result<Unit, Error> valid = odeValidate(initialTime, endTime, stepSize,
+            maximumSteps, initialState.length())
+        if valid.isErr() { return Err(valid.error()) }
+        List<Double> times = []
+        List<List<Double>> states = []
+        Double time = initialTime
+        List<Double> state = initialState.copy()
+        times.push(time)
+        states.push(state.copy())
+        Int step = 0
+        while time < endTime && step < maximumSteps {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "ode cancelled"))
+            }
+            Double h = stepSize
+            if time + h > endTime { h = endTime - time }
+            List<Double> k1 = derivative(time, state)
+            List<Double> y2 = odeAddScaled(state, k1, h / 2.0)
+            List<Double> k2 = derivative(time + h / 2.0, y2)
+            List<Double> y3 = odeAddScaled(state, k2, h / 2.0)
+            List<Double> k3 = derivative(time + h / 2.0, y3)
+            List<Double> y4 = odeAddScaled(state, k3, h)
+            List<Double> k4 = derivative(time + h, y4)
+            List<Double> next = []
+            Int index = 0
+            while index < state.length() {
+                Double value = state.get(index) + h / 6.0 * (k1.get(index) +
+                    2.0 * k2.get(index) + 2.0 * k3.get(index) +
+                    k4.get(index))
+                if !isFinite(value) {
+                    return Err(new BasicError(ErrorKind.Internal,
+                        "OdeSolver: non-finite state"))
+                }
+                next.push(value)
+                index = index + 1
+            }
+            time = time + h
+            state = next
+            times.push(time)
+            states.push(state.copy())
+            step = step + 1
+        }
+        if time < endTime {
+            return Err(new BasicError(ErrorKind.Internal,
+                "OdeSolver: maximum steps reached"))
+        }
+        return Ok(new Pair<List<Double>, List<List<Double>>>(times, states))
+    }
+
+    static Result<Pair<List<Double>, List<List<Double>>>, Error> solveDormandPrince(
+            Context context, List<Double>(Double, List<Double>) derivative,
+            Double initialTime, List<Double> initialState, Double endTime,
+            Double tolerance, Double initialStep, Double maximumStep,
+            Int maximumSteps) {
+        if context == null || initialState == null {
+            throw "OdeSolver.solveDormandPrince: null argument"
+        }
+        Result<Unit, Error> valid = odeValidateAdaptive(initialTime, endTime,
+            tolerance, initialStep, maximumStep, maximumSteps, initialState.length())
+        if valid.isErr() { return Err(valid.error()) }
+        List<Double> times = []
+        List<List<Double>> states = []
+        Double time = initialTime
+        List<Double> state = initialState.copy()
+        Double step = initialStep
+        times.push(time)
+        states.push(state.copy())
+        Int iteration = 0
+        while time < endTime && iteration < maximumSteps {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "ode cancelled"))
+            }
+            Double h = step
+            if time + h > endTime { h = endTime - time }
+            List<List<Double>> k = []
+            List<Double> stage = state.copy()
+            List<Double> first = derivative(time, stage)
+            k.push(first)
+            stage = odeAddScaled(state, k.get(0), h * 1.0 / 5.0)
+            List<Double> second = derivative(time + h / 5.0, stage)
+            k.push(second)
+            stage = odeCombined(state, h, k, 3.0 / 40.0, 9.0 / 40.0)
+            List<Double> third = derivative(time + 3.0 * h / 10.0, stage)
+            k.push(third)
+            stage = odeCombined(state, h, k, 44.0 / 45.0, -56.0 / 15.0)
+            stage = odeAddScaled(stage, k.get(2), h * 32.0 / 9.0)
+            List<Double> fourth = derivative(time + 4.0 * h / 5.0, stage)
+            k.push(fourth)
+            stage = odeCombined(state, h, k, 19372.0 / 6561.0, -25360.0 / 2187.0)
+            stage = odeAddScaled(stage, k.get(2), h * 64448.0 / 6561.0)
+            stage = odeAddScaled(stage, k.get(3), h * (-212.0 / 729.0))
+            List<Double> fifth = derivative(time + 8.0 * h / 9.0, stage)
+            k.push(fifth)
+            stage = odeCombined(state, h, k, 9017.0 / 3168.0, -355.0 / 33.0)
+            stage = odeAddScaled(stage, k.get(2), h * 46732.0 / 5247.0)
+            stage = odeAddScaled(stage, k.get(3), h * 49.0 / 176.0)
+            stage = odeAddScaled(stage, k.get(4), h * (-5103.0 / 18656.0))
+            List<Double> sixth = derivative(time + h, stage)
+            k.push(sixth)
+            List<Double> fifthOrder = []
+            Int index = 0
+            while index < state.length() {
+                Double value = state.get(index) + h *
+                    (35.0 / 384.0 * k.get(0).get(index) +
+                     500.0 / 1113.0 * k.get(2).get(index) +
+                     125.0 / 192.0 * k.get(3).get(index) -
+                     2187.0 / 6784.0 * k.get(4).get(index) +
+                     11.0 / 84.0 * k.get(5).get(index))
+                fifthOrder.push(value)
+                index = index + 1
+            }
+            List<Double> seventh = derivative(time + h, fifthOrder)
+            k.push(seventh)
+            Double errorNorm = 0.0
+            index = 0
+            while index < state.length() {
+                Double fourthOrder = state.get(index) + h *
+                    (5179.0 / 57600.0 * k.get(0).get(index) +
+                     7571.0 / 16695.0 * k.get(2).get(index) +
+                     393.0 / 640.0 * k.get(3).get(index) -
+                     92097.0 / 339200.0 * k.get(4).get(index) +
+                     187.0 / 2100.0 * k.get(5).get(index) +
+                     1.0 / 40.0 * k.get(6).get(index))
+                Double difference = abs(fifthOrder.get(index) - fourthOrder)
+                Double scale = tolerance * (1.0 + abs(fifthOrder.get(index)))
+                Double ratio = difference / scale
+                if ratio > errorNorm { errorNorm = ratio }
+                index = index + 1
+            }
+            if !isFinite(errorNorm) {
+                return Err(new BasicError(ErrorKind.Internal,
+                    "OdeSolver: non-finite error estimate"))
+            }
+            if errorNorm <= 1.0 {
+                time = time + h
+                state = fifthOrder
+                times.push(time)
+                states.push(state.copy())
+                Double factor = 0.9 * pow(1.0 / (errorNorm + 0.000000000000001),
+                    0.2)
+                if factor < 0.2 { factor = 0.2 }
+                if factor > 5.0 { factor = 5.0 }
+                step = h * factor
+                if step > maximumStep { step = maximumStep }
+                iteration = iteration + 1
+            } else {
+                Double factor = 0.9 * pow(1.0 / (errorNorm + 0.000000000000001), 0.2)
+                if factor < 0.1 { factor = 0.1 }
+                step = h * factor
+                if step < 0.000000000001 {
+                    return Err(new BasicError(ErrorKind.Internal,
+                        "OdeSolver: step underflow"))
+                }
+            }
+        }
+        if time < endTime {
+            return Err(new BasicError(ErrorKind.Internal,
+                "OdeSolver: maximum steps reached"))
+        }
+        return Ok(new Pair<List<Double>, List<List<Double>>>(times, states))
+    }
+
+    static Result<Pair<List<Double>, List<List<Double>>>, Error> solveImplicitEuler(
+            Context context, List<Double>(Double, List<Double>) derivative,
+            Matrix(Double, List<Double>) jacobian, Double initialTime,
+            List<Double> initialState, Double endTime, Double stepSize,
+            Double tolerance, Int maximumIterations, Int maximumSteps) {
+        if context == null || initialState == null {
+            throw "OdeSolver.solveImplicitEuler: null argument"
+        }
+        Result<Unit, Error> valid = odeValidate(initialTime, endTime, stepSize,
+            maximumSteps, initialState.length())
+        if valid.isErr() { return Err(valid.error()) }
+        if tolerance <= 0.0 || maximumIterations < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "OdeSolver: invalid Newton parameter"))
+        }
+        List<Double> times = []
+        List<List<Double>> states = []
+        Double time = initialTime
+        List<Double> state = initialState.copy()
+        times.push(time)
+        states.push(state.copy())
+        Int step = 0
+        while time < endTime && step < maximumSteps {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "ode cancelled"))
+            }
+            Double h = stepSize
+            if time + h > endTime { h = endTime - time }
+            List<Double> guess = state.copy()
+            Int iteration = 0
+            Bool converged = false
+            while iteration < maximumIterations {
+                List<Double> functionValue = derivative(time + h, guess)
+                List<Double> residual = []
+                Int index = 0
+                while index < state.length() {
+                    residual.push(guess.get(index) - state.get(index) -
+                        h * functionValue.get(index))
+                    index = index + 1
+                }
+                Matrix jac = jacobian(time + h, guess)
+                if jac == null || !jac.isSquare() || jac.rowCount() != state.length() {
+                    return Err(new BasicError(ErrorKind.InvalidArgument,
+                        "OdeSolver: invalid Jacobian"))
+                }
+                List<Double> matrixValues = []
+                Int row = 0
+                while row < jac.rowCount() {
+                    Int column = 0
+                    while column < jac.columnCount() {
+                        Double value = jac.get(row, column)
+                        if row == column { value = 1.0 - h * value }
+                        else { value = -h * value }
+                        matrixValues.push(value)
+                        column = column + 1
+                    }
+                    row = row + 1
+                }
+                Matrix system = new Matrix(jac.rowCount(), jac.columnCount(),
+                    matrixValues)
+                Vector right = new Vector(residual)
+                Result<Vector, Error> solved = Linalg.solve(system, right)
+                if solved.isErr() { return Err(solved.error()) }
+                List<Double> delta = solved.value().toList()
+                Double maximum = 0.0
+                index = 0
+                while index < delta.length() {
+                    guess.set(index, guess.get(index) - delta.get(index))
+                    if abs(delta.get(index)) > maximum {
+                        maximum = abs(delta.get(index))
+                    }
+                    index = index + 1
+                }
+                if maximum <= tolerance { converged = true; break }
+                iteration = iteration + 1
+            }
+            if !converged {
+                return Err(new BasicError(ErrorKind.Internal,
+                    "OdeSolver: Newton did not converge"))
+            }
+            time = time + h
+            state = guess
+            times.push(time)
+            states.push(state.copy())
+            step = step + 1
+        }
+        if time < endTime {
+            return Err(new BasicError(ErrorKind.Internal,
+                "OdeSolver: maximum steps reached"))
+        }
+        return Ok(new Pair<List<Double>, List<List<Double>>>(times, states))
+    }
+
+    static Result<Pair<List<Double>, List<List<Double>>>, Error> solve(
+            Context context, List<Double>(Double, List<Double>) derivative,
+            Double initialTime, List<Double> initialState, Double endTime,
+            Double tolerance, Int maximumSteps) {
+        return OdeSolver.solveDormandPrince(context, derivative, initialTime,
+            initialState, endTime, tolerance, 0.01, 0.1, maximumSteps)
+    }
+}
+
+static Result<Unit, Error> odeValidate(Double initialTime, Double endTime,
+                                       Double stepSize, Int maximumSteps, Int dimension) {
+    Bool invalid = !isFinite(initialTime)
+    if !isFinite(endTime) { invalid = true }
+    if !isFinite(stepSize) { invalid = true }
+    if endTime <= initialTime { invalid = true }
+    if stepSize <= 0.0 { invalid = true }
+    if maximumSteps < 1 { invalid = true }
+    if dimension < 1 { invalid = true }
+    if invalid {
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "OdeSolver: invalid parameter"))
+    }
+    return Ok()
+}
+
+static Result<Unit, Error> odeValidateAdaptive(Double initialTime, Double endTime,
+                                               Double tolerance, Double initialStep,
+                                               Double maximumStep, Int maximumSteps,
+                                               Int dimension) {
+    Bool invalid = !isFinite(initialTime)
+    if !isFinite(endTime) { invalid = true }
+    if !isFinite(tolerance) { invalid = true }
+    if !isFinite(initialStep) { invalid = true }
+    if !isFinite(maximumStep) { invalid = true }
+    if endTime <= initialTime { invalid = true }
+    if tolerance <= 0.0 { invalid = true }
+    if initialStep <= 0.0 { invalid = true }
+    if maximumStep <= 0.0 { invalid = true }
+    if maximumSteps < 1 { invalid = true }
+    if dimension < 1 { invalid = true }
+    if invalid {
+        return Err(new BasicError(ErrorKind.InvalidArgument,
+            "OdeSolver: invalid parameter"))
+    }
+    return Ok()
+}
+
+static List<Double> odeAddScaled(List<Double> base, List<Double> delta,
+                                 Double factor) {
+    List<Double> result = []
+    Int index = 0
+    while index < base.length() {
+        result.push(base.get(index) + factor * delta.get(index))
+        index = index + 1
+    }
+    return result
+}
+
+static List<Double> odeCombined(List<Double> base, Double h, List<List<Double>> k,
+                                Double c0, Double c1) {
+    List<Double> result = []
+    Int index = 0
+    while index < base.length() {
+        result.push(base.get(index) + h * (c0 * k.get(0).get(index) +
+            c1 * k.get(1).get(index)))
+        index = index + 1
+    }
+    return result
 }

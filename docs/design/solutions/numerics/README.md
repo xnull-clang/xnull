@@ -8,14 +8,14 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 核心实现 5/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt |
+| 状态 | 核心实现 8/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver |
 
 ---
 
-## 0.5 实现状态（M26.1）
+## 0.5 实现状态（M26.2）
 
-已实现 5/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`；
-BigFloat/SpecialFunctions/Integration/Optimization/OdeSolver/Fft/SignalBuffer planned。
+已实现 8/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
+`Integration`、`Optimization`、`OdeSolver`；BigFloat/SpecialFunctions/Fft/SignalBuffer planned。
 
 - `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
   加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
@@ -23,8 +23,14 @@ BigFloat/SpecialFunctions/Integration/Optimization/OdeSolver/Fft/SignalBuffer pl
 - 偏差：`divideAndRemainder` 返回 `BigIntPair`（`quotient()`/`remainderValue()`），
   不是 `Pair<BigInt,BigInt>`；编译器泛型 Pair 与既有 `Pair<Polynomial,Polynomial>`
   在同一编译单元冲突，待编译器修复后恢复泛型 Pair。
-- `Context` 取消检查用于 pow/modPow/sqrt；Long 范围内 schoolbook 乘法不静默溢出。
-- 不做 BigFloat/FFT/ODE/特殊函数/积分/优化。
+- `Integration`：自适应 Simpson、Gauss-Legendre（1..64 阶，Newton 生成节点/权重）、
+  tanh-sinh、无穷区间变换；非有限/不收敛/取消显式错误。
+- `Optimization`：一维有界 Brent、无界括入+Brent、Nelder-Mead、BFGS（Armijo 回溯）、
+  `minimize` 默认入口。
+- `OdeSolver`：固定步长 RK4、Dormand-Prince 5(4) 自适应、隐式 Euler + Newton
+  （`Linalg.solve`），`solve` 默认自适应入口。
+- `Context` 取消检查贯穿迭代；失败不返回伪值。
+- 不做 BigFloat/特殊函数/FFT/信号窗与滤波。
 
 ---
 

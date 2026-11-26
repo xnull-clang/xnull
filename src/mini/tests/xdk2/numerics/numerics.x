@@ -3,6 +3,7 @@ import xdk.numerics
 import xdk.errors
 import xdk.collections
 import xdk.math
+import xdk.linalg
 
 static Double quadratic(Double x) { return x * x - 2.0 }
 static Double quadraticDerivative(Double x) { return 2.0 * x }
@@ -120,6 +121,170 @@ static Int main() {
     print("interp-invalid=" + str(Interpolation.linear(badXs, ys).isErr()) + "," +
         str(Interpolation.linear(oneX, oneY).isErr()))
 
+    Double(Double) squareFunction = (Double x) -> x * x
+    Double(Double) linearFunction = (Double x) -> x
+    Double(Double) cubicFunction = (Double x) -> x * x * x
+    Double(Double) exponentialFunction = (Double x) -> exp(0.0 - x)
+    Result<Double, Error> simpsonValue = Integration.integrate(Context.background(),
+        squareFunction, 0.0, 1.0, 0.0000000001, 100)
+    Result<Double, Error> gaussValue = Integration.integrateGaussLegendre(
+        Context.background(), squareFunction, 0.0, 1.0, 5)
+    Result<Double, Error> tanhValue = Integration.integrateTanhSinh(
+        Context.background(), squareFunction, 0.0, 1.0, 0.0000000001, 20)
+    Result<Double, Error> infiniteValue = Integration.integrateInfinite(
+        Context.background(), exponentialFunction, 0.0, 1.0 / 0.0, 0.0000000001, 20)
+    print("integration=" + str(simpsonValue.isOk()) + "," +
+        str(near(simpsonValue.value(), 1.0 / 3.0, 0.000001)) + "," +
+        str(near(gaussValue.value(), 1.0 / 3.0, 0.000001)) + "," +
+        str(near(tanhValue.value(), 1.0 / 3.0, 0.000001)) + "," +
+        str(near(infiniteValue.value(), 1.0, 0.000001)))
+
+    Result<Double, Error> gaussLinear = Integration.integrateGaussLegendre(
+        Context.background(), linearFunction, 0.0, 1.0, 1)
+    Result<Double, Error> gaussOne = Integration.integrateGaussLegendre(
+        Context.background(), cubicFunction, 0.0, 1.0, 1)
+    Result<Double, Error> gaussTwo = Integration.integrateGaussLegendre(
+        Context.background(), cubicFunction, 0.0, 1.0, 2)
+    Result<Double, Error> gaussFive = Integration.integrateGaussLegendre(
+        Context.background(), cubicFunction, 0.0, 1.0, 5)
+    print("integration-gauss=" +
+        str(near(gaussLinear.value(), 0.5, 0.000001)) + "," +
+        str(near(gaussOne.value(), 0.125, 0.000001)) + "," +
+        str(near(gaussTwo.value(), 0.25, 0.000001)) + "," +
+        str(near(gaussFive.value(), 0.25, 0.000001)))
+
+    Double zeroTolerance = 0.0
+    print("integration-errors=" +
+        errorKindName(Integration.integrate(Context.background(), squareFunction,
+            0.0, 1.0, zeroTolerance, 10).error().kind()) + "," +
+        errorKindName(Integration.integrateGaussLegendre(Context.background(),
+            squareFunction, 0.0, 1.0, 0).error().kind()) + "," +
+        errorKindName(Integration.integrateTanhSinh(Context.background(),
+            squareFunction, 0.0, 1.0, zeroTolerance, 10).error().kind()) + "," +
+        errorKindName(Integration.integrateInfinite(Context.background(),
+            exponentialFunction, 0.0, 1.0, 0.0000000001,
+            20).error().kind()))
+
+    Double(Double) shiftedQuadratic = (Double x) -> (x - 2.0) * (x - 2.0)
+    Double(Double) shiftedCubic = (Double x) -> (x - 3.0) * (x - 3.0)
+    Result<Pair<Double, Double>, Error> bounded = Optimization.minimizeBounded(
+        Context.background(), shiftedQuadratic, -5.0, 5.0, 0.0000000001, 1000)
+    Result<Pair<Double, Double>, Error> oneD = Optimization.minimize1d(
+        Context.background(), shiftedCubic, 0.0, 1.0, 0.0000000001, 1000)
+    print("optimize-1d=" + str(near(bounded.value().first(), 2.0, 0.000001)) +
+        "," + str(near(bounded.value().second(), 0.0, 0.0000000001)) + "," +
+        str(near(oneD.value().first(), 3.0, 0.000001)) + "," +
+        str(near(oneD.value().second(), 0.0, 0.0000000001)))
+
+    Double(List<Double>) rosenbrock = (List<Double> point) ->
+        (1.0 - point.get(0)) * (1.0 - point.get(0)) +
+        100.0 * (point.get(1) - point.get(0) * point.get(0)) *
+            (point.get(1) - point.get(0) * point.get(0))
+    List<Double>(List<Double>) paraboloidGradient = (List<Double> point) -> {
+        List<Double> gradient = []
+        gradient.push(2.0 * (point.get(0) - 1.5))
+        gradient.push(2.0 * (point.get(1) + 2.5))
+        return gradient
+    }
+    List<Double> rosenbrockStart = [-1.2, 1.0]
+    Result<Pair<List<Double>, Double>, Error> nelder = Optimization.minimizeNelderMead(
+        Context.background(), rosenbrock, rosenbrockStart, 0.0000000001, 10000)
+    print("optimize-rosenbrock=" + str(nelder.isOk()) + "," +
+        str(near(nelder.value().first().get(0), 1.0, 0.000001)) + "," +
+        str(near(nelder.value().first().get(1), 1.0, 0.000001)) + "," +
+        str(isFinite(nelder.value().second())))
+
+    Double(List<Double>) paraboloid = (List<Double> point) ->
+        (point.get(0) - 1.5) * (point.get(0) - 1.5) +
+        (point.get(1) + 2.5) * (point.get(1) + 2.5)
+    List<Double> paraboloidStart = [0.0, 0.0]
+    Result<Pair<List<Double>, Double>, Error> generic = Optimization.minimize(
+        Context.background(), paraboloid, paraboloidStart, 0.0000000001, 1000)
+    Result<Pair<List<Double>, Double>, Error> bfgs = Optimization.minimizeBfgs(
+        Context.background(), paraboloid, paraboloidGradient, paraboloidStart,
+        0.0000000001, 1000)
+    print("optimize-bfgs=" + str(bfgs.isOk()) + "," +
+        str(near(bfgs.value().first().get(0), 1.5, 0.000001)) + "," +
+        str(near(bfgs.value().first().get(1), -2.5, 0.000001)) + "," +
+        str(isFinite(bfgs.value().second())))
+    print("optimize-generic=" + str(generic.isOk()) + "," +
+        str(near(generic.value().first().get(0), 1.5, 0.000001)) + "," +
+        str(near(generic.value().first().get(1), -2.5, 0.000001)) + "," +
+        str(near(generic.value().second(), 0.0, 0.0000000001)))
+
+    List<Double> emptyState = []
+    Result<Pair<Double, Double>, Error> badBounded = Optimization.minimizeBounded(
+        Context.background(), shiftedQuadratic, 1.0, 1.0, 0.0000000001, 10)
+    Result<Pair<Double, Double>, Error> badOneD = Optimization.minimize1d(
+        Context.background(), shiftedCubic, 0.0, 0.0, 0.0000000001, 10)
+    Result<Pair<List<Double>, Double>, Error> badNelder =
+        Optimization.minimizeNelderMead(Context.background(), rosenbrock,
+            emptyState, 0.0000000001, 10)
+    Result<Pair<List<Double>, Double>, Error> badBfgs = Optimization.minimizeBfgs(
+        Context.background(), paraboloid, paraboloidGradient, emptyState,
+        0.0000000001, 10)
+    print("optimize-errors=" + errorKindName(badBounded.error().kind()) + "," +
+        errorKindName(badOneD.error().kind()) + "," +
+        errorKindName(badNelder.error().kind()) + "," +
+        errorKindName(badBfgs.error().kind()))
+
+    List<Double>(Double, List<Double>) decay = (Double t, List<Double> y) -> {
+        List<Double> next = []
+        next.push(0.0 - y.get(0))
+        return next
+    }
+    Matrix(Double, List<Double>) testDecayJacobian = (Double t, List<Double> y) -> {
+        List<Double> values = []
+        values.push(-1.0)
+        return new Matrix(1, 1, values)
+    }
+    List<Double> decayInitial = [1.0]
+    Result<Pair<List<Double>, List<List<Double>>>, Error> rk4Result =
+        OdeSolver.solveRk4(Context.background(), decay, 0.0, decayInitial, 1.0,
+            0.01, 1000)
+    Result<Pair<List<Double>, List<List<Double>>>, Error> dormandPrince =
+        OdeSolver.solveDormandPrince(Context.background(), decay, 0.0,
+            decayInitial, 1.0, 0.0000000001, 0.01, 0.1, 1000)
+    Result<Pair<List<Double>, List<List<Double>>>, Error> implicitResult =
+        OdeSolver.solveImplicitEuler(Context.background(), decay, testDecayJacobian,
+            0.0, decayInitial, 1.0, 0.01, 0.0000000001, 20, 1000)
+    Result<Pair<List<Double>, List<List<Double>>>, Error> adaptive =
+        OdeSolver.solve(Context.background(), decay, 0.0, decayInitial, 1.0,
+            0.0000000001, 1000)
+    Double expectedDecay = exp(0.0 - 1.0)
+    print("ode-rk4=" + str(near(rk4Result.value().second().get(
+        rk4Result.value().second().length() - 1).get(0), expectedDecay, 0.000001)) +
+        "," + str(near(rk4Result.value().first().get(0), 0.0, 0.0000001)) + "," +
+        str(near(rk4Result.value().first().get(rk4Result.value().first().length() - 1),
+            1.0, 0.0000001)))
+    print("ode-dp=" + str(near(dormandPrince.value().second().get(
+        dormandPrince.value().second().length() - 1).get(0), expectedDecay,
+        0.000001)) + "," +
+        str(near(dormandPrince.value().first().get(0), 0.0, 0.0000001)) + "," +
+        str(near(dormandPrince.value().first().get(
+            dormandPrince.value().first().length() - 1), 1.0, 0.0000001)))
+    print("ode-implicit=" + str(near(implicitResult.value().second().get(
+        implicitResult.value().second().length() - 1).get(0), expectedDecay,
+        0.005)) + "," +
+        str(near(implicitResult.value().first().get(0), 0.0, 0.0000001)) + "," +
+        str(near(implicitResult.value().first().get(
+            implicitResult.value().first().length() - 1), 1.0, 0.0000001)))
+    print("ode-solve=" + str(near(adaptive.value().second().get(
+        adaptive.value().second().length() - 1).get(0), expectedDecay,
+        0.000001)) + "," +
+        str(near(adaptive.value().first().get(0), 0.0, 0.0000001)) + "," +
+        str(near(adaptive.value().first().get(
+            adaptive.value().first().length() - 1), 1.0, 0.0000001)))
+
+    print("ode-errors=" +
+        errorKindName(OdeSolver.solveRk4(Context.background(), decay, 0.0,
+            emptyState, 1.0, 0.01, 10).error().kind()) + "," +
+        errorKindName(OdeSolver.solveDormandPrince(Context.background(), decay,
+            0.0, decayInitial, 1.0, 0.0, 0.01, 0.1, 10).error().kind()) + "," +
+        errorKindName(OdeSolver.solveImplicitEuler(Context.background(), decay,
+            testDecayJacobian, 0.0, decayInitial, 1.0, 0.0, 0.0000000001, 10,
+            10).error().kind()))
+
     print("numerics=" + str(Numerics.defaultTolerance()) + "," +
         str(Numerics.defaultMaxIterations()) + "," + Numerics.backendName() + "," +
         Numerics.version())
@@ -223,5 +388,6 @@ static Int main() {
         str(BigInt.fromInt(-3).isNegative()) + "," +
         str(BigInt.fromInt(5).compare(BigInt.fromInt(3))) + "," +
         str(BigInt.fromInt(5).equals(BigInt.fromInt(5))))
+
     return 0
 }
