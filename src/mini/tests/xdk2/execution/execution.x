@@ -4,6 +4,14 @@ import xdk.errors
 import xdk.sync
 import xdk.time
 
+static Void atomicAdd(AtomicInt value, Int delta) {
+    Bool done = false
+    while !done {
+        Int current = value.load()
+        done = value.compareExchange(current, current + delta)
+    }
+}
+
 static Void bumpMax(AtomicInt max, Int value) {
     Bool done = false
     while !done {
@@ -96,11 +104,11 @@ static Int main() {
     AtomicInt multiArrived = AtomicInt(0)
     TaskGroup multiGroup = newGroup(context)
     Task<Int> multiOne = multiGroup.spawn((Context taskContext) -> {
-        if multi.wait(taskContext).isOk() { multiArrived.store(multiArrived.load() + 1) }
+        if multi.wait(taskContext).isOk() { atomicAdd(multiArrived, 1) }
         return Ok(0)
     })
     Task<Int> multiTwo = multiGroup.spawn((Context taskContext) -> {
-        if multi.wait(taskContext).isOk() { multiArrived.store(multiArrived.load() + 1) }
+        if multi.wait(taskContext).isOk() { atomicAdd(multiArrived, 1) }
         return Ok(0)
     })
     sleepMs(20)
@@ -117,21 +125,21 @@ static Int main() {
     TaskGroup onceGroup = newGroup(context)
     Task<Int> onceOne = onceGroup.spawn((Context taskContext) -> {
         once.run(taskContext, () -> {
-            onceCount.store(onceCount.load() + 1)
+            atomicAdd(onceCount, 1)
             sleepMs(20)
         })
         return Ok(0)
     })
     Task<Int> onceTwo = onceGroup.spawn((Context taskContext) -> {
         once.run(taskContext, () -> {
-            onceCount.store(onceCount.load() + 1)
+            atomicAdd(onceCount, 1)
             sleepMs(20)
         })
         return Ok(0)
     })
     Task<Int> onceThree = onceGroup.spawn((Context taskContext) -> {
         once.run(taskContext, () -> {
-            onceCount.store(onceCount.load() + 1)
+            atomicAdd(onceCount, 1)
             sleepMs(20)
         })
         return Ok(0)
@@ -164,19 +172,19 @@ static Int main() {
     TaskGroup readGroup = newGroup(context)
     Task<Int> readerOne = readGroup.spawn((Context taskContext) -> {
         shared.withRead(taskContext, (Int value) -> {
-            activeReaders.store(activeReaders.load() + 1)
+            atomicAdd(activeReaders, 1)
             bumpMax(maxReaders, activeReaders.load())
             sleepMs(60)
-            activeReaders.store(activeReaders.load() - 1)
+            atomicAdd(activeReaders, -1)
         })
         return Ok(0)
     })
     Task<Int> readerTwo = readGroup.spawn((Context taskContext) -> {
         shared.withRead(taskContext, (Int value) -> {
-            activeReaders.store(activeReaders.load() + 1)
+            atomicAdd(activeReaders, 1)
             bumpMax(maxReaders, activeReaders.load())
             sleepMs(60)
-            activeReaders.store(activeReaders.load() - 1)
+            atomicAdd(activeReaders, -1)
         })
         return Ok(0)
     })
@@ -264,10 +272,10 @@ static Int main() {
     AtomicInt destructions = AtomicInt(0)
     Pool<Int> pool = new Pool<Int>(2,
         () -> {
-            creations.store(creations.load() + 1)
+            atomicAdd(creations, 1)
             return Ok(creations.load())
         },
-        (Int value) -> { destructions.store(destructions.load() + 1) })
+        (Int value) -> { atomicAdd(destructions, 1) })
     Result<Int, Error> first = pool.acquire(context)
     Result<Int, Error> second = pool.acquire(context)
     Result<Int, Error> full = pool.acquire(preCancelled)
@@ -361,31 +369,31 @@ static Int main() {
     AtomicInt activeTasks = AtomicInt(0)
     AtomicInt maxTasks = AtomicInt(0)
     Result<Task<Int>, Error> pendingOne = executor.submit<Int>(context, (Context taskContext) -> {
-        activeTasks.store(activeTasks.load() + 1)
+        atomicAdd(activeTasks, 1)
         bumpMax(maxTasks, activeTasks.load())
         sleepMs(40)
-        activeTasks.store(activeTasks.load() - 1)
+        atomicAdd(activeTasks, -1)
         return Ok(1)
     })
     Result<Task<Int>, Error> pendingTwo = executor.submit<Int>(context, (Context taskContext) -> {
-        activeTasks.store(activeTasks.load() + 1)
+        atomicAdd(activeTasks, 1)
         bumpMax(maxTasks, activeTasks.load())
         sleepMs(40)
-        activeTasks.store(activeTasks.load() - 1)
+        atomicAdd(activeTasks, -1)
         return Ok(1)
     })
     Result<Task<Int>, Error> pendingThree = executor.submit<Int>(context, (Context taskContext) -> {
-        activeTasks.store(activeTasks.load() + 1)
+        atomicAdd(activeTasks, 1)
         bumpMax(maxTasks, activeTasks.load())
         sleepMs(40)
-        activeTasks.store(activeTasks.load() - 1)
+        atomicAdd(activeTasks, -1)
         return Ok(1)
     })
     Result<Task<Int>, Error> pendingFour = executor.submit<Int>(context, (Context taskContext) -> {
-        activeTasks.store(activeTasks.load() + 1)
+        atomicAdd(activeTasks, 1)
         bumpMax(maxTasks, activeTasks.load())
         sleepMs(40)
-        activeTasks.store(activeTasks.load() - 1)
+        atomicAdd(activeTasks, -1)
         return Ok(1)
     })
     Task<Int> taskOne = pendingOne.value()
