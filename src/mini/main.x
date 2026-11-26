@@ -14401,6 +14401,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.api" {
         return "api/Api.x"
     }
+    if pkg == "xdk.ml" {
+        return "ml/Ml.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

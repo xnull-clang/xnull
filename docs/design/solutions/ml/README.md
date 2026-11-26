@@ -7,9 +7,27 @@
 | 依赖 | `xdk.core`、`xdk.tensor`、`xdk.random`；按需 `xdk.linalg`、`xdk.codec` |
 | 被依赖 | 应用、服务、Agent、嵌入式/计算产品 |
 | 稳定性 | `preview` |
-| 状态 | 设计基线；不含实现 |
+| 状态 | 推理子集已实现 11/20（M24.1）；运行时/数据管道/训练仍为设计 |
 
 > 本目录只定义模型、推理、数据管道与训练抽象；不包含模型运行时、ONNX/TFLite 解析器、GPU/NPU 内核或自动微分引擎。运行时适配器由宿主注入。
+
+---
+
+## 1.5 实现状态（M24.1）
+
+已实现 11/20：`ModelFormat`、`MlTask`、`ExecutionProvider`、`ModelInput`、
+`ModelOutput`、`ModelMetadata`、`Model`、`SessionOptions`、`InferenceSession`、
+`InferenceResult`、`Ml`（`openSession`/`run`）。
+
+- 枚举带 `Unknown` 哨兵且放在首位：编译器把枚举 0 当作 null，`fromName` 未知返回
+  `Unknown`（不是 null），README 记录该偏差。
+- `ModelInput`/`ModelOutput`：rank、动态轴、`fixedShape`、`accepts`、`describe`、`copy`。
+- `Model`：格式/元数据/输入输出声明/payload 长度与副本、按名查找。
+- `SessionOptions`：providers 优先级、线程/内存上限、开关、providerOptions、`defaults`/`copy`。
+- `InferenceSession`：`run` 先做数量/dtype/rank/固定维校验，再返回 `Unsupported`
+  （mini 无宿主适配器，不伪造推理）；`close` 幂等；关闭后 `run` 返回 `Unavailable`。
+- `Ml.openSession` 校验后返回 `Unsupported`，不返回伪造句柄；`Ml.run` 委托会话。
+- 未实现：ONNX/TFLite 解析、运行时句柄、GPU/NPU、Dataset/DataLoader、损失、Trainer。
 
 ---
 

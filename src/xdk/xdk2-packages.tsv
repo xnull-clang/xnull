@@ -68,7 +68,7 @@ xdk.i18n	L7	7	src/xdk/i18n/I18n.x	implemented
 xdk.test	L7	7	src/xdk/test/Test.x	implemented
 xdk.jsonrpc	L8	5	src/xdk/jsonrpc/JsonRpc.x	implemented
 xdk.mcp	L8	16	src/xdk/mcp/Mcp.x	implemented
-xdk.ml	L8	20	src/xdk/ml/Ml.x	design
+xdk.ml	L8	20	src/xdk/ml/Ml.x	implemented
 xdk.numerics	L8	12	src/xdk/numerics/Numerics.x	implemented
 xdk.db	L8	11	src/xdk/db/Db.x	implemented
 xdk.api	L8	15	src/xdk/api/Api.x	implemented

@@ -17501,6 +17501,9 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if (xn_str_eq(pkg, rt_string_from_c("xdk.api"))) {
     return rt_string_from_c("api/Api.x");
   }
+  if (xn_str_eq(pkg, rt_string_from_c("xdk.ml"))) {
+    return rt_string_from_c("ml/Ml.x");
+  }
   if (xn_str_eq(pkg, rt_string_from_c("xdk.os"))) {
     return rt_string_from_c("os/Os.x");
   }
