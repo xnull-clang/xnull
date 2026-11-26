@@ -221,13 +221,13 @@ class IdentityRedactor implements Redactor {
     }
 }
 
-protocol Sampler {
+protocol LogSampler {
     Bool keep(LogRecord record);
 }
 
 // 固定间隔采样：每第 N 条通过前置条件的记录保留一条。计数器随 sampler
 // 实例走，同一 Logger 的 with* 派生共享该实例，便于确定性测试。
-class EveryNSampler implements Sampler {
+class EveryNSampler implements LogSampler {
     Int interval
     Int seen
 
@@ -250,7 +250,7 @@ class EveryNSampler implements Sampler {
     }
 }
 
-class KeepAllSampler implements Sampler {
+class KeepAllSampler implements LogSampler {
     KeepAllSampler() {
     }
 
@@ -268,7 +268,7 @@ class Logger {
     Clock clock
     Filter filter
     Redactor redactor
-    Sampler sampler
+    LogSampler sampler
 
     Logger(String name, Level min) {
         self.name = name
@@ -310,7 +310,7 @@ class Logger {
         return next
     }
 
-    Logger withSampler(Sampler sampler) {
+    Logger withSampler(LogSampler sampler) {
         Logger next = self.withSink(self.sink)
         next.sampler = sampler
         return next

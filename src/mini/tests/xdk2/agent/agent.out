@@ -1,0 +1,14 @@
+kind=metrics,traces,logs,unknown
+metric-record=metrics,requests,1,true,5,10,metrics record=requests bytes=237
+span-record=GET /x,server,ok,12,GET,1,true,true
+log-record=api.logger,true,8,10
+batch=metrics records=1 dropped=1 bytes=237,1,false,true,0,3,api
+batch-merge=2,2,3,2,2,0
+batch-errors=invalid_argument,invalid_argument
+fakes=true,true,fake-receiver,fake-processor,fake-exporter,fake-connector,true,true
+health-start=healthy,1,false,true,ready
+health-drop=degraded,2,dropped batches
+health-fail=degraded,1,Io: network down
+health-ready=healthy,true,agent agent-health healthy ready=2/2 dropped=2 failed=1
+health-unhealthy=unhealthy,true,unhealthy,boom,2,boom
+health-stopped=stopped,false,0,stopped

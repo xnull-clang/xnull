@@ -11,6 +11,29 @@
 
 ---
 
+## 0.5 实现状态（M25.1）
+
+已实现 8/17：`TelemetryKind`、`TelemetryRecord`、`TelemetryBatch`、`Receiver`、
+`Processor`、`PipelineExporter`、`Connector`、`AgentHealth`；AgentPipeline/AgentConfig/
+Agent、具体 receiver/processor/exporter/connector 留 M25.2/M25.3。
+
+- 枚举带 `Unknown` 哨兵且放在首位（编译器把枚举 0 当作 null）。
+- `TelemetryRecord`：metric/span/log/fromSpan 工厂、载荷互斥、名称/时间戳/时长校验、
+  估算字节；span 事件与属性快照。
+- `TelemetryBatch`：同 kind 记录、资源校验、估算字节、withRecords/withAdditionalDropped/
+  merge/split。
+- 管线协议：`start(Context, Result<Unit,Error>(TelemetryBatch) downstream)` 等；
+  下游函数类型直接作为参数（已通过编译）。
+- `AgentHealth`：RuntimeMonitor 保护状态；任务合同命名 `markStarted/markReady/
+  markUnhealthy/markStopped/recordDrop/recordFailure`（文档名为 markStarting/markRunning/
+  markFailed/setPipelineReadiness/recordDroppedBatches，README 记录映射）；`check()` 返回
+  `HealthReport`，details 含 service/ready/total/dropped/failed/lastError。
+- 命名冲突修复：`xdk.log` 的 `protocol Sampler` 改名 `LogSampler`，避免与 `xdk.trace.Sampler`
+  在同一包导入时冲突（C-0241）。
+- 不做 AgentPipeline/Agent/具体组件/导出网络；无全局注册表。
+
+---
+
 ## 1. 包定位
 
 `xdk.agent` 是进程内/节点侧的**遥测采集与转发 Agent**：按 OpenTelemetry Collector 的
