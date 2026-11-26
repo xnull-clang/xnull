@@ -12,3 +12,14 @@ health-fail=degraded,1,Io: network down
 health-ready=healthy,true,agent agent-health healthy ready=2/2 dropped=2 failed=1
 health-unhealthy=unhealthy,true,unhealthy,boom,2,boom
 health-stopped=stopped,false,0,stopped
+pipeline-start=true,exp:start,p2:start,p1:start,receiver:start,true,1,2,1,metrics-pipe metrics receivers=1 processors=2 exporters=1
+pipeline-consume=true,p1:process,p2:process,exp:export,out:consume
+pipeline-lifecycle=true,true,p1:process,p2:process,exp:export,out:consume,receiver:stop,true,p1:process,p2:process,exp:export,out:consume,false
+pipeline-close=true,true,true,unavailable,unavailable,receiver:close,p1:close,p2:close,exp:close
+pipeline-fail=true,fexp:start,unhealthy,false
+pipeline-fanout=true,one:export,two:export,fanout:consume
+pipeline-drain=true,receiver:drain,dp:drain,dexp:drain
+pipeline-drain-busy=busy
+config=true,agent config service=svc instance=inst pipelines=2 connectors=1,true,true,true
+config-errors=invalid_argument,invalid_argument,invalid_argument
+config-cycle=invalid_argument,true,true

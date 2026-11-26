@@ -13,9 +13,8 @@
 
 ## 0.5 实现状态（M25.1）
 
-已实现 8/17：`TelemetryKind`、`TelemetryRecord`、`TelemetryBatch`、`Receiver`、
-`Processor`、`PipelineExporter`、`Connector`、`AgentHealth`；AgentPipeline/AgentConfig/
-Agent、具体 receiver/processor/exporter/connector 留 M25.2/M25.3。
+已实现 10/17：M25.1 的 8 类 + `AgentPipeline`、`AgentConfig`；Agent 与具体
+receiver/processor/exporter/connector 留 M25.3。
 
 - 枚举带 `Unknown` 哨兵且放在首位（编译器把枚举 0 当作 null）。
 - `TelemetryRecord`：metric/span/log/fromSpan 工厂、载荷互斥、名称/时间戳/时长校验、
@@ -30,7 +29,13 @@ Agent、具体 receiver/processor/exporter/connector 留 M25.2/M25.3。
   `HealthReport`，details 含 service/ready/total/dropped/failed/lastError。
 - 命名冲突修复：`xdk.log` 的 `protocol Sampler` 改名 `LogSampler`，避免与 `xdk.trace.Sampler`
   在同一包导入时冲突（C-0241）。
-- 不做 AgentPipeline/Agent/具体组件/导出网络；无全局注册表。
+- `AgentPipeline`：校验 kind/源汇；start 顺序 exporter → processor（逆序）→ receiver，
+  失败回滚且组件调用不持锁；stop 只停 receiver；drain receiver→processor→exporter；
+  close 幂等并缓存结果、取消内部 Context；consume 串行化、无处理器直接 fan-out、
+  stop 后仍接收连接器数据。
+- `AgentConfig`：create/of 校验管线/连接器名唯一、连接器恰好一次输入+一次输出接入、
+  管线引用已列连接器、连接图无环；withPipeline/withConnector 派生并复验。
+- 不做 Agent/具体组件/导出网络；无全局注册表。
 
 ---
 

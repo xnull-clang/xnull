@@ -5,6 +5,8 @@ import xdk.trace
 import xdk.log
 import xdk.runtime
 import xdk.errors
+import xdk.time
+import xdk.execution
 
 class FakeReceiver implements Receiver {
     Bool _running
@@ -98,6 +100,170 @@ static LogRecord agLogRecord() {
     record.timestampMs = 10 as Long
     record.monotonicMs = 8 as Long
     return record
+}
+
+class OrderReceiver implements Receiver {
+    final TelemetryKind _kind
+    final List<String> _trace
+    Bool _fail
+    Bool _healthy
+    OrderReceiver(TelemetryKind kind, List<String> trace) {
+        self._kind = kind
+        self._trace = trace
+        self._fail = false
+        self._healthy = true
+    }
+    TelemetryKind kind() { return self._kind }
+    String name() { return "order-receiver" }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) {
+        self._trace.push("receiver:start")
+        if self._fail { return Err(mlSinkError("receiver start")) }
+        return Ok()
+    }
+    Result<Unit, Error> stop(Context context) {
+        self._trace.push("receiver:stop")
+        return Ok()
+    }
+    Result<Unit, Error> drain(Context context) {
+        self._trace.push("receiver:drain")
+        return Ok()
+    }
+    Result<Unit, Error> close() {
+        self._trace.push("receiver:close")
+        return Ok()
+    }
+    Bool isRunning() { return true }
+    Bool isHealthy() { return self._healthy }
+}
+
+class OrderProcessor implements Processor {
+    final TelemetryKind _kind
+    final String _label
+    final List<String> _trace
+    Result<Unit, Error>(TelemetryBatch) _downstream
+    OrderProcessor(TelemetryKind kind, String label, List<String> trace) {
+        self._kind = kind
+        self._label = label
+        self._trace = trace
+        Result<Unit, Error>(TelemetryBatch) placeholder =
+            (TelemetryBatch batch) -> Ok()
+        self._downstream = placeholder
+    }
+    TelemetryKind kind() { return self._kind }
+    String name() { return self._label }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) {
+        self._trace.push(self._label + ":start")
+        self._downstream = downstream
+        return Ok()
+    }
+    Result<Unit, Error> process(Context context, TelemetryBatch batch) {
+        self._trace.push(self._label + ":process")
+        return self._downstream(batch)
+    }
+    Result<Unit, Error> drain(Context context) {
+        self._trace.push(self._label + ":drain")
+        return Ok()
+    }
+    Result<Unit, Error> close() {
+        self._trace.push(self._label + ":close")
+        return Ok()
+    }
+    Bool isHealthy() { return true }
+}
+
+class OrderExporter implements PipelineExporter {
+    final TelemetryKind _kind
+    final String _label
+    final List<String> _trace
+    Bool _failStart
+    Bool _failExport
+    OrderExporter(TelemetryKind kind, String label, List<String> trace) {
+        self._kind = kind
+        self._label = label
+        self._trace = trace
+        self._failStart = false
+        self._failExport = false
+    }
+    TelemetryKind kind() { return self._kind }
+    String name() { return self._label }
+    Result<Unit, Error> start(Context context) {
+        self._trace.push(self._label + ":start")
+        if self._failStart { return Err(mlSinkError("exporter start")) }
+        return Ok()
+    }
+    Result<Unit, Error> export(Context context, TelemetryBatch batch) {
+        self._trace.push(self._label + ":export")
+        if self._failExport { return Err(mlSinkError("exporter export")) }
+        return Ok()
+    }
+    Result<Unit, Error> drain(Context context) {
+        self._trace.push(self._label + ":drain")
+        return Ok()
+    }
+    Result<Unit, Error> close() {
+        self._trace.push(self._label + ":close")
+        return Ok()
+    }
+    Bool isHealthy() { return true }
+}
+
+class OrderConnector implements Connector {
+    final String _name
+    final TelemetryKind _inputKind
+    final TelemetryKind _outputKind
+    final List<String> _trace
+    OrderConnector(String name, TelemetryKind inputKind, TelemetryKind outputKind,
+                   List<String> trace) {
+        self._name = name
+        self._inputKind = inputKind
+        self._outputKind = outputKind
+        self._trace = trace
+    }
+    String name() { return self._name }
+    TelemetryKind inputKind() { return self._inputKind }
+    TelemetryKind outputKind() { return self._outputKind }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) { return Ok() }
+    Result<Unit, Error> consume(Context context, TelemetryBatch batch) {
+        self._trace.push(self._name + ":consume")
+        return Ok()
+    }
+    Result<Unit, Error> drain(Context context) { return Ok() }
+    Result<Unit, Error> close() { return Ok() }
+    Bool isHealthy() { return true }
+}
+
+class SlowReceiver implements Receiver {
+    final TelemetryKind _kind
+    final List<String> _trace
+    SlowReceiver(TelemetryKind kind, List<String> trace) {
+        self._kind = kind
+        self._trace = trace
+    }
+    TelemetryKind kind() { return self._kind }
+    String name() { return "slow-receiver" }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) { return Ok() }
+    Result<Unit, Error> stop(Context context) { return Ok() }
+    Result<Unit, Error> drain(Context context) {
+        sleepMs(120 as Long)
+        return Ok()
+    }
+    Result<Unit, Error> close() { return Ok() }
+    Bool isRunning() { return true }
+    Bool isHealthy() { return true }
+}
+
+static Error mlSinkError(String message) {
+    return new BasicError(ErrorKind.Io, message)
+}
+
+static TelemetryBatch agEmptyBatch(TelemetryKind kind) {
+    Map<String, String> resource = [:]
+    List<TelemetryRecord> records = []
+    return new TelemetryBatch(kind, resource, records, 0, 1 as Long)
 }
 
 static Int main() {
@@ -214,5 +380,243 @@ static Int main() {
     print("health-stopped=" + healthStateName(health.state()) + "," +
         str(health.isLive()) + "," + str(health.readyPipelines()) + "," +
         health.message())
+
+    List<String> pipelineTrace = []
+    OrderReceiver pipelineReceiver = new OrderReceiver(TelemetryKind.Metrics,
+        pipelineTrace)
+    OrderProcessor firstProcessor = new OrderProcessor(TelemetryKind.Metrics, "p1",
+        pipelineTrace)
+    OrderProcessor secondProcessor = new OrderProcessor(TelemetryKind.Metrics, "p2",
+        pipelineTrace)
+    OrderExporter pipelineExporter = new OrderExporter(TelemetryKind.Metrics, "exp",
+        pipelineTrace)
+    OrderConnector outputConnector = new OrderConnector("out", TelemetryKind.Metrics,
+        TelemetryKind.Logs, pipelineTrace)
+    List<Receiver> pipelineReceivers = []
+    pipelineReceivers.push(pipelineReceiver)
+    List<Processor> pipelineProcessors = []
+    pipelineProcessors.push(firstProcessor)
+    pipelineProcessors.push(secondProcessor)
+    List<PipelineExporter> pipelineExporters = []
+    pipelineExporters.push(pipelineExporter)
+    List<Connector> noInputConnectors = []
+    List<Connector> pipelineOutputConnectors = []
+    pipelineOutputConnectors.push(outputConnector)
+    AgentPipeline pipeline = new AgentPipeline("metrics-pipe", TelemetryKind.Metrics,
+        pipelineReceivers, pipelineProcessors, pipelineExporters, noInputConnectors,
+        pipelineOutputConnectors)
+    Result<Unit, Error> pipelineStart = pipeline.start(Context.background())
+    String startTrace = pipelineTrace.join(",")
+    pipelineTrace.clear()
+    Result<Unit, Error> consumed = pipeline.consume(Context.background(),
+        agEmptyBatch(TelemetryKind.Metrics))
+    String consumeTrace = pipelineTrace.join(",")
+    print("pipeline-start=" + str(pipelineStart.isOk()) + "," + startTrace + "," +
+        str(pipeline.isRunning()) + "," + str(pipeline.receiverCount()) + "," +
+        str(pipeline.processorCount()) + "," + str(pipeline.exporterCount()) + "," +
+        pipeline.describe())
+    print("pipeline-consume=" + str(consumed.isOk()) + "," + consumeTrace)
+
+    Result<Unit, Error> duplicateStart = pipeline.start(Context.background())
+    Result<Unit, Error> pipelineStop = pipeline.stop(Context.background())
+    String stopTrace = pipelineTrace.join(",")
+    pipelineTrace.clear()
+    Result<Unit, Error> afterStopConsume = pipeline.consume(Context.background(),
+        agEmptyBatch(TelemetryKind.Metrics))
+    String afterStopTrace = pipelineTrace.join(",")
+    print("pipeline-lifecycle=" + str(duplicateStart.isOk()) + "," +
+        str(pipelineStop.isOk()) + "," + stopTrace + "," +
+        str(afterStopConsume.isOk()) + "," + afterStopTrace + "," +
+        str(pipeline.isRunning()))
+
+    pipelineTrace.clear()
+    Result<Unit, Error> firstClose = pipeline.close()
+    Result<Unit, Error> secondClose = pipeline.close()
+    Result<Unit, Error> closedConsume = pipeline.consume(Context.background(),
+        agEmptyBatch(TelemetryKind.Metrics))
+    Result<Unit, Error> closedDrain = pipeline.drain(Context.background())
+    print("pipeline-close=" + str(firstClose.isOk()) + "," +
+        str(secondClose.isOk()) + "," + str(pipeline.isClosed()) + "," +
+        errorKindName(closedConsume.error().kind()) + "," +
+        errorKindName(closedDrain.error().kind()) + "," +
+        pipelineTrace.join(","))
+
+    List<String> failTrace = []
+    OrderReceiver failReceiver = new OrderReceiver(TelemetryKind.Logs, failTrace)
+    OrderProcessor failProcessor = new OrderProcessor(TelemetryKind.Logs, "fp",
+        failTrace)
+    OrderExporter failExporter = new OrderExporter(TelemetryKind.Logs, "fexp",
+        failTrace)
+    failExporter._failStart = true
+    List<Receiver> failReceivers = []
+    failReceivers.push(failReceiver)
+    List<Processor> failProcessors = []
+    failProcessors.push(failProcessor)
+    List<PipelineExporter> failExporters = []
+    failExporters.push(failExporter)
+    List<Connector> failNoConnectors = []
+    AgentPipeline failPipeline = new AgentPipeline("fail-pipe", TelemetryKind.Logs,
+        failReceivers, failProcessors, failExporters, failNoConnectors,
+        failNoConnectors)
+    Result<Unit, Error> failedStart = failPipeline.start(Context.background())
+    print("pipeline-fail=" + str(failedStart.isErr()) + "," + failTrace.join(",") +
+        "," + healthStateName(failPipeline.health().state()) + "," +
+        str(failPipeline.isRunning()))
+    failPipeline.close()
+
+    List<String> fanTrace = []
+    OrderReceiver fanReceiver = new OrderReceiver(TelemetryKind.Traces, fanTrace)
+    OrderExporter fanOne = new OrderExporter(TelemetryKind.Traces, "one", fanTrace)
+    OrderExporter fanTwo = new OrderExporter(TelemetryKind.Traces, "two", fanTrace)
+    OrderConnector fanConnector = new OrderConnector("fanout", TelemetryKind.Traces,
+        TelemetryKind.Metrics, fanTrace)
+    List<Receiver> fanReceivers = []
+    fanReceivers.push(fanReceiver)
+    List<Receiver> noReceivers = []
+    List<Processor> noProcessors = []
+    List<PipelineExporter> noExporters = []
+    List<PipelineExporter> fanExporters = []
+    fanExporters.push(fanOne)
+    fanExporters.push(fanTwo)
+    List<Connector> fanOutputs = []
+    fanOutputs.push(fanConnector)
+    AgentPipeline fanPipeline = new AgentPipeline("fan-pipe", TelemetryKind.Traces,
+        fanReceivers, noProcessors, fanExporters, failNoConnectors, fanOutputs)
+    fanPipeline.start(Context.background())
+    fanTrace.clear()
+    fanOne._failExport = true
+    Result<Unit, Error> fanResult = fanPipeline.consume(Context.background(),
+        agEmptyBatch(TelemetryKind.Traces))
+    print("pipeline-fanout=" + str(fanResult.isErr()) + "," + fanTrace.join(","))
+    fanPipeline.close()
+
+    List<String> drainTrace = []
+    OrderReceiver drainReceiver = new OrderReceiver(TelemetryKind.Metrics, drainTrace)
+    OrderProcessor drainProcessor = new OrderProcessor(TelemetryKind.Metrics, "dp",
+        drainTrace)
+    OrderExporter drainExporter = new OrderExporter(TelemetryKind.Metrics, "dexp",
+        drainTrace)
+    List<Receiver> drainReceivers = []
+    drainReceivers.push(drainReceiver)
+    List<Processor> drainProcessors = []
+    drainProcessors.push(drainProcessor)
+    List<PipelineExporter> drainExporters = []
+    drainExporters.push(drainExporter)
+    AgentPipeline drainPipeline = new AgentPipeline("drain-pipe", TelemetryKind.Metrics,
+        drainReceivers, drainProcessors, drainExporters, failNoConnectors,
+        failNoConnectors)
+    drainPipeline.start(Context.background())
+    drainTrace.clear()
+    Result<Unit, Error> drained = drainPipeline.drain(Context.background())
+    print("pipeline-drain=" + str(drained.isOk()) + "," + drainTrace.join(","))
+    drainPipeline.close()
+
+    List<String> slowTrace = []
+    SlowReceiver slowReceiver = new SlowReceiver(TelemetryKind.Metrics, slowTrace)
+    List<Receiver> slowReceivers = []
+    slowReceivers.push(slowReceiver)
+    List<PipelineExporter> slowExporters = []
+    slowExporters.push(new OrderExporter(TelemetryKind.Metrics, "slow-exp", slowTrace))
+    AgentPipeline slowPipeline = new AgentPipeline("slow-pipe", TelemetryKind.Metrics,
+        slowReceivers, noProcessors, slowExporters, failNoConnectors,
+        failNoConnectors)
+    slowPipeline.start(Context.background())
+    TaskGroup drainGroup = TaskGroup.create(Context.withCancel(Context.background()))
+    Task<Int> drainTask = drainGroup.spawn((Context taskContext) -> {
+        slowPipeline.drain(taskContext)
+        return Ok(0)
+    })
+    sleepMs(20 as Long)
+    Result<Unit, Error> concurrentDrain = slowPipeline.drain(Context.background())
+    drainTask.join()
+    drainGroup.close()
+    print("pipeline-drain-busy=" + errorKindName(concurrentDrain.error().kind()))
+    slowPipeline.close()
+
+    List<String> configTrace = []
+    OrderReceiver configReceiver = new OrderReceiver(TelemetryKind.Metrics, configTrace)
+    OrderExporter configExporter = new OrderExporter(TelemetryKind.Traces, "config-exp",
+        configTrace)
+    OrderConnector configConnector = new OrderConnector("m2t", TelemetryKind.Metrics,
+        TelemetryKind.Traces, configTrace)
+    List<Receiver> configReceivers = []
+    configReceivers.push(configReceiver)
+    List<Connector> configOutputs = []
+    configOutputs.push(configConnector)
+    List<Connector> noConnectors = []
+    AgentPipeline configSource = new AgentPipeline("source", TelemetryKind.Metrics,
+        configReceivers, noProcessors, noExporters, noConnectors, configOutputs)
+    List<PipelineExporter> configExporters = []
+    configExporters.push(configExporter)
+    List<Connector> configInputs = []
+    configInputs.push(configConnector)
+    AgentPipeline configSink = new AgentPipeline("sink", TelemetryKind.Traces,
+        noReceivers, noProcessors, configExporters, configInputs, noConnectors)
+    List<AgentPipeline> configPipelines = []
+    configPipelines.push(configSource)
+    configPipelines.push(configSink)
+    List<Connector> configConnectors = []
+    configConnectors.push(configConnector)
+    Result<AgentConfig, Error> config = AgentConfig.create("svc", "inst",
+        configPipelines, configConnectors)
+    AgentConfig validConfig = config.value()
+    AgentPipeline? foundPipeline = validConfig.pipeline("sink")
+    Connector? foundConnector = validConfig.connector("m2t")
+    print("config=" + str(config.isOk()) + "," + validConfig.describe() + "," +
+        str(foundPipeline != null) + "," + str(foundConnector != null) + "," +
+        str(validConfig.pipeline("missing") == null))
+
+    List<AgentPipeline> duplicatePipelines = []
+    duplicatePipelines.push(configSource)
+    duplicatePipelines.push(configSource)
+    Result<AgentConfig, Error> duplicateConfig = AgentConfig.create("svc", "inst",
+        duplicatePipelines, configConnectors)
+    List<Connector> unattachedConnectors = []
+    unattachedConnectors.push(configConnector)
+    unattachedConnectors.push(new OrderConnector("extra", TelemetryKind.Logs,
+        TelemetryKind.Metrics, configTrace))
+    Result<AgentConfig, Error> unattachedConfig = AgentConfig.create("svc", "inst",
+        configPipelines, unattachedConnectors)
+    List<Connector> missingConnectors = []
+    Result<AgentConfig, Error> missingConfig = AgentConfig.create("svc", "inst",
+        configPipelines, missingConnectors)
+    print("config-errors=" + errorKindName(duplicateConfig.error().kind()) + "," +
+        errorKindName(unattachedConfig.error().kind()) + "," +
+        errorKindName(missingConfig.error().kind()))
+
+    OrderConnector cycleOne = new OrderConnector("c1", TelemetryKind.Metrics,
+        TelemetryKind.Traces, configTrace)
+    OrderConnector cycleTwo = new OrderConnector("c2", TelemetryKind.Traces,
+        TelemetryKind.Metrics, configTrace)
+    List<Connector> cycleOneOut = []
+    cycleOneOut.push(cycleOne)
+    List<Connector> cycleTwoIn = []
+    cycleTwoIn.push(cycleOne)
+    List<Connector> cycleTwoOut = []
+    cycleTwoOut.push(cycleTwo)
+    List<Connector> cycleOneIn = []
+    cycleOneIn.push(cycleTwo)
+    AgentPipeline cycleA = new AgentPipeline("cycle-a", TelemetryKind.Metrics,
+        configReceivers, noProcessors, noExporters, cycleOneIn, cycleOneOut)
+    List<PipelineExporter> cycleExporters = []
+    cycleExporters.push(configExporter)
+    AgentPipeline cycleB = new AgentPipeline("cycle-b", TelemetryKind.Traces,
+        noReceivers, noProcessors, cycleExporters, cycleTwoIn, cycleTwoOut)
+    List<AgentPipeline> cyclePipelines = []
+    cyclePipelines.push(cycleA)
+    cyclePipelines.push(cycleB)
+    List<Connector> cycleConnectors = []
+    cycleConnectors.push(cycleOne)
+    cycleConnectors.push(cycleTwo)
+    Result<AgentConfig, Error> cycleConfig = AgentConfig.create("svc", "inst",
+        cyclePipelines, cycleConnectors)
+    Result<AgentConfig, Error> derived = validConfig.withPipeline(new AgentPipeline(
+        "extra", TelemetryKind.Logs, failReceivers, noProcessors, failExporters,
+        noConnectors, noConnectors))
+    Result<AgentConfig, Error> derivedConnector = validConfig.withConnector(
+        new OrderConnector("unused", TelemetryKind.Logs, TelemetryKind.Metrics,
+            configTrace))
+    print("config-cycle=" + errorKindName(cycleConfig.error().kind()) + "," +
+        str(derived.isOk()) + "," + str(derivedConnector.isErr()))
     return 0
 }

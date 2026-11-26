@@ -25,9 +25,139 @@ static SpanContext panicContext() {
         "0123456789abcdef", null, true, baggage)
 }
 
+class PReceiver implements Receiver {
+    final TelemetryKind _kind
+    PReceiver(TelemetryKind kind) { self._kind = kind }
+    TelemetryKind kind() { return self._kind }
+    String name() { return "r" }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) { return Ok() }
+    Result<Unit, Error> stop(Context context) { return Ok() }
+    Result<Unit, Error> drain(Context context) { return Ok() }
+    Result<Unit, Error> close() { return Ok() }
+    Bool isRunning() { return true }
+    Bool isHealthy() { return true }
+}
+
+class PExporter implements PipelineExporter {
+    final TelemetryKind _kind
+    PExporter(TelemetryKind kind) { self._kind = kind }
+    TelemetryKind kind() { return self._kind }
+    String name() { return "e" }
+    Result<Unit, Error> start(Context context) { return Ok() }
+    Result<Unit, Error> export(Context context, TelemetryBatch batch) { return Ok() }
+    Result<Unit, Error> drain(Context context) { return Ok() }
+    Result<Unit, Error> close() { return Ok() }
+    Bool isHealthy() { return true }
+}
+
+class PConnector implements Connector {
+    final TelemetryKind _inputKind
+    final TelemetryKind _outputKind
+    PConnector(TelemetryKind inputKind, TelemetryKind outputKind) {
+        self._inputKind = inputKind
+        self._outputKind = outputKind
+    }
+    String name() { return "c" }
+    TelemetryKind inputKind() { return self._inputKind }
+    TelemetryKind outputKind() { return self._outputKind }
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) { return Ok() }
+    Result<Unit, Error> consume(Context context, TelemetryBatch batch) { return Ok() }
+    Result<Unit, Error> drain(Context context) { return Ok() }
+    Result<Unit, Error> close() { return Ok() }
+    Bool isHealthy() { return true }
+}
+
 static Int main(String[] args) {
     String name = args.get(0)
-    if name == "metricFamily" {
+    if name == "pipelineName" {
+        List<Receiver> receivers = []
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        List<Connector> connectors = []
+        AgentPipeline value = new AgentPipeline("", TelemetryKind.Metrics, receivers,
+            processors, exporters, connectors, connectors)
+    } else if name == "pipelineSource" {
+        List<Receiver> receivers = []
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        List<Connector> connectors = []
+        AgentPipeline value = new AgentPipeline("p", TelemetryKind.Metrics, receivers,
+            processors, exporters, connectors, connectors)
+    } else if name == "pipelineSink" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Metrics))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        List<Connector> connectors = []
+        AgentPipeline value = new AgentPipeline("p", TelemetryKind.Metrics, receivers,
+            processors, exporters, connectors, connectors)
+    } else if name == "pipelineReceiverKind" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Logs))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        exporters.push(new PExporter(TelemetryKind.Metrics))
+        List<Connector> connectors = []
+        AgentPipeline value = new AgentPipeline("p", TelemetryKind.Metrics, receivers,
+            processors, exporters, connectors, connectors)
+    } else if name == "pipelineInputKind" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Metrics))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        exporters.push(new PExporter(TelemetryKind.Metrics))
+        List<Connector> inputs = []
+        inputs.push(new PConnector(TelemetryKind.Metrics, TelemetryKind.Logs))
+        List<Connector> outputs = []
+        AgentPipeline value = new AgentPipeline("p", TelemetryKind.Metrics, receivers,
+            processors, exporters, inputs, outputs)
+    } else if name == "pipelineStartNull" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Metrics))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        exporters.push(new PExporter(TelemetryKind.Metrics))
+        List<Connector> connectors = []
+        AgentPipeline pipeline = new AgentPipeline("p", TelemetryKind.Metrics,
+            receivers, processors, exporters, connectors, connectors)
+        Result<Unit, Error> value = pipeline.start(null)
+    } else if name == "pipelineConsumeNull" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Metrics))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        exporters.push(new PExporter(TelemetryKind.Metrics))
+        List<Connector> connectors = []
+        AgentPipeline pipeline = new AgentPipeline("p", TelemetryKind.Metrics,
+            receivers, processors, exporters, connectors, connectors)
+        Result<Unit, Error> value = pipeline.consume(Context.background(), null)
+    } else if name == "pipelineConsumeKind" {
+        List<Receiver> receivers = []
+        receivers.push(new PReceiver(TelemetryKind.Metrics))
+        List<Processor> processors = []
+        List<PipelineExporter> exporters = []
+        exporters.push(new PExporter(TelemetryKind.Metrics))
+        List<Connector> connectors = []
+        AgentPipeline pipeline = new AgentPipeline("p", TelemetryKind.Metrics,
+            receivers, processors, exporters, connectors, connectors)
+        Map<String, String> resource = [:]
+        List<TelemetryRecord> records = []
+        TelemetryBatch batch = new TelemetryBatch(TelemetryKind.Logs, resource,
+            records, 0, 1 as Long)
+        Result<Unit, Error> value = pipeline.consume(Context.background(), batch)
+    } else if name == "configService" {
+        List<AgentPipeline> pipelines = []
+        List<Connector> connectors = []
+        Result<AgentConfig, Error> value = AgentConfig.create("", "i", pipelines,
+            connectors)
+    } else if name == "configPipelines" {
+        List<AgentPipeline> pipelines = []
+        List<Connector> connectors = []
+        Result<AgentConfig, Error> value = AgentConfig.create("s", "i", pipelines,
+            connectors)
+    } else if name == "metricFamily" {
         TelemetryRecord value = TelemetryRecord.metric(null, 1 as Long, 1 as Long)
     } else if name == "metricTimestamp" {
         TelemetryRecord value = TelemetryRecord.metric(panicFamily(), -1 as Long, 1 as Long)
@@ -123,6 +253,14 @@ check_panic() {
     "$TMP/panic" "$name" >"$TMP/$name.out" 2>"$TMP/$name.err" && { echo "agent panic: $name did not fail" >&2; exit 1; }
     grep -Fq "$marker" "$TMP/$name.err" || { echo "agent panic: $name missing '$marker'" >&2; cat "$TMP/$name.err" >&2; exit 1; }
 }
+check_panic pipelineName "AgentPipeline: empty name"
+check_panic pipelineSource "AgentPipeline: no source"
+check_panic pipelineSink "AgentPipeline: no sink"
+check_panic pipelineReceiverKind "AgentPipeline: receiver kind mismatch"
+check_panic pipelineInputKind "AgentPipeline: input connector kind mismatch"
+check_panic pipelineStartNull "AgentPipeline.start: null context"
+check_panic pipelineConsumeNull "AgentPipeline.consume: null batch"
+check_panic pipelineConsumeKind "AgentPipeline.consume: batch kind mismatch"
 check_panic metricFamily "TelemetryRecord.metric: null family"
 check_panic metricTimestamp "TelemetryRecord: negative timestamp"
 check_panic spanName "TelemetryRecord: empty name"
