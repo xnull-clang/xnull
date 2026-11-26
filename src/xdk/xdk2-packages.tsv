@@ -71,7 +71,7 @@ xdk.mcp	L8	16	src/xdk/mcp/Mcp.x	implemented
 xdk.ml	L8	20	src/xdk/ml/Ml.x	design
 xdk.numerics	L8	12	src/xdk/numerics/Numerics.x	implemented
 xdk.db	L8	11	src/xdk/db/Db.x	implemented
-xdk.api	L8	15	src/xdk/api/Api.x	design
+xdk.api	L8	15	src/xdk/api/Api.x	implemented
 xdk.agent	L8	17	src/xdk/agent/Agent.x	design
 xdk.accel	L8	14	src/xdk/accel/Accel.x	design
 xdk.embedded	L8	12	src/xdk/embedded/Embedded.x	design

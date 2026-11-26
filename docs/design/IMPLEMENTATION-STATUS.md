@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 45 包 / 386 类型；`design` 17 包 / 149 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 46 包 / 390 类型；`design` 16 包 / 145 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,9 +18,9 @@
 
 **没有全部做完。**
 
-- 76 个包中：**45 个 implemented、17 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**46 个 implemented、16 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
-- 已实现的 45 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
+- 已实现的 46 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
@@ -39,8 +39,8 @@
 | L5 网络/数据 | 9 | 125 | 0 | 8 | 1 |
 | L6 平台/计算 | 17 | 93 | 0 | 7 | 10 |
 | L7 应用服务 | 12 | 82 | 0 | 12 | 0 |
-| L8 解决方案 | 10 | 128 | 0 | 5 | 5 |
-| **合计** | **76** | **704** | **14** | **45** | **17** |
+| L8 解决方案 | 10 | 128 | 0 | 6 | 4 |
+| **合计** | **76** | **704** | **14** | **46** | **16** |
 
 ---
 
@@ -103,7 +103,7 @@
 | L4 | `xdk.reflect` |
 | L5 | `xdk.net.tls` |
 | L6 | `xdk.os.host`、`xdk.os.hardware`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
-| L8 | `xdk.ml`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |
+| L8 | `xdk.ml`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |
 
 这些包在 `docs/design/` 下有合同/类型文档，但 `src/xdk/` 无实现或仅有设计占位。
 
@@ -144,7 +144,7 @@
 | 网络/TLS/WebSocket | 无 TLS/HTTP2/WS 运行时原语；client/server 仅 text-only |
 | 格式 | YAML/TOML/XML 解析器未实现，对应 `@*Name` 无法落地 |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
-| API/DI/ML/Agent/MCP/JSON-RPC | `xdk.api` 等 8 包仅设计；无框架层实现 |
+| API/DI/ML/Agent | `xdk.api` 仅基础 4 类型；DI/ML/Agent 仍未实现 |
 | 密码学扩展 | Cipher/Kdf/Asymmetric/KeyPair 未实现（无对应运行时原语） |
 | 可观测性 | metrics/trace/audit 已有核心；无 OTLP/导出器/内置 Prometheus 编码器 |
 | 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 上下文、跨线程 GC 栈、门禁时长 |
@@ -172,7 +172,7 @@
 2. `@Scheduled` 宿主接入（`xdk.schedule` 已实现）
 3. `xdk.net.websocket` + `@WsHandler`（需 RFC6455 over net FFI）
 4. YAML → TOML → XML（先写包合同，再 `@*Name`）
-5. `xdk.api`（路由/装配/OpenAPI；消费 `xdk.auth`）
+5. `xdk.api`（路由/装配/OpenAPI/SSE；消费 `xdk.auth`）
 6. B5–B10 其余包；平台/OS/GPU/ML/Agent 按计划推进
 
 ---

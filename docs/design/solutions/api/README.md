@@ -36,6 +36,22 @@
 
 ---
 
+## 1.5 实现状态（M23.1）
+
+已实现 4/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`；
+`ApiContext`/`ApiRoute`/`ApiRouter`/`ApiServer`/`ApiMiddleware`/`ApiHandler`/
+`ApiOptions`/`OpenApiBuilder`/`OpenApiDocument`/`SseStream`/`Authenticator` 留 M23.2/M23.3。
+
+- `ProblemDetails`：RFC 7807/9457 字段、with* 派生、扩展保留名、validation 扩展、JSON；
+- `AuthScheme`：5 成员、稳定名、OpenAPI type/location、Basic/Bearer 挑战；
+- `CorsPolicy`：源/方法/头/暴露头/凭据/预检缓存，preflight/actual 头生成；
+- `RateLimitPolicy`：固定窗口 `allow(key)`、键上限、`copy` 空状态；
+- 受限：`acquire(Context, ApiContext)` 依赖 M23.2 的 `ApiContext`，本批以 `allow(key)` 提供核心判定；
+  重载不支持，故 setter/getter 用 `with*`/`is*`/`get*` 命名。
+- 不做路由/服务器/OpenAPI/SSE/真实 socket。
+
+---
+
 ## 2. 设计原则
 
 | 原则 | 说明 |

@@ -1,0 +1,9 @@
+problem=404,Not Found,true,false,urn:example:not-found,true,true,true,404 Not Found
+validation=422,Validation failed,1,true
+auth=basic,api-key-query,http,cookie,header,Basic,Basic realm="api",Bearer,
+cors=true,false,7,true,true,600
+cors-actual=https://app.example,true,X-Rate-Limit
+cors-preflight=true,GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS,600,0,0
+rate=true,true,false,true,true,2,50,true
+rate-keys=true,false
+rate-copy=true,2,1024
