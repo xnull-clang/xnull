@@ -1,6 +1,7 @@
 package xdk2.numerics
 import xdk.numerics
 import xdk.errors
+import xdk.collections
 import xdk.math
 
 static Double quadratic(Double x) { return x * x - 2.0 }
@@ -122,5 +123,105 @@ static Int main() {
     print("numerics=" + str(Numerics.defaultTolerance()) + "," +
         str(Numerics.defaultMaxIterations()) + "," + Numerics.backendName() + "," +
         Numerics.version())
+
+    BigInt ten = BigInt.parse("10", 20).value()
+    BigInt biHundred = BigInt.parse("100", 20).value()
+    BigInt biMinus = BigInt.parse("-456", 20).value()
+    BigInt leading = BigInt.parse("+000123", 20).value()
+    BigInt hugeText = BigInt.parse("123456789012345678901234567890", 40).value()
+    print("bigint-parse=" + ten.toString() + "," + biHundred.toString() + "," +
+        biMinus.toString() + "," + leading.toString() + "," + hugeText.toString() +
+        "," + BigInt.zero().toString() + "," +
+        BigInt.parse("-0", 2).value().toString() + "," +
+        str(BigInt.parse("", 2).isErr()) + "," +
+        errorKindName(BigInt.parse("12x", 3).error().kind()) + "," +
+        errorKindName(BigInt.parse("1234", 3).error().kind()))
+
+    BigInt longMax = BigInt.fromLong(9223372036854775807 as Long)
+    BigInt longMin = BigInt.fromLong(-9223372036854775807 as Long - 1 as Long)
+    print("bigint-long=" + longMax.toString() + "," + longMin.toString() + "," +
+        str(longMax.toLong().value()) + "," + str(longMin.toLong().value()) + "," +
+        str(BigInt.fromInt(-7).toString()) + "," +
+        BigInt.fromDoubleExact(123.0).value().toString() + "," +
+        BigInt.fromDoubleExact(-45.0).value().toString() + "," +
+        errorKindName(BigInt.fromDoubleExact(1.5).error().kind()) + "," +
+        errorKindName(BigInt.fromDoubleExact(1000000000000000000000000000000.0).error().kind()))
+
+    BigInt biCross = BigInt.parse("4294967296", 40).value()
+    BigInt crossProduct = biCross.multiply(biCross)
+    BigInt bigProduct = BigInt.parse("987654321987654321", 40).value()
+        .multiply(BigInt.parse("123456789", 20).value())
+    BigInt biSum = BigInt.parse("18446744073709551615", 40).value()
+        .add(BigInt.one())
+    print("bigint-arith=" + crossProduct.toString() + "," + bigProduct.toString() +
+        "," + biSum.toString() + "," +
+        BigInt.parse("1000000", 10).value().subtract(BigInt.one()).toString() + "," +
+        BigInt.parse("5", 2).value().subtract(BigInt.parse("8", 2).value()).toString())
+
+    BigInt biDividend = BigInt.parse("12345678901234567890", 40).value()
+    BigInt biDivisor = BigInt.parse("987654321", 20).value()
+    Result<BigIntPair, Error> biDivision = biDividend.divideAndRemainder(biDivisor)
+    BigIntPair biDivisionValue = biDivision.value()
+    BigInt negativeDividend = BigInt.parse("-7", 2).value()
+    BigInt biThree = BigInt.parse("3", 2).value()
+    Result<BigInt, Error> negativeDivide = negativeDividend.divide(biThree)
+    Result<BigInt, Error> negativeRemainder = negativeDividend.remainder(biThree)
+    Result<BigInt, Error> negativeMod = negativeDividend.mod(biThree)
+    print("bigint-divide=" + biDivisionValue.quotient().toString() + "," +
+        biDivisionValue.remainderValue().toString() + "," +
+        negativeDivide.value().toString() + "," + negativeRemainder.value().toString() + "," +
+        negativeMod.value().toString() + "," +
+        errorKindName(biDividend.divide(BigInt.zero()).error().kind()) + "," +
+        errorKindName(negativeDividend.mod(BigInt.parse("-3", 2).value()).error().kind()))
+
+    BigInt biTwo = BigInt.parse("2", 2).value()
+    BigInt biPower = biTwo.pow(Context.background(), 10).value()
+    BigInt zeroPower = BigInt.zero().pow(Context.background(), 0).value()
+    BigInt modPower = BigInt.parse("4", 2).value().modPow(Context.background(),
+        BigInt.parse("13", 3).value(), BigInt.parse("497", 4).value()).value()
+    BigInt inverse = BigInt.parse("3", 2).value().modInverse(
+        BigInt.parse("11", 3).value()).value()
+    BigInt gcdValue = BigInt.parse("48", 3).value().gcd(
+        BigInt.parse("180", 4).value())
+    BigInt lcmValue = BigInt.parse("48", 3).value().lcm(
+        BigInt.parse("180", 4).value())
+    Context cancelledPower = Context.background()
+    cancelledPower.cancel()
+    print("bigint-power=" + biPower.toString() + "," + zeroPower.toString() + "," +
+        modPower.toString() + "," + inverse.toString() + "," + gcdValue.toString() +
+        "," + lcmValue.toString() + "," +
+        errorKindName(biTwo.pow(cancelledPower, 100).error().kind()) + "," +
+        errorKindName(biTwo.pow(Context.background(), -1).error().kind()))
+
+    BigInt biShifted = BigInt.one().shiftLeft(100).value()
+    BigInt shiftedBack = biShifted.shiftRight(100).value()
+    BigInt negativeShift = BigInt.parse("-7", 2).value().shiftRight(1).value()
+    BigInt bitValue = BigInt.parse("5", 2).value()
+    print("bigint-bits=" + biShifted.toString() + "," + shiftedBack.toString() + "," +
+        negativeShift.toString() + "," + str(bitValue.testBit(0)) + "," +
+        str(bitValue.testBit(1)) + "," + str(bitValue.testBit(2)) + "," +
+        str(bitValue.bitLength()) + "," +
+        str(BigInt.one().shiftLeft(64).value().bitLength()) + "," +
+        errorKindName(BigInt.one().shiftLeft(-1).error().kind()))
+
+    BigInt biSquare = BigInt.parse("100000000000000000000", 30).value()
+    BigInt squareRoot = biSquare.multiply(biSquare).sqrt(Context.background()).value()
+    BigInt tenToForty = BigInt.parse("10000000000000000000000000000000000000000", 50).value()
+    BigInt almostSquare = tenToForty.add(BigInt.parse("12345", 6).value())
+    BigInt floorRoot = almostSquare.sqrt(Context.background()).value()
+    print("bigint-sqrt=" + squareRoot.toString() + "," + floorRoot.toString() + "," +
+        almostSquare.subtract(floorRoot.multiply(floorRoot)).toString() + "," +
+        BigInt.parse("144", 3).value().sqrt(Context.background()).value().toString() +
+        "," + errorKindName(BigInt.fromInt(-1).sqrt(Context.background()).error().kind()))
+
+    print("bigint-convert=" + str(BigInt.parse("2147483647", 12).value().toInt().value()) +
+        "," + errorKindName(BigInt.parse("2147483648", 12).value().toInt().error().kind()) +
+        "," + errorKindName(BigInt.parse("9223372036854775808", 20).value().toLong().error().kind()) +
+        "," + str(BigInt.fromInt(42).toDouble()) + "," +
+        str(BigInt.fromInt(-3).signum()) + "," +
+        str(BigInt.zero().isZero()) + "," +
+        str(BigInt.fromInt(-3).isNegative()) + "," +
+        str(BigInt.fromInt(5).compare(BigInt.fromInt(3))) + "," +
+        str(BigInt.fromInt(5).equals(BigInt.fromInt(5))))
     return 0
 }

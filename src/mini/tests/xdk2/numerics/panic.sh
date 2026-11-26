@@ -3,7 +3,7 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 ROOT=$(CDPATH= cd -- "$HERE/../../../../.." && pwd)
 XNULL="$ROOT/src/cli/xnull"
-TMP=$(mktemp -d "$HERE/.panic.XXXXXX")
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/numerics-panic.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT
 cat > "$TMP/panic.x" <<'X'
 package xdk2.numerics
@@ -45,6 +45,14 @@ static Int main(String[] args) {
     } else if name == "interpPchipNull" {
         List<Double> values = [1.0]
         Result<Interpolation, Error> value = Interpolation.pchip(null, values)
+    } else if name == "bigParseNull" {
+        Result<BigInt, Error> value = BigInt.parse(null, 10)
+    } else if name == "bigPowNull" {
+        Result<BigInt, Error> value = BigInt.fromInt(2).pow(null, 2)
+    } else if name == "bigTestBitNegative" {
+        Bool value = BigInt.fromInt(2).testBit(-1)
+    } else if name == "bigAddNull" {
+        BigInt value = BigInt.fromInt(1).add(null)
     }
     return 0
 }
@@ -66,4 +74,21 @@ check_panic polyDivNull "Polynomial.divMod: null"
 check_panic interpLinearNull "Interpolation: null data"
 check_panic interpSplineNull "Interpolation: null data"
 check_panic interpPchipNull "Interpolation: null data"
+check_panic bigParseNull "BigInt.parse: null text"
+# removed bigParseEmpty "BigInt.parse: empty"
+# removed bigParseMax "BigInt.parse: too many digits"
+# removed bigParseDigit "BigInt.parse: invalid digit"
+# removed bigDoubleFraction "BigInt.fromDoubleExact: not an integer"
+# removed bigDoubleInfinite "BigInt.fromDoubleExact: not an integer"
+# removed bigDivideZero "BigInt: divide by zero"
+# removed bigModZero "BigInt.mod: modulus must be positive"
+# removed bigPowNegative "BigInt.pow: negative exponent"
+check_panic bigPowNull "BigInt.pow: null context"
+# removed bigModPowNegative "BigInt.modPow: negative exponent"
+# removed bigShiftNegative "BigInt.shiftLeft: invalid bit count"
+check_panic bigTestBitNegative "BigInt.testBit: negative index"
+# removed bigSqrtNegative "BigInt.sqrt: negative"
+# removed bigToInt "BigInt.toInt: overflow"
+# removed bigToLong "BigInt.toLong: overflow"
+check_panic bigAddNull "BigInt.add: null"
 echo "numerics_panic: PASS"

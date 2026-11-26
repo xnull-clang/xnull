@@ -8,20 +8,25 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 核心实现 4/12：Polynomial/RootFinder/Interpolation/Numerics |
+| 状态 | 核心实现 5/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt |
 
 ---
 
-## 0.5 实现状态（M22.1）
+## 0.5 实现状态（M26.1）
 
-已实现 4/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`。
+已实现 5/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`；
+BigFloat/SpecialFunctions/Integration/Optimization/OdeSolver/Fft/SignalBuffer planned。
 
-- Polynomial：升幂系数、Horner、加减乘、长除法、导数/积分、一/二次解析根 + 高次实根扫描；
-- RootFinder：bisect/brent/newton/secant，无解/不收敛返回 Unsupported/Internal；
-- Interpolation：linear/cubicSpline/pchip；线性区间外线性外推，样条/PCHIP 端点值；
-- Numerics：defaultTolerance=1e-10、defaultMaxIterations=1000、backendName=mini-native。
-- BigInt/BigFloat/SpecialFunctions/Integration/Optimization/OdeSolver/Fft/SignalBuffer 留后续；
-  无 Complex/Matrix 依赖，roots 返回实根近似。
+- `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
+  加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
+  除法向零截断、余数同号，`mod` 非负；除法用二进制长除法（等价多 limb 长除）。
+- 偏差：`divideAndRemainder` 返回 `BigIntPair`（`quotient()`/`remainderValue()`），
+  不是 `Pair<BigInt,BigInt>`；编译器泛型 Pair 与既有 `Pair<Polynomial,Polynomial>`
+  在同一编译单元冲突，待编译器修复后恢复泛型 Pair。
+- `Context` 取消检查用于 pow/modPow/sqrt；Long 范围内 schoolbook 乘法不静默溢出。
+- 不做 BigFloat/FFT/ODE/特殊函数/积分/优化。
+
+---
 
 ## 1. 定位
 
