@@ -21,7 +21,7 @@
 | `xdk.ml` | 20 | implemented（合同） | 模型/会话/数据管道/损失；无宿主运行时，`openSession/run` 返回 Unsupported |
 | `xdk.numerics` | 12 | implemented（类型） | BigInt/积分/优化/ODE/FFT/信号/特殊函数/BigFloat 算术；BigFloat exp/log/pow planned |
 | `xdk.mcp` | 16 | implemented | 消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
-| `xdk.agent` | 17 | implemented 14/17 | 遥测核心/管线/配置/Agent/Batch/MemoryLimiter/Prometheus；HostMetrics/FileLog/OTLP 未实现 |
+| `xdk.agent` | 17 | implemented 15/17 | 遥测核心/管线/配置/Agent/Batch/MemoryLimiter/Prometheus/OTLP（Metrics）；HostMetrics/FileLog 未实现 |
 | `xdk.accel` | 14 | implemented（合同面） | 枚举/描述符/选项/生命周期；Metal/CUDA 等执行路径 Unsupported |
 | `xdk.embedded` | 12 | implemented（合同面） | Board/BoardPin/通道/电源/句柄；GPIO/I2C/SPI/UART 等执行路径 Unsupported |
 

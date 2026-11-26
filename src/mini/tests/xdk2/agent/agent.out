@@ -33,3 +33,4 @@ batch-processor=2,2,0,true
 batch-overflow=2,3,0
 memory-limiter=true,true,1,0,true
 prometheus=true,1,1,true,true
+otlp=true,1,true,true,true

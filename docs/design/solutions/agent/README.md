@@ -13,9 +13,9 @@
 
 ## 0.5 实现状态（M25.1）
 
-已实现 14/17：M25.1 的 8 类 + `AgentPipeline`、`AgentConfig`、`Agent` +
-`BatchProcessor`、`MemoryLimiterProcessor`、`PrometheusExporter`；
-`HostMetricsReceiver`/`FileLogReceiver`（OsHost/PathMatcher）与 `OtlpExporter` 留后续。
+已实现 15/17：M25.1 的 8 类 + `AgentPipeline`、`AgentConfig`、`Agent` +
+`BatchProcessor`、`MemoryLimiterProcessor`、`PrometheusExporter`、`OtlpExporter`；
+`HostMetricsReceiver`/`FileLogReceiver`（OsHost/PathMatcher）留后续。
 
 - 枚举带 `Unknown` 哨兵且放在首位（编译器把枚举 0 当作 null）。
 - `TelemetryRecord`：metric/span/log/fromSpan 工厂、载荷互斥、名称/时间戳/时长校验、

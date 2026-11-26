@@ -4,12 +4,15 @@
 // PipelineExporter/Connector/AgentHealth；AgentPipeline/AgentConfig/Agent 留 M25.2/M25.3。
 package xdk.agent
 import xdk.errors
+import xdk.codec
 import xdk.metrics
 import xdk.trace
 import xdk.log
 import xdk.runtime
 import xdk.time
 import xdk.os.memory
+import xdk.net.http
+import xdk.net.uri
 
 // ---------- TelemetryKind ----------
 // Unknown 放首位：编译器把枚举 0 当作 null。
@@ -2256,3 +2259,307 @@ static String prometheusDouble(Double value) {
     if value == 0.0 - 1.0 / 0.0 { return "-Inf" }
     return str(value)
 }
+
+static Result<JsonValue, Error> otlpEncode(TelemetryBatch batch) {
+    if batch.kind() != TelemetryKind.Metrics {
+        return Err(new BasicError(ErrorKind.Unsupported, "otlp encode: only metrics baseline"))
+    }
+    JsonValue root = Json.object()
+    JsonObject rootObject = root.asObject() as JsonObject
+    JsonValue resourceMetrics = Json.array()
+    JsonArray resourceArray = resourceMetrics.asArray() as JsonArray
+    JsonValue resourceMetric = Json.object()
+    JsonObject metricObject = resourceMetric.asObject() as JsonObject
+    JsonValue resource = Json.object()
+    JsonObject resourceObject = resource.asObject() as JsonObject
+    JsonValue attributes = Json.array()
+    JsonArray attributeArray = attributes.asArray() as JsonArray
+    Map<String, String> resourceValues = batch.resource()
+    List<String> resourceKeys = resourceValues.keys()
+    Int resourceIndex = 0
+    while resourceIndex < resourceKeys.length() {
+        String key = resourceKeys.get(resourceIndex)
+        JsonValue attribute = Json.object()
+        JsonObject attributeObject = attribute.asObject() as JsonObject
+        attributeObject.set("key", Json.string(key))
+        JsonValue value = Json.object()
+        JsonObject valueObject = value.asObject() as JsonObject
+        valueObject.set("stringValue", Json.string(resourceValues.getOr(key, "")))
+        attributeObject.set("value", value)
+        attributeArray.add(attribute)
+        resourceIndex = resourceIndex + 1
+    }
+    resourceObject.set("attributes", attributes)
+    metricObject.set("resource", resource)
+    JsonValue scopeMetrics = Json.array()
+    JsonArray scopeArray = scopeMetrics.asArray() as JsonArray
+    JsonValue scopeMetric = Json.object()
+    JsonObject scopeObject = scopeMetric.asObject() as JsonObject
+    JsonValue scope = Json.object()
+    JsonObject scopeInner = scope.asObject() as JsonObject
+    scopeInner.set("name", Json.string("xdk.agent"))
+    scopeObject.set("scope", scope)
+    JsonValue metrics = Json.array()
+    JsonArray metricArray = metrics.asArray() as JsonArray
+    List<TelemetryRecord> records = batch.records()
+    Int index = 0
+    while index < records.length() {
+        MetricFamily? family = records.get(index).metricFamily()
+        if family != null {
+            MetricFamily actual = family as MetricFamily
+            JsonValue metric = Json.object()
+            JsonObject metricValue = metric.asObject() as JsonObject
+            metricValue.set("name", Json.string(actual.name()))
+            metricValue.set("unit", Json.string(actual.unit()))
+            String kindKey = "gauge"
+            if actual.kind() == MetricKind.Counter { kindKey = "sum" }
+            else if actual.kind() == MetricKind.Histogram { kindKey = "histogram" }
+            JsonValue data = Json.object()
+            JsonObject dataObject = data.asObject() as JsonObject
+            JsonValue points = Json.array()
+            JsonArray pointArray = points.asArray() as JsonArray
+            List<MetricSample> samples = actual.samples()
+            Int sampleIndex = 0
+            while sampleIndex < samples.length() {
+                MetricSample sample = samples.get(sampleIndex)
+                JsonValue point = Json.object()
+                JsonObject pointObject = point.asObject() as JsonObject
+                pointObject.set("asDouble", Json.number(str(sample.value())))
+                pointObject.set("timeUnixNano", Json.string(str(sample.timestampMono() * 1000000 as Long)))
+                JsonValue pointAttributes = Json.array()
+                JsonArray pointAttributeArray = pointAttributes.asArray() as JsonArray
+                Map<String, String> labels = sample.labels()
+                List<String> labelKeys = labels.keys()
+                Int labelIndex = 0
+                while labelIndex < labelKeys.length() {
+                    String labelKey = labelKeys.get(labelIndex)
+                    JsonValue label = Json.object()
+                    JsonObject labelObject = label.asObject() as JsonObject
+                    labelObject.set("key", Json.string(labelKey))
+                    JsonValue labelValue = Json.object()
+                    JsonObject labelValueObject = labelValue.asObject() as JsonObject
+                    labelValueObject.set("stringValue", Json.string(labels.getOr(labelKey, "")))
+                    labelObject.set("value", labelValue)
+                    pointAttributeArray.add(label)
+                    labelIndex = labelIndex + 1
+                }
+                pointObject.set("attributes", pointAttributes)
+                pointArray.add(point)
+                sampleIndex = sampleIndex + 1
+            }
+            dataObject.set("dataPoints", points)
+            metricValue.set(kindKey, data)
+            metricArray.add(metric)
+        }
+        index = index + 1
+    }
+    scopeObject.set("metrics", metrics)
+    scopeArray.add(scopeMetric)
+    metricObject.set("scopeMetrics", scopeMetrics)
+    resourceArray.add(resourceMetric)
+    rootObject.set("resourceMetrics", resourceMetrics)
+    return Ok(root)
+}
+
+// ---------- OtlpExporter ----------
+class OtlpExporter implements PipelineExporter {
+    final String _name
+    final TelemetryKind _kind
+    final String _endpoint
+    final Map<String, String> _headers
+    final Long _requestTimeoutMillis
+    final RetryPolicy _retryPolicy
+    final Int _queueCapacity
+    final String _overflowPolicy
+    final RuntimeMonitor _monitor
+    final List<TelemetryBatch> _queue
+    Bool _started
+    Bool _closed
+    Bool _sending
+    Bool _healthy
+    Int _sentBatches
+    Int _droppedBatches
+    Int _failedRequests
+    HttpClient? _client
+
+    OtlpExporter(String name, TelemetryKind kind, String endpoint, String protocolName,
+                 Map<String, String> headers, Long requestTimeoutMillis,
+                 String compression, RetryPolicy retryPolicy, Int queueCapacity,
+                 String overflowPolicy) {
+        if name == null || name == "" { throw "OtlpExporter: empty name" }
+        if kind == null || kind == TelemetryKind.Unknown { throw "OtlpExporter: invalid kind" }
+        if endpoint == null || endpoint == "" { throw "OtlpExporter: empty endpoint" }
+        if protocolName != "http_json" { throw "OtlpExporter: unsupported protocol" }
+        if headers == null { throw "OtlpExporter: null headers" }
+        if requestTimeoutMillis <= 0 as Long { throw "OtlpExporter: invalid timeout" }
+        if compression != "none" { throw "OtlpExporter: unsupported compression" }
+        if retryPolicy == null { throw "OtlpExporter: null retry policy" }
+        if queueCapacity <= 0 { throw "OtlpExporter: invalid queue capacity" }
+        if overflowPolicy != "reject" && overflowPolicy != "drop_oldest" &&
+            overflowPolicy != "drop_newest" {
+            throw "OtlpExporter: invalid overflow policy"
+        }
+        self._name = name
+        self._kind = kind
+        self._endpoint = endpoint
+        Map<String, String> copy = [:]
+        List<String> keys = headers.keys()
+        Int index = 0
+        while index < keys.length() {
+            copy.put(keys.get(index), headers.getOr(keys.get(index), ""))
+            index = index + 1
+        }
+        self._headers = copy
+        self._requestTimeoutMillis = requestTimeoutMillis
+        self._retryPolicy = retryPolicy
+        self._queueCapacity = queueCapacity
+        self._overflowPolicy = overflowPolicy
+        self._monitor = new RuntimeMonitor()
+        List<TelemetryBatch> queue = []
+        self._queue = queue
+        self._started = false
+        self._closed = false
+        self._sending = false
+        self._healthy = true
+        self._sentBatches = 0
+        self._droppedBatches = 0
+        self._failedRequests = 0
+        self._client = null
+    }
+
+    TelemetryKind kind() { return self._kind }
+    String name() { return self._name }
+
+    Result<Unit, Error> start(Context context) {
+        if context == null { throw "OtlpExporter.start: null context" }
+        if self._closed { return Err(new BasicError(ErrorKind.Unavailable, "otlp closed")) }
+        if self._started { return Ok() }
+        self._client = new HttpClient()
+        self._started = true
+        return Ok()
+    }
+
+    Result<Unit, Error> export(Context context, TelemetryBatch batch) {
+        if context == null || batch == null { throw "OtlpExporter.export: null argument" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "otlp not running"))
+        }
+        if batch.kind() != self._kind {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "otlp kind mismatch"))
+        }
+        if self._queue.length() >= self._queueCapacity {
+            if self._overflowPolicy == "reject" {
+                return Err(new BasicError(ErrorKind.Busy, "otlp queue full"))
+            }
+            if self._overflowPolicy == "drop_newest" {
+                self._droppedBatches = self._droppedBatches + 1
+                return Ok()
+            }
+            TelemetryBatch removed = self._queue.get(0)
+            self._queue.remove(0)
+            self._droppedBatches = self._droppedBatches + 1
+        }
+        self._queue.push(batch)
+        return self.drain(context)
+    }
+
+    Result<Unit, Error> drain(Context context) {
+        if context == null { throw "OtlpExporter.drain: null context" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "otlp not running"))
+        }
+        if self._sending { return Ok() }
+        self._sending = true
+        while self._queue.length() > 0 {
+            TelemetryBatch batch = self._queue.get(0)
+            Result<Unit, Error> sent = self.sendWithRetry(context, batch)
+            if sent.isErr() {
+                self._sending = false
+                self._healthy = false
+                return Err(sent.error())
+            }
+            self._queue.remove(0)
+            self._sentBatches = self._sentBatches + 1
+        }
+        self._sending = false
+        self._healthy = true
+        return Ok()
+    }
+
+    private Result<Unit, Error> sendWithRetry(Context context, TelemetryBatch batch) {
+        if self._client == null {
+            return Err(new BasicError(ErrorKind.Unavailable, "otlp client missing"))
+        }
+        Int attempts = self._retryPolicy.maxAttempts()
+        Int attempt = 1
+        Long delay = self._retryPolicy.initialDelayMillis()
+        while attempt <= attempts {
+            Result<Unit, Error> sent = self.sendOnce(context, batch)
+            if sent.isOk() { return Ok() }
+            Error error = sent.error()
+            self._failedRequests = self._failedRequests + 1
+            Bool retryable = error.kind() == ErrorKind.Network ||
+                error.kind() == ErrorKind.Timeout ||
+                error.kind() == ErrorKind.Unavailable ||
+                error.kind() == ErrorKind.Busy
+            if !retryable || attempt == attempts { return Err(error) }
+            if delay > 0 as Long { sleepMs(delay) }
+            Long nextDelay = (delay as Double * self._retryPolicy.multiplier()) as Long
+            if nextDelay > self._retryPolicy.maxDelayMillis() {
+                nextDelay = self._retryPolicy.maxDelayMillis()
+            }
+            delay = nextDelay
+            attempt = attempt + 1
+        }
+        return Err(new BasicError(ErrorKind.Internal, "otlp retry exhausted"))
+    }
+
+    private Result<Unit, Error> sendOnce(Context context, TelemetryBatch batch) {
+        Result<JsonValue, Error> encoded = otlpEncode(batch)
+        if encoded.isErr() { return Err(encoded.error()) }
+        String path = "/v1/metrics"
+        if self._kind == TelemetryKind.Traces { path = "/v1/traces" }
+        if self._kind == TelemetryKind.Logs { path = "/v1/logs" }
+        Result<Uri, Error> uri = Uri.parse(self._endpoint + path)
+        if uri.isErr() { return Err(uri.error()) }
+        HttpRequest request = new HttpRequest(HttpMethod.Post, uri.value())
+        request = request.withHeader("Content-Type", "application/json")
+        List<String> keys = self._headers.keys()
+        Int index = 0
+        while index < keys.length() {
+            request = request.withHeader(keys.get(index), self._headers.getOr(keys.get(index), ""))
+            index = index + 1
+        }
+        request = request.withBody(HttpBody.fromText(Json.stringify(encoded.value())))
+        HttpClient client = self._client as HttpClient
+        Result<HttpResponse, Error> response = client.request(context, request)
+        if response.isErr() { return Err(response.error()) }
+        Int status = response.value().status().code()
+        if status >= 200 && status <= 299 { return Ok() }
+        if status == 429 || status >= 500 {
+            return Err(new BasicError(ErrorKind.Unavailable, "otlp server error"))
+        }
+        return Err(new BasicError(ErrorKind.InvalidArgument, "otlp rejected"))
+    }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        self._started = false
+        self._droppedBatches = self._droppedBatches + self._queue.length()
+        self._queue.clear()
+        if self._client != null {
+            HttpClient client = self._client as HttpClient
+            client.close()
+        }
+        return Ok()
+    }
+
+    Bool isHealthy() { return self._started && !self._closed && self._healthy }
+    Int queueLength() { return self._queue.length() }
+    Int sentBatches() { return self._sentBatches }
+    Int droppedBatches() { return self._droppedBatches }
+    Int failedRequests() { return self._failedRequests }
+    String describe() { return "otlp " + self._name + " endpoint=" + self._endpoint }
+}
+

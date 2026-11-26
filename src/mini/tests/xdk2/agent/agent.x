@@ -7,6 +7,9 @@ import xdk.runtime
 import xdk.errors
 import xdk.time
 import xdk.execution
+import xdk.net
+import xdk.net.http
+import xdk.net.uri
 
 static TelemetryBatch metricBatch(Int count, String name) {
     List<MetricSample> samples = []
@@ -22,6 +25,38 @@ static TelemetryBatch metricBatch(Int count, String name) {
     }
     Map<String, String> resource = [:]
     return new TelemetryBatch(TelemetryKind.Metrics, resource, records, 0, 30 as Long)
+}
+
+class OtlpCaptureHandler implements HttpHandler {
+    String body
+    OtlpCaptureHandler() { self.body = "" }
+    Result<Unit, Error> handle(Context context, HttpExchange exchange) {
+        Result<String, Error> read = exchange.request().body().readText(16777216 as Long)
+        if read.isOk() { self.body = read.value() }
+        return exchange.respond(HttpResponse.of(200).withBody(HttpBody.fromText("{}")))
+    }
+}
+
+class OtlpServerRunner {
+    final HttpServer _server
+    final Context _cancel
+    final TaskGroup _group
+    final Task<Int> _task
+    OtlpServerRunner(HttpServer server, OtlpCaptureHandler handler, Context parent) {
+        self._server = server
+        self._cancel = Context.withCancel(parent)
+        self._group = TaskGroup.create(self._cancel)
+        self._task = self._group.spawn((Context taskContext) -> {
+            server.serve(taskContext, handler, 100)
+            return Ok(0)
+        })
+    }
+    Void stop() {
+        self._cancel.cancel()
+        self._server.close()
+        self._task.join()
+        self._group.close()
+    }
 }
 
 class FakeReceiver implements Receiver {
@@ -815,5 +850,22 @@ static Int main() {
         str(promText.indexOf("# TYPE xdk_requests gauge") >= 0) + "," +
         str(promText.indexOf("xdk_requests 3") >= 0))
     prometheus.close()
+
+    OtlpCaptureHandler captor = new OtlpCaptureHandler()
+    HttpServer otlpServer = HttpServer.bind(Context.background(), "127.0.0.1", 19170).value()
+    OtlpServerRunner otlpRunner = new OtlpServerRunner(otlpServer, captor, Context.background())
+    sleepMs(40)
+    Map<String, String> otlpHeaders = [:]
+    OtlpExporter otlp = new OtlpExporter("otlp", TelemetryKind.Metrics,
+        "http://127.0.0.1:19170", "http_json", otlpHeaders, 5000 as Long,
+        "none", new RetryPolicy(), 8, "reject")
+    otlp.start(batchContext)
+    Result<Unit, Error> otlpExport = otlp.export(batchContext, metricBatch(1, "requests"))
+    print("otlp=" + str(otlpExport.isOk()) + "," + str(otlp.sentBatches()) +
+        "," + str(captor.body.indexOf("resourceMetrics") >= 0) +
+        "," + str(captor.body.indexOf("requests") >= 0) +
+        "," + str(otlp.isHealthy()))
+    otlp.close()
+    otlpRunner.stop()
     return 0
 }
