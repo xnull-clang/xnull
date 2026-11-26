@@ -71,7 +71,9 @@ class PConnector implements Connector {
 
 static Int main(String[] args) {
     String name = args.get(0)
-    if name == "pipelineName" {
+    if name == "agentNull" {
+        Agent value = new Agent(null)
+    } else if name == "pipelineName" {
         List<Receiver> receivers = []
         List<Processor> processors = []
         List<PipelineExporter> exporters = []
@@ -253,6 +255,7 @@ check_panic() {
     "$TMP/panic" "$name" >"$TMP/$name.out" 2>"$TMP/$name.err" && { echo "agent panic: $name did not fail" >&2; exit 1; }
     grep -Fq "$marker" "$TMP/$name.err" || { echo "agent panic: $name missing '$marker'" >&2; cat "$TMP/$name.err" >&2; exit 1; }
 }
+check_panic agentNull "Agent: null config"
 check_panic pipelineName "AgentPipeline: empty name"
 check_panic pipelineSource "AgentPipeline: no source"
 check_panic pipelineSink "AgentPipeline: no sink"

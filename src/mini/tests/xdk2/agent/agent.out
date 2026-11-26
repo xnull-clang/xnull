@@ -23,3 +23,9 @@ pipeline-drain-busy=busy
 config=true,agent config service=svc instance=inst pipelines=2 connectors=1,true,true,true
 config-errors=invalid_argument,invalid_argument,invalid_argument
 config-cycle=invalid_argument,true,true
+agent-start=true,agent-c:start,receiver:start,agent-exp:start,true,agent agent-svc/agent-inst pipelines=2 connectors=1 running=true,healthy
+agent-drain=true,true,receiver:drain,agent-exp:drain,receiver:drain,agent-exp:drain
+agent-stop=true,receiver:stop,receiver:drain,agent-exp:drain,receiver:drain,agent-exp:drain,receiver:close,agent-exp:close,true,unavailable,unavailable,false,stopped,false
+agent-close=true,true
+agent-unstarted=true,stopped,false
+agent-fail=true,fail-c:start,receiver:start,fail-exp:start,receiver:close,unhealthy,false

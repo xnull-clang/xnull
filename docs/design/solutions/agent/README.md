@@ -13,8 +13,8 @@
 
 ## 0.5 实现状态（M25.1）
 
-已实现 10/17：M25.1 的 8 类 + `AgentPipeline`、`AgentConfig`；Agent 与具体
-receiver/processor/exporter/connector 留 M25.3。
+已实现 11/17：M25.1 的 8 类 + `AgentPipeline`、`AgentConfig`、`Agent`；
+具体 receiver/processor/exporter/connector 留后续批次。
 
 - 枚举带 `Unknown` 哨兵且放在首位（编译器把枚举 0 当作 null）。
 - `TelemetryRecord`：metric/span/log/fromSpan 工厂、载荷互斥、名称/时间戳/时长校验、
@@ -35,7 +35,11 @@ receiver/processor/exporter/connector 留 M25.3。
   stop 后仍接收连接器数据。
 - `AgentConfig`：create/of 校验管线/连接器名唯一、连接器恰好一次输入+一次输出接入、
   管线引用已列连接器、连接图无环；withPipeline/withConnector 派生并复验。
-- 不做 Agent/具体组件/导出网络；无全局注册表。
+- `Agent`：连接器先启动，管线按源优先拓扑顺序启动；失败关闭已启动组件并置 Unhealthy；
+  stop 顺序为源管线 stop/drain → 连接器 drain → 目标管线 drain → 连接器 close →
+  管线 close，缓存幂等结果；drain 为源管线 → 连接器 → 目标管线；close 立即取消内部
+  Context 并关闭连接器/管线；未启动 stop 返回 Stopped；关闭后 start/drain 返回 Unavailable。
+- 不做具体组件/导出网络；无全局注册表。
 
 ---
 

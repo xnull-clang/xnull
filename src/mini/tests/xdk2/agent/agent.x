@@ -225,7 +225,10 @@ class OrderConnector implements Connector {
     TelemetryKind inputKind() { return self._inputKind }
     TelemetryKind outputKind() { return self._outputKind }
     Result<Unit, Error> start(Context context,
-            Result<Unit, Error>(TelemetryBatch) downstream) { return Ok() }
+            Result<Unit, Error>(TelemetryBatch) downstream) {
+        self._trace.push(self._name + ":start")
+        return Ok()
+    }
     Result<Unit, Error> consume(Context context, TelemetryBatch batch) {
         self._trace.push(self._name + ":consume")
         return Ok()
@@ -264,6 +267,10 @@ static TelemetryBatch agEmptyBatch(TelemetryKind kind) {
     Map<String, String> resource = [:]
     List<TelemetryRecord> records = []
     return new TelemetryBatch(kind, resource, records, 0, 1 as Long)
+}
+
+static String agentStateName(HealthState state) {
+    return healthStateName(state)
 }
 
 static Int main() {
@@ -618,5 +625,123 @@ static Int main() {
             configTrace))
     print("config-cycle=" + errorKindName(cycleConfig.error().kind()) + "," +
         str(derived.isOk()) + "," + str(derivedConnector.isErr()))
+
+    List<String> agentTrace = []
+    OrderReceiver agentSourceReceiver = new OrderReceiver(TelemetryKind.Metrics,
+        agentTrace)
+    List<Receiver> agentSourceReceivers = []
+    agentSourceReceivers.push(agentSourceReceiver)
+    OrderConnector agentConnector = new OrderConnector("agent-c", TelemetryKind.Metrics,
+        TelemetryKind.Traces, agentTrace)
+    List<Connector> agentEmptyConnectors = []
+    List<PipelineExporter> agentNoExporters = []
+    List<Connector> agentSourceOutputs = []
+    agentSourceOutputs.push(agentConnector)
+    AgentPipeline agentSource = new AgentPipeline("agent-source", TelemetryKind.Metrics,
+        agentSourceReceivers, noProcessors, agentNoExporters, agentEmptyConnectors,
+        agentSourceOutputs)
+    OrderExporter agentSinkExporter = new OrderExporter(TelemetryKind.Traces,
+        "agent-exp", agentTrace)
+    List<PipelineExporter> agentSinkExporters = []
+    agentSinkExporters.push(agentSinkExporter)
+    List<Connector> agentSinkInputs = []
+    agentSinkInputs.push(agentConnector)
+    AgentPipeline agentSink = new AgentPipeline("agent-sink", TelemetryKind.Traces,
+        noReceivers, noProcessors, agentSinkExporters, agentSinkInputs,
+        agentEmptyConnectors)
+    List<AgentPipeline> agentPipelines = []
+    agentPipelines.push(agentSource)
+    agentPipelines.push(agentSink)
+    List<Connector> agentConnectors = []
+    agentConnectors.push(agentConnector)
+    AgentConfig agentConfig = AgentConfig.create("agent-svc", "agent-inst",
+        agentPipelines, agentConnectors).value()
+    Agent agent = new Agent(agentConfig)
+    Result<Unit, Error> agentStart = agent.start(Context.background())
+    String agentStartTrace = agentTrace.join(",")
+    print("agent-start=" + str(agentStart.isOk()) + "," + agentStartTrace + "," +
+        str(agent.isRunning()) + "," + agent.describe() + "," +
+        agentStateName(agent.health().state()))
+
+    Result<Unit, Error> agentRepeatStart = agent.start(Context.background())
+    agentTrace.clear()
+    Result<Unit, Error> agentDrain = agent.drain(Context.background())
+    String agentDrainTrace = agentTrace.join(",")
+    print("agent-drain=" + str(agentRepeatStart.isOk()) + "," +
+        str(agentDrain.isOk()) + "," + agentDrainTrace)
+
+    agentTrace.clear()
+    Result<Unit, Error> agentStop = agent.stop(Context.background())
+    String agentStopTrace = agentTrace.join(",")
+    Result<Unit, Error> agentStopAgain = agent.stop(Context.background())
+    Result<Unit, Error> agentDrainStopped = agent.drain(Context.background())
+    Result<Unit, Error> agentStartClosed = agent.start(Context.background())
+    print("agent-stop=" + str(agentStop.isOk()) + "," + agentStopTrace + "," +
+        str(agentStopAgain.isOk()) + "," +
+        errorKindName(agentDrainStopped.error().kind()) + "," +
+        errorKindName(agentStartClosed.error().kind()) + "," +
+        str(agent.isRunning()) + "," + agentStateName(agent.health().state()) +
+        "," + str(agent.health().isLive()))
+
+    Result<Unit, Error> agentClose = agent.close()
+    print("agent-close=" + str(agentClose.isOk()) + "," + str(agent.close().isOk()))
+
+    List<String> unstartedTrace = []
+    OrderReceiver unstartedReceiver = new OrderReceiver(TelemetryKind.Metrics,
+        unstartedTrace)
+    List<Receiver> unstartedReceivers = []
+    unstartedReceivers.push(unstartedReceiver)
+    List<PipelineExporter> unstartedExporters = []
+    unstartedExporters.push(new OrderExporter(TelemetryKind.Metrics, "u-exp",
+        unstartedTrace))
+    AgentPipeline unstartedPipeline = new AgentPipeline("unstarted",
+        TelemetryKind.Metrics, unstartedReceivers, noProcessors, unstartedExporters,
+        agentEmptyConnectors, agentEmptyConnectors)
+    List<AgentPipeline> unstartedPipelines = []
+    unstartedPipelines.push(unstartedPipeline)
+    AgentConfig unstartedConfig = AgentConfig.create("agent-svc", "unstarted",
+        unstartedPipelines, agentEmptyConnectors).value()
+    Agent unstartedAgent = new Agent(unstartedConfig)
+    Result<Unit, Error> unstartedStop = unstartedAgent.stop(Context.background())
+    print("agent-unstarted=" + str(unstartedStop.isOk()) + "," +
+        agentStateName(unstartedAgent.health().state()) + "," +
+        str(unstartedAgent.isRunning()))
+    unstartedAgent.close()
+
+    List<String> failAgentTrace = []
+    OrderReceiver failAgentReceiver = new OrderReceiver(TelemetryKind.Metrics,
+        failAgentTrace)
+    List<Receiver> failAgentReceivers = []
+    failAgentReceivers.push(failAgentReceiver)
+    OrderConnector failAgentConnector = new OrderConnector("fail-c",
+        TelemetryKind.Metrics, TelemetryKind.Traces, failAgentTrace)
+    List<Connector> failAgentSourceOutputs = []
+    failAgentSourceOutputs.push(failAgentConnector)
+    AgentPipeline failAgentSource = new AgentPipeline("fail-source",
+        TelemetryKind.Metrics, failAgentReceivers, noProcessors, agentNoExporters,
+        agentEmptyConnectors, failAgentSourceOutputs)
+    OrderExporter failAgentExporter = new OrderExporter(TelemetryKind.Traces,
+        "fail-exp", failAgentTrace)
+    failAgentExporter._failStart = true
+    List<PipelineExporter> failAgentExporters = []
+    failAgentExporters.push(failAgentExporter)
+    List<Connector> failAgentInputs = []
+    failAgentInputs.push(failAgentConnector)
+    AgentPipeline failAgentSink = new AgentPipeline("fail-sink", TelemetryKind.Traces,
+        noReceivers, noProcessors, failAgentExporters, failAgentInputs,
+        agentEmptyConnectors)
+    List<AgentPipeline> failAgentPipelines = []
+    failAgentPipelines.push(failAgentSource)
+    failAgentPipelines.push(failAgentSink)
+    List<Connector> failAgentConnectors = []
+    failAgentConnectors.push(failAgentConnector)
+    AgentConfig failAgentConfig = AgentConfig.create("agent-svc", "fail-agent",
+        failAgentPipelines, failAgentConnectors).value()
+    Agent failAgent = new Agent(failAgentConfig)
+    Result<Unit, Error> failAgentStart = failAgent.start(Context.background())
+    print("agent-fail=" + str(failAgentStart.isErr()) + "," +
+        failAgentTrace.join(",") + "," + agentStateName(failAgent.health().state()) +
+        "," + str(failAgent.isRunning()))
+    failAgent.close()
     return 0
 }

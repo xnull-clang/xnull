@@ -1308,3 +1308,389 @@ static Int agIndexOfString(List<String> values, String target) {
     }
     return -1
 }
+
+// ---------- Agent ----------
+class Agent {
+    final AgentConfig _config
+    final List<AgentPipeline> _pipelines
+    final List<Connector> _connectors
+    final AgentHealth _health
+    final RuntimeMonitor _monitor
+    Context? _context
+    Bool _starting
+    Bool _started
+    Bool _running
+    Bool _stopping
+    Bool _draining
+    Bool _closed
+    Bool _stopFailed
+    String _stopMessage
+    Bool _closeFailed
+    String _closeMessage
+
+    Agent(AgentConfig config) {
+        if config == null { throw "Agent: null config" }
+        self._config = config
+        self._pipelines = config.pipelines()
+        self._connectors = config.connectors()
+        self._health = new AgentHealth("agent/" + config.instanceName(),
+            config.serviceName(), self._pipelines.length())
+        self._monitor = new RuntimeMonitor()
+        self._context = null
+        self._starting = false
+        self._started = false
+        self._running = false
+        self._stopping = false
+        self._draining = false
+        self._closed = false
+        self._stopFailed = false
+        self._stopMessage = ""
+        self._closeFailed = false
+        self._closeMessage = ""
+    }
+
+    Result<Unit, Error> start(Context context) {
+        if context == null { throw "Agent.start: null context" }
+        self._monitor.enter()
+        if self._closed {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Unavailable, "agent closed"))
+        }
+        if self._started {
+            self._monitor.exit()
+            return Ok()
+        }
+        if self._starting || self._stopping || self._draining {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Busy, "agent transitioning"))
+        }
+        self._starting = true
+        Context internal = Context.withCancel(context)
+        self._context = internal
+        self._health.markStarted()
+        self._monitor.exit()
+        Int connectorIndex = 0
+        while connectorIndex < self._connectors.length() {
+            Connector connector = self._connectors.get(connectorIndex)
+            AgentPipeline? destination = self.destinationFor(connector)
+            if destination == null {
+                self.failStart("connector destination missing")
+                return Err(new BasicError(ErrorKind.Internal,
+                    "connector destination missing"))
+            }
+            AgentPipeline target = destination as AgentPipeline
+            Result<Unit, Error>(TelemetryBatch) downstream =
+                self.bindPipeline(internal, target)
+            Result<Unit, Error> started = connector.start(internal, downstream)
+            if started.isErr() {
+                self.closeConnectors(connectorIndex)
+                self.failStart(started.error().describe())
+                return started
+            }
+            connectorIndex = connectorIndex + 1
+        }
+        List<AgentPipeline> order = self.buildStartOrder()
+        Int pipelineIndex = 0
+        while pipelineIndex < order.length() {
+            Result<Unit, Error> started = order.get(pipelineIndex).start(internal)
+            if started.isErr() {
+                self.closePipelines(order, pipelineIndex)
+                self.closeConnectors(self._connectors.length())
+                self.failStart(started.error().describe())
+                return started
+            }
+            pipelineIndex = pipelineIndex + 1
+        }
+        self._monitor.enter()
+        self._starting = false
+        self._started = true
+        self._running = true
+        self._health.markReady(self._pipelines.length())
+        self._monitor.exit()
+        return Ok()
+    }
+
+    Result<Unit, Error> stop(Context context) {
+        if context == null { throw "Agent.stop: null context" }
+        self._monitor.enter()
+        if self._closed || !self._started {
+            Bool failed = self._stopFailed
+            String message = self._stopMessage
+            self._monitor.exit()
+            if failed { return Err(new BasicError(ErrorKind.Io, message)) }
+            self._health.markStopped()
+            return Ok()
+        }
+        if self._starting || self._stopping || self._draining {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Busy, "agent transitioning"))
+        }
+        self._stopping = true
+        self._running = false
+        self._monitor.exit()
+        Result<Unit, Error> first = Ok()
+        List<AgentPipeline> startOrder = self.buildStartOrder()
+        Int index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> stopped = startOrder.get(index).stop(context)
+            if stopped.isErr() && first.isOk() { first = stopped }
+            index = index + 1
+        }
+        index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> drained = startOrder.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        index = 0
+        while index < self._connectors.length() {
+            Result<Unit, Error> drained = self._connectors.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> drained = startOrder.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        index = 0
+        while index < self._connectors.length() {
+            Result<Unit, Error> closed = self._connectors.get(index).close()
+            if closed.isErr() && first.isOk() { first = closed }
+            index = index + 1
+        }
+        index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> closed = startOrder.get(index).close()
+            if closed.isErr() && first.isOk() { first = closed }
+            index = index + 1
+        }
+        self._monitor.enter()
+        self._stopping = false
+        self._started = false
+        self._closed = true
+        Context? internalValue = self._context
+        if internalValue != null {
+            Context internal = internalValue as Context
+            internal.cancel()
+        }
+        if first.isErr() {
+            self._stopFailed = true
+            self._stopMessage = first.error().describe()
+            self._closeFailed = true
+            self._closeMessage = self._stopMessage
+        }
+        self._health.markStopped()
+        self._monitor.exit()
+        return first
+    }
+
+    Result<Unit, Error> drain(Context context) {
+        if context == null { throw "Agent.drain: null context" }
+        self._monitor.enter()
+        if self._closed || !self._running {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Unavailable, "agent not running"))
+        }
+        if self._starting || self._stopping || self._draining {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Busy, "agent transitioning"))
+        }
+        self._draining = true
+        self._monitor.exit()
+        Result<Unit, Error> first = Ok()
+        List<AgentPipeline> startOrder = self.buildStartOrder()
+        Int index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> drained = startOrder.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        index = 0
+        while index < self._connectors.length() {
+            Result<Unit, Error> drained = self._connectors.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        index = 0
+        while index < startOrder.length() {
+            Result<Unit, Error> drained = startOrder.get(index).drain(context)
+            if drained.isErr() && first.isOk() { first = drained }
+            index = index + 1
+        }
+        self._monitor.enter()
+        self._draining = false
+        self._monitor.exit()
+        return first
+    }
+
+    Result<Unit, Error> close() {
+        self._monitor.enter()
+        if self._starting || self._stopping || self._draining {
+            self._monitor.exit()
+            return Err(new BasicError(ErrorKind.Busy, "agent transitioning"))
+        }
+        if self._closed {
+            Bool failed = self._closeFailed
+            String message = self._closeMessage
+            self._monitor.exit()
+            if failed { return Err(new BasicError(ErrorKind.Io, message)) }
+            return Ok()
+        }
+        self._closed = true
+        self._running = false
+        self._starting = false
+        self._stopping = false
+        Context? internalValue = self._context
+        if internalValue != null {
+            Context internal = internalValue as Context
+            internal.cancel()
+        }
+        self._monitor.exit()
+        Result<Unit, Error> first = Ok()
+        Int connectorIndex = 0
+        while connectorIndex < self._connectors.length() {
+            Result<Unit, Error> closed = self._connectors.get(connectorIndex).close()
+            if closed.isErr() && first.isOk() { first = closed }
+            connectorIndex = connectorIndex + 1
+        }
+        List<AgentPipeline> order = self.buildStartOrder()
+        Int pipelineIndex = 0
+        while pipelineIndex < order.length() {
+            Result<Unit, Error> closed = order.get(pipelineIndex).close()
+            if closed.isErr() && first.isOk() { first = closed }
+            pipelineIndex = pipelineIndex + 1
+        }
+        self._monitor.enter()
+        if first.isErr() {
+            self._closeFailed = true
+            self._closeMessage = first.error().describe()
+            self._stopFailed = true
+            self._stopMessage = self._closeMessage
+        }
+        self._health.markStopped()
+        self._monitor.exit()
+        return first
+    }
+
+    Bool isRunning() { return self._running }
+    String serviceName() { return self._config.serviceName() }
+    String instanceName() { return self._config.instanceName() }
+    List<AgentPipeline> pipelines() { return self._pipelines.copy() }
+    List<Connector> connectors() { return self._connectors.copy() }
+    AgentHealth health() { return self._health }
+
+    List<AgentPipeline> buildStartOrder() {
+        List<AgentPipeline> order = []
+        List<String> visited = []
+        Int index = 0
+        while index < self._pipelines.length() {
+            self.visitStart(self._pipelines.get(index), visited, order)
+            index = index + 1
+        }
+        return order
+    }
+
+    private Void visitStart(AgentPipeline pipeline, List<String> visited,
+                            List<AgentPipeline> order) {
+        if agContainsString(visited, pipeline.name()) { return }
+        List<Connector> inputs = pipeline.inputConnectors()
+        Int index = 0
+        while index < inputs.length() {
+            AgentPipeline? source = self.sourceFor(inputs.get(index))
+            if source != null {
+                self.visitStart(source as AgentPipeline, visited, order)
+            }
+            index = index + 1
+        }
+        visited.push(pipeline.name())
+        order.push(pipeline)
+    }
+
+    private AgentPipeline? destinationFor(Connector connector) {
+        Int index = 0
+        while index < self._pipelines.length() {
+            AgentPipeline pipeline = self._pipelines.get(index)
+            List<Connector> inputs = pipeline.inputConnectors()
+            Int inputIndex = 0
+            while inputIndex < inputs.length() {
+                if inputs.get(inputIndex).name() == connector.name() {
+                    return pipeline
+                }
+                inputIndex = inputIndex + 1
+            }
+            index = index + 1
+        }
+        return null
+    }
+
+    private AgentPipeline? sourceFor(Connector connector) {
+        Int index = 0
+        while index < self._pipelines.length() {
+            AgentPipeline pipeline = self._pipelines.get(index)
+            List<Connector> outputs = pipeline.outputConnectors()
+            Int outputIndex = 0
+            while outputIndex < outputs.length() {
+                if outputs.get(outputIndex).name() == connector.name() {
+                    return pipeline
+                }
+                outputIndex = outputIndex + 1
+            }
+            index = index + 1
+        }
+        return null
+    }
+
+    private List<AgentPipeline> reverse(List<AgentPipeline> values) {
+        List<AgentPipeline> result = []
+        Int index = values.length() - 1
+        while index >= 0 {
+            result.push(values.get(index))
+            index = index - 1
+        }
+        return result
+    }
+
+    private Result<Unit, Error>(TelemetryBatch) bindPipeline(Context context,
+                                                              AgentPipeline pipeline) {
+        return (TelemetryBatch batch) -> pipeline.consume(context, batch)
+    }
+
+    private Void failStart(String message) {
+        self._monitor.enter()
+        self._starting = false
+        self._started = false
+        self._running = false
+        Context? internalValue = self._context
+        if internalValue != null {
+            Context internal = internalValue as Context
+            internal.cancel()
+        }
+        self._health.markUnhealthy(message)
+        self._monitor.exit()
+    }
+
+    private Void closeConnectors(Int count) {
+        Int index = 0
+        while index < count {
+            self._connectors.get(index).close()
+            index = index + 1
+        }
+    }
+
+    private Void closePipelines(List<AgentPipeline> order, Int count) {
+        Int index = count - 1
+        while index >= 0 {
+            order.get(index).close()
+            index = index - 1
+        }
+    }
+
+    String describe() {
+        return "agent " + self._config.serviceName() + "/" +
+            self._config.instanceName() + " pipelines=" +
+            str(self._pipelines.length()) + " connectors=" +
+            str(self._connectors.length()) + " running=" + str(self._running)
+    }
+}
