@@ -2562,4 +2562,3 @@ class OtlpExporter implements PipelineExporter {
     Int failedRequests() { return self._failedRequests }
     String describe() { return "otlp " + self._name + " endpoint=" + self._endpoint }
 }
-
