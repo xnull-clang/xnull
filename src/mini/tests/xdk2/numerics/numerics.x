@@ -475,5 +475,56 @@ static Int main() {
         errorKindName(SignalBuffer.iirFilter(Context.background(), iirInput,
             iirNumerator, badDenominator).error().kind()))
 
+
+    // ---------- SpecialFunctions ----------
+    Double gammaHalf = SpecialFunctions.gamma(0.5).value()
+    Double inverseErfValue = SpecialFunctions.inverseErf(0.8427007929497149).value()
+    print("special-gamma=" + str(near(gammaHalf * gammaHalf, 3.141592653589793, 0.000001)) +
+        "," + str(near(SpecialFunctions.gamma(5.0).value(), 24.0, 0.000001)) +
+        "," + str(near(SpecialFunctions.logGamma(5.0).value(), 3.1780538303479458, 0.000001)) +
+        "," + str(near(SpecialFunctions.digamma(1.0).value(), -0.5772156649015329, 0.000001)) +
+        "," + str(near(SpecialFunctions.beta(2.0, 3.0).value(), 0.08333333333333333, 0.000001)))
+    print("special-error=" + str(near(SpecialFunctions.erf(1.0), 0.8427007929497149, 0.000001)) +
+        "," + str(near(SpecialFunctions.erfc(1.0), 0.1572992070502851, 0.000001)) +
+        "," + str(near(inverseErfValue, 1.0, 0.000001)) +
+        "," + str(near(SpecialFunctions.regularizedGammaP(1.0, 1.0).value(),
+            0.6321205588285577, 0.000001)) +
+        "," + str(near(SpecialFunctions.regularizedGammaQ(1.0, 1.0).value(),
+            0.36787944117144233, 0.000001)) +
+        "," + str(near(SpecialFunctions.regularizedBeta(2.0, 3.0, 0.5).value(),
+            0.6875, 0.000001)))
+    print("special-bessel=" + str(near(SpecialFunctions.besselJ(0, 1.0).value(),
+            0.7651976865579666, 0.000001)) +
+        "," + str(near(SpecialFunctions.besselJ(1, 1.0).value(),
+            0.4400505857449335, 0.000001)) +
+        "," + str(near(SpecialFunctions.besselY(0, 1.0).value(),
+            0.08825696421567697, 0.000001)) +
+        "," + str(near(SpecialFunctions.besselY(1, 1.0).value(),
+            -0.7812128213002887, 0.000001)) +
+        "," + str(near(SpecialFunctions.besselI(0, 1.0).value(),
+            1.2660658777520084, 0.000001)) +
+        "," + str(near(SpecialFunctions.besselK(0, 1.0).value(),
+            0.42102443824070834, 0.000001)))
+    print("special-misc=" + str(near(SpecialFunctions.airyAi(0.0),
+            0.3550280538878172, 0.000001)) +
+        "," + str(near(SpecialFunctions.airyBi(0.0),
+            0.6149266274460007, 0.000001)) +
+        "," + str(near(SpecialFunctions.riemannZeta(2.0).value(),
+            1.6449340668482264, 0.000001)) +
+        "," + str(near(SpecialFunctions.riemannZeta(3.0).value(),
+            1.2020569031595942, 0.000001)) +
+        "," + str(near(SpecialFunctions.lambertW(1.0).value(),
+            0.5671432904097838, 0.000001)) +
+        "," + str(near(SpecialFunctions.ellipticK(0.0).value(),
+            1.5707963267948966, 0.000001)) +
+        "," + str(near(SpecialFunctions.ellipticE(0.0).value(),
+            1.5707963267948966, 0.000001)))
+    print("special-errors=" + errorKindName(SpecialFunctions.gamma(0.0).error().kind()) +
+        "," + errorKindName(SpecialFunctions.beta(-1.0, 2.0).error().kind()) +
+        "," + errorKindName(SpecialFunctions.riemannZeta(1.0).error().kind()) +
+        "," + errorKindName(SpecialFunctions.lambertW(-1.0).error().kind()) +
+        "," + errorKindName(SpecialFunctions.ellipticK(1.0).error().kind()) +
+        "," + errorKindName(SpecialFunctions.besselY(0, 0.0).error().kind()))
+
     return 0
 }

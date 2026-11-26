@@ -8,14 +8,15 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 核心实现 10/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver/Fft/SignalBuffer |
+| 状态 | 核心实现 11/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver/Fft/SignalBuffer/SpecialFunctions |
 
 ---
 
-## 0.5 实现状态（M26.3）
+## 0.5 实现状态（M26.4）
 
-已实现 10/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
-`Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`；BigFloat/SpecialFunctions planned。
+已实现 11/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
+`Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`、`SpecialFunctions`；
+`BigFloat` planned（依赖 BigInt 的舍入/超越函数实现，留独立批次）。
 
 - `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
   加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
@@ -35,7 +36,12 @@
 - `SignalBuffer`：rectangular/hann/hamming/blackman/kaiser 窗（periodic/symmetric），
   全卷积、因果 FIR、直接型 I IIR；输入/系数非有限即失败。
 - `xdk.math.Complex` 同步补齐（of/fromPolar/四则/共轭/模/辐角/极坐标）。
-- 不做 BigFloat/特殊函数。
+- `SpecialFunctions`：Lanczos Gamma/logGamma/digamma、Beta/正则不完全 Gamma/Beta、
+  erf/erfc/inverseErf、J/Y/I/K Bessel（整数阶）、Airy、Riemann Zeta（Euler-Maclaurin）、
+  Lambert W（Halley）、完全椭圆积分（AGM）。
+- 偏差：`besselY` 对 `order > 0` 由 Y0/Y1 递推，`x` 很小时仅有 Y0/Y1 高精度；
+  `besselJ/I` 在 `|x| > 30` 用渐近式。
+- 不做 `BigFloat`。
 
 ---
 

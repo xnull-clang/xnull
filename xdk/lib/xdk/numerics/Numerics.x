@@ -2745,3 +2745,597 @@ class SignalBuffer {
         return sum
     }
 }
+
+// ---------- SpecialFunctions ----------
+class SpecialFunctions {
+    private SpecialFunctions() { }
+
+    static Result<Double, Error> gamma(Double value) {
+        if !isFinite(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "gamma: non-finite"))
+        }
+        if value <= 0.0 && value == floor(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "gamma: pole"))
+        }
+        return Ok(SpecialFunctions.gammaValue(value))
+    }
+
+    static Result<Double, Error> logGamma(Double value) {
+        if !isFinite(value) || value <= 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "logGamma: invalid domain"))
+        }
+        Double result = SpecialFunctions.logGammaValue(value)
+        if !isFinite(result) {
+            return Err(new BasicError(ErrorKind.Internal, "logGamma: not finite"))
+        }
+        return Ok(result)
+    }
+
+    static Result<Double, Error> digamma(Double value) {
+        if !isFinite(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "digamma: non-finite"))
+        }
+        if value <= 0.0 && value == floor(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "digamma: pole"))
+        }
+        return Ok(SpecialFunctions.digammaValue(value))
+    }
+
+    static Result<Double, Error> beta(Double left, Double right) {
+        if !isFinite(left) || !isFinite(right) || left <= 0.0 || right <= 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "beta: invalid domain"))
+        }
+        Double result = exp(SpecialFunctions.logGammaValue(left) +
+            SpecialFunctions.logGammaValue(right) -
+            SpecialFunctions.logGammaValue(left + right))
+        if !isFinite(result) {
+            return Err(new BasicError(ErrorKind.Internal, "beta: not finite"))
+        }
+        return Ok(result)
+    }
+
+    static Result<Double, Error> regularizedGammaP(Double shape, Double value) {
+        if !isFinite(shape) || !isFinite(value) || shape <= 0.0 || value < 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "gammaP: invalid parameter"))
+        }
+        return Ok(SpecialFunctions.gammaPValue(shape, value))
+    }
+
+    static Result<Double, Error> regularizedGammaQ(Double shape, Double value) {
+        if !isFinite(shape) || !isFinite(value) || shape <= 0.0 || value < 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "gammaQ: invalid parameter"))
+        }
+        return Ok(1.0 - SpecialFunctions.gammaPValue(shape, value))
+    }
+
+    static Result<Double, Error> regularizedBeta(Double shapeA, Double shapeB,
+                                                  Double value) {
+        if !isFinite(shapeA) || !isFinite(shapeB) || !isFinite(value) ||
+            shapeA <= 0.0 || shapeB <= 0.0 || value < 0.0 || value > 1.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "beta: invalid parameter"))
+        }
+        return Ok(SpecialFunctions.betaValue(shapeA, shapeB, value))
+    }
+
+    static Double erf(Double value) {
+        if !isFinite(value) { return NaN() }
+        if value == 0.0 { return 0.0 }
+        Double square = value * value
+        Double probability = SpecialFunctions.gammaPValue(0.5, square)
+        if value < 0.0 { return 0.0 - probability }
+        return probability
+    }
+
+    static Double erfc(Double value) {
+        if !isFinite(value) { return NaN() }
+        return 1.0 - SpecialFunctions.erf(value)
+    }
+
+    static Result<Double, Error> inverseErf(Double probability) {
+        if !isFinite(probability) || probability <= 0.0 - 1.0 || probability >= 1.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "inverseErf: invalid probability"))
+        }
+        if probability == 0.0 { return Ok(0.0) }
+        Double start = 0.5 * sqrt(3.141592653589793) *
+            (probability + 3.141592653589793 * probability * probability * probability / 12.0)
+        Double current = start
+        Int iteration = 0
+        while iteration < 30 {
+            Double error = SpecialFunctions.erf(current) - probability
+            Double derivative = 2.0 / sqrt(3.141592653589793) * exp(0.0 - current * current)
+            if derivative == 0.0 { break }
+            Double next = current - error / derivative
+            if abs(next - current) < 0.000000000000001 { current = next; break }
+            current = next
+            iteration = iteration + 1
+        }
+        return Ok(current)
+    }
+
+    static Result<Double, Error> besselJ(Int order, Double value) {
+        if !isFinite(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "besselJ: non-finite"))
+        }
+        return Ok(SpecialFunctions.besselJValue(order, value))
+    }
+
+    static Result<Double, Error> besselY(Int order, Double value) {
+        if !isFinite(value) || value <= 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "besselY: invalid domain"))
+        }
+        return Ok(SpecialFunctions.besselYValue(order, value))
+    }
+
+    static Result<Double, Error> besselI(Int order, Double value) {
+        if !isFinite(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "besselI: non-finite"))
+        }
+        return Ok(SpecialFunctions.besselIValue(order, value))
+    }
+
+    static Result<Double, Error> besselK(Int order, Double value) {
+        if !isFinite(value) || value <= 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "besselK: invalid domain"))
+        }
+        return Ok(SpecialFunctions.besselKValue(order, value))
+    }
+
+    static Double airyAi(Double value) {
+        if !isFinite(value) { return NaN() }
+        return SpecialFunctions.airyAiValue(value)
+    }
+
+    static Double airyBi(Double value) {
+        if !isFinite(value) { return NaN() }
+        return SpecialFunctions.airyBiValue(value)
+    }
+
+    static Result<Double, Error> riemannZeta(Double value) {
+        if !isFinite(value) || value <= 1.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "zeta: invalid domain"))
+        }
+        return Ok(SpecialFunctions.zetaValue(value))
+    }
+
+    static Result<Double, Error> lambertW(Double value) {
+        if !isFinite(value) || value < 0.0 - 1.0 / E() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "lambertW: invalid domain"))
+        }
+        return Ok(SpecialFunctions.lambertWValue(value))
+    }
+
+    static Result<Double, Error> ellipticK(Double parameter) {
+        if !isFinite(parameter) || parameter < 0.0 || parameter >= 1.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "ellipticK: invalid parameter"))
+        }
+        return Ok(SpecialFunctions.ellipticKValue(parameter))
+    }
+
+    static Result<Double, Error> ellipticE(Double parameter) {
+        if !isFinite(parameter) || parameter < 0.0 || parameter >= 1.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "ellipticE: invalid parameter"))
+        }
+        return Ok(SpecialFunctions.ellipticEValue(parameter))
+    }
+
+    // ----- internals -----
+    private static Double lanczosA(Double z) {
+        Double sum = 0.99999999999980993
+        sum = sum + 676.5203681218851 / (z + 1.0)
+        sum = sum + (0.0 - 1259.1392167224028) / (z + 2.0)
+        sum = sum + 771.32342877765313 / (z + 3.0)
+        sum = sum + (0.0 - 176.61502916214059) / (z + 4.0)
+        sum = sum + 12.507343278686905 / (z + 5.0)
+        sum = sum + (0.0 - 0.13857109526572012) / (z + 6.0)
+        sum = sum + 0.0000099843695780195716 / (z + 7.0)
+        sum = sum + 0.00000015056327351493116 / (z + 8.0)
+        return sum
+    }
+
+    private static Double gammaValue(Double value) {
+        if value < 0.5 {
+            return 3.141592653589793 /
+                (sin(3.141592653589793 * value) * SpecialFunctions.gammaValue(1.0 - value))
+        }
+        Double z = value - 1.0
+        Double t = z + 7.5
+        return sqrt(6.283185307179586) * pow(t, z + 0.5) * exp(0.0 - t) *
+            SpecialFunctions.lanczosA(z)
+    }
+
+    private static Double logGammaValue(Double value) {
+        Double z = value - 1.0
+        Double t = z + 7.5
+        return 0.9189385332046727 + (z + 0.5) * log(t) - t +
+            log(SpecialFunctions.lanczosA(z))
+    }
+
+    private static Double digammaValue(Double value) {
+        Double x = value
+        Double result = 0.0
+        while x < 8.0 {
+            result = result - 1.0 / x
+            x = x + 1.0
+        }
+        Double inverse = 1.0 / x
+        Double square = inverse * inverse
+        result = result + log(x) - 0.5 * inverse -
+            square * (1.0 / 12.0 - square * (1.0 / 120.0 -
+            square * (1.0 / 252.0 - square / 240.0)))
+        return result
+    }
+
+    private static Double gammaPValue(Double shape, Double value) {
+        if value == 0.0 { return 0.0 }
+        Double logFactor = shape * log(value) - value - SpecialFunctions.logGammaValue(shape)
+        if value < shape + 1.0 {
+            Double term = 1.0 / shape
+            Double sum = term
+            Double current = shape
+            Int iteration = 1
+            while iteration < 500 {
+                current = current + 1.0
+                term = term * value / current
+                sum = sum + term
+                if abs(term) < abs(sum) * 0.000000000000001 { break }
+                iteration = iteration + 1
+            }
+            return sum * exp(logFactor)
+        }
+        Double b = value + 1.0 - shape
+        Double c = 1.0 / 0.000000000000001
+        Double d = 1.0 / b
+        Double h = d
+        Int iteration = 1
+        while iteration < 500 {
+            Double an = (iteration as Double) * (shape - iteration as Double)
+            b = b + 2.0
+            d = an * d + b
+            if abs(d) < 0.000000000000001 { d = 0.000000000000001 }
+            c = b + an / c
+            if abs(c) < 0.000000000000001 { c = 0.000000000000001 }
+            d = 1.0 / d
+            Double delta = d * c
+            h = h * delta
+            if abs(delta - 1.0) < 0.000000000000001 { break }
+            iteration = iteration + 1
+        }
+        Double q = exp(logFactor) * h
+        return 1.0 - q
+    }
+
+    private static Double betaValue(Double a, Double b, Double x) {
+        if x == 0.0 { return 0.0 }
+        if x == 1.0 { return 1.0 }
+        Double logBeta = SpecialFunctions.logGammaValue(a + b) -
+            SpecialFunctions.logGammaValue(a) - SpecialFunctions.logGammaValue(b)
+        Double front = exp(logBeta + a * log(x) + b * log(1.0 - x))
+        if x < (a + 1.0) / (a + b + 2.0) {
+            return front * SpecialFunctions.betaFraction(a, b, x) / a
+        }
+        return 1.0 - front * SpecialFunctions.betaFraction(b, a, 1.0 - x) / b
+    }
+
+    private static Double betaFraction(Double a, Double b, Double x) {
+        Double qab = a + b
+        Double qap = a + 1.0
+        Double qam = a - 1.0
+        Double c = 1.0
+        Double d = 1.0 - qab * x / qap
+        if abs(d) < 0.000000000000001 { d = 0.000000000000001 }
+        d = 1.0 / d
+        Double h = d
+        Int m = 1
+        while m <= 300 {
+            Int m2 = 2 * m
+            Double aa = (m as Double) * (b - m as Double) * x /
+                ((qam + m2 as Double) * (a + m2 as Double))
+            d = 1.0 + aa * d
+            if abs(d) < 0.000000000000001 { d = 0.000000000000001 }
+            c = 1.0 + aa / c
+            if abs(c) < 0.000000000000001 { c = 0.000000000000001 }
+            d = 1.0 / d
+            h = h * d * c
+            aa = (0.0 - (a + m as Double)) * (qab + m as Double) * x /
+                ((a + m2 as Double) * (qap + m2 as Double))
+            d = 1.0 + aa * d
+            if abs(d) < 0.000000000000001 { d = 0.000000000000001 }
+            c = 1.0 + aa / c
+            if abs(c) < 0.000000000000001 { c = 0.000000000000001 }
+            d = 1.0 / d
+            Double delta = d * c
+            h = h * delta
+            if abs(delta - 1.0) < 0.000000000000001 { break }
+            m = m + 1
+        }
+        return h
+    }
+
+    private static Double besselJValue(Int order, Double x) {
+        Int n = order
+        Bool negate = false
+        if n < 0 {
+            n = 0 - n
+            if n % 2 == 1 { negate = true }
+        }
+        Double absolute = abs(x)
+        Double result = 0.0
+        if absolute > 30.0 {
+            Double phase = absolute - (n as Double) * 3.141592653589793 / 2.0 -
+                3.141592653589793 / 4.0
+            result = sqrt(2.0 / (3.141592653589793 * absolute)) * cos(phase)
+        } else {
+            Double half = x / 2.0
+            Double term = pow(half, n as Double) / SpecialFunctions.factorial(n)
+            Double sum = term
+            Int k = 1
+            while k < 200 {
+                term = term * (0.0 - half * half) / ((k as Double) * ((k + n) as Double))
+                sum = sum + term
+                if abs(term) < abs(sum) * 0.000000000000001 { break }
+                k = k + 1
+            }
+            result = sum
+        }
+        if negate && x < 0.0 { }
+        if n % 2 == 1 && x < 0.0 { result = 0.0 - result }
+        return result
+    }
+
+    private static Double besselYValue(Int order, Double x) {
+        if order < 0 {
+            Int n = 0 - order
+            Double left = SpecialFunctions.besselYValue(n, x)
+            if n % 2 == 1 { return 0.0 - left }
+            return left
+        }
+        Double y0 = SpecialFunctions.besselY0(x)
+        if order == 0 { return y0 }
+        Double y1 = SpecialFunctions.besselY1(x)
+        if order == 1 { return y1 }
+        Double previous = y0
+        Double current = y1
+        Int index = 1
+        while index < order {
+            Double next = 2.0 * (index as Double) / x * current - previous
+            previous = current
+            current = next
+            index = index + 1
+        }
+        return current
+    }
+
+    private static Double besselY0(Double x) {
+        Double j0 = SpecialFunctions.besselJValue(0, x)
+        Double sum = 0.0
+        Double term = 1.0
+        Double harmonic = 0.0
+        Double half = x / 2.0
+        Int k = 1
+        while k < 200 {
+            harmonic = harmonic + 1.0 / (k as Double)
+            term = term * (0.0 - half * half) / ((k as Double) * (k as Double))
+            Double contribution = 0.0 - term * harmonic
+            sum = sum + contribution
+            if abs(contribution) < 0.000000000000001 { break }
+            k = k + 1
+        }
+        return 0.6366197723675814 * (log(half) + 0.5772156649015329) * j0 +
+            0.6366197723675814 * sum
+    }
+
+    private static Double besselY1(Double x) {
+        Double j1 = SpecialFunctions.besselJValue(1, x)
+        Double sum = 0.0
+        Double term = x / 2.0
+        Double harmonic = 0.0
+        Double half = x / 2.0
+        Int k = 0
+        while k < 200 {
+            Double hk = harmonic
+            Double hk1 = harmonic + 1.0 / ((k + 1) as Double)
+            Double coefficient = term * (hk + hk1)
+            sum = sum + coefficient
+            if abs(coefficient) < 0.000000000000001 { break }
+            harmonic = hk1
+            term = term * (0.0 - half * half) / (((k + 1) as Double) * ((k + 2) as Double))
+            k = k + 1
+        }
+        return 0.6366197723675814 * (log(half) + 0.5772156649015329) * j1 -
+            0.6366197723675814 / x - 0.3183098861837907 * sum
+    }
+
+    private static Double besselIValue(Int order, Double x) {
+        Int n = order
+        Bool negate = false
+        if n < 0 {
+            n = 0 - n
+            if n % 2 == 1 { negate = true }
+        }
+        Double half = x / 2.0
+        Double term = pow(abs(half), n as Double) / SpecialFunctions.factorial(n)
+        Double sum = term
+        Int k = 1
+        while k < 200 {
+            term = term * (half * half) / ((k as Double) * ((k + n) as Double))
+            sum = sum + term
+            if abs(term) < abs(sum) * 0.000000000000001 { break }
+            k = k + 1
+        }
+        if n % 2 == 1 && x < 0.0 { sum = 0.0 - sum }
+        if negate { }
+        return sum
+    }
+
+    private static Double besselKValue(Int order, Double x) {
+        if order < 0 { order = 0 - order }
+        Double k0 = SpecialFunctions.besselK0(x)
+        if order == 0 { return k0 }
+        Double i0 = SpecialFunctions.besselIValue(0, x)
+        Double i1 = SpecialFunctions.besselIValue(1, x)
+        Double k1 = (1.0 / x - i1 * k0) / i0
+        if order == 1 { return k1 }
+        Double previous = k0
+        Double current = k1
+        Int index = 1
+        while index < order {
+            Double next = previous + 2.0 * (index as Double) / x * current
+            previous = current
+            current = next
+            index = index + 1
+        }
+        return current
+    }
+
+    private static Double besselK0(Double x) {
+        if x > 20.0 {
+            return sqrt(3.141592653589793 / (2.0 * x)) * exp(0.0 - x)
+        }
+        Double i0 = SpecialFunctions.besselIValue(0, x)
+        Double sum = 0.0
+        Double term = 1.0
+        Double harmonic = 0.0
+        Double half = x / 2.0
+        Int k = 1
+        while k < 200 {
+            harmonic = harmonic + 1.0 / (k as Double)
+            term = term * (half * half) / ((k as Double) * (k as Double))
+            Double contribution = term * harmonic
+            sum = sum + contribution
+            if abs(contribution) < 0.000000000000001 { break }
+            k = k + 1
+        }
+        return 0.0 - (log(half) + 0.5772156649015329) * i0 + sum
+    }
+
+    private static Double airyAiValue(Double x) {
+        List<Double> series = SpecialFunctions.airySeries(x)
+        return 0.3550280538878172 * series.get(0) - 0.2588194037928068 * series.get(1)
+    }
+
+    private static Double airyBiValue(Double x) {
+        List<Double> series = SpecialFunctions.airySeries(x)
+        return 0.6149266274460007 * series.get(0) + 0.4482883573538264 * series.get(1)
+    }
+
+    private static List<Double> airySeries(Double x) {
+        Double f = 1.0
+        Double term = 1.0
+        Int k = 0
+        Double x3 = x * x * x
+        while k < 100 {
+            term = term * x3 / (((3 * k + 2) as Double) * ((3 * k + 3) as Double))
+            f = f + term
+            if abs(term) < 0.000000000000001 { break }
+            k = k + 1
+        }
+        Double g = x
+        term = x
+        k = 0
+        while k < 100 {
+            term = term * x3 / (((3 * k + 3) as Double) * ((3 * k + 4) as Double))
+            g = g + term
+            if abs(term) < 0.000000000000001 { break }
+            k = k + 1
+        }
+        List<Double> result = []
+        result.push(f)
+        result.push(g)
+        return result
+    }
+
+    private static Double zetaValue(Double s) {
+        Int n = 20
+        Double sum = 0.0
+        Int index = 1
+        while index < n {
+            sum = sum + pow(index as Double, 0.0 - s)
+            index = index + 1
+        }
+        Double nValue = n as Double
+        sum = sum + pow(nValue, 1.0 - s) / (s - 1.0) + 0.5 * pow(nValue, 0.0 - s)
+        Double coefficient = s
+        Double power = pow(nValue, 0.0 - s - 1.0)
+        sum = sum + (1.0 / 6.0) / 2.0 * coefficient * power
+        coefficient = coefficient * (s + 1.0) * (s + 2.0)
+        power = power / (nValue * nValue)
+        sum = sum + (0.0 - 1.0 / 30.0) / 24.0 * coefficient * power
+        coefficient = coefficient * (s + 3.0) * (s + 4.0)
+        power = power / (nValue * nValue)
+        sum = sum + (1.0 / 42.0) / 720.0 * coefficient * power
+        coefficient = coefficient * (s + 5.0) * (s + 6.0)
+        power = power / (nValue * nValue)
+        sum = sum + (0.0 - 1.0 / 30.0) / 40320.0 * coefficient * power
+        return sum
+    }
+
+    private static Double lambertWValue(Double x) {
+        if x == 0.0 { return 0.0 }
+        Double w = 0.0
+        if x > 0.0 {
+            w = log(1.0 + x)
+            if x > 3.0 { w = log(x) }
+        } else {
+            w = 0.0 - 1.0 + sqrt(2.0 * (E() * x + 1.0))
+            if 2.0 * (E() * x + 1.0) < 0.0 { w = 0.0 - 1.0 }
+        }
+        Int iteration = 0
+        while iteration < 100 {
+            Double exponential = exp(w)
+            Double difference = w * exponential - x
+            Double denominator = exponential * (w + 1.0) -
+                (w + 2.0) * difference / (2.0 * w + 2.0)
+            if denominator == 0.0 { break }
+            Double next = w - difference / denominator
+            if abs(next - w) < 0.000000000000001 { w = next; break }
+            w = next
+            iteration = iteration + 1
+        }
+        return w
+    }
+
+    private static Double ellipticKValue(Double parameter) {
+        Double a = 1.0
+        Double b = sqrt(1.0 - parameter)
+        Int iteration = 0
+        while iteration < 60 {
+            Double next = 0.5 * (a + b)
+            b = sqrt(a * b)
+            a = next
+            if abs(a - b) < 0.000000000000001 { break }
+            iteration = iteration + 1
+        }
+        return 3.141592653589793 / (2.0 * a)
+    }
+
+    private static Double ellipticEValue(Double parameter) {
+        Double a = 1.0
+        Double b = sqrt(1.0 - parameter)
+        Double c = sqrt(parameter)
+        Double sum = 0.5 * c * c
+        Double power = 1.0
+        Int iteration = 0
+        while iteration < 60 {
+            Double next = 0.5 * (a + b)
+            c = 0.5 * (a - b)
+            b = sqrt(a * b)
+            a = next
+            power = power * 2.0
+            sum = sum + power * c * c
+            if abs(c) < 0.000000000000001 { break }
+            iteration = iteration + 1
+        }
+        Double k = 3.141592653589793 / (2.0 * a)
+        return k * (1.0 - sum)
+    }
+
+    private static Double factorial(Int value) {
+        Double result = 1.0
+        Int index = 2
+        while index <= value {
+            result = result * (index as Double)
+            index = index + 1
+        }
+        return result
+    }
+}
