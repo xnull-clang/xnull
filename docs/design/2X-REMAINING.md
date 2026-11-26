@@ -201,3 +201,32 @@
 5. **B7 关键路径**：TLS 原语 → HTTPS/wss；net DNS/UDP。
 6. **B8/B10 硬件**：Metal accel + Linux embedded 目标后端；其余保持 blocked。
 7. **文档收口**：统一 76/704；更新计划状态；补 `xdk.auth` 行。
+
+---
+
+## 12. 执行队列（按顺序，不跳批）
+
+| ID | 批次 | 内容 | 状态 |
+| --- | --- | --- | --- |
+| L8-1 | accel 合同面 | 14 类型 + 描述符/校验 + 硬件执行 Unsupported | in progress |
+| L8-2 | embedded 合同面 | 12 类型 + 板级描述 + 硬件执行 Unsupported | in progress |
+| L8-3 | agent 纯组件 | BatchProcessor/MemoryLimiterProcessor/PrometheusExporter/OtlpExporter | queued |
+| L8-4 | agent 硬件组件 | HostMetricsReceiver/FileLogReceiver（依赖 OsHost/PathMatcher） | blocked |
+| L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | queued |
+| B5-1 | core foundation | errors/meta/bytes/text/collections/math/time 2.x 验证 | queued |
+| B5-2 | core io/fs/sys | io/fs/sys 2.x 验证 | queued |
+| B5-3 | core log/config/cli | log/config/cli 2.x 验证 | queued |
+| B5-4 | core runtime/execution | runtime/execution 2.x 验证 | queued |
+| B6-1 | 格式注解 | @YamlName/@TomlName/@XmlName | queued |
+| B6-2 | reflect | 编译器类型元数据表 | blocked |
+| B6-3 | crypto/compress | Cipher/Kdf/Asymmetric；Zstd/LZ4/Brotli | blocked |
+| B7-1 | TLS | 握手/证书/SNI/ALPN | blocked |
+| B7-2 | net DNS/UDP | Dns/Udp/连接池 | queued |
+| B7-3 | http client | chunked 解码 + TLS | queued |
+| B8-1 | 平台原语 | Metal accel、Linux GPIO/I2C/SPI/UART | blocked |
+| B9-1 | DateFormat | DateTimeFormatter + @Scheduled 宿主 | queued |
+| B9-2 | 导出器 | OTLP/Prometheus 编码器 | queued |
+| AN-1 | 注解快赢 | @StatusCode/@JwtClaim/@JwtHeaderField/@WsHandler | queued |
+| AN-2 | DI 注解 | @Inject/@Component/@Configuration/@Bean | blocked（无 DI 容器） |
+
+规则：每批必须有源码、场景、门禁、提交；blocked 必须有原语清单和复现证据；不得用“下批再做”作为批末状态。
