@@ -3339,3 +3339,567 @@ class SpecialFunctions {
         return result
     }
 }
+
+// ---------- BigFloat ----------
+class BigFloat {
+    final Bool _negative
+    final BigInt _significand
+    final Long _exponent
+    final Int _precisionBits
+
+    private BigFloat(Bool negative, BigInt significand, Long exponent, Int precisionBits) {
+        if significand == null { throw "BigFloat: null significand" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            throw "BigFloat: invalid precision"
+        }
+        if exponent < 0 - 1000000000 as Long || exponent > 1000000000 as Long {
+            throw "BigFloat: exponent out of range"
+        }
+        if significand.isNegative() { throw "BigFloat: negative significand" }
+        if significand.isZero() {
+            self._negative = false
+            self._significand = BigInt.zero()
+            self._exponent = 0 as Long
+            self._precisionBits = precisionBits
+        } else {
+            self._negative = negative
+            self._significand = significand
+            self._exponent = exponent
+            self._precisionBits = precisionBits
+        }
+    }
+
+    static Result<BigFloat, Error> zero(Int precisionBits) {
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.zero: invalid precision"))
+        }
+        return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+    }
+
+    static Result<BigFloat, Error> one(Int precisionBits) {
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.one: invalid precision"))
+        }
+        return Ok(new BigFloat(false, BigInt.one(), 0 as Long, precisionBits))
+    }
+
+    static Result<BigFloat, Error> fromInt(Int value, Int precisionBits, RoundingMode mode) {
+        return BigFloat.fromBigInt(Context.background(), BigInt.fromInt(value),
+            precisionBits, mode)
+    }
+
+    static Result<BigFloat, Error> fromLong(Long value, Int precisionBits, RoundingMode mode) {
+        return BigFloat.fromBigInt(Context.background(), BigInt.fromLong(value),
+            precisionBits, mode)
+    }
+
+    static Result<BigFloat, Error> fromBigInt(Context context, BigInt value,
+                                              Int precisionBits, RoundingMode mode) {
+        if context == null || value == null { throw "BigFloat.fromBigInt: null argument" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        Bool negative = value.isNegative()
+        BigInt magnitude = value.abs()
+        return BigFloat.make(negative, magnitude, 0 as Long, precisionBits, mode)
+    }
+
+    static Result<BigFloat, Error> fromDouble(Double value, Int precisionBits,
+                                              RoundingMode mode) {
+        if !isFinite(value) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.fromDouble: non-finite"))
+        }
+        return BigFloat.parse(str(value), precisionBits, mode, 400)
+    }
+
+    static Result<BigFloat, Error> parse(String text, Int precisionBits,
+                                         RoundingMode mode, Int maximumDigits) {
+        if text == null { throw "BigFloat.parse: null text" }
+        if precisionBits < 2 || precisionBits > 1048576 || maximumDigits < 1 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid parameter"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid rounding mode"))
+        }
+        String source = text.trim()
+        if source == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: empty"))
+        }
+        Bool negative = false
+        Int position = 0
+        String first = source.substring(0, 1)
+        if first == "-" { negative = true; position = 1 }
+        else if first == "+" { position = 1 }
+        if position >= source.length() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: missing digits"))
+        }
+        Int exponentPosition = -1
+        Int index = position
+        while index < source.length() {
+            String character = source.substring(index, 1)
+            if character == "e" || character == "E" { exponentPosition = index }
+            index = index + 1
+        }
+        String mantissa = source
+        if exponentPosition >= 0 {
+            mantissa = source.substring(position, exponentPosition - position)
+        } else {
+            mantissa = source.substring(position, source.length() - position)
+        }
+        Int explicitExponent = 0
+        if exponentPosition >= 0 {
+            String exponentText = source.substring(exponentPosition + 1,
+                source.length() - exponentPosition - 1)
+            if exponentText == "" { return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid exponent")) }
+            Bool exponentNegative = false
+            Int exponentStart = 0
+            String exponentFirst = exponentText.substring(0, 1)
+            if exponentFirst == "-" { exponentNegative = true; exponentStart = 1 }
+            else if exponentFirst == "+" { exponentStart = 1 }
+            if exponentStart >= exponentText.length() {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid exponent"))
+            }
+            Int exponentValue = 0
+            Int digitIndex = exponentStart
+            while digitIndex < exponentText.length() {
+                String digit = exponentText.substring(digitIndex, 1)
+                Int digitValue = BigFloat.digitIndex(digit)
+                if digitValue < 0 {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid exponent"))
+                }
+                exponentValue = exponentValue * 10 + digitValue
+                if exponentValue > 1000000 {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: exponent too large"))
+                }
+                digitIndex = digitIndex + 1
+            }
+            explicitExponent = exponentValue
+            if exponentNegative { explicitExponent = 0 - explicitExponent }
+        }
+        Int dot = -1
+        Int digits = 0
+        String digitText = ""
+        index = 0
+        while index < mantissa.length() {
+            String character = mantissa.substring(index, 1)
+            if character == "." {
+                if dot >= 0 {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: multiple dots"))
+                }
+                dot = index
+            } else {
+                if BigFloat.digitIndex(character) < 0 {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: invalid digit"))
+                }
+                digitText = digitText + character
+                digits = digits + 1
+                if digits > maximumDigits {
+                    return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: too many digits"))
+                }
+            }
+            index = index + 1
+        }
+        if digits == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.parse: no digits"))
+        }
+        Int fractionalDigits = 0
+        if dot >= 0 {
+            fractionalDigits = mantissa.length() - dot - 1
+        }
+        Int exp10 = explicitExponent - fractionalDigits
+        BigInt digitsValue = BigInt.parse(digitText, digits).value()
+        if digitsValue.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        Context context = Context.background()
+        if exp10 >= 0 {
+            BigInt factor = BigInt.fromInt(5).pow(context, exp10).value()
+            BigInt significand = digitsValue.multiply(factor)
+            return BigFloat.make(negative, significand, exp10 as Long, precisionBits, mode)
+        }
+        Int scale = precisionBits + 8
+        BigInt factor = BigInt.fromInt(5).pow(context, 0 - exp10).value()
+        BigInt numerator = digitsValue.shiftLeft(scale).value()
+        Result<BigInt, Error> divided = numerator.divide(factor)
+        if divided.isErr() { return Err(divided.error()) }
+        Long exponent = 0 - scale as Long - (0 - exp10) as Long
+        return BigFloat.make(negative, divided.value(), exponent, precisionBits, mode)
+    }
+
+    Int precisionBits() { return self._precisionBits }
+    Bool isZero() { return self._significand.isZero() }
+    Bool isNegative() { return self._negative }
+    Int signum() {
+        if self._significand.isZero() { return 0 }
+        if self._negative { return -1 }
+        return 1
+    }
+    BigInt significand() { return self._significand }
+    Long exponent() { return self._exponent }
+
+    BigFloat negate() {
+        return new BigFloat(!self._negative, self._significand, self._exponent, self._precisionBits)
+    }
+
+    BigFloat abs() {
+        return new BigFloat(false, self._significand, self._exponent, self._precisionBits)
+    }
+
+    Result<BigFloat, Error> add(BigFloat other, Int precisionBits, RoundingMode mode) {
+        return BigFloat.addOrSubtract(self, other, precisionBits, mode, false)
+    }
+
+    Result<BigFloat, Error> subtract(BigFloat other, Int precisionBits, RoundingMode mode) {
+        return BigFloat.addOrSubtract(self, other, precisionBits, mode, true)
+    }
+
+    Result<BigFloat, Error> multiply(BigFloat other, Int precisionBits, RoundingMode mode) {
+        if other == null { throw "BigFloat.multiply: null" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        if self.isZero() || other.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        Long exponent = self._exponent + other._exponent
+        if exponent < 0 - 1000000000 as Long || exponent > 1000000000 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: exponent overflow"))
+        }
+        Bool negative = self._negative != other._negative
+        BigInt product = self._significand.multiply(other._significand)
+        return BigFloat.make(negative, product, exponent, precisionBits, mode)
+    }
+
+    Result<BigFloat, Error> divide(BigFloat other, Int precisionBits, RoundingMode mode) {
+        if other == null { throw "BigFloat.divide: null" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        if other.isZero() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: division by zero"))
+        }
+        if self.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        Int guard = precisionBits + 8
+        Int shift = guard + (other._significand.bitLength() as Int)
+        BigInt numerator = self._significand.shiftLeft(shift).value()
+        Result<BigInt, Error> quotient = numerator.divide(other._significand)
+        if quotient.isErr() { return Err(quotient.error()) }
+        Long exponent = self._exponent - other._exponent - shift as Long
+        Bool negative = self._negative != other._negative
+        return BigFloat.make(negative, quotient.value(), exponent, precisionBits, mode)
+    }
+
+    Result<BigFloat, Error> round(Int precisionBits, RoundingMode mode) {
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.round: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.round: invalid rounding mode"))
+        }
+        if self.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        return BigFloat.make(self._negative, self._significand, self._exponent,
+            precisionBits, mode)
+    }
+
+    Result<BigFloat, Error> sqrt(Context context, Int precisionBits, RoundingMode mode) {
+        if context == null { throw "BigFloat.sqrt: null context" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.sqrt: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.sqrt: invalid rounding mode"))
+        }
+        if self.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        if self._negative {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.sqrt: negative"))
+        }
+        Long exponent = self._exponent
+        BigInt significand = self._significand
+        if exponent % 2 as Long != 0 as Long {
+            significand = significand.shiftLeft(1).value()
+            exponent = exponent - 1 as Long
+        }
+        Int scale = precisionBits + 8
+        BigInt radicand = significand.shiftLeft(2 * scale).value()
+        Result<BigInt, Error> root = radicand.sqrt(context)
+        if root.isErr() { return Err(root.error()) }
+        Long resultExponent = exponent / 2 as Long - scale as Long
+        return BigFloat.make(false, root.value(), resultExponent, precisionBits, mode)
+    }
+
+    Result<BigFloat, Error> exp(Context context, Int precisionBits, RoundingMode mode) {
+        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.exp: not implemented"))
+    }
+
+    Result<BigFloat, Error> log(Context context, Int precisionBits, RoundingMode mode) {
+        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.log: not implemented"))
+    }
+
+    Result<BigFloat, Error> pow(Context context, BigFloat exponent,
+                                Int precisionBits, RoundingMode mode) {
+        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.pow: not implemented"))
+    }
+
+    Int compare(BigFloat other) {
+        if other == null { throw "BigFloat.compare: null" }
+        if self.isZero() && other.isZero() { return 0 }
+        if self._negative != other._negative {
+            if self._negative { return -1 }
+            return 1
+        }
+        Int magnitude = BigFloat.compareMagnitude(self, other)
+        if self._negative { return 0 - magnitude }
+        return magnitude
+    }
+
+    Bool equals(BigFloat other) {
+        if other == null { return false }
+        if self.isZero() && other.isZero() { return true }
+        return self.compare(other) == 0
+    }
+
+    Bool isInteger() {
+        if self.isZero() { return true }
+        if self._exponent >= 0 as Long { return true }
+        Int shift = (0 - self._exponent) as Int
+        if shift >= self._significand.bitLength() as Int { return false }
+        BigInt remainder = self._significand.remainder(
+            BigInt.one().shiftLeft(shift).value()).value()
+        return remainder.isZero()
+    }
+
+    Double toDouble() {
+        if self.isZero() { return 0.0 }
+        if self._exponent > 1100 as Long { return 1.0 / 0.0 }
+        if self._exponent < 0 - 1200 as Long { return 0.0 }
+        Double value = self._significand.toDouble()
+        Long exponent = self._exponent
+        while exponent > 0 { value = value * 2.0; exponent = exponent - 1 }
+        while exponent < 0 { value = value / 2.0; exponent = exponent + 1 }
+        if self._negative { return 0.0 - value }
+        return value
+    }
+
+    Result<BigInt, Error> toBigInt(Context context, RoundingMode mode) {
+        if context == null { throw "BigFloat.toBigInt: null context" }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        if self.isZero() { return Ok(BigInt.zero()) }
+        if self._exponent >= 0 as Long {
+            if self._exponent > 1000000 as Long {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.toBigInt: too large"))
+            }
+            BigInt magnitude = self._significand.shiftLeft(self._exponent as Int).value()
+            if self._negative { return Ok(magnitude.negate()) }
+            return Ok(magnitude)
+        }
+        Int shift = (0 - self._exponent) as Int
+        BigInt quotient = self._significand.shiftRight(shift).value()
+        BigInt remainder = self._significand.subtract(quotient.shiftLeft(shift).value())
+        Bool increment = BigFloat.shouldIncrement(quotient, remainder, shift,
+            self._negative, mode)
+        if increment { quotient = quotient.add(BigInt.one()) }
+        if self._negative { return Ok(quotient.negate()) }
+        return Ok(quotient)
+    }
+
+    String toString() {
+        if self.isZero() { return "0p0" }
+        String sign = ""
+        if self._negative { sign = "-" }
+        return sign + self._significand.toString() + "p" + str(self._exponent)
+    }
+
+    Result<String, Error> toDecimalString(Context context, Int fractionalDigits,
+                                          RoundingMode mode) {
+        if context == null { throw "BigFloat.toDecimalString: null context" }
+        if fractionalDigits < 0 || fractionalDigits > 1000 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid fractional digits"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        if self.isZero() {
+            return Ok(BigFloat.zeroDecimal(fractionalDigits))
+        }
+        BigInt powerTen = BigInt.fromInt(10).pow(context, fractionalDigits).value()
+        BigInt numerator = self._significand.multiply(powerTen)
+        BigInt denominator = BigInt.one()
+        if self._exponent >= 0 as Long {
+            numerator = numerator.shiftLeft(self._exponent as Int).value()
+        } else {
+            denominator = BigInt.one().shiftLeft((0 - self._exponent) as Int).value()
+        }
+        BigInt quotient = numerator.divide(denominator).value()
+        BigInt remainder = numerator.subtract(quotient.multiply(denominator))
+        Int denominatorShift = (denominator.bitLength() as Int) - 1
+        Bool increment = BigFloat.shouldIncrement(quotient, remainder,
+            denominatorShift, self._negative, mode)
+        if increment { quotient = quotient.add(BigInt.one()) }
+        String digits = quotient.toString()
+        Int totalDigits = digits.length()
+        String result = ""
+        if fractionalDigits == 0 {
+            result = digits
+        } else if totalDigits < fractionalDigits {
+            String padded = ""
+            Int pad = fractionalDigits - totalDigits
+            while pad > 0 { padded = padded + "0"; pad = pad - 1 }
+            result = "0." + padded + digits
+        } else if totalDigits == fractionalDigits {
+            result = "0." + digits
+        } else {
+            Int split = totalDigits - fractionalDigits
+            result = digits.substring(0, split) + "." +
+                digits.substring(split, fractionalDigits)
+        }
+        if self._negative && quotient.isZero() {
+            return Ok(result)
+        }
+        if self._negative { return Ok("-" + result) }
+        return Ok(result)
+    }
+
+    // ----- internals -----
+    private static Result<BigFloat, Error> make(Bool negative, BigInt significand,
+                                                 Long exponent, Int precisionBits,
+                                                 RoundingMode mode) {
+        if significand == null { throw "BigFloat.make: null" }
+        if significand.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        if exponent < 0 - 1000000000 as Long || exponent > 1000000000 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: exponent out of range"))
+        }
+        Long bitLength = significand.bitLength()
+        if bitLength <= precisionBits as Long {
+            return Ok(new BigFloat(negative, significand, exponent, precisionBits))
+        }
+        Int shift = (bitLength - precisionBits as Long) as Int
+        BigInt quotient = significand.shiftRight(shift).value()
+        BigInt remainder = significand.subtract(quotient.shiftLeft(shift).value())
+        Bool increment = BigFloat.shouldIncrement(quotient, remainder, shift, negative, mode)
+        if increment { quotient = quotient.add(BigInt.one()) }
+        Long nextExponent = exponent + shift as Long
+        if quotient.bitLength() > precisionBits as Long {
+            quotient = quotient.shiftRight(1).value()
+            nextExponent = nextExponent + 1 as Long
+        }
+        if quotient.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        return Ok(new BigFloat(negative, quotient, nextExponent, precisionBits))
+    }
+
+    private static Bool shouldIncrement(BigInt quotient, BigInt remainder, Int shift,
+                                        Bool negative, RoundingMode mode) {
+        if remainder.isZero() { return false }
+        if mode == RoundingMode.Up { return true }
+        if mode == RoundingMode.Down { return false }
+        if mode == RoundingMode.Ceiling { return !negative }
+        if mode == RoundingMode.Floor { return negative }
+        BigInt half = BigInt.one().shiftLeft(shift - 1).value()
+        Int comparison = remainder.compare(half)
+        if mode == RoundingMode.HalfUp { return comparison >= 0 }
+        if mode == RoundingMode.HalfDown { return comparison > 0 }
+        if mode == RoundingMode.HalfEven {
+            if comparison > 0 { return true }
+            if comparison < 0 { return false }
+            return quotient.testBit(0)
+        }
+        return false
+    }
+
+    private static Result<BigFloat, Error> addOrSubtract(BigFloat left, BigFloat right,
+                                                         Int precisionBits,
+                                                         RoundingMode mode,
+                                                         Bool subtract) {
+        if left == null || right == null { throw "BigFloat.add: null argument" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: invalid rounding mode"))
+        }
+        if left.isZero() && right.isZero() {
+            return Ok(new BigFloat(false, BigInt.zero(), 0 as Long, precisionBits))
+        }
+        if left.isZero() {
+            if subtract { return right.negate().round(precisionBits, mode) }
+            return right.round(precisionBits, mode)
+        }
+        if right.isZero() {
+            return left.round(precisionBits, mode)
+        }
+        Long minimumExponent = left._exponent
+        if right._exponent < minimumExponent { minimumExponent = right._exponent }
+        Long leftShift = left._exponent - minimumExponent
+        Long rightShift = right._exponent - minimumExponent
+        if leftShift > 1000000 as Long || rightShift > 1000000 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: exponent gap too large"))
+        }
+        BigInt leftValue = BigFloat.signed(left)
+        BigInt rightValue = BigFloat.signed(right)
+        if leftShift > 0 {
+            leftValue = leftValue.shiftLeft(leftShift as Int).value()
+        }
+        if rightShift > 0 {
+            rightValue = rightValue.shiftLeft(rightShift as Int).value()
+        }
+        BigInt sum = leftValue
+        if subtract { sum = sum.subtract(rightValue) } else { sum = sum.add(rightValue) }
+        Bool negative = sum.isNegative()
+        BigInt magnitude = sum.abs()
+        return BigFloat.make(negative, magnitude, minimumExponent, precisionBits, mode)
+    }
+
+    private static BigInt signed(BigFloat value) {
+        if value._negative { return value._significand.negate() }
+        return value._significand
+    }
+
+    private static Int compareMagnitude(BigFloat left, BigFloat right) {
+        Long leftBits = left._significand.bitLength() + left._exponent
+        Long rightBits = right._significand.bitLength() + right._exponent
+        if leftBits < rightBits { return -1 }
+        if leftBits > rightBits { return 1 }
+        Long minimumExponent = left._exponent
+        if right._exponent < minimumExponent { minimumExponent = right._exponent }
+        BigInt leftValue = left._significand.shiftLeft(
+            (left._exponent - minimumExponent) as Int).value()
+        BigInt rightValue = right._significand.shiftLeft(
+            (right._exponent - minimumExponent) as Int).value()
+        return leftValue.compare(rightValue)
+    }
+
+    private static Int digitIndex(String character) {
+        return "0123456789".indexOf(character)
+    }
+
+    private static String zeroDecimal(Int fractionalDigits) {
+        if fractionalDigits == 0 { return "0" }
+        String result = "0."
+        Int index = 0
+        while index < fractionalDigits {
+            result = result + "0"
+            index = index + 1
+        }
+        return result
+    }
+}

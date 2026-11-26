@@ -842,3 +842,29 @@ class Complex {
         return str(self._real) + str(self._imag) + "i"
     }
 }
+
+// ---------- RoundingMode ----------
+// 任意精度舍入模式；Unknown 放首位以规避枚举 0 与 null 的冲突。
+enum RoundingMode {
+    Unknown,
+    Up,
+    Down,
+    Ceiling,
+    Floor,
+    HalfUp,
+    HalfDown,
+    HalfEven,
+    Unnecessary,
+}
+
+String roundingModeName(RoundingMode mode) {
+    if mode == RoundingMode.Up { return "up" }
+    if mode == RoundingMode.Down { return "down" }
+    if mode == RoundingMode.Ceiling { return "ceiling" }
+    if mode == RoundingMode.Floor { return "floor" }
+    if mode == RoundingMode.HalfUp { return "half-up" }
+    if mode == RoundingMode.HalfDown { return "half-down" }
+    if mode == RoundingMode.HalfEven { return "half-even" }
+    if mode == RoundingMode.Unnecessary { return "unnecessary" }
+    return "unknown"
+}

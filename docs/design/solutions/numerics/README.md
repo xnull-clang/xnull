@@ -8,15 +8,15 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 核心实现 11/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver/Fft/SignalBuffer/SpecialFunctions |
+| 状态 | 12/12 类型：核心 11 + BigFloat 算术子集（exp/log/pow planned） |
 
 ---
 
-## 0.5 实现状态（M26.4）
+## 0.5 实现状态（M26.5）
 
-已实现 11/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
-`Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`、`SpecialFunctions`；
-`BigFloat` planned（依赖 BigInt 的舍入/超越函数实现，留独立批次）。
+已实现 12/12 类型：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
+`Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`、`SpecialFunctions`、
+`BigFloat`（算术/开方/舍入/转换；`exp/log/pow` 返回 Unsupported）。
 
 - `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
   加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
@@ -41,7 +41,12 @@
   Lambert W（Halley）、完全椭圆积分（AGM）。
 - 偏差：`besselY` 对 `order > 0` 由 Y0/Y1 递推，`x` 很小时仅有 Y0/Y1 高精度；
   `besselJ/I` 在 `|x| > 30` 用渐近式。
-- 不做 `BigFloat`。
+- `BigFloat`：符号-绝对值 + `BigInt` 有效数字 + 二进制指数，显式精度与
+  `RoundingMode`；parse/fromDouble/fromLong/fromBigInt、加减乘除、round、sqrt、
+  toBigInt/toDecimalString/toDouble/compare/equals/isInteger。
+  `exp/log/pow` 暂返回 `Unsupported`（任意精度超越函数留后续）。
+- `xdk.math.RoundingMode` 同步补齐（Up/Down/Ceiling/Floor/HalfUp/HalfDown/HalfEven/Unnecessary）。
+- 偏差：`BigFloat` 除法/开方使用 guard 位后统一舍入；`toDecimalString` 限制小数位 ≤1000。
 
 ---
 

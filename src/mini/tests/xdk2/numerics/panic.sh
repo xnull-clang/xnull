@@ -141,6 +141,13 @@ static Int main(String[] args) {
         Bool value = BigInt.fromInt(2).testBit(-1)
     } else if name == "bigAddNull" {
         BigInt value = BigInt.fromInt(1).add(null)
+    } else if name == "bigFloatSqrtNull" {
+        BigFloat value = BigFloat.parse("2", 64, RoundingMode.HalfEven, 5).value()
+        Context context = null
+        Result<BigFloat, Error> result = value.sqrt(context, 64, RoundingMode.HalfEven)
+    } else if name == "bigFloatAddNull" {
+        BigFloat value = BigFloat.parse("2", 64, RoundingMode.HalfEven, 5).value()
+        Result<BigFloat, Error> result = value.add(null, 64, RoundingMode.HalfEven)
     } else if name == "fftNull" {
         Context context = null
         List<Complex> values = []
@@ -201,6 +208,8 @@ check_panic bigTestBitNegative "BigInt.testBit: negative index"
 # removed bigToInt "BigInt.toInt: overflow"
 # removed bigToLong "BigInt.toLong: overflow"
 check_panic bigAddNull "BigInt.add: null"
+check_panic bigFloatSqrtNull "BigFloat.sqrt: null context"
+check_panic bigFloatAddNull "BigFloat.add: null argument"
 check_panic fftNull "Fft.transform: null argument"
 check_panic signalNull "SignalBuffer.convolve: null argument"
 echo "numerics_panic: PASS"

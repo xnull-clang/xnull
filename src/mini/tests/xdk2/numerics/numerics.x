@@ -526,5 +526,50 @@ static Int main() {
         "," + errorKindName(SpecialFunctions.ellipticK(1.0).error().kind()) +
         "," + errorKindName(SpecialFunctions.besselY(0, 0.0).error().kind()))
 
+
+    // ---------- BigFloat ----------
+    BigFloat bfOne = BigFloat.parse("1.5", 64, RoundingMode.HalfEven, 20).value()
+    BigFloat bfTwo = BigFloat.parse("2.25", 64, RoundingMode.HalfEven, 20).value()
+    BigFloat bfSix = BigFloat.parse("6", 64, RoundingMode.HalfEven, 20).value()
+    BigFloat bfTwoInt = BigFloat.parse("2", 64, RoundingMode.HalfEven, 20).value()
+    BigFloat bfThird = BigFloat.one(64).value().divide(
+        BigFloat.fromInt(3, 64, RoundingMode.HalfEven).value(), 64,
+        RoundingMode.HalfEven).value()
+    BigFloat bfRoot = BigFloat.fromInt(2, 64, RoundingMode.HalfEven).value().sqrt(
+        Context.background(), 64, RoundingMode.HalfEven).value()
+    BigFloat bfTenth = BigFloat.parse("0.1", 64, RoundingMode.HalfEven, 20).value()
+    BigFloat bfFifth = BigFloat.parse("0.2", 64, RoundingMode.HalfEven, 20).value()
+    print("bigfloat-arith=" + str(near(bfOne.add(bfTwo, 64, RoundingMode.HalfEven).value().toDouble(),
+            3.75, 0.0000001)) +
+        "," + str(near(bfOne.multiply(bfTwo, 64, RoundingMode.HalfEven).value().toDouble(),
+            3.375, 0.0000001)) +
+        "," + str(near(bfSix.divide(bfTwoInt, 64, RoundingMode.HalfEven).value().toDouble(),
+            3.0, 0.0000001)) +
+        "," + str(bfThird.toDecimalString(Context.background(), 10,
+            RoundingMode.HalfEven).value() == "0.3333333333") +
+        "," + str(near(bfRoot.toDouble(), 1.4142135623730951, 0.0000001)) +
+        "," + str(bfTenth.add(bfFifth, 64, RoundingMode.HalfEven).value().toDecimalString(
+            Context.background(), 10, RoundingMode.HalfEven).value() == "0.3000000000"))
+    print("bigfloat-round=" + BigFloat.parse("2.5", 64, RoundingMode.HalfEven, 10).value().toBigInt(
+            Context.background(), RoundingMode.HalfEven).value().toString() +
+        "," + BigFloat.parse("3.5", 64, RoundingMode.HalfEven, 10).value().toBigInt(
+            Context.background(), RoundingMode.HalfEven).value().toString() +
+        "," + BigFloat.parse("-7.75", 64, RoundingMode.HalfEven, 10).value().toBigInt(
+            Context.background(), RoundingMode.Floor).value().toString() +
+        "," + BigFloat.parse("-7.75", 64, RoundingMode.HalfEven, 10).value().toBigInt(
+            Context.background(), RoundingMode.Ceiling).value().toString() +
+        "," + BigFloat.parse("1e10", 64, RoundingMode.HalfEven, 10).value().toDecimalString(
+            Context.background(), 0, RoundingMode.HalfEven).value() +
+        "," + str(BigFloat.parse("1.5", 64, RoundingMode.HalfEven, 10).value().compare(
+            BigFloat.parse("2.5", 64, RoundingMode.HalfEven, 10).value())))
+    print("bigfloat-errors=" + errorKindName(BigFloat.parse("abc", 64,
+            RoundingMode.HalfEven, 10).error().kind()) +
+        "," + errorKindName(bfOne.divide(BigFloat.zero(64).value(), 64,
+            RoundingMode.HalfEven).error().kind()) +
+        "," + errorKindName(BigFloat.fromInt(-1, 64, RoundingMode.HalfEven).value().sqrt(
+            Context.background(), 64, RoundingMode.HalfEven).error().kind()) +
+        "," + errorKindName(bfOne.exp(Context.background(), 64,
+            RoundingMode.HalfEven).error().kind()))
+
     return 0
 }
