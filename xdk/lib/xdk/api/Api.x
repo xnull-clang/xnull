@@ -588,6 +588,8 @@ class ApiOptions {
     Bool _includeErrorDetail
     Bool _autoOptions
     String _problemTypeBase
+    OpenApiBuilder? _openApiBuilder
+    String _openApiPath
 
     ApiOptions() {
         List<ApiMiddleware> middleware = []
@@ -600,6 +602,8 @@ class ApiOptions {
         self._includeErrorDetail = false
         self._autoOptions = true
         self._problemTypeBase = ""
+        self._openApiBuilder = null
+        self._openApiPath = "/openapi.json"
     }
 
     ApiOptions use(ApiMiddleware middleware) {
@@ -679,6 +683,31 @@ class ApiOptions {
 
     String getProblemTypeBase() { return self._problemTypeBase }
 
+    ApiOptions openApi(OpenApiBuilder value) {
+        if value == null { throw "ApiOptions.openApi: null builder" }
+        self._openApiBuilder = value
+        return self
+    }
+
+    OpenApiBuilder? openApiBuilder() { return self._openApiBuilder }
+
+    ApiOptions openApiPath(String value) {
+        if value == null { throw "ApiOptions.openApiPath: null" }
+        if value != "" {
+            if !value.startsWith("/") || value.indexOf("?") >= 0 ||
+                value.indexOf("#") >= 0 {
+                throw "ApiOptions.openApiPath: invalid path"
+            }
+            if value.endsWith("/") && value != "/" {
+                throw "ApiOptions.openApiPath: trailing slash"
+            }
+        }
+        self._openApiPath = value
+        return self
+    }
+
+    String getOpenApiPath() { return self._openApiPath }
+
     ApiOptions copy() {
         ApiOptions result = new ApiOptions()
         Int index = 0
@@ -697,6 +726,8 @@ class ApiOptions {
         result._includeErrorDetail = self._includeErrorDetail
         result._autoOptions = self._autoOptions
         result._problemTypeBase = self._problemTypeBase
+        result._openApiBuilder = self._openApiBuilder
+        result._openApiPath = self._openApiPath
         return result
     }
 }
@@ -716,6 +747,14 @@ class ApiRoute {
     Validator? _requestValidator
     JsonValue? _requestSchema
     String? _operationName
+    String? _summary
+    String? _description
+    final List<String> _tags
+    final JsonArray _queryParameters
+    final JsonArray _headerParameters
+    final List<Int> _responseCodes
+    final Map<Int, String> _responseDescriptions
+    final Map<Int, JsonValue> _responseSchemas
 
     ApiRoute(HttpMethod method, String pattern, ApiHandler handler) {
         if pattern == null || handler == null {
@@ -774,6 +813,18 @@ class ApiRoute {
         self._requestValidator = null
         self._requestSchema = null
         self._operationName = null
+        self._summary = null
+        self._description = null
+        List<String> tags = []
+        self._tags = tags
+        self._queryParameters = new JsonArray()
+        self._headerParameters = new JsonArray()
+        List<Int> responseCodes = []
+        self._responseCodes = responseCodes
+        Map<Int, String> responseDescriptions = [:]
+        self._responseDescriptions = responseDescriptions
+        Map<Int, JsonValue> responseSchemas = [:]
+        self._responseSchemas = responseSchemas
     }
 
     HttpMethod method() { return self._method }
@@ -906,6 +957,89 @@ class ApiRoute {
 
     String? getOperationName() { return self._operationName }
 
+    ApiRoute summary(String value) {
+        if value == null { throw "ApiRoute.summary: null" }
+        self._summary = value
+        return self
+    }
+
+    String? getSummary() { return self._summary }
+
+    ApiRoute description(String value) {
+        if value == null { throw "ApiRoute.description: null" }
+        self._description = value
+        return self
+    }
+
+    String? getDescription() { return self._description }
+
+    ApiRoute tag(String value) {
+        if value == null || value == "" { throw "ApiRoute.tag: empty" }
+        if !apiContainsString(self._tags, value) { self._tags.push(value) }
+        return self
+    }
+
+    List<String> getTags() { return self._tags.copy() }
+
+    ApiRoute queryParameter(String name, String description, Bool required,
+                            JsonValue schema) {
+        if !isValidHeaderName(name) {
+            throw "ApiRoute.queryParameter: invalid name"
+        }
+        if description == null || schema == null {
+            throw "ApiRoute.queryParameter: null argument"
+        }
+        self._queryParameters.add(apiParameterObject(name, "query", description,
+            required, schema))
+        return self
+    }
+
+    JsonArray getQueryParameters() { return self._queryParameters.copy() }
+
+    ApiRoute headerParameter(String name, String description, Bool required,
+                             JsonValue schema) {
+        if !isValidHeaderName(name) {
+            throw "ApiRoute.headerParameter: invalid name"
+        }
+        if description == null || schema == null {
+            throw "ApiRoute.headerParameter: null argument"
+        }
+        self._headerParameters.add(apiParameterObject(name, "header", description,
+            required, schema))
+        return self
+    }
+
+    JsonArray getHeaderParameters() { return self._headerParameters.copy() }
+
+    ApiRoute response(Int status, String description) {
+        return self.responseWithSchema(status, description, null)
+    }
+
+    ApiRoute responseWithSchema(Int status, String description, JsonValue? schema) {
+        if status < 100 || status > 599 {
+            throw "ApiRoute.response: invalid status"
+        }
+        if description == null { throw "ApiRoute.response: null description" }
+        if !apiContainsInt(self._responseCodes, status) {
+            self._responseCodes.push(status)
+        }
+        self._responseDescriptions.put(status, description)
+        if schema != null { self._responseSchemas.put(status, schema) }
+        return self
+    }
+
+    List<Int> getResponseCodes() { return self._responseCodes.copy() }
+
+    String getResponseDescription(Int status) {
+        if !self._responseDescriptions.has(status) { return "" }
+        return self._responseDescriptions.getOr(status, "")
+    }
+
+    JsonValue? getResponseSchema(Int status) {
+        if !self._responseSchemas.has(status) { return null }
+        return self._responseSchemas.getOr(status, Json.nullValue())
+    }
+
     ApiRoute copy() {
         ApiRoute result = new ApiRoute(self._method, self._pattern, self._handler)
         Int index = 0
@@ -920,6 +1054,34 @@ class ApiRoute {
         result._requestValidator = self._requestValidator
         result._requestSchema = self._requestSchema
         result._operationName = self._operationName
+        result._summary = self._summary
+        result._description = self._description
+        index = 0
+        while index < self._tags.length() {
+            result._tags.push(self._tags.get(index))
+            index = index + 1
+        }
+        index = 0
+        while index < self._queryParameters.length() {
+            result._queryParameters.add(self._queryParameters.get(index))
+            index = index + 1
+        }
+        index = 0
+        while index < self._headerParameters.length() {
+            result._headerParameters.add(self._headerParameters.get(index))
+            index = index + 1
+        }
+        index = 0
+        while index < self._responseCodes.length() {
+            Int code = self._responseCodes.get(index)
+            result._responseCodes.push(code)
+            result._responseDescriptions.put(code, self._responseDescriptions.getOr(code, ""))
+            if self._responseSchemas.has(code) {
+                result._responseSchemas.put(code, self._responseSchemas.getOr(code,
+                    Json.nullValue()))
+            }
+            index = index + 1
+        }
         return result
     }
 }
@@ -1541,6 +1703,26 @@ static Result<Unit, Error> apiValidateRoutePattern(String pattern) {
     return Ok()
 }
 
+static JsonValue apiParameterObject(String name, String location, String description,
+                                    Bool required, JsonValue schema) {
+    JsonObject parameter = new JsonObject()
+    parameter.set("name", Json.string(name))
+    parameter.set("in", Json.string(location))
+    parameter.set("required", Json.bool(required))
+    parameter.set("description", Json.string(description))
+    parameter.set("schema", schema)
+    return apiJsonObject(parameter)
+}
+
+static Bool apiContainsInt(List<Int> values, Int target) {
+    Int index = 0
+    while index < values.length() {
+        if values.get(index) == target { return true }
+        index = index + 1
+    }
+    return false
+}
+
 static Map<String, String> apiCopyStringMap(Map<String, String> source) {
     Map<String, String> result = [:]
     List<String> keys = source.keys()
@@ -1555,4 +1737,811 @@ static Map<String, String> apiCopyStringMap(Map<String, String> source) {
 
 static Error apiUnavailable(String message) {
     return new BasicError(ErrorKind.Unavailable, message)
+}
+
+// ---------- OpenApiDocument ----------
+class OpenApiDocument {
+    final String _openapi
+    final JsonObject _info
+    final String? _jsonSchemaDialect
+    final JsonArray _servers
+    final JsonObject _paths
+    final JsonObject _webhooks
+    final JsonObject _components
+    final JsonArray _security
+    final JsonArray _tags
+    final JsonObject? _externalDocs
+
+    private OpenApiDocument(String openapi, JsonObject info, String? jsonSchemaDialect,
+                            JsonArray servers, JsonObject paths, JsonObject webhooks,
+                            JsonObject components, JsonArray security, JsonArray tags,
+                            JsonObject? externalDocs) {
+        self._openapi = openapi
+        self._info = info.copy()
+        self._jsonSchemaDialect = jsonSchemaDialect
+        self._servers = servers.copy()
+        self._paths = paths.copy()
+        self._webhooks = webhooks.copy()
+        self._components = components.copy()
+        self._security = security.copy()
+        self._tags = tags.copy()
+        self._externalDocs = externalDocs
+    }
+
+    static Result<OpenApiDocument, Error> parse(String text) {
+        if text == null { throw "OpenApiDocument.parse: null text" }
+        Result<JsonValue, Error> parsed = Json.parse(text)
+        if parsed.isErr() { return Err(parsed.error()) }
+        return OpenApiDocument.fromJson(parsed.value())
+    }
+
+    static Result<OpenApiDocument, Error> fromJson(JsonValue value) {
+        if value == null || !value.isObject() {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "OpenApiDocument: root must be object"))
+        }
+        JsonObject root = value.asObject() as JsonObject
+        JsonValue? openapiValue = root.getOrNull("openapi")
+        if openapiValue == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: missing openapi"))
+        }
+        JsonValue actualOpenapi = openapiValue as JsonValue
+        if !actualOpenapi.isString() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: openapi not string"))
+        }
+        String openapi = actualOpenapi.asString() as String
+        if openapi == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: empty openapi"))
+        }
+        JsonValue? infoValue = root.getOrNull("info")
+        if infoValue == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: missing info"))
+        }
+        JsonValue actualInfo = infoValue as JsonValue
+        if !actualInfo.isObject() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: info not object"))
+        }
+        JsonObject info = actualInfo.asObject() as JsonObject
+        String title = apiStringField(info, "title", "")
+        String version = apiStringField(info, "version", "")
+        if title == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: empty title"))
+        }
+        if version == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "OpenApiDocument: empty version"))
+        }
+        String? dialect = null
+        JsonValue? dialectValue = root.getOrNull("jsonSchemaDialect")
+        if dialectValue != null {
+            JsonValue actualDialect = dialectValue as JsonValue
+            if !actualDialect.isString() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "OpenApiDocument: jsonSchemaDialect not string"))
+            }
+            dialect = actualDialect.asString() as String
+        }
+        JsonObject paths = new JsonObject()
+        JsonValue? pathsValue = root.getOrNull("paths")
+        if pathsValue != null {
+            JsonValue actualPaths = pathsValue as JsonValue
+            if !actualPaths.isObject() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "OpenApiDocument: paths not object"))
+            }
+            JsonObject parsedPaths = actualPaths.asObject() as JsonObject
+            paths = parsedPaths.copy()
+        }
+        JsonObject webhooks = new JsonObject()
+        JsonValue? webhooksValue = root.getOrNull("webhooks")
+        if webhooksValue != null {
+            JsonValue actualWebhooks = webhooksValue as JsonValue
+            if !actualWebhooks.isObject() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "OpenApiDocument: webhooks not object"))
+            }
+            JsonObject parsedWebhooks = actualWebhooks.asObject() as JsonObject
+            webhooks = parsedWebhooks.copy()
+        }
+        JsonObject components = new JsonObject()
+        JsonValue? componentsValue = root.getOrNull("components")
+        if componentsValue != null {
+            JsonValue actualComponents = componentsValue as JsonValue
+            if !actualComponents.isObject() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "OpenApiDocument: components not object"))
+            }
+            JsonObject parsedComponents = actualComponents.asObject() as JsonObject
+            components = parsedComponents.copy()
+        }
+        JsonArray servers = apiArrayField(root, "servers")
+        JsonArray security = apiArrayField(root, "security")
+        JsonArray tags = apiArrayField(root, "tags")
+        JsonObject? externalDocs = null
+        JsonValue? externalValue = root.getOrNull("externalDocs")
+        if externalValue != null {
+            JsonValue actualExternal = externalValue as JsonValue
+            if !actualExternal.isObject() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "OpenApiDocument: externalDocs not object"))
+            }
+            JsonObject parsedExternal = actualExternal.asObject() as JsonObject
+            externalDocs = parsedExternal.copy()
+        }
+        return Ok(new OpenApiDocument(openapi, info, dialect, servers, paths, webhooks,
+            components, security, tags, externalDocs))
+    }
+
+    String version() { return self._openapi }
+    JsonObject info() { return self._info.copy() }
+    String infoTitle() { return apiStringField(self._info, "title", "") }
+    String infoVersion() { return apiStringField(self._info, "version", "") }
+    String? jsonSchemaDialect() { return self._jsonSchemaDialect }
+    JsonArray servers() { return self._servers.copy() }
+    JsonObject paths() { return self._paths.copy() }
+    JsonObject webhooks() { return self._webhooks.copy() }
+    JsonObject components() { return self._components.copy() }
+    JsonArray security() { return self._security.copy() }
+    JsonArray tags() { return self._tags.copy() }
+
+    JsonObject? externalDocs() {
+        if self._externalDocs == null { return null }
+        JsonObject actual = self._externalDocs as JsonObject
+        return actual.copy()
+    }
+
+    Bool hasPath(String path) {
+        if path == null { throw "OpenApiDocument.hasPath: null path" }
+        return self._paths.has(path)
+    }
+
+    JsonObject? pathItem(String path) {
+        if path == null { throw "OpenApiDocument.pathItem: null path" }
+        JsonValue? value = self._paths.getOrNull(path)
+        if value == null { return null }
+        JsonValue actual = value as JsonValue
+        if !actual.isObject() { return null }
+        JsonObject item = actual.asObject() as JsonObject
+        return item.copy()
+    }
+
+    Int operationCount() {
+        Int count = 0
+        List<String> keys = self._paths.keys()
+        Int index = 0
+        while index < keys.length() {
+            JsonValue? value = self._paths.getOrNull(keys.get(index))
+            if value != null {
+                JsonValue actual = value as JsonValue
+                if actual.isObject() {
+                    JsonObject item = actual.asObject() as JsonObject
+                    if item.has("get") { count = count + 1 }
+                    if item.has("put") { count = count + 1 }
+                    if item.has("post") { count = count + 1 }
+                    if item.has("delete") { count = count + 1 }
+                    if item.has("options") { count = count + 1 }
+                    if item.has("head") { count = count + 1 }
+                    if item.has("patch") { count = count + 1 }
+                    if item.has("trace") { count = count + 1 }
+                }
+            }
+            index = index + 1
+        }
+        return count
+    }
+
+    JsonObject toJson() {
+        JsonObject root = new JsonObject()
+        root.set("openapi", Json.string(self._openapi))
+        root.set("info", apiJsonObject(self._info))
+        if self._jsonSchemaDialect != null {
+            root.set("jsonSchemaDialect", Json.string(self._jsonSchemaDialect as String))
+        }
+        if self._servers.length() > 0 { root.set("servers", apiJsonArray(self._servers)) }
+        root.set("paths", apiJsonObject(self._paths))
+        if self._webhooks.length() > 0 {
+            root.set("webhooks", apiJsonObject(self._webhooks))
+        }
+        if self._components.length() > 0 {
+            root.set("components", apiJsonObject(self._components))
+        }
+        if self._security.length() > 0 { root.set("security", apiJsonArray(self._security)) }
+        if self._tags.length() > 0 { root.set("tags", apiJsonArray(self._tags)) }
+        if self._externalDocs != null {
+            JsonObject actualExternal = self._externalDocs as JsonObject
+            root.set("externalDocs", apiJsonObject(actualExternal))
+        }
+        return root
+    }
+
+    JsonValue toJsonValue() { return apiJsonObject(self.toJson()) }
+
+    String toJsonText(Bool pretty) {
+        if pretty { return Json.stringifyPretty(self.toJsonValue()) }
+        return Json.stringify(self.toJsonValue())
+    }
+
+    OpenApiDocument copy() {
+        OpenApiDocument? result = null
+        Result<OpenApiDocument, Error> parsed = OpenApiDocument.fromJson(self.toJsonValue())
+        if parsed.isOk() { result = parsed.value() }
+        return result as OpenApiDocument
+    }
+}
+
+// ---------- OpenApiBuilder ----------
+class OpenApiBuilder {
+    final String _title
+    final String _version
+    String _summary
+    String _description
+    String _termsOfService
+    JsonObject? _contact
+    JsonObject? _license
+    String _jsonSchemaDialect
+    final JsonArray _servers
+    final JsonArray _tags
+    final JsonObject _schemas
+    final JsonObject _responses
+    final JsonObject _parameters
+    final JsonObject _securitySchemes
+    final JsonArray _security
+    final JsonObject _paths
+    final JsonObject _webhooks
+    JsonObject? _externalDocs
+    final List<ApiRouter> _includedRouters
+    final Map<String, Int> _operationNames
+
+    OpenApiBuilder(String title, String version) {
+        if title == null || title == "" {
+            throw "OpenApiBuilder: empty title"
+        }
+        if version == null || version == "" {
+            throw "OpenApiBuilder: empty version"
+        }
+        if apiHasLineBreak(title) || apiHasLineBreak(version) {
+            throw "OpenApiBuilder: title/version has line break"
+        }
+        self._title = title
+        self._version = version
+        self._summary = ""
+        self._description = ""
+        self._termsOfService = ""
+        self._contact = null
+        self._license = null
+        self._jsonSchemaDialect = ""
+        self._servers = new JsonArray()
+        self._tags = new JsonArray()
+        self._schemas = new JsonObject()
+        self._responses = new JsonObject()
+        self._parameters = new JsonObject()
+        self._securitySchemes = new JsonObject()
+        self._security = new JsonArray()
+        self._paths = new JsonObject()
+        self._webhooks = new JsonObject()
+        self._externalDocs = null
+        List<ApiRouter> routers = []
+        self._includedRouters = routers
+        Map<String, Int> names = [:]
+        self._operationNames = names
+    }
+
+    OpenApiBuilder summary(String value) {
+        if value == null { throw "OpenApiBuilder.summary: null" }
+        self._summary = value
+        return self
+    }
+
+    OpenApiBuilder description(String value) {
+        if value == null { throw "OpenApiBuilder.description: null" }
+        self._description = value
+        return self
+    }
+
+    OpenApiBuilder termsOfService(String value) {
+        if value == null || value == "" {
+            throw "OpenApiBuilder.termsOfService: empty"
+        }
+        self._termsOfService = value
+        return self
+    }
+
+    OpenApiBuilder contact(String name, String url, String email) {
+        if name == null || url == null || email == null {
+            throw "OpenApiBuilder.contact: null"
+        }
+        if apiHasLineBreak(name) || apiHasLineBreak(url) || apiHasLineBreak(email) {
+            throw "OpenApiBuilder.contact: line break"
+        }
+        JsonObject value = new JsonObject()
+        if name != "" { value.set("name", Json.string(name)) }
+        if url != "" { value.set("url", Json.string(url)) }
+        if email != "" { value.set("email", Json.string(email)) }
+        self._contact = value
+        return self
+    }
+
+    OpenApiBuilder license(String name, String identifier, String url) {
+        if name == null || name == "" || identifier == null || url == null {
+            throw "OpenApiBuilder.license: null or empty"
+        }
+        JsonObject value = new JsonObject()
+        value.set("name", Json.string(name))
+        if identifier != "" { value.set("identifier", Json.string(identifier)) }
+        if url != "" { value.set("url", Json.string(url)) }
+        self._license = value
+        return self
+    }
+
+    OpenApiBuilder jsonSchemaDialect(String uri) {
+        if uri == null || uri == "" {
+            throw "OpenApiBuilder.jsonSchemaDialect: empty"
+        }
+        self._jsonSchemaDialect = uri
+        return self
+    }
+
+    OpenApiBuilder externalDocs(String url, String description) {
+        if url == null || url == "" || description == null {
+            throw "OpenApiBuilder.externalDocs: invalid"
+        }
+        JsonObject value = new JsonObject()
+        value.set("url", Json.string(url))
+        if description != "" { value.set("description", Json.string(description)) }
+        self._externalDocs = value
+        return self
+    }
+
+    OpenApiBuilder server(String url, String description) {
+        if url == null || url == "" || description == null {
+            throw "OpenApiBuilder.server: invalid"
+        }
+        JsonObject value = new JsonObject()
+        value.set("url", Json.string(url))
+        if description != "" { value.set("description", Json.string(description)) }
+        self._servers.add(apiJsonObject(value))
+        return self
+    }
+
+    OpenApiBuilder tag(String name, String description) {
+        if name == null || name == "" || description == null {
+            throw "OpenApiBuilder.tag: invalid"
+        }
+        JsonObject value = new JsonObject()
+        value.set("name", Json.string(name))
+        if description != "" { value.set("description", Json.string(description)) }
+        self._tags.add(apiJsonObject(value))
+        return self
+    }
+
+    OpenApiBuilder httpSecurityScheme(String name, AuthScheme scheme,
+                                      String description) {
+        if name == null || name == "" || description == null {
+            throw "OpenApiBuilder.httpSecurityScheme: invalid"
+        }
+        if scheme != AuthScheme.Basic && scheme != AuthScheme.Bearer {
+            throw "OpenApiBuilder.httpSecurityScheme: not HTTP scheme"
+        }
+        JsonObject value = new JsonObject()
+        value.set("type", Json.string("http"))
+        value.set("scheme", Json.string(authSchemeName(scheme)))
+        if description != "" { value.set("description", Json.string(description)) }
+        self._securitySchemes.set(name, apiJsonObject(value))
+        return self
+    }
+
+    OpenApiBuilder apiKeySecurityScheme(String name, AuthScheme scheme,
+                                        String parameterName, String description) {
+        if name == null || name == "" || parameterName == null ||
+            parameterName == "" || description == null {
+            throw "OpenApiBuilder.apiKeySecurityScheme: invalid"
+        }
+        if scheme == AuthScheme.Basic || scheme == AuthScheme.Bearer {
+            throw "OpenApiBuilder.apiKeySecurityScheme: not API key scheme"
+        }
+        JsonObject value = new JsonObject()
+        value.set("type", Json.string("apiKey"))
+        value.set("in", Json.string(authSchemeOpenApiLocation(scheme)))
+        value.set("name", Json.string(parameterName))
+        if description != "" { value.set("description", Json.string(description)) }
+        self._securitySchemes.set(name, apiJsonObject(value))
+        return self
+    }
+
+    OpenApiBuilder securitySchemeFor(Authenticator authenticator, String description) {
+        if authenticator == null { throw "OpenApiBuilder.securitySchemeFor: null" }
+        AuthScheme scheme = authenticator.scheme()
+        if scheme == AuthScheme.Basic || scheme == AuthScheme.Bearer {
+            return self.httpSecurityScheme(authenticator.name(), scheme, description)
+        }
+        return self.apiKeySecurityScheme(authenticator.name(), scheme,
+            authenticator.parameterName(), description)
+    }
+
+    OpenApiBuilder globalSecurity(String schemeName, List<String> scopes) {
+        if schemeName == null || schemeName == "" || scopes == null {
+            throw "OpenApiBuilder.globalSecurity: invalid"
+        }
+        JsonObject requirement = new JsonObject()
+        requirement.set(schemeName, apiStringArray(scopes))
+        self._security.add(apiJsonObject(requirement))
+        return self
+    }
+
+    OpenApiBuilder componentSchema(String name, JsonValue schema) {
+        if name == null || name == "" || schema == null {
+            throw "OpenApiBuilder.componentSchema: invalid"
+        }
+        self._schemas.set(name, schema)
+        return self
+    }
+
+    OpenApiBuilder componentResponse(String name, JsonValue response) {
+        if name == null || name == "" || response == null {
+            throw "OpenApiBuilder.componentResponse: invalid"
+        }
+        self._responses.set(name, response)
+        return self
+    }
+
+    OpenApiBuilder componentParameter(String name, JsonValue parameter) {
+        if name == null || name == "" || parameter == null {
+            throw "OpenApiBuilder.componentParameter: invalid"
+        }
+        self._parameters.set(name, parameter)
+        return self
+    }
+
+    OpenApiBuilder webhook(String name, JsonValue pathItem) {
+        if name == null || name == "" || pathItem == null {
+            throw "OpenApiBuilder.webhook: invalid"
+        }
+        self._webhooks.set(name, pathItem)
+        return self
+    }
+
+    Result<Unit, Error> addRouter(ApiRouter router) {
+        if router == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "null router"))
+        }
+        if apiIndexOfRouter(self._includedRouters, router) >= 0 { return Ok() }
+        List<ApiRoute> routes = router.routes()
+        Int index = 0
+        while index < routes.length() {
+            Result<Unit, Error> added = self.addRoute(routes.get(index))
+            if added.isErr() { return Err(added.error()) }
+            index = index + 1
+        }
+        self._includedRouters.push(router)
+        return Ok()
+    }
+
+    Result<Unit, Error> addRoute(ApiRoute route) {
+        if route == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "null route"))
+        }
+        JsonObject item = new JsonObject()
+        JsonValue? itemValue = self._paths.getOrNull(route.pattern())
+        if itemValue != null {
+            JsonValue actualItem = itemValue as JsonValue
+            if !actualItem.isObject() {
+                return Err(new BasicError(ErrorKind.InvalidArgument,
+                    "path item is not an object"))
+            }
+            JsonObject parsedItem = actualItem.asObject() as JsonObject
+            item = parsedItem.copy()
+        }
+        String method = httpMethodName(route.method()).toLower()
+        if item.has(method) {
+            return Err(new BasicError(ErrorKind.AlreadyExists,
+                "duplicate path operation"))
+        }
+        String? explicitName = route.getOperationName()
+        String operationName = self.generateOperationName(route)
+        if explicitName != null {
+            String actualExplicit = explicitName as String
+            if self._operationNames.has(actualExplicit) {
+                return Err(new BasicError(ErrorKind.AlreadyExists,
+                    "duplicate operationId"))
+            }
+            operationName = actualExplicit
+        }
+        self._operationNames.put(operationName, 1)
+        JsonArray parameters = new JsonArray()
+        List<String> pathNames = route.pathParameterNames()
+        Int pathIndex = 0
+        while pathIndex < pathNames.length() {
+            JsonObject schema = new JsonObject()
+            schema.set("type", Json.string("string"))
+            JsonObject parameter = new JsonObject()
+            parameter.set("name", Json.string(pathNames.get(pathIndex)))
+            parameter.set("in", Json.string("path"))
+            parameter.set("required", Json.bool(true))
+            parameter.set("schema", apiJsonObject(schema))
+            parameters.add(apiJsonObject(parameter))
+            pathIndex = pathIndex + 1
+        }
+        JsonArray queryParameters = route.getQueryParameters()
+        Int parameterIndex = 0
+        while parameterIndex < queryParameters.length() {
+            parameters.add(queryParameters.get(parameterIndex))
+            parameterIndex = parameterIndex + 1
+        }
+        JsonArray headerParameters = route.getHeaderParameters()
+        parameterIndex = 0
+        while parameterIndex < headerParameters.length() {
+            parameters.add(headerParameters.get(parameterIndex))
+            parameterIndex = parameterIndex + 1
+        }
+        JsonObject operation = new JsonObject()
+        String? summary = route.getSummary()
+        if summary != null && (summary as String) != "" {
+            operation.set("summary", Json.string(summary as String))
+        }
+        String? description = route.getDescription()
+        if description != null && (description as String) != "" {
+            operation.set("description", Json.string(description as String))
+        }
+        operation.set("operationId", Json.string(operationName))
+        List<String> routeTags = route.getTags()
+        if routeTags.length() > 0 {
+            operation.set("tags", apiStringArray(routeTags))
+        }
+        if parameters.length() > 0 {
+            operation.set("parameters", apiJsonArray(parameters))
+        }
+        JsonValue? requestSchema = route.getRequestSchema()
+        if requestSchema != null {
+            JsonValue schemaValue = requestSchema as JsonValue
+            JsonObject media = new JsonObject()
+            media.set("schema", schemaValue)
+            JsonObject content = new JsonObject()
+            content.set("application/json", apiJsonObject(media))
+            JsonObject requestBody = new JsonObject()
+            requestBody.set("required", Json.bool(true))
+            requestBody.set("content", apiJsonObject(content))
+            operation.set("requestBody", apiJsonObject(requestBody))
+        }
+        JsonObject responses = new JsonObject()
+        List<Int> responseCodes = route.getResponseCodes()
+        if responseCodes.length() == 0 { responseCodes.push(200) }
+        Int responseIndex = 0
+        while responseIndex < responseCodes.length() {
+            Int status = responseCodes.get(responseIndex)
+            String responseDescription = route.getResponseDescription(status)
+            if responseDescription == "" {
+                responseDescription = HttpStatus.of(status).reason()
+            }
+            if responseDescription == "" {
+                responseDescription = "HTTP " + str(status)
+            }
+            JsonObject response = new JsonObject()
+            response.set("description", Json.string(responseDescription))
+            JsonValue? responseSchema = route.getResponseSchema(status)
+            if responseSchema != null && status != 204 && status != 304 {
+                JsonValue schemaValue = responseSchema as JsonValue
+                JsonObject media = new JsonObject()
+                media.set("schema", schemaValue)
+                JsonObject content = new JsonObject()
+                content.set("application/json", apiJsonObject(media))
+                response.set("content", apiJsonObject(content))
+            }
+            responses.set(str(status), apiJsonObject(response))
+            responseIndex = responseIndex + 1
+        }
+        if !responses.has("default") {
+            JsonObject reference = new JsonObject()
+            reference.set("$ref", Json.string("#/components/schemas/ProblemDetails"))
+            JsonObject media = new JsonObject()
+            media.set("schema", apiJsonObject(reference))
+            JsonObject content = new JsonObject()
+            content.set("application/problem+json", apiJsonObject(media))
+            JsonObject problem = new JsonObject()
+            problem.set("description", Json.string("Problem details"))
+            problem.set("content", apiJsonObject(content))
+            responses.set("default", apiJsonObject(problem))
+        }
+        operation.set("responses", apiJsonObject(responses))
+        if route.isPublicAccess() {
+            operation.set("security", apiJsonArray(new JsonArray()))
+        } else if route.getAuthenticator() != null {
+            Authenticator authenticator = route.getAuthenticator() as Authenticator
+            self.securitySchemeFor(authenticator, "Route authentication")
+            JsonObject requirement = new JsonObject()
+            requirement.set(authenticator.name(), apiJsonArray(new JsonArray()))
+            JsonArray security = new JsonArray()
+            security.add(apiJsonObject(requirement))
+            operation.set("security", apiJsonArray(security))
+        }
+        item.set(method, apiJsonObject(operation))
+        self._paths.set(route.pattern(), apiJsonObject(item))
+        return Ok()
+    }
+
+    Int operationCount() { return self._operationNames.length() }
+
+    Result<OpenApiDocument, Error> build() {
+        if !self._schemas.has("ProblemDetails") {
+            JsonObject properties = new JsonObject()
+            JsonObject typeProperty = new JsonObject()
+            typeProperty.set("type", Json.string("string"))
+            typeProperty.set("format", Json.string("uri-reference"))
+            properties.set("type", apiJsonObject(typeProperty))
+            JsonObject titleProperty = new JsonObject()
+            titleProperty.set("type", Json.string("string"))
+            properties.set("title", apiJsonObject(titleProperty))
+            JsonObject statusProperty = new JsonObject()
+            statusProperty.set("type", Json.string("integer"))
+            statusProperty.set("minimum", Json.number("100"))
+            statusProperty.set("maximum", Json.number("599"))
+            properties.set("status", apiJsonObject(statusProperty))
+            JsonObject detailProperty = new JsonObject()
+            detailProperty.set("type", Json.string("string"))
+            properties.set("detail", apiJsonObject(detailProperty))
+            JsonObject instanceProperty = new JsonObject()
+            instanceProperty.set("type", Json.string("string"))
+            instanceProperty.set("format", Json.string("uri-reference"))
+            properties.set("instance", apiJsonObject(instanceProperty))
+            JsonArray required = new JsonArray()
+            required.add(Json.string("type"))
+            required.add(Json.string("title"))
+            required.add(Json.string("status"))
+            JsonObject schema = new JsonObject()
+            schema.set("type", Json.string("object"))
+            schema.set("properties", apiJsonObject(properties))
+            schema.set("required", apiJsonArray(required))
+            self._schemas.set("ProblemDetails", apiJsonObject(schema))
+        }
+        JsonObject info = new JsonObject()
+        info.set("title", Json.string(self._title))
+        info.set("version", Json.string(self._version))
+        if self._summary != "" { info.set("summary", Json.string(self._summary)) }
+        if self._description != "" { info.set("description", Json.string(self._description)) }
+        if self._termsOfService != "" {
+            info.set("termsOfService", Json.string(self._termsOfService))
+        }
+        if self._contact != null {
+            JsonObject actualContact = self._contact as JsonObject
+            info.set("contact", apiJsonObject(actualContact))
+        }
+        if self._license != null {
+            JsonObject actualLicense = self._license as JsonObject
+            info.set("license", apiJsonObject(actualLicense))
+        }
+        JsonObject root = new JsonObject()
+        root.set("openapi", Json.string("3.1.0"))
+        root.set("info", apiJsonObject(info))
+        if self._jsonSchemaDialect != "" {
+            root.set("jsonSchemaDialect", Json.string(self._jsonSchemaDialect))
+        }
+        if self._servers.length() > 0 { root.set("servers", apiJsonArray(self._servers)) }
+        root.set("paths", apiJsonObject(self._paths))
+        if self._webhooks.length() > 0 {
+            root.set("webhooks", apiJsonObject(self._webhooks))
+        }
+        JsonObject components = new JsonObject()
+        if self._schemas.length() > 0 {
+            components.set("schemas", apiJsonObject(self._schemas))
+        }
+        if self._responses.length() > 0 {
+            components.set("responses", apiJsonObject(self._responses))
+        }
+        if self._parameters.length() > 0 {
+            components.set("parameters", apiJsonObject(self._parameters))
+        }
+        if self._securitySchemes.length() > 0 {
+            components.set("securitySchemes", apiJsonObject(self._securitySchemes))
+        }
+        if components.length() > 0 {
+            root.set("components", apiJsonObject(components))
+        }
+        if self._security.length() > 0 { root.set("security", apiJsonArray(self._security)) }
+        if self._tags.length() > 0 { root.set("tags", apiJsonArray(self._tags)) }
+        if self._externalDocs != null {
+            JsonObject actualExternal = self._externalDocs as JsonObject
+            root.set("externalDocs", apiJsonObject(actualExternal))
+        }
+        return OpenApiDocument.fromJson(apiJsonObject(root))
+    }
+
+    private String generateOperationName(ApiRoute route) {
+        String method = httpMethodName(route.method()).toLower()
+        String base = method
+        List<String> segments = apiSplitSegments(route.pattern())
+        Int index = 0
+        while index < segments.length() {
+            String segment = segments.get(index)
+            if segment == "*" {
+                base = base + "_wildcard"
+            } else if segment.startsWith("{") && segment.endsWith("}") {
+                String name = segment.substring(1, segment.length() - 2)
+                base = base + "_" + apiSanitizeName(name)
+            } else {
+                base = base + "_" + apiSanitizeName(segment)
+            }
+            index = index + 1
+        }
+        String candidate = base
+        Int suffix = 2
+        while self._operationNames.has(candidate) {
+            candidate = base + "_" + str(suffix)
+            suffix = suffix + 1
+        }
+        return candidate
+    }
+}
+
+// ---------- OpenAPI helpers ----------
+static String apiStringField(JsonObject object, String name, String fallback) {
+    JsonValue? value = object.getOrNull(name)
+    if value == null { return fallback }
+    JsonValue actual = value as JsonValue
+    if !actual.isString() { return fallback }
+    return actual.asString() as String
+}
+
+static JsonArray apiArrayField(JsonObject object, String name) {
+    JsonArray result = new JsonArray()
+    JsonValue? value = object.getOrNull(name)
+    if value == null { return result }
+    JsonValue actual = value as JsonValue
+    if !actual.isArray() { return result }
+    JsonArray source = actual.asArray() as JsonArray
+    Int index = 0
+    while index < source.length() {
+        result.add(source.get(index))
+        index = index + 1
+    }
+    return result
+}
+
+static JsonValue apiJsonArray(JsonArray source) {
+    JsonValue arrayValue = Json.array()
+    JsonArray array = arrayValue.asArray() as JsonArray
+    Int index = 0
+    while index < source.length() {
+        array.add(source.get(index))
+        index = index + 1
+    }
+    return arrayValue
+}
+
+static JsonValue apiStringArray(List<String> values) {
+    JsonArray array = new JsonArray()
+    Int index = 0
+    while index < values.length() {
+        array.add(Json.string(values.get(index)))
+        index = index + 1
+    }
+    return apiJsonArray(array)
+}
+
+static Bool apiHasLineBreak(String text) {
+    return text.indexOf("\n") >= 0 || text.indexOf("\r") >= 0
+}
+
+static String apiSanitizeName(String text) {
+    String result = ""
+    Int index = 0
+    while index < text.length() {
+        Int code = text.get(index)
+        Bool alpha = (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+        Bool digit = code >= 48 && code <= 57
+        if alpha || digit {
+            result = result + text.substring(index, 1)
+        } else if code == 95 || code == 45 {
+            if !result.endsWith("_") { result = result + "_" }
+        }
+        index = index + 1
+    }
+    if result == "" { return "root" }
+    return result
+}
+
+static Int apiIndexOfRouter(List<ApiRouter> routers, ApiRouter target) {
+    Int index = 0
+    while index < routers.length() {
+        if routers.get(index) == target { return index }
+        index = index + 1
+    }
+    return -1
 }

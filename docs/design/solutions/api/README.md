@@ -36,14 +36,14 @@
 
 ---
 
-## 1.5 实现状态（M23.2）
+## 1.5 实现状态（M23.3）
 
-已实现 11/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
+已实现 13/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
 `ApiOptions`、`ApiHandler`、`ApiMiddleware`、`Authenticator`、`ApiRoute`、`ApiRouter`、
-`ApiContext`；`ApiServer`/`OpenApiBuilder`/`OpenApiDocument`/`SseStream` 留 M23.3。
+`ApiContext`、`OpenApiDocument`、`OpenApiBuilder`；`ApiServer`/`SseStream` 留 M23.4。
 
-- `ApiOptions`：中间件/认证/限流/CORS/body 上限/SSE 缓冲/detail/autoOptions/problemTypeBase/copy；
-  OpenAPI 字段按本合同留空（planned）。
+- `ApiOptions`：中间件/认证/限流/CORS/body 上限/SSE 缓冲/detail/autoOptions/problemTypeBase/
+  `openApi`/`openApiPath`/copy；`openApiPath` 默认 `/openapi.json`，空串关闭。
 - `ApiHandler`/`ApiMiddleware`/`Authenticator`：协议；`Authenticator.authenticate` 写入
   principal/roles。
 - `ApiRoute`：`{name}` 整段参数、尾部 `*` 通配、路径参数百分号解码、路由中间件/认证/限流
@@ -54,9 +54,19 @@
   属性、状态/响应头、respondJson/Text/Empty/Problem、幂等 close。
 - 命名受限：无重载，setter/getter 用 `get*`/`with*`；`ApiContext` 响应带状态版本为
   `respondJsonWithStatus`/`respondTextWithStatus`。
-- 与 `ApiRoute.md` 的差异：本实现按任务合同额外支持尾部 `*` 通配，文档当前写“不支持通配”，
-  M23.3 前复核。
-- 不做 `ApiServer`/OpenAPI/SSE/真实 socket；`Authenticator` 只定义协议，不内置具体认证器。
+- 与 `ApiRoute.md` 的差异：本实现额外支持尾部 `*` 通配（合同尚未收录；作为兼容扩展保留，
+  以合同为准的调用方不应依赖）。
+- `OpenApiDocument`：`parse`/`fromJson` 校验 `openapi` 与 `info.title/version`；缺失 `paths`
+  归一为空对象；getter 返回副本；`operationCount` 统计 8 个方法；`toJsonText(pretty)`。
+- `OpenApiBuilder`：summary/description/terms/contact/license/dialect/externalDocs/server/tag、
+  Basic/Bearer 与三种 API key 安全方案、组件 schema/response/parameter、webhook、
+  `globalSecurity`、`addRoute`/`addRouter`（幂等）；`build` 输出 `openapi: 3.1.0`，
+  自动补 `components.schemas.ProblemDetails` 与 `default` 问题响应。
+- `operationId`：显式优先；否则 method + 分段路径生成稳定名（如 `get_users_id`），
+  非法字符转 `_`，冲突追加 `_2`。
+- `ApiRoute` 新增 summary/description/tags/queryParameter/headerParameter/response 元数据；
+  path 参数输出为 `in: path` 的 string schema，requestSchema 输出为 `application/json` requestBody。
+- 不做 `ApiServer`/SSE/真实 socket；`Authenticator` 只定义协议，不内置具体认证器。
 
 ---
 

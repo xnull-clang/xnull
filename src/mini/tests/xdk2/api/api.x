@@ -304,6 +304,124 @@ static Int main() {
         str(configured.getRequestSchema() != null) + "," +
         (configuredCopy.getOperationName() as String))
     print("route-config-mw=" + str(configured.getMiddleware().length()))
+
+    String minimalDoc = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"Minimal\",\"version\":\"1.0\"}}"
+    Result<OpenApiDocument, Error> parsedDocument = OpenApiDocument.parse(minimalDoc)
+    OpenApiDocument minimal = parsedDocument.value()
+    print("doc-parse=" + minimal.version() + "," + minimal.infoTitle() + "," +
+        minimal.infoVersion() + "," + str(minimal.operationCount()) + "," +
+        str(minimal.hasPath("/none")) + "," + str(minimal.pathItem("/none") == null))
+
+    Result<OpenApiDocument, Error> badRoot = OpenApiDocument.parse("[]")
+    Result<OpenApiDocument, Error> badInfo = OpenApiDocument.parse(
+        "{\"openapi\":\"3.1.0\",\"info\":[]}")
+    Result<OpenApiDocument, Error> badVersion = OpenApiDocument.parse(
+        "{\"openapi\":\"\",\"info\":{\"title\":\"t\",\"version\":\"1\"}}")
+    Result<OpenApiDocument, Error> badJson = OpenApiDocument.parse("{")
+    print("doc-errors=" + errorKindName(badRoot.error().kind()) + "," +
+        errorKindName(badInfo.error().kind()) + "," +
+        errorKindName(badVersion.error().kind()) + "," +
+        errorKindName(badJson.error().kind()))
+
+    String multiDoc = "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"M\",\"version\":\"1\"}," +
+        "\"paths\":{\"/a\":{\"get\":{},\"post\":{},\"patch\":{}},\"/b\":{\"head\":{}}}}"
+    OpenApiDocument multi = OpenApiDocument.parse(multiDoc).value()
+    OpenApiDocument multiCopy = multi.copy()
+    print("doc-count=" + str(multi.operationCount()) + "," +
+        str(multiCopy.operationCount()) + "," +
+        str(multi.toJsonText(false).length()) + "," +
+        str(multi.toJsonText(true).indexOf("\n") >= 0))
+
+    OpenApiBuilder docBuilder = new OpenApiBuilder("Pipeline", "2.0.0")
+    docBuilder.summary("Api summary").description("Api description")
+        .termsOfService("https://example/terms")
+        .contact("Ada", "https://example", "ada@example")
+        .license("MIT", "MIT", "https://opensource.org/licenses/MIT")
+        .jsonSchemaDialect("https://json-schema.org/draft/2020-12/schema")
+        .externalDocs("https://example/docs", "External docs")
+        .server("https://api.example", "prod").tag("users", "Users")
+        .httpSecurityScheme("basicAuth", AuthScheme.Basic, "basic")
+        .apiKeySecurityScheme("apiKey", AuthScheme.ApiKeyHeader, "X-API-Key", "key")
+    List<String> globalScopes = []
+    docBuilder.globalSecurity("basicAuth", globalScopes)
+    JsonValue componentUser = Json.object()
+    docBuilder.componentSchema("User", componentUser)
+    JsonValue componentNotFound = Json.object()
+    docBuilder.componentResponse("NotFound", componentNotFound)
+    JsonValue componentLimit = Json.object()
+    docBuilder.componentParameter("Limit", componentLimit)
+    JsonValue webhookItem = Json.object()
+    docBuilder.webhook("userCreated", webhookItem)
+
+    NoopHandler docNoop = new NoopHandler()
+    ApiRoute docRoute = new ApiRoute(HttpMethod.Get, "/users/{id}", docNoop)
+    docRoute.summary("Get user").description("Fetch one user").tag("users")
+        .operationName("getUserById")
+    JsonValue userSchema = Json.object()
+    docRoute.requestSchema(userSchema)
+    docRoute.queryParameter("limit", "max results", false, Json.object())
+    docRoute.headerParameter("X-Trace", "trace id", false, Json.object())
+    docRoute.responseWithSchema(200, "User found", Json.object())
+    docRoute.response(404, "Not found")
+    Result<Unit, Error> docAdded = docBuilder.addRoute(docRoute)
+    ApiRoute duplicateRoute = new ApiRoute(HttpMethod.Get, "/users/{id}", docNoop)
+    duplicateRoute.operationName("otherName")
+    Result<Unit, Error> docDuplicate = docBuilder.addRoute(duplicateRoute)
+    ApiRoute duplicateName = new ApiRoute(HttpMethod.Post, "/users", docNoop)
+    duplicateName.operationName("getUserById")
+    Result<Unit, Error> docDuplicateName = docBuilder.addRoute(duplicateName)
+    ApiRoute autoRoute = new ApiRoute(HttpMethod.Post, "/users", docNoop)
+    Result<Unit, Error> docAuto = docBuilder.addRoute(autoRoute)
+    print("builder-add=" + str(docAdded.isOk()) + "," +
+        errorKindName(docDuplicate.error().kind()) + "," +
+        errorKindName(docDuplicateName.error().kind()) + "," +
+        str(docAuto.isOk()) + "," + str(docBuilder.operationCount()))
+
+    ApiRouter docRouter = new ApiRouter("/v1")
+    docRouter.get("/ping", docNoop)
+    Result<Unit, Error> routerAdded = docBuilder.addRouter(docRouter)
+    Result<Unit, Error> routerAgain = docBuilder.addRouter(docRouter)
+    print("builder-router=" + str(routerAdded.isOk()) + "," +
+        str(routerAgain.isOk()) + "," + str(docBuilder.operationCount()))
+
+    Result<OpenApiDocument, Error> builtDocument = docBuilder.build()
+    OpenApiDocument apiDocument = builtDocument.value()
+    JsonObject apiJson = apiDocument.toJson()
+    JsonValue componentsValue = apiJson.getOr("components", Json.nullValue())
+    JsonObject components = componentsValue.asObject() as JsonObject
+    JsonValue schemasValue = components.getOr("schemas", Json.nullValue())
+    JsonObject schemas = schemasValue.asObject() as JsonObject
+    JsonValue pathsValue = apiJson.getOr("paths", Json.nullValue())
+    JsonObject paths = pathsValue.asObject() as JsonObject
+    print("builder-doc=" + apiDocument.version() + "," +
+        str(apiDocument.operationCount()) + "," + str(apiDocument.hasPath("/users/{id}")) +
+        "," + str(apiDocument.hasPath("/v1/ping")) + "," +
+        str(schemas.has("ProblemDetails")) + "," + str(paths.length()) + "," +
+        str(apiDocument.toJsonText(true).indexOf("\n") >= 0) + "," +
+        str(apiDocument.tags().length()) + "," + str(apiDocument.servers().length()))
+
+    JsonObject userItem = apiDocument.pathItem("/users/{id}") as JsonObject
+    JsonValue userOperationValue = userItem.getOr("get", Json.nullValue())
+    JsonObject userOperation = userOperationValue.asObject() as JsonObject
+    JsonValue responsesValue = userOperation.getOr("responses", Json.nullValue())
+    JsonObject responses = responsesValue.asObject() as JsonObject
+    JsonValue parametersValue = userOperation.getOr("parameters", Json.nullValue())
+    JsonArray operationParameters = parametersValue.asArray() as JsonArray
+    print("builder-operation=" +
+        (userOperation.getOr("operationId", Json.nullValue()).asString() as String) + "," +
+        str(responses.has("200")) + "," + str(responses.has("404")) + "," +
+        str(responses.has("default")) + "," + str(operationParameters.length()) + "," +
+        str(userOperation.has("requestBody")))
+
+    ApiOptions openApiOptions = new ApiOptions()
+    openApiOptions.openApi(docBuilder).openApiPath("/docs.json")
+    ApiOptions openApiCopy = openApiOptions.copy()
+    print("options-openapi=" + str(openApiOptions.openApiBuilder() != null) + "," +
+        openApiOptions.getOpenApiPath() + "," +
+        str(openApiCopy.openApiBuilder() != null) + "," +
+        openApiCopy.getOpenApiPath())
+    openApiOptions.openApiPath("")
+    print("options-openapi-off=" + openApiOptions.getOpenApiPath())
     return 0
 }
 

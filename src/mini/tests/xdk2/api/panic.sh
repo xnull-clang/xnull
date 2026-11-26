@@ -182,6 +182,51 @@ static Int main(String[] args) {
         ApiContext context = new ApiContext(exchange, new ApiOptions())
         context.respondJson(Context.background(), Json.string("x"))
         context.setStatus(201)
+    } else if name == "openApiPathBad" {
+        ApiOptions value = new ApiOptions()
+        value.openApiPath("docs")
+    } else if name == "openApiPathTrailing" {
+        ApiOptions value = new ApiOptions()
+        value.openApiPath("/docs/")
+    } else if name == "openApiPathNull" {
+        ApiOptions value = new ApiOptions()
+        value.openApiPath(null)
+    } else if name == "builderTitle" {
+        OpenApiBuilder value = new OpenApiBuilder("", "1")
+    } else if name == "builderVersion" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "")
+    } else if name == "builderLine" {
+        OpenApiBuilder value = new OpenApiBuilder("T\n", "1")
+    } else if name == "builderContact" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.contact(null, "", "")
+    } else if name == "builderLicense" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.license("", "", "")
+    } else if name == "builderServer" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.server("", "")
+    } else if name == "builderTag" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.tag("", "")
+    } else if name == "builderHttpScheme" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.httpSecurityScheme("x", AuthScheme.ApiKeyHeader, "")
+    } else if name == "builderApiKeyScheme" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.apiKeySecurityScheme("x", AuthScheme.Basic, "p", "")
+    } else if name == "builderComponent" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.componentSchema("", Json.object())
+    } else if name == "builderWebhook" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        value.webhook("", Json.object())
+    } else if name == "builderGlobal" {
+        OpenApiBuilder value = new OpenApiBuilder("T", "1")
+        List<String> scopes = []
+        value.globalSecurity("", scopes)
+    } else if name == "documentParseNull" {
+        Result<OpenApiDocument, Error> value = OpenApiDocument.parse(null)
     } else if name == "headerAfterResponse" {
         Result<Uri, Error> parsed = Uri.parse("http://x/x")
         HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
@@ -250,4 +295,20 @@ check_panic attributeNull "ApiContext.setAttribute: null value"
 check_panic statusInvalid "ApiContext.setStatus: invalid status"
 check_panic statusAfterResponse "ApiContext.setStatus: response already started"
 check_panic headerAfterResponse "ApiContext.setHeader: response already started"
+check_panic openApiPathBad "ApiOptions.openApiPath: invalid path"
+check_panic openApiPathTrailing "ApiOptions.openApiPath: trailing slash"
+check_panic openApiPathNull "ApiOptions.openApiPath: null"
+check_panic builderTitle "OpenApiBuilder: empty title"
+check_panic builderVersion "OpenApiBuilder: empty version"
+check_panic builderLine "OpenApiBuilder: title/version has line break"
+check_panic builderContact "OpenApiBuilder.contact: null"
+check_panic builderLicense "OpenApiBuilder.license: null or empty"
+check_panic builderServer "OpenApiBuilder.server: invalid"
+check_panic builderTag "OpenApiBuilder.tag: invalid"
+check_panic builderHttpScheme "OpenApiBuilder.httpSecurityScheme: not HTTP scheme"
+check_panic builderApiKeyScheme "OpenApiBuilder.apiKeySecurityScheme: not API key scheme"
+check_panic builderComponent "OpenApiBuilder.componentSchema: invalid"
+check_panic builderWebhook "OpenApiBuilder.webhook: invalid"
+check_panic builderGlobal "OpenApiBuilder.globalSecurity: invalid"
+check_panic documentParseNull "OpenApiDocument.parse: null text"
 echo "api_panic: PASS"
