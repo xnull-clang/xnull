@@ -8,6 +8,22 @@ import xdk.errors
 import xdk.time
 import xdk.execution
 
+static TelemetryBatch metricBatch(Int count, String name) {
+    List<MetricSample> samples = []
+    Map<String, String> sampleLabels = [:]
+    MetricSample sample = new MetricSample(name, sampleLabels, 3.0, 1 as Long)
+    samples.push(sample)
+    MetricFamily family = new MetricFamily(name, MetricKind.Gauge, "test gauge", "", samples)
+    List<TelemetryRecord> records = []
+    Int index = 0
+    while index < count {
+        records.push(TelemetryRecord.metric(family, 10 as Long, 20 as Long))
+        index = index + 1
+    }
+    Map<String, String> resource = [:]
+    return new TelemetryBatch(TelemetryKind.Metrics, resource, records, 0, 30 as Long)
+}
+
 class FakeReceiver implements Receiver {
     Bool _running
     final TelemetryKind _kind
@@ -743,5 +759,61 @@ static Int main() {
         failAgentTrace.join(",") + "," + agentStateName(failAgent.health().state()) +
         "," + str(failAgent.isRunning()))
     failAgent.close()
+
+    List<TelemetryBatch> batchSink = []
+    BatchProcessor batchProcessor = new BatchProcessor("batch", TelemetryKind.Metrics, 2,
+        100 as Long, 0, 8, "reject")
+    Context batchContext = Context.background()
+    Result<Unit, Error>(TelemetryBatch) batchSinkFn = (TelemetryBatch pendingBatch) -> {
+        batchSink.push(pendingBatch)
+        return Ok()
+    }
+    batchProcessor.start(batchContext, batchSinkFn)
+    batchProcessor.process(batchContext, metricBatch(1, "b1"))
+    batchProcessor.process(batchContext, metricBatch(1, "b2"))
+    batchProcessor.drain(batchContext)
+    print("batch-processor=" + str(batchSink.length()) + "," +
+        str(batchProcessor.sentBatches()) + "," + str(batchProcessor.pendingRecords()) +
+        "," + str(batchProcessor.isHealthy()))
+    batchProcessor.close()
+
+    BatchProcessor dropProcessor = new BatchProcessor("drop", TelemetryKind.Metrics, 4,
+        100 as Long, 0, 4, "drop_newest")
+    List<TelemetryBatch> dropSink = []
+    Result<Unit, Error>(TelemetryBatch) dropSinkFn = (TelemetryBatch pendingBatch) -> {
+        dropSink.push(pendingBatch)
+        return Ok()
+    }
+    dropProcessor.start(batchContext, dropSinkFn)
+    dropProcessor.process(batchContext, metricBatch(3, "d1"))
+    dropProcessor.process(batchContext, metricBatch(2, "d2"))
+    print("batch-overflow=" + str(dropProcessor.droppedRecords()) + "," +
+        str(dropProcessor.pendingRecords()) + "," + str(dropSink.length()))
+    dropProcessor.close()
+
+    MemoryLimiterProcessor limiter = new MemoryLimiterProcessor("mem", TelemetryKind.Metrics,
+        10 as Long, 1 as Long, 0, 0 as Long, 0, true)
+    List<TelemetryBatch> limitSink = []
+    Result<Unit, Error>(TelemetryBatch) limitSinkFn = (TelemetryBatch pendingBatch) -> {
+        limitSink.push(pendingBatch)
+        return Ok()
+    }
+    limiter.start(batchContext, limitSinkFn)
+    Result<Unit, Error> limitedDrop = limiter.process(batchContext, metricBatch(1, "m1"))
+    print("memory-limiter=" + str(limiter.isLimited()) + "," + str(limitedDrop.isOk()) +
+        "," + str(limiter.droppedBatches()) + "," + str(limitSink.length()) +
+        "," + str(limiter.hardLimitBytes() >= 1 as Long))
+    limiter.close()
+
+    Map<String, String> promLabels = [:]
+    PrometheusExporter prometheus = new PrometheusExporter("prom", "xdk", promLabels, 0 as Long, false)
+    prometheus.start(batchContext)
+    prometheus.export(batchContext, metricBatch(2, "requests"))
+    String promText = prometheus.scrapeText(batchContext)
+    print("prometheus=" + str(promText != "") + "," + str(prometheus.familyCount()) +
+        "," + str(prometheus.sampleCount()) + "," +
+        str(promText.indexOf("# TYPE xdk_requests gauge") >= 0) + "," +
+        str(promText.indexOf("xdk_requests 3") >= 0))
+    prometheus.close()
     return 0
 }

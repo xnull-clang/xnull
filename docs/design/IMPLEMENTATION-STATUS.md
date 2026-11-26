@@ -82,7 +82,7 @@ L8 solutions 里程碑已关闭：**10/10 包 implemented**；`xdk.accel`/`xdk.e
 | `xdk.jsonrpc` | 5 | 实现 5/5：Id/Error/Request/Response/Peer；仅消息与协议形状 |
 | `xdk.mcp` | 16 | 实现 16/16：消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
 | `xdk.ml` | 20 | 实现 20/20 合同：模型/会话/数据管道/损失；`openSession/run` 因无运行时适配器返回 Unsupported |
-| `xdk.agent` | 17 | 实现 11/17：遥测核心/管线/Agent；具体 receiver/exporter 未实现 |
+| `xdk.agent` | 17 | 实现 14/17：遥测核心/管线/Agent/Batch/MemoryLimiter/Prometheus；HostMetrics/FileLog/OTLP 未实现 |
 | `xdk.api` | 15 | 实现 15/15：ProblemDetails/路由/上下文/OpenAPI/ApiServer/SseStream（同步 chunked） |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
@@ -151,7 +151,7 @@ L8 solutions 里程碑已关闭：**10/10 包 implemented**；`xdk.accel`/`xdk.e
 | 网络/TLS/WebSocket | 无 TLS/HTTP2 运行时原语；WebSocket 已实现 12/12 但无 TLS；HTTP client 仍为 text-only |
 | 格式 | YAML/TOML/XML 包已实现子集；对应 `@YamlName`/`@TomlName`/`@XmlName` 注解仍 planned |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
-| API/DI/ML/Agent | `xdk.api` 15/15；`xdk.ml` 合同完成但无运行时；`xdk.agent` 11/17；DI 未实现 |
+| API/DI/ML/Agent | `xdk.api` 15/15；`xdk.ml` 合同完成但无运行时；`xdk.agent` 14/17；DI 未实现 |
 | 密码学扩展 | Cipher/Kdf/Asymmetric/KeyPair 未实现（无对应运行时原语） |
 | 可观测性 | metrics/trace/audit 已有核心；无 OTLP/导出器/内置 Prometheus 编码器 |
 | 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 捕获、跨线程 GC 根、枚举 0 与 null、泛型 `Pair` 冲突、大 Long 负字面量、execution 计时 flake、门禁时长（xdk2 >700s） |

@@ -8,6 +8,8 @@ import xdk.metrics
 import xdk.trace
 import xdk.log
 import xdk.runtime
+import xdk.time
+import xdk.os.memory
 
 // ---------- TelemetryKind ----------
 // Unknown 放首位：编译器把枚举 0 当作 null。
@@ -1693,4 +1695,564 @@ class Agent {
             str(self._pipelines.length()) + " connectors=" +
             str(self._connectors.length()) + " running=" + str(self._running)
     }
+}
+
+// ---------- BatchProcessor ----------
+class BatchProcessor implements Processor {
+    final String _name
+    final TelemetryKind _kind
+    final Int _sendBatchSize
+    final Long _timeoutMillis
+    final Int _sendBatchMaxSize
+    final Int _maximumPendingRecords
+    final String _overflowPolicy
+    final RuntimeMonitor _monitor
+    final List<TelemetryBatch> _pending
+    Int _pendingRecords
+    Int _droppedRecords
+    Int _sentBatches
+    Bool _started
+    Bool _closed
+    Bool _flushing
+    Result<Unit, Error>(TelemetryBatch) _downstream
+    Bool _hasDownstream
+    Context? _context
+    TaskGroup? _group
+
+    BatchProcessor(String name, TelemetryKind kind, Int sendBatchSize, Long timeoutMillis,
+                   Int sendBatchMaxSize, Int maximumPendingRecords, String overflowPolicy) {
+        if name == null || name == "" { throw "BatchProcessor: empty name" }
+        if kind == null || kind == TelemetryKind.Unknown { throw "BatchProcessor: invalid kind" }
+        if sendBatchSize <= 0 { throw "BatchProcessor: invalid batch size" }
+        if timeoutMillis < 0 as Long { throw "BatchProcessor: negative timeout" }
+        if sendBatchMaxSize != 0 && sendBatchMaxSize < sendBatchSize {
+            throw "BatchProcessor: invalid max size"
+        }
+        if maximumPendingRecords < sendBatchSize {
+            throw "BatchProcessor: invalid pending limit"
+        }
+        if overflowPolicy != "reject" && overflowPolicy != "drop_oldest" &&
+            overflowPolicy != "drop_newest" {
+            throw "BatchProcessor: invalid overflow policy"
+        }
+        self._name = name
+        self._kind = kind
+        self._sendBatchSize = sendBatchSize
+        self._timeoutMillis = timeoutMillis
+        self._sendBatchMaxSize = sendBatchMaxSize
+        self._maximumPendingRecords = maximumPendingRecords
+        self._overflowPolicy = overflowPolicy
+        self._monitor = new RuntimeMonitor()
+        List<TelemetryBatch> pending = []
+        self._pending = pending
+        self._pendingRecords = 0
+        self._droppedRecords = 0
+        self._sentBatches = 0
+        self._started = false
+        self._closed = false
+        self._flushing = false
+        self._hasDownstream = false
+        self._context = null
+        self._group = null
+    }
+
+    TelemetryKind kind() { return self._kind }
+    String name() { return self._name }
+
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) {
+        if context == null { throw "BatchProcessor.start: null context" }
+        if self._closed { return Err(new BasicError(ErrorKind.Unavailable, "batch processor closed")) }
+        if self._started { return Ok() }
+        self._downstream = downstream
+        self._hasDownstream = true
+        Context child = Context.withCancel(context)
+        self._context = child
+        self._started = true
+        return Ok()
+    }
+
+    Result<Unit, Error> process(Context context, TelemetryBatch batch) {
+        if context == null || batch == null { throw "BatchProcessor.process: null argument" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "batch processor not running"))
+        }
+        if batch.kind() != self._kind {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "batch processor kind mismatch"))
+        }
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "batch processor cancelled"))
+        }
+        Int incoming = batch.recordCount()
+        if self._pendingRecords + incoming > self._maximumPendingRecords {
+            if self._overflowPolicy == "reject" {
+                return Err(new BasicError(ErrorKind.Busy, "batch processor buffer full"))
+            }
+            if self._overflowPolicy == "drop_newest" {
+                self._droppedRecords = self._droppedRecords + incoming
+                return Ok()
+            }
+            while self._pending.length() > 0 &&
+                self._pendingRecords + incoming > self._maximumPendingRecords {
+                TelemetryBatch removed = self._pending.get(0)
+                self._pending.remove(0)
+                self._pendingRecords = self._pendingRecords - removed.recordCount()
+                self._droppedRecords = self._droppedRecords + removed.recordCount()
+            }
+        }
+        self._pending.push(batch)
+        self._pendingRecords = self._pendingRecords + incoming
+        if self._pendingRecords >= self._sendBatchSize || self._timeoutMillis == 0 as Long {
+            return self.flush(context)
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> drain(Context context) {
+        if context == null { throw "BatchProcessor.drain: null context" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "batch processor not running"))
+        }
+        return self.flush(context)
+    }
+
+    Result<Unit, Error> flush(Context context) {
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "batch processor not running"))
+        }
+        if self._flushing { return Ok() }
+        self._flushing = true
+        while self._pending.length() > 0 {
+            TelemetryBatch batch = self._pending.get(0)
+            List<TelemetryBatch> chunks = []
+            if self._sendBatchMaxSize == 0 {
+                chunks.push(batch)
+            } else {
+                chunks = batch.split(self._sendBatchMaxSize)
+            }
+            Int index = 0
+            while index < chunks.length() {
+                Result<Unit, Error> sent = self.deliver(context, chunks.get(index))
+                if sent.isErr() {
+                    self._flushing = false
+                    return Err(sent.error())
+                }
+                index = index + 1
+            }
+            self._pending.remove(0)
+            self._pendingRecords = self._pendingRecords - batch.recordCount()
+            self._sentBatches = self._sentBatches + chunks.length()
+        }
+        self._flushing = false
+        return Ok()
+    }
+
+    private Result<Unit, Error> deliver(Context context, TelemetryBatch batch) {
+        if !self._hasDownstream {
+            return Err(new BasicError(ErrorKind.Unavailable, "batch processor downstream missing"))
+        }
+        return self._downstream(batch)
+    }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        self._started = false
+        if self._context != null {
+            Context context = self._context as Context
+            context.cancel()
+        }
+        self._droppedRecords = self._droppedRecords + self._pendingRecords
+        self._pending.clear()
+        self._pendingRecords = 0
+        self._hasDownstream = false
+        return Ok()
+    }
+
+    Bool isHealthy() { return self._started && !self._closed }
+    Int pendingRecords() { return self._pendingRecords }
+    Int droppedRecords() { return self._droppedRecords }
+    Int sentBatches() { return self._sentBatches }
+    String describe() { return "batch processor " + self._name + " kind=" + telemetryKindName(self._kind) }
+}
+
+// ---------- MemoryLimiterProcessor ----------
+class MemoryLimiterProcessor implements Processor {
+    final String _name
+    final TelemetryKind _kind
+    final Long _checkIntervalMillis
+    final Long _hostTotalBytes
+    final Long _hardLimitBytes
+    final Long _softLimitBytes
+    final Bool _dropWhenLimited
+    final RuntimeMonitor _monitor
+    Long _lastCheckMono
+    Bool _limited
+    Bool _started
+    Bool _closed
+    Int _refusedBatches
+    Int _droppedBatches
+    Int _droppedRecords
+    Result<Unit, Error>(TelemetryBatch) _downstream
+    Bool _hasDownstream
+    Context? _context
+    TaskGroup? _group
+
+    MemoryLimiterProcessor(String name, TelemetryKind kind, Long checkIntervalMillis,
+                           Long limitBytes, Int limitPercentage, Long spikeLimitBytes,
+                           Int spikeLimitPercentage, Bool dropWhenLimited) {
+        if name == null || name == "" { throw "MemoryLimiterProcessor: empty name" }
+        if kind == null || kind == TelemetryKind.Unknown { throw "MemoryLimiterProcessor: invalid kind" }
+        if checkIntervalMillis <= 0 as Long { throw "MemoryLimiterProcessor: invalid interval" }
+        PhysicalMemory host = PhysicalMemory.detect()
+        Long total = host.totalBytes()
+        Long hard = limitBytes
+        if hard <= 0 as Long {
+            if limitPercentage < 1 || limitPercentage > 100 {
+                throw "MemoryLimiterProcessor: invalid limit"
+            }
+            hard = total * (limitPercentage as Long) / 100 as Long
+        }
+        Long spike = spikeLimitBytes
+        if spike <= 0 as Long {
+            if spikeLimitPercentage > 0 {
+                spike = hard * (spikeLimitPercentage as Long) / 100 as Long
+            } else {
+                spike = hard / 5 as Long
+            }
+        }
+        Long soft = hard - spike
+        if hard <= 0 as Long || soft <= 0 as Long || spike >= hard {
+            throw "MemoryLimiterProcessor: invalid soft/hard limit"
+        }
+        self._name = name
+        self._kind = kind
+        self._checkIntervalMillis = checkIntervalMillis
+        self._hostTotalBytes = total
+        self._hardLimitBytes = hard
+        self._softLimitBytes = soft
+        self._dropWhenLimited = dropWhenLimited
+        self._monitor = new RuntimeMonitor()
+        self._lastCheckMono = 0 as Long
+        self._limited = false
+        self._started = false
+        self._closed = false
+        self._refusedBatches = 0
+        self._droppedBatches = 0
+        self._droppedRecords = 0
+        self._hasDownstream = false
+        self._context = null
+        self._group = null
+    }
+
+    TelemetryKind kind() { return self._kind }
+    String name() { return self._name }
+
+    Result<Unit, Error> start(Context context,
+            Result<Unit, Error>(TelemetryBatch) downstream) {
+        if context == null { throw "MemoryLimiterProcessor.start: null context" }
+        if self._closed { return Err(new BasicError(ErrorKind.Unavailable, "memory limiter closed")) }
+        if self._started { return Ok() }
+        self._downstream = downstream
+        self._hasDownstream = true
+        Context child = Context.withCancel(context)
+        self._context = child
+        self._started = true
+        return Ok()
+    }
+
+    Result<Unit, Error> process(Context context, TelemetryBatch batch) {
+        if context == null || batch == null { throw "MemoryLimiterProcessor.process: null argument" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "memory limiter not running"))
+        }
+        if batch.kind() != self._kind {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "memory limiter kind mismatch"))
+        }
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "memory limiter cancelled"))
+        }
+        Long now = nowMono()
+        if now - self._lastCheckMono >= self._checkIntervalMillis {
+            self.checkNow()
+        }
+        if self._limited {
+            if self._dropWhenLimited {
+                self._droppedBatches = self._droppedBatches + 1
+                self._droppedRecords = self._droppedRecords + batch.recordCount()
+                return Ok()
+            }
+            self._refusedBatches = self._refusedBatches + 1
+            return Err(new BasicError(ErrorKind.Busy, "memory limiter active"))
+        }
+        if !self._hasDownstream {
+            return Err(new BasicError(ErrorKind.Unavailable, "memory limiter downstream missing"))
+        }
+        return self._downstream(batch)
+    }
+
+    Result<Unit, Error> drain(Context context) {
+        if context == null { throw "MemoryLimiterProcessor.drain: null context" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "memory limiter not running"))
+        }
+        return Ok()
+    }
+
+    Bool checkNow() {
+        self._lastCheckMono = nowMono()
+        PhysicalMemory host = PhysicalMemory.detect()
+        Long total = host.totalBytes()
+        if total <= 0 as Long { total = self._hostTotalBytes }
+        Long used = total - host.availableBytes()
+        if used < 0 as Long { used = 0 as Long }
+        self._limited = used >= self._softLimitBytes
+        return self._limited
+    }
+
+    Bool isLimited() { return self._limited }
+    Long currentUsageBytes() {
+        PhysicalMemory host = PhysicalMemory.detect()
+        Long total = host.totalBytes()
+        if total <= 0 as Long { total = self._hostTotalBytes }
+        Long used = total - host.availableBytes()
+        if used < 0 as Long { return 0 as Long }
+        return used
+    }
+    Long hardLimitBytes() { return self._hardLimitBytes }
+    Long softLimitBytes() { return self._softLimitBytes }
+    Int refusedBatches() { return self._refusedBatches }
+    Int droppedBatches() { return self._droppedBatches }
+    Int droppedRecords() { return self._droppedRecords }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        self._started = false
+        if self._context != null {
+            Context context = self._context as Context
+            context.cancel()
+        }
+        self._hasDownstream = false
+        return Ok()
+    }
+
+    Bool isHealthy() { return self._started && !self._closed && !self._limited }
+    String describe() { return "memory limiter " + self._name + " kind=" + telemetryKindName(self._kind) }
+}
+
+// ---------- PrometheusExporter ----------
+protocol AgentWriter {
+    Result<Unit, Error> writeAll(Context context, Bytes data);
+}
+
+class PrometheusExporter implements PipelineExporter {
+    final String _name
+    final String _namespace
+    final Map<String, String> _constantLabels
+    final Long _metricExpirationMillis
+    final Bool _sendTimestamps
+    final RuntimeMonitor _monitor
+    final Map<String, MetricFamily> _families
+    final Map<String, Long> _updatedMono
+    Bool _started
+    Bool _closed
+
+    PrometheusExporter(String name, String namespace, Map<String, String> constantLabels,
+                       Long metricExpirationMillis, Bool sendTimestamps) {
+        if name == null || name == "" { throw "PrometheusExporter: empty name" }
+        if namespace == null { throw "PrometheusExporter: null namespace" }
+        if constantLabels == null { throw "PrometheusExporter: null labels" }
+        if metricExpirationMillis < 0 as Long { throw "PrometheusExporter: invalid expiration" }
+        self._name = name
+        self._namespace = namespace
+        Map<String, String> labels = [:]
+        List<String> keys = constantLabels.keys()
+        Int index = 0
+        while index < keys.length() {
+            String key = keys.get(index)
+            labels.put(key, constantLabels.getOr(key, ""))
+            index = index + 1
+        }
+        self._constantLabels = labels
+        self._metricExpirationMillis = metricExpirationMillis
+        self._sendTimestamps = sendTimestamps
+        self._monitor = new RuntimeMonitor()
+        Map<String, MetricFamily> families = [:]
+        self._families = families
+        Map<String, Long> updated = [:]
+        self._updatedMono = updated
+        self._started = false
+        self._closed = false
+    }
+
+    TelemetryKind kind() { return TelemetryKind.Metrics }
+    String name() { return self._name }
+
+    Result<Unit, Error> start(Context context) {
+        if context == null { throw "PrometheusExporter.start: null context" }
+        if self._closed { return Err(new BasicError(ErrorKind.Unavailable, "prometheus closed")) }
+        self._started = true
+        return Ok()
+    }
+
+    Result<Unit, Error> export(Context context, TelemetryBatch batch) {
+        if context == null || batch == null { throw "PrometheusExporter.export: null argument" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "prometheus not running"))
+        }
+        if batch.kind() != TelemetryKind.Metrics {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "prometheus needs metrics"))
+        }
+        Long now = nowMono()
+        self._monitor.enter()
+        List<TelemetryRecord> records = batch.records()
+        Int index = 0
+        while index < records.length() {
+            MetricFamily? family = records.get(index).metricFamily()
+            if family != null {
+                MetricFamily actual = family as MetricFamily
+                self._families.put(actual.name(), actual)
+                self._updatedMono.put(actual.name(), now)
+            }
+            index = index + 1
+        }
+        self._monitor.exit()
+        return Ok()
+    }
+
+    Result<Unit, Error> drain(Context context) {
+        if context == null { throw "PrometheusExporter.drain: null context" }
+        if self._closed { return Err(new BasicError(ErrorKind.Unavailable, "prometheus closed")) }
+        return Ok()
+    }
+
+    String scrapeText(Context context) {
+        if context == null { throw "PrometheusExporter.scrapeText: null context" }
+        if self._closed || !self._started {
+            return ""
+        }
+        Long now = nowMono()
+        String text = ""
+        self._monitor.enter()
+        List<String> keys = self._families.keys()
+        Int index = 0
+        while index < keys.length() {
+            String key = keys.get(index)
+            MetricFamily family = self._families.getOr(key, null)
+            Long updated = self._updatedMono.getOr(key, now)
+            Bool expired = self._metricExpirationMillis > 0 as Long &&
+                now - updated >= self._metricExpirationMillis
+            if !expired {
+                text = text + prometheusFamily(family, self._namespace, self._constantLabels,
+                    self._sendTimestamps, now)
+            }
+            index = index + 1
+        }
+        self._monitor.exit()
+        return text
+    }
+
+    Result<Unit, Error> scrape(Context context, AgentWriter writer) {
+        if context == null || writer == null { throw "PrometheusExporter.scrape: null argument" }
+        if self._closed || !self._started {
+            return Err(new BasicError(ErrorKind.Unavailable, "prometheus not running"))
+        }
+        String text = self.scrapeText(context)
+        return writer.writeAll(context, Bytes.fromString(text))
+    }
+
+    Result<Unit, Error> close() {
+        if self._closed { return Ok() }
+        self._closed = true
+        self._started = false
+        self._families.clear()
+        self._updatedMono.clear()
+        return Ok()
+    }
+
+    Bool isHealthy() { return self._started && !self._closed }
+    Int familyCount() { return self._families.length() }
+    Int sampleCount() {
+        Int total = 0
+        List<String> keys = self._families.keys()
+        Int index = 0
+        while index < keys.length() {
+            MetricFamily family = self._families.getOr(keys.get(index), null)
+            if family != null { total = total + family.samples().length() }
+            index = index + 1
+        }
+        return total
+    }
+    String describe() { return "prometheus exporter " + self._name }
+}
+
+static String prometheusFamily(MetricFamily family, String namespace,
+                               Map<String, String> constantLabels,
+                               Bool sendTimestamps, Long now) {
+    String name = family.name()
+    if namespace != "" { name = namespace + "_" + name }
+    String type = "gauge"
+    if family.kind() == MetricKind.Counter { type = "counter" }
+    else if family.kind() == MetricKind.Histogram { type = "histogram" }
+    else if family.kind() == MetricKind.Timer { type = "summary" }
+    String text = "# HELP " + name + " " + family.help() + "\n"
+    text = text + "# TYPE " + name + " " + type + "\n"
+    List<MetricSample> samples = family.samples()
+    Int index = 0
+    while index < samples.length() {
+        MetricSample sample = samples.get(index)
+        String sampleName = sample.name()
+        if sampleName == family.name() { sampleName = name }
+        else if sampleName.startsWith(family.name() + "_") {
+            sampleName = name + sampleName.substring(family.name().length(),
+                sampleName.length() - family.name().length())
+        }
+        text = text + sampleName + prometheusLabels(constantLabels, sample.labels())
+        text = text + " " + prometheusDouble(sample.value())
+        if sendTimestamps { text = text + " " + str(now) }
+        text = text + "\n"
+        index = index + 1
+    }
+    return text
+}
+
+static String prometheusLabels(Map<String, String> constantLabels,
+                               Map<String, String> sampleLabels) {
+    if constantLabels.length() == 0 && sampleLabels.length() == 0 { return "" }
+    String text = "{"
+    Bool first = true
+    List<String> keys = constantLabels.keys()
+    Int index = 0
+    while index < keys.length() {
+        String key = keys.get(index)
+        if !first { text = text + "," }
+        text = text + key + "=\"" + prometheusEscape(constantLabels.getOr(key, "")) + "\""
+        first = false
+        index = index + 1
+    }
+    keys = sampleLabels.keys()
+    index = 0
+    while index < keys.length() {
+        String key = keys.get(index)
+        if !first { text = text + "," }
+        text = text + key + "=\"" + prometheusEscape(sampleLabels.getOr(key, "")) + "\""
+        first = false
+        index = index + 1
+    }
+    return text + "}"
+}
+
+static String prometheusEscape(String value) {
+    String text = value.replace("\\", "\\\\")
+    text = text.replace("\"", "\\\"")
+    text = text.replace("\n", "\\n")
+    return text
+}
+
+static String prometheusDouble(Double value) {
+    if isNaN(value) { return "NaN" }
+    if value == 1.0 / 0.0 { return "+Inf" }
+    if value == 0.0 - 1.0 / 0.0 { return "-Inf" }
+    return str(value)
 }

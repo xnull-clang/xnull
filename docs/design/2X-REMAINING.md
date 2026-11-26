@@ -128,7 +128,7 @@
 | `xdk.numerics` | 12/12 类型 | `BigFloat.exp/log/pow` Unsupported；SpecialFunctions 部分为渐近/递推子集 |
 | `xdk.db` | 11/11 | 仅内存驱动；池锁仅进程内 |
 | `xdk.api` | 15/15 | `SseStream` 同步 chunked，无后台写任务/反压；无 TLS/HTTP2 |
-| `xdk.agent` | **11/17** | 缺 HostMetricsReceiver/FileLogReceiver/BatchProcessor/MemoryLimiterProcessor/OtlpExporter/PrometheusExporter |
+| `xdk.agent` | **14/17** | 缺 HostMetricsReceiver/FileLogReceiver/OtlpExporter |
 | `xdk.accel` | implemented 14（合同面） | Metal/CUDA/ROCm/Vulkan 执行路径 Unsupported；`fromGpuAdapter` 缺 `GpuAdapter` |
 | `xdk.embedded` | implemented 12（合同面） | GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash 执行路径 Unsupported |
 
@@ -210,7 +210,7 @@
 | --- | --- | --- | --- |
 | L8-1 | accel 合同面 | 14 类型 + 描述符/校验 + 硬件执行 Unsupported | implemented |
 | L8-2 | embedded 合同面 | 12 类型 + 板级描述 + 硬件执行 Unsupported | implemented |
-| L8-3 | agent 纯组件 | BatchProcessor/MemoryLimiterProcessor/PrometheusExporter/OtlpExporter | queued |
+| L8-3 | agent 纯组件 | BatchProcessor/MemoryLimiterProcessor/PrometheusExporter | implemented（Otlp 待做） |
 | L8-4 | agent 硬件组件 | HostMetricsReceiver/FileLogReceiver（依赖 OsHost/PathMatcher） | blocked |
 | L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | queued |
 | B5-1 | core foundation | errors/meta/bytes/text/collections/math/time 2.x 验证 | queued |

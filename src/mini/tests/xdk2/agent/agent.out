@@ -29,3 +29,7 @@ agent-stop=true,receiver:stop,receiver:drain,agent-exp:drain,receiver:drain,agen
 agent-close=true,true
 agent-unstarted=true,stopped,false
 agent-fail=true,fail-c:start,receiver:start,fail-exp:start,receiver:close,unhealthy,false
+batch-processor=2,2,0,true
+batch-overflow=2,3,0
+memory-limiter=true,true,1,0,true
+prometheus=true,1,1,true,true
