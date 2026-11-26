@@ -70,6 +70,142 @@ class FakeAuthenticator implements Authenticator {
     }
 }
 
+class RunningApiServer {
+    final ApiServer _server
+    final Context _cancel
+    final TaskGroup _group
+    final Task<Int> _task
+    RunningApiServer(ApiServer server, Context parent) {
+        self._server = server
+        Context cancel = Context.withCancel(parent)
+        self._cancel = cancel
+        TaskGroup group = TaskGroup.create(cancel)
+        self._group = group
+        Task<Int> task = group.spawn((Context taskContext) -> {
+            Result<Unit, Error> served = server.serve(taskContext)
+            return Ok(0)
+        })
+        self._task = task
+    }
+    Void stop() {
+        self._cancel.cancel()
+        self._server.close()
+        self._task.join()
+        self._group.close()
+    }
+}
+
+class ApiWire {
+    final Int _status
+    final String _head
+    final String _body
+    ApiWire(Int status, String head, String body) {
+        self._status = status
+        self._head = head
+        self._body = body
+    }
+    Int status() { return self._status }
+    String body() { return self._body }
+    String header(String name) {
+        String wanted = name.toLower() + ":"
+        List<String> lines = self._head.split("\r\n")
+        Int index = 1
+        while index < lines.length() {
+            String line = lines.get(index)
+            if line.toLower().startsWith(wanted) {
+                return line.substring(wanted.length(), line.length() - wanted.length()).trim()
+            }
+            index = index + 1
+        }
+        return ""
+    }
+    Bool hasHeader(String name) { return self.header(name) != "" }
+}
+
+class TextHandler implements ApiHandler {
+    final String _text
+    TextHandler(String text) { self._text = text }
+    Result<Unit, Error> handle(Context context, ApiContext exchange) {
+        return exchange.respondTextWithStatus(context, 200, self._text)
+    }
+}
+
+class PrincipalTextHandler implements ApiHandler {
+    Int _marker
+    PrincipalTextHandler() { self._marker = 1 }
+    Result<Unit, Error> handle(Context context, ApiContext exchange) {
+        String name = exchange.principalName() as String
+        return exchange.respondTextWithStatus(context, 200, name)
+    }
+}
+
+class DenyAuthenticator implements Authenticator {
+    final ErrorKind _kind
+    final AuthScheme _scheme
+    final String _name
+    final String _parameterName
+    final String _realm
+    DenyAuthenticator(ErrorKind kind, AuthScheme scheme, String name,
+                      String parameterName, String realm) {
+        self._kind = kind
+        self._scheme = scheme
+        self._name = name
+        self._parameterName = parameterName
+        self._realm = realm
+    }
+    AuthScheme scheme() { return self._scheme }
+    String name() { return self._name }
+    String parameterName() { return self._parameterName }
+    String realm() { return self._realm }
+    Result<Unit, Error> authenticate(Context context, ApiContext exchange) {
+        return Err(new BasicError(self._kind, "denied"))
+    }
+}
+
+class FailMiddleware implements ApiMiddleware {
+    final ErrorKind _kind
+    FailMiddleware(ErrorKind kind) { self._kind = kind }
+    Result<Unit, Error> handle(Context context, ApiContext exchange, ApiHandler next) {
+        return Err(new BasicError(self._kind, "middleware failure"))
+    }
+}
+
+static Bool apiWireContains(ApiWire response, String needle) {
+    return response.body().indexOf(needle) >= 0
+}
+
+static ApiWire apiWire(Context parent, Int port, String method, String path,
+                       String extraHeaders, String body) {
+    TcpStream stream = TcpStream.connect(parent,
+        SocketAddress.parse("127.0.0.1:" + str(port)).value()).value()
+    String wire = method + " " + path + " HTTP/1.1\r\nHost: 127.0.0.1\r\n" +
+        "Connection: close\r\n" + extraHeaders
+    if body != "" { wire = wire + "Content-Length: " + str(body.length()) + "\r\n" }
+    wire = wire + "\r\n" + body
+    stream.writeAll(parent, Bytes.fromString(wire))
+    String response = ""
+    while true {
+        Bytes buffer = Bytes.alloc(4096)
+        Result<Int, Error> count = stream.read(parent, buffer)
+        if count.isErr() { break }
+        if count.value() == 0 { break }
+        String chunk = buffer.slice(0, count.value()).toString()
+        response = response + chunk
+    }
+    stream.close()
+    Int firstEnd = response.indexOf("\r\n")
+    String firstLine = response.substring(0, firstEnd)
+    List<String> parts = firstLine.split(" ")
+    Int status = parseInt(parts.get(1)).value()
+    Int headEnd = response.indexOf("\r\n\r\n")
+    String head = response.substring(0, headEnd)
+    String responseBody = ""
+    if headEnd + 4 < response.length() {
+        responseBody = response.substring(headEnd + 4, response.length() - headEnd - 4)
+    }
+    return new ApiWire(status, head, responseBody)
+}
+
 static Int main() {
     ProblemDetails notFound = ProblemDetails.of(404)
     ProblemDetails detailed = notFound.withType("urn:example:not-found")
@@ -422,6 +558,238 @@ static Int main() {
         openApiCopy.getOpenApiPath())
     openApiOptions.openApiPath("")
     print("options-openapi-off=" + openApiOptions.getOpenApiPath())
+
+    ApiRouter basicRouter = new ApiRouter()
+    basicRouter.get("/hello", new TextHandler("hello"))
+    ApiOptions basicOptions = new ApiOptions()
+    ApiServer basicServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19140").value(), basicRouter, basicOptions).value()
+    RunningApiServer basicRunning = new RunningApiServer(basicServer, Context.background())
+    sleepMs(40)
+    ApiWire basicGet = apiWire(Context.background(), 19140, "GET", "/hello", "", "")
+    ApiWire basicMissing = apiWire(Context.background(), 19140, "GET", "/missing", "", "")
+    ApiWire basicPost = apiWire(Context.background(), 19140, "POST", "/hello", "", "")
+    ApiWire basicOptionsWire = apiWire(Context.background(), 19140, "OPTIONS", "/hello", "", "")
+    ApiWire basicHead = apiWire(Context.background(), 19140, "HEAD", "/hello", "", "")
+    print("server-basic=" + str(basicGet.status()) + "," + basicGet.body() + "," +
+        str(basicMissing.status()) + "," + str(basicPost.status()) + "," +
+        str(basicPost.header("allow").indexOf("GET") >= 0) + "," +
+        str(basicOptionsWire.status()) + "," +
+        str(basicOptionsWire.header("allow").indexOf("OPTIONS") >= 0) + "," +
+        str(basicHead.status()) + "," + str(basicHead.body().length()) + "," +
+        str(basicServer.routeCount()) + "," + basicServer.localAddress().text() + "," +
+        str(basicServer.openApiDocument() == null))
+    basicRunning.stop()
+    print("server-closed=" + str(basicServer.isOpen()) + "," + str(basicServer.close().isOk()))
+
+    ApiRouter authRouter = new ApiRouter()
+    DenyAuthenticator challengeAuth = new DenyAuthenticator(ErrorKind.InvalidArgument,
+        AuthScheme.Basic, "basicAuth", "", "realm1")
+    ApiRoute protectedRoute = authRouter.get("/protected", new TextHandler("no")).value()
+    protectedRoute.authenticator(challengeAuth)
+    DenyAuthenticator forbiddenAuth = new DenyAuthenticator(ErrorKind.PermissionDenied,
+        AuthScheme.Bearer, "bearerAuth", "", "")
+    ApiRoute forbiddenRoute = authRouter.get("/forbidden", new TextHandler("no")).value()
+    forbiddenRoute.authenticator(forbiddenAuth)
+    DenyAuthenticator keyAuth = new DenyAuthenticator(ErrorKind.NotFound,
+        AuthScheme.ApiKeyHeader, "apiKeyAuth", "X-API-Key", "")
+    ApiRoute keyRoute = authRouter.get("/apikey", new TextHandler("no")).value()
+    keyRoute.authenticator(keyAuth)
+    authRouter.get("/public", new TextHandler("public")).value().publicAccess()
+    authRouter.get("/who", new PrincipalTextHandler())
+    ApiOptions authOptions = new ApiOptions()
+    FakeAuthenticator allowAuth = new FakeAuthenticator(AuthScheme.Basic)
+    authOptions.authenticator(allowAuth)
+    ApiServer authServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19141").value(), authRouter, authOptions).value()
+    RunningApiServer authRunning = new RunningApiServer(authServer, Context.background())
+    sleepMs(40)
+    ApiWire authProtected = apiWire(Context.background(), 19141, "GET", "/protected", "", "")
+    ApiWire authForbidden = apiWire(Context.background(), 19141, "GET", "/forbidden", "", "")
+    ApiWire authKey = apiWire(Context.background(), 19141, "GET", "/apikey", "", "")
+    ApiWire authPublic = apiWire(Context.background(), 19141, "GET", "/public", "", "")
+    ApiWire authWho = apiWire(Context.background(), 19141, "GET", "/who", "", "")
+    print("server-auth=" + str(authProtected.status()) + "," +
+        authProtected.header("www-authenticate") + "," + str(authForbidden.status()) + "," +
+        str(authKey.status()) + "," + str(authKey.hasHeader("www-authenticate")) + "," +
+        str(authPublic.status()) + "," + authPublic.body() + "," + str(authWho.status()) + "," +
+        authWho.body())
+    authRunning.stop()
+
+    ApiRouter rateRouter = new ApiRouter()
+    RateLimitPolicy rateOne = new RateLimitPolicy(1, 1000 as Long)
+    ApiRoute limitedRoute = rateRouter.get("/limited", new TextHandler("ok")).value()
+    limitedRoute.rateLimitPolicy(rateOne)
+    rateRouter.get("/free", new TextHandler("free")).value().withoutRateLimit()
+    ApiOptions rateOptions = new ApiOptions()
+    rateOptions.rateLimitPolicy(new RateLimitPolicy(10, 1000 as Long))
+    ApiServer rateServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19142").value(), rateRouter, rateOptions).value()
+    RunningApiServer rateRunning = new RunningApiServer(rateServer, Context.background())
+    sleepMs(40)
+    ApiWire rateFirst = apiWire(Context.background(), 19142, "GET", "/limited", "", "")
+    ApiWire rateSecond = apiWire(Context.background(), 19142, "GET", "/limited", "", "")
+    ApiWire rateFreeFirst = apiWire(Context.background(), 19142, "GET", "/free", "", "")
+    ApiWire rateFreeSecond = apiWire(Context.background(), 19142, "GET", "/free", "", "")
+    print("server-rate=" + str(rateFirst.status()) + "," + str(rateSecond.status()) + "," +
+        rateSecond.header("retry-after") + "," + str(rateSecond.hasHeader("retry-after")) +
+        "," + str(rateFreeFirst.status()) + "," + str(rateFreeSecond.status()))
+    rateRunning.stop()
+
+    ApiRouter rateKeyRouter = new ApiRouter()
+    RateLimitPolicy keyPolicy = new RateLimitPolicy(1, 2000 as Long)
+    keyPolicy.withKeyHeader("X-Client")
+    ApiRoute keyLimitedRoute = rateKeyRouter.get("/keyed", new TextHandler("ok")).value()
+    keyLimitedRoute.rateLimitPolicy(keyPolicy)
+    ApiServer keyServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19143").value(), rateKeyRouter, new ApiOptions()).value()
+    RunningApiServer keyRunning = new RunningApiServer(keyServer, Context.background())
+    sleepMs(40)
+    ApiWire keyA = apiWire(Context.background(), 19143, "GET", "/keyed",
+        "X-Client: a\r\n", "")
+    ApiWire keyB = apiWire(Context.background(), 19143, "GET", "/keyed",
+        "X-Client: b\r\n", "")
+    ApiWire keyA2 = apiWire(Context.background(), 19143, "GET", "/keyed",
+        "X-Client: a\r\n", "")
+    print("server-rate-key=" + str(keyA.status()) + "," + str(keyB.status()) + "," +
+        str(keyA2.status()) + "," + str(keyA2.hasHeader("retry-after")))
+    keyRunning.stop()
+
+    ApiRouter corsRouter = new ApiRouter()
+    corsRouter.get("/cors", new TextHandler("cors")).value()
+    CorsPolicy serverCors = new CorsPolicy()
+    serverCors.allowOrigin("https://app.example").allowHeader("Content-Type")
+    ApiOptions corsOptions = new ApiOptions()
+    corsOptions.corsPolicy(serverCors)
+    ApiServer corsServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19144").value(), corsRouter, corsOptions).value()
+    RunningApiServer corsRunning = new RunningApiServer(corsServer, Context.background())
+    sleepMs(40)
+    ApiWire corsOk = apiWire(Context.background(), 19144, "OPTIONS", "/cors",
+        "Origin: https://app.example\r\n" +
+        "Access-Control-Request-Method: POST\r\n" +
+        "Access-Control-Request-Headers: Content-Type\r\n", "")
+    ApiWire corsBad = apiWire(Context.background(), 19144, "OPTIONS", "/cors",
+        "Origin: https://evil.example\r\nAccess-Control-Request-Method: POST\r\n", "")
+    ApiWire corsActual = apiWire(Context.background(), 19144, "GET", "/cors",
+        "Origin: https://app.example\r\n", "")
+    ApiWire corsActualBad = apiWire(Context.background(), 19144, "GET", "/cors",
+        "Origin: https://evil.example\r\n", "")
+    print("server-cors=" + str(corsOk.status()) + "," +
+        corsOk.header("access-control-allow-origin") + "," +
+        str(corsOk.header("access-control-allow-methods").indexOf("POST") >= 0) + "," +
+        str(corsBad.status()) + "," + str(corsActual.status()) + "," +
+        corsActual.header("access-control-allow-origin") + "," +
+        str(corsActualBad.hasHeader("access-control-allow-origin")))
+    corsRunning.stop()
+
+    ApiRouter middlewareRouter = new ApiRouter()
+    List<String> serverTrace = []
+    ApiMiddleware serverGlobalTrace = new TraceMiddleware("global", serverTrace)
+    ApiMiddleware serverRouterTrace = new TraceMiddleware("router", serverTrace)
+    ApiMiddleware serverRouteTrace = new TraceMiddleware("route", serverTrace)
+    ApiRoute tracedRoute = middlewareRouter.get("/trace", new TraceHandler(serverTrace)).value()
+    tracedRoute.middleware(serverRouteTrace)
+    middlewareRouter.use(serverRouterTrace)
+    ApiOptions middlewareOptions = new ApiOptions()
+    middlewareOptions.use(serverGlobalTrace)
+    ApiServer middlewareServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19145").value(), middlewareRouter,
+        middlewareOptions).value()
+    RunningApiServer middlewareRunning = new RunningApiServer(middlewareServer,
+        Context.background())
+    sleepMs(40)
+    ApiWire middlewareWire = apiWire(Context.background(), 19145, "GET", "/trace", "", "")
+    print("server-middleware=" + str(middlewareWire.status()) + "," +
+        serverTrace.join(","))
+    middlewareRunning.stop()
+
+    ApiRouter failRouter = new ApiRouter()
+    ApiRoute failRoute = failRouter.get("/fail", new TextHandler("no")).value()
+    failRoute.middleware(new FailMiddleware(ErrorKind.Internal))
+    ApiServer failServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19146").value(), failRouter, new ApiOptions()).value()
+    RunningApiServer failRunning = new RunningApiServer(failServer, Context.background())
+    sleepMs(40)
+    ApiWire failWire = apiWire(Context.background(), 19146, "GET", "/fail", "", "")
+    print("server-fail=" + str(failWire.status()) + "," +
+        str(apiWireContains(failWire, "urn:xdk:api:internal")) + "," +
+        str(apiWireContains(failWire, "middleware failure")))
+    failRunning.stop()
+
+    ApiOptions detailOptions = new ApiOptions()
+    detailOptions.includeErrorDetail(true)
+    ApiServer detailServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19150").value(), failRouter, detailOptions).value()
+    RunningApiServer detailRunning = new RunningApiServer(detailServer, Context.background())
+    sleepMs(40)
+    ApiWire detailWire = apiWire(Context.background(), 19150, "GET", "/fail", "", "")
+    print("server-detail=" + str(detailWire.status()) + "," +
+        str(apiWireContains(detailWire, "middleware failure")))
+    detailRunning.stop()
+
+    ApiRouter validateRouter = new ApiRouter()
+    ApiRoute validatedRoute = validateRouter.post("/validated",
+        new TextHandler("valid")).value()
+    validatedRoute.requestValidator(Rules.required())
+    ApiServer validateServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19147").value(), validateRouter,
+        new ApiOptions()).value()
+    RunningApiServer validateRunning = new RunningApiServer(validateServer,
+        Context.background())
+    sleepMs(40)
+    ApiWire invalidBody = apiWire(Context.background(), 19147, "POST", "/validated",
+        "Content-Type: application/json\r\n", "")
+    ApiWire malformedBody = apiWire(Context.background(), 19147, "POST", "/validated",
+        "Content-Type: application/json\r\n", "{")
+    print("server-validate=" + str(invalidBody.status()) + "," +
+        str(invalidBody.body().indexOf("validation") >= 0) + "," +
+        str(malformedBody.status()))
+    validateRunning.stop()
+
+    ApiRouter openApiRouter = new ApiRouter()
+    openApiRouter.get("/listed", new TextHandler("listed"))
+    OpenApiBuilder serverBuilder = new OpenApiBuilder("Server", "1.0.0")
+    ApiOptions serverOpenApiOptions = new ApiOptions()
+    serverOpenApiOptions.openApi(serverBuilder).openApiPath("/openapi.json")
+    ApiServer openApiServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19148").value(), openApiRouter,
+        serverOpenApiOptions).value()
+    RunningApiServer openApiRunning = new RunningApiServer(openApiServer,
+        Context.background())
+    sleepMs(40)
+    ApiWire openApiWire = apiWire(Context.background(), 19148, "GET", "/openapi.json", "", "")
+    ApiWire listedWire = apiWire(Context.background(), 19148, "GET", "/listed", "", "")
+    print("server-openapi=" + str(openApiWire.status()) + "," +
+        openApiWire.header("content-type") + "," +
+        str(apiWireContains(openApiWire, "\"openapi\":\"3.1.0\"")) + "," +
+        str(apiWireContains(openApiWire, "/listed")) + "," +
+        str(openApiServer.openApiDocument() != null) + "," + str(listedWire.status()))
+    openApiRunning.stop()
+
+    ApiRouter httpRouter = new ApiRouter()
+    httpRouter.get("/ping", new TextHandler("pong"))
+    httpRouter.post("/echo", new TextHandler("echoed"))
+    ApiServer httpServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19149").value(), httpRouter,
+        new ApiOptions()).value()
+    RunningApiServer httpRunning = new RunningApiServer(httpServer, Context.background())
+    sleepMs(40)
+    HttpClient httpClient = new HttpClient()
+    HttpResponse pingResponse = httpClient.request(Context.background(),
+        new HttpRequest(HttpMethod.Get,
+            Uri.parse("http://127.0.0.1:19149/ping").value())).value()
+    HttpRequest echoRequest = new HttpRequest(HttpMethod.Post,
+        Uri.parse("http://127.0.0.1:19149/echo").value())
+    echoRequest = echoRequest.withHeader("Content-Type", "application/json")
+    echoRequest = echoRequest.withBody(HttpBody.fromText("{\"x\":1}"))
+    HttpResponse echoResponse = httpClient.request(Context.background(), echoRequest).value()
+    httpClient.close()
+    print("server-http=" + str(pingResponse.status().code()) + "," +
+        pingResponse.body().readText(1024 as Long).value() + "," +
+        str(echoResponse.status().code()) + "," +
+        echoResponse.body().readText(1024 as Long).value())
+    httpRunning.stop()
     return 0
 }
 

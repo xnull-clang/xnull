@@ -36,11 +36,11 @@
 
 ---
 
-## 1.5 实现状态（M23.3）
+## 1.5 实现状态（M23.4）
 
-已实现 13/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
+已实现 14/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
 `ApiOptions`、`ApiHandler`、`ApiMiddleware`、`Authenticator`、`ApiRoute`、`ApiRouter`、
-`ApiContext`、`OpenApiDocument`、`OpenApiBuilder`；`ApiServer`/`SseStream` 留 M23.4。
+`ApiContext`、`OpenApiDocument`、`OpenApiBuilder`、`ApiServer`；`SseStream` 留 M23.5。
 
 - `ApiOptions`：中间件/认证/限流/CORS/body 上限/SSE 缓冲/detail/autoOptions/problemTypeBase/
   `openApi`/`openApiPath`/copy；`openApiPath` 默认 `/openapi.json`，空串关闭。
@@ -66,7 +66,17 @@
   非法字符转 `_`，冲突追加 `_2`。
 - `ApiRoute` 新增 summary/description/tags/queryParameter/headerParameter/response 元数据；
   path 参数输出为 `in: path` 的 string schema，requestSchema 输出为 `application/json` requestBody。
-- 不做 `ApiServer`/SSE/真实 socket；`Authenticator` 只定义协议，不内置具体认证器。
+- `ApiServer`：`bind`/`bindWithOptions`（`HttpServerOptions` 暂只做非空校验并忽略，README 记录）、
+  `serve` 循环 `HttpServer.serve(..., 1)`、`handle` 管线：CORS 预检 → OpenAPI 端点 → 路由匹配
+  （404/405/auto-OPTIONS）→ 路径参数 → 实际 CORS 头 → 认证（401/403/503/504/500 + 挑战头）→
+  限流（429 + `Retry-After`）→ 请求校验（400 ProblemDetails）→ 全局/router/route 中间件 →
+  业务 handler；未响应返回 204。
+- 端到端证据：`server-basic=200,hello,404,405,true,204,true,200,0,1,127.0.0.1:19140,true`；
+  `server-auth=401,Basic realm="realm1",403,...`；`server-rate=200,429,1,true,200,200`；
+  `server-openapi=200,application/json; charset=utf-8,...`。
+- `localhost` 绑定使用 `HttpServer.bind(host, port)`；`bindTls`/SSE/HTTP2/keep-alive 不做。
+- `Authenticator` 只定义协议，不内置具体认证器；`ProblemDetails.withStatus` 用于把校验错误
+  从 422 调整为管线约定的 400。
 
 ---
 

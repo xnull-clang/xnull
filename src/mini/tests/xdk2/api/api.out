@@ -32,3 +32,15 @@ builder-doc=3.1.0,3,true,true,true,3,true,1,1
 builder-operation=getUserById,true,true,true,3,true
 options-openapi=true,/docs.json,true,/docs.json
 options-openapi-off=
+server-basic=200,hello,404,405,true,204,true,200,0,1,127.0.0.1:19140,true
+server-closed=false,true
+server-auth=401,Basic realm="realm1",403,401,false,200,public,200,alice
+server-rate=200,429,1,true,200,200
+server-rate-key=200,200,429,true
+server-cors=204,https://app.example,true,403,200,https://app.example,false
+server-middleware=204,global,router,route,handler
+server-fail=500,true,false
+server-detail=500,true
+server-validate=400,true,400
+server-openapi=200,application/json; charset=utf-8,true,true,true,200
+server-http=200,pong,200,echoed

@@ -5,6 +5,7 @@
 package xdk.api
 import xdk.errors
 import xdk.codec
+import xdk.net
 import xdk.net.http
 import xdk.net.uri
 import xdk.validate
@@ -103,6 +104,12 @@ class ProblemDetails {
             throw "ProblemDetails.withTitle: multiline"
         }
         return new ProblemDetails(self._type, title, self._status, self._detail,
+            self._instance, self._extensions)
+    }
+
+    ProblemDetails withStatus(Int status) {
+        if status < 100 || status > 599 { throw "ProblemDetails.withStatus: invalid status" }
+        return new ProblemDetails(self._type, self._title, status, self._detail,
             self._instance, self._extensions)
     }
 
@@ -2544,4 +2551,535 @@ static Int apiIndexOfRouter(List<ApiRouter> routers, ApiRouter target) {
         index = index + 1
     }
     return -1
+}
+
+// ---------- ApiServer ----------
+class ApiServer implements HttpHandler {
+    final HttpServer _httpServer
+    final SocketAddress _local
+    final List<ApiRoute> _routes
+    final List<ApiMiddleware> _routerMiddleware
+    final ApiOptions _options
+    final OpenApiDocument? _openApi
+    Bool _open
+
+    private ApiServer(HttpServer httpServer, SocketAddress local, List<ApiRoute> routes,
+                      List<ApiMiddleware> routerMiddleware, ApiOptions options,
+                      OpenApiDocument? openApi) {
+        if httpServer == null || local == null || routes == null ||
+            routerMiddleware == null || options == null {
+            throw "ApiServer: null argument"
+        }
+        self._httpServer = httpServer
+        self._local = local
+        self._routes = routes.copy()
+        self._routerMiddleware = routerMiddleware.copy()
+        self._options = options
+        self._openApi = openApi
+        self._open = true
+    }
+
+    static Result<ApiServer, Error> bind(Context context, SocketAddress local,
+                                          ApiRouter router, ApiOptions options) {
+        return ApiServer.bindWithOptions(context, local, router, options,
+            new HttpServerOptions())
+    }
+
+    static Result<ApiServer, Error> bindWithOptions(Context context, SocketAddress local,
+                                                     ApiRouter router, ApiOptions options,
+                                                     HttpServerOptions serverOptions) {
+        if context == null || local == null || router == null ||
+            options == null || serverOptions == null {
+            throw "ApiServer.bind: null argument"
+        }
+        ApiOptions snapshot = options.copy()
+        OpenApiDocument? document = null
+        OpenApiBuilder? builder = snapshot.openApiBuilder()
+        if builder != null && snapshot.getOpenApiPath() != "" {
+            OpenApiBuilder actualBuilder = builder as OpenApiBuilder
+            Result<Unit, Error> added = actualBuilder.addRouter(router)
+            if added.isErr() { return Err(added.error()) }
+            Authenticator? globalAuthenticator = snapshot.getAuthenticator()
+            if globalAuthenticator != null {
+                Authenticator actualAuth = globalAuthenticator as Authenticator
+                actualBuilder.securitySchemeFor(actualAuth, "Global authentication")
+                List<String> scopes = []
+                actualBuilder.globalSecurity(actualAuth.name(), scopes)
+            }
+            Result<OpenApiDocument, Error> built = actualBuilder.build()
+            if built.isErr() { return Err(built.error()) }
+            document = built.value()
+        }
+        Result<HttpServer, Error> bound = HttpServer.bind(context,
+            local.address().text(), local.port())
+        if bound.isErr() { return Err(bound.error()) }
+        return Ok(new ApiServer(bound.value(), local, router.routes(),
+            router.middleware(), snapshot, document))
+    }
+
+    Result<Unit, Error> serve(Context context) {
+        if context == null { throw "ApiServer.serve: null context" }
+        if !self._open { return Err(apiUnavailable("api server")) }
+        while self._open && !context.isCancelled() {
+            Result<Unit, Error> served = self._httpServer.serve(context, self, 1)
+            if served.isErr() {
+                Error error = served.error()
+                if error.kind() == ErrorKind.Cancelled { return Ok() }
+                if !self._open { return Ok() }
+                return Err(error)
+            }
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> handle(Context context, HttpExchange exchange) {
+        if context == null || exchange == null {
+            throw "ApiServer.handle: null argument"
+        }
+        if !self._open { return Err(apiUnavailable("api server")) }
+        ApiContext apiContext = new ApiContext(exchange, self._options)
+        ApiDispatchHandler terminal = new ApiDispatchHandler(self, apiContext)
+        ApiHandler chain = self.buildChain(self._options.middleware(), terminal)
+        Result<Unit, Error> outcome = chain.handle(context, apiContext)
+        if outcome.isErr() {
+            Error error = outcome.error()
+            if error.kind() == ErrorKind.Cancelled {
+                apiContext.close()
+                return Err(error)
+            }
+            if !apiContext.isResponded() {
+                Result<Unit, Error> mapped = self.respondError(context, apiContext, error)
+                if mapped.isErr() {
+                    apiContext.close()
+                    return Err(mapped.error())
+                }
+            }
+            outcome = Ok()
+        }
+        if !apiContext.isResponded() {
+            Result<Unit, Error> empty = apiContext.respondEmpty(context, 204)
+            if empty.isErr() {
+                apiContext.close()
+                return Err(empty.error())
+            }
+        }
+        apiContext.close()
+        return outcome
+    }
+
+    Result<Unit, Error> dispatch(Context context, ApiContext apiContext) {
+        CorsPolicy? corsValue = self._options.getCorsPolicy()
+        if corsValue != null {
+            CorsPolicy cors = corsValue as CorsPolicy
+            Result<Bool, Error> preflight = self.handlePreflight(context, apiContext, cors)
+            if preflight.isErr() { return Err(preflight.error()) }
+            if preflight.value() { return Ok() }
+        }
+        String path = apiContext.path()
+        HttpMethod method = apiContext.method()
+        if self._openApi != null && path == self._options.getOpenApiPath() &&
+            method == HttpMethod.Get {
+            OpenApiDocument document = self._openApi as OpenApiDocument
+            return apiContext.respondJson(context, document.toJsonValue())
+        }
+        ApiRoute? route = self.matchRoute(method, path)
+        if route == null {
+            List<HttpMethod> allowed = self.allowedMethods(path)
+            if method == HttpMethod.Options && self._options.isAutoOptions() &&
+                allowed.length() > 0 {
+                apiContext.setHeader("Allow", self.formatAllowed(allowed, true))
+                return apiContext.respondEmpty(context, 204)
+            }
+            if allowed.length() > 0 {
+                apiContext.setHeader("Allow", self.formatAllowed(allowed,
+                    self._options.isAutoOptions()))
+                return self.respondProblemStatus(context, apiContext, 405,
+                    "method_not_allowed", "Method not allowed")
+            }
+            return self.respondProblemStatus(context, apiContext, 404,
+                "not_found", "Not found")
+        }
+        ApiRoute matched = route as ApiRoute
+        Result<Map<String, String>, Error> parameters =
+            matched.extractPathParameters(path)
+        if parameters.isErr() { return Err(parameters.error()) }
+        apiContext.attachRoute(matched, parameters.value())
+        if corsValue != null {
+            CorsPolicy cors = corsValue as CorsPolicy
+            String? origin = apiContext.header("Origin")
+            if origin != null {
+                Map<String, String> actual = cors.actualHeaders(origin as String)
+                List<String> names = actual.keys()
+                Int index = 0
+                while index < names.length() {
+                    String name = names.get(index)
+                    apiContext.setHeader(name, actual.getOr(name, ""))
+                    index = index + 1
+                }
+            }
+        }
+        if !matched.isPublicAccess() {
+            Authenticator? selected = matched.getAuthenticator()
+            if selected == null { selected = self._options.getAuthenticator() }
+            if selected != null {
+                Authenticator authenticator = selected as Authenticator
+                Result<Unit, Error> authenticated = authenticator.authenticate(context,
+                    apiContext)
+                if authenticated.isErr() {
+                    return self.respondAuthError(context, apiContext, authenticator,
+                        authenticated.error())
+                }
+            }
+        }
+        if !matched.isRateLimitDisabled() {
+            RateLimitPolicy? selectedPolicy = matched.getRateLimitPolicy()
+            if selectedPolicy == null { selectedPolicy = self._options.getRateLimitPolicy() }
+            if selectedPolicy != null {
+                RateLimitPolicy policy = selectedPolicy as RateLimitPolicy
+                String key = apiKeyFor(apiContext, policy, matched)
+                if !policy.allow(key) {
+                    Int seconds = ((policy.windowMillis() + 999 as Long) / 1000 as Long) as Int
+                    apiContext.setHeader("Retry-After", str(seconds))
+                    return self.respondProblemStatus(context, apiContext, 429,
+                        "rate_limited", "Too many requests")
+                }
+            }
+        }
+        Validator? validator = matched.getRequestValidator()
+        if validator != null && method != HttpMethod.Get && method != HttpMethod.Head &&
+            method != HttpMethod.Options {
+            Validator actualValidator = validator as Validator
+            Result<JsonValue, Error> body = apiContext.bodyJson(context)
+            if body.isErr() {
+                return self.respondBodyError(context, apiContext, body.error())
+            }
+            ValidationContext validation = new ValidationContext()
+            actualValidator.validate(body.value(), validation)
+            ValidationResult result = ValidationResult.fromContext(validation)
+            if !result.isValid() {
+                ProblemDetails problem = ProblemDetails.fromValidation(result.errors())
+                    .withStatus(400)
+                return apiContext.respondProblem(context, problem)
+            }
+        }
+        ApiHandler routeChain = self.buildChain(matched.getMiddleware(), matched.handler())
+        ApiHandler routerChain = self.buildChain(self._routerMiddleware, routeChain)
+        return routerChain.handle(context, apiContext)
+    }
+
+    private ApiHandler buildChain(List<ApiMiddleware> middleware, ApiHandler terminal) {
+        ApiHandler current = terminal
+        Int index = middleware.length() - 1
+        while index >= 0 {
+            current = new ApiMiddlewareNode(middleware.get(index), current)
+            index = index - 1
+        }
+        return current
+    }
+
+    private Result<Bool, Error> handlePreflight(Context context, ApiContext apiContext,
+                                                 CorsPolicy cors) {
+        if apiContext.method() != HttpMethod.Options { return Ok(false) }
+        String? originValue = apiContext.header("Origin")
+        String? methodValue = apiContext.header("Access-Control-Request-Method")
+        if originValue == null || methodValue == null { return Ok(false) }
+        String origin = originValue as String
+        String methodRaw = methodValue as String
+        String methodText = methodRaw.toUpper()
+        if !apiKnownHttpMethod(methodText) {
+            return self.rejectPreflight(context, apiContext)
+        }
+        HttpMethod requestedMethod = apiHttpMethodFromText(methodText)
+        if !cors.isOriginAllowed(origin) || !cors.isMethodAllowed(requestedMethod) {
+            return self.rejectPreflight(context, apiContext)
+        }
+        List<String> requestedHeaders = []
+        String? headerText = apiContext.header("Access-Control-Request-Headers")
+        if headerText != null {
+            String headerValue = headerText as String
+            List<String> parts = headerValue.split(",")
+            Int index = 0
+            while index < parts.length() {
+                String name = parts.get(index).trim()
+                if name != "" {
+                    if !cors.isHeaderAllowed(name) {
+                        return self.rejectPreflight(context, apiContext)
+                    }
+                    requestedHeaders.push(name)
+                }
+                index = index + 1
+            }
+        }
+        Map<String, String> headers = cors.preflightHeaders(origin,
+            requestedMethod, requestedHeaders)
+        List<String> names = headers.keys()
+        Int index = 0
+        while index < names.length() {
+            String name = names.get(index)
+            apiContext.setHeader(name, headers.getOr(name, ""))
+            index = index + 1
+        }
+        Result<Unit, Error> sent = apiContext.respondEmpty(context, 204)
+        if sent.isErr() { return Err(sent.error()) }
+        return Ok(true)
+    }
+
+    private Result<Bool, Error> rejectPreflight(Context context, ApiContext apiContext) {
+        Result<Unit, Error> rejected = self.respondProblemStatus(context, apiContext, 403,
+            "cors", "CORS preflight rejected")
+        if rejected.isErr() { return Err(rejected.error()) }
+        return Ok(true)
+    }
+
+    private ApiRoute? matchRoute(HttpMethod method, String path) {
+        Int index = 0
+        while index < self._routes.length() {
+            ApiRoute route = self._routes.get(index)
+            if route.method() == method && route.pattern() == path { return route }
+            index = index + 1
+        }
+        if method == HttpMethod.Head {
+            index = 0
+            while index < self._routes.length() {
+                ApiRoute route = self._routes.get(index)
+                if route.method() == HttpMethod.Get && route.pattern() == path {
+                    return route
+                }
+                index = index + 1
+            }
+        }
+        Int bestIndex = -1
+        Int bestStatic = -1
+        Int bestPriority = -1
+        index = 0
+        while index < self._routes.length() {
+            ApiRoute route = self._routes.get(index)
+            Int priority = 0
+            if route.method() == method {
+                priority = 2
+            } else if method == HttpMethod.Head && route.method() == HttpMethod.Get {
+                priority = 1
+            }
+            if priority > 0 {
+                if route.matchesPath(path) {
+                    Int staticCount = apiStaticSegmentCount(route.pattern())
+                    Bool better = false
+                    if staticCount > bestStatic {
+                        better = true
+                    } else if staticCount == bestStatic {
+                        if priority > bestPriority { better = true }
+                    }
+                    if better {
+                        bestIndex = index
+                        bestStatic = staticCount
+                        bestPriority = priority
+                    }
+                }
+            }
+            index = index + 1
+        }
+        if bestIndex < 0 { return null }
+        return self._routes.get(bestIndex)
+    }
+
+    private List<HttpMethod> allowedMethods(String path) {
+        List<HttpMethod> result = []
+        Int index = 0
+        while index < self._routes.length() {
+            ApiRoute route = self._routes.get(index)
+            if route.matchesPath(path) {
+                if apiIndexOfMethod(result, route.method()) < 0 {
+                    result.push(route.method())
+                }
+                if route.method() == HttpMethod.Get &&
+                    apiIndexOfMethod(result, HttpMethod.Head) < 0 {
+                    result.push(HttpMethod.Head)
+                }
+            }
+            index = index + 1
+        }
+        return result
+    }
+
+    private String formatAllowed(List<HttpMethod> allowed, Bool includeOptions) {
+        String result = ""
+        Int index = 0
+        while index < allowed.length() {
+            if result != "" { result = result + ", " }
+            result = result + httpMethodName(allowed.get(index))
+            index = index + 1
+        }
+        if includeOptions {
+            if result != "" { result = result + ", " }
+            result = result + "OPTIONS"
+        }
+        return result
+    }
+
+    private Result<Unit, Error> respondAuthError(Context context, ApiContext apiContext,
+                                                  Authenticator authenticator, Error error) {
+        ErrorKind kind = error.kind()
+        if kind == ErrorKind.Cancelled { return Err(error) }
+        if kind == ErrorKind.PermissionDenied {
+            return self.respondProblemStatus(context, apiContext, 403, "forbidden",
+                "Forbidden")
+        }
+        if kind == ErrorKind.Unavailable || kind == ErrorKind.Busy {
+            return self.respondProblemStatus(context, apiContext, 503,
+                "service_unavailable", "Service unavailable")
+        }
+        if kind == ErrorKind.Timeout {
+            return self.respondProblemStatus(context, apiContext, 504,
+                "auth_timeout", "Authentication timeout")
+        }
+        if kind == ErrorKind.InvalidArgument || kind == ErrorKind.NotFound {
+            String challenge = authSchemeChallenge(authenticator.scheme(),
+                authenticator.realm())
+            if challenge != "" {
+                apiContext.setHeader("WWW-Authenticate", challenge)
+            }
+            return self.respondProblemStatus(context, apiContext, 401,
+                "unauthorized", "Unauthorized")
+        }
+        return self.respondProblemStatus(context, apiContext, 500,
+            "auth_failure", "Authentication failure")
+    }
+
+    private Result<Unit, Error> respondBodyError(Context context, ApiContext apiContext,
+                                                  Error error) {
+        ErrorKind kind = error.kind()
+        if kind == ErrorKind.Unsupported {
+            return self.respondProblemStatus(context, apiContext, 415,
+                "unsupported_media_type", "Unsupported media type")
+        }
+        if kind == ErrorKind.DataCorrupted {
+            return self.respondProblemStatus(context, apiContext, 400,
+                "bad_request", "Malformed request body")
+        }
+        if kind == ErrorKind.InvalidArgument {
+            return self.respondProblemStatus(context, apiContext, 413,
+                "payload_too_large", "Request body too large")
+        }
+        return self.respondError(context, apiContext, error)
+    }
+
+    private Result<Unit, Error> respondError(Context context, ApiContext apiContext,
+                                              Error error) {
+        Int status = apiStatusFor(error.kind())
+        if status == 0 { return Err(error) }
+        ProblemDetails problem = ProblemDetails.of(status)
+            .withType(self.problemType(errorKindName(error.kind())))
+            .withTitle(self.titleFor(status))
+        if self._options.isIncludeErrorDetail() {
+            problem = problem.withDetail(error.describe())
+        }
+        return apiContext.respondProblem(context, problem)
+    }
+
+    private Result<Unit, Error> respondProblemStatus(Context context,
+                                                      ApiContext apiContext, Int status,
+                                                      String typeName, String title) {
+        ProblemDetails problem = ProblemDetails.of(status)
+            .withType(self.problemType(typeName))
+            .withTitle(title)
+        return apiContext.respondProblem(context, problem)
+    }
+
+    private String problemType(String name) {
+        String base = self._options.getProblemTypeBase()
+        if base == "" { return "urn:xdk:api:" + name }
+        return base + "/" + name
+    }
+
+    private String titleFor(Int status) {
+        String reason = HttpStatus.of(status).reason()
+        if reason == "" { return "HTTP " + str(status) }
+        return reason
+    }
+
+    SocketAddress localAddress() { return self._local }
+    Bool isOpen() { return self._open }
+    OpenApiDocument? openApiDocument() { return self._openApi }
+    Int routeCount() { return self._routes.length() }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        return self._httpServer.close()
+    }
+}
+
+class ApiDispatchHandler implements ApiHandler {
+    final ApiServer _server
+    final ApiContext _context
+    ApiDispatchHandler(ApiServer server, ApiContext context) {
+        self._server = server
+        self._context = context
+    }
+    Result<Unit, Error> handle(Context context, ApiContext exchange) {
+        return self._server.dispatch(context, self._context)
+    }
+}
+
+class ApiMiddlewareNode implements ApiHandler {
+    final ApiMiddleware _middleware
+    final ApiHandler _next
+    ApiMiddlewareNode(ApiMiddleware middleware, ApiHandler next) {
+        self._middleware = middleware
+        self._next = next
+    }
+    Result<Unit, Error> handle(Context context, ApiContext exchange) {
+        return self._middleware.handle(context, exchange, self._next)
+    }
+}
+
+static String apiKeyFor(ApiContext apiContext, RateLimitPolicy policy, ApiRoute route) {
+    String key = "anonymous"
+    String? headerName = policy.getKeyHeader()
+    if headerName != null {
+        String? value = apiContext.header(headerName as String)
+        if value != null && (value as String) != "" { key = value as String }
+    }
+    if policy.isIncludeRoute() {
+        key = httpMethodName(route.method()) + " " + route.pattern() + " " + key
+    }
+    return key
+}
+
+static Bool apiKnownHttpMethod(String text) {
+    if text == "GET" { return true }
+    if text == "POST" { return true }
+    if text == "PUT" { return true }
+    if text == "DELETE" { return true }
+    if text == "PATCH" { return true }
+    if text == "HEAD" { return true }
+    if text == "OPTIONS" { return true }
+    if text == "TRACE" { return true }
+    if text == "CONNECT" { return true }
+    return false
+}
+
+static HttpMethod apiHttpMethodFromText(String text) {
+    if text == "POST" { return HttpMethod.Post }
+    if text == "PUT" { return HttpMethod.Put }
+    if text == "DELETE" { return HttpMethod.Delete }
+    if text == "PATCH" { return HttpMethod.Patch }
+    if text == "HEAD" { return HttpMethod.Head }
+    if text == "OPTIONS" { return HttpMethod.Options }
+    if text == "TRACE" { return HttpMethod.Trace }
+    if text == "CONNECT" { return HttpMethod.Connect }
+    return HttpMethod.Get
+}
+
+static Int apiStatusFor(ErrorKind kind) {
+    if kind == ErrorKind.InvalidArgument { return 400 }
+    if kind == ErrorKind.NotFound { return 404 }
+    if kind == ErrorKind.AlreadyExists { return 409 }
+    if kind == ErrorKind.PermissionDenied { return 403 }
+    if kind == ErrorKind.Unsupported { return 415 }
+    if kind == ErrorKind.Busy { return 429 }
+    if kind == ErrorKind.Timeout { return 504 }
+    if kind == ErrorKind.Unavailable { return 503 }
+    if kind == ErrorKind.Cancelled { return 0 }
+    return 500
 }

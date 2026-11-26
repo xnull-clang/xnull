@@ -10,6 +10,7 @@ package xdk2.api
 import xdk.api
 import xdk.codec
 import xdk.net.http
+import xdk.net
 import xdk.net.uri
 import xdk.validate
 
@@ -225,6 +226,33 @@ static Int main(String[] args) {
         OpenApiBuilder value = new OpenApiBuilder("T", "1")
         List<String> scopes = []
         value.globalSecurity("", scopes)
+    } else if name == "serverBindContext" {
+        SocketAddress address = SocketAddress.parse("127.0.0.1:19151").value()
+        ApiRouter router = new ApiRouter()
+        ApiOptions options = new ApiOptions()
+        Result<ApiServer, Error> value = ApiServer.bind(null, address, router, options)
+    } else if name == "serverBindLocal" {
+        ApiRouter router = new ApiRouter()
+        ApiOptions options = new ApiOptions()
+        Result<ApiServer, Error> value = ApiServer.bind(Context.background(), null,
+            router, options)
+    } else if name == "serverBindRouter" {
+        SocketAddress address = SocketAddress.parse("127.0.0.1:19151").value()
+        ApiOptions options = new ApiOptions()
+        Result<ApiServer, Error> value = ApiServer.bind(Context.background(), address,
+            null, options)
+    } else if name == "serverBindOptions" {
+        SocketAddress address = SocketAddress.parse("127.0.0.1:19151").value()
+        ApiRouter router = new ApiRouter()
+        Result<ApiServer, Error> value = ApiServer.bind(Context.background(), address,
+            router, null)
+    } else if name == "serverHandleNull" {
+        SocketAddress address = SocketAddress.parse("127.0.0.1:19152").value()
+        ApiRouter router = new ApiRouter()
+        ApiServer server = ApiServer.bind(Context.background(), address, router,
+            new ApiOptions()).value()
+        Result<Unit, Error> value = server.handle(null, null)
+        server.close()
     } else if name == "documentParseNull" {
         Result<OpenApiDocument, Error> value = OpenApiDocument.parse(null)
     } else if name == "headerAfterResponse" {
@@ -311,4 +339,9 @@ check_panic builderComponent "OpenApiBuilder.componentSchema: invalid"
 check_panic builderWebhook "OpenApiBuilder.webhook: invalid"
 check_panic builderGlobal "OpenApiBuilder.globalSecurity: invalid"
 check_panic documentParseNull "OpenApiDocument.parse: null text"
+check_panic serverBindContext "ApiServer.bind: null argument"
+check_panic serverBindLocal "ApiServer.bind: null argument"
+check_panic serverBindRouter "ApiServer.bind: null argument"
+check_panic serverBindOptions "ApiServer.bind: null argument"
+check_panic serverHandleNull "ApiServer.handle: null argument"
 echo "api_panic: PASS"
