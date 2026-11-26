@@ -11,3 +11,11 @@ session-close=true,false,unavailable,true
 result=inference result outputs=1 elapsedMillis=12,1,logits,2,true,true,12
 ml-open=unsupported
 ml-run=unavailable
+loader=2,data loader size=4 batchSize=2 shuffle=false transforms=2
+loader-seq=0,1,2,3,t1,t2,t1,t2,not_found,0,1,2,true,batch samples=2 inputs=1 targets=1
+loader-shuffle=3,2,1,0,3,2,1,0,true
+loader-fail=io,io,9
+batch=batch samples=2 inputs=1 targets=0,1,0,false,true,2
+optimizer=optimizer kind=adam learningRate=0.001 weightDecay=0.01,adam,true,false,rmsprop,unknown,true
+epoch=epoch=3 training=true batches=2 samples=4 meanLoss=0.5,0.5,0.75,true,true,false,cross-entropy,true,unknown
+loss=4,2,0.693147,0,0.693147,1.5,invalid_argument,unsupported,invalid_argument,cancelled

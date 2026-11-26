@@ -7,27 +7,32 @@
 | 依赖 | `xdk.core`、`xdk.tensor`、`xdk.random`；按需 `xdk.linalg`、`xdk.codec` |
 | 被依赖 | 应用、服务、Agent、嵌入式/计算产品 |
 | 稳定性 | `preview` |
-| 状态 | 推理子集已实现 11/20（M24.1）；运行时/数据管道/训练仍为设计 |
+| 状态 | 合同 20/20 已实现（M24.1/M24.2）；运行时适配器不提供 |
 
 > 本目录只定义模型、推理、数据管道与训练抽象；不包含模型运行时、ONNX/TFLite 解析器、GPU/NPU 内核或自动微分引擎。运行时适配器由宿主注入。
 
 ---
 
-## 1.5 实现状态（M24.1）
+## 1.5 实现状态（M24.2）
 
-已实现 11/20：`ModelFormat`、`MlTask`、`ExecutionProvider`、`ModelInput`、
-`ModelOutput`、`ModelMetadata`、`Model`、`SessionOptions`、`InferenceSession`、
-`InferenceResult`、`Ml`（`openSession`/`run`）。
+已实现合同 20/20：M24.1 的 11 类推理合同 + M24.2 的 `Dataset`、`Transform`、
+`MlBatch`、`DataLoader`、`OptimizerKind`、`Optimizer`、`LossKind`、`Trainer`、
+`EpochStats`，以及 `Ml.computeLoss`。
 
 - 枚举带 `Unknown` 哨兵且放在首位：编译器把枚举 0 当作 null，`fromName` 未知返回
   `Unknown`（不是 null），README 记录该偏差。
-- `ModelInput`/`ModelOutput`：rank、动态轴、`fixedShape`、`accepts`、`describe`、`copy`。
-- `Model`：格式/元数据/输入输出声明/payload 长度与副本、按名查找。
-- `SessionOptions`：providers 优先级、线程/内存上限、开关、providerOptions、`defaults`/`copy`。
-- `InferenceSession`：`run` 先做数量/dtype/rank/固定维校验，再返回 `Unsupported`
-  （mini 无宿主适配器，不伪造推理）；`close` 幂等；关闭后 `run` 返回 `Unavailable`。
-- `Ml.openSession` 校验后返回 `Unsupported`，不返回伪造句柄；`Ml.run` 委托会话。
-- 未实现：ONNX/TFLite 解析、运行时句柄、GPU/NPU、Dataset/DataLoader、损失、Trainer。
+- `DataLoader`：顺序/洗牌（注入 `Random` 的 Fisher-Yates）、epoch 游标、失败不推进、
+  顺序应用 transforms、默认沿第 0 维拼批（dtype/rank/尾部维必须一致）；构造器为
+  `(Dataset, Int, Bool, List<Transform>, Random?)`，自定义 collate 未提供（合同标注“若可行”）。
+- `Ml.computeLoss`：MSE/MAE/BCE 元素平均；CE 做减最大值的稳定 softmax 后样本平均；
+  NLL 取对数概率样本平均；Other→Unsupported，空/形状/dtype/下标错误→InvalidArgument，
+  取消→Cancelled，非有限结果→Internal。
+- `EpochStats`：空 epoch `meanLoss()` 为 null；由于可空 `Double` 的 0 也会被当作 null，
+  额外提供 `hasMeanLoss()` 与 `meanLossValue()`（0 损失可用后者读取）。
+- `InferenceSession` 不再暴露原生 `handle()`；`openSession/run` 返回 `Unsupported`，
+  不伪造运行时句柄。
+- 上游 `Tensor` 对 `Float32`(0) 构造有 null 误判，ml 测试/损失用 `Float64`；
+  运行时、ONNX/TFLite 解析、GPU/NPU、自动微分、优化器 step、checkpoint 未实现。
 
 ---
 

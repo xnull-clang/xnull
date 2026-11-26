@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 47 包 / 411 类型；`design` 15 包 / 124 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 47 包 / 420 类型；`design` 15 包 / 115 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 

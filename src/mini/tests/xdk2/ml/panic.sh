@@ -34,8 +34,27 @@ static Model panicModel() {
         Bytes.fromString("p"))
 }
 
+static MlBatch panicBatch() {
+    Tensor tensor = panicTensor()
+    List<Tensor> inputs = []
+    inputs.push(tensor)
+    List<Tensor> targets = []
+    targets.push(tensor)
+    return new MlBatch(1, inputs, targets)
+}
+
 static InferenceSession panicSession() {
     return new InferenceSession(1 as Long, panicModel(), SessionOptions.defaults())
+}
+
+class MemoryDatasetShim implements Dataset {
+    Long size() { return 1 as Long }
+    Result<MlBatch, Error> get(Context context, Long sampleIndex) {
+        return Ok(panicBatch())
+    }
+    Bool isOpen() { return true }
+    Result<Unit, Error> close() { return Ok() }
+    String describe() { return "shim" }
 }
 
 static Int main(String[] args) {
@@ -172,6 +191,52 @@ static Int main(String[] args) {
         names.push("y")
         InferenceResult result = new InferenceResult(outputs, names, 0 as Long)
         Tensor value = result.output(3)
+    } else if name == "batchSamples" {
+        Tensor tensor = panicTensor()
+        List<Tensor> inputs = []
+        inputs.push(tensor)
+        List<Tensor> targets = []
+        MlBatch value = new MlBatch(0, inputs, targets)
+    } else if name == "batchInputs" {
+        List<Tensor> inputs = []
+        List<Tensor> targets = []
+        MlBatch value = new MlBatch(1, inputs, targets)
+    } else if name == "batchDim" {
+        List<Int> dims = [2]
+        Tensor tensor = new Tensor(TensorDType.Float64, new TensorShape(dims),
+            Bytes.alloc(16))
+        List<Tensor> inputs = []
+        inputs.push(tensor)
+        List<Tensor> targets = []
+        MlBatch value = new MlBatch(1, inputs, targets)
+    } else if name == "optimizerRate" {
+        Optimizer value = new Optimizer(OptimizerKind.Sgd, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.00000001)
+    } else if name == "optimizerMomentum" {
+        Optimizer value = new Optimizer(OptimizerKind.Sgd, 0.1, 0.0, 1.0, 0.0, 0.0,
+            0.00000001)
+    } else if name == "optimizerEpsilon" {
+        Optimizer value = new Optimizer(OptimizerKind.Sgd, 0.1, 0.0, 0.0, 0.0, 0.0,
+            0.0)
+    } else if name == "epochNegative" {
+        Map<String, Double> metrics = [:]
+        EpochStats value = new EpochStats(-1, true, 1 as Long, 1 as Long, 0.5, metrics,
+            0 as Long)
+    } else if name == "epochEmptyLoss" {
+        Map<String, Double> metrics = [:]
+        EpochStats value = new EpochStats(0, false, 0 as Long, 0 as Long, 0.5, metrics,
+            0 as Long)
+    } else if name == "loaderBatchSize" {
+        MemoryDatasetShim dataset = new MemoryDatasetShim()
+        List<Transform> transforms = []
+        DataLoader value = new DataLoader(dataset, 0, false, transforms, null)
+    } else if name == "loaderShuffle" {
+        MemoryDatasetShim dataset = new MemoryDatasetShim()
+        List<Transform> transforms = []
+        DataLoader value = new DataLoader(dataset, 1, true, transforms, null)
+    } else if name == "computeNull" {
+        Result<Tensor, Error> value = Ml.computeLoss(Context.background(),
+            LossKind.MeanSquaredError, null, null)
     } else if name == "openModel" {
         Result<InferenceSession, Error> value = Ml.openSession(Context.background(),
             null, SessionOptions.defaults())
@@ -215,4 +280,15 @@ check_panic resultElapsed "InferenceResult: negative elapsed"
 check_panic resultIndex "InferenceResult.output: index out of range"
 check_panic openModel "Ml.openSession: null argument"
 check_panic runSession "Ml.run: null argument"
+check_panic batchSamples "MlBatch: sampleCount must be positive"
+check_panic batchInputs "MlBatch: empty inputs"
+check_panic batchDim "MlBatch: input dim0 does not match sampleCount"
+check_panic optimizerRate "Optimizer: invalid learningRate"
+check_panic optimizerMomentum "Optimizer: invalid momentum"
+check_panic optimizerEpsilon "Optimizer: invalid epsilon"
+check_panic epochNegative "EpochStats: negative counter"
+check_panic epochEmptyLoss "EpochStats: empty epoch must have null meanLoss"
+check_panic loaderBatchSize "DataLoader: invalid batchSize"
+check_panic loaderShuffle "DataLoader: shuffle requires randomSource"
+check_panic computeNull "Ml.computeLoss: null argument"
 echo "ml_panic: PASS"
