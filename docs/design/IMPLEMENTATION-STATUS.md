@@ -10,6 +10,7 @@
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
 > 本文件回答“docs/design 的设计是否全部做完”，不复制逐类型合同。
+> 逐批剩余与质量缺口见 [`2X-REMAINING.md`](2X-REMAINING.md)。
 > `COVERAGE.md`/`PACKAGE-MAP.md` 仍写 75/698，是旧口径；以本文件与 tsv 为准。
 
 ---
@@ -21,9 +22,9 @@
 - 76 个包中：**48 个 implemented、14 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
 - 已实现的 48 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
-- B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
+- 仍有 **14 个包纯设计**；已 implemented 的包多数是**子集**；C7 的 1.x→2.x 验证随 B5 收口。
 
-一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
+一句话：**注解平台与多数领域已实现子集；剩余主要矛盾是 14 个设计包、B5 core 2.x 验证和已实现包的深度缺口。**
 
 L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedded` 因缺硬件原语保持 blocked；详见 [`L8-CLOSURE.md`](L8-CLOSURE.md)。
 
@@ -101,7 +102,7 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 
 ---
 
-## 4. 仅设计、未实现（17）
+## 4. 仅设计、未实现（14）
 
 | 层 | 包 |
 | --- | --- |
@@ -143,16 +144,16 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 
 | 项 | 现状 |
 | --- | --- |
-| B5–B10 | 多数包仅设计；B5 core 扩展、B6 数据/编码、B7 网络、B8 平台、B9 应用服务、B10 解决方案未完成 |
+| B5–B10 | B5 的 15 个 core 包仍是 1.x；B6–B10 多数包已 implemented 子集，仍有 14 个 design 包和若干运行时/硬件缺口 |
 | C7 | 合同已整合，实现/验证随 B5 未开始 |
 | 平台/OS/GPU/Serial/Device | 14 包仅设计；需平台原语与场景 |
-| 网络/TLS/WebSocket | 无 TLS/HTTP2/WS 运行时原语；client/server 仅 text-only |
-| 格式 | YAML/TOML/XML 解析器未实现，对应 `@*Name` 无法落地 |
+| 网络/TLS/WebSocket | 无 TLS/HTTP2 运行时原语；WebSocket 已实现 12/12 但无 TLS；HTTP client 仍为 text-only |
+| 格式 | YAML/TOML/XML 包已实现子集；对应 `@YamlName`/`@TomlName`/`@XmlName` 注解仍 planned |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
 | API/DI/ML/Agent | `xdk.api` 15/15；`xdk.ml` 合同完成但无运行时；`xdk.agent` 11/17；DI 未实现 |
 | 密码学扩展 | Cipher/Kdf/Asymmetric/KeyPair 未实现（无对应运行时原语） |
 | 可观测性 | metrics/trace/audit 已有核心；无 OTLP/导出器/内置 Prometheus 编码器 |
-| 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 上下文、跨线程 GC 栈、门禁时长 |
+| 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 捕获、跨线程 GC 根、枚举 0 与 null、泛型 `Pair` 冲突、大 Long 负字面量、execution 计时 flake、门禁时长（xdk2 >700s） |
 
 ---
 
@@ -173,12 +174,12 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 
 ## 9. 下一步优先级（建议）
 
-1. `@JwtClaim`/`@JwtHeaderField`（JWT 映射闭环）
-2. `@Scheduled` 宿主接入（`xdk.schedule` 已实现）
-3. `xdk.net.websocket` + `@WsHandler`（需 RFC6455 over net FFI）
-4. YAML → TOML → XML（先写包合同，再 `@*Name`）
-5. `xdk.api`（路由/装配/OpenAPI/SSE；消费 `xdk.auth`）
-6. B5–B10 其余包；平台/OS/GPU/ML/Agent 按计划推进
+1. B5：L1–L3 core 15 包 2.x 实现/验证（`text`/`collections`/`io`/`fs`/`sys` 的 Partial 边界先收）
+2. B6：`xdk.reflect`（需类型元数据表）；`@YamlName`/`@TomlName`/`@XmlName` 可先做
+3. B7：TLS 原语；`xdk.net` 的 DNS/UDP/连接池/HTTP2；`@WsHandler` 可基于已实现 WebSocket
+4. B8：平台/OS/GPU/Serial/Device 原语（见 `platform/HARDWARE-PRIMITIVES.md`）
+5. B10：`xdk.agent` 具体组件、`xdk.accel`/`xdk.embedded`、`BigFloat.exp/log/pow`、ML 运行时
+6. 注解：`@JwtClaim`/`@JwtHeaderField`、`@Scheduled`、API/DI 注解
 
 ---
 
