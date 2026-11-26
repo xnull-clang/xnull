@@ -12,7 +12,7 @@ tool=get_weather,true,false,true,true
 tool-result=2,true,false,2,true
 session=true,true,false,true,true,mcp session 2026-07-28 modern=true
 server-register=true,true,true,true
-client-server=true,2026-07-28,true,1,true,1,true,true
+client-server=true,2026-07-28,true,1,true,1,true,true,true,1,true,1
 client-allow=permission_denied,permission_denied
 registry=true,already_exists,true,already_exists,true,true,1
 registry-close=true,true,false

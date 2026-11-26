@@ -1845,6 +1845,30 @@ class McpServer {
             result.set("tools", tools)
             return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(result)))
         }
+        if method == "resources/list" {
+            JsonValue resources = Json.array()
+            JsonArray array = resources.asArray() as JsonArray
+            Int index = 0
+            while index < self._resources.length() {
+                array.add(mcpObjectValue(self._resources.get(index).toJson()))
+                index = index + 1
+            }
+            JsonObject result = new JsonObject()
+            result.set("resources", resources)
+            return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(result)))
+        }
+        if method == "prompts/list" {
+            JsonValue prompts = Json.array()
+            JsonArray array = prompts.asArray() as JsonArray
+            Int index = 0
+            while index < self._prompts.length() {
+                array.add(mcpObjectValue(self._prompts.get(index).toJson()))
+                index = index + 1
+            }
+            JsonObject result = new JsonObject()
+            result.set("prompts", prompts)
+            return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(result)))
+        }
         if method == "tools/call" {
             JsonValue? params = request.params()
             if params == null {

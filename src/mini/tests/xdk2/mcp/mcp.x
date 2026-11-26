@@ -210,6 +210,8 @@ static Int main() {
     JsonValue callArguments = Json.object()
     Result<McpToolResult, Error> called = loopClient.callTool(Context.background(), "echo",
         callArguments)
+    Result<List<McpResource>, Error> listedResources = loopClient.listResources(Context.background())
+    Result<List<McpPrompt>, Error> listedPrompts = loopClient.listPrompts(Context.background())
     Result<McpContent, Error> read = loopClient.readResource(Context.background(),
         "file:///loop.txt")
     Map<String, String> promptArguments = [:]
@@ -219,7 +221,9 @@ static Int main() {
         mcpProtocolVersionText(initialized.value().protocolVersion()) + "," +
         str(listedTools.isOk()) + "," + str(listedTools.value().length()) + "," +
         str(called.isOk()) + "," + str(called.value().contentCount()) + "," +
-        str(read.isOk()) + "," + str(gotPrompt.isOk()))
+        str(read.isOk()) + "," + str(gotPrompt.isOk()) + "," +
+        str(listedResources.isOk()) + "," + str(listedResources.value().length()) + "," +
+        str(listedPrompts.isOk()) + "," + str(listedPrompts.value().length()))
 
     Set<String> noTools = []
     McpClient deniedClient = new McpClient(loopTransport, loopClientInfo, noTools, false)
