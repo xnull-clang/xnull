@@ -25,6 +25,8 @@
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
 
+L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedded` 因缺硬件原语保持 blocked；详见 [`L8-CLOSURE.md`](L8-CLOSURE.md)。
+
 ---
 
 ## 2. 按层汇总
@@ -80,7 +82,7 @@
 | `xdk.mcp` | 16 | 实现 15/16：消息模型 + Stdio/Client/Server/Registry；HttpTransport planned |
 | `xdk.ml` | 20 | 实现 20/20 合同：模型/会话/数据管道/损失；`openSession/run` 因无运行时适配器返回 Unsupported |
 | `xdk.agent` | 17 | 实现 11/17：遥测核心/管线/Agent；具体 receiver/exporter 未实现 |
-| `xdk.api` | 15 | 实现 14/15：ProblemDetails/路由/上下文/OpenAPI/ApiServer；SseStream planned |
+| `xdk.api` | 15 | 实现 15/15：ProblemDetails/路由/上下文/OpenAPI/ApiServer/SseStream（同步 chunked） |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |
@@ -147,7 +149,7 @@
 | 网络/TLS/WebSocket | 无 TLS/HTTP2/WS 运行时原语；client/server 仅 text-only |
 | 格式 | YAML/TOML/XML 解析器未实现，对应 `@*Name` 无法落地 |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
-| API/DI/ML/Agent | `xdk.api` 14/15（无 SSE）；`xdk.ml` 合同完成但无运行时；`xdk.agent` 11/17；DI 未实现 |
+| API/DI/ML/Agent | `xdk.api` 15/15；`xdk.ml` 合同完成但无运行时；`xdk.agent` 11/17；DI 未实现 |
 | 密码学扩展 | Cipher/Kdf/Asymmetric/KeyPair 未实现（无对应运行时原语） |
 | 可观测性 | metrics/trace/audit 已有核心；无 OTLP/导出器/内置 Prometheus 编码器 |
 | 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 上下文、跨线程 GC 栈、门禁时长 |

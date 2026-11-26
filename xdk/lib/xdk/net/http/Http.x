@@ -1320,6 +1320,7 @@ class HttpExchange {
     final Int64 _socket
     Bool _responded
     Bool _closed
+    Bool _chunked
 
     HttpExchange(HttpRequest request, Int64 socket) {
         if request == null { throw "HttpExchange: null request" }
@@ -1327,10 +1328,12 @@ class HttpExchange {
         self._socket = socket
         self._responded = false
         self._closed = false
+        self._chunked = false
     }
 
     HttpRequest request() { return self._request }
     Bool isResponded() { return self._responded }
+    Bool isChunked() { return self._chunked }
     Bool isUpgraded() { return false }
 
     Result<Unit, Error> respond(HttpResponse response) {
@@ -1352,6 +1355,74 @@ class HttpExchange {
 
     Result<Unit, Error> respondStatus(Int status) {
         return self.respond(HttpResponse.of(status))
+    }
+
+    // 打开 chunked 响应（用于 SSE/流式）；成功后 isResponded=true。
+    Result<Unit, Error> beginChunked(Int status, HttpHeaders headers) {
+        if headers == null { throw "HttpExchange.beginChunked: null headers" }
+        if self._closed {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange is closed"))
+        }
+        if self._responded {
+            return Err(httpError(ErrorKind.InvalidArgument, "http response already sent"))
+        }
+        if self._socket == 0 as Int64 {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange has no socket"))
+        }
+        if status < 100 || status > 599 {
+            return Err(httpError(ErrorKind.InvalidArgument, "http exchange invalid status"))
+        }
+        HttpStatus parsed = HttpStatus.of(status)
+        String reason = parsed.reason()
+        if reason == "" { reason = str(status) }
+        String wire = "HTTP/1.1 " + str(status) + " " + reason + "\r\n" +
+            "Transfer-Encoding: chunked\r\n" +
+            "Connection: close\r\n"
+        List<HttpHeader> entries = headers.entries()
+        Int index = 0
+        while index < entries.length() {
+            HttpHeader header = entries.get(index)
+            String name = header.name().toLower()
+            if name != "content-length" && name != "connection" &&
+                name != "transfer-encoding" {
+                wire = wire + header.name() + ": " + header.value() + "\r\n"
+            }
+            index = index + 1
+        }
+        wire = wire + "\r\n"
+        Result<Unit, Error> written = httpWriteAll(self._socket, wire)
+        if written.isErr() { return written }
+        self._responded = true
+        self._chunked = true
+        return Ok()
+    }
+
+    Result<Unit, Error> writeChunk(Bytes data) {
+        if data == null { throw "HttpExchange.writeChunk: null data" }
+        if self._closed {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange is closed"))
+        }
+        if !self._chunked {
+            return Err(httpError(ErrorKind.InvalidArgument, "http exchange is not chunked"))
+        }
+        if data.length() == 0 { return Ok() }
+        String hex = toHex(data)
+        String text = data.toString()
+        String wire = hex + "\r\n"
+        wire = wire + text
+        wire = wire + "\r\n"
+        return httpWriteAll(self._socket, wire)
+    }
+
+    Result<Unit, Error> endChunked() {
+        if self._closed {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange is closed"))
+        }
+        if !self._chunked {
+            return Err(httpError(ErrorKind.InvalidArgument, "http exchange is not chunked"))
+        }
+        self._chunked = false
+        return httpWriteAll(self._socket, "0\r\n\r\n")
     }
 
     Result<Unit, Error> close() {

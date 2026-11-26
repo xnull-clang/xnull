@@ -36,11 +36,11 @@
 
 ---
 
-## 1.5 实现状态（M23.4）
+## 1.5 实现状态（M23.5）
 
-已实现 14/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
+已实现 15/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
 `ApiOptions`、`ApiHandler`、`ApiMiddleware`、`Authenticator`、`ApiRoute`、`ApiRouter`、
-`ApiContext`、`OpenApiDocument`、`OpenApiBuilder`、`ApiServer`；`SseStream` 留 M23.5。
+`ApiContext`、`OpenApiDocument`、`OpenApiBuilder`、`ApiServer`、`SseStream`。
 
 - `ApiOptions`：中间件/认证/限流/CORS/body 上限/SSE 缓冲/detail/autoOptions/problemTypeBase/
   `openApi`/`openApiPath`/copy；`openApiPath` 默认 `/openapi.json`，空串关闭。
@@ -71,6 +71,11 @@
   （404/405/auto-OPTIONS）→ 路径参数 → 实际 CORS 头 → 认证（401/403/503/504/500 + 挑战头）→
   限流（429 + `Retry-After`）→ 请求校验（400 ProblemDetails）→ 全局/router/route 中间件 →
   业务 handler；未响应返回 204。
+- `SseStream`：同步 chunked 实现（无后台写任务）；`send/sendEvent/sendEventWithId/`
+  `sendJson/sendJsonEvent/comment/setRetry/close/await` 与 ByteStream 方法；
+  `HttpExchange.beginChunked/writeChunk/endChunked` 支撑流式响应；
+  `ApiContext.openSse/finishSse`。
+- SSE 端到端证据：`server-sse=200,true,true,true,true,true,true,true,true,true`（chunked 头、事件、id、多行 data、注释、终止块）。
 - 端到端证据：`server-basic=200,hello,404,405,true,204,true,200,0,1,127.0.0.1:19140,true`；
   `server-auth=401,Basic realm="realm1",403,...`；`server-rate=200,429,1,true,200,200`；
   `server-openapi=200,application/json; charset=utf-8,...`。

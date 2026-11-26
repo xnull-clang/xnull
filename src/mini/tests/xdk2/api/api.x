@@ -139,6 +139,24 @@ class PrincipalTextHandler implements ApiHandler {
     }
 }
 
+class SseTestHandler implements ApiHandler {
+    SseTestHandler() { }
+    Result<Unit, Error> handle(Context context, ApiContext exchange) {
+        Result<SseStream, Error> opened = exchange.openSse(context)
+        if opened.isErr() { return Err(opened.error()) }
+        SseStream stream = opened.value()
+        Result<Unit, Error> first = stream.sendEvent(context, "greeting", "hello")
+        if first.isErr() { return first }
+        Result<Unit, Error> second = stream.sendEventWithId(context, "greeting",
+            "multi\nline", "42")
+        if second.isErr() { return second }
+        Result<Unit, Error> third = stream.comment(context, "hb")
+        if third.isErr() { return third }
+        stream.close()
+        return Ok()
+    }
+}
+
 class DenyAuthenticator implements Authenticator {
     final ErrorKind _kind
     final AuthScheme _scheme
@@ -581,6 +599,27 @@ static Int main() {
         str(basicServer.openApiDocument() == null))
     basicRunning.stop()
     print("server-closed=" + str(basicServer.isOpen()) + "," + str(basicServer.close().isOk()))
+
+    ApiRouter sseRouter = new ApiRouter()
+    sseRouter.get("/events", new SseTestHandler())
+    ApiServer sseServer = ApiServer.bind(Context.background(),
+        SocketAddress.parse("127.0.0.1:19150").value(), sseRouter,
+        new ApiOptions()).value()
+    RunningApiServer sseRunning = new RunningApiServer(sseServer, Context.background())
+    sleepMs(40)
+    ApiWire sseWire = apiWire(Context.background(), 19150, "GET", "/events", "", "")
+    String sseBody = sseWire.body()
+    print("server-sse=" + str(sseWire.status()) +
+        "," + str(sseWire.header("transfer-encoding").toLower() == "chunked") +
+        "," + str(sseWire.header("content-type").indexOf("text/event-stream") >= 0) +
+        "," + str(sseBody.indexOf("event: greeting") >= 0) +
+        "," + str(sseBody.indexOf("data: hello") >= 0) +
+        "," + str(sseBody.indexOf("id: 42") >= 0) +
+        "," + str(sseBody.indexOf("data: multi") >= 0) +
+        "," + str(sseBody.indexOf("data: line") >= 0) +
+        "," + str(sseBody.indexOf(": hb") >= 0) +
+        "," + str(sseBody.indexOf("0\r\n\r\n") >= 0))
+    sseRunning.stop()
 
     ApiRouter authRouter = new ApiRouter()
     DenyAuthenticator challengeAuth = new DenyAuthenticator(ErrorKind.InvalidArgument,

@@ -1284,6 +1284,217 @@ class ApiRouter {
 }
 
 // ---------- ApiContext ----------
+// ---------- SseStream ----------
+// 同步实现：每次 send* 直接写一个 chunk；close 写终止块。没有后台写任务。
+class SseStream implements ByteStream {
+    final HttpExchange _exchange
+    final Long _maximumBufferedBytes
+    Bool _closed
+    Error? _failure
+
+    private SseStream(HttpExchange exchange, Long maximumBufferedBytes) {
+        self._exchange = exchange
+        self._maximumBufferedBytes = maximumBufferedBytes
+        self._closed = false
+        self._failure = null
+    }
+
+    static Result<SseStream, Error> open(Context context, HttpExchange exchange,
+                                         Int status, HttpHeaders headers,
+                                         Long maximumBufferedBytes) {
+        if context == null || exchange == null || headers == null {
+            throw "SseStream.open: null argument"
+        }
+        if status != 200 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: status must be 200"))
+        }
+        if maximumBufferedBytes <= 0 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: invalid buffer size"))
+        }
+        if exchange.request().method() == HttpMethod.Head {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: HEAD is not supported"))
+        }
+        if exchange.isResponded() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: response already started"))
+        }
+        HttpHeaders actual = headers.copy()
+        actual.set("Content-Type", "text/event-stream")
+        actual.set("Cache-Control", "no-cache")
+        Result<Unit, Error> opened = exchange.beginChunked(status, actual)
+        if opened.isErr() { return Err(opened.error()) }
+        return Ok(new SseStream(exchange, maximumBufferedBytes))
+    }
+
+    Result<Unit, Error> send(Context context, String data) {
+        return self.sendEvent(context, "", data)
+    }
+
+    Result<Unit, Error> sendEvent(Context context, String eventName, String data) {
+        if context == null || data == null { throw "SseStream.sendEvent: null argument" }
+        if !self.validName(eventName) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: invalid event name"))
+        }
+        String payload = ""
+        if eventName != "" { payload = "event: " + eventName + "\n" }
+        payload = payload + SseStream.dataLines(data) + "\n"
+        return self.writePayload(context, payload)
+    }
+
+    Result<Unit, Error> sendEventWithId(Context context, String eventName,
+                                        String data, String eventId) {
+        if context == null || data == null || eventId == null {
+            throw "SseStream.sendEventWithId: null argument"
+        }
+        if !self.validName(eventName) || !self.validName(eventId) {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: invalid event field"))
+        }
+        String payload = ""
+        if eventName != "" { payload = "event: " + eventName + "\n" }
+        payload = payload + "id: " + eventId + "\n"
+        payload = payload + SseStream.dataLines(data) + "\n"
+        return self.writePayload(context, payload)
+    }
+
+    Result<Unit, Error> sendJson(Context context, JsonValue value) {
+        if context == null || value == null { throw "SseStream.sendJson: null argument" }
+        return self.send(context, Json.stringify(value))
+    }
+
+    Result<Unit, Error> sendJsonEvent(Context context, String eventName, JsonValue value) {
+        if context == null || eventName == null || value == null {
+            throw "SseStream.sendJsonEvent: null argument"
+        }
+        return self.sendEvent(context, eventName, Json.stringify(value))
+    }
+
+    Result<Unit, Error> comment(Context context, String text) {
+        if context == null || text == null { throw "SseStream.comment: null argument" }
+        String payload = ""
+        List<String> lines = text.split("\n")
+        Int index = 0
+        while index < lines.length() {
+            payload = payload + ": " + lines.get(index) + "\n"
+            index = index + 1
+        }
+        payload = payload + "\n"
+        return self.writePayload(context, payload)
+    }
+
+    Result<Unit, Error> setRetry(Context context, Long retryMillis) {
+        if context == null { throw "SseStream.setRetry: null context" }
+        if retryMillis < 0 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: negative retry"))
+        }
+        return self.writePayload(context, "retry: " + str(retryMillis) + "\n\n")
+    }
+
+    Long bufferedBytes() { return 0 as Long }
+    Long maximumBufferedBytes() { return self._maximumBufferedBytes }
+    Bool isOpen() { return !self._closed }
+
+    Result<Unit, Error> await(Context context) {
+        if context == null { throw "SseStream.await: null context" }
+        if !self._closed { self.close() }
+        if self._failure != null {
+            Error failure = self._failure as Error
+            return Err(failure)
+        }
+        return Ok()
+    }
+
+    Result<Int, Error> read(Context context, Bytes buffer) {
+        if context == null || buffer == null { throw "SseStream.read: null argument" }
+        if buffer.length() == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream.read: empty buffer"))
+        }
+        if self._closed { return Ok(0) }
+        return Err(new BasicError(ErrorKind.Unavailable, "SseStream.read: stream is write-only"))
+    }
+
+    Result<Int, Error> write(Context context, Bytes data) {
+        if context == null || data == null { throw "SseStream.write: null argument" }
+        if data.length() == 0 { return Ok(0) }
+        Result<Unit, Error> written = self.writeBytes(context, data)
+        if written.isErr() { return Err(written.error()) }
+        return Ok(data.length())
+    }
+
+    Result<Unit, Error> writeAll(Context context, Bytes data) {
+        if context == null || data == null { throw "SseStream.writeAll: null argument" }
+        if data.length() == 0 { return Ok() }
+        return self.writeBytes(context, data)
+    }
+
+    Result<Unit, Error> setReadDeadline(Long deadlineMonoMillis) {
+        if deadlineMonoMillis < 0 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: invalid read deadline"))
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> setWriteDeadline(Long deadlineMonoMillis) {
+        if deadlineMonoMillis < 0 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "SseStream: invalid write deadline"))
+        }
+        return Ok()
+    }
+
+    Void close() {
+        if self._closed { return }
+        self._closed = true
+        Result<Unit, Error> ended = self._exchange.endChunked()
+        if ended.isErr() { self._failure = ended.error() }
+    }
+
+    Result<Unit, Error> closeResult() {
+        self.close()
+        if self._failure != null { return Err(self._failure as Error) }
+        return Ok()
+    }
+
+    private Bool validName(String value) {
+        if value == null { return false }
+        if value.indexOf("\n") >= 0 || value.indexOf("\r") >= 0 {
+            return false
+        }
+        return true
+    }
+
+    private Result<Unit, Error> writePayload(Context context, String payload) {
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "SseStream: cancelled"))
+        }
+        return self.writeBytes(context, Bytes.fromString(payload))
+    }
+
+    private Result<Unit, Error> writeBytes(Context context, Bytes data) {
+        if self._closed {
+            return Err(new BasicError(ErrorKind.Unavailable, "SseStream: closed"))
+        }
+        if context.isCancelled() {
+            return Err(new BasicError(ErrorKind.Cancelled, "SseStream: cancelled"))
+        }
+        Result<Unit, Error> written = self._exchange.writeChunk(data)
+        if written.isErr() {
+            self._failure = written.error()
+            self._closed = true
+            return Err(written.error())
+        }
+        return Ok()
+    }
+
+    private static String dataLines(String data) {
+        List<String> lines = data.split("\n")
+        String result = ""
+        Int index = 0
+        while index < lines.length() {
+            result = result + "data: " + lines.get(index) + "\n"
+            index = index + 1
+        }
+        return result
+    }
+}
+
 class ApiContext {
     final HttpExchange _exchange
     final ApiOptions _options
@@ -1300,6 +1511,7 @@ class ApiContext {
     List<String> _roles
     JsonObject _attributes
     Bool _closed
+    SseStream? _sse
 
     ApiContext(HttpExchange exchange, ApiOptions options) {
         if exchange == null || options == null { throw "ApiContext: null argument" }
@@ -1320,6 +1532,7 @@ class ApiContext {
         self._roles = roles
         self._attributes = new JsonObject()
         self._closed = false
+        self._sse = null
     }
 
     HttpRequest request() { return self._exchange.request() }
@@ -1554,8 +1767,40 @@ class ApiContext {
     Bool isResponded() { return self.isResponseStarted() }
     Bool isClosed() { return self._closed }
 
+    Result<SseStream, Error> openSse(Context context) {
+        if context == null { throw "ApiContext.openSse: null context" }
+        if self._closed { return Err(apiUnavailable("api context")) }
+        if self.isResponseStarted() {
+            return Err(new BasicError(ErrorKind.InvalidArgument,
+                "response already started"))
+        }
+        if self._sse != null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "sse already open"))
+        }
+        HttpHeaders headers = self._responseHeaders.copy()
+        headers.set("Content-Type", "text/event-stream")
+        headers.set("Cache-Control", "no-cache")
+        Result<SseStream, Error> opened = SseStream.open(context, self._exchange,
+            self._status, headers, self._options.getSseBufferBytes())
+        if opened.isErr() { return Err(opened.error()) }
+        self._sse = opened.value()
+        self._responseStarted = true
+        return opened
+    }
+
+    Result<Unit, Error> finishSse(Context context) {
+        if context == null { throw "ApiContext.finishSse: null context" }
+        if self._sse == null { return Ok() }
+        SseStream stream = self._sse as SseStream
+        return stream.await(context)
+    }
+
     Result<Unit, Error> close() {
         if self._closed { return Ok() }
+        if self._sse != null {
+            SseStream stream = self._sse as SseStream
+            stream.close()
+        }
         self._closed = true
         return self._exchange.close()
     }
