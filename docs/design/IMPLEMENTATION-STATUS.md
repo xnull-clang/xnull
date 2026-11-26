@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 46 包 / 390 类型；`design` 16 包 / 145 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 46 包 / 397 类型；`design` 16 包 / 138 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -144,7 +144,7 @@
 | 网络/TLS/WebSocket | 无 TLS/HTTP2/WS 运行时原语；client/server 仅 text-only |
 | 格式 | YAML/TOML/XML 解析器未实现，对应 `@*Name` 无法落地 |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
-| API/DI/ML/Agent | `xdk.api` 仅基础 4 类型；DI/ML/Agent 仍未实现 |
+| API/DI/ML/Agent | `xdk.api` 基础 11 类型（无 ApiServer/OpenAPI/SSE）；DI/ML/Agent 仍未实现 |
 | 密码学扩展 | Cipher/Kdf/Asymmetric/KeyPair 未实现（无对应运行时原语） |
 | 可观测性 | metrics/trace/audit 已有核心；无 OTLP/导出器/内置 Prometheus 编码器 |
 | 编译/运行时债 | `String? == String?` 指针比较、泛型内联 lambda 上下文、跨线程 GC 栈、门禁时长 |

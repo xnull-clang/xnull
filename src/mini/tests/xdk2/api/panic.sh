@@ -10,7 +10,12 @@ package xdk2.api
 import xdk.api
 import xdk.codec
 import xdk.net.http
+import xdk.net.uri
 import xdk.validate
+
+class PanicHandler implements ApiHandler {
+    Result<Unit, Error> handle(Context context, ApiContext exchange) { return Ok() }
+}
 
 static Int main(String[] args) {
     String name = args.get(0)
@@ -82,6 +87,108 @@ static Int main(String[] args) {
     } else if name == "rateMaximumKeys" {
         RateLimitPolicy policy = new RateLimitPolicy(1, 1000 as Long)
         RateLimitPolicy value = policy.withMaximumKeys(0)
+    } else if name == "optionsBody" {
+        ApiOptions value = new ApiOptions()
+        value.maximumBodyBytes(0 as Long)
+    } else if name == "optionsSse" {
+        ApiOptions value = new ApiOptions()
+        value.sseBufferBytes(0 as Long)
+    } else if name == "optionsProblem" {
+        ApiOptions value = new ApiOptions()
+        value.problemTypeBase("bad")
+    } else if name == "routeConnect" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Connect, "/", handler)
+    } else if name == "routeSlash" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "x", handler)
+    } else if name == "routeTrailing" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/x/", handler)
+    } else if name == "routeQuery" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/x?y", handler)
+    } else if name == "routeDuplicateParam" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/{id}/{id}", handler)
+    } else if name == "routeBadParam" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/{1id}", handler)
+    } else if name == "routeWildcardMid" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/a/*/b", handler)
+    } else if name == "routeParamMixed" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute value = new ApiRoute(HttpMethod.Get, "/a{id}", handler)
+    } else if name == "routerPrefix" {
+        ApiRouter value = new ApiRouter("api")
+    } else if name == "routerPrefixSlash" {
+        ApiRouter value = new ApiRouter("/api/")
+    } else if name == "contextNull" {
+        ApiOptions options = new ApiOptions()
+        ApiContext value = new ApiContext(null, options)
+    } else if name == "attachTwice" {
+        PanicHandler handler = new PanicHandler()
+        ApiRoute route = new ApiRoute(HttpMethod.Get, "/x", handler)
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        Map<String, String> parameters = [:]
+        context.attachRoute(route, parameters)
+        context.attachRoute(route, parameters)
+    } else if name == "principalEmpty" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.setPrincipal("")
+    } else if name == "principalTwice" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.setPrincipal("a")
+        context.setPrincipal("b")
+    } else if name == "rolesBeforePrincipal" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        List<String> roles = ["admin"]
+        context.setRoles(roles)
+    } else if name == "attributeEmpty" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.setAttribute("", Json.string("x"))
+    } else if name == "attributeNull" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.setAttribute("a", null)
+    } else if name == "statusInvalid" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.setStatus(99)
+    } else if name == "statusAfterResponse" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.respondJson(Context.background(), Json.string("x"))
+        context.setStatus(201)
+    } else if name == "headerAfterResponse" {
+        Result<Uri, Error> parsed = Uri.parse("http://x/x")
+        HttpRequest request = new HttpRequest(HttpMethod.Get, parsed.value())
+        HttpExchange exchange = new HttpExchange(request, 0 as Int64)
+        ApiContext context = new ApiContext(exchange, new ApiOptions())
+        context.respondText(Context.background(), "x")
+        context.setHeader("X-Test", "1")
     }
     return 0
 }
@@ -120,4 +227,27 @@ check_panic rateLimit "RateLimitPolicy: invalid limit or window"
 check_panic rateWindow "RateLimitPolicy: invalid limit or window"
 check_panic rateKeyHeader "RateLimitPolicy.withKeyHeader: invalid"
 check_panic rateMaximumKeys "RateLimitPolicy.withMaximumKeys: invalid"
+check_panic optionsBody "ApiOptions.maximumBodyBytes: invalid"
+check_panic optionsSse "ApiOptions.sseBufferBytes: invalid"
+check_panic optionsProblem "ApiOptions.problemTypeBase: invalid prefix"
+check_panic routeConnect "ApiRoute: CONNECT is not supported"
+check_panic routeSlash "ApiRoute: pattern must start with slash"
+check_panic routeTrailing "ApiRoute: pattern trailing slash"
+check_panic routeQuery "ApiRoute: pattern has query or fragment"
+check_panic routeDuplicateParam "ApiRoute: duplicate parameter name"
+check_panic routeBadParam "ApiRoute: invalid parameter name"
+check_panic routeWildcardMid "ApiRoute: wildcard must be final"
+check_panic routeParamMixed "ApiRoute: parameter must occupy full segment"
+check_panic routerPrefix "ApiRouter: prefix must start with slash"
+check_panic routerPrefixSlash "ApiRouter: prefix trailing slash"
+check_panic contextNull "ApiContext: null argument"
+check_panic attachTwice "ApiContext.attachRoute: already attached"
+check_panic principalEmpty "ApiContext.setPrincipal: empty principal"
+check_panic principalTwice "ApiContext.setPrincipal: already authenticated"
+check_panic rolesBeforePrincipal "ApiContext.setRoles: principal not set"
+check_panic attributeEmpty "ApiContext.setAttribute: empty name"
+check_panic attributeNull "ApiContext.setAttribute: null value"
+check_panic statusInvalid "ApiContext.setStatus: invalid status"
+check_panic statusAfterResponse "ApiContext.setStatus: response already started"
+check_panic headerAfterResponse "ApiContext.setHeader: response already started"
 echo "api_panic: PASS"

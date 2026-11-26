@@ -1341,6 +1341,9 @@ class HttpExchange {
         if self._responded {
             return Err(httpError(ErrorKind.InvalidArgument, "http response already sent"))
         }
+        if self._socket == 0 as Int64 {
+            return Err(httpError(ErrorKind.Unavailable, "http exchange has no socket"))
+        }
         Result<Unit, Error> written = httpWriteResponse(self._socket, response)
         if written.isErr() { return written }
         self._responded = true
@@ -1354,6 +1357,7 @@ class HttpExchange {
     Result<Unit, Error> close() {
         if self._closed { return Ok() }
         self._closed = true
+        if self._socket == 0 as Int64 { return Ok() }
         Int rc = socketCloseRaw(self._socket)
         if rc != 0 {
             return Err(httpError(ErrorKind.Io, "socket close failed"))

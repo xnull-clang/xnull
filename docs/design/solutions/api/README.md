@@ -36,19 +36,27 @@
 
 ---
 
-## 1.5 实现状态（M23.1）
+## 1.5 实现状态（M23.2）
 
-已实现 4/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`；
-`ApiContext`/`ApiRoute`/`ApiRouter`/`ApiServer`/`ApiMiddleware`/`ApiHandler`/
-`ApiOptions`/`OpenApiBuilder`/`OpenApiDocument`/`SseStream`/`Authenticator` 留 M23.2/M23.3。
+已实现 11/15：`ProblemDetails`、`AuthScheme`、`CorsPolicy`、`RateLimitPolicy`、
+`ApiOptions`、`ApiHandler`、`ApiMiddleware`、`Authenticator`、`ApiRoute`、`ApiRouter`、
+`ApiContext`；`ApiServer`/`OpenApiBuilder`/`OpenApiDocument`/`SseStream` 留 M23.3。
 
-- `ProblemDetails`：RFC 7807/9457 字段、with* 派生、扩展保留名、validation 扩展、JSON；
-- `AuthScheme`：5 成员、稳定名、OpenAPI type/location、Basic/Bearer 挑战；
-- `CorsPolicy`：源/方法/头/暴露头/凭据/预检缓存，preflight/actual 头生成；
-- `RateLimitPolicy`：固定窗口 `allow(key)`、键上限、`copy` 空状态；
-- 受限：`acquire(Context, ApiContext)` 依赖 M23.2 的 `ApiContext`，本批以 `allow(key)` 提供核心判定；
-  重载不支持，故 setter/getter 用 `with*`/`is*`/`get*` 命名。
-- 不做路由/服务器/OpenAPI/SSE/真实 socket。
+- `ApiOptions`：中间件/认证/限流/CORS/body 上限/SSE 缓冲/detail/autoOptions/problemTypeBase/copy；
+  OpenAPI 字段按本合同留空（planned）。
+- `ApiHandler`/`ApiMiddleware`/`Authenticator`：协议；`Authenticator.authenticate` 写入
+  principal/roles。
+- `ApiRoute`：`{name}` 整段参数、尾部 `*` 通配、路径参数百分号解码、路由中间件/认证/限流
+  覆盖、publicAccess、requestValidator/requestSchema/operationName/copy。
+- `ApiRouter`：前缀、route/get/post/put/patch/delete/head/options、重复注册
+  `AlreadyExists`、静态优先 + HEAD 回退 GET、allowedMethods。
+- `ApiContext`：请求读取、body 缓存与上限、JSON 缓存、路径参数注入、principal/roles/
+  属性、状态/响应头、respondJson/Text/Empty/Problem、幂等 close。
+- 命名受限：无重载，setter/getter 用 `get*`/`with*`；`ApiContext` 响应带状态版本为
+  `respondJsonWithStatus`/`respondTextWithStatus`。
+- 与 `ApiRoute.md` 的差异：本实现按任务合同额外支持尾部 `*` 通配，文档当前写“不支持通配”，
+  M23.3 前复核。
+- 不做 `ApiServer`/OpenAPI/SSE/真实 socket；`Authenticator` 只定义协议，不内置具体认证器。
 
 ---
 
