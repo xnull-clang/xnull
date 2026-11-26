@@ -20,7 +20,7 @@
 | `xdk.api` | 15 | implemented | ProblemDetails/路由/上下文/OpenAPI/ApiServer/SseStream（同步 chunked） |
 | `xdk.ml` | 20 | implemented（合同） | 模型/会话/数据管道/损失；无宿主运行时，`openSession/run` 返回 Unsupported |
 | `xdk.numerics` | 12 | implemented（类型） | BigInt/积分/优化/ODE/FFT/信号/特殊函数/BigFloat 算术；BigFloat exp/log/pow planned |
-| `xdk.mcp` | 16 | implemented 15/16 | 消息模型 + Stdio/Client/Server/Registry；HttpTransport planned |
+| `xdk.mcp` | 16 | implemented | 消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
 | `xdk.agent` | 17 | implemented 11/17 | 遥测核心/管线/配置/Agent；HostMetrics/FileLog/批处理/限流/OTLP/Prometheus 未实现 |
 | `xdk.accel` | 14 | **blocked** | 需要 Metal/CUDA/ROCm/Vulkan 设备/内存/内核/栅栏原语 |
 | `xdk.embedded` | 12 | **blocked** | 需要 GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash 原语 |
@@ -31,7 +31,6 @@
 
 - `xdk.accel`：见 `docs/design/platform/HARDWARE-PRIMITIVES.md` §2。
 - `xdk.embedded`：见同文 §3。
-- `xdk.mcp.McpHttpTransport`：客户端需要 chunked/SSE 响应解析；服务端角色已具备 chunked 基础。
 - `xdk.agent.HostMetricsReceiver`：需要 `xdk.os.host`（IOKit/sysctl 主机模型）。
 - `xdk.agent.FileLogReceiver`：需要路径匹配/文件 tail 合同（`PathMatcher`）。
 - `xdk.ml` 运行时：需要宿主注入推理适配器。

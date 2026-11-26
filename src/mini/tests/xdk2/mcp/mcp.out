@@ -19,3 +19,4 @@ registry-close=true,true,false
 stdio-notify=true,true,true
 stdio-request=true,true,true,true,false
 stdio-receive=true,ping
+http-transport=true,true

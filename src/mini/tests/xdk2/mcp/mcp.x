@@ -2,9 +2,55 @@ package xdk2.mcp
 import xdk.mcp
 import xdk.codec
 import xdk.errors
+import xdk.net
+import xdk.net.http
+import xdk.net.uri
+import xdk.execution
+import xdk.time
 
 static Error loopUnsupported() {
     return new BasicError(ErrorKind.Unsupported, "loopback receive")
+}
+
+class McpHttpEchoHandler implements HttpHandler {
+    McpHttpEchoHandler() { }
+    Result<Unit, Error> handle(Context context, HttpExchange exchange) {
+        Set<String> origins = []
+        List<McpProtocolVersion> versions = []
+        versions.push(latestMcpProtocolVersion())
+        McpHttpTransport transport = new McpHttpTransport(exchange, origins,
+            versions, 16777216 as Long)
+        Result<JsonRpcRequest, Error> received = transport.receive(context)
+        if received.isErr() { return Err(received.error()) }
+        JsonRpcId identifier = received.value().identifier() as JsonRpcId
+        JsonValue result = Json.object()
+        JsonObject object = result.asObject() as JsonObject
+        object.set("ok", Json.bool(true))
+        return transport.respond(context, JsonRpcResponse.success(identifier, result))
+    }
+}
+
+class McpHttpServerRunner {
+    final HttpServer _server
+    final Context _cancel
+    final TaskGroup _group
+    final Task<Int> _task
+    McpHttpServerRunner(HttpServer server, Context parent) {
+        self._server = server
+        self._cancel = Context.withCancel(parent)
+        self._group = TaskGroup.create(self._cancel)
+        self._task = self._group.spawn((Context taskContext) -> {
+            Result<Unit, Error> served = server.serve(taskContext,
+                new McpHttpEchoHandler(), 100)
+            return Ok(0)
+        })
+    }
+    Void stop() {
+        self._cancel.cancel()
+        self._server.close()
+        self._task.join()
+        self._group.close()
+    }
 }
 
 class LoopbackTransport implements McpTransport {
@@ -287,7 +333,35 @@ static Int main() {
     Result<JsonRpcRequest, Error> receivedRequest = receiver.receive(Context.background())
     print("stdio-receive=" + str(receivedRequest.isOk()) + "," +
         receivedRequest.value().method())
-    return 0
+
+    HttpServer httpServer = HttpServer.bind(Context.background(), "127.0.0.1", 19160).value()
+    McpHttpServerRunner runner = new McpHttpServerRunner(httpServer, Context.background())
+    sleepMs(40)
+    McpHttpTransport httpClient = new McpHttpTransport(new HttpClient(),
+        Uri.parse("http://127.0.0.1:19160/mcp").value())
+    JsonValue params = Json.object()
+    JsonRpcRequest httpRequest = JsonRpcRequest.requestWithParams(
+        JsonRpcId.ofNumber(1 as Long), "tools/list", params)
+    Result<JsonRpcResponse, Error> httpResponse = httpClient.request(
+        Context.background(), httpRequest, (Context taskContext, JsonRpcRequest note) -> {
+            return Ok()
+        })
+    Bool httpOk = false
+    JsonValue? resultValue = httpResponse.value().result()
+    if resultValue != null {
+        JsonValue actualResult = resultValue as JsonValue
+        if actualResult.isObject() {
+            JsonObject resultObject = actualResult.asObject() as JsonObject
+            JsonValue field = resultObject.getOr("ok", Json.nullValue())
+            if field.isBool() {
+                Bool? fieldValue = field.asBool()
+                if fieldValue != null { httpOk = fieldValue as Bool }
+            }
+        }
+    }
+    print("http-transport=" + str(httpResponse.isOk()) + "," + str(httpOk))
+    httpClient.close()
+    runner.stop()
     return 0
 }
 

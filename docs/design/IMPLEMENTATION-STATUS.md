@@ -79,7 +79,7 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 | `xdk.i18n` | 7 | 实现 6/7：Locale/PluralRules/NumberFormat/Catalog/Formatter/Translator；DateFormat planned |
 | `xdk.numerics` | 12 | 12/12 类型：核心 11 + BigFloat 算术/开方/舍入/转换；exp/log/pow planned |
 | `xdk.jsonrpc` | 5 | 实现 5/5：Id/Error/Request/Response/Peer；仅消息与协议形状 |
-| `xdk.mcp` | 16 | 实现 15/16：消息模型 + Stdio/Client/Server/Registry；HttpTransport planned |
+| `xdk.mcp` | 16 | 实现 16/16：消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
 | `xdk.ml` | 20 | 实现 20/20 合同：模型/会话/数据管道/损失；`openSession/run` 因无运行时适配器返回 Unsupported |
 | `xdk.agent` | 17 | 实现 11/17：遥测核心/管线/Agent；具体 receiver/exporter 未实现 |
 | `xdk.api` | 15 | 实现 15/15：ProblemDetails/路由/上下文/OpenAPI/ApiServer/SseStream（同步 chunked） |

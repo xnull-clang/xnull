@@ -6,6 +6,9 @@ import xdk.jsonrpc
 package xdk.mcp
 import xdk.errors
 import xdk.codec
+import xdk.net
+import xdk.net.http
+import xdk.net.uri
 
 // ---------- McpProtocolVersion ----------
 enum McpProtocolVersion {
@@ -2299,4 +2302,472 @@ class McpRegistry {
     }
 
     Bool isOpen() { return self._open }
+}
+
+// ---------- McpHttpTransport ----------
+// Streamable HTTP 基线：客户端 POST JSON、服务端单 exchange；SSE 响应体按完整文本解析。
+class McpHttpTransport implements McpTransport {
+    final HttpClient? _client
+    final Uri? _endpoint
+    final HttpExchange? _exchange
+    McpProtocolVersion? _protocolVersion
+    final List<McpProtocolVersion> _supportedVersions
+    final String _authorizationHeader
+    final Set<String> _allowedOrigins
+    final Long _maximumBodyBytes
+    Bool _open
+    final Map<String, ByteStream> _activeStreams
+    final Set<String> _cancelled
+    final List<JsonValue> _pendingNotifications
+    Int _notificationFailures
+    String _sessionIdentifier
+    Bool _received
+    Bool _responded
+
+    McpHttpTransport(HttpClient client, Uri endpoint) {
+        if client == null || endpoint == null { throw "McpHttpTransport: null client/endpoint" }
+        self._client = client
+        self._endpoint = endpoint
+        self._exchange = null
+        self._protocolVersion = latestMcpProtocolVersion()
+        List<McpProtocolVersion> versions = []
+        versions.push(latestMcpProtocolVersion())
+        self._supportedVersions = versions
+        self._authorizationHeader = ""
+        Set<String> origins = []
+        self._allowedOrigins = origins
+        self._maximumBodyBytes = 16777216 as Long
+        self._open = true
+        Map<String, ByteStream> streams = [:]
+        self._activeStreams = streams
+        Set<String> cancelled = []
+        self._cancelled = cancelled
+        List<JsonValue> pending = []
+        self._pendingNotifications = pending
+        self._notificationFailures = 0
+        self._sessionIdentifier = ""
+        self._received = false
+        self._responded = false
+    }
+
+    McpHttpTransport(HttpClient client, Uri endpoint, McpProtocolVersion protocolVersion,
+                     String authorizationHeader, Long maximumBodyBytes) {
+        if client == null || endpoint == null || protocolVersion == null ||
+            authorizationHeader == null {
+            throw "McpHttpTransport: null argument"
+        }
+        if authorizationHeader.indexOf("\n") >= 0 || authorizationHeader.indexOf("\r") >= 0 {
+            throw "McpHttpTransport: invalid authorization header"
+        }
+        if maximumBodyBytes <= 0 as Long { throw "McpHttpTransport: invalid maximum" }
+        self._client = client
+        self._endpoint = endpoint
+        self._exchange = null
+        self._protocolVersion = protocolVersion
+        List<McpProtocolVersion> versions = []
+        versions.push(protocolVersion)
+        self._supportedVersions = versions
+        self._authorizationHeader = authorizationHeader
+        Set<String> origins = []
+        self._allowedOrigins = origins
+        self._maximumBodyBytes = maximumBodyBytes
+        self._open = true
+        Map<String, ByteStream> streams = [:]
+        self._activeStreams = streams
+        Set<String> cancelled = []
+        self._cancelled = cancelled
+        List<JsonValue> pending = []
+        self._pendingNotifications = pending
+        self._notificationFailures = 0
+        self._sessionIdentifier = ""
+        self._received = false
+        self._responded = false
+    }
+
+    McpHttpTransport(HttpExchange exchange, Set<String> allowedOrigins) {
+        if exchange == null || allowedOrigins == null {
+            throw "McpHttpTransport: null exchange/origins"
+        }
+        self._client = null
+        self._endpoint = null
+        self._exchange = exchange
+        self._protocolVersion = latestMcpProtocolVersion()
+        List<McpProtocolVersion> versions = []
+        versions.push(latestMcpProtocolVersion())
+        self._supportedVersions = versions
+        self._authorizationHeader = ""
+        self._allowedOrigins = allowedOrigins
+        self._maximumBodyBytes = 16777216 as Long
+        self._open = true
+        Map<String, ByteStream> streams = [:]
+        self._activeStreams = streams
+        Set<String> cancelled = []
+        self._cancelled = cancelled
+        List<JsonValue> pending = []
+        self._pendingNotifications = pending
+        self._notificationFailures = 0
+        self._sessionIdentifier = ""
+        self._received = false
+        self._responded = false
+    }
+
+    McpHttpTransport(HttpExchange exchange, Set<String> allowedOrigins,
+                     List<McpProtocolVersion> supportedVersions, Long maximumBodyBytes) {
+        if exchange == null || allowedOrigins == null || supportedVersions == null {
+            throw "McpHttpTransport: null exchange/origins/versions"
+        }
+        if supportedVersions.length() == 0 || maximumBodyBytes <= 0 as Long {
+            throw "McpHttpTransport: invalid versions/maximum"
+        }
+        self._client = null
+        self._endpoint = null
+        self._exchange = exchange
+        self._protocolVersion = supportedVersions.get(0)
+        self._supportedVersions = supportedVersions.copy()
+        self._authorizationHeader = ""
+        self._allowedOrigins = allowedOrigins
+        self._maximumBodyBytes = maximumBodyBytes
+        self._open = true
+        Map<String, ByteStream> streams = [:]
+        self._activeStreams = streams
+        Set<String> cancelled = []
+        self._cancelled = cancelled
+        List<JsonValue> pending = []
+        self._pendingNotifications = pending
+        self._notificationFailures = 0
+        self._sessionIdentifier = ""
+        self._received = false
+        self._responded = false
+    }
+
+    Result<JsonRpcResponse, Error> request(Context context, JsonRpcRequest request,
+            Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler) {
+        if context == null || request == null {
+            throw "McpHttpTransport.request: null argument"
+        }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        if self._exchange != null {
+            return Err(mcpHttpError(ErrorKind.Unsupported, "mcp http server cannot send requests"))
+        }
+        if !request.hasIdentifier() {
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http request requires id"))
+        }
+        Result<McpTransportResponse, Error> sent = self.sendRequest(context, request)
+        if sent.isErr() { return Err(sent.error()) }
+        McpTransportResponse response = sent.value()
+        if response.isSse() {
+            Result<JsonValue, Error> parsed = self.parseSse(response.body(), request,
+                context, notificationHandler)
+            if parsed.isErr() { return Err(parsed.error()) }
+            return JsonRpcResponse.parse(parsed.value())
+        }
+        Result<JsonValue, Error> parsed = Json.parse(response.body())
+        if parsed.isErr() { return Err(parsed.error()) }
+        return JsonRpcResponse.parse(parsed.value())
+    }
+
+    Result<Unit, Error> selectProtocolVersion(Context context, McpProtocolVersion version) {
+        if context == null || version == null {
+            throw "McpHttpTransport.selectProtocolVersion: null argument"
+        }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        Bool supported = false
+        Int index = 0
+        while index < self._supportedVersions.length() {
+            if self._supportedVersions.get(index) == version { supported = true }
+            index = index + 1
+        }
+        if !supported {
+            return Err(mcpHttpError(ErrorKind.Unsupported, "mcp http protocol version"))
+        }
+        self._protocolVersion = version
+        return Ok()
+    }
+
+    Result<Unit, Error> notify(Context context, JsonRpcRequest notification) {
+        if context == null || notification == null {
+            throw "McpHttpTransport.notify: null argument"
+        }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        if !notification.isNotification() {
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http notify requires notification"))
+        }
+        if self._exchange != null {
+            self._pendingNotifications.push(notification.toJson())
+            return Ok()
+        }
+        Result<McpTransportResponse, Error> sent = self.sendRequest(context, notification)
+        if sent.isErr() { return Err(sent.error()) }
+        if sent.value().status() < 200 || sent.value().status() > 299 {
+            return Err(mcpHttpError(ErrorKind.Network, "mcp http notify rejected"))
+        }
+        return Ok()
+    }
+
+    Result<JsonRpcRequest, Error> receive(Context context) {
+        if context == null { throw "McpHttpTransport.receive: null context" }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        if self._exchange == null {
+            return Err(mcpHttpError(ErrorKind.Unsupported, "mcp http client cannot receive"))
+        }
+        if self._received {
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http already received"))
+        }
+        HttpExchange exchange = self._exchange as HttpExchange
+        Result<Unit, Error> origin = self.checkOrigin(exchange)
+        if origin.isErr() {
+            exchange.respondStatus(403)
+            return Err(origin.error())
+        }
+        HttpHeaders headers = exchange.request().headers()
+        String? versionText = headers.getOrNull("MCP-Protocol-Version")
+        if versionText != null {
+            McpProtocolVersion parsed = parseMcpProtocolVersion(versionText as String)
+            if parsed == McpProtocolVersion.Unknown || !self.supportsVersion(parsed) {
+                exchange.respondStatus(400)
+                return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http version"))
+            }
+            self._protocolVersion = parsed
+        }
+        String? sessionText = headers.getOrNull("MCP-Session-Id")
+        if sessionText != null { self._sessionIdentifier = sessionText as String }
+        Result<String, Error> body = exchange.request().body().readText(self._maximumBodyBytes)
+        if body.isErr() {
+            exchange.respondStatus(400)
+            return Err(body.error())
+        }
+        Result<JsonValue, Error> parsedValue = Json.parse(body.value())
+        if parsedValue.isErr() {
+            exchange.respondStatus(400)
+            return Err(parsedValue.error())
+        }
+        Result<JsonRpcRequest, Error> parsed = JsonRpcRequest.parse(parsedValue.value())
+        if parsed.isErr() {
+            exchange.respondStatus(400)
+            return Err(parsed.error())
+        }
+        String? methodHeader = headers.getOrNull("Mcp-Method")
+        if methodHeader != null && (methodHeader as String) != parsed.value().method() {
+            exchange.respondStatus(400)
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http method mismatch"))
+        }
+        self._received = true
+        return parsed
+    }
+
+    Result<Unit, Error> respond(Context context, JsonRpcResponse response) {
+        if context == null || response == null {
+            throw "McpHttpTransport.respond: null argument"
+        }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        if self._exchange == null {
+            return Err(mcpHttpError(ErrorKind.Unsupported, "mcp http client cannot respond"))
+        }
+        if !self._received || self._responded {
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http respond state"))
+        }
+        HttpExchange exchange = self._exchange as HttpExchange
+        self._responded = true
+        if self._pendingNotifications.length() == 0 {
+            String text = Json.stringify(response.toJson())
+            HttpHeaders headers = new HttpHeaders()
+            headers.set("Content-Type", "application/json")
+            HttpResponse wire = HttpResponse.of(200).withHeaders(headers)
+                .withBody(HttpBody.fromText(text))
+            return exchange.respond(wire)
+        }
+        Result<Unit, Error> opened = exchange.beginChunked(200, new HttpHeaders())
+        if opened.isErr() { return Err(opened.error()) }
+        Int index = 0
+        while index < self._pendingNotifications.length() {
+            String event = "event: message\ndata: " +
+                Json.stringify(self._pendingNotifications.get(index)) + "\n\n"
+            Result<Unit, Error> written = exchange.writeChunk(Bytes.fromString(event))
+            if written.isErr() { return Err(written.error()) }
+            index = index + 1
+        }
+        String finalEvent = "event: message\ndata: " + Json.stringify(response.toJson()) + "\n\n"
+        Result<Unit, Error> finalWrite = exchange.writeChunk(Bytes.fromString(finalEvent))
+        if finalWrite.isErr() { return Err(finalWrite.error()) }
+        return exchange.endChunked()
+    }
+
+    Result<Unit, Error> acknowledge(Context context) {
+        if context == null { throw "McpHttpTransport.acknowledge: null context" }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        if self._exchange == null {
+            return Err(mcpHttpError(ErrorKind.Unsupported, "mcp http client cannot acknowledge"))
+        }
+        if self._responded {
+            return Err(mcpHttpError(ErrorKind.InvalidArgument, "mcp http already responded"))
+        }
+        self._responded = true
+        HttpExchange exchange = self._exchange as HttpExchange
+        return exchange.respondStatus(202)
+    }
+
+    Result<Unit, Error> cancel(Context context, JsonRpcId identifier, String reason) {
+        if context == null || identifier == null || reason == null {
+            throw "McpHttpTransport.cancel: null argument"
+        }
+        if !self._open { return Err(mcpHttpError(ErrorKind.Unavailable, "mcp http closed")) }
+        String key = identifier.toString()
+        if self._cancelled.has(key) { return Ok() }
+        self._cancelled.add(key)
+        if self._activeStreams.has(key) {
+            ByteStream stream = self._activeStreams.getOr(key, null)
+            stream.close()
+            self._activeStreams.remove(key)
+        }
+        return Ok()
+    }
+
+    String? sessionIdentifier() {
+        if self._sessionIdentifier == "" { return null }
+        return self._sessionIdentifier
+    }
+
+    Bool isCancelled(JsonRpcId identifier) {
+        if identifier == null { throw "McpHttpTransport.isCancelled: null" }
+        return self._cancelled.has(identifier.toString())
+    }
+
+    Int notificationFailureCount() { return self._notificationFailures }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        if self._exchange != null {
+            HttpExchange exchange = self._exchange as HttpExchange
+            return exchange.close()
+        }
+        return Ok()
+    }
+
+    Bool isOpen() { return self._open }
+
+    // ----- internals -----
+    private Result<McpTransportResponse, Error> sendRequest(Context context,
+                                                             JsonRpcRequest request) {
+        HttpClient client = self._client as HttpClient
+        Uri endpoint = self._endpoint as Uri
+        McpProtocolVersion? version = self._protocolVersion
+        HttpRequest http = new HttpRequest(HttpMethod.Post, endpoint)
+        http = http.withHeader("Content-Type", "application/json")
+        http = http.withHeader("Accept", "application/json, text/event-stream")
+        if version != null {
+            http = http.withHeader("MCP-Protocol-Version", mcpProtocolVersionText(version as McpProtocolVersion))
+        }
+        if self._authorizationHeader != "" {
+            http = http.withHeader("Authorization", self._authorizationHeader)
+        }
+        http = http.withHeader("Mcp-Method", request.method())
+        http = http.withBody(HttpBody.fromText(Json.stringify(request.toJson())))
+        Result<HttpResponse, Error> response = client.request(context, http)
+        if response.isErr() { return Err(response.error()) }
+        HttpResponse actual = response.value()
+        String? session = actual.headers().getOrNull("MCP-Session-Id")
+        if session != null { self._sessionIdentifier = session as String }
+        Result<String, Error> body = actual.body().readText(self._maximumBodyBytes)
+        if body.isErr() { return Err(body.error()) }
+        String contentType = ""
+        String? contentTypeValue = actual.headers().getOrNull("Content-Type")
+        if contentTypeValue != null { contentType = contentTypeValue as String }
+        Bool sse = false
+        if contentType.indexOf("text/event-stream") >= 0 { sse = true }
+        return Ok(new McpTransportResponse(actual.status().code(), body.value(), sse))
+    }
+
+    private Result<JsonValue, Error> parseSse(String body, JsonRpcRequest request,
+                                              Context context,
+            Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler) {
+        List<String> lines = body.split("\n")
+        String data = ""
+        JsonValue? finalResponse = null
+        Int index = 0
+        while index < lines.length() {
+            String line = lines.get(index).trim()
+            if line == "" {
+                if data != "" {
+                    Result<JsonValue, Error> parsed = Json.parse(data)
+                    if parsed.isErr() { return Err(parsed.error()) }
+                    JsonValue value = parsed.value()
+                    JsonValue? method = mcpHttpField(value, "method")
+                    if method != null {
+                        Result<JsonRpcRequest, Error> note = JsonRpcRequest.parse(value)
+                        if note.isErr() { self._notificationFailures = self._notificationFailures + 1 }
+                        else {
+                            Result<Unit, Error> handled = notificationHandler(context, note.value())
+                            if handled.isErr() { self._notificationFailures = self._notificationFailures + 1 }
+                        }
+                    } else {
+                        JsonValue? id = mcpHttpField(value, "id")
+                        JsonValue expected = request.toJson()
+                        JsonValue? expectedId = mcpHttpField(expected, "id")
+                        if expectedId != null && id != null {
+                            JsonValue expectedValue = expectedId as JsonValue
+                            JsonValue actualId = id as JsonValue
+                            if Json.stringify(expectedValue) == Json.stringify(actualId) {
+                                finalResponse = value
+                            }
+                        }
+                    }
+                    data = ""
+                }
+            } else if line.startsWith("data:") {
+                String part = line.substring(5, line.length() - 5).trim()
+                if data == "" { data = part } else { data = data + "\n" + part }
+            }
+            index = index + 1
+        }
+        if finalResponse == null {
+            return Err(mcpHttpError(ErrorKind.DataCorrupted, "mcp http missing response"))
+        }
+        return Ok(finalResponse as JsonValue)
+    }
+
+    private Bool supportsVersion(McpProtocolVersion version) {
+        Int index = 0
+        while index < self._supportedVersions.length() {
+            if self._supportedVersions.get(index) == version { return true }
+            index = index + 1
+        }
+        return false
+    }
+
+    private Result<Unit, Error> checkOrigin(HttpExchange exchange) {
+        String? origin = exchange.request().headers().getOrNull("Origin")
+        if origin == null {
+            if self._allowedOrigins.length() > 0 { return Ok() }
+            return Ok()
+        }
+        if !self._allowedOrigins.has(origin as String) {
+            return Err(mcpHttpError(ErrorKind.PermissionDenied, "mcp http origin denied"))
+        }
+        return Ok()
+    }
+}
+
+class McpTransportResponse {
+    final Int _status
+    final String _body
+    final Bool _sse
+    McpTransportResponse(Int status, String body, Bool sse) {
+        self._status = status
+        self._body = body
+        self._sse = sse
+    }
+    Int status() { return self._status }
+    String body() { return self._body }
+    Bool isSse() { return self._sse }
+}
+
+static Error mcpHttpError(ErrorKind kind, String message) {
+    return new BasicError(kind, message)
+}
+
+static JsonValue? mcpHttpField(JsonValue value, String key) {
+    if value == null || !value.isObject() { return null }
+    JsonObject object = value.asObject() as JsonObject
+    return object.getOrNull(key)
 }
