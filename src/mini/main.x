@@ -14395,6 +14395,9 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.jsonrpc" {
         return "jsonrpc/JsonRpc.x"
     }
+    if pkg == "xdk.mcp" {
+        return "mcp/Mcp.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

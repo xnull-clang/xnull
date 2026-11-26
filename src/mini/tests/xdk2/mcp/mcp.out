@@ -1,0 +1,13 @@
+versions=2024-11-05,2025-03-26,2025-06-18,2025-11-25,2026-07-28,true,true,2026-07-28
+version-parse=true,2025-11-25,true,true
+capability=tools.listChanged,resources,elicitation.url,true,true,false
+capability-json=true,true,true,true
+server=weather,false,true,true,2026-07-28,true,server weather 1.0.0
+client=true,true,client client 2.0.0
+resource=file:///tmp/a.txt,true,true
+content=text,image,resource_link,resource,resource_content,true,true,true
+content-roundtrip=true,true,true,true,true
+prompt=greet,true,user name,true,Hello Ada,true,1
+tool=get_weather,true,false,true,true
+tool-result=2,true,false,2,true
+session=true,true,false,true,true,mcp session 2026-07-28 modern=true

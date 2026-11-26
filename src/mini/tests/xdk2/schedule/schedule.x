@@ -105,7 +105,7 @@ static Int main() {
 
     CounterJob triggerJob = new CounterJob()
     Result<JobHandle, Error> triggerHandle = scheduler.schedule(triggerJob,
-        Schedule.fixedDelay(1000 as Long))
+        Schedule.fixedDelayWithDelay(60000 as Long, 60000 as Long))
     Result<Unit, Error> triggered = scheduler.trigger(triggerHandle.value())
     print("sched-trigger=" + str(triggered.isOk()) + "," + str(triggerJob.runs))
 

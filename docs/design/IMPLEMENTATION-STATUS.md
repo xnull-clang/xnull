@@ -5,7 +5,7 @@
 | 日期 | 2026-11-25 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 44 包 / 370 类型；`design` 18 包 / 165 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 45 包 / 386 类型；`design` 17 包 / 149 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -18,9 +18,9 @@
 
 **没有全部做完。**
 
-- 76 个包中：**44 个 implemented、18 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**45 个 implemented、17 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
-- 已实现的 44 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
+- 已实现的 45 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
 - B5–B10 的大部分包、C7 的实现/验证、平台/OS/GPU/ML/Agent/API 域仍未实现。
 
 一句话：**注解平台与 5+ 个领域闭环已完成；XDK 2.x 的多数包仍是设计稿。**
@@ -39,12 +39,12 @@
 | L5 网络/数据 | 9 | 125 | 0 | 8 | 1 |
 | L6 平台/计算 | 17 | 93 | 0 | 7 | 10 |
 | L7 应用服务 | 12 | 82 | 0 | 12 | 0 |
-| L8 解决方案 | 10 | 128 | 0 | 4 | 6 |
-| **合计** | **76** | **704** | **14** | **44** | **18** |
+| L8 解决方案 | 10 | 128 | 0 | 5 | 5 |
+| **合计** | **76** | **704** | **14** | **45** | **17** |
 
 ---
 
-## 3. 已实现包（44）
+## 3. 已实现包（45）
 
 | 包 | 文档类型 | 真实范围 / 边界 |
 | --- | ---: | --- |
@@ -77,6 +77,7 @@
 | `xdk.i18n` | 7 | 实现 6/7：Locale/PluralRules/NumberFormat/Catalog/Formatter/Translator；DateFormat planned |
 | `xdk.numerics` | 12 | 实现 4/12：Polynomial/RootFinder/Interpolation/Numerics；BigInt/FFT/ODE 等 planned |
 | `xdk.jsonrpc` | 5 | 实现 5/5：Id/Error/Request/Response/Peer；仅消息与协议形状 |
+| `xdk.mcp` | 16 | 实现 10/16：版本/能力/Info/Content/Resource/Prompt/Tool/ToolResult/Session；Client/Server/Registry/Transport planned |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |
@@ -95,14 +96,14 @@
 
 ---
 
-## 4. 仅设计、未实现（18）
+## 4. 仅设计、未实现（17）
 
 | 层 | 包 |
 | --- | --- |
 | L4 | `xdk.reflect` |
 | L5 | `xdk.net.tls` |
 | L6 | `xdk.os.host`、`xdk.os.hardware`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
-| L8 | `xdk.mcp`、`xdk.ml`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |
+| L8 | `xdk.ml`、`xdk.api`、`xdk.agent`、`xdk.accel`、`xdk.embedded` |
 
 这些包在 `docs/design/` 下有合同/类型文档，但 `src/xdk/` 无实现或仅有设计占位。
 

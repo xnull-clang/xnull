@@ -12,6 +12,17 @@
 
 ---
 
+## 0.5 实现状态（M22.3）
+
+已实现核心 10/16：`McpProtocolVersion`、`McpCapability`、`McpServerInfo`、
+`McpClientInfo`、`McpContent`、`McpResource`、`McpPrompt`、`McpTool`、
+`McpToolResult`、`McpSession`；McpClient/Server/Registry/Transport 留 M22.4。
+
+- 协议版本 5 个 + Unknown 哨兵（编译器不支持 Result<enum>，解析非 Result）；
+- 能力父子/方向/JSON 子集；ServerInfo/ClientInfo 能力归一与 JSON；
+- Content/Resource/Prompt/Tool/ToolResult/Session 基本 JSON roundtrip；
+- 不做传输/客户端/服务端/registry；不依赖真实连接。
+
 ## 1. 包定位
 
 `xdk.mcp` 提供 Model Context Protocol 的客户端/服务端类型与传输实现：
