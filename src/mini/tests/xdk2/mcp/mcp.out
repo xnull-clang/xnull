@@ -11,3 +11,11 @@ prompt=greet,true,user name,true,Hello Ada,true,1
 tool=get_weather,true,false,true,true
 tool-result=2,true,false,2,true
 session=true,true,false,true,true,mcp session 2026-07-28 modern=true
+server-register=true,true,true,true
+client-server=true,2026-07-28,true,1,true,1,true,true
+client-allow=permission_denied,permission_denied
+registry=true,already_exists,true,already_exists,true,true,1
+registry-close=true,true,false
+stdio-notify=true,true,true
+stdio-request=true,true,true,true,false
+stdio-receive=true,ping

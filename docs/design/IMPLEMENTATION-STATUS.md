@@ -77,7 +77,7 @@
 | `xdk.i18n` | 7 | 实现 6/7：Locale/PluralRules/NumberFormat/Catalog/Formatter/Translator；DateFormat planned |
 | `xdk.numerics` | 12 | 实现 4/12：Polynomial/RootFinder/Interpolation/Numerics；BigInt/FFT/ODE 等 planned |
 | `xdk.jsonrpc` | 5 | 实现 5/5：Id/Error/Request/Response/Peer；仅消息与协议形状 |
-| `xdk.mcp` | 16 | 实现 10/16：版本/能力/Info/Content/Resource/Prompt/Tool/ToolResult/Session；Client/Server/Registry/Transport planned |
+| `xdk.mcp` | 16 | 实现 15/16：消息模型 + Stdio/Client/Server/Registry；HttpTransport planned |
 | `xdk.net.http` | 40 | 路由闭环子集 19 类型：Method/Status/Headers/Body/Request/Response/Form/Cookie + client/server（text-only）；无 TLS/HTTP2/proxy/multipart/流式 |
 | `xdk.jwt` | 6 | HS256 encode/decode/verify + JwtAuthenticator；HS384/512、RS/PS/ES/EdDSA 未实现 |
 | `xdk.auth` | 6 | AuthScheme/Credential/Principal/Authenticator/AuthService/AuthHeaders；Bearer/JWT + API key |

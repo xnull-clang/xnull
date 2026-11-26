@@ -1,5 +1,6 @@
 // xdk.mcp —— MCP 消息模型核心（M22.3）
 //
+import xdk.jsonrpc
 // 实现 ProtocolVersion/Capability/ServerInfo/ClientInfo/Content/Resource/
 // Prompt/Tool/ToolResult/Session；传输/客户端/服务端/registry 留 M22.4。
 package xdk.mcp
@@ -1567,4 +1568,711 @@ class McpSession {
     Bool serverSupports(McpCapability capability) { return self._serverInfo.supports(capability) }
     Bool clientSupports(McpCapability capability) { return self._clientInfo.supports(capability) }
     String describe() { return "mcp session " + mcpProtocolVersionText(self._protocolVersion) + " modern=" + str(self._modern) }
+}
+
+// ---------- McpTransport protocol ----------
+protocol McpTransport {
+    Result<JsonRpcResponse, Error> request(Context context, JsonRpcRequest request,
+        Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler);
+    Result<Unit, Error> selectProtocolVersion(Context context, McpProtocolVersion version);
+    Result<Unit, Error> notify(Context context, JsonRpcRequest notification);
+    Result<JsonRpcRequest, Error> receive(Context context);
+    Result<Unit, Error> respond(Context context, JsonRpcResponse response);
+    Result<Unit, Error> acknowledge(Context context);
+    Result<Unit, Error> cancel(Context context, JsonRpcId identifier, String reason);
+    String? sessionIdentifier();
+    Result<Unit, Error> close();
+    Bool isOpen();
+}
+
+
+// ---------- Stdio transport helpers ----------
+protocol McpReader {
+    Result<String?, Error> readLine(Context context);
+}
+
+protocol McpWriter {
+    Bool isOpen();
+    Result<Unit, Error> writeAll(Context context, Bytes data);
+    Result<Unit, Error> flush();
+}
+
+class McpStdioTransport implements McpTransport {
+    final McpReader _input
+    final McpWriter _output
+    final Long _maximumMessageBytes
+    final Bool _ownsStreams
+    Bool _open
+
+    McpStdioTransport(McpReader input, McpWriter output) {
+        if input == null || output == null { throw "McpStdioTransport: null stream" }
+        self._input = input
+        self._output = output
+        self._maximumMessageBytes = 8388608 as Long
+        self._ownsStreams = false
+        self._open = true
+    }
+
+    McpStdioTransport(McpReader input, McpWriter output, Long maximumMessageBytes,
+                      Bool ownsStreams, Int maximumConcurrentRequests) {
+        if input == null || output == null { throw "McpStdioTransport: null stream" }
+        if maximumMessageBytes <= 0 as Long { throw "McpStdioTransport: non-positive maximum" }
+        if maximumConcurrentRequests != 1 { throw "McpStdioTransport: concurrency unsupported" }
+        self._input = input
+        self._output = output
+        self._maximumMessageBytes = maximumMessageBytes
+        self._ownsStreams = ownsStreams
+        self._open = true
+    }
+
+    Result<JsonRpcResponse, Error> request(Context context, JsonRpcRequest request,
+            Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler) {
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio closed")) }
+        if !request.hasIdentifier() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "mcp: request requires id"))
+        }
+        Result<Unit, Error> written = self.writeMessage(context, request.toJson())
+        if written.isErr() { return Err(written.error()) }
+        while true {
+            Result<String?, Error> line = self._input.readLine(context)
+            if line.isErr() { return Err(line.error()) }
+            String? value = line.value()
+            if value == null {
+                return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio EOF"))
+            }
+            Result<JsonValue, Error> parsed = Json.parse(value as String)
+            if parsed.isErr() {
+                return Err(new BasicError(ErrorKind.DataCorrupted, "mcp stdio: bad json"))
+            }
+            JsonValue message = parsed.value()
+            if message.isObject() {
+                JsonObject object = message.asObject() as JsonObject
+                if object.has("result") || object.has("error") {
+                    Result<JsonRpcResponse, Error> response = JsonRpcResponse.parse(message)
+                    if response.isErr() { return Err(response.error()) }
+                    JsonRpcId? receivedId = response.value().identifier()
+                    if receivedId == null {
+                        return Err(new BasicError(ErrorKind.DataCorrupted, "mcp stdio: missing id"))
+                    }
+                    JsonRpcId actualReceivedId = receivedId as JsonRpcId
+                    JsonRpcId actualRequestId = request.identifier() as JsonRpcId
+                    if !actualReceivedId.equals(actualRequestId) {
+                        return Err(new BasicError(ErrorKind.DataCorrupted, "mcp stdio: id mismatch"))
+                    }
+                    return Ok(response.value())
+                }
+            }
+            Result<JsonRpcRequest, Error> received = JsonRpcRequest.parse(message)
+            if received.isErr() { return Err(received.error()) }
+            if received.value().hasIdentifier() {
+                return Err(new BasicError(ErrorKind.Unsupported, "mcp stdio: server request"))
+            }
+            notificationHandler(context, received.value())
+        }
+    }
+
+    Result<Unit, Error> selectProtocolVersion(Context context, McpProtocolVersion version) {
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio closed")) }
+        return Ok()
+    }
+
+    Result<Unit, Error> notify(Context context, JsonRpcRequest notification) {
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio closed")) }
+        if notification.hasIdentifier() {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "mcp: notification has id"))
+        }
+        return self.writeMessage(context, notification.toJson())
+    }
+
+    Result<JsonRpcRequest, Error> receive(Context context) {
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio closed")) }
+        Result<String?, Error> line = self._input.readLine(context)
+        if line.isErr() { return Err(line.error()) }
+        String? value = line.value()
+        if value == null { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio EOF")) }
+        Result<JsonValue, Error> parsed = Json.parse(value as String)
+        if parsed.isErr() { return Err(new BasicError(ErrorKind.DataCorrupted, "mcp stdio: bad json")) }
+        return JsonRpcRequest.parse(parsed.value())
+    }
+
+    Result<Unit, Error> respond(Context context, JsonRpcResponse response) {
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio closed")) }
+        return self.writeMessage(context, response.toJson())
+    }
+
+    Result<Unit, Error> acknowledge(Context context) { return Ok() }
+
+    Result<Unit, Error> cancel(Context context, JsonRpcId identifier, String reason) {
+        if identifier == null { throw "McpStdioTransport.cancel: null id" }
+        JsonRpcRequest notification = JsonRpcRequest.notification("notifications/cancelled")
+        return self.notify(context, notification)
+    }
+
+    String? sessionIdentifier() { return null }
+    Bool isOpen() { return self._open }
+
+    Result<Unit, Error> close() {
+        self._open = false
+        return Ok()
+    }
+
+    private Result<Unit, Error> writeMessage(Context context, JsonValue value) {
+        if !self._output.isOpen() {
+            return Err(new BasicError(ErrorKind.Unavailable, "mcp stdio output closed"))
+        }
+        String line = Json.stringify(value)
+        Result<Unit, Error> written = self._output.writeAll(context, fromUtf8(line + "\n"))
+        if written.isErr() { return Err(written.error()) }
+        return self._output.flush()
+    }
+}
+
+// ---------- Handler slots ----------
+class McpToolHandlerSlot {
+    final Result<McpToolResult, Error>(Context, JsonValue) _handler
+    McpToolHandlerSlot(Result<McpToolResult, Error>(Context, JsonValue) handler) {
+        self._handler = handler
+    }
+    Result<McpToolResult, Error> run(Context context, JsonValue arguments) {
+        return self._handler(context, arguments)
+    }
+}
+
+class McpResourceHandlerSlot {
+    final Result<McpContent, Error>(Context, String) _handler
+    McpResourceHandlerSlot(Result<McpContent, Error>(Context, String) handler) {
+        self._handler = handler
+    }
+    Result<McpContent, Error> run(Context context, String uri) { return self._handler(context, uri) }
+}
+
+class McpPromptHandlerSlot {
+    final Result<McpPrompt, Error>(Context, Map<String, String>) _handler
+    McpPromptHandlerSlot(Result<McpPrompt, Error>(Context, Map<String, String>) handler) {
+        self._handler = handler
+    }
+    Result<McpPrompt, Error> run(Context context, Map<String, String> arguments) {
+        return self._handler(context, arguments)
+    }
+}
+
+// ---------- McpServer ----------
+class McpServer {
+    final McpServerInfo _serverInfo
+    final List<McpTool> _tools
+    final List<McpToolHandlerSlot> _toolHandlers
+    final List<McpResource> _resources
+    final List<McpResourceHandlerSlot> _resourceHandlers
+    final List<McpPrompt> _prompts
+    final List<McpPromptHandlerSlot> _promptHandlers
+    Bool _open
+
+    McpServer(McpServerInfo serverInfo) {
+        if serverInfo == null { throw "McpServer: null serverInfo" }
+        self._serverInfo = serverInfo
+        self._tools = []
+        self._toolHandlers = []
+        self._resources = []
+        self._resourceHandlers = []
+        self._prompts = []
+        self._promptHandlers = []
+        self._open = true
+    }
+
+    Result<Unit, Error> registerTool(McpTool tool,
+            Result<McpToolResult, Error>(Context, JsonValue) handler) {
+        if tool == null { throw "McpServer.registerTool: null tool" }
+        Int index = 0
+        while index < self._tools.length() {
+            if self._tools.get(index).name() == tool.name() {
+                return Err(new BasicError(ErrorKind.AlreadyExists, "duplicate tool: " + tool.name()))
+            }
+            index = index + 1
+        }
+        self._tools.push(tool)
+        self._toolHandlers.push(new McpToolHandlerSlot(handler))
+        return Ok()
+    }
+
+    Result<Unit, Error> registerResource(McpResource resource,
+            Result<McpContent, Error>(Context, String) handler) {
+        if resource == null { throw "McpServer.registerResource: null resource" }
+        self._resources.push(resource)
+        self._resourceHandlers.push(new McpResourceHandlerSlot(handler))
+        return Ok()
+    }
+
+    Result<Unit, Error> registerPrompt(McpPrompt prompt,
+            Result<McpPrompt, Error>(Context, Map<String, String>) handler) {
+        if prompt == null { throw "McpServer.registerPrompt: null prompt" }
+        self._prompts.push(prompt)
+        self._promptHandlers.push(new McpPromptHandlerSlot(handler))
+        return Ok()
+    }
+
+    McpServerInfo serverInfo() { return self._serverInfo }
+    Bool isOpen() { return self._open }
+
+    Result<JsonRpcResponse, Error> handleRequest(Context context, JsonRpcRequest request) {
+        if context == null || request == null { throw "McpServer.handleRequest: null argument" }
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp server closed")) }
+        JsonRpcId? identifier = request.identifier()
+        if identifier == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "mcp server: notification requires serve"))
+        }
+        JsonRpcId actualId = identifier as JsonRpcId
+        String method = request.method()
+        if method == "initialize" {
+            JsonObject result = new JsonObject()
+            result.set("protocolVersion", Json.string("2026-07-28"))
+            result.set("serverInfo", mcpObjectValue(self._serverInfo.toIdentityJson()))
+            result.set("capabilities", mcpObjectValue(mcpCapabilitiesJson(
+                self._serverInfo.capabilities())))
+            return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(result)))
+        }
+        if method == "ping" {
+            return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(new JsonObject())))
+        }
+        if method == "tools/list" {
+            JsonValue tools = Json.array()
+            JsonArray array = tools.asArray() as JsonArray
+            Int index = 0
+            while index < self._tools.length() {
+                array.add(mcpObjectValue(self._tools.get(index).toJson()))
+                index = index + 1
+            }
+            JsonObject result = new JsonObject()
+            result.set("tools", tools)
+            return Ok(JsonRpcResponse.success(actualId, mcpObjectValue(result)))
+        }
+        if method == "tools/call" {
+            JsonValue? params = request.params()
+            if params == null {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonValue actualParams = params as JsonValue
+            if !actualParams.isObject() {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonObject object = actualParams.asObject() as JsonObject
+            String name = mcpString(object, "name", "")
+            JsonValue arguments = object.getOr("arguments", mcpObjectValue(new JsonObject()))
+            Int index = 0
+            while index < self._tools.length() {
+                if self._tools.get(index).name() == name {
+                    McpToolHandlerSlot handler = self._toolHandlers.get(index)
+                    Result<McpToolResult, Error> result = handler.run(context, arguments)
+                    if result.isErr() {
+                        return Ok(JsonRpcResponse.failure(actualId,
+                            JsonRpcError.internalError("tool execution failed")))
+                    }
+                    return Ok(JsonRpcResponse.success(actualId,
+                        mcpObjectValue(result.value().toJson())))
+                }
+                index = index + 1
+            }
+            return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.methodNotFound(name)))
+        }
+        if method == "resources/read" {
+            JsonValue? params = request.params()
+            if params == null {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonValue actualParams = params as JsonValue
+            if !actualParams.isObject() {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonObject object = actualParams.asObject() as JsonObject
+            String uri = mcpString(object, "uri", "")
+            Int index = 0
+            while index < self._resources.length() {
+                if self._resources.get(index).uri() == uri {
+                    McpResourceHandlerSlot handler = self._resourceHandlers.get(index)
+                    Result<McpContent, Error> result = handler.run(context, uri)
+                    if result.isErr() {
+                        return Ok(JsonRpcResponse.failure(actualId,
+                            JsonRpcError.internalError("resource read failed")))
+                    }
+                    return Ok(JsonRpcResponse.success(actualId,
+                        mcpObjectValue(result.value().toJson())))
+                }
+                index = index + 1
+            }
+            return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("unknown resource")))
+        }
+        if method == "prompts/get" {
+            JsonValue? params = request.params()
+            if params == null {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonValue actualParams = params as JsonValue
+            if !actualParams.isObject() {
+                return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.invalidParams("")))
+            }
+            JsonObject object = actualParams.asObject() as JsonObject
+            String name = mcpString(object, "name", "")
+            Map<String, String> arguments = [:]
+            Int index = 0
+            while index < self._prompts.length() {
+                if self._prompts.get(index).name() == name {
+                    McpPromptHandlerSlot handler = self._promptHandlers.get(index)
+                    Result<McpPrompt, Error> result = handler.run(context, arguments)
+                    if result.isErr() {
+                        return Ok(JsonRpcResponse.failure(actualId,
+                            JsonRpcError.internalError("prompt resolve failed")))
+                    }
+                    return Ok(JsonRpcResponse.success(actualId,
+                        mcpObjectValue(result.value().toJson())))
+                }
+                index = index + 1
+            }
+            return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.methodNotFound(name)))
+        }
+        return Ok(JsonRpcResponse.failure(actualId, JsonRpcError.methodNotFound(method)))
+    }
+
+    Result<Unit, Error> serve(Context context, McpTransport transport) {
+        if context == null || transport == null { throw "McpServer.serve: null argument" }
+        while self._open && !context.isCancelled() && transport.isOpen() {
+            Result<JsonRpcRequest, Error> received = transport.receive(context)
+            if received.isErr() {
+                if context.isCancelled() { return Err(new BasicError(ErrorKind.Cancelled, "mcp server cancelled")) }
+                self._open = false
+                return Ok()
+            }
+            JsonRpcRequest request = received.value()
+            Result<JsonRpcResponse, Error> handled = self.handleRequest(context, request)
+            if handled.isOk() {
+                Result<Unit, Error> responded = transport.respond(context, handled.value())
+                if responded.isErr() { return Err(responded.error()) }
+            } else if request.hasIdentifier() {
+                JsonRpcId identifier = request.identifier() as JsonRpcId
+                transport.respond(context, JsonRpcResponse.failure(identifier,
+                    JsonRpcError.internalError("request failed")))
+            }
+        }
+        return Ok()
+    }
+
+    Result<Unit, Error> close() { self._open = false; return Ok() }
+}
+
+// ---------- McpClient ----------
+class McpClient {
+    final McpTransport _transport
+    final McpClientInfo _clientInfo
+    final Set<String> _allowedTools
+    final Bool _requireConfirmation
+    McpSession? _session
+    Long _nextId
+    List<McpTool> _tools
+    List<McpResource> _resources
+    List<McpPrompt> _prompts
+    Bool _open
+
+    McpClient(McpTransport transport, McpClientInfo clientInfo,
+              Set<String> allowedTools, Bool requireConfirmation) {
+        if transport == null || clientInfo == null || allowedTools == null {
+            throw "McpClient: null argument"
+        }
+        self._transport = transport
+        self._clientInfo = clientInfo
+        self._allowedTools = allowedTools
+        self._requireConfirmation = requireConfirmation
+        self._session = null
+        self._nextId = 1 as Long
+        self._tools = []
+        self._resources = []
+        self._prompts = []
+        self._open = true
+    }
+
+    McpSession? session() { return self._session }
+    Bool isOpen() { return self._open && self._transport.isOpen() }
+
+    Result<McpSession, Error> initialize(Context context) {
+        if context == null { throw "McpClient.initialize: null context" }
+        JsonObject params = new JsonObject()
+        params.set("protocolVersion", Json.string("2026-07-28"))
+        params.set("clientInfo", mcpObjectValue(self._clientInfo.toIdentityJson()))
+        JsonRpcRequest request = JsonRpcRequest.requestWithParams(
+            JsonRpcId.ofNumber(self._nextId), "initialize", mcpObjectValue(params))
+        self._nextId = self._nextId + 1 as Long
+        Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler =
+            (Context c, JsonRpcRequest r) -> {
+                return Ok()
+            }
+        Result<JsonRpcResponse, Error> response = self._transport.request(context,
+            request, notificationHandler)
+        if response.isErr() { return Err(response.error()) }
+        Result<JsonValue, Error> result = self._responseResult(response.value())
+        if result.isErr() { return Err(result.error()) }
+        JsonValue resultValue = result.value()
+        String versionText = mcpString(resultValue.asObject() as JsonObject,
+            "protocolVersion", "2026-07-28")
+        McpProtocolVersion version = parseMcpProtocolVersion(versionText)
+        McpServerInfo serverInfo = McpServerInfo.parse(resultValue).value()
+        McpSession session = new McpSession(version, serverInfo, self._clientInfo,
+            "", isModernMcpProtocolVersion(version), true, true)
+        self._session = session
+        JsonRpcRequest initialized = JsonRpcRequest.notification("notifications/initialized")
+        self._transport.notify(context, initialized)
+        return Ok(session)
+    }
+
+    Result<List<McpTool>, Error> listTools(Context context) {
+        Result<JsonValue, Error> result = self.call("tools/list", new JsonObject(), context)
+        if result.isErr() { return Err(result.error()) }
+        JsonValue value = result.value()
+        if !value.isObject() { return Err(new BasicError(ErrorKind.DataCorrupted, "tools/list result")) }
+        JsonObject valueObject = value.asObject() as JsonObject
+        JsonValue? toolsValue = valueObject.getOrNull("tools")
+        if toolsValue == null {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "tools/list missing tools"))
+        }
+        JsonValue actualTools = toolsValue as JsonValue
+        if !actualTools.isArray() {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "tools/list missing tools"))
+        }
+        JsonArray array = actualTools.asArray() as JsonArray
+        List<McpTool> tools = []
+        Int index = 0
+        while index < array.length() {
+            Result<McpTool, Error> parsed = McpTool.parse(array.get(index))
+            if parsed.isErr() { return Err(parsed.error()) }
+            tools.push(parsed.value())
+            index = index + 1
+        }
+        self._tools = tools
+        return Ok(tools)
+    }
+
+    Result<List<McpResource>, Error> listResources(Context context) {
+        Result<JsonValue, Error> result = self.call("resources/list", new JsonObject(), context)
+        if result.isErr() { return Err(result.error()) }
+        JsonValue value = result.value()
+        if !value.isObject() { return Err(new BasicError(ErrorKind.DataCorrupted, "resources/list result")) }
+        JsonObject valueObject = value.asObject() as JsonObject
+        JsonValue? resourcesValue = valueObject.getOrNull("resources")
+        if resourcesValue == null {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "resources/list missing resources"))
+        }
+        JsonValue actualResources = resourcesValue as JsonValue
+        if !actualResources.isArray() {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "resources/list missing resources"))
+        }
+        JsonArray array = actualResources.asArray() as JsonArray
+        List<McpResource> resources = []
+        Int index = 0
+        while index < array.length() {
+            Result<McpResource, Error> parsed = McpResource.parse(array.get(index))
+            if parsed.isErr() { return Err(parsed.error()) }
+            resources.push(parsed.value())
+            index = index + 1
+        }
+        self._resources = resources
+        return Ok(resources)
+    }
+
+    Result<List<McpPrompt>, Error> listPrompts(Context context) {
+        Result<JsonValue, Error> result = self.call("prompts/list", new JsonObject(), context)
+        if result.isErr() { return Err(result.error()) }
+        JsonValue value = result.value()
+        if !value.isObject() { return Err(new BasicError(ErrorKind.DataCorrupted, "prompts/list result")) }
+        JsonObject valueObject = value.asObject() as JsonObject
+        JsonValue? promptsValue = valueObject.getOrNull("prompts")
+        if promptsValue == null {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "prompts/list missing prompts"))
+        }
+        JsonValue actualPrompts = promptsValue as JsonValue
+        if !actualPrompts.isArray() {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "prompts/list missing prompts"))
+        }
+        JsonArray array = actualPrompts.asArray() as JsonArray
+        List<McpPrompt> prompts = []
+        Int index = 0
+        while index < array.length() {
+            Result<McpPrompt, Error> parsed = McpPrompt.parse(array.get(index))
+            if parsed.isErr() { return Err(parsed.error()) }
+            prompts.push(parsed.value())
+            index = index + 1
+        }
+        self._prompts = prompts
+        return Ok(prompts)
+    }
+
+    Result<McpToolResult, Error> callTool(Context context, String name, JsonValue arguments) {
+        if context == null || name == null || arguments == null {
+            throw "McpClient.callTool: null argument"
+        }
+        if !self._allowedTools.has(name) {
+            return Err(new BasicError(ErrorKind.PermissionDenied, "tool not allowed: " + name))
+        }
+        if self._requireConfirmation {
+            return Err(new BasicError(ErrorKind.PermissionDenied, "tool confirmation required: " + name))
+        }
+        JsonObject params = new JsonObject()
+        params.set("name", Json.string(name))
+        params.set("arguments", arguments)
+        Result<JsonValue, Error> result = self.call("tools/call", params, context)
+        if result.isErr() { return Err(result.error()) }
+        return McpToolResult.parse(result.value())
+    }
+
+    Result<McpContent, Error> readResource(Context context, String uri) {
+        if context == null || uri == null { throw "McpClient.readResource: null argument" }
+        JsonObject params = new JsonObject()
+        params.set("uri", Json.string(uri))
+        Result<JsonValue, Error> result = self.call("resources/read", params, context)
+        if result.isErr() { return Err(result.error()) }
+        return McpContent.parse(result.value())
+    }
+
+    Result<McpPrompt, Error> getPrompt(Context context, String name,
+                                       Map<String, String> arguments) {
+        if context == null || name == null || arguments == null {
+            throw "McpClient.getPrompt: null argument"
+        }
+        JsonObject params = new JsonObject()
+        params.set("name", Json.string(name))
+        JsonValue argsValue = Json.object()
+        JsonObject argsObject = argsValue.asObject() as JsonObject
+        List<String> keys = arguments.keys()
+        Int index = 0
+        while index < keys.length() {
+            String key = keys.get(index)
+            argsObject.set(key, Json.string(arguments.getOr(key, "")))
+            index = index + 1
+        }
+        params.set("arguments", argsValue)
+        Result<JsonValue, Error> result = self.call("prompts/get", params, context)
+        if result.isErr() { return Err(result.error()) }
+        return McpPrompt.parse(result.value())
+    }
+
+    Result<Unit, Error> cancel(Context context, JsonRpcId identifier, String reason) {
+        return self._transport.cancel(context, identifier, reason)
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        return self._transport.close()
+    }
+
+    private Result<JsonValue, Error> call(String method, JsonObject params, Context context) {
+        JsonRpcRequest request = JsonRpcRequest.requestWithParams(
+            JsonRpcId.ofNumber(self._nextId), method, mcpObjectValue(params))
+        self._nextId = self._nextId + 1 as Long
+        Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler =
+            (Context c, JsonRpcRequest r) -> {
+                return Ok()
+            }
+        Result<JsonRpcResponse, Error> response = self._transport.request(context,
+            request, notificationHandler)
+        if response.isErr() { return Err(response.error()) }
+        return self._responseResult(response.value())
+    }
+
+    private Result<JsonValue, Error> _responseResult(JsonRpcResponse response) {
+        if !response.isSuccess() {
+            JsonRpcError? error = response.errorOrNull()
+            if error != null {
+                JsonRpcError actual = error as JsonRpcError
+                return Err(new BasicError(ErrorKind.Internal, actual.describe()))
+            }
+            return Err(new BasicError(ErrorKind.Internal, "mcp: missing response result"))
+        }
+        JsonValue? result = response.resultOrNull()
+        if result == null {
+            return Err(new BasicError(ErrorKind.DataCorrupted, "mcp: missing result"))
+        }
+        return Ok(result as JsonValue)
+    }
+}
+
+// ---------- McpRegistry ----------
+class McpRegistry {
+    final Map<String, McpTransport> _transports
+    final Set<String> _connected
+    Bool _open
+
+    McpRegistry() {
+        Map<String, McpTransport> transports = [:]
+        self._transports = transports
+        Set<String> connected = []
+        self._connected = connected
+        self._open = true
+    }
+
+    Result<Unit, Error> register(String name, McpTransport transport) {
+        if name == null || name == "" {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "McpRegistry.register: empty name"))
+        }
+        if transport == null {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "McpRegistry.register: null transport"))
+        }
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp registry")) }
+        if self._transports.has(name) {
+            return Err(new BasicError(ErrorKind.AlreadyExists, "McpRegistry: duplicate name"))
+        }
+        self._transports.put(name, transport)
+        return Ok()
+    }
+
+    Bool unregister(String name) {
+        if name == null { throw "McpRegistry.unregister: null" }
+        if self._connected.has(name) { return false }
+        return self._transports.remove(name)
+    }
+
+    Bool contains(String name) {
+        if name == null { throw "McpRegistry.contains: null" }
+        return self._transports.has(name)
+    }
+
+    List<String> names() { return self._transports.keys() }
+
+    Result<McpClient, Error> connect(Context context, String name, McpClientInfo clientInfo) {
+        if context == null || name == null || clientInfo == null {
+            throw "McpRegistry.connect: null argument"
+        }
+        if !self._open { return Err(new BasicError(ErrorKind.Unavailable, "mcp registry")) }
+        if !self._transports.has(name) {
+            return Err(new BasicError(ErrorKind.NotFound, "McpRegistry: not found"))
+        }
+        if self._connected.has(name) {
+            return Err(new BasicError(ErrorKind.AlreadyExists, "McpRegistry: already connected"))
+        }
+        McpTransport transport = self._transports.getOr(name, null)
+        Set<String> allowed = []
+        McpClient client = new McpClient(transport, clientInfo, allowed, false)
+        self._connected.add(name)
+        return Ok(client)
+    }
+
+    Bool isConnected(String name) {
+        if name == null { throw "McpRegistry.isConnected: null" }
+        return self._connected.has(name)
+    }
+
+    Result<Unit, Error> close() {
+        if !self._open { return Ok() }
+        self._open = false
+        List<String> keys = self._transports.keys()
+        Int index = 0
+        while index < keys.length() {
+            String name = keys.get(index)
+            if !self._connected.has(name) {
+                McpTransport transport = self._transports.getOr(name, null)
+                transport.close()
+            }
+            index = index + 1
+        }
+        self._transports.clear()
+        self._connected.clear()
+        return Ok()
+    }
+
+    Bool isOpen() { return self._open }
 }

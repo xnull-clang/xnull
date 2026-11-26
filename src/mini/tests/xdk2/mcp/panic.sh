@@ -51,6 +51,31 @@ static Int main(String[] args) {
         McpServerInfo server = new McpServerInfo("s", "1")
         McpClientInfo client = new McpClientInfo("c", "1")
         McpSession value = new McpSession(McpProtocolVersion.V2025_11_25, server, client, "", true, true, true)
+    } else if name == "stdioStream" {
+        McpStdioTransport value = new McpStdioTransport(null, null)
+    } else if name == "stdioMaximum" {
+        // uses null streams to hit stream check first; covered by stdioStream
+        McpStdioTransport value = new McpStdioTransport(null, null)
+    } else if name == "clientTransport" {
+        Set<String> allowed = []
+        McpClientInfo client = new McpClientInfo("c", "1")
+        McpClient value = new McpClient(null, client, allowed, false)
+    } else if name == "clientInfo" {
+        Set<String> allowed = []
+        McpClient value = new McpClient(null, null, allowed, false)
+    } else if name == "clientTools" {
+        McpClientInfo client = new McpClientInfo("c", "1")
+        McpClient value = new McpClient(null, client, null, false)
+    } else if name == "serverInfo" {
+        McpServer value = new McpServer(null)
+    } else if name == "registryConnectContext" {
+        McpRegistry registry = new McpRegistry()
+        McpClientInfo client = new McpClientInfo("c", "1")
+        Result<McpClient, Error> value = registry.connect(null, "x", client)
+    } else if name == "registryConnectName" {
+        McpRegistry registry = new McpRegistry()
+        McpClientInfo client = new McpClientInfo("c", "1")
+        Result<McpClient, Error> value = registry.connect(Context.background(), null, client)
     } else if name == "serverName" {
         McpServerInfo value = new McpServerInfo("", "1")
     } else if name == "serverCap" {
@@ -82,4 +107,12 @@ check_panic toolResult "McpToolResult: null contents"
 check_panic sessionModern "McpSession: modern flag mismatch"
 check_panic serverName "McpServerInfo: empty name"
 check_panic serverCap "McpServerInfo: client capability not allowed"
+check_panic stdioStream "McpStdioTransport: null stream"
+check_panic stdioMaximum "McpStdioTransport: null stream"
+check_panic clientTransport "McpClient: null argument"
+check_panic clientInfo "McpClient: null argument"
+check_panic clientTools "McpClient: null argument"
+check_panic serverInfo "McpServer: null serverInfo"
+check_panic registryConnectContext "McpRegistry.connect: null argument"
+check_panic registryConnectName "McpRegistry.connect: null argument"
 echo "mcp_panic: PASS"

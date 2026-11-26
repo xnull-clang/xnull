@@ -12,11 +12,18 @@
 
 ---
 
-## 0.5 实现状态（M22.3）
+## 0.5 实现状态（M22.4）
 
-已实现核心 10/16：`McpProtocolVersion`、`McpCapability`、`McpServerInfo`、
-`McpClientInfo`、`McpContent`、`McpResource`、`McpPrompt`、`McpTool`、
-`McpToolResult`、`McpSession`；McpClient/Server/Registry/Transport 留 M22.4。
+已实现 15/16：核心 10 类型 + `McpTransport`、`McpStdioTransport`、`McpClient`、
+`McpServer`、`McpRegistry`；`McpHttpTransport` 留 M22.5。
+
+- Stdio：换行 JSON-RPC，同步请求/响应 id 匹配，notify/respond/receive/close；
+- Client：initialize/initialized、tools/resources/prompts 列表缓存、callTool allowlist/
+  confirmation、readResource/getPrompt/cancel/close；
+- Server：registerTool/Resource/Prompt、initialize/ping/tools/resources/prompts 分派、
+  未知方法 -32601、工具异常 -32603；
+- Registry：注册/连接所有权转移/注销/关闭。
+- 单请求串行；不做 HttpTransport/SSE/进程启动/并发多请求。
 
 - 协议版本 5 个 + Unknown 哨兵（编译器不支持 Result<enum>，解析非 Result）；
 - 能力父子/方向/JSON 子集；ServerInfo/ClientInfo 能力归一与 JSON；

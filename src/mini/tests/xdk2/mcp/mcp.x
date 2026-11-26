@@ -3,6 +3,56 @@ import xdk.mcp
 import xdk.codec
 import xdk.errors
 
+static Error loopUnsupported() {
+    return new BasicError(ErrorKind.Unsupported, "loopback receive")
+}
+
+class LoopbackTransport implements McpTransport {
+    McpServer server
+    Bool open
+    LoopbackTransport(McpServer owner) { self.server = owner; self.open = true }
+    Result<JsonRpcResponse, Error> request(Context context, JsonRpcRequest request,
+            Result<Unit, Error>(Context, JsonRpcRequest) notificationHandler) {
+        return self.server.handleRequest(context, request)
+    }
+    Result<Unit, Error> selectProtocolVersion(Context context, McpProtocolVersion version) { return Ok() }
+    Result<Unit, Error> notify(Context context, JsonRpcRequest notification) { return Ok() }
+    Result<JsonRpcRequest, Error> receive(Context context) {
+        return Err(loopUnsupported())
+    }
+    Result<Unit, Error> respond(Context context, JsonRpcResponse response) { return Ok() }
+    Result<Unit, Error> acknowledge(Context context) { return Ok() }
+    Result<Unit, Error> cancel(Context context, JsonRpcId identifier, String reason) { return Ok() }
+    String? sessionIdentifier() { return null }
+    Result<Unit, Error> close() { self.open = false; return Ok() }
+    Bool isOpen() { return self.open }
+}
+
+class McpMemoryReader implements McpReader {
+    List<String> lines
+    Int index
+    McpMemoryReader(List<String> values) { self.lines = values.copy(); self.index = 0 }
+    Result<String?, Error> readLine(Context context) {
+        if self.index >= self.lines.length() { return Ok(null) }
+        String value = self.lines.get(self.index)
+        self.index = self.index + 1
+        return Ok(value)
+    }
+}
+
+class McpMemoryWriter implements McpWriter {
+    Bytes data
+    Bool open
+    McpMemoryWriter() { self.data = Bytes.fromString(""); self.open = true }
+    Bool isOpen() { return self.open }
+    Result<Unit, Error> writeAll(Context context, Bytes source) {
+        Int index = 0
+        while index < source.length() { self.data.push(source.get(index)); index = index + 1 }
+        return Ok()
+    }
+    Result<Unit, Error> flush() { return Ok() }
+}
+
 static Int main() {
     print("versions=" + mcpProtocolVersionText(McpProtocolVersion.V2024_11_05) + "," +
         mcpProtocolVersionText(McpProtocolVersion.V2025_03_26) + "," +
@@ -121,6 +171,119 @@ static Int main() {
         str(modernSession.serverSupports(McpCapability.Tools)) + "," +
         str(modernSession.clientSupports(McpCapability.Sampling)) + "," +
         str(modernSession.hasSessionIdentifier()) + "," + modernSession.describe())
+
+    McpServerInfo loopServerInfo = new McpServerInfo("loop", "1.0.0")
+    McpServer loopServer = new McpServer(loopServerInfo)
+    JsonValue inputSchema = Json.object()
+    McpTool echoTool = new McpTool("echo", inputSchema)
+    Result<Unit, Error> echoToolRegister = loopServer.registerTool(echoTool,
+        (Context toolContext, JsonValue arguments) -> {
+            List<McpContent> contents = [McpContent.text("echo")]
+            return Ok(new McpToolResult(contents))
+        })
+    McpResource loopResource = new McpResource("file:///loop.txt", "loop.txt",
+        "", "", "text/plain", null)
+    Result<Unit, Error> loopResourceRegister = loopServer.registerResource(loopResource,
+        (Context resourceContext, String uri) -> Ok(McpContent.resourceText(loopResource, "body")))
+    List<String> promptNames = []
+    Map<String, String> promptDescriptions = [:]
+    Set<String> promptRequired = []
+    List<String> promptRoles = []
+    List<McpContent> promptMessages = []
+    McpPrompt loopPrompt = new McpPrompt("hello", "", "", promptNames,
+        promptDescriptions, promptRequired, promptRoles, promptMessages)
+    Result<Unit, Error> loopPromptRegister = loopServer.registerPrompt(loopPrompt,
+        (Context promptContext, Map<String, String> arguments) -> Ok(loopPrompt))
+    print("server-register=" + str(echoToolRegister.isOk()) + "," +
+        str(loopResourceRegister.isOk()) + "," + str(loopPromptRegister.isOk()) + "," +
+        str(loopServer.registerTool(echoTool, (Context c, JsonValue a) -> {
+            List<McpContent> contents = [McpContent.text("dup")]
+            return Ok(new McpToolResult(contents))
+        }).isErr()))
+
+    LoopbackTransport loopTransport = new LoopbackTransport(loopServer)
+    Set<String> allowedTools = Set.of("echo")
+    McpClientInfo loopClientInfo = new McpClientInfo("loop-client", "1.0.0")
+    McpClient loopClient = new McpClient(loopTransport, loopClientInfo, allowedTools, false)
+    Result<McpSession, Error> initialized = loopClient.initialize(Context.background())
+    Result<List<McpTool>, Error> listedTools = loopClient.listTools(Context.background())
+    JsonValue callArguments = Json.object()
+    Result<McpToolResult, Error> called = loopClient.callTool(Context.background(), "echo",
+        callArguments)
+    Result<McpContent, Error> read = loopClient.readResource(Context.background(),
+        "file:///loop.txt")
+    Map<String, String> promptArguments = [:]
+    Result<McpPrompt, Error> gotPrompt = loopClient.getPrompt(Context.background(), "hello",
+        promptArguments)
+    print("client-server=" + str(initialized.isOk()) + "," +
+        mcpProtocolVersionText(initialized.value().protocolVersion()) + "," +
+        str(listedTools.isOk()) + "," + str(listedTools.value().length()) + "," +
+        str(called.isOk()) + "," + str(called.value().contentCount()) + "," +
+        str(read.isOk()) + "," + str(gotPrompt.isOk()))
+
+    Set<String> noTools = []
+    McpClient deniedClient = new McpClient(loopTransport, loopClientInfo, noTools, false)
+    Result<McpToolResult, Error> denied = deniedClient.callTool(Context.background(), "echo",
+        callArguments)
+    Set<String> confirmedTools = Set.of("echo")
+    McpClient confirmClient = new McpClient(loopTransport, loopClientInfo, confirmedTools, true)
+    Result<McpToolResult, Error> confirmed = confirmClient.callTool(Context.background(), "echo",
+        callArguments)
+    print("client-allow=" + errorKindName(denied.error().kind()) + "," +
+        errorKindName(confirmed.error().kind()))
+
+    McpRegistry registry = new McpRegistry()
+    LoopbackTransport registryTransport = new LoopbackTransport(loopServer)
+    Result<Unit, Error> registered = registry.register("loop", registryTransport)
+    Result<Unit, Error> duplicateRegister = registry.register("loop", registryTransport)
+    Result<McpClient, Error> connected = registry.connect(Context.background(), "loop",
+        loopClientInfo)
+    Result<McpClient, Error> connectedAgain = registry.connect(Context.background(), "loop",
+        loopClientInfo)
+    print("registry=" + str(registered.isOk()) + "," +
+        errorKindName(duplicateRegister.error().kind()) + "," + str(connected.isOk()) + "," +
+        errorKindName(connectedAgain.error().kind()) + "," +
+        str(registry.contains("loop")) + "," + str(registry.isConnected("loop")) + "," +
+        str(registry.names().length()))
+    Result<Unit, Error> registryClose = registry.close()
+    print("registry-close=" + str(registryClose.isOk()) + "," +
+        str(registryClose.isOk()) + "," + str(registry.isOpen()))
+
+    McpMemoryWriter stdioWriter = new McpMemoryWriter()
+    List<String> stdioLines = []
+    McpMemoryReader stdioReader = new McpMemoryReader(stdioLines)
+    McpStdioTransport stdio = new McpStdioTransport(stdioReader, stdioWriter)
+    JsonRpcRequest stdioNotification = JsonRpcRequest.notification("ping")
+    Result<Unit, Error> stdioNotify = stdio.notify(Context.background(), stdioNotification)
+    String stdioText = stdioWriter.data.toString()
+    print("stdio-notify=" + str(stdioNotify.isOk()) + "," +
+        str(stdioText.indexOf("\"method\":\"ping\"") >= 0) + "," +
+        str(stdioText.indexOf("\n") >= 0))
+
+    List<String> responseLines = ["{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}"]
+    McpMemoryReader responseReader = new McpMemoryReader(responseLines)
+    McpMemoryWriter responseWriter = new McpMemoryWriter()
+    McpStdioTransport responder = new McpStdioTransport(responseReader, responseWriter)
+    JsonRpcRequest stdioRequest = JsonRpcRequest.request(JsonRpcId.ofNumber(1 as Long), "initialize")
+    Result<Unit, Error>(Context, JsonRpcRequest) stdioHandler =
+        (Context handlerContext, JsonRpcRequest handlerRequest) -> {
+            return Ok()
+        }
+    Result<JsonRpcResponse, Error> stdioResponse = responder.request(Context.background(),
+        stdioRequest, stdioHandler)
+    print("stdio-request=" + str(stdioResponse.isOk()) + "," +
+        str(stdioResponse.isOk() && stdioResponse.value().isSuccess()) + "," +
+        str(responder.close().isOk()) + "," + str(responder.close().isOk()) + "," +
+        str(responder.isOpen()))
+
+    McpMemoryWriter receiveWriter = new McpMemoryWriter()
+    List<String> receiveLines = ["{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"ping\"}"]
+    McpMemoryReader receiveReader = new McpMemoryReader(receiveLines)
+    McpStdioTransport receiver = new McpStdioTransport(receiveReader, receiveWriter)
+    Result<JsonRpcRequest, Error> receivedRequest = receiver.receive(Context.background())
+    print("stdio-receive=" + str(receivedRequest.isOk()) + "," +
+        receivedRequest.value().method())
+    return 0
     return 0
 }
 
