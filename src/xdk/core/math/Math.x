@@ -765,3 +765,80 @@ Double quantile(List<Double> xs, Double q) {
     Double frac = pos - lo
     return s.get(lo) + (s.get(hi) - s.get(lo)) * frac
 }
+
+// ---------- Complex ----------
+// 双精度复数（xdk.math.Complex）：不可变值对象，四则/共轭/模/辐角/极坐标。
+class Complex {
+    final Double _real
+    final Double _imag
+
+    Complex(Double real, Double imag) {
+        self._real = real
+        self._imag = imag
+    }
+
+    static Complex of(Double real, Double imag) {
+        return new Complex(real, imag)
+    }
+
+    static Complex fromPolar(Double modulus, Double angle) {
+        return new Complex(modulus * cos(angle), modulus * sin(angle))
+    }
+
+    static Complex zero() { return new Complex(0.0, 0.0) }
+    static Complex i() { return new Complex(0.0, 1.0) }
+    static Complex one() { return new Complex(1.0, 0.0) }
+
+    Double real() { return self._real }
+    Double imag() { return self._imag }
+
+    Complex add(Complex other) {
+        if other == null { throw "Complex.add: null" }
+        return new Complex(self._real + other._real, self._imag + other._imag)
+    }
+
+    Complex sub(Complex other) {
+        if other == null { throw "Complex.sub: null" }
+        return new Complex(self._real - other._real, self._imag - other._imag)
+    }
+
+    Complex mul(Complex other) {
+        if other == null { throw "Complex.mul: null" }
+        return new Complex(
+            self._real * other._real - self._imag * other._imag,
+            self._real * other._imag + self._imag * other._real)
+    }
+
+    Result<Complex, Error> div(Complex other) {
+        if other == null { throw "Complex.div: null" }
+        Double denominator = other._real * other._real + other._imag * other._imag
+        if denominator == 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Complex.div: division by zero"))
+        }
+        return Ok(new Complex(
+            (self._real * other._real + self._imag * other._imag) / denominator,
+            (self._imag * other._real - self._real * other._imag) / denominator))
+    }
+
+    Complex scale(Double factor) {
+        return new Complex(self._real * factor, self._imag * factor)
+    }
+
+    Complex conjugate() { return new Complex(self._real, 0.0 - self._imag) }
+
+    Double abs() { return sqrt(self._real * self._real + self._imag * self._imag) }
+    Double arg() { return atan2(self._imag, self._real) }
+    Double norm() { return self._real * self._real + self._imag * self._imag }
+
+    Bool equals(Complex other) {
+        if other == null { return false }
+        return self._real == other._real && self._imag == other._imag
+    }
+
+    String toString() {
+        if self._imag >= 0.0 {
+            return str(self._real) + "+" + str(self._imag) + "i"
+        }
+        return str(self._real) + str(self._imag) + "i"
+    }
+}

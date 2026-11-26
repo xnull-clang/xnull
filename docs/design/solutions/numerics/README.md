@@ -8,14 +8,14 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 核心实现 8/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver |
+| 状态 | 核心实现 10/12：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver/Fft/SignalBuffer |
 
 ---
 
-## 0.5 实现状态（M26.2）
+## 0.5 实现状态（M26.3）
 
-已实现 8/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
-`Integration`、`Optimization`、`OdeSolver`；BigFloat/SpecialFunctions/Fft/SignalBuffer planned。
+已实现 10/12：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
+`Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`；BigFloat/SpecialFunctions planned。
 
 - `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
   加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
@@ -30,7 +30,12 @@
 - `OdeSolver`：固定步长 RK4、Dormand-Prince 5(4) 自适应、隐式 Euler + Newton
   （`Linalg.solve`），`solve` 默认自适应入口。
 - `Context` 取消检查贯穿迭代；失败不返回伪值。
-- 不做 BigFloat/特殊函数/FFT/信号窗与滤波。
+- `Fft`：2 的幂用迭代 radix-2，其他长度用直接 DFT 回退；`forwardReal` 返回 `n/2+1`；
+  `inverseReal` 校验共轭对称并检查虚部容差。
+- `SignalBuffer`：rectangular/hann/hamming/blackman/kaiser 窗（periodic/symmetric），
+  全卷积、因果 FIR、直接型 I IIR；输入/系数非有限即失败。
+- `xdk.math.Complex` 同步补齐（of/fromPolar/四则/共轭/模/辐角/极坐标）。
+- 不做 BigFloat/特殊函数。
 
 ---
 

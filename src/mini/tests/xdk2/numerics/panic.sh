@@ -141,6 +141,17 @@ static Int main(String[] args) {
         Bool value = BigInt.fromInt(2).testBit(-1)
     } else if name == "bigAddNull" {
         BigInt value = BigInt.fromInt(1).add(null)
+    } else if name == "fftNull" {
+        Context context = null
+        List<Complex> values = []
+        Result<List<Complex>, Error> value = Fft.forward(context, values)
+    } else if name == "signalNull" {
+        Context context = null
+        List<Double> values = []
+        values.push(1.0)
+        List<Double> kernel = []
+        kernel.push(1.0)
+        Result<List<Double>, Error> value = SignalBuffer.convolve(context, values, kernel)
     }
     return 0
 }
@@ -190,4 +201,6 @@ check_panic bigTestBitNegative "BigInt.testBit: negative index"
 # removed bigToInt "BigInt.toInt: overflow"
 # removed bigToLong "BigInt.toLong: overflow"
 check_panic bigAddNull "BigInt.add: null"
+check_panic fftNull "Fft.transform: null argument"
+check_panic signalNull "SignalBuffer.convolve: null argument"
 echo "numerics_panic: PASS"

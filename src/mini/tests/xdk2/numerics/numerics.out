@@ -31,3 +31,6 @@ bigint-power=1024,1,445,4,12,720,cancelled,invalid_argument
 bigint-bits=1267650600228229401496703205376,1,-3,true,false,true,3,65,invalid_argument
 bigint-sqrt=100000000000000000000,100000000000000000000,12345,12,invalid_argument
 bigint-convert=2147483647,invalid_argument,invalid_argument,42,-1,true,true,1,true
+fft=true,true,true,true,true,3,true,true,true,true,true
+signal=true,true,true,true,true,3,true,true,true,true,true,true,true
+fft-errors=invalid_argument,invalid_argument,invalid_argument,invalid_argument

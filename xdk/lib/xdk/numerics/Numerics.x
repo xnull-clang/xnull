@@ -2342,3 +2342,406 @@ static List<Double> odeCombined(List<Double> base, Double h, List<List<Double>> 
     }
     return result
 }
+
+// ---------- Fft ----------
+class Fft {
+    private Fft() { }
+
+    static Result<List<Complex>, Error> forward(Context context, List<Complex> values) {
+        return Fft.transform(context, values, false)
+    }
+
+    static Result<List<Complex>, Error> inverse(Context context, List<Complex> values) {
+        return Fft.transform(context, values, true)
+    }
+
+    static Result<List<Complex>, Error> forwardReal(Context context, List<Double> values) {
+        if context == null || values == null {
+            throw "Fft.forwardReal: null argument"
+        }
+        if values.length() == 0 || values.length() > 16777216 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: invalid length"))
+        }
+        List<Complex> complexValues = []
+        Int index = 0
+        while index < values.length() {
+            if !isFinite(values.get(index)) {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: non-finite input"))
+            }
+            complexValues.push(Complex.of(values.get(index), 0.0))
+            index = index + 1
+        }
+        Result<List<Complex>, Error> transformed = Fft.transform(context, complexValues, false)
+        if transformed.isErr() { return Err(transformed.error()) }
+        List<Complex> full = transformed.value()
+        List<Complex> half = []
+        Int halfLength = values.length() / 2 + 1
+        index = 0
+        while index < halfLength {
+            half.push(full.get(index))
+            index = index + 1
+        }
+        return Ok(half)
+    }
+
+    static Result<List<Double>, Error> inverseReal(Context context, List<Complex> spectrum,
+                                                   Int outputLength, Double tolerance) {
+        if context == null || spectrum == null {
+            throw "Fft.inverseReal: null argument"
+        }
+        Int expectedSpectrumLength = outputLength / 2 + 1
+        if outputLength < 1 || !isFinite(tolerance) || tolerance < 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: invalid inverseReal parameter"))
+        }
+        if spectrum.length() != expectedSpectrumLength {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: invalid inverseReal parameter"))
+        }
+        List<Complex> full = []
+        Int index = 0
+        while index < outputLength {
+            full.push(Complex.zero())
+            index = index + 1
+        }
+        index = 0
+        while index < spectrum.length() {
+            Complex value = spectrum.get(index)
+            if value == null || !isFinite(value.real()) || !isFinite(value.imag()) {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: non-finite spectrum"))
+            }
+            full.set(index, value)
+            if index > 0 {
+                Int mirror = outputLength - index
+                if mirror != index { full.set(mirror, value.conjugate()) }
+            }
+            index = index + 1
+        }
+        Result<List<Complex>, Error> transformed = Fft.transform(context, full, true)
+        if transformed.isErr() { return Err(transformed.error()) }
+        List<Complex> values = transformed.value()
+        List<Double> result = []
+        index = 0
+        while index < values.length() {
+            Complex value = values.get(index)
+            if !isFinite(value.real()) || abs(value.imag()) > tolerance {
+                return Err(new BasicError(ErrorKind.DataCorrupted,
+                    "Fft: spectrum is not conjugate symmetric"))
+            }
+            result.push(value.real())
+            index = index + 1
+        }
+        return Ok(result)
+    }
+
+    private static Result<List<Complex>, Error> transform(Context context,
+                                                          List<Complex> values,
+                                                          Bool inverse) {
+        if context == null || values == null {
+            throw "Fft.transform: null argument"
+        }
+        if values.length() == 0 || values.length() > 16777216 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: invalid length"))
+        }
+        Int index = 0
+        while index < values.length() {
+            Complex value = values.get(index)
+            if value == null || !isFinite(value.real()) || !isFinite(value.imag()) {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "Fft: non-finite input"))
+            }
+            index = index + 1
+        }
+        List<Complex> data = values.copy()
+        if Fft.isPowerOfTwo(data.length()) {
+            Result<Unit, Error> run = Fft.radix2(context, data, inverse)
+            if run.isErr() { return Err(run.error()) }
+        } else {
+            Result<List<Complex>, Error> direct = Fft.direct(context, data, inverse)
+            if direct.isErr() { return Err(direct.error()) }
+            data = direct.value()
+        }
+        if inverse {
+            Double scale = 1.0 / (data.length() as Double)
+            index = 0
+            while index < data.length() {
+                data.set(index, data.get(index).scale(scale))
+                index = index + 1
+            }
+        }
+        return Ok(data)
+    }
+
+    private static Bool isPowerOfTwo(Int value) {
+        return value > 0 && (value & (value - 1)) == 0
+    }
+
+    private static Result<Unit, Error> radix2(Context context, List<Complex> data, Bool inverse) {
+        Int n = data.length()
+        Int j = 0
+        Int i = 1
+        while i < n {
+            Int bit = n / 2
+            while j >= bit && bit > 0 {
+                j = j - bit
+                bit = bit / 2
+            }
+            j = j + bit
+            if i < j {
+                Complex temporary = data.get(i)
+                data.set(i, data.get(j))
+                data.set(j, temporary)
+            }
+            i = i + 1
+        }
+        Int length = 2
+        while length <= n {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "Fft cancelled"))
+            }
+            Double angle = 6.283185307179586 / (length as Double)
+            if !inverse { angle = 0.0 - angle }
+            Complex step = Complex.fromPolar(1.0, angle)
+            Int start = 0
+            while start < n {
+                Complex factor = Complex.one()
+                Int offset = 0
+                while offset < length / 2 {
+                    Complex even = data.get(start + offset)
+                    Complex odd = data.get(start + offset + length / 2).mul(factor)
+                    data.set(start + offset, even.add(odd))
+                    data.set(start + offset + length / 2, even.sub(odd))
+                    factor = factor.mul(step)
+                    offset = offset + 1
+                }
+                start = start + length
+            }
+            length = length * 2
+        }
+        return Ok()
+    }
+
+    private static Result<List<Complex>, Error> direct(Context context, List<Complex> values,
+                                                        Bool inverse) {
+        Int n = values.length()
+        List<Complex> result = []
+        Int k = 0
+        while k < n {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "Fft cancelled"))
+            }
+            Complex sum = Complex.zero()
+            Int index = 0
+            while index < n {
+                Double angle = 6.283185307179586 * (k as Double) * (index as Double) / (n as Double)
+                if !inverse { angle = 0.0 - angle }
+                sum = sum.add(values.get(index).mul(Complex.fromPolar(1.0, angle)))
+                index = index + 1
+            }
+            result.push(sum)
+            k = k + 1
+        }
+        return Ok(result)
+    }
+}
+
+// ---------- SignalBuffer ----------
+class SignalBuffer {
+    private SignalBuffer() { }
+
+    static Result<List<Double>, Error> rectangularWindow(Int length) {
+        if length < 1 { return Err(new BasicError(ErrorKind.InvalidArgument, "window: invalid length")) }
+        List<Double> values = []
+        Int index = 0
+        while index < length {
+            values.push(1.0)
+            index = index + 1
+        }
+        return Ok(values)
+    }
+
+    static Result<List<Double>, Error> hannWindow(Int length, Bool periodic) {
+        return SignalBuffer.cosineWindow(length, periodic, 0.5, 0.5, 0.0, 0.0)
+    }
+
+    static Result<List<Double>, Error> hammingWindow(Int length, Bool periodic) {
+        return SignalBuffer.cosineWindow(length, periodic, 0.54, 0.46, 0.0, 0.0)
+    }
+
+    static Result<List<Double>, Error> blackmanWindow(Int length, Bool periodic) {
+        return SignalBuffer.cosineWindow(length, periodic, 0.42, 0.5, 0.08, 0.0)
+    }
+
+    static Result<List<Double>, Error> kaiserWindow(Int length, Double beta, Bool periodic) {
+        if length < 1 || !isFinite(beta) || beta < 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "kaiser: invalid parameter"))
+        }
+        List<Double> values = []
+        if length == 1 {
+            values.push(1.0)
+            return Ok(values)
+        }
+        Double denominator = (length - 1) as Double
+        if periodic { denominator = length as Double }
+        Double normalization = SignalBuffer.besselI0(beta)
+        Int index = 0
+        while index < length {
+            Double ratio = 2.0 * (index as Double) / denominator - 1.0
+            Double argument = beta * sqrt(1.0 - ratio * ratio)
+            values.push(SignalBuffer.besselI0(argument) / normalization)
+            index = index + 1
+        }
+        return Ok(values)
+    }
+
+    static Result<List<Double>, Error> convolve(Context context, List<Double> signal,
+                                                 List<Double> kernel) {
+        if context == null || signal == null || kernel == null {
+            throw "SignalBuffer.convolve: null argument"
+        }
+        if signal.length() == 0 || kernel.length() == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "convolve: empty input"))
+        }
+        Result<Unit, Error> finite = SignalBuffer.validateFinite(signal)
+        if finite.isErr() { return Err(finite.error()) }
+        finite = SignalBuffer.validateFinite(kernel)
+        if finite.isErr() { return Err(finite.error()) }
+        List<Double> result = []
+        Int size = signal.length() + kernel.length() - 1
+        Int index = 0
+        while index < size {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "convolve cancelled"))
+            }
+            Double sum = 0.0
+            Int k = 0
+            while k < kernel.length() {
+                Int position = index - k
+                if position >= 0 && position < signal.length() {
+                    sum = sum + signal.get(position) * kernel.get(k)
+                }
+                k = k + 1
+            }
+            result.push(sum)
+            index = index + 1
+        }
+        return Ok(result)
+    }
+
+    static Result<List<Double>, Error> firFilter(Context context, List<Double> signal,
+                                                  List<Double> coefficients) {
+        if context == null || signal == null || coefficients == null {
+            throw "SignalBuffer.firFilter: null argument"
+        }
+        if signal.length() == 0 || coefficients.length() == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "fir: empty input"))
+        }
+        Result<Unit, Error> finite = SignalBuffer.validateFinite(signal)
+        if finite.isErr() { return Err(finite.error()) }
+        finite = SignalBuffer.validateFinite(coefficients)
+        if finite.isErr() { return Err(finite.error()) }
+        List<Double> result = []
+        Int index = 0
+        while index < signal.length() {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "fir cancelled"))
+            }
+            Double sum = 0.0
+            Int k = 0
+            while k < coefficients.length() {
+                Int position = index - k
+                if position >= 0 { sum = sum + signal.get(position) * coefficients.get(k) }
+                k = k + 1
+            }
+            result.push(sum)
+            index = index + 1
+        }
+        return Ok(result)
+    }
+
+    static Result<List<Double>, Error> iirFilter(Context context, List<Double> signal,
+                                                  List<Double> numerator,
+                                                  List<Double> denominator) {
+        if context == null || signal == null || numerator == null || denominator == null {
+            throw "SignalBuffer.iirFilter: null argument"
+        }
+        if signal.length() == 0 || numerator.length() == 0 || denominator.length() == 0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "iir: empty input"))
+        }
+        if denominator.get(0) == 0.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "iir: zero leading denominator"))
+        }
+        Result<Unit, Error> finite = SignalBuffer.validateFinite(signal)
+        if finite.isErr() { return Err(finite.error()) }
+        finite = SignalBuffer.validateFinite(numerator)
+        if finite.isErr() { return Err(finite.error()) }
+        finite = SignalBuffer.validateFinite(denominator)
+        if finite.isErr() { return Err(finite.error()) }
+        List<Double> output = []
+        Int index = 0
+        while index < signal.length() {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "iir cancelled"))
+            }
+            Double sum = 0.0
+            Int k = 0
+            while k < numerator.length() {
+                Int position = index - k
+                if position >= 0 { sum = sum + numerator.get(k) * signal.get(position) }
+                k = k + 1
+            }
+            k = 1
+            while k < denominator.length() {
+                Int position = index - k
+                if position >= 0 { sum = sum - denominator.get(k) * output.get(position) }
+                k = k + 1
+            }
+            output.push(sum / denominator.get(0))
+            index = index + 1
+        }
+        return Ok(output)
+    }
+
+    private static Result<Unit, Error> validateFinite(List<Double> values) {
+        Int index = 0
+        while index < values.length() {
+            if !isFinite(values.get(index)) {
+                return Err(new BasicError(ErrorKind.InvalidArgument, "signal: non-finite input"))
+            }
+            index = index + 1
+        }
+        return Ok()
+    }
+
+    private static Result<List<Double>, Error> cosineWindow(Int length, Bool periodic,
+                                                             Double a0, Double a1,
+                                                             Double a2, Double unused) {
+        if length < 1 { return Err(new BasicError(ErrorKind.InvalidArgument, "window: invalid length")) }
+        List<Double> values = []
+        if length == 1 {
+            values.push(1.0)
+            return Ok(values)
+        }
+        Double denominator = (length - 1) as Double
+        if periodic { denominator = length as Double }
+        Int index = 0
+        while index < length {
+            Double phase = 6.283185307179586 * (index as Double) / denominator
+            Double value = a0 - a1 * cos(phase) + a2 * cos(2.0 * phase)
+            values.push(value)
+            index = index + 1
+        }
+        return Ok(values)
+    }
+
+    private static Double besselI0(Double x) {
+        Double sum = 1.0
+        Double term = 1.0
+        Double half = x / 2.0
+        Int k = 1
+        while k < 200 {
+            term = term * half * half / ((k as Double) * (k as Double))
+            sum = sum + term
+            if abs(term) < 0.0000000000000001 * abs(sum) { break }
+            k = k + 1
+        }
+        return sum
+    }
+}

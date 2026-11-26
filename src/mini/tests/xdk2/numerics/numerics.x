@@ -389,5 +389,91 @@ static Int main() {
         str(BigInt.fromInt(5).compare(BigInt.fromInt(3))) + "," +
         str(BigInt.fromInt(5).equals(BigInt.fromInt(5))))
 
+
+    // ---------- FFT / signal ----------
+    List<Complex> impulse = []
+    impulse.push(Complex.one())
+    impulse.push(Complex.zero())
+    impulse.push(Complex.zero())
+    impulse.push(Complex.zero())
+    Result<List<Complex>, Error> spectrum = Fft.forward(Context.background(), impulse)
+    Result<List<Complex>, Error> roundTrip = Fft.inverse(Context.background(), spectrum.value())
+    List<Double> realSignal = []
+    realSignal.push(1.0)
+    realSignal.push(2.0)
+    realSignal.push(3.0)
+    realSignal.push(4.0)
+    Result<List<Complex>, Error> realSpectrum = Fft.forwardReal(Context.background(), realSignal)
+    Result<List<Double>, Error> realRoundTrip = Fft.inverseReal(Context.background(),
+        realSpectrum.value(), 4, 0.0000001)
+    print("fft=" + str(near(spectrum.value().get(0).real(), 1.0, 0.0000001)) +
+        "," + str(near(spectrum.value().get(0).imag(), 0.0, 0.0000001)) +
+        "," + str(near(spectrum.value().get(1).real(), 1.0, 0.0000001)) +
+        "," + str(near(roundTrip.value().get(0).real(), 1.0, 0.0000001)) +
+        "," + str(near(roundTrip.value().get(1).real(), 0.0, 0.0000001)) +
+        "," + str(realSpectrum.value().length()) +
+        "," + str(near(realSpectrum.value().get(0).real(), 10.0, 0.0000001)) +
+        "," + str(near(realSpectrum.value().get(1).real(), -2.0, 0.0000001)) +
+        "," + str(near(realSpectrum.value().get(1).imag(), 2.0, 0.0000001)) +
+        "," + str(near(realRoundTrip.value().get(0), 1.0, 0.0000001)) +
+        "," + str(near(realRoundTrip.value().get(3), 4.0, 0.0000001)))
+    Result<List<Double>, Error> rectangle = SignalBuffer.rectangularWindow(4)
+    Result<List<Double>, Error> hann = SignalBuffer.hannWindow(5, true)
+    Result<List<Double>, Error> hannSymmetric = SignalBuffer.hannWindow(5, false)
+    Result<List<Double>, Error> kaiser = SignalBuffer.kaiserWindow(5, 2.0, true)
+    List<Double> signal = []
+    signal.push(1.0)
+    signal.push(2.0)
+    List<Double> kernel = []
+    kernel.push(1.0)
+    kernel.push(1.0)
+    Result<List<Double>, Error> convolved = SignalBuffer.convolve(Context.background(),
+        signal, kernel)
+    List<Double> firInput = []
+    firInput.push(1.0)
+    firInput.push(2.0)
+    firInput.push(3.0)
+    List<Double> firCoefficients = []
+    firCoefficients.push(1.0)
+    firCoefficients.push(0.0 - 1.0)
+    Result<List<Double>, Error> fir = SignalBuffer.firFilter(Context.background(),
+        firInput, firCoefficients)
+    List<Double> iirInput = []
+    iirInput.push(1.0)
+    iirInput.push(0.0)
+    iirInput.push(0.0)
+    List<Double> iirNumerator = []
+    iirNumerator.push(1.0)
+    List<Double> iirDenominator = []
+    iirDenominator.push(1.0)
+    iirDenominator.push(0.0 - 0.5)
+    Result<List<Double>, Error> iir = SignalBuffer.iirFilter(Context.background(),
+        iirInput, iirNumerator, iirDenominator)
+    print("signal=" + str(near(rectangle.value().get(0), 1.0, 0.0)) +
+        "," + str(near(hann.value().get(0), 0.0, 0.0000001)) +
+        "," + str(near(hann.value().get(2), 0.9045084971874737, 0.0000001)) +
+        "," + str(near(hannSymmetric.value().get(2), 1.0, 0.0000001)) +
+        "," + str(isFinite(kaiser.value().get(2))) +
+        "," + str(convolved.value().length()) +
+        "," + str(near(convolved.value().get(0), 1.0, 0.0000001)) +
+        "," + str(near(convolved.value().get(1), 3.0, 0.0000001)) +
+        "," + str(near(convolved.value().get(2), 2.0, 0.0000001)) +
+        "," + str(near(fir.value().get(0), 1.0, 0.0000001)) +
+        "," + str(near(fir.value().get(2), 1.0, 0.0000001)) +
+        "," + str(near(iir.value().get(1), 0.5, 0.0000001)) +
+        "," + str(near(iir.value().get(2), 0.25, 0.0000001)))
+    List<Complex> emptySpectrum = []
+    List<Double> emptyValues = []
+    List<Double> badDenominator = []
+    badDenominator.push(0.0)
+    print("fft-errors=" + errorKindName(Fft.forward(Context.background(),
+        emptySpectrum).error().kind()) + "," +
+        errorKindName(Fft.forwardReal(Context.background(),
+            emptyValues).error().kind()) + "," +
+        errorKindName(SignalBuffer.convolve(Context.background(), emptyValues,
+            kernel).error().kind()) + "," +
+        errorKindName(SignalBuffer.iirFilter(Context.background(), iirInput,
+            iirNumerator, badDenominator).error().kind()))
+
     return 0
 }
