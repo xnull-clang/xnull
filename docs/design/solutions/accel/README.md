@@ -333,6 +333,35 @@ MCU 常见无动态加载、无多队列、内存极小；`createProgram`/`creat
 
 ---
 
+## 10. 实现状态
+
+当前实现落在 `src/xdk/accel/Accel.x`（镜像 `xdk/lib/xdk/accel/Accel.x`），状态 `implemented`。实现的是值对象、句柄生命周期与命令录制状态机；本机没有 CUDA/ROCm/Vulkan/Metal 等后端，**不做模拟执行**。
+
+| 项 | 状态 |
+| --- | --- |
+| 4 个枚举 + `name`/`fromName`（Vendor 另有 `fromText`） | 已实现 |
+| `Accelerator` / `AcceleratorOptions` 及校验/复制/相等/描述 | 已实现 |
+| `AcceleratorDevice` / `Memory` / `Program` / `Kernel` / `Queue` / `CommandBuffer` / `Fence` | 已实现构造、getter、状态检查、幂等逻辑关闭 |
+| 命令缓冲 `begin`/`bindKernel`/`bindMemory`/`bindValue`/`end` 状态机与参数校验 | 已实现 |
+| `dispatch` / `submit` | 完成状态与参数校验后返回 `Unsupported` |
+| `Accel.cpu()` | 返回 `Cpu` kind/backend、`Memory`+`Compute` 描述符 |
+| `Accel.open` / 设备内存查询、分配、程序/内核/队列/命令缓冲/栅栏创建 | 完成校验后返回 `Unsupported`（`"no accelerator backend"`） |
+| `Accel.fromGpuAdapter` | 未实现：`xdk.gpu`/`xdk.os.gpu` 仍是 design，当前没有 `GpuAdapter` 类型可依赖 |
+
+偏差与说明：
+
+- 四个枚举均把 `Unknown` 放在首位，避免编译器把枚举 0 当作 null 时把 `Cpu` 等真实成员误判为 null；因此 `acceleratorKindName`/`acceleratorBackendName`/`acceleratorCapabilityName` 也会返回 `"unknown"`，`fromName("unknown")` 解析为 `Unknown`。
+- `Accelerator` 把 `vendor`/`kind`/`backend` 的 null 归一为 `Unknown`（枚举 0 与 null 在当前编译器不可区分）；能力列表中的 null 仍视为非法元素。
+- 设计文档中的 `accelerator*Raw` 原生适配器未实现；所有 `close()` 是逻辑关闭，幂等且不触碰原生句柄。
+- 测试位于 `src/mini/tests/xdk2/accel/`：`run.sh` 覆盖枚举、描述符/选项、CPU 描述符、Unsupported 路径、资源生命周期与命令缓冲校验；`panic.sh` 覆盖构造器与 null 参数 panic。构建命令：
+
+```sh
+./src/cli/xnull --bootstrap --engine=mini build src/mini/tests/xdk2/accel/accel.x -o /tmp/accel.bin
+python3 .agent/bin/with_timeout.py 10 -- /tmp/accel.bin
+```
+
+---
+
 ## 注解与生成
 
 | 项 | 内容 |

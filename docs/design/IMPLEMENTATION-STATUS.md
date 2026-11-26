@@ -5,7 +5,7 @@
 | 日期 | 2026-11-26 |
 | 权威来源 | `src/xdk/xdk2-packages.tsv`、`docs/design/ANNOTATION-CATALOG.md`、各包门禁 |
 | 包计数 | **76 包 / 704 类型** |
-| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 48 包 / 432 类型；`design` 14 包 / 103 类型 |
+| 包状态 | `1.x` 14 包 / 169 类型；`implemented` 50 包 / 464 类型；`design` 12 包 / 71 类型 |
 | 注解计数 | **98 条**：implemented 56、reserved 4、planned 38 |
 | 结论口径 | `design` = 合同已写；`implemented` = 有源码、场景、门禁；不等于文档里的每个类型/算法都已实现 |
 
@@ -19,14 +19,14 @@
 
 **没有全部做完。**
 
-- 76 个包中：**48 个 implemented、14 个仅设计、14 个 1.x 基线**。
+- 76 个包中：**50 个 implemented、12 个仅设计、14 个 1.x 基线**。
 - 98 条注解中：**56 implemented、38 planned、4 reserved**。
 - 已实现的 48 个包里，部分只是**子集**：`xdk.net.http`（40 类型文档中实现 19）、`xdk.crypto`（17 文档类型中实现 6）、`xdk.jwt`（仅 HS256）、`xdk.sql`/`xdk.db`（仅内存驱动）。
-- 仍有 **14 个包纯设计**；已 implemented 的包多数是**子集**；C7 的 1.x→2.x 验证随 B5 收口。
+- 仍有 **12 个包纯设计**；已 implemented 的包多数是**子集**；C7 的 1.x→2.x 验证随 B5 收口。
 
-一句话：**注解平台与多数领域已实现子集；剩余主要矛盾是 14 个设计包、B5 core 2.x 验证和已实现包的深度缺口。**
+一句话：**注解平台与多数领域已实现子集；剩余主要矛盾是 12 个设计包、B5 core 2.x 验证和已实现包的深度缺口。**
 
-L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedded` 因缺硬件原语保持 blocked；详见 [`L8-CLOSURE.md`](L8-CLOSURE.md)。
+L8 solutions 里程碑已关闭：**10/10 包 implemented**；`xdk.accel`/`xdk.embedded` 为合同面实现，硬件执行路径按原语隔离为 blocked；详见 [`L8-CLOSURE.md`](L8-CLOSURE.md)。
 
 ---
 
@@ -42,12 +42,12 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 | L5 网络/数据 | 9 | 125 | 0 | 8 | 1 |
 | L6 平台/计算 | 17 | 93 | 0 | 7 | 10 |
 | L7 应用服务 | 12 | 82 | 0 | 12 | 0 |
-| L8 解决方案 | 10 | 128 | 0 | 8 | 2 |
-| **合计** | **76** | **704** | **14** | **48** | **14** |
+| L8 解决方案 | 10 | 128 | 0 | 10 | 0 |
+| **合计** | **76** | **704** | **14** | **50** | **12** |
 
 ---
 
-## 3. 已实现包（48）
+## 3. 已实现包（50）
 
 | 包 | 文档类型 | 真实范围 / 边界 |
 | --- | ---: | --- |
@@ -99,17 +99,18 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 | `xdk.audit` | 5 | AuditEvent/Level/Sink/Logger/Redactor + `@Audited` |
 | `xdk.test` | 7 | Test/TestSuite/TestRunner/Assert/TestContext/TestResult/TestStatus + 4 注解 |
 | `xdk.db` | 11 | Config/Pool/Stats/Database/Batch/RowMapper/Isolation/Migration/Runner/Health/Db；内存驱动，池锁仅进程内 |
+| `xdk.accel` | 14 | 合同面 14/14：枚举/描述符/选项/生命周期；Metal/CUDA 等执行路径 Unsupported，`fromGpuAdapter` 缺 `GpuAdapter` |
+| `xdk.embedded` | 12 | 合同面 12/12：Board/BoardPin/通道/电源/句柄；GPIO/I2C/SPI/UART 等执行路径 Unsupported |
 
 ---
 
-## 4. 仅设计、未实现（14）
+## 4. 仅设计、未实现（12）
 
 | 层 | 包 |
 | --- | --- |
 | L4 | `xdk.reflect` |
 | L5 | `xdk.net.tls` |
 | L6 | `xdk.os.host`、`xdk.os.hardware`、`xdk.os.gpu`、`xdk.os.firewall`、`xdk.os.container`、`xdk.os.virt`、`xdk.os.service`、`xdk.gpu`、`xdk.serial`、`xdk.device` |
-| L8 | `xdk.accel`、`xdk.embedded` |
 
 这些包在 `docs/design/` 下有合同/类型文档，但 `src/xdk/` 无实现或仅有设计占位。
 
@@ -146,7 +147,7 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 | --- | --- |
 | B5–B10 | B5 的 15 个 core 包仍是 1.x；B6–B10 多数包已 implemented 子集，仍有 14 个 design 包和若干运行时/硬件缺口 |
 | C7 | 合同已整合，实现/验证随 B5 未开始 |
-| 平台/OS/GPU/Serial/Device | 14 包仅设计；需平台原语与场景 |
+| 平台/OS/GPU/Serial/Device | 12 包纯设计：reflect/TLS + 10 个 L6 包；需平台原语与场景 |
 | 网络/TLS/WebSocket | 无 TLS/HTTP2 运行时原语；WebSocket 已实现 12/12 但无 TLS；HTTP client 仍为 text-only |
 | 格式 | YAML/TOML/XML 包已实现子集；对应 `@YamlName`/`@TomlName`/`@XmlName` 注解仍 planned |
 | 调度 | `xdk.schedule` 单循环已实现；`@Scheduled` 宿主仍待接入 |
@@ -178,7 +179,7 @@ L8 solutions 里程碑已关闭：8/10 包 implemented，`xdk.accel`/`xdk.embedd
 2. B6：`xdk.reflect`（需类型元数据表）；`@YamlName`/`@TomlName`/`@XmlName` 可先做
 3. B7：TLS 原语；`xdk.net` 的 DNS/UDP/连接池/HTTP2；`@WsHandler` 可基于已实现 WebSocket
 4. B8：平台/OS/GPU/Serial/Device 原语（见 `platform/HARDWARE-PRIMITIVES.md`）
-5. B10：`xdk.agent` 具体组件、`xdk.accel`/`xdk.embedded`、`BigFloat.exp/log/pow`、ML 运行时
+5. B10：`xdk.agent` 具体组件、`BigFloat.exp/log/pow`、ML 运行时；accel/embedded 执行面按硬件原语重开
 6. 注解：`@JwtClaim`/`@JwtHeaderField`、`@Scheduled`、API/DI 注解
 
 ---

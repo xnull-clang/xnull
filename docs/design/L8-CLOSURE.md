@@ -3,7 +3,7 @@
 | 项 | 值 |
 | --- | --- |
 | 里程碑 | L8 solutions |
-| 状态 | **Closed（8/10 包 implemented；2 包硬件阻塞）** |
+| 状态 | **Closed（10/10 包 implemented；accel/embedded 执行面按硬件原语隔离为 blocked）** |
 | 日期 | 2026-11-26 |
 | 基线 | `main`；以 `src/xdk/xdk2-packages.tsv` 为准 |
 | 退出标准 | 每个 L8 包要么 implemented + 场景/门禁，要么有明确原语阻塞清单；不允许“下批再做”式占位 |
@@ -22,15 +22,15 @@
 | `xdk.numerics` | 12 | implemented（类型） | BigInt/积分/优化/ODE/FFT/信号/特殊函数/BigFloat 算术；BigFloat exp/log/pow planned |
 | `xdk.mcp` | 16 | implemented | 消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
 | `xdk.agent` | 17 | implemented 11/17 | 遥测核心/管线/配置/Agent；HostMetrics/FileLog/批处理/限流/OTLP/Prometheus 未实现 |
-| `xdk.accel` | 14 | **blocked** | 需要 Metal/CUDA/ROCm/Vulkan 设备/内存/内核/栅栏原语 |
-| `xdk.embedded` | 12 | **blocked** | 需要 GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash 原语 |
+| `xdk.accel` | 14 | implemented（合同面） | 枚举/描述符/选项/生命周期；Metal/CUDA 等执行路径 Unsupported |
+| `xdk.embedded` | 12 | implemented（合同面） | Board/BoardPin/通道/电源/句柄；GPIO/I2C/SPI/UART 等执行路径 Unsupported |
 
 ---
 
 ## 2. 明确阻塞（不是“没做”，是缺底层能力）
 
-- `xdk.accel`：见 `docs/design/platform/HARDWARE-PRIMITIVES.md` §2。
-- `xdk.embedded`：见同文 §3。
+- `xdk.accel` 执行面：见 `docs/design/platform/HARDWARE-PRIMITIVES.md` §2（合同面已实现）。
+- `xdk.embedded` 执行面：见同文 §3（合同面已实现）。
 - `xdk.agent.HostMetricsReceiver`：需要 `xdk.os.host`（IOKit/sysctl 主机模型）。
 - `xdk.agent.FileLogReceiver`：需要路径匹配/文件 tail 合同（`PathMatcher`）。
 - `xdk.ml` 运行时：需要宿主注入推理适配器。

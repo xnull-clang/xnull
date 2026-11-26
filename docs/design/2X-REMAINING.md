@@ -6,7 +6,7 @@
 | 包计数 | **76 包 / 704 类型** |
 | 包状态 | **48 implemented、14 design、14 个 1.x 基线** |
 | 注解 | **98 条：56 implemented、4 reserved、38 planned** |
-| L8 | Closed（8/10 包 implemented；2 包硬件阻塞），见 [`L8-CLOSURE.md`](L8-CLOSURE.md) |
+| L8 | Closed（10/10 包 implemented；accel/embedded 执行面硬件阻塞），见 [`L8-CLOSURE.md`](L8-CLOSURE.md) |
 | 结论 | 不是“大部分没做”，而是“多数包有子集，14 包纯设计，B5 core 2.x 验证未收” |
 
 ---
@@ -16,13 +16,13 @@
 | 批次 | 范围 | 当前状态 | 剩余 |
 | --- | --- | --- | --- |
 | B0–B4 | 架构、注解、runtime prelude、首批纯包 | 已完成 | 无 |
-| L0–L8 | 包阶梯 | L0–L7 有实现子集；L8 已关闭 | 14 个 design 包 + 子集缺口 |
+| L0–L8 | 包阶梯 | L0–L7 有实现子集；L8 已关闭 | 12 个 design 包 + 子集缺口 |
 | B5 | L1–L3 core 15 包 2.x 化 | **未开工**（15 包仍是 1.x） | 15 包 Verified |
 | B6 | data/encoding 12 包 | 11 implemented + 1 design | `xdk.reflect` + 子集 |
 | B7 | network 9 包 | 8 implemented + 1 design | `xdk.net.tls` + 子集 |
 | B8 | platform 17 包 | 7 implemented + 10 design | 10 包纯设计 |
 | B9 | application services 12 包 | 12 implemented | 质量缺口（DateFormat/持久化/导出器） |
-| B10 | solutions 10 包 | 8 implemented + 2 design | agent 组件、ML 运行时、accel/embedded |
+| B10 | solutions 10 包 | 10 implemented（2 个合同面/执行面 blocked） | agent 组件、ML 运行时、accel/embedded 执行面 |
 
 > `EXECUTION-PLAN.md` 仍写“B5–B10 未开工”，是计划状态旧口径；实际包状态以本表和 tsv 为准。
 
@@ -129,8 +129,8 @@
 | `xdk.db` | 11/11 | 仅内存驱动；池锁仅进程内 |
 | `xdk.api` | 15/15 | `SseStream` 同步 chunked，无后台写任务/反压；无 TLS/HTTP2 |
 | `xdk.agent` | **11/17** | 缺 HostMetricsReceiver/FileLogReceiver/BatchProcessor/MemoryLimiterProcessor/OtlpExporter/PrometheusExporter |
-| `xdk.accel` | **design 14** | 缺 Metal/CUDA/ROCm/Vulkan 设备/内存/内核/栅栏原语 |
-| `xdk.embedded` | **design 12** | 缺 GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash 原语 |
+| `xdk.accel` | implemented 14（合同面） | Metal/CUDA/ROCm/Vulkan 执行路径 Unsupported；`fromGpuAdapter` 缺 `GpuAdapter` |
+| `xdk.embedded` | implemented 12（合同面） | GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash 执行路径 Unsupported |
 
 ---
 
@@ -156,7 +156,7 @@
 | 高 | `xdk.net.tls` 纯设计 | HTTPS/wss/安全服务全部不可用 | 接 TLS 库原语 |
 | 高 | `xdk.reflect` 纯设计 | 运行时类型元数据不可用 | 编译器生成元数据表 |
 | 高 | B8 平台 10 包纯设计 | 主机/硬件/GPU/防火墙/容器/虚拟化/串口/设备不可用 | 按原语清单补 |
-| 高 | `xdk.accel`/`xdk.embedded` 纯设计 | L8 仅 8/10 包 | Metal + Linux 目标板后端 |
+| 高 | `xdk.accel`/`xdk.embedded` 执行面 | 合同面已实现，真实设备/内核/引脚操作 Unsupported | Metal + Linux 目标板后端 |
 | 高 | `xdk.agent` 11/17 | 无主机指标/文件日志/批处理/限流/OTLP/Prometheus | 先做 4 个纯组件 |
 | 中 | `xdk.crypto` 6/17 | 无对称加密/非对称/KDF | 接 OpenSSL/CommonCrypto 原语 |
 | 中 | `xdk.net` 12/28 | 无 DNS/UDP/连接池/HTTP2 | 先 DNS/UDP |
@@ -208,8 +208,8 @@
 
 | ID | 批次 | 内容 | 状态 |
 | --- | --- | --- | --- |
-| L8-1 | accel 合同面 | 14 类型 + 描述符/校验 + 硬件执行 Unsupported | in progress |
-| L8-2 | embedded 合同面 | 12 类型 + 板级描述 + 硬件执行 Unsupported | in progress |
+| L8-1 | accel 合同面 | 14 类型 + 描述符/校验 + 硬件执行 Unsupported | implemented |
+| L8-2 | embedded 合同面 | 12 类型 + 板级描述 + 硬件执行 Unsupported | implemented |
 | L8-3 | agent 纯组件 | BatchProcessor/MemoryLimiterProcessor/PrometheusExporter/OtlpExporter | queued |
 | L8-4 | agent 硬件组件 | HostMetricsReceiver/FileLogReceiver（依赖 OsHost/PathMatcher） | blocked |
 | L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | queued |

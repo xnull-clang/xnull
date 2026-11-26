@@ -14407,6 +14407,12 @@ static String xdkFile(String pkg) {
     if pkg == "xdk.agent" {
         return "agent/Agent.x"
     }
+    if pkg == "xdk.embedded" {
+        return "embedded/Embedded.x"
+    }
+    if pkg == "xdk.accel" || pkg.startsWith("xdk.accel.") {
+        return "accel/Accel.x"
+    }
     if pkg == "xdk.os" {
         return "os/Os.x"
     }

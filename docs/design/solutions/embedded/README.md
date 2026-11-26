@@ -7,7 +7,7 @@
 | 依赖 | `xdk.core`、`xdk.device`、`xdk.serial`、`xdk.os` |
 | 被依赖 | 应用、板级支持包、嵌入式产品、边缘设备服务 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
-| 状态 | 设计基线；不含实现 |
+| 状态 | A8 派生 implemented（含限制；见“实现状态”） |
 
 ---
 
@@ -174,6 +174,27 @@
 - **RTC 不是可信时间源**：RTC 可被设置/校准，不能作为安全审计的唯一时间依据；需要可信时间时使用安全元件/签名时间源。
 - **ADC 不是安全联锁**：采样值仅用于测量/控制，不满足功能安全认证；安全联锁必须由独立硬件/认证组件实现。
 - **日志脱敏**：`Board`/`BoardPin` 不含序列号、MAC、密钥；`FlashRegion.name()` 由调用方提供，禁止放入秘密；错误消息不得包含写入内容或 CAN 载荷。
+
+---
+
+## 实现状态（A8 派生）
+
+`src/xdk/embedded/Embedded.x` 已实现本合同 12 个类型：`Board`、`BoardPin`、`PinCapability`、`AdcChannel`、`PwmChannel`、`UartPort`、`CanBus`、`Watchdog`、`Rtc`、`FlashRegion`、`PowerMode`、`Embedded`；镜像副本在 `xdk/lib/xdk/embedded/Embedded.x`。
+
+| 项 | 状态 |
+| --- | --- |
+| 描述/值类型 | 完整实现：构造期校验、唯一性/通道一致性、列表副本、查找、`equals`、`describe`、电源模式谓词与转换表 |
+| 句柄生命周期 | 完整实现：构造期校验、`isOpen`、幂等 `close()`、关闭后纯读取器可用、其余操作 `Unavailable` |
+| 硬件操作 | 当前宿主（macOS/桌面）无 `/dev/gpiochipN`、spidev、i2c-dev、MTD；ADC 采样、PWM 输出、UART/CAN I/O、看门狗启动/喂狗/停止、RTC 读写、Flash 读写擦、电源查询/切换均校验后返回 `ErrorKind.Unsupported`，不伪造执行 |
+| 入口 | `Embedded.openAdc/openPwm/openUart/openCan/openWatchdog/openRtc/openFlash` 与 `setPowerMode`/`sleepFor`/`powerMode` 校验后返回 `Unsupported`；合同明确不提供 `board()`/`detect()`/`load()`，故不实现 |
+
+已知偏差（均由当前编译器/仓库依赖约束导致）：
+
+- 编译器把枚举零值当作 `null`。为保证首个合同成员可用，`PinCapability` 与 `PowerMode` 在码 0 增加 `Unknown` 哨兵，合同码整体后移 1：`PinCapability.Gpio=1..Other=18`，`PowerMode.Active=1..Off=5`。`Unknown` 不是合同成员，`Board`/`Embedded` 拒绝它。
+- 合同写明不提供 `fromName`；为测试和显式解析增加了 `pinCapabilityFromName`/`powerModeFromName`，未知名称返回 `Unknown`，不静默回退到 `Other`/`Active`。
+- `xdk.serial` 尚未落地。为保持 `UartPort.open` 的六参数形状，本包内提供 `SerialOptions`/`SerialParity`/`SerialStopBits` 兼容值对象（字段与校验对齐 `docs/design/platform/serial/SerialOptions.md`）；`xdk.serial` 落地后应替换为跨包引用。
+- 合同只给出电源模式转换表；实现增加 `powerModeCanTransition(from, to)`，`Off -> Active` 仅表示外部复位/上电路径，不表示软件可直接切换。
+- 有状态硬件操作先按合同检查生命周期：例如未 `start` 的 `CanBus.send`、未 `start` 的 `Watchdog.feed` 返回 `Unavailable`；通过 API 无法进入已启动状态，因此其后的硬件 `Unsupported` 只能由宿主/适配器路径覆盖。
 
 ---
 

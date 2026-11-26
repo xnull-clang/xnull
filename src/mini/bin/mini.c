@@ -17507,6 +17507,12 @@ static rt_string * xn_xdkFile(rt_string * pkg) {
   if (xn_str_eq(pkg, rt_string_from_c("xdk.agent"))) {
     return rt_string_from_c("agent/Agent.x");
   }
+  if (xn_str_eq(pkg, rt_string_from_c("xdk.embedded"))) {
+    return rt_string_from_c("embedded/Embedded.x");
+  }
+  if ((xn_str_eq(pkg, rt_string_from_c("xdk.accel")) || xn_str_startswith(pkg, rt_string_from_c("xdk.accel.")))) {
+    return rt_string_from_c("accel/Accel.x");
+  }
   if (xn_str_eq(pkg, rt_string_from_c("xdk.os"))) {
     return rt_string_from_c("os/Os.x");
   }
