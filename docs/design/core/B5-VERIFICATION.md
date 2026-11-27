@@ -4,7 +4,8 @@
 | --- | --- |
 | 批次 | B5.1 foundation 开始时建立；后续 B5.2–B5.4 续填 |
 | 口径 | 逐包按 2.x 合同 + `xdk_core`/`xdk2`/`xdk` 场景验证 |
-| 当前状态 | **B5.1/B5.2 完成（场景级）**；B5.3 进行中 |
+| 当前状态 | **B5.2 进行中（场景通过 ≠ 批完成）**；步级清单见下 |
+| 粒度 | **批 = 多个步的容器**；步 = 一个可独立验收的任务。批末才允许标完成 |
 | 权威 | `docs/design/core/STATUS.md`、`src/xdk/xdk2-packages.tsv`、各包合同 |
 
 ---
@@ -31,19 +32,34 @@
 
 ---
 
-## B5.2 出口结论（2026-11-27）
+## B5.2 步级清单（批未完成）
 
-- `xdk_core` 已覆盖 fs/sys 的 2.x 场景：File/Dir/Path、Long offset、atomic/temp、
-  walk/glob、metadata/permissions/links、copy/rename；sys 的 env/stdio/signal/resource；
-- 剩余 Partial 为 1.x 兼容命名/平台差异，登记为 waiver，不阻塞 B5.2；
-- 门禁：`xdk_core.sh` / `xdk2.sh` / `xdk.sh` 全绿（最近一次 73–74 scenarios）。
+批 B5.2 = io/fs/sys 三包，不等于“跑过 xdk_core”就完成。必须逐步过：
+
+| 步 | 任务 | 出口 | 状态 |
+| --- | --- | --- | --- |
+| B5.2-S1 | `xdk.io` 逐类型合同核对 | Reader/Writer 及 22 类型：源码/场景/边界 | 进行中 |
+| B5.2-S2 | `xdk.fs` 逐类型合同核对 | Path/OpenOptions/Permissions/Metadata/DirEntry/File/Dir/Temp/TempDir/FileSystem/PathMatcher/FileLock | 未开始 |
+| B5.2-S3 | `xdk.sys` 逐类型合同核对 | Signal/ProcessBuilder/Process/ProcessResult/Env/Platform/Resource/SystemInfo | 未开始 |
+| B5.2-S4 | 批出口 | 三包矩阵 + waiver + 门禁 | 未开始 |
+
+当前仅有 `xdk_core` 的 fs/sys 场景证据；**不能据此关闭 B5.2**。
+
+---
+
+## B5.2 当前证据（不是出口）
+
+- `xdk_core` 已有 fs/sys 场景：File/Dir/Path、Long offset、atomic/temp、walk/glob、
+  metadata/permissions/links、copy/rename；sys env/stdio/signal/resource；
+- 这些只能证明“场景可用”，不能替代 io/fs/sys 的逐类型合同矩阵；
+- 门禁：`xdk_core.sh` / `xdk2.sh` / `xdk.sh` 全绿。
 
 ## B5.3–B5.4 待办
 
 | 子批 | 包 | 当前 |
 | --- | --- | --- |
-| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | **完成（场景级）**：`xdk_core` 覆盖 File/Dir/Path、atomic/temp、walk/glob、metadata/permissions/links、copy/rename、sys env/stdio/signal/resource |
-| B5.3 | `xdk.log`、`xdk.config`、`xdk.cli` | **进行中**；`log.Sampler` 实现名 `LogSampler` 需文档同步 |
+| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | **进行中**：场景通过；逐类型矩阵未完成（S1 进行中） |
+| B5.3 | `xdk.log`、`xdk.config`、`xdk.cli` | 未开始（B5.2 未闭批） |
 | B5.4 | `xdk.runtime`、`xdk.execution` | `execution` 已 implemented；`Once` 方法名 `run`；runtime 8 类型 |
 
 ---

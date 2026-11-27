@@ -214,8 +214,8 @@
 | L8-4 | agent 硬件组件 | HostMetricsReceiver/FileLogReceiver（依赖 OsHost/PathMatcher） | blocked |
 | L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | implemented |
 | B5-1 | core foundation | errors/meta/bytes/text/collections/math/time 2.x 验证 | implemented（场景级） |
-| B5-2 | core io/fs/sys | io/fs/sys 2.x 验证 | implemented（场景级） |
-| B5-3 | core log/config/cli | log/config/cli 2.x 验证 | in progress |
+| B5-2 | core io/fs/sys | io/fs/sys 2.x 验证 | in progress（S1 io 逐类型） |
+| B5-3 | core log/config/cli | log/config/cli 2.x 验证 | queued |
 | B5-4 | core runtime/execution | runtime/execution 2.x 验证 | queued |
 | B6-1 | 格式注解 | @YamlName/@TomlName/@XmlName | queued |
 | B6-2 | reflect | 编译器类型元数据表 | blocked |
