@@ -3643,16 +3643,181 @@ class BigFloat {
     }
 
     Result<BigFloat, Error> exp(Context context, Int precisionBits, RoundingMode mode) {
-        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.exp: not implemented"))
+        if context == null { throw "BigFloat.exp: null context" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.exp: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.exp: invalid rounding mode"))
+        }
+        if self.isZero() { return BigFloat.one(precisionBits) }
+        Double approximate = self.toDouble()
+        if !isFinite(approximate) || approximate > 1000000.0 || approximate < 0.0 - 1000000.0 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.exp: overflow"))
+        }
+        Int work = precisionBits + 16
+        BigFloat ln2 = BigFloat.ln2(context, work)
+        Double quotient = approximate / ln2.toDouble()
+        Long k = quotient as Long
+        if quotient >= 0.0 {
+            if quotient - (k as Double) >= 0.5 { k = k + 1 as Long }
+        } else {
+            if (k as Double) - quotient >= 0.5 { k = k - 1 as Long }
+        }
+        BigFloat x = self.round(work, RoundingMode.HalfEven).value()
+        BigFloat kValue = BigFloat.fromLong(k, work, RoundingMode.HalfEven).value()
+        BigFloat reduced = x.subtract(ln2.multiply(kValue, work,
+            RoundingMode.HalfEven).value(), work, RoundingMode.HalfEven).value()
+        BigFloat sum = BigFloat.one(work).value()
+        BigFloat term = BigFloat.one(work).value()
+        Int limit = precisionBits * 2 + 64
+        if limit > 200000 { limit = 200000 }
+        Int index = 1
+        while index < limit {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "BigFloat.exp cancelled"))
+            }
+            BigFloat divisor = BigFloat.fromInt(index, work, RoundingMode.HalfEven).value()
+            term = term.multiply(reduced, work, RoundingMode.HalfEven).value()
+            term = term.divide(divisor, work, RoundingMode.HalfEven).value()
+            sum = sum.add(term, work, RoundingMode.HalfEven).value()
+            if abs(term.toDouble()) < 0.0000000000000001 { break }
+            index = index + 1
+        }
+        Result<BigFloat, Error> scaled = BigFloat.scaleExponent(sum, k, work)
+        if scaled.isErr() { return Err(scaled.error()) }
+        return scaled.value().round(precisionBits, mode)
     }
 
     Result<BigFloat, Error> log(Context context, Int precisionBits, RoundingMode mode) {
-        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.log: not implemented"))
+        if context == null { throw "BigFloat.log: null context" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.log: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.log: invalid rounding mode"))
+        }
+        if self.isZero() || self._negative {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.log: domain"))
+        }
+        Int work = precisionBits + 16
+        Long k = self._exponent + self._significand.bitLength() - 1 as Long
+        BigFloat mantissa = new BigFloat(false, self._significand,
+            self._exponent - k, work)
+        BigFloat one = BigFloat.one(work).value()
+        BigFloat numerator = mantissa.subtract(one, work, RoundingMode.HalfEven).value()
+        BigFloat denominator = mantissa.add(one, work, RoundingMode.HalfEven).value()
+        BigFloat z = numerator.divide(denominator, work, RoundingMode.HalfEven).value()
+        BigFloat zSquared = z.multiply(z, work, RoundingMode.HalfEven).value()
+        BigFloat term = z
+        BigFloat sum = z
+        Int limit = precisionBits * 2 + 64
+        if limit > 200000 { limit = 200000 }
+        Int index = 1
+        while index < limit {
+            if context.isCancelled() {
+                return Err(new BasicError(ErrorKind.Cancelled, "BigFloat.log cancelled"))
+            }
+            term = term.multiply(zSquared, work, RoundingMode.HalfEven).value()
+            BigFloat divisor = BigFloat.fromInt(2 * index + 1, work,
+                RoundingMode.HalfEven).value()
+            BigFloat part = term.divide(divisor, work, RoundingMode.HalfEven).value()
+            sum = sum.add(part, work, RoundingMode.HalfEven).value()
+            if abs(part.toDouble()) < 0.0000000000000001 { break }
+            index = index + 1
+        }
+        BigFloat logMantissa = sum.add(sum, work, RoundingMode.HalfEven).value()
+        BigFloat ln2 = BigFloat.ln2(context, work)
+        BigFloat kValue = BigFloat.fromLong(k, work, RoundingMode.HalfEven).value()
+        BigFloat result = logMantissa.add(ln2.multiply(kValue, work,
+            RoundingMode.HalfEven).value(), work, RoundingMode.HalfEven).value()
+        return result.round(precisionBits, mode)
     }
 
     Result<BigFloat, Error> pow(Context context, BigFloat exponent,
                                 Int precisionBits, RoundingMode mode) {
-        return Err(new BasicError(ErrorKind.Unsupported, "BigFloat.pow: not implemented"))
+        if context == null || exponent == null { throw "BigFloat.pow: null argument" }
+        if precisionBits < 2 || precisionBits > 1048576 {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.pow: invalid precision"))
+        }
+        if mode == null || mode == RoundingMode.Unknown {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.pow: invalid rounding mode"))
+        }
+        if exponent.isZero() { return BigFloat.one(precisionBits) }
+        Int work = precisionBits + 16
+        if exponent.isInteger() {
+            Result<BigInt, Error> integer = exponent.toBigInt(context, RoundingMode.Down)
+            if integer.isErr() { return Err(integer.error()) }
+            Result<Long, Error> asLong = integer.value().toLong()
+            if asLong.isErr() { return Err(asLong.error()) }
+            Long count = asLong.value()
+            if count <= 1000000 as Long && count >= 0 - 1000000 as Long {
+                if count == 1 as Long { return self.round(precisionBits, mode) }
+                BigFloat base = self.round(work, RoundingMode.HalfEven).value()
+                BigFloat result = BigFloat.one(work).value()
+                Long power = count
+                if power < 0 { power = 0 - power }
+                Long remaining = power
+                while remaining > 0 {
+                    if context.isCancelled() {
+                        return Err(new BasicError(ErrorKind.Cancelled, "BigFloat.pow cancelled"))
+                    }
+                    if remaining % 2 == 1 {
+                        result = result.multiply(base, work, RoundingMode.HalfEven).value()
+                    }
+                    remaining = remaining / 2
+                    if remaining > 0 {
+                        base = base.multiply(base, work, RoundingMode.HalfEven).value()
+                    }
+                }
+                if count < 0 {
+                    result = BigFloat.one(work).value().divide(result, work,
+                        RoundingMode.HalfEven).value()
+                }
+                return result.round(precisionBits, mode)
+            }
+        }
+        if self._negative {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat.pow: negative base"))
+        }
+        BigFloat logValue = self.log(context, work, RoundingMode.HalfEven).value()
+        BigFloat exponentValue = exponent.round(work, RoundingMode.HalfEven).value()
+        BigFloat product = exponentValue.multiply(logValue, work,
+            RoundingMode.HalfEven).value()
+        return product.exp(context, precisionBits, mode)
+    }
+
+    private static Result<BigFloat, Error> scaleExponent(BigFloat value, Long shift,
+                                                         Int precisionBits) {
+        if value.isZero() { return Ok(value) }
+        Long exponent = value._exponent + shift
+        if exponent < 0 - 1000000000 as Long || exponent > 1000000000 as Long {
+            return Err(new BasicError(ErrorKind.InvalidArgument, "BigFloat: exponent overflow"))
+        }
+        return Ok(new BigFloat(value._negative, value._significand, exponent, precisionBits))
+    }
+
+    private static BigFloat ln2(Context context, Int precisionBits) {
+        BigFloat one = BigFloat.one(precisionBits).value()
+        BigFloat three = BigFloat.fromInt(3, precisionBits, RoundingMode.HalfEven).value()
+        BigFloat z = one.divide(three, precisionBits, RoundingMode.HalfEven).value()
+        BigFloat zSquared = z.multiply(z, precisionBits, RoundingMode.HalfEven).value()
+        BigFloat term = z
+        BigFloat sum = z
+        Int limit = precisionBits * 2 + 64
+        if limit > 200000 { limit = 200000 }
+        Int index = 1
+        while index < limit {
+            if context.isCancelled() { break }
+            term = term.multiply(zSquared, precisionBits, RoundingMode.HalfEven).value()
+            BigFloat divisor = BigFloat.fromInt(2 * index + 1, precisionBits,
+                RoundingMode.HalfEven).value()
+            BigFloat part = term.divide(divisor, precisionBits, RoundingMode.HalfEven).value()
+            sum = sum.add(part, precisionBits, RoundingMode.HalfEven).value()
+            if abs(part.toDouble()) < 0.0000000000000001 { break }
+            index = index + 1
+        }
+        return sum.add(sum, precisionBits, RoundingMode.HalfEven).value()
     }
 
     Int compare(BigFloat other) {

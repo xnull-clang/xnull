@@ -568,8 +568,9 @@ static Int main() {
             RoundingMode.HalfEven).error().kind()) +
         "," + errorKindName(BigFloat.fromInt(-1, 64, RoundingMode.HalfEven).value().sqrt(
             Context.background(), 64, RoundingMode.HalfEven).error().kind()) +
-        "," + errorKindName(bfOne.exp(Context.background(), 64,
-            RoundingMode.HalfEven).error().kind()))
+        "," + str(bfOne.exp(Context.background(), 64,
+            RoundingMode.HalfEven).isOk()))
+
 
     return 0
 }

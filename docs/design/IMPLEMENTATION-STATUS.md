@@ -78,7 +78,7 @@ L8 solutions 里程碑已关闭：**10/10 包 implemented**；`xdk.accel`/`xdk.e
 | `xdk.event` | 3 | 实现 3/3：同步 EventBus、精确 topic、锁外回调、首错短路 |
 | `xdk.terminal` | 8 | 实现 8/8：Color/Ansi/Style/Terminal/Table + ProgressBar/Spinner/Prompt |
 | `xdk.i18n` | 7 | 实现 6/7：Locale/PluralRules/NumberFormat/Catalog/Formatter/Translator；DateFormat planned |
-| `xdk.numerics` | 12 | 12/12 类型：核心 11 + BigFloat 算术/开方/舍入/转换；exp/log/pow planned |
+| `xdk.numerics` | 12 | 12/12 类型：核心 11 + BigFloat 算术/开方/舍入/转换/exp/log/pow |
 | `xdk.jsonrpc` | 5 | 实现 5/5：Id/Error/Request/Response/Peer；仅消息与协议形状 |
 | `xdk.mcp` | 16 | 实现 16/16：消息模型 + Stdio/Client/Server/Registry/HttpTransport（JSON + 完整 SSE 体） |
 | `xdk.ml` | 20 | 实现 20/20 合同：模型/会话/数据管道/损失；`openSession/run` 因无运行时适配器返回 Unsupported |
@@ -179,7 +179,7 @@ L8 solutions 里程碑已关闭：**10/10 包 implemented**；`xdk.accel`/`xdk.e
 2. B6：`xdk.reflect`（需类型元数据表）；`@YamlName`/`@TomlName`/`@XmlName` 可先做
 3. B7：TLS 原语；`xdk.net` 的 DNS/UDP/连接池/HTTP2；`@WsHandler` 可基于已实现 WebSocket
 4. B8：平台/OS/GPU/Serial/Device 原语（见 `platform/HARDWARE-PRIMITIVES.md`）
-5. B10：`xdk.agent` 具体组件、`BigFloat.exp/log/pow`、ML 运行时；accel/embedded 执行面按硬件原语重开
+5. B10：`xdk.agent` 具体组件、ML 运行时；accel/embedded 执行面按硬件原语重开
 6. 注解：`@JwtClaim`/`@JwtHeaderField`、`@Scheduled`、API/DI 注解
 
 ---

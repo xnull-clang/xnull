@@ -41,4 +41,4 @@ special-misc=true,true,true,true,true,true,true
 special-errors=invalid_argument,invalid_argument,invalid_argument,invalid_argument,invalid_argument,invalid_argument
 bigfloat-arith=true,true,true,true,true,true
 bigfloat-round=2,4,-8,-7,10000000000,-1
-bigfloat-errors=invalid_argument,invalid_argument,invalid_argument,unsupported
+bigfloat-errors=invalid_argument,invalid_argument,invalid_argument,true

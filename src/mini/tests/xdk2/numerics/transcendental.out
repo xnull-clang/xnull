@@ -1,0 +1,2 @@
+bigfloat-transcendental=true,true,true,true,true
+bigfloat-transcendental-errors=invalid_argument,invalid_argument

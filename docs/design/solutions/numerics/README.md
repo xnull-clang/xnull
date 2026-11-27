@@ -8,7 +8,7 @@
 | 被依赖 | 科学计算工具、数据分析、工程仿真、信号处理应用 |
 | 稳定性 | `preview`；不进入 1.0 公共承诺 |
 | 后端 | X；公共 API 不出现 BLAS/LAPACK/FFTW/GMP/MPFR |
-| 状态 | 12/12 类型：核心 11 + BigFloat 算术子集（exp/log/pow planned） |
+| 状态 | 12/12 类型：Polynomial/RootFinder/Interpolation/Numerics/BigInt/Integration/Optimization/OdeSolver/Fft/SignalBuffer/SpecialFunctions/BigFloat |
 
 ---
 
@@ -16,7 +16,7 @@
 
 已实现 12/12 类型：`Polynomial`、`RootFinder`、`Interpolation`、`Numerics`、`BigInt`、
 `Integration`、`Optimization`、`OdeSolver`、`Fft`、`SignalBuffer`、`SpecialFunctions`、
-`BigFloat`（算术/开方/舍入/转换；`exp/log/pow` 返回 Unsupported）。
+`BigFloat`（算术/开方/舍入/转换/exp/log/pow）。
 
 - `BigInt`：符号-绝对值，基数 65536 小端 limbs；parse/toString、Long.MIN、fromDoubleExact；
   加/减/乘/除/余/mod/pow/modPow/modInverse/gcd/lcm/shift/testBit/sqrt/compare；
@@ -44,7 +44,7 @@
 - `BigFloat`：符号-绝对值 + `BigInt` 有效数字 + 二进制指数，显式精度与
   `RoundingMode`；parse/fromDouble/fromLong/fromBigInt、加减乘除、round、sqrt、
   toBigInt/toDecimalString/toDouble/compare/equals/isInteger。
-  `exp/log/pow` 暂返回 `Unsupported`（任意精度超越函数留后续）。
+  `exp/log/pow`：范围约减 + Taylor/atanh 级数 + 整数幂平方-乘；工作精度 p+16。
 - `xdk.math.RoundingMode` 同步补齐（Up/Down/Ceiling/Floor/HalfUp/HalfDown/HalfEven/Unnecessary）。
 - 偏差：`BigFloat` 除法/开方使用 guard 位后统一舍入；`toDecimalString` 限制小数位 ≤1000。
 

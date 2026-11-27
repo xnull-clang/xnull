@@ -125,7 +125,7 @@
 | `xdk.jsonrpc` | 5/5 | 消息/Peer 形状 |
 | `xdk.mcp` | 16/16 | HttpTransport 只解析完整 SSE 响应体；无流式 SSE/GET 独立流/连接池 |
 | `xdk.ml` | 20/20 合同 | **无宿主推理运行时**；`openSession/run` Unsupported；Trainer 仅协议 |
-| `xdk.numerics` | 12/12 类型 | `BigFloat.exp/log/pow` Unsupported；SpecialFunctions 部分为渐近/递推子集 |
+| `xdk.numerics` | 12/12 类型 | BigFloat exp/log/pow 已实现；SpecialFunctions 部分为渐近/递推子集 |
 | `xdk.db` | 11/11 | 仅内存驱动；池锁仅进程内 |
 | `xdk.api` | 15/15 | `SseStream` 同步 chunked，无后台写任务/反压；无 TLS/HTTP2 |
 | `xdk.agent` | **15/17** | 缺 HostMetricsReceiver/FileLogReceiver |
@@ -212,7 +212,7 @@
 | L8-2 | embedded 合同面 | 12 类型 + 板级描述 + 硬件执行 Unsupported | implemented |
 | L8-3 | agent 纯组件 | BatchProcessor/MemoryLimiterProcessor/PrometheusExporter/OtlpExporter | implemented |
 | L8-4 | agent 硬件组件 | HostMetricsReceiver/FileLogReceiver（依赖 OsHost/PathMatcher） | blocked |
-| L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | queued |
+| L8-5 | BigFloat 超越函数 | exp/log/pow + 任意精度级数 | implemented |
 | B5-1 | core foundation | errors/meta/bytes/text/collections/math/time 2.x 验证 | queued |
 | B5-2 | core io/fs/sys | io/fs/sys 2.x 验证 | queued |
 | B5-3 | core log/config/cli | log/config/cli 2.x 验证 | queued |
