@@ -38,7 +38,7 @@
 
 | 步 | 任务 | 出口 | 状态 |
 | --- | --- | --- | --- |
-| B5.2-S1 | `xdk.io` 逐类型合同核对 | 8 有实现 / 14 缺失，见 [`B5-IO-MATRIX.md`](B5-IO-MATRIX.md) | 发现问题，待补实现 |
+| B5.2-S1 | `xdk.io` 逐类型合同核对 | 15 有实现 / 7 缺失，见 [`B5-IO-MATRIX.md`](B5-IO-MATRIX.md) | 进行中（7 已补，7 待补） |
 | B5.2-S2 | `xdk.fs` 逐类型合同核对 | Path/OpenOptions/Permissions/Metadata/DirEntry/File/Dir/Temp/TempDir/FileSystem/PathMatcher/FileLock | 未开始 |
 | B5.2-S3 | `xdk.sys` 逐类型合同核对 | Signal/ProcessBuilder/Process/ProcessResult/Env/Platform/Resource/SystemInfo | 未开始 |
 | B5.2-S4 | 批出口 | 三包矩阵 + waiver + 门禁 | 未开始 |

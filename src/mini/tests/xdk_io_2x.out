@@ -1,0 +1,5 @@
+byte-reader=2,he,2,1,5,true
+byte-reader-close=true,false
+byte-writer=abcd,4,true
+string-writer=ab,2,true
+string-reader=x,yz,3,end

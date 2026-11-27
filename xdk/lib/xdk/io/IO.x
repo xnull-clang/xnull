@@ -1041,3 +1041,190 @@ Result<Int, Error> copyTo(Readable source, Writable sink) {
     }
     return Ok(total)
 }
+
+// ---------- 2.x protocols / SeekOrigin ----------
+enum SeekOrigin {
+    Unknown,
+    Start,
+    Current,
+    End,
+}
+
+String seekOriginName(SeekOrigin origin) {
+    if origin == SeekOrigin.Start { return "start" }
+    if origin == SeekOrigin.Current { return "current" }
+    if origin == SeekOrigin.End { return "end" }
+    return "unknown"
+}
+
+protocol Closer {
+    Result<Unit, Error> close();
+    Bool isOpen();
+}
+
+protocol Seekable {
+    Result<Long, Error> seek(Long offset, SeekOrigin origin);
+    Long position();
+    Result<Long, Error> size();
+}
+
+// ---------- ByteArrayReader ----------
+class ByteArrayReader implements Seekable, Closer {
+    final Bytes _data
+    Long _position
+    Bool _open
+
+    ByteArrayReader(Bytes data) {
+        if data == null { throw "ByteArrayReader: null data" }
+        self._data = copy(data)
+        self._position = 0 as Long
+        self._open = true
+    }
+
+    Result<Int, Error> read(Context context, Bytes buffer) {
+        if context == null || buffer == null { throw "ByteArrayReader.read: null argument" }
+        if !self._open { return Err(ioError(ErrorKind.Unavailable, "reader closed")) }
+        if buffer.length() == 0 {
+            return Err(ioError(ErrorKind.InvalidArgument, "reader empty buffer"))
+        }
+        if context.isCancelled() {
+            return Err(ioError(ErrorKind.Cancelled, "reader cancelled"))
+        }
+        Int available = self._data.length() - (self._position as Int)
+        if available <= 0 { return Ok(0) }
+        Int count = buffer.length()
+        if count > available { count = available }
+        Int index = 0
+        while index < count {
+            buffer.set(index, self._data.get((self._position as Int) + index))
+            index = index + 1
+        }
+        self._position = self._position + count as Long
+        return Ok(count)
+    }
+
+    Result<Long, Error> seek(Long offset, SeekOrigin origin) {
+        if !self._open { return Err(ioError(ErrorKind.Unavailable, "reader closed")) }
+        Long target = offset
+        if origin == SeekOrigin.Current { target = self._position + offset }
+        else if origin == SeekOrigin.End { target = self._data.length() as Long + offset }
+        if target < 0 as Long || target > self._data.length() as Long {
+            return Err(ioError(ErrorKind.InvalidArgument, "reader seek out of range"))
+        }
+        self._position = target
+        return Ok(target)
+    }
+
+    Long position() { return self._position }
+    Result<Long, Error> size() { return Ok(self._data.length() as Long) }
+    Result<Unit, Error> close() { self._open = false; return Ok() }
+    Bool isOpen() { return self._open }
+}
+
+// ---------- ByteArrayWriter ----------
+class ByteArrayWriter implements Closer {
+    Bytes _data
+    Bool _open
+
+    ByteArrayWriter() {
+        self._data = Bytes.alloc(0)
+        self._open = true
+    }
+
+    Result<Int, Error> write(Context context, Bytes data) {
+        if context == null || data == null { throw "ByteArrayWriter.write: null argument" }
+        if !self._open { return Err(ioError(ErrorKind.Unavailable, "writer closed")) }
+        if context.isCancelled() {
+            return Err(ioError(ErrorKind.Cancelled, "writer cancelled"))
+        }
+        Bytes next = Bytes.alloc(self._data.length() + data.length())
+        Int index = 0
+        while index < self._data.length() {
+            next.set(index, self._data.get(index))
+            index = index + 1
+        }
+        Int offset = self._data.length()
+        index = 0
+        while index < data.length() {
+            next.set(offset + index, data.get(index))
+            index = index + 1
+        }
+        self._data = next
+        return Ok(data.length())
+    }
+
+    Result<Unit, Error> writeAll(Context context, Bytes data) {
+        Result<Int, Error> written = self.write(context, data)
+        if written.isErr() { return Err(written.error()) }
+        return Ok()
+    }
+
+    Result<Unit, Error> flush() { return Ok() }
+    Bytes toBytes() { return copy(self._data) }
+    Bytes takeBytes() {
+        Bytes value = self._data
+        self._data = Bytes.alloc(0)
+        return value
+    }
+    Int length() { return self._data.length() }
+    Void clear() { self._data = Bytes.alloc(0) }
+    Result<Unit, Error> close() { self._open = false; return Ok() }
+    Bool isOpen() { return self._open }
+}
+
+// ---------- StringReader ----------
+class StringReader implements Seekable, Closer {
+    final ByteArrayReader _reader
+    StringReader(String text) {
+        if text == null { throw "StringReader: null text" }
+        self._reader = new ByteArrayReader(Bytes.fromString(text))
+    }
+    Result<Int, Error> read(Context context, Bytes buffer) { return self._reader.read(context, buffer) }
+    Result<Long, Error> seek(Long offset, SeekOrigin origin) { return self._reader.seek(offset, origin) }
+    Long position() { return self._reader.position() }
+    Result<Long, Error> size() { return self._reader.size() }
+    String readAllText() {
+        Long remaining = (self._reader.size().value() - self._reader.position()) as Long
+        if remaining <= 0 as Long { return "" }
+        Bytes buffer = Bytes.alloc(remaining as Int)
+        Result<Int, Error> read = self._reader.read(Context.background(), buffer)
+        if read.isErr() { return "" }
+        return buffer.slice(0, read.value()).toString()
+    }
+    Result<Unit, Error> close() { return self._reader.close() }
+    Bool isOpen() { return self._reader.isOpen() }
+}
+
+// ---------- StringWriter ----------
+class StringWriter implements Closer {
+    String _text
+    Bool _open
+    StringWriter() { self._text = ""; self._open = true }
+    Result<Int, Error> write(Context context, Bytes data) {
+        if context == null || data == null { throw "StringWriter.write: null argument" }
+        if !self._open { return Err(ioError(ErrorKind.Unavailable, "writer closed")) }
+        if context.isCancelled() {
+            return Err(ioError(ErrorKind.Cancelled, "writer cancelled"))
+        }
+        String current = self._text
+        String dataText = data.toString()
+        self._text = current + dataText
+        return Ok(data.length())
+    }
+    Result<Unit, Error> writeAll(Context context, Bytes data) {
+        Result<Int, Error> written = self.write(context, data)
+        if written.isErr() { return Err(written.error()) }
+        return Ok()
+    }
+    Void writeText(String text) {
+        if text == null { throw "StringWriter.writeText: null text" }
+        String current = self._text
+        self._text = current + text
+    }
+    Result<Unit, Error> flush() { return Ok() }
+    String toString() { return self._text }
+    Int length() { return self._text.length() }
+    Void clear() { self._text = "" }
+    Result<Unit, Error> close() { self._open = false; return Ok() }
+    Bool isOpen() { return self._open }
+}

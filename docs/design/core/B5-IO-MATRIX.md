@@ -4,7 +4,7 @@
 | --- | --- |
 | 合同 | `docs/design/core/io/` 22 类型 |
 | 源码 | `src/xdk/io/IO.x` |
-| 结论 | **8 有实现 / 14 缺失**；B5.2 不能闭批 |
+| 结论 | **15 有实现 / 7 缺失**；B5.2 仍不能闭批 |
 | 日期 | 2026-11-27 |
 
 ## 已存在（8）
@@ -24,17 +24,15 @@
 
 > 严格按合同算，`Stdio` 也缺；因此是 8 个类名对应 + 1 个 facade 缺失。
 
-## 缺失（14）
+## 已补（2026-11-27，7）
+
+`Seekable`、`Closer`、`SeekOrigin`、`ByteArrayReader`、`ByteArrayWriter`、`StringReader`、`StringWriter`；
+`xdk_core` 新增 `xdk_io_2x` 场景。
+
+## 仍缺失（7）
 
 | 类型 | 种类 | 影响 |
 | --- | --- | --- |
-| `Seekable` | protocol | 定位合同 |
-| `Closer` | protocol | 统一 close |
-| `SeekOrigin` | enum | 定位起点 |
-| `ByteArrayReader` | class | 内存字节读 |
-| `ByteArrayWriter` | class | 内存字节写 |
-| `StringReader` | class | 内存字符串读 |
-| `StringWriter` | class | 内存字符串写 |
 | `LineWriter` | class | 按行写 |
 | `TeeWriter` | class | 双写 |
 | `LimitWriter` | class | 限写 |
@@ -45,10 +43,8 @@
 
 ## 下一步
 
-1. 先补 protocol/枚举：`Seekable`、`Closer`、`SeekOrigin`；
-2. 补内存流：`ByteArrayReader/Writer`、`StringReader/Writer`；
-3. 补组合流：`LineWriter`、`TeeWriter`、`LimitWriter`、`CountingReader/Writer`、`PeekReader`；
-4. 补 `Stdio` facade；
-5. 22 类型场景矩阵通过后，再做 S2 fs / S3 sys，最后 S4 批出口。
+1. 补组合流：`LineWriter`、`TeeWriter`、`LimitWriter`、`CountingReader/Writer`、`PeekReader`；
+2. 补 `Stdio` facade；
+3. 22 类型场景矩阵通过后，再做 S2 fs / S3 sys，最后 S4 批出口。
 
 不得用现有 8 个类名把 22 类型标成完成。
