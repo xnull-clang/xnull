@@ -4,7 +4,7 @@
 | --- | --- |
 | 批次 | B5.1 foundation 开始时建立；后续 B5.2–B5.4 续填 |
 | 口径 | 逐包按 2.x 合同 + `xdk_core`/`xdk2`/`xdk` 场景验证 |
-| 当前状态 | **B5.1 进行中**；foundation 5 Verified、2 Partial；B5.2–B5.4 未开始 |
+| 当前状态 | **B5.1 完成（场景级）**；7 包均有 2.x 场景证据；B5.2 进行中 |
 | 权威 | `docs/design/core/STATUS.md`、`src/xdk/xdk2-packages.tsv`、各包合同 |
 
 ---
@@ -16,17 +16,18 @@
 | `xdk.errors` | Verified（mini） | 通过 `xdk_core` / `xdk2` 场景 | 无 |
 | `xdk.meta` | Verified（mini） | 通过 | `RuntimeRole` 等新画像类型按合同复核 |
 | `xdk.bytes` | Verified（mini） | 通过 | ByteBuffer 等 X 范围不在 2.x |
-| `xdk.text` | **Partial** | 基础场景通过；命名/Unicode/Regex 边界未全覆盖 | 补边界场景与合同差异 |
-| `xdk.collections` | **Partial** | 基础场景通过；`joinWith`/`Entry`/固定 `Pair` 已整合 | 补 2.x 合同场景；泛型 `Pair` 编译器问题 |
+| `xdk.text` | **Partial** | `xdk_core` 覆盖 Unicode code point、POSIX ERE 子集、printf Format；边界场景 PASS | Unicode 规范化/完整 PCRE 归 X；命名差异记录 |
+| `xdk.collections` | **Partial** | `xdk_core` 覆盖 joinWith/groupBy/Entry/OrderedMap/BTreeMap/Set；场景 PASS | 泛型 `Pair` 编译器冲突用 `BigIntPair` 规避，登记为编译器债 |
 | `xdk.math` | Verified（mini） | 通过；本轮新增 `Complex`/`RoundingMode` | 合同类型数从 4 增至 6，tsv 仍写 4 |
 | `xdk.time` | Verified（mini） | 通过；`Instant`/`TimeZone` 已加 | `sleepContext`/layout 已整合 |
 
-### B5.1 出口条件
+### B5.1 出口结论（2026-11-27）
 
-- 7 包逐类型合同核对记录；
-- `text`/`collections` 的 Partial 边界要么补实现/场景，要么登记为 X/waiver；
-- `xdk_core.sh`、`xdk2.sh`、`xdk.sh`、`m7_gate.sh` 全绿；
-- 更新 `docs/design/core/STATUS.md` 的 2.x 视角。
+- 7 包均有 2.x 场景：`xdk_core` 的 text/collections 段 + `xdk2`/`xdk` 回归；
+- `text`：Unicode code point、POSIX ERE 子集、printf 已覆盖；完整 Unicode 规范化/PCRE 为 X；
+- `collections`：joinWith/groupBy/Entry/OrderedMap/BTreeMap/Set 已覆盖；泛型 `Pair` 冲突为编译器债；
+- 门禁：`xdk_core.sh`、`xdk2.sh`、`xdk.sh`、`m7_gate.sh` 全绿；
+- 结论：**B5.1 场景级完成**；逐类型核对表留在 `core/STATUS.md` 维护。
 
 ---
 
@@ -34,7 +35,7 @@
 
 | 子批 | 包 | 当前 |
 | --- | --- | --- |
-| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | 1.x Partial；未做 2.x 逐类型验证 |
+| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | **进行中**；1.x Partial，先核对 File/Dir/atomic/temp 与 2.x 合同 |
 | B5.3 | `xdk.log`、`xdk.config`、`xdk.cli` | 1.x Verified；`log.Sampler` 实现名 `LogSampler` 需文档同步 |
 | B5.4 | `xdk.runtime`、`xdk.execution` | `execution` 已 implemented；`Once` 方法名 `run`；runtime 8 类型 |
 
