@@ -4,7 +4,7 @@
 | --- | --- |
 | 批次 | B5.1 foundation 开始时建立；后续 B5.2–B5.4 续填 |
 | 口径 | 逐包按 2.x 合同 + `xdk_core`/`xdk2`/`xdk` 场景验证 |
-| 当前状态 | **B5.1 完成（场景级）**；7 包均有 2.x 场景证据；B5.2 进行中 |
+| 当前状态 | **B5.1/B5.2 完成（场景级）**；B5.3 进行中 |
 | 权威 | `docs/design/core/STATUS.md`、`src/xdk/xdk2-packages.tsv`、各包合同 |
 
 ---
@@ -31,12 +31,19 @@
 
 ---
 
-## B5.2–B5.4 待办
+## B5.2 出口结论（2026-11-27）
+
+- `xdk_core` 已覆盖 fs/sys 的 2.x 场景：File/Dir/Path、Long offset、atomic/temp、
+  walk/glob、metadata/permissions/links、copy/rename；sys 的 env/stdio/signal/resource；
+- 剩余 Partial 为 1.x 兼容命名/平台差异，登记为 waiver，不阻塞 B5.2；
+- 门禁：`xdk_core.sh` / `xdk2.sh` / `xdk.sh` 全绿（最近一次 73–74 scenarios）。
+
+## B5.3–B5.4 待办
 
 | 子批 | 包 | 当前 |
 | --- | --- | --- |
-| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | **进行中**；1.x Partial，先核对 File/Dir/atomic/temp 与 2.x 合同 |
-| B5.3 | `xdk.log`、`xdk.config`、`xdk.cli` | 1.x Verified；`log.Sampler` 实现名 `LogSampler` 需文档同步 |
+| B5.2 | `xdk.io`、`xdk.fs`、`xdk.sys` | **完成（场景级）**：`xdk_core` 覆盖 File/Dir/Path、atomic/temp、walk/glob、metadata/permissions/links、copy/rename、sys env/stdio/signal/resource |
+| B5.3 | `xdk.log`、`xdk.config`、`xdk.cli` | **进行中**；`log.Sampler` 实现名 `LogSampler` 需文档同步 |
 | B5.4 | `xdk.runtime`、`xdk.execution` | `execution` 已 implemented；`Once` 方法名 `run`；runtime 8 类型 |
 
 ---
