@@ -230,3 +230,89 @@
 | AN-2 | DI 注解 | @Inject/@Component/@Configuration/@Bean | blocked（无 DI 容器） |
 
 规则：每批必须有源码、场景、门禁、提交；blocked 必须有原语清单和复现证据；不得用“下批再做”作为批末状态。
+
+---
+
+## 13. 批次-步计划（正式执行口径）
+
+规则：
+- **批**包含多个步，只有全部步通过才闭批；
+- **步**是一次可独立验收的任务（一个包/一个明确缺口）；
+- 批末必须：源码 + 场景 + 门禁 + 提交 + 证据；
+- blocked 步必须有原语清单，不得用“下批再做”代替。
+
+### B5.2 io/fs/sys（进行中）
+
+| 步 | 任务 | 出口 |
+| --- | --- | --- |
+| S1 | `xdk.io` 22 类型矩阵 | 每类型：源码/场景/边界/waiver |
+| S2 | `xdk.fs` 12 类型矩阵 | File/Dir/Path/atomic/temp/lock 等 |
+| S3 | `xdk.sys` 8 类型矩阵 | Process/Env/Platform/Resource/SystemInfo |
+| S4 | 批出口 | 三包矩阵 + waiver + `xdk_core`/`xdk2`/`xdk` |
+
+### B5.3 log/config/cli（queued）
+
+| 步 | 任务 |
+| --- | --- |
+| S1 | `xdk.log`：Filter→Sampler→Redactor→Sink；`LogSampler` 文档同步 |
+| S2 | `xdk.config`：ProfileSource/内存/环境面 |
+| S3 | `xdk.cli`：子命令/短选项/completion |
+| S4 | 批出口 |
+
+### B5.4 runtime/execution（queued）
+
+| 步 | 任务 |
+| --- | --- |
+| S1 | `xdk.runtime` 8 类型：RuntimeStats/Health/Context 等 |
+| S2 | `xdk.execution` 17 类型：Semaphore/WaitGroup/Once/Pool/Promise/Future/Executor |
+| S3 | 批出口；`Once` 方法名 `run` 记录 |
+
+### B6 数据/编码（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| B6.1 格式注解 | @YamlName → @TomlName → @XmlName → 场景 |
+| B6.2 reflect | 类型元数据表 → 反射查询 → 场景（blocked on compiler） |
+| B6.3 crypto/compress | Cipher/KDF/Asymmetric；Zstd/LZ4/Brotli（blocked on libs） |
+
+### B7 网络（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| B7.1 TLS | 握手 → 证书校验 → SNI/ALPN → HTTPS/wss（blocked） |
+| B7.2 net core | Dns → Udp → ConnectionPool → HTTP2 |
+| B7.3 HTTP/JWT/SQL | client chunked → multipart → JWT 其他算法 → 真实 SQL 驱动 |
+
+### B8 平台（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| B8.1 os.host/hardware | OsHost 模型 → HardwareInventory → 场景（blocked 原语） |
+| B8.2 GPU/accel | Metal 描述/设备/内存/内核/栅栏（macOS 可做） |
+| B8.3 embedded | GPIO/I2C/SPI/UART/ADC/PWM/Watchdog/RTC/Flash（目标板） |
+| B8.4 其余 | firewall/container/virt/service/serial/device（blocked） |
+
+### B9 应用服务（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| B9.1 i18n | DateTimeFormatter → DateFormat → 场景 |
+| B9.2 导出/持久化 | OTLP/Prometheus 编码器；queue/schedule 持久化 |
+| B9.3 其余 | trace 任务本地 span；cache 分布式（X） |
+
+### B10 解决方案（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| B10.1 agent 17/17 | HostMetricsReceiver → FileLogReceiver（需 OsHost/PathMatcher） |
+| B10.2 accel/embedded 执行 | Metal → Linux 目标板 |
+| B10.3 ML 运行时 | 宿主适配器接口 → 一个后端 |
+
+### AN 注解（拆批）
+
+| 批 | 步 |
+| --- | --- |
+| AN.1 | @StatusCode → @JwtClaim/@JwtHeaderField → @YamlName/@TomlName/@XmlName |
+| AN.2 | @WsHandler → @Scheduled |
+| AN.3 | @Api/@Operation/@Middleware |
+| AN.4 | DI 注解（blocked：无 DI 容器） |
